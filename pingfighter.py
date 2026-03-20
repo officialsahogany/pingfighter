@@ -17878,9 +17878,11 @@ def _swap_boss_in_current_stage():
     button_eye_active = False
     button_eye_timer = 0
     button_eye_cooldown_timer = 0
-    button_eye_slow_active = False
-    button_eye_slow_factor = 1.0
-    button_eye_stun_applied = False
+    heart_beam_projectile = None
+    heart_beam_knockback_active = False
+    heart_beam_knockback_timer = 0
+    heart_beam_knockback_schedule.clear() if heart_beam_knockback_schedule else None
+    heart_beam_trail.clear() if heart_beam_trail else None
     patrol_guards_active = False
     patrol_guards_timer = 0
     patrol_guards = []
@@ -47116,21 +47118,22 @@ deadly_hug_zone_y = 500.0           # 영역 중심 Y
 deadly_hug_rush_active = False      # 돌진 진행 중
 deadly_hug_rush_y = 0.0             # 돌진 중 현재 Y
 
-# === 테디베어 단추 눈의 저주 스킬 (Button Eye Curse) - Stage 3 ===
-button_eye_active = False
+# === 테디베어 하트 빔 스킬 (Heart Beam, 구 단추 눈의 저주) - Stage 3 ===
+button_eye_active = False            # 하트 빔 투사체 활성
 button_eye_timer = 0
 button_eye_cooldown_timer = 0
-BUTTON_EYE_COOLDOWN = 600           # 10초 쿨다운
-BUTTON_EYE_DURATION = 180           # 3초 지속 (레이저0.5s + 둔화2s + 스턴0.5s)
-# 단추 눈 둔화/스턴 시스템
-button_eye_slow_active = False       # 둔화 활성 여부
-button_eye_slow_factor = 1.0        # 현재 이동속도 배율 (1.0=정상, 0.0=정지)
-BUTTON_EYE_SLOW_START = 30          # 레이저 끝난 후 둔화 시작 (경과 30프레임)
-BUTTON_EYE_SLOW_DURATION = 120      # 둔화 구간 2초 (30~150프레임)
-BUTTON_EYE_STUN_START = 150         # 스턴 시작 (경과 150프레임 = 2.5초)
-button_eye_stun_applied = False     # 스턴 중복 방지
-button_eye_noise_seed = 0           # 노이즈 시드 (렌더링용)
-button_eye_laser_y = 0.0            # 레이저 시작 Y
+BUTTON_EYE_COOLDOWN = 480            # 8초 쿨다운
+# 하트 빔 투사체
+heart_beam_projectile = None         # {"x","y","vx","vy","size","trail"} or None
+HEART_BEAM_SPEED = 9.0               # 빠르지만 피할 수 있는 속도
+HEART_BEAM_SIZE = 12                 # 하트 크기
+HEART_BEAM_HIT_RADIUS = 18          # 충돌 판정
+# 하트 빔 넉백 시스템 (피격 시 0.5초간 3번 탁탁탁 넉백)
+heart_beam_knockback_active = False
+heart_beam_knockback_timer = 0
+HEART_BEAM_KNOCKBACK_DURATION = 30   # 0.5초 (30프레임)
+heart_beam_knockback_schedule = []   # [(프레임, 방향px), ...] 3번 넉백 스케줄
+heart_beam_trail = []                # 빔 잔상 트레일
 
 # 각시탈 부채바람 스킬 (소용돌이)
 fan_wind_active = False
@@ -77391,18 +77394,60 @@ def draw_deadly_hug_effect(screen):
 
 
 # =====================================================================
-# === 테디베어 단추 눈의 저주 (Button Eye Curse) - Stage 3 ===
+# === 테디베어 하트 빔 (Heart Beam, 구 단추 눈의 저주) - Stage 3 ===
 # =====================================================================
 def activate_button_eye():
-    """단추 눈의 저주 발동 — 레이저 발사 후 시야 방해"""
-    global button_eye_active, button_eye_timer, button_eye_noise_seed
-    global button_eye_laser_y
+    """하트 빔 발동 — 보스 눈에서 플레이어 방향으로 하트 투사체 발사"""
+    global button_eye_active, heart_beam_projectile, heart_beam_trail
+    if not BOSS or not PLAYER:
+        return
     button_eye_active = True
-    button_eye_timer = BUTTON_EYE_DURATION
-    button_eye_noise_seed = random.randint(0, 10000)
-    button_eye_laser_y = float(BOSS.bottom if BOSS else 65)
+    # 보스 눈 위치에서 플레이어 방향으로 발사
+    start_x = float(BOSS.centerx)
+    start_y = float(BOSS.bottom + 5)
+    target_x = float(PLAYER.centerx)
+    target_y = float(PLAYER.centery)
+    dx = target_x - start_x
+    dy = target_y - start_y
+    dist = math.hypot(dx, dy)
+    if dist < 1:
+        dist = 1
+    heart_beam_projectile = {
+        "x": start_x,
+        "y": start_y,
+        "vx": (dx / dist) * HEART_BEAM_SPEED,
+        "vy": (dy / dist) * HEART_BEAM_SPEED,
+        "size": HEART_BEAM_SIZE,
+    }
+    heart_beam_trail = []
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "electricshock.wav")))
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "kissing.wav")))
+        snd.set_volume(0.35 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def _trigger_heart_beam_knockback():
+    """하트 빔 피격 — 0.5초간 3번 랜덤 좌우 넉백 스케줄 생성"""
+    global heart_beam_knockback_active, heart_beam_knockback_timer
+    global heart_beam_knockback_schedule
+    heart_beam_knockback_active = True
+    heart_beam_knockback_timer = HEART_BEAM_KNOCKBACK_DURATION
+    # 3번 넉백: 0프레임, 10프레임, 20프레임에 각각 발동
+    heart_beam_knockback_schedule = []
+    for i in range(3):
+        frame = i * 10  # 0, 10, 20 (0초, 0.17초, 0.33초)
+        direction = random.choice([-1, 1])
+        strength = random.randint(35, 55)  # 넉백 거리 (px)
+        heart_beam_knockback_schedule.append({
+            "frame": frame,
+            "direction": direction,
+            "strength": strength,
+            "applied": False,
+        })
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bencylove.wav")))
         snd.set_volume(0.3 * sfx_volume)
         snd.play()
     except Exception:
@@ -77410,131 +77455,148 @@ def activate_button_eye():
 
 
 def update_button_eye():
-    """단추 눈의 저주 업데이트 — 점진 둔화 + 스턴"""
-    global button_eye_active, button_eye_timer, button_eye_cooldown_timer
-    global button_eye_noise_seed
-    global button_eye_slow_active, button_eye_slow_factor, button_eye_stun_applied
+    """하트 빔 업데이트 — 투사체 이동 + 충돌 + 넉백"""
+    global button_eye_active, button_eye_cooldown_timer
+    global heart_beam_projectile, heart_beam_trail
+    global heart_beam_knockback_active, heart_beam_knockback_timer
 
     if button_eye_cooldown_timer > 0:
         button_eye_cooldown_timer -= 1
 
-    if not button_eye_active:
-        button_eye_slow_active = False
-        button_eye_slow_factor = 1.0
+    # 넉백 업데이트
+    if heart_beam_knockback_active:
+        elapsed = HEART_BEAM_KNOCKBACK_DURATION - heart_beam_knockback_timer
+        for kb in heart_beam_knockback_schedule:
+            if not kb["applied"] and elapsed >= kb["frame"]:
+                kb["applied"] = True
+                if PLAYER:
+                    # 좌우 넉백 적용
+                    new_x = PLAYER.x + kb["direction"] * kb["strength"]
+                    # 게임 영역 내로 클램핑
+                    new_x = max(GAME_AREA_OFFSET_X, min(new_x, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width))
+                    PLAYER.x = new_x
+        heart_beam_knockback_timer -= 1
+        if heart_beam_knockback_timer <= 0:
+            heart_beam_knockback_active = False
+            heart_beam_knockback_schedule.clear()
+
+    # 투사체 없으면 종료
+    if heart_beam_projectile is None:
+        if not heart_beam_knockback_active:
+            button_eye_active = False
         return
 
-    button_eye_timer -= 1
-    button_eye_noise_seed += 1  # 노이즈 패턴 변화
+    proj = heart_beam_projectile
+    # 트레일 기록
+    heart_beam_trail.append({"x": proj["x"], "y": proj["y"], "life": 1.0})
+    # 트레일 페이드아웃
+    trail_remove = []
+    for i, t in enumerate(heart_beam_trail):
+        t["life"] -= 0.06
+        if t["life"] <= 0:
+            trail_remove.append(i)
+    for i in reversed(trail_remove):
+        heart_beam_trail.pop(i)
 
-    elapsed = BUTTON_EYE_DURATION - button_eye_timer
+    # 이동
+    proj["x"] += proj["vx"]
+    proj["y"] += proj["vy"]
 
-    # 둔화 구간 (경과 30~150프레임 = 0.5~2.5초): 속도 100% → 0%
-    if BUTTON_EYE_SLOW_START <= elapsed < BUTTON_EYE_STUN_START:
-        button_eye_slow_active = True
-        slow_progress = (elapsed - BUTTON_EYE_SLOW_START) / BUTTON_EYE_SLOW_DURATION
-        button_eye_slow_factor = max(0.0, 1.0 - slow_progress)
-    elif elapsed >= BUTTON_EYE_STUN_START:
-        # 스턴 구간 (경과 150~180프레임 = 2.5~3.0초)
-        button_eye_slow_active = True
-        button_eye_slow_factor = 0.0
-        if not button_eye_stun_applied:
-            button_eye_stun_applied = True
-            try_apply_player_stun(0.5, source="button_eye_curse", knockback_scaled=False)
+    # 화면 밖으로 나가면 소멸
+    if (proj["x"] < GAME_AREA_OFFSET_X - 40 or
+        proj["x"] > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 40 or
+            proj["y"] > HEIGHT + 40 or proj["y"] < -40):
+        heart_beam_projectile = None
+        return
 
-    if button_eye_timer <= 0:
-        button_eye_active = False
-        button_eye_slow_active = False
-        button_eye_slow_factor = 1.0
-        button_eye_stun_applied = False
+    # 플레이어 충돌 판정
+    if PLAYER and not heart_beam_knockback_active:
+        ddx = proj["x"] - PLAYER.centerx
+        ddy = proj["y"] - PLAYER.centery
+        dist_sq = ddx * ddx + ddy * ddy
+        if dist_sq < (HEART_BEAM_HIT_RADIUS + PLAYER.width // 2) ** 2:
+            heart_beam_projectile = None
+            _trigger_heart_beam_knockback()
+            show_speech("하트빔~!", duration=50)
+            return
 
 
 def draw_button_eye_effect(screen):
-    """단추 눈의 저주 렌더링 — 플레이어 주변 흑백 + 노이즈"""
-    if not button_eye_active or not PLAYER:
-        return
+    """하트 빔 렌더링 — 투사체 + 트레일 + 넉백 이펙트"""
+    # 1) 트레일 (잔상)
+    for t in heart_beam_trail:
+        tx, ty = int(t["x"]), int(t["y"])
+        alpha = int(180 * t["life"])
+        sz = int(HEART_BEAM_SIZE * t["life"] * 0.8)
+        if sz < 2 or alpha < 10:
+            continue
+        trail_sf = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
+        ct = sz * 3 // 2
+        # 핑크 글로우
+        pygame.draw.circle(trail_sf, (255, 130, 170, alpha // 3), (ct, ct), sz + 3)
+        # 하트 모양 (간단)
+        lobe = max(1, int(sz * 0.5))
+        pygame.draw.circle(trail_sf, (255, 105, 150, alpha), (ct - lobe, ct - lobe // 2), lobe)
+        pygame.draw.circle(trail_sf, (255, 105, 150, alpha), (ct + lobe, ct - lobe // 2), lobe)
+        pygame.draw.polygon(trail_sf, (255, 105, 150, alpha), [
+            (ct - sz, ct), (ct + sz, ct), (ct, ct + int(sz * 1.2))
+        ])
+        screen.blit(trail_sf, (tx - ct, ty - ct))
 
-    # 페이드 인/아웃
-    if button_eye_timer > BUTTON_EYE_DURATION - 20:
-        fade = (BUTTON_EYE_DURATION - button_eye_timer) / 20.0
-    elif button_eye_timer < 40:
-        fade = button_eye_timer / 40.0
-    else:
-        fade = 1.0
+    # 2) 하트 빔 투사체
+    if heart_beam_projectile is not None:
+        proj = heart_beam_projectile
+        cx, cy = int(proj["x"]), int(proj["y"])
+        sz = proj["size"]
 
-    px = PLAYER.centerx
-    py = PLAYER.centery
-    effect_radius = 120
+        # 글로우
+        glow_r = sz + 8
+        glow_sf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_sf, (255, 180, 210, 80), (glow_r, glow_r), glow_r)
+        screen.blit(glow_sf, (cx - glow_r, cy - glow_r), special_flags=pygame.BLEND_ADD)
 
-    # 1) 레이저 빔 (보스 눈 → 플레이어 방향)
-    if button_eye_timer > BUTTON_EYE_DURATION - 30 and BOSS:
-        laser_progress = (BUTTON_EYE_DURATION - button_eye_timer) / 30.0
-        boss_eye_lx = BOSS.centerx - 12
-        boss_eye_rx = BOSS.centerx + 12
-        boss_eye_y = BOSS.y + BOSS.height // 2
-        target_y = py
-        current_target_y = boss_eye_y + (target_y - boss_eye_y) * laser_progress
-        laser_alpha = int(200 * fade * (1.0 - laser_progress * 0.5))
-        # 왼쪽 눈 레이저
-        laser_sf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
-        pygame.draw.line(laser_sf, (255, 0, 0, laser_alpha),
-                         (boss_eye_lx, boss_eye_y), (px - 20, int(current_target_y)), 3)
-        # 오른쪽 눈 레이저
-        pygame.draw.line(laser_sf, (255, 0, 0, laser_alpha),
-                         (boss_eye_rx, boss_eye_y), (px + 20, int(current_target_y)), 3)
-        screen.blit(laser_sf, (0, 0))
+        # 하트 본체
+        heart_sf = pygame.Surface((sz * 4, sz * 4), pygame.SRCALPHA)
+        hc = sz * 2
+        lobe = max(2, int(sz * 0.55))
+        # 다크 아웃라인
+        pygame.draw.circle(heart_sf, (210, 70, 115), (hc - lobe, hc - lobe // 2), lobe + 2)
+        pygame.draw.circle(heart_sf, (210, 70, 115), (hc + lobe, hc - lobe // 2), lobe + 2)
+        pygame.draw.polygon(heart_sf, (210, 70, 115), [
+            (hc - sz - 2, hc + 1), (hc + sz + 2, hc + 1), (hc, hc + int(sz * 1.3))
+        ])
+        # 메인 핑크
+        pygame.draw.circle(heart_sf, (255, 105, 150), (hc - lobe, hc - lobe // 2), lobe)
+        pygame.draw.circle(heart_sf, (255, 105, 150), (hc + lobe, hc - lobe // 2), lobe)
+        pygame.draw.polygon(heart_sf, (255, 105, 150), [
+            (hc - sz, hc), (hc + sz, hc), (hc, hc + int(sz * 1.2))
+        ])
+        # 하이라이트
+        hl = max(1, lobe // 2)
+        pygame.draw.circle(heart_sf, (255, 180, 210), (hc - lobe, hc - lobe), hl)
+        screen.blit(heart_sf, (cx - hc, cy - hc))
 
-    # 2) 흑백 + 노이즈 영역 (플레이어 주변)
-    noise_alpha = int(120 * fade)
-    noise_w = effect_radius * 2
-    noise_h = effect_radius * 2
-    noise_sf = pygame.Surface((noise_w, noise_h), pygame.SRCALPHA)
-
-    # 어두운 원형 오버레이
-    dark_alpha = int(100 * fade)
-    pygame.draw.circle(noise_sf, (30, 20, 40, dark_alpha),
-                       (effect_radius, effect_radius), effect_radius)
-
-    # 노이즈 줄무늬 (TV 정적 효과)
-    rng = random.Random(button_eye_noise_seed)
-    for ny in range(0, noise_h, 4):
-        if rng.random() < 0.4:
-            stripe_alpha = rng.randint(30, max(30, int(80 * fade)))
-            gray = rng.randint(100, 200)
-            stripe_w = rng.randint(20, noise_w)
-            stripe_x = rng.randint(0, noise_w - stripe_w)
-            stripe_sf = pygame.Surface((stripe_w, 3), pygame.SRCALPHA)
-            stripe_sf.fill((gray, gray, gray, stripe_alpha))
-            noise_sf.blit(stripe_sf, (stripe_x, ny))
-
-    # 스캔라인 효과
-    for sy in range(0, noise_h, 2):
-        scan_alpha = int(25 * fade)
-        pygame.draw.line(noise_sf, (0, 0, 0, scan_alpha),
-                         (0, sy), (noise_w, sy), 1)
-
-    # 원형 마스킹 (효과 영역 외부 제거)
-    mask_sf = pygame.Surface((noise_w, noise_h), pygame.SRCALPHA)
-    pygame.draw.circle(mask_sf, (255, 255, 255, 255),
-                       (effect_radius, effect_radius), effect_radius)
-    noise_sf.blit(mask_sf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-
-    screen.blit(noise_sf, (px - effect_radius, py - effect_radius))
-
-    # 3) 단추 눈 아이콘 (보스 위에 깜빡이는 단추 눈)
-    if BOSS and button_eye_timer % 10 < 7:
-        eye_alpha = int(220 * fade)
-        eye_sf = pygame.Surface((40, 20), pygame.SRCALPHA)
-        # 왼쪽 단추 눈
-        pygame.draw.circle(eye_sf, (20, 20, 20, eye_alpha), (10, 10), 8)
-        pygame.draw.circle(eye_sf, (255, 0, 0, eye_alpha), (10, 10), 4)
-        pygame.draw.line(eye_sf, (20, 20, 20, eye_alpha), (6, 6), (14, 14), 2)
-        pygame.draw.line(eye_sf, (20, 20, 20, eye_alpha), (14, 6), (6, 14), 2)
-        # 오른쪽 단추 눈
-        pygame.draw.circle(eye_sf, (20, 20, 20, eye_alpha), (30, 10), 8)
-        pygame.draw.circle(eye_sf, (255, 0, 0, eye_alpha), (30, 10), 4)
-        pygame.draw.line(eye_sf, (20, 20, 20, eye_alpha), (26, 6), (34, 14), 2)
-        pygame.draw.line(eye_sf, (20, 20, 20, eye_alpha), (34, 6), (26, 14), 2)
-        screen.blit(eye_sf, (BOSS.centerx - 20, BOSS.y + 5))
+    # 3) 넉백 이펙트 (피격 시 하트 파티클)
+    if heart_beam_knockback_active and PLAYER:
+        elapsed = HEART_BEAM_KNOCKBACK_DURATION - heart_beam_knockback_timer
+        for kb in heart_beam_knockback_schedule:
+            if kb["applied"]:
+                kb_age = elapsed - kb["frame"]
+                if 0 <= kb_age < 12:
+                    # 넉백 방향으로 하트 이펙트
+                    ex = PLAYER.centerx + kb["direction"] * int(kb_age * 2)
+                    ey = PLAYER.centery - 10
+                    alpha = int(200 * (1.0 - kb_age / 12.0))
+                    eff_sz = 8
+                    eff_sf = pygame.Surface((eff_sz * 3, eff_sz * 3), pygame.SRCALPHA)
+                    ec = eff_sz * 3 // 2
+                    el = max(1, int(eff_sz * 0.5))
+                    pygame.draw.circle(eff_sf, (255, 130, 170, alpha), (ec - el, ec - el // 2), el)
+                    pygame.draw.circle(eff_sf, (255, 130, 170, alpha), (ec + el, ec - el // 2), el)
+                    pygame.draw.polygon(eff_sf, (255, 130, 170, alpha), [
+                        (ec - eff_sz, ec), (ec + eff_sz, ec), (ec, ec + eff_sz)
+                    ])
+                    screen.blit(eff_sf, (ex - ec, ey - ec))
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
@@ -142218,9 +142280,11 @@ def show_result(won):
     button_eye_active = False
     button_eye_timer = 0
     button_eye_cooldown_timer = 0
-    button_eye_slow_active = False
-    button_eye_slow_factor = 1.0
-    button_eye_stun_applied = False
+    heart_beam_projectile = None
+    heart_beam_knockback_active = False
+    heart_beam_knockback_timer = 0
+    heart_beam_knockback_schedule.clear() if heart_beam_knockback_schedule else None
+    heart_beam_trail.clear() if heart_beam_trail else None
     #  멘헤라걸 필살기 게이지 초기화 (스테이지 종료 시)
     # 스테이지 1의 경우 게이지 유지, 다른 스테이지는 초기화
     global displayed_boss_gauge
@@ -143823,9 +143887,11 @@ def main(stage_num, new_boss_mode=False):
     button_eye_active = False
     button_eye_timer = 0
     button_eye_cooldown_timer = 0
-    button_eye_slow_active = False
-    button_eye_slow_factor = 1.0
-    button_eye_stun_applied = False
+    heart_beam_projectile = None
+    heart_beam_knockback_active = False
+    heart_beam_knockback_timer = 0
+    heart_beam_knockback_schedule.clear() if heart_beam_knockback_schedule else None
+    heart_beam_trail.clear() if heart_beam_trail else None
     from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
     if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
         # 보스 룰렛 선출
@@ -153688,9 +153754,9 @@ def show_character_info(background_surface=None):
         if cotton_bomb_slow_timer > 0:
             move_speed *= COTTON_BOMB_SLOW_MULTIPLIER
 
-        # 🧿 단추 눈의 저주 점진 둔화 반영
-        if button_eye_slow_active:
-            move_speed *= button_eye_slow_factor
+        # 🧿 하트 빔 넉백 중 이동 불가
+        if heart_beam_knockback_active:
+            move_speed = 0.0
 
         # 🌧️ 소나기 이벤트 시 이동속도 감소 반영
         if is_rain_active():
