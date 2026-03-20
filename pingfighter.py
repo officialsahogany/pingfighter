@@ -17858,6 +17858,8 @@ def _swap_boss_in_current_stage():
     cotton_fog_active = False
     cotton_fog_timer = 0
     cotton_fog_zones.clear()
+    cotton_blackout_active = False
+    cotton_blackout_timer = 0
     # 테디베어 새 스킬 초기화
     cotton_bomb_active = False
     cotton_bomb_projectiles.clear()
@@ -47058,7 +47060,13 @@ COTTON_THROW_COUNT_MAX = 5
 COTTON_THROW_SPEED = 4.0
 COTTON_THROW_MAX_TIMER = 240
 COTTON_THROW_HIT_RADIUS = 22
-# === 테디베어 솜안개 효과 (시야 차단) ===
+# === 테디베어 솜뭉치 암전 효과 (화면 블랙아웃) ===
+cotton_blackout_active = False
+cotton_blackout_timer = 0
+COTTON_BLACKOUT_DURATION = 120      # 2초 전체 (60fps)
+COTTON_BLACKOUT_FULL_END = 90       # 0~1.5초(90프레임): 완전 암전
+# 1.5초~2초(90~120프레임): 점점 밝아짐
+# 구버전 호환용 (다른 코드에서 참조할 수 있음)
 cotton_fog_active = False
 cotton_fog_timer = 0
 COTTON_FOG_DURATION = 180
@@ -76810,7 +76818,7 @@ def update_cotton_throw():
     """솜뭉치 투척 업데이트: 선딜 + 투사체 이동 + 충돌 + 안개"""
     global cotton_throw_active, cotton_throw_windup_active, cotton_throw_windup_timer
     global cotton_throw_cooldown_timer
-    global cotton_fog_active, cotton_fog_timer, cotton_fog_zones
+    global cotton_blackout_active, cotton_blackout_timer
     if cotton_throw_cooldown_timer > 0:
         cotton_throw_cooldown_timer -= 1
     if cotton_throw_windup_active:
@@ -76819,16 +76827,11 @@ def update_cotton_throw():
             cotton_throw_windup_active = False
             _launch_cotton_throw()
         return
-    if cotton_fog_active:
-        cotton_fog_timer -= 1
-        if cotton_fog_timer <= 0:
-            cotton_fog_active = False
-            cotton_fog_zones.clear()
-        else:
-            for zone in cotton_fog_zones:
-                zone["phase"] += 0.05
-                zone["x"] += math.sin(zone["phase"]) * 0.3
-                zone["y"] += math.cos(zone["phase"] * 0.7) * 0.2
+    # 암전 타이머 업데이트
+    if cotton_blackout_active:
+        cotton_blackout_timer -= 1
+        if cotton_blackout_timer <= 0:
+            cotton_blackout_active = False
     if not cotton_throw_active:
         return
     to_remove = []
@@ -76866,22 +76869,10 @@ def update_cotton_throw():
 
 
 def _trigger_cotton_fog(hit_x, hit_y):
-    """솜뭉치 명중 시 시야 차단 안개 생성"""
-    global cotton_fog_active, cotton_fog_timer, cotton_fog_zones
-    cotton_fog_active = True
-    cotton_fog_timer = COTTON_FOG_DURATION
-    cotton_fog_zones.clear()
-    player_area_cx = PLAYER.centerx if PLAYER else (GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2)
-    player_area_cy = 670
-    num_zones = random.randint(5, 7)
-    for _ in range(num_zones):
-        cotton_fog_zones.append({
-            "x": player_area_cx + random.uniform(-140, 140),
-            "y": player_area_cy + random.uniform(-80, 50),
-            "radius": random.uniform(60, 100),
-            "opacity": random.uniform(140, 180),
-            "phase": random.uniform(0, math.pi * 2),
-        })
+    """솜뭉치 명중 시 화면 암전 (블랙아웃) 발동"""
+    global cotton_blackout_active, cotton_blackout_timer
+    cotton_blackout_active = True
+    cotton_blackout_timer = COTTON_BLACKOUT_DURATION
 
 
 def draw_cotton_throw_effect(screen):
@@ -76918,35 +76909,27 @@ def draw_cotton_throw_effect(screen):
             fy = ct + int(math.sin(fa) * (draw_sz * 0.7))
             pygame.draw.circle(sf, (255, 235, 240, 160), (fx, fy), max(1, draw_sz // 3))
         screen.blit(sf, (cx - ct, cy - ct))
-    # 3) 솜안개 시야 차단 효과
-    if cotton_fog_active and cotton_fog_zones:
-        if cotton_fog_timer <= cotton_fog_fade_start:
-            fade = cotton_fog_timer / cotton_fog_fade_start
+    # 3) 솜뭉치 암전 (블랙아웃) 효과
+    if cotton_blackout_active and cotton_blackout_timer > 0:
+        elapsed = COTTON_BLACKOUT_DURATION - cotton_blackout_timer
+        # 0~90프레임(0~1.5초): 완전 암전 (alpha=255)
+        # 90~120프레임(1.5~2.0초): 점점 밝아짐 (alpha 255→0)
+        if elapsed < COTTON_BLACKOUT_FULL_END:
+            # 완전 암전 구간 (처음 5프레임은 급속 페이드인)
+            if elapsed < 5:
+                alpha = int(255 * (elapsed / 5.0))
+            else:
+                alpha = 255
         else:
-            fade_in_frames = 30
-            elapsed = COTTON_FOG_DURATION - cotton_fog_timer
-            fade = min(1.0, elapsed / fade_in_frames) if elapsed < fade_in_frames else 1.0
-        for zone in cotton_fog_zones:
-            r = int(zone["radius"])
-            alpha = int(zone["opacity"] * fade)
-            if alpha <= 0:
-                continue
-            ss = r * 2 + 20
-            fog_s = pygame.Surface((ss, ss), pygame.SRCALPHA)
-            fc = ss // 2
-            for layer in range(3):
-                lr = r - layer * 8
-                if lr <= 0:
-                    continue
-                la = alpha // (layer + 1)
-                if layer == 0:
-                    c = (255, 220, 240, la)
-                elif layer == 1:
-                    c = (255, 240, 250, la)
-                else:
-                    c = (255, 255, 255, la)
-                pygame.draw.circle(fog_s, c, (fc, fc), lr)
-            screen.blit(fog_s, (int(zone["x"]) - fc, int(zone["y"]) - fc))
+            # 밝아지는 구간
+            fade_frames = COTTON_BLACKOUT_DURATION - COTTON_BLACKOUT_FULL_END  # 30프레임
+            fade_progress = (elapsed - COTTON_BLACKOUT_FULL_END) / fade_frames
+            alpha = int(255 * (1.0 - fade_progress))
+        alpha = max(0, min(255, alpha))
+        if alpha > 0:
+            blackout_sf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+            blackout_sf.fill((0, 0, 0, alpha))
+            screen.blit(blackout_sf, (0, 0))
 
 
 # =====================================================================
@@ -142183,6 +142166,8 @@ def show_result(won):
     cotton_fog_active = False
     cotton_fog_timer = 0
     cotton_fog_zones.clear()
+    cotton_blackout_active = False
+    cotton_blackout_timer = 0
     # 테디베어 새 스킬 완전 초기화 (스테이지 종료 시)
     cotton_bomb_active = False
     cotton_bomb_projectiles.clear()
@@ -143783,6 +143768,8 @@ def main(stage_num, new_boss_mode=False):
     cotton_fog_active = False
     cotton_fog_timer = 0
     cotton_fog_zones.clear()
+    cotton_blackout_active = False
+    cotton_blackout_timer = 0
     # 테디베어 새 스킬 초기화 (스테이지 전환)
     cotton_bomb_active = False
     cotton_bomb_projectiles.clear()
