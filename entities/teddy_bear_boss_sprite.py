@@ -713,16 +713,6 @@ class TeddyBearBossSprite:
             # ★ 멘헤라 하트 오버레이 ★
             hr = max(3, int(eye_r * 0.85))
 
-            # 하트 글로우
-            glow_r = int(hr * 2.5)
-            glow_surf = self._get_surface(glow_r * 2, glow_r * 2)
-            pulse = (_sin(self.time * 2.5) + 1) * 0.5
-            glow_alpha = int(35 + 30 * pulse)
-            pygame.draw.circle(glow_surf, (*p["pink_glow"][:3], glow_alpha),
-                               (glow_r, glow_r), glow_r)
-            screen.blit(glow_surf, (eye_cx - glow_r, eye_cy - glow_r),
-                        special_flags=pygame.BLEND_ADD)
-
             # 하트 본체
             lobe_r = int(hr * 0.52)
             # 다크 아웃라인
