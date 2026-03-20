@@ -77019,9 +77019,18 @@ def _activate_ghost_curve():
     cotton_bomb_ghost_curve_seed = random.uniform(0.7, 2.5)
     cotton_bomb_ghost_curve_intensity = 1.0
 
+    # ★ 발동 순간 즉시 큰 초기 꺾임 (드라마틱한 첫 충격)
+    speed = math.hypot(ball_vel[0], ball_vel[1])
+    if speed > 0.5:
+        kick_angle = random.uniform(0.6, 1.2) * random.choice([-1, 1])
+        cur_angle = math.atan2(ball_vel[1], ball_vel[0])
+        new_angle = cur_angle + kick_angle
+        ball_vel[0] = math.cos(new_angle) * speed
+        ball_vel[1] = math.sin(new_angle) * speed
+
 
 def update_ghost_curve():
-    """유령 커브 매 프레임 업데이트 — ball_vel에 기이한 곡선 힘을 가함"""
+    """유령 커브 매 프레임 업데이트 — ball_vel에 강력한 곡선 힘을 가함"""
     global cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer
     global cotton_bomb_ghost_curve_phase, cotton_bomb_ghost_curve_intensity
 
@@ -77035,18 +77044,18 @@ def update_ghost_curve():
 
     # 남은 시간 비율 (페이드아웃)
     t_ratio = cotton_bomb_ghost_curve_timer / COTTON_BOMB_GHOST_CURVE_DURATION
-    cotton_bomb_ghost_curve_phase += 0.18 + cotton_bomb_ghost_curve_seed * 0.08
+    cotton_bomb_ghost_curve_phase += 0.22 + cotton_bomb_ghost_curve_seed * 0.12
 
     # === 3중 사인파 합성 → 불규칙한 유령 궤적 ===
     phase = cotton_bomb_ghost_curve_phase
     seed = cotton_bomb_ghost_curve_seed
 
-    # 1차: 느린 큰 커브 (유령의 의지)
-    wave1 = math.sin(phase * 0.7 * seed) * 1.8
-    # 2차: 빠른 갑작스런 꺾임 (폴터가이스트)
-    wave2 = math.sin(phase * 2.3 + seed * 5.0) * 1.2
-    # 3차: 초고속 미세 떨림 (기이한 기운)
-    wave3 = math.sin(phase * 5.7 + seed * 11.0) * 0.5
+    # 1차: 느린 큰 커브 (유령이 끌고 가는 궤도)
+    wave1 = math.sin(phase * 0.7 * seed) * 3.5
+    # 2차: 빠른 급커브 (폴터가이스트 — 갑자기 꺾임)
+    wave2 = math.sin(phase * 2.3 + seed * 5.0) * 2.5
+    # 3차: 중속 불규칙 흔들림 (기이한 떨림)
+    wave3 = math.sin(phase * 4.1 + seed * 11.0) * 1.2
 
     # 현재 진행방향의 수직 벡터 계산
     speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -77054,23 +77063,23 @@ def update_ghost_curve():
         return
 
     cur_angle = math.atan2(ball_vel[1], ball_vel[0])
-    # 수직 방향으로 힘 적용 (커브)
-    perp_force = (wave1 + wave2 + wave3) * t_ratio * 0.45
-    # 가끔 진행방향도 살짝 꺾음 (급커브 연출)
-    tangent_force = math.sin(phase * 1.1 + seed * 3.0) * 0.25 * t_ratio
+
+    # 수직 방향으로 강한 힘 적용 (커브 핵심)
+    perp_force = (wave1 + wave2 + wave3) * t_ratio * 0.35
+    # 진행방향 가감속 (급가속/급감속으로 기이함 연출)
+    tangent_force = math.sin(phase * 1.1 + seed * 3.0) * 0.8 * t_ratio
 
     ball_vel[0] += math.cos(cur_angle + math.pi / 2) * perp_force
     ball_vel[1] += math.sin(cur_angle + math.pi / 2) * perp_force
     ball_vel[0] += math.cos(cur_angle) * tangent_force
     ball_vel[1] += math.sin(cur_angle) * tangent_force
 
-    # 속도 보정: 원래 속도 크기를 크게 벗어나지 않도록 (±20%)
-    new_speed = math.hypot(ball_vel[0], ball_vel[1])
-    if new_speed > 0.1:
-        target_speed = max(speed * 0.85, min(speed * 1.15, new_speed))
-        ratio = target_speed / new_speed
-        ball_vel[0] *= ratio
-        ball_vel[1] *= ratio
+    # 주기적 급꺾임 이벤트 (30프레임마다 돌발 방향전환)
+    frames_elapsed = COTTON_BOMB_GHOST_CURVE_DURATION - cotton_bomb_ghost_curve_timer
+    if frames_elapsed % 30 == 0 and frames_elapsed > 0:
+        jolt = random.uniform(0.3, 0.7) * random.choice([-1, 1]) * t_ratio
+        ball_vel[0] += math.cos(cur_angle + math.pi / 2) * jolt * speed * 0.3
+        ball_vel[1] += math.sin(cur_angle + math.pi / 2) * jolt * speed * 0.3
 
 
 def update_cotton_bomb():
