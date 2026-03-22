@@ -1,28 +1,37 @@
 """
-Teddy Bear Boss Sprite v7 — Realistic Plush Teddy Bear
+Teddy Bear Boss Sprite v8 — Dark Realistic Plush Teddy Bear
 
-- 실제 봉제 곰인형의 비율과 질감을 프로시저럴로 재현
-- 주둥이(마즐) 돌출, 유리 단추 눈(얀데레 하트 오버레이), 역삼각 코
-- 봉제 이음새(seam) 라인, 솜 충전 볼록감, 패브릭 질감 노이즈
-- 콩 모양 발바닥 패드, 솔기 디테일
+- 3D 부피감: 노멀맵 유사 구면 음영 + 좌상단 광원(-1,-1,1) + 강화된 림 라이트
+- 퍼(Fur) 질감: 노이즈 텍스처 합성 + 가장자리 퍼즈(fuzz) 실루엣
+- 멘헤라/호러 디테일:
+  · 터진 솔기(Burst Seam) — 어깨/옆구리에서 솜 삐져나옴
+  · 짝짝이 눈 — 왼쪽 얀데레 하트, 오른쪽 단추 떨어져 실밥+덜렁거림
+  · 안전핀 — 왼쪽 귀에 거대한 안전핀
+  · 붕대 — 오른팔에 감긴 붕대
+- 이동 시 기괴한 파르르 떨림(Jitter) 애니메이션
+- 서피스 캐싱 최적화 (노이즈/퍼즈 텍스처 사전 생성)
 - 3x SSAA 슈퍼샘플링
-- 멘헤라 테마: 핑크 리본, 하트 눈, 깨진 하트 배 자수
 """
 
 import pygame
 import math
+import random
 
 _sin = math.sin
 _cos = math.cos
 _pi = math.pi
 _tau = math.pi * 2
+_sqrt = math.sqrt
 
-# SSAA 배율 (3x로 업그레이드)
+# SSAA 배율
 _SSAA = 3
+
+# 광원 방향 (정규화: 왼쪽 위에서 비춤)
+_LIGHT_DIR = (-0.577, -0.577, 0.577)  # normalize(-1, -1, 1)
 
 
 class TeddyBearBossSprite:
-    """리얼리스틱 봉제 곰인형 보스 스프라이트 (3x SSAA)"""
+    """리얼리스틱 봉제 곰인형 보스 스프라이트 v8 (3x SSAA + 호러 디테일)"""
 
     def __init__(self):
         self.time = 0.0
@@ -43,10 +52,24 @@ class TeddyBearBossSprite:
         self.face_dir = 1.0
         self.face_dir_target = 0.0
 
+        # v8: 호러 떨림(Jitter) 상태
+        self.jitter_x = 0.0
+        self.jitter_y = 0.0
+        self.jitter_intensity = 0.0
+
+        # v8: 오른쪽 눈 덜렁거림 (단추가 실에 매달려 흔들림)
+        self.dangling_eye_angle = 0.0
+        self.dangling_eye_vel = 0.0
+
         # 서피스 캐시
         self._surface_cache = {}
         self._ssaa_cache_key = None
         self._ssaa_cache_surf = None
+
+        # v8: 노이즈/퍼즈 텍스처 캐시
+        self._noise_cache = {}  # key: (w, h, seed) → Surface
+        self._fuzz_cache = {}   # key: (rx, ry, seed) → Surface
+        self._noise_seed = random.randint(0, 99999)
 
     def _get_surface(self, w, h):
         w = max(4, ((w + 3) // 4) * 4)
@@ -58,8 +81,150 @@ class TeddyBearBossSprite:
             self._surface_cache[key].fill((0, 0, 0, 0))
         return self._surface_cache[key]
 
+    # ═══════════════════════ v8: 노이즈 텍스처 생성 (캐시) ═══════════════════════
+
+    def _get_noise_texture(self, w, h, base_color, intensity=15, seed=0):
+        """퍼 질감 노이즈 텍스처 (캐시됨)"""
+        w = max(4, ((w + 3) // 4) * 4)
+        h = max(4, ((h + 3) // 4) * 4)
+        cache_key = (w, h, base_color, intensity, seed)
+        if cache_key in self._noise_cache:
+            return self._noise_cache[cache_key]
+
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        rng = random.Random(seed + self._noise_seed)
+        step = max(2, _SSAA)
+        for ny in range(0, h, step):
+            for nx in range(0, w, step):
+                noise_val = rng.randint(-intensity, intensity)
+                r = max(0, min(255, base_color[0] + noise_val))
+                g = max(0, min(255, base_color[1] + noise_val))
+                b_c = max(0, min(255, base_color[2] + noise_val))
+                alpha = rng.randint(20, 50)
+                pygame.draw.rect(surf, (r, g, b_c, alpha), (nx, ny, step, step))
+
+        self._noise_cache[cache_key] = surf
+        return surf
+
+    def _get_fuzz_edge(self, rx, ry, color, seed=0):
+        """가장자리 퍼즈(삐져나온 털) 텍스처 (캐시됨)"""
+        cache_key = (rx, ry, color, seed)
+        if cache_key in self._fuzz_cache:
+            return self._fuzz_cache[cache_key]
+
+        w = rx * 2 + 16
+        h = ry * 2 + 16
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        cx_l, cy_l = w // 2, h // 2
+        rng = random.Random(seed + self._noise_seed + 777)
+        num_fuzz = max(16, int((rx + ry) * 0.4))
+        for i in range(num_fuzz):
+            angle = rng.uniform(0, _tau)
+            # 타원 위 좌표
+            ex = rx * _cos(angle)
+            ey = ry * _sin(angle)
+            # 바깥으로 삐져나오는 길이
+            fuzz_len = rng.uniform(1.5, 4.5)
+            dx = _cos(angle) * fuzz_len
+            dy = _sin(angle) * fuzz_len
+            sx = cx_l + int(ex)
+            sy = cy_l + int(ey)
+            fx = sx + int(dx)
+            fy = sy + int(dy)
+            alpha = rng.randint(40, 90)
+            pygame.draw.line(surf, (*color[:3], alpha), (sx, sy), (fx, fy), 1)
+
+        self._fuzz_cache[cache_key] = surf
+        return surf
+
+    # ═══════════════════════ v8: 구면 음영 계산 ═══════════════════════
+
+    @staticmethod
+    def _sphere_shade(nx, ny, nz=None):
+        """노멀 벡터 기반 음영 계산 (0.0~1.0), 광원: 좌상단"""
+        if nz is None:
+            r_sq = nx * nx + ny * ny
+            if r_sq >= 1.0:
+                return 0.0
+            nz = _sqrt(1.0 - r_sq)
+        lx, ly, lz = _LIGHT_DIR
+        dot = nx * lx + ny * ly + nz * lz
+        return max(0.0, min(1.0, dot * 0.5 + 0.5))
+
+    @staticmethod
+    def _rim_light(nx, ny):
+        """림 라이트 강도 (가장자리에서 강함)"""
+        r_sq = nx * nx + ny * ny
+        if r_sq >= 1.0:
+            return 1.0
+        rim = 1.0 - _sqrt(1.0 - r_sq)
+        return rim * rim  # 제곱으로 가장자리 집중
+
+    def _draw_shaded_ellipse(self, screen, rect, base_color, dark_color, light_color,
+                             rim_color=None, rim_alpha=45, noise=True):
+        """구면 음영이 적용된 타원 렌더링"""
+        x, y, w, h = rect
+        if w < 4 or h < 4:
+            pygame.draw.ellipse(screen, base_color, rect)
+            return
+
+        # 기본 타원 레이어링 (기존 방식 + 향상)
+        # 깊은 그림자
+        pygame.draw.ellipse(screen, dark_color,
+                            (x + 2, y + 2, w, h))
+        # 베이스
+        pygame.draw.ellipse(screen, base_color, (x, y, w, h))
+
+        # 구면 음영 그라데이션 (3단계 타원 겹침)
+        cx_e = x + w // 2
+        cy_e = y + h // 2
+
+        # 좌상단 밝은 영역 (광원 쪽)
+        hl_w = int(w * 0.55)
+        hl_h = int(h * 0.50)
+        hl_x = cx_e - int(hl_w * 0.65)
+        hl_y = cy_e - int(hl_h * 0.65)
+        pygame.draw.ellipse(screen, light_color, (hl_x, hl_y, hl_w, hl_h))
+
+        # 우하단 어두운 영역 (광원 반대)
+        sh_w = int(w * 0.5)
+        sh_h = int(h * 0.45)
+        sh_x = cx_e + int(w * 0.05)
+        sh_y = cy_e + int(h * 0.08)
+        shade_surf = self._get_surface(sh_w + 4, sh_h + 4)
+        pygame.draw.ellipse(shade_surf, (*dark_color[:3], 60),
+                            (2, 2, sh_w, sh_h))
+        screen.blit(shade_surf, (sh_x, sh_y))
+
+        # 노이즈 텍스처 오버레이
+        if noise and w > 8 and h > 8:
+            noise_surf = self._get_noise_texture(w, h, base_color, intensity=12, seed=hash((x, y)) & 0xFFFF)
+            # 타원 마스크 적용
+            mask_surf = self._get_surface(w, h)
+            pygame.draw.ellipse(mask_surf, (255, 255, 255, 255), (0, 0, w, h))
+            noise_clipped = self._get_surface(w, h)
+            noise_clipped.blit(noise_surf, (0, 0))
+            noise_clipped.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            screen.blit(noise_clipped, (x, y))
+
+        # 림 라이트
+        if rim_color:
+            rim_w = w + 6
+            rim_h = h + 6
+            rim_surf = self._get_surface(rim_w, rim_h)
+            pygame.draw.ellipse(rim_surf, (*rim_color[:3], rim_alpha),
+                                (0, 0, rim_w, rim_h))
+            inner_w = w - max(2, int(w * 0.08))
+            inner_h = h - max(2, int(h * 0.08))
+            if inner_w > 2 and inner_h > 2:
+                inner_rim = pygame.Surface((inner_w, inner_h), pygame.SRCALPHA)
+                inner_rim.fill((0, 0, 0, 255))
+                rim_surf.blit(inner_rim, (3 + (w - inner_w) // 2, 3 + (h - inner_h) // 2),
+                              special_flags=pygame.BLEND_RGBA_SUB)
+            screen.blit(rim_surf, (x - 3, y - 3))
+
     def update(self, boss_x, dt=1 / 60):
-        """보스 위치 기반 애니메이션 업데이트 (묵직한 속도)"""
+        """보스 위치 기반 애니메이션 업데이트"""
         self.time += dt
 
         if self.prev_x is not None:
@@ -110,6 +275,31 @@ class TeddyBearBossSprite:
         if moving:
             self.face_dir_target = float(self.move_dir)
         self.face_dir += (self.face_dir_target - self.face_dir) * 0.08
+
+        # v8: 호러 떨림 (이동 시 기괴한 파르르 떨림)
+        if moving:
+            self.jitter_intensity = min(1.0, self.jitter_intensity + dt * 4.0)
+        else:
+            self.jitter_intensity *= 0.92
+            if self.jitter_intensity < 0.01:
+                self.jitter_intensity = 0.0
+
+        if self.jitter_intensity > 0.01:
+            freq = 18.0 + speed_ratio * 12.0
+            amp = 0.6 * self.jitter_intensity
+            self.jitter_x = _sin(self.time * freq) * amp + _sin(self.time * freq * 2.3) * amp * 0.4
+            self.jitter_y = _cos(self.time * freq * 1.7) * amp * 0.5 + _sin(self.time * freq * 3.1) * amp * 0.2
+        else:
+            self.jitter_x = 0.0
+            self.jitter_y = 0.0
+
+        # v8: 덜렁거리는 오른쪽 눈 물리
+        gravity_torque = _sin(self.dangling_eye_angle) * -15.0
+        swing_force = self.velocity * 2.0
+        self.dangling_eye_vel += (gravity_torque + swing_force) * dt
+        self.dangling_eye_vel *= 0.94  # 감쇠
+        self.dangling_eye_angle += self.dangling_eye_vel * dt
+        self.dangling_eye_angle = max(-0.6, min(0.6, self.dangling_eye_angle))
 
     def draw(self, screen, x, y, w, h):
         """3x SSAA 렌더링"""
@@ -171,6 +361,20 @@ class TeddyBearBossSprite:
             "stitch_light": (155, 115, 78),
             # 입
             "mouth": (100, 62, 38),
+            # v8: 솜 (터진 솔기에서 나오는 충전재)
+            "stuffing": (245, 240, 235),
+            "stuffing_shadow": (215, 208, 198),
+            # v8: 안전핀
+            "pin_metal": (192, 192, 200),
+            "pin_shine": (230, 230, 240),
+            "pin_dark": (120, 120, 130),
+            # v8: 붕대
+            "bandage": (235, 225, 210),
+            "bandage_shadow": (200, 188, 170),
+            "bandage_stain": (210, 185, 170),
+            # v8: 실밥 (덜렁거리는 눈)
+            "thread": (85, 55, 35),
+            "thread_light": (110, 80, 55),
         }
 
     # ═══════════════════════ 내부 렌더링 ═══════════════════════
@@ -185,16 +389,20 @@ class TeddyBearBossSprite:
         roll_offset = self.body_roll * S
         fd = self.face_dir
 
+        # v8: 호러 떨림 오프셋
+        jx = int(self.jitter_x * S)
+        jy = int(self.jitter_y * S)
+
         p = self._palette()
 
         torso_y = cy + bob_offset
 
-        self._draw_ground_shadow(screen, cx, torso_y, b)
-        self._draw_legs(screen, cx, torso_y, b, p, roll_offset)
-        self._draw_body(screen, cx, torso_y, b, p, roll_offset)
-        self._draw_arm(screen, cx, torso_y, b, p, is_back=True, roll=roll_offset)
-        self._draw_head(screen, cx, torso_y, b, p, fd, roll_offset)
-        self._draw_arm(screen, cx, torso_y, b, p, is_back=False, roll=roll_offset)
+        self._draw_ground_shadow(screen, cx + jx, torso_y, b)
+        self._draw_legs(screen, cx + jx, torso_y + jy, b, p, roll_offset)
+        self._draw_body(screen, cx + jx, torso_y + jy, b, p, roll_offset)
+        self._draw_arm(screen, cx + jx, torso_y + jy, b, p, is_back=True, roll=roll_offset)
+        self._draw_head(screen, cx + jx, torso_y + jy, b, p, fd, roll_offset)
+        self._draw_arm(screen, cx + jx, torso_y + jy, b, p, is_back=False, roll=roll_offset)
 
     # ═══════════════════════ 바닥 그림자 ═══════════════════════
 
@@ -231,28 +439,25 @@ class TeddyBearBossSprite:
             lift = max(0.0, _sin(phase)) * speed_factor
             ly -= int(lift * 0.8 * b)
 
-            # 다리 전체 — 통통한 원통형
-            # 그림자
-            pygame.draw.ellipse(screen, p["fur_shadow"],
-                                (lx - leg_w // 2 + 2, ly + 2, leg_w + 2, leg_h + 2))
-            # 베이스
-            pygame.draw.ellipse(screen, p["fur_dark"],
-                                (lx - leg_w // 2, ly, leg_w, leg_h))
-            # 메인 퍼
-            inner = int(leg_w * 0.85)
-            pygame.draw.ellipse(screen, p["fur_base"],
-                                (lx - inner // 2, ly + int(0.1 * b), inner, int(leg_h * 0.92)))
-            # 하이라이트
+            # v8: 구면 음영 적용된 다리
+            self._draw_shaded_ellipse(
+                screen,
+                (lx - leg_w // 2, ly, leg_w, leg_h),
+                p["fur_base"], p["fur_shadow"], p["fur_mid"],
+                rim_color=p["fur_rim"], rim_alpha=30
+            )
+            # 추가 하이라이트
             hl_w = int(leg_w * 0.45)
             hl_h = int(leg_h * 0.5)
-            pygame.draw.ellipse(screen, p["fur_mid"],
-                                (lx - hl_w // 2 - int(0.15 * b * side), ly + int(0.15 * b),
-                                 hl_w, hl_h))
-            # 최상단 하이라이트
             pygame.draw.ellipse(screen, p["fur_light"],
                                 (lx - int(hl_w * 0.35) - int(0.1 * b * side),
                                  ly + int(0.2 * b),
                                  int(hl_w * 0.7), int(hl_h * 0.45)))
+
+            # 퍼즈 가장자리
+            fuzz_surf = self._get_fuzz_edge(leg_w // 2, leg_h // 2, p["fur_base"],
+                                            seed=hash(("leg", side)))
+            screen.blit(fuzz_surf, (lx - leg_w // 2 - 8, ly - 8))
 
             # 솔기(seam) — 다리 앞면 중앙 세로선
             seam_x = lx
@@ -269,7 +474,6 @@ class TeddyBearBossSprite:
             foot_w = int(leg_w * 1.1)
             foot_h = int(leg_h * 0.32)
 
-            # 발 전체 (둥근 직사각형 근사)
             pygame.draw.ellipse(screen, p["fur_dark"],
                                 (lx - foot_w // 2, foot_y, foot_w, foot_h))
             pygame.draw.ellipse(screen, p["fur_base"],
@@ -286,7 +490,6 @@ class TeddyBearBossSprite:
             pygame.draw.ellipse(screen, p["pad"],
                                 (pad_cx - main_pad_w // 2, pad_cy - main_pad_h // 2,
                                  main_pad_w, main_pad_h))
-            # 패드 하이라이트
             pygame.draw.ellipse(screen, p["pad_light"],
                                 (pad_cx - int(main_pad_w * 0.3), pad_cy - int(main_pad_h * 0.35),
                                  int(main_pad_w * 0.5), int(main_pad_h * 0.4)))
@@ -303,7 +506,6 @@ class TeddyBearBossSprite:
                 pygame.draw.ellipse(screen, p["pad"],
                                     (toe_x - toe_rx, toe_y - toe_ry,
                                      toe_rx * 2, toe_ry * 2))
-                # 발가락 하이라이트
                 pygame.draw.ellipse(screen, p["pad_light"],
                                     (toe_x - int(toe_rx * 0.4), toe_y - int(toe_ry * 0.5),
                                      int(toe_rx * 0.7), int(toe_ry * 0.6)))
@@ -317,16 +519,13 @@ class TeddyBearBossSprite:
         roll_x = int(roll * 0.5)
         bcx = cx + roll_x
 
-        # ── 솜 충전 볼록감 표현 (다중 타원 겹침) ──
-        # 깊은 그림자
-        pygame.draw.ellipse(screen, p["fur_deep"],
-                            (bcx - body_w // 2 + 3, body_top + 3, body_w, body_h))
-        # 그림자
-        pygame.draw.ellipse(screen, p["fur_shadow"],
-                            (bcx - body_w // 2 + 1, body_top + 1, body_w, body_h))
-        # 베이스 퍼
-        pygame.draw.ellipse(screen, p["fur_base"],
-                            (bcx - body_w // 2, body_top, body_w, body_h))
+        # v8: 구면 음영 적용된 몸통
+        self._draw_shaded_ellipse(
+            screen,
+            (bcx - body_w // 2, body_top, body_w, body_h),
+            p["fur_base"], p["fur_deep"], p["fur_mid"],
+            rim_color=p["fur_rim"], rim_alpha=45
+        )
 
         # 좌우 암부 (롤링 반영한 음영)
         edge_w = int(body_w * 0.22)
@@ -342,17 +541,6 @@ class TeddyBearBossSprite:
                             (bcx + body_w // 2 - edge_w + int(0.05 * b), body_top + int(0.6 * b),
                              edge_w, edge_h))
 
-        # 중앙 밝은 레이어 (솜 볼록)
-        light_w = int(body_w * 0.68)
-        light_h = int(body_h * 0.62)
-        pygame.draw.ellipse(screen, p["fur_mid"],
-                            (bcx - light_w // 2, body_top + int(0.5 * b), light_w, light_h))
-        # 최상부 하이라이트
-        spec_w = int(body_w * 0.35)
-        spec_h = int(body_h * 0.28)
-        pygame.draw.ellipse(screen, p["fur_light"],
-                            (bcx - spec_w // 2 - int(0.4 * b), body_top + int(0.8 * b),
-                             spec_w, spec_h))
         # 피크 하이라이트 (광택)
         pk_w = int(body_w * 0.15)
         pk_h = int(body_h * 0.12)
@@ -360,17 +548,9 @@ class TeddyBearBossSprite:
                             (bcx - pk_w // 2 - int(0.6 * b), body_top + int(1.0 * b),
                              pk_w, pk_h))
 
-        # ── 림 라이트 ──
-        rim_surf = self._get_surface(body_w + 8, body_h + 8)
-        pygame.draw.ellipse(rim_surf, (*p["fur_rim"], 45),
-                            (0, 0, body_w + 8, body_h + 8))
-        inner_w = body_w - int(0.7 * b)
-        inner_h = body_h - int(0.7 * b)
-        inner_rim = pygame.Surface((inner_w, inner_h), pygame.SRCALPHA)
-        inner_rim.fill((0, 0, 0, 255))
-        rim_surf.blit(inner_rim, (int(0.35 * b) + 4, int(0.35 * b) + 4),
-                      special_flags=pygame.BLEND_RGBA_SUB)
-        screen.blit(rim_surf, (bcx - body_w // 2 - 4, body_top - 4))
+        # 퍼즈 가장자리
+        fuzz_surf = self._get_fuzz_edge(body_w // 2, body_h // 2, p["fur_base"], seed=42)
+        screen.blit(fuzz_surf, (bcx - body_w // 2 - 8, body_top - 8))
 
         # ── 배 (크림색 패브릭 패치 — 타원형) ──
         belly_w = int(4.8 * b)
@@ -382,10 +562,8 @@ class TeddyBearBossSprite:
         pygame.draw.ellipse(screen, p["cream_dark"],
                             (belly_cx - belly_w // 2 + 1, belly_top + 2,
                              belly_w, belly_h))
-        # 배 베이스
         pygame.draw.ellipse(screen, p["cream"],
                             (belly_cx - belly_w // 2, belly_top, belly_w, belly_h))
-        # 배 하이라이트 (솜 볼록)
         pygame.draw.ellipse(screen, p["cream_light"],
                             (belly_cx - int(belly_w * 0.3) - int(0.2 * b),
                              belly_top + int(0.3 * b),
@@ -395,7 +573,7 @@ class TeddyBearBossSprite:
         self._draw_stitch_ellipse(screen, belly_cx, belly_top + belly_h // 2,
                                   belly_w // 2, belly_h // 2, b, p)
 
-        # ── 배꼽 하트 자수 (멘헤라 테마) ──
+        # ── 배꼽 하트 자수 (멘헤라 테마 — v8: 깨진 하트) ──
         heart_cx = belly_cx
         heart_cy = belly_top + int(belly_h * 0.52)
         hr = max(3, int(0.8 * b))
@@ -412,13 +590,23 @@ class TeddyBearBossSprite:
 
         # 자수 하트 (스티치 스타일)
         lobe_r = int(hr * 0.55)
-        # 아웃라인
         self._draw_heart_shape(screen, heart_cx, heart_cy, hr, lobe_r, p["pink_dark"], 2)
-        # 메인
         self._draw_heart_shape(screen, heart_cx, heart_cy, hr, lobe_r, p["pink"], 0)
-        # 하이라이트
         self._draw_heart_shape(screen, heart_cx, heart_cy - int(hr * 0.15),
                                int(hr * 0.6), int(lobe_r * 0.5), p["pink_light"], 0)
+
+        # v8: 하트에 균열선 (깨진 하트)
+        crack_w = max(1, int(0.05 * b))
+        crack_cx = heart_cx + int(0.1 * b)
+        crack_top = heart_cy - int(hr * 0.3)
+        crack_mid = heart_cy + int(hr * 0.2)
+        crack_bot = heart_cy + int(hr * 0.7)
+        pygame.draw.line(screen, p["fur_shadow"],
+                         (crack_cx, crack_top),
+                         (crack_cx - int(0.2 * b), crack_mid), crack_w)
+        pygame.draw.line(screen, p["fur_shadow"],
+                         (crack_cx - int(0.2 * b), crack_mid),
+                         (crack_cx + int(0.1 * b), crack_bot), crack_w)
 
         # 봉제 중앙 세로 솔기
         seam_top = body_top + int(0.4 * b)
@@ -428,6 +616,75 @@ class TeddyBearBossSprite:
             dy = min(seg_y + max(1, int(0.14 * b)), int(seam_bot))
             pygame.draw.line(screen, (*p["stitch"], 80),
                              (bcx, seg_y), (bcx, dy), seam_w)
+
+        # ═══ v8: 터진 솔기 — 왼쪽 옆구리에서 솜 삐져나옴 ═══
+        self._draw_burst_seam(screen, bcx, body_top, body_w, body_h, b, p)
+
+    # ═══════════════════════ v8: 터진 솔기 + 솜 ═══════════════════════
+
+    def _draw_burst_seam(self, screen, bcx, body_top, body_w, body_h, b, p):
+        """어깨/옆구리 터진 솔기에서 솜이 삐져나오는 디테일"""
+        # 왼쪽 옆구리 위치
+        burst_x = bcx - int(body_w * 0.42)
+        burst_y = body_top + int(body_h * 0.3)
+
+        # 터진 솔기선 (지그재그)
+        seam_len = int(2.0 * b)
+        seam_w = max(1, int(0.08 * b))
+        points = []
+        rng = random.Random(12345)
+        for i in range(6):
+            sx = burst_x + int(i * seam_len / 5)
+            sy = burst_y + rng.randint(-int(0.15 * b), int(0.15 * b))
+            points.append((sx, sy))
+
+        # 벌어진 틈 (어두운 선)
+        for i in range(len(points) - 1):
+            pygame.draw.line(screen, p["fur_deep"], points[i], points[i + 1], seam_w + 1)
+
+        # 벌어진 틈 양옆 스티치 자국 (끊어진 실)
+        for i in range(len(points) - 1):
+            mx = (points[i][0] + points[i + 1][0]) // 2
+            my = (points[i][1] + points[i + 1][1]) // 2
+            stitch_len = int(0.3 * b)
+            pygame.draw.line(screen, p["stitch"],
+                             (mx, my - stitch_len), (mx, my + stitch_len),
+                             max(1, int(0.04 * b)))
+
+        # 솜 삐져나옴 (불규칙한 흰 덩어리)
+        rng2 = random.Random(54321)
+        for _ in range(5):
+            cx_s = burst_x + rng2.randint(0, int(seam_len * 0.8))
+            cy_s = burst_y + rng2.randint(-int(0.4 * b), int(0.4 * b))
+            sr = max(2, int(rng2.uniform(0.2, 0.5) * b))
+
+            # 솜 음영
+            pygame.draw.circle(screen, p["stuffing_shadow"],
+                               (cx_s + 1, cy_s + 1), sr)
+            # 솜 메인
+            pygame.draw.circle(screen, p["stuffing"], (cx_s, cy_s), sr)
+            # 솜 하이라이트
+            pygame.draw.circle(screen, (255, 252, 248),
+                               (cx_s - int(sr * 0.25), cy_s - int(sr * 0.25)),
+                               max(1, int(sr * 0.45)))
+
+        # 오른쪽 어깨에도 작은 터진 부분
+        burst_x2 = bcx + int(body_w * 0.35)
+        burst_y2 = body_top + int(body_h * 0.15)
+        tiny_seam_w = max(1, int(0.06 * b))
+
+        # 짧은 균열
+        pygame.draw.line(screen, p["fur_deep"],
+                         (burst_x2, burst_y2),
+                         (burst_x2 + int(0.8 * b), burst_y2 + int(0.2 * b)),
+                         tiny_seam_w + 1)
+        # 솜 한 덩이
+        for dx_s, dy_s in [(0.3, -0.15), (0.5, 0.1)]:
+            sx = burst_x2 + int(dx_s * b)
+            sy = burst_y2 + int(dy_s * b)
+            sr = max(2, int(0.25 * b))
+            pygame.draw.circle(screen, p["stuffing_shadow"], (sx + 1, sy + 1), sr)
+            pygame.draw.circle(screen, p["stuffing"], (sx, sy), sr)
 
     # ═══════════════════════ 팔 ═══════════════════════
 
@@ -447,29 +704,25 @@ class TeddyBearBossSprite:
         ax = (shoulder_x + end_x) // 2
         ay = (shoulder_y + end_y) // 2
 
-        # 그림자
-        pygame.draw.ellipse(screen, p["fur_shadow"],
-                            (ax - arm_w // 2 + 2, ay - arm_h // 2 + 2,
-                             arm_w + 2, arm_h + 2))
-        # 다크 에지
-        pygame.draw.ellipse(screen, p["fur_dark"],
-                            (ax - arm_w // 2, ay - arm_h // 2, arm_w, arm_h))
-        # 메인 퍼
-        inner_w = int(arm_w * 0.85)
-        inner_h = int(arm_h * 0.90)
-        pygame.draw.ellipse(screen, p["fur_base"],
-                            (ax - inner_w // 2, ay - inner_h // 2 + int(0.1 * b),
-                             inner_w, inner_h))
-        # 하이라이트
+        # v8: 구면 음영 적용된 팔
+        self._draw_shaded_ellipse(
+            screen,
+            (ax - arm_w // 2, ay - arm_h // 2, arm_w, arm_h),
+            p["fur_base"], p["fur_shadow"], p["fur_mid"],
+            rim_color=p["fur_rim"], rim_alpha=30
+        )
+        # 추가 하이라이트
         hl_w = int(arm_w * 0.45)
         hl_h = int(arm_h * 0.4)
         hl_x_off = int(-0.15 * b) if side < 0 else int(0.15 * b)
-        pygame.draw.ellipse(screen, p["fur_mid"],
-                            (ax - hl_w // 2 + hl_x_off, ay - hl_h // 2 - int(0.2 * b),
-                             hl_w, hl_h))
         pygame.draw.ellipse(screen, p["fur_light"],
                             (ax - int(hl_w * 0.4) + hl_x_off, ay - int(hl_h * 0.35) - int(0.3 * b),
                              int(hl_w * 0.55), int(hl_h * 0.45)))
+
+        # 퍼즈 가장자리
+        fuzz_surf = self._get_fuzz_edge(arm_w // 2, arm_h // 2, p["fur_base"],
+                                        seed=hash(("arm", side)))
+        screen.blit(fuzz_surf, (ax - arm_w // 2 - 8, ay - arm_h // 2 - 8))
 
         # 팔 솔기 (세로)
         seam_w_v = max(1, int(0.06 * b))
@@ -482,17 +735,67 @@ class TeddyBearBossSprite:
 
         # ── 손(발) 패드 ──
         pad_r = max(3, int(0.55 * b))
-        # 그림자
         pygame.draw.circle(screen, p["fur_dark"], (end_x + 1, end_y + 1), pad_r + 2)
-        # 베이스
         pygame.draw.circle(screen, p["fur_base"], (end_x, end_y), pad_r + 1)
-        # 패드
         pygame.draw.circle(screen, p["pad_dark"], (end_x, end_y), pad_r)
         pygame.draw.circle(screen, p["pad"], (end_x, end_y), pad_r - 1)
-        # 패드 하이라이트
         pygame.draw.circle(screen, p["pad_light"],
                            (end_x - int(0.1 * b), end_y - int(0.1 * b)),
                            max(1, pad_r // 2))
+
+        # ═══ v8: 오른팔(앞쪽) 붕대 ═══
+        if not is_back:
+            self._draw_bandage(screen, ax, ay, arm_w, arm_h, b, p)
+
+    # ═══════════════════════ v8: 붕대 ═══════════════════════
+
+    def _draw_bandage(self, screen, ax, ay, arm_w, arm_h, b, p):
+        """오른팔에 감긴 붕대"""
+        band_count = 4
+        band_h = max(2, int(0.28 * b))
+        band_gap = int(arm_h * 0.12)
+        start_y = ay - int(arm_h * 0.2)
+
+        for i in range(band_count):
+            by = start_y + i * band_gap
+            # 팔 타원 내부에 있는지 대략 확인
+            dy_norm = (by - ay) / (arm_h * 0.5) if arm_h > 0 else 0
+            if abs(dy_norm) > 0.85:
+                continue
+            # 이 y에서 팔의 x 범위
+            x_ratio = _sqrt(max(0.01, 1.0 - dy_norm * dy_norm))
+            half_w = int(arm_w * 0.5 * x_ratio)
+            if half_w < 2:
+                continue
+
+            bx = ax - half_w
+            bw = half_w * 2
+
+            # 약간 비뚤어진 각도 (사선 감기)
+            slant = int(0.15 * b * (1 if i % 2 == 0 else -1))
+
+            pts = [
+                (bx, by + slant),
+                (bx + bw, by - slant),
+                (bx + bw, by - slant + band_h),
+                (bx, by + slant + band_h),
+            ]
+
+            # 붕대 그림자
+            shadow = [(x + 1, y + 1) for x, y in pts]
+            pygame.draw.polygon(screen, p["bandage_shadow"], shadow)
+            # 붕대 메인
+            pygame.draw.polygon(screen, p["bandage"], pts)
+
+            # 붕대 얼룩 (더러운 느낌)
+            if i == 1 or i == 3:
+                stain_x = ax + int(0.1 * b * (-1 if i == 1 else 1))
+                stain_y = by + slant // 2
+                stain_r = max(1, int(0.12 * b))
+                stain_surf = self._get_surface(stain_r * 2 + 4, stain_r * 2 + 4)
+                pygame.draw.circle(stain_surf, (*p["bandage_stain"], 50),
+                                   (stain_r + 2, stain_r + 2), stain_r)
+                screen.blit(stain_surf, (stain_x - stain_r - 2, stain_y - stain_r - 2))
 
     # ═══════════════════════ 머리 ═══════════════════════
 
@@ -512,25 +815,13 @@ class TeddyBearBossSprite:
             ear_rx = int(1.6 * b)
             ear_ry = int(1.8 * b)
 
-            # 귀 그림자
-            pygame.draw.ellipse(screen, p["fur_shadow"],
-                                (ear_cx - ear_rx + 2, ear_cy - ear_ry + 2,
-                                 ear_rx * 2, ear_ry * 2))
-            # 귀 다크 테두리
-            pygame.draw.ellipse(screen, p["fur_dark"],
-                                (ear_cx - ear_rx, ear_cy - ear_ry,
-                                 ear_rx * 2, ear_ry * 2))
-            # 귀 메인
-            inner_rx = int(ear_rx * 0.88)
-            inner_ry = int(ear_ry * 0.88)
-            pygame.draw.ellipse(screen, p["fur_base"],
-                                (ear_cx - inner_rx, ear_cy - inner_ry + int(0.1 * b),
-                                 inner_rx * 2, inner_ry * 2))
-            # 귀 하이라이트
-            pygame.draw.ellipse(screen, p["fur_mid"],
-                                (ear_cx - int(ear_rx * 0.5) - int(0.15 * b * side),
-                                 ear_cy - int(ear_ry * 0.6),
-                                 int(ear_rx * 0.7), int(ear_ry * 0.6)))
+            # v8: 구면 음영 적용된 귀
+            self._draw_shaded_ellipse(
+                screen,
+                (ear_cx - ear_rx, ear_cy - ear_ry, ear_rx * 2, ear_ry * 2),
+                p["fur_base"], p["fur_shadow"], p["fur_mid"],
+                rim_color=p["fur_rim"], rim_alpha=25, noise=False
+            )
 
             # 귀 안쪽 (핑크 — 멘헤라 테마)
             in_rx = int(ear_rx * 0.62)
@@ -541,25 +832,23 @@ class TeddyBearBossSprite:
             pygame.draw.ellipse(screen, p["pink"],
                                 (ear_cx - in_rx + 1, ear_cy - in_ry + int(0.2 * b),
                                  in_rx * 2 - 2, in_ry * 2 - 2))
-            # 귀 안쪽 하이라이트
             pygame.draw.ellipse(screen, p["pink_light"],
                                 (ear_cx - int(in_rx * 0.45) - int(0.08 * b * side),
                                  ear_cy - int(in_ry * 0.4),
                                  int(in_rx * 0.6), int(in_ry * 0.45)))
 
-        # ── 머리 본체 (약간 세로로 긴 타원) ──
-        # 깊은 그림자
-        pygame.draw.ellipse(screen, p["fur_deep"],
-                            (head_cx - head_rx + 3, head_cy - head_ry + 3,
-                             head_rx * 2, head_ry * 2))
-        # 그림자
-        pygame.draw.ellipse(screen, p["fur_shadow"],
-                            (head_cx - head_rx + 1, head_cy - head_ry + 1,
-                             head_rx * 2, head_ry * 2))
-        # 베이스
-        pygame.draw.ellipse(screen, p["fur_base"],
-                            (head_cx - head_rx, head_cy - head_ry,
-                             head_rx * 2, head_ry * 2))
+            # ═══ v8: 왼쪽 귀 안전핀 ═══
+            if side == -1:
+                self._draw_safety_pin(screen, ear_cx, ear_cy, ear_rx, ear_ry, b, p)
+
+        # ── 머리 본체 ──
+        # v8: 구면 음영 적용된 머리
+        self._draw_shaded_ellipse(
+            screen,
+            (head_cx - head_rx, head_cy - head_ry, head_rx * 2, head_ry * 2),
+            p["fur_base"], p["fur_deep"], p["fur_mid"],
+            rim_color=p["fur_rim"], rim_alpha=40
+        )
 
         # 하단 음영 (턱 아래)
         chin_h = int(1.8 * b)
@@ -568,10 +857,6 @@ class TeddyBearBossSprite:
                              head_cy + int(0.8 * b),
                              head_rx * 2 - int(0.6 * b), chin_h))
 
-        # 중앙 밝은 레이어
-        pygame.draw.ellipse(screen, p["fur_mid"],
-                            (head_cx - int(head_rx * 0.65), head_cy - int(head_ry * 0.7),
-                             int(head_rx * 1.3), int(head_ry * 1.1)))
         # 이마 하이라이트
         pygame.draw.ellipse(screen, p["fur_light"],
                             (head_cx - int(head_rx * 0.4), head_cy - int(head_ry * 0.75),
@@ -589,19 +874,9 @@ class TeddyBearBossSprite:
         pygame.draw.ellipse(gloss_surf, (255, 255, 255, 20), (0, 0, gw, gh))
         screen.blit(gloss_surf, (head_cx - gw // 2, head_cy - int(head_ry * 0.85)))
 
-        # ── 림 라이트 ──
-        rim_w = head_rx * 2 + 8
-        rim_h = head_ry * 2 + 8
-        rim_surf = self._get_surface(rim_w, rim_h)
-        pygame.draw.ellipse(rim_surf, (*p["fur_rim"], 40),
-                            (0, 0, rim_w, rim_h))
-        inner_rw = head_rx * 2 - int(0.6 * b)
-        inner_rh = head_ry * 2 - int(0.6 * b)
-        inner_rim = pygame.Surface((inner_rw, inner_rh), pygame.SRCALPHA)
-        inner_rim.fill((0, 0, 0, 255))
-        rim_surf.blit(inner_rim, (int(0.3 * b) + 4, int(0.3 * b) + 4),
-                      special_flags=pygame.BLEND_RGBA_SUB)
-        screen.blit(rim_surf, (head_cx - rim_w // 2, head_cy - rim_h // 2))
+        # 퍼즈 가장자리 (머리)
+        fuzz_surf = self._get_fuzz_edge(head_rx, head_ry, p["fur_base"], seed=99)
+        screen.blit(fuzz_surf, (head_cx - head_rx - 8, head_cy - head_ry - 8))
 
         # ── 머리 중앙 세로 솔기 ──
         seam_top = head_cy - int(head_ry * 0.8)
@@ -622,15 +897,12 @@ class TeddyBearBossSprite:
         muzzle_cx = face_cx
         muzzle_cy = face_cy + int(0.8 * b)
 
-        # 머즐 음영
         pygame.draw.ellipse(screen, p["cream_dark"],
                             (muzzle_cx - muzzle_w // 2 + 1, muzzle_cy - muzzle_h // 2 + 2,
                              muzzle_w, muzzle_h))
-        # 머즐 베이스
         pygame.draw.ellipse(screen, p["cream"],
                             (muzzle_cx - muzzle_w // 2, muzzle_cy - muzzle_h // 2,
                              muzzle_w, muzzle_h))
-        # 머즐 하이라이트
         pygame.draw.ellipse(screen, p["cream_light"],
                             (muzzle_cx - int(muzzle_w * 0.3) - int(0.15 * b),
                              muzzle_cy - int(muzzle_h * 0.35),
@@ -642,32 +914,25 @@ class TeddyBearBossSprite:
         nose_w = int(1.1 * b)
         nose_h = int(0.75 * b)
 
-        # 코 삼각형 포인트 계산
         nose_pts = [
             (nose_cx - nose_w // 2, nose_cy - nose_h // 3),
             (nose_cx + nose_w // 2, nose_cy - nose_h // 3),
             (nose_cx, nose_cy + int(nose_h * 0.65)),
         ]
-        # 둥근 삼각형 근사 (삼각형 + 상단 원)
-        # 그림자
         shadow_pts = [(x + 1, y + 2) for x, y in nose_pts]
         pygame.draw.polygon(screen, p["fur_shadow"], shadow_pts)
-        # 베이스
         pygame.draw.polygon(screen, p["nose_base"], nose_pts)
-        # 상단 둥글기 (원 2개)
         nose_top_r = max(2, int(nose_w * 0.32))
         pygame.draw.circle(screen, p["nose_base"],
                            (nose_cx - int(nose_w * 0.2), nose_cy - nose_h // 4), nose_top_r)
         pygame.draw.circle(screen, p["nose_base"],
                            (nose_cx + int(nose_w * 0.2), nose_cy - nose_h // 4), nose_top_r)
-        # 코 하이라이트 (가죽 광택)
         pygame.draw.circle(screen, p["nose_mid"],
                            (nose_cx - int(nose_w * 0.15), nose_cy - nose_h // 5),
                            max(1, int(nose_top_r * 0.6)))
         pygame.draw.circle(screen, p["nose_shine"],
                            (nose_cx - int(nose_w * 0.15), nose_cy - int(nose_h * 0.3)),
                            max(1, int(nose_top_r * 0.35)))
-        # 글로시 반짝임
         gloss_r = max(1, int(0.15 * b))
         pygame.draw.circle(screen, p["nose_gloss"],
                            (nose_cx - int(0.15 * b), nose_cy - int(0.15 * b)), gloss_r)
@@ -675,13 +940,10 @@ class TeddyBearBossSprite:
         # ── 입 (코에서 Y자로 내려가는 선) ──
         mouth_start_y = nose_cy + int(nose_h * 0.65)
         mouth_mid_y = muzzle_cy + int(0.35 * b)
-        mouth_end_y = muzzle_cy + int(0.55 * b)
         mouth_lw = max(1, int(0.08 * b))
 
-        # 코 아래 세로선
         pygame.draw.line(screen, p["mouth"],
                          (nose_cx, mouth_start_y), (nose_cx, mouth_mid_y), mouth_lw)
-        # Y자 좌우 갈래
         mouth_spread = int(0.6 * b)
         pygame.draw.arc(screen, p["mouth"],
                         (nose_cx - mouth_spread, mouth_mid_y - int(0.15 * b),
@@ -692,50 +954,44 @@ class TeddyBearBossSprite:
                          mouth_spread, int(0.6 * b)),
                         _pi, _pi * 1.4, mouth_lw)
 
-        # ── 눈 (유리 단추 + 얀데레 하트 오버레이) ──
+        # ═══ v8: 짝짝이 눈 ═══
+        # 왼쪽: 얀데레 하트 단추 눈  |  오른쪽: 단추 빠진 실밥 + 덜렁거리는 단추
         for side_i in [-1, 1]:
             eye_cx = face_cx + int(side_i * 1.5 * b)
             eye_cy = face_cy - int(0.15 * b)
-
-            # 유리 단추 눈 (베이스)
             eye_r = max(3, int(1.15 * b))
 
-            # 눈 움푹 파인 홈 (봉제 인형 특유)
-            socket_r = eye_r + max(1, int(0.2 * b))
-            pygame.draw.circle(screen, p["fur_dark"], (eye_cx, eye_cy), socket_r)
+            if side_i == -1:
+                # ── 왼쪽 눈: 얀데레 하트 단추 (기존 유지) ──
+                socket_r = eye_r + max(1, int(0.2 * b))
+                pygame.draw.circle(screen, p["fur_dark"], (eye_cx, eye_cy), socket_r)
+                pygame.draw.circle(screen, p["eye_ring"], (eye_cx, eye_cy),
+                                   eye_r + max(1, int(0.1 * b)))
+                pygame.draw.circle(screen, p["eye_base"], (eye_cx, eye_cy), eye_r)
 
-            # 단추 테두리 (금속 링)
-            pygame.draw.circle(screen, p["eye_ring"], (eye_cx, eye_cy), eye_r + max(1, int(0.1 * b)))
+                hr = max(3, int(eye_r * 0.85))
+                lobe_r = int(hr * 0.52)
+                outline = max(1, int(0.08 * b))
+                self._draw_heart_shape(screen, eye_cx, eye_cy, hr, lobe_r + outline,
+                                       p["pink_dark"], outline)
+                self._draw_heart_shape(screen, eye_cx, eye_cy, hr, lobe_r, p["pink"], 0)
+                self._draw_heart_shape(screen, eye_cx, eye_cy - int(hr * 0.12),
+                                       int(hr * 0.65), int(lobe_r * 0.55),
+                                       p["pink_light"], 0)
 
-            # 단추 베이스 (검은 유리)
-            pygame.draw.circle(screen, p["eye_base"], (eye_cx, eye_cy), eye_r)
-
-            # ★ 멘헤라 하트 오버레이 ★
-            hr = max(3, int(eye_r * 0.85))
-
-            # 하트 본체
-            lobe_r = int(hr * 0.52)
-            # 다크 아웃라인
-            outline = max(1, int(0.08 * b))
-            self._draw_heart_shape(screen, eye_cx, eye_cy, hr, lobe_r + outline,
-                                   p["pink_dark"], outline)
-            # 메인 핑크
-            self._draw_heart_shape(screen, eye_cx, eye_cy, hr, lobe_r, p["pink"], 0)
-            # 밝은 레이어
-            self._draw_heart_shape(screen, eye_cx, eye_cy - int(hr * 0.12),
-                                   int(hr * 0.65), int(lobe_r * 0.55),
-                                   p["pink_light"], 0)
-
-            # 단추 구멍 (봉제 느낌 — 실 꿰맨 자국)
-            hole_r = max(1, int(0.08 * b))
-            stitch_col = (*p["pink_deep"], 120)
-            for dx, dy in [(-0.25, -0.15), (0.25, -0.15), (-0.15, 0.25), (0.15, 0.25)]:
-                hx = eye_cx + int(dx * hr)
-                hy = eye_cy + int(dy * hr)
-                hole_surf = self._get_surface(hole_r * 2 + 4, hole_r * 2 + 4)
-                pygame.draw.circle(hole_surf, stitch_col,
-                                   (hole_r + 2, hole_r + 2), hole_r)
-                screen.blit(hole_surf, (hx - hole_r - 2, hy - hole_r - 2))
+                # 단추 구멍
+                hole_r = max(1, int(0.08 * b))
+                stitch_col = (*p["pink_deep"], 120)
+                for dx, dy in [(-0.25, -0.15), (0.25, -0.15), (-0.15, 0.25), (0.15, 0.25)]:
+                    hx = eye_cx + int(dx * hr)
+                    hy = eye_cy + int(dy * hr)
+                    hole_surf = self._get_surface(hole_r * 2 + 4, hole_r * 2 + 4)
+                    pygame.draw.circle(hole_surf, stitch_col,
+                                       (hole_r + 2, hole_r + 2), hole_r)
+                    screen.blit(hole_surf, (hx - hole_r - 2, hy - hole_r - 2))
+            else:
+                # ── 오른쪽 눈: 단추 빠진 실밥 + 덜렁거리는 단추 ──
+                self._draw_dangling_eye(screen, eye_cx, eye_cy, eye_r, b, p)
 
         # ── 볼 홍조 (7단계 소프트 그라데이션) ──
         for side_b in [-1, 1]:
@@ -758,6 +1014,135 @@ class TeddyBearBossSprite:
         # ── 리본 ──
         ribbon_side = -1 if fd > 0.3 else 1
         self._draw_ribbon(screen, head_cx, head_cy, head_ry, b, p, face_shift, ribbon_side)
+
+    # ═══════════════════════ v8: 덜렁거리는 오른쪽 눈 ═══════════════════════
+
+    def _draw_dangling_eye(self, screen, eye_cx, eye_cy, eye_r, b, p):
+        """단추가 빠져서 실에 매달려 덜렁거리는 오른쪽 눈"""
+        socket_r = eye_r + max(1, int(0.2 * b))
+
+        # 눈 소켓 (빈 홈) — 어두운 구멍
+        pygame.draw.circle(screen, p["fur_deep"], (eye_cx, eye_cy), socket_r)
+        # 홈 안쪽 어두운 음영
+        pygame.draw.circle(screen, (35, 20, 12), (eye_cx, eye_cy), int(socket_r * 0.85))
+
+        # 실밥 X자 (구멍에 남은 실 자국)
+        thread_w = max(1, int(0.07 * b))
+        cross_r = int(eye_r * 0.7)
+        pygame.draw.line(screen, p["thread"],
+                         (eye_cx - cross_r, eye_cy - cross_r),
+                         (eye_cx + cross_r, eye_cy + cross_r), thread_w)
+        pygame.draw.line(screen, p["thread"],
+                         (eye_cx + cross_r, eye_cy - cross_r),
+                         (eye_cx - cross_r, eye_cy + cross_r), thread_w)
+        # 실밥 하이라이트
+        pygame.draw.line(screen, p["thread_light"],
+                         (eye_cx - cross_r + 1, eye_cy - cross_r - 1),
+                         (eye_cx + cross_r + 1, eye_cy + cross_r - 1), max(1, thread_w - 1))
+
+        # 실 (소켓에서 단추까지 늘어진 실)
+        thread_len = int(2.0 * b)
+        angle = self.dangling_eye_angle
+        btn_cx = eye_cx + int(_sin(angle) * thread_len)
+        btn_cy = eye_cy + int(_cos(angle) * thread_len * 0.6) + int(thread_len * 0.5)
+
+        # 실 곡선 (3점 베지어 근사)
+        mid_x = (eye_cx + btn_cx) // 2 + int(_sin(angle) * 0.4 * b)
+        mid_y = (eye_cy + btn_cy) // 2 + int(0.3 * b)
+        thread_w2 = max(1, int(0.05 * b))
+        # 직선 근사 (3세그먼트)
+        pygame.draw.line(screen, p["thread"], (eye_cx, eye_cy), (mid_x, mid_y), thread_w2)
+        pygame.draw.line(screen, p["thread"], (mid_x, mid_y), (btn_cx, btn_cy), thread_w2)
+
+        # 덜렁거리는 단추 (검은 유리 단추)
+        btn_r = max(2, int(eye_r * 0.55))
+        # 그림자
+        pygame.draw.circle(screen, (20, 10, 5), (btn_cx + 1, btn_cy + 1), btn_r + 1)
+        # 단추 링
+        pygame.draw.circle(screen, p["eye_ring"], (btn_cx, btn_cy), btn_r + max(1, int(0.06 * b)))
+        # 단추 본체
+        pygame.draw.circle(screen, p["eye_base"], (btn_cx, btn_cy), btn_r)
+        # 단추 광택
+        spec_r = max(1, int(btn_r * 0.3))
+        pygame.draw.circle(screen, (60, 50, 40),
+                           (btn_cx - int(btn_r * 0.2), btn_cy - int(btn_r * 0.2)), spec_r)
+        # 작은 반짝임
+        pygame.draw.circle(screen, p["eye_shine"],
+                           (btn_cx - int(btn_r * 0.25), btn_cy - int(btn_r * 0.3)),
+                           max(1, int(btn_r * 0.15)))
+        # 단추 구멍 2개
+        hole_r = max(1, int(0.06 * b))
+        for hdy in [-0.2, 0.2]:
+            pygame.draw.circle(screen, (50, 35, 25),
+                               (btn_cx, btn_cy + int(hdy * btn_r)),
+                               hole_r)
+
+    # ═══════════════════════ v8: 안전핀 ═══════════════════════
+
+    def _draw_safety_pin(self, screen, ear_cx, ear_cy, ear_rx, ear_ry, b, p):
+        """왼쪽 귀에 꽂힌 거대한 안전핀"""
+        pin_cx = ear_cx + int(ear_rx * 0.3)
+        pin_cy = ear_cy + int(ear_ry * 0.1)
+        pin_len = int(2.2 * b)
+        pin_w_half = int(0.4 * b)
+        pin_thick = max(1, int(0.09 * b))
+
+        # 안전핀 몸체 (직선 바)
+        bar_top = pin_cy - int(pin_len * 0.4)
+        bar_bot = pin_cy + int(pin_len * 0.4)
+
+        # 닫힌 쪽 (상단 둥근 루프)
+        loop_r = max(2, int(0.25 * b))
+        pygame.draw.arc(screen, p["pin_dark"],
+                        (pin_cx - loop_r, bar_top - loop_r, loop_r * 2, loop_r * 2),
+                        0, _pi, pin_thick + 1)
+        pygame.draw.arc(screen, p["pin_metal"],
+                        (pin_cx - loop_r, bar_top - loop_r, loop_r * 2, loop_r * 2),
+                        0, _pi, pin_thick)
+        # 루프 광택
+        pygame.draw.arc(screen, p["pin_shine"],
+                        (pin_cx - loop_r + 1, bar_top - loop_r - 1, loop_r * 2 - 2, loop_r * 2 - 2),
+                        _pi * 0.3, _pi * 0.7, max(1, pin_thick - 1))
+
+        # 왼쪽 바 (고정 바)
+        pygame.draw.line(screen, p["pin_dark"],
+                         (pin_cx - loop_r + 1, bar_top + 1),
+                         (pin_cx - loop_r + 1, bar_bot + 1), pin_thick + 1)
+        pygame.draw.line(screen, p["pin_metal"],
+                         (pin_cx - loop_r, bar_top),
+                         (pin_cx - loop_r, bar_bot), pin_thick)
+        # 광택
+        pygame.draw.line(screen, p["pin_shine"],
+                         (pin_cx - loop_r - 1, bar_top),
+                         (pin_cx - loop_r - 1, bar_bot), max(1, pin_thick // 2))
+
+        # 오른쪽 바 (잠금 바 — 살짝 열린 느낌)
+        pygame.draw.line(screen, p["pin_dark"],
+                         (pin_cx + loop_r + 1, bar_top + 1),
+                         (pin_cx + loop_r + 1, bar_bot - int(0.2 * b) + 1), pin_thick + 1)
+        pygame.draw.line(screen, p["pin_metal"],
+                         (pin_cx + loop_r, bar_top),
+                         (pin_cx + loop_r, bar_bot - int(0.2 * b)), pin_thick)
+
+        # 하단 잠금 장치 (작은 삼각형)
+        clasp_y = bar_bot
+        clasp_w = int(0.35 * b)
+        clasp_pts = [
+            (pin_cx - loop_r - clasp_w // 2, clasp_y),
+            (pin_cx - loop_r + clasp_w // 2, clasp_y),
+            (pin_cx - loop_r, clasp_y + int(0.25 * b)),
+        ]
+        pygame.draw.polygon(screen, p["pin_metal"], clasp_pts)
+        # 잠금 장치 하이라이트
+        pygame.draw.polygon(screen, p["pin_shine"],
+                            [(x - 1, y - 1) for x, y in clasp_pts[:2]] + [clasp_pts[2]])
+
+        # 핀 꽂힌 부분 (귀를 관통하는 느낌 — 어두운 점)
+        pierce_r = max(1, int(0.07 * b))
+        pygame.draw.circle(screen, p["fur_deep"],
+                           (pin_cx - loop_r, pin_cy), pierce_r + 1)
+        pygame.draw.circle(screen, p["fur_deep"],
+                           (pin_cx + loop_r, pin_cy - int(0.1 * b)), pierce_r)
 
     # ═══════════════════════ 리본 ═══════════════════════
 
@@ -784,10 +1169,8 @@ class TeddyBearBossSprite:
         ]
 
         for pts in [left_pts, right_pts]:
-            # 그림자
             shadow = [(x + 2, y + 2) for x, y in pts]
             pygame.draw.polygon(screen, p["pink_deep"], shadow)
-            # 메인
             pygame.draw.polygon(screen, p["pink"], pts)
 
         # 새틴 하이라이트
@@ -798,7 +1181,6 @@ class TeddyBearBossSprite:
                 (ribbon_cx + int(sign * bow_w * 0.15), ribbon_cy - int(bow_h * 0.05)),
             ]
             pygame.draw.polygon(screen, p["pink_light"], hl)
-            # 추가 광택선
             hl2 = [
                 (ribbon_cx + int(sign * bow_w * 0.1), ribbon_cy),
                 (ribbon_cx + int(sign * bow_w * 0.45), ribbon_cy - int(bow_h * 0.35)),
@@ -817,7 +1199,7 @@ class TeddyBearBossSprite:
                            (ribbon_cx - int(0.06 * b), ribbon_cy - int(0.06 * b)),
                            max(1, knot_r // 2))
 
-        # 꼬리 (하단으로 늘어지는 리본)
+        # 꼬리
         tail_len = int(1.8 * b)
         tail_f = int(_sin(self.time * 1.5) * 0.35 * b)
         for s, sx_off in [(-1, -int(0.18 * b)), (1, int(0.18 * b))]:
@@ -830,7 +1212,6 @@ class TeddyBearBossSprite:
                 (tx + int(s * 0.05 * b), ribbon_cy + knot_r + int(tail_len * 0.3)),
             ]
             pygame.draw.polygon(screen, p["pink"], pts)
-            # 꼬리 하이라이트
             pygame.draw.line(screen, p["pink_light"],
                              pts[0], pts[3], max(1, int(0.07 * b)))
 
