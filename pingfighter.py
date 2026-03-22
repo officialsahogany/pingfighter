@@ -137297,7 +137297,7 @@ def handle_ball():
                     and not button_eye_active
                     and button_eye_cooldown_timer <= 0
                     and not deadly_hug_active
-                    and random.random() <= 0.13):
+                    and random.random() <= 0.20):
                     activate_button_eye()
                     _eye_shouts = ["내 눈을 봐!", "앞이 안 보이지~?", "저주다~!"]
                     show_speech(random.choice(_eye_shouts), duration=90)
