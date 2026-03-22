@@ -77465,6 +77465,7 @@ def update_button_eye():
     global button_eye_active, button_eye_cooldown_timer
     global heart_beam_projectile, heart_beam_trail
     global heart_beam_knockback_active, heart_beam_knockback_timer
+    global screen_shake_timer, screen_shake_intensity
 
     if button_eye_cooldown_timer > 0:
         button_eye_cooldown_timer -= 1
