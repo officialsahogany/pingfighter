@@ -429,7 +429,7 @@ class HeroStyle(Enum):
 # ============================================================================
 # 영웅 상성 시스템 (순환 상성: AGGRESSIVE > TRICKY > BALANCED > DEFENSIVE > AGGRESSIVE)
 # ============================================================================
-STYLE_MATCHUP_BONUS = 0.08  # 상성 보정값 (±8%)
+STYLE_MATCHUP_BONUS = 0.18  # 상성 보정값 (±18%) — 상성 카운터 체감을 위해 8%에서 상향
 STYLE_ADVANTAGE = {
     HeroStyle.AGGRESSIVE: HeroStyle.TRICKY,     # 공격 → 트릭: 공격 유리
     HeroStyle.TRICKY: HeroStyle.BALANCED,        # 트릭 → 균형: 트릭 유리
@@ -1866,8 +1866,11 @@ class AIPaddleController:
         self.height = PADDLE_HEIGHT  # 스킬 코드 호환용 (target_paddle.height)
 
         # 영웅 스탯 기반 능력치
-        self.base_speed = 8.75 * hero["speed"]   # +25%
-        self.max_speed = 12.5 * hero["speed"]    # +25%
+        # max_speed에 소프트캡: sqrt 스케일링으로 고속 영웅의 압도적 우위 완화
+        # speed=1.4 → base 12.25, max 14.79 (기존 17.5)
+        # speed=0.85 → base 7.44, max 11.52 (기존 10.63)
+        self.base_speed = 8.75 * hero["speed"]
+        self.max_speed = 12.5 * (hero["speed"] ** 0.6)
         self.reaction_time = 0.08 / hero["reaction"]  # 반응 시간 (초)
         self.prediction_accuracy = hero["accuracy"]  # 예측 정확도
         self.power = hero["power"]
@@ -8100,10 +8103,13 @@ class ColosseumsArena:
             self.matches[TournamentRound.FINAL] = [
                 self._create_positioned_match(winners[0], winners[1], 0),
             ]
-            # AI 결승 진출자에게 추가 랜덤 퍽 1개 부여 (배팅 영웅 제외)
+            # AI 결승 진출자에게 추가 랜덤 퍽 부여 (배팅 영웅 제외)
+            # 결승전 언더독 보정: 유저 상대에게 추가 퍽 +1 (유저가 강해진 만큼 상대도 강화)
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
-                    self._assign_ai_perks(w, 1 + self.ai_bonus_perks)
+                    # 결승 상대 AI에게 추가 퍽 +1 (언더독 보정)
+                    final_bonus = 1 + self.ai_bonus_perks + 1
+                    self._assign_ai_perks(w, final_bonus)
             # AI 결승 진출자에게 하수인 배정 (가중치: 2명 74%, 1명 15%, 0명 11%)
             # ★ 결승 하수인 후보: 4강 패자 + 8강 패자 (4강 패자만으로는 후보 부족)
             # 4강 패자 2명은 결승 진출자의 호위무사 + 플레이어 포획으로 모두 taken될 수 있음
@@ -8905,38 +8911,54 @@ class ColosseumsArena:
             is_top = result.get('caster_is_top', caster_paddle.is_top)
             self.show_speech_bubble(is_top, result['skill_korean_name'])
 
+    def _get_style_skill_chance(self, hero: Dict) -> float:
+        """영웅 스타일에 따른 쿨다운 스킬 사용 확률"""
+        style = hero.get("style", HeroStyle.BALANCED)
+        if style == HeroStyle.AGGRESSIVE:
+            return 0.85   # 공격형: 쿨 돌자마자 난사
+        elif style == HeroStyle.DEFENSIVE:
+            return 0.50   # 수비형: 아꼈다가 위기 시에만
+        elif style == HeroStyle.TRICKY:
+            return 0.75   # 트릭형: 적극적이되 약간의 변수
+        else:  # BALANCED
+            return 0.65   # 균형형: 표준
+
     def _try_use_cooldown_skills(self):
-        """쿨다운 완료된 ON_COOLDOWN 스킬 자동 사용"""
+        """쿨다운 완료된 ON_COOLDOWN 스킬 자동 사용 (스타일별 확률 차등)"""
         if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
             return
 
         # 상단 영웅 스킬
-        if self.selected_match and random.random() < 0.7:  # 70% 확률로 사용 시도
-            result = self.skill_manager.try_use_skill(
-                self.selected_match.hero1["id"],
-                SkillTrigger.ON_COOLDOWN,
-                self.top_paddle,
-                self.bottom_paddle,
-                self.ball
-            )
-            # 스킬 발동 시 사운드 재생 + 말풍선 표시
-            if result and 'skill_korean_name' in result:
-                self._play_skill_sound(result)
-                self.show_speech_bubble(True, result['skill_korean_name'])
+        if self.selected_match:
+            chance_top = self._get_style_skill_chance(self.selected_match.hero1)
+            if random.random() < chance_top:
+                result = self.skill_manager.try_use_skill(
+                    self.selected_match.hero1["id"],
+                    SkillTrigger.ON_COOLDOWN,
+                    self.top_paddle,
+                    self.bottom_paddle,
+                    self.ball
+                )
+                # 스킬 발동 시 사운드 재생 + 말풍선 표시
+                if result and 'skill_korean_name' in result:
+                    self._play_skill_sound(result)
+                    self.show_speech_bubble(True, result['skill_korean_name'])
 
         # 하단 영웅 스킬
-        if self.selected_match and random.random() < 0.7:
-            result = self.skill_manager.try_use_skill(
-                self.selected_match.hero2["id"],
-                SkillTrigger.ON_COOLDOWN,
-                self.bottom_paddle,
-                self.top_paddle,
-                self.ball
-            )
-            # 스킬 발동 시 사운드 재생 + 말풍선 표시
-            if result and 'skill_korean_name' in result:
-                self._play_skill_sound(result)
-                self.show_speech_bubble(False, result['skill_korean_name'])
+        if self.selected_match:
+            chance_bottom = self._get_style_skill_chance(self.selected_match.hero2)
+            if random.random() < chance_bottom:
+                result = self.skill_manager.try_use_skill(
+                    self.selected_match.hero2["id"],
+                    SkillTrigger.ON_COOLDOWN,
+                    self.bottom_paddle,
+                    self.top_paddle,
+                    self.ball
+                )
+                # 스킬 발동 시 사운드 재생 + 말풍선 표시
+                if result and 'skill_korean_name' in result:
+                    self._play_skill_sound(result)
+                    self.show_speech_bubble(False, result['skill_korean_name'])
 
     def show_speech_bubble(self, is_top: bool, skill_name: str):
         """영웅 말풍선 표시"""
@@ -8998,10 +9020,11 @@ class ColosseumsArena:
             shadow_rect = pygame.Rect(3, 3, bubble_width, bubble_height)
             pygame.draw.rect(bubble_surface, (0, 0, 0, 60), shadow_rect, border_radius=10)
 
-            # 메인 말풍선
+            # 메인 말풍선 (피아식별: 상단=적 붉은 테두리, 하단=아군 푸른 테두리)
             main_rect = pygame.Rect(0, 0, bubble_width, bubble_height)
             pygame.draw.rect(bubble_surface, (255, 255, 255), main_rect, border_radius=10)
-            pygame.draw.rect(bubble_surface, (50, 50, 50), main_rect, 2, border_radius=10)
+            border_color = (180, 60, 60) if is_top else (60, 100, 180)
+            pygame.draw.rect(bubble_surface, border_color, main_rect, 2, border_radius=10)
 
             # 말풍선 꼬리 (위/아래 방향)
             if is_top:
@@ -10160,6 +10183,12 @@ class ColosseumsArena:
                 self._end_highlight_replay()
                 return False
 
+            # ========== 애니메이션 스킵 (Space/Enter/클릭으로 타이머 기반 연출 즉시 완료) ==========
+            if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                skip_handled = self._handle_animation_skip()
+                if skip_handled:
+                    return False
+
             # TAB: 영웅 미리보기 토글 (대진표 화면에서)
             if event.key == pygame.K_TAB:
                 if self.state == TournamentState.HERO_PREVIEW:
@@ -10543,9 +10572,114 @@ class ColosseumsArena:
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # 좌클릭
+                # 애니메이션 스킵 (좌클릭으로도 스킵 가능)
+                if self._handle_animation_skip():
+                    return False
                 self._handle_click(event.pos)
 
         return self.exit_requested
+
+    def _handle_animation_skip(self) -> bool:
+        """타이머 기반 애니메이션을 즉시 완료시키는 스킵 처리.
+        스킵 처리됐으면 True 반환."""
+
+        # 매치 공개 카드 플립 (1.2초)
+        if self.state == TournamentState.MATCH_REVEAL:
+            self.match_reveal_timer = 9.0  # 다음 update()에서 즉시 완료
+            return True
+
+        # 스킬 룰렛 rolling → 즉시 selected로 전환
+        if self.state == TournamentState.SKILL_REVEAL:
+            if self.skill_reveal_phase == "rolling":
+                self.skill_reveal_timer = 9.0
+                return True
+            # selected 상태는 기존 핸들러가 처리 (10340)
+            return False
+
+        # 영웅 선택 내 공격 모션 + 스킬 룰렛
+        if self.state == TournamentState.HERO_SELECT:
+            anim_phase = getattr(self, '_hero_select_anim_phase', None)
+            if anim_phase == "attack_motion":
+                self._hero_select_anim_timer = 9.0
+                return True
+            elif anim_phase == "skill_rolling":
+                self.skill_reveal_timer = 9.0
+                return True
+            # skill_selected 상태는 기존 핸들러가 처리 (10316)
+            return False
+
+        # 감옥 철창 + 공격 모션 + 스킬 룰렛
+        if self.state == TournamentState.PRISON_SELECT:
+            opening_phase = getattr(self, '_prison_opening_phase', None)
+            if opening_phase in ("bars_opening", "attack_motion"):
+                self._prison_opening_timer = 9.0
+                return True
+            elif opening_phase == "skill_rolling":
+                self.skill_reveal_timer = 9.0
+                return True
+            # skill_selected 상태는 기존 핸들러가 처리 (10352)
+            return False
+
+        # 호위무사 스킬 룰렛 rolling
+        if self.state == TournamentState.GUARD_SKILL_REVEAL:
+            if self.skill_reveal_phase == "rolling":
+                self.skill_reveal_timer = 9.0
+                return True
+            return False
+
+        # 배틀 인트로 (3.0초)
+        if self.state == TournamentState.BATTLE_INTRO:
+            self.battle_intro_timer = 9.0
+            return True
+
+        # 대진표 진출 애니메이션 (3페이즈)
+        if self.state == TournamentState.BRACKET_ANIMATION:
+            if self.bracket_anim_phase == 0:
+                self.bracket_anim_timer = 99.0
+            elif self.bracket_anim_phase == 1:
+                self.bracket_anim_timer = 9.0
+            elif self.bracket_anim_phase == 2:
+                self.bracket_anim_timer = 9.0
+            return True
+
+        # 호위무사 생포 알림 (2.5초) — 완료 전에도 스킵 가능
+        if self.state == TournamentState.GUARD_NOTIFY:
+            if self.guard_notify_progress < 1.0:
+                self.guard_notify_timer = 9.0
+                return True
+            # 완료 후 진행은 기존 로직 (하이라이트 버튼 등)
+            self._advance_from_guard_notify()
+            return True
+
+        # 포획 실패 도망 알림 (3.0초)
+        if self.state == TournamentState.ESCAPE_NOTIFY:
+            if self.escape_notify_progress < 1.0:
+                self.escape_notify_timer = 9.0
+                return True
+            self._advance_from_escape_notify()
+            return True
+
+        # 하수인 생포 알림 (2.5초)
+        if self.state == TournamentState.HENCHMAN_NOTIFY:
+            if self.henchman_notify_progress < 1.0:
+                self.henchman_notify_timer = 9.0
+                return True
+            self._do_start_perk_select()
+            return True
+
+        # 반칙왕 재시도 대기 (2.0초)
+        if self.state == TournamentState.TENACITY_RETRY:
+            self.tenacity_timer = 9.0
+            return True
+
+        # VS 프리뷰 (2.0초, 버튼 없는 모드)
+        if self.state == TournamentState.VS_PREVIEW:
+            if not getattr(self, 'vs_preview_show_buttons', False):
+                self.vs_preview_timer = 9.0
+                return True
+            return False
+
+        return False
 
     def _handle_click(self, pos: Tuple[int, int]):
         """클릭 처리"""
