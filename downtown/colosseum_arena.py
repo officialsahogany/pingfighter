@@ -10583,6 +10583,10 @@ class ColosseumsArena:
         """타이머 기반 애니메이션을 즉시 완료시키는 스킵 처리.
         스킵 처리됐으면 True 반환."""
 
+        # 하이라이트 리플레이 중에는 스킵 처리하지 않음 (기존 핸들러가 처리)
+        if self.state == TournamentState.HIGHLIGHT_REPLAY:
+            return False
+
         # 매치 공개 카드 플립 (1.2초)
         if self.state == TournamentState.MATCH_REVEAL:
             self.match_reveal_timer = 9.0  # 다음 update()에서 즉시 완료
@@ -10647,7 +10651,9 @@ class ColosseumsArena:
             if self.guard_notify_progress < 1.0:
                 self.guard_notify_timer = 9.0
                 return True
-            # 완료 후 진행은 기존 로직 (하이라이트 버튼 등)
+            # 완료 후: 하이라이트 클립이 있으면 스킵하지 않고 클릭 처리에 맡김
+            if self.highlight_recorder and self.highlight_recorder.has_clips():
+                return False  # _handle_click에서 하이라이트 버튼 처리
             self._advance_from_guard_notify()
             return True
 
@@ -10656,6 +10662,9 @@ class ColosseumsArena:
             if self.escape_notify_progress < 1.0:
                 self.escape_notify_timer = 9.0
                 return True
+            # 완료 후: 하이라이트 클립이 있으면 스킵하지 않고 클릭 처리에 맡김
+            if self.highlight_recorder and self.highlight_recorder.has_clips():
+                return False
             self._advance_from_escape_notify()
             return True
 
