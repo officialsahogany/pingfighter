@@ -47128,10 +47128,10 @@ heart_beam_projectile = None         # {"x","y","vx","vy","size","trail"} or Non
 HEART_BEAM_SPEED = 9.0               # 빠르지만 피할 수 있는 속도
 HEART_BEAM_SIZE = 12                 # 하트 크기
 HEART_BEAM_HIT_RADIUS = 18          # 충돌 판정
-# 하트 빔 넉백 시스템 (피격 시 0.7초간 3번 탁탁탁 넉백)
+# 하트 빔 넉백 시스템 (피격 시 1.2초간 3번 탁탁탁 넉백)
 heart_beam_knockback_active = False
 heart_beam_knockback_timer = 0
-HEART_BEAM_KNOCKBACK_DURATION = 42   # 0.7초 (42프레임)
+HEART_BEAM_KNOCKBACK_DURATION = 72   # 1.2초 (72프레임)
 heart_beam_knockback_schedule = []   # [(프레임, 방향px), ...] 3번 넉백 스케줄
 heart_beam_trail = []                # 빔 잔상 트레일
 
@@ -77442,7 +77442,7 @@ def _trigger_heart_beam_knockback():
     heart_beam_knockback_schedule = []
     prev_dir = 0
     for i in range(3):
-        frame = i * 14  # 0, 14, 28 (0초, 0.23초, 0.47초)
+        frame = i * 24  # 0, 24, 48 (0초, 0.4초, 0.8초)
         # 이전과 다른 방향으로 넉백 (좌우 번갈아)
         direction = random.choice([-1, 1]) if prev_dir == 0 else -prev_dir
         prev_dir = direction
