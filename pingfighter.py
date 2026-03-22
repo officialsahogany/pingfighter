@@ -77035,27 +77035,14 @@ def update_cotton_throw():
 
 
 def _trigger_cotton_fog(hit_x, hit_y):
-    """솜뭉치 명중 시 화면 암전 (블랙아웃) + 연기 파티클 발동"""
+    """솜뭉치 명중 시 화면 암전 (블랙아웃) 발동"""
     global cotton_blackout_active, cotton_blackout_timer
     cotton_blackout_active = True
     cotton_blackout_timer = COTTON_BLACKOUT_DURATION
-    # ★ 연기 파티클 생성 (피격 지점에서 뭉게뭉게 퍼짐)
-    for _ in range(18):
-        angle = random.uniform(0, math.pi * 2)
-        spd = random.uniform(0.5, 2.5)
-        cotton_whiteout_smoke.append({
-            "x": hit_x + random.uniform(-20, 20),
-            "y": hit_y + random.uniform(-20, 20),
-            "vx": math.cos(angle) * spd,
-            "vy": math.sin(angle) * spd - random.uniform(0.3, 1.2),
-            "size": random.uniform(20, 50),
-            "life": 1.0,
-            "decay": random.uniform(0.008, 0.015),
-        })
 
 
 def draw_cotton_throw_effect(screen):
-    """솜뭉치 투척 렌더링 (캐싱 + 연기 파티클 화이트아웃)"""
+    """솜뭉치 투척 전체 렌더링 (준비 모션 + 투사체 + 안개)"""
     # 1) 준비 모션
     if cotton_throw_windup_active and BOSS:
         progress = 1.0 - (cotton_throw_windup_timer / 30.0)
@@ -77067,31 +77054,41 @@ def draw_cotton_throw_effect(screen):
             ppx = bcx + math.cos(a) * d
             ppy = bcy + math.sin(a) * d
             sz = int(6 + 4 * progress)
-            glow = _get_glow_circle(sz, (255, 240, 230, int(150 * progress)))
-            screen.blit(glow, (int(ppx) - sz, int(ppy) - sz))
-    # 2) 비행 중인 솜뭉치 투사체 (캐싱)
+            al = int(150 * progress)
+            sf = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(sf, (255, 240, 230, al), (sz, sz), sz)
+            screen.blit(sf, (int(ppx) - sz, int(ppy) - sz))
+    # 2) 비행 중인 솜뭉치 투사체
     for proj in cotton_throw_projectiles:
         cx, cy = int(proj["x"]), int(proj["y"])
         sz = int(proj["size"])
         breath = 1.0 + math.sin(proj["wobble_phase"] * 2) * 0.1
-        draw_sz = max(6, int(sz * breath))
-        base = _get_cotton_ball(draw_sz)
-        ct = base.get_width() // 2
-        screen.blit(base, (cx - ct, cy - ct))
-        # 솜뭉치 주변 부드러운 글로우 (BLEND_ADD)
-        glow = _get_glow_circle(draw_sz + 6, (255, 220, 240, 35))
-        gr = glow.get_width() // 2
-        screen.blit(glow, (cx - gr, cy - gr), special_flags=pygame.BLEND_ADD)
-    # 3) 솜뭉치 화이트아웃 + 연기 파티클
+        draw_sz = int(sz * breath)
+        sf = pygame.Surface((draw_sz * 3, draw_sz * 3), pygame.SRCALPHA)
+        ct = draw_sz * 3 // 2
+        pygame.draw.circle(sf, (255, 200, 220, 120), (ct, ct), draw_sz + 4)
+        pygame.draw.circle(sf, (255, 250, 245, 200), (ct, ct), draw_sz)
+        pygame.draw.circle(sf, (255, 255, 255, 240), (ct - 3, ct - 3), max(1, draw_sz // 2))
+        for j in range(3):
+            fa = proj["wobble_phase"] + j * 2.1
+            fx = ct + int(math.cos(fa) * (draw_sz * 0.7))
+            fy = ct + int(math.sin(fa) * (draw_sz * 0.7))
+            pygame.draw.circle(sf, (255, 235, 240, 160), (fx, fy), max(1, draw_sz // 3))
+        screen.blit(sf, (cx - ct, cy - ct))
+    # 3) 솜뭉치 화이트아웃 효과
     if cotton_blackout_active and cotton_blackout_timer > 0:
         elapsed = COTTON_BLACKOUT_DURATION - cotton_blackout_timer
+        # 0~30프레임(0~0.5초): 완전 화이트 (alpha=255)
+        # 30~120프레임(0.5~2.0초): 점점 원래색으로 복귀 (alpha 255→0)
         if elapsed < COTTON_BLACKOUT_FULL_END:
+            # 완전 화이트 구간 (처음 5프레임은 급속 페이드인)
             if elapsed < 5:
                 alpha = int(255 * (elapsed / 5.0))
             else:
                 alpha = 255
         else:
-            fade_frames = COTTON_BLACKOUT_DURATION - COTTON_BLACKOUT_FULL_END
+            # 점진 복귀 구간 (0.5초~2초)
+            fade_frames = COTTON_BLACKOUT_DURATION - COTTON_BLACKOUT_FULL_END  # 90프레임
             fade_progress = (elapsed - COTTON_BLACKOUT_FULL_END) / fade_frames
             alpha = int(255 * (1.0 - fade_progress))
         alpha = max(0, min(255, alpha))
@@ -77099,25 +77096,6 @@ def draw_cotton_throw_effect(screen):
             whiteout_sf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
             whiteout_sf.fill((255, 255, 255, alpha))
             screen.blit(whiteout_sf, (0, 0))
-    # 4) 연기 파티클 렌더링 (뭉게뭉게 퍼지는 연기)
-    smoke_remove = []
-    for si, smoke in enumerate(cotton_whiteout_smoke):
-        smoke["x"] += smoke["vx"]
-        smoke["y"] += smoke["vy"]
-        smoke["vx"] *= 0.97
-        smoke["vy"] *= 0.97
-        smoke["size"] += 0.4  # 점점 커짐
-        smoke["life"] -= smoke["decay"]
-        if smoke["life"] <= 0:
-            smoke_remove.append(si)
-            continue
-        sa = int(120 * smoke["life"])
-        ssz = int(smoke["size"])
-        glow = _get_glow_circle(ssz, (255, 255, 255, min(255, sa)))
-        gr = glow.get_width() // 2
-        _blit_alpha(screen, glow, (int(smoke["x"]) - gr, int(smoke["y"]) - gr), sa)
-    for si in reversed(smoke_remove):
-        cotton_whiteout_smoke.pop(si)
 
 
 # =====================================================================
