@@ -464,6 +464,7 @@ class SpaceMap:
         2: '_draw_surface_jungle',
         3: '_draw_surface_menhera',
         4: '_draw_surface_temple',
+        30: '_draw_surface_colosseum',
     }
 
     def _draw_planet_surface(self, surf, planet_num, t, alpha=255):
