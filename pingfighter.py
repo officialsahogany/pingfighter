@@ -69659,7 +69659,7 @@ def handle_player(keys):
                 right_before_down = _cached_right_for_dash
                 # 스턴/감전 상태에서는 대쉬 불가
                 _player_stun_blocked = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
-                if left_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and dash_key_released_since_last and not _player_stun_blocked:
+                if left_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and dash_key_released_since_last and not _player_stun_blocked and not is_deadly_hug_dash_blocked():
                     # 아래키 + 왼쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -69922,7 +69922,7 @@ def handle_player(keys):
                 # 대쉬 감속 구간 캔슬 적용 (왼쪽 대쉬와 동일)
                 # 스턴/감전 상태에서는 대쉬 불가
                 _player_stun_blocked_r = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
-                if right_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last and not _player_stun_blocked_r:
+                if right_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last and not _player_stun_blocked_r and not is_deadly_hug_dash_blocked():
                     # 아래키 + 오른쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
