@@ -2081,13 +2081,15 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
             # 화면 크기에 맞게 스케일 (전체 너비를 확실히 채우도록)
             orig_w, orig_h = background_image.get_size()
             aspect_ratio = orig_h / orig_w
-            new_w = WIDTH
-            new_h = int(WIDTH * aspect_ratio)
+            # Ken Burns 효과를 위해 15% 여유 있게 스케일
+            KB_EXTRA = 1.15
+            new_w = int(WIDTH * KB_EXTRA)
+            new_h = int(new_w * aspect_ratio)
 
             # 높이가 화면보다 작으면 높이를 기준으로 재조정
-            if new_h < HEIGHT:
-                new_h = HEIGHT
-                new_w = int(HEIGHT / aspect_ratio)
+            if new_h < int(HEIGHT * KB_EXTRA):
+                new_h = int(HEIGHT * KB_EXTRA)
+                new_w = int(new_h / aspect_ratio)
 
             background_image = pygame.transform.smoothscale(background_image, (new_w, new_h))
             print(f"[Opening] 배경 이미지 로드 완료: {bg_path} ({new_w}x{new_h})")
@@ -2136,7 +2138,13 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
     paddle_projectiles = []
     screen_shake = 0
     flash_alpha = 0
-    
+    shake_offset_x = 0
+    shake_offset_y = 0
+
+    # 탁구공 임팩트 연출
+    pong_impact_balls = []
+    pong_impact_sparks = []
+
     clock = pygame.time.Clock()
     
     while True:
@@ -2155,15 +2163,42 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
                     return
                 # 안내 표시 이후에는 키 입력으로 특별 연출 시작
                 if show_press_key and not special_animation_active:
-                    play_intro_click_sound()  # 인트로 클릭 사운드 재생
+                    play_intro_click_sound()
                     special_animation_active = True
                     special_animation_timer = 0
+                    screen_shake = 30
+                    # 탁구공 임팩트 생성 (아래에서 로고를 향해 날아감)
+                    for _ in range(3):
+                        pong_impact_balls.append({
+                            'x': random.randint(WIDTH // 4, WIDTH * 3 // 4),
+                            'y': float(HEIGHT + 20),
+                            'target_y': logo_target_y,
+                            'vy': -random.uniform(18, 28),
+                            'vx': random.uniform(-3, 3),
+                            'size': random.randint(10, 18),
+                            'hit': False,
+                            'trail': [],
+                            'life': 180,
+                        })
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # 안내 표시 이후에는 클릭으로도 특별 연출 시작
                 if show_press_key and not special_animation_active:
-                    play_intro_click_sound()  # 인트로 클릭 사운드 재생
+                    play_intro_click_sound()
                     special_animation_active = True
                     special_animation_timer = 0
+                    screen_shake = 30
+                    for _ in range(3):
+                        pong_impact_balls.append({
+                            'x': random.randint(WIDTH // 4, WIDTH * 3 // 4),
+                            'y': float(HEIGHT + 20),
+                            'target_y': logo_target_y,
+                            'vy': -random.uniform(18, 28),
+                            'vx': random.uniform(-3, 3),
+                            'size': random.randint(10, 18),
+                            'hit': False,
+                            'trail': [],
+                            'life': 180,
+                        })
         
         # 1초 후에 "Press any key" 표시 시작
         if animation_timer > 60:  # 1초 = 60프레임 (60fps)
@@ -2180,9 +2215,9 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
                 if fade_alpha >= 255:
                     return  # 완전히 페이드 아웃되면 메뉴로
             
-            # 화면 흔들림 효과
-            screen_shake = int(10 * math.sin(special_animation_timer * 0.3))
-            
+            # 화면 흔들림 감쇠 (충격 후 서서히 줄어듦)
+            screen_shake = max(0, screen_shake * 0.90)
+
             # 플래시 효과
             if special_animation_timer % 120 < 10:
                 flash_alpha = 100
@@ -2241,12 +2276,14 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         # 화면 그리기 (검은색 배경)
         SCREEN.fill((0, 0, 0))  # 검은색 배경
 
-        # 배경 이미지 그리기 (main.jpg)
+        # 배경 이미지 그리기 (Ken Burns 효과 적용)
         if background_image is not None:
-            # 이미지가 화면보다 크면 중앙 정렬
             bg_w, bg_h = background_image.get_size()
-            bg_x = (WIDTH - bg_w) // 2
-            bg_y = (HEIGHT - bg_h) // 2
+            # Ken Burns: 느린 패닝 + 미세한 드리프트로 깊이감 부여
+            kb_pan_x = math.sin(animation_timer * 0.004) * 25
+            kb_pan_y = math.cos(animation_timer * 0.003) * 18
+            bg_x = (WIDTH - bg_w) // 2 + int(kb_pan_x)
+            bg_y = (HEIGHT - bg_h) // 2 + int(kb_pan_y)
             SCREEN.blit(background_image, (bg_x, bg_y))
             # 어두운 오버레이 (텍스트 가독성)
             dark_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -2359,9 +2396,85 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
                 else:
                     battle_particles.remove(particle)
             
-            # 화면 흔들림 효과 적용
-            shake_offset = (random.randint(-abs(screen_shake), abs(screen_shake)), 
-                           random.randint(-abs(screen_shake), abs(screen_shake)))
+            # 화면 흔들림 오프셋 계산
+            int_shake = max(1, int(screen_shake))
+            shake_offset_x = random.randint(-int_shake, int_shake)
+            shake_offset_y = random.randint(-int_shake, int_shake)
+
+        # 탁구공 임팩트 업데이트 및 렌더링
+        for ball in pong_impact_balls[:]:
+            ball['life'] -= 1
+            if ball['life'] <= 0:
+                pong_impact_balls.remove(ball)
+                continue
+
+            # 궤적 기록 (잔상용)
+            ball['trail'].append((ball['x'], ball['y']))
+            if len(ball['trail']) > 12:
+                ball['trail'].pop(0)
+
+            # 이동
+            ball['x'] += ball['vx']
+            ball['y'] += ball['vy']
+
+            # 로고 높이 도달 시 임팩트 발생
+            if not ball['hit'] and ball['y'] <= ball['target_y']:
+                ball['hit'] = True
+                ball['vy'] = -ball['vy'] * 0.4  # 튕김
+                screen_shake = max(screen_shake, 20)  # 추가 흔들림
+                # 임팩트 스파크 대량 생성
+                for _ in range(25):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(3, 14)
+                    pong_impact_sparks.append({
+                        'x': ball['x'],
+                        'y': ball['y'],
+                        'dx': math.cos(angle) * speed,
+                        'dy': math.sin(angle) * speed,
+                        'life': random.randint(20, 50),
+                        'size': random.randint(2, 6),
+                        'color': random.choice([
+                            (255, 255, 255), (255, 220, 80),
+                            (255, 160, 60), (100, 200, 255),
+                        ]),
+                    })
+            elif ball['hit']:
+                ball['vy'] += 0.8  # 중력
+
+            # 잔상 그리기
+            for i, (tx, ty) in enumerate(ball['trail']):
+                t = i / max(1, len(ball['trail']))
+                trail_alpha = int(120 * t)
+                trail_size = max(1, int(ball['size'] * t * 0.7))
+                ts = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ts, (255, 255, 255, trail_alpha), (trail_size, trail_size), trail_size)
+                SCREEN.blit(ts, (int(tx) - trail_size, int(ty) - trail_size))
+
+            # 탁구공 본체
+            bs = ball['size']
+            ball_surf = pygame.Surface((bs * 2, bs * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ball_surf, (255, 255, 255), (bs, bs), bs)
+            # 탁구공 특유의 줄무늬
+            pygame.draw.arc(ball_surf, (200, 200, 200), (2, 2, bs * 2 - 4, bs * 2 - 4),
+                            0.3, 2.8, 2)
+            SCREEN.blit(ball_surf, (int(ball['x']) - bs, int(ball['y']) - bs))
+
+        # 임팩트 스파크 렌더링
+        for spark in pong_impact_sparks[:]:
+            spark['x'] += spark['dx']
+            spark['y'] += spark['dy']
+            spark['dy'] += 0.3  # 중력
+            spark['dx'] *= 0.97  # 감속
+            spark['life'] -= 1
+            if spark['life'] > 0:
+                alpha = int(255 * (spark['life'] / 50))
+                sz = max(1, spark['size'])
+                ss = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                c = spark['color']
+                pygame.draw.circle(ss, (*c, alpha), (sz, sz), sz)
+                SCREEN.blit(ss, (int(spark['x']) - sz, int(spark['y']) - sz))
+            else:
+                pong_impact_sparks.remove(spark)
         
         # 배경에 움직이는 파티클 효과 (간단하게)
         if animation_timer % 10 == 0:
@@ -2576,7 +2689,7 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         
         # 화면 흔들림 효과 적용
         if special_animation_active:
-            logo_rect = scaled_logo.get_rect(center=(WIDTH // 2 + shake_offset[0], logo_y + shake_offset[1]))
+            logo_rect = scaled_logo.get_rect(center=(WIDTH // 2 + shake_offset_x, logo_y + shake_offset_y))
         else:
             logo_rect = scaled_logo.get_rect(center=(WIDTH // 2, logo_y))
         
@@ -2614,22 +2727,22 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
             fade_surface.set_alpha(fade_alpha)
             SCREEN.blit(fade_surface, (0, 0))
         
-        # "Press any key" 문구 (3초 후에 나타남)
+        # "Press any key" 문구 (사인파 숨쉬기 효과)
         if show_press_key and not special_animation_active:
             try:
                 font_small = pygame.font.Font(resource_path("NanumSquareR.ttf"), 24)
             except:
                 font_small = pygame.font.Font(None, 24)
-            
-            # 깜빡이는 효과
-            if animation_timer % 60 < 30:
-                from localization.manager import get_localization_manager
-                press_text = font_small.render(get_localization_manager().get_text("opening.press_any_key", "아무 키나 누르세요"), True, (200, 200, 200))
-                press_surface = pygame.Surface((WIDTH, 50), pygame.SRCALPHA)
-                press_surface.fill((0, 0, 0, press_key_alpha))
-                press_rect = press_text.get_rect(center=(WIDTH // 2, HEIGHT - 80))
-                press_surface.blit(press_text, press_rect)
-                SCREEN.blit(press_surface, (0, HEIGHT - 100))
+
+            # 사인파 펄스: 알파가 80~255 사이를 부드럽게 오감
+            pulse_alpha = int(80 + 175 * ((math.sin(animation_timer * 0.07) + 1) / 2))
+            from localization.manager import get_localization_manager
+            press_text = font_small.render(
+                get_localization_manager().get_text("opening.press_any_key", "아무 키나 누르세요"),
+                True, (200, 200, 200))
+            press_text.set_alpha(pulse_alpha)
+            press_rect = press_text.get_rect(center=(WIDTH // 2, HEIGHT - 80))
+            SCREEN.blit(press_text, press_rect)
         
         # 파티클 업데이트 및 그리기
         # 배경 파티클
@@ -2717,5 +2830,15 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
             else:
                 fuzzy_stars.remove(star)
         
+        # 전체 화면 흔들림 효과 (screen_shake > 0.5일 때)
+        if screen_shake > 0.5:
+            int_shake = max(1, int(screen_shake))
+            sx = random.randint(-int_shake, int_shake)
+            sy = random.randint(-int_shake, int_shake)
+            # 현재 화면을 복사 → 검은 배경 위에 오프셋 적용하여 다시 그리기
+            frame_copy = SCREEN.copy()
+            SCREEN.fill((0, 0, 0))
+            SCREEN.blit(frame_copy, (sx, sy))
+
         pygame.display.flip()
-        clock.tick(60) 
+        clock.tick(60)
