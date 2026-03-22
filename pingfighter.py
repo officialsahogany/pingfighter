@@ -47128,10 +47128,10 @@ heart_beam_projectile = None         # {"x","y","vx","vy","size","trail"} or Non
 HEART_BEAM_SPEED = 9.0               # 빠르지만 피할 수 있는 속도
 HEART_BEAM_SIZE = 12                 # 하트 크기
 HEART_BEAM_HIT_RADIUS = 18          # 충돌 판정
-# 하트 빔 넉백 시스템 (피격 시 0.5초간 3번 탁탁탁 넉백)
+# 하트 빔 넉백 시스템 (피격 시 0.7초간 3번 탁탁탁 넉백)
 heart_beam_knockback_active = False
 heart_beam_knockback_timer = 0
-HEART_BEAM_KNOCKBACK_DURATION = 30   # 0.5초 (30프레임)
+HEART_BEAM_KNOCKBACK_DURATION = 42   # 0.7초 (42프레임)
 heart_beam_knockback_schedule = []   # [(프레임, 방향px), ...] 3번 넉백 스케줄
 heart_beam_trail = []                # 빔 잔상 트레일
 
@@ -77437,12 +77437,15 @@ def _trigger_heart_beam_knockback():
     global heart_beam_knockback_schedule
     heart_beam_knockback_active = True
     heart_beam_knockback_timer = HEART_BEAM_KNOCKBACK_DURATION
-    # 3번 넉백: 0프레임, 10프레임, 20프레임에 각각 발동
+    # 3번 넉백: 0프레임, 14프레임, 28프레임에 각각 발동 (간격 넓혀서 탁-탁-탁 체감)
     heart_beam_knockback_schedule = []
+    prev_dir = 0
     for i in range(3):
-        frame = i * 10  # 0, 10, 20 (0초, 0.17초, 0.33초)
-        direction = random.choice([-1, 1])
-        strength = random.randint(35, 55)  # 넉백 거리 (px)
+        frame = i * 14  # 0, 14, 28 (0초, 0.23초, 0.47초)
+        # 이전과 다른 방향으로 넉백 (좌우 번갈아)
+        direction = random.choice([-1, 1]) if prev_dir == 0 else -prev_dir
+        prev_dir = direction
+        strength = random.randint(60, 85)  # 넉백 거리 강화 (px)
         heart_beam_knockback_schedule.append({
             "frame": frame,
             "direction": direction,
@@ -77478,6 +77481,9 @@ def update_button_eye():
                     # 게임 영역 내로 클램핑
                     new_x = max(GAME_AREA_OFFSET_X, min(new_x, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width))
                     PLAYER.x = new_x
+                    # 넉백마다 화면 흔들림
+                    screen_shake_timer = max(screen_shake_timer, 6)
+                    screen_shake_intensity = max(screen_shake_intensity, 5)
         heart_beam_knockback_timer -= 1
         if heart_beam_knockback_timer <= 0:
             heart_beam_knockback_active = False
