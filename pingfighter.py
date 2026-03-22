@@ -47134,6 +47134,7 @@ heart_beam_knockback_timer = 0
 HEART_BEAM_KNOCKBACK_DURATION = 72   # 1.2초 (72프레임)
 heart_beam_knockback_schedule = []   # [(프레임, 방향px), ...] 3번 넉백 스케줄
 heart_beam_trail = []                # 빔 잔상 트레일
+heart_beam_slap_particles = []       # 싸대기 하트 파편 파티클
 
 # 각시탈 부채바람 스킬 (소용돌이)
 fan_wind_active = False
@@ -77492,6 +77493,34 @@ def update_button_eye():
                         slap_snd.play()
                     except Exception:
                         pass
+                    # 하트 파편 파티클 생성 (6~10개)
+                    px, py = PLAYER.centerx, PLAYER.centery - 5
+                    for _ in range(random.randint(6, 10)):
+                        angle = random.uniform(0, math.pi * 2)
+                        spd = random.uniform(2.0, 5.5)
+                        heart_beam_slap_particles.append({
+                            "x": float(px), "y": float(py),
+                            "vx": math.cos(angle) * spd + kb["direction"] * 2.0,
+                            "vy": math.sin(angle) * spd - random.uniform(1.0, 3.0),
+                            "life": 1.0,
+                            "size": random.randint(3, 6),
+                            "color": random.choice([
+                                (255, 100, 150), (255, 140, 180), (255, 80, 130),
+                                (255, 170, 200), (255, 60, 120),
+                            ]),
+                        })
+        # 하트 파편 파티클 업데이트
+        remove_idx = []
+        for pi, p in enumerate(heart_beam_slap_particles):
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] += 0.15  # 중력
+            p["vx"] *= 0.96  # 감속
+            p["life"] -= 0.04
+            if p["life"] <= 0:
+                remove_idx.append(pi)
+        for pi in reversed(remove_idx):
+            heart_beam_slap_particles.pop(pi)
         heart_beam_knockback_timer -= 1
         if heart_beam_knockback_timer <= 0:
             heart_beam_knockback_active = False
@@ -77621,6 +77650,24 @@ def draw_button_eye_effect(screen):
                             (hc - sz, hc), (hc + sz, hc), (hc, hc + sz)
                         ])
                         screen.blit(hs, (hx - hc, hy - hc))
+
+    # 4) 하트 파편 파티클 렌더링
+    for p in heart_beam_slap_particles:
+        alpha = int(255 * max(0, p["life"]))
+        sz = p["size"]
+        if sz < 1 or alpha < 10:
+            continue
+        ps = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
+        pc = sz * 3 // 2
+        lb = max(1, int(sz * 0.45))
+        c = (*p["color"], alpha)
+        # 미니 하트 모양
+        pygame.draw.circle(ps, c, (pc - lb, pc - lb), lb)
+        pygame.draw.circle(ps, c, (pc + lb, pc - lb), lb)
+        pygame.draw.polygon(ps, c, [
+            (pc - sz, pc), (pc + sz, pc), (pc, pc + sz)
+        ])
+        screen.blit(ps, (int(p["x"]) - pc, int(p["y"]) - pc))
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
