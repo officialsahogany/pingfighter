@@ -2013,11 +2013,9 @@ class IntroCutscene:
             text_color=(255, 80, 80)  # 빨간색
         )
 
-        # 차 BGM 정지 (fadeout 대신 즉시 stop - 다음 BGM 재생 충돌 방지)
+        # 차 BGM 정지 (비동기 페이드아웃 — show_opening_animation이 music.stop() 호출)
         try:
             pygame.mixer.music.fadeout(800)
-            pygame.time.wait(850)  # 페이드아웃 완료 대기
-            pygame.mixer.music.stop()
         except Exception:
             try:
                 pygame.mixer.music.stop()
@@ -2034,6 +2032,22 @@ def show_intro_cutscene(screen, width, height):
 # ============================================================
 # 기존 코드 시작
 # ============================================================
+
+
+# ------------------------------------------------------------
+# 이징 유틸리티 (Easing Utilities)
+# ------------------------------------------------------------
+def _ease_out_cubic(t: float) -> float:
+    """t ∈ [0,1] → ease-out cubic (빠르게 시작, 부드럽게 감속)"""
+    return 1.0 - (1.0 - t) ** 3
+
+def _ease_in_out_sine(t: float) -> float:
+    """t ∈ [0,1] → ease-in-out sine (양쪽 끝에서 부드럽게)"""
+    return -(math.cos(math.pi * t) - 1.0) / 2.0
+
+def _ease_out_expo(t: float) -> float:
+    """t ∈ [0,1] → ease-out expo (급출발, 완만한 착지)"""
+    return 1.0 if t >= 1.0 else 1.0 - 2.0 ** (-10.0 * t)
 
 
 # 인트로 클릭 사운드 로드
@@ -2063,782 +2077,585 @@ def play_intro_click_sound():
 
 
 def show_opening_animation(SCREEN, WIDTH, HEIGHT):
-    """게임 오프닝 애니메이션 - 간단한 버전"""
-    # 이전 BGM 완전 정지 후 인트로 BGM 재생
-    # (인트로 컷씬의 fadeout이 남아있을 수 있으므로 명시적 stop 필요)
+    """게임 오프닝 애니메이션 — 상태 기계(State Machine) 구조, 이징 보간, 렌더 버퍼 최적화"""
+
+    # ── BGM ──
     try:
         pygame.mixer.music.stop()
     except Exception:
         pass
     bgm_manager.play_intro_bgm()
 
-    # 배경 이미지 로드 (main.jpg)
+    # ── 배경 이미지 로드 (Ken Burns 여유분 15%) ──
     background_image = None
     try:
         bg_path = resource_path("main.jpg")
         if os.path.exists(bg_path):
             background_image = pygame.image.load(bg_path).convert()
-            # 화면 크기에 맞게 스케일 (전체 너비를 확실히 채우도록)
             orig_w, orig_h = background_image.get_size()
-            aspect_ratio = orig_h / orig_w
-            # Ken Burns 효과를 위해 15% 여유 있게 스케일
+            aspect = orig_h / orig_w
             KB_EXTRA = 1.15
             new_w = int(WIDTH * KB_EXTRA)
-            new_h = int(new_w * aspect_ratio)
-
-            # 높이가 화면보다 작으면 높이를 기준으로 재조정
+            new_h = int(new_w * aspect)
             if new_h < int(HEIGHT * KB_EXTRA):
                 new_h = int(HEIGHT * KB_EXTRA)
-                new_w = int(new_h / aspect_ratio)
-
+                new_w = int(new_h / aspect)
             background_image = pygame.transform.smoothscale(background_image, (new_w, new_h))
-            print(f"[Opening] 배경 이미지 로드 완료: {bg_path} ({new_w}x{new_h})")
-    except Exception as e:
-        print(f"[Opening] 배경 이미지 로드 실패: {e}")
+    except Exception:
         background_image = None
 
-    # 애니메이션 상태 변수들
-    animation_timer = 0
-    fade_alpha = 0
-    text_alpha = 0
-    logo_scale = 0.1
-    logo_y = HEIGHT // 2
-    logo_target_y = HEIGHT // 3
-    
-    # 텍스트 애니메이션
-    typing_text = ""
+    # ── 폰트 (루프 밖 1회 로드) ──
+    try:
+        font_large = pygame.font.Font(resource_path("NanumSquareB.ttf"), 72)
+    except Exception:
+        font_large = pygame.font.Font(None, 72)
+    try:
+        font_medium = pygame.font.Font(resource_path("NanumSquareR.ttf"), 32)
+    except Exception:
+        font_medium = pygame.font.Font(None, 32)
+    try:
+        font_small = pygame.font.Font(resource_path("NanumSquareR.ttf"), 24)
+    except Exception:
+        font_small = pygame.font.Font(None, 24)
+
     from localization.manager import get_localization_manager
-    full_text = get_localization_manager().get_text("opening.title", "핑파이터")
+    _loc = get_localization_manager()
+    full_text = _loc.get_text("opening.title", "핑파이터")
+    subtitle_str = _loc.get_text("opening.subtitle", "핑퐁으로 보스를 물리쳐라!")
+    press_key_str = _loc.get_text("opening.press_any_key", "아무 키나 누르세요")
+
+    # ── 상태 기계 (State Machine) ──
+    ST_INTRO_WAIT = 0      # 로고 등장 + Press any key 대기
+    ST_IMPACT_ACTION = 1   # 키/클릭 후 탁구공 임팩트 + 전투 이펙트
+    ST_FADE_OUT = 2        # 페이드 아웃 → return
+    current_state = ST_INTRO_WAIT
+
+    # ── 렌더 버퍼 (SCREEN.copy() 제거 최적화) ──
+    buf = pygame.Surface((WIDTH, HEIGHT))
+    # 재사용 오버레이 서피스 (매 프레임 할당 방지)
+    _overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+    # ── 타이머 / 보간 변수 ──
+    animation_timer = 0
+    special_animation_timer = 0
+    fade_out_timer = 0
+    fade_alpha = 0
+    screen_shake = 0.0
+    flash_alpha = 0
+
+    # 로고 이징 파라미터
+    LOGO_SCALE_FRAMES = 108   # ~1.8s
+    LOGO_Y_FRAMES = 120       # 2s
+    logo_start_y = HEIGHT // 2
+    logo_target_y = HEIGHT // 3
+
+    # 텍스트 타이핑
+    typing_text = ""
     typing_speed = 0.1
-    typing_timer = 0
-    
-    # 파티클 효과
+    typing_timer = 0.0
+
+    # ── 파티클 컨테이너 ──
     particles = []
     sparkle_particles = []
-    shooting_stars = []  # 별똥별
-    fuzzy_stars = []     # 뿌연 별들
-    
-    # 이펙트 변수들
-    glow_intensity = 0
-    rotation_angle = 0
-    
-    # 3초 후에 "Press any key" 표시
-    show_press_key = False
-    press_key_alpha = 0
-    
-    # 10초 이상 대기 시 특별 애니메이션
-    idle_timer = 0
-    special_animation_active = False
-    special_animation_timer = 0
-    
-    # 특별 애니메이션용 변수들
+    shooting_stars = []
+    fuzzy_stars = []
     battle_particles = []
     energy_waves = []
     boss_shadows = []
     paddle_projectiles = []
-    screen_shake = 0
-    flash_alpha = 0
-    shake_offset_x = 0
-    shake_offset_y = 0
-
-    # 탁구공 임팩트 연출
     pong_impact_balls = []
     pong_impact_sparks = []
 
+    # ── 환경 파티클: 먼지 입자 (Dust Motes) ──
+    dust_motes = []
+    for _ in range(35):
+        dust_motes.append({
+            'x': random.uniform(0, WIDTH), 'y': random.uniform(0, HEIGHT),
+            'dx': random.uniform(-0.3, 0.3), 'dy': random.uniform(-0.25, -0.04),
+            'size': random.uniform(1, 3),
+            'alpha': random.randint(25, 70),
+            'phase': random.uniform(0, math.pi * 2),
+        })
+
+    # ── 환경 파티클: 빛내림 (God Rays) ──
+    god_rays = []
+    for _ in range(4):
+        god_rays.append({
+            'x': random.uniform(WIDTH * 0.1, WIDTH * 0.9),
+            'width': random.uniform(40, 100),
+            'alpha': random.uniform(8, 18),
+            'phase': random.uniform(0, math.pi * 2),
+        })
+
+    # ── 탁구공 스폰 헬퍼 ──
+    def _spawn_pong_balls():
+        for _ in range(3):
+            pong_impact_balls.append({
+                'x': random.randint(WIDTH // 4, WIDTH * 3 // 4),
+                'y': float(HEIGHT + 20),
+                'target_y': logo_target_y,
+                'vy': -random.uniform(18, 28),
+                'vx': random.uniform(-3, 3),
+                'size': random.randint(10, 18),
+                'hit': False, 'trail': [], 'life': 180,
+            })
+
     clock = pygame.time.Clock()
-    
+
+    # ====================================================================
+    #                         메인 루프
+    # ====================================================================
     while True:
+        dt_ms = clock.tick(60)
         animation_timer += 1
         typing_timer += typing_speed
 
-        # 단일 이벤트 수집(프레임당 1회) 후 처리: ESC만 즉시 스킵, 그 외 입력은 연출 트리거
-        events = pygame.event.get()
-        for event in events:
+        # ── 1) 이벤트 처리 ──
+        for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type == pygame.KEYDOWN:
-                # ESC는 즉시 스킵 허용
-                if event.key == pygame.K_ESCAPE:
-                    return
-                # 안내 표시 이후에는 키 입력으로 특별 연출 시작
-                if show_press_key and not special_animation_active:
-                    play_intro_click_sound()
-                    special_animation_active = True
-                    special_animation_timer = 0
-                    screen_shake = 30
-                    # 탁구공 임팩트 생성 (아래에서 로고를 향해 날아감)
-                    for _ in range(3):
-                        pong_impact_balls.append({
-                            'x': random.randint(WIDTH // 4, WIDTH * 3 // 4),
-                            'y': float(HEIGHT + 20),
-                            'target_y': logo_target_y,
-                            'vy': -random.uniform(18, 28),
-                            'vx': random.uniform(-3, 3),
-                            'size': random.randint(10, 18),
-                            'hit': False,
-                            'trail': [],
-                            'life': 180,
-                        })
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                # 안내 표시 이후에는 클릭으로도 특별 연출 시작
-                if show_press_key and not special_animation_active:
-                    play_intro_click_sound()
-                    special_animation_active = True
-                    special_animation_timer = 0
-                    screen_shake = 30
-                    for _ in range(3):
-                        pong_impact_balls.append({
-                            'x': random.randint(WIDTH // 4, WIDTH * 3 // 4),
-                            'y': float(HEIGHT + 20),
-                            'target_y': logo_target_y,
-                            'vy': -random.uniform(18, 28),
-                            'vx': random.uniform(-3, 3),
-                            'size': random.randint(10, 18),
-                            'hit': False,
-                            'trail': [],
-                            'life': 180,
-                        })
-        
-        # 1초 후에 "Press any key" 표시 시작
-        if animation_timer > 60:  # 1초 = 60프레임 (60fps)
-            show_press_key = True
-            press_key_alpha = min(255, press_key_alpha + 3)
-        
-        # 특별 애니메이션 중일 때
-        if special_animation_active:
-            special_animation_timer += 1
-            
-            # 1.5초(90프레임) 후에 페이드 아웃 시작
-            if special_animation_timer > 90:
-                fade_alpha = min(255, fade_alpha + 5)
-                if fade_alpha >= 255:
-                    return  # 완전히 페이드 아웃되면 메뉴로
-            
-            # 화면 흔들림 감쇠 (충격 후 서서히 줄어듦)
-            screen_shake = max(0, screen_shake * 0.90)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return
 
-            # 플래시 효과
+            if current_state == ST_INTRO_WAIT and animation_timer > 60:
+                triggered = False
+                if event.type == pygame.KEYDOWN and event.key != pygame.K_ESCAPE:
+                    triggered = True
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    triggered = True
+                if triggered:
+                    play_intro_click_sound()
+                    current_state = ST_IMPACT_ACTION
+                    special_animation_timer = 0
+                    screen_shake = 30.0
+                    _spawn_pong_balls()
+
+        # ── 2) 상태 업데이트 ──
+        if current_state == ST_IMPACT_ACTION:
+            special_animation_timer += 1
+            screen_shake = max(0.0, screen_shake * 0.90)
+            # 플래시
             if special_animation_timer % 120 < 10:
                 flash_alpha = 100
             else:
                 flash_alpha = max(0, flash_alpha - 5)
-            
             # 전투 파티클 생성
             if special_animation_timer % 5 == 0:
                 for _ in range(3):
                     battle_particles.append({
-                        'x': random.randint(0, WIDTH),
-                        'y': random.randint(0, HEIGHT),
-                        'dx': random.uniform(-8, 8),
-                        'dy': random.uniform(-8, 8),
-                        'life': 120,
-                        'size': random.randint(3, 8),
-                        'color': random.choice([(255, 100, 100), (100, 100, 255), (255, 255, 100), (255, 100, 255)])
+                        'x': random.randint(0, WIDTH), 'y': random.randint(0, HEIGHT),
+                        'dx': random.uniform(-8, 8), 'dy': random.uniform(-8, 8),
+                        'life': 120, 'size': random.randint(3, 8),
+                        'color': random.choice([(255,100,100),(100,100,255),(255,255,100),(255,100,255)])
                     })
-            
-            # 에너지 웨이브 생성
             if special_animation_timer % 60 == 0:
                 energy_waves.append({
-                    'x': WIDTH // 2,
-                    'y': HEIGHT // 2,
-                    'radius': 0,
-                    'max_radius': WIDTH,
-                    'speed': 15,
-                    'life': 180,
-                    'alpha': 255
+                    'x': WIDTH//2, 'y': HEIGHT//2, 'radius': 0,
+                    'max_radius': WIDTH, 'speed': 15, 'life': 180, 'alpha': 255
                 })
-            
-            # 보스 그림자 생성
             if special_animation_timer % 180 == 0:
                 boss_shadows.append({
-                    'x': random.randint(100, WIDTH - 100),
-                    'y': random.randint(100, HEIGHT - 100),
-                    'size': random.randint(50, 150),
-                    'life': 300,
-                    'alpha': 255,
-                    'rotation': 0
+                    'x': random.randint(100, WIDTH-100), 'y': random.randint(100, HEIGHT-100),
+                    'size': random.randint(50,150), 'life': 300, 'alpha': 255, 'rotation': 0
                 })
-            
-            # 패들 발사체 생성
             if special_animation_timer % 30 == 0:
                 paddle_projectiles.append({
-                    'x': random.randint(0, WIDTH),
-                    'y': HEIGHT,
-                    'dx': random.uniform(-5, 5),
-                    'dy': random.uniform(-15, -8),
-                    'life': 180,
-                    'size': random.randint(5, 15)
+                    'x': random.randint(0, WIDTH), 'y': HEIGHT,
+                    'dx': random.uniform(-5,5), 'dy': random.uniform(-15,-8),
+                    'life': 180, 'size': random.randint(5,15)
                 })
-        
-        # 추가 이벤트 처리는 위 단일 루프에서 처리함 (중복 소비 방지)
+            # 1.5초 후 페이드 아웃 상태로 전환
+            if special_animation_timer > 90:
+                current_state = ST_FADE_OUT
+                fade_out_timer = 0
 
-        # 화면 그리기 (검은색 배경)
-        SCREEN.fill((0, 0, 0))  # 검은색 배경
+        if current_state == ST_FADE_OUT:
+            special_animation_timer += 1
+            fade_out_timer += 1
+            screen_shake = max(0.0, screen_shake * 0.90)
+            flash_alpha = max(0, flash_alpha - 5)
+            # 이징 페이드 아웃 (ease-out-cubic)
+            fade_t = min(1.0, fade_out_timer / 51.0)
+            fade_alpha = int(255 * _ease_out_cubic(fade_t))
+            if fade_alpha >= 255:
+                return
+            # 전투 파티클 계속 생성 (잔여 연출)
+            if special_animation_timer % 8 == 0:
+                battle_particles.append({
+                    'x': random.randint(0, WIDTH), 'y': random.randint(0, HEIGHT),
+                    'dx': random.uniform(-6,6), 'dy': random.uniform(-6,6),
+                    'life': 80, 'size': random.randint(2,6),
+                    'color': random.choice([(255,100,100),(100,100,255),(255,255,100)])
+                })
 
-        # 배경 이미지 그리기 (Ken Burns 효과 적용)
-        if background_image is not None:
-            bg_w, bg_h = background_image.get_size()
-            # Ken Burns: 느린 패닝 + 미세한 드리프트로 깊이감 부여
-            kb_pan_x = math.sin(animation_timer * 0.004) * 25
-            kb_pan_y = math.cos(animation_timer * 0.003) * 18
-            bg_x = (WIDTH - bg_w) // 2 + int(kb_pan_x)
-            bg_y = (HEIGHT - bg_h) // 2 + int(kb_pan_y)
-            SCREEN.blit(background_image, (bg_x, bg_y))
-            # 어두운 오버레이 (텍스트 가독성)
-            dark_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            dark_overlay.fill((0, 0, 0, 120))
-            SCREEN.blit(dark_overlay, (0, 0))
-        else:
-            # 배경 이미지가 없으면 기존 그라데이션 사용
-            for y in range(HEIGHT):
-                color_ratio = y / HEIGHT
-                time_factor = math.sin(animation_timer * 0.02) * 0.3 + 0.7
-                r = int(10 + color_ratio * 100 * time_factor)
-                g = int(20 + color_ratio * 150 * time_factor)
-                b = int(40 + color_ratio * 180 * time_factor)
-                pygame.draw.line(SCREEN, (r, g, b), (0, y), (WIDTH, y))
+        # ── 배경 파티클 생성 (모든 상태) ──
+        if animation_timer % 10 == 0:
+            for _ in range(2):
+                particles.append({'x': random.randint(0,WIDTH), 'y': random.randint(0,HEIGHT),
+                                  'dx': random.uniform(-1,1), 'dy': random.uniform(-1,1), 'life': 60, 'size': 2})
+        if animation_timer % 120 == 0:
+            shooting_stars.append({
+                'x': random.randint(0,WIDTH), 'y': random.randint(0,HEIGHT//3),
+                'dx': random.uniform(3,6), 'dy': random.uniform(2,4),
+                'life': 120, 'size': random.randint(2,4), 'trail_length': random.randint(20,40)})
+        if animation_timer % 180 == 0:
+            for _ in range(random.randint(1,3)):
+                fuzzy_stars.append({
+                    'x': random.randint(0,WIDTH), 'y': random.randint(0,HEIGHT),
+                    'life': 300, 'size': random.randint(4,8), 'fade_speed': random.uniform(0.5,1.5), 'alpha': 255})
+        if animation_timer % 15 == 0:
+            for _ in range(3):
+                sparkle_particles.append({'x': random.randint(0,WIDTH), 'y': random.randint(0,HEIGHT), 'life': 60, 'size': 3})
 
-        # 특별 애니메이션 중일 때 배경을 더 어둡게
-        if special_animation_active:
-            dark_special = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            dark_special.fill((10, 5, 15, 180))
-            SCREEN.blit(dark_special, (0, 0))
-        
-        # 특별 애니메이션 중일 때만 특별 효과들 그리기
-        if special_animation_active:
-            # 에너지 웨이브 그리기
-            for wave in energy_waves[:]:
-                wave['radius'] += wave['speed']
-                wave['alpha'] = int(255 * (1 - wave['radius'] / wave['max_radius']))
-                
-                if wave['alpha'] > 0 and wave['radius'] < wave['max_radius']:
-                    wave_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                    pygame.draw.circle(wave_surface, (100, 200, 255, wave['alpha']), 
-                                     (wave['x'], wave['y']), wave['radius'], 5)
-                    SCREEN.blit(wave_surface, (0, 0))
-                else:
-                    energy_waves.remove(wave)
-            
-            # 보스 그림자 그리기
-            for shadow in boss_shadows[:]:
-                shadow['life'] -= 2
-                shadow['alpha'] = int(255 * (shadow['life'] / 300))
-                shadow['rotation'] += 2
-                
-                if shadow['alpha'] > 0:
-                    shadow_surface = pygame.Surface((shadow['size'] * 2, shadow['size'] * 2), pygame.SRCALPHA)
-                    
-                    # 보스 형태 그리기 (간단한 실루엣)
-                    center = (shadow['size'], shadow['size'])
-                    
-                    # 몸체
-                    pygame.draw.ellipse(shadow_surface, (100, 0, 100, shadow['alpha']), 
-                                      (shadow['size']//4, shadow['size']//4, shadow['size']//2, shadow['size']//2))
-                    
-                    # 눈
-                    eye_size = shadow['size'] // 8
-                    pygame.draw.circle(shadow_surface, (255, 0, 0, shadow['alpha']), 
-                                     (center[0] - eye_size, center[1] - eye_size), eye_size)
-                    pygame.draw.circle(shadow_surface, (255, 0, 0, shadow['alpha']), 
-                                     (center[0] + eye_size, center[1] - eye_size), eye_size)
-                    
-                    # 회전 적용
-                    rotated_shadow = pygame.transform.rotate(shadow_surface, shadow['rotation'])
-                    shadow_rect = rotated_shadow.get_rect(center=(shadow['x'], shadow['y']))
-                    SCREEN.blit(rotated_shadow, shadow_rect)
-                else:
-                    boss_shadows.remove(shadow)
-            
-            # 패들 발사체 그리기
-            for projectile in paddle_projectiles[:]:
-                projectile['x'] += projectile['dx']
-                projectile['y'] += projectile['dy']
-                projectile['life'] -= 1
-                
-                if projectile['life'] > 0 and projectile['y'] > -projectile['size']:
-                    # 발사체 꼬리 효과
-                    for i in range(10):
-                        trail_alpha = int(255 * (projectile['life'] / 180) * (1 - i / 10))
-                        trail_size = max(1, projectile['size'] * (1 - i / 10))
-                        trail_x = projectile['x'] - projectile['dx'] * i * 0.3
-                        trail_y = projectile['y'] - projectile['dy'] * i * 0.3
-                        
-                        if trail_alpha > 0:
-                            trail_surface = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
-                            pygame.draw.circle(trail_surface, (255, 255, 100, trail_alpha), 
-                                             (trail_size, trail_size), trail_size)
-                            SCREEN.blit(trail_surface, (trail_x - trail_size, trail_y - trail_size))
-                    
-                    # 발사체 본체
-                    alpha = int(255 * (projectile['life'] / 180))
-                    size = max(1, projectile['size'])
-                    proj_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(proj_surface, (255, 255, 0, alpha), (size, size), size)
-                    SCREEN.blit(proj_surface, (projectile['x'] - size, projectile['y'] - size))
-                else:
-                    paddle_projectiles.remove(projectile)
-            
-            # 전투 파티클 그리기
-            for particle in battle_particles[:]:
-                particle['x'] += particle['dx']
-                particle['y'] += particle['dy']
-                particle['life'] -= 1
-                
-                if particle['life'] > 0 and 0 <= particle['x'] <= WIDTH and 0 <= particle['y'] <= HEIGHT:
-                    alpha = int(255 * (particle['life'] / 120))
-                    size = max(1, particle['size'])
-                    color = (*particle['color'], alpha)
-                    
-                    particle_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(particle_surface, color, (size, size), size)
-                    SCREEN.blit(particle_surface, (particle['x'] - size, particle['y'] - size))
-                else:
-                    battle_particles.remove(particle)
-            
-            # 화면 흔들림 오프셋 계산
-            int_shake = max(1, int(screen_shake))
-            shake_offset_x = random.randint(-int_shake, int_shake)
-            shake_offset_y = random.randint(-int_shake, int_shake)
+        # ── 이징 적용 로고 스케일 / Y ──
+        logo_t_scale = min(1.0, animation_timer / LOGO_SCALE_FRAMES)
+        logo_scale = 0.1 + 1.2 * _ease_out_cubic(logo_t_scale)
+        logo_t_y = min(1.0, animation_timer / LOGO_Y_FRAMES)
+        logo_y = logo_start_y + (logo_target_y - logo_start_y) * _ease_in_out_sine(logo_t_y)
 
-        # 탁구공 임팩트 업데이트 및 렌더링
+        # ── 먼지 입자 업데이트 ──
+        for mote in dust_motes:
+            mote['x'] += mote['dx'] + math.sin(animation_timer * 0.01 + mote['phase']) * 0.15
+            mote['y'] += mote['dy']
+            if mote['y'] < -5:
+                mote['y'] = HEIGHT + 5; mote['x'] = random.uniform(0, WIDTH)
+            if mote['x'] < -5: mote['x'] = WIDTH + 5
+            elif mote['x'] > WIDTH + 5: mote['x'] = -5
+
+        # ── 탁구공 임팩트 업데이트 ──
         for ball in pong_impact_balls[:]:
             ball['life'] -= 1
             if ball['life'] <= 0:
-                pong_impact_balls.remove(ball)
-                continue
-
-            # 궤적 기록 (잔상용)
+                pong_impact_balls.remove(ball); continue
             ball['trail'].append((ball['x'], ball['y']))
-            if len(ball['trail']) > 12:
-                ball['trail'].pop(0)
-
-            # 이동
-            ball['x'] += ball['vx']
-            ball['y'] += ball['vy']
-
-            # 로고 높이 도달 시 임팩트 발생
+            if len(ball['trail']) > 12: ball['trail'].pop(0)
+            ball['x'] += ball['vx']; ball['y'] += ball['vy']
             if not ball['hit'] and ball['y'] <= ball['target_y']:
-                ball['hit'] = True
-                ball['vy'] = -ball['vy'] * 0.4  # 튕김
-                screen_shake = max(screen_shake, 20)  # 추가 흔들림
-                # 임팩트 스파크 대량 생성
+                ball['hit'] = True; ball['vy'] = -ball['vy'] * 0.4
+                screen_shake = max(screen_shake, 20.0)
                 for _ in range(25):
-                    angle = random.uniform(0, math.pi * 2)
-                    speed = random.uniform(3, 14)
+                    a = random.uniform(0, math.pi*2); spd = random.uniform(3,14)
                     pong_impact_sparks.append({
-                        'x': ball['x'],
-                        'y': ball['y'],
-                        'dx': math.cos(angle) * speed,
-                        'dy': math.sin(angle) * speed,
-                        'life': random.randint(20, 50),
-                        'size': random.randint(2, 6),
-                        'color': random.choice([
-                            (255, 255, 255), (255, 220, 80),
-                            (255, 160, 60), (100, 200, 255),
-                        ]),
-                    })
+                        'x': ball['x'], 'y': ball['y'],
+                        'dx': math.cos(a)*spd, 'dy': math.sin(a)*spd,
+                        'life': random.randint(20,50), 'size': random.randint(2,6),
+                        'color': random.choice([(255,255,255),(255,220,80),(255,160,60),(100,200,255)])})
             elif ball['hit']:
-                ball['vy'] += 0.8  # 중력
+                ball['vy'] += 0.8
+        for spark in pong_impact_sparks[:]:
+            spark['x'] += spark['dx']; spark['y'] += spark['dy']
+            spark['dy'] += 0.3; spark['dx'] *= 0.97; spark['life'] -= 1
+            if spark['life'] <= 0: pong_impact_sparks.remove(spark)
 
-            # 잔상 그리기
+        # ================================================================
+        #                  3) 렌더링 (buf 에 그리기)
+        # ================================================================
+        buf.fill((0, 0, 0))
+
+        # ── 배경 (Ken Burns - 이징 패닝) ──
+        if background_image is not None:
+            bg_w, bg_h = background_image.get_size()
+            kb_phase = animation_timer * 0.004
+            # ease-in-out-sine 으로 끝에서 감속하는 부드러운 패닝
+            kb_raw_x = math.sin(kb_phase)
+            kb_raw_y = math.cos(kb_phase * 0.75)
+            kb_pan_x = kb_raw_x * 25 * _ease_in_out_sine((kb_raw_x + 1) / 2)
+            kb_pan_y = kb_raw_y * 18 * _ease_in_out_sine((kb_raw_y + 1) / 2)
+            bg_x = (WIDTH - bg_w) // 2 + int(kb_pan_x)
+            bg_y = (HEIGHT - bg_h) // 2 + int(kb_pan_y)
+            buf.blit(background_image, (bg_x, bg_y))
+            _overlay.fill((0, 0, 0, 120))
+            buf.blit(_overlay, (0, 0))
+        else:
+            for _y in range(HEIGHT):
+                cr = _y / HEIGHT
+                tf = math.sin(animation_timer * 0.02) * 0.3 + 0.7
+                buf.fill((int(10+cr*100*tf), int(20+cr*150*tf), int(40+cr*180*tf)),
+                         (0, _y, WIDTH, 1))
+
+        # ── 빛내림 God Rays ──
+        _overlay.fill((0, 0, 0, 0))
+        for ray in god_rays:
+            rx = ray['x'] + math.sin(animation_timer * 0.005 + ray['phase']) * 60
+            ra = int(ray['alpha'] * (0.5 + 0.5 * math.sin(animation_timer * 0.008 + ray['phase'])))
+            ra = max(0, min(40, ra))
+            tw = ray['width'] * 0.3; bw = ray['width'] * 1.2
+            pts = [(rx-tw, 0), (rx+tw, 0), (rx+bw, HEIGHT), (rx-bw, HEIGHT)]
+            pygame.draw.polygon(_overlay, (255, 255, 200, ra), pts)
+        buf.blit(_overlay, (0, 0))
+
+        # ── 먼지 입자 렌더링 ──
+        for mote in dust_motes:
+            ms = max(1, int(mote['size']))
+            flicker = int(mote['alpha'] * (0.7 + 0.3 * math.sin(animation_timer * 0.03 + mote['phase'])))
+            flicker = max(0, min(255, flicker))
+            mote_s = pygame.Surface((ms*2, ms*2), pygame.SRCALPHA)
+            pygame.draw.circle(mote_s, (255, 255, 220, flicker), (ms, ms), ms)
+            buf.blit(mote_s, (int(mote['x'])-ms, int(mote['y'])-ms))
+
+        # ── 임팩트 상태 어두운 오버레이 ──
+        if current_state >= ST_IMPACT_ACTION:
+            _overlay.fill((10, 5, 15, 180))
+            buf.blit(_overlay, (0, 0))
+
+        # ── 특별 이펙트 (에너지 웨이브 / 보스 그림자 / 패들 발사체 / 전투 파티클) ──
+        if current_state >= ST_IMPACT_ACTION:
+            for wave in energy_waves[:]:
+                wave['radius'] += wave['speed']
+                wave['alpha'] = int(255*(1-wave['radius']/wave['max_radius']))
+                if wave['alpha'] > 0 and wave['radius'] < wave['max_radius']:
+                    ws = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                    pygame.draw.circle(ws, (100,200,255,wave['alpha']), (wave['x'],wave['y']), wave['radius'], 5)
+                    buf.blit(ws, (0,0))
+                else: energy_waves.remove(wave)
+
+            for shadow in boss_shadows[:]:
+                shadow['life'] -= 2; shadow['alpha'] = int(255*(shadow['life']/300)); shadow['rotation'] += 2
+                if shadow['alpha'] > 0:
+                    ss = pygame.Surface((shadow['size']*2, shadow['size']*2), pygame.SRCALPHA)
+                    c = (shadow['size'], shadow['size'])
+                    pygame.draw.ellipse(ss, (100,0,100,shadow['alpha']),
+                                        (shadow['size']//4, shadow['size']//4, shadow['size']//2, shadow['size']//2))
+                    es = shadow['size']//8
+                    pygame.draw.circle(ss, (255,0,0,shadow['alpha']), (c[0]-es, c[1]-es), es)
+                    pygame.draw.circle(ss, (255,0,0,shadow['alpha']), (c[0]+es, c[1]-es), es)
+                    rs = pygame.transform.rotate(ss, shadow['rotation'])
+                    buf.blit(rs, rs.get_rect(center=(shadow['x'], shadow['y'])))
+                else: boss_shadows.remove(shadow)
+
+            for proj in paddle_projectiles[:]:
+                proj['x'] += proj['dx']; proj['y'] += proj['dy']; proj['life'] -= 1
+                if proj['life'] > 0 and proj['y'] > -proj['size']:
+                    for i in range(10):
+                        ta = int(255*(proj['life']/180)*(1-i/10)); tsz = max(1, proj['size']*(1-i/10))
+                        tx = proj['x'] - proj['dx']*i*0.3; ty = proj['y'] - proj['dy']*i*0.3
+                        if ta > 0:
+                            ts = pygame.Surface((tsz*2, tsz*2), pygame.SRCALPHA)
+                            pygame.draw.circle(ts, (255,255,100,ta), (tsz,tsz), tsz)
+                            buf.blit(ts, (tx-tsz, ty-tsz))
+                    pa = int(255*(proj['life']/180)); psz = max(1, proj['size'])
+                    ps = pygame.Surface((psz*2, psz*2), pygame.SRCALPHA)
+                    pygame.draw.circle(ps, (255,255,0,pa), (psz,psz), psz)
+                    buf.blit(ps, (proj['x']-psz, proj['y']-psz))
+                else: paddle_projectiles.remove(proj)
+
+            for p in battle_particles[:]:
+                p['x'] += p['dx']; p['y'] += p['dy']; p['life'] -= 1
+                if p['life'] > 0 and 0 <= p['x'] <= WIDTH and 0 <= p['y'] <= HEIGHT:
+                    pa = int(255*(p['life']/120)); psz = max(1, p['size'])
+                    ps = pygame.Surface((psz*2, psz*2), pygame.SRCALPHA)
+                    pygame.draw.circle(ps, (*p['color'], pa), (psz,psz), psz)
+                    buf.blit(ps, (p['x']-psz, p['y']-psz))
+                else: battle_particles.remove(p)
+
+        # ── 탁구공 임팩트 렌더링 ──
+        for ball in pong_impact_balls:
             for i, (tx, ty) in enumerate(ball['trail']):
                 t = i / max(1, len(ball['trail']))
-                trail_alpha = int(120 * t)
-                trail_size = max(1, int(ball['size'] * t * 0.7))
-                ts = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(ts, (255, 255, 255, trail_alpha), (trail_size, trail_size), trail_size)
-                SCREEN.blit(ts, (int(tx) - trail_size, int(ty) - trail_size))
-
-            # 탁구공 본체
+                ta = int(120*t); tsz = max(1, int(ball['size']*t*0.7))
+                ts = pygame.Surface((tsz*2, tsz*2), pygame.SRCALPHA)
+                pygame.draw.circle(ts, (255,255,255,ta), (tsz,tsz), tsz)
+                buf.blit(ts, (int(tx)-tsz, int(ty)-tsz))
             bs = ball['size']
-            ball_surf = pygame.Surface((bs * 2, bs * 2), pygame.SRCALPHA)
-            pygame.draw.circle(ball_surf, (255, 255, 255), (bs, bs), bs)
-            # 탁구공 특유의 줄무늬
-            pygame.draw.arc(ball_surf, (200, 200, 200), (2, 2, bs * 2 - 4, bs * 2 - 4),
-                            0.3, 2.8, 2)
-            SCREEN.blit(ball_surf, (int(ball['x']) - bs, int(ball['y']) - bs))
-
-        # 임팩트 스파크 렌더링
-        for spark in pong_impact_sparks[:]:
-            spark['x'] += spark['dx']
-            spark['y'] += spark['dy']
-            spark['dy'] += 0.3  # 중력
-            spark['dx'] *= 0.97  # 감속
-            spark['life'] -= 1
+            bsurf = pygame.Surface((bs*2, bs*2), pygame.SRCALPHA)
+            pygame.draw.circle(bsurf, (255,255,255), (bs,bs), bs)
+            pygame.draw.arc(bsurf, (200,200,200), (2,2,bs*2-4,bs*2-4), 0.3, 2.8, 2)
+            buf.blit(bsurf, (int(ball['x'])-bs, int(ball['y'])-bs))
+        for spark in pong_impact_sparks:
             if spark['life'] > 0:
-                alpha = int(255 * (spark['life'] / 50))
-                sz = max(1, spark['size'])
-                ss = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
-                c = spark['color']
-                pygame.draw.circle(ss, (*c, alpha), (sz, sz), sz)
-                SCREEN.blit(ss, (int(spark['x']) - sz, int(spark['y']) - sz))
-            else:
-                pong_impact_sparks.remove(spark)
-        
-        # 배경에 움직이는 파티클 효과 (간단하게)
-        if animation_timer % 10 == 0:
-            for _ in range(2):
-                particles.append({
-                    'x': random.randint(0, WIDTH),
-                    'y': random.randint(0, HEIGHT),
-                    'dx': random.uniform(-1, 1),
-                    'dy': random.uniform(-1, 1),
-                    'life': 60,
-                    'size': 2
-                })
-        
-        # 별똥별 생성 (가끔씩)
-        if animation_timer % 120 == 0:  # 2초마다
-            shooting_stars.append({
-                'x': random.randint(0, WIDTH),
-                'y': random.randint(0, HEIGHT // 3),
-                'dx': random.uniform(3, 6),
-                'dy': random.uniform(2, 4),
-                'life': 120,
-                'size': random.randint(2, 4),
-                'trail_length': random.randint(20, 40)
-            })
-        
-        # 뿌연 별들 생성 (천천히)
-        if animation_timer % 180 == 0:  # 3초마다
-            for _ in range(random.randint(1, 3)):
-                fuzzy_stars.append({
-                    'x': random.randint(0, WIDTH),
-                    'y': random.randint(0, HEIGHT),
-                    'life': 300,
-                    'size': random.randint(4, 8),
-                    'fade_speed': random.uniform(0.5, 1.5),
-                    'alpha': 255
-                })
-        
-        # 로고 스케일 애니메이션 (더 부드럽게)
-        logo_scale = min(1.3, logo_scale + 0.012)
-        logo_y = logo_y + (logo_target_y - logo_y) * 0.025
-        
-        # 로고 그리기 (더 화려한 버전)
+                sa = int(255*(spark['life']/50)); sz = max(1, spark['size'])
+                ss = pygame.Surface((sz*2, sz*2), pygame.SRCALPHA)
+                pygame.draw.circle(ss, (*spark['color'], sa), (sz,sz), sz)
+                buf.blit(ss, (int(spark['x'])-sz, int(spark['y'])-sz))
+
+        # ── 로고 서피스 생성 ──
         logo_surface = pygame.Surface((600, 300), pygame.SRCALPHA)
-        
-        # 특별 애니메이션 중일 때 로고에 특별 효과
-        if special_animation_active:
-            # 로고에 전투 효과 추가
-            for i in range(20):
-                spark_x = random.randint(0, 600)
-                spark_y = random.randint(0, 300)
-                spark_size = random.randint(2, 6)
-                spark_alpha = random.randint(50, 150)
-                pygame.draw.circle(logo_surface, (255, 255, 0, spark_alpha), (spark_x, spark_y), spark_size)
-        
-        # 외곽 글로우 효과 (더 강하게)
+
+        if current_state >= ST_IMPACT_ACTION:
+            for _ in range(20):
+                sx2 = random.randint(0,600); sy2 = random.randint(0,300)
+                pygame.draw.circle(logo_surface, (255,255,0,random.randint(50,150)), (sx2,sy2), random.randint(2,6))
+
+        # 외곽 무지개 글로우
         glow_radius = int(25 + math.sin(animation_timer * 0.08) * 15)
         for i in range(glow_radius, 0, -2):
-            alpha = int(120 * (1 - i / glow_radius))
-            # 무지개 색상 효과
+            a = int(120 * (1 - i / glow_radius))
             hue = (animation_timer * 2 + i * 10) % 360
-            if hue < 60:
-                color = (255, int(255 * hue / 60), 0, alpha)
-            elif hue < 120:
-                color = (int(255 * (120 - hue) / 60), 255, 0, alpha)
-            elif hue < 180:
-                color = (0, 255, int(255 * (hue - 120) / 60), alpha)
-            elif hue < 240:
-                color = (0, int(255 * (240 - hue) / 60), 255, alpha)
-            elif hue < 300:
-                color = (int(255 * (hue - 240) / 60), 0, 255, alpha)
-            else:
-                color = (255, 0, int(255 * (360 - hue) / 60), alpha)
-            pygame.draw.rect(logo_surface, color, (i, i, 600 - i*2, 300 - i*2), 4)
-        
-        # 메인 로고 프레임 (더 화려하게)
-        pygame.draw.rect(logo_surface, (150, 200, 255), (0, 0, 600, 300), 10)
-        pygame.draw.rect(logo_surface, (200, 220, 255), (15, 15, 570, 270), 5)
-        
-        # 내부 장식 (더 복잡하게)
+            if hue < 60:    c = (255, int(255*hue/60), 0, a)
+            elif hue < 120: c = (int(255*(120-hue)/60), 255, 0, a)
+            elif hue < 180: c = (0, 255, int(255*(hue-120)/60), a)
+            elif hue < 240: c = (0, int(255*(240-hue)/60), 255, a)
+            elif hue < 300: c = (int(255*(hue-240)/60), 0, 255, a)
+            else:            c = (255, 0, int(255*(360-hue)/60), a)
+            pygame.draw.rect(logo_surface, c, (i, i, 600-i*2, 300-i*2), 4)
+
+        pygame.draw.rect(logo_surface, (150,200,255), (0,0,600,300), 10)
+        pygame.draw.rect(logo_surface, (200,220,255), (15,15,570,270), 5)
+
         for i in range(8):
-            x = 50 + i * 70
-            y = 50 + math.sin(animation_timer * 0.05 + i * 0.5) * 15
-            size = 10 + math.sin(animation_timer * 0.03 + i) * 5
-            pygame.draw.circle(logo_surface, (255, 255, 255), (int(x), int(y)), int(size))
-            pygame.draw.circle(logo_surface, (100, 150, 255), (int(x), int(y)), int(size), 2)
-        
-        # 코너 장식
+            dx = 50 + i*70; dy = 50 + math.sin(animation_timer*0.05+i*0.5)*15
+            sz = 10 + math.sin(animation_timer*0.03+i)*5
+            pygame.draw.circle(logo_surface, (255,255,255), (int(dx), int(dy)), int(sz))
+            pygame.draw.circle(logo_surface, (100,150,255), (int(dx), int(dy)), int(sz), 2)
+
         corner_size = 20
-        for corner in [(0, 0), (600-corner_size, 0), (0, 300-corner_size), (600-corner_size, 300-corner_size)]:
-            pygame.draw.rect(logo_surface, (255, 255, 0), (corner[0], corner[1], corner_size, corner_size))
-            pygame.draw.rect(logo_surface, (255, 255, 255), (corner[0], corner[1], corner_size, corner_size), 2)
-        
-        # 텍스트 타이핑 효과 (한글로 변경)
+        for cx, cy in [(0,0),(600-corner_size,0),(0,300-corner_size),(600-corner_size,300-corner_size)]:
+            pygame.draw.rect(logo_surface, (255,255,0), (cx,cy,corner_size,corner_size))
+            pygame.draw.rect(logo_surface, (255,255,255), (cx,cy,corner_size,corner_size), 2)
+
+        # ── 타이핑 텍스트 ──
         if typing_timer >= 1:
             if len(typing_text) < len(full_text):
-                typing_text = full_text[:len(typing_text) + 1]
+                typing_text = full_text[:len(typing_text)+1]
                 typing_timer = 0
-        
-        try:
-            font_large = pygame.font.Font(resource_path("NanumSquareB.ttf"), 72)
-        except:
-            font_large = pygame.font.Font(None, 72)
-        
-        # 메인 텍스트 (로컬라이즈)
-        from localization.manager import get_localization_manager
-        full_text = get_localization_manager().get_text("opening.title", "핑파이터")
-        if len(typing_text) < len(full_text):
-            typing_text = full_text[:len(typing_text) + 1]
 
-        # 귀여운 글자 애니메이션 - 각 글자가 살짝 튀어오르기
+        char_spacing = 70 if len(full_text) <= 5 else 40
+        total_w = len(typing_text) * char_spacing - 10
+        bx = 300 - (total_w // 2) + char_spacing // 2
         char_positions = []
-        # 중앙 정렬을 위한 계산 (글자 수에 따라 간격 자동 조정)
-        char_spacing = 70 if len(full_text) <= 5 else 40  # 한글 4자=70px, 영문 11자=40px
-        total_width = len(typing_text) * char_spacing - 10
-        base_x = 300 - (total_width // 2) + char_spacing // 2
-        for i, char in enumerate(typing_text):
-            # 각 글자별로 다른 타이밍으로 위아래 움직임
-            bounce_offset = math.sin(animation_timer * 0.1 + i * 0.5) * 3
-            wiggle_offset = math.cos(animation_timer * 0.08 + i * 0.7) * 2  # 좌우 흔들림
-            char_positions.append((base_x + i * char_spacing + wiggle_offset, 150 + bounce_offset))
-        
-        # 귀여운 별 장식 (글자 주변에)
+        for i, ch in enumerate(typing_text):
+            bounce = math.sin(animation_timer*0.1+i*0.5)*3
+            wiggle = math.cos(animation_timer*0.08+i*0.7)*2
+            char_positions.append((bx + i*char_spacing + wiggle, 150 + bounce))
+
         if animation_timer % 20 == 0:
             for pos in char_positions:
-                if random.random() > 0.7:  # 30% 확률로
+                if random.random() > 0.7:
                     sparkle_particles.append({
-                        'x': pos[0] + random.randint(-30, 30),
-                        'y': pos[1] + random.randint(-30, 30),
-                        'life': 40,
-                        'size': random.randint(2, 4),
-                        'color': random.choice([(255, 192, 203), (255, 255, 150), (200, 255, 200)])  # 파스텔 색상
-                    })
-        
-        # 부드러운 파스텔 그림자
-        shadow_color = (150, 150, 200)  # 연한 보라색 그림자
-        for i, (char, pos) in enumerate(zip(typing_text, char_positions)):
-            shadow_text = font_large.render(char, True, shadow_color)
-            shadow_rect = shadow_text.get_rect(center=(pos[0] + 3, pos[1] + 3))
-            logo_surface.blit(shadow_text, shadow_rect)
-        
-        # 둥근 외곽선 효과 (파스텔 핑크)
-        outline_color = (255, 182, 193)  # 연한 핑크
-        for i, (char, pos) in enumerate(zip(typing_text, char_positions)):
-            # 더 많은 위치에 외곽선을 그려서 둥글게
-            for ox, oy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1)]:
-                outline_text = font_large.render(char, True, outline_color)
-                outline_rect = outline_text.get_rect(center=(pos[0] + ox, pos[1] + oy))
-                logo_surface.blit(outline_text, outline_rect)
-        
-        # 무지개 그라데이션 효과
-        rainbow_colors = [
-            (255, 165, 0),    # 주황빛 (핑)
-            (255, 200, 150),  # 연한 주황
-            (255, 255, 0),    # 진한 노랑
-            (150, 255, 150),  # 연한 초록
-            (150, 200, 255),  # 연한 파랑
-        ]
-        
-        # 각 글자 그리기 (무지개 색상)
-        for i, (char, pos) in enumerate(zip(typing_text, char_positions)):
-            # 색상 선택 (순환)
-            color_index = i % len(rainbow_colors)
-            base_color = rainbow_colors[color_index]
-            
-            # 반짝임 효과
-            sparkle = abs(math.sin(animation_timer * 0.05 + i * 0.3)) * 0.3 + 0.7
-            char_color = tuple(int(c * sparkle) for c in base_color)
-            
-            # 글자 그리기
-            char_text = font_large.render(char, True, char_color)
-            char_rect = char_text.get_rect(center=pos)
-            logo_surface.blit(char_text, char_rect)
-            
-            # 하이라이트 (뽀얀 효과)
-            highlight_color = (255, 255, 255, 60)
-            highlight_text = font_large.render(char, True, highlight_color)
-            highlight_rect = highlight_text.get_rect(center=(pos[0] - 1, pos[1] - 2))
-            logo_surface.blit(highlight_text, highlight_rect)
-        
-        
-        # 귀여운 별 장식 추가
-        star_positions = [(80, 120), (520, 120), (60, 170), (540, 170)]
-        for sx, sy in star_positions:
-            star_size = 5 + math.sin(animation_timer * 0.1 + sx) * 2
-            star_color = (255, 255, 100, 180)
-            # 별 그리기 (5각별)
-            angle = animation_timer * 0.05
-            points = []
-            for i in range(10):
-                r = star_size if i % 2 == 0 else star_size * 0.5
-                theta = angle + (i * math.pi / 5)
-                px = sx + r * math.cos(theta)
-                py = sy + r * math.sin(theta)
-                points.append((px, py))
-            if len(points) > 2:
-                pygame.draw.polygon(logo_surface, star_color, points)
-        
-        # 서브 타이틀
-        try:
-            font_medium = pygame.font.Font(resource_path("NanumSquareR.ttf"), 32)
-        except:
-            font_medium = pygame.font.Font(None, 32)
-        
-        from localization.manager import get_localization_manager
-        subtitle_text = font_medium.render(get_localization_manager().get_text("opening.subtitle", "핑퐁으로 보스를 물리쳐라!"), True, (200, 220, 255))
-        subtitle_rect = subtitle_text.get_rect(center=(300, 200))
-        logo_surface.blit(subtitle_text, subtitle_rect)
-        
-        # 스케일 적용
-        scaled_logo = pygame.transform.scale(logo_surface, 
-                                           (int(600 * logo_scale), int(300 * logo_scale)))
-        
-        # 화면 흔들림 효과 적용
-        if special_animation_active:
-            logo_rect = scaled_logo.get_rect(center=(WIDTH // 2 + shake_offset_x, logo_y + shake_offset_y))
-        else:
-            logo_rect = scaled_logo.get_rect(center=(WIDTH // 2, logo_y))
-        
-        SCREEN.blit(scaled_logo, logo_rect)
-        
-        # 스파클 파티클 (간단하게)
-        if animation_timer % 15 == 0:
-            for _ in range(3):
-                sparkle_particles.append({
-                    'x': random.randint(0, WIDTH),
-                    'y': random.randint(0, HEIGHT),
-                    'life': 60,
-                    'size': 3
-                })
-        
-        # 화면 전체 글로우 효과
-        if animation_timer > 100:
-            glow_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            glow_alpha = int(20 * math.sin(animation_timer * 0.05))
-            glow_surface.fill((255, 255, 255))
-            glow_surface.set_alpha(glow_alpha)
-            SCREEN.blit(glow_surface, (0, 0))
-        
-        # 플래시 효과
-        if flash_alpha > 0:
-            flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            flash_surface.fill((255, 255, 255))
-            flash_surface.set_alpha(flash_alpha)
-            SCREEN.blit(flash_surface, (0, 0))
-        
-        # 페이드 아웃 효과
-        if fade_alpha > 0:
-            fade_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            fade_surface.fill((0, 0, 0))
-            fade_surface.set_alpha(fade_alpha)
-            SCREEN.blit(fade_surface, (0, 0))
-        
-        # "Press any key" 문구 (사인파 숨쉬기 효과)
-        if show_press_key and not special_animation_active:
-            try:
-                font_small = pygame.font.Font(resource_path("NanumSquareR.ttf"), 24)
-            except:
-                font_small = pygame.font.Font(None, 24)
+                        'x': pos[0]+random.randint(-30,30), 'y': pos[1]+random.randint(-30,30),
+                        'life': 40, 'size': random.randint(2,4),
+                        'color': random.choice([(255,192,203),(255,255,150),(200,255,200)])})
 
-            # 사인파 펄스: 알파가 80~255 사이를 부드럽게 오감
-            pulse_alpha = int(80 + 175 * ((math.sin(animation_timer * 0.07) + 1) / 2))
-            from localization.manager import get_localization_manager
-            press_text = font_small.render(
-                get_localization_manager().get_text("opening.press_any_key", "아무 키나 누르세요"),
-                True, (200, 200, 200))
-            press_text.set_alpha(pulse_alpha)
-            press_rect = press_text.get_rect(center=(WIDTH // 2, HEIGHT - 80))
-            SCREEN.blit(press_text, press_rect)
-        
-        # 파티클 업데이트 및 그리기
-        # 배경 파티클
-        for particle in particles[:]:
-            particle['x'] += particle['dx']
-            particle['y'] += particle['dy']
-            particle['life'] -= 1
-            
-            if particle['life'] > 0:
-                alpha = int(255 * (particle['life'] / 60))
-                size = max(1, particle['size'])  # 최소 크기 1로 제한
-                particle_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                # 기본 흰색으로 파티클 그리기
-                pygame.draw.circle(particle_surface, (255, 255, 255, alpha), (size, size), size)
-                SCREEN.blit(particle_surface, (particle['x'] - size, particle['y'] - size))
-            else:
-                particles.remove(particle)
-        
-        # 스파클 파티클
-        for particle in sparkle_particles[:]:
-            particle['life'] -= 1
-            if particle['life'] > 0:
-                # 파스텔 색상 지원
-                if 'color' in particle:
-                    base_color = particle['color']
-                    alpha = int(255 * (particle['life'] / 40))  # 40은 life 최대값
-                    color = (*base_color, alpha)
+        shadow_color = (150, 150, 200)
+        for ch, pos in zip(typing_text, char_positions):
+            st = font_large.render(ch, True, shadow_color)
+            logo_surface.blit(st, st.get_rect(center=(pos[0]+3, pos[1]+3)))
+
+        outline_color = (255, 182, 193)
+        for ch, pos in zip(typing_text, char_positions):
+            for ox, oy in [(-2,0),(2,0),(0,-2),(0,2),(-1,-1),(1,-1),(-1,1),(1,1)]:
+                ot = font_large.render(ch, True, outline_color)
+                logo_surface.blit(ot, ot.get_rect(center=(pos[0]+ox, pos[1]+oy)))
+
+        rainbow = [(255,165,0),(255,200,150),(255,255,0),(150,255,150),(150,200,255)]
+        for i, (ch, pos) in enumerate(zip(typing_text, char_positions)):
+            bc = rainbow[i % len(rainbow)]
+            sp = abs(math.sin(animation_timer*0.05+i*0.3))*0.3+0.7
+            cc = tuple(int(v*sp) for v in bc)
+            ct = font_large.render(ch, True, cc)
+            logo_surface.blit(ct, ct.get_rect(center=pos))
+            ht = font_large.render(ch, True, (255,255,255,60))
+            logo_surface.blit(ht, ht.get_rect(center=(pos[0]-1, pos[1]-2)))
+
+        # 별 장식
+        for sx2, sy2 in [(80,120),(520,120),(60,170),(540,170)]:
+            ssz = 5 + math.sin(animation_timer*0.1+sx2)*2
+            ang = animation_timer*0.05
+            pts = []
+            for j in range(10):
+                r = ssz if j%2==0 else ssz*0.5
+                th = ang+(j*math.pi/5)
+                pts.append((sx2+r*math.cos(th), sy2+r*math.sin(th)))
+            if len(pts) > 2: pygame.draw.polygon(logo_surface, (255,255,100,180), pts)
+
+        # 서브타이틀
+        stxt = font_medium.render(subtitle_str, True, (200,220,255))
+        logo_surface.blit(stxt, stxt.get_rect(center=(300, 200)))
+
+        # 스케일 + blit
+        scaled = pygame.transform.scale(logo_surface, (int(600*logo_scale), int(300*logo_scale)))
+        if current_state >= ST_IMPACT_ACTION:
+            ish = max(1, int(screen_shake))
+            sox = random.randint(-ish, ish); soy = random.randint(-ish, ish)
+            buf.blit(scaled, scaled.get_rect(center=(WIDTH//2+sox, int(logo_y)+soy)))
+        else:
+            buf.blit(scaled, scaled.get_rect(center=(WIDTH//2, int(logo_y))))
+
+        # ── 화면 전체 글로우 ──
+        if animation_timer > 100:
+            ga = int(20 * math.sin(animation_timer * 0.05))
+            if ga > 0:
+                _overlay.fill((255,255,255)); _overlay.set_alpha(ga)
+                buf.blit(_overlay, (0,0)); _overlay.set_alpha(255)
+
+        # ── 플래시 ──
+        if flash_alpha > 0:
+            _overlay.fill((255,255,255)); _overlay.set_alpha(flash_alpha)
+            buf.blit(_overlay, (0,0)); _overlay.set_alpha(255)
+
+        # ── 페이드 아웃 ──
+        if fade_alpha > 0:
+            _overlay.fill((0,0,0)); _overlay.set_alpha(fade_alpha)
+            buf.blit(_overlay, (0,0)); _overlay.set_alpha(255)
+
+        # ── Press any key (이징 숨쉬기) ──
+        if current_state == ST_INTRO_WAIT and animation_timer > 60:
+            raw_pulse = (math.sin(animation_timer * 0.07) + 1) / 2
+            pulse_alpha = int(80 + 175 * _ease_in_out_sine(raw_pulse))
+            ptxt = font_small.render(press_key_str, True, (200,200,200))
+            ptxt.set_alpha(pulse_alpha)
+            buf.blit(ptxt, ptxt.get_rect(center=(WIDTH//2, HEIGHT-80)))
+
+        # ── 배경 파티클 렌더링 ──
+        for p in particles[:]:
+            p['x'] += p['dx']; p['y'] += p['dy']; p['life'] -= 1
+            if p['life'] > 0:
+                pa = int(255*(p['life']/60)); psz = max(1, p['size'])
+                ps = pygame.Surface((psz*2, psz*2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (255,255,255,pa), (psz,psz), psz)
+                buf.blit(ps, (p['x']-psz, p['y']-psz))
+            else: particles.remove(p)
+
+        for p in sparkle_particles[:]:
+            p['life'] -= 1
+            if p['life'] > 0:
+                if 'color' in p:
+                    bc2 = p['color']; pa = int(255*(p['life']/40)); col = (*bc2, pa)
                 else:
-                    alpha = int(255 * (particle['life'] / 60))
-                    color = (255, 255, 255, alpha)
-                
-                size = max(1, particle['size'])  # 최소 크기 1로 제한
-                sparkle_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                # 파스텔 색상 또는 기본 흰색으로 스파클 그리기
-                pygame.draw.circle(sparkle_surface, color, (size, size), size)
-                SCREEN.blit(sparkle_surface, (particle['x'] - size, particle['y'] - size))
-            else:
-                sparkle_particles.remove(particle)
-        
-        # 별똥별 업데이트 및 그리기
-        for star in shooting_stars[:]:
-            star['x'] += star['dx']
-            star['y'] += star['dy']
-            star['life'] -= 1
-            
-            if star['life'] > 0 and star['x'] < WIDTH + 50 and star['y'] < HEIGHT + 50:
-                # 별똥별 꼬리 그리기
-                for i in range(star['trail_length']):
-                    trail_alpha = int(255 * (star['life'] / 120) * (1 - i / star['trail_length']))
-                    trail_size = max(1, star['size'] * (1 - i / star['trail_length']))
-                    trail_x = star['x'] - star['dx'] * i * 0.5
-                    trail_y = star['y'] - star['dy'] * i * 0.5
-                    
-                    if trail_alpha > 0 and trail_size > 0:
-                        trail_surface = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
-                        pygame.draw.circle(trail_surface, (255, 255, 255, trail_alpha), (trail_size, trail_size), trail_size)
-                        SCREEN.blit(trail_surface, (trail_x - trail_size, trail_y - trail_size))
-                
-                # 별똥별 본체
-                alpha = int(255 * (star['life'] / 120))
-                size = max(1, star['size'])
-                star_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(star_surface, (255, 255, 255, alpha), (size, size), size)
-                SCREEN.blit(star_surface, (star['x'] - size, star['y'] - size))
-            else:
-                shooting_stars.remove(star)
-        
-        # 뿌연 별들 업데이트 및 그리기
-        for star in fuzzy_stars[:]:
-            star['life'] -= star['fade_speed']
-            star['alpha'] = int(255 * (star['life'] / 300))
-            
-            if star['life'] > 0 and star['alpha'] > 0:
-                # 뿌연 별 그리기 (여러 개의 작은 원으로)
-                size = max(1, star['size'])
+                    pa = int(255*(p['life']/60)); col = (255,255,255,pa)
+                psz = max(1, p['size'])
+                ps = pygame.Surface((psz*2, psz*2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, col, (psz,psz), psz)
+                buf.blit(ps, (p['x']-psz, p['y']-psz))
+            else: sparkle_particles.remove(p)
+
+        for s in shooting_stars[:]:
+            s['x'] += s['dx']; s['y'] += s['dy']; s['life'] -= 1
+            if s['life'] > 0 and s['x'] < WIDTH+50 and s['y'] < HEIGHT+50:
+                for i in range(s['trail_length']):
+                    ta = int(255*(s['life']/120)*(1-i/s['trail_length']))
+                    tsz = max(1, s['size']*(1-i/s['trail_length']))
+                    tx = s['x']-s['dx']*i*0.5; ty = s['y']-s['dy']*i*0.5
+                    if ta > 0 and tsz > 0:
+                        ts = pygame.Surface((tsz*2, tsz*2), pygame.SRCALPHA)
+                        pygame.draw.circle(ts, (255,255,255,ta), (tsz,tsz), tsz)
+                        buf.blit(ts, (tx-tsz, ty-tsz))
+                sa = int(255*(s['life']/120)); ssz = max(1, s['size'])
+                ss = pygame.Surface((ssz*2, ssz*2), pygame.SRCALPHA)
+                pygame.draw.circle(ss, (255,255,255,sa), (ssz,ssz), ssz)
+                buf.blit(ss, (s['x']-ssz, s['y']-ssz))
+            else: shooting_stars.remove(s)
+
+        for s in fuzzy_stars[:]:
+            s['life'] -= s['fade_speed']; s['alpha'] = int(255*(s['life']/300))
+            if s['life'] > 0 and s['alpha'] > 0:
+                ssz = max(1, s['size'])
                 for i in range(3):
-                    offset = i * 2
-                    fuzzy_alpha = int(star['alpha'] * (1 - i * 0.3))
-                    fuzzy_size = max(1, size - i * 2)
-                    
-                    if fuzzy_alpha > 0 and fuzzy_size > 0:
-                        fuzzy_surface = pygame.Surface((fuzzy_size * 2, fuzzy_size * 2), pygame.SRCALPHA)
-                        pygame.draw.circle(fuzzy_surface, (255, 255, 255, fuzzy_alpha), (fuzzy_size, fuzzy_size), fuzzy_size)
-                        SCREEN.blit(fuzzy_surface, (star['x'] - fuzzy_size + offset, star['y'] - fuzzy_size + offset))
-            else:
-                fuzzy_stars.remove(star)
-        
-        # 전체 화면 흔들림 효과 (screen_shake > 0.5일 때)
+                    off = i*2; fa = int(s['alpha']*(1-i*0.3)); fsz = max(1, ssz-i*2)
+                    if fa > 0 and fsz > 0:
+                        fs = pygame.Surface((fsz*2, fsz*2), pygame.SRCALPHA)
+                        pygame.draw.circle(fs, (255,255,255,fa), (fsz,fsz), fsz)
+                        buf.blit(fs, (s['x']-fsz+off, s['y']-fsz+off))
+            else: fuzzy_stars.remove(s)
+
+        # ── 4) 최종 출력: 렌더 버퍼 → SCREEN (흔들림 오프셋) ──
         if screen_shake > 0.5:
-            int_shake = max(1, int(screen_shake))
-            sx = random.randint(-int_shake, int_shake)
-            sy = random.randint(-int_shake, int_shake)
-            # 현재 화면을 복사 → 검은 배경 위에 오프셋 적용하여 다시 그리기
-            frame_copy = SCREEN.copy()
+            ish = max(1, int(screen_shake))
+            sx = random.randint(-ish, ish); sy = random.randint(-ish, ish)
             SCREEN.fill((0, 0, 0))
-            SCREEN.blit(frame_copy, (sx, sy))
+            SCREEN.blit(buf, (sx, sy))
+        else:
+            SCREEN.blit(buf, (0, 0))
 
         pygame.display.flip()
-        clock.tick(60)
