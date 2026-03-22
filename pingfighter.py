@@ -137278,30 +137278,30 @@ def handle_ball():
                     cotton_bomb_cooldown_timer = COTTON_BOMB_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
-                # 테디베어: 죽음의 포옹 (게이지 300, 5% 확률, 쿨다운 15초)
-                if (boss_special_gauge >= 300
+                # 테디베어: 죽음의 포옹 (게이지 250, 20% 확률, 쿨다운 15초)
+                if (boss_special_gauge >= 250
                     and not deadly_hug_active
                     and not deadly_hug_rush_active
                     and deadly_hug_cooldown_timer <= 0
                     and not cotton_throw_active
-                    and random.random() <= 0.05):
+                    and random.random() <= 0.20):
                     activate_deadly_hug()
                     _hug_shouts = ["안아줄게~!", "도망칠 수 없어~!", "꼭 껴안아줄게!"]
                     show_speech(random.choice(_hug_shouts), duration=90)
-                    boss_special_gauge -= 300
+                    boss_special_gauge -= 250
                     deadly_hug_cooldown_timer = DEADLY_HUG_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
-                # 테디베어: 단추 눈의 저주 (게이지 200, 8% 확률, 쿨다운 10초)
-                if (boss_special_gauge >= 200
+                # 테디베어: 하트 빔 (게이지 150, 13% 확률, 쿨다운 10초)
+                if (boss_special_gauge >= 150
                     and not button_eye_active
                     and button_eye_cooldown_timer <= 0
                     and not deadly_hug_active
-                    and random.random() <= 0.08):
+                    and random.random() <= 0.13):
                     activate_button_eye()
                     _eye_shouts = ["내 눈을 봐!", "앞이 안 보이지~?", "저주다~!"]
                     show_speech(random.choice(_eye_shouts), duration=90)
-                    boss_special_gauge -= 200
+                    boss_special_gauge -= 150
                     button_eye_cooldown_timer = BUTTON_EYE_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
