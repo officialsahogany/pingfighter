@@ -72323,16 +72323,16 @@ BASE_SKILL_COOLDOWNS = {
 
 # === 광폭화 보스 시스템 (신화리그 전용) ===
 # 10% 확률로 스테이지 시작 시 광폭화 보스가 등장
-# 효과: 패들 크기 40% 증가, 이동속도 30% 증가, 스킬 효율 2배
+# 효과: 패들 크기 30% 증가, 이동속도 30% 증가, 스킬 효율 2배
 enraged_boss_active = False  # 광폭화 보스 활성화 상태
-enraged_boss_paddle_scale = 1.4  # 패들 크기 40% 증가 (목표)
+enraged_boss_paddle_scale = 1.3  # 패들 크기 30% 증가 (목표)
 enraged_boss_speed_scale = 1.3  # 이동속도 30% 증가
 enraged_boss_skill_scale = 2.0  # 스킬 효율 2배
 enraged_boss_aura_particles = []  # 붉은 오오라 파티클
 enraged_boss_aura_timer = 0  # 오오라 애니메이션 타이머
 ENRAGED_BOSS_CHANCE = 0.10  # 10% 확률
 # 점진적 확대 애니메이션 변수
-enraged_boss_current_scale = 1.0  # 현재 스케일 (1.0 → 1.5로 점진적 증가)
+enraged_boss_current_scale = 1.0  # 현재 스케일 (1.0 → 1.3으로 점진적 증가)
 enraged_boss_target_scale = 1.0  # 목표 스케일
 enraged_boss_scale_speed = 0.02  # 스케일 변화 속도
 enraged_boss_growing = False  # 확대 중 여부
@@ -96281,8 +96281,8 @@ def draw_nemesis_sub_boss():
     move_dir = nemesis_sub_boss_move_direction
     tilt_angle = move_dir * 8  # 이동 방향으로 8도 기울기
 
-    # 광폭화 시 50% 크기 증가
-    rage_scale = 1.5 if enraged_boss_active else 1.0
+    # 광폭화 시 30% 크기 증가
+    rage_scale = 1.3 if enraged_boss_active else 1.0
     base_width = int(nemesis_sub_boss_width * rage_scale)
     base_height = int(nemesis_sub_boss_height * rage_scale)
 
@@ -96673,9 +96673,9 @@ def update_nemesis_sub_boss():
     nemesis_sub_boss_last_x = nemesis_sub_boss_x
 
 def get_nemesis_sub_boss_rect():
-    """보조 보스 충돌 박스 반환 - 광폭화 시 50% 크기 증가"""
-    # 광폭화 시 서브 보스 크기 50% 증가
-    scale = 1.5 if enraged_boss_active else 1.0
+    """보조 보스 충돌 박스 반환 - 광폭화 시 30% 크기 증가"""
+    # 광폭화 시 서브 보스 크기 30% 증가
+    scale = 1.3 if enraged_boss_active else 1.0
     scaled_width = int(nemesis_sub_boss_width * scale)
     scaled_height = int(nemesis_sub_boss_height * scale)
     return pygame.Rect(
@@ -143782,7 +143782,7 @@ def main(stage_num, new_boss_mode=False):
 
     if should_enrage:
         enraged_boss_active = True
-        enraged_boss_target_scale = enraged_boss_paddle_scale  # 1.5 목표
+        enraged_boss_target_scale = enraged_boss_paddle_scale  # 1.3 목표
         # 홀로그램 등장 시점까지 광폭화 애니메이션 대기
         # 공 생성 애니메이션이 활성화된 경우 홀로그램 등장 시 시작하도록 대기
         enraged_boss_pending_start = True  # 홀로그램 등장 시 시작 (draw_objects에서 처리)
@@ -145279,7 +145279,7 @@ def main(stage_num, new_boss_mode=False):
             enraged_boss_active = not enraged_boss_active
             if enraged_boss_active:
                 # 광폭화 활성화: 점진적 확대 시작
-                enraged_boss_target_scale = enraged_boss_paddle_scale  # 1.5
+                enraged_boss_target_scale = enraged_boss_paddle_scale  # 1.3
                 enraged_boss_growing = True
                 BOSS_MAX_SPEED = int(BOSS_MAX_SPEED * enraged_boss_speed_scale)
                 enraged_boss_aura_particles = []
