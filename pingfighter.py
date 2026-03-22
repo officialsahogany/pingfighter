@@ -47069,7 +47069,7 @@ COTTON_THROW_HIT_RADIUS = 22
 cotton_blackout_active = False
 cotton_blackout_timer = 0
 COTTON_BLACKOUT_DURATION = 120      # 2초 전체 (60fps)
-COTTON_BLACKOUT_FULL_END = 90       # 0~1.5초(90프레임): 완전 암전
+COTTON_BLACKOUT_FULL_END = 30       # 0~0.5초(30프레임): 완전 화이트아웃
 # 1.5초~2초(90~120프레임): 점점 밝아짐
 # 구버전 호환용 (다른 코드에서 참조할 수 있음)
 cotton_fog_active = False
@@ -76922,27 +76922,27 @@ def draw_cotton_throw_effect(screen):
             fy = ct + int(math.sin(fa) * (draw_sz * 0.7))
             pygame.draw.circle(sf, (255, 235, 240, 160), (fx, fy), max(1, draw_sz // 3))
         screen.blit(sf, (cx - ct, cy - ct))
-    # 3) 솜뭉치 암전 (블랙아웃) 효과
+    # 3) 솜뭉치 화이트아웃 효과
     if cotton_blackout_active and cotton_blackout_timer > 0:
         elapsed = COTTON_BLACKOUT_DURATION - cotton_blackout_timer
-        # 0~90프레임(0~1.5초): 완전 암전 (alpha=255)
-        # 90~120프레임(1.5~2.0초): 점점 밝아짐 (alpha 255→0)
+        # 0~30프레임(0~0.5초): 완전 화이트 (alpha=255)
+        # 30~120프레임(0.5~2.0초): 점점 원래색으로 복귀 (alpha 255→0)
         if elapsed < COTTON_BLACKOUT_FULL_END:
-            # 완전 암전 구간 (처음 5프레임은 급속 페이드인)
+            # 완전 화이트 구간 (처음 5프레임은 급속 페이드인)
             if elapsed < 5:
                 alpha = int(255 * (elapsed / 5.0))
             else:
                 alpha = 255
         else:
-            # 밝아지는 구간
-            fade_frames = COTTON_BLACKOUT_DURATION - COTTON_BLACKOUT_FULL_END  # 30프레임
+            # 점진 복귀 구간 (0.5초~2초)
+            fade_frames = COTTON_BLACKOUT_DURATION - COTTON_BLACKOUT_FULL_END  # 90프레임
             fade_progress = (elapsed - COTTON_BLACKOUT_FULL_END) / fade_frames
             alpha = int(255 * (1.0 - fade_progress))
         alpha = max(0, min(255, alpha))
         if alpha > 0:
-            blackout_sf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
-            blackout_sf.fill((0, 0, 0, alpha))
-            screen.blit(blackout_sf, (0, 0))
+            whiteout_sf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+            whiteout_sf.fill((255, 255, 255, alpha))
+            screen.blit(whiteout_sf, (0, 0))
 
 
 # =====================================================================
