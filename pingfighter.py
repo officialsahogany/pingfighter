@@ -77585,27 +77585,34 @@ def draw_button_eye_effect(screen):
         pygame.draw.circle(heart_sf, (255, 180, 210), (hc - lobe, hc - lobe), hl)
         screen.blit(heart_sf, (cx - hc, cy - hc))
 
-    # 3) 넉백 이펙트 (피격 시 하트 파티클)
+    # 3) 넉백 이펙트 (탁! 마다 하트 파티클 버스트)
     if heart_beam_knockback_active and PLAYER:
         elapsed = HEART_BEAM_KNOCKBACK_DURATION - heart_beam_knockback_timer
         for kb in heart_beam_knockback_schedule:
             if kb["applied"]:
                 kb_age = elapsed - kb["frame"]
-                if 0 <= kb_age < 12:
-                    # 넉백 방향으로 하트 이펙트
-                    ex = PLAYER.centerx + kb["direction"] * int(kb_age * 2)
-                    ey = PLAYER.centery - 10
-                    alpha = int(200 * (1.0 - kb_age / 12.0))
-                    eff_sz = 8
-                    eff_sf = pygame.Surface((eff_sz * 3, eff_sz * 3), pygame.SRCALPHA)
-                    ec = eff_sz * 3 // 2
-                    el = max(1, int(eff_sz * 0.5))
-                    pygame.draw.circle(eff_sf, (255, 130, 170, alpha), (ec - el, ec - el // 2), el)
-                    pygame.draw.circle(eff_sf, (255, 130, 170, alpha), (ec + el, ec - el // 2), el)
-                    pygame.draw.polygon(eff_sf, (255, 130, 170, alpha), [
-                        (ec - eff_sz, ec), (ec + eff_sz, ec), (ec, ec + eff_sz)
-                    ])
-                    screen.blit(eff_sf, (ex - ec, ey - ec))
+                if 0 <= kb_age < 8:  # 짧고 간결 (8프레임 = 0.13초)
+                    t = kb_age / 8.0
+                    alpha = int(255 * (1.0 - t))
+                    pcx = PLAYER.centerx
+                    pcy = PLAYER.centery - 5
+                    # 3개 하트가 넉백 방향으로 탁! 퍼짐
+                    for hi in range(3):
+                        spread_x = kb["direction"] * (10 + hi * 18) * t
+                        spread_y = (-12 + hi * 12) * t - 5 * (1.0 - t)
+                        sz = int(6 + 3 * (1.0 - t))  # 점점 작아짐
+                        hx = int(pcx + spread_x)
+                        hy = int(pcy + spread_y)
+                        hs = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
+                        hc = sz * 3 // 2
+                        lb = max(1, int(sz * 0.5))
+                        c = (255, 100 + hi * 30, 160, alpha)
+                        pygame.draw.circle(hs, c, (hc - lb, hc - lb), lb)
+                        pygame.draw.circle(hs, c, (hc + lb, hc - lb), lb)
+                        pygame.draw.polygon(hs, c, [
+                            (hc - sz, hc), (hc + sz, hc), (hc, hc + sz)
+                        ])
+                        screen.blit(hs, (hx - hc, hy - hc))
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
