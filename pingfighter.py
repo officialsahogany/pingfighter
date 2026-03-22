@@ -76638,6 +76638,7 @@ def update_fan_throw():
             fan_throw_active = False
             # 부채던지기 타격 사운드
             if SOUND_WHIPCRACK:
+                SOUND_WHIPCRACK.set_volume(0.6)
                 SOUND_WHIPCRACK.play()
             # 화염탄 방식 넉백
             if player_stun_immunity_timer <= 0:
