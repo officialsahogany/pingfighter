@@ -47105,6 +47105,10 @@ COTTON_BOMB_GHOST_CURVE_DURATION = 180  # 3초간 유령 커브
 cotton_bomb_ghost_curve_phase = 0.0     # 커브 위상
 cotton_bomb_ghost_curve_seed = 0.0      # 랜덤 시드 (패턴 다양화)
 cotton_bomb_ghost_curve_intensity = 1.0  # 커브 강도
+_ghost_curve_freeze_timer = 0            # 마이크로 프리즈 타이머
+_ghost_curve_saved_vel = None            # 프리즈 직전 속도 저장
+_ghost_curve_next_hard_turn = 0          # 다음 하드턴까지 프레임
+_ghost_curve_next_freeze = 0             # 다음 프리즈까지 프레임
 
 # === 테디베어 죽음의 포옹 스킬 (Deadly Hug) - Stage 3 ===
 deadly_hug_active = False
@@ -47135,6 +47139,150 @@ HEART_BEAM_KNOCKBACK_DURATION = 72   # 1.2초 (72프레임)
 heart_beam_knockback_schedule = []   # [(프레임, 방향px), ...] 3번 넉백 스케줄
 heart_beam_trail = []                # 빔 잔상 트레일
 heart_beam_slap_particles = []       # 싸대기 하트 파편 파티클
+
+# === 테디베어 VFX Surface 캐시 시스템 ===
+_teddy_vfx_cache = {}
+cotton_bomb_explosion_rings = []     # 폭탄 폭발 충격파 링
+cotton_whiteout_smoke = []           # 화이트아웃 연기 파티클
+
+
+def _blit_alpha(screen, surface, pos, alpha):
+    """캐싱된 Surface를 알파 조절 블릿 (set_alpha 사용, 할당 없음)"""
+    if alpha >= 250:
+        screen.blit(surface, pos)
+    else:
+        surface.set_alpha(int(alpha))
+        screen.blit(surface, pos)
+        surface.set_alpha(255)
+
+
+def _get_heart_surface(sz):
+    """하트 투사체 Surface 캐시 (sz=반지름, 아웃라인+본체+하이라이트)"""
+    sz = max(2, int(sz))
+    key = ("heart", sz)
+    cached = _teddy_vfx_cache.get(key)
+    if cached:
+        return cached
+    w = sz * 4
+    sf = pygame.Surface((w, w), pygame.SRCALPHA)
+    hc = w // 2
+    lobe = max(2, int(sz * 0.55))
+    pygame.draw.circle(sf, (210, 70, 115), (hc - lobe, hc - lobe // 2), lobe + 2)
+    pygame.draw.circle(sf, (210, 70, 115), (hc + lobe, hc - lobe // 2), lobe + 2)
+    pygame.draw.polygon(sf, (210, 70, 115), [
+        (hc - sz - 2, hc + 1), (hc + sz + 2, hc + 1), (hc, hc + int(sz * 1.3))])
+    pygame.draw.circle(sf, (255, 105, 150), (hc - lobe, hc - lobe // 2), lobe)
+    pygame.draw.circle(sf, (255, 105, 150), (hc + lobe, hc - lobe // 2), lobe)
+    pygame.draw.polygon(sf, (255, 105, 150), [
+        (hc - sz, hc), (hc + sz, hc), (hc, hc + int(sz * 1.2))])
+    hl = max(1, lobe // 2)
+    pygame.draw.circle(sf, (255, 180, 210), (hc - lobe, hc - lobe), hl)
+    _teddy_vfx_cache[key] = sf
+    return sf
+
+
+def _get_trail_heart(sz):
+    """트레일용 하트 Surface 캐시 (글로우 포함)"""
+    sz = max(2, int(sz))
+    key = ("trail", sz)
+    cached = _teddy_vfx_cache.get(key)
+    if cached:
+        return cached
+    w = sz * 3
+    sf = pygame.Surface((w, w), pygame.SRCALPHA)
+    ct = w // 2
+    lobe = max(1, int(sz * 0.5))
+    pygame.draw.circle(sf, (255, 130, 170, 60), (ct, ct), sz + 3)
+    pygame.draw.circle(sf, (255, 105, 150, 180), (ct - lobe, ct - lobe // 2), lobe)
+    pygame.draw.circle(sf, (255, 105, 150, 180), (ct + lobe, ct - lobe // 2), lobe)
+    pygame.draw.polygon(sf, (255, 105, 150, 180), [
+        (ct - sz, ct), (ct + sz, ct), (ct, ct + int(sz * 1.2))])
+    _teddy_vfx_cache[key] = sf
+    return sf
+
+
+def _get_mini_heart(sz, color):
+    """미니 하트 파편 Surface 캐시"""
+    sz = max(1, int(sz))
+    key = ("mini", sz, color)
+    cached = _teddy_vfx_cache.get(key)
+    if cached:
+        return cached
+    w = sz * 3
+    sf = pygame.Surface((w, w), pygame.SRCALPHA)
+    pc = w // 2
+    lb = max(1, int(sz * 0.45))
+    pygame.draw.circle(sf, (*color, 255), (pc - lb, pc - lb), lb)
+    pygame.draw.circle(sf, (*color, 255), (pc + lb, pc - lb), lb)
+    pygame.draw.polygon(sf, (*color, 255), [(pc - sz, pc), (pc + sz, pc), (pc, pc + sz)])
+    _teddy_vfx_cache[key] = sf
+    return sf
+
+
+def _get_glow_circle(radius, color=(255, 180, 210, 80)):
+    """글로우 서클 Surface 캐시"""
+    radius = max(2, int(radius))
+    key = ("glow", radius, color)
+    cached = _teddy_vfx_cache.get(key)
+    if cached:
+        return cached
+    sf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+    pygame.draw.circle(sf, color, (radius, radius), radius)
+    _teddy_vfx_cache[key] = sf
+    return sf
+
+
+def _get_cotton_ball(sz):
+    """솜뭉치 Surface 캐시 (외곽글로우+본체+하이라이트)"""
+    sz = max(6, int(sz))
+    key = ("cotton", sz)
+    cached = _teddy_vfx_cache.get(key)
+    if cached:
+        return cached
+    w = sz * 3
+    sf = pygame.Surface((w, w), pygame.SRCALPHA)
+    ct = w // 2
+    pygame.draw.circle(sf, (255, 200, 220, 120), (ct, ct), sz + 4)
+    pygame.draw.circle(sf, (255, 250, 245, 200), (ct, ct), sz)
+    pygame.draw.circle(sf, (255, 255, 255, 240), (ct - 3, ct - 3), max(1, sz // 2))
+    _teddy_vfx_cache[key] = sf
+    return sf
+
+
+def _get_bomb_surface(sz):
+    """솜뭉치 폭탄 Surface 캐시 (위험 원+본체+하이라이트)"""
+    sz = max(8, int(sz))
+    key = ("bomb", sz)
+    cached = _teddy_vfx_cache.get(key)
+    if cached:
+        return cached
+    w = sz * 3
+    sf = pygame.Surface((w, w), pygame.SRCALPHA)
+    ct = w // 2
+    pygame.draw.circle(sf, (255, 100, 100, 80), (ct, ct), sz + 8)
+    pygame.draw.circle(sf, (255, 200, 220, 220), (ct, ct), sz)
+    pygame.draw.circle(sf, (255, 240, 245, 240), (ct, ct), max(1, sz * 2 // 3))
+    pygame.draw.circle(sf, (255, 255, 255, 200), (ct - 3, ct - 3), max(1, sz // 3))
+    _teddy_vfx_cache[key] = sf
+    return sf
+
+
+def _get_explosion_ring(radius):
+    """폭발 충격파 링 Surface 캐시"""
+    radius = max(4, int(radius))
+    key = ("ring", radius)
+    cached = _teddy_vfx_cache.get(key)
+    if cached:
+        return cached
+    w = radius * 2 + 4
+    sf = pygame.Surface((w, w), pygame.SRCALPHA)
+    ct = w // 2
+    thickness = max(2, int(5 * max(0.1, 1.0 - radius / 100.0)))
+    alpha = int(220 * max(0.05, 1.0 - radius / 100.0))
+    pygame.draw.circle(sf, (255, 180, 200, alpha), (ct, ct), radius, thickness)
+    pygame.draw.circle(sf, (255, 230, 240, alpha // 2), (ct, ct), max(1, radius - 2), max(1, thickness - 1))
+    _teddy_vfx_cache[key] = sf
+    return sf
 
 # 각시탈 부채바람 스킬 (소용돌이)
 fan_wind_active = False
@@ -76887,14 +77035,27 @@ def update_cotton_throw():
 
 
 def _trigger_cotton_fog(hit_x, hit_y):
-    """솜뭉치 명중 시 화면 암전 (블랙아웃) 발동"""
+    """솜뭉치 명중 시 화면 암전 (블랙아웃) + 연기 파티클 발동"""
     global cotton_blackout_active, cotton_blackout_timer
     cotton_blackout_active = True
     cotton_blackout_timer = COTTON_BLACKOUT_DURATION
+    # ★ 연기 파티클 생성 (피격 지점에서 뭉게뭉게 퍼짐)
+    for _ in range(18):
+        angle = random.uniform(0, math.pi * 2)
+        spd = random.uniform(0.5, 2.5)
+        cotton_whiteout_smoke.append({
+            "x": hit_x + random.uniform(-20, 20),
+            "y": hit_y + random.uniform(-20, 20),
+            "vx": math.cos(angle) * spd,
+            "vy": math.sin(angle) * spd - random.uniform(0.3, 1.2),
+            "size": random.uniform(20, 50),
+            "life": 1.0,
+            "decay": random.uniform(0.008, 0.015),
+        })
 
 
 def draw_cotton_throw_effect(screen):
-    """솜뭉치 투척 전체 렌더링 (준비 모션 + 투사체 + 안개)"""
+    """솜뭉치 투척 렌더링 (캐싱 + 연기 파티클 화이트아웃)"""
     # 1) 준비 모션
     if cotton_throw_windup_active and BOSS:
         progress = 1.0 - (cotton_throw_windup_timer / 30.0)
@@ -76906,41 +77067,31 @@ def draw_cotton_throw_effect(screen):
             ppx = bcx + math.cos(a) * d
             ppy = bcy + math.sin(a) * d
             sz = int(6 + 4 * progress)
-            al = int(150 * progress)
-            sf = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
-            pygame.draw.circle(sf, (255, 240, 230, al), (sz, sz), sz)
-            screen.blit(sf, (int(ppx) - sz, int(ppy) - sz))
-    # 2) 비행 중인 솜뭉치 투사체
+            glow = _get_glow_circle(sz, (255, 240, 230, int(150 * progress)))
+            screen.blit(glow, (int(ppx) - sz, int(ppy) - sz))
+    # 2) 비행 중인 솜뭉치 투사체 (캐싱)
     for proj in cotton_throw_projectiles:
         cx, cy = int(proj["x"]), int(proj["y"])
         sz = int(proj["size"])
         breath = 1.0 + math.sin(proj["wobble_phase"] * 2) * 0.1
-        draw_sz = int(sz * breath)
-        sf = pygame.Surface((draw_sz * 3, draw_sz * 3), pygame.SRCALPHA)
-        ct = draw_sz * 3 // 2
-        pygame.draw.circle(sf, (255, 200, 220, 120), (ct, ct), draw_sz + 4)
-        pygame.draw.circle(sf, (255, 250, 245, 200), (ct, ct), draw_sz)
-        pygame.draw.circle(sf, (255, 255, 255, 240), (ct - 3, ct - 3), max(1, draw_sz // 2))
-        for j in range(3):
-            fa = proj["wobble_phase"] + j * 2.1
-            fx = ct + int(math.cos(fa) * (draw_sz * 0.7))
-            fy = ct + int(math.sin(fa) * (draw_sz * 0.7))
-            pygame.draw.circle(sf, (255, 235, 240, 160), (fx, fy), max(1, draw_sz // 3))
-        screen.blit(sf, (cx - ct, cy - ct))
-    # 3) 솜뭉치 화이트아웃 효과
+        draw_sz = max(6, int(sz * breath))
+        base = _get_cotton_ball(draw_sz)
+        ct = base.get_width() // 2
+        screen.blit(base, (cx - ct, cy - ct))
+        # 솜뭉치 주변 부드러운 글로우 (BLEND_ADD)
+        glow = _get_glow_circle(draw_sz + 6, (255, 220, 240, 35))
+        gr = glow.get_width() // 2
+        screen.blit(glow, (cx - gr, cy - gr), special_flags=pygame.BLEND_ADD)
+    # 3) 솜뭉치 화이트아웃 + 연기 파티클
     if cotton_blackout_active and cotton_blackout_timer > 0:
         elapsed = COTTON_BLACKOUT_DURATION - cotton_blackout_timer
-        # 0~30프레임(0~0.5초): 완전 화이트 (alpha=255)
-        # 30~120프레임(0.5~2.0초): 점점 원래색으로 복귀 (alpha 255→0)
         if elapsed < COTTON_BLACKOUT_FULL_END:
-            # 완전 화이트 구간 (처음 5프레임은 급속 페이드인)
             if elapsed < 5:
                 alpha = int(255 * (elapsed / 5.0))
             else:
                 alpha = 255
         else:
-            # 점진 복귀 구간 (0.5초~2초)
-            fade_frames = COTTON_BLACKOUT_DURATION - COTTON_BLACKOUT_FULL_END  # 90프레임
+            fade_frames = COTTON_BLACKOUT_DURATION - COTTON_BLACKOUT_FULL_END
             fade_progress = (elapsed - COTTON_BLACKOUT_FULL_END) / fade_frames
             alpha = int(255 * (1.0 - fade_progress))
         alpha = max(0, min(255, alpha))
@@ -76948,6 +77099,25 @@ def draw_cotton_throw_effect(screen):
             whiteout_sf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
             whiteout_sf.fill((255, 255, 255, alpha))
             screen.blit(whiteout_sf, (0, 0))
+    # 4) 연기 파티클 렌더링 (뭉게뭉게 퍼지는 연기)
+    smoke_remove = []
+    for si, smoke in enumerate(cotton_whiteout_smoke):
+        smoke["x"] += smoke["vx"]
+        smoke["y"] += smoke["vy"]
+        smoke["vx"] *= 0.97
+        smoke["vy"] *= 0.97
+        smoke["size"] += 0.4  # 점점 커짐
+        smoke["life"] -= smoke["decay"]
+        if smoke["life"] <= 0:
+            smoke_remove.append(si)
+            continue
+        sa = int(120 * smoke["life"])
+        ssz = int(smoke["size"])
+        glow = _get_glow_circle(ssz, (255, 255, 255, min(255, sa)))
+        gr = glow.get_width() // 2
+        _blit_alpha(screen, glow, (int(smoke["x"]) - gr, int(smoke["y"]) - gr), sa)
+    for si in reversed(smoke_remove):
+        cotton_whiteout_smoke.pop(si)
 
 
 # =====================================================================
@@ -76987,8 +77157,8 @@ def _launch_cotton_bombs():
 
 
 def _explode_cotton_bomb(bomb):
-    """광폭화 시 솜뭉치 폭탄이 파편으로 분산"""
-    global cotton_bomb_fragments
+    """광폭화 시 솜뭉치 폭탄이 파편 + 충격파 링 + 스크린셰이크"""
+    global cotton_bomb_fragments, screen_shake_timer, screen_shake_intensity
     for _ in range(COTTON_BOMB_FRAGMENT_COUNT):
         angle = random.uniform(0, math.pi * 2)
         speed = COTTON_BOMB_FRAGMENT_SPEED + random.uniform(-0.5, 0.5)
@@ -77001,6 +77171,15 @@ def _explode_cotton_bomb(bomb):
             "size": random.uniform(8, 14),
             "wobble_phase": random.uniform(0, math.pi * 2),
         })
+    # ★ 충격파 링 생성 (확장하는 원형 링)
+    cotton_bomb_explosion_rings.append({
+        "x": bomb["x"], "y": bomb["y"],
+        "radius": 8.0, "max_radius": 80.0,
+        "speed": 3.5, "life": 1.0,
+    })
+    # ★ 스크린 셰이크
+    screen_shake_timer = max(screen_shake_timer, 10)
+    screen_shake_intensity = max(screen_shake_intensity, 7)
     try:
         snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "weakexplosion.wav")))
         snd.set_volume(0.25 * sfx_volume)
@@ -77010,20 +77189,26 @@ def _explode_cotton_bomb(bomb):
 
 
 def _activate_ghost_curve():
-    """유령 커브 발동 — 공이 기이하게 휘어지며 꺾이는 저주"""
+    """유령 커브 발동 — 폴터가이스트 물리법칙 무시 궤적 저주"""
     global cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer
     global cotton_bomb_ghost_curve_phase, cotton_bomb_ghost_curve_seed
     global cotton_bomb_ghost_curve_intensity
+    global _ghost_curve_freeze_timer, _ghost_curve_saved_vel
+    global _ghost_curve_next_hard_turn, _ghost_curve_next_freeze
     cotton_bomb_ghost_curve_active = True
     cotton_bomb_ghost_curve_timer = COTTON_BOMB_GHOST_CURVE_DURATION
     cotton_bomb_ghost_curve_phase = random.uniform(0, math.pi * 2)
     cotton_bomb_ghost_curve_seed = random.uniform(0.7, 2.5)
     cotton_bomb_ghost_curve_intensity = 1.0
+    _ghost_curve_freeze_timer = 0
+    _ghost_curve_saved_vel = None
+    _ghost_curve_next_hard_turn = random.randint(20, 45)
+    _ghost_curve_next_freeze = random.randint(40, 70)
 
     # ★ 발동 순간 즉시 큰 초기 꺾임 (드라마틱한 첫 충격)
     speed = math.hypot(ball_vel[0], ball_vel[1])
     if speed > 0.5:
-        kick_angle = random.uniform(0.6, 1.2) * random.choice([-1, 1])
+        kick_angle = random.uniform(0.8, 1.5) * random.choice([-1, 1])
         cur_angle = math.atan2(ball_vel[1], ball_vel[0])
         new_angle = cur_angle + kick_angle
         ball_vel[0] = math.cos(new_angle) * speed
@@ -77031,9 +77216,11 @@ def _activate_ghost_curve():
 
 
 def update_ghost_curve():
-    """유령 커브 매 프레임 업데이트 — ball_vel에 강력한 곡선 힘을 가함"""
+    """유령 커브 — 폴터가이스트: 하드턴 + 마이크로프리즈 + 속도펄스 + 방향반전"""
     global cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer
     global cotton_bomb_ghost_curve_phase, cotton_bomb_ghost_curve_intensity
+    global _ghost_curve_freeze_timer, _ghost_curve_saved_vel
+    global _ghost_curve_next_hard_turn, _ghost_curve_next_freeze
 
     if not cotton_bomb_ghost_curve_active:
         return
@@ -77043,44 +77230,75 @@ def update_ghost_curve():
         cotton_bomb_ghost_curve_active = False
         return
 
-    # 남은 시간 비율 (페이드아웃)
     t_ratio = cotton_bomb_ghost_curve_timer / COTTON_BOMB_GHOST_CURVE_DURATION
-    cotton_bomb_ghost_curve_phase += 0.22 + cotton_bomb_ghost_curve_seed * 0.12
-
-    # === 3중 사인파 합성 → 불규칙한 유령 궤적 ===
-    phase = cotton_bomb_ghost_curve_phase
-    seed = cotton_bomb_ghost_curve_seed
-
-    # 1차: 느린 큰 커브 (유령이 끌고 가는 궤도)
-    wave1 = math.sin(phase * 0.7 * seed) * 3.5
-    # 2차: 빠른 급커브 (폴터가이스트 — 갑자기 꺾임)
-    wave2 = math.sin(phase * 2.3 + seed * 5.0) * 2.5
-    # 3차: 중속 불규칙 흔들림 (기이한 떨림)
-    wave3 = math.sin(phase * 4.1 + seed * 11.0) * 1.2
-
-    # 현재 진행방향의 수직 벡터 계산
     speed = math.hypot(ball_vel[0], ball_vel[1])
     if speed < 0.5:
         return
 
+    # === 마이크로 프리즈: 허공에서 멈칫 → 랜덤 방향 급발진 ===
+    if _ghost_curve_freeze_timer > 0:
+        _ghost_curve_freeze_timer -= 1
+        if _ghost_curve_freeze_timer > 3:
+            # 정지 구간 (공 거의 멈춤, 에너지 축적 느낌)
+            ball_vel[0] *= 0.12
+            ball_vel[1] *= 0.12
+        elif _ghost_curve_freeze_timer == 3:
+            # 급발진! 저장 속도의 1.6배로 랜덤 방향 사출
+            if _ghost_curve_saved_vel:
+                burst_speed = math.hypot(*_ghost_curve_saved_vel) * 1.6
+                burst_angle = math.atan2(_ghost_curve_saved_vel[1], _ghost_curve_saved_vel[0])
+                burst_angle += random.uniform(-1.3, 1.3)
+                ball_vel[0] = math.cos(burst_angle) * burst_speed
+                ball_vel[1] = math.sin(burst_angle) * burst_speed
+                _ghost_curve_saved_vel = None
+        return
+
+    # 프리즈 스케줄 체크
+    _ghost_curve_next_freeze -= 1
+    if _ghost_curve_next_freeze <= 0 and t_ratio > 0.2:
+        _ghost_curve_freeze_timer = random.randint(6, 11)  # 0.1~0.18초 정지
+        _ghost_curve_saved_vel = [ball_vel[0], ball_vel[1]]
+        _ghost_curve_next_freeze = random.randint(35, 65)
+
+    cotton_bomb_ghost_curve_phase += 0.22 + cotton_bomb_ghost_curve_seed * 0.12
+    phase = cotton_bomb_ghost_curve_phase
+    seed = cotton_bomb_ghost_curve_seed
     cur_angle = math.atan2(ball_vel[1], ball_vel[0])
 
-    # 수직 방향으로 강한 힘 적용 (커브 핵심)
+    # === 하드 턴: 갑자기 예각(60~120도)으로 팍! 꺾임 ===
+    _ghost_curve_next_hard_turn -= 1
+    if _ghost_curve_next_hard_turn <= 0 and t_ratio > 0.15:
+        turn_angle = random.uniform(math.pi / 3, math.pi * 2 / 3) * random.choice([-1, 1])
+        new_angle = cur_angle + turn_angle
+        speed_mult = random.uniform(0.7, 1.4)  # 속도 불규칙 변동
+        ball_vel[0] = math.cos(new_angle) * speed * speed_mult
+        ball_vel[1] = math.sin(new_angle) * speed * speed_mult
+        _ghost_curve_next_hard_turn = random.randint(15, 40)
+        cur_angle = new_angle
+
+    # === 3중 사인파 합성 (기존 유지) ===
+    wave1 = math.sin(phase * 0.7 * seed) * 3.5
+    wave2 = math.sin(phase * 2.3 + seed * 5.0) * 2.5
+    wave3 = math.sin(phase * 4.1 + seed * 11.0) * 1.2
+
+    # 수직 힘 (커브)
     perp_force = (wave1 + wave2 + wave3) * t_ratio * 0.35
-    # 진행방향 가감속 (급가속/급감속으로 기이함 연출)
-    tangent_force = math.sin(phase * 1.1 + seed * 3.0) * 0.8 * t_ratio
+    # 접선 힘 (가감속) + 큐빅 이징 속도 펄스 (울컥거림)
+    tangent_wave = math.sin(phase * 1.1 + seed * 3.0) * 0.8
+    cubic_pulse = math.sin(phase * 3.7 + seed * 7.3) ** 3  # 급격한 속도 스파이크
+    tangent_force = (tangent_wave + cubic_pulse * 1.5) * t_ratio
 
     ball_vel[0] += math.cos(cur_angle + math.pi / 2) * perp_force
     ball_vel[1] += math.sin(cur_angle + math.pi / 2) * perp_force
     ball_vel[0] += math.cos(cur_angle) * tangent_force
     ball_vel[1] += math.sin(cur_angle) * tangent_force
 
-    # 주기적 급꺾임 이벤트 (30프레임마다 돌발 방향전환)
-    frames_elapsed = COTTON_BOMB_GHOST_CURVE_DURATION - cotton_bomb_ghost_curve_timer
-    if frames_elapsed % 30 == 0 and frames_elapsed > 0:
-        jolt = random.uniform(0.3, 0.7) * random.choice([-1, 1]) * t_ratio
-        ball_vel[0] += math.cos(cur_angle + math.pi / 2) * jolt * speed * 0.3
-        ball_vel[1] += math.sin(cur_angle + math.pi / 2) * jolt * speed * 0.3
+    # === 5% 확률 속도 컴포넌트 반전 (기이한 떨림/되튀김) ===
+    if random.random() < 0.05 * t_ratio:
+        if random.random() < 0.5:
+            ball_vel[0] = -ball_vel[0] * random.uniform(0.6, 1.0)
+        else:
+            ball_vel[1] = -ball_vel[1] * random.uniform(0.6, 1.0)
 
 
 def update_cotton_bomb():
@@ -77140,6 +77358,16 @@ def update_cotton_bomb():
         if i < len(cotton_bomb_fragments):
             cotton_bomb_fragments.pop(i)
 
+    # ★ 폭발 충격파 링 업데이트
+    ring_remove = []
+    for ri, ring in enumerate(cotton_bomb_explosion_rings):
+        ring["radius"] += ring["speed"]
+        ring["life"] -= 0.04
+        if ring["radius"] >= ring["max_radius"] or ring["life"] <= 0:
+            ring_remove.append(ri)
+    for ri in reversed(ring_remove):
+        cotton_bomb_explosion_rings.pop(ri)
+
     if not cotton_bomb_active:
         return
 
@@ -77190,7 +77418,7 @@ def update_cotton_bomb():
 
 
 def draw_cotton_bomb_effect(screen):
-    """솜뭉치 폭탄 렌더링 (선딜 + 배치된 폭탄 + 파편)"""
+    """솜뭉치 폭탄 렌더링 (캐싱 + 충격파 링 + 글로우)"""
     # 1) 선딜 모션
     if cotton_bomb_windup_active and BOSS:
         progress = 1.0 - (cotton_bomb_windup_timer / 30.0)
@@ -77202,53 +77430,56 @@ def draw_cotton_bomb_effect(screen):
             ppx = bcx + math.cos(a) * d
             ppy = bcy + math.sin(a) * d
             sz = int(8 + 6 * progress)
-            al = int(180 * progress)
-            sf = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
-            pygame.draw.circle(sf, (255, 180, 200, al), (sz, sz), sz)
-            screen.blit(sf, (int(ppx) - sz, int(ppy) - sz))
+            glow = _get_glow_circle(sz, (255, 180, 200, int(180 * progress)))
+            screen.blit(glow, (int(ppx) - sz, int(ppy) - sz))
 
-    # 2) 필드에 배치된 솜뭉치 폭탄
+    # 2) 필드에 배치된 솜뭉치 폭탄 (캐싱)
     for bomb in cotton_bomb_projectiles:
         cx, cy = int(bomb["x"]), int(bomb["y"])
         sz = int(bomb["size"])
         breath = 1.0 + math.sin(bomb["pulse"] * 3) * 0.15
-        draw_sz = int(sz * breath)
-        # 남은 시간에 따른 깜빡임 (마지막 2초)
+        draw_sz = max(8, int(sz * breath))
         if bomb["timer"] < 120:
             blink = abs(math.sin(bomb["timer"] * 0.15))
             alpha_mult = 0.4 + 0.6 * blink
         else:
             alpha_mult = 1.0
-        sf = pygame.Surface((draw_sz * 3, draw_sz * 3), pygame.SRCALPHA)
-        ct = draw_sz * 3 // 2
-        # 위험 표시 원 (빨간 외곽)
-        danger_alpha = int(80 * alpha_mult)
-        pygame.draw.circle(sf, (255, 100, 100, danger_alpha), (ct, ct), draw_sz + 8)
-        # 메인 솜뭉치 (분홍)
-        main_alpha = int(220 * alpha_mult)
-        pygame.draw.circle(sf, (255, 200, 220, main_alpha), (ct, ct), draw_sz)
-        pygame.draw.circle(sf, (255, 240, 245, min(255, int(240 * alpha_mult))), (ct, ct), max(1, draw_sz * 2 // 3))
-        # 하이라이트
-        hl_alpha = int(200 * alpha_mult)
-        pygame.draw.circle(sf, (255, 255, 255, hl_alpha), (ct - 3, ct - 3), max(1, draw_sz // 3))
-        screen.blit(sf, (cx - ct, cy - ct))
+        base = _get_bomb_surface(draw_sz)
+        ct = base.get_width() // 2
+        _blit_alpha(screen, base, (cx - ct, cy - ct), int(255 * alpha_mult))
+        # 위험 글로우 펄스 (BLEND_ADD)
+        pulse_r = draw_sz + 10 + int(math.sin(bomb["pulse"] * 5) * 4)
+        danger_glow = _get_glow_circle(pulse_r, (255, 80, 100, int(40 * alpha_mult)))
+        dgr = danger_glow.get_width() // 2
+        screen.blit(danger_glow, (cx - dgr, cy - dgr), special_flags=pygame.BLEND_ADD)
 
-    # 3) 파편 렌더링
+    # 3) 파편 렌더링 (캐싱)
     for frag in cotton_bomb_fragments:
         cx, cy = int(frag["x"]), int(frag["y"])
-        sz = int(frag["size"])
+        sz = max(6, int(frag["size"]))
         alpha = min(255, int(255 * (frag["timer"] / COTTON_BOMB_FRAGMENT_LIFETIME)))
-        wobble = math.sin(frag["wobble_phase"]) * 2
-        sf = pygame.Surface((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
-        ct = sz + 2
-        pygame.draw.circle(sf, (255, 180, 200, alpha), (ct + int(wobble), ct), sz)
-        pygame.draw.circle(sf, (255, 230, 240, alpha // 2), (ct + int(wobble) - 2, ct - 2), max(1, sz // 2))
-        screen.blit(sf, (cx - ct, cy - ct))
+        wobble = int(math.sin(frag["wobble_phase"]) * 2)
+        base = _get_cotton_ball(sz)
+        fct = base.get_width() // 2
+        _blit_alpha(screen, base, (cx + wobble - fct, cy - fct), alpha)
 
-    # 4) 플레이어 둔화 상태 표시
+    # 4) 충격파 링 렌더링 (폭발 시 확장하는 원형 링)
+    for ring in cotton_bomb_explosion_rings:
+        r = max(4, int(ring["radius"]))
+        ring_sf = _get_explosion_ring(r)
+        rct = ring_sf.get_width() // 2
+        ring_alpha = int(255 * ring["life"])
+        _blit_alpha(screen, ring_sf, (int(ring["x"]) - rct, int(ring["y"]) - rct), ring_alpha)
+        # 내부 플래시 글로우 (BLEND_ADD)
+        if ring["life"] > 0.6:
+            flash_r = max(2, r // 2)
+            flash = _get_glow_circle(flash_r, (255, 220, 230, int(150 * ring["life"])))
+            fr = flash.get_width() // 2
+            screen.blit(flash, (int(ring["x"]) - fr, int(ring["y"]) - fr), special_flags=pygame.BLEND_ADD)
+
+    # 5) 플레이어 둔화 상태 표시
     if cotton_bomb_slow_timer > 0 and PLAYER:
         slow_alpha = min(160, int(160 * (cotton_bomb_slow_timer / COTTON_BOMB_PLAYER_SLOW_DURATION)))
-        # 플레이어 주변 끈적한 원 효과
         slow_sf = pygame.Surface((PLAYER.width + 40, 20), pygame.SRCALPHA)
         pygame.draw.ellipse(slow_sf, (255, 180, 220, slow_alpha),
                             (0, 0, PLAYER.width + 40, 20))
@@ -77569,106 +77800,89 @@ def update_button_eye():
 
 
 def draw_button_eye_effect(screen):
-    """하트 빔 렌더링 — 투사체 + 트레일 + 넉백 이펙트"""
-    # 1) 트레일 (잔상)
+    """하트 빔 렌더링 — 캐싱 + 다중 BLEND_ADD 글로우 + 파티클"""
+    # 1) 트레일 (잔상) — 캐싱된 하트 + 글로우
     for t in heart_beam_trail:
         tx, ty = int(t["x"]), int(t["y"])
         alpha = int(180 * t["life"])
-        sz = int(HEART_BEAM_SIZE * t["life"] * 0.8)
+        sz = max(2, int(HEART_BEAM_SIZE * t["life"] * 0.8))
         if sz < 2 or alpha < 10:
             continue
-        trail_sf = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
-        ct = sz * 3 // 2
-        # 핑크 글로우
-        pygame.draw.circle(trail_sf, (255, 130, 170, alpha // 3), (ct, ct), sz + 3)
-        # 하트 모양 (간단)
-        lobe = max(1, int(sz * 0.5))
-        pygame.draw.circle(trail_sf, (255, 105, 150, alpha), (ct - lobe, ct - lobe // 2), lobe)
-        pygame.draw.circle(trail_sf, (255, 105, 150, alpha), (ct + lobe, ct - lobe // 2), lobe)
-        pygame.draw.polygon(trail_sf, (255, 105, 150, alpha), [
-            (ct - sz, ct), (ct + sz, ct), (ct, ct + int(sz * 1.2))
-        ])
-        screen.blit(trail_sf, (tx - ct, ty - ct))
+        # 캐싱된 트레일 하트
+        trail_sf = _get_trail_heart(sz)
+        ct = trail_sf.get_width() // 2
+        _blit_alpha(screen, trail_sf, (tx - ct, ty - ct), alpha)
+        # 트레일 글로우 (BLEND_ADD → 야광 잔상)
+        if alpha > 30:
+            tglow = _get_glow_circle(sz + 5, (255, 120, 170, 50))
+            tgr = tglow.get_width() // 2
+            screen.blit(tglow, (tx - tgr, ty - tgr), special_flags=pygame.BLEND_ADD)
 
-    # 2) 하트 빔 투사체
+    # 2) 하트 빔 투사체 — 다중 글로우 레이어
     if heart_beam_projectile is not None:
         proj = heart_beam_projectile
         cx, cy = int(proj["x"]), int(proj["y"])
         sz = proj["size"]
 
-        # 글로우
-        glow_r = sz + 8
-        glow_sf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow_sf, (255, 180, 210, 80), (glow_r, glow_r), glow_r)
-        screen.blit(glow_sf, (cx - glow_r, cy - glow_r), special_flags=pygame.BLEND_ADD)
+        # 다중 글로우 레이어 (BLEND_ADD → 야광 코어)
+        for glow_r, glow_c in [(sz + 18, (255, 80, 140, 25)),
+                                (sz + 12, (255, 130, 180, 45)),
+                                (sz + 7, (255, 180, 210, 70))]:
+            glow = _get_glow_circle(glow_r, glow_c)
+            gr = glow.get_width() // 2
+            screen.blit(glow, (cx - gr, cy - gr), special_flags=pygame.BLEND_ADD)
 
-        # 하트 본체
-        heart_sf = pygame.Surface((sz * 4, sz * 4), pygame.SRCALPHA)
-        hc = sz * 2
-        lobe = max(2, int(sz * 0.55))
-        # 다크 아웃라인
-        pygame.draw.circle(heart_sf, (210, 70, 115), (hc - lobe, hc - lobe // 2), lobe + 2)
-        pygame.draw.circle(heart_sf, (210, 70, 115), (hc + lobe, hc - lobe // 2), lobe + 2)
-        pygame.draw.polygon(heart_sf, (210, 70, 115), [
-            (hc - sz - 2, hc + 1), (hc + sz + 2, hc + 1), (hc, hc + int(sz * 1.3))
-        ])
-        # 메인 핑크
-        pygame.draw.circle(heart_sf, (255, 105, 150), (hc - lobe, hc - lobe // 2), lobe)
-        pygame.draw.circle(heart_sf, (255, 105, 150), (hc + lobe, hc - lobe // 2), lobe)
-        pygame.draw.polygon(heart_sf, (255, 105, 150), [
-            (hc - sz, hc), (hc + sz, hc), (hc, hc + int(sz * 1.2))
-        ])
-        # 하이라이트
-        hl = max(1, lobe // 2)
-        pygame.draw.circle(heart_sf, (255, 180, 210), (hc - lobe, hc - lobe), hl)
+        # 하트 본체 (캐싱)
+        heart_sf = _get_heart_surface(sz)
+        hc = heart_sf.get_width() // 2
         screen.blit(heart_sf, (cx - hc, cy - hc))
 
-    # 3) 넉백 이펙트 (탁! 마다 하트 파티클 버스트)
+        # 눈부신 흰색 코어 (BLEND_ADD)
+        core = _get_glow_circle(max(2, sz // 2 + 1), (255, 255, 255, 90))
+        cr = core.get_width() // 2
+        screen.blit(core, (cx - cr, cy - cr), special_flags=pygame.BLEND_ADD)
+
+    # 3) 넉백 이펙트 (캐싱된 하트)
     if heart_beam_knockback_active and PLAYER:
         elapsed = HEART_BEAM_KNOCKBACK_DURATION - heart_beam_knockback_timer
         for kb in heart_beam_knockback_schedule:
             if kb["applied"]:
                 kb_age = elapsed - kb["frame"]
-                if 0 <= kb_age < 8:  # 짧고 간결 (8프레임 = 0.13초)
-                    t = kb_age / 8.0
-                    alpha = int(255 * (1.0 - t))
+                if 0 <= kb_age < 8:
+                    t_val = kb_age / 8.0
+                    alpha = int(255 * (1.0 - t_val))
                     pcx = PLAYER.centerx
                     pcy = PLAYER.centery - 5
-                    # 3개 하트가 넉백 방향으로 탁! 퍼짐
                     for hi in range(3):
-                        spread_x = kb["direction"] * (10 + hi * 18) * t
-                        spread_y = (-12 + hi * 12) * t - 5 * (1.0 - t)
-                        sz = int(6 + 3 * (1.0 - t))  # 점점 작아짐
+                        spread_x = kb["direction"] * (10 + hi * 18) * t_val
+                        spread_y = (-12 + hi * 12) * t_val - 5 * (1.0 - t_val)
+                        sz = max(2, int(6 + 3 * (1.0 - t_val)))
                         hx = int(pcx + spread_x)
                         hy = int(pcy + spread_y)
-                        hs = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
-                        hc = sz * 3 // 2
-                        lb = max(1, int(sz * 0.5))
-                        c = (255, 100 + hi * 30, 160, alpha)
-                        pygame.draw.circle(hs, c, (hc - lb, hc - lb), lb)
-                        pygame.draw.circle(hs, c, (hc + lb, hc - lb), lb)
-                        pygame.draw.polygon(hs, c, [
-                            (hc - sz, hc), (hc + sz, hc), (hc, hc + sz)
-                        ])
-                        screen.blit(hs, (hx - hc, hy - hc))
+                        c = (255, 100 + hi * 30, 160)
+                        heart = _get_mini_heart(sz, c)
+                        hhc = heart.get_width() // 2
+                        _blit_alpha(screen, heart, (hx - hhc, hy - hhc), alpha)
+                    # 넉백 순간 플래시 글로우 (BLEND_ADD)
+                    if kb_age < 3:
+                        flash = _get_glow_circle(25, (255, 150, 180, int(120 * (1.0 - t_val))))
+                        fr = flash.get_width() // 2
+                        screen.blit(flash, (pcx - fr, pcy - fr), special_flags=pygame.BLEND_ADD)
 
-    # 4) 하트 파편 파티클 렌더링
+    # 4) 하트 파편 파티클 (캐싱 + 글로우)
     for p in heart_beam_slap_particles:
         alpha = int(255 * max(0, p["life"]))
         sz = p["size"]
         if sz < 1 or alpha < 10:
             continue
-        ps = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
-        pc = sz * 3 // 2
-        lb = max(1, int(sz * 0.45))
-        c = (*p["color"], alpha)
-        # 미니 하트 모양
-        pygame.draw.circle(ps, c, (pc - lb, pc - lb), lb)
-        pygame.draw.circle(ps, c, (pc + lb, pc - lb), lb)
-        pygame.draw.polygon(ps, c, [
-            (pc - sz, pc), (pc + sz, pc), (pc, pc + sz)
-        ])
-        screen.blit(ps, (int(p["x"]) - pc, int(p["y"]) - pc))
+        heart = _get_mini_heart(sz, p["color"])
+        pc = heart.get_width() // 2
+        _blit_alpha(screen, heart, (int(p["x"]) - pc, int(p["y"]) - pc), alpha)
+        # 파편 글로우 트레일 (BLEND_ADD)
+        if alpha > 50:
+            pglow = _get_glow_circle(sz + 3, (255, 140, 180, 30))
+            pgr = pglow.get_width() // 2
+            screen.blit(pglow, (int(p["x"]) - pgr, int(p["y"]) - pgr), special_flags=pygame.BLEND_ADD)
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
