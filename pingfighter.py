@@ -47113,7 +47113,7 @@ deadly_hug_cooldown_timer = 0
 DEADLY_HUG_COOLDOWN = 900           # 15초 쿨다운
 DEADLY_HUG_DURATION = 300           # 5초 지속
 DEADLY_HUG_RUSH_SPEED = 6.0        # 돌진 속도
-DEADLY_HUG_ZONE_WIDTH = 200         # 영역 너비 (좌우 100px씩 축소)
+DEADLY_HUG_ZONE_WIDTH = 350         # 영역 너비
 deadly_hug_zone_y = 500.0           # 영역 중심 Y
 deadly_hug_rush_active = False      # 돌진 진행 중
 deadly_hug_rush_y = 0.0             # 돌진 중 현재 Y
@@ -69362,7 +69362,10 @@ def handle_player(keys):
 
                     # 하프 대쉬 발동 조건: 토큰이 0개일 때 (충전 중이든 아니든)
                     # 기존 게이지 부족 조건 대신 토큰 0개 조건으로 변경
-                    if (rolling_charges <= 0) or (_force_half_rmb and _is_rmb):
+                    # 죽음의 포옹 영역 내 대쉬 차단 (하프 대쉬 포함)
+                    if is_deadly_hug_dash_blocked():
+                        show_speech("대쉬 봉쇄!", duration=30)
+                    elif (rolling_charges <= 0) or (_force_half_rmb and _is_rmb):
                         #  아카데미 스킬 효과 계산: 도약 스킬 보너스
                         jump_bonus = get_runtime_skill_bonus("dash_jump") if 'academy' in globals() else 0
 
