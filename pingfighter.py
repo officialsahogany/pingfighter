@@ -77562,6 +77562,7 @@ def update_button_eye():
         dist_sq = ddx * ddx + ddy * ddy
         if dist_sq < (HEART_BEAM_HIT_RADIUS + PLAYER.width // 2) ** 2:
             heart_beam_projectile = None
+            heart_beam_trail.clear()
             _trigger_heart_beam_knockback()
             show_speech("하트빔~!", duration=50)
             return
