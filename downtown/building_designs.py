@@ -613,71 +613,56 @@ class BuildingDesigner:
             screen.blit(text, (ix - 6, iy - 8))
 
     # =========================================================================
-    # ⚔️ 콜로세움 - 고품질 고대 로마 신전 스타일
+    # ⚔️ 콜로세움 - 정적 베이킹
     # =========================================================================
-    def _draw_colosseum(self, screen, building, x, y, building_id):
-        """콜로세움 - 고품질 웅장한 고대 신전"""
-        w, h = building.width, building.height
+    def _bake_colosseum(self, w, h):
+        """콜로세움 정적 요소 베이킹"""
+        ML, MR, MT, MB = 20, 20, 45, 25
+        sw, sh = w + ML + MR, h + MT + MB
+        surf = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        bx, by = ML, MT
 
-        # 1. 고급 3D 그림자
-        self._draw_3d_shadow(screen, x, y, w, h, depth=10)
+        # 3D 그림자
+        self._draw_3d_shadow(surf, bx, by, w, h, depth=10)
 
-        # 2. 배경 바닥 글로우 (웅장한 분위기 - 사각형 아티팩트 방지)
-        glow_pulse = 0.5 + 0.3 * abs(math.sin(self.animation_timer * 1.5))
-        glow_h = 16
-        glow_w = w + 25
-        ambient_glow = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
-        pygame.draw.ellipse(ambient_glow, (255, 200, 100, int(30 * glow_pulse)),
-                        (0, 0, glow_w, glow_h))
-        screen.blit(ambient_glow, (x - 12, y + h - 3))
-
-        # 3. 기단 (계단) - 고품질 그라데이션
+        # 기단 (계단)
         for i in range(4):
-            step_y = y + h - 20 + i * 6
+            step_y = by + h - 20 + i * 6
             step_w = max(1, w - i * 16)
-            step_x = x + i * 8
-
+            step_x = bx + i * 8
             if step_w <= 0:
-                continue  # 건물이 너무 작으면 계단 스킵
-
-            # 계단 그라데이션
+                continue
             step_surf = safe_surface(step_w, 8)
             for sy in range(8):
                 grad = 1.0 - sy * 0.05
                 color = tuple(int(c * grad) for c in (190, 170, 150))
                 pygame.draw.line(step_surf, color, (0, sy), (step_w, sy))
-            screen.blit(step_surf, (step_x, step_y))
+            surf.blit(step_surf, (step_x, step_y))
+            pygame.draw.line(surf, (220, 200, 180), (step_x, step_y), (step_x + step_w, step_y))
+            pygame.draw.line(surf, (140, 120, 100), (step_x, step_y + 7), (step_x + step_w, step_y + 7))
 
-            # 계단 하이라이트/그림자
-            pygame.draw.line(screen, (220, 200, 180), (step_x, step_y), (step_x + step_w, step_y))
-            pygame.draw.line(screen, (140, 120, 100), (step_x, step_y + 7), (step_x + step_w, step_y + 7))
-
-        # 4. 메인 건물 (대리석 텍스처) - 직접 screen에 그리기
+        # 메인 건물 (대리석)
         main_h = max(1, h - 40)
-        main_y = y + 25
+        main_y = by + 25
         for my in range(main_h):
             grad = 0.85 + 0.15 * (1 - my / max(1, main_h))
             base = (210, 195, 175)
             color = tuple(int(c * grad) for c in base)
-            pygame.draw.line(screen, color, (x, main_y + my), (x + w, main_y + my))
+            pygame.draw.line(surf, color, (bx, main_y + my), (bx + w, main_y + my))
 
-        # 대리석 결 텍스처
+        # 대리석 결
         vein_range = max(1, h - 80)
         for i in range(10):
-            vein_x = x + random.Random(i * 123).randint(5, max(6, w - 5))
-            vein_h = random.Random(i * 456).randint(20, 60)
-            vein_y = y + 30 + random.Random(i * 789).randint(0, vein_range)
-            vein_color = (180, 165, 145, 40)
-            pygame.draw.line(screen, vein_color, (vein_x, vein_y), (vein_x + 3, vein_y + vein_h), 1)
+            vein_x = bx + random.Random(i * 123).randint(5, max(6, w - 5))
+            vein_h_val = random.Random(i * 456).randint(20, 60)
+            vein_y = by + 30 + random.Random(i * 789).randint(0, vein_range)
+            pygame.draw.line(surf, (180, 165, 145, 40), (vein_x, vein_y), (vein_x + 3, vein_y + vein_h_val), 1)
 
-        # 5. 아치형 구조 (정교한 디테일)
+        # 아치형 구조
         arch_count = max(3, w // 45)
         arch_width = max(10, (w - 16) // arch_count)
-
         for i in range(arch_count):
-            arch_x = x + 8 + i * arch_width
-
-            # 아치 배경 (그라데이션)
+            arch_x = bx + 8 + i * arch_width
             arch_bg_h = max(1, h - 55)
             arch_bg_w = max(1, arch_width - 4)
             arch_bg = safe_surface(arch_bg_w, arch_bg_h)
@@ -685,20 +670,14 @@ class BuildingDesigner:
                 grad = 0.9 + 0.1 * (ay / max(1, arch_bg_h))
                 color = tuple(int(c * grad) for c in (200, 185, 165))
                 pygame.draw.line(arch_bg, color, (0, ay), (arch_bg_w, ay))
-            screen.blit(arch_bg, (arch_x, y + 32))
-
-            # 아치 프레임 (3D 효과)
-            pygame.draw.rect(screen, (175, 155, 135), (arch_x, y + 32, arch_width - 4, h - 55), 2)
-            pygame.draw.line(screen, (230, 215, 195), (arch_x + 1, y + 33), (arch_x + arch_width - 5, y + 33))
-
-            # 아치 상단 (반원) - 다층 효과
+            surf.blit(arch_bg, (arch_x, by + 32))
+            pygame.draw.rect(surf, (175, 155, 135), (arch_x, by + 32, arch_width - 4, h - 55), 2)
+            pygame.draw.line(surf, (230, 215, 195), (arch_x + 1, by + 33), (arch_x + arch_width - 5, by + 33))
             for offset in range(3):
                 arc_color = (160 - offset * 20, 140 - offset * 15, 120 - offset * 10)
-                pygame.draw.arc(screen, arc_color,
-                              (arch_x - offset, y + 25 - offset, arch_width - 4 + offset * 2, 30 + offset * 2),
+                pygame.draw.arc(surf, arc_color,
+                              (arch_x - offset, by + 25 - offset, arch_width - 4 + offset * 2, 30 + offset * 2),
                               0, math.pi, 3 - offset)
-
-            # 아치 내부 (어둡게 - 그라데이션)
             inner_x = arch_x + 4
             inner_w = max(1, arch_width - 12)
             inner_h = max(1, h - 70)
@@ -707,122 +686,110 @@ class BuildingDesigner:
                 depth = 1.0 - (iy / inner_h) * 0.3
                 color = tuple(int(c * depth) for c in (50, 40, 35))
                 pygame.draw.line(inner_surf, (*color, 220), (0, iy), (inner_w, iy))
-            screen.blit(inner_surf, (inner_x, y + 48))
-
-            # 키스톤 (아치 정상의 돌)
+            surf.blit(inner_surf, (inner_x, by + 48))
             keystone_x = arch_x + (arch_width - 4) // 2 - 6
-            pygame.draw.polygon(screen, (220, 205, 185),
-                              [(keystone_x, y + 28), (keystone_x + 12, y + 28),
-                               (keystone_x + 10, y + 38), (keystone_x + 2, y + 38)])
+            pygame.draw.polygon(surf, (220, 205, 185),
+                              [(keystone_x, by + 28), (keystone_x + 12, by + 28),
+                               (keystone_x + 10, by + 38), (keystone_x + 2, by + 38)])
 
-        # 6. 기둥들 (코린트 양식)
-        pillar_positions = [x + 3, x + w - 18]
+        # 기둥 (코린트 양식)
+        pillar_positions = [bx + 3, bx + w - 18]
         for px in pillar_positions:
-            # 기둥 베이스
-            pygame.draw.rect(screen, (200, 185, 165), (px - 4, y + h - 25, 23, 10))
-            pygame.draw.rect(screen, (220, 205, 185), (px - 2, y + h - 28, 19, 5))
-
-            # 기둥 본체 (그라데이션 + 세로 홈)
+            pygame.draw.rect(surf, (200, 185, 165), (px - 4, by + h - 25, 23, 10))
+            pygame.draw.rect(surf, (220, 205, 185), (px - 2, by + h - 28, 19, 5))
             pillar_h = max(1, h - 50)
             pillar_surf = safe_surface(15, pillar_h)
             for py_offset in range(pillar_h):
                 grad = 0.9 + 0.1 * abs(math.sin(py_offset * 0.05))
                 color = tuple(int(c * grad) for c in (225, 210, 190))
                 pygame.draw.line(pillar_surf, color, (0, py_offset), (15, py_offset))
-
-            # 세로 홈 (플루팅)
             for flute in range(4):
                 flute_x = 2 + flute * 3
                 pygame.draw.line(pillar_surf, (200, 185, 165), (flute_x, 0), (flute_x, pillar_h))
-            screen.blit(pillar_surf, (px, y + 22))
-
-            # 기둥 캐피털 (상단 장식)
-            cap_y = y + 15
-            # 아칸서스 잎 표현 (단순화)
+            surf.blit(pillar_surf, (px, by + 22))
+            cap_y = by + 15
             for leaf in range(3):
                 leaf_x = px - 2 + leaf * 7
-                pygame.draw.ellipse(screen, (215, 200, 180), (leaf_x, cap_y, 8, 12))
-            pygame.draw.rect(screen, (210, 195, 175), (px - 5, cap_y + 8, 25, 8))
-            pygame.draw.line(screen, (240, 225, 205), (px - 4, cap_y + 9), (px + 19, cap_y + 9))
+                pygame.draw.ellipse(surf, (215, 200, 180), (leaf_x, cap_y, 8, 12))
+            pygame.draw.rect(surf, (210, 195, 175), (px - 5, cap_y + 8, 25, 8))
+            pygame.draw.line(surf, (240, 225, 205), (px - 4, cap_y + 9), (px + 19, cap_y + 9))
 
-        # 7. 삼각형 지붕 (페디먼트) - 고품질
-        roof_points = [
-            (x - 8, y + 18),
-            (x + w // 2, y - 30),
-            (x + w + 8, y + 18)
-        ]
+        # 삼각형 지붕 (페디먼트)
+        roof_points = [(bx - 8, by + 18), (bx + w // 2, by - 30), (bx + w + 8, by + 18)]
+        pygame.draw.polygon(surf, (195, 175, 155), roof_points)
+        pygame.draw.polygon(surf, (160, 140, 120), roof_points, 3)
+        pygame.draw.line(surf, (230, 215, 195), roof_points[0], roof_points[1], 2)
 
-        # 지붕 그라데이션
-        roof_surf = pygame.Surface((w + 20, 50), pygame.SRCALPHA)
-        for ry in range(50):
-            grad = 1.0 - ry * 0.008
-            color = tuple(int(c * grad) for c in (195, 175, 155))
-            pygame.draw.line(roof_surf, color, (0, ry), (w + 20, ry))
-        # 마스크 적용 (삼각형)
-        mask_surf = pygame.Surface((w + 20, 50), pygame.SRCALPHA)
-        shifted_points = [(p[0] - x + 10, p[1] - y + 30) for p in roof_points]
-        pygame.draw.polygon(mask_surf, (255, 255, 255), shifted_points)
-        roof_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-
-        pygame.draw.polygon(screen, (195, 175, 155), roof_points)
-        pygame.draw.polygon(screen, (160, 140, 120), roof_points, 3)
-
-        # 지붕 테두리 하이라이트
-        pygame.draw.line(screen, (230, 215, 195), roof_points[0], roof_points[1], 2)
-
-        # 8. 지붕 내부 장식 (방패 + 독수리)
-        shield_x = x + w // 2
-        shield_y = y - 5
-
-        # 방패 글로우
+        # 방패 + 검 장식
+        shield_x = bx + w // 2
+        shield_y = by - 5
         shield_glow = self._create_soft_glow(25, Colors.UI_ACCENT, 0.5)
-        screen.blit(shield_glow, (shield_x - 25, shield_y - 25))
+        surf.blit(shield_glow, (shield_x - 25, shield_y - 25))
+        pygame.draw.circle(surf, (180, 160, 140), (shield_x, shield_y), 18)
+        pygame.draw.circle(surf, (160, 140, 120), (shield_x, shield_y), 15)
+        pygame.draw.circle(surf, Colors.UI_ACCENT, (shield_x, shield_y), 12)
+        pygame.draw.rect(surf, (80, 70, 60), (shield_x - 2, shield_y - 10, 4, 20), border_radius=1)
+        pygame.draw.rect(surf, (100, 90, 70), (shield_x - 7, shield_y - 4, 14, 4), border_radius=1)
+        pygame.draw.polygon(surf, (120, 110, 90), [(shield_x - 5, shield_y + 7), (shield_x + 5, shield_y + 7), (shield_x, shield_y + 12)])
 
-        # 방패 다층 효과
-        pygame.draw.circle(screen, (180, 160, 140), (shield_x, shield_y), 18)
-        pygame.draw.circle(screen, (160, 140, 120), (shield_x, shield_y), 15)
-        pygame.draw.circle(screen, Colors.UI_ACCENT, (shield_x, shield_y), 12)
+        # 깃대 (정적 부분)
+        flag_x = bx + w - 28
+        flag_y = by - 25
+        pygame.draw.line(surf, (100, 85, 65), (flag_x, flag_y), (flag_x, flag_y + 45), 4)
+        pygame.draw.line(surf, (130, 115, 95), (flag_x - 1, flag_y), (flag_x - 1, flag_y + 45), 1)
 
-        # 검 장식 (고품질)
-        pygame.draw.rect(screen, (80, 70, 60), (shield_x - 2, shield_y - 10, 4, 20), border_radius=1)
-        pygame.draw.rect(screen, (100, 90, 70), (shield_x - 7, shield_y - 4, 14, 4), border_radius=1)
-        pygame.draw.polygon(screen, (120, 110, 90), [(shield_x - 5, shield_y + 7), (shield_x + 5, shield_y + 7), (shield_x, shield_y + 12)])
+        # 횃불대 (봉만 — 불꽃은 동적)
+        for tx, ty in [(bx + 22, by + 32), (bx + w - 32, by + 32)]:
+            pygame.draw.rect(surf, (60, 50, 40), (tx - 4, ty, 8, 28))
+            pygame.draw.line(surf, (80, 70, 55), (tx - 3, ty), (tx - 3, ty + 28))
+            pygame.draw.rect(surf, (90, 75, 55), (tx - 6, ty - 3, 12, 6), border_radius=2)
 
-        # 9. 깃발 (펄럭이는 애니메이션)
+        # 앰비언트 오클루전
+        self._draw_ambient_occlusion(surf, (bx, by + 20, w, h - 20), 0.25)
+
+        return surf, ML, MT
+
+    # =========================================================================
+    # ⚔️ 콜로세움 - 동적 렌더링
+    # =========================================================================
+    def _draw_colosseum(self, screen, building, x, y, building_id):
+        """콜로세움 — blit + 동적 VFX"""
+        w, h = building.width, building.height
+        t = self.animation_timer
+
+        # 정적 Surface blit
+        baked, (ox, oy) = self._get_or_bake(BuildingType.COLOSSEUM, w, h, self._bake_colosseum)
+        screen.blit(baked, (x - ox, y - oy))
+
+        # --- 동적: 바닥 글로우 펄스 ---
+        glow_pulse = 0.5 + 0.3 * abs(math.sin(t * 1.5))
+        glow_h = 16
+        glow_w = w + 25
+        ambient_glow = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(ambient_glow, (255, 200, 100, int(30 * glow_pulse)),
+                        (0, 0, glow_w, glow_h))
+        screen.blit(ambient_glow, (x - 12, y + h - 3))
+
+        # --- 동적: 깃발 펄럭임 ---
         flag_x = x + w - 28
         flag_y = y - 25
-
-        # 깃대 (금속 느낌)
-        pygame.draw.line(screen, (100, 85, 65), (flag_x, flag_y), (flag_x, flag_y + 45), 4)
-        pygame.draw.line(screen, (130, 115, 95), (flag_x - 1, flag_y), (flag_x - 1, flag_y + 45), 1)
-
-        # 깃발 (펄럭임) - 고품질
-        wave1 = math.sin(self.animation_timer * 3.5) * 6
-        wave2 = math.sin(self.animation_timer * 3.5 + 0.5) * 4
+        wave1 = math.sin(t * 3.5) * 6
+        wave2 = math.sin(t * 3.5 + 0.5) * 4
         flag_points = [
-            (flag_x + 2, flag_y),
-            (flag_x + 28 + wave1, flag_y + 5),
-            (flag_x + 30 + wave2, flag_y + 12),
-            (flag_x + 25 + wave1 * 0.7, flag_y + 18),
+            (flag_x + 2, flag_y), (flag_x + 28 + wave1, flag_y + 5),
+            (flag_x + 30 + wave2, flag_y + 12), (flag_x + 25 + wave1 * 0.7, flag_y + 18),
             (flag_x + 2, flag_y + 22)
         ]
-
-        # 깃발 그라데이션
         pygame.draw.polygon(screen, (190, 45, 45), flag_points)
-        # 깃발 무늬
         pygame.draw.line(screen, (220, 180, 50), (flag_x + 5, flag_y + 5), (flag_x + 20 + wave1 * 0.5, flag_y + 11), 2)
-        # 깃발 하이라이트
         pygame.draw.line(screen, (220, 80, 80), (flag_x + 3, flag_y + 1), (flag_x + 25 + wave1, flag_y + 6), 1)
 
-        # 10. 횃불 효과 (고품질)
+        # --- 동적: 횃불 불꽃 + 파티클 ---
         torch_positions = [(x + 22, y + 32), (x + w - 32, y + 32)]
         for tx, ty in torch_positions:
             self._draw_torch_hq(screen, tx, ty, building_id)
 
-        # 11. 앰비언트 오클루전
-        self._draw_ambient_occlusion(screen, (x, y + 20, w, h - 20), 0.25)
-
-        # 파티클 렌더링
+        # 파티클
         self._draw_particles(screen, building_id, (x, y))
 
     def _draw_torch_hq(self, screen, x, y, building_id):
@@ -903,17 +870,139 @@ class BuildingDesigner:
             })
 
     # =========================================================================
-    # 🔨 대장장이 - 고품질 화산/용광로 스타일
+    # 🔨 대장장이 - 정적 베이킹 (1회)
     # =========================================================================
-    def _draw_blacksmith(self, screen, building, x, y, building_id):
-        """대장장이 - 고품질 불타는 용광로"""
-        w, h = building.width, building.height
+    def _bake_blacksmith(self, w, h):
+        """대장장이 정적 요소를 투명 Surface 한 장에 베이킹.
+        반환: (surface, offset_x, offset_y)
+        """
+        MARGIN_LEFT = 20
+        MARGIN_RIGHT = 20
+        MARGIN_TOP = 45   # 굴뚝 + 지붕 공간
+        MARGIN_BOTTOM = 20
+
+        surf_w = w + MARGIN_LEFT + MARGIN_RIGHT
+        surf_h = h + MARGIN_TOP + MARGIN_BOTTOM
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+        bx = MARGIN_LEFT
+        by = MARGIN_TOP
 
         # 1. 고급 3D 그림자
-        self._draw_3d_shadow(screen, x, y, w, h, depth=10)
+        self._draw_3d_shadow(surf, bx, by, w, h, depth=10)
 
-        # 2. 배경 바닥 글로우 (불꽃 분위기 - 사각형 아티팩트 방지)
-        fire_pulse = 0.6 + 0.4 * abs(math.sin(self.animation_timer * 4))
+        # 3. 메인 건물 (검은 돌/철 - 그라데이션)
+        main_surf = pygame.Surface((w, h - 18), pygame.SRCALPHA)
+        for my in range(h - 18):
+            fire_tint = max(0, (my / (h - 18)) * 0.15)
+            grad = 0.9 + 0.1 * (1 - my / (h - 18))
+            r = int((55 + fire_tint * 50) * grad)
+            g = int(48 * grad)
+            b = int(45 * grad)
+            pygame.draw.line(main_surf, (r, g, b), (0, my), (w, my))
+        surf.blit(main_surf, (bx, by + 18))
+
+        # 고품질 벽돌 텍스처
+        self._draw_brick_texture(surf, bx + 2, by + 22, w - 4, h - 45, (65, 55, 50), 24, 10)
+
+        # 4. 지붕 (기울어진 나무/철판)
+        roof_color = (45, 40, 38)
+        roof_points = [
+            (bx - 8, by + 18),
+            (bx + w + 8, by + 18),
+            (bx + w - 5, by - 5),
+            (bx + 5, by - 5)
+        ]
+        pygame.draw.polygon(surf, roof_color, roof_points)
+        pygame.draw.polygon(surf, (35, 30, 28), roof_points, 2)
+        pygame.draw.line(surf, (65, 58, 55), (bx + 6, by - 4), (bx + w - 6, by - 4), 2)
+
+        # 5. 굴뚝 구조 (정적 부분)
+        chimney_x = bx + w - 32
+        chimney_w = 28
+
+        chimney_surf = pygame.Surface((chimney_w, 55), pygame.SRCALPHA)
+        for cy in range(55):
+            grad = 0.85 + 0.15 * (cy / 55)
+            color = tuple(int(c * grad) for c in (50, 42, 40))
+            pygame.draw.line(chimney_surf, color, (0, cy), (chimney_w, cy))
+        surf.blit(chimney_surf, (chimney_x, by - 35))
+
+        for i in range(0, 55, 8):
+            pygame.draw.line(surf, (40, 35, 32), (chimney_x, by - 35 + i), (chimney_x + chimney_w, by - 35 + i))
+
+        pygame.draw.rect(surf, (65, 55, 50), (chimney_x - 4, by - 40, chimney_w + 8, 8), border_radius=2)
+        pygame.draw.line(surf, (80, 70, 62), (chimney_x - 3, by - 39), (chimney_x + chimney_w + 3, by - 39))
+
+        # 6. 용광로 외곽 프레임 (정적)
+        furnace_w = min(55, w - 25)
+        furnace_x = bx + (w - furnace_w) // 2
+        furnace_y = by + h - 65
+
+        frame_surf = pygame.Surface((furnace_w + 14, 52), pygame.SRCALPHA)
+        for fy in range(52):
+            grad = 0.7 + 0.3 * (1 - fy / 52)
+            color = tuple(int(c * grad) for c in (90, 78, 65))
+            pygame.draw.line(frame_surf, color, (0, fy), (furnace_w + 14, fy))
+        surf.blit(frame_surf, (furnace_x - 7, furnace_y - 7))
+        pygame.draw.rect(surf, (70, 58, 48), (furnace_x - 7, furnace_y - 7, furnace_w + 14, 52), 3)
+
+        # 7. 모루 (정적)
+        anvil_x = bx + 12
+        anvil_y = by + h - 28
+
+        anvil_surf = pygame.Surface((35, 18), pygame.SRCALPHA)
+        for ay in range(18):
+            grad = 1.0 - ay * 0.02
+            color = tuple(int(c * grad) for c in (75, 75, 85))
+            pygame.draw.line(anvil_surf, color, (0, ay), (35, ay))
+        surf.blit(anvil_surf, (anvil_x, anvil_y))
+
+        pygame.draw.polygon(surf, (70, 70, 80),
+                          [(anvil_x + 35, anvil_y + 5), (anvil_x + 45, anvil_y + 8), (anvil_x + 35, anvil_y + 12)])
+
+        pygame.draw.rect(surf, (55, 50, 45), (anvil_x + 8, anvil_y + 18, 20, 12))
+        pygame.draw.line(surf, (70, 65, 58), (anvil_x + 9, anvil_y + 19), (anvil_x + 27, anvil_y + 19))
+
+        pygame.draw.line(surf, (100, 100, 115), (anvil_x + 2, anvil_y + 1), (anvil_x + 33, anvil_y + 1))
+
+        # 10. 간판 배경 (정적)
+        sign_w = 85
+        sign_h = 22
+        sign_x = bx + (w - sign_w) // 2
+        sign_y = by + 2
+
+        sign_surf = pygame.Surface((sign_w, sign_h), pygame.SRCALPHA)
+        for sy in range(sign_h):
+            grad = 0.7 + 0.3 * (1 - sy / sign_h)
+            color = tuple(int(c * grad) for c in (45, 40, 38))
+            pygame.draw.line(sign_surf, color, (0, sy), (sign_w, sy))
+        surf.blit(sign_surf, (sign_x, sign_y))
+
+        # 간판 텍스트 (정적)
+        font = pygame.font.Font(None, 18)
+        text = font.render("FORGE", True, Colors.NEON_ORANGE)
+        surf.blit(text, (sign_x + sign_w // 2 - text.get_width() // 2, sign_y + 4))
+
+        # 11. 앰비언트 오클루전
+        self._draw_ambient_occlusion(surf, (bx, by + 15, w, h - 15), 0.3)
+
+        return surf, MARGIN_LEFT, MARGIN_TOP
+
+    # =========================================================================
+    # 🔨 대장장이 - 동적 렌더링
+    # =========================================================================
+    def _draw_blacksmith(self, screen, building, x, y, building_id):
+        """대장장이 — blit + 동적 VFX"""
+        w, h = building.width, building.height
+        t = self.animation_timer
+
+        # 정적 Surface blit
+        baked, (ox, oy) = self._get_or_bake(BuildingType.BLACKSMITH, w, h, self._bake_blacksmith)
+        screen.blit(baked, (x - ox, y - oy))
+
+        # --- 동적: 배경 바닥 글로우 (불꽃 분위기) ---
+        fire_pulse = 0.6 + 0.4 * abs(math.sin(t * 4))
         glow_h = 18
         glow_w = w + 30
         ambient_glow = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
@@ -921,7 +1010,7 @@ class BuildingDesigner:
                            (0, 0, glow_w, glow_h))
         screen.blit(ambient_glow, (x - 15, y + h - 6))
 
-        # 연기 파티클 (고품질)
+        # --- 동적: 연기 파티클 ---
         if random.random() < 0.25:
             self.particles[building_id].append({
                 'x': x + w - 18 + random.randint(-8, 8),
@@ -933,77 +1022,21 @@ class BuildingDesigner:
                 'size': random.randint(10, 18)
             })
 
-        # 3. 메인 건물 (검은 돌/철 - 그라데이션)
-        main_surf = pygame.Surface((w, h - 18), pygame.SRCALPHA)
-        for my in range(h - 18):
-            # 아래로 갈수록 약간 붉은 빛
-            fire_tint = max(0, (my / (h - 18)) * 0.15)
-            grad = 0.9 + 0.1 * (1 - my / (h - 18))
-            r = int((55 + fire_tint * 50) * grad)
-            g = int(48 * grad)
-            b = int(45 * grad)
-            pygame.draw.line(main_surf, (r, g, b), (0, my), (w, my))
-        screen.blit(main_surf, (x, y + 18))
-
-        # 고품질 벽돌 텍스처
-        self._draw_brick_texture(screen, x + 2, y + 22, w - 4, h - 45, (65, 55, 50), 24, 10)
-
-        # 4. 지붕 (기울어진 나무/철판)
-        roof_color = (45, 40, 38)
-        roof_points = [
-            (x - 8, y + 18),
-            (x + w + 8, y + 18),
-            (x + w - 5, y - 5),
-            (x + 5, y - 5)
-        ]
-        pygame.draw.polygon(screen, roof_color, roof_points)
-        pygame.draw.polygon(screen, (35, 30, 28), roof_points, 2)
-        # 지붕 하이라이트
-        pygame.draw.line(screen, (65, 58, 55), (x + 6, y - 4), (x + w - 6, y - 4), 2)
-
-        # 5. 굴뚝 (고품질)
+        # --- 동적: 굴뚝 불빛 글로우 ---
         chimney_x = x + w - 32
         chimney_w = 28
-
-        # 굴뚝 본체 (그라데이션)
-        chimney_surf = pygame.Surface((chimney_w, 55), pygame.SRCALPHA)
-        for cy in range(55):
-            grad = 0.85 + 0.15 * (cy / 55)
-            color = tuple(int(c * grad) for c in (50, 42, 40))
-            pygame.draw.line(chimney_surf, color, (0, cy), (chimney_w, cy))
-        screen.blit(chimney_surf, (chimney_x, y - 35))
-
-        # 굴뚝 벽돌 라인
-        for i in range(0, 55, 8):
-            pygame.draw.line(screen, (40, 35, 32), (chimney_x, y - 35 + i), (chimney_x + chimney_w, y - 35 + i))
-
-        # 굴뚝 상단 테두리
-        pygame.draw.rect(screen, (65, 55, 50), (chimney_x - 4, y - 40, chimney_w + 8, 8), border_radius=2)
-        pygame.draw.line(screen, (80, 70, 62), (chimney_x - 3, y - 39), (chimney_x + chimney_w + 3, y - 39))
-
-        # 굴뚝 불빛 글로우
-        glow_pulse = 0.5 + 0.5 * abs(math.sin(self.animation_timer * 6))
+        glow_pulse = 0.5 + 0.5 * abs(math.sin(t * 6))
         glow_surf = pygame.Surface((50, 50), pygame.SRCALPHA)
         pygame.draw.ellipse(glow_surf, (255, 120, 40, int(100 * glow_pulse)), (5, 10, 40, 35))
         pygame.draw.ellipse(glow_surf, (255, 180, 80, int(60 * glow_pulse)), (12, 18, 26, 22))
         screen.blit(glow_surf, (chimney_x - 11, y - 60))
 
-        # 6. 용광로 (고품질)
+        # --- 동적: 용광로 내부 불타는 효과 ---
         furnace_w = min(55, w - 25)
         furnace_x = x + (w - furnace_w) // 2
         furnace_y = y + h - 65
 
-        # 용광로 외곽 (금속 프레임)
-        frame_surf = pygame.Surface((furnace_w + 14, 52), pygame.SRCALPHA)
-        for fy in range(52):
-            grad = 0.7 + 0.3 * (1 - fy / 52)
-            color = tuple(int(c * grad) for c in (90, 78, 65))
-            pygame.draw.line(frame_surf, color, (0, fy), (furnace_w + 14, fy))
-        screen.blit(frame_surf, (furnace_x - 7, furnace_y - 7))
-        pygame.draw.rect(screen, (70, 58, 48), (furnace_x - 7, furnace_y - 7, furnace_w + 14, 52), 3)
-
-        # 용광로 내부 (불타는 효과)
-        inner_pulse = abs(math.sin(self.animation_timer * 10))
+        inner_pulse = abs(math.sin(t * 10))
         inner_surf = pygame.Surface((furnace_w, 38), pygame.SRCALPHA)
         for iy in range(38):
             heat = 1.0 - (iy / 38) * 0.4
@@ -1016,10 +1049,9 @@ class BuildingDesigner:
         # 불꽃 효과 (다층)
         for i in range(4):
             flame_x = furnace_x + 8 + i * (furnace_w - 16) // 3
-            flame_offset = math.sin(self.animation_timer * 12 + i * 1.2) * 5
-            flame_h = 22 + math.sin(self.animation_timer * 15 + i) * 8
+            flame_offset = math.sin(t * 12 + i * 1.2) * 5
+            flame_h = 22 + math.sin(t * 15 + i) * 8
 
-            # 외곽 불꽃
             points_outer = [
                 (flame_x + flame_offset * 0.3, furnace_y - flame_h * 0.6),
                 (flame_x - 10, furnace_y + 5),
@@ -1027,7 +1059,6 @@ class BuildingDesigner:
             ]
             pygame.draw.polygon(screen, (255, 100, 20), points_outer)
 
-            # 중간 불꽃
             points_mid = [
                 (flame_x + flame_offset * 0.5, furnace_y - flame_h * 0.8),
                 (flame_x - 7, furnace_y + 2),
@@ -1035,7 +1066,6 @@ class BuildingDesigner:
             ]
             pygame.draw.polygon(screen, (255, 180, 50), points_mid)
 
-            # 중심 불꽃
             points_inner = [
                 (flame_x + flame_offset * 0.7, furnace_y - flame_h),
                 (flame_x - 4, furnace_y - 2),
@@ -1043,36 +1073,15 @@ class BuildingDesigner:
             ]
             pygame.draw.polygon(screen, (255, 240, 150), points_inner)
 
-        # 7. 모루 (고품질)
+        # --- 동적: 망치 애니메이션 ---
         anvil_x = x + 12
         anvil_y = y + h - 28
 
-        # 모루 본체 (그라데이션 금속)
-        anvil_surf = pygame.Surface((35, 18), pygame.SRCALPHA)
-        for ay in range(18):
-            grad = 1.0 - ay * 0.02
-            color = tuple(int(c * grad) for c in (75, 75, 85))
-            pygame.draw.line(anvil_surf, color, (0, ay), (35, ay))
-        screen.blit(anvil_surf, (anvil_x, anvil_y))
-
-        # 모루 뿔
-        pygame.draw.polygon(screen, (70, 70, 80),
-                          [(anvil_x + 35, anvil_y + 5), (anvil_x + 45, anvil_y + 8), (anvil_x + 35, anvil_y + 12)])
-
-        # 모루 받침대
-        pygame.draw.rect(screen, (55, 50, 45), (anvil_x + 8, anvil_y + 18, 20, 12))
-        pygame.draw.line(screen, (70, 65, 58), (anvil_x + 9, anvil_y + 19), (anvil_x + 27, anvil_y + 19))
-
-        # 모루 하이라이트
-        pygame.draw.line(screen, (100, 100, 115), (anvil_x + 2, anvil_y + 1), (anvil_x + 33, anvil_y + 1))
-
-        # 8. 망치 (애니메이션)
-        hammer_cycle = abs(math.sin(self.animation_timer * 7))
+        hammer_cycle = abs(math.sin(t * 7))
         hammer_y_offset = hammer_cycle * 18
         hammer_x = anvil_x + 38
         hammer_y = anvil_y - 22 - hammer_y_offset
 
-        # 망치 자루 (그라데이션 나무)
         handle_surf = pygame.Surface((5, 28), pygame.SRCALPHA)
         for hy in range(28):
             grad = 0.85 + 0.15 * abs(math.sin(hy * 0.2))
@@ -1080,7 +1089,6 @@ class BuildingDesigner:
             pygame.draw.line(handle_surf, color, (0, hy), (5, hy))
         screen.blit(handle_surf, (hammer_x + 8, hammer_y + 2))
 
-        # 망치 머리 (금속)
         head_surf = pygame.Surface((24, 14), pygame.SRCALPHA)
         for hy in range(14):
             grad = 1.0 - hy * 0.03
@@ -1089,7 +1097,7 @@ class BuildingDesigner:
         screen.blit(head_surf, (hammer_x, hammer_y - 5))
         pygame.draw.line(screen, (120, 120, 135), (hammer_x + 1, hammer_y - 4), (hammer_x + 22, hammer_y - 4))
 
-        # 9. 스파크 효과 (망치질 시)
+        # --- 동적: 스파크 효과 (망치질 시) ---
         if hammer_cycle < 0.15 and random.random() < 0.7:
             for _ in range(5):
                 self.particles[building_id].append({
@@ -1103,33 +1111,17 @@ class BuildingDesigner:
                     'gravity': True
                 })
 
-        # 10. 간판 (고품질)
+        # --- 동적: 간판 테두리 펄스 ---
         sign_w = 85
         sign_h = 22
         sign_x = x + (w - sign_w) // 2
         sign_y = y + 2
 
-        # 간판 배경 (금속)
-        sign_surf = pygame.Surface((sign_w, sign_h), pygame.SRCALPHA)
-        for sy in range(sign_h):
-            grad = 0.7 + 0.3 * (1 - sy / sign_h)
-            color = tuple(int(c * grad) for c in (45, 40, 38))
-            pygame.draw.line(sign_surf, color, (0, sy), (sign_w, sy))
-        screen.blit(sign_surf, (sign_x, sign_y))
-
-        # 간판 테두리 (불꽃색)
-        border_pulse = 0.7 + 0.3 * abs(math.sin(self.animation_timer * 3))
+        border_pulse = 0.7 + 0.3 * abs(math.sin(t * 3))
         pygame.draw.rect(screen, (int(200 * border_pulse), int(100 * border_pulse), 30),
                         (sign_x, sign_y, sign_w, sign_h), 2, border_radius=3)
 
-        # 간판 텍스트
-        font = pygame.font.Font(None, 18)
-        text = font.render("FORGE", True, Colors.NEON_ORANGE)
-        screen.blit(text, (sign_x + sign_w // 2 - text.get_width() // 2, sign_y + 4))
-
-        # 11. 앰비언트 오클루전
-        self._draw_ambient_occlusion(screen, (x, y + 15, w, h - 15), 0.3)
-
+        # 파티클
         self._draw_particles(screen, building_id, (x, y))
 
     # =========================================================================
@@ -2310,123 +2302,114 @@ class BuildingDesigner:
         screen.blit(score_text, (x + 3, y + 2))
 
     # =========================================================================
-    # 🍺 선술집 - 세련된 중세 판타지 선술집 (Ultra Premium)
+    # 🍺 선술집 - 정적 베이킹 (1회)
     # =========================================================================
-    def _draw_tavern(self, screen, building, x, y, building_id):
-        """선술집 - 고급 중세 목조 선술집 (Ultra Premium Quality)"""
-        w, h = building.width, building.height
+    def _bake_tavern(self, w, h):
+        """선술집 정적 요소를 투명 Surface 한 장에 베이킹.
+        반환: (surface, offset_x, offset_y)
+        """
+        floor2_overhang = 14
+        roof_overhang = 28
 
-        # 3D 그림자 (더 깊게)
-        self._draw_3d_shadow(screen, x - 12, y + 12, w + 24, h - 10, depth=14)
+        MARGIN_LEFT = max(roof_overhang + 5, 35)
+        MARGIN_RIGHT = max(roof_overhang + 5, 50)
+        MARGIN_TOP = 40
+        MARGIN_BOTTOM = 25
 
-        # 따뜻한 분위기 바닥 글로우 (사각형 아티팩트 방지)
-        glow_h = 18
-        for i in range(3):
-            glow_w = w + 45 - i * 10
-            pulse = 0.5 + 0.5 * abs(math.sin(self.animation_timer * 1.8 + i * 0.4))
-            alpha = int((50 - i * 12) * pulse)
-            if alpha > 0:
-                glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
-                pygame.draw.ellipse(glow_surf, (255, 160, 60, alpha),
-                                   (0, 0, glow_w, glow_h))
-                screen.blit(glow_surf, (x - 22 + i * 5, y + h - 6))
+        surf_w = w + MARGIN_LEFT + MARGIN_RIGHT
+        surf_h = h + MARGIN_TOP + MARGIN_BOTTOM
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
 
-        # 색상 팔레트 (고급 목재 톤)
+        bx = MARGIN_LEFT
+        by = MARGIN_TOP
+
         wood_dark = (50, 28, 15)
         wood_color = (85, 50, 30)
         wood_mid = (105, 65, 40)
         wood_light = (135, 90, 55)
         wood_highlight = (165, 115, 75)
-
-        # 벽 색상 (따뜻한 크림색)
         wall_dark = (175, 160, 135)
         wall_color = (205, 190, 165)
         wall_light = (230, 218, 195)
 
-        # === 기초 (고품질 돌 - 코블스톤) ===
+        # 3D 그림자
+        self._draw_3d_shadow(surf, bx - 12, by + 12, w + 24, h - 10, depth=14)
+
+        # === 기초 (코블스톤) ===
         foundation_h = 18
         foundation_surf = pygame.Surface((w + 18, foundation_h), pygame.SRCALPHA)
         for i in range(foundation_h):
             grad = 0.65 + 0.35 * (i / foundation_h)
             color = (int(95 * grad), int(85 * grad), int(75 * grad))
             pygame.draw.line(foundation_surf, color, (0, i), (w + 18, i))
-        screen.blit(foundation_surf, (x - 9, y + h - 14))
+        surf.blit(foundation_surf, (bx - 9, by + h - 14))
 
-        # 돌 텍스처 (불규칙한 코블스톤)
         stone_positions = [0, 18, 38, 56, 76, 95]
         for i, sx in enumerate(stone_positions):
             if sx < w + 10:
-                pygame.draw.line(screen, (65, 55, 45), (x - 7 + sx, y + h - 14), (x - 7 + sx, y + h + 2), 1)
+                pygame.draw.line(surf, (65, 55, 45), (bx - 7 + sx, by + h - 14), (bx - 7 + sx, by + h + 2), 1)
         for sy in range(2):
-            pygame.draw.line(screen, (70, 60, 50), (x - 9, y + h - 14 + sy * 8), (x + w + 9, y + h - 14 + sy * 8), 1)
+            pygame.draw.line(surf, (70, 60, 50), (bx - 9, by + h - 14 + sy * 8), (bx + w + 9, by + h - 14 + sy * 8), 1)
 
-        # === 1층 본체 (크림색 회반죽 + 목재 프레임) ===
+        # === 1층 본체 ===
         floor1_h = h // 2 + 5
         floor1_surf = pygame.Surface((w + 4, floor1_h), pygame.SRCALPHA)
         for i in range(floor1_h):
             grad = 0.88 + 0.12 * (i / floor1_h)
             color = (int(wall_color[0] * grad), int(wall_color[1] * grad), int(wall_color[2] * grad))
             pygame.draw.line(floor1_surf, color, (0, i), (w + 4, i))
-        screen.blit(floor1_surf, (x - 2, y + h // 2 - 5))
+        surf.blit(floor1_surf, (bx - 2, by + h // 2 - 5))
 
-        # === 2층 본체 (돌출 - 튜더 스타일) ===
-        floor2_overhang = 14  # 2층 돌출 정도
+        # === 2층 본체 (돌출) ===
         floor2_h = h // 2 - 8
         floor2_surf = pygame.Surface((w + floor2_overhang * 2, floor2_h), pygame.SRCALPHA)
         for i in range(floor2_h):
             grad = 0.85 + 0.15 * (1 - i / floor2_h)
             color = (int(wall_light[0] * grad), int(wall_light[1] * grad), int(wall_light[2] * grad))
             pygame.draw.line(floor2_surf, color, (0, i), (w + floor2_overhang * 2, i))
-        screen.blit(floor2_surf, (x - floor2_overhang, y + 18))
+        surf.blit(floor2_surf, (bx - floor2_overhang, by + 18))
 
         # 2층 바닥 지지대 (목재 브라켓)
-        for bx in [x - 8, x + w // 3, x + w * 2 // 3, x + w]:
-            # 브라켓 삼각형
-            bracket_points = [(bx, y + h // 2 - 5), (bx - 8, y + h // 2 + 8), (bx + 8, y + h // 2 + 8)]
-            pygame.draw.polygon(screen, wood_color, bracket_points)
-            pygame.draw.polygon(screen, wood_dark, bracket_points, 2)
+        for bp in [bx - 8, bx + w // 3, bx + w * 2 // 3, bx + w]:
+            bracket_points = [(bp, by + h // 2 - 5), (bp - 8, by + h // 2 + 8), (bp + 8, by + h // 2 + 8)]
+            pygame.draw.polygon(surf, wood_color, bracket_points)
+            pygame.draw.polygon(surf, wood_dark, bracket_points, 2)
 
-        # === 목재 프레임 (하프팀버 스타일) ===
-        # 메인 수직 빔 (1층)
-        beam_positions_1f = [x - 2, x + w // 3, x + w * 2 // 3, x + w - 4]
-        for bx in beam_positions_1f:
+        # === 목재 프레임 (하프팀버) ===
+        beam_positions_1f = [bx - 2, bx + w // 3, bx + w * 2 // 3, bx + w - 4]
+        for bp in beam_positions_1f:
             beam_surf = pygame.Surface((8, floor1_h - 5), pygame.SRCALPHA)
             for i in range(8):
                 grad = 0.6 + 0.4 * math.sin(i * 0.8)
                 color = tuple(int(c * grad) for c in wood_mid)
                 pygame.draw.line(beam_surf, color, (i, 0), (i, floor1_h - 5))
-            screen.blit(beam_surf, (bx, y + h // 2 - 2))
-            # 나무결 디테일
+            surf.blit(beam_surf, (bp, by + h // 2 - 2))
             for gy in range(0, floor1_h - 10, 12):
-                pygame.draw.line(screen, wood_dark, (bx + 2, y + h // 2 + gy), (bx + 5, y + h // 2 + gy + 6), 1)
+                pygame.draw.line(surf, wood_dark, (bp + 2, by + h // 2 + gy), (bp + 5, by + h // 2 + gy + 6), 1)
 
-        # 메인 수직 빔 (2층)
-        beam_positions_2f = [x - floor2_overhang, x + w // 2 - 4, x + w + floor2_overhang - 8]
-        for bx in beam_positions_2f:
+        beam_positions_2f = [bx - floor2_overhang, bx + w // 2 - 4, bx + w + floor2_overhang - 8]
+        for bp in beam_positions_2f:
             beam_surf = pygame.Surface((8, floor2_h - 3), pygame.SRCALPHA)
             for i in range(8):
                 grad = 0.6 + 0.4 * math.sin(i * 0.8)
                 color = tuple(int(c * grad) for c in wood_mid)
                 pygame.draw.line(beam_surf, color, (i, 0), (i, floor2_h - 3))
-            screen.blit(beam_surf, (bx, y + 20))
+            surf.blit(beam_surf, (bp, by + 20))
 
-        # 수평 빔 (층간 분리선)
-        for by, bw in [(y + h // 2 - 5, w + 4), (y + 18, w + floor2_overhang * 2)]:
-            bx = x - 2 if bw == w + 4 else x - floor2_overhang
-            pygame.draw.rect(screen, wood_color, (bx, by, bw, 7))
-            pygame.draw.line(screen, wood_highlight, (bx, by), (bx + bw, by), 1)
-            pygame.draw.line(screen, wood_dark, (bx, by + 6), (bx + bw, by + 6), 1)
+        # 수평 빔
+        for beam_y, bw in [(by + h // 2 - 5, w + 4), (by + 18, w + floor2_overhang * 2)]:
+            bp = bx - 2 if bw == w + 4 else bx - floor2_overhang
+            pygame.draw.rect(surf, wood_color, (bp, beam_y, bw, 7))
+            pygame.draw.line(surf, wood_highlight, (bp, beam_y), (bp + bw, beam_y), 1)
+            pygame.draw.line(surf, wood_dark, (bp, beam_y + 6), (bp + bw, beam_y + 6), 1)
 
-        # 대각선 빔 (1층 X자 패턴)
-        pygame.draw.line(screen, wood_color, (x + 5, y + h // 2 + 3), (x + w // 3 - 5, y + h - 20), 5)
-        pygame.draw.line(screen, wood_color, (x + w // 3 + 5, y + h - 20), (x + w // 3 - 5, y + h // 2 + 3), 5)
-        pygame.draw.line(screen, wood_highlight, (x + 6, y + h // 2 + 4), (x + w // 3 - 4, y + h - 19), 1)
+        # 대각선 빔
+        pygame.draw.line(surf, wood_color, (bx + 5, by + h // 2 + 3), (bx + w // 3 - 5, by + h - 20), 5)
+        pygame.draw.line(surf, wood_color, (bx + w // 3 + 5, by + h - 20), (bx + w // 3 - 5, by + h // 2 + 3), 5)
+        pygame.draw.line(surf, wood_highlight, (bx + 6, by + h // 2 + 4), (bx + w // 3 - 4, by + h - 19), 1)
 
-        # === 지붕 (고급 적갈색 기와) ===
-        roof_overhang = 28
+        # === 지붕 ===
         roof_height = 45
-
-        # 지붕 본체 그라데이션
         roof_surf = pygame.Surface((w + roof_overhang * 2, roof_height), pygame.SRCALPHA)
         for i in range(roof_height):
             progress = i / roof_height
@@ -2437,53 +2420,201 @@ class BuildingDesigner:
             g = int(75 * grad)
             b = int(45 * grad)
             pygame.draw.line(roof_surf, (r, g, b), (cx - half_width, i), (cx + half_width, i))
-        screen.blit(roof_surf, (x - roof_overhang, y - 25))
+        surf.blit(roof_surf, (bx - roof_overhang, by - 25))
 
-        # 기와 라인 (더 정교하게)
         for i in range(7):
-            ty = y - 12 + i * 6
+            ty = by - 12 + i * 6
             progress = i / 7
-            left_x = x - roof_overhang + 8 + int(progress * 18)
-            right_x = x + w + roof_overhang - 8 - int(progress * 18)
-            # 기와 그림자
-            pygame.draw.line(screen, (70, 40, 25), (left_x, ty), (right_x, ty), 3)
-            # 기와 하이라이트
-            pygame.draw.line(screen, (175, 105, 70), (left_x, ty - 1), (right_x, ty - 1), 1)
+            left_x = bx - roof_overhang + 8 + int(progress * 18)
+            right_x = bx + w + roof_overhang - 8 - int(progress * 18)
+            pygame.draw.line(surf, (70, 40, 25), (left_x, ty), (right_x, ty), 3)
+            pygame.draw.line(surf, (175, 105, 70), (left_x, ty - 1), (right_x, ty - 1), 1)
 
-        # 지붕 마루 장식
-        pygame.draw.line(screen, (120, 70, 45), (x + w // 2 - 3, y - 28), (x + w // 2 + 3, y - 28), 6)
-        pygame.draw.circle(screen, (150, 90, 55), (x + w // 2, y - 32), 5)
+        pygame.draw.line(surf, (120, 70, 45), (bx + w // 2 - 3, by - 28), (bx + w // 2 + 3, by - 28), 6)
+        pygame.draw.circle(surf, (150, 90, 55), (bx + w // 2, by - 32), 5)
 
-        # === 굴뚝 (고품질 벽돌) ===
-        chimney_x = x + w - 22
-        chimney_y = y - 28
+        # === 굴뚝 구조 (정적) ===
+        chimney_x = bx + w - 22
+        chimney_y = by - 28
 
-        # 굴뚝 본체
         chimney_surf = pygame.Surface((16, 45), pygame.SRCALPHA)
         for cy in range(45):
             grad = 0.75 + 0.25 * (cy / 45)
             color = (int(125 * grad), int(85 * grad), int(70 * grad))
             pygame.draw.line(chimney_surf, color, (0, cy), (16, cy))
-        screen.blit(chimney_surf, (chimney_x, chimney_y))
+        surf.blit(chimney_surf, (chimney_x, chimney_y))
 
-        # 벽돌 패턴
         for i in range(6):
-            by = chimney_y + 5 + i * 7
-            pygame.draw.line(screen, (85, 55, 40), (chimney_x, by), (chimney_x + 16, by), 1)
+            brick_y = chimney_y + 5 + i * 7
+            pygame.draw.line(surf, (85, 55, 40), (chimney_x, brick_y), (chimney_x + 16, brick_y), 1)
             offset = 8 if i % 2 == 0 else 0
-            pygame.draw.line(screen, (85, 55, 40), (chimney_x + offset, by), (chimney_x + offset, by + 7), 1)
+            pygame.draw.line(surf, (85, 55, 40), (chimney_x + offset, brick_y), (chimney_x + offset, brick_y + 7), 1)
 
-        # 굴뚝 상단 (캡)
-        pygame.draw.rect(screen, (145, 100, 80), (chimney_x - 3, chimney_y - 4, 22, 6))
-        pygame.draw.rect(screen, (165, 115, 90), (chimney_x - 2, chimney_y - 3, 20, 2))
+        pygame.draw.rect(surf, (145, 100, 80), (chimney_x - 3, chimney_y - 4, 22, 6))
+        pygame.draw.rect(surf, (165, 115, 90), (chimney_x - 2, chimney_y - 3, 20, 2))
 
-        # 굴뚝 불빛
-        glow_pulse = abs(math.sin(self.animation_timer * 4.5))
+        # === 2층 창문 창틀 (정적 프레임) ===
+        window_2f_positions = [(bx - 5, by + 28), (bx + w - 25, by + 28)]
+        for wi, (wx, wy) in enumerate(window_2f_positions):
+            pygame.draw.rect(surf, wood_dark, (wx - 3, wy - 3, 28, 30), border_radius=6)
+            pygame.draw.rect(surf, wood_mid, (wx - 2, wy - 2, 26, 28), border_radius=5)
+
+        # === 1층 큰 창문 창틀 (정적 프레임) ===
+        win1_x = bx + 5
+        win1_y = by + h // 2 + 8
+        win1_w = w // 3 - 8
+        win1_h = h // 2 - 28
+        pygame.draw.rect(surf, wood_dark, (win1_x - 4, win1_y - 4, win1_w + 8, win1_h + 8), border_radius=3)
+        pygame.draw.rect(surf, wood_mid, (win1_x - 2, win1_y - 2, win1_w + 4, win1_h + 4), border_radius=2)
+
+        # === 문 (정적) ===
+        door_w = 36
+        door_h = 58
+        door_x = bx + w - door_w - 12
+        door_y = by + h - door_h - 10
+
+        pygame.draw.rect(surf, wood_dark, (door_x - 5, door_y - 8, door_w + 10, door_h + 12), border_radius=8)
+
+        door_surf = pygame.Surface((door_w, door_h), pygame.SRCALPHA)
+        for dy in range(door_h):
+            grad = 0.5 + 0.3 * math.sin(dy * 0.12) + 0.2 * (dy / door_h)
+            color = (int(75 * grad), int(48 * grad), int(28 * grad))
+            pygame.draw.line(door_surf, color, (0, dy), (door_w, dy))
+        pygame.draw.rect(door_surf, (0, 0, 0, 0), (0, 0, door_w, door_h), border_radius=6)
+        surf.blit(door_surf, (door_x, door_y))
+
+        panel_h = (door_h - 16) // 3
+        for pi in range(3):
+            py = door_y + 5 + pi * (panel_h + 3)
+            pygame.draw.rect(surf, (55, 35, 20), (door_x + 5, py, door_w - 10, panel_h - 2), border_radius=2)
+            pygame.draw.rect(surf, (95, 65, 45), (door_x + 5, py, door_w - 10, panel_h - 2), 1, border_radius=2)
+
+        handle_y = door_y + door_h // 2
+        pygame.draw.circle(surf, (60, 45, 30), (door_x + door_w - 10, handle_y), 7)
+        pygame.draw.circle(surf, (195, 160, 100), (door_x + door_w - 10, handle_y), 6)
+        pygame.draw.circle(surf, (220, 190, 130), (door_x + door_w - 10, handle_y), 4, 2)
+        pygame.draw.circle(surf, (255, 230, 170), (door_x + door_w - 11, handle_y - 1), 2)
+
+        pygame.draw.arc(surf, wood_highlight, (door_x - 2, door_y - 15, door_w + 4, 20),
+                       0, math.pi, 3)
+
+        # === 메인 간판 (정적) ===
+        sign_main_x = bx + w // 2
+        sign_main_y = by + 5
+        sign_w, sign_h = 50, 38
+
+        pygame.draw.rect(surf, (70, 70, 80), (sign_main_x - 3, by + 18, 6, 20))
+        pygame.draw.rect(surf, (100, 100, 110), (sign_main_x - 2, by + 18, 4, 20))
+
+        sign_surf = pygame.Surface((sign_w, sign_h), pygame.SRCALPHA)
+        for sy in range(sign_h):
+            grad = 0.65 + 0.35 * math.sin(sy * 0.15)
+            color = (int(80 * grad), int(50 * grad), int(30 * grad))
+            pygame.draw.line(sign_surf, color, (0, sy), (sign_w, sy))
+
+        pygame.draw.rect(sign_surf, (90, 80, 60), (0, 0, sign_w, sign_h), 3, border_radius=5)
+        pygame.draw.rect(sign_surf, (150, 135, 100), (2, 2, sign_w - 4, sign_h - 4), 1, border_radius=4)
+
+        beer_cx = sign_w // 2
+        beer_cy = sign_h // 2
+        mug_color = (255, 210, 80)
+        mug_dark = (200, 160, 50)
+        mug_light = (255, 240, 150)
+        foam_color = (255, 250, 240)
+
+        pygame.draw.rect(sign_surf, mug_dark, (beer_cx - 8, beer_cy - 6, 16, 18), border_radius=2)
+        pygame.draw.rect(sign_surf, mug_color, (beer_cx - 7, beer_cy - 5, 14, 16), border_radius=2)
+        pygame.draw.rect(sign_surf, (245, 195, 60), (beer_cx - 6, beer_cy, 12, 10))
+        pygame.draw.ellipse(sign_surf, foam_color, (beer_cx - 7, beer_cy - 8, 14, 8))
+        pygame.draw.ellipse(sign_surf, (255, 255, 255), (beer_cx - 5, beer_cy - 7, 4, 4))
+        pygame.draw.ellipse(sign_surf, (255, 255, 255), (beer_cx + 1, beer_cy - 6, 3, 3))
+        pygame.draw.rect(sign_surf, mug_dark, (beer_cx + 7, beer_cy - 2, 5, 12), border_radius=2)
+        pygame.draw.rect(sign_surf, mug_color, (beer_cx + 8, beer_cy - 1, 3, 10), border_radius=1)
+        pygame.draw.line(sign_surf, mug_light, (beer_cx - 5, beer_cy - 3), (beer_cx - 5, beer_cy + 8), 1)
+
+        surf.blit(sign_surf, (sign_main_x - sign_w // 2, sign_main_y))
+
+        # === 측면 현수막 쇠고리 (정적) ===
+        hang_sign_x = bx + w + 5
+        for i in range(5):
+            cy = by + 20 + i * 4
+            pygame.draw.circle(surf, (65, 65, 75), (hang_sign_x + 20, cy), 3, 1)
+            pygame.draw.circle(surf, (110, 110, 120), (hang_sign_x + 20, cy), 2, 1)
+
+        # === 입구 랜턴 (정적 지지대 + 본체) ===
+        for lx in [door_x - 15, door_x + door_w + 8]:
+            pygame.draw.line(surf, (60, 50, 40), (lx + 4, door_y - 25), (lx + 4, door_y - 8), 2)
+            pygame.draw.rect(surf, (50, 40, 30), (lx, door_y - 22, 10, 14), border_radius=2)
+            pygame.draw.rect(surf, (70, 60, 45), (lx + 1, door_y - 21, 8, 1))
+
+        # === 맥주통 (정적) ===
+        barrel_x = bx - 20
+        barrel_y = by + h - 28
+
+        pygame.draw.ellipse(surf, (70, 45, 25), (barrel_x, barrel_y, 18, 25))
+        pygame.draw.ellipse(surf, (95, 60, 35), (barrel_x + 2, barrel_y + 2, 14, 21))
+        pygame.draw.ellipse(surf, (90, 85, 75), (barrel_x + 1, barrel_y + 5, 16, 4), 1)
+        pygame.draw.ellipse(surf, (90, 85, 75), (barrel_x + 1, barrel_y + 16, 16, 4), 1)
+        pygame.draw.line(surf, (130, 90, 55), (barrel_x + 5, barrel_y + 3), (barrel_x + 5, barrel_y + 22), 1)
+
+        pygame.draw.ellipse(surf, (60, 38, 20), (barrel_x + 12, barrel_y - 5, 16, 22))
+        pygame.draw.ellipse(surf, (80, 50, 30), (barrel_x + 14, barrel_y - 3, 12, 18))
+        pygame.draw.ellipse(surf, (80, 75, 65), (barrel_x + 13, barrel_y + 2, 14, 3), 1)
+
+        # === 화분 (정적) ===
+        for px in [bx - 8, bx + w - 22]:
+            pygame.draw.polygon(surf, (140, 85, 60),
+                              [(px, by + 50), (px + 14, by + 50), (px + 12, by + 58), (px + 2, by + 58)])
+            pygame.draw.line(surf, (170, 110, 75), (px + 1, by + 51), (px + 13, by + 51), 1)
+
+            for fi in range(3):
+                fx = px + 4 + fi * 3
+                pygame.draw.line(surf, (60, 120, 50), (fx, by + 50), (fx, by + 44), 1)
+                flower_color = [(255, 100, 100), (255, 200, 100), (255, 150, 200)][fi]
+                pygame.draw.circle(surf, flower_color, (fx, by + 43), 3)
+
+        # === 앰비언트 오클루전 ===
+        self._draw_ambient_occlusion(surf, (bx - floor2_overhang, by + 18, w + floor2_overhang * 2, h - 15), intensity=0.22)
+
+        return surf, MARGIN_LEFT, MARGIN_TOP
+
+    # =========================================================================
+    # 🍺 선술집 - 동적 렌더링
+    # =========================================================================
+    def _draw_tavern(self, screen, building, x, y, building_id):
+        """선술집 — blit + 동적 VFX"""
+        w, h = building.width, building.height
+        t = self.animation_timer
+
+        # 정적 Surface blit
+        baked, (ox, oy) = self._get_or_bake(BuildingType.TAVERN, w, h, self._bake_tavern)
+        screen.blit(baked, (x - ox, y - oy))
+
+        wood_color = (85, 50, 30)
+        wood_highlight = (165, 115, 75)
+        floor2_overhang = 14
+
+        # --- 동적: 따뜻한 분위기 바닥 글로우 ---
+        glow_h = 18
+        for i in range(3):
+            glow_w = w + 45 - i * 10
+            pulse = 0.5 + 0.5 * abs(math.sin(t * 1.8 + i * 0.4))
+            alpha = int((50 - i * 12) * pulse)
+            if alpha > 0:
+                glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (255, 160, 60, alpha),
+                                   (0, 0, glow_w, glow_h))
+                screen.blit(glow_surf, (x - 22 + i * 5, y + h - 6))
+
+        # --- 동적: 굴뚝 불빛 글로우 ---
+        chimney_x = x + w - 22
+        chimney_y = y - 28
+        glow_pulse = abs(math.sin(t * 4.5))
         glow_surf = pygame.Surface((20, 12), pygame.SRCALPHA)
         pygame.draw.ellipse(glow_surf, (255, 140, 40, int(180 * glow_pulse)), (0, 0, 20, 12))
         screen.blit(glow_surf, (chimney_x - 2, chimney_y - 2))
 
-        # 연기 파티클
+        # --- 동적: 연기 파티클 ---
         if random.random() < 0.25:
             self.particles[building_id].append({
                 'x': chimney_x + 8 + random.uniform(-4, 4),
@@ -2495,46 +2626,32 @@ class BuildingDesigner:
                 'size': random.randint(7, 14)
             })
 
-        # === 2층 창문 (아치형 - 따뜻한 빛) ===
+        # --- 동적: 2층 창문 빛 펄스 ---
         window_2f_positions = [(x - 5, y + 28), (x + w - 25, y + 28)]
         for wi, (wx, wy) in enumerate(window_2f_positions):
-            # 아치형 창틀
-            pygame.draw.rect(screen, wood_dark, (wx - 3, wy - 3, 28, 30), border_radius=6)
-            pygame.draw.rect(screen, wood_mid, (wx - 2, wy - 2, 26, 28), border_radius=5)
-
-            # 창문 빛 (아치형)
-            light_pulse = 0.6 + 0.4 * math.sin(self.animation_timer * 2.5 + wi * 1.2)
+            light_pulse = 0.6 + 0.4 * math.sin(t * 2.5 + wi * 1.2)
             light_surf = pygame.Surface((22, 24), pygame.SRCALPHA)
             for ly in range(24):
                 grad = 0.75 + 0.25 * (ly / 24)
                 r = int(255 * grad)
                 g = int((175 + 50 * light_pulse) * grad)
                 b = int((70 + 40 * light_pulse) * grad)
-                # 아치 상단 처리
                 width = 22 if ly > 5 else 22 - (5 - ly)
                 offset = 0 if ly > 5 else (5 - ly) // 2
                 pygame.draw.line(light_surf, (r, g, b), (offset, ly), (offset + width, ly))
             screen.blit(light_surf, (wx, wy))
 
-            # 창살
             pygame.draw.line(screen, wood_color, (wx + 11, wy + 2), (wx + 11, wy + 22), 2)
             pygame.draw.line(screen, wood_color, (wx + 2, wy + 12), (wx + 20, wy + 12), 2)
-
-            # 반짝임
             pygame.draw.line(screen, (255, 240, 180), (wx + 3, wy + 3), (wx + 7, wy + 7), 2)
 
-        # === 1층 큰 창문 (술집 분위기) ===
+        # --- 동적: 1층 큰 창문 빛 펄스 ---
         win1_x = x + 5
         win1_y = y + h // 2 + 8
         win1_w = w // 3 - 8
         win1_h = h // 2 - 28
 
-        # 창틀
-        pygame.draw.rect(screen, wood_dark, (win1_x - 4, win1_y - 4, win1_w + 8, win1_h + 8), border_radius=3)
-        pygame.draw.rect(screen, wood_mid, (win1_x - 2, win1_y - 2, win1_w + 4, win1_h + 4), border_radius=2)
-
-        # 창문 빛 (술집 내부 분위기)
-        light_pulse = 0.5 + 0.5 * math.sin(self.animation_timer * 2)
+        light_pulse = 0.5 + 0.5 * math.sin(t * 2)
         win_light_surf = pygame.Surface((win1_w, win1_h), pygame.SRCALPHA)
         for ly in range(win1_h):
             grad = 0.7 + 0.3 * (ly / win1_h)
@@ -2544,248 +2661,342 @@ class BuildingDesigner:
             pygame.draw.line(win_light_surf, (r, g, b), (0, ly), (win1_w, ly))
         screen.blit(win_light_surf, (win1_x, win1_y))
 
-        # 창살 (다이아몬드 패턴)
         for dx in range(0, win1_w, 10):
             pygame.draw.line(screen, wood_color, (win1_x + dx, win1_y), (win1_x + dx + 15, win1_y + win1_h), 1)
             pygame.draw.line(screen, wood_color, (win1_x + dx + 15, win1_y), (win1_x + dx, win1_y + win1_h), 1)
 
-        # 창문 안 실루엣 (사람 그림자 - 활기찬 분위기)
+        # --- 동적: 실루엣 애니메이션 ---
         silhouette_surf = pygame.Surface((win1_w, win1_h), pygame.SRCALPHA)
-        # 맥주잔 들고 있는 사람 실루엣
-        sil_x = 8 + int(5 * math.sin(self.animation_timer * 1.5))
-        pygame.draw.ellipse(silhouette_surf, (60, 40, 20, 120), (sil_x, 5, 10, 12))  # 머리
-        pygame.draw.rect(silhouette_surf, (60, 40, 20, 100), (sil_x + 2, 15, 8, 15))  # 몸
-        # 맥주잔
+        sil_x = 8 + int(5 * math.sin(t * 1.5))
+        pygame.draw.ellipse(silhouette_surf, (60, 40, 20, 120), (sil_x, 5, 10, 12))
+        pygame.draw.rect(silhouette_surf, (60, 40, 20, 100), (sil_x + 2, 15, 8, 15))
         pygame.draw.rect(silhouette_surf, (200, 180, 80, 150), (sil_x + 12, 12, 6, 10))
         screen.blit(silhouette_surf, (win1_x, win1_y))
 
-        # === 문 (대형 아치형 - 환영하는 느낌) ===
-        door_w = 36
-        door_h = 58
-        door_x = x + w - door_w - 12
-        door_y = y + h - door_h - 10
-
-        # 문 프레임 (아치형)
-        pygame.draw.rect(screen, wood_dark, (door_x - 5, door_y - 8, door_w + 10, door_h + 12), border_radius=8)
-
-        # 문 본체 (나무결)
-        door_surf = pygame.Surface((door_w, door_h), pygame.SRCALPHA)
-        for dy in range(door_h):
-            grad = 0.5 + 0.3 * math.sin(dy * 0.12) + 0.2 * (dy / door_h)
-            color = (int(75 * grad), int(48 * grad), int(28 * grad))
-            pygame.draw.line(door_surf, color, (0, dy), (door_w, dy))
-        # 아치 상단 마스킹
-        pygame.draw.rect(door_surf, (0, 0, 0, 0), (0, 0, door_w, door_h), border_radius=6)
-        screen.blit(door_surf, (door_x, door_y))
-
-        # 문 패널 (3개)
-        panel_h = (door_h - 16) // 3
-        for pi in range(3):
-            py = door_y + 5 + pi * (panel_h + 3)
-            pygame.draw.rect(screen, (55, 35, 20), (door_x + 5, py, door_w - 10, panel_h - 2), border_radius=2)
-            pygame.draw.rect(screen, (95, 65, 45), (door_x + 5, py, door_w - 10, panel_h - 2), 1, border_radius=2)
-
-        # 문 손잡이 (황동 링)
-        handle_y = door_y + door_h // 2
-        pygame.draw.circle(screen, (60, 45, 30), (door_x + door_w - 10, handle_y), 7)
-        pygame.draw.circle(screen, (195, 160, 100), (door_x + door_w - 10, handle_y), 6)
-        pygame.draw.circle(screen, (220, 190, 130), (door_x + door_w - 10, handle_y), 4, 2)
-        pygame.draw.circle(screen, (255, 230, 170), (door_x + door_w - 11, handle_y - 1), 2)
-
-        # 문 위 아치 장식
-        pygame.draw.arc(screen, wood_highlight, (door_x - 2, door_y - 15, door_w + 4, 20),
-                       0, math.pi, 3)
-
-        # === 메인 간판 - 대형 맥주잔 아이콘 (건물 상단) ===
+        # --- 동적: 메인 간판 물방울 ---
         sign_main_x = x + w // 2
         sign_main_y = y + 5
-
-        # 간판 배경 (금속 프레임 + 나무)
         sign_w, sign_h = 50, 38
-
-        # 간판 지지대
-        pygame.draw.rect(screen, (70, 70, 80), (sign_main_x - 3, y + 18, 6, 20))
-        pygame.draw.rect(screen, (100, 100, 110), (sign_main_x - 2, y + 18, 4, 20))
-
-        # 간판 본체 (나무 + 금속 테두리)
-        sign_surf = pygame.Surface((sign_w, sign_h), pygame.SRCALPHA)
-        # 나무 배경
-        for sy in range(sign_h):
-            grad = 0.65 + 0.35 * math.sin(sy * 0.15)
-            color = (int(80 * grad), int(50 * grad), int(30 * grad))
-            pygame.draw.line(sign_surf, color, (0, sy), (sign_w, sy))
-
-        # 금속 테두리
-        pygame.draw.rect(sign_surf, (90, 80, 60), (0, 0, sign_w, sign_h), 3, border_radius=5)
-        pygame.draw.rect(sign_surf, (150, 135, 100), (2, 2, sign_w - 4, sign_h - 4), 1, border_radius=4)
-
-        # 🍺 맥주잔 그리기 (픽셀 아트 스타일)
-        beer_cx = sign_w // 2
-        beer_cy = sign_h // 2
-
-        # 맥주잔 본체 (황금색)
-        mug_color = (255, 210, 80)
-        mug_dark = (200, 160, 50)
-        mug_light = (255, 240, 150)
-        foam_color = (255, 250, 240)
-
-        # 잔 본체
-        pygame.draw.rect(sign_surf, mug_dark, (beer_cx - 8, beer_cy - 6, 16, 18), border_radius=2)
-        pygame.draw.rect(sign_surf, mug_color, (beer_cx - 7, beer_cy - 5, 14, 16), border_radius=2)
-
-        # 맥주 (황금색 액체)
-        pygame.draw.rect(sign_surf, (245, 195, 60), (beer_cx - 6, beer_cy, 12, 10))
-
-        # 거품 (상단)
-        pygame.draw.ellipse(sign_surf, foam_color, (beer_cx - 7, beer_cy - 8, 14, 8))
-        pygame.draw.ellipse(sign_surf, (255, 255, 255), (beer_cx - 5, beer_cy - 7, 4, 4))
-        pygame.draw.ellipse(sign_surf, (255, 255, 255), (beer_cx + 1, beer_cy - 6, 3, 3))
-
-        # 손잡이
-        pygame.draw.rect(sign_surf, mug_dark, (beer_cx + 7, beer_cy - 2, 5, 12), border_radius=2)
-        pygame.draw.rect(sign_surf, mug_color, (beer_cx + 8, beer_cy - 1, 3, 10), border_radius=1)
-
-        # 하이라이트
-        pygame.draw.line(sign_surf, mug_light, (beer_cx - 5, beer_cy - 3), (beer_cx - 5, beer_cy + 8), 1)
-
-        # 물방울 효과 (맥주잔에서 떨어지는 물방울 애니메이션)
-        drop_y = int((self.animation_timer * 10) % 20)
+        drop_y = int((t * 10) % 20)
         if drop_y < 15:
-            pygame.draw.circle(sign_surf, mug_light, (beer_cx - 3, beer_cy + 5 + drop_y // 3), 1)
+            drop_surf = pygame.Surface((sign_w, sign_h), pygame.SRCALPHA)
+            beer_cx = sign_w // 2
+            beer_cy = sign_h // 2
+            mug_light = (255, 240, 150)
+            pygame.draw.circle(drop_surf, mug_light, (beer_cx - 3, beer_cy + 5 + drop_y // 3), 1)
+            screen.blit(drop_surf, (sign_main_x - sign_w // 2, sign_main_y))
 
-        screen.blit(sign_surf, (sign_main_x - sign_w // 2, sign_main_y))
-
-        # === 측면 현수막 간판 (흔들리는) ===
+        # --- 동적: 측면 현수막 흔들림 ---
         hang_sign_x = x + w + 5
         hang_sign_y = y + 35
 
-        # 쇠고리 (철제)
-        for i in range(5):
-            cy = y + 20 + i * 4
-            pygame.draw.circle(screen, (65, 65, 75), (hang_sign_x + 20, cy), 3, 1)
-            pygame.draw.circle(screen, (110, 110, 120), (hang_sign_x + 20, cy), 2, 1)
-
-        # 현수막 간판
         hang_surf = pygame.Surface((42, 32), pygame.SRCALPHA)
         for sy in range(32):
             grad = 0.6 + 0.4 * math.sin(sy * 0.18)
             color = (int(90 * grad), int(55 * grad), int(35 * grad))
             pygame.draw.line(hang_surf, color, (0, sy), (42, sy))
-
-        # 테두리
         pygame.draw.rect(hang_surf, (55, 35, 20), (0, 0, 42, 32), 2, border_radius=3)
-
-        # "ALE" 텍스트 (맥주)
         try:
             font = pygame.font.Font(None, 16)
             ale_text = font.render("ALE", True, (255, 220, 150))
             hang_surf.blit(ale_text, (10, 10))
         except:
-            # 폰트 없으면 간단한 장식
             pygame.draw.rect(hang_surf, (255, 220, 150), (8, 10, 26, 12), 1)
 
-        # 간판 흔들림 애니메이션
-        swing = math.sin(self.animation_timer * 1.8) * 8
+        swing = math.sin(t * 1.8) * 8
         rotated_hang = pygame.transform.rotate(hang_surf, swing)
         hang_rect = rotated_hang.get_rect(center=(hang_sign_x + 21, hang_sign_y + 16))
         screen.blit(rotated_hang, hang_rect)
 
-        # === 입구 랜턴 (양쪽) ===
+        # --- 동적: 입구 랜턴 글로우 + 불빛 ---
+        door_w = 36
+        door_h = 58
+        door_x = x + w - door_w - 12
+        door_y = y + h - door_h - 10
+
         for lx in [door_x - 15, door_x + door_w + 8]:
-            # 랜턴 글로우
-            lantern_glow = 0.6 + 0.4 * abs(math.sin(self.animation_timer * 3.5 + lx * 0.1))
+            lantern_glow = 0.6 + 0.4 * abs(math.sin(t * 3.5 + lx * 0.1))
             glow_surf = pygame.Surface((28, 28), pygame.SRCALPHA)
             pygame.draw.circle(glow_surf, (255, 190, 90, int(100 * lantern_glow)), (14, 14), 14)
             screen.blit(glow_surf, (lx - 6, door_y - 30))
 
-            # 랜턴 지지대
-            pygame.draw.line(screen, (60, 50, 40), (lx + 4, door_y - 25), (lx + 4, door_y - 8), 2)
-
-            # 랜턴 본체
-            pygame.draw.rect(screen, (50, 40, 30), (lx, door_y - 22, 10, 14), border_radius=2)
-            pygame.draw.rect(screen, (70, 60, 45), (lx + 1, door_y - 21, 8, 1))
-
-            # 랜턴 불빛
             light_color = (255, int(200 + 55 * lantern_glow), int(100 + 50 * lantern_glow))
             pygame.draw.rect(screen, light_color, (lx + 2, door_y - 19, 6, 10))
-
-        # === 맥주통 장식 (건물 옆) ===
-        barrel_x = x - 20
-        barrel_y = y + h - 28
-
-        # 통 본체
-        pygame.draw.ellipse(screen, (70, 45, 25), (barrel_x, barrel_y, 18, 25))
-        pygame.draw.ellipse(screen, (95, 60, 35), (barrel_x + 2, barrel_y + 2, 14, 21))
-
-        # 통 띠 (금속)
-        pygame.draw.ellipse(screen, (90, 85, 75), (barrel_x + 1, barrel_y + 5, 16, 4), 1)
-        pygame.draw.ellipse(screen, (90, 85, 75), (barrel_x + 1, barrel_y + 16, 16, 4), 1)
-
-        # 통 하이라이트
-        pygame.draw.line(screen, (130, 90, 55), (barrel_x + 5, barrel_y + 3), (barrel_x + 5, barrel_y + 22), 1)
-
-        # 두 번째 통 (살짝 뒤에)
-        pygame.draw.ellipse(screen, (60, 38, 20), (barrel_x + 12, barrel_y - 5, 16, 22))
-        pygame.draw.ellipse(screen, (80, 50, 30), (barrel_x + 14, barrel_y - 3, 12, 18))
-        pygame.draw.ellipse(screen, (80, 75, 65), (barrel_x + 13, barrel_y + 2, 14, 3), 1)
-
-        # === 화분 (2층 창가) ===
-        for px in [x - 8, x + w - 22]:
-            # 화분
-            pygame.draw.polygon(screen, (140, 85, 60),
-                              [(px, y + 50), (px + 14, y + 50), (px + 12, y + 58), (px + 2, y + 58)])
-            pygame.draw.line(screen, (170, 110, 75), (px + 1, y + 51), (px + 13, y + 51), 1)
-
-            # 꽃/식물
-            for fi in range(3):
-                fx = px + 4 + fi * 3
-                pygame.draw.line(screen, (60, 120, 50), (fx, y + 50), (fx, y + 44), 1)
-                flower_color = [(255, 100, 100), (255, 200, 100), (255, 150, 200)][fi]
-                pygame.draw.circle(screen, flower_color, (fx, y + 43), 3)
-
-        # === 앰비언트 오클루전 ===
-        self._draw_ambient_occlusion(screen, pygame.Rect(x - floor2_overhang, y + 18, w + floor2_overhang * 2, h - 15), intensity=0.22)
 
         # 파티클 렌더링
         self._draw_particles(screen, building_id, (x, y))
 
     # =========================================================================
-    # ⭐ 스타뱅크 - 코스믹 크리스탈 은행 (초고퀄리티)
+    # ⭐ 스타뱅크 색상 상수 (bake / draw 양쪽에서 공유)
     # =========================================================================
-    def _draw_bank(self, screen, building, x, y, building_id):
-        """스타뱅크 - 고급 환전소 (Star Point ⇄ Gold Exchange)"""
-        w, h = building.width, building.height
+    _BANK_GOLD = (255, 215, 0)
+    _BANK_GOLD_LIGHT = (255, 235, 120)
+    _BANK_GOLD_DARK = (200, 165, 0)
+    _BANK_MARBLE = (235, 230, 225)
+    _BANK_MARBLE_SHADOW = (200, 195, 190)
+    _BANK_ROYAL_BLUE = (65, 105, 225)
+    _BANK_ACCENT_CYAN = (100, 200, 255)
 
-        # 색상 팔레트 - 우아한 고급 테마
-        GOLD = (255, 215, 0)                # 순금
-        GOLD_LIGHT = (255, 235, 120)        # 밝은 금
-        GOLD_DARK = (200, 165, 0)           # 진한 금
-        MARBLE_WHITE = (250, 248, 245)      # 대리석 흰색
-        MARBLE = (235, 230, 225)            # 대리석
-        MARBLE_SHADOW = (200, 195, 190)     # 대리석 그림자
-        ROYAL_BLUE = (65, 105, 225)         # 로열 블루
-        STAR_SILVER = (220, 220, 235)       # 별빛 은색
-        ACCENT_CYAN = (100, 200, 255)       # 포인트 시안
-        DEEP_PURPLE = (75, 0, 130)          # 깊은 보라
+    # =========================================================================
+    # ⭐ 스타뱅크 - 정적 베이킹 (1회)
+    # =========================================================================
+    def _bake_bank(self, w, h):
+        """스타뱅크 정적 요소를 투명 Surface 한 장에 베이킹.
+        반환: (surface, offset_x, offset_y)
+        """
+        GOLD = self._BANK_GOLD
+        GOLD_LIGHT = self._BANK_GOLD_LIGHT
+        GOLD_DARK = self._BANK_GOLD_DARK
+        MARBLE = self._BANK_MARBLE
+        MARBLE_SHADOW = self._BANK_MARBLE_SHADOW
+        ROYAL_BLUE = self._BANK_ROYAL_BLUE
+        ACCENT_CYAN = self._BANK_ACCENT_CYAN
 
-        # 애니메이션
-        pulse = 0.7 + 0.3 * abs(math.sin(self.animation_timer * 1.2))
-        glow = abs(math.sin(self.animation_timer * 1.5))
-        rotate = self.animation_timer * 20  # 느린 회전
+        MARGIN_LEFT = 20
+        MARGIN_RIGHT = 20
+        MARGIN_TOP = 25
+        MARGIN_BOTTOM = 20
 
-        # ========================================================================
-        # 1. 고급 그림자 (깊이감)
-        # ========================================================================
+        surf_w = w + MARGIN_LEFT + MARGIN_RIGHT
+        surf_h = h + MARGIN_TOP + MARGIN_BOTTOM
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+        bx = MARGIN_LEFT
+        by = MARGIN_TOP
+
+        # --- 1. 고급 그림자 (깊이감) ---
         for i in range(12, 0, -2):
             shadow_alpha = 20 + i * 2
             shadow_surf = pygame.Surface((w + 20, 20), pygame.SRCALPHA)
             pygame.draw.ellipse(shadow_surf, (20, 15, 10, shadow_alpha),
                                (0, 0, w + 20, 18 - i // 2))
-            screen.blit(shadow_surf, (x - 10, y + h + i - 8))
+            surf.blit(shadow_surf, (bx - 10, by + h + i - 8))
 
-        # ========================================================================
-        # 2. 황금 글로우 (우아한 빛)
-        # ========================================================================
+        # --- 2. 대리석 기단 (3단 계단) ---
+        for i in range(3):
+            step_y = by + h - 8 + i * 4
+            step_w = w + 12 - i * 4
+            step_x = bx - 6 + i * 2
+
+            step_surf = pygame.Surface((int(step_w), 5), pygame.SRCALPHA)
+            for sy in range(5):
+                grad = 0.88 + 0.12 * (1 - sy / 5)
+                color = (int(240 * grad), int(235 * grad), int(230 * grad))
+                pygame.draw.line(step_surf, color, (0, sy), (int(step_w), sy))
+            surf.blit(step_surf, (int(step_x), step_y))
+
+            pygame.draw.line(surf, GOLD_LIGHT, (int(step_x), step_y), (int(step_x + step_w), step_y), 2)
+
+        # --- 3. 메인 건물 본체 (대리석) ---
+        building_surf = pygame.Surface((w, h - 25), pygame.SRCALPHA)
+        for i in range(h - 25):
+            grad = 0.94 + 0.06 * math.sin(i * 0.08)
+            color = (int(245 * grad), int(242 * grad), int(238 * grad))
+            pygame.draw.line(building_surf, color, (0, i), (w, i))
+        surf.blit(building_surf, (bx, by + 20))
+
+        # 대리석 질감 (결정론적 시드)
+        for i in range(5):
+            vein_y = by + 28 + i * (h - 35) // 5
+            rng = random.Random(i * 7919)
+            vein_alpha = rng.randint(15, 35)
+            vein_dy = rng.randint(-3, 3)
+            pygame.draw.line(surf, (*MARBLE_SHADOW, vein_alpha),
+                            (bx + 8, vein_y), (bx + w - 8, vein_y + vein_dy), 1)
+
+        # --- 4. 황금 기둥 (pixel-by-pixel) ---
+        pillar_positions = [bx + 8, bx + w - 18]
+        pillar_w = 10
+        pillar_h = h - 30
+
+        for px in pillar_positions:
+            for i in range(pillar_w):
+                grad = 0.6 + 0.4 * abs(i - pillar_w / 2) / (pillar_w / 2)
+                for py in range(pillar_h):
+                    height_grad = 0.75 + 0.25 * math.sin(py * 0.06)
+                    final_grad = grad * height_grad
+                    color = (int(GOLD[0] * final_grad),
+                            int(GOLD[1] * final_grad),
+                            int(50 * final_grad))
+                    surf.set_at((px + i, by + 18 + py), color)
+
+            pygame.draw.line(surf, GOLD_LIGHT, (px + 3, by + 18), (px + 3, by + 18 + pillar_h), 2)
+
+        # --- 5. 지붕 - 황금 아치 ---
+        roof_points = [
+            (bx - 12, by + 20),
+            (bx + w // 2, by - 15),
+            (bx + w + 12, by + 20)
+        ]
+
+        roof_surf = pygame.Surface((w + 30, 40), pygame.SRCALPHA)
+        for i in range(40):
+            grad = 0.92 - i * 0.012
+            color = (int(GOLD[0] * grad), int(GOLD[1] * grad), int(60 * grad))
+            progress = i / 40
+            half_width = int((w // 2 + 12) * (1 - progress * 0.88))
+            cx = w // 2 + 15
+            pygame.draw.line(roof_surf, color, (cx - half_width, i), (cx + half_width, i))
+        surf.blit(roof_surf, (bx - 15, by - 15))
+
+        pygame.draw.polygon(surf, GOLD_DARK, roof_points, 4)
+        inner_roof = [
+            (bx - 5, by + 18),
+            (bx + w // 2, by - 8),
+            (bx + w + 5, by + 18)
+        ]
+        pygame.draw.polygon(surf, GOLD_LIGHT, inner_roof, 2)
+
+        # --- 6. 환전 엠블렘 (★ ⇄ $) ---
+        emblem_y = by + 2
+
+        star_x = bx + w // 2 - 20
+        pygame.draw.circle(surf, ROYAL_BLUE, (star_x, emblem_y), 13)
+        pygame.draw.circle(surf, ACCENT_CYAN, (star_x, emblem_y), 11)
+        pygame.draw.circle(surf, GOLD, (star_x, emblem_y), 11, 2)
+
+        star_points = []
+        for i in range(5):
+            angle_out = math.radians(i * 72 - 90)
+            spx = star_x + 7 * math.cos(angle_out)
+            spy = emblem_y + 7 * math.sin(angle_out)
+            star_points.append((spx, spy))
+            angle_in = math.radians(i * 72 + 36 - 90)
+            px_in = star_x + 3 * math.cos(angle_in)
+            py_in = emblem_y + 3 * math.sin(angle_in)
+            star_points.append((px_in, py_in))
+        pygame.draw.polygon(surf, GOLD, star_points)
+
+        arrow_x = bx + w // 2
+        pygame.draw.line(surf, GOLD_LIGHT, (star_x + 15, emblem_y), (arrow_x + 15, emblem_y), 3)
+        pygame.draw.polygon(surf, GOLD_LIGHT, [
+            (arrow_x + 15, emblem_y), (arrow_x + 10, emblem_y - 4), (arrow_x + 10, emblem_y + 4)
+        ])
+        pygame.draw.polygon(surf, GOLD_LIGHT, [
+            (star_x + 15, emblem_y), (star_x + 20, emblem_y - 4), (star_x + 20, emblem_y + 4)
+        ])
+
+        coin_x = bx + w // 2 + 20
+        pygame.draw.circle(surf, GOLD_DARK, (coin_x + 1, emblem_y + 1), 12)
+        pygame.draw.circle(surf, GOLD, (coin_x, emblem_y), 12)
+        pygame.draw.circle(surf, GOLD_LIGHT, (coin_x - 2, emblem_y - 2), 6)
+        pygame.draw.circle(surf, GOLD_DARK, (coin_x, emblem_y), 12, 2)
+
+        font = pygame.font.Font(None, 22)
+        dollar = font.render("$", True, (180, 140, 30))
+        surf.blit(dollar, (coin_x - 5, emblem_y - 8))
+
+        # --- 7. 입구 - 고급 대리석 문 ---
+        door_w = max(26, w // 2 + 5)
+        door_h = max(38, h - 50)
+        door_x = bx + (w - door_w) // 2
+        door_y = by + max(28, h - door_h - 8)
+
+        frame_thickness = 4
+        pygame.draw.rect(surf, GOLD_DARK, (door_x - frame_thickness, door_y - frame_thickness,
+                        door_w + frame_thickness * 2, door_h + frame_thickness * 2), border_radius=6)
+        pygame.draw.rect(surf, GOLD, (door_x - 2, door_y - 2,
+                        door_w + 4, door_h + 4), border_radius=5)
+
+        door_surf = pygame.Surface((door_w, door_h), pygame.SRCALPHA)
+        for dy in range(door_h):
+            grad = 0.7 + 0.3 * (dy / door_h)
+            r = int(ROYAL_BLUE[0] * (1 - grad) + MARBLE[0] * grad)
+            g = int(ROYAL_BLUE[1] * (1 - grad) + MARBLE[1] * grad)
+            b = int(ROYAL_BLUE[2] * (1 - grad) + MARBLE[2] * grad)
+            pygame.draw.line(door_surf, (r, g, b), (0, dy), (door_w, dy))
+        surf.blit(door_surf, (door_x, door_y))
+
+        panel_w = (door_w - 16) // 2
+        panel_h = door_h - 16
+        for panel_idx, panel_x_offset in enumerate([6, door_w // 2 + 2]):
+            panel_x = door_x + panel_x_offset
+            panel_y = door_y + 8
+
+            panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            for py in range(panel_h):
+                grad = 0.75 + 0.25 * math.sin(py * 0.15)
+                color = (int(225 * grad), int(220 * grad), int(215 * grad))
+                pygame.draw.line(panel_surf, color, (0, py), (panel_w, py))
+            surf.blit(panel_surf, (panel_x, panel_y))
+
+            pygame.draw.rect(surf, GOLD, (panel_x, panel_y, panel_w, panel_h), 2, border_radius=3)
+
+            deco_x = panel_x + panel_w // 2
+            deco_y = panel_y + panel_h // 2
+
+            if panel_idx == 0:
+                small_star = []
+                for i in range(5):
+                    angle = math.radians(i * 72 - 90)
+                    spx = deco_x + 5 * math.cos(angle)
+                    spy = deco_y + 5 * math.sin(angle)
+                    small_star.append((spx, spy))
+                    angle_in = math.radians(i * 72 + 36 - 90)
+                    px_in = deco_x + 2 * math.cos(angle_in)
+                    py_in = deco_y + 2 * math.sin(angle_in)
+                    small_star.append((px_in, py_in))
+                pygame.draw.polygon(surf, ACCENT_CYAN, small_star)
+            else:
+                pygame.draw.circle(surf, GOLD, (deco_x, deco_y), 6)
+                pygame.draw.circle(surf, GOLD_LIGHT, (deco_x - 1, deco_y - 1), 3)
+
+        handle_y = door_y + door_h // 2
+        for handle_x in [door_x + 10, door_x + door_w - 10]:
+            pygame.draw.circle(surf, GOLD_DARK, (handle_x, handle_y), 5, 2)
+            pygame.draw.circle(surf, GOLD, (handle_x, handle_y), 4, 2)
+
+        # --- 8. 명판 (StarBank) ---
+        plate_y = by + 12
+        plate_w = 60
+        plate_h = 14
+        plate_x = bx + (w - plate_w) // 2
+
+        plate_surf = pygame.Surface((plate_w, plate_h), pygame.SRCALPHA)
+        for py in range(plate_h):
+            grad = 0.85 + 0.15 * (1 - abs(py - plate_h / 2) / (plate_h / 2))
+            color = (int(GOLD[0] * grad), int(GOLD[1] * grad), int(50 * grad))
+            pygame.draw.line(plate_surf, color, (0, py), (plate_w, py))
+        surf.blit(plate_surf, (plate_x, plate_y))
+
+        pygame.draw.rect(surf, GOLD_DARK, (plate_x, plate_y, plate_w, plate_h), 2, border_radius=3)
+
+        name_font = pygame.font.Font(None, 16)
+        bank_text = name_font.render("StarBank", True, (80, 60, 20))
+        text_rect = bank_text.get_rect(center=(plate_x + plate_w // 2, plate_y + plate_h // 2))
+        surf.blit(bank_text, text_rect)
+
+        # --- 9. 앰비언트 오클루전 ---
+        self._draw_ambient_occlusion(surf, (bx - 10, by + 18, w + 20, h - 18), intensity=0.2)
+
+        return surf, MARGIN_LEFT, MARGIN_TOP
+
+    # =========================================================================
+    # ⭐ 스타뱅크 - 동적 렌더링
+    # =========================================================================
+    def _draw_bank(self, screen, building, x, y, building_id):
+        """스타뱅크 — 캐싱된 정적 Surface를 blit한 뒤, 동적 VFX만 덧그린다."""
+        w, h = building.width, building.height
+
+        GOLD = self._BANK_GOLD
+        GOLD_LIGHT = self._BANK_GOLD_LIGHT
+        ACCENT_CYAN = self._BANK_ACCENT_CYAN
+
+        # =====================================================================
+        # 1) 정적 Surface blit
+        # =====================================================================
+        baked, (ox, oy) = self._get_or_bake(
+            BuildingType.BANK, w, h, self._bake_bank
+        )
+        screen.blit(baked, (x - ox, y - oy))
+
+        # =====================================================================
+        # 2) 동적 VFX — animation_timer 의존 요소만 그린다
+        # =====================================================================
+        t = self.animation_timer
+        glow = abs(math.sin(t * 1.5))
+
+        # --- 황금 글로우 (펄스) ---
         for i in range(3):
             glow_size = 30 - i * 9
             glow_alpha = int((45 - i * 12) * glow)
@@ -2795,256 +3006,15 @@ class BuildingDesigner:
                                 (0, 0, w + glow_size * 2, h + glow_size * 2), border_radius=10)
                 screen.blit(glow_surf, (x - glow_size, y - glow_size))
 
-        # ========================================================================
-        # 3. 대리석 기단 (3단 계단)
-        # ========================================================================
-        for i in range(3):
-            step_y = y + h - 8 + i * 4
-            step_w = w + 12 - i * 4
-            step_x = x - 6 + i * 2
-
-            # 대리석 그라데이션
-            step_surf = pygame.Surface((int(step_w), 5), pygame.SRCALPHA)
-            for sy in range(5):
-                grad = 0.88 + 0.12 * (1 - sy / 5)
-                color = (int(240 * grad), int(235 * grad), int(230 * grad))
-                pygame.draw.line(step_surf, color, (0, sy), (int(step_w), sy))
-            screen.blit(step_surf, (int(step_x), step_y))
-
-            # 황금 테두리
-            pygame.draw.line(screen, GOLD_LIGHT, (int(step_x), step_y), (int(step_x + step_w), step_y), 2)
-
-        # ========================================================================
-        # 4. 메인 건물 본체 (대리석)
-        # ========================================================================
-        building_surf = pygame.Surface((w, h - 25), pygame.SRCALPHA)
-        for i in range(h - 25):
-            grad = 0.94 + 0.06 * math.sin(i * 0.08)
-            color = (int(245 * grad), int(242 * grad), int(238 * grad))
-            pygame.draw.line(building_surf, color, (0, i), (w, i))
-        screen.blit(building_surf, (x, y + 20))
-
-        # 대리석 질감 (미세한 패턴)
-        for i in range(5):
-            vein_y = y + 28 + i * (h - 35) // 5
-            vein_alpha = random.randint(15, 35)
-            pygame.draw.line(screen, (*MARBLE_SHADOW, vein_alpha),
-                            (x + 8, vein_y), (x + w - 8, vein_y + random.randint(-3, 3)), 1)
-
-        # ========================================================================
-        # 5. 황금 기둥 (양쪽 2개 - 우아함)
-        # ========================================================================
-        pillar_positions = [x + 8, x + w - 18]
-        pillar_w = 10
-        pillar_h = h - 30
-
-        for px in pillar_positions:
-            # 기둥 그라데이션
-            for i in range(pillar_w):
-                grad = 0.6 + 0.4 * abs(i - pillar_w / 2) / (pillar_w / 2)
-                for py in range(pillar_h):
-                    height_grad = 0.75 + 0.25 * math.sin(py * 0.06)
-                    final_grad = grad * height_grad
-                    color = (int(GOLD[0] * final_grad),
-                            int(GOLD[1] * final_grad),
-                            int(50 * final_grad))
-                    screen.set_at((px + i, y + 18 + py), color)
-
-            # 하이라이트
-            pygame.draw.line(screen, GOLD_LIGHT, (px + 3, y + 18), (px + 3, y + 18 + pillar_h), 2)
-
-        # ========================================================================
-        # 6. 지붕 - 황금 아치 (우아한 곡선)
-        # ========================================================================
-        roof_points = [
-            (x - 12, y + 20),
-            (x + w // 2, y - 15),
-            (x + w + 12, y + 20)
-        ]
-
-        # 지붕 그라데이션
-        roof_surf = pygame.Surface((w + 30, 40), pygame.SRCALPHA)
-        for i in range(40):
-            grad = 0.92 - i * 0.012
-            color = (int(GOLD[0] * grad), int(GOLD[1] * grad), int(60 * grad))
-            progress = i / 40
-            half_width = int((w // 2 + 12) * (1 - progress * 0.88))
-            cx = w // 2 + 15
-            pygame.draw.line(roof_surf, color, (cx - half_width, i), (cx + half_width, i))
-        screen.blit(roof_surf, (x - 15, y - 15))
-
-        # 지붕 테두리
-        pygame.draw.polygon(screen, GOLD_DARK, roof_points, 4)
-        inner_roof = [
-            (x - 5, y + 18),
-            (x + w // 2, y - 8),
-            (x + w + 5, y + 18)
-        ]
-        pygame.draw.polygon(screen, GOLD_LIGHT, inner_roof, 2)
-
-        # ========================================================================
-        # 7. 환전 엠블렘 (★ ⇄ $ - 지붕 위)
-        # ========================================================================
-        emblem_y = y + 2
-
-        # 왼쪽: 별 (스타 포인트)
-        star_x = x + w // 2 - 20
-        # 별 배경
-        pygame.draw.circle(screen, ROYAL_BLUE, (star_x, emblem_y), 13)
-        pygame.draw.circle(screen, ACCENT_CYAN, (star_x, emblem_y), 11)
-        pygame.draw.circle(screen, GOLD, (star_x, emblem_y), 11, 2)
-
-        # 5각 별
-        star_points = []
-        for i in range(5):
-            angle_out = math.radians(i * 72 - 90)
-            px = star_x + 7 * math.cos(angle_out)
-            py = emblem_y + 7 * math.sin(angle_out)
-            star_points.append((px, py))
-            angle_in = math.radians(i * 72 + 36 - 90)
-            px_in = star_x + 3 * math.cos(angle_in)
-            py_in = emblem_y + 3 * math.sin(angle_in)
-            star_points.append((px_in, py_in))
-        pygame.draw.polygon(screen, GOLD, star_points)
-
-        # 중앙: 교환 화살표
-        arrow_x = x + w // 2
-        # 이중 화살표
-        pygame.draw.line(screen, GOLD_LIGHT, (star_x + 15, emblem_y), (arrow_x + 15, emblem_y), 3)
-        # 화살촉
-        pygame.draw.polygon(screen, GOLD_LIGHT, [
-            (arrow_x + 15, emblem_y), (arrow_x + 10, emblem_y - 4), (arrow_x + 10, emblem_y + 4)
-        ])
-        pygame.draw.polygon(screen, GOLD_LIGHT, [
-            (star_x + 15, emblem_y), (star_x + 20, emblem_y - 4), (star_x + 20, emblem_y + 4)
-        ])
-
-        # 오른쪽: 금화 (골드)
-        coin_x = x + w // 2 + 20
-        # 금화 글로우
-        coin_glow = pygame.Surface((30, 30), pygame.SRCALPHA)
-        pygame.draw.circle(coin_glow, (*GOLD, int(70 * glow)), (15, 15), 15)
-        screen.blit(coin_glow, (coin_x - 15, emblem_y - 15))
-
-        # 금화 본체 (3D)
-        pygame.draw.circle(screen, GOLD_DARK, (coin_x + 1, emblem_y + 1), 12)  # 그림자
-        pygame.draw.circle(screen, GOLD, (coin_x, emblem_y), 12)  # 본체
-        pygame.draw.circle(screen, GOLD_LIGHT, (coin_x - 2, emblem_y - 2), 6)  # 하이라이트
-        pygame.draw.circle(screen, GOLD_DARK, (coin_x, emblem_y), 12, 2)  # 테두리
-
-        # $ 심볼
-        font = pygame.font.Font(None, 22)
-        dollar = font.render("$", True, (180, 140, 30))
-        screen.blit(dollar, (coin_x - 5, emblem_y - 8))
-
-        # ========================================================================
-        # 8. 입구 - 고급 대리석 문
-        # ========================================================================
-        door_w = max(26, w // 2 + 5)
-        door_h = max(38, h - 50)
-        door_x = x + (w - door_w) // 2
-        door_y = y + max(28, h - door_h - 8)
-
-        # 문 프레임 (황금)
-        frame_thickness = 4
-        pygame.draw.rect(screen, GOLD_DARK, (door_x - frame_thickness, door_y - frame_thickness,
-                        door_w + frame_thickness * 2, door_h + frame_thickness * 2), border_radius=6)
-        pygame.draw.rect(screen, GOLD, (door_x - 2, door_y - 2,
-                        door_w + 4, door_h + 4), border_radius=5)
-
-        # 문 본체 (대리석 그라데이션)
-        door_surf = pygame.Surface((door_w, door_h), pygame.SRCALPHA)
-        for dy in range(door_h):
-            grad = 0.7 + 0.3 * (dy / door_h)
-            r = int(ROYAL_BLUE[0] * (1 - grad) + MARBLE[0] * grad)
-            g = int(ROYAL_BLUE[1] * (1 - grad) + MARBLE[1] * grad)
-            b = int(ROYAL_BLUE[2] * (1 - grad) + MARBLE[2] * grad)
-            pygame.draw.line(door_surf, (r, g, b), (0, dy), (door_w, dy))
-        screen.blit(door_surf, (door_x, door_y))
-
-        # 문 패널 (2개 - 좌우 대칭)
-        panel_w = (door_w - 16) // 2
-        panel_h = door_h - 16
-        for panel_idx, panel_x_offset in enumerate([6, door_w // 2 + 2]):
-            panel_x = door_x + panel_x_offset
-            panel_y = door_y + 8
-
-            # 패널 본체
-            panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-            for py in range(panel_h):
-                grad = 0.75 + 0.25 * math.sin(py * 0.15)
-                color = (int(225 * grad), int(220 * grad), int(215 * grad))
-                pygame.draw.line(panel_surf, color, (0, py), (panel_w, py))
-            screen.blit(panel_surf, (panel_x, panel_y))
-
-            # 패널 테두리 (황금)
-            pygame.draw.rect(screen, GOLD, (panel_x, panel_y, panel_w, panel_h), 2, border_radius=3)
-
-            # 패널 중앙 장식 (별/금화 번갈아)
-            deco_x = panel_x + panel_w // 2
-            deco_y = panel_y + panel_h // 2
-
-            if panel_idx == 0:
-                # 별 장식
-                small_star = []
-                for i in range(5):
-                    angle = math.radians(i * 72 - 90)
-                    px = deco_x + 5 * math.cos(angle)
-                    py = deco_y + 5 * math.sin(angle)
-                    small_star.append((px, py))
-                    angle_in = math.radians(i * 72 + 36 - 90)
-                    px_in = deco_x + 2 * math.cos(angle_in)
-                    py_in = deco_y + 2 * math.sin(angle_in)
-                    small_star.append((px_in, py_in))
-                pygame.draw.polygon(screen, ACCENT_CYAN, small_star)
-            else:
-                # 금화 장식
-                pygame.draw.circle(screen, GOLD, (deco_x, deco_y), 6)
-                pygame.draw.circle(screen, GOLD_LIGHT, (deco_x - 1, deco_y - 1), 3)
-
-        # 문 손잡이 (황금 고리)
-        handle_y = door_y + door_h // 2
-        for handle_x in [door_x + 10, door_x + door_w - 10]:
-            pygame.draw.circle(screen, GOLD_DARK, (handle_x, handle_y), 5, 2)
-            pygame.draw.circle(screen, GOLD, (handle_x, handle_y), 4, 2)
-
-        # ========================================================================
-        # 9. 명판 (StarBank)
-        # ========================================================================
-        plate_y = y + 12
-        plate_w = 60
-        plate_h = 14
-        plate_x = x + (w - plate_w) // 2
-
-        # 명판 배경
-        plate_surf = pygame.Surface((plate_w, plate_h), pygame.SRCALPHA)
-        for py in range(plate_h):
-            grad = 0.85 + 0.15 * (1 - abs(py - plate_h / 2) / (plate_h / 2))
-            color = (int(GOLD[0] * grad), int(GOLD[1] * grad), int(50 * grad))
-            pygame.draw.line(plate_surf, color, (0, py), (plate_w, py))
-        screen.blit(plate_surf, (plate_x, plate_y))
-
-        # 명판 테두리
-        pygame.draw.rect(screen, GOLD_DARK, (plate_x, plate_y, plate_w, plate_h), 2, border_radius=3)
-
-        # StarBank 텍스트
-        name_font = pygame.font.Font(None, 16)
-        bank_text = name_font.render("StarBank", True, (80, 60, 20))
-        text_rect = bank_text.get_rect(center=(plate_x + plate_w // 2, plate_y + plate_h // 2))
-        screen.blit(bank_text, text_rect)
-
-        # ========================================================================
-        # 10. 우아한 장식 파티클 (절제된 반짝임)
-        # ========================================================================
+        # --- 우아한 장식 스파클 (random.seed 기반 — 동적) ---
         sparkle_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-        random.seed(building_id * 13 + int(self.animation_timer * 1.5))
-        for _ in range(6):  # 적은 수의 파티클
+        random.seed(building_id * 13 + int(t * 1.5))
+        for _ in range(6):
             sx = random.randint(10, w - 10)
             sy = random.randint(15, h - 20)
             star_alpha = random.randint(150, 220)
             star_size = random.randint(1, 2)
 
-            # 우아한 반짝임
             pygame.draw.circle(sparkle_surf, (*GOLD_LIGHT, star_alpha), (sx, sy), star_size)
             pygame.draw.line(sparkle_surf, (*GOLD_LIGHT, star_alpha // 2),
                            (sx - star_size * 3, sy), (sx + star_size * 3, sy), 1)
@@ -3053,7 +3023,7 @@ class BuildingDesigner:
         screen.blit(sparkle_surf, (x, y))
         random.seed()
 
-        # 파티클 생성 (절제된)
+        # --- 파티클 생성 (절제된) ---
         if random.random() < 0.05:
             self.particles[building_id].append({
                 'x': x + random.randint(15, w - 15),
@@ -3065,31 +3035,159 @@ class BuildingDesigner:
                 'color': random.choice([GOLD, GOLD_LIGHT, ACCENT_CYAN])
             })
 
-        # 앰비언트 오클루전
-        self._draw_ambient_occlusion(screen, pygame.Rect(x - 10, y + 18, w + 20, h - 18), intensity=0.2)
-
         # 파티클 렌더링
         self._draw_particles(screen, building_id, (x, y))
 
+    # =========================================================================
+    # 🏫 아카데미 - 정적 베이킹
+    # =========================================================================
+    _ACADEMY_STONE_GRAY = (120, 120, 130)
+    _ACADEMY_STONE_DARK = (80, 80, 90)
+    _ACADEMY_MAGIC_PURPLE = (150, 100, 255)
+    _ACADEMY_MAGIC_BLUE = (100, 150, 255)
+    _ACADEMY_WINDOW_GOLD = (255, 230, 150)
+    _ACADEMY_ROOF_RED = (150, 50, 50)
+    _ACADEMY_BOOK_BROWN = (139, 90, 43)
+
+    def _bake_academy(self, w, h):
+        """아카데미 정적 요소를 투명 Surface 한 장에 베이킹.
+        반환: (surface, offset_x, offset_y)
+        """
+        STONE_GRAY = self._ACADEMY_STONE_GRAY
+        STONE_DARK = self._ACADEMY_STONE_DARK
+        MAGIC_PURPLE = self._ACADEMY_MAGIC_PURPLE
+        MAGIC_BLUE = self._ACADEMY_MAGIC_BLUE
+        WINDOW_GOLD = self._ACADEMY_WINDOW_GOLD
+        ROOF_RED = self._ACADEMY_ROOF_RED
+        BOOK_BROWN = self._ACADEMY_BOOK_BROWN
+
+        # 건물 rect 바깥 여백
+        MARGIN_LEFT = 5
+        MARGIN_RIGHT = 5
+        MARGIN_TOP = 20   # 탑 지붕 꼭대기 (중앙 탑 y-5 에서 roof -12)
+        MARGIN_BOTTOM = 5
+
+        surf_w = w + MARGIN_LEFT + MARGIN_RIGHT
+        surf_h = h + MARGIN_TOP + MARGIN_BOTTOM
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+        bx = MARGIN_LEFT
+        by = MARGIN_TOP
+
+        # --- 1. 돌 성벽 (메인 건물) ---
+        castle_rect_h = h - 35
+        castle_rect_y = by + 30
+        for i in range(castle_rect_h):
+            grad = 0.7 + 0.3 * math.sin(i * 0.1)
+            r = int(STONE_GRAY[0] * grad)
+            g = int(STONE_GRAY[1] * grad)
+            b = int(STONE_GRAY[2] * grad)
+            pygame.draw.line(surf, (r, g, b), (bx, castle_rect_y + i), (bx + w, castle_rect_y + i))
+
+        # 돌 블록 텍스처
+        for row in range(3):
+            for col in range(4):
+                block_x = bx + 8 + col * 18
+                block_y = by + 20 + row * 18
+                pygame.draw.rect(surf, STONE_DARK, (block_x, block_y, 16, 16), 1)
+
+        # --- 2. 탑 3개 (중앙이 제일 높음) ---
+        towers = [
+            (bx + 8, by + 5, 16, h - 25),           # 왼쪽 탑
+            (bx + w // 2 - 10, by - 5, 20, h - 15), # 중앙 탑 (제일 높음)
+            (bx + w - 24, by + 5, 16, h - 25)       # 오른쪽 탑
+        ]
+
+        for tower_x, tower_y, tower_w, tower_h in towers:
+            # 탑 본체 그라데이션
+            tower_surf = pygame.Surface((tower_w, tower_h), pygame.SRCALPHA)
+            for i in range(tower_h):
+                grad = 0.75 + 0.25 * math.sin(i * 0.08)
+                color = (int(STONE_GRAY[0] * grad), int(STONE_GRAY[1] * grad), int(STONE_GRAY[2] * grad))
+                pygame.draw.line(tower_surf, color, (0, i), (tower_w, i))
+            surf.blit(tower_surf, (tower_x, tower_y))
+
+            # 탑 테두리
+            pygame.draw.rect(surf, STONE_DARK, (tower_x, tower_y, tower_w, tower_h), 2)
+
+            # 성벽 톱니 (꼭대기)
+            for i in range(3):
+                merlon_x = tower_x + i * (tower_w // 3)
+                pygame.draw.rect(surf, STONE_GRAY, (merlon_x, tower_y - 4, tower_w // 4, 4))
+
+            # 탑 지붕 (뾰족한 원뿔)
+            roof_points = [
+                (tower_x, tower_y),
+                (tower_x + tower_w // 2, tower_y - 12),
+                (tower_x + tower_w, tower_y)
+            ]
+            pygame.draw.polygon(surf, ROOF_RED, roof_points)
+            pygame.draw.polygon(surf, STONE_DARK, roof_points, 2)
+
+        # --- 3. 창문 본체 (정적 아치형 틀 — 글로우는 동적) ---
+        windows = [
+            (bx + w // 2 - 8, by + 25),
+            (bx + 18, by + 35),
+            (bx + w - 26, by + 35),
+            (bx + w // 2 - 8, by + 50)
+        ]
+        for win_x, win_y in windows:
+            pygame.draw.rect(surf, WINDOW_GOLD, (win_x, win_y, 16, 18), border_radius=8)
+            pygame.draw.line(surf, STONE_DARK, (win_x + 8, win_y), (win_x + 8, win_y + 18), 2)
+            pygame.draw.line(surf, STONE_DARK, (win_x, win_y + 9), (win_x + 16, win_y + 9), 2)
+
+        # --- 4. 정문 (아치형 대문) ---
+        door_w = 22
+        door_h = 30
+        door_x = bx + (w - door_w) // 2
+        door_y = by + h - door_h - 5
+
+        # 아치 프레임
+        pygame.draw.rect(surf, STONE_DARK, (door_x - 3, door_y - 3, door_w + 6, door_h + 6), border_radius=12)
+
+        # 문 본체 그라데이션
+        door_surf = pygame.Surface((door_w, door_h), pygame.SRCALPHA)
+        for i in range(door_h):
+            grad = 0.4 + 0.3 * (i / door_h)
+            color = (int(BOOK_BROWN[0] * grad), int(BOOK_BROWN[1] * grad), int(BOOK_BROWN[2] * grad))
+            pygame.draw.line(door_surf, color, (0, i), (door_w, i))
+        surf.blit(door_surf, (door_x, door_y))
+
+        # 문 장식 (마법진)
+        circle_cx = door_x + door_w // 2
+        circle_cy = door_y + door_h // 2
+        pygame.draw.circle(surf, MAGIC_PURPLE, (circle_cx, circle_cy), 8, 2)
+        pygame.draw.circle(surf, MAGIC_BLUE, (circle_cx, circle_cy), 5, 1)
+
+        return (surf, MARGIN_LEFT, MARGIN_TOP)
+
     def _draw_academy(self, screen, building, x, y, building_id):
-        """아카데미 학원 - 마법 학교 스타일 (디자인 1)"""
+        """아카데미 학원 — blit + 동적 VFX"""
         w, h = building.width, building.height
 
-        # 색상 팔레트
-        STONE_GRAY = (120, 120, 130)
-        STONE_DARK = (80, 80, 90)
-        MAGIC_PURPLE = (150, 100, 255)
-        MAGIC_BLUE = (100, 150, 255)
-        WINDOW_GOLD = (255, 230, 150)
-        ROOF_RED = (150, 50, 50)
-        BOOK_BROWN = (139, 90, 43)
+        # 색상 로컬 참조
+        MAGIC_PURPLE = self._ACADEMY_MAGIC_PURPLE
+        MAGIC_BLUE = self._ACADEMY_MAGIC_BLUE
+        WINDOW_GOLD = self._ACADEMY_WINDOW_GOLD
+        BOOK_BROWN = self._ACADEMY_BOOK_BROWN
 
-        # 애니메이션
-        pulse = 0.7 + 0.3 * abs(math.sin(self.animation_timer * 1.5))
-        magic_glow = abs(math.sin(self.animation_timer * 2))
-        float_offset = 5 * math.sin(self.animation_timer * 1.2)
+        # =====================================================================
+        # 1) 정적 Surface blit
+        # =====================================================================
+        baked, (ox, oy) = self._get_or_bake(
+            BuildingType.ACADEMY, w, h, self._bake_academy
+        )
+        screen.blit(baked, (x - ox, y - oy))
 
-        # 1. 마법 오라 (건물 아래쪽에 바닥 글로우로 - 사각형 아티팩트 방지)
+        # =====================================================================
+        # 2) 동적 VFX — animation_timer 의존 요소만 그린다
+        # =====================================================================
+        t = self.animation_timer
+        pulse = 0.7 + 0.3 * abs(math.sin(t * 1.5))
+        magic_glow = abs(math.sin(t * 2))
+        float_offset = 5 * math.sin(t * 1.2)
+
+        # --- 마법 오라 (바닥 글로우 펄스) ---
         glow_h = 20
         for i in range(3):
             glow_w = w + 30 - i * 8
@@ -3100,99 +3198,20 @@ class BuildingDesigner:
                                    (0, 0, glow_w, glow_h))
                 screen.blit(aura_surf, (x - 15 + i * 4, y + h - 8))
 
-        # 2. 돌 성벽 (메인 건물) - 직접 screen에 그리기
-        castle_rect_h = h - 35  # 탑 아래쪽 영역만
-        castle_rect_y = y + 30
-        for i in range(castle_rect_h):
-            grad = 0.7 + 0.3 * math.sin(i * 0.1)
-            r = int(STONE_GRAY[0] * grad)
-            g = int(STONE_GRAY[1] * grad)
-            b = int(STONE_GRAY[2] * grad)
-            pygame.draw.line(screen, (r, g, b), (x, castle_rect_y + i), (x + w, castle_rect_y + i))
-
-        # 돌 블록 텍스처
-        for row in range(3):
-            for col in range(4):
-                block_x = x + 8 + col * 18
-                block_y = y + 20 + row * 18
-                pygame.draw.rect(screen, STONE_DARK, (block_x, block_y, 16, 16), 1)
-
-        # 3. 탑 3개 (중앙이 제일 높음)
-        towers = [
-            (x + 8, y + 5, 16, h - 25),           # 왼쪽 탑
-            (x + w // 2 - 10, y - 5, 20, h - 15), # 중앙 탑 (제일 높음)
-            (x + w - 24, y + 5, 16, h - 25)       # 오른쪽 탑
-        ]
-
-        for tower_x, tower_y, tower_w, tower_h in towers:
-            # 탑 본체
-            tower_surf = pygame.Surface((tower_w, tower_h), pygame.SRCALPHA)
-            for i in range(tower_h):
-                grad = 0.75 + 0.25 * math.sin(i * 0.08)
-                color = (int(STONE_GRAY[0] * grad), int(STONE_GRAY[1] * grad), int(STONE_GRAY[2] * grad))
-                pygame.draw.line(tower_surf, color, (0, i), (tower_w, i))
-            screen.blit(tower_surf, (tower_x, tower_y))
-
-            # 탑 테두리
-            pygame.draw.rect(screen, STONE_DARK, (tower_x, tower_y, tower_w, tower_h), 2)
-
-            # 성벽 톱니 (꼭대기)
-            for i in range(3):
-                merlon_x = tower_x + i * (tower_w // 3)
-                pygame.draw.rect(screen, STONE_GRAY, (merlon_x, tower_y - 4, tower_w // 4, 4))
-
-            # 탑 지붕 (뾰족한 원뿔)
-            roof_points = [
-                (tower_x, tower_y),
-                (tower_x + tower_w // 2, tower_y - 12),
-                (tower_x + tower_w, tower_y)
-            ]
-            pygame.draw.polygon(screen, ROOF_RED, roof_points)
-            pygame.draw.polygon(screen, STONE_DARK, roof_points, 2)
-
-        # 4. 마법 창문 (빛나는)
+        # --- 마법 창문 글로우 (동적 알파) ---
         windows = [
-            (x + w // 2 - 8, y + 25),  # 중앙 위
-            (x + 18, y + 35),          # 왼쪽
-            (x + w - 26, y + 35),      # 오른쪽
-            (x + w // 2 - 8, y + 50)   # 중앙 아래
+            (x + w // 2 - 8, y + 25),
+            (x + 18, y + 35),
+            (x + w - 26, y + 35),
+            (x + w // 2 - 8, y + 50)
         ]
-
         for win_x, win_y in windows:
-            # 창문 글로우
             glow_alpha = int(120 * magic_glow)
             glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
             pygame.draw.rect(glow_surf, (*WINDOW_GOLD, glow_alpha), (0, 0, 20, 20))
             screen.blit(glow_surf, (win_x - 2, win_y - 2))
 
-            # 창문 본체 (아치형)
-            pygame.draw.rect(screen, WINDOW_GOLD, (win_x, win_y, 16, 18), border_radius=8)
-            pygame.draw.line(screen, STONE_DARK, (win_x + 8, win_y), (win_x + 8, win_y + 18), 2)
-            pygame.draw.line(screen, STONE_DARK, (win_x, win_y + 9), (win_x + 16, win_y + 9), 2)
-
-        # 5. 정문 (아치형 대문)
-        door_w = 22
-        door_h = 30
-        door_x = x + (w - door_w) // 2
-        door_y = y + h - door_h - 5
-
-        # 아치 프레임
-        pygame.draw.rect(screen, STONE_DARK, (door_x - 3, door_y - 3, door_w + 6, door_h + 6), border_radius=12)
-
-        # 문 본체
-        door_surf = pygame.Surface((door_w, door_h), pygame.SRCALPHA)
-        for i in range(door_h):
-            grad = 0.4 + 0.3 * (i / door_h)
-            color = (int(BOOK_BROWN[0] * grad), int(BOOK_BROWN[1] * grad), int(BOOK_BROWN[2] * grad))
-            pygame.draw.line(door_surf, color, (0, i), (door_w, i))
-        screen.blit(door_surf, (door_x, door_y))
-
-        # 문 장식 (마법진)
-        circle_center = (door_x + door_w // 2, door_y + door_h // 2)
-        pygame.draw.circle(screen, MAGIC_PURPLE, circle_center, 8, 2)
-        pygame.draw.circle(screen, MAGIC_BLUE, circle_center, 5, 1)
-
-        # 6. 떠다니는 마법책 (아카데미 상징)
+        # --- 떠다니는 마법책 (float_offset 기반) ---
         book_y = y + 8 + float_offset
         book_x = x + w // 2 - 10
 
@@ -3212,11 +3231,10 @@ class BuildingDesigner:
         # 마법 기호
         pygame.draw.circle(screen, MAGIC_PURPLE, (book_x + 10, book_y + 7), 3)
 
-        # 7. Academy 각인
+        # --- Academy 각인 글로우 (동적) ---
         title_y = y + h - 12
         title_font = pygame.font.Font(None, 14)
 
-        # 마법 글로우
         for offset in range(2, 0, -1):
             glow_alpha = int((80 - offset * 30) * magic_glow)
             glow_text = title_font.render("ACADEMY", True, (*MAGIC_PURPLE, glow_alpha))
@@ -3228,8 +3246,8 @@ class BuildingDesigner:
         title_rect = title_text.get_rect(center=(x + w // 2, title_y))
         screen.blit(title_text, title_rect)
 
-        # 8. 마법 파티클 (반짝이는 별)
-        random.seed(building_id * 13 + int(self.animation_timer * 3))
+        # --- 마법 파티클 (반짝이는 별) ---
+        random.seed(building_id * 13 + int(t * 3))
         for _ in range(8):
             px = random.randint(x + 5, x + w - 5)
             py = random.randint(y + 10, y + h - 15)
@@ -3280,13 +3298,27 @@ class BuildingDesigner:
         screen.blit(text, text_rect)
 
     # =========================================================================
-    # 🎰 가챠샵 - 화려한 가챠 머신
+    # 🎰 가챠샵 - 정적 베이킹 (1회)
     # =========================================================================
-    def _draw_gacha(self, screen, building, x, y, building_id):
-        """가챠샵 - 화려한 가챠 머신 (고품질)"""
-        w, h = building.width, building.height
+    def _bake_gacha(self, w, h):
+        """가챠샵 정적 요소를 투명 Surface 한 장에 베이킹.
+        반환: (surface, offset_x, offset_y)
+        """
+        dome_h = int(h * 0.3)
 
-        # 1. 3D 바닥 그림자 (사각형 아티팩트 방지)
+        MARGIN_LEFT = 20
+        MARGIN_RIGHT = 20
+        MARGIN_TOP = dome_h // 2 + 30  # 돔 + 별 공간
+        MARGIN_BOTTOM = 20
+
+        surf_w = w + MARGIN_LEFT + MARGIN_RIGHT
+        surf_h = h + MARGIN_TOP + MARGIN_BOTTOM
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+        bx = MARGIN_LEFT
+        by = MARGIN_TOP
+
+        # --- 1. 바닥 그림자 ---
         shadow_h = 14
         shadow_w = w + 20
         shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
@@ -3295,15 +3327,94 @@ class BuildingDesigner:
             if alpha > 0:
                 pygame.draw.ellipse(shadow_surf, (50, 30, 60, alpha),
                                    (i, i, shadow_w - i * 2, shadow_h - i))
-        screen.blit(shadow_surf, (x - 10, y + h - 2))
+        surf.blit(shadow_surf, (bx - 10, by + h - 2))
 
-        # 2. 다중 레이어 무지개 바닥 글로우 (사각형 아티팩트 방지)
-        glow_pulse = abs(math.sin(self.animation_timer * 3))
+        # --- 2. 건물 본체 (레드-골드 그라데이션) ---
+        for i in range(h):
+            ratio = i / h
+            r = int(200 + 55 * ratio)
+            g = int(50 + 100 * ratio)
+            b = int(50 - 30 * ratio)
+            pygame.draw.line(surf, (r, g, b), (bx, by + i), (bx + w, by + i))
+
+        # --- 3. 돔 지붕 (블루-퍼플 그라데이션) ---
+        dome_y = by - dome_h // 2
+        for i in range(dome_h):
+            ratio = i / dome_h
+            dome_width = int(w * (1 - (ratio - 0.5) ** 2 * 2))
+            dome_x = bx + (w - dome_width) // 2
+            r = int(100 - 50 * ratio)
+            g = int(50 + 100 * ratio)
+            b = int(200 + 55 * (1 - ratio))
+            pygame.draw.line(surf, (r, g, b), (dome_x, dome_y + i), (dome_x + dome_width, dome_y + i))
+
+        # --- 4. 가챠 머신 골드 프레임 ---
+        machine_w = int(w * 0.7)
+        machine_h = int(h * 0.5)
+        machine_x = bx + (w - machine_w) // 2
+        machine_y = by + int(h * 0.15)
+
+        for thick in range(5):
+            frame_color = (255 - thick * 20, 215 - thick * 20, 0)
+            pygame.draw.rect(surf, frame_color,
+                           (machine_x - thick, machine_y - thick, machine_w + thick * 2, machine_h + thick * 2),
+                           1)
+
+        # --- 5. 유리 돔 + 반사광 ---
+        glass_y = machine_y + 5
+        glass_h = int(machine_h * 0.6)
+        glass_surf = pygame.Surface((machine_w - 10, glass_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(glass_surf, (200, 230, 255, 150), (0, 0, machine_w - 10, glass_h))
+        pygame.draw.ellipse(glass_surf, (255, 255, 255, 80),
+                          (5, 5, (machine_w - 10) // 3, glass_h // 3))
+        surf.blit(glass_surf, (machine_x + 5, glass_y))
+
+        # --- 6. 캡슐 배출구 ---
+        outlet_y = machine_y + machine_h - 15
+        outlet_w = int(machine_w * 0.4)
+        outlet_x = machine_x + (machine_w - outlet_w) // 2
+        pygame.draw.rect(surf, (50, 50, 50), (outlet_x, outlet_y, outlet_w, 12), border_radius=3)
+        pygame.draw.rect(surf, (100, 100, 100), (outlet_x, outlet_y, outlet_w, 12), 1, border_radius=3)
+
+        # --- 7. 코인 투입구 ---
+        coin_slot_x = bx + 5
+        coin_slot_y = machine_y + machine_h // 3
+        pygame.draw.rect(surf, (100, 100, 100), (coin_slot_x, coin_slot_y, 8, 15), border_radius=2)
+        pygame.draw.rect(surf, (200, 200, 0), (coin_slot_x, coin_slot_y, 8, 3))
+
+        # --- 8. 앰비언트 오클루전 ---
+        ao_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(ao_surf, (0, 0, 0, 30), (0, h - 20, w, 20))
+        surf.blit(ao_surf, (bx, by))
+
+        return surf, MARGIN_LEFT, MARGIN_TOP
+
+    # =========================================================================
+    # 🎰 가챠샵 - 동적 렌더링
+    # =========================================================================
+    def _draw_gacha(self, screen, building, x, y, building_id):
+        """가챠샵 — 캐싱된 정적 Surface를 blit한 뒤, 동적 VFX만 덧그린다."""
+        w, h = building.width, building.height
+        t = self.animation_timer
+
+        # =====================================================================
+        # 1) 정적 Surface blit
+        # =====================================================================
+        baked, (ox, oy) = self._get_or_bake(
+            BuildingType.GACHA, w, h, self._bake_gacha
+        )
+        screen.blit(baked, (x - ox, y - oy))
+
+        # =====================================================================
+        # 2) 동적 VFX — animation_timer 의존 요소만 그린다
+        # =====================================================================
+
+        # --- 무지개 바닥 글로우 (펄스) ---
+        glow_pulse = abs(math.sin(t * 3))
         glow_h = 16
         for layer in range(3):
             glow_w = w + 35 - layer * 8
-            # 무지개 색상 순환
-            hue = (self.animation_timer * 50 + layer * 30) % 360
+            hue = (t * 50 + layer * 30) % 360
             r = int(127 + 127 * math.sin(math.radians(hue)))
             g = int(127 + 127 * math.sin(math.radians(hue + 120)))
             b = int(127 + 127 * math.sin(math.radians(hue + 240)))
@@ -3313,57 +3424,21 @@ class BuildingDesigner:
                 pygame.draw.ellipse(glow_surf, (r, g, b, alpha), (0, 0, glow_w, glow_h))
                 screen.blit(glow_surf, (x - 17 + layer * 4, y + h - 6))
 
-        # 3. 건물 본체 (레드-골드 그라데이션)
-        for i in range(h):
-            ratio = i / h
-            r = int(200 + 55 * ratio)
-            g = int(50 + 100 * ratio)
-            b = int(50 - 30 * ratio)
-            pygame.draw.line(screen, (r, g, b), (x, y + i), (x + w, y + i))
-
-        # 4. 돔 지붕 (블루-퍼플 그라데이션 + 입체감)
+        # --- 돔 상단 별 (회전) ---
         dome_h = int(h * 0.3)
         dome_y = y - dome_h // 2
-        for i in range(dome_h):
-            ratio = i / dome_h
-            # 타원형 돔
-            dome_width = int(w * (1 - (ratio - 0.5) ** 2 * 2))
-            dome_x = x + (w - dome_width) // 2
-            # 그라데이션 색상
-            r = int(100 - 50 * ratio)
-            g = int(50 + 100 * ratio)
-            b = int(200 + 55 * (1 - ratio))
-            pygame.draw.line(screen, (r, g, b), (dome_x, dome_y + i), (dome_x + dome_width, dome_y + i))
-
-        # 5. 돔 상단 별 (큰 회전 별)
         star_x = x + w // 2
         star_y = dome_y
         self._draw_gacha_star_hq(screen, star_x, star_y, 18)
 
-        # 6. 가챠 머신 몸체 (골드 그라데이션 프레임)
+        # --- 캡슐들 (바운스 애니메이션) ---
         machine_w = int(w * 0.7)
         machine_h = int(h * 0.5)
         machine_x = x + (w - machine_w) // 2
         machine_y = y + int(h * 0.15)
-
-        # 골드 프레임
-        for thick in range(5):
-            frame_color = (255 - thick * 20, 215 - thick * 20, 0)
-            pygame.draw.rect(screen, frame_color,
-                           (machine_x - thick, machine_y - thick, machine_w + thick * 2, machine_h + thick * 2),
-                           1)
-
-        # 7. 유리 돔 (캡슐 디스플레이) + 반사광
         glass_y = machine_y + 5
         glass_h = int(machine_h * 0.6)
-        glass_surf = pygame.Surface((machine_w - 10, glass_h), pygame.SRCALPHA)
-        pygame.draw.ellipse(glass_surf, (200, 230, 255, 150), (0, 0, machine_w - 10, glass_h))
-        # 반사광
-        pygame.draw.ellipse(glass_surf, (255, 255, 255, 80),
-                          (5, 5, (machine_w - 10) // 3, glass_h // 3))
-        screen.blit(glass_surf, (machine_x + 5, glass_y))
 
-        # 8. 캡슐들 (11개 - 다양한 색상 + 애니메이션)
         capsule_colors = [
             (255, 100, 100), (100, 255, 100), (100, 100, 255),
             (255, 255, 100), (255, 100, 255), (100, 255, 255),
@@ -3380,28 +3455,17 @@ class BuildingDesigner:
         for idx, (color, (px, py)) in enumerate(zip(capsule_colors, capsule_positions)):
             capsule_x = machine_x + int(machine_w * px)
             capsule_y = glass_y + int(glass_h * py)
-            # 바운스 애니메이션
-            bounce = int(3 * math.sin(self.animation_timer * 2 + idx * 0.5))
+            bounce = int(3 * math.sin(t * 2 + idx * 0.5))
             capsule_size = 6
-            # 캡슐 그림자
             pygame.draw.circle(screen, (0, 0, 0, 30), (capsule_x + 1, capsule_y + 1 + bounce), capsule_size)
-            # 캡슐 본체
             pygame.draw.circle(screen, color, (capsule_x, capsule_y + bounce), capsule_size)
-            # 캡슐 하이라이트
             pygame.draw.circle(screen, (255, 255, 255, 200),
                              (capsule_x - 2, capsule_y - 2 + bounce), capsule_size // 2)
 
-        # 9. 캡슐 배출구
-        outlet_y = machine_y + machine_h - 15
-        outlet_w = int(machine_w * 0.4)
-        outlet_x = machine_x + (machine_w - outlet_w) // 2
-        pygame.draw.rect(screen, (50, 50, 50), (outlet_x, outlet_y, outlet_w, 12), border_radius=3)
-        pygame.draw.rect(screen, (100, 100, 100), (outlet_x, outlet_y, outlet_w, 12), 1, border_radius=3)
-
-        # 10. 회전 손잡이 (메탈 그라데이션)
+        # --- 회전 손잡이 ---
         handle_x = x + w - 15
         handle_y = machine_y + machine_h // 2
-        handle_angle = self.animation_timer * 1.5
+        handle_angle = t * 1.5
         handle_length = 12
         handle_end_x = handle_x + int(handle_length * math.cos(handle_angle))
         handle_end_y = handle_y + int(handle_length * math.sin(handle_angle))
@@ -3409,20 +3473,18 @@ class BuildingDesigner:
         pygame.draw.circle(screen, (220, 220, 220), (handle_x, handle_y), 5)
         pygame.draw.circle(screen, (255, 0, 0), (handle_end_x, handle_end_y), 6)
 
-        # 11. 네온 "GACHA" 사인 (글자별 무지개 글로우)
+        # --- 네온 "GACHA" 사인 (글자별 무지개 글로우) ---
         try:
             font = pygame.font.Font(None, 16)
             text_surface = font.render("GACHA", True, (255, 255, 255))
             text_x = x + (w - text_surface.get_width()) // 2
             text_y = y + h - 25
 
-            # 글자별 무지개 글로우
             for i, char in enumerate("GACHA"):
                 char_surf = font.render(char, True, (255, 255, 255))
                 char_x = text_x + i * 11
-                # 글로우 효과
                 glow_surf = pygame.Surface((char_surf.get_width() + 20, char_surf.get_height() + 20), pygame.SRCALPHA)
-                hue = (self.animation_timer * 100 + i * 60) % 360
+                hue = (t * 100 + i * 60) % 360
                 r = int(127 + 127 * math.sin(math.radians(hue)))
                 g = int(127 + 127 * math.sin(math.radians(hue + 120)))
                 b = int(127 + 127 * math.sin(math.radians(hue + 240)))
@@ -3436,25 +3498,18 @@ class BuildingDesigner:
         except:
             pass
 
-        # 12. 하단 희귀도 별 5개 (펄스 애니메이션)
+        # --- 하단 희귀도 별 5개 (펄스 애니메이션) ---
         star_y_base = y + h - 10
         for i in range(5):
             star_x_pos = x + (w // 6) * (i + 1)
-            pulse = abs(math.sin(self.animation_timer * 3 + i * 0.3))
+            pulse = abs(math.sin(t * 3 + i * 0.3))
             star_color = (255, int(215 * pulse), 0)
             self._draw_gacha_star_hq(screen, star_x_pos, star_y_base, 4 + int(2 * pulse))
 
-        # 13. 코인 투입구 (측면)
-        coin_slot_x = x + 5
-        coin_slot_y = machine_y + machine_h // 3
-        pygame.draw.rect(screen, (100, 100, 100), (coin_slot_x, coin_slot_y, 8, 15), border_radius=2)
-        pygame.draw.rect(screen, (200, 200, 0), (coin_slot_x, coin_slot_y, 8, 3))
-
-        # 14. 무지개 파티클 효과
+        # --- 무지개 파티클 효과 ---
         if building_id not in self.particles:
             self.particles[building_id] = []
 
-        # 파티클 생성 (확률적)
         if random.random() < 0.1:
             particle_x = x + random.randint(10, w - 10)
             particle_y = y + random.randint(10, h - 10)
@@ -3471,7 +3526,6 @@ class BuildingDesigner:
                 'vy': random.uniform(-2, -0.5)
             })
 
-        # 파티클 업데이트 및 렌더링
         for particle in self.particles[building_id][:]:
             particle['x'] += particle['vx']
             particle['y'] += particle['vy']
@@ -3485,11 +3539,6 @@ class BuildingDesigner:
                 particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(particle_surf, color, (size, size), size)
                 screen.blit(particle_surf, (int(particle['x']), int(particle['y'])))
-
-        # 15. 앰비언트 오클루전 (그림자 디테일)
-        ao_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-        pygame.draw.rect(ao_surf, (0, 0, 0, 30), (0, h - 20, w, 20))
-        screen.blit(ao_surf, (x, y))
 
     def _draw_gacha_star_hq(self, screen, x, y, size):
         """가챠샵 상단 큰 별 (고품질)"""
@@ -3714,39 +3763,46 @@ class BuildingDesigner:
             # 황금 갤러리
             self._draw_luxury_shop(screen, x, y, w, h, selected_design, pulse, glow)
 
-    def _draw_hero_armory_shop(self, screen, x, y, w, h, design, pulse, glow):
-        """용사의 무기점 - RPG 스타일 무기/방어구 상점"""
-        color = design["color"]  # 진한 갈색 (목재)
-        secondary = design["secondary_color"]  # 골든로드 (황금 장식)
-        accent = design.get("accent_color", (192, 192, 192))  # 은색 (금속)
-        glow_color = design.get("glow_color", (255, 215, 0))  # 금빛 글로우
+    # =========================================================================
+    # ⚔️ 용사의 무기점 (hero_armory) - 정적 베이킹
+    # =========================================================================
+    def _bake_hero_armory_shop(self, w, h, design):
+        """용사의 무기점 정적 요소를 투명 Surface 한 장에 베이킹.
+        반환: (surface, offset_x, offset_y)
+        """
+        color = design["color"]
+        secondary = design["secondary_color"]
+        accent = design.get("accent_color", (192, 192, 192))
 
-        swing = math.sin(self.animation_timer * 1.5) * 3
+        # 건물 rect 바깥 여백 (지붕 + 검 장식 + 배경 글로우)
+        MARGIN_LEFT = 20
+        MARGIN_RIGHT = 20
+        MARGIN_TOP = 45   # 검 장식 (y - 15 - 25 = y - 40)
+        MARGIN_BOTTOM = 5
 
-        # === 배경 글로우 ===
-        glow_surf = pygame.Surface((w + 40, h + 40), pygame.SRCALPHA)
-        glow_alpha = int(60 * pulse)
-        pygame.draw.rect(glow_surf, (*glow_color, glow_alpha), (0, 0, w + 40, h + 40), border_radius=15)
-        screen.blit(glow_surf, (x - 20, y - 20))
+        surf_w = w + MARGIN_LEFT + MARGIN_RIGHT
+        surf_h = h + MARGIN_TOP + MARGIN_BOTTOM
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
 
-        # === 메인 건물 (목조 건물) ===
-        # 목재 패턴
+        bx = MARGIN_LEFT
+        by = MARGIN_TOP
+
+        # --- 1. 메인 건물 (목조 건물) ---
         for i in range(h - 20):
             wood_shade = max(0, min(255, color[0] + int(10 * math.sin(i * 0.3))))
             wood_color = (wood_shade, max(0, color[1] - 10), max(0, color[2] - 5))
-            pygame.draw.line(screen, wood_color, (x, y + 20 + i), (x + w, y + 20 + i))
+            pygame.draw.line(surf, wood_color, (bx, by + 20 + i), (bx + w, by + 20 + i))
 
         # 건물 테두리 (금속 프레임)
-        pygame.draw.rect(screen, accent, (x, y + 20, w, h - 20), 3, border_radius=3)
+        pygame.draw.rect(surf, accent, (bx, by + 20, w, h - 20), 3, border_radius=3)
 
-        # === 삼각형 지붕 (기와) ===
+        # --- 2. 삼각형 지붕 (기와) ---
         roof_points = [
-            (x - 15, y + 25),
-            (x + w // 2, y - 25),
-            (x + w + 15, y + 25)
+            (bx - 15, by + 25),
+            (bx + w // 2, by - 25),
+            (bx + w + 15, by + 25)
         ]
 
-        # 지붕 그라데이션
         for i in range(5):
             roof_color = (
                 max(0, 100 - i * 15),
@@ -3758,42 +3814,32 @@ class BuildingDesigner:
                 (roof_points[1][0], roof_points[1][1] + i * 5),
                 (roof_points[2][0] - i * 3, roof_points[2][1] - i * 2)
             ]
-            pygame.draw.polygon(screen, roof_color, offset_points)
+            pygame.draw.polygon(surf, roof_color, offset_points)
 
         # 지붕 테두리
-        pygame.draw.polygon(screen, secondary, roof_points, 3)
+        pygame.draw.polygon(surf, secondary, roof_points, 3)
 
-        # === 교차 검 장식 (지붕 위) ===
-        sword_x = x + w // 2
-        sword_y = y - 15
+        # --- 3. 교차 검 장식 (지붕 위) ---
+        sword_x = bx + w // 2
+        sword_y = by - 15
         sword_len = 25
 
-        # 검 1 (왼쪽으로 기울어짐)
         s1_start = (sword_x - 12, sword_y - sword_len)
         s1_end = (sword_x + 8, sword_y + sword_len // 2)
-        pygame.draw.line(screen, accent, s1_start, s1_end, 4)
-        pygame.draw.circle(screen, secondary, s1_start, 5)  # 검 손잡이
+        pygame.draw.line(surf, accent, s1_start, s1_end, 4)
+        pygame.draw.circle(surf, secondary, s1_start, 5)
 
-        # 검 2 (오른쪽으로 기울어짐)
         s2_start = (sword_x + 12, sword_y - sword_len)
         s2_end = (sword_x - 8, sword_y + sword_len // 2)
-        pygame.draw.line(screen, accent, s2_start, s2_end, 4)
-        pygame.draw.circle(screen, secondary, s2_start, 5)
+        pygame.draw.line(surf, accent, s2_start, s2_end, 4)
+        pygame.draw.circle(surf, secondary, s2_start, 5)
 
-        # 검 빛남 효과
-        sword_glow_alpha = int(150 * pulse)
-        for s_pos in [s1_start, s2_start]:
-            glow_s = pygame.Surface((20, 20), pygame.SRCALPHA)
-            pygame.draw.circle(glow_s, (*glow_color, sword_glow_alpha), (10, 10), 8)
-            screen.blit(glow_s, (s_pos[0] - 10, s_pos[1] - 10))
-
-        # === 방패 디스플레이 (좌우) ===
+        # --- 4. 방패 디스플레이 (좌우) ---
         for side in [-1, 1]:
-            shield_x = x + (w // 4 if side == -1 else w * 3 // 4)
-            shield_y = y + h // 3
+            shield_x = bx + (w // 4 if side == -1 else w * 3 // 4)
+            shield_y = by + h // 3
             shield_w, shield_h = 25, 30
 
-            # 방패 모양
             shield_points = [
                 (shield_x, shield_y - shield_h // 2),
                 (shield_x - shield_w // 2, shield_y - shield_h // 4),
@@ -3802,94 +3848,136 @@ class BuildingDesigner:
                 (shield_x + shield_w // 2, shield_y + shield_h // 4),
                 (shield_x + shield_w // 2, shield_y - shield_h // 4),
             ]
-            pygame.draw.polygon(screen, accent, shield_points)
-            pygame.draw.polygon(screen, secondary, shield_points, 2)
+            pygame.draw.polygon(surf, accent, shield_points)
+            pygame.draw.polygon(surf, secondary, shield_points, 2)
 
             # 방패 문양 (십자)
-            pygame.draw.line(screen, secondary,
+            pygame.draw.line(surf, secondary,
                            (shield_x, shield_y - shield_h // 3),
                            (shield_x, shield_y + shield_h // 3), 3)
-            pygame.draw.line(screen, secondary,
+            pygame.draw.line(surf, secondary,
                            (shield_x - shield_w // 3, shield_y),
                            (shield_x + shield_w // 3, shield_y), 3)
 
-        # === 창문 (진열창) ===
+        # --- 5. 창문 (진열창) ---
         window_w, window_h = w // 3, h // 4
-        window_x = x + (w - window_w) // 2
-        window_y = y + h // 3
+        window_x = bx + (w - window_w) // 2
+        window_y = by + h // 3
 
         # 창문 배경 (어두운 내부)
-        pygame.draw.rect(screen, (30, 25, 20),
+        pygame.draw.rect(surf, (30, 25, 20),
                         (window_x, window_y, window_w, window_h), border_radius=3)
 
         # 창문 안 무기 실루엣
         silhouette_color = (60, 50, 40)
         # 도끼
-        pygame.draw.rect(screen, silhouette_color,
+        pygame.draw.rect(surf, silhouette_color,
                         (window_x + 8, window_y + 5, 6, window_h - 15))
-        pygame.draw.polygon(screen, silhouette_color, [
+        pygame.draw.polygon(surf, silhouette_color, [
             (window_x + 5, window_y + 5),
             (window_x + 18, window_y + 10),
             (window_x + 18, window_y + 25),
             (window_x + 5, window_y + 20)
         ])
         # 검
-        pygame.draw.rect(screen, silhouette_color,
+        pygame.draw.rect(surf, silhouette_color,
                         (window_x + window_w // 2 - 2, window_y + 3, 4, window_h - 10))
         # 창
-        pygame.draw.rect(screen, silhouette_color,
+        pygame.draw.rect(surf, silhouette_color,
                         (window_x + window_w - 15, window_y + 2, 3, window_h - 8))
-        pygame.draw.polygon(screen, silhouette_color, [
+        pygame.draw.polygon(surf, silhouette_color, [
             (window_x + window_w - 18, window_y + 2),
             (window_x + window_w - 8, window_y + 2),
             (window_x + window_w - 13, window_y + 12)
         ])
 
         # 창문 프레임
-        pygame.draw.rect(screen, secondary, (window_x, window_y, window_w, window_h), 2, border_radius=3)
-        pygame.draw.line(screen, secondary,
+        pygame.draw.rect(surf, secondary, (window_x, window_y, window_w, window_h), 2, border_radius=3)
+        pygame.draw.line(surf, secondary,
                         (window_x + window_w // 2, window_y),
                         (window_x + window_w // 2, window_y + window_h), 2)
 
-        # === 문 ===
+        # --- 6. 문 ---
         door_w, door_h = w // 3, int(h // 2.5)
-        door_x = x + (w - door_w) // 2
-        door_y = y + h - door_h
+        door_x = bx + (w - door_w) // 2
+        door_y = by + h - door_h
 
         # 문 (진한 나무)
         door_color = (80, 50, 30)
-        pygame.draw.rect(screen, door_color, (door_x, door_y, door_w, door_h), border_radius=3)
+        pygame.draw.rect(surf, door_color, (door_x, door_y, door_w, door_h), border_radius=3)
 
         # 문 패널
         panel_margin = 4
         panel_color = (60, 35, 20)
-        pygame.draw.rect(screen, panel_color,
+        pygame.draw.rect(surf, panel_color,
                         (door_x + panel_margin, door_y + panel_margin,
                          door_w - panel_margin * 2, door_h // 2 - panel_margin), border_radius=2)
-        pygame.draw.rect(screen, panel_color,
+        pygame.draw.rect(surf, panel_color,
                         (door_x + panel_margin, door_y + door_h // 2 + 2,
                          door_w - panel_margin * 2, door_h // 2 - panel_margin - 2), border_radius=2)
 
         # 문 손잡이
-        pygame.draw.circle(screen, secondary,
+        pygame.draw.circle(surf, secondary,
                           (door_x + door_w - 10, door_y + door_h // 2), 4)
 
         # 문 프레임
-        pygame.draw.rect(screen, secondary, (door_x, door_y, door_w, door_h), 2, border_radius=3)
+        pygame.draw.rect(surf, secondary, (door_x, door_y, door_w, door_h), 2, border_radius=3)
 
-        # === STORE 간판 ===
+        # --- 7. STORE 간판 ---
         sign_w, sign_h = w - 20, 28
-        sign_x = x + 10
-        sign_y = y + 25
+        sign_x = bx + 10
+        sign_y = by + 25
 
         # 간판 배경 (나무)
-        pygame.draw.rect(screen, (60, 40, 25), (sign_x, sign_y, sign_w, sign_h), border_radius=5)
-        pygame.draw.rect(screen, secondary, (sign_x, sign_y, sign_w, sign_h), 2, border_radius=5)
+        pygame.draw.rect(surf, (60, 40, 25), (sign_x, sign_y, sign_w, sign_h), border_radius=5)
+        pygame.draw.rect(surf, secondary, (sign_x, sign_y, sign_w, sign_h), 2, border_radius=5)
 
         # "STORE" 픽셀 텍스트
-        self._draw_pixel_shop_text(screen, "STORE", sign_x + sign_w // 2, sign_y + sign_h // 2, secondary)
+        self._draw_pixel_shop_text(surf, "STORE", sign_x + sign_w // 2, sign_y + sign_h // 2, secondary)
 
-        # === 횃불 애니메이션 (좌우) ===
+        return (surf, MARGIN_LEFT, MARGIN_TOP)
+
+    def _draw_hero_armory_shop(self, screen, x, y, w, h, design, pulse, glow):
+        """용사의 무기점 — blit + 동적 VFX"""
+        glow_color = design.get("glow_color", (255, 215, 0))
+
+        # =====================================================================
+        # 1) 정적 Surface blit (스타일 이름을 키에 포함)
+        # =====================================================================
+        cache_key = ("hero_armory", w, h)
+        if cache_key not in self._baked_surfaces:
+            surf, ox, oy = self._bake_hero_armory_shop(w, h, design)
+            self._baked_surfaces[cache_key] = surf
+            self._baked_offsets[cache_key] = (ox, oy)
+        baked = self._baked_surfaces[cache_key]
+        ox, oy = self._baked_offsets[cache_key]
+        screen.blit(baked, (x - ox, y - oy))
+
+        # =====================================================================
+        # 2) 동적 VFX — animation_timer 의존 요소만 그린다
+        # =====================================================================
+        t = self.animation_timer
+        swing = math.sin(t * 1.5) * 3
+
+        # --- 배경 글로우 펄스 ---
+        glow_surf = pygame.Surface((w + 40, h + 40), pygame.SRCALPHA)
+        glow_alpha = int(60 * pulse)
+        pygame.draw.rect(glow_surf, (*glow_color, glow_alpha), (0, 0, w + 40, h + 40), border_radius=15)
+        screen.blit(glow_surf, (x - 20, y - 20))
+
+        # --- 검 빛남 효과 (펄스) ---
+        sword_x = x + w // 2
+        sword_y = y - 15
+        sword_len = 25
+        s1_start = (sword_x - 12, sword_y - sword_len)
+        s2_start = (sword_x + 12, sword_y - sword_len)
+        sword_glow_alpha = int(150 * pulse)
+        for s_pos in [s1_start, s2_start]:
+            glow_s = pygame.Surface((20, 20), pygame.SRCALPHA)
+            pygame.draw.circle(glow_s, (*glow_color, sword_glow_alpha), (10, 10), 8)
+            screen.blit(glow_s, (s_pos[0] - 10, s_pos[1] - 10))
+
+        # --- 횃불 애니메이션 (좌우) ---
         for side in [-1, 1]:
             torch_x = x + (10 if side == -1 else w - 10)
             torch_y = y + h // 2
@@ -3912,7 +4000,7 @@ class BuildingDesigner:
             pygame.draw.circle(flame_glow_surf, (255, 150, 50, int(80 * pulse)), (15, 15), 12)
             screen.blit(flame_glow_surf, (torch_x - 15, torch_y - 25))
 
-            # 랜덤 불꽃 스파크 (정적 파티클 대신 즉시 그리기)
+            # 랜덤 불꽃 스파크
             if random.random() < 0.15:
                 spark_x = torch_x + random.randint(-8, 8)
                 spark_y = torch_y - 15 + random.randint(-10, 5)
