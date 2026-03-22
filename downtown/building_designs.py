@@ -13,7 +13,17 @@ def safe_surface(width, height, flags=pygame.SRCALPHA):
 
 
 class BuildingDesigner:
-    """건물별 고유 디자인 렌더러 - 고품질 버전"""
+    """건물별 고유 디자인 렌더러 - 고품질 버전
+
+    정적 베이킹(Static Baking) 아키텍처:
+      건물의 벽, 지붕, 간판 배경 등 프레임마다 변하지 않는 요소는
+      최초 1회만 투명 Surface에 그려 _baked_surfaces에 캐싱한다.
+      매 프레임 draw_building()에서는 캐싱된 Surface를 blit()한 뒤,
+      animation_timer에 의존하는 동적 VFX(네온 펄스, 파티클 등)만 덧그린다.
+
+      나중에 PNG 에셋으로 교체할 때는 _bake_xxx() 내부만 수정하거나,
+      _baked_surfaces[key]에 pygame.image.load() 결과를 직접 넣으면 된다.
+    """
 
     def __init__(self):
         self.animation_timer = 0
@@ -23,6 +33,15 @@ class BuildingDesigner:
         self._particle_base = {}
         # 글로우 캐시 (성능 최적화)
         self._glow_cache = {}
+        # =====================================================================
+        # 정적 베이킹 캐시 — key: (building_type, width, height)
+        # value: pygame.Surface (SRCALPHA, 건물+여백 포함)
+        # =====================================================================
+        self._baked_surfaces = {}
+        # 베이킹 Surface의 원점 오프셋 (건물 좌상단 기준)
+        # 그림자·캐노피 등이 건물 rect 바깥으로 튀어나오므로,
+        # blit 시 이 오프셋만큼 빼줘야 정확한 위치에 그려진다.
+        self._baked_offsets = {}
 
     # =========================================================================
     # 고품질 렌더링 헬퍼 메서드
@@ -226,32 +245,214 @@ class BuildingDesigner:
             self._draw_default(screen, building, draw_x, draw_y)
 
     # =========================================================================
-    # 🎰 카지노 - 고품질 사이버펑크 네온 스타일
+    # 베이킹 유틸리티
     # =========================================================================
-    def _draw_casino(self, screen, building, x, y, building_id):
-        """카지노 - 네온 사이버펑크 스타일 럭셔리 카지노"""
-        w, h = building.width, building.height
+    def _get_or_bake(self, building_type, w, h, bake_fn):
+        """캐시에 있으면 반환, 없으면 bake_fn을 호출해 생성 후 캐싱.
+        bake_fn(w, h) -> (surface, offset_x, offset_y)
+        offset은 건물 좌상단(0,0) 기준으로 Surface 좌상단까지의 음수 오프셋.
+        """
+        key = (building_type, w, h)
+        if key not in self._baked_surfaces:
+            surf, ox, oy = bake_fn(w, h)
+            self._baked_surfaces[key] = surf
+            self._baked_offsets[key] = (ox, oy)
+        return self._baked_surfaces[key], self._baked_offsets[key]
 
-        # 색상 정의 - 네온 핑크 & 사이안 사이버펑크
-        NEON_PINK = (255, 0, 128)
-        NEON_PINK_LIGHT = (255, 100, 180)
-        NEON_CYAN = (0, 255, 255)
-        NEON_CYAN_DARK = (0, 180, 200)
-        NEON_PURPLE = (180, 0, 255)
-        NEON_PURPLE_DARK = (100, 0, 150)
-        WHITE_GLOW = (255, 240, 255)
-        DARK_PURPLE = (30, 10, 40)
+    # =========================================================================
+    # 🎰 카지노 색상 상수 (bake / draw 양쪽에서 공유)
+    # =========================================================================
+    _CASINO_NEON_PINK = (255, 0, 128)
+    _CASINO_NEON_CYAN = (0, 255, 255)
+    _CASINO_NEON_CYAN_DARK = (0, 180, 200)
+    _CASINO_NEON_PURPLE = (180, 0, 255)
+    _CASINO_NEON_PURPLE_DARK = (100, 0, 150)
+    _CASINO_WHITE_GLOW = (255, 240, 255)
 
-        # 1. 럭셔리 3D 그림자 (여러 층)
+    # =========================================================================
+    # 🎰 카지노 - 정적 베이킹 (1회)
+    # =========================================================================
+    def _bake_casino(self, w, h):
+        """카지노 정적 요소를 투명 Surface 한 장에 베이킹.
+        건물 rect 바깥으로 튀어나오는 요소(그림자, 캐노피, 사인)를 담기 위해
+        여유 마진(MARGIN)을 확보한 Surface를 생성한다.
+        반환: (surface, offset_x, offset_y)
+        """
+        NEON_PINK = self._CASINO_NEON_PINK
+        NEON_CYAN = self._CASINO_NEON_CYAN
+        NEON_CYAN_DARK = self._CASINO_NEON_CYAN_DARK
+        NEON_PURPLE = self._CASINO_NEON_PURPLE
+        NEON_PURPLE_DARK = self._CASINO_NEON_PURPLE_DARK
+        WHITE_GLOW = self._CASINO_WHITE_GLOW
+
+        # 건물 rect 바깥 여백 (좌/우/상/하)
+        MARGIN_LEFT = 25
+        MARGIN_RIGHT = 25
+        MARGIN_TOP = 70   # 사인 + 캐노피 공간
+        MARGIN_BOTTOM = 25  # 그림자 공간
+
+        surf_w = w + MARGIN_LEFT + MARGIN_RIGHT
+        surf_h = h + MARGIN_TOP + MARGIN_BOTTOM
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+        # 베이킹 좌표계: 건물 좌상단 = (MARGIN_LEFT, MARGIN_TOP)
+        bx = MARGIN_LEFT
+        by = MARGIN_TOP
+
+        # --- 1. 3D 그림자 (건물 아래) ---
         for i in range(15, 0, -3):
             shadow_alpha = 30 + i * 3
-            shadow_surf = pygame.Surface((w + 10, 20), pygame.SRCALPHA)
-            pygame.draw.ellipse(shadow_surf, (0, 0, 0, shadow_alpha),
-                              (0, 0, w + 10, 15 - i // 3))
-            screen.blit(shadow_surf, (x - 5, y + h + i - 10))
+            shadow_s = pygame.Surface((w + 10, 20), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_s, (0, 0, 0, shadow_alpha),
+                                (0, 0, w + 10, 15 - i // 3))
+            surf.blit(shadow_s, (bx - 5, by + h + i - 10))
 
-        # 2. 네온 앰비언트 글로우 (핑크/사이안 교대)
-        glow_pulse = 0.7 + 0.3 * abs(math.sin(self.animation_timer * 1.5))
+        # --- 2. 건물 기단 ---
+        base_h = 15
+        base_s = pygame.Surface((w + 10, base_h), pygame.SRCALPHA)
+        for i in range(base_h):
+            grad = 0.4 + 0.3 * (1 - i / base_h)
+            color = tuple(int(c * grad) for c in (60, 40, 80))
+            pygame.draw.line(base_s, color, (0, i), (w + 10, i))
+        surf.blit(base_s, (bx - 5, by + h - 5))
+        pygame.draw.rect(surf, NEON_CYAN_DARK, (bx - 5, by + h - 5, w + 10, base_h), 2)
+
+        # --- 3. 메인 건물 본체 (퍼플 그라데이션) ---
+        main_s = pygame.Surface((w, h), pygame.SRCALPHA)
+        for i in range(h):
+            grad = 0.4 + 0.4 * math.sin(math.pi * i / h)
+            r = int(NEON_PURPLE_DARK[0] * grad + 30)
+            g = int(NEON_PURPLE_DARK[1] * grad + 10)
+            b = int(NEON_PURPLE_DARK[2] * grad + 40)
+            pygame.draw.line(main_s, (r, g, b), (0, i), (w, i))
+        surf.blit(main_s, (bx, by))
+
+        # --- 4. 세로 기둥 (양쪽) ---
+        pillar_w = 12
+        for px in [bx - 2, bx + w - pillar_w + 2]:
+            for i in range(h + 10):
+                grad = 0.5 + 0.5 * abs(math.sin(math.pi * i / 30))
+                color = tuple(int(c * grad) for c in NEON_CYAN_DARK)
+                pygame.draw.line(surf, color, (px, by - 5 + i), (px + pillar_w, by - 5 + i))
+            pygame.draw.line(surf, NEON_CYAN, (px + 2, by), (px + 2, by + h), 2)
+            pygame.draw.line(surf, NEON_PURPLE_DARK, (px + pillar_w - 2, by), (px + pillar_w - 2, by + h), 2)
+            for band_y in [by + 15, by + h - 25]:
+                pygame.draw.rect(surf, NEON_PINK, (px - 2, band_y, pillar_w + 4, 8))
+                pygame.draw.rect(surf, NEON_CYAN, (px - 2, band_y, pillar_w + 4, 8), 1)
+
+        # --- 5. 상단 캐노피 (네온 지붕) ---
+        canopy_h = 25
+        canopy_y = by - canopy_h
+        canopy_s = pygame.Surface((w + 20, canopy_h + 5), pygame.SRCALPHA)
+        for i in range(canopy_h):
+            grad = 0.4 + 0.4 * (i / canopy_h)
+            color = tuple(int(c * grad) for c in NEON_PURPLE_DARK)
+            pygame.draw.line(canopy_s, color, (0, i), (w + 20, i))
+        surf.blit(canopy_s, (bx - 10, canopy_y))
+        pygame.draw.rect(surf, NEON_PINK, (bx - 10, canopy_y, w + 20, canopy_h), 3)
+        pygame.draw.line(surf, NEON_CYAN, (bx - 8, canopy_y + 2), (bx + w + 8, canopy_y + 2), 2)
+
+        # 캐노피 물결 장식 (정적 부분 - 위치와 형태)
+        for i in range(0, w + 20, 12):
+            wave_y = canopy_y + canopy_h - 3 + int(3 * math.sin(i * 0.3))
+            bulb_color = NEON_PINK if (i // 12) % 2 == 0 else NEON_CYAN
+            pygame.draw.circle(surf, bulb_color, (bx - 10 + i, wave_y), 4)
+            pygame.draw.circle(surf, WHITE_GLOW, (bx - 10 + i, wave_y), 2)
+
+        # --- 6. "CASINO" 사인 배경 + 테두리 (정적 틀) ---
+        sign_w = min(w - 10, 100)
+        sign_h = 28
+        sign_x = bx + (w - sign_w) // 2
+        sign_y = canopy_y - sign_h - 8
+        pygame.draw.rect(surf, (15, 5, 25), (sign_x, sign_y, sign_w, sign_h), border_radius=5)
+        pygame.draw.rect(surf, NEON_PINK, (sign_x, sign_y, sign_w, sign_h), 3, border_radius=5)
+        pygame.draw.rect(surf, NEON_CYAN, (sign_x + 2, sign_y + 2, sign_w - 4, sign_h - 4), 1, border_radius=4)
+
+        # --- 7. 슬롯머신 프레임 (정적 틀) ---
+        slot_w, slot_h = 50, 35
+        slot_x = bx + (w - slot_w) // 2
+        slot_y = by + 25
+        pygame.draw.rect(surf, NEON_PURPLE_DARK, (slot_x - 4, slot_y - 4, slot_w + 8, slot_h + 8), border_radius=6)
+        pygame.draw.rect(surf, (10, 5, 20), (slot_x, slot_y, slot_w, slot_h), border_radius=4)
+        pygame.draw.rect(surf, NEON_CYAN, (slot_x, slot_y, slot_w, slot_h), 2, border_radius=4)
+
+        # --- 8. 입구 (문, 아치, 프레임, 손잡이, 카펫) ---
+        door_w, door_h = 36, 45
+        door_x = bx + (w - door_w) // 2
+        door_y = by + h - door_h - 5
+
+        door_s = pygame.Surface((door_w, door_h), pygame.SRCALPHA)
+        for i in range(door_h):
+            alpha = 230 - int(80 * (i / door_h))
+            pygame.draw.line(door_s, (10, 5, 20, alpha), (0, i), (door_w, i))
+        surf.blit(door_s, (door_x, door_y))
+
+        arch_rect = pygame.Rect(door_x - 5, door_y - 10, door_w + 10, 15)
+        pygame.draw.arc(surf, NEON_PINK, arch_rect, 0, math.pi, 4)
+        pygame.draw.arc(surf, NEON_CYAN, (arch_rect.x + 2, arch_rect.y + 2, arch_rect.w - 4, arch_rect.h - 4), 0, math.pi, 2)
+        pygame.draw.rect(surf, NEON_PINK, (door_x - 3, door_y, door_w + 6, door_h), 3)
+        pygame.draw.rect(surf, NEON_CYAN, (door_x, door_y + 2, door_w, door_h - 4), 1)
+
+        handle_y = door_y + door_h // 2
+        pygame.draw.circle(surf, NEON_CYAN, (door_x + door_w - 8, handle_y), 4)
+        pygame.draw.circle(surf, NEON_PURPLE_DARK, (door_x + door_w - 8, handle_y), 4, 1)
+
+        carpet_s = pygame.Surface((door_w + 10, 8), pygame.SRCALPHA)
+        pygame.draw.rect(carpet_s, (*NEON_PURPLE, 180), (0, 0, door_w + 10, 8))
+        surf.blit(carpet_s, (door_x - 5, door_y + door_h - 3))
+
+        # --- 9. 코너 네온 장식 ---
+        corner_size = 12
+        corners = [
+            (bx, by), (bx + w - corner_size, by),
+            (bx, by + h - corner_size), (bx + w - corner_size, by + h - corner_size)
+        ]
+        for i, (cx, cy) in enumerate(corners):
+            corner_color = NEON_PINK if i % 2 == 0 else NEON_CYAN
+            pygame.draw.polygon(surf, corner_color, [
+                (cx + corner_size // 2, cy),
+                (cx + corner_size, cy + corner_size // 2),
+                (cx + corner_size // 2, cy + corner_size),
+                (cx, cy + corner_size // 2)
+            ])
+            pygame.draw.polygon(surf, WHITE_GLOW, [
+                (cx + corner_size // 2, cy + 2),
+                (cx + corner_size - 2, cy + corner_size // 2),
+                (cx + corner_size // 2, cy + corner_size - 2),
+                (cx + 2, cy + corner_size // 2)
+            ], 1)
+
+        return surf, MARGIN_LEFT, MARGIN_TOP
+
+    # =========================================================================
+    # 🎰 카지노 - 동적 렌더링 (매 프레임)
+    # =========================================================================
+    def _draw_casino(self, screen, building, x, y, building_id):
+        """카지노 — 캐싱된 정적 Surface를 blit한 뒤, 동적 VFX만 덧그린다."""
+        w, h = building.width, building.height
+
+        # 색상 로컬 참조 (속성 접근 1회로 줄임)
+        NEON_PINK = self._CASINO_NEON_PINK
+        NEON_CYAN = self._CASINO_NEON_CYAN
+        NEON_PURPLE = self._CASINO_NEON_PURPLE
+        NEON_PURPLE_DARK = self._CASINO_NEON_PURPLE_DARK
+        WHITE_GLOW = self._CASINO_WHITE_GLOW
+
+        # =====================================================================
+        # 1) 정적 Surface blit (건물 구조 전체 — 매 프레임 draw 0회)
+        # =====================================================================
+        baked, (ox, oy) = self._get_or_bake(
+            BuildingType.CASINO, w, h, self._bake_casino
+        )
+        screen.blit(baked, (x - ox, y - oy))
+
+        # =====================================================================
+        # 2) 동적 VFX — animation_timer 의존 요소만 그린다
+        # =====================================================================
+        t = self.animation_timer
+
+        # --- 네온 앰비언트 글로우 (펄스) ---
+        glow_pulse = 0.7 + 0.3 * abs(math.sin(t * 1.5))
         for i in range(3):
             glow_size = 25 - i * 8
             glow_alpha = int(50 * glow_pulse) - i * 10
@@ -262,191 +463,80 @@ class BuildingDesigner:
                                 (0, 0, w + glow_size * 2, h + glow_size * 2), border_radius=12)
                 screen.blit(glow_surf, (x - glow_size, y - glow_size))
 
-        # 3. 건물 기단 (어두운 네온 스타일)
-        base_h = 15
-        base_surf = pygame.Surface((w + 10, base_h), pygame.SRCALPHA)
-        for i in range(base_h):
-            grad = 0.4 + 0.3 * (1 - i / base_h)
-            color = tuple(int(c * grad) for c in (60, 40, 80))
-            pygame.draw.line(base_surf, color, (0, i), (w + 10, i))
-        screen.blit(base_surf, (x - 5, y + h - 5))
-        pygame.draw.rect(screen, NEON_CYAN_DARK, (x - 5, y + h - 5, w + 10, base_h), 2)
-
-        # 4. 메인 건물 본체 - 네온 퍼플 그라데이션
-        main_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-        for i in range(h):
-            # 세로 그라데이션 (어두운 → 밝은 → 어두운)
-            grad = 0.4 + 0.4 * math.sin(math.pi * i / h)
-            r = int(NEON_PURPLE_DARK[0] * grad + 30)
-            g = int(NEON_PURPLE_DARK[1] * grad + 10)
-            b = int(NEON_PURPLE_DARK[2] * grad + 40)
-            pygame.draw.line(main_surf, (r, g, b), (0, i), (w, i))
-        screen.blit(main_surf, (x, y))
-
-        # 5. 네온 대각선 스트라이프 패턴
+        # --- 대각선 스트라이프 스크롤 ---
         pattern_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-        stripe_offset = int(self.animation_timer * 30) % 20
+        stripe_offset = int(t * 30) % 20
         for i in range(-h, w + h, 10):
-            stripe_alpha = 40 + int(20 * math.sin(self.animation_timer * 2 + i * 0.1))
+            stripe_alpha = 40 + int(20 * math.sin(t * 2 + i * 0.1))
             stripe_color = NEON_PINK if (i // 10) % 2 == 0 else NEON_CYAN
             pygame.draw.line(pattern_surf, (*stripe_color, stripe_alpha),
                            (i + stripe_offset, 0), (i - h + stripe_offset, h), 3)
         screen.blit(pattern_surf, (x, y))
 
-        # 6. 네온 세로 기둥 (양쪽)
-        pillar_w = 12
-        for px in [x - 2, x + w - pillar_w + 2]:
-            # 기둥 그라데이션
-            for i in range(h + 10):
-                grad = 0.5 + 0.5 * abs(math.sin(math.pi * i / 30))
-                color = tuple(int(c * grad) for c in NEON_CYAN_DARK)
-                pygame.draw.line(screen, color, (px, y - 5 + i), (px + pillar_w, y - 5 + i))
-            # 기둥 하이라이트
-            pygame.draw.line(screen, NEON_CYAN, (px + 2, y), (px + 2, y + h), 2)
-            # 기둥 그림자
-            pygame.draw.line(screen, NEON_PURPLE_DARK, (px + pillar_w - 2, y), (px + pillar_w - 2, y + h), 2)
-            # 기둥 장식 밴드
-            for band_y in [y + 15, y + h - 25]:
-                pygame.draw.rect(screen, NEON_PINK, (px - 2, band_y, pillar_w + 4, 8))
-                pygame.draw.rect(screen, NEON_CYAN, (px - 2, band_y, pillar_w + 4, 8), 1)
-
-        # 7. 상단 캐노피 (네온 지붕)
+        # --- "CASINO" 사인 글로우 (펄스) ---
         canopy_h = 25
-        canopy_y = y - canopy_h
-
-        # 캐노피 본체
-        canopy_surf = pygame.Surface((w + 20, canopy_h + 5), pygame.SRCALPHA)
-        for i in range(canopy_h):
-            grad = 0.4 + 0.4 * (i / canopy_h)
-            color = tuple(int(c * grad) for c in NEON_PURPLE_DARK)
-            pygame.draw.line(canopy_surf, color, (0, i), (w + 20, i))
-        screen.blit(canopy_surf, (x - 10, canopy_y))
-
-        # 캐노피 네온 테두리
-        pygame.draw.rect(screen, NEON_PINK, (x - 10, canopy_y, w + 20, canopy_h), 3)
-        pygame.draw.line(screen, NEON_CYAN, (x - 8, canopy_y + 2), (x + w + 8, canopy_y + 2), 2)
-
-        # 캐노피 네온 장식 (물결 모양)
-        for i in range(0, w + 20, 12):
-            wave_y = canopy_y + canopy_h - 3 + int(3 * math.sin(i * 0.3))
-            bulb_color = NEON_PINK if (i // 12) % 2 == 0 else NEON_CYAN
-            pygame.draw.circle(screen, bulb_color, (x - 10 + i, wave_y), 4)
-            pygame.draw.circle(screen, WHITE_GLOW, (x - 10 + i, wave_y), 2)
-
-        # 8. "CASINO" 네온 사인 (사이버펑크 버전)
         sign_w = min(w - 10, 100)
         sign_h = 28
         sign_x = x + (w - sign_w) // 2
-        sign_y = canopy_y - sign_h - 8
+        sign_y = (y - canopy_h) - sign_h - 8
 
-        # 사인 글로우 (다층 - 핑크/사이안)
         for i in range(5):
             glow_alpha = int(60 * glow_pulse) - i * 10
             if glow_alpha > 0:
-                glow_surf = pygame.Surface((sign_w + 30 + i * 8, sign_h + 20 + i * 4), pygame.SRCALPHA)
+                gs = pygame.Surface((sign_w + 30 + i * 8, sign_h + 20 + i * 4), pygame.SRCALPHA)
                 glow_color = NEON_PINK if i % 2 == 0 else NEON_CYAN
-                pygame.draw.rect(glow_surf, (*glow_color, glow_alpha),
+                pygame.draw.rect(gs, (*glow_color, glow_alpha),
                                 (0, 0, sign_w + 30 + i * 8, sign_h + 20 + i * 4), border_radius=8)
-                screen.blit(glow_surf, (sign_x - 15 - i * 4, sign_y - 10 - i * 2))
+                screen.blit(gs, (sign_x - 15 - i * 4, sign_y - 10 - i * 2))
 
-        # 사인 배경 (검정 + 네온 테두리)
-        pygame.draw.rect(screen, (15, 5, 25), (sign_x, sign_y, sign_w, sign_h), border_radius=5)
-        pygame.draw.rect(screen, NEON_PINK, (sign_x, sign_y, sign_w, sign_h), 3, border_radius=5)
-        pygame.draw.rect(screen, NEON_CYAN, (sign_x + 2, sign_y + 2, sign_w - 4, sign_h - 4), 1, border_radius=4)
-
-        # "CASINO" 텍스트 (글자별 깜빡임 - 핑크/사이안)
+        # --- "CASINO" 텍스트 깜빡임 ---
         text = "CASINO"
         font = pygame.font.Font(None, 22)
         char_spacing = (sign_w - 16) // len(text)
-        for i, char in enumerate(text):
-            char_pulse = 0.5 + 0.5 * abs(math.sin(self.animation_timer * 5 + i * 0.8))
-            # 글자 색상 (핑크/사이안 교대)
-            base_color = NEON_PINK if i % 2 == 0 else NEON_CYAN
+        for ci, char in enumerate(text):
+            char_pulse = 0.5 + 0.5 * abs(math.sin(t * 5 + ci * 0.8))
+            base_color = NEON_PINK if ci % 2 == 0 else NEON_CYAN
             glow_color = tuple(int(c * char_pulse) for c in base_color)
             char_surf = font.render(char, True, glow_color)
-            char_x = sign_x + 8 + i * char_spacing
-            screen.blit(char_surf, (char_x, sign_y + 7))
+            screen.blit(char_surf, (sign_x + 8 + ci * char_spacing, sign_y + 7))
 
-        # 9. 장식 조명 (네온 전구 체인)
+        # --- 전구 체인 깜빡임 ---
+        canopy_y = y - canopy_h
         bulb_y = canopy_y + canopy_h + 3
         bulb_colors = [NEON_PINK, NEON_CYAN, NEON_PINK, NEON_CYAN]
         for i in range(0, w, 15):
-            bulb_on = (int(self.animation_timer * 8 + i * 0.2) % 4) < 3
+            bulb_on = (int(t * 8 + i * 0.2) % 4) < 3
             if bulb_on:
                 color = bulb_colors[(i // 15) % len(bulb_colors)]
-                # 전구 글로우
                 glow_surf = pygame.Surface((12, 12), pygame.SRCALPHA)
                 pygame.draw.circle(glow_surf, (*color, 120), (6, 6), 6)
                 screen.blit(glow_surf, (x + i - 1, bulb_y - 3))
-                # 전구 본체
                 pygame.draw.circle(screen, color, (x + i + 5, bulb_y + 2), 3)
             else:
                 pygame.draw.circle(screen, (40, 30, 50), (x + i + 5, bulb_y + 2), 3)
 
-        # 10. 중앙 슬롯머신 디스플레이
+        # --- 슬롯 릴 회전 (동적 심볼) ---
         slot_w, slot_h = 50, 35
         slot_x = x + (w - slot_w) // 2
         slot_y = y + 25
-
-        # 슬롯 프레임
-        pygame.draw.rect(screen, NEON_PURPLE_DARK, (slot_x - 4, slot_y - 4, slot_w + 8, slot_h + 8), border_radius=6)
-        pygame.draw.rect(screen, (10, 5, 20), (slot_x, slot_y, slot_w, slot_h), border_radius=4)
-        pygame.draw.rect(screen, NEON_CYAN, (slot_x, slot_y, slot_w, slot_h), 2, border_radius=4)
-
-        # 슬롯 릴 (3개)
         self._draw_luxury_slot_reels(screen, slot_x + 5, slot_y + 5, slot_w - 10, slot_h - 10)
 
-        # 11. 카드 문양 장식
+        # --- 카드 심볼 펄스 ---
         card_symbols = ['♠', '♥', '♦', '♣']
         card_y = y + h // 2 + 10
+        card_font = pygame.font.Font(None, 20)
         for i, sym in enumerate(card_symbols):
             sym_x = x + 15 + i * ((w - 30) // 4)
-            pulse = 0.6 + 0.4 * abs(math.sin(self.animation_timer * 3 + i * 0.5))
-
-            # 심볼 배경 (네온 글로우)
+            pulse = 0.6 + 0.4 * abs(math.sin(t * 3 + i * 0.5))
             bg_surf = pygame.Surface((20, 24), pygame.SRCALPHA)
             bg_color = NEON_PINK if i % 2 == 0 else NEON_CYAN
             pygame.draw.ellipse(bg_surf, (*bg_color, int(100 * pulse)), (0, 0, 20, 24))
             screen.blit(bg_surf, (sym_x - 2, card_y - 2))
-
-            # 심볼 (네온 핑크/사이안)
             sym_color = NEON_PINK if sym in ['♥', '♦'] else NEON_CYAN
-            font = pygame.font.Font(None, 20)
-            sym_surf = font.render(sym, True, sym_color)
+            sym_surf = card_font.render(sym, True, sym_color)
             screen.blit(sym_surf, (sym_x + 2, card_y + 2))
 
-        # 12. 입구 (네온 VIP 스타일)
-        door_w, door_h = 36, 45
-        door_x = x + (w - door_w) // 2
-        door_y = y + h - door_h - 5
-
-        # 문 배경 (어두운 내부)
-        door_surf = pygame.Surface((door_w, door_h), pygame.SRCALPHA)
-        for i in range(door_h):
-            alpha = 230 - int(80 * (i / door_h))
-            pygame.draw.line(door_surf, (10, 5, 20, alpha), (0, i), (door_w, i))
-        screen.blit(door_surf, (door_x, door_y))
-
-        # 문 네온 아치 프레임
-        arch_rect = pygame.Rect(door_x - 5, door_y - 10, door_w + 10, 15)
-        pygame.draw.arc(screen, NEON_PINK, arch_rect, 0, math.pi, 4)
-        pygame.draw.arc(screen, NEON_CYAN, (arch_rect.x + 2, arch_rect.y + 2, arch_rect.w - 4, arch_rect.h - 4), 0, math.pi, 2)
-
-        # 문 프레임
-        pygame.draw.rect(screen, NEON_PINK, (door_x - 3, door_y, door_w + 6, door_h), 3)
-        pygame.draw.rect(screen, NEON_CYAN, (door_x, door_y + 2, door_w, door_h - 4), 1)
-
-        # 문 손잡이
-        handle_y = door_y + door_h // 2
-        pygame.draw.circle(screen, NEON_CYAN, (door_x + door_w - 8, handle_y), 4)
-        pygame.draw.circle(screen, NEON_PURPLE_DARK, (door_x + door_w - 8, handle_y), 4, 1)
-
-        # 네온 카펫 힌트
-        carpet_surf = pygame.Surface((door_w + 10, 8), pygame.SRCALPHA)
-        pygame.draw.rect(carpet_surf, (*NEON_PURPLE, 180), (0, 0, door_w + 10, 8))
-        screen.blit(carpet_surf, (door_x - 5, door_y + door_h - 3))
-
-        # 13. 파티클 - 네온 스파클
+        # --- 파티클 스폰 + 렌더링 ---
         if random.random() < 0.25:
             self.particles[building_id].append({
                 'x': x + random.randint(5, w - 5),
@@ -455,25 +545,6 @@ class BuildingDesigner:
                 'type': 'sparkle',
                 'color': random.choice([NEON_PINK, NEON_CYAN, NEON_PURPLE, WHITE_GLOW])
             })
-
-        # 14. 코너 네온 장식
-        corner_size = 12
-        corners = [(x, y), (x + w - corner_size, y), (x, y + h - corner_size), (x + w - corner_size, y + h - corner_size)]
-        for i, (cx, cy) in enumerate(corners):
-            corner_color = NEON_PINK if i % 2 == 0 else NEON_CYAN
-            pygame.draw.polygon(screen, corner_color, [
-                (cx + corner_size // 2, cy),
-                (cx + corner_size, cy + corner_size // 2),
-                (cx + corner_size // 2, cy + corner_size),
-                (cx, cy + corner_size // 2)
-            ])
-            pygame.draw.polygon(screen, WHITE_GLOW, [
-                (cx + corner_size // 2, cy + 2),
-                (cx + corner_size - 2, cy + corner_size // 2),
-                (cx + corner_size // 2, cy + corner_size - 2),
-                (cx + 2, cy + corner_size // 2)
-            ], 1)
-
         self._draw_particles(screen, building_id, (x, y))
 
     def _draw_luxury_slot_reels(self, screen, x, y, w, h):
