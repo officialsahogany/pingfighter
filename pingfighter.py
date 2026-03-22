@@ -77483,9 +77483,15 @@ def update_button_eye():
                     # 게임 영역 내로 클램핑
                     new_x = max(GAME_AREA_OFFSET_X, min(new_x, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width))
                     PLAYER.x = new_x
-                    # 넉백마다 화면 흔들림
+                    # 넉백마다 화면 흔들림 + 싸대기 사운드
                     screen_shake_timer = max(screen_shake_timer, 6)
                     screen_shake_intensity = max(screen_shake_intensity, 5)
+                    try:
+                        slap_snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "slap2.wav")))
+                        slap_snd.set_volume(0.4 * sfx_volume)
+                        slap_snd.play()
+                    except Exception:
+                        pass
         heart_beam_knockback_timer -= 1
         if heart_beam_knockback_timer <= 0:
             heart_beam_knockback_active = False
