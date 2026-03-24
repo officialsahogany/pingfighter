@@ -60,15 +60,6 @@ class SmasherWeaponPart(BodyPart):
                        paddle_box.inflate(-4, -4),
                        math.radians(200), math.radians(300), 2)
 
-        # 라켓면 십자 가이드라인
-        inner_r = paddle_r - 4
-        pygame.draw.line(surface, (*palette["paddle_core"], 140),
-                        (paddle_cx - inner_r, paddle_cy),
-                        (paddle_cx + inner_r, paddle_cy), 1)
-        pygame.draw.line(surface, (*palette["paddle_core"], 140),
-                        (paddle_cx, paddle_cy - inner_r),
-                        (paddle_cx, paddle_cy + inner_r), 1)
-
         # 라켓면 네온 블룸
         pulse = 0.6 + 0.4 * math.sin(phase * math.tau * 2)
         glow_r = paddle_r + int(b * 0.3)
