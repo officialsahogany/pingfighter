@@ -30161,7 +30161,7 @@ _skeletal_skeleton = _get_smasher_skeleton(force_recreate=True)
 _skeletal_skin = _create_smasher_skin()
 
 
-def _render_skeletal_smasher(step_phase: float = 0.0) -> pygame.Surface:
+def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> pygame.Surface:
     """뼈대 시스템으로 스매셔를 렌더링 (기존 create_smasher_paddle_surface 대체)."""
     sk = _skeletal_skeleton
     skin = _skeletal_skin
@@ -30169,8 +30169,12 @@ def _render_skeletal_smasher(step_phase: float = 0.0) -> pygame.Surface:
 
     phase = 0.0 if step_phase is None else float(step_phase) % 1.0
 
-    # 걷기 포즈
-    base_pose = motion.get_walk_pose(phase)
+    # idle이면 시간 기반 호흡 모션, 아니면 걷기 모션
+    if is_idle:
+        idle_phase = (pygame.time.get_ticks() / 1200.0) % 1.0  # 1.2초 주기
+        base_pose = motion.get_idle_pose(idle_phase)
+    else:
+        base_pose = motion.get_walk_pose(phase)
 
     # 타격 포즈 레이어
     if smasher_hit_pose_timer > 0:
@@ -101165,7 +101169,10 @@ def draw_objects():
             elif smasher_hit_pose_timer > 0:
                 base_ufo_img = _render_skeletal_smasher()
             else:
-                base_ufo_img = _apply_character_idle_effects(_render_skeletal_smasher(), "smasher")
+                # idle: 뼈대 호흡 모션 + 기존 후처리(미세 스케일/회전) 함께 적용
+                base_ufo_img = _apply_character_idle_effects(
+                    _render_skeletal_smasher(is_idle=True), "smasher"
+                )
         else:
             base_ufo_img = PLAYER_IMG
     # print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")

@@ -22,13 +22,32 @@ class SmasherMotionProfile(MotionProfile):
     """
 
     def get_idle_pose(self, phase: float) -> dict[str, float]:
-        """대기 상태: 미세한 호흡 모션."""
-        wave = math.sin(phase * math.tau)
+        """대기 상태: 묵직한 메카 호흡 모션.
+
+        투기장 영웅들처럼 가만히 서 있어도 숨쉬는 듯한 움직임.
+        느린 주기(1.2초)로 상체가 미세하게 오르내리고,
+        팔과 어깨가 약간씩 흔들리며, 방패 팔은 살짝 긴장감을 유지.
+        """
+        # 느린 호흡 (메인 웨이브)
+        breath = math.sin(phase * math.tau)
+        # 미세한 2차 흔들림 (비대칭 느낌)
+        sway = math.sin(phase * math.tau * 1.7 + 0.5)
+
         return {
-            "torso": wave * 0.5,        # 미세한 상하
-            "head": -wave * 0.3,        # 머리 보정 (상체 반대)
-            "l_shoulder": wave * 1.0,
-            "r_shoulder": -wave * 1.0,
+            # 상체 호흡: 위아래 미세 움직임
+            "torso": breath * 1.2,
+            "neck": breath * 0.4,
+            "head": -breath * 0.6 + sway * 0.3,   # 머리 보정 + 약간의 좌우
+
+            # 어깨/팔: 호흡에 따라 미세하게 오르내림
+            "l_shoulder": breath * 1.5 + sway * 0.5,    # 왼팔 (탁구채) 약간 흔들림
+            "l_elbow": -breath * 0.8,
+            "r_shoulder": -breath * 1.2 + sway * 0.3,   # 오른팔 (방패) 살짝 긴장
+            "r_elbow": breath * 0.5,
+
+            # 다리: 체중이동 느낌 (미세)
+            "l_hip": sway * 0.4,
+            "r_hip": -sway * 0.4,
         }
 
     def get_walk_pose(self, phase: float) -> dict[str, float]:
