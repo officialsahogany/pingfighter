@@ -1,133 +1,140 @@
 """
 SmasherTorsoPart — 스매셔 흉갑 + 복부 + 벨트 + 어깨갑 파츠.
-
-원본: pingfighter.py create_smasher_paddle_surface() 29672~29727줄
-관절 바인딩: torso → neck (흉갑), hip (벨트)
+Visual Polish: 3단 레이어링 + 에너지코어 블룸 + 리벳/패널라인
 """
 
+import math
 import pygame
 from entities.player_skeleton import BodyPart, Joint, Skeleton, ORDER_TORSO, SLOT_TORSO
 from typing import Optional
 
 
 class SmasherTorsoPart(BodyPart):
-    """스매셔 메카 상체 갑옷.
-
-    torso 관절 기준으로 흉갑, 에너지 코어 라인, 복부 패널,
-    벨트, 좌/우 어깨갑(pauldron)을 그린다.
-    """
 
     def __init__(self, block: int = 9):
-        super().__init__(
-            slot=SLOT_TORSO,
-            draw_order=ORDER_TORSO,
-            joint_a="torso",
-            joint_b="hip",
-        )
+        super().__init__(slot=SLOT_TORSO, draw_order=ORDER_TORSO,
+                         joint_a="torso", joint_b="hip")
         self.block = block
 
     def _render(self, surface: pygame.Surface,
                 joint_a: Joint, joint_b: Optional[Joint],
                 palette: dict, phase: float):
         b = self.block
-        cx, ty = joint_a.world_int()    # torso 관절 (흉부 중심)
+        cx, ty = joint_a.world_int()
 
-        # hip 관절에서 shoulder_shift 계산
-        # (원본에서는 wave 기반이지만 뼈대 시스템에서는
-        #  l_shoulder/r_shoulder 관절 위치로 대체 가능.
-        #  현재는 호환성을 위해 hip 관절 위치 기반으로 추정)
-
-        # ── 흉갑 (chest plate) ──
+        # ── 흉갑: 3단 레이어링 ──
         torso_width = int(3.4 * b)
         chest_height = int(2.2 * b)
-        chest_rect = pygame.Rect(
-            cx - torso_width // 2,
-            ty - int(0.4 * b),
-            torso_width, chest_height,
-        )
-        pygame.draw.rect(surface, palette["armor_outer"], chest_rect, border_radius=7)
+        chest_rect = pygame.Rect(cx - torso_width // 2, ty - int(0.4 * b),
+                                 torso_width, chest_height)
 
+        # 그림자
+        pygame.draw.rect(surface, (40, 50, 80), chest_rect.move(1, 2), border_radius=7)
+        # 베이스
+        pygame.draw.rect(surface, palette["armor_outer"], chest_rect, border_radius=7)
         # 중간 레이어
         mid_rect = chest_rect.inflate(-int(0.6 * b), -int(0.5 * b))
         pygame.draw.rect(surface, palette["armor_mid"], mid_rect, border_radius=6)
-
         # 내부 패널
         inner_panel = mid_rect.inflate(-int(0.7 * b), -int(0.45 * b))
         pygame.draw.rect(surface, palette["armor_inner"], inner_panel, border_radius=4)
+        # 하이라이트 (상단 엣지)
+        hl_rect = chest_rect.inflate(-int(0.3 * b), -int(0.3 * b))
+        hl_rect.height = max(2, int(0.3 * b))
+        pygame.draw.rect(surface, palette["trim"], hl_rect, border_radius=3)
 
-        # 트림(테두리)
+        # 트림 테두리
         pygame.draw.rect(surface, palette["trim"], chest_rect, 1, border_radius=7)
         pygame.draw.rect(surface, palette["trim"], mid_rect, 1, border_radius=6)
 
-        # ── 에너지 코어 라인 ──
-        core_line_top = (cx, inner_panel.top + int(0.25 * b))
-        core_line_bottom = (cx, inner_panel.bottom - int(0.25 * b))
-        pygame.draw.line(surface, palette["accent"], core_line_top, core_line_bottom, 2)
-        pygame.draw.line(
-            surface, palette["accent_core"],
-            (cx - int(0.5 * b), inner_panel.centery),
-            (cx + int(0.5 * b), inner_panel.centery), 1,
-        )
+        # 패널라인 (가로 3개)
+        for i in range(3):
+            py = inner_panel.top + int((i + 1) * inner_panel.height / 4)
+            pygame.draw.line(surface, (35, 45, 70),
+                           (inner_panel.left + 2, py),
+                           (inner_panel.right - 2, py), 1)
 
-        # ── 복부 패널 (undersuit) ──
+        # ── 에너지 코어 + 블룸 ──
+        pulse = 0.6 + 0.4 * math.sin(phase * math.tau * 2.5)
+        core_x = cx
+        core_top = inner_panel.top + int(0.25 * b)
+        core_bottom = inner_panel.bottom - int(0.25 * b)
+
+        # 코어 라인 (밝기 맥동)
+        core_bright = int(200 + 55 * pulse)
+        core_color = (min(255, core_bright - 80), min(255, core_bright), 255)
+        pygame.draw.line(surface, core_color, (core_x, core_top), (core_x, core_bottom), 2)
+        pygame.draw.line(surface, palette["accent_core"],
+                        (core_x - int(0.5 * b), inner_panel.centery),
+                        (core_x + int(0.5 * b), inner_panel.centery), 1)
+
+        # 코어 블룸
+        glow_size = int(b * 1.2)
+        glow_surf = pygame.Surface((glow_size * 2, inner_panel.height), pygame.SRCALPHA)
+        glow_alpha = int(30 * pulse)
+        pygame.draw.ellipse(glow_surf, (*palette["accent"], glow_alpha),
+                           (0, 0, glow_size * 2, inner_panel.height))
+        surface.blit(glow_surf,
+                    (core_x - glow_size, inner_panel.top),
+                    special_flags=pygame.BLEND_RGBA_ADD)
+
+        # 코어 중심 도트
+        dot_r = max(2, int(0.2 * b))
+        pygame.draw.circle(surface, (200, 240, 255), (core_x, inner_panel.centery), dot_r)
+        pygame.draw.circle(surface, (255, 255, 255), (core_x, inner_panel.centery), max(1, dot_r - 1))
+
+        # ── 복부 패널 (3단) ──
         abs_width = int(2.4 * b)
         abs_height = int(1.4 * b)
-        abs_rect = pygame.Rect(
-            cx - abs_width // 2,
-            inner_panel.bottom - int(0.2 * b),
-            abs_width, abs_height,
-        )
+        abs_rect = pygame.Rect(cx - abs_width // 2, inner_panel.bottom - int(0.2 * b),
+                               abs_width, abs_height)
+        pygame.draw.rect(surface, (28, 32, 48), abs_rect.move(0, 1), border_radius=3)  # 그림자
         pygame.draw.rect(surface, palette["undersuit"], abs_rect, border_radius=3)
         pygame.draw.rect(surface, palette["trim"], abs_rect, 1, border_radius=3)
-        pygame.draw.line(
-            surface, palette["accent_core"],
-            (abs_rect.left + 2, abs_rect.centery),
-            (abs_rect.right - 2, abs_rect.centery), 1,
-        )
+        # 복부 세그먼트 라인
+        pygame.draw.line(surface, palette["accent_core"],
+                        (abs_rect.left + 2, abs_rect.centery),
+                        (abs_rect.right - 2, abs_rect.centery), 1)
 
-        # ── 벨트 ──
-        belt_rect = pygame.Rect(
-            cx - int(2.0 * b),
-            abs_rect.bottom - int(0.1 * b),
-            int(4.0 * b), int(0.8 * b),
-        )
+        # ── 벨트 (3단 + 버클 블룸) ──
+        belt_rect = pygame.Rect(cx - int(2.0 * b), abs_rect.bottom - int(0.1 * b),
+                               int(4.0 * b), int(0.8 * b))
+        pygame.draw.rect(surface, (60, 50, 75), belt_rect.move(0, 1), border_radius=2)
         pygame.draw.rect(surface, palette["belt"], belt_rect, border_radius=2)
-        pygame.draw.line(
-            surface, palette["belt_glint"],
-            (belt_rect.left + 4, belt_rect.centery - 1),
-            (belt_rect.right - 4, belt_rect.centery - 1), 1,
-        )
+        pygame.draw.line(surface, palette["belt_glint"],
+                        (belt_rect.left + 4, belt_rect.top + 1),
+                        (belt_rect.right - 4, belt_rect.top + 1), 1)
         # 버클
-        buckle_rect = pygame.Rect(
-            cx - int(0.6 * b), belt_rect.top + 1,
-            int(1.2 * b), belt_rect.height - 2,
-        )
+        buckle_rect = pygame.Rect(cx - int(0.6 * b), belt_rect.top + 1,
+                                  int(1.2 * b), belt_rect.height - 2)
         pygame.draw.rect(surface, palette["trim"], buckle_rect, border_radius=1)
+        # 버클 블룸
+        buckle_glow = pygame.Surface((int(1.6 * b), int(1.2 * b)), pygame.SRCALPHA)
+        pygame.draw.ellipse(buckle_glow, (*palette["accent"], int(25 * pulse)),
+                           buckle_glow.get_rect())
+        surface.blit(buckle_glow,
+                    (cx - int(0.8 * b), belt_rect.centery - int(0.6 * b)),
+                    special_flags=pygame.BLEND_RGBA_ADD)
 
-        # ── 어깨갑 (pauldrons) ──
-        # 왼쪽 어깨갑
-        l_shoulder = surface.get_width() // 2  # 기본 center 기준
-        left_pauldron = [
-            (cx - int(2.2 * b) - 4, ty - int(0.5 * b)),
-            (cx - int(1.2 * b), ty - int(0.9 * b)),
-            (cx - int(0.9 * b), ty + int(0.8 * b)),
-            (cx - int(2.1 * b) - 3, ty + int(0.9 * b)),
-        ]
-        pygame.draw.polygon(surface, palette["armor_mid"], left_pauldron)
-        pygame.draw.line(surface, palette["trim"], left_pauldron[0], left_pauldron[1], 2)
-        pygame.draw.line(surface, palette["arm_light"], left_pauldron[1], left_pauldron[2], 1)
+        # ── 어깨갑 (3단 + 리벳) ──
+        for side in [-1, 1]:
+            pauldron = [
+                (cx + side * (int(2.2 * b) + 4), ty - int(0.5 * b)),
+                (cx + side * int(1.2 * b), ty - int(0.9 * b)),
+                (cx + side * int(0.9 * b), ty + int(0.8 * b)),
+                (cx + side * (int(2.1 * b) + 3), ty + int(0.9 * b)),
+            ]
+            # 그림자
+            shadow_p = [(x + side, y + 1) for x, y in pauldron]
+            pygame.draw.polygon(surface, (35, 45, 70), shadow_p)
+            # 베이스
+            pygame.draw.polygon(surface, palette["armor_mid"], pauldron)
+            # 하이라이트 엣지
+            pygame.draw.line(surface, palette["trim"], pauldron[0], pauldron[1], 2)
+            pygame.draw.line(surface, palette["arm_light"], pauldron[1], pauldron[2], 1)
+            # 리벳 (4개 모서리)
+            for pt in pauldron:
+                pygame.draw.circle(surface, palette["trim"], (int(pt[0]), int(pt[1])), 1)
 
-        # 오른쪽 어깨갑
-        right_pauldron = [
-            (cx + int(2.2 * b) + 4, ty - int(0.5 * b)),
-            (cx + int(1.2 * b), ty - int(0.9 * b)),
-            (cx + int(0.9 * b), ty + int(0.8 * b)),
-            (cx + int(2.1 * b) + 3, ty + int(0.9 * b)),
-        ]
-        pygame.draw.polygon(surface, palette["armor_mid"], right_pauldron)
-        pygame.draw.line(surface, palette["trim"], right_pauldron[0], right_pauldron[1], 2)
-        pygame.draw.line(surface, palette["arm_light"], right_pauldron[1], right_pauldron[2], 1)
-
-        # 외곽선용으로 rect들 저장
         self._last_chest_rect = chest_rect
         self._last_belt_rect = belt_rect

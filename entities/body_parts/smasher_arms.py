@@ -1,11 +1,9 @@
 """
 SmasherLeftArmPart / SmasherRightArmPart — 스매셔 양팔 + 글러브 파츠.
-
-원본: pingfighter.py create_smasher_paddle_surface() 29729~29840줄
-왼팔은 탁구채(weapon) 쪽, 오른팔은 방패(shield) 쪽.
-팔 관절의 월드 좌표를 사용하여 상완-전완-글러브를 그린다.
+Visual Polish: 3단 레이어링 + 관절 LED 블룸 + 리벳/머슬라인
 """
 
+import math
 import pygame
 from entities.player_skeleton import (
     BodyPart, Joint, Skeleton,
@@ -14,104 +12,85 @@ from entities.player_skeleton import (
 from typing import Optional
 
 
-class SmasherLeftArmPart(BodyPart):
-    """스매셔 왼팔 (탁구채 쪽): shoulder → elbow → wrist + 글러브.
+def _draw_arm(surface: pygame.Surface, shoulder: tuple, elbow: tuple,
+              wrist: tuple, palette: dict, b: int, phase: float, side: str):
+    """좌/우 공용 팔 렌더링 (3단 레이어 + LED + 리벳)."""
 
-    뼈대 시스템에서는 모션에 의해 관절 각도가 이미 결정되어 있으므로,
-    단순히 관절 좌표를 연결하여 팔을 그린다.
-    """
+    # ── 상완: 3단 (그림자 → 베이스 → 하이라이트) ──
+    pygame.draw.line(surface, (45, 55, 85), shoulder, elbow, b + 2)       # 그림자
+    pygame.draw.line(surface, palette["arm_light"], shoulder, elbow, b)     # 베이스
+    pygame.draw.line(surface, palette["armor_mid"], shoulder, elbow, b - 2) # 중간톤
+    # 머슬라인 (상완 중앙 하이라이트)
+    mid_upper = ((shoulder[0] + elbow[0]) // 2, (shoulder[1] + elbow[1]) // 2)
+    pygame.draw.circle(surface, palette.get("trim", (190, 206, 236)), mid_upper, 1)
+
+    # ── 전완: 3단 ──
+    pygame.draw.line(surface, (45, 55, 85), elbow, wrist, b)              # 그림자
+    pygame.draw.line(surface, palette["arm_light"], elbow, wrist, b - 1)   # 베이스
+    pygame.draw.line(surface, palette["armor_mid"], elbow, wrist, b - 3)   # 중간톤
+
+    # ── 관절 리벳 (팔꿈치) ──
+    pygame.draw.circle(surface, (55, 65, 95), elbow, max(3, b // 2 + 1))  # 외곽
+    pygame.draw.circle(surface, palette.get("trim", (190, 206, 236)),
+                      elbow, max(2, b // 2))                               # 베이스
+    pygame.draw.circle(surface, (220, 230, 245), elbow, max(1, b // 3))    # 하이라이트
+
+    # ── 관절 LED 블룸 (팔꿈치) ──
+    led_pulse = 0.5 + 0.5 * math.sin(phase * math.tau * 3 + (0 if side == "left" else math.pi))
+    led_r = max(2, int(b * 0.25))
+    led_color = palette.get("accent", (118, 214, 255))
+    glow_size = led_r * 4
+    glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+    glow_alpha = int(40 * led_pulse)
+    pygame.draw.circle(glow_surf, (*led_color, glow_alpha),
+                      (glow_size // 2, glow_size // 2), glow_size // 2)
+    surface.blit(glow_surf,
+                (elbow[0] - glow_size // 2, elbow[1] - glow_size // 2),
+                special_flags=pygame.BLEND_RGBA_ADD)
+    # LED 코어
+    core_alpha = int(180 + 75 * led_pulse)
+    pygame.draw.circle(surface, (*led_color[:2], min(255, core_alpha)), elbow, led_r)
+
+    # ── 글러브: 3단 ──
+    gr = max(2, b // 2 + 1)
+    pygame.draw.circle(surface, (140, 125, 108), (wrist[0] + 1, wrist[1] + 1), gr)  # 그림자
+    pygame.draw.circle(surface, palette["glove"], wrist, gr)                          # 베이스
+    pygame.draw.circle(surface, palette.get("glove_high", (220, 210, 195)),
+                      (wrist[0] - 1, wrist[1] - 1), max(1, gr - 1))                 # 하이라이트
+    # 너클 라인
+    dx = 2 if side == "left" else -2
+    pygame.draw.line(surface, palette.get("glove_detail", (156, 134, 110)),
+                    (wrist[0] - dx, wrist[1] - 1),
+                    (wrist[0] + dx, wrist[1] + 2), 1)
+
+
+class SmasherLeftArmPart(BodyPart):
 
     def __init__(self, block: int = 9):
-        super().__init__(
-            slot=SLOT_L_ARM,
-            draw_order=ORDER_L_ARM,
-            joint_a="l_shoulder",
-            joint_b="l_wrist",
-        )
+        super().__init__(slot=SLOT_L_ARM, draw_order=ORDER_L_ARM,
+                         joint_a="l_shoulder", joint_b="l_wrist")
         self.block = block
 
-    def _render(self, surface: pygame.Surface,
-                joint_a: Joint, joint_b: Optional[Joint],
-                palette: dict, phase: float):
-        b = self.block
-        skeleton = None  # joint_a에서 sibling 접근 불가 → 직접 elbow 참조 필요
-
-        # 관절 좌표 가져오기 (shoulder → elbow → wrist)
-        shoulder = joint_a.world_int()
-
-        # elbow는 l_shoulder의 자식 중 l_elbow
-        elbow_joint = None
-        for child in joint_a.children:
-            if child.name == "l_elbow":
-                elbow_joint = child
-                break
-
-        if elbow_joint is None:
+    def _render(self, surface, joint_a, joint_b, palette, phase):
+        elbow_joint = next((c for c in joint_a.children if c.name == "l_elbow"), None)
+        if not elbow_joint:
             return
-
-        elbow = elbow_joint.world_int()
-        wrist = joint_b.world_int() if joint_b else elbow
-
-        # ── 상완 (shoulder → elbow) ──
-        pygame.draw.line(surface, palette["arm_light"], shoulder, elbow, b)
-        pygame.draw.line(surface, palette["armor_mid"], shoulder, elbow, b - 2)
-
-        # ── 전완 (elbow → wrist) ──
-        pygame.draw.line(surface, palette["arm_light"], elbow, wrist, b - 1)
-        pygame.draw.line(surface, palette["armor_mid"], elbow, wrist, b - 3)
-
-        # ── 글러브 ──
-        pygame.draw.circle(surface, palette["glove"], wrist, max(2, b // 2 + 1))
-        pygame.draw.line(
-            surface, palette["glove_detail"],
-            (wrist[0] - 2, wrist[1] - 1),
-            (wrist[0] + 2, wrist[1] + 2), 1,
-        )
+        _draw_arm(surface, joint_a.world_int(), elbow_joint.world_int(),
+                  joint_b.world_int() if joint_b else elbow_joint.world_int(),
+                  palette, self.block, phase, "left")
 
 
 class SmasherRightArmPart(BodyPart):
-    """스매셔 오른팔 (방패 쪽): shoulder → elbow → wrist + 글러브."""
 
     def __init__(self, block: int = 9):
-        super().__init__(
-            slot=SLOT_R_ARM,
-            draw_order=ORDER_R_ARM,
-            joint_a="r_shoulder",
-            joint_b="r_wrist",
-        )
+        super().__init__(slot=SLOT_R_ARM, draw_order=ORDER_R_ARM,
+                         joint_a="r_shoulder", joint_b="r_wrist")
         self.block = block
 
-    def _render(self, surface: pygame.Surface,
-                joint_a: Joint, joint_b: Optional[Joint],
-                palette: dict, phase: float):
-        b = self.block
-        shoulder = joint_a.world_int()
-
-        # elbow 찾기
-        elbow_joint = None
-        for child in joint_a.children:
-            if child.name == "r_elbow":
-                elbow_joint = child
-                break
-
-        if elbow_joint is None:
+    def _render(self, surface, joint_a, joint_b, palette, phase):
+        elbow_joint = next((c for c in joint_a.children if c.name == "r_elbow"), None)
+        if not elbow_joint:
             return
-
-        elbow = elbow_joint.world_int()
-        wrist = joint_b.world_int() if joint_b else elbow
-
-        # ── 상완 ──
-        pygame.draw.line(surface, palette["arm_light"], shoulder, elbow, b)
-        pygame.draw.line(surface, palette["armor_mid"], shoulder, elbow, b - 2)
-
-        # ── 전완 ──
-        pygame.draw.line(surface, palette["arm_light"], elbow, wrist, b - 1)
-        pygame.draw.line(surface, palette["armor_mid"], elbow, wrist, b - 3)
-
-        # ── 글러브 ──
-        pygame.draw.circle(surface, palette["glove"], wrist, max(2, b // 2 + 1))
-        pygame.draw.line(
-            surface, palette["glove_detail"],
-            (wrist[0] - 2, wrist[1]),
-            (wrist[0] + 2, wrist[1] + 2), 1,
-        )
+        _draw_arm(surface, joint_a.world_int(), elbow_joint.world_int(),
+                  joint_b.world_int() if joint_b else elbow_joint.world_int(),
+                  palette, self.block, phase, "right")
