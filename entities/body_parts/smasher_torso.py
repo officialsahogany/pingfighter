@@ -54,25 +54,40 @@ class SmasherTorsoPart(BodyPart):
                            (inner_panel.left + 2, py),
                            (inner_panel.right - 2, py), 1)
 
-        # ── 에너지 코어 + 블룸 ──
-        pulse = 0.6 + 0.4 * math.sin(phase * math.tau * 2.5)
+        # ── 에너지 코어 + 블룸 (HP 연동) ──
+        # VFX 에너지 코어 상태에서 색상/맥동 속도 가져오기
+        _energy_core = getattr(self, '_skin_ref', None) and getattr(self._skin_ref, '_vfx_energy_core', None)
+        if _energy_core:
+            _pulse_speed = _energy_core.get_pulse_speed()
+            _pulse_intensity = _energy_core.get_pulse_intensity()
+            _base_core_color = _energy_core.get_core_color(palette.get("accent_core", (82, 178, 248)))
+        else:
+            _pulse_speed = 2.5
+            _pulse_intensity = 0.4
+            _base_core_color = palette.get("accent_core", (82, 178, 248))
+
+        pulse = (1.0 - _pulse_intensity) + _pulse_intensity * math.sin(phase * math.tau * _pulse_speed)
         core_x = cx
         core_top = inner_panel.top + int(0.25 * b)
         core_bottom = inner_panel.bottom - int(0.25 * b)
 
-        # 코어 라인 (밝기 맥동)
+        # 코어 라인 (HP 연동 색상 + 밝기 맥동)
         core_bright = int(200 + 55 * pulse)
-        core_color = (min(255, core_bright - 80), min(255, core_bright), 255)
+        core_color = (
+            min(255, int(_base_core_color[0] * pulse)),
+            min(255, int(_base_core_color[1] * pulse)),
+            min(255, int(_base_core_color[2] * pulse)),
+        )
         pygame.draw.line(surface, core_color, (core_x, core_top), (core_x, core_bottom), 2)
-        pygame.draw.line(surface, palette["accent_core"],
+        pygame.draw.line(surface, _base_core_color,
                         (core_x - int(0.5 * b), inner_panel.centery),
                         (core_x + int(0.5 * b), inner_panel.centery), 1)
 
-        # 코어 블룸
+        # 코어 블룸 (HP 연동 색상)
         glow_size = int(b * 1.2)
         glow_surf = pygame.Surface((glow_size * 2, inner_panel.height), pygame.SRCALPHA)
         glow_alpha = int(30 * pulse)
-        pygame.draw.ellipse(glow_surf, (*palette["accent"], glow_alpha),
+        pygame.draw.ellipse(glow_surf, (*_base_core_color, glow_alpha),
                            (0, 0, glow_size * 2, inner_panel.height))
         surface.blit(glow_surf,
                     (core_x - glow_size, inner_panel.top),
@@ -80,7 +95,12 @@ class SmasherTorsoPart(BodyPart):
 
         # 코어 중심 도트
         dot_r = max(2, int(0.2 * b))
-        pygame.draw.circle(surface, (200, 240, 255), (core_x, inner_panel.centery), dot_r)
+        _dot_color = (
+            min(255, _base_core_color[0] + 80),
+            min(255, _base_core_color[1] + 60),
+            min(255, _base_core_color[2] + 10),
+        )
+        pygame.draw.circle(surface, _dot_color, (core_x, inner_panel.centery), dot_r)
         pygame.draw.circle(surface, (255, 255, 255), (core_x, inner_panel.centery), max(1, dot_r - 1))
 
         # ── 복부 패널 (3단) ──

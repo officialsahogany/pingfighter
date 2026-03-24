@@ -288,6 +288,8 @@ class CharacterSkin:
         """draw_order 순으로 모든 파츠를 렌더링."""
         sorted_parts = sorted(self.parts.values(), key=lambda p: p.draw_order)
         for part in sorted_parts:
+            # VFX 상태를 파츠에 전달 (에너지 코어, 바이저 깜빡임 등)
+            part._skin_ref = self
             part.draw(surface, skeleton, self.palette, phase)
 
 

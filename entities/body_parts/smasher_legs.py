@@ -85,9 +85,17 @@ class SmasherLegsPart(BodyPart):
                            (kp.left + 1, kp.centery),
                            (kp.right - 1, kp.centery), 1)
 
-            # 무릎 LED 블룸
-            led_pulse = 0.5 + 0.5 * math.sin(phase * math.tau * 3 + phase_off)
-            led_color = palette.get("accent", (118, 214, 255))
+            # 무릎 LED 블룸 (HP 연동 — 에너지 코어와 동기화)
+            _leg_energy = getattr(
+                getattr(self, '_skin_ref', None), '_vfx_energy_core', None
+            )
+            if _leg_energy:
+                _led_speed = _leg_energy.get_pulse_speed()
+                led_color = _leg_energy.get_core_color(palette.get("accent", (118, 214, 255)))
+            else:
+                _led_speed = 3.0
+                led_color = palette.get("accent", (118, 214, 255))
+            led_pulse = 0.5 + 0.5 * math.sin(phase * math.tau * _led_speed + phase_off)
             led_cx, led_cy = kp.centerx, kp.centery
             glow_size = max(6, int(b * 0.5))
             glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)

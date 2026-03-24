@@ -60,21 +60,33 @@ class SmasherHeadPart(BodyPart):
         face_hl.move_ip(-1, -1)
         pygame.draw.ellipse(surface, (232, 220, 200), face_hl, 1)  # 피부 하이라이트
 
-        # ── 바이저 + 블룸 ──
+        # ── 바이저 + 블룸 (아이들 깜빡임 지원) ──
         visor_rect = face_rect.inflate(int(0.2 * b), int(-0.35 * b))
         # 바이저 외곽 (어두운 테두리)
         pygame.draw.ellipse(surface, (60, 100, 140), visor_rect.inflate(2, 2))
-        pygame.draw.ellipse(surface, palette["visor"], visor_rect)
+
+        # VFX 바이저 깜빡임 알파 (1.0=정상, 0.3=깜빡임 중)
+        _blink_alpha = getattr(
+            getattr(self, '_skin_ref', None), '_vfx_visor_blink_alpha', 1.0
+        )
+        _visor_color = palette["visor"]
+        _visor_core_color = palette["visor_core"]
+        if _blink_alpha < 1.0:
+            # 깜빡임: 바이저를 어둡게
+            _visor_color = tuple(int(c * _blink_alpha) for c in _visor_color)
+            _visor_core_color = tuple(int(c * _blink_alpha) for c in _visor_core_color)
+
+        pygame.draw.ellipse(surface, _visor_color, visor_rect)
         core_r = visor_rect.inflate(-int(0.55 * b), -int(0.4 * b))
-        pygame.draw.ellipse(surface, palette["visor_core"], core_r)
+        pygame.draw.ellipse(surface, _visor_core_color, core_r)
 
         # 바이저 블룸 (발광)
         pulse = 0.7 + 0.3 * math.sin(phase * math.tau * 2)
         glow_w = visor_rect.width + int(b * 0.6)
         glow_h = visor_rect.height + int(b * 0.4)
         glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
-        glow_alpha = int(35 * pulse)
-        pygame.draw.ellipse(glow_surf, (*palette["visor_core"], glow_alpha),
+        glow_alpha = int(35 * pulse * _blink_alpha)
+        pygame.draw.ellipse(glow_surf, (*_visor_core_color, glow_alpha),
                            (0, 0, glow_w, glow_h))
         surface.blit(glow_surf,
                     (visor_rect.centerx - glow_w // 2,

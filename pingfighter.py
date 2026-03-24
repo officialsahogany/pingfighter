@@ -30151,6 +30151,10 @@ from entities.body_parts.smasher_skin import (
     create_smasher_skin as _create_smasher_skin,
     SMASHER_PALETTE,
 )
+from entities.body_parts.smasher_vfx import (
+    get_smasher_vfx as _get_smasher_vfx,
+    reset_smasher_vfx as _reset_smasher_vfx,
+)
 from entities.body_parts.item_parts_registry import (
     apply_item_to_skin as _apply_item_to_skin,
     remove_item_from_skin as _remove_item_to_skin,
@@ -30166,6 +30170,7 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
     sk = _skeletal_skeleton
     skin = _skeletal_skin
     motion = skin.motion
+    vfx = _get_smasher_vfx()
 
     phase = 0.0 if step_phase is None else float(step_phase) % 1.0
 
@@ -30175,6 +30180,13 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         base_pose = motion.get_idle_pose(idle_phase)
     else:
         base_pose = motion.get_walk_pose(phase)
+
+    # ── VFX: 아이들 서브모션 블렌딩 (바이저 깜빡임, 어깨 스트레치, 무기 흔들기) ──
+    if is_idle:
+        sub_pose = vfx.idle_sub_motions.get_sub_pose()
+        if sub_pose:
+            for joint_name, angle_delta in sub_pose.items():
+                base_pose[joint_name] = base_pose.get(joint_name, 0.0) + angle_delta
 
     # 타격 포즈 레이어
     if smasher_hit_pose_timer > 0:
@@ -30267,7 +30279,19 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         sk.update(root_pos=(125.0, 56.0))
 
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+
+    # ── VFX: 에너지 코어 HP 연동 + 바이저 깜빡임 정보를 스킨에 전달 ──
+    skin._vfx_energy_core = vfx.energy_core
+    skin._vfx_visor_blink_alpha = vfx.idle_sub_motions.visor_blink_alpha
+
     skin.draw_all(surface, sk, phase)
+
+    # ── VFX: 스윙 트레일 (캐릭터 Surface 위에) ──
+    vfx.draw_char_effects(surface, SMASHER_PALETTE)
+
+    # ── VFX: 림 라이트 (캐릭터 외곽 발광) ──
+    surface = vfx.post_process(surface, SMASHER_PALETTE)
+
     return surface
 
 
@@ -30276,6 +30300,7 @@ def _reset_skeletal_skin():
     global _skeletal_skin, _skeletal_skeleton
     _skeletal_skeleton = _get_smasher_skeleton(force_recreate=True)
     _skeletal_skin = _create_smasher_skin()
+    _reset_smasher_vfx()
 
 
 # ========== 아케이드 캐릭터 아이들 애니메이션 시스템 ==========
@@ -45292,6 +45317,19 @@ def trigger_smasher_contact_animation(offset_x: float) -> None:
     else:
         smasher_left_raise_timer = SMASHER_LEFT_RAISE_DURATION
         smasher_shield_raise_timer = 0
+
+    # ── VFX: 스윙 트레일 + 방패 충격파 트리거 ──
+    try:
+        _vfx = _get_smasher_vfx()
+        # 타격 지점 (패들 중심 + offset)
+        hit_x = int(PLAYER.centerx + offset_x)
+        hit_y = int(PLAYER.top)
+        _vfx.trigger_swing((hit_x, hit_y))
+        if offset_x >= 0:
+            # 오른쪽 타격 → 방패 충격파
+            _vfx.trigger_shield_hit((hit_x, hit_y))
+    except Exception:
+        pass
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -101229,6 +101267,25 @@ def draw_objects():
                 else:
                     base_ufo_img = _apply_character_idle_effects(OPTIMUS_PADDLE_IMG, "optimus")
         elif selected_character_type == "smasher":
+            # ── VFX 상태 갱신 ──
+            _smasher_vfx = _get_smasher_vfx()
+            _smasher_dt = 1.0 / max(1, FPS)  # 프레임 dt
+            _smasher_is_moving = smasher_walking_active
+            _smasher_is_idle = not _smasher_is_moving and smasher_hit_pose_timer <= 0
+            _smasher_vfx.update(
+                _smasher_dt,
+                is_idle=_smasher_is_idle,
+                is_moving=_smasher_is_moving,
+                board_cx=float(PLAYER.centerx),
+                board_y=float(PLAYER.bottom),
+                weapon_pos=(int(PLAYER.centerx - 30), int(PLAYER.top)),
+            )
+            # HP 연동
+            try:
+                _smasher_vfx.set_hp(float(HP), float(MAX_HP))
+            except Exception:
+                pass
+
             if smasher_walking_active:
                 base_ufo_img = create_smasher_paddle_walking()
             elif smasher_hit_pose_timer > 0:
@@ -101475,6 +101532,18 @@ def draw_objects():
         pass
     # 대쉬 중일 때 잔상 추가 (오딘의 눈 변신 상태가 아닐 때만)
     if rolling_active and rolling_timer > 0 and not _skip_dash_afterimage:
+        # ── VFX: 스매셔 대시 잔상 + 스피드라인 (첫 프레임만) ──
+        if selected_character_type == "smasher":
+            try:
+                _dash_vfx = _get_smasher_vfx()
+                if not _dash_vfx.dash_afterimage.active:
+                    _dash_vfx.trigger_dash(
+                        rotated_player,
+                        (PLAYER.centerx, PLAYER.centery),
+                        rolling_direction,
+                    )
+            except Exception:
+                pass
         # 대쉬 방향에 따른 잔상 생성 위치
         afterimage_x = PLAYER.centerx
         afterimage_y = PLAYER.centery
@@ -102821,6 +102890,19 @@ def draw_objects():
             draw_recovery_paddle_overlay(SCREEN, player_rect)
         except Exception as e:
             pass  # 에러 무시
+
+    # ── 스매셔 VFX: 월드 공간 이펙트 (파티클, 대시 잔상, 방패 리플, 보드 감속) ──
+    if selected_character_type == "smasher":
+        try:
+            _smasher_vfx_draw = _get_smasher_vfx()
+            _smasher_vfx_draw.draw_world_effects(
+                SCREEN,
+                float(PLAYER.centerx),
+                float(PLAYER.centery),
+                SMASHER_PALETTE,
+            )
+        except Exception:
+            pass
 
     # ===============================================================
     # 🎮 플레이어 근처 미니 스킬 게이지 바 + 대쉬 토큰 (제거됨)

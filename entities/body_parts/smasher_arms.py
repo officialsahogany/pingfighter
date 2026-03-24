@@ -13,7 +13,8 @@ from typing import Optional
 
 
 def _draw_arm(surface: pygame.Surface, shoulder: tuple, elbow: tuple,
-              wrist: tuple, palette: dict, b: int, phase: float, side: str):
+              wrist: tuple, palette: dict, b: int, phase: float, side: str,
+              energy_core=None):
     """좌/우 공용 팔 렌더링 (3단 레이어 + LED + 리벳)."""
 
     # ── 상완: 3단 (그림자 → 베이스 → 하이라이트) ──
@@ -35,10 +36,15 @@ def _draw_arm(surface: pygame.Surface, shoulder: tuple, elbow: tuple,
                       elbow, max(2, b // 2))                               # 베이스
     pygame.draw.circle(surface, (220, 230, 245), elbow, max(1, b // 3))    # 하이라이트
 
-    # ── 관절 LED 블룸 (팔꿈치) ──
-    led_pulse = 0.5 + 0.5 * math.sin(phase * math.tau * 3 + (0 if side == "left" else math.pi))
+    # ── 관절 LED 블룸 (팔꿈치, HP 연동) ──
+    if energy_core:
+        _led_speed = energy_core.get_pulse_speed()
+        led_color = energy_core.get_core_color(palette.get("accent", (118, 214, 255)))
+    else:
+        _led_speed = 3.0
+        led_color = palette.get("accent", (118, 214, 255))
+    led_pulse = 0.5 + 0.5 * math.sin(phase * math.tau * _led_speed + (0 if side == "left" else math.pi))
     led_r = max(2, int(b * 0.25))
-    led_color = palette.get("accent", (118, 214, 255))
     glow_size = led_r * 4
     glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
     glow_alpha = int(40 * led_pulse)
@@ -75,9 +81,10 @@ class SmasherLeftArmPart(BodyPart):
         elbow_joint = next((c for c in joint_a.children if c.name == "l_elbow"), None)
         if not elbow_joint:
             return
+        _ec = getattr(getattr(self, '_skin_ref', None), '_vfx_energy_core', None)
         _draw_arm(surface, joint_a.world_int(), elbow_joint.world_int(),
                   joint_b.world_int() if joint_b else elbow_joint.world_int(),
-                  palette, self.block, phase, "left")
+                  palette, self.block, phase, "left", energy_core=_ec)
 
 
 class SmasherRightArmPart(BodyPart):
@@ -91,6 +98,7 @@ class SmasherRightArmPart(BodyPart):
         elbow_joint = next((c for c in joint_a.children if c.name == "r_elbow"), None)
         if not elbow_joint:
             return
+        _ec = getattr(getattr(self, '_skin_ref', None), '_vfx_energy_core', None)
         _draw_arm(surface, joint_a.world_int(), elbow_joint.world_int(),
                   joint_b.world_int() if joint_b else elbow_joint.world_int(),
-                  palette, self.block, phase, "right")
+                  palette, self.block, phase, "right", energy_core=_ec)
