@@ -1685,6 +1685,16 @@ ITEM_TYPES = [
         "duration": 0,
         "unlock_condition": None,
         "body_part": "accessory"  # 장신구 부위
+    },
+    {
+        "name": "lucky_coin",  # 럭키코인 패시브 아이템 (장신구 부위)
+        "color": (255, 223, 0),  # 금화 색상
+        "effect": "lucky_coin",
+        "icon": None,
+        "chance": 0.004,  # 0.4% 스폰 확률
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "accessory"  # 장신구 부위
     }
 ]
 
@@ -1740,6 +1750,7 @@ knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 gold_bar_obtained = False  # 금괴 아이템 획득 여부
 gold_digger_obtained = False  # 골드디거 아이템 획득 여부
 hero_seal_obtained = False  # 호위무사 인장 획득 여부 (여러 개 소지 가능)
+lucky_coin_obtained = False  # 럭키코인 아이템 획득 여부
 
 
 active_item_slot = None
@@ -1811,6 +1822,7 @@ unlocked_items = {
     # 패시브 아이템
     "knee_pads": True,
     "gold_digger": True,
+    "lucky_coin": True,
 
     # 액티브 아이템
     "regeneration_potion": True,  # 재생물약
@@ -1826,7 +1838,7 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
     "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest",
     "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle",
-    "smartphone", "knee_pads", "gold_digger",
+    "smartphone", "knee_pads", "gold_digger", "lucky_coin",
     "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
     "sacred_laurel", "transcendent_crown", "odins_eye",
     "hero_seal"
@@ -1886,12 +1898,13 @@ def reset_items():
     sensor_obtained = False  # sensor 획득 상태 초기화
     
     global dowsing_pendulum_obtained, commando_arm_obtained, commando_arm_count, technical_vest_obtained
-    global gold_digger_obtained
+    global gold_digger_obtained, lucky_coin_obtained
     dowsing_pendulum_obtained = False  # dowsing_pendulum 획득 상태 초기화
     commando_arm_obtained = False  # commando_arm 획득 상태 초기화
     commando_arm_count = 0         # commando_arm 스택 초기화
     technical_vest_obtained = False  # technical_vest 획득 상태 초기화
     gold_digger_obtained = False  # gold_digger 획득 상태 초기화
+    lucky_coin_obtained = False  # lucky_coin 획득 상태 초기화
 
     # 전설 아이템 획득 상태는 게임 세션 동안 유지되므로 초기화하지 않음
     # (한 번 획득한 전설 아이템은 더 이상 필드에 나타나지 않도록 함)
@@ -1924,12 +1937,19 @@ def reset_items():
     except Exception:
         pass
 
+    try:
+        from item_effects.lucky_coin import reset_lucky_coin
+
+        reset_lucky_coin()
+    except Exception:
+        pass
+
 
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained
-    
+    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained, lucky_coin_obtained
+
     debug_spawn = os.environ.get("PINGF_DEBUG_ITEMS", "0").lower() in ("1", "true", "yes", "on")
     if debug_spawn:
         # 디버그: 포세이돈 플래그 상태 출력
@@ -2051,6 +2071,9 @@ def spawn_random_item():
         if item["name"] == "gold_digger" and gold_digger_obtained and not _allow_duplicate_passive("gold_digger"):
             continue
 
+        if item["name"] == "lucky_coin" and lucky_coin_obtained and not _allow_duplicate_passive("lucky_coin"):
+            continue
+
         # gold_bar 중복 스폰 방지
         if item["name"] == "gold_bar" and gold_bar_obtained:
             continue
@@ -2108,7 +2131,7 @@ def spawn_random_item():
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye",
-        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger"
+        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin"
     }
 
     for item in available_items:
@@ -2228,6 +2251,70 @@ def spawn_random_item():
 
         # 신성 월계수도 동일하게 초기화만 수행해 아이콘 애니메이션이 가능하도록 함
 
+        # 럭키코인 효과: 확률적으로 보너스 아이템 1개 추가 스폰
+        try:
+            from item_effects.lucky_coin import should_double_spawn
+            if should_double_spawn():
+                _spawn_bonus_item(available_items, skill_spawn_boost)
+        except Exception:
+            pass
+
+
+def _spawn_bonus_item(available_items, skill_spawn_boost=1.0):
+    """럭키코인 더블 스폰용 보너스 아이템 생성 (럭키코인 자체는 제외)"""
+    import random as _rng
+
+    # 럭키코인을 제외한 아이템 목록으로 가중치 계산
+    candidates = []
+    for item in available_items:
+        if item["name"] == "lucky_coin":
+            continue  # 럭키코인이 또 나오는 건 방지
+        w = item["chance"] * skill_spawn_boost
+        if w > 0:
+            candidates.append((item, w))
+
+    if not candidates:
+        return
+
+    total = sum(w for _, w in candidates)
+    if total <= 0:
+        return
+
+    roll = _rng.random() * total
+    acc = 0.0
+    bonus_item = None
+    for item, w in candidates:
+        acc += w
+        if roll <= acc:
+            bonus_item = item
+            break
+
+    if bonus_item is None:
+        return
+
+    # 첫 번째 아이템과 약간 다른 위치에서 스폰 (겹침 방지)
+    offset_x = _rng.choice([-40, -30, 30, 40])
+    offset_y = _rng.choice([-40, -30, 30, 40])
+    x = WIDTH // 2 + offset_x
+    y = HEIGHT // 2 + offset_y
+    vel = [_rng.choice([-4, -3, 3, 4]), _rng.choice([-4, -3, 3, 4])]
+
+    item_type_copy = bonus_item.copy()
+    item_type_copy["revealed"] = False
+
+    new_item = {
+        "x": x,
+        "y": y,
+        "vel": vel,
+        "type": item_type_copy,
+        "timer": bonus_item["duration"],
+        "bounce_count": 0,
+        "max_bounces": _rng.randint(6, 9),
+        "angle": 0
+    }
+    item_list.append(new_item)
+
+
 def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None, paused=False, on_item_collect_callback=None):
     global item_list, angel_blessing_obtained, ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, sacred_laurel_obtained, transcendent_crown_obtained, odins_eye_obtained
     new_items = []
@@ -2298,7 +2385,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {

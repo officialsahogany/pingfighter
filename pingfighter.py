@@ -24592,6 +24592,7 @@ ITEM_SLOT_BASE_MAP = {
     "revival": "accessory",
     "gold_bar": "accessory",
     "gold_digger": "arm",
+    "lucky_coin": "accessory",
     "dowsing_pendulum": "등",
     "stopwatch": "accessory",
     "devil_dice": "accessory",
@@ -24669,6 +24670,9 @@ PASSIVE_OPTION_RANGES = {
     ],
     "gold_digger": [
         {"label": "골드 획득량", "min": 30, "max": 70, "unit": "%", "prefix": "+", "key": "gold_bonus_pct"},
+    ],
+    "lucky_coin": [
+        {"label": "더블 스폰 확률", "min": 5, "max": 15, "unit": "%", "prefix": "", "key": "double_spawn_pct"},
     ],
 }
 
@@ -24767,6 +24771,7 @@ chargebag_bonus_pct = 20
 knee_pads_charge_pct = 50
 fuel_pouch_bonus = 100
 gold_digger_bonus_pct = 50  # 골드 획득량 (30~70% 범위, 기본값 50%)
+lucky_coin_double_spawn_pct = 10  # 더블 스폰 확률 (5~15% 범위, 기본값 10%)
 
 _BASE_SLOT_LABELS = {
     "head": "머리",
@@ -25051,6 +25056,7 @@ def _reset_roll_bonuses_to_default():
     globals()["spiked_helmet_knockback_resist_pct"] = 0
     globals()["dashholder_count"] = 0
     globals()["gold_digger_bonus_pct"] = 50  # 골드디거 기본값
+    globals()["lucky_coin_double_spawn_pct"] = 10  # 럭키코인 기본값
     # 테크니컬조끼 기본 롤 값(연막)
     try:
         from item_effects.technical_vest import configure_technical_vest
@@ -25536,6 +25542,17 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
                 from item_effects.gold_digger import get_gold_digger_instance
                 digger = get_gold_digger_instance()
                 digger.gold_bonus = val / 100.0  # 퍼센트를 소수로 변환
+            except Exception:
+                pass
+    elif name == "lucky_coin":
+        # 럭키코인 롤옵션 적용 (더블 스폰 확률)
+        val = _get_roll_value(item, "double_spawn_pct")
+        if val is not None:
+            globals()["lucky_coin_double_spawn_pct"] = val
+            try:
+                from item_effects.lucky_coin import get_lucky_coin_instance
+                coin = get_lucky_coin_instance()
+                coin.set_chance(val)
             except Exception:
                 pass
 
@@ -29529,7 +29546,64 @@ smasher_shield_raise_timer = 0
 smasher_left_raise_timer = 0
 smasher_swing_intensity = 1.0  # 스윙 강도 (일반=1.0, 드라이브=1.5, 파워스매싱=2.0)
 
+
+# === 스매셔 공용 유틸리티 (구형/신형 렌더링 양쪽에서 사용) ===
+
+def _smasher_rotate_point(origin: tuple[float, float], point: tuple[float, float], degrees: float) -> tuple[float, float]:
+    """주어진 점을 화면 좌표계 기준으로 시계 방향 회전"""
+    radians = math.radians(degrees)
+    cos_v = math.cos(radians)
+    sin_v = math.sin(radians)
+    ox, oy = origin
+    px, py = point
+    translated_x = px - ox
+    translated_y = py - oy
+    return ox + translated_x * cos_v - translated_y * sin_v, oy + translated_x * sin_v + translated_y * cos_v
+
+
+def _smasher_lerp_point(start: tuple[float, float], end: tuple[float, float], t: float) -> tuple[float, float]:
+    return start[0] + (end[0] - start[0]) * t, start[1] + (end[1] - start[1]) * t
+
+
+def _smasher_to_int(point: tuple[float, float]) -> tuple[int, int]:
+    return int(round(point[0])), int(round(point[1]))
+
+
+def _smasher_regular_polygon(center: tuple[float, float], radius: float, *, sides: int = 5, rotation_deg: float = -90.0) -> list[tuple[float, float]]:
+    rotation = math.radians(rotation_deg)
+    return [
+        (
+            center[0] + radius * math.cos(rotation + i * math.tau / sides),
+            center[1] + radius * math.sin(rotation + i * math.tau / sides),
+        )
+        for i in range(sides)
+    ]
+
+
+def _smasher_bell_strength(timer: int, base_duration: int, intensity: float = 1.0) -> float:
+    """타이머 기반 0→1→0 벨 커브 강도 계산 (intensity로 duration 스케일 + 피크 유지 조절)."""
+    eff_duration = max(1, int(base_duration * intensity))
+    if eff_duration <= 0 or timer <= 0:
+        return 0.0
+    normalized = 1.0 - (timer / eff_duration)
+    normalized = max(0.0, min(1.0, normalized))
+    strength = normalized * 2.0 if normalized < 0.5 else (1.0 - normalized) * 2.0
+    strength = max(0.0, min(1.0, strength))
+    exp = max(0.3, 0.7 / max(1.0, intensity))
+    return strength ** exp
+
+
+def _smasher_hit_ratio(timer: int, base_duration: int, intensity: float = 1.0) -> float:
+    """히트 포즈용 ratio 계산 (타이머/유효duration, 0~1 클램프)."""
+    eff_duration = max(1, int(base_duration * intensity))
+    if eff_duration <= 0:
+        return 0.0
+    return max(0.0, min(1.0, timer / eff_duration))
+
+
 def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
+    """구형 절차적 스매셔 렌더링 — 정적 이미지 전용 (카드, 미리보기, 스킬 UI).
+    실시간 인게임 렌더링은 _render_skeletal_smasher() 사용."""
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     block = 9
     center_x = surface.get_width() // 2
@@ -29537,69 +29611,15 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
 
-    _si = smasher_swing_intensity  # 스윙 강도 (드라이브/파워스매싱 시 증가)
-    hit_pose_duration = int(SMASHER_HIT_POSE_DURATION * _si)
-    hit_pose_timer_value = smasher_hit_pose_timer
-    hit_pose_ratio = 0.0
-    if hit_pose_duration > 0:
-        hit_pose_ratio = max(0.0, min(1.0, hit_pose_timer_value / hit_pose_duration))
+    _si = smasher_swing_intensity
+    hit_pose_ratio = _smasher_hit_ratio(smasher_hit_pose_timer, SMASHER_HIT_POSE_DURATION, _si)
+    shield_raise_strength = _smasher_bell_strength(smasher_shield_raise_timer, SMASHER_SHIELD_RAISE_DURATION, _si)
+    left_raise_strength = _smasher_bell_strength(smasher_left_raise_timer, SMASHER_LEFT_RAISE_DURATION, _si)
 
-    shield_raise_duration = int(SMASHER_SHIELD_RAISE_DURATION * _si)
-    shield_raise_timer_value = smasher_shield_raise_timer
-    shield_raise_strength = 0.0
-    if shield_raise_duration > 0 and shield_raise_timer_value > 0:
-        normalized = 1.0 - (shield_raise_timer_value / shield_raise_duration)
-        normalized = max(0.0, min(1.0, normalized))
-        if normalized < 0.5:
-            shield_raise_strength = normalized * 2.0
-        else:
-            shield_raise_strength = (1.0 - normalized) * 2.0
-        shield_raise_strength = max(0.0, min(1.0, shield_raise_strength))
-        _exp = max(0.3, 0.7 / _si)  # 강도 높을수록 피크 유지 길게
-        shield_raise_strength = shield_raise_strength ** _exp
-
-    left_raise_duration = int(SMASHER_LEFT_RAISE_DURATION * _si)
-    left_raise_timer_value = smasher_left_raise_timer
-    left_raise_strength = 0.0
-    if left_raise_duration > 0 and left_raise_timer_value > 0:
-        normalized = 1.0 - (left_raise_timer_value / left_raise_duration)
-        normalized = max(0.0, min(1.0, normalized))
-        if normalized < 0.5:
-            left_raise_strength = normalized * 2.0
-        else:
-            left_raise_strength = (1.0 - normalized) * 2.0
-        left_raise_strength = max(0.0, min(1.0, left_raise_strength))
-        _exp = max(0.3, 0.7 / _si)
-        left_raise_strength = left_raise_strength ** _exp
-
-    def rotate_point(origin: tuple[float, float], point: tuple[float, float], degrees: float) -> tuple[float, float]:
-        """주어진 점을 화면 좌표계 기준으로 시계 방향 회전"""
-        radians = math.radians(degrees)
-        cos_v = math.cos(radians)
-        sin_v = math.sin(radians)
-        ox, oy = origin
-        px, py = point
-        translated_x = px - ox
-        translated_y = py - oy
-        rotated_x = translated_x * cos_v - translated_y * sin_v
-        rotated_y = translated_x * sin_v + translated_y * cos_v
-        return ox + rotated_x, oy + rotated_y
-
-    def lerp_point(start: tuple[float, float], end: tuple[float, float], t: float) -> tuple[float, float]:
-        return start[0] + (end[0] - start[0]) * t, start[1] + (end[1] - start[1]) * t
-
-    def to_int_point(point: tuple[float, float]) -> tuple[int, int]:
-        return int(round(point[0])), int(round(point[1]))
-
-    def regular_polygon_points(center: tuple[float, float], radius: float, *, sides: int = 5, rotation_deg: float = -90.0) -> list[tuple[float, float]]:
-        rotation = math.radians(rotation_deg)
-        return [
-            (
-                center[0] + radius * math.cos(rotation + i * math.tau / sides),
-                center[1] + radius * math.sin(rotation + i * math.tau / sides),
-            )
-            for i in range(sides)
-        ]
+    rotate_point = _smasher_rotate_point
+    lerp_point = _smasher_lerp_point
+    to_int_point = _smasher_to_int
+    regular_polygon_points = _smasher_regular_polygon
 
     phase = _resolve_mecha_phase(step_phase)
     wave = math.sin(phase * math.tau)
@@ -30193,34 +30213,21 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
                 base_pose[joint_name] = base_pose.get(joint_name, 0.0) + angle_delta
 
     # 타격 포즈 레이어
+    _si = smasher_swing_intensity
     if smasher_hit_pose_timer > 0:
-        _si = smasher_swing_intensity
-        _eff_hit_dur = max(1, int(SMASHER_HIT_POSE_DURATION * _si))
-        hit_ratio = max(0.0, min(1.0, smasher_hit_pose_timer / _eff_hit_dur))
+        hit_ratio = _smasher_hit_ratio(smasher_hit_pose_timer, SMASHER_HIT_POSE_DURATION, _si)
         hit_pose = motion.get_hit_pose(1.0 - hit_ratio)
         base_pose = Skeleton.layer_pose(base_pose, hit_pose, mask=UPPER_BODY_JOINTS)
 
     # 방패 들기 레이어
     if smasher_shield_raise_timer > 0:
-        _si = smasher_swing_intensity
-        _eff_shield_dur = max(1, int(SMASHER_SHIELD_RAISE_DURATION * _si))
-        normalized = 1.0 - (smasher_shield_raise_timer / _eff_shield_dur)
-        normalized = max(0.0, min(1.0, normalized))
-        strength = (normalized * 2.0 if normalized < 0.5 else (1.0 - normalized) * 2.0)
-        _exp = max(0.3, 0.7 / _si)
-        strength = max(0.0, min(1.0, strength)) ** _exp
+        strength = _smasher_bell_strength(smasher_shield_raise_timer, SMASHER_SHIELD_RAISE_DURATION, _si)
         shield_pose = motion.get_shield_raise_pose(strength)
         base_pose = Skeleton.layer_pose(base_pose, shield_pose, mask={"r_shoulder", "r_elbow", "r_wrist"})
 
     # 왼팔 들기 레이어
     if smasher_left_raise_timer > 0:
-        _si = smasher_swing_intensity
-        _eff_left_dur = max(1, int(SMASHER_LEFT_RAISE_DURATION * _si))
-        normalized = 1.0 - (smasher_left_raise_timer / _eff_left_dur)
-        normalized = max(0.0, min(1.0, normalized))
-        strength = (normalized * 2.0 if normalized < 0.5 else (1.0 - normalized) * 2.0)
-        _exp = max(0.3, 0.7 / _si)
-        strength = max(0.0, min(1.0, strength)) ** _exp
+        strength = _smasher_bell_strength(smasher_left_raise_timer, SMASHER_LEFT_RAISE_DURATION, _si)
         left_pose = motion.get_left_raise_pose(strength)
         base_pose = Skeleton.layer_pose(base_pose, left_pose, mask={"l_shoulder", "l_elbow", "l_wrist"})
 
@@ -73969,7 +73976,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -74010,7 +74017,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin"]:
         return
 
     # 최대 3개까지만 보관
@@ -74964,6 +74971,18 @@ def store_passive_item(item_data):
         bonus_pct = gold_digger_bonus_pct
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # print(f"⛏️ 골드디거 획득! 골드 획득량 +{bonus_pct}% 증가!")
+    elif item_data["name"] == "lucky_coin":
+        # 럭키코인 패시브 아이템 획득 (장신구 부위, 아이템 더블 스폰 5~15%)
+        # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
+        if not items.lucky_coin_obtained:
+            items.lucky_coin_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "lucky_coin")
+            from item_effects.lucky_coin import activate_lucky_coin
+            activate_lucky_coin()
+        item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "hero_seal":
         # 호위무사 인장 (투기장 우승 보상)
         # 중복 소지 가능 (여러 영웅 인장 소유 가능)
@@ -156635,7 +156654,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "hero_seal": "호위무사의 인장",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -156713,6 +156732,7 @@ def get_item_description(item_name):
         "sensor": "위험감지벨트: 위험 시 자동으로 대쉬를 시전합니다.",
         "dashholder": "대쉬홀더: 대쉬토큰을 추가로 얻습니다.",
         "dowsing_pendulum": "다우징팬들럼: 주위 아이템을 끌어당깁니다.",
+        "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 2개 동시에 나타납니다.",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
