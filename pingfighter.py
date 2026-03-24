@@ -30206,10 +30206,6 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
     import math as _m
     _b = 9  # block size
 
-    # ── 부유 모션 (캐릭터+보드 전체가 위아래로 둥실둥실) ──
-    _float_phase = (pygame.time.get_ticks() / 800.0) % 1.0
-    _float_y = _m.sin(_float_phase * _m.tau) * 5.0  # ±5px 부유 (확실히 보이게)
-
     if not is_idle:
         _wave = _m.sin(phase * _m.tau)
         _abs_wave = abs(_wave)
@@ -30266,13 +30262,11 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         if _rh:
             _rh.local_pos = (int(0.8 * _b), int(0.7 * _b) + _right_leg_lift)
 
-        # 루트에 부유 + 스웨이 적용 (캐릭터+보드 전체가 움직임)
-        sk.update(root_pos=(125.0 + _hip_sway * 0.3, 56.0 + _float_y))
+        sk.update(root_pos=(125.0 + _hip_sway * 0.3, 56.0))
     else:
-        # idle: 부유만 적용
-        sk.update(root_pos=(125.0, 56.0 + _float_y))
+        sk.update(root_pos=(125.0, 56.0))
 
-    surface = pygame.Surface((250, 130), pygame.SRCALPHA)  # 높이 여유 (부유 ±5px용)
+    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     skin.draw_all(surface, sk, phase)
     return surface
 
@@ -101434,6 +101428,11 @@ def draw_objects():
         delta_y = target_bottom - content_bottom
         if delta_y != 0:
             player_rect.y += delta_y
+        # 스매셔: 부유 모션 (bottom 핀 후에 적용해야 상쇄되지 않음)
+        if selected_character_type == "smasher":
+            _smasher_float_phase = (pygame.time.get_ticks() / 1600.0) % 1.0
+            _smasher_float_y = int(math.sin(_smasher_float_phase * math.tau) * 5)
+            player_rect.y += _smasher_float_y
         # 옵티머스: 충전 해제 후 0.5초 동안 패들 흔들림 적용
         if selected_character_type == "optimus":
             if optimus_charge_shake_until_ms > pygame.time.get_ticks():
