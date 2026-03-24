@@ -97,33 +97,33 @@ class DashAfterimage:
         """대시 시작 시 호출."""
         self.active = True
         self.direction = direction
-        # 고스트 잔상 3개 생성
+        # 고스트 잔상 2개 (가볍게)
         tinted = char_surface.copy()
         blue_overlay = pygame.Surface(tinted.get_size(), pygame.SRCALPHA)
-        blue_overlay.fill((80, 160, 255, 60))
+        blue_overlay.fill((80, 160, 255, 30))
         tinted.blit(blue_overlay, (0, 0))
 
-        for i in range(3):
+        for i in range(2):
             self.ghosts.append({
                 "surface": tinted.copy(),
-                "pos": (pos[0] - direction * (i + 1) * 12, pos[1]),
-                "alpha": 150 - i * 40,
+                "pos": (pos[0] - direction * (i + 1) * 10, pos[1]),
+                "alpha": 80 - i * 25,
                 "age": 0.0,
-                "max_age": 0.25 + i * 0.08,
+                "max_age": 0.18 + i * 0.06,
             })
 
-        # 스피드라인 생성
+        # 스피드라인 3개 (가볍게)
         import random
-        for _ in range(6):
-            y_off = random.randint(-30, 30)
-            length = random.randint(15, 40)
+        for _ in range(3):
+            y_off = random.randint(-20, 20)
+            length = random.randint(10, 25)
             self.speedlines.append({
-                "x": pos[0] - direction * random.randint(5, 25),
+                "x": pos[0] - direction * random.randint(5, 20),
                 "y": pos[1] + y_off,
                 "length": length,
-                "alpha": random.randint(100, 200),
+                "alpha": random.randint(60, 120),
                 "age": 0.0,
-                "max_age": 0.2 + random.random() * 0.15,
+                "max_age": 0.15 + random.random() * 0.1,
             })
 
     def update(self, dt: float):
@@ -270,14 +270,14 @@ class ShieldRipple:
 def apply_rim_light(surface: pygame.Surface,
                     color: tuple = (120, 200, 255),
                     thickness: int = 1,
-                    alpha: int = 80) -> pygame.Surface:
-    """캐릭터 Surface의 알파 외곽을 따라 발광 윤곽선을 그림.
+                    alpha: int = 40) -> pygame.Surface:
+    """캐릭터 Surface의 알파 외곽을 따라 은은한 발광 윤곽선을 그림.
 
     Args:
         surface: 원본 SRCALPHA Surface (수정하지 않음)
         color: 림 라이트 색상
         thickness: 외곽선 두께
-        alpha: 밝기 (0~255)
+        alpha: 밝기 (0~255) — 기본 40으로 은은하게
 
     Returns:
         림 라이트가 적용된 새 Surface.
@@ -287,29 +287,19 @@ def apply_rim_light(surface: pygame.Surface,
 
     # 알파 마스크 추출
     mask = pygame.mask.from_surface(surface, 50)
-    outline_points = mask.outline(every=2)
+    outline_points = mask.outline(every=3)
 
     if len(outline_points) < 3:
         return result
 
-    # 외곽선 Surface 생성
+    # 외곽선만 그림 (글로우 레이어 제거 — ADD 블렌딩 없이 일반 blit)
     outline_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-
-    # 외곽 포인트 연결
     for i in range(len(outline_points)):
         p1 = outline_points[i]
         p2 = outline_points[(i + 1) % len(outline_points)]
         pygame.draw.line(outline_surf, (*color, alpha), p1, p2, thickness)
 
-    # 글로우 레이어 (확장된 외곽)
-    glow_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    for i in range(len(outline_points)):
-        p1 = outline_points[i]
-        p2 = outline_points[(i + 1) % len(outline_points)]
-        pygame.draw.line(glow_surf, (*color, alpha // 3), p1, p2, thickness + 2)
-
-    result.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-    result.blit(outline_surf, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+    result.blit(outline_surf, (0, 0))  # 일반 알파 블렌딩 (ADD 아님)
 
     return result
 
@@ -635,17 +625,17 @@ class SmasherVFXManager:
         """캐릭터 Surface에 림 라이트 등 후처리 적용."""
         result = surface
         if self._rim_light_enabled:
-            # HP에 따라 림 라이트 색상 변화
+            # HP에 따라 림 라이트 색상 변화 (은은하게)
             hp = self.energy_core.hp_ratio
             if hp > 0.6:
                 rim_color = self._rim_light_color
-                rim_alpha = 70
+                rim_alpha = 30
             elif hp > 0.3:
                 rim_color = (200, 200, 100)
-                rim_alpha = 90
+                rim_alpha = 40
             else:
                 rim_color = (255, 100, 80)
-                rim_alpha = 110
+                rim_alpha = 50
             result = apply_rim_light(result, rim_color, thickness=1, alpha=rim_alpha)
         return result
 
