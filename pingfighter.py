@@ -23120,7 +23120,7 @@ def arena_draw_speech_bubbles():
                 BOSS.centerx, BOSS.bottom + 15,
                 arena_top_speech_text, is_top=True
             )
-        arena_top_speech_timer -= 1
+        arena_top_speech_timer -= arena_speed_multiplier
 
     # 하단 영웅 말풍선 (플레이어 위치 - 패들 위에 표시)
     if arena_bottom_speech_timer > 0 and arena_bottom_speech_text:
@@ -23136,7 +23136,7 @@ def arena_draw_speech_bubbles():
                 PLAYER.centerx, PLAYER.top - 70,
                 arena_bottom_speech_text, is_top=False
             )
-        arena_bottom_speech_timer -= 1
+        arena_bottom_speech_timer -= arena_speed_multiplier
 
 
 def _draw_arena_speech_bubble(x: float, y: float, text: str, is_top: bool):
@@ -30066,9 +30066,9 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 
 def create_smasher_paddle_walking() -> pygame.Surface:
     if SMASHER_WALKING_CYCLE <= 0:
-        return create_smasher_paddle_surface()
+        return _render_skeletal_smasher()
     phase = (smasher_walking_timer % SMASHER_WALKING_CYCLE) / SMASHER_WALKING_CYCLE
-    return create_smasher_paddle_surface(phase)
+    return _render_skeletal_smasher(phase)
 
 
 def create_optimus_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
@@ -30132,6 +30132,71 @@ def apply_optimus_charge_overlay(surface: pygame.Surface, time_now: int) -> pyga
 
 SMASHER_PADDLE_IMG = create_smasher_paddle_surface()
 OPTIMUS_PADDLE_IMG = create_optimus_paddle_surface()
+
+# ========== 뼈대 스프라이트 시스템 (Skeletal Sprite System) ==========
+from entities.player_skeleton import Skeleton, UPPER_BODY_JOINTS
+from entities.body_parts.smasher_skin import (
+    get_smasher_skeleton as _get_smasher_skeleton,
+    create_smasher_skin as _create_smasher_skin,
+    SMASHER_PALETTE,
+)
+from entities.body_parts.item_parts_registry import (
+    apply_item_to_skin as _apply_item_to_skin,
+    remove_item_from_skin as _remove_item_to_skin,
+    VISUAL_ITEM_NAMES as _VISUAL_ITEM_NAMES,
+)
+
+_skeletal_skeleton = _get_smasher_skeleton()
+_skeletal_skin = _create_smasher_skin()
+
+
+def _render_skeletal_smasher(step_phase: float = 0.0) -> pygame.Surface:
+    """뼈대 시스템으로 스매셔를 렌더링 (기존 create_smasher_paddle_surface 대체)."""
+    sk = _skeletal_skeleton
+    skin = _skeletal_skin
+    motion = skin.motion
+
+    phase = 0.0 if step_phase is None else float(step_phase) % 1.0
+
+    # 걷기 포즈
+    base_pose = motion.get_walk_pose(phase)
+
+    # 타격 포즈 레이어
+    if smasher_hit_pose_timer > 0:
+        hit_ratio = max(0.0, min(1.0, smasher_hit_pose_timer / SMASHER_HIT_POSE_DURATION))
+        hit_pose = motion.get_hit_pose(1.0 - hit_ratio)
+        base_pose = Skeleton.layer_pose(base_pose, hit_pose, mask=UPPER_BODY_JOINTS)
+
+    # 방패 들기 레이어
+    if smasher_shield_raise_timer > 0:
+        normalized = 1.0 - (smasher_shield_raise_timer / SMASHER_SHIELD_RAISE_DURATION)
+        normalized = max(0.0, min(1.0, normalized))
+        strength = (normalized * 2.0 if normalized < 0.5 else (1.0 - normalized) * 2.0)
+        strength = max(0.0, min(1.0, strength)) ** 0.7
+        shield_pose = motion.get_shield_raise_pose(strength)
+        base_pose = Skeleton.layer_pose(base_pose, shield_pose, mask={"r_shoulder", "r_elbow", "r_wrist"})
+
+    # 왼팔 들기 레이어
+    if smasher_left_raise_timer > 0:
+        normalized = 1.0 - (smasher_left_raise_timer / SMASHER_LEFT_RAISE_DURATION)
+        normalized = max(0.0, min(1.0, normalized))
+        strength = (normalized * 2.0 if normalized < 0.5 else (1.0 - normalized) * 2.0)
+        strength = max(0.0, min(1.0, strength)) ** 0.7
+        left_pose = motion.get_left_raise_pose(strength)
+        base_pose = Skeleton.layer_pose(base_pose, left_pose, mask={"l_shoulder", "l_elbow", "l_wrist"})
+
+    sk.apply_pose(base_pose)
+    sk.update(root_pos=(125.0, 56.0))
+
+    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    skin.draw_all(surface, sk, phase)
+    return surface
+
+
+def _reset_skeletal_skin():
+    """게임 리셋 시 스킨을 기본 상태로 복원."""
+    global _skeletal_skin
+    _skeletal_skin = _create_smasher_skin()
 
 
 # ========== 아케이드 캐릭터 아이들 애니메이션 시스템 ==========
@@ -71143,7 +71208,7 @@ def handle_player(keys):
                         arena_bottom_confusion_target = random.randint(PLAYER.width // 2, WIDTH - PLAYER.width // 2)
                         arena_bottom_confusion_timer = 0
                     # 30프레임마다 새로운 랜덤 위치 선택
-                    arena_bottom_confusion_timer += 1
+                    arena_bottom_confusion_timer += arena_speed_multiplier
                     if arena_bottom_confusion_timer >= HALF_SECOND_FRAMES:
                         arena_bottom_confusion_target = random.randint(PLAYER.width // 2, WIDTH - PLAYER.width // 2)
                         arena_bottom_confusion_timer = 0
@@ -74315,6 +74380,7 @@ def store_passive_item(item_data):
         if not chargebag_obtained:
             chargebag_obtained = True
             items.chargebag_obtained = True  # items.py의 변수도 업데이트
+            _apply_item_to_skin(_skeletal_skin, "chargebag")  # 뼈대 외형 변경
             apply_roll_bonuses_from_item(item_data)
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
@@ -74360,6 +74426,7 @@ def store_passive_item(item_data):
         if not bulkup_obtained:
             bulkup_obtained = True
             items.bulkup_obtained = True  # items.py의 변수도 업데이트
+            _apply_item_to_skin(_skeletal_skin, "bulkup")  # 뼈대 외형 변경
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
@@ -74408,6 +74475,7 @@ def store_passive_item(item_data):
         # 테크니컬조끼 아이템 획득 (패시브)
         import items
         items.technical_vest_obtained = True
+        _apply_item_to_skin(_skeletal_skin, "technical_vest")  # 뼈대 외형 변경
         apply_roll_bonuses_from_item(item_data)  # 롤옵션 먼저 적용
         vest_state = {'current_stage': current_stage}
         activate_technical_vest(vest_state, current_stage)
@@ -74471,6 +74539,7 @@ def store_passive_item(item_data):
         # 방탄모자 아이템 획득 (패시브)
         import items
         items.bulletproof_hat_obtained = True
+        _apply_item_to_skin(_skeletal_skin, "bulletproof_hat")  # 뼈대 외형 변경
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
@@ -74479,6 +74548,7 @@ def store_passive_item(item_data):
         # 가시투구 아이템 획득 (패시브)
         import items
         items.spiked_helmet_obtained = True
+        _apply_item_to_skin(_skeletal_skin, "spiked_helmet")  # 뼈대 외형 변경
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
@@ -74563,6 +74633,7 @@ def store_passive_item(item_data):
         current_count = getattr(items, "commando_arm_count", 0)
         if current_count < 2:
             items.commando_arm_count = current_count + 1
+            _apply_item_to_skin(_skeletal_skin, "commando_arm")  # 뼈대 외형 변경
             items.commando_arm_obtained = True
             # 롤 옵션 반영: 투척 속도/폭발 범위/연막 지속
             apply_roll_bonuses_from_item(item_data)
@@ -74579,6 +74650,7 @@ def store_passive_item(item_data):
         # 라그나로크 해머 전설 아이템 획득
         if not items.ragnarok_hammer_obtained:
             items.ragnarok_hammer_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "ragnarok_hammer")  # 뼈대 외형 변경
             # 전설 아이템 타입 설정
             item_data["type"] = "legendary"
             try:
@@ -74741,6 +74813,7 @@ def store_passive_item(item_data):
         # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
         if not items.gold_digger_obtained:
             items.gold_digger_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "gold_digger")  # 뼈대 외형 변경
             # 골드디거 효과 활성화 및 장착
             from item_effects.gold_digger import activate_gold_digger, equip_gold_digger
             activate_gold_digger()
@@ -78163,11 +78236,11 @@ def update_patrol_guards():
     if not patrol_guards_active or not patrol_guards:
         return
 
-    patrol_guards_timer -= 1
+    patrol_guards_timer -= arena_speed_multiplier
 
     game_left = GAME_AREA_OFFSET_X + 40
     game_right = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 40
-    dt = 1.0 / 60.0  # 60fps 기준
+    dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
 
     for guard in patrol_guards:
         # 페이드아웃 (마지막 30프레임)
@@ -101078,9 +101151,9 @@ def draw_objects():
             if smasher_walking_active:
                 base_ufo_img = create_smasher_paddle_walking()
             elif smasher_hit_pose_timer > 0:
-                base_ufo_img = create_smasher_paddle_surface()
+                base_ufo_img = _render_skeletal_smasher()
             else:
-                base_ufo_img = _apply_character_idle_effects(SMASHER_PADDLE_IMG, "smasher")
+                base_ufo_img = _apply_character_idle_effects(_render_skeletal_smasher(), "smasher")
         else:
             base_ufo_img = PLAYER_IMG
     # print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")
@@ -127055,7 +127128,7 @@ def _update_and_draw_captured_guard_summon(screen):
     global arena_captured_guard_active, arena_captured_guard_phase
     global arena_captured_guard_x, arena_captured_guard_y, arena_captured_guard_timer
     global arena_captured_guard_used
-    dt = 1.0 / 60.0  # 60fps 가정
+    dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
     arena_captured_guard_timer += dt
 
     if arena_captured_guard_phase == "entering":
@@ -127335,7 +127408,7 @@ def _update_arena_capture_phase(screen):
     if _arena_capture_tutorial_active:
         return
 
-    dt = 1.0 / 60.0
+    dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
     arena_capture_timer += dt
 
     # 게임 영역 좌표 (포획 페이즈는 전체 내부 해상도 760px 사용)
@@ -141443,7 +141516,7 @@ def handle_boss():
             arena_top_confusion_target = random.randint(BOSS.width // 2, WIDTH - BOSS.width // 2)
             arena_top_confusion_timer = 0
         # 30프레임마다 새로운 랜덤 위치 선택
-        arena_top_confusion_timer += 1
+        arena_top_confusion_timer += arena_speed_multiplier
         if arena_top_confusion_timer >= HALF_SECOND_FRAMES:
             arena_top_confusion_target = random.randint(BOSS.width // 2, WIDTH - BOSS.width // 2)
             arena_top_confusion_timer = 0
@@ -143140,6 +143213,8 @@ def show_result(won):
                 legendary_manager.reset_for_new_game()
         except Exception:
             pass
+        # 뼈대 스프라이트 스킨 초기화 (아이템 외형 리셋)
+        _reset_skeletal_skin()
         show_start_screen()
 def show_new_boss_selection_screen():
     """새로운 보스 vs 보스 모드 선택 화면"""
@@ -147586,6 +147661,8 @@ def main(stage_num, new_boss_mode=False):
                     reset_cleanse_skill()  # 클렌즈 스킬 초기화
                     game_session_active = False  #  게임 세션 종료
                     cleared_planets = []  # 🌌 우주 맵 클리어 상태 초기화
+                    # 뼈대 스프라이트 스킨 초기화 (아이템 외형 리셋)
+                    _reset_skeletal_skin()
                     # 스테이지4 중력자기장 사운드 정지 (ESC 메뉴에서 종료 시)
                     stop_stage4_magnetic_sound()
                     # 테크니컬조끼 비활성화
@@ -149557,28 +149634,28 @@ def main(stage_num, new_boss_mode=False):
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
-                _arena_guard_tutorial_delay_frames -= 1
+                _arena_guard_tutorial_delay_frames -= arena_speed_multiplier
                 if _arena_guard_tutorial_delay_frames <= 0:
                     _arena_guard_tutorial_active = True
                     # print("[ArenaTutorial] 딜레이 완료 → 튜토리얼 시작!")
 
             # 투기장 초상화 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_portrait_tutorial_delay_frames > 0 and not freeze_now:
-                _arena_portrait_tutorial_delay_frames -= 1
+                _arena_portrait_tutorial_delay_frames -= arena_speed_multiplier
                 if _arena_portrait_tutorial_delay_frames <= 0:
                     _arena_portrait_tutorial_active = True
                     # print("[ArenaTutorial] 초상화 튜토리얼 딜레이 완료 → 시작!")
 
             # 투기장 배속 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_speed_tutorial_delay_frames > 0 and not freeze_now:
-                _arena_speed_tutorial_delay_frames -= 1
+                _arena_speed_tutorial_delay_frames -= arena_speed_multiplier
                 if _arena_speed_tutorial_delay_frames <= 0:
                     _arena_speed_tutorial_active = True
                     # print("[ArenaTutorial] 배속 튜토리얼 딜레이 완료 → 시작!")
 
             # 투기장 하수인 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_henchman_tutorial_delay_frames > 0 and not freeze_now:
-                _arena_henchman_tutorial_delay_frames -= 1
+                _arena_henchman_tutorial_delay_frames -= arena_speed_multiplier
                 if _arena_henchman_tutorial_delay_frames <= 0:
                     _arena_henchman_tutorial_active = True
                     # print("[ArenaTutorial] 하수인 튜토리얼 딜레이 완료 → 시작!")
