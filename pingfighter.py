@@ -72358,7 +72358,9 @@ def handle_player(keys):
             hit_animation_active = True
             hit_animation_timer = HIT_ANIMATION_DURATION
         if selected_character_type == "smasher":
-            trigger_smasher_contact_animation(collision_x)
+            # 파워스매싱 프리즈 중에는 스윙 모션 차단 (발사 시점에서 별도 트리거)
+            if not power_smashing_freeze_active:
+                trigger_smasher_contact_animation(collision_x)
         #  게이지 처리 - Aipill 활성화 시에는 게이지 감소만, 비활성화 시에는 게이지 증가
         # print(f"   aipill_active: {aipill_active}")  # 디버그 비활성화
         # Aipill 활성화 시 게이지 감소만
@@ -130645,7 +130647,8 @@ def calculate_bounce(paddle):
             optimus_arm_swing_right_timer = OPTIMUS_ARM_SWING_DURATION
             optimus_arm_swing_left_timer = 0
     # smasher 캐릭터 일반 타격 시 팔 애니메이션 트리거
-    if is_player_paddle and selected_character_type == "smasher":
+    # 파워스매싱 프리즈 중에는 차단 (발사 시점에서 별도 트리거)
+    if is_player_paddle and selected_character_type == "smasher" and not power_smashing_freeze_active:
         hit_offset = BALL.centerx - PLAYER.centerx
         trigger_smasher_contact_animation(hit_offset)
     # blacksmith(발토르) 캐릭터 일반 타격 시 팔 애니메이션 트리거
