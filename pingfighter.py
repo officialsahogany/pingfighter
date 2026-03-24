@@ -30206,10 +30206,9 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
     import math as _m
     _b = 9  # block size
 
-    # ── 부유 모션 (보드는 고정, 캐릭터 본체만 위아래) ──
-    # 영웅 시스템의 body_bob과 동일 원리: torso/상체만 오르내림
-    _float_phase = (pygame.time.get_ticks() / 900.0) % 1.0
-    _float_y = _m.sin(_float_phase * _m.tau) * 3.0  # ±3px 부유
+    # ── 부유 모션 (캐릭터+보드 전체가 위아래로 둥실둥실) ──
+    _float_phase = (pygame.time.get_ticks() / 800.0) % 1.0
+    _float_y = _m.sin(_float_phase * _m.tau) * 4.0  # ±4px 부유
 
     if not is_idle:
         _wave = _m.sin(phase * _m.tau)
@@ -30224,11 +30223,10 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         _arm_swing = int(_wave * 5)
         _shoulder_shift = int(_wave * 2)
 
-        # ── 상체 위치 오프셋 (바운스 + 부유) ──
-        # 보드는 hip 기준이므로 hip(root)은 고정, torso만 오르내려야 부유감이 보임
+        # ── 상체 바운스 (걷기 출렁) ──
         _torso = sk.get_joint("torso")
         if _torso:
-            _torso.local_pos = (0, -_torso_bob + int(_float_y))  # 바운스 + 부유
+            _torso.local_pos = (0, -_torso_bob)
 
         _hip = sk.get_joint("hip")
         # hip은 루트이므로 root_pos에서 조정
@@ -30268,14 +30266,11 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         if _rh:
             _rh.local_pos = (int(0.8 * _b), int(0.7 * _b) + _right_leg_lift)
 
-        # 루트(hip)는 고정, 바운스+부유는 torso에서 처리
-        sk.update(root_pos=(125.0 + _hip_sway * 0.3, 56.0))
+        # 루트에 부유 + 스웨이 적용 (캐릭터+보드 전체가 움직임)
+        sk.update(root_pos=(125.0 + _hip_sway * 0.3, 56.0 + _float_y))
     else:
-        # idle: torso에 부유 적용 (보드는 움직이지 않고 캐릭터만 둥실둥실)
-        _torso = sk.get_joint("torso")
-        if _torso:
-            _torso.local_pos = (0, int(_float_y))
-        sk.update(root_pos=(125.0, 56.0))
+        # idle: 부유만 적용
+        sk.update(root_pos=(125.0, 56.0 + _float_y))
 
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     skin.draw_all(surface, sk, phase)
