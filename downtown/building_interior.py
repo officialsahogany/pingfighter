@@ -3098,6 +3098,7 @@ class BuildingInterior:
             {"name": "bulletproof_hat", "base_price": 550, "korean": "방탄모자"},
             {"name": "spiked_helmet", "base_price": 700, "korean": "가시투구"},
             {"name": "knee_pads", "base_price": 550, "korean": "킥차져"},
+            {"name": "lucky_coin", "base_price": 800, "korean": "럭키코인"},
         ]
 
         # 전설 아이템 목록 (5% 확률)
@@ -8301,6 +8302,8 @@ class BuildingInterior:
             "odins_eye": 3750,
             # 호위무사 인장
             "hero_seal": 3333,
+            # 유틸리티
+            "lucky_coin": 800,
         }
         return price_map.get(item_name, 500)
 
