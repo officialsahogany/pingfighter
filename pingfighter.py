@@ -146748,7 +146748,7 @@ def main(stage_num, new_boss_mode=False):
                             )
                         else:
                             smasher_power_recoil_pending_dir = 1 if smasher_pending_contact_offset < 0 else -1
-                        power_smashing_freeze_duration = 0  # 스매셔는 프리즈 없이 즉시 발사/반동
+                        power_smashing_freeze_duration = 300  # 스매셔: 짧은 연출 프리즈 (문구 표시 후 스윙+발사)
                     else:
                         power_smashing_freeze_duration = 1000
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
@@ -146826,7 +146826,9 @@ def main(stage_num, new_boss_mode=False):
                         ):
                             hit_animation_active = True
                             hit_animation_timer = HIT_ANIMATION_DURATION
-                    if not power_smashing_freeze_active and smasher_pending_contact_offset is not None:
+                    # 파워스매싱이 아닌 일반 히트일 때만 여기서 스윙 모션 트리거
+                    # (파워스매싱은 공 발사 시점(148864줄)에서 트리거)
+                    if not power_smashing_freeze_active and not special_active and smasher_pending_contact_offset is not None:
                         trigger_smasher_contact_animation(smasher_pending_contact_offset)
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
