@@ -29527,6 +29527,7 @@ SMASHER_LEFT_RAISE_DURATION = 18  # 왼쪽 타격 시 왼팔 들어올리기 연
 smasher_hit_pose_timer = 0
 smasher_shield_raise_timer = 0
 smasher_left_raise_timer = 0
+smasher_swing_intensity = 1.0  # 스윙 강도 (일반=1.0, 드라이브=1.5, 파워스매싱=2.0)
 
 def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
@@ -29536,13 +29537,14 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
 
-    hit_pose_duration = SMASHER_HIT_POSE_DURATION
+    _si = smasher_swing_intensity  # 스윙 강도 (드라이브/파워스매싱 시 증가)
+    hit_pose_duration = int(SMASHER_HIT_POSE_DURATION * _si)
     hit_pose_timer_value = smasher_hit_pose_timer
     hit_pose_ratio = 0.0
     if hit_pose_duration > 0:
         hit_pose_ratio = max(0.0, min(1.0, hit_pose_timer_value / hit_pose_duration))
 
-    shield_raise_duration = SMASHER_SHIELD_RAISE_DURATION
+    shield_raise_duration = int(SMASHER_SHIELD_RAISE_DURATION * _si)
     shield_raise_timer_value = smasher_shield_raise_timer
     shield_raise_strength = 0.0
     if shield_raise_duration > 0 and shield_raise_timer_value > 0:
@@ -29553,9 +29555,10 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
         else:
             shield_raise_strength = (1.0 - normalized) * 2.0
         shield_raise_strength = max(0.0, min(1.0, shield_raise_strength))
-        shield_raise_strength = shield_raise_strength ** 0.7
+        _exp = max(0.3, 0.7 / _si)  # 강도 높을수록 피크 유지 길게
+        shield_raise_strength = shield_raise_strength ** _exp
 
-    left_raise_duration = SMASHER_LEFT_RAISE_DURATION
+    left_raise_duration = int(SMASHER_LEFT_RAISE_DURATION * _si)
     left_raise_timer_value = smasher_left_raise_timer
     left_raise_strength = 0.0
     if left_raise_duration > 0 and left_raise_timer_value > 0:
@@ -29566,7 +29569,8 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
         else:
             left_raise_strength = (1.0 - normalized) * 2.0
         left_raise_strength = max(0.0, min(1.0, left_raise_strength))
-        left_raise_strength = left_raise_strength ** 0.7
+        _exp = max(0.3, 0.7 / _si)
+        left_raise_strength = left_raise_strength ** _exp
 
     def rotate_point(origin: tuple[float, float], point: tuple[float, float], degrees: float) -> tuple[float, float]:
         """주어진 점을 화면 좌표계 기준으로 시계 방향 회전"""
@@ -30190,25 +30194,33 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
 
     # 타격 포즈 레이어
     if smasher_hit_pose_timer > 0:
-        hit_ratio = max(0.0, min(1.0, smasher_hit_pose_timer / SMASHER_HIT_POSE_DURATION))
+        _si = smasher_swing_intensity
+        _eff_hit_dur = max(1, int(SMASHER_HIT_POSE_DURATION * _si))
+        hit_ratio = max(0.0, min(1.0, smasher_hit_pose_timer / _eff_hit_dur))
         hit_pose = motion.get_hit_pose(1.0 - hit_ratio)
         base_pose = Skeleton.layer_pose(base_pose, hit_pose, mask=UPPER_BODY_JOINTS)
 
     # 방패 들기 레이어
     if smasher_shield_raise_timer > 0:
-        normalized = 1.0 - (smasher_shield_raise_timer / SMASHER_SHIELD_RAISE_DURATION)
+        _si = smasher_swing_intensity
+        _eff_shield_dur = max(1, int(SMASHER_SHIELD_RAISE_DURATION * _si))
+        normalized = 1.0 - (smasher_shield_raise_timer / _eff_shield_dur)
         normalized = max(0.0, min(1.0, normalized))
         strength = (normalized * 2.0 if normalized < 0.5 else (1.0 - normalized) * 2.0)
-        strength = max(0.0, min(1.0, strength)) ** 0.7
+        _exp = max(0.3, 0.7 / _si)
+        strength = max(0.0, min(1.0, strength)) ** _exp
         shield_pose = motion.get_shield_raise_pose(strength)
         base_pose = Skeleton.layer_pose(base_pose, shield_pose, mask={"r_shoulder", "r_elbow", "r_wrist"})
 
     # 왼팔 들기 레이어
     if smasher_left_raise_timer > 0:
-        normalized = 1.0 - (smasher_left_raise_timer / SMASHER_LEFT_RAISE_DURATION)
+        _si = smasher_swing_intensity
+        _eff_left_dur = max(1, int(SMASHER_LEFT_RAISE_DURATION * _si))
+        normalized = 1.0 - (smasher_left_raise_timer / _eff_left_dur)
         normalized = max(0.0, min(1.0, normalized))
         strength = (normalized * 2.0 if normalized < 0.5 else (1.0 - normalized) * 2.0)
-        strength = max(0.0, min(1.0, strength)) ** 0.7
+        _exp = max(0.3, 0.7 / _si)
+        strength = max(0.0, min(1.0, strength)) ** _exp
         left_pose = motion.get_left_raise_pose(strength)
         base_pose = Skeleton.layer_pose(base_pose, left_pose, mask={"l_shoulder", "l_elbow", "l_wrist"})
 
@@ -45305,17 +45317,20 @@ smasher_hoverboard_extend_progress = 0.0
 smasher_hoverboard_top_view_cache: dict[int, pygame.Surface] = {}
 
 
-def trigger_smasher_contact_animation(offset_x: float) -> None:
-    """공이 맞은 위치에 따라 스매셔의 팔/방패 애니메이션을 트리거한다."""
+def trigger_smasher_contact_animation(offset_x: float, intensity: float = 1.0) -> None:
+    """공이 맞은 위치에 따라 스매셔의 팔/방패 애니메이션을 트리거한다.
+    intensity: 스윙 강도 (1.0=일반, 1.5=드라이브, 2.0=파워스매싱)
+    """
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
-    global smasher_pending_contact_offset
+    global smasher_pending_contact_offset, smasher_swing_intensity
     smasher_pending_contact_offset = None
-    smasher_hit_pose_timer = SMASHER_HIT_POSE_DURATION
+    smasher_swing_intensity = max(1.0, intensity)
+    smasher_hit_pose_timer = int(SMASHER_HIT_POSE_DURATION * intensity)
     if offset_x >= 0:
-        smasher_shield_raise_timer = SMASHER_SHIELD_RAISE_DURATION
+        smasher_shield_raise_timer = int(SMASHER_SHIELD_RAISE_DURATION * intensity)
         smasher_left_raise_timer = 0
     else:
-        smasher_left_raise_timer = SMASHER_LEFT_RAISE_DURATION
+        smasher_left_raise_timer = int(SMASHER_LEFT_RAISE_DURATION * intensity)
         smasher_shield_raise_timer = 0
 
     # ── VFX: 스윙 트레일 + 방패 충격파 트리거 ──
@@ -98667,7 +98682,7 @@ def draw_objects():
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
     global optimus_arm_swing_left_timer, optimus_arm_swing_right_timer
     global smasher_left_raise_timer
-    global smasher_hit_pose_timer, smasher_shield_raise_timer
+    global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_swing_intensity
     global smasher_pending_contact_offset
     global optimus_arm_swing_left_timer, optimus_arm_swing_right_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
@@ -101370,6 +101385,9 @@ def draw_objects():
             smasher_shield_raise_timer -= 1
         if smasher_left_raise_timer > 0:
             smasher_left_raise_timer -= 1
+        # 모든 스윙 타이머 종료 시 강도 리셋
+        if smasher_hit_pose_timer <= 0 and smasher_shield_raise_timer <= 0 and smasher_left_raise_timer <= 0:
+            smasher_swing_intensity = 1.0
     elif selected_character_type == "optimus":
         if optimus_arm_swing_left_timer > 0:
             optimus_arm_swing_left_timer -= 1
@@ -101379,6 +101397,7 @@ def draw_objects():
         smasher_hit_pose_timer = 0
         smasher_shield_raise_timer = 0
         smasher_left_raise_timer = 0
+        smasher_swing_intensity = 1.0
         smasher_pending_contact_offset = None
         optimus_arm_swing_left_timer = 0
         optimus_arm_swing_right_timer = 0
@@ -130988,7 +131007,7 @@ def calculate_bounce(paddle):
         if special_gauge >= 150 and get_smasher_skill_cooldown_remaining("drive") <= 0 and not is_odins_eye_transformed():
             perfect_shot = True
             drive_activated = True  #  드라이브 발동 표시
-            trigger_smasher_contact_animation(BALL.centerx - paddle.centerx)
+            trigger_smasher_contact_animation(BALL.centerx - paddle.centerx, intensity=1.5)
             special_gauge -= 150  #  드라이브 발동 시 150 게이지 소모
             # print(f"   !  ! ( 150 ,  : {special_gauge})")
             play_sound_with_volume(SOUND_DRIVE)  # 플레이어 드라이브 발동 효과음
@@ -149016,7 +149035,7 @@ def main(stage_num, new_boss_mode=False):
                         _kb_debug(f"[SMASHER_RECOIL_APPLY] dir={recoil_dir}, vel={smasher_power_recoil_vel:.2f}, frames={smasher_power_recoil_timer}, x={PLAYER.x}")
                         smasher_power_recoil_stun_pending = True
                     if smasher_pending_contact_offset is not None:
-                        trigger_smasher_contact_animation(smasher_pending_contact_offset)
+                        trigger_smasher_contact_animation(smasher_pending_contact_offset, intensity=2.0)
                     #  파워스매싱 공 발사 효과음 재생
                     play_sound_with_volume(SOUND_POWER_SMASH_LAUNCH)
                     # print("!    !")
