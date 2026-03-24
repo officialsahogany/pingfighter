@@ -63,6 +63,18 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_weapon_parts import RagnarokHammerPart
         return RagnarokHammerPart(block)
 
+    elif item_name == "poseidon_trident":
+        from entities.body_parts.item_weapon_parts import PoseidonTridentPart
+        return PoseidonTridentPart(block)
+
+    elif item_name == "transcendent_crown":
+        from entities.body_parts.item_head_parts import TranscendentCrownPart
+        return TranscendentCrownPart(block)
+
+    elif item_name == "odins_eye":
+        from entities.body_parts.item_head_parts import OdinsEyePart
+        return OdinsEyePart(block)
+
     elif item_name == "chargebag":
         from entities.body_parts.item_back_parts import ChargeBagPart
         return ChargeBagPart(block)
@@ -136,6 +148,7 @@ def remove_item_from_skin(skin: CharacterSkin, item_name: str, block: int = 9) -
 
     DEFAULT_PARTS = {
         "head": SmasherHeadPart,
+        "face": None,           # 오딘의눈 해제 시 제거만 (기본 face 파츠 없음)
         "torso": SmasherTorsoPart,
         "l_arm": SmasherLeftArmPart,
         "r_arm": SmasherRightArmPart,
@@ -171,6 +184,9 @@ VISUAL_ITEM_NAMES = {
     "commando_arm",
     "gold_digger",
     "ragnarok_hammer",
+    "poseidon_trident",
+    "transcendent_crown",
+    "odins_eye",
     "chargebag",
 }
 
@@ -183,5 +199,8 @@ ITEM_SLOT_MAP = {
     "commando_arm": "l_arm",    # 첫 번째는 l_arm, 두 번째는 r_arm
     "gold_digger": "l_arm",     # 첫 번째는 l_arm, 두 번째는 r_arm
     "ragnarok_hammer": "weapon",
+    "poseidon_trident": "weapon",
+    "transcendent_crown": "head",
+    "odins_eye": "face",
     "chargebag": "back",
 }

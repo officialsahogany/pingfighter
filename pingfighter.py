@@ -74827,6 +74827,7 @@ def store_passive_item(item_data):
         # 포세이돈의 삼지창 전설 아이템 획득
         if not items.poseidon_trident_obtained:
             items.poseidon_trident_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "poseidon_trident")  # 뼈대 외형 변경
             try:
                 legendary_manager = get_legendary_manager()
                 if "poseidon_trident" not in legendary_manager.unlocked_items:
@@ -74882,6 +74883,7 @@ def store_passive_item(item_data):
         # ⚠️ 효과는 장착 시에만 활성화됨 (sync_equipped_passive_effects에서 처리)
         if not items.transcendent_crown_obtained:
             items.transcendent_crown_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "transcendent_crown")  # 뼈대 외형 변경
             try:
                 legendary_manager = get_legendary_manager()
                 if "transcendent_crown" not in legendary_manager.unlocked_items:
@@ -74910,6 +74912,7 @@ def store_passive_item(item_data):
         # ⚠️ 효과는 장착 시에만 활성화됨
         if not items.odins_eye_obtained:
             items.odins_eye_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "odins_eye")  # 뼈대 외형 변경
             try:
                 legendary_manager = get_legendary_manager()
                 if "odins_eye" not in legendary_manager.unlocked_items:
