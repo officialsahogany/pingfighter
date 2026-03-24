@@ -30202,37 +30202,69 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
 
     sk.apply_pose(base_pose)
 
-    # ── 걷기/idle 시 팔 위치 오프셋 (원본 arm_swing 재현) ──
-    # 뼈대 시스템은 회전각만 적용하므로, 팔꿈치/손목의 위치를
-    # phase에 따라 직접 이동시켜 교차 스윙을 표현한다.
+    # ── 걷기 시 전신 위치 오프셋 (볼토르식 들썩이는 보행) ──
     import math as _m
+    _b = 9  # block size
     if not is_idle:
         _wave = _m.sin(phase * _m.tau)
-        _arm_swing = int(_wave * 5)      # 원본과 동일한 크기
+        _abs_wave = abs(_wave)
+
+        # 상체 바운스 (위아래 들썩임) — 걸을 때 몸이 출렁
+        _torso_bob = int(_abs_wave * 2)
+        # 힙 좌우 스웨이
+        _hip_sway = int(_wave * 2)
+
+        # 팔 교차 스윙
+        _arm_swing = int(_wave * 5)
         _shoulder_shift = int(_wave * 2)
-        # 왼팔: +swing (오른쪽으로)
+
+        # ── 상체/힙 위치 오프셋 ──
+        _torso = sk.get_joint("torso")
+        if _torso:
+            _torso.local_pos = (0, -_torso_bob)  # 바운스
+
+        _hip = sk.get_joint("hip")
+        # hip은 루트이므로 root_pos에서 조정
+
+        # ── 왼팔: +swing ──
         _le = sk.get_joint("l_elbow")
         _lw = sk.get_joint("l_wrist")
         if _le:
-            _le.local_pos = (-9 - _arm_swing, int(0.05 * 9) - _arm_swing // 2)
+            _le.local_pos = (-_b - _arm_swing, int(0.05 * _b) - _arm_swing // 2)
         if _lw:
-            _lw.local_pos = (-8, int(-0.5 * 9) - int(_arm_swing * 0.5))
-        # 오른팔: -swing (반대 방향)
+            _lw.local_pos = (-_b + 1, int(-0.5 * _b) - int(_arm_swing * 0.5))
+
+        # ── 오른팔: -swing (반대 방향) ──
         _re = sk.get_joint("r_elbow")
         _rw = sk.get_joint("r_wrist")
         if _re:
-            _re.local_pos = (int(1.2 * 9) + _arm_swing, int(0.35 * 9) + _arm_swing // 2)
+            _re.local_pos = (int(1.2 * _b) + _arm_swing, int(0.35 * _b) + _arm_swing // 2)
         if _rw:
-            _rw.local_pos = (9, int(0.7 * 9) + int(_arm_swing * 0.5))
-        # 어깨 시프트 (상하)
+            _rw.local_pos = (_b, int(0.7 * _b) + int(_arm_swing * 0.5))
+
+        # ── 어깨 상하 시프트 ──
         _ls = sk.get_joint("l_shoulder")
         _rs = sk.get_joint("r_shoulder")
         if _ls:
-            _ls.local_pos = (-int(1.8 * 9), _shoulder_shift)
+            _ls.local_pos = (-int(1.8 * _b), _shoulder_shift)
         if _rs:
-            _rs.local_pos = (int(1.8 * 9), -_shoulder_shift)
+            _rs.local_pos = (int(1.8 * _b), -_shoulder_shift)
 
-    sk.update(root_pos=(125.0, 56.0))
+        # ── 다리 교차 리프트 ──
+        _left_leg_lift = -int(max(0.0, _wave) * 4)
+        _right_leg_lift = -int(max(0.0, -_wave) * 4)
+
+        _lh = sk.get_joint("l_hip")
+        _rh = sk.get_joint("r_hip")
+        if _lh:
+            _lh.local_pos = (-int(0.8 * _b), int(0.7 * _b) + _left_leg_lift)
+        if _rh:
+            _rh.local_pos = (int(0.8 * _b), int(0.7 * _b) + _right_leg_lift)
+
+        # 루트 위치에 힙 스웨이 + 바운스 적용
+        sk.update(root_pos=(125.0 + _hip_sway * 0.3, 56.0 + _torso_bob))
+    else:
+        sk.update(root_pos=(125.0, 56.0))
 
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     skin.draw_all(surface, sk, phase)
