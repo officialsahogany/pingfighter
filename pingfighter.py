@@ -17841,6 +17841,13 @@ def _swap_boss_in_current_stage():
     fan_throw_windup_active = False
     fan_throw_windup_timer = 0
     fan_throw_hit_effect_timer = 0
+    # 저주 보물상자 초기화
+    curse_chest_active = False
+    curse_chest_opened = False
+    curse_chest_open_timer = 0
+    curse_chest_cooldown_timer = 0
+    curse_chest_reverse_timer = 0
+    curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
@@ -54267,6 +54274,15 @@ def go_to_next_round():
     fan_wind_charging = False
     fan_wind_charge_timer = 0
     fan_wind_growth_scale = 0.0
+    # 저주 보물상자 초기화 (라운드 전환)
+    global curse_chest_active, curse_chest_opened, curse_chest_open_timer
+    global curse_chest_cooldown_timer, curse_chest_reverse_timer, curse_chest_smoke_particles
+    curse_chest_active = False
+    curse_chest_opened = False
+    curse_chest_open_timer = 0
+    curse_chest_cooldown_timer = 0
+    curse_chest_reverse_timer = 0
+    curse_chest_smoke_particles = []
     # 테디베어 솜뭉치 투척 초기화 (라운드 전환)
     global cotton_throw_active, cotton_throw_projectiles, cotton_throw_windup_active
     global cotton_throw_windup_timer, cotton_fog_active, cotton_fog_timer, cotton_fog_zones
@@ -67459,6 +67475,11 @@ def handle_player(keys):
         MOVE_EVENT_DOWN = False
     if MOVE_EVENT_UP and not is_move_up_pressed(keys):
         MOVE_EVENT_UP = False
+    # 저주 보물상자: 조작 반전 디버프 (스테이지 3)
+    if curse_chest_reverse_timer > 0 and current_stage == 3:
+        left_pressed_raw, right_pressed_raw = right_pressed_raw, left_pressed_raw
+        MOVE_EVENT_LEFT, MOVE_EVENT_RIGHT = MOVE_EVENT_RIGHT, MOVE_EVENT_LEFT
+
     if optimus_drain_locked:
         left_pressed_raw = False
         right_pressed_raw = False
@@ -77180,6 +77201,209 @@ def draw_fan_throw_effect(screen):
             pygame.draw.rect(edge_s, (255, 80, 80, edge_alpha), edge_s.get_rect(), 3, border_radius=4)
             screen.blit(edge_s, (PLAYER.x - 7, PLAYER.y - 7))
 
+
+
+# === 멘헤라걸 저주 보물상자 스킬 (Curse Chest) - Stage 3 ===
+def activate_curse_chest():
+    """저주 보물상자 발동 — 플레이어 진영에 보물상자 설치"""
+    global curse_chest_active, curse_chest_x, curse_chest_y
+    global curse_chest_opened, curse_chest_open_timer
+    global curse_chest_smoke_particles
+    curse_chest_active = True
+    curse_chest_opened = False
+    curse_chest_open_timer = 0
+    curse_chest_smoke_particles = []
+    # 플레이어 진영 (Y 630~700) 내 랜덤 위치에 설치
+    curse_chest_x = random.uniform(GAME_AREA_OFFSET_X + 60, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 60)
+    curse_chest_y = random.uniform(640, 690)
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "dollcurse.wav")))
+        snd.set_volume(0.3 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def update_curse_chest():
+    """저주 보물상자 업데이트: 대쉬 충돌 감지, 연기 분출, 조작 반전"""
+    global curse_chest_active, curse_chest_opened, curse_chest_open_timer
+    global curse_chest_cooldown_timer, curse_chest_reverse_timer
+    global curse_chest_smoke_particles
+
+    # 쿨다운 감소
+    if curse_chest_cooldown_timer > 0:
+        curse_chest_cooldown_timer -= 1
+
+    if not curse_chest_active:
+        # 조작 반전 타이머만 감소
+        if curse_chest_reverse_timer > 0:
+            curse_chest_reverse_timer -= 1
+        return
+
+    if not curse_chest_opened:
+        # 플레이어가 대쉬 중이고 보물상자에 충돌하면 열림
+        if rolling_active and PLAYER:
+            dx = PLAYER.centerx - curse_chest_x
+            dy = PLAYER.centery - curse_chest_y
+            dist = math.hypot(dx, dy)
+            if dist < CURSE_CHEST_SIZE + 20:  # 충돌 판정
+                curse_chest_opened = True
+                curse_chest_open_timer = 0
+                try:
+                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "prisonopen.wav")))
+                    snd.set_volume(0.35 * sfx_volume)
+                    snd.play()
+                except Exception:
+                    pass
+    else:
+        # 보물상자 열림 — 연기 분출 페이즈
+        curse_chest_open_timer += 1
+        total_duration = CURSE_CHEST_SMOKE_DURATION + CURSE_CHEST_SMOKE_FADE_DURATION
+
+        if curse_chest_open_timer <= CURSE_CHEST_SMOKE_DURATION:
+            # 3초간 연기 파티클 생성
+            for _ in range(3):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(0.3, 1.5)
+                curse_chest_smoke_particles.append({
+                    "x": curse_chest_x + random.uniform(-10, 10),
+                    "y": curse_chest_y + random.uniform(-10, 5),
+                    "vx": math.cos(angle) * speed,
+                    "vy": math.sin(angle) * speed - 0.3,  # 약간 위로
+                    "life": random.uniform(60, 120),
+                    "max_life": 120,
+                    "size": random.uniform(8, 18),
+                    "alpha": 200,
+                })
+
+        # 연기 파티클 업데이트
+        new_particles = []
+        for p in curse_chest_smoke_particles:
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] -= 0.01  # 약간 위로 떠오름
+            p["vx"] *= 0.98  # 감속
+            p["life"] -= 1
+            p["size"] += 0.05  # 연기 팽창
+
+            if curse_chest_open_timer > CURSE_CHEST_SMOKE_DURATION:
+                # 걷히기 페이즈: 알파 감소
+                fade_progress = (curse_chest_open_timer - CURSE_CHEST_SMOKE_DURATION) / CURSE_CHEST_SMOKE_FADE_DURATION
+                p["alpha"] = max(0, 200 * (1 - fade_progress))
+
+            if p["life"] > 0 and p["alpha"] > 5:
+                new_particles.append(p)
+        curse_chest_smoke_particles = new_particles
+
+        # 플레이어가 연기 영역에 닿으면 조작 반전 발동
+        if curse_chest_open_timer <= CURSE_CHEST_SMOKE_DURATION and PLAYER and curse_chest_reverse_timer <= 0:
+            dx = PLAYER.centerx - curse_chest_x
+            dy = PLAYER.centery - curse_chest_y
+            dist = math.hypot(dx, dy)
+            if dist < CURSE_CHEST_SMOKE_RADIUS:
+                curse_chest_reverse_timer = CURSE_CHEST_REVERSE_DURATION
+                show_speech("조작이 반전됐다!", duration=90)
+
+        # 연기 완전 소멸 시 비활성화
+        if curse_chest_open_timer >= total_duration and len(curse_chest_smoke_particles) == 0:
+            curse_chest_active = False
+
+    # 조작 반전 타이머 감소
+    if curse_chest_reverse_timer > 0:
+        curse_chest_reverse_timer -= 1
+
+
+def draw_curse_chest(screen):
+    """저주 보물상자 그리기 — 멘헤라 테마 보물상자 + 핑크 연기"""
+    if not curse_chest_active:
+        # 조작 반전 이펙트만 그리기 (보물상자 없어도)
+        if curse_chest_reverse_timer > 0 and PLAYER:
+            _draw_curse_reverse_overlay(screen)
+        return
+
+    cx, cy = int(curse_chest_x), int(curse_chest_y)
+    sz = CURSE_CHEST_SIZE
+
+    if not curse_chest_opened:
+        # 닫힌 보물상자 그리기 — 멘헤라 핑크 테마
+        # 상자 본체
+        body_color = (200, 80, 130)
+        lid_color = (220, 100, 150)
+        pygame.draw.rect(screen, body_color, (cx - sz // 2, cy - sz // 4, sz, sz // 2))
+        # 뚜껑
+        pygame.draw.rect(screen, lid_color, (cx - sz // 2 - 2, cy - sz // 4 - 8, sz + 4, 10))
+        # 잠금 하트
+        heart_color = (255, 180, 200)
+        _hx, _hy = cx, cy
+        for a in range(0, 360, 10):
+            rad = math.radians(a)
+            hr = 5
+            hpx = _hx + int(hr * 16 * (math.sin(rad) ** 3)) // 16
+            hpy = _hy - int(hr * (13 * math.cos(rad) - 5 * math.cos(2 * rad) - 2 * math.cos(3 * rad) - math.cos(4 * rad)) / 16)
+            if 0 <= hpx < 760 and 0 <= hpy < 750:
+                screen.set_at((hpx, hpy), heart_color)
+        # 반짝임 이펙트 (유혹)
+        t = pygame.time.get_ticks() / 300
+        sparkle_alpha = int(128 + 127 * math.sin(t))
+        sparkle_sf = pygame.Surface((sz + 8, sz // 2 + 12), pygame.SRCALPHA)
+        sparkle_sf.fill((255, 200, 230, sparkle_alpha // 4))
+        screen.blit(sparkle_sf, (cx - sz // 2 - 4, cy - sz // 4 - 10))
+    else:
+        # 열린 보물상자 그리기
+        body_color = (160, 60, 100)
+        pygame.draw.rect(screen, body_color, (cx - sz // 2, cy - sz // 4, sz, sz // 2))
+        # 열린 뚜껑 (뒤로 젖혀짐)
+        lid_color = (180, 70, 120)
+        pts = [
+            (cx - sz // 2 - 2, cy - sz // 4),
+            (cx + sz // 2 + 2, cy - sz // 4),
+            (cx + sz // 2 - 4, cy - sz // 4 - 16),
+            (cx - sz // 2 + 4, cy - sz // 4 - 16),
+        ]
+        pygame.draw.polygon(screen, lid_color, pts)
+
+    # 핑크 연기 파티클 그리기
+    for p in curse_chest_smoke_particles:
+        alpha = int(min(255, p["alpha"]))
+        if alpha <= 5:
+            continue
+        size = int(p["size"])
+        sf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        # 핑크~마젠타 그라데이션
+        r = min(255, 220 + random.randint(-20, 20))
+        g = min(255, 100 + random.randint(-30, 30))
+        b = min(255, 160 + random.randint(-20, 20))
+        pygame.draw.circle(sf, (r, g, b, alpha), (size, size), size)
+        screen.blit(sf, (int(p["x"]) - size, int(p["y"]) - size))
+
+    # 조작 반전 이펙트
+    if curse_chest_reverse_timer > 0 and PLAYER:
+        _draw_curse_reverse_overlay(screen)
+
+
+def _draw_curse_reverse_overlay(screen):
+    """조작 반전 중 플레이어 위 이펙트"""
+    # 플레이어 위에 소용돌이 아이콘 + 핑크 틴트
+    px, py = PLAYER.centerx, PLAYER.top - 15
+    t = pygame.time.get_ticks() / 200
+    # 소용돌이 표시
+    for i in range(3):
+        angle = t + i * (math.pi * 2 / 3)
+        sx = px + int(math.cos(angle) * 8)
+        sy = py + int(math.sin(angle) * 4)
+        pygame.draw.circle(screen, (255, 100, 180), (sx, sy), 3)
+    # "↔" 반전 표시
+    try:
+        rev_font = pygame.font.Font(None, 16)
+        rev_surf = rev_font.render("?!", True, (255, 150, 200))
+        screen.blit(rev_surf, (px - rev_surf.get_width() // 2, py - 12))
+    except Exception:
+        pass
+    # 패들 핑크 틴트
+    tint_alpha = int(60 + 40 * math.sin(t * 2))
+    tint_sf = pygame.Surface((PLAYER.width + 4, PLAYER.height + 4), pygame.SRCALPHA)
+    tint_sf.fill((255, 100, 180, tint_alpha))
+    screen.blit(tint_sf, (PLAYER.x - 2, PLAYER.y - 2))
 
 
 # === 테디베어 솜뭉치 투척 스킬 (Stage 3) ===
@@ -121366,7 +121590,7 @@ def show_item_manager_menu():
         ("등", ["slot_add", "chargebag", "dowsing_pendulum", "battery"]),
         ("장신구", ["star_detector", "fuel_pouch", "bluetooth_ring",
                   "foul_whistle", "dashholder",
-                  "cooltime", "revival", "gold_bar"]),
+                  "cooltime", "revival", "gold_bar", "lucky_coin"]),
     ]
 
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
@@ -137846,6 +138070,19 @@ def handle_ball():
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
             else:
+                # 멘헤라걸: 저주 보물상자 (게이지 120, 12% 확률, 쿨다운 15초)
+                if (boss_special_gauge >= 120
+                    and not curse_chest_active
+                    and curse_chest_cooldown_timer <= 0
+                    and not emotional_overdrive_active
+                    and random.random() <= 0.12):
+                    activate_curse_chest()
+                    _chest_shouts = ["선물이야~!", "열어볼래~?", "예쁜 상자지~?"]
+                    show_speech(random.choice(_chest_shouts), duration=90)
+                    boss_special_gauge -= 120
+                    curse_chest_cooldown_timer = CURSE_CHEST_COOLDOWN
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
                 # 멘헤라걸 (기본): 사이코볼 발동
                 if not boss_special_ready and boss_special_gauge >= 500:
                     boss_special_gauge = 500
@@ -142815,6 +143052,13 @@ def show_result(won):
     if psycho_sound_channel:
         psycho_sound_channel.stop()
         psycho_sound_channel = None
+    # 저주 보물상자 완전 초기화 (스테이지 종료 시)
+    curse_chest_active = False
+    curse_chest_opened = False
+    curse_chest_open_timer = 0
+    curse_chest_cooldown_timer = 0
+    curse_chest_reverse_timer = 0
+    curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     # 테디베어 솜뭉치 투척 완전 초기화 (스테이지 종료 시)
     cotton_throw_active = False
     cotton_throw_projectiles.clear()
@@ -143256,6 +143500,13 @@ def show_result(won):
         fan_wind_charging = False
         fan_wind_charge_timer = 0
         fan_wind_growth_scale = 0.0
+        # 저주 보물상자 초기화 (게임 오버 시)
+        curse_chest_active = False
+        curse_chest_opened = False
+        curse_chest_open_timer = 0
+        curse_chest_cooldown_timer = 0
+        curse_chest_reverse_timer = 0
+        curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
         # 테디베어 솜뭉치 투척 초기화
         cotton_throw_active = False
         cotton_throw_projectiles.clear()
@@ -144416,6 +144667,13 @@ def main(stage_num, new_boss_mode=False):
     fan_throw_windup_active = False
     fan_throw_windup_timer = 0
     fan_throw_hit_effect_timer = 0
+    # 저주 보물상자 초기화
+    curse_chest_active = False
+    curse_chest_opened = False
+    curse_chest_open_timer = 0
+    curse_chest_cooldown_timer = 0
+    curse_chest_reverse_timer = 0
+    curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
@@ -145486,6 +145744,13 @@ def main(stage_num, new_boss_mode=False):
             fan_wind_charging = False
             fan_wind_charge_timer = 0
             fan_wind_growth_scale = 0.0
+            # 저주 보물상자 초기화
+            curse_chest_active = False
+            curse_chest_opened = False
+            curse_chest_open_timer = 0
+            curse_chest_cooldown_timer = 0
+            curse_chest_reverse_timer = 0
+            curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
             # 테디베어 솜뭉치 투척 초기화
             cotton_throw_active = False
             cotton_throw_projectiles.clear()
@@ -147927,6 +148192,13 @@ def main(stage_num, new_boss_mode=False):
                     fan_wind_charging = False
                     fan_wind_charge_timer = 0
                     fan_wind_growth_scale = 0.0
+                    # 저주 보물상자 초기화
+                    curse_chest_active = False
+                    curse_chest_opened = False
+                    curse_chest_open_timer = 0
+                    curse_chest_cooldown_timer = 0
+                    curse_chest_reverse_timer = 0
+                    curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
                     # 테디베어 솜뭉치 투척 초기화
                     cotton_throw_active = False
                     cotton_throw_projectiles.clear()
@@ -149220,6 +149492,10 @@ def main(stage_num, new_boss_mode=False):
                     update_deadly_hug()
                     update_button_eye()
                 
+                # 멘헤라걸 저주 보물상자 업데이트
+                if current_stage == 3 and current_boss_name != "테디베어":
+                    update_curse_chest()
+
                 #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
                 if current_stage == 3:
                     # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없고 쿨타임이 끝났을 때만)
@@ -151706,6 +151982,7 @@ def main(stage_num, new_boss_mode=False):
         draw_cotton_bomb_effect(SCREEN)  # 테디베어 솜뭉치 폭탄 이펙트
         draw_deadly_hug_effect(SCREEN)   # 테디베어 죽음의 포옹 이펙트
         draw_button_eye_effect(SCREEN)   # 테디베어 단추 눈의 저주 이펙트
+        draw_curse_chest(SCREEN)         # 멘헤라걸 저주 보물상자 이펙트
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
         draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 옛날 버전 활성화
