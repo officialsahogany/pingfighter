@@ -92,8 +92,8 @@ LEGENDARY_WEAPON_ITEMS = {"ragnarok_hammer", "poseidon_trident"}
 def apply_item_to_skin(skin: CharacterSkin, item_name: str, block: int = 9) -> bool:
     """아이템에 해당하는 파츠를 스킨에 적용.
 
-    양팔 아이템(commando_arm, gold_digger)은 l_arm이 이미 같은 아이템이면
-    자동으로 r_arm에 적용한다.
+    팔 아이템(commando_arm, gold_digger)은 l_arm에 이미 다른 팔 아이템이 있으면
+    자동으로 r_arm에 적용한다. (같은/다른 아이템 무관)
 
     전설 무기(ragnarok_hammer, poseidon_trident)는 weapon 슬롯에 다른 전설 무기가
     이미 있으면 shield 슬롯(오른손)에 자동 적용한다.
@@ -102,16 +102,18 @@ def apply_item_to_skin(skin: CharacterSkin, item_name: str, block: int = 9) -> b
         True if part was applied, False if item has no visual part.
     """
     if item_name in DUAL_ARM_ITEMS:
-        # l_arm에 이미 같은 종류의 아이템이 장착되어 있는지 확인
+        # l_arm에 이미 아이템 파츠가 장착되어 있는지 확인 (같은/다른 아이템 무관)
         existing_l = skin.get_part("l_arm")
-        if existing_l and _is_same_item_type(existing_l, item_name):
-            # 오른팔에 적용
+        l_arm_has_item = existing_l and _is_any_arm_item(existing_l)
+
+        if l_arm_has_item:
+            # 왼팔에 이미 아이템이 있음 → 오른팔에 적용
             part = get_item_part(item_name, block, side="right")
             if part:
                 skin.set_part(part)
                 return True
         else:
-            # 왼팔에 적용
+            # 왼팔이 비어있음(기본 파츠) → 왼팔에 적용
             part = get_item_part(item_name, block, side="left")
             if part:
                 skin.set_part(part)
@@ -169,6 +171,16 @@ def _get_legendary_weapon_right(item_name: str, block: int = 9) -> Optional[Body
     return None
 
 
+def _is_any_arm_item(part: BodyPart) -> bool:
+    """파츠가 기본 팔이 아닌 아이템 팔 파츠인지 확인."""
+    cls_name = type(part).__name__.lower()
+    # 기본 팔: SmasherLeftArmPart, SmasherRightArmPart
+    if "smasher" in cls_name:
+        return False
+    # 아이템 팔: CommandoArmPart, GoldDiggerArmPart 등
+    return True
+
+
 def _is_same_item_type(part: BodyPart, item_name: str) -> bool:
     """파츠가 해당 아이템 타입인지 확인."""
     cls_name = type(part).__name__.lower()
@@ -208,7 +220,7 @@ def remove_item_from_skin(skin: CharacterSkin, item_name: str, block: int = 9) -
         "back": None,
     }
 
-    # 양팔 아이템은 l_arm과 r_arm 둘 다 복원
+    # 팔 아이템은 l_arm, r_arm 양쪽에서 해당 아이템 타입만 복원
     if item_name in DUAL_ARM_ITEMS:
         for slot in ("l_arm", "r_arm"):
             existing = skin.get_part(slot)
