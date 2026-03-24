@@ -30208,7 +30208,7 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
 
     # ── 부유 모션 (캐릭터+보드 전체가 위아래로 둥실둥실) ──
     _float_phase = (pygame.time.get_ticks() / 800.0) % 1.0
-    _float_y = _m.sin(_float_phase * _m.tau) * 4.0  # ±4px 부유
+    _float_y = _m.sin(_float_phase * _m.tau) * 5.0  # ±5px 부유 (확실히 보이게)
 
     if not is_idle:
         _wave = _m.sin(phase * _m.tau)
@@ -30272,7 +30272,7 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         # idle: 부유만 적용
         sk.update(root_pos=(125.0, 56.0 + _float_y))
 
-    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    surface = pygame.Surface((250, 130), pygame.SRCALPHA)  # 높이 여유 (부유 ±5px용)
     skin.draw_all(surface, sk, phase)
     return surface
 
