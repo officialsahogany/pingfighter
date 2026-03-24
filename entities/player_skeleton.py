@@ -406,9 +406,14 @@ def create_smasher_skeleton(block: int = 9) -> Skeleton:
     sk.add_joint(Joint("hip", 0, 0), parent_name=None)
 
     # 상체: hip → torso → neck → head
-    sk.add_joint(Joint("torso", 0, -int(0.4 * b)), "hip")          # 흉부 중심
-    sk.add_joint(Joint("neck", 0, -int(2.0 * b)), "torso")         # 목 (흉갑 상단)
-    sk.add_joint(Joint("head", 0, -int(1.1 * b)), "neck")          # 머리 중심
+    # 원본 좌표 역산 (block=9, torso_base_y=56 기준):
+    #   torso = torso_base_y 그 자체 (흉갑 기준점)
+    #   helmet_rect.top = torso_y - 3.1*b = 56 - 27.9 ≈ 29
+    #   helmet 중심 ≈ 29 + (2.2*b)/2 = 29 + 9.9 ≈ 39
+    # → head 관절 = torso_base_y로부터 약 -17px 위
+    sk.add_joint(Joint("torso", 0, 0), "hip")                      # torso = hip과 동일 위치
+    sk.add_joint(Joint("neck", 0, -int(1.4 * b)), "torso")         # 목 (흉갑 상단)
+    sk.add_joint(Joint("head", 0, -int(0.5 * b)), "neck")          # 머리 중심 (원본 helmet center ≈ torso_y - 17)
 
     # 왼팔 (탁구채 쪽): torso → l_shoulder → l_elbow → l_wrist
     sk.add_joint(Joint("l_shoulder", -int(1.8 * b), 0), "torso")

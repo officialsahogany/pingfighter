@@ -30157,7 +30157,7 @@ from entities.body_parts.item_parts_registry import (
     VISUAL_ITEM_NAMES as _VISUAL_ITEM_NAMES,
 )
 
-_skeletal_skeleton = _get_smasher_skeleton()
+_skeletal_skeleton = _get_smasher_skeleton(force_recreate=True)
 _skeletal_skin = _create_smasher_skin()
 
 
@@ -30206,7 +30206,8 @@ def _render_skeletal_smasher(step_phase: float = 0.0) -> pygame.Surface:
 
 def _reset_skeletal_skin():
     """게임 리셋 시 스킨을 기본 상태로 복원."""
-    global _skeletal_skin
+    global _skeletal_skin, _skeletal_skeleton
+    _skeletal_skeleton = _get_smasher_skeleton(force_recreate=True)
     _skeletal_skin = _create_smasher_skin()
 
 

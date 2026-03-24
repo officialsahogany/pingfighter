@@ -99,10 +99,10 @@ _smasher_skeleton: Skeleton | None = None
 _smasher_skin: CharacterSkin | None = None
 
 
-def get_smasher_skeleton(block: int = 9) -> Skeleton:
+def get_smasher_skeleton(block: int = 9, force_recreate: bool = False) -> Skeleton:
     """스매셔 뼈대 싱글톤."""
     global _smasher_skeleton
-    if _smasher_skeleton is None:
+    if _smasher_skeleton is None or force_recreate:
         _smasher_skeleton = create_smasher_skeleton(block)
     return _smasher_skeleton
 
