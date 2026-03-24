@@ -1,31 +1,34 @@
 """
 패시브 아이템 연동 팔 파츠 — 코만도암, 골드디거.
+
+각 파츠는 좌/우 팔 버전이 있어서, 양팔 동시 착용이 가능하다.
+- 첫 번째 획득 → l_arm 슬롯
+- 두 번째 획득 → r_arm 슬롯
 """
 
 import math
 import pygame
 from entities.player_skeleton import (
     BodyPart, Joint, Skeleton,
-    ORDER_L_ARM, SLOT_L_ARM,
+    ORDER_L_ARM, ORDER_R_ARM, SLOT_L_ARM, SLOT_R_ARM,
 )
 from typing import Optional
 
 
-class CommandoArmPart(BodyPart):
-    """코만도암 (commando_arm).
+# ─────────────────────────────────────────────
+#  코만도암 (Commando Arm)
+# ─────────────────────────────────────────────
 
-    군용 기계팔: 다크 메탈 장갑판 + 붉은 LED + 유압 실린더.
-    효과: 공 타격 시 추가 데미지.
-    """
+class _CommandoArmBase(BodyPart):
+    """코만도암 공통 렌더링. side로 좌/우 구분."""
 
-    def __init__(self, block: int = 9):
-        super().__init__(
-            slot=SLOT_L_ARM,
-            draw_order=ORDER_L_ARM,
-            joint_a="l_shoulder",
-            joint_b="l_wrist",
-        )
+    def __init__(self, slot: str, draw_order: int,
+                 joint_a: str, joint_b: str, elbow_name: str,
+                 block: int = 9):
+        super().__init__(slot=slot, draw_order=draw_order,
+                         joint_a=joint_a, joint_b=joint_b)
         self.block = block
+        self._elbow_name = elbow_name
 
     def _render(self, surface: pygame.Surface,
                 joint_a: Joint, joint_b: Optional[Joint],
@@ -35,7 +38,7 @@ class CommandoArmPart(BodyPart):
 
         elbow_joint = None
         for child in joint_a.children:
-            if child.name == "l_elbow":
+            if child.name == self._elbow_name:
                 elbow_joint = child
                 break
         if elbow_joint is None:
@@ -45,19 +48,19 @@ class CommandoArmPart(BodyPart):
         wrist = joint_b.world_int() if joint_b else elbow
 
         # ── 상완 (두꺼운 장갑판) ──
-        pygame.draw.line(surface, (50, 55, 60), shoulder, elbow, b + 2)     # 외곽
-        pygame.draw.line(surface, (70, 75, 80), shoulder, elbow, b)          # 내부
-        pygame.draw.line(surface, (90, 95, 100), shoulder, elbow, b - 3)     # 하이라이트
+        pygame.draw.line(surface, (50, 55, 60), shoulder, elbow, b + 2)
+        pygame.draw.line(surface, (70, 75, 80), shoulder, elbow, b)
+        pygame.draw.line(surface, (90, 95, 100), shoulder, elbow, b - 3)
 
-        # ── 전완 (유압 실린더 느낌) ──
+        # ── 전완 (유압 실린더) ──
         pygame.draw.line(surface, (50, 55, 60), elbow, wrist, b)
         pygame.draw.line(surface, (80, 85, 90), elbow, wrist, b - 2)
 
-        # 유압 라인 (평행선)
+        # 유압 라인
         dx = wrist[0] - elbow[0]
         dy = wrist[1] - elbow[1]
         length = max(1, math.sqrt(dx * dx + dy * dy))
-        nx = -dy / length * 2  # 법선 벡터
+        nx = -dy / length * 2
         ny = dx / length * 2
         pygame.draw.line(
             surface, (100, 40, 40),
@@ -69,16 +72,15 @@ class CommandoArmPart(BodyPart):
         pygame.draw.circle(surface, (100, 105, 110), elbow, max(3, b // 2))
         pygame.draw.circle(surface, (60, 65, 70), elbow, max(2, b // 3))
 
-        # ── LED 포인트 (팔꿈치) ──
+        # ── LED ──
         led_pulse = int(40 * math.sin(phase * math.tau * 3))
         led_color = (min(255, 200 + led_pulse), 50, 40)
         pygame.draw.circle(surface, led_color, elbow, 2)
 
-        # ── 글러브 (강화 주먹) ──
+        # ── 강화 주먹 ──
         fist_r = max(3, b // 2 + 2)
         pygame.draw.circle(surface, (60, 65, 70), wrist, fist_r)
         pygame.draw.circle(surface, (80, 85, 90), wrist, fist_r - 1)
-        # 너클 가드
         pygame.draw.arc(
             surface, (100, 105, 110),
             (wrist[0] - fist_r, wrist[1] - fist_r, fist_r * 2, fist_r * 2),
@@ -86,21 +88,34 @@ class CommandoArmPart(BodyPart):
         )
 
 
-class GoldDiggerArmPart(BodyPart):
-    """골드디거 (gold_digger).
-
-    황금 채굴 장갑 + 빛나는 손톱 + 골드 파티클.
-    효과: 골드 획득량 증가.
-    """
-
+class CommandoArmPart(_CommandoArmBase):
+    """코만도암 — 왼팔 (l_arm)."""
     def __init__(self, block: int = 9):
-        super().__init__(
-            slot=SLOT_L_ARM,
-            draw_order=ORDER_L_ARM,
-            joint_a="l_shoulder",
-            joint_b="l_wrist",
-        )
+        super().__init__(SLOT_L_ARM, ORDER_L_ARM,
+                         "l_shoulder", "l_wrist", "l_elbow", block)
+
+
+class CommandoArmRightPart(_CommandoArmBase):
+    """코만도암 — 오른팔 (r_arm)."""
+    def __init__(self, block: int = 9):
+        super().__init__(SLOT_R_ARM, ORDER_R_ARM,
+                         "r_shoulder", "r_wrist", "r_elbow", block)
+
+
+# ─────────────────────────────────────────────
+#  골드디거 (Gold Digger)
+# ─────────────────────────────────────────────
+
+class _GoldDiggerArmBase(BodyPart):
+    """골드디거 공통 렌더링. side로 좌/우 구분."""
+
+    def __init__(self, slot: str, draw_order: int,
+                 joint_a: str, joint_b: str, elbow_name: str,
+                 block: int = 9):
+        super().__init__(slot=slot, draw_order=draw_order,
+                         joint_a=joint_a, joint_b=joint_b)
         self.block = block
+        self._elbow_name = elbow_name
 
     def _render(self, surface: pygame.Surface,
                 joint_a: Joint, joint_b: Optional[Joint],
@@ -110,7 +125,7 @@ class GoldDiggerArmPart(BodyPart):
 
         elbow_joint = None
         for child in joint_a.children:
-            if child.name == "l_elbow":
+            if child.name == self._elbow_name:
                 elbow_joint = child
                 break
         if elbow_joint is None:
@@ -119,10 +134,9 @@ class GoldDiggerArmPart(BodyPart):
         elbow = elbow_joint.world_int()
         wrist = joint_b.world_int() if joint_b else elbow
 
-        # ── 상완 (기본 팔 + 골드 트림) ──
+        # ── 상완 + 골드 트림 ──
         pygame.draw.line(surface, palette.get("arm_light", (132, 152, 204)), shoulder, elbow, b)
         pygame.draw.line(surface, palette.get("armor_mid", (60, 76, 120)), shoulder, elbow, b - 2)
-        # 골드 트림
         pygame.draw.line(surface, (200, 170, 50), shoulder, elbow, 1)
 
         # ── 전완 (골드 장갑) ──
@@ -134,7 +148,7 @@ class GoldDiggerArmPart(BodyPart):
         pygame.draw.circle(surface, (200, 170, 50), wrist, glove_r)
         pygame.draw.circle(surface, (240, 210, 80), wrist, glove_r - 1)
 
-        # 손톱/클로 (3개)
+        # 클로 (3개)
         for i in range(3):
             claw_angle = math.radians(-120 + i * 40)
             cx = wrist[0] + int(math.cos(claw_angle) * (glove_r + 2))
@@ -143,20 +157,29 @@ class GoldDiggerArmPart(BodyPart):
             tip_y = wrist[1] + int(math.sin(claw_angle) * (glove_r + int(0.6 * b)))
             pygame.draw.line(surface, (255, 230, 100), (cx, cy), (tip_x, tip_y), 2)
 
-        # ── 빛나는 골드 파티클 (phase 기반) ──
+        # ── 골드 파티클 ──
         sparkle_surf = pygame.Surface((b * 4, b * 4), pygame.SRCALPHA)
         scx, scy = b * 2, b * 2
-        num_sparkles = 3
-        for i in range(num_sparkles):
-            angle = phase * math.tau * 2 + i * math.tau / num_sparkles
+        for i in range(3):
+            angle = phase * math.tau * 2 + i * math.tau / 3
             dist = int(b * 0.8 + b * 0.3 * math.sin(phase * math.tau * 4 + i))
             sx = scx + int(math.cos(angle) * dist)
             sy = scy + int(math.sin(angle) * dist)
             alpha = int(120 + 80 * math.sin(phase * math.tau * 3 + i * 2))
             pygame.draw.circle(sparkle_surf, (255, 230, 100, alpha), (sx, sy), 2)
+        surface.blit(sparkle_surf, (wrist[0] - scx, wrist[1] - scy),
+                     special_flags=pygame.BLEND_RGBA_ADD)
 
-        surface.blit(
-            sparkle_surf,
-            (wrist[0] - scx, wrist[1] - scy),
-            special_flags=pygame.BLEND_RGBA_ADD,
-        )
+
+class GoldDiggerArmPart(_GoldDiggerArmBase):
+    """골드디거 — 왼팔 (l_arm)."""
+    def __init__(self, block: int = 9):
+        super().__init__(SLOT_L_ARM, ORDER_L_ARM,
+                         "l_shoulder", "l_wrist", "l_elbow", block)
+
+
+class GoldDiggerArmRightPart(_GoldDiggerArmBase):
+    """골드디거 — 오른팔 (r_arm)."""
+    def __init__(self, block: int = 9):
+        super().__init__(SLOT_R_ARM, ORDER_R_ARM,
+                         "r_shoulder", "r_wrist", "r_elbow", block)
