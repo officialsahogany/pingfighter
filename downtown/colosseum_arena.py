@@ -13061,8 +13061,8 @@ class ColosseumsArena:
 
     def _draw_tournament_bracket(self):
         """토너먼트 대진표 그리기"""
-        # 박스 크기 (120x160으로 확대)
-        box_w, box_h = 120, 160
+        # 박스 크기 (실제 _draw_match_box와 동일한 140 사용)
+        box_w, box_h = 120, 140
 
         # 8강 매치 (하단) - 위로 올림
         y_base = 530
@@ -13148,6 +13148,9 @@ class ColosseumsArena:
                     else:
                         # 앞면: 매치 내용 공개
                         pygame.draw.rect(card_surf, ET["card_bg"], (0, 0, box_w, box_h), border_radius=8)
+                        # 우하단 삼각형 영역 반투명 채우기 (영웅2 영역 시각적 분리)
+                        pygame.draw.polygon(card_surf, (0, 0, 0, 20),
+                                            [(5, box_h - 5), (box_w - 5, 5), (box_w - 5, box_h - 5)])
                         pygame.draw.rect(card_surf, ET["gold_bright"], (0, 0, box_w, box_h), 2, border_radius=8)
                         # 대각선
                         pygame.draw.line(card_surf, ET["card_diagonal"],
@@ -13221,6 +13224,15 @@ class ColosseumsArena:
                         self.screen.blit(glow_surf, (draw_x - glow_pad, draw_y - glow_pad))
 
                     self.screen.blit(rotated_surf, (draw_x, draw_y))
+
+                    # 플립 0.5 지점 근처에서 반짝임(Flash) 효과 - 공개 순간 강조
+                    if 0.42 < eased < 0.58:
+                        flash_intensity = 1.0 - abs(eased - 0.5) / 0.08  # 0.5에서 최대
+                        flash_alpha = int(120 * max(0, flash_intensity))
+                        if flash_alpha > 5:
+                            flash_surf = pygame.Surface((scaled_w + 4, scaled_h + 4), pygame.SRCALPHA)
+                            flash_surf.fill((255, 245, 220, flash_alpha))
+                            self.screen.blit(flash_surf, (draw_x - 2, draw_y - 2))
                     return
                 # 비공개 상태 - 형형색색 테두리 애니메이션
                 if is_hovered:
@@ -13292,6 +13304,14 @@ class ColosseumsArena:
         border_color = ET["card_border_hover"] if is_hovered else ET["card_border"]
         border_width = 2
         pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
+
+        # 대각선 영역 반투명 채우기 (영웅 1/2 영역 시각적 분리)
+        tri_overlay = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        # 우하단 삼각형 (영웅2 영역) - 아주 연한 어두운 톤
+        pygame.draw.polygon(tri_overlay, (0, 0, 0, 20),
+                            [(5, box_h - 5), (box_w - 5, 5), (box_w - 5, box_h - 5)])
+        self.screen.blit(tri_overlay, (x, y))
+
         pygame.draw.rect(self.screen, border_color, (x, y, box_w, box_h), border_width, border_radius=8)
 
         # 대각선 (왼쪽 하단 → 오른쪽 상단)
@@ -14673,8 +14693,11 @@ class ColosseumsArena:
             self._draw_inline_skill_roulette(base_y=370)
 
     def _draw_bracket_lines(self):
-        """대진표 연결선 (대각선 레이아웃 box_h=140 기준) - 이집트 테마"""
+        """대진표 연결선 (대각선 레이아웃 box_h=140 기준) - 이집트 금색 이중선 테마"""
         line_color = ET["bracket_line"]
+        # 금색 이중선: 바깥 어두운 갈색 + 안쪽 밝은 금색
+        line_outer = (100, 80, 45)  # 어두운 갈색 외곽
+        line_inner = ET.get("gold_dark", (120, 95, 50))  # 밝은 금색 내곽
 
         # 8강 박스 중심 x좌표 (box_w=120 기준)
         q1_x, q2_x, q3_x, q4_x = 120, 255, 490, 625
@@ -14688,17 +14711,22 @@ class ColosseumsArena:
         y_mid1 = 490  # 8강→4강 연결 중간선
         y_s_bottom = 450  # 4강 박스 하단
 
+        def _draw_double_line(p1, p2):
+            """이집트풍 금색 이중선 (3px 외곽 + 1px 내곽)"""
+            pygame.draw.line(self.screen, line_outer, p1, p2, 3)
+            pygame.draw.line(self.screen, line_inner, p1, p2, 1)
+
         # 8강 → 4강 연결 (좌측)
-        pygame.draw.line(self.screen, line_color, (q1_x, y_q_top), (q1_x, y_mid1), 2)
-        pygame.draw.line(self.screen, line_color, (q2_x, y_q_top), (q2_x, y_mid1), 2)
-        pygame.draw.line(self.screen, line_color, (q1_x, y_mid1), (q2_x, y_mid1), 2)
-        pygame.draw.line(self.screen, line_color, (s1_x, y_mid1), (s1_x, y_s_bottom), 2)
+        _draw_double_line((q1_x, y_q_top), (q1_x, y_mid1))
+        _draw_double_line((q2_x, y_q_top), (q2_x, y_mid1))
+        _draw_double_line((q1_x, y_mid1), (q2_x, y_mid1))
+        _draw_double_line((s1_x, y_mid1), (s1_x, y_s_bottom))
 
         # 8강 → 4강 연결 (우측)
-        pygame.draw.line(self.screen, line_color, (q3_x, y_q_top), (q3_x, y_mid1), 2)
-        pygame.draw.line(self.screen, line_color, (q4_x, y_q_top), (q4_x, y_mid1), 2)
-        pygame.draw.line(self.screen, line_color, (q3_x, y_mid1), (q4_x, y_mid1), 2)
-        pygame.draw.line(self.screen, line_color, (s2_x, y_mid1), (s2_x, y_s_bottom), 2)
+        _draw_double_line((q3_x, y_q_top), (q3_x, y_mid1))
+        _draw_double_line((q4_x, y_q_top), (q4_x, y_mid1))
+        _draw_double_line((q3_x, y_mid1), (q4_x, y_mid1))
+        _draw_double_line((s2_x, y_mid1), (s2_x, y_s_bottom))
 
         # 4강 top y = 310, 결승 bottom y = 220 (80+140)
         y_s_top = 310
@@ -14706,10 +14734,10 @@ class ColosseumsArena:
         y_f_bottom = 220  # 결승 박스 하단
 
         # 4강 → 결승 연결
-        pygame.draw.line(self.screen, line_color, (s1_x, y_s_top), (s1_x, y_mid2), 2)
-        pygame.draw.line(self.screen, line_color, (s2_x, y_s_top), (s2_x, y_mid2), 2)
-        pygame.draw.line(self.screen, line_color, (s1_x, y_mid2), (s2_x, y_mid2), 2)
-        pygame.draw.line(self.screen, line_color, (f_x, y_mid2), (f_x, y_f_bottom), 2)
+        _draw_double_line((s1_x, y_s_top), (s1_x, y_mid2))
+        _draw_double_line((s2_x, y_s_top), (s2_x, y_mid2))
+        _draw_double_line((s1_x, y_mid2), (s2_x, y_mid2))
+        _draw_double_line((f_x, y_mid2), (f_x, y_f_bottom))
 
     def _draw_match_selection_hint(self):
         """경기 선택 힌트 - 이집트 테마"""
@@ -20837,15 +20865,20 @@ class ColosseumsArena:
             self._draw_animated_line((q3_x, y_mid1), (q4_x, y_mid1), progress, base_color, highlight_color)
             self._draw_animated_line((s2_x, y_mid1), (s2_x, y_s_bottom), progress, base_color, highlight_color)
         else:
-            # 기본 라인
-            pygame.draw.line(self.screen, base_color, (q1_x, y_q_top), (q1_x, y_mid1), 2)
-            pygame.draw.line(self.screen, base_color, (q2_x, y_q_top), (q2_x, y_mid1), 2)
-            pygame.draw.line(self.screen, base_color, (q1_x, y_mid1), (q2_x, y_mid1), 2)
-            pygame.draw.line(self.screen, base_color, (s1_x, y_mid1), (s1_x, y_s_bottom), 2)
-            pygame.draw.line(self.screen, base_color, (q3_x, y_q_top), (q3_x, y_mid1), 2)
-            pygame.draw.line(self.screen, base_color, (q4_x, y_q_top), (q4_x, y_mid1), 2)
-            pygame.draw.line(self.screen, base_color, (q3_x, y_mid1), (q4_x, y_mid1), 2)
-            pygame.draw.line(self.screen, base_color, (s2_x, y_mid1), (s2_x, y_s_bottom), 2)
+            # 기본 라인 (이집트 금색 이중선)
+            line_outer = (100, 80, 45)
+            line_inner = ET.get("gold_dark", (120, 95, 50))
+            def _dbl(p1, p2):
+                pygame.draw.line(self.screen, line_outer, p1, p2, 3)
+                pygame.draw.line(self.screen, line_inner, p1, p2, 1)
+            _dbl((q1_x, y_q_top), (q1_x, y_mid1))
+            _dbl((q2_x, y_q_top), (q2_x, y_mid1))
+            _dbl((q1_x, y_mid1), (q2_x, y_mid1))
+            _dbl((s1_x, y_mid1), (s1_x, y_s_bottom))
+            _dbl((q3_x, y_q_top), (q3_x, y_mid1))
+            _dbl((q4_x, y_q_top), (q4_x, y_mid1))
+            _dbl((q3_x, y_mid1), (q4_x, y_mid1))
+            _dbl((s2_x, y_mid1), (s2_x, y_s_bottom))
 
         # 4강 → 결승 연결
         if self.current_round == TournamentRound.SEMI_FINAL and self.bracket_anim_phase >= 1:
@@ -20855,10 +20888,15 @@ class ColosseumsArena:
             self._draw_animated_line((s1_x, y_mid2), (s2_x, y_mid2), progress, base_color, highlight_color)
             self._draw_animated_line((f_x, y_mid2), (f_x, y_f_bottom), progress, base_color, highlight_color)
         else:
-            pygame.draw.line(self.screen, base_color, (s1_x, y_s_top), (s1_x, y_mid2), 2)
-            pygame.draw.line(self.screen, base_color, (s2_x, y_s_top), (s2_x, y_mid2), 2)
-            pygame.draw.line(self.screen, base_color, (s1_x, y_mid2), (s2_x, y_mid2), 2)
-            pygame.draw.line(self.screen, base_color, (f_x, y_mid2), (f_x, y_f_bottom), 2)
+            line_outer = (100, 80, 45)
+            line_inner = ET.get("gold_dark", (120, 95, 50))
+            def _dbl2(p1, p2):
+                pygame.draw.line(self.screen, line_outer, p1, p2, 3)
+                pygame.draw.line(self.screen, line_inner, p1, p2, 1)
+            _dbl2((s1_x, y_s_top), (s1_x, y_mid2))
+            _dbl2((s2_x, y_s_top), (s2_x, y_mid2))
+            _dbl2((s1_x, y_mid2), (s2_x, y_mid2))
+            _dbl2((f_x, y_mid2), (f_x, y_f_bottom))
 
     def _draw_animated_line(self, start: tuple, end: tuple, progress: float,
                            base_color: tuple, highlight_color: tuple):
