@@ -30201,6 +30201,37 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         base_pose = Skeleton.layer_pose(base_pose, left_pose, mask={"l_shoulder", "l_elbow", "l_wrist"})
 
     sk.apply_pose(base_pose)
+
+    # ── 걷기/idle 시 팔 위치 오프셋 (원본 arm_swing 재현) ──
+    # 뼈대 시스템은 회전각만 적용하므로, 팔꿈치/손목의 위치를
+    # phase에 따라 직접 이동시켜 교차 스윙을 표현한다.
+    import math as _m
+    if not is_idle:
+        _wave = _m.sin(phase * _m.tau)
+        _arm_swing = int(_wave * 5)      # 원본과 동일한 크기
+        _shoulder_shift = int(_wave * 2)
+        # 왼팔: +swing (오른쪽으로)
+        _le = sk.get_joint("l_elbow")
+        _lw = sk.get_joint("l_wrist")
+        if _le:
+            _le.local_pos = (-9 - _arm_swing, int(0.05 * 9) - _arm_swing // 2)
+        if _lw:
+            _lw.local_pos = (-8, int(-0.5 * 9) - int(_arm_swing * 0.5))
+        # 오른팔: -swing (반대 방향)
+        _re = sk.get_joint("r_elbow")
+        _rw = sk.get_joint("r_wrist")
+        if _re:
+            _re.local_pos = (int(1.2 * 9) + _arm_swing, int(0.35 * 9) + _arm_swing // 2)
+        if _rw:
+            _rw.local_pos = (9, int(0.7 * 9) + int(_arm_swing * 0.5))
+        # 어깨 시프트 (상하)
+        _ls = sk.get_joint("l_shoulder")
+        _rs = sk.get_joint("r_shoulder")
+        if _ls:
+            _ls.local_pos = (-int(1.8 * 9), _shoulder_shift)
+        if _rs:
+            _rs.local_pos = (int(1.8 * 9), -_shoulder_shift)
+
     sk.update(root_pos=(125.0, 56.0))
 
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
