@@ -41,8 +41,10 @@ class SmasherBoardPart(BodyPart):
         sway_offset = int(hip_sway * 0.3)
 
         # 보드 Y 위치 = 다리 최하단 아래
-        # (원본에서는 calf.bottom 기준이지만, 뼈대 시스템에서는 hip 기준 고정 오프셋)
-        board_y_offset = int(4.7 * b)  # hip 기준 보드 위치
+        # 원본: calf.bottom - 0.25*b ≈ hip_y + 1.1*b + 2.2*b - 4 + 1.1*b - 0.25*b
+        #      = hip_y + 4.15*b - 4 ≈ hip_y + 33 (block=9)
+        # LegsPart 기준: pelvis는 hip_y+0.7*b에서 시작, calf bottom ≈ hip_y+30
+        board_y_offset = int(3.4 * b)  # hip 기준 보드 위치 (다리 바로 아래)
         board_y = hip_y + board_y_offset
 
         board_length = int(7.6 * b)
