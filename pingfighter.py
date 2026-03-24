@@ -47257,6 +47257,24 @@ fan_throw_hit_effect_timer = 0     # 타격 이펙트 잔여 프레임
 fan_throw_hit_effect_x = 0.0
 fan_throw_hit_effect_y = 0.0
 
+# === 멘헤라걸 저주 보물상자 스킬 (Curse Chest) - Stage 3 ===
+curse_chest_active = False              # 보물상자가 필드에 존재하는지
+curse_chest_x = 0.0                     # 보물상자 X 좌표
+curse_chest_y = 0.0                     # 보물상자 Y 좌표
+curse_chest_opened = False              # 보물상자가 열렸는지
+curse_chest_open_timer = 0              # 열린 후 타이머 (연기 분출용)
+curse_chest_cooldown_timer = 0          # 스킬 쿨다운
+CURSE_CHEST_COOLDOWN = 900              # 15초 쿨다운
+CURSE_CHEST_SIZE = 36                   # 보물상자 크기
+CURSE_CHEST_SMOKE_DURATION = 180        # 연기 분출 3초 (60fps)
+CURSE_CHEST_SMOKE_FADE_DURATION = 120   # 연기 걷히기 2초
+CURSE_CHEST_SMOKE_RADIUS = 80           # 연기 반경
+# 조작 반전 디버프
+curse_chest_reverse_timer = 0           # 조작 반전 남은 프레임
+CURSE_CHEST_REVERSE_DURATION = 120      # 조작 반전 2초 (60fps)
+# 연기 파티클
+curse_chest_smoke_particles = []        # [(x, y, vx, vy, life, size, alpha)]
+
 # === 테디베어 솜뭉치 투척 스킬 (Stage 3) ===
 cotton_throw_active = False
 cotton_throw_projectiles = []
@@ -121532,9 +121550,10 @@ def show_item_manager_menu():
         {"name": "bulletproof_hat", "type": "passive", "icon": get_icon_safe("bulletproof_hat_icon", "bulletproof_hat")},
         {"name": "spiked_helmet", "type": "passive", "icon": get_icon_safe("spiked_helmet_icon", "spiked_helmet")},
         {"name": "gold_bar", "type": "passive", "icon": get_item_icon("gold_bar")},
-        {"name": "gold_digger", "type": "passive", "icon": get_item_icon("gold_digger")}
+        {"name": "gold_digger", "type": "passive", "icon": get_item_icon("gold_digger")},
+        {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")}
     ]
-    
+
     # 전설 아이템 추가
     legendary_manager = get_legendary_manager()
     legendary_items = []
@@ -157478,8 +157497,9 @@ def show_character_item_manager():
         {"name": "dashholder", "type": "passive", "icon": get_icon_safe("dashholder_icon", "dashholder")},
         {"name": "foul_whistle", "type": "passive", "icon": get_icon_safe("foul_whistle_icon", "foul_whistle")},
         {"name": "star_detector", "type": "passive", "icon": get_icon_safe("star_detector_icon", "star_detector")},
+        {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
     ]
-    
+
     # 전설 아이템 추가
     legendary_manager = get_legendary_manager()
     legendary_items = []
