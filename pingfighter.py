@@ -30261,10 +30261,17 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         if _rh:
             _rh.local_pos = (int(0.8 * _b), int(0.7 * _b) + _right_leg_lift)
 
-        # 루트 위치에 힙 스웨이 + 바운스 적용
-        sk.update(root_pos=(125.0 + _hip_sway * 0.3, 56.0 + _torso_bob))
+        # 부유 모션 (보드 위에서 항상 살짝 떠있는 느낌)
+        _float_phase = (pygame.time.get_ticks() / 800.0) % 1.0  # 0.8초 주기
+        _float_y = _m.sin(_float_phase * _m.tau) * 1.5  # ±1.5px 부유
+
+        # 루트 위치에 힙 스웨이 + 바운스 + 부유 적용
+        sk.update(root_pos=(125.0 + _hip_sway * 0.3, 56.0 + _torso_bob + _float_y))
     else:
-        sk.update(root_pos=(125.0, 56.0))
+        # idle에서도 부유 모션 적용
+        _float_phase = (pygame.time.get_ticks() / 1000.0) % 1.0  # 1초 주기 (idle은 더 느리게)
+        _float_y = _m.sin(_float_phase * _m.tau) * 2.0  # ±2px 부유 (idle은 더 크게)
+        sk.update(root_pos=(125.0, 56.0 + _float_y))
 
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     skin.draw_all(surface, sk, phase)
