@@ -30205,6 +30205,11 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
     # ── 걷기 시 전신 위치 오프셋 (볼토르식 들썩이는 보행) ──
     import math as _m
     _b = 9  # block size
+
+    # ── 부유 모션 (보드 위에서 항상 둥실둥실) ──
+    _float_phase = (pygame.time.get_ticks() / 900.0) % 1.0
+    _float_y = _m.sin(_float_phase * _m.tau) * 3.5  # ±3.5px 부유 (확실히 보이는 크기)
+
     if not is_idle:
         _wave = _m.sin(phase * _m.tau)
         _abs_wave = abs(_wave)
@@ -30261,16 +30266,10 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
         if _rh:
             _rh.local_pos = (int(0.8 * _b), int(0.7 * _b) + _right_leg_lift)
 
-        # 부유 모션 (보드 위에서 항상 살짝 떠있는 느낌)
-        _float_phase = (pygame.time.get_ticks() / 800.0) % 1.0  # 0.8초 주기
-        _float_y = _m.sin(_float_phase * _m.tau) * 1.5  # ±1.5px 부유
-
         # 루트 위치에 힙 스웨이 + 바운스 + 부유 적용
         sk.update(root_pos=(125.0 + _hip_sway * 0.3, 56.0 + _torso_bob + _float_y))
     else:
-        # idle에서도 부유 모션 적용
-        _float_phase = (pygame.time.get_ticks() / 1000.0) % 1.0  # 1초 주기 (idle은 더 느리게)
-        _float_y = _m.sin(_float_phase * _m.tau) * 2.0  # ±2px 부유 (idle은 더 크게)
+        # idle: 부유만 적용
         sk.update(root_pos=(125.0, 56.0 + _float_y))
 
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
