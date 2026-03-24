@@ -129822,7 +129822,7 @@ def reset_round(is_stage_start=False):
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint  # 아라크네 분노
-    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles  # 두더지왕 친구두더지
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count  # 두더지왕 친구두더지
 
     # ⚡ 스매셔 콤보 리셋 (라운드 시작 시)
     smasher_combo_count = 0
