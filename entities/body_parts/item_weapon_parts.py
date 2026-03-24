@@ -4,7 +4,7 @@
 
 import math
 import pygame
-from entities.player_skeleton import BodyPart, Joint, Skeleton, ORDER_WEAPON, SLOT_WEAPON
+from entities.player_skeleton import BodyPart, Joint, Skeleton, ORDER_WEAPON, SLOT_WEAPON, ORDER_SHIELD, SLOT_SHIELD
 from typing import Optional
 
 
@@ -207,3 +207,49 @@ class PoseidonTridentPart(BodyPart):
             (wx - drop_r * 2 - int(0.3 * b), drop_y - drop_r * 2),
             special_flags=pygame.BLEND_RGBA_ADD,
         )
+
+
+class RagnarokHammerRightPart(BodyPart):
+    """라그나로크 해머 오른손 버전 (shield 슬롯).
+
+    포세이돈 삼지창과 동시 장착 시 오른손에 표시.
+    렌더링은 왼손 버전과 동일하되 joint를 r_wrist에 연결.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_SHIELD,
+            draw_order=ORDER_SHIELD,
+            joint_a="r_wrist",
+            joint_b=None,
+        )
+        self.block = block
+        self._left_part = RagnarokHammerPart(block)
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        self._left_part._render(surface, joint_a, joint_b, palette, phase)
+
+
+class PoseidonTridentRightPart(BodyPart):
+    """포세이돈의 삼지창 오른손 버전 (shield 슬롯).
+
+    라그나로크 해머와 동시 장착 시 오른손에 표시.
+    렌더링은 왼손 버전과 동일하되 joint를 r_wrist에 연결.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_SHIELD,
+            draw_order=ORDER_SHIELD,
+            joint_a="r_wrist",
+            joint_b=None,
+        )
+        self.block = block
+        self._left_part = PoseidonTridentPart(block)
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        self._left_part._render(surface, joint_a, joint_b, palette, phase)
