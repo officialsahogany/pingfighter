@@ -132783,6 +132783,8 @@ def handle_ball():
     global cotton_bomb_active, cotton_bomb_windup_active, cotton_bomb_cooldown_timer
     global deadly_hug_active, deadly_hug_rush_active, deadly_hug_cooldown_timer
     global button_eye_active, button_eye_cooldown_timer
+    # 저주 보물상자 쿨다운
+    global curse_chest_cooldown_timer, curse_chest_active
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
