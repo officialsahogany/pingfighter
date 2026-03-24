@@ -26059,6 +26059,17 @@ def sync_equipped_passive_effects():
     # 다우징팬들럼 등 액티브 상태 표시가 필요한 모듈은 위에서 활성/비활성 처리됨
     apply_equipment_paddle_modifiers()
 
+    # ── 뼈대 스프라이트 스킨 동기화 (장착/해제 시 외형 변경) ──
+    try:
+        # 현재 장착된 아이템 중 외형 변경 대상만 추출
+        _equipped_visual = equipped_names & _VISUAL_ITEM_NAMES
+        # 스킨을 기본으로 리셋 후 장착된 것만 적용
+        _reset_skeletal_skin()
+        for _vname in _equipped_visual:
+            _apply_item_to_skin(_skeletal_skin, _vname)
+    except Exception:
+        pass
+
 
 def auto_equip_passive_item(item_data) -> bool:
     """빈 슬롯이 있으면 해당 부위에 즉시 장착하고 True 반환."""
