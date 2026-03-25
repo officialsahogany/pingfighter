@@ -150453,10 +150453,6 @@ def main(stage_num, new_boss_mode=False):
                 _sa_upd.update()
                 # 보스 패들과 파편 충돌 체크
                 _sa_upd.check_boss_collision(BOSS)
-                # 넉백 델타를 보스 X에 적용 (좌우 넉백, 프레임당 변화분만)
-                _sa_kb_dx = _sa_upd.get_boss_knockback_x_delta()
-                if _sa_kb_dx != 0:
-                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx)))
         except Exception:
             pass
 
@@ -154149,6 +154145,16 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
 
     def _ai_hook(state, delta_time):
         handle_boss()
+        # 파편갑옷 넉백: handle_boss가 BOSS.x를 설정한 직후 적용해야 덮어쓰이지 않음
+        try:
+            from item_effects.shrapnel_armor import get_shrapnel_armor_instance
+            _sa_ai = get_shrapnel_armor_instance()
+            if _sa_ai and _sa_ai.active and _sa_ai.boss_knockback_active:
+                _sa_kb_dx = _sa_ai.get_boss_knockback_x_delta()
+                if _sa_kb_dx != 0:
+                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx)))
+        except Exception:
+            pass
 
     def _items_hook(state, delta_time):
         try:
