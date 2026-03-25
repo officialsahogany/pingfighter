@@ -72341,11 +72341,9 @@ def handle_player(keys):
             if _sa.active:
                 _fired = _sa.on_player_hit_ball(PLAYER.centerx, PLAYER.top)
                 if _fired:
-                    print(f"[파편갑옷 DEBUG] 파편 발사! shards={len(_sa.shards)}, trigger%={_sa.trigger_chance_pct}")
-            else:
-                print(f"[파편갑옷 DEBUG] 아이템 비활성 상태 (active=False)")
-        except Exception as _sa_err:
-            print(f"[파편갑옷 DEBUG] on_player_hit_ball 예외: {_sa_err}")
+                    print(f"[파편갑옷 DEBUG] 파편 발사! shards={len(_sa.shards)}")
+        except Exception:
+            pass
 
         # 인게임 골드 획득 (랠리 성공 시)
         rally_gold = calculate_rally_gold()
@@ -150456,22 +150454,18 @@ def main(stage_num, new_boss_mode=False):
         except Exception:
             pass
 
-        # 파편갑옷 업데이트 (파편 이동 + 보스 넉백 + 충돌 체크)
+        # 파편갑옷 업데이트 (파편 이동 + 충돌 → boss_fire_knockback_vel 주입)
         try:
             from item_effects.shrapnel_armor import get_shrapnel_armor_instance
             _sa_upd = get_shrapnel_armor_instance()
             if _sa_upd and _sa_upd.active:
                 _sa_upd.update()
-                # 보스 패들과 파편 충돌 체크
-                _prev_kb = _sa_upd.boss_knockback_active
-                _hit = _sa_upd.check_boss_collision(BOSS)
-                if _hit:
-                    print(f"[파편갑옷 DEBUG] 보스 명중! knockback_active={_sa_upd.boss_knockback_active}, "
-                          f"offset={_sa_upd.boss_knockback_offset:.1f}, dir={_sa_upd.boss_knockback_direction}, "
-                          f"timer={_sa_upd.boss_knockback_timer}, level={_sa_upd.knockback_level}")
-                if _sa_upd.boss_knockback_active and _sa_upd.boss_knockback_timer % 5 == 0:
-                    print(f"[파편갑옷 DEBUG] 넉백 진행중: offset={_sa_upd.boss_knockback_offset:.1f}, "
-                          f"prev={_sa_upd.boss_knockback_prev_offset:.1f}, timer={_sa_upd.boss_knockback_timer}")
+                # 보스 패들과 파편 충돌 체크 → 넉백 속도 반환
+                _sa_kb_vel = _sa_upd.check_boss_collision(BOSS)
+                if _sa_kb_vel != 0:
+                    boss_fire_knockback_vel = _sa_kb_vel
+                    print(f"[파편갑옷 DEBUG] 보스 명중! knockback_vel={_sa_kb_vel:.1f}, "
+                          f"level={_sa_upd.knockback_level}, BOSS.x={BOSS.x}")
         except Exception as _sa_upd_err:
             print(f"[파편갑옷 DEBUG] update 예외: {_sa_upd_err}")
 
@@ -153018,22 +153012,6 @@ def main(stage_num, new_boss_mode=False):
                 # 같은 프레임 내 즉시 반영되도록 순서를 조정한다.
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
                     handle_boss()
-                    # 파편갑옷 넉백: handle_boss가 BOSS.x를 설정한 직후 적용해야 덮어쓰이지 않음
-                    try:
-                        from item_effects.shrapnel_armor import get_shrapnel_armor_instance
-                        _sa_kb = get_shrapnel_armor_instance()
-                        if _sa_kb and _sa_kb.active and _sa_kb.boss_knockback_active:
-                            _sa_kb_dx = _sa_kb.get_boss_knockback_x_delta()
-                            _old_boss_x = BOSS.x
-                            if _sa_kb_dx != 0:
-                                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx)))
-                                print(f"[파편갑옷 DEBUG] 넉백 적용! delta={_sa_kb_dx:.2f}, int={int(_sa_kb_dx)}, "
-                                      f"BOSS.x: {_old_boss_x} → {BOSS.x}")
-                            elif _sa_kb.boss_knockback_timer % 5 == 0:
-                                print(f"[파편갑옷 DEBUG] delta=0 (no move), offset={_sa_kb.boss_knockback_offset:.1f}, "
-                                      f"prev={_sa_kb.boss_knockback_prev_offset:.1f}")
-                    except Exception as _sa_kb_err:
-                        print(f"[파편갑옷 DEBUG] 넉백 적용 예외: {_sa_kb_err}")
 
                 # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
@@ -153047,16 +153025,6 @@ def main(stage_num, new_boss_mode=False):
                         if arena_mode_enabled and _extra_ball_result is not None:
                             return _extra_ball_result
                         handle_boss()
-                        # 파편갑옷 넉백 (배속 추가 틱)
-                        try:
-                            from item_effects.shrapnel_armor import get_shrapnel_armor_instance
-                            _sa_kb2 = get_shrapnel_armor_instance()
-                            if _sa_kb2 and _sa_kb2.active and _sa_kb2.boss_knockback_active:
-                                _sa_kb_dx2 = _sa_kb2.get_boss_knockback_x_delta()
-                                if _sa_kb_dx2 != 0:
-                                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx2)))
-                        except Exception:
-                            pass
 
                 # 🏜️ 모래감옥: 렌더링 직전 최종 패들 위치 클램핑 (모든 이동 처리 후)
                 if arena_mode_enabled and arena_skill_manager:
@@ -154190,16 +154158,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
 
     def _ai_hook(state, delta_time):
         handle_boss()
-        # 파편갑옷 넉백: handle_boss가 BOSS.x를 설정한 직후 적용해야 덮어쓰이지 않음
-        try:
-            from item_effects.shrapnel_armor import get_shrapnel_armor_instance
-            _sa_ai = get_shrapnel_armor_instance()
-            if _sa_ai and _sa_ai.active and _sa_ai.boss_knockback_active:
-                _sa_kb_dx = _sa_ai.get_boss_knockback_x_delta()
-                if _sa_kb_dx != 0:
-                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx)))
-        except Exception:
-            pass
+        # 파편갑옷 넉백은 boss_fire_knockback_vel로 handle_boss() 내부에서 처리됨
 
     def _items_hook(state, delta_time):
         try:

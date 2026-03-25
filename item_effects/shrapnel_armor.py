@@ -69,22 +69,20 @@ class ShrapnelArmor:
         # 소멸 파티클 (가루 증발 이펙트)
         self._dust_particles: list[dict] = []
 
-        # 넉백 상태 (좌우 넉백)
-        self.boss_knockback_active = False
-        self.boss_knockback_timer = 0
-        self.boss_knockback_offset = 0.0   # 보스 X 오프셋 (절대값)
-        self.boss_knockback_prev_offset = 0.0  # 이전 프레임 오프셋 (델타 계산용)
-        self.boss_knockback_direction = 0  # -1=좌, +1=우
+        # 넉백: boss_fire_knockback_vel 에 주입할 초기 속도 (handle_boss 내부에서 처리)
+        self.boss_knockback_active = False  # 이펙트 표시용 플래그
+        self.boss_knockback_direction = 0   # 이펙트 표시용
+        self._knockback_effect_timer = 0    # 충격파 이펙트용 타이머
 
         # 이펙트
         self._flash_timer = 0  # 발동 순간 플래시
 
-        # 넉백 단계별 설정
-        self._KNOCKBACK_CONFIG = {
-            1: {"velocity": 3.0, "duration": 12, "max_offset": 15},
-            2: {"velocity": 5.0, "duration": 18, "max_offset": 25},
-            3: {"velocity": 7.0, "duration": 24, "max_offset": 40},
-            4: {"velocity": 10.0, "duration": 30, "max_offset": 60},
+        # 넉백 단계별 초기 속도 (boss_fire_knockback_vel에 주입)
+        self._KNOCKBACK_VELOCITY = {
+            1: 5.0,
+            2: 8.0,
+            3: 12.0,
+            4: 16.0,
         }
 
     def activate(self):
@@ -97,10 +95,8 @@ class ShrapnelArmor:
         self.shards.clear()
         self._dust_particles.clear()
         self.boss_knockback_active = False
-        self.boss_knockback_timer = 0
-        self.boss_knockback_offset = 0.0
-        self.boss_knockback_prev_offset = 0.0
         self.boss_knockback_direction = 0
+        self._knockback_effect_timer = 0
         self._flash_timer = 0
 
     def on_player_hit_ball(self, paddle_cx: int, paddle_y: int):
@@ -155,17 +151,17 @@ class ShrapnelArmor:
 
         return True
 
-    def check_boss_collision(self, boss_rect) -> bool:
+    def check_boss_collision(self, boss_rect) -> float:
         """파편이 보스 패들과 충돌했는지 체크
 
         Args:
             boss_rect: 보스 패들의 pygame.Rect
 
         Returns:
-            True if any shard hit the boss
+            넉백 초기 속도 (0이면 미명중). boss_fire_knockback_vel에 직접 대입용.
         """
         if not self.active or not boss_rect:
-            return False
+            return 0.0
 
         hit = False
         hit_direction = 0  # 명중한 파편의 X 방향 합산
@@ -188,33 +184,26 @@ class ShrapnelArmor:
             if _sound_hit and _sound_hit is not False:
                 _sound_hit.play()
 
-            if not self.boss_knockback_active:
-                # 명중 방향: 파편 vx 합산 → 좌(-1) / 우(+1), 0이면 랜덤
-                if hit_direction > 0:
-                    direction = 1
-                elif hit_direction < 0:
-                    direction = -1
-                else:
-                    direction = random.choice([-1, 1])
-                self._apply_knockback(direction)
+            # 넉백 방향: 파편 vx 합산 → 좌(-1) / 우(+1), 0이면 랜덤
+            if hit_direction > 0:
+                direction = 1
+            elif hit_direction < 0:
+                direction = -1
+            else:
+                direction = random.choice([-1, 1])
 
-        return hit
+            # 넉백 속도 계산
+            level = max(1, min(4, self.knockback_level))
+            velocity = self._KNOCKBACK_VELOCITY.get(level, 8.0)
+            knockback_vel = velocity * direction
 
-    def _apply_knockback(self, direction: int):
-        """보스에게 좌우 넉백 적용"""
-        level = max(1, min(4, self.knockback_level))
-        config = self._KNOCKBACK_CONFIG[level]
-        self.boss_knockback_active = True
-        self.boss_knockback_timer = config["duration"]
-        self.boss_knockback_direction = direction  # -1=좌, +1=우
-        self.boss_knockback_offset = 0.0
-        self.boss_knockback_prev_offset = 0.0
+            # 이펙트용 상태 업데이트
+            self.boss_knockback_active = True
+            self.boss_knockback_direction = direction
+            self._knockback_effect_timer = 15  # 충격파 이펙트 약 0.25초
 
-    def get_boss_knockback_x_delta(self) -> float:
-        """이번 프레임에 보스 X를 이동시킬 델타값 반환 (음수=좌, 양수=우)"""
-        if self.boss_knockback_active:
-            delta = (self.boss_knockback_offset - self.boss_knockback_prev_offset) * self.boss_knockback_direction
-            return delta
+            return knockback_vel
+
         return 0.0
 
     def update(self, dt_frames=1):
@@ -259,30 +248,11 @@ class ShrapnelArmor:
                 dust_alive.append(d)
         self._dust_particles = dust_alive
 
-        # 넉백 업데이트 (좌우)
-        if self.boss_knockback_active:
-            level = max(1, min(4, self.knockback_level))
-            config = self._KNOCKBACK_CONFIG[level]
-
-            self.boss_knockback_prev_offset = self.boss_knockback_offset
-
-            if self.boss_knockback_timer > config["duration"] // 2:
-                # 전반: 좌/우로 밀림 (offset은 절대값, direction이 방향)
-                self.boss_knockback_offset += config["velocity"]
-                self.boss_knockback_offset = min(
-                    self.boss_knockback_offset, config["max_offset"]
-                )
-            else:
-                # 후반: 원위치로 복귀
-                recovery_speed = config["max_offset"] / max(1, config["duration"] // 2)
-                self.boss_knockback_offset -= recovery_speed
-                self.boss_knockback_offset = max(0.0, self.boss_knockback_offset)
-
-            self.boss_knockback_timer -= dt_frames
-            if self.boss_knockback_timer <= 0:
+        # 넉백 이펙트 타이머 (충격파 표시용, 실제 넉백은 boss_fire_knockback_vel이 처리)
+        if self._knockback_effect_timer > 0:
+            self._knockback_effect_timer -= dt_frames
+            if self._knockback_effect_timer <= 0:
                 self.boss_knockback_active = False
-                self.boss_knockback_offset = 0.0
-                self.boss_knockback_prev_offset = 0.0
                 self.boss_knockback_direction = 0
 
         # 플래시 타이머
@@ -377,12 +347,10 @@ class ShrapnelArmor:
             screen.blit(ds, (dx - sz, dy - sz))
 
         # 넉백 히트 이펙트 (보스 위치에 충격파)
-        if self.boss_knockback_active and boss_rect and self.boss_knockback_timer > 0:
-            level = max(1, min(4, self.knockback_level))
-            config = self._KNOCKBACK_CONFIG[level]
-            progress = self.boss_knockback_timer / config["duration"]
+        if self.boss_knockback_active and boss_rect and self._knockback_effect_timer > 0:
+            progress = self._knockback_effect_timer / 15.0
 
-            if progress > 0.7:
+            if progress > 0.3:
                 # 충격파 링
                 ring_alpha = int(150 * progress)
                 ring_radius = int(20 + (1 - progress) * 30)
