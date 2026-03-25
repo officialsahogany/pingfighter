@@ -2009,13 +2009,16 @@ class PillarBackgroundRenderer:
         # 위치: 하단 필러 영역, 스킬 슬롯 오른쪽
         _bottom_pillar_y = self.game_offset_y + self.game_height
         _bottom_pillar_h = self.screen_height - _bottom_pillar_y
-        if _bottom_pillar_h < btn_h + 4:
-            return None
-
-        btn_y = _bottom_pillar_y + max(2, (_bottom_pillar_h - btn_h) // 2)
-        # 게임 영역 오른쪽 끝 근처에 배치
-        game_area_right = self.game_offset_x + self.game_width
-        btn_x = game_area_right - btn_w - max(4, int(8 * _s))
+        if _bottom_pillar_h >= btn_h + 4:
+            # 전체화면: 하단 필러 영역에 배치
+            btn_y = _bottom_pillar_y + max(2, (_bottom_pillar_h - btn_h) // 2)
+            game_area_right = self.game_offset_x + self.game_width
+            btn_x = game_area_right - btn_w - max(4, int(8 * _s))
+        else:
+            # 창모드(노트북 등): 하단 필러가 없으므로 게임 영역 내부 우하단에 배치
+            _margin = max(4, int(6 * _s))
+            btn_x = self.game_offset_x + self.game_width - btn_w - _margin
+            btn_y = self.game_offset_y + self.game_height - btn_h - _margin - max(0, int(20 * _s))
 
         is_defense = (stance_mode == "defense")
 
