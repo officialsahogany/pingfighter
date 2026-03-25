@@ -128079,9 +128079,9 @@ def draw_field():
         alice_mirror_bg_timer += 1
         t = alice_mirror_bg_timer
         # 시안/보라 계열 색상이 물결치듯 변화
-        r = int(40 + 30 * math.sin(t * 0.03))
-        g = int(20 + 40 * math.sin(t * 0.05 + 1.0))
-        b = int(80 + 60 * math.sin(t * 0.04 + 2.0))
+        r = max(0, min(255, int(40 + 30 * math.sin(t * 0.03))))
+        g = max(0, min(255, int(20 + 40 * math.sin(t * 0.05 + 1.0))))
+        b = max(0, min(255, int(80 + 60 * math.sin(t * 0.04 + 2.0))))
         SCREEN.fill((r, g, b))
         # 거울 파편이 떠다니는 효과
         mirror_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
