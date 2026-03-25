@@ -47453,6 +47453,37 @@ heart_beam_knockback_schedule = []   # [(프레임, 방향px), ...] 3번 넉백 
 heart_beam_trail = []                # 빔 잔상 트레일
 heart_beam_slap_particles = []       # 싸대기 하트 파편 파티클
 
+# === 앨리스 - 거울 세계 스킬 (Mirror World) - Stage 3 ===
+alice_mirror_active = False
+alice_mirror_timer = 0
+ALICE_MIRROR_DURATION = 300         # 5초 (60fps)
+ALICE_MIRROR_COOLDOWN = 900         # 15초 쿨다운
+alice_mirror_cooldown_timer = 0
+alice_mirror_fade_timer = 0         # 페이드 인/아웃 타이머
+
+# === 앨리스 - 사이즈 시프트 스킬 (Size Shift) - Stage 3 ===
+alice_size_shift_active = False
+alice_size_shift_timer = 0
+ALICE_SIZE_SHIFT_DURATION = 240     # 4초
+ALICE_SIZE_SHIFT_COOLDOWN = 600     # 10초 쿨다운
+alice_size_shift_cooldown_timer = 0
+alice_size_shift_scale = 1.0        # 0.5 or 2.0
+alice_original_ball_w = 0
+alice_original_ball_h = 0
+
+# === 앨리스 - 토끼 투사체 스킬 (Rabbit Projectile) - Stage 3 ===
+alice_rabbit_active = False
+alice_rabbit_projectiles = []
+alice_rabbit_windup_active = False
+alice_rabbit_windup_timer = 0
+ALICE_RABBIT_COOLDOWN = 480         # 8초 쿨다운
+alice_rabbit_cooldown_timer = 0
+ALICE_RABBIT_SPEED = 3.5
+ALICE_RABBIT_HIT_RADIUS = 20
+ALICE_RABBIT_MAX_TIMER = 300        # 5초 생존
+ALICE_RABBIT_COUNT_MIN = 2
+ALICE_RABBIT_COUNT_MAX = 3
+
 # === 테디베어 VFX Surface 캐시 시스템 ===
 _teddy_vfx_cache = {}
 cotton_bomb_explosion_rings = []     # 폭탄 폭발 충격파 링
@@ -141575,26 +141606,35 @@ def handle_boss():
                 boss_knockback_vel = 0
 
             # 넉백 감속 처리
-            if boss_knockback_timer <= 18:  # 짧은 넉백 (코만도 총알 등)
-                boss_knockback_vel *= 0.85  # 매 프레임마다 15% 감속
-            else:  # 라그나로크 해머 (더 긴 넉백)
-                if boss_knockback_timer > 50:
-                    boss_knockback_vel *= 1.0  # 감속 없음
-                elif boss_knockback_timer > 30:
-                    boss_knockback_vel *= 0.99  # 1% 감속만
+            if is_ragnarok_knockback:
+                # 라그나로크: 초반 강하게 밀려남 → 급감속 → 즉시 감전
+                progress = 1.0 - (boss_knockback_timer / 36.0)  # 0→1 (시작→끝)
+                if progress < 0.25:
+                    boss_knockback_vel *= 0.96  # 초반: 약한 감속 (빠르게 날아감)
+                elif progress < 0.5:
+                    boss_knockback_vel *= 0.88  # 중반: 급감속
                 else:
-                    boss_knockback_vel *= 0.97  # 3% 감속
+                    boss_knockback_vel *= 0.78  # 후반: 빠르게 정지
+            else:
+                # 일반 넉백 (코만도 총알 등)
+                boss_knockback_vel *= 0.85
 
         # 라그나로크 해머만의 추가 효과
         if is_ragnarok_knockback:
-            if boss_knockback_timer > 18:
-                shake_x = random.uniform(-3, 3)
+            # 넉백 초반에만 흔들림 (날아가는 느낌)
+            progress = 1.0 - (boss_knockback_timer / 36.0)
+            if progress < 0.6 and abs(boss_knockback_vel) > 1.0:
+                shake_intensity = 3.0 * (1.0 - progress)
+                shake_x = random.uniform(-shake_intensity, shake_intensity)
                 BOSS.x += shake_x
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 
-            if boss_knockback_timer <= 1 and boss_knockback_timer > 0 and ragnarok_stun_pending > 0:
+            # 넉백 속도가 충분히 줄었거나 타이머 종료 시 즉시 감전
+            if ragnarok_stun_pending > 0 and (abs(boss_knockback_vel) < 1.5 or boss_knockback_timer <= 1):
                 boss_stun_timer = ragnarok_stun_pending
                 ragnarok_stun_pending = 0
+                boss_knockback_vel = 0
+                boss_knockback_timer = 0
                 play_ragnarok_shock_sound()
                 ragnarok_shock_playing = True
 
