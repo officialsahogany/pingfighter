@@ -106,23 +106,24 @@ class AliceBossSprite:
         else:
             self.step_phase *= 0.9
 
-        # 상체 흔들림
-        self.body_bob = _sin(self.step_phase * 2) * (0.8 if moving else 0.2)
-        self.body_roll = _sin(self.step_phase) * (0.04 if moving else 0.01)
+        # 상체 흔들림 (미세하게)
+        self.body_bob = _sin(self.step_phase * 2) * (0.3 if moving else 0.1)
+        self.body_roll = _sin(self.step_phase) * (0.02 if moving else 0.005)
 
-        # 팔 흔들림
-        self.arm_swing = _sin(self.step_phase * 2) * (0.3 if moving else 0.05)
+        # 팔 흔들림 (미세하게)
+        self.arm_swing = _sin(self.step_phase * 2) * (0.15 if moving else 0.03)
 
-        # 머리 기울기
-        self.head_tilt = _sin(self.time * 1.5) * 0.03 + self.lean * 0.3
+        # 머리 기울기 (미세하게)
+        self.head_tilt = _sin(self.time * 1.5) * 0.015 + self.lean * 0.15
 
-        # 드레스 흔들림 (스프링)
-        dress_target = self.velocity * 0.004
+        # 드레스 흔들림 (클램프)
+        dress_target = max(-0.15, min(0.15, self.velocity * 0.002))
         self.dress_sway_vel += (dress_target - self.dress_sway) * 20 * dt - self.dress_sway_vel * 6 * dt
         self.dress_sway += self.dress_sway_vel * dt
+        self.dress_sway = max(-0.2, min(0.2, self.dress_sway))
 
-        # 머리카락 나부낌
-        self.hair_sway = _sin(self.time * 2.5) * 0.08 + self.velocity * 0.002
+        # 머리카락 나부낌 (클램프)
+        self.hair_sway = _sin(self.time * 2.5) * 0.04 + max(-0.06, min(0.06, self.velocity * 0.001))
 
         # 거울 반짝임
         self.mirror_sparkle = (_sin(self.time * 3.0) + 1.0) * 0.5
@@ -155,14 +156,14 @@ class AliceBossSprite:
         # 스케일 팩터
         s = min(sw, sh) / 200.0
 
-        # body bob 적용
-        bob_y = int(self.body_bob * s * 3)
+        # body bob 적용 (미세한 움직임)
+        bob_y = int(self.body_bob * s * 1.5)
 
         # === 드레스 (하반신) ===
         dress_top_y = cy + int(8 * s) + bob_y
         dress_bot_y = cy + int(50 * s) + bob_y
         dress_w = int(40 * s)
-        sway_px = int(self.dress_sway * s * 30)
+        sway_px = int(self.dress_sway * s * 10)
 
         # 드레스 A라인 실루엣
         dress_points = [
@@ -227,8 +228,8 @@ class AliceBossSprite:
                           int(20 * s), int(16 * s)))
 
         # === 팔 ===
-        arm_angle_l = self.arm_swing * 0.4
-        arm_angle_r = -self.arm_swing * 0.4
+        arm_angle_l = self.arm_swing * 0.2
+        arm_angle_r = -self.arm_swing * 0.2
 
         # 왼팔
         la_x = cx - int(22 * s)
@@ -274,12 +275,12 @@ class AliceBossSprite:
                           int(4 * s), int(8 * s)))
 
         # === 머리 ===
-        head_cx = cx + int(self.head_tilt * s * 30)
+        head_cx = cx + int(self.head_tilt * s * 10)
         head_cy = cy - int(32 * s) + bob_y
         head_r = int(18 * s)
 
         # 뒷머리카락 (긴 금발)
-        hair_sway_px = int(self.hair_sway * s * 40)
+        hair_sway_px = int(self.hair_sway * s * 15)
         hair_points_back = [
             (head_cx - int(20 * s), head_cy - int(5 * s)),
             (head_cx + int(20 * s), head_cy - int(5 * s)),
