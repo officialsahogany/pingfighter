@@ -133700,6 +133700,11 @@ def handle_ball():
     global button_eye_active, button_eye_cooldown_timer
     # 저주 보물상자 쿨다운
     global curse_chest_cooldown_timer, curse_chest_active
+    # 앨리스 스킬 관련
+    global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer, alice_mirror_fade_timer
+    global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer, alice_size_shift_scale
+    global alice_rabbit_active, alice_rabbit_projectiles, alice_rabbit_windup_active
+    global alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
