@@ -334,6 +334,23 @@ class HUDDisplay:
         clock = pygame.time.Clock()
         animation_timer = 0
 
+        # 라운드 전광판 효과음 재생
+        try:
+            if not hasattr(HUDDisplay, '_roundset_sound'):
+                HUDDisplay._roundset_sound = None
+                import os, sys
+                try:
+                    base = sys._MEIPASS
+                except Exception:
+                    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                _rs_full = os.path.join(base, "sounds", "roundset.wav")
+                if os.path.exists(_rs_full):
+                    HUDDisplay._roundset_sound = pygame.mixer.Sound(_rs_full)
+            if HUDDisplay._roundset_sound:
+                HUDDisplay._roundset_sound.play()
+        except Exception:
+            pass
+
         # 페이드인 애니메이션
         for alpha in range(0, 256, 18):
             pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
