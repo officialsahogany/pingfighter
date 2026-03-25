@@ -17972,8 +17972,20 @@ def _swap_boss_in_current_stage():
             BOSS_COLOR = (139, 90, 43)
         elif new_boss == "아라크네":
             BOSS_COLOR = (80, 40, 25)
+            # 아라크네 패들 +30% 확대 (130x40 → 169x52)
+            if BOSS is not None:
+                center = BOSS.centerx
+                BOSS.width = 169
+                BOSS.height = 52
+                BOSS.centerx = center
         else:
             BOSS_COLOR = (0, 255, 0)
+            # 다른 스테이지2 보스는 기본 패들 크기로 복원
+            if BOSS is not None:
+                center = BOSS.centerx
+                BOSS.width = 130
+                BOSS.height = 40
+                BOSS.centerx = center
     elif stage == 3:
         if new_boss == "테디베어":
             BOSS_COLOR = (180, 130, 90)
@@ -43370,9 +43382,9 @@ BOSS_IMG_TALKWANGDAE_HEIGHT = 184
 # 두더지왕 전용 사이즈 (스테이지 2 서브보스)
 BOSS_IMG_MOLEWANG_WIDTH = 96
 BOSS_IMG_MOLEWANG_HEIGHT = 192
-# 아라크네 전용 사이즈 (스테이지 2 서브보스)
-BOSS_IMG_SPIDER_WIDTH = 128
-BOSS_IMG_SPIDER_HEIGHT = 128
+# 아라크네 전용 사이즈 (스테이지 2 서브보스) — 기본 대비 +30%
+BOSS_IMG_SPIDER_WIDTH = 166
+BOSS_IMG_SPIDER_HEIGHT = 166
 # 스테이지 4, 5 전용 사이즈
 BOSS_IMG_STAGE4_WIDTH = 125  # 10% 증가 (114→125)
 BOSS_IMG_STAGE4_HEIGHT = 68  # 10% 증가 (62→68)
@@ -137884,7 +137896,7 @@ def handle_ball():
         if boss_fail_timer > 0:
             tear_chance = min(1.0, tear_chance + 0.3)
         time_now = pygame.time.get_ticks()
-        if current_stage == 3 and current_boss_name != "테디베어":  # 멘헤라걸 전용 눈물 스킬
+        if current_stage == 3 and current_boss_name == "멘헤라걸":  # 멘헤라걸 전용 눈물 스킬 (앨리스/테디베어 사용 불가)
             if time_now - last_tears_cast_time >= TEARS_COOLDOWN:
                 if random.random() < tear_chance and boss_special_gauge >= 80:  # 80 게이지 필요
                     activate_tears_of_pain()
