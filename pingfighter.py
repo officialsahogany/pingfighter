@@ -1216,8 +1216,7 @@ from events.weather_event import (
 from game_logic.checkmate_system import get_checkmate_system
 from game_logic.game_loop import LegacyHooks, create_game_loop
 from game_logic.sand_obstacles import (
-    spawn_sand_obstacles, check_sand_ball_collision, create_sand_particles,
-    update_sand_particles, draw_sand_obstacles, draw_sand_particles,
+    spawn_sand_obstacles, check_sand_ball_collision, draw_sand_obstacles,
 )
 
 if _splash_screen:
@@ -27197,9 +27196,8 @@ wall_group_hits: dict[int, int] = {}  # 그룹형(건물 보호용) 벽돌의 �
 REPAIR_TICK_FRAMES = int(5 * FPS)
 active_repair_jobs: list[dict] = []  # 진행 중인 수리 작업
 repair_hammer_surface = None
-# === 모래 장애물 관련 ===
-sand_obstacles = []  # 모래 장애물 리스트
-sand_particles = []  # 모래 파괴 파티클 리스트
+# === 모래 지형 관련 ===
+sand_obstacles = None  # SandTerrain 인스턴스 (라운드 시작 시 생성)
 # === 화염병 관련 ===
 molotovs = []  # 던져진 화염병 리스트
 fire_zones = []  # 화염 지대 리스트
@@ -54382,7 +54380,7 @@ def go_to_next_round():
     global power_smashing_direction, power_smashing_original_speed  #  파워스매싱 관련 변수 추가
     global lightning_master_speed, ice_queen_speed, fire_knight_speed, wind_spirit_speed  #  새로운 보스들 속도 초기화
     global fire_zones, molotovs  #  화염병 관련 변수 추가
-    global sand_obstacles, sand_particles  # 🏖 모래 장애물 관련 변수
+    global sand_obstacles  # 🏖 모래 지형 관련 변수
     # 공 정지
     ball_vel = [0, 0]
     physics_manager.reset_ball(is_player_serve)
@@ -54398,8 +54396,7 @@ def go_to_next_round():
     molotovs.clear()    # 날아가는 화염병도 제거
 
     # 🏖 모래 장애물 초기화 (라운드 시작 시 벽 주변에 랜덤 생성)
-    sand_obstacles = spawn_sand_obstacles((4, 8))
-    sand_particles = []
+    sand_obstacles = spawn_sand_obstacles()
 
     # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
     global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
@@ -100064,15 +100061,12 @@ def draw_objects():
     global nemesis_sub_boss_health, nemesis_sub_boss_alive  # 서브보스 체력 시스템
     global nemesis_sub_boss_debris_particles, nemesis_sub_boss_death_particles  # 서브보스 파편/폭발 파티클
     global nemesis_sub_boss_death_explosion_active, nemesis_sub_boss_death_explosion_timer  # 서브보스 폭발
-    global sand_obstacles, sand_particles  # 🏖 모래 장애물 관련
+    global sand_obstacles  # 🏖 모래 지형 관련
     new_tear_particles = []  #  함수 시작 시 초기화
 
-    # 🏖 모래 장애물 그리기 (배경 위, 공 아래)
+    # 🏖 모래 지형 그리기 (배경 위, 공 아래)
     if sand_obstacles:
         draw_sand_obstacles(SCREEN, sand_obstacles)
-    if sand_particles:
-        update_sand_particles(sand_particles)
-        draw_sand_particles(SCREEN, sand_particles)
 
     # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
     legendary_manager = None
@@ -131106,7 +131100,7 @@ def reset_round(is_stage_start=False):
     global emotional_overdrive_active, emotional_overdrive_timer, overdrive_flash_timer, overdrive_trails  #  사이코볼 관련 변수 추가
     global round_start_time  #  불꽃탄 지연 시간 관련 변수 추가
     global fire_zones, molotovs  #  화염병 관련 변수 추가
-    global sand_obstacles, sand_particles  # 🏖 모래 장애물 관련 변수
+    global sand_obstacles  # 🏖 모래 지형 관련 변수
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global smasher_pending_contact_offset
@@ -131527,8 +131521,7 @@ def reset_round(is_stage_start=False):
     molotovs.clear()    # 날아가는 화염병도 제거
 
     # 🏖 모래 장애물 초기화 (라운드 시작 시 벽 주변에 랜덤 생성)
-    sand_obstacles = spawn_sand_obstacles((4, 8))
-    sand_particles = []
+    sand_obstacles = spawn_sand_obstacles()
 
     # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
     global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
@@ -134093,7 +134086,7 @@ def handle_ball():
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
     global wall_group_hits
     # 🏖 모래 장애물 관련
-    global sand_obstacles, sand_particles
+    global sand_obstacles
     # 스테이지8 그림자분신 상태
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     # 스테이지8 표창 상태
@@ -136367,17 +136360,13 @@ def handle_ball():
             except:
                 pass
 
-    # --- 🏖 모래 장애물 충돌 처리 ---
+    # --- 🏖 모래 지형 침식 처리 ---
     if sand_obstacles:
-        destroyed = check_sand_ball_collision(sand_obstacles, BALL, ball_vel)
-        for d_sand in destroyed:
-            sand_particles.extend(create_sand_particles(d_sand))
+        if check_sand_ball_collision(sand_obstacles, BALL, ball_vel):
             try:
                 play_wall_sound()
             except:
                 pass
-        # 파괴된 장애물 제거
-        sand_obstacles[:] = [s for s in sand_obstacles if s["alive"]]
 
     # --- 벽 충돌 처리 ---
     # 거미줄 구출 중에는 벽 충돌 처리 스킵 (공이 고정 상태)
