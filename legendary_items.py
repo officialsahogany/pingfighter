@@ -2930,7 +2930,7 @@ class RagnarokHammer(LegendaryItem):
         magnitude = compute_knockback_magnitude("ragnarok", ball_speed=ball_speed)
 
         # 보스 위치에 따라 방향 결정
-        center_x = 300  # 화면 중앙
+        center_x = 380  # 화면 중앙 (WIDTH // 2 = 760 // 2)
         if boss_x + 50 < center_x:  # 보스가 왼쪽에 있으면
             horizontal_velocity = magnitude  # 오른쪽으로 넉백
         else:  # 보스가 오른쪽에 있으면
