@@ -2015,10 +2015,14 @@ class PillarBackgroundRenderer:
             game_area_right = self.game_offset_x + self.game_width
             btn_x = game_area_right - btn_w - max(4, int(8 * _s))
         else:
-            # 창모드(노트북 등): 하단 필러가 없으므로 게임 영역 내부 우하단에 배치
-            _margin = max(4, int(6 * _s))
-            btn_x = self.game_offset_x + self.game_width - btn_w - _margin
-            btn_y = self.game_offset_y + self.game_height - btn_h - _margin - max(0, int(20 * _s))
+            # 창모드(노트북 등): 하단 필러가 없으므로 우측 필러 오버레이 하단에 배치
+            # 우측 필러 = 게임 내부 좌표 680~760px (PILLAR_UI_WIDTH=80)
+            _pillar_ui_w = 80  # PILLAR_UI_WIDTH
+            _right_pillar_x = self.game_offset_x + self.game_width - int(_pillar_ui_w * _s)
+            _text_h = max(12, int(16 * _s))  # 하단 텍스트 라벨 공간
+            _margin = max(4, int(8 * _s))
+            btn_x = _right_pillar_x + (int(_pillar_ui_w * _s) - btn_w) // 2
+            btn_y = self.game_offset_y + self.game_height - btn_h - _text_h - _margin
 
         is_defense = (stance_mode == "defense")
 
