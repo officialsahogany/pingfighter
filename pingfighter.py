@@ -103215,7 +103215,7 @@ def draw_objects():
         from item_effects.adversity_armor import get_adversity_armor_instance
         _aa_draw = get_adversity_armor_instance()
         if _aa_draw and _aa_draw.is_invincible():
-            _aa_draw.draw_effects(SCREEN, PLAYER)
+            _aa_draw.draw_effects(SCREEN, PLAYER, GAME_AREA_OFFSET_X, GAME_PLAY_WIDTH, HEIGHT)
     except Exception:
         pass
 
