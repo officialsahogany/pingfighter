@@ -10,12 +10,47 @@
 """
 
 import math
+import os
 import random
 
 try:
     import pygame
 except ImportError:
     pygame = None
+
+
+def _resource_path(relative_path: str) -> str:
+    """PyInstaller 호환 리소스 경로"""
+    import sys
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path.replace('/', os.sep).replace('\\', os.sep))
+
+
+# 사운드 캐시 (한 번만 로드)
+_sound_fire = None
+_sound_hit = None
+
+
+def _load_sounds():
+    """파편 발사/명중 사운드 로드 (lazy)"""
+    global _sound_fire, _sound_hit
+    if not pygame or not pygame.mixer.get_init():
+        return
+    if _sound_fire is None:
+        try:
+            _sound_fire = pygame.mixer.Sound(_resource_path(os.path.join("sounds", "arrow.wav")))
+            _sound_fire.set_volume(0.5)
+        except Exception:
+            _sound_fire = False  # 로드 실패 표시
+    if _sound_hit is None:
+        try:
+            _sound_hit = pygame.mixer.Sound(_resource_path(os.path.join("sounds", "bullethit.wav")))
+            _sound_hit.set_volume(0.6)
+        except Exception:
+            _sound_hit = False
 
 
 class ShrapnelArmor:
@@ -107,6 +142,12 @@ class ShrapnelArmor:
             })
 
         self._flash_timer = 8  # 발동 플래시 (약 0.13초)
+
+        # 파편 발사 사운드
+        _load_sounds()
+        if _sound_fire and _sound_fire is not False:
+            _sound_fire.play()
+
         return True
 
     def check_boss_collision(self, boss_rect) -> bool:
@@ -133,8 +174,14 @@ class ShrapnelArmor:
                 remaining.append(shard)
         self.shards = remaining
 
-        if hit and not self.boss_knockback_active:
-            self._apply_knockback()
+        if hit:
+            # 명중 사운드
+            _load_sounds()
+            if _sound_hit and _sound_hit is not False:
+                _sound_hit.play()
+
+            if not self.boss_knockback_active:
+                self._apply_knockback()
 
         return hit
 
