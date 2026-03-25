@@ -138625,15 +138625,16 @@ def handle_ball():
         if was_stun_ball:
             play_ragnarok_boom_sound()
         
-        #  라그나로크 해머 넉백 효과 (스턴공이었을 때만 발동)
+        #  라그나로크 해머 넉백 효과 (스턴공: 확정 발동 / 일반 충돌: 확률 발동)
         legendary_manager = get_legendary_manager()
-        
-        if was_stun_ball and legendary_manager:
+
+        if legendary_manager:
             if "ragnarok_hammer" in legendary_manager.active_items:
                 hammer = legendary_manager.items.get("ragnarok_hammer")
                 if hammer and hammer.active:
                     ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    horizontal_velocity, stun_duration = hammer.calculate_knockback(ball_speed, BOSS.x, skip_trigger_check=True)
+                    # 스턴공이면 확률 체크 스킵(확정 발동), 일반 충돌이면 trigger_chance 확률로 발동
+                    horizontal_velocity, stun_duration = hammer.calculate_knockback(ball_speed, BOSS.x, skip_trigger_check=was_stun_ball)
 
                     if horizontal_velocity != 0:
                         boss_knockback_timer = 36
