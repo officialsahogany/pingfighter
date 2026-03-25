@@ -57,16 +57,12 @@ HAIL_KNOCKBACK_STRENGTH = 24  # 넉백 강도 (2배 증가: 12 → 24)
 HAIL_STUN_DURATION = 0.1  # 스턴 지속 시간 (초)
 HAIL_HIT_COOLDOWN = 45  # 같은 우박에 연속 피격 방지 쿨다운 (프레임)
 
-WIND_MIN_DURATION = 1
-WIND_MAX_DURATION = 3
-FIRE_MIN_DURATION = 1
-FIRE_MAX_DURATION = 3
-ICE_MIN_DURATION = 1
-ICE_MAX_DURATION = 3
-RAIN_MIN_DURATION = 1
-RAIN_MAX_DURATION = 3
-HAIL_MIN_DURATION = 1
-HAIL_MAX_DURATION = 3
+# 날씨 지속 라운드 가중치: 1라운드 50%, 2라운드 30%, 3라운드 20%
+WEATHER_DURATION_WEIGHTS = [1, 1, 1, 1, 1, 2, 2, 2, 3, 3]  # 5:3:2 비율
+
+def _weighted_weather_duration():
+    """가중치 기반 날씨 지속 라운드 (1: 50%, 2: 30%, 3: 20%)"""
+    return random.choice(WEATHER_DURATION_WEIGHTS)
 
 # ============== Global State ==============
 weather_event_active = False
@@ -587,7 +583,7 @@ def check_weather_event_on_round_start():
         if event_roll < 0.167:
             weather_event_type = "breeze"
             weather_event_direction = random.choice([-1, 1])
-            weather_event_remaining_rounds = random.randint(WIND_MIN_DURATION, WIND_MAX_DURATION)
+            weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.breeze", "미풍이 불어옴!")
         elif event_roll < 0.333:
             weather_event_type = "gust"
@@ -597,22 +593,22 @@ def check_weather_event_on_round_start():
         elif event_roll < 0.500:
             weather_event_type = "fire"
             weather_event_direction = 0  # 불은 방향 없음
-            weather_event_remaining_rounds = random.randint(FIRE_MIN_DURATION, FIRE_MAX_DURATION)
+            weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.fire", "화재 발생!")
         elif event_roll < 0.667:
             weather_event_type = "ice"
             weather_event_direction = 0  # 얼음은 방향 없음
-            weather_event_remaining_rounds = random.randint(ICE_MIN_DURATION, ICE_MAX_DURATION)
+            weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.ice", "빙판 발생!")
         elif event_roll < 0.833:
             weather_event_type = "rain"
             weather_event_direction = 0  # 소나기는 방향 없음
-            weather_event_remaining_rounds = random.randint(RAIN_MIN_DURATION, RAIN_MAX_DURATION)
+            weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.rain", "소나기 발생!")
         else:
             weather_event_type = "hail"
             weather_event_direction = 0  # 우박은 방향 없음
-            weather_event_remaining_rounds = random.randint(HAIL_MIN_DURATION, HAIL_MAX_DURATION)
+            weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.hail", "우박 발생!")
 
         weather_warning_timer = 180  # 3 seconds
