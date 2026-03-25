@@ -77,8 +77,8 @@ class ShrapnelArmor:
         # 이펙트
         self._flash_timer = 0  # 발동 순간 플래시
 
-        # 넉백 단계별 초기 속도 (boss_fire_knockback_vel에 주입)
-        self._KNOCKBACK_VELOCITY = {
+        # 넉백 단계별 초기 속도 기준값 (레벨 5+ 는 공식으로 계산)
+        self._KNOCKBACK_BASE_VELOCITY = {
             1: 5.0,
             2: 8.0,
             3: 12.0,
@@ -192,9 +192,12 @@ class ShrapnelArmor:
             else:
                 direction = random.choice([-1, 1])
 
-            # 넉백 속도 계산
-            level = max(1, min(4, self.knockback_level))
-            velocity = self._KNOCKBACK_VELOCITY.get(level, 8.0)
+            # 넉백 속도 계산 (레벨 5+ 는 레벨당 +4.0씩 증가)
+            level = max(1, self.knockback_level)
+            if level <= 4:
+                velocity = self._KNOCKBACK_BASE_VELOCITY.get(level, 8.0)
+            else:
+                velocity = 16.0 + (level - 4) * 4.0  # Lv5=20, Lv6=24, Lv7=28 ...
             knockback_vel = velocity * direction
 
             # 이펙트용 상태 업데이트

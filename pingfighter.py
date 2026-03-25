@@ -78122,7 +78122,7 @@ def activate_alice_rabbit():
 
 
 def _launch_alice_rabbits():
-    """준비 완료 후 토끼 투사체 발사"""
+    """준비 완료 후 토끼 투사체 발사 - 플레이어 위치까지 반드시 도달"""
     global alice_rabbit_active, alice_rabbit_projectiles
     alice_rabbit_active = True
     alice_rabbit_projectiles.clear()
@@ -78131,18 +78131,20 @@ def _launch_alice_rabbits():
     boss_cy = float((BOSS.y + BOSS.height) if BOSS else 65)
     player_cx = float(PLAYER.centerx if PLAYER else WIDTH // 2)
     player_cy = float(PLAYER.centery if PLAYER else 710)
+    dist_to_player = math.sqrt((player_cx - boss_cx) ** 2 + (player_cy - boss_cy) ** 2)
+    if dist_to_player < 1:
+        dist_to_player = 1
     for i in range(count):
-        dx = player_cx - boss_cx
-        dy = player_cy - boss_cy
-        dist = math.sqrt(dx * dx + dy * dy)
-        if dist < 1:
-            dist = 1
-        spread_angle = math.radians(random.uniform(-20, 20))
-        base_angle = math.atan2(dy, dx)
+        # 스프레드 각도를 적용하되, 속도를 거리 기반으로 계산하여 반드시 도달
+        spread_angle = math.radians(random.uniform(-18, 18))
+        base_angle = math.atan2(player_cy - boss_cy, player_cx - boss_cx)
         angle = base_angle + spread_angle
-        speed = ALICE_RABBIT_SPEED + random.uniform(-0.3, 0.3)
+        # 타겟까지의 비행시간을 120~180프레임(2~3초)으로 설정
+        flight_frames = random.uniform(120, 180)
+        speed = dist_to_player / flight_frames
+        speed = max(speed, ALICE_RABBIT_SPEED * 0.8)  # 최소 속도 보장
         alice_rabbit_projectiles.append({
-            "x": boss_cx + random.uniform(-10, 10),
+            "x": boss_cx + random.uniform(-15, 15),
             "y": boss_cy,
             "vx": math.cos(angle) * speed,
             "vy": math.sin(angle) * speed,
@@ -78150,6 +78152,8 @@ def _launch_alice_rabbits():
             "hop_phase": random.uniform(0, math.pi * 2),
             "size": random.uniform(16, 22),
             "ear_angle": random.uniform(-0.2, 0.2),
+            "target_x": player_cx + random.uniform(-30, 30),  # 목표 X (약간 흩어짐)
+            "target_y": player_cy,
         })
     try:
         snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyshoot.wav")))
@@ -78179,12 +78183,24 @@ def update_alice_rabbit():
         proj["hop_phase"] += 0.15
         # 깡충 뛰는 모션 (Y축 사인파)
         hop_offset = abs(math.sin(proj["hop_phase"])) * 8
+        # 플레이어 쪽으로 약한 유도 (반드시 도달하도록)
+        if PLAYER and proj["y"] < PLAYER.centery:
+            target_x = proj.get("target_x", PLAYER.centerx)
+            target_y = proj.get("target_y", PLAYER.centery)
+            dx = target_x - proj["x"]
+            dy = target_y - proj["y"]
+            dist = math.sqrt(dx * dx + dy * dy)
+            if dist > 1:
+                # 부드러운 유도: 속도 벡터를 목표 방향으로 약간 보정
+                homing_strength = 0.02
+                proj["vx"] += (dx / dist) * homing_strength
+                proj["vy"] += (dy / dist) * homing_strength
         proj["x"] += proj["vx"]
         proj["y"] += proj["vy"] - hop_offset * 0.1
-        # 화면 밖
-        if (proj["x"] < GAME_AREA_OFFSET_X - 30 or
-            proj["x"] > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30 or
-                proj["y"] > HEIGHT + 30 or proj["y"] < -30):
+        # 화면 밖 (플레이어 Y를 지나친 경우에만 아래쪽으로 제거)
+        if (proj["x"] < -30 or
+            proj["x"] > WIDTH + 30 or
+                proj["y"] > HEIGHT + 60 or proj["y"] < -30):
             to_remove.append(i)
             continue
         if proj["timer"] <= 0:
