@@ -106,6 +106,7 @@ SOUND_PATHS = {
     "GOD_OUT": "sounds/godout.wav",
     "GOD_THUNDER_THROW": "sounds/godthunderthrow.wav",
     "WHIPCRACK": "sounds/whipcrack.wav",
+    "ROUND_SET": "sounds/roundset.wav",
 }
 
 

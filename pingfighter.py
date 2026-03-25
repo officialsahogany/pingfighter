@@ -20724,6 +20724,7 @@ SOUND_THROWING_BANANA = sound_effects['THROWING_BANANA']
 SOUND_STEP_BANANA = sound_effects['STEP_BANANA']
 SOUND_STAGE5_WARNING = sound_effects['STAGE5_WARNING']
 SOUND_WHIPCRACK = sound_effects.get('WHIPCRACK')
+SOUND_ROUND_SET = sound_effects.get('ROUND_SET')
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
 set_throwing_banana_sound(SOUND_THROWING_BANANA)
@@ -54224,6 +54225,12 @@ def go_to_next_round():
     global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count
 
     preserved_doping_state = None
+    # 라운드 전광판 효과음 재생
+    if SOUND_ROUND_SET:
+        try:
+            SOUND_ROUND_SET.play()
+        except Exception:
+            pass
     # 라운드 시작 카운트 기록
     record_round_start()
     if (
