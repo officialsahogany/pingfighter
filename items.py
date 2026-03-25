@@ -79,6 +79,13 @@ try:
 except:
     SOUND_ITEM_GET = None
 
+# 럭키코인 보너스 스폰 효과음
+try:
+    SOUND_LUCKY_SPAWN = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
+    SOUND_LUCKY_SPAWN.set_volume(0.6)
+except:
+    SOUND_LUCKY_SPAWN = None
+
 LONG_BOOST_ICON = None  # 이미지 로딩은 main에서 처리됨
 
 # 아이템 아이콘 dictionary
@@ -2310,9 +2317,18 @@ def _spawn_bonus_item(available_items, skill_spawn_boost=1.0):
         "timer": bonus_item["duration"],
         "bounce_count": 0,
         "max_bounces": _rng.randint(6, 9),
-        "angle": 0
+        "angle": 0,
+        "lucky_bonus": True,  # 럭키코인 보너스 아이템 표시
+        "lucky_glow_timer": 0,  # 글로우 애니메이션 타이머
     }
     item_list.append(new_item)
+
+    # 보너스 스폰 효과음 재생
+    if SOUND_LUCKY_SPAWN:
+        try:
+            SOUND_LUCKY_SPAWN.play()
+        except Exception:
+            pass
 
 
 def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None, paused=False, on_item_collect_callback=None):
@@ -2503,11 +2519,39 @@ def draw_items(screen):
                 continue
         
         if icon:
+            ix, iy = int(item["x"]), int(item["y"])
             angle = item.get("angle", 0)
+
+            # 럭키코인 보너스 아이템 글로우 이펙트
+            if item.get("lucky_bonus"):
+                import math as _m
+                item["lucky_glow_timer"] = item.get("lucky_glow_timer", 0) + 1
+                t = item["lucky_glow_timer"]
+
+                # 1) 외곽 펄싱 글로우 (금색)
+                pulse = 0.5 + 0.5 * _m.sin(t * 0.08)
+                glow_alpha = int(60 + 80 * pulse)
+                glow_radius = int(38 + 6 * pulse)
+                glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (255, 215, 0, glow_alpha), (glow_radius, glow_radius), glow_radius)
+                screen.blit(glow_surf, (ix - glow_radius, iy - glow_radius))
+
+                # 2) 반짝이는 파티클 (4개, 회전)
+                for i in range(4):
+                    a = _m.radians(t * 2 + i * 90)
+                    dist = 28 + 4 * _m.sin(t * 0.12 + i)
+                    px = ix + int(dist * _m.cos(a))
+                    py = iy + int(dist * _m.sin(a))
+                    spark_alpha = int(120 + 135 * _m.sin(t * 0.15 + i * 1.5))
+                    spark_size = max(2, int(3 + 1.5 * _m.sin(t * 0.1 + i)))
+                    spark_surf = pygame.Surface((spark_size * 2, spark_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(spark_surf, (255, 255, 180, spark_alpha), (spark_size, spark_size), spark_size)
+                    screen.blit(spark_surf, (px - spark_size, py - spark_size))
+
             # ✅ 회전 후 강제로 크기 맞추기
             icon = pygame.transform.scale(icon, (60, 60))  # 다시 강제 스케일링
             rotated_icon = pygame.transform.rotate(icon, angle)
-            rect = rotated_icon.get_rect(center=(int(item["x"]), int(item["y"])))
+            rect = rotated_icon.get_rect(center=(ix, iy))
             screen.blit(rotated_icon, rect.topleft)
 
 
