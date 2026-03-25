@@ -68,22 +68,55 @@ class SandWall:
         self._surf_offset: tuple[int, int] = (0, 0)
 
     def _generate_terrain(self) -> None:
-        """펄린 노이즈 비슷한 울퉁불퉁 지형 생성"""
-        self.depths = []
-        # 큰 파동 + 작은 노이즈 조합
-        wave_freq = random.uniform(0.08, 0.15)
-        wave_phase = random.uniform(0, math.pi * 2)
-        for i in range(self.num_segs):
-            t = i / max(1, self.num_segs - 1)
-            # 양 끝은 0으로 부드럽게 감소 (벽면에 자연스럽게 녹아듦)
-            edge_fade = math.sin(t * math.pi)  # 0→1→0
-            # 큰 파동
-            big_wave = (math.sin(i * wave_freq + wave_phase) + 1) * 0.5
-            # 작은 노이즈
-            noise = random.uniform(-0.2, 0.2)
-            depth = DEPTH_MIN + (DEPTH_MAX - DEPTH_MIN) * (big_wave * 0.7 + 0.3 + noise)
-            depth *= edge_fade
-            self.depths.append(max(0, depth))
+        """랜덤한 모양의 지형 생성 — 덩어리/빈틈/뾰족함이 제각각"""
+        self.depths = [0.0] * self.num_segs
+
+        # 랜덤 개수의 덩어리(클러스터)를 배치
+        num_clusters = random.randint(2, 5)
+        for _ in range(num_clusters):
+            # 덩어리 중심 위치, 폭, 최대 깊이를 각각 랜덤
+            center = random.uniform(0.05, 0.95)  # 0~1 비율
+            half_width = random.uniform(0.05, 0.25)  # 덩어리 반폭
+            peak_depth = random.uniform(DEPTH_MIN + 5, DEPTH_MAX)
+            # 모양 타입: 둥근형, 뾰족형, 평탄형 랜덤 선택
+            shape_type = random.choice(["round", "sharp", "flat", "jagged"])
+
+            for i in range(self.num_segs):
+                t = i / max(1, self.num_segs - 1)
+                dist = abs(t - center) / half_width
+                if dist > 1.0:
+                    continue
+
+                if shape_type == "round":
+                    # 매끄러운 반원형
+                    factor = math.cos(dist * math.pi * 0.5) ** 2
+                elif shape_type == "sharp":
+                    # 뾰족한 삼각형
+                    factor = 1.0 - dist
+                elif shape_type == "flat":
+                    # 꼭대기가 평평한 사다리꼴
+                    factor = 1.0 if dist < 0.5 else 2.0 * (1.0 - dist)
+                else:  # jagged
+                    # 톱니 형태
+                    factor = (1.0 - dist) * random.uniform(0.5, 1.0)
+
+                # 작은 노이즈 추가
+                factor *= random.uniform(0.8, 1.0)
+                self.depths[i] = max(self.depths[i], peak_depth * factor)
+
+        # 양 끝을 벽면에 자연스럽게 녹여줌 (페이드)
+        fade_segs = max(2, self.num_segs // 8)
+        for i in range(fade_segs):
+            fade = i / fade_segs
+            self.depths[i] *= fade
+            self.depths[self.num_segs - 1 - i] *= fade
+
+        # 세그먼트 간 약간의 스무딩 (너무 들쭉날쭉 방지, 1회만)
+        smoothed = list(self.depths)
+        for i in range(1, self.num_segs - 1):
+            smoothed[i] = self.depths[i] * 0.6 + (self.depths[i - 1] + self.depths[i + 1]) * 0.2
+        self.depths = smoothed
+
         self._dirty = True
 
     def is_empty(self) -> bool:
