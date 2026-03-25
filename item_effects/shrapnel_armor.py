@@ -66,6 +66,8 @@ class ShrapnelArmor:
 
         # 파편 프로젝타일 리스트
         self.shards: list[dict] = []
+        # 소멸 파티클 (가루 증발 이펙트)
+        self._dust_particles: list[dict] = []
 
         # 넉백 상태 (좌우 넉백)
         self.boss_knockback_active = False
@@ -92,6 +94,7 @@ class ShrapnelArmor:
         """아이템 효과 전부 비활성화"""
         self.active = False
         self.shards.clear()
+        self._dust_particles.clear()
         self.boss_knockback_active = False
         self.boss_knockback_timer = 0
         self.boss_knockback_offset = 0.0
@@ -124,7 +127,7 @@ class ShrapnelArmor:
             angle_deg = base_angle + spread * ((i / max(count - 1, 1)) - 0.5)
             angle_rad = math.radians(angle_deg)
 
-            speed = random.uniform(7.8, 11.7)
+            speed = random.uniform(9.4, 14.0)
             vx = math.cos(angle_rad) * speed
             vy = math.sin(angle_rad) * speed
 
@@ -170,8 +173,9 @@ class ShrapnelArmor:
             shard_rect = pygame.Rect(sx - 3, sy - 3, 6, 6) if pygame else None
             if shard_rect and boss_rect.colliderect(shard_rect):
                 hit = True
-                # 파편의 X 속도로 넉백 방향 결정
                 hit_direction += shard["vx"]
+                # 명중 시에도 가루 이펙트
+                self._spawn_dust(shard["x"], shard["y"], shard["size"], shard["color_shift"])
             else:
                 remaining.append(shard)
         self.shards = remaining
@@ -228,9 +232,28 @@ class ShrapnelArmor:
             if len(shard["trail"]) > 5:
                 shard["trail"].pop(0)
 
-            if shard["life"] > 0 and 0 <= shard["x"] <= 760 and shard["y"] < 760:
+            # 벽 충돌 체크 (좌우 벽 또는 상단 벽에 박히면 소멸)
+            hit_wall = (shard["x"] <= 0 or shard["x"] >= 760 or shard["y"] <= 0)
+
+            if hit_wall or shard["life"] <= 0:
+                # 가루 증발 파티클 생성
+                self._spawn_dust(shard["x"], shard["y"], shard["size"], shard["color_shift"])
+            elif shard["y"] < 760:
                 alive.append(shard)
         self.shards = alive
+
+        # 가루 파티클 업데이트
+        dust_alive = []
+        for d in self._dust_particles:
+            d["x"] += d["vx"]
+            d["y"] += d["vy"]
+            d["vy"] -= 0.03  # 위로 떠오름
+            d["vx"] *= 0.96  # 감속
+            d["life"] -= dt_frames
+            d["size"] = max(0.3, d["size"] - 0.06)  # 점점 작아짐
+            if d["life"] > 0 and d["size"] > 0.3:
+                dust_alive.append(d)
+        self._dust_particles = dust_alive
 
         # 넉백 업데이트 (좌우)
         if self.boss_knockback_active:
@@ -258,6 +281,23 @@ class ShrapnelArmor:
         # 플래시 타이머
         if self._flash_timer > 0:
             self._flash_timer -= dt_frames
+
+    def _spawn_dust(self, x: float, y: float, size: int, color_shift: int):
+        """파편이 소멸할 때 가루 파티클 생성"""
+        count = random.randint(4, 7)
+        for _ in range(count):
+            angle = random.uniform(0, math.pi * 2)
+            spd = random.uniform(0.3, 1.5)
+            self._dust_particles.append({
+                "x": x + random.uniform(-3, 3),
+                "y": y + random.uniform(-3, 3),
+                "vx": math.cos(angle) * spd,
+                "vy": math.sin(angle) * spd - random.uniform(0.2, 0.8),
+                "life": random.randint(15, 30),
+                "max_life": random.randint(15, 30),
+                "size": random.uniform(1.5, float(size)),
+                "cs": color_shift,
+            })
 
     def draw_effects(self, screen, player_rect=None, boss_rect=None):
         """파편 및 이펙트 그리기"""
@@ -305,6 +345,21 @@ class ShrapnelArmor:
             # 하이라이트
             pygame.draw.polygon(screen, (min(255, r + 40), min(255, g + 40), min(255, b + 40)),
                                 points, 1)
+
+        # 가루 증발 파티클 그리기
+        for d in self._dust_particles:
+            alpha = int(200 * (d["life"] / max(d["max_life"], 1)))
+            if alpha <= 0:
+                continue
+            dx, dy = int(d["x"]), int(d["y"])
+            sz = max(1, int(d["size"]))
+            cs = d["cs"]
+            dr = max(0, min(255, 170 + cs))
+            dg = max(0, min(255, 120 + cs))
+            db = max(0, min(255, 70 + cs // 2))
+            ds = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ds, (dr, dg, db, min(alpha, 255)), (sz, sz), sz)
+            screen.blit(ds, (dx - sz, dy - sz))
 
         # 넉백 히트 이펙트 (보스 위치에 충격파)
         if self.boss_knockback_active and boss_rect and self.boss_knockback_timer > 0:
