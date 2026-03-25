@@ -314,37 +314,45 @@ class ShrapnelArmor:
 
         # 파편 그리기
         for shard in self.shards:
-            # 잔상
+            sx, sy = int(shard["x"]), int(shard["y"])
+            size = shard["size"] + 1  # 기본 크기 약간 확대
+            cs = shard["color_shift"]
+
+            # 밝은 주황~노랑 계열 (눈에 잘 띄는 색)
+            r = max(0, min(255, 255))
+            g = max(0, min(255, 160 + cs))
+            b = max(0, min(255, 40 + cs // 2))
+
+            # 잔상 (밝은 오렌지 트레일)
             for i, (tx, ty) in enumerate(shard["trail"]):
-                trail_alpha = int(60 * (i / max(len(shard["trail"]), 1)))
-                trail_size = max(1, shard["size"] - 2)
+                t = (i + 1) / max(len(shard["trail"]), 1)
+                trail_alpha = int(100 * t)
+                trail_size = max(1, int(size * t * 0.7))
                 ts = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(ts, (180, 80, 40, trail_alpha),
+                pygame.draw.circle(ts, (255, 140, 30, trail_alpha),
                                    (trail_size, trail_size), trail_size)
                 screen.blit(ts, (int(tx) - trail_size, int(ty) - trail_size))
 
-            # 파편 본체
-            sx, sy = int(shard["x"]), int(shard["y"])
-            size = shard["size"]
-            cs = shard["color_shift"]
+            # 외곽 글로우 (파편보다 큰 반투명 원)
+            glow_r = size + 4
+            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (255, 180, 50, 60), (glow_r, glow_r), glow_r)
+            screen.blit(glow_surf, (sx - glow_r, sy - glow_r))
 
-            # 금속 파편 색상 (회갈색 계열)
-            r = max(0, min(255, 160 + cs))
-            g = max(0, min(255, 100 + cs))
-            b = max(0, min(255, 60 + cs // 2))
-
-            # 삼각형 파편 (회전)
+            # 뾰족한 다이아몬드형 파편 (회전) — 삼각형보다 가시적
             angle = math.radians(shard["rotation"])
             points = []
-            for k in range(3):
-                a = angle + k * (math.pi * 2 / 3)
-                px = sx + int(math.cos(a) * size)
-                py = sy + int(math.sin(a) * size)
+            for k in range(4):
+                a = angle + k * (math.pi / 2)
+                stretch = size * 1.4 if k % 2 == 0 else size * 0.7
+                px = sx + int(math.cos(a) * stretch)
+                py = sy + int(math.sin(a) * stretch)
                 points.append((px, py))
             pygame.draw.polygon(screen, (r, g, b), points)
-            # 하이라이트
-            pygame.draw.polygon(screen, (min(255, r + 40), min(255, g + 40), min(255, b + 40)),
-                                points, 1)
+            # 밝은 중심 하이라이트
+            pygame.draw.polygon(screen, (255, 230, 140), points, 1)
+            # 중심 빛점
+            pygame.draw.circle(screen, (255, 255, 200), (sx, sy), max(1, size // 3))
 
         # 가루 증발 파티클 그리기
         for d in self._dust_particles:
