@@ -17762,7 +17762,7 @@ def _swap_boss_in_current_stage():
     global heart_beam_projectile, heart_beam_knockback_active, heart_beam_knockback_timer
     global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer, alice_mirror_fade_timer
     global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer
-    global alice_rabbit_active, alice_rabbit_windup_active, alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
+    global alice_rabbit_active, alice_rabbit_perched, alice_rabbit_windup_active, alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
 
     from config.planet_configs import get_available_bosses
     from config.stage_configs import get_boss_config_by_name
@@ -17939,6 +17939,7 @@ def _swap_boss_in_current_stage():
     alice_size_shift_cooldown_timer = 0
     alice_rabbit_active = False
     alice_rabbit_projectiles.clear()
+    alice_rabbit_perched.clear()
     alice_rabbit_windup_active = False
     alice_rabbit_windup_timer = 0
     alice_rabbit_cooldown_timer = 0
@@ -47575,6 +47576,8 @@ ALICE_RABBIT_HIT_RADIUS = 20
 ALICE_RABBIT_MAX_TIMER = 300        # 5초 생존
 ALICE_RABBIT_COUNT_MIN = 3
 ALICE_RABBIT_COUNT_MAX = 4
+ALICE_RABBIT_PERCH_DURATION = 120   # 패들 위에서 깐족거리는 시간 (2초)
+alice_rabbit_perched = []           # 패들 위에 앉은 토끼들 [{offset_x, timer, hop_phase, size, direction}]
 
 # === 테디베어 VFX Surface 캐시 시스템 ===
 _teddy_vfx_cache = {}
@@ -54600,7 +54603,7 @@ def go_to_next_round():
     global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer, alice_mirror_fade_timer
     global alice_mirror_bg_timer
     global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer
-    global alice_rabbit_active, alice_rabbit_projectiles, alice_rabbit_windup_active
+    global alice_rabbit_active, alice_rabbit_projectiles, alice_rabbit_perched, alice_rabbit_windup_active
     global alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
     alice_mirror_active = False
     alice_mirror_timer = 0
@@ -54614,6 +54617,7 @@ def go_to_next_round():
     alice_size_shift_cooldown_timer = 0
     alice_rabbit_active = False
     alice_rabbit_projectiles = []
+    alice_rabbit_perched = []
     alice_rabbit_windup_active = False
     alice_rabbit_windup_timer = 0
     alice_rabbit_cooldown_timer = 0
@@ -78174,9 +78178,9 @@ def _launch_alice_rabbits():
 
 
 def update_alice_rabbit():
-    """토끼 투사체 업데이트: 선딜 + 깡충 이동 + 충돌"""
+    """토끼 투사체 업데이트: 선딜 + 깡충 이동 + 충돌 + 패들 위 깐족"""
     global alice_rabbit_active, alice_rabbit_windup_active, alice_rabbit_windup_timer
-    global alice_rabbit_cooldown_timer
+    global alice_rabbit_cooldown_timer, alice_rabbit_perched, player_fire_knockback_vel
     if alice_rabbit_cooldown_timer > 0:
         alice_rabbit_cooldown_timer -= 1
     if alice_rabbit_windup_active:
@@ -78216,7 +78220,7 @@ def update_alice_rabbit():
         if proj["timer"] <= 0:
             to_remove.append(i)
             continue
-        # 플레이어 충돌 체크
+        # 플레이어 충돌 체크 → 패들 위에 착지하여 깐족거리기
         if PLAYER:
             px_c = PLAYER.centerx
             py_c = PLAYER.centery
@@ -78225,8 +78229,16 @@ def update_alice_rabbit():
             dist_sq = ddx * ddx + ddy * ddy
             if dist_sq < (ALICE_RABBIT_HIT_RADIUS + PLAYER.width // 2) ** 2:
                 to_remove.append(i)
-                # 스턴 적용
-                try_apply_player_stun(0.5, source="rabbit_hit")  # 0.5초 스턴
+                # 패들 위에 토끼 착지 (깐족 모드)
+                offset_x = proj["x"] - PLAYER.centerx  # 패들 중심 기준 상대 위치
+                alice_rabbit_perched.append({
+                    "offset_x": offset_x,
+                    "timer": ALICE_RABBIT_PERCH_DURATION,
+                    "hop_phase": proj["hop_phase"],
+                    "size": proj["size"],
+                    "direction": random.choice([-1, 1]),  # 좌우 이동 방향
+                    "taunt_phase": 0.0,  # 깐족 애니메이션 페이즈
+                })
                 try:
                     snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
                     snd.set_volume(0.3 * sfx_volume)
@@ -78236,8 +78248,38 @@ def update_alice_rabbit():
     for i in sorted(to_remove, reverse=True):
         if i < len(alice_rabbit_projectiles):
             alice_rabbit_projectiles.pop(i)
-    if not alice_rabbit_projectiles:
+    if not alice_rabbit_projectiles and not alice_rabbit_perched:
         alice_rabbit_active = False
+    # === 패들 위 깐족토끼 업데이트 ===
+    perch_remove = []
+    for j, bunny in enumerate(alice_rabbit_perched):
+        bunny["timer"] -= 1
+        bunny["hop_phase"] += 0.25  # 더 빠르게 깡충깡충
+        bunny["taunt_phase"] += 0.1
+        # 패들 위에서 좌우로 왔다갔다
+        bunny["offset_x"] += bunny["direction"] * 1.5
+        # 패들 범위를 벗어나면 방향 전환
+        if PLAYER:
+            half_w = PLAYER.width // 2 - 5
+            if bunny["offset_x"] > half_w:
+                bunny["offset_x"] = half_w
+                bunny["direction"] = -1
+            elif bunny["offset_x"] < -half_w:
+                bunny["offset_x"] = -half_w
+                bunny["direction"] = 1
+        # 깐족 중 플레이어에게 주기적 방해 (0.5초마다 미니 넉백)
+        if bunny["timer"] % 30 == 0 and PLAYER:
+            nudge_dir = 1 if bunny["offset_x"] > 0 else -1
+            try:
+                global player_fire_knockback_vel
+                player_fire_knockback_vel += nudge_dir * 3  # 약한 넉백
+            except Exception:
+                pass
+        if bunny["timer"] <= 0:
+            perch_remove.append(j)
+    for j in sorted(perch_remove, reverse=True):
+        if j < len(alice_rabbit_perched):
+            alice_rabbit_perched.pop(j)
 
 
 def draw_alice_rabbit_effect(screen):
@@ -78288,6 +78330,58 @@ def draw_alice_rabbit_effect(screen):
         pygame.draw.circle(screen, (200, 50, 50), (px - 3, ry - 2), 2)
         pygame.draw.circle(screen, (200, 50, 50), (px + 3, ry - 2), 2)
         pygame.draw.circle(screen, (255, 255, 255), (px, ry + body_h // 2 - 2), 3)
+
+    # 3) 패들 위 깐족토끼 렌더링
+    if PLAYER and alice_rabbit_perched:
+        for bunny in alice_rabbit_perched:
+            bx = int(PLAYER.centerx + bunny["offset_x"])
+            by = PLAYER.y  # 패들 상단
+            sz = int(bunny["size"])
+            # 큰 깡충깡충 (패들 위에서 더 활발하게)
+            hop = abs(math.sin(bunny["hop_phase"])) * 14
+            # 좌우 흔들림 (깐족 느낌)
+            taunt_wobble = math.sin(bunny["taunt_phase"] * 3) * 3
+            # 그림자
+            shadow_surf = pygame.Surface((sz * 2, sz // 2), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, sz * 2, sz // 2))
+            screen.blit(shadow_surf, (bx - sz, by - 2))
+            # 토끼 본체 (패들 위에서 깡충)
+            ry = by - int(hop) - sz
+            rx = bx + int(taunt_wobble)
+            body_w = sz
+            body_h = int(sz * 1.3)
+            # 사라지기 직전 깜빡임
+            if bunny["timer"] < 30 and (bunny["timer"] // 4) % 2 == 0:
+                continue
+            pygame.draw.ellipse(screen, (255, 250, 245),
+                                (rx - body_w // 2, ry - body_h // 2, body_w, body_h))
+            # 귀
+            ear_h = int(sz * 0.7)
+            pygame.draw.ellipse(screen, (255, 245, 240),
+                                (rx - body_w // 3 - 2, ry - body_h // 2 - ear_h, 4, ear_h))
+            pygame.draw.ellipse(screen, (255, 200, 200),
+                                (rx - body_w // 3 - 1, ry - body_h // 2 - ear_h + 2, 2, ear_h - 4))
+            pygame.draw.ellipse(screen, (255, 245, 240),
+                                (rx + body_w // 3 - 2, ry - body_h // 2 - ear_h, 4, ear_h))
+            pygame.draw.ellipse(screen, (255, 200, 200),
+                                (rx + body_w // 3 - 1, ry - body_h // 2 - ear_h + 2, 2, ear_h - 4))
+            # 눈 (장난스러운 표정 - ^ ^ 모양)
+            pygame.draw.line(screen, (200, 50, 50), (rx - 5, ry - 2), (rx - 3, ry - 4), 2)
+            pygame.draw.line(screen, (200, 50, 50), (rx - 3, ry - 4), (rx - 1, ry - 2), 2)
+            pygame.draw.line(screen, (200, 50, 50), (rx + 1, ry - 2), (rx + 3, ry - 4), 2)
+            pygame.draw.line(screen, (200, 50, 50), (rx + 3, ry - 4), (rx + 5, ry - 2), 2)
+            # 꼬리
+            pygame.draw.circle(screen, (255, 255, 255), (rx, ry + body_h // 2 - 2), 3)
+            # 깐족 말풍선 (주기적으로 표시)
+            if bunny["timer"] % 40 < 20:
+                taunt_marks = ["!", "♪", "~", "?"]
+                mark = taunt_marks[(bunny["timer"] // 40) % len(taunt_marks)]
+                try:
+                    tiny_font = pygame.font.Font(None, 16)
+                    mark_surf = tiny_font.render(mark, True, (255, 100, 150))
+                    screen.blit(mark_surf, (rx + body_w // 2 + 2, ry - body_h // 2 - 8))
+                except Exception:
+                    pass
 
 
 def draw_alice_size_shift_effect(screen):
@@ -133977,7 +134071,7 @@ def handle_ball():
     # 앨리스 스킬 관련
     global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer, alice_mirror_fade_timer
     global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer, alice_size_shift_scale
-    global alice_rabbit_active, alice_rabbit_projectiles, alice_rabbit_windup_active
+    global alice_rabbit_active, alice_rabbit_projectiles, alice_rabbit_perched, alice_rabbit_windup_active
     global alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
