@@ -17743,9 +17743,26 @@ def _swap_boss_in_current_stage():
     """F6 보스 교체 — 현재 스테이지에서 선택 가능한 보스 목록을 보여주고 교체"""
     global current_boss_name, BOSS_COLOR
     global fan_throw_active, fan_throw_timer, fan_throw_knockback_timer
+    global fan_throw_windup_active, fan_throw_windup_timer, fan_throw_hit_effect_timer
     global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
+    global fan_wind_charging, fan_wind_charge_timer, fan_wind_growth_scale
     global patrol_guards_active, patrol_guards_timer, patrol_guards, patrol_guards_used_this_round
     global spinning_top_active, spinning_top_timer, spinning_tops, spinning_top_used_this_round
+    global curse_chest_active, curse_chest_opened, curse_chest_open_timer, curse_chest_cooldown_timer
+    global curse_chest_reverse_timer, curse_chest_windup_active, curse_chest_windup_timer
+    global curse_chest_throwing, curse_chest_throw_progress, curse_chest_lifetime_timer
+    global curse_chest_exploding, curse_chest_explode_timer
+    global curse_chest_nudge_vx, curse_chest_wobble_angle, curse_chest_wobble_vel
+    global cotton_throw_active, cotton_throw_windup_active, cotton_throw_windup_timer, cotton_throw_cooldown_timer
+    global cotton_fog_active, cotton_fog_timer, cotton_blackout_active, cotton_blackout_timer
+    global cotton_bomb_active, cotton_bomb_windup_active, cotton_bomb_windup_timer, cotton_bomb_cooldown_timer
+    global cotton_bomb_slow_timer, cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer, cotton_bomb_ghost_curve_phase
+    global deadly_hug_active, deadly_hug_rush_active, deadly_hug_timer, deadly_hug_cooldown_timer
+    global button_eye_active, button_eye_timer, button_eye_cooldown_timer
+    global heart_beam_projectile, heart_beam_knockback_active, heart_beam_knockback_timer
+    global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer, alice_mirror_fade_timer
+    global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer
+    global alice_rabbit_active, alice_rabbit_windup_active, alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
 
     from config.planet_configs import get_available_bosses
     from config.stage_configs import get_boss_config_by_name
