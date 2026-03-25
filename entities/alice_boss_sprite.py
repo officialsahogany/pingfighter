@@ -136,15 +136,15 @@ class AliceBossSprite:
 
         # === 드레스 넘실거림 (투기장 히어로 스타일 관성 물리) ===
         # 이동 반대쪽으로 치마가 밀려남 (관성)
-        self.skirt_inertia = -self.move_dir * self.side_blend * 0.7
+        self.skirt_inertia = -self.move_dir * self.side_blend * 1.0
         # 부드러운 넘실거림 (사인파)
-        self.skirt_flow = _sin(self.time * 4.0) * self.side_blend * 0.35
+        self.skirt_flow = _sin(self.time * 4.0) * self.side_blend * 0.5
 
-        # 기존 sway (스프링 물리)
-        dress_target = max(-0.2, min(0.2, self.velocity * 0.003))
-        self.dress_sway_vel += (dress_target - self.dress_sway) * 22 * dt - self.dress_sway_vel * 5.5 * dt
+        # 기존 sway (스프링 물리 — 강화)
+        dress_target = max(-0.35, min(0.35, self.velocity * 0.004))
+        self.dress_sway_vel += (dress_target - self.dress_sway) * 20 * dt - self.dress_sway_vel * 4.5 * dt
         self.dress_sway += self.dress_sway_vel * dt
-        self.dress_sway = max(-0.25, min(0.25, self.dress_sway))
+        self.dress_sway = max(-0.45, min(0.45, self.dress_sway))
 
         # 머리카락 나부낌 (스프링 + 사인)
         hair_target = max(-0.08, min(0.08, self.velocity * 0.0015))
@@ -259,12 +259,12 @@ class AliceBossSprite:
         bob_y = int(self.body_bob * s * 1.8)
         lean_px = int(self.lean * s * 12)
 
-        # === 치마 넘실거림 계산 (투기장 스타일) ===
-        sway_px = int(self.dress_sway * s * 14)
-        skirt_inertia_px = int(self.skirt_inertia * s * 8)
-        skirt_flow_px = int(self.skirt_flow * s * 6)
+        # === 치마 넘실거림 계산 (투기장 스타일 — 강화) ===
+        sway_px = int(self.dress_sway * s * 20)
+        skirt_inertia_px = int(self.skirt_inertia * s * 16)
+        skirt_flow_px = int(self.skirt_flow * s * 12)
         total_skirt_sway = sway_px + skirt_inertia_px + skirt_flow_px
-        skirt_wave_boost = 1.0 + self.side_blend * 2.5
+        skirt_wave_boost = 1.0 + self.side_blend * 3.5
 
         # ============================================
         # ===  뒷머리카락 (드레스 뒤로 길게)  ===
@@ -337,7 +337,7 @@ class AliceBossSprite:
             fold_shift = int((skirt_inertia_px + skirt_flow_px) * (i - 4) * 0.06)
             fold_x = cx + (i - 4) * int(4.5 * s) + lean_px + fold_shift
             fold_top = dress_top_y + int(3 * s)
-            fold_bot = dress_bot_y - int(4 * s) + int(_sin(self.time * 3.5 + i * 0.4) * s * skirt_wave_boost)
+            fold_bot = dress_bot_y - int(4 * s) + int(_sin(self.time * 3.5 + i * 0.4) * s * 2.0 * skirt_wave_boost)
             fold_color = dress_mid if i % 2 == 0 else dress_dark
             pygame.draw.line(sf, fold_color, (fold_x, fold_top),
                              (fold_x + fold_shift, fold_bot), max(1, int(0.7 * s)))
@@ -347,19 +347,19 @@ class AliceBossSprite:
             frill_y = dress_top_y + int(10 * s) + layer * int(9 * s)
             frill_w = dress_w_top + int(4 * s) + layer * int(4.5 * s)
 
-            # 아래 레이어일수록 관성 영향 강화
-            layer_factor = 1.0 + layer * 0.3
+            # 아래 레이어일수록 관성 영향 크게 강화 (천 물리)
+            layer_factor = 1.0 + layer * 0.5
             layer_sway = int((skirt_inertia_px + skirt_flow_px) * layer_factor)
 
-            # 프릴 물결 패턴
+            # 프릴 물결 패턴 (아래일수록 진폭 강화)
             frill_points = []
             segments = 14
-            frill_wave_amp = (0.06 + self.side_blend * 0.16) * (1.0 + layer * 0.15)
-            layer_phase = layer * 0.35
+            frill_wave_amp = (0.10 + self.side_blend * 0.25) * (1.0 + layer * 0.25)
+            layer_phase = layer * 0.4
 
             for seg in range(segments + 1):
                 fx = cx - frill_w + int(seg * frill_w * 2 / segments) + lean_px + layer_sway
-                fy = frill_y + int(_sin(seg * 0.75 + self.time * 3.5 - layer_phase) * frill_wave_amp * s * 10)
+                fy = frill_y + int(_sin(seg * 0.75 + self.time * 3.5 - layer_phase) * frill_wave_amp * s * 14)
                 frill_points.append((fx, fy))
 
             # 프릴 라인 그리기
