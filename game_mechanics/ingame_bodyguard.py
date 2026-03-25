@@ -999,22 +999,6 @@ class InGameBodyguard:
 
             screen.blit(card, (card_x, draw_y))
 
-            # ── 좌상단 번호 라벨 (1, 2, 3 ...) ──
-            try:
-                _num_font = self._get_portrait_font(max(7, int(8 * _scale)))
-                if _num_font:
-                    _nl = str(idx + 1)
-                    _nr = max(5, int(6 * _scale))
-                    _ncx = card_x + max(5, int(6 * _scale))
-                    _ncy = draw_y + max(5, int(6 * _scale))
-                    _nbg = pygame.Surface((_nr * 2 + 2, _nr * 2 + 2), pygame.SRCALPHA)
-                    pygame.draw.circle(_nbg, (10, 8, 15, 200), (_nr + 1, _nr + 1), _nr)
-                    screen.blit(_nbg, (_ncx - _nr - 1, _ncy - _nr - 1))
-                    _ns, _ = _num_font.render(_nl, (220, 210, 180))
-                    screen.blit(_ns, (_ncx - _ns.get_width() // 2,
-                                      _ncy - _ns.get_height() // 2))
-            except Exception:
-                pass
 
             # ── 마우스 호버 체크 ──
             if mouse_pos and _hover_result is None:
