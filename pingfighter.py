@@ -132734,11 +132734,11 @@ def calculate_bounce(paddle):
                     _reset_smasher_combo("consumed_by_drive")
                 else:
                     # 콤보 0~1: 스매셔 기본 드라이브 하향 (콤보 쌓아야 본래 성능 도달)
-                    _drive_combo_speed_mult = 0.985  # 속도 -1.5% 페널티
-                    _drive_base_spin = 0.18  # 기본 커브량 하향 (0.25 → 0.18)
-                    _drive_base_spin_cap = 0.45  # 커브 상한 하향 (0.6 → 0.45)
-                    _drive_base_speed_coeff = 0.010  # 공속 비례 커브 하향 (0.015 → 0.010)
-                    _drive_particle_count = 5  # 파티클 감소
+                    _drive_combo_speed_mult = 0.975  # 속도 -2.5% 페널티
+                    _drive_base_spin = 0.155  # 기본 커브량 하향 (0.25 → 0.155)
+                    _drive_base_spin_cap = 0.39  # 커브 상한 하향 (0.6 → 0.39)
+                    _drive_base_speed_coeff = 0.009  # 공속 비례 커브 하향 (0.015 → 0.009)
+                    _drive_particle_count = 4  # 파티클 감소
             # 시너지 A: 리커버리 이속 버프 중 드라이브 → 스핀 1.3배
             _recovery_drive_bonus = 1.3 if (selected_character_type == "smasher" and recovery_speed_boost_active) else 1.0
             # 기본 커브량 (리커버리 시너지 적용)
@@ -148843,12 +148843,12 @@ def main(stage_num, new_boss_mode=False):
                         # ⚡ 스매셔 콤보 소모형 파워스매싱 속도 조정
                         if selected_character_type == "smasher":
                             if power_smashing_combo_consumed >= 2:
-                                # 콤보 소모: 콤보당 +8% 추가 속도, 최대 +40%
-                                combo_speed_bonus = min(power_smashing_combo_consumed * 0.08, 0.40)
+                                # 콤보 소모: 콤보당 +4% 추가 속도, 최대 +20%
+                                combo_speed_bonus = min(power_smashing_combo_consumed * 0.04, 0.20)
                                 actual_boost *= (1.0 + combo_speed_bonus)
                             else:
-                                # 콤보 없음: 속도 부스트 15% 감소 (콤보 쌓아야 본래 성능 도달)
-                                actual_boost *= 0.85
+                                # 콤보 없음: 속도 부스트 25% 감소 (콤보 쌓아야 본래 성능 도달)
+                                actual_boost *= 0.75
                         new_speed = ball_current_speed + actual_boost
                     # 속도 비율 적용으로 방향 유지하면서 속도 증가
                     if ball_current_speed > 0:
@@ -148916,7 +148916,7 @@ def main(stage_num, new_boss_mode=False):
                         initial_boost_multiplier = 1.90  # 기존 2.0 → 10% 하향(90% 추가)
                     # ⚡ 스매셔 콤보 없으면 초기 부스트도 하향
                     if selected_character_type == "smasher" and power_smashing_combo_consumed < 2:
-                        initial_boost_multiplier *= 0.88  # 12% 감소 (직선 1.51, 좌우 1.67)
+                        initial_boost_multiplier *= 0.78  # 22% 감소 (직선 1.34, 좌우 1.48)
                     
                     # 초기 부스트 속도 적용
                     if final_speed > 0:
