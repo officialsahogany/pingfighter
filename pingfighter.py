@@ -78253,6 +78253,32 @@ def update_alice_rabbit():
     # === 패들 위 깐족토끼 업데이트 ===
     perch_remove = []
     for j, bunny in enumerate(alice_rabbit_perched):
+        # 대쉬로 토끼 즉사 처리
+        if rolling_active and PLAYER:
+            perch_remove.append(j)
+            # 터지는 파티클 이펙트
+            bx = int(PLAYER.centerx + bunny["offset_x"])
+            by = PLAYER.y - int(bunny["size"])
+            for _ in range(10):
+                angle = random.uniform(0, math.pi * 2)
+                spd = random.uniform(2, 6)
+                p = {
+                    'x': bx, 'y': by,
+                    'vx': math.cos(angle) * spd,
+                    'vy': math.sin(angle) * spd - 2,
+                    'life': random.randint(15, 30),
+                    'color': random.choice([(255, 255, 255), (255, 220, 220), (255, 200, 200)])
+                }
+                if 'neutralize_particles' not in globals():
+                    globals()['neutralize_particles'] = []
+                neutralize_particles.append(p)
+            try:
+                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
+                snd.set_volume(0.25 * sfx_volume)
+                snd.play()
+            except Exception:
+                pass
+            continue
         bunny["timer"] -= 1
         bunny["hop_phase"] += 0.25  # 더 빠르게 깡충깡충
         bunny["taunt_phase"] += 0.1
