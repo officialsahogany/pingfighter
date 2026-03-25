@@ -103215,7 +103215,7 @@ def draw_objects():
         from item_effects.adversity_armor import get_adversity_armor_instance
         _aa_draw = get_adversity_armor_instance()
         if _aa_draw and _aa_draw.is_invincible():
-            _aa_draw.draw_effects(SCREEN, PLAYER, GAME_AREA_OFFSET_X, GAME_PLAY_WIDTH, HEIGHT)
+            _aa_draw.draw_effects(SCREEN, PLAYER, 0, WIDTH, HEIGHT)
     except Exception:
         pass
 
@@ -133641,6 +133641,7 @@ def handle_ball():
     global boss_current_health  #  체력형 보스 체력 변수
     global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
     global ragnarok_stun_pending, ragnarok_speed_boost_active, ragnarok_stun_attempted_this_rally, ragnarok_original_speed, ragnarok_first_shot_speed
+    global screen_shake_timer, screen_shake_intensity, ragnarok_impact_sparks  # ⚡ 라그나로크 화면흔들림+스파크
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
     # 공 물리 & 움직임
