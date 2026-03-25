@@ -17847,6 +17847,10 @@ def _swap_boss_in_current_stage():
     curse_chest_open_timer = 0
     curse_chest_cooldown_timer = 0
     curse_chest_reverse_timer = 0
+    curse_chest_windup_active = False
+    curse_chest_windup_timer = 0
+    curse_chest_throwing = False
+    curse_chest_throw_progress = 0.0
     curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     fan_wind_active = False
     fan_wind_timer = 0
@@ -47266,7 +47270,7 @@ fan_throw_hit_effect_y = 0.0
 
 # === 멘헤라걸 저주 보물상자 스킬 (Curse Chest) - Stage 3 ===
 curse_chest_active = False              # 보물상자가 필드에 존재하는지
-curse_chest_x = 0.0                     # 보물상자 X 좌표
+curse_chest_x = 0.0                     # 보물상자 X 좌표 (최종 착지 위치 / 현재 투사체 위치)
 curse_chest_y = 0.0                     # 보물상자 Y 좌표
 curse_chest_opened = False              # 보물상자가 열렸는지
 curse_chest_open_timer = 0              # 열린 후 타이머 (연기 분출용)
@@ -47276,6 +47280,19 @@ CURSE_CHEST_SIZE = 36                   # 보물상자 크기
 CURSE_CHEST_SMOKE_DURATION = 180        # 연기 분출 3초 (60fps)
 CURSE_CHEST_SMOKE_FADE_DURATION = 120   # 연기 걷히기 2초
 CURSE_CHEST_SMOKE_RADIUS = 80           # 연기 반경
+# 던지기 모션 (선딜 + 투사체 비행)
+curse_chest_windup_active = False       # 보스 제자리 선딜 중
+curse_chest_windup_timer = 0            # 선딜 타이머 (30프레임 = 0.5초)
+CURSE_CHEST_WINDUP_FRAMES = 30          # 0.5초 선딜
+curse_chest_throwing = False            # 상자가 날아가는 중
+curse_chest_throw_x = 0.0              # 투사체 현재 X
+curse_chest_throw_y = 0.0              # 투사체 현재 Y
+curse_chest_target_x = 0.0             # 착지 목표 X
+curse_chest_target_y = 0.0             # 착지 목표 Y
+curse_chest_throw_progress = 0.0       # 비행 진행도 (0~1)
+CURSE_CHEST_THROW_SPEED = 0.04         # 프레임당 진행도 (~25프레임 = 0.42초)
+curse_chest_throw_start_x = 0.0        # 발사 시작 X (보스 위치)
+curse_chest_throw_start_y = 0.0        # 발사 시작 Y
 # 조작 반전 디버프
 curse_chest_reverse_timer = 0           # 조작 반전 남은 프레임
 CURSE_CHEST_REVERSE_DURATION = 120      # 조작 반전 2초 (60fps)
@@ -53594,9 +53611,11 @@ hit_animation_active = False
 hit_animation_timer = 0
 HIT_ANIMATION_DURATION = 6  # 프레임 수
 PLAYER_SLOW_DEFAULT_FACTOR = 0.5
+PLAYER_SLOW_STACK_AMOUNT = 0.20  # 눈물 1방울당 20% 감속 누적
+PLAYER_SLOW_STACK_MAX = 0.80     # 최대 80% 감속 (이동속도 20%까지)
 player_slow_timer = 0  # 눈물 디버프 지속 시간 (프레임 단위)
 player_slow_timer_max = 0  # 느려짐 이펙트 강도 계산용
-player_slow_factor = PLAYER_SLOW_DEFAULT_FACTOR  # 느려짐 배율(1.0=정상)
+player_slow_factor = 1.0  # 느려짐 배율(1.0=정상, 0.8=20%감속, 0.6=40%감속...)
 quake_offset_y = 0  # ← 전역 초기화 (draw_objects에서 사용)
 # 화면 흔들림 오프셋 변수들
 screen_shake_offset_x = 0
@@ -54277,6 +54296,8 @@ def go_to_next_round():
     # 저주 보물상자 초기화 (라운드 전환)
     global curse_chest_active, curse_chest_opened, curse_chest_open_timer
     global curse_chest_cooldown_timer, curse_chest_reverse_timer, curse_chest_smoke_particles
+    global curse_chest_windup_active, curse_chest_windup_timer
+    global curse_chest_throwing, curse_chest_throw_progress
     curse_chest_active = False
     curse_chest_opened = False
     curse_chest_open_timer = 0
@@ -54856,11 +54877,16 @@ def check_tear_collisions():
                 # 연막 밖에서는 정상적으로 데미지 받음
                 # 클렌즈 면역 상태 체크
                 if not is_cleanse_immune():
-                    player_slow_timer = 130  # 2초간 느려짐 (60fps 기준)
+                    player_slow_timer = 130  # 2초간 느려짐 (매 피격마다 리셋)
                     player_slow_timer_max = player_slow_timer
-                    # 이미 이동 중이었다면 현재 속도에도 즉시 감속 적용
+                    # 20%씩 누적 감속 (최대 80% 감속 = 이동속도 20%)
                     global current_speed
-                    current_speed *= PLAYER_SLOW_DEFAULT_FACTOR
+                    global player_slow_factor
+                    player_slow_factor = max(
+                        1.0 - PLAYER_SLOW_STACK_MAX,
+                        player_slow_factor - PLAYER_SLOW_STACK_AMOUNT
+                    )
+                    current_speed *= (1.0 - PLAYER_SLOW_STACK_AMOUNT)  # 즉시 20% 추가 감속
                 else:
                     print("[SLOW-IMMUNE] 눈물 샤워 무시 (클렌즈 면역 상태)")
 
@@ -68273,7 +68299,7 @@ def handle_player(keys):
         player_slow_timer -= 1
     else:
         speed_factor = 1.0
-        player_slow_factor = PLAYER_SLOW_DEFAULT_FACTOR
+        player_slow_factor = 1.0  # 누적 감속 초기화
 
     # 포도대장 포승줄: 이동속도 50% 감소
     if arrest_rope_active:
@@ -73518,6 +73544,14 @@ def apply_loaded_progress(save_data: dict) -> bool:
                                 apply_roll_bonuses_from_item(item_data)
                             # print(f"[로드] 골드디거 효과 활성화 완료")
 
+                        # 🪙 럭키코인 효과 복원 (복원 시)
+                        if item_name == "lucky_coin":
+                            items.lucky_coin_obtained = True
+                            from item_effects.lucky_coin import activate_lucky_coin
+                            activate_lucky_coin()
+                            if "rolled_options" in item_data or "rolls" in item_data:
+                                apply_roll_bonuses_from_item(item_data)
+
                         # 👑 초월자의 관 효과 복원 (복원 시)
                         if item_name == "transcendent_crown":
                             # global 선언은 함수 상단에서 처리됨
@@ -77205,17 +77239,14 @@ def draw_fan_throw_effect(screen):
 
 # === 멘헤라걸 저주 보물상자 스킬 (Curse Chest) - Stage 3 ===
 def activate_curse_chest():
-    """저주 보물상자 발동 — 플레이어 진영에 보물상자 설치"""
-    global curse_chest_active, curse_chest_x, curse_chest_y
-    global curse_chest_opened, curse_chest_open_timer
-    global curse_chest_smoke_particles
-    curse_chest_active = True
-    curse_chest_opened = False
-    curse_chest_open_timer = 0
-    curse_chest_smoke_particles = []
-    # 플레이어 진영 (Y 630~700) 내 랜덤 위치에 설치
-    curse_chest_x = random.uniform(GAME_AREA_OFFSET_X + 60, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 60)
-    curse_chest_y = random.uniform(640, 690)
+    """저주 보물상자 발동 — 0.5초 선딜 후 보스 위치에서 투척"""
+    global curse_chest_windup_active, curse_chest_windup_timer
+    global curse_chest_target_x, curse_chest_target_y
+    curse_chest_windup_active = True
+    curse_chest_windup_timer = CURSE_CHEST_WINDUP_FRAMES
+    # 착지 목표 좌표 미리 결정
+    curse_chest_target_x = random.uniform(GAME_AREA_OFFSET_X + 60, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 60)
+    curse_chest_target_y = random.uniform(700, 730)
     try:
         snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "dollcurse.wav")))
         snd.set_volume(0.3 * sfx_volume)
@@ -77224,15 +77255,72 @@ def activate_curse_chest():
         pass
 
 
+def _launch_curse_chest():
+    """선딜 완료 후 보스 위치에서 상자 투사체 발사"""
+    global curse_chest_throwing, curse_chest_throw_progress
+    global curse_chest_throw_x, curse_chest_throw_y
+    global curse_chest_throw_start_x, curse_chest_throw_start_y
+    curse_chest_throwing = True
+    curse_chest_throw_progress = 0.0
+    # 보스 패들 중앙에서 발사
+    curse_chest_throw_start_x = float(BOSS.centerx if BOSS else WIDTH // 2)
+    curse_chest_throw_start_y = float((BOSS.bottom + 10) if BOSS else 70)
+    curse_chest_throw_x = curse_chest_throw_start_x
+    curse_chest_throw_y = curse_chest_throw_start_y
+
+
 def update_curse_chest():
-    """저주 보물상자 업데이트: 대쉬 충돌 감지, 연기 분출, 조작 반전"""
+    """저주 보물상자 업데이트: 선딜→투척→착지→대쉬 충돌→연기→조작 반전"""
     global curse_chest_active, curse_chest_opened, curse_chest_open_timer
     global curse_chest_cooldown_timer, curse_chest_reverse_timer
     global curse_chest_smoke_particles
+    global curse_chest_windup_active, curse_chest_windup_timer
+    global curse_chest_throwing, curse_chest_throw_progress
+    global curse_chest_throw_x, curse_chest_throw_y
+    global curse_chest_x, curse_chest_y
 
     # 쿨다운 감소
     if curse_chest_cooldown_timer > 0:
         curse_chest_cooldown_timer -= 1
+
+    # 1) 선딜 페이즈 (0.5초 제자리 모션)
+    if curse_chest_windup_active:
+        curse_chest_windup_timer -= 1
+        if curse_chest_windup_timer <= 0:
+            curse_chest_windup_active = False
+            _launch_curse_chest()
+        return
+
+    # 2) 투사체 비행 페이즈
+    if curse_chest_throwing:
+        curse_chest_throw_progress += CURSE_CHEST_THROW_SPEED
+        if curse_chest_throw_progress >= 1.0:
+            curse_chest_throw_progress = 1.0
+            curse_chest_throwing = False
+            # 착지 → 필드에 보물상자 설치
+            curse_chest_active = True
+            curse_chest_opened = False
+            curse_chest_open_timer = 0
+            curse_chest_smoke_particles = []
+            curse_chest_x = curse_chest_target_x
+            curse_chest_y = curse_chest_target_y
+            # 착지 사운드
+            try:
+                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
+                snd.set_volume(0.25 * sfx_volume)
+                snd.play()
+            except Exception:
+                pass
+        else:
+            # 포물선 보간: X는 선형, Y는 포물선 (위로 볼록)
+            t = curse_chest_throw_progress
+            curse_chest_throw_x = curse_chest_throw_start_x + (curse_chest_target_x - curse_chest_throw_start_x) * t
+            arc_height = -180 * (4 * t * (1 - t))  # 포물선 높이 (최대 -180px)
+            curse_chest_throw_y = curse_chest_throw_start_y + (curse_chest_target_y - curse_chest_throw_start_y) * t + arc_height
+        # 조작 반전 타이머 감소 (비행 중에도)
+        if curse_chest_reverse_timer > 0:
+            curse_chest_reverse_timer -= 1
+        return
 
     if not curse_chest_active:
         # 조작 반전 타이머만 감소
@@ -77313,8 +77401,62 @@ def update_curse_chest():
         curse_chest_reverse_timer -= 1
 
 
+def _draw_curse_chest_mini(screen, cx, cy, sz, rotation=0):
+    """작은 보물상자 그리기 (투사체용)"""
+    body_color = (200, 80, 130)
+    lid_color = (220, 100, 150)
+    chest_sf = pygame.Surface((sz + 4, sz + 4), pygame.SRCALPHA)
+    half = sz // 2
+    qtr = sz // 4
+    pygame.draw.rect(chest_sf, body_color, (2, qtr + 2, sz, half))
+    pygame.draw.rect(chest_sf, lid_color, (0, qtr - 4, sz + 4, 8))
+    # 하트 장식
+    hx, hy = sz // 2 + 2, half + 2
+    pygame.draw.circle(chest_sf, (255, 180, 200), (hx - 2, hy), 3)
+    pygame.draw.circle(chest_sf, (255, 180, 200), (hx + 2, hy), 3)
+    if rotation != 0:
+        chest_sf = pygame.transform.rotate(chest_sf, rotation)
+    rect = chest_sf.get_rect(center=(cx, cy))
+    screen.blit(chest_sf, rect)
+
+
 def draw_curse_chest(screen):
-    """저주 보물상자 그리기 — 멘헤라 테마 보물상자 + 핑크 연기"""
+    """저주 보물상자 그리기 — 선딜 모션 + 투사체 비행 + 착지 보물상자 + 핑크 연기"""
+
+    # 선딜 모션: 보스 위에 준비 이펙트
+    if curse_chest_windup_active and BOSS:
+        boss_cx = BOSS.centerx
+        boss_cy = BOSS.bottom + 5
+        t = pygame.time.get_ticks() / 150
+        # 보스 앞에서 상자가 흔들리는 모션
+        wobble = math.sin(t * 3) * 5
+        progress = 1.0 - (curse_chest_windup_timer / CURSE_CHEST_WINDUP_FRAMES)
+        scale = 0.5 + 0.5 * progress  # 점점 커짐
+        mini_sz = int(CURSE_CHEST_SIZE * scale)
+        _draw_curse_chest_mini(screen, int(boss_cx + wobble), int(boss_cy + 10), mini_sz, rotation=wobble * 3)
+        # 핑크 파티클 (준비 이펙트)
+        for i in range(2):
+            px = boss_cx + random.uniform(-15, 15)
+            py = boss_cy + random.uniform(0, 15)
+            pygame.draw.circle(screen, (255, 150, 200, 150), (int(px), int(py)), random.randint(2, 4))
+
+    # 투사체 비행 중: 포물선으로 날아가는 상자
+    if curse_chest_throwing:
+        tx, ty = int(curse_chest_throw_x), int(curse_chest_throw_y)
+        # 회전 (비행 중 빙글빙글)
+        spin = curse_chest_throw_progress * 720  # 2바퀴 회전
+        _draw_curse_chest_mini(screen, tx, ty, CURSE_CHEST_SIZE, rotation=spin)
+        # 궤적 파티클 (핑크 잔상)
+        for i in range(2):
+            trail_t = max(0, curse_chest_throw_progress - 0.03 * (i + 1))
+            trail_x = curse_chest_throw_start_x + (curse_chest_target_x - curse_chest_throw_start_x) * trail_t
+            arc = -180 * (4 * trail_t * (1 - trail_t))
+            trail_y = curse_chest_throw_start_y + (curse_chest_target_y - curse_chest_throw_start_y) * trail_t + arc
+            alpha = int(120 * (1 - i * 0.4))
+            trail_sf = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(trail_sf, (255, 130, 180, alpha), (4, 4), 4)
+            screen.blit(trail_sf, (int(trail_x) - 4, int(trail_y) - 4))
+
     if not curse_chest_active:
         # 조작 반전 이펙트만 그리기 (보물상자 없어도)
         if curse_chest_reverse_timer > 0 and PLAYER:
@@ -77382,8 +77524,7 @@ def draw_curse_chest(screen):
 
 
 def _draw_curse_reverse_overlay(screen):
-    """조작 반전 중 플레이어 위 이펙트"""
-    # 플레이어 위에 소용돌이 아이콘 + 핑크 틴트
+    """조작 반전 중 플레이어 위 이펙트 (소용돌이 아이콘만, 패들 틴트는 이미지에 직접 적용)"""
     px, py = PLAYER.centerx, PLAYER.top - 15
     t = pygame.time.get_ticks() / 200
     # 소용돌이 표시
@@ -77392,18 +77533,13 @@ def _draw_curse_reverse_overlay(screen):
         sx = px + int(math.cos(angle) * 8)
         sy = py + int(math.sin(angle) * 4)
         pygame.draw.circle(screen, (255, 100, 180), (sx, sy), 3)
-    # "↔" 반전 표시
+    # "?!" 반전 표시
     try:
         rev_font = pygame.font.Font(None, 16)
         rev_surf = rev_font.render("?!", True, (255, 150, 200))
         screen.blit(rev_surf, (px - rev_surf.get_width() // 2, py - 12))
     except Exception:
         pass
-    # 패들 핑크 틴트
-    tint_alpha = int(60 + 40 * math.sin(t * 2))
-    tint_sf = pygame.Surface((PLAYER.width + 4, PLAYER.height + 4), pygame.SRCALPHA)
-    tint_sf.fill((255, 100, 180, tint_alpha))
-    screen.blit(tint_sf, (PLAYER.x - 2, PLAYER.y - 2))
 
 
 # === 테디베어 솜뭉치 투척 스킬 (Stage 3) ===
@@ -101787,6 +101923,17 @@ def draw_objects():
         #  눈물샤워 디버프 시 파란색 변색 효과
         if player_slow_timer > 0:
             apply_blue_overlay(rotated_player, intensity=120)
+        # 저주 보물상자: 조작 반전 시 핑크 변색 효과
+        if curse_chest_reverse_timer > 0:
+            _t_curse = pygame.time.get_ticks() / 200
+            _pink_intensity = int(80 + 40 * math.sin(_t_curse * 2))
+            _pink_overlay = pygame.Surface(rotated_player.get_size(), pygame.SRCALPHA)
+            _pink_overlay.fill((255, 80, 160, _pink_intensity))
+            rotated_player.blit(_pink_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            # 핑크빛 추가 (MULT만으로는 어두워지므로 ADD로 보정)
+            _pink_add = pygame.Surface(rotated_player.get_size(), pygame.SRCALPHA)
+            _pink_add.fill((80, 0, 40, _pink_intensity // 2))
+            rotated_player.blit(_pink_add, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
         
         #  악마의 주사위 활성화시 UFO에 붉은 효과 적용
         from item_effects.devil_dice import is_devil_dice_active
@@ -123903,6 +124050,15 @@ def apply_selected_items(
         elif item_name == "gold_digger":
             # ⛏️ 골드디거 아이템 적용 (골드 획득량 30%~70% 증가)
             items.gold_digger_obtained = True
+        elif item_name == "lucky_coin":
+            # 🪙 럭키코인 아이템 적용 (더블 스폰 5~15%)
+            items.lucky_coin_obtained = True
+            from item_effects.lucky_coin import activate_lucky_coin, get_lucky_coin_instance
+            activate_lucky_coin()
+            # 롤 옵션에서 확률 값 적용
+            val = _get_roll_value(item_data, "double_spawn_pct")
+            if val is not None:
+                get_lucky_coin_instance().set_chance(val)
         elif item_name == "stopwatch":
             # 스탑워치는 액티브 아이템이므로 여기서는 처리하지 않음
             # 액티브 아이템 슬롯에서 처리됨
@@ -138075,6 +138231,8 @@ def handle_ball():
                 # 멘헤라걸: 저주 보물상자 (게이지 120, 12% 확률, 쿨다운 15초)
                 if (boss_special_gauge >= 120
                     and not curse_chest_active
+                    and not curse_chest_windup_active
+                    and not curse_chest_throwing
                     and curse_chest_cooldown_timer <= 0
                     and not emotional_overdrive_active
                     and random.random() <= 0.12):
@@ -143060,6 +143218,10 @@ def show_result(won):
     curse_chest_open_timer = 0
     curse_chest_cooldown_timer = 0
     curse_chest_reverse_timer = 0
+    curse_chest_windup_active = False
+    curse_chest_windup_timer = 0
+    curse_chest_throwing = False
+    curse_chest_throw_progress = 0.0
     curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     # 테디베어 솜뭉치 투척 완전 초기화 (스테이지 종료 시)
     cotton_throw_active = False
@@ -144675,6 +144837,10 @@ def main(stage_num, new_boss_mode=False):
     curse_chest_open_timer = 0
     curse_chest_cooldown_timer = 0
     curse_chest_reverse_timer = 0
+    curse_chest_windup_active = False
+    curse_chest_windup_timer = 0
+    curse_chest_throwing = False
+    curse_chest_throw_progress = 0.0
     curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     fan_wind_active = False
     fan_wind_timer = 0
