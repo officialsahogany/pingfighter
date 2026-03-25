@@ -72339,9 +72339,13 @@ def handle_player(keys):
             from item_effects.shrapnel_armor import get_shrapnel_armor_instance
             _sa = get_shrapnel_armor_instance()
             if _sa.active:
-                _sa.on_player_hit_ball(PLAYER.centerx, PLAYER.top)
-        except Exception:
-            pass
+                _fired = _sa.on_player_hit_ball(PLAYER.centerx, PLAYER.top)
+                if _fired:
+                    print(f"[파편갑옷 DEBUG] 파편 발사! shards={len(_sa.shards)}, trigger%={_sa.trigger_chance_pct}")
+            else:
+                print(f"[파편갑옷 DEBUG] 아이템 비활성 상태 (active=False)")
+        except Exception as _sa_err:
+            print(f"[파편갑옷 DEBUG] on_player_hit_ball 예외: {_sa_err}")
 
         # 인게임 골드 획득 (랠리 성공 시)
         rally_gold = calculate_rally_gold()
@@ -138332,6 +138336,13 @@ def handle_ball():
                 gain = 80
             boss_special_gauge = min(boss_special_gauge + gain, 500)
             # print(f"스테이지{current_stage} 보스 게이지 충전: +{gain} (현재: {boss_special_gauge}/500)")  # 디버그 비활성화
+            # 스테이지 3 테디베어 히트 스윙 애니메이션 트리거
+            if current_stage == 3:
+                try:
+                    if current_boss_name == "테디베어" and teddy_bear_sprite:
+                        teddy_bear_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
+                except Exception as e:
+                    print(f"⚠️ 테디베어 히트 스윙 트리거 실패: {e}")
             # 스테이지 8 보스 히트 애니메이션 트리거
             if current_stage == 8:
                 try:
@@ -150452,9 +150463,17 @@ def main(stage_num, new_boss_mode=False):
             if _sa_upd and _sa_upd.active:
                 _sa_upd.update()
                 # 보스 패들과 파편 충돌 체크
-                _sa_upd.check_boss_collision(BOSS)
-        except Exception:
-            pass
+                _prev_kb = _sa_upd.boss_knockback_active
+                _hit = _sa_upd.check_boss_collision(BOSS)
+                if _hit:
+                    print(f"[파편갑옷 DEBUG] 보스 명중! knockback_active={_sa_upd.boss_knockback_active}, "
+                          f"offset={_sa_upd.boss_knockback_offset:.1f}, dir={_sa_upd.boss_knockback_direction}, "
+                          f"timer={_sa_upd.boss_knockback_timer}, level={_sa_upd.knockback_level}")
+                if _sa_upd.boss_knockback_active and _sa_upd.boss_knockback_timer % 5 == 0:
+                    print(f"[파편갑옷 DEBUG] 넉백 진행중: offset={_sa_upd.boss_knockback_offset:.1f}, "
+                          f"prev={_sa_upd.boss_knockback_prev_offset:.1f}, timer={_sa_upd.boss_knockback_timer}")
+        except Exception as _sa_upd_err:
+            print(f"[파편갑옷 DEBUG] update 예외: {_sa_upd_err}")
 
         # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달) - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
@@ -153005,10 +153024,16 @@ def main(stage_num, new_boss_mode=False):
                         _sa_kb = get_shrapnel_armor_instance()
                         if _sa_kb and _sa_kb.active and _sa_kb.boss_knockback_active:
                             _sa_kb_dx = _sa_kb.get_boss_knockback_x_delta()
+                            _old_boss_x = BOSS.x
                             if _sa_kb_dx != 0:
                                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx)))
-                    except Exception:
-                        pass
+                                print(f"[파편갑옷 DEBUG] 넉백 적용! delta={_sa_kb_dx:.2f}, int={int(_sa_kb_dx)}, "
+                                      f"BOSS.x: {_old_boss_x} → {BOSS.x}")
+                            elif _sa_kb.boss_knockback_timer % 5 == 0:
+                                print(f"[파편갑옷 DEBUG] delta=0 (no move), offset={_sa_kb.boss_knockback_offset:.1f}, "
+                                      f"prev={_sa_kb.boss_knockback_prev_offset:.1f}")
+                    except Exception as _sa_kb_err:
+                        print(f"[파편갑옷 DEBUG] 넉백 적용 예외: {_sa_kb_err}")
 
                 # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
