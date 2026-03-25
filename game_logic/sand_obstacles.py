@@ -1,8 +1,8 @@
 """
 모래 장애물 시스템 (Sand Obstacles)
-- 라운드 시작 시 벽 주변에 랜덤 생성
+- 라운드 시작 시 벽면에 붙어서 생성 (동굴 고드름/종유석 느낌)
 - 공에 닿으면 부서지며 사라짐
-- 불규칙한 모래 형태 (정사각형이 아닌 유기적 모양)
+- 벽에서 안쪽으로 튀어나온 불규칙한 지형 형태
 """
 from __future__ import annotations
 
@@ -14,17 +14,13 @@ import pygame
 # ── 상수 ──────────────────────────────────────────────
 WIDTH = 760
 HEIGHT = 750
-BOSS_Y = 25
-PLAYER_Y = 710
 
-# 모래 블록 크기 범위
-SAND_MIN_W = 28
-SAND_MAX_W = 50
-SAND_MIN_H = 18
-SAND_MAX_H = 36
-
-# 벽 근처 스폰 거리 (벽으로부터 최대 px)
-WALL_MARGIN = 60
+# 돌출 크기 범위 (벽에서 안쪽으로 얼마나 튀어나오는지)
+PROTRUDE_MIN = 25
+PROTRUDE_MAX = 55
+# 벽면을 따라 차지하는 폭/높이
+SPAN_MIN = 30
+SPAN_MAX = 70
 
 # 모래 색상 팔레트
 SAND_COLORS = [
@@ -45,69 +41,181 @@ SAND_PARTICLE_COLORS = [
 ]
 
 
-def _generate_sand_shape(w: int, h: int) -> list[tuple[int, int]]:
-    """불규칙한 모래 블록 폴리곤 좌표 생성 (원점 기준)"""
+def _generate_wall_shape(wall_side: str, span: int, protrude: int) -> list[tuple[int, int]]:
+    """벽에 붙은 지형 폴리곤 생성 (고드름/종유석 형태)
+
+    wall_side: 'left', 'right', 'top', 'bottom'
+    span: 벽면을 따라 차지하는 길이
+    protrude: 벽에서 안쪽으로 튀어나오는 깊이
+
+    반환: 서피스 로컬 좌표 (0,0 기준) 폴리곤 포인트 리스트
+    """
     points = []
-    num_points = random.randint(7, 11)
-    for i in range(num_points):
-        angle = (2 * math.pi * i) / num_points + random.uniform(-0.3, 0.3)
-        # 타원형 기반 + 랜덤 울퉁불퉁
-        rx = (w / 2) * random.uniform(0.7, 1.0)
-        ry = (h / 2) * random.uniform(0.7, 1.0)
-        px = int(w / 2 + rx * math.cos(angle))
-        py = int(h / 2 + ry * math.sin(angle))
-        px = max(0, min(w, px))
-        py = max(0, min(h, py))
-        points.append((px, py))
+
+    if wall_side == "left":
+        # 좌벽: x=0이 벽면, 오른쪽으로 돌출
+        # 벽면 상단 시작
+        points.append((0, 0))
+        # 울퉁불퉁한 돌출 (위→아래로)
+        num_bumps = random.randint(3, 5)
+        for i in range(num_bumps):
+            t = (i + 1) / (num_bumps + 1)
+            y = int(span * t)
+            # 중앙부가 가장 많이 튀어나오는 형태
+            center_factor = 1.0 - abs(t - 0.5) * 2  # 0→1→0
+            depth = int(protrude * (0.4 + 0.6 * center_factor) * random.uniform(0.7, 1.0))
+            points.append((depth, y + random.randint(-3, 3)))
+        # 벽면 하단 끝
+        points.append((0, span))
+
+    elif wall_side == "right":
+        # 우벽: x=protrude가 벽면(오른쪽), 왼쪽으로 돌출
+        points.append((protrude, 0))
+        num_bumps = random.randint(3, 5)
+        for i in range(num_bumps):
+            t = (i + 1) / (num_bumps + 1)
+            y = int(span * t)
+            center_factor = 1.0 - abs(t - 0.5) * 2
+            depth = int(protrude * (0.4 + 0.6 * center_factor) * random.uniform(0.7, 1.0))
+            points.append((protrude - depth, y + random.randint(-3, 3)))
+        points.append((protrude, span))
+
+    elif wall_side == "top":
+        # 상단벽: y=0이 벽면, 아래로 돌출 (고드름)
+        points.append((0, 0))
+        num_bumps = random.randint(3, 5)
+        for i in range(num_bumps):
+            t = (i + 1) / (num_bumps + 1)
+            x = int(span * t)
+            center_factor = 1.0 - abs(t - 0.5) * 2
+            depth = int(protrude * (0.4 + 0.6 * center_factor) * random.uniform(0.7, 1.0))
+            points.append((x + random.randint(-3, 3), depth))
+        points.append((span, 0))
+
+    elif wall_side == "bottom":
+        # 하단벽: y=protrude가 벽면(아래쪽), 위로 돌출 (석순)
+        points.append((0, protrude))
+        num_bumps = random.randint(3, 5)
+        for i in range(num_bumps):
+            t = (i + 1) / (num_bumps + 1)
+            x = int(span * t)
+            center_factor = 1.0 - abs(t - 0.5) * 2
+            depth = int(protrude * (0.4 + 0.6 * center_factor) * random.uniform(0.7, 1.0))
+            points.append((x + random.randint(-3, 3), protrude - depth))
+        points.append((span, protrude))
+
     return points
 
 
-def create_sand_obstacle(x: int, y: int) -> dict:
-    """단일 모래 장애물 생성"""
-    w = random.randint(SAND_MIN_W, SAND_MAX_W)
-    h = random.randint(SAND_MIN_H, SAND_MAX_H)
-    color = random.choice(SAND_COLORS)
-    shape = _generate_sand_shape(w, h)
+def _render_sand_surface(
+    wall_side: str, span: int, protrude: int, shape: list[tuple[int, int]], color: tuple
+) -> pygame.Surface:
+    """모래 지형 서피스 렌더링"""
+    pad = 3
+    if wall_side in ("left", "right"):
+        sw, sh = protrude + pad * 2, span + pad * 2
+    else:
+        sw, sh = span + pad * 2, protrude + pad * 2
 
-    # 미리 렌더링된 서피스 생성
-    surf = pygame.Surface((w + 4, h + 4), pygame.SRCALPHA)
-    # 그림자 (약간 아래로)
-    shadow_pts = [(px + 2, py + 2) for px, py in shape]
-    pygame.draw.polygon(surf, (0, 0, 0, 40), shadow_pts)
+    surf = pygame.Surface((sw, sh), pygame.SRCALPHA)
+    shifted = [(px + pad, py + pad) for px, py in shape]
+
+    if len(shifted) < 3:
+        return surf
+
+    # 그림자
+    shadow_off = 2
+    shadow_pts = [(px + shadow_off, py + shadow_off) for px, py in shifted]
+    pygame.draw.polygon(surf, (0, 0, 0, 35), shadow_pts)
+
     # 본체
-    shifted = [(px + 2, py + 2) for px, py in shape]
     pygame.draw.polygon(surf, color, shifted)
-    # 하이라이트 점들 (모래 질감)
-    for _ in range(random.randint(3, 7)):
-        dx = random.randint(4, w - 2)
-        dy = random.randint(4, h - 2)
+    # 윤곽선 (약간 어두운 색)
+    outline = tuple(max(0, c - 40) for c in color)
+    pygame.draw.polygon(surf, outline, shifted, 2)
+
+    # 모래 질감 - 밝은 점
+    # 폴리곤 바운딩박스 내에서만 점 찍기
+    min_x = min(p[0] for p in shifted)
+    max_x = max(p[0] for p in shifted)
+    min_y = min(p[1] for p in shifted)
+    max_y = max(p[1] for p in shifted)
+    for _ in range(random.randint(4, 9)):
+        dx = random.randint(min_x + 2, max(min_x + 3, max_x - 2))
+        dy = random.randint(min_y + 2, max(min_y + 3, max_y - 2))
         r = random.randint(1, 3)
-        highlight = tuple(min(255, c + random.randint(20, 50)) for c in color) + (180,)
-        pygame.draw.circle(surf, highlight, (dx + 2, dy + 2), r)
-    # 어두운 점들
+        highlight = tuple(min(255, c + random.randint(25, 55)) for c in color) + (160,)
+        pygame.draw.circle(surf, highlight, (dx, dy), r)
+    # 어두운 점
     for _ in range(random.randint(2, 5)):
-        dx = random.randint(4, w - 2)
-        dy = random.randint(4, h - 2)
+        dx = random.randint(min_x + 2, max(min_x + 3, max_x - 2))
+        dy = random.randint(min_y + 2, max(min_y + 3, max_y - 2))
         r = random.randint(1, 2)
-        dark = tuple(max(0, c - random.randint(30, 60)) for c in color) + (150,)
-        pygame.draw.circle(surf, dark, (dx + 2, dy + 2), r)
+        dark = tuple(max(0, c - random.randint(35, 65)) for c in color) + (130,)
+        pygame.draw.circle(surf, dark, (dx, dy), r)
+    # 가로 줄무늬 (지층 느낌)
+    for _ in range(random.randint(1, 3)):
+        ly = random.randint(min_y + 4, max(min_y + 5, max_y - 4))
+        lx1 = random.randint(min_x + 2, max(min_x + 3, (min_x + max_x) // 2))
+        lx2 = random.randint((min_x + max_x) // 2, max((min_x + max_x) // 2 + 1, max_x - 2))
+        line_color = tuple(max(0, c - random.randint(15, 30)) for c in color) + (100,)
+        pygame.draw.line(surf, line_color, (lx1, ly), (lx2, ly), 1)
+
+    return surf
+
+
+def _create_wall_sand(wall_side: str, pos_along_wall: int) -> dict:
+    """벽면에 붙은 모래 장애물 하나 생성
+
+    Args:
+        wall_side: 'left', 'right', 'top', 'bottom'
+        pos_along_wall: 벽면을 따라 어느 위치에 배치할지 (px)
+    """
+    span = random.randint(SPAN_MIN, SPAN_MAX)
+    protrude = random.randint(PROTRUDE_MIN, PROTRUDE_MAX)
+    color = random.choice(SAND_COLORS)
+    shape = _generate_wall_shape(wall_side, span, protrude)
+    surface = _render_sand_surface(wall_side, span, protrude, shape, color)
+    pad = 3
+
+    # 월드 좌표 결정 (벽면에 딱 붙도록)
+    if wall_side == "left":
+        x = -pad  # 좌벽에 밀착
+        y = pos_along_wall - pad
+        rect_x, rect_y = 0, pos_along_wall
+        rect_w, rect_h = protrude, span
+    elif wall_side == "right":
+        x = WIDTH - protrude - pad  # 우벽에 밀착
+        y = pos_along_wall - pad
+        rect_x, rect_y = WIDTH - protrude, pos_along_wall
+        rect_w, rect_h = protrude, span
+    elif wall_side == "top":
+        x = pos_along_wall - pad
+        y = -pad  # 상단벽에 밀착
+        rect_x, rect_y = pos_along_wall, 0
+        rect_w, rect_h = span, protrude
+    else:  # bottom
+        x = pos_along_wall - pad
+        y = HEIGHT - protrude - pad  # 하단벽에 밀착
+        rect_x, rect_y = pos_along_wall, HEIGHT - protrude
+        rect_w, rect_h = span, protrude
 
     return {
         "x": x,
         "y": y,
-        "w": w,
-        "h": h,
-        "rect": pygame.Rect(x, y, w, h),
+        "rect": pygame.Rect(rect_x, rect_y, rect_w, rect_h),
+        "wall_side": wall_side,
+        "span": span,
+        "protrude": protrude,
         "color": color,
         "shape": shape,
-        "surface": surf,
+        "surface": surface,
         "alive": True,
-        "fade_alpha": 255,  # 파괴 시 페이드아웃용
     }
 
 
-def spawn_sand_obstacles(count_range: tuple[int, int] = (4, 8)) -> list[dict]:
-    """라운드 시작 시 벽 주변에 모래 장애물 배치
+def spawn_sand_obstacles(count_range: tuple[int, int] = (5, 10)) -> list[dict]:
+    """라운드 시작 시 벽면에 붙은 모래 장애물 배치
 
     Args:
         count_range: (최소, 최대) 생성 개수
@@ -117,44 +225,33 @@ def spawn_sand_obstacles(count_range: tuple[int, int] = (4, 8)) -> list[dict]:
     obstacles: list[dict] = []
     count = random.randint(*count_range)
 
-    # 스폰 가능 영역 정의 (벽 주변 4곳)
-    zones = []
-
-    # 좌벽 근처 (x: 0~WALL_MARGIN, y: 120~630 중립지대)
-    zones.append(("left", 0, WALL_MARGIN, 100, 650))
-    # 우벽 근처
-    zones.append(("right", WIDTH - WALL_MARGIN, WIDTH, 100, 650))
-    # 보스쪽 벽 근처 (상단, y: 50~120)
-    zones.append(("top", 60, WIDTH - 60, 50, 130))
-    # 플레이어쪽 벽 근처 (하단, y: 630~700)
-    zones.append(("bottom", 60, WIDTH - 60, 640, 700))
+    # 각 벽면별 배치 가능 범위 (패들 영역 피해서)
+    wall_ranges = {
+        "left": (80, 670),    # Y: 패들 위 ~ 패들 아래 사이
+        "right": (80, 670),
+        "top": (60, 700),     # X: 좌우 여백 제외
+        "bottom": (60, 700),
+    }
+    wall_sides = list(wall_ranges.keys())
 
     for _ in range(count):
-        zone = random.choice(zones)
-        _name, x_min, x_max, y_min, y_max = zone
+        side = random.choice(wall_sides)
+        range_min, range_max = wall_ranges[side]
 
-        # 크기 먼저 결정
-        w = random.randint(SAND_MIN_W, SAND_MAX_W)
-        h = random.randint(SAND_MIN_H, SAND_MAX_H)
-
-        # 겹침 방지 시도 (최대 10회)
-        for _attempt in range(10):
-            x = random.randint(x_min, max(x_min, x_max - w))
-            y = random.randint(y_min, max(y_min, y_max - h))
-            new_rect = pygame.Rect(x, y, w, h)
+        # 겹침 방지 시도 (최대 15회)
+        for _attempt in range(15):
+            pos = random.randint(range_min, range_max)
+            sand = _create_wall_sand(side, pos)
 
             # 기존 장애물과 겹치는지 확인
             overlap = False
             for obs in obstacles:
-                if obs["rect"].inflate(10, 10).colliderect(new_rect):
+                if obs["rect"].inflate(8, 8).colliderect(sand["rect"]):
                     overlap = True
                     break
             if not overlap:
+                obstacles.append(sand)
                 break
-        else:
-            continue  # 10번 시도해도 겹치면 스킵
-
-        obstacles.append(create_sand_obstacle(x, y))
 
     return obstacles
 
@@ -184,20 +281,34 @@ def check_sand_ball_collision(
 
 
 def create_sand_particles(sand: dict) -> list[dict]:
-    """모래 파괴 시 파티클 생성"""
+    """모래 파괴 시 파티클 생성 - 벽 반대쪽으로 흩어짐"""
     particles = []
-    cx = sand["x"] + sand["w"] // 2
-    cy = sand["y"] + sand["h"] // 2
+    rect = sand["rect"]
+    cx = rect.centerx
+    cy = rect.centery
+    side = sand["wall_side"]
 
     for _ in range(random.randint(8, 14)):
-        angle = random.uniform(0, 2 * math.pi)
-        speed = random.uniform(1.5, 4.0)
+        # 벽 반대 방향으로 파티클이 날아가도록
+        if side == "left":
+            vx = random.uniform(1.5, 4.5)
+            vy = random.uniform(-2.0, 2.0)
+        elif side == "right":
+            vx = random.uniform(-4.5, -1.5)
+            vy = random.uniform(-2.0, 2.0)
+        elif side == "top":
+            vx = random.uniform(-2.0, 2.0)
+            vy = random.uniform(1.5, 4.5)
+        else:  # bottom
+            vx = random.uniform(-2.0, 2.0)
+            vy = random.uniform(-4.5, -1.5)
+
         size = random.randint(2, 5)
         particles.append({
-            "x": cx + random.randint(-sand["w"] // 3, sand["w"] // 3),
-            "y": cy + random.randint(-sand["h"] // 3, sand["h"] // 3),
-            "vx": math.cos(angle) * speed,
-            "vy": math.sin(angle) * speed + random.uniform(-1, 0.5),
+            "x": float(cx + random.randint(-rect.width // 3, rect.width // 3)),
+            "y": float(cy + random.randint(-rect.height // 3, rect.height // 3)),
+            "vx": vx,
+            "vy": vy,
             "size": size,
             "color": random.choice(SAND_PARTICLE_COLORS),
             "life": random.randint(20, 40),
@@ -224,7 +335,7 @@ def draw_sand_obstacles(screen: pygame.Surface, sand_list: list[dict]) -> None:
     for sand in sand_list:
         if not sand["alive"]:
             continue
-        screen.blit(sand["surface"], (sand["x"] - 2, sand["y"] - 2))
+        screen.blit(sand["surface"], (sand["x"], sand["y"]))
 
 
 def draw_sand_particles(screen: pygame.Surface, particles: list[dict]) -> None:
@@ -233,7 +344,6 @@ def draw_sand_particles(screen: pygame.Surface, particles: list[dict]) -> None:
         alpha = int(255 * (p["life"] / p["max_life"]))
         color = p["color"]
         size = max(1, int(p["size"] * (p["life"] / p["max_life"])))
-        # 간단한 원형 파티클
         if alpha > 20:
             s = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
             pygame.draw.circle(s, (*color, alpha), (size, size), size)
