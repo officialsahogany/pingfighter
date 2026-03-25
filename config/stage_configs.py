@@ -187,6 +187,12 @@ BOSS_VARIANTS = {
             "color": (180, 130, 90),
             "special_skill": "cotton_throw",
         },
+        "앨리스": {
+            **BOSS_CONFIGS[3],
+            "name": "앨리스",
+            "color": (140, 180, 255),          # 옅은 파랑 (원더랜드 드레스)
+            "special_skill": "mirror_world",   # 거울 나라
+        },
     },
 }
 

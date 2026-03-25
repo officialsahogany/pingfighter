@@ -17909,6 +17909,21 @@ def _swap_boss_in_current_stage():
     spinning_top_timer = 0
     spinning_tops = []
     spinning_top_used_this_round = False
+    # 앨리스 스킬 초기화 (F6 보스 전환)
+    alice_mirror_active = False
+    alice_mirror_timer = 0
+    alice_mirror_cooldown_timer = 0
+    alice_mirror_fade_timer = 0
+    if alice_size_shift_active:
+        _deactivate_alice_size_shift()
+    alice_size_shift_active = False
+    alice_size_shift_timer = 0
+    alice_size_shift_cooldown_timer = 0
+    alice_rabbit_active = False
+    alice_rabbit_projectiles.clear()
+    alice_rabbit_windup_active = False
+    alice_rabbit_windup_timer = 0
+    alice_rabbit_cooldown_timer = 0
 
     # 보스 이름 변경
     current_boss_name = new_boss
@@ -53135,6 +53150,16 @@ except Exception as e:
     teddy_bear_sprite = None
     TEDDY_BOSS_ANIMATION_AVAILABLE = False
 
+# Stage 3 앨리스 보스 프로시저럴 스프라이트 초기화
+try:
+    from entities.alice_boss_sprite import get_alice_sprite, AliceBossSprite
+    alice_boss_sprite = get_alice_sprite()
+    ALICE_BOSS_ANIMATION_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Alice boss sprite load failed: {e}")
+    alice_boss_sprite = None
+    ALICE_BOSS_ANIMATION_AVAILABLE = False
+
 try:
     BOSS_IMG_STAGE2 = pygame.image.load(resource_path("boss_stage2.png")).convert_alpha()
     BOSS_IMG_STAGE2 = pygame.transform.scale(BOSS_IMG_STAGE2, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -53221,6 +53246,67 @@ def _create_teddy_bear_boss_image(w=160, h=80):
     return surf
 
 BOSS_IMG_TEDDY = _create_teddy_bear_boss_image(BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT)
+
+def _create_alice_boss_image(w=160, h=80):
+    """스테이지 3 앨리스 보스 — 파란 드레스 소녀 (정적 폴백)"""
+    surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    cx, cy = w // 2, h // 2
+    blue = (100, 150, 230)
+    blue_dk = (70, 110, 190)
+    skin = (255, 220, 195)
+    hair = (240, 200, 100)
+    white = (240, 240, 250)
+    black = (30, 25, 35)
+    eye_b = (60, 100, 200)
+    ribbon = (80, 130, 220)
+    # 드레스 (A라인)
+    pygame.draw.polygon(surf, blue, [
+        (cx - 20, cy), (cx + 20, cy),
+        (cx + 35, cy + 38), (cx - 35, cy + 38)])
+    pygame.draw.polygon(surf, blue_dk, [
+        (cx - 12, cy + 5), (cx, cy + 2),
+        (cx - 8, cy + 38), (cx - 28, cy + 38)])
+    # 에이프런
+    pygame.draw.polygon(surf, white, [
+        (cx - 14, cy + 2), (cx + 14, cy + 2),
+        (cx + 20, cy + 34), (cx - 20, cy + 34)])
+    # 상체
+    pygame.draw.ellipse(surf, blue, (cx - 18, cy - 14, 36, 20))
+    pygame.draw.rect(surf, white, (cx - 10, cy - 10, 20, 14))
+    # 머리 (뒷머리카락)
+    pygame.draw.polygon(surf, hair, [
+        (cx - 20, cy - 22), (cx + 20, cy - 22),
+        (cx + 22, cy + 10), (cx - 22, cy + 10)])
+    # 얼굴
+    pygame.draw.circle(surf, skin, (cx, cy - 26), 18)
+    # 앞머리
+    pygame.draw.polygon(surf, hair, [
+        (cx - 18, cy - 28), (cx - 14, cy - 40),
+        (cx, cy - 42), (cx + 14, cy - 40),
+        (cx + 18, cy - 28), (cx + 10, cy - 32),
+        (cx, cy - 34), (cx - 10, cy - 32)])
+    # 눈
+    for side in [-1, 1]:
+        ex = cx + side * 7
+        ey = cy - 26
+        pygame.draw.ellipse(surf, white, (ex - 5, ey - 3, 10, 7))
+        pygame.draw.circle(surf, eye_b, (ex, ey), 3)
+        pygame.draw.circle(surf, black, (ex, ey), 1)
+    # 리본
+    rx, ry = cx + 12, cy - 42
+    pygame.draw.polygon(surf, ribbon, [
+        (rx, ry), (rx - 6, ry - 4), (rx - 3, ry), (rx - 6, ry + 4)])
+    pygame.draw.polygon(surf, ribbon, [
+        (rx, ry), (rx + 6, ry - 4), (rx + 3, ry), (rx + 6, ry + 4)])
+    pygame.draw.circle(surf, (60, 100, 200), (rx, ry), 2)
+    # 다리
+    pygame.draw.ellipse(surf, skin, (cx - 12, cy + 34, 10, 10))
+    pygame.draw.ellipse(surf, skin, (cx + 2, cy + 34, 10, 10))
+    pygame.draw.ellipse(surf, black, (cx - 14, cy + 40, 12, 6))
+    pygame.draw.ellipse(surf, black, (cx + 2, cy + 40, 12, 6))
+    return surf
+
+BOSS_IMG_ALICE = _create_alice_boss_image(BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT)
 
 def _create_stage4_boss_image(w=104, h=56):
     """스테이지 4 퐁크 보스 - 가부좌 공중부양 수도승 (v3: 슬림 실루엣)"""
@@ -54433,6 +54519,25 @@ def go_to_next_round():
     deadly_hug_timer = 0
     button_eye_active = False
     button_eye_timer = 0
+    # 앨리스 스킬 초기화 (라운드 전환)
+    global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer, alice_mirror_fade_timer
+    global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer
+    global alice_rabbit_active, alice_rabbit_projectiles, alice_rabbit_windup_active
+    global alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
+    alice_mirror_active = False
+    alice_mirror_timer = 0
+    alice_mirror_cooldown_timer = 0
+    alice_mirror_fade_timer = 0
+    if alice_size_shift_active:
+        _deactivate_alice_size_shift()
+    alice_size_shift_active = False
+    alice_size_shift_timer = 0
+    alice_size_shift_cooldown_timer = 0
+    alice_rabbit_active = False
+    alice_rabbit_projectiles = []
+    alice_rabbit_windup_active = False
+    alice_rabbit_windup_timer = 0
+    alice_rabbit_cooldown_timer = 0
     if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
         BOSS.whip_sound.stop()  #  보스 상모돌리기 사운드 중지
     # 정글지진 사운드 정지 (라운드 전환 시 사운드 버그 수정)
@@ -77800,6 +77905,316 @@ def _draw_curse_reverse_overlay(screen):
         pass
 
 
+# === 앨리스 - 거울 세계 (Mirror World) - Stage 3 ===
+
+def activate_alice_mirror():
+    """화면 좌우반전 발동"""
+    global alice_mirror_active, alice_mirror_timer, alice_mirror_fade_timer
+    alice_mirror_active = True
+    alice_mirror_timer = ALICE_MIRROR_DURATION
+    alice_mirror_fade_timer = 30  # 0.5초 페이드인
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
+        snd.set_volume(0.4 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def update_alice_mirror():
+    """거울 세계 업데이트"""
+    global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer
+    global alice_mirror_fade_timer
+    if alice_mirror_cooldown_timer > 0:
+        alice_mirror_cooldown_timer -= 1
+    if alice_mirror_fade_timer > 0:
+        alice_mirror_fade_timer -= 1
+    if not alice_mirror_active:
+        return
+    alice_mirror_timer -= 1
+    if alice_mirror_timer <= 0:
+        alice_mirror_active = False
+
+
+def apply_alice_mirror_flip(screen, game_area_x, game_area_w, game_area_h):
+    """게임 영역만 좌우반전 (필러 제외). 메인 렌더링 후 호출."""
+    if not alice_mirror_active:
+        return
+    # 게임 영역 추출 → 좌우반전 → 다시 붙이기
+    game_rect = pygame.Rect(game_area_x, 0, game_area_w, game_area_h)
+    game_surf = screen.subsurface(game_rect).copy()
+    flipped = pygame.transform.flip(game_surf, True, False)
+
+    # 페이드 인/아웃 효과
+    alpha = 255
+    if alice_mirror_fade_timer > 0:
+        alpha = int(255 * (1.0 - alice_mirror_fade_timer / 30.0))
+    if alice_mirror_timer < 30:
+        alpha = int(255 * (alice_mirror_timer / 30.0))
+
+    if alpha < 255:
+        flipped.set_alpha(alpha)
+        screen.blit(flipped, (game_area_x, 0))
+    else:
+        screen.blit(flipped, (game_area_x, 0))
+
+
+# === 앨리스 - 사이즈 시프트 (Size Shift) - Stage 3 ===
+
+def activate_alice_size_shift():
+    """공 크기 변환 발동 (랜덤 커지거나 작아짐)"""
+    global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_scale
+    global alice_original_ball_w, alice_original_ball_h
+    alice_size_shift_active = True
+    alice_size_shift_timer = ALICE_SIZE_SHIFT_DURATION
+    # 원본 크기 저장
+    alice_original_ball_w = BALL.width
+    alice_original_ball_h = BALL.height
+    # 랜덤 선택: 커지거나 작아지거나
+    if random.random() < 0.5:
+        alice_size_shift_scale = 2.0  # 커짐 → 피하기 어려움
+    else:
+        alice_size_shift_scale = 0.5  # 작아짐 → 보기 어려움
+    # 적용
+    new_w = max(4, int(alice_original_ball_w * alice_size_shift_scale))
+    new_h = max(4, int(alice_original_ball_h * alice_size_shift_scale))
+    center_x = BALL.centerx
+    center_y = BALL.centery
+    BALL.width = new_w
+    BALL.height = new_h
+    BALL.centerx = center_x
+    BALL.centery = center_y
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "gravityaccel.wav")))
+        snd.set_volume(0.35 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def update_alice_size_shift():
+    """사이즈 시프트 업데이트"""
+    global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer
+    if alice_size_shift_cooldown_timer > 0:
+        alice_size_shift_cooldown_timer -= 1
+    if not alice_size_shift_active:
+        return
+    alice_size_shift_timer -= 1
+    if alice_size_shift_timer <= 0:
+        _deactivate_alice_size_shift()
+
+
+def _deactivate_alice_size_shift():
+    """사이즈 시프트 해제 → 원래 크기로 복원"""
+    global alice_size_shift_active, alice_size_shift_scale
+    alice_size_shift_active = False
+    alice_size_shift_scale = 1.0
+    if alice_original_ball_w > 0 and alice_original_ball_h > 0:
+        center_x = BALL.centerx
+        center_y = BALL.centery
+        BALL.width = alice_original_ball_w
+        BALL.height = alice_original_ball_h
+        BALL.centerx = center_x
+        BALL.centery = center_y
+
+
+# === 앨리스 - 토끼 투사체 (Rabbit Projectile) - Stage 3 ===
+
+def activate_alice_rabbit():
+    """토끼 투사체 발동 - 0.5초 준비 후 발사"""
+    global alice_rabbit_windup_active, alice_rabbit_windup_timer
+    alice_rabbit_windup_active = True
+    alice_rabbit_windup_timer = 30  # 0.5초 선딜
+
+
+def _launch_alice_rabbits():
+    """준비 완료 후 토끼 투사체 발사"""
+    global alice_rabbit_active, alice_rabbit_projectiles
+    alice_rabbit_active = True
+    alice_rabbit_projectiles.clear()
+    count = random.randint(ALICE_RABBIT_COUNT_MIN, ALICE_RABBIT_COUNT_MAX)
+    boss_cx = float(BOSS.centerx if BOSS else WIDTH // 2)
+    boss_cy = float((BOSS.y + BOSS.height) if BOSS else 65)
+    player_cx = float(PLAYER.centerx if PLAYER else WIDTH // 2)
+    player_cy = float(PLAYER.centery if PLAYER else 710)
+    for i in range(count):
+        dx = player_cx - boss_cx
+        dy = player_cy - boss_cy
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist < 1:
+            dist = 1
+        spread_angle = math.radians(random.uniform(-20, 20))
+        base_angle = math.atan2(dy, dx)
+        angle = base_angle + spread_angle
+        speed = ALICE_RABBIT_SPEED + random.uniform(-0.3, 0.3)
+        alice_rabbit_projectiles.append({
+            "x": boss_cx + random.uniform(-10, 10),
+            "y": boss_cy,
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed,
+            "timer": ALICE_RABBIT_MAX_TIMER,
+            "hop_phase": random.uniform(0, math.pi * 2),
+            "size": random.uniform(16, 22),
+            "ear_angle": random.uniform(-0.2, 0.2),
+        })
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyshoot.wav")))
+        snd.set_volume(0.35 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def update_alice_rabbit():
+    """토끼 투사체 업데이트: 선딜 + 깡충 이동 + 충돌"""
+    global alice_rabbit_active, alice_rabbit_windup_active, alice_rabbit_windup_timer
+    global alice_rabbit_cooldown_timer
+    if alice_rabbit_cooldown_timer > 0:
+        alice_rabbit_cooldown_timer -= 1
+    if alice_rabbit_windup_active:
+        alice_rabbit_windup_timer -= 1
+        if alice_rabbit_windup_timer <= 0:
+            alice_rabbit_windup_active = False
+            _launch_alice_rabbits()
+        return
+    if not alice_rabbit_active:
+        return
+    to_remove = []
+    for i, proj in enumerate(alice_rabbit_projectiles):
+        proj["timer"] -= 1
+        proj["hop_phase"] += 0.15
+        # 깡충 뛰는 모션 (Y축 사인파)
+        hop_offset = abs(math.sin(proj["hop_phase"])) * 8
+        proj["x"] += proj["vx"]
+        proj["y"] += proj["vy"] - hop_offset * 0.1
+        # 화면 밖
+        if (proj["x"] < GAME_AREA_OFFSET_X - 30 or
+            proj["x"] > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30 or
+                proj["y"] > HEIGHT + 30 or proj["y"] < -30):
+            to_remove.append(i)
+            continue
+        if proj["timer"] <= 0:
+            to_remove.append(i)
+            continue
+        # 플레이어 충돌 체크
+        if PLAYER:
+            px_c = PLAYER.centerx
+            py_c = PLAYER.centery
+            ddx = proj["x"] - px_c
+            ddy = proj["y"] - py_c
+            dist_sq = ddx * ddx + ddy * ddy
+            if dist_sq < (ALICE_RABBIT_HIT_RADIUS + PLAYER.width // 2) ** 2:
+                to_remove.append(i)
+                # 스턴 적용
+                try_apply_player_stun(0.5, source="rabbit_hit")  # 0.5초 스턴
+                try:
+                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
+                    snd.set_volume(0.3 * sfx_volume)
+                    snd.play()
+                except Exception:
+                    pass
+    for i in sorted(to_remove, reverse=True):
+        if i < len(alice_rabbit_projectiles):
+            alice_rabbit_projectiles.pop(i)
+    if not alice_rabbit_projectiles:
+        alice_rabbit_active = False
+
+
+def draw_alice_rabbit_effect(screen):
+    """토끼 투사체 + 준비 모션 렌더링"""
+    # 1) 준비 모션
+    if alice_rabbit_windup_active and BOSS:
+        progress = 1.0 - (alice_rabbit_windup_timer / 30.0)
+        bcx = BOSS.centerx
+        bcy = BOSS.y + BOSS.height + 5
+        for i in range(3):
+            a = progress * math.pi * 3 + i * (math.pi * 2 / 3)
+            d = 20 * (1.0 - progress)
+            ppx = int(bcx + math.cos(a) * d)
+            ppy = int(bcy + math.sin(a) * d)
+            sz = int(8 + 4 * progress)
+            sf = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            al = int(180 * progress)
+            pygame.draw.ellipse(sf, (255, 255, 255, al), (sz // 2, 0, sz, int(sz * 1.4)))
+            pygame.draw.ellipse(sf, (255, 240, 240, al), (sz // 2 - 2, 0, 4, sz // 2))
+            pygame.draw.ellipse(sf, (255, 240, 240, al), (sz // 2 + sz - 2, 0, 4, sz // 2))
+            screen.blit(sf, (ppx - sz, ppy - sz))
+
+    # 2) 투사체
+    for proj in alice_rabbit_projectiles:
+        px = int(proj["x"])
+        py = int(proj["y"])
+        sz = int(proj["size"])
+        hop = abs(math.sin(proj["hop_phase"])) * 6
+        # 그림자
+        shadow_surf = pygame.Surface((sz * 2, sz // 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, sz * 2, sz // 2))
+        screen.blit(shadow_surf, (px - sz, py + sz // 2))
+        # 토끼 본체
+        ry = py - int(hop)
+        body_w = sz
+        body_h = int(sz * 1.3)
+        pygame.draw.ellipse(screen, (255, 250, 245),
+                            (px - body_w // 2, ry - body_h // 2, body_w, body_h))
+        ear_h = int(sz * 0.7)
+        pygame.draw.ellipse(screen, (255, 245, 240),
+                            (px - body_w // 3 - 2, ry - body_h // 2 - ear_h, 4, ear_h))
+        pygame.draw.ellipse(screen, (255, 200, 200),
+                            (px - body_w // 3 - 1, ry - body_h // 2 - ear_h + 2, 2, ear_h - 4))
+        pygame.draw.ellipse(screen, (255, 245, 240),
+                            (px + body_w // 3 - 2, ry - body_h // 2 - ear_h, 4, ear_h))
+        pygame.draw.ellipse(screen, (255, 200, 200),
+                            (px + body_w // 3 - 1, ry - body_h // 2 - ear_h + 2, 2, ear_h - 4))
+        pygame.draw.circle(screen, (200, 50, 50), (px - 3, ry - 2), 2)
+        pygame.draw.circle(screen, (200, 50, 50), (px + 3, ry - 2), 2)
+        pygame.draw.circle(screen, (255, 255, 255), (px, ry + body_h // 2 - 2), 3)
+
+
+def draw_alice_size_shift_effect(screen):
+    """사이즈 시프트 시각 효과 (공 주변 반짝이)"""
+    if not alice_size_shift_active:
+        return
+    if BALL is None:
+        return
+    cx = BALL.centerx
+    cy = BALL.centery
+    t = alice_size_shift_timer
+    for i in range(4):
+        angle = (t * 0.05 + i * math.pi / 2)
+        dist = 15 + BALL.width // 2
+        sx = int(cx + math.cos(angle) * dist)
+        sy = int(cy + math.sin(angle) * dist)
+        sparkle_alpha = int(100 + 100 * abs(math.sin(t * 0.1 + i)))
+        sf = pygame.Surface((8, 8), pygame.SRCALPHA)
+        if alice_size_shift_scale > 1.0:
+            color = (255, 100, 100, sparkle_alpha)
+        else:
+            color = (100, 200, 255, sparkle_alpha)
+        pygame.draw.circle(sf, color, (4, 4), 3)
+        screen.blit(sf, (sx - 4, sy - 4))
+
+
+def draw_alice_mirror_effect(screen):
+    """거울 세계 활성화 시 화면 테두리 이펙트"""
+    if not alice_mirror_active:
+        return
+    t = alice_mirror_timer
+    alpha = min(80, 80)
+    if t < 30:
+        alpha = int(80 * t / 30)
+    elif alice_mirror_fade_timer > 0:
+        alpha = int(80 * (1.0 - alice_mirror_fade_timer / 30.0))
+    glow_surf = pygame.Surface((GAME_PLAY_WIDTH, HEIGHT), pygame.SRCALPHA)
+    border_w = 8
+    pygame.draw.rect(glow_surf, (100, 150, 255, alpha),
+                     (0, 0, GAME_PLAY_WIDTH, HEIGHT), border_w)
+    inner_alpha = alpha // 2
+    pygame.draw.rect(glow_surf, (140, 180, 255, inner_alpha),
+                     (border_w, border_w,
+                      GAME_PLAY_WIDTH - border_w * 2, HEIGHT - border_w * 2), border_w // 2)
+    screen.blit(glow_surf, (GAME_AREA_OFFSET_X, 0))
+
+
 # === 테디베어 솜뭉치 투척 스킬 (Stage 3) ===
 def activate_cotton_throw():
     """솜뭉치 투척 발동 -- 0.5초 준비 후 3~5개 솜뭉치 발사"""
@@ -100330,6 +100745,19 @@ def draw_objects():
             boss_w, boss_h = teddy_canvas_w, teddy_canvas_h
         elif current_boss_name == "테디베어":
             boss_img = BOSS_IMG_TEDDY
+            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+        elif current_boss_name == "앨리스" and ALICE_BOSS_ANIMATION_AVAILABLE and alice_boss_sprite is not None:
+            boss_img_prescaled = True
+            boss_x_pos = float(BOSS.centerx) if BOSS is not None else 380.0
+            alice_boss_sprite.update(boss_x_pos, 1/60)
+            alice_canvas_w = BOSS_IMG_WIDTH + 50
+            alice_canvas_h = BOSS_IMG_HEIGHT + 50
+            alice_surf = pygame.Surface((alice_canvas_w, alice_canvas_h), pygame.SRCALPHA)
+            alice_boss_sprite.draw(alice_surf, 0, 0, alice_canvas_w, alice_canvas_h)
+            boss_img = alice_surf
+            boss_w, boss_h = alice_canvas_w, alice_canvas_h
+        elif current_boss_name == "앨리스":
+            boss_img = BOSS_IMG_ALICE
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
         else:
             boss_img = BOSS_IMG_STAGE3
@@ -130517,7 +130945,7 @@ def reset_round(is_stage_start=False):
         supply_drop_state.hold_time = 0
     global boss_stun_timer, ragnarok_shock_playing  #  라그나로크 해머 스턴 관련
     global ragnarok_speed_boost_active, ragnarok_stun_pending, ragnarok_original_speed  #  라그나로크 공속 증가 및 스턴 예약
-    global ragnarok_first_shot_speed
+    global ragnarok_first_shot_speed, ragnarok_impact_sparks
     global boss_knockback_timer, boss_knockback_vel  #  라그나로크 넉백 관련
     global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
     # 스테이지 2 효과 초기화
@@ -130533,6 +130961,7 @@ def reset_round(is_stage_start=False):
     boss_knockback_timer = 0
     boss_knockback_vel = 0
     ragnarok_stun_attempted_this_rally = False  # 랠리별 스턴 시도 플래그 리셋
+    ragnarok_impact_sparks = []
     if ragnarok_shock_playing:
         stop_ragnarok_shock_sound()
         ragnarok_shock_playing = False
@@ -132128,6 +132557,7 @@ boss_knockback_distance = 0   # 넉백 거리
 boss_stun_timer = 0           # 보스 스턴 시간 (라그나로크 해머용)
 ragnarok_stun_pending = 0     # 넉백 후 적용할 스턴 시간
 ragnarok_shock_playing = False  # 전기 감전 사운드 재생 중인지
+ragnarok_impact_sparks = []  # 라그나로크 전기 스파크 파티클 리스트
 ragnarok_speed_boost_active = False  # 라그나로크 해머로 인한 공속 증가 상태
 ragnarok_original_speed = 0.0  # 라그나로크 발동 전 공 속도 (보스 반격 감속용)
 ragnarok_first_shot_speed = 0.0  # 라그나로크 스턴 랠리의 최초 플레이어 발사 속도
@@ -138160,13 +138590,26 @@ def handle_ball():
                         if stun_duration > 0:
                             ragnarok_stun_pending = int(stun_duration * 60)
 
-                        screen_shake_timer = 12
-                        screen_shake_intensity = 10
-                        # print(f"     !")  # 디버그 비활성화
-                        # print(f"     : {horizontal_velocity:.1f}")  # 디버그 비활성화
-                        # print(f"    : X={BOSS.x:.0f}")  # 디버그 비활성화
-                        # print(f"   : {ball_speed:.1f}")  # 디버그 비활성화
-                        # print(f"   : 0.6, : 0.6")  # 디버그 비활성화
+                        # ⚡ 강력한 화면 흔들림
+                        screen_shake_timer = 18
+                        screen_shake_intensity = 14
+
+                        # ⚡ 전기 스파크 파티클 생성 (보스 패들 위치에서 폭발)
+                        spark_cx = BOSS.centerx
+                        spark_cy = BOSS.centery
+                        for _ in range(35):
+                            angle = random.uniform(0, math.pi * 2)
+                            speed = random.uniform(3.0, 12.0)
+                            ragnarok_impact_sparks.append({
+                                'x': spark_cx + random.uniform(-20, 20),
+                                'y': spark_cy + random.uniform(-8, 8),
+                                'vx': math.cos(angle) * speed,
+                                'vy': math.sin(angle) * speed,
+                                'life': random.randint(12, 28),
+                                'max_life': random.randint(12, 28),
+                                'size': random.uniform(1.5, 4.0),
+                                'type': random.choice(['spark', 'bolt', 'glow']),
+                            })
 
         
         #  Stage 5 홍련 피격 효과 - 드라이브/파워스매싱에 따라 확률 변경
@@ -138546,6 +138989,48 @@ def handle_ball():
                     show_speech(random.choice(_eye_shouts), duration=90)
                     boss_special_gauge -= 150
                     button_eye_cooldown_timer = BUTTON_EYE_COOLDOWN
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
+            elif current_boss_name == "앨리스":
+                # 앨리스: 거울 세계 (게이지 200, 15% 확률, 쿨다운 15초)
+                if (boss_special_gauge >= 200
+                    and not alice_mirror_active
+                    and alice_mirror_cooldown_timer <= 0
+                    and random.random() <= 0.15):
+                    activate_alice_mirror()
+                    _mirror_shouts = ["거울 속으로~!", "좌우가 바뀌었어!", "어디가 어딘지 모르겠지~?"]
+                    show_speech(random.choice(_mirror_shouts), duration=90)
+                    boss_special_gauge -= 200
+                    alice_mirror_cooldown_timer = ALICE_MIRROR_COOLDOWN
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
+                # 앨리스: 사이즈 시프트 (게이지 150, 12% 확률, 쿨다운 10초)
+                if (boss_special_gauge >= 150
+                    and not alice_size_shift_active
+                    and alice_size_shift_cooldown_timer <= 0
+                    and not alice_mirror_active
+                    and random.random() <= 0.12):
+                    activate_alice_size_shift()
+                    if alice_size_shift_scale > 1.0:
+                        _size_shouts = ["크~게 커져라!", "먹어라~!", "이 정도면 못 피하지?"]
+                    else:
+                        _size_shouts = ["작아져라~!", "찾을 수 있을까~?", "보이니~?"]
+                    show_speech(random.choice(_size_shouts), duration=90)
+                    boss_special_gauge -= 150
+                    alice_size_shift_cooldown_timer = ALICE_SIZE_SHIFT_COOLDOWN
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
+                # 앨리스: 토끼 투사체 (게이지 180, 13% 확률, 쿨다운 8초)
+                if (boss_special_gauge >= 180
+                    and not alice_rabbit_active
+                    and not alice_rabbit_windup_active
+                    and alice_rabbit_cooldown_timer <= 0
+                    and random.random() <= 0.13):
+                    activate_alice_rabbit()
+                    _rabbit_shouts = ["토끼를 따라가~!", "시간이 없어!", "늦었어 늦었어!"]
+                    show_speech(random.choice(_rabbit_shouts), duration=90)
+                    boss_special_gauge -= 180
+                    alice_rabbit_cooldown_timer = ALICE_RABBIT_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
             else:
@@ -145324,6 +145809,8 @@ def main(stage_num, new_boss_mode=False):
         CURRENT_BG = STAGE3_BG
         if current_boss_name == "테디베어":
             BOSS_COLOR = (180, 130, 90)
+        elif current_boss_name == "앨리스":
+            BOSS_COLOR = (140, 180, 255)
         else:
             BOSS_COLOR = YELLOW
         # Stage 3 BGM 재생
@@ -150026,8 +150513,14 @@ def main(stage_num, new_boss_mode=False):
                     update_deadly_hug()
                     update_button_eye()
                 
+                # 앨리스 스킬 업데이트
+                if current_stage == 3 and current_boss_name == "앨리스":
+                    update_alice_mirror()
+                    update_alice_size_shift()
+                    update_alice_rabbit()
+
                 # 멘헤라걸 저주 보물상자 업데이트
-                if current_stage == 3 and current_boss_name != "테디베어":
+                if current_stage == 3 and current_boss_name not in ("테디베어", "앨리스"):
                     update_curse_chest()
 
                 #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
@@ -152517,6 +153010,9 @@ def main(stage_num, new_boss_mode=False):
         draw_deadly_hug_effect(SCREEN)   # 테디베어 죽음의 포옹 이펙트
         draw_button_eye_effect(SCREEN)   # 테디베어 단추 눈의 저주 이펙트
         draw_curse_chest(SCREEN)         # 멘헤라걸 저주 보물상자 이펙트
+        draw_alice_rabbit_effect(SCREEN)  # 앨리스 토끼 투사체 이펙트
+        draw_alice_size_shift_effect(SCREEN)  # 앨리스 사이즈 시프트 이펙트
+        draw_alice_mirror_effect(SCREEN)  # 앨리스 거울 세계 테두리 이펙트
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
         draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 옛날 버전 활성화
@@ -152525,6 +153021,9 @@ def main(stage_num, new_boss_mode=False):
         draw_laser_evaporation_particles(SCREEN)  #  레이저 증발 효과 그리기
         draw_neutralize_particles(SCREEN)  #  사이코볼 무효화 파티클 그리기
         draw_ai_visualization()  #  AI 상태 시각화
+        # 앨리스 거울 세계: 게임 영역 좌우반전 (UI 렌더링 전 적용)
+        if alice_mirror_active and current_stage == 3 and current_boss_name == "앨리스":
+            apply_alice_mirror_flip(SCREEN, GAME_AREA_OFFSET_X, GAME_PLAY_WIDTH, HEIGHT)
         # draw_player_skill_display()  #  플레이어 실력 표시 (ESC 메뉴에서 확인)
         
         # 아이템 획득 플로팅 애니메이션 그리기 - 새 버전 비활성화
