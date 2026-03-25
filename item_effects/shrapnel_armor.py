@@ -79,12 +79,12 @@ class ShrapnelArmor:
         # 이펙트
         self._flash_timer = 0  # 발동 순간 플래시
 
-        # 넉백 단계별 설정
+        # 넉백 단계별 설정 (패시브 아이템 수준의 소폭 넉백)
         self._KNOCKBACK_CONFIG = {
-            1: {"velocity": 3.0, "duration": 12, "max_offset": 15},
-            2: {"velocity": 5.0, "duration": 18, "max_offset": 25},
-            3: {"velocity": 7.0, "duration": 24, "max_offset": 40},
-            4: {"velocity": 10.0, "duration": 30, "max_offset": 60},
+            1: {"velocity": 1.5, "duration": 8, "max_offset": 6},
+            2: {"velocity": 2.0, "duration": 10, "max_offset": 10},
+            3: {"velocity": 2.5, "duration": 12, "max_offset": 15},
+            4: {"velocity": 3.0, "duration": 14, "max_offset": 20},
         }
 
     def activate(self):
