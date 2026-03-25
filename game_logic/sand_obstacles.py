@@ -23,9 +23,9 @@ DEPTH_MIN = 8
 DEPTH_MAX = 45
 
 # 침식량 (공 한 번 닿을 때 깎이는 깊이)
-ERODE_AMOUNT = 15
+ERODE_AMOUNT = 30
 # 침식 반경 (공 중심 기준 좌우로 몇 세그먼트까지 영향)
-ERODE_RADIUS_SEGS = 3
+ERODE_RADIUS_SEGS = 6
 
 # 모래 색상
 SAND_BASE = (205, 175, 115)
