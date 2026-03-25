@@ -127986,6 +127986,7 @@ def _get_danjeong_surface(width, height):
 def draw_field():
     global psycho_bg_timer, earthquake_offset_x, earthquake_offset_y
     global special_gauge, gauge_charge_animation_timer, gauge_charge_animation_amount, special_ready
+    global alice_mirror_bg_timer
 
     # 필러 배경 타입 설정 (전체화면/창모드 모두, 실제 그리기는 _fullscreen_flip에서)
     if _is_fullscreen_active and pillar_renderer is not None:
