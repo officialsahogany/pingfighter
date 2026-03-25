@@ -261,6 +261,7 @@ VISUAL_ITEM_NAMES = {
     "bulletproof_hat",
     "technical_vest",
     "bulkup",
+    "adversity_armor",
     "commando_arm",
     "gold_digger",
     "ragnarok_hammer",
@@ -276,6 +277,7 @@ ITEM_SLOT_MAP = {
     "bulletproof_hat": "head",
     "technical_vest": "torso",
     "bulkup": "torso",
+    "adversity_armor": "torso",
     "commando_arm": "l_arm",    # 첫 번째는 l_arm, 두 번째는 r_arm
     "gold_digger": "l_arm",     # 첫 번째는 l_arm, 두 번째는 r_arm
     "ragnarok_hammer": "weapon",
