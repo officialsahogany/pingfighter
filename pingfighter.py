@@ -24745,8 +24745,8 @@ PASSIVE_OPTION_RANGES = {
         {"label": "무적 지속시간", "min": 8, "max": 15, "unit": "초", "prefix": "", "key": "invincible_duration_sec"},
     ],
     "shrapnel_armor": [
-        {"label": "발동 확률", "min": 10, "max": 20, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
-        {"label": "파편 개수", "min": 3, "max": 6, "unit": "개", "prefix": "", "key": "shard_count"},
+        {"label": "발동 확률", "min": 15, "max": 25, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
+        {"label": "파편 개수", "min": 5, "max": 9, "unit": "개", "prefix": "", "key": "shard_count"},
         {"label": "넉백 단계", "min": 1, "max": 4, "unit": "Lv", "prefix": "", "key": "knockback_level"},
     ],
 }
@@ -24849,8 +24849,8 @@ gold_digger_bonus_pct = 50  # 골드 획득량 (30~70% 범위, 기본값 50%)
 lucky_coin_double_spawn_pct = 10  # 더블 스폰 확률 (5~15% 범위, 기본값 10%)
 adversity_armor_trigger_pct = 25  # 역경의 갑옷 무적 발동 확률 (20~30% 범위, 기본값 25%)
 adversity_armor_duration_sec = 10  # 역경의 갑옷 무적 지속시간 (8~15초 범위, 기본값 10초)
-shrapnel_armor_trigger_pct = 15  # 파편갑옷 발동 확률 (10~20% 범위, 기본값 15%)
-shrapnel_armor_shard_count = 4   # 파편갑옷 파편 개수 (3~6 범위, 기본값 4)
+shrapnel_armor_trigger_pct = 20  # 파편갑옷 발동 확률 (15~25% 범위, 기본값 20%)
+shrapnel_armor_shard_count = 7   # 파편갑옷 파편 개수 (5~9 범위, 기본값 7)
 shrapnel_armor_knockback_level = 2  # 파편갑옷 넉백 단계 (1~4 범위, 기본값 2)
 
 _BASE_SLOT_LABELS = {
@@ -25139,8 +25139,8 @@ def _reset_roll_bonuses_to_default():
     globals()["lucky_coin_double_spawn_pct"] = 10  # 럭키코인 기본값
     globals()["adversity_armor_trigger_pct"] = 25  # 역경의 갑옷 기본값
     globals()["adversity_armor_duration_sec"] = 10  # 역경의 갑옷 기본값
-    globals()["shrapnel_armor_trigger_pct"] = 15  # 파편갑옷 기본값
-    globals()["shrapnel_armor_shard_count"] = 4   # 파편갑옷 기본값
+    globals()["shrapnel_armor_trigger_pct"] = 20  # 파편갑옷 기본값
+    globals()["shrapnel_armor_shard_count"] = 7   # 파편갑옷 기본값
     globals()["shrapnel_armor_knockback_level"] = 2  # 파편갑옷 기본값
     # 테크니컬조끼 기본 롤 값(연막)
     try:
@@ -25670,8 +25670,8 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         try:
             from item_effects.shrapnel_armor import configure_shrapnel_armor
             configure_shrapnel_armor(
-                trigger_chance_pct=globals().get("shrapnel_armor_trigger_pct", 15),
-                shard_count=globals().get("shrapnel_armor_shard_count", 4),
+                trigger_chance_pct=globals().get("shrapnel_armor_trigger_pct", 20),
+                shard_count=globals().get("shrapnel_armor_shard_count", 7),
                 knockback_level=globals().get("shrapnel_armor_knockback_level", 2)
             )
         except Exception:
@@ -158443,7 +158443,7 @@ def get_item_description(item_name):
         "dowsing_pendulum": "다우징팬들럼: 주위 아이템을 끌어당깁니다.",
         "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 2개 동시에 나타납니다.",
         "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
-        "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 10~20%, 파편 3~6개, 넉백 Lv1~4",
+        "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

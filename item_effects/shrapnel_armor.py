@@ -60,8 +60,8 @@ class ShrapnelArmor:
         self.active = False  # 아이템 장착 여부
 
         # 롤 옵션 기본값
-        self.trigger_chance_pct = 15   # 발동 확률 (10~20%)
-        self.shard_count = 4           # 파편 개수 (3~6)
+        self.trigger_chance_pct = 20   # 발동 확률 (15~25%)
+        self.shard_count = 7           # 파편 개수 (5~9)
         self.knockback_level = 2       # 넉백 단계 (1~4)
 
         # 파편 프로젝타일 리스트
@@ -79,10 +79,10 @@ class ShrapnelArmor:
 
         # 넉백 단계별 초기 속도 기준값 (레벨 5+ 는 공식으로 계산)
         self._KNOCKBACK_BASE_VELOCITY = {
-            1: 5.0,
-            2: 8.0,
-            3: 12.0,
-            4: 16.0,
+            1: 6.0,
+            2: 9.6,
+            3: 14.4,
+            4: 19.2,
         }
 
     def activate(self):
@@ -197,7 +197,7 @@ class ShrapnelArmor:
             if level <= 4:
                 velocity = self._KNOCKBACK_BASE_VELOCITY.get(level, 8.0)
             else:
-                velocity = 16.0 + (level - 4) * 4.0  # Lv5=20, Lv6=24, Lv7=28 ...
+                velocity = 19.2 + (level - 4) * 4.8  # Lv5=24, Lv6=28.8, Lv7=33.6 ...
             knockback_vel = velocity * direction
 
             # 이펙트용 상태 업데이트
