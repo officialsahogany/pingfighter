@@ -124,7 +124,7 @@ class ShrapnelArmor:
             angle_deg = base_angle + spread * ((i / max(count - 1, 1)) - 0.5)
             angle_rad = math.radians(angle_deg)
 
-            speed = random.uniform(6.0, 9.0)
+            speed = random.uniform(7.8, 11.7)
             vx = math.cos(angle_rad) * speed
             vy = math.sin(angle_rad) * speed
 
@@ -133,7 +133,7 @@ class ShrapnelArmor:
                 "y": float(paddle_y),
                 "vx": vx,
                 "vy": vy,
-                "life": 90,  # 1.5초
+                "life": 120,  # 2초
                 "size": random.randint(3, 6),
                 "rotation": random.uniform(0, 360),
                 "rot_speed": random.uniform(-15, 15),
