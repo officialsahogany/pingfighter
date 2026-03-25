@@ -2198,9 +2198,9 @@ class PillarBackgroundRenderer:
                 _e_bg = pygame.Surface((_e_r * 2 + 2, _e_r * 2 + 2), pygame.SRCALPHA)
                 pygame.draw.circle(_e_bg, (15, 12, 10, 210), (_e_r + 1, _e_r + 1), _e_r)
                 screen.blit(_e_bg, (_e_cx - _e_r - 1, _e_cy - _e_r - 1))
-                _e_surf = _e_font.render("E", True, (230, 220, 180))
-                _e_rect = _e_surf.get_rect(center=(_e_cx, _e_cy))
-                screen.blit(_e_surf, _e_rect)
+                _e_surf, _e_rect = _e_font.render("E", (230, 220, 180))
+                screen.blit(_e_surf, (_e_cx - _e_surf.get_width() // 2,
+                                       _e_cy - _e_surf.get_height() // 2))
         except Exception:
             pass
 
