@@ -145,8 +145,8 @@ class SandWall:
             self._dirty = True
         return total_eroded
 
-    def get_collision_rects(self) -> list[pygame.Rect]:
-        """충돌 판정용 렉트 리스트 (깊이 > 0인 세그먼트만)"""
+    def get_collision_rects(self) -> list[tuple[int, pygame.Rect]]:
+        """충돌 판정용 (세그먼트 인덱스, 렉트) 리스트"""
         rects = []
         for i, d in enumerate(self.depths):
             if d < 2:
@@ -154,14 +154,58 @@ class SandWall:
             pos = self.start + i * SEG_SIZE
             di = int(d)
             if self.side == "left":
-                rects.append(pygame.Rect(0, pos, di, SEG_SIZE))
+                rects.append((i, pygame.Rect(0, pos, di, SEG_SIZE)))
             elif self.side == "right":
-                rects.append(pygame.Rect(WIDTH - di, pos, di, SEG_SIZE))
+                rects.append((i, pygame.Rect(WIDTH - di, pos, di, SEG_SIZE)))
             elif self.side == "top":
-                rects.append(pygame.Rect(pos, 0, SEG_SIZE, di))
+                rects.append((i, pygame.Rect(pos, 0, SEG_SIZE, di)))
             elif self.side == "bottom":
-                rects.append(pygame.Rect(pos, HEIGHT - di, SEG_SIZE, di))
+                rects.append((i, pygame.Rect(pos, HEIGHT - di, SEG_SIZE, di)))
         return rects
+
+    def get_surface_normal(self, seg_idx: int) -> tuple[float, float]:
+        """해당 세그먼트 위치의 지형 표면 법선벡터 반환 (단위벡터)
+
+        인접 세그먼트의 깊이 차이로 표면 기울기를 구하고,
+        그 기울기에 수직인 방향 = 법선.
+        """
+        # 인접 세그먼트 깊이
+        d_prev = self.depths[seg_idx - 1] if seg_idx > 0 else 0
+        d_next = self.depths[seg_idx + 1] if seg_idx < self.num_segs - 1 else 0
+        d_curr = self.depths[seg_idx]
+
+        # 기울기: 벽면을 따른 방향(접선)에서 깊이 변화
+        slope = (d_next - d_prev) / (2 * SEG_SIZE)  # 깊이 변화율
+
+        if self.side == "left":
+            # 표면이 오른쪽으로 돌출 → 기본 법선: (+1, 0)
+            # slope > 0이면 아래로 갈수록 더 돌출 → 법선이 위쪽으로 기울어짐
+            nx, ny = 1.0, -slope
+        elif self.side == "right":
+            # 기본 법선: (-1, 0)
+            nx, ny = -1.0, -slope
+        elif self.side == "top":
+            # 기본 법선: (0, +1)
+            nx, ny = -slope, 1.0
+        elif self.side == "bottom":
+            # 기본 법선: (0, -1)
+            nx, ny = -slope, -1.0
+        else:
+            nx, ny = 0.0, -1.0
+
+        # 정규화
+        length = math.sqrt(nx * nx + ny * ny)
+        if length < 0.001:
+            # 폴백: 벽 기본 법선
+            if self.side == "left":
+                return (1.0, 0.0)
+            elif self.side == "right":
+                return (-1.0, 0.0)
+            elif self.side == "top":
+                return (0.0, 1.0)
+            else:
+                return (0.0, -1.0)
+        return (nx / length, ny / length)
 
     def _rebuild_surface(self) -> None:
         """폴리곤 서피스 재생성"""
@@ -300,28 +344,64 @@ class SandTerrain:
         self.walls.append(SandWall("bottom", 40, 720))
 
     def check_ball_collision(self, ball_rect: pygame.Rect, ball_vel: list[float]) -> bool:
-        """공과 지형 충돌 → 침식 + 파티클 생성. 반환: 충돌 여부"""
+        """공과 지형 충돌 → 표면 각도로 반사 + 침식 + 파티클. 반환: 충돌 여부"""
         hit = False
         for wall in self.walls:
             if wall.is_empty():
                 continue
-            for r in wall.get_collision_rects():
+            for seg_idx, r in wall.get_collision_rects():
                 if ball_rect.colliderect(r):
-                    # 침식 위치 결정 (벽면을 따른 좌표)
+                    # 1) 표면 법선 계산
+                    nx, ny = wall.get_surface_normal(seg_idx)
+
+                    # 2) 법선 기준 반사: v' = v - 2(v·n)n
+                    dot = ball_vel[0] * nx + ball_vel[1] * ny
+                    if dot < 0:  # 표면을 향해 다가오는 경우만 반사
+                        ball_vel[0] -= 2 * dot * nx
+                        ball_vel[1] -= 2 * dot * ny
+                        # 약간 감속 (모래에 부딪힌 느낌)
+                        ball_vel[0] *= 0.95
+                        ball_vel[1] *= 0.95
+
+                    # 3) 공 위치를 지형 밖으로 밀어냄 (관통 방지)
+                    self._push_ball_out(wall, seg_idx, ball_rect)
+
+                    # 4) 침식
                     if wall.side in ("left", "right"):
                         world_pos = float(ball_rect.centery)
                     else:
                         world_pos = float(ball_rect.centerx)
                     eroded = wall.erode_at(world_pos)
+
+                    # 5) 파티클
                     if eroded > 0:
-                        # 파티클 생성
                         self._spawn_particles(wall.side, ball_rect.centerx, ball_rect.centery, eroded)
-                        # 공 속도 살짝 감속
-                        ball_vel[0] *= 0.97
-                        ball_vel[1] *= 0.97
-                        hit = True
+
+                    hit = True
                     break  # 이 벽에서는 한 곳만 처리
         return hit
+
+    @staticmethod
+    def _push_ball_out(wall: SandWall, seg_idx: int, ball_rect: pygame.Rect) -> None:
+        """공을 지형 표면 바깥으로 밀어냄"""
+        d = wall.depths[seg_idx]
+        if d < 1:
+            return
+        di = int(d)
+        if wall.side == "left":
+            if ball_rect.left < di:
+                ball_rect.left = di + 1
+        elif wall.side == "right":
+            edge = WIDTH - di
+            if ball_rect.right > edge:
+                ball_rect.right = edge - 1
+        elif wall.side == "top":
+            if ball_rect.top < di:
+                ball_rect.top = di + 1
+        elif wall.side == "bottom":
+            edge = HEIGHT - di
+            if ball_rect.bottom > edge:
+                ball_rect.bottom = edge - 1
 
     def _spawn_particles(self, side: str, bx: int, by: int, eroded: float) -> None:
         """침식 시 파티클 생성"""
