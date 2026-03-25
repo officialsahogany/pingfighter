@@ -152999,6 +152999,16 @@ def main(stage_num, new_boss_mode=False):
                 # 같은 프레임 내 즉시 반영되도록 순서를 조정한다.
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
                     handle_boss()
+                    # 파편갑옷 넉백: handle_boss가 BOSS.x를 설정한 직후 적용해야 덮어쓰이지 않음
+                    try:
+                        from item_effects.shrapnel_armor import get_shrapnel_armor_instance
+                        _sa_kb = get_shrapnel_armor_instance()
+                        if _sa_kb and _sa_kb.active and _sa_kb.boss_knockback_active:
+                            _sa_kb_dx = _sa_kb.get_boss_knockback_x_delta()
+                            if _sa_kb_dx != 0:
+                                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx)))
+                    except Exception:
+                        pass
 
                 # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
@@ -153012,6 +153022,16 @@ def main(stage_num, new_boss_mode=False):
                         if arena_mode_enabled and _extra_ball_result is not None:
                             return _extra_ball_result
                         handle_boss()
+                        # 파편갑옷 넉백 (배속 추가 틱)
+                        try:
+                            from item_effects.shrapnel_armor import get_shrapnel_armor_instance
+                            _sa_kb2 = get_shrapnel_armor_instance()
+                            if _sa_kb2 and _sa_kb2.active and _sa_kb2.boss_knockback_active:
+                                _sa_kb_dx2 = _sa_kb2.get_boss_knockback_x_delta()
+                                if _sa_kb_dx2 != 0:
+                                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx2)))
+                        except Exception:
+                            pass
 
                 # 🏜️ 모래감옥: 렌더링 직전 최종 패들 위치 클램핑 (모든 이동 처리 후)
                 if arena_mode_enabled and arena_skill_manager:

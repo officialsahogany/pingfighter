@@ -208,6 +208,7 @@ class ShrapnelArmor:
         self.boss_knockback_timer = config["duration"]
         self.boss_knockback_direction = direction  # -1=좌, +1=우
         self.boss_knockback_offset = 0.0
+        self.boss_knockback_prev_offset = 0.0
 
     def get_boss_knockback_x_delta(self) -> float:
         """이번 프레임에 보스 X를 이동시킬 델타값 반환 (음수=좌, 양수=우)"""
