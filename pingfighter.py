@@ -155206,7 +155206,8 @@ def show_weather_debug_menu():
         ("4. 빙판 (Ice)", "ice", "바닥이 미끄러워집니다"),
         ("5. 소나기 (Rain)", "rain", "이동속도가 40% 감소합니다"),
         ("6. 우박 (Hail)", "hail", "우박에 맞으면 짧은 넉백"),
-        ("7. 날씨 해제", "clear", "현재 날씨 효과를 해제합니다"),
+        ("7. 사막화 (Sand)", "sand", "벽에 모래 지형이 생겨 공이 반사됨"),
+        ("8. 날씨 해제", "clear", "현재 날씨 효과를 해제합니다"),
         ("ESC. 취소", "cancel", "메뉴를 닫습니다"),
     ]
 
@@ -155240,6 +155241,10 @@ def show_weather_debug_menu():
             force_start_hail_event(duration=3)
             if DEBUG_WEATHER:
                 pass  # print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+        elif weather_type == "sand":
+            force_start_sand_event(duration=3)
+            if DEBUG_WEATHER:
+                pass  # print("🏖 [DEBUG] 사막화 이벤트 강제 발동!")
         elif weather_type == "clear":
             reset_weather_state()
             reset_hail_state()
@@ -155256,7 +155261,7 @@ def show_weather_debug_menu():
 
         # 메뉴 패널
         panel_width = 400
-        panel_height = 420  # 우박 옵션 추가로 높이 증가
+        panel_height = 458  # 사막화 옵션 추가로 높이 증가
         panel_x = (WIDTH - panel_width) // 2
         panel_y = (HEIGHT - panel_height) // 2
 
@@ -155280,6 +155285,8 @@ def show_weather_debug_menu():
                 current_weather = "🌧️ 소나기"
             elif is_hail_active():
                 current_weather = "🧊 우박"
+            elif is_sand_active():
+                current_weather = "🏖 사막화"
             else:
                 direction = get_weather_direction()
                 if direction != 0:
@@ -155362,6 +155369,9 @@ def show_weather_debug_menu():
                     elif weather_type == "hail":
                         force_start_hail_event(duration=3)
                         # print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+                    elif weather_type == "sand":
+                        force_start_sand_event(duration=3)
+                        # print("🏖 [DEBUG] 사막화 이벤트 강제 발동!")
                     elif weather_type == "clear":
                         reset_weather_state()
                         reset_hail_state()
@@ -155393,6 +155403,15 @@ def show_weather_debug_menu():
                 elif event.key == pygame.K_6:
                     force_start_hail_event(duration=3)
                     # print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+                    menu_running = False
+                elif event.key == pygame.K_7:
+                    force_start_sand_event(duration=3)
+                    # print("🏖 [DEBUG] 사막화 이벤트 강제 발동!")
+                    menu_running = False
+                elif event.key == pygame.K_8:
+                    reset_weather_state()
+                    reset_hail_state()
+                    # print("☀️ [DEBUG] 날씨 효과 해제!")
                     menu_running = False
                 elif event.key == pygame.K_F3:
                     reset_weather_state()
