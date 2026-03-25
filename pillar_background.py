@@ -2187,6 +2187,23 @@ class PillarBackgroundRenderer:
 
         screen.blit(_icon_surf, (btn_x, btn_y))
 
+        # 좌상단 "E" 키 힌트 라벨
+        try:
+            _e_font_sz = max(7, int(9 * _s))
+            _e_font = self._get_font(_e_font_sz)
+            if _e_font:
+                _e_r = max(6, int(7 * _s))
+                _e_cx = btn_x + max(7, int(8 * _s))
+                _e_cy = btn_y + max(7, int(8 * _s))
+                _e_bg = pygame.Surface((_e_r * 2 + 2, _e_r * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(_e_bg, (15, 12, 10, 210), (_e_r + 1, _e_r + 1), _e_r)
+                screen.blit(_e_bg, (_e_cx - _e_r - 1, _e_cy - _e_r - 1))
+                _e_surf = _e_font.render("E", True, (230, 220, 180))
+                _e_rect = _e_surf.get_rect(center=(_e_cx, _e_cy))
+                screen.blit(_e_surf, _e_rect)
+        except Exception:
+            pass
+
         # 모드 텍스트 (더 크고 밝게)
         try:
             font_size = max(9, int(11 * _s))
