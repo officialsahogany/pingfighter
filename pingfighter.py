@@ -131344,13 +131344,20 @@ def reset_round(is_stage_start=False):
             animated_bg_stage2.cry_sound = SOUND_CRY  # cry.wav 사운드 전달
             # print(":    !")
 
-    # Stage 2 아라크네 분노 이벤트 시작 (4점 달성 후 다음 라운드)
-    if current_stage == 2 and current_boss_name == "아라크네" and spider_rage_pending:
-        spider_rage_pending = False
-        spider_rage_active = True
-        spider_rage_timer = 0
-        spider_rage_triggered = True
-        show_speech("용서 못 해...!", duration=90)
+    # Stage 2 아라크네 분노 이벤트 시작 (최초: 4점 달성 후 / 이후: 매 라운드 자동 반복)
+    if current_stage == 2 and current_boss_name == "아라크네":
+        if spider_rage_pending:
+            # 최초 발동
+            spider_rage_pending = False
+            spider_rage_active = True
+            spider_rage_timer = 0
+            spider_rage_triggered = True
+            show_speech("용서 못 해...!", duration=90)
+        elif spider_rage_triggered and not spider_rage_active:
+            # 이후 매 라운드 자동 재발동
+            spider_rage_active = True
+            spider_rage_timer = 0
+            show_speech("거미줄!", duration=60)
 
     # Stage 2 두더지왕: 라운드 전환 시 기존 두더지 정리 (발동 후에는 매 라운드 재활성화)
     if current_stage == 2 and current_boss_name == "두더지왕":
@@ -136833,7 +136840,7 @@ def handle_ball():
             # Stage 4에서 플레이어가 4점 획득 시 플래그 설정 (다음 라운드에서 애니메이션 시작)
             # 애니메이션은 go_to_next_round()에서 실행됨
 
-            # Stage 2 아라크네: 플레이어 4점 획득 시 분노 이벤트 예약
+            # Stage 2 아라크네: 플레이어 4점 획득 시 분노 이벤트 최초 예약
             if current_stage == 2 and current_boss_name == "아라크네" and round_wins == 4:
                 if not spider_rage_triggered:
                     spider_rage_pending = True
