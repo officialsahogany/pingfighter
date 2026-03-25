@@ -105512,8 +105512,8 @@ def draw_objects():
             alive_sparks.append(sp)
 
             # 알파 계산
-            ratio = sp['life'] / sp['max_life']
-            alpha = int(255 * ratio)
+            ratio = max(0.0, sp['life'] / max(1, sp['max_life']))
+            alpha = max(0, min(255, int(255 * ratio)))
 
             sx, sy = int(sp['x']), int(sp['y'])
             sz = sp['size'] * (0.5 + 0.5 * ratio)
@@ -105531,8 +105531,8 @@ def draw_objects():
                 glow_r = int(sz * 3)
                 if glow_r > 0:
                     glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surf, (100, 180, 255, alpha // 3), (glow_r, glow_r), glow_r)
-                    pygame.draw.circle(glow_surf, (200, 230, 255, alpha // 2), (glow_r, glow_r), max(1, glow_r // 2))
+                    pygame.draw.circle(glow_surf, (100, 180, 255, max(0, alpha // 3)), (glow_r, glow_r), glow_r)
+                    pygame.draw.circle(glow_surf, (200, 230, 255, max(0, alpha // 2)), (glow_r, glow_r), max(1, glow_r // 2))
                     SCREEN.blit(glow_surf, (sx - glow_r, sy - glow_r))
             else:
                 # spark: 밝은 점
