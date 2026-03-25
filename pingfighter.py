@@ -13982,7 +13982,7 @@ def _get_random_passive_for_treasure():
         "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
         "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch",
         "bluetooth_ring", "star_detector", "foul_whistle", "bulletproof_hat", "spiked_helmet",
-        "smartphone", "knee_pads"
+        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor"
     ]
 
     if passive_pool:
@@ -144769,6 +144769,18 @@ def show_result(won):
         if not items.smartphone_obtained:
             smartphone_icon_gacha = get_item_icon("smartphone")
             available_items.append({"name": "smartphone", "color": (100, 150, 200), "type": "passive", "icon": smartphone_icon_gacha})
+        # 럭키코인 추가
+        if not items.lucky_coin_obtained:
+            lucky_coin_icon_gacha = get_item_icon("lucky_coin")
+            available_items.append({"name": "lucky_coin", "color": (255, 215, 0), "type": "passive", "icon": lucky_coin_icon_gacha})
+        # 역경의 갑옷 추가
+        if not items.adversity_armor_obtained:
+            adversity_armor_icon_gacha = get_item_icon("adversity_armor")
+            available_items.append({"name": "adversity_armor", "color": (180, 100, 50), "type": "passive", "icon": adversity_armor_icon_gacha})
+        # 파편갑옷 추가
+        if not items.shrapnel_armor_obtained:
+            shrapnel_armor_icon_gacha = get_item_icon("shrapnel_armor")
+            available_items.append({"name": "shrapnel_armor", "color": (150, 150, 160), "type": "passive", "icon": shrapnel_armor_icon_gacha})
         # 라그나로크 해머 전설 아이템 추가
         if not items.ragnarok_hammer_obtained:
             ragnarok_icon = get_item_icon("ragnarok_hammer")
