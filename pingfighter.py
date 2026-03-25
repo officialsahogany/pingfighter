@@ -17856,6 +17856,9 @@ def _swap_boss_in_current_stage():
     curse_chest_explode_timer = 0
     curse_chest_explode_particles.clear() if curse_chest_explode_particles else None
     curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
+    curse_chest_nudge_vx = 0.0
+    curse_chest_wobble_angle = 0.0
+    curse_chest_wobble_vel = 0.0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
@@ -47358,6 +47361,10 @@ curse_chest_reverse_timer = 0           # 조작 반전 남은 프레임
 CURSE_CHEST_REVERSE_DURATION = 120      # 조작 반전 2초 (60fps)
 # 연기 파티클
 curse_chest_smoke_particles = []        # [(x, y, vx, vy, life, size, alpha)]
+# 보물상자 물리 반응 (플레이어 근접 시 밀림/흔들림)
+curse_chest_nudge_vx = 0.0              # 밀림 속도 X
+curse_chest_wobble_angle = 0.0          # 흔들림 각도 (도)
+curse_chest_wobble_vel = 0.0            # 흔들림 각속도
 
 # === 테디베어 솜뭉치 투척 스킬 (Stage 3) ===
 cotton_throw_active = False
@@ -54358,12 +54365,16 @@ def go_to_next_round():
     global curse_chest_cooldown_timer, curse_chest_reverse_timer, curse_chest_smoke_particles
     global curse_chest_windup_active, curse_chest_windup_timer
     global curse_chest_throwing, curse_chest_throw_progress
+    global curse_chest_nudge_vx, curse_chest_wobble_angle, curse_chest_wobble_vel
     curse_chest_active = False
     curse_chest_opened = False
     curse_chest_open_timer = 0
     curse_chest_cooldown_timer = 0
     curse_chest_reverse_timer = 0
     curse_chest_smoke_particles = []
+    curse_chest_nudge_vx = 0.0
+    curse_chest_wobble_angle = 0.0
+    curse_chest_wobble_vel = 0.0
     # 테디베어 솜뭉치 투척 초기화 (라운드 전환)
     global cotton_throw_active, cotton_throw_projectiles, cotton_throw_windup_active
     global cotton_throw_windup_timer, cotton_fog_active, cotton_fog_timer, cotton_fog_zones
@@ -77393,6 +77404,7 @@ def update_curse_chest():
     global curse_chest_x, curse_chest_y
     global curse_chest_exploding, curse_chest_explode_timer, curse_chest_explode_particles
     global curse_chest_lifetime_timer
+    global curse_chest_nudge_vx, curse_chest_wobble_angle, curse_chest_wobble_vel
 
     # 쿨다운 감소
     if curse_chest_cooldown_timer > 0:
@@ -77418,6 +77430,9 @@ def update_curse_chest():
             curse_chest_open_timer = 0
             curse_chest_lifetime_timer = 0
             curse_chest_smoke_particles = []
+            curse_chest_nudge_vx = 0.0
+            curse_chest_wobble_angle = 0.0
+            curse_chest_wobble_vel = 0.0
             curse_chest_x = curse_chest_target_x
             curse_chest_y = curse_chest_target_y
             # 착지 사운드
@@ -77473,6 +77488,39 @@ def update_curse_chest():
         if curse_chest_lifetime_timer >= CURSE_CHEST_LIFETIME:
             _trigger_curse_chest_explode()
             return
+
+        # ── 물리 반응: 플레이어 패들이 근처를 지나가면 밀림/흔들림 ──
+        if PLAYER:
+            prox_dx = PLAYER.centerx - curse_chest_x
+            prox_dy = PLAYER.centery - curse_chest_y
+            prox_dist = math.hypot(prox_dx, prox_dy)
+            push_range = 55  # 밀림 감지 반경
+            if prox_dist < push_range and prox_dist > 1:
+                # 플레이어 반대 방향으로 밀기
+                push_strength = (1.0 - prox_dist / push_range) * 1.8
+                push_dir_x = -prox_dx / prox_dist
+                curse_chest_nudge_vx += push_dir_x * push_strength
+                # 밀린 방향으로 흔들림 (기울어짐)
+                curse_chest_wobble_vel += push_dir_x * push_strength * 3.0
+
+        # 밀림 적용 + 감쇠
+        if abs(curse_chest_nudge_vx) > 0.05:
+            curse_chest_x += curse_chest_nudge_vx
+            curse_chest_nudge_vx *= 0.85  # 마찰 감쇠
+            # 게임 영역 내 클램프
+            curse_chest_x = max(GAME_AREA_OFFSET_X + 20, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 20, curse_chest_x))
+        else:
+            curse_chest_nudge_vx = 0.0
+
+        # 흔들림(wobble) 스프링 진동 + 감쇠
+        curse_chest_wobble_vel += -curse_chest_wobble_angle * 0.25  # 복원력 (스프링)
+        curse_chest_wobble_vel *= 0.88  # 감쇠
+        curse_chest_wobble_angle += curse_chest_wobble_vel
+        # 최대 기울기 제한
+        curse_chest_wobble_angle = max(-18, min(18, curse_chest_wobble_angle))
+        if abs(curse_chest_wobble_angle) < 0.3 and abs(curse_chest_wobble_vel) < 0.3:
+            curse_chest_wobble_angle = 0.0
+            curse_chest_wobble_vel = 0.0
 
         # 플레이어가 대쉬 중이고 보물상자에 충돌하면 열림
         if rolling_active and PLAYER:
@@ -77627,37 +77675,48 @@ def draw_curse_chest(screen):
     sz = CURSE_CHEST_SIZE
 
     if not curse_chest_opened:
-        # 닫힌 보물상자 그리기 — 멘헤라 핑크 테마
+        # 닫힌 보물상자 그리기 — 멘헤라 핑크 테마 (wobble 회전 적용)
+        chest_w, chest_h = sz + 12, sz // 2 + 20
+        chest_sf = pygame.Surface((chest_w, chest_h), pygame.SRCALPHA)
+        # 로컬 좌표 기준 중심
+        lcx, lcy = chest_w // 2, chest_h // 2 + 4
         # 폭발 직전 깜빡임 (남은 1초)
         if curse_chest_lifetime_timer >= CURSE_CHEST_LIFETIME - 60:
             blink_speed = 4 + (curse_chest_lifetime_timer - (CURSE_CHEST_LIFETIME - 60)) * 0.3
             if int(pygame.time.get_ticks() / (150 / blink_speed)) % 2 == 0:
-                # 빨간 경고 플래시
                 warn_sf = pygame.Surface((sz + 10, sz // 2 + 14), pygame.SRCALPHA)
                 warn_sf.fill((255, 50, 50, 80))
-                screen.blit(warn_sf, (cx - sz // 2 - 5, cy - sz // 4 - 12))
+                chest_sf.blit(warn_sf, (lcx - sz // 2 - 5, lcy - sz // 4 - 12))
         # 상자 본체
         body_color = (200, 80, 130)
         lid_color = (220, 100, 150)
-        pygame.draw.rect(screen, body_color, (cx - sz // 2, cy - sz // 4, sz, sz // 2))
+        pygame.draw.rect(chest_sf, body_color, (lcx - sz // 2, lcy - sz // 4, sz, sz // 2))
         # 뚜껑
-        pygame.draw.rect(screen, lid_color, (cx - sz // 2 - 2, cy - sz // 4 - 8, sz + 4, 10))
+        pygame.draw.rect(chest_sf, lid_color, (lcx - sz // 2 - 2, lcy - sz // 4 - 8, sz + 4, 10))
         # 잠금 하트
         heart_color = (255, 180, 200)
-        _hx, _hy = cx, cy
+        _hx, _hy = lcx, lcy
         for a in range(0, 360, 10):
             rad = math.radians(a)
             hr = 5
             hpx = _hx + int(hr * 16 * (math.sin(rad) ** 3)) // 16
             hpy = _hy - int(hr * (13 * math.cos(rad) - 5 * math.cos(2 * rad) - 2 * math.cos(3 * rad) - math.cos(4 * rad)) / 16)
-            if 0 <= hpx < 760 and 0 <= hpy < 750:
-                screen.set_at((hpx, hpy), heart_color)
+            if 0 <= hpx < chest_w and 0 <= hpy < chest_h:
+                chest_sf.set_at((hpx, hpy), heart_color)
         # 반짝임 이펙트 (유혹)
         t = pygame.time.get_ticks() / 300
         sparkle_alpha = int(128 + 127 * math.sin(t))
-        sparkle_sf = pygame.Surface((sz + 8, sz // 2 + 12), pygame.SRCALPHA)
-        sparkle_sf.fill((255, 200, 230, sparkle_alpha // 4))
-        screen.blit(sparkle_sf, (cx - sz // 2 - 4, cy - sz // 4 - 10))
+        sparkle_glow = pygame.Surface((sz + 8, sz // 2 + 12), pygame.SRCALPHA)
+        sparkle_glow.fill((255, 200, 230, sparkle_alpha // 4))
+        chest_sf.blit(sparkle_glow, (lcx - sz // 2 - 4, lcy - sz // 4 - 10))
+        # wobble 회전 적용 후 화면에 블릿
+        if abs(curse_chest_wobble_angle) > 0.3:
+            rotated = pygame.transform.rotate(chest_sf, curse_chest_wobble_angle)
+            r_rect = rotated.get_rect(center=(cx, cy))
+            screen.blit(rotated, r_rect)
+        else:
+            r_rect = chest_sf.get_rect(center=(cx, cy))
+            screen.blit(chest_sf, r_rect)
     else:
         # 열린 보물상자 그리기
         body_color = (160, 60, 100)
@@ -143906,6 +143965,9 @@ def show_result(won):
         curse_chest_cooldown_timer = 0
         curse_chest_reverse_timer = 0
         curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
+        curse_chest_nudge_vx = 0.0
+        curse_chest_wobble_angle = 0.0
+        curse_chest_wobble_vel = 0.0
         # 테디베어 솜뭉치 투척 초기화
         cotton_throw_active = False
         cotton_throw_projectiles.clear()
@@ -145088,6 +145150,9 @@ def main(stage_num, new_boss_mode=False):
     curse_chest_explode_timer = 0
     curse_chest_explode_particles.clear() if curse_chest_explode_particles else None
     curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
+    curse_chest_nudge_vx = 0.0
+    curse_chest_wobble_angle = 0.0
+    curse_chest_wobble_vel = 0.0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
