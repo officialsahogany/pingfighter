@@ -72339,7 +72339,7 @@ def handle_player(keys):
             from item_effects.shrapnel_armor import get_shrapnel_armor_instance
             _sa = get_shrapnel_armor_instance()
             if _sa.active:
-                _sa.on_player_hit_ball(player_paddle.centerx, player_paddle.top)
+                _sa.on_player_hit_ball(PLAYER.centerx, PLAYER.top)
         except Exception:
             pass
 
@@ -137591,6 +137591,15 @@ def handle_ball():
                 arena_hero_paddle_renderer.trigger_weapon_swing(arena_bottom_hero["id"], dur)
             except Exception:
                 pass
+
+        # 파편갑옷 발동 체크 (handle_ball 백업 충돌 경로)
+        try:
+            from item_effects.shrapnel_armor import get_shrapnel_armor_instance
+            _sa_backup = get_shrapnel_armor_instance()
+            if _sa_backup.active:
+                _sa_backup.on_player_hit_ball(PLAYER.centerx, PLAYER.top)
+        except Exception:
+            pass
 
         # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
         if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
