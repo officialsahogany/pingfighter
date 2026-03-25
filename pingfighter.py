@@ -78267,14 +78267,9 @@ def update_alice_rabbit():
             elif bunny["offset_x"] < -half_w:
                 bunny["offset_x"] = -half_w
                 bunny["direction"] = 1
-        # 깐족 중 플레이어에게 주기적 방해 (0.5초마다 미니 넉백)
+        # 깐족 중 플레이어에게 주기적 방해 (0.5초마다 토끼 이동방향으로 넉백)
         if bunny["timer"] % 30 == 0 and PLAYER:
-            nudge_dir = 1 if bunny["offset_x"] > 0 else -1
-            try:
-                global player_fire_knockback_vel
-                player_fire_knockback_vel += nudge_dir * 3  # 약한 넉백
-            except Exception:
-                pass
+            player_fire_knockback_vel += bunny["direction"] * 8  # 토끼가 밀고 있는 방향으로 넉백
         if bunny["timer"] <= 0:
             perch_remove.append(j)
     for j in sorted(perch_remove, reverse=True):
