@@ -1175,11 +1175,19 @@ class HenchmanSystem:
                 pygame.draw.rect(screen, (80, 70, 60),
                                  slot.icon_rect, 1, border_radius=4)
 
-            # "하" 라벨 (하수인 구분용)
+            # 번호 라벨 (하수인 구분용: 1, 2, 3 ...)
             label_font = self._get_font(max(8, int(9 * _s)))
             if label_font:
-                ls, _ = label_font.render(_t("ui.henchman_label", "하"), (160, 140, 100))
-                screen.blit(ls, (frame_x + 2, iy + 1))
+                _num_label = str(i + 1)
+                # 배경 원 (가독성)
+                _num_cx = frame_x + max(6, int(7 * _s))
+                _num_cy = iy + max(6, int(7 * _s))
+                _num_r = max(5, int(6 * _s))
+                _num_bg = pygame.Surface((_num_r * 2 + 2, _num_r * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(_num_bg, (20, 18, 15, 200), (_num_r + 1, _num_r + 1), _num_r)
+                screen.blit(_num_bg, (_num_cx - _num_r - 1, _num_cy - _num_r - 1))
+                ls, _ = label_font.render(_num_label, (220, 200, 160))
+                screen.blit(ls, (_num_cx - ls.get_width() // 2, _num_cy - ls.get_height() // 2))
 
             # 호버 감지
             if mouse_pos and slot.icon_rect.collidepoint(mouse_pos):
@@ -1318,11 +1326,18 @@ class HenchmanSystem:
                 pygame.draw.rect(screen, (80, 70, 60),
                                  slot.icon_rect, 1, border_radius=4)
 
-            # "하" 라벨 (하수인 구분용)
+            # 번호 라벨 (하수인 구분용: 1, 2, 3 ...)
             label_font = self._get_font(max(8, int(9 * _s)))
             if label_font:
-                ls, _ = label_font.render(_t("ui.henchman_label", "하"), (160, 140, 100))
-                screen.blit(ls, (frame_x + 2, iy + 1))
+                _num_label = str(i + 1)
+                _num_cx = frame_x + max(6, int(7 * _s))
+                _num_cy = iy + max(6, int(7 * _s))
+                _num_r = max(5, int(6 * _s))
+                _num_bg = pygame.Surface((_num_r * 2 + 2, _num_r * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(_num_bg, (20, 18, 15, 200), (_num_r + 1, _num_r + 1), _num_r)
+                screen.blit(_num_bg, (_num_cx - _num_r - 1, _num_cy - _num_r - 1))
+                ls, _ = label_font.render(_num_label, (220, 200, 160))
+                screen.blit(ls, (_num_cx - ls.get_width() // 2, _num_cy - ls.get_height() // 2))
 
             # 호버 감지
             if mouse_pos and slot.icon_rect.collidepoint(mouse_pos):
