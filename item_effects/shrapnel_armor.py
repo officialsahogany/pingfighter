@@ -67,11 +67,11 @@ class ShrapnelArmor:
         # 파편 프로젝타일 리스트
         self.shards: list[dict] = []
 
-        # 넉백 상태
+        # 넉백 상태 (좌우 넉백)
         self.boss_knockback_active = False
         self.boss_knockback_timer = 0
-        self.boss_knockback_offset = 0.0   # 보스 Y 오프셋
-        self.boss_knockback_velocity = 0.0  # 넉백 속도
+        self.boss_knockback_offset = 0.0   # 보스 X 오프셋
+        self.boss_knockback_direction = 0  # -1=좌, +1=우
 
         # 이펙트
         self._flash_timer = 0  # 발동 순간 플래시
@@ -95,7 +95,7 @@ class ShrapnelArmor:
         self.boss_knockback_active = False
         self.boss_knockback_timer = 0
         self.boss_knockback_offset = 0.0
-        self.boss_knockback_velocity = 0.0
+        self.boss_knockback_direction = 0
         self._flash_timer = 0
 
     def on_player_hit_ball(self, paddle_cx: int, paddle_y: int):
@@ -163,13 +163,15 @@ class ShrapnelArmor:
             return False
 
         hit = False
+        hit_direction = 0  # 명중한 파편의 X 방향 합산
         remaining = []
         for shard in self.shards:
             sx, sy = int(shard["x"]), int(shard["y"])
             shard_rect = pygame.Rect(sx - 3, sy - 3, 6, 6) if pygame else None
             if shard_rect and boss_rect.colliderect(shard_rect):
                 hit = True
-                # 히트 이펙트 (파편 제거됨)
+                # 파편의 X 속도로 넉백 방향 결정
+                hit_direction += shard["vx"]
             else:
                 remaining.append(shard)
         self.shards = remaining
@@ -181,23 +183,30 @@ class ShrapnelArmor:
                 _sound_hit.play()
 
             if not self.boss_knockback_active:
-                self._apply_knockback()
+                # 명중 방향: 파편 vx 합산 → 좌(-1) / 우(+1), 0이면 랜덤
+                if hit_direction > 0:
+                    direction = 1
+                elif hit_direction < 0:
+                    direction = -1
+                else:
+                    direction = random.choice([-1, 1])
+                self._apply_knockback(direction)
 
         return hit
 
-    def _apply_knockback(self):
-        """보스에게 넉백 적용"""
+    def _apply_knockback(self, direction: int):
+        """보스에게 좌우 넉백 적용"""
         level = max(1, min(4, self.knockback_level))
         config = self._KNOCKBACK_CONFIG[level]
         self.boss_knockback_active = True
         self.boss_knockback_timer = config["duration"]
-        self.boss_knockback_velocity = config["velocity"]
+        self.boss_knockback_direction = direction  # -1=좌, +1=우
         self.boss_knockback_offset = 0.0
 
-    def get_boss_knockback_offset(self) -> float:
-        """현재 보스 넉백 Y 오프셋 반환 (양수 = 아래로 밀림)"""
+    def get_boss_knockback_x_offset(self) -> float:
+        """현재 보스 넉백 X 오프셋 반환 (음수=좌, 양수=우)"""
         if self.boss_knockback_active:
-            return self.boss_knockback_offset
+            return self.boss_knockback_offset * self.boss_knockback_direction
         return 0.0
 
     def update(self, dt_frames=1):
@@ -223,14 +232,14 @@ class ShrapnelArmor:
                 alive.append(shard)
         self.shards = alive
 
-        # 넉백 업데이트
+        # 넉백 업데이트 (좌우)
         if self.boss_knockback_active:
             level = max(1, min(4, self.knockback_level))
             config = self._KNOCKBACK_CONFIG[level]
 
             if self.boss_knockback_timer > config["duration"] // 2:
-                # 전반: 아래로 밀림
-                self.boss_knockback_offset += self.boss_knockback_velocity
+                # 전반: 좌/우로 밀림 (offset은 절대값, direction이 방향)
+                self.boss_knockback_offset += config["velocity"]
                 self.boss_knockback_offset = min(
                     self.boss_knockback_offset, config["max_offset"]
                 )
@@ -244,7 +253,7 @@ class ShrapnelArmor:
             if self.boss_knockback_timer <= 0:
                 self.boss_knockback_active = False
                 self.boss_knockback_offset = 0.0
-                self.boss_knockback_velocity = 0.0
+                self.boss_knockback_direction = 0
 
         # 플래시 타이머
         if self._flash_timer > 0:
