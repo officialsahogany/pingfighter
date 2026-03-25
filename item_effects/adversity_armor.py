@@ -161,7 +161,7 @@ class AdversityArmor:
                 self._barrier_particles.clear()
                 self._barrier_flash = 0
 
-    def draw_effects(self, screen, player_rect, game_area_left=80, game_area_width=600, screen_height=750):
+    def draw_effects(self, screen, player_rect, game_area_left=0, game_area_width=760, screen_height=750):
         """무적 오라 이펙트 + 바닥 방어막 그리기"""
         if not self.active or not self.invincible or not pygame:
             return
