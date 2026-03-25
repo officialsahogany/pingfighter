@@ -17851,6 +17851,10 @@ def _swap_boss_in_current_stage():
     curse_chest_windup_timer = 0
     curse_chest_throwing = False
     curse_chest_throw_progress = 0.0
+    curse_chest_lifetime_timer = 0
+    curse_chest_exploding = False
+    curse_chest_explode_timer = 0
+    curse_chest_explode_particles.clear() if curse_chest_explode_particles else None
     curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     fan_wind_active = False
     fan_wind_timer = 0
@@ -19909,6 +19913,19 @@ def apply_serve_result(serve_result):
         ball_vel[0] *= fire_base_boost
         ball_vel[1] *= fire_base_boost
         # print(f"🔥 [불 이벤트] 서브 - 기본 속도 {(fire_base_boost-1)*100:.0f}% 증가")
+
+    # 🛡 역경의 갑옷: 무적 발동 시 서브 속도 +20% 부스트
+    try:
+        from item_effects.adversity_armor import get_adversity_armor_instance
+        aa = get_adversity_armor_instance()
+        if aa and aa.active:
+            boost = aa.consume_serve_speed_boost()
+            if boost > 0:
+                ball_vel[0] *= (1 + boost)
+                ball_vel[1] *= (1 + boost)
+                # print(f"🛡 역경의 갑옷: 서브 속도 +{boost*100:.0f}% 부스트!")
+    except Exception:
+        pass
 
     ball_impact_boost = float(serve_result.get('ball_impact_boost', 1.0))
 
@@ -24685,6 +24702,10 @@ PASSIVE_OPTION_RANGES = {
     "lucky_coin": [
         {"label": "더블 스폰 확률", "min": 5, "max": 15, "unit": "%", "prefix": "", "key": "double_spawn_pct"},
     ],
+    "adversity_armor": [
+        {"label": "무적 발동 확률", "min": 20, "max": 30, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
+        {"label": "무적 지속시간", "min": 8, "max": 15, "unit": "초", "prefix": "", "key": "invincible_duration_sec"},
+    ],
 }
 
 _OPTION_COLOR_LOW = (230, 230, 230)      # 하옵: 흰색
@@ -24783,6 +24804,8 @@ knee_pads_charge_pct = 50
 fuel_pouch_bonus = 100
 gold_digger_bonus_pct = 50  # 골드 획득량 (30~70% 범위, 기본값 50%)
 lucky_coin_double_spawn_pct = 10  # 더블 스폰 확률 (5~15% 범위, 기본값 10%)
+adversity_armor_trigger_pct = 25  # 역경의 갑옷 무적 발동 확률 (20~30% 범위, 기본값 25%)
+adversity_armor_duration_sec = 10  # 역경의 갑옷 무적 지속시간 (8~15초 범위, 기본값 10초)
 
 _BASE_SLOT_LABELS = {
     "head": "머리",
@@ -25068,6 +25091,8 @@ def _reset_roll_bonuses_to_default():
     globals()["dashholder_count"] = 0
     globals()["gold_digger_bonus_pct"] = 50  # 골드디거 기본값
     globals()["lucky_coin_double_spawn_pct"] = 10  # 럭키코인 기본값
+    globals()["adversity_armor_trigger_pct"] = 25  # 역경의 갑옷 기본값
+    globals()["adversity_armor_duration_sec"] = 10  # 역경의 갑옷 기본값
     # 테크니컬조끼 기본 롤 값(연막)
     try:
         from item_effects.technical_vest import configure_technical_vest
@@ -25566,6 +25591,22 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
                 coin.set_chance(val)
             except Exception:
                 pass
+    elif name == "adversity_armor":
+        # 역경의 갑옷 롤옵션 적용 (무적 발동 확률, 지속시간)
+        val = _get_roll_value(item, "trigger_chance_pct")
+        if val is not None:
+            globals()["adversity_armor_trigger_pct"] = val
+        val2 = _get_roll_value(item, "invincible_duration_sec")
+        if val2 is not None:
+            globals()["adversity_armor_duration_sec"] = val2
+        try:
+            from item_effects.adversity_armor import configure_adversity_armor
+            configure_adversity_armor(
+                trigger_chance_pct=globals().get("adversity_armor_trigger_pct", 25),
+                invincible_duration_sec=globals().get("adversity_armor_duration_sec", 10)
+            )
+        except Exception:
+            pass
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -25726,6 +25767,7 @@ def sync_equipped_passive_effects():
     sync_bool("star_detector", "items.star_detector_obtained")
     sync_bool("smartphone", "items.smartphone_obtained")
     sync_bool("knee_pads", "items.knee_pads_obtained")
+    sync_bool("adversity_armor", "items.adversity_armor_obtained")
     # 금괴는 별도 처리 (소지만 해도 페널티, 장착하면 페널티 없음)
     # gold_bar_obtained는 인벤토리에 있는지로 결정
     sync_bool("ragnarok_hammer", "items.ragnarok_hammer_obtained")
@@ -25856,6 +25898,17 @@ def sync_equipped_passive_effects():
                 knee_pads.activate()
             else:
                 knee_pads.deactivate()
+    except Exception:
+        pass
+
+    # 역경의 갑옷
+    try:
+        from item_effects.adversity_armor import activate_adversity_armor, deactivate_adversity_armor
+
+        if "adversity_armor" in equipped_names:
+            activate_adversity_armor()
+        else:
+            deactivate_adversity_armor()
     except Exception:
         pass
 
@@ -47293,6 +47346,13 @@ curse_chest_throw_progress = 0.0       # 비행 진행도 (0~1)
 CURSE_CHEST_THROW_SPEED = 0.04         # 프레임당 진행도 (~25프레임 = 0.42초)
 curse_chest_throw_start_x = 0.0        # 발사 시작 X (보스 위치)
 curse_chest_throw_start_y = 0.0        # 발사 시작 Y
+# 자동 폭발 (미개방 시 4초 후 폭발)
+curse_chest_lifetime_timer = 0         # 착지 후 경과 프레임
+CURSE_CHEST_LIFETIME = 240             # 4초 (60fps)
+curse_chest_exploding = False          # 폭발 애니메이션 중
+curse_chest_explode_timer = 0          # 폭발 이펙트 타이머
+CURSE_CHEST_EXPLODE_DURATION = 30      # 폭발 이펙트 0.5초
+curse_chest_explode_particles = []     # 폭발 파티클
 # 조작 반전 디버프
 curse_chest_reverse_timer = 0           # 조작 반전 남은 프레임
 CURSE_CHEST_REVERSE_DURATION = 120      # 조작 반전 2초 (60fps)
@@ -74049,7 +74109,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin", "adversity_armor"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -74090,7 +74150,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin", "adversity_armor"]:
         return
 
     # 최대 3개까지만 보관
@@ -75064,6 +75124,18 @@ def store_passive_item(item_data):
         hero_name = item_data.get("hero_name", "???")
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # print(f"📜 {hero_name}의 인장 획득! 장신구에 장착하면 호위무사가 등장합니다.")
+    elif item_data["name"] == "adversity_armor":
+        # 역경의 갑옷 패시브 아이템 (상의 부위)
+        # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
+        if not items.adversity_armor_obtained:
+            items.adversity_armor_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "adversity_armor")
+            from item_effects.adversity_armor import activate_adversity_armor
+            activate_adversity_armor()
+        item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     else:
         # 알 수 없는 패시브 아이템 처리
         # print(f"     : {item_data['name']}")
@@ -77269,6 +77341,47 @@ def _launch_curse_chest():
     curse_chest_throw_y = curse_chest_throw_start_y
 
 
+def _trigger_curse_chest_explode():
+    """보물상자 자동 폭발 — 4초 미개방 시 파편과 함께 소멸"""
+    global curse_chest_exploding, curse_chest_explode_timer, curse_chest_explode_particles
+    global curse_chest_opened, curse_chest_lifetime_timer, player_knockback_vel
+    curse_chest_exploding = True
+    curse_chest_explode_timer = CURSE_CHEST_EXPLODE_DURATION
+    curse_chest_explode_particles = []
+    # 파편 파티클 생성
+    for _ in range(15):
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(2, 6)
+        curse_chest_explode_particles.append({
+            "x": curse_chest_x + random.uniform(-5, 5),
+            "y": curse_chest_y + random.uniform(-5, 5),
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed - 2,
+            "life": random.randint(20, 40),
+            "size": random.uniform(3, 8),
+            "color": random.choice([
+                (200, 80, 130), (220, 100, 150), (255, 180, 200),
+                (160, 60, 100), (180, 70, 120),
+            ]),
+        })
+    # 폭발 사운드
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "weakexplosion.wav")))
+        snd.set_volume(0.3 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+    # 폭발 근처 플레이어 넉백
+    if PLAYER:
+        dx = PLAYER.centerx - curse_chest_x
+        dy = PLAYER.centery - curse_chest_y
+        dist = math.hypot(dx, dy)
+        if dist < 120:  # 폭발 반경
+            knockback_dir = 1 if dx >= 0 else -1
+            knockback_strength = 8 * (1.0 - dist / 120)  # 가까울수록 강함
+            player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * knockback_strength))
+
+
 def update_curse_chest():
     """저주 보물상자 업데이트: 선딜→투척→착지→대쉬 충돌→연기→조작 반전"""
     global curse_chest_active, curse_chest_opened, curse_chest_open_timer
@@ -77278,6 +77391,8 @@ def update_curse_chest():
     global curse_chest_throwing, curse_chest_throw_progress
     global curse_chest_throw_x, curse_chest_throw_y
     global curse_chest_x, curse_chest_y
+    global curse_chest_exploding, curse_chest_explode_timer, curse_chest_explode_particles
+    global curse_chest_lifetime_timer
 
     # 쿨다운 감소
     if curse_chest_cooldown_timer > 0:
@@ -77301,6 +77416,7 @@ def update_curse_chest():
             curse_chest_active = True
             curse_chest_opened = False
             curse_chest_open_timer = 0
+            curse_chest_lifetime_timer = 0
             curse_chest_smoke_particles = []
             curse_chest_x = curse_chest_target_x
             curse_chest_y = curse_chest_target_y
@@ -77328,7 +77444,36 @@ def update_curse_chest():
             curse_chest_reverse_timer -= 1
         return
 
+    # 폭발 애니메이션 처리
+    if curse_chest_exploding:
+        curse_chest_explode_timer -= 1
+        # 폭발 파티클 업데이트
+        new_ep = []
+        for ep in curse_chest_explode_particles:
+            ep["x"] += ep["vx"]
+            ep["y"] += ep["vy"]
+            ep["vy"] += 0.1  # 중력
+            ep["life"] -= 1
+            if ep["life"] > 0:
+                new_ep.append(ep)
+        curse_chest_explode_particles = new_ep
+        if curse_chest_explode_timer <= 0 and len(curse_chest_explode_particles) == 0:
+            curse_chest_exploding = False
+            curse_chest_active = False
+        # 조작 반전 타이머 감소
+        if curse_chest_reverse_timer > 0:
+            curse_chest_reverse_timer -= 1
+        return
+
     if not curse_chest_opened:
+        # 수명 타이머 증가
+        curse_chest_lifetime_timer += 1
+
+        # 4초 경과 시 자동 폭발
+        if curse_chest_lifetime_timer >= CURSE_CHEST_LIFETIME:
+            _trigger_curse_chest_explode()
+            return
+
         # 플레이어가 대쉬 중이고 보물상자에 충돌하면 열림
         if rolling_active and PLAYER:
             dx = PLAYER.centerx - curse_chest_x
@@ -77337,10 +77482,10 @@ def update_curse_chest():
             if dist < CURSE_CHEST_SIZE + 20:  # 충돌 판정
                 curse_chest_opened = True
                 curse_chest_open_timer = 0
+                curse_chest_lifetime_timer = 0  # 열렸으면 수명 리셋
+                # 연막탄과 동일한 사운드 재생
                 try:
-                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "prisonopen.wav")))
-                    snd.set_volume(0.35 * sfx_volume)
-                    snd.play()
+                    play_sound_with_volume(SOUND_SMOKEBOMB)
                 except Exception:
                     pass
     else:
@@ -77457,6 +77602,21 @@ def draw_curse_chest(screen):
             pygame.draw.circle(trail_sf, (255, 130, 180, alpha), (4, 4), 4)
             screen.blit(trail_sf, (int(trail_x) - 4, int(trail_y) - 4))
 
+    # 폭발 파티클 렌더링
+    if curse_chest_exploding:
+        for ep in curse_chest_explode_particles:
+            sz_p = int(ep["size"])
+            if sz_p < 1:
+                continue
+            alpha = min(255, int(255 * (ep["life"] / 40)))
+            sf = pygame.Surface((sz_p * 2, sz_p * 2), pygame.SRCALPHA)
+            pygame.draw.circle(sf, (*ep["color"], alpha), (sz_p, sz_p), sz_p)
+            screen.blit(sf, (int(ep["x"]) - sz_p, int(ep["y"]) - sz_p))
+        # 조작 반전 이펙트
+        if curse_chest_reverse_timer > 0 and PLAYER:
+            _draw_curse_reverse_overlay(screen)
+        return
+
     if not curse_chest_active:
         # 조작 반전 이펙트만 그리기 (보물상자 없어도)
         if curse_chest_reverse_timer > 0 and PLAYER:
@@ -77468,6 +77628,14 @@ def draw_curse_chest(screen):
 
     if not curse_chest_opened:
         # 닫힌 보물상자 그리기 — 멘헤라 핑크 테마
+        # 폭발 직전 깜빡임 (남은 1초)
+        if curse_chest_lifetime_timer >= CURSE_CHEST_LIFETIME - 60:
+            blink_speed = 4 + (curse_chest_lifetime_timer - (CURSE_CHEST_LIFETIME - 60)) * 0.3
+            if int(pygame.time.get_ticks() / (150 / blink_speed)) % 2 == 0:
+                # 빨간 경고 플래시
+                warn_sf = pygame.Surface((sz + 10, sz // 2 + 14), pygame.SRCALPHA)
+                warn_sf.fill((255, 50, 50, 80))
+                screen.blit(warn_sf, (cx - sz // 2 - 5, cy - sz // 4 - 12))
         # 상자 본체
         body_color = (200, 80, 130)
         lid_color = (220, 100, 150)
@@ -102523,6 +102691,15 @@ def draw_objects():
     # 테크니컬조끼 연막 효과 그리기 (플레이어 패들보다 먼저 그려서 패들이 위에 보이도록)
     draw_technical_vest_effects(SCREEN)
 
+    # 역경의 갑옷 오라 이펙트 그리기
+    try:
+        from item_effects.adversity_armor import get_adversity_armor_instance
+        _aa_draw = get_adversity_armor_instance()
+        if _aa_draw and _aa_draw.is_invincible():
+            _aa_draw.draw_effects(SCREEN, PLAYER)
+    except Exception:
+        pass
+
     # 홀리베리어 효과 그리기 (플레이어 뒤쪽 방벽)
     if holy_barrier_module.is_holy_barrier_active():
         draw_holy_barrier_effects(SCREEN)
@@ -121729,7 +121906,7 @@ def show_item_manager_menu():
     # 패시브 아이템 부위별 분류
     PASSIVE_SLOT_ORDER = [
         ("머리", ["bulletproof_hat", "spiked_helmet"]),
-        ("상의", ["technical_vest", "bulkup"]),
+        ("상의", ["technical_vest", "bulkup", "adversity_armor"]),
         ("팔", ["commando_arm", "master", "smartphone", "gold_digger"]),
         ("벨트", ["gravitybelt", "speedgear", "sensor"]),
         ("무릎", ["knee_pads", "dashgear"]),
@@ -129985,6 +130162,16 @@ def reset_round(is_stage_start=False):
     smasher_combo_effect_active = False
     smasher_combo_effect_timer = 0
 
+    # 🛡 역경의 갑옷: 라운드 시작 시 예약된 무적 발동
+    try:
+        from item_effects.adversity_armor import get_adversity_armor_instance
+        aa = get_adversity_armor_instance()
+        if aa and aa.active:
+            if aa.on_round_start():
+                print(f"🛡 역경의 갑옷: 무적 발동! {aa.invincible_duration_sec}초간 무적 상태")
+    except Exception:
+        pass
+
     # 🔊 대쉬 후딜 사운드 중지 (라운드 전환 시)
     stop_dash_delay_sound()
 
@@ -136160,6 +136347,22 @@ def handle_ball():
     odins_eye_anim_blocking_loss = odins_eye_death_anim_active or odins_eye_revival_anim_active
     # 공이 화면 밖(-50 이하)에 있으면 패배 처리 안함 (애니메이션 중 공 위치)
     ball_offscreen_hidden_loss = BALL.centerx < -50 or BALL.centery < -50
+    # 🛡 역경의 갑옷: 무적 상태에서 공이 바닥에 닿으면 반사
+    if BALL.bottom >= HEIGHT and not is_waiting_for_serve:
+        try:
+            from item_effects.adversity_armor import get_adversity_armor_instance
+            aa = get_adversity_armor_instance()
+            if aa and aa.is_invincible():
+                # 공을 위로 반사
+                ball_vel[1] = -abs(ball_vel[1])  # Y속도 반전 (위로)
+                BALL.bottom = HEIGHT - 1  # 바닥에서 1px 떼어놓기
+                # 반사 이펙트 사운드 (기존 벽 반사 사운드 활용)
+                try:
+                    play_wall_sound()
+                except Exception:
+                    pass
+        except Exception:
+            pass
     if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active and not ball_in_kuromi and not bowling_trap_holding and not ball_spawn_animation_active and not odins_eye_anim_blocking_loss and not ball_offscreen_hidden_loss and not is_waiting_for_serve:
         # 스마트폰 사전 방어: 패배 직전 스톱워치 자동 발동 시도
         try:
@@ -136299,6 +136502,20 @@ def handle_ball():
                 traceback.print_exc()
 
             deuce_losses += 1
+            # 🛡 역경의 갑옷: 듀스 모드 실점 시에도 무적 발동 체크
+            try:
+                if items.adversity_armor_obtained:
+                    equipped_items_aa = get_equipped_passive_items()
+                    equipped_names_aa = {p["name"] for p in equipped_items_aa if p}
+                    if "adversity_armor" in equipped_names_aa:
+                        from item_effects.adversity_armor import get_adversity_armor_instance
+                        aa = get_adversity_armor_instance()
+                        if aa and aa.active:
+                            aa_triggered = aa.on_point_lost()
+                            if aa_triggered:
+                                print(f"🛡 역경의 갑옷 [듀스]: 무적 발동 예약!")
+            except Exception:
+                pass
             # 🔧 듀스 모드에서도 플레이어가 죽었을 때 대시 상태 초기화
             rolling_active = False
             rolling_timer = 0
@@ -136424,6 +136641,20 @@ def handle_ball():
                         globals()['quest_stage_boss_score'] = max(0, quest_stage_boss_score - 1)
                         tenacity_triggered = True
                         # print(f"🔥 반칙왕 발동! 실점 무효화 (round_losses: {round_losses})")
+            # 🛡 역경의 갑옷: 실점 시 무적 발동 확률 체크
+            try:
+                if items.adversity_armor_obtained:
+                    equipped_items_aa = get_equipped_passive_items()
+                    equipped_names_aa = {p["name"] for p in equipped_items_aa if p}
+                    if "adversity_armor" in equipped_names_aa:
+                        from item_effects.adversity_armor import get_adversity_armor_instance
+                        aa = get_adversity_armor_instance()
+                        if aa and aa.active:
+                            aa_triggered = aa.on_point_lost()
+                            if aa_triggered:
+                                print(f"🛡 역경의 갑옷: 무적 발동 예약! (다음 라운드 {aa.invincible_duration_sec}초간 무적)")
+            except Exception as e:
+                print(f"🛡 역경의 갑옷 발동 체크 오류: {e}")
             # 🔧 플레이어가 죽었을 때 대시 상태 완전 초기화 (다음 라운드 버그 방지)
             rolling_active = False
             rolling_timer = 0
@@ -143222,6 +143453,10 @@ def show_result(won):
     curse_chest_windup_timer = 0
     curse_chest_throwing = False
     curse_chest_throw_progress = 0.0
+    curse_chest_lifetime_timer = 0
+    curse_chest_exploding = False
+    curse_chest_explode_timer = 0
+    curse_chest_explode_particles.clear() if curse_chest_explode_particles else None
     curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     # 테디베어 솜뭉치 투척 완전 초기화 (스테이지 종료 시)
     cotton_throw_active = False
@@ -143845,6 +144080,13 @@ def show_result(won):
             from item_effects.star_detector import deactivate_star_detector
 
             deactivate_star_detector()
+        except Exception:
+            pass
+        items.adversity_armor_obtained = False
+        try:
+            from item_effects.adversity_armor import reset_adversity_armor
+
+            reset_adversity_armor()
         except Exception:
             pass
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
@@ -144841,6 +145083,10 @@ def main(stage_num, new_boss_mode=False):
     curse_chest_windup_timer = 0
     curse_chest_throwing = False
     curse_chest_throw_progress = 0.0
+    curse_chest_lifetime_timer = 0
+    curse_chest_exploding = False
+    curse_chest_explode_timer = 0
+    curse_chest_explode_particles.clear() if curse_chest_explode_particles else None
     curse_chest_smoke_particles.clear() if curse_chest_smoke_particles else None
     fan_wind_active = False
     fan_wind_timer = 0
@@ -148308,6 +148554,12 @@ def main(stage_num, new_boss_mode=False):
                     items.knee_pads_obtained = False  # 킥차져 초기화
                     items.gold_bar_obtained = False  # 금괴 초기화
                     reset_gold_bar()  # 금괴 효과 초기화
+                    items.adversity_armor_obtained = False  # 역경의 갑옷 초기화
+                    try:
+                        from item_effects.adversity_armor import reset_adversity_armor
+                        reset_adversity_armor()
+                    except Exception:
+                        pass
 
                     # 킥차져 효과 초기화 (강제 종료 시)
                     try:
@@ -149344,6 +149596,15 @@ def main(stage_num, new_boss_mode=False):
         if selected_character_type == "smasher" and not is_ball_spawn_animation_paused():
             cleanse_skill = get_cleanse_skill()
             cleanse_skill.update()
+
+        # 역경의 갑옷 업데이트 (무적 타이머 + 오라 파티클)
+        try:
+            from item_effects.adversity_armor import get_adversity_armor_instance
+            _aa = get_adversity_armor_instance()
+            if _aa and _aa.active:
+                _aa.update()
+        except Exception:
+            pass
 
         # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달) - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
@@ -157118,7 +157379,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -157197,6 +157458,7 @@ def get_item_description(item_name):
         "dashholder": "대쉬홀더: 대쉬토큰을 추가로 얻습니다.",
         "dowsing_pendulum": "다우징팬들럼: 주위 아이템을 끌어당깁니다.",
         "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 2개 동시에 나타납니다.",
+        "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

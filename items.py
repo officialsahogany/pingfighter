@@ -912,7 +912,8 @@ def load_item_icons():
         "poseidon_trident": "legendary/poseidon_trident.png",
         "angel_blessing": "legendary/holy_laurel.png",  # 천사의 가호 아이콘
         "sacred_laurel": "legendary/sacred_laurel.png",  # 신성한 월계관 아이콘
-        "regeneration_potion": "regeneration_potion.png"  # 재생물약 아이콘
+        "regeneration_potion": "regeneration_potion.png",  # 재생물약 아이콘
+        "adversity_armor": "adversity_armor.png",  # 역경의 갑옷 아이콘
     }
 
     legendary_manager = None
@@ -1702,6 +1703,16 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None,
         "body_part": "accessory"  # 장신구 부위
+    },
+    {
+        "name": "adversity_armor",  # 역경의 갑옷 패시브 아이템 (상의 부위)
+        "color": (140, 80, 200),  # 보라색 (역경/역전 테마)
+        "effect": "adversity_armor",
+        "icon": None,
+        "chance": 0.004,  # 0.4% 스폰 확률 (희귀)
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "top"  # 상의 부위
     }
 ]
 
@@ -1758,6 +1769,7 @@ gold_bar_obtained = False  # 금괴 아이템 획득 여부
 gold_digger_obtained = False  # 골드디거 아이템 획득 여부
 hero_seal_obtained = False  # 호위무사 인장 획득 여부 (여러 개 소지 가능)
 lucky_coin_obtained = False  # 럭키코인 아이템 획득 여부
+adversity_armor_obtained = False  # 역경의 갑옷 아이템 획득 여부
 
 
 active_item_slot = None
@@ -1833,7 +1845,8 @@ unlocked_items = {
 
     # 액티브 아이템
     "regeneration_potion": True,  # 재생물약
-    "hero_seal": True  # 호위무사 인장
+    "hero_seal": True,  # 호위무사 인장
+    "adversity_armor": True  # 역경의 갑옷
 }
 
 # 현재 떠 있는 아이템 리스트
@@ -1848,7 +1861,8 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "smartphone", "knee_pads", "gold_digger", "lucky_coin",
     "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
     "sacred_laurel", "transcendent_crown", "odins_eye",
-    "hero_seal"
+    "hero_seal",
+    "adversity_armor"
 }
 
 
@@ -1905,13 +1919,14 @@ def reset_items():
     sensor_obtained = False  # sensor 획득 상태 초기화
     
     global dowsing_pendulum_obtained, commando_arm_obtained, commando_arm_count, technical_vest_obtained
-    global gold_digger_obtained, lucky_coin_obtained
+    global gold_digger_obtained, lucky_coin_obtained, adversity_armor_obtained
     dowsing_pendulum_obtained = False  # dowsing_pendulum 획득 상태 초기화
     commando_arm_obtained = False  # commando_arm 획득 상태 초기화
     commando_arm_count = 0         # commando_arm 스택 초기화
     technical_vest_obtained = False  # technical_vest 획득 상태 초기화
     gold_digger_obtained = False  # gold_digger 획득 상태 초기화
     lucky_coin_obtained = False  # lucky_coin 획득 상태 초기화
+    adversity_armor_obtained = False  # adversity_armor 획득 상태 초기화
 
     # 전설 아이템 획득 상태는 게임 세션 동안 유지되므로 초기화하지 않음
     # (한 번 획득한 전설 아이템은 더 이상 필드에 나타나지 않도록 함)
@@ -1951,11 +1966,18 @@ def reset_items():
     except Exception:
         pass
 
+    try:
+        from item_effects.adversity_armor import reset_adversity_armor
+
+        reset_adversity_armor()
+    except Exception:
+        pass
+
 
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained, lucky_coin_obtained
+    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained, lucky_coin_obtained, adversity_armor_obtained
 
     debug_spawn = os.environ.get("PINGF_DEBUG_ITEMS", "0").lower() in ("1", "true", "yes", "on")
     if debug_spawn:
@@ -2081,6 +2103,9 @@ def spawn_random_item():
         if item["name"] == "lucky_coin" and lucky_coin_obtained and not _allow_duplicate_passive("lucky_coin"):
             continue
 
+        if item["name"] == "adversity_armor" and adversity_armor_obtained and not _allow_duplicate_passive("adversity_armor"):
+            continue
+
         # gold_bar 중복 스폰 방지
         if item["name"] == "gold_bar" and gold_bar_obtained:
             continue
@@ -2138,7 +2163,8 @@ def spawn_random_item():
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye",
-        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin"
+        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
+        "adversity_armor"
     }
 
     for item in available_items:
@@ -2401,7 +2427,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {
@@ -2542,7 +2568,7 @@ def draw_items(screen):
                     dist = 28 + 4 * _m.sin(t * 0.12 + i)
                     px = ix + int(dist * _m.cos(a))
                     py = iy + int(dist * _m.sin(a))
-                    spark_alpha = int(120 + 135 * _m.sin(t * 0.15 + i * 1.5))
+                    spark_alpha = max(0, min(255, int(120 + 135 * _m.sin(t * 0.15 + i * 1.5))))
                     spark_size = max(2, int(3 + 1.5 * _m.sin(t * 0.1 + i)))
                     spark_surf = pygame.Surface((spark_size * 2, spark_size * 2), pygame.SRCALPHA)
                     pygame.draw.circle(spark_surf, (255, 255, 180, spark_alpha), (spark_size, spark_size), spark_size)

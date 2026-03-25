@@ -3099,6 +3099,7 @@ class BuildingInterior:
             {"name": "spiked_helmet", "base_price": 700, "korean": "가시투구"},
             {"name": "knee_pads", "base_price": 550, "korean": "킥차져"},
             {"name": "lucky_coin", "base_price": 800, "korean": "럭키코인"},
+            {"name": "adversity_armor", "base_price": 1100, "korean": "역경의 갑옷"},
         ]
 
         # 전설 아이템 목록 (5% 확률)
@@ -3665,6 +3666,7 @@ class BuildingInterior:
             {"name": "star_detector", "korean": "스타감지기", "rarity": "rare", "type": "passive"},
             {"name": "dashholder", "korean": "대쉬홀더", "rarity": "rare", "type": "passive"},
             {"name": "master", "korean": "토르의망치", "rarity": "rare", "type": "passive"},
+            {"name": "adversity_armor", "korean": "역경의갑옷", "rarity": "epic", "type": "passive"},
             # 에픽 패시브 (3개만)
             {"name": "sensor", "korean": "위험감지센서", "rarity": "epic", "type": "passive"},
             {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic", "type": "passive"},
@@ -3997,7 +3999,7 @@ class BuildingInterior:
                         "chargebag", "spiked_helmet", "bluetooth_ring", "foul_whistle", "star_detector",
                         # 에픽 패시브
                         "sensor", "gravitybelt", "dashholder", "revival", "master",
-                        "angel_blessing", "sacred_laurel",
+                        "angel_blessing", "sacred_laurel", "adversity_armor",
                         # 전설 패시브
                         "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
                         "zeus_lightning", "hades_helm", "odins_eye"
