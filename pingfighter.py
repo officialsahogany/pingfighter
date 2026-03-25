@@ -72344,9 +72344,7 @@ def handle_player(keys):
             from item_effects.shrapnel_armor import get_shrapnel_armor_instance
             _sa = get_shrapnel_armor_instance()
             if _sa.active:
-                _fired = _sa.on_player_hit_ball(PLAYER.centerx, PLAYER.top)
-                if _fired:
-                    print(f"[파편갑옷 DEBUG] 파편 발사! shards={len(_sa.shards)}")
+                _sa.on_player_hit_ball(PLAYER.centerx, PLAYER.top)
         except Exception:
             pass
 
@@ -150576,10 +150574,8 @@ def main(stage_num, new_boss_mode=False):
                     # 짧은 스턴(0.25초) + 넉백 속도 → handle_boss 내부 스턴 넉백으로 처리
                     boss_stunned_timer = 15
                     boss_knockback_vel = _sa_kb_vel
-                    print(f"[파편갑옷 DEBUG] 보스 명중! stun=15f, knockback_vel={_sa_kb_vel:.1f}, "
-                          f"level={_sa_upd.knockback_level}, BOSS.x={BOSS.x}")
-        except Exception as _sa_upd_err:
-            print(f"[파편갑옷 DEBUG] update 예외: {_sa_upd_err}")
+        except Exception:
+            pass
 
         # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달) - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
