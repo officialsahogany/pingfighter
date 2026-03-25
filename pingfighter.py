@@ -17931,6 +17931,7 @@ def _swap_boss_in_current_stage():
     alice_mirror_timer = 0
     alice_mirror_cooldown_timer = 0
     alice_mirror_fade_timer = 0
+    alice_mirror_bg_timer = 0
     if alice_size_shift_active:
         _deactivate_alice_size_shift()
     alice_size_shift_active = False
@@ -47560,8 +47561,8 @@ alice_rabbit_cooldown_timer = 0
 ALICE_RABBIT_SPEED = 3.5
 ALICE_RABBIT_HIT_RADIUS = 20
 ALICE_RABBIT_MAX_TIMER = 300        # 5초 생존
-ALICE_RABBIT_COUNT_MIN = 2
-ALICE_RABBIT_COUNT_MAX = 3
+ALICE_RABBIT_COUNT_MIN = 3
+ALICE_RABBIT_COUNT_MAX = 4
 
 # === 테디베어 VFX Surface 캐시 시스템 ===
 _teddy_vfx_cache = {}
@@ -54585,6 +54586,7 @@ def go_to_next_round():
     button_eye_timer = 0
     # 앨리스 스킬 초기화 (라운드 전환)
     global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer, alice_mirror_fade_timer
+    global alice_mirror_bg_timer
     global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer
     global alice_rabbit_active, alice_rabbit_projectiles, alice_rabbit_windup_active
     global alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
@@ -54592,6 +54594,7 @@ def go_to_next_round():
     alice_mirror_timer = 0
     alice_mirror_cooldown_timer = 0
     alice_mirror_fade_timer = 0
+    alice_mirror_bg_timer = 0
     if alice_size_shift_active:
         _deactivate_alice_size_shift()
     alice_size_shift_active = False
@@ -101285,6 +101288,11 @@ def draw_objects():
                 trail_img.set_alpha(alpha)
                 trail_rect = trail_img.get_rect(center=(x, y))
                 SCREEN.blit(trail_img, trail_rect.topleft)
+    # === Stage 3 앨리스 거울 세계 보스 글로우 ===
+    if current_stage == 3 and alice_mirror_active and current_boss_name == "앨리스":
+        glow_t = alice_mirror_bg_timer
+        glow_intensity = int(40 + 40 * abs(math.sin(glow_t * 0.06)))
+        apply_white_glow(rotated_boss, intensity=glow_intensity)
     # === Stage 3 오버드라이브 꼬리 ===
     if current_stage == 3 and emotional_overdrive_active:
         for x, y, alpha in overdrive_trails:
@@ -150540,7 +150548,7 @@ def main(stage_num, new_boss_mode=False):
         except Exception:
             pass
 
-        # 파편갑옷 업데이트 (파편 이동 + 충돌 → boss_fire_knockback_vel 주입)
+        # 파편갑옷 업데이트 (파편 이동 + 충돌 → boss_stunned_timer + boss_knockback_vel 주입)
         try:
             from item_effects.shrapnel_armor import get_shrapnel_armor_instance
             _sa_upd = get_shrapnel_armor_instance()
@@ -150549,8 +150557,10 @@ def main(stage_num, new_boss_mode=False):
                 # 보스 패들과 파편 충돌 체크 → 넉백 속도 반환
                 _sa_kb_vel = _sa_upd.check_boss_collision(BOSS)
                 if _sa_kb_vel != 0:
-                    boss_fire_knockback_vel = _sa_kb_vel
-                    print(f"[파편갑옷 DEBUG] 보스 명중! knockback_vel={_sa_kb_vel:.1f}, "
+                    # 짧은 스턴(0.25초) + 넉백 속도 → handle_boss 내부 스턴 넉백으로 처리
+                    boss_stunned_timer = 15
+                    boss_knockback_vel = _sa_kb_vel
+                    print(f"[파편갑옷 DEBUG] 보스 명중! stun=15f, knockback_vel={_sa_kb_vel:.1f}, "
                           f"level={_sa_upd.knockback_level}, BOSS.x={BOSS.x}")
         except Exception as _sa_upd_err:
             print(f"[파편갑옷 DEBUG] update 예외: {_sa_upd_err}")
