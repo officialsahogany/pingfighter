@@ -47537,6 +47537,8 @@ ALICE_MIRROR_DURATION = 300         # 5초 (60fps)
 ALICE_MIRROR_COOLDOWN = 900         # 15초 쿨다운
 alice_mirror_cooldown_timer = 0
 alice_mirror_fade_timer = 0         # 페이드 인/아웃 타이머
+alice_mirror_bg_timer = 0           # 거울 세계 배경 효과 타이머
+alice_mirror_particles = []         # 거울 파편 파티클
 
 # === 앨리스 - 사이즈 시프트 스킬 (Size Shift) - Stage 3 ===
 alice_size_shift_active = False
@@ -77993,14 +77995,16 @@ def _draw_curse_reverse_overlay(screen):
 # === 앨리스 - 거울 세계 (Mirror World) - Stage 3 ===
 
 def activate_alice_mirror():
-    """화면 좌우반전 발동"""
+    """거울 세계 궁극기 발동 - 화면 좌우반전 + 특수 배경"""
     global alice_mirror_active, alice_mirror_timer, alice_mirror_fade_timer
+    global alice_mirror_bg_timer
     alice_mirror_active = True
     alice_mirror_timer = ALICE_MIRROR_DURATION
     alice_mirror_fade_timer = 30  # 0.5초 페이드인
+    alice_mirror_bg_timer = 0     # 배경 타이머 초기화
     try:
         snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
-        snd.set_volume(0.4 * sfx_volume)
+        snd.set_volume(0.5 * sfx_volume)
         snd.play()
     except Exception:
         pass
@@ -78009,7 +78013,7 @@ def activate_alice_mirror():
 def update_alice_mirror():
     """거울 세계 업데이트"""
     global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer
-    global alice_mirror_fade_timer
+    global alice_mirror_fade_timer, alice_mirror_bg_timer
     if alice_mirror_cooldown_timer > 0:
         alice_mirror_cooldown_timer -= 1
     if alice_mirror_fade_timer > 0:
@@ -78017,8 +78021,10 @@ def update_alice_mirror():
     if not alice_mirror_active:
         return
     alice_mirror_timer -= 1
+    alice_mirror_bg_timer += 1
     if alice_mirror_timer <= 0:
         alice_mirror_active = False
+        alice_mirror_bg_timer = 0
 
 
 def apply_alice_mirror_flip(screen, game_area_x, game_area_w, game_area_h):
@@ -78280,24 +78286,65 @@ def draw_alice_size_shift_effect(screen):
 
 
 def draw_alice_mirror_effect(screen):
-    """거울 세계 활성화 시 화면 테두리 이펙트"""
+    """거울 세계 궁극기 - 화면 테두리 + 거울 균열 + 반짝임 이펙트"""
     if not alice_mirror_active:
         return
     t = alice_mirror_timer
-    alpha = min(80, 80)
+    bg_t = alice_mirror_bg_timer
+
+    # 페이드 알파 계산
+    alpha = 120
     if t < 30:
-        alpha = int(80 * t / 30)
+        alpha = int(120 * t / 30)
     elif alice_mirror_fade_timer > 0:
-        alpha = int(80 * (1.0 - alice_mirror_fade_timer / 30.0))
-    glow_surf = pygame.Surface((GAME_PLAY_WIDTH, HEIGHT), pygame.SRCALPHA)
-    border_w = 8
-    pygame.draw.rect(glow_surf, (100, 150, 255, alpha),
-                     (0, 0, GAME_PLAY_WIDTH, HEIGHT), border_w)
-    inner_alpha = alpha // 2
-    pygame.draw.rect(glow_surf, (140, 180, 255, inner_alpha),
-                     (border_w, border_w,
-                      GAME_PLAY_WIDTH - border_w * 2, HEIGHT - border_w * 2), border_w // 2)
-    screen.blit(glow_surf, (GAME_AREA_OFFSET_X, 0))
+        alpha = int(120 * (1.0 - alice_mirror_fade_timer / 30.0))
+
+    glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+    # 1) 두꺼운 시안/보라 그라데이션 테두리 (궁극기급)
+    border_w = 16
+    outer_color = (100, 180, 255, alpha)
+    inner_color = (180, 120, 255, alpha // 2)
+    pygame.draw.rect(glow_surf, outer_color, (0, 0, WIDTH, HEIGHT), border_w)
+    pygame.draw.rect(glow_surf, inner_color,
+                     (border_w, border_w, WIDTH - border_w * 2, HEIGHT - border_w * 2),
+                     border_w // 2)
+
+    # 2) 거울 균열선 (대각선으로 화면을 가로지르는 금)
+    crack_alpha = int(alpha * 0.6)
+    for i in range(5):
+        cx = int(WIDTH * (0.15 + 0.18 * i) + 20 * math.sin(bg_t * 0.05 + i))
+        cy1 = int(30 * math.cos(bg_t * 0.03 + i * 0.7))
+        cy2 = HEIGHT + int(30 * math.sin(bg_t * 0.03 + i * 0.7))
+        # 주 균열선
+        pygame.draw.line(glow_surf, (200, 230, 255, crack_alpha),
+                         (cx, cy1), (cx + random.randint(-40, 40), cy2), 2)
+        # 가지 균열
+        mid_y = HEIGHT // 2 + int(50 * math.sin(bg_t * 0.04 + i))
+        branch_x = cx + int(60 * math.cos(bg_t * 0.06 + i))
+        pygame.draw.line(glow_surf, (180, 210, 255, crack_alpha // 2),
+                         (cx, mid_y), (branch_x, mid_y + random.randint(-80, 80)), 1)
+
+    # 3) 반짝이는 별 파티클 (거울 세계 느낌)
+    for i in range(12):
+        sx = int((WIDTH // 2) + 350 * math.sin(bg_t * 0.015 + i * 0.52))
+        sy = int((HEIGHT // 2) + 350 * math.cos(bg_t * 0.018 + i * 0.73))
+        sparkle_size = int(3 + 3 * abs(math.sin(bg_t * 0.08 + i * 0.9)))
+        sparkle_alpha = int(60 + 60 * abs(math.sin(bg_t * 0.06 + i * 1.1)))
+        # 십자 형태 반짝임
+        pygame.draw.line(glow_surf, (220, 240, 255, sparkle_alpha),
+                         (sx - sparkle_size, sy), (sx + sparkle_size, sy), 2)
+        pygame.draw.line(glow_surf, (220, 240, 255, sparkle_alpha),
+                         (sx, sy - sparkle_size), (sx, sy + sparkle_size), 2)
+
+    # 4) 화면 상하단 비네팅 (어둡게)
+    vignette_h = 60
+    for vi in range(vignette_h):
+        va = int(alpha * 0.5 * (1.0 - vi / vignette_h))
+        pygame.draw.line(glow_surf, (20, 0, 40, va), (0, vi), (WIDTH, vi))
+        pygame.draw.line(glow_surf, (20, 0, 40, va), (0, HEIGHT - 1 - vi), (WIDTH, HEIGHT - 1 - vi))
+
+    screen.blit(glow_surf, (0, 0))
 
 
 # === 테디베어 솜뭉치 투척 스킬 (Stage 3) ===
@@ -127877,7 +127924,40 @@ def draw_field():
         draw_tutorial_practice_room()
         return
     
-    if current_stage == 3 and emotional_overdrive_active:
+    if current_stage == 3 and alice_mirror_active and current_boss_name == "앨리스":
+        # 거울 세계 궁극기 배경: 몽환적 반전 세계
+        alice_mirror_bg_timer += 1
+        t = alice_mirror_bg_timer
+        # 시안/보라 계열 색상이 물결치듯 변화
+        r = int(40 + 30 * math.sin(t * 0.03))
+        g = int(20 + 40 * math.sin(t * 0.05 + 1.0))
+        b = int(80 + 60 * math.sin(t * 0.04 + 2.0))
+        SCREEN.fill((r, g, b))
+        # 거울 파편이 떠다니는 효과
+        mirror_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for i in range(8):
+            shard_x = int((WIDTH // 2) + 250 * math.sin(t * 0.02 + i * 0.8))
+            shard_y = int((HEIGHT // 2) + 200 * math.cos(t * 0.025 + i * 1.1))
+            shard_size = int(20 + 15 * math.sin(t * 0.03 + i))
+            shard_alpha = int(40 + 30 * math.sin(t * 0.04 + i * 0.5))
+            # 다이아몬드 형태 거울 파편
+            points = [
+                (shard_x, shard_y - shard_size),
+                (shard_x + shard_size // 2, shard_y),
+                (shard_x, shard_y + shard_size),
+                (shard_x - shard_size // 2, shard_y),
+            ]
+            pygame.draw.polygon(mirror_surf, (180, 220, 255, shard_alpha), points)
+            pygame.draw.polygon(mirror_surf, (220, 240, 255, shard_alpha + 20), points, 2)
+        # 화면 중앙에서 퍼져나가는 동심원 (거울 파동)
+        for ring in range(3):
+            ring_radius = int((t * 1.5 + ring * 100) % 400)
+            ring_alpha = max(0, 60 - ring_radius // 5)
+            if ring_alpha > 0:
+                pygame.draw.circle(mirror_surf, (150, 200, 255, ring_alpha),
+                                   (WIDTH // 2, HEIGHT // 2), ring_radius, 2)
+        SCREEN.blit(mirror_surf, (0, 0))
+    elif current_stage == 3 and emotional_overdrive_active:
         # 깜빡이거나 색 바뀌는 배경
         psycho_bg_timer += 1
         if psycho_bg_timer % 35 < 15:
@@ -127942,7 +128022,7 @@ def draw_field():
         # 원숭이가 던진 바나나를 인게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_bananas_ingame(SCREEN)
-    elif current_stage == 3 and animated_bg_stage3 is not None and not emotional_overdrive_active:
+    elif current_stage == 3 and animated_bg_stage3 is not None and not emotional_overdrive_active and not (alice_mirror_active and current_boss_name == "앨리스"):
         # Stage 2가 아니면 지진 오프셋 초기화
         earthquake_offset_x = 0
         earthquake_offset_y = 0
@@ -139218,19 +139298,18 @@ def handle_ball():
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
             elif current_boss_name == "앨리스":
-                # 앨리스: 거울 세계 (게이지 200, 15% 확률, 쿨다운 15초)
-                if (boss_special_gauge >= 200
-                    and not alice_mirror_active
+                # 앨리스: 거울 세계 - 궁극기 (게이지 500 풀게이지, 자동 발동)
+                if (not alice_mirror_active
                     and alice_mirror_cooldown_timer <= 0
-                    and random.random() <= 0.15):
+                    and boss_special_gauge >= 500):
+                    show_fade_text("거울 세계!")
                     activate_alice_mirror()
-                    _mirror_shouts = ["거울 속으로~!", "좌우가 바뀌었어!", "어디가 어딘지 모르겠지~?"]
-                    show_speech(random.choice(_mirror_shouts), duration=90)
-                    boss_special_gauge -= 200
+                    _mirror_shouts = ["거울 나라로 초대할게~!", "현실이 뒤집혀!", "어디가 어딘지 모르겠지~?"]
+                    show_speech(random.choice(_mirror_shouts), duration=120)
+                    boss_special_gauge = 0
                     alice_mirror_cooldown_timer = ALICE_MIRROR_COOLDOWN
-                    if boss_special_gauge < 0:
-                        boss_special_gauge = 0
-                # 앨리스: 사이즈 시프트 (게이지 150, 12% 확률, 쿨다운 10초)
+                    boss_red_intensity = 0
+                # 앨리스: 사이즈 시프트 (게이지 150, 12% 확률, 쿨다운 10초) - 거울 세계 중 사용 불가
                 if (boss_special_gauge >= 150
                     and not alice_size_shift_active
                     and alice_size_shift_cooldown_timer <= 0
@@ -139259,6 +139338,13 @@ def handle_ball():
                     alice_rabbit_cooldown_timer = ALICE_RABBIT_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
+                # 앨리스: 게이지 붉은 강도 (사이코볼과 동일하게)
+                target = 220 if boss_special_gauge >= 500 else (boss_special_gauge / 500) * 220
+                if boss_red_intensity < target:
+                    boss_red_intensity += (target - boss_red_intensity) * 0.1
+                else:
+                    boss_red_intensity -= (boss_red_intensity - target) * 0.1
+                boss_red_intensity = min(220, max(0, boss_red_intensity))
             else:
                 # 멘헤라걸: 저주 보물상자 (게이지 120, 12% 확률, 쿨다운 15초)
                 if (boss_special_gauge >= 120

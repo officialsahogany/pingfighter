@@ -52,6 +52,13 @@ class TeddyBearBossSprite:
         self.face_dir = 1.0
         self.face_dir_target = 0.0
 
+        # 히트 스윙 애니메이션 (공 칠 때 팔 휘두르기)
+        self.hit_swing_active = False
+        self.hit_swing_timer = 0.0
+        self.hit_swing_duration = 0.35  # 0.35초 동안 스윙
+        self.hit_swing_direction = 1  # 1=오른팔, -1=왼팔 (공 방향에 따라)
+        self.hit_swing_phase = 0.0  # 0~1 스윙 진행도
+
         # v8: 호러 떨림(Jitter) 상태
         self.jitter_x = 0.0
         self.jitter_y = 0.0
@@ -300,6 +307,34 @@ class TeddyBearBossSprite:
         self.dangling_eye_vel *= 0.94  # 감쇠
         self.dangling_eye_angle += self.dangling_eye_vel * dt
         self.dangling_eye_angle = max(-0.6, min(0.6, self.dangling_eye_angle))
+
+        # 히트 스윙 애니메이션 업데이트
+        if self.hit_swing_active:
+            self.hit_swing_timer += dt
+            t = self.hit_swing_timer / self.hit_swing_duration
+            if t >= 1.0:
+                self.hit_swing_active = False
+                self.hit_swing_timer = 0.0
+                self.hit_swing_phase = 0.0
+            else:
+                # ease-out 커브: 빠르게 휘두르고 천천히 복귀
+                if t < 0.3:
+                    # 0~0.3: 빠르게 아래로 휘두르기 (0→1)
+                    self.hit_swing_phase = (t / 0.3)
+                else:
+                    # 0.3~1.0: 천천히 원위치로 복귀 (1→0)
+                    self.hit_swing_phase = 1.0 - ((t - 0.3) / 0.7)
+
+    def trigger_hit(self, ball_x, boss_x):
+        """공을 칠 때 팔 휘두르기 애니메이션 시작"""
+        self.hit_swing_active = True
+        self.hit_swing_timer = 0.0
+        self.hit_swing_phase = 0.0
+        # 공이 보스 기준 어느 쪽에 있는지로 휘두르는 팔 결정
+        if ball_x > boss_x:
+            self.hit_swing_direction = 1  # 오른팔(앞팔)로 휘두르기
+        else:
+            self.hit_swing_direction = -1  # 왼팔(뒷팔)로 휘두르기
 
     def draw(self, screen, x, y, w, h):
         """3x SSAA 렌더링"""
@@ -697,6 +732,17 @@ class TeddyBearBossSprite:
         shoulder_y = torso_y - int(0.2 * b)
 
         swing_angle = self.arm_swing * (-1 if is_back else 1)
+
+        # 히트 스윙: 해당 방향 팔이면 크게 아래로 휘두르기
+        if self.hit_swing_active and self.hit_swing_phase > 0:
+            is_swing_arm = (
+                (self.hit_swing_direction > 0 and not is_back) or  # 오른팔
+                (self.hit_swing_direction < 0 and is_back)         # 왼팔
+            )
+            if is_swing_arm:
+                # 팔을 앞(아래)으로 크게 휘두르는 각도 (최대 1.2 라디안 ≈ 70도)
+                hit_angle = self.hit_swing_phase * 1.2 * side
+                swing_angle = hit_angle
 
         end_x = shoulder_x + int(_sin(swing_angle) * arm_h)
         end_y = shoulder_y + int(_cos(swing_angle) * arm_h)
