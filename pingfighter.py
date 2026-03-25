@@ -150453,10 +150453,10 @@ def main(stage_num, new_boss_mode=False):
                 _sa_upd.update()
                 # 보스 패들과 파편 충돌 체크
                 _sa_upd.check_boss_collision(BOSS)
-                # 넉백 오프셋을 보스 X에 적용 (좌우 넉백)
-                _sa_kb_x = _sa_upd.get_boss_knockback_x_offset()
-                if _sa_kb_x != 0:
-                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_x)))
+                # 넉백 델타를 보스 X에 적용 (좌우 넉백, 프레임당 변화분만)
+                _sa_kb_dx = _sa_upd.get_boss_knockback_x_delta()
+                if _sa_kb_dx != 0:
+                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x + int(_sa_kb_dx)))
         except Exception:
             pass
 

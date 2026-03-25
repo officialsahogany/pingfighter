@@ -72,7 +72,8 @@ class ShrapnelArmor:
         # 넉백 상태 (좌우 넉백)
         self.boss_knockback_active = False
         self.boss_knockback_timer = 0
-        self.boss_knockback_offset = 0.0   # 보스 X 오프셋
+        self.boss_knockback_offset = 0.0   # 보스 X 오프셋 (절대값)
+        self.boss_knockback_prev_offset = 0.0  # 이전 프레임 오프셋 (델타 계산용)
         self.boss_knockback_direction = 0  # -1=좌, +1=우
 
         # 이펙트
@@ -98,6 +99,7 @@ class ShrapnelArmor:
         self.boss_knockback_active = False
         self.boss_knockback_timer = 0
         self.boss_knockback_offset = 0.0
+        self.boss_knockback_prev_offset = 0.0
         self.boss_knockback_direction = 0
         self._flash_timer = 0
 
@@ -207,10 +209,11 @@ class ShrapnelArmor:
         self.boss_knockback_direction = direction  # -1=좌, +1=우
         self.boss_knockback_offset = 0.0
 
-    def get_boss_knockback_x_offset(self) -> float:
-        """현재 보스 넉백 X 오프셋 반환 (음수=좌, 양수=우)"""
+    def get_boss_knockback_x_delta(self) -> float:
+        """이번 프레임에 보스 X를 이동시킬 델타값 반환 (음수=좌, 양수=우)"""
         if self.boss_knockback_active:
-            return self.boss_knockback_offset * self.boss_knockback_direction
+            delta = (self.boss_knockback_offset - self.boss_knockback_prev_offset) * self.boss_knockback_direction
+            return delta
         return 0.0
 
     def update(self, dt_frames=1):
@@ -260,6 +263,8 @@ class ShrapnelArmor:
             level = max(1, min(4, self.knockback_level))
             config = self._KNOCKBACK_CONFIG[level]
 
+            self.boss_knockback_prev_offset = self.boss_knockback_offset
+
             if self.boss_knockback_timer > config["duration"] // 2:
                 # 전반: 좌/우로 밀림 (offset은 절대값, direction이 방향)
                 self.boss_knockback_offset += config["velocity"]
@@ -276,6 +281,7 @@ class ShrapnelArmor:
             if self.boss_knockback_timer <= 0:
                 self.boss_knockback_active = False
                 self.boss_knockback_offset = 0.0
+                self.boss_knockback_prev_offset = 0.0
                 self.boss_knockback_direction = 0
 
         # 플래시 타이머
