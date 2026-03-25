@@ -45,6 +45,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_torso_parts import BulkupSuitPart
         return BulkupSuitPart(block)
 
+    elif item_name == "adversity_armor":
+        from entities.body_parts.item_torso_parts import AdversityArmorPart
+        return AdversityArmorPart(block)
+
     elif item_name == "commando_arm":
         if side == "right":
             from entities.body_parts.item_arm_parts import CommandoArmRightPart

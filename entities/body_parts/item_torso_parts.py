@@ -187,3 +187,111 @@ class BulkupSuitPart(BodyPart):
 
         # 외곽선
         pygame.draw.rect(surface, (35, 30, 50), suit_rect, 1, border_radius=8)
+
+
+class AdversityArmorPart(BodyPart):
+    """역경의 갑옷 (adversity_armor).
+
+    어두운 보라색 갑옷 + 황금 십자 문양 + 보석 + 숄더 가드.
+    효과: 실점 후 확률적 무적 발동.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_TORSO,
+            draw_order=ORDER_TORSO,
+            joint_a="torso",
+            joint_b="hip",
+        )
+        self.block = block
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        b = self.block
+        cx, ty = joint_a.world_int()
+
+        # ── 갑옷 본체 (짙은 보라) ──
+        armor_w = int(3.8 * b)
+        armor_h = int(2.5 * b)
+        armor_rect = pygame.Rect(cx - armor_w // 2, ty - int(0.5 * b), armor_w, armor_h)
+
+        # 베이스 어두운 보라
+        pygame.draw.rect(surface, (40, 25, 70), armor_rect, border_radius=6)
+        # 내부 패널
+        inner = armor_rect.inflate(-int(0.3 * b), -int(0.3 * b))
+        pygame.draw.rect(surface, (55, 35, 90), inner, border_radius=5)
+
+        # ── 가슴 패널 (중앙, 약간 밝은 보라) ──
+        chest_w = int(2.0 * b)
+        chest_h = int(1.6 * b)
+        chest_rect = pygame.Rect(cx - chest_w // 2, ty - int(0.2 * b), chest_w, chest_h)
+        pygame.draw.rect(surface, (65, 45, 105), chest_rect, border_radius=4)
+
+        # ── 황금 십자 문양 ──
+        cross_color = (255, 200, 50)
+        cross_cx = cx
+        cross_cy = ty + int(0.5 * b)
+        # 세로
+        pygame.draw.line(surface, cross_color,
+                         (cross_cx, cross_cy - int(0.5 * b)),
+                         (cross_cx, cross_cy + int(0.5 * b)), 2)
+        # 가로
+        pygame.draw.line(surface, cross_color,
+                         (cross_cx - int(0.4 * b), cross_cy),
+                         (cross_cx + int(0.4 * b), cross_cy), 2)
+
+        # ── 중앙 보석 (황금, 맥동) ──
+        pulse = int(25 * math.sin(phase * math.tau * 2))
+        gem_color = (255, min(255, 210 + pulse), min(255, 80 + pulse))
+        gem_r = max(3, int(0.3 * b))
+        pygame.draw.circle(surface, gem_color, (cross_cx, cross_cy), gem_r)
+        # 보석 하이라이트
+        pygame.draw.circle(surface, (255, 255, 200),
+                           (cross_cx - 1, cross_cy - 1), max(1, gem_r // 2))
+
+        # ── 어깨 가드 (각진 숄더패드) ──
+        guard_w = int(1.2 * b)
+        guard_h = int(0.7 * b)
+        for side in [-1, 1]:
+            guard_rect = pygame.Rect(
+                cx + side * int(1.6 * b) - guard_w // 2,
+                ty - int(0.8 * b),
+                guard_w, guard_h,
+            )
+            pygame.draw.rect(surface, (50, 30, 80), guard_rect, border_radius=2)
+            # 가드 테두리
+            pygame.draw.rect(surface, (90, 60, 140), guard_rect, 1, border_radius=2)
+            # 가드 위 장식 (작은 뾰족이)
+            spike_x = guard_rect.centerx
+            spike_top = guard_rect.top - int(0.25 * b)
+            pygame.draw.polygon(surface, (70, 45, 110), [
+                (spike_x - int(0.2 * b), guard_rect.top),
+                (spike_x, spike_top),
+                (spike_x + int(0.2 * b), guard_rect.top),
+            ])
+
+        # ── 복부 장갑 (쉐브런 패턴) ──
+        abs_top = chest_rect.bottom + 1
+        for i in range(3):
+            vy = abs_top + i * int(0.25 * b)
+            half_w = int((1.0 - i * 0.15) * b)
+            pygame.draw.line(surface, (80, 55, 120),
+                             (cx - half_w, vy), (cx + half_w, vy), 1)
+
+        # ── 벨트 (황금 버클) ──
+        belt_rect = pygame.Rect(
+            cx - int(2.0 * b), armor_rect.bottom - int(0.2 * b),
+            int(4.0 * b), int(0.7 * b),
+        )
+        pygame.draw.rect(surface, (35, 20, 60), belt_rect, border_radius=2)
+        # 황금 버클
+        buckle_w = int(0.8 * b)
+        buckle_h = belt_rect.height - 2
+        buckle_rect = pygame.Rect(cx - buckle_w // 2, belt_rect.top + 1, buckle_w, buckle_h)
+        pygame.draw.rect(surface, cross_color, buckle_rect, border_radius=1)
+        # 버클 내부 보석
+        pygame.draw.circle(surface, gem_color, (cx, belt_rect.centery), max(2, int(0.15 * b)))
+
+        # ── 외곽선 ──
+        pygame.draw.rect(surface, (30, 18, 55), armor_rect, 1, border_radius=6)
