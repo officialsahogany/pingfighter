@@ -99746,6 +99746,7 @@ def draw_objects():
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
     global frame_count  # 프레임 카운터 추가
     global player_missile_stunned_timer  # 미사일 스턴 타이머 추가
+    global ragnarok_impact_sparks  # ⚡ 라그나로크 전기 스파크 파티클
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
     global stage8_superspeed_active, stage8_superspeed_text_end_ms
     global stage8_superspeed_freeze_end_ms
@@ -105494,6 +105495,55 @@ def draw_objects():
                 pygame.draw.circle(core_surface, (255, 255, 255, 200), (30, 30), core_size - 10)
         
         SCREEN.blit(core_surface, (BALL.centerx - 30, BALL.centery - 30))
+
+    # ⚡ 라그나로크 전기 스파크 파티클 업데이트 및 렌더링
+    if ragnarok_impact_sparks:
+        alive_sparks = []
+        for sp in ragnarok_impact_sparks:
+            sp['life'] -= 1
+            if sp['life'] <= 0:
+                continue
+            sp['x'] += sp['vx']
+            sp['y'] += sp['vy']
+            sp['vx'] *= 0.94  # 감속
+            sp['vy'] *= 0.94
+            # 중력 살짝
+            sp['vy'] += 0.15
+            alive_sparks.append(sp)
+
+            # 알파 계산
+            ratio = sp['life'] / sp['max_life']
+            alpha = int(255 * ratio)
+
+            sx, sy = int(sp['x']), int(sp['y'])
+            sz = sp['size'] * (0.5 + 0.5 * ratio)
+
+            if sp['type'] == 'bolt':
+                # 번개 갈래: 짧은 선분
+                end_x = sx + random.randint(-6, 6)
+                end_y = sy + random.randint(-6, 6)
+                bolt_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+                pygame.draw.line(bolt_surf, (180, 220, 255, alpha), (10, 10),
+                                 (10 + end_x - sx, 10 + end_y - sy), max(1, int(sz)))
+                SCREEN.blit(bolt_surf, (sx - 10, sy - 10))
+            elif sp['type'] == 'glow':
+                # 둥근 글로우
+                glow_r = int(sz * 3)
+                if glow_r > 0:
+                    glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (100, 180, 255, alpha // 3), (glow_r, glow_r), glow_r)
+                    pygame.draw.circle(glow_surf, (200, 230, 255, alpha // 2), (glow_r, glow_r), max(1, glow_r // 2))
+                    SCREEN.blit(glow_surf, (sx - glow_r, sy - glow_r))
+            else:
+                # spark: 밝은 점
+                spark_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                pygame.draw.circle(spark_surf, (255, 255, 200, alpha), (4, 4), max(1, int(sz)))
+                # 코어 흰색
+                if sz > 1.5:
+                    pygame.draw.circle(spark_surf, (255, 255, 255, min(255, alpha + 50)), (4, 4), max(1, int(sz * 0.5)))
+                SCREEN.blit(spark_surf, (sx - 4, sy - 4))
+
+        ragnarok_impact_sparks = alive_sparks
 
     # === 공 생성 애니메이션 처리 ===
     # 애니메이션 중에는 모든 일반 공 그리기 건너뛰기 (애니메이션은 나중에 한 번만 그림)
@@ -122617,7 +122667,8 @@ def show_item_manager_menu():
         {"name": "spiked_helmet", "type": "passive", "icon": get_icon_safe("spiked_helmet_icon", "spiked_helmet")},
         {"name": "gold_bar", "type": "passive", "icon": get_item_icon("gold_bar")},
         {"name": "gold_digger", "type": "passive", "icon": get_item_icon("gold_digger")},
-        {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")}
+        {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
+        {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")}
     ]
 
     # 전설 아이템 추가
@@ -158809,6 +158860,7 @@ def show_character_item_manager():
         {"name": "foul_whistle", "type": "passive", "icon": get_icon_safe("foul_whistle_icon", "foul_whistle")},
         {"name": "star_detector", "type": "passive", "icon": get_icon_safe("star_detector_icon", "star_detector")},
         {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
+        {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
     ]
 
     # 전설 아이템 추가
