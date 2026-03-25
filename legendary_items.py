@@ -2914,16 +2914,17 @@ class RagnarokHammer(LegendaryItem):
             print(f"[라그나로크 해머] 발동 확률 체크: {roll} <= {self.trigger_chance}% = {triggered}")
         return triggered
 
-    def calculate_knockback(self, ball_speed: float, boss_x: float = 300) -> tuple:
+    def calculate_knockback(self, ball_speed: float, boss_x: float = 300, skip_trigger_check: bool = False) -> tuple:
         """
         공속에 비례한 수평 넉백 계산 (수류탄 방식)
+        skip_trigger_check=True: 스턴공 발동 확정 시 확률 체크 생략
         Returns: (horizontal_knockback_velocity, stun_duration)
         """
         if not self.active:
             return 0, 0
 
-        # 발동 확률 체크
-        if not self.should_trigger():
+        # 발동 확률 체크 (스턴공 확정 시 스킵)
+        if not skip_trigger_check and not self.should_trigger():
             return 0, 0
 
         magnitude = compute_knockback_magnitude("ragnarok", ball_speed=ball_speed)

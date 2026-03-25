@@ -138062,7 +138062,7 @@ def handle_ball():
                 hammer = legendary_manager.items.get("ragnarok_hammer")
                 if hammer and hammer.active:
                     ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    horizontal_velocity, stun_duration = hammer.calculate_knockback(ball_speed, BOSS.x)
+                    horizontal_velocity, stun_duration = hammer.calculate_knockback(ball_speed, BOSS.x, skip_trigger_check=True)
 
                     if horizontal_velocity != 0:
                         boss_knockback_timer = 36
