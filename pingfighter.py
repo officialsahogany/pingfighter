@@ -138638,7 +138638,7 @@ def handle_ball():
 
                     if horizontal_velocity != 0:
                         boss_knockback_timer = 36
-                        boss_knockback_vel = _apply_boss_knockback_velocity(horizontal_velocity)
+                        boss_knockback_vel = _apply_boss_knockback_velocity(horizontal_velocity * 1.4)  # 폭발적 초기속도
                         if stun_duration > 0:
                             ragnarok_stun_pending = int(stun_duration * 60)
 
@@ -142134,34 +142134,51 @@ def handle_boss():
         if abs(boss_knockback_vel) > 0.1:
             BOSS.x += boss_knockback_vel
 
-            # 벽 충돌 시 멈춤 (튕기지 않음) - 0 ~ WIDTH 범위
-            if BOSS.x <= 0:
-                BOSS.x = 0
-                boss_knockback_vel = 0
-            elif BOSS.x >= WIDTH - BOSS.width:
-                BOSS.x = WIDTH - BOSS.width
-                boss_knockback_vel = 0
+            # 벽 충돌 처리
+            if is_ragnarok_knockback:
+                # 라그나로크: 벽에 부딪히면 반대로 살짝 튕김 (역동적)
+                if BOSS.x <= 0:
+                    BOSS.x = 0
+                    boss_knockback_vel = -boss_knockback_vel * 0.3  # 30% 반발
+                elif BOSS.x >= WIDTH - BOSS.width:
+                    BOSS.x = WIDTH - BOSS.width
+                    boss_knockback_vel = -boss_knockback_vel * 0.3
+            else:
+                # 일반 넉백: 벽에서 멈춤
+                if BOSS.x <= 0:
+                    BOSS.x = 0
+                    boss_knockback_vel = 0
+                elif BOSS.x >= WIDTH - BOSS.width:
+                    BOSS.x = WIDTH - BOSS.width
+                    boss_knockback_vel = 0
 
             # 넉백 감속 처리
             if is_ragnarok_knockback:
-                # 라그나로크: 초반 강하게 밀려남 → 급감속 → 즉시 감전
+                # 라그나로크: 폭발적 초기속도 → 급감속 → 즉시 감전
                 progress = 1.0 - (boss_knockback_timer / 36.0)  # 0→1 (시작→끝)
-                if progress < 0.25:
-                    boss_knockback_vel *= 0.96  # 초반: 약한 감속 (빠르게 날아감)
-                elif progress < 0.5:
-                    boss_knockback_vel *= 0.88  # 중반: 급감속
+                if progress < 0.15:
+                    boss_knockback_vel *= 0.98  # 극초반: 거의 감속 없음 (폭발적 이탈)
+                elif progress < 0.35:
+                    boss_knockback_vel *= 0.92  # 초반: 약간 감속
+                elif progress < 0.55:
+                    boss_knockback_vel *= 0.82  # 중반: 급감속
                 else:
-                    boss_knockback_vel *= 0.78  # 후반: 빠르게 정지
+                    boss_knockback_vel *= 0.70  # 후반: 빠르게 정지
             else:
                 # 일반 넉백 (코만도 총알 등)
                 boss_knockback_vel *= 0.85
 
         # 라그나로크 해머만의 추가 효과
         if is_ragnarok_knockback:
-            # 넉백 초반에만 흔들림 (날아가는 느낌)
             progress = 1.0 - (boss_knockback_timer / 36.0)
+            # 넉백 초반: Y축 미세 진동 (충격으로 위아래로 흔들림)
+            if progress < 0.4 and abs(boss_knockback_vel) > 2.0:
+                shake_y = random.uniform(-2.5, 2.5) * (1.0 - progress * 2)
+                BOSS.y += shake_y
+                BOSS.y = max(0, min(120, BOSS.y))
+            # X축 흔들림 (날아가는 느낌)
             if progress < 0.6 and abs(boss_knockback_vel) > 1.0:
-                shake_intensity = 3.0 * (1.0 - progress)
+                shake_intensity = 4.0 * (1.0 - progress)
                 shake_x = random.uniform(-shake_intensity, shake_intensity)
                 BOSS.x += shake_x
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
