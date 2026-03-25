@@ -139465,8 +139465,8 @@ def handle_ball():
                     boss_special_gauge = 0
                     alice_mirror_cooldown_timer = ALICE_MIRROR_COOLDOWN
                     boss_red_intensity = 0
-                # 앨리스: 사이즈 시프트 (게이지 150, 12% 확률, 쿨다운 10초) - 거울 세계 중 사용 불가
-                if (boss_special_gauge >= 150
+                # 앨리스: 사이즈 시프트 (게이지 70, 12% 확률, 쿨다운 10초) - 거울 세계 중 사용 불가
+                if (boss_special_gauge >= 70
                     and not alice_size_shift_active
                     and alice_size_shift_cooldown_timer <= 0
                     and not alice_mirror_active
@@ -139477,12 +139477,12 @@ def handle_ball():
                     else:
                         _size_shouts = ["작아져라~!", "찾을 수 있을까~?", "보이니~?"]
                     show_speech(random.choice(_size_shouts), duration=90)
-                    boss_special_gauge -= 150
+                    boss_special_gauge -= 70
                     alice_size_shift_cooldown_timer = ALICE_SIZE_SHIFT_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
-                # 앨리스: 토끼 투사체 (게이지 180, 13% 확률, 쿨다운 8초)
-                if (boss_special_gauge >= 180
+                # 앨리스: 토끼 투사체 (게이지 120, 13% 확률, 쿨다운 8초)
+                if (boss_special_gauge >= 120
                     and not alice_rabbit_active
                     and not alice_rabbit_windup_active
                     and alice_rabbit_cooldown_timer <= 0
@@ -139490,7 +139490,7 @@ def handle_ball():
                     activate_alice_rabbit()
                     _rabbit_shouts = ["토끼를 따라가~!", "시간이 없어!", "늦었어 늦었어!"]
                     show_speech(random.choice(_rabbit_shouts), duration=90)
-                    boss_special_gauge -= 180
+                    boss_special_gauge -= 120
                     alice_rabbit_cooldown_timer = ALICE_RABBIT_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
