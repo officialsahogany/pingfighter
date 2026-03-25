@@ -1208,6 +1208,8 @@ from events.weather_event import (
     force_start_ice_event,
     force_start_rain_event,
     force_start_hail_event,
+    force_start_sand_event,
+    is_sand_active,
     # 기상조절캡슐 페이드아웃
     is_weather_capsule_fadeout_active,
     update_weather_capsule_fadeout,
@@ -54395,8 +54397,12 @@ def go_to_next_round():
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
 
-    # 🏖 모래 장애물 초기화 (라운드 시작 시 벽 주변에 랜덤 생성)
-    sand_obstacles = spawn_sand_obstacles()
+    # 🏖 사막화 날씨 이벤트: 활성 시 모래 지형 생성, 비활성 시 제거
+    if is_sand_active():
+        if sand_obstacles is None:
+            sand_obstacles = spawn_sand_obstacles()
+    else:
+        sand_obstacles = None
 
     # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
     global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
@@ -131520,8 +131526,12 @@ def reset_round(is_stage_start=False):
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
 
-    # 🏖 모래 장애물 초기화 (라운드 시작 시 벽 주변에 랜덤 생성)
-    sand_obstacles = spawn_sand_obstacles()
+    # 🏖 사막화 날씨 이벤트: 활성 시 모래 지형 생성, 비활성 시 제거
+    if is_sand_active():
+        if sand_obstacles is None:
+            sand_obstacles = spawn_sand_obstacles()
+    else:
+        sand_obstacles = None
 
     # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
     global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active

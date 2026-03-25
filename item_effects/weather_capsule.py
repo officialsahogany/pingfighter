@@ -62,7 +62,8 @@ class WeatherCapsule:
             "fire": "불",
             "ice": "얼음",
             "rain": "소나기",
-            "hail": "우박"
+            "hail": "우박",
+            "sand": "사막화"
         }
         return weather_names.get(weather_type, weather_type)
 

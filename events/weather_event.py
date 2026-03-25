@@ -66,7 +66,7 @@ def _weighted_weather_duration():
 
 # ============== Global State ==============
 weather_event_active = False
-weather_event_type = None  # "breeze", "gust", "fire", "ice", "rain", or "hail"
+weather_event_type = None  # "breeze", "gust", "fire", "ice", "rain", "hail", or "sand"
 weather_event_direction = 0  # -1 = left, 1 = right (바람용)
 weather_event_remaining_rounds = 0
 weather_event_just_started = False
@@ -558,6 +558,8 @@ def check_weather_event_on_round_start():
                 hail_particles = []
                 hail_impact_particles = []
                 hail_initialized = False
+            elif weather_event_type == "sand":
+                weather_end_text = "사막화가 끝났습니다!"
 
             weather_end_timer = 180  # 3 seconds at 60fps
             result["ended"] = True
@@ -578,38 +580,43 @@ def check_weather_event_on_round_start():
         weather_event_active = True
         weather_event_just_started = True
 
-        # 약 16.67% 확률로 미풍, 강풍, 불, 얼음, 소나기, 우박 중 하나 (6가지)
+        # 약 14.3% 확률로 미풍, 강풍, 불, 얼음, 소나기, 우박, 사막화 중 하나 (7가지)
         event_roll = random.random()
-        if event_roll < 0.167:
+        if event_roll < 1/7:
             weather_event_type = "breeze"
             weather_event_direction = random.choice([-1, 1])
             weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.breeze", "미풍이 불어옴!")
-        elif event_roll < 0.333:
+        elif event_roll < 2/7:
             weather_event_type = "gust"
             weather_event_direction = random.choice([-1, 1])
             weather_event_remaining_rounds = 1  # 강풍은 딱 1턴만 지속
             weather_warning_text = _t("weather.gust", "강풍이 불어옴!")
-        elif event_roll < 0.500:
+        elif event_roll < 3/7:
             weather_event_type = "fire"
             weather_event_direction = 0  # 불은 방향 없음
             weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.fire", "화재 발생!")
-        elif event_roll < 0.667:
+        elif event_roll < 4/7:
             weather_event_type = "ice"
             weather_event_direction = 0  # 얼음은 방향 없음
             weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.ice", "빙판 발생!")
-        elif event_roll < 0.833:
+        elif event_roll < 5/7:
             weather_event_type = "rain"
             weather_event_direction = 0  # 소나기는 방향 없음
             weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.rain", "소나기 발생!")
-        else:
+        elif event_roll < 6/7:
             weather_event_type = "hail"
             weather_event_direction = 0  # 우박은 방향 없음
             weather_event_remaining_rounds = _weighted_weather_duration()
             weather_warning_text = _t("weather.hail", "우박 발생!")
+        else:
+            weather_event_type = "sand"
+            weather_event_direction = 0  # 사막화는 방향 없음
+            weather_event_remaining_rounds = _weighted_weather_duration()
+            weather_warning_text = _t("weather.sand", "사막화!")
 
         weather_warning_timer = 180  # 3 seconds
 
@@ -2314,6 +2321,9 @@ def draw_weather_warning(screen, screen_width, screen_height, font=None):
         elif weather_event_type == "ice":
             text_color = (180, 230, 255)  # 하늘색 (얼음)
             border_color = (100, 200, 255)
+        elif weather_event_type == "sand":
+            text_color = (230, 200, 130)  # 모래색 (사막화)
+            border_color = (200, 170, 90)
         else:
             text_color = (255, 255, 255)
             border_color = (200, 200, 200)
@@ -2377,6 +2387,18 @@ def draw_weather_indicator(screen, x, y, font=None):
         type_text = "얼음"
         text_color = (180, 230, 255)
         bg_color = (0, 50, 80, 150)
+    elif weather_event_type == "rain":
+        type_text = "소나기"
+        text_color = (150, 180, 220)
+        bg_color = (0, 20, 60, 150)
+    elif weather_event_type == "hail":
+        type_text = "우박"
+        text_color = (200, 220, 255)
+        bg_color = (30, 40, 70, 150)
+    elif weather_event_type == "sand":
+        type_text = "사막화"
+        text_color = (230, 200, 130)
+        bg_color = (60, 40, 10, 150)
     else:
         return
 
@@ -2532,3 +2554,25 @@ def force_start_hail_event(duration=None):
     play_weather_sound("rain")
 
     if WEATHER_DEBUG_ENABLED: print(f"[Weather] Forced hail start! Duration: {weather_event_remaining_rounds}")
+
+
+def force_start_sand_event(duration=None):
+    """Force start a sand (desertification) event for testing"""
+    global weather_event_active, weather_event_type, weather_event_direction
+    global weather_event_remaining_rounds, weather_event_just_started
+    global weather_warning_timer, weather_warning_text
+
+    weather_event_active = True
+    weather_event_type = "sand"
+    weather_event_direction = 0
+    weather_event_remaining_rounds = duration if duration else random.randint(2, 3)
+    weather_event_just_started = True
+    weather_warning_text = "사막화!"
+    weather_warning_timer = 180
+
+    if WEATHER_DEBUG_ENABLED: print(f"[Weather] Forced sand start! Duration: {weather_event_remaining_rounds}")
+
+
+def is_sand_active():
+    """사막화 이벤트가 활성 중인지 확인"""
+    return weather_event_active and weather_event_type == "sand"
