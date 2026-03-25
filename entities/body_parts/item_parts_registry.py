@@ -49,6 +49,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_torso_parts import AdversityArmorPart
         return AdversityArmorPart(block)
 
+    elif item_name == "shrapnel_armor":
+        from entities.body_parts.item_torso_parts import ShrapnelArmorPart
+        return ShrapnelArmorPart(block)
+
     elif item_name == "commando_arm":
         if side == "right":
             from entities.body_parts.item_arm_parts import CommandoArmRightPart
@@ -262,6 +266,7 @@ VISUAL_ITEM_NAMES = {
     "technical_vest",
     "bulkup",
     "adversity_armor",
+    "shrapnel_armor",
     "commando_arm",
     "gold_digger",
     "ragnarok_hammer",
@@ -278,6 +283,7 @@ ITEM_SLOT_MAP = {
     "technical_vest": "torso",
     "bulkup": "torso",
     "adversity_armor": "torso",
+    "shrapnel_armor": "torso",
     "commando_arm": "l_arm",    # 첫 번째는 l_arm, 두 번째는 r_arm
     "gold_digger": "l_arm",     # 첫 번째는 l_arm, 두 번째는 r_arm
     "ragnarok_hammer": "weapon",

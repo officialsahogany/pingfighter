@@ -295,3 +295,98 @@ class AdversityArmorPart(BodyPart):
 
         # ── 외곽선 ──
         pygame.draw.rect(surface, (30, 18, 55), armor_rect, 1, border_radius=6)
+
+
+class ShrapnelArmorPart(BodyPart):
+    """파편갑옷 (shrapnel_armor).
+
+    갈색/금속 갑옷 + 방사형 파편 문양 + 오렌지 보석.
+    효과: 공을 칠 때 확률적 파편 발사 → 보스 넉백.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_TORSO,
+            draw_order=ORDER_TORSO,
+            joint_a="torso",
+            joint_b="hip",
+        )
+        self.block = block
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        b = self.block
+        cx, ty = joint_a.world_int()
+
+        # ── 갑옷 본체 (짙은 갈색/철색) ──
+        armor_w = int(3.8 * b)
+        armor_h = int(2.5 * b)
+        armor_rect = pygame.Rect(cx - armor_w // 2, ty - int(0.5 * b), armor_w, armor_h)
+
+        # 베이스 갈색
+        pygame.draw.rect(surface, (100, 70, 45), armor_rect, border_radius=6)
+        # 내부 패널 (어두운 갈색)
+        inner = armor_rect.inflate(-int(0.3 * b), -int(0.3 * b))
+        pygame.draw.rect(surface, (75, 50, 30), inner, border_radius=5)
+
+        # ── 가슴 패널 (중앙, 약간 밝은 갈색) ──
+        chest_w = int(2.0 * b)
+        chest_h = int(1.6 * b)
+        chest_rect = pygame.Rect(cx - chest_w // 2, ty - int(0.2 * b), chest_w, chest_h)
+        pygame.draw.rect(surface, (90, 60, 38), chest_rect, border_radius=4)
+
+        # ── 방사형 파편 문양 ──
+        frag_color = (200, 150, 70)
+        frag_cx = cx
+        frag_cy = ty + int(0.5 * b)
+        for i in range(5):
+            angle = math.radians(-90 + 72 * i + phase * 360 * 0.3)
+            inner_r = int(0.2 * b)
+            outer_r = int(0.65 * b)
+            fx1 = frag_cx + int(math.cos(angle) * inner_r)
+            fy1 = frag_cy + int(math.sin(angle) * inner_r)
+            fx2 = frag_cx + int(math.cos(angle) * outer_r)
+            fy2 = frag_cy + int(math.sin(angle) * outer_r)
+            pygame.draw.line(surface, frag_color, (fx1, fy1), (fx2, fy2), 2)
+
+        # ── 중앙 보석 (오렌지, 맥동) ──
+        pulse = int(20 * math.sin(phase * math.tau * 2))
+        gem_color = (255, max(0, min(255, 120 + pulse)), max(0, min(255, 40 + pulse)))
+        gem_r = max(3, int(0.3 * b))
+        pygame.draw.circle(surface, gem_color, (frag_cx, frag_cy), gem_r)
+        pygame.draw.circle(surface, (255, 200, 120), (frag_cx - 1, frag_cy - 1), max(1, gem_r // 2))
+
+        # ── 어깨 가드 ──
+        guard_w = int(1.2 * b)
+        guard_h = int(0.7 * b)
+        for side in [-1, 1]:
+            guard_rect = pygame.Rect(
+                cx + side * int(1.6 * b) - guard_w // 2,
+                ty - int(0.8 * b),
+                guard_w, guard_h,
+            )
+            pygame.draw.rect(surface, (85, 60, 38), guard_rect, border_radius=2)
+            pygame.draw.rect(surface, (130, 95, 60), guard_rect, 1, border_radius=2)
+            # 가드 위 뾰족한 파편 장식
+            spike_x = guard_rect.centerx
+            spike_top = guard_rect.top - int(0.25 * b)
+            pygame.draw.polygon(surface, (160, 110, 60), [
+                (spike_x - int(0.2 * b), guard_rect.top),
+                (spike_x, spike_top),
+                (spike_x + int(0.2 * b), guard_rect.top),
+            ])
+
+        # ── 벨트 (금속 버클) ──
+        belt_rect = pygame.Rect(
+            cx - int(2.0 * b), armor_rect.bottom - int(0.2 * b),
+            int(4.0 * b), int(0.7 * b),
+        )
+        pygame.draw.rect(surface, (60, 40, 25), belt_rect, border_radius=2)
+        buckle_w = int(0.8 * b)
+        buckle_h = belt_rect.height - 2
+        buckle_rect = pygame.Rect(cx - buckle_w // 2, belt_rect.top + 1, buckle_w, buckle_h)
+        pygame.draw.rect(surface, (180, 130, 60), buckle_rect, border_radius=1)
+
+        # ── 외곽선 ──
+        pygame.draw.rect(surface, (60, 40, 25), armor_rect, 1, border_radius=6)

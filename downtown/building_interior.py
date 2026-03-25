@@ -3100,6 +3100,7 @@ class BuildingInterior:
             {"name": "knee_pads", "base_price": 550, "korean": "킥차져"},
             {"name": "lucky_coin", "base_price": 800, "korean": "럭키코인"},
             {"name": "adversity_armor", "base_price": 1100, "korean": "역경의 갑옷"},
+            {"name": "shrapnel_armor", "base_price": 900, "korean": "파편갑옷"},
         ]
 
         # 전설 아이템 목록 (5% 확률)

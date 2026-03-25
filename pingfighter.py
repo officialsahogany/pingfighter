@@ -24664,6 +24664,8 @@ ITEM_SLOT_BASE_MAP = {
     "berserk_potion": "accessory",
     "odins_eye": "belt",
     "hero_seal": "accessory",
+    "adversity_armor": "top",
+    "shrapnel_armor": "top",
 }
 
 PASSIVE_OPTION_RANGES = {
@@ -24740,6 +24742,11 @@ PASSIVE_OPTION_RANGES = {
     "adversity_armor": [
         {"label": "무적 발동 확률", "min": 20, "max": 30, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
         {"label": "무적 지속시간", "min": 8, "max": 15, "unit": "초", "prefix": "", "key": "invincible_duration_sec"},
+    ],
+    "shrapnel_armor": [
+        {"label": "발동 확률", "min": 10, "max": 20, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
+        {"label": "파편 개수", "min": 3, "max": 6, "unit": "개", "prefix": "", "key": "shard_count"},
+        {"label": "넉백 단계", "min": 1, "max": 4, "unit": "Lv", "prefix": "", "key": "knockback_level"},
     ],
 }
 
@@ -24841,6 +24848,9 @@ gold_digger_bonus_pct = 50  # 골드 획득량 (30~70% 범위, 기본값 50%)
 lucky_coin_double_spawn_pct = 10  # 더블 스폰 확률 (5~15% 범위, 기본값 10%)
 adversity_armor_trigger_pct = 25  # 역경의 갑옷 무적 발동 확률 (20~30% 범위, 기본값 25%)
 adversity_armor_duration_sec = 10  # 역경의 갑옷 무적 지속시간 (8~15초 범위, 기본값 10초)
+shrapnel_armor_trigger_pct = 15  # 파편갑옷 발동 확률 (10~20% 범위, 기본값 15%)
+shrapnel_armor_shard_count = 4   # 파편갑옷 파편 개수 (3~6 범위, 기본값 4)
+shrapnel_armor_knockback_level = 2  # 파편갑옷 넉백 단계 (1~4 범위, 기본값 2)
 
 _BASE_SLOT_LABELS = {
     "head": "머리",
@@ -25128,6 +25138,9 @@ def _reset_roll_bonuses_to_default():
     globals()["lucky_coin_double_spawn_pct"] = 10  # 럭키코인 기본값
     globals()["adversity_armor_trigger_pct"] = 25  # 역경의 갑옷 기본값
     globals()["adversity_armor_duration_sec"] = 10  # 역경의 갑옷 기본값
+    globals()["shrapnel_armor_trigger_pct"] = 15  # 파편갑옷 기본값
+    globals()["shrapnel_armor_shard_count"] = 4   # 파편갑옷 기본값
+    globals()["shrapnel_armor_knockback_level"] = 2  # 파편갑옷 기본값
     # 테크니컬조끼 기본 롤 값(연막)
     try:
         from item_effects.technical_vest import configure_technical_vest
@@ -25642,6 +25655,26 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
             )
         except Exception:
             pass
+    elif name == "shrapnel_armor":
+        # 파편갑옷 롤옵션 적용 (발동 확률, 파편 개수, 넉백 단계)
+        val = _get_roll_value(item, "trigger_chance_pct")
+        if val is not None:
+            globals()["shrapnel_armor_trigger_pct"] = val
+        val2 = _get_roll_value(item, "shard_count")
+        if val2 is not None:
+            globals()["shrapnel_armor_shard_count"] = int(val2)
+        val3 = _get_roll_value(item, "knockback_level")
+        if val3 is not None:
+            globals()["shrapnel_armor_knockback_level"] = int(val3)
+        try:
+            from item_effects.shrapnel_armor import configure_shrapnel_armor
+            configure_shrapnel_armor(
+                trigger_chance_pct=globals().get("shrapnel_armor_trigger_pct", 15),
+                shard_count=globals().get("shrapnel_armor_shard_count", 4),
+                knockback_level=globals().get("shrapnel_armor_knockback_level", 2)
+            )
+        except Exception:
+            pass
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -25803,6 +25836,7 @@ def sync_equipped_passive_effects():
     sync_bool("smartphone", "items.smartphone_obtained")
     sync_bool("knee_pads", "items.knee_pads_obtained")
     sync_bool("adversity_armor", "items.adversity_armor_obtained")
+    sync_bool("shrapnel_armor", "items.shrapnel_armor_obtained")
     # 금괴는 별도 처리 (소지만 해도 페널티, 장착하면 페널티 없음)
     # gold_bar_obtained는 인벤토리에 있는지로 결정
     sync_bool("ragnarok_hammer", "items.ragnarok_hammer_obtained")
@@ -25944,6 +25978,17 @@ def sync_equipped_passive_effects():
             activate_adversity_armor()
         else:
             deactivate_adversity_armor()
+    except Exception:
+        pass
+
+    # 파편갑옷
+    try:
+        from item_effects.shrapnel_armor import activate_shrapnel_armor, deactivate_shrapnel_armor
+
+        if "shrapnel_armor" in equipped_names:
+            activate_shrapnel_armor()
+        else:
+            deactivate_shrapnel_armor()
     except Exception:
         pass
 
@@ -72289,6 +72334,15 @@ def handle_player(keys):
             except Exception:
                 pass
 
+        # 파편갑옷 발동 체크 (플레이어가 공을 칠 때)
+        try:
+            from item_effects.shrapnel_armor import get_shrapnel_armor_instance
+            _sa = get_shrapnel_armor_instance()
+            if _sa.active:
+                _sa.on_player_hit_ball(player_paddle.centerx, player_paddle.top)
+        except Exception:
+            pass
+
         # 인게임 골드 획득 (랠리 성공 시)
         rally_gold = calculate_rally_gold()
         add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
@@ -74273,7 +74327,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin", "adversity_armor"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -74314,7 +74368,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin", "adversity_armor"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
         return
 
     # 최대 3개까지만 보관
@@ -75296,6 +75350,18 @@ def store_passive_item(item_data):
             _apply_item_to_skin(_skeletal_skin, "adversity_armor")
             from item_effects.adversity_armor import activate_adversity_armor
             activate_adversity_armor()
+        item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "shrapnel_armor":
+        # 파편갑옷 패시브 아이템 (상의 부위)
+        # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
+        if not items.shrapnel_armor_obtained:
+            items.shrapnel_armor_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "shrapnel_armor")
+            from item_effects.shrapnel_armor import activate_shrapnel_armor
+            activate_shrapnel_armor()
         item_data["type"] = "passive"
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -80563,7 +80629,7 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     # print(f"[DEBUG show_item_obtained_effect] 호출됨! item_data: {item_data.get('name', 'UNKNOWN')}, x={item_x}, y={item_y}")  # 디버그 비활성화
     # 아이템 타입 확인
     item_name = item_data.get("name", "")
-    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt"]
+    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt", "shrapnel_armor"]
     # 시작 위치 (아이템이 있던 위치 또는 화면 중앙)
     if item_x is not None and item_y is not None:
         start_x = item_x
@@ -103236,6 +103302,15 @@ def draw_objects():
     except Exception:
         pass
 
+    # 파편갑옷 파편 및 넉백 이펙트 그리기
+    try:
+        from item_effects.shrapnel_armor import get_shrapnel_armor_instance
+        _sa_draw = get_shrapnel_armor_instance()
+        if _sa_draw and _sa_draw.active:
+            _sa_draw.draw_effects(SCREEN, player_rect=PLAYER, boss_rect=BOSS)
+    except Exception:
+        pass
+
     # 홀리베리어 효과 그리기 (플레이어 뒤쪽 방벽)
     if holy_barrier_module.is_holy_barrier_active():
         draw_holy_barrier_effects(SCREEN)
@@ -122491,7 +122566,7 @@ def show_item_manager_menu():
     # 패시브 아이템 부위별 분류
     PASSIVE_SLOT_ORDER = [
         ("머리", ["bulletproof_hat", "spiked_helmet"]),
-        ("상의", ["technical_vest", "bulkup", "adversity_armor"]),
+        ("상의", ["technical_vest", "bulkup", "adversity_armor", "shrapnel_armor"]),
         ("팔", ["commando_arm", "master", "smartphone", "gold_digger"]),
         ("벨트", ["gravitybelt", "speedgear", "sensor"]),
         ("무릎", ["knee_pads", "dashgear"]),
@@ -122685,7 +122760,8 @@ def show_item_manager_menu():
         {"name": "gold_bar", "type": "passive", "icon": get_item_icon("gold_bar")},
         {"name": "gold_digger", "type": "passive", "icon": get_item_icon("gold_digger")},
         {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
-        {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")}
+        {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
+        {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")}
     ]
 
     # 전설 아이템 추가
@@ -125726,6 +125802,64 @@ def get_item_icon(item_name):
                             (cx - ICON_SIZE // 4, cy, ICON_SIZE // 2, ICON_SIZE // 8))
             pygame.draw.ellipse(icon_surface, eye_color,
                               (cx - ICON_SIZE // 8, cy - ICON_SIZE // 10, ICON_SIZE // 4, ICON_SIZE // 6))
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
+    if item_name == "shrapnel_armor":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        s = ICON_SIZE / 48  # 스케일 팩터
+
+        # 갑옷 본체 (짙은 갈색/철색)
+        armor_color = (120, 80, 50)
+        armor_dark = (80, 55, 35)
+        armor_highlight = (160, 115, 75)
+
+        # 메인 갑옷 형태 (가슴 보호대)
+        armor_w = int(30 * s)
+        armor_h = int(28 * s)
+        armor_rect = pygame.Rect(cx - armor_w // 2, cy - armor_h // 2 + int(2 * s), armor_w, armor_h)
+        pygame.draw.rect(icon_surface, armor_color, armor_rect, border_radius=int(4 * s))
+        # 내부 패널
+        inner = armor_rect.inflate(-int(4 * s), -int(4 * s))
+        pygame.draw.rect(icon_surface, armor_dark, inner, border_radius=int(3 * s))
+
+        # 어깨 가드
+        for side in [-1, 1]:
+            guard_x = cx + side * int(14 * s)
+            guard_rect = pygame.Rect(guard_x - int(5 * s), cy - int(12 * s), int(10 * s), int(8 * s))
+            pygame.draw.rect(icon_surface, armor_color, guard_rect, border_radius=int(2 * s))
+            pygame.draw.rect(icon_surface, armor_highlight, guard_rect, 1, border_radius=int(2 * s))
+
+        # 중앙 파편 문양 (방사형 파편 패턴)
+        fragment_color = (220, 160, 80)
+        spark_color = (255, 200, 100)
+        num_frags = 5
+        for i in range(num_frags):
+            angle = math.radians(-90 + 360 * i / num_frags)
+            fx = cx + int(math.cos(angle) * 6 * s)
+            fy = cy + int(math.sin(angle) * 6 * s) + int(2 * s)
+            ex = cx + int(math.cos(angle) * 11 * s)
+            ey = cy + int(math.sin(angle) * 11 * s) + int(2 * s)
+            pygame.draw.line(icon_surface, fragment_color, (fx, fy), (ex, ey), max(1, int(1.5 * s)))
+            # 파편 끝 삼각형
+            tip_size = int(3 * s)
+            perp_angle = angle + math.pi / 2
+            p1 = (ex, ey)
+            p2 = (ex + int(math.cos(perp_angle) * tip_size // 2), ey + int(math.sin(perp_angle) * tip_size // 2))
+            p3 = (ex - int(math.cos(perp_angle) * tip_size // 2), ey - int(math.sin(perp_angle) * tip_size // 2))
+            pygame.draw.polygon(icon_surface, spark_color, [p1, p2, p3])
+
+        # 중앙 보석 (불꽃 오렌지)
+        gem_r = max(2, int(3 * s))
+        pygame.draw.circle(icon_surface, (255, 120, 40), (cx, cy + int(2 * s)), gem_r)
+        pygame.draw.circle(icon_surface, (255, 200, 120), (cx - 1, cy + int(2 * s) - 1), max(1, gem_r // 2))
+
+        # 외곽선
+        pygame.draw.rect(icon_surface, armor_highlight, armor_rect, 1, border_radius=int(4 * s))
+
         icon_cache[item_name] = icon_surface
         return icon_surface
 
@@ -144767,6 +144901,13 @@ def show_result(won):
             reset_adversity_armor()
         except Exception:
             pass
+        items.shrapnel_armor_obtained = False
+        try:
+            from item_effects.shrapnel_armor import reset_shrapnel_armor
+
+            reset_shrapnel_armor()
+        except Exception:
+            pass
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
         rolling_charges = 1
         # 대쉬 매니저 완전 리셋
@@ -149243,6 +149384,12 @@ def main(stage_num, new_boss_mode=False):
                         reset_adversity_armor()
                     except Exception:
                         pass
+                    items.shrapnel_armor_obtained = False  # 파편갑옷 초기화
+                    try:
+                        from item_effects.shrapnel_armor import reset_shrapnel_armor
+                        reset_shrapnel_armor()
+                    except Exception:
+                        pass
 
                     # 킥차져 효과 초기화 (강제 종료 시)
                     try:
@@ -150286,6 +150433,21 @@ def main(stage_num, new_boss_mode=False):
             _aa = get_adversity_armor_instance()
             if _aa and _aa.active:
                 _aa.update()
+        except Exception:
+            pass
+
+        # 파편갑옷 업데이트 (파편 이동 + 보스 넉백 + 충돌 체크)
+        try:
+            from item_effects.shrapnel_armor import get_shrapnel_armor_instance
+            _sa_upd = get_shrapnel_armor_instance()
+            if _sa_upd and _sa_upd.active:
+                _sa_upd.update()
+                # 보스 패들과 파편 충돌 체크
+                _sa_upd.check_boss_collision(BOSS)
+                # 넉백 오프셋을 보스 Y에 적용 (임시 - 다음 프레임 AI가 BOSS_Y로 복귀)
+                _sa_kb = _sa_upd.get_boss_knockback_offset()
+                if _sa_kb > 0:
+                    BOSS.y = BOSS_Y + int(_sa_kb)
         except Exception:
             pass
 
@@ -158074,7 +158236,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -158154,6 +158316,7 @@ def get_item_description(item_name):
         "dowsing_pendulum": "다우징팬들럼: 주위 아이템을 끌어당깁니다.",
         "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 2개 동시에 나타납니다.",
         "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
+        "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 10~20%, 파편 3~6개, 넉백 Lv1~4",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
@@ -158901,6 +159064,7 @@ def show_character_item_manager():
         {"name": "star_detector", "type": "passive", "icon": get_icon_safe("star_detector_icon", "star_detector")},
         {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
         {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
+        {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")},
     ]
 
     # 전설 아이템 추가
