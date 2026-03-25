@@ -306,9 +306,10 @@ class AliceBossSprite:
         dress_w_bot = int(42 * s)
 
         # 메인 드레스 실루엣 (A라인)
+        # 핵심: 상단(허리)은 lean_px만, 하단(치맛단)만 넘실거림!
         dress_main = [
-            (cx - dress_w_top + total_skirt_sway // 3 + lean_px, dress_top_y),
-            (cx + dress_w_top + total_skirt_sway // 3 + lean_px, dress_top_y),
+            (cx - dress_w_top + lean_px, dress_top_y),
+            (cx + dress_w_top + lean_px, dress_top_y),
             (cx + dress_w_bot + total_skirt_sway + lean_px, dress_bot_y),
             (cx - dress_w_bot + total_skirt_sway + lean_px, dress_bot_y),
         ]
@@ -316,8 +317,8 @@ class AliceBossSprite:
 
         # 드레스 그라데이션 음영 (왼쪽 어둡게)
         shade_pts = [
-            (cx - int(12 * s) + total_skirt_sway // 3 + lean_px, dress_top_y + int(4 * s)),
-            (cx + int(2 * s) + total_skirt_sway // 3 + lean_px, dress_top_y + int(2 * s)),
+            (cx - int(12 * s) + lean_px, dress_top_y + int(4 * s)),
+            (cx + int(2 * s) + lean_px, dress_top_y + int(2 * s)),
             (cx - int(5 * s) + total_skirt_sway + lean_px, dress_bot_y),
             (cx - dress_w_bot + int(4 * s) + total_skirt_sway + lean_px, dress_bot_y),
         ]
@@ -325,8 +326,8 @@ class AliceBossSprite:
 
         # 드레스 림라이트 (오른쪽 밝은 선)
         rim_pts = [
-            (cx + dress_w_top - int(3 * s) + total_skirt_sway // 3 + lean_px, dress_top_y + int(2 * s)),
-            (cx + dress_w_top + total_skirt_sway // 3 + lean_px, dress_top_y),
+            (cx + dress_w_top - int(3 * s) + lean_px, dress_top_y + int(2 * s)),
+            (cx + dress_w_top + lean_px, dress_top_y),
             (cx + dress_w_bot + total_skirt_sway + lean_px, dress_bot_y),
             (cx + dress_w_bot - int(5 * s) + total_skirt_sway + lean_px, dress_bot_y),
         ]
@@ -382,10 +383,10 @@ class AliceBossSprite:
         # === 에이프런 (하반신) ===
         apron_sway = total_skirt_sway
         apron_pts = [
-            (cx - int(15 * s) + apron_sway // 3 + lean_px, dress_top_y + int(2 * s)),
-            (cx + int(15 * s) + apron_sway // 3 + lean_px, dress_top_y + int(2 * s)),
-            (cx + int(24 * s) + apron_sway + lean_px, dress_bot_y - int(6 * s)),
-            (cx - int(24 * s) + apron_sway + lean_px, dress_bot_y - int(6 * s)),
+            (cx - int(15 * s) + lean_px, dress_top_y + int(2 * s)),          # 상단: 고정
+            (cx + int(15 * s) + lean_px, dress_top_y + int(2 * s)),          # 상단: 고정
+            (cx + int(24 * s) + apron_sway + lean_px, dress_bot_y - int(6 * s)),  # 하단: 넘실
+            (cx - int(24 * s) + apron_sway + lean_px, dress_bot_y - int(6 * s)),  # 하단: 넘실
         ]
         apron_surf = self._get_surface(sw, sh)
         pygame.draw.polygon(apron_surf, (*apron_white, 200), apron_pts)
@@ -419,7 +420,7 @@ class AliceBossSprite:
         leg_step_r = _sin(self.step_phase * 2 + _pi) * (3 if abs(self.velocity) > 5 else 0)
 
         for side, step_offset in [(-1, leg_step_l), (1, leg_step_r)]:
-            lx = cx + side * int(8 * s) + total_skirt_sway + lean_px
+            lx = cx + side * int(8 * s) + lean_px  # 다리는 넘실거림 없이 lean만
             ly = leg_y + int(step_offset * s * 0.5)
 
             # 스타킹 (하얀 니하이)
