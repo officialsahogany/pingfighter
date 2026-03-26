@@ -43,10 +43,10 @@ class Banana:
     # 바나나는 보스 패들과 같은 높이에 착지해야 밟을 수 있음
     BOSS_AREA_Y = 45  # 보스 패들 중앙 높이에 착지 (Y=25~65의 중간)
 
-    # 게임 영역 오프셋
-    GAME_AREA_OFFSET_X = 80
-    GAME_AREA_LEFT = GAME_AREA_OFFSET_X  # 80px
-    GAME_AREA_RIGHT = GAME_AREA_OFFSET_X + 600  # 680px
+    # 게임 물리 영역 경계 (전체 너비 0~760)
+    GAME_AREA_OFFSET_X = 0
+    GAME_AREA_LEFT = 0  # 0px
+    GAME_AREA_RIGHT = 760  # WIDTH
 
     def __init__(self) -> None:
         self.active: bool = False

@@ -42,10 +42,10 @@ class Dynamite:
     # 보스 진영 경계선 (config/constants.py의 BOSS_AREA_BOUNDARY_Y 참조)
     # 화면 규격: 760x750, 보스 Y=25, 보스 진영은 Y < 120
     BOSS_AREA_Y = 120  # 보스 진영 하단 경계 Y 좌표
-    # 게임 영역 오프셋 (좌우 필러 80px)
-    GAME_AREA_OFFSET_X = 80
-    GAME_AREA_LEFT = GAME_AREA_OFFSET_X  # 80px (게임 영역 왼쪽 경계)
-    GAME_AREA_RIGHT = GAME_AREA_OFFSET_X + 600  # 680px (게임 영역 오른쪽 경계)
+    # 게임 물리 영역 경계 (전체 너비 0~760)
+    GAME_AREA_OFFSET_X = 0
+    GAME_AREA_LEFT = 0  # 0px (물리 영역 왼쪽 경계)
+    GAME_AREA_RIGHT = 760  # 760px (물리 영역 오른쪽 경계, WIDTH)
 
     def __init__(self) -> None:
         self.active: bool = False
