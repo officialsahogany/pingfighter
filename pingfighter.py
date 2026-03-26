@@ -123299,6 +123299,7 @@ def show_item_manager_menu():
         {"name": "banana", "type": "active", "icon": get_item_icon("banana")},
         {"name": "regeneration_potion", "type": "active", "icon": get_item_icon("regeneration_potion")},
         {"name": "magnet_field", "type": "active", "icon": get_item_icon("magnet_field")},
+        {"name": "boomerang", "type": "active", "icon": get_item_icon("boomerang")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -126418,47 +126419,61 @@ def get_item_icon(item_name):
         cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
         s = ICON_SIZE / 48  # 스케일 팩터
 
-        # 자석 본체 (U자형 자석)
-        magnet_red = (220, 50, 50)
-        magnet_blue = (50, 80, 220)
-        magnet_gray = (180, 180, 190)
+        # 전자기 코일 장치 (원형 코일 + 중앙 에너지 코어 + 전기 방전)
 
-        # U자형 자석 - 아래가 곡선, 위가 두 갈래
-        arm_w = int(8 * s)
-        arm_h = int(18 * s)
-        gap = int(10 * s)
-        top_y = cy - int(12 * s)
+        # 외곽 원형 코일 링 (금속 회색)
+        coil_dark = (80, 85, 100)
+        coil_color = (140, 150, 170)
+        coil_r = int(18 * s)
+        pygame.draw.circle(icon_surface, coil_dark, (cx, cy), coil_r, int(4 * s))
+        pygame.draw.circle(icon_surface, coil_color, (cx, cy), coil_r, int(3 * s))
+        # 코일 세그먼트 눈금
+        for i in range(8):
+            angle = math.radians(i * 45)
+            nx = cx + int(math.cos(angle) * (coil_r - int(1 * s)))
+            ny = cy + int(math.sin(angle) * (coil_r - int(1 * s)))
+            ox = cx + int(math.cos(angle) * (coil_r + int(1 * s)))
+            oy = cy + int(math.sin(angle) * (coil_r + int(1 * s)))
+            pygame.draw.line(icon_surface, (200, 210, 230), (nx, ny), (ox, oy), max(1, int(1.5 * s)))
 
-        # 왼쪽 팔 (빨간색)
-        left_x = cx - gap // 2 - arm_w
-        pygame.draw.rect(icon_surface, magnet_red,
-                        (left_x, top_y, arm_w, arm_h), border_radius=int(2 * s))
-        # 오른쪽 팔 (파란색)
-        right_x = cx + gap // 2
-        pygame.draw.rect(icon_surface, magnet_blue,
-                        (right_x, top_y, arm_w, arm_h), border_radius=int(2 * s))
+        # 중앙 에너지 코어 글로우
+        core_r = int(7 * s)
+        glow_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        for gr in range(int(12 * s), 0, -1):
+            alpha = int(60 * (1 - gr / (12 * s)))
+            pygame.draw.circle(glow_surf, (120, 80, 255, alpha), (cx, cy), gr)
+        icon_surface.blit(glow_surf, (0, 0))
+        # 코어 본체
+        pygame.draw.circle(icon_surface, (160, 100, 255), (cx, cy), core_r)
+        pygame.draw.circle(icon_surface, (220, 180, 255), (cx, cy), max(2, int(4 * s)))
+        pygame.draw.circle(icon_surface, (240, 230, 255), (cx - int(2 * s), cy - int(2 * s)), max(1, int(2 * s)))
 
-        # 하단 곡선 연결부 (회색)
-        curve_rect = pygame.Rect(left_x, top_y + arm_h - int(6 * s),
-                                right_x + arm_w - left_x, int(12 * s))
-        pygame.draw.arc(icon_surface, magnet_gray, curve_rect, math.pi, 2 * math.pi, int(3 * s))
+        # 전기 방전 아크 3방향 (코어 → 코일)
+        arc_color = (180, 150, 255)
+        arc_bright = (230, 210, 255)
+        for a_deg in [30, 150, 270]:
+            a_rad = math.radians(a_deg)
+            sx = cx + int(math.cos(a_rad) * core_r)
+            sy = cy + int(math.sin(a_rad) * core_r)
+            ex = cx + int(math.cos(a_rad) * (coil_r - int(3 * s)))
+            ey = cy + int(math.sin(a_rad) * (coil_r - int(3 * s)))
+            perp = a_rad + math.pi / 2
+            mx = int(sx + (ex - sx) * 0.5 + math.cos(perp) * 3 * s)
+            my = int(sy + (ey - sy) * 0.5 + math.sin(perp) * 3 * s)
+            pygame.draw.line(icon_surface, arc_color, (sx, sy), (mx, my), max(1, int(1.5 * s)))
+            pygame.draw.line(icon_surface, arc_bright, (mx, my), (ex, ey), max(1, int(1.5 * s)))
 
-        # 자력선 (동심원 파동)
-        for i in range(3):
-            r = int((14 + i * 7) * s)
-            alpha = 150 - i * 40
-            line_color = (100, 150, 255, alpha)
-            line_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-            pygame.draw.arc(line_surf, line_color,
-                           (cx - r, top_y - int(4 * s) - r, r * 2, r * 2),
-                           math.pi * 0.2, math.pi * 0.8, max(1, int(1.5 * s)))
-            icon_surface.blit(line_surf, (0, 0))
-
-        # 하이라이트
-        pygame.draw.rect(icon_surface, (255, 100, 100),
-                        (left_x + 1, top_y + 1, int(2 * s), int(6 * s)))
-        pygame.draw.rect(icon_surface, (100, 130, 255),
-                        (right_x + 1, top_y + 1, int(2 * s), int(6 * s)))
+        # 외곽 자기장 파동 (점선 원)
+        for i in range(2):
+            wave_r = int((22 + i * 4) * s)
+            wave_alpha = 100 - i * 40
+            wave_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+            for d in range(12):
+                dot_angle = math.radians(d * 30 + i * 15)
+                ddx = cx + int(math.cos(dot_angle) * wave_r)
+                ddy = cy + int(math.sin(dot_angle) * wave_r)
+                pygame.draw.circle(wave_surf, (140, 120, 255, wave_alpha), (ddx, ddy), max(1, int(1 * s)))
+            icon_surface.blit(wave_surf, (0, 0))
 
         icon_cache[item_name] = icon_surface
         return icon_surface
@@ -159278,6 +159293,7 @@ def get_item_description(item_name):
         "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
         "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4",
         "magnet_field": "자기장 발생기: 8초간 자기장을 발생시켜 반경 300px 이내의 보스가 친 공이 플레이어 패들 쪽으로 끌려옵니다. 위기 상황에서 방어용으로 유용합니다.",
+        "boomerang": "부메랑: 보스 방향으로 부메랑을 던져 넉백+스턴을 겁니다. 부메랑이 돌아오면서 경로에 있는 필드 아이템을 자동으로 회수합니다. 공에 닿으면 부메랑이 파괴됩니다.",
         "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 선택지 품질 10~30% (희귀 아이템 출현 확률 상승)",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
@@ -160007,6 +160023,7 @@ def show_character_item_manager():
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
         {"name": "laser_scope", "type": "active", "icon": get_item_icon("laser_scope")},
         {"name": "regeneration_potion", "type": "active", "icon": get_item_icon("regeneration_potion")},
+        {"name": "boomerang", "type": "active", "icon": get_item_icon("boomerang")},
         # 패시브 아이템들
         {"name": "slot_add", "type": "passive", "icon": get_icon_safe("slot_add_icon", "slot_add")},
         {"name": "revival", "type": "passive", "icon": get_icon_safe("revival_icon", "revival")},
