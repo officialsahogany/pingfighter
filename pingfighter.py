@@ -151580,6 +151580,16 @@ def main(stage_num, new_boss_mode=False):
                             store_active_item(picked)
                         except Exception:
                             pass
+                    # 부메랑 아이템 자체를 다시 액티브 슬롯에 추가 (회수 성공 보상)
+                    try:
+                        boomerang_item = {
+                            "name": "boomerang",
+                            "effect": "boomerang",
+                            "icon": get_item_icon("boomerang"),
+                        }
+                        store_active_item(boomerang_item)
+                    except Exception:
+                        pass
         # Stage 7: 테크니컬조끼 연막이 테트로미노에 닿으면 증발 처리
         # - 기존 연막탄 파괴 경로(destroy_stage7_tetrominoes_in_smoke)를 재사용해 성능/일관성 유지
         if current_stage == 7:
