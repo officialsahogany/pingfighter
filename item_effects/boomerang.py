@@ -40,19 +40,19 @@ class Boomerang:
         self.height = 750
         self.player_x = 380
         self.player_y = 710
-        self.total_hit_count = 0    # 누적 보스 명중 횟수 (회수해도 유지)
-        self.total_throw_count = 0  # 누적 투척 횟수 (회수해도 유지)
         self.debug = os.environ.get("DEBUG_BOOMERANG", "0") == "1"
 
     def activate(self, game_state=None, current_stage=None, width=760, height=750,
-                 player_x=380, player_y=710, speed_multiplier=1.0):
+                 player_x=380, player_y=710, speed_multiplier=1.0,
+                 prev_hit_count=0, prev_throw_count=0):
         """부메랑 발사
 
         Args:
             speed_multiplier: 코만도암 등 외부 속도 배율 (기본 1.0)
+            prev_hit_count: 이전 회수 시 누적된 명중 횟수 (같은 아이템 연속 투척용)
+            prev_throw_count: 이전 회수 시 누적된 투척 횟수
         """
         self.active = True
-        self.total_throw_count += 1
         self.width = width
         self.height = height
         self.player_x = player_x
@@ -82,8 +82,8 @@ class Boomerang:
             "wind_drift": wind_drift,
             "speed_jitter": speed_jitter,
             "speed_multiplier": speed_multiplier,  # 코만도암 속도 배율
-            "hit_count": 0,        # 보스 명중 횟수
-            "throw_count": 0,      # 투척 횟수 (회수 후 재투척 시 증가)
+            "hit_count": prev_hit_count,          # 누적 보스 명중 횟수 (개별 부메랑)
+            "throw_count": prev_throw_count + 1,  # 누적 투척 횟수 (이번 투척 포함)
             "hit_boss": False,
             "picked_items": [],
             # 귀환 시 불규칙 궤도용
@@ -99,12 +99,10 @@ class Boomerang:
             print(f"[BOOMERANG] 발사! x={player_x}, y={player_y}")
 
     def deactivate(self):
-        """부메랑 비활성화 (카운터도 리셋)"""
+        """부메랑 비활성화"""
         self.boomerangs.clear()
         self.particles.clear()
         self.active = False
-        self.total_hit_count = 0
-        self.total_throw_count = 0
 
         if self.debug:
             print("[BOOMERANG] 비활성화")
@@ -187,7 +185,6 @@ class Boomerang:
                     if boom_rect.colliderect(boss_rect):
                         boom["hit_boss"] = True
                         boom["hit_count"] += 1
-                        self.total_hit_count += 1
                         direction = 1 if boom["x"] >= boss_rect.centerx else -1
                         events.append({
                             "type": "boss_hit",
@@ -199,10 +196,10 @@ class Boomerang:
                             "y": boom["y"],
                         })
                         if self.debug:
-                            print(f"[BOOMERANG] 보스 명중! 횟수={self.total_hit_count}/{BOOMERANG_MAX_HITS}")
+                            print(f"[BOOMERANG] 보스 명중! 횟수={boom['hit_count']}/{BOOMERANG_MAX_HITS}")
 
-                        # 누적 3회 명중 시 파괴
-                        if self.total_hit_count >= BOOMERANG_MAX_HITS:
+                        # 이 부메랑이 3회 명중 시 파괴
+                        if boom["hit_count"] >= BOOMERANG_MAX_HITS:
                             events.append({
                                 "type": "destroyed",
                                 "reason": "max_hits",
@@ -249,8 +246,8 @@ class Boomerang:
                 if "return_start_dist" not in boom:
                     boom["return_start_dist"] = dist  # 귀환 시작 시 거리 저장
 
-                # 3회째 투척 → 귀환 중 절반 지점에서 자동 파괴
-                if self.total_throw_count >= BOOMERANG_MAX_THROWS:
+                # 이 부메랑이 3회째 투척 → 귀환 중 절반 지점에서 자동 파괴
+                if boom["throw_count"] >= BOOMERANG_MAX_THROWS:
                     start_d = boom.get("return_start_dist", dist)
                     if start_d > 0 and dist < start_d * 0.5:
                         events.append({
@@ -270,6 +267,8 @@ class Boomerang:
                     events.append({
                         "type": "returned",
                         "picked_items": boom["picked_items"],
+                        "hit_count": boom["hit_count"],
+                        "throw_count": boom["throw_count"],
                     })
                     to_remove.append(i)
                     if self.debug:
@@ -574,11 +573,13 @@ def get_boomerang_instance():
 
 
 def activate_boomerang(game_state=None, current_stage=None, width=760, height=750,
-                       player_x=380, player_y=710, speed_multiplier=1.0):
+                       player_x=380, player_y=710, speed_multiplier=1.0,
+                       prev_hit_count=0, prev_throw_count=0):
     """부메랑 발사"""
     boom = get_boomerang_instance()
     boom.activate(game_state, current_stage, width, height, player_x, player_y,
-                  speed_multiplier=speed_multiplier)
+                  speed_multiplier=speed_multiplier,
+                  prev_hit_count=prev_hit_count, prev_throw_count=prev_throw_count)
     return True
 
 
