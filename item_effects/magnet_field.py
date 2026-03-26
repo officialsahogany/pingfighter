@@ -11,7 +11,7 @@ import math
 import random
 
 # 상수
-MAGNET_FIELD_DURATION_FRAMES = 180  # 3초 (60fps * 3)
+MAGNET_FIELD_DURATION_FRAMES = 480  # 8초 (60fps * 8)
 MAGNET_PULL_RADIUS = 300  # 자기장 반경 (px) - 이 범위 안의 공만 끌어당김
 MAGNET_PULL_STRENGTH = 1.2  # 공을 끌어당기는 최대 힘 (패들 방향 벡터)
 MAGNET_PROJECTILE_DEFLECT = 0.2  # 보스 투사체 궤도 변경 힘

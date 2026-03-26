@@ -55650,7 +55650,7 @@ def apply_effect(effect_name):
         except Exception:
             pass
         play_active_item_sound()
-        print("🧲 자기장 발동! 3초간 공이 플레이어 쪽으로 끌려옵니다")
+        print("🧲 자기장 발동! 8초간 보스가 친 공이 플레이어 쪽으로 끌려옵니다")
     elif effect_name == "dash_boost":  # 대쉬부스트 액티브 아이템
         activate_dash_boost(None, current_stage, WIDTH, HEIGHT)
         try:
@@ -94756,6 +94756,98 @@ def draw_player_gauge():
             glow_surface = pygame.Surface((emblem_size + 14, emblem_size + 14), pygame.SRCALPHA)
             pulse = abs(math.sin(pygame.time.get_ticks() * 0.01))
             pygame.draw.circle(glow_surface, (100, 200, 255, int(100 + 80 * pulse)), ((emblem_size + 14)//2, (emblem_size + 14)//2), (emblem_size + 8)//2, 3)
+            SCREEN.blit(glow_surface, (rrect.centerx - (emblem_size + 14)//2, rrect.centery - (emblem_size + 14)//2))
+            SCREEN.blit(scaled, rrect)
+
+    # 자기장 발생기 가로형 타이머 게이지 (보라/자기장 느낌)
+    if is_magnet_field_active():
+        v_width = 150
+        v_height = 12
+        base_x = WIDTH - v_width - 16
+        base_y = HEIGHT - 28
+        idx = _hg_index('magnet_field')
+        if idx < 0:
+            _hg_on_activate('magnet_field')
+            idx = _hg_index('magnet_field')
+        spacing = 18
+        mf_x = base_x
+        mf_y = base_y - max(0, idx) * spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, mf_y)
+
+        remaining_ratio = get_magnet_field_remaining_ratio()
+        remaining_seconds = get_magnet_field_remaining_time()
+
+        outer_rect = pygame.Rect(mf_x - 5, mf_y - 6, v_width + 10, v_height + 12)
+        mid_rect   = pygame.Rect(mf_x - 3, mf_y - 4, v_width + 6,  v_height + 8)
+        frame_rect = pygame.Rect(mf_x - 2, mf_y - 2, v_width + 4,  v_height + 4)
+        inner_rect = pygame.Rect(mf_x,     mf_y,     v_width,      v_height)
+
+        shadow_surf = pygame.Surface((outer_rect.width, outer_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 70), shadow_surf.get_rect(), border_radius=8)
+        SCREEN.blit(shadow_surf, (outer_rect.x, outer_rect.y))
+
+        # 보라/남색 프레임 (자기장 테마)
+        draw.rect((30, 20, 50), outer_rect, border_radius=8)
+        draw.rect((80, 60, 160), mid_rect, border_radius=7)
+        draw.rect((140, 110, 220), mid_rect, 2, border_radius=7)
+        draw.rect((25, 18, 45), frame_rect, border_radius=6)
+
+        inner_shadow = pygame.Surface((inner_rect.width, inner_rect.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(inner_shadow, (0, 0, 0, alpha), (0, i, inner_rect.width, 1))
+        SCREEN.blit(inner_shadow, (inner_rect.x, inner_rect.y))
+
+        fill_w = max(1, int((v_width - 4) * remaining_ratio))
+        if fill_w > 0:
+            # 단계별 색: >5s 밝은 보라, 3~5s 중간, <3s 경고
+            if remaining_seconds > 5.0:
+                base = (120, 80, 255)
+                hi = (180, 150, 255)
+            elif remaining_seconds > 3.0:
+                base = (100, 70, 220)
+                hi = (160, 130, 255)
+            else:
+                p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                base = (int(200 + 55 * p), int(80 + 60 * p), int(150 + 60 * p))
+                hi = (int(230 + 25 * p), int(120 + 50 * p), int(200 + 55 * p))
+
+            fill_rect = pygame.Rect(mf_x + 2, mf_y + 2, fill_w, v_height - 4)
+            grad = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            for x in range(fill_rect.width):
+                t = x / max(1, fill_rect.width - 1)
+                col = (int(base[0] + (hi[0] - base[0]) * t), int(base[1] + (hi[1] - base[1]) * t), int(base[2] + (hi[2] - base[2]) * t), 255)
+                pygame.draw.line(grad, col, (x, 0), (x, fill_rect.height - 1))
+            mask = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=3)
+            grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(grad, (fill_rect.x, fill_rect.y))
+
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            glow = (int(hi[0] * (0.6 + 0.4 * pulse)), int(hi[1] * (0.6 + 0.4 * pulse)), int(min(255, hi[2] * (0.6 + 0.4 * pulse))))
+            draw.rect(glow, (mf_x + 2, mf_y + 2, fill_w, 2), border_radius=2)
+
+            for i in range(1, 10):
+                tx = mf_x + 2 + int((v_width - 4) * (i / 10))
+                pygame.draw.line(SCREEN, (140, 120, 200), (tx, mf_y + v_height - 4), (tx, mf_y + v_height - 1), 1)
+
+            end_x = mf_x + 2 + fill_w
+            if 2 < fill_w < (v_width - 4):
+                glint = pygame.Surface((8, v_height), pygame.SRCALPHA)
+                pygame.draw.line(glint, (255, 255, 255, 120), (0, 0), (0, v_height - 3), 2)
+                SCREEN.blit(glint, (end_x - 1, mf_y + 2))
+
+        emblem_size = int(v_height * 1.5)
+        emblem_x = mf_x - emblem_size - 6
+        emblem_y = mf_y
+        icon = get_item_icon("magnet_field")
+        if icon:
+            scaled = pygame.transform.smoothscale(icon, (emblem_size, emblem_size))
+            rrect = scaled.get_rect(topleft=(emblem_x, emblem_y))
+            glow_surface = pygame.Surface((emblem_size + 14, emblem_size + 14), pygame.SRCALPHA)
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.01))
+            pygame.draw.circle(glow_surface, (140, 100, 255, int(100 + 80 * pulse)), ((emblem_size + 14)//2, (emblem_size + 14)//2), (emblem_size + 8)//2, 3)
             SCREEN.blit(glow_surface, (rrect.centerx - (emblem_size + 14)//2, rrect.centery - (emblem_size + 14)//2))
             SCREEN.blit(scaled, rrect)
 
@@ -159051,7 +159143,7 @@ def get_item_description(item_name):
         "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 2개 동시에 나타납니다.",
         "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
         "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4",
-        "magnet_field": "자기장 발생기: 3초간 자기장을 발생시켜 공이 플레이어 패들 쪽으로 약간 끌려옵니다. 위기 상황에서 방어용으로 유용하며, 보스 공격도 살짝 궤도가 변경됩니다.",
+        "magnet_field": "자기장 발생기: 8초간 자기장을 발생시켜 반경 300px 이내의 보스가 친 공이 플레이어 패들 쪽으로 끌려옵니다. 위기 상황에서 방어용으로 유용합니다.",
         "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 선택지 품질 10~30% (희귀 아이템 출현 확률 상승)",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
