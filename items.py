@@ -1740,7 +1740,7 @@ ITEM_TYPES = [
         "color": (100, 120, 255),  # 파란/보라 (자기장 테마)
         "effect": "magnet_field",
         "icon": None,
-        "chance": 0.020,  # 2.0% 스폰 확률 (홀리베리어보다 자주 드랍)
+        "chance": 0.007,  # 0.7% 스폰 확률 (준희귀 등급)
         "duration": 600,
         "unlock_condition": None
     },
