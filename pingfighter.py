@@ -103199,16 +103199,18 @@ def draw_objects():
         optimus_arm_swing_left_timer = 0
         optimus_arm_swing_right_timer = 0
     #  투척 모션 중일 때 특별한 회전 각도 적용
-    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing:
+    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing or boomerang_throwing:
         throw_progress = 0
         if molotov_throwing:
-            throw_progress = 1.0 - (molotov_throw_timer / 30.0)  # 0에서 1로 진행
+            throw_progress = 1.0 - (molotov_throw_timer / 30.0)
         elif grenade_throwing:
-            throw_progress = 1.0 - (grenade_throw_timer / 30.0)  # 0에서 1로 진행
+            throw_progress = 1.0 - (grenade_throw_timer / 30.0)
         elif flare_throwing:
-            throw_progress = 1.0 - (flare_throw_timer / 30.0)  # 0에서 1로 진행
+            throw_progress = 1.0 - (flare_throw_timer / 30.0)
         elif dynamite_throwing:
-            throw_progress = 1.0 - (dynamite_throw_timer / 30.0)  # 0에서 1로 진행
+            throw_progress = 1.0 - (dynamite_throw_timer / 30.0)
+        elif boomerang_throwing:
+            throw_progress = 1.0 - (boomerang_throw_timer / 24.0)
         # 투척 모션: UFO가 뒤로 젖혔다가 앞으로 던지는 동작
         if throw_progress < 0.3:
             # 준비 단계: 뒤로 젖히기
@@ -103946,9 +103948,8 @@ def draw_objects():
     if magnet_field_module.is_magnet_field_active():
         draw_magnet_field_effects(SCREEN)
 
-    # 부메랑 이펙트 그리기
-    if is_boomerang_active():
-        draw_boomerang_effects(SCREEN)
+    # 부메랑 이펙트 그리기 (파괴 파편 파티클이 남아있을 수 있으므로 항상 호출)
+    draw_boomerang_effects(SCREEN)
 
     # 레이저스코프 궤적 그리기
     if is_laser_scope_active():
@@ -104887,7 +104888,7 @@ def draw_objects():
             except Exception:
                 pass
     #  투척 모션 중 아이템 표시
-    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing:
+    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing or boomerang_throwing:
         throw_progress = 0
         item_icon = None
         if molotov_throwing:
@@ -104936,6 +104937,14 @@ def draw_objects():
                 # 바나나 기본 아이콘
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (255, 220, 50), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
+        elif boomerang_throwing:
+            throw_progress = 1.0 - (boomerang_throw_timer / 24.0)
+            item_icon = get_item_icon("boomerang")
+            if item_icon:
+                item_icon = pygame.transform.scale(item_icon, (40, 40))
+            else:
+                item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
+                pygame.draw.circle(item_icon, (200, 130, 60), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         # 연막탄은 즉시 발동으로 변경되어 투척 모션 제거됨
         if item_icon:
             # 투척 모션에 따른 아이템 위치 계산
@@ -151613,6 +151622,8 @@ def main(stage_num, new_boss_mode=False):
         if not is_ball_spawn_animation_paused():
             update_dash_boost(current_stage)
         # 부메랑 업데이트 - 라운드 전환 중에도 계속 비행 (회수 보장)
+        # 비활성 시에도 파괴 파티클 업데이트를 위해 호출
+        update_boomerang()  # 파티클만 틱 (active=False일 때)
         if is_boomerang_active():
             import items as _boom_items
             boom_events = update_boomerang(

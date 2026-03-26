@@ -96,6 +96,17 @@ class Boomerang:
     def update(self, boss_rect=None, ball_rect=None, player_rect=None, item_list=None):
         """매 프레임 업데이트"""
         if not self.active:
+            # 비활성이어도 잔여 파티클 업데이트 (파괴 이펙트)
+            if self.particles:
+                for p in self.particles[:]:
+                    p["x"] += p.get("vx", 0)
+                    p["y"] += p.get("vy", 0)
+                    if abs(p.get("vx", 0)) > 0.1 or abs(p.get("vy", 0)) > 0.1:
+                        p["vy"] = p.get("vy", 0) + 0.15
+                        p["vx"] = p.get("vx", 0) * 0.98
+                    p["alpha"] -= 5
+                    if p["alpha"] <= 0:
+                        self.particles.remove(p)
             return []
 
         if player_rect is not None:
