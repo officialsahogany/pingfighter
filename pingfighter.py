@@ -126493,66 +126493,212 @@ def get_item_icon(item_name):
         cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
         s = ICON_SIZE / 48  # 스케일 팩터
 
-        # 부메랑 본체 색상 (나무/원목 톤)
-        wood_main = (180, 120, 60)
-        wood_light = (220, 170, 90)
-        wood_dark = (140, 85, 35)
-        stripe_color = (255, 80, 80)   # 팔 끝 빨간 줄무늬
-        stripe_color2 = (80, 160, 255)  # 파란 장식
+        # === 색상 팔레트 (고급 원목 톤) ===
+        wood_base = (170, 110, 55)       # 기본 나무색
+        wood_light = (215, 165, 85)      # 밝은 하이라이트
+        wood_dark = (120, 70, 30)        # 어두운 그림자
+        wood_shadow = (90, 50, 20)       # 진한 그림자
+        wood_grain = (150, 95, 45)       # 나뭇결
+        stripe_red = (230, 60, 50)       # 빨간 장식 띠
+        stripe_red_dark = (180, 40, 35)  # 어두운 빨간
+        stripe_blue = (60, 140, 230)     # 파란 장식 띠
+        stripe_blue_dark = (40, 100, 180)  # 어두운 파란
+        gold_accent = (255, 210, 80)     # 금색 장식
 
-        # 부메랑 모양 (V자 곡선)
-        # 중앙에서 좌상단/우하단 방향으로 두 팔
-        arm_len = int(18 * s)
-        arm_w = int(5 * s)
+        # === 부메랑 형태 정의 (V자 곡선, 3D 폴리곤) ===
+        base_angle = math.radians(-35)
+        spread = math.radians(105)
+        arm_len = int(19 * s)
+        arm_half_w = max(3, int(4.5 * s))  # 팔 반폭
 
-        # V자 부메랑 - 약간 기울어진 각도
-        base_angle = math.radians(-30)
-        spread = math.radians(100)  # V 벌어지는 각도
-
-        # 팔 1 (좌상단 방향)
         a1 = base_angle - spread / 2
+        a2 = base_angle + spread / 2
+
+        # 팔 끝점 좌표
         end1_x = cx + math.cos(a1) * arm_len
         end1_y = cy + math.sin(a1) * arm_len
-
-        # 팔 2 (우하단 방향)
-        a2 = base_angle + spread / 2
         end2_x = cx + math.cos(a2) * arm_len
         end2_y = cy + math.sin(a2) * arm_len
 
-        # 팔 본체 (두꺼운 선)
-        pygame.draw.line(icon_surface, wood_main, (cx, cy),
-                        (int(end1_x), int(end1_y)), max(3, int(5 * s)))
-        pygame.draw.line(icon_surface, wood_main, (cx, cy),
-                        (int(end2_x), int(end2_y)), max(3, int(5 * s)))
+        # 팔 수직 방향 (두께용)
+        perp1_x = -math.sin(a1) * arm_half_w
+        perp1_y = math.cos(a1) * arm_half_w
+        perp2_x = -math.sin(a2) * arm_half_w
+        perp2_y = math.cos(a2) * arm_half_w
 
-        # 하이라이트 (중앙 얇은 선)
-        pygame.draw.line(icon_surface, wood_light, (cx, cy),
-                        (int(end1_x), int(end1_y)), max(1, int(2 * s)))
-        pygame.draw.line(icon_surface, wood_light, (cx, cy),
-                        (int(end2_x), int(end2_y)), max(1, int(2 * s)))
+        # 중앙 폭 (좀 더 넓게)
+        center_w = max(4, int(5.5 * s))
+        center_perp1_x = -math.sin(a1) * center_w
+        center_perp1_y = math.cos(a1) * center_w
+        center_perp2_x = -math.sin(a2) * center_w
+        center_perp2_y = math.cos(a2) * center_w
 
-        # 팔 끝 장식 (빨간/파란 줄무늬)
-        r_tip = max(2, int(3 * s))
-        pygame.draw.circle(icon_surface, stripe_color,
-                          (int(end1_x), int(end1_y)), r_tip)
-        pygame.draw.circle(icon_surface, stripe_color2,
-                          (int(end2_x), int(end2_y)), r_tip)
+        # 팔 끝은 뾰족하게
+        tip_w = max(1, int(2 * s))
+        tip1_px = -math.sin(a1) * tip_w
+        tip1_py = math.cos(a1) * tip_w
+        tip2_px = -math.sin(a2) * tip_w
+        tip2_py = math.cos(a2) * tip_w
 
-        # 중앙 연결부 강조
-        pygame.draw.circle(icon_surface, wood_dark, (cx, cy), max(2, int(3 * s)))
-        pygame.draw.circle(icon_surface, wood_light, (cx, cy), max(1, int(2 * s)))
+        # === 그림자 (바닥에 드롭 쉐도우) ===
+        shadow_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        shadow_offset = int(2 * s)
+        shadow_pts_1 = [
+            (cx + center_perp1_x + shadow_offset, cy + center_perp1_y + shadow_offset),
+            (int(end1_x + tip1_px) + shadow_offset, int(end1_y + tip1_py) + shadow_offset),
+            (int(end1_x - tip1_px) + shadow_offset, int(end1_y - tip1_py) + shadow_offset),
+            (cx - center_perp1_x + shadow_offset, cy - center_perp1_y + shadow_offset),
+        ]
+        shadow_pts_2 = [
+            (cx + center_perp2_x + shadow_offset, cy + center_perp2_y + shadow_offset),
+            (int(end2_x + tip2_px) + shadow_offset, int(end2_y + tip2_py) + shadow_offset),
+            (int(end2_x - tip2_px) + shadow_offset, int(end2_y - tip2_py) + shadow_offset),
+            (cx - center_perp2_x + shadow_offset, cy - center_perp2_y + shadow_offset),
+        ]
+        pygame.draw.polygon(shadow_surf, (0, 0, 0, 50), shadow_pts_1)
+        pygame.draw.polygon(shadow_surf, (0, 0, 0, 50), shadow_pts_2)
+        icon_surface.blit(shadow_surf, (0, 0))
 
-        # 회전 모션 라인 (스피드감)
-        for i in range(3):
-            motion_r = int((10 + i * 5) * s)
-            alpha = 100 - i * 30
-            motion_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-            arc_color = (200, 180, 140, alpha)
+        # === 팔 1 본체 (폴리곤 - 3D 입체감) ===
+        # 어두운 면 (아래쪽)
+        dark_pts_1 = [
+            (cx - center_perp1_x, cy - center_perp1_y),
+            (int(end1_x - tip1_px), int(end1_y - tip1_py)),
+            (int(end1_x), int(end1_y)),
+            (cx, cy),
+        ]
+        pygame.draw.polygon(icon_surface, wood_dark, dark_pts_1)
+
+        # 밝은 면 (위쪽)
+        light_pts_1 = [
+            (cx + center_perp1_x, cy + center_perp1_y),
+            (int(end1_x + tip1_px), int(end1_y + tip1_py)),
+            (int(end1_x), int(end1_y)),
+            (cx, cy),
+        ]
+        pygame.draw.polygon(icon_surface, wood_base, light_pts_1)
+
+        # 하이라이트 스트라이프 (나뭇결 표현)
+        for gi in range(3):
+            t = 0.3 + gi * 0.2
+            gx = cx + (end1_x - cx) * t
+            gy = cy + (end1_y - cy) * t
+            g_len = arm_half_w * (1.0 - t * 0.4)
+            gx1 = gx + (-math.sin(a1)) * g_len * 0.8
+            gy1 = gy + math.cos(a1) * g_len * 0.8
+            gx2 = gx - (-math.sin(a1)) * g_len * 0.4
+            gy2 = gy - math.cos(a1) * g_len * 0.4
+            pygame.draw.line(icon_surface, wood_grain,
+                            (int(gx1), int(gy1)), (int(gx2), int(gy2)), max(1, int(1 * s)))
+
+        # 외곽선
+        outline_pts_1 = [
+            (cx + center_perp1_x, cy + center_perp1_y),
+            (int(end1_x + tip1_px), int(end1_y + tip1_py)),
+            (int(end1_x - tip1_px), int(end1_y - tip1_py)),
+            (cx - center_perp1_x, cy - center_perp1_y),
+        ]
+        pygame.draw.polygon(icon_surface, wood_shadow, outline_pts_1, max(1, int(1 * s)))
+
+        # === 팔 2 본체 (폴리곤 - 3D 입체감) ===
+        dark_pts_2 = [
+            (cx - center_perp2_x, cy - center_perp2_y),
+            (int(end2_x - tip2_px), int(end2_y - tip2_py)),
+            (int(end2_x), int(end2_y)),
+            (cx, cy),
+        ]
+        pygame.draw.polygon(icon_surface, wood_dark, dark_pts_2)
+
+        light_pts_2 = [
+            (cx + center_perp2_x, cy + center_perp2_y),
+            (int(end2_x + tip2_px), int(end2_y + tip2_py)),
+            (int(end2_x), int(end2_y)),
+            (cx, cy),
+        ]
+        pygame.draw.polygon(icon_surface, wood_base, light_pts_2)
+
+        # 나뭇결 (팔 2)
+        for gi in range(3):
+            t = 0.3 + gi * 0.2
+            gx = cx + (end2_x - cx) * t
+            gy = cy + (end2_y - cy) * t
+            g_len = arm_half_w * (1.0 - t * 0.4)
+            gx1 = gx + (-math.sin(a2)) * g_len * 0.8
+            gy1 = gy + math.cos(a2) * g_len * 0.8
+            gx2 = gx - (-math.sin(a2)) * g_len * 0.4
+            gy2 = gy - math.cos(a2) * g_len * 0.4
+            pygame.draw.line(icon_surface, wood_grain,
+                            (int(gx1), int(gy1)), (int(gx2), int(gy2)), max(1, int(1 * s)))
+
+        # 외곽선
+        outline_pts_2 = [
+            (cx + center_perp2_x, cy + center_perp2_y),
+            (int(end2_x + tip2_px), int(end2_y + tip2_py)),
+            (int(end2_x - tip2_px), int(end2_y - tip2_py)),
+            (cx - center_perp2_x, cy - center_perp2_y),
+        ]
+        pygame.draw.polygon(icon_surface, wood_shadow, outline_pts_2, max(1, int(1 * s)))
+
+        # === 팔 끝 장식 띠 (빨간/파란 페인트) ===
+        # 팔 1 끝 빨간 띠
+        tip1_t = 0.78
+        tip1_cx = cx + (end1_x - cx) * tip1_t
+        tip1_cy = cy + (end1_y - cy) * tip1_t
+        tip1_r = max(2, int(3.5 * s))
+        pygame.draw.circle(icon_surface, stripe_red_dark, (int(tip1_cx) + 1, int(tip1_cy) + 1), tip1_r)
+        pygame.draw.circle(icon_surface, stripe_red, (int(tip1_cx), int(tip1_cy)), tip1_r)
+        # 빨간 띠 하이라이트
+        pygame.draw.circle(icon_surface, (255, 120, 110), (int(tip1_cx) - 1, int(tip1_cy) - 1), max(1, tip1_r - 1))
+
+        # 팔 2 끝 파란 띠
+        tip2_t = 0.78
+        tip2_cx = cx + (end2_x - cx) * tip2_t
+        tip2_cy = cy + (end2_y - cy) * tip2_t
+        tip2_r = max(2, int(3.5 * s))
+        pygame.draw.circle(icon_surface, stripe_blue_dark, (int(tip2_cx) + 1, int(tip2_cy) + 1), tip2_r)
+        pygame.draw.circle(icon_surface, stripe_blue, (int(tip2_cx), int(tip2_cy)), tip2_r)
+        pygame.draw.circle(icon_surface, (120, 190, 255), (int(tip2_cx) - 1, int(tip2_cy) - 1), max(1, tip2_r - 1))
+
+        # === 중앙 관절부 (금색 리벳/볼트) ===
+        joint_r = max(3, int(4 * s))
+        pygame.draw.circle(icon_surface, wood_shadow, (cx + 1, cy + 1), joint_r)  # 그림자
+        pygame.draw.circle(icon_surface, wood_dark, (cx, cy), joint_r)  # 베이스
+        pygame.draw.circle(icon_surface, gold_accent, (cx, cy), max(2, int(2.5 * s)))  # 금색 볼트
+        pygame.draw.circle(icon_surface, (255, 235, 150), (cx - 1, cy - 1), max(1, int(1.5 * s)))  # 하이라이트
+
+        # === 회전 모션 이펙트 (바깥쪽 회오리) ===
+        motion_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        for i in range(4):
+            motion_r = int((12 + i * 4) * s)
+            alpha = max(0, 90 - i * 22)
+            start_angle = math.radians(20 + i * 30)
+            end_angle = start_angle + math.radians(50 - i * 8)
+            arc_color = (220, 190, 140, alpha)
             arc_rect = pygame.Rect(cx - motion_r, cy - motion_r, motion_r * 2, motion_r * 2)
             pygame.draw.arc(motion_surf, arc_color, arc_rect,
-                           math.radians(30 + i * 20), math.radians(90 + i * 20),
-                           max(1, int(1 * s)))
-            icon_surface.blit(motion_surf, (0, 0))
+                           start_angle, end_angle, max(1, int(1.5 * s)))
+        # 반대편 모션 라인
+        for i in range(3):
+            motion_r = int((11 + i * 5) * s)
+            alpha = max(0, 70 - i * 20)
+            start_angle = math.radians(200 + i * 25)
+            end_angle = start_angle + math.radians(40 - i * 8)
+            arc_color = (200, 170, 120, alpha)
+            arc_rect = pygame.Rect(cx - motion_r, cy - motion_r, motion_r * 2, motion_r * 2)
+            pygame.draw.arc(motion_surf, arc_color, arc_rect,
+                           start_angle, end_angle, max(1, int(1 * s)))
+        icon_surface.blit(motion_surf, (0, 0))
+
+        # === 스피드 라인 (사선 잔상) ===
+        speed_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        for i in range(3):
+            sx = cx + int((8 + i * 6) * s)
+            sy = cy - int((4 + i * 4) * s)
+            sl = max(3, int((6 - i * 1.5) * s))
+            alpha = max(0, 80 - i * 25)
+            pygame.draw.line(speed_surf, (255, 255, 255, alpha),
+                            (sx, sy), (sx + sl, sy - sl), max(1, int(1 * s)))
+        icon_surface.blit(speed_surf, (0, 0))
 
         icon_cache[item_name] = icon_surface
         return icon_surface
