@@ -151638,9 +151638,11 @@ def main(stage_num, new_boss_mode=False):
         # 부메랑 업데이트 - 라운드 전환 중에도 계속 비행 (회수 보장)
         # 비활성 시에도 파괴 파티클 업데이트를 위해 항상 1회 호출
         import items as _boom_items
+        # 서브 대기 중에는 공과 부메랑 충돌 무시 (서브 전 파괴 방지)
+        _boom_ball = BALL if (BALL and not is_waiting_for_serve) else None
         boom_events = update_boomerang(
             boss_rect=BOSS if BOSS else None,
-            ball_rect=BALL if BALL else None,
+            ball_rect=_boom_ball,
             player_rect=PLAYER if PLAYER else None,
             item_list=_boom_items.item_list
         )
