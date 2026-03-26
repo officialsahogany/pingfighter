@@ -138151,12 +138151,12 @@ def handle_ball():
                     _p_particles = []
                     # 타이틀 애니메이션
                     _p_title_alpha = 0
-                    # 카드 크기
-                    _p_cw, _p_ch = 160, 220
-                    _p_gap = 30
+                    # 카드 크기 (아이콘 중심 — 설명 없음)
+                    _p_cw, _p_ch = 140, 140
+                    _p_gap = 40
                     _p_tw = _p_cw * 3 + _p_gap * 2
                     _p_sx = WIDTH // 2 - _p_tw // 2
-                    _p_cy = 200  # 카드 Y 시작 (타이틀 공간 확보)
+                    _p_cy = 230  # 카드 Y 시작 (타이틀 공간 확보, 아이콘만이라 더 아래로)
                     print(f"[PANDORA] 선택 UI 시작: {[c.get('name') for c in _p_choices]}")
                     while _p_running:
                         _p_timer += 1
@@ -138457,47 +138457,20 @@ def handle_ball():
                                     pygame.draw.line(_card, (_gr, _gg, _gb, 200), (2, _gy), (_p_cw - 3, _gy))
                                 pygame.draw.rect(_card, (80, 65, 120), (0, 0, _p_cw, _p_ch), 2)
 
-                            # 아이콘 영역 배경 (어두운 원)
-                            pygame.draw.circle(_card, (0, 0, 0, 60), (_p_cw // 2, 50), 36)
-                            # 아이템 아이콘
+                            # 아이콘만 카드 중앙에 크게 표시
+                            _icon_sz = 80
+                            _icon_cx = _p_cw // 2
+                            _icon_cy = _p_ch // 2
+                            # 아이콘 배경 (어두운 원)
+                            pygame.draw.circle(_card, (0, 0, 0, 50), (_icon_cx, _icon_cy), _icon_sz // 2 + 8)
                             _cicon = get_item_icon(_cdata.get("name", ""))
                             if _cicon:
-                                _cicon_s = pygame.transform.scale(_cicon, (64, 64))
-                                _card.blit(_cicon_s, (_p_cw // 2 - 32, 18))
+                                _cicon_s = pygame.transform.scale(_cicon, (_icon_sz, _icon_sz))
+                                _card.blit(_cicon_s, (_icon_cx - _icon_sz // 2, _icon_cy - _icon_sz // 2))
                             else:
                                 _ic = _cdata.get("color", (200, 200, 200))
-                                pygame.draw.circle(_card, _ic, (_p_cw // 2, 50), 28)
-                                # 광택 효과
-                                pygame.draw.circle(_card, (255, 255, 255, 60), (_p_cw // 2 - 8, 42), 10)
-
-                            # 구분선
-                            pygame.draw.line(_card, (255, 215, 0, 80) if _is_sel else (100, 80, 140, 80),
-                                             (15, 90), (_p_cw - 15, 90), 1)
-
-                            # 아이템 이름
-                            try:
-                                _nf = FontStyle.body()
-                                _kn = get_item_korean_name(_cdata.get("name", "???"))
-                                _nc = (255, 255, 255) if _is_sel else (180, 180, 200)
-                                _ns, _nr = _nf.render(_kn, _nc)
-                                if _nr.width > _p_cw - 10:
-                                    _ns = pygame.transform.scale(_ns, (_p_cw - 10, _nr.height))
-                                    _nr = _ns.get_rect()
-                                _card.blit(_ns, (_p_cw // 2 - _nr.width // 2, 97))
-                            except: pass
-
-                            # 아이템 설명
-                            try:
-                                _sf = FontStyle.small()
-                                _sd = get_item_description(_cdata.get("name", ""))
-                                if len(_sd) > 40: _sd = _sd[:38] + ".."
-                                _dc = (200, 195, 220) if _is_sel else (140, 135, 160)
-                                for _li, _lstart in enumerate(range(0, len(_sd), 12)):
-                                    if _li >= 5: break
-                                    _line = _sd[_lstart:_lstart+12]
-                                    _ls, _lr = _sf.render(_line, _dc)
-                                    _card.blit(_ls, (_p_cw // 2 - _lr.width // 2, 120 + _li * 18))
-                            except: pass
+                                pygame.draw.circle(_card, _ic, (_icon_cx, _icon_cy), 35)
+                                pygame.draw.circle(_card, (255, 255, 255, 60), (_icon_cx - 10, _icon_cy - 10), 12)
 
                             # 카드 스케일 적용
                             _sw = max(1, int(_p_cw * _scale))
