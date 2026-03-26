@@ -126,11 +126,14 @@ class Boomerang:
 
             if boom["phase"] == "outgoing":
                 effective_speed = BOOMERANG_SPEED * boom["speed_jitter"]
-                boom["travel_t"] += effective_speed / (self.player_y - BOOMERANG_MAX_TRAVEL_Y)
+                dt = effective_speed / (self.player_y - BOOMERANG_MAX_TRAVEL_Y)
+                boom["travel_t"] += dt
                 boom["travel_t"] = min(boom["travel_t"], 1.0)
 
                 t = boom["travel_t"]
                 target_y = BOOMERANG_MAX_TRAVEL_Y
+                # 속도 배율 (유도/궤도 보상용) - 빠를수록 값이 큼
+                speed_ratio = boom["speed_multiplier"]
 
                 # Y 이동 (위로)
                 boom["y"] = boom["start_y"] + (target_y - boom["start_y"]) * t
@@ -144,16 +147,17 @@ class Boomerang:
                 base_x = boom["start_x"] + main_curve + wobble + drift + noise
 
                 # === 보스 유도 (homing) ===
-                # 보스 X좌표를 향해 서서히 끌려감 (t가 높을수록 강해짐)
+                # 속도가 빨라지면 프레임당 t 증가량(dt)이 커져 유도 누적 기회가 줄어듬
+                # → dt에 비례하여 유도 보간량을 스케일링하여 총 유도량을 일정하게 유지
                 if boss_rect is not None:
                     boss_cx = boss_rect.centerx
-                    # 현재 궤도 X와 보스 X의 차이
                     dx_to_boss = boss_cx - base_x
-                    # 유도 강도: t가 0.3 이후부터 점진적으로 증가
                     homing_factor = max(0, (t - 0.2)) * BOOMERANG_HOMING_STRENGTH
-                    # 유도 오프셋 누적 (급격하지 않게 보간)
-                    boom["homing_offset_x"] += dx_to_boss * homing_factor * 0.08
-                    # 최대 유도 오프셋 제한 (너무 꺾이지 않도록)
+                    # 기준 dt (speed_multiplier=1.0일 때)
+                    base_dt = BOOMERANG_SPEED / (self.player_y - BOOMERANG_MAX_TRAVEL_Y)
+                    # dt가 클수록(빠를수록) 보간량도 비례 증가 → 총 유도량 동일
+                    homing_lerp = 0.08 * (dt / base_dt) if base_dt > 0 else 0.08
+                    boom["homing_offset_x"] += dx_to_boss * homing_factor * homing_lerp
                     max_homing = self.width * 0.4
                     boom["homing_offset_x"] = max(-max_homing, min(max_homing, boom["homing_offset_x"]))
 
