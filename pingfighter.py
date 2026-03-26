@@ -49331,7 +49331,7 @@ def draw_pandora_legacy_selection_ui(screen):
     # 설명 텍스트
     try:
         desc_font = FontStyle.body()
-        desc_surf, desc_rect = desc_font.render("◀ ▶ 키로 선택, SPACE로 확정", (200, 200, 200))
+        desc_surf, desc_rect = desc_font.render("◀ ▶ 키 또는 마우스로 선택, SPACE/클릭으로 확정", (200, 200, 200))
         screen.blit(desc_surf, (WIDTH // 2 - desc_rect.width // 2, 140))
     except Exception:
         pass
@@ -49414,6 +49414,57 @@ def handle_pandora_legacy_selection_input(event):
 
     if not pandora_legacy_selection_active:
         return False
+
+    # 마우스 히트 판정용 카드 좌표 계산
+    _card_w, _card_h = 160, 220
+    _gap = 30
+    _total_w = _card_w * 3 + _gap * 2
+    _start_x = WIDTH // 2 - _total_w // 2
+    _card_y = 180
+
+    # 마우스 이동 - 카드 위에 호버하면 선택 인덱스 변경
+    if event.type == pygame.MOUSEMOTION:
+        mx, my = pygame.mouse.get_pos()
+        for i in range(3):
+            cx = _start_x + i * (_card_w + _gap)
+            if cx <= mx <= cx + _card_w and _card_y <= my <= _card_y + _card_h:
+                if pandora_legacy_selected_index != i:
+                    pandora_legacy_selected_index = i
+                    try:
+                        play_sound_with_volume(SOUND_SELECT)
+                    except Exception:
+                        pass
+                return True
+        return True
+
+    # 마우스 클릭 - 카드 위에서 좌클릭하면 선택 확정
+    if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        mx, my = pygame.mouse.get_pos()
+        for i in range(3):
+            cx = _start_x + i * (_card_w + _gap)
+            if cx <= mx <= cx + _card_w and _card_y <= my <= _card_y + _card_h:
+                if 0 <= i < len(pandora_legacy_selection_items):
+                    selected = pandora_legacy_selection_items[i]
+                    item_data = {
+                        "name": selected.get("name", ""),
+                        "color": selected.get("color", (200, 200, 200)),
+                        "effect": selected.get("effect", selected.get("name", "")),
+                        "icon": None,
+                        "duration": selected.get("duration", 600),
+                        "x": WIDTH // 2,
+                        "y": HEIGHT // 2,
+                    }
+                    store_active_item(item_data)
+                    show_item_obtained_effect(item_data, WIDTH // 2, HEIGHT // 2)
+                    try:
+                        play_sound_with_volume(SOUND_ITEM_GET)
+                    except Exception:
+                        pass
+                pandora_legacy_selection_active = False
+                pandora_legacy_selection_items = []
+                pandora_legacy_selection_timer = 0
+                return True
+        return True
 
     if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_LEFT:
@@ -70422,6 +70473,9 @@ def handle_player(keys):
                             # 🔧 버그 수정: 하프 대시에서도 키 릴리즈 플래그 설정
                             globals()['dash_key_released_since_last'] = False
                             rolling_active = True
+                            # ⚡ 대쉬 시 스매셔 콤보 초기화
+                            if selected_character_type == "smasher" or ai_mode == "junior":
+                                _reset_smasher_combo("dash_half")
                             _break_arrest_rope_on_dash()
                             # 🌑 오딘의 눈 대쉬 다이브
                             try:
@@ -70688,6 +70742,9 @@ def handle_player(keys):
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
+                    # ⚡ 대쉬 시 스매셔 콤보 초기화
+                    if selected_character_type == "smasher" or ai_mode == "junior":
+                        _reset_smasher_combo("dash_left")
                     _break_arrest_rope_on_dash()
                     # 🌑 오딘의 눈 대쉬 다이브
                     try:
@@ -70951,6 +71008,9 @@ def handle_player(keys):
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
+                    # ⚡ 대쉬 시 스매셔 콤보 초기화
+                    if selected_character_type == "smasher" or ai_mode == "junior":
+                        _reset_smasher_combo("dash_right")
                     _break_arrest_rope_on_dash()
                     # 🌑 오딘의 눈 대쉬 다이브
                     try:
@@ -135673,6 +135733,9 @@ def handle_ball():
                     # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
+                    # ⚡ 대쉬 시 스매셔 콤보 초기화 (위험감지센서 자동 대쉬 포함)
+                    if selected_character_type == "smasher" or ai_mode == "junior":
+                        _reset_smasher_combo("dash_sensor")
                     # 포승줄 포박 중 대쉬 → 즉시 끊어짐 (인라인)
                     if arrest_rope_phase == "bound":
                         arrest_rope_phase = "releasing"
@@ -137964,11 +138027,52 @@ def handle_ball():
                         if _p_timer > 60 * 30:
                             _p_running = False
                             break
-                        # 입력 처리 (인라인)
+                        # 입력 처리 (인라인) - 마우스 히트 판정용 카드 좌표
+                        _p_hit_cw, _p_hit_ch = 160, 220
+                        _p_hit_gap = 30
+                        _p_hit_tw = _p_hit_cw * 3 + _p_hit_gap * 2
+                        _p_hit_sx = WIDTH // 2 - _p_hit_tw // 2
+                        _p_hit_cy = 180
                         for _pev in pygame.event.get():
                             if _pev.type == pygame.QUIT:
                                 _p_running = False
                                 break
+                            # 마우스 이동 - 카드 호버 시 선택 인덱스 변경
+                            if _pev.type == pygame.MOUSEMOTION:
+                                _pmx, _pmy = pygame.mouse.get_pos()
+                                for _mi in range(3):
+                                    _mcx = _p_hit_sx + _mi * (_p_hit_cw + _p_hit_gap)
+                                    if _mcx <= _pmx <= _mcx + _p_hit_cw and _p_hit_cy <= _pmy <= _p_hit_cy + _p_hit_ch:
+                                        if _p_sel_idx != _mi:
+                                            _p_sel_idx = _mi
+                                            try: play_sound_with_volume(SOUND_SELECT)
+                                            except: pass
+                                        break
+                            # 마우스 좌클릭 - 카드 위에서 클릭하면 선택 확정
+                            if _pev.type == pygame.MOUSEBUTTONDOWN and _pev.button == 1:
+                                _pmx, _pmy = pygame.mouse.get_pos()
+                                for _mi in range(3):
+                                    _mcx = _p_hit_sx + _mi * (_p_hit_cw + _p_hit_gap)
+                                    if _mcx <= _pmx <= _mcx + _p_hit_cw and _p_hit_cy <= _pmy <= _p_hit_cy + _p_hit_ch:
+                                        if 0 <= _mi < len(_p_choices):
+                                            _picked = _p_choices[_mi]
+                                            _pick_data = {
+                                                "name": _picked.get("name", ""),
+                                                "color": _picked.get("color", (200, 200, 200)),
+                                                "effect": _picked.get("effect", _picked.get("name", "")),
+                                                "icon": None,
+                                                "duration": _picked.get("duration", 600),
+                                                "x": WIDTH // 2, "y": HEIGHT // 2,
+                                            }
+                                            store_active_item(_pick_data)
+                                            show_item_obtained_effect(_pick_data, WIDTH // 2, HEIGHT // 2)
+                                            try: play_sound_with_volume(SOUND_ITEM_GET)
+                                            except: pass
+                                            print(f"[PANDORA] 마우스 선택 완료: {_picked.get('name')}")
+                                        _p_running = False
+                                        break
+                                if not _p_running:
+                                    break
                             if _pev.type == pygame.KEYDOWN:
                                 if _pev.key == pygame.K_LEFT:
                                     _p_sel_idx = (_p_sel_idx - 1) % 3
@@ -138016,7 +138120,7 @@ def handle_ball():
                         # 안내
                         try:
                             _p_df = FontStyle.body()
-                            _p_ds, _p_dr = _p_df.render("◀ ▶ 키로 선택, SPACE로 확정", (200, 200, 200))
+                            _p_ds, _p_dr = _p_df.render("◀ ▶ 키 또는 마우스로 선택, SPACE/클릭으로 확정", (200, 200, 200))
                             SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, 140))
                         except: pass
                         # 카드 3장
@@ -139121,7 +139225,7 @@ def handle_ball():
             cleanse_counter_window = 0  # 1회 사용 후 소멸
 
         # ⚡ 스매셔 콤보 시스템: handle_ball 충돌 처리 (메인 경로)
-        # 개편: 모든 패들 타격이 콤보를 쌓음 (대시/드라이브 여부 무관)
+        # 모든 패들 타격이 콤보를 쌓음. 대쉬 사용 시 콤보 초기화!
         # 콤보는 드라이브/파워스매싱 발동 시 소모하여 스킬 강화에 사용
         # 주니어리그 튜토리얼에서는 모든 캐릭터가 콤보 시스템 사용
         if selected_character_type == "smasher" or ai_mode == "junior":
