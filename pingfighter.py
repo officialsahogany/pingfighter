@@ -137442,18 +137442,13 @@ def handle_ball():
             except Exception:
                 pass
 
-            # 📦 판도라의 유산: 라운드 승리 시 아이템 선택 예약 (장착 중일 때만)
+            # 📦 판도라의 유산: 라운드 승리 시 아이템 선택 예약 (장착=active일 때만)
             try:
-                _pandora_equipped = any(
-                    item.get("name") == "pandora_legacy"
-                    for item in passive_item_list if isinstance(item, dict) and item.get("equipped")
-                )
-                if _pandora_equipped:
-                    legendary_manager = get_legendary_manager()
-                    if legendary_manager:
-                        pandora = legendary_manager.get_item("pandora_legacy")
-                        if pandora and pandora.active:
-                            pandora.generate_selection_choices()
+                legendary_manager = get_legendary_manager()
+                if legendary_manager:
+                    pandora = legendary_manager.get_item("pandora_legacy")
+                    if pandora and pandora.active:
+                        pandora.generate_selection_choices()
             except Exception:
                 pass
 
