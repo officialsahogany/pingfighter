@@ -11230,10 +11230,18 @@ class PandoraLegacy(LegendaryItem):
             "adversity_armor", "shrapnel_armor"
         }
         excluded = {"ammo_box", "fire_support", "doping_potion"}  # 물자보급 전용
+        # 발토르(blacksmith) 전용 아이템 — 다른 캐릭터에서는 제외
+        blacksmith_only = {"repair_kit", "berserk_potion"}
+        try:
+            from pingfighter import selected_character_type as _cur_char
+        except Exception:
+            _cur_char = ""
 
         for item_type in items_module.ITEM_TYPES:
             name = item_type.get("name", "")
             if name in passive_names or name in excluded:
+                continue
+            if name in blacksmith_only and _cur_char != "blacksmith":
                 continue
             if item_type.get("chance", 0) <= 0:
                 continue
