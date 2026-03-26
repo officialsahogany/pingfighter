@@ -95,6 +95,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     ],
     "pandora_legacy": [
         {"key": "selection_quality", "label": "선택지 품질", "min": 10, "max": 30, "unit": "%", "default": 20},
+        {"key": "trigger_chance", "label": "승리시 유산 발동률", "min": 40, "max": 70, "unit": "%", "default": 55},
     ],
 }
 
@@ -11199,6 +11200,15 @@ class PandoraLegacy(LegendaryItem):
         """선택지 품질 보너스 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 10~30%)"""
         return get_legendary_roll_value(
             "pandora_legacy", "selection_quality",
+            apply_polish=True,
+            enhancement_bonus_pct=self.enhancement_bonus_pct
+        )
+
+    @property
+    def trigger_chance(self) -> float:
+        """승리시 유산 발동률 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 40~70%)"""
+        return get_legendary_roll_value(
+            "pandora_legacy", "trigger_chance",
             apply_polish=True,
             enhancement_bonus_pct=self.enhancement_bonus_pct
         )

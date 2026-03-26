@@ -137980,15 +137980,22 @@ def handle_ball():
             except Exception:
                 pass
 
-            # 📦 판도라의 유산: 라운드 승리 시 아이템 선택 예약 (장착=active일 때만)
+            # 📦 판도라의 유산: 라운드 승리 시 아이템 선택 예약 (장착=active일 때만, 발동률 체크)
             try:
                 legendary_manager = get_legendary_manager()
                 if legendary_manager:
                     pandora = legendary_manager.get_item("pandora_legacy")
                     print(f"[PANDORA DEBUG] 라운드승리 트리거: pandora={pandora is not None}, active={getattr(pandora, 'active', 'N/A')}, obtained={items.pandora_legacy_obtained}")
                     if pandora and pandora.active:
-                        result = pandora.generate_selection_choices()
-                        print(f"[PANDORA DEBUG] 선택지 생성 결과: {len(result) if result else 0}개, selection_active={pandora.selection_active}, items={[i.get('name') for i in pandora.selection_items] if pandora.selection_items else []}")
+                        import random as _pandora_rng
+                        _trigger_pct = pandora.trigger_chance  # 40~70%
+                        _roll = _pandora_rng.random() * 100.0
+                        print(f"[PANDORA DEBUG] 발동률 체크: trigger_chance={_trigger_pct:.1f}%, roll={_roll:.1f}")
+                        if _roll < _trigger_pct:
+                            result = pandora.generate_selection_choices()
+                            print(f"[PANDORA DEBUG] 발동! 선택지 {len(result) if result else 0}개: {[i.get('name') for i in pandora.selection_items] if pandora.selection_items else []}")
+                        else:
+                            print(f"[PANDORA DEBUG] 미발동 (확률 실패)")
             except Exception as e:
                 print(f"[PANDORA DEBUG] 선택지 생성 예외: {e}")
                 import traceback; traceback.print_exc()
