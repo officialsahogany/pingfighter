@@ -137835,56 +137835,131 @@ def handle_ball():
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                        boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
 
-            # 📦 판도라의 유산: 라운드 승리 후 아이템 선택 UI (장착 중일 때만)
+            # 📦 판도라의 유산: 라운드 승리 후 아이템 선택 UI (인라인 — global 우회)
             try:
                 legendary_manager = get_legendary_manager()
-                if legendary_manager:
-                    pandora = legendary_manager.get_item("pandora_legacy")
-                    _sel_items = getattr(pandora, 'selection_items', []) if pandora else []
-                    print(f"[PANDORA DEBUG] UI진입 체크: pandora={pandora is not None}, active={getattr(pandora, 'active', False)}, selection_active={getattr(pandora, 'selection_active', False)}, items_count={len(_sel_items)}")
-                    if pandora and pandora.active and pandora.selection_active and len(_sel_items) >= 3:
-                        print(f"[PANDORA DEBUG] ✅ 선택 UI 루프 진입! 선택지: {[i.get('name') for i in _sel_items]}")
-                        pandora_legacy_selection_active = True
-                        pandora_legacy_selection_items = list(_sel_items)
-                        pandora_legacy_selected_index = 0
-                        pandora_legacy_selection_timer = 0
-                        _pandora_selecting = True
-                        _pandora_timeout = 0
-                        while _pandora_selecting:
-                            _pandora_timeout += 1
-                            if _pandora_timeout > 60 * 30:  # 30초 안전장치
-                                print(f"[PANDORA DEBUG] ⏰ 30초 타임아웃으로 탈출")
-                                _pandora_selecting = False
-                                pandora_legacy_selection_active = False
+                _p_pandora = legendary_manager.get_item("pandora_legacy") if legendary_manager else None
+                _p_items = getattr(_p_pandora, 'selection_items', []) if _p_pandora else []
+                if _p_pandora and _p_pandora.active and _p_pandora.selection_active and len(_p_items) >= 3:
+                    _p_choices = list(_p_items)
+                    _p_sel_idx = 0
+                    _p_timer = 0
+                    _p_running = True
+                    print(f"[PANDORA] 선택 UI 시작: {[c.get('name') for c in _p_choices]}")
+                    while _p_running:
+                        _p_timer += 1
+                        if _p_timer > 60 * 30:
+                            _p_running = False
+                            break
+                        # 입력 처리 (인라인)
+                        for _pev in pygame.event.get():
+                            if _pev.type == pygame.QUIT:
+                                _p_running = False
                                 break
-                            for _pev in pygame.event.get():
-                                if _pev.type == pygame.QUIT:
-                                    _pandora_selecting = False
-                                    pandora_legacy_selection_active = False
+                            if _pev.type == pygame.KEYDOWN:
+                                if _pev.key == pygame.K_LEFT:
+                                    _p_sel_idx = (_p_sel_idx - 1) % 3
+                                    try: play_sound_with_volume(SOUND_SELECT)
+                                    except: pass
+                                elif _pev.key == pygame.K_RIGHT:
+                                    _p_sel_idx = (_p_sel_idx + 1) % 3
+                                    try: play_sound_with_volume(SOUND_SELECT)
+                                    except: pass
+                                elif _pev.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_ESCAPE):
+                                    # 선택 확정 (ESC면 첫 번째 아이템 자동 선택)
+                                    _pick_idx = _p_sel_idx if _pev.key != pygame.K_ESCAPE else 0
+                                    if 0 <= _pick_idx < len(_p_choices):
+                                        _picked = _p_choices[_pick_idx]
+                                        _pick_data = {
+                                            "name": _picked.get("name", ""),
+                                            "color": _picked.get("color", (200, 200, 200)),
+                                            "effect": _picked.get("effect", _picked.get("name", "")),
+                                            "icon": None,
+                                            "duration": _picked.get("duration", 600),
+                                            "x": WIDTH // 2, "y": HEIGHT // 2,
+                                        }
+                                        store_active_item(_pick_data)
+                                        show_item_obtained_effect(_pick_data, WIDTH // 2, HEIGHT // 2)
+                                        try: play_sound_with_volume(SOUND_ITEM_GET)
+                                        except: pass
+                                        print(f"[PANDORA] 선택 완료: {_picked.get('name')}")
+                                    _p_running = False
                                     break
-                                if handle_pandora_legacy_selection_input(_pev):
-                                    if not pandora_legacy_selection_active:
-                                        _pandora_selecting = False
-                                        break
-                            if not _pandora_selecting:
-                                break
-                            # 배경 그리기
-                            draw_field()
-                            draw_objects()
-                            # 선택 UI 그리기 (점수판 없이 판도라 선택 UI만)
-                            _ui_result = draw_pandora_legacy_selection_ui(SCREEN)
-                            if _pandora_timeout == 1:
-                                print(f"[PANDORA DEBUG] UI 그리기 결과: {_ui_result}, global_active={pandora_legacy_selection_active}, global_items={len(pandora_legacy_selection_items)}")
-                            pygame.display.flip()
-                            clock.tick(60)
-                        pandora.selection_active = False
-                        pandora.selection_items = []
-                        print(f"[PANDORA DEBUG] 선택 루프 종료")
-                    else:
-                        print(f"[PANDORA DEBUG] ❌ 선택 UI 조건 미충족, 스킵")
+                        if not _p_running:
+                            break
+                        # 그리기 (인라인)
+                        draw_field()
+                        draw_objects()
+                        # 반투명 오버레이
+                        _p_ov = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                        _p_ov.fill((0, 0, 0, min(160, _p_timer * 8)))
+                        SCREEN.blit(_p_ov, (0, 0))
+                        # 타이틀
+                        try:
+                            _p_tf = FontStyle.subtitle()
+                            _p_ts, _p_tr = _p_tf.render("판도라의 유산 - 아이템 선택", (255, 215, 0))
+                            SCREEN.blit(_p_ts, (WIDTH // 2 - _p_tr.width // 2, 100))
+                        except: pass
+                        # 안내
+                        try:
+                            _p_df = FontStyle.body()
+                            _p_ds, _p_dr = _p_df.render("◀ ▶ 키로 선택, SPACE로 확정", (200, 200, 200))
+                            SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, 140))
+                        except: pass
+                        # 카드 3장
+                        _p_cw, _p_ch = 160, 220
+                        _p_gap = 30
+                        _p_tw = _p_cw * 3 + _p_gap * 2
+                        _p_sx = WIDTH // 2 - _p_tw // 2
+                        _p_cy = 180
+                        for _ci, _cdata in enumerate(_p_choices):
+                            _cx = _p_sx + _ci * (_p_cw + _p_gap)
+                            _c_sel = (_ci == _p_sel_idx)
+                            _card = pygame.Surface((_p_cw, _p_ch), pygame.SRCALPHA)
+                            if _c_sel:
+                                _card.fill((40, 30, 60, 230))
+                                pygame.draw.rect(_card, (255, 215, 0), (0, 0, _p_cw, _p_ch), 3)
+                                _glow = pygame.Surface((_p_cw + 10, _p_ch + 10), pygame.SRCALPHA)
+                                _glow.fill((255, 215, 0, 30))
+                                SCREEN.blit(_glow, (_cx - 5, _p_cy - 5))
+                            else:
+                                _card.fill((20, 15, 35, 200))
+                                pygame.draw.rect(_card, (100, 80, 140), (0, 0, _p_cw, _p_ch), 2)
+                            # 아이콘
+                            _cicon = get_item_icon(_cdata.get("name", ""))
+                            if _cicon:
+                                _cicon_s = pygame.transform.scale(_cicon, (64, 64))
+                                _card.blit(_cicon_s, (_p_cw // 2 - 32, 20))
+                            else:
+                                pygame.draw.circle(_card, _cdata.get("color", (200, 200, 200)), (_p_cw // 2, 52), 28)
+                            # 이름
+                            try:
+                                _nf = FontStyle.body()
+                                _kn = get_item_korean_name(_cdata.get("name", "???"))
+                                _ns, _nr = _nf.render(_kn, (255, 255, 255))
+                                if _nr.width > _p_cw - 10:
+                                    _ns = pygame.transform.scale(_ns, (_p_cw - 10, _nr.height))
+                                    _nr = _ns.get_rect()
+                                _card.blit(_ns, (_p_cw // 2 - _nr.width // 2, 95))
+                            except: pass
+                            # 설명
+                            try:
+                                _sf = FontStyle.small()
+                                _sd = get_item_description(_cdata.get("name", ""))
+                                if len(_sd) > 40: _sd = _sd[:38] + ".."
+                                for _li, _lstart in enumerate(range(0, len(_sd), 12)):
+                                    if _li >= 5: break
+                                    _line = _sd[_lstart:_lstart+12]
+                                    _ls, _lr = _sf.render(_line, (180, 180, 200))
+                                    _card.blit(_ls, (_p_cw // 2 - _lr.width // 2, 120 + _li * 18))
+                            except: pass
+                            SCREEN.blit(_card, (_cx, _p_cy))
+                        pygame.display.flip()
+                        clock.tick(60)
+                    _p_pandora.selection_active = False
+                    _p_pandora.selection_items = []
             except Exception as e:
-                pandora_legacy_selection_active = False
-                print(f"[PANDORA DEBUG] 선택 UI 예외: {e}")
+                print(f"[PANDORA] 선택 UI 예외: {e}")
                 import traceback; traceback.print_exc()
 
             # 코만도 권총 UI 표시
