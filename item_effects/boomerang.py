@@ -27,6 +27,10 @@ BOOMERANG_CURVE_AMPLITUDE = 60      # 좌우 곡선 기본 진폭
 BOOMERANG_HOMING_STRENGTH = 0.35    # 보스 유도 강도 (0=없음, 1=완전 추적)
 
 
+BOOMERANG_MAX_HITS = 3              # 최대 보스 명중 횟수 (초과 시 파괴)
+BOOMERANG_MAX_THROWS = 3            # 최대 투척 횟수 (초과 시 귀환 중 자동 파괴)
+
+
 class Boomerang:
     def __init__(self):
         self.active = False
@@ -36,6 +40,8 @@ class Boomerang:
         self.height = 750
         self.player_x = 380
         self.player_y = 710
+        self.total_hit_count = 0    # 누적 보스 명중 횟수 (회수해도 유지)
+        self.total_throw_count = 0  # 누적 투척 횟수 (회수해도 유지)
         self.debug = os.environ.get("DEBUG_BOOMERANG", "0") == "1"
 
     def activate(self, game_state=None, current_stage=None, width=760, height=750,
@@ -46,6 +52,7 @@ class Boomerang:
             speed_multiplier: 코만도암 등 외부 속도 배율 (기본 1.0)
         """
         self.active = True
+        self.total_throw_count += 1
         self.width = width
         self.height = height
         self.player_x = player_x
@@ -75,6 +82,8 @@ class Boomerang:
             "wind_drift": wind_drift,
             "speed_jitter": speed_jitter,
             "speed_multiplier": speed_multiplier,  # 코만도암 속도 배율
+            "hit_count": 0,        # 보스 명중 횟수
+            "throw_count": 0,      # 투척 횟수 (회수 후 재투척 시 증가)
             "hit_boss": False,
             "picked_items": [],
             # 귀환 시 불규칙 궤도용
@@ -90,10 +99,12 @@ class Boomerang:
             print(f"[BOOMERANG] 발사! x={player_x}, y={player_y}")
 
     def deactivate(self):
-        """부메랑 비활성화"""
+        """부메랑 비활성화 (카운터도 리셋)"""
         self.boomerangs.clear()
         self.particles.clear()
         self.active = False
+        self.total_hit_count = 0
+        self.total_throw_count = 0
 
         if self.debug:
             print("[BOOMERANG] 비활성화")
@@ -175,6 +186,8 @@ class Boomerang:
                     )
                     if boom_rect.colliderect(boss_rect):
                         boom["hit_boss"] = True
+                        boom["hit_count"] += 1
+                        self.total_hit_count += 1
                         direction = 1 if boom["x"] >= boss_rect.centerx else -1
                         events.append({
                             "type": "boss_hit",
@@ -186,7 +199,21 @@ class Boomerang:
                             "y": boom["y"],
                         })
                         if self.debug:
-                            print(f"[BOOMERANG] 보스 명중! 스턴={BOOMERANG_STUN_FRAMES}f")
+                            print(f"[BOOMERANG] 보스 명중! 횟수={self.total_hit_count}/{BOOMERANG_MAX_HITS}")
+
+                        # 누적 3회 명중 시 파괴
+                        if self.total_hit_count >= BOOMERANG_MAX_HITS:
+                            events.append({
+                                "type": "destroyed",
+                                "reason": "max_hits",
+                                "x": boom["x"],
+                                "y": boom["y"],
+                            })
+                            to_remove.append(i)
+                            self._spawn_break_particles(boom["x"], boom["y"])
+                            if self.debug:
+                                print(f"[BOOMERANG] {BOOMERANG_MAX_HITS}회 명중 → 파괴!")
+                            continue
 
                 # 공 충돌 체크 (부메랑 파괴)
                 if ball_rect:
@@ -218,6 +245,25 @@ class Boomerang:
                 dx = self.player_x - boom["x"]
                 dy = self.player_y - boom["y"]
                 dist = math.sqrt(dx * dx + dy * dy)
+                # 귀환 거리 추적 (자동 파괴 타이밍용)
+                if "return_start_dist" not in boom:
+                    boom["return_start_dist"] = dist  # 귀환 시작 시 거리 저장
+
+                # 3회째 투척 → 귀환 중 절반 지점에서 자동 파괴
+                if self.total_throw_count >= BOOMERANG_MAX_THROWS:
+                    start_d = boom.get("return_start_dist", dist)
+                    if start_d > 0 and dist < start_d * 0.5:
+                        events.append({
+                            "type": "destroyed",
+                            "reason": "max_throws",
+                            "x": boom["x"],
+                            "y": boom["y"],
+                        })
+                        to_remove.append(i)
+                        self._spawn_break_particles(boom["x"], boom["y"])
+                        if self.debug:
+                            print(f"[BOOMERANG] {BOOMERANG_MAX_THROWS}회 투척 → 귀환 중 자동 파괴!")
+                        continue
 
                 if dist < 30:
                     # 플레이어에게 도착 → 회수
