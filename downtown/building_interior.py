@@ -3638,6 +3638,13 @@ class BuildingInterior:
             {"name": "laser_scope", "korean": "레이저스코프", "rarity": "common", "type": "active"},
             {"name": "boomerang", "korean": "부메랑", "rarity": "common", "type": "active"},
             {"name": "magnet_field", "korean": "자기장발생기", "rarity": "common", "type": "active"},
+            {"name": "holy_barrier", "korean": "홀리베리어", "rarity": "common", "type": "active"},
+            {"name": "dash_boost", "korean": "대쉬부스트", "rarity": "common", "type": "active"},
+            {"name": "weather_capsule", "korean": "기상조절캡슐", "rarity": "common", "type": "active"},
+            {"name": "dynamite", "korean": "다이너마이트", "rarity": "common", "type": "active"},
+            {"name": "banana", "korean": "바나나", "rarity": "common", "type": "active"},
+            {"name": "regeneration_potion", "korean": "재생물약", "rarity": "common", "type": "active"},
+            {"name": "doping_potion", "korean": "도핑물약", "rarity": "common", "type": "active"},
         ]
 
         # 발토르 전용 아이템 추가 (발토르로 플레이 시에만)
