@@ -20749,6 +20749,8 @@ SOUND_STAGE5_WARNING = sound_effects['STAGE5_WARNING']
 SOUND_WHIPCRACK = sound_effects.get('WHIPCRACK')
 SOUND_ROUND_SET = sound_effects.get('ROUND_SET')
 SOUND_BOOMERANG = sound_effects.get('BOOMERANG')
+SOUND_BOOMERANG_HIT = sound_effects.get('BOOMERANG_HIT')
+SOUND_BOOMERANG_BREAK = sound_effects.get('BOOMERANG_BREAK')
 boomerang_sound_channel = None  # 부메랑 루프 재생 채널
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
@@ -151580,6 +151582,13 @@ def main(stage_num, new_boss_mode=False):
                     globals()["boss_dashing"] = False
                     globals()["boss_dash_timer"] = 0
                     globals()["boss_dash_stun_timer"] = 0
+                    # 부메랑 보스 타격음
+                    if SOUND_BOOMERANG_HIT:
+                        play_sound_with_volume(SOUND_BOOMERANG_HIT)
+                elif ev.get("type") == "destroyed":
+                    # 부메랑 파괴 효과음
+                    if SOUND_BOOMERANG_BREAK:
+                        play_sound_with_volume(SOUND_BOOMERANG_BREAK)
                 elif ev.get("type") == "item_pickup":
                     # 부메랑이 주운 아이템 → 플레이어 획득 처리
                     picked = ev.get("item")

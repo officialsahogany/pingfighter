@@ -108,6 +108,8 @@ SOUND_PATHS = {
     "WHIPCRACK": "sounds/whipcrack.wav",
     "ROUND_SET": "sounds/roundset.wav",
     "BOOMERANG": "sounds/boomerang.wav",
+    "BOOMERANG_HIT": "sounds/shurikenhit.wav",
+    "BOOMERANG_BREAK": "sounds/bonebreak.wav",
 }
 
 
