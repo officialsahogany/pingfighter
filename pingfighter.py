@@ -12974,7 +12974,7 @@ def reset_runtime_skill_system():
 def refresh_perk_leaf_shield():
     """퍽 월계수잎 ArenaLeafShield를 퍽 레벨 + 신성월계수 보너스로 갱신"""
     global perk_leaf_shield
-    total_leaves = runtime_skill_levels.get("perk_laurel_shield", 0) + sacred_laurel_perk_bonus
+    total_leaves = get_runtime_skill_level("perk_laurel_shield") + sacred_laurel_perk_bonus
     if total_leaves > 0:
         from downtown.colosseum_arena import ArenaLeafShield
         if perk_leaf_shield is None:
@@ -25709,7 +25709,7 @@ def get_total_boost_charge_pct() -> float:
     total = 0.0
     if dashgear_obtained:
         total += dashgear_boost_charge_pct
-    perk_level = runtime_skill_levels.get("perk_boost_charge", 0)
+    perk_level = get_runtime_skill_level("perk_boost_charge")
     if perk_level > 0:
         total += perk_level * 4  # 레벨당 4%
     return total
