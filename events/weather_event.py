@@ -1404,43 +1404,7 @@ def draw_ice_particles(screen):
                                (col, 0), (col, zone_h))
         screen.blit(shimmer_surf2, (shimmer_x2 - 20, zone_y))
 
-    # 3. 빙판 경계 엣지 (서리 라인)
-    for zone_edge_y in [RINK_HEIGHT, screen_h - RINK_HEIGHT]:
-        # 메인 엣지 라인
-        edge_surf = pygame.Surface((screen_w, 6), pygame.SRCALPHA)
-        for col in range(screen_w):
-            # 물결치는 서리 엣지
-            wave = math.sin(col * 0.05 + ice_shimmer_phase * 2) * 1.5
-            row_center = 3 + int(wave)
-            for row in range(6):
-                dist = abs(row - row_center)
-                edge_alpha = max(0, int(35 * (1.0 - dist / 3.0)))
-                if edge_alpha > 0:
-                    edge_surf.set_at((col, row), (220, 245, 255, edge_alpha))
-        screen.blit(edge_surf, (0, zone_edge_y - 3))
-
-        # 서리 결정 돌기 (엣지에서 튀어나온 작은 결정)
-        crystal_seed = int(zone_edge_y * 100)
-        rng = random.Random(crystal_seed)
-        for i in range(15):
-            cx = rng.randint(20, screen_w - 20)
-            crystal_size = rng.randint(3, 7)
-            # 위/아래 방향
-            direction = -1 if zone_edge_y == RINK_HEIGHT else 1
-            cy = zone_edge_y + direction * 1
-
-            # 작은 육각 결정
-            crystal_alpha = int(30 + 15 * math.sin(ice_shimmer_phase * 1.5 + i * 0.7))
-            crystal_surf = pygame.Surface((crystal_size * 2 + 4, crystal_size * 2 + 4), pygame.SRCALPHA)
-            cc = crystal_size + 2
-            for k in range(6):
-                angle = math.pi / 3 * k + math.pi / 6
-                px = cc + int(crystal_size * math.cos(angle))
-                py = cc + int(crystal_size * math.sin(angle))
-                pygame.draw.line(crystal_surf, (210, 240, 255, crystal_alpha), (cc, cc), (px, py), 1)
-            screen.blit(crystal_surf, (cx - cc, cy - cc))
-
-    # 4. 반짝이는 입자 레이어 (향상된 버전)
+    # 3. 반짝이는 입자 레이어 (향상된 버전)
     for p in ice_sparkle_particles:
         lifetime_ratio = p["lifetime"] / p["max_lifetime"]
         sparkle = (math.sin(p["sparkle_phase"]) + 1) / 2
