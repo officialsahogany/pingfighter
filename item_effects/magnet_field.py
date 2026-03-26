@@ -13,7 +13,7 @@ import random
 # 상수
 MAGNET_FIELD_DURATION_FRAMES = 480  # 8초 (60fps * 8)
 MAGNET_PULL_RADIUS = 300  # 자기장 반경 (px) - 이 범위 안의 공만 끌어당김
-MAGNET_PULL_STRENGTH = 1.2  # 공을 끌어당기는 최대 힘 (패들 방향 벡터)
+MAGNET_PULL_STRENGTH = 0.08  # 궤도 변경 비율 (프레임당 최대 8% 방향 보정)
 MAGNET_PROJECTILE_DEFLECT = 0.2  # 보스 투사체 궤도 변경 힘
 
 
@@ -156,20 +156,29 @@ class MagnetField:
         if distance > MAGNET_PULL_RADIUS or distance < 5:
             return False
 
-        # 거리가 가까울수록 힘이 강함 (역비례)
-        # distance=0 → pull=1.0, distance=300 → pull=0.0
-        pull_ratio = 1.0 - (distance / MAGNET_PULL_RADIUS)
-        # 비선형 커브: 가까울수록 급격히 강해짐
-        pull_ratio = pull_ratio ** 0.6
+        # 현재 공 속도 크기 보존 (속도 증가 방지)
+        current_speed = math.sqrt(ball_vel[0] ** 2 + ball_vel[1] ** 2)
+        if current_speed < 0.5:
+            return False
 
-        # 방향 벡터 정규화
+        # 거리 기반 보정 비율 (가까울수록 강함)
+        pull_ratio = 1.0 - (distance / MAGNET_PULL_RADIUS)
+        pull_ratio = pull_ratio ** 0.7
+
+        # 패들 방향 단위 벡터
         nx = dx / distance
         ny = dy / distance
 
-        # 힘 적용 (패들 방향으로)
-        force = MAGNET_PULL_STRENGTH * pull_ratio
-        ball_vel[0] += nx * force
-        ball_vel[1] += ny * force
+        # 현재 속도 방향에 패들 방향을 블렌딩 (속도 크기는 유지)
+        blend = MAGNET_PULL_STRENGTH * pull_ratio
+        new_vx = ball_vel[0] + nx * current_speed * blend
+        new_vy = ball_vel[1] + ny * current_speed * blend
+
+        # 새 속도 벡터를 원래 속도 크기로 정규화 → 속도 증가 없음
+        new_speed = math.sqrt(new_vx ** 2 + new_vy ** 2)
+        if new_speed > 0.1:
+            ball_vel[0] = new_vx / new_speed * current_speed
+            ball_vel[1] = new_vy / new_speed * current_speed
 
         return True
 
