@@ -1559,14 +1559,14 @@ ITEM_TYPES = [
         "body_part": "belt"  # 벨트 부위
     },
     {
-        "name": "pandora_legacy",  # 판도라의 유산 전설 아이템 (장신구 부위)
+        "name": "pandora_legacy",  # 판도라의 유산 전설 아이템 (등 부위)
         "color": (150, 50, 200),  # 보라색 (판도라 상자)
         "effect": "pandora_legacy",
         "icon": None,
         "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None,
-        "body_part": "back"  # 등 부위
+        "body_part": "등"  # 등 부위
     },
     {
         "name": "knee_pads",  # 킥차져 패시브 아이템

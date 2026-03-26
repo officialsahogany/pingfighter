@@ -24705,6 +24705,7 @@ ITEM_SLOT_BASE_MAP = {
     "doping_potion": "accessory",
     "berserk_potion": "accessory",
     "odins_eye": "belt",
+    "pandora_legacy": "등",
     "hero_seal": "accessory",
     "adversity_armor": "top",
     "shrapnel_armor": "top",
