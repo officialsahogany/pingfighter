@@ -13,7 +13,7 @@ import random
 # 상수
 MAGNET_FIELD_DURATION_FRAMES = 480  # 8초 (60fps * 8)
 MAGNET_PULL_RADIUS = 300  # 자기장 반경 (px) - 이 범위 안의 공만 끌어당김
-MAGNET_PULL_STRENGTH = 0.08  # 궤도 변경 비율 (프레임당 최대 8% 방향 보정)
+MAGNET_PULL_STRENGTH = 0.096  # 궤도 변경 비율 (프레임당 최대 9.6% 방향 보정)
 MAGNET_PROJECTILE_DEFLECT = 0.2  # 보스 투사체 궤도 변경 힘
 
 
