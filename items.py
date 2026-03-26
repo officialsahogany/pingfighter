@@ -1566,7 +1566,7 @@ ITEM_TYPES = [
         "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None,
-        "body_part": "accessory"  # 장신구 부위
+        "body_part": "back"  # 등 부위
     },
     {
         "name": "knee_pads",  # 킥차져 패시브 아이템
