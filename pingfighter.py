@@ -24856,9 +24856,9 @@ def _commando_speed_multiplier(base_bonus: float = 0.5) -> float:
 
 
 def _commando_timer_reduction(base_timer: int) -> int:
-    """투척 준비시간 단축. 스택당 base_timer를 1/(1+2*count) 비율로 단축."""
+    """투척 준비시간 단축. 스택당 50% 단축."""
     count = _get_commando_arm_count()
-    return max(1, int(base_timer / (1 + 2 * count))) if count > 0 else base_timer
+    return max(1, int(base_timer * (0.5 ** count))) if count > 0 else base_timer
 
 
 def _commando_range_bonus(base_value: float, per_stack_pct: float = 0.10) -> int:
