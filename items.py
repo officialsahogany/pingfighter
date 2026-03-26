@@ -912,6 +912,7 @@ def load_item_icons():
         "poseidon_trident": "legendary/poseidon_trident.png",
         "angel_blessing": "legendary/holy_laurel.png",  # 천사의 가호 아이콘
         "sacred_laurel": "legendary/sacred_laurel.png",  # 신성한 월계관 아이콘
+        "pandora_legacy": "legendary/pandora_legacy.png",  # 판도라의 유산 아이콘
         "regeneration_potion": "regeneration_potion.png",  # 재생물약 아이콘
         "adversity_armor": "adversity_armor.png",  # 역경의 갑옷 아이콘
     }
@@ -1558,6 +1559,16 @@ ITEM_TYPES = [
         "body_part": "belt"  # 벨트 부위
     },
     {
+        "name": "pandora_legacy",  # 판도라의 유산 전설 아이템 (장신구 부위)
+        "color": (150, 50, 200),  # 보라색 (판도라 상자)
+        "effect": "pandora_legacy",
+        "icon": None,
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "accessory"  # 장신구 부위
+    },
+    {
         "name": "knee_pads",  # 킥차져 패시브 아이템
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
@@ -1782,6 +1793,7 @@ angel_blessing_obtained = False  # 천사의 가호 획득 여부
 sacred_laurel_obtained = False  # 신성 월계수 획득 여부
 transcendent_crown_obtained = False  # 초월자의 관 획득 여부
 odins_eye_obtained = False  # 오딘의 눈 획득 여부
+pandora_legacy_obtained = False  # 판도라의 유산 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 gold_bar_obtained = False  # 금괴 아이템 획득 여부
@@ -1857,6 +1869,7 @@ unlocked_items = {
     "sacred_laurel": True,
     "transcendent_crown": True,
     "odins_eye": True,
+    "pandora_legacy": True,
 
     # 패시브 아이템
     "knee_pads": True,
@@ -1882,7 +1895,7 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle",
     "smartphone", "knee_pads", "gold_digger", "lucky_coin",
     "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
-    "sacred_laurel", "transcendent_crown", "odins_eye",
+    "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy",
     "hero_seal",
     "adversity_armor",
     "shrapnel_armor"
@@ -2000,7 +2013,7 @@ def reset_items():
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained, lucky_coin_obtained, adversity_armor_obtained
+    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained, pandora_legacy_obtained, lucky_coin_obtained, adversity_armor_obtained
 
     debug_spawn = os.environ.get("PINGF_DEBUG_ITEMS", "0").lower() in ("1", "true", "yes", "on")
     if debug_spawn:
@@ -2166,7 +2179,7 @@ def spawn_random_item():
     except Exception:
         pass
 
-    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"}
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
     except Exception:
@@ -2188,7 +2201,7 @@ def spawn_random_item():
         "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
-        "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye",
+        "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy",
         "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
         "adversity_armor", "shrapnel_armor"
     }
@@ -2384,7 +2397,7 @@ def _spawn_bonus_item(available_items, skill_spawn_boost=1.0):
 
 
 def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None, paused=False, on_item_collect_callback=None):
-    global item_list, angel_blessing_obtained, ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, sacred_laurel_obtained, transcendent_crown_obtained, odins_eye_obtained
+    global item_list, angel_blessing_obtained, ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, sacred_laurel_obtained, transcendent_crown_obtained, odins_eye_obtained, pandora_legacy_obtained
     new_items = []
 
     for item in item_list:
@@ -2453,7 +2466,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {

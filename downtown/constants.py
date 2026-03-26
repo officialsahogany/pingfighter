@@ -557,6 +557,7 @@ LEGENDARY_ITEM_NAMES = {
     "sacred_laurel",
     "transcendent_crown",
     "odins_eye",
+    "pandora_legacy",
 }
 
 # 강화 애니메이션 시간 (초)

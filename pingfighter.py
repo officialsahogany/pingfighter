@@ -25876,6 +25876,7 @@ def sync_equipped_passive_effects():
     sync_bool("sacred_laurel", "items.sacred_laurel_obtained")
     sync_bool("transcendent_crown", "items.transcendent_crown_obtained")
     sync_bool("odins_eye", "items.odins_eye_obtained")
+    sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
 
     # 장비 슬롯 확장 (slot_add) - 배낭의 롤옵션 slot_add_count 값을 합산 + 강화 보너스 적용
     slot_add_items = [item for item in equipped_items if item.get("name") == "slot_add"]
@@ -26072,7 +26073,7 @@ def sync_equipped_passive_effects():
                 print(f"[LEGENDARY_ROLL_SYNC] {item_name} 롤 동기화 실패: {e}")
 
         # 장비 슬롯에 존재하면 전설 효과 활성화
-        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"):
+        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"):
             if legend_name in equipped_names:
                 # 장착된 아이템의 rolled_options를 전역 딕셔너리에 동기화
                 equipped_legend_item = next((item for item in equipped_items if item.get("name") == legend_name), None)
@@ -26145,6 +26146,13 @@ def sync_equipped_passive_effects():
                         blessing = legendary_manager.get_item("angel_blessing")
                         if blessing:
                             blessing.enhancement_bonus_pct = blessing_item.get("enhancement_bonus_pct", 0)
+                # 판도라의 유산: 강화 보너스 동기화
+                if legend_name == "pandora_legacy":
+                    pandora_item = next((item for item in equipped_items if item.get("name") == "pandora_legacy"), None)
+                    if pandora_item:
+                        pandora = legendary_manager.get_item("pandora_legacy")
+                        if pandora:
+                            pandora.enhancement_bonus_pct = pandora_item.get("enhancement_bonus_pct", 0)
                 # 초월자의 관: 강화 보너스 동기화
                 if legend_name == "transcendent_crown":
                     crown_item = next((item for item in equipped_items if item.get("name") == "transcendent_crown"), None)
@@ -26187,6 +26195,10 @@ def sync_equipped_passive_effects():
                     crown = legendary_manager.get_item("transcendent_crown")
                     if crown:
                         crown.enhancement_bonus_pct = 0
+                elif legend_name == "pandora_legacy":
+                    pandora = legendary_manager.get_item("pandora_legacy")
+                    if pandora:
+                        pandora.enhancement_bonus_pct = 0
 
         # 초월자의 관이 장착되어 있으면 스킬 보너스 재계산 (강화 보너스 반영)
         if "transcendent_crown" in equipped_names:
@@ -49253,6 +49265,184 @@ pandora_box_timer = 0
 pandora_box_original_spawn_delay = 0
 pandora_box_rainbow_animation = 0
 PANDORA_BOX_DURATION = 180  # 3초 (60fps * 3)
+
+# === 판도라의 유산 아이템 선택 UI ===
+pandora_legacy_selection_active = False
+pandora_legacy_selection_items = []  # 3개 선택지
+pandora_legacy_selected_index = 0
+pandora_legacy_selection_timer = 0
+
+def draw_pandora_legacy_selection_ui(screen):
+    """판도라의 유산 - 라운드 승리 후 3개 아이템 선택 UI 그리기"""
+    global pandora_legacy_selection_active, pandora_legacy_selection_items
+    global pandora_legacy_selected_index, pandora_legacy_selection_timer
+
+    if not pandora_legacy_selection_active or len(pandora_legacy_selection_items) < 3:
+        return False
+
+    pandora_legacy_selection_timer += 1
+    fade_alpha = min(255, pandora_legacy_selection_timer * 8)
+
+    # 반투명 배경
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, min(160, fade_alpha)))
+    screen.blit(overlay, (0, 0))
+
+    # 타이틀
+    try:
+        title_font = FontStyle.subtitle()
+        title_surf, title_rect = title_font.render("📦 판도라의 유산 - 아이템 선택", (255, 215, 0))
+        screen.blit(title_surf, (WIDTH // 2 - title_rect.width // 2, 100))
+    except Exception:
+        pass
+
+    # 설명 텍스트
+    try:
+        desc_font = FontStyle.body()
+        desc_surf, desc_rect = desc_font.render("◀ ▶ 키로 선택, SPACE로 확정", (200, 200, 200))
+        screen.blit(desc_surf, (WIDTH // 2 - desc_rect.width // 2, 140))
+    except Exception:
+        pass
+
+    # 3개 아이템 카드 그리기
+    card_w, card_h = 160, 220
+    gap = 30
+    total_w = card_w * 3 + gap * 2
+    start_x = WIDTH // 2 - total_w // 2
+    card_y = 180
+
+    for i, item_data in enumerate(pandora_legacy_selection_items):
+        x = start_x + i * (card_w + gap)
+        is_selected = (i == pandora_legacy_selected_index)
+
+        # 카드 배경
+        card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+        if is_selected:
+            # 선택된 카드 - 금색 테두리 + 밝은 배경
+            card_surf.fill((40, 30, 60, 230))
+            pygame.draw.rect(card_surf, (255, 215, 0), (0, 0, card_w, card_h), 3)
+            # 글로우 효과
+            glow = pygame.Surface((card_w + 10, card_h + 10), pygame.SRCALPHA)
+            glow.fill((255, 215, 0, 30))
+            screen.blit(glow, (x - 5, card_y - 5))
+        else:
+            card_surf.fill((20, 15, 35, 200))
+            pygame.draw.rect(card_surf, (100, 80, 140), (0, 0, card_w, card_h), 2)
+
+        # 아이템 아이콘
+        icon = get_item_icon(item_data.get("name", ""))
+        if icon:
+            icon_scaled = pygame.transform.scale(icon, (64, 64))
+            card_surf.blit(icon_scaled, (card_w // 2 - 32, 20))
+        else:
+            # 색상 원 폴백
+            color = item_data.get("color", (200, 200, 200))
+            pygame.draw.circle(card_surf, color, (card_w // 2, 52), 28)
+
+        # 아이템 이름
+        try:
+            name_font = FontStyle.body()
+            item_name = item_data.get("name", "???")
+            korean_name = get_item_korean_name(item_name)
+            name_surf, name_rect = name_font.render(korean_name, (255, 255, 255))
+            # 이름이 카드보다 넓으면 축소
+            if name_rect.width > card_w - 10:
+                name_surf = pygame.transform.scale(name_surf, (card_w - 10, name_rect.height))
+                name_rect = name_surf.get_rect()
+            card_surf.blit(name_surf, (card_w // 2 - name_rect.width // 2, 95))
+        except Exception:
+            pass
+
+        # 아이템 설명 (간략)
+        try:
+            desc_font_small = FontStyle.small()
+            item_desc = get_item_description(item_data.get("name", ""))
+            # 설명을 짧게 자르기 (최대 40자)
+            if len(item_desc) > 40:
+                item_desc = item_desc[:38] + ".."
+            # 줄바꿈 처리
+            max_chars_per_line = 12
+            lines = []
+            for j in range(0, len(item_desc), max_chars_per_line):
+                lines.append(item_desc[j:j+max_chars_per_line])
+            for li, line in enumerate(lines[:5]):
+                line_surf, line_rect = desc_font_small.render(line, (180, 180, 200))
+                card_surf.blit(line_surf, (card_w // 2 - line_rect.width // 2, 120 + li * 18))
+        except Exception:
+            pass
+
+        screen.blit(card_surf, (x, card_y))
+
+    return True
+
+def handle_pandora_legacy_selection_input(event):
+    """판도라의 유산 아이템 선택 입력 처리"""
+    global pandora_legacy_selection_active, pandora_legacy_selection_items
+    global pandora_legacy_selected_index
+
+    if not pandora_legacy_selection_active:
+        return False
+
+    if event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_LEFT:
+            pandora_legacy_selected_index = (pandora_legacy_selected_index - 1) % 3
+            try:
+                play_sound_with_volume(SOUND_SELECT)
+            except Exception:
+                pass
+            return True
+        elif event.key == pygame.K_RIGHT:
+            pandora_legacy_selected_index = (pandora_legacy_selected_index + 1) % 3
+            try:
+                play_sound_with_volume(SOUND_SELECT)
+            except Exception:
+                pass
+            return True
+        elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+            # 선택 확정 - 아이템 획득
+            if 0 <= pandora_legacy_selected_index < len(pandora_legacy_selection_items):
+                selected = pandora_legacy_selection_items[pandora_legacy_selected_index]
+                # 액티브 아이템으로 추가
+                item_data = {
+                    "name": selected.get("name", ""),
+                    "color": selected.get("color", (200, 200, 200)),
+                    "effect": selected.get("effect", selected.get("name", "")),
+                    "icon": None,
+                    "duration": selected.get("duration", 600),
+                    "x": WIDTH // 2,
+                    "y": HEIGHT // 2,
+                }
+                store_active_item(item_data)
+                show_item_obtained_effect(item_data, WIDTH // 2, HEIGHT // 2)
+                try:
+                    play_sound_with_volume(SOUND_ITEM_GET)
+                except Exception:
+                    pass
+            pandora_legacy_selection_active = False
+            pandora_legacy_selection_items = []
+            pandora_legacy_selection_timer = 0
+            return True
+        elif event.key == pygame.K_ESCAPE:
+            # 선택 취소 (첫 번째 아이템 자동 선택)
+            if pandora_legacy_selection_items:
+                selected = pandora_legacy_selection_items[0]
+                item_data = {
+                    "name": selected.get("name", ""),
+                    "color": selected.get("color", (200, 200, 200)),
+                    "effect": selected.get("effect", selected.get("name", "")),
+                    "icon": None,
+                    "duration": selected.get("duration", 600),
+                    "x": WIDTH // 2,
+                    "y": HEIGHT // 2,
+                }
+                store_active_item(item_data)
+                show_item_obtained_effect(item_data, WIDTH // 2, HEIGHT // 2)
+            pandora_legacy_selection_active = False
+            pandora_legacy_selection_items = []
+            pandora_legacy_selection_timer = 0
+            return True
+
+    return False
 
 # === 스탑워치 관련 변수 ===
 stopwatch_active = False
@@ -74383,7 +74573,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -74424,7 +74614,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
         return
 
     # 최대 3개까지만 보관
@@ -75351,6 +75541,31 @@ def store_passive_item(item_data):
             trigger_legendary_acquisition("odins_eye", "오딘의 눈", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("👁 오딘의 눈 첫 획득! 장착 시 라운드 패배 시 부활 기회가 생깁니다!")
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "pandora_legacy":
+        # 판도라의 유산 전설 아이템 획득 (장신구 부위 - 라운드 승리 시 아이템 선택)
+        # ⚠️ 효과는 장착 시에만 활성화됨
+        if not items.pandora_legacy_obtained:
+            items.pandora_legacy_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "pandora_legacy")  # 뼈대 외형 변경
+            try:
+                legendary_manager = get_legendary_manager()
+                if "pandora_legacy" not in legendary_manager.unlocked_items:
+                    legendary_manager.unlocked_items.append("pandora_legacy")
+                    legendary_manager.items["pandora_legacy"].unlocked = True
+                from legendary_items import randomize_legendary_rolls
+                randomize_legendary_rolls("pandora_legacy")
+                pandora = legendary_manager.items.get("pandora_legacy")
+                if pandora:
+                    enhancement_pct = item_data.get("enhancement_bonus_pct", 0)
+                    pandora.enhancement_bonus_pct = enhancement_pct
+            except Exception as e:
+                print(f"판도라의 유산 효과 적용 오류: {e}")
+            trigger_legendary_acquisition("pandora_legacy", "판도라의 유산", item_icon,
+                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -125841,7 +126056,7 @@ def get_item_icon(item_name):
         return icon_surface
 
     # 전설 아이템들은 정적 스냅샷 생성
-    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"]:
+    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"]:
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         if legendary_manager:
@@ -125974,6 +126189,24 @@ def get_item_icon(item_name):
                                         (cx - ICON_SIZE // 4, cy, ICON_SIZE // 2, ICON_SIZE // 8))
                         pygame.draw.ellipse(icon_surface, eye_color,
                                           (cx - ICON_SIZE // 8, cy - ICON_SIZE // 10, ICON_SIZE // 4, ICON_SIZE // 6))
+                elif lookup_name == "pandora_legacy":
+                    # 판도라의 유산 - 애니메이션 프레임 사용
+                    if hasattr(legendary_item, 'animation_frames') and legendary_item.animation_frames:
+                        frame = legendary_item.animation_frames[0]
+                        scaled_frame = pygame.transform.scale(frame, (ICON_SIZE, ICON_SIZE))
+                        icon_surface.blit(scaled_frame, (0, 0))
+                    elif hasattr(legendary_item, 'draw_icon'):
+                        legendary_item.draw_icon(icon_surface, 0, 0, ICON_SIZE)
+                    else:
+                        # 폴백: 보라색 상자 아이콘
+                        box_color = (150, 50, 200)
+                        gold_color = (255, 215, 0)
+                        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+                        pygame.draw.rect(icon_surface, box_color,
+                                        (cx - ICON_SIZE // 4, cy - ICON_SIZE // 8, ICON_SIZE // 2, ICON_SIZE // 3))
+                        pygame.draw.rect(icon_surface, (170, 70, 220),
+                                        (cx - ICON_SIZE // 4 - 1, cy - ICON_SIZE // 4, ICON_SIZE // 2 + 2, ICON_SIZE // 6))
+                        pygame.draw.circle(icon_surface, gold_color, (cx, cy + ICON_SIZE // 12), ICON_SIZE // 10)
 
                 icon_cache[item_name] = icon_surface
                 return icon_surface
@@ -126052,6 +126285,16 @@ def get_item_icon(item_name):
                             (cx - ICON_SIZE // 4, cy, ICON_SIZE // 2, ICON_SIZE // 8))
             pygame.draw.ellipse(icon_surface, eye_color,
                               (cx - ICON_SIZE // 8, cy - ICON_SIZE // 10, ICON_SIZE // 4, ICON_SIZE // 6))
+        elif lookup_name == "pandora_legacy":
+            # 판도라의 유산 기본 아이콘 (보라색 상자)
+            box_color = (150, 50, 200)
+            gold_color = (255, 215, 0)
+            cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+            pygame.draw.rect(icon_surface, box_color,
+                            (cx - ICON_SIZE // 4, cy - ICON_SIZE // 8, ICON_SIZE // 2, ICON_SIZE // 3))
+            pygame.draw.rect(icon_surface, (170, 70, 220),
+                            (cx - ICON_SIZE // 4 - 1, cy - ICON_SIZE // 4, ICON_SIZE // 2 + 2, ICON_SIZE // 6))
+            pygame.draw.circle(icon_surface, gold_color, (cx, cy + ICON_SIZE // 12), ICON_SIZE // 10)
         icon_cache[item_name] = icon_surface
         return icon_surface
 
@@ -136992,6 +137235,16 @@ def handle_ball():
             except Exception:
                 pass
 
+            # 📦 판도라의 유산: 라운드 승리 시 아이템 선택 예약
+            try:
+                legendary_manager = get_legendary_manager()
+                if legendary_manager and items.pandora_legacy_obtained:
+                    pandora = legendary_manager.get_item("pandora_legacy")
+                    if pandora and pandora.active:
+                        pandora.generate_selection_choices()
+            except Exception:
+                pass
+
             # 스테이지 1: 관중 흥분 트리거
             if current_stage == 1 and pillar_renderer is not None:
                 pillar_renderer.trigger_stadium_excitement(1.8)
@@ -137127,6 +137380,41 @@ def handle_ball():
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                        boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
+
+            # 📦 판도라의 유산: 라운드 승리 후 아이템 선택 UI
+            try:
+                legendary_manager = get_legendary_manager()
+                if legendary_manager and items.pandora_legacy_obtained:
+                    pandora = legendary_manager.get_item("pandora_legacy")
+                    if pandora and pandora.active and pandora.selection_active and pandora.selection_items:
+                        pandora_legacy_selection_active = True
+                        pandora_legacy_selection_items = pandora.selection_items
+                        pandora_legacy_selected_index = 0
+                        pandora_legacy_selection_timer = 0
+                        # 블로킹 선택 루프
+                        _pandora_selecting = True
+                        while _pandora_selecting:
+                            for _pev in pygame.event.get():
+                                if _pev.type == pygame.QUIT:
+                                    _pandora_selecting = False
+                                    pandora_legacy_selection_active = False
+                                    break
+                                if handle_pandora_legacy_selection_input(_pev):
+                                    if not pandora_legacy_selection_active:
+                                        _pandora_selecting = False
+                                        break
+                            # 선택 UI 그리기
+                            draw_field()
+                            draw_objects()
+                            draw_score()
+                            draw_pandora_legacy_selection_ui(SCREEN)
+                            pygame.display.flip()
+                            clock.tick(60)
+                        pandora.selection_active = False
+                        pandora.selection_items = []
+            except Exception as e:
+                print(f"판도라의 유산 선택 UI 오류: {e}")
+
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -158679,7 +158967,7 @@ def get_item_name_korean(item_name):
         "ragnarok_hammer": "라그나로크 해머", "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창", "angel_blessing": "천사의 가호",
         "sacred_laurel": "신성 월계수", "transcendent_crown": "초월자의 관",
-        "odins_eye": "오딘의 눈", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
+        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
         "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기",
@@ -158764,6 +159052,7 @@ def get_item_description(item_name):
         "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
         "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4",
         "magnet_field": "자기장 발생기: 3초간 자기장을 발생시켜 공이 플레이어 패들 쪽으로 약간 끌려옵니다. 위기 상황에서 방어용으로 유용하며, 보스 공격도 살짝 궤도가 변경됩니다.",
+        "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 선택지 품질 10~30% (희귀 아이템 출현 확률 상승)",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

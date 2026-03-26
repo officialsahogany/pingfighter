@@ -87,6 +87,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_back_parts import ChargeBagPart
         return ChargeBagPart(block)
 
+    elif item_name == "pandora_legacy":
+        from entities.body_parts.item_back_parts import PandoraLegacyPart
+        return PandoraLegacyPart(block)
+
     return None
 
 

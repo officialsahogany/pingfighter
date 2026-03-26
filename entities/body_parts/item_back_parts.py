@@ -1,5 +1,5 @@
 """
-패시브 아이템 연동 등 파츠 — 충전가방.
+패시브 아이템 연동 등 파츠 — 충전가방, 판도라의 유산.
 """
 
 import math
@@ -82,3 +82,68 @@ class ChargeBagPart(BodyPart):
 
         # 테두리
         pygame.draw.rect(surface, (35, 60, 35), bag_rect, 1, border_radius=3)
+
+
+class PandoraLegacyPart(BodyPart):
+    """판도라의 유산 (pandora_legacy).
+
+    목에 거는 보라색 보석 펜던트 + 금색 체인.
+    효과: 라운드 승리 시 3개 아이템 선택.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_BACK,
+            draw_order=ORDER_BACK + 1,  # 충전가방보다 약간 앞에
+            joint_a="torso",
+            joint_b=None,
+        )
+        self.block = block
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        b = self.block
+        cx, ty = joint_a.world_int()
+
+        # ── 금색 체인 (목에서 가슴으로) ──
+        chain_top_l = (cx - int(0.6 * b), ty - int(1.5 * b))
+        chain_top_r = (cx + int(0.6 * b), ty - int(1.5 * b))
+        pendant_pos = (cx, ty - int(0.3 * b))
+
+        gold = (255, 215, 0)
+        dark_gold = (200, 170, 0)
+        pygame.draw.line(surface, gold, chain_top_l, pendant_pos, 1)
+        pygame.draw.line(surface, gold, chain_top_r, pendant_pos, 1)
+
+        # ── 보석 (보라색 다이아몬드형 보석) ──
+        gem_size = int(0.7 * b)
+        gx, gy = pendant_pos
+        # 보석 본체
+        gem_points = [
+            (gx, gy - gem_size),        # 상단
+            (gx + gem_size, gy),         # 우측
+            (gx, gy + gem_size),         # 하단
+            (gx - gem_size, gy),         # 좌측
+        ]
+        # 보석 빛남 효과 (phase 기반)
+        glow_intensity = (math.sin(phase * math.tau * 2) + 1) / 2
+        r = int(130 + 50 * glow_intensity)
+        g_val = int(30 + 30 * glow_intensity)
+        b_val = int(180 + 40 * glow_intensity)
+        pygame.draw.polygon(surface, (r, g_val, b_val), gem_points)
+
+        # 보석 하이라이트
+        hl_points = [
+            (gx, gy - gem_size + 2),
+            (gx + gem_size // 2, gy),
+            (gx, gy + 1),
+            (gx - gem_size // 2, gy),
+        ]
+        pygame.draw.polygon(surface, (min(255, r + 40), min(255, g_val + 40), min(255, b_val + 30)), hl_points)
+
+        # 금색 테두리
+        pygame.draw.polygon(surface, dark_gold, gem_points, 1)
+
+        # ── 금색 장식 ──
+        pygame.draw.circle(surface, gold, (gx, gy - gem_size - 2), 2)

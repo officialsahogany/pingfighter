@@ -91,6 +91,9 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     "odins_eye": [
         {"key": "revival_chance", "label": "부활 확률", "min": 25, "max": 40, "unit": "%", "default": 30},
     ],
+    "pandora_legacy": [
+        {"key": "selection_quality", "label": "선택지 품질", "min": 10, "max": 30, "unit": "%", "default": 20},
+    ],
 }
 
 # 전설 아이템 롤 값 저장소 (아이템명 -> {옵션키: 값})
@@ -11144,6 +11147,329 @@ class OdinsEye(LegendaryItem):
             self.particle_timer = 0
 
 
+class PandoraLegacy(LegendaryItem):
+    """판도라의 유산 - 장신구 부위 전설 아이템
+
+    판도라의 상자 업그레이드 버전.
+    매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시되고
+    플레이어가 하나를 선택하여 획득.
+
+    롤 옵션: 선택지 품질 (아이템 등급 상승 확률) 10~30%
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="pandora_legacy",
+            korean_name="판도라의 유산",
+            description="라운드 승리 시 3개 액티브 아이템 중 하나를 선택 (롤 옵션: 선택지 품질 10~30%)",
+            unlock_condition="신화 아이템 획득",
+            icon_path=None  # 고유 애니메이션만 사용
+        )
+        # 선택 UI 상태
+        self.selection_active = False
+        self.selection_items = []  # 3개 선택지 [{name, color, icon, ...}, ...]
+        self.selected_index = -1
+        self.selection_animation_timer = 0
+        self.selection_fade_alpha = 0
+
+        # 애니메이션 프레임 설정
+        self.animation_frames = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8
+        self._load_animation_frames()
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+
+    @property
+    def selection_quality(self) -> float:
+        """선택지 품질 보너스 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 10~30%)"""
+        return get_legendary_roll_value(
+            "pandora_legacy", "selection_quality",
+            apply_polish=True,
+            enhancement_bonus_pct=self.enhancement_bonus_pct
+        )
+
+    def activate(self, game_state: Dict = None):
+        """판도라의 유산 활성화"""
+        if self.active:
+            return
+        super().activate(game_state)
+        import items
+        items.pandora_legacy_obtained = True
+
+    def deactivate(self):
+        """판도라의 유산 비활성화"""
+        super().deactivate()
+        self.selection_active = False
+        self.selection_items = []
+
+    def generate_selection_choices(self):
+        """라운드 승리 시 3개 액티브 아이템 선택지 생성"""
+        import items as items_module
+        import random
+
+        quality_bonus = self.selection_quality / 100.0  # 퍼센트 → 비율
+
+        # 액티브 아이템 후보 풀 구성 (chance > 0인 아이템만)
+        active_pool = []
+        passive_names = {
+            "speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime",
+            "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
+            "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
+            "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
+            "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel",
+            "transcendent_crown", "odins_eye", "pandora_legacy",
+            "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
+            "adversity_armor", "shrapnel_armor"
+        }
+        excluded = {"ammo_box", "fire_support", "doping_potion"}  # 물자보급 전용
+
+        for item_type in items_module.ITEM_TYPES:
+            name = item_type.get("name", "")
+            if name in passive_names or name in excluded:
+                continue
+            if item_type.get("chance", 0) <= 0:
+                continue
+            if not items_module.unlocked_items.get(name, False):
+                continue
+            active_pool.append(item_type)
+
+        if len(active_pool) < 3:
+            return []
+
+        # 품질 보너스 적용: 높은 등급 아이템 가중치 증가
+        weighted_pool = []
+        for item in active_pool:
+            chance = item.get("chance", 0.01)
+            # 낮은 확률(희귀)일수록 품질 보너스로 가중치 증가
+            if chance < 0.005:
+                weight = 1.0 + quality_bonus * 3  # 희귀 아이템 가중치 상승
+            elif chance < 0.01:
+                weight = 1.0 + quality_bonus * 2
+            else:
+                weight = 1.0
+            weighted_pool.append((item, weight))
+
+        # 3개 선택 (중복 없이)
+        selected = []
+        remaining = list(weighted_pool)
+        for _ in range(3):
+            if not remaining:
+                break
+            weights = [w for _, w in remaining]
+            total = sum(weights)
+            if total <= 0:
+                break
+            r = random.random() * total
+            cumulative = 0
+            for idx, (item, w) in enumerate(remaining):
+                cumulative += w
+                if r <= cumulative:
+                    selected.append(item.copy())
+                    remaining.pop(idx)
+                    break
+
+        self.selection_items = selected
+        self.selection_active = True
+        self.selected_index = -1
+        self.selection_animation_timer = 0
+        self.selection_fade_alpha = 0
+        return selected
+
+    def _load_animation_frames(self):
+        """애니메이션 프레임 로드 (라그나로크 해머 프레임 기반, 중앙 아이콘만 판도라 상자로 교체)"""
+        import pygame
+
+        self.animation_frames.clear()
+
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                if os.path.exists(frame_path):
+                    original = pygame.image.load(frame_path).convert_alpha()
+                    frame = self._create_pandora_frame(original, i)
+                    self.animation_frames.append(frame)
+            except Exception:
+                pass
+
+        if not self.animation_frames:
+            for i in range(8):
+                self.animation_frames.append(self._create_default_frame(i))
+
+    def _create_pandora_frame(self, base_frame, frame_idx):
+        """기존 프레임에서 중앙을 지우고 판도라 상자 그리기"""
+        import pygame
+        import math
+
+        frame = base_frame.copy()
+        width, height = frame.get_size()
+        cx, cy = width // 2, height // 2
+
+        # 중앙 영역 지우기 (테두리만 남김)
+        clear_radius = min(width, height) // 2 - 3
+        for y in range(height):
+            for x in range(width):
+                dist = math.sqrt((x - cx)**2 + (y - cy)**2)
+                if dist < clear_radius:
+                    frame.set_at((x, y), (0, 0, 0, 0))
+
+        # 판도라 상자 그리기 (보라색+금색)
+        box_colors = [
+            (150, 50, 200), (140, 45, 190), (160, 55, 210), (145, 48, 195),
+            (155, 52, 205), (135, 42, 185), (165, 58, 215), (142, 46, 192)
+        ]
+        gold_colors = [
+            (255, 215, 0), (245, 205, 0), (255, 225, 10), (250, 210, 5),
+            (252, 218, 8), (240, 200, 0), (255, 230, 15), (248, 208, 3)
+        ]
+        glow_colors = [
+            (200, 100, 255), (190, 90, 245), (210, 110, 255), (195, 95, 250),
+            (205, 105, 252), (185, 85, 240), (215, 115, 255), (192, 92, 248)
+        ]
+
+        box_color = box_colors[frame_idx % 8]
+        gold_color = gold_colors[frame_idx % 8]
+        glow_color = glow_colors[frame_idx % 8]
+
+        # 상자 본체
+        box_w, box_h = 14, 10
+        box_x = cx - box_w // 2
+        box_y = cy - box_h // 2 + 2
+        pygame.draw.rect(frame, box_color, (box_x, box_y, box_w, box_h))
+
+        # 상자 뚜껑
+        lid_h = 4
+        pygame.draw.rect(frame, (*box_color[:2], min(255, box_color[2] + 30)),
+                        (box_x - 1, box_y - lid_h, box_w + 2, lid_h))
+
+        # 금색 장식 (자물쇠/보석)
+        pygame.draw.rect(frame, gold_color, (cx - 2, box_y - 1, 4, 3))
+        pygame.draw.circle(frame, gold_color, (cx, box_y + box_h // 2), 2)
+
+        # 빛나는 효과 (상자 위로 올라오는 빛)
+        glow_offset = frame_idx % 4
+        for g in range(3):
+            gy = box_y - lid_h - 2 - g * 2 - glow_offset
+            if gy > 0:
+                alpha_surf = pygame.Surface((4, 2), pygame.SRCALPHA)
+                alpha = max(0, 180 - g * 50)
+                alpha_surf.fill((*glow_color, alpha))
+                frame.blit(alpha_surf, (cx - 2 + (g - 1), gy))
+
+        return frame
+
+    def _create_default_frame(self, frame_idx):
+        """기본 판도라 프레임 (프레임 로드 실패 시)"""
+        import pygame
+        import math
+
+        frame = pygame.Surface((32, 32), pygame.SRCALPHA)
+        cx, cy = 16, 16
+
+        # 배경 원 (보라색 그라데이션)
+        bg_colors = [
+            (80, 30, 120), (75, 28, 115), (85, 32, 125), (78, 29, 118),
+            (82, 31, 122), (72, 26, 112), (88, 34, 128), (76, 27, 116)
+        ]
+        pygame.draw.circle(frame, bg_colors[frame_idx], (cx, cy), 14)
+
+        # 상자 본체
+        box_colors = [
+            (150, 50, 200), (140, 45, 190), (160, 55, 210), (145, 48, 195),
+            (155, 52, 205), (135, 42, 185), (165, 58, 215), (142, 46, 192)
+        ]
+        gold_colors = [
+            (255, 215, 0), (245, 205, 0), (255, 225, 10), (250, 210, 5),
+            (252, 218, 8), (240, 200, 0), (255, 230, 15), (248, 208, 3)
+        ]
+
+        box_color = box_colors[frame_idx]
+        gold_color = gold_colors[frame_idx]
+
+        # 상자
+        pygame.draw.rect(frame, box_color, (cx - 7, cy - 3, 14, 10))
+        # 뚜껑
+        pygame.draw.rect(frame, (min(255, box_color[0] + 20), min(255, box_color[1] + 10), min(255, box_color[2] + 15)),
+                        (cx - 8, cy - 7, 16, 4))
+        # 금색 장식
+        pygame.draw.rect(frame, gold_color, (cx - 2, cy - 5, 4, 3))
+        pygame.draw.circle(frame, gold_color, (cx, cy + 2), 2)
+
+        # 빛 이펙트
+        glow_offset = (frame_idx * 0.5) % 4
+        for g in range(2):
+            gy = int(cy - 9 - g * 3 - glow_offset)
+            if 0 < gy < 32:
+                glow_surf = pygame.Surface((6, 2), pygame.SRCALPHA)
+                glow_surf.fill((200, 100, 255, max(0, 150 - g * 60)))
+                frame.blit(glow_surf, (cx - 3, gy))
+
+        # 테두리 (프레임별 색상 변화)
+        border_colors = [
+            (150, 0, 0), (224, 0, 0), (255, 0, 0), (224, 0, 0),
+            (150, 0, 0), (75, 0, 0), (45, 0, 0), (75, 0, 0)
+        ]
+        pygame.draw.circle(frame, border_colors[frame_idx], (cx, cy), 15, 2)
+
+        return frame
+
+    def update(self, dt: float, ui_mode: bool = False):
+        """애니메이션 업데이트"""
+        super().update(dt, ui_mode)
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """판도라의 유산 아이콘 (전설 프레임 + 판도라 상자 애니메이션)"""
+        # 글로우 효과
+        glow_size = int(size * (1.2 + self.glow_intensity * 0.1))
+        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        for i in range(3):
+            alpha = 50 - i * 15
+            pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha),
+                             (glow_size // 2, glow_size // 2),
+                             glow_size // 2 - i * 5)
+        screen.blit(glow_surf, (x - (glow_size - size) // 2, y - (glow_size - size) // 2))
+
+        # 테두리 (색상 그라데이션)
+        border_rect = pygame.Rect(x - 2, y - 2, size + 4, size + 4)
+        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, 3)
+
+        # 아이콘 프레임 (상하 부유)
+        frame_offset = int(self.animation_offset)
+        if self.animation_frames:
+            frame = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled = pygame.transform.scale(frame, (size, size))
+            screen.blit(scaled, (x, y + frame_offset))
+        else:
+            # 폴백 아이콘
+            self._draw_fallback_icon(screen, x, y + frame_offset, size)
+
+        # 파티클 효과
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
+            self.particle_timer = 0
+
+    def _draw_fallback_icon(self, screen, x, y, size):
+        """폴백 판도라 상자 아이콘"""
+        # 보라색 상자 + 금색 장식
+        box_color = (150, 50, 200)
+        gold_color = (255, 215, 0)
+        cx, cy = x + size // 2, y + size // 2
+        # 상자
+        box_w = size * 3 // 5
+        box_h = size * 2 // 5
+        pygame.draw.rect(screen, box_color, (cx - box_w // 2, cy - box_h // 4, box_w, box_h))
+        # 뚜껑
+        pygame.draw.rect(screen, (170, 70, 220),
+                        (cx - box_w // 2 - 2, cy - box_h // 4 - box_h // 3, box_w + 4, box_h // 3))
+        # 금 장식
+        pygame.draw.circle(screen, gold_color, (cx, cy + box_h // 6), size // 10)
+
+
 # 전설 아이템 관리자
 class LegendaryItemManager:
     """전설 아이템 시스템 관리"""
@@ -11168,6 +11494,7 @@ class LegendaryItemManager:
         self.items["sacred_laurel"] = SacredLaurel()
         self.items["transcendent_crown"] = TranscendentCrown()
         self.items["odins_eye"] = OdinsEye()
+        self.items["pandora_legacy"] = PandoraLegacy()
 
         placeholder_defs = [
             ("empty_legendary", "빈전설"),
@@ -11212,6 +11539,10 @@ class LegendaryItemManager:
         if "odins_eye" not in self.unlocked_items:
             self.unlocked_items.append("odins_eye")
 
+        self.items["pandora_legacy"].unlocked = True
+        if "pandora_legacy" not in self.unlocked_items:
+            self.unlocked_items.append("pandora_legacy")
+
         for name, _ in placeholder_defs:
             if name not in self.unlocked_items:
                 self.unlocked_items.append(name)
@@ -11245,6 +11576,9 @@ class LegendaryItemManager:
         # 오딘의 눈 초기화
         if "odins_eye" not in self.items:
             self.items["odins_eye"] = OdinsEye()
+        # 판도라의 유산 초기화
+        if "pandora_legacy" not in self.items:
+            self.items["pandora_legacy"] = PandoraLegacy()
         # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):
