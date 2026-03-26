@@ -2588,6 +2588,13 @@ from item_effects.magnet_field import (
     get_magnet_field_remaining_time,
     get_magnet_field_remaining_ratio,
 )
+from item_effects.boomerang import (
+    activate_boomerang,
+    deactivate_boomerang,
+    update_boomerang,
+    draw_boomerang_effects,
+    is_boomerang_active,
+)
 from item_effects.weather_capsule import (
     activate_weather_capsule,
     get_weather_name_korean,
@@ -55651,6 +55658,12 @@ def apply_effect(effect_name):
             pass
         play_active_item_sound()
         print("🧲 자기장 발동! 8초간 보스가 친 공이 플레이어 쪽으로 끌려옵니다")
+    elif effect_name == "boomerang":  # 부메랑 액티브 아이템
+        from item_effects.boomerang import activate_boomerang
+        activate_boomerang(None, current_stage, WIDTH, HEIGHT,
+                          player_x=PLAYER.centerx, player_y=PLAYER.centery)
+        play_active_item_sound()
+        print("🪃 부메랑 발사! 보스에게 넉백+스턴, 돌아오며 아이템 회수")
     elif effect_name == "dash_boost":  # 대쉬부스트 액티브 아이템
         activate_dash_boost(None, current_stage, WIDTH, HEIGHT)
         try:
@@ -103871,6 +103884,10 @@ def draw_objects():
     if magnet_field_module.is_magnet_field_active():
         draw_magnet_field_effects(SCREEN)
 
+    # 부메랑 이펙트 그리기
+    if is_boomerang_active():
+        draw_boomerang_effects(SCREEN)
+
     # 레이저스코프 궤적 그리기
     if is_laser_scope_active():
         draw_laser_scope_effects(SCREEN,
@@ -126290,15 +126307,17 @@ def get_item_icon(item_name):
                     elif hasattr(legendary_item, 'draw_icon'):
                         legendary_item.draw_icon(icon_surface, 0, 0, ICON_SIZE)
                     else:
-                        # 폴백: 보라색 상자 아이콘
-                        box_color = (150, 50, 200)
-                        gold_color = (255, 215, 0)
+                        # 폴백: 무지개 가방
                         cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
-                        pygame.draw.rect(icon_surface, box_color,
-                                        (cx - ICON_SIZE // 4, cy - ICON_SIZE // 8, ICON_SIZE // 2, ICON_SIZE // 3))
-                        pygame.draw.rect(icon_surface, (170, 70, 220),
-                                        (cx - ICON_SIZE // 4 - 1, cy - ICON_SIZE // 4, ICON_SIZE // 2 + 2, ICON_SIZE // 6))
-                        pygame.draw.circle(icon_surface, gold_color, (cx, cy + ICON_SIZE // 12), ICON_SIZE // 10)
+                        s = ICON_SIZE / 32
+                        _rb = [(255,80,80),(255,230,50),(60,160,255),(200,80,255)]
+                        bw, bh = int(14*s), int(11*s)
+                        bx, by = cx - bw//2, cy - bh//2 + int(s)
+                        sh = bh // 4
+                        for _ri, _sc in enumerate(_rb):
+                            _sy = by + _ri * sh
+                            pygame.draw.rect(icon_surface, _sc, (bx, _sy, bw, sh if _ri<3 else bh-sh*3))
+                        pygame.draw.rect(icon_surface, (60,40,30), (bx, by, bw, bh), 1)
 
                 icon_cache[item_name] = icon_surface
                 return icon_surface
@@ -126378,15 +126397,17 @@ def get_item_icon(item_name):
             pygame.draw.ellipse(icon_surface, eye_color,
                               (cx - ICON_SIZE // 8, cy - ICON_SIZE // 10, ICON_SIZE // 4, ICON_SIZE // 6))
         elif lookup_name == "pandora_legacy":
-            # 판도라의 유산 기본 아이콘 (보라색 상자)
-            box_color = (150, 50, 200)
-            gold_color = (255, 215, 0)
+            # 판도라의 유산 기본 아이콘 (무지개 가방)
             cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
-            pygame.draw.rect(icon_surface, box_color,
-                            (cx - ICON_SIZE // 4, cy - ICON_SIZE // 8, ICON_SIZE // 2, ICON_SIZE // 3))
-            pygame.draw.rect(icon_surface, (170, 70, 220),
-                            (cx - ICON_SIZE // 4 - 1, cy - ICON_SIZE // 4, ICON_SIZE // 2 + 2, ICON_SIZE // 6))
-            pygame.draw.circle(icon_surface, gold_color, (cx, cy + ICON_SIZE // 12), ICON_SIZE // 10)
+            _s = ICON_SIZE / 32
+            _rb2 = [(255,80,80),(255,230,50),(60,160,255),(200,80,255)]
+            _bw, _bh = int(14*_s), int(11*_s)
+            _bx, _by = cx - _bw//2, cy - _bh//2 + int(_s)
+            _sh = _bh // 4
+            for _ri, _sc in enumerate(_rb2):
+                _sy = _by + _ri * _sh
+                pygame.draw.rect(icon_surface, _sc, (_bx, _sy, _bw, _sh if _ri<3 else _bh-_sh*3))
+            pygame.draw.rect(icon_surface, (60,40,30), (_bx, _by, _bw, _bh), 1)
         icon_cache[item_name] = icon_surface
         return icon_surface
 
@@ -126438,6 +126459,77 @@ def get_item_icon(item_name):
                         (left_x + 1, top_y + 1, int(2 * s), int(6 * s)))
         pygame.draw.rect(icon_surface, (100, 130, 255),
                         (right_x + 1, top_y + 1, int(2 * s), int(6 * s)))
+
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
+    if item_name == "boomerang":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        s = ICON_SIZE / 48  # 스케일 팩터
+
+        # 부메랑 본체 색상 (나무/원목 톤)
+        wood_main = (180, 120, 60)
+        wood_light = (220, 170, 90)
+        wood_dark = (140, 85, 35)
+        stripe_color = (255, 80, 80)   # 팔 끝 빨간 줄무늬
+        stripe_color2 = (80, 160, 255)  # 파란 장식
+
+        # 부메랑 모양 (V자 곡선)
+        # 중앙에서 좌상단/우하단 방향으로 두 팔
+        arm_len = int(18 * s)
+        arm_w = int(5 * s)
+
+        # V자 부메랑 - 약간 기울어진 각도
+        base_angle = math.radians(-30)
+        spread = math.radians(100)  # V 벌어지는 각도
+
+        # 팔 1 (좌상단 방향)
+        a1 = base_angle - spread / 2
+        end1_x = cx + math.cos(a1) * arm_len
+        end1_y = cy + math.sin(a1) * arm_len
+
+        # 팔 2 (우하단 방향)
+        a2 = base_angle + spread / 2
+        end2_x = cx + math.cos(a2) * arm_len
+        end2_y = cy + math.sin(a2) * arm_len
+
+        # 팔 본체 (두꺼운 선)
+        pygame.draw.line(icon_surface, wood_main, (cx, cy),
+                        (int(end1_x), int(end1_y)), max(3, int(5 * s)))
+        pygame.draw.line(icon_surface, wood_main, (cx, cy),
+                        (int(end2_x), int(end2_y)), max(3, int(5 * s)))
+
+        # 하이라이트 (중앙 얇은 선)
+        pygame.draw.line(icon_surface, wood_light, (cx, cy),
+                        (int(end1_x), int(end1_y)), max(1, int(2 * s)))
+        pygame.draw.line(icon_surface, wood_light, (cx, cy),
+                        (int(end2_x), int(end2_y)), max(1, int(2 * s)))
+
+        # 팔 끝 장식 (빨간/파란 줄무늬)
+        r_tip = max(2, int(3 * s))
+        pygame.draw.circle(icon_surface, stripe_color,
+                          (int(end1_x), int(end1_y)), r_tip)
+        pygame.draw.circle(icon_surface, stripe_color2,
+                          (int(end2_x), int(end2_y)), r_tip)
+
+        # 중앙 연결부 강조
+        pygame.draw.circle(icon_surface, wood_dark, (cx, cy), max(2, int(3 * s)))
+        pygame.draw.circle(icon_surface, wood_light, (cx, cy), max(1, int(2 * s)))
+
+        # 회전 모션 라인 (스피드감)
+        for i in range(3):
+            motion_r = int((10 + i * 5) * s)
+            alpha = 100 - i * 30
+            motion_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+            arc_color = (200, 180, 140, alpha)
+            arc_rect = pygame.Rect(cx - motion_r, cy - motion_r, motion_r * 2, motion_r * 2)
+            pygame.draw.arc(motion_surf, arc_color, arc_rect,
+                           math.radians(30 + i * 20), math.radians(90 + i * 20),
+                           max(1, int(1 * s)))
+            icon_surface.blit(motion_surf, (0, 0))
 
         icon_cache[item_name] = icon_surface
         return icon_surface
@@ -145394,6 +145486,8 @@ def show_result(won):
             _hg_on_deactivate('magnet_field')
         except Exception:
             pass
+        # 부메랑 비활성화
+        deactivate_boomerang()
         # 스테이지 전환 시 대쉬부스트 비활성화
         deactivate_dash_boost()
         try:
@@ -145467,6 +145561,8 @@ def show_result(won):
             _hg_on_deactivate('magnet_field')
         except Exception:
             pass
+        # 부메랑 비활성화
+        deactivate_boomerang()
         # 대쉬부스트 비활성화
         deactivate_dash_boost()
         try:
@@ -147747,6 +147843,8 @@ def main(stage_num, new_boss_mode=False):
                 _hg_on_deactivate('magnet_field')
             except Exception:
                 pass
+            # 부메랑 비활성화
+            deactivate_boomerang()
             # 대쉬부스트 비활성화
             deactivate_dash_boost()
             try:
@@ -150137,6 +150235,8 @@ def main(stage_num, new_boss_mode=False):
                         _hg_on_deactivate('magnet_field')
                     except Exception:
                         pass
+                    # 부메랑 비활성화 (기권 시)
+                    deactivate_boomerang()
                     # 대쉬부스트 비활성화 (기권 시)
                     deactivate_dash_boost()
                     try:
@@ -151269,6 +151369,40 @@ def main(stage_num, new_boss_mode=False):
         # 대쉬부스트 업데이트 - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
             update_dash_boost(current_stage)
+        # 부메랑 업데이트 - 공 생성 애니메이션 중 일시정지
+        if not is_ball_spawn_animation_paused() and is_boomerang_active():
+            import items as _boom_items
+            boom_events = update_boomerang(
+                boss_rect=BOSS if BOSS else None,
+                ball_rect=BALL if BALL else None,
+                player_rect=PLAYER if PLAYER else None,
+                item_list=_boom_items.item_list
+            )
+            for ev in boom_events:
+                if ev.get("type") == "boss_hit":
+                    # 보스 넉백 + 스턴
+                    boss_stunned_timer = max(boss_stunned_timer, ev["stun_frames"])
+                    boss_knockback_timer = max(boss_knockback_timer, ev["knockback_timer"])
+                    boss_knockback_vel = _apply_boss_knockback_velocity(
+                        ev["knockback_direction"] * ev["knockback_power"] * 2.0)
+                    globals()["boss_dashing"] = False
+                    globals()["boss_dash_timer"] = 0
+                    globals()["boss_dash_stun_timer"] = 0
+                elif ev.get("type") == "item_pickup":
+                    # 부메랑이 주운 아이템 → 플레이어 획득 처리
+                    picked = ev.get("item")
+                    if picked:
+                        try:
+                            store_active_item(picked)
+                        except Exception:
+                            pass
+                elif ev.get("type") == "returned":
+                    # 부메랑 회수 시 주운 아이템 처리
+                    for picked in ev.get("picked_items", []):
+                        try:
+                            store_active_item(picked)
+                        except Exception:
+                            pass
         # Stage 7: 테크니컬조끼 연막이 테트로미노에 닿으면 증발 처리
         # - 기존 연막탄 파괴 경로(destroy_stage7_tetrominoes_in_smoke)를 재사용해 성능/일관성 유지
         if current_stage == 7:
@@ -159062,7 +159196,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",

@@ -11297,7 +11297,7 @@ class PandoraLegacy(LegendaryItem):
                 self.animation_frames.append(self._create_default_frame(i))
 
     def _create_pandora_frame(self, base_frame, frame_idx):
-        """기존 프레임에서 중앙을 지우고 판도라 상자 그리기"""
+        """라그나로크 해머 프레임의 글로우+테두리 유지, 중앙만 무지개 가방으로 교체"""
         import pygame
         import math
 
@@ -11305,7 +11305,7 @@ class PandoraLegacy(LegendaryItem):
         width, height = frame.get_size()
         cx, cy = width // 2, height // 2
 
-        # 중앙 영역 지우기 (테두리만 남김)
+        # 중앙 영역 지우기 (테두리 3px 남김)
         clear_radius = min(width, height) // 2 - 3
         for y in range(height):
             for x in range(width):
@@ -11313,105 +11313,93 @@ class PandoraLegacy(LegendaryItem):
                 if dist < clear_radius:
                     frame.set_at((x, y), (0, 0, 0, 0))
 
-        # 판도라 상자 그리기 (보라색+금색)
-        box_colors = [
-            (150, 50, 200), (140, 45, 190), (160, 55, 210), (145, 48, 195),
-            (155, 52, 205), (135, 42, 185), (165, 58, 215), (142, 46, 192)
-        ]
-        gold_colors = [
-            (255, 215, 0), (245, 205, 0), (255, 225, 10), (250, 210, 5),
-            (252, 218, 8), (240, 200, 0), (255, 230, 15), (248, 208, 3)
-        ]
-        glow_colors = [
-            (200, 100, 255), (190, 90, 245), (210, 110, 255), (195, 95, 250),
-            (205, 105, 252), (185, 85, 240), (215, 115, 255), (192, 92, 248)
-        ]
-
-        box_color = box_colors[frame_idx % 8]
-        gold_color = gold_colors[frame_idx % 8]
-        glow_color = glow_colors[frame_idx % 8]
-
-        # 상자 본체
-        box_w, box_h = 14, 10
-        box_x = cx - box_w // 2
-        box_y = cy - box_h // 2 + 2
-        pygame.draw.rect(frame, box_color, (box_x, box_y, box_w, box_h))
-
-        # 상자 뚜껑
-        lid_h = 4
-        pygame.draw.rect(frame, (*box_color[:2], min(255, box_color[2] + 30)),
-                        (box_x - 1, box_y - lid_h, box_w + 2, lid_h))
-
-        # 금색 장식 (자물쇠/보석)
-        pygame.draw.rect(frame, gold_color, (cx - 2, box_y - 1, 4, 3))
-        pygame.draw.circle(frame, gold_color, (cx, box_y + box_h // 2), 2)
-
-        # 빛나는 효과 (상자 위로 올라오는 빛)
-        glow_offset = frame_idx % 4
-        for g in range(3):
-            gy = box_y - lid_h - 2 - g * 2 - glow_offset
-            if gy > 0:
-                alpha_surf = pygame.Surface((4, 2), pygame.SRCALPHA)
-                alpha = max(0, 180 - g * 50)
-                alpha_surf.fill((*glow_color, alpha))
-                frame.blit(alpha_surf, (cx - 2 + (g - 1), gy))
-
+        # 무지개 가방 그리기
+        self._draw_rainbow_bag(frame, cx, cy, frame_idx)
         return frame
 
     def _create_default_frame(self, frame_idx):
-        """기본 판도라 프레임 (프레임 로드 실패 시)"""
+        """기본 프레임 (라그나로크 해머 프레임 로드 실패 시)"""
         import pygame
-        import math
 
         frame = pygame.Surface((32, 32), pygame.SRCALPHA)
         cx, cy = 16, 16
 
-        # 배경 원 (보라색 그라데이션)
-        bg_colors = [
-            (80, 30, 120), (75, 28, 115), (85, 32, 125), (78, 29, 118),
-            (82, 31, 122), (72, 26, 112), (88, 34, 128), (76, 27, 116)
-        ]
-        pygame.draw.circle(frame, bg_colors[frame_idx], (cx, cy), 14)
-
-        # 상자 본체
-        box_colors = [
-            (150, 50, 200), (140, 45, 190), (160, 55, 210), (145, 48, 195),
-            (155, 52, 205), (135, 42, 185), (165, 58, 215), (142, 46, 192)
-        ]
-        gold_colors = [
-            (255, 215, 0), (245, 205, 0), (255, 225, 10), (250, 210, 5),
-            (252, 218, 8), (240, 200, 0), (255, 230, 15), (248, 208, 3)
-        ]
-
-        box_color = box_colors[frame_idx]
-        gold_color = gold_colors[frame_idx]
-
-        # 상자
-        pygame.draw.rect(frame, box_color, (cx - 7, cy - 3, 14, 10))
-        # 뚜껑
-        pygame.draw.rect(frame, (min(255, box_color[0] + 20), min(255, box_color[1] + 10), min(255, box_color[2] + 15)),
-                        (cx - 8, cy - 7, 16, 4))
-        # 금색 장식
-        pygame.draw.rect(frame, gold_color, (cx - 2, cy - 5, 4, 3))
-        pygame.draw.circle(frame, gold_color, (cx, cy + 2), 2)
-
-        # 빛 이펙트
-        glow_offset = (frame_idx * 0.5) % 4
-        for g in range(2):
-            gy = int(cy - 9 - g * 3 - glow_offset)
-            if 0 < gy < 32:
-                glow_surf = pygame.Surface((6, 2), pygame.SRCALPHA)
-                glow_surf.fill((200, 100, 255, max(0, 150 - g * 60)))
-                frame.blit(glow_surf, (cx - 3, gy))
-
-        # 테두리 (프레임별 색상 변화)
+        # 테두리 (프레임별 색상 그라데이션 — 라그나로크 해머 동일)
         border_colors = [
             (150, 0, 0), (224, 0, 0), (255, 0, 0), (224, 0, 0),
             (150, 0, 0), (75, 0, 0), (45, 0, 0), (75, 0, 0)
         ]
         pygame.draw.circle(frame, border_colors[frame_idx], (cx, cy), 15, 2)
 
+        # 무지개 가방
+        self._draw_rainbow_bag(frame, cx, cy, frame_idx)
         return frame
+
+    def _draw_rainbow_bag(self, surface, cx, cy, frame_idx):
+        """무지개빛 가방 아이콘을 surface에 그리기"""
+        import pygame
+        import math
+
+        # ── 무지개 색상 (프레임마다 순환) ──
+        rainbow = [
+            (255, 80, 80),    # 빨
+            (255, 160, 50),   # 주
+            (255, 230, 50),   # 노
+            (80, 220, 80),    # 초
+            (60, 160, 255),   # 파
+            (100, 80, 255),   # 남
+            (200, 80, 255),   # 보
+            (255, 120, 180),  # 핑크
+        ]
+        # 프레임마다 무지개 색상 회전
+        c1 = rainbow[(frame_idx + 0) % 8]
+        c2 = rainbow[(frame_idx + 2) % 8]
+        c3 = rainbow[(frame_idx + 4) % 8]
+        c4 = rainbow[(frame_idx + 6) % 8]
+
+        # ── 가방 본체 (둥근 사각형) ──
+        bag_w, bag_h = 14, 11
+        bag_x = cx - bag_w // 2
+        bag_y = cy - bag_h // 2 + 1
+
+        # 무지개 줄무늬 (가로 4줄)
+        stripe_h = bag_h // 4
+        stripes = [c1, c2, c3, c4]
+        for i, sc in enumerate(stripes):
+            sy = bag_y + i * stripe_h
+            sh = stripe_h if i < 3 else (bag_h - stripe_h * 3)
+            pygame.draw.rect(surface, sc, (bag_x, sy, bag_w, sh))
+
+        # 가방 윤곽
+        pygame.draw.rect(surface, (60, 40, 30), (bag_x, bag_y, bag_w, bag_h), 1)
+
+        # ── 가방 뚜껑 / 플랩 (반원형) ──
+        flap_color_base = rainbow[(frame_idx + 1) % 8]
+        flap_bright = tuple(min(255, c + 40) for c in flap_color_base)
+        flap_rect = pygame.Rect(bag_x - 1, bag_y - 4, bag_w + 2, 5)
+        pygame.draw.rect(surface, flap_bright, flap_rect, border_radius=2)
+        pygame.draw.rect(surface, (60, 40, 30), flap_rect, 1, border_radius=2)
+
+        # ── 손잡이 (반원 아치) ──
+        handle_color = rainbow[(frame_idx + 3) % 8]
+        pygame.draw.arc(surface, handle_color,
+                       (cx - 4, bag_y - 7, 8, 6),
+                       0, math.pi, 2)
+
+        # ── 금색 버클 / 잠금장치 ──
+        gold = (255, 215, 0)
+        pygame.draw.rect(surface, gold, (cx - 2, bag_y - 1, 4, 3))
+        pygame.draw.rect(surface, (200, 170, 0), (cx - 2, bag_y - 1, 4, 3), 1)
+
+        # ── 반짝이 파티클 (프레임별 위치 변화) ──
+        sparkle_offsets = [
+            (-4, -3), (5, -2), (-3, 4), (4, 3),
+            (-5, 1), (3, -4), (-2, 5), (5, 0),
+        ]
+        sp_x, sp_y = sparkle_offsets[frame_idx % 8]
+        sparkle_color = rainbow[(frame_idx + 5) % 8]
+        bright_sparkle = tuple(min(255, c + 80) for c in sparkle_color)
+        pygame.draw.rect(surface, bright_sparkle, (cx + sp_x, cy + sp_y, 2, 2))
 
     def update(self, dt: float, ui_mode: bool = False):
         """애니메이션 업데이트"""
@@ -11454,20 +11442,18 @@ class PandoraLegacy(LegendaryItem):
             self.particle_timer = 0
 
     def _draw_fallback_icon(self, screen, x, y, size):
-        """폴백 판도라 상자 아이콘"""
-        # 보라색 상자 + 금색 장식
-        box_color = (150, 50, 200)
-        gold_color = (255, 215, 0)
+        """폴백 무지개 가방 아이콘"""
         cx, cy = x + size // 2, y + size // 2
-        # 상자
-        box_w = size * 3 // 5
-        box_h = size * 2 // 5
-        pygame.draw.rect(screen, box_color, (cx - box_w // 2, cy - box_h // 4, box_w, box_h))
-        # 뚜껑
-        pygame.draw.rect(screen, (170, 70, 220),
-                        (cx - box_w // 2 - 2, cy - box_h // 4 - box_h // 3, box_w + 4, box_h // 3))
-        # 금 장식
-        pygame.draw.circle(screen, gold_color, (cx, cy + box_h // 6), size // 10)
+        rainbow = [(255,80,80),(255,230,50),(60,160,255),(200,80,255)]
+        bw = size * 7 // 16
+        bh = size * 11 // 32
+        bx = cx - bw // 2
+        by = cy - bh // 2 + size // 32
+        sh = bh // 4
+        for i, sc in enumerate(rainbow):
+            sy = by + i * sh
+            pygame.draw.rect(screen, sc, (bx, sy, bw, sh if i < 3 else bh - sh * 3))
+        pygame.draw.rect(screen, (60, 40, 30), (bx, by, bw, bh), 1)
 
 
 # 전설 아이템 관리자
