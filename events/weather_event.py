@@ -1357,21 +1357,6 @@ def update_ice_floor_particles(screen_width, screen_height):
                     "type": "diamond"
                 })
 
-    # 서리 안개 파티클 생성
-    if ice_floor_timer % 8 == 0:
-        for zone_y, drift_dir in [(screen_height - RINK_HEIGHT - 5, -1),
-                                   (RINK_HEIGHT + 5, 1)]:
-            ice_frost_particles.append({
-                "x": random.uniform(-20, screen_width + 20),
-                "y": zone_y + random.uniform(-5, 5),
-                "vx": random.uniform(-0.3, 0.3),
-                "vy": drift_dir * random.uniform(0.05, 0.2),
-                "size": random.uniform(20, 50),
-                "lifetime": 0,
-                "max_lifetime": random.randint(80, 150),
-                "alpha": random.uniform(0.08, 0.18),
-            })
-
     # 반짝이 파티클 업데이트
     for p in ice_sparkle_particles:
         p["lifetime"] += 1
@@ -1379,13 +1364,6 @@ def update_ice_floor_particles(screen_width, screen_height):
     ice_sparkle_particles[:] = [p for p in ice_sparkle_particles
                                  if p["lifetime"] < p["max_lifetime"]]
 
-    # 서리 안개 파티클 업데이트
-    for p in ice_frost_particles:
-        p["lifetime"] += 1
-        p["x"] += p["vx"]
-        p["y"] += p["vy"]
-    ice_frost_particles[:] = [p for p in ice_frost_particles
-                               if p["lifetime"] < p["max_lifetime"]]
 
 
 def draw_ice_particles(screen):
@@ -1462,36 +1440,7 @@ def draw_ice_particles(screen):
                 pygame.draw.line(crystal_surf, (210, 240, 255, crystal_alpha), (cc, cc), (px, py), 1)
             screen.blit(crystal_surf, (cx - cc, cy - cc))
 
-    # 4. 서리 안개 (빙판 가장자리에서 피어오르는 안개)
-    for p in ice_frost_particles:
-        lifetime_ratio = p["lifetime"] / p["max_lifetime"]
-        # 페이드인 → 유지 → 페이드아웃
-        if lifetime_ratio < 0.2:
-            fade = lifetime_ratio / 0.2
-        elif lifetime_ratio > 0.7:
-            fade = (1.0 - lifetime_ratio) / 0.3
-        else:
-            fade = 1.0
-
-        alpha = int(255 * p["alpha"] * fade)
-        if alpha < 3:
-            continue
-
-        size = int(p["size"])
-        frost_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-        fc = size
-
-        # 부드러운 원형 안개 (다중 레이어)
-        for layer in range(3):
-            layer_size = size - layer * (size // 4)
-            layer_alpha = alpha // (layer + 1)
-            if layer_size > 0 and layer_alpha > 0:
-                pygame.draw.circle(frost_surf, (220, 240, 255, layer_alpha),
-                                 (fc, fc), layer_size)
-
-        screen.blit(frost_surf, (int(p["x"]) - fc, int(p["y"]) - fc))
-
-    # 5. 반짝이는 입자 레이어 (향상된 버전)
+    # 4. 반짝이는 입자 레이어 (향상된 버전)
     for p in ice_sparkle_particles:
         lifetime_ratio = p["lifetime"] / p["max_lifetime"]
         sparkle = (math.sin(p["sparkle_phase"]) + 1) / 2
