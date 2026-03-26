@@ -1414,7 +1414,7 @@ ITEM_TYPES = [
         "color": (139, 0, 0),  # 다크 레드 (악마의 색)
         "effect": "devil_dice",
         "icon": None,
-        "chance": 0.001,  # 확률 1% (희귀 아이템)
+        "chance": 0.015,  # 확률 1.5% (일반 등급)
         "duration": 600,
         "unlock_condition": None
     },
@@ -1627,7 +1627,7 @@ ITEM_TYPES = [
         "color": (255, 50, 50),  # 빨간색 (레이저 색상)
         "effect": "laser_scope",
         "icon": None,
-        "chance": 0.004,  # 확률 0.4%
+        "chance": 0.012,  # 확률 1.2% (일반 등급)
         "duration": 1500,  # 25초
         "unlock_condition": None
     },
