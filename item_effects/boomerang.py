@@ -16,7 +16,7 @@ import random
 # 상수
 BOOMERANG_SPEED = 9.8               # 부메랑 이동 속도
 BOOMERANG_RETURN_SPEED = 8.4        # 돌아오는 속도
-BOOMERANG_STUN_FRAMES = 48          # 보스 스턴 시간 (0.8초)
+BOOMERANG_STUN_FRAMES = 36          # 보스 스턴 시간 (0.6초)
 BOOMERANG_KNOCKBACK_POWER = 14      # 넉백 세기
 BOOMERANG_KNOCKBACK_TIMER = 15      # 넉백 지속 프레임
 BOOMERANG_ITEM_PICKUP_RADIUS = 55   # 아이템 줍기 반경

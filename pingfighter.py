@@ -151561,8 +151561,8 @@ def main(stage_num, new_boss_mode=False):
         # 대쉬부스트 업데이트 - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
             update_dash_boost(current_stage)
-        # 부메랑 업데이트 - 공 생성 애니메이션 중 일시정지
-        if not is_ball_spawn_animation_paused() and is_boomerang_active():
+        # 부메랑 업데이트 - 라운드 전환 중에도 계속 비행 (회수 보장)
+        if is_boomerang_active():
             import items as _boom_items
             boom_events = update_boomerang(
                 boss_rect=BOSS if BOSS else None,
