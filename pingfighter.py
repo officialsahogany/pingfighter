@@ -24752,6 +24752,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "투척 속도", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "throw_speed_pct"},
         {"label": "폭발 범위", "min": 5, "max": 15, "unit": "%", "prefix": "+", "key": "explosion_range_pct"},
         {"label": "연막탄 지속시간", "min": 20, "max": 40, "unit": "%", "prefix": "+", "key": "smoke_duration_pct"},
+        {"label": "준비시간 단축", "min": 30, "max": 50, "unit": "%", "prefix": "-", "key": "prep_reduction_pct"},
     ],
     "knee_pads": [
         {"label": "하프대쉬 게이지", "min": 30, "max": 60, "unit": "%", "prefix": "+", "key": "knee_charge_pct"},
@@ -24825,6 +24826,7 @@ bluetooth_ring_gain_pct = 15
 commando_throw_speed_pct = 15  # 새 롤 범위 10~20%의 중간값
 commando_explosion_range_pct = 10  # 범위 5~15% 중간값 유지
 commando_smoke_duration_pct = 30  # 새 롤 범위 20~40%의 중간값
+commando_prep_reduction_pct = 40  # 준비시간 단축 30~50% 범위, 기본값 40%
 dashholder_count = 0
 last_max_dash_tokens = 1
 
@@ -24856,9 +24858,12 @@ def _commando_speed_multiplier(base_bonus: float = 0.5) -> float:
 
 
 def _commando_timer_reduction(base_timer: int) -> int:
-    """투척 준비시간 단축. 스택당 50% 단축."""
+    """투척 준비시간 단축. 롤 옵션(30~50%) 기반, 스택당 곱연산."""
     count = _get_commando_arm_count()
-    return max(1, int(base_timer * (0.5 ** count))) if count > 0 else base_timer
+    if count <= 0:
+        return base_timer
+    reduction = commando_prep_reduction_pct / 100.0  # 0.30 ~ 0.50
+    return max(1, int(base_timer * ((1.0 - reduction) ** count)))
 
 
 def _commando_range_bonus(base_value: float, per_stack_pct: float = 0.10) -> int:
@@ -25501,6 +25506,9 @@ def apply_roll_bonuses_from_equipped():
             val = _get_roll_value(item, "smoke_duration_pct")
             if val is not None:
                 globals()["commando_smoke_duration_pct"] = val
+            val = _get_roll_value(item, "prep_reduction_pct")
+            if val is not None:
+                globals()["commando_prep_reduction_pct"] = val
         elif name == "knee_pads":
             val = _get_roll_value(item, "knee_charge_pct")
             if val is not None:
