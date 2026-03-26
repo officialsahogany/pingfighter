@@ -137987,15 +137987,19 @@ def handle_ball():
                     pandora = legendary_manager.get_item("pandora_legacy")
                     print(f"[PANDORA DEBUG] 라운드승리 트리거: pandora={pandora is not None}, active={getattr(pandora, 'active', 'N/A')}, obtained={items.pandora_legacy_obtained}")
                     if pandora and pandora.active:
-                        import random as _pandora_rng
-                        _trigger_pct = pandora.trigger_chance  # 40~70%
-                        _roll = _pandora_rng.random() * 100.0
-                        print(f"[PANDORA DEBUG] 발동률 체크: trigger_chance={_trigger_pct:.1f}%, roll={_roll:.1f}")
-                        if _roll < _trigger_pct:
-                            result = pandora.generate_selection_choices()
-                            print(f"[PANDORA DEBUG] 발동! 선택지 {len(result) if result else 0}개: {[i.get('name') for i in pandora.selection_items] if pandora.selection_items else []}")
+                        # 액티브 슬롯이 가득 차면 발동하지 않음
+                        if len(item_state_adapter.active_items()) >= get_effective_max_item_slots():
+                            print(f"[PANDORA DEBUG] 액티브 슬롯 가득 참 — 발동 스킵")
                         else:
-                            print(f"[PANDORA DEBUG] 미발동 (확률 실패)")
+                            import random as _pandora_rng
+                            _trigger_pct = pandora.trigger_chance  # 40~70%
+                            _roll = _pandora_rng.random() * 100.0
+                            print(f"[PANDORA DEBUG] 발동률 체크: trigger_chance={_trigger_pct:.1f}%, roll={_roll:.1f}")
+                            if _roll < _trigger_pct:
+                                result = pandora.generate_selection_choices()
+                                print(f"[PANDORA DEBUG] 발동! 선택지 {len(result) if result else 0}개: {[i.get('name') for i in pandora.selection_items] if pandora.selection_items else []}")
+                            else:
+                                print(f"[PANDORA DEBUG] 미발동 (확률 실패)")
             except Exception as e:
                 print(f"[PANDORA DEBUG] 선택지 생성 예외: {e}")
                 import traceback; traceback.print_exc()
