@@ -138124,7 +138124,7 @@ def handle_ball():
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                        boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
 
-            # 📦 판도라의 유산: 라운드 승리 후 아이템 선택 UI (인라인 — global 우회)
+            # 📦 판도라의 유산: 라운드 승리 후 아이템 선택 UI (인라인 — 하스스톤 디스커버 스타일)
             try:
                 legendary_manager = get_legendary_manager()
                 _p_pandora = legendary_manager.get_item("pandora_legacy") if legendary_manager else None
@@ -138134,42 +138134,195 @@ def handle_ball():
                     _p_sel_idx = 0
                     _p_timer = 0
                     _p_running = True
+                    import math as _p_math
+                    import random as _p_rand
+                    # 페이즈: "intro" → "select" → "confirm"
+                    _p_phase = "intro"
+                    _p_confirm_timer = 0
+                    _p_confirm_idx = -1
+                    _p_picked_data = None  # 확정된 아이템 데이터 (confirm 페이즈에서 사용)
+                    # 카드 애니메이션 상태 (순차 입장)
+                    _p_card_scale = [0.3, 0.3, 0.3]
+                    _p_card_alpha = [0, 0, 0]
+                    _p_card_y_off = [80, 80, 80]  # 아래에서 올라오는 오프셋
+                    _p_card_rot = [15.0, 0.0, -15.0]  # 입장 시 회전 (좌/중/우)
+                    _p_intro_delay = [0, 10, 20]  # 순차 등장 딜레이
+                    # 파티클 시스템
+                    _p_particles = []
+                    # 타이틀 애니메이션
+                    _p_title_alpha = 0
+                    # 카드 크기
+                    _p_cw, _p_ch = 160, 220
+                    _p_gap = 30
+                    _p_tw = _p_cw * 3 + _p_gap * 2
+                    _p_sx = WIDTH // 2 - _p_tw // 2
+                    _p_cy = 200  # 카드 Y 시작 (타이틀 공간 확보)
                     print(f"[PANDORA] 선택 UI 시작: {[c.get('name') for c in _p_choices]}")
                     while _p_running:
                         _p_timer += 1
                         if _p_timer > 60 * 30:
                             _p_running = False
                             break
-                        # 입력 처리 (인라인) - 마우스 히트 판정용 카드 좌표
-                        _p_hit_cw, _p_hit_ch = 160, 220
-                        _p_hit_gap = 30
-                        _p_hit_tw = _p_hit_cw * 3 + _p_hit_gap * 2
-                        _p_hit_sx = WIDTH // 2 - _p_hit_tw // 2
-                        _p_hit_cy = 180
+
+                        # ═══ 애니메이션 업데이트 ═══
+                        if _p_phase == "intro":
+                            _p_title_alpha = min(255, _p_timer * 12)
+                            _all_intro_done = True
+                            for _ci in range(3):
+                                _elapsed = _p_timer - _p_intro_delay[_ci]
+                                if _elapsed < 0:
+                                    _all_intro_done = False
+                                    continue
+                                _prog = min(1.0, _elapsed / 28.0)
+                                # ease-out back (약간 바운스)
+                                _t = 1.0 - (1.0 - _prog) ** 3
+                                if _prog > 0.7:
+                                    _bounce = 1.0 + 0.05 * _p_math.sin((_prog - 0.7) / 0.3 * _p_math.pi)
+                                else:
+                                    _bounce = _t
+                                _p_card_alpha[_ci] = min(255, int(255 * min(1.0, _elapsed / 15.0)))
+                                _p_card_y_off[_ci] = int(80 * (1.0 - _t))
+                                _p_card_scale[_ci] = 0.3 + 0.7 * _bounce
+                                _p_card_rot[_ci] *= (1.0 - _t)  # 회전 감소
+                                if _prog < 1.0:
+                                    _all_intro_done = False
+                                # 입장 중 파티클 (카드 하단에서 스파크)
+                                if 5 < _elapsed < 20 and _elapsed % 2 == 0:
+                                    _card_cx = _p_sx + _ci * (_p_cw + _p_gap) + _p_cw // 2
+                                    _card_cy = _p_cy + _p_ch
+                                    for _ in range(2):
+                                        _p_particles.append({
+                                            'x': _card_cx + _p_rand.randint(-40, 40),
+                                            'y': _card_cy + _p_rand.randint(-10, 10),
+                                            'vx': _p_rand.uniform(-1.5, 1.5),
+                                            'vy': _p_rand.uniform(-3.0, -0.5),
+                                            'life': _p_rand.randint(15, 30),
+                                            'max_life': 30,
+                                            'size': _p_rand.randint(2, 5),
+                                            'color': _p_rand.choice([(255, 215, 0), (200, 150, 255), (150, 200, 255)])
+                                        })
+                            if _all_intro_done:
+                                _p_phase = "select"
+                                # 입장 완료 파티클 burst
+                                for _ci in range(3):
+                                    _card_cx = _p_sx + _ci * (_p_cw + _p_gap) + _p_cw // 2
+                                    _card_cy = _p_cy + _p_ch // 2
+                                    for _ in range(8):
+                                        _ang = _p_rand.uniform(0, _p_math.pi * 2)
+                                        _spd = _p_rand.uniform(1.0, 3.5)
+                                        _p_particles.append({
+                                            'x': _card_cx, 'y': _card_cy,
+                                            'vx': _p_math.cos(_ang) * _spd,
+                                            'vy': _p_math.sin(_ang) * _spd,
+                                            'life': _p_rand.randint(20, 40),
+                                            'max_life': 40,
+                                            'size': _p_rand.randint(2, 4),
+                                            'color': (255, 215, 0)
+                                        })
+
+                        elif _p_phase == "select":
+                            _p_title_alpha = 255
+                            for _ci in range(3):
+                                # 호버 스케일 (부드러운 보간)
+                                _tgt_s = 1.1 if _ci == _p_sel_idx else 0.93
+                                _p_card_scale[_ci] += (_tgt_s - _p_card_scale[_ci]) * 0.14
+                                # 호버 Y 오프셋 (선택된 카드 위로 뜸)
+                                _tgt_y = -12 if _ci == _p_sel_idx else 8
+                                _p_card_y_off[_ci] += (_tgt_y - _p_card_y_off[_ci]) * 0.14
+                                # 알파 (선택된 카드만 밝게)
+                                _tgt_a = 255 if _ci == _p_sel_idx else 160
+                                _p_card_alpha[_ci] += int((_tgt_a - _p_card_alpha[_ci]) * 0.15)
+                                _p_card_rot[_ci] = 0  # 선택 중 회전 없음
+                            # 선택된 카드 주변 스파클 파티클
+                            if _p_timer % 4 == 0:
+                                _sel_cx = _p_sx + _p_sel_idx * (_p_cw + _p_gap) + _p_cw // 2
+                                _sel_cy = _p_cy + _p_card_y_off[_p_sel_idx] + _p_ch // 2
+                                _ang = _p_rand.uniform(0, _p_math.pi * 2)
+                                _r = _p_rand.uniform(50, 90)
+                                _p_particles.append({
+                                    'x': _sel_cx + _p_math.cos(_ang) * _r,
+                                    'y': _sel_cy + _p_math.sin(_ang) * _r,
+                                    'vx': _p_rand.uniform(-0.3, 0.3),
+                                    'vy': _p_rand.uniform(-1.2, -0.3),
+                                    'life': _p_rand.randint(18, 35),
+                                    'max_life': 35,
+                                    'size': _p_rand.randint(2, 4),
+                                    'color': _p_rand.choice([(255, 215, 0), (255, 235, 120), (255, 180, 50)])
+                                })
+
+                        elif _p_phase == "confirm":
+                            _p_confirm_timer += 1
+                            for _ci in range(3):
+                                if _ci == _p_confirm_idx:
+                                    # 선택된 카드: 확대 + 위로 떠오름
+                                    _p_card_scale[_ci] = min(1.35, _p_card_scale[_ci] + 0.02)
+                                    _p_card_y_off[_ci] += (-30 - _p_card_y_off[_ci]) * 0.1
+                                    _p_card_alpha[_ci] = 255
+                                else:
+                                    # 나머지: 축소 + 페이드아웃
+                                    _p_card_scale[_ci] = max(0.5, _p_card_scale[_ci] - 0.025)
+                                    _p_card_alpha[_ci] = max(0, _p_card_alpha[_ci] - 10)
+                                    _p_card_y_off[_ci] += (40 - _p_card_y_off[_ci]) * 0.08
+                            # 확정 카드 주변 대량 파티클
+                            if _p_confirm_timer < 20 and _p_confirm_timer % 2 == 0:
+                                _cc_cx = _p_sx + _p_confirm_idx * (_p_cw + _p_gap) + _p_cw // 2
+                                _cc_cy = _p_cy + _p_card_y_off[_p_confirm_idx] + _p_ch // 2
+                                for _ in range(6):
+                                    _ang = _p_rand.uniform(0, _p_math.pi * 2)
+                                    _spd = _p_rand.uniform(2.0, 5.0)
+                                    _p_particles.append({
+                                        'x': _cc_cx, 'y': _cc_cy,
+                                        'vx': _p_math.cos(_ang) * _spd,
+                                        'vy': _p_math.sin(_ang) * _spd - 1.0,
+                                        'life': _p_rand.randint(20, 45),
+                                        'max_life': 45,
+                                        'size': _p_rand.randint(3, 6),
+                                        'color': _p_rand.choice([(255, 215, 0), (255, 255, 200), (200, 150, 255)])
+                                    })
+                            if _p_confirm_timer >= 45:
+                                _p_running = False
+                                break
+
+                        # 파티클 업데이트
+                        _p_new_parts = []
+                        for _pp in _p_particles:
+                            _pp['life'] -= 1
+                            _pp['x'] += _pp['vx']
+                            _pp['y'] += _pp['vy']
+                            _pp['vy'] += 0.04  # 약한 중력
+                            if _pp['life'] > 0:
+                                _p_new_parts.append(_pp)
+                        _p_particles = _p_new_parts
+
+                        # ═══ 입력 처리 (select 페이즈에서만) ═══
                         for _pev in pygame.event.get():
                             if _pev.type == pygame.QUIT:
                                 _p_running = False
                                 break
-                            # 마우스 이동 - 카드 호버 시 선택 인덱스 변경
+                            if _p_phase != "select":
+                                continue
+                            # 마우스 이동 - 카드 호버
                             if _pev.type == pygame.MOUSEMOTION:
                                 _pmx, _pmy = pygame.mouse.get_pos()
                                 for _mi in range(3):
-                                    _mcx = _p_hit_sx + _mi * (_p_hit_cw + _p_hit_gap)
-                                    if _mcx <= _pmx <= _mcx + _p_hit_cw and _p_hit_cy <= _pmy <= _p_hit_cy + _p_hit_ch:
+                                    _mcx = _p_sx + _mi * (_p_cw + _p_gap)
+                                    _mcy = _p_cy + _p_card_y_off[_mi]
+                                    if _mcx <= _pmx <= _mcx + _p_cw and _mcy <= _pmy <= _mcy + _p_ch:
                                         if _p_sel_idx != _mi:
                                             _p_sel_idx = _mi
                                             try: play_sound_with_volume(SOUND_SELECT)
                                             except: pass
                                         break
-                            # 마우스 좌클릭 - 카드 위에서 클릭하면 선택 확정
+                            # 마우스 좌클릭 - 선택 확정
                             if _pev.type == pygame.MOUSEBUTTONDOWN and _pev.button == 1:
                                 _pmx, _pmy = pygame.mouse.get_pos()
                                 for _mi in range(3):
-                                    _mcx = _p_hit_sx + _mi * (_p_hit_cw + _p_hit_gap)
-                                    if _mcx <= _pmx <= _mcx + _p_hit_cw and _p_hit_cy <= _pmy <= _p_hit_cy + _p_hit_ch:
+                                    _mcx = _p_sx + _mi * (_p_cw + _p_gap)
+                                    _mcy = _p_cy + _p_card_y_off[_mi]
+                                    if _mcx <= _pmx <= _mcx + _p_cw and _mcy <= _pmy <= _mcy + _p_ch:
                                         if 0 <= _mi < len(_p_choices):
                                             _picked = _p_choices[_mi]
-                                            _pick_data = {
+                                            _p_picked_data = {
                                                 "name": _picked.get("name", ""),
                                                 "color": _picked.get("color", (200, 200, 200)),
                                                 "effect": _picked.get("effect", _picked.get("name", "")),
@@ -138177,15 +138330,16 @@ def handle_ball():
                                                 "duration": _picked.get("duration", 600),
                                                 "x": WIDTH // 2, "y": HEIGHT // 2,
                                             }
-                                            store_active_item(_pick_data)
-                                            show_item_obtained_effect(_pick_data, WIDTH // 2, HEIGHT // 2)
+                                            _p_confirm_idx = _mi
+                                            _p_phase = "confirm"
+                                            _p_confirm_timer = 0
+                                            store_active_item(_p_picked_data)
+                                            show_item_obtained_effect(_p_picked_data, WIDTH // 2, HEIGHT // 2)
                                             try: play_sound_with_volume(SOUND_ITEM_GET)
                                             except: pass
                                             print(f"[PANDORA] 마우스 선택 완료: {_picked.get('name')}")
-                                        _p_running = False
                                         break
-                                if not _p_running:
-                                    break
+                            # 키보드 입력
                             if _pev.type == pygame.KEYDOWN:
                                 if _pev.key == pygame.K_LEFT:
                                     _p_sel_idx = (_p_sel_idx - 1) % 3
@@ -138196,11 +138350,10 @@ def handle_ball():
                                     try: play_sound_with_volume(SOUND_SELECT)
                                     except: pass
                                 elif _pev.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_ESCAPE):
-                                    # 선택 확정 (ESC면 첫 번째 아이템 자동 선택)
                                     _pick_idx = _p_sel_idx if _pev.key != pygame.K_ESCAPE else 0
                                     if 0 <= _pick_idx < len(_p_choices):
                                         _picked = _p_choices[_pick_idx]
-                                        _pick_data = {
+                                        _p_picked_data = {
                                             "name": _picked.get("name", ""),
                                             "color": _picked.get("color", (200, 200, 200)),
                                             "effect": _picked.get("effect", _picked.get("name", "")),
@@ -138208,82 +138361,183 @@ def handle_ball():
                                             "duration": _picked.get("duration", 600),
                                             "x": WIDTH // 2, "y": HEIGHT // 2,
                                         }
-                                        store_active_item(_pick_data)
-                                        show_item_obtained_effect(_pick_data, WIDTH // 2, HEIGHT // 2)
+                                        _p_confirm_idx = _pick_idx
+                                        _p_phase = "confirm"
+                                        _p_confirm_timer = 0
+                                        store_active_item(_p_picked_data)
+                                        show_item_obtained_effect(_p_picked_data, WIDTH // 2, HEIGHT // 2)
                                         try: play_sound_with_volume(SOUND_ITEM_GET)
                                         except: pass
                                         print(f"[PANDORA] 선택 완료: {_picked.get('name')}")
-                                    _p_running = False
-                                    break
                         if not _p_running:
                             break
-                        # 그리기 (인라인)
+
+                        # ═══ 그리기 ═══
                         draw_field()
                         draw_objects()
-                        # 반투명 오버레이
+                        # 반투명 오버레이 (어두운 비네트)
                         _p_ov = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                        _p_ov.fill((0, 0, 0, min(160, _p_timer * 8)))
+                        _p_ov_alpha = min(180, _p_timer * 10)
+                        _p_ov.fill((0, 0, 0, _p_ov_alpha))
                         SCREEN.blit(_p_ov, (0, 0))
-                        # 타이틀
+
+                        # 상단 장식 라인 (금색 수평선)
+                        if _p_title_alpha > 50:
+                            _line_w = min(400, int(400 * min(1.0, _p_timer / 20.0)))
+                            _line_a = min(180, _p_title_alpha)
+                            _line_surf = pygame.Surface((_line_w, 2), pygame.SRCALPHA)
+                            _line_surf.fill((255, 215, 0, _line_a))
+                            SCREEN.blit(_line_surf, (WIDTH // 2 - _line_w // 2, 88))
+                            SCREEN.blit(_line_surf, (WIDTH // 2 - _line_w // 2, 170))
+
+                        # 타이틀 (글로우 + 페이드인)
                         try:
                             _p_tf = FontStyle.subtitle()
-                            _p_ts, _p_tr = _p_tf.render("판도라의 유산 - 아이템 선택", (255, 215, 0))
-                            SCREEN.blit(_p_ts, (WIDTH // 2 - _p_tr.width // 2, 100))
+                            _t_pulse = 0.85 + 0.15 * _p_math.sin(_p_timer * 0.08)
+                            _t_r = int(255 * _t_pulse)
+                            _t_g = int(215 * _t_pulse)
+                            _p_ts, _p_tr = _p_tf.render("판도라의 유산", (_t_r, _t_g, 0))
+                            _title_surf = pygame.Surface((_p_tr.width + 20, _p_tr.height + 10), pygame.SRCALPHA)
+                            # 타이틀 글로우 배경
+                            _glow_a = int(40 * _t_pulse)
+                            pygame.draw.ellipse(_title_surf, (255, 200, 0, _glow_a),
+                                                (0, 0, _p_tr.width + 20, _p_tr.height + 10))
+                            _title_surf.blit(_p_ts, (10, 5))
+                            _title_surf.set_alpha(min(255, _p_title_alpha))
+                            SCREEN.blit(_title_surf, (WIDTH // 2 - (_p_tr.width + 20) // 2, 95))
                         except: pass
-                        # 안내
+                        # 부제 (아이템 선택)
                         try:
-                            _p_df = FontStyle.body()
-                            _p_ds, _p_dr = _p_df.render("◀ ▶ 키 또는 마우스로 선택, SPACE/클릭으로 확정", (200, 200, 200))
-                            SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, 140))
+                            _p_sf = FontStyle.body()
+                            _p_ss, _p_sr = _p_sf.render("아이템을 선택하세요", (200, 180, 230))
+                            _p_ss.set_alpha(min(200, _p_title_alpha))
+                            SCREEN.blit(_p_ss, (WIDTH // 2 - _p_sr.width // 2, 128))
                         except: pass
-                        # 카드 3장
-                        _p_cw, _p_ch = 160, 220
-                        _p_gap = 30
-                        _p_tw = _p_cw * 3 + _p_gap * 2
-                        _p_sx = WIDTH // 2 - _p_tw // 2
-                        _p_cy = 180
+                        # 안내 (select 페이즈에서만)
+                        if _p_phase == "select":
+                            try:
+                                _p_df = FontStyle.small()
+                                _guide_pulse = int(150 + 50 * _p_math.sin(_p_timer * 0.06))
+                                _p_ds, _p_dr = _p_df.render("◀ ▶ / 마우스로 선택    SPACE / 클릭으로 확정", (_guide_pulse, _guide_pulse, _guide_pulse))
+                                SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, 155))
+                            except: pass
+
+                        # ═══ 카드 3장 렌더링 ═══
                         for _ci, _cdata in enumerate(_p_choices):
-                            _cx = _p_sx + _ci * (_p_cw + _p_gap)
-                            _c_sel = (_ci == _p_sel_idx)
+                            _base_x = _p_sx + _ci * (_p_cw + _p_gap)
+                            _base_y = _p_cy + int(_p_card_y_off[_ci])
+                            _scale = _p_card_scale[_ci]
+                            _alpha = _p_card_alpha[_ci]
+                            _is_sel = (_ci == _p_sel_idx and _p_phase == "select") or (_ci == _p_confirm_idx and _p_phase == "confirm")
+
+                            # 카드 서피스 생성
                             _card = pygame.Surface((_p_cw, _p_ch), pygame.SRCALPHA)
-                            if _c_sel:
-                                _card.fill((40, 30, 60, 230))
+
+                            # 카드 배경 (그라디언트)
+                            if _is_sel:
+                                for _gy in range(_p_ch):
+                                    _gf = _gy / _p_ch
+                                    _gr = int(50 + 25 * _gf)
+                                    _gg = int(25 + 20 * _gf)
+                                    _gb = int(80 + 35 * _gf)
+                                    pygame.draw.line(_card, (_gr, _gg, _gb, 240), (2, _gy), (_p_cw - 3, _gy))
+                                # 금 테두리 (이중)
                                 pygame.draw.rect(_card, (255, 215, 0), (0, 0, _p_cw, _p_ch), 3)
-                                _glow = pygame.Surface((_p_cw + 10, _p_ch + 10), pygame.SRCALPHA)
-                                _glow.fill((255, 215, 0, 30))
-                                SCREEN.blit(_glow, (_cx - 5, _p_cy - 5))
+                                pygame.draw.rect(_card, (255, 235, 130, 80), (4, 4, _p_cw - 8, _p_ch - 8), 1)
+                                # 상단 하이라이트
+                                _hl = pygame.Surface((_p_cw - 8, 3), pygame.SRCALPHA)
+                                _hl.fill((255, 255, 255, 60))
+                                _card.blit(_hl, (4, 4))
                             else:
-                                _card.fill((20, 15, 35, 200))
-                                pygame.draw.rect(_card, (100, 80, 140), (0, 0, _p_cw, _p_ch), 2)
-                            # 아이콘
+                                for _gy in range(_p_ch):
+                                    _gf = _gy / _p_ch
+                                    _gr = int(18 + 12 * _gf)
+                                    _gg = int(12 + 10 * _gf)
+                                    _gb = int(35 + 18 * _gf)
+                                    pygame.draw.line(_card, (_gr, _gg, _gb, 200), (2, _gy), (_p_cw - 3, _gy))
+                                pygame.draw.rect(_card, (80, 65, 120), (0, 0, _p_cw, _p_ch), 2)
+
+                            # 아이콘 영역 배경 (어두운 원)
+                            pygame.draw.circle(_card, (0, 0, 0, 60), (_p_cw // 2, 50), 36)
+                            # 아이템 아이콘
                             _cicon = get_item_icon(_cdata.get("name", ""))
                             if _cicon:
                                 _cicon_s = pygame.transform.scale(_cicon, (64, 64))
-                                _card.blit(_cicon_s, (_p_cw // 2 - 32, 20))
+                                _card.blit(_cicon_s, (_p_cw // 2 - 32, 18))
                             else:
-                                pygame.draw.circle(_card, _cdata.get("color", (200, 200, 200)), (_p_cw // 2, 52), 28)
-                            # 이름
+                                _ic = _cdata.get("color", (200, 200, 200))
+                                pygame.draw.circle(_card, _ic, (_p_cw // 2, 50), 28)
+                                # 광택 효과
+                                pygame.draw.circle(_card, (255, 255, 255, 60), (_p_cw // 2 - 8, 42), 10)
+
+                            # 구분선
+                            pygame.draw.line(_card, (255, 215, 0, 80) if _is_sel else (100, 80, 140, 80),
+                                             (15, 90), (_p_cw - 15, 90), 1)
+
+                            # 아이템 이름
                             try:
                                 _nf = FontStyle.body()
                                 _kn = get_item_korean_name(_cdata.get("name", "???"))
-                                _ns, _nr = _nf.render(_kn, (255, 255, 255))
+                                _nc = (255, 255, 255) if _is_sel else (180, 180, 200)
+                                _ns, _nr = _nf.render(_kn, _nc)
                                 if _nr.width > _p_cw - 10:
                                     _ns = pygame.transform.scale(_ns, (_p_cw - 10, _nr.height))
                                     _nr = _ns.get_rect()
-                                _card.blit(_ns, (_p_cw // 2 - _nr.width // 2, 95))
+                                _card.blit(_ns, (_p_cw // 2 - _nr.width // 2, 97))
                             except: pass
-                            # 설명
+
+                            # 아이템 설명
                             try:
                                 _sf = FontStyle.small()
                                 _sd = get_item_description(_cdata.get("name", ""))
                                 if len(_sd) > 40: _sd = _sd[:38] + ".."
+                                _dc = (200, 195, 220) if _is_sel else (140, 135, 160)
                                 for _li, _lstart in enumerate(range(0, len(_sd), 12)):
                                     if _li >= 5: break
                                     _line = _sd[_lstart:_lstart+12]
-                                    _ls, _lr = _sf.render(_line, (180, 180, 200))
+                                    _ls, _lr = _sf.render(_line, _dc)
                                     _card.blit(_ls, (_p_cw // 2 - _lr.width // 2, 120 + _li * 18))
                             except: pass
-                            SCREEN.blit(_card, (_cx, _p_cy))
+
+                            # 카드 스케일 적용
+                            _sw = max(1, int(_p_cw * _scale))
+                            _sh = max(1, int(_p_ch * _scale))
+                            _card_scaled = pygame.transform.scale(_card, (_sw, _sh))
+                            if _alpha < 255:
+                                _card_scaled.set_alpha(_alpha)
+
+                            # 카드 중심 기준 배치
+                            _draw_x = _base_x + _p_cw // 2 - _sw // 2
+                            _draw_y = _base_y + _p_ch // 2 - _sh // 2
+
+                            # 선택된 카드 글로우 이펙트 (펄스)
+                            if _is_sel:
+                                _pulse = 0.6 + 0.4 * _p_math.sin(_p_timer * 0.1)
+                                _glow_w = int(_sw * 1.2)
+                                _glow_h = int(_sh * 1.15)
+                                _glow = pygame.Surface((_glow_w, _glow_h), pygame.SRCALPHA)
+                                _glow_a = int(35 * _pulse)
+                                pygame.draw.ellipse(_glow, (255, 200, 0, _glow_a), (0, 0, _glow_w, _glow_h))
+                                SCREEN.blit(_glow, (
+                                    _draw_x + _sw // 2 - _glow_w // 2,
+                                    _draw_y + _sh // 2 - _glow_h // 2
+                                ))
+
+                            SCREEN.blit(_card_scaled, (_draw_x, _draw_y))
+
+                        # ═══ 파티클 그리기 ═══
+                        for _pp in _p_particles:
+                            _pa = max(0, int(255 * (_pp['life'] / _pp['max_life'])))
+                            _psz = _pp['size']
+                            _ps = pygame.Surface((_psz * 2, _psz * 2), pygame.SRCALPHA)
+                            _pcol = (*_pp['color'], _pa)
+                            pygame.draw.circle(_ps, _pcol, (_psz, _psz), _psz)
+                            # 코어 (밝은 중심)
+                            if _psz >= 3:
+                                _core_a = min(255, _pa + 50)
+                                pygame.draw.circle(_ps, (255, 255, 255, _core_a), (_psz, _psz), max(1, _psz // 2))
+                            SCREEN.blit(_ps, (int(_pp['x']) - _psz, int(_pp['y']) - _psz))
+
                         pygame.display.flip()
                         clock.tick(60)
                     _p_pandora.selection_active = False
