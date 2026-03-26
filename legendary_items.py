@@ -73,6 +73,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "trigger_chance", "label": "발동 확률", "min": 20, "max": 50, "unit": "%", "default": 35},
         {"key": "stun_duration", "label": "스턴 시간", "min": 0.4, "max": 0.8, "unit": "초", "default": 0.6, "step": 0.1},
         {"key": "speed_boost", "label": "공속 증가율", "min": 15, "max": 35, "unit": "%", "default": 25},
+        {"key": "gauge_cost", "label": "게이지 소모", "min": 20, "max": 40, "unit": "", "default": 30, "reverse": True},
     ],
     "poseidon_trident": [
         {"key": "cooldown", "label": "쿨타임", "min": 2, "max": 10, "unit": "초", "default": 6, "step": 1, "reverse": True},
@@ -2883,6 +2884,7 @@ class RagnarokHammer(LegendaryItem):
         self._base_stun_duration = 0.6  # 스턴 시간 (롤 옵션으로 덮어씀)
         self._base_trigger_chance = 35  # 발동 확률 % (롤 옵션으로 덮어씀)
         self._base_speed_boost = 25  # 공속 증가율 % (롤 옵션으로 덮어씀)
+        self._base_gauge_cost = 30  # 게이지 소모량 (롤 옵션으로 덮어씀)
         self.enhancement_bonus_pct = 0  # 강화 보너스 퍼센트
 
         # 애니메이션 프레임 로드
@@ -2913,6 +2915,11 @@ class RagnarokHammer(LegendaryItem):
     def speed_boost(self) -> float:
         """공속 증가율 % (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
         return get_legendary_roll_value("ragnarok_hammer", "speed_boost", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
+
+    @property
+    def gauge_cost(self) -> float:
+        """게이지 소모량 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함 - 낮을수록 좋음)"""
+        return get_legendary_roll_value("ragnarok_hammer", "gauge_cost", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
 
     def should_trigger(self) -> bool:
         """발동 확률 체크 - 보스가 공을 받을 때마다 호출"""

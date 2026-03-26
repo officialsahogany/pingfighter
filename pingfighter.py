@@ -62044,7 +62044,7 @@ def handle_lightning_master_as_top():
         future_x += random.randint(-20, 20)
     # 목표 위치 계산 (게임 영역 기준)
     target_x = future_x - BOSS.width // 2
-    boss_min_x = GAME_AREA_OFFSET_X
+    boss_min_x = 0
     boss_max_x = WIDTH - BOSS.width
     target_x = max(boss_min_x, min(boss_max_x, target_x))
     # 이동 로직
@@ -62148,7 +62148,7 @@ def handle_ice_queen_as_top():
         future_x += random.randint(-35, 35)
     # 목표 위치 계산 (게임 영역 기준)
     target_x = future_x - BOSS.width // 2
-    boss_min_x = GAME_AREA_OFFSET_X
+    boss_min_x = 0
     boss_max_x = WIDTH - BOSS.width
     target_x = max(boss_min_x, min(boss_max_x, target_x))
     # 이동 로직 (느리지만 안정적)
@@ -62184,8 +62184,8 @@ def handle_fire_knight_as_bottom():
         future_x += random.randint(-25, 25)
     # 목표 위치 계산 (게임 영역 기준)
     target_x = future_x - PLAYER.width // 2
-    player_min_x = GAME_AREA_OFFSET_X
-    player_max_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width
+    player_min_x = 0
+    player_max_x = WIDTH - PLAYER.width
     target_x = max(player_min_x, min(player_max_x, target_x))
     # 이동 로직
     distance = target_x - PLAYER.x
@@ -62227,8 +62227,8 @@ def handle_wind_spirit_as_bottom():
         future_x += random.randint(-15, 15)
     # 목표 위치 계산 (게임 영역 기준)
     target_x = future_x - PLAYER.width // 2
-    player_min_x = GAME_AREA_OFFSET_X
-    player_max_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width
+    player_min_x = 0
+    player_max_x = WIDTH - PLAYER.width
     target_x = max(player_min_x, min(player_max_x, target_x))
     # 이동 로직 (매우 빠름)
     distance = target_x - PLAYER.x
@@ -68856,9 +68856,9 @@ def handle_player(keys):
         old_x = PLAYER.x
         new_x = PLAYER.x + player_fire_knockback_vel
 
-        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (게임 영역 내로 제한)
-        player_min_x = GAME_AREA_OFFSET_X
-        player_max_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (전체 물리 영역 내로 제한)
+        player_min_x = 0
+        player_max_x = WIDTH - PLAYER.width
         if new_x <= player_min_x:
             # 왼쪽 벽에 충돌 → 오른쪽으로 반사
             PLAYER.x = player_min_x
@@ -71983,7 +71983,7 @@ def handle_player(keys):
                     # 이동 적용
                     new_x = PLAYER.x + swing_dash_speed
                     # 게임 영역 경계 체크
-                    new_x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PADDLE_WIDTH, new_x))
+                    new_x = max(0, min(WIDTH - PADDLE_WIDTH, new_x))
                     PLAYER.x = new_x
                 else:
                     # === DELAY 구간: 반대방향 윈드업 + 마지막에 가속 시작 ===
@@ -72004,7 +72004,7 @@ def handle_player(keys):
                         new_x = PLAYER.x + accel_speed
 
                     # 게임 영역 경계 체크
-                    new_x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PADDLE_WIDTH, new_x))
+                    new_x = max(0, min(WIDTH - PADDLE_WIDTH, new_x))
                     PLAYER.x = new_x
             else:
                 # 대쉬 종료 → 미끄러짐 시작
@@ -72021,7 +72021,7 @@ def handle_player(keys):
                 # 미끄러짐 이동 적용
                 new_x = PLAYER.x + blacksmith_swing_slide_velocity
                 # 게임 영역 경계 체크
-                new_x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PADDLE_WIDTH, new_x))
+                new_x = max(0, min(WIDTH - PADDLE_WIDTH, new_x))
                 PLAYER.x = new_x
                 # 마찰로 속도 감소
                 blacksmith_swing_slide_velocity *= BLACKSMITH_SWING_SLIDE_FRICTION
@@ -133484,13 +133484,18 @@ def calculate_bounce(paddle):
                 if hammer and hammer.active and not ragnarok_speed_boost_active and not ragnarok_stun_attempted_this_rally:
                     # 이번 랠리에서 스턴공 시도함을 표시
                     ragnarok_stun_attempted_this_rally = True
-                    # 50% 확률로 스턴공 발동
-                    if random.random() < 0.5:
-                        # 스턴공 발동 - 공속 50% 증가 (나중에 적용하기 위해 플래그만 설정)
-                        ragnarok_speed_boost_active = True
-                        # print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
+                    # 게이지 소모량 확인 (롤 옵션: 20~40)
+                    _gauge_cost = hammer.gauge_cost
+                    if special_gauge >= _gauge_cost:
+                        # 50% 확률로 스턴공 발동
+                        if random.random() < 0.5:
+                            # 게이지 소모 후 스턴공 발동
+                            consume_special_gauge(_gauge_cost)
+                            ragnarok_speed_boost_active = True
+                        else:
+                            print(f"[라그나로크] 스턴공 발동 실패 (50% 확률)")
                     else:
-                        print(f"[라그나로크] 스턴공 발동 실패 (50% 확률)")
+                        print(f"[라그나로크] 게이지 부족 ({special_gauge:.0f}/{_gauge_cost:.0f})")
 
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
@@ -141611,8 +141616,8 @@ def handle_boss_pro():
         old_x = BOSS.x
         new_x = BOSS.x + boss_fire_knockback_vel
 
-        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (게임 영역 내로 제한)
-        boss_min_x = GAME_AREA_OFFSET_X
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (전체 물리 영역 내로 제한)
+        boss_min_x = 0
         boss_max_x = WIDTH - BOSS.width
         if new_x <= boss_min_x:
             # 왼쪽 벽에 충돌 → 오른쪽으로 반사
@@ -142012,8 +142017,8 @@ def handle_boss_champion():
         old_x = BOSS.x
         new_x = BOSS.x + boss_fire_knockback_vel
 
-        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (게임 영역 내로 제한)
-        boss_min_x = GAME_AREA_OFFSET_X
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (전체 물리 영역 내로 제한)
+        boss_min_x = 0
         boss_max_x = WIDTH - BOSS.width
         if new_x <= boss_min_x:
             # 왼쪽 벽에 충돌 → 오른쪽으로 반사
@@ -142395,8 +142400,8 @@ def handle_boss_mythic():
         old_x = BOSS.x
         new_x = BOSS.x + boss_fire_knockback_vel
 
-        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (게임 영역 내로 제한)
-        boss_min_x = GAME_AREA_OFFSET_X
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (전체 물리 영역 내로 제한)
+        boss_min_x = 0
         boss_max_x = WIDTH - BOSS.width
         if new_x <= boss_min_x:
             # 왼쪽 벽에 충돌 → 오른쪽으로 반사
@@ -142896,8 +142901,8 @@ def handle_boss_junior():
         old_x = BOSS.x
         new_x = BOSS.x + boss_fire_knockback_vel
 
-        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (게임 영역 내로 제한)
-        boss_min_x = GAME_AREA_OFFSET_X
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김 (전체 물리 영역 내로 제한)
+        boss_min_x = 0
         boss_max_x = WIDTH - BOSS.width
         if new_x <= boss_min_x:
             # 왼쪽 벽에 충돌 → 오른쪽으로 반사
