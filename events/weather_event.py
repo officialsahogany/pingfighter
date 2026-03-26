@@ -95,6 +95,11 @@ ice_floor_particles = []  # 바닥 얼음 파티클
 ice_floor_timer = 0
 ice_sparkle_particles = []  # 반짝이는 얼음 입자
 ice_dash_particles = []  # 대쉬 시 튀는 얼음 가루
+ice_rink_surface = None  # 빙판 캐시 서피스
+ice_rink_needs_rebuild = True  # 빙판 리빌드 플래그
+ice_crack_lines = []  # 빙판 균열 라인
+ice_frost_particles = []  # 서리 안개 파티클
+ice_shimmer_phase = 0.0  # 빙판 반짝임 위상
 
 # 소나기 이벤트 전용 상태
 rain_particles = []  # 빗방울 파티클
@@ -259,6 +264,7 @@ def reset_weather_state():
     global fire_ball_trail, fire_floor_particles_player, fire_floor_particles_boss, fire_floor_timer
     global fire_explosion_particles
     global ice_floor_particles, ice_floor_timer, ice_sparkle_particles, ice_dash_particles
+    global ice_rink_surface, ice_rink_needs_rebuild, ice_crack_lines, ice_frost_particles, ice_shimmer_phase
     global rain_particles, rain_splash_particles, rain_initialized
 
     # 🔊 날씨 사운드 정지
@@ -289,6 +295,11 @@ def reset_weather_state():
     ice_floor_timer = 0
     ice_sparkle_particles = []
     ice_dash_particles = []
+    ice_rink_surface = None
+    ice_rink_needs_rebuild = True
+    ice_crack_lines = []
+    ice_frost_particles = []
+    ice_shimmer_phase = 0.0
 
     # 소나기 관련 초기화
     rain_particles = []
@@ -344,6 +355,7 @@ def update_weather_capsule_fadeout():
     global weather_end_timer, weather_end_text
     global fire_ball_trail, fire_floor_particles_player, fire_floor_particles_boss
     global ice_floor_particles, ice_sparkle_particles
+    global ice_rink_surface, ice_rink_needs_rebuild, ice_crack_lines, ice_frost_particles, ice_shimmer_phase
     global rain_particles, rain_splash_particles, rain_paddle_splash_particles, rain_floor_splash_particles
     global hail_particles, hail_impact_particles
 
@@ -407,6 +419,11 @@ def update_weather_capsule_fadeout():
         fire_floor_particles_boss = []
         ice_floor_particles = []
         ice_sparkle_particles = []
+        ice_rink_surface = None
+        ice_rink_needs_rebuild = True
+        ice_crack_lines = []
+        ice_frost_particles = []
+        ice_shimmer_phase = 0.0
         rain_particles = []
         rain_splash_particles = []
         rain_paddle_splash_particles = []
@@ -427,6 +444,7 @@ def _apply_fadeout_alpha_to_particles(alpha_255):
     """
     global weather_particles, fire_ball_trail, fire_floor_particles_player, fire_floor_particles_boss
     global ice_floor_particles, ice_sparkle_particles
+    global ice_rink_surface, ice_rink_needs_rebuild, ice_frost_particles
     global rain_particles, hail_particles
 
     # 알파 비율 계산 (0.0 ~ 1.0)
@@ -505,6 +523,7 @@ def check_weather_event_on_round_start():
     global weather_warning_timer, weather_warning_text, weather_end_timer, weather_end_text
     global fire_ball_trail, fire_floor_particles_player, fire_floor_particles_boss
     global ice_floor_particles, ice_sparkle_particles
+    global ice_rink_surface, ice_rink_needs_rebuild, ice_crack_lines, ice_frost_particles, ice_shimmer_phase
 
     result = {
         "started": False,
@@ -544,6 +563,11 @@ def check_weather_event_on_round_start():
                 # 얼음 파티클 초기화
                 ice_floor_particles = []
                 ice_sparkle_particles = []
+                ice_rink_surface = None
+                ice_rink_needs_rebuild = True
+                ice_crack_lines = []
+                ice_frost_particles = []
+                ice_shimmer_phase = 0.0
             elif weather_event_type == "rain":
                 weather_end_text = "소나기가 그쳤습니다!"
                 # 소나기 파티클 초기화
@@ -1136,121 +1160,418 @@ def draw_ice_dash_particles(screen):
                 screen.blit(surf, (x - center, y - center))
 
 
+def _build_ice_rink_surface(screen_width, screen_height):
+    """빙판 캐시 서피스 생성 - 정적인 부분을 미리 그려둠"""
+    global ice_rink_surface, ice_rink_needs_rebuild, ice_crack_lines
+
+    # 빙판 존 높이 (상단/하단 각각)
+    RINK_HEIGHT = 50
+
+    ice_rink_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+
+    # --- 상단 빙판 (보스 진영) ---
+    _draw_ice_rink_zone(ice_rink_surface, 0, 0, screen_width, RINK_HEIGHT, flip=False)
+
+    # --- 하단 빙판 (플레이어 진영) ---
+    _draw_ice_rink_zone(ice_rink_surface, 0, screen_height - RINK_HEIGHT, screen_width, RINK_HEIGHT, flip=True)
+
+    # 균열 라인 생성 (한 번만)
+    if not ice_crack_lines:
+        _generate_ice_cracks(screen_width, screen_height, RINK_HEIGHT)
+
+    # 균열 그리기 (캐시에 포함)
+    for crack in ice_crack_lines:
+        pts = crack["points"]
+        alpha = crack["alpha"]
+        width = crack["width"]
+        color = (200, 230, 255, alpha)
+        for i in range(len(pts) - 1):
+            pygame.draw.line(ice_rink_surface, color, pts[i], pts[i + 1], width)
+        # 균열 주변 미세한 글로우
+        glow_color = (180, 220, 255, alpha // 3)
+        for i in range(len(pts) - 1):
+            pygame.draw.line(ice_rink_surface, glow_color, pts[i], pts[i + 1], width + 2)
+
+    ice_rink_needs_rebuild = False
+
+
+def _draw_ice_rink_zone(surface, x, y, w, h, flip=False):
+    """빙판 존 하나를 그림 (그라데이션 + 텍스처)"""
+    for row in range(h):
+        # 그라데이션: 바닥 쪽이 진하고, 중앙 쪽이 투명하게
+        if flip:
+            ratio = 1.0 - (row / h)  # 하단: 아래가 진함
+        else:
+            ratio = row / h  # 상단: 위가 진함 → 아래로 갈수록 투명
+
+        # 비선형 페이드 (부드러운 가장자리)
+        fade = ratio ** 1.5
+        base_alpha = int(55 * (1.0 - fade))
+
+        # 얼음 바탕색 - 미세한 청색 띤 흰색
+        r = 200 + int(30 * (1.0 - fade))
+        g = 225 + int(20 * (1.0 - fade))
+        b = 255
+        a = max(0, min(255, base_alpha))
+
+        if a > 0:
+            pygame.draw.line(surface, (r, g, b, a), (x, y + row), (x + w, y + row))
+
+    # 육각형 타일 패턴 (얼음 결정 격자)
+    tile_size = 28
+    for tx in range(-tile_size, w + tile_size, int(tile_size * 1.5)):
+        for ty_offset in range(0, h, int(tile_size * 0.87)):
+            ty = y + ty_offset
+            # 교차 배열
+            offset_x = (tile_size * 3 // 4) if (ty_offset // int(tile_size * 0.87)) % 2 else 0
+            cx = tx + offset_x
+            cy = ty
+
+            if flip:
+                ratio = 1.0 - ((cy - y) / h)
+            else:
+                ratio = (cy - y) / h
+            fade = ratio ** 1.5
+            tile_alpha = int(20 * (1.0 - fade))
+
+            if tile_alpha < 3:
+                continue
+
+            # 육각형 그리기
+            hex_points = []
+            for i in range(6):
+                angle = math.pi / 3 * i + math.pi / 6
+                hx = cx + int(tile_size * 0.4 * math.cos(angle))
+                hy = cy + int(tile_size * 0.4 * math.sin(angle))
+                hex_points.append((hx, hy))
+
+            if len(hex_points) >= 3:
+                pygame.draw.polygon(surface, (210, 235, 255, tile_alpha), hex_points, 1)
+
+
+def _generate_ice_cracks(screen_width, screen_height, rink_height):
+    """빙판 균열 라인 생성"""
+    global ice_crack_lines
+
+    ice_crack_lines = []
+
+    for zone_y_base in [0, screen_height - rink_height]:
+        # 존 당 3~5개의 균열
+        num_cracks = random.randint(3, 5)
+        for _ in range(num_cracks):
+            # 시작점
+            sx = random.randint(30, screen_width - 30)
+            sy = zone_y_base + random.randint(5, rink_height - 5)
+
+            points = [(sx, sy)]
+            length = random.randint(40, 120)
+            angle = random.uniform(0, math.pi * 2)
+
+            for seg in range(random.randint(3, 7)):
+                # 각도를 약간씩 변경 (지그재그 균열)
+                angle += random.uniform(-0.8, 0.8)
+                seg_len = random.uniform(10, length / 3)
+                nx = points[-1][0] + int(seg_len * math.cos(angle))
+                ny = points[-1][1] + int(seg_len * math.sin(angle))
+                # 존 영역 내로 제한
+                ny = max(zone_y_base + 2, min(zone_y_base + rink_height - 2, ny))
+                nx = max(2, min(screen_width - 2, nx))
+                points.append((nx, ny))
+
+            ice_crack_lines.append({
+                "points": points,
+                "alpha": random.randint(25, 50),
+                "width": random.choice([1, 1, 1, 2]),
+            })
+
+            # 분기 균열 (메인 균열에서 갈라지는 짧은 가지)
+            if random.random() < 0.6 and len(points) > 2:
+                branch_idx = random.randint(1, len(points) - 1)
+                bp = points[branch_idx]
+                branch_angle = angle + random.choice([-1, 1]) * random.uniform(0.5, 1.2)
+                branch_pts = [bp]
+                for _ in range(random.randint(2, 3)):
+                    branch_angle += random.uniform(-0.3, 0.3)
+                    bl = random.uniform(8, 20)
+                    bnx = branch_pts[-1][0] + int(bl * math.cos(branch_angle))
+                    bny = branch_pts[-1][1] + int(bl * math.sin(branch_angle))
+                    bny = max(zone_y_base + 2, min(zone_y_base + rink_height - 2, bny))
+                    bnx = max(2, min(screen_width - 2, bnx))
+                    branch_pts.append((bnx, bny))
+
+                ice_crack_lines.append({
+                    "points": branch_pts,
+                    "alpha": random.randint(15, 35),
+                    "width": 1,
+                })
+
+
 def update_ice_floor_particles(screen_width, screen_height):
-    """바닥 얼음 파티클 업데이트 - 반짝이는 얼음 효과"""
+    """바닥 얼음 파티클 업데이트 - 고품질 빙판 + 서리 안개 + 반짝임"""
     global ice_floor_particles, ice_sparkle_particles, ice_floor_timer
+    global ice_rink_surface, ice_rink_needs_rebuild, ice_frost_particles, ice_shimmer_phase
 
     if not is_ice_active():
         ice_floor_particles = []
         ice_sparkle_particles = []
+        ice_frost_particles = []
+        ice_rink_surface = None
+        ice_rink_needs_rebuild = True
         return
 
     ice_floor_timer += 1
+    ice_shimmer_phase += 0.04
 
-    # 바닥 얼음 타일 패턴 (한 번만 생성, 이후 유지)
-    if len(ice_floor_particles) < 20:
-        # 플레이어 진영 (하단)
-        for i in range(10):
-            ice_floor_particles.append({
-                "x": random.uniform(20, screen_width - 20),
-                "y": screen_height - random.uniform(5, 25),
-                "size": random.uniform(30, 60),
-                "alpha": random.uniform(0.15, 0.3),
-                "rotation": random.uniform(0, 360),
-                "type": "floor"
+    # 빙판 캐시 서피스 생성 (최초 1회)
+    if ice_rink_needs_rebuild or ice_rink_surface is None:
+        _build_ice_rink_surface(screen_width, screen_height)
+
+    RINK_HEIGHT = 50
+
+    # 반짝이는 얼음 입자 생성 (기존보다 다양한 종류)
+    if ice_floor_timer % 2 == 0:
+        for zone_y, zone_range in [(screen_height - RINK_HEIGHT, RINK_HEIGHT),
+                                    (0, RINK_HEIGHT)]:
+            # 일반 반짝임
+            ice_sparkle_particles.append({
+                "x": random.uniform(10, screen_width - 10),
+                "y": zone_y + random.uniform(3, zone_range - 3),
+                "size": random.uniform(1, 3),
+                "lifetime": 0,
+                "max_lifetime": random.randint(25, 50),
+                "alpha": random.uniform(0.5, 1.0),
+                "sparkle_phase": random.uniform(0, math.pi * 2),
+                "type": "star"
             })
-        # 보스 진영 (상단)
-        for i in range(10):
-            ice_floor_particles.append({
-                "x": random.uniform(20, screen_width - 20),
-                "y": random.uniform(5, 25),
-                "size": random.uniform(30, 60),
-                "alpha": random.uniform(0.15, 0.3),
-                "rotation": random.uniform(0, 360),
-                "type": "floor"
+
+            # 다이아몬드 반짝임 (확률적으로)
+            if random.random() < 0.3:
+                ice_sparkle_particles.append({
+                    "x": random.uniform(10, screen_width - 10),
+                    "y": zone_y + random.uniform(3, zone_range - 3),
+                    "size": random.uniform(2, 4),
+                    "lifetime": 0,
+                    "max_lifetime": random.randint(30, 60),
+                    "alpha": random.uniform(0.6, 1.0),
+                    "sparkle_phase": random.uniform(0, math.pi * 2),
+                    "type": "diamond"
+                })
+
+    # 서리 안개 파티클 생성
+    if ice_floor_timer % 8 == 0:
+        for zone_y, drift_dir in [(screen_height - RINK_HEIGHT - 5, -1),
+                                   (RINK_HEIGHT + 5, 1)]:
+            ice_frost_particles.append({
+                "x": random.uniform(-20, screen_width + 20),
+                "y": zone_y + random.uniform(-5, 5),
+                "vx": random.uniform(-0.3, 0.3),
+                "vy": drift_dir * random.uniform(0.05, 0.2),
+                "size": random.uniform(20, 50),
+                "lifetime": 0,
+                "max_lifetime": random.randint(80, 150),
+                "alpha": random.uniform(0.08, 0.18),
             })
 
-    # 반짝이는 얼음 입자 생성
-    if ice_floor_timer % 3 == 0:
-        # 플레이어 진영
-        ice_sparkle_particles.append({
-            "x": random.uniform(10, screen_width - 10),
-            "y": screen_height - random.uniform(3, 20),
-            "size": random.uniform(1, 3),
-            "lifetime": 0,
-            "max_lifetime": random.randint(20, 40),
-            "alpha": random.uniform(0.5, 1.0),
-            "sparkle_phase": random.uniform(0, math.pi * 2)
-        })
-        # 보스 진영
-        ice_sparkle_particles.append({
-            "x": random.uniform(10, screen_width - 10),
-            "y": random.uniform(3, 20),
-            "size": random.uniform(1, 3),
-            "lifetime": 0,
-            "max_lifetime": random.randint(20, 40),
-            "alpha": random.uniform(0.5, 1.0),
-            "sparkle_phase": random.uniform(0, math.pi * 2)
-        })
-
-    # OPTIMIZATION: 반짝이 파티클 업데이트 (O(n²) remove → O(n) 필터)
+    # 반짝이 파티클 업데이트
     for p in ice_sparkle_particles:
         p["lifetime"] += 1
-        p["sparkle_phase"] += 0.3
-    # 한 번에 필터링
-    ice_sparkle_particles[:] = [p for p in ice_sparkle_particles if p["lifetime"] < p["max_lifetime"]]
+        p["sparkle_phase"] += 0.25
+    ice_sparkle_particles[:] = [p for p in ice_sparkle_particles
+                                 if p["lifetime"] < p["max_lifetime"]]
+
+    # 서리 안개 파티클 업데이트
+    for p in ice_frost_particles:
+        p["lifetime"] += 1
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+    ice_frost_particles[:] = [p for p in ice_frost_particles
+                               if p["lifetime"] < p["max_lifetime"]]
 
 
 def draw_ice_particles(screen):
-    """얼음 파티클 그리기 - 투명한 청량감 있는 얼음 효과"""
+    """얼음 파티클 그리기 - 고품질 빙판 + 동적 효과"""
     if not is_ice_active():
         return
 
-    # 1. 바닥 얼음 레이어 (큰 투명 패치)
-    for p in ice_floor_particles:
+    # 1. 캐시된 빙판 서피스 (정적 부분: 그라데이션 + 타일 + 균열)
+    if ice_rink_surface is not None:
+        screen.blit(ice_rink_surface, (0, 0))
+
+    screen_w = screen.get_width()
+    screen_h = screen.get_height()
+    RINK_HEIGHT = 50
+
+    # 2. 동적 쉬머 라인 (빙판 위를 스치는 빛 줄기)
+    shimmer_x = int((math.sin(ice_shimmer_phase) * 0.5 + 0.5) * screen_w)
+    shimmer_w = 60
+    for zone_y, zone_h in [(0, RINK_HEIGHT), (screen_h - RINK_HEIGHT, RINK_HEIGHT)]:
+        shimmer_surf = pygame.Surface((shimmer_w, zone_h), pygame.SRCALPHA)
+        for col in range(shimmer_w):
+            col_ratio = 1.0 - abs(col - shimmer_w / 2) / (shimmer_w / 2)
+            col_alpha = int(18 * col_ratio * col_ratio)
+            if col_alpha > 0:
+                pygame.draw.line(shimmer_surf, (255, 255, 255, col_alpha),
+                               (col, 0), (col, zone_h))
+        screen.blit(shimmer_surf, (shimmer_x - shimmer_w // 2, zone_y))
+
+    # 보조 쉬머 (반대 방향, 느린 속도)
+    shimmer_x2 = int((math.sin(ice_shimmer_phase * 0.6 + 2.0) * 0.5 + 0.5) * screen_w)
+    for zone_y, zone_h in [(0, RINK_HEIGHT), (screen_h - RINK_HEIGHT, RINK_HEIGHT)]:
+        shimmer_surf2 = pygame.Surface((40, zone_h), pygame.SRCALPHA)
+        for col in range(40):
+            col_ratio = 1.0 - abs(col - 20) / 20
+            col_alpha = int(12 * col_ratio * col_ratio)
+            if col_alpha > 0:
+                pygame.draw.line(shimmer_surf2, (200, 240, 255, col_alpha),
+                               (col, 0), (col, zone_h))
+        screen.blit(shimmer_surf2, (shimmer_x2 - 20, zone_y))
+
+    # 3. 빙판 경계 엣지 (서리 라인)
+    for zone_edge_y in [RINK_HEIGHT, screen_h - RINK_HEIGHT]:
+        # 메인 엣지 라인
+        edge_surf = pygame.Surface((screen_w, 6), pygame.SRCALPHA)
+        for col in range(screen_w):
+            # 물결치는 서리 엣지
+            wave = math.sin(col * 0.05 + ice_shimmer_phase * 2) * 1.5
+            row_center = 3 + int(wave)
+            for row in range(6):
+                dist = abs(row - row_center)
+                edge_alpha = max(0, int(35 * (1.0 - dist / 3.0)))
+                if edge_alpha > 0:
+                    edge_surf.set_at((col, row), (220, 245, 255, edge_alpha))
+        screen.blit(edge_surf, (0, zone_edge_y - 3))
+
+        # 서리 결정 돌기 (엣지에서 튀어나온 작은 결정)
+        crystal_seed = int(zone_edge_y * 100)
+        rng = random.Random(crystal_seed)
+        for i in range(15):
+            cx = rng.randint(20, screen_w - 20)
+            crystal_size = rng.randint(3, 7)
+            # 위/아래 방향
+            direction = -1 if zone_edge_y == RINK_HEIGHT else 1
+            cy = zone_edge_y + direction * 1
+
+            # 작은 육각 결정
+            crystal_alpha = int(30 + 15 * math.sin(ice_shimmer_phase * 1.5 + i * 0.7))
+            crystal_surf = pygame.Surface((crystal_size * 2 + 4, crystal_size * 2 + 4), pygame.SRCALPHA)
+            cc = crystal_size + 2
+            for k in range(6):
+                angle = math.pi / 3 * k + math.pi / 6
+                px = cc + int(crystal_size * math.cos(angle))
+                py = cc + int(crystal_size * math.sin(angle))
+                pygame.draw.line(crystal_surf, (210, 240, 255, crystal_alpha), (cc, cc), (px, py), 1)
+            screen.blit(crystal_surf, (cx - cc, cy - cc))
+
+    # 4. 서리 안개 (빙판 가장자리에서 피어오르는 안개)
+    for p in ice_frost_particles:
+        lifetime_ratio = p["lifetime"] / p["max_lifetime"]
+        # 페이드인 → 유지 → 페이드아웃
+        if lifetime_ratio < 0.2:
+            fade = lifetime_ratio / 0.2
+        elif lifetime_ratio > 0.7:
+            fade = (1.0 - lifetime_ratio) / 0.3
+        else:
+            fade = 1.0
+
+        alpha = int(255 * p["alpha"] * fade)
+        if alpha < 3:
+            continue
+
         size = int(p["size"])
-        alpha = int(255 * p["alpha"])
+        frost_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        fc = size
 
-        # 얼음 색상 - 연한 하늘색/청록색
-        surf = pygame.Surface((size * 2, size), pygame.SRCALPHA)
+        # 부드러운 원형 안개 (다중 레이어)
+        for layer in range(3):
+            layer_size = size - layer * (size // 4)
+            layer_alpha = alpha // (layer + 1)
+            if layer_size > 0 and layer_alpha > 0:
+                pygame.draw.circle(frost_surf, (220, 240, 255, layer_alpha),
+                                 (fc, fc), layer_size)
 
-        # 그라데이션 효과
-        outer_color = (180, 220, 255, alpha // 3)
-        mid_color = (200, 235, 255, alpha // 2)
-        inner_color = (220, 245, 255, alpha)
+        screen.blit(frost_surf, (int(p["x"]) - fc, int(p["y"]) - fc))
 
-        # 타원형 얼음 패치
-        pygame.draw.ellipse(surf, outer_color, (0, 0, size * 2, size))
-        pygame.draw.ellipse(surf, mid_color, (size // 4, size // 8, size * 3 // 2, size * 3 // 4))
-        pygame.draw.ellipse(surf, inner_color, (size // 2, size // 4, size, size // 2))
-
-        screen.blit(surf, (int(p["x"]) - size, int(p["y"]) - size // 2))
-
-    # 2. 반짝이는 입자 레이어
+    # 5. 반짝이는 입자 레이어 (향상된 버전)
     for p in ice_sparkle_particles:
         lifetime_ratio = p["lifetime"] / p["max_lifetime"]
-        sparkle = (math.sin(p["sparkle_phase"]) + 1) / 2  # 0 ~ 1
-        alpha = int(255 * p["alpha"] * sparkle * (1 - lifetime_ratio))
+        sparkle = (math.sin(p["sparkle_phase"]) + 1) / 2
+        # 페이드인/아웃 적용
+        if lifetime_ratio < 0.15:
+            life_fade = lifetime_ratio / 0.15
+        else:
+            life_fade = 1.0 - ((lifetime_ratio - 0.15) / 0.85)
 
-        if alpha < 10:
+        alpha = int(255 * p["alpha"] * sparkle * life_fade)
+        if alpha < 8:
             continue
 
         size = int(p["size"])
         x, y = int(p["x"]), int(p["y"])
+        p_type = p.get("type", "star")
 
-        # 반짝이는 별 모양
-        surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
-        center = size * 2
+        if p_type == "diamond":
+            # 다이아몬드 모양 반짝임
+            d_size = size * 3
+            surf = pygame.Surface((d_size * 2 + 2, d_size * 2 + 2), pygame.SRCALPHA)
+            dc = d_size + 1
 
-        # 밝은 하얀색/하늘색 반짝임
-        pygame.draw.circle(surf, (255, 255, 255, alpha), (center, center), size)
-        pygame.draw.circle(surf, (200, 240, 255, alpha // 2), (center, center), size * 2)
+            # 외부 글로우
+            glow_alpha = alpha // 3
+            pygame.draw.circle(surf, (200, 235, 255, glow_alpha), (dc, dc), d_size)
 
-        # 십자형 반짝임
-        pygame.draw.line(surf, (255, 255, 255, alpha), (center - size * 2, center), (center + size * 2, center), 1)
-        pygame.draw.line(surf, (255, 255, 255, alpha), (center, center - size * 2), (center, center + size * 2), 1)
+            # 다이아몬드 형태 (마름모)
+            diamond_pts = [
+                (dc, dc - d_size),      # 상
+                (dc + d_size // 2, dc), # 우
+                (dc, dc + d_size),      # 하
+                (dc - d_size // 2, dc), # 좌
+            ]
+            pygame.draw.polygon(surf, (255, 255, 255, alpha), diamond_pts)
+            pygame.draw.polygon(surf, (220, 245, 255, alpha // 2), diamond_pts, 1)
 
-        screen.blit(surf, (x - center, y - center))
+            # 내부 하이라이트
+            inner_pts = [
+                (dc, dc - d_size // 2),
+                (dc + d_size // 4, dc),
+                (dc, dc + d_size // 2),
+                (dc - d_size // 4, dc),
+            ]
+            pygame.draw.polygon(surf, (255, 255, 255, min(255, int(alpha * 1.3))), inner_pts)
+
+            screen.blit(surf, (x - dc, y - dc))
+
+        else:
+            # 별 모양 반짝임 (향상된 버전)
+            s_size = size * 3
+            surf = pygame.Surface((s_size * 2 + 2, s_size * 2 + 2), pygame.SRCALPHA)
+            sc = s_size + 1
+
+            # 외부 글로우 (부드러운 원)
+            glow_alpha = alpha // 4
+            pygame.draw.circle(surf, (200, 240, 255, glow_alpha), (sc, sc), s_size)
+
+            # 중심 밝은 점
+            pygame.draw.circle(surf, (255, 255, 255, alpha), (sc, sc), max(1, size))
+
+            # 십자형 빛줄기
+            line_alpha = alpha * 2 // 3
+            line_len = s_size
+            pygame.draw.line(surf, (255, 255, 255, line_alpha),
+                           (sc - line_len, sc), (sc + line_len, sc), 1)
+            pygame.draw.line(surf, (255, 255, 255, line_alpha),
+                           (sc, sc - line_len), (sc, sc + line_len), 1)
+
+            # 대각선 빛줄기 (짧게)
+            diag_len = line_len * 2 // 3
+            diag_alpha = alpha // 3
+            pygame.draw.line(surf, (220, 245, 255, diag_alpha),
+                           (sc - diag_len, sc - diag_len),
+                           (sc + diag_len, sc + diag_len), 1)
+            pygame.draw.line(surf, (220, 245, 255, diag_alpha),
+                           (sc + diag_len, sc - diag_len),
+                           (sc - diag_len, sc + diag_len), 1)
+
+            screen.blit(surf, (x - sc, y - sc))
 
 
 # ============== 소나기 이벤트 함수들 ==============
