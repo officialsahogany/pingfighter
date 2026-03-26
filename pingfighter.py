@@ -69037,9 +69037,9 @@ def handle_player(keys):
         # AI 필 활성화 시 공을 99% 확률로 막아내는 완벽한 추적
         # 공의 중심을 패들의 중심으로 맞추기
         target_x = BALL.centerx - PLAYER.width // 2
-        # 경계 처리 - 패들이 게임 영역 밖으로 나가지 않도록
-        player_min_x = GAME_AREA_OFFSET_X
-        player_max_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width
+        # 경계 처리 - 패들이 전체 게임 물리 영역(0~WIDTH) 밖으로 나가지 않도록
+        player_min_x = 0
+        player_max_x = WIDTH - PLAYER.width
         if target_x < player_min_x:
             target_x = player_min_x
         elif target_x > player_max_x:
