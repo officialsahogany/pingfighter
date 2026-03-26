@@ -151622,16 +151622,15 @@ def main(stage_num, new_boss_mode=False):
         if not is_ball_spawn_animation_paused():
             update_dash_boost(current_stage)
         # 부메랑 업데이트 - 라운드 전환 중에도 계속 비행 (회수 보장)
-        # 비활성 시에도 파괴 파티클 업데이트를 위해 호출
-        update_boomerang()  # 파티클만 틱 (active=False일 때)
-        if is_boomerang_active():
-            import items as _boom_items
-            boom_events = update_boomerang(
-                boss_rect=BOSS if BOSS else None,
-                ball_rect=BALL if BALL else None,
-                player_rect=PLAYER if PLAYER else None,
-                item_list=_boom_items.item_list
-            )
+        # 비활성 시에도 파괴 파티클 업데이트를 위해 항상 1회 호출
+        import items as _boom_items
+        boom_events = update_boomerang(
+            boss_rect=BOSS if BOSS else None,
+            ball_rect=BALL if BALL else None,
+            player_rect=PLAYER if PLAYER else None,
+            item_list=_boom_items.item_list
+        )
+        if boom_events:
             for ev in boom_events:
                 if ev.get("type") == "boss_hit":
                     # 보스 넉백 + 스턴
