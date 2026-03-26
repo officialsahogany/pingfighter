@@ -12,8 +12,8 @@ import random
 
 # 상수
 MAGNET_FIELD_DURATION_FRAMES = 180  # 3초 (60fps * 3)
-MAGNET_PULL_STRENGTH = 0.35  # 공을 끌어당기는 힘 (Y축 아래로)
-MAGNET_PULL_X_FACTOR = 0.15  # 공을 패들 X 중앙으로 끌어당기는 힘
+MAGNET_PULL_RADIUS = 300  # 자기장 반경 (px) - 이 범위 안의 공만 끌어당김
+MAGNET_PULL_STRENGTH = 1.2  # 공을 끌어당기는 최대 힘 (패들 방향 벡터)
 MAGNET_PROJECTILE_DEFLECT = 0.2  # 보스 투사체 궤도 변경 힘
 
 
@@ -125,8 +125,13 @@ class MagnetField:
             if particle['alpha'] <= 0:
                 self.particles.remove(particle)
 
-    def apply_ball_pull(self, ball_rect, ball_vel):
-        """공에 자기장 끌어당기는 힘 적용
+    def apply_ball_pull(self, ball_rect, ball_vel, player_rect=None):
+        """공에 자기장 끌어당기는 힘 적용 (반경 300px 이내, 보스가 친 공만)
+
+        Args:
+            ball_rect: 공의 Rect
+            ball_vel: [vx, vy] 공의 속도 리스트
+            player_rect: 플레이어 패들 Rect (실시간 위치)
 
         Returns:
             bool: 힘이 적용되었으면 True
@@ -134,26 +139,37 @@ class MagnetField:
         if not self.active:
             return False
 
-        # 공이 플레이어 진영(하단)에 가까울수록 힘이 강함
-        # 중앙선(375) 이하에서만 작용
-        if ball_rect.centery < 300:
+        # 플레이어 패들 중심 좌표
+        if player_rect is not None:
+            target_x = player_rect.centerx
+            target_y = player_rect.centery
+        else:
+            target_x = self.player_center_x
+            target_y = self.player_y
+
+        # 공과 패들 사이 거리 계산
+        dx = target_x - ball_rect.centerx
+        dy = target_y - ball_rect.centery
+        distance = math.sqrt(dx * dx + dy * dy)
+
+        # 반경 밖이면 무시
+        if distance > MAGNET_PULL_RADIUS or distance < 5:
             return False
 
-        # 거리 기반 힘 계산 (가까울수록 강함)
-        distance_y = self.player_y - ball_rect.centery
-        if distance_y <= 0:
-            return False
+        # 거리가 가까울수록 힘이 강함 (역비례)
+        # distance=0 → pull=1.0, distance=300 → pull=0.0
+        pull_ratio = 1.0 - (distance / MAGNET_PULL_RADIUS)
+        # 비선형 커브: 가까울수록 급격히 강해짐
+        pull_ratio = pull_ratio ** 0.6
 
-        # Y축: 아래로 당기는 힘 (플레이어 쪽으로)
-        pull_factor = min(1.0, (ball_rect.centery - 300) / 400)  # 300~700 범위에서 0~1
-        y_pull = MAGNET_PULL_STRENGTH * pull_factor
+        # 방향 벡터 정규화
+        nx = dx / distance
+        ny = dy / distance
 
-        # X축: 패들 중앙으로 살짝 끌어당김
-        dx = self.player_center_x - ball_rect.centerx
-        x_pull = MAGNET_PULL_X_FACTOR * (dx / max(1, abs(dx))) * pull_factor * 0.5
-
-        ball_vel[1] += y_pull
-        ball_vel[0] += x_pull
+        # 힘 적용 (패들 방향으로)
+        force = MAGNET_PULL_STRENGTH * pull_ratio
+        ball_vel[0] += nx * force
+        ball_vel[1] += ny * force
 
         return True
 
@@ -299,10 +315,10 @@ def draw_magnet_field_effects(screen, **kwargs):
     field.draw_effects(screen, **kwargs)
 
 
-def apply_magnet_ball_pull(ball_rect, ball_vel):
-    """공에 자기장 끌어당기는 힘 적용"""
+def apply_magnet_ball_pull(ball_rect, ball_vel, player_rect=None):
+    """공에 자기장 끌어당기는 힘 적용 (보스가 친 공만, 반경 300px 이내)"""
     field = get_magnet_field_instance()
-    return field.apply_ball_pull(ball_rect, ball_vel)
+    return field.apply_ball_pull(ball_rect, ball_vel, player_rect)
 
 
 def apply_magnet_projectile_deflect(projectile_vel):

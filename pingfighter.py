@@ -136696,9 +136696,9 @@ def handle_ball():
             except:
                 pass
 
-    # --- 자기장 발생기: 공 끌어당기기 ---
-    if magnet_field_module.is_magnet_field_active():
-        apply_magnet_ball_pull(BALL, ball_vel)
+    # --- 자기장 발생기: 공 끌어당기기 (보스가 친 공만, 반경 300px 이내) ---
+    if magnet_field_module.is_magnet_field_active() and last_hit_by == "boss":
+        apply_magnet_ball_pull(BALL, ball_vel, PLAYER)
 
     # --- 🏖 모래 지형 침식 처리 ---
     if sand_obstacles:
