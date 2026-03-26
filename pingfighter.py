@@ -148594,9 +148594,10 @@ def main(stage_num, new_boss_mode=False):
         draw_field()
         _ingame_captured = SCREEN.copy()
         # 하강 연출 (지형 위에 인게임 화면이 점점 커짐)
+        # display_stage_num 사용: _STAGE_INFO는 표시용 스테이지 번호 기준
         show_space_map_transition(
-            from_planet=max(0, stage_num - 1), to_planet=stage_num,
-            ingame_frame=_ingame_captured, stage_num=stage_num)
+            from_planet=max(0, display_stage_num - 1), to_planet=display_stage_num,
+            ingame_frame=_ingame_captured, stage_num=display_stage_num)
         del _ingame_captured
         # 타이머 리셋 (애니메이션 중 누적된 시간 무시)
         clock.tick()
