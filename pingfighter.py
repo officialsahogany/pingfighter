@@ -146429,6 +146429,7 @@ def main(stage_num, new_boss_mode=False):
     global selected_item_index, last_item_use_time, active_item_cooldown_ms
     global master_obtained, cooltime_obtained
     global pandora_box_active, pandora_box_timer, pandora_box_original_spawn_delay, pandora_box_rainbow_animation
+    global pandora_legacy_selection_active, pandora_legacy_selection_items, pandora_legacy_selected_index, pandora_legacy_selection_timer
     global stopwatch_active, stopwatch_timer, stopwatch_flash_timer, stopwatch_clock_angle
     global stopwatch_original_ball_vel, stopwatch_recovery_timer, ball_vel, ball_impact_boost
     # 보스 스킬들
