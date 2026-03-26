@@ -107,6 +107,7 @@ SOUND_PATHS = {
     "GOD_THUNDER_THROW": "sounds/godthunderthrow.wav",
     "WHIPCRACK": "sounds/whipcrack.wav",
     "ROUND_SET": "sounds/roundset.wav",
+    "BOOMERANG": "sounds/boomerang.wav",
 }
 
 

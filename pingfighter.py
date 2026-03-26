@@ -20748,6 +20748,8 @@ SOUND_STEP_BANANA = sound_effects['STEP_BANANA']
 SOUND_STAGE5_WARNING = sound_effects['STAGE5_WARNING']
 SOUND_WHIPCRACK = sound_effects.get('WHIPCRACK')
 SOUND_ROUND_SET = sound_effects.get('ROUND_SET')
+SOUND_BOOMERANG = sound_effects.get('BOOMERANG')
+boomerang_sound_channel = None  # 부메랑 루프 재생 채널
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
 set_throwing_banana_sound(SOUND_THROWING_BANANA)
@@ -55663,6 +55665,11 @@ def apply_effect(effect_name):
         activate_boomerang(None, current_stage, WIDTH, HEIGHT,
                           player_x=PLAYER.centerx, player_y=PLAYER.centery)
         play_active_item_sound()
+        # 부메랑 비행 사운드 루프 재생
+        global boomerang_sound_channel
+        if SOUND_BOOMERANG:
+            SOUND_BOOMERANG.set_volume(sfx_volume * 0.6)
+            boomerang_sound_channel = SOUND_BOOMERANG.play(loops=-1)
         print("🪃 부메랑 발사! 보스에게 넉백+스턴, 돌아오며 아이템 회수")
     elif effect_name == "dash_boost":  # 대쉬부스트 액티브 아이템
         activate_dash_boost(None, current_stage, WIDTH, HEIGHT)
@@ -145665,6 +145672,8 @@ def show_result(won):
             pass
         # 부메랑 비활성화
         deactivate_boomerang()
+        if boomerang_sound_channel and boomerang_sound_channel.get_busy():
+            boomerang_sound_channel.stop()
         # 스테이지 전환 시 대쉬부스트 비활성화
         deactivate_dash_boost()
         try:
@@ -145740,6 +145749,8 @@ def show_result(won):
             pass
         # 부메랑 비활성화
         deactivate_boomerang()
+        if boomerang_sound_channel and boomerang_sound_channel.get_busy():
+            boomerang_sound_channel.stop()
         # 대쉬부스트 비활성화
         deactivate_dash_boost()
         try:
@@ -148022,6 +148033,8 @@ def main(stage_num, new_boss_mode=False):
                 pass
             # 부메랑 비활성화
             deactivate_boomerang()
+            if boomerang_sound_channel and boomerang_sound_channel.get_busy():
+                boomerang_sound_channel.stop()
             # 대쉬부스트 비활성화
             deactivate_dash_boost()
             try:
@@ -150414,6 +150427,8 @@ def main(stage_num, new_boss_mode=False):
                         pass
                     # 부메랑 비활성화 (기권 시)
                     deactivate_boomerang()
+                    if boomerang_sound_channel and boomerang_sound_channel.get_busy():
+                        boomerang_sound_channel.stop()
                     # 대쉬부스트 비활성화 (기권 시)
                     deactivate_dash_boost()
                     try:
@@ -151592,6 +151607,14 @@ def main(stage_num, new_boss_mode=False):
                         store_active_item(boomerang_item)
                     except Exception:
                         pass
+            # 부메랑이 모두 사라지면 사운드 정지
+            if not is_boomerang_active():
+                if boomerang_sound_channel and boomerang_sound_channel.get_busy():
+                    boomerang_sound_channel.fadeout(200)
+        # 부메랑 비활성 상태에서도 사운드 채널 정리
+        elif not is_boomerang_active() and boomerang_sound_channel:
+            if boomerang_sound_channel.get_busy():
+                boomerang_sound_channel.fadeout(200)
         # Stage 7: 테크니컬조끼 연막이 테트로미노에 닿으면 증발 처리
         # - 기존 연막탄 파괴 경로(destroy_stage7_tetrominoes_in_smoke)를 재사용해 성능/일관성 유지
         if current_stage == 7:
