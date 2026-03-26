@@ -138382,44 +138382,33 @@ def handle_ball():
                         SCREEN.blit(_p_ov, (0, 0))
 
                         # 상단 장식 라인 (금색 수평선)
-                        if _p_title_alpha > 50:
-                            _line_w = min(400, int(400 * min(1.0, _p_timer / 20.0)))
-                            _line_a = min(180, _p_title_alpha)
+                        _p_fade = min(255, _p_timer * 12)
+                        if _p_fade > 30:
+                            _line_w = min(350, int(350 * min(1.0, _p_timer / 20.0)))
                             _line_surf = pygame.Surface((_line_w, 2), pygame.SRCALPHA)
-                            _line_surf.fill((255, 215, 0, _line_a))
+                            _line_surf.fill((255, 215, 0, min(150, _p_fade)))
                             SCREEN.blit(_line_surf, (WIDTH // 2 - _line_w // 2, 88))
-                            SCREEN.blit(_line_surf, (WIDTH // 2 - _line_w // 2, 170))
+                            SCREEN.blit(_line_surf, (WIDTH // 2 - _line_w // 2, 155))
 
-                        # 타이틀 (글로우 + 페이드인)
+                        # 타이틀 (심플하게)
                         try:
                             _p_tf = FontStyle.subtitle()
-                            _t_pulse = 0.85 + 0.15 * _p_math.sin(_p_timer * 0.08)
-                            _t_r = int(255 * _t_pulse)
-                            _t_g = int(215 * _t_pulse)
-                            _p_ts, _p_tr = _p_tf.render("판도라의 유산", (_t_r, _t_g, 0))
-                            _title_surf = pygame.Surface((_p_tr.width + 20, _p_tr.height + 10), pygame.SRCALPHA)
-                            # 타이틀 글로우 배경
-                            _glow_a = int(40 * _t_pulse)
-                            pygame.draw.ellipse(_title_surf, (255, 200, 0, _glow_a),
-                                                (0, 0, _p_tr.width + 20, _p_tr.height + 10))
-                            _title_surf.blit(_p_ts, (10, 5))
-                            _title_surf.set_alpha(min(255, _p_title_alpha))
-                            SCREEN.blit(_title_surf, (WIDTH // 2 - (_p_tr.width + 20) // 2, 95))
+                            _p_ts, _p_tr = _p_tf.render("판도라의 유산", (255, 215, 0))
+                            SCREEN.blit(_p_ts, (WIDTH // 2 - _p_tr.width // 2, 95))
                         except: pass
-                        # 부제 (아이템 선택)
+                        # 부제
                         try:
                             _p_sf = FontStyle.body()
-                            _p_ss, _p_sr = _p_sf.render("아이템을 선택하세요", (200, 180, 230))
-                            _p_ss.set_alpha(min(200, _p_title_alpha))
-                            SCREEN.blit(_p_ss, (WIDTH // 2 - _p_sr.width // 2, 128))
+                            _p_ss, _p_sr = _p_sf.render("아이템을 선택하세요", (220, 200, 240))
+                            SCREEN.blit(_p_ss, (WIDTH // 2 - _p_sr.width // 2, 125))
                         except: pass
                         # 안내 (select 페이즈에서만, 카드 아래에 표시)
                         if _p_phase == "select":
                             try:
                                 _p_df = FontStyle.body()
                                 _guide_pulse = int(160 + 60 * _p_math.sin(_p_timer * 0.06))
-                                _p_ds, _p_dr = _p_df.render("◀ ▶ / 마우스로 선택    SPACE / 클릭으로 확정", (_guide_pulse, _guide_pulse, _guide_pulse))
-                                SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, _p_cy + _p_ch + 30))
+                                _p_ds, _p_dr = _p_df.render("◀ ▶ / 마우스    SPACE / 클릭", (_guide_pulse, _guide_pulse, _guide_pulse))
+                                SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, _p_cy + _p_ch + 25))
                             except: pass
 
                         # ═══ 카드 3장 렌더링 ═══
@@ -138483,18 +138472,14 @@ def handle_ball():
                             _draw_x = _base_x + _p_cw // 2 - _sw // 2
                             _draw_y = _base_y + _p_ch // 2 - _sh // 2
 
-                            # 선택된 카드 글로우 이펙트 (펄스)
+                            # 선택된 카드 글로우 이펙트 (얇은 외곽 발광)
                             if _is_sel:
-                                _pulse = 0.6 + 0.4 * _p_math.sin(_p_timer * 0.1)
-                                _glow_w = int(_sw * 1.2)
-                                _glow_h = int(_sh * 1.15)
-                                _glow = pygame.Surface((_glow_w, _glow_h), pygame.SRCALPHA)
-                                _glow_a = int(35 * _pulse)
-                                pygame.draw.ellipse(_glow, (255, 200, 0, _glow_a), (0, 0, _glow_w, _glow_h))
-                                SCREEN.blit(_glow, (
-                                    _draw_x + _sw // 2 - _glow_w // 2,
-                                    _draw_y + _sh // 2 - _glow_h // 2
-                                ))
+                                _pulse = 0.5 + 0.5 * _p_math.sin(_p_timer * 0.1)
+                                _glow_pad = 6
+                                _glow = pygame.Surface((_sw + _glow_pad * 2, _sh + _glow_pad * 2), pygame.SRCALPHA)
+                                _glow_a = int(50 * _pulse)
+                                _glow.fill((255, 215, 0, _glow_a))
+                                SCREEN.blit(_glow, (_draw_x - _glow_pad, _draw_y - _glow_pad))
 
                             SCREEN.blit(_card_scaled, (_draw_x, _draw_y))
 
