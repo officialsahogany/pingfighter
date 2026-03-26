@@ -74845,6 +74845,14 @@ def _apply_arena_top_item_effect(effect_name):
         except Exception:
             pass
 
+    elif effect_name == "boomerang":
+        # 상단 영웅 부메랑: 보스 넉백+스턴
+        try:
+            activate_boomerang(None, current_stage, WIDTH, HEIGHT,
+                              player_x=PLAYER.centerx, player_y=PLAYER.centery)
+        except Exception:
+            pass
+
     elif effect_name in ["long_paddle", "long_boost"]:
         # 상단 영웅 거대화포션: 패들 확장 효과 발동
         try:
@@ -137434,13 +137442,18 @@ def handle_ball():
             except Exception:
                 pass
 
-            # 📦 판도라의 유산: 라운드 승리 시 아이템 선택 예약
+            # 📦 판도라의 유산: 라운드 승리 시 아이템 선택 예약 (장착 중일 때만)
             try:
-                legendary_manager = get_legendary_manager()
-                if legendary_manager and items.pandora_legacy_obtained:
-                    pandora = legendary_manager.get_item("pandora_legacy")
-                    if pandora and pandora.active:
-                        pandora.generate_selection_choices()
+                _pandora_equipped = any(
+                    item.get("name") == "pandora_legacy"
+                    for item in passive_item_list if isinstance(item, dict) and item.get("equipped")
+                )
+                if _pandora_equipped:
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        pandora = legendary_manager.get_item("pandora_legacy")
+                        if pandora and pandora.active:
+                            pandora.generate_selection_choices()
             except Exception:
                 pass
 
@@ -137580,38 +137593,48 @@ def handle_ball():
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                        boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
 
-            # 📦 판도라의 유산: 라운드 승리 후 아이템 선택 UI
+            # 📦 판도라의 유산: 라운드 승리 후 아이템 선택 UI (장착 중일 때만)
             try:
-                legendary_manager = get_legendary_manager()
-                if legendary_manager and items.pandora_legacy_obtained:
-                    pandora = legendary_manager.get_item("pandora_legacy")
-                    if pandora and pandora.active and pandora.selection_active and pandora.selection_items:
-                        pandora_legacy_selection_active = True
-                        pandora_legacy_selection_items = pandora.selection_items
-                        pandora_legacy_selected_index = 0
-                        pandora_legacy_selection_timer = 0
-                        # 블로킹 선택 루프
-                        _pandora_selecting = True
-                        while _pandora_selecting:
-                            for _pev in pygame.event.get():
-                                if _pev.type == pygame.QUIT:
+                _pandora_eq = any(
+                    it.get("name") == "pandora_legacy"
+                    for it in passive_item_list if isinstance(it, dict) and it.get("equipped")
+                )
+                if _pandora_eq:
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        pandora = legendary_manager.get_item("pandora_legacy")
+                        if pandora and pandora.active and pandora.selection_active and len(pandora.selection_items) >= 3:
+                            pandora_legacy_selection_active = True
+                            pandora_legacy_selection_items = pandora.selection_items
+                            pandora_legacy_selected_index = 0
+                            pandora_legacy_selection_timer = 0
+                            _pandora_selecting = True
+                            _pandora_timeout = 0
+                            while _pandora_selecting:
+                                _pandora_timeout += 1
+                                if _pandora_timeout > 60 * 30:  # 30초 안전장치
                                     _pandora_selecting = False
                                     pandora_legacy_selection_active = False
                                     break
-                                if handle_pandora_legacy_selection_input(_pev):
-                                    if not pandora_legacy_selection_active:
+                                for _pev in pygame.event.get():
+                                    if _pev.type == pygame.QUIT:
                                         _pandora_selecting = False
+                                        pandora_legacy_selection_active = False
                                         break
-                            # 선택 UI 그리기
-                            draw_field()
-                            draw_objects()
-                            draw_score()
-                            draw_pandora_legacy_selection_ui(SCREEN)
-                            pygame.display.flip()
-                            clock.tick(60)
-                        pandora.selection_active = False
-                        pandora.selection_items = []
+                                    if handle_pandora_legacy_selection_input(_pev):
+                                        if not pandora_legacy_selection_active:
+                                            _pandora_selecting = False
+                                            break
+                                draw_field()
+                                draw_objects()
+                                draw_score()
+                                draw_pandora_legacy_selection_ui(SCREEN)
+                                pygame.display.flip()
+                                clock.tick(60)
+                            pandora.selection_active = False
+                            pandora.selection_items = []
             except Exception as e:
+                pandora_legacy_selection_active = False
                 print(f"판도라의 유산 선택 UI 오류: {e}")
 
             # 코만도 권총 UI 표시
