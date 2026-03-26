@@ -27270,8 +27270,6 @@ banana_target_x = 0  # 바나나 목표 X 좌표
 # === 부메랑 관련 ===
 boomerang_throwing = False  # 부메랑 투척 모션 중
 boomerang_throw_timer = 0  # 투척 모션 타이머
-boomerang_pending_hit_count = 0   # 다음 투척 시 전달할 명중 카운터
-boomerang_pending_throw_count = 0  # 다음 투척 시 전달할 투척 카운터
 
 
 def _destroy_stage2_rocks_in_radius(
@@ -55686,17 +55684,6 @@ def apply_effect(effect_name):
         if current_time - round_start_time < 3000:  # 3초 미만
             remaining_time = (3000 - (current_time - round_start_time)) / 1000
             return False
-        # 사용되는 아이템에서 개별 카운터 읽기 (회수된 부메랑이면 카운터가 있음)
-        global boomerang_pending_hit_count, boomerang_pending_throw_count
-        _boom_item = None
-        try:
-            _boom_items_list = item_state_adapter.active_items()
-            if _boom_items_list and 0 <= selected_item_index < len(_boom_items_list):
-                _boom_item = _boom_items_list[selected_item_index]
-        except Exception:
-            pass
-        boomerang_pending_hit_count = _boom_item.get("boom_hit_count", 0) if _boom_item else 0
-        boomerang_pending_throw_count = _boom_item.get("boom_throw_count", 0) if _boom_item else 0
         # 투척 준비 동작 시작
         activate_boomerang_throw()
     elif effect_name == "dash_boost":  # 대쉬부스트 액티브 아이템
@@ -55885,12 +55872,9 @@ def throw_boomerang():
     from item_effects.boomerang import activate_boomerang
     # 코만도암 발사속도 보너스 적용
     speed_mult = _commando_speed_multiplier(base_bonus=commando_throw_speed_pct / 100.0)
-    # 개별 부메랑 카운터 전달 (회수된 부메랑이면 이전 카운터 이어감)
     activate_boomerang(None, current_stage, WIDTH, HEIGHT,
                       player_x=PLAYER.centerx, player_y=PLAYER.centery,
-                      speed_multiplier=speed_mult,
-                      prev_hit_count=boomerang_pending_hit_count,
-                      prev_throw_count=boomerang_pending_throw_count)
+                      speed_multiplier=speed_mult)
     if items.commando_arm_obtained:
         print(f"🪃 코만도암 적용! 부메랑 발사속도: x{speed_mult:.2f}")
     # 부메랑 비행 사운드 루프 재생
@@ -151793,8 +151777,6 @@ def main(stage_num, new_boss_mode=False):
                             "effect": "boomerang",
                             "icon": get_item_icon("boomerang"),
                             "allow_overflow": True,
-                            "boom_hit_count": ev.get("hit_count", 0),
-                            "boom_throw_count": ev.get("throw_count", 0),
                         }
                         store_active_item(boomerang_item)
                     except Exception:
