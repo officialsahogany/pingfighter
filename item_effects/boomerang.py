@@ -39,8 +39,12 @@ class Boomerang:
         self.debug = os.environ.get("DEBUG_BOOMERANG", "0") == "1"
 
     def activate(self, game_state=None, current_stage=None, width=760, height=750,
-                 player_x=380, player_y=710):
-        """부메랑 발사"""
+                 player_x=380, player_y=710, speed_multiplier=1.0):
+        """부메랑 발사
+
+        Args:
+            speed_multiplier: 코만도암 등 외부 속도 배율 (기본 1.0)
+        """
         self.active = True
         self.width = width
         self.height = height
@@ -53,7 +57,7 @@ class Boomerang:
         wobble_amp = random.uniform(8, 20)
         wobble_freq = random.uniform(2.5, 4.5)
         wind_drift = random.uniform(-25, 25)
-        speed_jitter = random.uniform(0.85, 1.15)
+        speed_jitter = random.uniform(0.85, 1.15) * speed_multiplier
 
         boomerang = {
             "x": float(player_x),
@@ -70,6 +74,7 @@ class Boomerang:
             "wobble_freq": wobble_freq,
             "wind_drift": wind_drift,
             "speed_jitter": speed_jitter,
+            "speed_multiplier": speed_multiplier,  # 코만도암 속도 배율
             "hit_boss": False,
             "picked_items": [],
             # 귀환 시 불규칙 궤도용
@@ -231,7 +236,7 @@ class Boomerang:
                     lateral = math.sin(boom["return_wobble_phase"]) * boom["return_wobble_amp"]
                     lateral *= min(1.0, dist / 200.0)
 
-                    speed_var = BOOMERANG_RETURN_SPEED * random.uniform(0.9, 1.1)
+                    speed_var = BOOMERANG_RETURN_SPEED * boom["speed_multiplier"] * random.uniform(0.9, 1.1)
 
                     boom["x"] += nx * speed_var + perp_x * lateral * 0.15
                     boom["y"] += ny * speed_var + perp_y * lateral * 0.15
@@ -519,10 +524,11 @@ def get_boomerang_instance():
 
 
 def activate_boomerang(game_state=None, current_stage=None, width=760, height=750,
-                       player_x=380, player_y=710):
+                       player_x=380, player_y=710, speed_multiplier=1.0):
     """부메랑 발사"""
     boom = get_boomerang_instance()
-    boom.activate(game_state, current_stage, width, height, player_x, player_y)
+    boom.activate(game_state, current_stage, width, height, player_x, player_y,
+                  speed_multiplier=speed_multiplier)
     return True
 
 

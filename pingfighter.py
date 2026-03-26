@@ -55867,9 +55867,15 @@ def activate_boomerang_throw():
 def throw_boomerang():
     """실제 부메랑 투척 (모션 후 실행)"""
     global boomerang_sound_channel
+    import items
     from item_effects.boomerang import activate_boomerang
+    # 코만도암 발사속도 보너스 적용
+    speed_mult = _commando_speed_multiplier(base_bonus=commando_throw_speed_pct / 100.0)
     activate_boomerang(None, current_stage, WIDTH, HEIGHT,
-                      player_x=PLAYER.centerx, player_y=PLAYER.centery)
+                      player_x=PLAYER.centerx, player_y=PLAYER.centery,
+                      speed_multiplier=speed_mult)
+    if items.commando_arm_obtained:
+        print(f"🪃 코만도암 적용! 부메랑 발사속도: x{speed_mult:.2f}")
     # 부메랑 비행 사운드 루프 재생
     if SOUND_BOOMERANG:
         SOUND_BOOMERANG.set_volume(sfx_volume * 0.6)
