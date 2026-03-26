@@ -133849,12 +133849,20 @@ def calculate_bounce(paddle):
         # 라그나로크 발동 당시 공속을 저장해 보스 반격 시 완만하게 복구한다.
         ragnarok_original_speed = math.hypot(ball_vel[0], ball_vel[1])
 
-        # 공속 30% 증가
-        speed_boost_multiplier = 1.3
+        # 공속 증가 (롤 옵션: 15%~35%)
+        speed_boost_multiplier = 1.25  # fallback
+        try:
+            from legendary_items import get_legendary_manager as _glm
+            _lm = _glm()
+            if _lm:
+                _hammer = _lm.get_item("ragnarok_hammer")
+                if _hammer:
+                    speed_boost_multiplier = 1.0 + (_hammer.speed_boost / 100.0)
+        except Exception:
+            pass
         ball_vel[0] *= speed_boost_multiplier
         ball_vel[1] *= speed_boost_multiplier
         new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-        # print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
         # 사운드 효과 재생
         try:
             play_ragnarok_shot_sound()
