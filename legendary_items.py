@@ -11297,42 +11297,22 @@ class PandoraLegacy(LegendaryItem):
                 self.animation_frames.append(self._create_default_frame(i))
 
     def _create_pandora_frame(self, base_frame, frame_idx):
-        """라그나로크 해머 프레임의 글로우+테두리 유지, 중앙만 무지개 가방으로 교체"""
+        """라그나로크 해머 프레임 무시, 무지개 가방만 투명 배경에 그리기
+        (글로우/테두리는 draw_icon에서 _draw_common_legendary_frame이 담당)"""
         import pygame
-        import math
 
-        frame = base_frame.copy()
-        width, height = frame.get_size()
+        width, height = base_frame.get_size()
+        frame = pygame.Surface((width, height), pygame.SRCALPHA)
         cx, cy = width // 2, height // 2
-
-        # 중앙 영역 지우기 (테두리 3px 남김)
-        clear_radius = min(width, height) // 2 - 3
-        for y in range(height):
-            for x in range(width):
-                dist = math.sqrt((x - cx)**2 + (y - cy)**2)
-                if dist < clear_radius:
-                    frame.set_at((x, y), (0, 0, 0, 0))
-
-        # 무지개 가방 그리기
         self._draw_rainbow_bag(frame, cx, cy, frame_idx)
         return frame
 
     def _create_default_frame(self, frame_idx):
-        """기본 프레임 (라그나로크 해머 프레임 로드 실패 시)"""
+        """기본 프레임 (무지개 가방만, 투명 배경)"""
         import pygame
 
         frame = pygame.Surface((32, 32), pygame.SRCALPHA)
-        cx, cy = 16, 16
-
-        # 테두리 (프레임별 색상 그라데이션 — 라그나로크 해머 동일)
-        border_colors = [
-            (150, 0, 0), (224, 0, 0), (255, 0, 0), (224, 0, 0),
-            (150, 0, 0), (75, 0, 0), (45, 0, 0), (75, 0, 0)
-        ]
-        pygame.draw.circle(frame, border_colors[frame_idx], (cx, cy), 15, 2)
-
-        # 무지개 가방
-        self._draw_rainbow_bag(frame, cx, cy, frame_idx)
+        self._draw_rainbow_bag(frame, 16, 16, frame_idx)
         return frame
 
     def _draw_rainbow_bag(self, surface, cx, cy, frame_idx):
@@ -11411,34 +11391,28 @@ class PandoraLegacy(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """판도라의 유산 아이콘 (전설 프레임 + 판도라 상자 애니메이션)"""
-        # 글로우 효과
-        glow_size = int(size * (1.2 + self.glow_intensity * 0.1))
-        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        for i in range(3):
-            alpha = 50 - i * 15
-            pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha),
-                             (glow_size // 2, glow_size // 2),
-                             glow_size // 2 - i * 5)
-        screen.blit(glow_surf, (x - (glow_size - size) // 2, y - (glow_size - size) // 2))
+        """판도라의 유산 아이콘 (공통 파란 글로우 프레임 + 무지개 가방 애니메이션)"""
+        # 공통 전설 프레임 (파란 글로우 + 파란 테두리 + 금색 코너)
+        frame_offset = _draw_common_legendary_frame(
+            screen, x, y, size, self.animation_time,
+            border_color=COMMON_LEGENDARY_BORDER_COLOR,
+            corner_color=COMMON_LEGENDARY_CORNER_COLOR,
+        )
 
-        # 테두리 (색상 그라데이션)
-        border_rect = pygame.Rect(x - 2, y - 2, size + 4, size + 4)
-        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, 3)
-
-        # 아이콘 프레임 (상하 부유)
-        frame_offset = int(self.animation_offset)
+        # 가운데 무지개 가방 애니메이션 프레임
+        frame_y = y + frame_offset
         if self.animation_frames:
             frame = self.animation_frames[self.current_frame % len(self.animation_frames)]
-            scaled = pygame.transform.scale(frame, (size, size))
-            screen.blit(scaled, (x, y + frame_offset))
+            # 프레임에서 중앙 아이콘만 추출 (테두리 제외)
+            inner_size = size - 6
+            scaled = pygame.transform.scale(frame, (inner_size, inner_size))
+            screen.blit(scaled, (x + 3, frame_y + 3))
         else:
-            # 폴백 아이콘
-            self._draw_fallback_icon(screen, x, y + frame_offset, size)
+            self._draw_fallback_icon(screen, x + 3, frame_y + 3, size - 6)
 
         # 파티클 효과
         if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
+            self._spawn_particle(screen, x + size // 2, frame_y + size // 2)
             self.particle_timer = 0
 
     def _draw_fallback_icon(self, screen, x, y, size):
