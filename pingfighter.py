@@ -151581,11 +151581,13 @@ def main(stage_num, new_boss_mode=False):
                         except Exception:
                             pass
                     # 부메랑 아이템 자체를 다시 액티브 슬롯에 추가 (회수 성공 보상)
+                    # allow_overflow=True: 슬롯이 가득 차도 반드시 재추가
                     try:
                         boomerang_item = {
                             "name": "boomerang",
                             "effect": "boomerang",
                             "icon": get_item_icon("boomerang"),
+                            "allow_overflow": True,
                         }
                         store_active_item(boomerang_item)
                     except Exception:
