@@ -138413,13 +138413,13 @@ def handle_ball():
                             _p_ss.set_alpha(min(200, _p_title_alpha))
                             SCREEN.blit(_p_ss, (WIDTH // 2 - _p_sr.width // 2, 128))
                         except: pass
-                        # 안내 (select 페이즈에서만)
+                        # 안내 (select 페이즈에서만, 카드 아래에 표시)
                         if _p_phase == "select":
                             try:
-                                _p_df = FontStyle.small()
-                                _guide_pulse = int(150 + 50 * _p_math.sin(_p_timer * 0.06))
+                                _p_df = FontStyle.body()
+                                _guide_pulse = int(160 + 60 * _p_math.sin(_p_timer * 0.06))
                                 _p_ds, _p_dr = _p_df.render("◀ ▶ / 마우스로 선택    SPACE / 클릭으로 확정", (_guide_pulse, _guide_pulse, _guide_pulse))
-                                SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, 155))
+                                SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, _p_cy + _p_ch + 30))
                             except: pass
 
                         # ═══ 카드 3장 렌더링 ═══
