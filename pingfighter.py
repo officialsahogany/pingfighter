@@ -35,6 +35,14 @@ if sys.platform == 'win32':
     except Exception as e:
         print(f"[Windows] DPI 설정 실패: {e}", flush=True)
 
+# Windows: 창모드 프레임드랍 방지 (노트북 내장/외장 GPU 전환 + VSync)
+if sys.platform == 'win32':
+    # SDL2 렌더러 힌트: Direct3D 사용 + VSync 활성화
+    os.environ.setdefault('SDL_RENDER_DRIVER', 'direct3d')
+    os.environ.setdefault('SDL_RENDER_VSYNC', '1')
+    # NVIDIA Optimus: 고성능 GPU 선택 유도
+    os.environ.setdefault('SHIM_MCCOMPAT', '0x800000001')
+
 # macOS Retina 디스플레이 대응 (pygame import 전에 설정 필요!)
 if sys.platform == 'darwin':
     # SDL이 Retina 스케일링을 하지 않도록 설정
