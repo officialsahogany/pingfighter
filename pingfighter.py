@@ -138395,25 +138395,28 @@ def handle_ball():
                             SCREEN.blit(_line_surf, (WIDTH // 2 - _line_w // 2, 88))
                             SCREEN.blit(_line_surf, (WIDTH // 2 - _line_w // 2, 155))
 
-                        # 타이틀 (심플하게)
+                        # 타이틀
                         try:
-                            _p_tf = FontStyle.subtitle()
-                            _p_ts, _p_tr = _p_tf.render("판도라의 유산", (255, 215, 0))
-                            SCREEN.blit(_p_ts, (WIDTH // 2 - _p_tr.width // 2, 95))
+                            _p_title_font = get_font(32)
+                            _p_title_s = _p_title_font.render("판도라의 유산", True, (255, 215, 0))
+                            _p_title_r = _p_title_s.get_rect(centerx=WIDTH // 2, top=95)
+                            SCREEN.blit(_p_title_s, _p_title_r)
                         except: pass
                         # 부제
                         try:
-                            _p_sf = FontStyle.body()
-                            _p_ss, _p_sr = _p_sf.render("아이템을 선택하세요", (220, 200, 240))
-                            SCREEN.blit(_p_ss, (WIDTH // 2 - _p_sr.width // 2, 125))
+                            _p_sub_font = get_font(20)
+                            _p_sub_s = _p_sub_font.render("아이템을 선택하세요", True, (220, 200, 240))
+                            _p_sub_r = _p_sub_s.get_rect(centerx=WIDTH // 2, top=130)
+                            SCREEN.blit(_p_sub_s, _p_sub_r)
                         except: pass
                         # 안내 (select 페이즈에서만, 카드 아래에 표시)
                         if _p_phase == "select":
                             try:
-                                _p_df = FontStyle.body()
+                                _p_guide_font = get_font(16)
                                 _guide_pulse = int(160 + 60 * _p_math.sin(_p_timer * 0.06))
-                                _p_ds, _p_dr = _p_df.render("◀ ▶ / 마우스    SPACE / 클릭", (_guide_pulse, _guide_pulse, _guide_pulse))
-                                SCREEN.blit(_p_ds, (WIDTH // 2 - _p_dr.width // 2, _p_cy + _p_ch + 25))
+                                _p_guide_s = _p_guide_font.render("◀ ▶ / 마우스    SPACE / 클릭", True, (_guide_pulse, _guide_pulse, _guide_pulse))
+                                _p_guide_r = _p_guide_s.get_rect(centerx=WIDTH // 2, top=_p_cy + _p_ch + 25)
+                                SCREEN.blit(_p_guide_s, _p_guide_r)
                             except: pass
 
                         # ═══ 카드 3장 렌더링 ═══
