@@ -3636,6 +3636,7 @@ class BuildingInterior:
             {"name": "life_elixir", "korean": "생명수", "rarity": "epic", "type": "active"},
             {"name": "devil_dice", "korean": "악마의주사위", "rarity": "common", "type": "active"},
             {"name": "laser_scope", "korean": "레이저스코프", "rarity": "common", "type": "active"},
+            {"name": "boomerang", "korean": "부메랑", "rarity": "common", "type": "active"},
         ]
 
         # 발토르 전용 아이템 추가 (발토르로 플레이 시에만)
