@@ -261,6 +261,22 @@ class AdversityArmor:
             return max(0, self.invincible_timer / 60.0)
         return 0.0
 
+    def get_invincible_gauge_info(self):
+        """무적 게이지 정보 반환.
+        Returns:
+            dict or None: {'ratio': 0.0~1.0, 'remaining_sec': float, 'total_sec': float}
+                          무적 상태가 아니면 None
+        """
+        if not self.active or not self.invincible or self.invincible_timer <= 0:
+            return None
+        total = max(1, self.invincible_duration_frames)
+        remaining = max(0, self.invincible_timer)
+        return {
+            'ratio': remaining / total,
+            'remaining_sec': remaining / 60.0,
+            'total_sec': total / 60.0,
+        }
+
 
 # 싱글톤 인스턴스
 _adversity_armor_instance = None
@@ -290,6 +306,12 @@ def reset_adversity_armor():
     """완전 초기화"""
     inst = get_adversity_armor_instance()
     inst.deactivate()
+
+
+def get_adversity_armor_gauge_info():
+    """무적 게이지 정보 반환 (dict or None)."""
+    inst = get_adversity_armor_instance()
+    return inst.get_invincible_gauge_info()
 
 
 def configure_adversity_armor(trigger_chance_pct=None, invincible_duration_sec=None):
