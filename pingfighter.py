@@ -2573,9 +2573,20 @@ from item_effects.dash_boost import (
     draw_dash_boost_effects,
     is_dash_boost_active,
     is_dash_unlimited,
-    get_dash_cost_multiplier, 
+    get_dash_cost_multiplier,
     get_dash_boost_remaining_time,
     get_dash_boost_remaining_ratio,
+)
+from item_effects import magnet_field as magnet_field_module
+from item_effects.magnet_field import (
+    activate_magnet_field,
+    deactivate_magnet_field,
+    update_magnet_field,
+    draw_magnet_field_effects,
+    apply_magnet_ball_pull,
+    is_magnet_field_active,
+    get_magnet_field_remaining_time,
+    get_magnet_field_remaining_ratio,
 )
 from item_effects.weather_capsule import (
     activate_weather_capsule,
@@ -55442,6 +55453,14 @@ def apply_effect(effect_name):
             pass
         play_active_item_sound()
         print("✨ 홀리베리어 발동! 4초간 플레이어 뒤쪽에 공을 반사하는 방벽 소환")
+    elif effect_name == "magnet_field":  # 자기장 발생기 액티브 아이템
+        activate_magnet_field(None, current_stage, WIDTH, HEIGHT)
+        try:
+            _hg_on_activate('magnet_field')
+        except Exception:
+            pass
+        play_active_item_sound()
+        print("🧲 자기장 발동! 3초간 공이 플레이어 쪽으로 끌려옵니다")
     elif effect_name == "dash_boost":  # 대쉬부스트 액티브 아이템
         activate_dash_boost(None, current_stage, WIDTH, HEIGHT)
         try:
@@ -74613,6 +74632,13 @@ def _apply_arena_top_item_effect(effect_name):
         # 상단 영웅 홀리베리어: 화면 하단 배리어 생성
         try:
             activate_holy_barrier(None, current_stage, WIDTH, HEIGHT)
+        except Exception:
+            pass
+
+    elif effect_name == "magnet_field":
+        # 상단 영웅 자기장 발생기: 공 끌어당기기
+        try:
+            activate_magnet_field(None, current_stage, WIDTH, HEIGHT)
         except Exception:
             pass
 
@@ -103534,6 +103560,10 @@ def draw_objects():
     if holy_barrier_module.is_holy_barrier_active():
         draw_holy_barrier_effects(SCREEN)
 
+    # 자기장 발생기 효과 그리기 (플레이어 주변 자기장)
+    if magnet_field_module.is_magnet_field_active():
+        draw_magnet_field_effects(SCREEN)
+
     # 레이저스코프 궤적 그리기
     if is_laser_scope_active():
         draw_laser_scope_effects(SCREEN,
@@ -122944,6 +122974,7 @@ def show_item_manager_menu():
         {"name": "dynamite", "type": "active", "icon": get_item_icon("dynamite")},
         {"name": "banana", "type": "active", "icon": get_item_icon("banana")},
         {"name": "regeneration_potion", "type": "active", "icon": get_item_icon("regeneration_potion")},
+        {"name": "magnet_field", "type": "active", "icon": get_item_icon("magnet_field")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -126021,6 +126052,58 @@ def get_item_icon(item_name):
                             (cx - ICON_SIZE // 4, cy, ICON_SIZE // 2, ICON_SIZE // 8))
             pygame.draw.ellipse(icon_surface, eye_color,
                               (cx - ICON_SIZE // 8, cy - ICON_SIZE // 10, ICON_SIZE // 4, ICON_SIZE // 6))
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
+    if item_name == "magnet_field":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        s = ICON_SIZE / 48  # 스케일 팩터
+
+        # 자석 본체 (U자형 자석)
+        magnet_red = (220, 50, 50)
+        magnet_blue = (50, 80, 220)
+        magnet_gray = (180, 180, 190)
+
+        # U자형 자석 - 아래가 곡선, 위가 두 갈래
+        arm_w = int(8 * s)
+        arm_h = int(18 * s)
+        gap = int(10 * s)
+        top_y = cy - int(12 * s)
+
+        # 왼쪽 팔 (빨간색)
+        left_x = cx - gap // 2 - arm_w
+        pygame.draw.rect(icon_surface, magnet_red,
+                        (left_x, top_y, arm_w, arm_h), border_radius=int(2 * s))
+        # 오른쪽 팔 (파란색)
+        right_x = cx + gap // 2
+        pygame.draw.rect(icon_surface, magnet_blue,
+                        (right_x, top_y, arm_w, arm_h), border_radius=int(2 * s))
+
+        # 하단 곡선 연결부 (회색)
+        curve_rect = pygame.Rect(left_x, top_y + arm_h - int(6 * s),
+                                right_x + arm_w - left_x, int(12 * s))
+        pygame.draw.arc(icon_surface, magnet_gray, curve_rect, math.pi, 2 * math.pi, int(3 * s))
+
+        # 자력선 (동심원 파동)
+        for i in range(3):
+            r = int((14 + i * 7) * s)
+            alpha = 150 - i * 40
+            line_color = (100, 150, 255, alpha)
+            line_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+            pygame.draw.arc(line_surf, line_color,
+                           (cx - r, top_y - int(4 * s) - r, r * 2, r * 2),
+                           math.pi * 0.2, math.pi * 0.8, max(1, int(1.5 * s)))
+            icon_surface.blit(line_surf, (0, 0))
+
+        # 하이라이트
+        pygame.draw.rect(icon_surface, (255, 100, 100),
+                        (left_x + 1, top_y + 1, int(2 * s), int(6 * s)))
+        pygame.draw.rect(icon_surface, (100, 130, 255),
+                        (right_x + 1, top_y + 1, int(2 * s), int(6 * s)))
+
         icon_cache[item_name] = icon_surface
         return icon_surface
 
@@ -136370,6 +136453,10 @@ def handle_ball():
             except:
                 pass
 
+    # --- 자기장 발생기: 공 끌어당기기 ---
+    if magnet_field_module.is_magnet_field_active():
+        apply_magnet_ball_pull(BALL, ball_vel)
+
     # --- 🏖 모래 지형 침식 처리 ---
     if sand_obstacles:
         if check_sand_ball_collision(sand_obstacles, BALL, ball_vel):
@@ -144921,6 +145008,12 @@ def show_result(won):
             _hg_on_deactivate('holy_barrier')
         except Exception:
             pass
+        # 스테이지 전환 시 자기장 발생기 비활성화
+        deactivate_magnet_field()
+        try:
+            _hg_on_deactivate('magnet_field')
+        except Exception:
+            pass
         # 스테이지 전환 시 대쉬부스트 비활성화
         deactivate_dash_boost()
         try:
@@ -144986,6 +145079,12 @@ def show_result(won):
         deactivate_holy_barrier()
         try:
             _hg_on_deactivate('holy_barrier')
+        except Exception:
+            pass
+        # 자기장 발생기 비활성화
+        deactivate_magnet_field()
+        try:
+            _hg_on_deactivate('magnet_field')
         except Exception:
             pass
         # 대쉬부스트 비활성화
@@ -147260,6 +147359,12 @@ def main(stage_num, new_boss_mode=False):
             deactivate_holy_barrier()
             try:
                 _hg_on_deactivate('holy_barrier')
+            except Exception:
+                pass
+            # 자기장 발생기 비활성화
+            deactivate_magnet_field()
+            try:
+                _hg_on_deactivate('magnet_field')
             except Exception:
                 pass
             # 대쉬부스트 비활성화
@@ -149646,6 +149751,12 @@ def main(stage_num, new_boss_mode=False):
                         _hg_on_deactivate('holy_barrier')
                     except Exception:
                         pass
+                    # 자기장 발생기 비활성화 (기권 시)
+                    deactivate_magnet_field()
+                    try:
+                        _hg_on_deactivate('magnet_field')
+                    except Exception:
+                        pass
                     # 대쉬부스트 비활성화 (기권 시)
                     deactivate_dash_boost()
                     try:
@@ -150772,6 +150883,9 @@ def main(stage_num, new_boss_mode=False):
         # 홀리베리어 업데이트 - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
             update_holy_barrier(current_stage)
+        # 자기장 발생기 업데이트 - 공 생성 애니메이션 중 일시정지
+        if not is_ball_spawn_animation_paused():
+            update_magnet_field(current_stage, PLAYER)
         # 대쉬부스트 업데이트 - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
             update_dash_boost(current_stage)
@@ -158568,7 +158682,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -158649,6 +158763,7 @@ def get_item_description(item_name):
         "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 2개 동시에 나타납니다.",
         "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
         "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4",
+        "magnet_field": "자기장 발생기: 3초간 자기장을 발생시켜 공이 플레이어 패들 쪽으로 약간 끌려옵니다. 위기 상황에서 방어용으로 유용하며, 보스 공격도 살짝 궤도가 변경됩니다.",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

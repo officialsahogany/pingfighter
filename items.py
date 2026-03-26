@@ -1723,6 +1723,15 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None,
         "body_part": "top"  # 상의 부위
+    },
+    {
+        "name": "magnet_field",  # 자기장 발생기 액티브 아이템
+        "color": (100, 120, 255),  # 파란/보라 (자기장 테마)
+        "effect": "magnet_field",
+        "icon": None,
+        "chance": 0.020,  # 2.0% 스폰 확률 (홀리베리어보다 자주 드랍)
+        "duration": 600,
+        "unlock_condition": None
     }
 ]
 
@@ -1858,7 +1867,8 @@ unlocked_items = {
     "regeneration_potion": True,  # 재생물약
     "hero_seal": True,  # 호위무사 인장
     "adversity_armor": True,  # 역경의 갑옷
-    "shrapnel_armor": True  # 파편갑옷
+    "shrapnel_armor": True,  # 파편갑옷
+    "magnet_field": True  # 자기장 발생기
 }
 
 # 현재 떠 있는 아이템 리스트
