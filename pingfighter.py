@@ -24752,7 +24752,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "투척 속도", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "throw_speed_pct"},
         {"label": "폭발 범위", "min": 5, "max": 15, "unit": "%", "prefix": "+", "key": "explosion_range_pct"},
         {"label": "연막탄 지속시간", "min": 20, "max": 40, "unit": "%", "prefix": "+", "key": "smoke_duration_pct"},
-        {"label": "준비시간 단축", "min": 30, "max": 50, "unit": "%", "prefix": "-", "key": "prep_reduction_pct"},
+        {"label": "준비시간 단축", "min": 20, "max": 40, "unit": "%", "prefix": "-", "key": "prep_reduction_pct"},
     ],
     "knee_pads": [
         {"label": "하프대쉬 게이지", "min": 30, "max": 60, "unit": "%", "prefix": "+", "key": "knee_charge_pct"},
@@ -24826,7 +24826,7 @@ bluetooth_ring_gain_pct = 15
 commando_throw_speed_pct = 15  # 새 롤 범위 10~20%의 중간값
 commando_explosion_range_pct = 10  # 범위 5~15% 중간값 유지
 commando_smoke_duration_pct = 30  # 새 롤 범위 20~40%의 중간값
-commando_prep_reduction_pct = 40  # 준비시간 단축 30~50% 범위, 기본값 40%
+commando_prep_reduction_pct = 30  # 준비시간 단축 20~40% 범위, 기본값 30%
 dashholder_count = 0
 last_max_dash_tokens = 1
 
