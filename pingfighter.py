@@ -137674,10 +137674,13 @@ def handle_ball():
                 legendary_manager = get_legendary_manager()
                 if legendary_manager:
                     pandora = legendary_manager.get_item("pandora_legacy")
+                    print(f"[PANDORA DEBUG] 라운드승리 트리거: pandora={pandora is not None}, active={getattr(pandora, 'active', 'N/A')}, obtained={items.pandora_legacy_obtained}")
                     if pandora and pandora.active:
-                        pandora.generate_selection_choices()
-            except Exception:
-                pass
+                        result = pandora.generate_selection_choices()
+                        print(f"[PANDORA DEBUG] 선택지 생성 결과: {len(result) if result else 0}개, selection_active={pandora.selection_active}, items={[i.get('name') for i in pandora.selection_items] if pandora.selection_items else []}")
+            except Exception as e:
+                print(f"[PANDORA DEBUG] 선택지 생성 예외: {e}")
+                import traceback; traceback.print_exc()
 
             # 스테이지 1: 관중 흥분 트리거
             if current_stage == 1 and pillar_renderer is not None:
@@ -137820,9 +137823,12 @@ def handle_ball():
                 legendary_manager = get_legendary_manager()
                 if legendary_manager:
                     pandora = legendary_manager.get_item("pandora_legacy")
-                    if pandora and pandora.active and pandora.selection_active and len(getattr(pandora, 'selection_items', [])) >= 3:
+                    _sel_items = getattr(pandora, 'selection_items', []) if pandora else []
+                    print(f"[PANDORA DEBUG] UI진입 체크: pandora={pandora is not None}, active={getattr(pandora, 'active', False)}, selection_active={getattr(pandora, 'selection_active', False)}, items_count={len(_sel_items)}")
+                    if pandora and pandora.active and pandora.selection_active and len(_sel_items) >= 3:
+                        print(f"[PANDORA DEBUG] ✅ 선택 UI 루프 진입! 선택지: {[i.get('name') for i in _sel_items]}")
                         pandora_legacy_selection_active = True
-                        pandora_legacy_selection_items = list(pandora.selection_items)
+                        pandora_legacy_selection_items = list(_sel_items)
                         pandora_legacy_selected_index = 0
                         pandora_legacy_selection_timer = 0
                         _pandora_selecting = True
@@ -137830,6 +137836,7 @@ def handle_ball():
                         while _pandora_selecting:
                             _pandora_timeout += 1
                             if _pandora_timeout > 60 * 30:  # 30초 안전장치
+                                print(f"[PANDORA DEBUG] ⏰ 30초 타임아웃으로 탈출")
                                 _pandora_selecting = False
                                 pandora_legacy_selection_active = False
                                 break
@@ -137848,14 +137855,20 @@ def handle_ball():
                             draw_field()
                             draw_objects()
                             # 선택 UI 그리기 (점수판 없이 판도라 선택 UI만)
-                            draw_pandora_legacy_selection_ui(SCREEN)
+                            _ui_result = draw_pandora_legacy_selection_ui(SCREEN)
+                            if _pandora_timeout == 1:
+                                print(f"[PANDORA DEBUG] UI 그리기 결과: {_ui_result}, global_active={pandora_legacy_selection_active}, global_items={len(pandora_legacy_selection_items)}")
                             pygame.display.flip()
                             clock.tick(60)
                         pandora.selection_active = False
                         pandora.selection_items = []
+                        print(f"[PANDORA DEBUG] 선택 루프 종료")
+                    else:
+                        print(f"[PANDORA DEBUG] ❌ 선택 UI 조건 미충족, 스킵")
             except Exception as e:
                 pandora_legacy_selection_active = False
-                print(f"판도라의 유산 선택 UI 오류: {e}")
+                print(f"[PANDORA DEBUG] 선택 UI 예외: {e}")
+                import traceback; traceback.print_exc()
 
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
