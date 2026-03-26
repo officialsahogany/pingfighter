@@ -27258,6 +27258,9 @@ dynamite_target_x = 0  # 다이너마이트 목표 X 좌표
 banana_throwing = False  # 바나나 투척 모션 중
 banana_throw_timer = 0  # 투척 모션 타이머
 banana_target_x = 0  # 바나나 목표 X 좌표
+# === 부메랑 관련 ===
+boomerang_throwing = False  # 부메랑 투척 모션 중
+boomerang_throw_timer = 0  # 투척 모션 타이머
 
 
 def _destroy_stage2_rocks_in_radius(
@@ -54730,6 +54733,10 @@ def go_to_next_round():
         banana.reset()  # 투척체, 착지 바나나, 파티클 모두 제거
     banana_throwing = False  # 투척 모션 초기화
     banana_throw_timer = 0
+    # 🪃 부메랑 투척 모션 초기화
+    global boomerang_throwing, boomerang_throw_timer
+    boomerang_throwing = False
+    boomerang_throw_timer = 0
     spider_mines.clear()  # 설치된 스파이더지뢰 제거
     _stop_spider_mine_walk_sound()
     spider_mine_slow_active = False
@@ -55662,17 +55669,14 @@ def apply_effect(effect_name):
             pass
         play_active_item_sound()
         print("🧲 자기장 발동! 8초간 보스가 친 공이 플레이어 쪽으로 끌려옵니다")
-    elif effect_name == "boomerang":  # 부메랑 액티브 아이템
-        from item_effects.boomerang import activate_boomerang
-        activate_boomerang(None, current_stage, WIDTH, HEIGHT,
-                          player_x=PLAYER.centerx, player_y=PLAYER.centery)
-        play_active_item_sound()
-        # 부메랑 비행 사운드 루프 재생
-        global boomerang_sound_channel
-        if SOUND_BOOMERANG:
-            SOUND_BOOMERANG.set_volume(sfx_volume * 0.6)
-            boomerang_sound_channel = SOUND_BOOMERANG.play(loops=-1)
-        print("🪃 부메랑 발사! 보스에게 넉백+스턴, 돌아오며 아이템 회수")
+    elif effect_name == "boomerang":  # 부메랑 액티브 아이템 (투척류)
+        # 라운드 시작 3초 제한 체크 (다른 투척류와 동일)
+        current_time = pygame.time.get_ticks()
+        if current_time - round_start_time < 3000:  # 3초 미만
+            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+            return False
+        # 투척 준비 동작 시작
+        activate_boomerang_throw()
     elif effect_name == "dash_boost":  # 대쉬부스트 액티브 아이템
         activate_dash_boost(None, current_stage, WIDTH, HEIGHT)
         try:
@@ -55832,6 +55836,37 @@ def activate_banana():
     # 효과음 재생 (투척 시작)
     play_active_item_sound()
     print(f"🍌 바나나 투척 준비! {banana_throw_timer/60:.1f}초 후 투척.")
+
+def activate_boomerang_throw():
+    """부메랑 투척 준비 - 0.4초 투척 모션 후 발사"""
+    global boomerang_throwing, boomerang_throw_timer
+    import items
+
+    boomerang_throwing = True
+
+    # 코만도암 효과 적용 (준비시간 단축)
+    base_timer = 24  # 0.4초 (60fps * 0.4)
+    boomerang_throw_timer = _commando_timer_reduction(base_timer)
+    if items.commando_arm_obtained:
+        print(f"🪃 코만도암 적용! 투척 준비시간: {boomerang_throw_timer/60:.2f}초")
+        SOUND_THROW_BEFORE.play(maxtime=200)
+    else:
+        print(f"🪃 부메랑 투척 준비: {boomerang_throw_timer/60:.2f}초")
+        play_sound_with_volume(SOUND_THROW_BEFORE)
+    play_active_item_sound()
+    print(f"🪃 부메랑 투척 준비! {boomerang_throw_timer/60:.1f}초 후 투척.")
+
+def throw_boomerang():
+    """실제 부메랑 투척 (모션 후 실행)"""
+    global boomerang_sound_channel
+    from item_effects.boomerang import activate_boomerang
+    activate_boomerang(None, current_stage, WIDTH, HEIGHT,
+                      player_x=PLAYER.centerx, player_y=PLAYER.centery)
+    # 부메랑 비행 사운드 루프 재생
+    if SOUND_BOOMERANG:
+        SOUND_BOOMERANG.set_volume(sfx_volume * 0.6)
+        boomerang_sound_channel = SOUND_BOOMERANG.play(loops=-1)
+    print("🪃 부메랑 투척! 보스에게 넉백+스턴, 돌아오며 아이템 회수")
 
 def throw_banana():
     """실제 바나나 투척 (모션 후 실행)"""
@@ -66620,6 +66655,7 @@ def handle_player(keys):
     global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
     global dynamite_throwing, dynamite_throw_timer  # 다이너마이트 투척 모션
     global banana_throwing, banana_throw_timer  # 바나나 투척 모션
+    global boomerang_throwing, boomerang_throw_timer  # 부메랑 투척 모션
     global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
     global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
@@ -68828,6 +68864,15 @@ def handle_player(keys):
         if banana_throw_timer <= 0:
             banana_throwing = False
             throw_banana()  # 실제 투척
+        return  # 투척 모션 중에는 조작 불가
+    # 🪃 부메랑 투척 모션 중 처리
+    if boomerang_throwing:
+        boomerang_throw_timer -= 1
+        if boomerang_throw_timer == 0:  # 투척 완료 시점
+            play_sound_with_volume(SOUND_THROW)
+        if boomerang_throw_timer <= 0:
+            boomerang_throwing = False
+            throw_boomerang()  # 실제 투척
         return  # 투척 모션 중에는 조작 불가
     # 연막탄 투척 모션 제거 (즉시 발동으로 변경됨)
     #  디버프 적용: 느려지는 효과
@@ -132334,6 +132379,10 @@ def reset_round(is_stage_start=False):
         banana_item.reset()  # 투척체, 착지 바나나, 파티클 모두 제거
     banana_throwing = False  # 투척 모션 초기화
     banana_throw_timer = 0
+    # 🪃 부메랑 투척 모션 초기화
+    global boomerang_throwing, boomerang_throw_timer
+    boomerang_throwing = False
+    boomerang_throw_timer = 0
     spider_mines.clear()
     _stop_spider_mine_walk_sound()
     spider_mine_slow_active = False
