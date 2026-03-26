@@ -234,6 +234,27 @@ class TechnicalVest:
         )
         return remaining_frames / 60.0
 
+    def get_smoke_gauge_info(self):
+        """연막 분출 중인 인스턴스의 게이지 정보 반환.
+        Returns:
+            dict or None: {'ratio': 0.0~1.0, 'remaining_sec': float, 'total_sec': float}
+                          분출 중인 연막이 없으면 None
+        """
+        if not self.active or not self.smoke_instances:
+            return None
+        # 가장 최근(마지막) 분출 중인 연막 기준
+        for smoke in reversed(self.smoke_instances):
+            duration = smoke.get('duration', 0)
+            timer = smoke.get('timer', 0)
+            if timer < duration:
+                remaining = duration - timer
+                return {
+                    'ratio': remaining / max(1, duration),
+                    'remaining_sec': remaining / 60.0,
+                    'total_sec': duration / 60.0,
+                }
+        return None
+
 # 싱글톤 인스턴스
 technical_vest_instance = None
 
@@ -285,6 +306,12 @@ def get_technical_vest_remaining_time():
     """연막이 활성화되어 있다면 남은 시간을 초 단위로 반환."""
     vest = get_technical_vest_instance()
     return vest.get_remaining_time()
+
+
+def get_technical_vest_smoke_gauge_info():
+    """연막 분출 게이지 정보 반환 (dict or None)."""
+    vest = get_technical_vest_instance()
+    return vest.get_smoke_gauge_info()
 
 
 def configure_technical_vest(chance_pct=None, duration_sec=None, emission_sec=None):

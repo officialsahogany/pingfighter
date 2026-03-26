@@ -2547,6 +2547,7 @@ from item_effects.technical_vest import (
     draw_technical_vest_effects,
     check_technical_vest_smoke_collision,
     get_technical_vest_smoke_areas,
+    get_technical_vest_smoke_gauge_info,
 )
 from item_effects.laser_scope import (
     activate_laser_scope,
@@ -95265,6 +95266,118 @@ def draw_player_gauge():
             SCREEN.blit(lb_scaled, (lb_emblem_x, lb_emblem_y))
 
         # (요청) 거대화포션 남은 시간 숫자 표시는 제거
+
+    #  테크니컬조끼 연막 지속시간 게이지바 (가로형, 거대화포션과 동일 스타일)
+    try:
+        tv_gauge = get_technical_vest_smoke_gauge_info()
+    except Exception:
+        tv_gauge = None
+    if tv_gauge is not None:
+        v_width = 150
+        v_height = 12
+        base_x = WIDTH - v_width - 16
+        base_y = HEIGHT - 28
+        idx = _hg_index('technical_vest')
+        if idx < 0:
+            _hg_on_activate('technical_vest')
+            idx = _hg_index('technical_vest')
+        spacing = 18
+        tv_x = base_x
+        tv_y = base_y - max(0, idx) * spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, tv_y)
+
+        remaining_ratio = tv_gauge['ratio']
+        remaining_seconds = tv_gauge['remaining_sec']
+
+        outer_rect = pygame.Rect(tv_x - 5, tv_y - 6, v_width + 10, v_height + 12)
+        mid_rect   = pygame.Rect(tv_x - 3, tv_y - 4, v_width + 6,  v_height + 8)
+        frame_rect = pygame.Rect(tv_x - 2, tv_y - 2, v_width + 4,  v_height + 4)
+        inner_rect = pygame.Rect(tv_x,     tv_y,     v_width,      v_height)
+
+        shadow_surf = pygame.Surface((outer_rect.width, outer_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 70), shadow_surf.get_rect(), border_radius=8)
+        SCREEN.blit(shadow_surf, (outer_rect.x, outer_rect.y))
+
+        draw.rect((16, 22, 32), outer_rect, border_radius=8)
+        draw.rect((55, 85, 120), mid_rect, border_radius=7)
+        draw.rect((110, 150, 190), mid_rect, 2, border_radius=7)
+        draw.rect((24, 28, 36), frame_rect, border_radius=6)
+        inner_shadow = pygame.Surface((inner_rect.width, inner_rect.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(inner_shadow, (0, 0, 0, alpha), (0, i, inner_rect.width, 1))
+        SCREEN.blit(inner_shadow, (inner_rect.x, inner_rect.y))
+
+        fill_w = max(1, int((v_width - 4) * remaining_ratio))
+        if fill_w > 0:
+            # 색상 단계 (스틸블루 테마: 파란색 → 시안 → 레드 펄스)
+            if remaining_seconds > 3.0:
+                base_c = (70, 130, 180)
+                hi_c = (130, 190, 230)
+                timer_color = (140, 200, 240)
+            elif remaining_seconds > 1.5:
+                base_c = (100, 160, 180)
+                hi_c = (160, 210, 200)
+                timer_color = (170, 220, 210)
+            else:
+                p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                base_c = (180, int(100 + 80 * p), 70)
+                hi_c = (220, int(150 + 60 * p), 100)
+                timer_color = (230, 200, 140)
+
+            fill_rect = pygame.Rect(tv_x + 2, tv_y + 2, fill_w, v_height - 4)
+            grad = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            for x in range(fill_rect.width):
+                t = x / max(1, fill_rect.width - 1)
+                col = (
+                    int(base_c[0] + (hi_c[0] - base_c[0]) * t),
+                    int(base_c[1] + (hi_c[1] - base_c[1]) * t),
+                    int(base_c[2] + (hi_c[2] - base_c[2]) * t),
+                    255,
+                )
+                pygame.draw.line(grad, col, (x, 0), (x, fill_rect.height - 1))
+            mask = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=3)
+            grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(grad, (fill_rect.x, fill_rect.y))
+
+            # 상단 하이라이트 라인(글로우)
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            glow = (
+                int(hi_c[0] * (0.6 + 0.4 * pulse)),
+                int(hi_c[1] * (0.6 + 0.4 * pulse)),
+                int(hi_c[2] * (0.6 + 0.4 * pulse)),
+            )
+            draw.rect(glow, (tv_x + 2, tv_y + 2, fill_w, 2), border_radius=2)
+
+            # 티크 마크(10분할)
+            tick_color = (180, 200, 220)
+            for i in range(1, 10):
+                tx = tv_x + 2 + int((v_width - 4) * (i / 10))
+                pygame.draw.line(SCREEN, tick_color, (tx, tv_y + v_height - 4), (tx, tv_y + v_height - 1), 1)
+
+            # 채움 끝점 글랜트
+            end_x = tv_x + 2 + fill_w
+            if 2 < fill_w < (v_width - 4):
+                glint = pygame.Surface((8, v_height), pygame.SRCALPHA)
+                pygame.draw.line(glint, (255, 255, 255, 120), (0, 0), (0, v_height - 3), 2)
+                SCREEN.blit(glint, (end_x - 1, tv_y + 2))
+
+        # 엠블럼(왼쪽): 테크니컬조끼 아이콘 펄스 애니메이션
+        tv_emblem_base = int(v_height * 1.5)
+        pulse = 1.0 + 0.15 * math.sin(pygame.time.get_ticks() * 0.02)
+        tv_emblem_size = max(8, int(tv_emblem_base * pulse))
+        tv_emblem_x = tv_x - tv_emblem_size - 6
+        tv_emblem_y = tv_y + (v_height - tv_emblem_size) // 2
+        tv_icon = get_item_icon("technical_vest")
+        if tv_icon:
+            tv_scaled = pygame.transform.smoothscale(tv_icon, (tv_emblem_size, tv_emblem_size))
+            SCREEN.blit(tv_scaled, (tv_emblem_x, tv_emblem_y))
+    else:
+        # 연막 비활성 시 스택에서 제거
+        if _hg_index('technical_vest') != -1:
+            _hg_on_deactivate('technical_vest')
 
     #  악마의 주사위 지속시간 게이지 (가로형, 비타민/거대화포션과 동일 스타일)
     try:
