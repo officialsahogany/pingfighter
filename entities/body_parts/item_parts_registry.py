@@ -87,6 +87,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_back_parts import ChargeBagPart
         return ChargeBagPart(block)
 
+    elif item_name == "soul_burst":
+        from entities.body_parts.item_leg_parts import SoulBurstKneePart
+        return SoulBurstKneePart(block)
+
     elif item_name == "pandora_legacy":
         from entities.body_parts.item_back_parts import PandoraLegacyPart
         return PandoraLegacyPart(block)
@@ -278,6 +282,7 @@ VISUAL_ITEM_NAMES = {
     "transcendent_crown",
     "odins_eye",
     "chargebag",
+    "soul_burst",
 }
 
 # ── 아이템 → 슬롯 매핑 (UI 표시용) ──
@@ -295,4 +300,5 @@ ITEM_SLOT_MAP = {
     "transcendent_crown": "head",
     "odins_eye": "face",
     "chargebag": "back",
+    "soul_burst": "legs",
 }

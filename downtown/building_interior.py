@@ -3101,6 +3101,7 @@ class BuildingInterior:
             {"name": "lucky_coin", "base_price": 800, "korean": "럭키코인"},
             {"name": "adversity_armor", "base_price": 1100, "korean": "역경의 갑옷"},
             {"name": "shrapnel_armor", "base_price": 900, "korean": "파편갑옷"},
+            {"name": "soul_burst", "base_price": 750, "korean": "소울버스트"},
         ]
 
         # 전설 아이템 목록 (5% 확률)
@@ -3681,6 +3682,7 @@ class BuildingInterior:
             {"name": "adversity_armor", "korean": "역경의갑옷", "rarity": "epic", "type": "passive"},
             {"name": "shrapnel_armor", "korean": "파편갑옷", "rarity": "epic", "type": "passive"},
             {"name": "lucky_coin", "korean": "럭키코인", "rarity": "epic", "type": "passive"},
+            {"name": "soul_burst", "korean": "소울버스트", "rarity": "epic", "type": "passive"},
             # 에픽 패시브 (3개만)
             {"name": "sensor", "korean": "위험감지센서", "rarity": "epic", "type": "passive"},
             {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic", "type": "passive"},

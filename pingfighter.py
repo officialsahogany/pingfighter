@@ -14066,7 +14066,7 @@ def _get_random_passive_for_treasure():
         "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
         "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch",
         "bluetooth_ring", "star_detector", "foul_whistle", "bulletproof_hat", "spiked_helmet",
-        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor"
+        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst"
     ]
 
     if passive_pool:
@@ -26121,14 +26121,13 @@ def sync_equipped_passive_effects():
         if sb:
             if "soul_burst" in equipped_names:
                 sb.activate()
-                # 롤옵션에서 게이지 소모량 동기화
+                # 롤옵션에서 게이지 소모량 동기화 (연마 퍽 + 강화 보너스 적용)
                 sb_item = next((i for i in equipped_items if i.get("name") == "soul_burst"), None)
                 if sb_item:
-                    rolled = sb_item.get("rolled_options", [])
-                    for opt in rolled:
-                        if opt.get("key") == "gauge_cost":
-                            sb.set_gauge_cost(int(opt["value"]))
-                            break
+                    val = _get_roll_value(sb_item, "gauge_cost")
+                    if val is not None:
+                        sb.set_gauge_cost(int(val))
+                        globals()["soul_burst_gauge_cost"] = int(val)
             else:
                 sb.deactivate()
     except Exception:
@@ -75282,7 +75281,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst"]:
         return
 
     # 최대 3개까지만 보관
@@ -75343,7 +75342,7 @@ def _arena_top_hero_collect_items():
                 item_color = item.get("color", (200, 200, 200))
 
             # 패시브 아이템은 상단 영웅이 획득하지 않음 (액티브만)
-            passive_items = ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger"]
+            passive_items = ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "soul_burst"]
             if item_name in passive_items:
                 continue  # 패시브 아이템은 하단 영웅에게 양보
 
@@ -76325,6 +76324,7 @@ def store_passive_item(item_data):
         # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
         if not items.soul_burst_obtained:
             items.soul_burst_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "soul_burst")
             from item_effects.soul_burst import get_soul_burst_instance
             sb = get_soul_burst_instance()
             sb.activate()
@@ -81767,7 +81767,7 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     # print(f"[DEBUG show_item_obtained_effect] 호출됨! item_data: {item_data.get('name', 'UNKNOWN')}, x={item_x}, y={item_y}")  # 디버그 비활성화
     # 아이템 타입 확인
     item_name = item_data.get("name", "")
-    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt", "shrapnel_armor"]
+    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt", "shrapnel_armor", "soul_burst"]
     # 시작 위치 (아이템이 있던 위치 또는 화면 중앙)
     if item_x is not None and item_y is not None:
         start_x = item_x
@@ -147600,6 +147600,12 @@ def show_result(won):
             reset_shrapnel_armor()
         except Exception:
             pass
+        items.soul_burst_obtained = False
+        try:
+            from item_effects.soul_burst import deactivate_soul_burst
+            deactivate_soul_burst()
+        except Exception:
+            pass
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
         rolling_charges = 1
         # 대쉬 매니저 완전 리셋
@@ -152120,6 +152126,12 @@ def main(stage_num, new_boss_mode=False):
                     try:
                         from item_effects.shrapnel_armor import reset_shrapnel_armor
                         reset_shrapnel_armor()
+                    except Exception:
+                        pass
+                    items.soul_burst_obtained = False  # 소울버스트 초기화
+                    try:
+                        from item_effects.soul_burst import deactivate_soul_burst
+                        deactivate_soul_burst()
                     except Exception:
                         pass
 
