@@ -4,9 +4,10 @@
 보스 패들을 넉백시킨다.
 
 롤 옵션:
-- trigger_chance_pct: 발동 확률 (10~20%)
-- shard_count: 파편 개수 (3~6개)
+- trigger_chance_pct: 발동 확률 (15~25%)
+- shard_count: 파편 개수 (5~9개)
 - knockback_level: 넉백 단계 (1~4)
+- gauge_cost: 게이지 소모 (25~50)
 """
 
 import math
@@ -63,6 +64,7 @@ class ShrapnelArmor:
         self.trigger_chance_pct = 20   # 발동 확률 (15~25%)
         self.shard_count = 7           # 파편 개수 (5~9)
         self.knockback_level = 2       # 넉백 단계 (1~4)
+        self.gauge_cost = 35           # 게이지 소모 (25~50)
 
         # 파편 프로젝타일 리스트
         self.shards: list[dict] = []
@@ -404,7 +406,7 @@ def reset_shrapnel_armor():
     inst.deactivate()
 
 
-def configure_shrapnel_armor(trigger_chance_pct=None, shard_count=None, knockback_level=None):
+def configure_shrapnel_armor(trigger_chance_pct=None, shard_count=None, knockback_level=None, gauge_cost=None):
     """롤 옵션 값을 인스턴스에 적용"""
     inst = get_shrapnel_armor_instance()
     if trigger_chance_pct is not None:
@@ -413,3 +415,5 @@ def configure_shrapnel_armor(trigger_chance_pct=None, shard_count=None, knockbac
         inst.shard_count = int(shard_count)
     if knockback_level is not None:
         inst.knockback_level = int(knockback_level)
+    if gauge_cost is not None:
+        inst.gauge_cost = int(gauge_cost)

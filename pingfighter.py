@@ -24778,6 +24778,7 @@ ITEM_SLOT_BASE_MAP = {
     "hero_seal": "accessory",
     "adversity_armor": "top",
     "shrapnel_armor": "top",
+    "soul_burst": "knee",
 }
 
 PASSIVE_OPTION_RANGES = {
@@ -24860,6 +24861,10 @@ PASSIVE_OPTION_RANGES = {
         {"label": "발동 확률", "min": 15, "max": 25, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
         {"label": "파편 개수", "min": 5, "max": 9, "unit": "개", "prefix": "", "key": "shard_count"},
         {"label": "넉백 단계", "min": 1, "max": 4, "unit": "Lv", "prefix": "", "key": "knockback_level"},
+        {"label": "게이지 소모", "min": 25, "max": 50, "unit": "", "prefix": "-", "key": "gauge_cost"},
+    ],
+    "soul_burst": [
+        {"label": "게이지 소모량", "min": 130, "max": 200, "unit": "", "prefix": "", "key": "gauge_cost", "reverse": True},
     ],
 }
 
@@ -24968,6 +24973,7 @@ adversity_armor_duration_sec = 10  # 역경의 갑옷 무적 지속시간 (8~15�
 shrapnel_armor_trigger_pct = 20  # 파편갑옷 발동 확률 (15~25% 범위, 기본값 20%)
 shrapnel_armor_shard_count = 7   # 파편갑옷 파편 개수 (5~9 범위, 기본값 7)
 shrapnel_armor_knockback_level = 2  # 파편갑옷 넉백 단계 (1~4 범위, 기본값 2)
+shrapnel_armor_gauge_cost = 35  # 파편갑옷 게이지 소모 (25~50 범위, 기본값 35)
 
 _BASE_SLOT_LABELS = {
     "head": "머리",
@@ -25258,6 +25264,7 @@ def _reset_roll_bonuses_to_default():
     globals()["shrapnel_armor_trigger_pct"] = 20  # 파편갑옷 기본값
     globals()["shrapnel_armor_shard_count"] = 7   # 파편갑옷 기본값
     globals()["shrapnel_armor_knockback_level"] = 2  # 파편갑옷 기본값
+    globals()["shrapnel_armor_gauge_cost"] = 35  # 파편갑옷 기본값
     # 테크니컬조끼 기본 롤 값(연막)
     try:
         from item_effects.technical_vest import configure_technical_vest
@@ -25776,7 +25783,7 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         except Exception:
             pass
     elif name == "shrapnel_armor":
-        # 파편갑옷 롤옵션 적용 (발동 확률, 파편 개수, 넉백 단계)
+        # 파편갑옷 롤옵션 적용 (발동 확률, 파편 개수, 넉백 단계, 게이지 소모)
         val = _get_roll_value(item, "trigger_chance_pct")
         if val is not None:
             globals()["shrapnel_armor_trigger_pct"] = val
@@ -25786,12 +25793,16 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val3 = _get_roll_value(item, "knockback_level")
         if val3 is not None:
             globals()["shrapnel_armor_knockback_level"] = int(val3)
+        val4 = _get_roll_value(item, "gauge_cost")
+        if val4 is not None:
+            globals()["shrapnel_armor_gauge_cost"] = int(val4)
         try:
             from item_effects.shrapnel_armor import configure_shrapnel_armor
             configure_shrapnel_armor(
                 trigger_chance_pct=globals().get("shrapnel_armor_trigger_pct", 20),
                 shard_count=globals().get("shrapnel_armor_shard_count", 7),
-                knockback_level=globals().get("shrapnel_armor_knockback_level", 2)
+                knockback_level=globals().get("shrapnel_armor_knockback_level", 2),
+                gauge_cost=globals().get("shrapnel_armor_gauge_cost", 35)
             )
         except Exception:
             pass
@@ -73165,12 +73176,15 @@ def handle_player(keys):
             except Exception:
                 pass
 
-        # 파편갑옷 발동 체크 (플레이어가 공을 칠 때)
+        # 파편갑옷 발동 체크 (플레이어가 공을 칠 때) - 게이지 부족 시 발동 안됨
         try:
             from item_effects.shrapnel_armor import get_shrapnel_armor_instance
             _sa = get_shrapnel_armor_instance()
             if _sa.active:
-                _sa.on_player_hit_ball(PLAYER.centerx, PLAYER.top)
+                _sa_gauge_cost = _sa.gauge_cost
+                if special_gauge >= _sa_gauge_cost:
+                    if _sa.on_player_hit_ball(PLAYER.centerx, PLAYER.top):
+                        special_gauge -= _sa_gauge_cost
         except Exception:
             pass
 
@@ -161032,7 +161046,7 @@ def get_item_description(item_name):
         "dowsing_pendulum": "다우징팬들럼: 주위 아이템을 끌어당깁니다.",
         "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 2개 동시에 나타납니다.",
         "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
-        "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4",
+        "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 게이지를 소모하여 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. 게이지가 부족하면 발동하지 않습니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4, 게이지소모 25~50",
         "magnet_field": "자기장 발생기: 8초간 자기장을 발생시켜 반경 300px 이내의 보스가 친 공이 플레이어 패들 쪽으로 끌려옵니다. 위기 상황에서 방어용으로 유용합니다.",
         "boomerang": "부메랑: 보스 방향으로 부메랑을 던져 넉백+스턴을 겁니다. 부메랑이 돌아오면서 경로에 있는 필드 아이템을 자동으로 회수합니다. 공에 닿으면 부메랑이 파괴됩니다.",
         "soap": "비누: 보스 진영에 비누를 던집니다. 보스가 밟으면 3초간 미끄러움 디버프가 발동되어 관성으로 미끄러지며 방향전환이 매우 어려워집니다. 좌우 왕복 공격에 취약해집니다.",
