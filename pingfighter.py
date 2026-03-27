@@ -19767,7 +19767,7 @@ def apply_equipment_paddle_modifiers() -> None:
         # 귀신발걸음 Y축 이동 중에는 Y좌표 덮어쓰기 스킵
         if not arena_bottom_ghost_step_active:
             PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
         return
 
     # 벌크업 관련 보너스를 합산 방식으로 계산 (곱연산 → 합산)
@@ -19791,7 +19791,7 @@ def apply_equipment_paddle_modifiers() -> None:
     PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
     PLAYER.centerx = prev_centerx
     PLAYER.bottom = baseline
-    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
 
 
 def get_player_paddle_scale_for_league(league_mode: str) -> float:
@@ -23916,7 +23916,7 @@ def arena_should_bottom_hero_dash() -> tuple[bool, float]:
 
     max_travel = 12.0 * time_to_paddle  # 8.0 * 1.5
     predicted_x = _predict_x_with_walls(float(BALL.centerx), float(ball_vel[0]), float(time_to_paddle))
-    predicted_x = max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, predicted_x))
+    predicted_x = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, predicted_x))
     required = abs(predicted_x - PLAYER.centerx)
     if required <= max_travel or required < PLAYER.width * 0.8:
         return False, 0.0
@@ -23933,7 +23933,7 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     # 대쉬 목표 = 현재 위치 + 방향 * 150px * 폭풍질주 퍽
     dash_px = 150 * arena_perk_dash_distance_mult_bottom
     target_x = PLAYER.centerx + direction * dash_px
-    target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, target_x)))
+    target_x = float(max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, target_x)))
     return _arena_trigger_hero_dash_ai(False, target_x)
 
 
@@ -28929,7 +28929,7 @@ def update_optimus_energy() -> None:
         PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
         PLAYER.centerx = prev_centerx
         PLAYER.bottom = prev_bottom
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
 
 
 def draw_optimus_emblem(surface, emblem_x: int, emblem_y: int, emblem_radius: int,
@@ -68437,7 +68437,7 @@ def handle_player(keys):
 
     # 투기장 스턴 상태면 입력 처리 건너뛰기
     if arena_player_stun_block:
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
         return
 
     # 플레이어 자동조종 AI: 키 입력을 가로채어 AI가 만든 입력으로 대체
@@ -69828,7 +69828,7 @@ def handle_player(keys):
         if abs(player_knockback_vel) > 0.5:
             old_x = PLAYER.x
             PLAYER.x += int(player_knockback_vel)
-            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
             pass  # print(f"🔧 [STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, timer={player_stunned_timer})")  # 디버그 비활성화
         # 감속 (뿔박치기는 더 부드러운 감속 적용)
         if horn_charge_player_knockback_active:
@@ -69857,7 +69857,7 @@ def handle_player(keys):
         if abs(player_missile_knockback_vel) > 0.5:
             old_x = PLAYER.x
             PLAYER.x += int(player_missile_knockback_vel)
-            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
             pass  # print(f"🚀 [MISSILE STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f}, timer={player_missile_stunned_timer})")  # 디버그 비활성화
         # 감속 (화염탄과 동일한 0.85)
         player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
@@ -70346,12 +70346,12 @@ def handle_player(keys):
                     # 🧊 첫 번째 미끄러짐 이동을 즉시 실행 (지연 방지)
                     ice_slide_offset = ice_dash_slide_speed * ice_dash_slide_direction
                     PLAYER.x += int(ice_slide_offset)
-                    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+                    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
                     if DEBUG_MODE:
                         pass  # print(f"[ICE SLIDE] 즉시 첫 이동! offset={ice_slide_offset}, new_x={PLAYER.x}")
 
                     # 벽에 바로 닿았는지 체크
-                    if PLAYER.x <= 0 or PLAYER.x >= WIDTH - PADDLE_WIDTH:
+                    if PLAYER.x <= 0 or PLAYER.x >= WIDTH - PLAYER.width:
                         if DEBUG_MODE:
                             pass  # print(f"[ICE DEBUG] 즉시 벽에 닿음! x={PLAYER.x}")
                         ice_dash_sliding = False
@@ -72497,7 +72497,7 @@ def handle_player(keys):
                     mouse_x, mouse_y = pygame.mouse.get_pos()
                     target_x = mouse_x - PADDLE_WIDTH // 2
                     # 경계 처리
-                    target_x = max(0, min(WIDTH - PADDLE_WIDTH, target_x))
+                    target_x = max(0, min(WIDTH - PLAYER.width, target_x))
                     # 즉시 이동
                     PLAYER.x = target_x
                     current_speed = 0
@@ -73096,7 +73096,7 @@ def handle_player(keys):
                     # 이동 적용
                     new_x = PLAYER.x + swing_dash_speed
                     # 게임 영역 경계 체크
-                    new_x = max(0, min(WIDTH - PADDLE_WIDTH, new_x))
+                    new_x = max(0, min(WIDTH - PLAYER.width, new_x))
                     PLAYER.x = new_x
                 else:
                     # === DELAY 구간: 반대방향 윈드업 + 마지막에 가속 시작 ===
@@ -73117,7 +73117,7 @@ def handle_player(keys):
                         new_x = PLAYER.x + accel_speed
 
                     # 게임 영역 경계 체크
-                    new_x = max(0, min(WIDTH - PADDLE_WIDTH, new_x))
+                    new_x = max(0, min(WIDTH - PLAYER.width, new_x))
                     PLAYER.x = new_x
             else:
                 # 대쉬 종료 → 미끄러짐 시작
@@ -73134,7 +73134,7 @@ def handle_player(keys):
                 # 미끄러짐 이동 적용
                 new_x = PLAYER.x + blacksmith_swing_slide_velocity
                 # 게임 영역 경계 체크
-                new_x = max(0, min(WIDTH - PADDLE_WIDTH, new_x))
+                new_x = max(0, min(WIDTH - PLAYER.width, new_x))
                 PLAYER.x = new_x
                 # 마찰로 속도 감소
                 blacksmith_swing_slide_velocity *= BLACKSMITH_SWING_SLIDE_FRICTION
@@ -73269,18 +73269,18 @@ def handle_player(keys):
             smasher_power_recoil_stun_pending = False
     # 반동으로 이동한 후 화면 경계 재클램프
     if smasher_power_recoil_timer > 0 or smasher_power_recoil_vel != 0:
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
     
     # 화염 지대 넉백은 감전/스턴 상태와 무관하게 항상 적용
     PLAYER.x += int(player_flame_zone_knockback_vel)
-    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
 
     # === 스테이지 2 바나나 미끄러짐 효과 ===
     if current_stage == 2 and pillar_renderer is not None:
         if pillar_renderer.is_player_slipping():
             banana_slip_offset = pillar_renderer.get_monkey_slip_offset()
             PLAYER.x += int(banana_slip_offset)
-            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
 
     # === 🧊 얼음 이벤트 대쉬 미끄러짐 효과 (바나나 슬립처럼 벽까지 미끄러짐) ===
     # 스턴/무력화 상태와 무관하게 미끄러짐은 항상 진행됨 (바나나 슬립처럼)
@@ -73289,7 +73289,7 @@ def handle_player(keys):
         ice_slide_offset = ice_dash_slide_speed * ice_dash_slide_direction
         old_x = PLAYER.x
         PLAYER.x += int(ice_slide_offset)
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
 
         # 디버그: 매 10프레임마다 출력
         if DEBUG_MODE and ice_dash_slide_timer % 10 == 0:
@@ -73300,7 +73300,7 @@ def handle_player(keys):
         ice_dash_slide_speed *= 0.96  # 점점 느려짐
 
         # 종료 조건: 벽에 닿거나 속도가 충분히 느려지면 종료
-        if PLAYER.x <= 0 or PLAYER.x >= WIDTH - PADDLE_WIDTH:
+        if PLAYER.x <= 0 or PLAYER.x >= WIDTH - PLAYER.width:
             # 벽에 닿으면 즉시 종료
             if DEBUG_MODE:
                 pass  # print(f"[ICE DEBUG] 벽에 닿아서 미끄러짐 종료! x={PLAYER.x}")
@@ -73318,7 +73318,7 @@ def handle_player(keys):
         weather_push = apply_weather_effects_to_player(PLAYER, WIDTH)
         if weather_push != 0:
             PLAYER.x += int(weather_push)
-            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
 
     # === 코만도 캐릭터 걷기 애니메이션 처리 ===
     if selected_character_type == "soldier":
@@ -73878,7 +73878,7 @@ def handle_player(keys):
             player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
             # 첫 프레임 이동 + 즉시 감속
             PLAYER.x += int(player_knockback_vel)
-            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
             # print(f"🔥 [FIRE BALL HIT] 플레이어 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f})")
             # 즉시 감속 적용
             player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
@@ -108350,7 +108350,7 @@ def draw_objects():
                     player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
                     # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
                     PLAYER.x += int(player_knockback_vel)
-                    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+                    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
                     # print(f"🧊 [HAIL HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, dir={knockback_dir})")
                     # 즉시 감속 적용 (다음 프레임과의 갭 제거)
                     player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
@@ -108416,7 +108416,7 @@ def draw_objects():
                         player_missile_stunned_timer = int(stun_applied * FPS)
                         # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
                         PLAYER.x += int(player_missile_knockback_vel)
-                        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+                        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
                         pass  # print(f"🚀 [MISSILE HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f})")  # 디버그 비활성화
                         # 즉시 감속 적용 (다음 프레임과의 갭 제거)
                         player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
@@ -113524,7 +113524,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         BOSS.width = int(130 * arena_perk_paddle_enlarge_top)
         BOSS.height = int(40 * arena_perk_paddle_enlarge_top)
         # 패들 위치 재조정 (바닥에 맞춤)
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
         PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
 
         # 상단 영웅 아이템 슬롯 초기화
@@ -154193,7 +154193,7 @@ def main(stage_num, new_boss_mode=False):
                         smasher_power_recoil_timer = SMASHER_POWER_RECOIL_FRAMES
                         PLAYER.x += int(smasher_power_recoil_vel)  # 즉시 한 번 튕김
                         current_speed = 0  # 같은 프레임 이동 입력 무력화
-                        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+                        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
                         _kb_debug(f"[SMASHER_RECOIL_APPLY] dir={recoil_dir}, vel={smasher_power_recoil_vel:.2f}, frames={smasher_power_recoil_timer}, x={PLAYER.x}")
                         smasher_power_recoil_stun_pending = True
                     if smasher_pending_contact_offset is not None:
@@ -155614,7 +155614,7 @@ def main(stage_num, new_boss_mode=False):
                         _bs_offset = _kb_gs.get('bottom_paddle_banana_slip_offset', 0)
                         if abs(_bs_offset) > 0.01:
                             PLAYER.x += int(_bs_offset)
-                            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+                            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
 
                     # ⚔️ 달빛 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
                     _dark_gs = arena_skill_manager.game_state
