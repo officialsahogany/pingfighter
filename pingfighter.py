@@ -30590,20 +30590,22 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 # ========== 바이퍼 절차적 렌더링 (사이버 어쌔신) ==========
 
 def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
-    """절차적 바이퍼 렌더링 — 슬림 어쌔신 실루엣.
-    스매셔(250x120)와 완전히 다른 체형: 좁은 어깨, 긴 다리, 전경 자세, 닌자형 걷기."""
+    """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
+    다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프."""
     surface = pygame.Surface((250, 140), pygame.SRCALPHA)
-    b = 8  # 스매셔(9)보다 작은 블록 -> 전체적으로 가늘어짐
+    b = 8
     cx = surface.get_width() // 2
-    base_y = 48  # 상체 기준점 (스매셔보다 높아 다리 길이 확보)
+    base_y = 48
 
     phase = step_phase % 1.0 if step_phase else 0.0
     wave = math.sin(phase * math.tau)
-    # 닌자형 모션: 상체는 거의 안 흔들리고, 다리만 빠르게 교차
-    torso_bob = int(abs(wave) * 1.0)
+    abs_wave = abs(wave)
+    # 아이들 호흡 (phase=0일 때도 미세하게 움직임)
+    idle_breath = math.sin(pygame.time.get_ticks() * 0.004) * 0.8 if phase == 0.0 else 0.0
+    torso_bob = int(abs_wave * 1.0 + idle_breath)
     arm_swing = int(wave * 4)
     shoulder_tilt = int(wave * 1.5)
-    # 다리: 낮은 자세로 빠르게 교차
+    lean_forward = int(abs_wave * 1.5)  # 걸을 때 약간 앞으로 기울기
     left_leg_step = int(wave * 6)
     right_leg_step = -left_leg_step
     left_leg_lift = -int(max(0.0, wave) * 3)
@@ -30611,150 +30613,403 @@ def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 
     ty = base_y + torso_bob
 
-    # -- 컬러 팔레트 (EVA 유닛 + 사이버 닌자) --
+    # -- 고급 컬러 팔레트 --
     p = {
-        "shadow": (0, 0, 0, 50),
-        "hood": (35, 8, 55),
-        "hood_rim": (80, 30, 120),
+        # 후드
+        "hood_dark": (28, 5, 45),
+        "hood_mid": (38, 10, 60),
+        "hood_light": (55, 20, 85),
+        "hood_rim": (90, 35, 135),
+        "hood_shadow": (15, 3, 25, 180),
+        # 바이저
         "visor": (0, 255, 180),
-        "visor_dark": (0, 180, 130),
-        "visor_glow": (0, 255, 200, 60),
+        "visor_bright": (100, 255, 220),
+        "visor_dark": (0, 160, 120),
+        "visor_glow": (0, 255, 200, 70),
+        # 슈트 (3단계 셰이딩)
+        "suit_shadow": (15, 4, 28),
         "suit_main": (25, 8, 42),
-        "suit_panel": (35, 12, 58),
-        "suit_seam": (60, 25, 95),
+        "suit_light": (38, 14, 60),
+        "suit_highlight": (50, 20, 78),
+        "suit_seam": (65, 28, 100),
+        # 아머 플레이트
+        "armor_dark": (32, 12, 52),
+        "armor_mid": (45, 18, 72),
+        "armor_light": (60, 25, 95),
+        "armor_edge": (75, 32, 115),
+        # 네온
         "neon": (0, 255, 180),
-        "neon_dim": (0, 160, 120),
+        "neon_bright": (120, 255, 220),
+        "neon_dim": (0, 140, 100),
         "neon_purple": (160, 0, 255),
-        "arm": (30, 10, 48),
-        "arm_hi": (55, 22, 85),
-        "wrap": (20, 5, 32),
-        "glove": (22, 8, 38),
-        "glove_accent": (0, 200, 160),
-        "blade": (0, 255, 200),
+        "neon_purple_dim": (100, 0, 170),
+        # 에너지 도관
+        "conduit": (0, 200, 150, 120),
+        "conduit_core": (0, 255, 200, 200),
+        # 팔
+        "arm_shadow": (22, 7, 38),
+        "arm_mid": (35, 14, 55),
+        "arm_light": (50, 22, 78),
+        "wrap_dark": (16, 4, 28),
+        "wrap_light": (28, 10, 45),
+        # 장갑
+        "glove_dark": (18, 6, 32),
+        "glove_mid": (30, 12, 48),
+        "glove_accent": (0, 220, 170),
+        # 블레이드
+        "blade_outer": (0, 200, 160),
+        "blade_mid": (0, 255, 200),
         "blade_core": (180, 255, 240),
-        "blade_glow": (0, 200, 160, 50),
-        "leg": (20, 6, 35),
-        "leg_hi": (40, 15, 62),
-        "knee_guard": (50, 20, 80),
+        "blade_white": (220, 255, 250),
+        "blade_glow": (0, 200, 160, 45),
+        "blade_particle": (0, 255, 200, 150),
+        # 하체
+        "leg_shadow": (14, 4, 26),
+        "leg_mid": (24, 8, 40),
+        "leg_light": (36, 14, 56),
+        "knee_dark": (40, 16, 65),
+        "knee_mid": (55, 24, 85),
         "knee_accent": (0, 220, 170),
-        "boot": (28, 10, 45),
+        # 부츠
+        "boot_dark": (20, 7, 35),
+        "boot_mid": (32, 13, 52),
+        "boot_light": (45, 20, 70),
         "boot_sole": (0, 200, 160),
-        "boot_rim": (60, 25, 90),
-        "belt": (40, 15, 65),
+        "boot_buckle": (70, 30, 105),
+        # 벨트
+        "belt_dark": (30, 10, 50),
+        "belt_mid": (42, 18, 68),
+        "belt_light": (55, 24, 85),
         "belt_buckle": (0, 255, 180),
-        "outline": (10, 2, 18),
+        # 스카프
+        "scarf_dark": (60, 20, 95),
+        "scarf_mid": (80, 30, 120),
+        "scarf_light": (100, 40, 150),
+        "scarf_edge": (0, 160, 120, 100),
+        # 아웃라인
+        "outline": (8, 1, 14),
     }
 
-    # ====== 후드 (삼각형 닌자 후드) ======
-    hood_w = int(2.0 * b)
-    hood_h = int(2.2 * b)
-    hx, hy = cx, ty - int(2.8 * b)
+    # ═══════ 그림자 (발 아래) ═══════
+    shadow_w = int(3.0 * b)
+    shadow_h = int(0.5 * b)
+    shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow_surf, (0, 0, 0, 30), shadow_surf.get_rect())
+    surface.blit(shadow_surf, (cx - shadow_w // 2, 130))
+
+    # ═══════ 스카프 (뒤쪽 레이어 — 몸 뒤에서 나부낌) ═══════
+    scarf_wave = wave * 5
+    scarf_segments = 5
+    scarf_surf = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    for si in range(scarf_segments):
+        t = si / max(1, scarf_segments - 1)
+        seg_wave = scarf_wave * (0.3 + t * 0.7) + math.sin(phase * math.tau * 2 + si) * 2
+        sx1 = cx + int(0.2 * b) + int(t * 1.2 * b) + int(seg_wave * t)
+        sy1 = ty - int(0.3 * b) + int(t * 2.5 * b)
+        sw = max(2, int((1.0 - t * 0.4) * 0.6 * b))
+        alpha = max(40, int(200 * (1.0 - t * 0.5)))
+        color = p["scarf_dark"] if si % 2 == 0 else p["scarf_mid"]
+        seg_rect = pygame.Rect(sx1, sy1, sw, int(0.6 * b))
+        seg_s = pygame.Surface((sw + 4, int(0.6 * b) + 4), pygame.SRCALPHA)
+        pygame.draw.rect(seg_s, (*color, alpha), (2, 2, sw, int(0.6 * b)), border_radius=2)
+        scarf_surf.blit(seg_s, (sx1 - 2, sy1 - 2))
+    # 스카프 끝 네온 엣지
+    tip_x = cx + int(1.4 * b) + int(scarf_wave * 0.8)
+    tip_y = ty + int(2.2 * b)
+    pygame.draw.line(scarf_surf, (*p["neon_dim"], 80),
+                     (tip_x - 3, tip_y), (tip_x + 3, tip_y + 4), 1)
+    surface.blit(scarf_surf, (0, 0))
+
+    # ═══════ 후드 (고급 — 패브릭 주름 + 내부 그림자) ═══════
+    hood_w = int(2.1 * b)
+    hood_h = int(2.3 * b)
+    hx, hy = cx, ty - int(2.8 * b) - lean_forward
     hood_pts = [
-        (hx, hy - hood_h // 2 - 3),
-        (hx + hood_w // 2 + 2, hy + 2),
-        (hx + hood_w // 2 - 1, hy + hood_h // 2),
-        (hx - hood_w // 2 + 1, hy + hood_h // 2),
-        (hx - hood_w // 2 - 2, hy + 2),
+        (hx, hy - hood_h // 2 - 4),
+        (hx + hood_w // 2 + 3, hy + 1),
+        (hx + hood_w // 2, hy + hood_h // 2 + 1),
+        (hx - hood_w // 2, hy + hood_h // 2 + 1),
+        (hx - hood_w // 2 - 3, hy + 1),
     ]
-    pygame.draw.polygon(surface, p["hood"], hood_pts)
+    # 후드 그림자 (아래쪽이 더 어두움)
+    pygame.draw.polygon(surface, p["hood_dark"], hood_pts)
+    # 상단 하이라이트 (빛 받는 부분)
+    hood_hi_pts = [hood_pts[0], hood_pts[1], hood_pts[4]]
+    pygame.draw.polygon(surface, p["hood_mid"], hood_hi_pts)
+    # 중앙 릿지 (스티칭 라인)
+    pygame.draw.line(surface, p["hood_light"],
+                     (hx, hy - hood_h // 2 - 2), (hx, hy + hood_h // 2 - 2), 1)
+    # 패브릭 주름 (좌우 대각선)
+    for fi in range(3):
+        fy = hy - hood_h // 4 + fi * int(0.35 * b)
+        pygame.draw.line(surface, p["hood_light"],
+                         (hx - 2, fy), (hx - hood_w // 3, fy + 3), 1)
+        pygame.draw.line(surface, p["hood_light"],
+                         (hx + 2, fy), (hx + hood_w // 3, fy + 3), 1)
+    # 테두리
     pygame.draw.lines(surface, p["hood_rim"], True, hood_pts, 1)
 
-    # 바이저 (가로 슬릿)
-    visor_w = int(1.6 * b)
-    visor_h = max(3, int(0.35 * b))
-    visor_y = hy + 1
+    # 후드 내부 그림자 (얼굴 주변 어둡게)
+    face_shadow = pygame.Surface((hood_w, int(0.8 * b)), pygame.SRCALPHA)
+    for sy_i in range(face_shadow.get_height()):
+        sa = int(100 * (sy_i / face_shadow.get_height()))
+        pygame.draw.line(face_shadow, (15, 3, 25, sa),
+                         (0, sy_i), (face_shadow.get_width(), sy_i))
+    surface.blit(face_shadow, (hx - hood_w // 2, hy - int(0.1 * b)))
+
+    # 바이저 (다중 레이어 발광)
+    visor_w = int(1.7 * b)
+    visor_h = max(4, int(0.4 * b))
+    visor_y = hy + 2
     visor_rect = pygame.Rect(hx - visor_w // 2, visor_y, visor_w, visor_h)
-    pygame.draw.rect(surface, p["visor"], visor_rect, border_radius=1)
-    pygame.draw.rect(surface, p["visor_dark"], visor_rect.inflate(-4, -1), border_radius=1)
-    vg = pygame.Surface((visor_w + 10, visor_h + 8), pygame.SRCALPHA)
-    pygame.draw.rect(vg, p["visor_glow"], vg.get_rect(), border_radius=3)
-    surface.blit(vg, (visor_rect.left - 5, visor_rect.top - 4), special_flags=pygame.BLEND_RGBA_ADD)
+    # 글로우 배경
+    vg_w, vg_h = visor_w + 14, visor_h + 12
+    vg = pygame.Surface((vg_w, vg_h), pygame.SRCALPHA)
+    pygame.draw.rect(vg, p["visor_glow"], vg.get_rect(), border_radius=4)
+    surface.blit(vg, (visor_rect.left - 7, visor_rect.top - 6), special_flags=pygame.BLEND_RGBA_ADD)
+    # 메인 바이저
+    pygame.draw.rect(surface, p["visor"], visor_rect, border_radius=2)
+    # 내부 디테일 (동공 슬릿 느낌)
+    inner = visor_rect.inflate(-4, -2)
+    pygame.draw.rect(surface, p["visor_dark"], inner, border_radius=1)
+    # 밝은 중심점
+    pygame.draw.line(surface, p["visor_bright"],
+                     (hx - 3, visor_rect.centery), (hx + 3, visor_rect.centery), 1)
+    # 좌우 눈 하이라이트
+    for ex in (-visor_w // 4, visor_w // 4):
+        pygame.draw.circle(surface, p["visor_bright"], (hx + ex, visor_rect.centery), 1)
 
-    # 턱 가리개
-    chin_w = int(1.2 * b)
-    chin_rect = pygame.Rect(hx - chin_w // 2, visor_rect.bottom + 1, chin_w, int(0.5 * b))
+    # 턱 마스크 (벤트 디테일)
+    chin_w = int(1.3 * b)
+    chin_h = int(0.6 * b)
+    chin_rect = pygame.Rect(hx - chin_w // 2, visor_rect.bottom + 1, chin_w, chin_h)
     pygame.draw.rect(surface, p["suit_main"], chin_rect, border_radius=2)
+    pygame.draw.rect(surface, p["suit_shadow"], chin_rect.inflate(-2, -2), border_radius=1)
+    # 벤트 슬릿
+    for vi in range(3):
+        vy = chin_rect.top + 2 + vi * 3
+        pygame.draw.line(surface, p["suit_seam"],
+                         (chin_rect.left + 3, vy), (chin_rect.right - 3, vy), 1)
+    # 목 가드
+    neck_rect = pygame.Rect(hx - int(0.5 * b), chin_rect.bottom, int(1.0 * b), int(0.3 * b))
+    pygame.draw.rect(surface, p["suit_shadow"], neck_rect, border_radius=2)
 
-    # ====== 상체 (슬림 V자 사다리꼴) ======
-    torso_top_w = int(2.2 * b)
+    # ═══════ 상체 (고급 아머 플레이트 + 에너지 도관) ═══════
+    torso_top_w = int(2.3 * b)
     torso_bot_w = int(1.6 * b)
-    torso_h = int(2.4 * b)
-    torso_top = ty - int(0.5 * b)
+    torso_h = int(2.5 * b)
+    torso_top = ty - int(0.5 * b) + lean_forward
     torso_pts = [
         (cx - torso_top_w // 2, torso_top),
         (cx + torso_top_w // 2, torso_top),
         (cx + torso_bot_w // 2, torso_top + torso_h),
         (cx - torso_bot_w // 2, torso_top + torso_h),
     ]
+    # 기본 슈트
     pygame.draw.polygon(surface, p["suit_main"], torso_pts)
+    # 좌우 셰이딩 (입체감)
+    left_shade = [torso_pts[0], (cx - int(0.2 * b), torso_top), (cx - int(0.1 * b), torso_top + torso_h), torso_pts[3]]
+    right_shade = [(cx + int(0.2 * b), torso_top), torso_pts[1], torso_pts[2], (cx + int(0.1 * b), torso_top + torso_h)]
+    shade_s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    pygame.draw.polygon(shade_s, (*p["suit_shadow"], 60), left_shade)
+    pygame.draw.polygon(shade_s, (*p["suit_light"][:3], 40), right_shade)
+    surface.blit(shade_s, (0, 0))
 
-    panel_w = int(0.6 * b)
-    panel_rect = pygame.Rect(cx - panel_w // 2, torso_top + 3, panel_w, torso_h - 6)
-    pygame.draw.rect(surface, p["suit_panel"], panel_rect, border_radius=2)
-    pygame.draw.line(surface, p["neon"],
-                     (cx, torso_top + 3),
-                     (cx - torso_top_w // 2 + 4, torso_top + torso_h - 5), 1)
-    pygame.draw.line(surface, p["neon"],
-                     (cx, torso_top + 3),
-                     (cx + torso_top_w // 2 - 4, torso_top + torso_h - 5), 1)
-    core_y = torso_top + torso_h // 3
+    # 흉갑 플레이트 (중앙 다각형)
+    cp_w = int(1.2 * b)
+    cp_h = int(1.4 * b)
+    cp_y = torso_top + int(0.3 * b)
+    chest_plate = [
+        (cx, cp_y),
+        (cx + cp_w // 2, cp_y + int(0.4 * b)),
+        (cx + cp_w // 2 - 2, cp_y + cp_h),
+        (cx - cp_w // 2 + 2, cp_y + cp_h),
+        (cx - cp_w // 2, cp_y + int(0.4 * b)),
+    ]
+    pygame.draw.polygon(surface, p["armor_mid"], chest_plate)
+    pygame.draw.polygon(surface, p["armor_edge"], chest_plate, 1)
+    # 흉갑 내부 패널라인
+    pygame.draw.line(surface, p["armor_light"],
+                     (cx, cp_y + 2), (cx, cp_y + cp_h - 2), 1)
+    pygame.draw.line(surface, p["armor_dark"],
+                     (cx - 1, cp_y + 2), (cx - 1, cp_y + cp_h - 2), 1)
+
+    # 에너지 코어 (삼각형 + 글로우)
+    core_y = cp_y + int(0.5 * b)
+    core_s = pygame.Surface((12, 12), pygame.SRCALPHA)
+    pygame.draw.circle(core_s, (*p["neon"][:3], 40), (6, 6), 6)
+    surface.blit(core_s, (cx - 6, core_y - 6), special_flags=pygame.BLEND_RGBA_ADD)
     core_pts = [(cx, core_y - 3), (cx + 3, core_y + 2), (cx - 3, core_y + 2)]
     pygame.draw.polygon(surface, p["neon"], core_pts)
+    pygame.draw.polygon(surface, p["neon_bright"], core_pts, 1)
+
+    # V자 에너지 도관 (네온 라인 + 글로우)
+    conduit_s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    for ci in range(2):
+        c_alpha = 120 - ci * 40
+        c_width = 2 - ci
+        pygame.draw.line(conduit_s, (*p["neon"][:3], c_alpha),
+                         (cx, cp_y + 3),
+                         (cx - torso_top_w // 2 + 5, torso_top + torso_h - 4), c_width)
+        pygame.draw.line(conduit_s, (*p["neon"][:3], c_alpha),
+                         (cx, cp_y + 3),
+                         (cx + torso_top_w // 2 - 5, torso_top + torso_h - 4), c_width)
+    surface.blit(conduit_s, (0, 0))
+
+    # 복부 세그먼트 (가로 패널)
+    abs_top = cp_y + cp_h + 1
+    abs_h = torso_top + torso_h - abs_top - 2
+    for ai in range(3):
+        ay = abs_top + ai * (abs_h // 3)
+        aw = int(torso_bot_w * (0.9 - ai * 0.05))
+        seg_rect = pygame.Rect(cx - aw // 2, ay, aw, abs_h // 3 - 1)
+        pygame.draw.rect(surface, p["suit_shadow"], seg_rect, border_radius=1)
+        pygame.draw.rect(surface, p["suit_seam"], seg_rect, 1, border_radius=1)
+
+    # 외곽 심라인
     pygame.draw.polygon(surface, p["suit_seam"], torso_pts, 1)
 
-    # ====== 어깨 (작은 날카로운 숄더) ======
+    # ═══════ 어깨 (다층 아머 숄더) ═══════
     for side in (-1, 1):
         sx = cx + side * int(1.3 * b)
-        sy = torso_top + int(side * shoulder_tilt)
-        sh_pts = [
-            (sx + side * int(0.8 * b), sy - int(0.3 * b)),
-            (cx + side * int(0.6 * b), torso_top - 1),
-            (cx + side * int(0.6 * b), torso_top + int(0.8 * b)),
+        sy = torso_top + int(side * shoulder_tilt) + lean_forward
+        # 하단 레이어 (넓은 패드)
+        sh_base = [
+            (sx + side * int(0.9 * b), sy - int(0.4 * b)),
+            (cx + side * int(0.6 * b), torso_top - 1 + lean_forward),
+            (cx + side * int(0.6 * b), torso_top + int(0.9 * b) + lean_forward),
+            (sx + side * int(0.4 * b), sy + int(0.6 * b)),
         ]
-        pygame.draw.polygon(surface, p["suit_panel"], sh_pts)
-        pygame.draw.circle(surface, p["neon"], (sx + side * int(0.7 * b), sy - int(0.2 * b)), 2)
+        pygame.draw.polygon(surface, p["armor_dark"], sh_base)
+        # 상단 레이어 (뾰족한 플레이트)
+        sh_top = [
+            (sx + side * int(0.85 * b), sy - int(0.35 * b)),
+            (cx + side * int(0.65 * b), torso_top + lean_forward),
+            (cx + side * int(0.65 * b), torso_top + int(0.5 * b) + lean_forward),
+        ]
+        pygame.draw.polygon(surface, p["armor_mid"], sh_top)
+        pygame.draw.polygon(surface, p["armor_edge"], sh_top, 1)
+        # 숄더 네온 라인
+        pygame.draw.line(surface, p["neon_dim"],
+                         sh_base[0], sh_top[0], 1)
+        # 끝 네온 도트
+        pygame.draw.circle(surface, p["neon"], sh_base[0], 2)
 
-    # ====== 팔 (가는 닌자 팔) ======
-    arm_thickness = b - 3
+    # ═══════ 팔 (고급 — 상완 아머 + 전완 래핑 + 장갑) ═══════
     for side, swing_dir in [(-1, 1), (1, -1)]:
         sh_x = cx + side * int(1.2 * b)
-        sh_y = torso_top + int(0.3 * b) + int(swing_dir * shoulder_tilt)
+        sh_y = torso_top + int(0.3 * b) + int(swing_dir * shoulder_tilt) + lean_forward
         el_x = sh_x + side * int(0.9 * b) + swing_dir * arm_swing
-        el_y = sh_y + int(0.7 * b) + swing_dir * arm_swing // 3
+        el_y = sh_y + int(0.8 * b) + swing_dir * arm_swing // 3
         wr_x = el_x + side * int(0.7 * b)
-        wr_y = el_y + int(0.4 * b) + swing_dir * int(arm_swing * 0.2)
+        wr_y = el_y + int(0.5 * b) + swing_dir * int(arm_swing * 0.2)
+        at = b - 2  # 팔 두께
 
-        pygame.draw.line(surface, p["arm_hi"], (sh_x, sh_y), (el_x, el_y), arm_thickness)
-        pygame.draw.line(surface, p["arm"], (sh_x, sh_y), (el_x, el_y), max(1, arm_thickness - 2))
-        pygame.draw.line(surface, p["arm_hi"], (el_x, el_y), (wr_x, wr_y), arm_thickness)
-        pygame.draw.line(surface, p["wrap"], (el_x, el_y), (wr_x, wr_y), max(1, arm_thickness - 2))
-        pygame.draw.circle(surface, p["neon_dim"], (el_x, el_y), 2)
-        pygame.draw.circle(surface, p["glove"], (wr_x, wr_y), max(2, b // 2 - 1))
+        # 상완 (아머 플레이트 느낌)
+        pygame.draw.line(surface, p["arm_light"], (sh_x, sh_y), (el_x, el_y), at)
+        pygame.draw.line(surface, p["arm_mid"], (sh_x, sh_y), (el_x, el_y), max(1, at - 2))
+        # 상완 아머 스트라이프
+        mid_ax = (sh_x + el_x) // 2
+        mid_ay = (sh_y + el_y) // 2
+        pygame.draw.circle(surface, p["armor_mid"], (mid_ax, mid_ay), 3)
+        pygame.draw.circle(surface, p["neon_dim"], (mid_ax, mid_ay), 2, 1)
+
+        # 팔꿈치 조인트
+        pygame.draw.circle(surface, p["armor_dark"], (el_x, el_y), 4)
+        pygame.draw.circle(surface, p["neon_dim"], (el_x, el_y), 3, 1)
+        pygame.draw.circle(surface, p["neon"], (el_x, el_y), 1)
+
+        # 전완 (래핑 패턴)
+        pygame.draw.line(surface, p["arm_light"], (el_x, el_y), (wr_x, wr_y), at)
+        pygame.draw.line(surface, p["wrap_dark"], (el_x, el_y), (wr_x, wr_y), max(1, at - 2))
+        # 래핑 줄무늬
+        wrap_segs = 4
+        for wi in range(wrap_segs):
+            t = (wi + 1) / (wrap_segs + 1)
+            wx = int(el_x + (wr_x - el_x) * t)
+            wy = int(el_y + (wr_y - el_y) * t)
+            pygame.draw.circle(surface, p["wrap_light"], (wx, wy), max(1, at // 2), 1)
+
+        # 장갑 (다층)
+        gr = max(3, b // 2)
+        pygame.draw.circle(surface, p["glove_dark"], (wr_x, wr_y), gr)
+        pygame.draw.circle(surface, p["glove_mid"], (wr_x, wr_y), gr - 1)
         pygame.draw.circle(surface, p["glove_accent"], (wr_x, wr_y), 2, 1)
+        # 너클 라인
+        pygame.draw.line(surface, p["neon_dim"],
+                         (wr_x - 3, wr_y - 1), (wr_x + 3, wr_y - 1), 1)
 
-        # 왼손 플라즈마 블레이드
+        # 왼손 플라즈마 블레이드 (고급)
         if side == -1:
-            bl_len = int(2.5 * b)
-            bg = pygame.Surface((b * 2, bl_len + b), pygame.SRCALPHA)
-            pygame.draw.ellipse(bg, p["blade_glow"], bg.get_rect())
-            surface.blit(bg, (wr_x - b, wr_y - bl_len - b // 2), special_flags=pygame.BLEND_RGBA_ADD)
-            bl_pts = [(wr_x, wr_y - bl_len), (wr_x - 2, wr_y - 2), (wr_x + 2, wr_y - 2)]
-            pygame.draw.polygon(surface, p["blade"], bl_pts)
-            pygame.draw.line(surface, p["blade_core"], (wr_x, wr_y - bl_len + 2), (wr_x, wr_y - 3), 1)
+            bl_len = int(2.8 * b)
+            # 다중 글로우 레이어
+            for gl in range(3, 0, -1):
+                gw = b * gl
+                gh = bl_len + b * gl // 2
+                gs = pygame.Surface((gw * 2, gh), pygame.SRCALPHA)
+                ga = 25 + (3 - gl) * 10
+                pygame.draw.ellipse(gs, (*p["blade_outer"][:3], ga), gs.get_rect())
+                surface.blit(gs, (wr_x - gw, wr_y - bl_len - b // 2),
+                             special_flags=pygame.BLEND_RGBA_ADD)
+            # 외곽 블레이드
+            bl_w = 4
+            bl_pts = [
+                (wr_x, wr_y - bl_len),
+                (wr_x - bl_w // 2, wr_y - 3),
+                (wr_x + bl_w // 2, wr_y - 3),
+            ]
+            pygame.draw.polygon(surface, p["blade_outer"], bl_pts)
+            # 내부 코어
+            bl_inner = [
+                (wr_x, wr_y - bl_len + 3),
+                (wr_x - 1, wr_y - 4),
+                (wr_x + 1, wr_y - 4),
+            ]
+            pygame.draw.polygon(surface, p["blade_mid"], bl_inner)
+            # 중심선
+            pygame.draw.line(surface, p["blade_core"],
+                             (wr_x, wr_y - bl_len + 4), (wr_x, wr_y - 5), 1)
+            # 팁 하이라이트
+            pygame.draw.circle(surface, p["blade_white"], (wr_x, wr_y - bl_len + 1), 2)
             pygame.draw.circle(surface, p["blade_core"], (wr_x, wr_y - bl_len + 1), 1)
+            # 에너지 파티클 (블레이드 주변)
+            particle_s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+            ticks = pygame.time.get_ticks()
+            for pi in range(4):
+                pp = ((ticks * 0.003 + pi * 1.5) % 2.0)
+                if pp < 1.5:
+                    px = wr_x + int(math.sin(pi * 2.1 + ticks * 0.005) * 4)
+                    py = wr_y - int(bl_len * pp / 1.5)
+                    pa = max(0, int(200 * (1.0 - pp / 1.5)))
+                    pygame.draw.circle(particle_s, (*p["blade_mid"][:3], pa), (px, py), 1)
+            surface.blit(particle_s, (0, 0))
+            # 이미터 (손잡이)
+            emit_rect = pygame.Rect(wr_x - 3, wr_y - 3, 6, 6)
+            pygame.draw.rect(surface, p["armor_mid"], emit_rect, border_radius=1)
+            pygame.draw.rect(surface, p["armor_edge"], emit_rect, 1, border_radius=1)
 
-    # ====== 벨트 ======
-    belt_y = torso_top + torso_h - 1
-    belt_w = int(1.8 * b)
-    belt_h = int(0.45 * b)
+    # ═══════ 벨트 (파우치 + 장비) ═══════
+    belt_y = torso_top + torso_h - 1 + lean_forward
+    belt_w = int(1.9 * b)
+    belt_h = int(0.5 * b)
     belt_rect = pygame.Rect(cx - belt_w // 2, belt_y, belt_w, belt_h)
-    pygame.draw.rect(surface, p["belt"], belt_rect, border_radius=2)
-    pygame.draw.circle(surface, p["belt_buckle"], (cx, belt_rect.centery), 2)
+    pygame.draw.rect(surface, p["belt_dark"], belt_rect, border_radius=2)
+    pygame.draw.rect(surface, p["belt_mid"], belt_rect.inflate(-2, -2), border_radius=1)
+    pygame.draw.rect(surface, p["suit_seam"], belt_rect, 1, border_radius=2)
+    # 버클
+    pygame.draw.circle(surface, p["belt_buckle"], (cx, belt_rect.centery), 3)
+    pygame.draw.circle(surface, p["neon_bright"], (cx, belt_rect.centery), 1)
+    # 좌우 파우치
+    for side in (-1, 1):
+        pouch_x = cx + side * int(0.6 * b)
+        pouch_rect = pygame.Rect(pouch_x - 3, belt_rect.top + 1, 6, belt_h - 2)
+        pygame.draw.rect(surface, p["belt_dark"], pouch_rect, border_radius=1)
+        pygame.draw.rect(surface, p["belt_light"], pouch_rect, 1, border_radius=1)
 
-    # ====== 하체 (긴 다리 -- 어쌔신 비율) ======
-    hip_y = belt_rect.bottom
+    # ═══════ 하체 (고급 — 다층 셰이딩 + 홀스터) ═══════
+    hip_y = belt_rect.bottom + lean_forward
     thigh_len = int(2.6 * b)
-    thigh_w = int(0.6 * b)
+    thigh_w = int(0.65 * b)
 
     for side, l_step, l_lift in [(-1, left_leg_step, left_leg_lift),
                                   (1, right_leg_step, right_leg_lift)]:
@@ -30763,44 +31018,60 @@ def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
         th_bot_x = th_x + l_step // 2
         th_bot_y = th_top + thigh_len
 
-        pygame.draw.line(surface, p["leg_hi"], (th_x, th_top), (th_bot_x, th_bot_y), thigh_w)
-        pygame.draw.line(surface, p["leg"], (th_x, th_top), (th_bot_x, th_bot_y), max(1, thigh_w - 2))
+        # 다층 허벅지
+        pygame.draw.line(surface, p["leg_light"], (th_x, th_top), (th_bot_x, th_bot_y), thigh_w + 1)
+        pygame.draw.line(surface, p["leg_mid"], (th_x, th_top), (th_bot_x, th_bot_y), thigh_w)
+        pygame.draw.line(surface, p["leg_shadow"], (th_x, th_top), (th_bot_x, th_bot_y), max(1, thigh_w - 3))
+        # 네온 스트라이프 (이중)
+        stripe_off = thigh_w // 2
         pygame.draw.line(surface, p["neon_purple"],
-                         (th_x + side * (thigh_w // 2 - 1), th_top + 3),
-                         (th_bot_x + side * (thigh_w // 2 - 1), th_bot_y - 3), 1)
+                         (th_x + side * stripe_off, th_top + 3),
+                         (th_bot_x + side * stripe_off, th_bot_y - 3), 1)
+        pygame.draw.line(surface, p["neon_purple_dim"],
+                         (th_x + side * (stripe_off - 2), th_top + 5),
+                         (th_bot_x + side * (stripe_off - 2), th_bot_y - 5), 1)
 
-        # 무릎 가드
-        kn_y = th_top + int(thigh_len * 0.65)
-        kn_x = th_x + (th_bot_x - th_x) * 65 // 100
-        kn_pts = [(kn_x, kn_y - 3), (kn_x + 3, kn_y), (kn_x, kn_y + 3), (kn_x - 3, kn_y)]
-        pygame.draw.polygon(surface, p["knee_guard"], kn_pts)
+        # 오른쪽 다리에 칼집 (홀스터)
+        if side == 1:
+            holster_y = th_top + int(thigh_len * 0.2)
+            holster_h = int(thigh_len * 0.35)
+            hol_x = th_x + (th_bot_x - th_x) * 30 // 100 + thigh_w // 2 + 1
+            pygame.draw.line(surface, p["armor_dark"],
+                             (hol_x, holster_y), (hol_x, holster_y + holster_h), 2)
+            pygame.draw.line(surface, p["armor_edge"],
+                             (hol_x, holster_y), (hol_x, holster_y + holster_h), 1)
+
+        # 무릎 가드 (고급 — 다층)
+        kn_y = th_top + int(thigh_len * 0.62)
+        kn_x = th_x + (th_bot_x - th_x) * 62 // 100
+        # 외곽
+        kn_pts = [(kn_x, kn_y - 4), (kn_x + 4, kn_y), (kn_x, kn_y + 4), (kn_x - 4, kn_y)]
+        pygame.draw.polygon(surface, p["knee_dark"], kn_pts)
+        # 내부
+        kn_inner = [(kn_x, kn_y - 2), (kn_x + 2, kn_y), (kn_x, kn_y + 2), (kn_x - 2, kn_y)]
+        pygame.draw.polygon(surface, p["knee_mid"], kn_inner)
         pygame.draw.polygon(surface, p["knee_accent"], kn_pts, 1)
 
-        # 부츠
-        boot_h = int(1.0 * b)
-        boot_rect = pygame.Rect(th_bot_x - thigh_w // 2 - 1, th_bot_y - 2, thigh_w + 2, boot_h)
-        pygame.draw.rect(surface, p["boot"], boot_rect, border_radius=2)
-        pygame.draw.line(surface, p["boot_rim"],
+        # 부츠 (고급 — 버클 + 솔 발광)
+        boot_h = int(1.1 * b)
+        boot_rect = pygame.Rect(th_bot_x - thigh_w // 2 - 2, th_bot_y - 3, thigh_w + 4, boot_h)
+        pygame.draw.rect(surface, p["boot_dark"], boot_rect, border_radius=3)
+        pygame.draw.rect(surface, p["boot_mid"], boot_rect.inflate(-2, -2), border_radius=2)
+        # 부츠 상단 림
+        pygame.draw.line(surface, p["boot_light"],
                          (boot_rect.left + 1, boot_rect.top + 1),
                          (boot_rect.right - 1, boot_rect.top + 1), 1)
-        pygame.draw.line(surface, p["boot_sole"],
-                         (boot_rect.left + 1, boot_rect.bottom - 1),
-                         (boot_rect.right - 1, boot_rect.bottom - 1), 2)
+        # 버클
+        buckle_y = boot_rect.top + boot_h // 3
+        pygame.draw.line(surface, p["boot_buckle"],
+                         (boot_rect.left + 2, buckle_y),
+                         (boot_rect.right - 2, buckle_y), 1)
+        # 솔 발광
+        sole_s = pygame.Surface((boot_rect.width, 4), pygame.SRCALPHA)
+        pygame.draw.rect(sole_s, (*p["boot_sole"][:3], 150), sole_s.get_rect(), border_radius=1)
+        surface.blit(sole_s, (boot_rect.left, boot_rect.bottom - 2))
 
-    # ====== 스카프 (어쌔신 시그니처 -- 나부끼는 망토 자락) ======
-    scarf_wave = int(wave * 4)
-    scarf_pts = [
-        (cx + int(0.3 * b), torso_top + 2),
-        (cx + int(1.5 * b) + scarf_wave, torso_top + int(1.5 * b)),
-        (cx + int(1.0 * b) + scarf_wave // 2, torso_top + int(2.0 * b)),
-        (cx + int(0.2 * b), torso_top + int(0.8 * b)),
-    ]
-    scarf_surf = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    pygame.draw.polygon(scarf_surf, (*p["hood_rim"], 180), scarf_pts)
-    pygame.draw.lines(scarf_surf, (*p["neon_dim"], 120), False, scarf_pts, 1)
-    surface.blit(scarf_surf, (0, 0))
-
-    # ====== 아웃라인 ======
+    # ═══════ 전체 아웃라인 ═══════
     ol_surf = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
     pygame.draw.polygon(ol_surf, p["outline"], hood_pts, 1)
     pygame.draw.polygon(ol_surf, p["outline"], torso_pts, 1)
