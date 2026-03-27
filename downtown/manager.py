@@ -2268,6 +2268,13 @@ class DowntownManager:
                                     _pf.downtown_gold = self.player_data['gold']
                                 except Exception:
                                     pass
+                                # 골드 차감 애니메이션 + 효과음
+                                interior._add_gold_float_animation(admission_fee, is_gain=False)
+                                if interior.trade_sound:
+                                    try:
+                                        interior.trade_sound.play()
+                                    except Exception:
+                                        pass
                                 show_entry_dialog = False
                                 show_tutorial_dialog = True  # 튜토리얼 확인 다이얼로그 표시
 
@@ -2393,6 +2400,9 @@ class DowntownManager:
                 # 문 출구로 나가기 체크
                 if interior.exit_requested:
                     running = False
+            else:
+                # 다이얼로그 중에도 골드 변동 애니메이션 업데이트
+                interior._update_gold_float_animations(dt)
 
             # 그리기
             interior.draw(self.screen)
@@ -2400,6 +2410,8 @@ class DowntownManager:
             if show_tutorial_dialog:
                 # 튜토리얼 확인 다이얼로그
                 self._draw_tutorial_confirm_dialog()
+                # 다이얼로그 위에 골드 변동 애니메이션 표시
+                interior._draw_gold_float_animations(self.screen)
             elif show_entry_dialog:
                 # 입장 확인 다이얼로그
                 self._draw_colosseum_entry_dialog(player_gold, admission_fee)
