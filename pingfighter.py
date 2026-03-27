@@ -138373,6 +138373,11 @@ def handle_ball():
     ball_offscreen_hidden = BALL.centerx < -50 or BALL.centery < -50
     # 👁 오딘의 눈 변신 상태(penalty_active)에서도 플레이어 득점은 정상 처리
     # (변신 상태의 페널티는 이동/대쉬 제한만 적용, 득점 차단은 하지 않음)
+    # [DEBUG] 공이 상단 밖인데 득점이 안 되는 경우 디버그
+    if BALL.top <= 0 and (ball_in_kuromi or odins_eye_anim_blocking_score or ball_offscreen_hidden or is_waiting_for_serve or web_rescue_active):
+        print(f"[BALL-DEBUG] 공 상단 밖(top={BALL.top}, cy={BALL.centery}) 득점 차단! "
+              f"kuromi={ball_in_kuromi}, odin={odins_eye_anim_blocking_score}, "
+              f"offscreen={ball_offscreen_hidden}, serve_wait={is_waiting_for_serve}, web={web_rescue_active}")
     if BALL.top <= 0 and not ball_in_kuromi and not odins_eye_anim_blocking_score and not ball_offscreen_hidden and not is_waiting_for_serve and not web_rescue_active:
         # 튜토리얼 모드(스테이지 50)에서는 점수 계산하지 않고 단순히 튕김
         if current_stage == 50:
