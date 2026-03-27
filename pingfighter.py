@@ -70234,6 +70234,12 @@ def handle_player(keys):
             if rolling_timer_value <= 0:
                 # 구르기 종료, 통제 불가능 상태 시작
                 _rolling_set("rolling_active", False)
+                # 소울버스트 대쉬 종료
+                try:
+                    from item_effects.soul_burst import end_soul_dash
+                    end_soul_dash()
+                except Exception:
+                    pass
                 # 🌑 오딘의 눈 대쉬 다이브: 대쉬 종료 → 솟아오르기
                 try:
                     if _du_oe and (_du_oe.odin_dash_underground_phase or _du_oe.odin_dash_sink_phase):
@@ -71416,13 +71422,8 @@ def handle_player(keys):
                     _sb_inst = _get_sb()
                     if _sb_inst and _sb_inst.active and _sb_inst.can_soul_dash(special_gauge):
                         _soul_burst_can_dash = True
-                    elif _sb_inst:
-                        if not _sb_inst.active:
-                            print(f"[SOUL_BURST_CHECK] 비활성 상태 (active=False)")
-                        elif not _sb_inst.can_soul_dash(special_gauge):
-                            print(f"[SOUL_BURST_CHECK] 게이지 부족: {special_gauge} < {_sb_inst.gauge_cost}")
-                except Exception as _sb_chk_err:
-                    print(f"[SOUL_BURST_CHECK] 체크 에러: {_sb_chk_err}")
+                except Exception:
+                    pass
             _has_token_or_unlimited = rolling_charges > 0 or is_dash_unlimited() or _soul_burst_can_dash
 
             if _has_token_or_unlimited and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
@@ -71901,17 +71902,17 @@ def handle_player(keys):
                                 special_ready = special_gauge >= 350
                                 _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
                                 _sb_triggered = True
-                                print(f"[SOUL_BURST_DEBUG] 좌측대쉬 게이지소모 성공! cost={_sb_cost}, remaining={special_gauge}")
+                                pass  # 좌측 소울버스트 게이지 소모 성공
                             except Exception as _sb_err:
-                                print(f"[SOUL_BURST_DEBUG] 좌측대쉬 게이지소모 실패: {_sb_err}")
+                                pass
                             # 소울버스트 보라색 에너지 방출 이펙트 (별도 try)
                             if _sb_triggered:
                                 try:
                                     from item_effects.soul_burst import trigger_soul_burst_effect
                                     trigger_soul_burst_effect(PLAYER.centerx, PLAYER.centery, -1)
-                                    print(f"[SOUL_BURST_DEBUG] 좌측 이펙트 트리거 성공! pos=({PLAYER.centerx}, {PLAYER.centery})")
+                                    pass  # 좌측 이펙트 트리거 성공
                                 except Exception as _fx_err:
-                                    print(f"[SOUL_BURST_DEBUG] 좌측 이펙트 트리거 실패: {_fx_err}")
+                                    pass
                         else:
                             # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
                             if 'token_states' in globals() and len(token_states) > 0:
@@ -72190,14 +72191,14 @@ def handle_player(keys):
                                 special_ready = special_gauge >= 350
                                 _soul_burst_can_dash = _sb_r.can_soul_dash(special_gauge)
                                 _sb_ok_r = True
-                                print(f"[SOUL_BURST_DEBUG] 우측대쉬 게이지소모 성공! cost={_sb_cost_r}, remaining={special_gauge}")
+                                pass  # 우측 소울버스트 게이지 소모 성공
                             except Exception as _sb_err_r:
-                                print(f"[SOUL_BURST_DEBUG] 우측대쉬 게이지소모 실패: {_sb_err_r}")
+                                pass
                             if _sb_ok_r:
                                 try:
                                     from item_effects.soul_burst import trigger_soul_burst_effect as _tsbfx_r
                                     _tsbfx_r(PLAYER.centerx, PLAYER.centery, 1)
-                                    print(f"[SOUL_BURST_DEBUG] 우측 이펙트 트리거 성공!")
+                                    pass  # 우측 이펙트 트리거 성공
                                 except Exception as _fx_err_r:
                                     print(f"[SOUL_BURST_DEBUG] 우측 이펙트 트리거 실패: {_fx_err_r}")
                         else:
@@ -104683,6 +104684,8 @@ def draw_objects():
     scale_ratio = skill_boosted_width / PADDLE_BASE_WIDTH
     #  거대화포션 효과 적용 (점진적 크기 변화) - PADDLE_WIDTH에 미포함
     scale_ratio *= long_boost_scale
+    #  기묘한 약병 효과 적용 (점진적 크기 변화)
+    scale_ratio *= strange_vial_scale
 
     #  악마의 주사위 패들 크기 배율 적용
     from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
@@ -104947,6 +104950,16 @@ def draw_objects():
         afterimage_y = PLAYER.centery
         # 잔상 이미지 생성 (현재 회전된 이미지 복사)
         afterimage = rotated_player.copy()
+        # 소울버스트 대쉬: 잔상에 보라빛 틴트 + 바람 파티클
+        _is_soul_dash = False
+        try:
+            from item_effects.soul_burst import is_soul_dash_active, apply_purple_tint, spawn_wind_trail
+            _is_soul_dash = is_soul_dash_active()
+            if _is_soul_dash:
+                afterimage = apply_purple_tint(afterimage)
+                spawn_wind_trail(afterimage_x, afterimage_y)
+        except Exception:
+            pass
         # 잔상 투명도 설정 (대쉬 진행도에 따라 조절)
         alpha = min(THREE_SECONDS_FRAMES, int(THREE_SECONDS_FRAMES * (rolling_timer / 15)))  # 최대 THREE_SECONDS_FRAMES 투명도
         # 잔상 리스트에 추가 (최대 5개 유지)
