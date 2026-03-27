@@ -50289,6 +50289,13 @@ def _start_smasher_dash_combo_grace(reason="dash"):
 def update_smasher_combo_effect():
     """스매셔 콤보 이펙트 업데이트 (매 프레임 호출)"""
     global smasher_combo_effect_timer, smasher_combo_effect_active, smasher_combo_particles
+    global smasher_dash_combo_grace_timer, smasher_dash_combo_grace_count
+
+    # ⚡ 대쉬→스킬 연계 유예 타이머 감소
+    if smasher_dash_combo_grace_timer > 0:
+        smasher_dash_combo_grace_timer -= 1
+        if smasher_dash_combo_grace_timer <= 0:
+            smasher_dash_combo_grace_count = 0  # 유예 만료 → 콤보 소멸
 
     # 이펙트 타이머 감소
     if smasher_combo_effect_timer > 0:
@@ -66897,6 +66904,7 @@ def handle_player(keys):
     global smasher_power_recoil_pending_dir, smasher_power_recoil_stun_pending
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보 시스템
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
+    global smasher_dash_combo_grace_timer, smasher_dash_combo_grace_count  # ⚡ 대쉬 연계 유예
     # ⚡ 스매셔 플라즈마 자기장 스킬 변수
     global plasma_field_charging, plasma_field_charge_time, plasma_field_charge_start_time
     global plasma_field_gauge_consumed, plasma_field_size, plasma_field_particles
@@ -132393,6 +132401,8 @@ def reset_round(is_stage_start=False):
     smasher_combo_count = 0
     smasher_combo_effect_active = False
     smasher_combo_effect_timer = 0
+    smasher_dash_combo_grace_timer = 0
+    smasher_dash_combo_grace_count = 0
 
     # 🛡 역경의 갑옷: 라운드 시작 시 예약된 무적 발동
     try:
@@ -134028,8 +134038,12 @@ def calculate_bounce(paddle):
             _drive_base_spin_cap = 0.6  # 기본 커브 상한 (비스매셔)
             _drive_base_speed_coeff = 0.015  # 공속 비례 커브 계수 (비스매셔)
             if selected_character_type == "smasher":
-                if smasher_combo_count >= 2:
-                    _drive_combo_used = smasher_combo_count
+                # ⚡ 대쉬→드라이브 연계: 현재 콤보 또는 유예 콤보 중 높은 값 사용
+                _effective_combo = smasher_combo_count
+                if smasher_dash_combo_grace_timer > 0 and smasher_dash_combo_grace_count > _effective_combo:
+                    _effective_combo = smasher_dash_combo_grace_count
+                if _effective_combo >= 2:
+                    _drive_combo_used = _effective_combo
                     _drive_combo_spin_bonus = min(_drive_combo_used * 0.08, 0.48)  # 콤보당 +0.08, 최대 +0.48
                     _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * 0.012, 0.072)  # 콤보당 +1.2%, 최대 +7.2%
                     _drive_particle_count = 8 + _drive_combo_used * 4
@@ -135374,6 +135388,7 @@ def handle_ball():
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
+    global smasher_dash_combo_grace_timer, smasher_dash_combo_grace_count  # ⚡ 대쉬 연계 유예
     global cleanse_counter_window
     # 블랙스미스 해머쇼크 관련
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
@@ -136066,9 +136081,9 @@ def handle_ball():
                     # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
-                    # ⚡ 대쉬 시 스매셔 콤보 초기화 (위험감지센서 자동 대쉬 포함)
+                    # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period, 센서 대쉬 포함)
                     if selected_character_type == "smasher" or ai_mode == "junior":
-                        _reset_smasher_combo("dash_sensor")
+                        _start_smasher_dash_combo_grace("dash_sensor")
                     # 포승줄 포박 중 대쉬 → 즉시 끊어짐 (인라인)
                     if arrest_rope_phase == "bound":
                         arrest_rope_phase = "releasing"
@@ -150590,8 +150605,12 @@ def main(stage_num, new_boss_mode=False):
                     if not mega_smashing_active:
                         special_active = True
                     # ⚡ 스매셔 콤보 소모 (파워스매싱 발동 시 저장 → 발사 시 강화 적용)
-                    if selected_character_type == "smasher" and smasher_combo_count >= 2:
-                        power_smashing_combo_consumed = smasher_combo_count
+                    # 대쉬→파워스매싱 연계: 현재 콤보 또는 유예 콤보 중 높은 값 사용
+                    _ps_effective_combo = smasher_combo_count
+                    if selected_character_type == "smasher" and smasher_dash_combo_grace_timer > 0 and smasher_dash_combo_grace_count > _ps_effective_combo:
+                        _ps_effective_combo = smasher_dash_combo_grace_count
+                    if selected_character_type == "smasher" and _ps_effective_combo >= 2:
+                        power_smashing_combo_consumed = _ps_effective_combo
                         _reset_smasher_combo("consumed_by_power_smash")
                     else:
                         power_smashing_combo_consumed = 0
