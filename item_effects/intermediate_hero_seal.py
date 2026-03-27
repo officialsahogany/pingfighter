@@ -1,6 +1,6 @@
 """~의 중급인장 (Intermediate Hero Seal) - 액티브 아이템
 
-사용 시 해당 영웅이 임시 호위무사로 소환되어 한 스테이지 동안 도와준 뒤 떠남.
+사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 도와준 뒤 떠남.
 투기장 4강 승리 보상으로 획득 가능.
 정식 인장(hero_seal)의 중간 등급 버전.
 """
@@ -35,17 +35,19 @@ INTERMEDIATE_SEAL_HEROES = {
 }
 
 # 중급인장 전용 등장 대사
+INTERMEDIATE_SEAL_STAGES = 2  # 중급인장 지속 스테이지 수
+
 INTERMEDIATE_SEAL_ENTRANCE_LINES = {
     "hero_lines": [
-        "중급인장이군... 이번 전투는 함께하지.",
-        "한 스테이지 동안은 내가 지켜주마.",
-        "인장의 힘이 제법이군. 끝까지 함께하겠다.",
-        "이 스테이지가 끝날 때까지... 맡겨라.",
+        "중급인장이군... 두 전투 동안은 함께하지.",
+        "2스테이지 동안은 내가 지켜주마.",
+        "인장의 힘이 제법이군. 당분간 함께하겠다.",
+        "다음 스테이지까지... 맡겨라.",
     ],
     "guard_lines": [
-        "이번 스테이지, 함께 싸우겠습니다.",
+        "2스테이지 동안, 함께 싸우겠습니다.",
         "중급인장의 계약... 끝까지 지키겠습니다.",
-        "스테이지가 끝나면 떠나야 하지만, 최선을 다합니다.",
+        "두 번의 전투가 끝나면 떠나야 하지만, 최선을 다합니다.",
         "호위 임무, 시작합니다.",
     ],
 }
@@ -55,33 +57,37 @@ INTERMEDIATE_SEAL_ENTRANCE_LINES = {
 # 중급인장 상태 관리
 # ============================================================================
 class IntermediateHeroSealState:
-    """중급인장 임시 호위무사 상태 (1스테이지 지속)"""
+    """중급인장 임시 호위무사 상태 (2스테이지 지속)"""
 
     def __init__(self):
         self.active = False
         self.hero_id = None
         self.hero_name = None
         self._stage_snapshot = None     # 발동 시점의 스테이지 번호
+        self._stages_remaining = 0     # 남은 스테이지 수
         self._bodyguard_ref = None      # InGameBodyguard 인스턴스 참조
 
     def activate(self, hero_id: str, current_stage: int):
-        """중급인장 발동 - 임시 호위무사 소환 (1스테이지)"""
+        """중급인장 발동 - 임시 호위무사 소환 (2스테이지)"""
         self.active = True
         self.hero_id = hero_id
         hero_info = INTERMEDIATE_SEAL_HEROES.get(hero_id, {})
         self.hero_name = hero_info.get("name", hero_id)
         self._stage_snapshot = current_stage
+        self._stages_remaining = INTERMEDIATE_SEAL_STAGES
         print(f"[IntermediateSeal] {self.hero_name}의 중급인장 발동! "
-              f"스테이지 {current_stage} 동안 호위")
+              f"{self._stages_remaining}스테이지 동안 호위 (시작: 스테이지 {current_stage})")
 
     def check_stage_change(self, current_stage: int) -> bool:
         """스테이지 변경 체크. 호위무사가 떠나야 하면 True 반환."""
         if not self.active:
             return False
 
-        if current_stage != self._stage_snapshot:
+        stages_passed = abs(current_stage - self._stage_snapshot)
+        if stages_passed >= self._stages_remaining:
             print(f"[IntermediateSeal] {self.hero_name}의 중급인장 만료! "
-                  f"(스테이지 {self._stage_snapshot} → {current_stage})")
+                  f"(스테이지 {self._stage_snapshot} → {current_stage}, "
+                  f"{stages_passed}스테이지 경과)")
             self.deactivate()
             return True
         return False
@@ -95,6 +101,7 @@ class IntermediateHeroSealState:
         self.hero_id = None
         self.hero_name = None
         self._stage_snapshot = None
+        self._stages_remaining = 0
         self._bodyguard_ref = None
 
     def reset(self):

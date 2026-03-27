@@ -15421,9 +15421,9 @@ class ColosseumsArena:
             # 인장 설명
             if self.fonts and "small" in self.fonts:
                 if seal_grade == "초급":
-                    desc = "사용 시 호위무사가 3라운드 동안 함께 싸웁니다"
+                    desc = "사용 시 호위무사가 1스테이지 동안 함께 싸웁니다"
                 else:
-                    desc = "사용 시 호위무사가 한 스테이지 동안 함께 싸웁니다"
+                    desc = "사용 시 호위무사가 2스테이지 동안 함께 싸웁니다"
                 surf, _ = self.fonts["small"].render(desc, ET["text_body"])
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 230))
 

@@ -55960,7 +55960,7 @@ def apply_effect(effect_name, item_data=None):
             return False
         # 투척 준비 동작 시작
         activate_soap()
-    elif effect_name == "minor_hero_seal":  # 초급인장 - 임시 호위무사 3라운드
+    elif effect_name == "minor_hero_seal":  # 초급인장 - 임시 호위무사 1스테이지
         try:
             from item_effects.minor_hero_seal import get_minor_seal_state
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -55969,7 +55969,7 @@ def apply_effect(effect_name, item_data=None):
             hero_name = item_data.get("hero_name", "???") if item_data else "???"
             hero_color = item_data.get("hero_color", (200, 200, 200)) if item_data else (200, 200, 200)
             skill_idx = item_data.get("hero_skill_index", 0) if item_data else 0
-            seal_state.activate(hero_id, round_wins, round_losses)
+            seal_state.activate(hero_id, current_stage)
             # 빈 호위무사 슬롯에 배치
             _bg = get_bodyguard()
             _bg2 = get_bodyguard2()
@@ -55980,10 +55980,10 @@ def apply_effect(effect_name, item_data=None):
                 target_bg.setup(_hero_data, skill_selections=_skill_sel, first_spawn=True)
                 seal_state._bodyguard_ref = target_bg
             play_active_item_sound()
-            print(f"📜 {hero_name}의 초급인장 발동! 3라운드 동안 호위무사가 함께합니다")
+            print(f"📜 {hero_name}의 초급인장 발동! 이번 스테이지 동안 호위무사가 함께합니다")
         except Exception as e:
             print(f"[MinorSeal] 발동 실패: {e}")
-    elif effect_name == "intermediate_hero_seal":  # 중급인장 - 임시 호위무사 1스테이지
+    elif effect_name == "intermediate_hero_seal":  # 중급인장 - 임시 호위무사 2스테이지
         try:
             from item_effects.intermediate_hero_seal import get_intermediate_seal_state
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -56003,7 +56003,7 @@ def apply_effect(effect_name, item_data=None):
                 target_bg.setup(_hero_data, skill_selections=_skill_sel, first_spawn=True)
                 seal_state._bodyguard_ref = target_bg
             play_active_item_sound()
-            print(f"📜 {hero_name}의 중급인장 발동! 이번 스테이지 동안 호위무사가 함께합니다")
+            print(f"📜 {hero_name}의 중급인장 발동! 2스테이지 동안 호위무사가 함께합니다")
         except Exception as e:
             print(f"[IntermediateSeal] 발동 실패: {e}")
     elif effect_name == "regeneration_potion":  # 🧪 재생물약 액티브 아이템
@@ -138562,15 +138562,6 @@ def handle_ball():
                 print(f"[PANDORA DEBUG] 선택지 생성 예외: {e}")
                 import traceback; traceback.print_exc()
 
-            # 초급인장 라운드 만료 체크
-            try:
-                from item_effects.minor_hero_seal import get_minor_seal_state
-                _minor_seal = get_minor_seal_state()
-                if _minor_seal.active and _minor_seal.check_round_change(round_wins, round_losses):
-                    print(f"[MinorSeal] 호위무사 퇴장!")
-            except Exception:
-                pass
-
             # 스테이지 1: 관중 흥분 트리거
             if current_stage == 1 and pillar_renderer is not None:
                 pillar_renderer.trigger_stadium_excitement(1.8)
@@ -139711,14 +139702,6 @@ def handle_ball():
                                 print(f"🛡 역경의 갑옷: 무적 발동 예약! (다음 라운드 {aa.invincible_duration_sec}초간 무적)")
             except Exception as e:
                 print(f"🛡 역경의 갑옷 발동 체크 오류: {e}")
-            # 초급인장 라운드 만료 체크 (실점 시에도)
-            try:
-                from item_effects.minor_hero_seal import get_minor_seal_state
-                _minor_seal = get_minor_seal_state()
-                if _minor_seal.active and _minor_seal.check_round_change(round_wins, round_losses):
-                    print(f"[MinorSeal] 호위무사 퇴장!")
-            except Exception:
-                pass
 
             # 🔧 플레이어가 죽었을 때 대시 상태 완전 초기화 (다음 라운드 버그 방지)
             rolling_active = False
@@ -147046,13 +147029,27 @@ def show_result(won):
         except Exception:
             pass
 
+        # 초급인장 스테이지 만료 체크 (승리 화면 전에 호위무사 강제 제거)
+        try:
+            from item_effects.minor_hero_seal import get_minor_seal_state
+            _minor_seal = get_minor_seal_state()
+            if _minor_seal.active:
+                # 다음 스테이지로 넘어가므로 check_stage_change에 next_stage 전달
+                _next_stage = current_stage + 1
+                if _minor_seal.check_stage_change(_next_stage):
+                    print(f"[MinorSeal] 스테이지 클리어 → 호위무사 퇴장!")
+        except Exception:
+            pass
+
         # 중급인장 스테이지 만료 체크 (승리 화면 전에 호위무사 강제 제거)
         try:
             from item_effects.intermediate_hero_seal import get_intermediate_seal_state
             _inter_seal = get_intermediate_seal_state()
             if _inter_seal.active:
-                print(f"[IntermediateSeal] 스테이지 클리어 → 호위무사 퇴장!")
-                _inter_seal.deactivate()
+                # 다음 스테이지로 넘어가므로 check_stage_change에 next_stage 전달
+                _next_stage = current_stage + 1
+                if _inter_seal.check_stage_change(_next_stage):
+                    print(f"[IntermediateSeal] 스테이지 클리어 → 호위무사 퇴장!")
         except Exception:
             pass
 
@@ -160975,8 +160972,8 @@ def get_item_description(item_name):
         "boomerang": "부메랑: 보스 방향으로 부메랑을 던져 넉백+스턴을 겁니다. 부메랑이 돌아오면서 경로에 있는 필드 아이템을 자동으로 회수합니다. 공에 닿으면 부메랑이 파괴됩니다.",
         "soap": "비누: 보스 진영에 비누를 던집니다. 보스가 밟으면 3초간 미끄러움 디버프가 발동되어 관성으로 미끄러지며 방향전환이 매우 어려워집니다. 좌우 왕복 공격에 취약해집니다.",
         "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 선택지 품질 10~30% (희귀 아이템 출현 확률 상승)",
-        "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 3라운드 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
-        "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 한 스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
+        "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
+        "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
