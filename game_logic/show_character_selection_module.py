@@ -114,6 +114,18 @@ def show_character_selection():
             "card_color": (255, 255, 0),  # 네온 옐로우
             "glow_color": (255, 255, 100),
             "card_suit": "◆"
+        },
+        {
+            "id": "viper",
+            "name": "바이퍼",
+            "description": "빠른 연속 슬래시로 적을 베어내는\n사이버 어쌔신.",
+            "image": "viper.png",
+            "stats": {"속도": 7, "파워": 5, "방어": 3},
+            "special": "⚔ 플라즈마 블레이드 전용 스킬트리",
+            "unlocked": True,
+            "card_color": (160, 0, 255),  # 네온 퍼플
+            "glow_color": (180, 50, 255),
+            "card_suit": "◆"
         }
     ]
     
