@@ -144363,53 +144363,56 @@ def _process_bazooka_collisions():
             apply_health_boss_damage(2, source="bazooka")
 
 def _handle_boss_with_soap_debuff():
-    """비누 디버프: 빙판 위 느낌 — 브레이크 안 걸리고, 방향전환 시 천천히 가속.
+    """비누 디버프: 관성 블렌딩 방식.
 
-    - 감속(DECELERATION) 88% 감소 → 관성으로 계속 밀림 (브레이크 못 걸음)
-    - 가속(ACCELERATION) 방향전환 직후 90% 감소 → 1.5초에 걸쳐 55%까지 회복
-    - 즉시정지(INSTANT_STOP) 거의 불가능 → 오버슈팅
+    AI를 정상 실행한 뒤, 결과를 관성(이전 속도)과 블렌딩한다.
+    AI 의도 12%만 반영 → 나머지 88%는 이전 속도로 계속 밀림.
+    보스가 움직이려 하지만 미끄러워서 마음대로 안 되는 느낌.
     """
-    global boss_current_speed, BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_INSTANT_STOP_DECELERATION, BOSS_MAX_SPEED
+    global boss_current_speed, BOSS
     try:
         from item_effects.soap import get_soap_instance
         soap_inst = get_soap_instance()
         if soap_inst.is_boss_soaped():
-            accel_mult = soap_inst.get_accel_multiplier()  # 0.08 ~ 0.45 (램프업)
-            decel_mult = soap_inst.get_decel_multiplier()  # 0.12 (고정)
-            maxspd_mult = soap_inst.get_max_speed_multiplier()  # 0.55
-            # 원본 저장
-            orig_accel = BOSS_ACCELERATION
-            orig_decel = BOSS_DECELERATION
-            orig_instant = BOSS_INSTANT_STOP_DECELERATION
-            orig_maxspd = BOSS_MAX_SPEED
-            speed_before = boss_current_speed
-            # 가속: 방향전환 직후 거의 0, 서서히 증가
-            BOSS_ACCELERATION *= accel_mult
-            # 감속: 거의 안 걸림 (관성 유지)
-            BOSS_DECELERATION *= decel_mult
-            # 즉시정지: 거의 불가능
-            BOSS_INSTANT_STOP_DECELERATION *= decel_mult
-            # 최대 속도: 풀속도 질주 방지
-            BOSS_MAX_SPEED *= maxspd_mult
-            # 현재 속도도 최대속도 이내로 클램프
-            clamped_max = BOSS_MAX_SPEED
-            if boss_current_speed > clamped_max:
-                boss_current_speed = clamped_max
-            elif boss_current_speed < -clamped_max:
-                boss_current_speed = -clamped_max
-            try:
-                handle_boss()
-            finally:
-                BOSS_ACCELERATION = orig_accel
-                BOSS_DECELERATION = orig_decel
-                BOSS_INSTANT_STOP_DECELERATION = orig_instant
-                BOSS_MAX_SPEED = orig_maxspd
-            # 디버그: 속도 변화 추적 (매 30프레임)
+            # ── 1. AI 실행 전 상태 저장 ──
+            old_x = float(BOSS.x)
+            old_speed = float(boss_current_speed)
+
+            # ── 2. AI 정상 실행 (보스가 원하는 대로 움직임) ──
+            handle_boss()
+
+            # ── 3. AI 결과 vs 관성 블렌딩 ──
+            ai_speed = boss_current_speed       # AI가 결정한 속도
+            ai_x = float(BOSS.x)                # AI가 결정한 위치
+
+            # 관성 위치 (이전 속도로 그냥 밀렸을 때)
+            momentum_x = old_x + old_speed
+
+            # 블렌드 비율: AI 의도를 얼마나 반영할지
+            blend = soap_inst.get_blend_factor()  # 0.12 (12%만 AI, 88% 관성)
+
+            # 속도 블렌딩
+            boss_current_speed = old_speed + (ai_speed - old_speed) * blend
+
+            # 위치 블렌딩
+            BOSS.x = momentum_x + (ai_x - momentum_x) * blend
+
+            # 약간의 마찰 (서서히 감속, 영원히 밀리지 않도록)
+            boss_current_speed *= soap_inst.get_friction()  # 0.985
+
+            # 경계 처리 + 벽에 부딪히면 속도 반감
+            if BOSS.x < 0:
+                BOSS.x = 0
+                boss_current_speed = abs(boss_current_speed) * 0.3
+            elif BOSS.x > WIDTH - BOSS.width:
+                BOSS.x = WIDTH - BOSS.width
+                boss_current_speed = -abs(boss_current_speed) * 0.3
+
+            # 디버그 (매 30프레임)
             if soap_inst.boss_soap_timer % 30 == 0:
-                print(f"[Soap BOSS] speed: {speed_before:.2f} → {boss_current_speed:.2f} | "
-                      f"MAX_SPD={orig_maxspd:.1f}*{maxspd_mult:.2f}={clamped_max:.2f} | "
-                      f"ACCEL={orig_accel:.3f}*{accel_mult:.2f}={orig_accel*accel_mult:.4f} | "
-                      f"DECEL={orig_decel:.3f}*{decel_mult:.2f}={orig_decel*decel_mult:.4f}")
+                print(f"[Soap] spd: {old_speed:.1f}→{boss_current_speed:.1f} | "
+                      f"pos: {old_x:.0f}→{BOSS.x:.0f} (AI wanted {ai_x:.0f}) | "
+                      f"blend={blend:.2f} remain={soap_inst.boss_soap_timer/60:.1f}s")
             return
     except Exception:
         pass
@@ -155537,10 +155540,7 @@ def main(stage_num, new_boss_mode=False):
                 from item_effects.soap import get_soap_instance
                 soap_inst_update = get_soap_instance()
                 boss_rect_for_soap = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height) if BOSS else None
-                # boss_current_speed 기반 방향 전달 (임계값 높여서 미세진동 무시)
-                _soap_thresh = soap_inst_update.DIR_CHANGE_THRESHOLD if soap_inst_update.is_boss_soaped() else 0.5
-                _soap_dir = 1 if boss_current_speed > _soap_thresh else (-1 if boss_current_speed < -_soap_thresh else 0)
-                soap_inst_update.update(boss_rect_for_soap, WIDTH, _soap_dir)
+                soap_inst_update.update(boss_rect_for_soap, WIDTH, 0)
 
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
