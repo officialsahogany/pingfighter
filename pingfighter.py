@@ -11901,6 +11901,73 @@ SOLDIER_EXCLUSIVE_SKILLS = {
     },
 }
 
+# Viper exclusive skills (사이버 어쌔신 전용 스킬트리)
+VIPER_EXCLUSIVE_SKILLS = {
+    "plasma_edge": {
+        "name": "플라즈마 엣지",
+        "max_level": 5,
+        "descriptions": {
+            1: "타격 시 15% 확률로 슬래시 잔상 (추가 데미지)",
+            2: "타격 시 25% 확률로 슬래시 잔상",
+            3: "타격 시 35% 확률로 슬래시 잔상",
+            4: "타격 시 45% 확률로 슬래시 잔상",
+            5: "타격 시 55% 확률로 슬래시 잔상",
+        },
+        "detail": "공을 칠 때 확률적으로 플라즈마 슬래시 잔상이 발생하여 공 속도가 20% 증가합니다.",
+        "icon_color": (160, 0, 255),
+        "tree": "viper",
+        "character_restriction": "viper"
+    },
+    "phantom_chain": {
+        "name": "팬텀 체인",
+        "max_level": 5,
+        "descriptions": {
+            1: "대쉬 후 0.5초간 이동속도 20% 증가",
+            2: "대쉬 후 0.7초간 이동속도 25% 증가",
+            3: "대쉬 후 0.9초간 이동속도 30% 증가",
+            4: "대쉬 후 1.1초간 이동속도 35% 증가",
+            5: "대쉬 후 1.3초간 이동속도 40% 증가",
+        },
+        "detail": "대쉬 종료 후 잔상과 함께 일정 시간 이동속도가 증가합니다.",
+        "icon_color": (120, 0, 200),
+        "tree": "viper",
+        "character_restriction": "viper"
+    },
+    "unlock_blade_rush": {
+        "name": "블레이드 러쉬 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "블레이드 러쉬 스킬 해금",
+        },
+        "detail": "게이지 스킬 '블레이드 러쉬'를 해금합니다. W키로 게이지 50을 소모해 전방에 3연속 플라즈마 베기를 발사합니다.",
+        "icon_color": (200, 50, 255),
+        "tree": "viper_unlock",
+        "character_restriction": "viper"
+    },
+    "unlock_shadow_step": {
+        "name": "쉐도우 스텝 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "쉐도우 스텝 스킬 해금",
+        },
+        "detail": "게이지 스킬 '쉐도우 스텝'을 해금합니다. 대쉬 직후 W키를 누르면 잔상을 남기고 반대 방향으로 순간이동합니다.",
+        "icon_color": (100, 0, 180),
+        "tree": "viper_unlock",
+        "character_restriction": "viper"
+    },
+    "unlock_nerve_strike": {
+        "name": "신경 타격 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "신경 타격 스킬 해금",
+        },
+        "detail": "게이지 스킬 '신경 타격'을 해금합니다. W키로 게이지 30을 소모해 다음 타격에 0.5초 스턴 효과를 부여합니다.",
+        "icon_color": (180, 0, 220),
+        "tree": "viper_unlock",
+        "character_restriction": "viper"
+    },
+}
+
 # 코만도 화기류 해금 플래그 (런타임 스킬로 해금됨)
 soldier_weapon_unlocks = {
     "net_gun": False,
@@ -13635,6 +13702,28 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
                     "max_level": max_level,
                     "tree": skill_data.get("tree", ""),
                     "character_restriction": "soldier"
+                }
+                available.append(choice)
+
+    # 바이퍼 전용 스킬 추가
+    if character_type == "viper":
+        for skill_id, skill_data in VIPER_EXCLUSIVE_SKILLS.items():
+            current_level = runtime_skill_levels.get(skill_id, 0)
+            max_level = skill_data["max_level"]
+
+            if current_level < max_level:
+                next_level = current_level + 1
+                choice = {
+                    "id": skill_id,
+                    "name": skill_data["name"],
+                    "description": skill_data["descriptions"].get(next_level, ""),
+                    "detail": skill_data.get("detail", ""),
+                    "icon_color": skill_data["icon_color"],
+                    "current_level": current_level,
+                    "next_level": next_level,
+                    "max_level": max_level,
+                    "tree": skill_data.get("tree", ""),
+                    "character_restriction": "viper"
                 }
                 available.append(choice)
 
@@ -17661,7 +17750,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 
         # 보유 스킬 수집
         acquired_skills = []
-        all_skill_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS]
+        all_skill_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS, VIPER_EXCLUSIVE_SKILLS]
         for pool in all_skill_pools:
             for skill_id, skill_data in pool.items():
                 skill_level = runtime_skill_levels.get(skill_id, 0)
@@ -18146,6 +18235,19 @@ def show_all_runtime_skills_menu() -> str | None:
         }
         all_skills.append(skill_info)
 
+    # 바이퍼 전용 스킬
+    for skill_id, skill_data in VIPER_EXCLUSIVE_SKILLS.items():
+        skill_info = {
+            "id": skill_id,
+            "name": skill_data.get("name", skill_id),
+            "icon_color": skill_data.get("icon_color", (160, 0, 255)),
+            "max_level": skill_data.get("max_level", 5),
+            "current_level": runtime_skill_levels.get(skill_id, 0),
+            "descriptions": skill_data.get("descriptions", {}),
+            "category": "바이퍼"
+        }
+        all_skills.append(skill_info)
+
     # 인스턴트 스킬
     for skill_id, skill_data in INSTANT_RUNTIME_SKILLS.items():
         skill_info = {
@@ -18612,7 +18714,7 @@ def show_runtime_skill_status():
     # 획득한 스킬 목록 생성 (레벨이 1 이상인 것만)
     def get_acquired_skills():
         acquired = []
-        all_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS]
+        all_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS, VIPER_EXCLUSIVE_SKILLS]
         for pool in all_pools:
             for skill_id, skill_data in pool.items():
                 level = runtime_skill_levels.get(skill_id, 0)
@@ -49912,6 +50014,14 @@ berserk_potion_timer = 0
 berserk_aura_surface: pygame.Surface | None = None
 BERSERK_AURA_SIZE = (160, 160)
 
+# 기묘한 약병 효과 관련 상수 및 상태
+STRANGE_VIAL_DURATION_FRAMES = 1800  # 30초 지속
+strange_vial_active = False
+strange_vial_timer = 0
+strange_vial_effect_type = None  # "enlarge" 또는 "shrink"
+strange_vial_original_paddle_width = None
+strange_vial_original_player_speed = None
+
 # 병기 단축 선택 UI 설정 (↑/W/ㅈ 입력 시 즉시 HUD, 전환은 마우스 휠/중클릭 전용)
 SOLDIER_WEAPON_MENU_HOLD_FRAMES = 0  # 키를 누르는 즉시 HUD 활성화
 soldier_weapon_hold_frames = 0
@@ -50313,6 +50423,104 @@ def sync_berserk_potion_from_global_manager() -> None:
         gm.set('berserk_potion_refresh', False)
     elif not gm_active and berserk_potion_active:
         deactivate_berserk_potion()
+
+
+def activate_strange_vial(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
+    """기묘한 약병 효과 활성화 - 50% 확률로 거대화 또는 축소"""
+    global strange_vial_active, strange_vial_timer, strange_vial_effect_type
+    global strange_vial_original_paddle_width, strange_vial_original_player_speed
+    global PADDLE_WIDTH, PLAYER_SPEED
+    import random as _sv_random
+
+    frames = duration_frames if duration_frames is not None else STRANGE_VIAL_DURATION_FRAMES
+    frames = max(0, frames)
+
+    # 카페인 스킬 보너스 적용
+    try:
+        import academy
+        caffeine_multiplier = academy.get_caffeine_duration_multiplier()
+        frames = int(frames * caffeine_multiplier)
+    except (ImportError, AttributeError):
+        pass
+    try:
+        runtime_level = runtime_skill_levels.get("item_caffeine", 0)
+        if runtime_level > 0:
+            runtime_bonus = runtime_level * 0.25
+            frames = int(frames * (1 + runtime_bonus))
+    except Exception:
+        pass
+
+    # 이전 효과가 활성 중이면 먼저 복원
+    if strange_vial_active:
+        deactivate_strange_vial(play_sound=False)
+
+    # 원본 값 백업
+    strange_vial_original_paddle_width = PADDLE_WIDTH
+    strange_vial_original_player_speed = PLAYER_SPEED
+
+    # 50% 확률로 효과 결정
+    if _sv_random.random() < 0.5:
+        strange_vial_effect_type = "enlarge"
+        PADDLE_WIDTH = int(strange_vial_original_paddle_width * 2.0)   # 200% 증가
+        PLAYER_SPEED = max(1, int(strange_vial_original_player_speed * 0.4))  # -60% 감소
+    else:
+        strange_vial_effect_type = "shrink"
+        PADDLE_WIDTH = max(20, int(strange_vial_original_paddle_width * 0.5))  # -50% 감소
+        PLAYER_SPEED = int(strange_vial_original_player_speed * 3.0)   # +200% 증가
+
+    strange_vial_active = True
+    strange_vial_timer = frames
+
+    # 가로형 타이머 게이지 등록
+    try:
+        _hg_on_activate('strange_vial')
+    except Exception:
+        pass
+
+    gm = _get_global_manager()
+    gm.set('strange_vial_active', True)
+    gm.set('strange_vial_timer_frames', frames)
+    gm.set('strange_vial_duration_frames', STRANGE_VIAL_DURATION_FRAMES)
+    gm.set('strange_vial_effect_type', strange_vial_effect_type)
+
+    if play_sound:
+        try:
+            play_sound_with_volume(SOUND_DRINK)
+        except Exception:
+            pass
+
+
+def deactivate_strange_vial(*, play_sound: bool = False) -> None:
+    """기묘한 약병 효과 비활성화 및 원본 값 복원"""
+    global strange_vial_active, strange_vial_timer, strange_vial_effect_type
+    global strange_vial_original_paddle_width, strange_vial_original_player_speed
+    global PADDLE_WIDTH, PLAYER_SPEED
+
+    if not strange_vial_active and strange_vial_timer == 0:
+        return
+
+    # 원본 값 복원
+    if strange_vial_original_paddle_width is not None:
+        PADDLE_WIDTH = strange_vial_original_paddle_width
+    if strange_vial_original_player_speed is not None:
+        PLAYER_SPEED = strange_vial_original_player_speed
+
+    strange_vial_active = False
+    strange_vial_timer = 0
+    strange_vial_effect_type = None
+    strange_vial_original_paddle_width = None
+    strange_vial_original_player_speed = None
+
+    # 가로형 타이머 게이지 제거
+    try:
+        _hg_on_deactivate('strange_vial')
+    except Exception:
+        pass
+
+    gm = _get_global_manager()
+    gm.set('strange_vial_active', False)
+    gm.set('strange_vial_timer_frames', 0)
+    gm.set('strange_vial_effect_type', None)
 
 
 def get_blacksmith_construction_speed_multiplier() -> float:
@@ -55885,6 +56093,12 @@ def apply_effect(effect_name, item_data=None):
     elif effect_name == "berserk_potion":  # 광폭물약 액티브 아이템
         activate_berserk_potion()
         print("광폭물약 발동! 15초 동안 건설/업그레이드 속도 3배, 포탑 수동 발사 쿨다운 400% 단축")
+    elif effect_name == "strange_vial":  # 기묘한 약병 액티브 아이템
+        activate_strange_vial()
+        if strange_vial_effect_type == "enlarge":
+            print("기묘한 약병 발동! 거대화: 패들 200% 증가, 이동속도 60% 감소 (30초)")
+        else:
+            print("기묘한 약병 발동! 축소화: 패들 50% 감소, 이동속도 200% 증가 (30초)")
     elif effect_name == "chargebag":  #  충전가방 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
         # 충전가방은 store_passive_item에서 처리됨
         pass
@@ -69560,6 +69774,17 @@ def handle_player(keys):
     if berserk_potion_active:
         _get_global_manager().set('berserk_potion_timer_frames', berserk_potion_timer)
 
+    # 기묘한 약병 타이머 업데이트
+    if strange_vial_active:
+        if strange_vial_timer > 0:
+            strange_vial_timer -= 1
+            if strange_vial_timer <= 0:
+                deactivate_strange_vial()
+        else:
+            deactivate_strange_vial()
+    if strange_vial_active:
+        _get_global_manager().set('strange_vial_timer_frames', strange_vial_timer)
+
     # === 킥차져 게이지 충전 애니메이션 타이머 ===
     global gauge_charge_animation_timer
     if gauge_charge_animation_timer > 0:
@@ -71313,8 +71538,10 @@ def handle_player(keys):
                                 special_ready = special_gauge >= 350
                                 if hasattr(game_state, 'special_gauge'):
                                     game_state.special_gauge = special_gauge
-                                # 소울버스트 사용 후 재체크
                                 _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
+                                # 소울버스트 보라색 에너지 방출 이펙트
+                                from item_effects.soul_burst import trigger_soul_burst_effect
+                                trigger_soul_burst_effect(PLAYER.centerx, PLAYER.centery, -1)
                             except Exception:
                                 pass
                         else:
@@ -71594,6 +71821,8 @@ def handle_player(keys):
                                 if hasattr(game_state, 'special_gauge'):
                                     game_state.special_gauge = special_gauge
                                 _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
+                                from item_effects.soul_burst import trigger_soul_burst_effect as _tsbfx2
+                                _tsbfx2(PLAYER.centerx, PLAYER.centery, 1)
                             except Exception:
                                 pass
                         else:
@@ -96315,6 +96544,116 @@ def draw_player_gauge():
         # 비활성화 시 스택에서 제거
         _hg_on_deactivate('laser_scope')
 
+    # 기묘한 약병 가로형 타이머 게이지
+    sv_gauge_active = strange_vial_active and strange_vial_timer > 0
+    if sv_gauge_active:
+        sv_width = 150
+        sv_height = 12
+        sv_base_x = WIDTH - sv_width - 16
+        sv_base_y = HEIGHT - 28
+        sv_idx = _hg_index('strange_vial')
+        if sv_idx < 0:
+            _hg_on_activate('strange_vial')
+            sv_idx = _hg_index('strange_vial')
+        sv_spacing = 18
+        sv_x = sv_base_x
+        sv_y = sv_base_y - max(0, sv_idx) * sv_spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, sv_y)
+
+        sv_ratio = strange_vial_timer / max(1, STRANGE_VIAL_DURATION_FRAMES)
+        sv_remaining = strange_vial_timer / 60.0
+
+        sv_outer = pygame.Rect(sv_x - 5, sv_y - 6, sv_width + 10, sv_height + 12)
+        sv_mid = pygame.Rect(sv_x - 3, sv_y - 4, sv_width + 6, sv_height + 8)
+        sv_frame = pygame.Rect(sv_x - 2, sv_y - 2, sv_width + 4, sv_height + 4)
+        sv_inner = pygame.Rect(sv_x, sv_y, sv_width, sv_height)
+
+        sv_shadow = pygame.Surface((sv_outer.width, sv_outer.height), pygame.SRCALPHA)
+        pygame.draw.rect(sv_shadow, (0, 0, 0, 70), sv_shadow.get_rect(), border_radius=8)
+        SCREEN.blit(sv_shadow, (sv_outer.x, sv_outer.y))
+
+        # 보라+초록 프레임 (기묘한 테마)
+        if strange_vial_effect_type == "enlarge":
+            frame_col = (80, 30, 120)
+            mid_col = (140, 60, 180)
+            border_col = (180, 100, 220)
+        else:
+            frame_col = (20, 80, 40)
+            mid_col = (40, 160, 80)
+            border_col = (80, 220, 120)
+
+        draw.rect(frame_col, sv_outer, border_radius=8)
+        draw.rect(mid_col, sv_mid, border_radius=7)
+        draw.rect(border_col, sv_mid, 2, border_radius=7)
+        draw.rect((24, 18, 24), sv_frame, border_radius=6)
+
+        sv_inner_shadow = pygame.Surface((sv_inner.width, sv_inner.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(sv_inner_shadow, (0, 0, 0, alpha), (0, i, sv_inner.width, 1))
+        SCREEN.blit(sv_inner_shadow, (sv_inner.x, sv_inner.y))
+
+        sv_fill_w = max(1, int((sv_width - 4) * sv_ratio))
+        if sv_fill_w > 0:
+            if strange_vial_effect_type == "enlarge":
+                if sv_remaining > 10.0:
+                    sv_base_col = (160, 80, 220)
+                    sv_hi_col = (200, 120, 255)
+                elif sv_remaining > 5.0:
+                    sv_base_col = (180, 60, 200)
+                    sv_hi_col = (220, 100, 240)
+                else:
+                    p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                    sv_base_col = (int(180 + 60 * p), int(60 + 40 * p), int(200 + 40 * p))
+                    sv_hi_col = (int(220 + 30 * p), int(100 + 40 * p), int(240 + 15 * p))
+            else:
+                if sv_remaining > 10.0:
+                    sv_base_col = (60, 200, 100)
+                    sv_hi_col = (100, 240, 140)
+                elif sv_remaining > 5.0:
+                    sv_base_col = (40, 180, 80)
+                    sv_hi_col = (80, 220, 120)
+                else:
+                    p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                    sv_base_col = (int(40 + 40 * p), int(180 + 60 * p), int(80 + 40 * p))
+                    sv_hi_col = (int(80 + 40 * p), int(220 + 30 * p), int(120 + 30 * p))
+
+            sv_fill_rect = pygame.Rect(sv_x + 2, sv_y + 2, sv_fill_w, sv_height - 4)
+            sv_grad = pygame.Surface((sv_fill_rect.width, sv_fill_rect.height), pygame.SRCALPHA)
+            for x in range(sv_fill_rect.width):
+                t = x / max(1, sv_fill_rect.width - 1)
+                col = (
+                    int(sv_base_col[0] + (sv_hi_col[0] - sv_base_col[0]) * t),
+                    int(sv_base_col[1] + (sv_hi_col[1] - sv_base_col[1]) * t),
+                    int(sv_base_col[2] + (sv_hi_col[2] - sv_base_col[2]) * t),
+                    255,
+                )
+                pygame.draw.line(sv_grad, col, (x, 0), (x, sv_fill_rect.height - 1))
+            sv_mask = pygame.Surface((sv_fill_rect.width, sv_fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(sv_mask, (255, 255, 255, 255), sv_mask.get_rect(), border_radius=3)
+            sv_grad.blit(sv_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(sv_grad, (sv_fill_rect.x, sv_fill_rect.y))
+
+            sv_pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            sv_glow = (
+                int(sv_hi_col[0] * (0.6 + 0.4 * sv_pulse)),
+                int(sv_hi_col[1] * (0.6 + 0.4 * sv_pulse)),
+                int(sv_hi_col[2] * (0.6 + 0.4 * sv_pulse)),
+            )
+            draw.rect(sv_glow, (sv_x + 2, sv_y + 2, sv_fill_w, 2), border_radius=2)
+
+        # 아이콘 표시
+        sv_emblem_size = int(sv_height * 1.6)
+        sv_emblem_x = sv_x - sv_emblem_size - 6
+        sv_emblem_y = sv_y + (sv_height - sv_emblem_size) // 2
+        sv_icon = get_item_icon("strange_vial")
+        if sv_icon:
+            sv_icon_scaled = pygame.transform.smoothscale(sv_icon, (sv_emblem_size, sv_emblem_size))
+            SCREEN.blit(sv_icon_scaled, (sv_emblem_x, sv_emblem_y))
+    elif _hg_index('strange_vial') != -1:
+        _hg_on_deactivate('strange_vial')
+
     # 전체화면 모드에서도 벽돌 설치 게이지는 게임 영역에 표시되므로 메인 SCREEN 유지
     # (액티브 아이템 게이지와 벽돌 설치 게이지 모두 게임 영역 기준 좌표 사용)
 
@@ -104795,6 +105134,14 @@ def draw_objects():
     except Exception:
         pass
 
+    # 소울버스트 에너지 방출 이펙트
+    try:
+        from item_effects.soul_burst import update_soul_burst_effects, draw_soul_burst_effects
+        update_soul_burst_effects()
+        draw_soul_burst_effects(SCREEN)
+    except Exception:
+        pass
+
     # 홀리베리어 효과 그리기 (플레이어 뒤쪽 방벽)
     if holy_barrier_module.is_holy_barrier_active():
         draw_holy_barrier_effects(SCREEN)
@@ -111704,6 +112051,7 @@ def show_victory_screen(stage_cleared, reward):
         all_skill_pools.update(SMASHER_EXCLUSIVE_SKILLS)
         all_skill_pools.update(OPTIMUS_EXCLUSIVE_SKILLS)
         all_skill_pools.update(SOLDIER_EXCLUSIVE_SKILLS)
+        all_skill_pools.update(VIPER_EXCLUSIVE_SKILLS)
         all_skill_pools.update(INSTANT_RUNTIME_SKILLS)
 
         if animation_states.get('total', {}).get('show', False) and runtime_skill_levels:
@@ -120325,7 +120673,7 @@ def show_character_selection():
         _card_select_sound = None
     soldier_card_preview: pygame.Surface | None = None
     optimus_card_preview: pygame.Surface | None = None
-    tutorial_supported_ids = {"ufo_player", "smasher", "soldier", "blacksmith", "optimus"}
+    tutorial_supported_ids = {"ufo_player", "smasher", "soldier", "blacksmith", "optimus", "viper"}
 
     # --- 캐릭터 카드 호버 프리뷰(데모) 상태 ---
     # 카드 호버 시: 좌타 1회 → 우타 1회 → 3초 걷기 모션 반복
@@ -120525,6 +120873,18 @@ def show_character_selection():
             "unlocked": True,
             "card_color": (120, 200, 255),
             "glow_color": (150, 220, 255),
+            "card_suit": "◆"
+        },
+        {
+            "id": "viper",
+            "name": _t("char.viper", "바이퍼"),
+            "description": _t("char.viper.desc", "빠른 연속 슬래시로 적을 베어내는\n사이버 어쌔신."),
+            "image": "viper.png",
+            "stats": {_t("stat.speed", "속도"): 7, _t("stat.power", "파워"): 5, _t("stat.defense", "방어"): 3},
+            "special": " " + _t("char.viper.special", "플라즈마 블레이드 전용 스킬트리"),
+            "unlocked": True,
+            "card_color": (160, 0, 255),  # 네온 퍼플
+            "glow_color": (180, 50, 255),
             "card_suit": "◆"
         },
         {
@@ -124248,6 +124608,7 @@ def show_item_manager_menu():
         {"name": "magnet_field", "type": "active", "icon": get_item_icon("magnet_field")},
         {"name": "boomerang", "type": "active", "icon": get_item_icon("boomerang")},
         {"name": "soap", "type": "active", "icon": get_item_icon("soap")},
+        {"name": "strange_vial", "type": "active", "icon": get_item_icon("strange_vial")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -145988,6 +146349,7 @@ def show_death_evaluation():
         all_skill_pools.update(SMASHER_EXCLUSIVE_SKILLS)
         all_skill_pools.update(OPTIMUS_EXCLUSIVE_SKILLS)
         all_skill_pools.update(SOLDIER_EXCLUSIVE_SKILLS)
+        all_skill_pools.update(VIPER_EXCLUSIVE_SKILLS)
         all_skill_pools.update(INSTANT_RUNTIME_SKILLS)
         for skill_id, level in runtime_skill_levels.items():
             if level > 0 and skill_id in all_skill_pools:
@@ -146842,6 +147204,7 @@ def show_result(won):
     if aipill_active:
         # print("Aipill  .")
         deactivate_aipill("round_transition")
+    deactivate_strange_vial()
     #  상모돌리기 완전 초기화 (스테이지 종료 시)
     whip_active = False
     whip_timer = 0
@@ -147354,6 +147717,8 @@ def show_result(won):
             _hg_on_deactivate('magnet_field')
         except Exception:
             pass
+        # 기묘한 약병 비활성화 (게임오버)
+        deactivate_strange_vial()
         # 부메랑 비활성화 (게임오버 - 인벤토리 초기화되므로 복귀 불필요)
         deactivate_boomerang()
         if boomerang_sound_channel and boomerang_sound_channel.get_busy():
@@ -148971,7 +149336,8 @@ def main(stage_num, new_boss_mode=False):
         pass  # print("AI")
     deactivate_aipill("round_transition", allow_override=True)
     deactivate_berserk_potion()
-    
+    deactivate_strange_vial()
+
     # print("/")
 
     # 위험감지센서: 스테이지 전환 시 강화 정보 포함하여 쿨타임 재적용
@@ -149760,6 +150126,9 @@ def main(stage_num, new_boss_mode=False):
             PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
             PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
             PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+            # 기묘한 약병 효과 초기화 (ESC 메뉴로 메인 복귀 시)
+            deactivate_strange_vial()
+
             # 물자보급 스킬 초기화
             supply_drop_state.active = False
             if supply_drop_state.aircraft and hasattr(supply_drop_state.aircraft, 'stop_sound'):
@@ -159404,7 +159773,7 @@ def show_character_info(background_surface=None):
 
         # 획득한 스킬 목록
         acquired_skills = []
-        all_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS, SOLDIER_EXCLUSIVE_SKILLS]
+        all_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS, SOLDIER_EXCLUSIVE_SKILLS, VIPER_EXCLUSIVE_SKILLS]
         for pool in all_pools:
             for skill_id, skill_data in pool.items():
                 level = runtime_skill_levels.get(skill_id, 0)
@@ -161089,7 +161458,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -161189,6 +161558,7 @@ def get_item_description(item_name):
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
         "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
+        "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 200% 증가, 이동속도 60% 감소. [축소화] 패들 크기 50% 감소, 이동속도 200% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
@@ -162469,6 +162839,13 @@ def show_quick_character_selection():
             "color": (120, 235, 255),
             "stats": f"{_t('stat.speed', '속도')} 5 | {_t('stat.power', '파워')} 7 | {_t('stat.defense', '방어')} 5",
         },
+        {
+            "id": "viper",
+            "name": _t("char.viper", "바이퍼"),
+            "desc": _t("char.viper.desc", "빠른 연속 슬래시의 사이버 어쌔신"),
+            "color": (160, 0, 255),
+            "stats": f"{_t('stat.speed', '속도')} 7 | {_t('stat.power', '파워')} 5 | {_t('stat.defense', '방어')} 3",
+        },
     ]
 
     selected_index = 0
@@ -162734,7 +163111,7 @@ def apply_character_selection(character_id):
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
     if character_id == "ufo_player":
         selected_character_type = "smasher"
-    elif character_id in ("smasher", "soldier", "normal", "blacksmith", "optimus"):
+    elif character_id in ("smasher", "soldier", "normal", "blacksmith", "optimus", "viper"):
         selected_character_type = character_id
     else:
         selected_character_type = "normal"
@@ -162769,7 +163146,8 @@ def get_character_name(character_id):
         "smasher": "스매셔",
         "soldier": "코만도",
         "blacksmith": "발토르",
-        "optimus": "옵티머스"
+        "optimus": "옵티머스",
+        "viper": "바이퍼"
     }
     return char_names.get(character_id, "알 수 없음")
 
@@ -163007,6 +163385,7 @@ def show_multiplayer_character_select() -> tuple:
         {"id": "commando", "name": "코만도", "available": False, "color": (100, 100, 100)},
         {"id": "baltor", "name": "발토르", "available": False, "color": (100, 100, 100)},
         {"id": "optimus", "name": "옵티머스", "available": False, "color": (100, 100, 100)},
+        {"id": "viper", "name": "바이퍼", "available": False, "color": (100, 100, 100)},
     ]
 
     # 선택 상태
