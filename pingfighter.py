@@ -56262,8 +56262,8 @@ def activate_smoke_grenade():
     print(f"   !")
 
 def get_item_spawn_delay():
-    """아이템 스폰 딜레이 계산 (10~40초 기본, 스킬/아이템 배율 적용)"""
-    base_delay = random.randint(10000, 40000)
+    """아이템 스폰 딜레이 계산 (20~50초 기본, 스킬/아이템 배율 적용)"""
+    base_delay = random.randint(20000, 50000)
 
     # 악마의 주사위 배율 적용
     from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active

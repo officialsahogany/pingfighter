@@ -37,8 +37,8 @@ except ImportError:
 ACTIVE_COOLDOWN_MS = 8000  # 8초 쿨타임
 # 필드 드랍 풀에서 엑티브/패시브 비중을 강제로 맞추기 위한 목표 비율
 # (available_items를 구성한 뒤 가중치를 재조정해 엑티브 ≈ 75%, 패시브 ≈ 25%가 되도록 스케일한다)
-TARGET_ACTIVE_DROP_SHARE = 0.75
-TARGET_PASSIVE_DROP_SHARE = 0.25
+TARGET_ACTIVE_DROP_SHARE = 0.80
+TARGET_PASSIVE_DROP_SHARE = 0.20
 
 WIDTH, HEIGHT = 760, 750  # 화면 크기 (Pillar UI 적용)
 
