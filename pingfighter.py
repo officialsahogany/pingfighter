@@ -11631,10 +11631,6 @@ RUNTIME_SKILL_POOL = {
         "icon_color": (80, 160, 255),
         "tree": "common"
     },
-}
-
-# Smasher exclusive skills
-SMASHER_EXCLUSIVE_SKILLS = {
     "dash_acceleration": {
         "name": "버스트업",
         "max_level": 5,
@@ -11647,9 +11643,12 @@ SMASHER_EXCLUSIVE_SKILLS = {
         },
         "detail": "대쉬할 때 패들 크기가 증가하여 강력한 리턴이 가능합니다.",
         "icon_color": (255, 100, 50),
-        "tree": "dash",
-        "character_restriction": "smasher"
+        "tree": "dash"
     },
+}
+
+# Smasher exclusive skills
+SMASHER_EXCLUSIVE_SKILLS = {
     "dash_spirit": {
         "name": "대쉬스피릿",
         "max_level": 5,
