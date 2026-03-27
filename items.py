@@ -1781,6 +1781,16 @@ ITEM_TYPES = [
         "chance": 0.010,  # 확률 1.0%
         "duration": 600,  # 사용 시까지 유지
         "unlock_condition": None
+    },
+    {
+        "name": "soul_burst",  # 소울버스트 패시브 아이템 (무릎 부위)
+        "color": (160, 80, 220),  # 보라색 (영혼/에너지 테마)
+        "effect": "soul_burst",
+        "icon": None,
+        "chance": 0.005,  # 확률 0.5%
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "knee"  # 무릎 부위
     }
 ]
 
@@ -1840,6 +1850,7 @@ hero_seal_obtained = False  # 호위무사 인장 획득 여부 (여러 개 소�
 lucky_coin_obtained = False  # 럭키코인 아이템 획득 여부
 adversity_armor_obtained = False  # 역경의 갑옷 아이템 획득 여부
 shrapnel_armor_obtained = False  # 파편갑옷 아이템 획득 여부
+soul_burst_obtained = False  # 소울버스트 아이템 획득 여부
 
 
 active_item_slot = None
@@ -1923,7 +1934,8 @@ unlocked_items = {
     "shrapnel_armor": True,  # 파편갑옷
     "magnet_field": True,  # 자기장 발생기
     "boomerang": True,  # 부메랑
-    "soap": True  # 비누
+    "soap": True,  # 비누
+    "soul_burst": True  # 소울버스트
 }
 
 # 현재 떠 있는 아이템 리스트
@@ -1940,7 +1952,8 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy",
     "hero_seal",
     "adversity_armor",
-    "shrapnel_armor"
+    "shrapnel_armor",
+    "soul_burst"
 }
 
 
@@ -2187,6 +2200,9 @@ def spawn_random_item():
         if item["name"] == "shrapnel_armor" and shrapnel_armor_obtained and not _allow_duplicate_passive("shrapnel_armor"):
             continue
 
+        if item["name"] == "soul_burst" and soul_burst_obtained and not _allow_duplicate_passive("soul_burst"):
+            continue
+
         # gold_bar 중복 스폰 방지
         if item["name"] == "gold_bar" and gold_bar_obtained:
             continue
@@ -2245,7 +2261,7 @@ def spawn_random_item():
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy",
         "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
-        "adversity_armor", "shrapnel_armor"
+        "adversity_armor", "shrapnel_armor", "soul_burst"
     }
 
     for item in available_items:
@@ -2508,7 +2524,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {
