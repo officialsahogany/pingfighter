@@ -50795,12 +50795,12 @@ def activate_strange_vial(duration_frames: int | None = None, *, play_sound: boo
     # 50% 확률로 효과 결정 (목표 배율만 설정, 실제 적용은 타이머 루프에서 점진적으로)
     if _sv_random.random() < 0.5:
         strange_vial_effect_type = "enlarge"
-        strange_vial_target_scale = 2.0       # 패들 200%
-        strange_vial_target_speed_mult = 0.4  # 이속 -60%
+        strange_vial_target_scale = 2.2       # 패들 220%
+        strange_vial_target_speed_mult = 0.5  # 이속 -50%
     else:
         strange_vial_effect_type = "shrink"
         strange_vial_target_scale = 0.5       # 패들 -50%
-        strange_vial_target_speed_mult = 3.0  # 이속 +200%
+        strange_vial_target_speed_mult = 2.7  # 이속 +170%
 
     strange_vial_scale = 1.0       # 시작은 1.0에서 점진적으로 변화
     strange_vial_speed_mult = 1.0
@@ -56432,9 +56432,9 @@ def apply_effect(effect_name, item_data=None):
     elif effect_name == "strange_vial":  # 기묘한 약병 액티브 아이템
         activate_strange_vial()
         if strange_vial_effect_type == "enlarge":
-            print("기묘한 약병 발동! 거대화: 패들 200% 증가, 이동속도 60% 감소 (30초)")
+            print("기묘한 약병 발동! 거대화: 패들 220% 증가, 이동속도 50% 감소 (30초)")
         else:
-            print("기묘한 약병 발동! 축소화: 패들 50% 감소, 이동속도 200% 증가 (30초)")
+            print("기묘한 약병 발동! 축소화: 패들 50% 감소, 이동속도 170% 증가 (30초)")
     elif effect_name == "chargebag":  #  충전가방 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
         # 충전가방은 store_passive_item에서 처리됨
         pass
@@ -73362,10 +73362,12 @@ def handle_player(keys):
                 effective_max_speed = max(1.0, effective_max_speed)
             elif selected_character_type == "smasher":
                 effective_max_speed = 6.0  # 스매셔 기본 이동속도 6
+            elif selected_character_type == "viper":
+                effective_max_speed = 7.0  # 바이퍼 기본 이동속도 7 (속도형)
             else:
                 effective_max_speed = MAX_SPEED
         walking = abs(current_speed) > 1.0
-        if selected_character_type == "smasher":
+        if selected_character_type in ("smasher", "viper"):
             if walking:
                 if not smasher_walking_active:
                     smasher_walking_active = True
@@ -104669,6 +104671,15 @@ def draw_objects():
                 # idle: 뼈대 호흡 모션 + 기존 후처리(미세 스케일/회전) 함께 적용
                 base_ufo_img = _apply_character_idle_effects(
                     _render_skeletal_smasher(is_idle=True), "smasher"
+                )
+        elif selected_character_type == "viper":
+            # 바이퍼: 절차적 렌더링 (걷기 시 phase 전달)
+            if smasher_walking_active:
+                walk_phase = (smasher_walking_timer % max(1, SMASHER_WALKING_CYCLE)) / max(1, SMASHER_WALKING_CYCLE)
+                base_ufo_img = create_viper_paddle_surface(walk_phase)
+            else:
+                base_ufo_img = _apply_character_idle_effects(
+                    create_viper_paddle_surface(0.0), "viper"
                 )
         else:
             base_ufo_img = PLAYER_IMG
@@ -161960,7 +161971,7 @@ def get_item_description(item_name):
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
         "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
-        "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 200% 증가, 이동속도 60% 감소. [축소화] 패들 크기 50% 감소, 이동속도 200% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
+        "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 170% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

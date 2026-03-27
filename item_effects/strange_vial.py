@@ -1,16 +1,16 @@
 """
 기묘한 약병 (Strange Vial) - 액티브 아이템
-50% 확률로 거대화(패들 200% + 이속 -60%) 또는 축소(패들 -50% + 이속 +200%)
+50% 확률로 거대화(패들 220% + 이속 -50%) 또는 축소(패들 -50% + 이속 +170%)
 지속시간: 30초 (1800 프레임 @ 60fps)
 """
 import random
 
 # 상수
 STRANGE_VIAL_DURATION_FRAMES = 1800  # 30초
-STRANGE_VIAL_ENLARGE_PADDLE_MULT = 2.0   # 패들 200% (2배)
-STRANGE_VIAL_ENLARGE_SPEED_MULT = 0.4    # 이속 -60% (40%만 적용)
+STRANGE_VIAL_ENLARGE_PADDLE_MULT = 2.2   # 패들 220% (2.2배)
+STRANGE_VIAL_ENLARGE_SPEED_MULT = 0.5    # 이속 -50% (50%만 적용)
 STRANGE_VIAL_SHRINK_PADDLE_MULT = 0.5    # 패들 -50% (50%만 적용)
-STRANGE_VIAL_SHRINK_SPEED_MULT = 3.0     # 이속 +200% (3배)
+STRANGE_VIAL_SHRINK_SPEED_MULT = 2.7     # 이속 +170% (2.7배)
 
 # 싱글톤 인스턴스
 strange_vial_instance = None
