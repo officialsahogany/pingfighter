@@ -2170,7 +2170,7 @@ class DowntownManager:
         )
 
         # 입장료 확인
-        admission_fee = 100
+        admission_fee = 1000
         player_gold = self.player_data.get('gold', 0)
 
         clock = pygame.time.Clock()
