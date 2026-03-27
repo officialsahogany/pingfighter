@@ -72188,8 +72188,6 @@ def handle_player(keys):
                                 _sb_cost_r = _sb_r.get_gauge_cost()
                                 special_gauge = max(0, special_gauge - _sb_cost_r)
                                 special_ready = special_gauge >= 350
-                                if hasattr(game_state, 'special_gauge'):
-                                    game_state.special_gauge = special_gauge
                                 _soul_burst_can_dash = _sb_r.can_soul_dash(special_gauge)
                                 _sb_ok_r = True
                                 print(f"[SOUL_BURST_DEBUG] 우측대쉬 게이지소모 성공! cost={_sb_cost_r}, remaining={special_gauge}")
