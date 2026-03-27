@@ -67344,6 +67344,8 @@ def handle_player(keys):
     global half_dash_used_flag  #  하프대쉬 사용 플래그
     global serve_completed_timer  # 서브 완료 후 타이머
     global serve_power_smash_lockout  # 서브 직후 파워스매싱 입력 잠금
+    global strange_vial_active, strange_vial_timer, strange_vial_initial_timer
+    global strange_vial_scale, strange_vial_speed_mult
     global long_boost_active, long_boost_timer, PADDLE_WIDTH
     global long_boost_animating, long_boost_shrinking, long_boost_growing
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
@@ -69742,8 +69744,6 @@ def handle_player(keys):
                 # print("")
     global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
     global berserk_potion_active, berserk_potion_timer
-    global strange_vial_active, strange_vial_timer, strange_vial_initial_timer
-    global strange_vial_scale, strange_vial_speed_mult
     sync_doping_potion_from_global_manager()
     if doping_potion_active:
         if doping_potion_timer > 0:
