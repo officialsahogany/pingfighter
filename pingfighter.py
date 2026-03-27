@@ -30596,7 +30596,7 @@ def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     b = 7
     cx = surface.get_width() // 2
-    base_y = 42
+    base_y = 52
 
     phase = step_phase % 1.0 if step_phase else 0.0
     wave = math.sin(phase * math.tau)
@@ -30690,13 +30690,6 @@ def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
         # 아웃라인
         "outline": (8, 1, 14),
     }
-
-    # ═══════ 그림자 (발 아래) ═══════
-    shadow_w = int(3.0 * b)
-    shadow_h = int(0.5 * b)
-    shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
-    pygame.draw.ellipse(shadow_surf, (0, 0, 0, 30), shadow_surf.get_rect())
-    surface.blit(shadow_surf, (cx - shadow_w // 2, 112))
 
     # ═══════ 스카프 (뒤쪽 레이어 — 몸 뒤에서 나부낌) ═══════
     scarf_wave = wave * 5
