@@ -20536,6 +20536,12 @@ smasher_combo_effect_x = 0           # 콤보 이펙트 X 위치
 smasher_combo_effect_y = 0           # 콤보 이펙트 Y 위치
 smasher_combo_effect_count = 0       # 표시할 콤보 수
 smasher_combo_particles = []         # 콤보 파티클 효과
+# ⚡ 대쉬→스킬 연계 콤보 유예 시스템 (Grace Period)
+# 대쉬 시 콤보를 즉시 초기화하지 않고 짧은 유예 시간 동안 보존
+# 유예 시간 내 드라이브/파워스매싱 발동 시 저장된 콤보로 스킬 강화
+SMASHER_DASH_COMBO_GRACE_FRAMES = 40   # 유예 시간 (~0.67초 at 60FPS)
+smasher_dash_combo_grace_timer = 0     # 남은 유예 프레임 (0이면 비활성)
+smasher_dash_combo_grace_count = 0     # 유예 중 보존된 콤보 수
 
 # 시너지 C: 클렌즈 카운터어택 윈도우
 cleanse_counter_window = 0           # 남은 프레임 (120 = 2초, 0이면 비활성)
@@ -27276,6 +27282,10 @@ dynamite_target_x = 0  # 다이너마이트 목표 X 좌표
 banana_throwing = False  # 바나나 투척 모션 중
 banana_throw_timer = 0  # 투척 모션 타이머
 banana_target_x = 0  # 바나나 목표 X 좌표
+# === 비누 관련 ===
+soap_throwing = False  # 비누 투척 모션 중
+soap_throw_timer = 0  # 투척 모션 타이머
+soap_target_x = 0  # 비누 목표 X 좌표
 # === 부메랑 관련 ===
 boomerang_throwing = False  # 부메랑 투척 모션 중
 boomerang_throw_timer = 0  # 투척 모션 타이머
@@ -50252,9 +50262,27 @@ def _get_combo_color(combo_count: int) -> tuple:
 
 def _reset_smasher_combo(reason="unknown"):
     """스매셔 콤보 초기화 (실점/라운드 종료/스킬 소모 시 호출)"""
-    global smasher_combo_count
+    global smasher_combo_count, smasher_dash_combo_grace_timer, smasher_dash_combo_grace_count
     smasher_combo_count = 0
+    # 완전 초기화 시 유예 콤보도 함께 초기화
+    smasher_dash_combo_grace_timer = 0
+    smasher_dash_combo_grace_count = 0
     # 튜토리얼 액션 게이지 리셋 애니메이션 트리거
+    reset_tutorial_action_gauge_with_effect()
+
+
+def _start_smasher_dash_combo_grace(reason="dash"):
+    """대쉬 시 콤보를 유예 상태로 전환 (즉시 초기화하지 않음)"""
+    global smasher_combo_count, smasher_dash_combo_grace_timer, smasher_dash_combo_grace_count
+    if smasher_combo_count >= 2:
+        # 콤보가 2 이상일 때만 유예 보존 (연계 가치가 있을 때)
+        smasher_dash_combo_grace_count = smasher_combo_count
+        smasher_dash_combo_grace_timer = SMASHER_DASH_COMBO_GRACE_FRAMES
+    else:
+        # 콤보가 1 이하면 보존할 가치 없음
+        smasher_dash_combo_grace_count = 0
+        smasher_dash_combo_grace_timer = 0
+    smasher_combo_count = 0
     reset_tutorial_action_gauge_with_effect()
 
 
@@ -54802,6 +54830,14 @@ def go_to_next_round():
         banana.reset()  # 투척체, 착지 바나나, 파티클 모두 제거
     banana_throwing = False  # 투척 모션 초기화
     banana_throw_timer = 0
+    # 🧼 비누 관련 초기화
+    global soap_throwing, soap_throw_timer
+    from item_effects.soap import get_soap_instance
+    soap_item_reset = get_soap_instance()
+    if soap_item_reset:
+        soap_item_reset.reset()
+    soap_throwing = False
+    soap_throw_timer = 0
     # 🪃 부메랑 투척 모션 초기화
     global boomerang_throwing, boomerang_throw_timer
     boomerang_throwing = False
@@ -55786,6 +55822,15 @@ def apply_effect(effect_name):
             return False
         # 투척 준비 동작 시작
         activate_banana()
+    elif effect_name == "soap":  # 🧼 비누 액티브 아이템
+        # 라운드 시작 5초 제한 체크 (다른 투척류와 동일)
+        current_time = pygame.time.get_ticks()
+        if current_time - round_start_time < 5000:  # 5초 미만
+            remaining_time = (5000 - (current_time - round_start_time)) / 1000
+            print(f"[Soap] 비누 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+            return False
+        # 투척 준비 동작 시작
+        activate_soap()
     elif effect_name == "minor_hero_seal":  # 초급인장 - 임시 호위무사 3라운드
         try:
             from item_effects.minor_hero_seal import get_minor_seal_state
@@ -55951,6 +55996,39 @@ def activate_banana():
     # 효과음 재생 (투척 시작)
     play_active_item_sound()
     print(f"🍌 바나나 투척 준비! {banana_throw_timer/60:.1f}초 후 투척.")
+
+def activate_soap():
+    """비누 투척 함수 - 0.5초 투척 모션 후 발사"""
+    global soap_throwing, soap_throw_timer, soap_target_x
+    import items
+
+    # 목표 지점 미리 계산 (보스 중심 방향)
+    soap_target_x = BOSS.centerx + random.uniform(-40, 40)
+
+    # 투척 모션 시작
+    soap_throwing = True
+
+    # 코만도암 효과 적용 (준비시간 단축, 스택 반영)
+    base_timer = 30  # 0.5초 (60fps * 0.5)
+    soap_throw_timer = _commando_timer_reduction(base_timer)
+    if items.commando_arm_obtained:
+        print(f"[Soap] 코만도암 적용! 투척 준비시간: {soap_throw_timer/60:.2f}초")
+        SOUND_THROW_BEFORE.play(maxtime=200)
+    else:
+        print(f"[Soap] 비누 투척 준비: {soap_throw_timer/60:.2f}초")
+        play_sound_with_volume(SOUND_THROW_BEFORE)
+    play_active_item_sound()
+    print(f"[Soap] 비누 투척 준비! {soap_throw_timer/60:.1f}초 후 투척.")
+
+def throw_soap():
+    """실제 비누 투척 (모션 후 실행)"""
+    global PLAYER, soap_target_x
+    from item_effects.soap import get_soap_instance
+
+    soap = get_soap_instance()
+    if soap:
+        soap.start_throw(PLAYER, soap_target_x)
+        print("[Soap] 비누 투척! 보스가 밟으면 5초간 미끄러움!")
 
 def activate_boomerang_throw():
     """부메랑 투척 준비 - 0.4초 투척 모션 후 발사"""
@@ -66776,6 +66854,7 @@ def handle_player(keys):
     global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
     global dynamite_throwing, dynamite_throw_timer  # 다이너마이트 투척 모션
     global banana_throwing, banana_throw_timer  # 바나나 투척 모션
+    global soap_throwing, soap_throw_timer  # 비누 투척 모션
     global boomerang_throwing, boomerang_throw_timer  # 부메랑 투척 모션
     global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
@@ -68986,6 +69065,15 @@ def handle_player(keys):
             banana_throwing = False
             throw_banana()  # 실제 투척
         return  # 투척 모션 중에는 조작 불가
+    # 🧼 비누 투척 모션 중 처리
+    if soap_throwing:
+        soap_throw_timer -= 1
+        if soap_throw_timer == 0:  # 투척 완료 시점
+            play_sound_with_volume(SOUND_THROW)
+        if soap_throw_timer <= 0:
+            soap_throwing = False
+            throw_soap()  # 실제 투척
+        return  # 투척 모션 중에는 조작 불가
     # 🪃 부메랑 투척 모션 중 처리
     if boomerang_throwing:
         boomerang_throw_timer -= 1
@@ -70519,9 +70607,9 @@ def handle_player(keys):
                             # 🔧 버그 수정: 하프 대시에서도 키 릴리즈 플래그 설정
                             globals()['dash_key_released_since_last'] = False
                             rolling_active = True
-                            # ⚡ 대쉬 시 스매셔 콤보 초기화
+                            # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                             if selected_character_type == "smasher" or ai_mode == "junior":
-                                _reset_smasher_combo("dash_half")
+                                _start_smasher_dash_combo_grace("dash_half")
                             _break_arrest_rope_on_dash()
                             # 🌑 오딘의 눈 대쉬 다이브
                             try:
@@ -70788,9 +70876,9 @@ def handle_player(keys):
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
-                    # ⚡ 대쉬 시 스매셔 콤보 초기화
+                    # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                     if selected_character_type == "smasher" or ai_mode == "junior":
-                        _reset_smasher_combo("dash_left")
+                        _start_smasher_dash_combo_grace("dash_left")
                     _break_arrest_rope_on_dash()
                     # 🌑 오딘의 눈 대쉬 다이브
                     try:
@@ -71054,9 +71142,9 @@ def handle_player(keys):
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
-                    # ⚡ 대쉬 시 스매셔 콤보 초기화
+                    # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                     if selected_character_type == "smasher" or ai_mode == "junior":
-                        _reset_smasher_combo("dash_right")
+                        _start_smasher_dash_combo_grace("dash_right")
                     _break_arrest_rope_on_dash()
                     # 🌑 오딘의 눈 대쉬 다이브
                     try:
@@ -107567,6 +107655,11 @@ def draw_objects():
     banana_inst = get_banana_instance()
     banana_inst.draw(SCREEN)
 
+    # === 비누 그리기 (모든 캐릭터 공용) ===
+    from item_effects.soap import get_soap_instance
+    soap_inst_draw = get_soap_instance()
+    soap_inst_draw.draw(SCREEN)
+
     # === 코만도 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
         draw_soldier_bullets(SCREEN)
@@ -127253,6 +127346,55 @@ def get_item_icon(item_name):
         icon_cache[item_name] = icon_surface
         return icon_surface
 
+    if item_name == "soap":
+        # 비누 아이콘 코드로 그리기
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        scale = ICON_SIZE / 48
+
+        # 비누 본체 (둥근 직사각형)
+        body_w = int(24 * scale)
+        body_h = int(16 * scale)
+        body_rect = pygame.Rect(cx - body_w // 2, cy - body_h // 2, body_w, body_h)
+
+        # 그림자
+        shadow_rect = body_rect.copy()
+        shadow_rect.move_ip(int(2 * scale), int(2 * scale))
+        pygame.draw.rect(icon_surface, (100, 140, 180, 80), shadow_rect, border_radius=int(5 * scale))
+
+        # 비누 색상
+        soap_base = (140, 200, 240)
+        soap_light = (180, 225, 255)
+        soap_dark = (100, 160, 210)
+
+        # 본체
+        pygame.draw.rect(icon_surface, soap_base, body_rect, border_radius=int(5 * scale))
+        # 하이라이트
+        hl_rect = pygame.Rect(body_rect.left + int(3*scale), body_rect.top + int(2*scale),
+                              body_w - int(6*scale), body_h // 3)
+        pygame.draw.rect(icon_surface, soap_light, hl_rect, border_radius=int(3 * scale))
+        # 줄무늬
+        pygame.draw.line(icon_surface, (160, 215, 250),
+                         (cx - int(8*scale), cy - int(2*scale)),
+                         (cx + int(8*scale), cy - int(2*scale)), max(1, int(1*scale)))
+
+        # 거품들
+        bubble_data = [
+            (cx + int(10*scale), cy - int(7*scale), max(1, int(3*scale))),
+            (cx - int(11*scale), cy - int(5*scale), max(1, int(2*scale))),
+            (cx + int(8*scale), cy + int(8*scale), max(1, int(2.5*scale))),
+            (cx - int(8*scale), cy + int(9*scale), max(1, int(2*scale))),
+        ]
+        for bx, by, br in bubble_data:
+            pygame.draw.circle(icon_surface, (220, 240, 255, 180), (int(bx), int(by)), br, 1)
+            pygame.draw.circle(icon_surface, (255, 255, 255, 150),
+                               (int(bx) - max(1, br//3), int(by) - max(1, br//3)), max(1, br//3))
+
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
     if item_name == "laser_scope":
         try:
             import items as items_module
@@ -132762,6 +132904,14 @@ def reset_round(is_stage_start=False):
         banana_item.reset()  # 투척체, 착지 바나나, 파티클 모두 제거
     banana_throwing = False  # 투척 모션 초기화
     banana_throw_timer = 0
+    # 🧼 비누 관련 초기화
+    global soap_throwing, soap_throw_timer
+    from item_effects.soap import get_soap_instance
+    soap_item_reset2 = get_soap_instance()
+    if soap_item_reset2:
+        soap_item_reset2.reset()
+    soap_throwing = False
+    soap_throw_timer = 0
     # 🪃 부메랑 투척 모션 초기화
     global boomerang_throwing, boomerang_throw_timer
     boomerang_throwing = False
@@ -143911,6 +144061,33 @@ def _process_bazooka_collisions():
             # print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
             apply_health_boss_damage(2, source="bazooka")
 
+def _handle_boss_with_soap_debuff():
+    """비누 디버프가 활성화된 경우, 보스 AI 실행 후 방향전환 능력을 감소시킴."""
+    global boss_current_speed, BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_INSTANT_STOP_DECELERATION
+    try:
+        from item_effects.soap import get_soap_instance
+        soap_inst = get_soap_instance()
+        if soap_inst.is_boss_soaped():
+            soap_mult = soap_inst.get_accel_multiplier()  # 0.30 (70% 감소)
+            # 가속/감속 임시 감소
+            orig_accel = BOSS_ACCELERATION
+            orig_decel = BOSS_DECELERATION
+            orig_instant = BOSS_INSTANT_STOP_DECELERATION
+            BOSS_ACCELERATION *= soap_mult
+            BOSS_DECELERATION *= soap_mult
+            BOSS_INSTANT_STOP_DECELERATION *= soap_mult
+            try:
+                handle_boss()
+            finally:
+                # 반드시 원복
+                BOSS_ACCELERATION = orig_accel
+                BOSS_DECELERATION = orig_decel
+                BOSS_INSTANT_STOP_DECELERATION = orig_instant
+            return
+    except Exception:
+        pass
+    handle_boss()
+
 def handle_boss():
     global boss_speed_boost_timer, BOSS_SPEED
     global boss_fake_move, boss_fake_start_time
@@ -155015,6 +155192,12 @@ def main(stage_num, new_boss_mode=False):
                     # 화면 경계 처리
                     BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 
+                # 🧼 비누 시스템 업데이트 (모든 캐릭터 공용)
+                from item_effects.soap import get_soap_instance
+                soap_inst_update = get_soap_instance()
+                boss_rect_for_soap = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height) if BOSS else None
+                soap_inst_update.update(boss_rect_for_soap, WIDTH, _boss_move_direction)
+
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
                 check_laser_ball_collision()
@@ -155023,7 +155206,7 @@ def main(stage_num, new_boss_mode=False):
                 # 보스 처리는(스턴/넉백 적용 포함) 병사 무기/아이템 업데이트 이후에 호출하여
                 # 같은 프레임 내 즉시 반영되도록 순서를 조정한다.
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
-                    handle_boss()
+                    _handle_boss_with_soap_debuff()
 
                 # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
@@ -155036,7 +155219,7 @@ def main(stage_num, new_boss_mode=False):
                         _extra_ball_result = handle_ball()
                         if arena_mode_enabled and _extra_ball_result is not None:
                             return _extra_ball_result
-                        handle_boss()
+                        _handle_boss_with_soap_debuff()
 
                 # 🏜️ 모래감옥: 렌더링 직전 최종 패들 위치 클램핑 (모든 이동 처리 후)
                 if arena_mode_enabled and arena_skill_manager:
@@ -156169,7 +156352,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
         handle_ball()
 
     def _ai_hook(state, delta_time):
-        handle_boss()
+        _handle_boss_with_soap_debuff()
         # 파편갑옷 넉백은 boss_fire_knockback_vel로 handle_boss() 내부에서 처리됨
 
     def _items_hook(state, delta_time):
@@ -160286,7 +160469,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -160380,6 +160563,7 @@ def get_item_description(item_name):
         "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4",
         "magnet_field": "자기장 발생기: 8초간 자기장을 발생시켜 반경 300px 이내의 보스가 친 공이 플레이어 패들 쪽으로 끌려옵니다. 위기 상황에서 방어용으로 유용합니다.",
         "boomerang": "부메랑: 보스 방향으로 부메랑을 던져 넉백+스턴을 겁니다. 부메랑이 돌아오면서 경로에 있는 필드 아이템을 자동으로 회수합니다. 공에 닿으면 부메랑이 파괴됩니다.",
+        "soap": "비누: 보스 진영에 비누를 던집니다. 보스가 밟으면 5초간 미끄러움 디버프가 발동되어 가속/감속 능력이 70% 감소합니다. 방향전환이 매우 느려져 좌우 왕복 공격에 취약해집니다.",
         "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 선택지 품질 10~30% (희귀 아이템 출현 확률 상승)",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 3라운드 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 한 스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
