@@ -159506,6 +159506,10 @@ def show_character_info(background_surface=None):
         if recovery_boost > 1.0:
             move_speed *= recovery_boost
 
+        # 🧪 기묘한 약병 이동속도 배율 반영
+        if strange_vial_active and strange_vial_speed_mult != 1.0:
+            move_speed *= strange_vial_speed_mult
+
         # 👁 오딘의 눈: 변신 상태 이동속도 페널티 반영 (-50%)
         try:
             _mgr = get_legendary_manager()
@@ -159565,6 +159569,11 @@ def show_character_info(background_surface=None):
                 if is_devil_dice_active():
                     multipliers = get_devil_dice_multipliers()
                     scale *= multipliers.get("paddle_size", 1.0)
+            except Exception:
+                pass
+            # 🧪 기묘한 약병 패들 크기 배율 반영
+            try:
+                scale *= float(globals().get("strange_vial_scale", 1.0))
             except Exception:
                 pass
             return width * scale
