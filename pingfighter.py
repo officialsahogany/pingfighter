@@ -123439,11 +123439,11 @@ def show_character_selection():
                         t = pygame.time.get_ticks() % cycle_ms
                         phase = t / cycle_ms
                         frame = _crop_surface_alpha(create_viper_paddle_surface(step_phase=phase))
-                        blit_scaled_surface(frame, scale_mult=2.0)
+                        blit_scaled_surface(frame, scale_mult=1.7)
                     except Exception:
-                        blit_scaled_surface(viper_card_preview, scale_mult=2.0)
+                        blit_scaled_surface(viper_card_preview, scale_mult=1.7)
                 else:
-                    blit_scaled_surface(viper_card_preview, scale_mult=2.0)
+                    blit_scaled_surface(viper_card_preview, scale_mult=1.7)
             else:
                 try:
                     char_image = pygame.image.load(resource_path(character["image"]))
