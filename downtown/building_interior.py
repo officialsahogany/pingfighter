@@ -2627,7 +2627,7 @@ INTERIOR_CONFIGS = {
             "position": (0.5, 0.22),  # 홀로그램 앞 중앙
             "dialogue": [
                 "고대 투기장에 오신 것을 환영한다.",
-                "입장료는 100 골드다.",
+                "입장료는 1000 골드다.",
                 "이곳에서 최강의 전사들이 겨룬다.",
                 "네 실력을 보여줄 준비가 되었는가?"
             ]
@@ -2649,7 +2649,7 @@ INTERIOR_CONFIGS = {
         "customer_range": (4, 8),  # 많은 관람객
         "staff_count": 2,
         "special_interior": "colosseum",  # 특수 인테리어 플래그
-        "admission_fee": 100,  # 입장료 100 골드
+        "admission_fee": 1000,  # 입장료 1000 골드
     },
     BuildingType.PET_SHOP: {
         "name": "숲의 펫샵",
@@ -19924,8 +19924,8 @@ class BuildingInterior:
             text1, _ = font.render("ADMISSION:", cyan_light)
             screen.blit(text1, (box_x + 8, admission_y + 3))
 
-            # "100 GOLD"
-            text2, _ = font.render("100 GOLD", (255, 215, 0))
+            # "1000 GOLD"
+            text2, _ = font.render("1000 GOLD", (255, 215, 0))
             screen.blit(text2, (box_x + 15, admission_y + 18))
 
     def _draw_colosseum_monitor(self, screen, x, y, frame_color, screen_color, glow_color, anim):
