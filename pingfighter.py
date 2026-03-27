@@ -145586,8 +145586,8 @@ def _handle_boss_with_soap_debuff():
     AI를 정상 실행한 뒤, 결과를 관성(이전 속도)과 블렌딩한다.
     보스가 움직이려 하지만 미끄러워서 마음대로 안 되는 느낌.
 
-    비누: blend=0.18, friction=0.985
-    빙판: blend=0.18, friction=0.985 (비누와 동일한 관성 효과)
+    비누: blend=0.18, friction=0.985 (강하게 미끄러짐)
+    빙판: blend=0.35, friction=0.975 (비누보다 약한 미끄러짐)
     동시: blend≈0.126, friction≈0.990 (더 미끄러움)
     """
     global boss_current_speed, BOSS
@@ -145618,9 +145618,9 @@ def _handle_boss_with_soap_debuff():
             blend = soap_blend
             friction = soap_friction
         else:
-            # 빙판만: 비누와 동일한 관성 효과
-            blend = 0.18
-            friction = 0.985
+            # 빙판만: 비누보다 약한 관성 효과 (35% AI 반영, 마찰도 더 강해 빨리 멈춤)
+            blend = 0.35
+            friction = 0.975
 
         # ── 1. AI 실행 전 상태 저장 ──
         old_x = float(BOSS.x)
