@@ -457,6 +457,78 @@ class SandTerrain:
                 pygame.draw.circle(s, (*p["color"], alpha), (size, size), size)
                 screen.blit(s, (int(p["x"]) - size, int(p["y"]) - size))
 
+    def erode_area(self, cx: float, cy: float, radius: float) -> float:
+        """원형 범위 내 모래 지형 침식 (폭발용). 반환: 총 깎인 양
+
+        Args:
+            cx, cy: 폭발 중심 좌표
+            radius: 폭발 반경 (px)
+        """
+        total_eroded = 0.0
+        radius_sq = radius * radius
+
+        for wall in self.walls:
+            if wall.is_empty():
+                continue
+
+            wall_eroded = 0.0
+            for i in range(wall.num_segs):
+                if wall.depths[i] < 1:
+                    continue
+
+                # 세그먼트 중심의 월드 좌표
+                seg_center = wall.start + i * SEG_SIZE + SEG_SIZE // 2
+                if wall.side == "left":
+                    sx = wall.depths[i] * 0.5
+                    sy = float(seg_center)
+                elif wall.side == "right":
+                    sx = WIDTH - wall.depths[i] * 0.5
+                    sy = float(seg_center)
+                elif wall.side == "top":
+                    sx = float(seg_center)
+                    sy = wall.depths[i] * 0.5
+                else:  # bottom
+                    sx = float(seg_center)
+                    sy = HEIGHT - wall.depths[i] * 0.5
+
+                dx = cx - sx
+                dy = cy - sy
+                dist_sq = dx * dx + dy * dy
+                if dist_sq > radius_sq:
+                    continue
+
+                dist = math.sqrt(dist_sq)
+                # 중심에 가까울수록 많이 깎임 (중심=100%, 가장자리=0%)
+                factor = 1.0 - (dist / radius)
+                erode_val = wall.depths[i] * factor
+                old = wall.depths[i]
+                wall.depths[i] = max(0.0, old - erode_val)
+                wall_eroded += old - wall.depths[i]
+
+            if wall_eroded > 0:
+                wall._dirty = True
+                total_eroded += wall_eroded
+
+        # 폭발 파티클 생성
+        if total_eroded > 0:
+            count = max(5, min(20, int(total_eroded / 5)))
+            for _ in range(count):
+                angle = random.uniform(0, 2 * math.pi)
+                speed = random.uniform(2.0, 5.0)
+                self.particles.append({
+                    "x": cx + random.uniform(-radius * 0.3, radius * 0.3),
+                    "y": cy + random.uniform(-radius * 0.3, radius * 0.3),
+                    "vx": math.cos(angle) * speed,
+                    "vy": math.sin(angle) * speed,
+                    "size": random.randint(2, 5),
+                    "color": random.choice(SAND_PARTICLE_COLORS),
+                    "life": random.randint(20, 40),
+                    "max_life": 40,
+                    "gravity": 0.15,
+                })
+
+        return total_eroded
+
     def is_all_empty(self) -> bool:
         """모든 벽면이 깎였는지"""
         return all(w.is_empty() for w in self.walls)
@@ -478,6 +550,13 @@ def check_sand_ball_collision(
     if isinstance(terrain, SandTerrain):
         return terrain.check_ball_collision(ball_rect, ball_vel)
     return False
+
+
+def erode_sand_area(terrain: SandTerrain | None, cx: float, cy: float, radius: float) -> float:
+    """폭발 범위 내 모래 침식. 반환: 총 깎인 양"""
+    if isinstance(terrain, SandTerrain):
+        return terrain.erode_area(cx, cy, radius)
+    return 0.0
 
 
 def draw_sand_obstacles(screen: pygame.Surface, terrain: SandTerrain | list) -> None:

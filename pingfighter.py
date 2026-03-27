@@ -1227,6 +1227,7 @@ from game_logic.checkmate_system import get_checkmate_system
 from game_logic.game_loop import LegacyHooks, create_game_loop
 from game_logic.sand_obstacles import (
     spawn_sand_obstacles, check_sand_ball_collision, draw_sand_obstacles,
+    erode_sand_area,
 )
 
 if _splash_screen:
@@ -27400,6 +27401,10 @@ def trigger_grenade_style_explosion(
     if current_stage == 2 and source == "grenade":
         _destroy_stage2_rocks_in_radius(x, y, explosion_radius, source="grenade")
 
+    # 🏖 사막화 모래 침식: 폭발 반경 내 모래 지형 파괴
+    if sand_obstacles is not None:
+        erode_sand_area(sand_obstacles, x, y, explosion_radius)
+
 
 # =====================
 # Stage 7 EMP 펄스(파문) 이펙트
@@ -37438,6 +37443,10 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         _destroy_stage2_rocks_in_radius(centerx, centery, radius, source="hammer_shock_explosion")
     except Exception:
         pass
+
+    # 🏖 사막화 모래 침식: 해머쇼크 폭발 반경 내 모래 파괴
+    if sand_obstacles is not None:
+        erode_sand_area(sand_obstacles, centerx, centery, radius)
 
     try:
         effects_manager.spawn_star_particles(
@@ -53517,6 +53526,20 @@ except Exception as e:
     print(f"[WARN] Spider boss sprite load failed: {e}")
     spider_boss_sprite = None
     SPIDER_BOSS_ANIMATION_AVAILABLE = False
+# Stage 4 보스 (인왕) 프로시저럴 스프라이트 초기화
+try:
+    from entities.inwang_boss_sprite import (
+        get_inwang_boss_sprite,
+        init_inwang_boss_sprite,
+        reset_inwang_boss_sprite,
+        InwangBossSprite
+    )
+    inwang_boss_sprite = init_inwang_boss_sprite()
+    INWANG_BOSS_ANIMATION_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Inwang boss sprite load failed: {e}")
+    inwang_boss_sprite = None
+    INWANG_BOSS_ANIMATION_AVAILABLE = False
 # Stage 2 보스 (악어장군) 걷기 애니메이션 초기화
 try:
     from entities.stage2_boss_sprite import (
@@ -55245,6 +55268,25 @@ boss_special_ready_stage4 = False
 stage4_magnetic_active = False
 stage4_magnetic_timer = 0
 stage4_magnetic_radius = 160  # 130 → 160 (더 넓은 범위) - 난이도 상향
+
+# === Stage 4 인왕 스킬 관련 전역 변수 ===
+# 금강저 (Vajra Counter) - 공 속도 1.8배 반사
+inwang_vajra_active = False          # 금강저 발동 상태
+inwang_vajra_timer = 0               # 금강저 이펙트 잔상 타이머
+inwang_vajra_cooldown_timer = 0      # 금강저 쿨다운 (프레임)
+INWANG_VAJRA_COOLDOWN = 300          # 쿨다운 5초 (60fps * 5)
+INWANG_VAJRA_SPEED_MULT = 1.8       # 공 속도 배율
+inwang_vajra_afterimages = []        # 금강저 잔상 리스트 [(x, y, alpha, timer)]
+# 인왕문 봉쇄 (Gate Seal) - 화면 상단 돌벽 생성
+inwang_gate_active = False           # 인왕문 활성화 상태
+inwang_gate_timer = 0                # 인왕문 지속 타이머
+inwang_gate_hp = 3                   # 인왕문 내구도 (3회)
+inwang_gate_max_hp = 3
+INWANG_GATE_DURATION = 240           # 지속 4초 (60fps * 4)
+INWANG_GATE_Y = 120                  # 벽 Y 좌표 (보스 진영 경계)
+INWANG_GATE_HEIGHT = 15              # 벽 높이
+inwang_gate_crack_level = 0          # 금 간 정도 (0~2)
+inwang_gate_particles = []           # 파편 파티클
 
 # === 스테이지 4 도깨비불 (3개의 붉은 불꽃이 보스 주위를 공전) ===
 _stage4_flame_angle = 0.0          # 현재 공전 각도 (라디안)
@@ -101920,8 +101962,17 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE3
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 4:
-        boss_img = BOSS_IMG_STAGE4
-        boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
+        if current_boss_name == "인왕" and INWANG_BOSS_ANIMATION_AVAILABLE and inwang_boss_sprite is not None:
+            boss_img_prescaled = True
+            inwang_boss_sprite.update(boss_x_pos, 1/60)
+            boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
+            boss_img = inwang_boss_sprite.get_current_frame((boss_w, boss_h))
+            if boss_img is None:
+                boss_img = BOSS_IMG_STAGE4
+                boss_img_prescaled = False
+        else:
+            boss_img = BOSS_IMG_STAGE4
+            boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
     elif current_stage == 5:
         boss_img = BOSS_IMG_STAGE5
         boss_w, boss_h = BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
@@ -116605,8 +116656,15 @@ def show_drive_monitor_demo(background):
                 boss_img = BOSS_IMG_STAGE3
                 boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
             elif current_stage == 4:
-                boss_img = BOSS_IMG_STAGE4
-                boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT))
+                if current_boss_name == "인왕" and INWANG_BOSS_ANIMATION_AVAILABLE and inwang_boss_sprite is not None:
+                    inwang_boss_sprite.update(boss_x, 1/60)
+                    boss_img = inwang_boss_sprite.get_current_frame((BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT))
+                    if boss_img is None:
+                        boss_img = BOSS_IMG_STAGE4
+                        boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT))
+                else:
+                    boss_img = BOSS_IMG_STAGE4
+                    boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT))
             elif current_stage == 5:
                 boss_img = BOSS_IMG_STAGE5
                 boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT))
@@ -144058,6 +144116,9 @@ def _process_bazooka_collisions():
         _destroy_stage2_rocks_in_radius(
             explosion["x"], explosion["y"], explosion["radius"], source="bazooka"
         )
+        # 🏖 사막화 모래 침식: 바주카포 폭발 반경 내 모래 파괴
+        if sand_obstacles is not None:
+            erode_sand_area(sand_obstacles, explosion["x"], explosion["y"], explosion["radius"])
         # 폭발 사운드 재생
         try:
             if 'SOUND_GRENADE' in globals():
@@ -144586,6 +144647,9 @@ def handle_boss():
                 _destroy_stage2_rocks_in_radius(
                     explosion["x"], explosion["y"], explosion["radius"], source="bazooka"
                 )
+                # 🏖 사막화 모래 침식: 바주카포 폭발 반경 내 모래 파괴
+                if sand_obstacles is not None:
+                    erode_sand_area(sand_obstacles, explosion["x"], explosion["y"], explosion["radius"])
                 # Stage 7: 바주카포 폭발 반경 내 테트로/가드 파괴
                 try:
                     if current_stage == 7:
@@ -148161,7 +148225,10 @@ def main(stage_num, new_boss_mode=False):
         bgm_manager.play_stage_bgm(3)
     elif stage_num == 4:
         CURRENT_BG = STAGE4_BG
-        BOSS_COLOR = WHITE
+        if current_boss_name == "인왕":
+            BOSS_COLOR = (180, 150, 80)  # 금색 (인왕/금강역사)
+        else:
+            BOSS_COLOR = WHITE
         # Stage 4 BGM 재생
         bgm_manager.play_stage_bgm(4)
     elif stage_num == 5:  #  Stage 5 추가
@@ -155197,6 +155264,10 @@ def main(stage_num, new_boss_mode=False):
                             globals()["boss_dash_stun_timer"] = 0
 
                             # print(f"[Dynamite] 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초, 넉백 방향={direction}, 파워={power}")
+
+                        # 🏖 사막화 모래 침식: 다이너마이트 폭발 반경 내 모래 파괴
+                        if sand_obstacles is not None:
+                            erode_sand_area(sand_obstacles, exp["x"], exp["y"], dynamite.EXPLOSION_RADIUS)
 
                 # 🍌 바나나 시스템 업데이트 (모든 캐릭터 공용)
                 from item_effects.banana import get_banana_instance
