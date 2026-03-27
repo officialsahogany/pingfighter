@@ -17907,6 +17907,7 @@ class ColosseumsArena:
             "hero_name": hero_name,
             "hero_skill_index": _skill_idx,
             "seal_grade": seal_grade,
+            "allow_overflow": True,
             "hero_color": self.bet_hero.get("color", (200, 200, 200)),
         }
 
