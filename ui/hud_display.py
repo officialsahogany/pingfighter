@@ -346,6 +346,7 @@ class HUDDisplay:
                 _rs_full = os.path.join(base, "sounds", "roundset.wav")
                 if os.path.exists(_rs_full):
                     HUDDisplay._roundset_sound = pygame.mixer.Sound(_rs_full)
+                    HUDDisplay._roundset_sound.set_volume(0.4)
             if HUDDisplay._roundset_sound:
                 HUDDisplay._roundset_sound.play()
         except Exception:
