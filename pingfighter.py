@@ -20768,6 +20768,7 @@ SOUND_BOOMERANG = sound_effects.get('BOOMERANG')
 SOUND_BOOMERANG_HIT = sound_effects.get('BOOMERANG_HIT')
 SOUND_BOOMERANG_BREAK = sound_effects.get('BOOMERANG_BREAK')
 SOUND_HYDRO = sound_effects.get('HYDRO')
+SOUND_ROCKHIT = sound_effects.get('ROCKHIT')
 boomerang_sound_channel = None  # 부메랑 루프 재생 채널
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
@@ -58552,6 +58553,8 @@ def update_water_cannon_fragments():
 
                 # 파편 피격 시 화면 이펙트 트리거 (빨간 플래시 + 셰이크)
                 trigger_fragment_hit_effect()
+                if SOUND_ROCKHIT:
+                    play_sound_with_volume(SOUND_ROCKHIT)
 
                 print(f"💥 물대포 파편에 맞음! 넉백: {player_fire_knockback_vel:.1f}")
 
