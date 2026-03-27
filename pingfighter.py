@@ -24861,7 +24861,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "발동 확률", "min": 15, "max": 25, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
         {"label": "파편 개수", "min": 5, "max": 9, "unit": "개", "prefix": "", "key": "shard_count"},
         {"label": "넉백 단계", "min": 1, "max": 4, "unit": "Lv", "prefix": "", "key": "knockback_level"},
-        {"label": "게이지 소모", "min": 25, "max": 50, "unit": "", "prefix": "-", "key": "gauge_cost"},
+        {"label": "게이지 소모", "min": 25, "max": 50, "unit": "", "prefix": "-", "key": "gauge_cost", "reverse": True},
     ],
     "soul_burst": [
         {"label": "게이지 소모량", "min": 130, "max": 200, "unit": "", "prefix": "", "key": "gauge_cost", "reverse": True},
@@ -24974,6 +24974,7 @@ shrapnel_armor_trigger_pct = 20  # 파편갑옷 발동 확률 (15~25% 범위, �
 shrapnel_armor_shard_count = 7   # 파편갑옷 파편 개수 (5~9 범위, 기본값 7)
 shrapnel_armor_knockback_level = 2  # 파편갑옷 넉백 단계 (1~4 범위, 기본값 2)
 shrapnel_armor_gauge_cost = 35  # 파편갑옷 게이지 소모 (25~50 범위, 기본값 35)
+soul_burst_gauge_cost = 165  # 소울버스트 게이지 소모량 (130~200 범위, 기본값 165)
 
 _BASE_SLOT_LABELS = {
     "head": "머리",
@@ -25806,6 +25807,15 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
             )
         except Exception:
             pass
+    elif name == "soul_burst":
+        val = _get_roll_value(item, "gauge_cost")
+        if val is not None:
+            globals()["soul_burst_gauge_cost"] = int(val)
+            try:
+                from item_effects.soul_burst import get_soul_burst_instance
+                get_soul_burst_instance().set_gauge_cost(int(val))
+            except Exception:
+                pass
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -25968,6 +25978,7 @@ def sync_equipped_passive_effects():
     sync_bool("knee_pads", "items.knee_pads_obtained")
     sync_bool("adversity_armor", "items.adversity_armor_obtained")
     sync_bool("shrapnel_armor", "items.shrapnel_armor_obtained")
+    sync_bool("soul_burst", "items.soul_burst_obtained")
     # 금괴는 별도 처리 (소지만 해도 페널티, 장착하면 페널티 없음)
     # gold_bar_obtained는 인벤토리에 있는지로 결정
     sync_bool("ragnarok_hammer", "items.ragnarok_hammer_obtained")
@@ -26099,6 +26110,27 @@ def sync_equipped_passive_effects():
                 knee_pads.activate()
             else:
                 knee_pads.deactivate()
+    except Exception:
+        pass
+
+    # 소울버스트
+    try:
+        from item_effects.soul_burst import get_soul_burst_instance
+
+        sb = get_soul_burst_instance()
+        if sb:
+            if "soul_burst" in equipped_names:
+                sb.activate()
+                # 롤옵션에서 게이지 소모량 동기화
+                sb_item = next((i for i in equipped_items if i.get("name") == "soul_burst"), None)
+                if sb_item:
+                    rolled = sb_item.get("rolled_options", [])
+                    for opt in rolled:
+                        if opt.get("key") == "gauge_cost":
+                            sb.set_gauge_cost(int(opt["value"]))
+                            break
+            else:
+                sb.deactivate()
     except Exception:
         pass
 
@@ -70796,7 +70828,17 @@ def handle_player(keys):
 
             # 기본 대쉬 조건 (일반 상태에서만 + 서브 완료 후 3초 경과)
             # 대쉬부스트 활성화 시 토큰 체크 우회
-            _has_token_or_unlimited = rolling_charges > 0 or is_dash_unlimited()
+            # 소울버스트: 토큰 없을 때 스페셜 게이지로 대쉬 가능
+            _soul_burst_can_dash = False
+            if rolling_charges <= 0:
+                try:
+                    from item_effects.soul_burst import get_soul_burst_instance as _get_sb
+                    _sb_inst = _get_sb()
+                    if _sb_inst and _sb_inst.active and _sb_inst.can_soul_dash(special_gauge):
+                        _soul_burst_can_dash = True
+                except Exception:
+                    pass
+            _has_token_or_unlimited = rolling_charges > 0 or is_dash_unlimited() or _soul_burst_can_dash
 
             if _has_token_or_unlimited and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
                 can_use_rolling = True
@@ -70885,7 +70927,7 @@ def handle_player(keys):
                     # 죽음의 포옹 영역 내 대쉬 차단 (하프 대쉬 포함)
                     if is_deadly_hug_dash_blocked():
                         show_speech("대쉬 봉쇄!", duration=30)
-                    elif (rolling_charges <= 0) or (_force_half_rmb and _is_rmb):
+                    elif ((rolling_charges <= 0) and not _soul_burst_can_dash) or (_force_half_rmb and _is_rmb):
                         #  아카데미 스킬 효과 계산: 도약 스킬 보너스
                         jump_bonus = get_runtime_skill_bonus("dash_jump") if 'academy' in globals() else 0
 
@@ -71182,7 +71224,7 @@ def handle_player(keys):
                 right_before_down = _cached_right_for_dash
                 # 스턴/감전 상태에서는 대쉬 불가
                 _player_stun_blocked = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
-                if left_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and dash_key_released_since_last and not _player_stun_blocked and not is_deadly_hug_dash_blocked():
+                if left_before_down and down_pressed and not dash_down_first_lock and (rolling_charges > 0 or _soul_burst_can_dash) and not optimus_drain_locked and dash_key_released_since_last and not _player_stun_blocked and not is_deadly_hug_dash_blocked():
                     # 아래키 + 왼쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -71263,21 +71305,35 @@ def handle_player(keys):
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
                     # 대쉬부스트 활성화 시 토큰 소모하지 않음
                     if not is_dash_unlimited():
-                        # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
-                        if 'token_states' in globals() and len(token_states) > 0:
-                            # 오른쪽부터 검색하여 소진
-                            for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
-                                if idx < len(token_states) and token_states[idx]:
-                                    token_states[idx] = False
-                                    break
+                        # 소울버스트: 토큰 0일 때 스페셜 게이지 소모로 대쉬
+                        if _soul_burst_can_dash and rolling_charges <= 0:
+                            try:
+                                _sb = _get_sb()
+                                _sb_cost = _sb.get_gauge_cost()
+                                special_gauge = max(0, special_gauge - _sb_cost)
+                                special_ready = special_gauge >= 350
+                                if hasattr(game_state, 'special_gauge'):
+                                    game_state.special_gauge = special_gauge
+                                # 소울버스트 사용 후 재체크
+                                _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
+                            except Exception:
+                                pass
                         else:
-                            # token_states가 없으면 초기화
-                            token_states = [True] * max(0, rolling_charges - 1) + [False] * (max_charges - max(0, rolling_charges - 1))
-                        # token_states에서 rolling_charges 동기화 (핵심!)
-                        _new_charges = sum(1 for s in token_states if s)
-                        _rolling_set("rolling_charges", _new_charges)
-                        # 전역 변수도 직접 업데이트 (지역 변수 shadowing 방지)
-                        globals()["rolling_charges"] = _new_charges
+                            # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
+                            if 'token_states' in globals() and len(token_states) > 0:
+                                # 오른쪽부터 검색하여 소진
+                                for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
+                                    if idx < len(token_states) and token_states[idx]:
+                                        token_states[idx] = False
+                                        break
+                            else:
+                                # token_states가 없으면 초기화
+                                token_states = [True] * max(0, rolling_charges - 1) + [False] * (max_charges - max(0, rolling_charges - 1))
+                            # token_states에서 rolling_charges 동기화 (핵심!)
+                            _new_charges = sum(1 for s in token_states if s)
+                            _rolling_set("rolling_charges", _new_charges)
+                            # 전역 변수도 직접 업데이트 (지역 변수 shadowing 방지)
+                            globals()["rolling_charges"] = _new_charges
                     # 충전 중인 토큰 인덱스 리셋 (새 충전 시작을 위해) - 왼쪽 대쉬
                     _charging_state["index"] = -1
                     _charging_state["timer"] = 0
@@ -71448,7 +71504,7 @@ def handle_player(keys):
                 # 대쉬 감속 구간 캔슬 적용 (왼쪽 대쉬와 동일)
                 # 스턴/감전 상태에서는 대쉬 불가
                 _player_stun_blocked_r = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
-                if right_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last and not _player_stun_blocked_r and not is_deadly_hug_dash_blocked():
+                if right_before_down and down_pressed and not dash_down_first_lock and (rolling_charges > 0 or _soul_burst_can_dash) and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last and not _player_stun_blocked_r and not is_deadly_hug_dash_blocked():
                     # 아래키 + 오른쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -71529,21 +71585,34 @@ def handle_player(keys):
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
                     # 대쉬부스트 활성화 시 토큰 소모하지 않음
                     if not is_dash_unlimited():
-                        # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
-                        if 'token_states' in globals() and len(token_states) > 0:
-                            # 오른쪽부터 검색하여 소진
-                            for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
-                                if idx < len(token_states) and token_states[idx]:
-                                    token_states[idx] = False
-                                    break
+                        # 소울버스트: 토큰 0일 때 스페셜 게이지 소모로 대쉬
+                        if _soul_burst_can_dash and rolling_charges <= 0:
+                            try:
+                                _sb = _get_sb()
+                                _sb_cost = _sb.get_gauge_cost()
+                                special_gauge = max(0, special_gauge - _sb_cost)
+                                special_ready = special_gauge >= 350
+                                if hasattr(game_state, 'special_gauge'):
+                                    game_state.special_gauge = special_gauge
+                                _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
+                            except Exception:
+                                pass
                         else:
-                            # token_states가 없으면 초기화
-                            token_states = [True] * max(0, rolling_charges - 1) + [False] * (max_charges - max(0, rolling_charges - 1))
-                        # token_states에서 rolling_charges 동기화 (핵심!)
-                        _new_charges = sum(1 for s in token_states if s)
-                        _rolling_set("rolling_charges", _new_charges)
-                        # 전역 변수도 직접 업데이트 (지역 변수 shadowing 방지)
-                        globals()["rolling_charges"] = _new_charges
+                            # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
+                            if 'token_states' in globals() and len(token_states) > 0:
+                                # 오른쪽부터 검색하여 소진
+                                for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
+                                    if idx < len(token_states) and token_states[idx]:
+                                        token_states[idx] = False
+                                        break
+                            else:
+                                # token_states가 없으면 초기화
+                                token_states = [True] * max(0, rolling_charges - 1) + [False] * (max_charges - max(0, rolling_charges - 1))
+                            # token_states에서 rolling_charges 동기화 (핵심!)
+                            _new_charges = sum(1 for s in token_states if s)
+                            _rolling_set("rolling_charges", _new_charges)
+                            # 전역 변수도 직접 업데이트 (지역 변수 shadowing 방지)
+                            globals()["rolling_charges"] = _new_charges
                     # 충전 중인 토큰 인덱스 리셋 (새 충전 시작을 위해) - 오른쪽 대쉬
                     _charging_state["index"] = -1
                     _charging_state["timer"] = 0
@@ -75172,7 +75241,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -76247,6 +76316,18 @@ def store_passive_item(item_data):
             _apply_item_to_skin(_skeletal_skin, "shrapnel_armor")
             from item_effects.shrapnel_armor import activate_shrapnel_armor
             activate_shrapnel_armor()
+        item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "soul_burst":
+        # 소울버스트 패시브 아이템 (무릎 부위)
+        # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
+        if not items.soul_burst_obtained:
+            items.soul_burst_obtained = True
+            from item_effects.soul_burst import get_soul_burst_instance
+            sb = get_soul_burst_instance()
+            sb.activate()
         item_data["type"] = "passive"
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -127625,6 +127706,46 @@ def get_item_icon(item_name):
         icon_cache[item_name] = icon
         return icon
 
+    if item_name == "soul_burst":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        s = ICON_SIZE / 48
+
+        # 무릎 보호대 형태 (짙은 보라)
+        pad_color = (100, 50, 160)
+        pad_dark = (70, 30, 120)
+        pad_glow = (180, 120, 255)
+        soul_color = (200, 140, 255)
+
+        # 메인 무릎 패드
+        pad_w = int(26 * s)
+        pad_h = int(30 * s)
+        pad_rect = pygame.Rect(cx - pad_w // 2, cy - pad_h // 2 + int(2 * s), pad_w, pad_h)
+        pygame.draw.rect(icon_surface, pad_color, pad_rect, border_radius=int(6 * s))
+        pygame.draw.rect(icon_surface, pad_dark, pad_rect.inflate(-int(4 * s), -int(4 * s)), border_radius=int(4 * s))
+
+        # 중앙 영혼 에너지 심볼 (보라빛 원형 + 불꽃)
+        core_r = max(3, int(7 * s))
+        pygame.draw.circle(icon_surface, soul_color, (cx, cy + int(2 * s)), core_r)
+        pygame.draw.circle(icon_surface, (255, 200, 255), (cx, cy + int(2 * s)), max(1, core_r // 2))
+
+        # 방사형 에너지 선 (소울 버스트 표현)
+        num_rays = 6
+        for i in range(num_rays):
+            angle = math.radians(-90 + 360 * i / num_rays)
+            ix = cx + int(math.cos(angle) * (core_r + 1))
+            iy = cy + int(2 * s) + int(math.sin(angle) * (core_r + 1))
+            ox = cx + int(math.cos(angle) * int(12 * s))
+            oy = cy + int(2 * s) + int(math.sin(angle) * int(12 * s))
+            pygame.draw.line(icon_surface, pad_glow, (ix, iy), (ox, oy), max(1, int(1.5 * s)))
+
+        # 외곽 글로우
+        pygame.draw.rect(icon_surface, pad_glow, pad_rect, 1, border_radius=int(6 * s))
+
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
     if item_name == "banana":
         # 바나나 아이콘 코드로 그리기
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -160955,7 +161076,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -161054,6 +161175,7 @@ def get_item_description(item_name):
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
+        "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
