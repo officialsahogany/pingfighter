@@ -127953,17 +127953,6 @@ def get_item_icon(item_name):
     except Exception:
         pass
 
-    # unknown_item.png 시도 (스마트폰이 아닌 경우만)
-    try:
-        unknown_path = resource_path("items/unknown_item.png")
-        if os.path.exists(unknown_path):
-            icon = pygame.image.load(unknown_path).convert_alpha()
-            icon = pygame.transform.scale(icon, (ICON_SIZE, ICON_SIZE))
-            icon_cache[item_name] = icon
-            return icon
-    except:
-        pass
-    
     # 최종 폴백: 기본 아이콘 생성
     default_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     
@@ -128037,6 +128026,16 @@ def get_item_icon(item_name):
         # 테두리
         pygame.draw.circle(default_icon, (220, 190, 70), (16, 16), 14, 2)
     else:
+        # unknown_item.png 시도
+        try:
+            unknown_path = resource_path("items/unknown_item.png")
+            if os.path.exists(unknown_path):
+                icon = pygame.image.load(unknown_path).convert_alpha()
+                icon = pygame.transform.scale(icon, (ICON_SIZE, ICON_SIZE))
+                icon_cache[item_name] = icon
+                return icon
+        except:
+            pass
         # 기본 물음표 아이콘
         pygame.draw.circle(default_icon, (100, 100, 100), (16, 16), 12)
         pygame.draw.circle(default_icon, (150, 150, 150), (16, 16), 10)
@@ -147031,19 +147030,20 @@ def show_result(won):
         except Exception:
             pass
 
+        # 중급인장 스테이지 만료 체크 (승리 화면 전에 호위무사 강제 제거)
+        try:
+            from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+            _inter_seal = get_intermediate_seal_state()
+            if _inter_seal.active:
+                print(f"[IntermediateSeal] 스테이지 클리어 → 호위무사 퇴장!")
+                _inter_seal.deactivate()
+        except Exception:
+            pass
+
         show_victory_screen(stage_cleared=current_stage, reward=reward)
         # 클리어한 보스 이름 저장 (스테이지 전환 전에 캡처)
         session_cleared_boss_names[current_stage] = get_boss_name(current_stage)
         current_stage += 1
-
-        # 중급인장 스테이지 만료 체크
-        try:
-            from item_effects.intermediate_hero_seal import get_intermediate_seal_state
-            _inter_seal = get_intermediate_seal_state()
-            if _inter_seal.active and _inter_seal.check_stage_change(current_stage):
-                print(f"[IntermediateSeal] 스테이지 변경 → 호위무사 퇴장!")
-        except Exception:
-            pass
 
         # 스테이지 전환 시 비상충전 사용 가능하게 리셋
         reset_emergency_charge_for_new_stage()
