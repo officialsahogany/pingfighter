@@ -1791,6 +1791,15 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None,
         "body_part": "knee"  # 무릎 부위
+    },
+    {
+        "name": "strange_vial",  # 기묘한 약병 액티브 아이템
+        "color": (120, 60, 160),  # 보라색 (신비한 약병 테마)
+        "effect": "strange_vial",
+        "icon": None,
+        "chance": 0.008,  # 확률 0.8%
+        "duration": 1800,  # 30초 (1800 / 60fps)
+        "unlock_condition": None
     }
 ]
 
@@ -1935,7 +1944,8 @@ unlocked_items = {
     "magnet_field": True,  # 자기장 발생기
     "boomerang": True,  # 부메랑
     "soap": True,  # 비누
-    "soul_burst": True  # 소울버스트
+    "soul_burst": True,  # 소울버스트
+    "strange_vial": True  # 기묘한 약병
 }
 
 # 현재 떠 있는 아이템 리스트

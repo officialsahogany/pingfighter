@@ -3647,6 +3647,7 @@ class BuildingInterior:
             {"name": "soap", "korean": "비누", "rarity": "common", "type": "active"},
             {"name": "regeneration_potion", "korean": "재생물약", "rarity": "common", "type": "active"},
             {"name": "doping_potion", "korean": "도핑물약", "rarity": "common", "type": "active"},
+            {"name": "strange_vial", "korean": "기묘한약병", "rarity": "common", "type": "active"},
         ]
 
         # 발토르 전용 아이템 추가 (발토르로 플레이 시에만)
