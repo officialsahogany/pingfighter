@@ -125325,8 +125325,8 @@ def show_item_manager_menu():
         ("신발", ["speedboots", "spikeboots"]),
         ("등", ["slot_add", "chargebag", "dowsing_pendulum", "battery"]),
         ("장신구", ["star_detector", "fuel_pouch", "bluetooth_ring",
-                  "foul_whistle", "dashholder", "cooltime"]),
-        ("장신구2", ["revival", "gold_bar", "lucky_coin", "sage_ring"]),
+                  "foul_whistle", "dashholder",
+                  "cooltime", "revival", "gold_bar", "lucky_coin", "sage_ring"]),
     ]
 
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
@@ -126044,7 +126044,7 @@ def show_item_manager_menu():
             current_slot = None
             item_index = 0
             col_in_slot = 0
-            max_cols_per_slot = 6  # 부위당 최대 열 수
+            max_cols_per_slot = 12  # 부위당 최대 열 수
             slot_label_width = 50  # 부위 라벨 너비
             passive_grid_start_x = 65
 
