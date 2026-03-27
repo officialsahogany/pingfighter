@@ -194,6 +194,21 @@ BOSS_VARIANTS = {
             "special_skill": "mirror_world",   # 거울 나라
         },
     },
+    4: {
+        "퐁크": BOSS_CONFIGS[4],
+        "인왕": {
+            **BOSS_CONFIGS[4],
+            "name": "인왕",
+            "color": (180, 150, 80),            # 금색 (금강역사)
+            "accel": BOSS_CONFIGS[4]["accel"] * 0.80,        # -20% 이동속도 (묵직)
+            "decel": BOSS_CONFIGS[4]["decel"] * 0.80,
+            "max_speed": BOSS_CONFIGS[4]["max_speed"] * 0.80,
+            "instant_stop": BOSS_CONFIGS[4]["instant_stop"] * 1.20,  # +20% 급정지
+            "predict_distance": 120,            # 반응형 (150 → 120)
+            "fail_error": 200,                  # 더 정확 (260 → 200)
+            "special_skill": "vajra_counter",   # 금강저 카운터
+        },
+    },
 }
 
 

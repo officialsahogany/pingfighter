@@ -55128,6 +55128,18 @@ def go_to_next_round():
     stage4_magnetic_active = False
     stage4_magnetic_timer = 0
     stop_stage4_magnetic_sound()
+    #  Stage 4 인왕 스킬 초기화
+    global inwang_vajra_active, inwang_vajra_timer, inwang_vajra_cooldown_timer
+    global inwang_vajra_afterimages
+    global inwang_gate_active, inwang_gate_timer, inwang_gate_hp, inwang_gate_particles
+    inwang_vajra_active = False
+    inwang_vajra_timer = 0
+    inwang_vajra_cooldown_timer = 0
+    inwang_vajra_afterimages = []
+    inwang_gate_active = False
+    inwang_gate_timer = 0
+    inwang_gate_hp = 3
+    inwang_gate_particles = []
     #  Stage 4 도깨비불 초기화
     global _stage4_flame_angle, _stage4_flame_hit_timer, _stage4_flame_particles
     global _stage4_flame_rush_timer
@@ -58029,6 +58041,171 @@ def handle_meditation():
         rad = math.radians(angle_deg)
         # 항상 아래 방향(플레이어 쪽)으로 발사
         ball_vel = [speed * math.sin(rad), abs(speed * math.cos(rad))]
+
+# === 인왕 스킬 함수 ===
+def activate_inwang_vajra():
+    """금강저 카운터 발동 — 공 속도 1.8배 반사 + 황금 잔상"""
+    global inwang_vajra_active, inwang_vajra_timer, inwang_vajra_cooldown_timer
+    global inwang_vajra_afterimages, ball_vel
+    inwang_vajra_active = True
+    inwang_vajra_timer = 30  # 잔상 지속 0.5초
+    inwang_vajra_cooldown_timer = INWANG_VAJRA_COOLDOWN
+    # 공 속도 증폭
+    ball_vel[0] *= INWANG_VAJRA_SPEED_MULT
+    ball_vel[1] *= INWANG_VAJRA_SPEED_MULT
+    inwang_vajra_afterimages = []
+
+
+def update_inwang_vajra():
+    """금강저 이펙트 업데이트"""
+    global inwang_vajra_active, inwang_vajra_timer, inwang_vajra_cooldown_timer
+    global inwang_vajra_afterimages
+    if inwang_vajra_cooldown_timer > 0:
+        inwang_vajra_cooldown_timer -= 1
+    if inwang_vajra_active:
+        inwang_vajra_timer -= 1
+        # 잔상 추가 (공 위치 기록)
+        if BALL is not None:
+            inwang_vajra_afterimages.append([BALL.centerx, BALL.centery, 200, 15])
+        # 잔상 업데이트
+        for ai in inwang_vajra_afterimages:
+            ai[2] = max(0, ai[2] - 15)  # 알파 감소
+            ai[3] -= 1
+        inwang_vajra_afterimages = [a for a in inwang_vajra_afterimages if a[3] > 0]
+        if inwang_vajra_timer <= 0:
+            inwang_vajra_active = False
+            inwang_vajra_afterimages.clear()
+
+
+def draw_inwang_vajra(screen):
+    """금강저 잔상 이펙트 렌더링"""
+    if not inwang_vajra_active and not inwang_vajra_afterimages:
+        return
+    for ai in inwang_vajra_afterimages:
+        x, y, alpha, _ = ai
+        if alpha > 0:
+            s = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(s, (240, 210, 80, int(alpha)), (8, 8), 8)
+            screen.blit(s, (x - 8, y - 8))
+
+
+def activate_inwang_gate():
+    """인왕문 봉쇄 발동 — 보스 진영 입구에 돌벽 생성"""
+    global inwang_gate_active, inwang_gate_timer, inwang_gate_hp, inwang_gate_max_hp
+    global inwang_gate_crack_level, inwang_gate_particles
+    inwang_gate_active = True
+    if enraged_boss_active:
+        inwang_gate_timer = 360       # 6초
+        inwang_gate_hp = 5
+        inwang_gate_max_hp = 5
+    else:
+        inwang_gate_timer = INWANG_GATE_DURATION  # 4초
+        inwang_gate_hp = 3
+        inwang_gate_max_hp = 3
+    inwang_gate_crack_level = 0
+    inwang_gate_particles = []
+
+
+def update_inwang_gate():
+    """인왕문 업데이트 — 타이머, 공 충돌, 파편"""
+    global inwang_gate_active, inwang_gate_timer, inwang_gate_hp
+    global inwang_gate_crack_level, inwang_gate_particles, ball_vel
+    if not inwang_gate_active:
+        for p in inwang_gate_particles:
+            p[0] += p[2]
+            p[1] += p[3]
+            p[3] += 0.15
+            p[4] -= 3
+        inwang_gate_particles = [p for p in inwang_gate_particles if p[4] > 0]
+        return
+
+    inwang_gate_timer -= 1
+
+    # 공과 벽 충돌 판정
+    if BALL is not None:
+        gate_rect = pygame.Rect(0, INWANG_GATE_Y, 760, INWANG_GATE_HEIGHT)
+        if gate_rect.colliderect(BALL) and ball_vel[1] < 0:
+            ball_vel[1] = abs(ball_vel[1])
+            inwang_gate_hp -= 1
+            inwang_gate_crack_level = inwang_gate_max_hp - inwang_gate_hp
+            for _ in range(6):
+                px = BALL.centerx + random.randint(-20, 20)
+                py = INWANG_GATE_Y + random.randint(0, INWANG_GATE_HEIGHT)
+                vx = random.uniform(-2, 2)
+                vy = random.uniform(-3, 0)
+                alpha = random.randint(150, 255)
+                inwang_gate_particles.append([px, py, vx, vy, alpha])
+            if inwang_gate_hp <= 0:
+                inwang_gate_active = False
+                for _ in range(15):
+                    px = random.randint(80, 680)
+                    py = INWANG_GATE_Y + random.randint(0, INWANG_GATE_HEIGHT)
+                    vx = random.uniform(-4, 4)
+                    vy = random.uniform(-5, 1)
+                    alpha = random.randint(180, 255)
+                    inwang_gate_particles.append([px, py, vx, vy, alpha])
+
+    if inwang_gate_timer <= 0:
+        inwang_gate_active = False
+
+    for p in inwang_gate_particles:
+        p[0] += p[2]
+        p[1] += p[3]
+        p[3] += 0.15
+        p[4] -= 3
+    inwang_gate_particles = [p for p in inwang_gate_particles if p[4] > 0]
+
+
+def draw_inwang_gate(screen):
+    """인왕문 렌더링"""
+    for p in inwang_gate_particles:
+        x, y, _, _, alpha = p
+        if alpha > 0:
+            color = (160, 140, 100, int(min(255, alpha)))
+            s = pygame.Surface((6, 6), pygame.SRCALPHA)
+            pygame.draw.rect(s, color, (0, 0, 6, 6))
+            screen.blit(s, (int(x) - 3, int(y) - 3))
+
+    if not inwang_gate_active:
+        return
+
+    gate_w = 760
+    crack = inwang_gate_crack_level
+    base_r = max(80, 160 - crack * 25)
+    base_g = max(70, 140 - crack * 20)
+    base_b = max(50, 100 - crack * 15)
+
+    pygame.draw.rect(screen, (base_r, base_g, base_b),
+                     (0, INWANG_GATE_Y, gate_w, INWANG_GATE_HEIGHT))
+    pygame.draw.line(screen, (min(255, base_r + 30), min(255, base_g + 25), min(255, base_b + 15)),
+                     (0, INWANG_GATE_Y), (gate_w, INWANG_GATE_Y), 2)
+    pygame.draw.line(screen, (max(0, base_r - 20), max(0, base_g - 15), max(0, base_b - 10)),
+                     (0, INWANG_GATE_Y + INWANG_GATE_HEIGHT),
+                     (gate_w, INWANG_GATE_Y + INWANG_GATE_HEIGHT), 1)
+
+    emblem_x = 380
+    emblem_y = INWANG_GATE_Y + INWANG_GATE_HEIGHT // 2
+    pygame.draw.circle(screen, (200, 170, 60), (emblem_x, emblem_y), 5)
+    pygame.draw.circle(screen, (240, 210, 80), (emblem_x, emblem_y), 5, 1)
+
+    if crack > 0:
+        rng = random.Random(42)
+        for i in range(crack * 2):
+            cx = rng.randint(50, gate_w - 50)
+            cy = INWANG_GATE_Y + rng.randint(2, INWANG_GATE_HEIGHT - 2)
+            length = rng.randint(15, 40)
+            pygame.draw.line(screen, (60, 50, 35),
+                           (cx, cy), (cx + length, cy + rng.randint(-5, 5)), 1)
+
+    if inwang_gate_max_hp > 0:
+        bar_w = 60
+        bar_h = 3
+        bar_x = emblem_x - bar_w // 2
+        bar_y = INWANG_GATE_Y - 5
+        hp_ratio = inwang_gate_hp / inwang_gate_max_hp
+        pygame.draw.rect(screen, (50, 40, 30), (bar_x, bar_y, bar_w, bar_h))
+        pygame.draw.rect(screen, (200, 170, 60), (bar_x, bar_y, int(bar_w * hp_ratio), bar_h))
+
 def activate_quake(animated_bg=None):
     global quake_active, quake_timer, PLAYER_SPEED, original_ball_speed_quake, quake_rng
     global serve_grace_period, current_stage, boss_special_gauge  # 난이도 하향 + 게이지 추가
@@ -103368,6 +103545,12 @@ def draw_objects():
             pygame.draw.circle(glow_surface, (255, 255, 100, 60), 
                              (star_size * 1.5, star_size * 1.5), star_size)
             SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
+    # === Stage 4 인왕 스킬 업데이트/렌더링 ===
+    if current_stage == 4 and current_boss_name == "인왕":
+        update_inwang_vajra()
+        update_inwang_gate()
+        draw_inwang_vajra(SCREEN)
+        draw_inwang_gate(SCREEN)
     # === Stage 4 자기장 이펙트 (성능 최적화 버전) - stage4_magnetic_radius 기반 동적 크기 ===
     if current_stage == 4 and stage4_magnetic_active:
         global _magnetic_surface_cache, _magnetic_flash_cache
@@ -139828,7 +140011,7 @@ def handle_ball():
             else:
                 if DEBUG_HANDLE_BALL_VERBOSE:
                     pass  # print(f"     ({elapsed_time:.1f}/2.0) -    (handle_ball)")
-        if current_stage == 4 and boss_special_ready_stage4:
+        if current_stage == 4 and boss_special_ready_stage4 and current_boss_name != "인왕":
             stage4_magnetic_active = True
             # 광폭화 시 자기장 지속시간 50% 증가 (200 → 300프레임), 반경 25% 증가 (160 → 200px)
             if enraged_boss_active:
@@ -141365,22 +141548,47 @@ def handle_ball():
                     boss_special_gauge = 0
                     boss_red_intensity = 0
         elif not new_boss_mode_active and current_stage == 4:
-            # 명상 발동 체크 (20% 확률, 자기장과 동시 발동 가능)
-            if not meditation_active and not stage4_magnetic_active and boss_special_gauge_stage4 >= 150 and random.random() <= 0.20:
-                activate_meditation()
-                # 명상 발동시 게이지 150 차감 (100 → 150)
-                boss_special_gauge_stage4 -= 150
-                if boss_special_gauge_stage4 < 0:
+            if current_boss_name == "인왕":
+                # 인왕: 금강저 (게이지 200, 20% 확률, 쿨다운 체크)
+                if (boss_special_gauge_stage4 >= 200
+                    and inwang_vajra_cooldown_timer <= 0
+                    and not inwang_vajra_active
+                    and random.random() <= 0.20):
+                    activate_inwang_vajra()
+                    boss_special_gauge_stage4 -= 200
+                    if boss_special_gauge_stage4 < 0:
+                        boss_special_gauge_stage4 = 0
+                    show_speech("금강저!", duration=90)
+                # 인왕: 인왕문 봉쇄 (게이지 400, 자동 발동)
+                elif (boss_special_gauge_stage4 >= 400
+                      and not inwang_gate_active
+                      and not inwang_vajra_active):
+                    activate_inwang_gate()
                     boss_special_gauge_stage4 = 0
-                boss_special_ready_stage4 = False  # 게이지 차감 시 준비 상태 해제
-            # 자기장 게이지 충전 (명상과 독립적으로 처리)
-            elif not stage4_magnetic_active and not meditation_active:
-                # 광폭화 시 게이지 충전량 120 (~33% 증가), 일반 시 90
-                gauge_gain = 120 if enraged_boss_active else 90
-                boss_special_gauge_stage4 += gauge_gain
-                if boss_special_gauge_stage4 >= 500:  # 250 → 500 (최대 게이지 상향)
-                    boss_special_gauge_stage4 = 500
-                    boss_special_ready_stage4 = True
+                    show_speech("인왕문 봉쇄!", duration=120)
+                # 게이지 충전
+                else:
+                    gauge_gain = 120 if enraged_boss_active else 90
+                    boss_special_gauge_stage4 += gauge_gain
+                    if boss_special_gauge_stage4 > 500:
+                        boss_special_gauge_stage4 = 500
+            else:
+                # 퐁크 (기본): 명상 발동 체크 (20% 확률, 자기장과 동시 발동 가능)
+                if not meditation_active and not stage4_magnetic_active and boss_special_gauge_stage4 >= 150 and random.random() <= 0.20:
+                    activate_meditation()
+                    # 명상 발동시 게이지 150 차감 (100 → 150)
+                    boss_special_gauge_stage4 -= 150
+                    if boss_special_gauge_stage4 < 0:
+                        boss_special_gauge_stage4 = 0
+                    boss_special_ready_stage4 = False  # 게이지 차감 시 준비 상태 해제
+                # 자기장 게이지 충전 (명상과 독립적으로 처리)
+                elif not stage4_magnetic_active and not meditation_active:
+                    # 광폭화 시 게이지 충전량 120 (~33% 증가), 일반 시 90
+                    gauge_gain = 120 if enraged_boss_active else 90
+                    boss_special_gauge_stage4 += gauge_gain
+                    if boss_special_gauge_stage4 >= 500:  # 250 → 500 (최대 게이지 상향)
+                        boss_special_gauge_stage4 = 500
+                        boss_special_ready_stage4 = True
     elif not new_boss_mode_active and current_stage == 8:
         # 표창던지기 스킬 발동 체크
         if stage8_shuriken_next_ready_ms == 0:
