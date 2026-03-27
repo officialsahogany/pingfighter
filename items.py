@@ -2088,6 +2088,13 @@ def reset_items():
     except Exception:
         pass
 
+    try:
+        from item_effects.sage_ring import reset_sage_ring
+
+        reset_sage_ring()
+    except Exception:
+        pass
+
 
 # 아이템 생성
 def spawn_random_item():

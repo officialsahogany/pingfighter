@@ -13054,6 +13054,7 @@ def reset_runtime_skill_system():
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
     global transcendent_crown_skill_bonus
     global perk_leaf_shield, sacred_laurel_perk_bonus
+    global sage_ring_perk_bonus
 
     runtime_skill_levels = {}
     starpoint_for_skills = 0
@@ -13063,6 +13064,7 @@ def reset_runtime_skill_system():
     runtime_accessory_slot_bonus = 0  # 장신구 슬롯 보너스 초기화
     runtime_swiftness_bonus = 0  # 신속 스킬 보너스 초기화
     transcendent_crown_skill_bonus = 0  # 초월자의 관 스킬 보너스 초기화
+    sage_ring_perk_bonus = 0  # 현자의 반지 퍽 보너스 초기화
     # 퍽 월계수잎 초기화
     if perk_leaf_shield:
         perk_leaf_shield.deactivate()
@@ -145681,54 +145683,79 @@ def _process_bazooka_collisions():
             apply_health_boss_damage(2, source="bazooka")
 
 def _handle_boss_with_soap_debuff():
-    """비누 디버프: 관성 블렌딩 방식.
+    """비누 디버프 / 빙판 날씨: 관성 블렌딩 방식.
 
     AI를 정상 실행한 뒤, 결과를 관성(이전 속도)과 블렌딩한다.
-    AI 의도 12%만 반영 → 나머지 88%는 이전 속도로 계속 밀림.
     보스가 움직이려 하지만 미끄러워서 마음대로 안 되는 느낌.
+
+    비누: blend=0.18, friction=0.985
+    빙판: blend=0.18, friction=0.985 (비누와 동일한 관성 효과)
+    동시: blend≈0.126, friction≈0.990 (더 미끄러움)
     """
     global boss_current_speed, BOSS
+    # ── 비누 디버프 체크 ──
+    soap_active = False
+    soap_blend = 0.18
+    soap_friction = 0.985
     try:
         from item_effects.soap import get_soap_instance
         soap_inst = get_soap_instance()
         if soap_inst.is_boss_soaped():
-            # ── 1. AI 실행 전 상태 저장 ──
-            old_x = float(BOSS.x)
-            old_speed = float(boss_current_speed)
-
-            # ── 2. AI 정상 실행 (보스가 원하는 대로 움직임) ──
-            handle_boss()
-
-            # ── 3. AI 결과 vs 관성 블렌딩 ──
-            ai_speed = boss_current_speed       # AI가 결정한 속도
-            ai_x = float(BOSS.x)                # AI가 결정한 위치
-
-            # 관성 위치 (이전 속도로 그냥 밀렸을 때)
-            momentum_x = old_x + old_speed
-
-            # 블렌드 비율: AI 의도를 얼마나 반영할지
-            blend = soap_inst.get_blend_factor()  # 0.12 (12%만 AI, 88% 관성)
-
-            # 속도 블렌딩
-            boss_current_speed = old_speed + (ai_speed - old_speed) * blend
-
-            # 위치 블렌딩
-            BOSS.x = momentum_x + (ai_x - momentum_x) * blend
-
-            # 약간의 마찰 (서서히 감속, 영원히 밀리지 않도록)
-            boss_current_speed *= soap_inst.get_friction()  # 0.985
-
-            # 경계 처리 + 벽에 부딪히면 속도 반감
-            if BOSS.x < 0:
-                BOSS.x = 0
-                boss_current_speed = abs(boss_current_speed) * 0.3
-            elif BOSS.x > WIDTH - BOSS.width:
-                BOSS.x = WIDTH - BOSS.width
-                boss_current_speed = -abs(boss_current_speed) * 0.3
-
-            return
+            soap_active = True
+            soap_blend = soap_inst.get_blend_factor()
+            soap_friction = soap_inst.get_friction()
     except Exception:
         pass
+
+    # ── 빙판 날씨 체크 ──
+    ice_active = is_ice_active()
+
+    # 둘 중 하나라도 활성이면 관성 블렌딩 적용
+    if soap_active or ice_active:
+        if soap_active and ice_active:
+            # 비누 + 빙판 동시: 더 미끄럽게
+            blend = min(soap_blend, 0.18) * 0.7   # ~0.126 (12.6% AI)
+            friction = min(max(soap_friction, 0.985) * 1.005, 0.998)  # ~0.990
+        elif soap_active:
+            blend = soap_blend
+            friction = soap_friction
+        else:
+            # 빙판만: 비누와 동일한 관성 효과
+            blend = 0.18
+            friction = 0.985
+
+        # ── 1. AI 실행 전 상태 저장 ──
+        old_x = float(BOSS.x)
+        old_speed = float(boss_current_speed)
+
+        # ── 2. AI 정상 실행 (보스가 원하는 대로 움직임) ──
+        handle_boss()
+
+        # ── 3. AI 결과 vs 관성 블렌딩 ──
+        ai_speed = boss_current_speed       # AI가 결정한 속도
+        ai_x = float(BOSS.x)                # AI가 결정한 위치
+
+        # 관성 위치 (이전 속도로 그냥 밀렸을 때)
+        momentum_x = old_x + old_speed
+
+        # 속도 블렌딩
+        boss_current_speed = old_speed + (ai_speed - old_speed) * blend
+
+        # 위치 블렌딩
+        BOSS.x = momentum_x + (ai_x - momentum_x) * blend
+
+        # 약간의 마찰 (서서히 감속, 영원히 밀리지 않도록)
+        boss_current_speed *= friction
+
+        # 경계 처리 + 벽에 부딪히면 속도 반감
+        if BOSS.x < 0:
+            BOSS.x = 0
+            boss_current_speed = abs(boss_current_speed) * 0.3
+        elif BOSS.x > WIDTH - BOSS.width:
+            BOSS.x = WIDTH - BOSS.width
+            boss_current_speed = -abs(boss_current_speed) * 0.3
+
+        return
     handle_boss()
 
 def handle_boss():
