@@ -20921,6 +20921,7 @@ SOUND_BOOMERANG_HIT = sound_effects.get('BOOMERANG_HIT')
 SOUND_BOOMERANG_BREAK = sound_effects.get('BOOMERANG_BREAK')
 SOUND_HYDRO = sound_effects.get('HYDRO')
 SOUND_ROCKHIT = sound_effects.get('ROCKHIT')
+SOUND_ALCHEMY = sound_effects.get('ALCHEMY')
 boomerang_sound_channel = None  # 부메랑 루프 재생 채널
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
@@ -153631,6 +153632,7 @@ def main(stage_num, new_boss_mode=False):
                             if recycle_chance > 0 and random.random() < recycle_chance:
                                 recycle_triggered = True
                                 create_alchemy_notice(target_index)
+                                play_sound_with_volume(SOUND_ALCHEMY)
 
                             if gauge_bonus:
                                 current_max = get_max_gauge() if 'get_max_gauge' in globals() else special_gauge_max
@@ -153804,6 +153806,7 @@ def main(stage_num, new_boss_mode=False):
             if recycle_chance > 0 and random.random() < recycle_chance:
                 recycle_triggered = True
                 create_alchemy_notice(target_index)
+                play_sound_with_volume(SOUND_ALCHEMY)
 
             if gauge_bonus:
                 current_max = get_max_gauge() if 'get_max_gauge' in globals() else special_gauge_max
@@ -160553,6 +160556,7 @@ def show_character_info(background_surface=None):
         if recycle_chance > 0 and random.random() < recycle_chance:
             recycle_triggered = True
             create_alchemy_notice(idx)
+            play_sound_with_volume(SOUND_ALCHEMY)
 
         if gauge_bonus:
             try:

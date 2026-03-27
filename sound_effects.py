@@ -112,6 +112,7 @@ SOUND_PATHS = {
     "BOOMERANG_BREAK": "sounds/bonebreak.wav",
     "HYDRO": "sounds/hydro.wav",
     "ROCKHIT": "sounds/rockhit.wav",
+    "ALCHEMY": "sounds/alchemy.wav",
 }
 
 
