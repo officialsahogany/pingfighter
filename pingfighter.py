@@ -73543,7 +73543,7 @@ def handle_player(keys):
             blacksmith_walking_active = False
             blacksmith_walking_timer = 0
             blacksmith_walk_direction = 0
-    elif selected_character_type in ("smasher", "optimus"):
+    elif selected_character_type in ("smasher", "optimus", "viper"):
         # 안전 가드: 이동 로직에서 계산되지 않은 경우를 대비해 기본 최대속도 설정
         if "effective_max_speed" not in locals():
             if selected_character_type == "optimus":
@@ -102682,6 +102682,14 @@ def draw_objects():
             # 디버그 출력 비활성화 - F4 좌표계 디버그로 대체
     except Exception as e:
         print(f"[ERROR] 킥차져 이펙트 그리기 오류: {e}")
+
+    # 🧪 기묘한 약병 패들 이펙트 그리기
+    if strange_vial_active and PLAYER:
+        try:
+            from item_effects.strange_vial import draw_strange_vial_effects
+            draw_strange_vial_effects(SCREEN, PLAYER)
+        except Exception as _sv_e:
+            print(f"[STRANGE_VIAL_EFFECT_ERROR] {_sv_e}")
 
     # ⚡ 스매셔 콤보 이펙트 업데이트 및 그리기
     if selected_character_type == "smasher":
@@ -157261,14 +157269,6 @@ def main(stage_num, new_boss_mode=False):
         from item_effects.devil_dice import draw_devil_dice_effects, is_devil_dice_active
         if is_devil_dice_active():
             draw_devil_dice_effects(SCREEN, PLAYER)  # 패들 효과와 주사위 애니메이션 모두 그리기
-
-        # 🧪 기묘한 약병 이펙트 그리기 (거품/소용돌이 파티클)
-        if strange_vial_active:
-            try:
-                from item_effects.strange_vial import draw_strange_vial_effects
-                draw_strange_vial_effects(SCREEN, PLAYER)
-            except Exception:
-                pass
 
         # ✨ 스매셔 클렌즈 스킬 효과 그리기
         if selected_character_type == "smasher":
