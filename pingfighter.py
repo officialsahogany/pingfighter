@@ -124089,7 +124089,7 @@ def show_item_manager_menu():
         ("상의", ["technical_vest", "bulkup", "adversity_armor", "shrapnel_armor"]),
         ("팔", ["commando_arm", "master", "smartphone", "gold_digger"]),
         ("벨트", ["gravitybelt", "speedgear", "sensor"]),
-        ("무릎", ["knee_pads", "dashgear"]),
+        ("무릎", ["knee_pads", "dashgear", "soul_burst"]),
         ("신발", ["speedboots", "spikeboots"]),
         ("등", ["slot_add", "chargebag", "dowsing_pendulum", "battery"]),
         ("장신구", ["star_detector", "fuel_pouch", "bluetooth_ring",
@@ -124284,7 +124284,8 @@ def show_item_manager_menu():
         {"name": "gold_digger", "type": "passive", "icon": get_item_icon("gold_digger")},
         {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
         {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
-        {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")}
+        {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")},
+        {"name": "soul_burst", "type": "passive", "icon": get_item_icon("soul_burst")}
     ]
 
     # 전설 아이템 추가
