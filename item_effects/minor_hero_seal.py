@@ -87,7 +87,7 @@ class MinorHeroSealState:
         current_total = round_wins + round_losses
         rounds_passed = current_total - self._round_snapshot
 
-        if rounds_passed >= self.rounds_remaining:
+        if rounds_passed > self.rounds_remaining:
             print(f"[MinorSeal] {self.hero_name}의 초급인장 만료! "
                   f"({rounds_passed}라운드 경과)")
             self.deactivate()
