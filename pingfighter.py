@@ -55786,6 +55786,52 @@ def apply_effect(effect_name):
             return False
         # 투척 준비 동작 시작
         activate_banana()
+    elif effect_name == "minor_hero_seal":  # 초급인장 - 임시 호위무사 3라운드
+        try:
+            from item_effects.minor_hero_seal import get_minor_seal_state
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+            seal_state = get_minor_seal_state()
+            hero_id = item_data.get("hero_id", "") if item_data else ""
+            hero_name = item_data.get("hero_name", "???") if item_data else "???"
+            hero_color = item_data.get("hero_color", (200, 200, 200)) if item_data else (200, 200, 200)
+            skill_idx = item_data.get("hero_skill_index", 0) if item_data else 0
+            seal_state.activate(hero_id, round_wins, round_losses)
+            # 빈 호위무사 슬롯에 배치
+            _bg = get_bodyguard()
+            _bg2 = get_bodyguard2()
+            target_bg = _bg if not _bg.active else (_bg2 if not _bg2.active else None)
+            if target_bg:
+                _hero_data = {"id": hero_id, "name": hero_name, "color": tuple(hero_color), "title": ""}
+                _skill_sel = {hero_id: skill_idx} if hero_id else None
+                target_bg.setup(_hero_data, skill_selections=_skill_sel, first_spawn=True)
+                seal_state._bodyguard_ref = target_bg
+            play_active_item_sound()
+            print(f"📜 {hero_name}의 초급인장 발동! 3라운드 동안 호위무사가 함께합니다")
+        except Exception as e:
+            print(f"[MinorSeal] 발동 실패: {e}")
+    elif effect_name == "intermediate_hero_seal":  # 중급인장 - 임시 호위무사 1스테이지
+        try:
+            from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+            seal_state = get_intermediate_seal_state()
+            hero_id = item_data.get("hero_id", "") if item_data else ""
+            hero_name = item_data.get("hero_name", "???") if item_data else "???"
+            hero_color = item_data.get("hero_color", (200, 200, 200)) if item_data else (200, 200, 200)
+            skill_idx = item_data.get("hero_skill_index", 0) if item_data else 0
+            seal_state.activate(hero_id, current_stage)
+            # 빈 호위무사 슬롯에 배치
+            _bg = get_bodyguard()
+            _bg2 = get_bodyguard2()
+            target_bg = _bg if not _bg.active else (_bg2 if not _bg2.active else None)
+            if target_bg:
+                _hero_data = {"id": hero_id, "name": hero_name, "color": tuple(hero_color), "title": ""}
+                _skill_sel = {hero_id: skill_idx} if hero_id else None
+                target_bg.setup(_hero_data, skill_selections=_skill_sel, first_spawn=True)
+                seal_state._bodyguard_ref = target_bg
+            play_active_item_sound()
+            print(f"📜 {hero_name}의 중급인장 발동! 이번 스테이지 동안 호위무사가 함께합니다")
+        except Exception as e:
+            print(f"[IntermediateSeal] 발동 실패: {e}")
     elif effect_name == "regeneration_potion":  # 🧪 재생물약 액티브 아이템
         # 물약 마시는 효과음 재생
         try:
@@ -127513,6 +127559,25 @@ def get_item_icon(item_name):
         pygame.draw.line(default_icon, (120, 80, 30), (10, 14), (22, 14), 2)
         # 테두리
         pygame.draw.circle(default_icon, (255, 215, 0), (16, 16), 14, 2)
+    elif item_name == "minor_hero_seal":
+        # 초급인장 아이콘 (청동빛 도장)
+        pygame.draw.circle(default_icon, (130, 100, 50), (16, 16), 14)
+        pygame.draw.circle(default_icon, (170, 140, 70), (16, 16), 12)
+        # 내부 별 문양
+        pygame.draw.line(default_icon, (100, 70, 30), (16, 7), (16, 25), 2)
+        pygame.draw.line(default_icon, (100, 70, 30), (8, 16), (24, 16), 2)
+        # 테두리
+        pygame.draw.circle(default_icon, (200, 160, 60), (16, 16), 14, 2)
+    elif item_name == "intermediate_hero_seal":
+        # 중급인장 아이콘 (은빛 도장)
+        pygame.draw.circle(default_icon, (150, 130, 70), (16, 16), 14)
+        pygame.draw.circle(default_icon, (190, 170, 90), (16, 16), 12)
+        # 내부 검 문양 (hero_seal과 유사하지만 색상 차이)
+        pygame.draw.line(default_icon, (110, 85, 35), (16, 6), (16, 26), 2)
+        pygame.draw.line(default_icon, (110, 85, 35), (10, 14), (22, 14), 2)
+        pygame.draw.line(default_icon, (110, 85, 35), (10, 18), (22, 18), 1)
+        # 테두리
+        pygame.draw.circle(default_icon, (220, 190, 70), (16, 16), 14, 2)
     else:
         # 기본 물음표 아이콘
         pygame.draw.circle(default_icon, (100, 100, 100), (16, 16), 12)
@@ -138004,6 +138069,15 @@ def handle_ball():
                 print(f"[PANDORA DEBUG] 선택지 생성 예외: {e}")
                 import traceback; traceback.print_exc()
 
+            # 초급인장 라운드 만료 체크
+            try:
+                from item_effects.minor_hero_seal import get_minor_seal_state
+                _minor_seal = get_minor_seal_state()
+                if _minor_seal.active and _minor_seal.check_round_change(round_wins, round_losses):
+                    print(f"[MinorSeal] 호위무사 퇴장!")
+            except Exception:
+                pass
+
             # 스테이지 1: 관중 흥분 트리거
             if current_stage == 1 and pillar_renderer is not None:
                 pillar_renderer.trigger_stadium_excitement(1.8)
@@ -139144,6 +139218,15 @@ def handle_ball():
                                 print(f"🛡 역경의 갑옷: 무적 발동 예약! (다음 라운드 {aa.invincible_duration_sec}초간 무적)")
             except Exception as e:
                 print(f"🛡 역경의 갑옷 발동 체크 오류: {e}")
+            # 초급인장 라운드 만료 체크 (실점 시에도)
+            try:
+                from item_effects.minor_hero_seal import get_minor_seal_state
+                _minor_seal = get_minor_seal_state()
+                if _minor_seal.active and _minor_seal.check_round_change(round_wins, round_losses):
+                    print(f"[MinorSeal] 호위무사 퇴장!")
+            except Exception:
+                pass
+
             # 🔧 플레이어가 죽었을 때 대시 상태 완전 초기화 (다음 라운드 버그 방지)
             rolling_active = False
             rolling_timer = 0
@@ -146392,6 +146475,16 @@ def show_result(won):
         # 클리어한 보스 이름 저장 (스테이지 전환 전에 캡처)
         session_cleared_boss_names[current_stage] = get_boss_name(current_stage)
         current_stage += 1
+
+        # 중급인장 스테이지 만료 체크
+        try:
+            from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+            _inter_seal = get_intermediate_seal_state()
+            if _inter_seal.active and _inter_seal.check_stage_change(current_stage):
+                print(f"[IntermediateSeal] 스테이지 변경 → 호위무사 퇴장!")
+        except Exception:
+            pass
+
         # 스테이지 전환 시 비상충전 사용 가능하게 리셋
         reset_emergency_charge_for_new_stage()
         # 스테이지 전환 시 테크니컬조끼 비활성화
@@ -146500,6 +146593,17 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+        # 초급/중급인장 리셋
+        try:
+            from item_effects.minor_hero_seal import get_minor_seal_state
+            get_minor_seal_state().reset()
+        except Exception:
+            pass
+        try:
+            from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+            get_intermediate_seal_state().reset()
+        except Exception:
+            pass
         # 보스 변형 + 포승줄 + 포졸소환 초기화
         current_boss_name = None
         session_cleared_boss_names.clear()
@@ -148786,6 +148890,17 @@ def main(stage_num, new_boss_mode=False):
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+            # 초급/중급인장 리셋
+            try:
+                from item_effects.minor_hero_seal import get_minor_seal_state
+                get_minor_seal_state().reset()
+            except Exception:
+                pass
+            try:
+                from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+                get_intermediate_seal_state().reset()
+            except Exception:
+                pass
             # 보스 변형 + 포승줄 + 포졸소환 초기화
             current_boss_name = None
             session_cleared_boss_names.clear()
@@ -151256,6 +151371,17 @@ def main(stage_num, new_boss_mode=False):
                     #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
                     acceleration_skill_level = 0
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+                    # 초급/중급인장 리셋
+                    try:
+                        from item_effects.minor_hero_seal import get_minor_seal_state
+                        get_minor_seal_state().reset()
+                    except Exception:
+                        pass
+                    try:
+                        from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+                        get_intermediate_seal_state().reset()
+                    except Exception:
+                        pass
                     # 보스 변형 + 포승줄 + 포졸소환 초기화
                     current_boss_name = None
                     session_cleared_boss_names.clear()
@@ -160160,7 +160286,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -160183,6 +160309,17 @@ def get_item_display_name(item) -> str:
                     base_name = f"{hero_name}의 인장"
                 else:
                     base_name = "호위무사의 인장"
+                if prefix:
+                    return f"{prefix} {base_name}".strip()
+                return base_name
+            # 초급/중급인장: 영웅 이름 포함 동적 표시
+            if name_key in ("minor_hero_seal", "intermediate_hero_seal"):
+                hero_name = item.get("hero_name", "")
+                grade = item.get("seal_grade", "초급" if name_key == "minor_hero_seal" else "중급")
+                if hero_name:
+                    base_name = f"{hero_name}의 {grade}인장"
+                else:
+                    base_name = f"{grade}인장"
                 if prefix:
                     return f"{prefix} {base_name}".strip()
                 return base_name
@@ -160244,6 +160381,9 @@ def get_item_description(item_name):
         "magnet_field": "자기장 발생기: 8초간 자기장을 발생시켜 반경 300px 이내의 보스가 친 공이 플레이어 패들 쪽으로 끌려옵니다. 위기 상황에서 방어용으로 유용합니다.",
         "boomerang": "부메랑: 보스 방향으로 부메랑을 던져 넉백+스턴을 겁니다. 부메랑이 돌아오면서 경로에 있는 필드 아이템을 자동으로 회수합니다. 공에 닿으면 부메랑이 파괴됩니다.",
         "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 선택지 품질 10~30% (희귀 아이템 출현 확률 상승)",
+        "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 3라운드 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
+        "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 한 스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
+        "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

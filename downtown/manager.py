@@ -2324,11 +2324,20 @@ class DowntownManager:
                 # 호위무사 인장 아이템 처리 (새 방식)
                 seal_item = result.get('seal_item')
                 if seal_item:
-                    # 인장 아이템을 즉시 인벤토리에 추가 (광장에서 TAB으로 확인 가능)
+                    seal_name = seal_item.get("name", "")
                     try:
-                        from pingfighter import store_passive_item
-                        store_passive_item(dict(seal_item))
-                        print(f"[Arena] 인장 아이템 인벤토리 즉시 추가: {seal_item.get('hero_name', '???')}의 인장")
+                        if seal_name in ("minor_hero_seal", "intermediate_hero_seal"):
+                            # 초급/중급인장: 액티브 아이템으로 저장
+                            from pingfighter import store_active_item
+                            store_active_item(dict(seal_item))
+                            hero_name = seal_item.get('hero_name', '???')
+                            grade = seal_item.get('seal_grade', '???')
+                            print(f"[Arena] {hero_name}의 {grade}인장 액티브 슬롯 추가")
+                        else:
+                            # 결승인장(hero_seal): 패시브 아이템으로 저장
+                            from pingfighter import store_passive_item
+                            store_passive_item(dict(seal_item))
+                            print(f"[Arena] 인장 아이템 인벤토리 즉시 추가: {seal_item.get('hero_name', '???')}의 인장")
                     except Exception as _seal_err:
                         # 즉시 추가 실패 시 pending으로 폴백
                         if 'pending_seal_items' not in self.player_data:

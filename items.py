@@ -1706,6 +1706,26 @@ ITEM_TYPES = [
         "body_part": "accessory"  # 장신구 부위
     },
     {
+        "name": "minor_hero_seal",  # 초급인장 (투기장 8강 보상 전용)
+        "color": (160, 130, 70),  # 청동빛 인장 색상
+        "effect": "minor_hero_seal",
+        "icon": None,
+        "chance": 0,  # 필드 드롭 없음 (투기장 전용)
+        "duration": 0,
+        "unlock_condition": None,
+        "body_part": None  # 액티브 소모품 (장착 불가)
+    },
+    {
+        "name": "intermediate_hero_seal",  # 중급인장 (투기장 4강 보상 전용)
+        "color": (180, 150, 80),  # 은빛 인장 색상
+        "effect": "intermediate_hero_seal",
+        "icon": None,
+        "chance": 0,  # 필드 드롭 없음 (투기장 전용)
+        "duration": 0,
+        "unlock_condition": None,
+        "body_part": None  # 액티브 소모품 (장착 불가)
+    },
+    {
         "name": "lucky_coin",  # 럭키코인 패시브 아이템 (장신구 부위)
         "color": (255, 223, 0),  # 금화 색상
         "effect": "lucky_coin",
@@ -1751,6 +1771,15 @@ ITEM_TYPES = [
         "icon": None,
         "chance": 0.015,  # 1.5% 스폰 확률
         "duration": 600,
+        "unlock_condition": None
+    },
+    {
+        "name": "soap",  # 🧼 비누 투척 액티브 아이템
+        "color": (140, 200, 240),  # 하늘색 (비누 색)
+        "effect": "soap",
+        "icon": None,
+        "chance": 0.010,  # 확률 1.0%
+        "duration": 600,  # 사용 시까지 유지
         "unlock_condition": None
     }
 ]
@@ -1888,10 +1917,13 @@ unlocked_items = {
     # 액티브 아이템
     "regeneration_potion": True,  # 재생물약
     "hero_seal": True,  # 호위무사 인장
+    "minor_hero_seal": True,  # 초급인장
+    "intermediate_hero_seal": True,  # 중급인장
     "adversity_armor": True,  # 역경의 갑옷
     "shrapnel_armor": True,  # 파편갑옷
     "magnet_field": True,  # 자기장 발생기
-    "boomerang": True  # 부메랑
+    "boomerang": True,  # 부메랑
+    "soap": True  # 비누
 }
 
 # 현재 떠 있는 아이템 리스트
@@ -2783,7 +2815,7 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
     countdown_font = _get_countdown_font()
 
     # OPTIMIZATION: Pre-define throwing items set (faster lookup)
-    throwing_items = {"molotov", "grenade", "flare", "spider_mine", "banana"}
+    throwing_items = {"molotov", "grenade", "flare", "spider_mine", "banana", "soap"}
     # 다이너마이트는 3초 제한 (다른 투척류는 5초)
     throwing_items_3sec = {"dynamite"}
 

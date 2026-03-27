@@ -386,7 +386,7 @@ ARENA_DIFFICULTIES = [
         "key": "normal",
         "name": "일반",
         "description": "표준 투기장 규칙\n5점 선취",
-        "entry_fee": 500,
+        "entry_fee": 1000,
         "prize_multiplier": 1.0,
         "ai_bonus_perks": 0,
         "win_score": 5,
@@ -7340,17 +7340,18 @@ class ColosseumsArena:
         }
         self._generate_bracket()
 
-        # 상금 시스템 (라운드별 누적 상금)
-        self.entry_fee = 500                    # 입장료
+        # 상금 시스템 (라운드별 독립 보상 - 중간에 받고 끝내기 가능)
+        self.entry_fee = 1000                   # 입장료
         self.entry_fee_paid = False             # 입장료 지불 여부
         self.accumulated_prize = 0              # 현재 획득 상금
-        self.round_prizes = {                   # 라운드별 상금 (이기면 이 금액을 획득)
-            TournamentRound.QUARTER_FINAL: 1000,
-            TournamentRound.SEMI_FINAL: 2000,
-            TournamentRound.FINAL: 3000,
+        self.round_prizes = {                   # 라운드별 상금 (해당 라운드에서 받고 끝낼 시)
+            TournamentRound.QUARTER_FINAL: 2000,
+            TournamentRound.SEMI_FINAL: 3000,
+            TournamentRound.FINAL: 5000,
         }
         self.recruited_hero = None              # 우승 시 등용한 호위무사 (인게임용)
         self.seal_item_data = None              # 인장 아이템 데이터 (결과 전달용)
+        self._round_end_phase = 0              # ROUND_END 단계: 0=계속/보상, 1=골드/인장 선택
         self._seal_acquisition_active = False   # 인장 획득 연출 진행 중 여부
         self._seal_phase = "none"               # "none" / "chest" / "result"
         self._seal_effect = None                # LegendaryAcquisitionEffect 인스턴스
@@ -7986,9 +7987,9 @@ class ColosseumsArena:
         self.win_score = diff["win_score"]
         # 상금 재계산 (기본 상금 × 난이도 배율)
         base_prizes = {
-            TournamentRound.QUARTER_FINAL: 1000,
-            TournamentRound.SEMI_FINAL: 2000,
-            TournamentRound.FINAL: 3000,
+            TournamentRound.QUARTER_FINAL: 2000,
+            TournamentRound.SEMI_FINAL: 3000,
+            TournamentRound.FINAL: 5000,
         }
         self.round_prizes = {k: int(v * self.difficulty_multiplier) for k, v in base_prizes.items()}
         self.state = TournamentState.BRACKET_VIEW
@@ -9447,15 +9448,15 @@ class ColosseumsArena:
 
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 
-        # 상금 시스템 - 승패 결과 처리 (누적식)
+        # 상금 시스템 - 승패 결과 처리 (라운드별 독립 보상)
         if self.bet_hero:
             if winner == self.bet_hero:
-                # 승리 - 해당 라운드 상금을 누적
+                # 승리 - 해당 라운드 보상 금액 설정 (누적 아님)
                 round_prize = self.round_prizes.get(self.current_round, 0)
-                self.accumulated_prize += round_prize
-                self.total_winnings = self.accumulated_prize
+                self.accumulated_prize = round_prize
+                self.total_winnings = round_prize
             else:
-                # 패배 - 누적 상금 몰수, 입장료만 잃음
+                # 패배 - 보상 없음, 입장료만 잃음
                 self.accumulated_prize = 0
                 self.total_winnings = -self.entry_fee
 
@@ -10118,8 +10119,11 @@ class ColosseumsArena:
                     self.perk_anim_phase = "active"
             elif self.perk_anim_phase == "selected":
                 if self.perk_frame_count > 25:
-                    # 퍽 선택 완료 → 라운드 종료 (계속/수령 선택)
+                    # 퍽 선택 완료 → 라운드 종료 (계속/보상 선택)
                     self.state = TournamentState.ROUND_END
+                    self._round_end_phase = 0
+                    self.kb_round_end_index = 0
+                    self.hover_btn_id = ""
 
         elif self.state == TournamentState.TENACITY_RETRY:
             # 반칙왕 퍽 재시작 연출 (2초 대기 후 재시작)
@@ -10210,6 +10214,10 @@ class ColosseumsArena:
                 if self.state == TournamentState.PERK_SELECT:
                     return False  # 퍽 선택 중에는 나갈 수 없음
                 if self.state == TournamentState.ROUND_END:
+                    if getattr(self, '_round_end_phase', 0) == 1:
+                        self._round_end_phase = 0
+                        self.kb_round_end_index = 0
+                        self.hover_btn_id = "round_continue"
                     return False  # 라운드 종료 선택 중에는 나갈 수 없음
                 if self.state == TournamentState.GUARD_SELECT:
                     return False  # 호위무사 선택 중에는 나갈 수 없음
@@ -10470,23 +10478,55 @@ class ColosseumsArena:
 
             # ========== 라운드 종료 키보드 처리 ==========
             if self.state == TournamentState.ROUND_END:
-                _round_ids = ["round_continue", "round_exit"]
-                if event.key in (pygame.K_LEFT, pygame.K_a):
-                    self.kb_round_end_index = 0
-                    self.hover_btn_id = _round_ids[0]
-                elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                    self.kb_round_end_index = 1
-                    self.hover_btn_id = _round_ids[1]
-                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                    _load_button_click_sound()
-                    if _button_click_sound:
-                        _button_click_sound.play()
-                    if self.kb_round_end_index == 0:
-                        self._start_bracket_animation()
-                    elif self.kb_round_end_index == 1:
-                        self.total_winnings = self.accumulated_prize
-                        self.winnings_collected = True
-                        self.exit_requested = True
+                phase = getattr(self, '_round_end_phase', 0)
+                if phase == 0:
+                    _round_ids = ["round_continue", "round_exit"]
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                        self.kb_round_end_index = 0
+                        self.hover_btn_id = _round_ids[0]
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        self.kb_round_end_index = 1
+                        self.hover_btn_id = _round_ids[1]
+                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        _load_button_click_sound()
+                        if _button_click_sound:
+                            _button_click_sound.play()
+                        if self.kb_round_end_index == 0:
+                            self._start_bracket_animation()
+                        elif self.kb_round_end_index == 1:
+                            # 보상 선택 단계로 진입
+                            self._round_end_phase = 1
+                            self.kb_round_end_index = 0
+                            self.hover_btn_id = "reward_gold"
+                else:
+                    # Phase 1: 골드 vs 인장 선택
+                    _reward_ids = ["reward_gold", "reward_seal"]
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                        self.kb_round_end_index = 0
+                        self.hover_btn_id = _reward_ids[0]
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        self.kb_round_end_index = 1
+                        self.hover_btn_id = _reward_ids[1]
+                    elif event.key == pygame.K_ESCAPE:
+                        # Phase 0으로 돌아가기
+                        self._round_end_phase = 0
+                        self.kb_round_end_index = 0
+                        self.hover_btn_id = "round_continue"
+                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        _load_button_click_sound()
+                        if _button_click_sound:
+                            _button_click_sound.play()
+                        if self.kb_round_end_index == 0:
+                            # 골드 수령
+                            self.total_winnings = self.accumulated_prize
+                            self.winnings_collected = True
+                            self.exit_requested = True
+                        elif self.kb_round_end_index == 1:
+                            # 인장 획득
+                            self._create_round_seal_item()
+                            self.total_winnings = 0
+                            self.winnings_collected = True
+                            self.exit_requested = True
 
             # ========== 토너먼트 종료 키보드 처리 ==========
             if self.state == TournamentState.TOURNAMENT_END:
@@ -11163,26 +11203,47 @@ class ColosseumsArena:
                         return
 
         elif self.state == TournamentState.ROUND_END:
-            # 라운드 종료 - 계속/수령 선택
             panel_x, panel_y = 150, 180
-            continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
-            exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
-            if continue_rect.collidepoint(mx, my):
-                # 계속 도전 → 대진표 애니메이션
-                _load_button_click_sound()
-                if _button_click_sound:
-                    _button_click_sound.play()
-                self._start_bracket_animation()
-                return
-            elif exit_rect.collidepoint(mx, my):
-                # 상금 수령 후 퇴장
-                _load_button_click_sound()
-                if _button_click_sound:
-                    _button_click_sound.play()
-                self.total_winnings = self.accumulated_prize
-                self.winnings_collected = True
-                self.exit_requested = True
-                return
+            phase = getattr(self, '_round_end_phase', 0)
+            if phase == 0:
+                # Phase 0: 계속 도전 vs 보상 받기
+                continue_rect = pygame.Rect(panel_x + 40, panel_y + 230, 180, 50)
+                exit_rect = pygame.Rect(panel_x + 240, panel_y + 230, 180, 50)
+                if continue_rect.collidepoint(mx, my):
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
+                    self._start_bracket_animation()
+                    return
+                elif exit_rect.collidepoint(mx, my):
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
+                    self._round_end_phase = 1
+                    self.kb_round_end_index = 0
+                    self.hover_btn_id = "reward_gold"
+                    return
+            else:
+                # Phase 1: 골드 수령 vs 인장 획득
+                gold_rect = pygame.Rect(panel_x + 30, panel_y + 130, 190, 80)
+                seal_rect = pygame.Rect(panel_x + 240, panel_y + 130, 190, 80)
+                if gold_rect.collidepoint(mx, my):
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
+                    self.total_winnings = self.accumulated_prize
+                    self.winnings_collected = True
+                    self.exit_requested = True
+                    return
+                elif seal_rect.collidepoint(mx, my):
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
+                    self._create_round_seal_item()
+                    self.total_winnings = 0
+                    self.winnings_collected = True
+                    self.exit_requested = True
+                    return
 
         elif self.state == TournamentState.TOURNAMENT_END:
             # 토너먼트 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
@@ -11425,19 +11486,32 @@ class ColosseumsArena:
                     self.hover_difficulty_index = i
                     break
 
-        # 라운드 종료 (계속/수령) 버튼 호버
+        # 라운드 종료 버튼 호버
         elif self.state == TournamentState.ROUND_END:
             panel_x, panel_y = 150, 180
-            cont_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
-            exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
-            if cont_rect.collidepoint(mx, my):
-                self.hover_btn_id = "round_continue"
-                if old_btn != "round_continue":
-                    self._spawn_hover_line_particles(cont_rect.x, cont_rect.y, cont_rect.w, cont_rect.h)
-            elif exit_rect.collidepoint(mx, my):
-                self.hover_btn_id = "round_exit"
-                if old_btn != "round_exit":
-                    self._spawn_hover_line_particles(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h)
+            phase = getattr(self, '_round_end_phase', 0)
+            if phase == 0:
+                cont_rect = pygame.Rect(panel_x + 40, panel_y + 230, 180, 50)
+                exit_rect = pygame.Rect(panel_x + 240, panel_y + 230, 180, 50)
+                if cont_rect.collidepoint(mx, my):
+                    self.hover_btn_id = "round_continue"
+                    if old_btn != "round_continue":
+                        self._spawn_hover_line_particles(cont_rect.x, cont_rect.y, cont_rect.w, cont_rect.h)
+                elif exit_rect.collidepoint(mx, my):
+                    self.hover_btn_id = "round_exit"
+                    if old_btn != "round_exit":
+                        self._spawn_hover_line_particles(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h)
+            else:
+                gold_rect = pygame.Rect(panel_x + 30, panel_y + 130, 190, 80)
+                seal_rect = pygame.Rect(panel_x + 240, panel_y + 130, 190, 80)
+                if gold_rect.collidepoint(mx, my):
+                    self.hover_btn_id = "reward_gold"
+                    if old_btn != "reward_gold":
+                        self._spawn_hover_line_particles(gold_rect.x, gold_rect.y, gold_rect.w, gold_rect.h)
+                elif seal_rect.collidepoint(mx, my):
+                    self.hover_btn_id = "reward_seal"
+                    if old_btn != "reward_seal":
+                        self._spawn_hover_line_particles(seal_rect.x, seal_rect.y, seal_rect.w, seal_rect.h)
 
         # 토너먼트 종료 (패배) 나가기 버튼 호버
         elif self.state == TournamentState.TOURNAMENT_END:
@@ -15218,7 +15292,10 @@ class ColosseumsArena:
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
 
     def _draw_round_end_ui(self):
-        """라운드 종료 UI - 누적 상금 시스템"""
+        """라운드 종료 UI - 2단계 보상 선택 시스템
+        Phase 0: 계속 도전 vs 보상 받기
+        Phase 1: 골드 수령 vs 인장 획득
+        """
         # 반투명 오버레이
         overlay = _get_arena_fullscreen()
         overlay.fill((*ET["overlay_dark"], 180))
@@ -15228,6 +15305,8 @@ class ColosseumsArena:
         panel_x, panel_y = 150, 180
         panel_w, panel_h = 460, 340
         self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h)
+
+        phase = getattr(self, '_round_end_phase', 0)
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
@@ -15240,83 +15319,139 @@ class ColosseumsArena:
             self._draw_trophy_icon(title_x - 16, icon_y, 14)
             self._draw_trophy_icon(title_x + surf.get_width() + 16, icon_y, 14)
 
-        # 누적 상금 (크게)
-        if self.fonts and "large" in self.fonts:
-            acc_text = f"누적 상금: {self.accumulated_prize}G"
-            surf, _ = self.fonts["large"].render(acc_text, ET["malachite_light"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 75))
+        if phase == 0:
+            # ========== Phase 0: 계속 도전 vs 보상 받기 ==========
+            # 현재 라운드 보상 표시
+            if self.fonts and "large" in self.fonts:
+                prize = self.accumulated_prize
+                acc_text = f"보상: {prize}G"
+                surf, _ = self.fonts["large"].render(acc_text, ET["malachite_light"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 75))
 
-        # 다음 라운드 보상 정보 (현재 라운드의 다음 라운드 상금)
-        if self.fonts and "medium" in self.fonts:
+            # 다음 라운드 보상 미리보기
+            if self.fonts and "medium" in self.fonts:
+                if self.current_round == TournamentRound.QUARTER_FINAL:
+                    next_round = TournamentRound.SEMI_FINAL
+                    next_name = "4강"
+                else:
+                    next_round = TournamentRound.FINAL
+                    next_name = "결승"
+                next_prize = self.round_prizes.get(next_round, 0)
+                next_text = f"다음 라운드({next_name}) 보상: {next_prize}G"
+                surf, _ = self.fonts["medium"].render(next_text, ET["lapis_light"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 120))
+
+            # 안내 문구
+            if self.fonts and "medium" in self.fonts:
+                guide = "여기서 보상을 받고 끝내시겠습니까?"
+                surf, _ = self.fonts["medium"].render(guide, ET["text_body"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 160))
+
+            # 경고
+            if self.fonts and "small" in self.fonts:
+                warn_text = "계속 도전 시 이번 보상은 포기됩니다!"
+                surf, _ = self.fonts["small"].render(warn_text, ET["gold_pale"])
+                warn_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+                self._draw_warning_icon(warn_x - 12, panel_y + 190 + surf.get_height() // 2, 10)
+                self.screen.blit(surf, (warn_x, panel_y + 190))
+
+            # 계속 도전 버튼
+            rc_hovered = (self.hover_btn_id == "round_continue")
+            continue_rect = pygame.Rect(panel_x + 40, panel_y + 230, 180, 50)
+            if rc_hovered:
+                self._draw_hover_border(continue_rect.x, continue_rect.y, continue_rect.w, continue_rect.h, (100, 255, 100))
+            rc_bg = ET["btn_continue_hover"] if rc_hovered else ET["btn_continue"]
+            pygame.draw.rect(self.screen, rc_bg, continue_rect, border_radius=5)
+            if rc_hovered:
+                pygame.draw.rect(self.screen, ET["malachite_light"], continue_rect, 2, border_radius=5)
+            if self.fonts and "medium" in self.fonts:
+                surf, _ = self._render_text("medium", "계속 도전!", ET["text_white"])
+                btn_text_x = continue_rect.centerx - surf.get_width() // 2
+                self._draw_fire_icon(btn_text_x - 12, continue_rect.y + 15 + surf.get_height() // 2, 12)
+                self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
+
+            # 보상 받기 버튼
+            re_hovered = (self.hover_btn_id == "round_exit")
+            exit_rect = pygame.Rect(panel_x + 240, panel_y + 230, 180, 50)
+            if re_hovered:
+                self._draw_hover_border(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h, (255, 180, 80))
+            re_bg = ET["btn_exit_hover"] if re_hovered else ET["btn_exit"]
+            pygame.draw.rect(self.screen, re_bg, exit_rect, border_radius=5)
+            if re_hovered:
+                pygame.draw.rect(self.screen, ET["lapis_light"], exit_rect, 2, border_radius=5)
+            if self.fonts and "medium" in self.fonts:
+                surf, _ = self.fonts["medium"].render("보상 받기", ET["text_white"])
+                btn_text_x = exit_rect.centerx - surf.get_width() // 2
+                self._draw_coin_icon(btn_text_x - 12, exit_rect.y + 15 + surf.get_height() // 2, 12)
+                self.screen.blit(surf, (btn_text_x, exit_rect.y + 15))
+
+        else:
+            # ========== Phase 1: 골드 수령 vs 인장 획득 ==========
+            # 보상 선택 안내
+            if self.fonts and "medium" in self.fonts:
+                guide = "보상을 선택하세요!"
+                surf, _ = self.fonts["medium"].render(guide, (255, 215, 0))
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 80))
+
+            # 인장 등급 결정
             if self.current_round == TournamentRound.QUARTER_FINAL:
-                next_round = TournamentRound.SEMI_FINAL
+                seal_grade = "초급"
             else:
-                next_round = TournamentRound.FINAL
-            next_prize = self.round_prizes.get(next_round, 0)
-            next_text = f"다음 라운드 보상: +{next_prize}G"
-            surf, _ = self.fonts["medium"].render(next_text, ET["lapis_light"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 120))
+                seal_grade = "중급"
 
-        # 선택한 영웅 정보
-        if self.bet_hero and self.fonts and "medium" in self.fonts:
-            hero_name = self.bet_hero.get("name", "???")
-            hero_color = self.bet_hero.get("color", (255, 255, 255))
-            # 밝기 보정
-            brightness = sum(hero_color) / 3
-            display_color = hero_color if brightness > 80 else (min(255, hero_color[0] + 100), min(255, hero_color[1] + 100), min(255, hero_color[2] + 100))
-            hero_text = f"[{hero_name}] 으로 계속 도전!"
-            surf, _ = self.fonts["medium"].render(hero_text, display_color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 155))
+            hero_name = self.bet_hero.get("name", "???") if self.bet_hero else "???"
 
-        # 경고
-        if self.fonts and "small" in self.fonts:
-            warn_text = "패배 시 누적 상금을 모두 잃습니다!"
-            surf, _ = self.fonts["small"].render(warn_text, ET["gold_pale"])
-            warn_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
-            self._draw_warning_icon(warn_x - 12, panel_y + 185 + surf.get_height() // 2, 10)
-            self.screen.blit(surf, (warn_x, panel_y + 185))
+            # 골드 수령 버튼
+            gold_hovered = (self.hover_btn_id == "reward_gold")
+            gold_rect = pygame.Rect(panel_x + 30, panel_y + 130, 190, 80)
+            if gold_hovered:
+                self._draw_hover_border(gold_rect.x, gold_rect.y, gold_rect.w, gold_rect.h, (100, 255, 100))
+            gold_bg = ET["btn_continue_hover"] if gold_hovered else ET["btn_continue"]
+            pygame.draw.rect(self.screen, gold_bg, gold_rect, border_radius=6)
+            if gold_hovered:
+                pygame.draw.rect(self.screen, ET["malachite_light"], gold_rect, 2, border_radius=6)
+            if self.fonts:
+                prize = self.accumulated_prize
+                if "large" in self.fonts:
+                    surf, _ = self.fonts["large"].render(f"{prize}G", ET["text_white"])
+                    self.screen.blit(surf, (gold_rect.centerx - surf.get_width() // 2, gold_rect.y + 12))
+                if "small" in self.fonts:
+                    surf, _ = self.fonts["small"].render("골드 수령", ET["gold_pale"])
+                    self.screen.blit(surf, (gold_rect.centerx - surf.get_width() // 2, gold_rect.y + 50))
 
-        # 계속 버튼 (도전)
-        rc_hovered = (self.hover_btn_id == "round_continue")
-        continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
-        if rc_hovered:
-            self._draw_hover_border(continue_rect.x, continue_rect.y, continue_rect.w, continue_rect.h, (100, 255, 100))
-        rc_bg = ET["btn_continue_hover"] if rc_hovered else ET["btn_continue"]
-        pygame.draw.rect(self.screen, rc_bg, continue_rect, border_radius=5)
-        if rc_hovered:
-            pygame.draw.rect(self.screen, ET["malachite_light"], continue_rect, 2, border_radius=5)
-        if self.fonts and "medium" in self.fonts:
-            surf, _ = self._render_text("medium", "계속 도전!", ET["text_white"])
-            btn_text_x = continue_rect.centerx - surf.get_width() // 2
-            self._draw_fire_icon(btn_text_x - 12, continue_rect.y + 15 + surf.get_height() // 2, 12)
-            self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
+            # 인장 획득 버튼
+            seal_hovered = (self.hover_btn_id == "reward_seal")
+            seal_rect = pygame.Rect(panel_x + 240, panel_y + 130, 190, 80)
+            if seal_hovered:
+                self._draw_hover_border(seal_rect.x, seal_rect.y, seal_rect.w, seal_rect.h, (255, 180, 80))
+            seal_bg = (200, 140, 70) if seal_hovered else ET["bronze"]
+            pygame.draw.rect(self.screen, seal_bg, seal_rect, border_radius=6)
+            if seal_hovered:
+                pygame.draw.rect(self.screen, ET["gold_pale"], seal_rect, 2, border_radius=6)
+            if self.fonts:
+                if "medium" in self.fonts:
+                    seal_title = f"{hero_name}의"
+                    surf, _ = self.fonts["medium"].render(seal_title, (255, 220, 150))
+                    self.screen.blit(surf, (seal_rect.centerx - surf.get_width() // 2, seal_rect.y + 12))
+                if "medium" in self.fonts:
+                    seal_label = f"{seal_grade}인장"
+                    surf, _ = self.fonts["medium"].render(seal_label, (255, 220, 150))
+                    self.screen.blit(surf, (seal_rect.centerx - surf.get_width() // 2, seal_rect.y + 42))
 
-        # 나가기 버튼 (상금 수령)
-        re_hovered = (self.hover_btn_id == "round_exit")
-        exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
-        if re_hovered:
-            self._draw_hover_border(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h, (150, 150, 255))
-        re_bg = ET["btn_exit_hover"] if re_hovered else ET["btn_exit"]
-        pygame.draw.rect(self.screen, re_bg, exit_rect, border_radius=5)
-        if re_hovered:
-            pygame.draw.rect(self.screen, ET["lapis_light"], exit_rect, 2, border_radius=5)
-        if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render(f"{self.accumulated_prize}G 수령", ET["text_white"])
-            btn_text_x = exit_rect.centerx - surf.get_width() // 2
-            self._draw_coin_icon(btn_text_x - 12, exit_rect.y + 15 + surf.get_height() // 2, 12)
-            self.screen.blit(surf, (btn_text_x, exit_rect.y + 15))
+            # 인장 설명
+            if self.fonts and "small" in self.fonts:
+                if seal_grade == "초급":
+                    desc = "사용 시 호위무사가 3라운드 동안 함께 싸웁니다"
+                else:
+                    desc = "사용 시 호위무사가 한 스테이지 동안 함께 싸웁니다"
+                surf, _ = self.fonts["small"].render(desc, ET["text_body"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 230))
 
-        # 남은 보상 미리보기
-        if self.fonts and "small" in self.fonts:
-            remaining = []
-            if self.current_round == TournamentRound.SEMI_FINAL:
-                remaining = [f"4강: +{self.round_prizes[TournamentRound.SEMI_FINAL]}G",
-                           f"결승: +{self.round_prizes[TournamentRound.FINAL]}G"]
-            else:
-                remaining = [f"결승: +{self.round_prizes[TournamentRound.FINAL]}G"]
-            preview_text = "남은 보상: " + " → ".join(remaining)
-            surf, _ = self.fonts["small"].render(preview_text, ET["lapis_light"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 285))
+            # 뒤로가기 안내
+            if self.fonts and "small" in self.fonts:
+                back_text = "ESC: 돌아가기"
+                surf, _ = self.fonts["small"].render(back_text, ET["lapis_light"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 280))
 
     def _draw_victory_celebration(self):
         """우승 축하 연출 화면 - 시상식 구도"""
@@ -17759,6 +17894,63 @@ class ColosseumsArena:
                                     tt_surf.blit(td_s, (tt_pad, tt_pad + name_h + li * line_h))
                             self.screen.blit(tt_surf, (tt_x, tt_y))
                             break
+
+    def _create_round_seal_item(self):
+        """중간 라운드 보상 인장 아이템 생성 (초급/중급)"""
+        if not self.bet_hero:
+            return
+
+        _rh_id = self.bet_hero.get("id", "")
+        if self.hero_has_both_skills.get(_rh_id, False):
+            _skill_idx = -1
+        else:
+            _skill_idx = self.hero_selected_skills.get(_rh_id, 0)
+
+        # 초급(8강) / 중급(4강) 결정
+        if self.current_round == TournamentRound.QUARTER_FINAL:
+            seal_name = "minor_hero_seal"
+            seal_grade = "초급"
+            seal_color = (160, 130, 70)
+        else:
+            seal_name = "intermediate_hero_seal"
+            seal_grade = "중급"
+            seal_color = (180, 150, 80)
+
+        hero_name = self.bet_hero.get("name", "")
+
+        self.seal_item_data = {
+            "name": seal_name,
+            "type": "active",
+            "color": seal_color,
+            "effect": seal_name,
+            "hero_id": _rh_id,
+            "hero_name": hero_name,
+            "hero_skill_index": _skill_idx,
+            "seal_grade": seal_grade,
+            "hero_color": self.bet_hero.get("color", (200, 200, 200)),
+        }
+
+        # 양쪽 스킬 모두 보유 시 스킬 정보 추가
+        skills = self.bet_hero.get("skills", [])
+        if _skill_idx == -1 and len(skills) >= 2:
+            self.seal_item_data["has_both_skills"] = True
+            self.seal_item_data["skill_names"] = [s.get("name", "") for s in skills]
+            shapes = []
+            for s in skills:
+                _cshape = s.get("shape", "circle")
+                if isinstance(_cshape, list):
+                    _cshape = _cshape[0] if _cshape else "circle"
+                shapes.append(_cshape)
+            self.seal_item_data["skill_shapes"] = shapes
+        elif _skill_idx >= 0 and _skill_idx < len(skills):
+            _s = skills[_skill_idx]
+            self.seal_item_data["skill_name"] = _s.get("name", "")
+            _cshape = _s.get("shape", "circle")
+            if isinstance(_cshape, list):
+                _cshape = _cshape[0] if _cshape else "circle"
+            self.seal_item_data["shape"] = _cshape
+
+        print(f"[Arena] {hero_name}의 {seal_grade}인장 생성!")
 
     def _start_bracket_animation(self):
         """대진표 진출 애니메이션 시작"""
