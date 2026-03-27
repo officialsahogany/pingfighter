@@ -13502,11 +13502,35 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
             })
 
         # 4. 골드변환 (convert_to_gold) - 튜토리얼에서도 골드변환 옵션 제공
+        # 골드변환 실제 획득 골드 계산 (골드디거 + 광폭화 보너스 반영)
+        tut_base_gold = 500
+        tut_preview_gold = tut_base_gold
+        if enraged_boss_active:
+            tut_preview_gold = int(tut_preview_gold * 1.5)
+        tut_equipped_gd = [item for item in passive_item_list if item and item.get("name") == "gold_digger" and item.get("_equipped_slot")]
+        if tut_equipped_gd:
+            tut_total_bonus = 0.0
+            for item in tut_equipped_gd:
+                bonus_val = _get_roll_value(item, "gold_bonus_pct")
+                if bonus_val is not None:
+                    tut_total_bonus += bonus_val / 100.0
+                else:
+                    tut_total_bonus += 0.5
+            if tut_total_bonus > 0:
+                tut_preview_gold = int(tut_preview_gold * (1.0 + tut_total_bonus))
+
+        if tut_preview_gold != tut_base_gold:
+            tut_gold_desc = f"스킬 대신 {tut_preview_gold}골드를 획득합니다 (기본 {tut_base_gold}+보너스)"
+            tut_gold_detail = f"퍽을 포기하고 즉시 {tut_preview_gold}골드를 인게임 골드로 획득합니다 (기본 {tut_base_gold}골드 + 보너스 적용)"
+        else:
+            tut_gold_desc = f"스킬 대신 {tut_base_gold}골드를 획득합니다"
+            tut_gold_detail = f"퍽을 포기하고 즉시 {tut_base_gold}골드를 인게임 골드로 획득합니다"
+
         tutorial_choices.append({
             "id": "convert_to_gold",
             "name": "골드변환",
-            "description": "스킬 대신 500골드를 획득합니다",
-            "detail": "퍽을 포기하고 즉시 500골드를 인게임 골드로 획득합니다",
+            "description": tut_gold_desc,
+            "detail": tut_gold_detail,
             "icon_color": (255, 215, 0),  # 금색
             "tree": "instant",
             "character_restriction": None,
@@ -13668,12 +13692,38 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
     # 3개 스킬 선택 후 4번째에 골드변환 옵션 추가
     result = available[:3]
 
+    # 골드변환 실제 획득 골드 계산 (골드디거 + 광폭화 보너스 반영)
+    base_gold = 500
+    preview_gold = base_gold
+    # 광폭화 보스 보너스
+    if enraged_boss_active:
+        preview_gold = int(preview_gold * 1.5)
+    # 골드디거 보너스
+    equipped_gold_diggers = [item for item in passive_item_list if item and item.get("name") == "gold_digger" and item.get("_equipped_slot")]
+    if equipped_gold_diggers:
+        total_bonus = 0.0
+        for item in equipped_gold_diggers:
+            bonus_val = _get_roll_value(item, "gold_bonus_pct")
+            if bonus_val is not None:
+                total_bonus += bonus_val / 100.0
+            else:
+                total_bonus += 0.5
+        if total_bonus > 0:
+            preview_gold = int(preview_gold * (1.0 + total_bonus))
+
+    if preview_gold != base_gold:
+        gold_desc = f"스킬 대신 {preview_gold}골드를 획득합니다 (기본 {base_gold}+보너스)"
+        gold_detail = f"퍽을 포기하고 즉시 {preview_gold}골드를 인게임 골드로 획득합니다 (기본 {base_gold}골드 + 보너스 적용)"
+    else:
+        gold_desc = f"스킬 대신 {base_gold}골드를 획득합니다"
+        gold_detail = f"퍽을 포기하고 즉시 {base_gold}골드를 인게임 골드로 획득합니다"
+
     # 골드변환 옵션 (4번째 - 항상 추가, 즉시사용형)
     gold_conversion_choice = {
         "id": "convert_to_gold",
         "name": "골드변환",
-        "description": "스킬 대신 500골드를 획득합니다",
-        "detail": "퍽을 포기하고 즉시 500골드를 인게임 골드로 획득합니다",
+        "description": gold_desc,
+        "detail": gold_detail,
         "icon_color": (255, 215, 0),  # 금색
         "tree": "instant",
         "character_restriction": None,
