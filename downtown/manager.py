@@ -2261,6 +2261,13 @@ class DowntownManager:
                             if player_gold >= admission_fee:
                                 # 입장료 지불
                                 self.player_data['gold'] = player_gold - admission_fee
+                                player_gold = self.player_data['gold']  # 로컬 변수 갱신
+                                # 필러 골드 HUD 즉시 반영
+                                try:
+                                    import pingfighter as _pf
+                                    _pf.downtown_gold = self.player_data['gold']
+                                except Exception:
+                                    pass
                                 show_entry_dialog = False
                                 show_tutorial_dialog = True  # 튜토리얼 확인 다이얼로그 표시
 
@@ -2321,6 +2328,13 @@ class DowntownManager:
                 # 결과 처리
                 result = arena.get_result()
                 self.player_data['gold'] = self.player_data.get('gold', 0) + result['winnings']
+                player_gold = self.player_data['gold']  # 로컬 변수 갱신
+                # 필러 골드 HUD 즉시 반영
+                try:
+                    import pingfighter as _pf
+                    _pf.downtown_gold = self.player_data['gold']
+                except Exception:
+                    pass
                 # 호위무사 인장 아이템 처리 (새 방식)
                 seal_item = result.get('seal_item')
                 if seal_item:
