@@ -30593,10 +30593,10 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
     다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프."""
-    surface = pygame.Surface((250, 140), pygame.SRCALPHA)
-    b = 8
+    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    b = 7
     cx = surface.get_width() // 2
-    base_y = 48
+    base_y = 42
 
     phase = step_phase % 1.0 if step_phase else 0.0
     wave = math.sin(phase * math.tau)
@@ -30696,7 +30696,7 @@ def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     shadow_h = int(0.5 * b)
     shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
     pygame.draw.ellipse(shadow_surf, (0, 0, 0, 30), shadow_surf.get_rect())
-    surface.blit(shadow_surf, (cx - shadow_w // 2, 130))
+    surface.blit(shadow_surf, (cx - shadow_w // 2, 112))
 
     # ═══════ 스카프 (뒤쪽 레이어 — 몸 뒤에서 나부낌) ═══════
     scarf_wave = wave * 5
@@ -123499,11 +123499,11 @@ def show_character_selection():
                         t = pygame.time.get_ticks() % cycle_ms
                         phase = t / cycle_ms
                         frame = _crop_surface_alpha(create_viper_paddle_surface(step_phase=phase))
-                        blit_scaled_surface(frame, scale_mult=1.7)
+                        blit_scaled_surface(frame, scale_mult=2.0)
                     except Exception:
-                        blit_scaled_surface(viper_card_preview, scale_mult=1.7)
+                        blit_scaled_surface(viper_card_preview, scale_mult=2.0)
                 else:
-                    blit_scaled_surface(viper_card_preview, scale_mult=1.7)
+                    blit_scaled_surface(viper_card_preview, scale_mult=2.0)
             else:
                 try:
                     char_image = pygame.image.load(resource_path(character["image"]))
