@@ -110,6 +110,7 @@ SOUND_PATHS = {
     "BOOMERANG": "sounds/boomerang.wav",
     "BOOMERANG_HIT": "sounds/boomeranghit.wav",
     "BOOMERANG_BREAK": "sounds/bonebreak.wav",
+    "HYDRO": "sounds/hydro.wav",
 }
 
 

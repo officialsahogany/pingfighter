@@ -20767,6 +20767,7 @@ SOUND_ROUND_SET = sound_effects.get('ROUND_SET')
 SOUND_BOOMERANG = sound_effects.get('BOOMERANG')
 SOUND_BOOMERANG_HIT = sound_effects.get('BOOMERANG_HIT')
 SOUND_BOOMERANG_BREAK = sound_effects.get('BOOMERANG_BREAK')
+SOUND_HYDRO = sound_effects.get('HYDRO')
 boomerang_sound_channel = None  # 부메랑 루프 재생 채널
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
@@ -58365,6 +58366,8 @@ def update_water_cannon():
             water_cannon_phase_timer = WATER_CANNON_FIRE_FRAMES
             water_cannon_active = True
             water_cannon_progress = 0.0
+            if SOUND_HYDRO:
+                play_sound_with_volume(SOUND_HYDRO)
             print(f"💦 물대포 발사!")
         return
 
