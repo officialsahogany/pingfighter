@@ -103887,7 +103887,7 @@ def draw_objects():
         optimus_arm_swing_left_timer = 0
         optimus_arm_swing_right_timer = 0
     #  투척 모션 중일 때 특별한 회전 각도 적용
-    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing or boomerang_throwing:
+    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing or boomerang_throwing or soap_throwing:
         throw_progress = 0
         if molotov_throwing:
             throw_progress = 1.0 - (molotov_throw_timer / 30.0)
@@ -103899,6 +103899,8 @@ def draw_objects():
             throw_progress = 1.0 - (dynamite_throw_timer / 30.0)
         elif boomerang_throwing:
             throw_progress = 1.0 - (boomerang_throw_timer / 24.0)
+        elif soap_throwing:
+            throw_progress = 1.0 - (soap_throw_timer / 30.0)
         # 투척 모션: UFO가 뒤로 젖혔다가 앞으로 던지는 동작
         if throw_progress < 0.3:
             # 준비 단계: 뒤로 젖히기
@@ -105576,7 +105578,7 @@ def draw_objects():
             except Exception:
                 pass
     #  투척 모션 중 아이템 표시
-    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing or boomerang_throwing:
+    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing or boomerang_throwing or soap_throwing:
         throw_progress = 0
         item_icon = None
         if molotov_throwing:
@@ -105633,6 +105635,14 @@ def draw_objects():
             else:
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (200, 130, 60), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
+        elif soap_throwing:
+            throw_progress = 1.0 - (soap_throw_timer / 30.0)
+            item_icon = get_item_icon("soap")
+            if item_icon:
+                item_icon = pygame.transform.scale(item_icon, (40, 40))
+            else:
+                item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
+                pygame.draw.circle(item_icon, (140, 200, 240), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         # 연막탄은 즉시 발동으로 변경되어 투척 모션 제거됨
         if item_icon:
             # 투척 모션에 따른 아이템 위치 계산
@@ -124071,6 +124081,7 @@ def show_item_manager_menu():
         {"name": "regeneration_potion", "type": "active", "icon": get_item_icon("regeneration_potion")},
         {"name": "magnet_field", "type": "active", "icon": get_item_icon("magnet_field")},
         {"name": "boomerang", "type": "active", "icon": get_item_icon("boomerang")},
+        {"name": "soap", "type": "active", "icon": get_item_icon("soap")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -161598,6 +161609,7 @@ def show_character_item_manager():
         {"name": "laser_scope", "type": "active", "icon": get_item_icon("laser_scope")},
         {"name": "regeneration_potion", "type": "active", "icon": get_item_icon("regeneration_potion")},
         {"name": "boomerang", "type": "active", "icon": get_item_icon("boomerang")},
+        {"name": "soap", "type": "active", "icon": get_item_icon("soap")},
         # 패시브 아이템들
         {"name": "slot_add", "type": "passive", "icon": get_icon_safe("slot_add_icon", "slot_add")},
         {"name": "revival", "type": "passive", "icon": get_icon_safe("revival_icon", "revival")},

@@ -3643,6 +3643,7 @@ class BuildingInterior:
             {"name": "weather_capsule", "korean": "기상조절캡슐", "rarity": "common", "type": "active"},
             {"name": "dynamite", "korean": "다이너마이트", "rarity": "common", "type": "active"},
             {"name": "banana", "korean": "바나나", "rarity": "common", "type": "active"},
+            {"name": "soap", "korean": "비누", "rarity": "common", "type": "active"},
             {"name": "regeneration_potion", "korean": "재생물약", "rarity": "common", "type": "active"},
             {"name": "doping_potion", "korean": "도핑물약", "rarity": "common", "type": "active"},
         ]
