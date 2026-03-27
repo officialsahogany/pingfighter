@@ -26293,6 +26293,22 @@ def sync_equipped_passive_effects():
             recalculate_transcendent_crown_effects()
 
     # 호위무사 인장 장착 → 호위무사 활성화/비활성화 (최대 2명)
+    # 초급/중급인장으로 소환된 임시 호위무사는 동기화에서 제외
+    _temp_seal_active_bg = set()  # 임시 인장이 사용 중인 bodyguard 인스턴스
+    try:
+        from item_effects.minor_hero_seal import get_minor_seal_state
+        _ms = get_minor_seal_state()
+        if _ms.active and _ms._bodyguard_ref:
+            _temp_seal_active_bg.add(id(_ms._bodyguard_ref))
+    except Exception:
+        pass
+    try:
+        from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+        _is = get_intermediate_seal_state()
+        if _is.active and _is._bodyguard_ref:
+            _temp_seal_active_bg.add(id(_is._bodyguard_ref))
+    except Exception:
+        pass
     try:
         from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
         _equipped_seals = [
@@ -26319,7 +26335,7 @@ def sync_equipped_passive_effects():
                 _bg._seal_setup_done = True
                 print(f"[Bodyguard1] 인장 장착 → 호위무사 활성화: {_hero_data['name']} (first={_is_first})")
         else:
-            if _bg.active:
+            if _bg.active and id(_bg) not in _temp_seal_active_bg:
                 _bg.reset()
                 print("[Bodyguard1] 인장 해제 → 호위무사 비활성화")
         # 호위무사 2번: 두 번째 인장
@@ -26342,7 +26358,7 @@ def sync_equipped_passive_effects():
                 _bg2._seal_setup_done = True
                 print(f"[Bodyguard2] 인장 장착 → 호위무사 활성화: {_hero_data2['name']} (first={_is_first2})")
         else:
-            if _bg2.active:
+            if _bg2.active and id(_bg2) not in _temp_seal_active_bg:
                 _bg2.reset()
                 print("[Bodyguard2] 인장 해제 → 호위무사 비활성화")
     except Exception as _seal_err:
