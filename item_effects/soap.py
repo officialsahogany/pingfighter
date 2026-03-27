@@ -259,6 +259,7 @@ class Soap:
             current_dir = boss_move_direction
             if current_dir != 0 and current_dir != self._last_boss_direction:
                 # 방향이 바뀜 → 가속 리셋 (다시 느리게 시작)
+                _safe_print(f"[Soap] 방향전환! {self._last_boss_direction} → {current_dir} | 램프업 리셋 (was {self._rampup_counter})")
                 self._rampup_counter = 0
             if current_dir != 0:
                 self._last_boss_direction = current_dir
@@ -266,6 +267,16 @@ class Soap:
             # 램프업 카운터 증가 (같은 방향으로 갈수록 가속 붙음)
             if self._rampup_counter < self.ACCEL_RAMPUP_FRAMES:
                 self._rampup_counter += 1
+
+            # 디버그 로그 (매 30프레임 = 0.5초마다)
+            if self.boss_soap_timer % 30 == 0:
+                accel_m = self.get_accel_multiplier()
+                decel_m = self.get_decel_multiplier()
+                _safe_print(
+                    f"[Soap DEBUG] remain={self.boss_soap_timer/60:.1f}s | "
+                    f"dir={current_dir} | rampup={self._rampup_counter}/{self.ACCEL_RAMPUP_FRAMES} | "
+                    f"accel_mult={accel_m:.2f} | decel_mult={decel_m:.2f}"
+                )
 
             if self.boss_soap_timer <= 0:
                 self.boss_soaped = False

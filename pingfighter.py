@@ -144380,6 +144380,7 @@ def _handle_boss_with_soap_debuff():
             orig_accel = BOSS_ACCELERATION
             orig_decel = BOSS_DECELERATION
             orig_instant = BOSS_INSTANT_STOP_DECELERATION
+            speed_before = boss_current_speed
             # 가속: 방향전환 직후 거의 0, 서서히 증가
             BOSS_ACCELERATION *= accel_mult
             # 감속: 거의 안 걸림 (관성 유지)
@@ -144392,6 +144393,11 @@ def _handle_boss_with_soap_debuff():
                 BOSS_ACCELERATION = orig_accel
                 BOSS_DECELERATION = orig_decel
                 BOSS_INSTANT_STOP_DECELERATION = orig_instant
+            # 디버그: 속도 변화 추적 (매 30프레임)
+            if soap_inst.boss_soap_timer % 30 == 0:
+                print(f"[Soap BOSS] speed: {speed_before:.2f} → {boss_current_speed:.2f} | "
+                      f"ACCEL={orig_accel:.3f}*{accel_mult:.2f}={orig_accel*accel_mult:.4f} | "
+                      f"DECEL={orig_decel:.3f}*{decel_mult:.2f}={orig_decel*decel_mult:.4f}")
             return
     except Exception:
         pass
@@ -155519,7 +155525,9 @@ def main(stage_num, new_boss_mode=False):
                 from item_effects.soap import get_soap_instance
                 soap_inst_update = get_soap_instance()
                 boss_rect_for_soap = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height) if BOSS else None
-                soap_inst_update.update(boss_rect_for_soap, WIDTH, _boss_move_direction)
+                # boss_current_speed 기반 방향 전달 (모든 스테이지에서 정확)
+                _soap_dir = 1 if boss_current_speed > 0.5 else (-1 if boss_current_speed < -0.5 else 0)
+                soap_inst_update.update(boss_rect_for_soap, WIDTH, _soap_dir)
 
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
