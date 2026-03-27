@@ -105524,13 +105524,11 @@ def draw_objects():
 
     # 소울버스트 에너지 방출 이펙트
     try:
-        from item_effects.soul_burst import update_soul_burst_effects, draw_soul_burst_effects, _burst_particles, _burst_shockwaves
-        if _burst_particles or _burst_shockwaves:
-            print(f"[SOUL_BURST_RENDER] 파티클={len(_burst_particles)}, 충격파={len(_burst_shockwaves)}")
+        from item_effects.soul_burst import update_soul_burst_effects, draw_soul_burst_effects
         update_soul_burst_effects()
         draw_soul_burst_effects(SCREEN)
-    except Exception as _sb_render_err:
-        print(f"[SOUL_BURST_RENDER] 렌더링 에러: {_sb_render_err}")
+    except Exception:
+        pass
 
     # 홀리베리어 효과 그리기 (플레이어 뒤쪽 방벽)
     if holy_barrier_module.is_holy_barrier_active():
