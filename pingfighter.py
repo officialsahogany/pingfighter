@@ -31062,6 +31062,14 @@ def create_smasher_paddle_walking() -> pygame.Surface:
     return _render_skeletal_smasher(phase)
 
 
+def create_viper_paddle_walking() -> pygame.Surface:
+    """바이퍼 전용 걷기 함수 (자체 타이머/사이클 사용)."""
+    if VIPER_WALKING_CYCLE <= 0:
+        return create_viper_paddle_surface(0.0)
+    phase = (viper_walking_timer % VIPER_WALKING_CYCLE) / VIPER_WALKING_CYCLE
+    return create_viper_paddle_surface(phase)
+
+
 def create_optimus_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     base_surface = _create_mecha_paddle_surface(OPTIMUS_MECHA_PALETTE, step_phase)
     if OPTIMUS_SCALE_MULT != 1.0:
@@ -46313,6 +46321,11 @@ def trigger_smasher_contact_animation(offset_x: float, intensity: float = 1.0) -
             _vfx.trigger_shield_hit((hit_x, hit_y))
     except Exception:
         pass
+
+# === 바이퍼 걷기 애니메이션 변수 ===
+viper_walking_active = False
+viper_walking_timer = 0
+VIPER_WALKING_CYCLE = 24  # 속도형 캐릭터답게 빠른 걷기 사이클
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -73543,7 +73556,7 @@ def handle_player(keys):
             else:
                 effective_max_speed = MAX_SPEED
         walking = abs(current_speed) > 1.0
-        if selected_character_type in ("smasher", "viper"):
+        if selected_character_type == "smasher":
             if walking:
                 if not smasher_walking_active:
                     smasher_walking_active = True
@@ -73552,6 +73565,15 @@ def handle_player(keys):
             else:
                 smasher_walking_active = False
                 smasher_walking_timer = 0
+        elif selected_character_type == "viper":
+            if walking:
+                if not viper_walking_active:
+                    viper_walking_active = True
+                    viper_walking_timer = 0
+                viper_walking_timer += 1
+            else:
+                viper_walking_active = False
+                viper_walking_timer = 0
         else:
             if walking:
                 if not optimus_walking_active:
@@ -104865,9 +104887,9 @@ def draw_objects():
                     _render_skeletal_smasher(is_idle=True), "smasher"
                 )
         elif selected_character_type == "viper":
-            # 바이퍼: 절차적 렌더링 (걷기 시 phase 전달)
-            if smasher_walking_active:
-                walk_phase = (smasher_walking_timer % max(1, SMASHER_WALKING_CYCLE)) / max(1, SMASHER_WALKING_CYCLE)
+            # 바이퍼: 절차적 렌더링 (전용 걷기 상태 사용)
+            if viper_walking_active:
+                walk_phase = (viper_walking_timer % max(1, VIPER_WALKING_CYCLE)) / max(1, VIPER_WALKING_CYCLE)
                 base_ufo_img = create_viper_paddle_surface(walk_phase)
             else:
                 base_ufo_img = _apply_character_idle_effects(
@@ -134172,9 +134194,12 @@ def reset_round(is_stage_start=False):
         blacksmith_trail_timer = 0
 
     global smasher_walking_active, smasher_walking_timer
+    global viper_walking_active, viper_walking_timer
     global optimus_walking_active, optimus_walking_timer
     smasher_walking_active = False
     smasher_walking_timer = 0
+    viper_walking_active = False
+    viper_walking_timer = 0
     optimus_walking_active = False
     optimus_walking_timer = 0
 
