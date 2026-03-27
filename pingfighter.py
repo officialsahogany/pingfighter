@@ -11206,6 +11206,9 @@ sacred_laurel_perk_bonus = 0  # 신성 월계수 장착 시 퍽 레벨 보너스
 # 초월자의 관 스킬 보너스 (전설 아이템)
 transcendent_crown_skill_bonus = 0  # 모든 투자된 스킬 레벨 +1~+3
 
+# 현자의 반지 퍽 보너스 (패시브 아이템, 고정 +1)
+sage_ring_perk_bonus = 0  # 장착 시 모든 투자된 퍽 레벨 +1
+
 def get_runtime_skill_level(skill_id: str) -> int:
     """런타임 스킬 레벨 조회 (초월자의 관 보너스 포함)
 
@@ -11215,8 +11218,14 @@ def get_runtime_skill_level(skill_id: str) -> int:
     base_level = runtime_skill_levels.get(skill_id, 0)
 
     # 투자된 스킬에만 보너스 적용 (max_level 제한 없음)
-    if base_level > 0 and transcendent_crown_skill_bonus > 0:
-        return base_level + transcendent_crown_skill_bonus
+    total_bonus = 0
+    if transcendent_crown_skill_bonus > 0:
+        total_bonus += transcendent_crown_skill_bonus
+    if sage_ring_perk_bonus > 0:
+        total_bonus += sage_ring_perk_bonus
+
+    if base_level > 0 and total_bonus > 0:
+        return base_level + total_bonus
 
     return base_level
 
@@ -14154,7 +14163,7 @@ def _get_random_passive_for_treasure():
         "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
         "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch",
         "bluetooth_ring", "star_detector", "foul_whistle", "bulletproof_hat", "spiked_helmet",
-        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst"
+        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"
     ]
 
     if passive_pool:
@@ -20078,6 +20087,7 @@ def stop_blacksmith_hammer_charge_sound() -> None:
 
     blacksmith_hammer_charge_sound_channel = None
 
+_soul_burst_can_dash = False
 
 def play_dash_sound():
     #  소울버스트 발동 대쉬이면 전용 사운드 재생
@@ -24889,6 +24899,7 @@ ITEM_SLOT_BASE_MAP = {
     "adversity_armor": "top",
     "shrapnel_armor": "top",
     "soul_burst": "knee",
+    "sage_ring": "accessory",
 }
 
 PASSIVE_OPTION_RANGES = {
@@ -26098,6 +26109,23 @@ def sync_equipped_passive_effects():
     sync_bool("transcendent_crown", "items.transcendent_crown_obtained")
     sync_bool("odins_eye", "items.odins_eye_obtained")
     sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
+    sync_bool("sage_ring", "items.sage_ring_obtained")
+
+    # 현자의 반지: 장착 시 모든 퍽 레벨 +1 (고정 효과)
+    global sage_ring_perk_bonus
+    try:
+        from item_effects.sage_ring import get_sage_ring_instance
+        ring = get_sage_ring_instance()
+        if "sage_ring" in equipped_names:
+            ring.activate()
+            sage_ring_perk_bonus = ring.perk_bonus
+        else:
+            ring.deactivate()
+            sage_ring_perk_bonus = 0
+        # 퍽 보너스 변경 시 효과 재계산
+        recalculate_transcendent_crown_effects()
+    except Exception:
+        pass
 
     # 장비 슬롯 확장 (slot_add) - 배낭의 롤옵션 slot_add_count 값을 합산 + 강화 보너스 적용
     slot_add_items = [item for item in equipped_items if item.get("name") == "slot_add"]
@@ -67860,6 +67888,7 @@ def handle_player(keys):
     global selected_character_type  # 선택된 캐릭터 타입
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
     global ice_dash_sliding, ice_dash_slide_timer, ice_dash_slide_direction, ice_dash_slide_speed  # 🧊 얼음 대쉬 미끄러짐
+    global _soul_burst_can_dash  # 소울버스트 대쉬 가능 플래그
 
     # HUD 닫힘 직후 한두 프레임 동안 Space 입력(좌클릭 병합 포함) 억제 타이머 감쇠
     if 'soldier_weapon_menu_close_suppress_frames' in globals() and soldier_weapon_menu_close_suppress_frames > 0:
@@ -75928,7 +75957,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -75969,7 +75998,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"]:
         return
 
     # 최대 3개까지만 보관
@@ -77019,6 +77048,17 @@ def store_passive_item(item_data):
         item_data["type"] = "passive"
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "sage_ring":
+        # 현자의 반지 패시브 아이템 (장신구 부위)
+        # 고정 효과: 모든 퍽 레벨 +1 (장착 시 발동)
+        # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
+        if not items.sage_ring_obtained:
+            items.sage_ring_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "sage_ring")
+            from item_effects.sage_ring import activate_sage_ring
+            activate_sage_ring()
+        item_data["type"] = "passive"
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     else:
         # 알 수 없는 패시브 아이템 처리
@@ -124970,7 +125010,7 @@ def show_item_manager_menu():
         ("등", ["slot_add", "chargebag", "dowsing_pendulum", "battery"]),
         ("장신구", ["star_detector", "fuel_pouch", "bluetooth_ring",
                   "foul_whistle", "dashholder",
-                  "cooltime", "revival", "gold_bar", "lucky_coin"]),
+                  "cooltime", "revival", "gold_bar", "lucky_coin", "sage_ring"]),
     ]
 
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
@@ -128620,6 +128660,74 @@ def get_item_icon(item_name):
 
         # 외곽 글로우
         pygame.draw.rect(icon_surface, pad_glow, pad_rect, 1, border_radius=int(6 * s))
+
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
+    if item_name == "sage_ring":
+        # 현자의 반지 아이콘 - 신비로운 보라색 반지에 빛나는 보석
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        s = ICON_SIZE / 48
+
+        # 반지 색상 팔레트
+        ring_gold = (210, 175, 120)         # 반지 본체 (금빛)
+        ring_gold_dark = (170, 130, 80)     # 반지 어두운 면
+        ring_gold_light = (240, 210, 160)   # 반지 하이라이트
+        gem_purple = (160, 80, 220)         # 보석 보라
+        gem_glow = (200, 140, 255)          # 보석 빛남
+        gem_core = (230, 200, 255)          # 보석 중심 하이라이트
+        aura_color = (180, 140, 255, 60)    # 신비로운 오라
+
+        # 배경 오라 (신비로운 빛)
+        for i in range(3):
+            r = int((18 - i * 4) * s)
+            aura_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+            pygame.draw.circle(aura_surf, (180, 140, 255, 30 - i * 8), (cx, cy), r)
+            icon_surface.blit(aura_surf, (0, 0))
+
+        # 반지 본체 (타원형 링)
+        ring_rx = int(16 * s)  # 가로 반지름
+        ring_ry = int(12 * s)  # 세로 반지름
+        ring_thickness = max(2, int(4 * s))
+
+        # 반지 외곽 (어두운 금색)
+        pygame.draw.ellipse(icon_surface, ring_gold_dark,
+                            (cx - ring_rx, cy - ring_ry + int(3 * s), ring_rx * 2, ring_ry * 2),
+                            ring_thickness + 1)
+        # 반지 본체 (금색)
+        pygame.draw.ellipse(icon_surface, ring_gold,
+                            (cx - ring_rx, cy - ring_ry + int(3 * s), ring_rx * 2, ring_ry * 2),
+                            ring_thickness)
+        # 반지 하이라이트 (윗부분 밝게)
+        pygame.draw.arc(icon_surface, ring_gold_light,
+                        (cx - ring_rx, cy - ring_ry + int(3 * s), ring_rx * 2, ring_ry * 2),
+                        0.3, 2.8, max(1, int(2 * s)))
+
+        # 보석 마운트 (반지 상단 중앙)
+        gem_y = cy - int(8 * s)
+        gem_r = max(3, int(6 * s))
+
+        # 보석 글로우
+        glow_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        for gi in range(3):
+            gr = gem_r + int((3 - gi) * 2 * s)
+            pygame.draw.circle(glow_surf, (180, 140, 255, 40 - gi * 12), (cx, gem_y), gr)
+        icon_surface.blit(glow_surf, (0, 0))
+
+        # 보석 본체
+        pygame.draw.circle(icon_surface, gem_purple, (cx, gem_y), gem_r)
+        pygame.draw.circle(icon_surface, gem_glow, (cx, gem_y), max(2, gem_r - int(2 * s)))
+        pygame.draw.circle(icon_surface, gem_core, (cx - int(1 * s), gem_y - int(1 * s)),
+                           max(1, gem_r // 3))
+
+        # 보석 주변 반짝임 (4방향)
+        sparkle_offsets = [(-1, -1), (1, -1), (-1, 1), (1, 1)]
+        for dx, dy in sparkle_offsets:
+            sx = cx + int(dx * (gem_r + 3) * s)
+            sy = gem_y + int(dy * (gem_r + 3) * s)
+            pygame.draw.circle(icon_surface, (255, 255, 230), (sx, sy), max(1, int(1.2 * s)))
 
         icon_cache[item_name] = icon_surface
         return icon_surface
@@ -161996,7 +162104,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -162097,6 +162205,7 @@ def get_item_description(item_name):
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
         "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
         "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 170% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
+        "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

@@ -95,6 +95,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_back_parts import PandoraLegacyPart
         return PandoraLegacyPart(block)
 
+    elif item_name == "sage_ring":
+        # 현자의 반지는 장신구 - 시각적 파츠 없음 (아이콘만 표시)
+        return None
+
     return None
 
 

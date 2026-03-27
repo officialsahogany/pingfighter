@@ -3102,6 +3102,7 @@ class BuildingInterior:
             {"name": "adversity_armor", "base_price": 1100, "korean": "역경의 갑옷"},
             {"name": "shrapnel_armor", "base_price": 900, "korean": "파편갑옷"},
             {"name": "soul_burst", "base_price": 750, "korean": "소울버스트"},
+            {"name": "sage_ring", "base_price": 900, "korean": "현자의 반지"},
         ]
 
         # 전설 아이템 목록 (5% 확률)
