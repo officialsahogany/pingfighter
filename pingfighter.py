@@ -67942,6 +67942,7 @@ def handle_player(keys):
     global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction  # 발토르 걷기 애니메이션 변수
     global smasher_walking_active, smasher_walking_timer  # 스매셔 걷기 애니메이션 변수
+    global viper_walking_active, viper_walking_timer  # 바이퍼 걷기 애니메이션 변수
     global optimus_walking_active, optimus_walking_timer  # 옵티머스(optimus) 걷기 애니메이션 변수
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
