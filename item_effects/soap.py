@@ -39,9 +39,11 @@ class Soap:
     DEBUFF_DURATION = 300         # 미끄러움 지속 시간 (5초 = 300프레임 @60fps)
     # 미끄러움 물리 파라미터 (빙판 위 느낌)
     DECEL_MULT = 0.12             # 감속 능력 88% 감소 → 브레이크 거의 안 걸림 (관성 유지)
-    ACCEL_MULT_MIN = 0.10         # 가속 초기값: 90% 감소 → 방향전환 직후 거의 안 움직임
-    ACCEL_MULT_MAX = 0.55         # 가속 최종값: 45% 감소 → 서서히 가속도 붙음
-    ACCEL_RAMPUP_FRAMES = 90      # 가속 램프업 시간 (1.5초에 걸쳐 MIN → MAX)
+    ACCEL_MULT_MIN = 0.08         # 가속 초기값: 92% 감소 → 방향전환 직후 거의 안 움직임
+    ACCEL_MULT_MAX = 0.45         # 가속 최종값: 55% 감소 → 서서히 가속도 붙음
+    ACCEL_RAMPUP_FRAMES = 120     # 가속 램프업 시간 (2초에 걸쳐 MIN → MAX)
+    MAX_SPEED_MULT = 0.55         # 최대 속도 45% 감소 → 풀속도로 질주 불가
+    DIR_CHANGE_THRESHOLD = 2.0    # 방향전환 감지 임계값 (미세 진동 무시)
     LAND_DURATION = 240           # 착지 후 유지 시간 (4초 = 240프레임)
     PREPARE_TIME = 18             # 준비 동작 시간 (0.3초)
 
@@ -256,11 +258,16 @@ class Soap:
             self.boss_soap_timer -= 1
 
             # 방향전환 감지 → 램프업 카운터 리셋
+            # boss_move_direction은 boss_current_speed 기반 (pingfighter.py에서 전달)
             current_dir = boss_move_direction
-            if current_dir != 0 and current_dir != self._last_boss_direction:
-                # 방향이 바뀜 → 가속 리셋 (다시 느리게 시작)
-                _safe_print(f"[Soap] 방향전환! {self._last_boss_direction} → {current_dir} | 램프업 리셋 (was {self._rampup_counter})")
-                self._rampup_counter = 0
+            # 미세 진동 무시: 확실하게 반대 방향으로 갈 때만 리셋
+            if (current_dir != 0
+                    and self._last_boss_direction != 0
+                    and current_dir != self._last_boss_direction):
+                # 확실한 방향전환만 리셋 (rampup이 이미 충분히 쌓였을 때)
+                if self._rampup_counter >= 8:  # 최소 8프레임 이상 같은 방향이었을 때만
+                    _safe_print(f"[Soap] 방향전환! {self._last_boss_direction} → {current_dir} | 램프업 리셋 (was {self._rampup_counter})")
+                    self._rampup_counter = 0
             if current_dir != 0:
                 self._last_boss_direction = current_dir
 
@@ -322,6 +329,12 @@ class Soap:
         if not self.boss_soaped:
             return 1.0
         return self.DECEL_MULT  # 0.12 (88% 감소)
+
+    def get_max_speed_multiplier(self) -> float:
+        """보스 최대 속도 배율 (풀속도 질주 방지)."""
+        if not self.boss_soaped:
+            return 1.0
+        return self.MAX_SPEED_MULT  # 0.55 (45% 감소)
 
     def get_remaining_seconds(self) -> float:
         """남은 디버프 시간(초) 반환."""
