@@ -20080,6 +20080,13 @@ def stop_blacksmith_hammer_charge_sound() -> None:
 
 
 def play_dash_sound():
+    #  소울버스트 발동 대쉬이면 전용 사운드 재생
+    if _soul_burst_can_dash and rolling_charges <= 0 and SOUND_SOUL_BURST_DASH:
+        try:
+            play_sound_with_volume(SOUND_SOUL_BURST_DASH)
+            return
+        except Exception:
+            pass
     #  버스트업 스킬이 있으면 bustup.wav 재생
     if acceleration_skill_level > 0:  # 버스트업 스킬 레벨이 1 이상이면
         try:
@@ -20842,6 +20849,7 @@ SOUND_HALF_DASH = sound_effects['HALF_DASH']
 SOUND_DASH_CHARGE = sound_effects['DASH_CHARGE']
 SOUND_DASH_DELAY = sound_effects['DASH_DELAY']
 SOUND_DASH_SPIRIT_DELETE = sound_effects['DASH_SPIRIT_DELETE']
+SOUND_SOUL_BURST_DASH = sound_effects.get('SOUL_BURST_DASH')
 SOUND_ACTIVE_ITEM = sound_effects['ACTIVE_ITEM']
 SOUND_STONEBREAK_SMALL = sound_effects['STONEBREAK_SMALL']
 SOUND_STONEBREAK_MEDIUM = sound_effects['STONEBREAK_MEDIUM']
