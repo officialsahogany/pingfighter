@@ -69778,10 +69778,28 @@ def handle_player(keys):
     if berserk_potion_active:
         _get_global_manager().set('berserk_potion_timer_frames', berserk_potion_timer)
 
-    # 기묘한 약병 타이머 업데이트
+    # 기묘한 약병 타이머 업데이트 + 점진적 크기/속도 보간
     if strange_vial_active:
         if strange_vial_timer > 0:
             strange_vial_timer -= 1
+            _sv_elapsed = strange_vial_initial_timer - strange_vial_timer
+            _sv_ts = strange_vial_target_scale
+            _sv_tsp = strange_vial_target_speed_mult
+            # 시작 단계: 점진적으로 목표 배율까지 보간 (0.75초)
+            if _sv_elapsed < STRANGE_VIAL_TRANSITION_TIME:
+                _sv_p = _sv_elapsed / max(1, STRANGE_VIAL_TRANSITION_TIME)
+                strange_vial_scale = 1.0 + (_sv_ts - 1.0) * _sv_p
+                strange_vial_speed_mult = 1.0 + (_sv_tsp - 1.0) * _sv_p
+            # 종료 단계: 점진적으로 1.0으로 복원 (마지막 0.75초)
+            elif strange_vial_timer <= STRANGE_VIAL_TRANSITION_TIME:
+                _sv_p = strange_vial_timer / max(1, STRANGE_VIAL_TRANSITION_TIME)
+                strange_vial_scale = 1.0 + (_sv_ts - 1.0) * _sv_p
+                strange_vial_speed_mult = 1.0 + (_sv_tsp - 1.0) * _sv_p
+            # 유지 단계
+            else:
+                strange_vial_scale = _sv_ts
+                strange_vial_speed_mult = _sv_tsp
+            # 타이머 종료
             if strange_vial_timer <= 0:
                 deactivate_strange_vial()
         else:
@@ -71064,8 +71082,13 @@ def handle_player(keys):
                     _sb_inst = _get_sb()
                     if _sb_inst and _sb_inst.active and _sb_inst.can_soul_dash(special_gauge):
                         _soul_burst_can_dash = True
-                except Exception:
-                    pass
+                    elif _sb_inst:
+                        if not _sb_inst.active:
+                            print(f"[SOUL_BURST_CHECK] 비활성 상태 (active=False)")
+                        elif not _sb_inst.can_soul_dash(special_gauge):
+                            print(f"[SOUL_BURST_CHECK] 게이지 부족: {special_gauge} < {_sb_inst.gauge_cost}")
+                except Exception as _sb_chk_err:
+                    print(f"[SOUL_BURST_CHECK] 체크 에러: {_sb_chk_err}")
             _has_token_or_unlimited = rolling_charges > 0 or is_dash_unlimited() or _soul_burst_can_dash
 
             if _has_token_or_unlimited and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
@@ -71546,15 +71569,17 @@ def handle_player(keys):
                                     game_state.special_gauge = special_gauge
                                 _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
                                 _sb_triggered = True
-                            except Exception:
-                                pass
+                                print(f"[SOUL_BURST_DEBUG] 좌측대쉬 게이지소모 성공! cost={_sb_cost}, remaining={special_gauge}")
+                            except Exception as _sb_err:
+                                print(f"[SOUL_BURST_DEBUG] 좌측대쉬 게이지소모 실패: {_sb_err}")
                             # 소울버스트 보라색 에너지 방출 이펙트 (별도 try)
                             if _sb_triggered:
                                 try:
                                     from item_effects.soul_burst import trigger_soul_burst_effect
                                     trigger_soul_burst_effect(PLAYER.centerx, PLAYER.centery, -1)
-                                except Exception:
-                                    pass
+                                    print(f"[SOUL_BURST_DEBUG] 좌측 이펙트 트리거 성공! pos=({PLAYER.centerx}, {PLAYER.centery})")
+                                except Exception as _fx_err:
+                                    print(f"[SOUL_BURST_DEBUG] 좌측 이펙트 트리거 실패: {_fx_err}")
                         else:
                             # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
                             if 'token_states' in globals() and len(token_states) > 0:
@@ -71835,14 +71860,16 @@ def handle_player(keys):
                                     game_state.special_gauge = special_gauge
                                 _soul_burst_can_dash = _sb_r.can_soul_dash(special_gauge)
                                 _sb_ok_r = True
-                            except Exception:
-                                pass
+                                print(f"[SOUL_BURST_DEBUG] 우측대쉬 게이지소모 성공! cost={_sb_cost_r}, remaining={special_gauge}")
+                            except Exception as _sb_err_r:
+                                print(f"[SOUL_BURST_DEBUG] 우측대쉬 게이지소모 실패: {_sb_err_r}")
                             if _sb_ok_r:
                                 try:
                                     from item_effects.soul_burst import trigger_soul_burst_effect as _tsbfx_r
                                     _tsbfx_r(PLAYER.centerx, PLAYER.centery, 1)
-                                except Exception:
-                                    pass
+                                    print(f"[SOUL_BURST_DEBUG] 우측 이펙트 트리거 성공!")
+                                except Exception as _fx_err_r:
+                                    print(f"[SOUL_BURST_DEBUG] 우측 이펙트 트리거 실패: {_fx_err_r}")
                         else:
                             # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
                             if 'token_states' in globals() and len(token_states) > 0:
@@ -105154,11 +105181,13 @@ def draw_objects():
 
     # 소울버스트 에너지 방출 이펙트
     try:
-        from item_effects.soul_burst import update_soul_burst_effects, draw_soul_burst_effects
+        from item_effects.soul_burst import update_soul_burst_effects, draw_soul_burst_effects, _burst_particles, _burst_shockwaves
+        if _burst_particles or _burst_shockwaves:
+            print(f"[SOUL_BURST_RENDER] 파티클={len(_burst_particles)}, 충격파={len(_burst_shockwaves)}")
         update_soul_burst_effects()
         draw_soul_burst_effects(SCREEN)
-    except Exception:
-        pass
+    except Exception as _sb_render_err:
+        print(f"[SOUL_BURST_RENDER] 렌더링 에러: {_sb_render_err}")
 
     # 홀리베리어 효과 그리기 (플레이어 뒤쪽 방벽)
     if holy_barrier_module.is_holy_barrier_active():
