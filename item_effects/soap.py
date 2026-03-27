@@ -357,9 +357,9 @@ class Soap:
     def _draw_foam_trails(self, screen: pygame.Surface) -> None:
         """보스 이동 경로에 남는 거품 자국."""
         for foam in self.foam_trails:
-            life_ratio = foam["life"] / foam["max_life"]
+            life_ratio = max(0.0, min(1.0, foam["life"] / foam["max_life"]))
             size = max(1, int(foam["size"] * (0.6 + 0.4 * life_ratio)))
-            alpha = int(120 * life_ratio)
+            alpha = max(0, min(255, int(120 * life_ratio)))
             if size <= 0 or alpha <= 0:
                 continue
 
@@ -369,11 +369,11 @@ class Soap:
             # 거품 원 (반투명 하늘색)
             pygame.draw.circle(foam_surf, (200, 230, 255, alpha), (cx, cy), size, 1)
             # 안쪽 채움 (더 투명하게)
-            inner_alpha = int(40 * life_ratio)
+            inner_alpha = max(0, min(255, int(40 * life_ratio)))
             pygame.draw.circle(foam_surf, (220, 240, 255, inner_alpha), (cx, cy), max(1, size - 1))
             # 하이라이트 (작은 흰 점)
             if size >= 3:
-                hl_alpha = int(180 * life_ratio)
+                hl_alpha = max(0, min(255, int(180 * life_ratio)))
                 pygame.draw.circle(foam_surf, (255, 255, 255, hl_alpha),
                                    (cx - size // 3, cy - size // 3), max(1, size // 4))
 
@@ -436,9 +436,9 @@ class Soap:
     def _draw_burst_particles(self, screen: pygame.Surface) -> None:
         """거품 파티클 그리기."""
         for particle in self.burst_particles:
-            life_ratio = particle["life"] / 60
+            life_ratio = max(0.0, min(1.0, particle["life"] / 60))
             size = max(1, int(particle["size"]))
-            alpha = int(200 * life_ratio)
+            alpha = max(0, min(255, int(200 * life_ratio)))
 
             if size > 0 and alpha > 0:
                 bubble_surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
