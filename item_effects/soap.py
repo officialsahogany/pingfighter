@@ -67,6 +67,10 @@ class Soap:
         # 터지는 파티클 (비누 거품)
         self.burst_particles: List[Dict] = []
 
+        # 거품 자국 (보스 이동 경로에 남는 흔적)
+        self.foam_trails: List[Dict] = []
+        self._foam_spawn_timer: int = 0
+
         # 준비 동작 상태
         self.preparing: bool = False
         self.prepare_timer: int = 0
@@ -83,6 +87,8 @@ class Soap:
         self.burst_particles.clear()
         self.boss_soaped = False
         self.boss_soap_timer = 0
+        self.foam_trails.clear()
+        self._foam_spawn_timer = 0
         self.preparing = False
         self.prepare_timer = 0
         self.pending_throw = None
@@ -246,9 +252,32 @@ class Soap:
         # 미끄러움 디버프 업데이트
         if self.boss_soaped:
             self.boss_soap_timer -= 1
+
+            # 보스 이동 경로에 거품 자국 생성 (4프레임마다)
+            if boss_rect:
+                self._foam_spawn_timer += 1
+                if self._foam_spawn_timer >= 4:
+                    self._foam_spawn_timer = 0
+                    bx = boss_rect.centerx + random.uniform(-boss_rect.width * 0.3, boss_rect.width * 0.3)
+                    by = boss_rect.bottom + random.uniform(-2, 3)
+                    self.foam_trails.append({
+                        "x": bx,
+                        "y": by,
+                        "size": random.uniform(4, 9),
+                        "life": random.randint(30, 50),
+                        "max_life": random.randint(30, 50),
+                    })
+
             if self.boss_soap_timer <= 0:
                 self.boss_soaped = False
+                self._foam_spawn_timer = 0
                 _safe_print("[Soap] 미끄러움 효과 종료!")
+
+        # 거품 자국 업데이트 (수명 감소)
+        for foam in self.foam_trails[:]:
+            foam["life"] -= 1
+            if foam["life"] <= 0:
+                self.foam_trails.remove(foam)
 
         # 거품 파티클 업데이트
         for particle in self.burst_particles[:]:
@@ -318,11 +347,37 @@ class Soap:
     # -------------------------------------------------------------------------
     def draw(self, screen: pygame.Surface) -> None:
         """모든 비누와 파티클 그리기."""
+        self._draw_foam_trails(screen)
         self._draw_preparing_soap(screen)
         self._draw_projectiles(screen)
         self._draw_landed_soaps(screen)
         self._draw_burst_particles(screen)
         self._draw_debuff_indicator(screen)
+
+    def _draw_foam_trails(self, screen: pygame.Surface) -> None:
+        """보스 이동 경로에 남는 거품 자국."""
+        for foam in self.foam_trails:
+            life_ratio = foam["life"] / foam["max_life"]
+            size = max(1, int(foam["size"] * (0.6 + 0.4 * life_ratio)))
+            alpha = int(120 * life_ratio)
+            if size <= 0 or alpha <= 0:
+                continue
+
+            foam_surf = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+            cx, cy = size + 2, size + 2
+
+            # 거품 원 (반투명 하늘색)
+            pygame.draw.circle(foam_surf, (200, 230, 255, alpha), (cx, cy), size, 1)
+            # 안쪽 채움 (더 투명하게)
+            inner_alpha = int(40 * life_ratio)
+            pygame.draw.circle(foam_surf, (220, 240, 255, inner_alpha), (cx, cy), max(1, size - 1))
+            # 하이라이트 (작은 흰 점)
+            if size >= 3:
+                hl_alpha = int(180 * life_ratio)
+                pygame.draw.circle(foam_surf, (255, 255, 255, hl_alpha),
+                                   (cx - size // 3, cy - size // 3), max(1, size // 4))
+
+            screen.blit(foam_surf, (int(foam["x"]) - cx, int(foam["y"]) - cy))
 
     def _draw_preparing_soap(self, screen: pygame.Surface) -> None:
         """준비 동작 중인 비누 그리기."""
@@ -534,12 +589,22 @@ class Soap:
             pass
 
     def _play_slip_sound(self) -> None:
-        """미끄러짐 사운드 재생."""
+        """미끄러짐 사운드 재생 (바나나 밟기와 동일)."""
         try:
+            # pingfighter.py의 play_sound_with_volume 사용 시도
+            try:
+                from pingfighter import play_sound_with_volume, resource_path
+                sound_path = resource_path(os.path.join("sounds", "bananastep.wav"))
+                slip_sound = pygame.mixer.Sound(sound_path)
+                play_sound_with_volume(slip_sound)
+                return
+            except Exception:
+                pass
+            # 폴백: 직접 재생
             sound_path = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
                 "sounds",
-                "bananastep.wav"  # 미끄러지는 효과음
+                "bananastep.wav"
             )
             if os.path.exists(sound_path):
                 slip_sound = pygame.mixer.Sound(sound_path)
