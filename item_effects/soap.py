@@ -37,7 +37,11 @@ class Soap:
     # 기본 상수
     THROW_SPEED = 18              # 투척 속도
     DEBUFF_DURATION = 300         # 미끄러움 지속 시간 (5초 = 300프레임 @60fps)
-    ACCEL_REDUCTION = 0.70        # 가속/감속 70% 감소 (30%만 남음)
+    # 미끄러움 물리 파라미터 (빙판 위 느낌)
+    DECEL_MULT = 0.12             # 감속 능력 88% 감소 → 브레이크 거의 안 걸림 (관성 유지)
+    ACCEL_MULT_MIN = 0.10         # 가속 초기값: 90% 감소 → 방향전환 직후 거의 안 움직임
+    ACCEL_MULT_MAX = 0.55         # 가속 최종값: 45% 감소 → 서서히 가속도 붙음
+    ACCEL_RAMPUP_FRAMES = 90      # 가속 램프업 시간 (1.5초에 걸쳐 MIN → MAX)
     LAND_DURATION = 240           # 착지 후 유지 시간 (4초 = 240프레임)
     PREPARE_TIME = 18             # 준비 동작 시간 (0.3초)
 
@@ -62,6 +66,10 @@ class Soap:
         self.boss_soaped: bool = False
         self.boss_soap_timer: int = 0
 
+        # 가속 램프업 추적 (방향전환 후 서서히 가속)
+        self._rampup_counter: int = 0
+        self._last_boss_direction: int = 0  # 마지막 보스 이동 방향
+
         # 터지는 파티클 (비누 거품)
         self.burst_particles: List[Dict] = []
 
@@ -81,6 +89,8 @@ class Soap:
         self.burst_particles.clear()
         self.boss_soaped = False
         self.boss_soap_timer = 0
+        self._rampup_counter = 0
+        self._last_boss_direction = 0
         self.preparing = False
         self.prepare_timer = 0
         self.pending_throw = None
@@ -244,8 +254,23 @@ class Soap:
         # 미끄러움 디버프 업데이트
         if self.boss_soaped:
             self.boss_soap_timer -= 1
+
+            # 방향전환 감지 → 램프업 카운터 리셋
+            current_dir = boss_move_direction
+            if current_dir != 0 and current_dir != self._last_boss_direction:
+                # 방향이 바뀜 → 가속 리셋 (다시 느리게 시작)
+                self._rampup_counter = 0
+            if current_dir != 0:
+                self._last_boss_direction = current_dir
+
+            # 램프업 카운터 증가 (같은 방향으로 갈수록 가속 붙음)
+            if self._rampup_counter < self.ACCEL_RAMPUP_FRAMES:
+                self._rampup_counter += 1
+
             if self.boss_soap_timer <= 0:
                 self.boss_soaped = False
+                self._rampup_counter = 0
+                self._last_boss_direction = 0
                 _safe_print("[Soap] 미끄러움 효과 종료!")
 
         # 거품 파티클 업데이트
@@ -260,7 +285,8 @@ class Soap:
 
         return {
             "soaped": self.boss_soaped,
-            "accel_multiplier": (1.0 - self.ACCEL_REDUCTION) if self.boss_soaped else 1.0,
+            "accel_multiplier": self.get_accel_multiplier(),
+            "decel_multiplier": self.get_decel_multiplier(),
             "remaining_frames": self.boss_soap_timer,
         }
 
@@ -269,10 +295,22 @@ class Soap:
         return self.boss_soaped
 
     def get_accel_multiplier(self) -> float:
-        """보스 가속/감속에 적용할 배율 반환 (1.0 = 정상, 0.3 = 70% 감소)."""
-        if self.boss_soaped:
-            return 1.0 - self.ACCEL_REDUCTION  # 0.30
-        return 1.0
+        """보스 가속에 적용할 배율 (방향전환 후 서서히 증가).
+
+        방향전환 직후: 0.10 (거의 안 움직임)
+        1.5초 후:      0.55 (서서히 가속도 붙음)
+        """
+        if not self.boss_soaped:
+            return 1.0
+        # 램프업: MIN → MAX (선형 보간)
+        t = min(1.0, self._rampup_counter / max(1, self.ACCEL_RAMPUP_FRAMES))
+        return self.ACCEL_MULT_MIN + (self.ACCEL_MULT_MAX - self.ACCEL_MULT_MIN) * t
+
+    def get_decel_multiplier(self) -> float:
+        """보스 감속에 적용할 배율 (브레이크 거의 안 걸림 → 관성으로 밀림)."""
+        if not self.boss_soaped:
+            return 1.0
+        return self.DECEL_MULT  # 0.12 (88% 감소)
 
     def get_remaining_seconds(self) -> float:
         """남은 디버프 시간(초) 반환."""

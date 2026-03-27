@@ -144363,24 +144363,32 @@ def _process_bazooka_collisions():
             apply_health_boss_damage(2, source="bazooka")
 
 def _handle_boss_with_soap_debuff():
-    """비누 디버프가 활성화된 경우, 보스 AI 실행 후 방향전환 능력을 감소시킴."""
+    """비누 디버프: 빙판 위 느낌 — 브레이크 안 걸리고, 방향전환 시 천천히 가속.
+
+    - 감속(DECELERATION) 88% 감소 → 관성으로 계속 밀림 (브레이크 못 걸음)
+    - 가속(ACCELERATION) 방향전환 직후 90% 감소 → 1.5초에 걸쳐 55%까지 회복
+    - 즉시정지(INSTANT_STOP) 거의 불가능 → 오버슈팅
+    """
     global boss_current_speed, BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_INSTANT_STOP_DECELERATION
     try:
         from item_effects.soap import get_soap_instance
         soap_inst = get_soap_instance()
         if soap_inst.is_boss_soaped():
-            soap_mult = soap_inst.get_accel_multiplier()  # 0.30 (70% 감소)
-            # 가속/감속 임시 감소
+            accel_mult = soap_inst.get_accel_multiplier()  # 0.10 ~ 0.55 (램프업)
+            decel_mult = soap_inst.get_decel_multiplier()  # 0.12 (고정)
+            # 원본 저장
             orig_accel = BOSS_ACCELERATION
             orig_decel = BOSS_DECELERATION
             orig_instant = BOSS_INSTANT_STOP_DECELERATION
-            BOSS_ACCELERATION *= soap_mult
-            BOSS_DECELERATION *= soap_mult
-            BOSS_INSTANT_STOP_DECELERATION *= soap_mult
+            # 가속: 방향전환 직후 거의 0, 서서히 증가
+            BOSS_ACCELERATION *= accel_mult
+            # 감속: 거의 안 걸림 (관성 유지)
+            BOSS_DECELERATION *= decel_mult
+            # 즉시정지: 거의 불가능
+            BOSS_INSTANT_STOP_DECELERATION *= decel_mult
             try:
                 handle_boss()
             finally:
-                # 반드시 원복
                 BOSS_ACCELERATION = orig_accel
                 BOSS_DECELERATION = orig_decel
                 BOSS_INSTANT_STOP_DECELERATION = orig_instant
