@@ -125518,7 +125518,8 @@ def show_item_manager_menu():
         {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
         {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
         {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")},
-        {"name": "soul_burst", "type": "passive", "icon": get_item_icon("soul_burst")}
+        {"name": "soul_burst", "type": "passive", "icon": get_item_icon("soul_burst")},
+        {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")}
     ]
 
     # 전설 아이템 추가
