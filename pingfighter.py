@@ -30921,77 +30921,138 @@ def _init_viper_paddle_img():
 def draw_viper_emblem(surface, emblem_x: int, emblem_y: int, emblem_radius: int,
                       time_now: int, pulse_scale: float, rotation_angle: float,
                       glow_intensity: float) -> None:
-    """바이퍼 전용 엠블럼: 플라즈마 블레이드 + 사이버 바이저 모티프."""
-    # 색상 팔레트 (바이퍼 테마: 시안/퍼플 네온)
-    cyan = (0, 255, 220)
-    purple = (160, 0, 255)
-    dark_bg = (10, 5, 20)
-    visor_color = (0, 255, 220)
+    """바이퍼 전용 엠블럼: 에반게리온 스타일 바이오메카 독사의 눈.
+    EVA Unit-01 색상 (딥퍼플 + 네온그린) + 아몬드형 눈 + 슬릿동공 + AT필드 헥사곤."""
+    # EVA Unit-01 색상 팔레트
+    eva_purple = (75, 0, 130)
+    eva_green = (0, 255, 100)
+    eva_dark = (20, 0, 40)
+    iris_amber = (255, 180, 0)
+    iris_core = (255, 220, 50)
+    pupil_void = (0, 0, 0)
+    armor_line = (120, 0, 200)
 
-    breathing = 1.0 + math.sin(time_now * 0.005) * 0.10
-    base_radius = max(6, int(emblem_radius * pulse_scale))
-    outer_radius = max(base_radius + 4, int(emblem_radius * breathing))
+    r = max(7, int(emblem_radius * pulse_scale))
+    eye_w = int(r * 2.6)
+    eye_h = int(r * 1.3)
 
-    # 외곽 글로우 링 (시안)
-    halo_size = outer_radius * 2 + 6
-    halo_surface = get_cached_glow_surface(halo_size)
-    halo_center = outer_radius + 3
-    for i in range(2):
-        halo_alpha = max(30, int(70 + glow_intensity * 100) - i * 25)
-        pygame.draw.circle(
-            halo_surface,
-            (*cyan, halo_alpha),
-            (halo_center, halo_center),
-            outer_radius + i * 2,
-            2,
+    # ── AT필드 헥사곤 배경 (에반게리온 시그니처) ──
+    hex_r = int(r * 3.2)
+    hex_surf = pygame.Surface((hex_r * 2 + 4, hex_r * 2 + 4), pygame.SRCALPHA)
+    hc = hex_r + 2
+    hex_flicker = 0.4 + 0.6 * abs(math.sin(time_now * 0.004))
+    for layer in range(2):
+        lr = hex_r - layer * 4
+        ha = int(35 * hex_flicker) - layer * 12
+        if ha < 5:
+            continue
+        pts = []
+        for hi in range(6):
+            a = hi * (math.tau / 6) + math.pi / 6 + rotation_angle * 0.15
+            pts.append((hc + int(math.cos(a) * lr), hc + int(math.sin(a) * lr)))
+        pygame.draw.polygon(hex_surf, (*eva_green, max(5, ha)), pts, 1)
+    surface.blit(hex_surf, (emblem_x - hc, emblem_y - hc))
+
+    # ── 네온그린 글로우 (EVA 발광) ──
+    glow_pulse = 0.5 + glow_intensity * 0.5
+    glow_hw = int(eye_w * 1.3)
+    glow_hh = int(eye_h * 1.6)
+    glow_surf = pygame.Surface((glow_hw * 2, glow_hh * 2), pygame.SRCALPHA)
+    for gi in range(3, 0, -1):
+        ga = int(22 * gi * glow_pulse)
+        gr_x = int(eye_w * 0.4 + gi * 4)
+        gr_y = int(eye_h * 0.3 + gi * 3)
+        pygame.draw.ellipse(
+            glow_surf, (*eva_green, min(255, ga)),
+            (glow_hw - gr_x, glow_hh - gr_y, gr_x * 2, gr_y * 2)
         )
-    surface.blit(halo_surface, (emblem_x - halo_center, emblem_y - halo_center))
+    surface.blit(glow_surf, (emblem_x - glow_hw, emblem_y - glow_hh))
 
-    # 메인 디스크 (어두운 바이올렛 배경)
-    disc_size = base_radius * 2 + 8
-    disc_surface = get_cached_glow_surface(disc_size)
-    disc_center = base_radius + 4
-    pygame.draw.circle(disc_surface, (*dark_bg, 210), (disc_center, disc_center), base_radius + 3)
-    pygame.draw.circle(disc_surface, (20, 10, 40, 235), (disc_center, disc_center), base_radius)
-    pygame.draw.circle(disc_surface, purple, (disc_center, disc_center), base_radius, 2)
-    surface.blit(disc_surface, (emblem_x - disc_center, emblem_y - disc_center))
+    # ── 아몬드형 아머 아이 (바이오메카닉 눈) ──
+    eye_upper = []
+    eye_lower = []
+    seg = 16
+    for i in range(seg + 1):
+        t = i / seg
+        x = -eye_w + 2 * eye_w * t
+        curve = math.sin(t * math.pi) ** 1.4
+        eye_upper.append((emblem_x + int(x), emblem_y + int(-eye_h * curve)))
+        eye_lower.append((emblem_x + int(x), emblem_y + int(eye_h * curve)))
+    eye_outline = eye_upper + list(reversed(eye_lower))
 
-    # 플라즈마 블레이드 심볼 (중앙 다이아몬드 + 칼날)
-    blade_pulse = 1.0 + math.sin(time_now * 0.008) * 0.2
-    blade_len = int(base_radius * 0.8 * blade_pulse)
-    blade_angle = rotation_angle * 0.8
+    if len(eye_outline) >= 3:
+        # 외장갑 (딥 퍼플)
+        pygame.draw.polygon(surface, eva_dark, eye_outline)
 
-    # 칼날 포인트 (다이아몬드 형태)
-    cos_a = math.cos(blade_angle)
-    sin_a = math.sin(blade_angle)
-    blade_points = [
-        (emblem_x + int(cos_a * blade_len), emblem_y + int(sin_a * blade_len)),          # 상단
-        (emblem_x + int(-sin_a * blade_len * 0.3), emblem_y + int(cos_a * blade_len * 0.3)),  # 좌
-        (emblem_x + int(-cos_a * blade_len), emblem_y + int(-sin_a * blade_len)),         # 하단
-        (emblem_x + int(sin_a * blade_len * 0.3), emblem_y + int(-cos_a * blade_len * 0.3)),   # 우
-    ]
-    if len(blade_points) >= 3:
-        pygame.draw.polygon(surface, visor_color, blade_points)
-        pygame.draw.polygon(surface, (255, 255, 255), blade_points, 1)
+        # ── 홍채 (호박색, EVA 눈 발광) ──
+        iris_rx = int(eye_h * 0.92)
+        iris_ry = int(eye_h * 0.82)
+        # 외곽 호박색
+        pygame.draw.ellipse(surface, iris_amber,
+                            (emblem_x - iris_rx, emblem_y - iris_ry, iris_rx * 2, iris_ry * 2))
+        # 내부 밝은 코어
+        cr_x = max(2, int(iris_rx * 0.65))
+        cr_y = max(2, int(iris_ry * 0.65))
+        pygame.draw.ellipse(surface, iris_core,
+                            (emblem_x - cr_x, emblem_y - cr_y, cr_x * 2, cr_y * 2))
 
-    # 바이저 스캔 이펙트 (회전하는 스캔 라인)
-    scan_angle = (time_now * 0.006) % (math.tau)
-    for i in range(2):
-        sa = scan_angle + i * math.pi
-        scan_r = base_radius - 2
-        sx = emblem_x + math.cos(sa) * scan_r
-        sy = emblem_y + math.sin(sa) * scan_r
-        pygame.draw.line(surface, cyan, (emblem_x, emblem_y), (int(sx), int(sy)), 1)
+        # 홍채 방사 패턴 (기계적)
+        for fi in range(8):
+            fa = fi * (math.tau / 8) + time_now * 0.0004
+            fx1 = emblem_x + int(math.cos(fa) * iris_rx * 0.25)
+            fy1 = emblem_y + int(math.sin(fa) * iris_ry * 0.25)
+            fx2 = emblem_x + int(math.cos(fa) * iris_rx * 0.9)
+            fy2 = emblem_y + int(math.sin(fa) * iris_ry * 0.9)
+            pygame.draw.line(surface, (200, 100, 0), (fx1, fy1), (fx2, fy2), 1)
 
-    # 코어 글로우 (시안 코어)
-    core_r = max(2, int(emblem_radius * 0.22 * blade_pulse))
-    glow_r = int(core_r * 2.0)
-    glow_size = glow_r * 2 + 4
-    glow_surf = get_predrawn_glow_circle(glow_size, cyan, 70)
-    half_glow = glow_surf.get_width() // 2
-    surface.blit(glow_surf, (emblem_x - half_glow, emblem_y - half_glow))
-    pygame.draw.circle(surface, visor_color, (emblem_x, emblem_y), core_r + 1)
-    pygame.draw.circle(surface, (255, 255, 255), (emblem_x, emblem_y), max(1, core_r - 1))
+        # ── 수직 슬릿 동공 (바이오메카 + 독사) ──
+        pupil_breath = 0.25 + 0.2 * math.sin(time_now * 0.0035)
+        pw = max(1, int(iris_rx * pupil_breath))
+        ph = iris_ry - 1
+        pupil_pts = [
+            (emblem_x, emblem_y - ph),
+            (emblem_x + pw, emblem_y),
+            (emblem_x, emblem_y + ph),
+            (emblem_x - pw, emblem_y),
+        ]
+        pygame.draw.polygon(surface, pupil_void, pupil_pts)
+
+        # 동공 내부 EVA 그린 라인 (버서크 모드 느낌)
+        berserk = abs(math.sin(time_now * 0.006))
+        if berserk > 0.7:
+            line_a = int((berserk - 0.7) * 850)
+            ls = pygame.Surface((pw * 2 + 2, ph * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.line(ls, (*eva_green, min(255, line_a)),
+                             (pw + 1, 1), (pw + 1, ph * 2 + 1), 1)
+            surface.blit(ls, (emblem_x - pw - 1, emblem_y - ph - 1))
+
+        # 하이라이트
+        hl_y = emblem_y - int(ph * 0.35)
+        hl_r = max(1, int(iris_rx * 0.13))
+        hl_s = pygame.Surface((hl_r * 4, hl_r * 4), pygame.SRCALPHA)
+        pygame.draw.circle(hl_s, (255, 255, 255, 200), (hl_r * 2, hl_r * 2), hl_r)
+        surface.blit(hl_s, (emblem_x + 1 - hl_r * 2, hl_y - hl_r * 2))
+
+        # ── 아머 외곽선 (퍼플 + 그린 이중선) ──
+        pygame.draw.polygon(surface, armor_line, eye_outline, 2)
+        # 상단/하단 뾰족한 부분에 그린 악센트
+        pygame.draw.line(surface, eva_green,
+                         eye_outline[0], eye_outline[2], 1)
+        pygame.draw.line(surface, eva_green,
+                         eye_outline[-1], eye_outline[-3], 1)
+
+    # ── LCL 파티클 (에반게리온 오렌지색 방울) ──
+    lcl_color = (255, 120, 0)
+    for pi in range(3):
+        dp = ((time_now * 0.0018) + pi * 1.3) % 3.0
+        if dp < 1.8:
+            dx = emblem_x + int((pi - 1) * eye_w * 0.3)
+            dy = emblem_y + eye_h + int(dp * 6)
+            da = max(0, 220 - int(dp * 122))
+            dr = max(1, 2 - int(dp * 0.7))
+            ds = pygame.Surface((dr * 4, dr * 4), pygame.SRCALPHA)
+            pygame.draw.circle(ds, (*lcl_color, da), (dr * 2, dr * 2), dr)
+            surface.blit(ds, (dx - dr * 2, dy - dr * 2))
 
 
 def create_smasher_paddle_walking() -> pygame.Surface:
@@ -157175,6 +157236,14 @@ def main(stage_num, new_boss_mode=False):
         from item_effects.devil_dice import draw_devil_dice_effects, is_devil_dice_active
         if is_devil_dice_active():
             draw_devil_dice_effects(SCREEN, PLAYER)  # 패들 효과와 주사위 애니메이션 모두 그리기
+
+        # 🧪 기묘한 약병 이펙트 그리기 (거품/소용돌이 파티클)
+        if strange_vial_active:
+            try:
+                from item_effects.strange_vial import draw_strange_vial_effects
+                draw_strange_vial_effects(SCREEN, PLAYER)
+            except Exception:
+                pass
 
         # ✨ 스매셔 클렌즈 스킬 효과 그리기
         if selected_character_type == "smasher":
