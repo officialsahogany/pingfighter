@@ -558,3 +558,9 @@ def is_boomerang_active():
     """부메랑 활성화 여부"""
     boom = get_boomerang_instance()
     return boom.active
+
+
+def get_flying_boomerang_count():
+    """현재 날아가고 있는 부메랑 개수 반환"""
+    boom = get_boomerang_instance()
+    return len(boom.boomerangs)

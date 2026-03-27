@@ -2604,6 +2604,7 @@ from item_effects.boomerang import (
     update_boomerang,
     draw_boomerang_effects,
     is_boomerang_active,
+    get_flying_boomerang_count,
 )
 from item_effects.weather_capsule import (
     activate_weather_capsule,
@@ -147123,7 +147124,19 @@ def show_result(won):
             _hg_on_deactivate('magnet_field')
         except Exception:
             pass
-        # 부메랑 비활성화
+        # 부메랑 비활성화 (날아가는 부메랑이 있으면 인벤토리에 복귀)
+        if get_flying_boomerang_count() > 0:
+            for _ in range(get_flying_boomerang_count()):
+                try:
+                    boomerang_item = {
+                        "name": "boomerang",
+                        "effect": "boomerang",
+                        "icon": get_item_icon("boomerang"),
+                        "allow_overflow": True,
+                    }
+                    store_active_item(boomerang_item)
+                except Exception:
+                    pass
         deactivate_boomerang()
         if boomerang_sound_channel and boomerang_sound_channel.get_busy():
             boomerang_sound_channel.stop()
@@ -147200,7 +147213,7 @@ def show_result(won):
             _hg_on_deactivate('magnet_field')
         except Exception:
             pass
-        # 부메랑 비활성화
+        # 부메랑 비활성화 (게임오버 - 인벤토리 초기화되므로 복귀 불필요)
         deactivate_boomerang()
         if boomerang_sound_channel and boomerang_sound_channel.get_busy():
             boomerang_sound_channel.stop()
