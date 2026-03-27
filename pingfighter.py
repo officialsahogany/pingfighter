@@ -144458,11 +144458,6 @@ def _handle_boss_with_soap_debuff():
                 BOSS.x = WIDTH - BOSS.width
                 boss_current_speed = -abs(boss_current_speed) * 0.3
 
-            # 디버그 (매 30프레임)
-            if soap_inst.boss_soap_timer % 30 == 0:
-                print(f"[Soap] spd: {old_speed:.1f}→{boss_current_speed:.1f} | "
-                      f"pos: {old_x:.0f}→{BOSS.x:.0f} (AI wanted {ai_x:.0f}) | "
-                      f"blend={blend:.2f} remain={soap_inst.boss_soap_timer/60:.1f}s")
             return
     except Exception:
         pass
