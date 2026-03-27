@@ -55657,7 +55657,7 @@ def check_tear_collisions():
         else:
             new_tears.append(tear)
     falling_tears = new_tears
-def apply_effect(effect_name):
+def apply_effect(effect_name, item_data=None):
     global PADDLE_WIDTH, PLAYER_SPEED, special_gauge, special_gauge_max, special_ready
     global aipill_active, selected_character_type  #  AI 필 변수 추가
 
@@ -152510,7 +152510,7 @@ def main(stage_num, new_boss_mode=False):
                     global_cooldown_ok = current_time - last_item_use_time >= active_item_cooldown_ms
                     if individual_cooldown_ok and global_cooldown_ok:  # 둘 다 만족해야 사용 가능
                         # apply_effect가 False를 반환하면 아이템 사용 실패 (투척 아이템 5초 제한 등)
-                        effect_result = apply_effect(item["effect"])
+                        effect_result = apply_effect(item["effect"], item_data=item)
                         if effect_result != False:  # 효과가 성공적으로 적용된 경우에만 아이템 제거
                             # 📜 퀘스트 추적: 액티브 아이템 사용 기록
                             globals()['quest_stage_active_item_used'] = True
@@ -152690,7 +152690,7 @@ def main(stage_num, new_boss_mode=False):
             if not individual_cooldown_ok:
                 return
 
-            effect_result = apply_effect(item["effect"])
+            effect_result = apply_effect(item["effect"], item_data=item)
             if effect_result is False:
                 return
 
@@ -159429,7 +159429,7 @@ def show_character_info(background_surface=None):
         if not (individual_ok and global_ok):
             return False
 
-        effect_result = apply_effect(item.get("effect"))
+        effect_result = apply_effect(item.get("effect"), item_data=item)
         if effect_result is False:
             return False
 
