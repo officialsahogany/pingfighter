@@ -30602,14 +30602,14 @@ def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     abs_wave = abs(wave)
     # 아이들 호흡 (phase=0일 때도 미세하게 움직임)
     idle_breath = math.sin(pygame.time.get_ticks() * 0.004) * 0.8 if phase == 0.0 else 0.0
-    torso_bob = int(abs_wave * 1.0 + idle_breath)
-    arm_swing = int(wave * 4)
-    shoulder_tilt = int(wave * 1.5)
+    torso_bob = int(abs_wave * 1.5 + idle_breath)
+    arm_swing = int(wave * 6)
+    shoulder_tilt = int(wave * 2)
     lean_forward = int(abs_wave * 1.5)  # 걸을 때 약간 앞으로 기울기
-    left_leg_step = int(wave * 6)
+    left_leg_step = int(wave * 12)   # 다리 앞뒤 교차 폭 확대 (6→12)
     right_leg_step = -left_leg_step
-    left_leg_lift = -int(max(0.0, wave) * 3)
-    right_leg_lift = -int(max(0.0, -wave) * 3)
+    left_leg_lift = -int(max(0.0, wave) * 6)   # 다리 들어올림 확대 (3→6)
+    right_leg_lift = -int(max(0.0, -wave) * 6)
 
     ty = base_y + torso_bob
 
