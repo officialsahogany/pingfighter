@@ -236,7 +236,7 @@ class Soap:
                     self.boss_soap_timer = self.DEBUFF_DURATION
                     self._create_burst_particles(landed["x"], landed["y"])
                     self._play_slip_sound()
-                    _safe_print("[Soap] 보스가 비누를 밟았다! 5초간 미끄러움!")
+                    _safe_print("[Soap] 보스가 비누를 밟았다! 3초간 미끄러움!")
                     continue
 
             # 시간 초과 시 제거
