@@ -107546,6 +107546,7 @@ def draw_objects():
                 SCREEN.blit(flash_surface, (0, 0))
 
     draw_weather_warning(SCREEN, WIDTH, HEIGHT)  # 경고/종료 메시지
+    update_and_draw_seal_departure(SCREEN)  # 인장 호위무사 퇴장 알림
 
     # 디바인쉴드 어둠의 오오라 그리기
     try:
@@ -128066,6 +128067,48 @@ def get_item_icon(item_name):
     icon_cache[item_name] = default_icon
     return default_icon
 
+# ======== 인장 호위무사 퇴장 알림 ========
+_seal_departure_timer = 0
+_seal_departure_text = ""
+
+def trigger_seal_departure_notification(text="호위무사가 떠났습니다"):
+    """인장 호위무사 퇴장 시 화면 중앙 알림 트리거"""
+    global _seal_departure_timer, _seal_departure_text
+    _seal_departure_timer = 150  # 약 2.5초 (60fps 기준)
+    _seal_departure_text = text
+
+def update_and_draw_seal_departure(screen):
+    """인장 호위무사 퇴장 알림 업데이트 및 그리기"""
+    global _seal_departure_timer
+    if _seal_departure_timer <= 0:
+        return
+    _seal_departure_timer -= 1
+
+    alpha = 255
+    if _seal_departure_timer > 120:
+        alpha = int((150 - _seal_departure_timer) / 30 * 255)
+    elif _seal_departure_timer < 30:
+        alpha = int(_seal_departure_timer / 30 * 255)
+
+    try:
+        font = pygame.font.Font(
+            resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 22
+        )
+    except Exception:
+        font = pygame.font.Font(None, 26)
+
+    txt = font.render(_seal_departure_text, True, (200, 180, 255))
+    rect = txt.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+
+    bg = rect.inflate(40, 20)
+    bgs = pygame.Surface((bg.width, bg.height), pygame.SRCALPHA)
+    bgs.fill((20, 0, 40, min(180, alpha)))
+    screen.blit(bgs, bg.topleft)
+    pygame.draw.rect(screen, (150, 120, 200), bg, 2)
+
+    txt.set_alpha(alpha)
+    screen.blit(txt, rect)
+
 # ======== Intro Input Tracer (디버그) ========
 # 시작 인트로 입력 문제가 간헐적일 때, 프레임별 이벤트/상태를 로깅한다.
 class _IntroInputTracer:
@@ -147034,9 +147077,11 @@ def show_result(won):
             from item_effects.minor_hero_seal import get_minor_seal_state
             _minor_seal = get_minor_seal_state()
             if _minor_seal.active:
+                _seal_hero_name = _minor_seal.hero_name or "호위무사"
                 # 다음 스테이지로 넘어가므로 check_stage_change에 next_stage 전달
                 _next_stage = current_stage + 1
                 if _minor_seal.check_stage_change(_next_stage):
+                    trigger_seal_departure_notification(f"{_seal_hero_name}(이)가 떠났습니다")
                     print(f"[MinorSeal] 스테이지 클리어 → 호위무사 퇴장!")
         except Exception:
             pass
@@ -147046,9 +147091,11 @@ def show_result(won):
             from item_effects.intermediate_hero_seal import get_intermediate_seal_state
             _inter_seal = get_intermediate_seal_state()
             if _inter_seal.active:
+                _seal_hero_name = _inter_seal.hero_name or "호위무사"
                 # 다음 스테이지로 넘어가므로 check_stage_change에 next_stage 전달
                 _next_stage = current_stage + 1
                 if _inter_seal.check_stage_change(_next_stage):
+                    trigger_seal_departure_notification(f"{_seal_hero_name}(이)가 떠났습니다")
                     print(f"[IntermediateSeal] 스테이지 클리어 → 호위무사 퇴장!")
         except Exception:
             pass
