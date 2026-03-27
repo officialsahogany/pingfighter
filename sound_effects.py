@@ -113,7 +113,7 @@ SOUND_PATHS = {
     "HYDRO": "sounds/hydro.wav",
     "ROCKHIT": "sounds/rockhit.wav",
     "ALCHEMY": "sounds/alchemy.wav",
-    "SOUL_BURST_DASH": "sounds/extradash.wav",
+    "SOUL_BURST_DASH": "sounds/soulbust.wav",
 }
 
 
