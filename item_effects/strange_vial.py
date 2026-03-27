@@ -389,6 +389,19 @@ def update_strange_vial(current_stage=None):
 
 
 def draw_strange_vial_effects(screen, paddle_rect):
-    """기묘한 약병 이펙트 그리기 (pingfighter.py에서 호출)"""
+    """기묘한 약병 이펙트 그리기 (pingfighter.py에서 호출)
+
+    pingfighter.py는 자체 전역 변수(strange_vial_active/effect_type)로 상태를 관리하므로,
+    모듈 인스턴스의 active/effect_type을 pingfighter 전역 상태와 동기화한다.
+    """
     vial = get_strange_vial_instance()
+    # pingfighter.py 전역 상태와 동기화
+    try:
+        import pingfighter as _pf
+        vial.active = getattr(_pf, 'strange_vial_active', False)
+        vial.effect_type = getattr(_pf, 'strange_vial_effect_type', None)
+        vial.timer = getattr(_pf, 'strange_vial_timer', 0)
+        vial.initial_timer = getattr(_pf, 'strange_vial_initial_timer', 0)
+    except (ImportError, AttributeError):
+        pass
     vial.draw_effects(screen, paddle_rect)
