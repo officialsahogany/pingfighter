@@ -69740,6 +69740,7 @@ def handle_player(keys):
                 # print("")
     global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
     global berserk_potion_active, berserk_potion_timer
+    global strange_vial_active, strange_vial_timer
     sync_doping_potion_from_global_manager()
     if doping_potion_active:
         if doping_potion_timer > 0:
