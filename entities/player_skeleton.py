@@ -441,10 +441,64 @@ def create_smasher_skeleton(block: int = 9) -> Skeleton:
 
 
 def create_mecha_skeleton(block: int = 18) -> Skeleton:
-    """메카(옵티머스) 캐릭터용 뼈대 생성.
+    """메카(옵티머스) 캐릭터용 뼈대 생성 (레거시 호환).
 
     _create_mecha_paddle_surface()의 고해상도(416x720) 좌표 기반.
     block=18은 스매셔 block=9의 2배.
     """
     # 메카는 스매셔와 동일한 비율, 2배 스케일
     return create_smasher_skeleton(block)
+
+
+def create_optimus_skeleton() -> Skeleton:
+    """옵티머스 캐릭터 전용 뼈대 생성.
+
+    _create_mecha_paddle_surface()의 실제 좌표를 역산하여 관절 위치를 결정.
+    스프라이트 크기: 416x720
+    루트(hip)는 (208, 608) — MECHA_CENTER_X, MECHA_CENTER_Y+32.
+
+    좌표 역산 기준:
+      cx = 208, base_cy = 576
+      hip_y      = base_cy + 32  = 608   (루트)
+      shoulder_y = base_cy - 12  = 564   → torso offset = -44
+      head_y     = base_cy - 64  = 512   → neck+head offset = -52 from torso
+      foot_base_y= base_cy + 120 = 696   → +88 from hip (고정, bob 없음)
+    """
+    sk = Skeleton()
+
+    # 루트: hip (허리/벨트)
+    sk.add_joint(Joint("hip", 0, 0), parent_name=None)
+
+    # ── 상체 ──
+    # torso = shoulder 높이 (hip으로부터 -44)
+    sk.add_joint(Joint("torso", 0, -44), "hip")
+    # neck = torso로부터 -28
+    sk.add_joint(Joint("neck", 0, -28), "torso")
+    # head = neck으로부터 -24  → 총 -96 from hip = head_y - hip_y ✓
+    sk.add_joint(Joint("head", 0, -24), "neck")
+
+    # ── 왼팔 (탁구채 쪽) ──
+    # shoulder = (cx - 60, shoulder_y + 4) → torso 기준 (-60, +4)
+    sk.add_joint(Joint("l_shoulder", -60, 4), "torso")
+    # 아이들 팔꿈치: shoulder + (side*24, +36)
+    sk.add_joint(Joint("l_elbow", -24, 36), "l_shoulder")
+    # 아이들 손목: elbow + (side*24, +48)
+    sk.add_joint(Joint("l_wrist", -24, 48), "l_elbow")
+
+    # ── 오른팔 (주먹 쪽) ──
+    sk.add_joint(Joint("r_shoulder", 60, 4), "torso")
+    sk.add_joint(Joint("r_elbow", 24, 36), "r_shoulder")
+    sk.add_joint(Joint("r_wrist", 24, 48), "r_elbow")
+
+    # ── 왼다리 ──
+    # draw_leg side=-1: hip = (cx - 36, hip_y) → (-36, 0)
+    sk.add_joint(Joint("l_hip", -36, 0), "hip")
+    sk.add_joint(Joint("l_knee", 0, 44), "l_hip")
+    sk.add_joint(Joint("l_ankle", 0, 44), "l_knee")
+
+    # ── 오른다리 ──
+    sk.add_joint(Joint("r_hip", 36, 0), "hip")
+    sk.add_joint(Joint("r_knee", 0, 44), "r_hip")
+    sk.add_joint(Joint("r_ankle", 0, 44), "r_knee")
+
+    return sk
