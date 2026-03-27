@@ -128091,15 +128091,19 @@ def update_and_draw_seal_departure(screen):
     elif _seal_departure_timer < 30:
         alpha = int(_seal_departure_timer / 30 * 255)
 
+    import pygame.freetype as _ft_mod
     try:
-        font = pygame.font.Font(
-            resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 22
+        font = _ft_mod.Font(
+            resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 22
         )
     except Exception:
-        font = pygame.font.Font(None, 26)
+        try:
+            font = _ft_mod.SysFont("malgun gothic", 22)
+        except Exception:
+            font = _ft_mod.SysFont(None, 22)
 
-    txt = font.render(_seal_departure_text, True, (200, 180, 255))
-    rect = txt.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+    txt, rect = font.render(_seal_departure_text, (200, 180, 255))
+    rect.center = (WIDTH // 2, HEIGHT // 3)
 
     bg = rect.inflate(40, 20)
     bgs = pygame.Surface((bg.width, bg.height), pygame.SRCALPHA)
@@ -128107,7 +128111,8 @@ def update_and_draw_seal_departure(screen):
     screen.blit(bgs, bg.topleft)
     pygame.draw.rect(screen, (150, 120, 200), bg, 2)
 
-    txt.set_alpha(alpha)
+    if alpha < 255:
+        txt.set_alpha(alpha)
     screen.blit(txt, rect)
 
 # ======== Intro Input Tracer (디버그) ========
