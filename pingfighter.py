@@ -18041,6 +18041,7 @@ def _swap_boss_in_current_stage():
     fan_throw_windup_active = False
     fan_throw_windup_timer = 0
     fan_throw_hit_effect_timer = 0
+    fan_throw_extra_projectiles.clear()
     # 저주 보물상자 초기화
     curse_chest_active = False
     curse_chest_opened = False
@@ -48401,6 +48402,8 @@ fan_throw_windup_timer = 0         # 30프레임 = 0.5초
 fan_throw_hit_effect_timer = 0     # 타격 이펙트 잔여 프레임
 fan_throw_hit_effect_x = 0.0
 fan_throw_hit_effect_y = 0.0
+# 광폭화 시 추가 부채 투사체 리스트 [{x, y, vx, vy, spin, timer, hit}]
+fan_throw_extra_projectiles = []
 
 # === 멘헤라걸 저주 보물상자 스킬 (Curse Chest) - Stage 3 ===
 curse_chest_active = False              # 보물상자가 필드에 존재하는지
@@ -55933,6 +55936,7 @@ def go_to_next_round():
     fan_throw_windup_active = False
     fan_throw_windup_timer = 0
     fan_throw_hit_effect_timer = 0
+    fan_throw_extra_projectiles.clear()
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
@@ -79260,6 +79264,7 @@ def _launch_fan_throw():
     """휘두르기 완료 후 실제 투사체 발사"""
     global fan_throw_active, fan_throw_x, fan_throw_y, fan_throw_vx, fan_throw_vy
     global fan_throw_spin, fan_throw_timer, fan_throw_hit
+    global fan_throw_extra_projectiles
     fan_throw_active = True
     fan_throw_hit = False
     fan_throw_timer = 180  # 3초 최대 지속
@@ -79283,6 +79288,20 @@ def _launch_fan_throw():
     fan_throw_vy = (dy / dist) * speed
     fan_throw_spin = 0.0
 
+    # 광폭화 시 양옆 35도 방향으로 추가 부채 2개 발사
+    fan_throw_extra_projectiles = []
+    if enraged_boss_active:
+        base_angle = math.atan2(dy, dx)
+        for offset_deg in [-35, 35]:
+            angle = base_angle + math.radians(offset_deg)
+            evx = math.cos(angle) * speed + random.uniform(-0.4, 0.4)
+            evy = math.sin(angle) * speed
+            fan_throw_extra_projectiles.append({
+                "x": boss_cx, "y": boss_cy,
+                "vx": evx, "vy": evy,
+                "spin": 0.0, "timer": 180, "hit": False
+            })
+
 
 def update_fan_throw():
     """부채던지기 휘두르기 + 투사체 이동 + 충돌"""
@@ -79304,30 +79323,30 @@ def update_fan_throw():
             _launch_fan_throw()
         return
 
-    if not fan_throw_active:
+    if not fan_throw_active and not fan_throw_extra_projectiles:
         return
 
-    fan_throw_timer -= 1
-    fan_throw_spin += 0.3
+    # --- 메인 부채 업데이트 ---
+    if fan_throw_active:
+        fan_throw_timer -= 1
+        fan_throw_spin += 0.3
 
-    # 나비 날갯짓 패턴 이동 (빠르게↔느리게 반복 + 좌우 사행)
-    elapsed = 180 - fan_throw_timer  # 경과 프레임
-    speed_mod = 0.6 + 0.5 * math.sin(elapsed * 0.25)  # 0.1~1.1 속도 변조
-    sway = math.sin(elapsed * 0.15) * 1.8  # 좌우 사행
-    fan_throw_x += fan_throw_vx * speed_mod + sway
-    fan_throw_y += fan_throw_vy * speed_mod * 1.3  # Y축 30% 빠르게
+        # 나비 날갯짓 패턴 이동 (빠르게↔느리게 반복 + 좌우 사행)
+        elapsed = 180 - fan_throw_timer  # 경과 프레임
+        speed_mod = 0.6 + 0.5 * math.sin(elapsed * 0.25)  # 0.1~1.1 속도 변조
+        sway = math.sin(elapsed * 0.15) * 1.8  # 좌우 사행
+        fan_throw_x += fan_throw_vx * speed_mod + sway
+        fan_throw_y += fan_throw_vy * speed_mod * 1.3  # Y축 30% 빠르게
 
-    # 게임 영역 밖 소멸
-    if (fan_throw_x < GAME_AREA_OFFSET_X - 30 or fan_throw_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30
-            or fan_throw_y > HEIGHT + 30 or fan_throw_y < -30):
-        fan_throw_active = False
-        return
+        # 게임 영역 밖 소멸
+        if (fan_throw_x < GAME_AREA_OFFSET_X - 30 or fan_throw_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30
+                or fan_throw_y > HEIGHT + 30 or fan_throw_y < -30):
+            fan_throw_active = False
 
-    if fan_throw_timer <= 0:
-        fan_throw_active = False
-        return
+        elif fan_throw_timer <= 0:
+            fan_throw_active = False
 
-    # 플레이어 충돌 체크
+    # 플레이어 충돌 체크 (메인 부채)
     if not fan_throw_hit and PLAYER:
         hit_radius = 24
         px = PLAYER.centerx
@@ -79351,6 +79370,43 @@ def update_fan_throw():
             fan_throw_hit_effect_x = float(px)
             fan_throw_hit_effect_y = float(py)
             show_speech("맞았지롱~!", duration=60)
+
+    # --- 광폭화 추가 부채 투사체 업데이트 ---
+    for proj in fan_throw_extra_projectiles[:]:
+        proj["timer"] -= 1
+        proj["spin"] += 0.3
+        elapsed_p = 180 - proj["timer"]
+        speed_mod_p = 0.6 + 0.5 * math.sin(elapsed_p * 0.25)
+        sway_p = math.sin(elapsed_p * 0.15) * 1.8
+        proj["x"] += proj["vx"] * speed_mod_p + sway_p
+        proj["y"] += proj["vy"] * speed_mod_p * 1.3
+
+        # 영역 밖 소멸
+        if (proj["x"] < -30 or proj["x"] > WIDTH + 30
+                or proj["y"] > HEIGHT + 30 or proj["y"] < -30
+                or proj["timer"] <= 0):
+            fan_throw_extra_projectiles.remove(proj)
+            continue
+
+        # 플레이어 충돌
+        if not proj["hit"] and PLAYER:
+            hit_r = 24
+            ppx = PLAYER.centerx
+            ppy = PLAYER.centery
+            ddx = proj["x"] - ppx
+            ddy = proj["y"] - ppy
+            if ddx * ddx + ddy * ddy < (hit_r + PLAYER.width // 2) ** 2:
+                proj["hit"] = True
+                fan_throw_extra_projectiles.remove(proj)
+                if SOUND_WHIPCRACK:
+                    SOUND_WHIPCRACK.set_volume(0.5)
+                    SOUND_WHIPCRACK.play()
+                if player_stun_immunity_timer <= 0:
+                    if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
+                        player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
+                fan_throw_hit_effect_timer = 24
+                fan_throw_hit_effect_x = float(ppx)
+                fan_throw_hit_effect_y = float(ppy)
 
 
 def _draw_fan_shape(screen, cx, cy, angle, size, alpha=255):
@@ -79414,6 +79470,10 @@ def draw_fan_throw_effect(screen):
     # --- 2) 투사체 ---
     if fan_throw_active:
         _draw_fan_shape(screen, int(fan_throw_x), int(fan_throw_y), fan_throw_spin, 28)
+
+    # --- 2b) 광폭화 추가 부채 투사체 ---
+    for proj in fan_throw_extra_projectiles:
+        _draw_fan_shape(screen, int(proj["x"]), int(proj["y"]), proj["spin"], 24)
 
     # --- 3) 독립 타격 이펙트 ---
     if fan_throw_hit_effect_timer > 0:
@@ -125272,8 +125332,8 @@ def show_item_manager_menu():
         ("신발", ["speedboots", "spikeboots"]),
         ("등", ["slot_add", "chargebag", "dowsing_pendulum", "battery"]),
         ("장신구", ["star_detector", "fuel_pouch", "bluetooth_ring",
-                  "foul_whistle", "dashholder",
-                  "cooltime", "revival", "gold_bar", "lucky_coin", "sage_ring"]),
+                  "foul_whistle", "dashholder", "cooltime"]),
+        ("장신구2", ["revival", "gold_bar", "lucky_coin", "sage_ring"]),
     ]
 
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
@@ -148675,6 +148735,7 @@ def show_result(won):
         fan_throw_windup_active = False
         fan_throw_windup_timer = 0
         fan_throw_hit_effect_timer = 0
+        fan_throw_extra_projectiles.clear()
         fan_wind_active = False
         fan_wind_timer = 0
         fan_wind_used_this_round = False
@@ -149872,6 +149933,7 @@ def main(stage_num, new_boss_mode=False):
     fan_throw_windup_active = False
     fan_throw_windup_timer = 0
     fan_throw_hit_effect_timer = 0
+    fan_throw_extra_projectiles.clear()
     # 저주 보물상자 초기화
     curse_chest_active = False
     curse_chest_opened = False
