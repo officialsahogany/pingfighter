@@ -50016,11 +50016,15 @@ BERSERK_AURA_SIZE = (160, 160)
 
 # 기묘한 약병 효과 관련 상수 및 상태
 STRANGE_VIAL_DURATION_FRAMES = 1800  # 30초 지속
+STRANGE_VIAL_TRANSITION_TIME = 45    # 0.75초 동안 점진적 크기/속도 변화
 strange_vial_active = False
 strange_vial_timer = 0
-strange_vial_effect_type = None  # "enlarge" 또는 "shrink"
-strange_vial_original_paddle_width = None
-strange_vial_original_player_speed = None
+strange_vial_initial_timer = 0       # 카페인 적용 후 실제 시작 타이머
+strange_vial_effect_type = None      # "enlarge" 또는 "shrink"
+strange_vial_scale = 1.0             # 현재 패들 크기 배율 (점진적 보간)
+strange_vial_target_scale = 1.0      # 목표 패들 크기 배율
+strange_vial_speed_mult = 1.0        # 현재 이동속도 배율 (점진적 보간)
+strange_vial_target_speed_mult = 1.0 # 목표 이동속도 배율
 
 # 병기 단축 선택 UI 설정 (↑/W/ㅈ 입력 시 즉시 HUD, 전환은 마우스 휠/중클릭 전용)
 SOLDIER_WEAPON_MENU_HOLD_FRAMES = 0  # 키를 누르는 즉시 HUD 활성화
@@ -50426,10 +50430,11 @@ def sync_berserk_potion_from_global_manager() -> None:
 
 
 def activate_strange_vial(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
-    """기묘한 약병 효과 활성화 - 50% 확률로 거대화 또는 축소"""
-    global strange_vial_active, strange_vial_timer, strange_vial_effect_type
-    global strange_vial_original_paddle_width, strange_vial_original_player_speed
-    global PADDLE_WIDTH, PLAYER_SPEED
+    """기묘한 약병 효과 활성화 - 50% 확률로 거대화 또는 축소 (점진적 보간)"""
+    global strange_vial_active, strange_vial_timer, strange_vial_initial_timer
+    global strange_vial_effect_type
+    global strange_vial_scale, strange_vial_target_scale
+    global strange_vial_speed_mult, strange_vial_target_speed_mult
     import random as _sv_random
 
     frames = duration_frames if duration_frames is not None else STRANGE_VIAL_DURATION_FRAMES
@@ -50450,26 +50455,26 @@ def activate_strange_vial(duration_frames: int | None = None, *, play_sound: boo
     except Exception:
         pass
 
-    # 이전 효과가 활성 중이면 먼저 복원
+    # 이전 효과가 활성 중이면 먼저 해제
     if strange_vial_active:
         deactivate_strange_vial(play_sound=False)
 
-    # 원본 값 백업
-    strange_vial_original_paddle_width = PADDLE_WIDTH
-    strange_vial_original_player_speed = PLAYER_SPEED
-
-    # 50% 확률로 효과 결정
+    # 50% 확률로 효과 결정 (목표 배율만 설정, 실제 적용은 타이머 루프에서 점진적으로)
     if _sv_random.random() < 0.5:
         strange_vial_effect_type = "enlarge"
-        PADDLE_WIDTH = int(strange_vial_original_paddle_width * 2.0)   # 200% 증가
-        PLAYER_SPEED = max(1, int(strange_vial_original_player_speed * 0.4))  # -60% 감소
+        strange_vial_target_scale = 2.0       # 패들 200%
+        strange_vial_target_speed_mult = 0.4  # 이속 -60%
     else:
         strange_vial_effect_type = "shrink"
-        PADDLE_WIDTH = max(20, int(strange_vial_original_paddle_width * 0.5))  # -50% 감소
-        PLAYER_SPEED = int(strange_vial_original_player_speed * 3.0)   # +200% 증가
+        strange_vial_target_scale = 0.5       # 패들 -50%
+        strange_vial_target_speed_mult = 3.0  # 이속 +200%
+
+    strange_vial_scale = 1.0       # 시작은 1.0에서 점진적으로 변화
+    strange_vial_speed_mult = 1.0
 
     strange_vial_active = True
     strange_vial_timer = frames
+    strange_vial_initial_timer = frames
 
     # 가로형 타이머 게이지 등록
     try:
@@ -50491,25 +50496,23 @@ def activate_strange_vial(duration_frames: int | None = None, *, play_sound: boo
 
 
 def deactivate_strange_vial(*, play_sound: bool = False) -> None:
-    """기묘한 약병 효과 비활성화 및 원본 값 복원"""
-    global strange_vial_active, strange_vial_timer, strange_vial_effect_type
-    global strange_vial_original_paddle_width, strange_vial_original_player_speed
-    global PADDLE_WIDTH, PLAYER_SPEED
+    """기묘한 약병 효과 비활성화 (배율을 1.0으로 복원)"""
+    global strange_vial_active, strange_vial_timer, strange_vial_initial_timer
+    global strange_vial_effect_type
+    global strange_vial_scale, strange_vial_target_scale
+    global strange_vial_speed_mult, strange_vial_target_speed_mult
 
     if not strange_vial_active and strange_vial_timer == 0:
         return
 
-    # 원본 값 복원
-    if strange_vial_original_paddle_width is not None:
-        PADDLE_WIDTH = strange_vial_original_paddle_width
-    if strange_vial_original_player_speed is not None:
-        PLAYER_SPEED = strange_vial_original_player_speed
-
     strange_vial_active = False
     strange_vial_timer = 0
+    strange_vial_initial_timer = 0
     strange_vial_effect_type = None
-    strange_vial_original_paddle_width = None
-    strange_vial_original_player_speed = None
+    strange_vial_scale = 1.0
+    strange_vial_target_scale = 1.0
+    strange_vial_speed_mult = 1.0
+    strange_vial_target_speed_mult = 1.0
 
     # 가로형 타이머 게이지 제거
     try:
@@ -69476,7 +69479,7 @@ def handle_player(keys):
             player_burn_effect = False
             player_knockback_y = 0  # 화상 종료 시 Y 넉백 즉시 리셋
         # 버그 수정: 너비가 변경될 때만 업데이트
-        _target_width = int(PADDLE_WIDTH * long_boost_scale)
+        _target_width = int(PADDLE_WIDTH * long_boost_scale * strange_vial_scale)
         if PLAYER.width != _target_width:
             _prev_center = PLAYER.centerx
             PLAYER.width = _target_width  # 화상 중에도 거대화포션 효과 적용
@@ -69504,7 +69507,7 @@ def handle_player(keys):
         if soldier_control_lock_timer > 0:
             soldier_control_lock_timer = max(0, soldier_control_lock_timer - 1)
         # 버그 수정: 너비가 변경될 때만 업데이트
-        _target_width = int(PADDLE_WIDTH * long_boost_scale)
+        _target_width = int(PADDLE_WIDTH * long_boost_scale * strange_vial_scale)
         if PLAYER.width != _target_width:
             _prev_center = PLAYER.centerx
             PLAYER.width = _target_width  # 스턴 중에도 거대화포션 효과 적용
@@ -69524,7 +69527,7 @@ def handle_player(keys):
         # 감속 (화염탄과 동일한 0.85)
         player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
         # 버그 수정: 너비가 변경될 때만 업데이트
-        _target_width = int(PADDLE_WIDTH * long_boost_scale)
+        _target_width = int(PADDLE_WIDTH * long_boost_scale * strange_vial_scale)
         if PLAYER.width != _target_width:
             _prev_center = PLAYER.centerx
             PLAYER.width = _target_width  # 스턴 중에도 거대화포션 효과 적용
@@ -69740,7 +69743,8 @@ def handle_player(keys):
                 # print("")
     global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
     global berserk_potion_active, berserk_potion_timer
-    global strange_vial_active, strange_vial_timer
+    global strange_vial_active, strange_vial_timer, strange_vial_initial_timer
+    global strange_vial_scale, strange_vial_speed_mult
     sync_doping_potion_from_global_manager()
     if doping_potion_active:
         if doping_potion_timer > 0:
@@ -71532,19 +71536,26 @@ def handle_player(keys):
                     if not is_dash_unlimited():
                         # 소울버스트: 토큰 0일 때 스페셜 게이지 소모로 대쉬
                         if _soul_burst_can_dash and rolling_charges <= 0:
+                            _sb_triggered = False
                             try:
-                                _sb = _get_sb()
+                                from item_effects.soul_burst import get_soul_burst_instance as _gsbi
+                                _sb = _gsbi()
                                 _sb_cost = _sb.get_gauge_cost()
                                 special_gauge = max(0, special_gauge - _sb_cost)
                                 special_ready = special_gauge >= 350
                                 if hasattr(game_state, 'special_gauge'):
                                     game_state.special_gauge = special_gauge
                                 _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
-                                # 소울버스트 보라색 에너지 방출 이펙트
-                                from item_effects.soul_burst import trigger_soul_burst_effect
-                                trigger_soul_burst_effect(PLAYER.centerx, PLAYER.centery, -1)
+                                _sb_triggered = True
                             except Exception:
                                 pass
+                            # 소울버스트 보라색 에너지 방출 이펙트 (별도 try)
+                            if _sb_triggered:
+                                try:
+                                    from item_effects.soul_burst import trigger_soul_burst_effect
+                                    trigger_soul_burst_effect(PLAYER.centerx, PLAYER.centery, -1)
+                                except Exception:
+                                    pass
                         else:
                             # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
                             if 'token_states' in globals() and len(token_states) > 0:
@@ -71812,20 +71823,27 @@ def handle_player(keys):
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
                     # 대쉬부스트 활성화 시 토큰 소모하지 않음
                     if not is_dash_unlimited():
-                        # 소울버스트: 토큰 0일 때 스페셜 게이지 소모로 대쉬
+                        # 소울버스트: 토큰 0일 때 스페셜 게이지 소모로 대쉬 (우측)
                         if _soul_burst_can_dash and rolling_charges <= 0:
+                            _sb_ok_r = False
                             try:
-                                _sb = _get_sb()
-                                _sb_cost = _sb.get_gauge_cost()
-                                special_gauge = max(0, special_gauge - _sb_cost)
+                                from item_effects.soul_burst import get_soul_burst_instance as _gsbi_r
+                                _sb_r = _gsbi_r()
+                                _sb_cost_r = _sb_r.get_gauge_cost()
+                                special_gauge = max(0, special_gauge - _sb_cost_r)
                                 special_ready = special_gauge >= 350
                                 if hasattr(game_state, 'special_gauge'):
                                     game_state.special_gauge = special_gauge
-                                _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
-                                from item_effects.soul_burst import trigger_soul_burst_effect as _tsbfx2
-                                _tsbfx2(PLAYER.centerx, PLAYER.centery, 1)
+                                _soul_burst_can_dash = _sb_r.can_soul_dash(special_gauge)
+                                _sb_ok_r = True
                             except Exception:
                                 pass
+                            if _sb_ok_r:
+                                try:
+                                    from item_effects.soul_burst import trigger_soul_burst_effect as _tsbfx_r
+                                    _tsbfx_r(PLAYER.centerx, PLAYER.centery, 1)
+                                except Exception:
+                                    pass
                         else:
                             # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
                             if 'token_states' in globals() and len(token_states) > 0:
@@ -72217,8 +72235,8 @@ def handle_player(keys):
                                 ak47 = get_ak47_instance()
                                 ak47_speed_multiplier = ak47.get_movement_speed_multiplier()
                             
-                            # 일반 이동: 가속도와 감속도 적용 (악마의 주사위 배율 + AK-47 연사 감소 적용)
-                            combined_speed_multiplier = devil_dice_speed_multiplier * ak47_speed_multiplier * net_speed_multiplier
+                            # 일반 이동: 가속도와 감속도 적용 (악마의 주사위 배율 + AK-47 연사 감소 + 기묘한 약병 적용)
+                            combined_speed_multiplier = devil_dice_speed_multiplier * ak47_speed_multiplier * net_speed_multiplier * strange_vial_speed_mult
                             adjusted_acceleration = ACCELERATION * combined_speed_multiplier
                             adjusted_deceleration = DECELERATION * combined_speed_multiplier
 
@@ -73040,10 +73058,10 @@ def handle_player(keys):
     # 패들 크기 변화를 고려한 X 좌표 제한
     # 악마의 주사위 배율도 포함
     # 버그 수정: 너비가 실제로 변경될 때만 업데이트 (매 프레임 업데이트 시 떨림 버그 발생)
-    actual_paddle_width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier)
+    actual_paddle_width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier * strange_vial_scale)
     if PLAYER.width != actual_paddle_width:
         _prev_center = PLAYER.centerx
-        PLAYER.width = actual_paddle_width  # 거대화포션 + 악마의 주사위 효과 적용
+        PLAYER.width = actual_paddle_width  # 거대화포션 + 악마의 주사위 + 기묘한 약병 효과 적용
         PLAYER.centerx = _prev_center  # 스케일 변화 시 좌우 중심 유지
     PLAYER.x = max(0, min(WIDTH - actual_paddle_width, PLAYER.x))
     # (퍼펙트 타이밍 윈도우 감지 로직은 메인 루프로 이동)
@@ -96562,7 +96580,7 @@ def draw_player_gauge():
         hg_stack_any = True
         hg_top_y = min(hg_top_y, sv_y)
 
-        sv_ratio = strange_vial_timer / max(1, STRANGE_VIAL_DURATION_FRAMES)
+        sv_ratio = strange_vial_timer / max(1, strange_vial_initial_timer if strange_vial_initial_timer > 0 else STRANGE_VIAL_DURATION_FRAMES)
         sv_remaining = strange_vial_timer / 60.0
 
         sv_outer = pygame.Rect(sv_x - 5, sv_y - 6, sv_width + 10, sv_height + 12)
