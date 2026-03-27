@@ -28617,6 +28617,7 @@ OPTIMUS_MECHA_PALETTE = {
 }
 
 OPTIMUS_EMBLEM_RADIUS = 9  # 추가 -20% 축소 (11 * 0.8 ≈ 9)
+VIPER_EMBLEM_RADIUS = 9
 
 
 def _compute_optimus_base_width() -> int:
@@ -30878,6 +30879,82 @@ VIPER_PADDLE_IMG = None
 def _init_viper_paddle_img():
     global VIPER_PADDLE_IMG
     VIPER_PADDLE_IMG = create_viper_paddle_surface()
+
+
+def draw_viper_emblem(surface, emblem_x: int, emblem_y: int, emblem_radius: int,
+                      time_now: int, pulse_scale: float, rotation_angle: float,
+                      glow_intensity: float) -> None:
+    """바이퍼 전용 엠블럼: 플라즈마 블레이드 + 사이버 바이저 모티프."""
+    # 색상 팔레트 (바이퍼 테마: 시안/퍼플 네온)
+    cyan = (0, 255, 220)
+    purple = (160, 0, 255)
+    dark_bg = (10, 5, 20)
+    visor_color = (0, 255, 220)
+
+    breathing = 1.0 + math.sin(time_now * 0.005) * 0.10
+    base_radius = max(6, int(emblem_radius * pulse_scale))
+    outer_radius = max(base_radius + 4, int(emblem_radius * breathing))
+
+    # 외곽 글로우 링 (시안)
+    halo_size = outer_radius * 2 + 6
+    halo_surface = get_cached_glow_surface(halo_size)
+    halo_center = outer_radius + 3
+    for i in range(2):
+        halo_alpha = max(30, int(70 + glow_intensity * 100) - i * 25)
+        pygame.draw.circle(
+            halo_surface,
+            (*cyan, halo_alpha),
+            (halo_center, halo_center),
+            outer_radius + i * 2,
+            2,
+        )
+    surface.blit(halo_surface, (emblem_x - halo_center, emblem_y - halo_center))
+
+    # 메인 디스크 (어두운 바이올렛 배경)
+    disc_size = base_radius * 2 + 8
+    disc_surface = get_cached_glow_surface(disc_size)
+    disc_center = base_radius + 4
+    pygame.draw.circle(disc_surface, (*dark_bg, 210), (disc_center, disc_center), base_radius + 3)
+    pygame.draw.circle(disc_surface, (20, 10, 40, 235), (disc_center, disc_center), base_radius)
+    pygame.draw.circle(disc_surface, purple, (disc_center, disc_center), base_radius, 2)
+    surface.blit(disc_surface, (emblem_x - disc_center, emblem_y - disc_center))
+
+    # 플라즈마 블레이드 심볼 (중앙 다이아몬드 + 칼날)
+    blade_pulse = 1.0 + math.sin(time_now * 0.008) * 0.2
+    blade_len = int(base_radius * 0.8 * blade_pulse)
+    blade_angle = rotation_angle * 0.8
+
+    # 칼날 포인트 (다이아몬드 형태)
+    cos_a = math.cos(blade_angle)
+    sin_a = math.sin(blade_angle)
+    blade_points = [
+        (emblem_x + int(cos_a * blade_len), emblem_y + int(sin_a * blade_len)),          # 상단
+        (emblem_x + int(-sin_a * blade_len * 0.3), emblem_y + int(cos_a * blade_len * 0.3)),  # 좌
+        (emblem_x + int(-cos_a * blade_len), emblem_y + int(-sin_a * blade_len)),         # 하단
+        (emblem_x + int(sin_a * blade_len * 0.3), emblem_y + int(-cos_a * blade_len * 0.3)),   # 우
+    ]
+    if len(blade_points) >= 3:
+        pygame.draw.polygon(surface, visor_color, blade_points)
+        pygame.draw.polygon(surface, (255, 255, 255), blade_points, 1)
+
+    # 바이저 스캔 이펙트 (회전하는 스캔 라인)
+    scan_angle = (time_now * 0.006) % (math.tau)
+    for i in range(2):
+        sa = scan_angle + i * math.pi
+        scan_r = base_radius - 2
+        sx = emblem_x + math.cos(sa) * scan_r
+        sy = emblem_y + math.sin(sa) * scan_r
+        pygame.draw.line(surface, cyan, (emblem_x, emblem_y), (int(sx), int(sy)), 1)
+
+    # 코어 글로우 (시안 코어)
+    core_r = max(2, int(emblem_radius * 0.22 * blade_pulse))
+    glow_r = int(core_r * 2.0)
+    glow_size = glow_r * 2 + 4
+    glow_surf = get_predrawn_glow_circle(glow_size, cyan, 70)
+    half_glow = glow_surf.get_width() // 2
+    surface.blit(glow_surf, (emblem_x - half_glow, emblem_y - half_glow))
+    pygame.draw.circle(surface, visor_color, (emblem_x, emblem_y), core_r + 1)
+    pygame.draw.circle(surface, (255, 255, 255), (emblem_x, emblem_y), max(1, core_r - 1))
 
 
 def create_smasher_paddle_walking() -> pygame.Surface:
@@ -94755,6 +94832,11 @@ def draw_player_gauge():
         draw_optimus_emblem(SCREEN, emblem_x, emblem_y, emblem_radius,
                             time_now, pulse_scale, rotation_angle, glow_intensity)
 
+    elif selected_character_type == "viper":
+        emblem_radius = VIPER_EMBLEM_RADIUS
+        draw_viper_emblem(SCREEN, emblem_x, emblem_y, emblem_radius,
+                          time_now, pulse_scale, rotation_angle, glow_intensity)
+
     else:
         # === 기존 스매셔 엠블럼 디자인 ===
         # 배경 원형 글로우 효과
@@ -121067,6 +121149,7 @@ def show_character_selection():
         _card_select_sound = None
     soldier_card_preview: pygame.Surface | None = None
     optimus_card_preview: pygame.Surface | None = None
+    viper_card_preview: pygame.Surface | None = None
     tutorial_supported_ids = {"ufo_player", "smasher", "soldier", "blacksmith", "optimus", "viper"}
 
     # --- 캐릭터 카드 호버 프리뷰(데모) 상태 ---
@@ -123034,6 +123117,21 @@ def show_character_selection():
                         blit_scaled_surface(optimus_card_preview, scale_mult=0.99)
                 else:
                     blit_scaled_surface(optimus_card_preview, scale_mult=0.99)
+            elif character["id"] == "viper":
+                nonlocal viper_card_preview
+                if viper_card_preview is None:
+                    viper_card_preview = _crop_surface_alpha(VIPER_PADDLE_IMG) if VIPER_PADDLE_IMG is not None else _crop_surface_alpha(create_viper_paddle_surface(0.0))
+                if play_active:
+                    try:
+                        cycle_ms = 800.0
+                        t = pygame.time.get_ticks() % cycle_ms
+                        phase = t / cycle_ms
+                        frame = _crop_surface_alpha(create_viper_paddle_surface(step_phase=phase))
+                        blit_scaled_surface(frame, scale_mult=2.0)
+                    except Exception:
+                        blit_scaled_surface(viper_card_preview, scale_mult=2.0)
+                else:
+                    blit_scaled_surface(viper_card_preview, scale_mult=2.0)
             else:
                 try:
                     char_image = pygame.image.load(resource_path(character["image"]))
@@ -123541,7 +123639,20 @@ def show_character_selection():
 
                 draw_optimus_emblem(SCREEN, emblem_x, emblem_y, emblem_radius,
                                     time_now, pulse_scale, rotation_angle, glow_intensity)
-                    
+
+            elif current_char["id"] == "viper":
+                emblem_x = detail_x + detail_card_width//2 + name_rect.width//2 + 40
+                emblem_y = name_y
+
+                time_now = pygame.time.get_ticks()
+                pulse_scale = 1.0 + math.sin(time_now * 0.004) * 0.10
+                rotation_angle = time_now * 0.0015
+                glow_intensity = abs(math.sin(time_now * 0.003))
+                emblem_radius = VIPER_EMBLEM_RADIUS
+
+                draw_viper_emblem(SCREEN, emblem_x, emblem_y, emblem_radius,
+                                  time_now, pulse_scale, rotation_angle, glow_intensity)
+
             # 캐릭터 설명 (멀티라인 지원)
             _desc_font = get_font(16)
             _desc_lines = current_char["description"].split("\n")
@@ -124651,6 +124762,8 @@ def start_game_with_difficulty(character_id, difficulty_mode):
             _set_selected_item_index(len(active_items) - 1)
     elif character_id == "smasher":
         selected_character_type = "smasher"
+    elif character_id == "viper":
+        selected_character_type = "viper"
     elif character_id == "optimus":
         selected_character_type = "optimus"
         # 옵티머스는 확대된 스프라이트에 맞춰 히트박스도 확대
