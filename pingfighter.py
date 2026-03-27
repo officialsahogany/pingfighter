@@ -30594,9 +30594,9 @@ def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
     다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프."""
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
-    b = 7
+    b = 8
     cx = surface.get_width() // 2
-    base_y = 52
+    base_y = 46
 
     phase = step_phase % 1.0 if step_phase else 0.0
     wave = math.sin(phase * math.tau)
@@ -123492,11 +123492,11 @@ def show_character_selection():
                         t = pygame.time.get_ticks() % cycle_ms
                         phase = t / cycle_ms
                         frame = _crop_surface_alpha(create_viper_paddle_surface(step_phase=phase))
-                        blit_scaled_surface(frame, scale_mult=1.5)
+                        blit_scaled_surface(frame, scale_mult=1.7)
                     except Exception:
-                        blit_scaled_surface(viper_card_preview, scale_mult=1.5)
+                        blit_scaled_surface(viper_card_preview, scale_mult=1.7)
                 else:
-                    blit_scaled_surface(viper_card_preview, scale_mult=1.5)
+                    blit_scaled_surface(viper_card_preview, scale_mult=1.7)
             else:
                 try:
                     char_image = pygame.image.load(resource_path(character["image"]))
