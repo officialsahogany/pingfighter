@@ -71902,16 +71902,13 @@ def handle_player(keys):
                                 special_ready = special_gauge >= 350
                                 _soul_burst_can_dash = _sb.can_soul_dash(special_gauge)
                                 _sb_triggered = True
-                                pass  # 좌측 소울버스트 게이지 소모 성공
-                            except Exception as _sb_err:
+                            except Exception:
                                 pass
-                            # 소울버스트 보라색 에너지 방출 이펙트 (별도 try)
                             if _sb_triggered:
                                 try:
                                     from item_effects.soul_burst import trigger_soul_burst_effect
                                     trigger_soul_burst_effect(PLAYER.centerx, PLAYER.centery, -1)
-                                    pass  # 좌측 이펙트 트리거 성공
-                                except Exception as _fx_err:
+                                except Exception:
                                     pass
                         else:
                             # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
@@ -72191,16 +72188,14 @@ def handle_player(keys):
                                 special_ready = special_gauge >= 350
                                 _soul_burst_can_dash = _sb_r.can_soul_dash(special_gauge)
                                 _sb_ok_r = True
-                                pass  # 우측 소울버스트 게이지 소모 성공
-                            except Exception as _sb_err_r:
+                            except Exception:
                                 pass
                             if _sb_ok_r:
                                 try:
                                     from item_effects.soul_burst import trigger_soul_burst_effect as _tsbfx_r
                                     _tsbfx_r(PLAYER.centerx, PLAYER.centery, 1)
-                                    pass  # 우측 이펙트 트리거 성공
-                                except Exception as _fx_err_r:
-                                    print(f"[SOUL_BURST_DEBUG] 우측 이펙트 트리거 실패: {_fx_err_r}")
+                                except Exception:
+                                    pass
                         else:
                             # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
                             if 'token_states' in globals() and len(token_states) > 0:
@@ -161297,8 +161292,18 @@ def show_game_info():
             effective_speed_info *= gold_bar_mult
             gold_bar_debuff_text = f" (💰-{int((1.0 - gold_bar_mult) * 100)}%)"
 
+        # 🧪 기묘한 약병 이동속도 배율 반영
+        strange_vial_speed_text = ""
+        if strange_vial_active and strange_vial_speed_mult != 1.0:
+            effective_speed_info *= strange_vial_speed_mult
+            if strange_vial_speed_mult < 1.0:
+                strange_vial_speed_text = f" (🧪-{int((1.0 - strange_vial_speed_mult) * 100)}%)"
+            else:
+                strange_vial_speed_text = f" (🧪+{int((strange_vial_speed_mult - 1.0) * 100)}%)"
+
         turn_speed_info = effective_speed_info * (1.5 if speedgear_obtained else 1.0)
-        paddle_width_info = PADDLE_WIDTH
+        # 🧪 기묘한 약병 패들 크기 배율 반영
+        paddle_width_info = int(PADDLE_WIDTH * strange_vial_scale) if strange_vial_active else PADDLE_WIDTH
 
         # ✨ 리커버리 이동속도 보너스 반영 (5초간 30% 증가)
         recovery_boost_text = ""
@@ -161329,10 +161334,10 @@ def show_game_info():
         # 이동속도/방향전환속도 표시 문자열 구성
         swiftness_buff_text = f" (🏃+{int(swiftness_bonus * 100)}%)" if swiftness_bonus > 0 else ""
         if rain_active:
-            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{rain_debuff_text}"
+            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{strange_vial_speed_text}{rain_debuff_text}"
         else:
-            if swiftness_bonus > 0 or gold_bar_mult < 1.0 or recovery_boost_active:
-                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}"
+            if swiftness_bonus > 0 or gold_bar_mult < 1.0 or recovery_boost_active or strange_vial_speed_text:
+                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{strange_vial_speed_text}"
             else:
                 speed_display = f"기본 이동속도: {base_speed_info}"
 
@@ -161350,7 +161355,7 @@ def show_game_info():
             f"캐릭터: {character_info}",
             speed_display,
             turn_display,
-            f"패들 폭: {paddle_width_info}",
+            f"패들 폭: {paddle_width_info}" + (f" (🧪x{strange_vial_scale:.1f})" if strange_vial_active and strange_vial_scale != 1.0 else ""),
             "",
             ("조작법:" if not new_boss_mode_active else "AI 조작 (NEW BOSS BATTLE):"),
             ("방향키: 이동" if not new_boss_mode_active else "새로운 보스 AI가 자동 조작"),
