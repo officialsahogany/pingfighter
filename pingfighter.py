@@ -102477,9 +102477,14 @@ def draw_objects():
     global sand_obstacles  # 🏖 모래 지형 관련
     new_tear_particles = []  #  함수 시작 시 초기화
 
-    # 🏖 모래 지형 그리기 (배경 위, 공 아래)
+    # 🏖 모래 지형 그리기 (배경 위, 공 아래) + 녹아내림 연출
     if sand_obstacles:
-        draw_sand_obstacles(SCREEN, sand_obstacles)
+        if sand_obstacles.dissolving:
+            if sand_obstacles.update_dissolve():
+                # 녹아내림 완료 → 제거
+                sand_obstacles = None
+        if sand_obstacles:
+            draw_sand_obstacles(SCREEN, sand_obstacles)
 
     # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
     legendary_manager = None
@@ -134880,8 +134885,13 @@ def reset_round(is_stage_start=False):
     if is_sand_active():
         if sand_obstacles is None:
             sand_obstacles = spawn_sand_obstacles()
+        elif sand_obstacles.dissolving:
+            # 녹아내리는 중이었으면 다시 활성화 (사막화 재시작)
+            sand_obstacles = spawn_sand_obstacles()
     else:
-        sand_obstacles = None
+        if sand_obstacles is not None and not sand_obstacles.dissolving:
+            # 즉시 제거하지 않고 녹아내림 연출 시작
+            sand_obstacles.start_dissolve()
 
     # 점수에 따라 서브 텍스트 보여줄지 결정
     # 스테이지 첫 시작 시 (is_stage_start=True) 또는 게임 종료 조건 충족 시 서브 텍스트 생략
@@ -139500,8 +139510,8 @@ def handle_ball():
     if magnet_field_module.is_magnet_field_active() and last_hit_by == "boss":
         apply_magnet_ball_pull(BALL, ball_vel, PLAYER)
 
-    # --- 🏖 모래 지형 침식 처리 ---
-    if sand_obstacles:
+    # --- 🏖 모래 지형 침식 처리 --- (녹아내리는 중에는 충돌 무시)
+    if sand_obstacles and not sand_obstacles.dissolving:
         if check_sand_ball_collision(sand_obstacles, BALL, ball_vel):
             try:
                 play_wall_sound()
@@ -162166,18 +162176,26 @@ def show_game_info():
             desc_panel_height = 80
             desc_panel_x = panel_x + 30
             desc_panel_y = panel_y + panel_height - 120
-            # 설명 패널 배경
-            draw.rect((20, 20, 40), (desc_panel_x, desc_panel_y, desc_panel_width, desc_panel_height))
-            draw.rect((80, 120, 200), (desc_panel_x, desc_panel_y, desc_panel_width, desc_panel_height), 2)
-            # 선택된 아이템의 설명 표시
+
+            # 선택된 아이템 정보 가져오기
+            selected_item = None
+            description = "아이템을 선택하면 설명이 표시됩니다."
             if selected_category == 0 and selected_active_item >= 0 and active_item_slot:
                 selected_item = active_item_slot[selected_active_item]
                 description = get_item_description(selected_item["name"])
             elif selected_category == 1 and selected_passive_item >= 0 and selected_passive_item < len(passive_item_list) and passive_item_list:
                 selected_item = passive_item_list[selected_passive_item]
                 description = get_item_description(selected_item["name"])
-            else:
-                description = "아이템을 선택하면 설명이 표시됩니다."
+
+            # 현자의 반지: 2탭 레이아웃 (좌측 설명 | 우측 옵션)
+            _is_sage_ring = selected_item and isinstance(selected_item, dict) and selected_item.get("name") == "sage_ring"
+            if _is_sage_ring:
+                desc_panel_height = 100  # 높이 확장
+                desc_panel_y = panel_y + panel_height - 140
+
+            # 설명 패널 배경
+            draw.rect((20, 20, 40), (desc_panel_x, desc_panel_y, desc_panel_width, desc_panel_height))
+            draw.rect((80, 120, 200) if not _is_sage_ring else (160, 120, 255), (desc_panel_x, desc_panel_y, desc_panel_width, desc_panel_height), 2)
             # 설명 텍스트를 여러 줄로 나누기 (개선된 버전)
             def smart_text_wrap(text, max_width_chars=30):
                 """텍스트를 보기 좋게 줄바꿈하는 함수"""
@@ -162232,15 +162250,52 @@ def show_game_info():
                 if current_line:
                     lines.append(current_line)
                 return lines if lines else [text]
-            lines = smart_text_wrap(description)
-            # 설명 텍스트 그리기
-            desc_text_y = desc_panel_y + 10
-            line_spacing = 22  # 줄 간격 18 → 22로 증가
-            for line_idx, line in enumerate(lines):
-                if line_idx < 3:  # 최대 3줄까지만 표시
-                    desc_text = font_small.render(line, True, (200, 200, 200))
-                    desc_rect = desc_text.get_rect(left=desc_panel_x + 10, top=desc_text_y + line_idx * line_spacing)
-                    SCREEN.blit(desc_text, desc_rect)
+            if _is_sage_ring:
+                # ── 현자의 반지 2탭 레이아웃 ──
+                divider_x = desc_panel_x + desc_panel_width * 3 // 5
+                # 좌측: 설명
+                _sr_desc = "고대 현자가 남긴 신비로운 반지. 장착 시 모든 퍽 레벨이 1 증가합니다."
+                _sr_lines = smart_text_wrap(_sr_desc, max_width_chars=22)
+                _sr_font = get_font(13)
+                # 좌측 탭 라벨
+                _tab_label_l = _sr_font.render("설명", True, (160, 200, 255))
+                SCREEN.blit(_tab_label_l, (desc_panel_x + 10, desc_panel_y + 6))
+                # 구분선 아래 설명 텍스트
+                for li, ln in enumerate(_sr_lines):
+                    if li < 3:
+                        _lt = _sr_font.render(ln, True, (190, 190, 190))
+                        SCREEN.blit(_lt, (desc_panel_x + 10, desc_panel_y + 26 + li * 20))
+
+                # 세로 구분선
+                pygame.draw.line(SCREEN, (80, 100, 160), (divider_x, desc_panel_y + 4), (divider_x, desc_panel_y + desc_panel_height - 4), 1)
+
+                # 우측: 옵션
+                _tab_label_r = _sr_font.render("옵션", True, (255, 200, 100))
+                SCREEN.blit(_tab_label_r, (divider_x + 10, desc_panel_y + 6))
+                # 고정 효과 표시
+                _opt_font = get_font(14)
+                _opt_label = _opt_font.render("고정효과", True, (180, 140, 255))
+                SCREEN.blit(_opt_label, (divider_x + 10, desc_panel_y + 30))
+                _opt_value = _opt_font.render("모든 퍽 레벨 +1", True, (255, 230, 140))
+                SCREEN.blit(_opt_value, (divider_x + 10, desc_panel_y + 52))
+                # 장착 상태 표시
+                _equipped = selected_item.get("_equipped_slot") if selected_item else None
+                if _equipped:
+                    _eq_text = _sr_font.render("장착 중", True, (100, 255, 100))
+                    SCREEN.blit(_eq_text, (divider_x + 10, desc_panel_y + 76))
+                else:
+                    _eq_text = _sr_font.render("미장착", True, (150, 150, 150))
+                    SCREEN.blit(_eq_text, (divider_x + 10, desc_panel_y + 76))
+            else:
+                lines = smart_text_wrap(description)
+                # 설명 텍스트 그리기
+                desc_text_y = desc_panel_y + 10
+                line_spacing = 22  # 줄 간격 18 → 22로 증가
+                for line_idx, line in enumerate(lines):
+                    if line_idx < 3:  # 최대 3줄까지만 표시
+                        desc_text = font_small.render(line, True, (200, 200, 200))
+                        desc_rect = desc_text.get_rect(left=desc_panel_x + 10, top=desc_text_y + line_idx * line_spacing)
+                        SCREEN.blit(desc_text, desc_rect)
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
