@@ -47412,6 +47412,12 @@ viper_walking_active = False
 viper_walking_timer = 0
 VIPER_WALKING_CYCLE = 24  # 속도형 캐릭터답게 빠른 걷기 사이클
 
+# === 바이퍼 스킬 키 릴리즈 플래그 (연속 발동 방지) ===
+_viper_w_key_released = True
+_viper_e_key_released = True
+_viper_q_key_released = True
+_viper_r_key_released = True
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -51395,7 +51401,7 @@ slingshot_charge_timer = 0  # 차징 경과 프레임
 slingshot_charge_level = 0  # 현재 차징 단계 (0=미차징, 1/2/3)
 slingshot_cooldown = 0  # 새총 발사 후 쿨타임 타이머
 slingshot_gauge_consumed = False  # 현재 차징에서 게이지 소모했는지
-SLINGSHOT_COOLDOWN_FRAMES = 120  # 2초 쿨타임 (60fps * 2)
+SLINGSHOT_COOLDOWN_FRAMES = 30  # 0.5초 쿨타임 (60fps * 0.5)
 SLINGSHOT_GAUGE_COST = 20  # 차징 시 게이지 소모량
 SLINGSHOT_CONTROL_LOCK_TIME = 12  # 0.2초 후딜 (권총보다 짧음)
 # 차징 단계별 필요 프레임
@@ -71169,6 +71175,90 @@ def handle_player(keys):
     if is_odins_eye_transformed():
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
+
+    # ⚔ 바이퍼 스킬 발동 처리 (W: 블레이드 러쉬, 대쉬후딜+W: 쉐도우 스텝, E: 신경 타격, Q: 베놈 엣지, R: 팬텀 어썰트)
+    if selected_character_type == "viper" and not is_odins_eye_transformed():
+        _now_ms = pygame.time.get_ticks()
+        _viper_w_pressed = keys[pygame.K_w]
+        _viper_e_pressed = keys[pygame.K_e]
+        _viper_q_pressed = keys[pygame.K_q]
+        _viper_r_pressed = keys[pygame.K_r]
+
+        # 발동 불가 조건 (대쉬 중, 스턴, 서브 대기)
+        _viper_can_act = not (
+            rolling_active
+            or player_stunned
+            or is_waiting_for_serve
+            or is_player_serve
+        )
+
+        # 쉐도우 스텝: 대쉬 후딜(rolling_stun_timer) 중 W키 → 후딜 해제 + 순간이동
+        if rolling_stun_timer > 0 and _viper_w_pressed:
+            if is_viper_skill_unlocked("shadow_step"):
+                if get_viper_skill_cooldown_remaining("shadow_step") <= 0:
+                    if special_gauge >= 40:
+                        special_gauge -= 40
+                        trigger_viper_skill_cooldown("shadow_step")
+                        rolling_stun_timer = 0  # 대쉬 후딜 즉시 해제
+                        # TODO: 반대 방향 순간이동 + 잔상 이펙트
+                        try:
+                            effects_manager.spawn_shockwave(
+                                PLAYER.centerx, PLAYER.centery - 10,
+                                force=6, color=(100, 0, 180),
+                            )
+                        except Exception:
+                            pass
+
+        elif _viper_can_act:
+            # 블레이드 러쉬 (W키)
+            if _viper_w_pressed:
+                if is_viper_skill_unlocked("blade_rush"):
+                    if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
+                        if special_gauge >= 50:
+                            special_gauge -= 50
+                            trigger_viper_skill_cooldown("blade_rush")
+                            # TODO: 3연속 플라즈마 베기 투사체 발사
+                            try:
+                                effects_manager.spawn_shockwave(
+                                    PLAYER.centerx, PLAYER.centery - 20,
+                                    force=8, color=(200, 50, 255),
+                                )
+                            except Exception:
+                                pass
+
+            # 신경 타격 (E키)
+            if _viper_e_pressed:
+                if is_viper_skill_unlocked("nerve_strike"):
+                    if get_viper_skill_cooldown_remaining("nerve_strike") <= 0:
+                        if special_gauge >= 30:
+                            special_gauge -= 30
+                            trigger_viper_skill_cooldown("nerve_strike")
+                            # TODO: 다음 타격 스턴 효과 부여
+
+            # 베놈 엣지 (Q키)
+            if _viper_q_pressed:
+                if is_viper_skill_unlocked("venom_edge"):
+                    if get_viper_skill_cooldown_remaining("venom_edge") <= 0:
+                        if special_gauge >= 80:
+                            special_gauge -= 80
+                            trigger_viper_skill_cooldown("venom_edge")
+                            # TODO: 독 코팅 효과
+
+            # 팬텀 어썰트 (R키 - 궁극기)
+            if _viper_r_pressed:
+                if is_viper_skill_unlocked("phantom_assault"):
+                    if get_viper_skill_cooldown_remaining("phantom_assault") <= 0:
+                        if special_gauge >= 120:
+                            special_gauge -= 120
+                            trigger_viper_skill_cooldown("phantom_assault")
+                            # TODO: 5연속 잔상 돌진
+                            try:
+                                effects_manager.spawn_shockwave(
+                                    PLAYER.centerx, PLAYER.centery - 20,
+                                    force=15, color=(160, 0, 255),
+                                )
+                            except Exception:
+                                pass
 
     # 충전 해제 후 예정된 충격파 발사 처리
     if selected_character_type == "optimus":
