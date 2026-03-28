@@ -71233,11 +71233,34 @@ def handle_player(keys):
                         special_gauge -= 40
                         trigger_viper_skill_cooldown("shadow_step")
                         rolling_stun_timer = 0  # 대쉬 후딜 즉시 해제
-                        # TODO: 반대 방향 순간이동 + 잔상 이펙트
+
+                        # 잔상 생성 (현재 위치에 반투명 잔상)
+                        try:
+                            _ss_afterimage_surf = pygame.Surface((PLAYER.width, PLAYER.height), pygame.SRCALPHA)
+                            _ss_afterimage_surf.fill((100, 0, 180, 120))
+                            dash_afterimages.append({
+                                'x': PLAYER.centerx - PLAYER.width // 2,
+                                'y': PLAYER.centery - PLAYER.height // 2,
+                                'alpha': 180,
+                                'image': _ss_afterimage_surf,
+                                'life': 15
+                            })
+                        except Exception:
+                            pass
+
+                        # 반대 방향으로 순간이동 (대쉬 방향의 반대)
+                        _ss_teleport_dist = 160  # 순간이동 거리
+                        _ss_reverse_dir = -rolling_direction if rolling_direction != 0 else 1
+                        _ss_new_x = PLAYER.centerx + _ss_reverse_dir * _ss_teleport_dist
+                        # 화면 경계 클램핑
+                        _ss_new_x = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, _ss_new_x))
+                        PLAYER.centerx = _ss_new_x
+
+                        # 도착 지점 이펙트
                         try:
                             effects_manager.spawn_shockwave(
                                 PLAYER.centerx, PLAYER.centery - 10,
-                                force=6, color=(100, 0, 180),
+                                force=8, color=(100, 0, 180),
                             )
                         except Exception:
                             pass
@@ -71251,12 +71274,33 @@ def handle_player(keys):
                             _viper_w_key_released = False
                             special_gauge -= 50
                             trigger_viper_skill_cooldown("blade_rush")
-                            # TODO: 3연속 플라즈마 베기 투사체 발사
+
+                            # 3연속 플라즈마 베기: 공 속도 30% 증가 + 상방향 보정
                             try:
-                                effects_manager.spawn_shockwave(
-                                    PLAYER.centerx, PLAYER.centery - 20,
-                                    force=8, color=(200, 50, 255),
-                                )
+                                _br_speed = math.hypot(ball_vel[0], ball_vel[1])
+                                _br_boosted = max(_br_speed * 1.3, 8.0)  # 최소 속도 보장
+                                # 공이 위로 향하도록 (보스 방향)
+                                if _br_speed > 0.1:
+                                    _br_ratio = _br_boosted / _br_speed
+                                    ball_vel[0] *= _br_ratio
+                                    ball_vel[1] = -abs(ball_vel[1] * _br_ratio)  # 반드시 위로
+                                else:
+                                    ball_vel[0] = 0
+                                    ball_vel[1] = -_br_boosted
+                            except Exception:
+                                pass
+
+                            # 3연속 슬래시 이펙트 (시각적)
+                            try:
+                                _br_px = PLAYER.centerx
+                                _br_py = PLAYER.centery
+                                for _br_i in range(3):
+                                    _br_offset_y = -20 - _br_i * 25
+                                    _br_offset_x = (_br_i - 1) * 15
+                                    effects_manager.spawn_shockwave(
+                                        _br_px + _br_offset_x, _br_py + _br_offset_y,
+                                        force=5 + _br_i * 2, color=(200, 50, 255),
+                                    )
                             except Exception:
                                 pass
 
