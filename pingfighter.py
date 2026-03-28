@@ -124885,17 +124885,36 @@ def show_character_selection():
                 nonlocal viper_card_preview
                 if viper_card_preview is None:
                     viper_card_preview = _crop_surface_alpha(VIPER_PADDLE_IMG) if VIPER_PADDLE_IMG is not None else _crop_surface_alpha(create_viper_paddle_surface(0.0))
+
+                def _blit_viper(src_surface):
+                    """바이퍼 전용: 가로가 넓은 원본을 카드 폭에 맞게 축소 후 중앙 배치"""
+                    if src_surface is None:
+                        return
+                    sw, sh = src_surface.get_size()
+                    if sw == 0 or sh == 0:
+                        return
+                    # 카드 가용 폭의 70%를 상한으로 제한 (캐릭터 이름 폭을 넘지 않도록)
+                    limit_w = int(max_width * 0.70)
+                    limit_h = max_height
+                    scale = min(limit_w / sw, limit_h / sh)
+                    tw = max(1, int(sw * scale))
+                    th = max(1, int(sh * scale))
+                    scaled = pygame.transform.smoothscale(src_surface, (tw, th))
+                    ix = (w - tw) // 2
+                    iy = image_margin_top + (max_height - th) // 2
+                    surface.blit(scaled, (ix, iy))
+
                 if play_active:
                     try:
                         cycle_ms = 800.0
                         t = pygame.time.get_ticks() % cycle_ms
                         phase = t / cycle_ms
                         frame = _crop_surface_alpha(create_viper_paddle_surface(step_phase=phase))
-                        blit_scaled_surface(frame, scale_mult=1.3)
+                        _blit_viper(frame)
                     except Exception:
-                        blit_scaled_surface(viper_card_preview, scale_mult=1.3)
+                        _blit_viper(viper_card_preview)
                 else:
-                    blit_scaled_surface(viper_card_preview, scale_mult=1.3)
+                    _blit_viper(viper_card_preview)
             else:
                 try:
                     char_image = pygame.image.load(resource_path(character["image"]))
