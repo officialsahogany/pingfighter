@@ -6174,6 +6174,202 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     _blit_scaled_tooltip(surface, tooltip_surface, tooltip_x, tooltip_y, tooltip_width, tooltip_height)
 
 
+# ============================================================================
+# 바이퍼 스킬 툴팁 (스매셔와 100% 동일 구조)
+# ============================================================================
+_viper_skill_tooltip_fonts = None
+
+
+def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> dict:
+    """마우스 위치에 해당하는 바이퍼 스킬 툴팁 데이터 반환"""
+    global _viper_skill_icon_rects, _player_gauge_surface_left_screen_pos
+
+    if not _viper_skill_icon_rects:
+        return None
+
+    # 오딘의 눈 변신 상태에서는 바이퍼 스킬 툴팁 표시 안함
+    try:
+        from legendary_items import get_legendary_manager
+        _odins_mgr = get_legendary_manager()
+        if _odins_mgr:
+            _odins_eye = _odins_mgr.get_item("odins_eye")
+            if _odins_eye and _odins_eye.active and _odins_eye.is_transformed():
+                return None
+    except Exception:
+        pass
+
+    raw_mouse_x, raw_mouse_y = _original_mouse_get_pos()
+    surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
+
+    local_x = (raw_mouse_x - surf_offset_x) / scale_factor if scale_factor != 1.0 else (raw_mouse_x - surf_offset_x)
+    local_y = (raw_mouse_y - surf_offset_y) / scale_factor if scale_factor != 1.0 else (raw_mouse_y - surf_offset_y)
+
+    for skill_data in VIPER_SKILL_ICONS_DATA:
+        skill_name = skill_data["name"]
+        if not is_viper_skill_unlocked(skill_name):
+            continue
+        if skill_name in _viper_skill_icon_rects:
+            rect = _viper_skill_icon_rects[skill_name]
+            if rect.collidepoint(local_x, local_y):
+                return skill_data
+
+    return None
+
+
+def _draw_viper_skill_tooltip(surface: pygame.Surface, skill_data: dict,
+                               mouse_pos: tuple, current_gauge: float):
+    """바이퍼 스킬 툴팁 그리기 (스매셔와 100% 동일 구조)"""
+    global _viper_skill_tooltip_fonts
+
+    time_now = pygame.time.get_ticks()
+
+    # 툴팁 크기 및 위치 계산
+    tooltip_width = 300
+    tooltip_height = 280
+    effect_preview_height = 100
+    padding = 12
+
+    # 툴팁 위치: 필러 오른쪽에 고정
+    surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
+    pillar_width = int(250 * GAME_SCALE_FACTOR)
+    tooltip_x = surf_offset_x + pillar_width + 10
+    tooltip_y = mouse_pos[1] - tooltip_height // 2
+
+    # 화면 경계 확인
+    screen_width, screen_height = surface.get_size()
+    if tooltip_y < 10:
+        tooltip_y = 10
+    if tooltip_y + tooltip_height > screen_height - 10:
+        tooltip_y = screen_height - tooltip_height - 10
+
+    # 툴팁 배경
+    tooltip_surface = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+    tooltip_surface.fill((20, 25, 35, 230))
+
+    # 외곽선
+    pygame.draw.rect(tooltip_surface, skill_data["color"], (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
+
+    # 상단 헤더 바
+    header_height = 36
+    header_color = (*skill_data["color"][:3], 60)
+    pygame.draw.rect(tooltip_surface, header_color, (2, 2, tooltip_width - 4, header_height), border_radius=6)
+
+    # freetype 폰트 캐싱
+    if _viper_skill_tooltip_fonts is None:
+        import pygame.freetype as freetype_module
+        try:
+            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
+            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 12)
+            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
+        except:
+            title_font = freetype_module.SysFont("malgun gothic", 16)
+            normal_font = freetype_module.SysFont("malgun gothic", 12)
+            small_font = freetype_module.SysFont("malgun gothic", 10)
+        _viper_skill_tooltip_fonts = (title_font, normal_font, small_font)
+
+    title_font, normal_font, small_font = _viper_skill_tooltip_fonts
+
+    y_offset = padding
+
+    # === 스킬명 (헤더 좌측) ===
+    skill_name_text = skill_data["korean"]
+    name_surface, name_rect = title_font.render(skill_name_text, (255, 255, 255))
+    tooltip_surface.blit(name_surface, (padding, y_offset))
+
+    # ACTIVE 라벨 (우측 상단)
+    active_text = "ACTIVE"
+    active_surface, active_rect = title_font.render(active_text, (255, 120, 80))
+    active_x = tooltip_width - padding - active_rect.width
+    tooltip_surface.blit(active_surface, (active_x, y_offset))
+
+    y_offset += header_height + 6
+
+    # === 게이지 비용 ===
+    cost = skill_data["cost"]
+    can_use = current_gauge >= cost
+    cost_color = (100, 255, 150) if can_use else (255, 100, 100)
+    cost_text = _t("ui.gauge_cost_fmt", "게이지 비용: {0}").format(cost)
+    cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
+    tooltip_surface.blit(cost_surface, (padding, y_offset))
+
+    # 쿨타임 표시
+    cooldown_ratio = get_viper_skill_cooldown_remaining(skill_data["name"])
+    if cooldown_ratio > 0:
+        remaining = skill_data["cooldown"] * cooldown_ratio
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{remaining:.1f}")
+        cd_color = (255, 180, 80)
+    else:
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(skill_data['cooldown'])
+        cd_color = (180, 180, 180)
+    cd_surface, cd_rect = small_font.render(cd_text, cd_color)
+    cd_x = tooltip_width - padding - cd_rect.width
+    tooltip_surface.blit(cd_surface, (cd_x, y_offset + 2))
+
+    y_offset += 22
+
+    # === 설명 ===
+    description = skill_data.get("description", "")
+    max_text_width = tooltip_width - padding * 2
+
+    lines = []
+    current_line = ""
+    for char in description:
+        test_line = current_line + char
+        test_surface, test_rect = normal_font.render(test_line, (255, 255, 255))
+        if test_rect.width <= max_text_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = char
+    if current_line:
+        lines.append(current_line)
+
+    for line in lines[:3]:
+        line_surface, line_rect = normal_font.render(line, (220, 220, 220))
+        tooltip_surface.blit(line_surface, (padding, y_offset))
+        y_offset += 18
+
+    y_offset += 6
+
+    # === 조작법 표시 ===
+    how_to_use = skill_data.get("how_to_use", "")
+    if how_to_use:
+        how_to_box_height = 32
+        how_to_box = pygame.Rect(padding, y_offset, tooltip_width - padding * 2, how_to_box_height)
+        pygame.draw.rect(tooltip_surface, (40, 45, 60, 200), how_to_box, border_radius=4)
+        pygame.draw.rect(tooltip_surface, (*skill_data["color"][:3], 80), how_to_box, 1, border_radius=4)
+
+        render_x = padding + 8
+        render_y = y_offset + 6
+
+        # 일반 텍스트 조작법
+        how_to_surface, how_to_rect = small_font.render(f"▶ {how_to_use}", skill_data["color"])
+        tooltip_surface.blit(how_to_surface, (render_x, render_y + 4))
+
+        y_offset += how_to_box_height + 8
+
+    # === 이펙트 프리뷰 영역 ===
+    effect_y = tooltip_height - effect_preview_height - padding
+    effect_rect = pygame.Rect(padding, effect_y, tooltip_width - padding * 2, effect_preview_height)
+
+    pygame.draw.rect(tooltip_surface, (10, 15, 25, 200), effect_rect, border_radius=6)
+    pygame.draw.rect(tooltip_surface, (*skill_data["color"][:3], 100), effect_rect, 1, border_radius=6)
+
+    effect_center_x = effect_rect.centerx
+    effect_center_y = effect_rect.centery
+    effect_type = skill_data.get("effect_type", "")
+    anim_progress = (time_now % 2000) / 2000.0
+
+    _draw_skill_effect_preview(tooltip_surface, effect_type, skill_data["color"],
+                               effect_center_x, effect_center_y, anim_progress)
+
+    effect_label_surface, effect_label_rect = small_font.render(_t("ui.effect_preview", "이펙트 미리보기"), (150, 150, 150))
+    tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
+
+    # 툴팁 그리기 (스케일링 적용)
+    _blit_scaled_tooltip(surface, tooltip_surface, tooltip_x, tooltip_y, tooltip_width, tooltip_height)
+
 
 # ── 오딘의 늪 스킬 툴팁 ──
 _odin_swamp_tooltip_active = False
@@ -8899,6 +9095,53 @@ def _draw_pillar_ui(screen, renderer):
         if SMASHER_SKILL_DEBUG:
             print(f"[SMASHER_TOOLTIP ERROR] {e}", flush=True)
 
+    # 바이퍼 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
+    global _viper_skill_tooltip_active, _viper_tooltip_pause_start, _viper_tooltip_pause_accumulated
+    if _is_ingame:
+      try:
+        if selected_character_type == "viper":
+            mouse_pos = pygame.mouse.get_pos()
+            hovered_skill = _check_viper_skill_tooltip(mouse_pos, GAME_SCALE_FACTOR)
+            if hovered_skill:
+                if not _viper_skill_tooltip_active:
+                    _viper_skill_tooltip_active = True
+                    _viper_tooltip_pause_start = pygame.time.get_ticks()
+                    if not game_paused_by_tooltip:
+                        _tooltip_prev_game_paused = game_paused
+                        _tooltip_forced_pause = not _tooltip_prev_game_paused
+                        game_paused = True
+                        game_paused_by_tooltip = True
+                try:
+                    current_gauge = player_gauge
+                except:
+                    current_gauge = 0
+                _draw_viper_skill_tooltip(screen, hovered_skill, mouse_pos, current_gauge)
+            else:
+                if _viper_skill_tooltip_active:
+                    _viper_skill_tooltip_active = False
+                    if _viper_tooltip_pause_start > 0:
+                        _viper_tooltip_pause_accumulated += pygame.time.get_ticks() - _viper_tooltip_pause_start
+                        _viper_tooltip_pause_start = 0
+                    if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                        game_paused = _tooltip_prev_game_paused
+                        game_paused_by_tooltip = False
+                        _tooltip_forced_pause = False
+        else:
+            if _viper_skill_tooltip_active:
+                _viper_skill_tooltip_active = False
+                if _viper_tooltip_pause_start > 0:
+                    _viper_tooltip_pause_accumulated += pygame.time.get_ticks() - _viper_tooltip_pause_start
+                    _viper_tooltip_pause_start = 0
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                    game_paused = _tooltip_prev_game_paused
+                    game_paused_by_tooltip = False
+                    _tooltip_forced_pause = False
+      except Exception:
+        _viper_skill_tooltip_active = False
+        if _viper_tooltip_pause_start > 0:
+            _viper_tooltip_pause_accumulated += pygame.time.get_ticks() - _viper_tooltip_pause_start
+            _viper_tooltip_pause_start = 0
+
     # 오딘의 늪 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
     if _is_ingame:
       try:
@@ -8961,7 +9204,7 @@ def _draw_pillar_ui(screen, renderer):
                     # 툴팁 비활성화 - 게임 재개
                     if _rage_indicator_tooltip_active:
                         _rage_indicator_tooltip_active = False
-                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
                             game_paused = _rage_tooltip_prev_game_paused
                             game_paused_by_tooltip = False
                             _rage_tooltip_forced_pause = False
@@ -8969,7 +9212,7 @@ def _draw_pillar_ui(screen, renderer):
                 # 광폭화 비활성 시 툴팁 상태 초기화
                 if _rage_indicator_tooltip_active:
                     _rage_indicator_tooltip_active = False
-                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
                         game_paused = _rage_tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _rage_tooltip_forced_pause = False
@@ -9028,7 +9271,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _quest_emblem_tooltip_active:
                         _quest_emblem_tooltip_active = False
                         # 다른 툴팁이 활성 중이 아니면 즉시 게임 재개
-                        if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
+                        if not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
                             if _quest_tooltip_forced_pause:
                                 game_paused = _quest_tooltip_prev_game_paused
                             game_paused_by_tooltip = False
@@ -9037,7 +9280,7 @@ def _draw_pillar_ui(screen, renderer):
                 # 퀘스트 없을 때 툴팁 상태 초기화
                 if _quest_emblem_tooltip_active:
                     _quest_emblem_tooltip_active = False
-                    if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
+                    if not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
                         if _quest_tooltip_forced_pause:
                             game_paused = _quest_tooltip_prev_game_paused
                         game_paused_by_tooltip = False
@@ -25007,7 +25250,7 @@ def _reset_active_item_hover_state() -> None:
     _active_item_tooltip_body = ""
 
     # 다른 툴팁이 활성화 중이면 일시정지 상태를 건드리지 않음
-    if _smasher_skill_tooltip_active or _odin_swamp_tooltip_active or _rage_indicator_tooltip_active:
+    if _smasher_skill_tooltip_active or _viper_skill_tooltip_active or _odin_swamp_tooltip_active or _rage_indicator_tooltip_active:
         return
 
     if game_paused_by_tooltip and _tooltip_forced_pause and game_paused:
@@ -25147,7 +25390,7 @@ def _update_active_item_hover_state(now_ms: int) -> None:
         _active_item_tooltip_ready = False
         # 기존 툴팁 일시정지를 해제하고 새로운 타이머 시작
         # (오딘의 늪/스매셔 스킬 툴팁 활성 시에는 건드리지 않음)
-        if game_paused_by_tooltip and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+        if game_paused_by_tooltip and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
             game_paused = _tooltip_prev_game_paused
             game_paused_by_tooltip = False
             _tooltip_forced_pause = False
