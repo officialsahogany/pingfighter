@@ -52523,6 +52523,8 @@ def get_weapon_ammo_info(weapon_name: str) -> tuple[int, int]:
     from item_effects.bowling_trap import get_bowling_trap_instance
 
     if weapon_name == "pistol":
+        if is_slingshot_mode():
+            return (0, 0)  # 새총은 탄약 시스템 없음
         # soldier_ammo_count가 실제 권총 발사에 사용되는 탄약 변수
         return (soldier_ammo_count, soldier_max_ammo)
     elif weapon_name == "bazooka":
@@ -53725,7 +53727,45 @@ def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
 
     center = (size // 2, size // 2)
 
-    if weapon_name == "pistol":
+    if weapon_name == "pistol" and is_slingshot_mode():
+        # === 매그넘 새총 아이콘 (금속 슬링샷) ===
+        metal_body = (120, 125, 135)
+        metal_dark = (70, 72, 80)
+        metal_light = (170, 175, 185)
+        band_color = (180, 140, 60)
+
+        cx = size // 2
+        fork_top_y = int(size * 0.10)
+        fork_mid_y = int(size * 0.42)
+        handle_bot_y = int(size * 0.85)
+        fork_spread = int(size * 0.30)
+
+        # 왼쪽 갈래
+        pygame.draw.line(icon_surface, metal_dark, (cx - fork_spread, fork_top_y), (cx - 1, fork_mid_y), 3)
+        pygame.draw.line(icon_surface, metal_light, (cx - fork_spread + 1, fork_top_y + 1), (cx, fork_mid_y), 1)
+        # 오른쪽 갈래
+        pygame.draw.line(icon_surface, metal_dark, (cx + fork_spread, fork_top_y), (cx + 1, fork_mid_y), 3)
+        pygame.draw.line(icon_surface, metal_light, (cx + fork_spread - 1, fork_top_y + 1), (cx, fork_mid_y), 1)
+        # 손잡이
+        hw = max(4, int(size * 0.14))
+        pygame.draw.rect(icon_surface, metal_body, (cx - hw // 2, fork_mid_y, hw, handle_bot_y - fork_mid_y))
+        pygame.draw.rect(icon_surface, metal_dark, (cx - hw // 2, fork_mid_y, hw, handle_bot_y - fork_mid_y), 1)
+        for gi in range(4):
+            gy = fork_mid_y + int((handle_bot_y - fork_mid_y) * 0.3) + gi * int((handle_bot_y - fork_mid_y) * 0.15)
+            pygame.draw.line(icon_surface, metal_dark, (cx - hw // 2 + 1, gy), (cx + hw // 2 - 1, gy), 1)
+        # 고무밴드
+        band_sag = int(size * 0.08)
+        band_mid_y = fork_top_y + band_sag
+        pygame.draw.line(icon_surface, band_color, (cx - fork_spread, fork_top_y), (cx, band_mid_y), 2)
+        pygame.draw.line(icon_surface, band_color, (cx + fork_spread, fork_top_y), (cx, band_mid_y), 2)
+        # 갈래 끝 금속 볼
+        for fx in [cx - fork_spread, cx + fork_spread]:
+            pygame.draw.circle(icon_surface, metal_light, (fx, fork_top_y), 2)
+            pygame.draw.circle(icon_surface, metal_dark, (fx, fork_top_y), 2, 1)
+
+        return icon_surface
+
+    elif weapon_name == "pistol":
         # === 고퀄리티 3D 권총 아이콘 (메인 화면 스타일과 동기화) ===
         # 색상 정의
         grip_dark = (50, 35, 18)
