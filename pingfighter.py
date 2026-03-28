@@ -64843,10 +64843,12 @@ def is_slingshot_mode() -> bool:
     return not soldier_pistol_perk_unlocked
 
 
+slingshot_gauge_spent = 0  # 현재 차징에서 소모한 총 게이지량 (취소 시 반환용)
+
 def start_slingshot_charge():
-    """새총 차징 시작"""
+    """새총 차징 시작 (게이지는 0.5초 후부터 소모)"""
     global slingshot_charging, slingshot_charge_timer, slingshot_charge_level
-    global special_gauge
+    global slingshot_gauge_spent
 
     # 쿨타임 중이면 차징 불가
     if slingshot_cooldown > 0:
@@ -64865,13 +64867,10 @@ def start_slingshot_charge():
     if special_gauge < SLINGSHOT_GAUGE_COST:
         return False
 
-    # 게이지 즉시 소모 (차징 시작과 동시에)
-    special_gauge = max(0, special_gauge - SLINGSHOT_GAUGE_COST)
-
     slingshot_charging = True
     slingshot_charge_timer = 0
     slingshot_charge_level = 0
-    print(f"🔫 새총 차징 시작! 게이지 -{SLINGSHOT_GAUGE_COST} (현재: {special_gauge})")
+    slingshot_gauge_spent = 0  # 아직 게이지 소모 없음
 
     return True
 
@@ -64879,9 +64878,9 @@ def start_slingshot_charge():
 SLINGSHOT_GAUGE_DRAIN_INTERVAL = 30  # 0.5초마다 게이지 소모 (30프레임)
 
 def update_slingshot_charge():
-    """새총 차징 업데이트 (매 프레임 호출)"""
+    """새총 차징 업데이트 (매 프레임 호출) - 0.5초 경과 후부터 게이지 소모"""
     global slingshot_charge_timer, slingshot_charge_level
-    global slingshot_cooldown, special_gauge
+    global slingshot_cooldown, special_gauge, slingshot_gauge_spent
 
     # 쿨타임 감소
     if slingshot_cooldown > 0:
@@ -64892,10 +64891,11 @@ def update_slingshot_charge():
 
     slingshot_charge_timer += 1
 
-    # 0.5초(30프레임)마다 게이지 20 소모
-    if slingshot_charge_timer % SLINGSHOT_GAUGE_DRAIN_INTERVAL == 0:
+    # 0.5초(30프레임) 경과 시점부터 게이지 소모 시작, 이후 0.5초마다 반복
+    if slingshot_charge_timer >= SLINGSHOT_GAUGE_DRAIN_INTERVAL and slingshot_charge_timer % SLINGSHOT_GAUGE_DRAIN_INTERVAL == 0:
         if special_gauge >= SLINGSHOT_GAUGE_COST:
             special_gauge = max(0, special_gauge - SLINGSHOT_GAUGE_COST)
+            slingshot_gauge_spent += SLINGSHOT_GAUGE_COST
         else:
             # 게이지 부족하면 차징 강제 해제 → 현재 단계로 발사
             release_slingshot()
@@ -64916,16 +64916,21 @@ def release_slingshot():
     """새총 차징 해제 (버튼 놓았을 때) - 차징 단계에 따라 발사"""
     global slingshot_charging, slingshot_charge_timer, slingshot_charge_level
     global slingshot_cooldown, soldier_control_lock_timer
+    global special_gauge, slingshot_gauge_spent
 
     if not slingshot_charging:
         return
 
     charge_level = slingshot_charge_level
+    charge_time = slingshot_charge_timer
     slingshot_charging = False
     slingshot_charge_timer = 0
 
-    # 1단계 미만이면 발사 취소 (불발)
-    if charge_level < 1:
+    # 0.5초 미만 차징 → 발사 취소 + 소모된 게이지 반환
+    if charge_time < SLINGSHOT_GAUGE_DRAIN_INTERVAL or charge_level < 1:
+        if slingshot_gauge_spent > 0:
+            special_gauge = min(special_gauge + slingshot_gauge_spent, get_max_gauge())
+            slingshot_gauge_spent = 0
         slingshot_charge_level = 0
         return
 
@@ -65018,11 +65023,16 @@ def fire_slingshot_pellet(charge_level: int):
 
 
 def cancel_slingshot_charge():
-    """새총 차징 강제 취소 (피격 등)"""
+    """새총 차징 강제 취소 (피격 등) - 0.5초 미만이면 게이지 반환"""
     global slingshot_charging, slingshot_charge_timer, slingshot_charge_level
+    global special_gauge, slingshot_gauge_spent
+    # 0.5초 미만 차징이었으면 소모된 게이지 반환
+    if slingshot_charging and slingshot_charge_timer < SLINGSHOT_GAUGE_DRAIN_INTERVAL and slingshot_gauge_spent > 0:
+        special_gauge = min(special_gauge + slingshot_gauge_spent, get_max_gauge())
     slingshot_charging = False
     slingshot_charge_timer = 0
     slingshot_charge_level = 0
+    slingshot_gauge_spent = 0
 
 
 def get_slingshot_charge_ratio() -> float:
