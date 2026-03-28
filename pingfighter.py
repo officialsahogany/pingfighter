@@ -20936,6 +20936,7 @@ SOUND_THROWING_BANANA = sound_effects['THROWING_BANANA']
 SOUND_STEP_BANANA = sound_effects['STEP_BANANA']
 SOUND_STAGE5_WARNING = sound_effects['STAGE5_WARNING']
 SOUND_WHIPCRACK = sound_effects.get('WHIPCRACK')
+SOUND_FAN = sound_effects.get('FAN')
 SOUND_ROUND_SET = sound_effects.get('ROUND_SET')
 SOUND_BOOMERANG = sound_effects.get('BOOMERANG')
 SOUND_BOOMERANG_HIT = sound_effects.get('BOOMERANG_HIT')
@@ -55749,12 +55750,8 @@ def go_to_next_round():
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
 
-    # 🏖 사막화 날씨 이벤트: 활성 시 모래 지형 생성, 비활성 시 제거
-    if is_sand_active():
-        if sand_obstacles is None:
-            sand_obstacles = spawn_sand_obstacles()
-    else:
-        sand_obstacles = None
+    # 🏖 사막화 날씨 이벤트: go_to_next_round()에서는 체크하지 않음
+    # → 날씨 이벤트 체크(check_weather_event_on_round_start) 이후에 처리해야 1라운드 지연 버그 방지
 
     # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
     global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
@@ -79322,7 +79319,14 @@ def update_fan_throw():
     # --- 메인 부채 업데이트 ---
     if fan_throw_active:
         fan_throw_timer -= 1
+        prev_spin = fan_throw_spin
         fan_throw_spin += 0.3
+        # 회전할 때마다 부채 사운드 재생 (2π 경계를 넘을 때)
+        TWO_PI = math.pi * 2
+        if int(prev_spin / TWO_PI) < int(fan_throw_spin / TWO_PI):
+            if SOUND_FAN:
+                SOUND_FAN.set_volume(0.35)
+                SOUND_FAN.play()
 
         # 나비 날갯짓 패턴 이동 (빠르게↔느리게 반복 + 좌우 사행)
         elapsed = 180 - fan_throw_timer  # 경과 프레임
@@ -79367,7 +79371,13 @@ def update_fan_throw():
     # --- 광폭화 추가 부채 투사체 업데이트 ---
     for proj in fan_throw_extra_projectiles[:]:
         proj["timer"] -= 1
+        prev_sp = proj["spin"]
         proj["spin"] += 0.3
+        # 회전 시 부채 사운드
+        if int(prev_sp / (math.pi * 2)) < int(proj["spin"] / (math.pi * 2)):
+            if SOUND_FAN:
+                SOUND_FAN.set_volume(0.25)
+                SOUND_FAN.play()
         elapsed_p = 180 - proj["timer"]
         speed_mod_p = 0.6 + 0.5 * math.sin(elapsed_p * 0.25)
         sway_p = math.sin(elapsed_p * 0.15) * 1.8
@@ -134607,12 +134617,7 @@ def reset_round(is_stage_start=False):
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
 
-    # 🏖 사막화 날씨 이벤트: 활성 시 모래 지형 생성, 비활성 시 제거
-    if is_sand_active():
-        if sand_obstacles is None:
-            sand_obstacles = spawn_sand_obstacles()
-    else:
-        sand_obstacles = None
+    # 🏖 사막화: 아래 check_weather_event_on_round_start() 이후에 처리
 
     # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
     global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
@@ -134870,6 +134875,13 @@ def reset_round(is_stage_start=False):
         elif weather_result["ended"]:
             if DEBUG_WEATHER:
                 pass  # print(f"☀️ 날씨 이벤트 종료: {weather_result['message']}")
+
+    # 🏖 사막화 날씨 이벤트: 날씨 체크 이후에 모래 지형 생성/제거 (1라운드 지연 버그 수정)
+    if is_sand_active():
+        if sand_obstacles is None:
+            sand_obstacles = spawn_sand_obstacles()
+    else:
+        sand_obstacles = None
 
     # 점수에 따라 서브 텍스트 보여줄지 결정
     # 스테이지 첫 시작 시 (is_stage_start=True) 또는 게임 종료 조건 충족 시 서브 텍스트 생략
