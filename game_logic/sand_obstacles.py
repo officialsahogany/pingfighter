@@ -329,6 +329,12 @@ class SandTerrain:
     def __init__(self):
         self.walls: list[SandWall] = []
         self.particles: list[dict] = []
+        # 녹아내림(dissolve) 연출 상태
+        self.dissolving = False
+        self._dissolve_timer = 0
+        self._dissolve_duration = 90  # 1.5초 (60fps 기준)
+        self._dissolve_alpha = 255  # 전체 투명도
+        self._dissolve_particle_timer = 0
         self._generate()
 
     def _generate(self) -> None:
@@ -446,8 +452,20 @@ class SandTerrain:
 
     def draw(self, screen: pygame.Surface) -> None:
         """전체 지형 + 파티클 그리기"""
-        for wall in self.walls:
-            wall.draw(screen)
+        if self.dissolving and self._dissolve_alpha < 255:
+            # 녹아내리는 중: 투명도 적용하여 그리기
+            for wall in self.walls:
+                if wall.is_empty():
+                    continue
+                if wall._dirty or wall._surface is None:
+                    wall._rebuild_surface()
+                if wall._surface:
+                    faded = wall._surface.copy()
+                    faded.set_alpha(self._dissolve_alpha)
+                    screen.blit(faded, wall._surf_offset)
+        else:
+            for wall in self.walls:
+                wall.draw(screen)
         # 파티클
         for p in self.particles:
             alpha = int(255 * (p["life"] / p["max_life"]))
@@ -528,6 +546,102 @@ class SandTerrain:
                 })
 
         return total_eroded
+
+    def start_dissolve(self) -> None:
+        """녹아내림 연출 시작"""
+        if self.dissolving:
+            return
+        self.dissolving = True
+        self._dissolve_timer = 0
+        self._dissolve_alpha = 255
+        self._dissolve_particle_timer = 0
+
+    def update_dissolve(self) -> bool:
+        """녹아내림 연출 업데이트. 반환: True면 완전히 사라짐 (제거 가능)"""
+        if not self.dissolving:
+            return False
+
+        self._dissolve_timer += 1
+        progress = min(1.0, self._dissolve_timer / self._dissolve_duration)
+
+        # 투명도 감소 (ease-in: 처음엔 천천히, 나중엔 빠르게)
+        ease = progress * progress
+        self._dissolve_alpha = max(0, int(255 * (1.0 - ease)))
+
+        # 모래 깊이를 점진적으로 줄임 (사르르 녹는 효과)
+        shrink_rate = 0.06 + 0.12 * progress  # 갈수록 빠르게
+        for wall in self.walls:
+            changed = False
+            for i in range(wall.num_segs):
+                if wall.depths[i] > 0:
+                    wall.depths[i] = max(0, wall.depths[i] - wall.depths[i] * shrink_rate)
+                    if wall.depths[i] < 0.5:
+                        wall.depths[i] = 0
+                    changed = True
+            if changed:
+                wall._dirty = True
+
+        # 주기적으로 모래 파티클 흩날림 (녹아내리는 모래 알갱이)
+        self._dissolve_particle_timer += 1
+        if self._dissolve_particle_timer >= 3:  # 3프레임마다
+            self._dissolve_particle_timer = 0
+            self._spawn_dissolve_particles(progress)
+
+        # 완료 판정
+        if self._dissolve_timer >= self._dissolve_duration:
+            self.dissolving = False
+            return True
+        return False
+
+    def _spawn_dissolve_particles(self, progress: float) -> None:
+        """녹아내릴 때 모래 알갱이 파티클 생성"""
+        # 진행도에 따라 파티클 수 감소 (초반에 많이, 후반에 적게)
+        count_per_wall = max(1, int(4 * (1.0 - progress)))
+
+        for wall in self.walls:
+            if wall.is_empty():
+                continue
+            for _ in range(count_per_wall):
+                # 남아있는 세그먼트 중 랜덤 선택
+                valid = [(i, d) for i, d in enumerate(wall.depths) if d > 1]
+                if not valid:
+                    continue
+                idx, depth = random.choice(valid)
+                seg_center = wall.start + idx * SEG_SIZE + SEG_SIZE // 2
+
+                # 세그먼트 위치 → 월드 좌표
+                if wall.side == "left":
+                    px = depth * 0.5
+                    py = float(seg_center)
+                    vx = random.uniform(0.3, 1.5)
+                    vy = random.uniform(0.5, 2.0)
+                elif wall.side == "right":
+                    px = WIDTH - depth * 0.5
+                    py = float(seg_center)
+                    vx = random.uniform(-1.5, -0.3)
+                    vy = random.uniform(0.5, 2.0)
+                elif wall.side == "top":
+                    px = float(seg_center)
+                    py = depth * 0.5
+                    vx = random.uniform(-1.0, 1.0)
+                    vy = random.uniform(0.5, 2.5)
+                else:  # bottom
+                    px = float(seg_center)
+                    py = HEIGHT - depth * 0.5
+                    vx = random.uniform(-1.0, 1.0)
+                    vy = random.uniform(-0.5, 1.0)
+
+                self.particles.append({
+                    "x": px + random.uniform(-4, 4),
+                    "y": py + random.uniform(-4, 4),
+                    "vx": vx,
+                    "vy": vy,
+                    "size": random.randint(1, 3),
+                    "color": random.choice(SAND_PARTICLE_COLORS),
+                    "life": random.randint(20, 45),
+                    "max_life": 45,
+                    "gravity": 0.15,
+                })
 
     def is_all_empty(self) -> bool:
         """모든 벽면이 깎였는지"""
