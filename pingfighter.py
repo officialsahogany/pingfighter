@@ -3657,6 +3657,193 @@ def is_smasher_skill_unlocked(skill_name: str) -> bool:
 
 
 # ============================================================================
+# 바이퍼(사이버 어쌔신) 스킬 아이콘 데이터
+# ============================================================================
+VIPER_SKILL_ICONS_DATA = [
+    {
+        "name": "shadow_step", "korean": "쉐도우 스텝", "cost": 40, "color": (100, 0, 180),
+        "symbol": "⟐", "cooldown": 6.0, "key": "대쉬+W",
+        "description": "잔상을 남기고 반대 방향으로 순간이동합니다.\n이동 후 0.5초간 무적 상태.",
+        "how_to_use": "대쉬 직후 W키를 눌러 발동",
+        "effect_type": "shadow_teleport"
+    },
+    {
+        "name": "blade_rush", "korean": "블레이드 러쉬", "cost": 50, "color": (200, 50, 255),
+        "symbol": "⚔", "cooldown": 8.0, "key": "W",
+        "description": "전방에 3연속 플라즈마 베기를 발사합니다.\n각 베기가 공을 가속시킵니다.",
+        "how_to_use": "W키를 눌러 발동",
+        "effect_type": "slash_purple"
+    },
+    {
+        "name": "nerve_strike", "korean": "신경 타격", "cost": 30, "color": (180, 0, 220),
+        "symbol": "◈", "cooldown": 10.0, "key": "E",
+        "description": "다음 타격에 0.5초 스턴 효과를 부여합니다.\n보스 패들이 일시적으로 정지합니다.",
+        "how_to_use": "E키를 눌러 발동",
+        "effect_type": "stun_purple"
+    },
+    {
+        "name": "venom_edge", "korean": "베놈 엣지", "cost": 80, "color": (0, 255, 100),
+        "symbol": "☠", "cooldown": 14.0, "key": "Q",
+        "description": "블레이드에 독기를 주입합니다.\n5초간 타격 시 보스에게 지속 피해를 입힙니다.",
+        "how_to_use": "Q키를 눌러 발동",
+        "effect_type": "poison_green"
+    },
+    {
+        "name": "phantom_assault", "korean": "팬텀 어썰트", "cost": 120, "color": (160, 0, 255),
+        "symbol": "✦", "cooldown": 20.0, "key": "R",
+        "description": "5연속 잔상 돌진으로 공을 강타합니다.\n발동 중 무적 상태.",
+        "how_to_use": "R키를 눌러 발동 (궁극기)",
+        "effect_type": "ultimate_purple",
+        "is_ultimate": True
+    },
+]
+
+# 바이퍼 스킬 툴팁 관련 변수
+_viper_skill_tooltip_data = None
+_viper_skill_icon_rects = {}
+_viper_skill_icons_cache = {}
+_viper_skill_tooltip_active = False
+
+# 바이퍼 스킬 쿨타임 추적
+_viper_skill_cooldowns = {
+    "shadow_step": 0,
+    "blade_rush": 0,
+    "nerve_strike": 0,
+    "venom_edge": 0,
+    "phantom_assault": 0,
+}
+
+# 바이퍼 스킬 활성화 순간 추적
+_viper_skill_activation_times = {
+    "shadow_step": 0,
+    "blade_rush": 0,
+    "nerve_strike": 0,
+    "venom_edge": 0,
+    "phantom_assault": 0,
+}
+_viper_skill_was_active = {
+    "shadow_step": False,
+    "blade_rush": False,
+    "nerve_strike": False,
+    "venom_edge": False,
+    "phantom_assault": False,
+}
+
+# 바이퍼 스킬 해금 상태
+# 쉐도우 스텝, 블레이드 러쉬는 기본 해금
+# 나머지는 런타임 스킬로 해금 필요
+_viper_skill_unlocked = {
+    "shadow_step": True,      # 기본 해금
+    "blade_rush": True,       # 기본 해금
+    "nerve_strike": False,    # 런타임 스킬로 해금 필요
+    "venom_edge": False,      # 런타임 스킬로 해금 필요
+    "phantom_assault": False,  # 런타임 스킬로 해금 필요
+}
+
+# 툴팁 일시정지로 인한 쿨타임 정지 시간 추적
+_viper_tooltip_pause_start = 0
+_viper_tooltip_pause_accumulated = 0
+
+
+def reset_viper_skill_unlocks():
+    """바이퍼 스킬 해금 상태 초기화 (새 게임 시작 시)"""
+    global _viper_skill_unlocked
+    _viper_skill_unlocked = {
+        "shadow_step": True,
+        "blade_rush": True,
+        "nerve_strike": False,
+        "venom_edge": False,
+        "phantom_assault": False,
+    }
+
+
+def unlock_viper_skill(skill_name: str) -> bool:
+    """바이퍼 스킬 해금. 성공 시 True 반환."""
+    global _viper_skill_unlocked
+    if skill_name in _viper_skill_unlocked:
+        _viper_skill_unlocked[skill_name] = True
+        return True
+    return False
+
+
+def is_viper_skill_unlocked(skill_name: str) -> bool:
+    """바이퍼 스킬이 해금되었는지 확인"""
+    return _viper_skill_unlocked.get(skill_name, False)
+
+
+def trigger_viper_skill_cooldown(skill_name: str):
+    """바이퍼 스킬 쿨타임 시작"""
+    global _viper_skill_cooldowns, _viper_tooltip_pause_accumulated
+    _viper_skill_cooldowns[skill_name] = (pygame.time.get_ticks(), _viper_tooltip_pause_accumulated)
+
+    # 스킬 사용 시 골드 보너스
+    skill_gold = calculate_skill_gold_reward(skill_name)
+    if skill_gold > 0:
+        try:
+            player_x = PLAYER.centerx if 'PLAYER' in globals() else GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+            player_y = PLAYER.centery if 'PLAYER' in globals() else INTERNAL_HEIGHT - 50
+            add_ingame_gold(skill_gold, player_x, player_y - 30, source="skill")
+        except:
+            add_ingame_gold(skill_gold, source="skill")
+
+
+def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
+    """바이퍼 스킬 남은 쿨타임 비율 반환 (0.0 = 완료, 1.0 = 시작)"""
+    global _viper_skill_cooldowns, _viper_tooltip_pause_accumulated
+    global _viper_tooltip_pause_start, _viper_skill_tooltip_active
+
+    cooldown_sec = 0
+    for skill in VIPER_SKILL_ICONS_DATA:
+        if skill["name"] == skill_name:
+            cooldown_sec = skill["cooldown"]
+            break
+
+    if cooldown_sec <= 0:
+        return 0.0
+
+    cooldown_ms = cooldown_sec * 1000
+    cooldown_data = _viper_skill_cooldowns.get(skill_name)
+
+    if cooldown_data is None:
+        return 0.0
+
+    if isinstance(cooldown_data, tuple):
+        start_time, start_pause_accumulated = cooldown_data
+    else:
+        start_time = cooldown_data
+        start_pause_accumulated = 0
+
+    current_time = pygame.time.get_ticks()
+
+    current_pause_time = 0
+    if _viper_skill_tooltip_active and _viper_tooltip_pause_start > 0:
+        current_pause_time = current_time - _viper_tooltip_pause_start
+
+    pause_since_cooldown_start = (_viper_tooltip_pause_accumulated + current_pause_time) - start_pause_accumulated
+
+    elapsed = current_time - start_time - pause_since_cooldown_start
+    if elapsed < 0:
+        elapsed = 0
+
+    if elapsed >= cooldown_ms:
+        return 0.0
+
+    return 1.0 - (elapsed / cooldown_ms)
+
+
+def reset_viper_skill_cooldowns():
+    """모든 바이퍼 스킬 쿨타임 초기화"""
+    global _viper_skill_cooldowns
+    _viper_skill_cooldowns = {
+        "shadow_step": 0,
+        "blade_rush": 0,
+        "nerve_strike": 0,
+        "venom_edge": 0,
+        "phantom_assault": 0,
+    }
+
+
+# ============================================================================
 # 발토르(블랙스미스) 스킬 아이콘 데이터
 # ============================================================================
 BLACKSMITH_SKILL_ICONS_DATA = [
@@ -50508,9 +50695,9 @@ SLINGSHOT_COOLDOWN_FRAMES = 120  # 2초 쿨타임 (60fps * 2)
 SLINGSHOT_GAUGE_COST = 20  # 차징 시 게이지 소모량
 SLINGSHOT_CONTROL_LOCK_TIME = 12  # 0.2초 후딜 (권총보다 짧음)
 # 차징 단계별 필요 프레임
-SLINGSHOT_CHARGE_THRESHOLD_1 = 60   # 1단계: 1초 (60프레임)
-SLINGSHOT_CHARGE_THRESHOLD_2 = 150  # 2단계: 2.5초 (150프레임)
-SLINGSHOT_CHARGE_THRESHOLD_3 = 240  # 3단계: 4초 (240프레임)
+SLINGSHOT_CHARGE_THRESHOLD_1 = 30   # 1단계: 0.5초 (30프레임)
+SLINGSHOT_CHARGE_THRESHOLD_2 = 90   # 2단계: 1.5초 (90프레임)
+SLINGSHOT_CHARGE_THRESHOLD_3 = 180  # 3단계: 3초 (180프레임)
 # 차징 단계별 발사 속도 배율 (권총 SOLDIER_BULLET_SPEED=25 기준)
 SLINGSHOT_SPEED_MULT = {1: 0.7, 2: 1.0, 3: 1.3}
 # 차징 단계별 넉백 배율 (권총 base_power=14 기준)
