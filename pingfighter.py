@@ -69025,20 +69025,9 @@ def draw_slingshot_pose(screen, paddle_rect):
         charge_ratio = get_slingshot_charge_ratio()
         charge_t = clamp(charge_ratio, 0, 1)
 
-        # === 왼팔: 새총을 앞으로 내밈 (보스 방향) ===
-        left_reach = 22 + 6 * charge_t  # 차징 높을수록 더 뻗음
-        left_hand = shoulder_l + aim_dir * left_reach
-        left_elbow = shoulder_l + aim_dir * (left_reach * 0.5) + Vector2(0, 6)
-
-        # 왼팔 그리기
-        pygame.draw.line(screen, arm_shadow, to_int(shoulder_l), to_int(left_elbow), 8)
-        pygame.draw.line(screen, arm_mid, to_int(shoulder_l), to_int(left_elbow), 5)
-        pygame.draw.line(screen, arm_shadow, to_int(left_elbow), to_int(left_hand), 7)
-        pygame.draw.line(screen, arm_mid, to_int(left_elbow), to_int(left_hand), 4)
-        pygame.draw.circle(screen, glove_color, to_int(left_hand), 5)
-        pygame.draw.circle(screen, glove_outline, to_int(left_hand), 5, 1)
-
-        # === 새총 프레임 (왼손에서 보스 방향) ===
+        # === 새총 프레임 (기본 스프라이트 왼손 위치에 부착) ===
+        # 왼팔은 기본 스프라이트 그대로 사용 — 새총만 왼손 앞에 그림
+        left_hand = Vector2(pcx - 28, pcy - 22)  # 기본 스프라이트 왼손 대략 위치
         fork_len = 10
         fork_spread = 6
         fork_base = left_hand + aim_dir * 2
@@ -69057,7 +69046,7 @@ def draw_slingshot_pose(screen, paddle_rect):
         pygame.draw.circle(screen, bolt_col, to_int(fork_tip_l), 2)
         pygame.draw.circle(screen, bolt_col, to_int(fork_tip_r), 2)
 
-        # === 오른팔: 시위를 어깨 뒤로 당김 ===
+        # === 오른팔: 시위를 어깨 뒤로 당김 (오른팔만 별도 그리기) ===
         pull_back = 8 + 18 * charge_t  # 차징 높을수록 뒤로 많이 당김
         right_hand = shoulder_r - aim_dir * pull_back + Vector2(0, -2 * charge_t)
         right_elbow = shoulder_r - aim_dir * (pull_back * 0.45) + Vector2(0, 8)
@@ -69103,17 +69092,8 @@ def draw_slingshot_pose(screen, paddle_rect):
         recoil_t = slingshot_fire_anim_timer / SLINGSHOT_FIRE_ANIM_DURATION
         snap_t = math.sin(recoil_t * math.pi)  # 튕기는 효과
 
-        # 왼팔 (뻗은 상태 유지)
-        left_hand = shoulder_l + aim_dir * 28
-        left_elbow = shoulder_l + aim_dir * 14 + Vector2(0, 6)
-        pygame.draw.line(screen, arm_shadow, to_int(shoulder_l), to_int(left_elbow), 8)
-        pygame.draw.line(screen, arm_mid, to_int(shoulder_l), to_int(left_elbow), 5)
-        pygame.draw.line(screen, arm_shadow, to_int(left_elbow), to_int(left_hand), 7)
-        pygame.draw.line(screen, arm_mid, to_int(left_elbow), to_int(left_hand), 4)
-        pygame.draw.circle(screen, glove_color, to_int(left_hand), 5)
-        pygame.draw.circle(screen, glove_outline, to_int(left_hand), 5, 1)
-
-        # 새총 프레임
+        # 새총 프레임 (기본 스프라이트 왼손에 부착)
+        left_hand = Vector2(pcx - 28, pcy - 22)
         fork_base = left_hand + aim_dir * 2
         fork_tip_l = fork_base + aim_dir * 10 + perp * 6
         fork_tip_r = fork_base + aim_dir * 10 - perp * 6
