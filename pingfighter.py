@@ -71178,11 +71178,22 @@ def handle_player(keys):
 
     # ⚔ 바이퍼 스킬 발동 처리 (W: 블레이드 러쉬, 대쉬후딜+W: 쉐도우 스텝, E: 신경 타격, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
-        _now_ms = pygame.time.get_ticks()
+        global _viper_w_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
+
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
         _viper_q_pressed = keys[pygame.K_q]
         _viper_r_pressed = keys[pygame.K_r]
+
+        # 키 릴리즈 감지 (연속 발동 방지)
+        if not _viper_w_pressed:
+            _viper_w_key_released = True
+        if not _viper_e_pressed:
+            _viper_e_key_released = True
+        if not _viper_q_pressed:
+            _viper_q_key_released = True
+        if not _viper_r_pressed:
+            _viper_r_key_released = True
 
         # 발동 불가 조건 (대쉬 중, 스턴, 서브 대기)
         _viper_can_act = not (
@@ -71193,10 +71204,11 @@ def handle_player(keys):
         )
 
         # 쉐도우 스텝: 대쉬 후딜(rolling_stun_timer) 중 W키 → 후딜 해제 + 순간이동
-        if rolling_stun_timer > 0 and _viper_w_pressed:
+        if rolling_stun_timer > 0 and _viper_w_pressed and _viper_w_key_released:
             if is_viper_skill_unlocked("shadow_step"):
                 if get_viper_skill_cooldown_remaining("shadow_step") <= 0:
                     if special_gauge >= 40:
+                        _viper_w_key_released = False
                         special_gauge -= 40
                         trigger_viper_skill_cooldown("shadow_step")
                         rolling_stun_timer = 0  # 대쉬 후딜 즉시 해제
@@ -71211,10 +71223,11 @@ def handle_player(keys):
 
         elif _viper_can_act:
             # 블레이드 러쉬 (W키)
-            if _viper_w_pressed:
+            if _viper_w_pressed and _viper_w_key_released:
                 if is_viper_skill_unlocked("blade_rush"):
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
                         if special_gauge >= 50:
+                            _viper_w_key_released = False
                             special_gauge -= 50
                             trigger_viper_skill_cooldown("blade_rush")
                             # TODO: 3연속 플라즈마 베기 투사체 발사
@@ -71227,28 +71240,31 @@ def handle_player(keys):
                                 pass
 
             # 신경 타격 (E키)
-            if _viper_e_pressed:
+            if _viper_e_pressed and _viper_e_key_released:
                 if is_viper_skill_unlocked("nerve_strike"):
                     if get_viper_skill_cooldown_remaining("nerve_strike") <= 0:
                         if special_gauge >= 30:
+                            _viper_e_key_released = False
                             special_gauge -= 30
                             trigger_viper_skill_cooldown("nerve_strike")
                             # TODO: 다음 타격 스턴 효과 부여
 
             # 베놈 엣지 (Q키)
-            if _viper_q_pressed:
+            if _viper_q_pressed and _viper_q_key_released:
                 if is_viper_skill_unlocked("venom_edge"):
                     if get_viper_skill_cooldown_remaining("venom_edge") <= 0:
                         if special_gauge >= 80:
+                            _viper_q_key_released = False
                             special_gauge -= 80
                             trigger_viper_skill_cooldown("venom_edge")
                             # TODO: 독 코팅 효과
 
             # 팬텀 어썰트 (R키 - 궁극기)
-            if _viper_r_pressed:
+            if _viper_r_pressed and _viper_r_key_released:
                 if is_viper_skill_unlocked("phantom_assault"):
                     if get_viper_skill_cooldown_remaining("phantom_assault") <= 0:
                         if special_gauge >= 120:
+                            _viper_r_key_released = False
                             special_gauge -= 120
                             trigger_viper_skill_cooldown("phantom_assault")
                             # TODO: 5연속 잔상 돌진
