@@ -11907,6 +11907,17 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "is_weapon_unlock": True,
         "weapon_name": "suicide_drone"
     },
+    "soldier_pistol_perk": {
+        "name": "권총 화기류",
+        "max_level": 1,
+        "descriptions": {
+            1: "기본 화기를 권총으로 교체",
+        },
+        "detail": "기본 새총을 권총으로 교체합니다. 연사 가능하며 탄창 재장전 시스템이 활성화됩니다.",
+        "icon_color": (140, 130, 120),
+        "tree": "soldier_unlock",
+        "character_restriction": "soldier",
+    },
 }
 
 # Viper exclusive skills (사이버 어쌔신 전용 스킬트리)
@@ -13065,6 +13076,9 @@ def reset_runtime_skill_system():
     runtime_swiftness_bonus = 0  # 신속 스킬 보너스 초기화
     transcendent_crown_skill_bonus = 0  # 초월자의 관 스킬 보너스 초기화
     sage_ring_perk_bonus = 0  # 현자의 반지 퍽 보너스 초기화
+    # 코만도 새총/권총 퍽 초기화
+    global soldier_pistol_perk_unlocked
+    soldier_pistol_perk_unlocked = False
     # 퍽 월계수잎 초기화
     if perk_leaf_shield:
         perk_leaf_shield.deactivate()
@@ -13945,6 +13959,20 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         apply_soldier_magazine_mod()
         new_level = runtime_skill_levels.get("soldier_magazine_mod", 0)
         # print(f"[RuntimeSkill] 탄창개조 Lv.{new_level} - 권총 최대 탄환 +{new_level}")
+
+    # 코만도 권총 퍽 (새총→권총 교체)
+    if choice_id == "soldier_pistol_perk":
+        global soldier_pistol_perk_unlocked
+        soldier_pistol_perk_unlocked = True
+        # 새총 차징 상태 초기화
+        cancel_slingshot_charge()
+        # 권총 탄약 초기화
+        global soldier_ammo_count, soldier_max_ammo
+        soldier_ammo_count = get_soldier_pistol_max_ammo()
+        soldier_max_ammo = get_soldier_pistol_max_ammo()
+        print("🔫 권총 퍽 해금! 기본 화기가 권총으로 교체됩니다.")
+        runtime_skill_levels[choice_id] = 1
+        return True
 
     # 코만도 화기류 해금 스킬
     if choice_id.startswith("soldier_unlock_"):
@@ -50469,6 +50497,30 @@ SOLDIER_BULLET_SPEED = 25  # 총알 속도
 SOLDIER_GUN_COOLDOWN = 60  # 1초 쿨타임
 SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 후딜
 
+# === 코만도 새총(매그넘 슬링샷) 시스템 ===
+soldier_pistol_perk_unlocked = False  # 권총 퍽 해금 여부 (해금 시 새총→권총 교체)
+slingshot_charging = False  # 새총 차징 중인지
+slingshot_charge_timer = 0  # 차징 경과 프레임
+slingshot_charge_level = 0  # 현재 차징 단계 (0=미차징, 1/2/3)
+slingshot_cooldown = 0  # 새총 발사 후 쿨타임 타이머
+slingshot_gauge_consumed = False  # 현재 차징에서 게이지 소모했는지
+SLINGSHOT_COOLDOWN_FRAMES = 300  # 5초 쿨타임 (60fps * 5)
+SLINGSHOT_GAUGE_COST = 20  # 차징 시 게이지 소모량
+SLINGSHOT_CONTROL_LOCK_TIME = 12  # 0.2초 후딜 (권총보다 짧음)
+# 차징 단계별 필요 프레임
+SLINGSHOT_CHARGE_THRESHOLD_1 = 60   # 1단계: 1초 (60프레임)
+SLINGSHOT_CHARGE_THRESHOLD_2 = 150  # 2단계: 2.5초 (150프레임)
+SLINGSHOT_CHARGE_THRESHOLD_3 = 240  # 3단계: 4초 (240프레임)
+# 차징 단계별 발사 속도 배율 (권총 SOLDIER_BULLET_SPEED=25 기준)
+SLINGSHOT_SPEED_MULT = {1: 0.7, 2: 1.0, 3: 1.3}
+# 차징 단계별 넉백 배율 (권총 base_power=14 기준)
+SLINGSHOT_KNOCKBACK_MULT = {1: 0.7, 2: 1.0, 3: 1.5}
+# 차징 단계별 스턴 배율 (권총 boss_stunned_timer=18 기준)
+SLINGSHOT_STUN_MULT = {1: 0.7, 2: 1.0, 3: 1.3}
+# 새총 투사체 색상 (금속 탄환)
+SLINGSHOT_PELLET_COLOR = (180, 180, 195)  # 은색 금속 탄환
+SLINGSHOT_PELLET_SIZE = 6  # 탄환 크기 (총알보다 약간 큼)
+
 # === 코만도 화기류 컨트롤러 ===
 soldier_controller = SoldierWeaponController()
 soldier_last_weapon_before_pistol: str | None = None  # 중클릭으로 권총 전환 직전 화기 저장
@@ -63799,6 +63851,202 @@ def fire_soldier_bullet():
     # 권총 탄피 배출
     spawn_pistol_shell_casing()
 
+
+# === 새총(매그넘 슬링샷) 함수들 ===
+
+def get_soldier_base_weapon() -> str:
+    """코만도의 기본 화기류 반환 (새총 또는 권총)"""
+    if soldier_pistol_perk_unlocked:
+        return "pistol"
+    return "slingshot"
+
+
+def is_slingshot_mode() -> bool:
+    """현재 기본 화기가 새총 모드인지 확인"""
+    return not soldier_pistol_perk_unlocked
+
+
+def start_slingshot_charge():
+    """새총 차징 시작"""
+    global slingshot_charging, slingshot_charge_timer, slingshot_charge_level
+    global slingshot_gauge_consumed, special_gauge
+
+    # 쿨타임 중이면 차징 불가
+    if slingshot_cooldown > 0:
+        return False
+
+    # 라운드 시작 3초 제한 체크
+    current_time = pygame.time.get_ticks()
+    if round_start_time > 0 and current_time - round_start_time < 3000:
+        return False
+
+    # 게이지 부족하면 차징 불가
+    if special_gauge < SLINGSHOT_GAUGE_COST:
+        return False
+
+    if not slingshot_charging:
+        slingshot_charging = True
+        slingshot_charge_timer = 0
+        slingshot_charge_level = 0
+        slingshot_gauge_consumed = False
+
+    return True
+
+
+def update_slingshot_charge():
+    """새총 차징 업데이트 (매 프레임 호출)"""
+    global slingshot_charge_timer, slingshot_charge_level
+    global slingshot_gauge_consumed, special_gauge
+    global slingshot_cooldown
+
+    # 쿨타임 감소
+    if slingshot_cooldown > 0:
+        slingshot_cooldown -= 1
+
+    if not slingshot_charging:
+        return
+
+    slingshot_charge_timer += 1
+
+    # 게이지 소모 (차징 시작 시 1회)
+    if not slingshot_gauge_consumed:
+        special_gauge = max(0, special_gauge - SLINGSHOT_GAUGE_COST)
+        slingshot_gauge_consumed = True
+
+    # 차징 단계 판정
+    if slingshot_charge_timer >= SLINGSHOT_CHARGE_THRESHOLD_3:
+        slingshot_charge_level = 3
+    elif slingshot_charge_timer >= SLINGSHOT_CHARGE_THRESHOLD_2:
+        slingshot_charge_level = 2
+    elif slingshot_charge_timer >= SLINGSHOT_CHARGE_THRESHOLD_1:
+        slingshot_charge_level = 1
+    else:
+        slingshot_charge_level = 0
+
+
+def release_slingshot():
+    """새총 차징 해제 (버튼 놓았을 때) - 차징 단계에 따라 발사"""
+    global slingshot_charging, slingshot_charge_timer, slingshot_charge_level
+    global slingshot_cooldown, soldier_control_lock_timer
+
+    if not slingshot_charging:
+        return
+
+    charge_level = slingshot_charge_level
+    slingshot_charging = False
+    slingshot_charge_timer = 0
+
+    # 1단계 미만이면 발사 취소 (불발)
+    if charge_level < 1:
+        slingshot_charge_level = 0
+        return
+
+    # 발사!
+    fire_slingshot_pellet(charge_level)
+
+    # 쿨타임 시작
+    slingshot_cooldown = SLINGSHOT_COOLDOWN_FRAMES
+    # 후딜
+    soldier_control_lock_timer = SLINGSHOT_CONTROL_LOCK_TIME
+    slingshot_charge_level = 0
+
+
+def fire_slingshot_pellet(charge_level: int):
+    """새총 탄환(금속 구슬) 발사"""
+    global soldier_bullets, soldier_gun_drawn
+    global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
+    global soldier_gun_target_x, soldier_gun_target_y
+
+    soldier_gun_drawn = True
+
+    # 조준 대상 설정 (보스 위치)
+    soldier_gun_target_x = BOSS.centerx
+    soldier_gun_target_y = BOSS.centery
+
+    # 플레이어 위치에서 보스 방향으로 탄환 발사
+    player_center_x = PLAYER.centerx
+    player_center_y = PLAYER.centery
+    boss_center_x = BOSS.centerx
+    boss_center_y = BOSS.centery
+
+    dx = boss_center_x - player_center_x
+    dy = boss_center_y - player_center_y
+    distance = math.sqrt(dx**2 + dy**2)
+
+    if distance > 0:
+        base_angle = math.atan2(dy, dx)
+        # 새총은 권총보다 정확함: 차징 단계가 높을수록 정확도 증가
+        spread = {1: 12, 2: 8, 3: 4}
+        random_offset = random.uniform(-spread[charge_level], spread[charge_level])
+        random_offset_rad = math.radians(random_offset)
+        final_angle = base_angle + random_offset_rad
+
+        dx_norm = math.cos(final_angle)
+        dy_norm = math.sin(final_angle)
+
+        # 차징 단계별 발사 속도
+        speed = int(round(SOLDIER_BULLET_SPEED * SLINGSHOT_SPEED_MULT[charge_level]))
+
+        # 탄환 색상: 차징 단계별로 다름
+        if charge_level == 3:
+            pellet_color = (255, 200, 100)  # 금색 (3단계)
+        elif charge_level == 2:
+            pellet_color = (200, 200, 210)  # 밝은 은색 (2단계)
+        else:
+            pellet_color = SLINGSHOT_PELLET_COLOR  # 기본 은색 (1단계)
+
+        bullet_start_x = player_center_x
+        bullet_start_y = player_center_y - 20
+
+        bullet = {
+            "x": bullet_start_x,
+            "y": bullet_start_y,
+            "vel_x": dx_norm * speed,
+            "vel_y": dy_norm * speed,
+            "active": True,
+            "rock_bounces": 0,
+            "color": pellet_color,
+            "slingshot": True,  # 새총 탄환 플래그
+            "charge_level": charge_level,  # 차징 단계 저장 (넉백/스턴 계산용)
+        }
+        soldier_bullets.append(bullet)
+
+        # 새총 발사 효과음
+        try:
+            sling_sound = pygame.mixer.Sound(resource_path("sounds/shurikenthrow.wav"))
+            sling_sound.set_volume(0.6)
+            sling_sound.play()
+        except:
+            pass
+
+
+def cancel_slingshot_charge():
+    """새총 차징 강제 취소 (피격 등)"""
+    global slingshot_charging, slingshot_charge_timer, slingshot_charge_level
+    slingshot_charging = False
+    slingshot_charge_timer = 0
+    slingshot_charge_level = 0
+
+
+def get_slingshot_charge_ratio() -> float:
+    """차징 게이지 비율 반환 (0.0 ~ 1.0, 3단계 최대 기준)"""
+    if not slingshot_charging:
+        return 0.0
+    return min(1.0, slingshot_charge_timer / SLINGSHOT_CHARGE_THRESHOLD_3)
+
+
+def get_slingshot_knockback_power(charge_level: int) -> float:
+    """새총 차징 단계별 넉백 파워 반환"""
+    base_power = 14  # 권총과 동일한 기본 넉백
+    return base_power * SLINGSHOT_KNOCKBACK_MULT.get(charge_level, 1.0)
+
+
+def get_slingshot_stun_frames(charge_level: int) -> int:
+    """새총 차징 단계별 스턴 프레임 반환"""
+    base_stun = 18  # 권총과 동일한 기본 스턴 (0.3초)
+    return int(base_stun * SLINGSHOT_STUN_MULT.get(charge_level, 1.0))
+
+
 def start_soldier_reload():
     """코만도 탄약 재장전 시작"""
     global soldier_reloading, soldier_reload_timer, special_gauge, soldier_last_reload_bullets
@@ -66020,6 +66268,138 @@ def draw_soldier_weapon_ui(screen):
                 (weapon_rect.right - 4, weapon_rect.bottom - 4),
                 2
             )
+    elif is_slingshot_mode():
+        # === 매그넘 새총 무기 아이콘 표시 (금속 슬링샷) ===
+        import math
+        current_time = pygame.time.get_ticks()
+        base_x, base_y = weapon_rect.x, weapon_rect.y
+        w, h = weapon_rect.width, weapon_rect.height
+        sling_available = slingshot_cooldown <= 0
+
+        pulse = math.sin(current_time * 0.004) * 0.5 + 0.5
+
+        # 색상
+        if sling_available:
+            metal_body = (120, 125, 135)
+            metal_dark = (70, 72, 80)
+            metal_light = (170, 175, 185)
+            band_color = (180, 140, 60)
+            led_color = (80, 255, 80)
+        else:
+            metal_body = (90, 90, 95)
+            metal_dark = (60, 60, 65)
+            metal_light = (120, 120, 125)
+            band_color = (120, 100, 60)
+            led_color = (80, 80, 80)
+
+        # 그림자
+        shadow_r = pygame.Rect(base_x + int(w * 0.2), base_y + int(h * 0.82), int(w * 0.6), int(h * 0.06))
+        pygame.draw.ellipse(screen, (0, 0, 0, 50), shadow_r)
+
+        cx = base_x + w // 2
+        # Y자 프레임 (금속)
+        fork_top_y = base_y + int(h * 0.12)
+        fork_mid_y = base_y + int(h * 0.42)
+        handle_bot_y = base_y + int(h * 0.82)
+        fork_spread = int(w * 0.30)
+
+        # 왼쪽 갈래
+        pygame.draw.line(screen, metal_dark, (cx - fork_spread, fork_top_y), (cx - 2, fork_mid_y), 3)
+        pygame.draw.line(screen, metal_light, (cx - fork_spread + 1, fork_top_y + 1), (cx - 1, fork_mid_y), 1)
+        # 오른쪽 갈래
+        pygame.draw.line(screen, metal_dark, (cx + fork_spread, fork_top_y), (cx + 2, fork_mid_y), 3)
+        pygame.draw.line(screen, metal_light, (cx + fork_spread - 1, fork_top_y + 1), (cx + 1, fork_mid_y), 1)
+        # 손잡이
+        handle_w = max(5, int(w * 0.14))
+        pygame.draw.rect(screen, metal_body, (cx - handle_w // 2, fork_mid_y, handle_w, handle_bot_y - fork_mid_y))
+        pygame.draw.rect(screen, metal_dark, (cx - handle_w // 2, fork_mid_y, handle_w, handle_bot_y - fork_mid_y), 1)
+        # 그립 질감
+        for gi in range(4):
+            gy = fork_mid_y + int((handle_bot_y - fork_mid_y) * 0.3) + gi * int((handle_bot_y - fork_mid_y) * 0.15)
+            pygame.draw.line(screen, metal_dark, (cx - handle_w // 2 + 1, gy), (cx + handle_w // 2 - 1, gy), 1)
+
+        # 고무 밴드 (양 갈래 끝을 연결)
+        band_sag = int(h * 0.08)  # 밴드 처짐
+        # 차징 중이면 밴드가 당겨짐
+        if slingshot_charging:
+            band_sag = int(h * 0.02 + h * 0.20 * get_slingshot_charge_ratio())
+        # 왼쪽 밴드
+        band_mid_x = cx
+        band_mid_y = fork_top_y + band_sag
+        pygame.draw.line(screen, band_color, (cx - fork_spread, fork_top_y), (band_mid_x, band_mid_y), 2)
+        pygame.draw.line(screen, band_color, (cx + fork_spread, fork_top_y), (band_mid_x, band_mid_y), 2)
+
+        # 차징 중이면 탄환 표시
+        if slingshot_charging and slingshot_charge_level > 0:
+            pellet_r = 3 + slingshot_charge_level
+            if slingshot_charge_level == 3:
+                pellet_c = (255, 200, 100)
+            elif slingshot_charge_level == 2:
+                pellet_c = (200, 200, 210)
+            else:
+                pellet_c = SLINGSHOT_PELLET_COLOR
+            pygame.draw.circle(screen, pellet_c, (band_mid_x, band_mid_y), pellet_r)
+            pygame.draw.circle(screen, metal_dark, (band_mid_x, band_mid_y), pellet_r, 1)
+
+        # 갈래 끝 금속 볼
+        for fx in [cx - fork_spread, cx + fork_spread]:
+            pygame.draw.circle(screen, metal_light, (fx, fork_top_y), 3)
+            pygame.draw.circle(screen, metal_dark, (fx, fork_top_y), 3, 1)
+
+        # LED 인디케이터
+        if sling_available:
+            led_x = base_x + int(w * 0.85)
+            led_y = base_y + int(h * 0.2)
+            led_r = max(1, int(h * 0.03))
+            glow_surf = pygame.Surface((led_r * 4, led_r * 4), pygame.SRCALPHA)
+            glow_alpha = int(60 * pulse)
+            pygame.draw.circle(glow_surf, (*led_color, glow_alpha), (led_r * 2, led_r * 2), led_r * 2)
+            screen.blit(glow_surf, (led_x - led_r * 2, led_y - led_r * 2))
+            pygame.draw.circle(screen, led_color, (led_x, led_y), led_r)
+
+        # === 차징 게이지 바 (새총 아이콘 아래) ===
+        if slingshot_charging:
+            gauge_x = weapon_rect.x
+            gauge_y = weapon_rect.y + weapon_rect.height + 4
+            gauge_w = weapon_rect.width
+            gauge_h = 6
+            # 배경
+            pygame.draw.rect(screen, (30, 30, 30), (gauge_x, gauge_y, gauge_w, gauge_h))
+            # 차징 비율
+            ratio = get_slingshot_charge_ratio()
+            fill_w = int(gauge_w * ratio)
+            # 단계별 색상
+            if slingshot_charge_level >= 3:
+                bar_color = (255, 200, 50)  # 금색
+            elif slingshot_charge_level >= 2:
+                bar_color = (100, 200, 255)  # 파란색
+            elif slingshot_charge_level >= 1:
+                bar_color = (100, 255, 100)  # 초록색
+            else:
+                bar_color = (180, 180, 180)  # 회색
+            pygame.draw.rect(screen, bar_color, (gauge_x, gauge_y, fill_w, gauge_h))
+            pygame.draw.rect(screen, (80, 80, 80), (gauge_x, gauge_y, gauge_w, gauge_h), 1)
+            # 단계 구분선
+            for threshold, frac in [(SLINGSHOT_CHARGE_THRESHOLD_1, SLINGSHOT_CHARGE_THRESHOLD_1 / SLINGSHOT_CHARGE_THRESHOLD_3),
+                                    (SLINGSHOT_CHARGE_THRESHOLD_2, SLINGSHOT_CHARGE_THRESHOLD_2 / SLINGSHOT_CHARGE_THRESHOLD_3)]:
+                line_x = gauge_x + int(gauge_w * frac)
+                pygame.draw.line(screen, (200, 200, 200), (line_x, gauge_y), (line_x, gauge_y + gauge_h), 1)
+
+        # === 쿨타임 오버레이 ===
+        elif slingshot_cooldown > 0:
+            cooldown_ratio = slingshot_cooldown / SLINGSHOT_COOLDOWN_FRAMES
+            # 쿨타임 오버레이
+            cd_surface = pygame.Surface((weapon_rect.width, weapon_rect.height), pygame.SRCALPHA)
+            cd_fill_h = int(weapon_rect.height * cooldown_ratio)
+            cd_surface.fill((0, 0, 0, 120), (0, weapon_rect.height - cd_fill_h, weapon_rect.width, cd_fill_h))
+            screen.blit(cd_surface, (weapon_rect.x, weapon_rect.y))
+            # 쿨타임 초 표시
+            cd_sec = slingshot_cooldown / 60.0
+            cd_text = render_weapon_label(f"{cd_sec:.1f}", (255, 255, 255), 14)
+            if cd_text:
+                cd_rect = cd_text.get_rect(center=weapon_rect.center)
+                screen.blit(cd_text, cd_rect)
+
     else:
         # 권총 무기 정보 표시 (고퀄리티 3D 스타일 + 애니메이션)
         import math
@@ -66284,9 +66664,11 @@ def draw_soldier_weapon_ui(screen):
                 2
             )
     
-    # 권총 탄약 표시 (권총이 선택되었거나 화기류가 없는 경우에만)
+    # 권총 탄약 표시 (권총이 선택되었거나 화기류가 없는 경우에만, 새총 모드에서는 숨김)
     show_pistol_ammo = True
-    if soldier_controller.weapons:
+    if is_slingshot_mode():
+        show_pistol_ammo = False  # 새총 모드에서는 탄약 표시 안 함
+    elif soldier_controller.weapons:
         if current_weapon != "pistol":
             show_pistol_ammo = False
 
@@ -66457,7 +66839,7 @@ def draw_soldier_weapon_ui(screen):
     
     # 현재 무기 이름 표시 (강조 효과 있을 때 더 크게)
     weapon_names = {
-        "pistol": "권총",
+        "pistol": "새총" if is_slingshot_mode() else "권총",
         "bazooka": "바주카포",
         "ak47": "AK-47",
         "net_gun": "그물덫총",
@@ -66465,7 +66847,7 @@ def draw_soldier_weapon_ui(screen):
         "suicide_drone": "자폭드론",
         "bowling_trap": "볼링트랩",
     }
-    
+
     weapon_name = weapon_names.get(current_weapon, current_weapon)
     # 글자 짤림 방지: 권총 UI와 동일하게 더 작게
     font_size = 18 if highlight_active else 14
@@ -66532,8 +66914,8 @@ def draw_soldier_weapon_ui(screen):
     except Exception as e:
         pass  # print(f"[DEBUG] 무기 이름 렌더링 실패: {e}")
 
-    # === 권총 탄약 소진 시 비활성화 오버레이 ===
-    if current_weapon == "pistol" and soldier_pistol_ammo <= 0:
+    # === 권총 탄약 소진 시 비활성화 오버레이 (새총 모드에서는 적용 안 함) ===
+    if current_weapon == "pistol" and not is_slingshot_mode() and soldier_pistol_ammo <= 0:
         # 비활성화 오버레이 (어두운 반투명)
         disabled_surface = pygame.Surface((weapon_size, weapon_size), pygame.SRCALPHA)
         disabled_surface.fill((0, 0, 0, 140))
@@ -66733,29 +67115,38 @@ def create_blood_particles(x, y, bullet_vx, bullet_vy):
             "gravity": random.uniform(0.3, 0.6)  # 중력 효과
         })
 
-def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
-    """코만도 총알의 보스 패들 넉백 효과 트리거 (라그나로크 해머 방식 참조)"""
+def trigger_soldier_bullet_knockback(bullet_x, bullet_y, slingshot_charge=0):
+    """코만도 총알의 보스 패들 넉백 효과 트리거 (라그나로크 해머 방식 참조)
+    slingshot_charge: 새총 차징 단계 (0=권총, 1/2/3=새총 차징 단계)
+    """
     global boss_knockback_timer, boss_knockback_vel
-    
-    # 라그나로크 해머 방식의 넉백 곈4산 (홍련 화염탄 수준)
-    base_power = 14  # 기본 넉백 파워 (홍련 화염탄 수준으로 조정)
-    
-    # 보스 위치에 따라 방향 결정 (라그나로크 해머와 동일한 로직)
-    center_x = 300  # 화면 중앙
+
+    base_power = 14  # 기본 넉백 파워
+
+    # 새총 차징 단계별 넉백 배율 적용
+    if slingshot_charge > 0:
+        base_power = get_slingshot_knockback_power(slingshot_charge)
+
+    # 보스 위치에 따라 방향 결정
+    center_x = 300
     boss_x = BOSS.x
-    
-    if boss_x + 50 < center_x:  # 보스가 왼쪽에 있으면
-        horizontal_velocity = base_power  # 오른쪽으로 넉백
-    else:  # 보스가 오른쪽에 있으면
-        horizontal_velocity = -base_power  # 왼쪽으로 넉백
-    
+
+    if boss_x + 50 < center_x:
+        horizontal_velocity = base_power
+    else:
+        horizontal_velocity = -base_power
+
     # 랜덤 추가 넉백 (10-20%)
     import random
     random_factor = 1.0 + random.uniform(0.1, 0.2)
     horizontal_velocity *= random_factor
-    
-    # 라그나로크 해머 넉백 시스템 활용
-    boss_knockback_timer = 18  # 0.3초간 넉백 효과 지속 (화염탄과 동일한 거리)
+
+    # 넉백 지속 시간 (새총 3단계는 더 길게)
+    knockback_duration = 18
+    if slingshot_charge == 3:
+        knockback_duration = 24  # 3단계: 0.4초
+
+    boss_knockback_timer = knockback_duration
     boss_knockback_vel = _apply_boss_knockback_velocity(horizontal_velocity)
 
 def _handle_commando_rock_collision(
@@ -66950,43 +67341,54 @@ def update_soldier_bullets():
                 bullet["active"] = False
                 global boss_stunned_timer, leg_shot_active, leg_shot_timer, leg_shot_text_timer
                 global head_shot_active, head_shot_timer, head_shot_text_timer
-                
+
+                # 새총 차징 단계 확인
+                _bullet_slingshot_charge = bullet.get("charge_level", 0) if bullet.get("slingshot") else 0
+
                 # 헤드샷과 레그샷 중 하나만 발동 (도핑 효과 반영)
                 shot_roll = random.random()
                 head_chance, leg_chance = get_soldier_shot_probabilities()
                 if shot_roll < head_chance:
                     # 헤드샷 발동 (1초 스턴)
                     head_shot_active = True
-                    head_shot_timer = HEAD_SHOT_DURATION  # 1초간 스턴
-                    head_shot_text_timer = HEAD_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
-                    boss_stunned_timer = HEAD_SHOT_DURATION  # 별 효과를 위한 타이머 (1초)
-                    # print("💥 헤드샷! 보스 1초간 스턴!")
+                    head_shot_timer = HEAD_SHOT_DURATION
+                    head_shot_text_timer = HEAD_SHOT_TEXT_DURATION
+                    boss_stunned_timer = HEAD_SHOT_DURATION
                 elif shot_roll < head_chance + leg_chance:
-                    # 레그샷 발동 (헤드샷이 발동하지 않은 경우에만)
+                    # 레그샷 발동
                     leg_shot_active = True
-                    leg_shot_timer = LEG_SHOT_DURATION  # 2.2초간 지속
-                    leg_shot_text_timer = LEG_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
-                    # print("🎯 레그샷! 보스 이동속도 30% 감소!")
+                    leg_shot_timer = LEG_SHOT_DURATION
+                    leg_shot_text_timer = LEG_SHOT_TEXT_DURATION
                 else:
-                    # 일반 명중 (0.3초 스턴)
-                    boss_stunned_timer = 18  # 0.3초 스턴
-                
-                # 라그나로크 해머 방식의 넉백 효과 적용
-                trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
+                    # 일반 명중 스턴 (새총은 차징 단계별, 권총은 고정 0.3초)
+                    if _bullet_slingshot_charge > 0:
+                        boss_stunned_timer = get_slingshot_stun_frames(_bullet_slingshot_charge)
+                    else:
+                        boss_stunned_timer = 18  # 0.3초 스턴
+
+                # 넉백 효과 적용 (새총 차징 단계 전달)
+                trigger_soldier_bullet_knockback(bullet["x"], bullet["y"], slingshot_charge=_bullet_slingshot_charge)
                 
                 # 피 튀기는 파티클 효과 추가
                 create_blood_particles(bullet["x"], bullet["y"], bullet["vel_x"], bullet["vel_y"])
                 
                 # 타격 효과음
                 try:
-                    hit_sound = pygame.mixer.Sound(resource_path("sounds/bullethit.wav"))
-                    hit_sound.set_volume(0.6)
+                    if _bullet_slingshot_charge > 0:
+                        # 새총 타격음 (금속 구슬 타격)
+                        hit_sound = pygame.mixer.Sound(resource_path("sounds/rockhit.wav"))
+                        hit_sound.set_volume(0.5 + _bullet_slingshot_charge * 0.1)
+                    else:
+                        hit_sound = pygame.mixer.Sound(resource_path("sounds/bullethit.wav"))
+                        hit_sound.set_volume(0.6)
                     hit_sound.play()
                 except:
                     pass
-                
+
                 # 타격 이펙트 생성
-                for _ in range(10):
+                _hit_color = bullet.get("color", SOLDIER_BULLET_COLOR)
+                _hit_count = 10 + (_bullet_slingshot_charge * 3)  # 새총 차징 높을수록 이펙트 많음
+                for _ in range(_hit_count):
                     impact_particles.append({
                         "x": bullet["x"],
                         "y": bullet["y"],
@@ -66994,7 +67396,7 @@ def update_soldier_bullets():
                         "vy": random.uniform(-5, 5),
                         "size": random.uniform(3, 6),
                         "alpha": 255,
-                        "color": SOLDIER_BULLET_COLOR,
+                        "color": _hit_color,
                         "life": 30
                     })
                 
@@ -67040,7 +67442,7 @@ def update_soldier_bullets():
                         soldier_pistol_boss_hit_count = 0
 
                 # 넉백 효과 트리거 - 기존 시스템 사용 (boss_knockback_vel을 설정하는 함수)
-                trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
+                trigger_soldier_bullet_knockback(bullet["x"], bullet["y"], slingshot_charge=_bullet_slingshot_charge)
 
             # Stage 7: 코만도 권총 탄환이 테트로/가드에 닿으면 증발/파괴(탄환은 소멸)
             if bullet["active"] and current_stage == 7:
@@ -67181,19 +67583,29 @@ def draw_blood_particles(screen):
                         int(particle["y"] - size)))
 
 def draw_soldier_bullets(screen):
-    """코만도 총알 그리기"""
+    """코만도 총알/새총 탄환 그리기"""
     for bullet in soldier_bullets:
         if bullet["active"]:
-            # 총알 본체
             color = bullet.get("color", SOLDIER_BULLET_COLOR)
-            pygame.draw.circle(screen, color, 
-                             (int(bullet["x"]), int(bullet["y"])), 
-                             SOLDIER_BULLET_SIZE)
-            
-            # 총알 광택 효과
-            pygame.draw.circle(screen, (255, 255, 200), 
-                             (int(bullet["x"] - 2), int(bullet["y"] - 2)), 
-                             SOLDIER_BULLET_SIZE // 2)
+            bx, by = int(bullet["x"]), int(bullet["y"])
+
+            if bullet.get("slingshot"):
+                # 새총 금속 구슬 (원형 + 금속 광택)
+                charge = bullet.get("charge_level", 1)
+                size = SLINGSHOT_PELLET_SIZE + (charge - 1)  # 차징 높을수록 큼
+                pygame.draw.circle(screen, color, (bx, by), size)
+                # 금속 광택 (하이라이트)
+                pygame.draw.circle(screen, (255, 255, 240), (bx - 1, by - 1), max(1, size // 2))
+                # 3단계: 금색 글로우
+                if charge == 3:
+                    glow_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (255, 200, 50, 60), (size * 2, size * 2), size * 2)
+                    screen.blit(glow_surf, (bx - size * 2, by - size * 2))
+            else:
+                # 기존 권총 총알
+                pygame.draw.circle(screen, color, (bx, by), SOLDIER_BULLET_SIZE)
+                # 총알 광택 효과
+                pygame.draw.circle(screen, (255, 255, 200), (bx - 2, by - 2), SOLDIER_BULLET_SIZE // 2)
 
 
 def create_slow_wave_surface(width, height, base_color=(170, 120, 255), intensity=1.0, wave_count=3):
@@ -73401,8 +73813,26 @@ def handle_player(keys):
                                 soldier_control_lock_timer = bowling_trap.INSTALL_FRAMES + 10
                                 # print(f"🎳 볼링트랩 설치 시작! 남은 탄약: {bowling_trap.ammo_count - 1}/{bowling_trap.MAX_AMMO}")
                 else:
-                    # 권총 발사
-                    fire_soldier_bullet()
+                    # 기본 화기류 발사 (새총 또는 권총)
+                    if is_slingshot_mode():
+                        # 새총: 차징 시작 (space_just_pressed 시)
+                        start_slingshot_charge()
+                    else:
+                        # 권총 퍽 해금 후: 기존 권총 발사
+                        fire_soldier_bullet()
+
+        # === 새총 차징 업데이트 (매 프레임) ===
+        if selected_character_type == "soldier" and is_slingshot_mode():
+            update_slingshot_charge()
+            # 차징 중인데 버튼을 놓으면 발사
+            if slingshot_charging:
+                holding = False
+                try:
+                    holding = keys[pygame.K_SPACE] or pygame.mouse.get_pressed()[0]
+                except Exception:
+                    pass
+                if not holding:
+                    release_slingshot()
 
         if selected_character_type == "soldier" and net_gun_instance:
             _update_net_constrict()
@@ -75777,6 +76207,9 @@ def apply_loaded_progress(save_data: dict) -> bool:
                     pass  # print(f"[로드] 런타임 스킬 복원 완료 - 활성 스킬: {active_runtime_skills}")
                 else:
                     pass  # print(f"[로드] 런타임 스킬 복원 완료 (활성 스킬 없음)")
+                # 권총 퍽 복원
+                if runtime_skill_levels.get("soldier_pistol_perk", 0) > 0:
+                    soldier_pistol_perk_unlocked = True
         except Exception as runtime_err:
             print(f"[로드] 런타임 스킬 복원 실패: {runtime_err}")
 
@@ -96606,7 +97039,7 @@ def draw_player_gauge():
             SCREEN.blit(hint_surface, hint_rect)
 
             weapon_display_names = {
-                "pistol": "권총",
+                "pistol": "새총" if is_slingshot_mode() else "권총",
                 "bazooka": "바주카포",
                 "ak47": "AK-47",
                 "net_gun": "그물덫총",
@@ -96702,7 +97135,7 @@ def draw_player_gauge():
                     try:
                         # 무기명 변환
                         weapon_display_names = {
-                            "pistol": "권총",
+                            "pistol": "새총" if is_slingshot_mode() else "권총",
                             "bazooka": "바주카포",
                             "ak47": "AK-47",
                             "net_gun": "그물덫총",
@@ -149687,6 +150120,14 @@ def main(stage_num, new_boss_mode=False):
     soldier_gun_cooldown = 0
     soldier_control_lock_timer = 0
     soldier_gun_drawn = False
+    # 새총(슬링샷) 상태 초기화
+    global slingshot_charging, slingshot_charge_timer, slingshot_charge_level
+    global slingshot_cooldown, slingshot_gauge_consumed
+    slingshot_charging = False
+    slingshot_charge_timer = 0
+    slingshot_charge_level = 0
+    slingshot_cooldown = 0
+    slingshot_gauge_consumed = False
     soldier_right_hook_active = False
     soldier_right_hook_timer = 0
     global soldier_right_hook_phase
