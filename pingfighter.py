@@ -71231,6 +71231,9 @@ def handle_player(keys):
     # ⚔ 바이퍼 스킬 발동 처리 (W: 블레이드 러쉬, 대쉬후딜+W: 쉐도우 스텝, E: 신경 타격, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
+        global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y
+        global _viper_blade_rush_start_y, _viper_blade_rush_target_y, _viper_blade_rush_hit_ball
+        global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
 
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
