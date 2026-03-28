@@ -8284,6 +8284,16 @@ class BuildingInterior:
             "bluetooth_ring": "블루투스링",
             "bulletproof_hat": "방탄모자",
             "hero_seal": "호위무사의 인장",
+            "adversity_armor": "역경의 갑옷",
+            "shrapnel_armor": "파편갑옷",
+            "lucky_coin": "럭키코인",
+            "gold_digger": "골드디거",
+            "magnet_field": "자기장발생기",
+            "boomerang": "부메랑",
+            "soap": "비누",
+            "soul_burst": "소울버스트",
+            "strange_vial": "기묘한 약병",
+            "sage_ring": "현자의 반지",
         }
         return name_map.get(item_name, item_name)
 
