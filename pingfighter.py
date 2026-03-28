@@ -161463,17 +161463,8 @@ def show_character_info(background_surface=None):
             options_entries = hover_info.get("options") or []
             # 현자의 반지: 롤옵션 없지만 고정효과를 우측 패널에 표시
             if hover_info.get("raw_name") == "sage_ring" and not options_entries:
-                _sr_equipped = False
-                try:
-                    _sr_items = [it for it in passive_item_list if isinstance(it, dict) and it.get("name") == "sage_ring"]
-                    _sr_equipped = any(it.get("_equipped_slot") for it in _sr_items)
-                except Exception:
-                    pass
                 options_entries = [
-                    {"text": "── 고정효과 ──", "color": (180, 140, 255)},
                     {"text": "모든 퍽 레벨 +1", "color": (255, 230, 140)},
-                    {"text": "", "color": (100, 100, 100)},
-                    {"text": "장착 중" if _sr_equipped else "미장착", "color": (100, 255, 100) if _sr_equipped else (150, 150, 150)},
                 ]
             # 패시브 아이템 롤 옵션이 있으면 설명/능력치를 양쪽 박스로 분리
             dual_rendered = False
