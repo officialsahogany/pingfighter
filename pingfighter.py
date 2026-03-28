@@ -64670,14 +64670,18 @@ def fire_slingshot_pellet(charge_level: int):
     global soldier_bullets, soldier_gun_drawn
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
     global soldier_gun_target_x, soldier_gun_target_y
+    global slingshot_fire_anim_timer
 
     soldier_gun_drawn = True
+
+    # 발사 반동 애니메이션 시작
+    slingshot_fire_anim_timer = SLINGSHOT_FIRE_ANIM_DURATION
 
     # 조준 대상 설정 (보스 위치)
     soldier_gun_target_x = BOSS.centerx
     soldier_gun_target_y = BOSS.centery
 
-    # 플레이어 위치에서 보스 방향으로 탄환 발사
+    # 새총 위치에서 발사 (포즈 애니메이션의 muzzle 좌표 사용)
     player_center_x = PLAYER.centerx
     player_center_y = PLAYER.centery
     boss_center_x = BOSS.centerx
@@ -64709,8 +64713,13 @@ def fire_slingshot_pellet(charge_level: int):
         else:
             pellet_color = SLINGSHOT_PELLET_COLOR  # 기본 은색 (1단계)
 
-        bullet_start_x = player_center_x
-        bullet_start_y = player_center_y - 20
+        # 새총 포즈의 muzzle 좌표 사용 (없으면 플레이어 중심)
+        if slingshot_fire_muzzle_x != 0 and slingshot_fire_muzzle_y != 0:
+            bullet_start_x = slingshot_fire_muzzle_x
+            bullet_start_y = slingshot_fire_muzzle_y
+        else:
+            bullet_start_x = player_center_x
+            bullet_start_y = player_center_y - 20
 
         bullet = {
             "x": bullet_start_x,
@@ -64720,8 +64729,8 @@ def fire_slingshot_pellet(charge_level: int):
             "active": True,
             "rock_bounces": 0,
             "color": pellet_color,
-            "slingshot": True,  # 새총 탄환 플래그
-            "charge_level": charge_level,  # 차징 단계 저장 (넉백/스턴 계산용)
+            "slingshot": True,
+            "charge_level": charge_level,
         }
         soldier_bullets.append(bullet)
 
@@ -68713,6 +68722,180 @@ def draw_soldier_gun_animation(screen, paddle_rect):
         )
         pygame.draw.line(screen, flame_color, to_int_pair(muzzle), to_int_pair(flame_end), 6)
         pygame.draw.line(screen, (255, 255, 255), to_int_pair(muzzle), to_int_pair(core_end), 3)
+
+
+# === 새총 차징/발사 포즈 애니메이션 ===
+slingshot_fire_anim_timer = 0  # 발사 후 반동 애니메이션 타이머
+SLINGSHOT_FIRE_ANIM_DURATION = 12  # 발사 반동 지속 (0.2초)
+slingshot_fire_muzzle_x = 0  # 발사 시 새총 끝 좌표 (탄환 스폰용)
+slingshot_fire_muzzle_y = 0
+
+
+def draw_slingshot_pose(screen, paddle_rect):
+    """코만도 새총 차징/발사 포즈 그리기
+    - 차징 중: 왼손 앞으로 새총, 오른손 뒤로 시위 당기기
+    - 발사 시: 시위 놓으면서 반동
+    """
+    global slingshot_fire_anim_timer, slingshot_fire_muzzle_x, slingshot_fire_muzzle_y
+
+    is_charging = slingshot_charging and slingshot_charge_level >= 0
+    is_fire_recoil = slingshot_fire_anim_timer > 0
+
+    if not is_charging and not is_fire_recoil:
+        return
+
+    Vector2 = pygame.math.Vector2
+
+    def clamp(v, lo, hi):
+        return max(lo, min(hi, v))
+
+    def to_int(vec):
+        return int(round(vec.x)), int(round(vec.y))
+
+    pcx = paddle_rect.centerx
+    pcy = paddle_rect.centery
+
+    # 보스 방향 계산
+    target = Vector2(BOSS.centerx, BOSS.centery)
+    aim_dir = target - Vector2(pcx, pcy)
+    if aim_dir.length_squared() < 1:
+        aim_dir = Vector2(0, -1)
+    aim_dir = aim_dir.normalize()
+    perp = Vector2(-aim_dir.y, aim_dir.x)  # 직교 벡터
+
+    # 어깨 기준점
+    shoulder_l = Vector2(pcx - 12, pcy - 16)  # 왼쪽 어깨 (새총 잡는 손)
+    shoulder_r = Vector2(pcx + 12, pcy - 16)  # 오른쪽 어깨 (시위 당기는 손)
+
+    # 색상
+    arm_mid = (124, 108, 74)
+    arm_shadow = (96, 84, 54)
+    glove_color = (206, 182, 150)
+    glove_outline = (172, 144, 118)
+    frame_mid = (65, 72, 58)
+    frame_dark = (40, 45, 38)
+    band_outer = (60, 55, 45)
+    band_inner = (140, 120, 70)
+    bolt_col = (100, 100, 110)
+
+    if is_charging:
+        charge_ratio = get_slingshot_charge_ratio()
+        charge_t = clamp(charge_ratio, 0, 1)
+
+        # === 왼팔: 새총을 앞으로 내밈 (보스 방향) ===
+        left_reach = 22 + 6 * charge_t  # 차징 높을수록 더 뻗음
+        left_hand = shoulder_l + aim_dir * left_reach
+        left_elbow = shoulder_l + aim_dir * (left_reach * 0.5) + Vector2(0, 6)
+
+        # 왼팔 그리기
+        pygame.draw.line(screen, arm_shadow, to_int(shoulder_l), to_int(left_elbow), 8)
+        pygame.draw.line(screen, arm_mid, to_int(shoulder_l), to_int(left_elbow), 5)
+        pygame.draw.line(screen, arm_shadow, to_int(left_elbow), to_int(left_hand), 7)
+        pygame.draw.line(screen, arm_mid, to_int(left_elbow), to_int(left_hand), 4)
+        pygame.draw.circle(screen, glove_color, to_int(left_hand), 5)
+        pygame.draw.circle(screen, glove_outline, to_int(left_hand), 5, 1)
+
+        # === 새총 프레임 (왼손에서 보스 방향) ===
+        fork_len = 10
+        fork_spread = 6
+        fork_base = left_hand + aim_dir * 2
+        fork_tip_l = fork_base + aim_dir * fork_len + perp * fork_spread
+        fork_tip_r = fork_base + aim_dir * fork_len - perp * fork_spread
+
+        # 프레임 몸체 (손잡이 → 갈래)
+        pygame.draw.line(screen, frame_mid, to_int(fork_base - aim_dir * 4), to_int(fork_base), 4)
+        pygame.draw.line(screen, frame_dark, to_int(fork_base - aim_dir * 4), to_int(fork_base), 4)
+        # Y자 갈래
+        pygame.draw.line(screen, frame_mid, to_int(fork_base), to_int(fork_tip_l), 3)
+        pygame.draw.line(screen, frame_mid, to_int(fork_base), to_int(fork_tip_r), 3)
+        pygame.draw.line(screen, frame_dark, to_int(fork_base), to_int(fork_tip_l), 1)
+        pygame.draw.line(screen, frame_dark, to_int(fork_base), to_int(fork_tip_r), 1)
+        # 갈래 끝 볼트
+        pygame.draw.circle(screen, bolt_col, to_int(fork_tip_l), 2)
+        pygame.draw.circle(screen, bolt_col, to_int(fork_tip_r), 2)
+
+        # === 오른팔: 시위를 어깨 뒤로 당김 ===
+        pull_back = 8 + 18 * charge_t  # 차징 높을수록 뒤로 많이 당김
+        right_hand = shoulder_r - aim_dir * pull_back + Vector2(0, -2 * charge_t)
+        right_elbow = shoulder_r - aim_dir * (pull_back * 0.45) + Vector2(0, 8)
+
+        # 오른팔 그리기
+        pygame.draw.line(screen, arm_shadow, to_int(shoulder_r), to_int(right_elbow), 8)
+        pygame.draw.line(screen, arm_mid, to_int(shoulder_r), to_int(right_elbow), 5)
+        pygame.draw.line(screen, arm_shadow, to_int(right_elbow), to_int(right_hand), 7)
+        pygame.draw.line(screen, arm_mid, to_int(right_elbow), to_int(right_hand), 4)
+        pygame.draw.circle(screen, glove_color, to_int(right_hand), 5)
+        pygame.draw.circle(screen, glove_outline, to_int(right_hand), 5, 1)
+
+        # === 밴드 (갈래 끝 → 오른손) ===
+        pygame.draw.line(screen, band_outer, to_int(fork_tip_l), to_int(right_hand), 3)
+        pygame.draw.line(screen, band_outer, to_int(fork_tip_r), to_int(right_hand), 3)
+        pygame.draw.line(screen, band_inner, to_int(fork_tip_l), to_int(right_hand), 1)
+        pygame.draw.line(screen, band_inner, to_int(fork_tip_r), to_int(right_hand), 1)
+
+        # === 차징 중 탄환 (오른손 위치에 표시) ===
+        if slingshot_charge_level > 0:
+            pr = 3 + slingshot_charge_level
+            if slingshot_charge_level == 3:
+                pc = (255, 200, 100)
+            elif slingshot_charge_level == 2:
+                pc = (200, 200, 210)
+            else:
+                pc = SLINGSHOT_PELLET_COLOR
+            pygame.draw.circle(screen, pc, to_int(right_hand), pr)
+            pygame.draw.circle(screen, frame_dark, to_int(right_hand), pr, 1)
+            # 3단계 글로우
+            if slingshot_charge_level == 3:
+                gs = pygame.Surface((pr * 4, pr * 4), pygame.SRCALPHA)
+                pygame.draw.circle(gs, (255, 200, 50, 60), (pr * 2, pr * 2), pr * 2)
+                screen.blit(gs, (int(right_hand.x) - pr * 2, int(right_hand.y) - pr * 2))
+
+        # 발사 위치 저장 (새총 갈래 끝 중간)
+        muzzle_pos = (fork_tip_l + fork_tip_r) * 0.5 + aim_dir * 4
+        slingshot_fire_muzzle_x = int(muzzle_pos.x)
+        slingshot_fire_muzzle_y = int(muzzle_pos.y)
+
+    elif is_fire_recoil:
+        # === 발사 후 반동 (시위 놓은 후 튕김) ===
+        recoil_t = slingshot_fire_anim_timer / SLINGSHOT_FIRE_ANIM_DURATION
+        snap_t = math.sin(recoil_t * math.pi)  # 튕기는 효과
+
+        # 왼팔 (뻗은 상태 유지)
+        left_hand = shoulder_l + aim_dir * 28
+        left_elbow = shoulder_l + aim_dir * 14 + Vector2(0, 6)
+        pygame.draw.line(screen, arm_shadow, to_int(shoulder_l), to_int(left_elbow), 8)
+        pygame.draw.line(screen, arm_mid, to_int(shoulder_l), to_int(left_elbow), 5)
+        pygame.draw.line(screen, arm_shadow, to_int(left_elbow), to_int(left_hand), 7)
+        pygame.draw.line(screen, arm_mid, to_int(left_elbow), to_int(left_hand), 4)
+        pygame.draw.circle(screen, glove_color, to_int(left_hand), 5)
+        pygame.draw.circle(screen, glove_outline, to_int(left_hand), 5, 1)
+
+        # 새총 프레임
+        fork_base = left_hand + aim_dir * 2
+        fork_tip_l = fork_base + aim_dir * 10 + perp * 6
+        fork_tip_r = fork_base + aim_dir * 10 - perp * 6
+        pygame.draw.line(screen, frame_mid, to_int(fork_base - aim_dir * 4), to_int(fork_base), 4)
+        pygame.draw.line(screen, frame_mid, to_int(fork_base), to_int(fork_tip_l), 3)
+        pygame.draw.line(screen, frame_mid, to_int(fork_base), to_int(fork_tip_r), 3)
+        pygame.draw.circle(screen, bolt_col, to_int(fork_tip_l), 2)
+        pygame.draw.circle(screen, bolt_col, to_int(fork_tip_r), 2)
+
+        # 밴드 (발사 후 앞으로 튕김)
+        band_snap = fork_base + aim_dir * (12 * snap_t)
+        pygame.draw.line(screen, band_outer, to_int(fork_tip_l), to_int(band_snap), 2)
+        pygame.draw.line(screen, band_outer, to_int(fork_tip_r), to_int(band_snap), 2)
+
+        # 오른팔 (발사 후 빠르게 복귀)
+        right_hand = shoulder_r - aim_dir * (6 * recoil_t)
+        right_elbow = shoulder_r - aim_dir * (3 * recoil_t) + Vector2(0, 8)
+        pygame.draw.line(screen, arm_shadow, to_int(shoulder_r), to_int(right_elbow), 8)
+        pygame.draw.line(screen, arm_mid, to_int(shoulder_r), to_int(right_elbow), 5)
+        pygame.draw.line(screen, arm_shadow, to_int(right_elbow), to_int(right_hand), 7)
+        pygame.draw.line(screen, arm_mid, to_int(right_elbow), to_int(right_hand), 4)
+        pygame.draw.circle(screen, glove_color, to_int(right_hand), 5)
+        pygame.draw.circle(screen, glove_outline, to_int(right_hand), 5, 1)
+
+        slingshot_fire_anim_timer -= 1
 
 
 def draw_ak47_firing_pose(screen, paddle_rect, boss_rect):
@@ -106244,7 +106427,8 @@ def draw_objects():
         if not blacksmith_hammer_shock_charging:
             blacksmith_hammer_charge_position = None
         if selected_character_type == "soldier":
-            include_right_arm = not soldier_gun_animation_active
+            _slingshot_pose_active = is_slingshot_mode() and (slingshot_charging or slingshot_fire_anim_timer > 0)
+            include_right_arm = not soldier_gun_animation_active and not _slingshot_pose_active
             right_hook_strength = get_soldier_right_hook_strength() if include_right_arm else 0.0
             if soldier_swing_active:
                 base_ufo_img = create_soldier_paddle_animated(include_right_arm=include_right_arm)
@@ -110778,9 +110962,12 @@ def draw_objects():
     if selected_character_type == "soldier":
         draw_head_shot_effect(SCREEN)
     
-    # === 코만도 총 발사 애니메이션 그리기 ===
+    # === 코만도 총 발사 / 새총 차징 애니메이션 그리기 ===
     if selected_character_type == "soldier":
         draw_soldier_gun_animation(SCREEN, PLAYER)
+        # 새총 차징/발사 포즈
+        if is_slingshot_mode():
+            draw_slingshot_pose(SCREEN, PLAYER)
         
         # === 바주카포 발사 자세 애니메이션 그리기 ===
         try:
@@ -150892,6 +151079,8 @@ def main(stage_num, new_boss_mode=False):
     slingshot_charge_level = 0
     slingshot_cooldown = 0
     slingshot_gauge_consumed = False
+    global slingshot_fire_anim_timer
+    slingshot_fire_anim_timer = 0
     soldier_right_hook_active = False
     soldier_right_hook_timer = 0
     global soldier_right_hook_phase
