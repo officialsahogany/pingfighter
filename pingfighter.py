@@ -63909,11 +63909,15 @@ def is_slingshot_mode() -> bool:
 def start_slingshot_charge():
     """새총 차징 시작"""
     global slingshot_charging, slingshot_charge_timer, slingshot_charge_level
-    global slingshot_gauge_consumed, special_gauge
+    global special_gauge
 
     # 쿨타임 중이면 차징 불가
     if slingshot_cooldown > 0:
         return False
+
+    # 이미 차징 중이면 중복 시작 방지
+    if slingshot_charging:
+        return True
 
     # 라운드 시작 3초 제한 체크
     current_time = pygame.time.get_ticks()
@@ -63924,11 +63928,13 @@ def start_slingshot_charge():
     if special_gauge < SLINGSHOT_GAUGE_COST:
         return False
 
-    if not slingshot_charging:
-        slingshot_charging = True
-        slingshot_charge_timer = 0
-        slingshot_charge_level = 0
-        slingshot_gauge_consumed = False
+    # 게이지 즉시 소모 (차징 시작과 동시에)
+    special_gauge = max(0, special_gauge - SLINGSHOT_GAUGE_COST)
+
+    slingshot_charging = True
+    slingshot_charge_timer = 0
+    slingshot_charge_level = 0
+    print(f"🔫 새총 차징 시작! 게이지 -{SLINGSHOT_GAUGE_COST} (현재: {special_gauge})")
 
     return True
 
@@ -63936,7 +63942,6 @@ def start_slingshot_charge():
 def update_slingshot_charge():
     """새총 차징 업데이트 (매 프레임 호출)"""
     global slingshot_charge_timer, slingshot_charge_level
-    global slingshot_gauge_consumed, special_gauge
     global slingshot_cooldown
 
     # 쿨타임 감소
@@ -63947,11 +63952,6 @@ def update_slingshot_charge():
         return
 
     slingshot_charge_timer += 1
-
-    # 게이지 소모 (차징 시작 시 1회)
-    if not slingshot_gauge_consumed:
-        special_gauge = max(0, special_gauge - SLINGSHOT_GAUGE_COST)
-        slingshot_gauge_consumed = True
 
     # 차징 단계 판정
     if slingshot_charge_timer >= SLINGSHOT_CHARGE_THRESHOLD_3:
