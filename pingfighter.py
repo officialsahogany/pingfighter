@@ -50504,7 +50504,7 @@ slingshot_charge_timer = 0  # 차징 경과 프레임
 slingshot_charge_level = 0  # 현재 차징 단계 (0=미차징, 1/2/3)
 slingshot_cooldown = 0  # 새총 발사 후 쿨타임 타이머
 slingshot_gauge_consumed = False  # 현재 차징에서 게이지 소모했는지
-SLINGSHOT_COOLDOWN_FRAMES = 300  # 5초 쿨타임 (60fps * 5)
+SLINGSHOT_COOLDOWN_FRAMES = 120  # 2초 쿨타임 (60fps * 2)
 SLINGSHOT_GAUGE_COST = 20  # 차징 시 게이지 소모량
 SLINGSHOT_CONTROL_LOCK_TIME = 12  # 0.2초 후딜 (권총보다 짧음)
 # 차징 단계별 필요 프레임
