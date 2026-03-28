@@ -4609,6 +4609,158 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             pygame.draw.line(surface, main_color, (mx - 3, my - 3), (mx + 3, my + 3), 2)
             pygame.draw.line(surface, main_color, (mx + 3, my - 3), (mx - 3, my + 3), 2)
 
+    # =================== 바이퍼 전용 스킬 심볼 ===================
+    elif skill_name == "shadow_step":
+        # ⟐ 쉐도우 스텝: 잔상 + 순간이동 표현
+        # 잔상 실루엣 (왼쪽, 반투명)
+        ghost_offset = s // 3
+        ghost_color = (*shadow_color[:3],) if len(shadow_color) == 3 else shadow_color[:3]
+        # 잔상 몸체
+        pygame.draw.ellipse(surface, ghost_color,
+                           (cx - ghost_offset - s//4, cy - s//3, s//2, s*2//3))
+        # 잔상에서 나오는 파편
+        for i in range(3):
+            px = cx - ghost_offset - s//4 + i * s//6
+            py = cy + s//4 + i * 2
+            pygame.draw.circle(surface, ghost_color, (px, py), 2)
+
+        # 메인 실루엣 (오른쪽, 밝은색)
+        pygame.draw.ellipse(surface, accent_color,
+                           (cx + ghost_offset//2 - s//4, cy - s//3, s//2, s*2//3))
+        pygame.draw.ellipse(surface, highlight_color,
+                           (cx + ghost_offset//2 - s//4, cy - s//3, s//2, s*2//3), 1)
+
+        # 이동 화살표 (점선)
+        for i in range(3):
+            dx = cx - ghost_offset + i * (ghost_offset)
+            pygame.draw.line(surface, main_color, (dx, cy - s//2), (dx + s//6, cy - s//2), 2)
+
+        # 번개 효과 (순간이동 느낌)
+        pygame.draw.line(surface, highlight_color,
+                        (cx - s//6, cy - s*2//5), (cx + s//6, cy - s//5), 2)
+        pygame.draw.line(surface, highlight_color,
+                        (cx + s//6, cy - s//5), (cx - s//8, cy + s//5), 2)
+
+    elif skill_name == "blade_rush":
+        # ⚔ 블레이드 러쉬: 3연속 플라즈마 슬래시
+        # 3개의 대각선 베기 자국
+        slash_offsets = [(-s//3, 0), (0, 0), (s//3, 0)]
+        for idx, (ox, oy) in enumerate(slash_offsets):
+            # 슬래시 라인 (대각선)
+            alpha_mult = 0.5 + idx * 0.25  # 점점 밝아짐
+            slash_color = tuple(min(255, int(c * alpha_mult)) for c in highlight_color[:3])
+            x1 = cx + ox + s//4
+            y1 = cy + oy - s*2//3
+            x2 = cx + ox - s//4
+            y2 = cy + oy + s*2//3
+            pygame.draw.line(surface, slash_color, (x1, y1), (x2, y2), 3 if idx == 2 else 2)
+            # 슬래시 끝 파티클
+            pygame.draw.circle(surface, main_color, (x1, y1), 2)
+
+        # 중앙 블레이드 광선
+        pygame.draw.line(surface, accent_color, (cx, cy - s//2), (cx, cy + s//2), 2)
+        pygame.draw.circle(surface, main_color, (cx, cy), s//5)
+
+        # 플라즈마 파티클
+        for angle in [60, 180, 300]:
+            rad = math.radians(angle)
+            px = cx + int(math.cos(rad) * s * 0.6)
+            py = cy + int(math.sin(rad) * s * 0.6)
+            pygame.draw.circle(surface, highlight_color, (px, py), 2)
+
+    elif skill_name == "nerve_strike":
+        # ◈ 신경 타격: 스턴 효과가 있는 정밀 타격
+        # 타겟 십자선
+        pygame.draw.line(surface, shadow_color, (cx - s*2//3, cy), (cx + s*2//3, cy), 1)
+        pygame.draw.line(surface, shadow_color, (cx, cy - s*2//3), (cx, cy + s*2//3), 1)
+
+        # 중앙 다이아몬드 (◈)
+        diamond = [
+            (cx, cy - s//2),
+            (cx + s//3, cy),
+            (cx, cy + s//2),
+            (cx - s//3, cy),
+        ]
+        pygame.draw.polygon(surface, accent_color, diamond)
+        pygame.draw.polygon(surface, highlight_color, diamond, 2)
+
+        # 내부 다이아몬드
+        inner_diamond = [
+            (cx, cy - s//4),
+            (cx + s//6, cy),
+            (cx, cy + s//4),
+            (cx - s//6, cy),
+        ]
+        pygame.draw.polygon(surface, main_color, inner_diamond)
+
+        # 전기 스파크 (스턴 표현)
+        spark_positions = [(cx - s//2, cy - s//3), (cx + s//2, cy + s//3),
+                          (cx + s//2, cy - s//3), (cx - s//2, cy + s//3)]
+        for sx, sy in spark_positions:
+            pygame.draw.circle(surface, highlight_color, (sx, sy), 2)
+
+    elif skill_name == "venom_edge":
+        # ☠ 베놈 엣지: 독 코팅된 블레이드
+        # 블레이드 (사선)
+        blade_pts = [
+            (cx - s//6, cy + s//2),
+            (cx - s//3, cy + s//3),
+            (cx + s//4, cy - s*2//3),
+            (cx + s//3, cy - s*2//3),
+            (cx - s//6, cy + s//3),
+        ]
+        if len(blade_pts) >= 3:
+            pygame.draw.polygon(surface, accent_color, blade_pts)
+            pygame.draw.polygon(surface, highlight_color, blade_pts, 1)
+
+        # 독 방울 (블레이드에서 떨어지는)
+        drop_positions = [(cx - s//4, cy + s//4), (cx, cy), (cx + s//6, cy - s//4)]
+        for i, (dx, dy) in enumerate(drop_positions):
+            drop_r = 3 - i
+            pygame.draw.circle(surface, accent_color, (dx + s//6, dy + s//6), max(1, drop_r))
+
+        # 독 연기 효과
+        for i in range(3):
+            smoke_x = cx + s//4 + i * 3 - 3
+            smoke_y = cy - s//3 - i * 4
+            pygame.draw.circle(surface, shadow_color, (smoke_x, smoke_y), 3 - i, 1)
+
+        # 해골 마크 (작은)
+        pygame.draw.circle(surface, main_color, (cx - s//4, cy - s//6), s//5)
+        pygame.draw.circle(surface, shadow_color, (cx - s//4 - 2, cy - s//6 - 1), 1)
+        pygame.draw.circle(surface, shadow_color, (cx - s//4 + 2, cy - s//6 - 1), 1)
+
+    elif skill_name == "phantom_assault":
+        # ✦ 팬텀 어썰트: 5연속 잔상 돌진 (궁극기)
+        # 중앙 별 모양 (6각 별)
+        star_outer = s * 2 // 3
+        star_inner = s // 3
+        star_points = []
+        for i in range(12):
+            angle = math.radians(i * 30 - 90)
+            r = star_outer if i % 2 == 0 else star_inner
+            star_points.append((cx + int(math.cos(angle) * r),
+                               cy + int(math.sin(angle) * r)))
+        if len(star_points) >= 3:
+            pygame.draw.polygon(surface, accent_color, star_points)
+            pygame.draw.polygon(surface, highlight_color, star_points, 2)
+
+        # 중앙 코어
+        pygame.draw.circle(surface, main_color, (cx, cy), s // 5)
+
+        # 5개 잔상 라인 (부채꼴로 퍼져나감)
+        for i in range(5):
+            angle = math.radians(-90 + (i - 2) * 20)
+            line_len = s * 2 // 3
+            ex = cx + int(math.cos(angle) * line_len)
+            ey = cy + int(math.sin(angle) * line_len)
+            pygame.draw.line(surface, highlight_color, (cx, cy), (ex, ey), 2)
+            # 끝에 파티클
+            pygame.draw.circle(surface, main_color, (ex, ey), 2)
+
+        # 외곽 에너지 링
+        pygame.draw.circle(surface, shadow_color, (cx, cy), s - 2, 1)
+
 
 def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                               orb_radius: int, current_gauge: float, max_gauge: float):
@@ -4914,6 +5066,277 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
                 cooldown_text = f"{int(remaining_sec)}"
             else:
                 cooldown_text = f"{remaining_sec:.1f}" 
+            try:
+                cd_font = pygame.font.Font(None, 28)
+                cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
+                cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
+                shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
+                shadow_rect = shadow_surface.get_rect(center=(icon_x + 1, icon_y + 1))
+                surface.blit(shadow_surface, shadow_rect)
+                surface.blit(cd_text_surface, cd_rect)
+            except:
+                pass
+
+
+def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
+                            orb_radius: int, current_gauge: float, max_gauge: float):
+    """게이지 구슬을 둘러싸는 반원 형태로 바이퍼 스킬 아이콘 배치 (5구슬)
+
+    Args:
+        surface: 그릴 Surface
+        orb_center_x: 구슬 중심 X 좌표
+        orb_center_y: 구슬 중심 Y 좌표
+        orb_radius: 구슬 반지름
+        current_gauge: 현재 게이지
+        max_gauge: 최대 게이지
+    """
+    global _viper_skill_icons_cache, _viper_skill_activation_times, _viper_skill_was_active
+    global _viper_skill_icon_rects
+
+    icon_radius = 21
+    icon_diameter = icon_radius * 2
+    orbit_radius = orb_radius + icon_radius + 18
+
+    time_now = pygame.time.get_ticks()
+    activation_effect_duration = 400
+
+    # 해금된 스킬 필터링 (궁극기 제외)
+    unlocked_main_skills = []
+    ultimate_skill_data = None
+
+    # 메인 스킬 순서 (왼쪽 4슬롯)
+    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "venom_edge"]
+
+    for skill_name in main_skill_order:
+        for skill_data in VIPER_SKILL_ICONS_DATA:
+            if skill_data["name"] == skill_name:
+                if is_viper_skill_unlocked(skill_name):
+                    unlocked_main_skills.append(skill_data)
+                break
+
+    # 궁극기(팬텀 어썰트)는 우측 별도 처리
+    for skill_data in VIPER_SKILL_ICONS_DATA:
+        if skill_data["name"] == "phantom_assault":
+            if is_viper_skill_unlocked("phantom_assault"):
+                ultimate_skill_data = skill_data
+            break
+
+    num_unlocked = len(unlocked_main_skills)
+
+    MAX_LEFT_SLOTS = 4
+    base_angle = 165
+    angle_step = 30
+    all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
+    ultimate_angle = 330  # 우측 상단
+
+    # === 빈 슬롯 그리기 ===
+    def draw_empty_slot(slot_x: int, slot_y: int):
+        empty_bg_color = (30, 10, 45, 180)  # 바이퍼 테마 어두운 보라
+        empty_border_color = (50, 20, 70, 200)
+        pygame.draw.circle(surface, empty_bg_color, (slot_x, slot_y), icon_radius)
+        pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
+
+    # === 왼쪽 4슬롯 (빈 슬롯 먼저) ===
+    for slot_idx in range(MAX_LEFT_SLOTS):
+        angle_deg = all_left_angles[slot_idx]
+        angle_rad = math.radians(angle_deg)
+        slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
+        slot_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
+
+        if slot_idx < num_unlocked:
+            continue
+        else:
+            draw_empty_slot(slot_x, slot_y)
+
+    # === 우측 슬롯 (궁극기) ===
+    right_angle_rad = math.radians(ultimate_angle)
+    right_slot_x = orb_center_x + int(math.cos(right_angle_rad) * orbit_radius)
+    right_slot_y = orb_center_y + int(math.sin(right_angle_rad) * orbit_radius)
+
+    if not ultimate_skill_data:
+        draw_empty_slot(right_slot_x, right_slot_y)
+
+    # === 해금된 메인 스킬 아이콘 그리기 ===
+    for i, skill_data in enumerate(unlocked_main_skills):
+        skill_name = skill_data["name"]
+        angle_deg = all_left_angles[i]
+        angle_rad = math.radians(angle_deg)
+
+        icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
+        icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
+
+        cooldown_ratio = get_viper_skill_cooldown_remaining(skill_name)
+        is_on_cooldown = cooldown_ratio > 0
+        is_active = current_gauge >= skill_data["cost"] and not is_on_cooldown
+
+        # 활성화 순간 감지
+        was_active = _viper_skill_was_active.get(skill_name, False)
+        if is_active and not was_active:
+            _viper_skill_activation_times[skill_name] = time_now
+        _viper_skill_was_active[skill_name] = is_active
+
+        # 아이콘 rect 저장
+        _viper_skill_icon_rects[skill_name] = pygame.Rect(
+            icon_x - icon_radius, icon_y - icon_radius,
+            icon_diameter, icon_diameter
+        )
+
+        # 배경색 결정
+        if is_active:
+            bg_color = (*skill_data["color"][:3], 200)
+            border_color = (255, 255, 255, 255)
+        else:
+            dark_color = tuple(max(0, c // 3) for c in skill_data["color"][:3])
+            bg_color = (*dark_color, 150)
+            border_color = (80, 80, 80, 180)
+
+        # 활성화 글로우 효과
+        activation_time = _viper_skill_activation_times.get(skill_name, 0)
+        activation_elapsed = time_now - activation_time
+
+        if is_active and activation_elapsed < activation_effect_duration:
+            progress = activation_elapsed / activation_effect_duration
+            skill_color = skill_data["color"]
+            glow_alpha = int(180 * (1 - progress))
+            glow_radius = icon_radius + int(8 * (1 - progress))
+            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (*skill_color[:3], glow_alpha),
+                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            surface.blit(glow_surface, (icon_x - glow_radius - 2, icon_y - glow_radius - 2))
+
+        # 원형 아이콘 배경
+        pygame.draw.circle(surface, bg_color, (icon_x, icon_y), icon_radius)
+        pygame.draw.circle(surface, border_color, (icon_x, icon_y), icon_radius, 2)
+
+        # 활성화 펄스 글로우
+        if is_active and not is_on_cooldown:
+            pulse = (math.sin(time_now * 0.005 + i * 0.5) + 1) / 2
+            if pulse > 0.4:
+                pulse_alpha = int((pulse - 0.4) * 100)
+                pygame.draw.circle(surface, (*skill_data["color"][:3], pulse_alpha),
+                                 (icon_x, icon_y), icon_radius + 3, 2)
+
+        # 스킬 심볼
+        icon_size = icon_radius * 2 - 4
+        _draw_skill_icon_symbol(surface, skill_name, icon_x, icon_y,
+                               icon_size, is_active, skill_data["color"])
+
+        # 쿨타임 오버레이
+        if is_on_cooldown:
+            cd_surface = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
+            cd_center = icon_radius + 2
+            start_angle = -math.pi / 2
+            end_angle = start_angle + (2 * math.pi * cooldown_ratio)
+            if cooldown_ratio > 0.01:
+                points = [(cd_center, cd_center)]
+                num_segments = max(3, int(36 * cooldown_ratio))
+                for j in range(num_segments + 1):
+                    angle = start_angle + (end_angle - start_angle) * j / num_segments
+                    x = cd_center + int(math.cos(angle) * icon_radius)
+                    y = cd_center + int(math.sin(angle) * icon_radius)
+                    points.append((x, y))
+                if len(points) >= 3:
+                    pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
+            surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
+
+            cooldown_sec = skill_data["cooldown"]
+            remaining_sec = cooldown_sec * cooldown_ratio
+            if remaining_sec >= 1:
+                cooldown_text = f"{int(remaining_sec)}"
+            else:
+                cooldown_text = f"{remaining_sec:.1f}"
+            try:
+                cd_font = pygame.font.Font(None, 28)
+                cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
+                cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
+                shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
+                shadow_rect = shadow_surface.get_rect(center=(icon_x + 1, icon_y + 1))
+                surface.blit(shadow_surface, shadow_rect)
+                surface.blit(cd_text_surface, cd_rect)
+            except:
+                pass
+
+    # === 궁극기 스킬 별도 처리 (우측 상단) ===
+    if ultimate_skill_data:
+        skill_data = ultimate_skill_data
+        skill_name = "phantom_assault"
+        angle_rad = math.radians(ultimate_angle)
+
+        icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
+        icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
+
+        cooldown_ratio = get_viper_skill_cooldown_remaining(skill_name)
+        is_on_cooldown = cooldown_ratio > 0
+        is_active = current_gauge >= skill_data["cost"] and not is_on_cooldown
+
+        was_active = _viper_skill_was_active.get(skill_name, False)
+        if is_active and not was_active:
+            _viper_skill_activation_times[skill_name] = time_now
+        _viper_skill_was_active[skill_name] = is_active
+
+        _viper_skill_icon_rects[skill_name] = pygame.Rect(
+            icon_x - icon_radius, icon_y - icon_radius,
+            icon_diameter, icon_diameter
+        )
+
+        if is_active:
+            bg_color = (*skill_data["color"][:3], 200)
+            border_color = (255, 255, 255, 255)
+        else:
+            dark_color = tuple(max(0, c // 3) for c in skill_data["color"][:3])
+            bg_color = (*dark_color, 150)
+            border_color = (80, 80, 80, 180)
+
+        activation_time = _viper_skill_activation_times.get(skill_name, 0)
+        activation_elapsed = time_now - activation_time
+
+        if is_active and activation_elapsed < activation_effect_duration:
+            progress = activation_elapsed / activation_effect_duration
+            skill_color = skill_data["color"]
+            glow_alpha = int(180 * (1 - progress))
+            glow_radius = icon_radius + int(8 * (1 - progress))
+            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (*skill_color[:3], glow_alpha),
+                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            surface.blit(glow_surface, (icon_x - glow_radius - 2, icon_y - glow_radius - 2))
+
+        pygame.draw.circle(surface, bg_color, (icon_x, icon_y), icon_radius)
+        pygame.draw.circle(surface, border_color, (icon_x, icon_y), icon_radius, 2)
+
+        if is_active and not is_on_cooldown:
+            pulse = (math.sin(time_now * 0.005) + 1) / 2
+            if pulse > 0.4:
+                pulse_alpha = int((pulse - 0.4) * 100)
+                pygame.draw.circle(surface, (*skill_data["color"][:3], pulse_alpha),
+                                 (icon_x, icon_y), icon_radius + 3, 2)
+
+        icon_size = icon_radius * 2 - 4
+        _draw_skill_icon_symbol(surface, skill_name, icon_x, icon_y,
+                               icon_size, is_active, skill_data["color"])
+
+        if is_on_cooldown:
+            cd_surface = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
+            cd_center = icon_radius + 2
+            start_angle = -math.pi / 2
+            end_angle = start_angle + (2 * math.pi * cooldown_ratio)
+            if cooldown_ratio > 0.01:
+                points = [(cd_center, cd_center)]
+                num_segments = max(3, int(36 * cooldown_ratio))
+                for j in range(num_segments + 1):
+                    angle = start_angle + (end_angle - start_angle) * j / num_segments
+                    x = cd_center + int(math.cos(angle) * icon_radius)
+                    y = cd_center + int(math.sin(angle) * icon_radius)
+                    points.append((x, y))
+                if len(points) >= 3:
+                    pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
+            surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
+
+            cooldown_sec = skill_data["cooldown"]
+            remaining_sec = cooldown_sec * cooldown_ratio
+            if remaining_sec >= 1:
+                cooldown_text = f"{int(remaining_sec)}"
+            else:
+                cooldown_text = f"{remaining_sec:.1f}"
             try:
                 cd_font = pygame.font.Font(None, 28)
                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
@@ -12139,36 +12562,36 @@ VIPER_EXCLUSIVE_SKILLS = {
         "tree": "viper",
         "character_restriction": "viper"
     },
-    "unlock_blade_rush": {
-        "name": "블레이드 러쉬 해금",
-        "max_level": 1,
-        "descriptions": {
-            1: "블레이드 러쉬 스킬 해금",
-        },
-        "detail": "게이지 스킬 '블레이드 러쉬'를 해금합니다. W키로 게이지 50을 소모해 전방에 3연속 플라즈마 베기를 발사합니다.",
-        "icon_color": (200, 50, 255),
-        "tree": "viper_unlock",
-        "character_restriction": "viper"
-    },
-    "unlock_shadow_step": {
-        "name": "쉐도우 스텝 해금",
-        "max_level": 1,
-        "descriptions": {
-            1: "쉐도우 스텝 스킬 해금",
-        },
-        "detail": "게이지 스킬 '쉐도우 스텝'을 해금합니다. 대쉬 직후 W키를 누르면 잔상을 남기고 반대 방향으로 순간이동합니다.",
-        "icon_color": (100, 0, 180),
-        "tree": "viper_unlock",
-        "character_restriction": "viper"
-    },
     "unlock_nerve_strike": {
         "name": "신경 타격 해금",
         "max_level": 1,
         "descriptions": {
             1: "신경 타격 스킬 해금",
         },
-        "detail": "게이지 스킬 '신경 타격'을 해금합니다. W키로 게이지 30을 소모해 다음 타격에 0.5초 스턴 효과를 부여합니다.",
+        "detail": "게이지 스킬 '신경 타격'을 해금합니다. E키로 게이지 30을 소모해 다음 타격에 0.5초 스턴 효과를 부여합니다.",
         "icon_color": (180, 0, 220),
+        "tree": "viper_unlock",
+        "character_restriction": "viper"
+    },
+    "unlock_venom_edge": {
+        "name": "베놈 엣지 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "베놈 엣지 스킬 해금",
+        },
+        "detail": "게이지 스킬 '베놈 엣지'를 해금합니다. Q키로 게이지 80을 소모해 블레이드에 독기를 주입, 5초간 타격 시 지속 피해를 입힙니다.",
+        "icon_color": (0, 255, 100),
+        "tree": "viper_unlock",
+        "character_restriction": "viper"
+    },
+    "unlock_phantom_assault": {
+        "name": "팬텀 어썰트 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "팬텀 어썰트 스킬 해금 (궁극기)",
+        },
+        "detail": "궁극기 '팬텀 어썰트'를 해금합니다. R키로 게이지 120을 소모해 5연속 잔상 돌진으로 공을 강타합니다. 발동 중 무적 상태.",
+        "icon_color": (160, 0, 255),
         "tree": "viper_unlock",
         "character_restriction": "viper"
     },
@@ -13275,6 +13698,9 @@ def reset_runtime_skill_system():
     # 스매셔 스킬 해금 상태 초기화 (드라이브, 파워스매싱만 기본 해금)
     reset_smasher_skill_unlocks()
 
+    # 바이퍼 스킬 해금 상태 초기화 (쉐도우 스텝, 블레이드 러쉬만 기본 해금)
+    reset_viper_skill_unlocks()
+
     # print("[RuntimeSkill] 런타임 스킬 시스템 초기화")  # 디버그 비활성화
 
 
@@ -14101,6 +14527,22 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         # print("[RuntimeSkill] 클렌즈 스킬 해금!")
         return True
 
+    # 바이퍼 게이지 스킬 해금 처리
+    if choice_id == "unlock_nerve_strike":
+        unlock_viper_skill("nerve_strike")
+        runtime_skill_levels["unlock_nerve_strike"] = 1
+        return True
+
+    if choice_id == "unlock_venom_edge":
+        unlock_viper_skill("venom_edge")
+        runtime_skill_levels["unlock_venom_edge"] = 1
+        return True
+
+    if choice_id == "unlock_phantom_assault":
+        unlock_viper_skill("phantom_assault")
+        runtime_skill_levels["unlock_phantom_assault"] = 1
+        return True
+
     # 일반 스킬 레벨업
     old_level = runtime_skill_levels.get(choice_id, 0)
     runtime_skill_levels[choice_id] = old_level + 1
@@ -14232,6 +14674,19 @@ def recalculate_skill_effects(skill_id: str):
     elif skill_id == "unlock_cleanse":
         level = runtime_skill_levels.get("unlock_cleanse", 0)
         _smasher_skill_unlocked["cleanse"] = level >= 1
+
+    # 바이퍼 스킬 해금 상태 동기화
+    elif skill_id == "unlock_nerve_strike":
+        level = runtime_skill_levels.get("unlock_nerve_strike", 0)
+        _viper_skill_unlocked["nerve_strike"] = level >= 1
+
+    elif skill_id == "unlock_venom_edge":
+        level = runtime_skill_levels.get("unlock_venom_edge", 0)
+        _viper_skill_unlocked["venom_edge"] = level >= 1
+
+    elif skill_id == "unlock_phantom_assault":
+        level = runtime_skill_levels.get("unlock_phantom_assault", 0)
+        _viper_skill_unlocked["phantom_assault"] = level >= 1
 
     # 퍽 월계수잎: 잎 개수 재계산 (신성월계수 보너스 포함)
     elif skill_id == "perk_laurel_shield":
@@ -15038,6 +15493,8 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
 
             # 4. 스매셔 스킬 쿨타임 초기화
             reset_smasher_skill_cooldowns()
+            # 5. 바이퍼 스킬 쿨타임 초기화
+            reset_viper_skill_cooldowns()
 
         except Exception as e:
             print(f"[InstantSkill] 풀게이징 오류: {e}")
@@ -53915,41 +54372,58 @@ def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
     center = (size // 2, size // 2)
 
     if weapon_name == "pistol" and is_slingshot_mode():
-        # === 매그넘 새총 아이콘 (금속 슬링샷) ===
-        metal_body = (120, 125, 135)
-        metal_dark = (70, 72, 80)
-        metal_light = (170, 175, 185)
-        band_color = (180, 140, 60)
-
-        cx = size // 2
-        fork_top_y = int(size * 0.10)
-        fork_mid_y = int(size * 0.42)
-        handle_bot_y = int(size * 0.85)
-        fork_spread = int(size * 0.30)
-
-        # 왼쪽 갈래
-        pygame.draw.line(icon_surface, metal_dark, (cx - fork_spread, fork_top_y), (cx - 1, fork_mid_y), 3)
-        pygame.draw.line(icon_surface, metal_light, (cx - fork_spread + 1, fork_top_y + 1), (cx, fork_mid_y), 1)
+        # === 군용 택티컬 슬링샷 아이콘 (밀리터리 3D) ===
+        s = size
+        fd, fm, fl, fh = (40, 45, 38), (65, 72, 58), (90, 100, 80), (115, 125, 100)
+        gd, gm, gl = (35, 30, 25), (55, 48, 38), (75, 65, 50)
+        bo, bi, bc = (60, 55, 45), (140, 120, 70), (100, 100, 110)
+        cx = s // 2
+        ft, fj = int(s * 0.08), int(s * 0.40)
+        st, sb, fw = int(s * 0.32), int(s * 0.12), max(3, int(s * 0.10))
+        # 왼쪽 갈래 (3D 사다리꼴)
+        lf = [(cx-st-fw//2,ft),(cx-st+fw//2,ft),(cx-sb+fw//2,fj),(cx-sb-fw//2,fj)]
+        pygame.draw.polygon(icon_surface, fm, lf); pygame.draw.polygon(icon_surface, fd, lf, 1)
+        pygame.draw.line(icon_surface, fl, lf[0], lf[3], 1)
         # 오른쪽 갈래
-        pygame.draw.line(icon_surface, metal_dark, (cx + fork_spread, fork_top_y), (cx + 1, fork_mid_y), 3)
-        pygame.draw.line(icon_surface, metal_light, (cx + fork_spread - 1, fork_top_y + 1), (cx, fork_mid_y), 1)
-        # 손잡이
-        hw = max(4, int(size * 0.14))
-        pygame.draw.rect(icon_surface, metal_body, (cx - hw // 2, fork_mid_y, hw, handle_bot_y - fork_mid_y))
-        pygame.draw.rect(icon_surface, metal_dark, (cx - hw // 2, fork_mid_y, hw, handle_bot_y - fork_mid_y), 1)
-        for gi in range(4):
-            gy = fork_mid_y + int((handle_bot_y - fork_mid_y) * 0.3) + gi * int((handle_bot_y - fork_mid_y) * 0.15)
-            pygame.draw.line(icon_surface, metal_dark, (cx - hw // 2 + 1, gy), (cx + hw // 2 - 1, gy), 1)
-        # 고무밴드
-        band_sag = int(size * 0.08)
-        band_mid_y = fork_top_y + band_sag
-        pygame.draw.line(icon_surface, band_color, (cx - fork_spread, fork_top_y), (cx, band_mid_y), 2)
-        pygame.draw.line(icon_surface, band_color, (cx + fork_spread, fork_top_y), (cx, band_mid_y), 2)
-        # 갈래 끝 금속 볼
-        for fx in [cx - fork_spread, cx + fork_spread]:
-            pygame.draw.circle(icon_surface, metal_light, (fx, fork_top_y), 2)
-            pygame.draw.circle(icon_surface, metal_dark, (fx, fork_top_y), 2, 1)
-
+        rf = [(cx+st-fw//2,ft),(cx+st+fw//2,ft),(cx+sb+fw//2,fj),(cx+sb-fw//2,fj)]
+        pygame.draw.polygon(icon_surface, fm, rf); pygame.draw.polygon(icon_surface, fd, rf, 1)
+        pygame.draw.line(icon_surface, fl, rf[0], rf[3], 1)
+        # 갈래 끝 마운트 + 피카티니 레일
+        for tx in [cx-st, cx+st]:
+            pygame.draw.rect(icon_surface, bc, (tx-fw//2-1, ft-1, fw+2, 3))
+            pygame.draw.rect(icon_surface, fd, (tx-fw//2-1, ft-1, fw+2, 3), 1)
+            for ri in range(3):
+                pygame.draw.line(icon_surface, (50,55,48), (tx-fw//2+1, ft+4+ri*3), (tx+fw//2-1, ft+4+ri*3), 1)
+        # 브릿지
+        bh = max(3, int(s * 0.08))
+        br = pygame.Rect(cx-sb-fw//2, fj-1, sb*2+fw, bh)
+        pygame.draw.rect(icon_surface, fm, br); pygame.draw.rect(icon_surface, fd, br, 1)
+        pygame.draw.line(icon_surface, fh, (br.left+1, br.top+1), (br.right-1, br.top+1), 1)
+        # 그립 (다이아몬드 텍스처)
+        ht, hb = fj+bh-1, int(s*0.88)
+        hw = max(5, int(s*0.18))
+        hr = pygame.Rect(cx-hw//2, ht, hw, hb-ht)
+        pygame.draw.rect(icon_surface, gm, hr)
+        pygame.draw.rect(icon_surface, gl, (hr.x, hr.y, hw//3, hr.height))
+        pygame.draw.rect(icon_surface, gd, (hr.right-hw//3, hr.y, hw//3, hr.height))
+        pygame.draw.rect(icon_surface, gd, hr, 1)
+        for gi in range(5):
+            gy = ht + int(hr.height*0.15) + gi*int(hr.height*0.16)
+            pygame.draw.line(icon_surface, gd, (cx-hw//2+2, gy), (cx+hw//2-2, gy), 1)
+        # 메탈 캡
+        ch = max(2, int(s*0.04))
+        pygame.draw.rect(icon_surface, bc, (cx-hw//2-1, hb-ch, hw+2, ch+1))
+        pygame.draw.rect(icon_surface, fd, (cx-hw//2-1, hb-ch, hw+2, ch+1), 1)
+        # 리벳
+        for bx in [-sb+1, sb-1]:
+            pygame.draw.circle(icon_surface, (130,130,140), (cx+bx, fj+bh//2), 2)
+            pygame.draw.circle(icon_surface, fd, (cx+bx, fj+bh//2), 2, 1)
+        # 군용 밴드
+        bmy = ft + int(s*0.06)
+        pygame.draw.line(icon_surface, bo, (cx-st, ft), (cx, bmy), 3)
+        pygame.draw.line(icon_surface, bo, (cx+st, ft), (cx, bmy), 3)
+        pygame.draw.line(icon_surface, bi, (cx-st, ft), (cx, bmy), 1)
+        pygame.draw.line(icon_surface, bi, (cx+st, ft), (cx, bmy), 1)
         return icon_surface
 
     elif weapon_name == "pistol":
@@ -57239,6 +57713,8 @@ def apply_effect(effect_name, item_data=None):
             pass
         # 스매셔 스킬 쿨타임 초기화 (파워스매싱, 드라이브, 플라즈마, 리커버리, 클렌즈)
         reset_smasher_skill_cooldowns()
+        # 바이퍼 스킬 쿨타임 초기화
+        reset_viper_skill_cooldowns()
         # 코만도 스킬 쿨타임 초기화 (물자보급, 긴급재보급)
         reset_soldier_skill_cooldowns()
         # 구르기(대쉬) 토큰 관련 초기화
@@ -66496,7 +66972,7 @@ def draw_soldier_weapon_ui(screen):
                 2
             )
     elif is_slingshot_mode():
-        # === 매그넘 새총 무기 아이콘 표시 (금속 슬링샷) ===
+        # === 군용 택티컬 슬링샷 무기 UI (밀리터리 3D) ===
         import math
         current_time = pygame.time.get_ticks()
         base_x, base_y = weapon_rect.x, weapon_rect.y
@@ -66505,18 +66981,18 @@ def draw_soldier_weapon_ui(screen):
 
         pulse = math.sin(current_time * 0.004) * 0.5 + 0.5
 
-        # 색상
+        # 색상 (올리브/건메탈 밀리터리)
         if sling_available:
-            metal_body = (120, 125, 135)
-            metal_dark = (70, 72, 80)
-            metal_light = (170, 175, 185)
-            band_color = (180, 140, 60)
+            fd, fm, fl, fh = (40, 45, 38), (65, 72, 58), (90, 100, 80), (115, 125, 100)
+            gd, gm, gl = (35, 30, 25), (55, 48, 38), (75, 65, 50)
+            band_outer, band_inner = (60, 55, 45), (140, 120, 70)
+            bolt_col = (100, 100, 110)
             led_color = (80, 255, 80)
         else:
-            metal_body = (90, 90, 95)
-            metal_dark = (60, 60, 65)
-            metal_light = (120, 120, 125)
-            band_color = (120, 100, 60)
+            fd, fm, fl, fh = (35, 35, 35), (55, 55, 55), (75, 75, 75), (90, 90, 90)
+            gd, gm, gl = (30, 30, 30), (45, 45, 45), (60, 60, 60)
+            band_outer, band_inner = (50, 50, 45), (100, 90, 60)
+            bolt_col = (75, 75, 80)
             led_color = (80, 80, 80)
 
         # 그림자
@@ -66524,37 +67000,76 @@ def draw_soldier_weapon_ui(screen):
         pygame.draw.ellipse(screen, (0, 0, 0, 50), shadow_r)
 
         cx = base_x + w // 2
-        # Y자 프레임 (금속)
-        fork_top_y = base_y + int(h * 0.12)
-        fork_mid_y = base_y + int(h * 0.42)
-        handle_bot_y = base_y + int(h * 0.82)
-        fork_spread = int(w * 0.30)
+        fork_top = base_y + int(h * 0.10)
+        fork_join = base_y + int(h * 0.42)
+        handle_bot = base_y + int(h * 0.82)
+        sp_t = int(w * 0.32)  # 상단 벌어짐
+        sp_b = int(w * 0.12)  # 하단 모임
+        fw_half = max(2, int(w * 0.06))  # 갈래 반폭
 
-        # 왼쪽 갈래
-        pygame.draw.line(screen, metal_dark, (cx - fork_spread, fork_top_y), (cx - 2, fork_mid_y), 3)
-        pygame.draw.line(screen, metal_light, (cx - fork_spread + 1, fork_top_y + 1), (cx - 1, fork_mid_y), 1)
+        # 왼쪽 갈래 (3D 사다리꼴)
+        lf = [(cx-sp_t-fw_half, fork_top), (cx-sp_t+fw_half, fork_top),
+              (cx-sp_b+fw_half, fork_join), (cx-sp_b-fw_half, fork_join)]
+        pygame.draw.polygon(screen, fm, lf)
+        pygame.draw.polygon(screen, fd, lf, 1)
+        pygame.draw.line(screen, fl, lf[0], lf[3], 1)
         # 오른쪽 갈래
-        pygame.draw.line(screen, metal_dark, (cx + fork_spread, fork_top_y), (cx + 2, fork_mid_y), 3)
-        pygame.draw.line(screen, metal_light, (cx + fork_spread - 1, fork_top_y + 1), (cx + 1, fork_mid_y), 1)
-        # 손잡이
-        handle_w = max(5, int(w * 0.14))
-        pygame.draw.rect(screen, metal_body, (cx - handle_w // 2, fork_mid_y, handle_w, handle_bot_y - fork_mid_y))
-        pygame.draw.rect(screen, metal_dark, (cx - handle_w // 2, fork_mid_y, handle_w, handle_bot_y - fork_mid_y), 1)
-        # 그립 질감
-        for gi in range(4):
-            gy = fork_mid_y + int((handle_bot_y - fork_mid_y) * 0.3) + gi * int((handle_bot_y - fork_mid_y) * 0.15)
-            pygame.draw.line(screen, metal_dark, (cx - handle_w // 2 + 1, gy), (cx + handle_w // 2 - 1, gy), 1)
+        rf = [(cx+sp_t-fw_half, fork_top), (cx+sp_t+fw_half, fork_top),
+              (cx+sp_b+fw_half, fork_join), (cx+sp_b-fw_half, fork_join)]
+        pygame.draw.polygon(screen, fm, rf)
+        pygame.draw.polygon(screen, fd, rf, 1)
+        pygame.draw.line(screen, fl, rf[0], rf[3], 1)
 
-        # 고무 밴드 (양 갈래 끝을 연결)
-        band_sag = int(h * 0.08)  # 밴드 처짐
-        # 차징 중이면 밴드가 당겨짐
+        # 갈래 끝 마운트 + 피카티니 레일
+        for tip_x in [cx - sp_t, cx + sp_t]:
+            pygame.draw.rect(screen, bolt_col, (tip_x - fw_half - 1, fork_top - 2, fw_half * 2 + 2, 4))
+            pygame.draw.rect(screen, fd, (tip_x - fw_half - 1, fork_top - 2, fw_half * 2 + 2, 4), 1)
+            for ri in range(3):
+                ry = fork_top + 5 + ri * 4
+                pygame.draw.line(screen, (50, 55, 48), (tip_x - fw_half + 1, ry), (tip_x + fw_half - 1, ry), 1)
+
+        # 중앙 브릿지 (두꺼운 금속)
+        bh = max(4, int(h * 0.08))
+        br = pygame.Rect(cx - sp_b - fw_half, fork_join - 1, sp_b * 2 + fw_half * 2, bh)
+        pygame.draw.rect(screen, fm, br)
+        pygame.draw.rect(screen, fd, br, 1)
+        pygame.draw.line(screen, fh, (br.left + 1, br.top + 1), (br.right - 1, br.top + 1), 1)
+
+        # 리벳/볼트
+        for bx_off in [-sp_b + 2, sp_b - 2]:
+            pygame.draw.circle(screen, (130, 130, 140), (cx + bx_off, fork_join + bh // 2), 2)
+            pygame.draw.circle(screen, fd, (cx + bx_off, fork_join + bh // 2), 2, 1)
+
+        # 그립 (밀리터리 텍스처)
+        grip_top = fork_join + bh - 1
+        grip_w = max(6, int(w * 0.20))
+        grip_rect = pygame.Rect(cx - grip_w // 2, grip_top, grip_w, handle_bot - grip_top)
+        pygame.draw.rect(screen, gm, grip_rect)
+        pygame.draw.rect(screen, gl, (grip_rect.x, grip_rect.y, grip_w // 3, grip_rect.height))
+        pygame.draw.rect(screen, gd, (grip_rect.right - grip_w // 3, grip_rect.y, grip_w // 3, grip_rect.height))
+        pygame.draw.rect(screen, gd, grip_rect, 1)
+        # 다이아몬드 체커
+        for gi in range(6):
+            gy = grip_top + int(grip_rect.height * 0.12) + gi * int(grip_rect.height * 0.14)
+            pygame.draw.line(screen, gd, (cx - grip_w // 2 + 2, gy), (cx + grip_w // 2 - 2, gy), 1)
+
+        # 메탈 엔드캡
+        cap_h = max(2, int(h * 0.04))
+        pygame.draw.rect(screen, bolt_col, (cx - grip_w // 2 - 1, handle_bot - cap_h, grip_w + 2, cap_h + 1))
+        pygame.draw.rect(screen, fd, (cx - grip_w // 2 - 1, handle_bot - cap_h, grip_w + 2, cap_h + 1), 1)
+
+        # 군용 고탄성 밴드 (두꺼운 고무 + 차징 애니메이션)
+        band_sag = int(h * 0.06)
         if slingshot_charging:
-            band_sag = int(h * 0.02 + h * 0.20 * get_slingshot_charge_ratio())
-        # 왼쪽 밴드
+            band_sag = int(h * 0.02 + h * 0.22 * get_slingshot_charge_ratio())
         band_mid_x = cx
-        band_mid_y = fork_top_y + band_sag
-        pygame.draw.line(screen, band_color, (cx - fork_spread, fork_top_y), (band_mid_x, band_mid_y), 2)
-        pygame.draw.line(screen, band_color, (cx + fork_spread, fork_top_y), (band_mid_x, band_mid_y), 2)
+        band_mid_y = fork_top + band_sag
+        # 외곽 (어두운 고무)
+        pygame.draw.line(screen, band_outer, (cx - sp_t, fork_top), (band_mid_x, band_mid_y), 3)
+        pygame.draw.line(screen, band_outer, (cx + sp_t, fork_top), (band_mid_x, band_mid_y), 3)
+        # 내곽 (밝은 라텍스)
+        pygame.draw.line(screen, band_inner, (cx - sp_t, fork_top), (band_mid_x, band_mid_y), 1)
+        pygame.draw.line(screen, band_inner, (cx + sp_t, fork_top), (band_mid_x, band_mid_y), 1)
 
         # 차징 중이면 탄환 표시
         if slingshot_charging and slingshot_charge_level > 0:
@@ -66566,12 +67081,12 @@ def draw_soldier_weapon_ui(screen):
             else:
                 pellet_c = SLINGSHOT_PELLET_COLOR
             pygame.draw.circle(screen, pellet_c, (band_mid_x, band_mid_y), pellet_r)
-            pygame.draw.circle(screen, metal_dark, (band_mid_x, band_mid_y), pellet_r, 1)
-
-        # 갈래 끝 금속 볼
-        for fx in [cx - fork_spread, cx + fork_spread]:
-            pygame.draw.circle(screen, metal_light, (fx, fork_top_y), 3)
-            pygame.draw.circle(screen, metal_dark, (fx, fork_top_y), 3, 1)
+            pygame.draw.circle(screen, fd, (band_mid_x, band_mid_y), pellet_r, 1)
+            # 3단계 글로우
+            if slingshot_charge_level == 3:
+                glow_s = pygame.Surface((pellet_r * 4, pellet_r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_s, (255, 200, 50, 50), (pellet_r * 2, pellet_r * 2), pellet_r * 2)
+                screen.blit(glow_s, (band_mid_x - pellet_r * 2, band_mid_y - pellet_r * 2))
 
         # LED 인디케이터
         if sling_available:
@@ -95590,6 +96105,17 @@ def draw_player_gauge():
             # 오딘의 눈 변신 중에는 기존 스킬 잠금
             if selected_character_type == "smasher" and not _odins_eye_transformed:
                 _draw_smasher_skill_icons(
+                    _player_gauge_surface_left,
+                    orb_center_x,
+                    orb_center_y,
+                    orb_radius,
+                    displayed_gauge,
+                    current_max_gauge
+                )
+
+            # === 바이퍼 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
+            if selected_character_type == "viper" and not _odins_eye_transformed:
+                _draw_viper_skill_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
                     orb_center_y,
