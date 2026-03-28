@@ -140261,15 +140261,15 @@ def handle_ball():
                                     continue
                                 _prog = min(1.0, _elapsed / 28.0)
                                 # ease-out back (약간 바운스)
-                                _t = 1.0 - (1.0 - _prog) ** 3
+                                _ease_t = 1.0 - (1.0 - _prog) ** 3
                                 if _prog > 0.7:
                                     _bounce = 1.0 + 0.05 * _p_math.sin((_prog - 0.7) / 0.3 * _p_math.pi)
                                 else:
-                                    _bounce = _t
+                                    _bounce = _ease_t
                                 _p_card_alpha[_ci] = min(255, int(255 * min(1.0, _elapsed / 15.0)))
-                                _p_card_y_off[_ci] = int(80 * (1.0 - _t))
+                                _p_card_y_off[_ci] = int(80 * (1.0 - _ease_t))
                                 _p_card_scale[_ci] = 0.3 + 0.7 * _bounce
-                                _p_card_rot[_ci] *= (1.0 - _t)  # 회전 감소
+                                _p_card_rot[_ci] *= (1.0 - _ease_t)  # 회전 감소
                                 if _prog < 1.0:
                                     _all_intro_done = False
                                 # 입장 중 파티클 (카드 하단에서 스파크)
@@ -143829,8 +143829,8 @@ def handle_boss_pro():
         if abs(_bvy) > 1e-3:
             # 보스는 화면 상단(Y=25+40=65)에 있으므로, 공이 위로 올라올 때(vy<0) 시간 계산
             _dist_y = BOSS.bottom - BALL.centery  # 음수일 때 공이 보스 위에 있음
-            _t = max(0.0, _dist_y / _bvy) if _bvy != 0 else 0
-            future_x = BALL.centerx + ball_vel[0] * _t
+            _predict_t = max(0.0, _dist_y / _bvy) if _bvy != 0 else 0
+            future_x = BALL.centerx + ball_vel[0] * _predict_t
         else:
             future_x = BALL.centerx
         future_x = max(GAME_AREA_OFFSET_X + 20, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 20, future_x))
