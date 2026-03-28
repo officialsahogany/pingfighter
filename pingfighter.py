@@ -3668,9 +3668,9 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "shadow_teleport"
     },
     {
-        "name": "blade_rush", "korean": "블레이드 러쉬", "cost": 50, "color": (200, 50, 255),
+        "name": "blade_rush", "korean": "블레이드 러쉬", "cost": 100, "color": (200, 50, 255),
         "symbol": "⚔", "cooldown": 8.0, "key": "W",
-        "description": "전방에 3연속 플라즈마 베기를 발사합니다.\n각 베기가 공을 가속시킵니다.",
+        "description": "전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 30~50% 증가합니다.",
         "how_to_use": "W키를 눌러 발동",
         "effect_type": "slash_purple"
     },
@@ -33672,6 +33672,7 @@ def create_soldier_paddle_surface(
     right_hook_strength: float = 0.0,
     *,
     include_right_arm: bool = True,
+    include_left_arm: bool = True,
 ) -> pygame.Surface:
     surface = pygame.Surface((320, 108), pygame.SRCALPHA)
     block = 7
@@ -34032,6 +34033,11 @@ def create_soldier_paddle_surface(
         pygame.draw.rect(surface, palette["strap"], mount_rect, border_radius=1)
 
     # ========== 왼팔 (Enhanced Left Arm) ==========
+    # include_left_arm=False면 왼팔 영역 스냅샷 저장 (나중에 복원하여 왼팔 지움)
+    _left_arm_snapshot = None
+    if not include_left_arm:
+        _la_region = pygame.Rect(0, 0, center_x, surface.get_height())
+        _left_arm_snapshot = surface.subsurface(_la_region).copy()
     left_shoulder = (center_x - int(3.0 * block), torso_y + shoulder_shift - 1)
     # 팔꿈치 위치 (자연스러운 팔 스윙)
     left_elbow_point = (
@@ -34219,6 +34225,10 @@ def create_soldier_paddle_surface(
                     width=2,
                 )
                 surface.blit(swoosh_surface, (0, 0))
+
+        # 왼팔 숨김: 스냅샷 복원으로 왼팔 영역 원복
+        if _left_arm_snapshot is not None:
+            surface.blit(_left_arm_snapshot, (0, 0))
 
         # ========== 오른팔 (Enhanced Right Arm) ==========
         # 어깨 패드 (Shoulder Pad)
@@ -47417,6 +47427,17 @@ _viper_w_key_released = True
 _viper_e_key_released = True
 _viper_q_key_released = True
 _viper_r_key_released = True
+
+# === 바이퍼 블레이드 러쉬 검기 투사체 ===
+_viper_blade_rush_active = False      # 검기 활성 여부
+_viper_blade_rush_x = 0.0            # 검기 중심 X
+_viper_blade_rush_y = 0.0            # 검기 선단 Y (위로 이동)
+_viper_blade_rush_start_y = 0.0      # 발사 시작 Y
+_viper_blade_rush_target_y = 0.0     # 도달 목표 Y (시작 - 250)
+_viper_blade_rush_width = 60         # 검기 폭
+_viper_blade_rush_hit_ball = False   # 이번 검기가 공을 이미 맞혔는지
+_viper_blade_rush_particles = []     # 검기 파티클 이펙트
+_viper_blade_rush_trail = []         # 검기 궤적 (잔상)
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -71266,41 +71287,31 @@ def handle_player(keys):
                             pass
 
         elif _viper_can_act:
-            # 블레이드 러쉬 (W키)
+            # 블레이드 러쉬 (W키) — 전방으로 검기 발사
             if _viper_w_pressed and _viper_w_key_released:
                 if is_viper_skill_unlocked("blade_rush"):
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
-                        if special_gauge >= 50:
+                        if special_gauge >= 100 and not _viper_blade_rush_active:
                             _viper_w_key_released = False
-                            special_gauge -= 50
+                            special_gauge -= 100
                             trigger_viper_skill_cooldown("blade_rush")
 
-                            # 3연속 플라즈마 베기: 공 속도 30% 증가 + 상방향 보정
-                            try:
-                                _br_speed = math.hypot(ball_vel[0], ball_vel[1])
-                                _br_boosted = max(_br_speed * 1.3, 8.0)  # 최소 속도 보장
-                                # 공이 위로 향하도록 (보스 방향)
-                                if _br_speed > 0.1:
-                                    _br_ratio = _br_boosted / _br_speed
-                                    ball_vel[0] *= _br_ratio
-                                    ball_vel[1] = -abs(ball_vel[1] * _br_ratio)  # 반드시 위로
-                                else:
-                                    ball_vel[0] = 0
-                                    ball_vel[1] = -_br_boosted
-                            except Exception:
-                                pass
+                            # 검기 투사체 생성 (플레이어 앞쪽으로 발사)
+                            _viper_blade_rush_active = True
+                            _viper_blade_rush_x = float(PLAYER.centerx)
+                            _viper_blade_rush_start_y = float(PLAYER.centery - 20)
+                            _viper_blade_rush_y = _viper_blade_rush_start_y
+                            _viper_blade_rush_target_y = _viper_blade_rush_start_y - 250  # Y축 250px 전진
+                            _viper_blade_rush_hit_ball = False
+                            _viper_blade_rush_particles.clear()
+                            _viper_blade_rush_trail.clear()
 
-                            # 3연속 슬래시 이펙트 (시각적)
+                            # 발사 이펙트
                             try:
-                                _br_px = PLAYER.centerx
-                                _br_py = PLAYER.centery
-                                for _br_i in range(3):
-                                    _br_offset_y = -20 - _br_i * 25
-                                    _br_offset_x = (_br_i - 1) * 15
-                                    effects_manager.spawn_shockwave(
-                                        _br_px + _br_offset_x, _br_py + _br_offset_y,
-                                        force=5 + _br_i * 2, color=(200, 50, 255),
-                                    )
+                                effects_manager.spawn_shockwave(
+                                    PLAYER.centerx, PLAYER.centery - 20,
+                                    force=6, color=(200, 50, 255),
+                                )
                             except Exception:
                                 pass
 
@@ -71340,6 +71351,55 @@ def handle_player(keys):
                                 )
                             except Exception:
                                 pass
+
+    # 바이퍼 블레이드 러쉬 검기 업데이트 (매 프레임)
+    if _viper_blade_rush_active:
+        _br_speed_per_frame = 12.0  # 검기 이동 속도 (px/frame)
+        _viper_blade_rush_y -= _br_speed_per_frame  # 위로 이동
+
+        # 궤적 저장 (잔상용)
+        _viper_blade_rush_trail.append((_viper_blade_rush_x, _viper_blade_rush_y))
+        if len(_viper_blade_rush_trail) > 20:
+            _viper_blade_rush_trail.pop(0)
+
+        # 검기-공 충돌 판정 (1회만)
+        if not _viper_blade_rush_hit_ball:
+            try:
+                _br_half_w = _viper_blade_rush_width // 2
+                _br_blade_rect = pygame.Rect(
+                    int(_viper_blade_rush_x - _br_half_w),
+                    int(_viper_blade_rush_y - 30),
+                    _viper_blade_rush_width,
+                    60  # 검기 세로 히트박스
+                )
+                if _br_blade_rect.colliderect(BALL):
+                    _viper_blade_rush_hit_ball = True
+                    # 공 속도 증가 (30~50%, 수직 성분이 클수록 높은 보너스)
+                    _br_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    if _br_cur_speed > 0.1:
+                        _br_vert_ratio = abs(ball_vel[1]) / _br_cur_speed  # 0~1, 수직일수록 높음
+                        _br_boost = 1.3 + 0.2 * _br_vert_ratio  # 1.3x ~ 1.5x
+                        _br_new_speed = _br_cur_speed * _br_boost
+                        _br_ratio = _br_new_speed / _br_cur_speed
+                        ball_vel[0] *= _br_ratio
+                        ball_vel[1] = -abs(ball_vel[1] * _br_ratio)  # 위로 보정
+                    else:
+                        ball_vel[1] = -10.0  # 정지 상태면 위로 발사
+                    # 히트 이펙트
+                    try:
+                        effects_manager.spawn_shockwave(
+                            BALL.centerx, BALL.centery,
+                            force=10, color=(255, 100, 255),
+                        )
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        # 목표 도달 시 소멸
+        if _viper_blade_rush_y <= _viper_blade_rush_target_y:
+            _viper_blade_rush_active = False
+            _viper_blade_rush_trail.clear()
 
     # 충전 해제 후 예정된 충격파 발사 처리
     if selected_character_type == "optimus":
@@ -104729,6 +104789,58 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
+    # ⚔ 바이퍼 블레이드 러쉬 검기 렌더링
+    if _viper_blade_rush_active:
+        try:
+            _br_cx = int(_viper_blade_rush_x)
+            _br_cy = int(_viper_blade_rush_y)
+            _br_hw = _viper_blade_rush_width // 2
+            _br_progress = 1.0 - ((_viper_blade_rush_y - _viper_blade_rush_target_y) /
+                                   (_viper_blade_rush_start_y - _viper_blade_rush_target_y)) if (_viper_blade_rush_start_y - _viper_blade_rush_target_y) > 0 else 1.0
+            _br_progress = max(0.0, min(1.0, _br_progress))
+
+            # 궤적 잔상 (용권 느낌의 에너지 꼬리)
+            for _ti, (_tx, _ty) in enumerate(_viper_blade_rush_trail):
+                _t_alpha = int(40 + 80 * (_ti / max(1, len(_viper_blade_rush_trail))))
+                _t_w = int(_br_hw * 0.5 + _br_hw * 0.5 * (_ti / max(1, len(_viper_blade_rush_trail))))
+                _trail_surf = pygame.Surface((_t_w * 2, 8), pygame.SRCALPHA)
+                _trail_surf.fill((160, 30, 220, _t_alpha))
+                SCREEN.blit(_trail_surf, (int(_tx) - _t_w, int(_ty) - 4))
+
+            # 검기 본체 — 용발톱 용권 스타일 (세로로 긴 에너지 검기)
+            _blade_h = 60  # 검기 세로 길이
+            _blade_surf = pygame.Surface((_br_hw * 2 + 20, _blade_h + 20), pygame.SRCALPHA)
+            _bs_cx = _blade_surf.get_width() // 2
+            _bs_cy = _blade_surf.get_height() // 2
+
+            # 외곽 글로우
+            pygame.draw.ellipse(_blade_surf, (160, 0, 255, 40),
+                               (_bs_cx - _br_hw - 5, 0, (_br_hw + 5) * 2, _blade_h + 20))
+            # 중간 레이어
+            pygame.draw.ellipse(_blade_surf, (200, 50, 255, 100),
+                               (_bs_cx - _br_hw + 5, 5, (_br_hw - 5) * 2, _blade_h + 10))
+            # 코어 (밝은 흰보라)
+            pygame.draw.ellipse(_blade_surf, (230, 180, 255, 180),
+                               (_bs_cx - _br_hw // 2, 10, _br_hw, _blade_h))
+            # 중심 하이라이트
+            pygame.draw.ellipse(_blade_surf, (255, 240, 255, 220),
+                               (_bs_cx - _br_hw // 4, _blade_h // 3, _br_hw // 2, _blade_h // 3))
+
+            SCREEN.blit(_blade_surf, (_br_cx - _blade_surf.get_width() // 2,
+                                       _br_cy - _blade_surf.get_height() // 2))
+
+            # 선단 에너지 스파크
+            _ticks = pygame.time.get_ticks()
+            for _si in range(4):
+                _s_angle = math.radians(_ticks * 0.3 + _si * 90)
+                _s_dist = 15 + math.sin(_ticks * 0.01 + _si) * 5
+                _sx = _br_cx + int(math.cos(_s_angle) * _s_dist)
+                _sy = _br_cy - 20 + int(math.sin(_s_angle) * _s_dist * 0.5)
+                pygame.draw.circle(SCREEN, (200, 100, 255), (_sx, _sy), 3)
+                pygame.draw.circle(SCREEN, (255, 220, 255), (_sx, _sy), 1)
+        except Exception:
+            pass
+
     # 🛡️ 인게임 호위무사 캐릭터 및 스킬 이펙트 그리기 (일반 스테이지, 최대 2명)
     if not arena_mode_enabled:
         try:
@@ -106827,8 +106939,12 @@ def draw_objects():
         if selected_character_type == "soldier":
             _slingshot_pose_active = is_slingshot_mode() and (slingshot_charging or slingshot_fire_anim_timer > 0)
             include_right_arm = not soldier_gun_animation_active and not _slingshot_pose_active
+            _include_left = not _slingshot_pose_active
             right_hook_strength = get_soldier_right_hook_strength() if include_right_arm else 0.0
-            if soldier_swing_active:
+            if _slingshot_pose_active:
+                # 새총 포즈: 양팔 모두 숨김 (포즈에서 별도 그림)
+                base_ufo_img = create_soldier_paddle_surface(include_right_arm=False, include_left_arm=False)
+            elif soldier_swing_active:
                 base_ufo_img = create_soldier_paddle_animated(include_right_arm=include_right_arm)
             elif soldier_walking_active:
                 base_ufo_img = create_soldier_paddle_walking(include_right_arm=include_right_arm)
