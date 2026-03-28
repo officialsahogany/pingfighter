@@ -14838,11 +14838,15 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         soldier_pistol_perk_unlocked = True
         # 새총 차징 상태 초기화
         cancel_slingshot_charge()
+        # 새총 발사 애니메이션 초기화
+        global slingshot_fire_anim_timer
+        slingshot_fire_anim_timer = 0
         # 권총 탄약 초기화
-        global soldier_ammo_count, soldier_max_ammo
+        global soldier_ammo_count, soldier_max_ammo, soldier_reloading
         soldier_ammo_count = get_soldier_pistol_max_ammo()
         soldier_max_ammo = get_soldier_pistol_max_ammo()
-        print("🔫 권총 퍽 해금! 기본 화기가 권총으로 교체됩니다.")
+        soldier_reloading = False
+        print(f"🔫 권총 퍽 해금! soldier_pistol_perk_unlocked={soldier_pistol_perk_unlocked}, is_slingshot_mode={is_slingshot_mode()}")
         runtime_skill_levels[choice_id] = 1
         return True
 
