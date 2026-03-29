@@ -104967,7 +104967,7 @@ def draw_objects():
         except Exception:
             pass
 
-    # 👻 바이퍼 쉐도우 스텝 홀로그램 등장 렌더링
+    # 👻 바이퍼 쉐도우 스텝 — 신기루 페이드인 렌더링
     if _viper_ss_hologram_active:
         try:
             _holo_now = pygame.time.get_ticks()
@@ -104980,87 +104980,35 @@ def draw_objects():
                 _holo_x = int(_viper_ss_hologram_target_x)
                 _holo_y = int(_viper_ss_hologram_origin_y)
 
-                # 바이퍼 Surface 가져오기
+                # 바이퍼 원본 Surface
                 _holo_base = create_viper_paddle_surface(0.0)
                 _holo_w, _holo_h = _holo_base.get_size()
 
-                # 홀로그램 Surface 생성
-                _holo_surf = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
-                _holo_surf.blit(_holo_base, (0, 0))
+                # 이징 함수: 느리게 시작 → 빠르게 마무리 (ease-in-out)
+                _ease_t = _holo_t * _holo_t * (3.0 - 2.0 * _holo_t)
 
-                # 단계별 연출
-                if _holo_t < 0.3:
-                    # 초반 (0~0.3): 스캔라인 + 노이즈로 형체가 잡히는 중
-                    _scan_t = _holo_t / 0.3
-                    # 아래에서 위로 스캔라인이 올라가며 모습이 드러남
-                    _visible_h = int(_holo_h * _scan_t)
-                    # 보이지 않는 부분 지우기 (위에서부터)
-                    _clip_surf = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
-                    if _visible_h > 0:
-                        _clip_surf.blit(_holo_surf, (0, _holo_h - _visible_h),
-                                       (0, _holo_h - _visible_h, _holo_w, _visible_h))
-                    _holo_surf = _clip_surf
+                # 알파: 0 → 255 (신기루처럼 서서히 나타남)
+                _holo_alpha = int(255 * _ease_t)
 
-                    # 시안 홀로그램 틴트
-                    _tint = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
-                    _tint.fill((0, 255, 200, 120))
-                    _holo_surf.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                # 캐릭터 Surface에 직접 알파 적용
+                _holo_surf = _holo_base.copy()
+                _holo_surf.set_alpha(_holo_alpha)
 
-                    # 전체 알파
-                    _holo_surf.set_alpha(int(100 + 80 * _scan_t))
+                # 미세한 흔들림 (신기루/아지랑이 느낌, 점점 안정됨)
+                _shimmer = (1.0 - _ease_t)  # 1→0
+                _offset_x = math.sin(_holo_now * 0.015) * 3 * _shimmer
+                _offset_y = math.cos(_holo_now * 0.012) * 2 * _shimmer
 
-                    # 스캔라인 효과 (수평선들)
-                    for _sl_y in range(0, _holo_h, 4):
-                        if (_sl_y + int(_holo_now * 0.1)) % 8 < 2:
-                            pygame.draw.line(_holo_surf, (0, 255, 200, 60),
-                                           (0, _sl_y), (_holo_w, _sl_y), 1)
+                _draw_x = _holo_x - _holo_w // 2 + _offset_x
+                _draw_y = _holo_y - _holo_h // 2 + _offset_y
+                SCREEN.blit(_holo_surf, (int(_draw_x), int(_draw_y)))
 
-                elif _holo_t < 0.7:
-                    # 중반 (0.3~0.7): 형체 완성, 홀로그램 깜빡임
-                    _mid_t = (_holo_t - 0.3) / 0.4
-                    _flicker = 0.7 + 0.3 * math.sin(_holo_now * 0.03)
-
-                    # 홀로그램 틴트 (서서히 원래 색으로)
-                    _cyan_amount = int(120 * (1.0 - _mid_t))
-                    if _cyan_amount > 5:
-                        _tint = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
-                        _tint.fill((0, 255, 200, _cyan_amount))
-                        _holo_surf.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-
-                    _holo_surf.set_alpha(int((180 + 75 * _mid_t) * _flicker))
-
-                    # 잔여 스캔라인 (점점 사라짐)
-                    _scan_alpha = int(40 * (1.0 - _mid_t))
-                    if _scan_alpha > 3:
-                        for _sl_y in range(0, _holo_h, 6):
-                            if (_sl_y + int(_holo_now * 0.08)) % 12 < 2:
-                                pygame.draw.line(_holo_surf, (0, 255, 200, _scan_alpha),
-                                               (0, _sl_y), (_holo_w, _sl_y), 1)
-
-                else:
-                    # 후반 (0.7~1.0): 실체화 완료, 알파 100%로
-                    _final_t = (_holo_t - 0.7) / 0.3
-                    _holo_surf.set_alpha(int(255 * (0.85 + 0.15 * _final_t)))
-
-                # 화면에 그리기 (플레이어 위치에)
-                _draw_x = _holo_x - _holo_w // 2
-                _draw_y = _holo_y - _holo_h // 2
-                SCREEN.blit(_holo_surf, (_draw_x, _draw_y))
-
-                # 외곽 글로우 (초반~중반)
-                if _holo_t < 0.7:
-                    _glow_alpha = int(60 * (1.0 - _holo_t / 0.7))
-                    _glow_surf = pygame.Surface((_holo_w + 16, _holo_h + 16), pygame.SRCALPHA)
-                    pygame.draw.rect(_glow_surf, (0, 255, 200, _glow_alpha),
-                                    (0, 0, _holo_w + 16, _holo_h + 16), border_radius=8)
-                    SCREEN.blit(_glow_surf, (_draw_x - 8, _draw_y - 8))
-
-                # 도착 이펙트 (완료 직전 한 번)
-                if _holo_t > 0.95 and _holo_elapsed < _VIPER_SS_HOLOGRAM_DURATION:
+                # 도착 이펙트 (완료 시)
+                if _holo_t > 0.95:
                     try:
                         effects_manager.spawn_shockwave(
                             _holo_x, _holo_y - 10,
-                            force=8, color=(100, 0, 180),
+                            force=6, color=(100, 0, 180),
                         )
                     except Exception:
                         pass
