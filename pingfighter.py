@@ -71372,7 +71372,10 @@ def handle_player(keys):
         _viper_s_pressed = keys[pygame.K_s]
 
         # 키 릴리즈 감지 (연속 발동 방지)
-        if not _viper_w_pressed:
+        # 서브 중에는 릴리즈 플래그를 리셋하여 서브 발사 직후 블레이드 러쉬 오발동 방지
+        if is_waiting_for_serve or is_player_serve:
+            _viper_w_key_released = False
+        elif not _viper_w_pressed:
             _viper_w_key_released = True
         if not _viper_e_pressed:
             _viper_e_key_released = True
