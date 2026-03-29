@@ -47443,6 +47443,9 @@ _viper_blade_rush_width = 350        # 검기 X축 폭
 _viper_blade_rush_hit_ball = False   # 이번 검기가 공을 이미 맞혔는지
 _viper_blade_rush_particles = []     # 검기 파티클 이펙트
 _viper_blade_rush_trail = []         # 검기 궤적 (잔상)
+_viper_blade_rush_fadeout = False    # 페이드아웃 중 여부
+_viper_blade_rush_fadeout_timer = 0  # 페이드아웃 남은 프레임
+_VIPER_BLADE_RUSH_FADEOUT_FRAMES = 30  # 페이드아웃 지속 (0.5초)
 
 # === 바이퍼 블레이드 러쉬 회전/정지 연출 ===
 _viper_br_spin_active = False        # 회전 연출 활성
@@ -71290,7 +71293,7 @@ def handle_player(keys):
     # ⚔ 바이퍼 스킬 발동 처리 (W: 블레이드 러쉬, 대쉬후딜+W: 쉐도우 스텝, E: 신경 타격, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
-        global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y
+        global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
         global _viper_blade_rush_start_y, _viper_blade_rush_target_y, _viper_blade_rush_hit_ball
         global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
         global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
@@ -71562,6 +71565,8 @@ def handle_player(keys):
 
                 # 검기 발사 (회전 끝난 직후)
                 _viper_blade_rush_active = True
+                _viper_blade_rush_fadeout = False
+                _viper_blade_rush_fadeout_timer = 0
                 _viper_blade_rush_x = float(PLAYER.centerx)
                 _viper_blade_rush_start_y = float(PLAYER.centery - 20)
                 _viper_blade_rush_y = _viper_blade_rush_start_y
@@ -71648,9 +71653,17 @@ def handle_player(keys):
             except Exception:
                 pass
 
-        # 목표 도달 시 소멸
-        if _viper_blade_rush_y <= _viper_blade_rush_target_y:
+        # 목표 도달 시 페이드아웃 시작 (즉시 소멸하지 않음)
+        if _viper_blade_rush_y <= _viper_blade_rush_target_y and not _viper_blade_rush_fadeout:
+            _viper_blade_rush_fadeout = True
+            _viper_blade_rush_fadeout_timer = _VIPER_BLADE_RUSH_FADEOUT_FRAMES
+
+    # 바이퍼 블레이드 러쉬 페이드아웃 타이머
+    if _viper_blade_rush_fadeout:
+        _viper_blade_rush_fadeout_timer -= 1
+        if _viper_blade_rush_fadeout_timer <= 0:
             _viper_blade_rush_active = False
+            _viper_blade_rush_fadeout = False
             _viper_blade_rush_trail.clear()
 
     # 충전 해제 후 예정된 충격파 발사 처리
@@ -105076,9 +105089,13 @@ def draw_objects():
             _PAL_EDGE  = (170, 150, 200)   # 날 가장자리 — 연보라
             _PAL_WARM  = (150, 135, 165)   # 증기용
 
-            # 소멸 페이드 (progress 65% 이후 밑에서부터 증기 디졸브)
+            # 소멸 페이드 (progress 65% 이후 증기 디졸브 + 페이드아웃 타이머)
             _fade_start = 0.65
             _fade_factor = max(0.0, min(1.0, (_br_progress - _fade_start) / (1.0 - _fade_start))) if _br_progress > _fade_start else 0.0
+            # 페이드아웃 중이면 타이머 기반으로 추가 감쇠
+            if _viper_blade_rush_fadeout:
+                _fo_ratio = _viper_blade_rush_fadeout_timer / max(1, _VIPER_BLADE_RUSH_FADEOUT_FRAMES)
+                _fade_factor = max(_fade_factor, 1.0 - _fo_ratio)
             _alive = 1.0 - _fade_factor
             _pulse = 0.88 + 0.12 * math.sin(_dt_sec * 5.0)
 
