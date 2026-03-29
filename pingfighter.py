@@ -14566,6 +14566,10 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
     # 코만도(솔저) 전용 스킬 추가
     if character_type == "soldier":
         for skill_id, skill_data in SOLDIER_EXCLUSIVE_SKILLS.items():
+            # 탄창개조는 권총 퍽 해금 후에만 선택 가능
+            if skill_id == "soldier_magazine_mod" and not soldier_pistol_perk_unlocked:
+                continue
+
             current_level = runtime_skill_levels.get(skill_id, 0)
             max_level = skill_data["max_level"]
 
