@@ -71444,7 +71444,7 @@ def handle_player(keys):
                     _br_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
                     if _br_cur_speed > 0.1:
                         _br_vert_ratio = abs(ball_vel[1]) / _br_cur_speed  # 0~1, 수직일수록 높음
-                        _br_boost = 1.6 + 0.2 * _br_vert_ratio  # 1.6x ~ 1.8x (60~80% 증가)
+                        _br_boost = 2.0 + 0.2 * _br_vert_ratio  # 2.0x ~ 2.2x (100~120% 증가)
                         _br_new_speed = _br_cur_speed * _br_boost
                         _br_ratio = _br_new_speed / _br_cur_speed
                         ball_vel[0] *= _br_ratio
