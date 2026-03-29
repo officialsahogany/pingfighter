@@ -3663,7 +3663,7 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "shadow_step", "korean": "쉐도우 스텝", "cost": 40, "color": (100, 0, 180),
         "symbol": "⟐", "cooldown": 6.0, "key": "대쉬+S",
-        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 반대 방향으로 순간이동합니다.",
+        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.",
         "how_to_use": "대쉬 중/직후 S키를 눌러 발동",
         "effect_type": "shadow_teleport"
     },
@@ -47455,6 +47455,9 @@ _VIPER_BR_REST_DURATION = 1000       # 정지(숨내쉬기) 시간 (ms)
 _viper_br_jump_offset_y = 0.0       # 승룡권 점프 Y오프셋 (음수=위로)
 _viper_br_arm_raise = 0.0           # 팔 들어올림 비율 (0~1)
 
+# === 바이퍼 대쉬 원점 기억 (쉐도우 스텝 스냅백용) ===
+_viper_dash_origin_x = 0.0           # 대쉬 시작 전 플레이어 X좌표
+
 # === 바이퍼 쉐도우 스텝 홀로그램 등장 연출 ===
 _viper_ss_hologram_active = False    # 홀로그램 연출 활성
 _viper_ss_hologram_start_ms = 0      # 연출 시작 시각
@@ -69764,6 +69767,7 @@ def handle_player(keys):
     global rolling_active, rolling_timer, rolling_direction, rolling_speed
     global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
     global charging_token_index, max_rolling_charge_time  # 순차 충전 시스템 변수
+    global _viper_dash_origin_x  # 바이퍼 쉐도우 스텝 스냅백용
     global _all_tokens_full_sparkle_timer  # 모든 토큰 풀충전 반짝임
     global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y
     global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수
@@ -71281,7 +71285,7 @@ def handle_player(keys):
         global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
         global _viper_br_jump_offset_y, _viper_br_arm_raise
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
-        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y
+        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
         global _viper_speed_boost_active, _viper_speed_boost_original
@@ -71347,11 +71351,11 @@ def handle_player(keys):
                         except Exception:
                             pass
 
-                        # 목표 위치 계산 (반대 방향 160px)
-                        _ss_teleport_dist = 160
-                        _ss_reverse_dir = -rolling_direction if rolling_direction != 0 else 1
-                        _ss_new_x = PLAYER.centerx + _ss_reverse_dir * _ss_teleport_dist
+                        # 목표 위치 계산 (대쉬 시작 전 원점으로 스냅백)
+                        _ss_new_x = _viper_dash_origin_x
                         _ss_new_x = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, _ss_new_x))
+                        # 커브 방향: 원점이 현재 위치 기준 왼쪽이면 -1, 오른쪽이면 1
+                        _ss_reverse_dir = 1 if _ss_new_x > PLAYER.centerx else -1
 
                         # 즉시 텔레포트 + 홀로그램 연출 시작
                         PLAYER.centerx = _ss_new_x
@@ -73871,6 +73875,9 @@ def handle_player(keys):
                         # 하프 대쉬 발동
                             # 🔧 버그 수정: 하프 대시에서도 키 릴리즈 플래그 설정
                             globals()['dash_key_released_since_last'] = False
+                            # 🐍 바이퍼 쉐도우 스텝용 대쉬 원점 기록
+                            if selected_character_type == "viper":
+                                _viper_dash_origin_x = float(PLAYER.centerx)
                             rolling_active = True
                             # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                             if selected_character_type == "smasher" or ai_mode == "junior":
@@ -74140,6 +74147,9 @@ def handle_player(keys):
                     # 아래키 + 왼쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
+                    # 🐍 바이퍼 쉐도우 스텝용 대쉬 원점 기록
+                    if selected_character_type == "viper":
+                        _viper_dash_origin_x = float(PLAYER.centerx)
                     rolling_active = True
                     # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                     if selected_character_type == "smasher" or ai_mode == "junior":
@@ -74426,6 +74436,9 @@ def handle_player(keys):
                     # 아래키 + 오른쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
+                    # 🐍 바이퍼 쉐도우 스텝용 대쉬 원점 기록
+                    if selected_character_type == "viper":
+                        _viper_dash_origin_x = float(PLAYER.centerx)
                     rolling_active = True
                     # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                     if selected_character_type == "smasher" or ai_mode == "junior":
@@ -140286,6 +140299,9 @@ def handle_ball():
                     global is_danger_sensor_dash
                     # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
+                    # 🐍 바이퍼 쉐도우 스텝용 대쉬 원점 기록
+                    if selected_character_type == "viper":
+                        _viper_dash_origin_x = float(PLAYER.centerx)
                     rolling_active = True
                     # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period, 센서 대쉬 포함)
                     if selected_character_type == "smasher" or ai_mode == "junior":
