@@ -104959,7 +104959,7 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
-    # ⚔ 바이퍼 블레이드 러쉬 검기 렌더링
+    # ⚔ 바이퍼 블레이드 러쉬 검기 렌더링 (Ultra Premium Crescent Blade Wave)
     if _viper_blade_rush_active:
         try:
             _br_cx = int(_viper_blade_rush_x)
@@ -104968,46 +104968,188 @@ def draw_objects():
             _br_progress = 1.0 - ((_viper_blade_rush_y - _viper_blade_rush_target_y) /
                                    (_viper_blade_rush_start_y - _viper_blade_rush_target_y)) if (_viper_blade_rush_start_y - _viper_blade_rush_target_y) > 0 else 1.0
             _br_progress = max(0.0, min(1.0, _br_progress))
-
-            # 궤적 잔상 (용권 느낌의 에너지 꼬리)
-            for _ti, (_tx, _ty) in enumerate(_viper_blade_rush_trail):
-                _t_alpha = int(40 + 80 * (_ti / max(1, len(_viper_blade_rush_trail))))
-                _t_w = int(_br_hw * 0.5 + _br_hw * 0.5 * (_ti / max(1, len(_viper_blade_rush_trail))))
-                _trail_surf = pygame.Surface((_t_w * 2, 8), pygame.SRCALPHA)
-                _trail_surf.fill((160, 30, 220, _t_alpha))
-                SCREEN.blit(_trail_surf, (int(_tx) - _t_w, int(_ty) - 4))
-
-            # 검기 본체 — 용발톱 용권 스타일 (세로로 긴 에너지 검기)
-            _blade_h = 60  # 검기 세로 길이
-            _blade_surf = pygame.Surface((_br_hw * 2 + 20, _blade_h + 20), pygame.SRCALPHA)
-            _bs_cx = _blade_surf.get_width() // 2
-            _bs_cy = _blade_surf.get_height() // 2
-
-            # 외곽 글로우
-            pygame.draw.ellipse(_blade_surf, (160, 0, 255, 40),
-                               (_bs_cx - _br_hw - 5, 0, (_br_hw + 5) * 2, _blade_h + 20))
-            # 중간 레이어
-            pygame.draw.ellipse(_blade_surf, (200, 50, 255, 100),
-                               (_bs_cx - _br_hw + 5, 5, (_br_hw - 5) * 2, _blade_h + 10))
-            # 코어 (밝은 흰보라)
-            pygame.draw.ellipse(_blade_surf, (230, 180, 255, 180),
-                               (_bs_cx - _br_hw // 2, 10, _br_hw, _blade_h))
-            # 중심 하이라이트
-            pygame.draw.ellipse(_blade_surf, (255, 240, 255, 220),
-                               (_bs_cx - _br_hw // 4, _blade_h // 3, _br_hw // 2, _blade_h // 3))
-
-            SCREEN.blit(_blade_surf, (_br_cx - _blade_surf.get_width() // 2,
-                                       _br_cy - _blade_surf.get_height() // 2))
-
-            # 선단 에너지 스파크
             _ticks = pygame.time.get_ticks()
-            for _si in range(4):
-                _s_angle = math.radians(_ticks * 0.3 + _si * 90)
-                _s_dist = 15 + math.sin(_ticks * 0.01 + _si) * 5
-                _sx = _br_cx + int(math.cos(_s_angle) * _s_dist)
-                _sy = _br_cy - 20 + int(math.sin(_s_angle) * _s_dist * 0.5)
-                pygame.draw.circle(SCREEN, (200, 100, 255), (_sx, _sy), 3)
-                pygame.draw.circle(SCREEN, (255, 220, 255), (_sx, _sy), 1)
+            _dt_sec = _ticks / 1000.0
+
+            # ── 0. 화면 양쪽 수직 슬래시 라인 (검기 경로 잔광) ──
+            _slash_alpha_base = int(60 * (1.0 - _br_progress * 0.5))
+            if _slash_alpha_base > 5:
+                _slash_line_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                for _sli in range(3):
+                    _sl_x_left = _br_cx - _br_hw + _sli * 8
+                    _sl_x_right = _br_cx + _br_hw - _sli * 8
+                    _sl_a = max(0, _slash_alpha_base - _sli * 18)
+                    _sl_col = (140 + _sli * 20, 0, 220 + _sli * 10, _sl_a)
+                    pygame.draw.line(_slash_line_surf, _sl_col,
+                                     (_sl_x_left, _br_cy + 40), (_sl_x_left, _br_cy - 80), 2 - _sli)
+                    pygame.draw.line(_slash_line_surf, _sl_col,
+                                     (_sl_x_right, _br_cy + 40), (_sl_x_right, _br_cy - 80), 2 - _sli)
+                SCREEN.blit(_slash_line_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+
+            # ── 1. 에너지 궤적 잔상 (그라데이션 리본 트레일) ──
+            _trail_len = len(_viper_blade_rush_trail)
+            if _trail_len > 1:
+                for _ti in range(_trail_len):
+                    _tx, _ty = _viper_blade_rush_trail[_ti]
+                    _t_ratio = _ti / max(1, _trail_len - 1)  # 0(오래됨) → 1(최신)
+                    # 폭: 좁음→넓음, 알파: 투명→불투명
+                    _t_w = int(_br_hw * (0.3 + 0.7 * _t_ratio))
+                    _t_h = max(2, int(6 * _t_ratio + 2))
+                    _t_alpha = int(25 + 100 * _t_ratio)
+                    # 색상: 딥퍼플→네온시안 그라데이션
+                    _tr = int(80 + 80 * (1.0 - _t_ratio))
+                    _tg = int(0 + 180 * _t_ratio)
+                    _tb = int(180 + 75 * _t_ratio)
+                    _trail_s = pygame.Surface((_t_w * 2, _t_h), pygame.SRCALPHA)
+                    pygame.draw.ellipse(_trail_s, (_tr, _tg, _tb, _t_alpha),
+                                        (0, 0, _t_w * 2, _t_h))
+                    # 코어 라인
+                    if _t_ratio > 0.3:
+                        _core_a = int(60 * _t_ratio)
+                        pygame.draw.ellipse(_trail_s, (200, 220, 255, _core_a),
+                                            (_t_w // 3, _t_h // 4, _t_w * 4 // 3, _t_h // 2))
+                    SCREEN.blit(_trail_s, (int(_tx) - _t_w, int(_ty) - _t_h // 2),
+                                special_flags=pygame.BLEND_ADD)
+
+            # ── 2. 검기 외곽 대기 글로우 (다중 레이어 블룸) ──
+            _blade_h = 80
+            _glow_total_w = _br_hw * 2 + 60
+            _glow_total_h = _blade_h + 60
+            _glow_surf = pygame.Surface((_glow_total_w, _glow_total_h), pygame.SRCALPHA)
+            _gs_cx = _glow_total_w // 2
+            _gs_cy = _glow_total_h // 2
+            _pulse = 0.85 + 0.15 * math.sin(_dt_sec * 12.0)  # 빠른 맥동
+
+            for _gi in range(5):
+                _g_shrink = _gi * 12
+                _g_alpha = int((18 + _gi * 4) * _pulse)
+                _g_r = max(0, min(255, 100 + _gi * 25))
+                _g_g = max(0, min(255, 0 + _gi * 10))
+                _g_b = max(0, min(255, 200 + _gi * 12))
+                _gw = _glow_total_w - _g_shrink * 2
+                _gh = _glow_total_h - _g_shrink * 2
+                if _gw > 0 and _gh > 0:
+                    pygame.draw.ellipse(_glow_surf, (_g_r, _g_g, _g_b, _g_alpha),
+                                        (_gs_cx - _gw // 2, _gs_cy - _gh // 2, _gw, _gh))
+            SCREEN.blit(_glow_surf, (_br_cx - _gs_cx, _br_cy - _gs_cy),
+                        special_flags=pygame.BLEND_ADD)
+
+            # ── 3. 초승달 검기 본체 (Crescent Blade — 다층 아크) ──
+            _blade_surf_w = _br_hw * 2 + 40
+            _blade_surf_h = _blade_h + 40
+            _blade_surf = pygame.Surface((_blade_surf_w, _blade_surf_h), pygame.SRCALPHA)
+            _bs_cx = _blade_surf_w // 2
+            _bs_cy = _blade_surf_h // 2
+
+            # 외곽 아크 (초승달 형태 — 큰 원에서 작은 원 빼기)
+            _arc_colors = [
+                (120, 0, 200, 50),    # 최외곽 — 어두운 보라
+                (160, 20, 240, 90),   # 중외곽
+                (180, 60, 255, 130),  # 중간
+                (210, 140, 255, 180), # 중내곽
+                (240, 210, 255, 220), # 내곽 — 밝은 흰보라
+            ]
+            for _ai, _a_col in enumerate(_arc_colors):
+                _a_shrink = _ai * 8
+                _a_offset_y = _ai * 3  # 안쪽 레이어일수록 위로 (초승달 두께감)
+                _outer_w = _blade_surf_w - _a_shrink * 2
+                _outer_h = _blade_h + 20 - _a_shrink
+                _inner_w = int(_outer_w * 0.85)
+                _inner_h = int(_outer_h * 0.7)
+                if _outer_w > 4 and _outer_h > 4:
+                    _arc_tmp = pygame.Surface((_blade_surf_w, _blade_surf_h), pygame.SRCALPHA)
+                    pygame.draw.ellipse(_arc_tmp, _a_col,
+                                        (_bs_cx - _outer_w // 2, _bs_cy - _outer_h // 2 - _a_offset_y,
+                                         _outer_w, _outer_h))
+                    # 하단 잘라내기 (초승달 아래쪽 제거)
+                    pygame.draw.ellipse(_arc_tmp, (0, 0, 0, 0),
+                                        (_bs_cx - _inner_w // 2, _bs_cy - _inner_h // 2 + 6 - _a_offset_y,
+                                         _inner_w, _inner_h))
+                    _blade_surf.blit(_arc_tmp, (0, 0))
+
+            # 코어 하이라이트 라인 (초승달 상단 날 부분)
+            _hl_w = int(_br_hw * 1.2)
+            _hl_y = _bs_cy - _blade_h // 2 + 8
+            pygame.draw.ellipse(_blade_surf, (255, 250, 255, 240),
+                                (_bs_cx - _hl_w, _hl_y, _hl_w * 2, 6))
+            pygame.draw.ellipse(_blade_surf, (200, 180, 255, 160),
+                                (_bs_cx - _hl_w - 10, _hl_y - 2, (_hl_w + 10) * 2, 10))
+
+            SCREEN.blit(_blade_surf, (_br_cx - _bs_cx, _br_cy - _bs_cy),
+                        special_flags=pygame.BLEND_ADD)
+
+            # ── 4. 검기 날 가장자리 에너지 파편 (양쪽 끝에서 분출) ──
+            for _ei in range(8):
+                _e_phase = _dt_sec * 8.0 + _ei * 0.785  # 45도 간격 회전
+                _e_side = 1 if _ei % 2 == 0 else -1
+                _e_base_x = _br_cx + _e_side * _br_hw * (0.7 + 0.3 * abs(math.sin(_e_phase)))
+                _e_base_y = _br_cy - 10 + math.cos(_e_phase * 1.5) * 15
+                _e_dist = 8 + 12 * abs(math.sin(_e_phase * 2.0))
+                _ex = int(_e_base_x + math.cos(_e_phase) * _e_dist)
+                _ey = int(_e_base_y + math.sin(_e_phase) * _e_dist * 0.4)
+                _e_r = max(1, int(3 - _ei * 0.2))
+                _e_alpha = max(0, min(255, int(180 - _ei * 15)))
+                _e_surf = pygame.Surface((_e_r * 4, _e_r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(_e_surf, (180, 120, 255, _e_alpha), (_e_r * 2, _e_r * 2), _e_r * 2)
+                pygame.draw.circle(_e_surf, (255, 240, 255, min(255, _e_alpha + 40)),
+                                   (_e_r * 2, _e_r * 2), max(1, _e_r))
+                SCREEN.blit(_e_surf, (_ex - _e_r * 2, _ey - _e_r * 2),
+                            special_flags=pygame.BLEND_ADD)
+
+            # ── 5. 선단 집중 에너지 (검기 앞쪽 수렴 이펙트) ──
+            _tip_y = _br_cy - _blade_h // 2 - 5
+            # 수렴 선 (양쪽에서 중앙으로 모이는 에너지)
+            for _ci in range(6):
+                _c_phase = _dt_sec * 6.0 + _ci * 1.047  # 60도 간격
+                _c_progress_local = (_c_phase % 1.0)
+                _c_start_x = _br_cx + int(math.cos(_ci * 1.047) * (_br_hw * 0.6))
+                _c_start_y = _tip_y + 15 + int(math.sin(_ci * 1.047) * 10)
+                _c_end_x = _br_cx + int(math.cos(_ci * 1.047) * 5 * (1.0 - _c_progress_local))
+                _c_end_y = _tip_y + int(math.sin(_ci * 1.047) * 3 * (1.0 - _c_progress_local))
+                _c_alpha = max(0, min(255, int(120 * (1.0 - _c_progress_local))))
+                if _c_alpha > 10:
+                    _c_col = (160 + int(80 * _c_progress_local), 80 + int(140 * _c_progress_local),
+                              255, _c_alpha)
+                    pygame.draw.line(SCREEN, _c_col,
+                                     (_c_start_x, _c_start_y), (_c_end_x, _c_end_y), 1)
+
+            # 선단 중앙 플래시
+            _flash_r = int(10 + 5 * math.sin(_dt_sec * 15.0))
+            _flash_surf = pygame.Surface((_flash_r * 4, _flash_r * 4), pygame.SRCALPHA)
+            pygame.draw.circle(_flash_surf, (140, 60, 255, 50), (_flash_r * 2, _flash_r * 2), _flash_r * 2)
+            pygame.draw.circle(_flash_surf, (200, 160, 255, 100), (_flash_r * 2, _flash_r * 2), _flash_r)
+            pygame.draw.circle(_flash_surf, (255, 240, 255, 180), (_flash_r * 2, _flash_r * 2), max(2, _flash_r // 2))
+            SCREEN.blit(_flash_surf, (_br_cx - _flash_r * 2, _tip_y - _flash_r * 2),
+                        special_flags=pygame.BLEND_ADD)
+
+            # ── 6. 회전 에너지 링 (검기 주위를 도는 오비탈) ──
+            for _oi in range(3):
+                _o_angle = _dt_sec * (5.0 + _oi * 2.0) + _oi * 2.094  # 120도 간격
+                _o_rx = int(_br_hw * 0.4 * math.cos(_o_angle))
+                _o_ry = int(20 * math.sin(_o_angle))
+                _o_x = _br_cx + _o_rx
+                _o_y = _br_cy + _o_ry
+                _o_behind = math.sin(_o_angle) > 0  # 뒤쪽이면 어둡게
+                _o_alpha = 80 if _o_behind else 160
+                _o_r = 3 if _o_behind else 4
+                _o_surf = pygame.Surface((_o_r * 6, _o_r * 6), pygame.SRCALPHA)
+                pygame.draw.circle(_o_surf, (100, 200, 255, _o_alpha), (_o_r * 3, _o_r * 3), _o_r * 3)
+                pygame.draw.circle(_o_surf, (220, 255, 255, min(255, _o_alpha + 60)),
+                                   (_o_r * 3, _o_r * 3), _o_r)
+                SCREEN.blit(_o_surf, (_o_x - _o_r * 3, _o_y - _o_r * 3),
+                            special_flags=pygame.BLEND_ADD)
+
+            # ── 7. 화면 가장자리 비네트 플래시 (발동 초반 임팩트) ──
+            if _br_progress < 0.3:
+                _vignette_alpha = int(40 * (1.0 - _br_progress / 0.3))
+                _vig_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                # 상단 퍼플 그라데이션 바
+                for _vi in range(20):
+                    _v_a = max(0, _vignette_alpha - _vi * 2)
+                    if _v_a > 0:
+                        pygame.draw.line(_vig_surf, (120, 0, 200, _v_a), (0, _vi), (WIDTH, _vi))
+                SCREEN.blit(_vig_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+
         except Exception:
             pass
 
