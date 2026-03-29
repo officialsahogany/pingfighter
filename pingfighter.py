@@ -47545,6 +47545,7 @@ _VIPER_JETPACK_HIT_BONUS = 1.15         # 체공 중 공 히트 시 속도 보�
 _VIPER_JETPACK_MAX_HOLD_FRAMES = 180    # 최대 체공 시간 (3초 = 180프레임)
 _viper_jetpack_hold_timer = 0           # 연속 체공 타이머
 _viper_jetpack_overheat = False         # 과열 상태 (강제 하강 중)
+_viper_jetpack_snd_channel = None       # 제트팩 사운드 채널 (루프 재생 관리)
 _viper_air_strike_text_timer = 0        # AIR STRIKE 텍스트 표시 타이머
 _viper_air_strike_text_x = 0.0          # 텍스트 X
 _viper_air_strike_text_y = 0.0          # 텍스트 Y
@@ -71614,6 +71615,8 @@ def handle_player(keys):
             except Exception:
                 pass
 
+        global _viper_jetpack_snd_channel
+        _was_jetpack_active = _viper_jetpack_active
         if _jetpack_input and special_gauge >= _VIPER_JETPACK_GAUGE_COST:
             _viper_jetpack_active = True
             _viper_jetpack_hold_timer += 1
@@ -71635,6 +71638,20 @@ def handle_player(keys):
         else:
             _viper_jetpack_active = False
             _viper_jetpack_gauge_timer = 0
+
+        # 제트팩 사운드 루프 재생/정지
+        try:
+            if _viper_jetpack_active and not _was_jetpack_active:
+                _jp_snd = sound_effects.get('VIPER_JETPACK')
+                if _jp_snd:
+                    _jp_snd.set_volume(0.35)
+                    _viper_jetpack_snd_channel = _jp_snd.play(loops=-1)
+            elif not _viper_jetpack_active and _was_jetpack_active:
+                if _viper_jetpack_snd_channel and _viper_jetpack_snd_channel.get_busy():
+                    _viper_jetpack_snd_channel.fadeout(200)
+                    _viper_jetpack_snd_channel = None
+        except Exception:
+            pass
 
         # 하강 (제트팩 비활성 또는 과열 시 서서히 내려옴)
         if not _viper_jetpack_active and _viper_jetpack_offset_y < 0:
@@ -137769,6 +137786,13 @@ def reset_round(is_stage_start=False):
     _viper_jetpack_overheat = False
     _viper_jetpack_particles.clear()
     _viper_air_strike_text_timer = 0
+    global _viper_jetpack_snd_channel
+    try:
+        if _viper_jetpack_snd_channel and _viper_jetpack_snd_channel.get_busy():
+            _viper_jetpack_snd_channel.stop()
+        _viper_jetpack_snd_channel = None
+    except Exception:
+        _viper_jetpack_snd_channel = None
     # 바이퍼 급강하 어택 초기화
     global _viper_dive_active, _viper_dive_phase, _viper_dive_shockwave_timer
     global _viper_dive_particles, _viper_dive_ball_boosted

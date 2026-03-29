@@ -116,6 +116,7 @@ SOUND_PATHS = {
     "ALCHEMY": "sounds/alchemy.wav",
     "SOUL_BURST_DASH": "sounds/soulbust.wav",
     "VIPER_BLADE": "sounds/blade.wav",
+    "VIPER_JETPACK": "sounds/jetpack.wav",
 }
 
 
