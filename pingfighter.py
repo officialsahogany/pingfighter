@@ -50596,6 +50596,10 @@ class SupplyAircraft:
                 if not is_soldier_weapon_unlocked(item_name):
                     continue
 
+            # 도핑물약은 권총 퍽 해금 시에만 드롭 (헤드샷/레그샷 강화 전용)
+            if item_name == "doping_potion" and not soldier_pistol_perk_unlocked:
+                continue
+
             weight = base_weights.get(item_name, 1.0)
             if item_name in firearm_names:
                 weight *= firearm_penalty
