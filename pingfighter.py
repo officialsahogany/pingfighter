@@ -3687,20 +3687,20 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "blade_rush", "korean": "블레이드 러쉬", "cost": 200, "color": (200, 50, 255),
-        "symbol": "⚔", "cooldown": 16.0, "key": "W",
+        "symbol": "⚔", "cooldown": 16.0, "key": "클릭/Space",
         "description": "전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 30~50% 증가합니다.",
-        "how_to_use": "W키를 눌러 발동",
+        "how_to_use": "마우스 좌클릭 또는 Space키로 발동",
         "effect_type": "slash_purple"
     },
     {
-        "name": "nerve_strike", "korean": "신경 타격", "cost": 80, "color": (180, 0, 220),
-        "symbol": "◈", "cooldown": 0.0, "key": "W(연계)",
-        "description": "블레이드 러쉬 착지 전 W키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
-        "how_to_use": "블레이드 러쉬 사용 후 착지 전 W키",
+        "name": "nerve_strike", "korean": "베놈 엣지", "cost": 80, "color": (180, 0, 220),
+        "symbol": "◈", "cooldown": 0.0, "key": "클릭/Space(연계)",
+        "description": "블레이드 러쉬 착지 전 클릭/Space로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
+        "how_to_use": "블레이드 러쉬 사용 후 착지 전 클릭/Space",
         "effect_type": "stun_purple"
     },
     {
-        "name": "venom_edge", "korean": "베놈 엣지", "cost": 80, "color": (0, 255, 100),
+        "name": "venom_edge", "korean": "신경 타격", "cost": 80, "color": (0, 255, 100),
         "symbol": "☠", "cooldown": 14.0, "key": "Q",
         "description": "블레이드에 독기를 주입합니다.\n5초간 타격 시 보스에게 지속 피해를 입힙니다.",
         "how_to_use": "Q키를 눌러 발동",
@@ -12824,23 +12824,23 @@ VIPER_EXCLUSIVE_SKILLS = {
         "character_restriction": "viper"
     },
     "unlock_nerve_strike": {
-        "name": "신경 타격 해금",
+        "name": "베놈 엣지 해금",
         "max_level": 1,
         "descriptions": {
-            1: "신경 타격 스킬 해금 (블레이드 러쉬 연계기)",
+            1: "베놈 엣지 스킬 해금 (블레이드 러쉬 연계기)",
         },
-        "detail": "블레이드 러쉬 연계기 '신경 타격'을 해금합니다. 블레이드 러쉬 착지 전 W키로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 베고 복귀합니다. 5초간 보스 혼란.",
+        "detail": "블레이드 러쉬 연계기 '베놈 엣지'를 해금합니다. 블레이드 러쉬 착지 전 클릭/Space로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 베고 복귀합니다. 5초간 보스 혼란.",
         "icon_color": (180, 0, 220),
         "tree": "viper_unlock",
         "character_restriction": "viper"
     },
     "unlock_venom_edge": {
-        "name": "베놈 엣지 해금",
+        "name": "신경 타격 해금",
         "max_level": 1,
         "descriptions": {
-            1: "베놈 엣지 스킬 해금",
+            1: "신경 타격 스킬 해금",
         },
-        "detail": "게이지 스킬 '베놈 엣지'를 해금합니다. Q키로 게이지 80을 소모해 블레이드에 독기를 주입, 5초간 타격 시 지속 피해를 입힙니다.",
+        "detail": "게이지 스킬 '신경 타격'을 해금합니다. Q키로 게이지 80을 소모해 블레이드에 독기를 주입, 5초간 타격 시 지속 피해를 입힙니다.",
         "icon_color": (0, 255, 100),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -47542,6 +47542,10 @@ _VIPER_JETPACK_FALL_SPEED = 3.0         # 하강 속도 (px/frame)
 _VIPER_JETPACK_GAUGE_COST = 10          # 0.5초당 게이지 소모량
 _VIPER_JETPACK_GAUGE_INTERVAL = 30      # 게이지 소모 간격 (프레임, 0.5초)
 _VIPER_JETPACK_HIT_BONUS = 1.15         # 체공 중 공 히트 시 속도 보너스 (15%)
+_viper_air_strike_text_timer = 0        # AIR STRIKE 텍스트 표시 타이머
+_viper_air_strike_text_x = 0.0          # 텍스트 X
+_viper_air_strike_text_y = 0.0          # 텍스트 Y
+_viper_air_strike_text_pct = 0          # 보너스 퍼센트
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -71336,7 +71340,7 @@ def handle_player(keys):
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
 
-    # ⚔ 바이퍼 스킬 발동 처리 (W: 블레이드 러쉬/신경 타격 연계, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
+    # ⚔ 바이퍼 스킬 발동 처리 (Space/좌클릭: 블레이드 러쉬/신경 타격 연계, W홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
@@ -71357,7 +71361,7 @@ def handle_player(keys):
         global _viper_nerve_strike_slash_shown, _viper_nerve_strike_combo_used
         global boss_confused_timer
 
-        _viper_w_pressed = keys[pygame.K_w]
+        _viper_w_pressed = keys[pygame.K_SPACE] or pygame.mouse.get_pressed()[0]  # Space 또는 마우스 좌클릭
         _viper_e_pressed = keys[pygame.K_e]
         _viper_q_pressed = keys[pygame.K_q]
         _viper_r_pressed = keys[pygame.K_r]
@@ -71464,7 +71468,7 @@ def handle_player(keys):
                         _viper_ss_wave_trail.clear()
 
         elif _viper_can_act:
-            # 블레이드 러쉬 (W키) — 전방으로 검기 발사 또는 신경 타격 연계
+            # 블레이드 러쉬 (Space/좌클릭) — 전방으로 검기 발사 또는 신경 타격 연계
             if _viper_w_pressed and _viper_w_key_released:
                 # 연계기 판정: 블레이드 러쉬 Phase 2 하강 구간 (검기 발사 후 내려올 때 ~ 착지 전)
                 _ns_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
@@ -71565,15 +71569,14 @@ def handle_player(keys):
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
 
-        # 입력 감지: 스페이스바 또는 마우스 왼쪽 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀 중에는 비활성)
+        # 입력 감지: W키 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀 중에는 비활성)
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
                 or _viper_nerve_strike_active or _viper_br_spin_active
                 or rolling_active):
             try:
                 _jk = pygame.key.get_pressed()
-                _jm = pygame.mouse.get_pressed()
-                _jetpack_input = bool(_jk[pygame.K_SPACE]) or bool(_jm[0])
+                _jetpack_input = bool(_jk[pygame.K_w])
             except Exception:
                 pass
 
@@ -76067,7 +76070,11 @@ def handle_player(keys):
                 smasher_walking_active = False
                 smasher_walking_timer = 0
         elif selected_character_type == "viper":
-            if walking:
+            # 제트팩 활성 시 걷기 모션 억제 (공중에서 다리 걷는 모션 방지)
+            if _viper_jetpack_active or _viper_jetpack_offset_y < -5:
+                viper_walking_active = False
+                viper_walking_timer = 0
+            elif walking:
                 if not viper_walking_active:
                     viper_walking_active = True
                     viper_walking_timer = 0
@@ -76757,10 +76764,34 @@ def handle_player(keys):
         _player_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [플레이어 패들 충돌] calculate_bounce 후 속도: {_player_speed_before:.2f} → {_player_speed_after:.2f}, 쿨다운: player={player_collision_cooldown}, boss={boss_collision_cooldown}")  # 디버그 비활성화
 
-        # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가)
+        # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가 + AIR STRIKE 이펙트)
         if selected_character_type == "viper" and _viper_jetpack_offset_y < -10:
             ball_vel[0] *= _VIPER_JETPACK_HIT_BONUS
             ball_vel[1] *= _VIPER_JETPACK_HIT_BONUS
+            # 시안 쇼크웨이브
+            try:
+                effects_manager.spawn_shockwave(
+                    BALL.centerx, BALL.centery,
+                    force=12, color=(0, 255, 200),
+                )
+            except Exception:
+                pass
+            # AIR STRIKE 텍스트 이펙트
+            try:
+                _air_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
+                _air_bonus_pct = int(_air_height_ratio * 15)
+                floating_texts.append({
+                    'text': f"AIR STRIKE +{_air_bonus_pct}%",
+                    'x': BALL.centerx,
+                    'y': BALL.centery - 20,
+                    'color': (0, 255, 220),
+                    'timer': 60,
+                    'max_timer': 60,
+                    'vy': -1.5,
+                    'size': 16,
+                })
+            except Exception:
+                pass
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
