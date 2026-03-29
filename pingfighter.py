@@ -71812,8 +71812,8 @@ def handle_player(keys):
         if len(_viper_blade_rush_trail) > 20:
             _viper_blade_rush_trail.pop(0)
 
-        # 검기-공 충돌 판정 (1회만)
-        if not _viper_blade_rush_hit_ball:
+        # 검기-공 충돌 판정 (1회만, 페이드아웃 중에는 판정 없음)
+        if not _viper_blade_rush_hit_ball and not _viper_blade_rush_fadeout:
             try:
                 _br_half_w = _viper_blade_rush_width // 2
                 _br_blade_rect = pygame.Rect(
