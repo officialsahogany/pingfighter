@@ -47466,6 +47466,17 @@ _viper_ss_hologram_origin_x = 0      # 텔레포트 출발 X (원래 위치)
 _viper_ss_hologram_origin_y = 0      # 출발 Y
 _VIPER_SS_HOLOGRAM_DURATION = 500    # 홀로그램 등장 시간 (ms)
 
+# === 바이퍼 쉐도우 스텝 에너지파 (출발점→도착점, 공 히트 시 팬텀 스트라이크) ===
+_viper_ss_wave_active = False         # 에너지파 활성
+_viper_ss_wave_x = 0.0               # 에너지파 현재 X
+_viper_ss_wave_y = 0.0               # 에너지파 Y (고정, 플레이어 높이)
+_viper_ss_wave_target_x = 0.0        # 에너지파 목표 X
+_viper_ss_wave_origin_x = 0.0        # 에너지파 출발 X
+_viper_ss_wave_dir = 1               # 이동 방향 (-1/1)
+_viper_ss_wave_speed = 25.0          # 이동 속도 (px/frame, 매우 빠름)
+_viper_ss_wave_hit_ball = False      # 공 히트 여부 (1회 제한)
+_viper_ss_wave_trail = []            # 잔상 궤적
+
 # === 바이퍼 쉐도우 스텝 → 다음 타격 버프 (팬텀 스트라이크) ===
 _viper_phantom_strike_active = False  # 다음 타격 버프 활성
 _viper_phantom_strike_timer = 0       # 버프 남은 시간 (프레임)
@@ -71286,6 +71297,8 @@ def handle_player(keys):
         global _viper_br_jump_offset_y, _viper_br_arm_raise
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x
+        global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
+        global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
         global _viper_speed_boost_active, _viper_speed_boost_original
@@ -71377,6 +71390,16 @@ def handle_player(keys):
                         except Exception:
                             pass
 
+                        # 에너지파 발사 (출발점 → 도착점, 공 히트 시 팬텀 스트라이크)
+                        _viper_ss_wave_active = True
+                        _viper_ss_wave_origin_x = float(_viper_ss_hologram_origin_x)
+                        _viper_ss_wave_x = float(_viper_ss_hologram_origin_x)
+                        _viper_ss_wave_y = float(_viper_ss_hologram_origin_y)
+                        _viper_ss_wave_target_x = float(_ss_new_x)
+                        _viper_ss_wave_dir = _ss_reverse_dir
+                        _viper_ss_wave_hit_ball = False
+                        _viper_ss_wave_trail.clear()
+
         elif _viper_can_act:
             # 블레이드 러쉬 (W키) — 전방으로 검기 발사
             if _viper_w_pressed and _viper_w_key_released:
@@ -71446,6 +71469,57 @@ def handle_player(keys):
             _curve_progress = 1.0 - (_viper_ps_curve_timer / _VIPER_PS_CURVE_FRAMES)
             _curve_strength = math.sin(_curve_progress * math.pi) * _VIPER_PS_CURVE_FORCE
             ball_vel[0] += _viper_ps_curve_direction * _curve_strength
+
+    # 바이퍼 쉐도우 스텝 에너지파 업데이트 (이동 + 공 충돌)
+    if _viper_ss_wave_active:
+        # 이동 (매우 빠름)
+        _viper_ss_wave_x += _viper_ss_wave_dir * _viper_ss_wave_speed
+        # 잔상 기록
+        _viper_ss_wave_trail.append((_viper_ss_wave_x, _viper_ss_wave_y))
+        if len(_viper_ss_wave_trail) > 12:
+            _viper_ss_wave_trail.pop(0)
+        # 도달 판정 (방향에 따라)
+        if _viper_ss_wave_dir > 0:
+            if _viper_ss_wave_x >= _viper_ss_wave_target_x:
+                _viper_ss_wave_active = False
+                _viper_ss_wave_trail.clear()
+        else:
+            if _viper_ss_wave_x <= _viper_ss_wave_target_x:
+                _viper_ss_wave_active = False
+                _viper_ss_wave_trail.clear()
+        # 공 충돌 판정 (1회, 팬텀 스트라이크 발동)
+        if _viper_ss_wave_active and not _viper_ss_wave_hit_ball:
+            try:
+                _sw_hit_rect = pygame.Rect(
+                    int(_viper_ss_wave_x - 30), int(_viper_ss_wave_y - 25),
+                    60, 50  # 에너지파 히트박스
+                )
+                if _sw_hit_rect.colliderect(BALL):
+                    _viper_ss_wave_hit_ball = True
+                    # 팬텀 스트라이크와 동일한 효과 적용 (공속 2.3x + S커브)
+                    _sw_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    _sw_new_speed = max(_sw_cur_speed * 2.3, 10.0)
+                    _viper_speed_boost_active = True
+                    _viper_speed_boost_original = _sw_cur_speed
+                    _sw_curve = _viper_ss_wave_dir
+                    _sw_init_angle = _sw_curve * 10
+                    _sw_rad = math.radians(-90 + _sw_init_angle)
+                    ball_vel[0] = math.cos(_sw_rad) * _sw_new_speed
+                    ball_vel[1] = math.sin(_sw_rad) * _sw_new_speed
+                    # 커브 비행 활성화
+                    _viper_ps_curve_active = True
+                    _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
+                    _viper_ps_curve_direction = _sw_curve
+                    # 히트 이펙트
+                    try:
+                        effects_manager.spawn_shockwave(
+                            BALL.centerx, BALL.centery,
+                            force=12, color=(160, 0, 255),
+                        )
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
     # 바이퍼 블레이드 러쉬 회전/정지 연출 업데이트
     if _viper_br_spin_active:
@@ -105213,6 +105287,80 @@ def draw_objects():
                         pass
         except Exception:
             _viper_ss_hologram_active = False
+
+    # ⚡ 바이퍼 쉐도우 스텝 에너지파 렌더링
+    if _viper_ss_wave_active:
+        try:
+            _sw_x = int(_viper_ss_wave_x)
+            _sw_y = int(_viper_ss_wave_y)
+            _sw_ticks = pygame.time.get_ticks()
+            _sw_dt = _sw_ticks / 1000.0
+            # 진행도 (0→1)
+            _sw_total_dist = abs(_viper_ss_wave_target_x - _viper_ss_wave_origin_x)
+            _sw_progress = min(1.0, abs(_viper_ss_wave_x - _viper_ss_wave_origin_x) / max(1.0, _sw_total_dist))
+
+            # ── 잔상 트레일 (그라데이션 리본) ──
+            _sw_trail_len = len(_viper_ss_wave_trail)
+            for _swi in range(_sw_trail_len):
+                _swt_x, _swt_y = _viper_ss_wave_trail[_swi]
+                _swt_ratio = _swi / max(1, _sw_trail_len - 1)
+                _swt_w = int(20 + 15 * _swt_ratio)
+                _swt_h = int(6 + 10 * _swt_ratio)
+                _swt_alpha = int(20 + 80 * _swt_ratio)
+                _swt_r = int(100 + 60 * (1.0 - _swt_ratio))
+                _swt_g = int(0 + 120 * _swt_ratio)
+                _swt_b = int(180 + 60 * _swt_ratio)
+                _swt_s = pygame.Surface((_swt_w * 2, _swt_h * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(_swt_s, (_swt_r, _swt_g, _swt_b, _swt_alpha),
+                                    (0, 0, _swt_w * 2, _swt_h * 2))
+                SCREEN.blit(_swt_s, (int(_swt_x) - _swt_w, int(_swt_y) - _swt_h),
+                            special_flags=pygame.BLEND_ADD)
+
+            # ── 에너지파 본체 (초승달형 + 글로우) ──
+            _sw_size = 60
+            _sw_surf = pygame.Surface((_sw_size * 2, _sw_size), pygame.SRCALPHA)
+            _sw_scx = _sw_size  # 서피스 중앙 X
+            _sw_scy = _sw_size // 2  # 서피스 중앙 Y
+            _sw_pulse = 0.8 + 0.2 * math.sin(_sw_dt * 16.0)
+
+            # 외곽 글로우 (3겹)
+            for _swg in range(3):
+                _swg_r = _sw_size - _swg * 10
+                _swg_h = int((30 - _swg * 6) * _sw_pulse)
+                _swg_alpha = int((30 + _swg * 15) * _sw_pulse)
+                if _swg_r > 0 and _swg_h > 0:
+                    pygame.draw.ellipse(_sw_surf, (120 + _swg * 30, _swg * 40, 220 + _swg * 10, _swg_alpha),
+                                        (_sw_scx - _swg_r, _sw_scy - _swg_h, _swg_r * 2, _swg_h * 2))
+
+            # 코어 (밝은 크레센트)
+            _sw_core_w = 35
+            _sw_core_h = int(14 * _sw_pulse)
+            pygame.draw.ellipse(_sw_surf, (200, 140, 255, 160),
+                                (_sw_scx - _sw_core_w, _sw_scy - _sw_core_h, _sw_core_w * 2, _sw_core_h * 2))
+            # 하이라이트
+            _sw_hl_w = 20
+            _sw_hl_h = max(2, int(6 * _sw_pulse))
+            pygame.draw.ellipse(_sw_surf, (255, 240, 255, 200),
+                                (_sw_scx - _sw_hl_w, _sw_scy - _sw_hl_h, _sw_hl_w * 2, _sw_hl_h * 2))
+
+            SCREEN.blit(_sw_surf, (_sw_x - _sw_size, _sw_y - _sw_size // 2),
+                        special_flags=pygame.BLEND_ADD)
+
+            # ── 선도 스파크 (진행 방향 앞쪽) ──
+            for _ssi in range(3):
+                _ss_angle = _sw_dt * 10.0 + _ssi * 2.094
+                _ss_dx = _viper_ss_wave_dir * (15 + 8 * math.sin(_ss_angle))
+                _ss_dy = int(math.cos(_ss_angle) * 8)
+                _ss_px = _sw_x + int(_ss_dx)
+                _ss_py = _sw_y + _ss_dy
+                _ss_r = max(1, 3 - _ssi)
+                _ss_surf = pygame.Surface((_ss_r * 4, _ss_r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(_ss_surf, (180, 120, 255, 150), (_ss_r * 2, _ss_r * 2), _ss_r * 2)
+                pygame.draw.circle(_ss_surf, (255, 240, 255, 220), (_ss_r * 2, _ss_r * 2), max(1, _ss_r))
+                SCREEN.blit(_ss_surf, (_ss_px - _ss_r * 2, _ss_py - _ss_r * 2),
+                            special_flags=pygame.BLEND_ADD)
+        except Exception:
+            pass
 
     # 🛡️ 인게임 호위무사 캐릭터 및 스킬 이펙트 그리기 (일반 스테이지, 최대 2명)
     if not arena_mode_enabled:
