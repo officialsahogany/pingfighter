@@ -137596,6 +137596,7 @@ def calculate_bounce(paddle):
     global player_up_pressed, player_collision_handled, player_collision_cooldown
     global special_gauge
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_cooldown
+    global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
     global ragnarok_original_speed
