@@ -47525,9 +47525,10 @@ _viper_nerve_strike_target_x = 0.0       # 보스 등뒤 X
 _viper_nerve_strike_target_y = 0.0       # 보스 등뒤 Y (보스 뒤)
 _viper_nerve_strike_slash_shown = False   # 베기 이펙트 표시 여부
 _viper_nerve_strike_combo_used = False    # 이번 블레이드 러쉬에서 연계기 사용했는지
-_VIPER_NS_DASH_DURATION = 200            # 돌진 시간 (ms)
+_VIPER_NS_DASH_DURATION = 500            # 돌진 시간 (ms) — 보스가 피할 여유 있음
 _VIPER_NS_SLASH_DURATION = 300           # 등뒤 베기 연출 시간 (ms)
-_VIPER_NS_RETURN_DURATION = 200          # 복귀 시간 (ms)
+_VIPER_NS_RETURN_DURATION = 150          # 복귀 시간 (ms) — 빠른 귀환
+_VIPER_NS_HIT_RADIUS = 60               # 도착 시 보스 히트 판정 반경 (px)
 _VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
 
 optimus_walking_active = False
@@ -71736,24 +71737,34 @@ def handle_player(keys):
         _ns_elapsed = _ns_now - _viper_nerve_strike_start_ms
 
         if _viper_nerve_strike_phase == 0:
-            # Phase 0: 보스에게 고속 돌진 (Y축 위로)
+            # Phase 0: 보스에게 돌진 (여유 있는 속도 — 보스가 피할 수 있음)
             if _ns_elapsed < _VIPER_NS_DASH_DURATION:
                 _ns_t = _ns_elapsed / _VIPER_NS_DASH_DURATION
-                # 이징: 빠르게 가속 후 감속 (ease-out)
-                _ns_ease = 1.0 - (1.0 - _ns_t) ** 2
+                # 이징: ease-in-out (자연스러운 가감속)
+                _ns_ease = _ns_t * _ns_t * (3.0 - 2.0 * _ns_t)
                 _ns_cur_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _ns_ease
                 _ns_cur_y = _viper_nerve_strike_origin_y + (_viper_nerve_strike_target_y - _viper_nerve_strike_origin_y) * _ns_ease
                 PLAYER.centerx = int(_ns_cur_x)
                 PLAYER.centery = int(_ns_cur_y)
             else:
-                # 보스 등뒤 도착
+                # 도착 — 보스가 히트 범위 안에 있는지 판정
                 PLAYER.centerx = int(_viper_nerve_strike_target_x)
                 PLAYER.centery = int(_viper_nerve_strike_target_y)
-                _viper_nerve_strike_phase = 1
-                _viper_nerve_strike_start_ms = _ns_now
+                _ns_dx = BOSS.centerx - _viper_nerve_strike_target_x
+                _ns_dy = BOSS.centery - _viper_nerve_strike_target_y
+                _ns_dist = math.sqrt(_ns_dx * _ns_dx + _ns_dy * _ns_dy)
+
+                if _ns_dist <= _VIPER_NS_HIT_RADIUS:
+                    # 적중! → 베기 연출로 전환
+                    _viper_nerve_strike_phase = 1
+                    _viper_nerve_strike_start_ms = _ns_now
+                else:
+                    # 무효 (보스가 피함) → 즉시 복귀
+                    _viper_nerve_strike_phase = 2
+                    _viper_nerve_strike_start_ms = _ns_now
 
         elif _viper_nerve_strike_phase == 1:
-            # Phase 1: 등뒤에서 베기 연출
+            # Phase 1: 등뒤에서 베기 연출 (적중 시에만 진입)
             PLAYER.centerx = int(_viper_nerve_strike_target_x)
             PLAYER.centery = int(_viper_nerve_strike_target_y)
 
