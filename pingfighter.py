@@ -71320,10 +71320,12 @@ def handle_player(keys):
         if not _viper_r_pressed:
             _viper_r_key_released = True
 
-        # S키 릴리즈: 대쉬 상태일 때만 추적 (평상시에는 리셋 유지)
+        # S키/아래키 릴리즈: 대쉬 상태일 때만 추적 (평상시에는 리셋 유지)
         _viper_in_dash = rolling_active or rolling_stun_timer > 0
+        # 쉐도우 스텝 입력: S키 또는 아래키 (둘 다 인정)
+        _viper_ss_input = _viper_s_pressed or keys[pygame.K_DOWN]
         if _viper_in_dash:
-            if not _viper_s_pressed:
+            if not _viper_ss_input:
                 _viper_s_key_released = True
         else:
             _viper_s_key_released = False  # 대쉬 상태 아니면 항상 리셋 → 오발동 방지
@@ -71336,8 +71338,15 @@ def handle_player(keys):
             or is_player_serve
         )
 
-        # 쉐도우 스텝: 대쉬 중 또는 대쉬 후딜 중 S키 → 즉시 캔슬 + 순간이동
-        if _viper_in_dash and _viper_s_pressed and _viper_s_key_released:
+        # 쉐도우 스텝: 대쉬 중/후딜 중 S키(또는 아래키) 단독 입력 시만 발동
+        # 좌우 방향키가 함께 눌려있으면 대쉬 입력으로 간주 → 발동 차단
+        _viper_any_dir_held = (
+            keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
+            or keys[pygame.K_a] or keys[pygame.K_d]
+            or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
+            or is_move_left_pressed(keys) or is_move_right_pressed(keys)
+        )
+        if _viper_in_dash and _viper_ss_input and _viper_s_key_released and not _viper_any_dir_held:
             if is_viper_skill_unlocked("shadow_step"):
                 if get_viper_skill_cooldown_remaining("shadow_step") <= 0:
                     if special_gauge >= 40 and not _viper_ss_hologram_active:
