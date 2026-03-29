@@ -47528,7 +47528,7 @@ _viper_nerve_strike_combo_used = False    # 이번 블레이드 러쉬에서 연
 _VIPER_NS_DASH_DURATION = 500            # 돌진 시간 (ms) — 보스가 피할 여유 있음
 _VIPER_NS_SLASH_DURATION = 300           # 등뒤 베기 연출 시간 (ms)
 _VIPER_NS_RETURN_DURATION = 150          # 복귀 시간 (ms) — 빠른 귀환
-_VIPER_NS_HIT_RADIUS = 90               # 도착 시 보스 히트 판정 반경 (px)
+_VIPER_NS_HIT_RADIUS = 120              # 도착 시 보스 히트 판정 반경 (px)
 _VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
 
 # === 바이퍼 제트팩 시스템 ===
@@ -162399,7 +162399,7 @@ def show_character_info(background_surface=None):
         return slots
 
     def get_equipment_state():
-        """전역에 유지되는 장비 슬롯 상태를 가져오거나 초기화."""
+        """전역에 유지되는 장비 슬롯 상태를 가져오거나 초기화."ㅁㅁㅁㅁ""
         state = ensure_equipment_state()
         # 오래된 리스트 형태로 저장된 경우 정규화
         for key, value in list(state.items()):
