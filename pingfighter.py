@@ -105449,72 +105449,147 @@ def draw_objects():
             _ns_relapsed = _ns_rnow - _viper_nerve_strike_start_ms
 
             if _viper_nerve_strike_phase == 0:
-                # 돌진 중 — 잔상 트레일
+                # -- Dash: Viper silhouette afterimages + speed lines --
                 _ns_t = min(1.0, _ns_relapsed / _VIPER_NS_DASH_DURATION)
-                _ns_trail_count = 5
-                for _ti in range(_ns_trail_count):
-                    _tt = max(0.0, _ns_t - (_ti * 0.06))
-                    _tt_ease = 1.0 - (1.0 - _tt) ** 2
-                    _trail_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _tt_ease
-                    _trail_y = _viper_nerve_strike_origin_y + (_viper_nerve_strike_target_y - _viper_nerve_strike_origin_y) * _tt_ease
-                    _trail_alpha = int(120 * (1.0 - _ti / _ns_trail_count) * (1.0 - _ns_t * 0.5))
-                    if _trail_alpha > 5:
-                        _trail_surf = pygame.Surface((30, 60), pygame.SRCALPHA)
-                        pygame.draw.ellipse(_trail_surf, (180, 0, 220, _trail_alpha), (0, 0, 30, 60))
-                        SCREEN.blit(_trail_surf, (int(_trail_x) - 15, int(_trail_y) - 30),
-                                    special_flags=pygame.BLEND_ADD)
-
-                # 돌진 라인 (플레이어 → 보스 방향)
-                _dash_alpha = int(180 * (1.0 - _ns_t * 0.3))
-                if _dash_alpha > 10:
-                    pygame.draw.line(SCREEN, (180, 0, 220),
-                                     (int(_viper_nerve_strike_origin_x), int(_viper_nerve_strike_origin_y)),
-                                     (int(PLAYER.centerx), int(PLAYER.centery)), 2)
+                try:
+                    _ns_sil_base = create_viper_paddle_surface(0.0)
+                    _ns_sil_w, _ns_sil_h = _ns_sil_base.get_size()
+                    for _ti in range(3):
+                        _tt = max(0.0, _ns_t - (_ti * 0.08))
+                        _tt_ease = _tt * _tt * (3.0 - 2.0 * _tt)
+                        _trail_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _tt_ease
+                        _trail_y = _viper_nerve_strike_origin_y + (_viper_nerve_strike_target_y - _viper_nerve_strike_origin_y) * _tt_ease
+                        _sil_alpha = int(140 * (1.0 - _ti / 3.0) * (0.5 + 0.5 * (1.0 - _ns_t)))
+                        if _sil_alpha > 8:
+                            _sil_copy = _ns_sil_base.copy()
+                            _tint_s = pygame.Surface((_ns_sil_w, _ns_sil_h), pygame.SRCALPHA)
+                            _tint_s.fill((180, 0, 220, _sil_alpha))
+                            _sil_copy.blit(_tint_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                            _sil_copy.set_alpha(_sil_alpha)
+                            SCREEN.blit(_sil_copy,
+                                        (int(_trail_x) - _ns_sil_w // 2, int(_trail_y) - _ns_sil_h // 2),
+                                        special_flags=pygame.BLEND_ADD)
+                except Exception:
+                    pass
+                _ns_dx = _viper_nerve_strike_target_x - _viper_nerve_strike_origin_x
+                _ns_dy = _viper_nerve_strike_target_y - _viper_nerve_strike_origin_y
+                _ns_dist = math.sqrt(_ns_dx * _ns_dx + _ns_dy * _ns_dy)
+                if _ns_dist > 1.0:
+                    _ns_px = -_ns_dy / _ns_dist
+                    _ns_py = _ns_dx / _ns_dist
+                    for _li in range(5):
+                        _lo = (_li - 2) * 12
+                        _la = int(100 * (1.0 - abs(_li - 2) / 2.5) * _ns_t * (1.0 - _ns_t * 0.5))
+                        if _la > 5:
+                            _lsx = int(PLAYER.centerx + _ns_px * _lo + _ns_dx * 0.15)
+                            _lsy = int(PLAYER.centery + _ns_py * _lo + _ns_dy * 0.15)
+                            _lex = int(PLAYER.centerx + _ns_px * _lo - _ns_dx * 0.1)
+                            _ley = int(PLAYER.centery + _ns_py * _lo - _ns_dy * 0.1)
+                            pygame.draw.line(SCREEN, (180, 80, 255), (_lsx, _lsy), (_lex, _ley), 1)
 
             elif _viper_nerve_strike_phase == 1:
-                # 베기 연출 — X자 슬래시 이펙트
-                _ns_slash_t = min(1.0, _ns_relapsed / _VIPER_NS_SLASH_DURATION)
-                _slash_x = BOSS.centerx
-                _slash_y = BOSS.centery
-                _slash_size = int(60 + 40 * _ns_slash_t)
-                _slash_alpha = int(255 * (1.0 - _ns_slash_t * 0.6))
-
-                if _slash_alpha > 10:
-                    _slash_surf = pygame.Surface((_slash_size * 2, _slash_size * 2), pygame.SRCALPHA)
-                    _sc = _slash_size  # 중심
-
-                    # X자 슬래시 (두 개의 대각선)
-                    _sw = max(2, int(4 * (1.0 - _ns_slash_t)))
-                    _s_ext = int(_slash_size * min(1.0, _ns_slash_t * 2.0))  # 빠르게 확장
-                    pygame.draw.line(_slash_surf, (255, 100, 255, _slash_alpha),
-                                     (_sc - _s_ext, _sc - _s_ext), (_sc + _s_ext, _sc + _s_ext), _sw)
-                    pygame.draw.line(_slash_surf, (255, 100, 255, _slash_alpha),
-                                     (_sc + _s_ext, _sc - _s_ext), (_sc - _s_ext, _sc + _s_ext), _sw)
-
-                    # 중앙 플래시
-                    if _ns_slash_t < 0.3:
-                        _flash_r = int(25 * (1.0 - _ns_slash_t / 0.3))
-                        _flash_a = int(200 * (1.0 - _ns_slash_t / 0.3))
-                        pygame.draw.circle(_slash_surf, (255, 200, 255, _flash_a), (_sc, _sc), _flash_r)
-
-                    SCREEN.blit(_slash_surf, (_slash_x - _sc, _slash_y - _sc),
-                                special_flags=pygame.BLEND_ADD)
+                # -- Slash: dual arc slashes + sparks + screen flash --
+                _ns_st = min(1.0, _ns_relapsed / _VIPER_NS_SLASH_DURATION)
+                _scx = BOSS.centerx
+                _scy = BOSS.centery
+                _sr = 70
+                _ssz = _sr * 2 + 60
+                _ss = pygame.Surface((_ssz, _ssz), pygame.SRCALPHA)
+                _ssc = _ssz // 2
+                if _ns_st < 0.27:
+                    _ft = _ns_st / 0.27
+                    _fa = int(60 * (1.0 - _ft))
+                    if _fa > 3:
+                        _fo = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                        _fo.fill((180, 0, 220, _fa))
+                        SCREEN.blit(_fo, (0, 0))
+                _a1p = min(1.0, _ns_st * 3.0)
+                _a1a = int(255 * max(0.0, 1.0 - (_ns_st - 0.1) * 1.5))
+                if _a1a > 5 and _a1p > 0.01:
+                    _a1w = max(2, int(5 * (1.0 - _ns_st * 0.7)))
+                    _a1r = pygame.Rect(_ssc - _sr, _ssc - _sr, _sr * 2, _sr * 2)
+                    pygame.draw.arc(_ss, (255, 120, 255, _a1a), _a1r, -0.5, -0.5 + _a1p * 2.4, _a1w)
+                    _a1ca = int(200 * max(0.0, 1.0 - _ns_st * 2.0))
+                    if _a1ca > 5:
+                        _a1ir = pygame.Rect(_ssc - _sr + 4, _ssc - _sr + 4, _sr * 2 - 8, _sr * 2 - 8)
+                        pygame.draw.arc(_ss, (255, 220, 255, _a1ca), _a1ir, -0.5, -0.5 + _a1p * 2.4, max(1, _a1w - 2))
+                _a2t = max(0.0, _ns_st - 0.15)
+                _a2p = min(1.0, _a2t * 3.5)
+                _a2a = int(230 * max(0.0, 1.0 - (_a2t - 0.05) * 1.5))
+                if _a2a > 5 and _a2p > 0.01:
+                    _a2w = max(2, int(4 * (1.0 - _a2t * 0.8)))
+                    _a2r = pygame.Rect(_ssc - _sr + 8, _ssc - _sr + 8, _sr * 2 - 16, _sr * 2 - 16)
+                    pygame.draw.arc(_ss, (200, 80, 255, _a2a), _a2r, 2.6, 2.6 + _a2p * 2.2, _a2w)
+                    _a2ca = int(180 * max(0.0, 1.0 - _a2t * 2.2))
+                    if _a2ca > 5:
+                        _a2ir = pygame.Rect(_ssc - _sr + 12, _ssc - _sr + 12, _sr * 2 - 24, _sr * 2 - 24)
+                        pygame.draw.arc(_ss, (255, 200, 255, _a2ca), _a2ir, 2.6, 2.6 + _a2p * 2.2, max(1, _a2w - 2))
+                if _ns_st < 0.33:
+                    _it = _ns_st / 0.33
+                    _ir = int(30 * (1.0 - _it * 0.5))
+                    _ia = int(220 * (1.0 - _it))
+                    if _ia > 5:
+                        pygame.draw.circle(_ss, (255, 255, 255, _ia), (_ssc, _ssc), _ir)
+                        pygame.draw.circle(_ss, (255, 180, 255, int(_ia * 0.6)), (_ssc, _ssc), int(_ir * 1.5))
+                for _si in range(8):
+                    _spt = max(0.0, _ns_st - _si * 0.03)
+                    if 0.0 < _spt < 0.6:
+                        _spp = _spt / 0.6
+                        _spa = (_si / 8.0) * math.pi * 2.0 + _ns_st * 4.0
+                        _spd = _sr * (0.5 + 0.8 * _spp)
+                        _spx = _ssc + int(math.cos(_spa) * _spd)
+                        _spy = _ssc + int(math.sin(_spa) * _spd)
+                        _spalpha = int(200 * (1.0 - _spp))
+                        _sps = max(1, int(3 * (1.0 - _spp)))
+                        if 0 <= _spx < _ssz and 0 <= _spy < _ssz and _spalpha > 5:
+                            pygame.draw.circle(_ss, (255, 200, 100, _spalpha), (_spx, _spy), _sps)
+                _glt = min(1.0, _ns_st * 2.0)
+                _glr = int(_sr * (0.6 + 0.6 * _glt))
+                _gla = int(40 * (1.0 - _glt))
+                if _gla > 2:
+                    pygame.draw.circle(_ss, (160, 0, 220, _gla), (_ssc, _ssc), _glr, 2)
+                SCREEN.blit(_ss, (_scx - _ssc, _scy - _ssc), special_flags=pygame.BLEND_ADD)
 
             elif _viper_nerve_strike_phase == 2:
-                # 복귀 중 — 잔상 (역방향)
+                # -- Return: fading silhouette + landing shockwave + dust --
                 _ns_t = min(1.0, _ns_relapsed / _VIPER_NS_RETURN_DURATION)
-                _return_alpha = int(100 * (1.0 - _ns_t))
-                if _return_alpha > 5:
-                    _ret_surf = pygame.Surface((30, 60), pygame.SRCALPHA)
-                    pygame.draw.ellipse(_ret_surf, (180, 0, 220, _return_alpha), (0, 0, 30, 60))
-                    SCREEN.blit(_ret_surf, (int(_viper_nerve_strike_target_x) - 15,
-                                            int(_viper_nerve_strike_target_y) - 30),
-                                special_flags=pygame.BLEND_ADD)
+                _fade_a = int(120 * (1.0 - _ns_t))
+                if _fade_a > 5:
+                    try:
+                        _ret_sil = create_viper_paddle_surface(0.0)
+                        _rw, _rh = _ret_sil.get_size()
+                        _tint = pygame.Surface((_rw, _rh), pygame.SRCALPHA)
+                        _tint.fill((180, 0, 220, _fade_a))
+                        _ret_sil.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                        _ret_sil.set_alpha(_fade_a)
+                        SCREEN.blit(_ret_sil,
+                                    (int(_viper_nerve_strike_target_x) - _rw // 2,
+                                     int(_viper_nerve_strike_target_y) - _rh // 2),
+                                    special_flags=pygame.BLEND_ADD)
+                    except Exception:
+                        pass
+                if _ns_t > 0.7:
+                    _ldt = (_ns_t - 0.7) / 0.3
+                    _ldx = int(PLAYER.centerx)
+                    _ldy = int(_viper_nerve_strike_origin_y)
+                    _rr = int(10 + 40 * _ldt)
+                    _ra = int(180 * (1.0 - _ldt))
+                    if _ra > 5:
+                        pygame.draw.circle(SCREEN, (160, 80, 255), (_ldx, _ldy), _rr, 2)
+                    for _di in range(6):
+                        _da = (_di / 6.0) * math.pi - math.pi * 0.5
+                        _dd = 15 + 35 * _ldt
+                        _dx = _ldx + int(math.cos(_da) * _dd)
+                        _dy = _ldy + int(math.sin(_da * 0.3) * 5) - int(10 * _ldt)
+                        _dalpha = int(120 * (1.0 - _ldt))
+                        _ds = max(1, int(3 * (1.0 - _ldt * 0.7)))
+                        if _dalpha > 5:
+                            pygame.draw.circle(SCREEN, (140, 100, 180), (_dx, _dy), _ds)
 
         except Exception:
             pass
 
-    # 👻 바이퍼 쉐도우 스텝 — 신기루 페이드인 렌더링
+
     if _viper_ss_hologram_active:
         try:
             _holo_now = pygame.time.get_ticks()
