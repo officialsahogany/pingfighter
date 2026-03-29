@@ -71607,31 +71607,52 @@ def handle_player(keys):
             )
             PLAYER.bottom = int(_jpack_baseline + _viper_jetpack_offset_y)
 
-        # 제트팩 화염 파티클 생성
+        # 제트팩 화염 + 연기 파티클 생성
         if _viper_jetpack_active:
             import random as _jp_rand
+            # 화염 파티클 (시안/퍼플, 빠르게 하강)
             for _ in range(3):
                 _viper_jetpack_particles.append({
-                    'x': PLAYER.centerx + _jp_rand.randint(-8, 8),
-                    'y': PLAYER.bottom,
-                    'vx': _jp_rand.uniform(-1.0, 1.0),
-                    'vy': _jp_rand.uniform(1.5, 4.0),
-                    'life': _jp_rand.randint(10, 20),
-                    'max_life': 20,
-                    'size': _jp_rand.randint(3, 6),
+                    'x': PLAYER.centerx + _jp_rand.randint(-10, 10),
+                    'y': float(PLAYER.bottom),
+                    'vx': _jp_rand.uniform(-1.2, 1.2),
+                    'vy': _jp_rand.uniform(2.0, 5.0),
+                    'life': _jp_rand.randint(8, 18),
+                    'max_life': 18,
+                    'size': _jp_rand.uniform(3.0, 7.0),
+                    'type': 'flame',
+                    'width': _jp_rand.uniform(1.5, 3.0),  # 타원 가로폭 비율
+                })
+            # 연기 파티클 (회색, 느리게 퍼짐)
+            if _jp_rand.random() < 0.4:
+                _viper_jetpack_particles.append({
+                    'x': PLAYER.centerx + _jp_rand.randint(-6, 6),
+                    'y': float(PLAYER.bottom + 5),
+                    'vx': _jp_rand.uniform(-0.5, 0.5),
+                    'vy': _jp_rand.uniform(0.5, 1.5),
+                    'life': _jp_rand.randint(15, 30),
+                    'max_life': 30,
+                    'size': _jp_rand.uniform(4.0, 8.0),
+                    'type': 'smoke',
+                    'width': 1.0,
                 })
 
+        # AIR STRIKE 텍스트 타이머 감소
+        global _viper_air_strike_text_timer, _viper_air_strike_text_y
+        if _viper_air_strike_text_timer > 0:
+            _viper_air_strike_text_timer -= 1
+            _viper_air_strike_text_y -= 1.2  # 위로 떠오름
+
         # 파티클 업데이트
-        for _jp in _viper_jetpack_particles[:]:
+        _jp_alive = []
+        for _jp in _viper_jetpack_particles:
             _jp['x'] += _jp['vx']
             _jp['y'] += _jp['vy']
             _jp['life'] -= 1
-            _jp['size'] = max(1, _jp['size'] - 0.15)
-            if _jp['life'] <= 0:
-                _viper_jetpack_particles.remove(_jp)
-        # 파티클 수 제한
-        if len(_viper_jetpack_particles) > 60:
-            _viper_jetpack_particles = _viper_jetpack_particles[-60:]
+            _jp['size'] = max(0.5, _jp['size'] - 0.2)
+            if _jp['life'] > 0:
+                _jp_alive.append(_jp)
+        _viper_jetpack_particles = _jp_alive[-80:] if len(_jp_alive) > 80 else _jp_alive
 
     # 바이퍼 쉐도우 스텝 에너지파 업데이트 (이동 + 공 충돌)
     if _viper_ss_wave_active:
@@ -76776,22 +76797,12 @@ def handle_player(keys):
                 )
             except Exception:
                 pass
-            # AIR STRIKE 텍스트 이펙트
-            try:
-                _air_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
-                _air_bonus_pct = int(_air_height_ratio * 15)
-                floating_texts.append({
-                    'text': f"AIR STRIKE +{_air_bonus_pct}%",
-                    'x': BALL.centerx,
-                    'y': BALL.centery - 20,
-                    'color': (0, 255, 220),
-                    'timer': 60,
-                    'max_timer': 60,
-                    'vy': -1.5,
-                    'size': 16,
-                })
-            except Exception:
-                pass
+            # AIR STRIKE 텍스트 이펙트 트리거
+            global _viper_air_strike_text_timer, _viper_air_strike_text_x, _viper_air_strike_text_y, _viper_air_strike_text_pct
+            _viper_air_strike_text_timer = 60
+            _viper_air_strike_text_x = float(BALL.centerx)
+            _viper_air_strike_text_y = float(BALL.centery - 20)
+            _viper_air_strike_text_pct = int(min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT) * 15)
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
@@ -105668,33 +105679,105 @@ def draw_objects():
         except Exception:
             _viper_ss_hologram_active = False
 
-    # 🔥 바이퍼 제트팩 화염 파티클 렌더링
-    if _viper_jetpack_particles:
+    # 🔥 바이퍼 제트팩 화염 + 연기 파티클 렌더링
+    if _viper_jetpack_particles or _viper_jetpack_active or _viper_air_strike_text_timer > 0:
         try:
+            # 연기 먼저 (뒤에 깔림)
             for _jp in _viper_jetpack_particles:
+                if _jp.get('type') != 'smoke':
+                    continue
                 _jp_life_ratio = max(0.0, _jp['life'] / _jp['max_life'])
-                _jp_alpha = int(200 * _jp_life_ratio)
+                _jp_alpha = int(60 * _jp_life_ratio)
                 _jp_sz = max(1, int(_jp['size']))
-                # 색상: 시안 코어 → 퍼플 외곽 (바이퍼 테마)
+                _smoke_surf = pygame.Surface((_jp_sz * 2, _jp_sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_smoke_surf, (80, 80, 100, _jp_alpha),
+                                   (_jp_sz, _jp_sz), _jp_sz)
+                SCREEN.blit(_smoke_surf, (int(_jp['x']) - _jp_sz, int(_jp['y']) - _jp_sz))
+
+            # 화염 파티클 (타원형, BLEND_ADD)
+            for _jp in _viper_jetpack_particles:
+                if _jp.get('type') != 'flame':
+                    continue
+                _jp_life_ratio = max(0.0, _jp['life'] / _jp['max_life'])
+                _jp_alpha = int(220 * _jp_life_ratio)
+                _jp_sz = max(1, int(_jp['size']))
+                _jp_w = max(1, int(_jp_sz * _jp.get('width', 2.0)))
+                _jp_h = max(1, int(_jp_sz * 2.5))  # 세로로 길쭉한 불꽃
+                # 색상: 시안(0,255,200) → 퍼플(160,0,255)
                 _jp_r = int(0 + 160 * (1.0 - _jp_life_ratio))
                 _jp_g = int(255 * _jp_life_ratio)
                 _jp_b = int(200 + 55 * (1.0 - _jp_life_ratio))
-                _jp_surf = pygame.Surface((_jp_sz * 2, _jp_sz * 2), pygame.SRCALPHA)
-                pygame.draw.circle(_jp_surf, (_jp_r, _jp_g, _jp_b, _jp_alpha),
-                                   (_jp_sz, _jp_sz), _jp_sz)
-                SCREEN.blit(_jp_surf, (int(_jp['x']) - _jp_sz, int(_jp['y']) - _jp_sz),
+                _flame_surf = pygame.Surface((_jp_w * 2, _jp_h * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(_flame_surf, (_jp_r, _jp_g, _jp_b, _jp_alpha),
+                                    (0, 0, _jp_w * 2, _jp_h * 2))
+                SCREEN.blit(_flame_surf, (int(_jp['x']) - _jp_w, int(_jp['y']) - _jp_h),
                             special_flags=pygame.BLEND_ADD)
-            # 제트팩 활성 시 패들 아래에 글로우 이펙트
+
+            # 제트팩 활성 시 패들 아래 노즐 글로우
             if _viper_jetpack_active:
-                _jg_pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() / 80.0)
-                _jg_w = int(40 * _jg_pulse)
-                _jg_h = int(15 * _jg_pulse)
-                _jg_surf = pygame.Surface((_jg_w * 2, _jg_h * 2), pygame.SRCALPHA)
-                pygame.draw.ellipse(_jg_surf, (0, 220, 180, int(100 * _jg_pulse)),
-                                    (0, 0, _jg_w * 2, _jg_h * 2))
-                SCREEN.blit(_jg_surf,
-                            (PLAYER.centerx - _jg_w, PLAYER.bottom - _jg_h),
-                            special_flags=pygame.BLEND_ADD)
+                _jg_t = pygame.time.get_ticks()
+                _jg_pulse = 0.7 + 0.3 * math.sin(_jg_t / 60.0)
+                # 내부 코어 (밝은 시안)
+                _jg_cw, _jg_ch = int(20 * _jg_pulse), int(8 * _jg_pulse)
+                if _jg_cw > 0 and _jg_ch > 0:
+                    _jg_core = pygame.Surface((_jg_cw * 2, _jg_ch * 2), pygame.SRCALPHA)
+                    pygame.draw.ellipse(_jg_core, (180, 255, 240, int(180 * _jg_pulse)),
+                                        (0, 0, _jg_cw * 2, _jg_ch * 2))
+                    SCREEN.blit(_jg_core,
+                                (PLAYER.centerx - _jg_cw, PLAYER.bottom - _jg_ch),
+                                special_flags=pygame.BLEND_ADD)
+                # 외부 글로우 (시안)
+                _jg_w, _jg_h = int(45 * _jg_pulse), int(18 * _jg_pulse)
+                if _jg_w > 0 and _jg_h > 0:
+                    _jg_surf = pygame.Surface((_jg_w * 2, _jg_h * 2), pygame.SRCALPHA)
+                    pygame.draw.ellipse(_jg_surf, (0, 200, 180, int(70 * _jg_pulse)),
+                                        (0, 0, _jg_w * 2, _jg_h * 2))
+                    SCREEN.blit(_jg_surf,
+                                (PLAYER.centerx - _jg_w, PLAYER.bottom - _jg_h + 2),
+                                special_flags=pygame.BLEND_ADD)
+
+            # 높이 인디케이터 (패들 왼쪽에 작은 고도 바)
+            if _viper_jetpack_offset_y < -5 or _viper_jetpack_active:
+                _alt_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
+                _alt_bar_h = 40
+                _alt_bar_w = 3
+                _alt_x = PLAYER.left - 8
+                _alt_y = PLAYER.centery - _alt_bar_h // 2
+                # 배경 바
+                _alt_bg = pygame.Surface((_alt_bar_w + 2, _alt_bar_h + 2), pygame.SRCALPHA)
+                _alt_bg.fill((0, 0, 0, 80))
+                SCREEN.blit(_alt_bg, (_alt_x - 1, _alt_y - 1))
+                # 채워진 바 (아래→위, 시안→퍼플 그라데이션)
+                _alt_fill_h = max(1, int(_alt_bar_h * _alt_ratio))
+                for _ai in range(_alt_fill_h):
+                    _a_ratio = _ai / max(1, _alt_fill_h)
+                    _a_r = int(0 + 160 * _a_ratio)
+                    _a_g = int(255 * (1.0 - _a_ratio * 0.5))
+                    _a_b = int(200 + 55 * _a_ratio)
+                    pygame.draw.line(SCREEN, (_a_r, _a_g, _a_b),
+                                     (_alt_x, _alt_y + _alt_bar_h - _ai),
+                                     (_alt_x + _alt_bar_w, _alt_y + _alt_bar_h - _ai))
+
+            # AIR STRIKE 텍스트 렌더링
+            if _viper_air_strike_text_timer > 0:
+                _ast_alpha = min(255, int(255 * (_viper_air_strike_text_timer / 40.0)))
+                _ast_scale = 1.0 + 0.3 * max(0, (60 - _viper_air_strike_text_timer)) / 60.0
+                try:
+                    _ast_font_size = max(10, int(14 * _ast_scale))
+                    _ast_font = pygame.font.Font(None, _ast_font_size)
+                    _ast_text = f"AIR STRIKE +{_viper_air_strike_text_pct}%"
+                    # 글로우 (큰 글씨 뒤에)
+                    _ast_glow = _ast_font.render(_ast_text, True, (0, 180, 160))
+                    _ast_glow.set_alpha(max(0, _ast_alpha // 2))
+                    _ast_glow_rect = _ast_glow.get_rect(center=(int(_viper_air_strike_text_x), int(_viper_air_strike_text_y)))
+                    SCREEN.blit(_ast_glow, _ast_glow_rect, special_flags=pygame.BLEND_ADD)
+                    # 본문
+                    _ast_surf = _ast_font.render(_ast_text, True, (0, 255, 220))
+                    _ast_surf.set_alpha(_ast_alpha)
+                    _ast_rect = _ast_surf.get_rect(center=(int(_viper_air_strike_text_x), int(_viper_air_strike_text_y)))
+                    SCREEN.blit(_ast_surf, _ast_rect)
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -137356,10 +137439,12 @@ def reset_round(is_stage_start=False):
     viper_walking_timer = 0
     # 바이퍼 제트팩 초기화
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
+    global _viper_air_strike_text_timer
     _viper_jetpack_active = False
     _viper_jetpack_offset_y = 0.0
     _viper_jetpack_gauge_timer = 0
     _viper_jetpack_particles.clear()
+    _viper_air_strike_text_timer = 0
     optimus_walking_active = False
     optimus_walking_timer = 0
 
