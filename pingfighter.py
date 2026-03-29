@@ -3662,9 +3662,9 @@ def is_smasher_skill_unlocked(skill_name: str) -> bool:
 VIPER_SKILL_ICONS_DATA = [
     {
         "name": "shadow_step", "korean": "쉐도우 스텝", "cost": 40, "color": (100, 0, 180),
-        "symbol": "⟐", "cooldown": 6.0, "key": "대쉬+W",
-        "description": "잔상을 남기고 반대 방향으로 순간이동합니다.\n이동 후 0.5초간 무적 상태.",
-        "how_to_use": "대쉬 직후 W키를 눌러 발동",
+        "symbol": "⟐", "cooldown": 6.0, "key": "대쉬+S",
+        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 반대 방향으로 순간이동합니다.",
+        "how_to_use": "대쉬 중/직후 S키를 눌러 발동",
         "effect_type": "shadow_teleport"
     },
     {
@@ -47428,6 +47428,7 @@ VIPER_WALKING_CYCLE = 24  # 속도형 캐릭터답게 빠른 걷기 사이클
 
 # === 바이퍼 스킬 키 릴리즈 플래그 (연속 발동 방지) ===
 _viper_w_key_released = True
+_viper_s_key_released = True
 _viper_e_key_released = True
 _viper_q_key_released = True
 _viper_r_key_released = True
@@ -71256,7 +71257,7 @@ def handle_player(keys):
 
     # ⚔ 바이퍼 스킬 발동 처리 (W: 블레이드 러쉬, 대쉬후딜+W: 쉐도우 스텝, E: 신경 타격, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
-        global _viper_w_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
+        global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y
         global _viper_blade_rush_start_y, _viper_blade_rush_target_y, _viper_blade_rush_hit_ball
         global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
@@ -71270,9 +71271,13 @@ def handle_player(keys):
         _viper_q_pressed = keys[pygame.K_q]
         _viper_r_pressed = keys[pygame.K_r]
 
+        _viper_s_pressed = keys[pygame.K_s]
+
         # 키 릴리즈 감지 (연속 발동 방지)
         if not _viper_w_pressed:
             _viper_w_key_released = True
+        if not _viper_s_pressed:
+            _viper_s_key_released = True
         if not _viper_e_pressed:
             _viper_e_key_released = True
         if not _viper_q_pressed:
@@ -71288,15 +71293,19 @@ def handle_player(keys):
             or is_player_serve
         )
 
-        # 쉐도우 스텝: 대쉬 후딜(rolling_stun_timer) 중 W키 → 후딜 해제 + 순간이동
-        if rolling_stun_timer > 0 and _viper_w_pressed and _viper_w_key_released:
+        # 쉐도우 스텝: 대쉬 중 또는 대쉬 후딜 중 S키 → 즉시 캔슬 + 순간이동
+        _viper_s_pressed = keys[pygame.K_s]
+        _viper_in_dash = rolling_active or rolling_stun_timer > 0
+        if _viper_in_dash and _viper_s_pressed and _viper_s_key_released:
             if is_viper_skill_unlocked("shadow_step"):
                 if get_viper_skill_cooldown_remaining("shadow_step") <= 0:
-                    if special_gauge >= 40:
-                        _viper_w_key_released = False
+                    if special_gauge >= 40 and not _viper_ss_hologram_active:
+                        _viper_s_key_released = False
                         special_gauge -= 40
                         trigger_viper_skill_cooldown("shadow_step")
-                        rolling_stun_timer = 0  # 대쉬 후딜 즉시 해제
+                        # 대쉬/후딜 즉시 해제
+                        rolling_active = False
+                        rolling_stun_timer = 0
 
                         # 원래 위치에 잔상 생성
                         _viper_ss_hologram_origin_x = PLAYER.centerx
