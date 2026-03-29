@@ -137729,7 +137729,7 @@ def calculate_bounce(paddle):
             _viper_phantom_strike_active = False  # 1회 소모
             _viper_phantom_strike_timer = 0
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-            _ps_new_speed = max(_ps_cur_speed * 1.8, 10.0)  # 80% 증가 (1.8배)
+            _ps_new_speed = max(_ps_cur_speed * 2.3, 10.0)  # 130% 증가 (2.3배)
             # 원래 속도 저장 (보스 반격 시 복귀용)
             _viper_speed_boost_active = True
             _viper_speed_boost_original = _ps_cur_speed
