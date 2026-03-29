@@ -47550,6 +47550,24 @@ _viper_air_strike_text_x = 0.0          # 텍스트 X
 _viper_air_strike_text_y = 0.0          # 텍스트 Y
 _viper_air_strike_text_pct = 0          # 보너스 퍼센트
 
+# === 바이퍼 급강하 어택 (다이브 스트라이크) ===
+_viper_dive_active = False              # 급강하 진행 중 여부
+_viper_dive_phase = 0                   # 0=준비동작(공중정지), 1=급강하, 2=착지 충격파
+_viper_dive_start_ms = 0                # 급강하 시작 시간
+_viper_dive_height_snapshot = 0.0       # 급강하 시작 시 높이 스냅샷 (보너스 계산용)
+_viper_dive_particles = []              # 급강하 연기/충격파 파티클
+_viper_dive_shockwave_timer = 0         # 착지 충격파 지속 프레임
+_viper_dive_shockwave_x = 0.0           # 충격파 중심 X
+_viper_dive_shockwave_y = 0.0           # 충격파 중심 Y
+_viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (중복 방지)
+_VIPER_DIVE_PREP_MS = 500              # 준비동작 시간 (0.5초)
+_VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
+_VIPER_DIVE_GAUGE_COST = 100           # 게이지 소모량
+_VIPER_DIVE_SHOCKWAVE_RADIUS = 300     # 충격파 범위 (px)
+_VIPER_DIVE_SHOCKWAVE_FRAMES = 25      # 충격파 지속 프레임
+_VIPER_DIVE_MIN_BOOST = 0.9            # 최소 공속 보너스 (90%)
+_VIPER_DIVE_MAX_BOOST = 2.0            # 최대 공속 보너스 (200%)
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -71580,11 +71598,11 @@ def handle_player(keys):
         global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
         global _viper_jetpack_hold_timer, _viper_jetpack_overheat
 
-        # 입력 감지: Space/좌클릭 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀/과열 중에는 비활성)
+        # 입력 감지: Space/좌클릭 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀/과열/급강하 중에는 비활성)
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
                 or _viper_nerve_strike_active or _viper_br_spin_active
-                or rolling_active or _viper_jetpack_overheat):
+                or rolling_active or _viper_jetpack_overheat or _viper_dive_active):
             try:
                 _jk = pygame.key.get_pressed()
                 _mb = pygame.mouse.get_pressed()
@@ -71676,6 +71694,176 @@ def handle_player(keys):
             if _jp['life'] > 0:
                 _jp_alive.append(_jp)
         _viper_jetpack_particles = _jp_alive[-80:] if len(_jp_alive) > 80 else _jp_alive
+
+    # === 바이퍼 급강하 어택 (다이브 스트라이크) ===
+    if selected_character_type == "viper" and not is_odins_eye_transformed():
+        global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms
+        global _viper_dive_height_snapshot, _viper_dive_particles
+        global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
+        global _viper_dive_ball_boosted
+
+        # 급강하 발동: 체공 중 S키/↓키 단독 (방향키 미입력, 대시 아님)
+        if (not _viper_dive_active and _viper_jetpack_offset_y < -20
+                and not rolling_active and not _viper_nerve_strike_active
+                and not _viper_br_spin_active and not is_waiting_for_serve
+                and not is_player_serve and not player_stunned):
+            _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
+            _dive_dir_held = (
+                keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
+                or keys[pygame.K_a] or keys[pygame.K_d]
+                or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
+            )
+            if _dive_s_input and not _dive_dir_held and special_gauge >= _VIPER_DIVE_GAUGE_COST:
+                special_gauge -= _VIPER_DIVE_GAUGE_COST
+                _viper_dive_active = True
+                _viper_dive_phase = 0  # 준비동작
+                _viper_dive_start_ms = pygame.time.get_ticks()
+                _viper_dive_height_snapshot = abs(_viper_jetpack_offset_y)
+                _viper_dive_ball_boosted = False
+                _viper_dive_particles = []
+                # 제트팩 즉시 비활성
+                _viper_jetpack_active = False
+                _viper_jetpack_gauge_timer = 0
+
+        # 급강하 업데이트
+        if _viper_dive_active:
+            _dive_elapsed = pygame.time.get_ticks() - _viper_dive_start_ms
+            import random as _dv_rand
+
+            if _viper_dive_phase == 0:
+                # === 준비동작 (0.5초 공중 정지 + 에너지 모으기 연출) ===
+                # 공중에 멈춰있음 (하강 방지)
+                if _dive_elapsed >= _VIPER_DIVE_PREP_MS:
+                    _viper_dive_phase = 1  # 급강하 시작
+                    _viper_dive_start_ms = pygame.time.get_ticks()
+                else:
+                    # 준비동작 파티클 (패들 주위 에너지 수렴)
+                    _prep_pct = _dive_elapsed / _VIPER_DIVE_PREP_MS
+                    for _ in range(int(2 + _prep_pct * 4)):
+                        _angle = _dv_rand.uniform(0, math.pi * 2)
+                        _dist = _dv_rand.uniform(30, 80) * (1.0 - _prep_pct * 0.5)
+                        _viper_dive_particles.append({
+                            'x': PLAYER.centerx + math.cos(_angle) * _dist,
+                            'y': float(PLAYER.centery) + math.sin(_angle) * _dist,
+                            'vx': -math.cos(_angle) * 2.0,
+                            'vy': -math.sin(_angle) * 2.0,
+                            'life': 12,
+                            'max_life': 12,
+                            'size': _dv_rand.uniform(2.0, 5.0),
+                            'type': 'energy',
+                        })
+
+            elif _viper_dive_phase == 1:
+                # === 급강하 (빠르게 착지) ===
+                _viper_jetpack_offset_y += _VIPER_DIVE_SPEED
+                if _viper_jetpack_offset_y >= 0:
+                    _viper_jetpack_offset_y = 0.0
+                    _viper_dive_phase = 2  # 착지
+                    _viper_dive_start_ms = pygame.time.get_ticks()
+                    _viper_dive_shockwave_timer = _VIPER_DIVE_SHOCKWAVE_FRAMES
+                    _viper_dive_shockwave_x = float(PLAYER.centerx)
+                    # 착지 Y 계산
+                    _dv_floor = _compute_player_floor_bottom(
+                        CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+                    )
+                    _viper_dive_shockwave_y = float(_dv_floor)
+                    _viper_jetpack_hold_timer = 0
+                    _viper_jetpack_overheat = False
+
+                    # 착지 폭발 파티클 대량 생성
+                    for _ in range(40):
+                        _angle = _dv_rand.uniform(0, math.pi * 2)
+                        _spd = _dv_rand.uniform(2.0, 8.0)
+                        _viper_dive_particles.append({
+                            'x': _viper_dive_shockwave_x + _dv_rand.uniform(-15, 15),
+                            'y': _viper_dive_shockwave_y + _dv_rand.uniform(-5, 5),
+                            'vx': math.cos(_angle) * _spd,
+                            'vy': math.sin(_angle) * _spd * 0.6 - abs(_spd) * 0.3,
+                            'life': _dv_rand.randint(15, 35),
+                            'max_life': 35,
+                            'size': _dv_rand.uniform(3.0, 10.0),
+                            'type': 'smoke' if _dv_rand.random() < 0.6 else 'spark',
+                        })
+
+                    # 충격파 이펙트
+                    try:
+                        _dv_boost_pct = int(_VIPER_DIVE_MIN_BOOST + (_viper_dive_height_snapshot / _VIPER_JETPACK_MAX_HEIGHT) * (_VIPER_DIVE_MAX_BOOST - _VIPER_DIVE_MIN_BOOST) * 100)
+                        effects_manager.spawn_shockwave(
+                            _viper_dive_shockwave_x, _viper_dive_shockwave_y - 15,
+                            force=20, color=(200, 80, 255),
+                        )
+                    except Exception:
+                        pass
+
+                    # 공 속도 부스트 (범위 내 공에 적용)
+                    if not _viper_dive_ball_boosted:
+                        _dv_ball_cx = BALL.centerx
+                        _dv_ball_cy = BALL.centery
+                        _dv_dist = math.hypot(_dv_ball_cx - _viper_dive_shockwave_x,
+                                              _dv_ball_cy - _viper_dive_shockwave_y)
+                        if _dv_dist <= _VIPER_DIVE_SHOCKWAVE_RADIUS:
+                            _height_ratio = min(1.0, _viper_dive_height_snapshot / _VIPER_JETPACK_MAX_HEIGHT)
+                            _boost_mult = 1.0 + _VIPER_DIVE_MIN_BOOST + _height_ratio * (_VIPER_DIVE_MAX_BOOST - _VIPER_DIVE_MIN_BOOST)
+                            _old_speed = math.hypot(ball_vel[0], ball_vel[1])
+                            ball_vel[0] *= _boost_mult
+                            ball_vel[1] *= _boost_mult
+                            _new_speed = math.hypot(ball_vel[0], ball_vel[1])
+                            _viper_dive_ball_boosted = True
+
+                            # DIVE STRIKE 텍스트 이펙트
+                            _viper_air_strike_text_timer = 60
+                            _viper_air_strike_text_x = _viper_dive_shockwave_x
+                            _viper_air_strike_text_y = _viper_dive_shockwave_y - 40
+                            _viper_air_strike_text_pct = int((_boost_mult - 1.0) * 100)
+                else:
+                    # 급강하 중 궤적 파티클
+                    for _ in range(2):
+                        _viper_dive_particles.append({
+                            'x': PLAYER.centerx + _dv_rand.uniform(-8, 8),
+                            'y': float(PLAYER.bottom),
+                            'vx': _dv_rand.uniform(-0.8, 0.8),
+                            'vy': _dv_rand.uniform(-2.0, 0.5),
+                            'life': _dv_rand.randint(6, 12),
+                            'max_life': 12,
+                            'size': _dv_rand.uniform(2.0, 5.0),
+                            'type': 'trail',
+                        })
+
+            elif _viper_dive_phase == 2:
+                # === 착지 충격파 지속 ===
+                _viper_dive_shockwave_timer -= 1
+                if _viper_dive_shockwave_timer <= 0:
+                    _viper_dive_active = False
+                    _viper_dive_phase = 0
+
+            # 급강하 준비동작 중 하강 방지
+            if _viper_dive_active and _viper_dive_phase == 0:
+                # offset을 고정 (자연 하강 상쇄)
+                pass  # 이미 제트팩 비활성이므로 자연 하강이 진행됨 — 아래에서 보정
+
+        # 급강하 준비동작 중 자연 하강 상쇄 (공중 정지 유지)
+        if _viper_dive_active and _viper_dive_phase == 0 and _viper_jetpack_offset_y < 0:
+            # 자연 하강(FALL_SPEED)이 이미 적용된 후이므로 되돌림
+            _viper_jetpack_offset_y -= _VIPER_JETPACK_FALL_SPEED
+
+        # 급강하 파티클 업데이트
+        if _viper_dive_particles:
+            _dv_alive = []
+            for _dp in _viper_dive_particles:
+                _dp['x'] += _dp['vx']
+                _dp['y'] += _dp['vy']
+                _dp['life'] -= 1
+                if _dp['type'] == 'smoke':
+                    _dp['size'] = max(0.5, _dp['size'] - 0.15)
+                    _dp['vy'] -= 0.05  # 연기 위로 떠오름
+                elif _dp['type'] == 'spark':
+                    _dp['vy'] += 0.15  # 불꽃 중력
+                    _dp['size'] = max(0.3, _dp['size'] - 0.25)
+                else:
+                    _dp['size'] = max(0.3, _dp['size'] - 0.2)
+                if _dp['life'] > 0:
+                    _dv_alive.append(_dp)
+            _viper_dive_particles = _dv_alive[-120:] if len(_dv_alive) > 120 else _dv_alive
 
     # 바이퍼 쉐도우 스텝 에너지파 업데이트 (이동 + 공 충돌)
     if _viper_ss_wave_active:
@@ -76124,8 +76312,8 @@ def handle_player(keys):
                 smasher_walking_active = False
                 smasher_walking_timer = 0
         elif selected_character_type == "viper":
-            # 제트팩 활성 시 걷기 모션 억제 (공중에서 다리 걷는 모션 방지)
-            if _viper_jetpack_active or _viper_jetpack_offset_y < -5:
+            # 제트팩/급강하 활성 시 걷기 모션 억제 (공중에서 다리 걷는 모션 방지)
+            if _viper_jetpack_active or _viper_jetpack_offset_y < -5 or _viper_dive_active:
                 viper_walking_active = False
                 viper_walking_timer = 0
             elif walking:
@@ -105790,26 +105978,134 @@ def draw_objects():
                                      (_alt_x, _alt_y + _alt_bar_h - _ai),
                                      (_alt_x + _alt_bar_w, _alt_y + _alt_bar_h - _ai))
 
-            # AIR STRIKE 텍스트 렌더링
+            # AIR STRIKE / DIVE STRIKE 텍스트 렌더링
             if _viper_air_strike_text_timer > 0:
                 _ast_alpha = min(255, int(255 * (_viper_air_strike_text_timer / 40.0)))
                 _ast_scale = 1.0 + 0.3 * max(0, (60 - _viper_air_strike_text_timer)) / 60.0
                 try:
-                    _ast_font_size = max(10, int(14 * _ast_scale))
+                    # 급강하 어택이면 더 큰 폰트 + 다른 색상
+                    _is_dive = _viper_dive_ball_boosted and _viper_air_strike_text_pct > 50
+                    _ast_font_size = max(10, int((18 if _is_dive else 14) * _ast_scale))
                     _ast_font = pygame.font.Font(None, _ast_font_size)
-                    _ast_text = f"AIR STRIKE +{_viper_air_strike_text_pct}%"
+                    _ast_text = f"{'DIVE STRIKE' if _is_dive else 'AIR STRIKE'} +{_viper_air_strike_text_pct}%"
                     # 글로우 (큰 글씨 뒤에)
-                    _ast_glow = _ast_font.render(_ast_text, True, (0, 180, 160))
+                    _glow_color = (200, 80, 160) if _is_dive else (0, 180, 160)
+                    _text_color = (255, 120, 255) if _is_dive else (0, 255, 220)
+                    _ast_glow = _ast_font.render(_ast_text, True, _glow_color)
                     _ast_glow.set_alpha(max(0, _ast_alpha // 2))
                     _ast_glow_rect = _ast_glow.get_rect(center=(int(_viper_air_strike_text_x), int(_viper_air_strike_text_y)))
                     SCREEN.blit(_ast_glow, _ast_glow_rect, special_flags=pygame.BLEND_ADD)
                     # 본문
-                    _ast_surf = _ast_font.render(_ast_text, True, (0, 255, 220))
+                    _ast_surf = _ast_font.render(_ast_text, True, _text_color)
                     _ast_surf.set_alpha(_ast_alpha)
                     _ast_rect = _ast_surf.get_rect(center=(int(_viper_air_strike_text_x), int(_viper_air_strike_text_y)))
                     SCREEN.blit(_ast_surf, _ast_rect)
                 except Exception:
                     pass
+        except Exception:
+            pass
+
+    # 💥 바이퍼 급강하 어택 렌더링 (파티클 + 충격파 링 + 준비동작 글로우)
+    if _viper_dive_active or _viper_dive_particles or _viper_dive_shockwave_timer > 0:
+        try:
+            # 준비동작 글로우 (공중 정지 중 패들 주위 에너지 집중)
+            if _viper_dive_active and _viper_dive_phase == 0:
+                _dv_prep_elapsed = pygame.time.get_ticks() - _viper_dive_start_ms
+                _dv_prep_pct = min(1.0, _dv_prep_elapsed / _VIPER_DIVE_PREP_MS)
+                _dv_pulse = 0.5 + 0.5 * math.sin(_dv_prep_pct * math.pi * 4)
+                _dv_glow_r = int(30 + 40 * _dv_prep_pct)
+                _dv_glow_a = int(100 + 120 * _dv_prep_pct * _dv_pulse)
+                _dv_glow_surf = pygame.Surface((_dv_glow_r * 2, _dv_glow_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_dv_glow_surf, (200, 80, 255, _dv_glow_a),
+                                   (_dv_glow_r, _dv_glow_r), _dv_glow_r)
+                SCREEN.blit(_dv_glow_surf,
+                            (PLAYER.centerx - _dv_glow_r, PLAYER.centery - _dv_glow_r),
+                            special_flags=pygame.BLEND_ADD)
+                # 하강 방향 표시선 (점선)
+                _dv_line_a = int(80 + 120 * _dv_prep_pct)
+                for _dli in range(0, 60, 8):
+                    _dly = PLAYER.bottom + _dli
+                    if _dly < HEIGHT:
+                        pygame.draw.line(SCREEN, (200, 80, 255, _dv_line_a),
+                                         (PLAYER.centerx - 2, _dly),
+                                         (PLAYER.centerx + 2, _dly + 4), 2)
+
+            # 급강하 궤적 글로우 (급강하 중)
+            if _viper_dive_active and _viper_dive_phase == 1:
+                _dv_trail_surf = pygame.Surface((20, 60), pygame.SRCALPHA)
+                pygame.draw.ellipse(_dv_trail_surf, (200, 80, 255, 100), (0, 0, 20, 60))
+                SCREEN.blit(_dv_trail_surf,
+                            (PLAYER.centerx - 10, PLAYER.bottom - 10),
+                            special_flags=pygame.BLEND_ADD)
+
+            # 착지 충격파 링 (확산 + 페이드아웃)
+            if _viper_dive_shockwave_timer > 0:
+                _sw_pct = 1.0 - (_viper_dive_shockwave_timer / _VIPER_DIVE_SHOCKWAVE_FRAMES)
+                _sw_radius = int(_VIPER_DIVE_SHOCKWAVE_RADIUS * _sw_pct)
+                _sw_alpha = int(200 * (1.0 - _sw_pct))
+                _sw_width = max(2, int(6 * (1.0 - _sw_pct)))
+                if _sw_radius > 2 and _sw_alpha > 5:
+                    _sw_cx = int(_viper_dive_shockwave_x)
+                    _sw_cy = int(_viper_dive_shockwave_y)
+                    # 외곽 링 (퍼플)
+                    _sw_surf_sz = _sw_radius * 2 + 20
+                    _sw_surf = pygame.Surface((_sw_surf_sz, _sw_surf_sz), pygame.SRCALPHA)
+                    _sw_center = _sw_surf_sz // 2
+                    pygame.draw.circle(_sw_surf, (200, 80, 255, _sw_alpha),
+                                       (_sw_center, _sw_center), _sw_radius, _sw_width)
+                    # 내부 링 (시안)
+                    _sw_inner_r = max(1, int(_sw_radius * 0.6))
+                    _sw_inner_a = int(150 * (1.0 - _sw_pct))
+                    if _sw_inner_a > 5:
+                        pygame.draw.circle(_sw_surf, (0, 220, 200, _sw_inner_a),
+                                           (_sw_center, _sw_center), _sw_inner_r, max(1, _sw_width - 1))
+                    SCREEN.blit(_sw_surf,
+                                (_sw_cx - _sw_center, _sw_cy - _sw_center),
+                                special_flags=pygame.BLEND_ADD)
+                    # 바닥 연기 (넓게 퍼지는 반투명)
+                    _smoke_w = int(_sw_radius * 1.5)
+                    _smoke_h = max(4, int(20 * (1.0 - _sw_pct)))
+                    if _smoke_w > 2:
+                        _smoke_surf = pygame.Surface((_smoke_w * 2, _smoke_h * 2), pygame.SRCALPHA)
+                        pygame.draw.ellipse(_smoke_surf, (120, 100, 140, int(60 * (1.0 - _sw_pct))),
+                                            (0, 0, _smoke_w * 2, _smoke_h * 2))
+                        SCREEN.blit(_smoke_surf,
+                                    (_sw_cx - _smoke_w, _sw_cy - _smoke_h))
+
+            # 급강하 파티클 렌더링
+            for _dp in _viper_dive_particles:
+                _dp_life_ratio = max(0.0, _dp['life'] / _dp['max_life'])
+                _dp_sz = max(1, int(_dp['size']))
+                if _dp['type'] == 'smoke':
+                    _dp_alpha = int(70 * _dp_life_ratio)
+                    _dp_surf = pygame.Surface((_dp_sz * 2, _dp_sz * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(_dp_surf, (140, 120, 160, _dp_alpha),
+                                       (_dp_sz, _dp_sz), _dp_sz)
+                    SCREEN.blit(_dp_surf, (int(_dp['x']) - _dp_sz, int(_dp['y']) - _dp_sz))
+                elif _dp['type'] == 'spark':
+                    _dp_alpha = int(255 * _dp_life_ratio)
+                    _sp_r = int(255 * (1.0 - _dp_life_ratio * 0.3))
+                    _sp_g = int(150 * _dp_life_ratio)
+                    _sp_b = int(255 * _dp_life_ratio)
+                    _dp_surf = pygame.Surface((_dp_sz * 2, _dp_sz * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(_dp_surf, (_sp_r, _sp_g, _sp_b, _dp_alpha),
+                                       (_dp_sz, _dp_sz), _dp_sz)
+                    SCREEN.blit(_dp_surf, (int(_dp['x']) - _dp_sz, int(_dp['y']) - _dp_sz),
+                                special_flags=pygame.BLEND_ADD)
+                elif _dp['type'] == 'energy':
+                    _dp_alpha = int(200 * _dp_life_ratio)
+                    _dp_surf = pygame.Surface((_dp_sz * 2, _dp_sz * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(_dp_surf, (180, 100, 255, _dp_alpha),
+                                       (_dp_sz, _dp_sz), _dp_sz)
+                    SCREEN.blit(_dp_surf, (int(_dp['x']) - _dp_sz, int(_dp['y']) - _dp_sz),
+                                special_flags=pygame.BLEND_ADD)
+                else:  # trail
+                    _dp_alpha = int(160 * _dp_life_ratio)
+                    _dp_surf = pygame.Surface((_dp_sz * 2, _dp_sz * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(_dp_surf, (200, 120, 255, _dp_alpha),
+                                       (_dp_sz, _dp_sz), _dp_sz)
+                    SCREEN.blit(_dp_surf, (int(_dp['x']) - _dp_sz, int(_dp['y']) - _dp_sz),
+                                special_flags=pygame.BLEND_ADD)
         except Exception:
             pass
 
@@ -137479,6 +137775,14 @@ def reset_round(is_stage_start=False):
     _viper_jetpack_overheat = False
     _viper_jetpack_particles.clear()
     _viper_air_strike_text_timer = 0
+    # 바이퍼 급강하 어택 초기화
+    global _viper_dive_active, _viper_dive_phase, _viper_dive_shockwave_timer
+    global _viper_dive_particles, _viper_dive_ball_boosted
+    _viper_dive_active = False
+    _viper_dive_phase = 0
+    _viper_dive_shockwave_timer = 0
+    _viper_dive_particles = []
+    _viper_dive_ball_boosted = False
     optimus_walking_active = False
     optimus_walking_timer = 0
 
