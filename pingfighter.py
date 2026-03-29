@@ -47542,6 +47542,9 @@ _VIPER_JETPACK_FALL_SPEED = 3.0         # 하강 속도 (px/frame)
 _VIPER_JETPACK_GAUGE_COST = 10          # 0.5초당 게이지 소모량
 _VIPER_JETPACK_GAUGE_INTERVAL = 30      # 게이지 소모 간격 (프레임, 0.5초)
 _VIPER_JETPACK_HIT_BONUS = 1.15         # 체공 중 공 히트 시 속도 보너스 (15%)
+_VIPER_JETPACK_MAX_HOLD_FRAMES = 180    # 최대 체공 시간 (3초 = 180프레임)
+_viper_jetpack_hold_timer = 0           # 연속 체공 타이머
+_viper_jetpack_overheat = False         # 과열 상태 (강제 하강 중)
 _viper_air_strike_text_timer = 0        # AIR STRIKE 텍스트 표시 타이머
 _viper_air_strike_text_x = 0.0          # 텍스트 X
 _viper_air_strike_text_y = 0.0          # 텍스트 Y
@@ -71568,12 +71571,13 @@ def handle_player(keys):
     # === 바이퍼 제트팩 시스템 업데이트 ===
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
+        global _viper_jetpack_hold_timer, _viper_jetpack_overheat
 
-        # 입력 감지: W키 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀 중에는 비활성)
+        # 입력 감지: W키 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀/과열 중에는 비활성)
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
                 or _viper_nerve_strike_active or _viper_br_spin_active
-                or rolling_active):
+                or rolling_active or _viper_jetpack_overheat):
             try:
                 _jk = pygame.key.get_pressed()
                 _jetpack_input = bool(_jk[pygame.K_w])
@@ -71582,23 +71586,34 @@ def handle_player(keys):
 
         if _jetpack_input and special_gauge >= _VIPER_JETPACK_GAUGE_COST:
             _viper_jetpack_active = True
-            # 상승
-            _viper_jetpack_offset_y = max(-_VIPER_JETPACK_MAX_HEIGHT,
-                                          _viper_jetpack_offset_y - _VIPER_JETPACK_RISE_SPEED)
-            # 게이지 소모 (0.5초마다)
-            _viper_jetpack_gauge_timer += 1
-            if _viper_jetpack_gauge_timer >= _VIPER_JETPACK_GAUGE_INTERVAL:
-                _viper_jetpack_gauge_timer = 0
-                special_gauge = max(0, special_gauge - _VIPER_JETPACK_GAUGE_COST)
-                if special_gauge <= 0:
-                    _viper_jetpack_active = False
+            _viper_jetpack_hold_timer += 1
+            # 3초 초과 시 과열 → 강제 하강
+            if _viper_jetpack_hold_timer >= _VIPER_JETPACK_MAX_HOLD_FRAMES:
+                _viper_jetpack_overheat = True
+                _viper_jetpack_active = False
+            else:
+                # 상승
+                _viper_jetpack_offset_y = max(-_VIPER_JETPACK_MAX_HEIGHT,
+                                              _viper_jetpack_offset_y - _VIPER_JETPACK_RISE_SPEED)
+                # 게이지 소모 (0.5초마다)
+                _viper_jetpack_gauge_timer += 1
+                if _viper_jetpack_gauge_timer >= _VIPER_JETPACK_GAUGE_INTERVAL:
+                    _viper_jetpack_gauge_timer = 0
+                    special_gauge = max(0, special_gauge - _VIPER_JETPACK_GAUGE_COST)
+                    if special_gauge <= 0:
+                        _viper_jetpack_active = False
         else:
             _viper_jetpack_active = False
             _viper_jetpack_gauge_timer = 0
 
-        # 하강 (제트팩 비활성 시 서서히 내려옴)
+        # 하강 (제트팩 비활성 또는 과열 시 서서히 내려옴)
         if not _viper_jetpack_active and _viper_jetpack_offset_y < 0:
             _viper_jetpack_offset_y = min(0, _viper_jetpack_offset_y + _VIPER_JETPACK_FALL_SPEED)
+
+        # 착지 시 과열 해제 + 체공 타이머 리셋
+        if _viper_jetpack_offset_y >= 0:
+            _viper_jetpack_hold_timer = 0
+            _viper_jetpack_overheat = False
 
         # PLAYER rect Y 위치 적용 (물리 판정에 반영)
         if _viper_jetpack_offset_y < 0:
@@ -137439,10 +137454,12 @@ def reset_round(is_stage_start=False):
     viper_walking_timer = 0
     # 바이퍼 제트팩 초기화
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
-    global _viper_air_strike_text_timer
+    global _viper_air_strike_text_timer, _viper_jetpack_hold_timer, _viper_jetpack_overheat
     _viper_jetpack_active = False
     _viper_jetpack_offset_y = 0.0
     _viper_jetpack_gauge_timer = 0
+    _viper_jetpack_hold_timer = 0
+    _viper_jetpack_overheat = False
     _viper_jetpack_particles.clear()
     _viper_air_strike_text_timer = 0
     optimus_walking_active = False
