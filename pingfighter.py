@@ -57794,6 +57794,9 @@ def apply_effect(effect_name, item_data=None):
             ])
             # 파티클 효과는 나중에 추가 가능
     elif effect_name == "doping_potion":  # 도핑물약 액티브 아이템
+        if selected_character_type == "soldier" and is_slingshot_mode():
+            print("⚠️ 새총 모드에서는 도핑물약을 사용할 수 없습니다. (권총 퍽 필요)")
+            return
         activate_doping_potion()
         print("도핑물약 발동! 8초간 헤드/레그샷 확률 2배")
     elif effect_name == "vitamin_pill":  # 비타민약 액티브 아이템
@@ -71391,7 +71394,7 @@ def handle_player(keys):
                     _br_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
                     if _br_cur_speed > 0.1:
                         _br_vert_ratio = abs(ball_vel[1]) / _br_cur_speed  # 0~1, 수직일수록 높음
-                        _br_boost = 1.3 + 0.2 * _br_vert_ratio  # 1.3x ~ 1.5x
+                        _br_boost = 1.6 + 0.2 * _br_vert_ratio  # 1.6x ~ 1.8x (60~80% 증가)
                         _br_new_speed = _br_cur_speed * _br_boost
                         _br_ratio = _br_new_speed / _br_cur_speed
                         ball_vel[0] *= _br_ratio
