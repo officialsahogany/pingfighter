@@ -105118,12 +105118,12 @@ def draw_objects():
 
             # ── 1. 다층 부채꼴 본체 (6겹, 바깥→안쪽 점점 밝고 좁아짐) ──
             _fan_layers = [
-                (1.00, (70, 60, 100),   25),   # 최외곽 — 어두운 회보라
-                (0.85, (95, 85, 130),   45),   # 외곽
-                (0.70, (130, 120, 165), 70),   # 중간
-                (0.55, (170, 165, 200), 100),  # 중내곽
-                (0.38, (205, 200, 225), 140),  # 코어
-                (0.18, (235, 232, 248), 185),  # 극코어 — 은백
+                (1.00, (55, 30, 90),    30),   # 최외곽 — 짙은 보라
+                (0.85, (80, 45, 130),   50),   # 외곽 — 진보라
+                (0.70, (110, 65, 160),  75),   # 중간 — 보라
+                (0.55, (140, 90, 185),  105),  # 중내곽 — 연보라
+                (0.38, (170, 130, 210), 140),  # 코어 — 라벤더
+                (0.18, (200, 180, 230), 180),  # 극코어 — 밝은 라벤더
             ]
 
             for _fi, (_f_scale, _f_rgb, _f_base_a) in enumerate(_fan_layers):
@@ -105156,7 +105156,7 @@ def draw_objects():
                 _edge_pts.append((_ex, _ey))
             _edge_alpha = int(160 * _alive)
             if len(_edge_pts) > 1 and _edge_alpha > 3:
-                pygame.draw.lines(_fan_surf, (220, 215, 240, _edge_alpha), False, _edge_pts, 2)
+                pygame.draw.lines(_fan_surf, (190, 160, 230, _edge_alpha), False, _edge_pts, 2)
                 # 안쪽 얇은 하이라이트 라인
                 _inner_pts = []
                 _inner_hw = int(_fan_w * 0.42)
@@ -105168,7 +105168,7 @@ def draw_objects():
                     _inner_pts.append((_ix, _iy))
                 _inner_alpha = int(80 * _alive)
                 if _inner_alpha > 2:
-                    pygame.draw.lines(_fan_surf, (200, 195, 225, _inner_alpha), False, _inner_pts, 1)
+                    pygame.draw.lines(_fan_surf, (170, 140, 210, _inner_alpha), False, _inner_pts, 1)
 
             # ── 3. 에너지 스파크 (상단 호를 따라) ──
             for _si in range(8):
@@ -105179,14 +105179,14 @@ def draw_objects():
                 _sy = _fcy + int(math.sin(_s_angle) * _fan_h * 1.1) + random.randint(-3, 3)
                 _s_alpha = int(random.randint(100, 200) * _alive)
                 if _s_alpha > 5:
-                    pygame.draw.circle(_fan_surf, (215, 210, 240, _s_alpha), (_sx, _sy), random.randint(1, 2))
+                    pygame.draw.circle(_fan_surf, (185, 150, 230, _s_alpha), (_sx, _sy), random.randint(1, 2))
 
             # ── 4. 꼭짓점 글로우 (하단 중앙 수렴점) ──
             for _gl in range(3):
                 _gl_r = 10 - _gl * 3
                 _gl_a = int((20 - _gl * 5) * _alive)
                 if _gl_r > 0 and _gl_a > 1:
-                    pygame.draw.circle(_fan_surf, (160, 150, 195, _gl_a), (_fcx, _fcy), _gl_r)
+                    pygame.draw.circle(_fan_surf, (130, 80, 180, _gl_a), (_fcx, _fcy), _gl_r)
 
             SCREEN.blit(_fan_surf, (_br_cx - _fcx, _br_cy - _fcy),
                         special_flags=pygame.BLEND_ADD)
@@ -105196,7 +105196,7 @@ def draw_objects():
             _amb_a = int(15 * _alive)
             if _amb_r > 0 and _amb_a > 1:
                 _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(_amb_s, (90, 80, 125, _amb_a), (_amb_r, _amb_r), _amb_r)
+                pygame.draw.circle(_amb_s, (80, 50, 130, _amb_a), (_amb_r, _amb_r), _amb_r)
                 SCREEN.blit(_amb_s, (_br_cx - _amb_r, _br_cy - _amb_r),
                             special_flags=pygame.BLEND_ADD)
 
