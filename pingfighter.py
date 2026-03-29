@@ -47476,6 +47476,10 @@ _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
 
+# 바이퍼 스킬 공속 부스트 복귀 시스템
+_viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/블레이드 러쉬)
+_viper_speed_boost_original = 0.0     # 부스트 전 원래 공속
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -71280,6 +71284,7 @@ def handle_player(keys):
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
+        global _viper_speed_boost_active, _viper_speed_boost_original
 
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
@@ -71532,8 +71537,10 @@ def handle_player(keys):
                 )
                 if _br_blade_rect.colliderect(BALL):
                     _viper_blade_rush_hit_ball = True
-                    # 공 속도 증가 (30~50%, 수직 성분이 클수록 높은 보너스)
+                    # 원래 속도 저장 (보스 반격 시 복귀용)
                     _br_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    _viper_speed_boost_active = True
+                    _viper_speed_boost_original = _br_cur_speed
                     if _br_cur_speed > 0.1:
                         _br_vert_ratio = abs(ball_vel[1]) / _br_cur_speed  # 0~1, 수직일수록 높음
                         _br_boost = 2.0 + 0.2 * _br_vert_ratio  # 2.0x ~ 2.2x (100~120% 증가)
@@ -137617,6 +137624,7 @@ def calculate_bounce(paddle):
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_cooldown
     global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
+    global _viper_speed_boost_active, _viper_speed_boost_original
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
     global ragnarok_original_speed
@@ -137722,6 +137730,9 @@ def calculate_bounce(paddle):
             _viper_phantom_strike_timer = 0
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
             _ps_new_speed = max(_ps_cur_speed * 2.6, 10.0)  # 160% 증가, 최소 속도 보장
+            # 원래 속도 저장 (보스 반격 시 복귀용)
+            _viper_speed_boost_active = True
+            _viper_speed_boost_original = _ps_cur_speed
 
             # 초기 발사: 거의 수직 위로 (약간만 틀어줌)
             _ps_curve = _viper_phantom_strike_curve_dir
@@ -139435,8 +139446,9 @@ def handle_ball():
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
     # 상모돌리기 관련 변수
     global whip_active, whip_angle
-    # 바이퍼 팬텀 스트라이크 커브
+    # 바이퍼 팬텀 스트라이크 커브 + 공속 복귀
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
+    global _viper_speed_boost_active, _viper_speed_boost_original
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
@@ -144513,6 +144525,14 @@ def handle_ball():
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
         # 바이퍼 팬텀 스트라이크 커브 해제 (보스가 받아치면 커브 종료)
         _viper_ps_curve_active = False
+        # 바이퍼 스킬 공속 부스트 해제 → 원래 속도로 복귀
+        if _viper_speed_boost_active:
+            _viper_speed_boost_active = False
+            _cur_spd = math.hypot(ball_vel[0], ball_vel[1])
+            if _cur_spd > 0.1 and _viper_speed_boost_original > 0.1:
+                _restore_ratio = _viper_speed_boost_original / _cur_spd
+                ball_vel[0] *= _restore_ratio
+                ball_vel[1] *= _restore_ratio
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
