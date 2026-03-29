@@ -71543,7 +71543,7 @@ def handle_player(keys):
                     _viper_speed_boost_original = _br_cur_speed
                     if _br_cur_speed > 0.1:
                         _br_vert_ratio = abs(ball_vel[1]) / _br_cur_speed  # 0~1, 수직일수록 높음
-                        _br_boost = 2.0 + 0.2 * _br_vert_ratio  # 2.0x ~ 2.2x (100~120% 증가)
+                        _br_boost = 2.0  # 2.0x (100% 증가, 2배)
                         _br_new_speed = _br_cur_speed * _br_boost
                         _br_ratio = _br_new_speed / _br_cur_speed
                         ball_vel[0] *= _br_ratio
@@ -137729,7 +137729,7 @@ def calculate_bounce(paddle):
             _viper_phantom_strike_active = False  # 1회 소모
             _viper_phantom_strike_timer = 0
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-            _ps_new_speed = max(_ps_cur_speed * 2.6, 10.0)  # 160% 증가, 최소 속도 보장
+            _ps_new_speed = max(_ps_cur_speed * 1.4, 10.0)  # 40% 증가 (1.4배)
             # 원래 속도 저장 (보스 반격 시 복귀용)
             _viper_speed_boost_active = True
             _viper_speed_boost_original = _ps_cur_speed
