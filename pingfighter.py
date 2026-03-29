@@ -47531,6 +47531,18 @@ _VIPER_NS_RETURN_DURATION = 150          # 복귀 시간 (ms) — 빠른 귀환
 _VIPER_NS_HIT_RADIUS = 90               # 도착 시 보스 히트 판정 반경 (px)
 _VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
 
+# === 바이퍼 제트팩 시스템 ===
+_viper_jetpack_active = False            # 제트팩 분사 중 여부
+_viper_jetpack_offset_y = 0.0           # 현재 Y 오프셋 (음수 = 위로, 최대 -200)
+_viper_jetpack_gauge_timer = 0          # 게이지 소모 타이머 (30프레임 = 0.5초마다 소모)
+_viper_jetpack_particles = []           # 제트팩 화염 파티클
+_VIPER_JETPACK_MAX_HEIGHT = 200.0       # 최대 상승 높이 (px)
+_VIPER_JETPACK_RISE_SPEED = 4.0         # 상승 속도 (px/frame)
+_VIPER_JETPACK_FALL_SPEED = 3.0         # 하강 속도 (px/frame)
+_VIPER_JETPACK_GAUGE_COST = 10          # 0.5초당 게이지 소모량
+_VIPER_JETPACK_GAUGE_INTERVAL = 30      # 게이지 소모 간격 (프레임, 0.5초)
+_VIPER_JETPACK_HIT_BONUS = 1.15         # 체공 중 공 히트 시 속도 보너스 (15%)
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -71549,6 +71561,75 @@ def handle_player(keys):
             _curve_strength = math.sin(_curve_progress * math.pi) * _VIPER_PS_CURVE_FORCE
             ball_vel[0] += _viper_ps_curve_direction * _curve_strength
 
+    # === 바이퍼 제트팩 시스템 업데이트 ===
+    if selected_character_type == "viper" and not is_odins_eye_transformed():
+        global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
+
+        # 입력 감지: 스페이스바 또는 마우스 왼쪽 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀 중에는 비활성)
+        _jetpack_input = False
+        if not (is_waiting_for_serve or is_player_serve or player_stunned
+                or _viper_nerve_strike_active or _viper_br_spin_active
+                or rolling_active):
+            try:
+                _jk = pygame.key.get_pressed()
+                _jm = pygame.mouse.get_pressed()
+                _jetpack_input = bool(_jk[pygame.K_SPACE]) or bool(_jm[0])
+            except Exception:
+                pass
+
+        if _jetpack_input and special_gauge >= _VIPER_JETPACK_GAUGE_COST:
+            _viper_jetpack_active = True
+            # 상승
+            _viper_jetpack_offset_y = max(-_VIPER_JETPACK_MAX_HEIGHT,
+                                          _viper_jetpack_offset_y - _VIPER_JETPACK_RISE_SPEED)
+            # 게이지 소모 (0.5초마다)
+            _viper_jetpack_gauge_timer += 1
+            if _viper_jetpack_gauge_timer >= _VIPER_JETPACK_GAUGE_INTERVAL:
+                _viper_jetpack_gauge_timer = 0
+                special_gauge = max(0, special_gauge - _VIPER_JETPACK_GAUGE_COST)
+                if special_gauge <= 0:
+                    _viper_jetpack_active = False
+        else:
+            _viper_jetpack_active = False
+            _viper_jetpack_gauge_timer = 0
+
+        # 하강 (제트팩 비활성 시 서서히 내려옴)
+        if not _viper_jetpack_active and _viper_jetpack_offset_y < 0:
+            _viper_jetpack_offset_y = min(0, _viper_jetpack_offset_y + _VIPER_JETPACK_FALL_SPEED)
+
+        # PLAYER rect Y 위치 적용 (물리 판정에 반영)
+        if _viper_jetpack_offset_y < 0:
+            _jpack_baseline = _compute_player_floor_bottom(
+                CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+            )
+            PLAYER.bottom = int(_jpack_baseline + _viper_jetpack_offset_y)
+
+        # 제트팩 화염 파티클 생성
+        if _viper_jetpack_active:
+            import random as _jp_rand
+            for _ in range(3):
+                _viper_jetpack_particles.append({
+                    'x': PLAYER.centerx + _jp_rand.randint(-8, 8),
+                    'y': PLAYER.bottom,
+                    'vx': _jp_rand.uniform(-1.0, 1.0),
+                    'vy': _jp_rand.uniform(1.5, 4.0),
+                    'life': _jp_rand.randint(10, 20),
+                    'max_life': 20,
+                    'size': _jp_rand.randint(3, 6),
+                })
+
+        # 파티클 업데이트
+        for _jp in _viper_jetpack_particles[:]:
+            _jp['x'] += _jp['vx']
+            _jp['y'] += _jp['vy']
+            _jp['life'] -= 1
+            _jp['size'] = max(1, _jp['size'] - 0.15)
+            if _jp['life'] <= 0:
+                _viper_jetpack_particles.remove(_jp)
+        # 파티클 수 제한
+        if len(_viper_jetpack_particles) > 60:
+            _viper_jetpack_particles = _viper_jetpack_particles[-60:]
+
     # 바이퍼 쉐도우 스텝 에너지파 업데이트 (이동 + 공 충돌)
     if _viper_ss_wave_active:
         # 이동 (매우 빠름)
@@ -76675,6 +76756,11 @@ def handle_player(keys):
         drive_activated = calculate_bounce(PLAYER)
         _player_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [플레이어 패들 충돌] calculate_bounce 후 속도: {_player_speed_before:.2f} → {_player_speed_after:.2f}, 쿨다운: player={player_collision_cooldown}, boss={boss_collision_cooldown}")  # 디버그 비활성화
+
+        # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가)
+        if selected_character_type == "viper" and _viper_jetpack_offset_y < -10:
+            ball_vel[0] *= _VIPER_JETPACK_HIT_BONUS
+            ball_vel[1] *= _VIPER_JETPACK_HIT_BONUS
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
@@ -105475,6 +105561,36 @@ def draw_objects():
                         pass
         except Exception:
             _viper_ss_hologram_active = False
+
+    # 🔥 바이퍼 제트팩 화염 파티클 렌더링
+    if _viper_jetpack_particles:
+        try:
+            for _jp in _viper_jetpack_particles:
+                _jp_life_ratio = max(0.0, _jp['life'] / _jp['max_life'])
+                _jp_alpha = int(200 * _jp_life_ratio)
+                _jp_sz = max(1, int(_jp['size']))
+                # 색상: 시안 코어 → 퍼플 외곽 (바이퍼 테마)
+                _jp_r = int(0 + 160 * (1.0 - _jp_life_ratio))
+                _jp_g = int(255 * _jp_life_ratio)
+                _jp_b = int(200 + 55 * (1.0 - _jp_life_ratio))
+                _jp_surf = pygame.Surface((_jp_sz * 2, _jp_sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_jp_surf, (_jp_r, _jp_g, _jp_b, _jp_alpha),
+                                   (_jp_sz, _jp_sz), _jp_sz)
+                SCREEN.blit(_jp_surf, (int(_jp['x']) - _jp_sz, int(_jp['y']) - _jp_sz),
+                            special_flags=pygame.BLEND_ADD)
+            # 제트팩 활성 시 패들 아래에 글로우 이펙트
+            if _viper_jetpack_active:
+                _jg_pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() / 80.0)
+                _jg_w = int(40 * _jg_pulse)
+                _jg_h = int(15 * _jg_pulse)
+                _jg_surf = pygame.Surface((_jg_w * 2, _jg_h * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(_jg_surf, (0, 220, 180, int(100 * _jg_pulse)),
+                                    (0, 0, _jg_w * 2, _jg_h * 2))
+                SCREEN.blit(_jg_surf,
+                            (PLAYER.centerx - _jg_w, PLAYER.bottom - _jg_h),
+                            special_flags=pygame.BLEND_ADD)
+        except Exception:
+            pass
 
     # ⚡ 바이퍼 쉐도우 스텝 에너지파 렌더링
     if _viper_ss_wave_active:
@@ -137132,6 +137248,12 @@ def reset_round(is_stage_start=False):
     smasher_walking_timer = 0
     viper_walking_active = False
     viper_walking_timer = 0
+    # 바이퍼 제트팩 초기화
+    global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
+    _viper_jetpack_active = False
+    _viper_jetpack_offset_y = 0.0
+    _viper_jetpack_gauge_timer = 0
+    _viper_jetpack_particles.clear()
     optimus_walking_active = False
     optimus_walking_timer = 0
 
