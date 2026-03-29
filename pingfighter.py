@@ -47474,7 +47474,7 @@ _viper_ps_curve_active = False        # 커브 비행 중
 _viper_ps_curve_timer = 0             # 커브 남은 프레임
 _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
-_VIPER_PS_CURVE_FORCE = 1.0           # 프레임당 횡방향 가속도 (강한 커브)
+_VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -137721,7 +137721,7 @@ def calculate_bounce(paddle):
             _viper_phantom_strike_active = False  # 1회 소모
             _viper_phantom_strike_timer = 0
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-            _ps_new_speed = max(_ps_cur_speed * 1.8, 10.0)  # 80% 증가, 최소 속도 보장
+            _ps_new_speed = max(_ps_cur_speed * 2.6, 10.0)  # 160% 증가, 최소 속도 보장
 
             # 초기 발사: 거의 수직 위로 (약간만 틀어줌)
             _ps_curve = _viper_phantom_strike_curve_dir
