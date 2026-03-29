@@ -104388,6 +104388,8 @@ def draw_objects():
     global power_smashing_trails, power_smashing_particles, mega_smashing_meteor_trail  #  파워스매싱 이펙트 변수 추가
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_window  #  퍼펙트 타이밍 변수 추가
     global perfect_timing_indicator_active
+    global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
+    global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
     global shield_antenna_active, shield_antenna_timer, shield_antenna_cooldown
