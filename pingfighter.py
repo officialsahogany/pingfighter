@@ -47528,7 +47528,7 @@ _viper_nerve_strike_combo_used = False    # 이번 블레이드 러쉬에서 연
 _VIPER_NS_DASH_DURATION = 500            # 돌진 시간 (ms) — 보스가 피할 여유 있음
 _VIPER_NS_SLASH_DURATION = 300           # 등뒤 베기 연출 시간 (ms)
 _VIPER_NS_RETURN_DURATION = 150          # 복귀 시간 (ms) — 빠른 귀환
-_VIPER_NS_HIT_RADIUS = 60               # 도착 시 보스 히트 판정 반경 (px)
+_VIPER_NS_HIT_RADIUS = 90               # 도착 시 보스 히트 판정 반경 (px)
 _VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
 
 optimus_walking_active = False
