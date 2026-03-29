@@ -3275,9 +3275,8 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
                 load_game_progress, apply_loaded_progress, run_downtown_hub,
                 apply_character_selection, main as pingfighter_main, items,
                 effects_manager, reset_damage_manager, get_net_gun_instance,
-                preload_stage_intro_resources, show_stage2_intro, show_stage3_intro,
-                show_stage4_intro, show_stage5_intro, show_stage6_intro,
-                show_stage7_intro, show_stage8_intro,
+                preload_stage_intro_resources, play_stage_intro_video,
+                complete_stage_intro_transition,
                 STAGE2_INTRO_VIDEO_PATH, STAGE3_INTRO_VIDEO_PATH, STAGE4_INTRO_VIDEO_PATH,
                 STAGE5_INTRO_VIDEO_PATH, STAGE6_INTRO_VIDEO_PATH, STAGE7_INTRO_VIDEO_PATH,
                 STAGE8_INTRO_VIDEO_PATH
@@ -3352,27 +3351,29 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
                     print(f"[계속하기] 저장 파일 삭제 실패: {del_err}")
 
                 # 다음 스테이지 인트로 재생
-                if next_stage_display == 2:
-                    preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
-                    show_stage2_intro()
-                elif next_stage_display == 3:
-                    preload_stage_intro_resources(STAGE3_INTRO_VIDEO_PATH)
-                    show_stage3_intro()
-                elif next_stage_display == 4:
-                    preload_stage_intro_resources(STAGE4_INTRO_VIDEO_PATH)
-                    show_stage4_intro()
-                elif next_stage_display == 5:
-                    preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
-                    show_stage5_intro()
-                elif next_stage_display == 6:
-                    preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
-                    show_stage6_intro()
-                elif next_stage_display == 7:
-                    preload_stage_intro_resources(STAGE7_INTRO_VIDEO_PATH)
-                    show_stage7_intro()
-                elif next_stage_display == 8:
-                    preload_stage_intro_resources(STAGE8_INTRO_VIDEO_PATH)
-                    show_stage8_intro()
+                _stage_intro_map = {
+                    2: (STAGE2_INTRO_VIDEO_PATH, "STAGE 2", "악어장군", (240, 220, 180), (200, 110, 160)),
+                    3: (STAGE3_INTRO_VIDEO_PATH, "STAGE 3", "멘헤라걸", (255, 180, 255), (200, 110, 210)),
+                    4: (STAGE4_INTRO_VIDEO_PATH, "STAGE 4", "퐁크", (255, 240, 200), (220, 150, 120)),
+                    5: (STAGE5_INTRO_VIDEO_PATH, "STAGE 5", "네메시스", (0, 255, 255), (150, 200, 255)),
+                    6: (STAGE6_INTRO_VIDEO_PATH, "STAGE 6", "홍련", (255, 150, 100), (200, 80, 120)),
+                    7: (STAGE7_INTRO_VIDEO_PATH, "STAGE 7", "테트리서", (120, 180, 255), (90, 210, 255)),
+                    8: (STAGE8_INTRO_VIDEO_PATH, "STAGE 8", "???", (200, 200, 200), (180, 180, 180)),
+                }
+                intro_info = _stage_intro_map.get(next_stage_display)
+                if intro_info:
+                    vid_path, stg_text, boss_name, stg_color, boss_color = intro_info
+                    preload_stage_intro_resources(vid_path)
+                    played, _ = play_stage_intro_video(
+                        vid_path,
+                        stage_text=stg_text,
+                        boss_text=boss_name,
+                        stage_color=stg_color,
+                        boss_color=boss_color,
+                        post_hold_ms=0,
+                    )
+                    if played:
+                        complete_stage_intro_transition()
 
                 # 이펙트 및 상태 초기화
                 try:
