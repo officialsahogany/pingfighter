@@ -3675,10 +3675,10 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "slash_purple"
     },
     {
-        "name": "nerve_strike", "korean": "신경 타격", "cost": 30, "color": (180, 0, 220),
-        "symbol": "◈", "cooldown": 10.0, "key": "E",
-        "description": "다음 타격에 0.5초 스턴 효과를 부여합니다.\n보스 패들이 일시적으로 정지합니다.",
-        "how_to_use": "E키를 눌러 발동",
+        "name": "nerve_strike", "korean": "신경 타격", "cost": 80, "color": (180, 0, 220),
+        "symbol": "◈", "cooldown": 0.0, "key": "W(연계)",
+        "description": "블레이드 러쉬 착지 전 W키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
+        "how_to_use": "블레이드 러쉬 사용 후 착지 전 W키",
         "effect_type": "stun_purple"
     },
     {
@@ -12809,9 +12809,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "신경 타격 해금",
         "max_level": 1,
         "descriptions": {
-            1: "신경 타격 스킬 해금",
+            1: "신경 타격 스킬 해금 (블레이드 러쉬 연계기)",
         },
-        "detail": "게이지 스킬 '신경 타격'을 해금합니다. E키로 게이지 30을 소모해 다음 타격에 0.5초 스턴 효과를 부여합니다.",
+        "detail": "블레이드 러쉬 연계기 '신경 타격'을 해금합니다. 블레이드 러쉬 착지 전 W키로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 베고 복귀합니다. 5초간 보스 혼란.",
         "icon_color": (180, 0, 220),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -47497,6 +47497,21 @@ _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/블레이드 러쉬)
 _viper_speed_boost_original = 0.0     # 부스트 전 원래 공속
 
+# === 바이퍼 신경 타격 (블레이드 러쉬 연계기) ===
+_viper_nerve_strike_active = False       # 연계기 애니메이션 활성
+_viper_nerve_strike_phase = 0            # 0=돌진, 1=등뒤 베기, 2=복귀
+_viper_nerve_strike_start_ms = 0         # 애니메이션 시작 시각
+_viper_nerve_strike_origin_x = 0.0       # 돌진 전 원래 X
+_viper_nerve_strike_origin_y = 0.0       # 돌진 전 원래 Y
+_viper_nerve_strike_target_x = 0.0       # 보스 등뒤 X
+_viper_nerve_strike_target_y = 0.0       # 보스 등뒤 Y (보스 뒤)
+_viper_nerve_strike_slash_shown = False   # 베기 이펙트 표시 여부
+_viper_nerve_strike_combo_used = False    # 이번 블레이드 러쉬에서 연계기 사용했는지
+_VIPER_NS_DASH_DURATION = 200            # 돌진 시간 (ms)
+_VIPER_NS_SLASH_DURATION = 300           # 등뒤 베기 연출 시간 (ms)
+_VIPER_NS_RETURN_DURATION = 200          # 복귀 시간 (ms)
+_VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -71290,7 +71305,7 @@ def handle_player(keys):
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
 
-    # ⚔ 바이퍼 스킬 발동 처리 (W: 블레이드 러쉬, 대쉬후딜+W: 쉐도우 스텝, E: 신경 타격, Q: 베놈 엣지, R: 팬텀 어썰트)
+    # ⚔ 바이퍼 스킬 발동 처리 (W: 블레이드 러쉬/신경 타격 연계, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
@@ -71305,6 +71320,11 @@ def handle_player(keys):
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
         global _viper_speed_boost_active, _viper_speed_boost_original
+        global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_start_ms
+        global _viper_nerve_strike_origin_x, _viper_nerve_strike_origin_y
+        global _viper_nerve_strike_target_x, _viper_nerve_strike_target_y
+        global _viper_nerve_strike_slash_shown, _viper_nerve_strike_combo_used
+        global boss_confused_timer
 
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
@@ -71413,30 +71433,56 @@ def handle_player(keys):
                         _viper_ss_wave_trail.clear()
 
         elif _viper_can_act:
-            # 블레이드 러쉬 (W키) — 전방으로 검기 발사
+            # 블레이드 러쉬 (W키) — 전방으로 검기 발사 또는 신경 타격 연계
             if _viper_w_pressed and _viper_w_key_released:
-                if is_viper_skill_unlocked("blade_rush"):
+                # 연계기 판정: 블레이드 러쉬 Phase 2 (착지 전) + 신경 타격 해금 + 게이지 충분
+                if (_viper_br_spin_active and _viper_br_spin_phase == 2
+                        and not _viper_nerve_strike_combo_used
+                        and not _viper_nerve_strike_active
+                        and is_viper_skill_unlocked("nerve_strike")
+                        and special_gauge >= 80):
+                    _viper_w_key_released = False
+                    special_gauge -= 80
+                    _viper_nerve_strike_combo_used = True
+
+                    # 신경 타격 돌진 애니메이션 시작
+                    _viper_nerve_strike_active = True
+                    _viper_nerve_strike_phase = 0  # 돌진 단계
+                    _viper_nerve_strike_start_ms = pygame.time.get_ticks()
+                    _viper_nerve_strike_origin_x = float(PLAYER.centerx)
+                    _viper_nerve_strike_origin_y = float(PLAYER.centery)
+                    _viper_nerve_strike_target_x = float(BOSS.centerx)
+                    _viper_nerve_strike_target_y = float(BOSS.centery - 40)  # 보스 등뒤 (위쪽)
+                    _viper_nerve_strike_slash_shown = False
+
+                    # 블레이드 러쉬 스핀 종료 (연계기로 전환)
+                    _viper_br_spin_active = False
+                    _viper_br_spin_angle = 0.0
+                    _viper_br_jump_offset_y = 0.0
+                    _viper_br_arm_raise = 0.0
+
+                    try:
+                        effects_manager.spawn_shockwave(
+                            PLAYER.centerx, PLAYER.centery - 20,
+                            force=8, color=(180, 0, 220),
+                        )
+                    except Exception:
+                        pass
+
+                # 일반 블레이드 러쉬 발동
+                elif is_viper_skill_unlocked("blade_rush"):
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
-                        if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active:
+                        if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                             _viper_w_key_released = False
                             special_gauge -= 200
                             trigger_viper_skill_cooldown("blade_rush")
+                            _viper_nerve_strike_combo_used = False  # 새 블레이드 러쉬에서 연계기 초기화
 
                             # 회전 연출 시작 (회전 → 감속 → 정지 후 검기 발사)
                             _viper_br_spin_active = True
                             _viper_br_spin_start_ms = pygame.time.get_ticks()
                             _viper_br_spin_phase = 0  # 회전 단계
                             _viper_br_spin_angle = 0.0
-
-            # 신경 타격 (E키)
-            if _viper_e_pressed and _viper_e_key_released:
-                if is_viper_skill_unlocked("nerve_strike"):
-                    if get_viper_skill_cooldown_remaining("nerve_strike") <= 0:
-                        if special_gauge >= 30:
-                            _viper_e_key_released = False
-                            special_gauge -= 30
-                            trigger_viper_skill_cooldown("nerve_strike")
-                            # TODO: 다음 타격 스턴 효과 부여
 
             # 베놈 엣지 (Q키)
             if _viper_q_pressed and _viper_q_key_released:
@@ -71665,6 +71711,75 @@ def handle_player(keys):
             _viper_blade_rush_active = False
             _viper_blade_rush_fadeout = False
             _viper_blade_rush_trail.clear()
+
+    # === 바이퍼 신경 타격 연계기 애니메이션 업데이트 ===
+    if _viper_nerve_strike_active:
+        _ns_now = pygame.time.get_ticks()
+        _ns_elapsed = _ns_now - _viper_nerve_strike_start_ms
+
+        if _viper_nerve_strike_phase == 0:
+            # Phase 0: 보스에게 고속 돌진 (Y축 위로)
+            if _ns_elapsed < _VIPER_NS_DASH_DURATION:
+                _ns_t = _ns_elapsed / _VIPER_NS_DASH_DURATION
+                # 이징: 빠르게 가속 후 감속 (ease-out)
+                _ns_ease = 1.0 - (1.0 - _ns_t) ** 2
+                _ns_cur_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _ns_ease
+                _ns_cur_y = _viper_nerve_strike_origin_y + (_viper_nerve_strike_target_y - _viper_nerve_strike_origin_y) * _ns_ease
+                PLAYER.centerx = int(_ns_cur_x)
+                PLAYER.centery = int(_ns_cur_y)
+            else:
+                # 보스 등뒤 도착
+                PLAYER.centerx = int(_viper_nerve_strike_target_x)
+                PLAYER.centery = int(_viper_nerve_strike_target_y)
+                _viper_nerve_strike_phase = 1
+                _viper_nerve_strike_start_ms = _ns_now
+
+        elif _viper_nerve_strike_phase == 1:
+            # Phase 1: 등뒤에서 베기 연출
+            PLAYER.centerx = int(_viper_nerve_strike_target_x)
+            PLAYER.centery = int(_viper_nerve_strike_target_y)
+
+            if not _viper_nerve_strike_slash_shown and _ns_elapsed >= 100:
+                _viper_nerve_strike_slash_shown = True
+                # 베기 이펙트 — 보스 위치에 충격파
+                try:
+                    effects_manager.spawn_shockwave(
+                        BOSS.centerx, BOSS.centery,
+                        force=12, color=(180, 0, 220),
+                    )
+                except Exception:
+                    pass
+
+            if _ns_elapsed >= _VIPER_NS_SLASH_DURATION:
+                # 혼란 효과 적용! (조명탄과 동일한 시스템)
+                boss_confused_timer = _VIPER_NS_CONFUSION_FRAMES  # 5초
+
+                _viper_nerve_strike_phase = 2
+                _viper_nerve_strike_start_ms = _ns_now
+
+        elif _viper_nerve_strike_phase == 2:
+            # Phase 2: 제자리 복귀 (빠른 텔레포트)
+            if _ns_elapsed < _VIPER_NS_RETURN_DURATION:
+                _ns_t = _ns_elapsed / _VIPER_NS_RETURN_DURATION
+                # 이징: ease-in (천천히 출발 → 빠르게 복귀)
+                _ns_ease = _ns_t ** 2
+                _ns_cur_x = _viper_nerve_strike_target_x + (_viper_nerve_strike_origin_x - _viper_nerve_strike_target_x) * _ns_ease
+                _ns_cur_y = _viper_nerve_strike_target_y + (_viper_nerve_strike_origin_y - _viper_nerve_strike_target_y) * _ns_ease
+                PLAYER.centerx = int(_ns_cur_x)
+                PLAYER.centery = int(_ns_cur_y)
+            else:
+                # 복귀 완료
+                PLAYER.centerx = int(_viper_nerve_strike_origin_x)
+                PLAYER.centery = int(_viper_nerve_strike_origin_y)
+                _viper_nerve_strike_active = False
+                # 복귀 이펙트
+                try:
+                    effects_manager.spawn_shockwave(
+                        PLAYER.centerx, PLAYER.centery,
+                        force=6, color=(180, 0, 220),
+                    )
+                except Exception:
+                    pass
 
     # 충전 해제 후 예정된 충격파 발사 처리
     if selected_character_type == "optimus":
@@ -105199,6 +105314,78 @@ def draw_objects():
                 pygame.draw.circle(_amb_s, (80, 50, 130, _amb_a), (_amb_r, _amb_r), _amb_r)
                 SCREEN.blit(_amb_s, (_br_cx - _amb_r, _br_cy - _amb_r),
                             special_flags=pygame.BLEND_ADD)
+
+        except Exception:
+            pass
+
+    # ⚡ 바이퍼 신경 타격 연계기 — 돌진/베기/복귀 렌더링
+    if _viper_nerve_strike_active:
+        try:
+            _ns_rnow = pygame.time.get_ticks()
+            _ns_relapsed = _ns_rnow - _viper_nerve_strike_start_ms
+
+            if _viper_nerve_strike_phase == 0:
+                # 돌진 중 — 잔상 트레일
+                _ns_t = min(1.0, _ns_relapsed / _VIPER_NS_DASH_DURATION)
+                _ns_trail_count = 5
+                for _ti in range(_ns_trail_count):
+                    _tt = max(0.0, _ns_t - (_ti * 0.06))
+                    _tt_ease = 1.0 - (1.0 - _tt) ** 2
+                    _trail_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _tt_ease
+                    _trail_y = _viper_nerve_strike_origin_y + (_viper_nerve_strike_target_y - _viper_nerve_strike_origin_y) * _tt_ease
+                    _trail_alpha = int(120 * (1.0 - _ti / _ns_trail_count) * (1.0 - _ns_t * 0.5))
+                    if _trail_alpha > 5:
+                        _trail_surf = pygame.Surface((30, 60), pygame.SRCALPHA)
+                        pygame.draw.ellipse(_trail_surf, (180, 0, 220, _trail_alpha), (0, 0, 30, 60))
+                        SCREEN.blit(_trail_surf, (int(_trail_x) - 15, int(_trail_y) - 30),
+                                    special_flags=pygame.BLEND_ADD)
+
+                # 돌진 라인 (플레이어 → 보스 방향)
+                _dash_alpha = int(180 * (1.0 - _ns_t * 0.3))
+                if _dash_alpha > 10:
+                    pygame.draw.line(SCREEN, (180, 0, 220),
+                                     (int(_viper_nerve_strike_origin_x), int(_viper_nerve_strike_origin_y)),
+                                     (int(PLAYER.centerx), int(PLAYER.centery)), 2)
+
+            elif _viper_nerve_strike_phase == 1:
+                # 베기 연출 — X자 슬래시 이펙트
+                _ns_slash_t = min(1.0, _ns_relapsed / _VIPER_NS_SLASH_DURATION)
+                _slash_x = BOSS.centerx
+                _slash_y = BOSS.centery
+                _slash_size = int(60 + 40 * _ns_slash_t)
+                _slash_alpha = int(255 * (1.0 - _ns_slash_t * 0.6))
+
+                if _slash_alpha > 10:
+                    _slash_surf = pygame.Surface((_slash_size * 2, _slash_size * 2), pygame.SRCALPHA)
+                    _sc = _slash_size  # 중심
+
+                    # X자 슬래시 (두 개의 대각선)
+                    _sw = max(2, int(4 * (1.0 - _ns_slash_t)))
+                    _s_ext = int(_slash_size * min(1.0, _ns_slash_t * 2.0))  # 빠르게 확장
+                    pygame.draw.line(_slash_surf, (255, 100, 255, _slash_alpha),
+                                     (_sc - _s_ext, _sc - _s_ext), (_sc + _s_ext, _sc + _s_ext), _sw)
+                    pygame.draw.line(_slash_surf, (255, 100, 255, _slash_alpha),
+                                     (_sc + _s_ext, _sc - _s_ext), (_sc - _s_ext, _sc + _s_ext), _sw)
+
+                    # 중앙 플래시
+                    if _ns_slash_t < 0.3:
+                        _flash_r = int(25 * (1.0 - _ns_slash_t / 0.3))
+                        _flash_a = int(200 * (1.0 - _ns_slash_t / 0.3))
+                        pygame.draw.circle(_slash_surf, (255, 200, 255, _flash_a), (_sc, _sc), _flash_r)
+
+                    SCREEN.blit(_slash_surf, (_slash_x - _sc, _slash_y - _sc),
+                                special_flags=pygame.BLEND_ADD)
+
+            elif _viper_nerve_strike_phase == 2:
+                # 복귀 중 — 잔상 (역방향)
+                _ns_t = min(1.0, _ns_relapsed / _VIPER_NS_RETURN_DURATION)
+                _return_alpha = int(100 * (1.0 - _ns_t))
+                if _return_alpha > 5:
+                    _ret_surf = pygame.Surface((30, 60), pygame.SRCALPHA)
+                    pygame.draw.ellipse(_ret_surf, (180, 0, 220, _return_alpha), (0, 0, 30, 60))
+                    SCREEN.blit(_ret_surf, (int(_viper_nerve_strike_target_x) - 15,
+                                            int(_viper_nerve_strike_target_y) - 30),
+                                special_flags=pygame.BLEND_ADD)
 
         except Exception:
             pass
