@@ -71440,6 +71440,13 @@ def handle_player(keys):
                         _viper_s_key_released = False
                         special_gauge -= 100
                         trigger_viper_skill_cooldown("shadow_step")
+                        try:
+                            _bs_snd = sound_effects.get('VIPER_BACKSTEP')
+                            if _bs_snd:
+                                _bs_snd.set_volume(0.5)
+                                _bs_snd.play()
+                        except Exception:
+                            pass
                         # 대쉬/후딜 즉시 해제
                         rolling_active = False
                         rolling_stun_timer = 0
