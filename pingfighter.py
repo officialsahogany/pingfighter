@@ -71454,8 +71454,10 @@ def handle_player(keys):
         elif _viper_can_act:
             # 블레이드 러쉬 (W키) — 전방으로 검기 발사 또는 신경 타격 연계
             if _viper_w_pressed and _viper_w_key_released:
-                # 연계기 판정: 블레이드 러쉬 Phase 2 (착지 전) + 신경 타격 해금 + 게이지 충분
+                # 연계기 판정: 블레이드 러쉬 Phase 2 하강 구간 (검기 발사 후 내려올 때 ~ 착지 전)
+                _ns_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
                 if (_viper_br_spin_active and _viper_br_spin_phase == 2
+                        and _ns_br_elapsed >= 300  # 점프 정점 이후 (하강 시작)
                         and not _viper_nerve_strike_combo_used
                         and not _viper_nerve_strike_active
                         and is_viper_skill_unlocked("nerve_strike")
