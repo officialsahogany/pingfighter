@@ -106,6 +106,7 @@ SOUND_PATHS = {
     "GOD_OUT": "sounds/godout.wav",
     "GOD_THUNDER_THROW": "sounds/godthunderthrow.wav",
     "WHIPCRACK": "sounds/whipcrack.wav",
+    "FAN": "sounds/fan.wav",
     "ROUND_SET": "sounds/roundset.wav",
     "BOOMERANG": "sounds/boomerang.wav",
     "BOOMERANG_HIT": "sounds/boomeranghit.wav",
@@ -114,6 +115,7 @@ SOUND_PATHS = {
     "ROCKHIT": "sounds/rockhit.wav",
     "ALCHEMY": "sounds/alchemy.wav",
     "SOUL_BURST_DASH": "sounds/soulbust.wav",
+    "VIPER_BLADE": "sounds/blade.wav",
 }
 
 

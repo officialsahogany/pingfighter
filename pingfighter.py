@@ -71946,6 +71946,13 @@ def handle_player(keys):
                 _viper_br_spin_angle = 0.0  # 정면으로 리셋
 
                 # 검기 발사 (회전 끝난 직후)
+                try:
+                    _blade_snd = sound_effects.get('VIPER_BLADE')
+                    if _blade_snd:
+                        _blade_snd.set_volume(0.5)
+                        _blade_snd.play()
+                except Exception:
+                    pass
                 _viper_blade_rush_active = True
                 _viper_blade_rush_fadeout = False
                 _viper_blade_rush_fadeout_timer = 0
