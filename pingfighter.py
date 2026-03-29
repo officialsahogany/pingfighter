@@ -47473,8 +47473,8 @@ _viper_phantom_strike_curve_dir = 0   # 커브 방향 (-1:왼, 1:오른, 텔레�
 _viper_ps_curve_active = False        # 커브 비행 중
 _viper_ps_curve_timer = 0             # 커브 남은 프레임
 _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
-_VIPER_PS_CURVE_FRAMES = 45           # 커브 지속 (0.75초)
-_VIPER_PS_CURVE_FORCE = 0.35          # 프레임당 횡방향 가속도
+_VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
+_VIPER_PS_CURVE_FORCE = 1.0           # 프레임당 횡방향 가속도 (강한 커브)
 
 optimus_walking_active = False
 optimus_walking_timer = 0
