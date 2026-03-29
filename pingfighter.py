@@ -47454,6 +47454,14 @@ _VIPER_BR_REST_DURATION = 1000       # 정지(숨내쉬기) 시간 (ms)
 _viper_br_jump_offset_y = 0.0       # 승룡권 점프 Y오프셋 (음수=위로)
 _viper_br_arm_raise = 0.0           # 팔 들어올림 비율 (0~1)
 
+# === 바이퍼 쉐도우 스텝 홀로그램 등장 연출 ===
+_viper_ss_hologram_active = False    # 홀로그램 연출 활성
+_viper_ss_hologram_start_ms = 0      # 연출 시작 시각
+_viper_ss_hologram_target_x = 0      # 텔레포트 목표 X
+_viper_ss_hologram_origin_x = 0      # 텔레포트 출발 X (원래 위치)
+_viper_ss_hologram_origin_y = 0      # 출발 Y
+_VIPER_SS_HOLOGRAM_DURATION = 500    # 홀로그램 등장 시간 (ms)
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -71254,6 +71262,8 @@ def handle_player(keys):
         global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
         global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
         global _viper_br_jump_offset_y, _viper_br_arm_raise
+        global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
+        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y
 
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
@@ -71288,33 +71298,39 @@ def handle_player(keys):
                         trigger_viper_skill_cooldown("shadow_step")
                         rolling_stun_timer = 0  # 대쉬 후딜 즉시 해제
 
-                        # 잔상 생성 (현재 위치에 반투명 잔상)
+                        # 원래 위치에 잔상 생성
+                        _viper_ss_hologram_origin_x = PLAYER.centerx
+                        _viper_ss_hologram_origin_y = PLAYER.centery
                         try:
                             _ss_afterimage_surf = pygame.Surface((PLAYER.width, PLAYER.height), pygame.SRCALPHA)
                             _ss_afterimage_surf.fill((100, 0, 180, 120))
                             dash_afterimages.append({
                                 'x': PLAYER.centerx - PLAYER.width // 2,
                                 'y': PLAYER.centery - PLAYER.height // 2,
-                                'alpha': 180,
+                                'alpha': 200,
                                 'image': _ss_afterimage_surf,
-                                'life': 15
+                                'life': 30  # 홀로그램 동안 유지
                             })
                         except Exception:
                             pass
 
-                        # 반대 방향으로 순간이동 (대쉬 방향의 반대)
-                        _ss_teleport_dist = 160  # 순간이동 거리
+                        # 목표 위치 계산 (반대 방향 160px)
+                        _ss_teleport_dist = 160
                         _ss_reverse_dir = -rolling_direction if rolling_direction != 0 else 1
                         _ss_new_x = PLAYER.centerx + _ss_reverse_dir * _ss_teleport_dist
-                        # 화면 경계 클램핑
                         _ss_new_x = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, _ss_new_x))
-                        PLAYER.centerx = _ss_new_x
 
-                        # 도착 지점 이펙트
+                        # 즉시 텔레포트 + 홀로그램 연출 시작
+                        PLAYER.centerx = _ss_new_x
+                        _viper_ss_hologram_active = True
+                        _viper_ss_hologram_start_ms = pygame.time.get_ticks()
+                        _viper_ss_hologram_target_x = _ss_new_x
+
+                        # 출발점 이펙트 (사라지는 연출)
                         try:
                             effects_manager.spawn_shockwave(
-                                PLAYER.centerx, PLAYER.centery - 10,
-                                force=8, color=(100, 0, 180),
+                                _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y - 10,
+                                force=5, color=(80, 0, 160),
                             )
                         except Exception:
                             pass
@@ -104936,6 +104952,106 @@ def draw_objects():
         except Exception:
             pass
 
+    # 👻 바이퍼 쉐도우 스텝 홀로그램 등장 렌더링
+    if _viper_ss_hologram_active:
+        try:
+            _holo_now = pygame.time.get_ticks()
+            _holo_elapsed = _holo_now - _viper_ss_hologram_start_ms
+            _holo_t = min(1.0, _holo_elapsed / _VIPER_SS_HOLOGRAM_DURATION)
+
+            if _holo_t >= 1.0:
+                _viper_ss_hologram_active = False
+            else:
+                _holo_x = int(_viper_ss_hologram_target_x)
+                _holo_y = int(_viper_ss_hologram_origin_y)
+
+                # 바이퍼 Surface 가져오기
+                _holo_base = create_viper_paddle_surface(0.0)
+                _holo_w, _holo_h = _holo_base.get_size()
+
+                # 홀로그램 Surface 생성
+                _holo_surf = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
+                _holo_surf.blit(_holo_base, (0, 0))
+
+                # 단계별 연출
+                if _holo_t < 0.3:
+                    # 초반 (0~0.3): 스캔라인 + 노이즈로 형체가 잡히는 중
+                    _scan_t = _holo_t / 0.3
+                    # 아래에서 위로 스캔라인이 올라가며 모습이 드러남
+                    _visible_h = int(_holo_h * _scan_t)
+                    # 보이지 않는 부분 지우기 (위에서부터)
+                    _clip_surf = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
+                    if _visible_h > 0:
+                        _clip_surf.blit(_holo_surf, (0, _holo_h - _visible_h),
+                                       (0, _holo_h - _visible_h, _holo_w, _visible_h))
+                    _holo_surf = _clip_surf
+
+                    # 시안 홀로그램 틴트
+                    _tint = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
+                    _tint.fill((0, 255, 200, 120))
+                    _holo_surf.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+                    # 전체 알파
+                    _holo_surf.set_alpha(int(100 + 80 * _scan_t))
+
+                    # 스캔라인 효과 (수평선들)
+                    for _sl_y in range(0, _holo_h, 4):
+                        if (_sl_y + int(_holo_now * 0.1)) % 8 < 2:
+                            pygame.draw.line(_holo_surf, (0, 255, 200, 60),
+                                           (0, _sl_y), (_holo_w, _sl_y), 1)
+
+                elif _holo_t < 0.7:
+                    # 중반 (0.3~0.7): 형체 완성, 홀로그램 깜빡임
+                    _mid_t = (_holo_t - 0.3) / 0.4
+                    _flicker = 0.7 + 0.3 * math.sin(_holo_now * 0.03)
+
+                    # 홀로그램 틴트 (서서히 원래 색으로)
+                    _cyan_amount = int(120 * (1.0 - _mid_t))
+                    if _cyan_amount > 5:
+                        _tint = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
+                        _tint.fill((0, 255, 200, _cyan_amount))
+                        _holo_surf.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+                    _holo_surf.set_alpha(int((180 + 75 * _mid_t) * _flicker))
+
+                    # 잔여 스캔라인 (점점 사라짐)
+                    _scan_alpha = int(40 * (1.0 - _mid_t))
+                    if _scan_alpha > 3:
+                        for _sl_y in range(0, _holo_h, 6):
+                            if (_sl_y + int(_holo_now * 0.08)) % 12 < 2:
+                                pygame.draw.line(_holo_surf, (0, 255, 200, _scan_alpha),
+                                               (0, _sl_y), (_holo_w, _sl_y), 1)
+
+                else:
+                    # 후반 (0.7~1.0): 실체화 완료, 알파 100%로
+                    _final_t = (_holo_t - 0.7) / 0.3
+                    _holo_surf.set_alpha(int(255 * (0.85 + 0.15 * _final_t)))
+
+                # 화면에 그리기 (플레이어 위치에)
+                _draw_x = _holo_x - _holo_w // 2
+                _draw_y = _holo_y - _holo_h // 2
+                SCREEN.blit(_holo_surf, (_draw_x, _draw_y))
+
+                # 외곽 글로우 (초반~중반)
+                if _holo_t < 0.7:
+                    _glow_alpha = int(60 * (1.0 - _holo_t / 0.7))
+                    _glow_surf = pygame.Surface((_holo_w + 16, _holo_h + 16), pygame.SRCALPHA)
+                    pygame.draw.rect(_glow_surf, (0, 255, 200, _glow_alpha),
+                                    (0, 0, _holo_w + 16, _holo_h + 16), border_radius=8)
+                    SCREEN.blit(_glow_surf, (_draw_x - 8, _draw_y - 8))
+
+                # 도착 이펙트 (완료 직전 한 번)
+                if _holo_t > 0.95 and _holo_elapsed < _VIPER_SS_HOLOGRAM_DURATION:
+                    try:
+                        effects_manager.spawn_shockwave(
+                            _holo_x, _holo_y - 10,
+                            force=8, color=(100, 0, 180),
+                        )
+                    except Exception:
+                        pass
+        except Exception:
+            _viper_ss_hologram_active = False
+
     # 🛡️ 인게임 호위무사 캐릭터 및 스킬 이펙트 그리기 (일반 스테이지, 최대 2명)
     if not arena_mode_enabled:
         try:
@@ -107177,6 +107293,10 @@ def draw_objects():
                     _rot_angle = _viper_br_spin_angle % 360
                     if abs(_rot_angle) > 0.5:
                         base_ufo_img = pygame.transform.rotate(base_ufo_img, _rot_angle)
+            elif _viper_ss_hologram_active:
+                # 쉐도우 스텝 홀로그램 중: 본체는 투명 (홀로그램 렌더링이 대신 그림)
+                base_ufo_img = create_viper_paddle_surface(0.0)
+                base_ufo_img.set_alpha(0)
             elif viper_walking_active:
                 walk_phase = (viper_walking_timer % max(1, VIPER_WALKING_CYCLE)) / max(1, VIPER_WALKING_CYCLE)
                 base_ufo_img = create_viper_paddle_surface(walk_phase)
