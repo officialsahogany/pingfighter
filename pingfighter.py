@@ -71623,9 +71623,9 @@ def handle_player(keys):
                 _br_half_w = _viper_blade_rush_width // 2
                 _br_blade_rect = pygame.Rect(
                     int(_viper_blade_rush_x - _br_half_w),
-                    int(_viper_blade_rush_y - 30),
+                    int(_viper_blade_rush_y - 55),
                     _viper_blade_rush_width,
-                    60  # 검기 세로 히트박스
+                    55  # 검기 세로 히트박스 (부채꼴 비주얼 높이에 맞춤)
                 )
                 if _br_blade_rect.colliderect(BALL):
                     _viper_blade_rush_hit_ball = True
