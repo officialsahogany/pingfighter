@@ -47451,6 +47451,8 @@ _viper_br_spin_angle = 0.0           # 현재 회전 각도 (도)
 _VIPER_BR_SPIN_DURATION = 400        # 2바퀴 회전 시간 (ms)
 _VIPER_BR_DECEL_DURATION = 200       # 감속 시간 (ms)
 _VIPER_BR_REST_DURATION = 1000       # 정지(숨내쉬기) 시간 (ms)
+_viper_br_jump_offset_y = 0.0       # 승룡권 점프 Y오프셋 (음수=위로)
+_viper_br_arm_raise = 0.0           # 팔 들어올림 비율 (0~1)
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -71251,6 +71253,7 @@ def handle_player(keys):
         global _viper_blade_rush_start_y, _viper_blade_rush_target_y, _viper_blade_rush_hit_ball
         global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
         global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
+        global _viper_br_jump_offset_y, _viper_br_arm_raise
 
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
@@ -71375,27 +71378,36 @@ def handle_player(keys):
         _br_elapsed = _br_now - _viper_br_spin_start_ms
 
         if _viper_br_spin_phase == 0:
-            # 단계 0: 빠른 2바퀴 회전 (400ms)
+            # 단계 0: 빠른 2바퀴 회전 + 위로 솟아오르기 (400ms)
             if _br_elapsed < _VIPER_BR_SPIN_DURATION:
                 _br_t = _br_elapsed / _VIPER_BR_SPIN_DURATION
                 _viper_br_spin_angle = _br_t * 720.0  # 2바퀴 = 720도
+                # 승룡권 점프: 전반부에 위로 솟아오름 (포물선)
+                _viper_br_jump_offset_y = -math.sin(_br_t * math.pi) * 80  # 최대 80px 상승
+                _viper_br_arm_raise = min(1.0, _br_t * 2.0)  # 전반부에 팔 올림
             else:
                 _viper_br_spin_phase = 1
                 _viper_br_spin_start_ms = _br_now
                 _viper_br_spin_angle = 720.0
+                _viper_br_arm_raise = 1.0
 
         elif _viper_br_spin_phase == 1:
-            # 단계 1: 감속하며 멈춤 (200ms)
+            # 단계 1: 감속 + 착지 (200ms)
             if _br_elapsed < _VIPER_BR_DECEL_DURATION:
                 _br_t = _br_elapsed / _VIPER_BR_DECEL_DURATION
                 _br_decel = 1.0 - _br_t  # 1→0 감속
                 _viper_br_spin_angle = 720.0 + _br_decel * 90.0 * (1.0 - _br_t)
+                # 착지: 위에서 아래로 빠르게 내려옴
+                _viper_br_jump_offset_y = -80 * (1.0 - _br_t) * (1.0 - _br_t)  # 제곱감속 착지
+                _viper_br_arm_raise = 1.0  # 팔은 계속 올린 상태
             else:
                 _viper_br_spin_phase = 2
                 _viper_br_spin_start_ms = _br_now
                 _viper_br_spin_angle = 0.0  # 정면으로 리셋
+                _viper_br_jump_offset_y = 0.0  # 완전 착지
+                _viper_br_arm_raise = 1.0  # 팔 올린 채 검기 발사
 
-                # 검기 발사 (정지 시작과 동시에)
+                # 검기 발사 (착지 + 팔 내리치는 순간)
                 _viper_blade_rush_active = True
                 _viper_blade_rush_x = float(PLAYER.centerx)
                 _viper_blade_rush_start_y = float(PLAYER.centery - 20)
@@ -71413,10 +71425,14 @@ def handle_player(keys):
                     pass
 
         elif _viper_br_spin_phase == 2:
-            # 단계 2: 정지 + 숨내쉬기 (1000ms)
+            # 단계 2: 정지 + 숨내쉬기 (1000ms) — 팔 서서히 내림
+            _br_rest_t = min(1.0, _br_elapsed / _VIPER_BR_REST_DURATION)
+            _viper_br_arm_raise = max(0.0, 1.0 - _br_rest_t * 2.0)  # 전반 500ms에 팔 내림
+            _viper_br_jump_offset_y = 0.0
             if _br_elapsed >= _VIPER_BR_REST_DURATION:
                 _viper_br_spin_active = False
                 _viper_br_spin_angle = 0.0
+                _viper_br_arm_raise = 0.0
 
     # 바이퍼 블레이드 러쉬 검기 업데이트 (매 프레임)
     if _viper_blade_rush_active:
@@ -107103,19 +107119,51 @@ def draw_objects():
             if _viper_br_spin_active:
                 # 블레이드 러쉬 연출 중
                 if _viper_br_spin_phase == 2:
-                    # 정지 단계: 숨내쉬기 (살짝 아래로 수축하는 호흡)
+                    # 정지 단계: 숨내쉬기 + 팔 서서히 내림
                     _rest_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms
                     _breath_t = _rest_elapsed / max(1, _VIPER_BR_REST_DURATION)
-                    _breath_wave = math.sin(_breath_t * math.pi * 2) * 0.03  # 미세 호흡
+                    _breath_wave = math.sin(_breath_t * math.pi * 3) * 0.03
                     base_ufo_img = create_viper_paddle_surface(0.0)
-                    # 호흡 스케일 적용 (살짝 세로 수축/팽창)
                     _bw, _bh = base_ufo_img.get_size()
                     _new_h = max(1, int(_bh * (1.0 - _breath_wave)))
                     if _new_h != _bh and _bw > 0:
                         base_ufo_img = pygame.transform.smoothscale(base_ufo_img, (_bw, _new_h))
+
+                    # 팔 올린 상태 표현 (상단에 검기 라인)
+                    if _viper_br_arm_raise > 0.05:
+                        _arm_surf = pygame.Surface((_bw, _bh + 30), pygame.SRCALPHA)
+                        _arm_surf.blit(base_ufo_img, (0, 30))
+                        # 올린 팔 (보라 에너지 라인)
+                        _arm_len = int(25 * _viper_br_arm_raise)
+                        _arm_x = _bw // 2
+                        _arm_alpha = int(200 * _viper_br_arm_raise)
+                        pygame.draw.line(_arm_surf, (200, 50, 255, _arm_alpha),
+                                        (_arm_x, 30), (_arm_x, 30 - _arm_len), 3)
+                        pygame.draw.circle(_arm_surf, (255, 180, 255, _arm_alpha),
+                                          (_arm_x, 30 - _arm_len), 4)
+                        base_ufo_img = _arm_surf
                 else:
-                    # 회전/감속 단계
+                    # 회전/감속 단계 + 점프 + 팔 올림
                     base_ufo_img = create_viper_paddle_surface(0.0)
+
+                    # 팔 올림 표현 (에너지 검 위로)
+                    if _viper_br_arm_raise > 0.05:
+                        _bw, _bh = base_ufo_img.get_size()
+                        _arm_surf = pygame.Surface((_bw, _bh + 35), pygame.SRCALPHA)
+                        _arm_surf.blit(base_ufo_img, (0, 35))
+                        _arm_len = int(30 * _viper_br_arm_raise)
+                        _arm_x = _bw // 2
+                        _arm_alpha = int(220 * _viper_br_arm_raise)
+                        # 에너지 검 (팔)
+                        pygame.draw.line(_arm_surf, (160, 0, 255, _arm_alpha),
+                                        (_arm_x, 35), (_arm_x, 35 - _arm_len), 4)
+                        pygame.draw.line(_arm_surf, (255, 200, 255, _arm_alpha),
+                                        (_arm_x, 35), (_arm_x, 35 - _arm_len), 2)
+                        pygame.draw.circle(_arm_surf, (255, 220, 255, _arm_alpha),
+                                          (_arm_x, 35 - _arm_len), 5)
+                        base_ufo_img = _arm_surf
+
+                    # 회전 적용
                     _rot_angle = _viper_br_spin_angle % 360
                     if abs(_rot_angle) > 0.5:
                         base_ufo_img = pygame.transform.rotate(base_ufo_img, _rot_angle)
@@ -107316,11 +107364,13 @@ def draw_objects():
             pivot_point.y += delta_y
 
     else:
+        # 바이퍼 블레이드 러쉬 승룡권 점프 Y오프셋 적용
+        _viper_jump_y = _viper_br_jump_offset_y if (selected_character_type == "viper" and _viper_br_spin_active) else 0.0
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
-                                                      PLAYER.centery + screen_shake_offset_y + player_knockback_y))
+                                                      PLAYER.centery + screen_shake_offset_y + player_knockback_y + _viper_jump_y))
         # 패들 크기가 커졌을 때 하반신이 화면 아래로 잘리는 것을 방지
         # 스케일/회전과 무관하게 화면상의 콘텐츠 하단을 실제 바닥(PLAYER.bottom)에 정렬
-        target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y))
+        target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y + _viper_jump_y))
         rotated_bounds = rotated_player.get_bounding_rect(min_alpha=1)
         content_bottom = player_rect.y + rotated_bounds.bottom
         delta_y = target_bottom - content_bottom
