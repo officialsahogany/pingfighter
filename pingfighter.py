@@ -1875,6 +1875,24 @@ def _apply_global_hotkeys(events):
             uni = getattr(ev, "unicode", "")
             is_b_toggle = (key == pygame.K_b) or (uni == "ㅠ")
 
+            # F9: 전체화면 전환 (게임 어디서든 동작)
+            if ev.type == pygame.KEYDOWN and key == pygame.K_F9:
+                try:
+                    if get_display_mode() != "fullscreen":
+                        switch_display_mode("fullscreen")
+                except Exception:
+                    pass
+                continue
+
+            # F10: 창모드 전환 (게임 어디서든 동작)
+            if ev.type == pygame.KEYDOWN and key == pygame.K_F10:
+                try:
+                    if get_display_mode() != "windowed":
+                        switch_display_mode("windowed")
+                except Exception:
+                    pass
+                continue
+
             # F11: 투기장(Stage 30) 신의심판 디버그 메뉴
             if ev.type == pygame.KEYDOWN and key == pygame.K_F11:
                 if current_stage == 30 and animated_bg_stage30 is not None:
@@ -154099,17 +154117,7 @@ def main(stage_num, new_boss_mode=False):
                     globals()['_gauge_debug_count'] = 0
         main.keyF4_pressed = keys[pygame.K_F4]
 
-        # F9키로 플래그십모드 전환
-        if keys[pygame.K_F9] and not getattr(main, 'keyF9_pressed', False):
-            if get_display_mode() != "fullscreen":
-                switch_display_mode("fullscreen")
-        main.keyF9_pressed = keys[pygame.K_F9]
-
-        # F10키로 창모드 전환
-        if keys[pygame.K_F10] and not getattr(main, 'keyF10_pressed', False):
-            if get_display_mode() != "windowed":
-                switch_display_mode("windowed")
-        main.keyF10_pressed = keys[pygame.K_F10]
+        # F9/F10 화면모드 전환은 _apply_global_hotkeys()에서 전역 처리
 
         # F5키로 광폭화 보스 토글 (디버그용)
         if keys[pygame.K_F5] and not getattr(main, 'keyF5_pressed', False):
