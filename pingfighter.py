@@ -47463,6 +47463,12 @@ _viper_ss_hologram_origin_x = 0      # 텔레포트 출발 X (원래 위치)
 _viper_ss_hologram_origin_y = 0      # 출발 Y
 _VIPER_SS_HOLOGRAM_DURATION = 500    # 홀로그램 등장 시간 (ms)
 
+# === 바이퍼 쉐도우 스텝 → 다음 타격 버프 (팬텀 스트라이크) ===
+_viper_phantom_strike_active = False  # 다음 타격 버프 활성
+_viper_phantom_strike_timer = 0       # 버프 남은 시간 (프레임)
+_VIPER_PHANTOM_STRIKE_DURATION = 18   # 0.3초 (60fps 기준)
+_viper_phantom_strike_curve_dir = 0   # 커브 방향 (-1:왼, 1:오른, 텔레포트 방향)
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -71265,6 +71271,7 @@ def handle_player(keys):
         global _viper_br_jump_offset_y, _viper_br_arm_raise
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y
+        global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
 
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
@@ -71339,6 +71346,11 @@ def handle_player(keys):
                         _viper_ss_hologram_start_ms = pygame.time.get_ticks()
                         _viper_ss_hologram_target_x = _ss_new_x
 
+                        # 팬텀 스트라이크 버프 활성화 (0.3초간 다음 타격 강화)
+                        _viper_phantom_strike_active = True
+                        _viper_phantom_strike_timer = _VIPER_PHANTOM_STRIKE_DURATION
+                        _viper_phantom_strike_curve_dir = _ss_reverse_dir  # 텔레포트 방향으로 커브
+
                         # 출발점 이펙트 (사라지는 연출)
                         try:
                             effects_manager.spawn_shockwave(
@@ -71400,6 +71412,12 @@ def handle_player(keys):
                                 )
                             except Exception:
                                 pass
+
+    # 바이퍼 팬텀 스트라이크 버프 타이머 감소
+    if _viper_phantom_strike_active:
+        _viper_phantom_strike_timer -= 1
+        if _viper_phantom_strike_timer <= 0:
+            _viper_phantom_strike_active = False
 
     # 바이퍼 블레이드 러쉬 회전/정지 연출 업데이트
     if _viper_br_spin_active:
@@ -137676,7 +137694,32 @@ def calculate_bounce(paddle):
                 del smoke_zone["original_speed"]
                 del smoke_zone["affecting_ball"]
                 break
-        
+
+        # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 스텝 직후 0.3초 내 타격 시 공속 80% 증가 + 신비한 커브
+        if _viper_phantom_strike_active and selected_character_type == "viper":
+            _viper_phantom_strike_active = False  # 1회 소모
+            _viper_phantom_strike_timer = 0
+            _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
+            _ps_new_speed = max(_ps_cur_speed * 1.8, 10.0)  # 80% 증가, 최소 속도 보장
+
+            # 신비한 커브: 사인파 기반 나선형 궤도
+            # 기본 상방향 + 텔레포트 방향으로 커브 (드라이브와 다른 독특한 궤적)
+            _ps_curve = _viper_phantom_strike_curve_dir  # -1 또는 1
+            _ps_curve_angle = _ps_curve * 35  # 35도 커브 (드라이브의 직선적 커브와 차별화)
+            _ps_base_angle = -90  # 위쪽 (보스 방향)
+            _ps_final_angle = math.radians(_ps_base_angle + _ps_curve_angle)
+            ball_vel[0] = math.cos(_ps_final_angle) * _ps_new_speed
+            ball_vel[1] = math.sin(_ps_final_angle) * _ps_new_speed
+
+            # 히트 이펙트
+            try:
+                effects_manager.spawn_shockwave(
+                    BALL.centerx, BALL.centery,
+                    force=12, color=(160, 0, 255),
+                )
+            except Exception:
+                pass
+
         #  라그나로크 해머가 활성화되어 있으면 50% 확률로 스턴공 발동
         try:
             from legendary_items import get_legendary_manager
