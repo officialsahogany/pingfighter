@@ -75280,6 +75280,10 @@ def handle_player(keys):
                             speed_bonus = 0
                             # 🏟️ 투기장 둔화+부스트: 무중력벨트 경로에도 동일하게 적용
                             _gb_mult = arena_player_slow_mult * arena_player_speed_boost_only
+                            # 🚀 바이퍼 제트팩 체공 이동 보너스 (높을수록 최대 +80%)
+                            if selected_character_type == "viper" and _viper_jetpack_offset_y < 0:
+                                _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
+                                _gb_mult *= 1.0 + _jet_height_ratio * 0.8
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_mult
                                 current_speed = target_speed  # 즉시 목표 속도로 전환
@@ -75341,6 +75345,12 @@ def handle_player(keys):
                                 if animated_bg_stage30.is_judgment_earthquake_active():
                                     adjusted_acceleration *= 0.5
                                     adjusted_max_speed *= 0.5
+                            # 🚀 바이퍼 제트팩 체공 이동 보너스 (높을수록 최대 +80%)
+                            if selected_character_type == "viper" and _viper_jetpack_offset_y < 0:
+                                _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
+                                _jet_speed_bonus = 1.0 + _jet_height_ratio * 0.8  # 최대 1.8배
+                                adjusted_acceleration *= _jet_speed_bonus
+                                adjusted_max_speed *= _jet_speed_bonus
                             # 즉시 속도 제한 (투기장 둔화/부스트 또는 거미줄 장판)
                             if arena_player_slow_mult != 1.0 or arena_player_speed_boost_only > 1.0 or web_slow < 1.0:
                                 if current_speed > adjusted_max_speed:
