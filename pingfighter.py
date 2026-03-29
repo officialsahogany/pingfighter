@@ -3687,16 +3687,16 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "blade_rush", "korean": "블레이드 러쉬", "cost": 200, "color": (200, 50, 255),
-        "symbol": "⚔", "cooldown": 16.0, "key": "클릭/Space",
+        "symbol": "⚔", "cooldown": 16.0, "key": "W/↑",
         "description": "전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 30~50% 증가합니다.",
-        "how_to_use": "마우스 좌클릭 또는 Space키로 발동",
+        "how_to_use": "W키 또는 ↑키로 발동",
         "effect_type": "slash_purple"
     },
     {
         "name": "nerve_strike", "korean": "베놈 엣지", "cost": 80, "color": (180, 0, 220),
-        "symbol": "◈", "cooldown": 0.0, "key": "클릭/Space(연계)",
-        "description": "블레이드 러쉬 착지 전 클릭/Space로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
-        "how_to_use": "블레이드 러쉬 사용 후 착지 전 클릭/Space",
+        "symbol": "◈", "cooldown": 0.0, "key": "W/↑(연계)",
+        "description": "블레이드 러쉬 착지 전 W/↑키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
+        "how_to_use": "블레이드 러쉬 사용 후 착지 전 W/↑키",
         "effect_type": "stun_purple"
     },
     {
@@ -71343,7 +71343,7 @@ def handle_player(keys):
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
 
-    # ⚔ 바이퍼 스킬 발동 처리 (Space/좌클릭: 블레이드 러쉬/신경 타격 연계, W홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
+    # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 블레이드 러쉬/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
@@ -71364,7 +71364,7 @@ def handle_player(keys):
         global _viper_nerve_strike_slash_shown, _viper_nerve_strike_combo_used
         global boss_confused_timer
 
-        _viper_w_pressed = keys[pygame.K_SPACE] or pygame.mouse.get_pressed()[0]  # Space 또는 마우스 좌클릭
+        _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (블레이드 러쉬/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
         _viper_q_pressed = keys[pygame.K_q]
         _viper_r_pressed = keys[pygame.K_r]
@@ -71474,7 +71474,7 @@ def handle_player(keys):
                         _viper_ss_wave_trail.clear()
 
         elif _viper_can_act:
-            # 블레이드 러쉬 (Space/좌클릭) — 전방으로 검기 발사 또는 신경 타격 연계
+            # 블레이드 러쉬 (W/↑키) — 전방으로 검기 발사 또는 베놈 엣지 연계
             if _viper_w_pressed and _viper_w_key_released:
                 # 연계기 판정: 블레이드 러쉬 Phase 2 하강 구간 (검기 발사 후 내려올 때 ~ 착지 전)
                 _ns_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
@@ -71576,14 +71576,15 @@ def handle_player(keys):
         global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
         global _viper_jetpack_hold_timer, _viper_jetpack_overheat
 
-        # 입력 감지: W키 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀/과열 중에는 비활성)
+        # 입력 감지: Space/좌클릭 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀/과열 중에는 비활성)
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
                 or _viper_nerve_strike_active or _viper_br_spin_active
                 or rolling_active or _viper_jetpack_overheat):
             try:
                 _jk = pygame.key.get_pressed()
-                _jetpack_input = bool(_jk[pygame.K_w])
+                _mb = pygame.mouse.get_pressed()
+                _jetpack_input = bool(_jk[pygame.K_SPACE]) or bool(_mb[0])
             except Exception:
                 pass
 
