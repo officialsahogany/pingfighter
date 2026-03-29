@@ -3661,15 +3661,15 @@ def is_smasher_skill_unlocked(skill_name: str) -> bool:
 # ============================================================================
 VIPER_SKILL_ICONS_DATA = [
     {
-        "name": "shadow_step", "korean": "쉐도우 스텝", "cost": 40, "color": (100, 0, 180),
-        "symbol": "⟐", "cooldown": 6.0, "key": "대쉬+S",
+        "name": "shadow_step", "korean": "쉐도우 스텝", "cost": 100, "color": (100, 0, 180),
+        "symbol": "⟐", "cooldown": 10.0, "key": "대쉬+S",
         "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.",
         "how_to_use": "대쉬 중/직후 S키를 눌러 발동",
         "effect_type": "shadow_teleport"
     },
     {
-        "name": "blade_rush", "korean": "블레이드 러쉬", "cost": 100, "color": (200, 50, 255),
-        "symbol": "⚔", "cooldown": 8.0, "key": "W",
+        "name": "blade_rush", "korean": "블레이드 러쉬", "cost": 200, "color": (200, 50, 255),
+        "symbol": "⚔", "cooldown": 16.0, "key": "W",
         "description": "전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 30~50% 증가합니다.",
         "how_to_use": "W키를 눌러 발동",
         "effect_type": "slash_purple"
@@ -71352,9 +71352,9 @@ def handle_player(keys):
         if _viper_in_dash and _viper_ss_input and _viper_s_key_released and not _viper_any_dir_held:
             if is_viper_skill_unlocked("shadow_step"):
                 if get_viper_skill_cooldown_remaining("shadow_step") <= 0:
-                    if special_gauge >= 40 and not _viper_ss_hologram_active:
+                    if special_gauge >= 100 and not _viper_ss_hologram_active:
                         _viper_s_key_released = False
-                        special_gauge -= 40
+                        special_gauge -= 100
                         trigger_viper_skill_cooldown("shadow_step")
                         # 대쉬/후딜 즉시 해제
                         rolling_active = False
@@ -71417,9 +71417,9 @@ def handle_player(keys):
             if _viper_w_pressed and _viper_w_key_released:
                 if is_viper_skill_unlocked("blade_rush"):
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
-                        if special_gauge >= 100 and not _viper_blade_rush_active and not _viper_br_spin_active:
+                        if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active:
                             _viper_w_key_released = False
-                            special_gauge -= 100
+                            special_gauge -= 200
                             trigger_viper_skill_cooldown("blade_rush")
 
                             # 회전 연출 시작 (회전 → 감속 → 정지 후 검기 발사)
