@@ -71653,7 +71653,7 @@ def handle_player(keys):
                 })
 
         # AIR STRIKE 텍스트 타이머 감소
-        global _viper_air_strike_text_timer, _viper_air_strike_text_y
+        global _viper_air_strike_text_timer, _viper_air_strike_text_x, _viper_air_strike_text_y, _viper_air_strike_text_pct
         if _viper_air_strike_text_timer > 0:
             _viper_air_strike_text_timer -= 1
             _viper_air_strike_text_y -= 1.2  # 위로 떠오름
@@ -76813,7 +76813,6 @@ def handle_player(keys):
             except Exception:
                 pass
             # AIR STRIKE 텍스트 이펙트 트리거
-            global _viper_air_strike_text_timer, _viper_air_strike_text_x, _viper_air_strike_text_y, _viper_air_strike_text_pct
             _viper_air_strike_text_timer = 60
             _viper_air_strike_text_x = float(BALL.centerx)
             _viper_air_strike_text_y = float(BALL.centery - 20)
@@ -162532,7 +162531,7 @@ def show_character_info(background_surface=None):
         return slots
 
     def get_equipment_state():
-        """전역에 유지되는 장비 슬롯 상태를 가져오거나 초기화."ㅁㅁㅁㅁ""
+        """전역에 유지되는 장비 슬롯 상태를 가져오거나 초기화."""
         state = ensure_equipment_state()
         # 오래된 리스트 형태로 저장된 경우 정규화
         for key, value in list(state.items()):
