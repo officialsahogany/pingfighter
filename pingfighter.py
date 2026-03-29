@@ -105088,104 +105088,116 @@ def draw_objects():
                 _fade_factor = max(_fade_factor, 1.0 - _fo_ratio)
             _alive = 1.0 - _fade_factor
 
-            # ── 캔버스 설정 (토르쉴드 기법: 정사각 서피스 + 중앙 기준) ──
-            _br_radius = 22  # 기본 반지름 (아크 기준)
-            _br_size = int(_br_radius * 10)  # 캔버스 크기
-            _slash_surf = pygame.Surface((_br_size, _br_size), pygame.SRCALPHA)
-            _scx = _br_size // 2
-            _scy = _br_size // 2
+            # ── 부채꼴 검기파 (꼭짓점 아래, 위로 펼쳐지는 팬 형태) ──
+            _fan_w = _br_hw * 2  # 부채꼴 상단 전체 폭
+            _fan_h = 55          # 부채꼴 높이 (꼭짓점→상단 호까지)
+            _fan_surf_w = _fan_w + 40
+            _fan_surf_h = _fan_h + 30
+            _fan_surf = pygame.Surface((_fan_surf_w, _fan_surf_h), pygame.SRCALPHA)
+            _fcx = _fan_surf_w // 2
+            _fcy = _fan_surf_h - 8  # 꼭짓점 (하단 중앙)
 
-            # ── 0. 트레일 (토르쉴드식 — 라인 기반 궤적, 최근 10개) ──
+            # ── 0. 트레일 (라인 기반 궤적) ──
             _trail_len = len(_viper_blade_rush_trail)
             _trail_draw = min(10, _trail_len)
             if _trail_draw > 1:
-                for _ti in range(_trail_draw):
+                for _ti in range(1, _trail_draw):
                     _t_idx = _trail_len - _trail_draw + _ti
                     _tx, _ty = _viper_blade_rush_trail[_t_idx]
-                    _t_progress = _ti / max(1, _trail_draw - 1)  # 0(오래됨)→1(최신)
-                    _t_alpha = int((15 + 50 * _t_progress) * _alive)
-                    _t_w = max(1, int(1 + 4 * _t_progress))
-                    if _t_alpha > 2 and _ti > 0:
-                        _prev_idx = _trail_len - _trail_draw + _ti - 1
-                        _px, _py = _viper_blade_rush_trail[_prev_idx]
-                        # 보라→은빛 라벤더 그라데이션
-                        _tr = int(90 + 50 * _t_progress)
-                        _tg = int(60 + 70 * _t_progress)
-                        _tb = int(120 + 50 * _t_progress)
-                        pygame.draw.line(SCREEN, (_tr, _tg, _tb, _t_alpha),
+                    _prev_idx = _t_idx - 1
+                    _px, _py = _viper_blade_rush_trail[_prev_idx]
+                    _t_p = _ti / max(1, _trail_draw - 1)
+                    _t_alpha = int((15 + 45 * _t_p) * _alive)
+                    _t_w = max(1, int(1 + 3 * _t_p))
+                    if _t_alpha > 2:
+                        _tcr = int(85 + 55 * _t_p)
+                        _tcg = int(70 + 60 * _t_p)
+                        _tcb = int(110 + 50 * _t_p)
+                        pygame.draw.line(SCREEN, (_tcr, _tcg, _tcb, _t_alpha),
                                          (int(_px), int(_py)), (int(_tx), int(_ty)), _t_w)
 
-            # ── 1. 멀티 레이어 에너지 아크 (토르쉴드 핵심 기법 — 위로 열린 호) ──
-            _arc_layer_count = 7
-            _base_r = _br_radius * 2.5
-            # 위로 열린 호 (검기가 위로 이동)
-            _arc_start = math.radians(200)  # 좌하에서 시작
-            _arc_end = math.radians(340)    # 우하에서 끝 → 위쪽이 열림
+            # ── 1. 다층 부채꼴 본체 (6겹, 바깥→안쪽 점점 밝고 좁아짐) ──
+            _fan_layers = [
+                (1.00, (70, 60, 100),   25),   # 최외곽 — 어두운 회보라
+                (0.85, (95, 85, 130),   45),   # 외곽
+                (0.70, (130, 120, 165), 70),   # 중간
+                (0.55, (170, 165, 200), 100),  # 중내곽
+                (0.38, (205, 200, 225), 140),  # 코어
+                (0.18, (235, 232, 248), 185),  # 극코어 — 은백
+            ]
 
-            for _ai in range(_arc_layer_count):
-                _a_r = _base_r + (_arc_layer_count - 1 - _ai) * _br_radius * 0.5
-                _a_rect = pygame.Rect(0, 0, int(_a_r * 2), int(_a_r * 2))
-                _a_rect.center = (_scx, _scy)
+            for _fi, (_f_scale, _f_rgb, _f_base_a) in enumerate(_fan_layers):
+                _f_alpha = int(_f_base_a * _alive)
+                if _f_alpha < 2:
+                    continue
+                _fw = int(_fan_w * _f_scale * 0.5)  # 반폭
+                _fh = int(_fan_h * _f_scale)
+                # 부채꼴 폴리곤: 하단 꼭짓점 → 호 형태 상단
+                _fan_pts = [(_fcx, _fcy)]  # 꼭짓점
+                _arc_steps = 12
+                for _as in range(_arc_steps + 1):
+                    _a_t = _as / _arc_steps  # 0→1 (좌→우)
+                    _a_angle = math.pi + (math.pi * 0.15) + _a_t * (math.pi * 0.70)  # ~207°→~261°
+                    _ax = _fcx + int(math.cos(_a_angle) * _fw * 1.15)
+                    _ay = _fcy + int(math.sin(_a_angle) * _fh * 1.1)
+                    _fan_pts.append((_ax, _ay))
+                if len(_fan_pts) >= 3:
+                    pygame.draw.polygon(_fan_surf, (*_f_rgb, _f_alpha), _fan_pts)
 
-                # 색상 그라데이션: 깊은 회보라 → 라벤더 → 은백
-                if _ai < 2:
-                    _a_col = (85, 70, 120, int((40 + _ai * 20) * _alive))
-                elif _ai < 4:
-                    _a_col = (130, 120, 170, int((70 + _ai * 15) * _alive))
-                elif _ai < 6:
-                    _a_col = (190, 185, 220, int((110 + _ai * 15) * _alive))
-                else:
-                    _a_col = (230, 228, 245, int(180 * _alive))
+            # ── 2. 상단 호 가장자리 라인 (날의 에지) ──
+            _edge_pts = []
+            _edge_steps = 16
+            _edge_hw = int(_fan_w * 0.5)
+            for _es in range(_edge_steps + 1):
+                _e_t = _es / _edge_steps
+                _e_angle = math.pi + (math.pi * 0.15) + _e_t * (math.pi * 0.70)
+                _ex = _fcx + int(math.cos(_e_angle) * _edge_hw * 1.15)
+                _ey = _fcy + int(math.sin(_e_angle) * _fan_h * 1.1)
+                _edge_pts.append((_ex, _ey))
+            _edge_alpha = int(160 * _alive)
+            if len(_edge_pts) > 1 and _edge_alpha > 3:
+                pygame.draw.lines(_fan_surf, (220, 215, 240, _edge_alpha), False, _edge_pts, 2)
+                # 안쪽 얇은 하이라이트 라인
+                _inner_pts = []
+                _inner_hw = int(_fan_w * 0.42)
+                for _is2 in range(_edge_steps + 1):
+                    _i_t = _is2 / _edge_steps
+                    _i_angle = math.pi + (math.pi * 0.15) + _i_t * (math.pi * 0.70)
+                    _ix = _fcx + int(math.cos(_i_angle) * _inner_hw * 1.15)
+                    _iy = _fcy + int(math.sin(_i_angle) * _fan_h * 0.65 * 1.1)
+                    _inner_pts.append((_ix, _iy))
+                _inner_alpha = int(80 * _alive)
+                if _inner_alpha > 2:
+                    pygame.draw.lines(_fan_surf, (200, 195, 225, _inner_alpha), False, _inner_pts, 1)
 
-                _a_width = max(2, int(_br_radius * 0.7 - _ai * 0.09 * _br_radius))
-                if _a_col[3] > 1:
-                    pygame.draw.arc(_slash_surf, _a_col, _a_rect, _arc_start, _arc_end, _a_width)
-
-            # ── 2. 아크 위 에너지 스파크 (호를 따라 배치) ──
-            _spark_count = 10
-            for _si in range(_spark_count):
-                _s_angle = _arc_start + (_arc_end - _arc_start) * (_si / max(1, _spark_count - 1))
-                _s_r_var = _base_r + (random.random() - 0.5) * _br_radius * 0.8
-                _sx = _scx + int(math.cos(_s_angle) * _s_r_var)
-                _sy = _scy + int(math.sin(_s_angle) * _s_r_var)
-                _s_alpha = int(random.randint(100, 220) * _alive)
-                _s_sz = random.randint(1, 2)
+            # ── 3. 에너지 스파크 (상단 호를 따라) ──
+            for _si in range(8):
+                _s_t = _si / 7.0
+                _s_angle = math.pi + (math.pi * 0.15) + _s_t * (math.pi * 0.70)
+                _s_hw = int(_fan_w * 0.5) + random.randint(-8, 8)
+                _sx = _fcx + int(math.cos(_s_angle) * _s_hw * 1.15)
+                _sy = _fcy + int(math.sin(_s_angle) * _fan_h * 1.1) + random.randint(-3, 3)
+                _s_alpha = int(random.randint(100, 200) * _alive)
                 if _s_alpha > 5:
-                    pygame.draw.circle(_slash_surf, (210, 200, 235, _s_alpha), (_sx, _sy), _s_sz)
+                    pygame.draw.circle(_fan_surf, (215, 210, 240, _s_alpha), (_sx, _sy), random.randint(1, 2))
 
-            # ── 3. 코어 글로우 (중심부 다층 원형 발광) ──
-            _glow_surf = pygame.Surface((_br_size, _br_size), pygame.SRCALPHA)
-            for _gl in range(4):
-                _gl_r = int(_br_radius * (1.8 - _gl * 0.35))
-                _gl_alpha = int((25 - _gl * 4) * _alive)
-                if _gl_r > 0 and _gl_alpha > 1:
-                    pygame.draw.circle(_glow_surf, (150, 140, 190, _gl_alpha),
-                                       (_scx, _scy), _gl_r)
-            _slash_surf.blit(_glow_surf, (0, 0))
+            # ── 4. 꼭짓점 글로우 (하단 중앙 수렴점) ──
+            for _gl in range(3):
+                _gl_r = 10 - _gl * 3
+                _gl_a = int((20 - _gl * 5) * _alive)
+                if _gl_r > 0 and _gl_a > 1:
+                    pygame.draw.circle(_fan_surf, (160, 150, 195, _gl_a), (_fcx, _fcy), _gl_r)
 
-            # ── 4. 좌우 아크 끝 강조 (날 끝의 빛점) ──
-            for _ei, _e_angle in enumerate([_arc_start, _arc_end]):
-                _ex = _scx + int(math.cos(_e_angle) * _base_r)
-                _ey = _scy + int(math.sin(_e_angle) * _base_r)
-                _e_alpha = int(90 * _alive)
-                if _e_alpha > 3:
-                    pygame.draw.circle(_slash_surf, (200, 195, 225, _e_alpha), (_ex, _ey), 4)
-                    pygame.draw.circle(_slash_surf, (235, 230, 245, min(255, _e_alpha + 30)), (_ex, _ey), 2)
+            SCREEN.blit(_fan_surf, (_br_cx - _fcx, _br_cy - _fcy),
+                        special_flags=pygame.BLEND_ADD)
 
-            # 검기 캔버스를 가로로 스트레치 (좌우로 넓은 검기파 형태)
-            _stretch_w = _br_hw * 2 + 40
-            _stretch_h = _br_size
-            _stretched = pygame.transform.scale(_slash_surf, (int(_stretch_w), int(_stretch_h)))
-            _str_rect = _stretched.get_rect(center=(_br_cx, _br_cy))
-            SCREEN.blit(_stretched, _str_rect, special_flags=pygame.BLEND_ADD)
-
-            # ── 5. 외곽 앰비언트 글로우 (전체를 감싸는 은은한 헤일로) ──
-            _amb_r = int(_br_radius * 4)
-            _amb_alpha = int(18 * _alive)
-            if _amb_r > 0 and _amb_alpha > 1:
-                _amb_surf = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(_amb_surf, (100, 90, 140, _amb_alpha), (_amb_r, _amb_r), _amb_r)
-                SCREEN.blit(_amb_surf, (_br_cx - _amb_r, _br_cy - _amb_r),
+            # ── 5. 외곽 앰비언트 헤일로 ──
+            _amb_r = int(_fan_h * 1.2)
+            _amb_a = int(15 * _alive)
+            if _amb_r > 0 and _amb_a > 1:
+                _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_amb_s, (90, 80, 125, _amb_a), (_amb_r, _amb_r), _amb_r)
+                SCREEN.blit(_amb_s, (_br_cx - _amb_r, _br_cy - _amb_r),
                             special_flags=pygame.BLEND_ADD)
 
         except Exception:
