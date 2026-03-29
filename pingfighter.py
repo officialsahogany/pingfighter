@@ -71505,9 +71505,9 @@ def handle_player(keys):
                 )
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
-                    # 팬텀 스트라이크와 동일한 효과 적용 (공속 2.3x + S커브)
+                    # 에너지파 팬텀 스트라이크 (패들 직접 히트보다 약한 1.5x)
                     _sw_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-                    _sw_new_speed = max(_sw_cur_speed * 2.3, 10.0)
+                    _sw_new_speed = max(_sw_cur_speed * 1.5, 8.0)
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _sw_cur_speed
                     _sw_curve = _viper_ss_wave_dir
