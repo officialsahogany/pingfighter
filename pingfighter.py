@@ -71785,6 +71785,13 @@ def handle_player(keys):
                 # 혼란 효과 적용! (조명탄과 동일한 시스템)
                 boss_confused_timer = _VIPER_NS_CONFUSION_FRAMES  # 5초
 
+                # 복귀 X를 공의 X좌표로 변경 (착지 후 바로 받아칠 수 있도록)
+                _ns_land_x = float(BALL.centerx)
+                # 화면 밖으로 나가지 않도록 패들 반폭 고려하여 클램프
+                _ns_half_pw = PLAYER.width // 2
+                _ns_land_x = max(_ns_half_pw, min(WIDTH - _ns_half_pw, _ns_land_x))
+                _viper_nerve_strike_origin_x = _ns_land_x
+
                 _viper_nerve_strike_phase = 2
                 _viper_nerve_strike_start_ms = _ns_now
 
