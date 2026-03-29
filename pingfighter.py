@@ -12483,11 +12483,11 @@ RUNTIME_SKILL_POOL = {
         "name": "부스트차징",
         "max_level": 5,
         "descriptions": {
-            1: "부스트차징 발동확률 +4%",
-            2: "부스트차징 발동확률 +8%",
-            3: "부스트차징 발동확률 +12%",
-            4: "부스트차징 발동확률 +16%",
-            5: "부스트차징 발동확률 +20%",
+            1: "부스트차징 발동확률 +5%",
+            2: "부스트차징 발동확률 +10%",
+            3: "부스트차징 발동확률 +15%",
+            4: "부스트차징 발동확률 +20%",
+            5: "부스트차징 발동확률 +25%",
         },
         "detail": "대쉬 후 일정 확률로 토큰이 즉시 충전됩니다. 대쉬기어와 중첩됩니다.",
         "icon_color": (80, 160, 255),
@@ -26880,7 +26880,7 @@ def get_total_boost_charge_pct() -> float:
         total += dashgear_boost_charge_pct
     perk_level = get_runtime_skill_level("perk_boost_charge")
     if perk_level > 0:
-        total += perk_level * 4  # 레벨당 4%
+        total += perk_level * 5  # 레벨당 5%
     return total
 
 
