@@ -47443,6 +47443,15 @@ _viper_blade_rush_hit_ball = False   # 이번 검기가 공을 이미 맞혔는�
 _viper_blade_rush_particles = []     # 검기 파티클 이펙트
 _viper_blade_rush_trail = []         # 검기 궤적 (잔상)
 
+# === 바이퍼 블레이드 러쉬 회전/정지 연출 ===
+_viper_br_spin_active = False        # 회전 연출 활성
+_viper_br_spin_start_ms = 0          # 회전 시작 시각 (ms)
+_viper_br_spin_phase = 0             # 현재 연출 단계: 0=회전, 1=감속, 2=정지(숨내쉬기)
+_viper_br_spin_angle = 0.0           # 현재 회전 각도 (도)
+_VIPER_BR_SPIN_DURATION = 400        # 2바퀴 회전 시간 (ms)
+_VIPER_BR_DECEL_DURATION = 200       # 감속 시간 (ms)
+_VIPER_BR_REST_DURATION = 1000       # 정지(숨내쉬기) 시간 (ms)
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -71241,6 +71250,7 @@ def handle_player(keys):
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y
         global _viper_blade_rush_start_y, _viper_blade_rush_target_y, _viper_blade_rush_hit_ball
         global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
+        global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
 
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
@@ -71311,29 +71321,16 @@ def handle_player(keys):
             if _viper_w_pressed and _viper_w_key_released:
                 if is_viper_skill_unlocked("blade_rush"):
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
-                        if special_gauge >= 100 and not _viper_blade_rush_active:
+                        if special_gauge >= 100 and not _viper_blade_rush_active and not _viper_br_spin_active:
                             _viper_w_key_released = False
                             special_gauge -= 100
                             trigger_viper_skill_cooldown("blade_rush")
 
-                            # 검기 투사체 생성 (플레이어 앞쪽으로 발사)
-                            _viper_blade_rush_active = True
-                            _viper_blade_rush_x = float(PLAYER.centerx)
-                            _viper_blade_rush_start_y = float(PLAYER.centery - 20)
-                            _viper_blade_rush_y = _viper_blade_rush_start_y
-                            _viper_blade_rush_target_y = _viper_blade_rush_start_y - 250  # Y축 250px 전진
-                            _viper_blade_rush_hit_ball = False
-                            _viper_blade_rush_particles.clear()
-                            _viper_blade_rush_trail.clear()
-
-                            # 발사 이펙트
-                            try:
-                                effects_manager.spawn_shockwave(
-                                    PLAYER.centerx, PLAYER.centery - 20,
-                                    force=6, color=(200, 50, 255),
-                                )
-                            except Exception:
-                                pass
+                            # 회전 연출 시작 (회전 → 감속 → 정지 후 검기 발사)
+                            _viper_br_spin_active = True
+                            _viper_br_spin_start_ms = pygame.time.get_ticks()
+                            _viper_br_spin_phase = 0  # 회전 단계
+                            _viper_br_spin_angle = 0.0
 
             # 신경 타격 (E키)
             if _viper_e_pressed and _viper_e_key_released:
@@ -71371,6 +71368,55 @@ def handle_player(keys):
                                 )
                             except Exception:
                                 pass
+
+    # 바이퍼 블레이드 러쉬 회전/정지 연출 업데이트
+    if _viper_br_spin_active:
+        _br_now = pygame.time.get_ticks()
+        _br_elapsed = _br_now - _viper_br_spin_start_ms
+
+        if _viper_br_spin_phase == 0:
+            # 단계 0: 빠른 2바퀴 회전 (400ms)
+            if _br_elapsed < _VIPER_BR_SPIN_DURATION:
+                _br_t = _br_elapsed / _VIPER_BR_SPIN_DURATION
+                _viper_br_spin_angle = _br_t * 720.0  # 2바퀴 = 720도
+            else:
+                _viper_br_spin_phase = 1
+                _viper_br_spin_start_ms = _br_now
+                _viper_br_spin_angle = 720.0
+
+        elif _viper_br_spin_phase == 1:
+            # 단계 1: 감속하며 멈춤 (200ms)
+            if _br_elapsed < _VIPER_BR_DECEL_DURATION:
+                _br_t = _br_elapsed / _VIPER_BR_DECEL_DURATION
+                _br_decel = 1.0 - _br_t  # 1→0 감속
+                _viper_br_spin_angle = 720.0 + _br_decel * 90.0 * (1.0 - _br_t)
+            else:
+                _viper_br_spin_phase = 2
+                _viper_br_spin_start_ms = _br_now
+                _viper_br_spin_angle = 0.0  # 정면으로 리셋
+
+                # 검기 발사 (정지 시작과 동시에)
+                _viper_blade_rush_active = True
+                _viper_blade_rush_x = float(PLAYER.centerx)
+                _viper_blade_rush_start_y = float(PLAYER.centery - 20)
+                _viper_blade_rush_y = _viper_blade_rush_start_y
+                _viper_blade_rush_target_y = _viper_blade_rush_start_y - 250
+                _viper_blade_rush_hit_ball = False
+                _viper_blade_rush_particles.clear()
+                _viper_blade_rush_trail.clear()
+                try:
+                    effects_manager.spawn_shockwave(
+                        PLAYER.centerx, PLAYER.centery - 20,
+                        force=6, color=(200, 50, 255),
+                    )
+                except Exception:
+                    pass
+
+        elif _viper_br_spin_phase == 2:
+            # 단계 2: 정지 + 숨내쉬기 (1000ms)
+            if _br_elapsed >= _VIPER_BR_REST_DURATION:
+                _viper_br_spin_active = False
+                _viper_br_spin_angle = 0.0
 
     # 바이퍼 블레이드 러쉬 검기 업데이트 (매 프레임)
     if _viper_blade_rush_active:
@@ -75562,7 +75608,10 @@ def handle_player(keys):
             elif selected_character_type == "smasher":
                 effective_max_speed = 6.0  # 스매셔 기본 이동속도 6
             elif selected_character_type == "viper":
-                effective_max_speed = 7.0  # 바이퍼 기본 이동속도 7 (속도형)
+                if _viper_br_spin_active:
+                    effective_max_speed = 0.0  # 블레이드 러쉬 연출 중 이동 불가
+                else:
+                    effective_max_speed = 7.0  # 바이퍼 기본 이동속도 7 (속도형)
             else:
                 effective_max_speed = MAX_SPEED
         walking = abs(current_speed) > 1.0
@@ -107051,7 +107100,26 @@ def draw_objects():
                 )
         elif selected_character_type == "viper":
             # 바이퍼: 절차적 렌더링 (전용 걷기 상태 사용)
-            if viper_walking_active:
+            if _viper_br_spin_active:
+                # 블레이드 러쉬 연출 중
+                if _viper_br_spin_phase == 2:
+                    # 정지 단계: 숨내쉬기 (살짝 아래로 수축하는 호흡)
+                    _rest_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms
+                    _breath_t = _rest_elapsed / max(1, _VIPER_BR_REST_DURATION)
+                    _breath_wave = math.sin(_breath_t * math.pi * 2) * 0.03  # 미세 호흡
+                    base_ufo_img = create_viper_paddle_surface(0.0)
+                    # 호흡 스케일 적용 (살짝 세로 수축/팽창)
+                    _bw, _bh = base_ufo_img.get_size()
+                    _new_h = max(1, int(_bh * (1.0 - _breath_wave)))
+                    if _new_h != _bh and _bw > 0:
+                        base_ufo_img = pygame.transform.smoothscale(base_ufo_img, (_bw, _new_h))
+                else:
+                    # 회전/감속 단계
+                    base_ufo_img = create_viper_paddle_surface(0.0)
+                    _rot_angle = _viper_br_spin_angle % 360
+                    if abs(_rot_angle) > 0.5:
+                        base_ufo_img = pygame.transform.rotate(base_ufo_img, _rot_angle)
+            elif viper_walking_active:
                 walk_phase = (viper_walking_timer % max(1, VIPER_WALKING_CYCLE)) / max(1, VIPER_WALKING_CYCLE)
                 base_ufo_img = create_viper_paddle_surface(walk_phase)
             else:
