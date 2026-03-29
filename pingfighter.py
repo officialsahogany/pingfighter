@@ -71378,36 +71378,31 @@ def handle_player(keys):
         _br_elapsed = _br_now - _viper_br_spin_start_ms
 
         if _viper_br_spin_phase == 0:
-            # 단계 0: 빠른 2바퀴 회전 + 위로 솟아오르기 (400ms)
+            # 단계 0: 빠른 2바퀴 회전 (400ms) — 제자리
             if _br_elapsed < _VIPER_BR_SPIN_DURATION:
                 _br_t = _br_elapsed / _VIPER_BR_SPIN_DURATION
                 _viper_br_spin_angle = _br_t * 720.0  # 2바퀴 = 720도
-                # 승룡권 점프: 전반부에 위로 솟아오름 (포물선)
-                _viper_br_jump_offset_y = -math.sin(_br_t * math.pi) * 80  # 최대 80px 상승
-                _viper_br_arm_raise = min(1.0, _br_t * 2.0)  # 전반부에 팔 올림
+                _viper_br_jump_offset_y = 0.0
+                _viper_br_arm_raise = 0.0
             else:
                 _viper_br_spin_phase = 1
                 _viper_br_spin_start_ms = _br_now
                 _viper_br_spin_angle = 720.0
-                _viper_br_arm_raise = 1.0
 
         elif _viper_br_spin_phase == 1:
-            # 단계 1: 감속 + 착지 (200ms)
+            # 단계 1: 감속하며 멈춤 (200ms) — 제자리
             if _br_elapsed < _VIPER_BR_DECEL_DURATION:
                 _br_t = _br_elapsed / _VIPER_BR_DECEL_DURATION
-                _br_decel = 1.0 - _br_t  # 1→0 감속
+                _br_decel = 1.0 - _br_t
                 _viper_br_spin_angle = 720.0 + _br_decel * 90.0 * (1.0 - _br_t)
-                # 착지: 위에서 아래로 빠르게 내려옴
-                _viper_br_jump_offset_y = -80 * (1.0 - _br_t) * (1.0 - _br_t)  # 제곱감속 착지
-                _viper_br_arm_raise = 1.0  # 팔은 계속 올린 상태
+                _viper_br_jump_offset_y = 0.0
+                _viper_br_arm_raise = 0.0
             else:
                 _viper_br_spin_phase = 2
                 _viper_br_spin_start_ms = _br_now
                 _viper_br_spin_angle = 0.0  # 정면으로 리셋
-                _viper_br_jump_offset_y = 0.0  # 완전 착지
-                _viper_br_arm_raise = 1.0  # 팔 올린 채 검기 발사
 
-                # 검기 발사 (착지 + 팔 내리치는 순간)
+                # 검기 발사 (회전 끝난 직후)
                 _viper_blade_rush_active = True
                 _viper_blade_rush_x = float(PLAYER.centerx)
                 _viper_blade_rush_start_y = float(PLAYER.centery - 20)
@@ -71425,13 +71420,28 @@ def handle_player(keys):
                     pass
 
         elif _viper_br_spin_phase == 2:
-            # 단계 2: 정지 + 숨내쉬기 (1000ms) — 팔 서서히 내림
+            # 단계 2: 검기 발사 + 승룡권 점프 + 숨내쉬기 (1000ms)
             _br_rest_t = min(1.0, _br_elapsed / _VIPER_BR_REST_DURATION)
-            _viper_br_arm_raise = max(0.0, 1.0 - _br_rest_t * 2.0)  # 전반 500ms에 팔 내림
-            _viper_br_jump_offset_y = 0.0
+
+            # 올라갔다 내려오기: 전반 300ms 올라감, 후반 700ms 내려옴
+            _jump_up_ms = 300
+            _jump_peak = 80.0  # 최대 80px 상승
+            if _br_elapsed < _jump_up_ms:
+                # 올라가기 (이징: 빠르게 올라감)
+                _jt = _br_elapsed / _jump_up_ms
+                _viper_br_jump_offset_y = -_jump_peak * math.sin(_jt * math.pi * 0.5)
+                _viper_br_arm_raise = min(1.0, _jt * 1.5)  # 팔 올리기
+            else:
+                # 내려오기 (이징: 천천히 착지)
+                _jt = (_br_elapsed - _jump_up_ms) / max(1, _VIPER_BR_REST_DURATION - _jump_up_ms)
+                _jt = min(1.0, _jt)
+                _viper_br_jump_offset_y = -_jump_peak * (1.0 - _jt * _jt)  # 제곱감속 착지
+                _viper_br_arm_raise = max(0.0, 1.0 - (_jt * 1.5))  # 팔 내리기
+
             if _br_elapsed >= _VIPER_BR_REST_DURATION:
                 _viper_br_spin_active = False
                 _viper_br_spin_angle = 0.0
+                _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
 
     # 바이퍼 블레이드 러쉬 검기 업데이트 (매 프레임)
