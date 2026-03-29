@@ -47469,6 +47469,13 @@ _viper_phantom_strike_timer = 0       # 버프 남은 시간 (프레임)
 _VIPER_PHANTOM_STRIKE_DURATION = 18   # 0.3초 (60fps 기준)
 _viper_phantom_strike_curve_dir = 0   # 커브 방향 (-1:왼, 1:오른, 텔레포트 방향)
 
+# 팬텀 스트라이크 커브 (비행 중 매 프레임 적용)
+_viper_ps_curve_active = False        # 커브 비행 중
+_viper_ps_curve_timer = 0             # 커브 남은 프레임
+_viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
+_VIPER_PS_CURVE_FRAMES = 45           # 커브 지속 (0.75초)
+_VIPER_PS_CURVE_FORCE = 0.35          # 프레임당 횡방향 가속도
+
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
@@ -71272,6 +71279,7 @@ def handle_player(keys):
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
+        global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
 
         _viper_w_pressed = keys[pygame.K_w]
         _viper_e_pressed = keys[pygame.K_e]
@@ -71418,6 +71426,17 @@ def handle_player(keys):
         _viper_phantom_strike_timer -= 1
         if _viper_phantom_strike_timer <= 0:
             _viper_phantom_strike_active = False
+
+    # 바이퍼 팬텀 스트라이크 커브 (매 프레임 공에 횡방향 힘 적용)
+    if _viper_ps_curve_active:
+        _viper_ps_curve_timer -= 1
+        if _viper_ps_curve_timer <= 0:
+            _viper_ps_curve_active = False
+        else:
+            # 사인파 기반 커브 — 점점 강해졌다 약해지는 S자 궤적
+            _curve_progress = 1.0 - (_viper_ps_curve_timer / _VIPER_PS_CURVE_FRAMES)
+            _curve_strength = math.sin(_curve_progress * math.pi) * _VIPER_PS_CURVE_FORCE
+            ball_vel[0] += _viper_ps_curve_direction * _curve_strength
 
     # 바이퍼 블레이드 러쉬 회전/정지 연출 업데이트
     if _viper_br_spin_active:
@@ -137597,6 +137616,7 @@ def calculate_bounce(paddle):
     global special_gauge
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_cooldown
     global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
+    global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
     global ragnarok_original_speed
@@ -137703,14 +137723,17 @@ def calculate_bounce(paddle):
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
             _ps_new_speed = max(_ps_cur_speed * 1.8, 10.0)  # 80% 증가, 최소 속도 보장
 
-            # 신비한 커브: 사인파 기반 나선형 궤도
-            # 기본 상방향 + 텔레포트 방향으로 커브 (드라이브와 다른 독특한 궤적)
-            _ps_curve = _viper_phantom_strike_curve_dir  # -1 또는 1
-            _ps_curve_angle = _ps_curve * 35  # 35도 커브 (드라이브의 직선적 커브와 차별화)
-            _ps_base_angle = -90  # 위쪽 (보스 방향)
-            _ps_final_angle = math.radians(_ps_base_angle + _ps_curve_angle)
-            ball_vel[0] = math.cos(_ps_final_angle) * _ps_new_speed
-            ball_vel[1] = math.sin(_ps_final_angle) * _ps_new_speed
+            # 초기 발사: 거의 수직 위로 (약간만 틀어줌)
+            _ps_curve = _viper_phantom_strike_curve_dir
+            _ps_init_angle = _ps_curve * 10  # 초기 10도만 틀기 (커브가 점점 휘게)
+            _ps_rad = math.radians(-90 + _ps_init_angle)
+            ball_vel[0] = math.cos(_ps_rad) * _ps_new_speed
+            ball_vel[1] = math.sin(_ps_rad) * _ps_new_speed
+
+            # 비행 중 커브 활성화 (매 프레임 횡방향 가속)
+            _viper_ps_curve_active = True
+            _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
+            _viper_ps_curve_direction = _ps_curve
 
             # 히트 이펙트
             try:
@@ -139412,6 +139435,8 @@ def handle_ball():
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
     # 상모돌리기 관련 변수
     global whip_active, whip_angle
+    # 바이퍼 팬텀 스트라이크 커브
+    global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
@@ -144486,6 +144511,8 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
+        # 바이퍼 팬텀 스트라이크 커브 해제 (보스가 받아치면 커브 종료)
+        _viper_ps_curve_active = False
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
