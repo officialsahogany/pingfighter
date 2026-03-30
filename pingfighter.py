@@ -47604,6 +47604,30 @@ _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
 
+# === 바이퍼 월 다이브 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
+_viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 스텝 후 보스가 공 반환 시)
+_viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
+_VIPER_WALL_DIVE_READY_FRAMES = 180      # 연계 윈도우 3초 (60fps)
+_viper_wall_dive_active = False           # 월 다이브 진행 중
+_viper_wall_dive_phase = 0                # 0=벽으로 점프, 1=벽 매달림, 2=공으로 돌진
+_viper_wall_dive_start_ms = 0             # 페이즈 시작 시각
+_viper_wall_dive_start_x = 0.0            # 출발 X
+_viper_wall_dive_start_y = 0.0            # 출발 Y
+_viper_wall_dive_wall_x = 0.0             # 벽 X (0 또는 WIDTH)
+_viper_wall_dive_wall_y = 0.0             # 벽 매달림 Y
+_viper_wall_dive_charge_target_x = 0.0    # 돌진 목표 X (공 위치 스냅샷)
+_viper_wall_dive_charge_target_y = 0.0    # 돌진 목표 Y
+_viper_wall_dive_charge_start_x = 0.0     # 돌진 출발 X (벽)
+_viper_wall_dive_charge_start_y = 0.0     # 돌진 출발 Y (벽)
+_viper_wall_dive_ball_hit = False         # 공 히트 여부
+_viper_wall_dive_particles = []           # 이펙트 파티클
+_viper_wall_dive_web_lines = []           # 거미줄 라인 이펙트
+_VIPER_WALL_DIVE_GAUGE_COST = 80          # 게이지 소모
+_VIPER_WALL_DIVE_JUMP_MS = 350            # 벽으로 점프 시간 (ms)
+_VIPER_WALL_DIVE_CLING_MS = 250           # 벽 매달림 시간 (ms)
+_VIPER_WALL_DIVE_CHARGE_MS = 350          # 돌진 시간 (ms)
+_VIPER_WALL_DIVE_HIT_RADIUS = 60          # 공 히트 반경 (px)
+
 # 바이퍼 스킬 공속 부스트 복귀 시스템
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
 _viper_speed_boost_original = 0.0     # 부스트 전 원래 공속
@@ -71486,6 +71510,13 @@ def handle_player(keys):
         global _viper_dive_height_snapshot, _viper_dive_particles
         global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
         global _viper_dive_ball_boosted
+        global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
+        global _viper_wall_dive_active, _viper_wall_dive_phase, _viper_wall_dive_start_ms
+        global _viper_wall_dive_start_x, _viper_wall_dive_start_y
+        global _viper_wall_dive_wall_x, _viper_wall_dive_wall_y
+        global _viper_wall_dive_charge_target_x, _viper_wall_dive_charge_target_y
+        global _viper_wall_dive_charge_start_x, _viper_wall_dive_charge_start_y
+        global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
         global screen_shake_timer, screen_shake_intensity
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
@@ -71707,6 +71738,207 @@ def handle_player(keys):
                             except Exception:
                                 pass
 
+    # === 바이퍼 월 다이브 연계기 (쉐도우 스텝 → 보스 반환 → S/↓키) ===
+    # 연계 윈도우 타이머 감소
+    if _viper_wall_dive_ready:
+        _viper_wall_dive_ready_timer -= 1
+        if _viper_wall_dive_ready_timer <= 0:
+            _viper_wall_dive_ready = False
+
+    # 월 다이브 발동: 연계 윈도우 중 S/↓키 단독 입력
+    if (selected_character_type == "viper" and not is_odins_eye_transformed()
+            and _viper_wall_dive_ready and not _viper_wall_dive_active
+            and not rolling_active and not _viper_dive_active
+            and not _viper_nerve_strike_active and not _viper_br_spin_active
+            and not _viper_ss_hologram_active
+            and not is_waiting_for_serve and not is_player_serve and not player_stunned):
+        _wd_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
+        _wd_dir_held = (
+            keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
+            or keys[pygame.K_a] or keys[pygame.K_d]
+            or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
+        )
+        if (_wd_s_input and not _wd_dir_held
+                and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST
+                and is_viper_skill_unlocked("shadow_step")):
+            special_gauge -= _VIPER_WALL_DIVE_GAUGE_COST
+            _viper_wall_dive_ready = False
+            _viper_wall_dive_ready_timer = 0
+            _viper_ss_kick_ready = False  # 쉐도우 킥 사운드 소모
+            _viper_wall_dive_active = True
+            _viper_wall_dive_phase = 0  # 벽으로 점프
+            _viper_wall_dive_start_ms = pygame.time.get_ticks()
+            _viper_wall_dive_start_x = float(PLAYER.centerx)
+            _viper_wall_dive_start_y = float(PLAYER.centery)
+            _viper_wall_dive_ball_hit = False
+            _viper_wall_dive_particles = []
+            _viper_wall_dive_web_lines = []
+            # 공 위치 기준 가까운 벽 결정 (중앙 기준)
+            _wd_ball_cx = BALL.centerx
+            if _wd_ball_cx >= WIDTH // 2:
+                _viper_wall_dive_wall_x = float(WIDTH - 15)  # 우측 벽
+            else:
+                _viper_wall_dive_wall_x = 15.0  # 좌측 벽
+            # 벽 매달림 Y: 공보다 약간 위 (플레이어 영역 상단 부근)
+            _viper_wall_dive_wall_y = min(float(PLAYER.centery) - 100, float(BALL.centery) - 30)
+            _viper_wall_dive_wall_y = max(120.0, min(650.0, _viper_wall_dive_wall_y))
+            # 사운드
+            try:
+                _wd_snd = sound_effects.get('VIPER_BACKSTEP')
+                if _wd_snd:
+                    _wd_snd.set_volume(0.5)
+                    _wd_snd.play()
+            except Exception:
+                pass
+
+    # 월 다이브 애니메이션 업데이트
+    if _viper_wall_dive_active:
+        _wd_now = pygame.time.get_ticks()
+        _wd_elapsed = _wd_now - _viper_wall_dive_start_ms
+        import random as _wd_rand
+
+        if _viper_wall_dive_phase == 0:
+            # Phase 0: 벽으로 점프 (포물선 이동)
+            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_JUMP_MS)
+            _wd_ease = _wd_t * _wd_t * (3.0 - 2.0 * _wd_t)  # ease-in-out
+            # X: 현재 → 벽
+            _wd_cx = _viper_wall_dive_start_x + (_viper_wall_dive_wall_x - _viper_wall_dive_start_x) * _wd_ease
+            # Y: 포물선 (위로 아치)
+            _wd_arc = -180.0 * math.sin(_wd_t * math.pi)  # 최대 180px 상승
+            _wd_cy = _viper_wall_dive_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_start_y) * _wd_ease + _wd_arc
+            PLAYER.centerx = int(_wd_cx)
+            PLAYER.centery = int(_wd_cy)
+            # 거미줄 라인 생성 (출발점 → 현재 위치)
+            _viper_wall_dive_web_lines = [
+                (_viper_wall_dive_start_x, _viper_wall_dive_start_y, _wd_cx, _wd_cy)
+            ]
+            # 잔상 파티클
+            if _wd_rand.random() < 0.6:
+                _viper_wall_dive_particles.append({
+                    'x': _wd_cx + _wd_rand.uniform(-10, 10),
+                    'y': _wd_cy + _wd_rand.uniform(-5, 5),
+                    'vx': _wd_rand.uniform(-2, 2), 'vy': _wd_rand.uniform(-1, 1),
+                    'life': _wd_rand.randint(10, 20), 'max_life': 20,
+                    'size': _wd_rand.uniform(3, 8), 'type': 'trail',
+                })
+            if _wd_t >= 1.0:
+                _viper_wall_dive_phase = 1
+                _viper_wall_dive_start_ms = _wd_now
+                PLAYER.centerx = int(_viper_wall_dive_wall_x)
+                PLAYER.centery = int(_viper_wall_dive_wall_y)
+                # 벽 착지 이펙트
+                screen_shake_timer = max(screen_shake_timer, 6)
+                screen_shake_intensity = max(screen_shake_intensity, 3)
+                # 거미줄: 벽 착지점에서 방사형
+                _viper_wall_dive_web_lines = []
+                for _wi in range(5):
+                    _w_angle = math.radians(-60 + _wi * 30)
+                    _w_len = _wd_rand.uniform(30, 80)
+                    _w_dir = -1 if _viper_wall_dive_wall_x > WIDTH // 2 else 1
+                    _viper_wall_dive_web_lines.append((
+                        _viper_wall_dive_wall_x, _viper_wall_dive_wall_y,
+                        _viper_wall_dive_wall_x + math.cos(_w_angle) * _w_len * _w_dir,
+                        _viper_wall_dive_wall_y + math.sin(_w_angle) * _w_len,
+                    ))
+
+        elif _viper_wall_dive_phase == 1:
+            # Phase 1: 벽 매달림 (스파이더맨 포즈, 공 위치 스냅샷)
+            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_CLING_MS)
+            PLAYER.centerx = int(_viper_wall_dive_wall_x)
+            PLAYER.centery = int(_viper_wall_dive_wall_y)
+            if _wd_t >= 1.0:
+                _viper_wall_dive_phase = 2
+                _viper_wall_dive_start_ms = _wd_now
+                # 돌진 목표: 현재 공 위치 스냅샷
+                _viper_wall_dive_charge_target_x = float(BALL.centerx)
+                _viper_wall_dive_charge_target_y = float(BALL.centery)
+                _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
+                _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
+                _viper_wall_dive_web_lines = []  # 거미줄 제거
+                # 돌진 사운드
+                try:
+                    _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
+                    if _wd_charge_snd:
+                        _wd_charge_snd.set_volume(0.6)
+                        _wd_charge_snd.play()
+                except Exception:
+                    pass
+
+        elif _viper_wall_dive_phase == 2:
+            # Phase 2: 공을 향해 돌진
+            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_CHARGE_MS)
+            _wd_ease = _wd_t * _wd_t  # ease-in (가속)
+            _wd_cx = _viper_wall_dive_charge_start_x + (_viper_wall_dive_charge_target_x - _viper_wall_dive_charge_start_x) * _wd_ease
+            _wd_cy = _viper_wall_dive_charge_start_y + (_viper_wall_dive_charge_target_y - _viper_wall_dive_charge_start_y) * _wd_ease
+            PLAYER.centerx = int(_wd_cx)
+            PLAYER.centery = int(_wd_cy)
+            # 돌진 파티클
+            if _wd_rand.random() < 0.7:
+                _viper_wall_dive_particles.append({
+                    'x': _wd_cx + _wd_rand.uniform(-8, 8),
+                    'y': _wd_cy + _wd_rand.uniform(-8, 8),
+                    'vx': _wd_rand.uniform(-3, 3), 'vy': _wd_rand.uniform(-3, 3),
+                    'life': _wd_rand.randint(8, 16), 'max_life': 16,
+                    'size': _wd_rand.uniform(4, 10), 'type': 'charge',
+                })
+            # 공 충돌 판정
+            if not _viper_wall_dive_ball_hit:
+                _wd_dist = math.hypot(BALL.centerx - _wd_cx, BALL.centery - _wd_cy)
+                if _wd_dist <= _VIPER_WALL_DIVE_HIT_RADIUS:
+                    _viper_wall_dive_ball_hit = True
+                    # 공을 위로 강하게 반사 + 속도 증가
+                    _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
+                    _wd_new_spd = max(_wd_cur_spd * 1.8, 10.0)  # 80% 증가
+                    _viper_speed_boost_active = True
+                    _viper_speed_boost_original = _wd_cur_spd
+                    # 벽→공 방향으로 발사 (약간 위로 보정)
+                    _wd_dx = _viper_wall_dive_charge_target_x - _viper_wall_dive_charge_start_x
+                    _wd_dy = _viper_wall_dive_charge_target_y - _viper_wall_dive_charge_start_y
+                    _wd_d = math.hypot(_wd_dx, _wd_dy)
+                    if _wd_d > 0.1:
+                        ball_vel[0] = (_wd_dx / _wd_d) * _wd_new_spd * 0.4
+                        ball_vel[1] = -abs(_wd_new_spd) * 0.9  # 위로 강하게
+                    else:
+                        ball_vel[1] = -_wd_new_spd
+                    # 히트 이펙트
+                    screen_shake_timer = max(screen_shake_timer, 12)
+                    screen_shake_intensity = max(screen_shake_intensity, 5)
+                    try:
+                        effects_manager.spawn_shockwave(
+                            BALL.centerx, BALL.centery,
+                            force=14, color=(160, 0, 255),
+                        )
+                    except Exception:
+                        pass
+                    # 🪙 월 다이브 타격 골드 보너스
+                    try:
+                        add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
+                    except Exception:
+                        pass
+            # 종료 판정
+            if _wd_t >= 1.0:
+                _viper_wall_dive_active = False
+                _viper_wall_dive_phase = 0
+                _viper_wall_dive_web_lines = []
+                # 패들 위치를 플레이어 영역으로 복귀
+                _wd_floor = _compute_player_floor_bottom(
+                    CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+                )
+                PLAYER.centery = int(_wd_floor) - PLAYER.height // 2
+                PLAYER.centerx = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, PLAYER.centerx))
+
+    # 월 다이브 파티클 업데이트
+    if _viper_wall_dive_particles:
+        _wd_alive = []
+        for _wp in _viper_wall_dive_particles:
+            _wp['x'] += _wp['vx']
+            _wp['y'] += _wp['vy']
+            _wp['life'] -= 1
+            _wp['size'] *= 0.95
+            if _wp['life'] > 0 and _wp['size'] > 0.5:
+                _wd_alive.append(_wp)
+        _viper_wall_dive_particles = _wd_alive[-60:] if len(_wd_alive) > 60 else _wd_alive
+
     # 바이퍼 팬텀 스트라이크 버프 타이머 감소
     if _viper_phantom_strike_active:
         _viper_phantom_strike_timer -= 1
@@ -71730,7 +71962,8 @@ def handle_player(keys):
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
                 or _viper_nerve_strike_active or _viper_br_spin_active
-                or rolling_active or _viper_jetpack_overheat or _viper_dive_active):
+                or rolling_active or _viper_jetpack_overheat or _viper_dive_active
+                or _viper_wall_dive_active):
             try:
                 _jk = pygame.key.get_pressed()
                 _mb = pygame.mouse.get_pressed()
@@ -71847,7 +72080,8 @@ def handle_player(keys):
         if (not _viper_dive_active and _viper_jetpack_offset_y < -20
                 and not rolling_active and not _viper_nerve_strike_active
                 and not (_viper_br_spin_active and _viper_br_spin_phase < 2) and not is_waiting_for_serve
-                and not is_player_serve and not player_stunned):
+                and not is_player_serve and not player_stunned
+                and not _viper_wall_dive_active):
             _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
             _dive_dir_held = (
                 keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
@@ -106468,6 +106702,71 @@ def draw_objects():
         except Exception:
             pass
 
+    # 🕷️ 바이퍼 월 다이브 렌더링 (거미줄 + 잔상 + 돌진 궤적)
+    if _viper_wall_dive_active or _viper_wall_dive_particles or _viper_wall_dive_web_lines:
+        try:
+            _wd_ticks = pygame.time.get_ticks()
+            # 거미줄 라인 그리기
+            for _wl in _viper_wall_dive_web_lines:
+                _wl_x1, _wl_y1, _wl_x2, _wl_y2 = _wl
+                # 메인 라인 (밝은 보라)
+                pygame.draw.line(SCREEN, (180, 130, 255),
+                                 (int(_wl_x1), int(_wl_y1)), (int(_wl_x2), int(_wl_y2)), 2)
+                # 글로우 라인
+                _wl_gs = pygame.Surface((abs(int(_wl_x2 - _wl_x1)) + 20, abs(int(_wl_y2 - _wl_y1)) + 20), pygame.SRCALPHA)
+                _wl_ox = min(int(_wl_x1), int(_wl_x2)) - 10
+                _wl_oy = min(int(_wl_y1), int(_wl_y2)) - 10
+                pygame.draw.line(_wl_gs, (160, 80, 255, 60),
+                                 (int(_wl_x1) - _wl_ox, int(_wl_y1) - _wl_oy),
+                                 (int(_wl_x2) - _wl_ox, int(_wl_y2) - _wl_oy), 6)
+                SCREEN.blit(_wl_gs, (_wl_ox, _wl_oy), special_flags=pygame.BLEND_ADD)
+
+            # 벽 매달림 글로우 (Phase 1)
+            if _viper_wall_dive_active and _viper_wall_dive_phase == 1:
+                _cling_pulse = 0.6 + 0.4 * math.sin(_wd_ticks * 0.02)
+                _cling_r = int(35 * _cling_pulse)
+                _cling_s = pygame.Surface((_cling_r * 2, _cling_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_cling_s, (160, 0, 255, int(80 * _cling_pulse)),
+                                   (_cling_r, _cling_r), _cling_r)
+                SCREEN.blit(_cling_s,
+                            (int(_viper_wall_dive_wall_x) - _cling_r,
+                             int(_viper_wall_dive_wall_y) - _cling_r),
+                            special_flags=pygame.BLEND_ADD)
+
+            # 돌진 궤적 (Phase 2)
+            if _viper_wall_dive_active and _viper_wall_dive_phase == 2:
+                _ch_elapsed = _wd_ticks - _viper_wall_dive_start_ms
+                _ch_t = min(1.0, _ch_elapsed / _VIPER_WALL_DIVE_CHARGE_MS)
+                # 돌진 글로우 트레일
+                _ch_cx = PLAYER.centerx
+                _ch_cy = PLAYER.centery
+                _ch_glow_r = int(25 + 15 * (1.0 - _ch_t))
+                _ch_glow_s = pygame.Surface((_ch_glow_r * 2, _ch_glow_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_ch_glow_s, (200, 80, 255, 140),
+                                   (_ch_glow_r, _ch_glow_r), _ch_glow_r)
+                SCREEN.blit(_ch_glow_s,
+                            (_ch_cx - _ch_glow_r, _ch_cy - _ch_glow_r),
+                            special_flags=pygame.BLEND_ADD)
+                # 돌진 방향 선
+                pygame.draw.line(SCREEN, (180, 100, 255, 120),
+                                 (int(_viper_wall_dive_charge_start_x), int(_viper_wall_dive_charge_start_y)),
+                                 (_ch_cx, _ch_cy), 3)
+
+            # 파티클 렌더링
+            for _wp in _viper_wall_dive_particles:
+                _wp_alpha = int(200 * (_wp['life'] / max(1, _wp['max_life'])))
+                _wp_sz = max(1, int(_wp['size']))
+                if _wp['type'] == 'trail':
+                    _wp_col = (140, 80, 220, _wp_alpha)
+                else:
+                    _wp_col = (200, 100, 255, _wp_alpha)
+                _wp_s = pygame.Surface((_wp_sz * 2, _wp_sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_wp_s, _wp_col, (_wp_sz, _wp_sz), _wp_sz)
+                SCREEN.blit(_wp_s, (int(_wp['x']) - _wp_sz, int(_wp['y']) - _wp_sz),
+                            special_flags=pygame.BLEND_ADD)
+        except Exception:
+            pass
+
     # 🛡️ 인게임 호위무사 캐릭터 및 스킬 이펙트 그리기 (일반 스테이지, 최대 2명)
     if not arena_mode_enabled:
         try:
@@ -138127,6 +138426,17 @@ def reset_round(is_stage_start=False):
     _viper_dive_shockwave_timer = 0
     _viper_dive_particles = []
     _viper_dive_ball_boosted = False
+    # 바이퍼 월 다이브 초기화
+    global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
+    global _viper_wall_dive_active, _viper_wall_dive_phase
+    global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
+    _viper_wall_dive_ready = False
+    _viper_wall_dive_ready_timer = 0
+    _viper_wall_dive_active = False
+    _viper_wall_dive_phase = 0
+    _viper_wall_dive_ball_hit = False
+    _viper_wall_dive_particles = []
+    _viper_wall_dive_web_lines = []
     optimus_walking_active = False
     optimus_walking_timer = 0
 
@@ -140935,6 +141245,8 @@ def handle_ball():
     # 바이퍼 팬텀 스트라이크 커브 + 공속 복귀
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global _viper_speed_boost_active, _viper_speed_boost_original
+    # 바이퍼 월 다이브 연계기
+    global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
@@ -146022,6 +146334,10 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
+        # 바이퍼 월 다이브 연계 윈도우 활성화 (쉐도우 스텝 후 보스가 공 반환 시)
+        if selected_character_type == "viper" and _viper_ss_kick_ready:
+            _viper_wall_dive_ready = True
+            _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
