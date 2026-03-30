@@ -71804,6 +71804,13 @@ def handle_player(keys):
                     _viper_jetpack_offset_y = 0.0
                     _viper_dive_phase = 2  # 착지
                     _viper_dive_start_ms = pygame.time.get_ticks()
+                    try:
+                        _ds_snd = sound_effects.get('VIPER_DIVE_STRIKE')
+                        if _ds_snd:
+                            _ds_snd.set_volume(0.6)
+                            _ds_snd.play()
+                    except Exception:
+                        pass
                     _viper_dive_shockwave_timer = _VIPER_DIVE_SHOCKWAVE_FRAMES
                     _viper_dive_shockwave_x = float(PLAYER.centerx)
                     # 착지 Y 계산
