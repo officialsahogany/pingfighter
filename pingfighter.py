@@ -4789,6 +4789,34 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         # 외곽 에너지 링
         pygame.draw.circle(surface, shadow_color, (cx, cy), s - 2, 1)
 
+    elif skill_name == "dive_strike":
+        # ⇓ 다이브 스트라이크: 급강하 착지 장판
+        # 하향 화살표 (급강하 표현)
+        arrow_w = s * 2 // 3
+        arrow_h = s // 2
+        arrow_points = [
+            (cx, cy + s * 2 // 3),              # 화살촉 아래 꼭짓점
+            (cx - arrow_w, cy),                  # 왼쪽
+            (cx - arrow_w // 3, cy),             # 왼쪽 안쪽
+            (cx - arrow_w // 3, cy - s // 2),    # 왼쪽 상단
+            (cx + arrow_w // 3, cy - s // 2),    # 오른쪽 상단
+            (cx + arrow_w // 3, cy),             # 오른쪽 안쪽
+            (cx + arrow_w, cy),                  # 오른쪽
+        ]
+        pygame.draw.polygon(surface, accent_color, arrow_points)
+        pygame.draw.polygon(surface, highlight_color, arrow_points, 2)
+
+        # 착지 충격파 표현 (하단에 가로선 여러 개)
+        for i in range(3):
+            _lw = s // 2 + i * (s // 4)
+            _ly = cy + s * 2 // 3 + 3 + i * 3
+            _la = max(60, 200 - i * 60)
+            pygame.draw.line(surface, (*accent_color[:3], _la),
+                             (cx - _lw, _ly), (cx + _lw, _ly), max(1, 2 - i))
+
+        # 중앙 하이라이트
+        pygame.draw.line(surface, main_color, (cx, cy - s // 3), (cx, cy + s // 4), 2)
+
 
 def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                               orb_radius: int, current_gauge: float, max_gauge: float):
