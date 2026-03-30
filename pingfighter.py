@@ -17621,6 +17621,106 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4*scale), icon_cy - int(6*scale), int(4*scale), int(2*scale)))
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5*scale), icon_cy - int(7*scale), int(2*scale), int(4*scale)))
 
+    # ===== 바이퍼 게이지 스킬 해금 =====
+    elif skill_id == "unlock_nerve_strike":
+        # 베놈 엣지 해금 - 다이아몬드 + 전기 스파크
+        # 중앙 다이아몬드
+        dm_s = int(7 * scale)
+        diamond = [(icon_cx, icon_cy - dm_s), (icon_cx + int(dm_s * 0.7), icon_cy),
+                   (icon_cx, icon_cy + dm_s), (icon_cx - int(dm_s * 0.7), icon_cy)]
+        pygame.draw.polygon(surface, icon_color, diamond)
+        pygame.draw.polygon(surface, lighter(icon_color), diamond, max(1, int(1 * scale)))
+        # 내부 다이아몬드
+        dm_s2 = int(4 * scale)
+        inner_dm = [(icon_cx, icon_cy - dm_s2), (icon_cx + int(dm_s2 * 0.7), icon_cy),
+                    (icon_cx, icon_cy + dm_s2), (icon_cx - int(dm_s2 * 0.7), icon_cy)]
+        pygame.draw.polygon(surface, (255, 255, 255), inner_dm)
+        # 십자선
+        pygame.draw.line(surface, darker(icon_color), (icon_cx - dm_s - int(3 * scale), icon_cy), (icon_cx + dm_s + int(3 * scale), icon_cy), 1)
+        pygame.draw.line(surface, darker(icon_color), (icon_cx, icon_cy - dm_s - int(3 * scale)), (icon_cx, icon_cy + dm_s + int(3 * scale)), 1)
+        # 전기 스파크
+        for angle in [45, 135, 225, 315]:
+            rad = math.radians(angle)
+            sx = icon_cx + int(math.cos(rad) * dm_s * 1.2)
+            sy = icon_cy + int(math.sin(rad) * dm_s * 1.2)
+            pygame.draw.circle(surface, lighter(icon_color), (sx, sy), max(1, int(2 * scale)))
+        # + 마크 (해금 표시)
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
+
+    elif skill_id == "unlock_venom_edge":
+        # 신경 타격 해금 - 독 블레이드 + 해골
+        # 블레이드 (사선)
+        bl_pts = [
+            (icon_cx - int(2 * scale), icon_cy + int(6 * scale)),
+            (icon_cx - int(4 * scale), icon_cy + int(4 * scale)),
+            (icon_cx + int(3 * scale), icon_cy - int(8 * scale)),
+            (icon_cx + int(5 * scale), icon_cy - int(8 * scale)),
+            (icon_cx - int(2 * scale), icon_cy + int(4 * scale)),
+        ]
+        pygame.draw.polygon(surface, icon_color, bl_pts)
+        pygame.draw.polygon(surface, lighter(icon_color), bl_pts, max(1, int(1 * scale)))
+        # 독 방울
+        for i, (dx, dy) in enumerate([(icon_cx - int(3 * scale), icon_cy + int(3 * scale)),
+                                       (icon_cx, icon_cy), (icon_cx + int(2 * scale), icon_cy - int(3 * scale))]):
+            pygame.draw.circle(surface, icon_color, (dx + int(2 * scale), dy + int(2 * scale)), max(1, int((3 - i) * scale)))
+        # 해골 마크
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx - int(3 * scale), icon_cy - int(2 * scale)), int(3 * scale))
+        pygame.draw.circle(surface, darker(icon_color), (icon_cx - int(4 * scale), icon_cy - int(3 * scale)), max(1, int(1 * scale)))
+        pygame.draw.circle(surface, darker(icon_color), (icon_cx - int(2 * scale), icon_cy - int(3 * scale)), max(1, int(1 * scale)))
+        # + 마크 (해금 표시)
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
+
+    elif skill_id == "unlock_phantom_assault":
+        # 팬텀 어썰트 해금 - 6각별 + 잔상 라인
+        star_r = int(7 * scale)
+        star_inner = int(4 * scale)
+        star_pts = []
+        for i in range(12):
+            angle = math.radians(i * 30 - 90)
+            r = star_r if i % 2 == 0 else star_inner
+            star_pts.append((icon_cx + int(math.cos(angle) * r), icon_cy + int(math.sin(angle) * r)))
+        pygame.draw.polygon(surface, icon_color, star_pts)
+        pygame.draw.polygon(surface, lighter(icon_color), star_pts, max(1, int(1 * scale)))
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), int(2 * scale))
+        # 잔상 라인
+        for i in range(3):
+            angle = math.radians(-90 + (i - 1) * 25)
+            ex = icon_cx + int(math.cos(angle) * star_r * 1.2)
+            ey = icon_cy + int(math.sin(angle) * star_r * 1.2)
+            pygame.draw.line(surface, lighter(icon_color), (icon_cx, icon_cy), (ex, ey), max(1, int(1 * scale)))
+        # + 마크 (해금 표시)
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
+
+    elif skill_id == "unlock_dive_strike":
+        # 다이브 스트라이크 해금 - 하향 화살표 + 충격파
+        aw = int(6 * scale)
+        # 하향 화살표
+        arrow_pts = [
+            (icon_cx, icon_cy + int(8 * scale)),
+            (icon_cx - aw, icon_cy),
+            (icon_cx - aw // 3, icon_cy),
+            (icon_cx - aw // 3, icon_cy - int(6 * scale)),
+            (icon_cx + aw // 3, icon_cy - int(6 * scale)),
+            (icon_cx + aw // 3, icon_cy),
+            (icon_cx + aw, icon_cy),
+        ]
+        pygame.draw.polygon(surface, icon_color, arrow_pts)
+        pygame.draw.polygon(surface, lighter(icon_color), arrow_pts, max(1, int(1 * scale)))
+        # 충격파 라인
+        for i in range(3):
+            lw = int((4 + i * 3) * scale)
+            ly = icon_cy + int((9 + i * 3) * scale)
+            pygame.draw.line(surface, lighter(icon_color, 30 - i * 10),
+                             (icon_cx - lw, ly), (icon_cx + lw, ly), max(1, int((2 - i) * scale)))
+        # 중앙 하이라이트
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx, icon_cy - int(4 * scale)), (icon_cx, icon_cy + int(3 * scale)), max(1, int(2 * scale)))
+        # + 마크 (해금 표시)
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
+
     elif skill_id == "soldier_magazine_mod":
         # 탄창개조 - 탄창 + 총알 아이콘
         # 탄창 본체 (3D 효과)
