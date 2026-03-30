@@ -72540,7 +72540,8 @@ def handle_player(keys):
                         add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
                         pass
-                    # 에너지파 히트: 넉백 없음 (속도/방향 변경 없이 커브만 적용)
+                    # 에너지파 히트: 공을 위로 반사 (잔상과 동일하게)
+                    ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
                     _sw_curve = _viper_ss_wave_dir
                     _viper_ps_curve_active = True
                     _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
