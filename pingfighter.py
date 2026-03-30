@@ -71521,7 +71521,11 @@ def handle_player(keys):
                                 'y': PLAYER.centery - PLAYER.height // 2,
                                 'alpha': 200,
                                 'image': _ss_afterimage_surf,
-                                'life': 30  # 홀로그램 동안 유지
+                                'life': 30,  # 홀로그램 동안 유지
+                                'viper_ss': True,  # 쉐도우 스텝 잔상 태그
+                                'width': PLAYER.width,
+                                'height': PLAYER.height,
+                                'hit_ball': False,  # 공 타격 여부 (1회 제한)
                             })
                         except Exception:
                             pass
@@ -108990,6 +108994,32 @@ def draw_objects():
         afterimage_rect = afterimage_surf.get_rect(center=(afterimage['x'], afterimage['y']))
         # 잔상 그리기
         SCREEN.blit(afterimage_surf, afterimage_rect.topleft)
+        # 바이퍼 쉐도우 스텝 잔상 — 공 충돌 판정
+        if afterimage.get('viper_ss') and not afterimage.get('hit_ball'):
+            _ai_rect = pygame.Rect(
+                afterimage['x'], afterimage['y'],
+                afterimage.get('width', 80), afterimage.get('height', 40)
+            )
+            if _ai_rect.colliderect(BALL):
+                afterimage['hit_ball'] = True
+                # 커브 적용 (에너지파와 동일)
+                _viper_ps_curve_active = True
+                _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
+                _ai_cx = afterimage['x'] + afterimage.get('width', 80) // 2
+                _viper_ps_curve_direction = 1 if BALL.centerx > _ai_cx else -1
+                # 골드 보너스
+                try:
+                    add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
+                except Exception:
+                    pass
+                # 히트 이펙트
+                try:
+                    effects_manager.spawn_shockwave(
+                        BALL.centerx, BALL.centery,
+                        force=8, color=(100, 0, 180),
+                    )
+                except Exception:
+                    pass
         # 잔상 업데이트
         afterimage['alpha'] -= 25  # 투명도 감소
         afterimage['life'] -= 1
