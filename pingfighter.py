@@ -47591,7 +47591,7 @@ _VIPER_DIVE_PREP_MS = 500              # 준비동작 시간 (0.5초)
 _VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
 _VIPER_DIVE_GAUGE_COST = 50            # 게이지 소모량
 _VIPER_DIVE_SHOCKWAVE_RADIUS = 300     # 충격파 범위 (px)
-_VIPER_DIVE_SHOCKWAVE_FRAMES = 25      # 충격파 지속 프레임
+_VIPER_DIVE_SHOCKWAVE_FRAMES = 60      # 착지 연기 지속 프레임 (1초)
 _VIPER_DIVE_MIN_BOOST = 0.2            # 최소 공속 보너스 (20%)
 _VIPER_DIVE_MAX_BOOST = 0.5            # 최대 공속 보너스 (50%)
 
