@@ -47590,7 +47590,8 @@ _viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (�
 _VIPER_DIVE_PREP_MS = 500              # 준비동작 시간 (0.5초)
 _VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
 _VIPER_DIVE_GAUGE_COST = 50            # 게이지 소모량
-_VIPER_DIVE_SHOCKWAVE_RADIUS = 300     # 충격파 범위 (px)
+_VIPER_DIVE_SHOCKWAVE_RADIUS = 300     # 충격파 X축 범위 (px)
+_VIPER_DIVE_SHOCKWAVE_HEIGHT = 60      # 충격파 Y축 범위 (px, 바닥 기준 위로)
 _VIPER_DIVE_SHOCKWAVE_FRAMES = 60      # 착지 연기 지속 프레임 (1초)
 _VIPER_DIVE_MIN_BOOST = 0.2            # 최소 공속 보너스 (20%)
 _VIPER_DIVE_MAX_BOOST = 0.5            # 최대 공속 보너스 (50%)
@@ -71864,13 +71865,13 @@ def handle_player(keys):
                             'type': 'debris',
                         })
 
-                    # 공 속도 부스트 (범위 내 공에 적용)
+                    # 공 속도 부스트 (범위 내 공에 적용 — X축 넓고 Y축 좁은 바닥 장판)
                     if not _viper_dive_ball_boosted:
                         _dv_ball_cx = BALL.centerx
                         _dv_ball_cy = BALL.centery
-                        _dv_dist = math.hypot(_dv_ball_cx - _viper_dive_shockwave_x,
-                                              _dv_ball_cy - _viper_dive_shockwave_y)
-                        if _dv_dist <= _VIPER_DIVE_SHOCKWAVE_RADIUS:
+                        _dv_dx = abs(_dv_ball_cx - _viper_dive_shockwave_x)
+                        _dv_dy = _viper_dive_shockwave_y - _dv_ball_cy  # 양수 = 공이 위에 있음
+                        if _dv_dx <= _VIPER_DIVE_SHOCKWAVE_RADIUS and 0 <= _dv_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
                             _height_ratio = min(1.0, _viper_dive_height_snapshot / _VIPER_JETPACK_MAX_HEIGHT)
                             _boost_mult = 1.0 + _VIPER_DIVE_MIN_BOOST + _height_ratio * (_VIPER_DIVE_MAX_BOOST - _VIPER_DIVE_MIN_BOOST)
                             _old_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -71910,11 +71911,10 @@ def handle_player(keys):
                     _viper_dive_active = False
                     _viper_dive_phase = 0
                 elif not _viper_dive_ball_boosted:
-                    # 연기 지속 중 매 프레임 범위 내 공 충돌 체크
-                    _dv2_dx = BALL.centerx - _viper_dive_shockwave_x
-                    _dv2_dy = BALL.centery - _viper_dive_shockwave_y
-                    _dv2_dist = math.hypot(_dv2_dx, _dv2_dy)
-                    if _dv2_dist <= _VIPER_DIVE_SHOCKWAVE_RADIUS:
+                    # 연기 지속 중 매 프레임 범위 내 공 충돌 체크 (X축 넓고 Y축 좁은 바닥 장판)
+                    _dv2_dx = abs(BALL.centerx - _viper_dive_shockwave_x)
+                    _dv2_dy = _viper_dive_shockwave_y - BALL.centery  # 양수 = 공이 위에 있음
+                    if _dv2_dx <= _VIPER_DIVE_SHOCKWAVE_RADIUS and 0 <= _dv2_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
                         _height_ratio = min(1.0, _viper_dive_height_snapshot / _VIPER_JETPACK_MAX_HEIGHT)
                         _boost_mult = 1.0 + _VIPER_DIVE_MIN_BOOST + _height_ratio * (_VIPER_DIVE_MAX_BOOST - _VIPER_DIVE_MIN_BOOST)
                         # 공을 위로 반사 + 속도 부스트 (방어 장판)
