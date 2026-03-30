@@ -71874,9 +71874,9 @@ def handle_player(keys):
                             _height_ratio = min(1.0, _viper_dive_height_snapshot / _VIPER_JETPACK_MAX_HEIGHT)
                             _boost_mult = 1.0 + _VIPER_DIVE_MIN_BOOST + _height_ratio * (_VIPER_DIVE_MAX_BOOST - _VIPER_DIVE_MIN_BOOST)
                             _old_speed = math.hypot(ball_vel[0], ball_vel[1])
+                            # 공을 위로 반사 + 속도 부스트 (방어 장판)
                             ball_vel[0] *= _boost_mult
-                            ball_vel[1] *= _boost_mult
-                            _new_speed = math.hypot(ball_vel[0], ball_vel[1])
+                            ball_vel[1] = -abs(ball_vel[1]) * _boost_mult  # 반드시 위로
                             _viper_dive_ball_boosted = True
                             # 🪙 다이브 스트라이크 타격 골드 보너스
                             try:
@@ -71917,8 +71917,9 @@ def handle_player(keys):
                     if _dv2_dist <= _VIPER_DIVE_SHOCKWAVE_RADIUS:
                         _height_ratio = min(1.0, _viper_dive_height_snapshot / _VIPER_JETPACK_MAX_HEIGHT)
                         _boost_mult = 1.0 + _VIPER_DIVE_MIN_BOOST + _height_ratio * (_VIPER_DIVE_MAX_BOOST - _VIPER_DIVE_MIN_BOOST)
+                        # 공을 위로 반사 + 속도 부스트 (방어 장판)
                         ball_vel[0] *= _boost_mult
-                        ball_vel[1] *= _boost_mult
+                        ball_vel[1] = -abs(ball_vel[1]) * _boost_mult  # 반드시 위로
                         _viper_dive_ball_boosted = True
                         # 🪙 다이브 스트라이크 타격 골드 보너스
                         try:
