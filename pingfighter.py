@@ -71884,46 +71884,47 @@ def handle_player(keys):
                     _viper_jetpack_hold_timer = 0
                     _viper_jetpack_overheat = False
 
-                    # 착지 연기 파티클 — 우주선 착륙 스타일 (좌우로 넓게 퍼지는 더스트 클라우드)
+                    # 착지 연기 파티클 — 좌우 300px 범위로 넓게 퍼지는 더스트 클라우드
                     _landing_cx = _viper_dive_shockwave_x
                     _landing_cy = _viper_dive_shockwave_y
+                    _dive_spread = _VIPER_DIVE_SHOCKWAVE_RADIUS  # 300px
                     # 좌우로 밀려나는 큰 연기 구름 (메인 이펙트)
-                    for _ in range(30):
+                    for _ in range(50):
                         _side = _dv_rand.choice([-1, 1])
                         _viper_dive_particles.append({
-                            'x': _landing_cx + _dv_rand.uniform(-10, 10),
+                            'x': _landing_cx + _dv_rand.uniform(-40, 40),
                             'y': _landing_cy + _dv_rand.uniform(-8, 4),
-                            'vx': _side * _dv_rand.uniform(2.0, 7.0),
-                            'vy': _dv_rand.uniform(-3.0, -0.5),  # 약간 위로
-                            'life': _dv_rand.randint(25, 50),
-                            'max_life': 50,
-                            'size': _dv_rand.uniform(8.0, 18.0),
+                            'vx': _side * _dv_rand.uniform(4.0, 14.0),  # 빠르게 퍼져서 300px 도달
+                            'vy': _dv_rand.uniform(-3.0, -0.3),
+                            'life': _dv_rand.randint(35, 60),
+                            'max_life': 60,
+                            'size': _dv_rand.uniform(10.0, 22.0),
                             'type': 'dust_cloud',
                         })
-                    # 바닥에서 솟아오르는 수직 더스트 기둥
-                    for _ in range(15):
+                    # 바닥에서 솟아오르는 수직 더스트 기둥 (넓게 분포)
+                    for _ in range(25):
                         _viper_dive_particles.append({
-                            'x': _landing_cx + _dv_rand.uniform(-30, 30),
+                            'x': _landing_cx + _dv_rand.uniform(-_dive_spread * 0.6, _dive_spread * 0.6),
                             'y': _landing_cy + _dv_rand.uniform(-3, 3),
-                            'vx': _dv_rand.uniform(-0.8, 0.8),
-                            'vy': _dv_rand.uniform(-5.0, -1.5),  # 위로 솟구침
+                            'vx': _dv_rand.uniform(-1.2, 1.2),
+                            'vy': _dv_rand.uniform(-5.0, -1.5),
                             'life': _dv_rand.randint(20, 40),
                             'max_life': 40,
-                            'size': _dv_rand.uniform(5.0, 12.0),
+                            'size': _dv_rand.uniform(5.0, 14.0),
                             'type': 'dust_pillar',
                         })
-                    # 바닥 먼지 파편 (작은 입자들이 빠르게 튀어나감)
-                    for _ in range(20):
-                        _angle = _dv_rand.uniform(-math.pi, 0)  # 위쪽 반원
-                        _spd = _dv_rand.uniform(3.0, 10.0)
+                    # 바닥 먼지 파편 (좌우 넓게 튀어나감)
+                    for _ in range(30):
+                        _angle = _dv_rand.uniform(-math.pi, 0)
+                        _spd = _dv_rand.uniform(5.0, 16.0)  # 빠르게 퍼짐
                         _viper_dive_particles.append({
-                            'x': _landing_cx + _dv_rand.uniform(-20, 20),
+                            'x': _landing_cx + _dv_rand.uniform(-60, 60),
                             'y': _landing_cy,
                             'vx': math.cos(_angle) * _spd,
-                            'vy': math.sin(_angle) * _spd * 0.7,
-                            'life': _dv_rand.randint(10, 25),
-                            'max_life': 25,
-                            'size': _dv_rand.uniform(1.5, 4.0),
+                            'vy': math.sin(_angle) * _spd * 0.5,
+                            'life': _dv_rand.randint(12, 30),
+                            'max_life': 30,
+                            'size': _dv_rand.uniform(1.5, 5.0),
                             'type': 'debris',
                         })
 
@@ -106245,7 +106246,7 @@ def draw_objects():
                 _sw_cy = int(_viper_dive_shockwave_y)
                 _sw_alpha = int(80 * (1.0 - _sw_pct))
                 # 바닥 연기 레이어 (넓게 퍼지는 타원형 — 착륙 지점 기준)
-                _ground_w = int(60 + 200 * _sw_pct)
+                _ground_w = int(80 + _VIPER_DIVE_SHOCKWAVE_RADIUS * _sw_pct)  # 최대 300px
                 _ground_h = max(4, int(25 * (1.0 - _sw_pct * 0.5)))
                 if _ground_w > 2 and _sw_alpha > 3:
                     _gs = pygame.Surface((_ground_w * 2, _ground_h * 2), pygame.SRCALPHA)
