@@ -71444,6 +71444,7 @@ def handle_player(keys):
         global _viper_dive_height_snapshot, _viper_dive_particles
         global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
         global _viper_dive_ball_boosted
+        global screen_shake_timer, screen_shake_intensity
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
