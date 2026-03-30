@@ -71666,10 +71666,12 @@ def handle_player(keys):
         if not _viper_jetpack_active and _viper_jetpack_offset_y < 0:
             _viper_jetpack_offset_y = min(0, _viper_jetpack_offset_y + _VIPER_JETPACK_FALL_SPEED)
 
-        # 착지 시 과열 해제 + 체공 타이머 리셋
+        # 착지 시 과열 해제 + 체공 타이머 서서히 충전 (비행 소모의 2배 느리게)
         if _viper_jetpack_offset_y >= 0:
-            _viper_jetpack_hold_timer = 0
-            _viper_jetpack_overheat = False
+            if _viper_jetpack_overheat:
+                _viper_jetpack_overheat = False
+            if _viper_jetpack_hold_timer > 0 and not _viper_jetpack_active:
+                _viper_jetpack_hold_timer = max(0, _viper_jetpack_hold_timer - 0.5)  # 소모 1/f, 충전 0.5/f (2배 느림)
 
         # PLAYER rect Y 위치 적용 (물리 판정에 반영)
         if _viper_jetpack_offset_y < 0:
@@ -105990,8 +105992,9 @@ def draw_objects():
                                 (PLAYER.centerx - _jg_w, PLAYER.bottom - _jg_h + 2),
                                 special_flags=pygame.BLEND_ADD)
 
-            # 체공 잔여시간 인디케이터 (패들 왼쪽에 세로 게이지 바)
-            if _viper_jetpack_offset_y < -5 or _viper_jetpack_active:
+            # 체공 잔여시간 인디케이터 (패들 왼쪽에 세로 게이지 바, 완충 시 숨김)
+            if (_viper_jetpack_offset_y < -5 or _viper_jetpack_active
+                    or _viper_jetpack_hold_timer > 0):
                 _remain_ratio = max(0.0, 1.0 - _viper_jetpack_hold_timer / _VIPER_JETPACK_MAX_HOLD_FRAMES)
                 _alt_bar_h = 40
                 _alt_bar_w = 3
