@@ -77684,6 +77684,8 @@ def handle_player(keys):
 
         # 🐍 바이퍼 쉐도우 스텝 후 첫 패들 타격 시 shadowkick.wav 재생
         # 플래그 기반: 쉐도우 스텝 발동 시 _viper_ss_kick_ready=True → 첫 히트에 소모 (5초 타임아웃)
+        if selected_character_type == "viper":
+            print(f"[DEBUG 쉐도우체인 PLAYER충돌] ball_touched={_viper_ss_ball_touched}, kick_ready={_viper_ss_kick_ready}, phantom_active={_viper_phantom_strike_active}, elapsed={pygame.time.get_ticks()-_viper_ss_hologram_start_ms}ms")
         if selected_character_type == "viper" and _viper_ss_kick_ready:
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
             if _sk_since < 5000:  # 5초 안전 타임아웃
@@ -146548,6 +146550,8 @@ def handle_ball():
                 # print("! (  )")
             # 일반 충돌로 처리하기 위해 아래로 계속 진행
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
+        if selected_character_type == "viper":
+            print(f"[DEBUG 쉐도우체인 BOSS충돌] ball_touched={_viper_ss_ball_touched}, hologram_active={_viper_ss_hologram_active}, kick_ready={_viper_ss_kick_ready}, elapsed={pygame.time.get_ticks()-_viper_ss_hologram_start_ms}ms")
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
         # 바이퍼 팬텀 스트라이크 커브 해제 (보스가 받아치면 커브 종료)
