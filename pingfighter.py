@@ -25937,6 +25937,9 @@ PASSIVE_OPTION_RANGES = {
     "bluetooth_ring": [
         {"label": "게이지 획득량", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "gauge_gain_pct"},
     ],
+    "battery": [
+        {"label": "게이지 보존", "min": 60, "max": 100, "unit": "%", "prefix": "", "key": "gauge_preserve_pct"},
+    ],
     "chargebag": [
         {"label": "벽 반사 게이지", "min": 15, "max": 35, "unit": "%", "prefix": "+", "key": "chargebag_pct"},
     ],
@@ -26379,6 +26382,7 @@ def _reset_roll_bonuses_to_default():
     globals()["bulletproof_hat_resist_pct"] = 0
     globals()["spiked_helmet_knockback_resist_pct"] = 0
     globals()["dashholder_count"] = 0
+    globals()["battery_gauge_preserve_pct"] = 100  # 배터리 게이지 보존 기본값
     globals()["gold_digger_bonus_pct"] = 50  # 골드디거 기본값
     globals()["lucky_coin_double_spawn_pct"] = 10  # 럭키코인 기본값
     globals()["adversity_armor_trigger_pct"] = 25  # 역경의 갑옷 기본값
@@ -26736,6 +26740,10 @@ def apply_roll_bonuses_from_equipped():
             val = _get_roll_value(item, "body_size_pct")
             if val is not None:
                 globals()["bulkup_body_size_pct"] = val
+        elif name == "battery":
+            val = _get_roll_value(item, "gauge_preserve_pct")
+            if val is not None:
+                globals()["battery_gauge_preserve_pct"] = val
 
     # 스택형 보너스들 한 번에 적용
     globals()["fuel_pouch_bonus"] = fuel_pouch_total_bonus
@@ -26937,6 +26945,10 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
                 get_soul_burst_instance().set_gauge_cost(int(val))
             except Exception:
                 pass
+    elif name == "battery":
+        val = _get_roll_value(item, "gauge_preserve_pct")
+        if val is not None:
+            globals()["battery_gauge_preserve_pct"] = val
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -28436,6 +28448,7 @@ LONG_BOOST_DURATION = 480  # 8초 (60fps * 8)
 LONG_BOOST_TRANSITION_TIME = 60  # 1초 동안 크기 변화
 # === 배터리 관련 ===
 battery_obtained = False  # 배터리 획득 여부
+battery_gauge_preserve_pct = 100  # 배터리 게이지 보존 퍼센트 (롤옵션, 60~100%)
 # === 부활 관련 ===
 revival_obtained = False  # 부활 아이템 획득 여부
 revival_used = False  # 부활 아이템 사용 여부
@@ -47565,6 +47578,7 @@ _viper_ss_hologram_origin_x = 0      # 텔레포트 출발 X (원래 위치)
 _viper_ss_hologram_origin_y = 0      # 출발 Y
 _viper_ss_hologram_kick_dir = 0     # 텔레포트 방향 (발차기 포즈용, -1=왼, 1=오)
 _VIPER_SS_HOLOGRAM_DURATION = 500    # 홀로그램 등장 시간 (ms)
+_viper_ss_kick_ready = False         # 쉐도우 스텝 후 첫 패들 히트 사운드 대기 플래그
 
 # === 바이퍼 쉐도우 스텝 에너지파 (출발점→도착점, 공 히트 시 팬텀 스트라이크) ===
 _viper_ss_wave_active = False         # 에너지파 활성
@@ -71454,7 +71468,7 @@ def handle_player(keys):
         global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
         global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
         global _viper_br_jump_offset_y, _viper_br_arm_raise
-        global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
+        global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x, _viper_ss_kick_ready
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_ss_hologram_kick_dir
         global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
@@ -71570,6 +71584,7 @@ def handle_player(keys):
                         _viper_ss_hologram_start_ms = pygame.time.get_ticks()
                         _viper_ss_hologram_target_x = _ss_new_x
                         _viper_ss_hologram_kick_dir = _ss_reverse_dir  # 발차기 방향
+                        _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
 
                         # 팬텀 스트라이크 버프 활성화 (0.3초간 다음 타격 강화)
                         _viper_phantom_strike_active = True
@@ -79574,16 +79589,15 @@ def store_passive_item(item_data):
                 # print("+   !   60% !")
                 pass
     elif item_data["name"] == "battery":
-        # 배터리 영구 효과 적용
-        # print(f"   ...  battery_obtained: {battery_obtained}")
+        # 배터리 영구 효과 적용 (중복 획득 시 롤옵션 파밍 가능)
         if not battery_obtained:
             battery_obtained = True
             items.battery_obtained = True  # items.py의 변수도 업데이트
-            # 아이템 획득 효과 표시 (옛날 버전)
-            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-            # print("!     !")
-        else:
-            pass  # print("이미 배터리팩을 보유 중입니다.")
+        # 롤옵션과 인벤토리 추가는 항상 실행 (중복 획득 허용)
+        item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "revival":
         # 부활 아이템 획득
         if not revival_obtained:
@@ -151895,8 +151909,17 @@ def show_result(won):
     reset_weather_state()
     reset_hail_state()  # 우박 상태도 리셋
 
-    # 필살기 초기화 (Aipill 활성화 시 또는 배터리 보유 시에는 게이지 유지)
-    if not aipill_active and not battery_obtained:
+    # 필살기 초기화 (Aipill 활성화 시에는 게이지 100% 유지, 배터리 보유 시 롤옵션 비율만큼 보존)
+    if aipill_active:
+        pass  # AI필 활성화 시 게이지 100% 유지
+    elif battery_obtained:
+        # 배터리 롤옵션에 따라 게이지 보존 (60~100%)
+        preserve_pct = battery_gauge_preserve_pct / 100.0
+        special_gauge = int(special_gauge * preserve_pct)
+        if special_gauge <= 0:
+            special_ready = False
+            special_active = False
+    else:
         special_gauge = 0
         special_ready = False
         special_active = False
@@ -166323,7 +166346,7 @@ def get_item_description(item_name):
         "speedboots": "스피드부츠: 플레이어의 이동 속도를 증가시켜줍니다.",
         "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",
         "speedgear": "보정벨트: 좌,우 방향 전환 속도가 증가합니다.",
-        "battery": "배터리팩: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
+        "battery": "배터리팩: 다음 스테이지로 넘어갈 때 게이지를 보존합니다. (롤옵션: 보존율 60~100%)",
         "slot_add": "배낭: 엑티브아이템 슬롯을 1~3칸 추가합니다.",
         "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다.",
         "master": "토르의 망치: 벽돌 길이를 늘려주며, 아이템 쿨타임도 줄여줍니다.",
