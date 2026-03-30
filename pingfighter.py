@@ -71982,15 +71982,8 @@ def handle_player(keys):
                         _dv_dx = abs(_dv_ball_cx - _viper_dive_shockwave_x)
                         _dv_dy = _viper_dive_shockwave_y - _dv_ball_cy  # 양수 = 공이 위에 있음
                         if _dv_dx <= _VIPER_DIVE_SHOCKWAVE_RADIUS and 0 <= _dv_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
-                            _old_speed = math.hypot(ball_vel[0], ball_vel[1])
-                            # 공을 위로 반사 (속도 부스트 없음, 과속 시 감속)
-                            _DIVE_SPEED_CAP = 13.0
-                            if _old_speed > _DIVE_SPEED_CAP:
-                                _slow_ratio = _DIVE_SPEED_CAP / _old_speed
-                                ball_vel[0] *= _slow_ratio
-                                ball_vel[1] = -abs(ball_vel[1]) * _slow_ratio
-                            else:
-                                ball_vel[1] = -abs(ball_vel[1])  # 반드시 위로
+                            # 공을 위로 반사 (속도 변화 없음)
+                            ball_vel[1] = -abs(ball_vel[1])
                             _viper_dive_ball_boosted = True
                             # 🪙 다이브 스트라이크 타격 골드 보너스
                             try:
@@ -72028,15 +72021,8 @@ def handle_player(keys):
                     _dv2_dx = abs(BALL.centerx - _viper_dive_shockwave_x)
                     _dv2_dy = _viper_dive_shockwave_y - BALL.centery  # 양수 = 공이 위에 있음
                     if _dv2_dx <= _VIPER_DIVE_SHOCKWAVE_RADIUS and 0 <= _dv2_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
-                        _old_speed2 = math.hypot(ball_vel[0], ball_vel[1])
-                        # 공을 위로 반사 (속도 부스트 없음, 과속 시 감속)
-                        _DIVE_SPEED_CAP = 13.0
-                        if _old_speed2 > _DIVE_SPEED_CAP:
-                            _slow_ratio2 = _DIVE_SPEED_CAP / _old_speed2
-                            ball_vel[0] *= _slow_ratio2
-                            ball_vel[1] = -abs(ball_vel[1]) * _slow_ratio2
-                        else:
-                            ball_vel[1] = -abs(ball_vel[1])  # 반드시 위로
+                        # 공을 위로 반사 (속도 변화 없음)
+                        ball_vel[1] = -abs(ball_vel[1])
                         _viper_dive_ball_boosted = True
                         # 🪙 다이브 스트라이크 타격 골드 보너스
                         try:
