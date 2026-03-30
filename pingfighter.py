@@ -71784,7 +71784,7 @@ def handle_player(keys):
             if _dive_s_input and not _dive_dir_held and special_gauge >= _VIPER_DIVE_GAUGE_COST:
                 special_gauge -= _VIPER_DIVE_GAUGE_COST
                 _viper_dive_active = True
-                _viper_dive_phase = 1  # 즉시 급강하 (준비동작 없음)
+                _viper_dive_phase = 0  # 도움닫기 자세 (0.5초 공중 정지)
                 _viper_dive_start_ms = pygame.time.get_ticks()
                 _viper_dive_height_snapshot = abs(_viper_jetpack_offset_y)
                 _viper_dive_ball_boosted = False
@@ -71798,7 +71798,29 @@ def handle_player(keys):
             _dive_elapsed = pygame.time.get_ticks() - _viper_dive_start_ms
             import random as _dv_rand
 
-            if _viper_dive_phase == 1:
+            if _viper_dive_phase == 0:
+                # === 도움닫기 자세 (0.5초 공중 정지 + 에너지 수렴) ===
+                if _dive_elapsed >= _VIPER_DIVE_PREP_MS:
+                    _viper_dive_phase = 1  # 급강하 시작
+                    _viper_dive_start_ms = pygame.time.get_ticks()
+                else:
+                    # 에너지 수렴 파티클 (패들 주위로 모여드는 입자)
+                    _prep_pct = _dive_elapsed / _VIPER_DIVE_PREP_MS
+                    for _ in range(int(2 + _prep_pct * 4)):
+                        _angle = _dv_rand.uniform(0, math.pi * 2)
+                        _dist = _dv_rand.uniform(30, 80) * (1.0 - _prep_pct * 0.5)
+                        _viper_dive_particles.append({
+                            'x': PLAYER.centerx + math.cos(_angle) * _dist,
+                            'y': float(PLAYER.centery) + math.sin(_angle) * _dist,
+                            'vx': -math.cos(_angle) * 2.0,
+                            'vy': -math.sin(_angle) * 2.0,
+                            'life': 12,
+                            'max_life': 12,
+                            'size': _dv_rand.uniform(2.0, 5.0),
+                            'type': 'energy',
+                        })
+
+            elif _viper_dive_phase == 1:
                 # === 급강하 (빠르게 착지) ===
                 _viper_jetpack_offset_y += _VIPER_DIVE_SPEED
                 if _viper_jetpack_offset_y >= 0:
@@ -71931,6 +71953,10 @@ def handle_player(keys):
                         _viper_air_strike_text_x = _viper_dive_shockwave_x
                         _viper_air_strike_text_y = _viper_dive_shockwave_y - 40
                         _viper_air_strike_text_pct = int((_boost_mult - 1.0) * 100)
+
+        # 도움닫기 자세 중 자연 하강 상쇄 (공중 정지 유지)
+        if _viper_dive_active and _viper_dive_phase == 0 and _viper_jetpack_offset_y < 0:
+            _viper_jetpack_offset_y -= _VIPER_JETPACK_FALL_SPEED
 
         # 급강하 파티클 업데이트
         if _viper_dive_particles:
@@ -106142,6 +106168,28 @@ def draw_objects():
     # 💥 바이퍼 급강하 어택 렌더링 (착륙 연기 + 파티클)
     if _viper_dive_active or _viper_dive_particles or _viper_dive_shockwave_timer > 0:
         try:
+            # 도움닫기 글로우 (공중 정지 중 에너지 집중)
+            if _viper_dive_active and _viper_dive_phase == 0:
+                _dv_prep_elapsed = pygame.time.get_ticks() - _viper_dive_start_ms
+                _dv_prep_pct = min(1.0, _dv_prep_elapsed / _VIPER_DIVE_PREP_MS)
+                _dv_pulse = 0.5 + 0.5 * math.sin(_dv_prep_pct * math.pi * 4)
+                _dv_glow_r = int(30 + 40 * _dv_prep_pct)
+                _dv_glow_a = int(100 + 120 * _dv_prep_pct * _dv_pulse)
+                _dv_glow_surf = pygame.Surface((_dv_glow_r * 2, _dv_glow_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_dv_glow_surf, (200, 80, 255, _dv_glow_a),
+                                   (_dv_glow_r, _dv_glow_r), _dv_glow_r)
+                SCREEN.blit(_dv_glow_surf,
+                            (PLAYER.centerx - _dv_glow_r, PLAYER.centery - _dv_glow_r),
+                            special_flags=pygame.BLEND_ADD)
+                # 하강 방향 표시선 (점선)
+                _dv_line_a = int(80 + 120 * _dv_prep_pct)
+                for _dli in range(0, 60, 8):
+                    _dly = PLAYER.bottom + _dli
+                    if _dly < HEIGHT:
+                        pygame.draw.line(SCREEN, (200, 80, 255, _dv_line_a),
+                                         (PLAYER.centerx - 2, _dly),
+                                         (PLAYER.centerx + 2, _dly + 4), 2)
+
             # 급강하 궤적 글로우 (급강하 중)
             if _viper_dive_active and _viper_dive_phase == 1:
                 _dv_trail_surf = pygame.Surface((20, 60), pygame.SRCALPHA)
