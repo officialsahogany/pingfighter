@@ -71593,7 +71593,7 @@ def handle_player(keys):
                             try:
                                 _spin_snd = sound_effects.get('VIPER_BLADE_SPIN')
                                 if _spin_snd:
-                                    _spin_snd.set_volume(0.5)
+                                    _spin_snd.set_volume(0.8)
                                     _spin_snd.play()
                             except Exception:
                                 pass
