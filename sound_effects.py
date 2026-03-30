@@ -118,6 +118,7 @@ SOUND_PATHS = {
     "VIPER_BLADE": "sounds/blade.wav",
     "VIPER_JETPACK": "sounds/jetpack.wav",
     "VIPER_BACKSTEP": "sounds/backstep.wav",
+    "VIPER_BLADE_SPIN": "sounds/bladeafter.wav",
 }
 
 

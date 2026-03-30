@@ -71589,6 +71589,14 @@ def handle_player(keys):
                             _viper_br_spin_start_ms = pygame.time.get_ticks()
                             _viper_br_spin_phase = 0  # 회전 단계
                             _viper_br_spin_angle = 0.0
+                            # 회전 사운드 재생
+                            try:
+                                _spin_snd = sound_effects.get('VIPER_BLADE_SPIN')
+                                if _spin_snd:
+                                    _spin_snd.set_volume(0.5)
+                                    _spin_snd.play()
+                            except Exception:
+                                pass
 
             # 베놈 엣지 (Q키)
             if _viper_q_pressed and _viper_q_key_released:
@@ -71988,7 +71996,13 @@ def handle_player(keys):
                 _viper_br_spin_start_ms = _br_now
                 _viper_br_spin_angle = 0.0  # 정면으로 리셋
 
-                # 검기 발사 (회전 끝난 직후)
+                # 회전 사운드 정지 + 검기 발사 (회전 끝난 직후)
+                try:
+                    _spin_snd_stop = sound_effects.get('VIPER_BLADE_SPIN')
+                    if _spin_snd_stop:
+                        _spin_snd_stop.stop()
+                except Exception:
+                    pass
                 try:
                     _blade_snd = sound_effects.get('VIPER_BLADE')
                     if _blade_snd:
