@@ -45725,6 +45725,9 @@ def apply_paddle_hit_knockback_player(ball_x: float = None) -> None:
         ball_x: 공의 x 좌표 (None이면 랜덤 방향)
     """
     global player_fire_knockback_vel
+    # 바이퍼 쉐도우 스텝 홀로그램 활성 중에는 넉백 무시 (텔레포트 직후 밀려남 방지)
+    if _viper_ss_hologram_active:
+        return
 
     knockback_strength = get_paddle_hit_knockback_strength()
 
