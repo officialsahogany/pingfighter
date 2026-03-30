@@ -3743,6 +3743,7 @@ _viper_skill_cooldowns = {
     "nerve_strike": 0,
     "venom_edge": 0,
     "shadow_counter": 0,
+    "dive_strike": 0,
     "phantom_assault": 0,
 }
 
@@ -3881,6 +3882,7 @@ def reset_viper_skill_cooldowns():
         "nerve_strike": 0,
         "venom_edge": 0,
         "shadow_counter": 0,
+        "dive_strike": 0,
         "phantom_assault": 0,
     }
 
@@ -14919,6 +14921,11 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     if choice_id == "unlock_phantom_assault":
         unlock_viper_skill("phantom_assault")
         runtime_skill_levels["unlock_phantom_assault"] = 1
+        return True
+
+    if choice_id == "unlock_dive_strike":
+        unlock_viper_skill("dive_strike")
+        runtime_skill_levels["unlock_dive_strike"] = 1
         return True
 
     # 일반 스킬 레벨업
