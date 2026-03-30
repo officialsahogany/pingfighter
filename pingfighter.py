@@ -71861,13 +71861,13 @@ def handle_player(keys):
                 special_gauge -= _VIPER_DIVE_GAUGE_COST
                 trigger_viper_skill_cooldown("dive_strike")
                 _viper_dive_active = True
-                _viper_dive_phase = 0  # 도움닫기 자세 (0.5초 공중 정지)
+                _viper_dive_phase = 1  # 즉시 급강하 (도움닫기 생략)
                 _viper_dive_start_ms = pygame.time.get_ticks()
                 try:
-                    _dp_snd = sound_effects.get('VIPER_DIVE_PREP')
-                    if _dp_snd:
-                        _dp_snd.set_volume(0.6)
-                        _dp_snd.play()
+                    _ds_snd = sound_effects.get('VIPER_DIVE_STRIKE')
+                    if _ds_snd:
+                        _ds_snd.set_volume(0.6)
+                        _ds_snd.play()
                 except Exception:
                     pass
                 _viper_dive_height_snapshot = abs(_viper_jetpack_offset_y)
