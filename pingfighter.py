@@ -18579,6 +18579,8 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                 actual_player_speed = 4
             elif char_type == "smasher":
                 actual_player_speed = 6  # 스매셔 기본 이동속도 6
+            elif char_type == "viper":
+                actual_player_speed = 4  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
             else:
                 actual_player_speed = MAX_SPEED
             actual_paddle_width = PLAYER.width if PLAYER else 80
@@ -75348,6 +75350,8 @@ def handle_player(keys):
                 base_max_speed = OPTIMUS_BASE_MAX_SPEED
             elif selected_character_type == "smasher":
                 base_max_speed = 6  # 스매셔 기본 이동속도 6
+            elif selected_character_type == "viper":
+                base_max_speed = 4  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
             else:
                 base_max_speed = MAX_SPEED
             effective_max_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
@@ -75498,10 +75502,10 @@ def handle_player(keys):
                             speed_bonus = 0
                             # 🏟️ 투기장 둔화+부스트: 무중력벨트 경로에도 동일하게 적용
                             _gb_mult = arena_player_slow_mult * arena_player_speed_boost_only
-                            # 🚀 바이퍼 제트팩 체공 이동 보너스 (높을수록 최대 +80%)
+                            # 🚀 바이퍼 제트팩 체공 이동 보너스 (높을수록 최대 +215%)
                             if selected_character_type == "viper" and _viper_jetpack_offset_y < 0:
                                 _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
-                                _gb_mult *= 1.0 + _jet_height_ratio * 0.8
+                                _gb_mult *= 1.0 + _jet_height_ratio * 2.15
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_mult
                                 current_speed = target_speed  # 즉시 목표 속도로 전환
@@ -75563,10 +75567,10 @@ def handle_player(keys):
                                 if animated_bg_stage30.is_judgment_earthquake_active():
                                     adjusted_acceleration *= 0.5
                                     adjusted_max_speed *= 0.5
-                            # 🚀 바이퍼 제트팩 체공 이동 보너스 (높을수록 최대 +80%)
+                            # 🚀 바이퍼 제트팩 체공 이동 보너스 (높을수록 최대 +215%)
                             if selected_character_type == "viper" and _viper_jetpack_offset_y < 0:
                                 _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
-                                _jet_speed_bonus = 1.0 + _jet_height_ratio * 0.8  # 최대 1.8배
+                                _jet_speed_bonus = 1.0 + _jet_height_ratio * 2.15  # 최대 3.15배 (4 × 3.15 ≈ 12.6)
                                 adjusted_acceleration *= _jet_speed_bonus
                                 adjusted_max_speed *= _jet_speed_bonus
                             # 즉시 속도 제한 (투기장 둔화/부스트 또는 거미줄 장판)
@@ -76328,7 +76332,7 @@ def handle_player(keys):
                 if _viper_br_spin_active:
                     effective_max_speed = 0.0  # 블레이드 러쉬 연출 중 이동 불가
                 else:
-                    effective_max_speed = 7.0  # 바이퍼 기본 이동속도 7 (속도형)
+                    effective_max_speed = 4.0  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
             else:
                 effective_max_speed = MAX_SPEED
         walking = abs(current_speed) > 1.0
@@ -125052,7 +125056,7 @@ def show_character_selection():
             "name": _t("char.viper", "바이퍼"),
             "description": _t("char.viper.desc", "빠른 연속 슬래시로 적을 베어내는\n사이버 어쌔신."),
             "image": "viper.png",
-            "stats": {_t("stat.speed", "속도"): 7, _t("stat.power", "파워"): 5, _t("stat.defense", "방어"): 3},
+            "stats": {_t("stat.speed", "속도"): 4, _t("stat.power", "파워"): 5, _t("stat.defense", "방어"): 3},
             "special": " " + _t("char.viper.special", "플라즈마 블레이드 전용 스킬트리"),
             "unlocked": True,
             "card_color": (160, 0, 255),  # 네온 퍼플
@@ -163461,6 +163465,8 @@ def show_character_info(background_surface=None):
             base_max_speed = float(globals().get("OPTIMUS_BASE_MAX_SPEED", 2.0))
         elif char_type == "smasher":
             base_max_speed = 6.0  # 스매셔 기본 이동속도 6
+        elif char_type == "viper":
+            base_max_speed = 4.0  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
         else:
             base_max_speed = float(globals().get("MAX_SPEED", 5.0))
         speed_multiplier = 1.0
@@ -167321,7 +167327,7 @@ def show_quick_character_selection():
             "name": _t("char.viper", "바이퍼"),
             "desc": _t("char.viper.desc", "빠른 연속 슬래시의 사이버 어쌔신"),
             "color": (160, 0, 255),
-            "stats": f"{_t('stat.speed', '속도')} 7 | {_t('stat.power', '파워')} 5 | {_t('stat.defense', '방어')} 3",
+            "stats": f"{_t('stat.speed', '속도')} 4 | {_t('stat.power', '파워')} 5 | {_t('stat.defense', '방어')} 3",
         },
     ]
 
