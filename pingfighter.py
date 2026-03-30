@@ -71970,13 +71970,6 @@ def handle_player(keys):
         _wd_elapsed = _wd_now - _viper_wall_dive_start_ms
         import random as _wd_rand
 
-        # 긴급 가속: 공이 바닥에 가까울수록 애니메이션 속도 증가
-        _wd_ball_danger = BALL.bottom / HEIGHT  # 0.0(상단) ~ 1.0(바닥)
-        if _wd_ball_danger > 0.75 and ball_vel[1] > 0:  # 공이 75% 아래 + 하강 중
-            # 0.75 → 1배속, 1.0 → 3배속 (선형 보간)
-            _wd_speed_mult = 1.0 + (_wd_ball_danger - 0.75) / 0.25 * 2.0
-            _wd_elapsed = int(_wd_elapsed * _wd_speed_mult)
-
         if _viper_wall_dive_phase == 0:
             # Phase 0: 벽으로 점프 (포물선 이동)
             _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_JUMP_MS)
