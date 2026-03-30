@@ -128760,6 +128760,29 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         selected_character_type = "smasher"
     elif character_id == "viper":
         selected_character_type = "viper"
+        # 바이퍼는 기본적으로 배터리 패시브 아이템 소지 + 자기장 발생기 액티브 1개
+        items.battery_obtained = True
+        passive_items = item_state_adapter.passive_items()
+        if not any(item.get("name") == "battery" for item in passive_items):
+            battery_item = {
+                "name": "battery",
+                "type": "passive",
+                "icon": get_item_icon("battery"),
+            }
+            ensure_passive_rolls(battery_item)
+            item_state_adapter.append_passive_item(battery_item)
+        active_items = item_state_adapter.active_items()
+        if not any(item.get("name") == "magnet_field" for item in active_items):
+            magnet_item = {
+                "name": "magnet_field",
+                "type": "active",
+                "effect": "magnet_field",
+                "icon": get_item_icon("magnet_field"),
+                "last_use": last_item_use_time,
+                "temporary_overflow": False
+            }
+            item_state_adapter.append_active_item(magnet_item)
+            _set_selected_item_index(len(active_items) - 1)
     elif character_id == "optimus":
         selected_character_type = "optimus"
         # 옵티머스는 확대된 스프라이트에 맞춰 히트박스도 확대
