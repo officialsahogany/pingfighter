@@ -4803,6 +4803,56 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         # 외곽 에너지 링
         pygame.draw.circle(surface, shadow_color, (cx, cy), s - 2, 1)
 
+    elif skill_name == "shadow_counter":
+        # 🕷 쉐도우 카운터: 벽 점프 → 공 돌진 (스파이더맨 스타일)
+        # 벽 표현 (좌측 세로선)
+        wall_x = cx - s * 2 // 3
+        pygame.draw.line(surface, shadow_color, (wall_x, cy - s * 2 // 3), (wall_x, cy + s * 2 // 3), 3)
+        pygame.draw.line(surface, accent_color, (wall_x + 1, cy - s * 2 // 3), (wall_x + 1, cy + s * 2 // 3), 1)
+
+        # 벽에 매달린 실루엣 (작은 원 + 몸체)
+        cling_x = wall_x + s // 5
+        cling_y = cy - s // 6
+        pygame.draw.circle(surface, highlight_color, (cling_x, cling_y - s // 4), s // 5)  # 머리
+        pygame.draw.ellipse(surface, accent_color,
+                            (cling_x - s // 6, cling_y - s // 8, s // 3, s // 2))  # 몸
+
+        # 거미줄 라인 (벽 → 실루엣)
+        for i in range(3):
+            web_angle = math.radians(-30 + i * 30)
+            web_len = s // 3 + i * 2
+            wx = wall_x + int(math.cos(web_angle) * web_len)
+            wy = cling_y + int(math.sin(web_angle) * web_len)
+            pygame.draw.line(surface, (*main_color[:3],), (wall_x + 2, cling_y - s // 6 + i * 3), (wx, wy), 1)
+
+        # 돌진 궤적 (벽 → 우하단 공)
+        target_x = cx + s * 2 // 3
+        target_y = cy + s // 4
+        # 대시 라인 (점선)
+        dash_points = 5
+        for i in range(dash_points):
+            t = (i + 1) / dash_points
+            dx = int(cling_x + (target_x - cling_x) * t)
+            dy = int(cling_y + (target_y - cling_y) * t)
+            dot_r = max(1, 3 - i // 2)
+            dot_alpha_color = highlight_color if i >= dash_points - 2 else accent_color
+            pygame.draw.circle(surface, dot_alpha_color, (dx, dy), dot_r)
+
+        # 공 (우하단 타격 대상)
+        ball_r = s // 4
+        pygame.draw.circle(surface, shadow_color, (target_x + 1, target_y + 1), ball_r)
+        pygame.draw.circle(surface, main_color, (target_x, target_y), ball_r)
+        pygame.draw.circle(surface, highlight_color, (target_x - ball_r // 3, target_y - ball_r // 3), ball_r // 3)
+
+        # 임팩트 효과 (공 주변 방사선)
+        for angle in [0, 60, 120, 180, 240, 300]:
+            rad = math.radians(angle)
+            ix1 = target_x + int(math.cos(rad) * (ball_r + 2))
+            iy1 = target_y + int(math.sin(rad) * (ball_r + 2))
+            ix2 = target_x + int(math.cos(rad) * (ball_r + 5))
+            iy2 = target_y + int(math.sin(rad) * (ball_r + 5))
+            pygame.draw.line(surface, highlight_color, (ix1, iy1), (ix2, iy2), 1)
+
     elif skill_name == "dive_strike":
         # ⇓ 다이브 스트라이크: 급강하 착지 장판
         # 하향 화살표 (급강하 표현)
