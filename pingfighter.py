@@ -71884,11 +71884,27 @@ def handle_player(keys):
                         })
 
             elif _viper_dive_phase == 2:
-                # === 착지 충격파 지속 ===
+                # === 착지 연기 지속 — 연기 범위 내 공 타격 (방어용) ===
                 _viper_dive_shockwave_timer -= 1
                 if _viper_dive_shockwave_timer <= 0:
                     _viper_dive_active = False
                     _viper_dive_phase = 0
+                elif not _viper_dive_ball_boosted:
+                    # 연기 지속 중 매 프레임 범위 내 공 충돌 체크
+                    _dv2_dx = BALL.centerx - _viper_dive_shockwave_x
+                    _dv2_dy = BALL.centery - _viper_dive_shockwave_y
+                    _dv2_dist = math.hypot(_dv2_dx, _dv2_dy)
+                    if _dv2_dist <= _VIPER_DIVE_SHOCKWAVE_RADIUS:
+                        _height_ratio = min(1.0, _viper_dive_height_snapshot / _VIPER_JETPACK_MAX_HEIGHT)
+                        _boost_mult = 1.0 + _VIPER_DIVE_MIN_BOOST + _height_ratio * (_VIPER_DIVE_MAX_BOOST - _VIPER_DIVE_MIN_BOOST)
+                        ball_vel[0] *= _boost_mult
+                        ball_vel[1] *= _boost_mult
+                        _viper_dive_ball_boosted = True
+                        # DIVE STRIKE 텍스트 이펙트
+                        _viper_air_strike_text_timer = 60
+                        _viper_air_strike_text_x = _viper_dive_shockwave_x
+                        _viper_air_strike_text_y = _viper_dive_shockwave_y - 40
+                        _viper_air_strike_text_pct = int((_boost_mult - 1.0) * 100)
 
         # 급강하 파티클 업데이트
         if _viper_dive_particles:
