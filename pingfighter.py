@@ -76619,6 +76619,7 @@ def handle_player(keys):
     # 서브 대기 중에는 충돌 체크하지 않음
     global player_collision_handled, player_collision_cooldown, player_sound_cooldown, last_hit_by
     global mega_smashing_active, mega_smashing_meteor_trail, mega_smashing_ghosts, mega_smashing_ghost_scatter
+    global _viper_ss_kick_ready
 
     # ⚡ 버그 수정: 충돌 쿨다운 감소를 handle_player 시작에서 처리
     # handle_player가 handle_ball보다 먼저 실행되므로, 쿨다운 감소를 여기서 해야
@@ -77253,11 +77254,11 @@ def handle_player(keys):
         _player_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [플레이어 패들 충돌] calculate_bounce 후 속도: {_player_speed_before:.2f} → {_player_speed_after:.2f}, 쿨다운: player={player_collision_cooldown}, boss={boss_collision_cooldown}")  # 디버그 비활성화
 
-        # 🐍 바이퍼 쉐도우 스텝 직후 패들 타격 시 shadowkick.wav 재생
-        # 홀로그램 활성 중이거나, 쉐도우 스텝 발동 후 1초 이내
-        if selected_character_type == "viper" and _viper_ss_hologram_start_ms > 0:
+        # 🐍 바이퍼 쉐도우 스텝 후 첫 패들 타격 시 shadowkick.wav 재생
+        # 플래그 기반: 쉐도우 스텝 발동 시 _viper_ss_kick_ready=True → 첫 히트에 소모 (5초 타임아웃)
+        if selected_character_type == "viper" and _viper_ss_kick_ready:
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
-            if _sk_since < 1000:  # 1초 유예
+            if _sk_since < 5000:  # 5초 안전 타임아웃
                 try:
                     _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
                     if _sk_snd:
@@ -77270,6 +77271,7 @@ def handle_player(keys):
                     add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
                 except Exception:
                     pass
+            _viper_ss_kick_ready = False  # 1회 소모 (타임아웃 초과 시에도 리셋)
 
         # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가 + AIR STRIKE 이펙트)
         if selected_character_type == "viper" and _viper_jetpack_offset_y < -10:
