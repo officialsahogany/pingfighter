@@ -47690,7 +47690,7 @@ _VIPER_WALL_DIVE_GAUGE_COST = 80          # 게이지 소모
 _VIPER_WALL_DIVE_JUMP_MS = 350            # 벽으로 점프 시간 (ms)
 _VIPER_WALL_DIVE_CLING_MS = 250           # 벽 매달림 시간 (ms)
 _VIPER_WALL_DIVE_CHARGE_MS = 350          # 돌진 시간 (ms)
-_VIPER_WALL_DIVE_HIT_RADIUS = 60          # 공 히트 반경 (px)
+_VIPER_WALL_DIVE_HIT_RADIUS = 90          # 공 히트 반경 (px, 실시간 추적이므로 넉넉하게)
 
 # 바이퍼 스킬 공속 부스트 복귀 시스템
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
@@ -71913,12 +71913,9 @@ def handle_player(keys):
             if _wd_t >= 1.0:
                 _viper_wall_dive_phase = 2
                 _viper_wall_dive_start_ms = _wd_now
-                # 돌진 목표: 공 위치 방향으로 대각선 위 (보스 영역까지 가지 않도록 제한)
+                # 돌진 목표: 실시간 공 위치 추적 (매 프레임 갱신됨)
                 _viper_wall_dive_charge_target_x = float(BALL.centerx)
-                # Y는 공 방향이되 벽 위치에서 최대 250px 위까지만 (중앙선 이상 진입 방지)
-                _wd_target_y = float(BALL.centery)
-                _wd_min_y = max(250.0, _viper_wall_dive_wall_y - 250.0)
-                _viper_wall_dive_charge_target_y = max(_wd_min_y, _wd_target_y)
+                _viper_wall_dive_charge_target_y = float(BALL.centery)
                 _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
                 _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
                 _viper_wall_dive_web_lines = []  # 거미줄 제거
@@ -71932,9 +71929,12 @@ def handle_player(keys):
                     pass
 
         elif _viper_wall_dive_phase == 2:
-            # Phase 2: 공을 향해 돌진
+            # Phase 2: 공을 향해 돌진 (실시간 추적)
             _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_CHARGE_MS)
             _wd_ease = _wd_t * _wd_t  # ease-in (가속)
+            # 매 프레임 공의 실시간 위치로 목표 갱신
+            _viper_wall_dive_charge_target_x = float(BALL.centerx)
+            _viper_wall_dive_charge_target_y = float(BALL.centery)
             _wd_cx = _viper_wall_dive_charge_start_x + (_viper_wall_dive_charge_target_x - _viper_wall_dive_charge_start_x) * _wd_ease
             _wd_cy = _viper_wall_dive_charge_start_y + (_viper_wall_dive_charge_target_y - _viper_wall_dive_charge_start_y) * _wd_ease
             PLAYER.centerx = int(_wd_cx)
@@ -71948,7 +71948,7 @@ def handle_player(keys):
                     'life': _wd_rand.randint(8, 16), 'max_life': 16,
                     'size': _wd_rand.uniform(4, 10), 'type': 'charge',
                 })
-            # 공 충돌 판정
+            # 공 충돌 판정 (넓은 히트박스)
             if not _viper_wall_dive_ball_hit:
                 _wd_dist = math.hypot(BALL.centerx - _wd_cx, BALL.centery - _wd_cy)
                 if _wd_dist <= _VIPER_WALL_DIVE_HIT_RADIUS:
