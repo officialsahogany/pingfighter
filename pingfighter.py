@@ -157961,9 +157961,13 @@ def main(stage_num, new_boss_mode=False):
             profiler.end_section("Events")
             profiler.start_section("GameLogic")
         #  악마의 주사위 업데이트 (일시정지와 무관하게 항상 실행)
-        from item_effects.devil_dice import update_devil_dice, is_devil_dice_active, is_devil_dice_rolling
+        from item_effects.devil_dice import update_devil_dice, is_devil_dice_active, is_devil_dice_rolling, deactivate_devil_dice
         if is_devil_dice_active():
             update_devil_dice(current_stage)
+            # 악마의주사위 상태에서 내 연막탄 연막에 닿으면 즉시 해제
+            if not is_devil_dice_rolling() and is_player_in_smoke():
+                deactivate_devil_dice()
+                print("연막에 의해 악마의 주사위 효과가 해제되었습니다!")
 
         # ✨ 스매셔 클렌즈 스킬 업데이트 - 공 생성 애니메이션 중 일시정지
         if selected_character_type == "smasher" and not is_ball_spawn_animation_paused():
