@@ -71841,6 +71841,9 @@ def handle_player(keys):
                             _ds_snd.play()
                     except Exception:
                         pass
+                    # 착지 화면 흔들림
+                    screen_shake_timer = max(screen_shake_timer, 12)
+                    screen_shake_intensity = max(screen_shake_intensity, 4)
                     _viper_dive_shockwave_timer = _VIPER_DIVE_SHOCKWAVE_FRAMES
                     _viper_dive_shockwave_x = float(PLAYER.centerx)
                     # 착지 Y 계산
