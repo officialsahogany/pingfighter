@@ -71388,6 +71388,7 @@ def handle_player(keys):
         global _viper_nerve_strike_target_x, _viper_nerve_strike_target_y
         global _viper_nerve_strike_slash_shown, _viper_nerve_strike_combo_used
         global boss_confused_timer
+        global _viper_jetpack_offset_y
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
