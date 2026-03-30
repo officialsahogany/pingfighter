@@ -139646,6 +139646,7 @@ def calculate_bounce(paddle):
     global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global _viper_speed_boost_active, _viper_speed_boost_original
+    global _viper_ss_ball_touched  # 쉐도우 카운터 연계 플래그 (팬텀스트라이크에서 사용)
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
     global ragnarok_original_speed
