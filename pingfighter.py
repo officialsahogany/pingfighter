@@ -3707,6 +3707,13 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "poison_green"
     },
     {
+        "name": "dive_strike", "korean": "다이브 스트라이크", "cost": 150, "color": (255, 120, 50),
+        "symbol": "⇓", "cooldown": 20.0, "key": "체공+S/↓",
+        "description": "체공 중 급강하하여 착지 연기 장판을 생성합니다.\n연기에 닿은 공을 위로 반사 + 공속 증가.",
+        "how_to_use": "체공 중 S키 또는 ↓키로 발동",
+        "effect_type": "dive_impact"
+    },
+    {
         "name": "phantom_assault", "korean": "팬텀 어썰트", "cost": 120, "color": (160, 0, 255),
         "symbol": "✦", "cooldown": 20.0, "key": "R",
         "description": "5연속 잔상 돌진으로 공을 강타합니다.\n발동 중 무적 상태.",
@@ -3738,6 +3745,7 @@ _viper_skill_activation_times = {
     "nerve_strike": 0,
     "venom_edge": 0,
     "phantom_assault": 0,
+    "dive_strike": 0,
 }
 _viper_skill_was_active = {
     "shadow_step": False,
@@ -3745,6 +3753,7 @@ _viper_skill_was_active = {
     "nerve_strike": False,
     "venom_edge": False,
     "phantom_assault": False,
+    "dive_strike": False,
 }
 
 # 바이퍼 스킬 해금 상태
@@ -3756,6 +3765,7 @@ _viper_skill_unlocked = {
     "nerve_strike": False,    # 런타임 스킬로 해금 필요
     "venom_edge": False,      # 런타임 스킬로 해금 필요
     "phantom_assault": False,  # 런타임 스킬로 해금 필요
+    "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
 }
 
 # 툴팁 일시정지로 인한 쿨타임 정지 시간 추적
@@ -12856,6 +12866,17 @@ VIPER_EXCLUSIVE_SKILLS = {
         "tree": "viper_unlock",
         "character_restriction": "viper"
     },
+    "unlock_dive_strike": {
+        "name": "다이브 스트라이크 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "다이브 스트라이크 스킬 해금 (방어 장판)",
+        },
+        "detail": "체공 중 S/↓키로 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 20초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다.",
+        "icon_color": (255, 120, 50),
+        "tree": "viper_unlock",
+        "character_restriction": "viper"
+    },
 }
 
 # 코만도 화기류 해금 플래그 (런타임 스킬로 해금됨)
@@ -14956,6 +14977,10 @@ def recalculate_skill_effects(skill_id: str):
     elif skill_id == "unlock_phantom_assault":
         level = runtime_skill_levels.get("unlock_phantom_assault", 0)
         _viper_skill_unlocked["phantom_assault"] = level >= 1
+
+    elif skill_id == "unlock_dive_strike":
+        level = runtime_skill_levels.get("unlock_dive_strike", 0)
+        _viper_skill_unlocked["dive_strike"] = level >= 1
 
     # 퍽 월계수잎: 잎 개수 재계산 (신성월계수 보너스 포함)
     elif skill_id == "perk_laurel_shield":
@@ -71781,8 +71806,12 @@ def handle_player(keys):
                 or keys[pygame.K_a] or keys[pygame.K_d]
                 or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
             )
-            if _dive_s_input and not _dive_dir_held and special_gauge >= _VIPER_DIVE_GAUGE_COST:
+            if (_dive_s_input and not _dive_dir_held
+                    and special_gauge >= _VIPER_DIVE_GAUGE_COST
+                    and is_viper_skill_unlocked("dive_strike")
+                    and get_viper_skill_cooldown_remaining("dive_strike") <= 0):
                 special_gauge -= _VIPER_DIVE_GAUGE_COST
+                trigger_viper_skill_cooldown("dive_strike")
                 _viper_dive_active = True
                 _viper_dive_phase = 0  # 도움닫기 자세 (0.5초 공중 정지)
                 _viper_dive_start_ms = pygame.time.get_ticks()
