@@ -47657,7 +47657,7 @@ _viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (�
 _VIPER_DIVE_PREP_MS = 300              # 준비동작 시간 (0.3초)
 _VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
 _VIPER_DIVE_GAUGE_COST = 120           # 게이지 소모량
-_VIPER_DIVE_SHOCKWAVE_RADIUS = 400     # 충격파 X축 범위 (px)
+_VIPER_DIVE_SHOCKWAVE_RADIUS = WIDTH    # 충격파 X축 범위 — 전체 화면 커버
 _VIPER_DIVE_SHOCKWAVE_HEIGHT = 120     # 충격파 Y축 범위 (px, 바닥 기준 위로)
 _VIPER_DIVE_SHOCKWAVE_FRAMES = 60      # 착지 연기 지속 프레임 (1초)
 _VIPER_DIVE_MIN_BOOST = 0.2            # 최소 공속 보너스 (20%)
@@ -71983,11 +71983,9 @@ def handle_player(keys):
 
                     # 공 속도 부스트 (범위 내 공에 적용 — X축 넓고 Y축 좁은 바닥 장판)
                     if not _viper_dive_ball_boosted:
-                        _dv_ball_cx = BALL.centerx
                         _dv_ball_cy = BALL.centery
-                        _dv_dx = abs(_dv_ball_cx - _viper_dive_shockwave_x)
                         _dv_dy = _viper_dive_shockwave_y - _dv_ball_cy  # 양수 = 공이 위에 있음
-                        if _dv_dx <= _VIPER_DIVE_SHOCKWAVE_RADIUS and 0 <= _dv_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
+                        if 0 <= _dv_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
                             # 공을 위로 반사 (속도 변화 없음)
                             ball_vel[1] = -abs(ball_vel[1])
                             _viper_dive_ball_boosted = True
@@ -72023,10 +72021,9 @@ def handle_player(keys):
                     _viper_dive_active = False
                     _viper_dive_phase = 0
                 elif not _viper_dive_ball_boosted:
-                    # 연기 지속 중 매 프레임 범위 내 공 충돌 체크 (X축 넓고 Y축 좁은 바닥 장판)
-                    _dv2_dx = abs(BALL.centerx - _viper_dive_shockwave_x)
+                    # 연기 지속 중 매 프레임 범위 내 공 충돌 체크 (X축 전체, Y축 좁은 바닥 장판)
                     _dv2_dy = _viper_dive_shockwave_y - BALL.centery  # 양수 = 공이 위에 있음
-                    if _dv2_dx <= _VIPER_DIVE_SHOCKWAVE_RADIUS and 0 <= _dv2_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
+                    if 0 <= _dv2_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
                         # 공을 위로 반사 (속도 변화 없음)
                         ball_vel[1] = -abs(ball_vel[1])
                         _viper_dive_ball_boosted = True
