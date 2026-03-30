@@ -77112,14 +77112,17 @@ def handle_player(keys):
         # print(f"🔍 [플레이어 패들 충돌] calculate_bounce 후 속도: {_player_speed_before:.2f} → {_player_speed_after:.2f}, 쿨다운: player={player_collision_cooldown}, boss={boss_collision_cooldown}")  # 디버그 비활성화
 
         # 🐍 바이퍼 쉐도우 스텝 직후 패들 타격 시 shadowkick.wav 재생
-        if selected_character_type == "viper" and _viper_ss_hologram_active:
-            try:
-                _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                if _sk_snd:
-                    _sk_snd.set_volume(0.6)
-                    _sk_snd.play()
-            except Exception:
-                pass
+        # 홀로그램 활성 중이거나, 쉐도우 스텝 발동 후 1초 이내
+        if selected_character_type == "viper" and _viper_ss_hologram_start_ms > 0:
+            _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
+            if _sk_since < 1000:  # 1초 유예
+                try:
+                    _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
+                    if _sk_snd:
+                        _sk_snd.set_volume(0.6)
+                        _sk_snd.play()
+                except Exception:
+                    pass
 
         # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가 + AIR STRIKE 이펙트)
         if selected_character_type == "viper" and _viper_jetpack_offset_y < -10:
