@@ -639,7 +639,7 @@ def check_weather_event_on_round_start():
         else:
             weather_event_type = "sand"
             weather_event_direction = 0  # 사막화는 방향 없음
-            weather_event_remaining_rounds = _weighted_weather_duration()
+            weather_event_remaining_rounds = 1  # 사막화는 딱 1턴만 지속
             weather_warning_text = _t("weather.sand", "사막화!")
 
         weather_warning_timer = 180  # 3 seconds
