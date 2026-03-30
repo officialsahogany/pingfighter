@@ -119,6 +119,7 @@ SOUND_PATHS = {
     "VIPER_JETPACK": "sounds/jetpack.wav",
     "VIPER_BACKSTEP": "sounds/backstep.wav",
     "VIPER_BLADE_SPIN": "sounds/bladeafter.wav",
+    "VIPER_VENOM_ATTACK": "sounds/venomattack.wav",
 }
 
 

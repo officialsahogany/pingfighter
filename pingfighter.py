@@ -72167,6 +72167,14 @@ def handle_player(keys):
 
             if not _viper_nerve_strike_slash_shown and _ns_elapsed >= 100:
                 _viper_nerve_strike_slash_shown = True
+                # 베기 사운드 재생
+                try:
+                    _va_snd = sound_effects.get('VIPER_VENOM_ATTACK')
+                    if _va_snd:
+                        _va_snd.set_volume(0.6)
+                        _va_snd.play()
+                except Exception:
+                    pass
                 # 베기 이펙트 — 보스 위치에 충격파
                 try:
                     effects_manager.spawn_shockwave(
