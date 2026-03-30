@@ -72047,7 +72047,7 @@ def handle_player(keys):
                         _viper_air_strike_text_timer = 60
                         _viper_air_strike_text_x = _viper_dive_shockwave_x
                         _viper_air_strike_text_y = _viper_dive_shockwave_y - 40
-                        _viper_air_strike_text_pct = int((_boost_mult - 1.0) * 100)
+                        _viper_air_strike_text_pct = 0
 
         # 도움닫기 자세 중 자연 하강 상쇄 (공중 정지 유지)
         if _viper_dive_active and _viper_dive_phase == 0 and _viper_jetpack_offset_y < 0:
