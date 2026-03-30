@@ -3688,8 +3688,8 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "blade_rush", "korean": "에어 블레이드", "cost": 200, "color": (200, 50, 255),
         "symbol": "⚔", "cooldown": 16.0, "key": "W/↑",
-        "description": "전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 30~50% 증가합니다.",
-        "how_to_use": "W키 또는 ↑키로 발동",
+        "description": "체공 중 전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 30~50% 증가합니다.",
+        "how_to_use": "체공 중 W키 또는 ↑키로 발동",
         "effect_type": "slash_purple"
     },
     {
@@ -71544,8 +71544,8 @@ def handle_player(keys):
                     except Exception:
                         pass
 
-                # 일반 에어 블레이드 발동
-                elif is_viper_skill_unlocked("blade_rush"):
+                # 일반 에어 블레이드 발동 (체공 중에만 발동 가능)
+                elif is_viper_skill_unlocked("blade_rush") and _viper_jetpack_offset_y < 0:
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
                         if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                             _viper_w_key_released = False
