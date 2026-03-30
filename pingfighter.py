@@ -105990,9 +105990,9 @@ def draw_objects():
                                 (PLAYER.centerx - _jg_w, PLAYER.bottom - _jg_h + 2),
                                 special_flags=pygame.BLEND_ADD)
 
-            # 높이 인디케이터 (패들 왼쪽에 작은 고도 바)
+            # 체공 잔여시간 인디케이터 (패들 왼쪽에 세로 게이지 바)
             if _viper_jetpack_offset_y < -5 or _viper_jetpack_active:
-                _alt_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
+                _remain_ratio = max(0.0, 1.0 - _viper_jetpack_hold_timer / _VIPER_JETPACK_MAX_HOLD_FRAMES)
                 _alt_bar_h = 40
                 _alt_bar_w = 3
                 _alt_x = PLAYER.left - 8
@@ -106001,13 +106001,21 @@ def draw_objects():
                 _alt_bg = pygame.Surface((_alt_bar_w + 2, _alt_bar_h + 2), pygame.SRCALPHA)
                 _alt_bg.fill((0, 0, 0, 80))
                 SCREEN.blit(_alt_bg, (_alt_x - 1, _alt_y - 1))
-                # 채워진 바 (아래→위, 시안→퍼플 그라데이션)
-                _alt_fill_h = max(1, int(_alt_bar_h * _alt_ratio))
+                # 채워진 바 (아래→위, 잔여량에 따라 시안→빨강 색상 변화)
+                _alt_fill_h = max(1, int(_alt_bar_h * _remain_ratio))
                 for _ai in range(_alt_fill_h):
-                    _a_ratio = _ai / max(1, _alt_fill_h)
-                    _a_r = int(0 + 160 * _a_ratio)
-                    _a_g = int(255 * (1.0 - _a_ratio * 0.5))
-                    _a_b = int(200 + 55 * _a_ratio)
+                    _a_pct = _ai / max(1, _alt_bar_h)  # 바 내 위치 비율
+                    if _remain_ratio > 0.3:
+                        # 여유 있음: 시안 → 퍼플
+                        _a_r = int(0 + 160 * _a_pct)
+                        _a_g = int(255 * (1.0 - _a_pct * 0.5))
+                        _a_b = int(200 + 55 * _a_pct)
+                    else:
+                        # 과열 임박: 빨강 깜빡임
+                        _blink = 0.6 + 0.4 * math.sin(pygame.time.get_ticks() / 80.0)
+                        _a_r = int(255 * _blink)
+                        _a_g = int(60 * _remain_ratio / 0.3)
+                        _a_b = 0
                     pygame.draw.line(SCREEN, (_a_r, _a_g, _a_b),
                                      (_alt_x, _alt_y + _alt_bar_h - _ai),
                                      (_alt_x + _alt_bar_w, _alt_y + _alt_bar_h - _ai))
