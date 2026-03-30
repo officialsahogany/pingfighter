@@ -71545,8 +71545,8 @@ def handle_player(keys):
                             _ss_afterimage_surf = pygame.Surface((PLAYER.width, PLAYER.height), pygame.SRCALPHA)
                             _ss_afterimage_surf.fill((100, 0, 180, 120))
                             dash_afterimages.append({
-                                'x': PLAYER.centerx - PLAYER.width // 2,
-                                'y': PLAYER.centery - PLAYER.height // 2,
+                                'x': PLAYER.centerx,
+                                'y': PLAYER.centery,
                                 'alpha': 200,
                                 'image': _ss_afterimage_surf,
                                 'life': 30,  # 홀로그램 동안 유지
@@ -109024,16 +109024,18 @@ def draw_objects():
         SCREEN.blit(afterimage_surf, afterimage_rect.topleft)
         # 바이퍼 쉐도우 스텝 잔상 — 공 충돌 판정
         if afterimage.get('viper_ss') and not afterimage.get('hit_ball'):
+            _ai_w = afterimage.get('width', 80)
+            _ai_h = afterimage.get('height', 40)
             _ai_rect = pygame.Rect(
-                afterimage['x'], afterimage['y'],
-                afterimage.get('width', 80), afterimage.get('height', 40)
+                afterimage['x'] - _ai_w // 2, afterimage['y'] - _ai_h // 2,
+                _ai_w, _ai_h
             )
             if _ai_rect.colliderect(BALL):
                 afterimage['hit_ball'] = True
                 # 커브 적용 (에너지파와 동일)
                 _viper_ps_curve_active = True
                 _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-                _ai_cx = afterimage['x'] + afterimage.get('width', 80) // 2
+                _ai_cx = afterimage['x']
                 _viper_ps_curve_direction = 1 if BALL.centerx > _ai_cx else -1
                 # 골드 보너스
                 try:
