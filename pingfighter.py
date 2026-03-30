@@ -31534,9 +31534,10 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 
 # ========== 바이퍼 절차적 렌더링 (사이버 어쌔신) ==========
 
-def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
+def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0) -> pygame.Surface:
     """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
-    다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프."""
+    다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프.
+    kick_direction: 0=일반, -1=왼쪽 발차기, 1=오른쪽 발차기 (쉐도우 스텝용)"""
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     b = 8
     cx = surface.get_width() // 2
@@ -31555,6 +31556,25 @@ def create_viper_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     right_leg_step = -left_leg_step
     left_leg_lift = -int(max(0.0, wave) * 6)   # 다리 들어올림 확대 (3→6)
     right_leg_lift = -int(max(0.0, -wave) * 6)
+
+    # 쉐도우 스텝 발차기 포즈: 한쪽 다리를 높이 옆으로 뻗음
+    if kick_direction != 0:
+        torso_bob = 0
+        arm_swing = 0
+        shoulder_tilt = int(-kick_direction * 3)  # 킥 반대쪽으로 몸 기울기
+        lean_forward = 0
+        if kick_direction < 0:
+            # 왼쪽 킥: 왼쪽 다리를 왼쪽 위로 높이 뻗음
+            left_leg_step = -28   # 왼쪽으로 크게 뻗음
+            left_leg_lift = -18   # 높이 올림 (태권도 옆차기)
+            right_leg_step = 4    # 축발은 약간 안정
+            right_leg_lift = 0
+        else:
+            # 오른쪽 킥: 오른쪽 다리를 오른쪽 위로 높이 뻗음
+            right_leg_step = 28
+            right_leg_lift = -18
+            left_leg_step = -4
+            left_leg_lift = 0
 
     ty = base_y + torso_bob
 
@@ -47487,6 +47507,7 @@ _viper_ss_hologram_start_ms = 0      # 연출 시작 시각
 _viper_ss_hologram_target_x = 0      # 텔레포트 목표 X
 _viper_ss_hologram_origin_x = 0      # 텔레포트 출발 X (원래 위치)
 _viper_ss_hologram_origin_y = 0      # 출발 Y
+_viper_ss_hologram_kick_dir = 0     # 텔레포트 방향 (발차기 포즈용, -1=왼, 1=오)
 _VIPER_SS_HOLOGRAM_DURATION = 500    # 홀로그램 등장 시간 (ms)
 
 # === 바이퍼 쉐도우 스텝 에너지파 (출발점→도착점, 공 히트 시 팬텀 스트라이크) ===
@@ -71377,7 +71398,7 @@ def handle_player(keys):
         global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
         global _viper_br_jump_offset_y, _viper_br_arm_raise
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
-        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x
+        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_ss_hologram_kick_dir
         global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
@@ -71486,6 +71507,7 @@ def handle_player(keys):
                         _viper_ss_hologram_active = True
                         _viper_ss_hologram_start_ms = pygame.time.get_ticks()
                         _viper_ss_hologram_target_x = _ss_new_x
+                        _viper_ss_hologram_kick_dir = _ss_reverse_dir  # 발차기 방향
 
                         # 팬텀 스트라이크 버프 활성화 (0.3초간 다음 타격 강화)
                         _viper_phantom_strike_active = True
@@ -105899,8 +105921,8 @@ def draw_objects():
                 _holo_x = int(_viper_ss_hologram_target_x)
                 _holo_y = int(_viper_ss_hologram_origin_y)
 
-                # 바이퍼 원본 Surface
-                _holo_base = create_viper_paddle_surface(0.0)
+                # 바이퍼 원본 Surface (쉐도우 스텝 시 발차기 포즈)
+                _holo_base = create_viper_paddle_surface(0.0, kick_direction=_viper_ss_hologram_kick_dir)
                 _holo_w, _holo_h = _holo_base.get_size()
 
                 # 이징 함수: 느리게 시작 → 빠르게 마무리 (ease-in-out)
