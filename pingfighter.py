@@ -71790,6 +71790,7 @@ def handle_player(keys):
                         _viper_ss_hologram_kick_dir = _ss_reverse_dir  # 발차기 방향
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
                         _viper_ss_ball_touched = False  # 공 히트 추적 초기화 (카운터 연계 조건)
+                        print(f"[DEBUG 쉐도우체인 1/4] 쉐도우 스텝 발동! hologram_start={_viper_ss_hologram_start_ms}, ball_touched=False으로 초기화")
 
                         # 팬텀 스트라이크 버프 활성화 (0.3초간 다음 타격 강화)
                         _viper_phantom_strike_active = True
@@ -71918,8 +71919,22 @@ def handle_player(keys):
         _viper_wall_dive_ready_timer -= 1
         if _viper_wall_dive_ready_timer <= 0:
             _viper_wall_dive_ready = False
+            print(f"[DEBUG 쉐도우체인 ✗] 카운터 윈도우 만료! 3초 내 S키 미입력")
 
     # 쉐도우 카운터 발동: 연계 윈도우 중 S/↓키 단독 입력
+    if selected_character_type == "viper" and _viper_wall_dive_ready and not _viper_wall_dive_active:
+        # 조건 블록 디버그
+        _sc_blockers = []
+        if is_odins_eye_transformed(): _sc_blockers.append("오딘변신")
+        if rolling_active: _sc_blockers.append("대쉬중")
+        if _viper_dive_active: _sc_blockers.append("다이브중")
+        if _viper_nerve_strike_active: _sc_blockers.append("신경타격중")
+        if _viper_br_spin_active: _sc_blockers.append("스핀중")
+        if is_waiting_for_serve: _sc_blockers.append("서브대기")
+        if is_player_serve: _sc_blockers.append("플레이어서브")
+        if player_stunned: _sc_blockers.append("스턴")
+        if _sc_blockers:
+            print(f"[DEBUG 쉐도우체인 ✗] 카운터 준비됐지만 블로커: {', '.join(_sc_blockers)}, timer={_viper_wall_dive_ready_timer}")
     if (selected_character_type == "viper" and not is_odins_eye_transformed()
             and _viper_wall_dive_ready and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
@@ -71931,9 +71946,15 @@ def handle_player(keys):
             or keys[pygame.K_a] or keys[pygame.K_d]
             or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
         )
+        if _wd_s_input and not _wd_dir_held:
+            if special_gauge < _VIPER_WALL_DIVE_GAUGE_COST:
+                print(f"[DEBUG 쉐도우체인 ✗] S키 입력했지만 게이지 부족! gauge={special_gauge} < cost={_VIPER_WALL_DIVE_GAUGE_COST}")
+            elif not is_viper_skill_unlocked("shadow_step"):
+                print(f"[DEBUG 쉐도우체인 ✗] S키 입력했지만 스킬 미해금!")
         if (_wd_s_input and not _wd_dir_held
                 and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST
                 and is_viper_skill_unlocked("shadow_step")):
+            print(f"[DEBUG 쉐도우체인 4/4] ✅ 쉐도우 카운터 발동 성공! gauge={special_gauge}")
             special_gauge -= _VIPER_WALL_DIVE_GAUGE_COST
             _viper_wall_dive_ready = False
             _viper_wall_dive_ready_timer = 0
@@ -72513,6 +72534,7 @@ def handle_player(keys):
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
                     _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
+                    print(f"[DEBUG 쉐도우체인 2/4] 에너지파로 공 히트! ball_touched=True, elapsed={pygame.time.get_ticks()-_viper_ss_hologram_start_ms}ms")
                     # 🪙 쉐도우 스텝 에너지파 타격 골드 보너스
                     try:
                         add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
@@ -109529,6 +109551,7 @@ def draw_objects():
             if _ai_rect.colliderect(BALL):
                 afterimage['hit_ball'] = True
                 _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
+                print(f"[DEBUG 쉐도우체인 2/4] 잔상으로 공 히트! ball_touched=True, elapsed={pygame.time.get_ticks()-_viper_ss_hologram_start_ms}ms")
                 # 공을 위로 반사 (잔상이 패들 역할)
                 ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
                 # 커브 적용 (에너지파와 동일)
@@ -139723,6 +139746,7 @@ def calculate_bounce(paddle):
         # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 스텝 직후 0.3초 내 타격 시 공속 80% 증가 + 신비한 커브
         if _viper_phantom_strike_active and selected_character_type == "viper":
             _viper_ss_ball_touched = True  # 카운터 연계 조건 충족 (패들로 직접 타격)
+            print(f"[DEBUG 쉐도우체인 2/4] 패들 팬텀스트라이크로 공 히트! ball_touched=True, elapsed={pygame.time.get_ticks()-_viper_ss_hologram_start_ms}ms")
             _viper_phantom_strike_active = False  # 1회 소모
             _viper_phantom_strike_timer = 0
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -146544,6 +146568,10 @@ def handle_ball():
                 _viper_wall_dive_ready = True
                 _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
                 _viper_ss_ball_touched = False  # 1회 소모
+                print(f"[DEBUG 쉐도우체인 3/4] 보스 반격 감지! wall_dive_ready=True, elapsed={_sc_since}ms, timer={_VIPER_WALL_DIVE_READY_FRAMES}f")
+            else:
+                _viper_ss_ball_touched = False
+                print(f"[DEBUG 쉐도우체인 3/4] 보스 반격 but 5초 초과! elapsed={_sc_since}ms → 연계 실패")
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
