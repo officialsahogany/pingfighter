@@ -71924,7 +71924,6 @@ def handle_player(keys):
             and _viper_wall_dive_ready and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
             and not _viper_nerve_strike_active and not _viper_br_spin_active
-            and not _viper_ss_hologram_active
             and not is_waiting_for_serve and not is_player_serve and not player_stunned):
         _wd_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
         _wd_dir_held = (
