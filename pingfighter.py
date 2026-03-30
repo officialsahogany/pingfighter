@@ -5132,8 +5132,8 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     unlocked_main_skills = []
     ultimate_skill_data = None
 
-    # 메인 스킬 순서 (왼쪽 4슬롯)
-    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "venom_edge"]
+    # 메인 스킬 순서 (왼쪽 슬롯)
+    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "venom_edge", "dive_strike"]
 
     for skill_name in main_skill_order:
         for skill_data in VIPER_SKILL_ICONS_DATA:
@@ -5151,9 +5151,9 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
 
     num_unlocked = len(unlocked_main_skills)
 
-    MAX_LEFT_SLOTS = 4
+    MAX_LEFT_SLOTS = 5
     base_angle = 165
-    angle_step = 30
+    angle_step = 25  # 5슬롯 간격 좁힘
     all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
     ultimate_angle = 330  # 우측 상단
 
