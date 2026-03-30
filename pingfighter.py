@@ -3686,7 +3686,7 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "shadow_teleport"
     },
     {
-        "name": "blade_rush", "korean": "블레이드 러쉬", "cost": 200, "color": (200, 50, 255),
+        "name": "blade_rush", "korean": "에어 블레이드", "cost": 200, "color": (200, 50, 255),
         "symbol": "⚔", "cooldown": 16.0, "key": "W/↑",
         "description": "전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 30~50% 증가합니다.",
         "how_to_use": "W키 또는 ↑키로 발동",
@@ -3695,8 +3695,8 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "nerve_strike", "korean": "베놈 엣지", "cost": 80, "color": (180, 0, 220),
         "symbol": "◈", "cooldown": 0.0, "key": "W/↑(연계)",
-        "description": "블레이드 러쉬 착지 전 W/↑키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
-        "how_to_use": "블레이드 러쉬 사용 후 착지 전 W/↑키",
+        "description": "에어 블레이드 착지 전 W/↑키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
+        "how_to_use": "에어 블레이드 사용 후 착지 전 W/↑키",
         "effect_type": "stun_purple"
     },
     {
@@ -3748,7 +3748,7 @@ _viper_skill_was_active = {
 }
 
 # 바이퍼 스킬 해금 상태
-# 쉐도우 스텝, 블레이드 러쉬는 기본 해금
+# 쉐도우 스텝, 에어 블레이드는 기본 해금
 # 나머지는 런타임 스킬로 해금 필요
 _viper_skill_unlocked = {
     "shadow_step": True,      # 기본 해금
@@ -4660,7 +4660,7 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
                         (cx + s//6, cy - s//5), (cx - s//8, cy + s//5), 2)
 
     elif skill_name == "blade_rush":
-        # ⚔ 블레이드 러쉬: 3연속 플라즈마 슬래시
+        # ⚔ 에어 블레이드: 3연속 플라즈마 슬래시
         # 3개의 대각선 베기 자국
         slash_offsets = [(-s//3, 0), (0, 0), (s//3, 0)]
         for idx, (ox, oy) in enumerate(slash_offsets):
@@ -12827,9 +12827,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "베놈 엣지 해금",
         "max_level": 1,
         "descriptions": {
-            1: "베놈 엣지 스킬 해금 (블레이드 러쉬 연계기)",
+            1: "베놈 엣지 스킬 해금 (에어 블레이드 연계기)",
         },
-        "detail": "블레이드 러쉬 연계기 '베놈 엣지'를 해금합니다. 블레이드 러쉬 착지 전 클릭/Space로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 베고 복귀합니다. 5초간 보스 혼란.",
+        "detail": "에어 블레이드 연계기 '베놈 엣지'를 해금합니다. 에어 블레이드 착지 전 클릭/Space로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 베고 복귀합니다. 5초간 보스 혼란.",
         "icon_color": (180, 0, 220),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -13959,7 +13959,7 @@ def reset_runtime_skill_system():
     # 스매셔 스킬 해금 상태 초기화 (드라이브, 파워스매싱만 기본 해금)
     reset_smasher_skill_unlocks()
 
-    # 바이퍼 스킬 해금 상태 초기화 (쉐도우 스텝, 블레이드 러쉬만 기본 해금)
+    # 바이퍼 스킬 해금 상태 초기화 (쉐도우 스텝, 에어 블레이드만 기본 해금)
     reset_viper_skill_unlocks()
 
     # print("[RuntimeSkill] 런타임 스킬 시스템 초기화")  # 디버그 비활성화
@@ -47453,7 +47453,7 @@ _viper_e_key_released = True
 _viper_q_key_released = True
 _viper_r_key_released = True
 
-# === 바이퍼 블레이드 러쉬 검기 투사체 ===
+# === 바이퍼 에어 블레이드 검기 투사체 ===
 _viper_blade_rush_active = False      # 검기 활성 여부
 _viper_blade_rush_x = 0.0            # 검기 중심 X
 _viper_blade_rush_y = 0.0            # 검기 선단 Y (위로 이동)
@@ -47467,7 +47467,7 @@ _viper_blade_rush_fadeout = False    # 페이드아웃 중 여부
 _viper_blade_rush_fadeout_timer = 0  # 페이드아웃 남은 프레임
 _VIPER_BLADE_RUSH_FADEOUT_FRAMES = 30  # 페이드아웃 지속 (0.5초)
 
-# === 바이퍼 블레이드 러쉬 회전/정지 연출 ===
+# === 바이퍼 에어 블레이드 회전/정지 연출 ===
 _viper_br_spin_active = False        # 회전 연출 활성
 _viper_br_spin_start_ms = 0          # 회전 시작 시각 (ms)
 _viper_br_spin_phase = 0             # 현재 연출 단계: 0=회전, 1=감속, 2=정지(숨내쉬기)
@@ -47514,10 +47514,10 @@ _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
 
 # 바이퍼 스킬 공속 부스트 복귀 시스템
-_viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/블레이드 러쉬)
+_viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
 _viper_speed_boost_original = 0.0     # 부스트 전 원래 공속
 
-# === 바이퍼 신경 타격 (블레이드 러쉬 연계기) ===
+# === 바이퍼 신경 타격 (에어 블레이드 연계기) ===
 _viper_nerve_strike_active = False       # 연계기 애니메이션 활성
 _viper_nerve_strike_phase = 0            # 0=돌진, 1=등뒤 베기, 2=복귀
 _viper_nerve_strike_start_ms = 0         # 애니메이션 시작 시각
@@ -47526,7 +47526,7 @@ _viper_nerve_strike_origin_y = 0.0       # 돌진 전 원래 Y
 _viper_nerve_strike_target_x = 0.0       # 보스 등뒤 X
 _viper_nerve_strike_target_y = 0.0       # 보스 등뒤 Y (보스 뒤)
 _viper_nerve_strike_slash_shown = False   # 베기 이펙트 표시 여부
-_viper_nerve_strike_combo_used = False    # 이번 블레이드 러쉬에서 연계기 사용했는지
+_viper_nerve_strike_combo_used = False    # 이번 에어 블레이드에서 연계기 사용했는지
 _VIPER_NS_DASH_DURATION = 500            # 돌진 시간 (ms) — 보스가 피할 여유 있음
 _VIPER_NS_SLASH_DURATION = 300           # 등뒤 베기 연출 시간 (ms)
 _VIPER_NS_RETURN_DURATION = 150          # 복귀 시간 (ms) — 빠른 귀환
@@ -71368,7 +71368,7 @@ def handle_player(keys):
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
 
-    # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 블레이드 러쉬/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
+    # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 에어 블레이드/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
@@ -71389,7 +71389,7 @@ def handle_player(keys):
         global _viper_nerve_strike_slash_shown, _viper_nerve_strike_combo_used
         global boss_confused_timer
 
-        _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (블레이드 러쉬/베놈 엣지)
+        _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
         _viper_q_pressed = keys[pygame.K_q]
         _viper_r_pressed = keys[pygame.K_r]
@@ -71397,7 +71397,7 @@ def handle_player(keys):
         _viper_s_pressed = keys[pygame.K_s]
 
         # 키 릴리즈 감지 (연속 발동 방지)
-        # 서브 중에는 릴리즈 플래그를 리셋하여 서브 발사 직후 블레이드 러쉬 오발동 방지
+        # 서브 중에는 릴리즈 플래그를 리셋하여 서브 발사 직후 에어 블레이드 오발동 방지
         if is_waiting_for_serve or is_player_serve:
             _viper_w_key_released = False
         elif not _viper_w_pressed:
@@ -71506,9 +71506,9 @@ def handle_player(keys):
                         _viper_ss_wave_trail.clear()
 
         elif _viper_can_act:
-            # 블레이드 러쉬 (W/↑키) — 전방으로 검기 발사 또는 베놈 엣지 연계
+            # 에어 블레이드 (W/↑키) — 전방으로 검기 발사 또는 베놈 엣지 연계
             if _viper_w_pressed and _viper_w_key_released:
-                # 연계기 판정: 블레이드 러쉬 Phase 2 하강 구간 (검기 발사 후 내려올 때 ~ 착지 전)
+                # 연계기 판정: 에어 블레이드 Phase 2 하강 구간 (검기 발사 후 내려올 때 ~ 착지 전)
                 _ns_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
                 if (_viper_br_spin_active and _viper_br_spin_phase == 2
                         and _ns_br_elapsed >= 300  # 점프 정점 이후 (하강 시작)
@@ -71530,7 +71530,7 @@ def handle_player(keys):
                     _viper_nerve_strike_target_y = float(BOSS.centery - 40)  # 보스 등뒤 (위쪽)
                     _viper_nerve_strike_slash_shown = False
 
-                    # 블레이드 러쉬 스핀 종료 (연계기로 전환)
+                    # 에어 블레이드 스핀 종료 (연계기로 전환)
                     _viper_br_spin_active = False
                     _viper_br_spin_angle = 0.0
                     _viper_br_jump_offset_y = 0.0
@@ -71544,14 +71544,14 @@ def handle_player(keys):
                     except Exception:
                         pass
 
-                # 일반 블레이드 러쉬 발동
+                # 일반 에어 블레이드 발동
                 elif is_viper_skill_unlocked("blade_rush"):
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
                         if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                             _viper_w_key_released = False
                             special_gauge -= 200
                             trigger_viper_skill_cooldown("blade_rush")
-                            _viper_nerve_strike_combo_used = False  # 새 블레이드 러쉬에서 연계기 초기화
+                            _viper_nerve_strike_combo_used = False  # 새 에어 블레이드에서 연계기 초기화
 
                             # 회전 연출 시작 (회전 → 감속 → 정지 후 검기 발사)
                             _viper_br_spin_active = True
@@ -71612,7 +71612,7 @@ def handle_player(keys):
         global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
         global _viper_dive_ball_boosted
 
-        # 입력 감지: Space/좌클릭 홀드 (서브 대기/스턴/신경 타격/블레이드 러쉬 스핀/과열/급강하 중에는 비활성)
+        # 입력 감지: Space/좌클릭 홀드 (서브 대기/스턴/신경 타격/에어 블레이드 스핀/과열/급강하 중에는 비활성)
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
                 or _viper_nerve_strike_active or _viper_br_spin_active
@@ -71943,7 +71943,7 @@ def handle_player(keys):
             except Exception:
                 pass
 
-    # 바이퍼 블레이드 러쉬 회전/정지 연출 업데이트
+    # 바이퍼 에어 블레이드 회전/정지 연출 업데이트
     if _viper_br_spin_active:
         _br_now = pygame.time.get_ticks()
         _br_elapsed = _br_now - _viper_br_spin_start_ms
@@ -72024,7 +72024,7 @@ def handle_player(keys):
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
 
-    # 바이퍼 블레이드 러쉬 검기 업데이트 (매 프레임)
+    # 바이퍼 에어 블레이드 검기 업데이트 (매 프레임)
     if _viper_blade_rush_active:
         _br_speed_per_frame = 12.0  # 검기 이동 속도 (px/frame)
         _viper_blade_rush_y -= _br_speed_per_frame  # 위로 이동
@@ -72075,7 +72075,7 @@ def handle_player(keys):
             _viper_blade_rush_fadeout = True
             _viper_blade_rush_fadeout_timer = _VIPER_BLADE_RUSH_FADEOUT_FRAMES
 
-    # 바이퍼 블레이드 러쉬 페이드아웃 타이머
+    # 바이퍼 에어 블레이드 페이드아웃 타이머
     if _viper_blade_rush_fadeout:
         _viper_blade_rush_fadeout_timer -= 1
         if _viper_blade_rush_fadeout_timer <= 0:
@@ -76332,7 +76332,7 @@ def handle_player(keys):
                 effective_max_speed = 6.0  # 스매셔 기본 이동속도 6
             elif selected_character_type == "viper":
                 if _viper_br_spin_active:
-                    effective_max_speed = 0.0  # 블레이드 러쉬 연출 중 이동 불가
+                    effective_max_speed = 0.0  # 에어 블레이드 연출 중 이동 불가
                 else:
                     effective_max_speed = 4.0  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
             else:
@@ -105605,7 +105605,7 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
-    # ⚔ 바이퍼 블레이드 러쉬 검기 렌더링 (Ultra Premium Crescent Blade Wave)
+    # ⚔ 바이퍼 에어 블레이드 검기 렌더링 (Ultra Premium Crescent Blade Wave)
     if _viper_blade_rush_active:
         try:
             _br_cx = int(_viper_blade_rush_x)
@@ -108407,7 +108407,7 @@ def draw_objects():
         elif selected_character_type == "viper":
             # 바이퍼: 절차적 렌더링 (전용 걷기 상태 사용)
             if _viper_br_spin_active:
-                # 블레이드 러쉬 연출 중
+                # 에어 블레이드 연출 중
                 if _viper_br_spin_phase == 2:
                     # 정지 단계: 숨내쉬기 + 팔 서서히 내림
                     _rest_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms
@@ -108658,7 +108658,7 @@ def draw_objects():
             pivot_point.y += delta_y
 
     else:
-        # 바이퍼 블레이드 러쉬 승룡권 점프 Y오프셋 적용
+        # 바이퍼 에어 블레이드 승룡권 점프 Y오프셋 적용
         _viper_jump_y = _viper_br_jump_offset_y if (selected_character_type == "viper" and _viper_br_spin_active) else 0.0
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y + _viper_jump_y))
