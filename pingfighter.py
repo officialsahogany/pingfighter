@@ -47604,11 +47604,11 @@ _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
 
-# === 바이퍼 월 다이브 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
+# === 바이퍼 쉐도우 카운터 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
 _viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 스텝 후 보스가 공 반환 시)
 _viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
 _VIPER_WALL_DIVE_READY_FRAMES = 180      # 연계 윈도우 3초 (60fps)
-_viper_wall_dive_active = False           # 월 다이브 진행 중
+_viper_wall_dive_active = False           # 쉐도우 카운터 진행 중
 _viper_wall_dive_phase = 0                # 0=벽으로 점프, 1=벽 매달림, 2=공으로 돌진
 _viper_wall_dive_start_ms = 0             # 페이즈 시작 시각
 _viper_wall_dive_start_x = 0.0            # 출발 X
@@ -71738,14 +71738,14 @@ def handle_player(keys):
                             except Exception:
                                 pass
 
-    # === 바이퍼 월 다이브 연계기 (쉐도우 스텝 → 보스 반환 → S/↓키) ===
+    # === 바이퍼 쉐도우 카운터 연계기 (쉐도우 스텝 → 보스 반환 → S/↓키) ===
     # 연계 윈도우 타이머 감소
     if _viper_wall_dive_ready:
         _viper_wall_dive_ready_timer -= 1
         if _viper_wall_dive_ready_timer <= 0:
             _viper_wall_dive_ready = False
 
-    # 월 다이브 발동: 연계 윈도우 중 S/↓키 단독 입력
+    # 쉐도우 카운터 발동: 연계 윈도우 중 S/↓키 단독 입력
     if (selected_character_type == "viper" and not is_odins_eye_transformed()
             and _viper_wall_dive_ready and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
@@ -71791,7 +71791,7 @@ def handle_player(keys):
             except Exception:
                 pass
 
-    # 월 다이브 애니메이션 업데이트
+    # 쉐도우 카운터 애니메이션 업데이트
     if _viper_wall_dive_active:
         _wd_now = pygame.time.get_ticks()
         _wd_elapsed = _wd_now - _viper_wall_dive_start_ms
@@ -71910,7 +71910,7 @@ def handle_player(keys):
                         )
                     except Exception:
                         pass
-                    # 🪙 월 다이브 타격 골드 보너스
+                    # 🪙 쉐도우 카운터 타격 골드 보너스
                     try:
                         add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
@@ -71927,7 +71927,7 @@ def handle_player(keys):
                 PLAYER.centery = int(_wd_floor) - PLAYER.height // 2
                 PLAYER.centerx = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, PLAYER.centerx))
 
-    # 월 다이브 파티클 업데이트
+    # 쉐도우 카운터 파티클 업데이트
     if _viper_wall_dive_particles:
         _wd_alive = []
         for _wp in _viper_wall_dive_particles:
@@ -106702,7 +106702,7 @@ def draw_objects():
         except Exception:
             pass
 
-    # 🕷️ 바이퍼 월 다이브 렌더링 (거미줄 + 잔상 + 돌진 궤적)
+    # 🕷️ 바이퍼 쉐도우 카운터 렌더링 (거미줄 + 잔상 + 돌진 궤적)
     if _viper_wall_dive_active or _viper_wall_dive_particles or _viper_wall_dive_web_lines:
         try:
             _wd_ticks = pygame.time.get_ticks()
@@ -138426,7 +138426,7 @@ def reset_round(is_stage_start=False):
     _viper_dive_shockwave_timer = 0
     _viper_dive_particles = []
     _viper_dive_ball_boosted = False
-    # 바이퍼 월 다이브 초기화
+    # 바이퍼 쉐도우 카운터 초기화
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_wall_dive_active, _viper_wall_dive_phase
     global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
@@ -141245,7 +141245,7 @@ def handle_ball():
     # 바이퍼 팬텀 스트라이크 커브 + 공속 복귀
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global _viper_speed_boost_active, _viper_speed_boost_original
-    # 바이퍼 월 다이브 연계기
+    # 바이퍼 쉐도우 카운터 연계기
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
@@ -146334,7 +146334,7 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
-        # 바이퍼 월 다이브 연계 윈도우 활성화 (쉐도우 스텝 후 보스가 공 반환 시)
+        # 바이퍼 쉐도우 카운터 연계 윈도우 활성화 (쉐도우 스텝 후 보스가 공 반환 시)
         if selected_character_type == "viper" and _viper_ss_kick_ready:
             _viper_wall_dive_ready = True
             _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
