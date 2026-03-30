@@ -71388,7 +71388,12 @@ def handle_player(keys):
         global _viper_nerve_strike_target_x, _viper_nerve_strike_target_y
         global _viper_nerve_strike_slash_shown, _viper_nerve_strike_combo_used
         global boss_confused_timer
-        global _viper_jetpack_offset_y
+        global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
+        global _viper_jetpack_hold_timer, _viper_jetpack_overheat
+        global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms
+        global _viper_dive_height_snapshot, _viper_dive_particles
+        global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
+        global _viper_dive_ball_boosted
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
@@ -71606,13 +71611,6 @@ def handle_player(keys):
 
     # === 바이퍼 제트팩 시스템 업데이트 ===
     if selected_character_type == "viper" and not is_odins_eye_transformed():
-        global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
-        global _viper_jetpack_hold_timer, _viper_jetpack_overheat
-        global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms
-        global _viper_dive_height_snapshot, _viper_dive_particles
-        global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
-        global _viper_dive_ball_boosted
-
         # 입력 감지: Space/좌클릭 홀드 (서브 대기/스턴/신경 타격/에어 블레이드 스핀/과열/급강하 중에는 비활성)
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
