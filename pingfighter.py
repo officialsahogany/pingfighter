@@ -47661,6 +47661,7 @@ _viper_ss_wave_dir = 1               # 이동 방향 (-1/1)
 _viper_ss_wave_speed = 25.0          # 이동 속도 (px/frame, 매우 빠름)
 _viper_ss_wave_hit_ball = False      # 공 히트 여부 (1회 제한)
 _viper_ss_wave_trail = []            # 잔상 궤적
+_viper_ss_ball_touched = False       # 쉐도우 스텝으로 공을 맞췄는지 (에너지파/잔상/패들 중 하나)
 
 # === 바이퍼 쉐도우 스텝 → 다음 타격 버프 (팬텀 스트라이크) ===
 _viper_phantom_strike_active = False  # 다음 타격 버프 활성
@@ -71567,6 +71568,7 @@ def handle_player(keys):
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_ss_hologram_kick_dir
         global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
+        global _viper_ss_ball_touched
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
         global _viper_speed_boost_active, _viper_speed_boost_original
@@ -71687,6 +71689,7 @@ def handle_player(keys):
                         _viper_ss_hologram_target_x = _ss_new_x
                         _viper_ss_hologram_kick_dir = _ss_reverse_dir  # 발차기 방향
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
+                        _viper_ss_ball_touched = False  # 공 히트 추적 초기화 (카운터 연계 조건)
 
                         # 팬텀 스트라이크 버프 활성화 (0.3초간 다음 타격 강화)
                         _viper_phantom_strike_active = True
@@ -72410,6 +72413,7 @@ def handle_player(keys):
                 )
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
+                    _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
                     # 🪙 쉐도우 스텝 에너지파 타격 골드 보너스
                     try:
                         add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
@@ -109416,6 +109420,7 @@ def draw_objects():
             )
             if _ai_rect.colliderect(BALL):
                 afterimage['hit_ball'] = True
+                _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
                 # 공을 위로 반사 (잔상이 패들 역할)
                 ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
                 # 커브 적용 (에너지파와 동일)
@@ -139609,6 +139614,7 @@ def calculate_bounce(paddle):
 
         # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 스텝 직후 0.3초 내 타격 시 공속 80% 증가 + 신비한 커브
         if _viper_phantom_strike_active and selected_character_type == "viper":
+            _viper_ss_ball_touched = True  # 카운터 연계 조건 충족 (패들로 직접 타격)
             _viper_phantom_strike_active = False  # 1회 소모
             _viper_phantom_strike_timer = 0
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -141334,6 +141340,7 @@ def handle_ball():
     global _viper_speed_boost_active, _viper_speed_boost_original
     # 바이퍼 쉐도우 카운터 연계기
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
+    global _viper_ss_ball_touched
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
@@ -146421,8 +146428,8 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
-        # 바이퍼 쉐도우 카운터 연계 윈도우 활성화 (쉐도우 스텝 후 보스가 공 반환 시)
-        if selected_character_type == "viper" and _viper_ss_kick_ready:
+        # 바이퍼 쉐도우 카운터 연계 윈도우 활성화 (쉐도우 스텝으로 공 히트 후 보스가 반환 시)
+        if selected_character_type == "viper" and _viper_ss_kick_ready and _viper_ss_ball_touched:
             _viper_wall_dive_ready = True
             _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
 
