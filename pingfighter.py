@@ -109335,6 +109335,15 @@ def draw_objects():
         if is_devil_dice_active():
             # 투명 배경을 유지하면서 UFO 이미지에만 붉은 틴트 적용
             apply_red_overlay(rotated_player, intensity=80)  # 강도 80으로 은은한 붉은 효과
+
+    # 🕷 바이퍼 쉐도우 카운터 대기 상태: 파란빛 글로우
+    if selected_character_type == "viper" and _viper_wall_dive_ready:
+        _sc_pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.008)
+        _sc_intensity = int(40 + 50 * _sc_pulse)
+        _sc_overlay = pygame.Surface(rotated_player.get_size(), pygame.SRCALPHA)
+        _sc_overlay.fill((60, 120, 255, _sc_intensity))
+        rotated_player.blit(_sc_overlay, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+
     #  대쉬 잔상 효과 그리기
     global dash_afterimages, rolling_active, rolling_timer, rolling_direction
     # 👁 오딘의 눈 변신 상태 체크 (잔상 생성 스킵 여부)
