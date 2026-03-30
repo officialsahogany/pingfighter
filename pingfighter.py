@@ -3707,8 +3707,8 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "poison_green"
     },
     {
-        "name": "dive_strike", "korean": "다이브 스트라이크", "cost": 150, "color": (255, 120, 50),
-        "symbol": "⇓", "cooldown": 20.0, "key": "체공+S/↓",
+        "name": "dive_strike", "korean": "다이브 스트라이크", "cost": 120, "color": (255, 120, 50),
+        "symbol": "⇓", "cooldown": 15.0, "key": "체공+S/↓",
         "description": "체공 중 급강하하여 착지 연기 장판을 생성합니다.\n연기에 닿은 공을 위로 반사 + 공속 증가.",
         "how_to_use": "체공 중 S키 또는 ↓키로 발동",
         "effect_type": "dive_impact"
@@ -47614,9 +47614,9 @@ _viper_dive_shockwave_y = 0.0           # 충격파 중심 Y
 _viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (중복 방지)
 _VIPER_DIVE_PREP_MS = 300              # 준비동작 시간 (0.3초)
 _VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
-_VIPER_DIVE_GAUGE_COST = 150           # 게이지 소모량
-_VIPER_DIVE_SHOCKWAVE_RADIUS = 300     # 충격파 X축 범위 (px)
-_VIPER_DIVE_SHOCKWAVE_HEIGHT = 90      # 충격파 Y축 범위 (px, 바닥 기준 위로)
+_VIPER_DIVE_GAUGE_COST = 120           # 게이지 소모량
+_VIPER_DIVE_SHOCKWAVE_RADIUS = 400     # 충격파 X축 범위 (px)
+_VIPER_DIVE_SHOCKWAVE_HEIGHT = 120     # 충격파 Y축 범위 (px, 바닥 기준 위로)
 _VIPER_DIVE_SHOCKWAVE_FRAMES = 60      # 착지 연기 지속 프레임 (1초)
 _VIPER_DIVE_MIN_BOOST = 0.2            # 최소 공속 보너스 (20%)
 _VIPER_DIVE_MAX_BOOST = 0.5            # 최대 공속 보너스 (50%)
