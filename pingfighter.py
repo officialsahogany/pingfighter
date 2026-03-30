@@ -69910,7 +69910,7 @@ def handle_player(keys):
     global blacksmith_blocking_bonus_ready, blacksmith_blocking_bonus_window_timer
     global fire_support_radio_loop_active
     global _judgment_lightning_stun_bottom_timer, _judgment_wind_stun_bottom_timer
-    global cleanse_counter_window
+    global cleanse_counter_window, _viper_ss_kick_ready
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
@@ -76619,7 +76619,6 @@ def handle_player(keys):
     # 서브 대기 중에는 충돌 체크하지 않음
     global player_collision_handled, player_collision_cooldown, player_sound_cooldown, last_hit_by
     global mega_smashing_active, mega_smashing_meteor_trail, mega_smashing_ghosts, mega_smashing_ghost_scatter
-    global _viper_ss_kick_ready
 
     # ⚡ 버그 수정: 충돌 쿨다운 감소를 handle_player 시작에서 처리
     # handle_player가 handle_ball보다 먼저 실행되므로, 쿨다운 감소를 여기서 해야
