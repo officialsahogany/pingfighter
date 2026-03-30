@@ -71786,6 +71786,13 @@ def handle_player(keys):
                 _viper_dive_active = True
                 _viper_dive_phase = 0  # 도움닫기 자세 (0.5초 공중 정지)
                 _viper_dive_start_ms = pygame.time.get_ticks()
+                try:
+                    _dp_snd = sound_effects.get('VIPER_DIVE_PREP')
+                    if _dp_snd:
+                        _dp_snd.set_volume(0.6)
+                        _dp_snd.play()
+                except Exception:
+                    pass
                 _viper_dive_height_snapshot = abs(_viper_jetpack_offset_y)
                 _viper_dive_ball_boosted = False
                 _viper_dive_particles = []

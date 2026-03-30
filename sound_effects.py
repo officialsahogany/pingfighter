@@ -123,6 +123,7 @@ SOUND_PATHS = {
     "VIPER_VENOM_MOVING": "sounds/venommoving.wav",
     "VIPER_SHADOW_KICK": "sounds/shadowkick.wav",
     "VIPER_DIVE_STRIKE": "sounds/divestrike.wav",
+    "VIPER_DIVE_PREP": "sounds/beforedivestrike.wav",
 }
 
 
