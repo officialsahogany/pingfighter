@@ -71555,6 +71555,14 @@ def handle_player(keys):
                     _viper_nerve_strike_active = True
                     _viper_nerve_strike_phase = 0  # 돌진 단계
                     _viper_nerve_strike_start_ms = pygame.time.get_ticks()
+                    # 돌진 사운드 재생
+                    try:
+                        _vm_snd = sound_effects.get('VIPER_VENOM_MOVING')
+                        if _vm_snd:
+                            _vm_snd.set_volume(0.6)
+                            _vm_snd.play()
+                    except Exception:
+                        pass
                     _viper_nerve_strike_origin_x = float(PLAYER.centerx)
                     _viper_nerve_strike_origin_y = float(PLAYER.centery)
                     _viper_nerve_strike_target_x = float(BOSS.centerx)
@@ -72197,6 +72205,14 @@ def handle_player(keys):
 
                 _viper_nerve_strike_phase = 2
                 _viper_nerve_strike_start_ms = _ns_now
+                # 복귀 사운드 재생
+                try:
+                    _vm_snd2 = sound_effects.get('VIPER_VENOM_MOVING')
+                    if _vm_snd2:
+                        _vm_snd2.set_volume(0.6)
+                        _vm_snd2.play()
+                except Exception:
+                    pass
 
         elif _viper_nerve_strike_phase == 2:
             # Phase 2: 제자리 복귀 (빠른 텔레포트)
