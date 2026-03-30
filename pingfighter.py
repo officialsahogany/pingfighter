@@ -3714,6 +3714,13 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "dive_impact"
     },
     {
+        "name": "shadow_counter", "korean": "쉐도우 카운터", "cost": 80, "color": (130, 0, 200),
+        "symbol": "🕷", "cooldown": 0.0, "key": "S/↓(연계)",
+        "description": "쉐도우 스텝 후 보스가 공을 반환하면 발동 가능.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
+        "how_to_use": "쉐도우 스텝 사용 후 보스 반환 시 S/↓키",
+        "effect_type": "wall_dive_purple"
+    },
+    {
         "name": "phantom_assault", "korean": "팬텀 어썰트", "cost": 120, "color": (160, 0, 255),
         "symbol": "✦", "cooldown": 20.0, "key": "R",
         "description": "5연속 잔상 돌진으로 공을 강타합니다.\n발동 중 무적 상태.",
@@ -3735,6 +3742,7 @@ _viper_skill_cooldowns = {
     "blade_rush": 0,
     "nerve_strike": 0,
     "venom_edge": 0,
+    "shadow_counter": 0,
     "phantom_assault": 0,
 }
 
@@ -3744,6 +3752,7 @@ _viper_skill_activation_times = {
     "blade_rush": 0,
     "nerve_strike": 0,
     "venom_edge": 0,
+    "shadow_counter": 0,
     "phantom_assault": 0,
     "dive_strike": 0,
 }
@@ -3752,6 +3761,7 @@ _viper_skill_was_active = {
     "blade_rush": False,
     "nerve_strike": False,
     "venom_edge": False,
+    "shadow_counter": False,
     "phantom_assault": False,
     "dive_strike": False,
 }
@@ -3764,6 +3774,7 @@ _viper_skill_unlocked = {
     "blade_rush": True,       # 기본 해금
     "nerve_strike": False,    # 런타임 스킬로 해금 필요
     "venom_edge": False,      # 런타임 스킬로 해금 필요
+    "shadow_counter": True,   # 쉐도우 스텝 해금 시 자동 해금 (연계기)
     "phantom_assault": False,  # 런타임 스킬로 해금 필요
     "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
 }
@@ -3781,7 +3792,9 @@ def reset_viper_skill_unlocks():
         "blade_rush": True,
         "nerve_strike": False,
         "venom_edge": False,
+        "shadow_counter": True,
         "phantom_assault": False,
+        "dive_strike": False,
     }
 
 
@@ -3867,6 +3880,7 @@ def reset_viper_skill_cooldowns():
         "blade_rush": 0,
         "nerve_strike": 0,
         "venom_edge": 0,
+        "shadow_counter": 0,
         "phantom_assault": 0,
     }
 
@@ -5161,7 +5175,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     ultimate_skill_data = None
 
     # 메인 스킬 순서 (왼쪽 슬롯)
-    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "venom_edge", "dive_strike"]
+    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "venom_edge", "shadow_counter", "dive_strike"]
 
     for skill_name in main_skill_order:
         for skill_data in VIPER_SKILL_ICONS_DATA:
@@ -5179,9 +5193,9 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
 
     num_unlocked = len(unlocked_main_skills)
 
-    MAX_LEFT_SLOTS = 5
-    base_angle = 165
-    angle_step = 25  # 5슬롯 간격 좁힘
+    MAX_LEFT_SLOTS = 6
+    base_angle = 160
+    angle_step = 22  # 6슬롯 간격
     all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
     ultimate_angle = 330  # 우측 상단
 
