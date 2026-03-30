@@ -71843,9 +71843,9 @@ def handle_player(keys):
                 _viper_wall_dive_wall_x = float(WIDTH - 15)  # 우측 벽
             else:
                 _viper_wall_dive_wall_x = 15.0  # 좌측 벽
-            # 벽 매달림 Y: 공보다 약간 위 (플레이어 영역 상단 부근)
-            _viper_wall_dive_wall_y = min(float(PLAYER.centery) - 100, float(BALL.centery) - 30)
-            _viper_wall_dive_wall_y = max(120.0, min(650.0, _viper_wall_dive_wall_y))
+            # 벽 매달림 Y: 현재 위치에서 200px 위 (보스 영역까지 가지 않도록 클램프)
+            _viper_wall_dive_wall_y = float(PLAYER.centery) - 200.0
+            _viper_wall_dive_wall_y = max(300.0, min(650.0, _viper_wall_dive_wall_y))
             # 사운드
             try:
                 _wd_snd = sound_effects.get('VIPER_BACKSTEP')
@@ -71867,8 +71867,8 @@ def handle_player(keys):
             _wd_ease = _wd_t * _wd_t * (3.0 - 2.0 * _wd_t)  # ease-in-out
             # X: 현재 → 벽
             _wd_cx = _viper_wall_dive_start_x + (_viper_wall_dive_wall_x - _viper_wall_dive_start_x) * _wd_ease
-            # Y: 포물선 (위로 아치)
-            _wd_arc = -180.0 * math.sin(_wd_t * math.pi)  # 최대 180px 상승
+            # Y: 포물선 (위로 약간 아치)
+            _wd_arc = -80.0 * math.sin(_wd_t * math.pi)  # 최대 80px 추가 상승
             _wd_cy = _viper_wall_dive_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_start_y) * _wd_ease + _wd_arc
             PLAYER.centerx = int(_wd_cx)
             PLAYER.centery = int(_wd_cy)
@@ -71913,9 +71913,12 @@ def handle_player(keys):
             if _wd_t >= 1.0:
                 _viper_wall_dive_phase = 2
                 _viper_wall_dive_start_ms = _wd_now
-                # 돌진 목표: 현재 공 위치 스냅샷
+                # 돌진 목표: 공 위치 방향으로 대각선 위 (보스 영역까지 가지 않도록 제한)
                 _viper_wall_dive_charge_target_x = float(BALL.centerx)
-                _viper_wall_dive_charge_target_y = float(BALL.centery)
+                # Y는 공 방향이되 벽 위치에서 최대 250px 위까지만 (중앙선 이상 진입 방지)
+                _wd_target_y = float(BALL.centery)
+                _wd_min_y = max(250.0, _viper_wall_dive_wall_y - 250.0)
+                _viper_wall_dive_charge_target_y = max(_wd_min_y, _wd_target_y)
                 _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
                 _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
                 _viper_wall_dive_web_lines = []  # 거미줄 제거
