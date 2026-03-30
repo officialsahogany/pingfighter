@@ -71846,7 +71846,7 @@ def handle_player(keys):
         # 급강하 발동: 체공 중 S키/↓키 단독 (방향키 미입력, 대시 아님)
         if (not _viper_dive_active and _viper_jetpack_offset_y < -20
                 and not rolling_active and not _viper_nerve_strike_active
-                and not _viper_br_spin_active and not is_waiting_for_serve
+                and not (_viper_br_spin_active and _viper_br_spin_phase < 2) and not is_waiting_for_serve
                 and not is_player_serve and not player_stunned):
             _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
             _dive_dir_held = (
@@ -71873,6 +71873,12 @@ def handle_player(keys):
                 _viper_dive_height_snapshot = abs(_viper_jetpack_offset_y)
                 _viper_dive_ball_boosted = False
                 _viper_dive_particles = []
+                # 에어 블레이드 스핀 phase2 중이면 즉시 종료
+                if _viper_br_spin_active and _viper_br_spin_phase == 2:
+                    _viper_br_spin_active = False
+                    _viper_br_spin_angle = 0.0
+                    _viper_br_jump_offset_y = 0.0
+                    _viper_br_arm_raise = 0.0
                 # 제트팩 즉시 비활성
                 _viper_jetpack_active = False
                 _viper_jetpack_gauge_timer = 0
