@@ -36,7 +36,7 @@ class Soap:
 
     # 기본 상수
     THROW_SPEED = 18              # 투척 속도
-    DEBUFF_DURATION = 180         # 미끄러움 지속 시간 (3초 = 180프레임 @60fps)
+    DEBUFF_DURATION = 240         # 미끄러움 지속 시간 (4초 = 240프레임 @60fps)
     # 관성 블렌딩 파라미터 (빙판 위 느낌)
     BLEND_FACTOR = 0.18           # AI 의도 반영률 (18%만 AI, 82% 관성)
     FRICTION = 0.985              # 매 프레임 마찰 (서서히 감속, 영원히 밀리진 않음)
