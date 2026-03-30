@@ -71939,17 +71939,8 @@ def handle_player(keys):
                 )
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
-                    # 에너지파 팬텀 스트라이크 (패들 직접 히트보다 약한 1.5x)
-                    _sw_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-                    _sw_new_speed = max(_sw_cur_speed * 1.5, 8.0)
-                    _viper_speed_boost_active = True
-                    _viper_speed_boost_original = _sw_cur_speed
+                    # 에너지파 히트: 넉백 없음 (속도/방향 변경 없이 커브만 적용)
                     _sw_curve = _viper_ss_wave_dir
-                    _sw_init_angle = _sw_curve * 10
-                    _sw_rad = math.radians(-90 + _sw_init_angle)
-                    ball_vel[0] = math.cos(_sw_rad) * _sw_new_speed
-                    ball_vel[1] = math.sin(_sw_rad) * _sw_new_speed
-                    # 커브 비행 활성화
                     _viper_ps_curve_active = True
                     _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
                     _viper_ps_curve_direction = _sw_curve
