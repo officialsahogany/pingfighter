@@ -128771,6 +128771,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
             }
             ensure_passive_rolls(battery_item)
             item_state_adapter.append_passive_item(battery_item)
+            auto_equip_passive_item(battery_item)
         active_items = item_state_adapter.active_items()
         if not any(item.get("name") == "magnet_field" for item in active_items):
             magnet_item = {
