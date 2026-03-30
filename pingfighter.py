@@ -146438,9 +146438,13 @@ def handle_ball():
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
         # 바이퍼 쉐도우 카운터 연계 윈도우 활성화 (쉐도우 스텝으로 공 히트 후 보스가 반환 시)
-        if selected_character_type == "viper" and _viper_ss_kick_ready and _viper_ss_ball_touched:
-            _viper_wall_dive_ready = True
-            _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
+        # 조건: ball_touched=True (에너지파/잔상/패들 중 하나로 공 히트) + 5초 이내
+        if selected_character_type == "viper" and _viper_ss_ball_touched:
+            _sc_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
+            if _sc_since < 5000:  # 쉐도우 스텝 발동 후 5초 이내
+                _viper_wall_dive_ready = True
+                _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
+                _viper_ss_ball_touched = False  # 1회 소모
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
