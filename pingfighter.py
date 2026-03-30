@@ -71871,6 +71871,11 @@ def handle_player(keys):
                             ball_vel[1] *= _boost_mult
                             _new_speed = math.hypot(ball_vel[0], ball_vel[1])
                             _viper_dive_ball_boosted = True
+                            # 🪙 다이브 스트라이크 타격 골드 보너스
+                            try:
+                                add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
+                            except Exception:
+                                pass
 
                             # DIVE STRIKE 텍스트 이펙트
                             _viper_air_strike_text_timer = 60
@@ -71908,6 +71913,11 @@ def handle_player(keys):
                         ball_vel[0] *= _boost_mult
                         ball_vel[1] *= _boost_mult
                         _viper_dive_ball_boosted = True
+                        # 🪙 다이브 스트라이크 타격 골드 보너스
+                        try:
+                            add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
+                        except Exception:
+                            pass
                         # DIVE STRIKE 텍스트 이펙트
                         _viper_air_strike_text_timer = 60
                         _viper_air_strike_text_x = _viper_dive_shockwave_x
@@ -71974,6 +71984,11 @@ def handle_player(keys):
                 )
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
+                    # 🪙 쉐도우 스텝 에너지파 타격 골드 보너스
+                    try:
+                        add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
+                    except Exception:
+                        pass
                     # 에너지파 히트: 넉백 없음 (속도/방향 변경 없이 커브만 적용)
                     _sw_curve = _viper_ss_wave_dir
                     _viper_ps_curve_active = True
@@ -72099,6 +72114,11 @@ def handle_player(keys):
                 )
                 if _br_blade_rect.colliderect(BALL):
                     _viper_blade_rush_hit_ball = True
+                    # 🪙 에어 블레이드 타격 골드 보너스
+                    try:
+                        add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
+                    except Exception:
+                        pass
                     # 원래 속도 저장 (보스 반격 시 복귀용)
                     _br_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
                     _viper_speed_boost_active = True
@@ -77123,6 +77143,11 @@ def handle_player(keys):
                         _sk_snd.play()
                 except Exception:
                     pass
+                # 🪙 쉐도우 킥 타격 골드 보너스
+                try:
+                    add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
+                except Exception:
+                    pass
 
         # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가 + AIR STRIKE 이펙트)
         if selected_character_type == "viper" and _viper_jetpack_offset_y < -10:
@@ -77141,6 +77166,11 @@ def handle_player(keys):
             _viper_air_strike_text_x = float(BALL.centerx)
             _viper_air_strike_text_y = float(BALL.centery - 20)
             _viper_air_strike_text_pct = int(min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT) * 15)
+            # 🪙 AIR STRIKE 타격 골드 보너스
+            try:
+                add_ingame_gold(3, BALL.centerx, BALL.centery - 30, source="skill")
+            except Exception:
+                pass
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
