@@ -109409,6 +109409,8 @@ def draw_objects():
             )
             if _ai_rect.colliderect(BALL):
                 afterimage['hit_ball'] = True
+                # 공을 위로 반사 (잔상이 패들 역할)
+                ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
                 # 커브 적용 (에너지파와 동일)
                 _viper_ps_curve_active = True
                 _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
@@ -138485,6 +138487,17 @@ def reset_round(is_stage_start=False):
         _viper_jetpack_snd_channel = None
     except Exception:
         _viper_jetpack_snd_channel = None
+    # 바이퍼 팬텀 스트라이크 커브 + 공속 부스트 초기화 (서브 시 잔존 방지)
+    global _viper_ps_curve_active, _viper_ps_curve_timer
+    global _viper_speed_boost_active, _viper_speed_boost_original
+    _viper_ps_curve_active = False
+    _viper_ps_curve_timer = 0
+    _viper_speed_boost_active = False
+    _viper_speed_boost_original = 0.0
+    # 바이퍼 팬텀 스트라이크 버프 초기화
+    global _viper_phantom_strike_active, _viper_phantom_strike_timer
+    _viper_phantom_strike_active = False
+    _viper_phantom_strike_timer = 0
     # 바이퍼 급강하 어택 초기화
     global _viper_dive_active, _viper_dive_phase, _viper_dive_shockwave_timer
     global _viper_dive_particles, _viper_dive_ball_boosted
