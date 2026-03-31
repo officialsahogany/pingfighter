@@ -111829,8 +111829,198 @@ def draw_objects():
         except Exception:
             pass
 
+    # 🕷 바이퍼 마샬 킥 벽 매달림 포즈 (Phase 0: 벽으로 비행, Phase 1: 벽타기) - 패들 대신 그리기
+    _viper_wall_cling_drawn = False
+    if selected_character_type == "viper" and _viper_wall_dive_active and _viper_wall_dive_phase in (0, 1):
+        _viper_wall_cling_drawn = True
+        _wc_now = pygame.time.get_ticks()
+        _wc_cx = PLAYER.centerx
+        _wc_cy = PLAYER.centery
+        _wc_on_left = _viper_wall_dive_wall_x < WIDTH // 2  # 왼쪽 벽인지
+        _wc_dir = 1 if _wc_on_left else -1  # 벽 반대 방향 (몸이 향하는 방향)
+        _wc_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+        if _viper_wall_dive_phase == 0:
+            # Phase 0: 벽으로 날아가는 포즈 (다이나믹 점프 실루엣)
+            _wc_body_w = 20
+            _wc_body_h = 28
+            # 몸통 (약간 회전된 느낌)
+            _wc_body_pts = [
+                (_wc_cx - 6 * _wc_dir, _wc_cy - 14),
+                (_wc_cx + 8 * _wc_dir, _wc_cy - 10),
+                (_wc_cx + 10 * _wc_dir, _wc_cy + 8),
+                (_wc_cx - 4 * _wc_dir, _wc_cy + 12),
+            ]
+            pygame.draw.polygon(_wc_surf, (60, 10, 100, 230), _wc_body_pts)
+            pygame.draw.polygon(_wc_surf, (130, 40, 180, 200), _wc_body_pts, 2)
+            # 머리
+            pygame.draw.circle(_wc_surf, (80, 20, 130, 240), (_wc_cx, _wc_cy - 16), 7)
+            pygame.draw.circle(_wc_surf, (160, 60, 220, 180), (_wc_cx, _wc_cy - 16), 7, 1)
+            # 눈 (바이퍼 스타일 - 날카로운 눈)
+            _wc_eye_x = _wc_cx + 2 * _wc_dir
+            pygame.draw.line(_wc_surf, (200, 80, 255, 255),
+                            (_wc_eye_x - 3, _wc_cy - 17), (_wc_eye_x + 3, _wc_cy - 16), 2)
+            # 뻗은 팔 (벽 방향으로)
+            _wc_arm_end_x = _wc_cx - 18 * _wc_dir
+            _wc_arm_end_y = _wc_cy - 8
+            pygame.draw.line(_wc_surf, (70, 15, 110, 230),
+                            (_wc_cx - 2 * _wc_dir, _wc_cy - 6), (_wc_arm_end_x, _wc_arm_end_y), 4)
+            pygame.draw.line(_wc_surf, (140, 50, 190, 200),
+                            (_wc_cx - 2 * _wc_dir, _wc_cy - 6), (_wc_arm_end_x, _wc_arm_end_y), 2)
+            # 다리 (뒤로 뻗음)
+            pygame.draw.line(_wc_surf, (60, 10, 100, 230),
+                            (_wc_cx + 4 * _wc_dir, _wc_cy + 10), (_wc_cx + 16 * _wc_dir, _wc_cy + 18), 4)
+            pygame.draw.line(_wc_surf, (60, 10, 100, 230),
+                            (_wc_cx + 2 * _wc_dir, _wc_cy + 8), (_wc_cx + 14 * _wc_dir, _wc_cy + 22), 4)
+            # 스피드 라인 (비행 방향 반대)
+            for _sl_i in range(4):
+                _sl_y = _wc_cy - 10 + _sl_i * 7
+                _sl_x1 = _wc_cx + 15 * _wc_dir + _sl_i * 3 * _wc_dir
+                _sl_x2 = _sl_x1 + 20 * _wc_dir
+                _sl_alpha = 120 - _sl_i * 25
+                pygame.draw.line(_wc_surf, (140, 50, 200, max(10, _sl_alpha)),
+                                (int(_sl_x1), _sl_y), (int(_sl_x2), _sl_y), 1)
+
+        elif _viper_wall_dive_phase == 1:
+            # Phase 1: 스파이더맨 벽타기 포즈
+            _wc_pulse = 0.85 + 0.15 * math.sin(_wc_now * 0.008)
+            _wc_body_col = (70, 15, 115)
+            _wc_accent_col = (140, 45, 195)
+            _wc_eye_col = (220, 100, 255)
+            _wc_web_col = (180, 120, 220)
+
+            # 벽면 접촉 표시 (벽 쪽에 미세한 광선)
+            _wc_wall_edge_x = 2 if _wc_on_left else WIDTH - 3
+            for _we_i in range(5):
+                _we_y = _wc_cy - 20 + _we_i * 10
+                _we_alpha = int(60 * _wc_pulse)
+                pygame.draw.line(_wc_surf, (100, 40, 160, _we_alpha),
+                                (_wc_wall_edge_x, _we_y), (_wc_wall_edge_x + 6 * _wc_dir, _we_y), 2)
+
+            # === 몸통 (웅크린 자세 - 스파이더맨 스타일) ===
+            # 등이 살짝 굽은 형태
+            _wc_torso_pts = [
+                (_wc_cx, _wc_cy - 12),            # 어깨 상단
+                (_wc_cx + 6 * _wc_dir, _wc_cy - 8),  # 어깨 외측
+                (_wc_cx + 4 * _wc_dir, _wc_cy + 6),   # 엉덩이
+                (_wc_cx - 4 * _wc_dir, _wc_cy + 4),   # 엉덩이 벽쪽
+                (_wc_cx - 6 * _wc_dir, _wc_cy - 6),   # 등 (벽쪽)
+            ]
+            pygame.draw.polygon(_wc_surf, (*_wc_body_col, 240), _wc_torso_pts)
+            pygame.draw.polygon(_wc_surf, (*_wc_accent_col, 180), _wc_torso_pts, 2)
+
+            # === 머리 (약간 위를 향함) ===
+            _wc_head_x = _wc_cx + 2 * _wc_dir
+            _wc_head_y = _wc_cy - 18
+            pygame.draw.circle(_wc_surf, (*_wc_body_col, 245), (_wc_head_x, _wc_head_y), 8)
+            pygame.draw.circle(_wc_surf, (*_wc_accent_col, 160), (_wc_head_x, _wc_head_y), 8, 1)
+            # 날카로운 바이퍼 눈 (두 개, 약간 찡그린)
+            _wc_e1x = _wc_head_x + 2 * _wc_dir
+            _wc_e1y = _wc_head_y - 1
+            pygame.draw.line(_wc_surf, (*_wc_eye_col, 255),
+                            (_wc_e1x - 3 * _wc_dir, _wc_e1y - 1), (_wc_e1x + 2 * _wc_dir, _wc_e1y + 1), 2)
+            _wc_e2y = _wc_head_y + 2
+            pygame.draw.line(_wc_surf, (*_wc_eye_col, 255),
+                            (_wc_e1x - 2 * _wc_dir, _wc_e2y), (_wc_e1x + 3 * _wc_dir, _wc_e2y + 1), 2)
+
+            # === 벽 쪽 팔 (위로 뻗어 벽을 잡고 있음) ===
+            _wc_arm1_shoulder = (_wc_cx - 4 * _wc_dir, _wc_cy - 10)
+            _wc_arm1_elbow = (_wc_cx - 12 * _wc_dir, _wc_cy - 20)
+            _wc_arm1_hand = (_wc_cx - 16 * _wc_dir, _wc_cy - 28)
+            pygame.draw.line(_wc_surf, (*_wc_body_col, 240),
+                            _wc_arm1_shoulder, _wc_arm1_elbow, 4)
+            pygame.draw.line(_wc_surf, (*_wc_body_col, 240),
+                            _wc_arm1_elbow, _wc_arm1_hand, 4)
+            pygame.draw.line(_wc_surf, (*_wc_accent_col, 180),
+                            _wc_arm1_shoulder, _wc_arm1_elbow, 2)
+            pygame.draw.line(_wc_surf, (*_wc_accent_col, 180),
+                            _wc_arm1_elbow, _wc_arm1_hand, 2)
+            # 손 (벽 잡기)
+            pygame.draw.circle(_wc_surf, (*_wc_accent_col, 220), _wc_arm1_hand, 4)
+
+            # === 바깥쪽 팔 (아래로 뻗어 준비 자세) ===
+            _wc_arm2_shoulder = (_wc_cx + 4 * _wc_dir, _wc_cy - 6)
+            _wc_arm2_elbow = (_wc_cx + 14 * _wc_dir, _wc_cy)
+            _wc_arm2_hand = (_wc_cx + 18 * _wc_dir, _wc_cy + 8)
+            pygame.draw.line(_wc_surf, (*_wc_body_col, 240),
+                            _wc_arm2_shoulder, _wc_arm2_elbow, 4)
+            pygame.draw.line(_wc_surf, (*_wc_body_col, 240),
+                            _wc_arm2_elbow, _wc_arm2_hand, 4)
+            pygame.draw.line(_wc_surf, (*_wc_accent_col, 180),
+                            _wc_arm2_shoulder, _wc_arm2_elbow, 2)
+            pygame.draw.line(_wc_surf, (*_wc_accent_col, 180),
+                            _wc_arm2_elbow, _wc_arm2_hand, 2)
+            # 손가락 벌림 (거미 느낌)
+            for _wf_i in range(3):
+                _wf_angle = math.radians(30 + _wf_i * 40)
+                _wf_ex = _wc_arm2_hand[0] + int(math.cos(_wf_angle) * 5 * _wc_dir)
+                _wf_ey = _wc_arm2_hand[1] + int(math.sin(_wf_angle) * 5)
+                pygame.draw.line(_wc_surf, (*_wc_accent_col, 200),
+                                _wc_arm2_hand, (_wf_ex, _wf_ey), 1)
+
+            # === 윗쪽 다리 (벽 쪽 무릎을 깊게 구부림) ===
+            _wc_leg1_hip = (_wc_cx - 2 * _wc_dir, _wc_cy + 4)
+            _wc_leg1_knee = (_wc_cx - 10 * _wc_dir, _wc_cy + 16)
+            _wc_leg1_foot = (_wc_cx - 16 * _wc_dir, _wc_cy + 8)  # 발이 위로 (벽에 붙음)
+            pygame.draw.line(_wc_surf, (*_wc_body_col, 240),
+                            _wc_leg1_hip, _wc_leg1_knee, 5)
+            pygame.draw.line(_wc_surf, (*_wc_body_col, 240),
+                            _wc_leg1_knee, _wc_leg1_foot, 5)
+            pygame.draw.line(_wc_surf, (*_wc_accent_col, 160),
+                            _wc_leg1_hip, _wc_leg1_knee, 2)
+            pygame.draw.line(_wc_surf, (*_wc_accent_col, 160),
+                            _wc_leg1_knee, _wc_leg1_foot, 2)
+            # 발 (벽에 붙음)
+            pygame.draw.circle(_wc_surf, (*_wc_accent_col, 220), _wc_leg1_foot, 4)
+
+            # === 아랫쪽 다리 (바깥쪽으로 뻗음) ===
+            _wc_leg2_hip = (_wc_cx + 2 * _wc_dir, _wc_cy + 6)
+            _wc_leg2_knee = (_wc_cx + 12 * _wc_dir, _wc_cy + 18)
+            _wc_leg2_foot = (_wc_cx + 16 * _wc_dir, _wc_cy + 24)
+            pygame.draw.line(_wc_surf, (*_wc_body_col, 240),
+                            _wc_leg2_hip, _wc_leg2_knee, 5)
+            pygame.draw.line(_wc_surf, (*_wc_body_col, 240),
+                            _wc_leg2_knee, _wc_leg2_foot, 4)
+            pygame.draw.line(_wc_surf, (*_wc_accent_col, 160),
+                            _wc_leg2_hip, _wc_leg2_knee, 2)
+            pygame.draw.line(_wc_surf, (*_wc_accent_col, 160),
+                            _wc_leg2_knee, _wc_leg2_foot, 2)
+
+            # === 거미줄 (손에서 벽으로, 미세한 움직임) ===
+            _wc_web_sway = math.sin(_wc_now * 0.006) * 3
+            # 윗손 → 벽 위쪽
+            for _ww_i in range(3):
+                _ww_mid_x = (_wc_arm1_hand[0] + _wc_wall_edge_x) // 2 + int(_wc_web_sway * (_ww_i + 1) * 0.5)
+                _ww_mid_y = _wc_arm1_hand[1] - 10 - _ww_i * 8
+                _ww_end_y = _wc_arm1_hand[1] - 30 - _ww_i * 12
+                _ww_alpha = int(90 * _wc_pulse) - _ww_i * 15
+                if _ww_alpha > 5:
+                    pygame.draw.lines(_wc_surf, (*_wc_web_col, max(5, _ww_alpha)), False, [
+                        _wc_arm1_hand,
+                        (_ww_mid_x, _ww_mid_y),
+                        (_wc_wall_edge_x, _ww_end_y)
+                    ], 1)
+
+            # 발 → 벽 (접착점)
+            _ww_foot_alpha = int(70 * _wc_pulse)
+            pygame.draw.line(_wc_surf, (*_wc_web_col, max(5, _ww_foot_alpha)),
+                            _wc_leg1_foot, (_wc_wall_edge_x, _wc_leg1_foot[1]), 1)
+
+            # === 에너지 오라 (벽타기 중 은은한 보라 빛) ===
+            _wc_aura_r = int(30 * _wc_pulse)
+            _wc_aura_s = pygame.Surface((_wc_aura_r * 2, _wc_aura_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(_wc_aura_s, (80, 20, 140, int(35 * _wc_pulse)),
+                              (_wc_aura_r, _wc_aura_r), _wc_aura_r)
+            _wc_surf.blit(_wc_aura_s,
+                         (_wc_cx - _wc_aura_r, _wc_cy - _wc_aura_r),
+                         special_flags=pygame.BLEND_ADD)
+
+        SCREEN.blit(_wc_surf, (0, 0))
+
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
-    if _arena_paddle_drawn:
+    if _viper_wall_cling_drawn:
+        pass  # 🕷 벽타기 포즈를 이미 그렸으므로 패들 스킵
+    elif _arena_paddle_drawn:
         pass  # 투기장 모드에서 영웅 패들을 그렸으므로 스킵
     elif arena_mode_enabled:
         pass  # 투기장 모드에서는 기본 패들(스매셔 등)을 절대 그리지 않음
