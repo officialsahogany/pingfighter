@@ -3681,7 +3681,7 @@ def is_smasher_skill_unlocked(skill_name: str) -> bool:
 # ============================================================================
 VIPER_SKILL_ICONS_DATA = [
     {
-        "name": "shadow_step", "korean": "쉐도우 스텝", "cost": 100, "color": (100, 0, 180),
+        "name": "shadow_step", "korean": "쉐도우 백스텝", "cost": 100, "color": (100, 0, 180),
         "symbol": "⟐", "cooldown": 10.0, "key": "대쉬+S",
         "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.",
         "how_to_use": "대쉬 중/직후 S키를 눌러 발동",
@@ -3711,8 +3711,8 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
         "symbol": "🕷", "cooldown": 0.0, "key": "S/↓(연계)",
-        "description": "쉐도우 스텝 후 보스가 공을 반환하면 발동 가능.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
-        "how_to_use": "쉐도우 스텝 사용 후 보스 반환 시 S/↓키",
+        "description": "쉐도우 백스텝 후 보스가 공을 반환하면 발동 가능.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
+        "how_to_use": "쉐도우 백스텝 사용 후 보스 반환 시 S/↓키",
         "effect_type": "wall_dive_purple"
     },
 ]
@@ -3749,13 +3749,13 @@ _viper_skill_was_active = {
 }
 
 # 바이퍼 스킬 해금 상태
-# 쉐도우 스텝, 에어 블레이드는 기본 해금
+# 쉐도우 백스텝, 에어 블레이드는 기본 해금
 # 나머지는 런타임 스킬로 해금 필요
 _viper_skill_unlocked = {
     "shadow_step": True,      # 기본 해금
     "blade_rush": True,       # 기본 해금
     "nerve_strike": False,    # 런타임 스킬로 해금 필요
-    "marshal_kick": True,   # 쉐도우 스텝 해금 시 자동 해금 (연계기)
+    "marshal_kick": True,   # 쉐도우 백스텝 해금 시 자동 해금 (연계기)
     "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
 }
 
@@ -4630,7 +4630,7 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
 
     # =================== 바이퍼 전용 스킬 심볼 ===================
     elif skill_name == "shadow_step":
-        # ⟐ 쉐도우 스텝: 잔상 분신 + 순간이동
+        # ⟐ 쉐도우 백스텝: 잔상 분신 + 순간이동
         ghost_offset = s // 3
 
         # 잔상 트레일 (왼쪽에서 오른쪽으로 3단계 페이드)
@@ -13933,7 +13933,7 @@ def reset_runtime_skill_system():
     # 스매셔 스킬 해금 상태 초기화 (드라이브, 파워스매싱만 기본 해금)
     reset_smasher_skill_unlocks()
 
-    # 바이퍼 스킬 해금 상태 초기화 (쉐도우 스텝, 에어 블레이드만 기본 해금)
+    # 바이퍼 스킬 해금 상태 초기화 (쉐도우 백스텝, 에어 블레이드만 기본 해금)
     reset_viper_skill_unlocks()
 
     # print("[RuntimeSkill] 런타임 스킬 시스템 초기화")  # 디버그 비활성화
@@ -31614,7 +31614,7 @@ viper_swing_intensity = 1.0            # 타격 강도 (1.0=일반)
 def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0) -> pygame.Surface:
     """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
     다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프.
-    kick_direction: 0=일반, -1=왼쪽 발차기, 1=오른쪽 발차기 (쉐도우 스텝용)"""
+    kick_direction: 0=일반, -1=왼쪽 발차기, 1=오른쪽 발차기 (쉐도우 백스텝용)"""
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     b = 8
     cx = surface.get_width() // 2
@@ -31634,7 +31634,7 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
     left_leg_lift = -int(max(0.0, wave) * 6)   # 다리 들어올림 확대 (3→6)
     right_leg_lift = -int(max(0.0, -wave) * 6)
 
-    # 쉐도우 스텝 발차기 포즈: 한쪽 다리를 높이 옆으로 뻗음
+    # 쉐도우 백스텝 발차기 포즈: 한쪽 다리를 높이 옆으로 뻗음
     if kick_direction != 0:
         torso_bob = 0
         arm_swing = 0
@@ -31682,7 +31682,7 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
         arm_swing = int(arm_swing * (1.0 - max(left_slash_strength, right_kick_strength) * 0.7))
         shoulder_tilt = int(shoulder_tilt * (1.0 - max(left_slash_strength, right_kick_strength) * 0.5))
 
-    # 오른발 킥 모션: 오른다리를 높이 차올리며 킥 (쉐도우 스텝 킥과 별개)
+    # 오른발 킥 모션: 오른다리를 높이 차올리며 킥 (쉐도우 백스텝 킥과 별개)
     if right_kick_strength > 0 and kick_direction == 0:
         right_leg_step = int(right_leg_step * (1.0 - right_kick_strength) + 32 * right_kick_strength)
         right_leg_lift = int(right_leg_lift * (1.0 - right_kick_strength) + (-26) * right_kick_strength)
@@ -45853,7 +45853,7 @@ def apply_paddle_hit_knockback_player(ball_x: float = None) -> None:
         ball_x: 공의 x 좌표 (None이면 랜덤 방향)
     """
     global player_fire_knockback_vel
-    # 바이퍼 쉐도우 스텝 홀로그램 활성 중에는 넉백 무시 (텔레포트 직후 밀려남 방지)
+    # 바이퍼 쉐도우 백스텝 홀로그램 활성 중에는 넉백 무시 (텔레포트 직후 밀려남 방지)
     if _viper_ss_hologram_active:
         return
 
@@ -47647,10 +47647,10 @@ _VIPER_BR_REST_DURATION = 1000       # 정지(숨내쉬기) 시간 (ms)
 _viper_br_jump_offset_y = 0.0       # 승룡권 점프 Y오프셋 (음수=위로)
 _viper_br_arm_raise = 0.0           # 팔 들어올림 비율 (0~1)
 
-# === 바이퍼 대쉬 원점 기억 (쉐도우 스텝 스냅백용) ===
+# === 바이퍼 대쉬 원점 기억 (쉐도우 백스텝 스냅백용) ===
 _viper_dash_origin_x = 0.0           # 대쉬 시작 전 플레이어 X좌표
 
-# === 바이퍼 쉐도우 스텝 홀로그램 등장 연출 ===
+# === 바이퍼 쉐도우 백스텝 홀로그램 등장 연출 ===
 _viper_ss_hologram_active = False    # 홀로그램 연출 활성
 _viper_ss_hologram_start_ms = 0      # 연출 시작 시각
 _viper_ss_hologram_target_x = 0      # 텔레포트 목표 X
@@ -47658,9 +47658,9 @@ _viper_ss_hologram_origin_x = 0      # 텔레포트 출발 X (원래 위치)
 _viper_ss_hologram_origin_y = 0      # 출발 Y
 _viper_ss_hologram_kick_dir = 0     # 텔레포트 방향 (발차기 포즈용, -1=왼, 1=오)
 _VIPER_SS_HOLOGRAM_DURATION = 500    # 홀로그램 등장 시간 (ms)
-_viper_ss_kick_ready = False         # 쉐도우 스텝 후 첫 패들 히트 사운드 대기 플래그
+_viper_ss_kick_ready = False         # 쉐도우 백스텝 후 첫 패들 히트 사운드 대기 플래그
 
-# === 바이퍼 쉐도우 스텝 에너지파 (출발점→도착점, 공 히트 시 팬텀 스트라이크) ===
+# === 바이퍼 쉐도우 백스텝 에너지파 (출발점→도착점, 공 히트 시 팬텀 스트라이크) ===
 _viper_ss_wave_active = False         # 에너지파 활성
 _viper_ss_wave_x = 0.0               # 에너지파 현재 X
 _viper_ss_wave_y = 0.0               # 에너지파 Y (고정, 플레이어 높이)
@@ -47670,9 +47670,9 @@ _viper_ss_wave_dir = 1               # 이동 방향 (-1/1)
 _viper_ss_wave_speed = 25.0          # 이동 속도 (px/frame, 매우 빠름)
 _viper_ss_wave_hit_ball = False      # 공 히트 여부 (1회 제한)
 _viper_ss_wave_trail = []            # 잔상 궤적
-_viper_ss_ball_touched = False       # 쉐도우 스텝으로 공을 맞췄는지 (에너지파/잔상/패들 중 하나)
+_viper_ss_ball_touched = False       # 쉐도우 백스텝으로 공을 맞췄는지 (에너지파/잔상/패들 중 하나)
 
-# === 바이퍼 쉐도우 스텝 → 다음 타격 버프 (팬텀 스트라이크) ===
+# === 바이퍼 쉐도우 백스텝 → 다음 타격 버프 (팬텀 스트라이크) ===
 _viper_phantom_strike_active = False  # 다음 타격 버프 활성
 _viper_phantom_strike_timer = 0       # 버프 남은 시간 (프레임)
 _VIPER_PHANTOM_STRIKE_DURATION = 18   # 0.3초 (60fps 기준)
@@ -47685,8 +47685,8 @@ _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
 
-# === 바이퍼 마샬 킥 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
-_viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 스텝 후 보스가 공 반환 시)
+# === 바이퍼 마샬 킥 (쉐도우 백스텝 연계기: 벽 점프 → 공 돌진) ===
+_viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 백스텝 후 보스가 공 반환 시)
 _viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
 _VIPER_WALL_DIVE_READY_FRAMES = 90       # 연계 윈도우 1.5초 (60fps)
 _viper_wall_dive_active = False           # 마샬 킥 진행 중
@@ -70056,7 +70056,7 @@ def handle_player(keys):
     global rolling_active, rolling_timer, rolling_direction, rolling_speed
     global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
     global charging_token_index, max_rolling_charge_time  # 순차 충전 시스템 변수
-    global _viper_dash_origin_x  # 바이퍼 쉐도우 스텝 스냅백용
+    global _viper_dash_origin_x  # 바이퍼 쉐도우 백스텝 스냅백용
     global _all_tokens_full_sparkle_timer  # 모든 토큰 풀충전 반짝임
     global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y
     global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수
@@ -71565,7 +71565,7 @@ def handle_player(keys):
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
 
-    # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 에어 블레이드/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 마샬 킥)
+    # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 에어 블레이드/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 백스텝, Q: 베놈 엣지, R: 마샬 킥)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
@@ -71616,7 +71616,7 @@ def handle_player(keys):
 
         # S키/아래키 릴리즈: 대쉬 상태일 때만 추적 (평상시에는 리셋 유지)
         _viper_in_dash = rolling_active or rolling_stun_timer > 0
-        # 쉐도우 스텝 입력: S키 또는 아래키 (둘 다 인정)
+        # 쉐도우 백스텝 입력: S키 또는 아래키 (둘 다 인정)
         _viper_ss_input = _viper_s_pressed or keys[pygame.K_DOWN]
         if _viper_in_dash:
             if not _viper_ss_input:
@@ -71632,7 +71632,7 @@ def handle_player(keys):
             or is_player_serve
         )
 
-        # 쉐도우 스텝: 대쉬 중/후딜 중 S키(또는 아래키) 단독 입력 시만 발동
+        # 쉐도우 백스텝: 대쉬 중/후딜 중 S키(또는 아래키) 단독 입력 시만 발동
         # 좌우 방향키가 함께 눌려있으면 대쉬 입력으로 간주 → 발동 차단
         _viper_any_dir_held = (
             keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
@@ -71670,7 +71670,7 @@ def handle_player(keys):
                                 'alpha': 200,
                                 'image': _ss_afterimage_surf,
                                 'life': 30,  # 홀로그램 동안 유지
-                                'viper_ss': True,  # 쉐도우 스텝 잔상 태그
+                                'viper_ss': True,  # 쉐도우 백스텝 잔상 태그
                                 'width': PLAYER.width,
                                 'height': PLAYER.height,
                                 'hit_ball': False,  # 공 타격 여부 (1회 제한)
@@ -71787,7 +71787,7 @@ def handle_player(keys):
                             except Exception:
                                 pass
 
-    # === 바이퍼 마샬 킥 연계기 (쉐도우 스텝 → 보스 반환 → S/↓키) ===
+    # === 바이퍼 마샬 킥 연계기 (쉐도우 백스텝 → 보스 반환 → S/↓키) ===
     # 연계 윈도우 타이머 감소
     if _viper_wall_dive_ready:
         _viper_wall_dive_ready_timer -= 1
@@ -72361,7 +72361,7 @@ def handle_player(keys):
                     _dv_alive.append(_dp)
             _viper_dive_particles = _dv_alive[-150:] if len(_dv_alive) > 150 else _dv_alive
 
-    # 바이퍼 쉐도우 스텝 에너지파 업데이트 (이동 + 공 충돌)
+    # 바이퍼 쉐도우 백스텝 에너지파 업데이트 (이동 + 공 충돌)
     if _viper_ss_wave_active:
         # 이동 (매우 빠름)
         _viper_ss_wave_x += _viper_ss_wave_dir * _viper_ss_wave_speed
@@ -72388,7 +72388,7 @@ def handle_player(keys):
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
                     _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
-                    # 🪙 쉐도우 스텝 에너지파 타격 골드 보너스
+                    # 🪙 쉐도우 백스텝 에너지파 타격 골드 보너스
                     try:
                         add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
@@ -74980,7 +74980,7 @@ def handle_player(keys):
                         # 하프 대쉬 발동
                             # 🔧 버그 수정: 하프 대시에서도 키 릴리즈 플래그 설정
                             globals()['dash_key_released_since_last'] = False
-                            # 🐍 바이퍼 쉐도우 스텝용 대쉬 원점 기록
+                            # 🐍 바이퍼 쉐도우 백스텝용 대쉬 원점 기록
                             if selected_character_type == "viper":
                                 _viper_dash_origin_x = float(PLAYER.centerx)
                             rolling_active = True
@@ -75255,7 +75255,7 @@ def handle_player(keys):
                     # 아래키 + 왼쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
-                    # 🐍 바이퍼 쉐도우 스텝용 대쉬 원점 기록
+                    # 🐍 바이퍼 쉐도우 백스텝용 대쉬 원점 기록
                     if selected_character_type == "viper":
                         _viper_dash_origin_x = float(PLAYER.centerx)
                     rolling_active = True
@@ -75544,7 +75544,7 @@ def handle_player(keys):
                     # 아래키 + 오른쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
-                    # 🐍 바이퍼 쉐도우 스텝용 대쉬 원점 기록
+                    # 🐍 바이퍼 쉐도우 백스텝용 대쉬 원점 기록
                     if selected_character_type == "viper":
                         _viper_dash_origin_x = float(PLAYER.centerx)
                     rolling_active = True
@@ -77555,8 +77555,8 @@ def handle_player(keys):
         _player_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [플레이어 패들 충돌] calculate_bounce 후 속도: {_player_speed_before:.2f} → {_player_speed_after:.2f}, 쿨다운: player={player_collision_cooldown}, boss={boss_collision_cooldown}")  # 디버그 비활성화
 
-        # 🐍 바이퍼 쉐도우 스텝 후 첫 패들 타격 시 shadowkick.wav 재생
-        # 플래그 기반: 쉐도우 스텝 발동 시 _viper_ss_kick_ready=True → 첫 히트에 소모 (5초 타임아웃)
+        # 🐍 바이퍼 쉐도우 백스텝 후 첫 패들 타격 시 shadowkick.wav 재생
+        # 플래그 기반: 쉐도우 백스텝 발동 시 _viper_ss_kick_ready=True → 첫 히트에 소모 (5초 타임아웃)
         _viper_ss_kick_fired = False  # 쉐도우 킥 발동 시 게이지 충전 차단용
         if selected_character_type == "viper" and _viper_ss_kick_ready:
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
@@ -106444,7 +106444,7 @@ def draw_objects():
                 _holo_x = int(_viper_ss_hologram_target_x)
                 _holo_y = int(_viper_ss_hologram_origin_y)
 
-                # 바이퍼 원본 Surface (쉐도우 스텝 시 발차기 포즈)
+                # 바이퍼 원본 Surface (쉐도우 백스텝 시 발차기 포즈)
                 _holo_base = create_viper_paddle_surface(0.0, kick_direction=_viper_ss_hologram_kick_dir)
                 _holo_w, _holo_h = _holo_base.get_size()
 
@@ -106708,7 +106708,7 @@ def draw_objects():
         except Exception:
             pass
 
-    # ⚡ 바이퍼 쉐도우 스텝 에너지파 렌더링
+    # ⚡ 바이퍼 쉐도우 백스텝 에너지파 렌더링
     if _viper_ss_wave_active:
         try:
             _sw_x = int(_viper_ss_wave_x)
@@ -109123,7 +109123,7 @@ def draw_objects():
                     if abs(_rot_angle) > 0.5:
                         base_ufo_img = pygame.transform.rotate(base_ufo_img, _rot_angle)
             elif _viper_ss_hologram_active:
-                # 쉐도우 스텝 홀로그램 중: 본체는 투명 (홀로그램 렌더링이 대신 그림)
+                # 쉐도우 백스텝 홀로그램 중: 본체는 투명 (홀로그램 렌더링이 대신 그림)
                 base_ufo_img = create_viper_paddle_surface(0.0)
                 base_ufo_img.set_alpha(0)
             elif viper_walking_active:
@@ -109468,7 +109468,7 @@ def draw_objects():
         afterimage_rect = afterimage_surf.get_rect(center=(afterimage['x'], afterimage['y']))
         # 잔상 그리기
         SCREEN.blit(afterimage_surf, afterimage_rect.topleft)
-        # 바이퍼 쉐도우 스텝 잔상 — 공 충돌 판정
+        # 바이퍼 쉐도우 백스텝 잔상 — 공 충돌 판정
         if afterimage.get('viper_ss') and not afterimage.get('hit_ball'):
             _ai_w = afterimage.get('width', 80)
             _ai_h = afterimage.get('height', 40)
@@ -139689,7 +139689,7 @@ def calculate_bounce(paddle):
                 del smoke_zone["affecting_ball"]
                 break
 
-        # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 스텝 직후 0.3초 내 타격 시 공속 80% 증가 + 신비한 커브
+        # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 백스텝 직후 0.3초 내 타격 시 공속 80% 증가 + 신비한 커브
         if _viper_phantom_strike_active and selected_character_type == "viper":
             _viper_ss_ball_touched = True  # 카운터 연계 조건 충족 (패들로 직접 타격)
             _viper_phantom_strike_active = False  # 1회 소모
@@ -141418,7 +141418,7 @@ def handle_ball():
     # 바이퍼 마샬 킥 연계기
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_ss_ball_touched
-    # 바이퍼 쉐도우 스텝 킥 사운드 (handle_ball 백업 경로용)
+    # 바이퍼 쉐도우 백스텝 킥 사운드 (handle_ball 백업 경로용)
     global _viper_ss_kick_ready, _viper_ss_hologram_start_ms
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
@@ -142115,7 +142115,7 @@ def handle_ball():
                     global is_danger_sensor_dash
                     # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
-                    # 🐍 바이퍼 쉐도우 스텝용 대쉬 원점 기록
+                    # 🐍 바이퍼 쉐도우 백스텝용 대쉬 원점 기록
                     if selected_character_type == "viper":
                         _viper_dash_origin_x = float(PLAYER.centerx)
                     rolling_active = True
@@ -145829,7 +145829,7 @@ def handle_ball():
                     last_tears_cast_time = time_now
         calculate_bounce(PLAYER)  # handle_ball에서는 반환값 사용 안함 (게이지 처리가 handle_player에서 이미 됨)
 
-        # 🐍 바이퍼 쉐도우 스텝 후 첫 패들 타격 시 shadowkick.wav 재생 (handle_ball 백업 경로)
+        # 🐍 바이퍼 쉐도우 백스텝 후 첫 패들 타격 시 shadowkick.wav 재생 (handle_ball 백업 경로)
         # handle_player가 충돌을 놓친 경우(공 이동이 handle_ball에서 수행되므로) 여기서 처리
         _viper_ss_kick_fired = False  # 쉐도우 킥 발동 시 게이지 충전 차단용
         if selected_character_type == "viper" and _viper_ss_kick_ready:
@@ -146531,7 +146531,7 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
-        # 바이퍼 마샬 킥 연계 윈도우 활성화 (쉐도우 스텝으로 공 히트 후 보스가 반환 시)
+        # 바이퍼 마샬 킥 연계 윈도우 활성화 (쉐도우 백스텝으로 공 히트 후 보스가 반환 시)
         if selected_character_type == "viper" and _viper_ss_ball_touched:
             _viper_wall_dive_ready = True
             _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
