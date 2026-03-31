@@ -72692,9 +72692,15 @@ def handle_player(keys):
                 _viper_wall_dive_wall_x = 15.0  # 공이 우측 → 좌측 벽으로
             else:
                 _viper_wall_dive_wall_x = float(WIDTH - 15)  # 공이 좌측 → 우측 벽으로
-            # 벽 매달림 Y: 항상 현재 위치에서 200px 위로 상승 (체공 높이 무관하게 동일한 상승량)
-            _viper_wall_dive_wall_y = float(PLAYER.centery) - 200.0
-            _viper_wall_dive_wall_y = max(120.0, min(650.0, _viper_wall_dive_wall_y))
+            # 벽 매달림 Y: 바닥에서 200px 상승, 이미 높을수록 상승량 비례 감소 (자연스러운 벽타기)
+            _wd_ground_y = 710.0   # 바닥 기준
+            _wd_min_y = 200.0      # 벽타기 최소 Y (보스 영역 침범 방지)
+            _wd_max_rise = 200.0   # 바닥에서의 최대 상승량
+            _wd_min_rise = 50.0    # 최소 상승량 (높은 곳에서도 약간은 올라감)
+            _wd_height_ratio = max(0.0, min(1.0, (float(PLAYER.centery) - _wd_min_y) / (_wd_ground_y - _wd_min_y)))
+            _wd_rise = _wd_min_rise + (_wd_max_rise - _wd_min_rise) * _wd_height_ratio
+            _viper_wall_dive_wall_y = float(PLAYER.centery) - _wd_rise
+            _viper_wall_dive_wall_y = max(_wd_min_y, min(650.0, _viper_wall_dive_wall_y))
             # 사운드
             try:
                 _wd_snd = sound_effects.get('VIPER_BACKSTEP')
