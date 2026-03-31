@@ -3700,13 +3700,6 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "stun_purple"
     },
     {
-        "name": "venom_edge", "korean": "신경 타격", "cost": 80, "color": (0, 255, 100),
-        "symbol": "☠", "cooldown": 14.0, "key": "Q",
-        "description": "블레이드에 독기를 주입합니다.\n5초간 타격 시 보스에게 지속 피해를 입힙니다.",
-        "how_to_use": "Q키를 눌러 발동",
-        "effect_type": "poison_green"
-    },
-    {
         "name": "dive_strike", "korean": "다이브 스트라이크", "cost": 120, "color": (255, 120, 50),
         "symbol": "⇓", "cooldown": 15.0, "key": "체공+S/↓",
         "description": "체공 중 급강하하여 착지 연기 장판을 생성합니다.\n연기에 닿은 공을 위로 반사 + 공속 증가.",
@@ -3719,14 +3712,6 @@ VIPER_SKILL_ICONS_DATA = [
         "description": "쉐도우 스텝 후 보스가 공을 반환하면 발동 가능.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
         "how_to_use": "쉐도우 스텝 사용 후 보스 반환 시 S/↓키",
         "effect_type": "wall_dive_purple"
-    },
-    {
-        "name": "phantom_assault", "korean": "팬텀 어썰트", "cost": 120, "color": (160, 0, 255),
-        "symbol": "✦", "cooldown": 20.0, "key": "R",
-        "description": "5연속 잔상 돌진으로 공을 강타합니다.\n발동 중 무적 상태.",
-        "how_to_use": "R키를 눌러 발동 (궁극기)",
-        "effect_type": "ultimate_purple",
-        "is_ultimate": True
     },
 ]
 
@@ -3741,10 +3726,8 @@ _viper_skill_cooldowns = {
     "shadow_step": 0,
     "blade_rush": 0,
     "nerve_strike": 0,
-    "venom_edge": 0,
     "shadow_counter": 0,
     "dive_strike": 0,
-    "phantom_assault": 0,
 }
 
 # 바이퍼 스킬 활성화 순간 추적
@@ -3752,18 +3735,14 @@ _viper_skill_activation_times = {
     "shadow_step": 0,
     "blade_rush": 0,
     "nerve_strike": 0,
-    "venom_edge": 0,
     "shadow_counter": 0,
-    "phantom_assault": 0,
     "dive_strike": 0,
 }
 _viper_skill_was_active = {
     "shadow_step": False,
     "blade_rush": False,
     "nerve_strike": False,
-    "venom_edge": False,
     "shadow_counter": False,
-    "phantom_assault": False,
     "dive_strike": False,
 }
 
@@ -3774,9 +3753,7 @@ _viper_skill_unlocked = {
     "shadow_step": True,      # 기본 해금
     "blade_rush": True,       # 기본 해금
     "nerve_strike": False,    # 런타임 스킬로 해금 필요
-    "venom_edge": False,      # 런타임 스킬로 해금 필요
     "shadow_counter": True,   # 쉐도우 스텝 해금 시 자동 해금 (연계기)
-    "phantom_assault": False,  # 런타임 스킬로 해금 필요
     "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
 }
 
@@ -3792,9 +3769,7 @@ def reset_viper_skill_unlocks():
         "shadow_step": True,
         "blade_rush": True,
         "nerve_strike": False,
-        "venom_edge": False,
         "shadow_counter": True,
-        "phantom_assault": False,
         "dive_strike": False,
     }
 
@@ -3880,10 +3855,8 @@ def reset_viper_skill_cooldowns():
         "shadow_step": 0,
         "blade_rush": 0,
         "nerve_strike": 0,
-        "venom_edge": 0,
         "shadow_counter": 0,
         "dive_strike": 0,
-        "phantom_assault": 0,
     }
 
 
@@ -141465,6 +141438,8 @@ def handle_ball():
     # 바이퍼 쉐도우 카운터 연계기
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_ss_ball_touched
+    # 바이퍼 쉐도우 스텝 킥 사운드 (handle_ball 백업 경로용)
+    global _viper_ss_kick_ready, _viper_ss_hologram_start_ms
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
@@ -145870,6 +145845,25 @@ def handle_ball():
                         boss_special_gauge = 0
                     last_tears_cast_time = time_now
         calculate_bounce(PLAYER)  # handle_ball에서는 반환값 사용 안함 (게이지 처리가 handle_player에서 이미 됨)
+
+        # 🐍 바이퍼 쉐도우 스텝 후 첫 패들 타격 시 shadowkick.wav 재생 (handle_ball 백업 경로)
+        # handle_player가 충돌을 놓친 경우(공 이동이 handle_ball에서 수행되므로) 여기서 처리
+        if selected_character_type == "viper" and _viper_ss_kick_ready:
+            _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
+            if _sk_since < 5000:  # 5초 안전 타임아웃
+                try:
+                    _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
+                    if _sk_snd:
+                        _sk_snd.set_volume(0.6)
+                        _sk_snd.play()
+                except Exception:
+                    pass
+                # 🪙 쉐도우 킥 타격 골드 보너스
+                try:
+                    add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
+                except Exception:
+                    pass
+            _viper_ss_kick_ready = False  # 1회 소모 (타임아웃 초과 시에도 리셋)
 
         # 테크니컬조끼 효과 발동 (handle_ball에서 처리 - 실제 충돌이 여기서 처리됨)
         on_ball_paddle_collision_technical_vest(PLAYER)
