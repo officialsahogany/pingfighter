@@ -107108,8 +107108,8 @@ def draw_objects():
                         if _g_local_t < 0.0 or _g_local_t > 1.0:
                             continue
                         _g_ease = min(1.0, _g_local_t * _g_local_t * 4.0)  # 빠른 가속
-                        # 발차기 방향으로 뻗어나감 (확장 히트박스 커버)
-                        _g_offset_x = _kick_dir * _g_ease * (5 + _gi * 8)
+                        # 발차기 방향으로 뻗어나감 (확장 히트박스 끝까지 커버)
+                        _g_offset_x = _kick_dir * _g_ease * (8 + _gi * 18)
                         _g_offset_y = 0
                         # 알파: 빠르게 나타나고 천천히 사라짐, 뒤쪽 잔상일수록 연함
                         _g_fade = 1.0 - max(0.0, (_g_local_t - 0.7) * 3.3)
