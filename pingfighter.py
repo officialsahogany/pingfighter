@@ -71679,9 +71679,9 @@ def handle_player(keys):
     # 에어블레이드 스핀 중(phase 2)에도 S/↓키로 다이브 스트라이크 연계 가능
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         # 급강하 발동: 체공 중 또는 에어블레이드 스핀 중 S키/↓키 단독
-        # 에어블레이드 연계 시 하강 시작(300ms 이후)까지 대기
+        # 에어블레이드 연계 시 하강 중반(600ms 이후)까지 대기 — 충분히 체공 후 발동
         _dive_ab_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
-        _dive_from_airblade = (_viper_br_spin_active and _viper_br_spin_phase == 2 and _dive_ab_elapsed >= 300)
+        _dive_from_airblade = (_viper_br_spin_active and _viper_br_spin_phase == 2 and _dive_ab_elapsed >= 600)
         if (not _viper_dive_active and (_viper_jetpack_offset_y < -20 or _dive_from_airblade)
                 and not rolling_active and not _viper_nerve_strike_active
                 and not is_waiting_for_serve
