@@ -924,6 +924,32 @@
         </div>
       </div>
 
+      <!-- 더블 마샬 킥 (퍽) -->
+      <div class="item-card">
+        <div class="item-card-header" style="background:linear-gradient(135deg,#0a0020,#2a0050);border-bottom:2px solid #B400DC;color:white;">
+          <span style="font-size:20px;">⚡</span> 더블 마샬 킥 (Double Marshal Kick)
+          <span class="badge" style="background:#9b59b6;font-size:10px;margin-left:auto;">퍽</span>
+          <span class="badge" style="background:#555;font-size:10px;">런타임 스킬</span>
+        </div>
+        <div class="item-card-body">
+          <strong>런타임 스킬</strong>로 해금하는 마샬 킥 강화 퍽입니다. 다음 두 가지 상황에서 <strong>2차 마샬 킥</strong>을 발동할 수 있습니다:<br>
+          <table class="wiki-table" style="margin:8px 0 0;font-size:13px;">
+            <tr><th style="width:160px;">발동 조건</th><th>설명</th></tr>
+            <tr><td>마샬 킥 → 보스 가드</td><td>1차 마샬 킥이 공에 적중한 후, 보스가 공을 반환(가드)하면 <strong>3초간</strong> 2차 마샬 킥 윈도우 활성화</td></tr>
+            <tr><td>베놈 엣지 실패 → 착지</td><td>베놈 엣지가 보스에게 <strong>빗나간 후</strong> 착지하면 <strong>3초간</strong> 2차 마샬 킥 윈도우 활성화 (성공 시에는 불가)</td></tr>
+          </table>
+          <table class="wiki-table" style="margin:8px 0 0;font-size:13px;">
+            <tr><td>게이지 소모</td><td><strong>50</strong> (1차보다 저렴)</td><td>공속 증가</td><td><strong>+120%</strong> (1차보다 강력)</td></tr>
+          </table>
+          <div class="tip-box" style="margin:8px 0 0;padding:6px 10px;font-size:12px;">
+            퍽 해금 시 게이지 구슬 옆에 <strong>퍽 구슬</strong>이 표시됩니다. 2차 윈도우 활성 시 구슬이 밝게 빛나며, S/↓키로 즉시 발동할 수 있습니다.
+          </div>
+          <div class="warning-box" style="margin:8px 0 0;padding:8px 10px;font-size:12px;">
+            베놈 엣지 <strong>성공</strong>(보스 적중 → 5초 혼란) 시에는 2차 마샬 킥이 발동되지 않습니다. 베놈 엣지를 <strong>실패</strong>했을 때 만회할 수 있는 보험용 연계기입니다.
+          </div>
+        </div>
+      </div>
+
       <!-- 다이브 스트라이크 -->
       <div class="item-card">
         <div class="item-card-header" style="background:linear-gradient(135deg,#1a0800,#6a2000);border-bottom:2px solid #FF7832;color:white;">
@@ -980,6 +1006,29 @@
       </div>
       <div style="color:#00FFB4;font-size:12px;margin-top:8px;">공속 +30~50%(검기) + 공속 +80%(발차기) | 연속 공속 부스트</div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0;">
+      <div style="background:#0a0020;border:1px solid #B400DC;border-radius:6px;padding:14px;color:white;">
+        <div style="font-weight:700;margin-bottom:8px;color:#B400DC;">루트 D: 더블 마샬 <span style="background:#9b59b6;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:400;">퍽</span></div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;flex-wrap:wrap;">
+          <span style="background:#8200C8;padding:3px 8px;border-radius:3px;">🕷 마샬 킥</span>
+          <span style="color:#666;">→</span>
+          <span style="color:#888;font-size:11px;">보스 가드</span>
+          <span style="color:#666;">→</span>
+          <span style="background:#B400DC;padding:3px 8px;border-radius:3px;">⚡ 2차 마샬 킥</span>
+        </div>
+        <div style="color:#FFD700;font-size:12px;margin-top:8px;">공속 +80%(1차) → +120%(2차) | 게이지 50으로 저렴</div>
+      </div>
+      <div style="background:#0a0020;border:1px solid #B400DC;border-radius:6px;padding:14px;color:white;">
+        <div style="font-weight:700;margin-bottom:8px;color:#B400DC;">루트 E: 베놈 실패 만회 <span style="background:#9b59b6;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:400;">퍽</span></div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;flex-wrap:wrap;">
+          <span style="background:#B400DC;padding:3px 8px;border-radius:3px;">◈ 베놈 엣지</span>
+          <span style="color:#e74c3c;font-size:11px;">빗나감!</span>
+          <span style="color:#666;">→</span>
+          <span style="background:#B400DC;padding:3px 8px;border-radius:3px;">⚡ 2차 마샬 킥</span>
+        </div>
+        <div style="color:#FFD700;font-size:12px;margin-top:8px;">실패 보험 | 공속 +120% | 베놈 성공 시 불가</div>
+      </div>
+    </div>
 
     <!-- 운영 전략 -->
     <div class="sub-header">운영 전략</div>
@@ -1005,6 +1054,7 @@
       <tr><td><strong>⚔ 에어 블레이드</strong></td><td>체공 + W/↑</td><td>200</td><td>16초</td><td>기본</td><td>공속 +30~50%</td></tr>
       <tr><td><strong>◈ 베놈 엣지</strong></td><td>에어블레이드 중 W/↑</td><td>+80</td><td>-</td><td>해금</td><td>보스 혼란 5초</td></tr>
       <tr><td><strong>🕷 마샬 킥</strong></td><td>백스텝/에어블레이드 후 S/↓</td><td>+80</td><td>-</td><td>해금</td><td>공속 +80%</td></tr>
+      <tr style="background:#1a0030;"><td><strong>⚡ 더블 마샬 킥</strong></td><td>마샬 킥 가드 후 / 베놈 실패 후 S/↓</td><td>+50</td><td>-</td><td>퍽</td><td>공속 +120%</td></tr>
       <tr><td><strong>⇓ 다이브 스트라이크</strong></td><td>체공 + S/↓ (단독)</td><td>120</td><td>15초</td><td>해금</td><td>반사 장판 + 공속 +20~50%</td></tr>
     </table>
 
