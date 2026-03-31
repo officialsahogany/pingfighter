@@ -47905,6 +47905,8 @@ _viper_wall_dive_charge_target_y = 0.0    # 돌진 목표 Y
 _viper_wall_dive_charge_start_x = 0.0     # 돌진 출발 X (벽)
 _viper_wall_dive_charge_start_y = 0.0     # 돌진 출발 Y (벽)
 _viper_wall_dive_ball_hit = False         # 공 히트 여부
+_viper_wall_dive_reclimb_start_x = 0.0   # 벽다시타기 출발 X
+_viper_wall_dive_reclimb_start_y = 0.0   # 벽다시타기 출발 Y
 _viper_wall_dive_particles = []           # 이펙트 파티클
 _viper_wall_dive_web_lines = []           # 거미줄 라인 이펙트
 _VIPER_WALL_DIVE_GAUGE_COST = 80          # 게이지 소모
@@ -47912,6 +47914,8 @@ _VIPER_WALL_DIVE_JUMP_MS = 350            # 벽으로 점프 시간 (ms)
 _VIPER_WALL_DIVE_CLING_MS = 250           # 벽 매달림 시간 (ms)
 _VIPER_WALL_DIVE_CHARGE_MS = 350          # 돌진 시간 (ms)
 _VIPER_WALL_DIVE_HIT_RADIUS = 90          # 공 히트 반경 (px, 실시간 추적이므로 넉넉하게)
+_VIPER_WALL_DIVE_RECLIMB_THRESHOLD = 120  # 벽다시타기 X거리 임계값 (px) - 이보다 가까우면 반대벽으로
+_VIPER_WALL_DIVE_RECLIMB_MS = 180         # 벽다시타기 이동 시간 (ms) - 매우 빠르게
 
 # 더블 마샬 킥 퍽 시스템
 _viper_double_marshal_kick_unlocked = False   # 퍽 해금 여부
@@ -72178,14 +72182,77 @@ def handle_player(keys):
             PLAYER.centerx = int(_viper_wall_dive_wall_x)
             PLAYER.centery = int(_viper_wall_dive_wall_y)
             if _wd_t >= 1.0:
+                # === 벽다시타기 감지: 공의 X가 현재 벽과 너무 가까우면 반대편 벽으로 ===
+                _wd_ball_dist_x = abs(BALL.centerx - _viper_wall_dive_wall_x)
+                if _wd_ball_dist_x < _VIPER_WALL_DIVE_RECLIMB_THRESHOLD:
+                    # 반대편 벽으로 벽다시타기 (Phase 3)
+                    _viper_wall_dive_phase = 3
+                    _viper_wall_dive_start_ms = _wd_now
+                    _viper_wall_dive_reclimb_start_x = float(_viper_wall_dive_wall_x)
+                    _viper_wall_dive_reclimb_start_y = float(_viper_wall_dive_wall_y)
+                    # 반대편 벽으로 목표 설정
+                    if _viper_wall_dive_wall_x < WIDTH // 2:
+                        _viper_wall_dive_wall_x = float(WIDTH - 15)
+                    else:
+                        _viper_wall_dive_wall_x = 15.0
+                    # Y는 공 높이에 맞춰 조정
+                    _viper_wall_dive_wall_y = max(300.0, min(650.0, float(BALL.centery) - 50.0))
+                    # 벽다시타기 사운드 (빠르게)
+                    try:
+                        _wd_reclimb_snd = sound_effects.get('VIPER_BACKSTEP')
+                        if _wd_reclimb_snd:
+                            _wd_reclimb_snd.set_volume(0.4)
+                            _wd_reclimb_snd.play()
+                    except Exception:
+                        pass
+                else:
+                    _viper_wall_dive_phase = 2
+                    _viper_wall_dive_start_ms = _wd_now
+                    # 돌진 목표: 실시간 공 위치 추적 (매 프레임 갱신됨)
+                    _viper_wall_dive_charge_target_x = float(BALL.centerx)
+                    _viper_wall_dive_charge_target_y = float(BALL.centery)
+                    _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
+                    _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
+                    _viper_wall_dive_web_lines = []  # 거미줄 제거
+                    # 돌진 사운드
+                    try:
+                        _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
+                        if _wd_charge_snd:
+                            _wd_charge_snd.set_volume(0.6)
+                            _wd_charge_snd.play()
+                    except Exception:
+                        pass
+
+        elif _viper_wall_dive_phase == 3:
+            # Phase 3: 벽다시타기 - 반대편 벽으로 매우 빠르게 이동
+            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_RECLIMB_MS)
+            _wd_ease = _wd_t * _wd_t * (3.0 - 2.0 * _wd_t)  # ease-in-out
+            _wd_cx = _viper_wall_dive_reclimb_start_x + (_viper_wall_dive_wall_x - _viper_wall_dive_reclimb_start_x) * _wd_ease
+            _wd_cy = _viper_wall_dive_reclimb_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_reclimb_start_y) * _wd_ease
+            PLAYER.centerx = int(_wd_cx)
+            PLAYER.centery = int(_wd_cy)
+            # 잔상 파티클 (보라색 강조)
+            if _wd_rand.random() < 0.8:
+                _viper_wall_dive_particles.append({
+                    'x': _wd_cx + _wd_rand.uniform(-6, 6),
+                    'y': _wd_cy + _wd_rand.uniform(-6, 6),
+                    'vx': _wd_rand.uniform(-4, 4), 'vy': _wd_rand.uniform(-2, 2),
+                    'life': _wd_rand.randint(6, 14), 'max_life': 14,
+                    'size': _wd_rand.uniform(3, 7), 'type': 'trail',
+                })
+            if _wd_t >= 1.0:
+                # 벽다시타기 완료 → 즉시 돌진 (Phase 2)으로 전환
                 _viper_wall_dive_phase = 2
                 _viper_wall_dive_start_ms = _wd_now
-                # 돌진 목표: 실시간 공 위치 추적 (매 프레임 갱신됨)
+                PLAYER.centerx = int(_viper_wall_dive_wall_x)
+                PLAYER.centery = int(_viper_wall_dive_wall_y)
                 _viper_wall_dive_charge_target_x = float(BALL.centerx)
                 _viper_wall_dive_charge_target_y = float(BALL.centery)
                 _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
                 _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
-                _viper_wall_dive_web_lines = []  # 거미줄 제거
+                _viper_wall_dive_web_lines = []
+                screen_shake_timer = max(screen_shake_timer, 4)
+                screen_shake_intensity = max(screen_shake_intensity, 2)
                 # 돌진 사운드
                 try:
                     _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
