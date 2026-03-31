@@ -72769,7 +72769,7 @@ def handle_player(keys):
                 special_gauge -= _VIPER_DIVE_GAUGE_COST
                 trigger_viper_skill_cooldown("dive_strike")
                 _viper_dive_active = True
-                _viper_dive_phase = 1  # 즉시 급강하 (도움닫기 생략)
+                _viper_dive_phase = 0  # 준비동작(도움닫기) 부터 시작
                 _viper_dive_start_ms = pygame.time.get_ticks()
                 try:
                     _dp_snd = sound_effects.get('VIPER_DIVE_PREP')
