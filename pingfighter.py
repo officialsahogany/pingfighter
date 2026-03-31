@@ -72848,14 +72848,11 @@ def handle_player(keys):
                     _viper_jetpack_hold_timer = 0
                     _viper_jetpack_overheat = False
 
-                    # 보스 슬립 효과 (바나나 50% — 보스 이동속도에 비례)
-                    _dive_slip_base = 10.0  # 바나나 20의 50%
-                    _dive_boss_speed = abs(boss_fire_knockback_vel) if abs(boss_fire_knockback_vel) > 1.0 else abs(getattr(BOSS, '_last_dx', 0) if hasattr(BOSS, '_last_dx') else 0)
-                    # 보스 현재 이동 방향 추정 (보스 위치와 화면 중앙 비교)
-                    _dive_slip_dir = 1 if BOSS.centerx < WIDTH // 2 else -1
-                    # 보스 속도가 빠를수록 슬립 강화 (기본 10 + 속도 비례 최대 10 추가)
-                    _dive_slip_strength = _dive_slip_base + min(10.0, _dive_boss_speed * 0.5)
-                    boss_fire_knockback_vel += _dive_slip_dir * _dive_slip_strength
+                    # 보스 슬립 효과 (바나나 50% — 공 방향으로 밀림)
+                    _dive_slip_base = 15.0
+                    _dive_boss_dx = BALL.centerx - BOSS.centerx
+                    _dive_slip_dir = 1 if _dive_boss_dx > 0 else -1
+                    boss_fire_knockback_vel = _dive_slip_dir * _dive_slip_base
 
                     # 착지 연기 파티클 — 좌우 300px 범위로 넓게 퍼지는 더스트 클라우드
                     _landing_cx = _viper_dive_shockwave_x
