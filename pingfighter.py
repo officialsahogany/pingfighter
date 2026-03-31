@@ -106247,7 +106247,8 @@ def draw_objects():
     global _viper_ss_kick_ready, _viper_speed_boost_active, _viper_speed_boost_original
     global _viper_phantom_strike_active, _viper_phantom_strike_timer
     global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
-    global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer
+    global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer, _viper_starburst_is_double
+    global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
