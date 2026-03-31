@@ -3709,7 +3709,7 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "dive_impact"
     },
     {
-        "name": "shadow_counter", "korean": "쉐도우 카운터", "cost": 80, "color": (130, 0, 200),
+        "name": "phantom_assault", "korean": "팬텀 어썰트", "cost": 80, "color": (130, 0, 200),
         "symbol": "🕷", "cooldown": 0.0, "key": "S/↓(연계)",
         "description": "쉐도우 스텝 후 보스가 공을 반환하면 발동 가능.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
         "how_to_use": "쉐도우 스텝 사용 후 보스 반환 시 S/↓키",
@@ -3728,7 +3728,7 @@ _viper_skill_cooldowns = {
     "shadow_step": 0,
     "blade_rush": 0,
     "nerve_strike": 0,
-    "shadow_counter": 0,
+    "phantom_assault": 0,
     "dive_strike": 0,
 }
 
@@ -3737,14 +3737,14 @@ _viper_skill_activation_times = {
     "shadow_step": 0,
     "blade_rush": 0,
     "nerve_strike": 0,
-    "shadow_counter": 0,
+    "phantom_assault": 0,
     "dive_strike": 0,
 }
 _viper_skill_was_active = {
     "shadow_step": False,
     "blade_rush": False,
     "nerve_strike": False,
-    "shadow_counter": False,
+    "phantom_assault": False,
     "dive_strike": False,
 }
 
@@ -3755,7 +3755,7 @@ _viper_skill_unlocked = {
     "shadow_step": True,      # 기본 해금
     "blade_rush": True,       # 기본 해금
     "nerve_strike": False,    # 런타임 스킬로 해금 필요
-    "shadow_counter": True,   # 쉐도우 스텝 해금 시 자동 해금 (연계기)
+    "phantom_assault": True,   # 쉐도우 스텝 해금 시 자동 해금 (연계기)
     "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
 }
 
@@ -3771,7 +3771,7 @@ def reset_viper_skill_unlocks():
         "shadow_step": True,
         "blade_rush": True,
         "nerve_strike": False,
-        "shadow_counter": True,
+        "phantom_assault": True,
         "dive_strike": False,
     }
 
@@ -3857,7 +3857,7 @@ def reset_viper_skill_cooldowns():
         "shadow_step": 0,
         "blade_rush": 0,
         "nerve_strike": 0,
-        "shadow_counter": 0,
+        "phantom_assault": 0,
         "dive_strike": 0,
     }
 
@@ -4718,8 +4718,8 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         for sx, sy in spark_positions:
             pygame.draw.circle(surface, highlight_color, (sx, sy), 2)
 
-    elif skill_name == "shadow_counter":
-        # 🕷 쉐도우 카운터: 벽 점프 → 공 돌진 (스파이더맨 스타일)
+    elif skill_name == "phantom_assault":
+        # 🕷 팬텀 어썰트: 벽 점프 → 공 돌진 (스파이더맨 스타일)
         # 벽 표현 (좌측 세로선)
         wall_x = cx - s * 2 // 3
         pygame.draw.line(surface, shadow_color, (wall_x, cy - s * 2 // 3), (wall_x, cy + s * 2 // 3), 3)
@@ -5139,7 +5139,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     unlocked_main_skills = []
 
     # 메인 스킬 순서
-    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "shadow_counter", "dive_strike"]
+    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "phantom_assault", "dive_strike"]
 
     for skill_name in main_skill_order:
         for skill_data in VIPER_SKILL_ICONS_DATA:
@@ -31547,6 +31547,45 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
             left_leg_step = -4
             left_leg_lift = 0
 
+    # === 타격 모션: 왼팔 슬래시 / 오른발 킥 (벨 커브 0→1→0) ===
+    _vsi = viper_swing_intensity
+    # 왼팔 슬래시 강도 (bell curve)
+    _ls_eff = max(1, int(VIPER_LEFT_SLASH_DURATION * _vsi))
+    if _ls_eff > 0 and viper_left_slash_timer > 0:
+        _ls_norm = 1.0 - (viper_left_slash_timer / _ls_eff)
+        _ls_norm = max(0.0, min(1.0, _ls_norm))
+        left_slash_strength = (_ls_norm * 2.0 if _ls_norm < 0.5 else (1.0 - _ls_norm) * 2.0)
+        left_slash_strength = max(0.0, min(1.0, left_slash_strength ** 0.6))
+    else:
+        left_slash_strength = 0.0
+    # 오른발 킥 강도 (bell curve)
+    _rk_eff = max(1, int(VIPER_RIGHT_KICK_DURATION * _vsi))
+    if _rk_eff > 0 and viper_right_kick_timer > 0:
+        _rk_norm = 1.0 - (viper_right_kick_timer / _rk_eff)
+        _rk_norm = max(0.0, min(1.0, _rk_norm))
+        right_kick_strength = (_rk_norm * 2.0 if _rk_norm < 0.5 else (1.0 - _rk_norm) * 2.0)
+        right_kick_strength = max(0.0, min(1.0, right_kick_strength ** 0.6))
+    else:
+        right_kick_strength = 0.0
+    # 히트 포즈 비율 (선형 감소)
+    _hp_eff = max(1, int(VIPER_HIT_POSE_DURATION * _vsi))
+    viper_hit_ratio = max(0.0, min(1.0, viper_hit_pose_timer / _hp_eff)) if viper_hit_pose_timer > 0 else 0.0
+
+    # 타격 모션 중 걷기 동작 억제
+    if left_slash_strength > 0 or right_kick_strength > 0:
+        arm_swing = int(arm_swing * (1.0 - max(left_slash_strength, right_kick_strength) * 0.7))
+        shoulder_tilt = int(shoulder_tilt * (1.0 - max(left_slash_strength, right_kick_strength) * 0.5))
+
+    # 오른발 킥 모션: 오른다리 포즈 오버라이드 (쉐도우 스텝 킥과 별개)
+    if right_kick_strength > 0 and kick_direction == 0:
+        right_leg_step = int(right_leg_step * (1.0 - right_kick_strength) + 22 * right_kick_strength)
+        right_leg_lift = int(right_leg_lift * (1.0 - right_kick_strength) + (-16) * right_kick_strength)
+        # 축발(왼다리)은 살짝 뒤로
+        left_leg_step = int(left_leg_step * (1.0 - right_kick_strength) + (-6) * right_kick_strength)
+        left_leg_lift = int(left_leg_lift * (1.0 - right_kick_strength))
+        # 킥 시 몸을 살짝 왼쪽으로 기울임
+        shoulder_tilt += int(right_kick_strength * 3)
+
     ty = base_y + torso_bob
 
     # -- 고급 컬러 팔레트 --
@@ -31833,6 +31872,16 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
         wr_x = el_x + side * int(0.7 * b)
         wr_y = el_y + int(0.5 * b) + swing_dir * int(arm_swing * 0.2)
         at = b - 2  # 팔 두께
+
+        # 왼팔 슬래시 모션: 왼팔(side==-1)을 위로 크게 휘두르기
+        if side == -1 and left_slash_strength > 0:
+            _ls = left_slash_strength
+            # 어깨 → 팔꿈치: 위쪽+앞쪽으로 회전
+            el_x = int(el_x + _ls * 0.4 * b)         # 앞으로 약간
+            el_y = int(el_y - _ls * 1.8 * b)         # 크게 위로
+            # 팔꿈치 → 손목: 위쪽+왼쪽으로 뻗기 (슬래시 궤적)
+            wr_x = int(el_x - _ls * 1.2 * b)         # 왼쪽으로 휘두름
+            wr_y = int(el_y - _ls * 1.5 * b)         # 위로 쭉 뻗음
 
         # 상완 (아머 플레이트 느낌)
         pygame.draw.line(surface, p["arm_light"], (sh_x, sh_y), (el_x, el_y), at)
@@ -47440,6 +47489,35 @@ viper_walking_active = False
 viper_walking_timer = 0
 VIPER_WALKING_CYCLE = 24  # 속도형 캐릭터답게 빠른 걷기 사이클
 
+# === 바이퍼 타격 모션 변수 (왼팔 슬래시 / 오른발 킥) ===
+VIPER_HIT_POSE_DURATION = 8            # 타격 자세 유지 프레임
+VIPER_LEFT_SLASH_DURATION = 18         # 왼팔 슬래시 애니메이션 프레임
+VIPER_RIGHT_KICK_DURATION = 18         # 오른발 킥 애니메이션 프레임
+viper_hit_pose_timer = 0               # 타격 자세 타이머
+viper_left_slash_timer = 0             # 왼팔 슬래시 타이머
+viper_right_kick_timer = 0             # 오른발 킥 타이머
+viper_swing_intensity = 1.0            # 타격 강도 (1.0=일반)
+
+def trigger_viper_contact_animation(offset_x: float, intensity: float = 1.0) -> None:
+    """공이 맞은 위치에 따라 바이퍼의 왼팔 슬래시 / 오른발 킥 모션을 트리거한다.
+    offset_x < 0: 왼쪽 타격 → 왼팔 플라즈마 블레이드 슬래시
+    offset_x >= 0: 오른쪽 타격 → 오른발 킥 모션
+    intensity: 모션 강도 (1.0=일반)
+    """
+    global viper_hit_pose_timer, viper_left_slash_timer, viper_right_kick_timer
+    global viper_swing_intensity
+    viper_swing_intensity = max(1.0, intensity)
+    viper_hit_pose_timer = int(VIPER_HIT_POSE_DURATION * intensity)
+    if offset_x < 0:
+        # 왼쪽 타격 → 왼팔 플라즈마 블레이드 슬래시
+        viper_left_slash_timer = int(VIPER_LEFT_SLASH_DURATION * intensity)
+        viper_right_kick_timer = 0
+    else:
+        # 오른쪽 타격 → 오른발 킥
+        viper_right_kick_timer = int(VIPER_RIGHT_KICK_DURATION * intensity)
+        viper_left_slash_timer = 0
+
+
 # === 바이퍼 스킬 키 릴리즈 플래그 (연속 발동 방지) ===
 _viper_w_key_released = True
 _viper_s_key_released = True
@@ -47508,11 +47586,11 @@ _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
 
-# === 바이퍼 쉐도우 카운터 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
+# === 바이퍼 팬텀 어썰트 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
 _viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 스텝 후 보스가 공 반환 시)
 _viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
 _VIPER_WALL_DIVE_READY_FRAMES = 90       # 연계 윈도우 1.5초 (60fps)
-_viper_wall_dive_active = False           # 쉐도우 카운터 진행 중
+_viper_wall_dive_active = False           # 팬텀 어썰트 진행 중
 _viper_wall_dive_phase = 0                # 0=벽으로 점프, 1=벽 매달림, 2=공으로 돌진
 _viper_wall_dive_start_ms = 0             # 페이즈 시작 시각
 _viper_wall_dive_start_x = 0.0            # 출발 X
@@ -52282,7 +52360,7 @@ def activate_strange_vial(duration_frames: int | None = None, *, play_sound: boo
     else:
         strange_vial_effect_type = "shrink"
         strange_vial_target_scale = 0.5       # 패들 -50%
-        strange_vial_target_speed_mult = 2.7  # 이속 +170%
+        strange_vial_target_speed_mult = 2.3  # 이속 +130%
 
     strange_vial_scale = 1.0       # 시작은 1.0에서 점진적으로 변화
     strange_vial_speed_mult = 1.0
@@ -57973,7 +58051,7 @@ def apply_effect(effect_name, item_data=None):
         if strange_vial_effect_type == "enlarge":
             print("기묘한 약병 발동! 거대화: 패들 220% 증가, 이동속도 50% 감소 (30초)")
         else:
-            print("기묘한 약병 발동! 축소화: 패들 50% 감소, 이동속도 170% 증가 (30초)")
+            print("기묘한 약병 발동! 축소화: 패들 50% 감소, 이동속도 130% 증가 (30초)")
     elif effect_name == "chargebag":  #  충전가방 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
         # 충전가방은 store_passive_item에서 처리됨
         pass
@@ -71610,14 +71688,14 @@ def handle_player(keys):
                             except Exception:
                                 pass
 
-    # === 바이퍼 쉐도우 카운터 연계기 (쉐도우 스텝 → 보스 반환 → S/↓키) ===
+    # === 바이퍼 팬텀 어썰트 연계기 (쉐도우 스텝 → 보스 반환 → S/↓키) ===
     # 연계 윈도우 타이머 감소
     if _viper_wall_dive_ready:
         _viper_wall_dive_ready_timer -= 1
         if _viper_wall_dive_ready_timer <= 0:
             _viper_wall_dive_ready = False
 
-    # 쉐도우 카운터 발동: 연계 윈도우 중 S/↓키 단독 입력
+    # 팬텀 어썰트 발동: 연계 윈도우 중 S/↓키 단독 입력
     if (selected_character_type == "viper" and not is_odins_eye_transformed()
             and _viper_wall_dive_ready and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
@@ -71662,7 +71740,7 @@ def handle_player(keys):
             except Exception:
                 pass
 
-    # 쉐도우 카운터 애니메이션 업데이트
+    # 팬텀 어썰트 애니메이션 업데이트
     if _viper_wall_dive_active:
         _wd_now = pygame.time.get_ticks()
         _wd_elapsed = _wd_now - _viper_wall_dive_start_ms
@@ -71784,7 +71862,7 @@ def handle_player(keys):
                         )
                     except Exception:
                         pass
-                    # 🪙 쉐도우 카운터 타격 골드 보너스
+                    # 🪙 팬텀 어썰트 타격 골드 보너스
                     try:
                         add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
@@ -71801,7 +71879,7 @@ def handle_player(keys):
                 PLAYER.centery = int(_wd_floor) - PLAYER.height // 2
                 PLAYER.centerx = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, PLAYER.centerx))
 
-    # 쉐도우 카운터 파티클 업데이트
+    # 팬텀 어썰트 파티클 업데이트
     if _viper_wall_dive_particles:
         _wd_alive = []
         for _wp in _viper_wall_dive_particles:
@@ -77628,6 +77706,8 @@ def handle_player(keys):
             # 파워스매싱 프리즈 중에는 스윙 모션 차단 (발사 시점에서 별도 트리거)
             if not power_smashing_freeze_active:
                 trigger_smasher_contact_animation(collision_x)
+        elif selected_character_type == "viper":
+            trigger_viper_contact_animation(collision_x)
         #  게이지 처리 - Aipill 활성화 시에는 게이지 감소만, 비활성화 시에는 게이지 증가
         # print(f"   aipill_active: {aipill_active}")  # 디버그 비활성화
         # Aipill 활성화 시 게이지 감소만
@@ -106587,7 +106667,7 @@ def draw_objects():
         except Exception:
             pass
 
-    # 🕷️ 바이퍼 쉐도우 카운터 렌더링 (거미줄 + 잔상 + 돌진 궤적)
+    # 🕷️ 바이퍼 팬텀 어썰트 렌더링 (거미줄 + 잔상 + 돌진 궤적)
     if _viper_wall_dive_active or _viper_wall_dive_particles or _viper_wall_dive_web_lines:
         try:
             _wd_ticks = pygame.time.get_ticks()
@@ -108984,6 +109064,15 @@ def draw_objects():
         # 모든 스윙 타이머 종료 시 강도 리셋
         if smasher_hit_pose_timer <= 0 and smasher_shield_raise_timer <= 0 and smasher_left_raise_timer <= 0:
             smasher_swing_intensity = 1.0
+    elif selected_character_type == "viper":
+        if viper_hit_pose_timer > 0:
+            viper_hit_pose_timer -= 1
+        if viper_left_slash_timer > 0:
+            viper_left_slash_timer -= 1
+        if viper_right_kick_timer > 0:
+            viper_right_kick_timer -= 1
+        if viper_hit_pose_timer <= 0 and viper_left_slash_timer <= 0 and viper_right_kick_timer <= 0:
+            viper_swing_intensity = 1.0
     elif selected_character_type == "optimus":
         if optimus_arm_swing_left_timer > 0:
             optimus_arm_swing_left_timer -= 1
@@ -108997,6 +109086,10 @@ def draw_objects():
         smasher_pending_contact_offset = None
         optimus_arm_swing_left_timer = 0
         optimus_arm_swing_right_timer = 0
+        viper_hit_pose_timer = 0
+        viper_left_slash_timer = 0
+        viper_right_kick_timer = 0
+        viper_swing_intensity = 1.0
     #  투척 모션 중일 때 특별한 회전 각도 적용
     if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing or boomerang_throwing or soap_throwing:
         throw_progress = 0
@@ -109143,7 +109236,7 @@ def draw_objects():
             # 투명 배경을 유지하면서 UFO 이미지에만 붉은 틴트 적용
             apply_red_overlay(rotated_player, intensity=80)  # 강도 80으로 은은한 붉은 효과
 
-    # 🕷 바이퍼 쉐도우 카운터 대기 상태: 파란빛 글로우
+    # 🕷 바이퍼 팬텀 어썰트 대기 상태: 파란빛 글로우
     if selected_character_type == "viper" and _viper_wall_dive_ready:
         _sc_pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.008)
         _sc_intensity = int(40 + 50 * _sc_pulse)
@@ -138348,7 +138441,7 @@ def reset_round(is_stage_start=False):
     _viper_dive_shockwave_timer = 0
     _viper_dive_particles = []
     _viper_dive_ball_boosted = False
-    # 바이퍼 쉐도우 카운터 초기화
+    # 바이퍼 팬텀 어썰트 초기화
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_wall_dive_active, _viper_wall_dive_phase
     global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
@@ -139343,7 +139436,7 @@ def calculate_bounce(paddle):
     global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global _viper_speed_boost_active, _viper_speed_boost_original
-    global _viper_ss_ball_touched  # 쉐도우 카운터 연계 플래그 (팬텀스트라이크에서 사용)
+    global _viper_ss_ball_touched  # 팬텀 어썰트 연계 플래그 (팬텀스트라이크에서 사용)
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
     global ragnarok_original_speed
@@ -139383,6 +139476,10 @@ def calculate_bounce(paddle):
     if is_player_paddle and selected_character_type == "smasher" and not power_smashing_freeze_active:
         hit_offset = BALL.centerx - PLAYER.centerx
         trigger_smasher_contact_animation(hit_offset)
+    # viper 캐릭터 일반 타격 시 왼팔 슬래시 / 오른발 킥 트리거
+    if is_player_paddle and selected_character_type == "viper":
+        hit_offset = BALL.centerx - PLAYER.centerx
+        trigger_viper_contact_animation(hit_offset)
     # blacksmith(발토르) 캐릭터 일반 타격 시 팔 애니메이션 트리거
     if is_player_paddle and selected_character_type == "blacksmith":
         global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
@@ -141169,7 +141266,7 @@ def handle_ball():
     # 바이퍼 팬텀 스트라이크 커브 + 공속 복귀
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global _viper_speed_boost_active, _viper_speed_boost_original
-    # 바이퍼 쉐도우 카운터 연계기
+    # 바이퍼 팬텀 어썰트 연계기
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_ss_ball_touched
     # 바이퍼 쉐도우 스텝 킥 사운드 (handle_ball 백업 경로용)
@@ -146282,7 +146379,7 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
-        # 바이퍼 쉐도우 카운터 연계 윈도우 활성화 (쉐도우 스텝으로 공 히트 후 보스가 반환 시)
+        # 바이퍼 팬텀 어썰트 연계 윈도우 활성화 (쉐도우 스텝으로 공 히트 후 보스가 반환 시)
         if selected_character_type == "viper" and _viper_ss_ball_touched:
             _viper_wall_dive_ready = True
             _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
@@ -166633,7 +166730,7 @@ def get_item_description(item_name):
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
         "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
-        "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 170% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
+        "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 130% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
         "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
