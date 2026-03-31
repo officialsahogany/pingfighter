@@ -686,122 +686,156 @@
   <!-- ============================================================ -->
   <!-- 2. 스테이지별 신규 보스 -->
   <!-- ============================================================ -->
-  <div class="section-header" id="sec2"><span class="num">2</span> 스테이지별 신규 보스 추가</div>
+  <div class="section-header" id="sec2"><span class="num">2</span> 스테이지별 보스 추가</div>
   <div class="section-content">
 
-    <p>기존 각 스테이지의 메인 보스 외에 <strong>2명의 서브 보스</strong>가 추가되어, 스테이지 1~3까지 총 <strong>9명의 보스</strong>와 대전할 수 있습니다.</p>
+    <p>스테이지 1~3까지 각 스테이지에 <strong>3명의 보스</strong>가 배치되어, 총 <strong>9명의 보스</strong>와 대전할 수 있습니다.<br>
+    스테이지 진입 시 3명 중 <strong>랜덤으로 1명</strong>이 선택되어 대전합니다.</p>
 
     <!-- 스테이지 1 -->
     <div class="stage-section">
-      <div class="stage-title stage1-bg">STAGE 1 - 한국 전통 (풍악보이의 무대)</div>
+      <div class="stage-title stage1-bg">STAGE 1 - 한국 전통</div>
       <div class="stage-body">
-        <table class="wiki-table">
-          <tr>
-            <th style="width:60px;">아이콘</th>
-            <th>보스명</th>
-            <th>타입</th>
-            <th>특징</th>
-          </tr>
-          <tr>
-            <td style="text-align:center;">
-              <img src="boss_stage1.png" class="item-icon-lg" style="border-color:#CD853F;">
-            </td>
-            <td><strong>풍악보이</strong></td>
-            <td>메인 보스</td>
-            <td>한국 전통 악기 테마, 기본 보스</td>
-          </tr>
-          <tr>
-            <td style="text-align:center;">&#127815;</td>
-            <td><strong>포도대장</strong></td>
-            <td>서브 보스</td>
-            <td>프로시저럴 생성 스프라이트, 걸음 애니메이션 + 몸통 흔들림, 방향 전환 쿨다운 0.15초</td>
-          </tr>
-          <tr>
-            <td style="text-align:center;">&#127917;</td>
-            <td><strong>각시탈</strong></td>
-            <td>서브 보스</td>
-            <td>하회탈 장착 광대, 피격 시 탈이 벗겨지는 애니메이션, 과장된 걸음 모션</td>
-          </tr>
-        </table>
+
+        <!-- 풍악보이 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#CD853F,#8B4513);display:flex;align-items:center;justify-content:center;">
+            <img src="boss_stage1.png" style="width:48px;height:48px;image-rendering:pixelated;">
+          </div>
+          <div class="boss-info" style="flex:1;">
+            <h4>풍악보이</h4>
+            <div class="boss-subtitle">한국 전통 의상을 입고 상모를 쓴 풍물 악사</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>상모돌리기</strong></td><td>상모를 회전시켜 공을 일시 정지시킨 뒤 수직 낙하시킵니다. 스킬 발동 중 플레이어의 타격이 무효화됩니다.</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- 포도대장 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#8B6914,#5C4033);display:flex;align-items:center;justify-content:center;font-size:32px;">&#127815;</div>
+          <div class="boss-info" style="flex:1;">
+            <h4>포도대장</h4>
+            <div class="boss-subtitle">조선시대 포도청 관리 복장에 포승줄을 들고 다니는 포졸</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>포승줄</strong></td><td>플레이어를 향해 포승줄을 던집니다. 적중 시 3초간 속박되어 이동속도가 30~40% 감소합니다.</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- 각시탈 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#D2691E,#B22222);display:flex;align-items:center;justify-content:center;font-size:32px;">&#127917;</div>
+          <div class="boss-info" style="flex:1;">
+            <h4>각시탈</h4>
+            <div class="boss-subtitle">하회탈을 쓰고 알록달록한 저고리를 입은 전통 광대, 부채를 들고 있음</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>부채던지기</strong></td><td>0.5초 와인드업 후 회전하는 부채를 투척합니다. 적중 시 넉백. 분노 모드에서는 3개의 부채를 부채꼴(±35°)로 동시 발사합니다.</td></tr>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
 
     <!-- 스테이지 2 -->
     <div class="stage-section">
-      <div class="stage-title stage2-bg">STAGE 2 - 정글/늪지 (악어장군의 무대)</div>
+      <div class="stage-title stage2-bg">STAGE 2 - 정글/늪지</div>
       <div class="stage-body">
-        <table class="wiki-table">
-          <tr>
-            <th style="width:60px;">아이콘</th>
-            <th>보스명</th>
-            <th>타입</th>
-            <th>특징</th>
-          </tr>
-          <tr>
-            <td style="text-align:center;">
-              <img src="boss_stage2.png" class="item-icon-lg" style="border-color:#4a8c3f;">
-            </td>
-            <td><strong>악어장군</strong></td>
-            <td>메인 보스</td>
-            <td>정글/늪지 테마, 공격적인 AI</td>
-          </tr>
-          <tr>
-            <td style="text-align:center;">&#128048;</td>
-            <td><strong>두더지왕</strong></td>
-            <td>서브 보스</td>
-            <td>땅 속 잠수/출현 메카닉 (emerge amount 0.0~1.0), 회전 발톱 공격 (0.5초), 이동 시 흙먼지 파티클</td>
-          </tr>
-          <tr>
-            <td style="text-align:center;">&#128375;</td>
-            <td><strong>아라크네</strong></td>
-            <td>서브 보스</td>
-            <td>4족 보행 거미, 쿼드러페드 보행 사이클 (40% 스윙 / 60% 스탠스), 교차 다리 위상차로 자연스러운 움직임</td>
-          </tr>
-        </table>
 
-        <div class="tip-box">
-          <strong>두더지왕</strong>은 디그렛 스타일의 잠수 메카닉이 특징입니다. <code>emerge_amount</code> 값이 0.0이면 완전 잠수, 1.0이면 완전 출현 상태이며, 출현 시 회전 발톱 공격이 가능합니다.
+        <!-- 악어장군 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#4a8c3f,#2d5a27);display:flex;align-items:center;justify-content:center;">
+            <img src="boss_stage2.png" style="width:48px;height:48px;image-rendering:pixelated;">
+          </div>
+          <div class="boss-info" style="flex:1;">
+            <h4>악어장군</h4>
+            <div class="boss-subtitle">날카로운 이빨과 갑옷을 두른 악어 전사, 무거운 포식자의 걸음걸이</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>스피드디펜스</strong></td><td>2초간 이동속도가 3배로 증가합니다. 방향 전환도 2배 빨라져 어떤 공도 쫓아갈 수 있습니다. 쿨다운 25초.</td></tr>
+            </table>
+          </div>
         </div>
+
+        <!-- 두더지왕 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#8B7355,#5C4033);display:flex;align-items:center;justify-content:center;font-size:32px;">&#129433;</div>
+          <div class="boss-info" style="flex:1;">
+            <h4>두더지왕</h4>
+            <div class="boss-subtitle">땅에서 머리만 내밀고 있는 두더지, 출현 시 흙먼지 파티클이 튀어오름</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>발톱 파기</strong></td><td>공을 받아칠 때 발톱으로 강한 스핀을 걸어 공에 커브를 부여합니다. 공 속도를 20% 줄이면서 반대 방향으로 휘게 만듭니다.</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- 아라크네 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#4a4a4a,#2a2a2a);display:flex;align-items:center;justify-content:center;font-size:32px;">&#128375;</div>
+          <div class="boss-info" style="flex:1;">
+            <h4>아라크네</h4>
+            <div class="boss-subtitle">어두운 갈색 체색의 대형 거미, 8개의 다리가 교차 보행 사이클로 움직임</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>거미줄 장판</strong></td><td>입에서 거미줄을 발사해 바닥에 끈끈이 트랩을 설치합니다. 밟으면 6초간 이동속도 30~50% 감소. 대쉬로 파괴 가능. 분노 모드에서는 트랩이 자동 소멸하지 않습니다.</td></tr>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
 
     <!-- 스테이지 3 -->
     <div class="stage-section">
-      <div class="stage-title stage3-bg">STAGE 3 - 멘헤라/인형 (멘헤라걸의 무대)</div>
+      <div class="stage-title stage3-bg">STAGE 3 - 멘헤라/인형</div>
       <div class="stage-body">
 
-        <table class="wiki-table">
-          <tr>
-            <th style="width:60px;">아이콘</th>
-            <th>보스명</th>
-            <th>타입</th>
-            <th>특징</th>
-          </tr>
-          <tr>
-            <td style="text-align:center;">
-              <img src="boss_stage3.png" class="item-icon-lg" style="border-color:#CD6090;">
-            </td>
-            <td><strong>멘헤라걸</strong></td>
-            <td>메인 보스</td>
-            <td>멘헤라/인형 테마, 불안정한 AI 패턴</td>
-          </tr>
-          <tr>
-            <td style="text-align:center;">&#128059;</td>
-            <td><strong>테디베어</strong></td>
-            <td>서브 보스</td>
-            <td>3배 SSAA 슈퍼샘플링으로 사실적인 봉제인형 질감, 터진 솔기 + 짝짝이 눈(얀데레 하트+달랑거리는 단추), 왼쪽 귀 안전핀, 오른팔 붕대, 불안한 떨림(jitter) 애니메이션</td>
-          </tr>
-          <tr>
-            <td style="text-align:center;">&#9827;</td>
-            <td><strong>엘리스</strong></td>
-            <td>서브 보스</td>
-            <td>뒤틀린 원더랜드 소녀, 파란 드레스+하얀 에이프런, 다중 프릴 관성 물리, 머리카락 흐름+리본 흔들림 애니메이션, 마법 거울 + 스파클 파티클</td>
-          </tr>
-        </table>
-
-        <div class="quote-box">
-          테디베어와 엘리스 모두 <strong>3x SSAA(Super-Sample Anti-Aliasing)</strong>와 다중 레이어 렌더링을 적용하여, 픽셀아트 게임 내에서도 높은 퀄리티의 비주얼을 구현했습니다.
+        <!-- 멘헤라걸 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#CD6090,#8B2252);display:flex;align-items:center;justify-content:center;">
+            <img src="boss_stage3.png" style="width:48px;height:48px;image-rendering:pixelated;">
+          </div>
+          <div class="boss-info" style="flex:1;">
+            <h4>멘헤라걸</h4>
+            <div class="boss-subtitle">짝짝이 눈(하트+단추), 터진 솔기, 안전핀 귀걸이, 붕대 감은 팔을 가진 소녀</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>감정 폭주</strong></td><td>5초간(분노 시 7.5초) '사이코 볼' 모드를 발동합니다. 공이 불규칙하게 속도와 방향이 변하며 화면이 보라/마젠타 색으로 깜빡입니다.</td></tr>
+            </table>
+          </div>
         </div>
+
+        <!-- 테디베어 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#8B6914,#5C3317);display:flex;align-items:center;justify-content:center;font-size:32px;">&#128059;</div>
+          <div class="boss-info" style="flex:1;">
+            <h4>테디베어</h4>
+            <div class="boss-subtitle">터진 솔기 사이로 솜이 삐져나온 어두운 봉제인형, 불안하게 떨리며 움직임</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>솜뭉치 던지기</strong></td><td>3~5개의 솜뭉치를 부채꼴(±25°)로 투척합니다. 적중 시 약 3초간 화면이 암전되어 공이 보이지 않게 됩니다.</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- 엘리스 -->
+        <div class="boss-card">
+          <div style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#6495ED,#9370DB);display:flex;align-items:center;justify-content:center;font-size:32px;">&#9827;</div>
+          <div class="boss-info" style="flex:1;">
+            <h4>엘리스</h4>
+            <div class="boss-subtitle">파란 빅토리아풍 드레스와 하얀 에이프런을 입고 마법 거울을 든 금발 소녀</div>
+            <table class="wiki-table" style="margin:8px 0 0;">
+              <tr><th style="width:120px;">스킬명</th><th>설명</th></tr>
+              <tr><td><strong>거울 나라</strong></td><td>약 3초간 게임 화면 전체가 좌우 반전됩니다. 모든 조작과 공의 궤적이 뒤집혀 극심한 혼란을 유발합니다.</td></tr>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
