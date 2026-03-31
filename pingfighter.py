@@ -3543,15 +3543,8 @@ _boss_orb_div_max = -1             # 분할선 캐시 유효성 검사용
 # 스매셔 스킬 아이콘 시스템 (왼쪽 필러에 표시)
 # ============================================================
 # 스킬 정보: (스킬명, 게이지 비용, 아이콘 색상, 쿨타임(초))
-# 하단부터 상단으로 비용 순서: 플라즈마(40) → 리커버리(80) → 클렌즈(100) → 드라이브(150) → 파워스매싱(350)
+# 하단부터 상단으로 비용 순서: 리커버리(120) → 클렌즈(100) → 드라이브(150) → 파워스매싱(350)
 SMASHER_SKILL_ICONS_DATA = [
-    {
-        "name": "plasma", "korean": "플라즈마", "cost": 40, "color": (0, 200, 255),
-        "symbol": "⚡", "cooldown": 8.0, "key": "Q",
-        "description": "전방으로 플라즈마 구체를 발사합니다. 적이 구체에 닿는 동안 둔화가 됩니다. 구체가 커질수록 둔화성능이 강화됩니다",
-        "how_to_use": "W키를 홀딩 후 손을 떼면 플라즈마 구체 발사",
-        "effect_type": "projectile_cyan"
-    },
     {
         "name": "recovery", "korean": "리커버리", "cost": 120, "color": (50, 255, 150),
         "symbol": "♻", "cooldown": 12.0, "key": "W",
@@ -3614,7 +3607,6 @@ SMASHER_SKILL_DEBUG = False  # F4 좌표계 디버그로 대체됨
 
 # 스매셔 스킬 쿨타임 추적 (스킬 사용 시 시작 시간 기록, ms 단위)
 _smasher_skill_cooldowns = {
-    "plasma": 0,
     "recovery": 0,
     "cleanse": 0,
     "drive": 0,
@@ -3623,7 +3615,6 @@ _smasher_skill_cooldowns = {
 
 # 스킬 활성화 순간 추적 (활성화될 때 시간 기록, 빛나는 효과용)
 _smasher_skill_activation_times = {
-    "plasma": 0,
     "recovery": 0,
     "cleanse": 0,
     "drive": 0,
@@ -3631,7 +3622,6 @@ _smasher_skill_activation_times = {
 }
 # 이전 프레임 활성화 상태 추적
 _smasher_skill_was_active = {
-    "plasma": False,
     "recovery": False,
     "cleanse": False,
     "drive": False,
@@ -3640,9 +3630,8 @@ _smasher_skill_was_active = {
 
 # 스매셔 스킬 해금 상태 (런타임 스킬로 해금)
 # 처음에는 드라이브, 파워스매싱만 해금됨
-# 플라즈마, 리커버리, 클렌즈는 런타임 스킬로 해금 필요
+# 리커버리, 클렌즈는 런타임 스킬로 해금 필요
 _smasher_skill_unlocked = {
-    "plasma": False,      # 런타임 스킬로 해금 필요
     "recovery": False,    # 런타임 스킬로 해금 필요 (리커버리 스킬과 별개)
     "cleanse": False,     # 런타임 스킬로 해금 필요
     "drive": True,        # 기본 해금
@@ -3654,7 +3643,6 @@ def reset_smasher_skill_unlocks():
     """스매셔 스킬 해금 상태 초기화 (새 게임 시작 시)"""
     global _smasher_skill_unlocked
     _smasher_skill_unlocked = {
-        "plasma": False,
         "recovery": False,
         "cleanse": False,
         "drive": True,
@@ -4031,7 +4019,6 @@ def reset_smasher_skill_cooldowns():
     """모든 스매셔 스킬 쿨타임 초기화"""
     global _smasher_skill_cooldowns
     _smasher_skill_cooldowns = {
-        "plasma": 0,
         "recovery": 0,
         "cleanse": 0,
         "drive": 0,
@@ -4120,42 +4107,7 @@ def _create_smasher_skill_icon(skill_data: dict, size: int = 28, active: bool = 
     # === 스킬별 심볼 그리기 (고퀄리티) ===
     skill_name = skill_data["name"]
 
-    if skill_name == "plasma":
-        # 플라즈마: 세련된 번개
-        s = scale
-        # 번개 외곽 글로우
-        if active:
-            glow_points = [
-                (center - int(3*s), center - int(11*s)),
-                (center + int(6*s), center - int(2*s)),
-                (center + int(1*s), center + int(1*s)),
-                (center + int(4*s), center + int(11*s)),
-                (center - int(4*s), center + int(3*s)),
-                (center - int(1*s), center - int(1*s)),
-            ]
-            for offset in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                offset_points = [(p[0] + offset[0], p[1] + offset[1]) for p in glow_points]
-                pygame.draw.polygon(icon_surface, (*base_color[:3], 60), offset_points)
-
-        # 메인 번개
-        bolt_points = [
-            (center - int(2*s), center - int(10*s)),
-            (center + int(5*s), center - int(2*s)),
-            (center + int(1*s), center),
-            (center + int(3*s), center + int(10*s)),
-            (center - int(3*s), center + int(3*s)),
-            (center - int(1*s), center),
-        ]
-        pygame.draw.polygon(icon_surface, base_color, bolt_points)
-        # 하이라이트 (왼쪽 면)
-        pygame.draw.line(icon_surface, highlight_color,
-                        bolt_points[0], bolt_points[1], thin_line)
-        # 중앙 코어
-        if active:
-            pygame.draw.circle(icon_surface, (220, 250, 255), (center, center), int(4*s))
-            pygame.draw.circle(icon_surface, (255, 255, 255), (center, center), int(2*s))
-
-    elif skill_name == "recovery":
+    if skill_name == "recovery":
         # 리커버리: 세련된 순환 화살표
         s = scale
         arc_radius = int(9*s)
@@ -4408,49 +4360,7 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
 
     s = size // 2  # 반지름 기준
 
-    if skill_name == "plasma":
-        # ⚡ 플라즈마 번개 - 고퀄리티
-        # 배경 전기 파동 효과
-        for i in range(3):
-            wave_r = s - i * 3
-            if wave_r > 0:
-                pygame.draw.circle(surface, (*shadow_color[:3], 60), (cx, cy), wave_r, 1)
-
-        # 메인 번개 볼트 (두꺼운 버전)
-        bolt_points = [
-            (cx - s//2, cy - s*2//3),      # 상단 왼쪽
-            (cx + s//6, cy - s//5),         # 중앙 오른쪽 상단
-            (cx - s//5, cy - s//8),         # 중앙 왼쪽
-            (cx - s//6, cy + s//10),        # 중앙 꺾임
-            (cx + s//4, cy + s//6),         # 중앙 오른쪽 하단
-            (cx - s//8, cy + s//4),         # 하단 꺾임
-            (cx + s//2, cy + s*2//3),       # 하단 오른쪽 끝
-            (cx + s//6, cy + s//3),         # 돌아오는 점
-            (cx + s//3, cy + s//8),         #
-            (cx - s//6, cy),                # 중앙
-            (cx, cy - s//4),                #
-            (cx - s//3, cy - s//3),         # 상단으로 돌아옴
-        ]
-        pygame.draw.polygon(surface, accent_color, bolt_points)
-        pygame.draw.polygon(surface, highlight_color, bolt_points, 2)
-
-        # 번개 중앙 하이라이트
-        inner_bolt = [
-            (cx - s//4, cy - s//3),
-            (cx, cy - s//6),
-            (cx - s//8, cy),
-            (cx + s//4, cy + s//3),
-        ]
-        pygame.draw.lines(surface, main_color, False, inner_bolt, 2)
-
-        # 전기 스파크 효과
-        for angle in [30, 150, 210, 330]:
-            rad = math.radians(angle)
-            spark_x = cx + int(math.cos(rad) * s * 0.7)
-            spark_y = cy + int(math.sin(rad) * s * 0.7)
-            pygame.draw.circle(surface, highlight_color, (spark_x, spark_y), 2)
-
-    elif skill_name == "recovery":
+    if skill_name == "recovery":
         # ♥ 하트 + 십자가 조합 (회복) - 고퀄리티
         # 외곽 글로우 효과
         for i in range(3, 0, -1):
@@ -4963,12 +4873,12 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     # 해금된 스킬만 필터링 (클렌즈 제외)
     # 스킬 표시 순서: 왼쪽 하단부터 시계방향으로 배치
     # 기본 스킬 순서 (해금 순서대로 추가됨): drive, power_smashing이 기본
-    # 해금되면: plasma, recovery, drive, power_smashing
+    # 해금되면: recovery, drive, power_smashing
     unlocked_main_skills = []
     cleanse_skill_data = None
 
     # 메인 스킬 순서 정의 (표시 순서)
-    main_skill_order = ["plasma", "recovery", "drive", "power_smashing"]
+    main_skill_order = ["recovery", "drive", "power_smashing"]
 
     for skill_name in main_skill_order:
         for skill_data in SMASHER_SKILL_ICONS_DATA:
@@ -12755,17 +12665,6 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "character_restriction": "smasher"
     },
     # 게이지 스킬 해금 (런타임 스킬로 해금)
-    "unlock_plasma": {
-        "name": "플라즈마 해금",
-        "max_level": 1,
-        "descriptions": {
-            1: "플라즈마 스킬 해금",
-        },
-        "detail": "게이지 스킬 '플라즈마'를 해금합니다. W키로 게이지 40을 소모해 플라즈마 볼을 발사합니다.",
-        "icon_color": (0, 200, 255),
-        "tree": "smasher_unlock",
-        "character_restriction": "smasher"
-    },
     "unlock_recovery_skill": {
         "name": "리커버리(스킬) 해금",
         "max_level": 1,
@@ -14627,25 +14526,7 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
                 "character_restriction": None
             })
 
-        # 2. 플라즈마 해금 (unlock_plasma) - SMASHER_EXCLUSIVE_SKILLS
-        skill_data = SMASHER_EXCLUSIVE_SKILLS.get("unlock_plasma")
-        if skill_data:
-            current_level = runtime_skill_levels.get("unlock_plasma", 0)
-            next_level = current_level + 1
-            tutorial_choices.append({
-                "id": "unlock_plasma",
-                "name": skill_data["name"],
-                "description": skill_data["descriptions"].get(next_level, ""),
-                "detail": skill_data.get("detail", ""),
-                "icon_color": skill_data["icon_color"],
-                "current_level": current_level,
-                "next_level": next_level,
-                "max_level": skill_data["max_level"],
-                "tree": skill_data.get("tree", ""),
-                "character_restriction": "smasher"
-            })
-
-        # 3. 원숭이은혜 (instant_monkey_blessing) - INSTANT_RUNTIME_SKILLS
+        # 2. 원숭이은혜 (instant_monkey_blessing) - INSTANT_RUNTIME_SKILLS
         skill_data = INSTANT_RUNTIME_SKILLS.get("instant_monkey_blessing")
         if skill_data:
             tutorial_choices.append({
@@ -14969,12 +14850,6 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         return True
 
     # 스매셔 게이지 스킬 해금 처리
-    if choice_id == "unlock_plasma":
-        unlock_smasher_skill("plasma")
-        runtime_skill_levels["unlock_plasma"] = 1
-        # print("[RuntimeSkill] 플라즈마 스킬 해금!")
-        return True
-
     if choice_id == "unlock_recovery_skill":
         unlock_smasher_skill("recovery")
         runtime_skill_levels["unlock_recovery_skill"] = 1
@@ -15124,11 +14999,6 @@ def recalculate_skill_effects(skill_id: str):
         new_level = runtime_skill_levels.get("item_polish", 0)
         multiplier = get_effective_polish_multiplier()
         # print(f"[RuntimeSkill] 연마 레벨 변경 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")  # 디버그 비활성화
-
-    # 플라즈마 해금: 스매셔 스킬 해금 상태 동기화
-    elif skill_id == "unlock_plasma":
-        level = runtime_skill_levels.get("unlock_plasma", 0)
-        _smasher_skill_unlocked["plasma"] = level >= 1
 
     # 리커버리 해금: 스매셔 스킬 해금 상태 동기화
     elif skill_id == "unlock_recovery_skill":
@@ -17609,30 +17479,6 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.circle(surface, (255, 255, 200), (icon_cx + int(4*scale), icon_cy - int(5*scale)), max(1, int(2*scale)))
 
     # ===== 스매셔 게이지 스킬 해금 =====
-    elif skill_id == "unlock_plasma":
-        # 플라즈마 해금 - 플라즈마 볼 + 잠금해제 아이콘
-        # 외곽 글로우
-        for i in range(3):
-            glow_r = int((10 - i*2)*scale)
-            glow_alpha = 80 - i*20
-            pygame.draw.circle(surface, (0, 200, 255), (icon_cx, icon_cy), glow_r, max(1, int(1*scale)))
-        # 플라즈마 볼 코어
-        pygame.draw.circle(surface, (0, 150, 200), (icon_cx, icon_cy), int(7*scale))
-        pygame.draw.circle(surface, (0, 200, 255), (icon_cx, icon_cy), int(6*scale))
-        pygame.draw.circle(surface, (100, 230, 255), (icon_cx, icon_cy), int(4*scale))
-        pygame.draw.circle(surface, (200, 255, 255), (icon_cx, icon_cy), int(2*scale))
-        # 전기 아크 효과
-        for angle in [0, 60, 120, 180, 240, 300]:
-            rad = math.radians(angle)
-            x1 = icon_cx + int(math.cos(rad) * 4 * scale)
-            y1 = icon_cy + int(math.sin(rad) * 4 * scale)
-            x2 = icon_cx + int(math.cos(rad) * 8 * scale)
-            y2 = icon_cy + int(math.sin(rad) * 8 * scale)
-            pygame.draw.line(surface, (150, 255, 255), (x1, y1), (x2, y2), max(1, int(1*scale)))
-        # + 마크 (해금 표시)
-        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4*scale), icon_cy - int(6*scale), int(4*scale), int(2*scale)))
-        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5*scale), icon_cy - int(7*scale), int(2*scale), int(4*scale)))
-
     elif skill_id == "unlock_recovery_skill":
         # 리커버리 해금 - 하트 + 해금 마크
         # 외곽 글로우
@@ -21953,36 +21799,10 @@ smasher_dash_combo_grace_count = 0     # 유예 중 보존된 콤보 수
 cleanse_counter_window = 0           # 남은 프레임 (120 = 2초, 0이면 비활성)
 CLEANSE_COUNTER_SPEED_BONUS = 1.015  # 카운터 타격 시 공속 보너스 (+1.5%)
 
-# ⚡ 스매셔 플라즈마 자기장 스킬 (W/상 키 홀드)
-plasma_field_charging = False        # 차징 중 여부
-plasma_field_charge_time = 0         # 차징 시간 (프레임)
-plasma_field_charge_start_time = 0   # 차징 시작 시간 (pygame.time.get_ticks)
-plasma_field_gauge_consumed = 0      # 총 소모된 게이지량
-plasma_field_size = 0.0              # 현재 플라즈마 필드 크기 (0.0 ~ 1.0)
-plasma_field_max_size = 80           # 최대 필드 크기 (픽셀)
-plasma_field_min_size = 20           # 최소 필드 크기 (픽셀)
-plasma_field_particles = []          # 플라즈마 파티클 효과 [(x, y, angle, dist, alpha, speed)]
-plasma_field_gauge_drain_interval = 30  # 게이지 소모 간격 (0.5초 = 30프레임)
-plasma_field_gauge_drain_amount = 30    # 0.5초당 게이지 소모량
-plasma_field_min_gauge_cost = 40        # 최소 게이지 소모량 (발사 시)
-plasma_field_base_slow = 0.20        # 기본 둔화량 (20%)
-plasma_field_slow_per_tick = 0.05    # 0.5초 홀딩당 추가 둔화 (5%)
-# 발사된 플라즈마 웨이브 (원형 구체 - magnetic_projectile 방식)
-plasma_wave_active = False           # 플라즈마 웨이브 활성화 여부
-plasma_wave_x = 0                    # 웨이브 X 위치
-plasma_wave_y = 0                    # 웨이브 Y 위치
-plasma_wave_radius = 0               # 웨이브 반경 (원형)
-plasma_wave_slow_amount = 0.0        # 웨이브 둔화량
-plasma_wave_speed = 6                # 웨이브 이동 속도 (위로)
-plasma_wave_duration = 0             # 웨이브 남은 지속 프레임
-plasma_wave_particles = []           # 웨이브 파티클 효과
-plasma_wave_trail = []               # 웨이브 잔상 효과 [(x, y, radius, alpha)]
-# 보스 둔화 상태 (웨이브 안에 있는 동안만)
+# 보스 둔화 상태 (호위무사/투기장 등에서 사용)
 boss_plasma_slowed = False           # 보스 둔화 상태
 boss_plasma_slow_amount = 0.0        # 보스 둔화량 (0.0 ~ 1.0)
 boss_plasma_slow_timer = 0           # 보스 둔화 지속 시간 (프레임)
-# 플라즈마 접촉 이펙트 (패들 색상 변화)
-plasma_contact_distortion = 0.0      # 찌릿한 효과 강도
 
 # ️ 무한 수평 왕복 방지 시스템 변수들
 horizontal_movement_timer = 0   # 수평 움직임 지속 시간 카운터
@@ -22234,35 +22054,6 @@ try:
     SOUND_RECOVERY = pygame.mixer.Sound(resource_path("sounds/recovery.wav"))
 except Exception:
     SOUND_RECOVERY = None
-
-# 플라즈마 차징 사운드 (스매셔 스킬) - 전용 채널 사용
-try:
-    SOUND_PLASMA_CHARGE = pygame.mixer.Sound(resource_path("sounds/plazmacharge.wav"))
-    # 채널 28을 플라즈마 차징 사운드 전용으로 예약
-    PLASMA_CHARGE_CHANNEL = pygame.mixer.Channel(28) if not AUDIO_DISABLED else None
-except Exception:
-    SOUND_PLASMA_CHARGE = None
-    PLASMA_CHARGE_CHANNEL = None
-plasma_charge_sound_playing = False  # 차징 사운드 재생 중 여부
-
-# 플라즈마 발사 사운드 - 전용 채널 사용
-try:
-    SOUND_PLASMA_SHOOT = pygame.mixer.Sound(resource_path("sounds/plazmashoot.wav"))
-    # 채널 29를 플라즈마 발사 사운드 전용으로 예약
-    PLASMA_SHOOT_CHANNEL = pygame.mixer.Channel(29) if not AUDIO_DISABLED else None
-except Exception:
-    SOUND_PLASMA_SHOOT = None
-    PLASMA_SHOOT_CHANNEL = None
-
-# 플라즈마 충격 사운드 (보스 접촉 시) - 전용 채널 사용
-try:
-    SOUND_PLASMA_SHOCK = pygame.mixer.Sound(resource_path("sounds/plazmashock.wav"))
-    # 채널 30을 플라즈마 충격 사운드 전용으로 예약
-    PLASMA_SHOCK_CHANNEL = pygame.mixer.Channel(30) if not AUDIO_DISABLED else None
-except Exception:
-    SOUND_PLASMA_SHOCK = None
-    PLASMA_SHOCK_CHANNEL = None
-plasma_shock_playing = False  # 충격 사운드 재생 중 여부
 
 # 클렌즈 사운드 (스매셔 스킬)
 try:
@@ -53063,521 +52854,12 @@ def draw_smasher_combo_effect(screen):
             pygame.draw.circle(screen, color, (int(orbit_x), int(orbit_y)), 5 + combo // 2)
 
 
-# ⚡ 스매셔 플라즈마 자기장 효과 함수들
-def update_plasma_field_particles():
-    """플라즈마 필드 차징 파티클 업데이트"""
-    global plasma_field_particles
-    for particle in plasma_field_particles[:]:
-        particle['life'] -= 1
-        particle['angle'] += particle['speed'] * 0.1
-        particle['dist'] += 0.5  # 바깥으로 확장
-        if particle['life'] <= 0:
-            plasma_field_particles.remove(particle)
-
-
-def draw_plasma_field_charging(screen):
-    """플라즈마 필드 차징 이펙트 그리기 - 투명한 전자기장 에너지 구체"""
-    if not plasma_field_charging or selected_character_type != "smasher":
-        return
-
-    # 플레이어 중심
-    center_x = PLAYER.centerx
-    center_y = PLAYER.centery - 10
-
-    # 현재 필드 크기 계산
-    current_radius = plasma_field_min_size + (plasma_field_max_size - plasma_field_min_size) * plasma_field_size
-
-    # 플라즈마 필드 서페이스 (투명)
-    field_size = int(current_radius * 3 + 50)
-    if field_size < 20:
-        return
-    field_surface = pygame.Surface((field_size, field_size), pygame.SRCALPHA)
-    field_center = field_size // 2
-
-    # 시간 기반 애니메이션
-    ticks = pygame.time.get_ticks()
-
-    # === 1. 외곽 전자기장 링 (투명한 원형 테두리들) ===
-    for layer in range(3):
-        ring_radius = current_radius + 8 - layer * 4
-        ring_alpha = int((35 - layer * 10) * (0.5 + 0.5 * plasma_field_size))
-        # 시안-파랑 계열 투명 링
-        ring_color = (80 + layer * 30, 160 + layer * 20, 255, ring_alpha)
-        if ring_radius > 2:
-            pygame.draw.circle(field_surface, ring_color, (field_center, field_center), int(ring_radius), 2)
-
-    # === 2. 회전하는 자기장 링 (투명 테두리) ===
-    ring_count = 2 + int(plasma_field_size * 2)
-    for i in range(ring_count):
-        ring_phase = (ticks * 0.004 + i * 1.2) % (2 * math.pi)
-        ring_radius = current_radius * (0.5 + i * 0.2)
-        ring_alpha = int((50 + 40 * plasma_field_size) - i * 12)
-        ring_alpha = max(20, min(100, ring_alpha))
-
-        # 링 색상 (시안-파랑 계열)
-        r = int(60 + 50 * math.sin(ring_phase))
-        g = int(140 + 40 * math.sin(ring_phase + 1))
-        b = 255
-
-        # 불규칙한 링 (울렁거리는 효과) - 테두리만
-        points = []
-        num_points = 20
-        for j in range(num_points):
-            angle = j * 2 * math.pi / num_points
-            wobble = math.sin(angle * 3 + ticks * 0.008 + i) * 3 * plasma_field_size
-            px = field_center + math.cos(angle) * (ring_radius + wobble)
-            py = field_center + math.sin(angle) * (ring_radius + wobble)
-            points.append((int(px), int(py)))
-
-        if len(points) >= 3:
-            pygame.draw.polygon(field_surface, (r, g, b, ring_alpha), points, 2)
-
-    # === 3. 에너지 수렴 아크 (투명한 전기선) ===
-    converge_count = 5 + int(plasma_field_size * 3)
-    for i in range(converge_count):
-        # 외곽에서 중심으로 수렴
-        base_angle = (ticks * 0.006 + i * (2 * math.pi / converge_count)) % (2 * math.pi)
-
-        # 아크 시작점 (외곽)
-        start_dist = current_radius * (0.9 + 0.15 * math.sin(ticks * 0.01 + i))
-        # 아크 끝점 (코어 근처)
-        end_dist = current_radius * 0.2
-
-        # 지그재그 경로
-        arc_points = []
-        segments = 4 + random.randint(0, 2)
-        for j in range(segments + 1):
-            t = j / segments
-            dist = start_dist - (start_dist - end_dist) * t
-            jitter = (1 - t) * 5 * random.uniform(-1, 1)
-            jitter_angle = base_angle + jitter * 0.1
-            px = field_center + int(math.cos(jitter_angle) * dist)
-            py = field_center + int(math.sin(jitter_angle) * dist)
-            arc_points.append((px, py))
-
-        if len(arc_points) >= 2:
-            # 투명한 시안 전기선
-            arc_alpha = int(60 + 50 * plasma_field_size)
-            pygame.draw.lines(field_surface, (100, 180, 255, arc_alpha), False, arc_points, 1)
-
-    # === 4. 외곽으로 튀어나오는 스파크 (작고 미묘하게) ===
-    spark_count = 3 + int(plasma_field_size * 4)
-    for i in range(spark_count):
-        spark_angle = (ticks * 0.007 + i * (2 * math.pi / spark_count) + math.sin(ticks * 0.02 + i) * 0.5) % (2 * math.pi)
-
-        # 스파크 길이 (짧게)
-        spark_length = current_radius * (0.15 + 0.25 * plasma_field_size * random.uniform(0.7, 1.3))
-        spark_start = current_radius * 0.85
-
-        # 지그재그 스파크
-        spark_points = []
-        spark_segments = 2 + random.randint(0, 2)
-        for j in range(spark_segments + 1):
-            t = j / spark_segments
-            dist = spark_start + spark_length * t
-            jitter = t * 4 * random.uniform(-1, 1)
-            angle = spark_angle + jitter * 0.12
-            px = field_center + int(math.cos(angle) * dist)
-            py = field_center + int(math.sin(angle) * dist)
-            spark_points.append((px, py))
-
-        if len(spark_points) >= 2:
-            # 투명한 시안 스파크
-            pygame.draw.lines(field_surface, (120, 200, 255, 80), False, spark_points, 1)
-
-    # === 5. 코어 (투명한 중심 - 희미한 글로우만) ===
-    core_pulse = 0.85 + 0.15 * math.sin(ticks * 0.015)
-    core_radius = current_radius * 0.2 * core_pulse
-
-    # 코어 글로우 - 매우 투명한 시안 (테두리)
-    for c_layer in range(2):
-        c_radius = core_radius + 5 - c_layer * 3
-        c_alpha = int((30 - c_layer * 12) * (1 + plasma_field_size))
-        pygame.draw.circle(field_surface, (100, 180, 255, c_alpha), (field_center, field_center), int(c_radius), 2)
-
-    # 코어 바디 - 작은 밝은 점만
-    core_alpha = int(100 + 40 * plasma_field_size)
-    pygame.draw.circle(field_surface, (150, 200, 255, core_alpha), (field_center, field_center), int(core_radius * 0.4))
-    pygame.draw.circle(field_surface, (200, 230, 255, 150), (field_center, field_center), max(2, int(core_radius * 0.15)))
-
-    # === 6. 랜덤 스파크 파티클 (작고 미묘하게) ===
-    num_sparks = 3 + int(plasma_field_size * 5)
-    for _ in range(num_sparks):
-        spark_angle = random.uniform(0, 2 * math.pi)
-        spark_dist = current_radius * random.uniform(0.3, 1.0)
-        spark_x = field_center + int(math.cos(spark_angle) * spark_dist)
-        spark_y = field_center + int(math.sin(spark_angle) * spark_dist)
-        spark_alpha = random.randint(50, 100)
-        pygame.draw.circle(field_surface, (120, 190, 255, spark_alpha), (spark_x, spark_y), 1)
-
-    # === 7. 파티클 그리기 (투명하게) ===
-    for particle in plasma_field_particles:
-        p_angle = particle['angle']
-        p_dist = particle['dist'] * plasma_field_size * 2
-        p_x = field_center + math.cos(p_angle) * p_dist
-        p_y = field_center + math.sin(p_angle) * p_dist
-        p_alpha = int(particle['alpha'] * (particle['life'] / 30) * 0.5)  # 더 투명하게
-
-        if 0 < p_x < field_size and 0 < p_y < field_size:
-            # 작은 투명한 시안 점
-            pygame.draw.circle(field_surface, (100, 180, 255, p_alpha), (int(p_x), int(p_y)), 1)
-
-    # 화면에 블리트
-    screen.blit(field_surface, (center_x - field_center, center_y - field_center), special_flags=pygame.BLEND_ADD)
-
-
-
-def update_plasma_wave():
-    """플라즈마 구체 업데이트 (이동 및 충돌 검사) - magnetic_projectile 방식"""
-    global plasma_wave_active, plasma_wave_y, plasma_wave_duration
-    global plasma_wave_trail, plasma_wave_particles
-    global boss_plasma_slowed, boss_plasma_slow_amount, boss_plasma_slow_timer
-    global plasma_shock_playing
-
-    if not plasma_wave_active:
-        # 웨이브가 비활성화되면 둔화도 즉시 해제
-        if boss_plasma_slowed and boss_plasma_slow_timer <= 0:
-            boss_plasma_slowed = False
-            boss_plasma_slow_amount = 0.0
-        # 플라즈마 비활성화 시 충격 사운드 정지
-        if plasma_shock_playing and PLASMA_SHOCK_CHANNEL:
-            PLASMA_SHOCK_CHANNEL.stop()
-            plasma_shock_playing = False
-        return
-
-    # 구체 위로 이동 (보스 방향)
-    plasma_wave_y -= plasma_wave_speed
-
-    # 잔상 추가 (3프레임마다)
-    if len(plasma_wave_trail) == 0 or plasma_wave_duration % 3 == 0:
-        plasma_wave_trail.append({
-            'x': plasma_wave_x,
-            'y': plasma_wave_y,
-            'radius': plasma_wave_radius,
-            'alpha': 120
-        })
-
-    # 잔상 페이드 및 제거
-    for trail in plasma_wave_trail[:]:
-        trail['alpha'] -= 12
-        if trail['alpha'] <= 0:
-            plasma_wave_trail.remove(trail)
-
-    # 파티클 생성 (구체 주변)
-    if random.random() < 0.4:
-        angle = random.uniform(0, 2 * math.pi)
-        dist = random.uniform(0, plasma_wave_radius * 0.8)
-        plasma_wave_particles.append({
-            'x': plasma_wave_x + math.cos(angle) * dist,
-            'y': plasma_wave_y + math.sin(angle) * dist,
-            'vx': random.uniform(-1.5, 1.5),
-            'vy': random.uniform(-1.5, 1.5),
-            'life': 25,
-            'alpha': 200
-        })
-
-    # 파티클 업데이트
-    for particle in plasma_wave_particles[:]:
-        particle['x'] += particle['vx']
-        particle['y'] += particle['vy']
-        particle['life'] -= 1
-        particle['alpha'] -= 8
-        if particle['life'] <= 0:
-            plasma_wave_particles.remove(particle)
-
-    # 보스와 충돌 검사 (원형 - magnetic_projectile 방식)
-    # 구체 중심과 보스 중심 사이 거리로 판정
-    boss_center_x = BOSS.x + BOSS.width // 2
-    boss_center_y = BOSS.y + BOSS.height // 2
-    dist_to_boss = math.hypot(plasma_wave_x - boss_center_x, plasma_wave_y - boss_center_y)
-
-    # 구체 반경 + 보스 대략적 반경으로 충돌 판정
-    collision_threshold = plasma_wave_radius + max(BOSS.width, BOSS.height) // 2
-
-    boss_in_plasma = dist_to_boss < collision_threshold
-
-    if boss_in_plasma:
-        # 보스가 구체 안에 있는 동안 둔화 적용 (매 프레임 갱신)
-        boss_plasma_slowed = True
-        boss_plasma_slow_amount = plasma_wave_slow_amount
-        boss_plasma_slow_timer = 10  # 매 프레임 갱신되므로 짧게 설정
-        # 충격 사운드 재생 (전용 채널, 반복 재생)
-        if SOUND_PLASMA_SHOCK and PLASMA_SHOCK_CHANNEL:
-            if not plasma_shock_playing or not PLASMA_SHOCK_CHANNEL.get_busy():
-                SOUND_PLASMA_SHOCK.set_volume(sfx_volume * 0.6)
-                PLASMA_SHOCK_CHANNEL.play(SOUND_PLASMA_SHOCK, loops=-1)
-                plasma_shock_playing = True
-    else:
-        # 구체 범위 밖이면 둔화 타이머 감소
-        if boss_plasma_slowed and boss_plasma_slow_timer > 0:
-            boss_plasma_slow_timer -= 1
-            if boss_plasma_slow_timer <= 0:
-                boss_plasma_slowed = False
-                boss_plasma_slow_amount = 0.0
-        # 보스가 범위 밖이면 충격 사운드 정지
-        if plasma_shock_playing and PLASMA_SHOCK_CHANNEL:
-            PLASMA_SHOCK_CHANNEL.stop()
-            plasma_shock_playing = False
-
-    # 화면 상단 벗어나면 비활성화
-    if plasma_wave_y < -plasma_wave_radius:
-        plasma_wave_active = False
-        plasma_wave_trail.clear()
-        plasma_wave_particles.clear()
-        # 구체 사라지면 둔화도 해제
-        boss_plasma_slowed = False
-        boss_plasma_slow_amount = 0.0
-        boss_plasma_slow_timer = 0
-        # 충격 사운드 정지
-        if plasma_shock_playing and PLASMA_SHOCK_CHANNEL:
-            PLASMA_SHOCK_CHANNEL.stop()
-            plasma_shock_playing = False
-        return
-
-    # 지속 시간 감소
-    plasma_wave_duration -= 1
-    if plasma_wave_duration <= 0:
-        plasma_wave_active = False
-        plasma_wave_trail.clear()
-        plasma_wave_particles.clear()
-        # 구체 사라지면 둔화도 해제
-        boss_plasma_slowed = False
-        boss_plasma_slow_amount = 0.0
-        boss_plasma_slow_timer = 0
-        # 충격 사운드 정지
-        if plasma_shock_playing and PLASMA_SHOCK_CHANNEL:
-            PLASMA_SHOCK_CHANNEL.stop()
-            plasma_shock_playing = False
-
-
-def draw_plasma_wave(screen):
-    """플라즈마 자기장 구체 그리기 - 투명한 전자기장 에너지 구체"""
-    if not plasma_wave_active:
-        return
-
-    ticks = pygame.time.get_ticks()
-
-    # === 잔상 그리기 (투명한 에너지 꼬리) ===
-    for i, trail in enumerate(plasma_wave_trail):
-        trail_radius = trail.get('radius', 30)
-        trail_alpha = trail['alpha']
-
-        trail_surface = pygame.Surface((trail_radius * 2 + 20, trail_radius * 2 + 20), pygame.SRCALPHA)
-        t_center = trail_radius + 10
-
-        # 투명한 외곽 링만 (채우지 않음)
-        ring_alpha = int(trail_alpha * 0.4)
-        pygame.draw.circle(trail_surface, (100, 180, 255, ring_alpha), (t_center, t_center), trail_radius, 2)
-
-        # 작은 전기 스파크
-        if random.random() < 0.4:
-            spark_angle = random.uniform(0, 2 * math.pi)
-            spark_dist = trail_radius * random.uniform(0.6, 1.0)
-            spark_x = t_center + int(math.cos(spark_angle) * spark_dist)
-            spark_y = t_center + int(math.sin(spark_angle) * spark_dist)
-            pygame.draw.circle(trail_surface, (150, 220, 255, ring_alpha), (spark_x, spark_y), 1)
-
-        screen.blit(trail_surface, (trail['x'] - t_center, trail['y'] - t_center), special_flags=pygame.BLEND_ADD)
-
-    # === 메인 구체 서페이스 ===
-    surface_size = int(plasma_wave_radius * 2.5 + 40)
-    wave_surface = pygame.Surface((surface_size, surface_size), pygame.SRCALPHA)
-    center = surface_size // 2
-
-    # 펄스 효과
-    pulse = 0.92 + 0.08 * math.sin(ticks * 0.025)
-    fast_pulse = 0.95 + 0.05 * math.sin(ticks * 0.08)
-    main_radius = int(plasma_wave_radius * pulse)
-
-    # === 1. 외곽 전자기장 링 (투명 - 테두리만) ===
-    for layer in range(3):
-        ring_radius = main_radius + 8 - layer * 4
-        ring_alpha = int((35 - layer * 8) * fast_pulse)
-        # 시안-파랑 계열
-        pygame.draw.circle(wave_surface, (80, 160, 255, ring_alpha), (center, center), ring_radius, 2)
-
-    # === 2. 외곽 전기 아크 (튀어나오는 스파크) ===
-    num_outer_arcs = 8 + int(plasma_wave_slow_amount * 4)
-    for i in range(num_outer_arcs):
-        base_angle = (ticks * 0.01 + i * (2 * math.pi / num_outer_arcs)) % (2 * math.pi)
-        arc_angle = base_angle + math.sin(ticks * 0.04 + i) * 0.4
-
-        arc_length = main_radius * (0.25 + 0.35 * random.random())
-        start_dist = main_radius * 0.9
-
-        arc_points = []
-        segments = 3 + random.randint(0, 2)
-        for j in range(segments + 1):
-            t = j / segments
-            dist = start_dist + arc_length * t
-            jitter = (t ** 1.5) * 6 * random.uniform(-1, 1)
-            jitter_angle = arc_angle + jitter * 0.12
-            px = center + int(math.cos(jitter_angle) * dist)
-            py = center + int(math.sin(jitter_angle) * dist)
-            arc_points.append((px, py))
-
-        if len(arc_points) >= 2:
-            # 전기 아크 (시안-흰색)
-            pygame.draw.lines(wave_surface, (100, 200, 255, 100), False, arc_points, 2)
-            pygame.draw.lines(wave_surface, (180, 230, 255, 160), False, arc_points, 1)
-
-            # 끝점 스파크
-            end_x, end_y = arc_points[-1]
-            pygame.draw.circle(wave_surface, (200, 240, 255, 140), (end_x, end_y), 2)
-
-    # === 3. 메인 구체 (투명한 전자기장 - 테두리 + 반투명 내부) ===
-    # 아주 연한 내부 글로우
-    inner_glow_alpha = int(25 * fast_pulse)
-    pygame.draw.circle(wave_surface, (60, 140, 220, inner_glow_alpha), (center, center), main_radius)
-
-    # 외곽 전자기장 링 (여러 겹)
-    for ring_layer in range(4):
-        ring_r = main_radius - ring_layer * 6
-        if ring_r > 5:
-            ring_a = int((50 - ring_layer * 10) * fast_pulse)
-            # 시안-파랑 색상 그라데이션
-            r_col = 80 + ring_layer * 25
-            g_col = 170 + ring_layer * 15
-            b_col = 255
-            pygame.draw.circle(wave_surface, (r_col, g_col, b_col, ring_a), (center, center), ring_r, 2)
-
-    # === 4. 내부 전기 순환 (회전하는 전자기 필드) ===
-    inner_arcs = 5
-    for i in range(inner_arcs):
-        inner_angle = (ticks * 0.012 + i * (2 * math.pi / inner_arcs)) % (2 * math.pi)
-        start_r = main_radius * 0.2
-        end_r = main_radius * 0.75
-
-        points = []
-        for j in range(5):
-            t = j / 4
-            r_dist = start_r + (end_r - start_r) * t
-            angle_offset = math.sin(t * math.pi * 2.5 + ticks * 0.025) * 0.6
-            px = center + int(math.cos(inner_angle + angle_offset) * r_dist)
-            py = center + int(math.sin(inner_angle + angle_offset) * r_dist)
-            points.append((px, py))
-
-        if len(points) >= 2:
-            pygame.draw.lines(wave_surface, (120, 200, 255, 80), False, points, 1)
-
-    # === 5. 코어 (작은 밝은 중심) ===
-    core_radius = int(main_radius * 0.15 * fast_pulse)
-    # 코어 글로우
-    pygame.draw.circle(wave_surface, (100, 180, 255, 60), (center, center), core_radius + 6)
-    pygame.draw.circle(wave_surface, (150, 210, 255, 100), (center, center), core_radius + 3)
-    # 밝은 코어
-    pygame.draw.circle(wave_surface, (200, 235, 255, 180), (center, center), core_radius)
-    # 핫스팟
-    pygame.draw.circle(wave_surface, (230, 250, 255, 220), (center, center), max(2, core_radius // 2))
-
-    # === 6. 랜덤 에너지 스파크 (작고 투명하게) ===
-    num_sparks = 6 + int(plasma_wave_slow_amount * 4)
-    for _ in range(num_sparks):
-        spark_angle = random.uniform(0, 2 * math.pi)
-        spark_dist = main_radius * random.uniform(0.5, 1.05)
-        spark_x = center + int(math.cos(spark_angle) * spark_dist)
-        spark_y = center + int(math.sin(spark_angle) * spark_dist)
-        spark_alpha = random.randint(80, 150)
-        pygame.draw.circle(wave_surface, (150, 220, 255, spark_alpha), (spark_x, spark_y), 1)
-
-    # 구체 그리기
-    screen.blit(wave_surface, (plasma_wave_x - center, plasma_wave_y - center), special_flags=pygame.BLEND_ADD)
-
-    # === 7. 외부 파티클 ===
-    for particle in plasma_wave_particles:
-        p_alpha = particle['alpha']
-        p_x, p_y = int(particle['x']), int(particle['y'])
-
-        # 작은 에너지 파티클
-        pygame.draw.circle(screen, (140, 210, 255), (p_x, p_y), 1)
-
-        # 파티클 꼬리
-        if abs(particle['vx']) > 0.3 or abs(particle['vy']) > 0.3:
-            tail_x = p_x - int(particle['vx'] * 2)
-            tail_y = p_y - int(particle['vy'] * 2)
-            pygame.draw.line(screen, (100, 180, 255), (p_x, p_y), (tail_x, tail_y), 1)
-
-
-def update_boss_plasma_slow():
-    """보스 플라즈마 둔화 상태 업데이트 - 웨이브 범위 밖에서 타이머 감소"""
-    global boss_plasma_slowed, boss_plasma_slow_timer, boss_plasma_slow_amount
-
-    # 웨이브가 비활성화 상태이고 둔화 중이면 타이머 감소
-    if not plasma_wave_active and boss_plasma_slowed:
-        boss_plasma_slow_timer -= 1
-        if boss_plasma_slow_timer <= 0:
-            boss_plasma_slowed = False
-            boss_plasma_slow_amount = 0.0
-
 
 def get_boss_plasma_slow_multiplier():
-    """보스 이동속도에 적용할 둔화 배율 반환 (0.0 ~ 1.0)"""
+    """보스 이동속도에 적용할 둔화 배율 반환 (0.0 ~ 1.0) - 호위무사/투기장 시스템에서 사용"""
     if boss_plasma_slowed:
         return 1.0 - boss_plasma_slow_amount
     return 1.0
-
-
-def update_plasma_contact_effects():
-    """플라즈마 접촉 이펙트 업데이트 - 패들 색상 변화용 왜곡 강도만 관리"""
-    global plasma_contact_distortion
-
-    # 보스가 플라즈마에 닿고 있을 때 왜곡 강도 증가
-    if boss_plasma_slowed and plasma_wave_active:
-        # 찌릿한 효과 강도 증가 (빠르게)
-        plasma_contact_distortion = min(1.0, plasma_contact_distortion + 0.15)
-    else:
-        # 접촉 해제 시 왜곡 강도 감소
-        plasma_contact_distortion = max(0.0, plasma_contact_distortion - 0.1)
-
-
-def apply_plasma_effect_to_boss(boss_surface):
-    """플라즈마 접촉 이펙트를 보스 이미지에 적용 - 찌릿하게 색상 변화 (밝은 빛/옅은 시안)"""
-    if not boss_plasma_slowed and plasma_contact_distortion <= 0:
-        return
-
-    ticks = pygame.time.get_ticks()
-
-    # 보스 패들이 플라즈마에 닿았을 때 - 보스 이미지 자체가 플라즈마 색상으로 찌릿하게 변화
-    if plasma_contact_distortion > 0 or boss_plasma_slowed:
-        # 찌릿찌릿한 효과 - 빠르게 깜빡이는 전기 효과
-        flicker = random.uniform(0.7, 1.0)  # 깜빡임 강도
-        electric_pulse = math.sin(ticks * 0.06) * 0.35 + 0.65  # 빠른 맥동
-
-        # 접촉 중일 때 더 강한 효과
-        if plasma_contact_distortion > 0:
-            intensity = plasma_contact_distortion * flicker * electric_pulse
-        else:
-            # 둔화 상태일 때 기본 효과
-            intensity = boss_plasma_slow_amount * 0.6 * flicker * electric_pulse
-
-        # 1) 밝은 빛/옅은 시안 틴트 적용 (MULT로 기존 색상에 믹스)
-        tint_surface = pygame.Surface(boss_surface.get_size(), pygame.SRCALPHA)
-        # 밝은 빛 + 옅은 시안 느낌 (빨강을 줄여서 시안 느낌)
-        mult_r = int(255 - 30 * intensity)  # 빨강 약간 줄임
-        mult_g = int(255 - 10 * intensity)  # 녹색 거의 유지
-        mult_b = 255  # 파랑 유지
-        tint_surface.fill((mult_r, mult_g, mult_b, 255))
-        boss_surface.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
-
-        # 2) 밝은 플라즈마 색상 추가 (ADD로 발광 효과) - 밝은 시안
-        add_surface = pygame.Surface(boss_surface.get_size(), pygame.SRCALPHA)
-        add_r = int(50 * intensity)   # 밝게
-        add_g = int(60 * intensity)   # 옅은 시안
-        add_b = int(70 * intensity)   # 파란빛
-        add_surface.fill((add_r, add_g, add_b, 0))
-        boss_surface.blit(add_surface, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
-
-        # 3) 랜덤 밝은 플래시 (가끔씩 찌릿한 느낌)
-        if random.random() < 0.25 * intensity:
-            flash_surface = pygame.Surface(boss_surface.get_size(), pygame.SRCALPHA)
-            flash_intensity = int(40 + 50 * intensity)
-            flash_surface.fill((flash_intensity, flash_intensity + 5, flash_intensity + 10, 0))
-            boss_surface.blit(flash_surface, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
-
-
-def draw_plasma_contact_effects(screen):
-    """플라즈마 접촉 이펙트 - 더 이상 사용하지 않음 (apply_plasma_effect_to_boss로 대체)"""
-    pass  # 보스 이미지에 직접 적용하므로 별도 오버레이 불필요
 
 
 def draw_berserk_aura(surface: pygame.Surface, center: tuple[int, int]) -> None:
@@ -70615,226 +69897,6 @@ def handle_player(keys):
             #     f" hold_ms={optimus_charge_hold_ms}"
             # )
 
-    # ⚡ 스매셔 플라즈마 자기장 스킬 (W/상 키 홀드)
-    def _handle_smasher_plasma_field(now_ms: int, up_held: bool) -> None:
-        """스매셔 전용: W/↑키 홀드로 플라즈마 자기장 차징 및 발사."""
-        global plasma_field_charging, plasma_field_charge_time, plasma_field_charge_start_time
-        global plasma_field_gauge_consumed, plasma_field_size, plasma_field_particles
-        global plasma_wave_active, plasma_wave_x, plasma_wave_y, plasma_wave_radius
-        global plasma_wave_slow_amount, plasma_wave_duration, plasma_wave_particles, plasma_wave_trail
-        global plasma_charge_sound_playing
-        global special_gauge, special_ready
-
-        if selected_character_type != "smasher":
-            if plasma_field_charging:
-                plasma_field_charging = False
-                plasma_field_charge_time = 0
-                plasma_field_gauge_consumed = 0
-                plasma_field_size = 0.0
-                plasma_field_particles.clear()
-                # 차징 사운드 정지
-                if plasma_charge_sound_playing and PLASMA_CHARGE_CHANNEL:
-                    PLASMA_CHARGE_CHANNEL.stop()
-                    plasma_charge_sound_playing = False
-            return
-
-        # 차징 불가 조건
-        if (
-            rolling_active
-            or rolling_stun_timer > 0
-            or player_stunned
-            or is_waiting_for_serve
-            or is_player_serve
-            or power_smashing_freeze_active
-            or power_smashing_parabola_active
-        ):
-            # 불가 조건에서 키를 떼면 자기장 발사
-            if plasma_field_charging and plasma_field_gauge_consumed > 0:
-                _fire_plasma_wave()
-            plasma_field_charging = False
-            plasma_field_charge_time = 0
-            plasma_field_gauge_consumed = 0
-            plasma_field_size = 0.0
-            plasma_field_particles.clear()
-            # 차징 사운드 정지
-            if plasma_charge_sound_playing and PLASMA_CHARGE_CHANNEL:
-                PLASMA_CHARGE_CHANNEL.stop()
-                plasma_charge_sound_playing = False
-            return
-
-        if up_held:
-            # 차징 시작 또는 지속
-            if not plasma_field_charging:
-                # 플라즈마 스킬이 해금되지 않았으면 사용 불가
-                if not is_smasher_skill_unlocked("plasma"):
-                    return
-                # 플라즈마 웨이브가 이미 활성화 중이면 차징 불가 (쿨타임)
-                if plasma_wave_active:
-                    return
-                # 스킬 쿨타임 체크
-                if get_smasher_skill_cooldown_remaining("plasma") > 0:
-                    return
-                # 게이지가 최소 40 이상이어야 차징 가능 (최소 소모량)
-                if special_gauge >= plasma_field_min_gauge_cost:
-                    plasma_field_charging = True
-                    plasma_field_charge_start_time = now_ms
-                    plasma_field_charge_time = 0
-                    plasma_field_gauge_consumed = 0
-                    plasma_field_size = 0.0
-                    plasma_field_particles.clear()
-                    # 차징 사운드 재생 (전용 채널, 루프)
-                    if SOUND_PLASMA_CHARGE and PLASMA_CHARGE_CHANNEL and not plasma_charge_sound_playing:
-                        PLASMA_CHARGE_CHANNEL.play(SOUND_PLASMA_CHARGE, loops=-1)
-                        plasma_charge_sound_playing = True
-            else:
-                # 차징 지속 중
-                plasma_field_charge_time += 1
-
-                # 매 프레임마다 일정하게 게이지 소모 (0.5초에 40 = 프레임당 40/30 ≈ 1.33)
-                drain_per_frame = plasma_field_gauge_drain_amount / plasma_field_gauge_drain_interval
-                if special_gauge >= drain_per_frame:
-                    special_gauge -= drain_per_frame
-                    plasma_field_gauge_consumed += drain_per_frame
-                    if special_gauge < 350:
-                        special_ready = False
-                    try:
-                        game_state.special_gauge = special_gauge
-                        game_state.special_ready = special_ready
-                    except Exception:
-                        pass
-                else:
-                    # 게이지 부족 - 강제 발사
-                    if plasma_field_gauge_consumed > 0:
-                        _fire_plasma_wave()
-                    plasma_field_charging = False
-                    plasma_field_charge_time = 0
-                    plasma_field_gauge_consumed = 0
-                    plasma_field_size = 0.0
-                    plasma_field_particles.clear()
-                    # 차징 사운드 정지
-                    if plasma_charge_sound_playing and PLASMA_CHARGE_CHANNEL:
-                        PLASMA_CHARGE_CHANNEL.stop()
-                        plasma_charge_sound_playing = False
-                    return
-
-                # 필드 크기 점진적 증가 (매 프레임)
-                # 차징 시간에 비례해서 0.0 ~ 1.0 증가 (최대 3초 = 180프레임에서 풀차지)
-                max_charge_frames = 180  # 3초
-                plasma_field_size = min(1.0, plasma_field_charge_time / max_charge_frames)
-
-                # 플라즈마 파티클 생성 (매 2프레임마다)
-                if plasma_field_charge_time % 2 == 0:
-                    _spawn_plasma_field_particle()
-        else:
-            # 키를 뗐을 때 - 0.5초(30프레임) 이상 홀딩해야 발사
-            if plasma_field_charging:
-                if plasma_field_charge_time >= 30 and plasma_field_gauge_consumed > 0:
-                    # 0.5초 이상 홀딩 - 발사
-                    _fire_plasma_wave()
-                elif plasma_field_gauge_consumed > 0:
-                    # 0.5초 미만 홀딩 - 게이지 반환
-                    special_gauge += plasma_field_gauge_consumed
-                    if special_gauge >= 350:
-                        special_ready = True
-                    try:
-                        game_state.special_gauge = special_gauge
-                        game_state.special_ready = special_ready
-                    except Exception:
-                        pass
-            plasma_field_charging = False
-            plasma_field_charge_time = 0
-            plasma_field_gauge_consumed = 0
-            plasma_field_size = 0.0
-            plasma_field_particles.clear()
-            # 차징 사운드 정지
-            if plasma_charge_sound_playing and PLASMA_CHARGE_CHANNEL:
-                PLASMA_CHARGE_CHANNEL.stop()
-                plasma_charge_sound_playing = False
-
-    def _spawn_plasma_field_particle():
-        """플라즈마 필드 차징 파티클 생성"""
-        global plasma_field_particles
-        import random as rnd
-        angle = rnd.uniform(0, 2 * math.pi)
-        dist = rnd.uniform(5, 15)
-        speed = rnd.uniform(0.5, 1.5)
-        alpha = rnd.randint(150, 255)
-        plasma_field_particles.append({
-            'angle': angle,
-            'dist': dist,
-            'alpha': alpha,
-            'speed': speed,
-            'life': 30  # 0.5초 수명
-        })
-        # 파티클 수 제한
-        if len(plasma_field_particles) > 50:
-            plasma_field_particles = plasma_field_particles[-50:]
-
-    def _fire_plasma_wave():
-        """플라즈마 자기장 구체 발사 (magnetic_projectile 방식)"""
-        global plasma_wave_active, plasma_wave_x, plasma_wave_y, plasma_wave_radius
-        global plasma_wave_slow_amount
-        global plasma_wave_duration, plasma_wave_particles, plasma_wave_trail
-        global plasma_field_gauge_consumed, plasma_charge_sound_playing
-        global special_gauge, special_ready
-
-        # 이미 웨이브가 활성화되어 있으면 무시
-        if plasma_wave_active:
-            return
-
-        # 최소 게이지 소모량 적용 (50)
-        if plasma_field_gauge_consumed < plasma_field_min_gauge_cost:
-            additional_drain = plasma_field_min_gauge_cost - plasma_field_gauge_consumed
-            if special_gauge >= additional_drain:
-                special_gauge -= additional_drain
-                plasma_field_gauge_consumed = plasma_field_min_gauge_cost
-                if special_gauge < 350:
-                    special_ready = False
-                try:
-                    game_state.special_gauge = special_gauge
-                    game_state.special_ready = special_ready
-                except Exception:
-                    pass
-
-        # 발사 위치 (플레이어 중앙, 위쪽)
-        plasma_wave_x = PLAYER.centerx
-        plasma_wave_y = PLAYER.top - 20
-
-        # 구체 반경 (차징 시간에 비례) - magnetic_projectile처럼 원형
-        # 기본 반경 40, 최대 반경 100
-        base_radius = 40
-        max_radius = 100
-        plasma_wave_radius = int(base_radius + (max_radius - base_radius) * plasma_field_size)
-
-        # 둔화량 계산: 기본 20% + (0.5초당 5% 추가)
-        # plasma_field_gauge_consumed / 40 = 0.5초 단위 횟수
-        charge_ticks = plasma_field_gauge_consumed // plasma_field_gauge_drain_amount
-        plasma_wave_slow_amount = plasma_field_base_slow + (charge_ticks * plasma_field_slow_per_tick)
-        plasma_wave_slow_amount = min(0.80, plasma_wave_slow_amount)  # 최대 80% 둔화
-
-        # 웨이브 활성화
-        plasma_wave_active = True
-        plasma_wave_duration = 180  # 3초 지속 (화면 상단까지 갈 시간)
-        plasma_wave_particles.clear()
-        plasma_wave_trail.clear()
-
-        # 발사 효과음 (전용 채널)
-        if SOUND_PLASMA_SHOOT and PLASMA_SHOOT_CHANNEL:
-            try:
-                SOUND_PLASMA_SHOOT.set_volume(sfx_volume * 0.5)
-                PLASMA_SHOOT_CHANNEL.play(SOUND_PLASMA_SHOOT)
-            except:
-                pass
-
-        # 차징 사운드 정지
-        if plasma_charge_sound_playing and PLASMA_CHARGE_CHANNEL:
-            PLASMA_CHARGE_CHANNEL.stop()
-            plasma_charge_sound_playing = False
-
-        # 스매셔 스킬 쿨타임 적용
-        trigger_smasher_skill_cooldown("plasma")
-
-
     # 화기 교체 쿨다운 감소
     if soldier_controller.switch_cooldown > 0:
         soldier_controller.switch_cooldown -= 1
@@ -71888,13 +70950,6 @@ def handle_player(keys):
         optimus_down_for_charge = False
     _handle_optimus_manual_charge(pygame.time.get_ticks(), optimus_down_for_charge)
 
-    # ⚡ 스매셔 플라즈마 자기장 스킬 (W/↑ 키 홀드)
-    # 👁 오딘의 눈 변신 상태에서는 기존 스킬 사용 불가
-    up_for_plasma = up_pressed_raw or keys[pygame.K_w] or keys[pygame.K_UP]
-    if is_odins_eye_transformed():
-        up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
-    _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
-
     # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 에어 블레이드/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 백스텝, Q: 베놈 엣지, R: 마샬 킥)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released
@@ -72395,8 +71450,8 @@ def handle_player(keys):
                         _viper_ps_curve_timer = int(_VIPER_PS_CURVE_FRAMES * 1.5)  # 더블: 커브 1.5배 지속
                     else:
                         _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-                    # 커브 방향: 발사 각도 반대쪽으로 (보스가 공 궤적 예측 불가)
-                    _viper_ps_curve_direction = 1 if ball_vel[0] < 0 else -1
+                    # 커브 방향: 발사 방향과 같은 쪽으로 (자연스러운 커브)
+                    _viper_ps_curve_direction = 1 if ball_vel[0] > 0 else -1
                     # 🪙 마샬 킥 타격 골드 보너스
                     try:
                         add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
@@ -106680,16 +105735,6 @@ def draw_objects():
         update_ingame_tutorial_delay()
         check_skill_hover_for_tutorial()
 
-    # ⚡ 스매셔 플라즈마 자기장 효과 업데이트 및 그리기
-    if selected_character_type == "smasher":
-        update_plasma_field_particles()
-        update_plasma_wave()
-        update_boss_plasma_slow()
-        update_plasma_contact_effects()  # 접촉 이펙트 업데이트
-        draw_plasma_field_charging(SCREEN)
-        draw_plasma_wave(SCREEN)
-        draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
-
     # ⚔ 바이퍼 에어 블레이드 검기 렌더링 (Ultra Premium Crescent Blade Wave)
     if _viper_blade_rush_active:
         try:
@@ -108549,10 +107594,6 @@ def draw_objects():
         enraged_tint.fill((tint_r, tint_g, tint_b, 255))
         rotated_boss.blit(enraged_tint, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
 
-    # === ⚡ 스매셔 플라즈마 접촉 효과 (보스 이미지에 찌릿한 색상 변화) ===
-    if selected_character_type == "smasher" and (boss_plasma_slowed or plasma_contact_distortion > 0):
-        apply_plasma_effect_to_boss(rotated_boss)
-
     # === 🔒 보스 대쉬 후딜(통제불능) 상태 이펙트 (플레이어와 동일) ===
     _boss_stun_timer_draw = boss_dash_stun_timer
     _boss_dash_stun_shake_x = 0
@@ -109181,19 +108222,6 @@ def draw_objects():
             for i, crack in enumerate(blacksmith_ground_cracks[:3]):  # Show first 3 cracks to avoid clutter
                 crack_text = debug_font.render(f"Crack{i}: x={crack['x']:.0f}, y={crack['y']:.0f}", True, (255, 100, 100))
                 SCREEN.blit(crack_text, (WIDTH - 250, 150 + i * 20))
-    # ⚡ 플라즈마 자기장 둔화 퍼센트 표시 (보스 이미지 색상 변화는 apply_plasma_effect_to_boss에서 처리)
-    if boss_plasma_slowed and selected_character_type == "smasher":
-        # 둔화 퍼센트 표시 (패들 위에 작게)
-        slow_pct = int(boss_plasma_slow_amount * 100)
-        try:
-            slow_font = pygame.font.Font(get_pixel_font_path(), 10)
-        except:
-            slow_font = pygame.font.Font(None, 10)
-        slow_text = f"-{slow_pct}%"
-        slow_text_surf = slow_font.render(slow_text, True, (200, 150, 255))
-        slow_text_rect = slow_text_surf.get_rect(center=(BOSS.x + BOSS.width // 2, BOSS.y - 10))
-        SCREEN.blit(slow_text_surf, slow_text_rect)
-
     #  라그나로크 스턴 시 전기 감전 효과 (최적화 버전)
     if boss_stun_timer > 0:
         # 전기 감전 효과 - 보스 패들 전체에 전기가 흐르는 효과
