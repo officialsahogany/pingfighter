@@ -107098,20 +107098,24 @@ def draw_objects():
                 _draw_x = _holo_x - _holo_w // 2 + _offset_x
                 _draw_y = _holo_y - _holo_h // 2 + _offset_y
 
-                # 홀로그램 잔상 겹침 이펙트 (발차기 방향으로 뻗어나가며 진해짐) — 본체 뒤에 깔림
-                if _holo_t > 0.1:
-                    _ghost_count = 4  # 잔상 겹침 수
+                # 홀로그램 잔상 겹침 이펙트 (발차기 방향으로 빠르게 뻗어나감) — 본체 뒤에 깔림
+                if _holo_t > 0.15:
+                    _ghost_count = 4
                     _kick_dir = _viper_ss_hologram_kick_dir
                     for _gi in range(_ghost_count):
-                        _g_delay = _gi * 0.12
-                        _g_local_t = (_holo_t - 0.1 - _g_delay) / 0.6
+                        _g_delay = _gi * 0.03  # 잔상 간 딜레이 극소 (거의 동시)
+                        _g_local_t = (_holo_t - 0.15 - _g_delay) / 0.15  # 0.15초만에 완료 (매우 빠름)
                         if _g_local_t < 0.0 or _g_local_t > 1.0:
                             continue
-                        _g_ease = _g_local_t * _g_local_t * (3.0 - 2.0 * _g_local_t)
+                        _g_ease = min(1.0, _g_local_t * _g_local_t * 4.0)  # 빠른 가속
                         # 발차기 방향으로 뻗어나감 (확장 히트박스 커버)
-                        _g_offset_x = _kick_dir * _g_ease * (10 + _gi * 12)
-                        _g_offset_y = (1.0 - _g_ease) * (_gi - 1.5) * 3
-                        _g_alpha = int(min(200, (80 + _gi * 40) * min(1.0, _g_local_t * 2.5)))
+                        _g_offset_x = _kick_dir * _g_ease * (12 + _gi * 14)
+                        _g_offset_y = 0
+                        # 알파: 빠르게 나타나고 빠르게 사라짐
+                        _g_fade = 1.0 - max(0.0, (_g_local_t - 0.5) * 2.0)  # 후반 페이드아웃
+                        _g_alpha = int(min(200, (100 + _gi * 30) * min(1.0, _g_local_t * 5.0) * _g_fade))
+                        if _g_alpha <= 0:
+                            continue
                         _ghost_surf = _holo_base.copy()
                         _ghost_surf.set_alpha(_g_alpha)
                         _gx = _holo_x - _holo_w // 2 + _g_offset_x
