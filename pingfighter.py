@@ -72075,6 +72075,12 @@ def handle_player(keys):
             if _viper_jetpack_hold_timer >= _VIPER_JETPACK_MAX_HOLD_FRAMES:
                 _viper_jetpack_overheat = True
                 _viper_jetpack_active = False
+                try:
+                    if _viper_jetpack_snd_channel and _viper_jetpack_snd_channel.get_busy():
+                        _viper_jetpack_snd_channel.fadeout(200)
+                    _viper_jetpack_snd_channel = None
+                except Exception:
+                    _viper_jetpack_snd_channel = None
             else:
                 # 상승
                 _viper_jetpack_offset_y = max(-_VIPER_JETPACK_MAX_HEIGHT,
@@ -72260,9 +72266,15 @@ def handle_player(keys):
                     _viper_br_spin_angle = 0.0
                     _viper_br_jump_offset_y = 0.0
                     _viper_br_arm_raise = 0.0
-                # 제트팩 즉시 비활성
+                # 제트팩 즉시 비활성 + 사운드 정지
                 _viper_jetpack_active = False
                 _viper_jetpack_gauge_timer = 0
+                try:
+                    if _viper_jetpack_snd_channel and _viper_jetpack_snd_channel.get_busy():
+                        _viper_jetpack_snd_channel.fadeout(100)
+                    _viper_jetpack_snd_channel = None
+                except Exception:
+                    _viper_jetpack_snd_channel = None
 
         # 급강하 업데이트
         if _viper_dive_active:
@@ -72663,9 +72675,14 @@ def handle_player(keys):
         _ns_elapsed = _ns_now - _viper_nerve_strike_start_ms
 
         if _viper_nerve_strike_phase == 0:
-            # Phase 0: 보스에게 돌진 (여유 있는 속도 — 보스가 피할 수 있음)
+            # Phase 0: 보스에게 돌진 (부드러운 타겟 추적 — 전반부만)
             if _ns_elapsed < _VIPER_NS_DASH_DURATION:
                 _ns_t = _ns_elapsed / _VIPER_NS_DASH_DURATION
+                # 전반 60% 구간에서만 타겟을 보스 쪽으로 부드럽게 보정 (후반은 고정 → 빗나갈 여지)
+                if _ns_t < 0.6:
+                    _ns_track_strength = 0.08 * (1.0 - _ns_t / 0.6)  # 점점 약해지는 추적
+                    _viper_nerve_strike_target_x += (float(BOSS.centerx) - _viper_nerve_strike_target_x) * _ns_track_strength
+                    _viper_nerve_strike_target_y += (float(BOSS.centery - 40) - _viper_nerve_strike_target_y) * _ns_track_strength
                 # 이징: ease-in-out (자연스러운 가감속)
                 _ns_ease = _ns_t * _ns_t * (3.0 - 2.0 * _ns_t)
                 _ns_cur_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _ns_ease
