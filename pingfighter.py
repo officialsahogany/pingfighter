@@ -79,6 +79,8 @@ blacksmith_round_blueprint_cache = None
 boost_charging_token_idx = 0
 bulkup_body_size_pct = 0
 bulletproof_hat_resist_pct = 0
+sage_ring_speed_penalty_pct = 0  # 현자의 반지 이동속도 감소 패널티 (10~20%)
+sage_ring_body_penalty_pct = 0   # 현자의 반지 몸집크기 감소 패널티 (10~20%)
 horn_charge_boss_knockback_active = False
 horn_charge_player_knockback_active = False
 spiked_helmet_knockback_resist_pct = 0
@@ -20659,7 +20661,11 @@ def apply_equipment_paddle_modifiers() -> None:
     if selected_character_type == "optimus":
         gauge_scale = optimus_gauge_scale
         mecha_bulk_bonus = get_mecha_bulk_scale() - 1.0  # 메카벌크 스킬
-    combined_bulk_scale = 1.0 + bulkup_bonus + bulk_up_bonus + mecha_bulk_bonus
+    # 현자의 반지 몸집크기 감소 패널티 (10~20% 감소)
+    sage_ring_body_penalty = 0.0
+    if items.sage_ring_obtained and sage_ring_body_penalty_pct > 0:
+        sage_ring_body_penalty = sage_ring_body_penalty_pct / 100.0
+    combined_bulk_scale = 1.0 + bulkup_bonus + bulk_up_bonus + mecha_bulk_bonus - sage_ring_body_penalty
     effective_scale = CURRENT_PADDLE_SIZE_SCALE * ANGEL_PADDLE_SCALE * gauge_scale * combined_bulk_scale
     CURRENT_PADDLE_EFFECTIVE_SCALE = effective_scale
 
@@ -25831,6 +25837,10 @@ PASSIVE_OPTION_RANGES = {
     "bulkup": [
         {"label": "몸집크기", "min": 8, "max": 13, "unit": "%", "prefix": "+", "key": "body_size_pct"},
     ],
+    "sage_ring": [
+        {"label": "이동속도 감소", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "sage_speed_penalty_pct", "reverse": True},
+        {"label": "몸집크기 감소", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "sage_body_penalty_pct", "reverse": True},
+    ],
     "sensor": [
         {"label": "자동대쉬 쿨타임", "min": 13, "max": 20, "unit": "초", "prefix": "", "key": "sensor_cooldown_sec", "reverse": True},
     ],
@@ -26264,6 +26274,8 @@ def _reset_roll_bonuses_to_default():
     globals()["shrapnel_armor_shard_count"] = 7   # 파편갑옷 기본값
     globals()["shrapnel_armor_knockback_level"] = 2  # 파편갑옷 기본값
     globals()["shrapnel_armor_gauge_cost"] = 35  # 파편갑옷 기본값
+    globals()["sage_ring_speed_penalty_pct"] = 0  # 현자의 반지 이동속도 감소 기본값
+    globals()["sage_ring_body_penalty_pct"] = 0   # 현자의 반지 몸집크기 감소 기본값
     # 테크니컬조끼 기본 롤 값(연막)
     try:
         from item_effects.technical_vest import configure_technical_vest
@@ -26617,6 +26629,13 @@ def apply_roll_bonuses_from_equipped():
             val = _get_roll_value(item, "gauge_preserve_pct")
             if val is not None:
                 globals()["battery_gauge_preserve_pct"] = val
+        elif name == "sage_ring":
+            val = _get_roll_value(item, "sage_speed_penalty_pct")
+            if val is not None:
+                globals()["sage_ring_speed_penalty_pct"] = val
+            val = _get_roll_value(item, "sage_body_penalty_pct")
+            if val is not None:
+                globals()["sage_ring_body_penalty_pct"] = val
 
     # 스택형 보너스들 한 번에 적용
     globals()["fuel_pouch_bonus"] = fuel_pouch_total_bonus
@@ -26822,6 +26841,13 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val = _get_roll_value(item, "gauge_preserve_pct")
         if val is not None:
             globals()["battery_gauge_preserve_pct"] = val
+    elif name == "sage_ring":
+        val = _get_roll_value(item, "sage_speed_penalty_pct")
+        if val is not None:
+            globals()["sage_ring_speed_penalty_pct"] = val
+        val = _get_roll_value(item, "sage_body_penalty_pct")
+        if val is not None:
+            globals()["sage_ring_body_penalty_pct"] = val
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -26996,17 +27022,23 @@ def sync_equipped_passive_effects():
     sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
     sync_bool("sage_ring", "items.sage_ring_obtained")
 
-    # 현자의 반지: 장착 시 모든 퍽 레벨 +1 (고정 효과)
-    global sage_ring_perk_bonus
+    # 현자의 반지: 장착 시 모든 퍽 레벨 +1 (고정 효과) + 패널티 롤옵션 적용
+    global sage_ring_perk_bonus, sage_ring_speed_penalty_pct, sage_ring_body_penalty_pct
     try:
         from item_effects.sage_ring import get_sage_ring_instance
         ring = get_sage_ring_instance()
         if "sage_ring" in equipped_names:
             ring.activate()
             sage_ring_perk_bonus = ring.perk_bonus
+            # 장착된 현자의 반지에서 패널티 롤옵션 적용
+            sage_item = next((i for i in equipped_items if i.get("name") == "sage_ring"), None)
+            if sage_item:
+                apply_roll_bonuses_from_item(sage_item)
         else:
             ring.deactivate()
             sage_ring_perk_bonus = 0
+            sage_ring_speed_penalty_pct = 0
+            sage_ring_body_penalty_pct = 0
         # 퍽 보너스 변경 시 효과 재계산
         recalculate_transcendent_crown_effects()
     except Exception:
@@ -75623,6 +75655,10 @@ def handle_player(keys):
             if gold_bar_speed_mult < 1.0:
                 speed_multiplier *= gold_bar_speed_mult
 
+            # 현자의 반지 이동속도 감소 패널티 적용 (10~20% 감소)
+            if items.sage_ring_obtained and sage_ring_speed_penalty_pct > 0:
+                speed_multiplier *= (1.0 - sage_ring_speed_penalty_pct / 100.0)
+
             # 그물덫총 포획 시 속도 감소 적용
             net_gun = get_net_gun_instance()
             net_speed_multiplier = net_gun.get_player_speed_multiplier()
@@ -80252,6 +80288,7 @@ def store_passive_item(item_data):
     elif item_data["name"] == "sage_ring":
         # 현자의 반지 패시브 아이템 (장신구 부위)
         # 고정 효과: 모든 퍽 레벨 +1 (장착 시 발동)
+        # 패널티 롤옵션: 이동속도 10~20% 감소, 몸집크기 10~20% 감소
         # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
         if not items.sage_ring_obtained:
             items.sage_ring_obtained = True
@@ -80259,6 +80296,8 @@ def store_passive_item(item_data):
             from item_effects.sage_ring import activate_sage_ring
             activate_sage_ring()
         item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     else:
         # 알 수 없는 패시브 아이템 처리
@@ -165430,11 +165469,13 @@ def show_character_info(background_surface=None):
             local_font_tiny = tooltip_body_font
             name_color = hover_info.get("color") or WHITE
             options_entries = hover_info.get("options") or []
-            # 현자의 반지: 롤옵션 없지만 고정효과를 우측 패널에 표시
-            if hover_info.get("raw_name") == "sage_ring" and not options_entries:
-                options_entries = [
-                    {"text": "모든 퍽 레벨 +1", "color": (255, 230, 140)},
-                ]
+            # 현자의 반지: 고정효과를 롤옵션 앞에 추가 표시
+            if hover_info.get("raw_name") == "sage_ring":
+                fixed_entry = {"text": "모든 퍽 레벨 +1", "color": (255, 230, 140)}
+                if not options_entries:
+                    options_entries = [fixed_entry]
+                else:
+                    options_entries.insert(0, fixed_entry)
             # 패시브 아이템 롤 옵션이 있으면 설명/능력치를 양쪽 박스로 분리
             dual_rendered = False
             if options_entries and hover_info.get("desc"):
@@ -166593,7 +166634,7 @@ def get_item_description(item_name):
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
         "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
         "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 170% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
-        "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1",
+        "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
