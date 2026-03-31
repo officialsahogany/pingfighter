@@ -72262,8 +72262,7 @@ def handle_player(keys):
             if _ns_elapsed >= _ns_slash_dur:
                 # 혼란 효과 적용! (조명탄과 동일한 시스템)
                 boss_confused_timer = _VIPER_NS_CONFUSION_FRAMES  # 5초
-                # 프리즈 해제
-                _viper_ns_freeze_active = False
+                # 프리즈는 착지 완료까지 유지 (Phase 2 끝에서 해제)
 
                 # 복귀 X를 공의 X좌표로 변경 (착지 후 바로 받아칠 수 있도록)
                 _ns_land_x = float(BALL.centerx)
