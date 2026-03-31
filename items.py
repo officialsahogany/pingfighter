@@ -1147,7 +1147,7 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None
     },
-    {
+    {       
         "name": "slot_add",  # 🆕 새 아이템 추가
         "color": (255, 180, 80),
         "effect": "slot_add",
@@ -1627,7 +1627,7 @@ ITEM_TYPES = [
         "color": (255, 50, 50),  # 빨간색 (레이저 색상)
         "effect": "laser_scope",
         "icon": None,
-        "chance": 0.012,  # 확률 1.2% (일반 등급)
+        "chance": 0.005,  # 확률 0.5%
         "duration": 1500,  # 25초
         "unlock_condition": None
     },
@@ -1797,7 +1797,7 @@ ITEM_TYPES = [
         "color": (120, 60, 160),  # 보라색 (신비한 약병 테마)
         "effect": "strange_vial",
         "icon": None,
-        "chance": 0.008,  # 확률 0.8%
+        "chance": 0.003,  # 확률 0.3%
         "duration": 1800,  # 30초 (1800 / 60fps)
         "unlock_condition": None
     },
@@ -1806,7 +1806,7 @@ ITEM_TYPES = [
         "color": (180, 140, 255),  # 신비로운 보라색
         "effect": "sage_ring",
         "icon": None,
-        "chance": 0.003,  # 0.3% 스폰 확률 (희귀)
+        "chance": 0.001,  # 0.3% 스폰 확률 (희귀)
         "duration": 600,
         "unlock_condition": None,
         "body_part": "accessory"  # 장신구 부위
