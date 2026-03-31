@@ -47933,6 +47933,7 @@ _viper_ss_hologram_origin_x = 0      # 텔레포트 출발 X (원래 위치)
 _viper_ss_hologram_origin_y = 0      # 출발 Y
 _viper_ss_hologram_kick_dir = 0     # 텔레포트 방향 (발차기 포즈용, -1=왼, 1=오)
 _VIPER_SS_HOLOGRAM_DURATION = 500    # 홀로그램 등장 시간 (ms)
+_viper_ss_hologram_kick_hit = False  # 홀로그램 발차기 공 히트 여부 (1회 제한)
 _viper_ss_kick_ready = False         # 쉐도우 백스텝 후 첫 패들 히트 사운드 대기 플래그
 
 # === 바이퍼 쉐도우 백스텝 에너지파 (출발점→도착점, 공 히트 시 팬텀 스트라이크) ===
@@ -71925,7 +71926,7 @@ def handle_player(keys):
         global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
         global _viper_br_jump_offset_y, _viper_br_arm_raise
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x, _viper_ss_kick_ready
-        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_ss_hologram_kick_dir
+        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_ss_hologram_kick_dir, _viper_ss_hologram_kick_hit
         global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
         global _viper_ss_ball_touched
@@ -72044,6 +72045,7 @@ def handle_player(keys):
                         _viper_ss_hologram_start_ms = pygame.time.get_ticks()
                         _viper_ss_hologram_target_x = _ss_new_x
                         _viper_ss_hologram_kick_dir = _ss_reverse_dir  # 발차기 방향
+                        _viper_ss_hologram_kick_hit = False  # 킥 히트 초기화
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
                         _viper_ss_ball_touched = False  # 공 히트 추적 초기화 (카운터 연계 조건)
 
@@ -72864,8 +72866,8 @@ def handle_player(keys):
         if _viper_ss_wave_active and not _viper_ss_wave_hit_ball:
             try:
                 _sw_hit_rect = pygame.Rect(
-                    int(_viper_ss_wave_x - 30), int(_viper_ss_wave_y - 25),
-                    60, 50  # 에너지파 히트박스
+                    int(_viper_ss_wave_x - 55), int(_viper_ss_wave_y - 45),
+                    110, 90  # 에너지파 히트박스 (확대: 60x50 → 110x90)
                 )
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
@@ -106154,7 +106156,7 @@ def draw_objects():
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_window  #  퍼펙트 타이밍 변수 추가
     global perfect_timing_indicator_active
     global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
-    global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y
+    global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_ss_hologram_kick_hit
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
@@ -107059,6 +107061,41 @@ def draw_objects():
                 _draw_x = _holo_x - _holo_w // 2 + _offset_x
                 _draw_y = _holo_y - _holo_h // 2 + _offset_y
                 SCREEN.blit(_holo_surf, (int(_draw_x), int(_draw_y)))
+
+                # 홀로그램 발차기 확장 히트박스 — 공 충돌 판정 (텔레포트 도착 킥)
+                if _holo_t > 0.3 and not _viper_ss_hologram_kick_hit:
+                    _kick_expand = 60  # 발차기 방향으로 확장
+                    _kick_rect = pygame.Rect(
+                        _holo_x - _holo_w // 2 - 30,
+                        _holo_y - _holo_h // 2 - 25,
+                        _holo_w + _kick_expand,
+                        _holo_h + 50
+                    )
+                    if _kick_rect.colliderect(BALL):
+                        _viper_ss_hologram_kick_hit = True  # 1회 제한
+                        _viper_ss_ball_touched = True
+                        # 공을 위로 반사 + 커브
+                        ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
+                        _viper_ps_curve_active = True
+                        _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
+                        _viper_ps_curve_direction = _viper_ss_hologram_kick_dir
+                        # 골드 보너스
+                        try:
+                            add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
+                        except Exception:
+                            pass
+                        # 킥 히트 이펙트
+                        try:
+                            effects_manager.spawn_shockwave(
+                                BALL.centerx, BALL.centery,
+                                force=10, color=(140, 0, 220),
+                            )
+                            effects_manager.spawn_dark_red_impact(
+                                BALL.centerx, BALL.centery,
+                                count=16, intensity=0.85,
+                            )
+                        except Exception:
+                            pass
 
                 # 도착 이펙트 (완료 시)
                 if _holo_t > 0.95:
@@ -110066,8 +110103,8 @@ def draw_objects():
         SCREEN.blit(afterimage_surf, afterimage_rect.topleft)
         # 바이퍼 쉐도우 백스텝 잔상 — 공 충돌 판정
         if afterimage.get('viper_ss') and not afterimage.get('hit_ball'):
-            _ai_w = afterimage.get('width', 80)
-            _ai_h = afterimage.get('height', 40)
+            _ai_w = afterimage.get('width', 120)
+            _ai_h = afterimage.get('height', 70)
             _ai_rect = pygame.Rect(
                 afterimage['x'] - _ai_w // 2, afterimage['y'] - _ai_h // 2,
                 _ai_w, _ai_h
