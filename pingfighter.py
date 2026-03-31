@@ -72170,11 +72170,18 @@ def handle_player(keys):
             _viper_double_marshal_ready = False
 
     # 마샬 킥 발동: 연계 윈도우 또는 더블 마샬 윈도우 중 S/↓키 단독 입력
+    # 에어 블레이드 Phase 2 하강 구간(300ms 이후)에서는 마샬 킥 허용
+    _wd_br_allow = False
+    if _viper_br_spin_active and _viper_br_spin_phase == 2:
+        _wd_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms
+        if _wd_br_elapsed >= 300:  # 하강 구간
+            _wd_br_allow = True
     _wd_can_fire = _viper_wall_dive_ready or _viper_double_marshal_ready
     if (selected_character_type == "viper" and not is_odins_eye_transformed()
             and _wd_can_fire and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
-            and not _viper_nerve_strike_active and not _viper_br_spin_active
+            and not _viper_nerve_strike_active
+            and (not _viper_br_spin_active or _wd_br_allow)
             and not is_waiting_for_serve and not is_player_serve and not player_stunned):
         _wd_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
         _wd_dir_held = (
@@ -72196,6 +72203,12 @@ def handle_player(keys):
             _viper_double_marshal_ready_timer = 0
             _viper_marshal_kick_hit_ball = False
             _viper_ss_kick_ready = False  # 쉐도우 킥 사운드 소모
+            # 에어 블레이드 체공 중이면 스핀 즉시 종료
+            if _viper_br_spin_active:
+                _viper_br_spin_active = False
+                _viper_br_spin_angle = 0.0
+                _viper_br_jump_offset_y = 0.0
+                _viper_br_arm_raise = 0.0
             _viper_wall_dive_active = True
             _viper_wall_dive_phase = 0  # 벽으로 점프
             _viper_wall_dive_start_ms = pygame.time.get_ticks()
@@ -73072,6 +73085,10 @@ def handle_player(keys):
         if _viper_blade_rush_y <= _viper_blade_rush_target_y and not _viper_blade_rush_fadeout:
             _viper_blade_rush_fadeout = True
             _viper_blade_rush_fadeout_timer = _VIPER_BLADE_RUSH_FADEOUT_FRAMES
+            # 에어 블레이드 적중 실패 시 마샬 킥 연계 윈도우 즉시 활성화
+            if not _viper_blade_rush_hit_ball and is_viper_skill_unlocked("marshal_kick"):
+                _viper_wall_dive_ready = True
+                _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES
 
     # 바이퍼 에어 블레이드 페이드아웃 타이머
     if _viper_blade_rush_fadeout:
