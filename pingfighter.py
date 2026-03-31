@@ -72706,12 +72706,21 @@ def handle_player(keys):
         _dive_from_airblade = (_viper_br_spin_active and _viper_br_spin_phase == 2 and _dive_ab_elapsed >= 600)
         # 에어블레이드 동작 중(발사/회전/감속)에는 일반 체공 다이브 차단
         _in_airblade_motion = _viper_blade_rush_active or (_viper_br_spin_active and _viper_br_spin_phase < 2)
+        # 다이브 스트라이크는 단독기: 대쉬/쉐도우 백스텝/마샬 킥/더블 마샬 킥 중 발동 불가
+        _dive_any_skill_active = (
+            rolling_active
+            or _viper_ss_hologram_active
+            or _viper_wall_dive_active
+            or _viper_wall_dive_ready
+            or _viper_double_marshal_ready
+            or _viper_nerve_strike_active
+            or _viper_ss_ball_touched
+        )
         if (not _viper_dive_active
                 and ((_viper_jetpack_offset_y < -20 and not _in_airblade_motion) or _dive_from_airblade)
-                and not rolling_active and not _viper_nerve_strike_active
+                and not _dive_any_skill_active
                 and not is_waiting_for_serve
-                and not is_player_serve and not player_stunned
-                and not _viper_wall_dive_active):
+                and not is_player_serve and not player_stunned):
             _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
             _dive_dir_held = (
                 keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
