@@ -5366,6 +5366,100 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                 pass
 
 
+# 바이퍼 퍽 구슬 활성화 상태 추적
+_viper_perk_activation_times = {}
+_viper_perk_was_active = {}
+_viper_perk_icon_rects = {}
+
+
+def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
+                           orb_radius: int, current_gauge: float, max_gauge: float):
+    """게이지 구슬 오른쪽에 바이퍼 퍽 아이콘 배치 (더블 마샬 킥 등)"""
+    global _viper_perk_activation_times, _viper_perk_was_active, _viper_perk_icon_rects
+
+    # 해금된 퍽 목록 수집
+    viper_perks = []
+    if _viper_double_marshal_kick_unlocked:
+        viper_perks.append({
+            "name": "double_marshal_kick",
+            "color": (180, 0, 255),
+            "cost": 50,
+            "symbol": "x2",
+        })
+
+    if not viper_perks:
+        return
+
+    icon_radius = 18
+    icon_diameter = icon_radius * 2
+    orbit_radius = orb_radius + icon_radius + 18
+    time_now = pygame.time.get_ticks()
+    activation_effect_duration = 400
+
+    # 오른쪽 배치 (25도 기준, 아래로)
+    base_angle = 25
+    angle_step = 28
+
+    for i, perk in enumerate(viper_perks):
+        perk_name = perk["name"]
+        angle_deg = base_angle - i * angle_step
+        angle_rad = math.radians(angle_deg)
+        icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
+        icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
+
+        # 더블 마샬 킥은 _viper_double_marshal_ready일 때 활성 표시
+        is_ready = _viper_double_marshal_ready if perk_name == "double_marshal_kick" else False
+        is_active = current_gauge >= perk["cost"] and is_ready
+
+        # 활성화 순간 감지
+        was_active = _viper_perk_was_active.get(perk_name, False)
+        if is_active and not was_active:
+            _viper_perk_activation_times[perk_name] = time_now
+        _viper_perk_was_active[perk_name] = is_active
+
+        # rect 저장
+        _viper_perk_icon_rects[perk_name] = pygame.Rect(
+            icon_x - icon_radius, icon_y - icon_radius,
+            icon_diameter, icon_diameter
+        )
+
+        # 배경색
+        if is_active:
+            bg_color = (*perk["color"][:3], 220)
+            border_color = (255, 255, 255, 255)
+        else:
+            dark = tuple(max(0, c // 3) for c in perk["color"][:3])
+            bg_color = (*dark, 150)
+            border_color = (80, 80, 80, 180)
+
+        # 활성화 글로우
+        act_time = _viper_perk_activation_times.get(perk_name, 0)
+        act_elapsed = time_now - act_time
+        if is_active and act_elapsed < activation_effect_duration:
+            progress = act_elapsed / activation_effect_duration
+            glow_alpha = int(180 * (1 - progress))
+            glow_r = icon_radius + int(8 * (1 - progress))
+            glow_surf = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*perk["color"][:3], glow_alpha),
+                             (glow_r + 2, glow_r + 2), glow_r)
+            surface.blit(glow_surf, (icon_x - glow_r - 2, icon_y - glow_r - 2))
+
+        # 원형 배경
+        pygame.draw.circle(surface, bg_color, (icon_x, icon_y), icon_radius)
+        pygame.draw.circle(surface, border_color, (icon_x, icon_y), icon_radius, 2)
+
+        # 활성 펄스
+        if is_active:
+            pulse = (math.sin(time_now * 0.005) + 1) / 2
+            if pulse > 0.4:
+                pulse_alpha = int((pulse - 0.4) * 100)
+                pygame.draw.circle(surface, (*perk["color"][:3], pulse_alpha),
+                                 (icon_x, icon_y), icon_radius + 3, 2)
+
+        # 아이콘 심볼 (더블 마샬 킥: 두 발 + x2)
+        _draw_skill_icon_symbol(surface, perk_name, icon_x, icon_y,
+                               icon_radius * 2 - 4, is_active, perk["color"])
+
 
 def _draw_smasher_skill_debug(screen: pygame.Surface, scale_factor: float = 1.0):
     """스매셔 스킬 아이콘의 히트박스와 마우스 위치를 시각적으로 디버깅
@@ -98344,6 +98438,15 @@ def draw_player_gauge():
             # === 바이퍼 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
             if selected_character_type == "viper" and not _odins_eye_transformed:
                 _draw_viper_skill_icons(
+                    _player_gauge_surface_left,
+                    orb_center_x,
+                    orb_center_y,
+                    orb_radius,
+                    displayed_gauge,
+                    current_max_gauge
+                )
+                # 바이퍼 퍽 구슬 (더블 마샬 킥 등)
+                _draw_viper_perk_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
                     orb_center_y,
