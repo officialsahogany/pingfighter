@@ -107120,18 +107120,18 @@ def draw_objects():
                         _g_offset_x = _kick_dir * (1.0 - _g_ease) * (20 + _gi * 8) * -1
                         _g_offset_y = (1.0 - _g_ease) * (_gi - 1.5) * 4
                         # 알파: 투명→진해짐→유지 (나중 잔상일수록 더 진함)
-                        _g_alpha = int(min(255, (40 + _gi * 50) * min(1.0, _g_local_t * 3.0)))
-                        # 보라빛 틴트 적용된 캐릭터 잔상
+                        _g_alpha = int(min(255, (60 + _gi * 55) * min(1.0, _g_local_t * 3.0)))
+                        # 캐릭터 잔상 + 보라빛 틴트 오버레이
                         _ghost_surf = _holo_base.copy()
-                        # 보라빛 오버레이
-                        _tint_surf = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
-                        _tint_a = max(0, min(255, int(120 * (1.0 - _gi / _ghost_count))))
-                        _tint_surf.fill((100, 20, 200, _tint_a))
-                        _ghost_surf.blit(_tint_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                         _ghost_surf.set_alpha(_g_alpha)
                         _gx = _holo_x - _holo_w // 2 + _g_offset_x
                         _gy = _holo_y - _holo_h // 2 + _g_offset_y
                         SCREEN.blit(_ghost_surf, (int(_gx), int(_gy)))
+                        # 보라빛 오버레이 (캐릭터 위에 반투명하게 덮기)
+                        _tint_surf = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
+                        _tint_a = int(80 * (1.0 - _gi / _ghost_count) * min(1.0, _g_local_t * 2.0))
+                        _tint_surf.fill((120, 30, 220, _tint_a))
+                        SCREEN.blit(_tint_surf, (int(_gx), int(_gy)))
 
                 # 홀로그램 발차기 확장 히트박스 — 공 충돌 판정 (텔레포트 도착 킥)
                 if _holo_t > 0.3 and not _viper_ss_hologram_kick_hit:
