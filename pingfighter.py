@@ -3702,8 +3702,8 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "stun_purple"
     },
     {
-        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 120, "color": (255, 120, 50),
-        "symbol": "⇓", "cooldown": 15.0, "key": "체공+S/↓",
+        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 150, "color": (255, 120, 50),
+        "symbol": "⇓", "cooldown": 30.0, "key": "체공+S/↓",
         "description": "체공 중 급강하하여 착지 연기 장판을 생성합니다.\n연기에 닿은 공을 위로 반사 + 공속 증가.",
         "how_to_use": "체공 중 S키 또는 ↓키로 발동",
         "effect_type": "dive_impact"
@@ -13053,7 +13053,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "EMP 스트라이크 스킬 해금 (방어 장판)",
         },
-        "detail": "체공 중 S/↓키로 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 20초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다.",
+        "detail": "체공 중 S/↓키로 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 30초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다.",
         "icon_color": (255, 120, 50),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -48089,7 +48089,7 @@ _viper_dive_shockwave_y = 0.0           # 충격파 중심 Y
 _viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (중복 방지)
 _VIPER_DIVE_PREP_MS = 500              # 준비동작 시간 (0.5초)
 _VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
-_VIPER_DIVE_GAUGE_COST = 120           # 게이지 소모량
+_VIPER_DIVE_GAUGE_COST = 150           # 게이지 소모량
 _VIPER_DIVE_SHOCKWAVE_RADIUS = WIDTH    # 충격파 X축 범위 — 전체 화면 커버
 _VIPER_DIVE_SHOCKWAVE_HEIGHT = 120     # 충격파 Y축 범위 (px, 바닥 기준 위로)
 _VIPER_DIVE_SHOCKWAVE_FRAMES = 60      # 착지 연기 지속 프레임 (1초)
