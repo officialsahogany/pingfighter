@@ -72570,8 +72570,12 @@ def handle_player(keys):
                         add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
                         pass
-                    # 공 타격 후 → Phase 4 (부드러운 복귀)로 전환
-                    _viper_wall_dive_phase = 4
+                    # 공 타격 후 복귀 전환
+                    if _viper_is_double_marshal:
+                        # 팬텀 킥: Phase 5 (프리즈 중 제자리 대기) → 프리즈 끝나면 Phase 4
+                        _viper_wall_dive_phase = 5
+                    else:
+                        _viper_wall_dive_phase = 4
                     _viper_wall_dive_start_ms = _wd_now
                     _viper_wall_dive_return_start_x = float(PLAYER.centerx)
                     _viper_wall_dive_return_start_y = float(PLAYER.centery)
@@ -72581,6 +72585,15 @@ def handle_player(keys):
                 _viper_wall_dive_start_ms = _wd_now
                 _viper_wall_dive_return_start_x = float(PLAYER.centerx)
                 _viper_wall_dive_return_start_y = float(PLAYER.centery)
+
+        elif _viper_wall_dive_phase == 5:
+            # Phase 5: 팬텀 킥 프리즈 중 제자리 대기 (공 발사 후 바이퍼 정지)
+            # 프리즈가 끝나면 Phase 4 (복귀)로 전환
+            PLAYER.centerx = int(_viper_wall_dive_return_start_x)
+            PLAYER.centery = int(_viper_wall_dive_return_start_y)
+            if not _viper_dmk_freeze_active:
+                _viper_wall_dive_phase = 4
+                _viper_wall_dive_start_ms = _wd_now
 
         elif _viper_wall_dive_phase == 4:
             # Phase 4: 공 타격 후 바닥으로 부드럽게 복귀
