@@ -3723,6 +3723,9 @@ _viper_skill_icon_rects = {}
 _viper_skill_icons_cache = {}
 _viper_skill_tooltip_active = False
 
+# 바이퍼 스킬 쿨타임 오버라이드 (동적 쿨타임용)
+_viper_skill_cooldown_override = {}  # skill_name → 쿨타임(초)
+
 # 바이퍼 스킬 쿨타임 추적
 _viper_skill_cooldowns = {
     "shadow_step": 0,
@@ -3811,11 +3814,13 @@ def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
     global _viper_skill_cooldowns, _viper_tooltip_pause_accumulated
     global _viper_tooltip_pause_start, _viper_skill_tooltip_active
 
-    cooldown_sec = 0
-    for skill in VIPER_SKILL_ICONS_DATA:
-        if skill["name"] == skill_name:
-            cooldown_sec = skill["cooldown"]
-            break
+    # 오버라이드 쿨타임 우선 적용
+    cooldown_sec = _viper_skill_cooldown_override.get(skill_name, 0)
+    if cooldown_sec <= 0:
+        for skill in VIPER_SKILL_ICONS_DATA:
+            if skill["name"] == skill_name:
+                cooldown_sec = skill["cooldown"]
+                break
 
     if cooldown_sec <= 0:
         return 0.0
@@ -72035,6 +72040,8 @@ def handle_player(keys):
                     if special_gauge >= 100 and not _viper_ss_hologram_active:
                         _viper_s_key_released = False
                         special_gauge -= 100
+                        # 쉐도우 백스텝 단독: 10초 쿨타임 (마샬킥 사용 시 연장됨)
+                        _viper_skill_cooldown_override.pop("shadow_step", None)  # 오버라이드 초기화 → 기본 10초
                         trigger_viper_skill_cooldown("shadow_step")
                         try:
                             _bs_snd = sound_effects.get('VIPER_BACKSTEP')
@@ -72231,8 +72238,13 @@ def handle_player(keys):
                 and special_gauge >= _wd_gauge_cost
                 and is_viper_skill_unlocked("shadow_step")):
             special_gauge -= _wd_gauge_cost
-            # 더블 마샬 킥인지 판별
+            # 더블 마샬 킥인지 판별 + 쉐도우 백스텝 쿨타임 연장
             _viper_is_double_marshal = _wd_is_double
+            if _wd_is_double:
+                _viper_skill_cooldown_override["shadow_step"] = 20.0  # 더블 마샬킥: 20초
+            else:
+                _viper_skill_cooldown_override["shadow_step"] = 15.0  # 1차 마샬킥: 15초
+            trigger_viper_skill_cooldown("shadow_step")  # 쿨타임 재시작
             _viper_wall_dive_ready = False
             _viper_wall_dive_ready_timer = 0
             _viper_double_marshal_ready = False
