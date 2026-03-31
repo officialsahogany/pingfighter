@@ -12836,7 +12836,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "마샬 킥 → 보스 가드 시 2차 마샬 킥 발동 가능",
         },
-        "detail": "마샬 킥으로 공을 보낸 뒤 보스가 가드(반환)하면 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 2차 마샬 킥의 공속 증가율은 120%입니다.",
+        "detail": "마샬 킥으로 공을 보낸 뒤 보스가 가드(반환)하면 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 50 소모, 공속 증가율 120%.",
         "icon_color": (180, 0, 255),
         "tree": "viper",
         "character_restriction": "viper"
@@ -71930,12 +71930,14 @@ def handle_player(keys):
             or keys[pygame.K_a] or keys[pygame.K_d]
             or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
         )
+        _wd_is_double = _viper_double_marshal_ready and not _viper_wall_dive_ready
+        _wd_gauge_cost = 50 if _wd_is_double else _VIPER_WALL_DIVE_GAUGE_COST
         if (_wd_s_input and not _wd_dir_held
-                and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST
+                and special_gauge >= _wd_gauge_cost
                 and is_viper_skill_unlocked("shadow_step")):
-            special_gauge -= _VIPER_WALL_DIVE_GAUGE_COST
+            special_gauge -= _wd_gauge_cost
             # 더블 마샬 킥인지 판별
-            _viper_is_double_marshal = _viper_double_marshal_ready and not _viper_wall_dive_ready
+            _viper_is_double_marshal = _wd_is_double
             _viper_wall_dive_ready = False
             _viper_wall_dive_ready_timer = 0
             _viper_double_marshal_ready = False
