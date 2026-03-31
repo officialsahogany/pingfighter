@@ -3709,7 +3709,7 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "dive_impact"
     },
     {
-        "name": "phantom_assault", "korean": "팬텀 어썰트", "cost": 80, "color": (130, 0, 200),
+        "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
         "symbol": "🕷", "cooldown": 0.0, "key": "S/↓(연계)",
         "description": "쉐도우 스텝 후 보스가 공을 반환하면 발동 가능.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
         "how_to_use": "쉐도우 스텝 사용 후 보스 반환 시 S/↓키",
@@ -3728,7 +3728,7 @@ _viper_skill_cooldowns = {
     "shadow_step": 0,
     "blade_rush": 0,
     "nerve_strike": 0,
-    "phantom_assault": 0,
+    "marshal_kick": 0,
     "dive_strike": 0,
 }
 
@@ -3737,14 +3737,14 @@ _viper_skill_activation_times = {
     "shadow_step": 0,
     "blade_rush": 0,
     "nerve_strike": 0,
-    "phantom_assault": 0,
+    "marshal_kick": 0,
     "dive_strike": 0,
 }
 _viper_skill_was_active = {
     "shadow_step": False,
     "blade_rush": False,
     "nerve_strike": False,
-    "phantom_assault": False,
+    "marshal_kick": False,
     "dive_strike": False,
 }
 
@@ -3755,7 +3755,7 @@ _viper_skill_unlocked = {
     "shadow_step": True,      # 기본 해금
     "blade_rush": True,       # 기본 해금
     "nerve_strike": False,    # 런타임 스킬로 해금 필요
-    "phantom_assault": True,   # 쉐도우 스텝 해금 시 자동 해금 (연계기)
+    "marshal_kick": True,   # 쉐도우 스텝 해금 시 자동 해금 (연계기)
     "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
 }
 
@@ -3771,7 +3771,7 @@ def reset_viper_skill_unlocks():
         "shadow_step": True,
         "blade_rush": True,
         "nerve_strike": False,
-        "phantom_assault": True,
+        "marshal_kick": True,
         "dive_strike": False,
     }
 
@@ -3857,7 +3857,7 @@ def reset_viper_skill_cooldowns():
         "shadow_step": 0,
         "blade_rush": 0,
         "nerve_strike": 0,
-        "phantom_assault": 0,
+        "marshal_kick": 0,
         "dive_strike": 0,
     }
 
@@ -4768,8 +4768,8 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         pygame.draw.circle(surface, shadow_color, (skull_x - 1, skull_y - 1), 1)
         pygame.draw.circle(surface, shadow_color, (skull_x + 1, skull_y - 1), 1)
 
-    elif skill_name == "phantom_assault":
-        # ⚡ 팬텀 어썰트: 벽 점프 → 공 돌진 (다이나믹 포즈)
+    elif skill_name == "marshal_kick":
+        # ⚡ 마샬 킥: 벽 점프 → 공 돌진 (다이나믹 포즈)
 
         # 벽 (좌측, 입체감)
         wall_x = cx - s * 2 // 3
@@ -5230,7 +5230,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     unlocked_main_skills = []
 
     # 메인 스킬 순서
-    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "phantom_assault", "dive_strike"]
+    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "marshal_kick", "dive_strike"]
 
     for skill_name in main_skill_order:
         for skill_data in VIPER_SKILL_ICONS_DATA:
@@ -47683,11 +47683,11 @@ _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
 
-# === 바이퍼 팬텀 어썰트 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
+# === 바이퍼 마샬 킥 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
 _viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 스텝 후 보스가 공 반환 시)
 _viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
 _VIPER_WALL_DIVE_READY_FRAMES = 90       # 연계 윈도우 1.5초 (60fps)
-_viper_wall_dive_active = False           # 팬텀 어썰트 진행 중
+_viper_wall_dive_active = False           # 마샬 킥 진행 중
 _viper_wall_dive_phase = 0                # 0=벽으로 점프, 1=벽 매달림, 2=공으로 돌진
 _viper_wall_dive_start_ms = 0             # 페이즈 시작 시각
 _viper_wall_dive_start_x = 0.0            # 출발 X
@@ -71563,7 +71563,7 @@ def handle_player(keys):
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
 
-    # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 에어 블레이드/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
+    # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 에어 블레이드/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 마샬 킥)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
@@ -71785,14 +71785,14 @@ def handle_player(keys):
                             except Exception:
                                 pass
 
-    # === 바이퍼 팬텀 어썰트 연계기 (쉐도우 스텝 → 보스 반환 → S/↓키) ===
+    # === 바이퍼 마샬 킥 연계기 (쉐도우 스텝 → 보스 반환 → S/↓키) ===
     # 연계 윈도우 타이머 감소
     if _viper_wall_dive_ready:
         _viper_wall_dive_ready_timer -= 1
         if _viper_wall_dive_ready_timer <= 0:
             _viper_wall_dive_ready = False
 
-    # 팬텀 어썰트 발동: 연계 윈도우 중 S/↓키 단독 입력
+    # 마샬 킥 발동: 연계 윈도우 중 S/↓키 단독 입력
     if (selected_character_type == "viper" and not is_odins_eye_transformed()
             and _viper_wall_dive_ready and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
@@ -71837,7 +71837,7 @@ def handle_player(keys):
             except Exception:
                 pass
 
-    # 팬텀 어썰트 애니메이션 업데이트
+    # 마샬 킥 애니메이션 업데이트
     if _viper_wall_dive_active:
         _wd_now = pygame.time.get_ticks()
         _wd_elapsed = _wd_now - _viper_wall_dive_start_ms
@@ -71959,7 +71959,7 @@ def handle_player(keys):
                         )
                     except Exception:
                         pass
-                    # 🪙 팬텀 어썰트 타격 골드 보너스
+                    # 🪙 마샬 킥 타격 골드 보너스
                     try:
                         add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
@@ -71976,7 +71976,7 @@ def handle_player(keys):
                 PLAYER.centery = int(_wd_floor) - PLAYER.height // 2
                 PLAYER.centerx = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, PLAYER.centerx))
 
-    # 팬텀 어썰트 파티클 업데이트
+    # 마샬 킥 파티클 업데이트
     if _viper_wall_dive_particles:
         _wd_alive = []
         for _wp in _viper_wall_dive_particles:
@@ -106769,7 +106769,7 @@ def draw_objects():
         except Exception:
             pass
 
-    # 🕷️ 바이퍼 팬텀 어썰트 렌더링 (거미줄 + 잔상 + 돌진 궤적)
+    # 🕷️ 바이퍼 마샬 킥 렌더링 (거미줄 + 잔상 + 돌진 궤적)
     if _viper_wall_dive_active or _viper_wall_dive_particles or _viper_wall_dive_web_lines:
         try:
             _wd_ticks = pygame.time.get_ticks()
@@ -109338,7 +109338,7 @@ def draw_objects():
             # 투명 배경을 유지하면서 UFO 이미지에만 붉은 틴트 적용
             apply_red_overlay(rotated_player, intensity=80)  # 강도 80으로 은은한 붉은 효과
 
-    # 🕷 바이퍼 팬텀 어썰트 대기 상태: 파란빛 글로우
+    # 🕷 바이퍼 마샬 킥 대기 상태: 파란빛 글로우
     if selected_character_type == "viper" and _viper_wall_dive_ready:
         _sc_pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.008)
         _sc_intensity = int(40 + 50 * _sc_pulse)
@@ -138543,7 +138543,7 @@ def reset_round(is_stage_start=False):
     _viper_dive_shockwave_timer = 0
     _viper_dive_particles = []
     _viper_dive_ball_boosted = False
-    # 바이퍼 팬텀 어썰트 초기화
+    # 바이퍼 마샬 킥 초기화
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_wall_dive_active, _viper_wall_dive_phase
     global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
@@ -139538,7 +139538,7 @@ def calculate_bounce(paddle):
     global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global _viper_speed_boost_active, _viper_speed_boost_original
-    global _viper_ss_ball_touched  # 팬텀 어썰트 연계 플래그 (팬텀스트라이크에서 사용)
+    global _viper_ss_ball_touched  # 마샬 킥 연계 플래그 (팬텀스트라이크에서 사용)
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
     global ragnarok_original_speed
@@ -141368,7 +141368,7 @@ def handle_ball():
     # 바이퍼 팬텀 스트라이크 커브 + 공속 복귀
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global _viper_speed_boost_active, _viper_speed_boost_original
-    # 바이퍼 팬텀 어썰트 연계기
+    # 바이퍼 마샬 킥 연계기
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_ss_ball_touched
     # 바이퍼 쉐도우 스텝 킥 사운드 (handle_ball 백업 경로용)
@@ -146484,7 +146484,7 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
-        # 바이퍼 팬텀 어썰트 연계 윈도우 활성화 (쉐도우 스텝으로 공 히트 후 보스가 반환 시)
+        # 바이퍼 마샬 킥 연계 윈도우 활성화 (쉐도우 스텝으로 공 히트 후 보스가 반환 시)
         if selected_character_type == "viper" and _viper_ss_ball_touched:
             _viper_wall_dive_ready = True
             _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
