@@ -72555,6 +72555,14 @@ def handle_player(keys):
                             _vm_snd.play()
                     except Exception:
                         pass
+                    # 필살기 쇼 사운드 (베놈 엣지 텍스트 연출)
+                    try:
+                        _vs_snd = sound_effects.get('VIPER_SHOW')
+                        if _vs_snd:
+                            _vs_snd.set_volume(0.7)
+                            _vs_snd.play()
+                    except Exception:
+                        pass
                     _viper_nerve_strike_origin_x = float(PLAYER.centerx)
                     _viper_nerve_strike_origin_y = float(PLAYER.centery)
                     _viper_nerve_strike_target_x = float(BOSS.centerx)
@@ -72898,6 +72906,14 @@ def handle_player(keys):
                         _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
                         _viper_dmk_text_x = float(WIDTH // 2)
                         _viper_dmk_text_y = float(HEIGHT // 2 - 30)
+                        # 필살기 쇼 사운드 (팬텀 킥 텍스트 연출)
+                        try:
+                            _vs_snd2 = sound_effects.get('VIPER_SHOW')
+                            if _vs_snd2:
+                                _vs_snd2.set_volume(0.7)
+                                _vs_snd2.play()
+                        except Exception:
+                            pass
                         # 보스 넉백 200px (화재 넉백 방식)
                         _dmk_kb_dir = 1 if BALL.centerx > BOSS.centerx else -1
                         boss_fire_knockback_vel = _dmk_kb_dir * 18.0  # 높은 초기 속도 → 감속하며 ~200px 이동
