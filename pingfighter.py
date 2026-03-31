@@ -21784,10 +21784,36 @@ smasher_dash_combo_grace_count = 0     # 유예 중 보존된 콤보 수
 cleanse_counter_window = 0           # 남은 프레임 (120 = 2초, 0이면 비활성)
 CLEANSE_COUNTER_SPEED_BONUS = 1.015  # 카운터 타격 시 공속 보너스 (+1.5%)
 
-# 보스 둔화 상태 (호위무사/투기장 등에서 사용)
+# ⚡ 스매셔 플라즈마 자기장 스킬 (W/상 키 홀드)
+plasma_field_charging = False        # 차징 중 여부
+plasma_field_charge_time = 0         # 차징 시간 (프레임)
+plasma_field_charge_start_time = 0   # 차징 시작 시간 (pygame.time.get_ticks)
+plasma_field_gauge_consumed = 0      # 총 소모된 게이지량
+plasma_field_size = 0.0              # 현재 플라즈마 필드 크기 (0.0 ~ 1.0)
+plasma_field_max_size = 80           # 최대 필드 크기 (픽셀)
+plasma_field_min_size = 20           # 최소 필드 크기 (픽셀)
+plasma_field_particles = []          # 플라즈마 파티클 효과 [(x, y, angle, dist, alpha, speed)]
+plasma_field_gauge_drain_interval = 30  # 게이지 소모 간격 (0.5초 = 30프레임)
+plasma_field_gauge_drain_amount = 30    # 0.5초당 게이지 소모량
+plasma_field_min_gauge_cost = 40        # 최소 게이지 소모량 (발사 시)
+plasma_field_base_slow = 0.20        # 기본 둔화량 (20%)
+plasma_field_slow_per_tick = 0.05    # 0.5초 홀딩당 추가 둔화 (5%)
+# 발사된 플라즈마 웨이브 (원형 구체 - magnetic_projectile 방식)
+plasma_wave_active = False           # 플라즈마 웨이브 활성화 여부
+plasma_wave_x = 0                    # 웨이브 X 위치
+plasma_wave_y = 0                    # 웨이브 Y 위치
+plasma_wave_radius = 0               # 웨이브 반경 (원형)
+plasma_wave_slow_amount = 0.0        # 웨이브 둔화량
+plasma_wave_speed = 6                # 웨이브 이동 속도 (위로)
+plasma_wave_duration = 0             # 웨이브 남은 지속 프레임
+plasma_wave_particles = []           # 웨이브 파티클 효과
+plasma_wave_trail = []               # 웨이브 잔상 효과 [(x, y, radius, alpha)]
+# 보스 둔화 상태 (웨이브 안에 있는 동안만)
 boss_plasma_slowed = False           # 보스 둔화 상태
 boss_plasma_slow_amount = 0.0        # 보스 둔화량 (0.0 ~ 1.0)
 boss_plasma_slow_timer = 0           # 보스 둔화 지속 시간 (프레임)
+# 플라즈마 접촉 이펙트 (패들 색상 변화)
+plasma_contact_distortion = 0.0      # 찌릿한 효과 강도
 
 # ️ 무한 수평 왕복 방지 시스템 변수들
 horizontal_movement_timer = 0   # 수평 움직임 지속 시간 카운터
@@ -22039,6 +22065,35 @@ try:
     SOUND_RECOVERY = pygame.mixer.Sound(resource_path("sounds/recovery.wav"))
 except Exception:
     SOUND_RECOVERY = None
+
+# 플라즈마 차징 사운드 (스매셔 스킬) - 전용 채널 사용
+try:
+    SOUND_PLASMA_CHARGE = pygame.mixer.Sound(resource_path("sounds/plazmacharge.wav"))
+    # 채널 28을 플라즈마 차징 사운드 전용으로 예약
+    PLASMA_CHARGE_CHANNEL = pygame.mixer.Channel(28) if not AUDIO_DISABLED else None
+except Exception:
+    SOUND_PLASMA_CHARGE = None
+    PLASMA_CHARGE_CHANNEL = None
+plasma_charge_sound_playing = False  # 차징 사운드 재생 중 여부
+
+# 플라즈마 발사 사운드 - 전용 채널 사용
+try:
+    SOUND_PLASMA_SHOOT = pygame.mixer.Sound(resource_path("sounds/plazmashoot.wav"))
+    # 채널 29를 플라즈마 발사 사운드 전용으로 예약
+    PLASMA_SHOOT_CHANNEL = pygame.mixer.Channel(29) if not AUDIO_DISABLED else None
+except Exception:
+    SOUND_PLASMA_SHOOT = None
+    PLASMA_SHOOT_CHANNEL = None
+
+# 플라즈마 충격 사운드 (보스 접촉 시) - 전용 채널 사용
+try:
+    SOUND_PLASMA_SHOCK = pygame.mixer.Sound(resource_path("sounds/plazmashock.wav"))
+    # 채널 30을 플라즈마 충격 사운드 전용으로 예약
+    PLASMA_SHOCK_CHANNEL = pygame.mixer.Channel(30) if not AUDIO_DISABLED else None
+except Exception:
+    SOUND_PLASMA_SHOCK = None
+    PLASMA_SHOCK_CHANNEL = None
+plasma_shock_playing = False  # 충격 사운드 재생 중 여부
 
 # 클렌즈 사운드 (스매셔 스킬)
 try:
