@@ -72784,9 +72784,9 @@ def handle_player(keys):
                     except Exception:
                         pass
                 else:
-                    # 팬텀 킥이면 돌진 전에 텍스트 프리즈 연출 (Phase 4)
+                    # 팬텀 킥이면 돌진 전에 텍스트 프리즈 연출 (Phase 6)
                     if _viper_is_double_marshal:
-                        _viper_wall_dive_phase = 4  # 텍스트 프리즈 Phase
+                        _viper_wall_dive_phase = 6  # 텍스트 프리즈 Phase
                         _viper_dmk_freeze_active = True
                         _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
                         _viper_dmk_show_sound_played = False
@@ -72851,8 +72851,8 @@ def handle_player(keys):
                 except Exception:
                     pass
 
-        elif _viper_wall_dive_phase == 4:
-            # Phase 4: 팬텀 킥 텍스트 프리즈 (벽 매달린 상태에서 정지)
+        elif _viper_wall_dive_phase == 6:
+            # Phase 6: 팬텀 킥 텍스트 프리즈 (벽 매달린 상태에서 정지)
             PLAYER.centerx = int(_viper_wall_dive_wall_x)
             PLAYER.centery = int(_viper_wall_dive_wall_y)
             # 프리즈 끝나면 돌진 Phase 2로 전환
