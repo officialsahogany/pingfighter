@@ -3711,8 +3711,8 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
         "symbol": "🕷", "cooldown": 0.0, "key": "S/↓(연계)",
-        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
-        "how_to_use": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 S/↓키",
+        "description": "쉐도우 백스텝 또는 에어 블레이드로 공 적중 후 3초 내 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
+        "how_to_use": "쉐도우 백스텝/에어 블레이드 공 적중 후 S/↓키 (3초 이내)",
         "effect_type": "wall_dive_purple"
     },
 ]
@@ -72504,6 +72504,9 @@ def handle_player(keys):
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
                     _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
+                    # 마샬 킥 연계 윈도우 즉시 활성화 (공 발사 직후)
+                    _viper_wall_dive_ready = True
+                    _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES
                     # 🪙 쉐도우 백스텝 에너지파 타격 골드 보너스
                     try:
                         add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
@@ -72647,6 +72650,9 @@ def handle_player(keys):
                 )
                 if _br_blade_rect.colliderect(BALL):
                     _viper_blade_rush_hit_ball = True
+                    # 마샬 킥 연계 윈도우 활성화 (에어 블레이드 공 적중)
+                    _viper_wall_dive_ready = True
+                    _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES
                     # 🪙 에어 블레이드 타격 골드 보너스
                     try:
                         add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
@@ -109612,6 +109618,9 @@ def draw_objects():
             if _ai_rect.colliderect(BALL):
                 afterimage['hit_ball'] = True
                 _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
+                # 마샬 킥 연계 윈도우 즉시 활성화 (공 발사 직후)
+                _viper_wall_dive_ready = True
+                _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES
                 # 공을 위로 반사 (잔상이 패들 역할)
                 ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
                 # 커브 적용 (에너지파와 동일)
@@ -139842,6 +139851,9 @@ def calculate_bounce(paddle):
         # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 백스텝 직후 0.3초 내 타격 시 공속 80% 증가 + 신비한 커브
         if _viper_phantom_strike_active and selected_character_type == "viper":
             _viper_ss_ball_touched = True  # 카운터 연계 조건 충족 (패들로 직접 타격)
+            # 마샬 킥 연계 윈도우 즉시 활성화 (공 발사 직후)
+            _viper_wall_dive_ready = True
+            _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES
             _viper_phantom_strike_active = False  # 1회 소모
             _viper_phantom_strike_timer = 0
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -146681,12 +146693,6 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
-        # 바이퍼 마샬 킥 연계 윈도우 활성화 (쉐도우 백스텝으로 공 히트 후 보스가 반환 시)
-        if selected_character_type == "viper" and _viper_ss_ball_touched:
-            _viper_wall_dive_ready = True
-            _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
-            _viper_ss_ball_touched = False  # 1회 소모
-
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
 
