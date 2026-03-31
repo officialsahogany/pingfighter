@@ -48081,6 +48081,9 @@ _viper_dive_height_snapshot = 0.0       # 급강하 시작 시 높이 스냅샷 
 _viper_dive_particles = []              # 급강하 연기/충격파 파티클
 _viper_dive_shockwave_timer = 0         # 착지 충격파 지속 프레임
 _viper_dive_shockwave_x = 0.0           # 충격파 중심 X
+_viper_dive_slip_timer = 0              # 다이브 슬립 지속 프레임
+_viper_dive_slip_vel = 0.0              # 다이브 슬립 속도
+_VIPER_DIVE_SLIP_DURATION = 90          # 슬립 지속시간 (1.5초)
 _viper_dive_shockwave_y = 0.0           # 충격파 중심 Y
 _viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (중복 방지)
 _VIPER_DIVE_PREP_MS = 300              # 준비동작 시간 (0.3초)
@@ -50096,6 +50099,9 @@ _ghost_curve_freeze_timer = 0            # 마이크로 프리즈 타이머
 _ghost_curve_saved_vel = None            # 프리즈 직전 속도 저장
 _ghost_curve_next_hard_turn = 0          # 다음 하드턴까지 프레임
 _ghost_curve_next_freeze = 0             # 다음 프리즈까지 프레임
+# 유령 커브 공 이펙트 (잔상 트레일)
+_ghost_curve_trail = []                  # [{x, y, alpha, size, offset_x, offset_y, phase}]
+_ghost_curve_flicker_timer = 0           # 깜빡임 타이머
 
 # === 테디베어 죽음의 포옹 스킬 (Deadly Hug) - Stage 3 ===
 deadly_hug_active = False
@@ -71994,6 +72000,7 @@ def handle_player(keys):
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
         global boss_fire_knockback_vel
+        global _viper_dive_slip_timer, _viper_dive_slip_vel
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
@@ -72566,10 +72573,6 @@ def handle_player(keys):
         _viper_dmk_freeze_timer -= 1
         if _viper_dmk_freeze_timer <= 0:
             _viper_dmk_freeze_active = False
-            # 프리즈 해제 시 넉백 재적용 (프리즈 중 보스 AI return으로 소멸 방지)
-            if abs(boss_fire_knockback_vel) < 1.0:
-                _dmk_kb_dir2 = 1 if BALL.centerx > BOSS.centerx else -1
-                boss_fire_knockback_vel = _dmk_kb_dir2 * 20.0
 
     # 마샬 킥 파티클 업데이트
     if _viper_wall_dive_particles:
@@ -72847,11 +72850,11 @@ def handle_player(keys):
                     _viper_jetpack_hold_timer = 0
                     _viper_jetpack_overheat = False
 
-                    # 보스 슬립 효과 (바나나 50% — 공 방향으로 밀림)
-                    _dive_slip_base = 15.0
+                    # 보스 슬립 효과 (바나나식 — 1.5초간 미끄러짐)
                     _dive_boss_dx = BALL.centerx - BOSS.centerx
                     _dive_slip_dir = 1 if _dive_boss_dx > 0 else -1
-                    boss_fire_knockback_vel = _dive_slip_dir * _dive_slip_base
+                    _viper_dive_slip_timer = _VIPER_DIVE_SLIP_DURATION
+                    _viper_dive_slip_vel = _dive_slip_dir * 4.0  # 초기 슬립 속도 (느리지만 꾸준히)
 
                     # 착지 연기 파티클 — 좌우 300px 범위로 넓게 퍼지는 더스트 클라우드
                     _landing_cx = _viper_dive_shockwave_x
@@ -84548,6 +84551,9 @@ def _activate_ghost_curve():
     global cotton_bomb_ghost_curve_intensity
     global _ghost_curve_freeze_timer, _ghost_curve_saved_vel
     global _ghost_curve_next_hard_turn, _ghost_curve_next_freeze
+    global _ghost_curve_trail, _ghost_curve_flicker_timer
+    _ghost_curve_trail.clear()
+    _ghost_curve_flicker_timer = 0
     cotton_bomb_ghost_curve_active = True
     cotton_bomb_ghost_curve_timer = COTTON_BOMB_GHOST_CURVE_DURATION
     cotton_bomb_ghost_curve_phase = random.uniform(0, math.pi * 2)
@@ -84652,6 +84658,31 @@ def update_ghost_curve():
             ball_vel[0] = -ball_vel[0] * random.uniform(0.6, 1.0)
         else:
             ball_vel[1] = -ball_vel[1] * random.uniform(0.6, 1.0)
+
+    # === 유령 잔상 트레일 업데이트 ===
+    global _ghost_curve_trail, _ghost_curve_flicker_timer
+    _ghost_curve_flicker_timer += 1
+    if BALL:
+        # 매 프레임 잔상 파티클 생성 (2~3개씩)
+        for _ in range(random.randint(2, 3)):
+            _ghost_curve_trail.append({
+                "x": float(BALL.centerx) + random.uniform(-4, 4),
+                "y": float(BALL.centery) + random.uniform(-4, 4),
+                "alpha": 200,
+                "size": BALL_RADIUS + random.uniform(-2, 3),
+                "offset_x": random.uniform(-1.5, 1.5),
+                "offset_y": random.uniform(-1.5, 1.5),
+                "phase": random.uniform(0, math.pi * 2),
+                "distort": random.uniform(0.6, 1.4),
+            })
+    # 잔상 업데이트 및 제거
+    for p in _ghost_curve_trail:
+        p["x"] += p["offset_x"]
+        p["y"] += p["offset_y"]
+        p["alpha"] -= random.randint(6, 12)
+        p["phase"] += 0.2
+        p["size"] *= 0.97
+    _ghost_curve_trail = [p for p in _ghost_curve_trail if p["alpha"] > 0 and p["size"] > 1]
 
 
 def update_cotton_bomb():
@@ -151329,6 +151360,7 @@ def handle_boss():
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global stage8_awaken_intro_pending, stage8_awaken_intro_done, stage8_awaken_freeze_end_ms
     global boss_fire_knockback_vel
+    global _viper_dive_slip_timer, _viper_dive_slip_vel
 
     now_ms = pygame.time.get_ticks()
     stage8_in_superspeed = False
@@ -151926,6 +151958,19 @@ def handle_boss():
     if _is_boss_banana_slipping():
         _apply_boss_banana_slip()
         return  # 미끄러짐 중에는 AI 완전 정지 (통제불능)
+
+    # 🍌 다이브 스트라이크 슬립 (바나나식 — AI 통제불능 + 미끄러짐)
+    if _viper_dive_slip_timer > 0:
+        _viper_dive_slip_timer -= 1
+        _slip_ratio = _viper_dive_slip_timer / _VIPER_DIVE_SLIP_DURATION
+        BOSS.x += _viper_dive_slip_vel * _slip_ratio
+        if BOSS.x <= 0:
+            BOSS.x = 0
+            _viper_dive_slip_vel = abs(_viper_dive_slip_vel) * 0.5
+        elif BOSS.x >= WIDTH - BOSS.width:
+            BOSS.x = WIDTH - BOSS.width
+            _viper_dive_slip_vel = -abs(_viper_dive_slip_vel) * 0.5
+        return  # 슬립 중 AI 완전 정지 (바나나와 동일)
 
     # 일반 AI 움직임 전에 긴급 대쉬 시도
     if _boss_try_emergency_dash():
