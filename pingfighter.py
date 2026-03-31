@@ -12902,21 +12902,6 @@ SOLDIER_EXCLUSIVE_SKILLS = {
 
 # Viper exclusive skills (사이버 어쌔신 전용 스킬트리)
 VIPER_EXCLUSIVE_SKILLS = {
-    "plasma_edge": {
-        "name": "플라즈마 엣지",
-        "max_level": 5,
-        "descriptions": {
-            1: "타격 시 15% 확률로 슬래시 잔상 (추가 데미지)",
-            2: "타격 시 25% 확률로 슬래시 잔상",
-            3: "타격 시 35% 확률로 슬래시 잔상",
-            4: "타격 시 45% 확률로 슬래시 잔상",
-            5: "타격 시 55% 확률로 슬래시 잔상",
-        },
-        "detail": "공을 칠 때 확률적으로 플라즈마 슬래시 잔상이 발생하여 공 속도가 20% 증가합니다.",
-        "icon_color": (160, 0, 255),
-        "tree": "viper",
-        "character_restriction": "viper"
-    },
     "unlock_nerve_strike": {
         "name": "베놈 엣지 해금",
         "max_level": 1,
