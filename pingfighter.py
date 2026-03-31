@@ -77032,7 +77032,7 @@ def handle_player(keys):
 
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     # ⚠️ 버그 수정: player_collision_cooldown 체크 추가 - handle_ball과 중복 충돌 처리 방지
-    if collision_with_player and player_collision_cooldown <= 0 and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
+    if collision_with_player and player_collision_cooldown <= 0 and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi and not _viper_wall_dive_active:
         # 발토르 토르쉴드 방패 충격 효과
         shield_guarding = (
             selected_character_type == "blacksmith"
@@ -145461,7 +145461,7 @@ def handle_ball():
     # handle_player가 놓친 충돌 처리 (Y속도 조건 제거 - handle_player와 동일하게)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장 (player_collision_rect 재사용)
     # 스톱워치 정지 중에는 백업 충돌 처리도 수행하지 않음
-    if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
+    if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi and not _viper_wall_dive_active:
         # ⚠️ 버그 수정: last_hit_by와 랠리 카운트 업데이트 (테트로미노 충돌 판정용)
         last_hit_by = "player"
         game_vars.ball.last_hit_by = "player"
