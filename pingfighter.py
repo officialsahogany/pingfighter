@@ -5523,6 +5523,15 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
             "cost": 50,
             "symbol": "x2",
         })
+    _jetpack_enhance_lv = runtime_skill_levels.get("jetpack_enhance", 0)
+    if _jetpack_enhance_lv > 0:
+        viper_perks.append({
+            "name": "jetpack_enhance",
+            "color": (0, 200, 255),
+            "cost": 0,
+            "symbol": f"J{_jetpack_enhance_lv}",
+            "always_active": True,
+        })
 
     if not viper_perks:
         return
@@ -5544,9 +5553,13 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
         icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
         icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
 
-        # 팬텀 킥은 _viper_double_marshal_ready일 때 활성 표시
-        is_ready = _viper_double_marshal_ready if perk_name == "double_marshal_kick" else False
-        is_active = current_gauge >= perk["cost"] and is_ready
+        # 팬텀 킥은 _viper_double_marshal_ready일 때 활성 표시, 제트팩 강화는 항상 활성
+        if perk.get("always_active"):
+            is_ready = True
+            is_active = True
+        else:
+            is_ready = _viper_double_marshal_ready if perk_name == "double_marshal_kick" else False
+            is_active = current_gauge >= perk["cost"] and is_ready
 
         # 활성화 순간 감지
         was_active = _viper_perk_was_active.get(perk_name, False)
@@ -13069,6 +13082,21 @@ VIPER_EXCLUSIVE_SKILLS = {
         "tree": "viper",
         "character_restriction": "viper"
     },
+    "jetpack_enhance": {
+        "name": "제트팩 강화",
+        "max_level": 5,
+        "descriptions": {
+            1: "제트팩 최대 게이지 +20% (더 오래 체공 가능)",
+            2: "제트팩 최대 게이지 +40%",
+            3: "제트팩 최대 게이지 +60%",
+            4: "제트팩 최대 게이지 +80%",
+            5: "제트팩 최대 게이지 +100%",
+        },
+        "detail": "제트팩의 최대 체공 게이지가 레벨당 20%씩 증가하여 더 오래 날 수 있습니다. (최대 Lv.5: +100%)",
+        "icon_color": (0, 200, 255),
+        "tree": "viper",
+        "character_restriction": "viper"
+    },
 }
 
 # 코만도 화기류 해금 플래그 (런타임 스킬로 해금됨)
@@ -15020,6 +15048,11 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         global _viper_double_marshal_kick_unlocked
         _viper_double_marshal_kick_unlocked = True
         runtime_skill_levels["double_marshal_kick"] = 1
+        return True
+
+    if choice_id == "jetpack_enhance":
+        old_lv = runtime_skill_levels.get("jetpack_enhance", 0)
+        runtime_skill_levels["jetpack_enhance"] = old_lv + 1
         return True
 
     # 일반 스킬 레벨업
@@ -48065,8 +48098,13 @@ _VIPER_JETPACK_FALL_SPEED = 3.0         # 하강 속도 (px/frame)
 _VIPER_JETPACK_GAUGE_COST = 10          # 0.5초당 게이지 소모량
 _VIPER_JETPACK_GAUGE_INTERVAL = 30      # 게이지 소모 간격 (프레임, 0.5초)
 _VIPER_JETPACK_HIT_BONUS = 1.15         # 체공 중 공 히트 시 속도 보너스 (15%)
-_VIPER_JETPACK_MAX_HOLD_FRAMES = 180    # 최대 체공 시간 (3초 = 180프레임)
+_VIPER_JETPACK_MAX_HOLD_FRAMES = 180    # 최대 체공 시간 (3초 = 180프레임, 기본값)
 _viper_jetpack_hold_timer = 0           # 연속 체공 타이머
+
+def _get_viper_jetpack_max_hold():
+    """제트팩 강화 퍽 레벨에 따른 실제 최대 체공 프레임 계산 (레벨당 +20%)"""
+    level = runtime_skill_levels.get("jetpack_enhance", 0)
+    return int(_VIPER_JETPACK_MAX_HOLD_FRAMES * (1.0 + level * 0.2))
 _viper_jetpack_overheat = False         # 과열 상태 (강제 하강 중)
 _viper_jetpack_snd_channel = None       # 제트팩 사운드 채널 (루프 재생 관리)
 _viper_air_strike_text_timer = 0        # AIR STRIKE 텍스트 표시 타이머
@@ -72626,8 +72664,8 @@ def handle_player(keys):
         if _jetpack_input and special_gauge >= _VIPER_JETPACK_GAUGE_COST:
             _viper_jetpack_active = True
             _viper_jetpack_hold_timer += 1
-            # 3초 초과 시 과열 → 강제 하강
-            if _viper_jetpack_hold_timer >= _VIPER_JETPACK_MAX_HOLD_FRAMES:
+            # 최대 체공 시간 초과 시 과열 → 강제 하강 (제트팩 강화 퍽 반영)
+            if _viper_jetpack_hold_timer >= _get_viper_jetpack_max_hold():
                 _viper_jetpack_overheat = True
                 _viper_jetpack_active = False
                 try:
@@ -107605,7 +107643,7 @@ def draw_objects():
     # 🔋 바이퍼 제트팩 체공 잔여시간 게이지바 (완충 시 숨김, 그 외 항상 표시)
     if selected_character_type == "viper" and _viper_jetpack_hold_timer > 0:
         try:
-            _remain_ratio = max(0.0, 1.0 - _viper_jetpack_hold_timer / _VIPER_JETPACK_MAX_HOLD_FRAMES)
+            _remain_ratio = max(0.0, 1.0 - _viper_jetpack_hold_timer / _get_viper_jetpack_max_hold())
             _alt_bar_h = 40
             _alt_bar_w = 3
             _alt_x = PLAYER.left - 8
