@@ -107593,58 +107593,10 @@ def draw_objects():
             _viper_starburst_active = False
 
     # ✦ 더블 마샬 킥 프리즈 연출 + 텍스트 렌더링
+    # 🐍 더블 마샬 킥 텍스트 타이머 감소 (렌더링은 draw_objects 맨 끝에서 수행 - 모든 오브젝트 위에 표시)
     if _viper_dmk_freeze_active or _viper_dmk_text_active:
-        try:
-            _dmk_total_dur = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
-            _dmk_t = 1.0 - (_viper_dmk_text_timer / max(1, _dmk_total_dur))  # 0→1
-
-            # 프리즈 중: 화면 어둡게
-            if _viper_dmk_freeze_active:
-                _dmk_freeze_elapsed = _VIPER_DMK_FREEZE_DURATION - _viper_dmk_freeze_timer
-                _dmk_dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                _dmk_dim_alpha = int(80 * min(1.0, _dmk_freeze_elapsed / 6.0))  # 6프레임(0.1초)만에 어두워짐
-                _dmk_dim.fill((0, 0, 0, _dmk_dim_alpha))
-                SCREEN.blit(_dmk_dim, (0, 0))
-
-            # 텍스트: 프리즈 중 크게 중앙, 프리즈 후 위로 떠오르며 페이드
-            if _viper_dmk_freeze_active:
-                # 프리즈 중: 경과 비율 (0→1)
-                _dmk_freeze_elapsed = _VIPER_DMK_FREEZE_DURATION - _viper_dmk_freeze_timer
-                _dmk_freeze_t = _dmk_freeze_elapsed / max(1, _VIPER_DMK_FREEZE_DURATION)
-                _dmk_ease = min(1.0, _dmk_freeze_t * 5.0)  # 빠르게 나타남
-                _dmk_alpha = int(255 * _dmk_ease)
-                _dmk_font_size = int(22 + 4 * _dmk_ease)
-                _dmk_y_off = 0
-            else:
-                _dmk_post_t = 1.0 - (_viper_dmk_text_timer / max(1, _VIPER_DMK_TEXT_DURATION))
-                _dmk_alpha = int(255 * max(0.0, 1.0 - _dmk_post_t * 1.5))
-                _dmk_font_size = 22
-                _dmk_y_off = -20 * _dmk_post_t
-
-            if _dmk_alpha > 5:
-                try:
-                    _dmk_font = pygame.freetype.Font(
-                        resource_path(os.path.join("fonts", "NanumSquareB.ttf")), _dmk_font_size)
-                    # 글로우 (뒤에 깔림)
-                    _dmk_glow_surf, _dmk_glow_rect = _dmk_font.render("DOUBLE MARSHAL KICK", (180, 80, 255))
-                    _dmk_glow_surf.set_alpha(min(255, int(_dmk_alpha * 0.4)))
-                    for _go in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
-                        SCREEN.blit(_dmk_glow_surf,
-                                    (int(WIDTH // 2 - _dmk_glow_rect.width // 2 + _go[0]),
-                                     int(HEIGHT // 2 - 30 + _dmk_y_off + _go[1])))
-                    # 메인 텍스트
-                    _dmk_surf, _dmk_rect = _dmk_font.render("DOUBLE MARSHAL KICK", (255, 210, 255))
-                    _dmk_surf.set_alpha(_dmk_alpha)
-                    SCREEN.blit(_dmk_surf,
-                                (int(WIDTH // 2 - _dmk_rect.width // 2),
-                                 int(HEIGHT // 2 - 30 + _dmk_y_off)))
-                except Exception:
-                    pass
-
-            _viper_dmk_text_timer -= 1
-            if _viper_dmk_text_timer <= 0:
-                _viper_dmk_text_active = False
-        except Exception:
+        _viper_dmk_text_timer -= 1
+        if _viper_dmk_text_timer <= 0:
             _viper_dmk_text_active = False
 
     # ⚡ 바이퍼 쉐도우 백스텝 에너지파 렌더링
@@ -151358,6 +151310,23 @@ def handle_boss():
             if abs(boss_fire_knockback_vel) <= 0.3:
                 boss_fire_knockback_vel = 0.0
         return
+
+    # 🏓 넉백 처리 (화재/다이브 스트라이크/더블 마샬 킥 등)
+    if abs(boss_fire_knockback_vel) > 0.3:
+        _kb_new_x = BOSS.x + boss_fire_knockback_vel
+        _kb_min_x = 0
+        _kb_max_x = WIDTH - BOSS.width
+        if _kb_new_x <= _kb_min_x:
+            BOSS.x = _kb_min_x
+            boss_fire_knockback_vel = abs(boss_fire_knockback_vel) * 0.7
+        elif _kb_new_x >= _kb_max_x:
+            BOSS.x = _kb_max_x
+            boss_fire_knockback_vel = -abs(boss_fire_knockback_vel) * 0.7
+        else:
+            BOSS.x = _kb_new_x
+        boss_fire_knockback_vel *= 0.85
+        if abs(boss_fire_knockback_vel) <= 0.3:
+            boss_fire_knockback_vel = 0.0
 
     # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (상단 패들 = 보스)
     arena_boss_slow_multiplier = 1.0
