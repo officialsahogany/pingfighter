@@ -72182,15 +72182,18 @@ def handle_player(keys):
                         _wd_new_spd = max(_wd_cur_spd * 1.8, 10.0)  # 80% 증가
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
-                    # 벽→공 방향으로 발사 (약간 위로 보정)
-                    _wd_dx = _viper_wall_dive_charge_target_x - _viper_wall_dive_charge_start_x
-                    _wd_dy = _viper_wall_dive_charge_target_y - _viper_wall_dive_charge_start_y
-                    _wd_d = math.hypot(_wd_dx, _wd_dy)
-                    if _wd_d > 0.1:
-                        ball_vel[0] = (_wd_dx / _wd_d) * _wd_new_spd * 0.4
-                        ball_vel[1] = -abs(_wd_new_spd) * 0.9  # 위로 강하게
+                    # 벽→보스 방향 발사 (랜덤 각도로 보스 예측 어렵게)
+                    import random as _mk_rand
+                    # 발사 각도: -50° ~ -130° (위쪽 반원 범위 내 랜덤)
+                    # 벽 위치에 따라 반대편으로 편향
+                    if _viper_wall_dive_wall_x < WIDTH // 2:
+                        # 좌측 벽 → 오른쪽 상단으로 (각도 -40° ~ -80°)
+                        _mk_angle = math.radians(_mk_rand.uniform(-80, -40))
                     else:
-                        ball_vel[1] = -_wd_new_spd
+                        # 우측 벽 → 왼쪽 상단으로 (각도 -100° ~ -140°)
+                        _mk_angle = math.radians(_mk_rand.uniform(-140, -100))
+                    ball_vel[0] = math.cos(_mk_angle) * _wd_new_spd
+                    ball_vel[1] = math.sin(_mk_angle) * _wd_new_spd
                     # 히트 이펙트
                     screen_shake_timer = max(screen_shake_timer, 12)
                     screen_shake_intensity = max(screen_shake_intensity, 5)
@@ -72201,11 +72204,14 @@ def handle_player(keys):
                         )
                     except Exception:
                         pass
-                    # 마샬 킥 강한 커브 적용 (벽 반대 방향으로 휘어짐)
+                    # 마샬 킥 강한 커브 적용
                     _viper_ps_curve_active = True
-                    _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-                    # 커브 방향: 벽 반대쪽으로 (좌측 벽에서 발사 → 오른쪽으로 커브, 반대도 마찬가지)
-                    _viper_ps_curve_direction = 1 if _viper_wall_dive_wall_x < WIDTH // 2 else -1
+                    if _viper_is_double_marshal:
+                        _viper_ps_curve_timer = int(_VIPER_PS_CURVE_FRAMES * 1.5)  # 더블: 커브 1.5배 지속
+                    else:
+                        _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
+                    # 커브 방향: 발사 각도 반대쪽으로 (보스가 공 궤적 예측 불가)
+                    _viper_ps_curve_direction = 1 if ball_vel[0] < 0 else -1
                     # 🪙 마샬 킥 타격 골드 보너스
                     try:
                         add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
