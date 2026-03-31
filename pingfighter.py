@@ -105766,6 +105766,7 @@ def draw_objects():
     global perfect_timing_indicator_active
     global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
     global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y
+    global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
     global shield_antenna_active, shield_antenna_timer, shield_antenna_cooldown
