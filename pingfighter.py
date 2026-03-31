@@ -107105,23 +107105,20 @@ def draw_objects():
                 _draw_y = _holo_y - _holo_h // 2 + _offset_y
                 SCREEN.blit(_holo_surf, (int(_draw_x), int(_draw_y)))
 
-                # 홀로그램 잔상 겹침 이펙트 (캐릭터 실루엣이 빠르게 겹치며 진해짐)
+                # 홀로그램 잔상 겹침 이펙트 (발차기 방향으로 뻗어나가며 진해짐)
                 if _holo_t > 0.1:
                     _ghost_count = 4  # 잔상 겹침 수
                     _kick_dir = _viper_ss_hologram_kick_dir
                     for _gi in range(_ghost_count):
-                        # 각 잔상의 타이밍 오프셋 (순차적으로 나타남)
-                        _g_delay = _gi * 0.12  # 잔상 간 딜레이
+                        _g_delay = _gi * 0.12
                         _g_local_t = (_holo_t - 0.1 - _g_delay) / 0.6
                         if _g_local_t < 0.0 or _g_local_t > 1.0:
                             continue
-                        # 잔상 위치: 발차기 방향 반대에서 빠르게 수렴
                         _g_ease = _g_local_t * _g_local_t * (3.0 - 2.0 * _g_local_t)
-                        _g_offset_x = _kick_dir * (1.0 - _g_ease) * (20 + _gi * 8) * -1
-                        _g_offset_y = (1.0 - _g_ease) * (_gi - 1.5) * 4
-                        # 알파: 투명→진해짐→유지 (나중 잔상일수록 더 진함)
+                        # 발차기 방향으로 뻗어나감 (확장 히트박스 커버)
+                        _g_offset_x = _kick_dir * _g_ease * (10 + _gi * 12)
+                        _g_offset_y = (1.0 - _g_ease) * (_gi - 1.5) * 3
                         _g_alpha = int(min(255, (60 + _gi * 55) * min(1.0, _g_local_t * 3.0)))
-                        # 캐릭터 잔상 + 보라빛 틴트 오버레이
                         _ghost_surf = _holo_base.copy()
                         _ghost_surf.set_alpha(_g_alpha)
                         _gx = _holo_x - _holo_w // 2 + _g_offset_x
