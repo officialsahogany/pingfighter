@@ -3702,7 +3702,7 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "stun_purple"
     },
     {
-        "name": "dive_strike", "korean": "다이브 스트라이크", "cost": 120, "color": (255, 120, 50),
+        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 120, "color": (255, 120, 50),
         "symbol": "⇓", "cooldown": 15.0, "key": "체공+S/↓",
         "description": "체공 중 급강하하여 착지 연기 장판을 생성합니다.\n연기에 닿은 공을 위로 반사 + 공속 증가.",
         "how_to_use": "체공 중 S키 또는 ↓키로 발동",
@@ -4891,7 +4891,7 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
                           math.radians(200), math.radians(340), 1)
 
     elif skill_name == "dive_strike":
-        # ⇓ 다이브 스트라이크: 급강하 + 착지 연기 장판
+        # ⇓ EMP 스트라이크: 급강하 + 착지 연기 장판
 
         # 하향 속도선
         for i in range(4):
@@ -13048,10 +13048,10 @@ VIPER_EXCLUSIVE_SKILLS = {
         "character_restriction": "viper"
     },
     "unlock_dive_strike": {
-        "name": "다이브 스트라이크 해금",
+        "name": "EMP 스트라이크 해금",
         "max_level": 1,
         "descriptions": {
-            1: "다이브 스트라이크 스킬 해금 (방어 장판)",
+            1: "EMP 스트라이크 스킬 해금 (방어 장판)",
         },
         "detail": "체공 중 S/↓키로 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 20초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다.",
         "icon_color": (255, 120, 50),
@@ -17739,7 +17739,7 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
 
     elif skill_id == "unlock_dive_strike":
-        # 다이브 스트라이크 해금 - 하향 화살표 + 충격파
+        # EMP 스트라이크 해금 - 하향 화살표 + 충격파
         aw = int(6 * scale)
         # 하향 화살표
         arrow_pts = [
@@ -48074,7 +48074,7 @@ _viper_air_strike_text_x = 0.0          # 텍스트 X
 _viper_air_strike_text_y = 0.0          # 텍스트 Y
 _viper_air_strike_text_pct = 0          # 보너스 퍼센트
 
-# === 바이퍼 급강하 어택 (다이브 스트라이크) ===
+# === 바이퍼 급강하 어택 (EMP 스트라이크) ===
 _viper_dive_active = False              # 급강하 진행 중 여부
 _viper_dive_phase = 0                   # 0=준비동작(공중정지), 1=급강하, 2=착지 충격파
 _viper_dive_start_ms = 0                # 급강하 시작 시간
@@ -72730,11 +72730,11 @@ def handle_player(keys):
 
     # === 바이퍼 에어 블레이드 → 마샬 킥 직접 연계 제거 ===
     # 에어블레이드 → 베놈 엣지(실패) → 마샬 킥 순서로만 연계 가능
-    # 에어블레이드 중 S/↓키는 다이브 스트라이크로 연계됨
+    # 에어블레이드 중 S/↓키는 EMP 스트라이크로 연계됨
     _viper_air_marshal_triggered = False
 
-    # === 바이퍼 급강하 어택 (다이브 스트라이크) ===
-    # 에어블레이드 스핀 중(phase 2)에도 S/↓키로 다이브 스트라이크 연계 가능
+    # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
+    # 에어블레이드 스핀 중(phase 2)에도 S/↓키로 EMP 스트라이크 연계 가능
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         # 급강하 발동: 체공 중 또는 에어블레이드 스핀 중 S키/↓키 단독
         # 에어블레이드 연계 시 하강 중반(600ms 이후)까지 대기 — 충분히 체공 후 발동
@@ -72742,7 +72742,7 @@ def handle_player(keys):
         _dive_from_airblade = (_viper_br_spin_active and _viper_br_spin_phase == 2 and _dive_ab_elapsed >= 600)
         # 에어블레이드 동작 중(발사/회전/감속)에는 일반 체공 다이브 차단
         _in_airblade_motion = _viper_blade_rush_active or (_viper_br_spin_active and _viper_br_spin_phase < 2)
-        # 다이브 스트라이크는 단독기: 대쉬/쉐도우 백스텝/마샬 킥/팬텀 킥 중 발동 불가
+        # EMP 스트라이크는 단독기: 대쉬/쉐도우 백스텝/마샬 킥/팬텀 킥 중 발동 불가
         _dive_any_skill_active = (
             rolling_active
             or _viper_ss_hologram_active
@@ -72909,7 +72909,7 @@ def handle_player(keys):
                             # 공을 위로 반사 (속도 변화 없음)
                             ball_vel[1] = -abs(ball_vel[1])
                             _viper_dive_ball_boosted = True
-                            # 🪙 다이브 스트라이크 타격 골드 보너스
+                            # 🪙 EMP 스트라이크 타격 골드 보너스
                             try:
                                 add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
                             except Exception:
@@ -72947,7 +72947,7 @@ def handle_player(keys):
                         # 공을 위로 반사 (속도 변화 없음)
                         ball_vel[1] = -abs(ball_vel[1])
                         _viper_dive_ball_boosted = True
-                        # 🪙 다이브 스트라이크 타격 골드 보너스
+                        # 🪙 EMP 스트라이크 타격 골드 보너스
                         try:
                             add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
                         except Exception:
@@ -109036,7 +109036,7 @@ def draw_objects():
         _boss_dash_stun_shake_x = random.randint(-2, 2)
         _boss_dash_stun_shake_y = random.randint(-1, 1)
 
-    # === 🔵 다이브 스트라이크 슬립 중 패닉 이펙트 (이미지 틴트 + 떨림) ===
+    # === 🔵 EMP 스트라이크 슬립 중 패닉 이펙트 (이미지 틴트 + 떨림) ===
     if _viper_dive_slip_timer > 0 and not _bg_electric_active and _boss_stun_timer_draw <= 0:
         _slip_pct = _viper_dive_slip_timer / _VIPER_DIVE_SLIP_DURATION
         # 시안/파란 EMP 틴트 (펄스)
@@ -151487,7 +151487,7 @@ def handle_boss():
                 boss_fire_knockback_vel = 0.0
         return
 
-    # 🏓 넉백 처리 (화재/다이브 스트라이크/팬텀 킥 등)
+    # 🏓 넉백 처리 (화재/EMP 스트라이크/팬텀 킥 등)
     if abs(boss_fire_knockback_vel) > 0.3:
         _kb_new_x = BOSS.x + boss_fire_knockback_vel
         _kb_min_x = 0
@@ -152056,7 +152056,7 @@ def handle_boss():
         _apply_boss_banana_slip()
         return  # 미끄러짐 중에는 AI 완전 정지 (통제불능)
 
-    # 🍌 다이브 스트라이크 슬립 (바나나식 — AI 통제불능 + 미끄러짐)
+    # 🍌 EMP 스트라이크 슬립 (바나나식 — AI 통제불능 + 미끄러짐)
     if _viper_dive_slip_timer > 0:
         _viper_dive_slip_timer -= 1
         _slip_ratio = _viper_dive_slip_timer / _VIPER_DIVE_SLIP_DURATION
