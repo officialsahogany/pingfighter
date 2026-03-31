@@ -3689,7 +3689,7 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "blade_rush", "korean": "에어 블레이드", "cost": 200, "color": (200, 50, 255),
-        "symbol": "⚔", "cooldown": 16.0, "key": "W/↑",
+        "symbol": "⚔", "cooldown": 20.0, "key": "W/↑",
         "description": "체공 중 전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 180% 증가합니다.",
         "how_to_use": "체공 중 W키 또는 ↑키로 발동",
         "effect_type": "slash_purple"
@@ -109233,6 +109233,19 @@ def draw_objects():
             for i, crack in enumerate(blacksmith_ground_cracks[:3]):  # Show first 3 cracks to avoid clutter
                 crack_text = debug_font.render(f"Crack{i}: x={crack['x']:.0f}, y={crack['y']:.0f}", True, (255, 100, 100))
                 SCREEN.blit(crack_text, (WIDTH - 250, 150 + i * 20))
+    # ⚡ 플라즈마 자기장 둔화 퍼센트 표시 (보스 이미지 색상 변화는 apply_plasma_effect_to_boss에서 처리)
+    if boss_plasma_slowed and selected_character_type == "smasher":
+        # 둔화 퍼센트 표시 (패들 위에 작게)
+        slow_pct = int(boss_plasma_slow_amount * 100)
+        try:
+            slow_font = pygame.font.Font(get_pixel_font_path(), 10)
+        except:
+            slow_font = pygame.font.Font(None, 10)
+        slow_text = f"-{slow_pct}%"
+        slow_text_surf = slow_font.render(slow_text, True, (200, 150, 255))
+        slow_text_rect = slow_text_surf.get_rect(center=(BOSS.x + BOSS.width // 2, BOSS.y - 10))
+        SCREEN.blit(slow_text_surf, slow_text_rect)
+
     #  라그나로크 스턴 시 전기 감전 효과 (최적화 버전)
     if boss_stun_timer > 0:
         # 전기 감전 효과 - 보스 패들 전체에 전기가 흐르는 효과
