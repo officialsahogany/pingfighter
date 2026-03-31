@@ -57187,6 +57187,14 @@ def go_to_next_round():
     _viper_jetpack_active = False
     _viper_jetpack_offset_y = 0.0
     _viper_jetpack_particles = []
+    # 제트팩 사운드 강제 정지
+    global _viper_jetpack_snd_channel
+    try:
+        if _viper_jetpack_snd_channel and _viper_jetpack_snd_channel.get_busy():
+            _viper_jetpack_snd_channel.stop()
+        _viper_jetpack_snd_channel = None
+    except Exception:
+        _viper_jetpack_snd_channel = None
     _viper_speed_boost_active = False
     _viper_phantom_strike_active = False
     _viper_phantom_strike_timer = 0
