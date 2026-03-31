@@ -109099,12 +109099,22 @@ def draw_objects():
                             _boss_final_surf = apply_hologram_materialize_effect(_boss_final_surf, _boss_hologram_progress, _hologram_time_now)
                         draw_with_shake(_boss_final_surf, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y))
             else:
+                # 🍌 다이브 스트라이크 슬립 중 패닉 물결 효과
+                _dive_slip_wobble_y = 0
+                if _viper_dive_slip_timer > 0:
+                    _slip_pct = _viper_dive_slip_timer / _VIPER_DIVE_SLIP_DURATION
+                    _wobble_speed = 0.4  # 물결 주기
+                    _wobble_amp = 4.0 * _slip_pct  # 진폭 (점점 줄어듦)
+                    _dive_slip_wobble_y = math.sin(pygame.time.get_ticks() * _wobble_speed) * _wobble_amp
+                    # 좌우 미세 떨림 (패닉)
+                    _boss_dash_stun_shake_x += random.uniform(-2.0, 2.0) * _slip_pct
+
                 # === 홀로그램 물질화 효과 적용 (보스 - 일반) ===
                 if _boss_hologram_should_draw:
                     _boss_final_surf = rotated_boss
                     if _boss_hologram_active:
                         _boss_final_surf = apply_hologram_materialize_effect(_boss_final_surf, _boss_hologram_progress, _hologram_time_now)
-                    draw_with_shake(_boss_final_surf, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y))
+                    draw_with_shake(_boss_final_surf, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y + _dive_slip_wobble_y))
             # Stage 7 초인 인트로(0.6초) 동안: 양팔 벌린 포효 오버레이 + 매서운 표정
             try:
                 if current_stage == 7 and stage7_super_intro_until_ms > pygame.time.get_ticks():
