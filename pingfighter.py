@@ -106384,6 +106384,7 @@ def draw_objects():
     global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
     global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
+    global _viper_dive_slip_timer
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
     global shield_antenna_active, shield_antenna_timer, shield_antenna_cooldown
@@ -109115,6 +109116,8 @@ def draw_objects():
                     if _boss_hologram_active:
                         _boss_final_surf = apply_hologram_materialize_effect(_boss_final_surf, _boss_hologram_progress, _hologram_time_now)
                     draw_with_shake(_boss_final_surf, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y + _dive_slip_wobble_y))
+                else:
+                    draw_with_shake(rotated_boss, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y + _dive_slip_wobble_y))
             # Stage 7 초인 인트로(0.6초) 동안: 양팔 벌린 포효 오버레이 + 매서운 표정
             try:
                 if current_stage == 7 and stage7_super_intro_until_ms > pygame.time.get_ticks():
@@ -115627,7 +115630,7 @@ def draw_objects():
 
             if _dmk_alpha > 10:
                 try:
-                    _dmk_text = "DOUBLE MARSHAL KICK"
+                    _dmk_text = "파이널 마샬 킥"
                     _dmk_font = get_font(36)
                     _dmk_shadow = _dmk_font.render(_dmk_text, True, (0, 0, 0))
                     _dmk_main = _dmk_font.render(_dmk_text, True, (220, 80, 255))
