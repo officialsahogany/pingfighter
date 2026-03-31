@@ -72746,7 +72746,6 @@ def handle_player(keys):
             or _viper_wall_dive_ready
             or _viper_double_marshal_ready
             or _viper_nerve_strike_active
-            or _viper_ss_ball_touched
         )
         if (not _viper_dive_active
                 and ((_viper_jetpack_offset_y < -20 and not _in_airblade_motion) or _dive_from_airblade)
