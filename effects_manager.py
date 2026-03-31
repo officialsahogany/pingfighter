@@ -30,6 +30,7 @@ dash_smoke_particles = []  # 하프대시 연기 파티클
 construction_smoke_particles = []  # 포탑 건설 연기 파티클
 light_shard_particles = []  # 빛의 파편 파티클 (파워 스매싱용)
 blade_spark_particles = []  # 에어 블레이드 전기톱 불꽃 파티클
+dark_red_impact_particles = []  # 검붉은 타격 이펙트 파티클 (마샬 킥/쉐도우 백스텝)
 
 # 색상 정의
 WHITE = (255, 255, 255)
@@ -1059,6 +1060,175 @@ def draw_blade_spark_particles(surface=None):
 
 
 # ================================================================================
+# 💥 DARK RED IMPACT PARTICLES (검붉은 타격 이펙트 - 마샬 킥/쉐도우 백스텝)
+# ================================================================================
+
+def spawn_dark_red_impact(x, y, count=20, intensity=1.0):
+    """마샬 킥/쉐도우 백스텝 공 타격 시 검붉은 충격파 + 파편 이펙트
+
+    Args:
+        x, y: 충돌 중심 위치
+        count: 파편 파티클 수
+        intensity: 강도 배율 (2차 마샬 킥 등에서 1.5 등으로 사용)
+    """
+    global dark_red_impact_particles
+
+    # 1) 방사형 검붉은 파편 (사방으로 날카롭게 튐)
+    for _ in range(int(count * intensity)):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(4.0, 11.0) * intensity
+        # 검붉은 색상 랜덤 (어두운 빨강 ~ 진홍 ~ 약간의 주황)
+        r = random.randint(160, 255)
+        g = random.randint(0, 50)
+        b = random.randint(0, 30)
+
+        dark_red_impact_particles.append({
+            'x': x + random.randint(-3, 3),
+            'y': y + random.randint(-3, 3),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.randint(10, 22),
+            'max_life': 22,
+            'color': (r, g, b),
+            'size': random.uniform(2.0, 5.0),
+            'alpha': 255,
+            'gravity': random.uniform(0.08, 0.2),
+            'friction': random.uniform(0.92, 0.96),
+            'type': 'shard',
+            'rotation': random.uniform(0, 2 * math.pi),
+            'rot_speed': random.uniform(-0.4, 0.4),
+        })
+
+    # 2) 충격 플래시 (순간적으로 밝은 원형 번쩍임)
+    dark_red_impact_particles.append({
+        'x': x, 'y': y,
+        'vx': 0, 'vy': 0,
+        'life': 8,
+        'max_life': 8,
+        'color': (255, 120, 80),
+        'size': 30.0 * intensity,
+        'alpha': 200,
+        'gravity': 0, 'friction': 1.0,
+        'type': 'flash',
+        'rotation': 0, 'rot_speed': 0,
+    })
+
+    # 3) 검붉은 잔류 연기 (타격 잔여감)
+    for _ in range(int(6 * intensity)):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(0.5, 2.0)
+        dark_red_impact_particles.append({
+            'x': x + random.randint(-5, 5),
+            'y': y + random.randint(-5, 5),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.randint(18, 30),
+            'max_life': 30,
+            'color': (80, 0, 0),
+            'size': random.uniform(6.0, 12.0),
+            'alpha': 150,
+            'gravity': -0.03,  # 약간 위로 떠오름
+            'friction': 0.98,
+            'type': 'smoke',
+            'rotation': 0, 'rot_speed': 0,
+        })
+
+
+def update_dark_red_impact_particles():
+    """검붉은 타격 파티클 업데이트"""
+    global dark_red_impact_particles
+    new_particles = []
+
+    for p in dark_red_impact_particles:
+        p['vx'] *= p['friction']
+        p['vy'] *= p['friction']
+        p['vy'] += p['gravity']
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+
+        p['life'] -= 1
+        if p['max_life'] > 0:
+            life_ratio = max(0, p['life'] / p['max_life'])
+            p['alpha'] = int(255 * life_ratio)
+
+        if p['type'] == 'shard':
+            p['rotation'] += p['rot_speed']
+            p['size'] *= 0.96
+        elif p['type'] == 'flash':
+            p['size'] *= 1.15  # 빠르게 팽창
+        elif p['type'] == 'smoke':
+            p['size'] *= 1.01  # 약간 팽창
+
+        if p['life'] > 0:
+            new_particles.append(p)
+
+    dark_red_impact_particles = new_particles
+
+
+def draw_dark_red_impact_particles(surface=None):
+    """검붉은 타격 파티클 렌더링"""
+    screen = surface if surface else SCREEN
+    if not screen:
+        return
+
+    for p in dark_red_impact_particles:
+        alpha = max(0, min(255, p['alpha']))
+        if alpha <= 0:
+            continue
+
+        x = int(p['x'])
+        y = int(p['y'])
+        size = max(1, int(p['size']))
+        color = p['color']
+        ptype = p['type']
+
+        if ptype == 'flash':
+            # 중심에서 빠르게 팽창하는 밝은 원형 플래시
+            flash_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(flash_surf, (*color[:3], alpha), (size, size), size)
+            screen.blit(flash_surf, (x - size, y - size), special_flags=pygame.BLEND_ADD)
+
+        elif ptype == 'smoke':
+            # 검붉은 잔류 연기
+            smoke_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(smoke_surf, (*color[:3], min(alpha, 100)), (size, size), size)
+            screen.blit(smoke_surf, (x - size, y - size))
+
+        elif ptype == 'shard':
+            # 날카로운 파편 (회전하는 삼각형/마름모)
+            rotation = p.get('rotation', 0)
+
+            # 글로우
+            glow_size = size + 2
+            glow_surf = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
+            glow_alpha = min(255, alpha // 3)
+            pygame.draw.circle(glow_surf, (*color[:3], glow_alpha),
+                               (glow_size * 2, glow_size * 2), glow_size)
+            screen.blit(glow_surf, (x - glow_size * 2, y - glow_size * 2),
+                        special_flags=pygame.BLEND_ADD)
+
+            # 날카로운 마름모 파편
+            half = size
+            points = [
+                (x + int(half * 1.5 * math.cos(rotation)),
+                 y + int(half * 1.5 * math.sin(rotation))),
+                (x + int(half * 0.5 * math.cos(rotation + math.pi / 2)),
+                 y + int(half * 0.5 * math.sin(rotation + math.pi / 2))),
+                (x + int(half * 1.5 * math.cos(rotation + math.pi)),
+                 y + int(half * 1.5 * math.sin(rotation + math.pi))),
+                (x + int(half * 0.5 * math.cos(rotation - math.pi / 2)),
+                 y + int(half * 0.5 * math.sin(rotation - math.pi / 2))),
+            ]
+            shard_surf = pygame.Surface((size * 6, size * 6), pygame.SRCALPHA)
+            shifted = [(px - x + size * 3, py - y + size * 3) for px, py in points]
+            bright_color = (min(255, color[0] + 40), min(255, color[1] + 20),
+                            min(255, color[2] + 10), alpha)
+            if len(shifted) >= 3:
+                pygame.draw.polygon(shard_surf, bright_color, shifted)
+            screen.blit(shard_surf, (x - size * 3, y - size * 3))
+
+
+# ================================================================================
 # 💫 EXPLOSION EFFECTS (폭발 효과)
 # ================================================================================
 
@@ -1133,6 +1303,7 @@ def update_all_effects():
     update_short_shot_flash_effects()
     update_light_shard_particles()  # 빛의 파편 업데이트
     update_blade_spark_particles()  # 에어 블레이드 불꽃 업데이트
+    update_dark_red_impact_particles()  # 검붉은 타격 이펙트 업데이트
 
 
 def draw_all_effects(surface):
@@ -1146,13 +1317,14 @@ def draw_all_effects(surface):
     draw_short_shot_flash_effects(surface)
     draw_light_shard_particles(surface)  # 빛의 파편 그리기
     draw_blade_spark_particles(surface)  # 에어 블레이드 불꽃 그리기
+    draw_dark_red_impact_particles(surface)  # 검붉은 타격 이펙트 그리기
 
 
 def clear_all_effects():
     """모든 이펙트 초기화"""
     global flame_particles, star_particles, balloon_pop_effects
     global item_obtained_effects, impact_particles, construction_smoke_particles
-    global light_shard_particles, blade_spark_particles
+    global light_shard_particles, blade_spark_particles, dark_red_impact_particles
 
     flame_particles = []
     star_particles = []
@@ -1162,6 +1334,7 @@ def clear_all_effects():
     construction_smoke_particles = []
     light_shard_particles = []  # 빛의 파편 초기화
     blade_spark_particles = []  # 에어 블레이드 불꽃 초기화
+    dark_red_impact_particles = []  # 검붉은 타격 이펙트 초기화
 
 
 def has_drive_particles():

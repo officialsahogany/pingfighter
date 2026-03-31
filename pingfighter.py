@@ -72321,6 +72321,15 @@ def handle_player(keys):
                         )
                     except Exception:
                         pass
+                    # 검붉은 타격 이펙트 (마샬 킥)
+                    try:
+                        _mk_impact_intensity = 1.5 if _viper_is_double_marshal else 1.0
+                        effects_manager.spawn_dark_red_impact(
+                            BALL.centerx, BALL.centery,
+                            count=24, intensity=_mk_impact_intensity,
+                        )
+                    except Exception:
+                        pass
                     # 마샬 킥 강한 커브 적용
                     _viper_ps_curve_active = True
                     if _viper_is_double_marshal:
@@ -72850,6 +72859,14 @@ def handle_player(keys):
                         effects_manager.spawn_shockwave(
                             BALL.centerx, BALL.centery,
                             force=12, color=(160, 0, 255),
+                        )
+                    except Exception:
+                        pass
+                    # 검붉은 타격 이펙트 (쉐도우 백스텝 에너지파)
+                    try:
+                        effects_manager.spawn_dark_red_impact(
+                            BALL.centerx, BALL.centery,
+                            count=18, intensity=0.9,
                         )
                     except Exception:
                         pass
@@ -109964,6 +109981,14 @@ def draw_objects():
                     )
                 except Exception:
                     pass
+                # 검붉은 타격 이펙트 (쉐도우 백스텝 잔상)
+                try:
+                    effects_manager.spawn_dark_red_impact(
+                        BALL.centerx, BALL.centery,
+                        count=16, intensity=0.8,
+                    )
+                except Exception:
+                    pass
         # 잔상 업데이트
         afterimage['alpha'] -= 25  # 투명도 감소
         afterimage['life'] -= 1
@@ -140204,6 +140229,14 @@ def calculate_bounce(paddle):
                 effects_manager.spawn_shockwave(
                     BALL.centerx, BALL.centery,
                     force=12, color=(160, 0, 255),
+                )
+            except Exception:
+                pass
+            # 검붉은 타격 이펙트 (팬텀 스트라이크)
+            try:
+                effects_manager.spawn_dark_red_impact(
+                    BALL.centerx, BALL.centery,
+                    count=22, intensity=1.2,
                 )
             except Exception:
                 pass
