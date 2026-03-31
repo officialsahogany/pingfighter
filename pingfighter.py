@@ -74950,6 +74950,11 @@ def handle_player(keys):
                             half_dash_timer = 0
                             half_dash_token_cost = 0
                         else:
+                            # 저주 보물상자: 조작 반전 디버프 시 하프대쉬 방향도 반전
+                            _hd_left_alt = bool(keys[pygame.K_a]) or MOVE_EVENT_LEFT or is_move_left_pressed(keys)
+                            _hd_right_alt = bool(keys[pygame.K_d]) or MOVE_EVENT_RIGHT or is_move_right_pressed(keys)
+                            if curse_chest_reverse_timer > 0 and current_stage == 3:
+                                _hd_left_alt, _hd_right_alt = _hd_right_alt, _hd_left_alt
                             half_dash_state = {
                                 'special_gauge': special_gauge,
                                 'required_gauge': required_gauge,
@@ -74959,14 +74964,17 @@ def handle_player(keys):
                                 'down_pressed': down_pressed,
                                 'keys': keys,
                                 # A/D 보조 키 플래그 (하프대쉬 방향 판단 보조)
-                                'left_key_alt': bool(keys[pygame.K_a]) or MOVE_EVENT_LEFT or is_move_left_pressed(keys),
-                                'right_key_alt': bool(keys[pygame.K_d]) or MOVE_EVENT_RIGHT or is_move_right_pressed(keys),
+                                'left_key_alt': _hd_left_alt,
+                                'right_key_alt': _hd_right_alt,
                                 'jump_bonus': jump_bonus,  # 도약 스킬 보너스 전달
                                 'dashgear_obtained': dashgear_obtained,  # 대쉬기어 상태 전달
                                 'token_zero_mode': True  # 토큰 0개 모드 (게이지 체크 스킵)
                             }
 
                             half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(half_dash_state)
+                            # 저주 보물상자: 조작 반전 디버프 시 하프대쉬 방향 반전
+                            if curse_chest_reverse_timer > 0 and current_stage == 3 and half_dash_direction != 0:
+                                half_dash_direction = -half_dash_direction
 
                         if half_dash_activated:
                         # 하프 대쉬 발동
@@ -75199,6 +75207,9 @@ def handle_player(keys):
             # (이전에는 외부 조건 블록과 내부 대쉬 실행 조건 사이에서 키 상태가 변해 대쉬가 무시되는 버그 있었음)
             _cached_left_for_dash = is_move_left_pressed(keys) or MOVE_EVENT_LEFT
             _cached_right_for_dash = is_move_right_pressed(keys) or MOVE_EVENT_RIGHT
+            # 저주 보물상자: 조작 반전 디버프 시 대쉬 방향도 반전
+            if curse_chest_reverse_timer > 0 and current_stage == 3:
+                _cached_left_for_dash, _cached_right_for_dash = _cached_right_for_dash, _cached_left_for_dash
 
             # 대쉬 감속 구간 캔슬: rolling_active 중이어도 감속 후반부(timer <= DASH_CANCEL_THRESHOLD)면 연속 대쉬 허용
             _can_cancel_normal = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
