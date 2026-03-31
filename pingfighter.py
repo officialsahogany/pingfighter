@@ -107064,6 +107064,62 @@ def draw_objects():
                 _draw_y = _holo_y - _holo_h // 2 + _offset_y
                 SCREEN.blit(_holo_surf, (int(_draw_x), int(_draw_y)))
 
+                # 홀로그램 에너지 버스트 이펙트 (확장 히트박스 시각화)
+                if _holo_t > 0.25:
+                    _burst_t = min(1.0, (_holo_t - 0.25) / 0.5)  # 0.25~0.75 구간에서 0→1
+                    _burst_alpha_base = int(180 * (1.0 - _burst_t * _burst_t))  # 서서히 사라짐
+                    if _burst_alpha_base > 5:
+                        _kick_dir = _viper_ss_hologram_kick_dir
+                        # 외곽 에너지 링 (팽창하며 사라짐)
+                        _ring_r = int(25 + 55 * _burst_t)  # 25→80
+                        _ring_w = max(1, int(3 * (1.0 - _burst_t)))
+                        _ring_surf = pygame.Surface((_ring_r * 2 + 4, _ring_r * 2 + 4), pygame.SRCALPHA)
+                        _ring_alpha = int(_burst_alpha_base * 0.6)
+                        pygame.draw.circle(_ring_surf, (160, 60, 255, _ring_alpha),
+                                           (_ring_r + 2, _ring_r + 2), _ring_r, _ring_w)
+                        SCREEN.blit(_ring_surf,
+                                    (_holo_x - _ring_r - 2, _holo_y - _ring_r - 2),
+                                    special_flags=pygame.BLEND_ADD)
+                        # 방향성 에너지 슬래시 (발차기 방향으로 뻗어나감)
+                        _slash_len = int(35 + 40 * _burst_t)
+                        _slash_alpha = int(_burst_alpha_base * 0.9)
+                        _slash_offset_x = _kick_dir * int(10 + 20 * _burst_t)
+                        for _si in range(3):
+                            _s_angle = (_si - 1) * 15 + _kick_dir * 25
+                            _s_rad = math.radians(_s_angle)
+                            _sx1 = _holo_x + _slash_offset_x
+                            _sy1 = _holo_y - 5 + _si * 5
+                            _sx2 = _sx1 + math.cos(_s_rad) * _slash_len * _kick_dir
+                            _sy2 = _sy1 + math.sin(_s_rad) * _slash_len * 0.3
+                            _s_w = max(1, int(2.5 * (1.0 - _burst_t * 0.7)))
+                            _s_color = (
+                                min(255, 140 + int(80 * _burst_t)),
+                                int(40 * (1.0 - _burst_t)),
+                                min(255, 220 + int(35 * _burst_t)),
+                                _slash_alpha,
+                            )
+                            # gfxdraw 대신 두꺼운 라인 + BLEND_ADD
+                            _line_surf = pygame.Surface((abs(int(_sx2 - _sx1)) + 8, abs(int(_sy2 - _sy1)) + 8), pygame.SRCALPHA)
+                            _lx_min = min(_sx1, _sx2) - 4
+                            _ly_min = min(_sy1, _sy2) - 4
+                            pygame.draw.line(_line_surf, _s_color,
+                                             (int(_sx1 - _lx_min), int(_sy1 - _ly_min)),
+                                             (int(_sx2 - _lx_min), int(_sy2 - _ly_min)), _s_w)
+                            SCREEN.blit(_line_surf, (int(_lx_min), int(_ly_min)),
+                                        special_flags=pygame.BLEND_ADD)
+                        # 중심 글로우 (밝은 코어)
+                        _glow_r = max(1, int(12 * (1.0 - _burst_t * 0.6)))
+                        _glow_surf = pygame.Surface((_glow_r * 4, _glow_r * 4), pygame.SRCALPHA)
+                        _glow_alpha = int(_burst_alpha_base * 0.5)
+                        pygame.draw.circle(_glow_surf, (200, 140, 255, _glow_alpha),
+                                           (_glow_r * 2, _glow_r * 2), _glow_r * 2)
+                        pygame.draw.circle(_glow_surf, (255, 220, 255, min(255, _glow_alpha + 40)),
+                                           (_glow_r * 2, _glow_r * 2), _glow_r)
+                        SCREEN.blit(_glow_surf,
+                                    (_holo_x + _slash_offset_x - _glow_r * 2,
+                                     _holo_y - _glow_r * 2),
+                                    special_flags=pygame.BLEND_ADD)
+
                 # 홀로그램 발차기 확장 히트박스 — 공 충돌 판정 (텔레포트 도착 킥)
                 if _holo_t > 0.3 and not _viper_ss_hologram_kick_hit:
                     _kick_expand = 60  # 발차기 방향으로 확장
