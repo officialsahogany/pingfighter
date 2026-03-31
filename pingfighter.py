@@ -6346,8 +6346,8 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
             return {
                 "name": "double_marshal_kick", "korean": "더블 마샬 킥", "cost": 50, "color": (180, 0, 255),
                 "symbol": "x2", "cooldown": 0.0, "key": "S/↓(연계)",
-                "description": "마샬 킥 후 보스 가드 시 또는 베놈 엣지 실패 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 50 소모, 공속 증가율 120%.",
-                "how_to_use": "마샬 킥 후 보스 반환 시 또는 베놈 엣지 실패 후 S/↓키",
+                "description": "베놈 엣지 실패 → 마샬 킥 후 보스 반환 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 50 소모, 공속 증가율 120%.",
+                "how_to_use": "마샬 킥 후 보스 반환 시 S/↓키",
                 "effect_type": "wall_dive_purple"
             }
 
@@ -12928,9 +12928,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "더블 마샬 킥",
         "max_level": 1,
         "descriptions": {
-            1: "마샬 킥 → 보스 가드 시 또는 베놈 엣지 실패 시 2차 마샬 킥 발동 가능",
+            1: "베놈 엣지 실패 → 마샬 킥 후 보스 반환 시 2차 마샬 킥 발동 가능 (최대 4연계)",
         },
-        "detail": "마샬 킥 후 보스 가드(반환) 시 또는 베놈 엣지가 보스에게 빗나갔을 때 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 50 소모, 공속 증가율 120%.",
+        "detail": "에어블레이드 → 베놈 엣지(실패) → 마샬 킥 → 보스 반환 시 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 50 소모, 공속 증가율 120%.",
         "icon_color": (180, 0, 255),
         "tree": "viper",
         "character_restriction": "viper"
@@ -71670,68 +71670,21 @@ def handle_player(keys):
                 _jp_alive.append(_jp)
         _viper_jetpack_particles = _jp_alive[-80:] if len(_jp_alive) > 80 else _jp_alive
 
-    # === 바이퍼 에어 블레이드 → 마샬 킥 연계 (체공 중 S/↓키) ===
+    # === 바이퍼 에어 블레이드 → 마샬 킥 직접 연계 제거 ===
+    # 에어블레이드 → 베놈 엣지(실패) → 마샬 킥 순서로만 연계 가능
+    # 에어블레이드 중 S/↓키는 다이브 스트라이크로 연계됨
     _viper_air_marshal_triggered = False
-    if (selected_character_type == "viper" and not is_odins_eye_transformed()
-            and _viper_br_spin_active and _viper_br_spin_phase == 2
-            and not _viper_wall_dive_active and not _viper_dive_active
-            and not _viper_nerve_strike_active and not rolling_active
-            and not is_waiting_for_serve and not is_player_serve and not player_stunned):
-        _mk_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
-        _mk_dir_held = (
-            keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
-            or keys[pygame.K_a] or keys[pygame.K_d]
-            or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
-        )
-        if (_mk_s_input and not _mk_dir_held
-                and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST
-                and is_viper_skill_unlocked("marshal_kick")):
-            special_gauge -= _VIPER_WALL_DIVE_GAUGE_COST
-            _viper_air_marshal_triggered = True
-            _viper_is_double_marshal = False  # 에어 블레이드 연계는 1차 마샬 킥
-            _viper_marshal_kick_hit_ball = False
-            # 에어 블레이드 스핀 즉시 종료
-            _viper_br_spin_active = False
-            _viper_br_spin_angle = 0.0
-            _viper_br_jump_offset_y = 0.0
-            _viper_br_arm_raise = 0.0
-            # 마샬 킥 발동
-            _viper_wall_dive_active = True
-            _viper_wall_dive_phase = 0
-            _viper_wall_dive_start_ms = pygame.time.get_ticks()
-            _viper_wall_dive_start_x = float(PLAYER.centerx)
-            _viper_wall_dive_start_y = float(PLAYER.centery)
-            _viper_wall_dive_ball_hit = False
-            _viper_wall_dive_particles = []
-            _viper_wall_dive_web_lines = []
-            # 공 위치 기준 가까운 벽 결정
-            _mk_ball_cx = BALL.centerx
-            if _mk_ball_cx >= WIDTH // 2:
-                _viper_wall_dive_wall_x = float(WIDTH - 15)
-            else:
-                _viper_wall_dive_wall_x = 15.0
-            _viper_wall_dive_wall_y = float(PLAYER.centery) - 200.0
-            _viper_wall_dive_wall_y = max(300.0, min(650.0, _viper_wall_dive_wall_y))
-            # 제트팩 즉시 비활성
-            _viper_jetpack_active = False
-            _viper_jetpack_gauge_timer = 0
-            # 사운드
-            try:
-                _mk_snd = sound_effects.get('VIPER_BACKSTEP')
-                if _mk_snd:
-                    _mk_snd.set_volume(0.5)
-                    _mk_snd.play()
-            except Exception:
-                pass
 
     # === 바이퍼 급강하 어택 (다이브 스트라이크) ===
+    # 에어블레이드 스핀 중(phase 2)에도 S/↓키로 다이브 스트라이크 연계 가능
     if selected_character_type == "viper" and not is_odins_eye_transformed():
-        # 급강하 발동: 체공 중 S키/↓키 단독 (방향키 미입력, 대시 아님, 에어블레이드 스핀 중 아님)
-        if (not _viper_dive_active and _viper_jetpack_offset_y < -20
+        # 급강하 발동: 체공 중 또는 에어블레이드 스핀 중 S키/↓키 단독
+        _dive_from_airblade = (_viper_br_spin_active and _viper_br_spin_phase == 2)
+        if (not _viper_dive_active and (_viper_jetpack_offset_y < -20 or _dive_from_airblade)
                 and not rolling_active and not _viper_nerve_strike_active
-                and not _viper_br_spin_active and not is_waiting_for_serve
+                and not is_waiting_for_serve
                 and not is_player_serve and not player_stunned
-                and not _viper_wall_dive_active and not _viper_air_marshal_triggered):
+                and not _viper_wall_dive_active):
             _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
             _dive_dir_held = (
                 keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
@@ -72300,10 +72253,10 @@ def handle_player(keys):
                 _viper_nerve_strike_active = False
                 _viper_ns_hit_confirmed = False
                 _viper_ns_freeze_active = False
-                # 더블 마샬 킥: 베놈 엣지 실패(보스 미적중) 시 2차 마샬 킥 윈도우 활성화
-                if _viper_double_marshal_kick_unlocked and not _viper_nerve_strike_slash_shown:
-                    _viper_double_marshal_ready = True
-                    _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초
+                # 베놈 엣지 실패(보스 미적중) 시 마샬 킥 연계 윈도우 활성화 (퍽 불필요)
+                if not _viper_nerve_strike_slash_shown and is_viper_skill_unlocked("marshal_kick"):
+                    _viper_wall_dive_ready = True
+                    _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초
                 # 복귀 이펙트
                 try:
                     effects_manager.spawn_shockwave(
