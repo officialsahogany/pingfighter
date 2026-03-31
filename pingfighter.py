@@ -77329,9 +77329,11 @@ def handle_player(keys):
 
         # 🐍 바이퍼 쉐도우 스텝 후 첫 패들 타격 시 shadowkick.wav 재생
         # 플래그 기반: 쉐도우 스텝 발동 시 _viper_ss_kick_ready=True → 첫 히트에 소모 (5초 타임아웃)
+        _viper_ss_kick_fired = False  # 쉐도우 킥 발동 시 게이지 충전 차단용
         if selected_character_type == "viper" and _viper_ss_kick_ready:
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
             if _sk_since < 5000:  # 5초 안전 타임아웃
+                _viper_ss_kick_fired = True  # 게이지 충전 차단
                 try:
                     _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
                     if _sk_snd:
@@ -77630,7 +77632,7 @@ def handle_player(keys):
         # ⚠️ 수정: player_collision_cooldown 체크 제거 - handle_player 충돌 블록 내부이므로 중복 체크 불필요
         # (쿨다운은 이 블록 앞에서 이미 설정되었으므로, 여기서 체크하면 게이지 충전이 안됨)
         # print(f"🔍 [게이지충전 진입체크] aipill={aipill_active}, special={special_active}, rolling={rolling_active}, stun={rolling_stun_timer}, drive={drive_blocks_charge}")  # 디버그 비활성화
-        if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and not drive_blocks_charge:
+        if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and not drive_blocks_charge and not _viper_ss_kick_fired:
             pass  # print(f"🔍 [게이지충전 블록 진입!] 게이지 충전 로직 실행")  # 디버그 비활성화
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 4는 나중에 오버라이드하므로 여기서는 제외
@@ -145541,9 +145543,11 @@ def handle_ball():
 
         # 🐍 바이퍼 쉐도우 스텝 후 첫 패들 타격 시 shadowkick.wav 재생 (handle_ball 백업 경로)
         # handle_player가 충돌을 놓친 경우(공 이동이 handle_ball에서 수행되므로) 여기서 처리
+        _viper_ss_kick_fired = False  # 쉐도우 킥 발동 시 게이지 충전 차단용
         if selected_character_type == "viper" and _viper_ss_kick_ready:
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
             if _sk_since < 5000:  # 5초 안전 타임아웃
+                _viper_ss_kick_fired = True  # 게이지 충전 차단
                 try:
                     _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
                     if _sk_snd:
@@ -145776,7 +145780,7 @@ def handle_ball():
         # 참고: handle_ball의 이 블록은 player_collision_handled=False일 때만 진입됨 (위 라인 79269)
         # → 중복 체크 불필요, handle_player가 처리했다면 이 블록에 들어오지 않음
 
-        if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_blocks_charge:
+        if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_blocks_charge and not _viper_ss_kick_fired:
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
             if ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
