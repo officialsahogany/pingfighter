@@ -47948,7 +47948,8 @@ _viper_ss_wave_hit_ball = False      # 공 히트 여부 (1회 제한)
 _viper_ss_wave_trail = []            # 잔상 궤적
 _viper_ss_ball_touched = False       # 쉐도우 백스텝으로 공을 맞췄는지 (에너지파/잔상/패들 중 하나)
 _viper_ss_ball_touched_ms = 0        # 공 타격 시각 (마샬 킥 0.5초 딜레이용)
-_VIPER_MARSHAL_KICK_DELAY_MS = 200   # 마샬 킥 발동 가능까지 딜레이 (ms)
+_VIPER_MARSHAL_KICK_1ST_DELAY_MS = 300   # 1차 마샬 킥 딜레이 (ms)
+_VIPER_MARSHAL_KICK_2ND_DELAY_MS = 500   # 더블 마샬 킥 딜레이 (ms)
 
 # === 바이퍼 쉐도우 백스텝 → 다음 타격 버프 (팬텀 스트라이크) ===
 _viper_phantom_strike_active = False  # 다음 타격 버프 활성
@@ -72153,7 +72154,7 @@ def handle_player(keys):
     # === 바이퍼 마샬 킥 연계기 (쉐도우 백스텝 → 0.5초 후 → S/↓키) ===
     # 쉐도우 백스텝 공 타격 후 0.5초 경과 시 마샬 킥 윈도우 자동 활성화
     if _viper_ss_ball_touched and not _viper_wall_dive_ready:
-        if pygame.time.get_ticks() - _viper_ss_ball_touched_ms >= _VIPER_MARSHAL_KICK_DELAY_MS:
+        if pygame.time.get_ticks() - _viper_ss_ball_touched_ms >= _VIPER_MARSHAL_KICK_1ST_DELAY_MS:
             _viper_wall_dive_ready = True
             _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_ss_ball_touched = False  # 1회 소모
@@ -72166,7 +72167,7 @@ def handle_player(keys):
 
     # 더블 마샬 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화
     if _viper_marshal_kick_hit_ball and _viper_double_marshal_kick_unlocked and not _viper_double_marshal_ready:
-        if pygame.time.get_ticks() - _viper_marshal_kick_hit_ms >= _VIPER_MARSHAL_KICK_DELAY_MS:
+        if pygame.time.get_ticks() - _viper_marshal_kick_hit_ms >= _VIPER_MARSHAL_KICK_2ND_DELAY_MS:
             _viper_double_marshal_ready = True
             _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_marshal_kick_hit_ball = False  # 1회 소모
