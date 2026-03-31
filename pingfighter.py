@@ -19057,7 +19057,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             elif char_type == "smasher":
                 actual_player_speed = 6  # 스매셔 기본 이동속도 6
             elif char_type == "viper":
-                actual_player_speed = 4  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
+                actual_player_speed = 3  # 바이퍼 기본 이동속도 3 (체공 시 보너스로 보상)
             else:
                 actual_player_speed = MAX_SPEED
             actual_paddle_width = PLAYER.width if PLAYER else 80
