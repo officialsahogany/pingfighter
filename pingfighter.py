@@ -72784,22 +72784,33 @@ def handle_player(keys):
                     except Exception:
                         pass
                 else:
-                    _viper_wall_dive_phase = 2
-                    _viper_wall_dive_start_ms = _wd_now
-                    # 돌진 목표: 실시간 공 위치 추적 (매 프레임 갱신됨)
-                    _viper_wall_dive_charge_target_x = float(BALL.centerx)
-                    _viper_wall_dive_charge_target_y = float(BALL.centery)
-                    _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
-                    _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
-                    _viper_wall_dive_web_lines = []  # 거미줄 제거
-                    # 돌진 사운드
-                    try:
-                        _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                        if _wd_charge_snd:
-                            _wd_charge_snd.set_volume(0.6)
-                            _wd_charge_snd.play()
-                    except Exception:
-                        pass
+                    # 팬텀 킥이면 돌진 전에 텍스트 프리즈 연출 (Phase 4)
+                    if _viper_is_double_marshal:
+                        _viper_wall_dive_phase = 4  # 텍스트 프리즈 Phase
+                        _viper_dmk_freeze_active = True
+                        _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
+                        _viper_dmk_show_sound_played = False
+                        _viper_dmk_text_active = True
+                        _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
+                        _viper_dmk_text_x = float(WIDTH // 2)
+                        _viper_dmk_text_y = float(HEIGHT // 2 - 30)
+                    else:
+                        _viper_wall_dive_phase = 2
+                        _viper_wall_dive_start_ms = _wd_now
+                        # 돌진 목표: 실시간 공 위치 추적 (매 프레임 갱신됨)
+                        _viper_wall_dive_charge_target_x = float(BALL.centerx)
+                        _viper_wall_dive_charge_target_y = float(BALL.centery)
+                        _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
+                        _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
+                        _viper_wall_dive_web_lines = []  # 거미줄 제거
+                        # 돌진 사운드
+                        try:
+                            _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
+                            if _wd_charge_snd:
+                                _wd_charge_snd.set_volume(0.6)
+                                _wd_charge_snd.play()
+                        except Exception:
+                            pass
 
         elif _viper_wall_dive_phase == 3:
             # Phase 3: 벽다시타기 - 반대편 벽으로 매우 빠르게 이동
@@ -72831,6 +72842,28 @@ def handle_player(keys):
                 _viper_wall_dive_web_lines = []
                 screen_shake_timer = max(screen_shake_timer, 4)
                 screen_shake_intensity = max(screen_shake_intensity, 2)
+                # 돌진 사운드
+                try:
+                    _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
+                    if _wd_charge_snd:
+                        _wd_charge_snd.set_volume(0.6)
+                        _wd_charge_snd.play()
+                except Exception:
+                    pass
+
+        elif _viper_wall_dive_phase == 4:
+            # Phase 4: 팬텀 킥 텍스트 프리즈 (벽 매달린 상태에서 정지)
+            PLAYER.centerx = int(_viper_wall_dive_wall_x)
+            PLAYER.centery = int(_viper_wall_dive_wall_y)
+            # 프리즈 끝나면 돌진 Phase 2로 전환
+            if not _viper_dmk_freeze_active:
+                _viper_wall_dive_phase = 2
+                _viper_wall_dive_start_ms = _wd_now
+                _viper_wall_dive_charge_target_x = float(BALL.centerx)
+                _viper_wall_dive_charge_target_y = float(BALL.centery)
+                _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
+                _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
+                _viper_wall_dive_web_lines = []
                 # 돌진 사운드
                 try:
                     _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
@@ -72897,15 +72930,8 @@ def handle_player(keys):
                     _viper_starburst_frame = 0
                     _viper_starburst_timer = 0
                     _viper_starburst_is_double = _viper_is_double_marshal
-                    # 팬텀 킥: 프리즈 연출 + 텍스트
+                    # 팬텀 킥: 넉백 (텍스트/프리즈는 Phase 4에서 이미 처리됨)
                     if _viper_is_double_marshal:
-                        _viper_dmk_freeze_active = True
-                        _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
-                        _viper_dmk_show_sound_played = False  # 텍스트 사운드 플래그 초기화
-                        _viper_dmk_text_active = True
-                        _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
-                        _viper_dmk_text_x = float(WIDTH // 2)
-                        _viper_dmk_text_y = float(HEIGHT // 2 - 30)
                         # 보스 넉백 200px (화재 넉백 방식)
                         _dmk_kb_dir = 1 if BALL.centerx > BOSS.centerx else -1
                         boss_fire_knockback_vel = _dmk_kb_dir * 18.0  # 높은 초기 속도 → 감속하며 ~200px 이동
