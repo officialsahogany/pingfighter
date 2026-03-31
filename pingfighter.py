@@ -48416,11 +48416,11 @@ _viper_dmk_text_active = False
 _viper_dmk_text_timer = 0
 _viper_dmk_text_x = 0.0
 _viper_dmk_text_y = 0.0
-_VIPER_DMK_TEXT_DURATION = 40        # 텍스트 표시 시간 (프레임)
+_VIPER_DMK_TEXT_DURATION = 80        # 텍스트 표시 시간 (프레임) — 2배 확장
 _viper_dmk_show_sound_played = False # 팬텀 킥 텍스트 사운드 1회 재생 플래그
 _viper_dmk_freeze_active = False     # 팬텀 킥 프리즈 중 (공/보스 정지)
 _viper_dmk_freeze_timer = 0          # 프리즈 남은 프레임
-_VIPER_DMK_FREEZE_DURATION = 30      # 프리즈 시간 (0.5초)
+_VIPER_DMK_FREEZE_DURATION = 60      # 프리즈 시간 (1초) — 2배 확장
 
 # 바이퍼 스킬 공속 부스트 복귀 시스템
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
@@ -48444,7 +48444,7 @@ _VIPER_NS_HIT_RADIUS = 120              # 도착 시 보스 히트 판정 반경
 _VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
 _viper_ns_hit_confirmed = False          # 적중 여부 (적중 시 연출 강화)
 _viper_ns_freeze_active = False          # 적중 시 화면 프리즈 (공/보스 정지)
-_VIPER_NS_SLASH_DURATION_HIT = 1500      # 적중 시 베기 연출 시간 (ms) — 프리즈 포함
+_VIPER_NS_SLASH_DURATION_HIT = 3000      # 적중 시 베기 연출 시간 (ms) — 텍스트 정지 + 할퀴기
 _VIPER_NS_RETURN_DURATION_HIT = 450      # 적중 시 복귀 시간 (ms) — 천천히 내려옴
 
 # === 바이퍼 제트팩 시스템 ===
@@ -107525,30 +107525,10 @@ def draw_objects():
                         _dim_s.fill((0, 0, 0, _dim_alpha))
                         SCREEN.blit(_dim_s, (0, 0))
 
-                    # 할퀴기 자국 (3개의 대각선 — 보스 위치에 그리기)
-                    _scratch_t = min(1.0, _ns_st * 4.0)  # 빠르게 나타남
-                    if _scratch_t > 0.05:
-                        _scratch_len = int(100 * _scratch_t)
-                        _scratch_alpha = int(255 * min(1.0, _scratch_t * 2.0) * max(0.0, 1.0 - (_ns_st - 0.6) * 2.5))
-                        if _scratch_alpha > 5:
-                            _scratch_s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                            for _sci in range(3):
-                                _sc_offset = (_sci - 1) * 18
-                                _sc_x1 = _scx - 40 + _sc_offset
-                                _sc_y1 = _scy - _scratch_len // 2
-                                _sc_x2 = _scx + 40 + _sc_offset
-                                _sc_y2 = _scy + _scratch_len // 2
-                                # 메인 할퀴기 선 (보라색)
-                                pygame.draw.line(_scratch_s, (200, 50, 255, _scratch_alpha),
-                                                (_sc_x1, _sc_y1), (_sc_x2, _sc_y2), 3)
-                                # 글로우 선 (밝은 보라)
-                                pygame.draw.line(_scratch_s, (255, 150, 255, _scratch_alpha // 2),
-                                                (_sc_x1 - 1, _sc_y1), (_sc_x2 - 1, _sc_y2), 5)
-                            SCREEN.blit(_scratch_s, (0, 0), special_flags=pygame.BLEND_ADD)
-
-                    # "베놈 엣지!" 텍스트 (화면 중앙에 크게)
-                    _text_appear = min(1.0, _ns_st * 3.5)  # 빠르게 나타남
-                    _text_fade = max(0.0, 1.0 - max(0.0, _ns_st - 0.7) * 3.3)  # 후반에 페이드아웃
+                    # "베놈 엣지!" 텍스트 (전반부: 0~0.5) → 할퀴기 (후반부: 0.5~1.0)
+                    # 텍스트: 전반부에 나타나서 유지
+                    _text_appear = min(1.0, _ns_st * 5.0)  # 빠르게 나타남
+                    _text_fade = max(0.0, 1.0 - max(0.0, _ns_st - 0.45) * 5.0)  # 0.45 이후 페이드아웃
                     _text_alpha = int(255 * min(_text_appear, _text_fade))
                     if _text_alpha > 10:
                         # 텍스트 첫 출현 시 쇼 사운드 1회 재생
@@ -107586,6 +107566,27 @@ def draw_objects():
                             SCREEN.blit(_ve_main, (_ve_x + _ve_shake_x, _ve_y + _ve_shake_y))
                         except Exception:
                             pass
+
+                    # 할퀴기 자국 (후반부: _ns_st >= 0.5 이후 등장)
+                    if _ns_st >= 0.45:
+                        _scratch_local_t = (_ns_st - 0.45) / 0.55  # 0→1 (후반부 내에서)
+                        _scratch_t = min(1.0, _scratch_local_t * 3.0)  # 빠르게 나타남
+                        if _scratch_t > 0.05:
+                            _scratch_len = int(100 * _scratch_t)
+                            _scratch_alpha = int(255 * min(1.0, _scratch_t * 2.0) * max(0.0, 1.0 - (_scratch_local_t - 0.5) * 2.0))
+                            if _scratch_alpha > 5:
+                                _scratch_s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                                for _sci in range(3):
+                                    _sc_offset = (_sci - 1) * 18
+                                    _sc_x1 = _scx - 40 + _sc_offset
+                                    _sc_y1 = _scy - _scratch_len // 2
+                                    _sc_x2 = _scx + 40 + _sc_offset
+                                    _sc_y2 = _scy + _scratch_len // 2
+                                    pygame.draw.line(_scratch_s, (200, 50, 255, _scratch_alpha),
+                                                    (_sc_x1, _sc_y1), (_sc_x2, _sc_y2), 3)
+                                    pygame.draw.line(_scratch_s, (255, 150, 255, _scratch_alpha // 2),
+                                                    (_sc_x1 - 1, _sc_y1), (_sc_x2 - 1, _sc_y2), 5)
+                                SCREEN.blit(_scratch_s, (0, 0), special_flags=pygame.BLEND_ADD)
 
                 # 원래 베기 이펙트 (프리즈 여부와 무관하게 표시)
                 if _ns_st < 0.27:
