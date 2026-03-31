@@ -77,6 +77,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     ],
     "poseidon_trident": [
         {"key": "cooldown", "label": "쿨타임", "min": 2, "max": 10, "unit": "초", "default": 6, "step": 1, "reverse": True},
+        {"key": "gauge_cost", "label": "게이지 소모", "min": 20, "max": 40, "unit": "", "prefix": "-", "default": 30, "reverse": True},
     ],
     "hermes_shoes": [
         {"key": "speed_bonus", "label": "이동속도", "min": 30, "max": 60, "unit": "%", "default": 50},
@@ -922,6 +923,11 @@ class PoseidonTrident(LegendaryItem):
     def effect_cooldown_max(self) -> float:
         """쿨타임 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
         return get_legendary_roll_value("poseidon_trident", "cooldown", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
+
+    @property
+    def gauge_cost(self) -> float:
+        """게이지 소모량 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value("poseidon_trident", "gauge_cost", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
 
     def activate(self, game_state: Dict):
         """삼지창 활성화"""

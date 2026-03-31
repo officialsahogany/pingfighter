@@ -73736,10 +73736,14 @@ def handle_player(keys):
                     if poseidon_dash_pending and legendary_manager:
                         trident = legendary_manager.get_item("poseidon_trident")
                         if trident and trident.active:
-                            # 대쉬가 완료되고 후딜 상태에 진입할 때 현재 플레이어 위치 양쪽에 회오리 생성
-                            # trigger_dash_wave가 True를 반환하면 효과 발동 성공, False면 쿨타임 중
-                            if trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, _rolling_get("rolling_direction")):
-                                play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
+                            # 게이지 소모량 체크 (롤 옵션 적용)
+                            _poseidon_gauge_cost = int(trident.gauge_cost)
+                            if special_gauge >= _poseidon_gauge_cost:
+                                # 대쉬가 완료되고 후딜 상태에 진입할 때 현재 플레이어 위치 양쪽에 회오리 생성
+                                # trigger_dash_wave가 True를 반환하면 효과 발동 성공, False면 쿨타임 중
+                                if trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, _rolling_get("rolling_direction")):
+                                    special_gauge -= _poseidon_gauge_cost  # 게이지 소모
+                                    play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
                             poseidon_dash_pending = False  # 플래그 리셋
 
                 # 🧊 얼음 이벤트: 대쉬 종료 시 미끄러짐 시작 (끝까지 미끄러짐)
@@ -142094,9 +142098,12 @@ def handle_ball():
                         if legendary_manager:
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.active:
-                                # trigger_dash_wave가 True를 반환하면 효과 발동 성공, False면 쿨타임 중
-                                if trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction):
-                                    play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
+                                _poseidon_gauge_cost = int(trident.gauge_cost)
+                                if special_gauge >= _poseidon_gauge_cost:
+                                    # trigger_dash_wave가 True를 반환하면 효과 발동 성공, False면 쿨타임 중
+                                    if trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction):
+                                        special_gauge -= _poseidon_gauge_cost  # 게이지 소모
+                                        play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
 
