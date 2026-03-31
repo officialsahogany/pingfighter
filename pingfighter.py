@@ -48086,8 +48086,120 @@ _viper_phantom_strike_curve_dir = 0   # 커브 방향 (-1:왼, 1:오른, 텔레�
 _viper_ps_curve_active = False        # 커브 비행 중
 _viper_ps_curve_timer = 0             # 커브 남은 프레임
 _viper_ps_curve_direction = 0         # 커브 방향 (-1:왼, 1:오른)
-_VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 (약 0.8초)
-_VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우 강한 커브)
+_viper_ps_curve_total_frames = 50     # 현재 커브의 총 프레임 (그라데이션 반영)
+_viper_ps_curve_force = 2.0           # 현재 커브의 강도 (그라데이션 반영)
+_VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 기본값 (약 0.8초)
+_VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 기본값
+
+# 쉐도우 백스텝 그라데이션 타격 상수
+_VIPER_SS_HIT_SPEED_MIN = 1.2         # 가장자리 공속 배율 (20% 증가)
+_VIPER_SS_HIT_SPEED_MAX = 2.3         # 중심 공속 배율 (130% 증가)
+_VIPER_SS_HIT_CURVE_MIN = 10          # 가장자리 커브 프레임 (약 0.17초)
+_VIPER_SS_HIT_CURVE_MAX = 50          # 중심 커브 프레임 (약 0.83초)
+_VIPER_SS_HIT_FORCE_MIN = 0.4         # 가장자리 커브 강도
+_VIPER_SS_HIT_FORCE_MAX = 2.0         # 중심 커브 강도
+_viper_ss_hit_consumed = False        # 쉐도우 백스텝 타격 중복 방지 플래그
+
+def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: float,
+                              curve_dir: int, source: str = "hologram"):
+    """쉐도우 백스텝 공 타격 공통 처리 (그라데이션: 중심=강, 가장자리=약)
+
+    Args:
+        hit_cx, hit_cy: 히트박스 중심 좌표
+        hit_w, hit_h: 히트박스 너비/높이
+        curve_dir: 커브 방향 (-1:왼, 1:오른)
+        source: 타격 출처 (로그용)
+    """
+    global ball_vel, _viper_ss_ball_touched, _viper_ss_ball_touched_ms
+    global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
+    global _viper_speed_boost_active, _viper_speed_boost_original
+    global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y
+    global _viper_starburst_frame, _viper_starburst_timer
+    global _viper_ss_kick_ready, _viper_phantom_strike_active, _viper_phantom_strike_timer
+    global _viper_ss_hit_consumed, _viper_ss_hologram_kick_hit, _viper_ss_wave_hit_ball
+
+    # 중복 방지
+    if _viper_ss_hit_consumed:
+        return
+
+    # 공까지의 거리 비율 계산 (0=중심, 1=가장자리)
+    dx = abs(BALL.centerx - hit_cx) / max(hit_w / 2, 1)
+    dy = abs(BALL.centery - hit_cy) / max(hit_h / 2, 1)
+    dist_ratio = min(1.0, math.hypot(dx, dy))  # 0~1 (중심~가장자리)
+
+    # 그라데이션 보간 (중심=MAX, 가장자리=MIN)
+    t = 1.0 - dist_ratio  # 0=가장자리, 1=중심
+    speed_mult = _VIPER_SS_HIT_SPEED_MIN + t * (_VIPER_SS_HIT_SPEED_MAX - _VIPER_SS_HIT_SPEED_MIN)
+    curve_frames = int(_VIPER_SS_HIT_CURVE_MIN + t * (_VIPER_SS_HIT_CURVE_MAX - _VIPER_SS_HIT_CURVE_MIN))
+    curve_force = _VIPER_SS_HIT_FORCE_MIN + t * (_VIPER_SS_HIT_FORCE_MAX - _VIPER_SS_HIT_FORCE_MIN)
+
+    # 중복 방지 플래그 세팅
+    _viper_ss_hit_consumed = True
+    _viper_ss_kick_ready = False
+    _viper_ss_hologram_kick_hit = True
+    _viper_ss_wave_hit_ball = True
+    _viper_phantom_strike_active = False
+    _viper_phantom_strike_timer = 0
+
+    # 마샬 킥 연계 조건 충족
+    _viper_ss_ball_touched = True
+    _viper_ss_ball_touched_ms = pygame.time.get_ticks()
+
+    # 공속 증가
+    cur_speed = math.hypot(ball_vel[0], ball_vel[1])
+    new_speed = max(cur_speed * speed_mult, 10.0)
+    _viper_speed_boost_active = True
+    _viper_speed_boost_original = cur_speed
+    init_angle = curve_dir * 10
+    rad = math.radians(-90 + init_angle)
+    ball_vel[0] = math.cos(rad) * new_speed
+    ball_vel[1] = math.sin(rad) * new_speed
+
+    # 커브 적용 (그라데이션 반영)
+    global _viper_ps_curve_total_frames, _viper_ps_curve_force
+    _viper_ps_curve_active = True
+    _viper_ps_curve_timer = curve_frames
+    _viper_ps_curve_total_frames = curve_frames
+    _viper_ps_curve_force = curve_force
+    _viper_ps_curve_direction = curve_dir
+
+    # 사운드
+    try:
+        _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
+        if _sk_snd:
+            _sk_snd.set_volume(0.6)
+            _sk_snd.play()
+    except Exception:
+        pass
+
+    # 골드 보너스
+    try:
+        add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
+    except Exception:
+        pass
+
+    # 스타버스트 이펙트
+    _viper_starburst_active = True
+    _viper_starburst_x = float(BALL.centerx)
+    _viper_starburst_y = float(BALL.centery)
+    _viper_starburst_frame = 0
+    _viper_starburst_timer = 0
+
+    # 충격파 이펙트 (타격 강도에 비례)
+    impact_force = int(6 + t * 6)  # 가장자리=6, 중심=12
+    impact_count = int(10 + t * 12)  # 가장자리=10, 중심=22
+    try:
+        effects_manager.spawn_shockwave(
+            BALL.centerx, BALL.centery,
+            force=impact_force, color=(160, 0, 255),
+        )
+        effects_manager.spawn_dark_red_impact(
+            BALL.centerx, BALL.centery,
+            count=impact_count, intensity=0.6 + t * 0.6,
+        )
+    except Exception:
+        pass
+
 
 # === 바이퍼 마샬 킥 (쉐도우 백스텝 연계기: 벽 점프 → 공 돌진) ===
 _viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 백스텝 후 보스가 공 반환 시)
@@ -72221,6 +72333,7 @@ def handle_player(keys):
                         _viper_ss_hologram_target_x = _ss_new_x
                         _viper_ss_hologram_kick_dir = _ss_reverse_dir  # 발차기 방향
                         _viper_ss_hologram_kick_hit = False  # 킥 히트 초기화
+                        _viper_ss_hit_consumed = False  # 그라데이션 타격 중복 방지 초기화
                         _viper_ss_was_airborne = (_viper_jetpack_offset_y < -10)  # 체공 중 발동 여부 기록
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
                         _viper_ss_ball_touched = False  # 공 히트 추적 초기화 (카운터 연계 조건)
@@ -72733,15 +72846,16 @@ def handle_player(keys):
         if _viper_phantom_strike_timer <= 0:
             _viper_phantom_strike_active = False
 
-    # 바이퍼 팬텀 스트라이크 커브 (매 프레임 공에 횡방향 힘 적용)
+    # 바이퍼 팬텀 스트라이크 커브 (매 프레임 공에 횡방향 힘 적용, 그라데이션 강도 반영)
     if _viper_ps_curve_active:
         _viper_ps_curve_timer -= 1
         if _viper_ps_curve_timer <= 0:
             _viper_ps_curve_active = False
         else:
             # 사인파 기반 커브 — 점점 강해졌다 약해지는 S자 궤적
-            _curve_progress = 1.0 - (_viper_ps_curve_timer / _VIPER_PS_CURVE_FRAMES)
-            _curve_strength = math.sin(_curve_progress * math.pi) * _VIPER_PS_CURVE_FORCE
+            _curve_total = _viper_ps_curve_total_frames if _viper_ps_curve_total_frames > 0 else _VIPER_PS_CURVE_FRAMES
+            _curve_progress = 1.0 - (_viper_ps_curve_timer / _curve_total)
+            _curve_strength = math.sin(_curve_progress * math.pi) * _viper_ps_curve_force
             ball_vel[0] += _viper_ps_curve_direction * _curve_strength
 
     # === 바이퍼 제트팩 시스템 업데이트 ===
@@ -73156,8 +73270,8 @@ def handle_player(keys):
             if _viper_ss_wave_x <= _viper_ss_wave_target_x:
                 _viper_ss_wave_active = False
                 _viper_ss_wave_trail.clear()
-        # 에너지파 — 공 충돌 시 시각 이펙트만 (공 반사/물리 없음, 텔레포트 킥에 위임)
-        if _viper_ss_wave_active and not _viper_ss_wave_hit_ball:
+        # 에너지파 — 공 충돌 시 그라데이션 타격 적용 (공통 함수 사용)
+        if _viper_ss_wave_active and not _viper_ss_wave_hit_ball and not _viper_ss_hit_consumed:
             try:
                 _sw_hit_rect = pygame.Rect(
                     int(_viper_ss_wave_x - 55), int(_viper_ss_wave_y - 45),
@@ -73165,14 +73279,10 @@ def handle_player(keys):
                 )
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
-                    # 시각 이펙트만 (공 물리에 영향 없음)
-                    try:
-                        effects_manager.spawn_shockwave(
-                            BALL.centerx, BALL.centery,
-                            force=8, color=(160, 0, 255),
-                        )
-                    except Exception:
-                        pass
+                    _viper_ss_apply_ball_hit(
+                        _viper_ss_wave_x, _viper_ss_wave_y, 110, 90,
+                        _viper_ss_hologram_kick_dir, source="wave"
+                    )
             except Exception:
                 pass
 
@@ -78347,34 +78457,18 @@ def handle_player(keys):
         _player_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [플레이어 패들 충돌] calculate_bounce 후 속도: {_player_speed_before:.2f} → {_player_speed_after:.2f}, 쿨다운: player={player_collision_cooldown}, boss={boss_collision_cooldown}")  # 디버그 비활성화
 
-        # 🐍 바이퍼 쉐도우 백스텝 후 첫 패들 타격 시 shadowkick.wav 재생
-        # 플래그 기반: 쉐도우 백스텝 발동 시 _viper_ss_kick_ready=True → 첫 히트에 소모 (5초 타임아웃)
-        _viper_ss_kick_fired = False  # 쉐도우 킥 발동 시 게이지 충전 차단용
-        if selected_character_type == "viper" and _viper_ss_kick_ready:
+        # 🐍 바이퍼 쉐도우 백스텝 후 첫 패들 타격 시 그라데이션 타격 적용 (공통 함수)
+        _viper_ss_kick_fired = False
+        if selected_character_type == "viper" and _viper_ss_kick_ready and not _viper_ss_hit_consumed:
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
             if _sk_since < 5000:  # 5초 안전 타임아웃
-                _viper_ss_kick_fired = True  # 게이지 충전 차단
-                _viper_ss_ball_touched = True  # 마샬 킥 연계 조건 충족
-                _viper_ss_ball_touched_ms = pygame.time.get_ticks()
-                try:
-                    _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                    if _sk_snd:
-                        _sk_snd.set_volume(0.6)
-                        _sk_snd.play()
-                except Exception:
-                    pass
-                # 스타버스트 타격 이펙트 트리거
-                _viper_starburst_active = True
-                _viper_starburst_x = float(BALL.centerx)
-                _viper_starburst_y = float(BALL.centery)
-                _viper_starburst_frame = 0
-                _viper_starburst_timer = 0
-                # 🪙 쉐도우 킥 타격 골드 보너스
-                try:
-                    add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
-                except Exception:
-                    pass
-            _viper_ss_kick_ready = False  # 1회 소모 (타임아웃 초과 시에도 리셋)
+                _viper_ss_kick_fired = True
+                _viper_ss_apply_ball_hit(
+                    float(PLAYER.centerx), float(PLAYER.centery),
+                    float(PLAYER.width + 40), float(PLAYER.height + 40),
+                    _viper_ss_hologram_kick_dir, source="paddle"
+                )
+            _viper_ss_kick_ready = False
 
         # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가 + AIR STRIKE 이펙트)
         if selected_character_type == "viper" and _viper_jetpack_offset_y < -10:
@@ -107458,9 +107552,9 @@ def draw_objects():
                 # 본체 홀로그램 (잔상 위에 그림)
                 SCREEN.blit(_holo_surf, (int(_draw_x), int(_draw_y)))
 
-                # 홀로그램 발차기 확장 히트박스 — 공 충돌 판정 (텔레포트 도착 킥)
-                if _holo_t > 0.3 and not _viper_ss_hologram_kick_hit:
-                    _kick_expand = 60  # 발차기 방향으로 확장
+                # 홀로그램 발차기 확장 히트박스 — 공 충돌 판정 (공통 그라데이션 타격)
+                if _holo_t > 0.3 and not _viper_ss_hologram_kick_hit and not _viper_ss_hit_consumed:
+                    _kick_expand = 60
                     _kick_rect = pygame.Rect(
                         _holo_x - _holo_w // 2 - 30,
                         _holo_y - _holo_h // 2 - 25,
@@ -107468,57 +107562,11 @@ def draw_objects():
                         _holo_h + 50
                     )
                     if _kick_rect.colliderect(BALL):
-                        _viper_ss_hologram_kick_hit = True  # 1회 제한
-                        _viper_ss_ball_touched = True
-                        _viper_ss_ball_touched_ms = pygame.time.get_ticks()
-                        _viper_ss_kick_ready = False  # 패들 경로 중복 방지
-                        # shadowkick.wav 재생
-                        try:
-                            _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                            if _sk_snd:
-                                _sk_snd.set_volume(0.6)
-                                _sk_snd.play()
-                        except Exception:
-                            pass
-                        # 공속 증가 + 커브 (팬텀 스트라이크와 동일)
-                        _kick_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-                        _kick_new_speed = max(_kick_cur_speed * 2.3, 10.0)  # 130% 증가
-                        _viper_speed_boost_active = True
-                        _viper_speed_boost_original = _kick_cur_speed
-                        _kick_curve = _viper_ss_hologram_kick_dir
-                        _kick_init_angle = _kick_curve * 10
-                        _kick_rad = math.radians(-90 + _kick_init_angle)
-                        ball_vel[0] = math.cos(_kick_rad) * _kick_new_speed
-                        ball_vel[1] = math.sin(_kick_rad) * _kick_new_speed
-                        _viper_ps_curve_active = True
-                        _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-                        _viper_ps_curve_direction = _kick_curve
-                        # 팬텀 스트라이크 소모 (패들 경로에서 중복 발동 방지)
-                        _viper_phantom_strike_active = False
-                        _viper_phantom_strike_timer = 0
-                        # 골드 보너스
-                        try:
-                            add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
-                        except Exception:
-                            pass
-                        # 스타버스트 타격 이펙트 트리거
-                        _viper_starburst_active = True
-                        _viper_starburst_x = float(BALL.centerx)
-                        _viper_starburst_y = float(BALL.centery)
-                        _viper_starburst_frame = 0
-                        _viper_starburst_timer = 0
-                        # 킥 히트 이펙트
-                        try:
-                            effects_manager.spawn_shockwave(
-                                BALL.centerx, BALL.centery,
-                                force=12, color=(160, 0, 255),
-                            )
-                            effects_manager.spawn_dark_red_impact(
-                                BALL.centerx, BALL.centery,
-                                count=22, intensity=1.2,
-                            )
-                        except Exception:
-                            pass
+                        _viper_ss_apply_ball_hit(
+                            _kick_rect.centerx, _kick_rect.centery,
+                            _kick_rect.width, _kick_rect.height,
+                            _viper_ss_hologram_kick_dir, source="hologram"
+                        )
 
                 # 도착 이펙트 (완료 시)
                 if _holo_t > 0.95:
@@ -140990,46 +141038,13 @@ def calculate_bounce(paddle):
                 del smoke_zone["affecting_ball"]
                 break
 
-        # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 백스텝 직후 0.3초 내 타격 시 공속 80% 증가 + 신비한 커브
-        if _viper_phantom_strike_active and selected_character_type == "viper":
-            _viper_ss_ball_touched = True  # 카운터 연계 조건 충족 (패들로 직접 타격)
-            _viper_ss_ball_touched_ms = pygame.time.get_ticks()
-            _viper_phantom_strike_active = False  # 1회 소모
-            _viper_phantom_strike_timer = 0
-            _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-            _ps_new_speed = max(_ps_cur_speed * 2.3, 10.0)  # 130% 증가 (2.3배)
-            # 원래 속도 저장 (보스 반격 시 복귀용)
-            _viper_speed_boost_active = True
-            _viper_speed_boost_original = _ps_cur_speed
-
-            # 초기 발사: 거의 수직 위로 (약간만 틀어줌)
-            _ps_curve = _viper_phantom_strike_curve_dir
-            _ps_init_angle = _ps_curve * 10  # 초기 10도만 틀기 (커브가 점점 휘게)
-            _ps_rad = math.radians(-90 + _ps_init_angle)
-            ball_vel[0] = math.cos(_ps_rad) * _ps_new_speed
-            ball_vel[1] = math.sin(_ps_rad) * _ps_new_speed
-
-            # 비행 중 커브 활성화 (매 프레임 횡방향 가속)
-            _viper_ps_curve_active = True
-            _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-            _viper_ps_curve_direction = _ps_curve
-
-            # 히트 이펙트
-            try:
-                effects_manager.spawn_shockwave(
-                    BALL.centerx, BALL.centery,
-                    force=12, color=(160, 0, 255),
-                )
-            except Exception:
-                pass
-            # 검붉은 타격 이펙트 (팬텀 스트라이크)
-            try:
-                effects_manager.spawn_dark_red_impact(
-                    BALL.centerx, BALL.centery,
-                    count=22, intensity=1.2,
-                )
-            except Exception:
-                pass
+        # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 백스텝 직후 0.3초 내 타격 시 그라데이션 타격 적용
+        if _viper_phantom_strike_active and selected_character_type == "viper" and not _viper_ss_hit_consumed:
+            _viper_ss_apply_ball_hit(
+                float(PLAYER.centerx), float(PLAYER.centery),
+                float(PLAYER.width + 40), float(PLAYER.height + 40),
+                _viper_phantom_strike_curve_dir, source="phantom_strike"
+            )
 
         #  라그나로크 해머가 활성화되어 있으면 50% 확률로 스턴공 발동
         try:
@@ -147144,34 +147159,18 @@ def handle_ball():
                     last_tears_cast_time = time_now
         calculate_bounce(PLAYER)  # handle_ball에서는 반환값 사용 안함 (게이지 처리가 handle_player에서 이미 됨)
 
-        # 🐍 바이퍼 쉐도우 백스텝 후 첫 패들 타격 시 shadowkick.wav 재생 (handle_ball 백업 경로)
-        # handle_player가 충돌을 놓친 경우(공 이동이 handle_ball에서 수행되므로) 여기서 처리
-        _viper_ss_kick_fired = False  # 쉐도우 킥 발동 시 게이지 충전 차단용
-        if selected_character_type == "viper" and _viper_ss_kick_ready:
+        # 🐍 바이퍼 쉐도우 백스텝 후 첫 패들 타격 시 그라데이션 타격 (handle_ball 백업 경로)
+        _viper_ss_kick_fired = False
+        if selected_character_type == "viper" and _viper_ss_kick_ready and not _viper_ss_hit_consumed:
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
-            if _sk_since < 5000:  # 5초 안전 타임아웃
-                _viper_ss_kick_fired = True  # 게이지 충전 차단
-                _viper_ss_ball_touched = True  # 마샬 킥 연계 조건 충족
-                _viper_ss_ball_touched_ms = pygame.time.get_ticks()
-                try:
-                    _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                    if _sk_snd:
-                        _sk_snd.set_volume(0.6)
-                        _sk_snd.play()
-                except Exception:
-                    pass
-                # 스타버스트 타격 이펙트 트리거
-                _viper_starburst_active = True
-                _viper_starburst_x = float(BALL.centerx)
-                _viper_starburst_y = float(BALL.centery)
-                _viper_starburst_frame = 0
-                _viper_starburst_timer = 0
-                # 🪙 쉐도우 킥 타격 골드 보너스
-                try:
-                    add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
-                except Exception:
-                    pass
-            _viper_ss_kick_ready = False  # 1회 소모 (타임아웃 초과 시에도 리셋)
+            if _sk_since < 5000:
+                _viper_ss_kick_fired = True
+                _viper_ss_apply_ball_hit(
+                    float(PLAYER.centerx), float(PLAYER.centery),
+                    float(PLAYER.width + 40), float(PLAYER.height + 40),
+                    _viper_ss_hologram_kick_dir, source="paddle_backup"
+                )
+            _viper_ss_kick_ready = False
 
         # 테크니컬조끼 효과 발동 (handle_ball에서 처리 - 실제 충돌이 여기서 처리됨)
         on_ball_paddle_collision_technical_vest(PLAYER)
