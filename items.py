@@ -2488,7 +2488,7 @@ def _spawn_bonus_item(available_items, skill_spawn_boost=1.0):
             pass
 
 
-def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None, paused=False, on_item_collect_callback=None):
+def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None, paused=False, on_item_collect_callback=None, boss_rect=None):
     global item_list, angel_blessing_obtained, ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, sacred_laurel_obtained, transcendent_crown_obtained, odins_eye_obtained, pandora_legacy_obtained
     new_items = []
 
@@ -2515,10 +2515,10 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                 item["vel"][1] *= -1
                 item["bounce_count"] = item.get("bounce_count", 0) + 1
 
-            # ═══ 다이너마이트 물리 반응: 플레이어 근접 시 밀림/흔들림 ═══
+            # ═══ 다이너마이트 물리 반응: 보스 패들 근접 시 밀림/흔들림 ═══
             item_type_check = item.get("type")
             _dyn_name = item_type_check.get("name", "") if isinstance(item_type_check, dict) else ""
-            if _dyn_name == "dynamite":
+            if _dyn_name == "dynamite" and boss_rect is not None:
                 # 물리 상태 초기화 (최초 1회)
                 if "nudge_vx" not in item:
                     item["nudge_vx"] = 0.0
@@ -2526,9 +2526,9 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                     item["wobble_angle"] = 0.0
                     item["wobble_vel"] = 0.0
 
-                # 플레이어 근접 감지 → 밀림
-                prox_dx = player_rect.centerx - item["x"]
-                prox_dy = player_rect.centery - item["y"]
+                # 보스 패들 근접 감지 → 밀림
+                prox_dx = boss_rect.centerx - item["x"]
+                prox_dy = boss_rect.centery - item["y"]
                 prox_dist = math.hypot(prox_dx, prox_dy)
                 push_range = 60  # 밀림 감지 반경
                 if prox_dist < push_range and prox_dist > 1:

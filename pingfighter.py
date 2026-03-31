@@ -160721,7 +160721,7 @@ def main(stage_num, new_boss_mode=False):
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
                 # 튜토리얼 일시정지 시 아이템 이동/회전 정지 (두 가지 방식 모두 체크)
                 is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
-                items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused)
+                items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused, boss_rect=BOSS)
 
                 # 석판 수집 퀘스트 업데이트
                 if not is_tutorial_paused:
@@ -163831,7 +163831,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
         try:
             # 튜토리얼 일시정지 시 아이템 이동/회전 정지 (두 가지 방식 모두 체크)
             is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
-            items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused)
+            items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused, boss_rect=BOSS)
             if not is_tutorial_paused:
                 update_quest_tablets()
         except Exception:
