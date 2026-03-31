@@ -3543,8 +3543,15 @@ _boss_orb_div_max = -1             # 분할선 캐시 유효성 검사용
 # 스매셔 스킬 아이콘 시스템 (왼쪽 필러에 표시)
 # ============================================================
 # 스킬 정보: (스킬명, 게이지 비용, 아이콘 색상, 쿨타임(초))
-# 하단부터 상단으로 비용 순서: 리커버리(120) → 클렌즈(100) → 드라이브(150) → 파워스매싱(350)
+# 하단부터 상단으로 비용 순서: 플라즈마(40) → 리커버리(80) → 클렌즈(100) → 드라이브(150) → 파워스매싱(350)
 SMASHER_SKILL_ICONS_DATA = [
+    {
+        "name": "plasma", "korean": "플라즈마", "cost": 40, "color": (0, 200, 255),
+        "symbol": "⚡", "cooldown": 8.0, "key": "Q",
+        "description": "전방으로 플라즈마 구체를 발사합니다. 적이 구체에 닿는 동안 둔화가 됩니다. 구체가 커질수록 둔화성능이 강화됩니다",
+        "how_to_use": "W키를 홀딩 후 손을 떼면 플라즈마 구체 발사",
+        "effect_type": "projectile_cyan"
+    },
     {
         "name": "recovery", "korean": "리커버리", "cost": 120, "color": (50, 255, 150),
         "symbol": "♻", "cooldown": 12.0, "key": "W",
@@ -3607,6 +3614,7 @@ SMASHER_SKILL_DEBUG = False  # F4 좌표계 디버그로 대체됨
 
 # 스매셔 스킬 쿨타임 추적 (스킬 사용 시 시작 시간 기록, ms 단위)
 _smasher_skill_cooldowns = {
+    "plasma": 0,
     "recovery": 0,
     "cleanse": 0,
     "drive": 0,
@@ -3615,6 +3623,7 @@ _smasher_skill_cooldowns = {
 
 # 스킬 활성화 순간 추적 (활성화될 때 시간 기록, 빛나는 효과용)
 _smasher_skill_activation_times = {
+    "plasma": 0,
     "recovery": 0,
     "cleanse": 0,
     "drive": 0,
@@ -3622,6 +3631,7 @@ _smasher_skill_activation_times = {
 }
 # 이전 프레임 활성화 상태 추적
 _smasher_skill_was_active = {
+    "plasma": False,
     "recovery": False,
     "cleanse": False,
     "drive": False,
@@ -3630,8 +3640,9 @@ _smasher_skill_was_active = {
 
 # 스매셔 스킬 해금 상태 (런타임 스킬로 해금)
 # 처음에는 드라이브, 파워스매싱만 해금됨
-# 리커버리, 클렌즈는 런타임 스킬로 해금 필요
+# 플라즈마, 리커버리, 클렌즈는 런타임 스킬로 해금 필요
 _smasher_skill_unlocked = {
+    "plasma": False,      # 런타임 스킬로 해금 필요
     "recovery": False,    # 런타임 스킬로 해금 필요 (리커버리 스킬과 별개)
     "cleanse": False,     # 런타임 스킬로 해금 필요
     "drive": True,        # 기본 해금
@@ -3643,6 +3654,7 @@ def reset_smasher_skill_unlocks():
     """스매셔 스킬 해금 상태 초기화 (새 게임 시작 시)"""
     global _smasher_skill_unlocked
     _smasher_skill_unlocked = {
+        "plasma": False,
         "recovery": False,
         "cleanse": False,
         "drive": True,
@@ -4019,6 +4031,7 @@ def reset_smasher_skill_cooldowns():
     """모든 스매셔 스킬 쿨타임 초기화"""
     global _smasher_skill_cooldowns
     _smasher_skill_cooldowns = {
+        "plasma": 0,
         "recovery": 0,
         "cleanse": 0,
         "drive": 0,
@@ -4878,7 +4891,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     cleanse_skill_data = None
 
     # 메인 스킬 순서 정의 (표시 순서)
-    main_skill_order = ["recovery", "drive", "power_smashing"]
+    main_skill_order = ["plasma", "recovery", "drive", "power_smashing"]
 
     for skill_name in main_skill_order:
         for skill_data in SMASHER_SKILL_ICONS_DATA:
@@ -12665,6 +12678,17 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "character_restriction": "smasher"
     },
     # 게이지 스킬 해금 (런타임 스킬로 해금)
+    "unlock_plasma": {
+        "name": "플라즈마 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "플라즈마 스킬 해금",
+        },
+        "detail": "게이지 스킬 '플라즈마'를 해금합니다. W키로 게이지 40을 소모해 플라즈마 볼을 발사합니다.",
+        "icon_color": (0, 200, 255),
+        "tree": "smasher_unlock",
+        "character_restriction": "smasher"
+    },
     "unlock_recovery_skill": {
         "name": "리커버리(스킬) 해금",
         "max_level": 1,
@@ -71682,7 +71706,10 @@ def handle_player(keys):
         # 에어블레이드 연계 시 하강 중반(600ms 이후)까지 대기 — 충분히 체공 후 발동
         _dive_ab_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
         _dive_from_airblade = (_viper_br_spin_active and _viper_br_spin_phase == 2 and _dive_ab_elapsed >= 600)
-        if (not _viper_dive_active and (_viper_jetpack_offset_y < -20 or _dive_from_airblade)
+        # 에어블레이드 동작 중(발사/회전/감속)에는 일반 체공 다이브 차단
+        _in_airblade_motion = _viper_blade_rush_active or (_viper_br_spin_active and _viper_br_spin_phase < 2)
+        if (not _viper_dive_active
+                and ((_viper_jetpack_offset_y < -20 and not _in_airblade_motion) or _dive_from_airblade)
                 and not rolling_active and not _viper_nerve_strike_active
                 and not is_waiting_for_serve
                 and not is_player_serve and not player_stunned
