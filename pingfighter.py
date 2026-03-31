@@ -70645,7 +70645,7 @@ def handle_player(keys):
     global blacksmith_blocking_bonus_ready, blacksmith_blocking_bonus_window_timer
     global fire_support_radio_loop_active
     global _judgment_lightning_stun_bottom_timer, _judgment_wind_stun_bottom_timer
-    global cleanse_counter_window, _viper_ss_kick_ready
+    global cleanse_counter_window, _viper_ss_kick_ready, _viper_ss_hit_consumed
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
@@ -106614,7 +106614,7 @@ def draw_objects():
     global perfect_timing_indicator_active
     global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
     global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_ss_hologram_kick_hit
-    global _viper_ss_kick_ready, _viper_speed_boost_active, _viper_speed_boost_original
+    global _viper_ss_kick_ready, _viper_speed_boost_active, _viper_speed_boost_original, _viper_ss_hit_consumed
     global _viper_phantom_strike_active, _viper_phantom_strike_timer
     global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
     global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer, _viper_starburst_is_double
@@ -142745,7 +142745,7 @@ def handle_ball():
     global _viper_ss_ball_touched
     global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer
     # 바이퍼 쉐도우 백스텝 킥 사운드 (handle_ball 백업 경로용)
-    global _viper_ss_kick_ready, _viper_ss_hologram_start_ms
+    global _viper_ss_kick_ready, _viper_ss_hologram_start_ms, _viper_ss_hit_consumed
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
