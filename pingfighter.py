@@ -48087,7 +48087,7 @@ _viper_dive_slip_vel = 0.0              # 다이브 슬립 속도
 _VIPER_DIVE_SLIP_DURATION = 90          # 슬립 지속시간 (1.5초)
 _viper_dive_shockwave_y = 0.0           # 충격파 중심 Y
 _viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (중복 방지)
-_VIPER_DIVE_PREP_MS = 300              # 준비동작 시간 (0.3초)
+_VIPER_DIVE_PREP_MS = 500              # 준비동작 시간 (0.5초)
 _VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
 _VIPER_DIVE_GAUGE_COST = 120           # 게이지 소모량
 _VIPER_DIVE_SHOCKWAVE_RADIUS = WIDTH    # 충격파 X축 범위 — 전체 화면 커버
@@ -107476,25 +107476,36 @@ def draw_objects():
     # 💥 바이퍼 급강하 어택 렌더링 (착륙 연기 + 파티클)
     if _viper_dive_active or _viper_dive_particles or _viper_dive_shockwave_timer > 0:
         try:
-            # 도움닫기 글로우 (공중 정지 중 에너지 집중)
+            # 도움닫기 글로우 (공중 정지 중 에너지 집중 — 은은한 다중 레이어)
             if _viper_dive_active and _viper_dive_phase == 0:
                 _dv_prep_elapsed = pygame.time.get_ticks() - _viper_dive_start_ms
                 _dv_prep_pct = min(1.0, _dv_prep_elapsed / _VIPER_DIVE_PREP_MS)
-                _dv_pulse = 0.5 + 0.5 * math.sin(_dv_prep_pct * math.pi * 4)
-                _dv_glow_r = int(30 + 40 * _dv_prep_pct)
-                _dv_glow_a = int(100 + 120 * _dv_prep_pct * _dv_pulse)
-                _dv_glow_surf = pygame.Surface((_dv_glow_r * 2, _dv_glow_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(_dv_glow_surf, (200, 80, 255, _dv_glow_a),
-                                   (_dv_glow_r, _dv_glow_r), _dv_glow_r)
-                SCREEN.blit(_dv_glow_surf,
-                            (PLAYER.centerx - _dv_glow_r, PLAYER.centery - _dv_glow_r),
+                _dv_pulse = 0.4 + 0.6 * math.sin(_dv_prep_pct * math.pi * 2)  # 느린 맥동
+                # 외곽 은은한 대형 글로우 (넓고 투명)
+                _dv_outer_r = int(50 + 30 * _dv_prep_pct)
+                _dv_outer_a = int(30 + 40 * _dv_prep_pct * _dv_pulse)
+                _dv_outer_surf = pygame.Surface((_dv_outer_r * 2, _dv_outer_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_dv_outer_surf, (140, 60, 220, _dv_outer_a),
+                                   (_dv_outer_r, _dv_outer_r), _dv_outer_r)
+                SCREEN.blit(_dv_outer_surf,
+                            (PLAYER.centerx - _dv_outer_r, PLAYER.centery - _dv_outer_r),
                             special_flags=pygame.BLEND_ADD)
-                # 하강 방향 표시선 (점선)
-                _dv_line_a = int(80 + 120 * _dv_prep_pct)
+                # 내부 코어 글로우 (작고 밝음)
+                _dv_inner_r = int(14 + 16 * _dv_prep_pct)
+                _dv_inner_a = int(50 + 80 * _dv_prep_pct * _dv_pulse)
+                _dv_inner_surf = pygame.Surface((_dv_inner_r * 2, _dv_inner_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_dv_inner_surf, (180, 120, 255, _dv_inner_a),
+                                   (_dv_inner_r, _dv_inner_r), _dv_inner_r)
+                SCREEN.blit(_dv_inner_surf,
+                            (PLAYER.centerx - _dv_inner_r, PLAYER.centery - _dv_inner_r),
+                            special_flags=pygame.BLEND_ADD)
+                # 하강 방향 표시선 (점선 — 은은한 페이드인)
+                _dv_line_a = int(40 + 80 * _dv_prep_pct)
                 for _dli in range(0, 60, 8):
                     _dly = PLAYER.bottom + _dli
+                    _dv_dist_fade = max(0.2, 1.0 - _dli / 60.0)  # 멀수록 투명
                     if _dly < HEIGHT:
-                        pygame.draw.line(SCREEN, (200, 80, 255, _dv_line_a),
+                        pygame.draw.line(SCREEN, (160, 90, 240, int(_dv_line_a * _dv_dist_fade)),
                                          (PLAYER.centerx - 2, _dly),
                                          (PLAYER.centerx + 2, _dly + 4), 2)
 
