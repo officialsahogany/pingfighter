@@ -48084,7 +48084,9 @@ _viper_dive_shockwave_timer = 0         # 착지 충격파 지속 프레임
 _viper_dive_shockwave_x = 0.0           # 충격파 중심 X
 _viper_dive_slip_timer = 0              # 다이브 슬립 지속 프레임
 _viper_dive_slip_vel = 0.0              # 다이브 슬립 속도
-_VIPER_DIVE_SLIP_DURATION = 60          # 슬립 지속시간 (1초)
+_viper_dive_slip_duration = 60          # 실제 적용된 슬립 지속시간 (높이 비례 계산 결과)
+_VIPER_DIVE_SLIP_DURATION_MIN = 54      # 슬립 최소 지속시간 (0.9초, 최저 높이)
+_VIPER_DIVE_SLIP_DURATION_MAX = 90      # 슬립 최대 지속시간 (1.5초, 최고 높이)
 _viper_dive_shockwave_y = 0.0           # 충격파 중심 Y
 _viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (중복 방지)
 _VIPER_DIVE_PREP_MS = 500              # 준비동작 시간 (0.5초)
@@ -72001,7 +72003,7 @@ def handle_player(keys):
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
         global boss_fire_knockback_vel
-        global _viper_dive_slip_timer, _viper_dive_slip_vel
+        global _viper_dive_slip_timer, _viper_dive_slip_vel, _viper_dive_slip_duration
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
@@ -72851,10 +72853,12 @@ def handle_player(keys):
                     _viper_jetpack_hold_timer = 0
                     _viper_jetpack_overheat = False
 
-                    # 보스 슬립 효과 (바나나식 — 1.5초간 미끄러짐)
+                    # 보스 슬립 효과 (바나나식 — 체공 높이 비례 0.9~1.5초 미끄러짐)
                     _dive_boss_dx = BALL.centerx - BOSS.centerx
                     _dive_slip_dir = 1 if _dive_boss_dx > 0 else -1
-                    _viper_dive_slip_timer = _VIPER_DIVE_SLIP_DURATION
+                    _dive_height_ratio = min(1.0, _viper_dive_height_snapshot / _VIPER_JETPACK_MAX_HEIGHT)
+                    _viper_dive_slip_duration = int(_VIPER_DIVE_SLIP_DURATION_MIN + (_VIPER_DIVE_SLIP_DURATION_MAX - _VIPER_DIVE_SLIP_DURATION_MIN) * _dive_height_ratio)
+                    _viper_dive_slip_timer = _viper_dive_slip_duration
                     _viper_dive_slip_vel = _dive_slip_dir * 4.0  # 초기 슬립 속도 (느리지만 꾸준히)
 
                     # 착지 연기 파티클 — 좌우 300px 범위로 넓게 퍼지는 더스트 클라우드
@@ -109038,7 +109042,7 @@ def draw_objects():
 
     # === 🔵 EMP 스트라이크 슬립 중 패닉 이펙트 (이미지 틴트 + 떨림) ===
     if _viper_dive_slip_timer > 0 and not _bg_electric_active and _boss_stun_timer_draw <= 0:
-        _slip_pct = _viper_dive_slip_timer / _VIPER_DIVE_SLIP_DURATION
+        _slip_pct = _viper_dive_slip_timer / max(1, _viper_dive_slip_duration)
         # 시안/파란 EMP 틴트 (펄스)
         _emp_tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
         _emp_pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.015)
@@ -152059,7 +152063,7 @@ def handle_boss():
     # 🍌 EMP 스트라이크 슬립 (바나나식 — AI 통제불능 + 미끄러짐)
     if _viper_dive_slip_timer > 0:
         _viper_dive_slip_timer -= 1
-        _slip_ratio = _viper_dive_slip_timer / _VIPER_DIVE_SLIP_DURATION
+        _slip_ratio = _viper_dive_slip_timer / max(1, _viper_dive_slip_duration)
         BOSS.x += _viper_dive_slip_vel * _slip_ratio
         if BOSS.x <= 0:
             BOSS.x = 0
