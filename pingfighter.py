@@ -106125,6 +106125,8 @@ def draw_objects():
     global perfect_timing_indicator_active
     global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x
     global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_ss_hologram_kick_hit
+    global _viper_ss_kick_ready, _viper_speed_boost_active, _viper_speed_boost_original
+    global _viper_phantom_strike_active, _viper_phantom_strike_timer
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
@@ -107042,25 +107044,45 @@ def draw_objects():
                     if _kick_rect.colliderect(BALL):
                         _viper_ss_hologram_kick_hit = True  # 1회 제한
                         _viper_ss_ball_touched = True
-                        # 공을 위로 반사 + 커브
-                        ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
+                        _viper_ss_kick_ready = False  # 패들 경로 중복 방지
+                        # shadowkick.wav 재생
+                        try:
+                            _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
+                            if _sk_snd:
+                                _sk_snd.set_volume(0.6)
+                                _sk_snd.play()
+                        except Exception:
+                            pass
+                        # 공속 증가 + 커브 (팬텀 스트라이크와 동일)
+                        _kick_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        _kick_new_speed = max(_kick_cur_speed * 2.3, 10.0)  # 130% 증가
+                        _viper_speed_boost_active = True
+                        _viper_speed_boost_original = _kick_cur_speed
+                        _kick_curve = _viper_ss_hologram_kick_dir
+                        _kick_init_angle = _kick_curve * 10
+                        _kick_rad = math.radians(-90 + _kick_init_angle)
+                        ball_vel[0] = math.cos(_kick_rad) * _kick_new_speed
+                        ball_vel[1] = math.sin(_kick_rad) * _kick_new_speed
                         _viper_ps_curve_active = True
                         _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-                        _viper_ps_curve_direction = _viper_ss_hologram_kick_dir
+                        _viper_ps_curve_direction = _kick_curve
+                        # 팬텀 스트라이크 소모 (패들 경로에서 중복 발동 방지)
+                        _viper_phantom_strike_active = False
+                        _viper_phantom_strike_timer = 0
                         # 골드 보너스
                         try:
-                            add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
+                            add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
                         except Exception:
                             pass
                         # 킥 히트 이펙트
                         try:
                             effects_manager.spawn_shockwave(
                                 BALL.centerx, BALL.centery,
-                                force=10, color=(140, 0, 220),
+                                force=12, color=(160, 0, 255),
                             )
                             effects_manager.spawn_dark_red_impact(
                                 BALL.centerx, BALL.centery,
-                                count=16, intensity=0.85,
+                                count=22, intensity=1.2,
                             )
                         except Exception:
                             pass
