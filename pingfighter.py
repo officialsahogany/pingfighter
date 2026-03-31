@@ -115609,31 +115609,34 @@ def draw_objects():
                 _dmk_freeze_t = _dmk_freeze_elapsed / max(1, _VIPER_DMK_FREEZE_DURATION)
                 _dmk_ease = min(1.0, _dmk_freeze_t * 5.0)
                 _dmk_alpha = int(255 * _dmk_ease)
-                _dmk_font_size = int(32 + 6 * _dmk_ease)
                 _dmk_y_off = 0
             else:
                 _dmk_post_t = 1.0 - (_viper_dmk_text_timer / max(1, _VIPER_DMK_TEXT_DURATION))
                 _dmk_alpha = int(255 * max(0.0, 1.0 - _dmk_post_t * 1.5))
-                _dmk_font_size = 32
                 _dmk_y_off = -20 * _dmk_post_t
 
-            if _dmk_alpha > 5:
+            if _dmk_alpha > 10:
                 try:
-                    _dmk_font = pygame.freetype.Font(
-                        resource_path(os.path.join("fonts", "NanumSquareB.ttf")), _dmk_font_size)
-                    # 글로우 (뒤에 깔림) — 더 넓은 오프셋으로 뚜렷하게
-                    _dmk_glow_surf, _dmk_glow_rect = _dmk_font.render("DOUBLE MARSHAL KICK", (180, 80, 255))
-                    _dmk_glow_surf.set_alpha(min(255, int(_dmk_alpha * 0.5)))
-                    for _go in [(-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, -2), (-2, 2), (2, 2)]:
-                        SCREEN.blit(_dmk_glow_surf,
-                                    (int(WIDTH // 2 - _dmk_glow_rect.width // 2 + _go[0]),
-                                     int(HEIGHT // 2 - 30 + _dmk_y_off + _go[1])))
+                    _dmk_text = "DOUBLE MARSHAL KICK"
+                    _dmk_font = get_font(36)
+                    _dmk_shadow = _dmk_font.render(_dmk_text, True, (0, 0, 0))
+                    _dmk_main = _dmk_font.render(_dmk_text, True, (220, 80, 255))
+                    _dmk_glow = _dmk_font.render(_dmk_text, True, (255, 200, 255))
+                    _dmk_w = _dmk_main.get_width()
+                    _dmk_h = _dmk_main.get_height()
+                    _dmk_x = WIDTH // 2 - _dmk_w // 2
+                    _dmk_y = int(HEIGHT // 2 - _dmk_h // 2 + _dmk_y_off)
+                    _dmk_shake_x = random.randint(-2, 2) if _dmk_ease < 0.5 and _viper_dmk_freeze_active else 0
+                    _dmk_shake_y = random.randint(-1, 1) if _dmk_ease < 0.5 and _viper_dmk_freeze_active else 0
+                    # 글로우
+                    _dmk_glow.set_alpha(int(_dmk_alpha * 0.3))
+                    SCREEN.blit(_dmk_glow, (_dmk_x - 2 + _dmk_shake_x, _dmk_y - 2 + _dmk_shake_y))
+                    # 그림자
+                    _dmk_shadow.set_alpha(_dmk_alpha)
+                    SCREEN.blit(_dmk_shadow, (_dmk_x + 3 + _dmk_shake_x, _dmk_y + 3 + _dmk_shake_y))
                     # 메인 텍스트
-                    _dmk_surf, _dmk_rect = _dmk_font.render("DOUBLE MARSHAL KICK", (255, 210, 255))
-                    _dmk_surf.set_alpha(_dmk_alpha)
-                    SCREEN.blit(_dmk_surf,
-                                (int(WIDTH // 2 - _dmk_rect.width // 2),
-                                 int(HEIGHT // 2 - 30 + _dmk_y_off)))
+                    _dmk_main.set_alpha(_dmk_alpha)
+                    SCREEN.blit(_dmk_main, (_dmk_x + _dmk_shake_x, _dmk_y + _dmk_shake_y))
                 except Exception:
                     pass
         except Exception:
