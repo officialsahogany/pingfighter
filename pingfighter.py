@@ -72692,9 +72692,9 @@ def handle_player(keys):
                 _viper_wall_dive_wall_x = 15.0  # 공이 우측 → 좌측 벽으로
             else:
                 _viper_wall_dive_wall_x = float(WIDTH - 15)  # 공이 좌측 → 우측 벽으로
-            # 벽 매달림 Y: 현재 위치에서 200px 위 (보스 영역까지 가지 않도록 클램프)
+            # 벽 매달림 Y: 항상 현재 위치에서 200px 위로 상승 (체공 높이 무관하게 동일한 상승량)
             _viper_wall_dive_wall_y = float(PLAYER.centery) - 200.0
-            _viper_wall_dive_wall_y = max(300.0, min(650.0, _viper_wall_dive_wall_y))
+            _viper_wall_dive_wall_y = max(120.0, min(650.0, _viper_wall_dive_wall_y))
             # 사운드
             try:
                 _wd_snd = sound_effects.get('VIPER_BACKSTEP')
@@ -72773,8 +72773,8 @@ def handle_player(keys):
                         _viper_wall_dive_wall_x = float(WIDTH - 15)
                     else:
                         _viper_wall_dive_wall_x = 15.0
-                    # Y는 공 높이에 맞춰 조정
-                    _viper_wall_dive_wall_y = max(300.0, min(650.0, float(BALL.centery) - 50.0))
+                    # Y는 공 높이에 맞춰 조정 (보스 영역 직전까지 허용)
+                    _viper_wall_dive_wall_y = max(120.0, min(650.0, float(BALL.centery) - 50.0))
                     # 벽다시타기 사운드 (빠르게)
                     try:
                         _wd_reclimb_snd = sound_effects.get('VIPER_BACKSTEP')
