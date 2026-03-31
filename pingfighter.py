@@ -4716,68 +4716,6 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         for sx, sy in spark_positions:
             pygame.draw.circle(surface, highlight_color, (sx, sy), 2)
 
-    elif skill_name == "venom_edge":
-        # ☠ 베놈 엣지: 독 코팅된 블레이드
-        # 블레이드 (사선)
-        blade_pts = [
-            (cx - s//6, cy + s//2),
-            (cx - s//3, cy + s//3),
-            (cx + s//4, cy - s*2//3),
-            (cx + s//3, cy - s*2//3),
-            (cx - s//6, cy + s//3),
-        ]
-        if len(blade_pts) >= 3:
-            pygame.draw.polygon(surface, accent_color, blade_pts)
-            pygame.draw.polygon(surface, highlight_color, blade_pts, 1)
-
-        # 독 방울 (블레이드에서 떨어지는)
-        drop_positions = [(cx - s//4, cy + s//4), (cx, cy), (cx + s//6, cy - s//4)]
-        for i, (dx, dy) in enumerate(drop_positions):
-            drop_r = 3 - i
-            pygame.draw.circle(surface, accent_color, (dx + s//6, dy + s//6), max(1, drop_r))
-
-        # 독 연기 효과
-        for i in range(3):
-            smoke_x = cx + s//4 + i * 3 - 3
-            smoke_y = cy - s//3 - i * 4
-            pygame.draw.circle(surface, shadow_color, (smoke_x, smoke_y), 3 - i, 1)
-
-        # 해골 마크 (작은)
-        pygame.draw.circle(surface, main_color, (cx - s//4, cy - s//6), s//5)
-        pygame.draw.circle(surface, shadow_color, (cx - s//4 - 2, cy - s//6 - 1), 1)
-        pygame.draw.circle(surface, shadow_color, (cx - s//4 + 2, cy - s//6 - 1), 1)
-
-    elif skill_name == "phantom_assault":
-        # ✦ 팬텀 어썰트: 5연속 잔상 돌진 (궁극기)
-        # 중앙 별 모양 (6각 별)
-        star_outer = s * 2 // 3
-        star_inner = s // 3
-        star_points = []
-        for i in range(12):
-            angle = math.radians(i * 30 - 90)
-            r = star_outer if i % 2 == 0 else star_inner
-            star_points.append((cx + int(math.cos(angle) * r),
-                               cy + int(math.sin(angle) * r)))
-        if len(star_points) >= 3:
-            pygame.draw.polygon(surface, accent_color, star_points)
-            pygame.draw.polygon(surface, highlight_color, star_points, 2)
-
-        # 중앙 코어
-        pygame.draw.circle(surface, main_color, (cx, cy), s // 5)
-
-        # 5개 잔상 라인 (부채꼴로 퍼져나감)
-        for i in range(5):
-            angle = math.radians(-90 + (i - 2) * 20)
-            line_len = s * 2 // 3
-            ex = cx + int(math.cos(angle) * line_len)
-            ey = cy + int(math.sin(angle) * line_len)
-            pygame.draw.line(surface, highlight_color, (cx, cy), (ex, ey), 2)
-            # 끝에 파티클
-            pygame.draw.circle(surface, main_color, (ex, ey), 2)
-
-        # 외곽 에너지 링
-        pygame.draw.circle(surface, shadow_color, (cx, cy), s - 2, 1)
-
     elif skill_name == "shadow_counter":
         # 🕷 쉐도우 카운터: 벽 점프 → 공 돌진 (스파이더맨 스타일)
         # 벽 표현 (좌측 세로선)
@@ -5195,12 +5133,11 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     time_now = pygame.time.get_ticks()
     activation_effect_duration = 400
 
-    # 해금된 스킬 필터링 (궁극기 제외)
+    # 해금된 스킬 필터링
     unlocked_main_skills = []
-    ultimate_skill_data = None
 
-    # 메인 스킬 순서 (왼쪽 슬롯)
-    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "venom_edge", "shadow_counter", "dive_strike"]
+    # 메인 스킬 순서
+    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "shadow_counter", "dive_strike"]
 
     for skill_name in main_skill_order:
         for skill_data in VIPER_SKILL_ICONS_DATA:
@@ -5209,20 +5146,12 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                     unlocked_main_skills.append(skill_data)
                 break
 
-    # 궁극기(팬텀 어썰트)는 우측 별도 처리
-    for skill_data in VIPER_SKILL_ICONS_DATA:
-        if skill_data["name"] == "phantom_assault":
-            if is_viper_skill_unlocked("phantom_assault"):
-                ultimate_skill_data = skill_data
-            break
-
     num_unlocked = len(unlocked_main_skills)
 
-    MAX_LEFT_SLOTS = 6
+    MAX_LEFT_SLOTS = 5
     base_angle = 160
-    angle_step = 22  # 6슬롯 간격
+    angle_step = 22  # 5슬롯 간격
     all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
-    ultimate_angle = 330  # 우측 상단
 
     # === 빈 슬롯 그리기 ===
     def draw_empty_slot(slot_x: int, slot_y: int):
@@ -5242,14 +5171,6 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             continue
         else:
             draw_empty_slot(slot_x, slot_y)
-
-    # === 우측 슬롯 (궁극기) ===
-    right_angle_rad = math.radians(ultimate_angle)
-    right_slot_x = orb_center_x + int(math.cos(right_angle_rad) * orbit_radius)
-    right_slot_y = orb_center_y + int(math.sin(right_angle_rad) * orbit_radius)
-
-    if not ultimate_skill_data:
-        draw_empty_slot(right_slot_x, right_slot_y)
 
     # === 해금된 메인 스킬 아이콘 그리기 ===
     for i, skill_data in enumerate(unlocked_main_skills):
@@ -5351,97 +5272,6 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             except:
                 pass
 
-    # === 궁극기 스킬 별도 처리 (우측 상단) ===
-    if ultimate_skill_data:
-        skill_data = ultimate_skill_data
-        skill_name = "phantom_assault"
-        angle_rad = math.radians(ultimate_angle)
-
-        icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
-        icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
-
-        cooldown_ratio = get_viper_skill_cooldown_remaining(skill_name)
-        is_on_cooldown = cooldown_ratio > 0
-        is_active = current_gauge >= skill_data["cost"] and not is_on_cooldown
-
-        was_active = _viper_skill_was_active.get(skill_name, False)
-        if is_active and not was_active:
-            _viper_skill_activation_times[skill_name] = time_now
-        _viper_skill_was_active[skill_name] = is_active
-
-        _viper_skill_icon_rects[skill_name] = pygame.Rect(
-            icon_x - icon_radius, icon_y - icon_radius,
-            icon_diameter, icon_diameter
-        )
-
-        if is_active:
-            bg_color = (*skill_data["color"][:3], 200)
-            border_color = (255, 255, 255, 255)
-        else:
-            dark_color = tuple(max(0, c // 3) for c in skill_data["color"][:3])
-            bg_color = (*dark_color, 150)
-            border_color = (80, 80, 80, 180)
-
-        activation_time = _viper_skill_activation_times.get(skill_name, 0)
-        activation_elapsed = time_now - activation_time
-
-        if is_active and activation_elapsed < activation_effect_duration:
-            progress = activation_elapsed / activation_effect_duration
-            skill_color = skill_data["color"]
-            glow_alpha = int(180 * (1 - progress))
-            glow_radius = icon_radius + int(8 * (1 - progress))
-            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (*skill_color[:3], glow_alpha),
-                             (glow_radius + 2, glow_radius + 2), glow_radius)
-            surface.blit(glow_surface, (icon_x - glow_radius - 2, icon_y - glow_radius - 2))
-
-        pygame.draw.circle(surface, bg_color, (icon_x, icon_y), icon_radius)
-        pygame.draw.circle(surface, border_color, (icon_x, icon_y), icon_radius, 2)
-
-        if is_active and not is_on_cooldown:
-            pulse = (math.sin(time_now * 0.005) + 1) / 2
-            if pulse > 0.4:
-                pulse_alpha = int((pulse - 0.4) * 100)
-                pygame.draw.circle(surface, (*skill_data["color"][:3], pulse_alpha),
-                                 (icon_x, icon_y), icon_radius + 3, 2)
-
-        icon_size = icon_radius * 2 - 4
-        _draw_skill_icon_symbol(surface, skill_name, icon_x, icon_y,
-                               icon_size, is_active, skill_data["color"])
-
-        if is_on_cooldown:
-            cd_surface = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
-            cd_center = icon_radius + 2
-            start_angle = -math.pi / 2
-            end_angle = start_angle + (2 * math.pi * cooldown_ratio)
-            if cooldown_ratio > 0.01:
-                points = [(cd_center, cd_center)]
-                num_segments = max(3, int(36 * cooldown_ratio))
-                for j in range(num_segments + 1):
-                    angle = start_angle + (end_angle - start_angle) * j / num_segments
-                    x = cd_center + int(math.cos(angle) * icon_radius)
-                    y = cd_center + int(math.sin(angle) * icon_radius)
-                    points.append((x, y))
-                if len(points) >= 3:
-                    pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
-            surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
-
-            cooldown_sec = skill_data["cooldown"]
-            remaining_sec = cooldown_sec * cooldown_ratio
-            if remaining_sec >= 1:
-                cooldown_text = f"{int(remaining_sec)}"
-            else:
-                cooldown_text = f"{remaining_sec:.1f}"
-            try:
-                cd_font = pygame.font.Font(None, 28)
-                cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
-                cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
-                shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
-                shadow_rect = shadow_surface.get_rect(center=(icon_x + 1, icon_y + 1))
-                surface.blit(shadow_surface, shadow_rect)
-                surface.blit(cd_text_surface, cd_rect)
-            except:
-                pass
 
 
 def _draw_smasher_skill_debug(screen: pygame.Surface, scale_factor: float = 1.0):
@@ -12885,21 +12715,6 @@ VIPER_EXCLUSIVE_SKILLS = {
         "tree": "viper",
         "character_restriction": "viper"
     },
-    "phantom_chain": {
-        "name": "팬텀 체인",
-        "max_level": 5,
-        "descriptions": {
-            1: "대쉬 후 0.5초간 이동속도 20% 증가",
-            2: "대쉬 후 0.7초간 이동속도 25% 증가",
-            3: "대쉬 후 0.9초간 이동속도 30% 증가",
-            4: "대쉬 후 1.1초간 이동속도 35% 증가",
-            5: "대쉬 후 1.3초간 이동속도 40% 증가",
-        },
-        "detail": "대쉬 종료 후 잔상과 함께 일정 시간 이동속도가 증가합니다.",
-        "icon_color": (120, 0, 200),
-        "tree": "viper",
-        "character_restriction": "viper"
-    },
     "unlock_nerve_strike": {
         "name": "베놈 엣지 해금",
         "max_level": 1,
@@ -12908,28 +12723,6 @@ VIPER_EXCLUSIVE_SKILLS = {
         },
         "detail": "에어 블레이드 연계기 '베놈 엣지'를 해금합니다. 에어 블레이드 착지 전 클릭/Space로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 베고 복귀합니다. 5초간 보스 혼란.",
         "icon_color": (180, 0, 220),
-        "tree": "viper_unlock",
-        "character_restriction": "viper"
-    },
-    "unlock_venom_edge": {
-        "name": "신경 타격 해금",
-        "max_level": 1,
-        "descriptions": {
-            1: "신경 타격 스킬 해금",
-        },
-        "detail": "게이지 스킬 '신경 타격'을 해금합니다. Q키로 게이지 80을 소모해 블레이드에 독기를 주입, 5초간 타격 시 지속 피해를 입힙니다.",
-        "icon_color": (0, 255, 100),
-        "tree": "viper_unlock",
-        "character_restriction": "viper"
-    },
-    "unlock_phantom_assault": {
-        "name": "팬텀 어썰트 해금",
-        "max_level": 1,
-        "descriptions": {
-            1: "팬텀 어썰트 스킬 해금 (궁극기)",
-        },
-        "detail": "궁극기 '팬텀 어썰트'를 해금합니다. R키로 게이지 120을 소모해 5연속 잔상 돌진으로 공을 강타합니다. 발동 중 무적 상태.",
-        "icon_color": (160, 0, 255),
         "tree": "viper_unlock",
         "character_restriction": "viper"
     },
@@ -14886,16 +14679,6 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         runtime_skill_levels["unlock_nerve_strike"] = 1
         return True
 
-    if choice_id == "unlock_venom_edge":
-        unlock_viper_skill("venom_edge")
-        runtime_skill_levels["unlock_venom_edge"] = 1
-        return True
-
-    if choice_id == "unlock_phantom_assault":
-        unlock_viper_skill("phantom_assault")
-        runtime_skill_levels["unlock_phantom_assault"] = 1
-        return True
-
     if choice_id == "unlock_dive_strike":
         unlock_viper_skill("dive_strike")
         runtime_skill_levels["unlock_dive_strike"] = 1
@@ -15041,14 +14824,6 @@ def recalculate_skill_effects(skill_id: str):
     elif skill_id == "unlock_nerve_strike":
         level = runtime_skill_levels.get("unlock_nerve_strike", 0)
         _viper_skill_unlocked["nerve_strike"] = level >= 1
-
-    elif skill_id == "unlock_venom_edge":
-        level = runtime_skill_levels.get("unlock_venom_edge", 0)
-        _viper_skill_unlocked["venom_edge"] = level >= 1
-
-    elif skill_id == "unlock_phantom_assault":
-        level = runtime_skill_levels.get("unlock_phantom_assault", 0)
-        _viper_skill_unlocked["phantom_assault"] = level >= 1
 
     elif skill_id == "unlock_dive_strike":
         level = runtime_skill_levels.get("unlock_dive_strike", 0)
@@ -17617,52 +17392,6 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
             sx = icon_cx + int(math.cos(rad) * dm_s * 1.2)
             sy = icon_cy + int(math.sin(rad) * dm_s * 1.2)
             pygame.draw.circle(surface, lighter(icon_color), (sx, sy), max(1, int(2 * scale)))
-        # + 마크 (해금 표시)
-        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
-        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
-
-    elif skill_id == "unlock_venom_edge":
-        # 신경 타격 해금 - 독 블레이드 + 해골
-        # 블레이드 (사선)
-        bl_pts = [
-            (icon_cx - int(2 * scale), icon_cy + int(6 * scale)),
-            (icon_cx - int(4 * scale), icon_cy + int(4 * scale)),
-            (icon_cx + int(3 * scale), icon_cy - int(8 * scale)),
-            (icon_cx + int(5 * scale), icon_cy - int(8 * scale)),
-            (icon_cx - int(2 * scale), icon_cy + int(4 * scale)),
-        ]
-        pygame.draw.polygon(surface, icon_color, bl_pts)
-        pygame.draw.polygon(surface, lighter(icon_color), bl_pts, max(1, int(1 * scale)))
-        # 독 방울
-        for i, (dx, dy) in enumerate([(icon_cx - int(3 * scale), icon_cy + int(3 * scale)),
-                                       (icon_cx, icon_cy), (icon_cx + int(2 * scale), icon_cy - int(3 * scale))]):
-            pygame.draw.circle(surface, icon_color, (dx + int(2 * scale), dy + int(2 * scale)), max(1, int((3 - i) * scale)))
-        # 해골 마크
-        pygame.draw.circle(surface, (255, 255, 255), (icon_cx - int(3 * scale), icon_cy - int(2 * scale)), int(3 * scale))
-        pygame.draw.circle(surface, darker(icon_color), (icon_cx - int(4 * scale), icon_cy - int(3 * scale)), max(1, int(1 * scale)))
-        pygame.draw.circle(surface, darker(icon_color), (icon_cx - int(2 * scale), icon_cy - int(3 * scale)), max(1, int(1 * scale)))
-        # + 마크 (해금 표시)
-        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
-        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
-
-    elif skill_id == "unlock_phantom_assault":
-        # 팬텀 어썰트 해금 - 6각별 + 잔상 라인
-        star_r = int(7 * scale)
-        star_inner = int(4 * scale)
-        star_pts = []
-        for i in range(12):
-            angle = math.radians(i * 30 - 90)
-            r = star_r if i % 2 == 0 else star_inner
-            star_pts.append((icon_cx + int(math.cos(angle) * r), icon_cy + int(math.sin(angle) * r)))
-        pygame.draw.polygon(surface, icon_color, star_pts)
-        pygame.draw.polygon(surface, lighter(icon_color), star_pts, max(1, int(1 * scale)))
-        pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), int(2 * scale))
-        # 잔상 라인
-        for i in range(3):
-            angle = math.radians(-90 + (i - 1) * 25)
-            ex = icon_cx + int(math.cos(angle) * star_r * 1.2)
-            ey = icon_cy + int(math.sin(angle) * star_r * 1.2)
-            pygame.draw.line(surface, lighter(icon_color), (icon_cx, icon_cy), (ex, ey), max(1, int(1 * scale)))
         # + 마크 (해금 표시)
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
@@ -47683,8 +47412,6 @@ VIPER_WALKING_CYCLE = 24  # 속도형 캐릭터답게 빠른 걷기 사이클
 _viper_w_key_released = True
 _viper_s_key_released = True
 _viper_e_key_released = True
-_viper_q_key_released = True
-_viper_r_key_released = True
 
 # === 바이퍼 에어 블레이드 검기 투사체 ===
 _viper_blade_rush_active = False      # 검기 활성 여부
@@ -71631,7 +71358,7 @@ def handle_player(keys):
 
     # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 에어 블레이드/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 스텝, Q: 베놈 엣지, R: 팬텀 어썰트)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
-        global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released, _viper_q_key_released, _viper_r_key_released
+        global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
         global _viper_blade_rush_start_y, _viper_blade_rush_target_y, _viper_blade_rush_hit_ball
         global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
@@ -71667,9 +71394,6 @@ def handle_player(keys):
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
-        _viper_q_pressed = keys[pygame.K_q]
-        _viper_r_pressed = keys[pygame.K_r]
-
         _viper_s_pressed = keys[pygame.K_s]
 
         # 키 릴리즈 감지 (연속 발동 방지)
@@ -71680,10 +71404,6 @@ def handle_player(keys):
             _viper_w_key_released = True
         if not _viper_e_pressed:
             _viper_e_key_released = True
-        if not _viper_q_pressed:
-            _viper_q_key_released = True
-        if not _viper_r_pressed:
-            _viper_r_key_released = True
 
         # S키/아래키 릴리즈: 대쉬 상태일 때만 추적 (평상시에는 리셋 유지)
         _viper_in_dash = rolling_active or rolling_stun_timer > 0
@@ -71855,33 +71575,6 @@ def handle_player(keys):
                                 if _spin_snd:
                                     _spin_snd.set_volume(0.8)
                                     _spin_snd.play()
-                            except Exception:
-                                pass
-
-            # 베놈 엣지 (Q키)
-            if _viper_q_pressed and _viper_q_key_released:
-                if is_viper_skill_unlocked("venom_edge"):
-                    if get_viper_skill_cooldown_remaining("venom_edge") <= 0:
-                        if special_gauge >= 80:
-                            _viper_q_key_released = False
-                            special_gauge -= 80
-                            trigger_viper_skill_cooldown("venom_edge")
-                            # TODO: 독 코팅 효과
-
-            # 팬텀 어썰트 (R키 - 궁극기)
-            if _viper_r_pressed and _viper_r_key_released:
-                if is_viper_skill_unlocked("phantom_assault"):
-                    if get_viper_skill_cooldown_remaining("phantom_assault") <= 0:
-                        if special_gauge >= 120:
-                            _viper_r_key_released = False
-                            special_gauge -= 120
-                            trigger_viper_skill_cooldown("phantom_assault")
-                            # TODO: 5연속 잔상 돌진
-                            try:
-                                effects_manager.spawn_shockwave(
-                                    PLAYER.centerx, PLAYER.centery - 20,
-                                    force=15, color=(160, 0, 255),
-                                )
                             except Exception:
                                 pass
 
