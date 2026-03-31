@@ -3710,9 +3710,16 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
-        "symbol": "🕷", "cooldown": 0.0, "key": "S/↓(연계)",
-        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
+        "symbol": "🕷", "cooldown": 25.0, "key": "S/↓(연계)",
+        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 25초.",
         "how_to_use": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 S/↓키",
+        "effect_type": "wall_dive_purple"
+    },
+    {
+        "name": "phantom_kick", "korean": "팬텀 킥", "cost": 50, "color": (180, 0, 255),
+        "symbol": "x2", "cooldown": 40.0, "key": "S/↓(연계)",
+        "description": "마샬 킥 공 타격 후 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n쿨타임 40초.",
+        "how_to_use": "마샬 킥 공 타격 후 S/↓키 (팬텀 킥 퍽 필요)",
         "effect_type": "wall_dive_purple"
     },
 ]
@@ -3732,6 +3739,7 @@ _viper_skill_cooldowns = {
     "blade_rush": 0,
     "nerve_strike": 0,
     "marshal_kick": 0,
+    "phantom_kick": 0,
     "dive_strike": 0,
 }
 
@@ -3741,6 +3749,7 @@ _viper_skill_activation_times = {
     "blade_rush": 0,
     "nerve_strike": 0,
     "marshal_kick": 0,
+    "phantom_kick": 0,
     "dive_strike": 0,
 }
 _viper_skill_was_active = {
@@ -3748,6 +3757,7 @@ _viper_skill_was_active = {
     "blade_rush": False,
     "nerve_strike": False,
     "marshal_kick": False,
+    "phantom_kick": False,
     "dive_strike": False,
 }
 
@@ -3863,6 +3873,7 @@ def reset_viper_skill_cooldowns():
         "blade_rush": 0,
         "nerve_strike": 0,
         "marshal_kick": 0,
+        "phantom_kick": 0,
         "dive_strike": 0,
     }
 
@@ -5372,7 +5383,9 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         _dmk_name = "double_marshal_kick"
         _dmk_color = (180, 0, 255)
         _dmk_cost = 50
-        _dmk_is_ready = _viper_double_marshal_ready
+        _dmk_cd_ratio = get_viper_skill_cooldown_remaining("phantom_kick")
+        _dmk_on_cd = _dmk_cd_ratio > 0
+        _dmk_is_ready = _viper_double_marshal_ready and not _dmk_on_cd
         _dmk_is_active = current_gauge >= _dmk_cost and _dmk_is_ready
 
         _dmk_was = _viper_skill_was_active.get(_dmk_name, False)
@@ -5431,6 +5444,35 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         icon_size = icon_radius * 2 - 4
         _draw_skill_icon_symbol(surface, _dmk_name, _dmk_slot_x, _dmk_slot_y,
                                icon_size, _dmk_is_active, _dmk_color)
+
+        # 팬텀 킥 쿨타임 오버레이
+        if _dmk_on_cd:
+            _dmk_cd_surf = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
+            _dmk_cd_c = icon_radius + 2
+            _dmk_sa = -math.pi / 2
+            _dmk_ea = _dmk_sa + (2 * math.pi * _dmk_cd_ratio)
+            if _dmk_cd_ratio > 0.01:
+                _dmk_pts = [(_dmk_cd_c, _dmk_cd_c)]
+                _dmk_ns = max(3, int(36 * _dmk_cd_ratio))
+                for _dj in range(_dmk_ns + 1):
+                    _da = _dmk_sa + (_dmk_ea - _dmk_sa) * _dj / _dmk_ns
+                    _dmk_pts.append((_dmk_cd_c + int(math.cos(_da) * icon_radius),
+                                     _dmk_cd_c + int(math.sin(_da) * icon_radius)))
+                if len(_dmk_pts) >= 3:
+                    pygame.draw.polygon(_dmk_cd_surf, (0, 0, 0, 180), _dmk_pts)
+            surface.blit(_dmk_cd_surf, (_dmk_slot_x - icon_radius - 2, _dmk_slot_y - icon_radius - 2))
+            _dmk_cd_sec = 40.0 * _dmk_cd_ratio
+            _dmk_cd_txt = f"{int(_dmk_cd_sec)}" if _dmk_cd_sec >= 1 else f"{_dmk_cd_sec:.1f}"
+            try:
+                _dmk_cd_f = pygame.font.Font(None, 28)
+                _dmk_ts = _dmk_cd_f.render(_dmk_cd_txt, True, (255, 255, 255))
+                _dmk_tr = _dmk_ts.get_rect(center=(_dmk_slot_x, _dmk_slot_y))
+                _dmk_ss = _dmk_cd_f.render(_dmk_cd_txt, True, (0, 0, 0))
+                _dmk_sr = _dmk_ss.get_rect(center=(_dmk_slot_x + 1, _dmk_slot_y + 1))
+                surface.blit(_dmk_ss, _dmk_sr)
+                surface.blit(_dmk_ts, _dmk_tr)
+            except:
+                pass
 
     # === 해금된 메인 스킬 아이콘 그리기 ===
     for i, skill_data in enumerate(unlocked_main_skills):
@@ -72278,11 +72320,12 @@ def handle_player(keys):
                                 pass
 
     # === 바이퍼 마샬 킥 연계기 (쉐도우 백스텝 → 0.5초 후 → S/↓키) ===
-    # 쉐도우 백스텝 공 타격 후 0.5초 경과 시 마샬 킥 윈도우 자동 활성화
+    # 쉐도우 백스텝 공 타격 후 0.5초 경과 시 마샬 킥 윈도우 자동 활성화 (쿨타임 체크)
     if _viper_ss_ball_touched and not _viper_wall_dive_ready:
         if pygame.time.get_ticks() - _viper_ss_ball_touched_ms >= _VIPER_MARSHAL_KICK_1ST_DELAY_MS:
-            _viper_wall_dive_ready = True
-            _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
+            if get_viper_skill_cooldown_remaining("marshal_kick") <= 0:
+                _viper_wall_dive_ready = True
+                _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_ss_ball_touched = False  # 1회 소모
 
     # 연계 윈도우 타이머 감소
@@ -72291,11 +72334,12 @@ def handle_player(keys):
         if _viper_wall_dive_ready_timer <= 0:
             _viper_wall_dive_ready = False
 
-    # 팬텀 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화
+    # 팬텀 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화 (퍽 해금 + 쿨타임 체크)
     if _viper_marshal_kick_hit_ball and _viper_ss_was_airborne and not _viper_double_marshal_ready:
         if pygame.time.get_ticks() - _viper_marshal_kick_hit_ms >= _VIPER_MARSHAL_KICK_2ND_DELAY_MS:
-            _viper_double_marshal_ready = True
-            _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
+            if _viper_double_marshal_kick_unlocked and get_viper_skill_cooldown_remaining("phantom_kick") <= 0:
+                _viper_double_marshal_ready = True
+                _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_marshal_kick_hit_ball = False  # 1회 소모
 
     # 팬텀 킥 윈도우 타이머 감소
@@ -72330,13 +72374,12 @@ def handle_player(keys):
                 and special_gauge >= _wd_gauge_cost
                 and is_viper_skill_unlocked("shadow_step")):
             special_gauge -= _wd_gauge_cost
-            # 팬텀 킥인지 판별 + 쉐도우 백스텝 쿨타임 연장
+            # 팬텀 킥인지 판별 + 각자 독립 쿨타임 트리거
             _viper_is_double_marshal = _wd_is_double
             if _wd_is_double:
-                _viper_skill_cooldown_override["shadow_step"] = 20.0  # 더블 마샬킥: 20초
+                trigger_viper_skill_cooldown("phantom_kick")   # 팬텀 킥 쿨타임 40초
             else:
-                _viper_skill_cooldown_override["shadow_step"] = 15.0  # 1차 마샬킥: 15초
-            trigger_viper_skill_cooldown("shadow_step")  # 쿨타임 재시작
+                trigger_viper_skill_cooldown("marshal_kick")   # 마샬 킥 쿨타임 25초
             _viper_wall_dive_ready = False
             _viper_wall_dive_ready_timer = 0
             _viper_double_marshal_ready = False
