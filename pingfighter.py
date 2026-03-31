@@ -57154,6 +57154,50 @@ def go_to_next_round():
     _judgment_wind_ball_immunity = 0.0
     _judgment_wind_sound_playing = False
 
+    # 🐍 바이퍼 스킬 상태 초기화 (라운드 전환 시 진행 중인 스킬 강제 종료)
+    global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_combo_used
+    global _viper_nerve_strike_slash_shown, _viper_nerve_strike_start_ms
+    global _viper_wall_dive_active, _viper_wall_dive_phase, _viper_wall_dive_particles, _viper_wall_dive_web_lines
+    global _viper_wall_dive_ready, _viper_wall_dive_ready_timer, _viper_wall_dive_ball_hit
+    global _viper_dive_active, _viper_dive_phase
+    global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase
+    global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_particles
+    global _viper_speed_boost_active
+    global _viper_phantom_strike_active, _viper_phantom_strike_timer
+    global _viper_ps_curve_active, _viper_ps_curve_timer
+    global _viper_ss_wave_active, _viper_ss_wave_hit_ball, _viper_ss_wave_trail, _viper_ss_ball_touched
+    global boss_confused_timer
+    _viper_nerve_strike_active = False
+    _viper_nerve_strike_phase = 0
+    _viper_nerve_strike_combo_used = False
+    _viper_nerve_strike_slash_shown = False
+    _viper_nerve_strike_start_ms = 0
+    _viper_wall_dive_active = False
+    _viper_wall_dive_phase = 0
+    _viper_wall_dive_ready = False
+    _viper_wall_dive_ready_timer = 0
+    _viper_wall_dive_ball_hit = False
+    _viper_wall_dive_particles = []
+    _viper_wall_dive_web_lines = []
+    _viper_dive_active = False
+    _viper_dive_phase = 0
+    _viper_blade_rush_active = False
+    _viper_br_spin_active = False
+    _viper_br_spin_phase = 0
+    _viper_jetpack_active = False
+    _viper_jetpack_offset_y = 0.0
+    _viper_jetpack_particles = []
+    _viper_speed_boost_active = False
+    _viper_phantom_strike_active = False
+    _viper_phantom_strike_timer = 0
+    _viper_ps_curve_active = False
+    _viper_ps_curve_timer = 0
+    _viper_ss_wave_active = False
+    _viper_ss_wave_hit_ball = False
+    _viper_ss_wave_trail = []
+    _viper_ss_ball_touched = False
+    boss_confused_timer = 0
+
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
         try:
