@@ -72769,7 +72769,8 @@ def handle_player(keys):
             if _viper_jetpack_overheat:
                 _viper_jetpack_overheat = False
             if _viper_jetpack_hold_timer > 0 and not _viper_jetpack_active:
-                _viper_jetpack_hold_timer = max(0, _viper_jetpack_hold_timer - 0.5)  # 소모 1/f, 충전 0.5/f (2배 느림)
+                _jp_recharge_rate = 0.5 * (1.0 + runtime_skill_levels.get("jetpack_enhance", 0) * 0.2)  # 퍽 레벨당 충전속도 +20%
+                _viper_jetpack_hold_timer = max(0, _viper_jetpack_hold_timer - _jp_recharge_rate)
 
         # PLAYER rect Y 위치 적용 (물리 판정에 반영)
         if _viper_jetpack_offset_y < 0:
