@@ -48010,8 +48010,16 @@ _viper_starburst_x = 0.0
 _viper_starburst_y = 0.0
 _viper_starburst_frame = 0           # 현재 프레임 (0~4)
 _viper_starburst_timer = 0           # 프레임 타이머
+_viper_starburst_is_double = False   # 더블 마샬 킥 강화 스타버스트 여부
 _VIPER_STARBURST_FRAMES = 5          # 총 프레임 수
 _VIPER_STARBURST_FRAME_DUR = 3       # 프레임당 게임 틱 (3틱 = 약 50ms)
+
+# 더블 마샬 킥 텍스트 이펙트
+_viper_dmk_text_active = False
+_viper_dmk_text_timer = 0
+_viper_dmk_text_x = 0.0
+_viper_dmk_text_y = 0.0
+_VIPER_DMK_TEXT_DURATION = 40        # 텍스트 표시 시간 (프레임)
 
 # 바이퍼 스킬 공속 부스트 복귀 시스템
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
@@ -71971,7 +71979,8 @@ def handle_player(keys):
         global _viper_wall_dive_charge_start_x, _viper_wall_dive_charge_start_y
         global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
         global _viper_wall_dive_reclimb_start_x, _viper_wall_dive_reclimb_start_y
-        global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer
+        global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer, _viper_starburst_is_double
+    global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
         global _viper_wall_dive_return_start_x, _viper_wall_dive_return_start_y
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
@@ -72424,9 +72433,9 @@ def handle_player(keys):
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
                     # 공을 위로 강하게 반사 + 속도 증가
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
-                    # 2차 마샬 킥이면 120% 증가(2.2x), 1차는 80% 증가(1.8x)
+                    # 2차 마샬 킥이면 200% 증가(3.0x), 1차는 80% 증가(1.8x)
                     if _viper_is_double_marshal:
-                        _wd_new_spd = max(_wd_cur_spd * 2.2, 10.0)  # 120% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 3.0, 12.0)  # 200% 증가
                     else:
                         _wd_new_spd = max(_wd_cur_spd * 1.8, 10.0)  # 80% 증가
                     _viper_speed_boost_active = True
@@ -72449,9 +72458,18 @@ def handle_player(keys):
                     _viper_starburst_y = float(BALL.centery)
                     _viper_starburst_frame = 0
                     _viper_starburst_timer = 0
+                    _viper_starburst_is_double = _viper_is_double_marshal
+                    # 더블 마샬 킥 텍스트 + 강화 이펙트
+                    if _viper_is_double_marshal:
+                        _viper_dmk_text_active = True
+                        _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION
+                        _viper_dmk_text_x = float(BALL.centerx)
+                        _viper_dmk_text_y = float(BALL.centery - 40)
                     # 히트 이펙트
-                    screen_shake_timer = max(screen_shake_timer, 12)
-                    screen_shake_intensity = max(screen_shake_intensity, 5)
+                    _shake_force = 20 if _viper_is_double_marshal else 12
+                    _shake_int = 8 if _viper_is_double_marshal else 5
+                    screen_shake_timer = max(screen_shake_timer, _shake_force)
+                    screen_shake_intensity = max(screen_shake_intensity, _shake_int)
                     try:
                         effects_manager.spawn_shockwave(
                             BALL.centerx, BALL.centery,
@@ -72461,17 +72479,18 @@ def handle_player(keys):
                         pass
                     # 검붉은 타격 이펙트 (마샬 킥)
                     try:
-                        _mk_impact_intensity = 1.5 if _viper_is_double_marshal else 1.0
+                        _mk_impact_intensity = 2.5 if _viper_is_double_marshal else 1.0
+                        _mk_impact_count = 40 if _viper_is_double_marshal else 24
                         effects_manager.spawn_dark_red_impact(
                             BALL.centerx, BALL.centery,
-                            count=24, intensity=_mk_impact_intensity,
+                            count=_mk_impact_count, intensity=_mk_impact_intensity,
                         )
                     except Exception:
                         pass
                     # 마샬 킥 강한 커브 적용
                     _viper_ps_curve_active = True
                     if _viper_is_double_marshal:
-                        _viper_ps_curve_timer = int(_VIPER_PS_CURVE_FRAMES * 1.5)  # 더블: 커브 1.5배 지속
+                        _viper_ps_curve_timer = int(_VIPER_PS_CURVE_FRAMES * 2.5)  # 더블: 커브 2.5배 지속 (괴랄한 궤적)
                     else:
                         _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
                     # 커브 방향: 발사 방향과 같은 쪽으로 (자연스러운 커브)
@@ -107461,6 +107480,7 @@ def draw_objects():
             _sb_t = _sb_f / max(1, _VIPER_STARBURST_FRAMES - 1)  # 0→1
             _sb_cx = int(_viper_starburst_x)
             _sb_cy = int(_viper_starburst_y)
+            _sb_dbl = _viper_starburst_is_double  # 더블 마샬 킥 강화 여부
 
             # 프레임별 파라미터: 팽창 → 최대 → 수축+페이드
             if _sb_f == 0:
@@ -107474,34 +107494,40 @@ def draw_objects():
             else:
                 _sb_scale, _sb_alpha = 0.5, 60
 
-            _sb_max_r = 50  # 최대 반경
+            # 더블 마샬 킥: 크기 2배, 알파 강화
+            _sb_max_r = 90 if _sb_dbl else 50
+            if _sb_dbl:
+                _sb_alpha = min(255, int(_sb_alpha * 1.4))
             _sb_r = int(_sb_max_r * _sb_scale)
 
-            # 광선 (8방향 + 대각선 4방향, 길이 변화)
-            _sb_ray_count = 12
+            # 광선 (더블: 16방향, 일반: 12방향)
+            _sb_ray_count = 16 if _sb_dbl else 12
             _sb_surf_size = _sb_r * 4 + 4
             _sb_surf = pygame.Surface((_sb_surf_size, _sb_surf_size), pygame.SRCALPHA)
             _sb_center = _sb_surf_size // 2
 
             for _ri in range(_sb_ray_count):
-                _r_angle = math.radians(_ri * (360.0 / _sb_ray_count) + _sb_f * 8)
-                # 주 광선(0,90,180,270)은 길고, 대각선은 짧음
-                _is_main = (_ri % 3 == 0)
-                _r_len = _sb_r * (1.8 if _is_main else 1.0)
-                _r_width = max(1, int((3 if _is_main else 2) * (1.0 - _sb_t * 0.5)))
-                # 색상: 중심 화이트 → 끝 핑크퍼플
+                _r_angle = math.radians(_ri * (360.0 / _sb_ray_count) + _sb_f * (12 if _sb_dbl else 8))
+                _is_main = (_ri % (4 if _sb_dbl else 3) == 0)
+                _r_len = _sb_r * (2.2 if _sb_dbl and _is_main else 1.8 if _is_main else 1.0)
+                _r_width = max(1, int((4 if _sb_dbl and _is_main else 3 if _is_main else 2) * (1.0 - _sb_t * 0.5)))
                 _r_end_x = _sb_center + math.cos(_r_angle) * _r_len
                 _r_end_y = _sb_center + math.sin(_r_angle) * _r_len
-                _r_alpha = min(255, int(_sb_alpha * (0.9 if _is_main else 0.5)))
-                pygame.draw.line(_sb_surf, (220, 160, 255, _r_alpha),
+                _r_alpha = min(255, int(_sb_alpha * (0.95 if _is_main else 0.5)))
+                # 더블: 밝은 화이트-핑크, 일반: 핑크퍼플
+                if _sb_dbl:
+                    _r_color = (255, 180, 255, _r_alpha) if _is_main else (220, 140, 255, _r_alpha)
+                else:
+                    _r_color = (220, 160, 255, _r_alpha)
+                pygame.draw.line(_sb_surf, _r_color,
                                  (_sb_center, _sb_center),
                                  (int(_r_end_x), int(_r_end_y)), _r_width)
 
-            # 중심 글로우 (밝은 화이트-핑크)
-            _sb_glow_r = max(2, int(_sb_r * 0.5))
-            pygame.draw.circle(_sb_surf, (255, 220, 255, min(255, _sb_alpha)),
-                               (_sb_center, _sb_center), _sb_glow_r)
-            _sb_core_r = max(1, int(_sb_r * 0.25))
+            # 중심 글로우
+            _sb_glow_r = max(2, int(_sb_r * (0.6 if _sb_dbl else 0.5)))
+            _glow_color = (255, 230, 255, min(255, _sb_alpha)) if _sb_dbl else (255, 220, 255, min(255, _sb_alpha))
+            pygame.draw.circle(_sb_surf, _glow_color, (_sb_center, _sb_center), _sb_glow_r)
+            _sb_core_r = max(1, int(_sb_r * (0.3 if _sb_dbl else 0.25)))
             pygame.draw.circle(_sb_surf, (255, 245, 255, min(255, _sb_alpha)),
                                (_sb_center, _sb_center), _sb_core_r)
 
@@ -107517,6 +107543,32 @@ def draw_objects():
                     _viper_starburst_active = False
         except Exception:
             _viper_starburst_active = False
+
+    # ✦ 더블 마샬 킥 텍스트 이펙트 렌더링
+    if _viper_dmk_text_active:
+        try:
+            _dmk_t = 1.0 - (_viper_dmk_text_timer / _VIPER_DMK_TEXT_DURATION)  # 0→1
+            _dmk_ease = min(1.0, _dmk_t * 3.0)  # 빠르게 나타남
+            _dmk_fade = max(0.0, 1.0 - max(0.0, (_dmk_t - 0.6) * 2.5))  # 60% 이후 페이드
+            _dmk_alpha = int(255 * _dmk_ease * _dmk_fade)
+            if _dmk_alpha > 5:
+                _dmk_scale = 0.8 + 0.2 * _dmk_ease  # 약간 커지는 느낌
+                _dmk_y_off = -15 * _dmk_t  # 위로 살짝 올라감
+                try:
+                    _dmk_font = pygame.freetype.Font(
+                        resource_path(os.path.join("fonts", "NanumSquareB.ttf")), int(14 * _dmk_scale))
+                    _dmk_surf, _dmk_rect = _dmk_font.render("DOUBLE MARSHAL KICK", (255, 200, 255))
+                    _dmk_surf.set_alpha(_dmk_alpha)
+                    _dmk_dx = int(_viper_dmk_text_x - _dmk_rect.width // 2)
+                    _dmk_dy = int(_viper_dmk_text_y + _dmk_y_off)
+                    SCREEN.blit(_dmk_surf, (_dmk_dx, _dmk_dy))
+                except Exception:
+                    pass
+            _viper_dmk_text_timer -= 1
+            if _viper_dmk_text_timer <= 0:
+                _viper_dmk_text_active = False
+        except Exception:
+            _viper_dmk_text_active = False
 
     # ⚡ 바이퍼 쉐도우 백스텝 에너지파 렌더링
     if _viper_ss_wave_active:
