@@ -73095,8 +73095,11 @@ def handle_player(keys):
         if _viper_blade_rush_y <= _viper_blade_rush_target_y and not _viper_blade_rush_fadeout:
             _viper_blade_rush_fadeout = True
             _viper_blade_rush_fadeout_timer = _VIPER_BLADE_RUSH_FADEOUT_FRAMES
-            # 에어 블레이드 적중 실패 시 마샬 킥 연계 윈도우 즉시 활성화
-            if not _viper_blade_rush_hit_ball and is_viper_skill_unlocked("marshal_kick"):
+            # 에어 블레이드 적중 실패 시 마샬 킥 연계 윈도우 즉시 활성화 (베놈 엣지 미사용 시만)
+            if (not _viper_blade_rush_hit_ball
+                    and not _viper_nerve_strike_combo_used
+                    and not _viper_nerve_strike_active
+                    and is_viper_skill_unlocked("marshal_kick")):
                 _viper_wall_dive_ready = True
                 _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES
 
