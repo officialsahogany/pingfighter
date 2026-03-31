@@ -71980,7 +71980,7 @@ def handle_player(keys):
         global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
         global _viper_wall_dive_reclimb_start_x, _viper_wall_dive_reclimb_start_y
         global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer, _viper_starburst_is_double
-    global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
+        global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
         global _viper_wall_dive_return_start_x, _viper_wall_dive_return_start_y
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
