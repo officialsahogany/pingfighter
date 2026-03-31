@@ -3696,7 +3696,7 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "nerve_strike", "korean": "베놈 엣지", "cost": 80, "color": (180, 0, 220),
-        "symbol": "◈", "cooldown": 0.0, "key": "W/↑(연계)",
+        "symbol": "◈", "cooldown": 30.0, "key": "W/↑(연계)",
         "description": "에어 블레이드 착지 전 W/↑키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
         "how_to_use": "에어 블레이드 사용 후 착지 전 W/↑키",
         "effect_type": "stun_purple"
@@ -3710,15 +3710,15 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
-        "symbol": "🕷", "cooldown": 25.0, "key": "S/↓(연계)",
-        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 25초.",
+        "symbol": "🕷", "cooldown": 15.0, "key": "S/↓(연계)",
+        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 15초.",
         "how_to_use": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 S/↓키",
         "effect_type": "wall_dive_purple"
     },
     {
         "name": "phantom_kick", "korean": "팬텀 킥", "cost": 50, "color": (180, 0, 255),
-        "symbol": "x2", "cooldown": 40.0, "key": "S/↓(연계)",
-        "description": "마샬 킥 공 타격 후 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n쿨타임 40초.",
+        "symbol": "x2", "cooldown": 25.0, "key": "S/↓(연계)",
+        "description": "마샬 킥 공 타격 후 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n쿨타임 25초.",
         "how_to_use": "마샬 킥 공 타격 후 S/↓키 (팬텀 킥 퍽 필요)",
         "effect_type": "wall_dive_purple"
     },
@@ -72542,6 +72542,7 @@ def handle_player(keys):
                     _viper_w_key_released = False
                     special_gauge -= 80
                     _viper_nerve_strike_combo_used = True
+                    trigger_viper_skill_cooldown("nerve_strike")  # 베놈 엣지 쿨타임 30초
 
                     # 신경 타격 돌진 애니메이션 시작
                     _viper_nerve_strike_active = True
@@ -72664,9 +72665,9 @@ def handle_player(keys):
             # 팬텀 킥인지 판별 + 각자 독립 쿨타임 트리거
             _viper_is_double_marshal = _wd_is_double
             if _wd_is_double:
-                trigger_viper_skill_cooldown("phantom_kick")   # 팬텀 킥 쿨타임 40초
+                trigger_viper_skill_cooldown("phantom_kick")   # 팬텀 킥 쿨타임 25초
             else:
-                trigger_viper_skill_cooldown("marshal_kick")   # 마샬 킥 쿨타임 25초
+                trigger_viper_skill_cooldown("marshal_kick")   # 마샬 킥 쿨타임 15초
             _viper_wall_dive_ready = False
             _viper_wall_dive_ready_timer = 0
             _viper_double_marshal_ready = False
