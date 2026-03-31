@@ -107103,8 +107103,8 @@ def draw_objects():
                     _ghost_count = 4
                     _kick_dir = _viper_ss_hologram_kick_dir
                     for _gi in range(_ghost_count):
-                        _g_delay = _gi * 0.03  # 잔상 간 딜레이 극소 (거의 동시)
-                        _g_local_t = (_holo_t - 0.15 - _g_delay) / 0.15  # 0.15초만에 완료 (매우 빠름)
+                        _g_delay = _gi * 0.01  # 잔상 간 딜레이 거의 없음
+                        _g_local_t = (_holo_t - 0.15 - _g_delay) / 0.06  # 0.06초(30ms)만에 완료 (순식간)
                         if _g_local_t < 0.0 or _g_local_t > 1.0:
                             continue
                         _g_ease = min(1.0, _g_local_t * _g_local_t * 4.0)  # 빠른 가속
