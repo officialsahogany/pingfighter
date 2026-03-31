@@ -50088,7 +50088,7 @@ COTTON_BOMB_SLOW_MULTIPLIER = 0.5   # 이동속도 50%로 감소
 # === 유령 커브 (솜뭉치 폭탄 공 충돌 시 발동) ===
 cotton_bomb_ghost_curve_active = False
 cotton_bomb_ghost_curve_timer = 0
-COTTON_BOMB_GHOST_CURVE_DURATION = 180  # 3초간 유령 커브
+COTTON_BOMB_GHOST_CURVE_DURATION = 90  # 1.5초간 유령 커브
 cotton_bomb_ghost_curve_phase = 0.0     # 커브 위상
 cotton_bomb_ghost_curve_seed = 0.0      # 랜덤 시드 (패턴 다양화)
 cotton_bomb_ghost_curve_intensity = 1.0  # 커브 강도
