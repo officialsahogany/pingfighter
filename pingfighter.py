@@ -18263,6 +18263,55 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.circle(surface, (255, 255, 220), (icon_cx - int(7*scale), icon_cy - int(5*scale)), max(1, int(1.5*scale)))
         pygame.draw.circle(surface, (255, 255, 220), (icon_cx + int(7*scale), icon_cy - int(3*scale)), max(1, int(1.5*scale)))
 
+    elif skill_id == "jetpack_enhance":
+        # 제트팩 강화 — 로켓 본체 + 화염 + 상승 화살표 (시안색)
+        color = icon_color
+        lt = lighter
+        dk = darker
+        # 본체 (사다리꼴)
+        bw = max(3, int(5 * scale))   # 본체 반폭
+        bt = icon_cy - int(5 * scale)  # 본체 상단
+        bb = icon_cy + int(4 * scale)  # 본체 하단
+        body_pts = [
+            (icon_cx - bw, bt),
+            (icon_cx + bw, bt),
+            (icon_cx + bw - max(1, int(1 * scale)), bb),
+            (icon_cx - bw + max(1, int(1 * scale)), bb),
+        ]
+        pygame.draw.polygon(surface, dk(color, 20), body_pts)
+        pygame.draw.polygon(surface, lt(color, 40), body_pts, max(1, int(1 * scale)))
+        # 중앙 게이지선
+        pygame.draw.line(surface, lt(color, 80),
+                        (icon_cx, bt + max(1, int(2 * scale))),
+                        (icon_cx, bb - max(1, int(1 * scale))),
+                        max(1, int(1.5 * scale)))
+        # 양쪽 노즐
+        nz = max(2, int(2 * scale))
+        for nx in [-1, 1]:
+            ncx = icon_cx + nx * (bw - nz // 2)
+            pygame.draw.rect(surface, dk(color, 40),
+                           (ncx - nz // 2, bb, nz, nz))
+        # 화염 (노즐 아래)
+        ft = bb + nz
+        fh = max(3, int(4 * scale))
+        flame_cols = [lt(color, 60), color, dk(color, 30)]
+        for fi, fc in enumerate(flame_cols):
+            fw = max(1, bw - int(fi * 2 * scale))
+            ffh = max(1, fh - int(fi * 1.5 * scale))
+            fy = ft + fi
+            pts = [(icon_cx - fw, fy), (icon_cx + fw, fy), (icon_cx, fy + ffh)]
+            if fw > 0 and ffh > 0:
+                pygame.draw.polygon(surface, fc, pts)
+        # 상승 화살표 (강화 표시)
+        al = max(3, int(4 * scale))
+        atop = bt - al - max(1, int(2 * scale))
+        abot = bt - max(1, int(1 * scale))
+        lw_a = max(1, int(1.5 * scale))
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx, atop), (icon_cx, abot), lw_a)
+        wing = max(2, int(3 * scale))
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx - wing, atop + wing), (icon_cx, atop), lw_a)
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx + wing, atop + wing), (icon_cx, atop), lw_a)
+
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
         symbol = skill.get("name", "?")[0] if skill.get("name") else "?"
