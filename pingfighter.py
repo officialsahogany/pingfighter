@@ -72193,6 +72193,11 @@ def handle_player(keys):
                         )
                     except Exception:
                         pass
+                    # 마샬 킥 강한 커브 적용 (벽 반대 방향으로 휘어짐)
+                    _viper_ps_curve_active = True
+                    _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
+                    # 커브 방향: 벽 반대쪽으로 (좌측 벽에서 발사 → 오른쪽으로 커브, 반대도 마찬가지)
+                    _viper_ps_curve_direction = 1 if _viper_wall_dive_wall_x < WIDTH // 2 else -1
                     # 🪙 마샬 킥 타격 골드 보너스
                     try:
                         add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
