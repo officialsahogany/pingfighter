@@ -48014,12 +48014,15 @@ _viper_starburst_is_double = False   # 더블 마샬 킥 강화 스타버스트 
 _VIPER_STARBURST_FRAMES = 5          # 총 프레임 수
 _VIPER_STARBURST_FRAME_DUR = 3       # 프레임당 게임 틱 (3틱 = 약 50ms)
 
-# 더블 마샬 킥 텍스트 이펙트
+# 더블 마샬 킥 프리즈 연출 + 텍스트 이펙트
 _viper_dmk_text_active = False
 _viper_dmk_text_timer = 0
 _viper_dmk_text_x = 0.0
 _viper_dmk_text_y = 0.0
 _VIPER_DMK_TEXT_DURATION = 40        # 텍스트 표시 시간 (프레임)
+_viper_dmk_freeze_active = False     # 더블 마샬 킥 프리즈 중 (공/보스 정지)
+_viper_dmk_freeze_timer = 0          # 프리즈 남은 프레임
+_VIPER_DMK_FREEZE_DURATION = 30      # 프리즈 시간 (0.5초)
 
 # 바이퍼 스킬 공속 부스트 복귀 시스템
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
@@ -71981,6 +71984,7 @@ def handle_player(keys):
         global _viper_wall_dive_reclimb_start_x, _viper_wall_dive_reclimb_start_y
         global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer, _viper_starburst_is_double
         global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
+        global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
         global _viper_wall_dive_return_start_x, _viper_wall_dive_return_start_y
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
@@ -72459,12 +72463,14 @@ def handle_player(keys):
                     _viper_starburst_frame = 0
                     _viper_starburst_timer = 0
                     _viper_starburst_is_double = _viper_is_double_marshal
-                    # 더블 마샬 킥 텍스트 + 강화 이펙트
+                    # 더블 마샬 킥: 프리즈 연출 + 텍스트
                     if _viper_is_double_marshal:
+                        _viper_dmk_freeze_active = True
+                        _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
                         _viper_dmk_text_active = True
-                        _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION
-                        _viper_dmk_text_x = float(BALL.centerx)
-                        _viper_dmk_text_y = float(BALL.centery - 40)
+                        _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
+                        _viper_dmk_text_x = float(WIDTH // 2)
+                        _viper_dmk_text_y = float(HEIGHT // 2 - 30)
                     # 히트 이펙트
                     _shake_force = 20 if _viper_is_double_marshal else 12
                     _shake_int = 8 if _viper_is_double_marshal else 5
@@ -72538,6 +72544,12 @@ def handle_player(keys):
                 _viper_wall_dive_web_lines = []
                 PLAYER.centery = _wd_target_y
                 PLAYER.centerx = _wd_target_x
+
+    # 더블 마샬 킥 프리즈 타이머 감소
+    if _viper_dmk_freeze_active:
+        _viper_dmk_freeze_timer -= 1
+        if _viper_dmk_freeze_timer <= 0:
+            _viper_dmk_freeze_active = False
 
     # 마샬 킥 파티클 업데이트
     if _viper_wall_dive_particles:
@@ -106249,6 +106261,7 @@ def draw_objects():
     global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
     global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer, _viper_starburst_is_double
     global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
+    global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
@@ -107554,26 +107567,52 @@ def draw_objects():
         except Exception:
             _viper_starburst_active = False
 
-    # ✦ 더블 마샬 킥 텍스트 이펙트 렌더링
-    if _viper_dmk_text_active:
+    # ✦ 더블 마샬 킥 프리즈 연출 + 텍스트 렌더링
+    if _viper_dmk_freeze_active or _viper_dmk_text_active:
         try:
-            _dmk_t = 1.0 - (_viper_dmk_text_timer / _VIPER_DMK_TEXT_DURATION)  # 0→1
-            _dmk_ease = min(1.0, _dmk_t * 3.0)  # 빠르게 나타남
-            _dmk_fade = max(0.0, 1.0 - max(0.0, (_dmk_t - 0.6) * 2.5))  # 60% 이후 페이드
-            _dmk_alpha = int(255 * _dmk_ease * _dmk_fade)
+            _dmk_total_dur = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
+            _dmk_t = 1.0 - (_viper_dmk_text_timer / max(1, _dmk_total_dur))  # 0→1
+
+            # 프리즈 중: 화면 어둡게 + 텍스트 크게
+            if _viper_dmk_freeze_active:
+                _dmk_dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                _dmk_dim_alpha = int(80 * min(1.0, _dmk_t * 5.0))  # 빠르게 어두워짐
+                _dmk_dim.fill((0, 0, 0, _dmk_dim_alpha))
+                SCREEN.blit(_dmk_dim, (0, 0))
+
+            # 텍스트: 프리즈 중 크게 중앙, 프리즈 후 위로 떠오르며 페이드
+            _dmk_freeze_ratio = _viper_dmk_freeze_timer / max(1, _VIPER_DMK_FREEZE_DURATION) if _viper_dmk_freeze_active else 0
+            if _viper_dmk_freeze_active:
+                _dmk_ease = min(1.0, _dmk_t * 4.0)
+                _dmk_alpha = int(255 * _dmk_ease)
+                _dmk_font_size = int(22 + 4 * _dmk_ease)
+                _dmk_y_off = 0
+            else:
+                _dmk_post_t = 1.0 - (_viper_dmk_text_timer / max(1, _VIPER_DMK_TEXT_DURATION))
+                _dmk_alpha = int(255 * max(0.0, 1.0 - _dmk_post_t * 1.5))
+                _dmk_font_size = 22
+                _dmk_y_off = -20 * _dmk_post_t
+
             if _dmk_alpha > 5:
-                _dmk_scale = 0.8 + 0.2 * _dmk_ease  # 약간 커지는 느낌
-                _dmk_y_off = -15 * _dmk_t  # 위로 살짝 올라감
                 try:
                     _dmk_font = pygame.freetype.Font(
-                        resource_path(os.path.join("fonts", "NanumSquareB.ttf")), int(14 * _dmk_scale))
-                    _dmk_surf, _dmk_rect = _dmk_font.render("DOUBLE MARSHAL KICK", (255, 200, 255))
+                        resource_path(os.path.join("fonts", "NanumSquareB.ttf")), _dmk_font_size)
+                    # 글로우 (뒤에 깔림)
+                    _dmk_glow_surf, _dmk_glow_rect = _dmk_font.render("DOUBLE MARSHAL KICK", (180, 80, 255))
+                    _dmk_glow_surf.set_alpha(min(255, int(_dmk_alpha * 0.4)))
+                    for _go in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+                        SCREEN.blit(_dmk_glow_surf,
+                                    (int(WIDTH // 2 - _dmk_glow_rect.width // 2 + _go[0]),
+                                     int(HEIGHT // 2 - 30 + _dmk_y_off + _go[1])))
+                    # 메인 텍스트
+                    _dmk_surf, _dmk_rect = _dmk_font.render("DOUBLE MARSHAL KICK", (255, 210, 255))
                     _dmk_surf.set_alpha(_dmk_alpha)
-                    _dmk_dx = int(_viper_dmk_text_x - _dmk_rect.width // 2)
-                    _dmk_dy = int(_viper_dmk_text_y + _dmk_y_off)
-                    SCREEN.blit(_dmk_surf, (_dmk_dx, _dmk_dy))
+                    SCREEN.blit(_dmk_surf,
+                                (int(WIDTH // 2 - _dmk_rect.width // 2),
+                                 int(HEIGHT // 2 - 30 + _dmk_y_off)))
                 except Exception:
                     pass
+
             _viper_dmk_text_timer -= 1
             if _viper_dmk_text_timer <= 0:
                 _viper_dmk_text_active = False
@@ -143318,8 +143357,8 @@ def handle_ball():
     if odins_eye_revival_anim_active or odins_eye_death_anim_active:
         return  # 애니메이션 중에는 물리 업데이트 전체 스킵
 
-    # 🐍 바이퍼 베놈 엣지 적중 프리즈 중에는 공 물리 멈춤
-    if _viper_ns_freeze_active:
+    # 🐍 바이퍼 베놈 엣지 / 더블 마샬 킥 프리즈 중에는 공 물리 멈춤
+    if _viper_ns_freeze_active or _viper_dmk_freeze_active:
         return
 
     # 이전 프레임 공 위치 저장 (관통 충돌 검사용)
@@ -151271,8 +151310,8 @@ def handle_boss():
     if ball_spawn_animation_active:
         return
 
-    # 🐍 바이퍼 베놈 엣지 적중 프리즈 중에는 보스 AI 정지
-    if _viper_ns_freeze_active:
+    # 🐍 바이퍼 베놈 엣지 / 더블 마샬 킥 프리즈 중에는 보스 AI 정지
+    if _viper_ns_freeze_active or _viper_dmk_freeze_active:
         return
 
     # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (상단 패들 = 보스)
