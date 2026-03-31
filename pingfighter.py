@@ -5266,12 +5266,62 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             draw_empty_slot(slot_x, slot_y)
 
     # === 우측 슬롯 (더블 마샬 킥, 1시 방향) ===
-    _dmk_angle = 330  # 1시 방향 (스매셔 클렌즈와 동일)
+    _dmk_angle = 330
     _dmk_rad = math.radians(_dmk_angle)
     _dmk_slot_x = orb_center_x + int(math.cos(_dmk_rad) * orbit_radius)
     _dmk_slot_y = orb_center_y + int(math.sin(_dmk_rad) * orbit_radius)
     if not _viper_double_marshal_kick_unlocked:
         draw_empty_slot(_dmk_slot_x, _dmk_slot_y)
+    else:
+        # 더블 마샬 킥 해금 시 직접 렌더링 (패시브 스킬)
+        _dmk_name = "double_marshal_kick"
+        _dmk_color = (180, 0, 255)
+        _dmk_cost = 50
+        _dmk_is_ready = _viper_double_marshal_ready
+        _dmk_is_active = current_gauge >= _dmk_cost and _dmk_is_ready
+
+        _dmk_was = _viper_skill_was_active.get(_dmk_name, False)
+        if _dmk_is_active and not _dmk_was:
+            _viper_skill_activation_times[_dmk_name] = time_now
+        _viper_skill_was_active[_dmk_name] = _dmk_is_active
+
+        _viper_skill_icon_rects[_dmk_name] = pygame.Rect(
+            _dmk_slot_x - icon_radius, _dmk_slot_y - icon_radius,
+            icon_diameter, icon_diameter
+        )
+
+        if _dmk_is_active:
+            _dmk_bg = (*_dmk_color[:3], 220)
+            _dmk_border = (255, 255, 255, 255)
+        else:
+            _dmk_dark = tuple(max(0, c // 3) for c in _dmk_color[:3])
+            _dmk_bg = (*_dmk_dark, 150)
+            _dmk_border = (80, 80, 80, 180)
+
+        _dmk_act_time = _viper_skill_activation_times.get(_dmk_name, 0)
+        _dmk_act_elapsed = time_now - _dmk_act_time
+        if _dmk_is_active and _dmk_act_elapsed < activation_effect_duration:
+            _dmk_progress = _dmk_act_elapsed / activation_effect_duration
+            _dmk_glow_a = int(180 * (1 - _dmk_progress))
+            _dmk_glow_r = icon_radius + int(8 * (1 - _dmk_progress))
+            _dmk_glow_s = pygame.Surface((_dmk_glow_r * 2 + 4, _dmk_glow_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(_dmk_glow_s, (*_dmk_color[:3], _dmk_glow_a),
+                             (_dmk_glow_r + 2, _dmk_glow_r + 2), _dmk_glow_r)
+            surface.blit(_dmk_glow_s, (_dmk_slot_x - _dmk_glow_r - 2, _dmk_slot_y - _dmk_glow_r - 2))
+
+        pygame.draw.circle(surface, _dmk_bg, (_dmk_slot_x, _dmk_slot_y), icon_radius)
+        pygame.draw.circle(surface, _dmk_border, (_dmk_slot_x, _dmk_slot_y), icon_radius, 2)
+
+        if _dmk_is_active:
+            _dmk_pulse = (math.sin(time_now * 0.005) + 1) / 2
+            if _dmk_pulse > 0.4:
+                _dmk_pa = int((_dmk_pulse - 0.4) * 100)
+                pygame.draw.circle(surface, (*_dmk_color[:3], _dmk_pa),
+                                 (_dmk_slot_x, _dmk_slot_y), icon_radius + 3, 2)
+
+        icon_size = icon_radius * 2 - 4
+        _draw_skill_icon_symbol(surface, _dmk_name, _dmk_slot_x, _dmk_slot_y,
+                               icon_size, _dmk_is_active, _dmk_color)
 
     # === 해금된 메인 스킬 아이콘 그리기 ===
     for i, skill_data in enumerate(unlocked_main_skills):
@@ -98468,15 +98518,7 @@ def draw_player_gauge():
                     displayed_gauge,
                     current_max_gauge
                 )
-                # 바이퍼 퍽 구슬 (더블 마샬 킥 등)
-                _draw_viper_perk_icons(
-                    _player_gauge_surface_left,
-                    orb_center_x,
-                    orb_center_y,
-                    orb_radius,
-                    displayed_gauge,
-                    current_max_gauge
-                )
+                # 바이퍼 퍽 구슬은 _draw_viper_skill_icons 내부에서 우측 슬롯으로 통합 렌더링
 
             # === 코만도 화기류 인벤토리 표시 (게이지 구슬 위에 쌓아서 표시) ===
             # 오딘의 눈 변신 중에는 무기 인벤토리도 숨김
