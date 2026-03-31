@@ -47779,7 +47779,7 @@ _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우
 # === 바이퍼 쉐도우 카운터 (쉐도우 스텝 연계기: 벽 점프 → 공 돌진) ===
 _viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 스텝 후 보스가 공 반환 시)
 _viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
-_VIPER_WALL_DIVE_READY_FRAMES = 180      # 연계 윈도우 3초 (60fps)
+_VIPER_WALL_DIVE_READY_FRAMES = 90       # 연계 윈도우 1.5초 (60fps)
 _viper_wall_dive_active = False           # 쉐도우 카운터 진행 중
 _viper_wall_dive_phase = 0                # 0=벽으로 점프, 1=벽 매달림, 2=공으로 돌진
 _viper_wall_dive_start_ms = 0             # 페이즈 시작 시각
@@ -127601,8 +127601,9 @@ def show_character_selection():
                 if viper_card_preview is None:
                     viper_card_preview = _crop_surface_alpha(VIPER_PADDLE_IMG) if VIPER_PADDLE_IMG is not None else _crop_surface_alpha(create_viper_paddle_surface(0.0))
 
-                def _blit_viper(src_surface):
-                    """바이퍼 전용: 가로가 넓은 원본을 카드 폭에 맞게 축소 후 중앙 배치"""
+                def _blit_viper(src_surface, uncropped_surface=None):
+                    """바이퍼 전용: 가로가 넓은 원본을 카드 폭에 맞게 축소 후 중앙 배치
+                    uncropped_surface가 주어지면 몸체 중심(cx=125)을 기준으로 정렬"""
                     if src_surface is None:
                         return
                     sw, sh = src_surface.get_size()
@@ -127615,7 +127616,19 @@ def show_character_selection():
                     tw = max(1, int(sw * scale))
                     th = max(1, int(sh * scale))
                     scaled = pygame.transform.smoothscale(src_surface, (tw, th))
-                    ix = (w - tw) // 2
+                    # 몸체 중심 기준 정렬: 원본 서피스의 cx=125를 카드 중앙에 맞춤
+                    if uncropped_surface is not None:
+                        orig_w = uncropped_surface.get_width()
+                        body_cx = orig_w // 2  # 125 (바이퍼 몸체 중심)
+                        # 크롭 후 바운딩 렉트에서 body_cx의 상대 위치 계산
+                        crop_rect = uncropped_surface.get_bounding_rect(min_alpha=1)
+                        body_cx_in_crop = body_cx - crop_rect.left
+                        # 스케일 적용된 몸체 중심 위치
+                        scaled_body_cx = int(body_cx_in_crop * scale)
+                        # 카드 중앙에 몸체 중심을 맞춤
+                        ix = w // 2 - scaled_body_cx
+                    else:
+                        ix = (w - tw) // 2
                     iy = image_margin_top + (max_height - th) // 2
                     surface.blit(scaled, (ix, iy))
 
@@ -127624,12 +127637,13 @@ def show_character_selection():
                         cycle_ms = 800.0
                         t = pygame.time.get_ticks() % cycle_ms
                         phase = t / cycle_ms
-                        frame = _crop_surface_alpha(create_viper_paddle_surface(step_phase=phase))
-                        _blit_viper(frame)
+                        raw_frame = create_viper_paddle_surface(step_phase=phase)
+                        frame = _crop_surface_alpha(raw_frame)
+                        _blit_viper(frame, uncropped_surface=raw_frame)
                     except Exception:
                         _blit_viper(viper_card_preview)
                 else:
-                    _blit_viper(viper_card_preview)
+                    _blit_viper(viper_card_preview, uncropped_surface=VIPER_PADDLE_IMG if VIPER_PADDLE_IMG is not None else None)
             else:
                 try:
                     char_image = pygame.image.load(resource_path(character["image"]))
