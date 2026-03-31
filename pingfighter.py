@@ -3683,7 +3683,7 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "shadow_step", "korean": "쉐도우 백스텝", "cost": 100, "color": (100, 0, 180),
         "symbol": "⟐", "cooldown": 10.0, "key": "대쉬+S",
-        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.",
+        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.\n에너지파에 공이 닿으면 속도가 30~50% 증가합니다.",
         "how_to_use": "대쉬 중/직후 S키를 눌러 발동",
         "effect_type": "shadow_teleport"
     },
@@ -72509,8 +72509,20 @@ def handle_player(keys):
                         add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
                         pass
-                    # 에너지파 히트: 공을 위로 반사 (잔상과 동일하게)
+                    # 에너지파 히트: 공을 위로 반사 + 공속 30~50% 증가
+                    import random as _sw_rand
+                    _sw_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
                     ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
+                    if _sw_cur_speed > 0.1:
+                        _sw_boost = 1.0 + _sw_rand.uniform(0.3, 0.5)  # 30~50% 공속 증가
+                        _sw_new_speed = _sw_cur_speed * _sw_boost
+                        _sw_after_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        if _sw_after_speed > 0.1:
+                            _sw_ratio = _sw_new_speed / _sw_after_speed
+                            ball_vel[0] *= _sw_ratio
+                            ball_vel[1] *= _sw_ratio
+                        _viper_speed_boost_active = True
+                        _viper_speed_boost_original = _sw_cur_speed
                     _sw_curve = _viper_ss_wave_dir
                     _viper_ps_curve_active = True
                     _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
@@ -72645,8 +72657,8 @@ def handle_player(keys):
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _br_cur_speed
                     if _br_cur_speed > 0.1:
-                        _br_vert_ratio = abs(ball_vel[1]) / _br_cur_speed  # 0~1, 수직일수록 높음
-                        _br_boost = 2.8  # 2.8x (180% 증가)
+                        import random as _br_rand
+                        _br_boost = 1.0 + _br_rand.uniform(0.3, 0.5)  # 1.3~1.5x (30~50% 증가)
                         _br_new_speed = _br_cur_speed * _br_boost
                         _br_ratio = _br_new_speed / _br_cur_speed
                         ball_vel[0] *= _br_ratio
