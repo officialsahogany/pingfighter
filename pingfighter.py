@@ -1229,7 +1229,7 @@ from game_logic.checkmate_system import get_checkmate_system
 from game_logic.game_loop import LegacyHooks, create_game_loop
 from game_logic.sand_obstacles import (
     spawn_sand_obstacles, check_sand_ball_collision, draw_sand_obstacles,
-    erode_sand_area,
+    erode_sand_area, erode_sand_by_paddle, erode_sand_by_dash,
 )
 
 if _splash_screen:
@@ -32085,16 +32085,32 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
     phase = step_phase % 1.0 if step_phase else 0.0
     wave = math.sin(phase * math.tau)
     abs_wave = abs(wave)
-    # 아이들 호흡 (phase=0일 때도 미세하게 움직임)
-    idle_breath = math.sin(pygame.time.get_ticks() * 0.004) * 0.8 if phase == 0.0 else 0.0
-    torso_bob = int(abs_wave * 1.5 + idle_breath)
-    arm_swing = int(wave * 6)
-    shoulder_tilt = int(wave * 2)
-    lean_forward = int(abs_wave * 1.5)  # 걸을 때 약간 앞으로 기울기
-    left_leg_step = int(wave * 12)   # 다리 앞뒤 교차 폭 확대 (6→12)
-    right_leg_step = -left_leg_step
-    left_leg_lift = -int(max(0.0, wave) * 6)   # 다리 들어올림 확대 (3→6)
-    right_leg_lift = -int(max(0.0, -wave) * 6)
+
+    # ═══ 아이들 숨쉬기 모션 (phase=0: 가만히 서 있을 때) ═══
+    is_idle = (phase == 0.0 and kick_direction == 0 and wall_cling == 0 and flying_kick == 0)
+    if is_idle:
+        _t = pygame.time.get_ticks()
+        # 메인 호흡 (느린 주기 ~1.6초)
+        breath = math.sin(_t * 0.004)
+        # 2차 흔들림 (비대칭 주기 ~1초, 위상 어긋남)
+        sway = math.sin(_t * 0.006 + 0.5)
+        torso_bob = int(breath * 1.2)
+        arm_swing = int(breath * 2 + sway * 1)
+        shoulder_tilt = int(sway * 1.5)
+        lean_forward = int(breath * 0.6)
+        left_leg_step = int(sway * 1.0)
+        right_leg_step = int(-sway * 1.0)
+        left_leg_lift = int(breath * 0.4)
+        right_leg_lift = int(-breath * 0.4)
+    else:
+        torso_bob = int(abs_wave * 1.5)
+        arm_swing = int(wave * 6)
+        shoulder_tilt = int(wave * 2)
+        lean_forward = int(abs_wave * 1.5)  # 걸을 때 약간 앞으로 기울기
+        left_leg_step = int(wave * 12)   # 다리 앞뒤 교차 폭 확대 (6→12)
+        right_leg_step = -left_leg_step
+        left_leg_lift = -int(max(0.0, wave) * 6)   # 다리 들어올림 확대 (3→6)
+        right_leg_lift = -int(max(0.0, -wave) * 6)
 
     # 🦵 마샬 킥 날라차기 포즈: 이소룡 스타일 플라잉 킥
     if flying_kick != 0:
@@ -152134,7 +152150,12 @@ def handle_boss():
             decel_factor = max(0.0, boss_dash_timer / float(high_phase_frames)) if high_phase_frames > 0 else 0.0
             move_step = boss_dash_speed * boss_dash_direction * decel_factor
 
+        _boss_pre_dash_x = float(BOSS.centerx)
         BOSS.centerx += move_step
+
+        # 🏖 사막화: 보스 대쉬 시 상단 벽면 모래 대량 침식
+        if sand_obstacles and not sand_obstacles.dissolving:
+            erode_sand_by_dash(sand_obstacles, _boss_pre_dash_x, float(BOSS.centerx), "top")
 
         # 목표를 크게 지나치지 않도록 보정
         if boss_dash_direction > 0 and BOSS.centerx > boss_dash_target_x:
@@ -153023,6 +153044,10 @@ def handle_boss():
         BOSS.x = final_min_x
     elif BOSS.x > final_max_x:
         BOSS.x = final_max_x
+
+    # 🏖 사막화: 보스 이동 시 상단 벽면 모래 침식 (걷기)
+    if sand_obstacles and not sand_obstacles.dissolving and abs(boss_current_speed) > 0.5:
+        erode_sand_by_paddle(sand_obstacles, BOSS, "top")
 
     # --- Stage 2 보스 스피드 디펜스 (악어장군 전용) ---
     if current_stage == 2 and current_boss_name == "악어장군":
