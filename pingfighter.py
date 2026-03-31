@@ -107097,9 +107097,8 @@ def draw_objects():
 
                 _draw_x = _holo_x - _holo_w // 2 + _offset_x
                 _draw_y = _holo_y - _holo_h // 2 + _offset_y
-                SCREEN.blit(_holo_surf, (int(_draw_x), int(_draw_y)))
 
-                # 홀로그램 잔상 겹침 이펙트 (발차기 방향으로 뻗어나가며 진해짐)
+                # 홀로그램 잔상 겹침 이펙트 (발차기 방향으로 뻗어나가며 진해짐) — 본체 뒤에 깔림
                 if _holo_t > 0.1:
                     _ghost_count = 4  # 잔상 겹침 수
                     _kick_dir = _viper_ss_hologram_kick_dir
@@ -107112,12 +107111,15 @@ def draw_objects():
                         # 발차기 방향으로 뻗어나감 (확장 히트박스 커버)
                         _g_offset_x = _kick_dir * _g_ease * (10 + _gi * 12)
                         _g_offset_y = (1.0 - _g_ease) * (_gi - 1.5) * 3
-                        _g_alpha = int(min(255, (60 + _gi * 55) * min(1.0, _g_local_t * 3.0)))
+                        _g_alpha = int(min(200, (80 + _gi * 40) * min(1.0, _g_local_t * 2.5)))
                         _ghost_surf = _holo_base.copy()
                         _ghost_surf.set_alpha(_g_alpha)
                         _gx = _holo_x - _holo_w // 2 + _g_offset_x
                         _gy = _holo_y - _holo_h // 2 + _g_offset_y
                         SCREEN.blit(_ghost_surf, (int(_gx), int(_gy)))
+
+                # 본체 홀로그램 (잔상 위에 그림)
+                SCREEN.blit(_holo_surf, (int(_draw_x), int(_draw_y)))
 
                 # 홀로그램 발차기 확장 히트박스 — 공 충돌 판정 (텔레포트 도착 킥)
                 if _holo_t > 0.3 and not _viper_ss_hologram_kick_hit:
