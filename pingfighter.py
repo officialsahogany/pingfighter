@@ -48264,7 +48264,6 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
 
     # 중복 방지
     if _viper_ss_hit_consumed:
-        print(f"🐍 [SS_HIT] ❌ 중복 방지로 스킵! source={source}, hit_consumed=True")
         return
 
     # 공까지의 거리 비율 계산 (0=중심, 1=가장자리, 각 축 최대값 기준)
@@ -48277,13 +48276,6 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     speed_mult = _VIPER_SS_HIT_SPEED_MIN + t * (_VIPER_SS_HIT_SPEED_MAX - _VIPER_SS_HIT_SPEED_MIN)
     curve_frames = int(_VIPER_SS_HIT_CURVE_MIN + t * (_VIPER_SS_HIT_CURVE_MAX - _VIPER_SS_HIT_CURVE_MIN))
     curve_force = _VIPER_SS_HIT_FORCE_MIN + t * (_VIPER_SS_HIT_FORCE_MAX - _VIPER_SS_HIT_FORCE_MIN)
-
-    cur_speed_preview = math.hypot(ball_vel[0], ball_vel[1])
-    print(f"🐍 [SS_HIT] ✅ 타격 성공! source={source}, dist_ratio={dist_ratio:.3f}, t={t:.3f}")
-    print(f"    공속: {cur_speed_preview:.1f} → x{speed_mult:.2f} = {cur_speed_preview * speed_mult:.1f}")
-    print(f"    커브: frames={curve_frames}, force={curve_force:.2f}, dir={curve_dir}")
-    print(f"    히트박스: cx={hit_cx:.0f}, cy={hit_cy:.0f}, w={hit_w:.0f}, h={hit_h:.0f}")
-    print(f"    공 위치: ({BALL.centerx}, {BALL.centery}), dx={dx:.3f}, dy={dy:.3f}")
 
     # 중복 방지 플래그 세팅
     _viper_ss_hit_consumed = True
@@ -57883,6 +57875,12 @@ def go_to_next_round():
     global _viper_wall_dive_active, _viper_wall_dive_phase, _viper_wall_dive_particles, _viper_wall_dive_web_lines
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer, _viper_wall_dive_ball_hit
     global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
+    # 마샬 킥/팬텀 킥이 공을 때리기 전에 라운드가 끝나면 쿨타임 초기화
+    if _viper_wall_dive_active and not _viper_wall_dive_ball_hit:
+        if _viper_is_double_marshal:
+            _viper_skill_cooldowns["phantom_kick"] = 0
+        else:
+            _viper_skill_cooldowns["marshal_kick"] = 0
     global _viper_dive_active, _viper_dive_phase
     global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_particles
@@ -72490,11 +72488,6 @@ def handle_player(keys):
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
                         _viper_ss_ball_touched = False  # 공 히트 추적 초기화 (카운터 연계 조건)
 
-                        print(f"🐍 [SS] === 쉐도우 백스텝 발동! ===")
-                        print(f"    텔레포트: {_viper_ss_hologram_origin_x:.0f} → {_ss_new_x:.0f}, 킥방향={_ss_reverse_dir}")
-                        print(f"    공 위치: ({BALL.centerx}, {BALL.centery}), 공속={math.hypot(ball_vel[0], ball_vel[1]):.1f}")
-                        print(f"    체공 여부: {_viper_ss_was_airborne}, hit_consumed={_viper_ss_hit_consumed}")
-
                         # 팬텀 스트라이크 버프 활성화 (0.3초간 다음 타격 강화)
                         _viper_phantom_strike_active = True
                         _viper_phantom_strike_timer = _VIPER_PHANTOM_STRIKE_DURATION
@@ -73002,8 +72995,6 @@ def handle_player(keys):
         _viper_phantom_strike_timer -= 1
         if _viper_phantom_strike_timer <= 0:
             _viper_phantom_strike_active = False
-            if not _viper_ss_hit_consumed:
-                print(f"🐍 [SS_PHANTOM] ⚠️ 팬텀 스트라이크 만료! 공 미타격 (hit_consumed=False)")
 
     # 바이퍼 팬텀 스트라이크 커브 (매 프레임 공에 횡방향 힘 적용, 그라데이션 강도 반영)
     if _viper_ps_curve_active:
@@ -73433,7 +73424,7 @@ def handle_player(keys):
                 _viper_ss_wave_active = False
                 _viper_ss_wave_trail.clear()
         if _sw_reached and not _viper_ss_wave_hit_ball and not _viper_ss_hit_consumed:
-            print(f"🐍 [SS_WAVE] ⚠️ 에너지파 도달 but 공 미타격! wave_target={_viper_ss_wave_target_x:.0f}, ball=({BALL.centerx},{BALL.centery}), wave_y={_viper_ss_wave_y:.0f}")
+            pass
         # 에너지파 — 공 충돌 시 그라데이션 타격 적용 (공통 함수 사용)
         if _viper_ss_wave_active and not _viper_ss_wave_hit_ball and not _viper_ss_hit_consumed:
             try:
@@ -73443,7 +73434,6 @@ def handle_player(keys):
                 )
                 _sw_collides = _sw_hit_rect.colliderect(BALL)
                 if _sw_collides:
-                    print(f"🐍 [SS_WAVE] 에너지파-공 충돌! wave=({_viper_ss_wave_x:.0f},{_viper_ss_wave_y:.0f}), ball=({BALL.centerx},{BALL.centery})")
                     _viper_ss_wave_hit_ball = True
                     # 그라데이션 계산용 히트박스는 충돌 히트박스보다 넓게 (에너지파는 빨라서 가장자리 판정 방지)
                     _viper_ss_apply_ball_hit(
@@ -73454,9 +73444,6 @@ def handle_player(keys):
                 pass
         elif _viper_ss_wave_active and _viper_ss_hit_consumed:
             pass  # 이미 소모됨 (정상)
-        # 에너지파 종료 시 타격 실패 로그
-        if not _viper_ss_wave_active and hasattr(_viper_ss_wave_active, '__class__'):
-            pass  # 비활성 상태
 
     # 바이퍼 에어 블레이드 회전/정지 연출 업데이트
     if _viper_br_spin_active:
@@ -78634,15 +78621,12 @@ def handle_player(keys):
         if selected_character_type == "viper" and _viper_ss_kick_ready and not _viper_ss_hit_consumed:
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
             if _sk_since < 5000:  # 5초 안전 타임아웃
-                print(f"🐍 [SS_PADDLE] 패들 타격 경로! since={_sk_since}ms, ball=({BALL.centerx},{BALL.centery})")
                 _viper_ss_kick_fired = True
                 _viper_ss_apply_ball_hit(
                     float(PLAYER.centerx), float(PLAYER.centery),
                     float(PLAYER.width + 40), float(PLAYER.height + 40),
                     _viper_ss_hologram_kick_dir, source="paddle"
                 )
-            else:
-                print(f"🐍 [SS_PADDLE] ⚠️ 패들 타격 타임아웃! since={_sk_since}ms > 5000ms")
             _viper_ss_kick_ready = False
 
         # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가 + AIR STRIKE 이펙트)
@@ -107674,10 +107658,6 @@ def draw_objects():
 
             if _holo_t >= 1.0:
                 _viper_ss_hologram_active = False
-                if not _viper_ss_hit_consumed:
-                    print(f"🐍 [SS_HOLO] ⚠️ 홀로그램 종료 but 공 미타격! kick_hit={_viper_ss_hologram_kick_hit}, consumed={_viper_ss_hit_consumed}, ball=({BALL.centerx},{BALL.centery})")
-                else:
-                    print(f"🐍 [SS_HOLO] 홀로그램 종료 (타격 완료)")
             else:
                 _holo_x = int(_viper_ss_hologram_target_x)
                 _holo_y = int(_viper_ss_hologram_origin_y)
@@ -107741,7 +107721,6 @@ def draw_objects():
                         _holo_h + 50
                     )
                     if _kick_rect.colliderect(BALL):
-                        print(f"🐍 [SS_HOLO] 홀로그램 킥-공 충돌! holo=({_holo_x:.0f},{_holo_y:.0f}), ball=({BALL.centerx},{BALL.centery}), t={_holo_t:.3f}")
                         # 그라데이션 계산용 히트박스 확대 (충돌 판정은 기존 크기 유지)
                         _viper_ss_apply_ball_hit(
                             _kick_rect.centerx, _kick_rect.centery,
@@ -140128,6 +140107,13 @@ def reset_round(is_stage_start=False):
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_wall_dive_active, _viper_wall_dive_phase
     global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
+    global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
+    # 마샬 킥/팬텀 킥이 공을 때리기 전에 게임이 끝나면 쿨타임 초기화
+    if _viper_wall_dive_active and not _viper_wall_dive_ball_hit:
+        if _viper_is_double_marshal:
+            _viper_skill_cooldowns["phantom_kick"] = 0
+        else:
+            _viper_skill_cooldowns["marshal_kick"] = 0
     _viper_wall_dive_ready = False
     _viper_wall_dive_ready_timer = 0
     _viper_wall_dive_active = False
@@ -141250,7 +141236,6 @@ def calculate_bounce(paddle):
 
         # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 백스텝 직후 0.3초 내 타격 시 그라데이션 타격 적용
         if _viper_phantom_strike_active and selected_character_type == "viper" and not _viper_ss_hit_consumed:
-            print(f"🐍 [SS_PHANTOM] 팬텀 스트라이크 경로! timer={_viper_phantom_strike_timer}, ball=({BALL.centerx},{BALL.centery})")
             _viper_ss_apply_ball_hit(
                 float(PLAYER.centerx), float(PLAYER.centery),
                 float(PLAYER.width + 40), float(PLAYER.height + 40),
