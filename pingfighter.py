@@ -72922,6 +72922,16 @@ def handle_player(keys):
                         )
                     except Exception:
                         pass
+                    # 전기톱 불꽃 이펙트 (검보라색 스파크)
+                    try:
+                        effects_manager.spawn_blade_spark_particles(
+                            BALL.centerx, BALL.centery,
+                            count=30,
+                            ball_vx=ball_vel[0],
+                            ball_vy=ball_vel[1],
+                        )
+                    except Exception:
+                        pass
             except Exception:
                 pass
 

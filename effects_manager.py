@@ -29,6 +29,7 @@ drive_particles = []  # 드라이브 별빛가루 파티클
 dash_smoke_particles = []  # 하프대시 연기 파티클
 construction_smoke_particles = []  # 포탑 건설 연기 파티클
 light_shard_particles = []  # 빛의 파편 파티클 (파워 스매싱용)
+blade_spark_particles = []  # 에어 블레이드 전기톱 불꽃 파티클
 
 # 색상 정의
 WHITE = (255, 255, 255)
@@ -921,6 +922,143 @@ def draw_light_shard_particles(surface=None):
 
 
 # ================================================================================
+# ⚡ BLADE SPARK PARTICLES (에어 블레이드 전기톱 불꽃 파티클)
+# ================================================================================
+
+def spawn_blade_spark_particles(x, y, count=25, ball_vx=0, ball_vy=0):
+    """에어 블레이드가 공에 닿았을 때 전기톱 불꽃처럼 검보라색 스파크 생성
+
+    Args:
+        x, y: 충돌 중심 위치
+        count: 파티클 수
+        ball_vx, ball_vy: 공 속도 (불꽃 방향에 영향)
+    """
+    global blade_spark_particles
+
+    for _ in range(count):
+        # 전기톱처럼 충돌면에서 사방으로 튀는 각도
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(3.0, 9.0)
+        # 약간의 공 진행방향 편향
+        vx = math.cos(angle) * speed + ball_vx * 0.15
+        vy = math.sin(angle) * speed + ball_vy * 0.15
+
+        # 검보라색 계열 색상 랜덤 (어두운 보라 ~ 밝은 보라/마젠타)
+        r = random.randint(80, 180)
+        g = random.randint(0, 40)
+        b = random.randint(150, 255)
+
+        blade_spark_particles.append({
+            'x': x + random.randint(-4, 4),
+            'y': y + random.randint(-4, 4),
+            'vx': vx,
+            'vy': vy,
+            'life': random.randint(12, 28),
+            'max_life': 28,
+            'color': (r, g, b),
+            'size': random.uniform(1.5, 4.0),
+            'alpha': 255,
+            'gravity': random.uniform(0.12, 0.25),
+            'friction': random.uniform(0.94, 0.97),
+            'trail': [],  # 잔상 궤적
+        })
+
+    # 추가: 밝은 코어 스파크 (소수)
+    for _ in range(count // 4):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(1.5, 4.0)
+        blade_spark_particles.append({
+            'x': x + random.randint(-2, 2),
+            'y': y + random.randint(-2, 2),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.randint(8, 16),
+            'max_life': 16,
+            'color': (220, 180, 255),  # 밝은 라벤더 코어
+            'size': random.uniform(2.5, 5.0),
+            'alpha': 255,
+            'gravity': 0.08,
+            'friction': 0.96,
+            'trail': [],
+        })
+
+
+def update_blade_spark_particles():
+    """전기톱 불꽃 파티클 업데이트"""
+    global blade_spark_particles
+    new_particles = []
+
+    for p in blade_spark_particles:
+        # 잔상 저장
+        p['trail'].append((p['x'], p['y'], p['alpha'], p['size']))
+        if len(p['trail']) > 5:
+            p['trail'].pop(0)
+
+        # 물리 업데이트
+        p['vx'] *= p['friction']
+        p['vy'] *= p['friction']
+        p['vy'] += p['gravity']
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+
+        # 수명 & 알파
+        p['life'] -= 1
+        if p['max_life'] > 0:
+            life_ratio = p['life'] / p['max_life']
+            p['alpha'] = int(255 * life_ratio)
+            p['size'] *= 0.97  # 서서히 작아짐
+
+        if p['life'] > 0:
+            new_particles.append(p)
+
+    blade_spark_particles = new_particles
+
+
+def draw_blade_spark_particles(surface=None):
+    """전기톱 불꽃 파티클 렌더링 (검보라색 스파크 + 잔상)"""
+    screen = surface if surface else SCREEN
+    if not screen:
+        return
+
+    for p in blade_spark_particles:
+        alpha = max(0, min(255, p['alpha']))
+        if alpha <= 0:
+            continue
+
+        x = int(p['x'])
+        y = int(p['y'])
+        size = max(1, int(p['size']))
+        color = p['color']
+
+        # 잔상 그리기 (반투명 꼬리)
+        for i, (tx, ty, ta, ts) in enumerate(p['trail']):
+            trail_alpha = max(0, int(ta * 0.3 * (i + 1) / len(p['trail'])))
+            trail_size = max(1, int(ts * 0.6))
+            if trail_alpha > 0:
+                ts_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ts_surf, (*color[:3], trail_alpha),
+                                   (trail_size, trail_size), trail_size)
+                screen.blit(ts_surf, (int(tx) - trail_size, int(ty) - trail_size),
+                            special_flags=pygame.BLEND_ADD)
+
+        # 메인 스파크 (밝은 글로우 + 코어)
+        glow_size = size + 2
+        glow_surf = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
+        glow_alpha = min(255, alpha // 2)
+        pygame.draw.circle(glow_surf, (*color[:3], glow_alpha),
+                           (glow_size * 2, glow_size * 2), glow_size)
+        screen.blit(glow_surf, (x - glow_size * 2, y - glow_size * 2),
+                    special_flags=pygame.BLEND_ADD)
+
+        # 코어 (밝은 중심)
+        core_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        core_color = (min(255, color[0] + 60), min(255, color[1] + 40),
+                      min(255, color[2] + 30), alpha)
+        pygame.draw.circle(core_surf, core_color, (size, size), size)
+        screen.blit(core_surf, (x - size, y - size))
+
+
+# ================================================================================
 # 💫 EXPLOSION EFFECTS (폭발 효과)
 # ================================================================================
 
@@ -994,6 +1132,7 @@ def update_all_effects():
     update_construction_smoke()
     update_short_shot_flash_effects()
     update_light_shard_particles()  # 빛의 파편 업데이트
+    update_blade_spark_particles()  # 에어 블레이드 불꽃 업데이트
 
 
 def draw_all_effects(surface):
@@ -1006,13 +1145,14 @@ def draw_all_effects(surface):
     draw_construction_smoke(surface)
     draw_short_shot_flash_effects(surface)
     draw_light_shard_particles(surface)  # 빛의 파편 그리기
+    draw_blade_spark_particles(surface)  # 에어 블레이드 불꽃 그리기
 
 
 def clear_all_effects():
     """모든 이펙트 초기화"""
     global flame_particles, star_particles, balloon_pop_effects
     global item_obtained_effects, impact_particles, construction_smoke_particles
-    global light_shard_particles
+    global light_shard_particles, blade_spark_particles
 
     flame_particles = []
     star_particles = []
@@ -1021,6 +1161,7 @@ def clear_all_effects():
     impact_particles = []
     construction_smoke_particles = []
     light_shard_particles = []  # 빛의 파편 초기화
+    blade_spark_particles = []  # 에어 블레이드 불꽃 초기화
 
 
 def has_drive_particles():
