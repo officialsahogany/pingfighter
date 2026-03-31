@@ -12830,6 +12830,17 @@ VIPER_EXCLUSIVE_SKILLS = {
         "tree": "viper_unlock",
         "character_restriction": "viper"
     },
+    "double_marshal_kick": {
+        "name": "더블 마샬 킥",
+        "max_level": 1,
+        "descriptions": {
+            1: "마샬 킥 → 보스 가드 시 2차 마샬 킥 발동 가능",
+        },
+        "detail": "마샬 킥으로 공을 보낸 뒤 보스가 가드(반환)하면 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 2차 마샬 킥의 공속 증가율은 120%입니다.",
+        "icon_color": (180, 0, 255),
+        "tree": "viper",
+        "character_restriction": "viper"
+    },
 }
 
 # 코만도 화기류 해금 플래그 (런타임 스킬로 해금됨)
@@ -14777,6 +14788,12 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         runtime_skill_levels["unlock_dive_strike"] = 1
         return True
 
+    if choice_id == "double_marshal_kick":
+        global _viper_double_marshal_kick_unlocked
+        _viper_double_marshal_kick_unlocked = True
+        runtime_skill_levels["double_marshal_kick"] = 1
+        return True
+
     # 일반 스킬 레벨업
     old_level = runtime_skill_levels.get(choice_id, 0)
     runtime_skill_levels[choice_id] = old_level + 1
@@ -14921,6 +14938,10 @@ def recalculate_skill_effects(skill_id: str):
     elif skill_id == "unlock_dive_strike":
         level = runtime_skill_levels.get("unlock_dive_strike", 0)
         _viper_skill_unlocked["dive_strike"] = level >= 1
+
+    elif skill_id == "double_marshal_kick":
+        global _viper_double_marshal_kick_unlocked
+        _viper_double_marshal_kick_unlocked = runtime_skill_levels.get("double_marshal_kick", 0) >= 1
 
     # 퍽 월계수잎: 잎 개수 재계산 (신성월계수 보너스 포함)
     elif skill_id == "perk_laurel_shield":
@@ -17515,6 +17536,37 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         # + 마크 (해금 표시)
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
+
+    elif skill_id == "double_marshal_kick":
+        # 더블 마샬 킥 - 두 개의 발 아이콘 (겹친 킥)
+        _dmk_s = int(5 * scale)
+        # 첫 번째 발 (뒤, 어두운 색)
+        _dmk_c1 = tuple(max(0, c - 60) for c in icon_color)
+        pygame.draw.polygon(surface, _dmk_c1, [
+            (icon_cx - _dmk_s * 2, icon_cy - _dmk_s),
+            (icon_cx + _dmk_s, icon_cy - _dmk_s),
+            (icon_cx + _dmk_s * 2, icon_cy),
+            (icon_cx + _dmk_s, icon_cy + _dmk_s),
+            (icon_cx - _dmk_s * 2, icon_cy + _dmk_s),
+        ])
+        # 두 번째 발 (앞, 밝은 색)
+        _dmk_off = int(3 * scale)
+        pygame.draw.polygon(surface, icon_color, [
+            (icon_cx - _dmk_s * 2 + _dmk_off, icon_cy - _dmk_s - _dmk_off),
+            (icon_cx + _dmk_s + _dmk_off, icon_cy - _dmk_s - _dmk_off),
+            (icon_cx + _dmk_s * 2 + _dmk_off, icon_cy - _dmk_off),
+            (icon_cx + _dmk_s + _dmk_off, icon_cy + _dmk_s - _dmk_off),
+            (icon_cx - _dmk_s * 2 + _dmk_off, icon_cy + _dmk_s - _dmk_off),
+        ])
+        # "x2" 텍스트
+        pygame.draw.line(surface, (255, 255, 100),
+                         (icon_cx + _dmk_s * 2, icon_cy + _dmk_s - int(2 * scale)),
+                         (icon_cx + _dmk_s * 3, icon_cy + _dmk_s + int(2 * scale)),
+                         max(1, int(2 * scale)))
+        pygame.draw.line(surface, (255, 255, 100),
+                         (icon_cx + _dmk_s * 3, icon_cy + _dmk_s - int(2 * scale)),
+                         (icon_cx + _dmk_s * 2, icon_cy + _dmk_s + int(2 * scale)),
+                         max(1, int(2 * scale)))
 
     elif skill_id == "soldier_magazine_mod":
         # 탄창개조 - 탄창 + 총알 아이콘
@@ -47709,6 +47761,13 @@ _VIPER_WALL_DIVE_CLING_MS = 250           # 벽 매달림 시간 (ms)
 _VIPER_WALL_DIVE_CHARGE_MS = 350          # 돌진 시간 (ms)
 _VIPER_WALL_DIVE_HIT_RADIUS = 90          # 공 히트 반경 (px, 실시간 추적이므로 넉넉하게)
 
+# 더블 마샬 킥 퍽 시스템
+_viper_double_marshal_kick_unlocked = False   # 퍽 해금 여부
+_viper_marshal_kick_hit_ball = False          # 마샬 킥이 공을 맞혔는지 (1차)
+_viper_double_marshal_ready = False           # 보스 반환 후 2차 마샬 킥 윈도우
+_viper_double_marshal_ready_timer = 0         # 2차 윈도우 타이머
+_viper_is_double_marshal = False              # 현재 실행 중인 마샬 킥이 2차인지
+
 # 바이퍼 스킬 공속 부스트 복귀 시스템
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
 _viper_speed_boost_original = 0.0     # 부스트 전 원래 공속
@@ -57159,6 +57218,7 @@ def go_to_next_round():
     global _viper_nerve_strike_slash_shown, _viper_nerve_strike_start_ms
     global _viper_wall_dive_active, _viper_wall_dive_phase, _viper_wall_dive_particles, _viper_wall_dive_web_lines
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer, _viper_wall_dive_ball_hit
+    global _viper_marshal_kick_hit_ball, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
     global _viper_dive_active, _viper_dive_phase
     global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_particles
@@ -57179,6 +57239,10 @@ def go_to_next_round():
     _viper_wall_dive_ball_hit = False
     _viper_wall_dive_particles = []
     _viper_wall_dive_web_lines = []
+    _viper_marshal_kick_hit_ball = False
+    _viper_double_marshal_ready = False
+    _viper_double_marshal_ready_timer = 0
+    _viper_is_double_marshal = False
     _viper_dive_active = False
     _viper_dive_phase = 0
     _viper_blade_rush_active = False
@@ -71651,6 +71715,7 @@ def handle_player(keys):
         global _viper_wall_dive_charge_target_x, _viper_wall_dive_charge_target_y
         global _viper_wall_dive_charge_start_x, _viper_wall_dive_charge_start_y
         global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
+        global _viper_marshal_kick_hit_ball, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
@@ -71846,9 +71911,16 @@ def handle_player(keys):
         if _viper_wall_dive_ready_timer <= 0:
             _viper_wall_dive_ready = False
 
-    # 마샬 킥 발동: 연계 윈도우 중 S/↓키 단독 입력
+    # 더블 마샬 킥 윈도우 타이머 감소
+    if _viper_double_marshal_ready:
+        _viper_double_marshal_ready_timer -= 1
+        if _viper_double_marshal_ready_timer <= 0:
+            _viper_double_marshal_ready = False
+
+    # 마샬 킥 발동: 연계 윈도우 또는 더블 마샬 윈도우 중 S/↓키 단독 입력
+    _wd_can_fire = _viper_wall_dive_ready or _viper_double_marshal_ready
     if (selected_character_type == "viper" and not is_odins_eye_transformed()
-            and _viper_wall_dive_ready and not _viper_wall_dive_active
+            and _wd_can_fire and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
             and not _viper_nerve_strike_active and not _viper_br_spin_active
             and not is_waiting_for_serve and not is_player_serve and not player_stunned):
@@ -71862,8 +71934,13 @@ def handle_player(keys):
                 and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST
                 and is_viper_skill_unlocked("shadow_step")):
             special_gauge -= _VIPER_WALL_DIVE_GAUGE_COST
+            # 더블 마샬 킥인지 판별
+            _viper_is_double_marshal = _viper_double_marshal_ready and not _viper_wall_dive_ready
             _viper_wall_dive_ready = False
             _viper_wall_dive_ready_timer = 0
+            _viper_double_marshal_ready = False
+            _viper_double_marshal_ready_timer = 0
+            _viper_marshal_kick_hit_ball = False
             _viper_ss_kick_ready = False  # 쉐도우 킥 사운드 소모
             _viper_wall_dive_active = True
             _viper_wall_dive_phase = 0  # 벽으로 점프
@@ -71989,9 +72066,16 @@ def handle_player(keys):
                 _wd_dist = math.hypot(BALL.centerx - _wd_cx, BALL.centery - _wd_cy)
                 if _wd_dist <= _VIPER_WALL_DIVE_HIT_RADIUS:
                     _viper_wall_dive_ball_hit = True
+                    # 더블 마샬 킥 퍽: 1차 마샬 킥 히트 시 플래그 설정
+                    if _viper_double_marshal_kick_unlocked and not _viper_is_double_marshal:
+                        _viper_marshal_kick_hit_ball = True
                     # 공을 위로 강하게 반사 + 속도 증가
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
-                    _wd_new_spd = max(_wd_cur_spd * 1.8, 10.0)  # 80% 증가
+                    # 2차 마샬 킥이면 120% 증가(2.2x), 1차는 80% 증가(1.8x)
+                    if _viper_is_double_marshal:
+                        _wd_new_spd = max(_wd_cur_spd * 2.2, 10.0)  # 120% 증가
+                    else:
+                        _wd_new_spd = max(_wd_cur_spd * 1.8, 10.0)  # 80% 증가
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
                     # 벽→공 방향으로 발사 (약간 위로 보정)
@@ -72201,6 +72285,8 @@ def handle_player(keys):
                 and is_viper_skill_unlocked("marshal_kick")):
             special_gauge -= _VIPER_WALL_DIVE_GAUGE_COST
             _viper_air_marshal_triggered = True
+            _viper_is_double_marshal = False  # 에어 블레이드 연계는 1차 마샬 킥
+            _viper_marshal_kick_hit_ball = False
             # 에어 블레이드 스핀 즉시 종료
             _viper_br_spin_active = False
             _viper_br_spin_angle = 0.0
@@ -138733,6 +138819,11 @@ def reset_round(is_stage_start=False):
     _viper_wall_dive_ball_hit = False
     _viper_wall_dive_particles = []
     _viper_wall_dive_web_lines = []
+    global _viper_marshal_kick_hit_ball, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
+    _viper_marshal_kick_hit_ball = False
+    _viper_double_marshal_ready = False
+    _viper_double_marshal_ready_timer = 0
+    _viper_is_double_marshal = False
     # 바이퍼 베놈 엣지 (신경 타격) 초기화
     global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_combo_used
     global _viper_nerve_strike_slash_shown, _viper_nerve_strike_start_ms
@@ -141567,6 +141658,7 @@ def handle_ball():
     # 바이퍼 마샬 킥 연계기
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
     global _viper_ss_ball_touched
+    global _viper_marshal_kick_hit_ball, _viper_double_marshal_ready, _viper_double_marshal_ready_timer
     # 바이퍼 쉐도우 백스텝 킥 사운드 (handle_ball 백업 경로용)
     global _viper_ss_kick_ready, _viper_ss_hologram_start_ms
     # ⚡ 스매셔 콤보 시스템 변수
@@ -146685,6 +146777,12 @@ def handle_ball():
             _viper_wall_dive_ready = True
             _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_ss_ball_touched = False  # 1회 소모
+
+        # 더블 마샬 킥: 1차 마샬 킥이 공을 맞히고 보스가 반환하면 2차 윈도우 활성화
+        if selected_character_type == "viper" and _viper_double_marshal_kick_unlocked and _viper_marshal_kick_hit_ball:
+            _viper_double_marshal_ready = True
+            _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
+            _viper_marshal_kick_hit_ball = False  # 1회 소모
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
