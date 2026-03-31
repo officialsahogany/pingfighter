@@ -3678,7 +3678,7 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "blade_rush", "korean": "에어 블레이드", "cost": 200, "color": (200, 50, 255),
         "symbol": "⚔", "cooldown": 16.0, "key": "W/↑",
-        "description": "체공 중 전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 30~50% 증가합니다.",
+        "description": "체공 중 전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 180% 증가합니다.",
         "how_to_use": "체공 중 W키 또는 ↑키로 발동",
         "effect_type": "slash_purple"
     },
