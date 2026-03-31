@@ -71988,6 +71988,7 @@ def handle_player(keys):
         global _viper_wall_dive_return_start_x, _viper_wall_dive_return_start_y
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
+        global boss_fire_knockback_vel
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
         _viper_e_pressed = keys[pygame.K_e]
@@ -72471,6 +72472,9 @@ def handle_player(keys):
                         _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
                         _viper_dmk_text_x = float(WIDTH // 2)
                         _viper_dmk_text_y = float(HEIGHT // 2 - 30)
+                        # 보스 넉백 200px (화재 넉백 방식)
+                        _dmk_kb_dir = 1 if BALL.centerx > BOSS.centerx else -1
+                        boss_fire_knockback_vel = _dmk_kb_dir * 18.0  # 높은 초기 속도 → 감속하며 ~200px 이동
                     # 히트 이펙트
                     _shake_force = 20 if _viper_is_double_marshal else 12
                     _shake_int = 8 if _viper_is_double_marshal else 5
