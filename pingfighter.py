@@ -72104,12 +72104,12 @@ def handle_player(keys):
             _viper_wall_dive_ball_hit = False
             _viper_wall_dive_particles = []
             _viper_wall_dive_web_lines = []
-            # 공 위치 기준 가까운 벽 결정 (중앙 기준)
+            # 공 위치 기준 반대쪽 벽으로 점프 (대각선 돌진 궤적)
             _wd_ball_cx = BALL.centerx
             if _wd_ball_cx >= WIDTH // 2:
-                _viper_wall_dive_wall_x = float(WIDTH - 15)  # 우측 벽
+                _viper_wall_dive_wall_x = 15.0  # 공이 우측 → 좌측 벽으로
             else:
-                _viper_wall_dive_wall_x = 15.0  # 좌측 벽
+                _viper_wall_dive_wall_x = float(WIDTH - 15)  # 공이 좌측 → 우측 벽으로
             # 벽 매달림 Y: 현재 위치에서 200px 위 (보스 영역까지 가지 않도록 클램프)
             _viper_wall_dive_wall_y = float(PLAYER.centery) - 200.0
             _viper_wall_dive_wall_y = max(300.0, min(650.0, _viper_wall_dive_wall_y))
