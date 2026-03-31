@@ -48122,10 +48122,10 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     if _viper_ss_hit_consumed:
         return
 
-    # 공까지의 거리 비율 계산 (0=중심, 1=가장자리)
+    # 공까지의 거리 비율 계산 (0=중심, 1=가장자리, 각 축 최대값 기준)
     dx = abs(BALL.centerx - hit_cx) / max(hit_w / 2, 1)
     dy = abs(BALL.centery - hit_cy) / max(hit_h / 2, 1)
-    dist_ratio = min(1.0, math.hypot(dx, dy))  # 0~1 (중심~가장자리)
+    dist_ratio = min(1.0, max(dx, dy))  # 체비셰프 거리: 어느 축이든 가장자리면 1
 
     # 그라데이션 보간 (중심=MAX, 가장자리=MIN)
     t = 1.0 - dist_ratio  # 0=가장자리, 1=중심
