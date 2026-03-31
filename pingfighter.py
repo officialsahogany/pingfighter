@@ -78090,6 +78090,7 @@ def handle_player(keys):
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
             if _sk_since < 5000:  # 5초 안전 타임아웃
                 _viper_ss_kick_fired = True  # 게이지 충전 차단
+                _viper_ss_ball_touched = True  # 마샬 킥 연계 조건 충족
                 try:
                     _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
                     if _sk_snd:
@@ -146592,6 +146593,7 @@ def handle_ball():
             _sk_since = pygame.time.get_ticks() - _viper_ss_hologram_start_ms
             if _sk_since < 5000:  # 5초 안전 타임아웃
                 _viper_ss_kick_fired = True  # 게이지 충전 차단
+                _viper_ss_ball_touched = True  # 마샬 킥 연계 조건 충족
                 try:
                     _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
                     if _sk_snd:
