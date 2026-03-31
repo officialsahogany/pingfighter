@@ -73396,8 +73396,9 @@ def handle_player(keys):
                 if _sw_collides:
                     print(f"🐍 [SS_WAVE] 에너지파-공 충돌! wave=({_viper_ss_wave_x:.0f},{_viper_ss_wave_y:.0f}), ball=({BALL.centerx},{BALL.centery})")
                     _viper_ss_wave_hit_ball = True
+                    # 그라데이션 계산용 히트박스는 충돌 히트박스보다 넓게 (에너지파는 빨라서 가장자리 판정 방지)
                     _viper_ss_apply_ball_hit(
-                        _viper_ss_wave_x, _viper_ss_wave_y, 110, 90,
+                        _viper_ss_wave_x, _viper_ss_wave_y, 280, 220,
                         _viper_ss_hologram_kick_dir, source="wave"
                     )
             except Exception:
