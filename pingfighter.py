@@ -151324,6 +151324,7 @@ def handle_boss():
     global stage8_awakened, player_score, round_wins
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global stage8_awaken_intro_pending, stage8_awaken_intro_done, stage8_awaken_freeze_end_ms
+    global boss_fire_knockback_vel
 
     now_ms = pygame.time.get_ticks()
     stage8_in_superspeed = False
