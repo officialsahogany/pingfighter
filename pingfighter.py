@@ -32659,7 +32659,7 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
 
     for side, l_step, l_lift in [(-1, left_leg_step, left_leg_lift),
                                   (1, right_leg_step, right_leg_lift)]:
-        th_x = cx + side * int(0.5 * b)
+        th_x = cx + side * int(0.75 * b)
         th_top = hip_y + l_lift
         th_bot_x = th_x + l_step // 2
         th_bot_y = th_top + thigh_len
@@ -145264,6 +145264,13 @@ def handle_ball():
                 play_wall_sound()
             except:
                 pass
+        # 🏖 사막화: 플레이어 이동 시 하단 벽면 모래 침식 (걷기)
+        if abs(current_speed) > 0.5:
+            erode_sand_by_paddle(sand_obstacles, PLAYER, "bottom")
+        # 🏖 사막화: 플레이어 대쉬 시 하단 벽면 모래 대량 침식
+        if rolling_active and rolling_timer > 0:
+            _player_dash_end_x = PLAYER.centerx + rolling_direction * abs(current_speed)
+            erode_sand_by_dash(sand_obstacles, float(PLAYER.centerx), float(_player_dash_end_x), "bottom")
 
     # --- 벽 충돌 처리 ---
     # 거미줄 구출 중에는 벽 충돌 처리 스킵 (공이 고정 상태)

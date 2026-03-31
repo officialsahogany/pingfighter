@@ -27,6 +27,14 @@ ERODE_AMOUNT = 30
 # 침식 반경 (공 중심 기준 좌우로 몇 세그먼트까지 영향)
 ERODE_RADIUS_SEGS = 6
 
+# 패들 이동 침식 (걷기)
+WALK_ERODE_AMOUNT = 0.8       # 프레임당 깎이는 깊이 (매우 소량)
+WALK_ERODE_RADIUS_SEGS = 3    # 패들 중심 기준 좌우 세그먼트 수
+
+# 패들 대쉬 침식
+DASH_ERODE_AMOUNT = 6.0       # 대쉬 시 세그먼트당 깎이는 깊이
+DASH_ERODE_RADIUS_SEGS = 2    # 대쉬 경로 좌우 세그먼트 수
+
 # 모래 색상
 SAND_BASE = (205, 175, 115)
 SAND_DARK = (175, 148, 90)
@@ -643,6 +651,138 @@ class SandTerrain:
                     "gravity": 0.15,
                 })
 
+    def erode_by_paddle(self, paddle_rect: pygame.Rect, side: str) -> float:
+        """패들이 이동할 때 인접 벽면 모래를 조금씩 깎음 (걷기 침식).
+
+        Args:
+            paddle_rect: 패들의 Rect (BOSS 또는 PLAYER)
+            side: 'top' (보스) 또는 'bottom' (플레이어)
+        Returns:
+            실제 깎인 총량
+        """
+        wall = None
+        for w in self.walls:
+            if w.side == side:
+                wall = w
+                break
+        if wall is None or wall.is_empty():
+            return 0.0
+
+        # 패들 중심 X → 세그먼트 인덱스
+        world_pos = float(paddle_rect.centerx)
+        local = world_pos - wall.start
+        center_seg = local / SEG_SIZE
+        total_eroded = 0.0
+
+        for offset in range(-WALK_ERODE_RADIUS_SEGS, WALK_ERODE_RADIUS_SEGS + 1):
+            idx = int(center_seg) + offset
+            if idx < 0 or idx >= wall.num_segs:
+                continue
+            dist_factor = 1.0 - abs(offset) / (WALK_ERODE_RADIUS_SEGS + 1)
+            erode = WALK_ERODE_AMOUNT * dist_factor
+            old = wall.depths[idx]
+            wall.depths[idx] = max(0, old - erode)
+            total_eroded += old - wall.depths[idx]
+
+        if total_eroded > 0.5:
+            wall._dirty = True
+            # 소량 파티클 (가끔만)
+            if random.random() < 0.15:
+                self._spawn_walk_particles(side, paddle_rect.centerx, paddle_rect.centery, total_eroded)
+        return total_eroded
+
+    def erode_by_dash(self, start_x: float, end_x: float, side: str) -> float:
+        """대쉬 경로를 따라 모래를 크게 깎음.
+
+        Args:
+            start_x: 대쉬 시작 X 좌표
+            end_x: 대쉬 끝 X 좌표
+            side: 'top' (보스) 또는 'bottom' (플레이어)
+        Returns:
+            실제 깎인 총량
+        """
+        wall = None
+        for w in self.walls:
+            if w.side == side:
+                wall = w
+                break
+        if wall is None or wall.is_empty():
+            return 0.0
+
+        # 대쉬 경로의 세그먼트 범위 계산
+        x_min = min(start_x, end_x)
+        x_max = max(start_x, end_x)
+        local_min = (x_min - wall.start) / SEG_SIZE
+        local_max = (x_max - wall.start) / SEG_SIZE
+        seg_start = max(0, int(local_min) - DASH_ERODE_RADIUS_SEGS)
+        seg_end = min(wall.num_segs - 1, int(local_max) + DASH_ERODE_RADIUS_SEGS)
+
+        total_eroded = 0.0
+        for idx in range(seg_start, seg_end + 1):
+            # 경로 중심에서의 거리 (세그먼트 단위)
+            seg_world = wall.start + idx * SEG_SIZE + SEG_SIZE // 2
+            if seg_world < x_min:
+                dist_from_path = (x_min - seg_world) / SEG_SIZE
+            elif seg_world > x_max:
+                dist_from_path = (seg_world - x_max) / SEG_SIZE
+            else:
+                dist_from_path = 0.0
+
+            if dist_from_path > DASH_ERODE_RADIUS_SEGS:
+                continue
+
+            dist_factor = 1.0 - dist_from_path / (DASH_ERODE_RADIUS_SEGS + 1)
+            erode = DASH_ERODE_AMOUNT * dist_factor
+            old = wall.depths[idx]
+            wall.depths[idx] = max(0, old - erode)
+            total_eroded += old - wall.depths[idx]
+
+        if total_eroded > 0:
+            wall._dirty = True
+            # 대쉬 경로를 따라 파티클 생성
+            dash_cx = (start_x + end_x) / 2
+            if side == "top":
+                dash_cy = max(wall.depths[max(0, min(wall.num_segs - 1, int(local_min)))] * 0.5, 10)
+            else:
+                dash_cy = HEIGHT - max(wall.depths[max(0, min(wall.num_segs - 1, int(local_min)))] * 0.5, 10)
+            count = max(5, min(15, int(total_eroded / 3)))
+            direction = 1 if end_x > start_x else -1
+            for _ in range(count):
+                px = random.uniform(x_min, x_max)
+                self.particles.append({
+                    "x": px,
+                    "y": dash_cy + random.uniform(-8, 8),
+                    "vx": direction * random.uniform(1.0, 4.0),
+                    "vy": random.uniform(-2.0, -0.5) if side == "top" else random.uniform(0.5, 2.0),
+                    "size": random.randint(2, 4),
+                    "color": random.choice(SAND_PARTICLE_COLORS),
+                    "life": random.randint(15, 30),
+                    "max_life": 30,
+                    "gravity": 0.12,
+                })
+
+        return total_eroded
+
+    def _spawn_walk_particles(self, side: str, bx: int, by: int, eroded: float) -> None:
+        """걷기 침식 시 소량 파티클"""
+        count = max(1, min(4, int(eroded / 2)))
+        for _ in range(count):
+            if side == "top":
+                vy = random.uniform(0.5, 2.0)
+            else:
+                vy = random.uniform(-2.0, -0.5)
+            self.particles.append({
+                "x": float(bx + random.randint(-10, 10)),
+                "y": float(by + random.randint(-4, 4)) if side == "bottom" else random.uniform(5, 25),
+                "vx": random.uniform(-1.0, 1.0),
+                "vy": vy,
+                "size": random.randint(1, 3),
+                "color": random.choice(SAND_PARTICLE_COLORS),
+                "life": random.randint(12, 25),
+                "max_life": 25,
+                "gravity": 0.1,
+            })
+
     def is_all_empty(self) -> bool:
         """모든 벽면이 깎였는지"""
         return all(w.is_empty() for w in self.walls)
@@ -670,6 +810,20 @@ def erode_sand_area(terrain: SandTerrain | None, cx: float, cy: float, radius: f
     """폭발 범위 내 모래 침식. 반환: 총 깎인 양"""
     if isinstance(terrain, SandTerrain):
         return terrain.erode_area(cx, cy, radius)
+    return 0.0
+
+
+def erode_sand_by_paddle(terrain: SandTerrain | None, paddle_rect: pygame.Rect, side: str) -> float:
+    """패들 이동(걷기) 시 인접 벽면 모래 침식. 반환: 총 깎인 양"""
+    if isinstance(terrain, SandTerrain) and not terrain.dissolving:
+        return terrain.erode_by_paddle(paddle_rect, side)
+    return 0.0
+
+
+def erode_sand_by_dash(terrain: SandTerrain | None, start_x: float, end_x: float, side: str) -> float:
+    """대쉬 경로를 따라 모래 침식. 반환: 총 깎인 양"""
+    if isinstance(terrain, SandTerrain) and not terrain.dissolving:
+        return terrain.erode_by_dash(start_x, end_x, side)
     return 0.0
 
 
