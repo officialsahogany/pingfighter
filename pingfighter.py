@@ -18633,18 +18633,23 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         except:
             pass
 
-        # 이동속도 표시 (기본 + 신속 보너스 + 금괴 페널티)
+        # 이동속도 표시 (기본 + 신속 보너스 + 금괴 페널티 + 현자의 반지 페널티)
         gold_bar_penalty = get_gold_bar_speed_multiplier()
         speed_modifiers = []
+        has_speed_penalty = False
         if swiftness_bonus > 0:
             speed_modifiers.append(f"+{int(swiftness_bonus*100)}%")
         if gold_bar_penalty < 1.0:
             speed_modifiers.append(f"-{int((1.0 - gold_bar_penalty)*100)}%")
+            has_speed_penalty = True
+        if items.sage_ring_obtained and sage_ring_speed_penalty_pct > 0:
+            speed_modifiers.append(f"💍-{sage_ring_speed_penalty_pct}%")
+            has_speed_penalty = True
         speed_display = f"{actual_player_speed:.1f}"
         if speed_modifiers:
             speed_display = f"{actual_player_speed:.1f} ({', '.join(speed_modifiers)})"
         # 이동속도 색상: 페널티가 있으면 빨간색 계열로
-        speed_color = (255, 100, 100) if gold_bar_penalty < 1.0 else (100, 220, 255)
+        speed_color = (255, 100, 100) if has_speed_penalty else (100, 220, 255)
 
         # 대쉬쿨타임 표시 (경량화 스킬 + 대쉬부스트 아이템)
         # 대쉬부스트가 활성화되면 무조건 99%, 아니면 경량화 스킬만 적용
@@ -166119,6 +166124,12 @@ def show_game_info():
             effective_speed_info *= gold_bar_mult
             gold_bar_debuff_text = f" (💰-{int((1.0 - gold_bar_mult) * 100)}%)"
 
+        # 💍 현자의 반지 이동속도 감소 패널티 반영
+        sage_ring_speed_text = ""
+        if items.sage_ring_obtained and sage_ring_speed_penalty_pct > 0:
+            effective_speed_info *= (1.0 - sage_ring_speed_penalty_pct / 100.0)
+            sage_ring_speed_text = f" (💍-{sage_ring_speed_penalty_pct}%)"
+
         # 🧪 기묘한 약병 이동속도 배율 반영
         strange_vial_speed_text = ""
         if strange_vial_active and strange_vial_speed_mult != 1.0:
@@ -166161,10 +166172,10 @@ def show_game_info():
         # 이동속도/방향전환속도 표시 문자열 구성
         swiftness_buff_text = f" (🏃+{int(swiftness_bonus * 100)}%)" if swiftness_bonus > 0 else ""
         if rain_active:
-            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{strange_vial_speed_text}{rain_debuff_text}"
+            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{sage_ring_speed_text}{strange_vial_speed_text}{rain_debuff_text}"
         else:
-            if swiftness_bonus > 0 or gold_bar_mult < 1.0 or recovery_boost_active or strange_vial_speed_text:
-                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{strange_vial_speed_text}"
+            if swiftness_bonus > 0 or gold_bar_mult < 1.0 or recovery_boost_active or strange_vial_speed_text or sage_ring_speed_text:
+                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{sage_ring_speed_text}{strange_vial_speed_text}"
             else:
                 speed_display = f"기본 이동속도: {base_speed_info}"
 
