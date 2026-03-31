@@ -76927,7 +76927,7 @@ def handle_player(keys):
             elif selected_character_type == "smasher":
                 base_max_speed = 6  # 스매셔 기본 이동속도 6
             elif selected_character_type == "viper":
-                base_max_speed = 4  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
+                base_max_speed = 3  # 바이퍼 기본 이동속도 3 (체공 시 보너스로 보상)
             else:
                 base_max_speed = MAX_SPEED
             effective_max_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
@@ -77908,7 +77908,7 @@ def handle_player(keys):
                 if _viper_br_spin_active:
                     effective_max_speed = 0.0  # 에어 블레이드 연출 중 이동 불가
                 else:
-                    effective_max_speed = 4.0  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
+                    effective_max_speed = 3.0  # 바이퍼 기본 이동속도 3 (체공 시 보너스로 보상)
             else:
                 effective_max_speed = MAX_SPEED
         walking = abs(current_speed) > 1.0
@@ -165878,7 +165878,7 @@ def show_character_info(background_surface=None):
         elif char_type == "smasher":
             base_max_speed = 6.0  # 스매셔 기본 이동속도 6
         elif char_type == "viper":
-            base_max_speed = 4.0  # 바이퍼 기본 이동속도 4 (체공 시 보너스로 보상)
+            base_max_speed = 3.0  # 바이퍼 기본 이동속도 3 (체공 시 보너스로 보상)
         else:
             base_max_speed = float(globals().get("MAX_SPEED", 5.0))
         speed_multiplier = 1.0
