@@ -57506,6 +57506,7 @@ def show_winner_text(winner_name):
     rolling_timer = 0
     rolling_direction = 0
     rolling_stun_timer = 0
+    stop_dash_delay_sound()  # 후딜 사운드 즉시 중지
     rolling_dash_available_timer = 0  # 추가 초기화
     rolling_distance_multiplier = 1.0  # 대쉬 거리 배율 초기화
     # 플레이어 속도 초기화 - 다음 라운드에서 자동 이동 방지
@@ -58211,6 +58212,7 @@ def go_to_next_round():
     # 플레이어 속도 초기화
     current_speed = 0
     rolling_stun_timer = 0  # 후딜 시간 초기화
+    stop_dash_delay_sound()  # 후딜 사운드 즉시 중지
     rolling_dash_available_timer = 0  # 대쉬 가능 타이머 초기화
     #  토큰 시스템 초기화 (라운드 시작 시 패시브 아이템 효과 적용)
     global rolling_charges, rolling_charge_timer, rolling_consecutive_count, rolling_cooldown
@@ -72467,6 +72469,7 @@ def handle_player(keys):
                         # 대쉬/후딜 즉시 해제
                         rolling_active = False
                         rolling_stun_timer = 0
+                        stop_dash_delay_sound()  # 후딜 사운드 즉시 중지
 
                         # 원래 위치에 잔상 생성
                         _viper_ss_hologram_origin_x = PLAYER.centerx
@@ -73672,7 +73675,9 @@ def handle_player(keys):
             PLAYER.centerx = int(_viper_nerve_strike_target_x)
             PLAYER.centery = int(_viper_nerve_strike_target_y)
 
-            if not _viper_nerve_strike_slash_shown and _ns_elapsed >= 100:
+            # 베기 사운드 + 이펙트: 후반부(45% 이후)에 재생 — 텍스트 정지 후 할퀴기와 동시
+            _ns_slash_45pct = int(_ns_slash_dur * 0.45)
+            if not _viper_nerve_strike_slash_shown and _ns_elapsed >= _ns_slash_45pct:
                 _viper_nerve_strike_slash_shown = True
                 # 베기 사운드 재생
                 try:
@@ -154169,6 +154174,7 @@ def show_result(won):
     rolling_direction = 0
     rolling_speed = 0
     rolling_stun_timer = 0
+    stop_dash_delay_sound()  # 후딜 사운드 즉시 중지
     rolling_dash_available_timer = 0
     rolling_cooldown = 0
     rolling_charges = 1  # 기본값으로 리셋
@@ -155560,7 +155566,8 @@ def main(stage_num, new_boss_mode=False):
     rolling_direction = 0
     rolling_speed = 0
     rolling_stun_timer = 0
-    
+    stop_dash_delay_sound()  # 후딜 사운드 즉시 중지
+
     # 코만도 총알 시스템 초기화
     soldier_bullets = []
     soldier_gun_cooldown = 0
@@ -164109,10 +164116,11 @@ def main(stage_num, new_boss_mode=False):
                     
                     # 3. 플레이어 상태 초기화
                     rolling_active = False
-                    rolling_timer = 0 
+                    rolling_timer = 0
                     rolling_direction = 0
                     rolling_speed = 0
                     rolling_stun_timer = 0
+                    stop_dash_delay_sound()  # 후딜 사운드 즉시 중지
                     player_stunned_timer = 0
                     player_knockback_vel = 0
                     player_stunned = False
