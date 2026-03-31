@@ -4845,7 +4845,7 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             pygame.draw.line(surface, highlight_color, (ix1, iy1), (ix2, iy2), 1)
 
     elif skill_name == "double_marshal_kick":
-        # x2 더블 마샬 킥: 두 번의 킥 + x2 표시
+        # x2 파이널 마샬 킥: 두 번의 킥 + x2 표시
 
         # 좌측 첫번째 킥 발자국
         foot1_x = cx - s // 3
@@ -5316,7 +5316,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         else:
             draw_empty_slot(slot_x, slot_y)
 
-    # === 우측 슬롯 (더블 마샬 킥, 1시 방향) ===
+    # === 우측 슬롯 (파이널 마샬 킥, 1시 방향) ===
     _dmk_angle = 330
     _dmk_rad = math.radians(_dmk_angle)
     _dmk_slot_x = orb_center_x + int(math.cos(_dmk_rad) * orbit_radius)
@@ -5324,7 +5324,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     if not _viper_double_marshal_kick_unlocked:
         draw_empty_slot(_dmk_slot_x, _dmk_slot_y)
     else:
-        # 더블 마샬 킥 해금 시 직접 렌더링 (패시브 스킬)
+        # 파이널 마샬 킥 해금 시 직접 렌더링 (패시브 스킬)
         _dmk_name = "double_marshal_kick"
         _dmk_color = (180, 0, 255)
         _dmk_cost = 50
@@ -5370,7 +5370,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                 pygame.draw.circle(surface, (*_dmk_color[:3], _dmk_pa),
                                  (_dmk_slot_x, _dmk_slot_y), icon_radius + 3, 2)
 
-        # 🔴 더블 마샬 킥 연계 가능 시 붉은 맥동 글로우
+        # 🔴 파이널 마샬 킥 연계 가능 시 붉은 맥동 글로우
         if _viper_double_marshal_ready and current_gauge >= _dmk_cost:
             _dmk_gt = time_now * 0.006
             _dmk_gp = 0.5 + 0.5 * math.sin(_dmk_gt)
@@ -5511,7 +5511,7 @@ _viper_perk_icon_rects = {}
 
 def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                            orb_radius: int, current_gauge: float, max_gauge: float):
-    """게이지 구슬 오른쪽에 바이퍼 퍽 아이콘 배치 (더블 마샬 킥 등)"""
+    """게이지 구슬 오른쪽에 바이퍼 퍽 아이콘 배치 (파이널 마샬 킥 등)"""
     global _viper_perk_activation_times, _viper_perk_was_active, _viper_perk_icon_rects
 
     # 해금된 퍽 목록 수집
@@ -5544,7 +5544,7 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
         icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
         icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
 
-        # 더블 마샬 킥은 _viper_double_marshal_ready일 때 활성 표시
+        # 파이널 마샬 킥은 _viper_double_marshal_ready일 때 활성 표시
         is_ready = _viper_double_marshal_ready if perk_name == "double_marshal_kick" else False
         is_active = current_gauge >= perk["cost"] and is_ready
 
@@ -5593,7 +5593,7 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
                 pygame.draw.circle(surface, (*perk["color"][:3], pulse_alpha),
                                  (icon_x, icon_y), icon_radius + 3, 2)
 
-        # 아이콘 심볼 (더블 마샬 킥: 두 발 + x2)
+        # 아이콘 심볼 (파이널 마샬 킥: 두 발 + x2)
         _draw_skill_icon_symbol(surface, perk_name, icon_x, icon_y,
                                icon_radius * 2 - 4, is_active, perk["color"])
 
@@ -6462,12 +6462,12 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
             if rect.collidepoint(local_x, local_y):
                 return skill_data
 
-    # 더블 마샬 킥 퍽 툴팁 체크
+    # 파이널 마샬 킥 퍽 툴팁 체크
     if _viper_double_marshal_kick_unlocked and "double_marshal_kick" in _viper_skill_icon_rects:
         rect = _viper_skill_icon_rects["double_marshal_kick"]
         if rect.collidepoint(local_x, local_y):
             return {
-                "name": "double_marshal_kick", "korean": "더블 마샬 킥", "cost": 50, "color": (180, 0, 255),
+                "name": "double_marshal_kick", "korean": "파이널 마샬 킥", "cost": 50, "color": (180, 0, 255),
                 "symbol": "x2", "cooldown": 0.0, "key": "S/↓(연계)",
                 "description": "베놈 엣지 실패 → 마샬 킥 후 보스 반환 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 50 소모, 공속 증가율 120%.",
                 "how_to_use": "마샬 킥 후 보스 반환 시 S/↓키",
@@ -13059,7 +13059,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "character_restriction": "viper"
     },
     "double_marshal_kick": {
-        "name": "더블 마샬 킥",
+        "name": "파이널 마샬 킥",
         "max_level": 1,
         "descriptions": {
             1: "베놈 엣지 실패 → 마샬 킥 후 보스 반환 시 2차 마샬 킥 발동 가능 (최대 4연계)",
@@ -17766,7 +17766,7 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
 
     elif skill_id == "double_marshal_kick":
-        # 더블 마샬 킥 - 두 개의 발 아이콘 (겹친 킥)
+        # 파이널 마샬 킥 - 두 개의 발 아이콘 (겹친 킥)
         _dmk_s = int(5 * scale)
         # 첫 번째 발 (뒤, 어두운 색)
         _dmk_c1 = tuple(max(0, c - 60) for c in icon_color)
@@ -47955,7 +47955,7 @@ _viper_ss_wave_trail = []            # 잔상 궤적
 _viper_ss_ball_touched = False       # 쉐도우 백스텝으로 공을 맞췄는지 (에너지파/잔상/패들 중 하나)
 _viper_ss_ball_touched_ms = 0        # 공 타격 시각 (마샬 킥 0.5초 딜레이용)
 _VIPER_MARSHAL_KICK_1ST_DELAY_MS = 300   # 1차 마샬 킥 딜레이 (ms)
-_VIPER_MARSHAL_KICK_2ND_DELAY_MS = 200   # 더블 마샬 킥 딜레이 (ms)
+_VIPER_MARSHAL_KICK_2ND_DELAY_MS = 200   # 파이널 마샬 킥 딜레이 (ms)
 
 # === 바이퍼 쉐도우 백스텝 → 다음 타격 버프 (팬텀 스트라이크) ===
 _viper_phantom_strike_active = False  # 다음 타격 버프 활성
@@ -48001,7 +48001,7 @@ _VIPER_WALL_DIVE_HIT_RADIUS = 90          # 공 히트 반경 (px, 실시간 추
 _VIPER_WALL_DIVE_RECLIMB_THRESHOLD = 120  # 벽다시타기 X거리 임계값 (px) - 이보다 가까우면 반대벽으로
 _VIPER_WALL_DIVE_RECLIMB_MS = 180         # 벽다시타기 이동 시간 (ms) - 매우 빠르게
 
-# 더블 마샬 킥 퍽 시스템
+# 파이널 마샬 킥 퍽 시스템
 _viper_double_marshal_kick_unlocked = False   # 퍽 해금 여부 (레거시, 기본 패시브로 전환)
 _viper_ss_was_airborne = False               # 쉐도우 백스텝 발동 시 체공 상태였는지
 _viper_marshal_kick_hit_ball = False          # 마샬 킥이 공을 맞혔는지 (1차)
@@ -48016,17 +48016,17 @@ _viper_starburst_x = 0.0
 _viper_starburst_y = 0.0
 _viper_starburst_frame = 0           # 현재 프레임 (0~4)
 _viper_starburst_timer = 0           # 프레임 타이머
-_viper_starburst_is_double = False   # 더블 마샬 킥 강화 스타버스트 여부
+_viper_starburst_is_double = False   # 파이널 마샬 킥 강화 스타버스트 여부
 _VIPER_STARBURST_FRAMES = 5          # 총 프레임 수
 _VIPER_STARBURST_FRAME_DUR = 3       # 프레임당 게임 틱 (3틱 = 약 50ms)
 
-# 더블 마샬 킥 프리즈 연출 + 텍스트 이펙트
+# 파이널 마샬 킥 프리즈 연출 + 텍스트 이펙트
 _viper_dmk_text_active = False
 _viper_dmk_text_timer = 0
 _viper_dmk_text_x = 0.0
 _viper_dmk_text_y = 0.0
 _VIPER_DMK_TEXT_DURATION = 40        # 텍스트 표시 시간 (프레임)
-_viper_dmk_freeze_active = False     # 더블 마샬 킥 프리즈 중 (공/보스 정지)
+_viper_dmk_freeze_active = False     # 파이널 마샬 킥 프리즈 중 (공/보스 정지)
 _viper_dmk_freeze_timer = 0          # 프리즈 남은 프레임
 _VIPER_DMK_FREEZE_DURATION = 30      # 프리즈 시간 (0.5초)
 
@@ -72207,14 +72207,14 @@ def handle_player(keys):
         if _viper_wall_dive_ready_timer <= 0:
             _viper_wall_dive_ready = False
 
-    # 더블 마샬 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화
+    # 파이널 마샬 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화
     if _viper_marshal_kick_hit_ball and _viper_ss_was_airborne and not _viper_double_marshal_ready:
         if pygame.time.get_ticks() - _viper_marshal_kick_hit_ms >= _VIPER_MARSHAL_KICK_2ND_DELAY_MS:
             _viper_double_marshal_ready = True
             _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_marshal_kick_hit_ball = False  # 1회 소모
 
-    # 더블 마샬 킥 윈도우 타이머 감소
+    # 파이널 마샬 킥 윈도우 타이머 감소
     if _viper_double_marshal_ready:
         _viper_double_marshal_ready_timer -= 1
         if _viper_double_marshal_ready_timer <= 0:
@@ -72246,7 +72246,7 @@ def handle_player(keys):
                 and special_gauge >= _wd_gauge_cost
                 and is_viper_skill_unlocked("shadow_step")):
             special_gauge -= _wd_gauge_cost
-            # 더블 마샬 킥인지 판별 + 쉐도우 백스텝 쿨타임 연장
+            # 파이널 마샬 킥인지 판별 + 쉐도우 백스텝 쿨타임 연장
             _viper_is_double_marshal = _wd_is_double
             if _wd_is_double:
                 _viper_skill_cooldown_override["shadow_step"] = 20.0  # 더블 마샬킥: 20초
@@ -72452,7 +72452,7 @@ def handle_player(keys):
                 _wd_dist = math.hypot(BALL.centerx - _wd_cx, BALL.centery - _wd_cy)
                 if _wd_dist <= _VIPER_WALL_DIVE_HIT_RADIUS:
                     _viper_wall_dive_ball_hit = True
-                    # 더블 마샬 킥 퍽: 1차 마샬 킥 히트 시 플래그 설정
+                    # 파이널 마샬 킥 퍽: 1차 마샬 킥 히트 시 플래그 설정
                     if _viper_ss_was_airborne and not _viper_is_double_marshal:
                         _viper_marshal_kick_hit_ball = True
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
@@ -72484,7 +72484,7 @@ def handle_player(keys):
                     _viper_starburst_frame = 0
                     _viper_starburst_timer = 0
                     _viper_starburst_is_double = _viper_is_double_marshal
-                    # 더블 마샬 킥: 프리즈 연출 + 텍스트
+                    # 파이널 마샬 킥: 프리즈 연출 + 텍스트
                     if _viper_is_double_marshal:
                         _viper_dmk_freeze_active = True
                         _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
@@ -72569,7 +72569,7 @@ def handle_player(keys):
                 PLAYER.centery = _wd_target_y
                 PLAYER.centerx = _wd_target_x
 
-    # 더블 마샬 킥 프리즈 타이머 감소
+    # 파이널 마샬 킥 프리즈 타이머 감소
     if _viper_dmk_freeze_active:
         _viper_dmk_freeze_timer -= 1
         if _viper_dmk_freeze_timer <= 0:
@@ -72742,7 +72742,7 @@ def handle_player(keys):
         _dive_from_airblade = (_viper_br_spin_active and _viper_br_spin_phase == 2 and _dive_ab_elapsed >= 600)
         # 에어블레이드 동작 중(발사/회전/감속)에는 일반 체공 다이브 차단
         _in_airblade_motion = _viper_blade_rush_active or (_viper_br_spin_active and _viper_br_spin_phase < 2)
-        # 다이브 스트라이크는 단독기: 대쉬/쉐도우 백스텝/마샬 킥/더블 마샬 킥 중 발동 불가
+        # 다이브 스트라이크는 단독기: 대쉬/쉐도우 백스텝/마샬 킥/파이널 마샬 킥 중 발동 불가
         _dive_any_skill_active = (
             rolling_active
             or _viper_ss_hologram_active
@@ -107625,7 +107625,7 @@ def draw_objects():
             _sb_t = _sb_f / max(1, _VIPER_STARBURST_FRAMES - 1)  # 0→1
             _sb_cx = int(_viper_starburst_x)
             _sb_cy = int(_viper_starburst_y)
-            _sb_dbl = _viper_starburst_is_double  # 더블 마샬 킥 강화 여부
+            _sb_dbl = _viper_starburst_is_double  # 파이널 마샬 킥 강화 여부
 
             # 프레임별 파라미터: 팽창 → 최대 → 수축+페이드
             if _sb_f == 0:
@@ -107639,7 +107639,7 @@ def draw_objects():
             else:
                 _sb_scale, _sb_alpha = 0.5, 60
 
-            # 더블 마샬 킥: 크기 2배, 알파 강화
+            # 파이널 마샬 킥: 크기 2배, 알파 강화
             _sb_max_r = 90 if _sb_dbl else 50
             if _sb_dbl:
                 _sb_alpha = min(255, int(_sb_alpha * 1.4))
@@ -107689,8 +107689,8 @@ def draw_objects():
         except Exception:
             _viper_starburst_active = False
 
-    # ✦ 더블 마샬 킥 프리즈 연출 + 텍스트 렌더링
-    # 🐍 더블 마샬 킥 텍스트 타이머 감소 (렌더링은 draw_objects 맨 끝에서 수행 - 모든 오브젝트 위에 표시)
+    # ✦ 파이널 마샬 킥 프리즈 연출 + 텍스트 렌더링
+    # 🐍 파이널 마샬 킥 텍스트 타이머 감소 (렌더링은 draw_objects 맨 끝에서 수행 - 모든 오브젝트 위에 표시)
     if _viper_dmk_freeze_active or _viper_dmk_text_active:
         _viper_dmk_text_timer -= 1
         if _viper_dmk_text_timer <= 0:
@@ -110385,7 +110385,7 @@ def draw_objects():
             # 투명 배경을 유지하면서 UFO 이미지에만 붉은 틴트 적용
             apply_red_overlay(rotated_player, intensity=80)  # 강도 80으로 은은한 붉은 효과
 
-    # 🕷 바이퍼 마샬 킥 / 더블 마샬 킥 대기 상태: 붉은 투기 오라 (본체 틴트)
+    # 🕷 바이퍼 마샬 킥 / 파이널 마샬 킥 대기 상태: 붉은 투기 오라 (본체 틴트)
     if selected_character_type == "viper" and (_viper_wall_dive_ready or _viper_double_marshal_ready):
         _aura_t = pygame.time.get_ticks() * 0.004
         _aura_pulse = 0.5 + 0.5 * math.sin(_aura_t)
@@ -111830,7 +111830,7 @@ def draw_objects():
                     _player_final_surf = apply_hologram_materialize_effect(_player_final_surf, _player_hologram_progress, _hologram_time_now)
                 draw_with_shake(_player_final_surf, player_rect.topleft)
 
-    # 🕷 바이퍼 마샬 킥 / 더블 마샬 킥 대기 상태: 투기 오라 (패들 렌더링 직후)
+    # 🕷 바이퍼 마샬 킥 / 파이널 마샬 킥 대기 상태: 투기 오라 (패들 렌더링 직후)
     if selected_character_type == "viper" and (_viper_wall_dive_ready or _viper_double_marshal_ready):
         try:
             _va_now = pygame.time.get_ticks()
@@ -115605,7 +115605,7 @@ def draw_objects():
     if berserk_potion_active and berserk_potion_timer > 0 and selected_character_type == "blacksmith":
         draw_berserk_aura(SCREEN, PLAYER.center)
 
-    # 🐍 더블 마샬 킥 프리즈 연출 (모든 오브젝트 위에 최상단 렌더링)
+    # 🐍 파이널 마샬 킥 프리즈 연출 (모든 오브젝트 위에 최상단 렌더링)
     if _viper_dmk_freeze_active or _viper_dmk_text_active:
         try:
             # 프리즈 중: 화면 어둡게 (반투명 검정 오버레이)
@@ -143496,7 +143496,7 @@ def handle_ball():
     if odins_eye_revival_anim_active or odins_eye_death_anim_active:
         return  # 애니메이션 중에는 물리 업데이트 전체 스킵
 
-    # 🐍 바이퍼 베놈 엣지 / 더블 마샬 킥 프리즈 중에는 공 물리 멈춤
+    # 🐍 바이퍼 베놈 엣지 / 파이널 마샬 킥 프리즈 중에는 공 물리 멈춤
     if _viper_ns_freeze_active or _viper_dmk_freeze_active:
         return
 
@@ -147697,7 +147697,7 @@ def handle_ball():
                 ball_vel[1] *= _restore_ratio
         # 바이퍼 마샬 킥 연계: 보스 반환 시 처리 제거 (0.5초 딜레이 방식으로 이전됨)
 
-        # 더블 마샬 킥: 보스 반환 트리거 제거 (0.2초 딜레이 방식으로 이전됨)
+        # 파이널 마샬 킥: 보스 반환 트리거 제거 (0.2초 딜레이 방식으로 이전됨)
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
@@ -151451,8 +151451,8 @@ def handle_boss():
     if ball_spawn_animation_active:
         return
 
-    # 🐍 바이퍼 베놈 엣지 / 더블 마샬 킥 프리즈 중에는 보스 AI 정지
-    # 단, 넉백 물리는 프리즈 중에도 적용 (더블 마샬 킥 넉백)
+    # 🐍 바이퍼 베놈 엣지 / 파이널 마샬 킥 프리즈 중에는 보스 AI 정지
+    # 단, 넉백 물리는 프리즈 중에도 적용 (파이널 마샬 킥 넉백)
     if _viper_ns_freeze_active or _viper_dmk_freeze_active:
         if abs(boss_fire_knockback_vel) > 0.3:
             _kb_new_x = BOSS.x + boss_fire_knockback_vel
@@ -151471,7 +151471,7 @@ def handle_boss():
                 boss_fire_knockback_vel = 0.0
         return
 
-    # 🏓 넉백 처리 (화재/다이브 스트라이크/더블 마샬 킥 등)
+    # 🏓 넉백 처리 (화재/다이브 스트라이크/파이널 마샬 킥 등)
     if abs(boss_fire_knockback_vel) > 0.3:
         _kb_new_x = BOSS.x + boss_fire_knockback_vel
         _kb_min_x = 0
