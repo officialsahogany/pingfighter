@@ -105632,6 +105632,7 @@ def draw_objects():
     global smasher_left_raise_timer
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_swing_intensity
     global smasher_pending_contact_offset
+    global viper_hit_pose_timer, viper_left_slash_timer, viper_right_kick_timer, viper_swing_intensity
     global optimus_arm_swing_left_timer, optimus_arm_swing_right_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
