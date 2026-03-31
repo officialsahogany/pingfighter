@@ -1195,17 +1195,8 @@ def draw_dark_red_impact_particles(surface=None):
             screen.blit(smoke_surf, (x - size, y - size))
 
         elif ptype == 'shard':
-            # 날카로운 파편 (회전하는 삼각형/마름모)
+            # 날카로운 파편 (회전하는 마름모)
             rotation = p.get('rotation', 0)
-
-            # 글로우
-            glow_size = size + 2
-            glow_surf = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
-            glow_alpha = min(255, alpha // 3)
-            pygame.draw.circle(glow_surf, (*color[:3], glow_alpha),
-                               (glow_size * 2, glow_size * 2), glow_size)
-            screen.blit(glow_surf, (x - glow_size * 2, y - glow_size * 2),
-                        special_flags=pygame.BLEND_ADD)
 
             # 날카로운 마름모 파편
             half = size
