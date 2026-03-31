@@ -109104,8 +109104,8 @@ def draw_objects():
                 _dive_slip_wobble_y = 0
                 if _viper_dive_slip_timer > 0:
                     _slip_pct = _viper_dive_slip_timer / _VIPER_DIVE_SLIP_DURATION
-                    _wobble_speed = 0.4  # 물결 주기
-                    _wobble_amp = 4.0 * _slip_pct  # 진폭 (점점 줄어듦)
+                    _wobble_speed = 0.014  # 물결 주기 (초당 ~2.2회)
+                    _wobble_amp = 5.0 * _slip_pct  # 진폭 (점점 줄어듦)
                     _dive_slip_wobble_y = math.sin(pygame.time.get_ticks() * _wobble_speed) * _wobble_amp
                     # 좌우 미세 떨림 (패닉)
                     _boss_dash_stun_shake_x += random.uniform(-2.0, 2.0) * _slip_pct
