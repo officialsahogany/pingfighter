@@ -48444,8 +48444,8 @@ _VIPER_NS_HIT_RADIUS = 120              # 도착 시 보스 히트 판정 반경
 _VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
 _viper_ns_hit_confirmed = False          # 적중 여부 (적중 시 연출 강화)
 _viper_ns_freeze_active = False          # 적중 시 화면 프리즈 (공/보스 정지)
-_VIPER_NS_SLASH_DURATION_HIT = 3000      # 적중 시 베기 연출 시간 (ms) — 텍스트 정지 + 할퀴기
-_VIPER_NS_RETURN_DURATION_HIT = 450      # 적중 시 복귀 시간 (ms) — 천천히 내려옴
+_VIPER_NS_SLASH_DURATION_HIT = 2300      # 적중 시 베기 연출 시간 (ms) — 텍스트 정지 + 할퀴기 (0.7초 단축)
+_VIPER_NS_RETURN_DURATION_HIT = 250      # 적중 시 복귀 시간 (ms) — 빠른 하강
 
 # === 바이퍼 제트팩 시스템 ===
 _viper_jetpack_active = False            # 제트팩 분사 중 여부
