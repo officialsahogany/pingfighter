@@ -72657,9 +72657,7 @@ def handle_player(keys):
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _br_cur_speed
                     if _br_cur_speed > 0.1:
-                        import random as _br_rand
-                        _br_boost = 1.0 + _br_rand.uniform(0.3, 0.5)  # 1.3~1.5x (30~50% 증가)
-                        _br_new_speed = _br_cur_speed * _br_boost
+                        _br_new_speed = _br_cur_speed * 2.8  # 2.8x (180% 증가)
                         _br_ratio = _br_new_speed / _br_cur_speed
                         ball_vel[0] *= _br_ratio
                         ball_vel[1] = -abs(ball_vel[1] * _br_ratio)  # 위로 보정
