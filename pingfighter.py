@@ -139045,7 +139045,7 @@ def reset_round(is_stage_start=False):
     spider_mine_slow_timer = 0
     spider_mine_slow_text_timer = 0
     #  조명탄(섬광탄) 관련 초기화
-    global boss_confused_timer, flares, flare_zones
+    global flares, flare_zones
     boss_confused_timer = 0  # 보스 혼란 상태 초기화
     flares.clear()  # 날아가는 조명탄 제거
     flare_zones.clear()  # 섬광 지역 제거
