@@ -19337,6 +19337,7 @@ def _swap_boss_in_current_stage():
     cotton_bomb_ghost_curve_active = False
     cotton_bomb_ghost_curve_timer = 0
     cotton_bomb_ghost_curve_phase = 0.0
+    _ghost_curve_trail.clear()
     deadly_hug_active = False
     deadly_hug_rush_active = False
     deadly_hug_timer = 0
@@ -84855,6 +84856,70 @@ def draw_cotton_bomb_effect(screen):
         pygame.draw.ellipse(slow_sf, (255, 180, 220, slow_alpha),
                             (0, 0, PLAYER.width + 40, 20))
         screen.blit(slow_sf, (PLAYER.centerx - (PLAYER.width + 40) // 2, PLAYER.bottom - 5))
+
+
+def draw_ghost_curve_ball_effect(screen):
+    """유령 커브 발동 중 공에 기괴한 유령 잔상 이펙트"""
+    if not cotton_bomb_ghost_curve_active:
+        return
+    t_ratio = cotton_bomb_ghost_curve_timer / COTTON_BOMB_GHOST_CURVE_DURATION
+    flicker = _ghost_curve_flicker_timer
+
+    # 1) 잔상 트레일 — 반투명 유령 구체들이 흩어지며 사라짐
+    for p in _ghost_curve_trail:
+        a = max(0, min(255, int(p["alpha"] * t_ratio)))
+        sz = max(1, int(p["size"] * p["distort"]))
+        w = int(sz * 2 * (0.7 + 0.6 * math.sin(p["phase"])))
+        h = int(sz * 2 * (0.7 + 0.6 * math.cos(p["phase"] * 1.3)))
+        w = max(2, w)
+        h = max(2, h)
+        sf = pygame.Surface((w, h), pygame.SRCALPHA)
+        gc = int(180 + 40 * math.sin(p["phase"] * 2))
+        bc = int(200 + 55 * math.sin(p["phase"] * 1.7 + 1.0))
+        pygame.draw.ellipse(sf, (gc, gc, bc, a), (0, 0, w, h))
+        screen.blit(sf, (int(p["x"]) - w // 2, int(p["y"]) - h // 2))
+
+    # 2) 공 주변 일렁이는 유령 아우라
+    if BALL:
+        bx, by = BALL.centerx, BALL.centery
+        aura_phase = flicker * 0.15
+        for i in range(5):
+            angle = aura_phase + i * (math.pi * 2 / 5)
+            wobble = math.sin(aura_phase * 2.3 + i * 1.7) * 6
+            r = BALL_RADIUS + 8 + wobble
+            ax = bx + math.cos(angle) * r * 0.3
+            ay = by + math.sin(angle) * r * 0.3
+            ring_r = int(BALL_RADIUS + 6 + wobble)
+            ring_alpha = int((40 + 30 * math.sin(aura_phase * 3 + i)) * t_ratio)
+            ring_alpha = max(0, min(255, ring_alpha))
+            sf = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+            ct = ring_r + 2
+            pygame.draw.circle(sf, (160, 220, 210, ring_alpha), (ct, ct), ring_r, 2)
+            screen.blit(sf, (int(ax) - ct, int(ay) - ct))
+
+        # 3) 공 위에 유령 얼굴 (깜빡이며 나타남)
+        face_alpha = int((100 + 80 * math.sin(flicker * 0.2)) * t_ratio)
+        face_alpha = max(0, min(255, face_alpha))
+        if math.sin(flicker * 0.7) > 0.3:
+            face_sf = pygame.Surface((BALL_RADIUS * 4, BALL_RADIUS * 4), pygame.SRCALPHA)
+            fc = BALL_RADIUS * 2
+            eye_l_x = fc - int(BALL_RADIUS * 0.35)
+            eye_r_x = fc + int(BALL_RADIUS * 0.35)
+            eye_y = fc - int(BALL_RADIUS * 0.15)
+            el_w = max(2, int(3 + 2 * math.sin(flicker * 0.3)))
+            el_h = max(3, int(5 + 3 * math.sin(flicker * 0.25 + 0.5)))
+            er_w = max(2, int(3 + 2 * math.sin(flicker * 0.35 + 1.0)))
+            er_h = max(3, int(5 + 3 * math.sin(flicker * 0.28 + 2.0)))
+            pygame.draw.ellipse(face_sf, (180, 255, 230, face_alpha),
+                                (eye_l_x - el_w, eye_y - el_h, el_w * 2, el_h * 2))
+            pygame.draw.ellipse(face_sf, (180, 255, 230, face_alpha),
+                                (eye_r_x - er_w, eye_y - er_h, er_w * 2, er_h * 2))
+            mouth_y = fc + int(BALL_RADIUS * 0.3)
+            mouth_w = int(BALL_RADIUS * 0.6 + 2 * math.sin(flicker * 0.18))
+            pygame.draw.arc(face_sf, (180, 255, 230, face_alpha),
+                            (fc - mouth_w, mouth_y - 3, mouth_w * 2, 8),
+                            math.pi * 0.1, math.pi * 0.9, 2)
+            screen.blit(face_sf, (bx - fc, by - fc))
 
 
 # =====================================================================
@@ -153636,6 +153701,7 @@ def show_result(won):
     cotton_bomb_ghost_curve_active = False
     cotton_bomb_ghost_curve_timer = 0
     cotton_bomb_ghost_curve_phase = 0.0
+    _ghost_curve_trail.clear()
     deadly_hug_active = False
     deadly_hug_rush_active = False
     deadly_hug_timer = 0
@@ -155392,6 +155458,7 @@ def main(stage_num, new_boss_mode=False):
     cotton_bomb_ghost_curve_active = False
     cotton_bomb_ghost_curve_timer = 0
     cotton_bomb_ghost_curve_phase = 0.0
+    _ghost_curve_trail.clear()
     deadly_hug_active = False
     deadly_hug_rush_active = False
     deadly_hug_timer = 0
@@ -162845,6 +162912,7 @@ def main(stage_num, new_boss_mode=False):
         draw_fan_wind_effect(SCREEN)  # 각시탈 부채바람 이펙트
         draw_cotton_throw_effect(SCREEN)  # 테디베어 솜뭉치 투척 이펙트
         draw_cotton_bomb_effect(SCREEN)  # 테디베어 솜뭉치 폭탄 이펙트
+        draw_ghost_curve_ball_effect(SCREEN)  # 유령 커브 공 잔상 이펙트
         draw_deadly_hug_effect(SCREEN)   # 테디베어 죽음의 포옹 이펙트
         draw_button_eye_effect(SCREEN)   # 테디베어 단추 눈의 저주 이펙트
         draw_curse_chest(SCREEN)         # 멘헤라걸 저주 보물상자 이펙트
