@@ -111435,78 +111435,73 @@ def draw_objects():
             _va_cx = player_rect.centerx
             _va_cy = player_rect.centery
             _va_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            _va_strength = 1.0
 
-            # 1. 내부 글로우 (패들 주변 은은한 붉은 빛)
-            _va_glow_r = 55 + int(math.sin(_va_now * 0.005) * 8)
-            for _vr in range(_va_glow_r, _va_glow_r - 25, -5):
-                _vga = int(30 * (1 - (_va_glow_r - _vr) / 25) * _va_strength)
+            # — 색상 팔레트: 심홍/짙은 자주 (톤 통일, 고급스럽게) —
+            _va_glow_col = (180, 30, 60)
+            _va_stream_col = (200, 50, 70)
+            _va_ring_col = (180, 30, 60)
+            _va_ring_sub = (220, 80, 90)
+
+            # 1. 내부 글로우 (은은하게)
+            _va_gr = 50 + int(math.sin(_va_now * 0.004) * 6)
+            for _vr in range(_va_gr, _va_gr - 20, -5):
+                _vga = int(25 * (1 - (_va_gr - _vr) / 20))
                 if _vga > 2:
-                    pygame.draw.circle(_va_surf, (255, 60, 80, _vga), (_va_cx, _va_cy), _vr, 2)
+                    pygame.draw.circle(_va_surf, (*_va_glow_col, _vga), (_va_cx, _va_cy), _vr, 2)
 
-            # 2. 회전하는 에너지 스트림 (4개)
-            _va_num_streams = 4
-            for _vsi in range(_va_num_streams):
-                _vs_base = (_vsi / _va_num_streams) * math.tau + _va_now * 0.003
-                for _vsj in range(8):
-                    _vs_angle = _vs_base + _vsj * 0.14
-                    _vs_rad = 30 + _vsj * 7
-                    _vsx1 = _va_cx + math.cos(_vs_angle) * _vs_rad
-                    _vsy1 = _va_cy + math.sin(_vs_angle) * _vs_rad
-                    _vsx2 = _va_cx + math.cos(_vs_angle + 0.12) * (_vs_rad + 5)
-                    _vsy2 = _va_cy + math.sin(_vs_angle + 0.12) * (_vs_rad + 5)
-                    _vsa = int(100 * (1 - _vsj / 8) * _va_strength)
+            # 2. 회전 스트림 (3개 — 느린 회전, 짧은 세그먼트)
+            for _vsi in range(3):
+                _vs_base = (_vsi / 3) * math.tau + _va_now * 0.002
+                for _vsj in range(6):
+                    _vs_a = _vs_base + _vsj * 0.15
+                    _vs_r = 35 + _vsj * 6
+                    _vsx1 = _va_cx + math.cos(_vs_a) * _vs_r
+                    _vsy1 = _va_cy + math.sin(_vs_a) * _vs_r
+                    _vsx2 = _va_cx + math.cos(_vs_a + 0.1) * (_vs_r + 5)
+                    _vsy2 = _va_cy + math.sin(_vs_a + 0.1) * (_vs_r + 5)
+                    _vsa = int(80 * (1 - _vsj / 6))
                     if _vsa > 3:
-                        pygame.draw.line(_va_surf, (255, 80, 100, _vsa),
+                        pygame.draw.line(_va_surf, (*_va_stream_col, _vsa),
                                         (int(_vsx1), int(_vsy1)), (int(_vsx2), int(_vsy2)), 2)
 
-            # 3. 회전하는 파티클 (16개, 꼬리 달린)
-            for _vpi in range(16):
-                _vp_angle = (_vpi / 16) * math.tau + _va_now * 0.004
-                _vp_r_base = 35 + (_vpi % 4) * 10
-                _vp_r = _vp_r_base + math.sin(_va_now * 0.006 + _vpi * 0.7) * 8
+            # 3. 회전 파티클 (12개, 꼬리 2단)
+            for _vpi in range(12):
+                _vp_phase = (_vpi / 12) * math.tau
+                _vp_spd = 0.025 + (_vpi % 3) * 0.008
+                _vp_angle = _vp_phase + _va_now * 0.001 * (1 + _vp_spd * 20)
+                _vp_br = 40 + (_vpi % 4) * 8
+                _vp_r = _vp_br + math.sin(_va_now * 0.003 + _vp_phase) * 6
                 _vpx = _va_cx + math.cos(_vp_angle) * _vp_r
                 _vpy = _va_cy + math.sin(_vp_angle) * _vp_r
-                _vp_size = 2 + (_vpi % 3)
-                # 색상 변화: 붉은~주홍~보라
-                _vp_colors = [
-                    (255, 60, 80), (255, 100, 60), (220, 50, 120), (255, 80, 40),
-                ]
-                _vp_color = _vp_colors[_vpi % len(_vp_colors)]
-                _vp_alpha = int((120 + 60 * math.sin(_va_now * 0.005 + _vpi)) * _va_strength)
-                _vp_alpha = max(0, min(255, _vp_alpha))
+                _vp_sz = 2 + (_vpi % 2)
+                _vp_a = int(100 + 40 * math.sin(_va_now * 0.004 + _vpi * 0.9))
+                _vp_a = max(0, min(200, _vp_a))
 
-                # 꼬리 (3단계)
-                for _vpt in range(3):
-                    _vpt_angle = _vp_angle - 0.004 * (_vpt + 1) * 3 * (1 + _vpi % 2)
-                    _vpt_r = _vp_r - _vpt * 3
-                    _vptx = _va_cx + math.cos(_vpt_angle) * _vpt_r
-                    _vpty = _va_cy + math.sin(_vpt_angle) * _vpt_r
-                    _vpt_a = int(_vp_alpha * (1 - _vpt / 3) * 0.4)
-                    _vpt_s = max(1, _vp_size - _vpt)
-                    if _vpt_a > 2:
-                        pygame.draw.circle(_va_surf, (*_vp_color, _vpt_a),
-                                          (int(_vptx), int(_vpty)), _vpt_s)
+                for _vpt in range(2):
+                    _vpt_ang = _vp_angle - _vp_spd * (_vpt + 1) * 3
+                    _vpt_r = _vp_r - _vpt * 2
+                    _vptx = _va_cx + math.cos(_vpt_ang) * _vpt_r
+                    _vpty = _va_cy + math.sin(_vpt_ang) * _vpt_r
+                    _vpta = int(_vp_a * (1 - (_vpt + 1) / 3) * 0.4)
+                    if _vpta > 2:
+                        pygame.draw.circle(_va_surf, (*_va_stream_col, _vpta),
+                                          (int(_vptx), int(_vpty)), max(1, _vp_sz - _vpt - 1))
 
-                # 메인 파티클
-                if _vp_alpha > 5:
-                    pygame.draw.circle(_va_surf, (*_vp_color, _vp_alpha),
-                                      (int(_vpx), int(_vpy)), _vp_size)
-                    # 하이라이트 (파티클 중심)
-                    if _vp_size > 1:
-                        pygame.draw.circle(_va_surf, (255, 255, 255, _vp_alpha // 3),
-                                          (int(_vpx), int(_vpy)), _vp_size, 1)
+                if _vp_a > 5:
+                    pygame.draw.circle(_va_surf, (*_va_stream_col, _vp_a), (int(_vpx), int(_vpy)), _vp_sz)
+                    if _vp_sz > 1:
+                        pygame.draw.circle(_va_surf, (255, 220, 220, _vp_a // 3),
+                                          (int(_vpx), int(_vpy)), _vp_sz, 1)
 
-            # 4. 외곽 펄싱 링 (이중)
-            _va_ring_r = int(70 + math.sin(_va_now * 0.004) * 5)
-            _va_ring_a = int((40 + 25 * math.sin(_va_now * 0.006)) * _va_strength)
-            if _va_ring_a > 3:
-                pygame.draw.circle(_va_surf, (255, 60, 80, _va_ring_a),
-                                  (_va_cx, _va_cy), _va_ring_r, 2)
-                pygame.draw.circle(_va_surf, (255, 120, 100, _va_ring_a // 2),
-                                  (_va_cx, _va_cy), _va_ring_r + 5, 1)
+            # 4. 외곽 링 (단일, 부드러운 맥동)
+            _va_rr = int(68 + math.sin(_va_now * 0.003) * 4)
+            _va_ra = int(35 + 20 * math.sin(_va_now * 0.005))
+            if _va_ra > 3:
+                pygame.draw.circle(_va_surf, (*_va_ring_col, _va_ra), (_va_cx, _va_cy), _va_rr, 2)
+                pygame.draw.circle(_va_surf, (*_va_ring_sub, _va_ra // 2), (_va_cx, _va_cy), _va_rr + 4, 1)
 
-            SCREEN.blit(_va_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+            # 일반 blit (BLEND_ADD 아님 — 과한 밝기 방지)
+            SCREEN.blit(_va_surf, (0, 0))
         except Exception:
             pass
 
