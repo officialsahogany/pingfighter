@@ -107127,11 +107127,6 @@ def draw_objects():
                         _gx = _holo_x - _holo_w // 2 + _g_offset_x
                         _gy = _holo_y - _holo_h // 2 + _g_offset_y
                         SCREEN.blit(_ghost_surf, (int(_gx), int(_gy)))
-                        # 보라빛 오버레이 (캐릭터 위에 반투명하게 덮기)
-                        _tint_surf = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
-                        _tint_a = int(80 * (1.0 - _gi / _ghost_count) * min(1.0, _g_local_t * 2.0))
-                        _tint_surf.fill((120, 30, 220, _tint_a))
-                        SCREEN.blit(_tint_surf, (int(_gx), int(_gy)))
 
                 # 홀로그램 발차기 확장 히트박스 — 공 충돌 판정 (텔레포트 도착 킥)
                 if _holo_t > 0.3 and not _viper_ss_hologram_kick_hit:
