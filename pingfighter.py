@@ -107100,20 +107100,20 @@ def draw_objects():
 
                 # 홀로그램 잔상 겹침 이펙트 (발차기 방향으로 빠르게 뻗어나감) — 본체 뒤에 깔림
                 if _holo_t > 0.15:
-                    _ghost_count = 4
+                    _ghost_count = 8
                     _kick_dir = _viper_ss_hologram_kick_dir
                     for _gi in range(_ghost_count):
-                        _g_delay = _gi * 0.04  # 잔상 간 약간의 딜레이
-                        _g_local_t = (_holo_t - 0.15 - _g_delay) / 0.25  # 0.25초에 걸쳐 전개
+                        _g_delay = _gi * 0.02  # 촘촘한 딜레이 (연사 느낌)
+                        _g_local_t = (_holo_t - 0.15 - _g_delay) / 0.25
                         if _g_local_t < 0.0 or _g_local_t > 1.0:
                             continue
                         _g_ease = min(1.0, _g_local_t * _g_local_t * 4.0)  # 빠른 가속
                         # 발차기 방향으로 뻗어나감 (확장 히트박스 커버)
-                        _g_offset_x = _kick_dir * _g_ease * (12 + _gi * 14)
+                        _g_offset_x = _kick_dir * _g_ease * (5 + _gi * 8)
                         _g_offset_y = 0
-                        # 알파: 빠르게 나타나고 천천히 사라짐
-                        _g_fade = 1.0 - max(0.0, (_g_local_t - 0.7) * 3.3)  # 70% 이후 서서히 페이드아웃
-                        _g_alpha = int(min(200, (100 + _gi * 30) * min(1.0, _g_local_t * 4.0) * _g_fade))
+                        # 알파: 빠르게 나타나고 천천히 사라짐, 뒤쪽 잔상일수록 연함
+                        _g_fade = 1.0 - max(0.0, (_g_local_t - 0.7) * 3.3)
+                        _g_alpha = int(min(180, (120 - _gi * 8) * min(1.0, _g_local_t * 4.0) * _g_fade))
                         if _g_alpha <= 0:
                             continue
                         _ghost_surf = _holo_base.copy()
