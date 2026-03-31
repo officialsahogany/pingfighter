@@ -4630,171 +4630,262 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
 
     # =================== 바이퍼 전용 스킬 심볼 ===================
     elif skill_name == "shadow_step":
-        # ⟐ 쉐도우 스텝: 잔상 + 순간이동 표현
-        # 잔상 실루엣 (왼쪽, 반투명)
+        # ⟐ 쉐도우 스텝: 잔상 분신 + 순간이동
         ghost_offset = s // 3
-        ghost_color = (*shadow_color[:3],) if len(shadow_color) == 3 else shadow_color[:3]
-        # 잔상 몸체
-        pygame.draw.ellipse(surface, ghost_color,
-                           (cx - ghost_offset - s//4, cy - s//3, s//2, s*2//3))
-        # 잔상에서 나오는 파편
-        for i in range(3):
-            px = cx - ghost_offset - s//4 + i * s//6
-            py = cy + s//4 + i * 2
-            pygame.draw.circle(surface, ghost_color, (px, py), 2)
 
-        # 메인 실루엣 (오른쪽, 밝은색)
+        # 잔상 트레일 (왼쪽에서 오른쪽으로 3단계 페이드)
+        for gi in range(3):
+            gx = cx - ghost_offset - s // 6 + gi * (s // 4)
+            ga = max(40, 160 - gi * 50)
+            gc = tuple(max(0, c * ga // 255) for c in shadow_color[:3])
+            pygame.draw.ellipse(surface, gc,
+                                (gx - s // 5, cy - s // 3, s * 2 // 5, s * 2 // 3))
+
+        # 메인 실루엣 (오른쪽, 선명)
+        main_x = cx + ghost_offset // 2
+        pygame.draw.ellipse(surface, shadow_color,
+                            (main_x - s // 4 + 1, cy - s // 3 + 1, s // 2, s * 2 // 3))
         pygame.draw.ellipse(surface, accent_color,
-                           (cx + ghost_offset//2 - s//4, cy - s//3, s//2, s*2//3))
+                            (main_x - s // 4, cy - s // 3, s // 2, s * 2 // 3))
         pygame.draw.ellipse(surface, highlight_color,
-                           (cx + ghost_offset//2 - s//4, cy - s//3, s//2, s*2//3), 1)
+                            (main_x - s // 4, cy - s // 3, s // 2, s * 2 // 3), 2)
+        pygame.draw.circle(surface, main_color, (main_x - s // 8, cy - s // 6), max(1, s // 8))
 
-        # 이동 화살표 (점선)
-        for i in range(3):
-            dx = cx - ghost_offset + i * (ghost_offset)
-            pygame.draw.line(surface, main_color, (dx, cy - s//2), (dx + s//6, cy - s//2), 2)
+        # 속도선
+        for i in range(4):
+            ly = cy - s // 3 + i * (s // 4)
+            lx_start = cx - ghost_offset - s // 3
+            lx_end = lx_start + s // 4 - i * 2
+            line_c = tuple(min(255, c + 40) for c in accent_color[:3])
+            pygame.draw.line(surface, line_c, (lx_start, ly), (lx_end, ly), 1)
 
-        # 번개 효과 (순간이동 느낌)
-        pygame.draw.line(surface, highlight_color,
-                        (cx - s//6, cy - s*2//5), (cx + s//6, cy - s//5), 2)
-        pygame.draw.line(surface, highlight_color,
-                        (cx + s//6, cy - s//5), (cx - s//8, cy + s//5), 2)
+        # 순간이동 번개
+        bolt_pts = [
+            (main_x - s // 6, cy - s // 2),
+            (main_x + s // 8, cy - s // 6),
+            (main_x - s // 10, cy),
+            (main_x + s // 5, cy + s // 4),
+        ]
+        pygame.draw.lines(surface, highlight_color, False, bolt_pts, 2)
+        pygame.draw.circle(surface, main_color, bolt_pts[-1], 2)
 
     elif skill_name == "blade_rush":
-        # ⚔ 에어 블레이드: 3연속 플라즈마 슬래시
-        # 3개의 대각선 베기 자국
-        slash_offsets = [(-s//3, 0), (0, 0), (s//3, 0)]
-        for idx, (ox, oy) in enumerate(slash_offsets):
-            # 슬래시 라인 (대각선)
-            alpha_mult = 0.5 + idx * 0.25  # 점점 밝아짐
-            slash_color = tuple(min(255, int(c * alpha_mult)) for c in highlight_color[:3])
-            x1 = cx + ox + s//4
-            y1 = cy + oy - s*2//3
-            x2 = cx + ox - s//4
-            y2 = cy + oy + s*2//3
-            pygame.draw.line(surface, slash_color, (x1, y1), (x2, y2), 3 if idx == 2 else 2)
-            # 슬래시 끝 파티클
+        # ⚔ 에어 블레이드: 상승 + 3연속 플라즈마 슬래시
+
+        # 상승 궤적 트레일
+        for i in range(5):
+            t = i / 4.0
+            trail_x = cx - s // 3 + int(t * s * 2 // 3)
+            trail_y = cy + s // 2 - int(t * s)
+            tr = max(1, 3 - i)
+            tc = tuple(max(0, c - (4 - i) * 20) for c in accent_color[:3])
+            pygame.draw.circle(surface, tc, (trail_x, trail_y), tr)
+
+        # 3연속 슬래시 (점점 선명)
+        slash_data = [
+            (-s // 3, -s // 6, 0.4),
+            (0, 0, 0.7),
+            (s // 3, s // 6, 1.0),
+        ]
+        for ox, oy, intensity in slash_data:
+            sc = tuple(min(255, int(c * intensity)) for c in highlight_color[:3])
+            x1 = cx + ox + s // 3
+            y1 = cy + oy - s * 2 // 3
+            x2 = cx + ox - s // 3
+            y2 = cy + oy + s * 2 // 3
+            pygame.draw.line(surface, shadow_color, (x1 + 1, y1 + 1), (x2 + 1, y2 + 1), 3)
+            pygame.draw.line(surface, sc, (x1, y1), (x2, y2), 3)
             pygame.draw.circle(surface, main_color, (x1, y1), 2)
+            pygame.draw.circle(surface, main_color, (x2, y2), 1)
 
-        # 중앙 블레이드 광선
-        pygame.draw.line(surface, accent_color, (cx, cy - s//2), (cx, cy + s//2), 2)
-        pygame.draw.circle(surface, main_color, (cx, cy), s//5)
+        # 에너지 코어
+        pygame.draw.circle(surface, shadow_color, (cx + 1, cy + 1), s // 4)
+        pygame.draw.circle(surface, accent_color, (cx, cy), s // 4)
+        pygame.draw.circle(surface, highlight_color, (cx, cy), s // 4, 2)
+        pygame.draw.circle(surface, main_color, (cx, cy), s // 7)
 
-        # 플라즈마 파티클
-        for angle in [60, 180, 300]:
+        # X자 플라즈마 스파크
+        for angle in [45, 135, 225, 315]:
             rad = math.radians(angle)
-            px = cx + int(math.cos(rad) * s * 0.6)
-            py = cy + int(math.sin(rad) * s * 0.6)
+            px = cx + int(math.cos(rad) * s * 0.65)
+            py = cy + int(math.sin(rad) * s * 0.65)
             pygame.draw.circle(surface, highlight_color, (px, py), 2)
+            ex = cx + int(math.cos(rad) * s * 0.85)
+            ey = cy + int(math.sin(rad) * s * 0.85)
+            pygame.draw.line(surface, highlight_color, (px, py), (ex, ey), 1)
 
     elif skill_name == "nerve_strike":
-        # ◈ 신경 타격: 스턴 효과가 있는 정밀 타격
-        # 타겟 십자선
-        pygame.draw.line(surface, shadow_color, (cx - s*2//3, cy), (cx + s*2//3, cy), 1)
-        pygame.draw.line(surface, shadow_color, (cx, cy - s*2//3), (cx, cy + s*2//3), 1)
+        # ◈ 베놈 엣지: 보스 등뒤 돌진 베기 (독기 + 블레이드)
 
-        # 중앙 다이아몬드 (◈)
-        diamond = [
-            (cx, cy - s//2),
-            (cx + s//3, cy),
-            (cx, cy + s//2),
-            (cx - s//3, cy),
+        # 독기 오라 (동심원)
+        for i in range(3):
+            aura_r = s - i * 3
+            if aura_r > 0:
+                aura_c = tuple(max(0, c - i * 25) for c in shadow_color[:3])
+                pygame.draw.circle(surface, aura_c, (cx, cy), aura_r, 1)
+
+        # 블레이드 (대각선 칼날)
+        blade_pts = [
+            (cx + s // 5, cy - s * 3 // 4),
+            (cx + s // 3, cy - s // 3),
+            (cx + s // 6, cy + s // 2),
+            (cx - s // 8, cy + s // 3),
+            (cx - s // 6, cy - s // 4),
+            (cx, cy - s * 2 // 3),
         ]
-        pygame.draw.polygon(surface, accent_color, diamond)
-        pygame.draw.polygon(surface, highlight_color, diamond, 2)
+        blade_shadow = [(x + 1, y + 1) for x, y in blade_pts]
+        pygame.draw.polygon(surface, shadow_color, blade_shadow)
+        pygame.draw.polygon(surface, accent_color, blade_pts)
+        pygame.draw.polygon(surface, highlight_color, blade_pts, 2)
 
-        # 내부 다이아몬드
-        inner_diamond = [
-            (cx, cy - s//4),
-            (cx + s//6, cy),
-            (cx, cy + s//4),
-            (cx - s//6, cy),
+        # 칼날 반사광
+        pygame.draw.line(surface, main_color,
+                         (cx + s // 10, cy - s // 2), (cx, cy + s // 4), 1)
+
+        # 독기 방울
+        drop_data = [
+            (cx + s // 4, cy + s // 3, 3),
+            (cx + s // 8, cy + s // 2, 2),
+            (cx - s // 10, cy + s * 2 // 3, 1),
         ]
-        pygame.draw.polygon(surface, main_color, inner_diamond)
+        for dx, dy, dr in drop_data:
+            pygame.draw.circle(surface, accent_color, (dx, dy), dr)
+            pygame.draw.circle(surface, highlight_color, (dx, dy), dr, 1)
 
-        # 전기 스파크 (스턴 표현)
-        spark_positions = [(cx - s//2, cy - s//3), (cx + s//2, cy + s//3),
-                          (cx + s//2, cy - s//3), (cx - s//2, cy + s//3)]
-        for sx, sy in spark_positions:
-            pygame.draw.circle(surface, highlight_color, (sx, sy), 2)
+        # 베기 궤적 호
+        arc_pts = []
+        for t in range(0, 91, 10):
+            rad = math.radians(t - 45)
+            ax = cx + int(math.cos(rad) * s * 0.7)
+            ay = cy + int(math.sin(rad) * s * 0.7)
+            arc_pts.append((ax, ay))
+        if len(arc_pts) >= 2:
+            pygame.draw.lines(surface, highlight_color, False, arc_pts, 2)
+
+        # 해골 마크 (독 표현)
+        skull_x, skull_y = cx - s // 2, cy - s // 3
+        pygame.draw.circle(surface, main_color, (skull_x, skull_y), max(2, s // 5))
+        pygame.draw.circle(surface, shadow_color, (skull_x - 1, skull_y - 1), 1)
+        pygame.draw.circle(surface, shadow_color, (skull_x + 1, skull_y - 1), 1)
 
     elif skill_name == "phantom_assault":
-        # 🕷 팬텀 어썰트: 벽 점프 → 공 돌진 (스파이더맨 스타일)
-        # 벽 표현 (좌측 세로선)
+        # ⚡ 팬텀 어썰트: 벽 점프 → 공 돌진 (다이나믹 포즈)
+
+        # 벽 (좌측, 입체감)
         wall_x = cx - s * 2 // 3
-        pygame.draw.line(surface, shadow_color, (wall_x, cy - s * 2 // 3), (wall_x, cy + s * 2 // 3), 3)
-        pygame.draw.line(surface, accent_color, (wall_x + 1, cy - s * 2 // 3), (wall_x + 1, cy + s * 2 // 3), 1)
+        pygame.draw.line(surface, shadow_color, (wall_x + 2, cy - s * 2 // 3), (wall_x + 2, cy + s * 2 // 3), 4)
+        pygame.draw.line(surface, accent_color, (wall_x, cy - s * 2 // 3), (wall_x, cy + s * 2 // 3), 3)
+        pygame.draw.line(surface, highlight_color, (wall_x - 1, cy - s * 2 // 3), (wall_x - 1, cy + s * 2 // 3), 1)
+        # 벽면 텍스처
+        for i in range(4):
+            ty = cy - s // 2 + i * (s // 3)
+            pygame.draw.line(surface, shadow_color, (wall_x - 1, ty), (wall_x + 3, ty), 1)
 
-        # 벽에 매달린 실루엣 (작은 원 + 몸체)
-        cling_x = wall_x + s // 5
-        cling_y = cy - s // 6
-        pygame.draw.circle(surface, highlight_color, (cling_x, cling_y - s // 4), s // 5)  # 머리
-        pygame.draw.ellipse(surface, accent_color,
-                            (cling_x - s // 6, cling_y - s // 8, s // 3, s // 2))  # 몸
+        # 도약 실루엣 (다이나믹 포즈)
+        launch_x = wall_x + s // 4
+        launch_y = cy - s // 4
+        body_pts = [
+            (launch_x, launch_y - s // 4),
+            (launch_x + s // 4, launch_y),
+            (launch_x + s // 6, launch_y + s // 3),
+            (launch_x - s // 8, launch_y + s // 5),
+        ]
+        pygame.draw.polygon(surface, accent_color, body_pts)
+        pygame.draw.polygon(surface, highlight_color, body_pts, 1)
+        pygame.draw.circle(surface, highlight_color, (launch_x, launch_y - s // 4), max(2, s // 6))
+        pygame.draw.circle(surface, main_color, (launch_x - 1, launch_y - s // 4 - 1), 1)
 
-        # 거미줄 라인 (벽 → 실루엣)
+        # 거미줄 (곡선)
         for i in range(3):
-            web_angle = math.radians(-30 + i * 30)
-            web_len = s // 3 + i * 2
-            wx = wall_x + int(math.cos(web_angle) * web_len)
-            wy = cling_y + int(math.sin(web_angle) * web_len)
-            pygame.draw.line(surface, (*main_color[:3],), (wall_x + 2, cling_y - s // 6 + i * 3), (wx, wy), 1)
+            web_start_y = cy - s // 3 + i * (s // 4)
+            mid_x = wall_x + s // 4
+            mid_y = (web_start_y + launch_y) // 2 - s // 6
+            web_pts = [
+                (wall_x + 2, web_start_y),
+                (mid_x, mid_y),
+                (launch_x - s // 8, launch_y),
+            ]
+            pygame.draw.lines(surface, main_color, False, web_pts, 1)
 
-        # 돌진 궤적 (벽 → 우하단 공)
+        # 돌진 궤적 (그라데이션 에너지 라인)
         target_x = cx + s * 2 // 3
         target_y = cy + s // 4
-        # 대시 라인 (점선)
-        dash_points = 5
-        for i in range(dash_points):
-            t = (i + 1) / dash_points
-            dx = int(cling_x + (target_x - cling_x) * t)
-            dy = int(cling_y + (target_y - cling_y) * t)
-            dot_r = max(1, 3 - i // 2)
-            dot_alpha_color = highlight_color if i >= dash_points - 2 else accent_color
-            pygame.draw.circle(surface, dot_alpha_color, (dx, dy), dot_r)
+        num_dots = 6
+        for i in range(num_dots):
+            t = (i + 1) / num_dots
+            dx = int(launch_x + (target_x - launch_x) * t)
+            dy = int(launch_y + (target_y - launch_y) * t)
+            dot_r = max(1, int(3 * t))
+            dc = tuple(min(255, int(c * (0.4 + t * 0.6))) for c in highlight_color[:3])
+            pygame.draw.circle(surface, dc, (dx, dy), dot_r)
 
-        # 공 (우하단 타격 대상)
-        ball_r = s // 4
+        # 타겟 공
+        ball_r = max(2, s // 4)
         pygame.draw.circle(surface, shadow_color, (target_x + 1, target_y + 1), ball_r)
         pygame.draw.circle(surface, main_color, (target_x, target_y), ball_r)
-        pygame.draw.circle(surface, highlight_color, (target_x - ball_r // 3, target_y - ball_r // 3), ball_r // 3)
+        pygame.draw.circle(surface, highlight_color, (target_x, target_y), ball_r, 1)
+        pygame.draw.circle(surface, (255, 255, 255), (target_x - ball_r // 3, target_y - ball_r // 3), max(1, ball_r // 3))
 
-        # 임팩트 효과 (공 주변 방사선)
-        for angle in [0, 60, 120, 180, 240, 300]:
+        # 임팩트 충격파
+        for i in range(2):
+            impact_r = ball_r + 3 + i * 4
+            ic = tuple(max(0, c - i * 40) for c in highlight_color[:3])
+            pygame.draw.circle(surface, ic, (target_x, target_y), impact_r, 1)
+        for angle in [0, 45, 90, 135, 180, 225, 270, 315]:
             rad = math.radians(angle)
             ix1 = target_x + int(math.cos(rad) * (ball_r + 2))
             iy1 = target_y + int(math.sin(rad) * (ball_r + 2))
-            ix2 = target_x + int(math.cos(rad) * (ball_r + 5))
-            iy2 = target_y + int(math.sin(rad) * (ball_r + 5))
+            ix2 = target_x + int(math.cos(rad) * (ball_r + 6))
+            iy2 = target_y + int(math.sin(rad) * (ball_r + 6))
             pygame.draw.line(surface, highlight_color, (ix1, iy1), (ix2, iy2), 1)
 
     elif skill_name == "dive_strike":
-        # ⇓ 다이브 스트라이크: 급강하 착지 장판
-        # 하향 화살표 (급강하 표현)
+        # ⇓ 다이브 스트라이크: 급강하 + 착지 연기 장판
+
+        # 하향 속도선
+        for i in range(4):
+            sx = cx - s // 3 + i * (s // 4)
+            sy_start = cy - s * 3 // 4 + i * 2
+            sy_end = cy - s // 4 + i * 2
+            lc = tuple(max(0, c - i * 15) for c in shadow_color[:3])
+            pygame.draw.line(surface, lc, (sx, sy_start), (sx, sy_end), 1)
+
+        # 급강하 화살표 (입체감)
         arrow_w = s * 2 // 3
-        arrow_h = s // 2
         arrow_points = [
-            (cx, cy + s * 2 // 3),              # 화살촉 아래 꼭짓점
-            (cx - arrow_w, cy),                  # 왼쪽
-            (cx - arrow_w // 3, cy),             # 왼쪽 안쪽
-            (cx - arrow_w // 3, cy - s // 2),    # 왼쪽 상단
-            (cx + arrow_w // 3, cy - s // 2),    # 오른쪽 상단
-            (cx + arrow_w // 3, cy),             # 오른쪽 안쪽
-            (cx + arrow_w, cy),                  # 오른쪽
+            (cx, cy + s * 2 // 3),
+            (cx - arrow_w, cy),
+            (cx - arrow_w // 3, cy),
+            (cx - arrow_w // 3, cy - s // 2),
+            (cx + arrow_w // 3, cy - s // 2),
+            (cx + arrow_w // 3, cy),
+            (cx + arrow_w, cy),
         ]
+        arrow_shadow = [(x + 1, y + 1) for x, y in arrow_points]
+        pygame.draw.polygon(surface, shadow_color, arrow_shadow)
         pygame.draw.polygon(surface, accent_color, arrow_points)
         pygame.draw.polygon(surface, highlight_color, arrow_points, 2)
+        pygame.draw.line(surface, main_color, (cx, cy - s // 3), (cx, cy + s // 3), 2)
 
-        # 착지 충격파 표현 (하단에 가로선 여러 개)
+        # 착지 충격파 (동심 호)
         for i in range(3):
-            _lw = s // 2 + i * (s // 4)
-            _ly = cy + s * 2 // 3 + 3 + i * 3
-            _la = max(60, 200 - i * 60)
-            pygame.draw.line(surface, (*accent_color[:3], _la),
-                             (cx - _lw, _ly), (cx + _lw, _ly), max(1, 2 - i))
+            _lw = s // 3 + i * (s // 4)
+            _ly = cy + s * 2 // 3 + 3 + i * 4
+            wave_c = tuple(max(0, c - i * 30) for c in accent_color[:3])
+            thickness = max(1, 3 - i)
+            pygame.draw.line(surface, wave_c, (cx - _lw, _ly), (cx + _lw, _ly), thickness)
 
-        # 중앙 하이라이트
-        pygame.draw.line(surface, main_color, (cx, cy - s // 3), (cx, cy + s // 4), 2)
+        # 연기 파티클
+        smoke_data = [
+            (cx - s // 2, cy + s * 2 // 3 + 2, 3),
+            (cx - s // 3, cy + s * 2 // 3 - 2, 4),
+            (cx + s // 3, cy + s * 2 // 3 - 1, 3),
+            (cx + s // 2, cy + s * 2 // 3 + 3, 2),
+        ]
+        for smx, smy, smr in smoke_data:
+            sc = tuple(min(255, c + 20) for c in shadow_color[:3])
+            pygame.draw.circle(surface, sc, (smx, smy), smr)
+            pygame.draw.circle(surface, highlight_color, (smx, smy), smr, 1)
 
 
 def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
@@ -166726,7 +166817,7 @@ def get_item_description(item_name):
         "magnet_field": "자기장 발생기: 8초간 자기장을 발생시켜 반경 400px 이내의 보스가 친 공이 플레이어 패들 쪽으로 끌려옵니다. 위기 상황에서 방어용으로 유용합니다.",
         "boomerang": "부메랑: 보스 방향으로 부메랑을 던져 넉백+스턴을 겁니다. 부메랑이 돌아오면서 경로에 있는 필드 아이템을 자동으로 회수합니다. 공에 닿으면 부메랑이 파괴됩니다.",
         "soap": "비누: 보스 진영에 비누를 던집니다. 보스가 밟으면 3초간 미끄러움 디버프가 발동되어 관성으로 미끄러지며 방향전환이 매우 어려워집니다. 좌우 왕복 공격에 취약해집니다.",
-        "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 선택지 품질 10~30% (희귀 아이템 출현 확률 상승)",
+        "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 매직찬스 10~30% (희귀 아이템 출현 확률 상승)",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",

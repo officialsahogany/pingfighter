@@ -94,7 +94,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "revival_chance", "label": "부활 확률", "min": 25, "max": 40, "unit": "%", "default": 30},
     ],
     "pandora_legacy": [
-        {"key": "selection_quality", "label": "선택지 품질", "min": 10, "max": 30, "unit": "%", "default": 20},
+        {"key": "selection_quality", "label": "매직찬스", "min": 10, "max": 30, "unit": "%", "default": 20},
         {"key": "trigger_chance", "label": "승리시 유산 발동률", "min": 40, "max": 70, "unit": "%", "default": 55},
     ],
 }
@@ -11169,14 +11169,14 @@ class PandoraLegacy(LegendaryItem):
     매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시되고
     플레이어가 하나를 선택하여 획득.
 
-    롤 옵션: 선택지 품질 (아이템 등급 상승 확률) 10~30%
+    롤 옵션: 매직찬스 (아이템 등급 상승 확률) 10~30%
     """
 
     def __init__(self):
         super().__init__(
             name="pandora_legacy",
             korean_name="판도라의 유산",
-            description="라운드 승리 시 3개 액티브 아이템 중 하나를 선택 (롤 옵션: 선택지 품질 10~30%)",
+            description="라운드 승리 시 3개 액티브 아이템 중 하나를 선택 (롤 옵션: 매직찬스 10~30%)",
             unlock_condition="신화 아이템 획득",
             icon_path=None  # 고유 애니메이션만 사용
         )
@@ -11197,7 +11197,7 @@ class PandoraLegacy(LegendaryItem):
 
     @property
     def selection_quality(self) -> float:
-        """선택지 품질 보너스 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 10~30%)"""
+        """매직찬스 보너스 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 10~30%)"""
         return get_legendary_roll_value(
             "pandora_legacy", "selection_quality",
             apply_polish=True,
