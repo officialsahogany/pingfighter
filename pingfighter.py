@@ -107064,61 +107064,33 @@ def draw_objects():
                 _draw_y = _holo_y - _holo_h // 2 + _offset_y
                 SCREEN.blit(_holo_surf, (int(_draw_x), int(_draw_y)))
 
-                # 홀로그램 에너지 버스트 이펙트 (확장 히트박스 시각화)
-                if _holo_t > 0.25:
-                    _burst_t = min(1.0, (_holo_t - 0.25) / 0.5)  # 0.25~0.75 구간에서 0→1
-                    _burst_alpha_base = int(180 * (1.0 - _burst_t * _burst_t))  # 서서히 사라짐
-                    if _burst_alpha_base > 5:
-                        _kick_dir = _viper_ss_hologram_kick_dir
-                        # 외곽 에너지 링 (팽창하며 사라짐)
-                        _ring_r = int(25 + 55 * _burst_t)  # 25→80
-                        _ring_w = max(1, int(3 * (1.0 - _burst_t)))
-                        _ring_surf = pygame.Surface((_ring_r * 2 + 4, _ring_r * 2 + 4), pygame.SRCALPHA)
-                        _ring_alpha = int(_burst_alpha_base * 0.6)
-                        pygame.draw.circle(_ring_surf, (160, 60, 255, _ring_alpha),
-                                           (_ring_r + 2, _ring_r + 2), _ring_r, _ring_w)
-                        SCREEN.blit(_ring_surf,
-                                    (_holo_x - _ring_r - 2, _holo_y - _ring_r - 2),
-                                    special_flags=pygame.BLEND_ADD)
-                        # 방향성 에너지 슬래시 (발차기 방향으로 뻗어나감)
-                        _slash_len = int(35 + 40 * _burst_t)
-                        _slash_alpha = int(_burst_alpha_base * 0.9)
-                        _slash_offset_x = _kick_dir * int(10 + 20 * _burst_t)
-                        for _si in range(3):
-                            _s_angle = (_si - 1) * 15 + _kick_dir * 25
-                            _s_rad = math.radians(_s_angle)
-                            _sx1 = _holo_x + _slash_offset_x
-                            _sy1 = _holo_y - 5 + _si * 5
-                            _sx2 = _sx1 + math.cos(_s_rad) * _slash_len * _kick_dir
-                            _sy2 = _sy1 + math.sin(_s_rad) * _slash_len * 0.3
-                            _s_w = max(1, int(2.5 * (1.0 - _burst_t * 0.7)))
-                            _s_color = (
-                                min(255, 140 + int(80 * _burst_t)),
-                                int(40 * (1.0 - _burst_t)),
-                                min(255, 220 + int(35 * _burst_t)),
-                                _slash_alpha,
-                            )
-                            # gfxdraw 대신 두꺼운 라인 + BLEND_ADD
-                            _line_surf = pygame.Surface((abs(int(_sx2 - _sx1)) + 8, abs(int(_sy2 - _sy1)) + 8), pygame.SRCALPHA)
-                            _lx_min = min(_sx1, _sx2) - 4
-                            _ly_min = min(_sy1, _sy2) - 4
-                            pygame.draw.line(_line_surf, _s_color,
-                                             (int(_sx1 - _lx_min), int(_sy1 - _ly_min)),
-                                             (int(_sx2 - _lx_min), int(_sy2 - _ly_min)), _s_w)
-                            SCREEN.blit(_line_surf, (int(_lx_min), int(_ly_min)),
-                                        special_flags=pygame.BLEND_ADD)
-                        # 중심 글로우 (밝은 코어)
-                        _glow_r = max(1, int(12 * (1.0 - _burst_t * 0.6)))
-                        _glow_surf = pygame.Surface((_glow_r * 4, _glow_r * 4), pygame.SRCALPHA)
-                        _glow_alpha = int(_burst_alpha_base * 0.5)
-                        pygame.draw.circle(_glow_surf, (200, 140, 255, _glow_alpha),
-                                           (_glow_r * 2, _glow_r * 2), _glow_r * 2)
-                        pygame.draw.circle(_glow_surf, (255, 220, 255, min(255, _glow_alpha + 40)),
-                                           (_glow_r * 2, _glow_r * 2), _glow_r)
-                        SCREEN.blit(_glow_surf,
-                                    (_holo_x + _slash_offset_x - _glow_r * 2,
-                                     _holo_y - _glow_r * 2),
-                                    special_flags=pygame.BLEND_ADD)
+                # 홀로그램 잔상 겹침 이펙트 (캐릭터 실루엣이 빠르게 겹치며 진해짐)
+                if _holo_t > 0.1:
+                    _ghost_count = 4  # 잔상 겹침 수
+                    _kick_dir = _viper_ss_hologram_kick_dir
+                    for _gi in range(_ghost_count):
+                        # 각 잔상의 타이밍 오프셋 (순차적으로 나타남)
+                        _g_delay = _gi * 0.12  # 잔상 간 딜레이
+                        _g_local_t = (_holo_t - 0.1 - _g_delay) / 0.6
+                        if _g_local_t < 0.0 or _g_local_t > 1.0:
+                            continue
+                        # 잔상 위치: 발차기 방향 반대에서 빠르게 수렴
+                        _g_ease = _g_local_t * _g_local_t * (3.0 - 2.0 * _g_local_t)
+                        _g_offset_x = _kick_dir * (1.0 - _g_ease) * (20 + _gi * 8) * -1
+                        _g_offset_y = (1.0 - _g_ease) * (_gi - 1.5) * 4
+                        # 알파: 투명→진해짐→유지 (나중 잔상일수록 더 진함)
+                        _g_alpha = int(min(255, (40 + _gi * 50) * min(1.0, _g_local_t * 3.0)))
+                        # 보라빛 틴트 적용된 캐릭터 잔상
+                        _ghost_surf = _holo_base.copy()
+                        # 보라빛 오버레이
+                        _tint_surf = pygame.Surface((_holo_w, _holo_h), pygame.SRCALPHA)
+                        _tint_a = max(0, min(255, int(120 * (1.0 - _gi / _ghost_count))))
+                        _tint_surf.fill((100, 20, 200, _tint_a))
+                        _ghost_surf.blit(_tint_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                        _ghost_surf.set_alpha(_g_alpha)
+                        _gx = _holo_x - _holo_w // 2 + _g_offset_x
+                        _gy = _holo_y - _holo_h // 2 + _g_offset_y
+                        SCREEN.blit(_ghost_surf, (int(_gx), int(_gy)))
 
                 # 홀로그램 발차기 확장 히트박스 — 공 충돌 판정 (텔레포트 도착 킥)
                 if _holo_t > 0.3 and not _viper_ss_hologram_kick_hit:
