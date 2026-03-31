@@ -4839,6 +4839,52 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             iy2 = target_y + int(math.sin(rad) * (ball_r + 6))
             pygame.draw.line(surface, highlight_color, (ix1, iy1), (ix2, iy2), 1)
 
+    elif skill_name == "double_marshal_kick":
+        # x2 더블 마샬 킥: 두 번의 킥 + x2 표시
+
+        # 좌측 첫번째 킥 발자국
+        foot1_x = cx - s // 3
+        foot1_y = cy - s // 6
+        foot1_pts = [
+            (foot1_x - s // 5, foot1_y - s // 4),
+            (foot1_x + s // 6, foot1_y - s // 3),
+            (foot1_x + s // 4, foot1_y),
+            (foot1_x + s // 8, foot1_y + s // 4),
+            (foot1_x - s // 4, foot1_y + s // 6),
+        ]
+        pygame.draw.polygon(surface, accent_color, foot1_pts)
+        pygame.draw.polygon(surface, highlight_color, foot1_pts, 1)
+
+        # 우측 두번째 킥 발자국 (약간 오프셋)
+        foot2_x = cx + s // 6
+        foot2_y = cy + s // 8
+        foot2_pts = [
+            (foot2_x - s // 5, foot2_y - s // 4),
+            (foot2_x + s // 6, foot2_y - s // 3),
+            (foot2_x + s // 4, foot2_y),
+            (foot2_x + s // 8, foot2_y + s // 4),
+            (foot2_x - s // 4, foot2_y + s // 6),
+        ]
+        pygame.draw.polygon(surface, accent_color, foot2_pts)
+        pygame.draw.polygon(surface, highlight_color, foot2_pts, 1)
+
+        # x2 텍스트
+        x2_size = max(6, s * 2 // 3)
+        try:
+            x2_font = pygame.font.SysFont("Arial", x2_size, bold=True)
+            x2_surf = x2_font.render("x2", True, main_color)
+            x2_rect = x2_surf.get_rect(center=(cx + s // 4, cy + s // 3))
+            surface.blit(x2_surf, x2_rect)
+        except Exception:
+            pygame.draw.line(surface, main_color, (cx + s // 8, cy + s // 6), (cx + s // 2, cy + s // 3), 2)
+
+        # 충격파 이펙트
+        for i in range(2):
+            impact_r = s // 2 + i * 3
+            ic = tuple(max(0, c - i * 30) for c in highlight_color[:3])
+            pygame.draw.arc(surface, ic, (cx - impact_r, cy - impact_r, impact_r * 2, impact_r * 2),
+                          math.radians(200), math.radians(340), 1)
+
     elif skill_name == "dive_strike":
         # ⇓ 다이브 스트라이크: 급강하 + 착지 연기 장판
 
@@ -6382,6 +6428,18 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
             rect = _viper_skill_icon_rects[skill_name]
             if rect.collidepoint(local_x, local_y):
                 return skill_data
+
+    # 더블 마샬 킥 퍽 툴팁 체크
+    if _viper_double_marshal_kick_unlocked and "double_marshal_kick" in _viper_skill_icon_rects:
+        rect = _viper_skill_icon_rects["double_marshal_kick"]
+        if rect.collidepoint(local_x, local_y):
+            return {
+                "name": "double_marshal_kick", "korean": "더블 마샬 킥", "cost": 50, "color": (180, 0, 255),
+                "symbol": "x2", "cooldown": 0.0, "key": "S/↓(연계)",
+                "description": "마샬 킥 후 보스 가드 시 또는 베놈 엣지 실패 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 50 소모, 공속 증가율 120%.",
+                "how_to_use": "마샬 킥 후 보스 반환 시 또는 베놈 엣지 실패 후 S/↓키",
+                "effect_type": "wall_dive_purple"
+            }
 
     return None
 
