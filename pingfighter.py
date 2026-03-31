@@ -72871,7 +72871,7 @@ def handle_player(keys):
                 )
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
-                    _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
+                    # 에너지파 히트는 마샬 킥 연계 불가 (텔레포트 킥만 연계)
                     # 🪙 쉐도우 백스텝 에너지파 타격 골드 보너스
                     try:
                         add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
@@ -110111,7 +110111,7 @@ def draw_objects():
             )
             if _ai_rect.colliderect(BALL):
                 afterimage['hit_ball'] = True
-                _viper_ss_ball_touched = True  # 카운터 연계 조건 충족
+                # 잔상 히트는 마샬 킥 연계 불가 (텔레포트 킥만 연계)
                 # 공을 위로 반사 (잔상이 패들 역할)
                 ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
                 # 커브 적용 (에너지파와 동일)
