@@ -48417,6 +48417,7 @@ _viper_dmk_text_timer = 0
 _viper_dmk_text_x = 0.0
 _viper_dmk_text_y = 0.0
 _VIPER_DMK_TEXT_DURATION = 40        # 텍스트 표시 시간 (프레임)
+_viper_dmk_show_sound_played = False # 팬텀 킥 텍스트 사운드 1회 재생 플래그
 _viper_dmk_freeze_active = False     # 팬텀 킥 프리즈 중 (공/보스 정지)
 _viper_dmk_freeze_timer = 0          # 프리즈 남은 프레임
 _VIPER_DMK_FREEZE_DURATION = 30      # 프리즈 시간 (0.5초)
@@ -48434,6 +48435,7 @@ _viper_nerve_strike_origin_y = 0.0       # 돌진 전 원래 Y
 _viper_nerve_strike_target_x = 0.0       # 보스 등뒤 X
 _viper_nerve_strike_target_y = 0.0       # 보스 등뒤 Y (보스 뒤)
 _viper_nerve_strike_slash_shown = False   # 베기 이펙트 표시 여부
+_viper_nerve_strike_show_sound_played = False  # 베놈 엣지 텍스트 사운드 1회 재생 플래그
 _viper_nerve_strike_combo_used = False    # 이번 에어 블레이드에서 연계기 사용했는지
 _VIPER_NS_DASH_DURATION = 500            # 돌진 시간 (ms) — 보스가 피할 여유 있음
 _VIPER_NS_SLASH_DURATION = 300           # 등뒤 베기 연출 시간 (ms)
@@ -72545,6 +72547,7 @@ def handle_player(keys):
                     trigger_viper_skill_cooldown("nerve_strike")  # 베놈 엣지 쿨타임 30초
 
                     # 신경 타격 돌진 애니메이션 시작
+                    _viper_nerve_strike_show_sound_played = False  # 텍스트 사운드 플래그 초기화
                     _viper_nerve_strike_active = True
                     _viper_nerve_strike_phase = 0  # 돌진 단계
                     _viper_nerve_strike_start_ms = pygame.time.get_ticks()
@@ -72554,14 +72557,6 @@ def handle_player(keys):
                         if _vm_snd:
                             _vm_snd.set_volume(0.6)
                             _vm_snd.play()
-                    except Exception:
-                        pass
-                    # 필살기 쇼 사운드 (베놈 엣지 텍스트 연출)
-                    try:
-                        _vs_snd = sound_effects.get('VIPER_SHOW')
-                        if _vs_snd:
-                            _vs_snd.set_volume(0.7)
-                            _vs_snd.play()
                     except Exception:
                         pass
                     _viper_nerve_strike_origin_x = float(PLAYER.centerx)
@@ -72903,18 +72898,11 @@ def handle_player(keys):
                     if _viper_is_double_marshal:
                         _viper_dmk_freeze_active = True
                         _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
+                        _viper_dmk_show_sound_played = False  # 텍스트 사운드 플래그 초기화
                         _viper_dmk_text_active = True
                         _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
                         _viper_dmk_text_x = float(WIDTH // 2)
                         _viper_dmk_text_y = float(HEIGHT // 2 - 30)
-                        # 필살기 쇼 사운드 (팬텀 킥 텍스트 연출)
-                        try:
-                            _vs_snd2 = sound_effects.get('VIPER_SHOW')
-                            if _vs_snd2:
-                                _vs_snd2.set_volume(0.7)
-                                _vs_snd2.play()
-                        except Exception:
-                            pass
                         # 보스 넉백 200px (화재 넉백 방식)
                         _dmk_kb_dir = 1 if BALL.centerx > BOSS.centerx else -1
                         boss_fire_knockback_vel = _dmk_kb_dir * 18.0  # 높은 초기 속도 → 감속하며 ~200px 이동
@@ -107563,6 +107551,17 @@ def draw_objects():
                     _text_fade = max(0.0, 1.0 - max(0.0, _ns_st - 0.7) * 3.3)  # 후반에 페이드아웃
                     _text_alpha = int(255 * min(_text_appear, _text_fade))
                     if _text_alpha > 10:
+                        # 텍스트 첫 출현 시 쇼 사운드 1회 재생
+                        global _viper_nerve_strike_show_sound_played
+                        if not _viper_nerve_strike_show_sound_played:
+                            _viper_nerve_strike_show_sound_played = True
+                            try:
+                                _vs_snd = sound_effects.get('VIPER_SHOW')
+                                if _vs_snd:
+                                    _vs_snd.set_volume(0.7)
+                                    _vs_snd.play()
+                            except Exception:
+                                pass
                         try:
                             _ve_font = get_font(48)
                             _ve_text = "베놈 엣지!"
@@ -116058,6 +116057,17 @@ def draw_objects():
                 _dmk_y_off = -20 * _dmk_post_t
 
             if _dmk_alpha > 10:
+                # 텍스트 첫 출현 시 쇼 사운드 1회 재생
+                global _viper_dmk_show_sound_played
+                if not _viper_dmk_show_sound_played:
+                    _viper_dmk_show_sound_played = True
+                    try:
+                        _vs_snd = sound_effects.get('VIPER_SHOW')
+                        if _vs_snd:
+                            _vs_snd.set_volume(0.7)
+                            _vs_snd.play()
+                    except Exception:
+                        pass
                 try:
                     _dmk_text = "팬텀 킥"
                     _dmk_font = get_font(36)
