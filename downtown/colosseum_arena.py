@@ -10555,7 +10555,7 @@ class ColosseumsArena:
                             if _button_click_sound:
                                 _button_click_sound.play()
                             if self.kb_victory_index == 0:
-                                prize = self.accumulated_prize
+                                prize = 5000  # 최종우승 고정 보상
                                 self.total_winnings = prize
                                 self.winnings_collected = True
                                 self.exit_requested = True
@@ -11092,7 +11092,7 @@ class ColosseumsArena:
                     _load_button_click_sound()
                     if _button_click_sound:
                         _button_click_sound.play()
-                    prize = self.accumulated_prize  # 누적 상금 전체 수령
+                    prize = 5000  # 최종우승 고정 보상
                     self.total_winnings = prize
                     self.winnings_collected = True
                     self.exit_requested = True
@@ -15701,7 +15701,7 @@ class ColosseumsArena:
             pygame.draw.rect(gold_surf, gold_border, (0, 0, btn_w, btn_h), 2, border_radius=6)
             self.screen.blit(gold_surf, gold_rect.topleft)
             if "medium" in self.fonts:
-                prize = self.accumulated_prize  # 누적 상금 전체 표시
+                prize = 5000  # 최종우승 고정 보상
                 surf, _ = self.fonts["medium"].render(f"{prize}G 수령", (255, 255, 255))
                 self._draw_coin_icon(gold_rect.centerx - surf.get_width() // 2 - 14,
                                      gold_rect.centery, 12)
