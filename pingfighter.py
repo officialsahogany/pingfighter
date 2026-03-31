@@ -106775,7 +106775,7 @@ def draw_objects():
     if _viper_wall_dive_active or _viper_wall_dive_particles or _viper_wall_dive_web_lines:
         try:
             _wd_ticks = pygame.time.get_ticks()
-            # ⛓️ 검보라색 사슬 그리기 (축 늘어진 체인 이펙트)
+            # ⛓️ 검보라색 사슬 라인 그리기 (살짝 처지는 곡선 + 다층 글로우)
             for _wl in _viper_wall_dive_web_lines:
                 _wl_x1, _wl_y1, _wl_x2, _wl_y2 = _wl
                 _ch_dx = _wl_x2 - _wl_x1
@@ -106783,165 +106783,86 @@ def draw_objects():
                 _ch_dist = math.sqrt(_ch_dx * _ch_dx + _ch_dy * _ch_dy)
                 if _ch_dist < 2:
                     continue
-                _ch_link_spacing = 10  # 사슬 링크 간격
-                _ch_num_links = max(2, int(_ch_dist / _ch_link_spacing))
-                _ch_sag = min(35.0, _ch_dist * 0.12)  # 축 늘어짐 정도 (거리 비례)
-                _ch_perp_x = -_ch_dy / _ch_dist  # 수직 방향
+                # 수직 방향 (처짐용)
+                _ch_perp_x = -_ch_dy / _ch_dist
                 _ch_perp_y = _ch_dx / _ch_dist
-                # 사슬 포인트 계산 (카테너리 곡선 - 축 늘어짐)
+                _ch_sag = min(20.0, _ch_dist * 0.07)  # 살짝 처짐
+                # 곡선 포인트 계산 (부드러운 카테너리)
+                _ch_segs = max(6, int(_ch_dist / 8))
                 _ch_points = []
-                for _ci in range(_ch_num_links + 1):
-                    _ch_frac = _ci / _ch_num_links
-                    _ch_px = _wl_x1 + _ch_dx * _ch_frac
-                    _ch_py = _wl_y1 + _ch_dy * _ch_frac
-                    # 카테너리: 중앙이 가장 많이 처짐
-                    _ch_sag_amount = _ch_sag * math.sin(_ch_frac * math.pi)
-                    # 미세 흔들림
-                    _ch_wobble = math.sin(_wd_ticks * 0.008 + _ci * 1.2) * 2.0
-                    _ch_px += _ch_perp_x * (_ch_sag_amount + _ch_wobble)
-                    _ch_py += _ch_perp_y * (_ch_sag_amount + _ch_wobble)
-                    _ch_points.append((_ch_px, _ch_py))
+                for _ci in range(_ch_segs + 1):
+                    _ch_f = _ci / _ch_segs
+                    _ch_px = _wl_x1 + _ch_dx * _ch_f
+                    _ch_py = _wl_y1 + _ch_dy * _ch_f
+                    _ch_droop = _ch_sag * math.sin(_ch_f * math.pi)
+                    _ch_px += _ch_perp_x * _ch_droop
+                    _ch_py += _ch_perp_y * _ch_droop
+                    _ch_points.append((int(_ch_px), int(_ch_py)))
+                if len(_ch_points) < 2:
+                    continue
+                # 글로우 서피스
+                _wl_min_x = min(p[0] for p in _ch_points) - 15
+                _wl_min_y = min(p[1] for p in _ch_points) - 15
+                _wl_max_x = max(p[0] for p in _ch_points) + 15
+                _wl_max_y = max(p[1] for p in _ch_points) + 15
+                _wl_sw = max(1, _wl_max_x - _wl_min_x)
+                _wl_sh = max(1, _wl_max_y - _wl_min_y)
+                _wl_local = [(p[0] - _wl_min_x, p[1] - _wl_min_y) for p in _ch_points]
+                _wl_gs = pygame.Surface((_wl_sw, _wl_sh), pygame.SRCALPHA)
+                # 레이어 1: 넓은 외부 글로우 (어두운 보라)
+                pygame.draw.lines(_wl_gs, (50, 10, 80, 30), False, _wl_local, 10)
+                # 레이어 2: 중간 글로우 (검보라)
+                pygame.draw.lines(_wl_gs, (70, 15, 110, 50), False, _wl_local, 6)
+                SCREEN.blit(_wl_gs, (_wl_min_x, _wl_min_y), special_flags=pygame.BLEND_ADD)
+                # 레이어 3: 코어 라인 (밝은 검보라, 메인)
+                _wl_pulse = 0.85 + 0.15 * math.sin(_wd_ticks * 0.008)
+                _wl_core_col = (int(90 * _wl_pulse), int(25 * _wl_pulse), int(140 * _wl_pulse))
+                pygame.draw.lines(SCREEN, _wl_core_col, False, _ch_points, 3)
+                # 레이어 4: 하이라이트 중심선 (밝은 보라 광택)
+                _wl_hi_col = (int(140 * _wl_pulse), int(60 * _wl_pulse), int(200 * _wl_pulse), int(100 * _wl_pulse))
+                _wl_hs = pygame.Surface((_wl_sw, _wl_sh), pygame.SRCALPHA)
+                pygame.draw.lines(_wl_hs, _wl_hi_col, False, _wl_local, 1)
+                SCREEN.blit(_wl_hs, (_wl_min_x, _wl_min_y))
 
-                # 1) 사슬 외부 글로우 (넓고 흐린 검보라 빛)
-                if len(_ch_points) >= 2:
-                    _ch_glow_w = int(abs(_ch_dx)) + 60
-                    _ch_glow_h = int(abs(_ch_dy)) + 60
-                    if _ch_glow_w > 0 and _ch_glow_h > 0:
-                        _ch_glow_surf = pygame.Surface((_ch_glow_w, _ch_glow_h), pygame.SRCALPHA)
-                        _ch_glow_ox = min(_wl_x1, _wl_x2) - 30
-                        _ch_glow_oy = min(_wl_y1, _wl_y2) - 30
-                        _ch_glow_pts = [(int(p[0] - _ch_glow_ox), int(p[1] - _ch_glow_oy)) for p in _ch_points]
-                        if len(_ch_glow_pts) >= 2:
-                            pygame.draw.lines(_ch_glow_surf, (60, 10, 100, 40), False, _ch_glow_pts, 12)
-                            pygame.draw.lines(_ch_glow_surf, (80, 20, 140, 25), False, _ch_glow_pts, 18)
-                        SCREEN.blit(_ch_glow_surf, (int(_ch_glow_ox), int(_ch_glow_oy)),
-                                    special_flags=pygame.BLEND_ADD)
-
-                # 2) 사슬 링크별 렌더링
-                for _ci in range(len(_ch_points)):
-                    _cp = _ch_points[_ci]
-                    # 링크 방향 각도 계산
-                    if _ci < len(_ch_points) - 1:
-                        _cn = _ch_points[_ci + 1]
-                        _cl_angle = math.atan2(_cn[1] - _cp[1], _cn[0] - _cp[0])
-                    elif _ci > 0:
-                        _cprev = _ch_points[_ci - 1]
-                        _cl_angle = math.atan2(_cp[1] - _cprev[1], _cp[0] - _cprev[0])
-                    else:
-                        _cl_angle = 0
-
-                    # 링크 색상: 짝수/홀수 번갈아 + 펄스
-                    _cl_pulse = 0.7 + 0.3 * math.sin(_wd_ticks * 0.006 + _ci * 0.8)
-                    if _ci % 2 == 0:
-                        # 어두운 보라 (세로 링크)
-                        _cl_r = int(55 * _cl_pulse)
-                        _cl_g = int(12 * _cl_pulse)
-                        _cl_b = int(85 * _cl_pulse)
-                    else:
-                        # 밝은 검보라 (가로 링크)
-                        _cl_r = int(75 * _cl_pulse)
-                        _cl_g = int(20 * _cl_pulse)
-                        _cl_b = int(120 * _cl_pulse)
-
-                    # 사슬 링크 타원 그리기 (회전)
-                    _cl_lw = 9  # 링크 폭
-                    _cl_lh = 5  # 링크 높이
-                    _cl_surf = pygame.Surface((_cl_lw * 2 + 4, _cl_lh * 2 + 4), pygame.SRCALPHA)
-                    _cl_cx = _cl_lw + 2
-                    _cl_cy = _cl_lh + 2
-                    # 외곽선 (더 어두운 보라)
-                    pygame.draw.ellipse(_cl_surf, (30, 5, 50, 220),
-                                        (_cl_cx - _cl_lw, _cl_cy - _cl_lh, _cl_lw * 2, _cl_lh * 2), 0)
-                    # 내부 (검보라 금속)
-                    pygame.draw.ellipse(_cl_surf, (_cl_r, _cl_g, _cl_b, 200),
-                                        (_cl_cx - _cl_lw + 2, _cl_cy - _cl_lh + 1,
-                                         _cl_lw * 2 - 4, _cl_lh * 2 - 2), 0)
-                    # 하이라이트 (금속 광택)
-                    _cl_hi_alpha = int(100 * _cl_pulse)
-                    pygame.draw.ellipse(_cl_surf, (130, 70, 180, _cl_hi_alpha),
-                                        (_cl_cx - _cl_lw + 3, _cl_cy - _cl_lh + 1,
-                                         _cl_lw - 2, _cl_lh), 0)
-
-                    # 링크를 회전시켜 사슬 방향에 맞춤 (짝/홀수 90도 차이)
-                    _cl_rot_deg = math.degrees(-_cl_angle) + (90 if _ci % 2 == 0 else 0)
-                    _cl_rotated = pygame.transform.rotate(_cl_surf, _cl_rot_deg)
-                    _cl_rr = _cl_rotated.get_rect(center=(int(_cp[0]), int(_cp[1])))
-                    SCREEN.blit(_cl_rotated, _cl_rr, special_flags=pygame.BLEND_ALPHA_SDL2)
-
-                # 3) 연결부 금속 리벳 (링크 사이 접합점)
-                for _ci in range(1, len(_ch_points) - 1, 2):
-                    _cp = _ch_points[_ci]
-                    _rv_pulse = 0.6 + 0.4 * math.sin(_wd_ticks * 0.01 + _ci)
-                    _rv_col = (int(90 * _rv_pulse), int(30 * _rv_pulse), int(140 * _rv_pulse), 180)
-                    _rv_s = pygame.Surface((6, 6), pygame.SRCALPHA)
-                    pygame.draw.circle(_rv_s, _rv_col, (3, 3), 3)
-                    SCREEN.blit(_rv_s, (int(_cp[0]) - 3, int(_cp[1]) - 3))
-
-                # 4) 사슬 끝 앵커 이펙트 (시작점/끝점에 보라 불꽃)
-                for _anchor in [(_wl_x1, _wl_y1), (_wl_x2, _wl_y2)]:
-                    _anc_pulse = 0.5 + 0.5 * math.sin(_wd_ticks * 0.015)
-                    _anc_r = int(8 + 4 * _anc_pulse)
-                    _anc_s = pygame.Surface((_anc_r * 2, _anc_r * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(_anc_s, (80, 15, 130, int(120 * _anc_pulse)), (_anc_r, _anc_r), _anc_r)
-                    pygame.draw.circle(_anc_s, (50, 5, 80, int(60 * _anc_pulse)), (_anc_r, _anc_r), _anc_r + 2)
-                    SCREEN.blit(_anc_s, (int(_anchor[0]) - _anc_r, int(_anchor[1]) - _anc_r),
-                                special_flags=pygame.BLEND_ADD)
-
-            # 벽 매달림 글로우 (Phase 1) - 검보라 사슬 앵커 빛
+            # 벽 매달림 글로우 (Phase 1)
             if _viper_wall_dive_active and _viper_wall_dive_phase == 1:
                 _cling_pulse = 0.6 + 0.4 * math.sin(_wd_ticks * 0.02)
                 _cling_r = int(35 * _cling_pulse)
                 _cling_s = pygame.Surface((_cling_r * 2, _cling_r * 2), pygame.SRCALPHA)
                 pygame.draw.circle(_cling_s, (70, 10, 120, int(80 * _cling_pulse)),
                                    (_cling_r, _cling_r), _cling_r)
-                pygame.draw.circle(_cling_s, (50, 5, 90, int(40 * _cling_pulse)),
-                                   (_cling_r, _cling_r), int(_cling_r * 0.6))
                 SCREEN.blit(_cling_s,
                             (int(_viper_wall_dive_wall_x) - _cling_r,
                              int(_viper_wall_dive_wall_y) - _cling_r),
                             special_flags=pygame.BLEND_ADD)
 
-            # 돌진 궤적 (Phase 2) - 검보라 사슬 돌진
+            # 돌진 궤적 (Phase 2)
             if _viper_wall_dive_active and _viper_wall_dive_phase == 2:
                 _ch_elapsed = _wd_ticks - _viper_wall_dive_start_ms
                 _ch_t = min(1.0, _ch_elapsed / _VIPER_WALL_DIVE_CHARGE_MS)
                 _ch_cx = PLAYER.centerx
                 _ch_cy = PLAYER.centery
-                # 돌진 글로우 트레일 (검보라)
+                # 돌진 글로우
                 _ch_glow_r = int(25 + 15 * (1.0 - _ch_t))
                 _ch_glow_s = pygame.Surface((_ch_glow_r * 2, _ch_glow_r * 2), pygame.SRCALPHA)
                 pygame.draw.circle(_ch_glow_s, (80, 15, 140, 140),
                                    (_ch_glow_r, _ch_glow_r), _ch_glow_r)
-                pygame.draw.circle(_ch_glow_s, (50, 8, 90, 70),
-                                   (_ch_glow_r, _ch_glow_r), int(_ch_glow_r * 1.3))
                 SCREEN.blit(_ch_glow_s,
                             (_ch_cx - _ch_glow_r, _ch_cy - _ch_glow_r),
                             special_flags=pygame.BLEND_ADD)
-                # 돌진 방향 사슬 흔적 (검보라 점선)
-                _cd_sx = int(_viper_wall_dive_charge_start_x)
-                _cd_sy = int(_viper_wall_dive_charge_start_y)
-                _cd_dx = _ch_cx - _cd_sx
-                _cd_dy = _ch_cy - _cd_sy
-                _cd_dist = math.sqrt(_cd_dx * _cd_dx + _cd_dy * _cd_dy)
-                if _cd_dist > 5:
-                    _cd_segs = max(2, int(_cd_dist / 12))
-                    for _cdi in range(_cd_segs):
-                        _cd_f1 = _cdi / _cd_segs
-                        _cd_f2 = (_cdi + 0.6) / _cd_segs
-                        _cd_fade = 1.0 - _cd_f1 * 0.6
-                        pygame.draw.line(SCREEN,
-                                         (int(70 * _cd_fade), int(15 * _cd_fade), int(110 * _cd_fade)),
-                                         (int(_cd_sx + _cd_dx * _cd_f1), int(_cd_sy + _cd_dy * _cd_f1)),
-                                         (int(_cd_sx + _cd_dx * _cd_f2), int(_cd_sy + _cd_dy * _cd_f2)), 3)
+                # 돌진 방향 선 (검보라)
+                pygame.draw.line(SCREEN, (80, 20, 130),
+                                 (int(_viper_wall_dive_charge_start_x), int(_viper_wall_dive_charge_start_y)),
+                                 (_ch_cx, _ch_cy), 3)
 
             # 파티클 렌더링 (검보라 톤)
             for _wp in _viper_wall_dive_particles:
                 _wp_alpha = int(200 * (_wp['life'] / max(1, _wp['max_life'])))
                 _wp_sz = max(1, int(_wp['size']))
                 if _wp['type'] == 'trail':
-                    _wp_col = (65, 15, 100, _wp_alpha)  # 검보라 잔상
+                    _wp_col = (70, 18, 110, _wp_alpha)
                 else:
-                    _wp_col = (90, 25, 150, _wp_alpha)  # 검보라 돌진
+                    _wp_col = (100, 30, 160, _wp_alpha)
                 _wp_s = pygame.Surface((_wp_sz * 2, _wp_sz * 2), pygame.SRCALPHA)
                 pygame.draw.circle(_wp_s, _wp_col, (_wp_sz, _wp_sz), _wp_sz)
                 SCREEN.blit(_wp_s, (int(_wp['x']) - _wp_sz, int(_wp['y']) - _wp_sz),
