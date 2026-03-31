@@ -47996,7 +47996,8 @@ _VIPER_WALL_DIVE_RECLIMB_THRESHOLD = 120  # 벽다시타기 X거리 임계값 (p
 _VIPER_WALL_DIVE_RECLIMB_MS = 180         # 벽다시타기 이동 시간 (ms) - 매우 빠르게
 
 # 더블 마샬 킥 퍽 시스템
-_viper_double_marshal_kick_unlocked = False   # 퍽 해금 여부
+_viper_double_marshal_kick_unlocked = False   # 퍽 해금 여부 (레거시, 기본 패시브로 전환)
+_viper_ss_was_airborne = False               # 쉐도우 백스텝 발동 시 체공 상태였는지
 _viper_marshal_kick_hit_ball = False          # 마샬 킥이 공을 맞혔는지 (1차)
 _viper_marshal_kick_hit_ms = 0               # 마샬 킥 공 타격 시각 (더블 마샬 0.2초 딜레이용)
 _viper_double_marshal_ready = False           # 2차 마샬 킥 윈도우
@@ -71943,6 +71944,7 @@ def handle_player(keys):
         global _viper_br_jump_offset_y, _viper_br_arm_raise
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x, _viper_ss_kick_ready
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_ss_hologram_kick_dir, _viper_ss_hologram_kick_hit
+        global _viper_ss_was_airborne
         global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
         global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
@@ -72064,6 +72066,7 @@ def handle_player(keys):
                         _viper_ss_hologram_target_x = _ss_new_x
                         _viper_ss_hologram_kick_dir = _ss_reverse_dir  # 발차기 방향
                         _viper_ss_hologram_kick_hit = False  # 킥 히트 초기화
+                        _viper_ss_was_airborne = (_viper_jetpack_offset_y < -10)  # 체공 중 발동 여부 기록
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
                         _viper_ss_ball_touched = False  # 공 히트 추적 초기화 (카운터 연계 조건)
 
@@ -72176,7 +72179,7 @@ def handle_player(keys):
             _viper_wall_dive_ready = False
 
     # 더블 마샬 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화
-    if _viper_marshal_kick_hit_ball and _viper_double_marshal_kick_unlocked and not _viper_double_marshal_ready:
+    if _viper_marshal_kick_hit_ball and _viper_ss_was_airborne and not _viper_double_marshal_ready:
         if pygame.time.get_ticks() - _viper_marshal_kick_hit_ms >= _VIPER_MARSHAL_KICK_2ND_DELAY_MS:
             _viper_double_marshal_ready = True
             _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
@@ -72416,7 +72419,7 @@ def handle_player(keys):
                 if _wd_dist <= _VIPER_WALL_DIVE_HIT_RADIUS:
                     _viper_wall_dive_ball_hit = True
                     # 더블 마샬 킥 퍽: 1차 마샬 킥 히트 시 플래그 설정
-                    if _viper_double_marshal_kick_unlocked and not _viper_is_double_marshal:
+                    if _viper_ss_was_airborne and not _viper_is_double_marshal:
                         _viper_marshal_kick_hit_ball = True
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
                     # 공을 위로 강하게 반사 + 속도 증가
