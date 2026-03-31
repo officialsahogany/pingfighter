@@ -107693,9 +107693,10 @@ def draw_objects():
                     )
                     if _kick_rect.colliderect(BALL):
                         print(f"🐍 [SS_HOLO] 홀로그램 킥-공 충돌! holo=({_holo_x:.0f},{_holo_y:.0f}), ball=({BALL.centerx},{BALL.centery}), t={_holo_t:.3f}")
+                        # 그라데이션 계산용 히트박스 확대 (충돌 판정은 기존 크기 유지)
                         _viper_ss_apply_ball_hit(
                             _kick_rect.centerx, _kick_rect.centery,
-                            _kick_rect.width, _kick_rect.height,
+                            _kick_rect.width + 120, _kick_rect.height + 160,
                             _viper_ss_hologram_kick_dir, source="hologram"
                         )
 
