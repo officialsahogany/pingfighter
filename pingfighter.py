@@ -72179,11 +72179,11 @@ def handle_player(keys):
             _viper_double_marshal_ready = False
 
     # 마샬 킥 발동: 연계 윈도우 또는 더블 마샬 윈도우 중 S/↓키 단독 입력
-    # 에어 블레이드 Phase 2 하강 구간(300ms 이후)에서는 마샬 킥 허용
+    # 베놈 엣지 실패 후 복귀 체공 중에만 마샬 킥 허용 (에어 블레이드 단독 체공은 불허)
     _wd_br_allow = False
-    if _viper_br_spin_active and _viper_br_spin_phase == 2:
+    if _viper_br_spin_active and _viper_br_spin_phase == 2 and _viper_nerve_strike_combo_used:
         _wd_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms
-        if _wd_br_elapsed >= 300:  # 하강 구간
+        if _wd_br_elapsed >= 300:
             _wd_br_allow = True
     _wd_can_fire = _viper_wall_dive_ready or _viper_double_marshal_ready
     if (selected_character_type == "viper" and not is_odins_eye_transformed()
@@ -73095,13 +73095,7 @@ def handle_player(keys):
         if _viper_blade_rush_y <= _viper_blade_rush_target_y and not _viper_blade_rush_fadeout:
             _viper_blade_rush_fadeout = True
             _viper_blade_rush_fadeout_timer = _VIPER_BLADE_RUSH_FADEOUT_FRAMES
-            # 에어 블레이드 적중 실패 시 마샬 킥 연계 윈도우 즉시 활성화 (베놈 엣지 미사용 시만)
-            if (not _viper_blade_rush_hit_ball
-                    and not _viper_nerve_strike_combo_used
-                    and not _viper_nerve_strike_active
-                    and is_viper_skill_unlocked("marshal_kick")):
-                _viper_wall_dive_ready = True
-                _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES
+            # 에어 블레이드 단독 사용 시 마샬 킥 연계 없음 (베놈 엣지 실패 시에만 연계)
 
     # 바이퍼 에어 블레이드 페이드아웃 타이머
     if _viper_blade_rush_fadeout:
