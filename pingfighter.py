@@ -140121,7 +140121,6 @@ def reset_round(is_stage_start=False):
     _viper_wall_dive_ball_hit = False
     _viper_wall_dive_particles = []
     _viper_wall_dive_web_lines = []
-    global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
     _viper_marshal_kick_hit_ball = False
     _viper_double_marshal_ready = False
     _viper_double_marshal_ready_timer = 0
