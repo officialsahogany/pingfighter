@@ -31505,6 +31505,16 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 
 # ========== 바이퍼 절차적 렌더링 (사이버 어쌔신) ==========
 
+# === 바이퍼 타격 모션 변수 (왼팔 슬래시 / 오른발 킥) ===
+VIPER_HIT_POSE_DURATION = 8            # 타격 자세 유지 프레임
+VIPER_LEFT_SLASH_DURATION = 18         # 왼팔 슬래시 애니메이션 프레임
+VIPER_RIGHT_KICK_DURATION = 18         # 오른발 킥 애니메이션 프레임
+viper_hit_pose_timer = 0               # 타격 자세 타이머
+viper_left_slash_timer = 0             # 왼팔 슬래시 타이머
+viper_right_kick_timer = 0             # 오른발 킥 타이머
+viper_swing_intensity = 1.0            # 타격 강도 (1.0=일반)
+
+
 def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0) -> pygame.Surface:
     """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
     다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프.
@@ -47488,15 +47498,6 @@ def trigger_smasher_contact_animation(offset_x: float, intensity: float = 1.0) -
 viper_walking_active = False
 viper_walking_timer = 0
 VIPER_WALKING_CYCLE = 24  # 속도형 캐릭터답게 빠른 걷기 사이클
-
-# === 바이퍼 타격 모션 변수 (왼팔 슬래시 / 오른발 킥) ===
-VIPER_HIT_POSE_DURATION = 8            # 타격 자세 유지 프레임
-VIPER_LEFT_SLASH_DURATION = 18         # 왼팔 슬래시 애니메이션 프레임
-VIPER_RIGHT_KICK_DURATION = 18         # 오른발 킥 애니메이션 프레임
-viper_hit_pose_timer = 0               # 타격 자세 타이머
-viper_left_slash_timer = 0             # 왼팔 슬래시 타이머
-viper_right_kick_timer = 0             # 오른발 킥 타이머
-viper_swing_intensity = 1.0            # 타격 강도 (1.0=일반)
 
 def trigger_viper_contact_animation(offset_x: float, intensity: float = 1.0) -> None:
     """공이 맞은 위치에 따라 바이퍼의 왼팔 슬래시 / 오른발 킥 모션을 트리거한다.
