@@ -12928,9 +12928,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "더블 마샬 킥",
         "max_level": 1,
         "descriptions": {
-            1: "마샬 킥 → 보스 가드 시 2차 마샬 킥 발동 가능",
+            1: "마샬 킥 → 보스 가드 시 또는 베놈 엣지 실패 시 2차 마샬 킥 발동 가능",
         },
-        "detail": "마샬 킥으로 공을 보낸 뒤 보스가 가드(반환)하면 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 50 소모, 공속 증가율 120%.",
+        "detail": "마샬 킥 후 보스 가드(반환) 시 또는 베놈 엣지가 보스에게 빗나갔을 때 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 50 소모, 공속 증가율 120%.",
         "icon_color": (180, 0, 255),
         "tree": "viper",
         "character_restriction": "viper"
@@ -72967,6 +72967,10 @@ def handle_player(keys):
                 PLAYER.centerx = int(_viper_nerve_strike_origin_x)
                 PLAYER.centery = int(_viper_nerve_strike_origin_y)
                 _viper_nerve_strike_active = False
+                # 더블 마샬 킥: 베놈 엣지 실패(보스 미적중) 시 2차 마샬 킥 윈도우 활성화
+                if _viper_double_marshal_kick_unlocked and not _viper_nerve_strike_slash_shown:
+                    _viper_double_marshal_ready = True
+                    _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초
                 # 복귀 이펙트
                 try:
                     effects_manager.spawn_shockwave(
