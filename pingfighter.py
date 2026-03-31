@@ -47979,8 +47979,11 @@ _viper_wall_dive_charge_start_y = 0.0     # 돌진 출발 Y (벽)
 _viper_wall_dive_ball_hit = False         # 공 히트 여부
 _viper_wall_dive_reclimb_start_x = 0.0   # 벽다시타기 출발 X
 _viper_wall_dive_reclimb_start_y = 0.0   # 벽다시타기 출발 Y
+_viper_wall_dive_return_start_x = 0.0    # 복귀 출발 X (공 타격 후)
+_viper_wall_dive_return_start_y = 0.0    # 복귀 출발 Y
 _viper_wall_dive_particles = []           # 이펙트 파티클
 _viper_wall_dive_web_lines = []           # 거미줄 라인 이펙트
+_VIPER_WALL_DIVE_RETURN_MS = 350         # 복귀 시간 (ms)
 _VIPER_WALL_DIVE_GAUGE_COST = 80          # 게이지 소모
 _VIPER_WALL_DIVE_JUMP_MS = 350            # 벽으로 점프 시간 (ms)
 _VIPER_WALL_DIVE_CLING_MS = 250           # 벽 매달림 시간 (ms)
@@ -71953,6 +71956,7 @@ def handle_player(keys):
         global _viper_wall_dive_charge_start_x, _viper_wall_dive_charge_start_y
         global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
         global _viper_wall_dive_reclimb_start_x, _viper_wall_dive_reclimb_start_y
+        global _viper_wall_dive_return_start_x, _viper_wall_dive_return_start_y
         global _viper_marshal_kick_hit_ball, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
 
@@ -72426,17 +72430,44 @@ def handle_player(keys):
                         add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
                         pass
-            # 종료 판정
+                    # 공 타격 후 → Phase 4 (부드러운 복귀)로 전환
+                    _viper_wall_dive_phase = 4
+                    _viper_wall_dive_start_ms = _wd_now
+                    _viper_wall_dive_return_start_x = float(PLAYER.centerx)
+                    _viper_wall_dive_return_start_y = float(PLAYER.centery)
+            # 종료 판정 (돌진 시간 초과 시 = 공 못 맞힘)
+            if _wd_t >= 1.0 and _viper_wall_dive_phase == 2:
+                _viper_wall_dive_phase = 4
+                _viper_wall_dive_start_ms = _wd_now
+                _viper_wall_dive_return_start_x = float(PLAYER.centerx)
+                _viper_wall_dive_return_start_y = float(PLAYER.centery)
+
+        elif _viper_wall_dive_phase == 4:
+            # Phase 4: 공 타격 후 바닥으로 부드럽게 복귀
+            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_RETURN_MS)
+            _wd_ease = _wd_t * _wd_t * (3.0 - 2.0 * _wd_t)  # ease-in-out
+            _wd_floor = _compute_player_floor_bottom(
+                CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+            )
+            _wd_target_y = int(_wd_floor) - PLAYER.height // 2
+            _wd_target_x = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, _viper_wall_dive_return_start_x))
+            PLAYER.centerx = int(_viper_wall_dive_return_start_x + (_wd_target_x - _viper_wall_dive_return_start_x) * _wd_ease)
+            PLAYER.centery = int(_viper_wall_dive_return_start_y + (_wd_target_y - _viper_wall_dive_return_start_y) * _wd_ease)
+            # 낙하 잔상 파티클
+            if _wd_rand.random() < 0.4:
+                _viper_wall_dive_particles.append({
+                    'x': float(PLAYER.centerx) + _wd_rand.uniform(-6, 6),
+                    'y': float(PLAYER.centery) + _wd_rand.uniform(-4, 4),
+                    'vx': _wd_rand.uniform(-1, 1), 'vy': _wd_rand.uniform(-2, 0),
+                    'life': _wd_rand.randint(8, 14), 'max_life': 14,
+                    'size': _wd_rand.uniform(2, 5), 'type': 'trail',
+                })
             if _wd_t >= 1.0:
                 _viper_wall_dive_active = False
                 _viper_wall_dive_phase = 0
                 _viper_wall_dive_web_lines = []
-                # 패들 위치를 플레이어 영역으로 복귀
-                _wd_floor = _compute_player_floor_bottom(
-                    CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
-                )
-                PLAYER.centery = int(_wd_floor) - PLAYER.height // 2
-                PLAYER.centerx = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, PLAYER.centerx))
+                PLAYER.centery = _wd_target_y
+                PLAYER.centerx = _wd_target_x
 
     # 마샬 킥 파티클 업데이트
     if _viper_wall_dive_particles:
