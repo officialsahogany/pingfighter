@@ -72554,6 +72554,10 @@ def handle_player(keys):
         _viper_dmk_freeze_timer -= 1
         if _viper_dmk_freeze_timer <= 0:
             _viper_dmk_freeze_active = False
+            # 프리즈 해제 시 넉백 재적용 (프리즈 중 보스 AI return으로 소멸 방지)
+            if abs(boss_fire_knockback_vel) < 1.0:
+                _dmk_kb_dir2 = 1 if BALL.centerx > BOSS.centerx else -1
+                boss_fire_knockback_vel = _dmk_kb_dir2 * 20.0
 
     # 마샬 킥 파티클 업데이트
     if _viper_wall_dive_particles:
@@ -151318,7 +151322,23 @@ def handle_boss():
         return
 
     # 🐍 바이퍼 베놈 엣지 / 더블 마샬 킥 프리즈 중에는 보스 AI 정지
+    # 단, 넉백 물리는 프리즈 중에도 적용 (더블 마샬 킥 넉백)
     if _viper_ns_freeze_active or _viper_dmk_freeze_active:
+        if abs(boss_fire_knockback_vel) > 0.3:
+            _kb_new_x = BOSS.x + boss_fire_knockback_vel
+            _kb_min_x = 0
+            _kb_max_x = WIDTH - BOSS.width
+            if _kb_new_x <= _kb_min_x:
+                BOSS.x = _kb_min_x
+                boss_fire_knockback_vel = abs(boss_fire_knockback_vel) * 0.7
+            elif _kb_new_x >= _kb_max_x:
+                BOSS.x = _kb_max_x
+                boss_fire_knockback_vel = -abs(boss_fire_knockback_vel) * 0.7
+            else:
+                BOSS.x = _kb_new_x
+            boss_fire_knockback_vel *= 0.85
+            if abs(boss_fire_knockback_vel) <= 0.3:
+                boss_fire_knockback_vel = 0.0
         return
 
     # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (상단 패들 = 보스)
