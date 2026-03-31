@@ -4938,6 +4938,50 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             pygame.draw.circle(surface, sc, (smx, smy), smr)
             pygame.draw.circle(surface, highlight_color, (smx, smy), smr, 1)
 
+    elif skill_name == "jetpack_enhance":
+        # 🚀 제트팩 강화: 로켓/화염 + 위쪽 화살표
+        # 제트팩 본체 (사다리꼴 형태)
+        body_w = s // 2
+        body_h = s * 2 // 3
+        body_pts = [
+            (cx - body_w, cy - body_h // 3),       # 좌상
+            (cx + body_w, cy - body_h // 3),       # 우상
+            (cx + body_w - 2, cy + body_h // 2),   # 우하
+            (cx - body_w + 2, cy + body_h // 2),   # 좌하
+        ]
+        pygame.draw.polygon(surface, accent_color, body_pts)
+        pygame.draw.polygon(surface, highlight_color, body_pts, 1)
+
+        # 중앙 게이지 표시선
+        pygame.draw.line(surface, main_color,
+                        (cx, cy - body_h // 4), (cx, cy + body_h // 4), 2)
+
+        # 양쪽 노즐
+        for nx in [-1, 1]:
+            nozzle_x = cx + nx * (body_w - 1)
+            pygame.draw.rect(surface, shadow_color,
+                           (nozzle_x - 2, cy + body_h // 2 - 1, 4, 4))
+
+        # 화염 이펙트 (아래쪽)
+        flame_colors = [highlight_color, accent_color, main_color]
+        for fi, fc in enumerate(flame_colors):
+            flame_h = s // 3 - fi * 2
+            flame_w = body_w - fi * 2
+            flame_y = cy + body_h // 2 + 2 + fi
+            flame_pts = [
+                (cx - flame_w, flame_y),
+                (cx + flame_w, flame_y),
+                (cx, flame_y + flame_h),
+            ]
+            if flame_h > 0:
+                pygame.draw.polygon(surface, fc, flame_pts)
+
+        # 위쪽 상승 화살표 (강화 표시)
+        arrow_y = cy - body_h // 3 - 4
+        pygame.draw.line(surface, main_color, (cx, arrow_y - s // 3), (cx, arrow_y), 2)
+        pygame.draw.line(surface, main_color, (cx - 3, arrow_y - s // 5), (cx, arrow_y - s // 3), 2)
+        pygame.draw.line(surface, main_color, (cx + 3, arrow_y - s // 5), (cx, arrow_y - s // 3), 2)
+
 
 def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                               orb_radius: int, current_gauge: float, max_gauge: float):
