@@ -72698,9 +72698,9 @@ def handle_player(keys):
             # Phase 0: 보스에게 돌진 (부드러운 타겟 추적 — 전반부만)
             if _ns_elapsed < _VIPER_NS_DASH_DURATION:
                 _ns_t = _ns_elapsed / _VIPER_NS_DASH_DURATION
-                # 전반 60% 구간에서만 타겟을 보스 쪽으로 부드럽게 보정 (후반은 고정 → 빗나갈 여지)
-                if _ns_t < 0.6:
-                    _ns_track_strength = 0.08 * (1.0 - _ns_t / 0.6)  # 점점 약해지는 추적
+                # 전반 80% 구간에서 타겟을 보스 쪽으로 보정 (후반 20%는 고정 → 빗나갈 여지)
+                if _ns_t < 0.8:
+                    _ns_track_strength = 0.12 * (1.0 - _ns_t / 0.8)  # 점점 약해지는 추적
                     _viper_nerve_strike_target_x += (float(BOSS.centerx) - _viper_nerve_strike_target_x) * _ns_track_strength
                     _viper_nerve_strike_target_y += (float(BOSS.centery - 40) - _viper_nerve_strike_target_y) * _ns_track_strength
                 # 이징: ease-in-out (자연스러운 가감속)
