@@ -5242,8 +5242,8 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     num_unlocked = len(unlocked_main_skills)
 
     MAX_LEFT_SLOTS = 5
-    base_angle = 160
-    angle_step = 22  # 5슬롯 간격
+    base_angle = 155
+    angle_step = 28  # 5슬롯 균등 간격
     all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
 
     # === 빈 슬롯 그리기 ===
