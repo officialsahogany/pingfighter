@@ -32011,11 +32011,12 @@ viper_right_kick_timer = 0             # 오른발 킥 타이머
 viper_swing_intensity = 1.0            # 타격 강도 (1.0=일반)
 
 
-def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0, wall_cling: int = 0) -> pygame.Surface:
+def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0, wall_cling: int = 0, flying_kick: int = 0) -> pygame.Surface:
     """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
     다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프.
     kick_direction: 0=일반, -1=왼쪽 발차기, 1=오른쪽 발차기 (쉐도우 백스텝용)
-    wall_cling: 0=일반, -1=왼쪽벽 매달림, 1=오른쪽벽 매달림 (마샬 킥 벽타기 포즈)"""
+    wall_cling: 0=일반, -1=왼쪽벽 매달림, 1=오른쪽벽 매달림 (마샬 킥 벽타기 포즈)
+    flying_kick: 0=일반, -1=왼쪽으로 날라차기, 1=오른쪽으로 날라차기 (마샬 킥 돌진 포즈)"""
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     b = 8
     cx = surface.get_width() // 2
@@ -32035,8 +32036,29 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
     left_leg_lift = -int(max(0.0, wave) * 6)   # 다리 들어올림 확대 (3→6)
     right_leg_lift = -int(max(0.0, -wave) * 6)
 
+    # 🦵 마샬 킥 날라차기 포즈: 이소룡 스타일 플라잉 킥
+    if flying_kick != 0:
+        _fk = flying_kick  # 돌진 방향 (-1=왼, 1=오른)
+        torso_bob = 0
+        arm_swing = 0
+        lean_forward = -2  # 몸을 살짝 뒤로 젖힘 (날라차기 역동성)
+        shoulder_tilt = int(-_fk * 5)  # 킥 반대방향으로 기울기 (역동적)
+        # 앞 다리: 킥 방향으로 쭉 뻗음 (높이 차올림)
+        if _fk > 0:
+            # 오른쪽 돌진: 오른 다리 앞으로 쭉 뻗음
+            right_leg_step = 34   # 앞으로 크게 뻗음
+            right_leg_lift = -22  # 높이 올림 (날라차기)
+            left_leg_step = -16   # 뒤로 접음
+            left_leg_lift = 4     # 약간 아래로 (축발 접힘)
+        else:
+            # 왼쪽 돌진: 왼 다리 앞으로 쭉 뻗음
+            left_leg_step = -34
+            left_leg_lift = -22
+            right_leg_step = 16
+            right_leg_lift = 4
+
     # 🕷 마샬 킥 벽타기 포즈: 스파이더맨 스타일 웅크린 자세
-    if wall_cling != 0:
+    elif wall_cling != 0:
         torso_bob = 0
         arm_swing = 0
         lean_forward = 3  # 벽 쪽으로 약간 기울임
@@ -32403,8 +32425,24 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
         wr_y = el_y + int(0.5 * b) + swing_dir * int(arm_swing * 0.2)
         at = b - 2  # 팔 두께
 
+        # 🦵 날라차기 팔 포즈 오버라이드: 양팔을 넓게 벌림 (이소룡 스타일)
+        if flying_kick != 0:
+            _fk = flying_kick
+            if side == _fk:
+                # 킥 방향 팔: 앞으로 뻗음 (리드 핸드)
+                el_x = sh_x + side * int(1.5 * b)
+                el_y = sh_y - int(0.8 * b)        # 위로 올림
+                wr_x = el_x + side * int(1.3 * b)
+                wr_y = el_y - int(0.3 * b)         # 앞으로 뻗음
+            else:
+                # 반대 팔: 뒤로 넓게 벌림 (밸런스)
+                el_x = sh_x + side * int(1.8 * b)
+                el_y = sh_y - int(0.4 * b)         # 약간 위
+                wr_x = el_x + side * int(1.0 * b)
+                wr_y = el_y + int(0.2 * b)
+
         # 🕷 벽타기 팔 포즈 오버라이드
-        if wall_cling != 0:
+        elif wall_cling != 0:
             _wc_is_wall_side = (side == wall_cling)  # 이 팔이 벽 쪽인지
             if not _wc_is_wall_side:
                 # 벽 쪽 팔: 위로 뻗어 벽을 잡는 포즈
@@ -110320,6 +110358,11 @@ def draw_objects():
                 # 🕷 마샬 킥 벽타기 포즈: 벽 쪽에 따라 좌/우 미러
                 _wc_side = -1 if _viper_wall_dive_wall_x < WIDTH // 2 else 1
                 base_ufo_img = create_viper_paddle_surface(0.0, wall_cling=_wc_side)
+            elif _viper_wall_dive_active and _viper_wall_dive_phase == 2:
+                # 🦵 마샬 킥 날라차기 포즈: 공을 향해 돌진 중
+                # 돌진 방향 판단 (벽→공: 벽이 왼쪽이면 오른쪽으로 킥)
+                _fk_dir = 1 if _viper_wall_dive_wall_x < WIDTH // 2 else -1
+                base_ufo_img = create_viper_paddle_surface(0.0, flying_kick=_fk_dir)
             elif _viper_br_spin_active:
                 # 에어 블레이드 연출 중
                 if _viper_br_spin_phase == 2:
