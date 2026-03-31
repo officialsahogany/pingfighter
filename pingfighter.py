@@ -3711,8 +3711,8 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
         "symbol": "🕷", "cooldown": 0.0, "key": "S/↓(연계)",
-        "description": "쉐도우 백스텝 후 보스가 공을 반환하면 발동 가능.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
-        "how_to_use": "쉐도우 백스텝 사용 후 보스 반환 시 S/↓키",
+        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.",
+        "how_to_use": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 S/↓키",
         "effect_type": "wall_dive_purple"
     },
 ]
@@ -72125,14 +72125,66 @@ def handle_player(keys):
                 _jp_alive.append(_jp)
         _viper_jetpack_particles = _jp_alive[-80:] if len(_jp_alive) > 80 else _jp_alive
 
+    # === 바이퍼 에어 블레이드 → 마샬 킥 연계 (체공 중 S/↓키) ===
+    _viper_air_marshal_triggered = False  # 이번 프레임에 마샬 킥 연계 발동 여부
+    if (selected_character_type == "viper" and not is_odins_eye_transformed()
+            and _viper_br_spin_active and _viper_br_spin_phase == 2
+            and not _viper_wall_dive_active and not _viper_dive_active
+            and not _viper_nerve_strike_active and not rolling_active
+            and not is_waiting_for_serve and not is_player_serve and not player_stunned):
+        _mk_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
+        _mk_dir_held = (
+            keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
+            or keys[pygame.K_a] or keys[pygame.K_d]
+            or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
+        )
+        if (_mk_s_input and not _mk_dir_held
+                and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST
+                and is_viper_skill_unlocked("marshal_kick")):
+            special_gauge -= _VIPER_WALL_DIVE_GAUGE_COST
+            _viper_air_marshal_triggered = True
+            # 에어 블레이드 스핀 즉시 종료
+            _viper_br_spin_active = False
+            _viper_br_spin_angle = 0.0
+            _viper_br_jump_offset_y = 0.0
+            _viper_br_arm_raise = 0.0
+            # 마샬 킥 발동
+            _viper_wall_dive_active = True
+            _viper_wall_dive_phase = 0
+            _viper_wall_dive_start_ms = pygame.time.get_ticks()
+            _viper_wall_dive_start_x = float(PLAYER.centerx)
+            _viper_wall_dive_start_y = float(PLAYER.centery)
+            _viper_wall_dive_ball_hit = False
+            _viper_wall_dive_particles = []
+            _viper_wall_dive_web_lines = []
+            # 공 위치 기준 가까운 벽 결정
+            _mk_ball_cx = BALL.centerx
+            if _mk_ball_cx >= WIDTH // 2:
+                _viper_wall_dive_wall_x = float(WIDTH - 15)
+            else:
+                _viper_wall_dive_wall_x = 15.0
+            _viper_wall_dive_wall_y = float(PLAYER.centery) - 200.0
+            _viper_wall_dive_wall_y = max(300.0, min(650.0, _viper_wall_dive_wall_y))
+            # 제트팩 즉시 비활성
+            _viper_jetpack_active = False
+            _viper_jetpack_gauge_timer = 0
+            # 사운드
+            try:
+                _mk_snd = sound_effects.get('VIPER_BACKSTEP')
+                if _mk_snd:
+                    _mk_snd.set_volume(0.5)
+                    _mk_snd.play()
+            except Exception:
+                pass
+
     # === 바이퍼 급강하 어택 (다이브 스트라이크) ===
     if selected_character_type == "viper" and not is_odins_eye_transformed():
-        # 급강하 발동: 체공 중 S키/↓키 단독 (방향키 미입력, 대시 아님)
+        # 급강하 발동: 체공 중 S키/↓키 단독 (방향키 미입력, 대시 아님, 에어블레이드 스핀 중 아님)
         if (not _viper_dive_active and _viper_jetpack_offset_y < -20
                 and not rolling_active and not _viper_nerve_strike_active
-                and not (_viper_br_spin_active and _viper_br_spin_phase < 2) and not is_waiting_for_serve
+                and not _viper_br_spin_active and not is_waiting_for_serve
                 and not is_player_serve and not player_stunned
-                and not _viper_wall_dive_active):
+                and not _viper_wall_dive_active and not _viper_air_marshal_triggered):
             _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
             _dive_dir_held = (
                 keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
@@ -138601,6 +138653,23 @@ def reset_round(is_stage_start=False):
     _viper_wall_dive_ball_hit = False
     _viper_wall_dive_particles = []
     _viper_wall_dive_web_lines = []
+    # 바이퍼 베놈 엣지 (신경 타격) 초기화
+    global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_combo_used
+    global _viper_nerve_strike_slash_shown, _viper_nerve_strike_start_ms
+    _viper_nerve_strike_active = False
+    _viper_nerve_strike_phase = 0
+    _viper_nerve_strike_combo_used = False
+    _viper_nerve_strike_slash_shown = False
+    _viper_nerve_strike_start_ms = 0
+    # 보스 혼란 상태 초기화 (베놈 엣지 등에 의한 혼란)
+    global boss_confused_timer
+    boss_confused_timer = 0
+    # 바이퍼 쉐도우 에너지파 초기화
+    global _viper_ss_wave_active, _viper_ss_wave_hit_ball, _viper_ss_wave_trail, _viper_ss_ball_touched
+    _viper_ss_wave_active = False
+    _viper_ss_wave_hit_ball = False
+    _viper_ss_wave_trail = []
+    _viper_ss_ball_touched = False
     optimus_walking_active = False
     optimus_walking_timer = 0
 
