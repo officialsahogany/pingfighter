@@ -107577,17 +107577,20 @@ def draw_objects():
             _dmk_total_dur = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
             _dmk_t = 1.0 - (_viper_dmk_text_timer / max(1, _dmk_total_dur))  # 0→1
 
-            # 프리즈 중: 화면 어둡게 + 텍스트 크게
+            # 프리즈 중: 화면 어둡게
             if _viper_dmk_freeze_active:
+                _dmk_freeze_elapsed = _VIPER_DMK_FREEZE_DURATION - _viper_dmk_freeze_timer
                 _dmk_dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                _dmk_dim_alpha = int(80 * min(1.0, _dmk_t * 5.0))  # 빠르게 어두워짐
+                _dmk_dim_alpha = int(80 * min(1.0, _dmk_freeze_elapsed / 6.0))  # 6프레임(0.1초)만에 어두워짐
                 _dmk_dim.fill((0, 0, 0, _dmk_dim_alpha))
                 SCREEN.blit(_dmk_dim, (0, 0))
 
             # 텍스트: 프리즈 중 크게 중앙, 프리즈 후 위로 떠오르며 페이드
-            _dmk_freeze_ratio = _viper_dmk_freeze_timer / max(1, _VIPER_DMK_FREEZE_DURATION) if _viper_dmk_freeze_active else 0
             if _viper_dmk_freeze_active:
-                _dmk_ease = min(1.0, _dmk_t * 4.0)
+                # 프리즈 중: 경과 비율 (0→1)
+                _dmk_freeze_elapsed = _VIPER_DMK_FREEZE_DURATION - _viper_dmk_freeze_timer
+                _dmk_freeze_t = _dmk_freeze_elapsed / max(1, _VIPER_DMK_FREEZE_DURATION)
+                _dmk_ease = min(1.0, _dmk_freeze_t * 5.0)  # 빠르게 나타남
                 _dmk_alpha = int(255 * _dmk_ease)
                 _dmk_font_size = int(22 + 4 * _dmk_ease)
                 _dmk_y_off = 0
