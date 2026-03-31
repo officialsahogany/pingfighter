@@ -72167,11 +72167,11 @@ def handle_player(keys):
                         _viper_marshal_kick_hit_ball = True
                     # 공을 위로 강하게 반사 + 속도 증가
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
-                    # 2차 마샬 킥이면 220% 증가(3.2x), 1차는 150% 증가(2.5x)
+                    # 2차 마샬 킥이면 120% 증가(2.2x), 1차는 80% 증가(1.8x)
                     if _viper_is_double_marshal:
-                        _wd_new_spd = max(_wd_cur_spd * 3.2, 10.0)  # 220% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 2.2, 10.0)  # 120% 증가
                     else:
-                        _wd_new_spd = max(_wd_cur_spd * 2.5, 10.0)  # 150% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 1.8, 10.0)  # 80% 증가
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
                     # 벽→공 방향으로 발사 (약간 위로 보정)
