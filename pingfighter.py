@@ -72862,52 +72862,20 @@ def handle_player(keys):
             if _viper_ss_wave_x <= _viper_ss_wave_target_x:
                 _viper_ss_wave_active = False
                 _viper_ss_wave_trail.clear()
-        # 공 충돌 판정 (1회, 팬텀 스트라이크 발동)
+        # 에너지파 — 공 충돌 시 시각 이펙트만 (공 반사/물리 없음, 텔레포트 킥에 위임)
         if _viper_ss_wave_active and not _viper_ss_wave_hit_ball:
             try:
                 _sw_hit_rect = pygame.Rect(
                     int(_viper_ss_wave_x - 55), int(_viper_ss_wave_y - 45),
-                    110, 90  # 에너지파 히트박스 (확대: 60x50 → 110x90)
+                    110, 90
                 )
                 if _sw_hit_rect.colliderect(BALL):
                     _viper_ss_wave_hit_ball = True
-                    # 에너지파 히트는 마샬 킥 연계 불가 (텔레포트 킥만 연계)
-                    # 🪙 쉐도우 백스텝 에너지파 타격 골드 보너스
-                    try:
-                        add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
-                    except Exception:
-                        pass
-                    # 에너지파 히트: 공을 위로 반사 + 공속 30~50% 증가
-                    import random as _sw_rand
-                    _sw_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-                    ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
-                    if _sw_cur_speed > 0.1:
-                        _sw_boost = 1.0 + _sw_rand.uniform(0.3, 0.5)  # 30~50% 공속 증가
-                        _sw_new_speed = _sw_cur_speed * _sw_boost
-                        _sw_after_speed = math.hypot(ball_vel[0], ball_vel[1])
-                        if _sw_after_speed > 0.1:
-                            _sw_ratio = _sw_new_speed / _sw_after_speed
-                            ball_vel[0] *= _sw_ratio
-                            ball_vel[1] *= _sw_ratio
-                        _viper_speed_boost_active = True
-                        _viper_speed_boost_original = _sw_cur_speed
-                    _sw_curve = _viper_ss_wave_dir
-                    _viper_ps_curve_active = True
-                    _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-                    _viper_ps_curve_direction = _sw_curve
-                    # 히트 이펙트
+                    # 시각 이펙트만 (공 물리에 영향 없음)
                     try:
                         effects_manager.spawn_shockwave(
                             BALL.centerx, BALL.centery,
-                            force=12, color=(160, 0, 255),
-                        )
-                    except Exception:
-                        pass
-                    # 검붉은 타격 이펙트 (쉐도우 백스텝 에너지파)
-                    try:
-                        effects_manager.spawn_dark_red_impact(
-                            BALL.centerx, BALL.centery,
-                            count=18, intensity=0.9,
+                            force=8, color=(160, 0, 255),
                         )
                     except Exception:
                         pass
@@ -110101,7 +110069,7 @@ def draw_objects():
         afterimage_rect = afterimage_surf.get_rect(center=(afterimage['x'], afterimage['y']))
         # 잔상 그리기
         SCREEN.blit(afterimage_surf, afterimage_rect.topleft)
-        # 바이퍼 쉐도우 백스텝 잔상 — 공 충돌 판정
+        # 바이퍼 쉐도우 백스텝 잔상 — 시각 이펙트만 (공 반사/물리 없음, 텔레포트 킥에 위임)
         if afterimage.get('viper_ss') and not afterimage.get('hit_ball'):
             _ai_w = afterimage.get('width', 120)
             _ai_h = afterimage.get('height', 70)
@@ -110111,32 +110079,11 @@ def draw_objects():
             )
             if _ai_rect.colliderect(BALL):
                 afterimage['hit_ball'] = True
-                # 잔상 히트는 마샬 킥 연계 불가 (텔레포트 킥만 연계)
-                # 공을 위로 반사 (잔상이 패들 역할)
-                ball_vel[1] = -abs(ball_vel[1]) if abs(ball_vel[1]) > 1.0 else -6.0
-                # 커브 적용 (에너지파와 동일)
-                _viper_ps_curve_active = True
-                _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-                _ai_cx = afterimage['x']
-                _viper_ps_curve_direction = 1 if BALL.centerx > _ai_cx else -1
-                # 골드 보너스
-                try:
-                    add_ingame_gold(3, BALL.centerx, BALL.centery - 20, source="skill")
-                except Exception:
-                    pass
-                # 히트 이펙트
+                # 시각 이펙트만 (공 물리에 영향 없음)
                 try:
                     effects_manager.spawn_shockwave(
                         BALL.centerx, BALL.centery,
-                        force=8, color=(100, 0, 180),
-                    )
-                except Exception:
-                    pass
-                # 검붉은 타격 이펙트 (쉐도우 백스텝 잔상)
-                try:
-                    effects_manager.spawn_dark_red_impact(
-                        BALL.centerx, BALL.centery,
-                        count=16, intensity=0.8,
+                        force=6, color=(100, 0, 180),
                     )
                 except Exception:
                     pass
