@@ -47947,6 +47947,8 @@ _viper_ss_wave_speed = 25.0          # 이동 속도 (px/frame, 매우 빠름)
 _viper_ss_wave_hit_ball = False      # 공 히트 여부 (1회 제한)
 _viper_ss_wave_trail = []            # 잔상 궤적
 _viper_ss_ball_touched = False       # 쉐도우 백스텝으로 공을 맞췄는지 (에너지파/잔상/패들 중 하나)
+_viper_ss_ball_touched_ms = 0        # 공 타격 시각 (마샬 킥 0.5초 딜레이용)
+_VIPER_MARSHAL_KICK_DELAY_MS = 500   # 마샬 킥 발동 가능까지 딜레이 (ms)
 
 # === 바이퍼 쉐도우 백스텝 → 다음 타격 버프 (팬텀 스트라이크) ===
 _viper_phantom_strike_active = False  # 다음 타격 버프 활성
@@ -57462,7 +57464,7 @@ def go_to_next_round():
     global _viper_speed_boost_active
     global _viper_phantom_strike_active, _viper_phantom_strike_timer
     global _viper_ps_curve_active, _viper_ps_curve_timer
-    global _viper_ss_wave_active, _viper_ss_wave_hit_ball, _viper_ss_wave_trail, _viper_ss_ball_touched
+    global _viper_ss_wave_active, _viper_ss_wave_hit_ball, _viper_ss_wave_trail, _viper_ss_ball_touched, _viper_ss_ball_touched_ms
     global boss_confused_timer
     _viper_nerve_strike_active = False
     _viper_nerve_strike_phase = 0
@@ -71932,7 +71934,7 @@ def handle_player(keys):
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_ss_hologram_kick_dir, _viper_ss_hologram_kick_hit
         global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
-        global _viper_ss_ball_touched
+        global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
         global _viper_speed_boost_active, _viper_speed_boost_original
@@ -72147,7 +72149,14 @@ def handle_player(keys):
                             except Exception:
                                 pass
 
-    # === 바이퍼 마샬 킥 연계기 (쉐도우 백스텝 → 보스 반환 → S/↓키) ===
+    # === 바이퍼 마샬 킥 연계기 (쉐도우 백스텝 → 0.5초 후 → S/↓키) ===
+    # 쉐도우 백스텝 공 타격 후 0.5초 경과 시 마샬 킥 윈도우 자동 활성화
+    if _viper_ss_ball_touched and not _viper_wall_dive_ready:
+        if pygame.time.get_ticks() - _viper_ss_ball_touched_ms >= _VIPER_MARSHAL_KICK_DELAY_MS:
+            _viper_wall_dive_ready = True
+            _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
+            _viper_ss_ball_touched = False  # 1회 소모
+
     # 연계 윈도우 타이머 감소
     if _viper_wall_dive_ready:
         _viper_wall_dive_ready_timer -= 1
@@ -78091,6 +78100,7 @@ def handle_player(keys):
             if _sk_since < 5000:  # 5초 안전 타임아웃
                 _viper_ss_kick_fired = True  # 게이지 충전 차단
                 _viper_ss_ball_touched = True  # 마샬 킥 연계 조건 충족
+                _viper_ss_ball_touched_ms = pygame.time.get_ticks()
                 try:
                     _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
                     if _sk_snd:
@@ -107104,6 +107114,7 @@ def draw_objects():
                     if _kick_rect.colliderect(BALL):
                         _viper_ss_hologram_kick_hit = True  # 1회 제한
                         _viper_ss_ball_touched = True
+                        _viper_ss_ball_touched_ms = pygame.time.get_ticks()
                         _viper_ss_kick_ready = False  # 패들 경로 중복 방지
                         # shadowkick.wav 재생
                         try:
@@ -139368,7 +139379,7 @@ def reset_round(is_stage_start=False):
     global boss_confused_timer
     boss_confused_timer = 0
     # 바이퍼 쉐도우 에너지파 초기화
-    global _viper_ss_wave_active, _viper_ss_wave_hit_ball, _viper_ss_wave_trail, _viper_ss_ball_touched
+    global _viper_ss_wave_active, _viper_ss_wave_hit_ball, _viper_ss_wave_trail, _viper_ss_ball_touched, _viper_ss_ball_touched_ms
     _viper_ss_wave_active = False
     _viper_ss_wave_hit_ball = False
     _viper_ss_wave_trail = []
@@ -140357,7 +140368,7 @@ def calculate_bounce(paddle):
     global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
     global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
     global _viper_speed_boost_active, _viper_speed_boost_original
-    global _viper_ss_ball_touched  # 마샬 킥 연계 플래그 (팬텀스트라이크에서 사용)
+    global _viper_ss_ball_touched, _viper_ss_ball_touched_ms  # 마샬 킥 연계 플래그 (팬텀스트라이크에서 사용)
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
     global ragnarok_original_speed
@@ -140464,6 +140475,7 @@ def calculate_bounce(paddle):
         # ⚔ 바이퍼 팬텀 스트라이크: 쉐도우 백스텝 직후 0.3초 내 타격 시 공속 80% 증가 + 신비한 커브
         if _viper_phantom_strike_active and selected_character_type == "viper":
             _viper_ss_ball_touched = True  # 카운터 연계 조건 충족 (패들로 직접 타격)
+            _viper_ss_ball_touched_ms = pygame.time.get_ticks()
             _viper_phantom_strike_active = False  # 1회 소모
             _viper_phantom_strike_timer = 0
             _ps_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -146622,6 +146634,7 @@ def handle_ball():
             if _sk_since < 5000:  # 5초 안전 타임아웃
                 _viper_ss_kick_fired = True  # 게이지 충전 차단
                 _viper_ss_ball_touched = True  # 마샬 킥 연계 조건 충족
+                _viper_ss_ball_touched_ms = pygame.time.get_ticks()
                 try:
                     _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
                     if _sk_snd:
@@ -147317,11 +147330,7 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
-        # 바이퍼 마샬 킥 연계 윈도우 활성화 (쉐도우 백스텝으로 공 히트 후 보스가 반환 시)
-        if selected_character_type == "viper" and _viper_ss_ball_touched:
-            _viper_wall_dive_ready = True
-            _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
-            _viper_ss_ball_touched = False  # 1회 소모
+        # 바이퍼 마샬 킥 연계: 보스 반환 시 처리 제거 (0.5초 딜레이 방식으로 이전됨)
 
         # 더블 마샬 킥: 1차 마샬 킥이 공을 맞히고 보스가 반환하면 2차 윈도우 활성화
         if selected_character_type == "viper" and _viper_double_marshal_kick_unlocked and _viper_marshal_kick_hit_ball:
