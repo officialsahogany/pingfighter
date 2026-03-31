@@ -48003,6 +48003,15 @@ _viper_double_marshal_ready = False           # 2차 마샬 킥 윈도우
 _viper_double_marshal_ready_timer = 0         # 2차 윈도우 타이머
 _viper_is_double_marshal = False              # 현재 실행 중인 마샬 킥이 2차인지
 
+# === 바이퍼 스타버스트 타격 이펙트 (쉐도우 백스텝/마샬 킥 공 히트 시) ===
+_viper_starburst_active = False
+_viper_starburst_x = 0.0
+_viper_starburst_y = 0.0
+_viper_starburst_frame = 0           # 현재 프레임 (0~4)
+_viper_starburst_timer = 0           # 프레임 타이머
+_VIPER_STARBURST_FRAMES = 5          # 총 프레임 수
+_VIPER_STARBURST_FRAME_DUR = 3       # 프레임당 게임 틱 (3틱 = 약 50ms)
+
 # 바이퍼 스킬 공속 부스트 복귀 시스템
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
 _viper_speed_boost_original = 0.0     # 부스트 전 원래 공속
@@ -71960,6 +71969,7 @@ def handle_player(keys):
         global _viper_wall_dive_charge_start_x, _viper_wall_dive_charge_start_y
         global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
         global _viper_wall_dive_reclimb_start_x, _viper_wall_dive_reclimb_start_y
+        global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer
         global _viper_wall_dive_return_start_x, _viper_wall_dive_return_start_y
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
@@ -72430,6 +72440,12 @@ def handle_player(keys):
                         _mk_angle = math.radians(_mk_rand.uniform(-140, -100))
                     ball_vel[0] = math.cos(_mk_angle) * _wd_new_spd
                     ball_vel[1] = math.sin(_mk_angle) * _wd_new_spd
+                    # 스타버스트 타격 이펙트 트리거
+                    _viper_starburst_active = True
+                    _viper_starburst_x = float(BALL.centerx)
+                    _viper_starburst_y = float(BALL.centery)
+                    _viper_starburst_frame = 0
+                    _viper_starburst_timer = 0
                     # 히트 이펙트
                     screen_shake_timer = max(screen_shake_timer, 12)
                     screen_shake_intensity = max(screen_shake_intensity, 5)
@@ -78132,6 +78148,12 @@ def handle_player(keys):
                         _sk_snd.play()
                 except Exception:
                     pass
+                # 스타버스트 타격 이펙트 트리거
+                _viper_starburst_active = True
+                _viper_starburst_x = float(BALL.centerx)
+                _viper_starburst_y = float(BALL.centery)
+                _viper_starburst_frame = 0
+                _viper_starburst_timer = 0
                 # 🪙 쉐도우 킥 타격 골드 보너스
                 try:
                     add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
@@ -106194,6 +106216,7 @@ def draw_objects():
     global _viper_ss_kick_ready, _viper_speed_boost_active, _viper_speed_boost_original
     global _viper_phantom_strike_active, _viper_phantom_strike_timer
     global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
+    global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
@@ -107168,6 +107191,12 @@ def draw_objects():
                             add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
                         except Exception:
                             pass
+                        # 스타버스트 타격 이펙트 트리거
+                        _viper_starburst_active = True
+                        _viper_starburst_x = float(BALL.centerx)
+                        _viper_starburst_y = float(BALL.centery)
+                        _viper_starburst_frame = 0
+                        _viper_starburst_timer = 0
                         # 킥 히트 이펙트
                         try:
                             effects_manager.spawn_shockwave(
@@ -107421,6 +107450,70 @@ def draw_objects():
                                  (_alt_x + _alt_bar_w, _alt_y + _alt_bar_h - _ai))
         except Exception:
             pass
+
+    # ✦ 바이퍼 스타버스트 타격 이펙트 렌더링 (쉐도우 백스텝/마샬 킥)
+    if _viper_starburst_active:
+        try:
+            _sb_f = _viper_starburst_frame
+            _sb_t = _sb_f / max(1, _VIPER_STARBURST_FRAMES - 1)  # 0→1
+            _sb_cx = int(_viper_starburst_x)
+            _sb_cy = int(_viper_starburst_y)
+
+            # 프레임별 파라미터: 팽창 → 최대 → 수축+페이드
+            if _sb_f == 0:
+                _sb_scale, _sb_alpha = 0.3, 200
+            elif _sb_f == 1:
+                _sb_scale, _sb_alpha = 0.7, 255
+            elif _sb_f == 2:
+                _sb_scale, _sb_alpha = 1.0, 220
+            elif _sb_f == 3:
+                _sb_scale, _sb_alpha = 0.85, 140
+            else:
+                _sb_scale, _sb_alpha = 0.5, 60
+
+            _sb_max_r = 50  # 최대 반경
+            _sb_r = int(_sb_max_r * _sb_scale)
+
+            # 광선 (8방향 + 대각선 4방향, 길이 변화)
+            _sb_ray_count = 12
+            _sb_surf_size = _sb_r * 4 + 4
+            _sb_surf = pygame.Surface((_sb_surf_size, _sb_surf_size), pygame.SRCALPHA)
+            _sb_center = _sb_surf_size // 2
+
+            for _ri in range(_sb_ray_count):
+                _r_angle = math.radians(_ri * (360.0 / _sb_ray_count) + _sb_f * 8)
+                # 주 광선(0,90,180,270)은 길고, 대각선은 짧음
+                _is_main = (_ri % 3 == 0)
+                _r_len = _sb_r * (1.8 if _is_main else 1.0)
+                _r_width = max(1, int((3 if _is_main else 2) * (1.0 - _sb_t * 0.5)))
+                # 색상: 중심 화이트 → 끝 핑크퍼플
+                _r_end_x = _sb_center + math.cos(_r_angle) * _r_len
+                _r_end_y = _sb_center + math.sin(_r_angle) * _r_len
+                _r_alpha = min(255, int(_sb_alpha * (0.9 if _is_main else 0.5)))
+                pygame.draw.line(_sb_surf, (220, 160, 255, _r_alpha),
+                                 (_sb_center, _sb_center),
+                                 (int(_r_end_x), int(_r_end_y)), _r_width)
+
+            # 중심 글로우 (밝은 화이트-핑크)
+            _sb_glow_r = max(2, int(_sb_r * 0.5))
+            pygame.draw.circle(_sb_surf, (255, 220, 255, min(255, _sb_alpha)),
+                               (_sb_center, _sb_center), _sb_glow_r)
+            _sb_core_r = max(1, int(_sb_r * 0.25))
+            pygame.draw.circle(_sb_surf, (255, 245, 255, min(255, _sb_alpha)),
+                               (_sb_center, _sb_center), _sb_core_r)
+
+            SCREEN.blit(_sb_surf, (_sb_cx - _sb_center, _sb_cy - _sb_center),
+                        special_flags=pygame.BLEND_ADD)
+
+            # 프레임 진행
+            _viper_starburst_timer += 1
+            if _viper_starburst_timer >= _VIPER_STARBURST_FRAME_DUR:
+                _viper_starburst_timer = 0
+                _viper_starburst_frame += 1
+                if _viper_starburst_frame >= _VIPER_STARBURST_FRAMES:
+                    _viper_starburst_active = False
+        except Exception:
+            _viper_starburst_active = False
 
     # ⚡ 바이퍼 쉐도우 백스텝 에너지파 렌더링
     if _viper_ss_wave_active:
@@ -146665,6 +146758,12 @@ def handle_ball():
                         _sk_snd.play()
                 except Exception:
                     pass
+                # 스타버스트 타격 이펙트 트리거
+                _viper_starburst_active = True
+                _viper_starburst_x = float(BALL.centerx)
+                _viper_starburst_y = float(BALL.centery)
+                _viper_starburst_frame = 0
+                _viper_starburst_timer = 0
                 # 🪙 쉐도우 킥 타격 골드 보너스
                 try:
                     add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
