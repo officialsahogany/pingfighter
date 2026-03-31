@@ -1099,39 +1099,6 @@ def spawn_dark_red_impact(x, y, count=20, intensity=1.0):
             'rot_speed': random.uniform(-0.4, 0.4),
         })
 
-    # 2) 충격 플래시 (순간적으로 밝은 원형 번쩍임)
-    dark_red_impact_particles.append({
-        'x': x, 'y': y,
-        'vx': 0, 'vy': 0,
-        'life': 8,
-        'max_life': 8,
-        'color': (255, 120, 80),
-        'size': 30.0 * intensity,
-        'alpha': 200,
-        'gravity': 0, 'friction': 1.0,
-        'type': 'flash',
-        'rotation': 0, 'rot_speed': 0,
-    })
-
-    # 3) 검붉은 잔류 연기 (타격 잔여감)
-    for _ in range(int(6 * intensity)):
-        angle = random.uniform(0, 2 * math.pi)
-        speed = random.uniform(0.5, 2.0)
-        dark_red_impact_particles.append({
-            'x': x + random.randint(-5, 5),
-            'y': y + random.randint(-5, 5),
-            'vx': math.cos(angle) * speed,
-            'vy': math.sin(angle) * speed,
-            'life': random.randint(18, 30),
-            'max_life': 30,
-            'color': (80, 0, 0),
-            'size': random.uniform(6.0, 12.0),
-            'alpha': 150,
-            'gravity': -0.03,  # 약간 위로 떠오름
-            'friction': 0.98,
-            'type': 'smoke',
-            'rotation': 0, 'rot_speed': 0,
-        })
 
 
 def update_dark_red_impact_particles():
@@ -1154,10 +1121,6 @@ def update_dark_red_impact_particles():
         if p['type'] == 'shard':
             p['rotation'] += p['rot_speed']
             p['size'] *= 0.96
-        elif p['type'] == 'flash':
-            p['size'] *= 1.15  # 빠르게 팽창
-        elif p['type'] == 'smoke':
-            p['size'] *= 1.01  # 약간 팽창
 
         if p['life'] > 0:
             new_particles.append(p)
@@ -1182,19 +1145,7 @@ def draw_dark_red_impact_particles(surface=None):
         color = p['color']
         ptype = p['type']
 
-        if ptype == 'flash':
-            # 중심에서 빠르게 팽창하는 밝은 원형 플래시
-            flash_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(flash_surf, (*color[:3], alpha), (size, size), size)
-            screen.blit(flash_surf, (x - size, y - size), special_flags=pygame.BLEND_ADD)
-
-        elif ptype == 'smoke':
-            # 검붉은 잔류 연기
-            smoke_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(smoke_surf, (*color[:3], min(alpha, 100)), (size, size), size)
-            screen.blit(smoke_surf, (x - size, y - size))
-
-        elif ptype == 'shard':
+        if ptype == 'shard':
             # 날카로운 파편 (회전하는 마름모)
             rotation = p.get('rotation', 0)
 
