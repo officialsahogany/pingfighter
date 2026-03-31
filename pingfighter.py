@@ -47688,7 +47688,7 @@ _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 (매우
 # === 바이퍼 마샬 킥 (쉐도우 백스텝 연계기: 벽 점프 → 공 돌진) ===
 _viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 백스텝 후 보스가 공 반환 시)
 _viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
-_VIPER_WALL_DIVE_READY_FRAMES = 90       # 연계 윈도우 1.5초 (60fps)
+_VIPER_WALL_DIVE_READY_FRAMES = 180      # 연계 윈도우 3초 (60fps)
 _viper_wall_dive_active = False           # 마샬 킥 진행 중
 _viper_wall_dive_phase = 0                # 0=벽으로 점프, 1=벽 매달림, 2=공으로 돌진
 _viper_wall_dive_start_ms = 0             # 페이즈 시작 시각
