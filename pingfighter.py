@@ -5253,7 +5253,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         pygame.draw.circle(surface, empty_bg_color, (slot_x, slot_y), icon_radius)
         pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
 
-    # === 왼쪽 4슬롯 (빈 슬롯 먼저) ===
+    # === 왼쪽 5슬롯 (빈 슬롯 먼저) ===
     for slot_idx in range(MAX_LEFT_SLOTS):
         angle_deg = all_left_angles[slot_idx]
         angle_rad = math.radians(angle_deg)
@@ -5264,6 +5264,14 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             continue
         else:
             draw_empty_slot(slot_x, slot_y)
+
+    # === 우측 슬롯 (더블 마샬 킥, 1시 방향) ===
+    _dmk_angle = 330  # 1시 방향 (스매셔 클렌즈와 동일)
+    _dmk_rad = math.radians(_dmk_angle)
+    _dmk_slot_x = orb_center_x + int(math.cos(_dmk_rad) * orbit_radius)
+    _dmk_slot_y = orb_center_y + int(math.sin(_dmk_rad) * orbit_radius)
+    if not _viper_double_marshal_kick_unlocked:
+        draw_empty_slot(_dmk_slot_x, _dmk_slot_y)
 
     # === 해금된 메인 스킬 아이콘 그리기 ===
     for i, skill_data in enumerate(unlocked_main_skills):
@@ -5396,8 +5404,8 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
     time_now = pygame.time.get_ticks()
     activation_effect_duration = 400
 
-    # 오른쪽 배치 (25도 기준, 아래로)
-    base_angle = 25
+    # 오른쪽 배치 (330도 = 1시 방향, 스매셔 클렌즈와 동일)
+    base_angle = 330
     angle_step = 28
 
     for i, perk in enumerate(viper_perks):
