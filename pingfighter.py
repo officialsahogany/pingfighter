@@ -48333,9 +48333,12 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     except Exception:
         pass
 
-    # 골드 보너스
+    # 골드 보너스 (쉐도우 백스텝 타격: 16골드, 제트팩 체공 시 x1.5)
     try:
-        add_ingame_gold(4, BALL.centerx, BALL.centery - 20, source="skill")
+        _ss_gold = 16
+        if _viper_jetpack_offset_y < -10:
+            _ss_gold = int(_ss_gold * 1.5)
+        add_ingame_gold(_ss_gold, BALL.centerx, BALL.centery - 20, source="skill")
     except Exception:
         pass
 
@@ -73028,9 +73031,12 @@ def handle_player(keys):
                         _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
                     # 커브 방향: 발사 방향과 같은 쪽으로 (자연스러운 커브)
                     _viper_ps_curve_direction = 1 if ball_vel[0] > 0 else -1
-                    # 🪙 마샬 킥 타격 골드 보너스
+                    # 🪙 마샬 킥 / 팬텀 킥 타격 골드 보너스 (마샬 30, 팬텀 50, 제트팩 체공 시 x1.5)
                     try:
-                        add_ingame_gold(6, BALL.centerx, BALL.centery - 20, source="skill")
+                        _mk_gold = 50 if _viper_is_double_marshal else 30
+                        if _viper_jetpack_offset_y < -10:
+                            _mk_gold = int(_mk_gold * 1.5)
+                        add_ingame_gold(_mk_gold, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
                         pass
                     # 공 타격 후 복귀 전환
@@ -73465,9 +73471,9 @@ def handle_player(keys):
                             # 공을 위로 반사 (속도 변화 없음)
                             ball_vel[1] = -abs(ball_vel[1])
                             _viper_dive_ball_boosted = True
-                            # 🪙 EMP 스트라이크 타격 골드 보너스
+                            # 🪙 EMP 스트라이크 타격 골드 보너스 (20골드)
                             try:
-                                add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
+                                add_ingame_gold(20, BALL.centerx, BALL.centery - 20, source="skill")
                             except Exception:
                                 pass
 
@@ -73503,9 +73509,9 @@ def handle_player(keys):
                         # 공을 위로 반사 (속도 변화 없음)
                         ball_vel[1] = -abs(ball_vel[1])
                         _viper_dive_ball_boosted = True
-                        # 🪙 EMP 스트라이크 타격 골드 보너스
+                        # 🪙 EMP 스트라이크 타격 골드 보너스 (20골드)
                         try:
-                            add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
+                            add_ingame_gold(20, BALL.centerx, BALL.centery - 20, source="skill")
                         except Exception:
                             pass
                         # DIVE STRIKE 텍스트 이펙트
@@ -73703,9 +73709,9 @@ def handle_player(keys):
                 )
                 if _br_blade_rect.colliderect(BALL):
                     _viper_blade_rush_hit_ball = True
-                    # 🪙 에어 블레이드 타격 골드 보너스
+                    # 🪙 에어 블레이드 타격 골드 보너스 (30골드)
                     try:
-                        add_ingame_gold(5, BALL.centerx, BALL.centery - 20, source="skill")
+                        add_ingame_gold(30, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
                         pass
                     # 원래 속도 저장 (보스 반격 시 복귀용)
@@ -73788,6 +73794,11 @@ def handle_player(keys):
                     _viper_nerve_strike_start_ms = _ns_now
                     _viper_ns_hit_confirmed = True
                     _viper_ns_freeze_active = True
+                    # 🪙 베놈 엣지 보스 명중 골드 보너스 (60골드)
+                    try:
+                        add_ingame_gold(60, BOSS.centerx, BOSS.centery - 20, source="skill")
+                    except Exception:
+                        pass
                 else:
                     # 무효 (보스가 피함) → 즉시 복귀
                     _viper_nerve_strike_phase = 2
