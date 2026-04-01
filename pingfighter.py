@@ -48368,13 +48368,13 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     # 보스 회피 발사 — 보스와 일직선일 때 수직 발사 방지
     _ss_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
     _ss_boss_dx = _ss_boss_cx - BALL.centerx
-    if abs(_ss_boss_dx) < 60:
-        # 보스와 거의 일직선 → 커브 방향으로 강하게 편향 (최소 25°)
-        init_angle = curve_dir * random.randint(25, 40)
+    if abs(_ss_boss_dx) < 100:
+        # 보스와 거의 일직선 → 커브 방향으로 강하게 편향 (최소 35°)
+        init_angle = curve_dir * random.randint(35, 50)
     else:
         # 보스 반대편으로 편향
         _ss_away_dir = -1 if _ss_boss_dx > 0 else 1
-        init_angle = _ss_away_dir * random.randint(15, 35)
+        init_angle = _ss_away_dir * random.randint(25, 45)
     rad = math.radians(-90 + init_angle)
     ball_vel[0] = math.cos(rad) * new_speed
     ball_vel[1] = math.sin(rad) * new_speed
@@ -73025,18 +73025,18 @@ def handle_player(keys):
                     _mk_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
                     _mk_ball_cx = BALL.centerx
                     _mk_boss_dx = _mk_boss_cx - _mk_ball_cx  # 보스가 오른쪽이면 양수
-                    if abs(_mk_boss_dx) < 60:
+                    if abs(_mk_boss_dx) < 100:
                         # 보스와 거의 일직선 → 벽 반대편으로 강하게 편향
                         if _viper_wall_dive_wall_x < WIDTH // 2:
-                            _mk_angle = math.radians(_mk_rand.uniform(-45, -25))
+                            _mk_angle = math.radians(_mk_rand.uniform(-40, -20))
                         else:
-                            _mk_angle = math.radians(_mk_rand.uniform(-155, -135))
+                            _mk_angle = math.radians(_mk_rand.uniform(-160, -140))
                     else:
                         # 보스 반대편으로 발사 (보스가 오른쪽이면 왼쪽으로)
                         if _mk_boss_dx > 0:
-                            _mk_angle = math.radians(_mk_rand.uniform(-140, -105))
+                            _mk_angle = math.radians(_mk_rand.uniform(-150, -115))
                         else:
-                            _mk_angle = math.radians(_mk_rand.uniform(-75, -40))
+                            _mk_angle = math.radians(_mk_rand.uniform(-65, -30))
                     ball_vel[0] = math.cos(_mk_angle) * _wd_new_spd
                     ball_vel[1] = math.sin(_mk_angle) * _wd_new_spd
                     # 스타버스트 타격 이펙트 트리거
@@ -141567,15 +141567,19 @@ def calculate_bounce(paddle):
     vector = pygame.math.Vector2(0, direction).rotate_rad(angle)
     # === 보스 패들 중앙 히트 시 수평 속도 보존 ===
     # 보스가 공을 받아칠 때 rel_x ≈ 0이면 공이 수직으로 반사되는 문제 수정
-    # 공의 기존 수평 방향을 일부 보존하여 자연스러운 반사각 생성
-    if not is_player_paddle and abs(rel_x) < 0.25:
+    # 공의 기존 수평 방향을 보존하여 비스듬한 반사각 생성
+    if not is_player_paddle and abs(rel_x) < 0.35:
         incoming_dx = ball_vel[0]  # 공의 기존 수평 속도
-        if abs(incoming_dx) > 1.0:
-            # rel_x가 0에 가까울수록 수평 속도 보존 비율 증가 (최대 40%)
-            preserve_ratio = 0.4 * (1.0 - abs(rel_x) / 0.25)
-            # 기존 수평 방향으로 벡터를 편향
+        if abs(incoming_dx) > 0.5:
+            # rel_x가 0에 가까울수록 수평 속도 보존 비율 증가 (최대 70%)
+            preserve_ratio = 0.7 * (1.0 - abs(rel_x) / 0.35)
             incoming_dir = 1.0 if incoming_dx > 0 else -1.0
             vector.x += incoming_dir * preserve_ratio
+            vector = vector.normalize()
+        elif abs(vector.x) < 0.15:
+            # 수평 속도가 거의 없고 반사도 수직인 경우 → 강제 편향
+            _force_dir = 1.0 if random.random() > 0.5 else -1.0
+            vector.x += _force_dir * 0.5
             vector = vector.normalize()
     # === 다이나믹 물리효과 ===
     #  추가 속도 증가량 추적 (드라이브 외 일반 가속)
