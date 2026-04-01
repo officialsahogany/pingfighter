@@ -1810,6 +1810,16 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None,
         "body_part": "accessory"  # 장신구 부위
+    },
+    {
+        "name": "venom_mist_gauntlet",  # 🧤 독안개장갑 패시브 아이템 (바이퍼 전용, 팔 부위)
+        "color": (80, 200, 80),  # 독기 녹색
+        "effect": "venom_mist_gauntlet",
+        "icon": None,
+        "chance": 0.004,  # 0.4% 스폰 확률
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "arm"  # 팔 부위
     }
 ]
 
@@ -1871,6 +1881,7 @@ adversity_armor_obtained = False  # 역경의 갑옷 아이템 획득 여부
 shrapnel_armor_obtained = False  # 파편갑옷 아이템 획득 여부
 soul_burst_obtained = False  # 소울버스트 아이템 획득 여부
 sage_ring_obtained = False  # 현자의 반지 아이템 획득 여부
+venom_mist_gauntlet_obtained = False  # 독안개장갑 아이템 획득 여부
 
 
 active_item_slot = None
@@ -1957,7 +1968,8 @@ unlocked_items = {
     "soap": True,  # 비누
     "soul_burst": True,  # 소울버스트
     "strange_vial": True,  # 기묘한 약병
-    "sage_ring": True  # 현자의 반지
+    "sage_ring": True,  # 현자의 반지
+    "venom_mist_gauntlet": True  # 독안개장갑 (바이퍼 전용)
 }
 
 # 현재 떠 있는 아이템 리스트
@@ -1976,7 +1988,8 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "adversity_armor",
     "shrapnel_armor",
     "soul_burst",
-    "sage_ring"
+    "sage_ring",
+    "venom_mist_gauntlet"
 }
 
 
@@ -2043,6 +2056,16 @@ def reset_items():
     adversity_armor_obtained = False  # adversity_armor 획득 상태 초기화
     sage_ring_obtained = False  # sage_ring 획득 상태 초기화
 
+    global venom_mist_gauntlet_obtained
+    venom_mist_gauntlet_obtained = False  # venom_mist_gauntlet 획득 상태 초기화
+
+    # 독안개장갑 효과 리셋
+    try:
+        from item_effects.venom_mist_gauntlet import reset_all as _vmg_reset
+        _vmg_reset()
+    except Exception:
+        pass
+
     # 전설 아이템 획득 상태는 게임 세션 동안 유지되므로 초기화하지 않음
     # (한 번 획득한 전설 아이템은 더 이상 필드에 나타나지 않도록 함)
 
@@ -2099,7 +2122,7 @@ def reset_items():
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained, pandora_legacy_obtained, lucky_coin_obtained, adversity_armor_obtained
+    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained, pandora_legacy_obtained, lucky_coin_obtained, adversity_armor_obtained, venom_mist_gauntlet_obtained
 
     debug_spawn = os.environ.get("PINGF_DEBUG_ITEMS", "0").lower() in ("1", "true", "yes", "on")
     if debug_spawn:
@@ -2143,6 +2166,10 @@ def spawn_random_item():
         if item["name"] == "repair_kit" and selected_character != "blacksmith":
             continue
         if item["name"] == "berserk_potion" and selected_character != "blacksmith":
+            continue
+
+        # 독안개장갑은 바이퍼 전용
+        if item["name"] == "venom_mist_gauntlet" and selected_character != "viper":
             continue
 
         # slot_add는 패시브 파밍 허용 (장착 슬롯 상한은 별도 로직으로 제한)
@@ -2237,6 +2264,9 @@ def spawn_random_item():
         if item["name"] == "sage_ring" and sage_ring_obtained and not _allow_duplicate_passive("sage_ring"):
             continue
 
+        if item["name"] == "venom_mist_gauntlet" and venom_mist_gauntlet_obtained and not _allow_duplicate_passive("venom_mist_gauntlet"):
+            continue
+
         # gold_bar 중복 스폰 방지
         if item["name"] == "gold_bar" and gold_bar_obtained:
             continue
@@ -2295,7 +2325,8 @@ def spawn_random_item():
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy",
         "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
-        "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"
+        "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
+        "venom_mist_gauntlet"
     }
 
     for item in available_items:
@@ -2559,7 +2590,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {

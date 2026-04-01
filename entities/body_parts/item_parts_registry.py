@@ -95,6 +95,13 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_back_parts import PandoraLegacyPart
         return PandoraLegacyPart(block)
 
+    elif item_name == "venom_mist_gauntlet":
+        if side == "right":
+            from entities.body_parts.item_arm_parts import VenomMistGauntletRightPart
+            return VenomMistGauntletRightPart(block)
+        from entities.body_parts.item_arm_parts import VenomMistGauntletPart
+        return VenomMistGauntletPart(block)
+
     elif item_name == "sage_ring":
         # 현자의 반지는 장신구 - 시각적 파츠 없음 (아이콘만 표시)
         return None
@@ -103,7 +110,7 @@ def get_item_part(item_name: str, block: int = 9,
 
 
 # 양팔 착용 가능한 아이템 목록
-DUAL_ARM_ITEMS = {"commando_arm", "gold_digger"}
+DUAL_ARM_ITEMS = {"commando_arm", "gold_digger", "venom_mist_gauntlet"}
 
 # 전설 양손 무기 (weapon + shield 슬롯 동시 사용)
 LEGENDARY_WEAPON_ITEMS = {"ragnarok_hammer", "poseidon_trident"}
@@ -299,6 +306,7 @@ ITEM_SLOT_MAP = {
     "shrapnel_armor": "torso",
     "commando_arm": "l_arm",    # 첫 번째는 l_arm, 두 번째는 r_arm
     "gold_digger": "l_arm",     # 첫 번째는 l_arm, 두 번째는 r_arm
+    "venom_mist_gauntlet": "l_arm",  # 독안개장갑: 첫 번째 l_arm, 두 번째 r_arm
     "ragnarok_hammer": "weapon",
     "poseidon_trident": "weapon",
     "transcendent_crown": "head",

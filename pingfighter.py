@@ -81,6 +81,7 @@ bulkup_body_size_pct = 0
 bulletproof_hat_resist_pct = 0
 sage_ring_speed_penalty_pct = 0  # 현자의 반지 이동속도 감소 패널티 (10~20%)
 sage_ring_body_penalty_pct = 0   # 현자의 반지 몸집크기 감소 패널티 (10~20%)
+venom_mist_trigger_chance_pct = 40  # 독안개장갑 발동확률 (30~50%)
 horn_charge_boss_knockback_active = False
 horn_charge_player_knockback_active = False
 spiked_helmet_knockback_resist_pct = 0
@@ -3807,16 +3808,6 @@ def trigger_viper_skill_cooldown(skill_name: str):
     """바이퍼 스킬 쿨타임 시작"""
     global _viper_skill_cooldowns, _viper_tooltip_pause_accumulated
     _viper_skill_cooldowns[skill_name] = (pygame.time.get_ticks(), _viper_tooltip_pause_accumulated)
-
-    # 스킬 사용 시 골드 보너스
-    skill_gold = calculate_skill_gold_reward(skill_name)
-    if skill_gold > 0:
-        try:
-            player_x = PLAYER.centerx if 'PLAYER' in globals() else GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
-            player_y = PLAYER.centery if 'PLAYER' in globals() else INTERNAL_HEIGHT - 50
-            add_ingame_gold(skill_gold, player_x, player_y - 30, source="skill")
-        except:
-            add_ingame_gold(skill_gold, source="skill")
 
 
 def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
@@ -15447,7 +15438,8 @@ def _get_random_passive_for_treasure():
         "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
         "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch",
         "bluetooth_ring", "star_detector", "foul_whistle", "bulletproof_hat", "spiked_helmet",
-        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"
+        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
+        "venom_mist_gauntlet"
     ]
 
     if passive_pool:
@@ -26292,6 +26284,7 @@ ITEM_SLOT_BASE_MAP = {
     "bulkup": "top",
     "life_elixir": "top",
     "commando_arm": "arm",
+    "venom_mist_gauntlet": "arm",
     "master": "arm",
     "ragnarok_hammer": "arm",
     "poseidon_trident": "arm",
@@ -26402,6 +26395,9 @@ PASSIVE_OPTION_RANGES = {
     "sage_ring": [
         {"label": "이동속도 감소", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "sage_speed_penalty_pct", "reverse": True},
         {"label": "몸집크기 감소", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "sage_body_penalty_pct", "reverse": True},
+    ],
+    "venom_mist_gauntlet": [
+        {"label": "발동확률", "min": 30, "max": 50, "unit": "%", "prefix": "", "key": "mist_trigger_chance_pct"},
     ],
     "sensor": [
         {"label": "자동대쉬 쿨타임", "min": 13, "max": 20, "unit": "초", "prefix": "", "key": "sensor_cooldown_sec", "reverse": True},
@@ -27198,6 +27194,15 @@ def apply_roll_bonuses_from_equipped():
             val = _get_roll_value(item, "sage_body_penalty_pct")
             if val is not None:
                 globals()["sage_ring_body_penalty_pct"] = val
+        elif name == "venom_mist_gauntlet":
+            val = _get_roll_value(item, "mist_trigger_chance_pct")
+            if val is not None:
+                globals()["venom_mist_trigger_chance_pct"] = val
+                try:
+                    from item_effects.venom_mist_gauntlet import set_trigger_chance
+                    set_trigger_chance(val)
+                except Exception:
+                    pass
 
     # 스택형 보너스들 한 번에 적용
     globals()["fuel_pouch_bonus"] = fuel_pouch_total_bonus
@@ -27410,6 +27415,15 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val = _get_roll_value(item, "sage_body_penalty_pct")
         if val is not None:
             globals()["sage_ring_body_penalty_pct"] = val
+    elif name == "venom_mist_gauntlet":
+        val = _get_roll_value(item, "mist_trigger_chance_pct")
+        if val is not None:
+            globals()["venom_mist_trigger_chance_pct"] = val
+            try:
+                from item_effects.venom_mist_gauntlet import set_trigger_chance
+                set_trigger_chance(val)
+            except Exception:
+                pass
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -27583,6 +27597,26 @@ def sync_equipped_passive_effects():
     sync_bool("odins_eye", "items.odins_eye_obtained")
     sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
     sync_bool("sage_ring", "items.sage_ring_obtained")
+    sync_bool("venom_mist_gauntlet", "items.venom_mist_gauntlet_obtained")
+
+    # 독안개장갑: 장착 시 효과 활성화/비활성화 + 롤옵션 적용
+    try:
+        from item_effects.venom_mist_gauntlet import (
+            activate_venom_mist_gauntlet, deactivate_venom_mist_gauntlet,
+            set_trigger_chance, set_enhancement_bonus,
+        )
+        if "venom_mist_gauntlet" in equipped_names:
+            activate_venom_mist_gauntlet()
+            vmg_item = next((i for i in equipped_items if i.get("name") == "venom_mist_gauntlet"), None)
+            if vmg_item:
+                apply_roll_bonuses_from_item(vmg_item)
+                enh_pct = vmg_item.get("enhancement_bonus_pct", 0)
+                set_enhancement_bonus(enh_pct)
+        else:
+            deactivate_venom_mist_gauntlet()
+            globals()["venom_mist_trigger_chance_pct"] = 40
+    except Exception:
+        pass
 
     # 현자의 반지: 장착 시 모든 퍽 레벨 +1 (고정 효과) + 패널티 롤옵션 적용
     global sage_ring_perk_bonus, sage_ring_speed_penalty_pct, sage_ring_body_penalty_pct
@@ -28672,6 +28706,17 @@ except Exception as e:
     commando_arm_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     pygame.draw.circle(commando_arm_icon, (139, 69, 19), (16, 16), 12)
     pygame.draw.circle(commando_arm_icon, (160, 82, 45), (16, 16), 8)
+
+# 독안개장갑 아이콘 로드
+venom_mist_gauntlet_icon = None
+try:
+    venom_mist_gauntlet_icon = pygame.image.load(resource_path("items/venom_mist_gauntlet.png")).convert_alpha()
+    venom_mist_gauntlet_icon = pygame.transform.scale(venom_mist_gauntlet_icon, (ICON_SIZE, ICON_SIZE))
+except Exception as e:
+    print(f"Failed to load venom mist gauntlet icon: {e}")
+    venom_mist_gauntlet_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+    pygame.draw.circle(venom_mist_gauntlet_icon, (80, 200, 80), (16, 16), 12)
+    pygame.draw.circle(venom_mist_gauntlet_icon, (60, 30, 80), (16, 16), 8)
 
 # 블루투스링 아이콘 로드
 bluetooth_ring_icon = None  # 전역 변수로 선언
@@ -58920,6 +58965,12 @@ def apply_effect(effect_name, item_data=None):
         items.commando_arm_count = min(getattr(items, "commando_arm_count", 0) + 1, 2)
         # 효과는 투척 시점에 자동 적용됨
         print("!     ,   50% ,   10% ,   50% !")
+    elif effect_name == "venom_mist_gauntlet":  # 🧤 독안개장갑 패시브 아이템 활성화
+        import items
+        items.venom_mist_gauntlet_obtained = True
+        from item_effects.venom_mist_gauntlet import activate_venom_mist_gauntlet
+        activate_venom_mist_gauntlet()
+        print("[VenomMistGauntlet] 독안개장갑 활성화!")
     elif effect_name == "technical_vest":  # 테크니컬조끼 패시브 아이템 활성화
         vest_state = {
             'current_stage': current_stage
@@ -73815,6 +73866,13 @@ def handle_player(keys):
                         _viper_skill_gold_this_frame = True
                     except Exception:
                         pass
+                    # 🧤 독안개장갑: 베놈 엣지 적중 시 독안개 발동 판정
+                    try:
+                        from item_effects.venom_mist_gauntlet import try_spawn_mist
+                        if try_spawn_mist(float(BOSS.centerx), float(BOSS.centery)):
+                            print("[VenomMistGauntlet] 독안개 영역 생성!")
+                    except Exception:
+                        pass
                 else:
                     # 무효 (보스가 피함) → 즉시 복귀
                     _viper_nerve_strike_phase = 2
@@ -80620,7 +80678,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -80661,7 +80719,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"]:
         return
 
     # 최대 3개까지만 보관
@@ -81707,6 +81765,19 @@ def store_passive_item(item_data):
             from item_effects.soul_burst import get_soul_burst_instance
             sb = get_soul_burst_instance()
             sb.activate()
+        item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "venom_mist_gauntlet":
+        # 독안개장갑 패시브 아이템 (바이퍼 전용, 팔 부위)
+        # 베놈 엣지 적중 시 30~50% 확률로 보스 주변에 독안개 영역 생성
+        # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
+        if not items.venom_mist_gauntlet_obtained:
+            items.venom_mist_gauntlet_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "venom_mist_gauntlet")
+            from item_effects.venom_mist_gauntlet import activate_venom_mist_gauntlet
+            activate_venom_mist_gauntlet()
         item_data["type"] = "passive"
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -106839,6 +106910,37 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
+    # 🧤 독안개장갑 독안개 영역 렌더링
+    try:
+        from item_effects.venom_mist_gauntlet import is_mist_field_active as _vmg_is_active
+        if _vmg_is_active():
+            from item_effects.venom_mist_gauntlet import (
+                get_mist_position, get_mist_radius, get_mist_alpha, get_mist_particles,
+            )
+            _vmg_mx, _vmg_my = get_mist_position()
+            _vmg_r = get_mist_radius()
+            _vmg_alpha = get_mist_alpha()
+            if _vmg_alpha > 0:
+                # 독안개 영역 원형 (반투명 녹색)
+                _vmg_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                _vmg_base_alpha = int(40 * _vmg_alpha)
+                pygame.draw.circle(_vmg_surf, (40, 160, 40, _vmg_base_alpha),
+                                   (int(_vmg_mx), int(_vmg_my)), _vmg_r)
+                # 테두리 글로우
+                pygame.draw.circle(_vmg_surf, (80, 220, 80, int(60 * _vmg_alpha)),
+                                   (int(_vmg_mx), int(_vmg_my)), _vmg_r, 2)
+                # 파티클 렌더링
+                for _vmg_p in get_mist_particles():
+                    _vmg_pa = int(_vmg_p['alpha'] * _vmg_alpha)
+                    if _vmg_pa > 0:
+                        pygame.draw.circle(_vmg_surf,
+                                           (60, 180, 60, _vmg_pa),
+                                           (int(_vmg_p['x']), int(_vmg_p['y'])),
+                                           _vmg_p['size'])
+                SCREEN.blit(_vmg_surf, (0, 0))
+    except Exception:
+        pass
+
     # ⚔ 바이퍼 에어 블레이드 검기 렌더링 (Ultra Premium Crescent Blade Wave)
     if _viper_blade_rush_active:
         try:
@@ -130807,7 +130909,7 @@ def show_item_manager_menu():
     PASSIVE_SLOT_ORDER = [
         ("머리", ["bulletproof_hat", "spiked_helmet"]),
         ("상의", ["technical_vest", "bulkup", "adversity_armor", "shrapnel_armor"]),
-        ("팔", ["commando_arm", "master", "smartphone", "gold_digger"]),
+        ("팔", ["commando_arm", "master", "smartphone", "gold_digger", "venom_mist_gauntlet"]),
         ("벨트", ["gravitybelt", "speedgear", "sensor"]),
         ("무릎", ["knee_pads", "dashgear", "soul_burst"]),
         ("신발", ["speedboots", "spikeboots"]),
@@ -131007,7 +131109,8 @@ def show_item_manager_menu():
         {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
         {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")},
         {"name": "soul_burst", "type": "passive", "icon": get_item_icon("soul_burst")},
-        {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")}
+        {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")},
+        {"name": "venom_mist_gauntlet", "type": "passive", "icon": get_item_icon("venom_mist_gauntlet")}
     ]
 
     # 전설 아이템 추가
@@ -134533,6 +134636,73 @@ def get_item_icon(item_name):
             sx = cx + int(dx * (gem_r + 3) * s)
             sy = gem_y + int(dy * (gem_r + 3) * s)
             pygame.draw.circle(icon_surface, (255, 255, 230), (sx, sy), max(1, int(1.2 * s)))
+
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
+    if item_name == "venom_mist_gauntlet":
+        # 독안개장갑 아이콘 - 독기가 감도는 보라+녹색 장갑
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        s = ICON_SIZE / 48
+
+        # 색상 팔레트
+        gauntlet_dark = (40, 20, 50)
+        gauntlet_mid = (60, 30, 80)
+        gauntlet_light = (80, 45, 100)
+        venom_green = (80, 200, 80)
+        venom_glow = (120, 255, 120)
+        mist_color = (60, 180, 60)
+
+        # 배경 독기 오라
+        for i in range(3):
+            r = int((16 - i * 3) * s)
+            aura_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+            pygame.draw.circle(aura_surf, (60, 180, 60, 25 - i * 7), (cx, cy), r)
+            icon_surface.blit(aura_surf, (0, 0))
+
+        # 장갑 본체 (손등 부분)
+        glove_w = int(22 * s)
+        glove_h = int(28 * s)
+        glove_rect = pygame.Rect(cx - glove_w // 2, cy - glove_h // 2 + int(2 * s), glove_w, glove_h)
+        pygame.draw.rect(icon_surface, gauntlet_dark, glove_rect, border_radius=int(5 * s))
+        pygame.draw.rect(icon_surface, gauntlet_mid,
+                         glove_rect.inflate(-int(3 * s), -int(3 * s)),
+                         border_radius=int(4 * s))
+
+        # 손가락 (3개 - 상단)
+        for i in range(3):
+            fx = cx - int(7 * s) + i * int(7 * s)
+            fy = glove_rect.top
+            finger_rect = pygame.Rect(fx - int(2.5 * s), fy - int(8 * s), int(5 * s), int(10 * s))
+            pygame.draw.rect(icon_surface, gauntlet_mid, finger_rect, border_radius=int(2 * s))
+            pygame.draw.rect(icon_surface, gauntlet_light, finger_rect.inflate(-int(2 * s), -int(2 * s)),
+                             border_radius=int(1.5 * s))
+
+        # 중앙 독기 순환 코어
+        core_r = max(3, int(5 * s))
+        pygame.draw.circle(icon_surface, venom_green, (cx, cy + int(2 * s)), core_r)
+        pygame.draw.circle(icon_surface, venom_glow, (cx, cy + int(2 * s)), max(1, core_r - int(2 * s)))
+
+        # 독기 라인 (손등에서 손가락으로)
+        for i in range(3):
+            fx = cx - int(7 * s) + i * int(7 * s)
+            pygame.draw.line(icon_surface, venom_green,
+                             (cx, cy + int(2 * s)),
+                             (fx, glove_rect.top - int(4 * s)), max(1, int(1 * s)))
+
+        # 독안개 파티클 (장갑 주변)
+        mist_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        particle_offsets = [(-10, -8), (10, -6), (-8, 8), (12, 6), (0, -12)]
+        for dx, dy in particle_offsets:
+            px = cx + int(dx * s)
+            py = cy + int(dy * s)
+            pygame.draw.circle(mist_surf, (60, 200, 60, 80), (px, py), max(2, int(2.5 * s)))
+        icon_surface.blit(mist_surf, (0, 0))
+
+        # 외곽 글로우
+        pygame.draw.rect(icon_surface, mist_color, glove_rect, 1, border_radius=int(5 * s))
 
         icon_cache[item_name] = icon_surface
         return icon_surface
@@ -151659,6 +151829,7 @@ def handle_boss():
     global waiting_start_time, wait_delay
     global boss_throwing, boss_throw_timer  #  Stage 5 화염탄 관련 변수
     global ball_vel, boss_special_gauge
+    global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS  # 독안개장갑 게이지 감소용
     global ragnarok_shock_playing  #  라그나로크 전기 감전 사운드 상태
     global _judgment_lightning_stun_top_timer, _judgment_wind_stun_top_timer
     global boss_stunned_timer, boss_knockback_vel  #  화염병 스턴 관련 변수
@@ -152736,6 +152907,26 @@ def handle_boss():
     if boss_plasma_slowed:
         plasma_slow_mult = get_boss_plasma_slow_multiplier()
         slow_multiplier *= plasma_slow_mult
+    # 🧤 독안개장갑 둔화 효과 적용
+    try:
+        from item_effects.venom_mist_gauntlet import is_mist_field_active, update_mist
+        if is_mist_field_active():
+            _vmg_result = update_mist(
+                float(BOSS.centerx), float(BOSS.centery), current_stage,
+                {}
+            )
+            if _vmg_result['slow_active']:
+                slow_multiplier *= (1.0 - _vmg_result['slow_amount'])
+            # 보스 게이지 감소 적용
+            if _vmg_result['gauge_drained'] > 0:
+                boss_special_gauge = max(0, boss_special_gauge - _vmg_result['gauge_drained'])
+            # 홍련 구슬 감소 적용 (스테이지 6 = 코드상 stage5)
+            if _vmg_result['hongryun_orb_drained'] > 0 and current_stage == 5:
+                hongryun_hit_count = max(0, hongryun_hit_count - _vmg_result['hongryun_orb_drained'])
+                if hongryun_hit_count < HONGRYUN_MAX_HITS:
+                    hongryun_ready = False
+    except Exception:
+        pass
     # 🏟️ 투기장 영웅 스킬 둔화/속도증가 효과 적용
     if arena_mode_enabled and arena_skill_manager:
         try:
@@ -168207,7 +168398,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -168309,6 +168500,7 @@ def get_item_description(item_name):
         "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
         "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 130% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
         "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
+        "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑입니다. 베놈 엣지 적중 시 일정 확률로 보스 주변에 독안개 영역을 생성합니다. 독안개 안에 있는 보스는 이동속도가 50% 감소하고, 1초당 보스 게이지가 50 감소합니다. 스테이지 6 홍련의 경우 1초당 구슬게이지 1개가 감소합니다. [롤옵션] 발동확률 30~50%",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

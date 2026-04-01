@@ -3103,6 +3103,7 @@ class BuildingInterior:
             {"name": "shrapnel_armor", "base_price": 900, "korean": "파편갑옷"},
             {"name": "soul_burst", "base_price": 750, "korean": "소울버스트"},
             {"name": "sage_ring", "base_price": 900, "korean": "현자의 반지"},
+            {"name": "venom_mist_gauntlet", "base_price": 700, "korean": "독안개장갑"},
         ]
 
         # 전설 아이템 목록 (5% 확률)
@@ -3685,6 +3686,7 @@ class BuildingInterior:
             {"name": "shrapnel_armor", "korean": "파편갑옷", "rarity": "epic", "type": "passive"},
             {"name": "lucky_coin", "korean": "럭키코인", "rarity": "epic", "type": "passive"},
             {"name": "soul_burst", "korean": "소울버스트", "rarity": "epic", "type": "passive"},
+            {"name": "venom_mist_gauntlet", "korean": "독안개장갑", "rarity": "rare", "type": "passive"},
             # 에픽 패시브 (3개만)
             {"name": "sensor", "korean": "위험감지센서", "rarity": "epic", "type": "passive"},
             {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic", "type": "passive"},
@@ -8244,6 +8246,7 @@ class BuildingInterior:
             "angel_blessing": "신화",
             "sacred_laurel": "신화",
             "odins_eye": "허리",
+            "venom_mist_gauntlet": "팔",
         }
         return slot_map.get(item_name, "패시브")
 
@@ -8294,6 +8297,7 @@ class BuildingInterior:
             "soul_burst": "소울버스트",
             "strange_vial": "기묘한 약병",
             "sage_ring": "현자의 반지",
+            "venom_mist_gauntlet": "독안개장갑",
         }
         return name_map.get(item_name, item_name)
 
@@ -8340,6 +8344,7 @@ class BuildingInterior:
             "hero_seal": 3333,
             # 유틸리티
             "lucky_coin": 800,
+            "venom_mist_gauntlet": 700,
         }
         return price_map.get(item_name, 500)
 
