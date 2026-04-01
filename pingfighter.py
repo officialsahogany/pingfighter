@@ -48365,7 +48365,16 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     new_speed = max(cur_speed * speed_mult, 10.0)
     _viper_speed_boost_active = True
     _viper_speed_boost_original = cur_speed
-    init_angle = curve_dir * 10
+    # 보스 회피 발사 — 보스와 일직선일 때 수직 발사 방지
+    _ss_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
+    _ss_boss_dx = _ss_boss_cx - BALL.centerx
+    if abs(_ss_boss_dx) < 60:
+        # 보스와 거의 일직선 → 커브 방향으로 강하게 편향 (최소 25°)
+        init_angle = curve_dir * random.randint(25, 40)
+    else:
+        # 보스 반대편으로 편향
+        _ss_away_dir = -1 if _ss_boss_dx > 0 else 1
+        init_angle = _ss_away_dir * random.randint(15, 35)
     rad = math.radians(-90 + init_angle)
     ball_vel[0] = math.cos(rad) * new_speed
     ball_vel[1] = math.sin(rad) * new_speed
@@ -73011,16 +73020,23 @@ def handle_player(keys):
                         _wd_new_spd = max(_wd_cur_spd * 1.8, 10.0)  # 80% 증가
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
-                    # 벽→보스 방향 발사 (랜덤 각도로 보스 예측 어렵게)
+                    # 보스 회피 발사 — 보스 X 위치 반대편으로 편향된 각도
                     import random as _mk_rand
-                    # 발사 각도: -50° ~ -130° (위쪽 반원 범위 내 랜덤)
-                    # 벽 위치에 따라 반대편으로 편향
-                    if _viper_wall_dive_wall_x < WIDTH // 2:
-                        # 좌측 벽 → 오른쪽 상단으로 (각도 -40° ~ -80°)
-                        _mk_angle = math.radians(_mk_rand.uniform(-80, -40))
+                    _mk_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
+                    _mk_ball_cx = BALL.centerx
+                    _mk_boss_dx = _mk_boss_cx - _mk_ball_cx  # 보스가 오른쪽이면 양수
+                    if abs(_mk_boss_dx) < 60:
+                        # 보스와 거의 일직선 → 벽 반대편으로 강하게 편향
+                        if _viper_wall_dive_wall_x < WIDTH // 2:
+                            _mk_angle = math.radians(_mk_rand.uniform(-45, -25))
+                        else:
+                            _mk_angle = math.radians(_mk_rand.uniform(-155, -135))
                     else:
-                        # 우측 벽 → 왼쪽 상단으로 (각도 -100° ~ -140°)
-                        _mk_angle = math.radians(_mk_rand.uniform(-140, -100))
+                        # 보스 반대편으로 발사 (보스가 오른쪽이면 왼쪽으로)
+                        if _mk_boss_dx > 0:
+                            _mk_angle = math.radians(_mk_rand.uniform(-140, -105))
+                        else:
+                            _mk_angle = math.radians(_mk_rand.uniform(-75, -40))
                     ball_vel[0] = math.cos(_mk_angle) * _wd_new_spd
                     ball_vel[1] = math.sin(_mk_angle) * _wd_new_spd
                     # 스타버스트 타격 이펙트 트리거
