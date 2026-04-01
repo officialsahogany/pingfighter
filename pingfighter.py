@@ -48303,6 +48303,7 @@ _viper_ps_curve_total_frames = 50     # 현재 커브의 총 프레임 (그라�
 _viper_ps_curve_force = 2.0           # 현재 커브의 강도 (그라데이션 반영)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 기본값 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 기본값
+_VIPER_PS_CURVE_MAX_DX = 4.5          # 커브로 추가되는 최대 수평 속도
 
 # 쉐도우 백스텝 그라데이션 타격 상수
 _VIPER_SS_HIT_SPEED_MIN = 1.2         # 가장자리 공속 배율 (20% 증가)
@@ -73184,17 +73185,23 @@ def handle_player(keys):
             if not _viper_ss_hit_consumed:
                 _viper_ss_kick_ready = False
 
-    # 바이퍼 팬텀 스트라이크 커브 (매 프레임 공에 횡방향 힘 적용, 그라데이션 강도 반영)
+    # 바이퍼 팬텀 스트라이크 커브 (깔끔한 호 궤적 — 감쇠 힘 + 수평 속도 제한)
     if _viper_ps_curve_active:
         _viper_ps_curve_timer -= 1
         if _viper_ps_curve_timer <= 0:
             _viper_ps_curve_active = False
         else:
-            # 사인파 기반 커브 — 점점 강해졌다 약해지는 S자 궤적
             _curve_total = _viper_ps_curve_total_frames if _viper_ps_curve_total_frames > 0 else _VIPER_PS_CURVE_FRAMES
             _curve_progress = 1.0 - (_viper_ps_curve_timer / _curve_total)
-            _curve_strength = math.sin(_curve_progress * math.pi) * _viper_ps_curve_force
-            ball_vel[0] += _viper_ps_curve_direction * _curve_strength
+            # 감쇠 커브 — 초반에 강하게 휘고 점차 약해지는 자연스러운 호
+            _curve_strength = (1.0 - _curve_progress) * _viper_ps_curve_force * 0.45
+            _curve_dx_added = _viper_ps_curve_direction * _curve_strength
+            # 커브로 인한 수평 속도가 상한을 넘지 않도록 제한 (벽 반사 방지)
+            _new_dx = ball_vel[0] + _curve_dx_added
+            _curve_max = _VIPER_PS_CURVE_MAX_DX
+            if abs(_new_dx) > abs(ball_vel[0]):  # 커브 방향으로 속도가 증가할 때만 제한
+                _new_dx = max(-_curve_max, min(_curve_max, _new_dx))
+            ball_vel[0] = _new_dx
 
     # === 바이퍼 제트팩 시스템 업데이트 ===
     if selected_character_type == "viper" and not is_odins_eye_transformed():
