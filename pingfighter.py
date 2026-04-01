@@ -114894,20 +114894,20 @@ def draw_objects():
                 hangar_door_open = True
                 hangar_door_timer = current_time
                 # 난이도별 인터셉터 출격 수
-                # 주니어리그: 1~2개, 챔피언리그: 4~8개, 신화리그: 4~8개
+                # 주니어리그: 1~2개, 챔피언리그: 2~3개, 신화리그: 3~4개
                 if ai_mode == "junior":
                     num_interceptors = random.randint(1, 2)
                 elif ai_mode == "champion":
-                    num_interceptors = random.randint(4, 8)
+                    num_interceptors = random.randint(2, 3)
                 else:  # mythic
-                    num_interceptors = random.randint(4, 8)
+                    num_interceptors = random.randint(3, 4)
                 for i in range(num_interceptors):
                     interceptor_launch_queue.append({
                         'launch_time': current_time + 200 * i,  # 0.2초 간격으로 출격
                         'id': f"interceptor_{current_time}_{i}"
                     })
-                # 다음 출격 쿨다운 설정 (시간도 늘려서 빈도 감소)
-                interceptor_cooldown = random.randint(15000, 18000)
+                # 다음 출격 쿨다운 설정
+                interceptor_cooldown = random.randint(18000, 22000)
             # 격납고 문 애니메이션 (제거됨 - 게이지바 제거 요청)
             # if hangar_door_open:
             #     door_elapsed = current_time - hangar_door_timer
