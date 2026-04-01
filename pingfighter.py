@@ -72986,26 +72986,25 @@ def handle_player(keys):
                     # 팬텀 킥: 보랏빛 암흑 에너지 파편 폭발
                     if _viper_is_double_marshal:
                         _ph_bx, _ph_by = float(BALL.centerx), float(BALL.centery)
-                        for _phi in range(55):
+                        for _phi in range(85):
                             _ph_ang = _wd_rand.uniform(0, math.tau)
-                            _ph_spd = _wd_rand.uniform(2.5, 9.0)
-                            _ph_life = _wd_rand.randint(25, 55)
-                            # 어둡고 깊은 보라/자주/암흑 색조
+                            _ph_spd = _wd_rand.uniform(3.5, 13.0)
+                            _ph_life = _wd_rand.randint(30, 65)
                             _ph_palette = [
-                                (60, 10, 90), (80, 15, 120), (45, 5, 70),
-                                (100, 20, 140), (30, 0, 50), (70, 0, 100),
-                                (90, 30, 110), (50, 10, 80),
+                                (80, 15, 120), (110, 25, 160), (60, 8, 95),
+                                (130, 30, 180), (40, 0, 65), (95, 10, 140),
+                                (120, 40, 155), (70, 12, 110),
                             ]
                             _ph_col = _ph_palette[_phi % len(_ph_palette)]
                             _viper_phantom_hit_particles.append({
-                                'x': _ph_bx + _wd_rand.uniform(-6, 6),
-                                'y': _ph_by + _wd_rand.uniform(-6, 6),
-                                'vx': math.cos(_ph_ang) * _ph_spd + _wd_rand.uniform(-0.5, 0.5),
-                                'vy': math.sin(_ph_ang) * _ph_spd + _wd_rand.uniform(-0.5, 0.5),
+                                'x': _ph_bx + _wd_rand.uniform(-8, 8),
+                                'y': _ph_by + _wd_rand.uniform(-8, 8),
+                                'vx': math.cos(_ph_ang) * _ph_spd + _wd_rand.uniform(-1.0, 1.0),
+                                'vy': math.sin(_ph_ang) * _ph_spd + _wd_rand.uniform(-1.0, 1.0),
                                 'life': _ph_life, 'max_life': _ph_life,
-                                'size': _wd_rand.uniform(2.5, 6.0),
+                                'size': _wd_rand.uniform(3.5, 8.0),
                                 'color': _ph_col,
-                                'glow': _wd_rand.random() < 0.3,  # 30%에 미세 글로우
+                                'glow': _wd_rand.random() < 0.5,
                             })
                     # 마샬 킥 강한 커브 적용
                     _viper_ps_curve_active = True
@@ -108173,78 +108172,86 @@ def draw_objects():
     if _viper_phantom_aura_active and _viper_wall_dive_active and _viper_is_double_marshal:
         try:
             _pa_now = pygame.time.get_ticks()
-            _pa_elapsed = (_pa_now - _viper_phantom_aura_start_ms) * 0.001  # 초 단위
+            _pa_elapsed = (_pa_now - _viper_phantom_aura_start_ms) * 0.001
             _pa_cx = float(PLAYER.centerx)
             _pa_cy = float(PLAYER.centery)
             _pa_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
-            # --- 1. 내부 암흑 글로우 (깊은 보라/흑색, 부드럽게 맥동) ---
-            _pa_pulse = 0.7 + 0.3 * math.sin(_pa_elapsed * 3.5)
-            _pa_inner_r = int(38 * _pa_pulse)
-            for _pa_ir in range(_pa_inner_r, max(0, _pa_inner_r - 25), -4):
-                _pa_ia = int(30 * (1.0 - (_pa_inner_r - _pa_ir) / 25.0) * _pa_pulse)
+            # --- 1. 내부 암흑 글로우 (크고 강렬한 맥동) ---
+            _pa_pulse = 0.6 + 0.4 * math.sin(_pa_elapsed * 4.5)
+            _pa_inner_r = int(55 * _pa_pulse)
+            for _pa_ir in range(_pa_inner_r, max(0, _pa_inner_r - 40), -3):
+                _pa_ia = int(70 * (1.0 - (_pa_inner_r - _pa_ir) / 40.0) * _pa_pulse)
                 if _pa_ia > 1:
-                    pygame.draw.circle(_pa_surf, (35, 5, 55, _pa_ia), (int(_pa_cx), int(_pa_cy)), _pa_ir)
+                    pygame.draw.circle(_pa_surf, (50, 5, 75, _pa_ia), (int(_pa_cx), int(_pa_cy)), _pa_ir)
+            # 코어 글로우 (밝은 보라 핵심)
+            _pa_core_r = int(18 * _pa_pulse)
+            pygame.draw.circle(_pa_surf, (120, 30, 170, int(90 * _pa_pulse)), (int(_pa_cx), int(_pa_cy)), _pa_core_r)
+            pygame.draw.circle(_pa_surf, (80, 15, 120, int(50 * _pa_pulse)), (int(_pa_cx), int(_pa_cy)), _pa_core_r + 8)
 
-            # --- 2. 다크 플레임 나선 (4개 암흑 불꽃 나선, 느린 회전) ---
-            for _pa_si in range(4):
-                _pa_spiral_base = (_pa_si / 4.0) * math.tau + _pa_elapsed * 1.8
-                for _pa_sj in range(12):
-                    _pa_t = _pa_sj / 12.0
-                    _pa_ang = _pa_spiral_base + _pa_t * 2.8  # 나선 감김 정도
-                    _pa_r = 14 + _pa_t * 38  # 안쪽에서 바깥으로
-                    _pa_wobble = math.sin(_pa_elapsed * 5.0 + _pa_sj * 0.7 + _pa_si) * 3.0
+            # --- 2. 다크 플레임 나선 (6개, 더 길고 두껍고 강렬) ---
+            for _pa_si in range(6):
+                _pa_spiral_base = (_pa_si / 6.0) * math.tau + _pa_elapsed * 2.5
+                for _pa_sj in range(18):
+                    _pa_t = _pa_sj / 18.0
+                    _pa_ang = _pa_spiral_base + _pa_t * 3.5
+                    _pa_r = 12 + _pa_t * 55
+                    _pa_wobble = math.sin(_pa_elapsed * 6.0 + _pa_sj * 0.6 + _pa_si) * 5.0
                     _pa_sx = _pa_cx + math.cos(_pa_ang) * (_pa_r + _pa_wobble)
                     _pa_sy = _pa_cy + math.sin(_pa_ang) * (_pa_r + _pa_wobble)
-                    # 바깥으로 갈수록 투명 + 크기 감소
-                    _pa_flame_a = int(110 * (1.0 - _pa_t * 0.7) * _pa_pulse)
-                    _pa_flame_sz = max(1, int(4.5 * (1.0 - _pa_t * 0.5)))
+                    _pa_flame_a = int(180 * (1.0 - _pa_t * 0.6) * _pa_pulse)
+                    _pa_flame_sz = max(1, int(6.0 * (1.0 - _pa_t * 0.4)))
                     if _pa_flame_a > 3:
-                        # 그라데이션: 안쪽=짙은 보라, 바깥=거의 검정
-                        _pa_cr = int(50 * (1.0 - _pa_t * 0.6))
-                        _pa_cg = int(8 * (1.0 - _pa_t * 0.8))
-                        _pa_cb = int(75 * (1.0 - _pa_t * 0.4))
+                        _pa_cr = int(75 * (1.0 - _pa_t * 0.5))
+                        _pa_cg = int(12 * (1.0 - _pa_t * 0.7))
+                        _pa_cb = int(110 * (1.0 - _pa_t * 0.3))
                         pygame.draw.circle(_pa_surf, (_pa_cr, _pa_cg, _pa_cb, _pa_flame_a),
                                            (int(_pa_sx), int(_pa_sy)), _pa_flame_sz)
-                        # 미세 하이라이트 (보라빛 속심)
-                        if _pa_sj < 4:
-                            _pa_hi_a = int(40 * (1.0 - _pa_t * 2.0) * _pa_pulse)
+                        # 보라빛 속심 하이라이트 (안쪽 절반)
+                        if _pa_sj < 8:
+                            _pa_hi_a = int(80 * (1.0 - _pa_t * 1.5) * _pa_pulse)
                             if _pa_hi_a > 2:
-                                pygame.draw.circle(_pa_surf, (100, 30, 130, _pa_hi_a),
+                                pygame.draw.circle(_pa_surf, (140, 40, 180, _pa_hi_a),
                                                    (int(_pa_sx), int(_pa_sy)), max(1, _pa_flame_sz - 1))
 
-            # --- 3. 외곽 암흑 연기 파티클 (8개, 느리게 회전하며 떠다님) ---
-            for _pa_pi in range(8):
-                _pa_pp = (_pa_pi / 8.0) * math.tau
-                _pa_p_spd = 0.6 + (_pa_pi % 3) * 0.3
+            # --- 3. 외곽 암흑 연기 파티클 (14개, 크고 밝게) ---
+            for _pa_pi in range(14):
+                _pa_pp = (_pa_pi / 14.0) * math.tau
+                _pa_p_spd = 0.8 + (_pa_pi % 3) * 0.4
                 _pa_p_ang = _pa_pp + _pa_elapsed * _pa_p_spd
-                _pa_p_r = 42 + math.sin(_pa_elapsed * 2.0 + _pa_pp) * 8
+                _pa_p_r = 50 + math.sin(_pa_elapsed * 2.5 + _pa_pp) * 12
                 _pa_px = _pa_cx + math.cos(_pa_p_ang) * _pa_p_r
                 _pa_py = _pa_cy + math.sin(_pa_p_ang) * _pa_p_r
-                _pa_p_a = int(55 + 25 * math.sin(_pa_elapsed * 3.0 + _pa_pi))
-                _pa_p_sz = 3 + (_pa_pi % 2)
+                _pa_p_a = int(100 + 50 * math.sin(_pa_elapsed * 3.5 + _pa_pi))
+                _pa_p_sz = 4 + (_pa_pi % 3)
                 if _pa_p_a > 5:
-                    pygame.draw.circle(_pa_surf, (25, 3, 40, _pa_p_a),
+                    pygame.draw.circle(_pa_surf, (40, 5, 60, _pa_p_a),
                                        (int(_pa_px), int(_pa_py)), _pa_p_sz)
-                    # 잔상 꼬리 (2단)
-                    for _pa_pt in range(2):
-                        _pa_tail_ang = _pa_p_ang - _pa_p_spd * 0.08 * (_pa_pt + 1)
-                        _pa_tail_r = _pa_p_r - _pa_pt * 2
+                    # 잔상 꼬리 (3단)
+                    for _pa_pt in range(3):
+                        _pa_tail_ang = _pa_p_ang - _pa_p_spd * 0.1 * (_pa_pt + 1)
+                        _pa_tail_r = _pa_p_r - _pa_pt * 3
                         _pa_tx = _pa_cx + math.cos(_pa_tail_ang) * _pa_tail_r
                         _pa_ty = _pa_cy + math.sin(_pa_tail_ang) * _pa_tail_r
-                        _pa_ta = int(_pa_p_a * 0.35 * (1.0 - _pa_pt * 0.4))
+                        _pa_ta = int(_pa_p_a * 0.5 * (1.0 - _pa_pt * 0.3))
                         if _pa_ta > 2:
-                            pygame.draw.circle(_pa_surf, (20, 2, 35, _pa_ta),
-                                               (int(_pa_tx), int(_pa_ty)), max(1, _pa_p_sz - _pa_pt - 1))
+                            pygame.draw.circle(_pa_surf, (30, 3, 50, _pa_ta),
+                                               (int(_pa_tx), int(_pa_ty)), max(1, _pa_p_sz - _pa_pt))
 
-            # --- 4. 외곽 흑연 링 (단일, 희미한 맥동) ---
-            _pa_ring_r = int(55 + math.sin(_pa_elapsed * 2.5) * 5)
-            _pa_ring_a = int(25 + 15 * math.sin(_pa_elapsed * 4.0))
+            # --- 4. 외곽 흑연 링 (이중, 강한 맥동) ---
+            _pa_ring_r = int(65 + math.sin(_pa_elapsed * 3.0) * 8)
+            _pa_ring_a = int(60 + 35 * math.sin(_pa_elapsed * 5.0))
             if _pa_ring_a > 3:
-                pygame.draw.circle(_pa_surf, (40, 5, 60, _pa_ring_a),
-                                   (int(_pa_cx), int(_pa_cy)), _pa_ring_r, 2)
-                pygame.draw.circle(_pa_surf, (60, 10, 85, _pa_ring_a // 2),
-                                   (int(_pa_cx), int(_pa_cy)), _pa_ring_r + 5, 1)
+                pygame.draw.circle(_pa_surf, (60, 8, 90, _pa_ring_a),
+                                   (int(_pa_cx), int(_pa_cy)), _pa_ring_r, 3)
+                pygame.draw.circle(_pa_surf, (80, 15, 115, _pa_ring_a // 2),
+                                   (int(_pa_cx), int(_pa_cy)), _pa_ring_r + 6, 2)
+                # 두 번째 외곽 링 (더 크고 희미)
+                _pa_ring2_r = _pa_ring_r + 18
+                _pa_ring2_a = int(_pa_ring_a * 0.4)
+                if _pa_ring2_a > 2:
+                    pygame.draw.circle(_pa_surf, (45, 5, 70, _pa_ring2_a),
+                                       (int(_pa_cx), int(_pa_cy)), _pa_ring2_r, 2)
 
             SCREEN.blit(_pa_surf, (0, 0))
         except Exception:
@@ -108258,25 +108265,31 @@ def draw_objects():
             for _php in _viper_phantom_hit_particles:
                 _php['x'] += _php['vx']
                 _php['y'] += _php['vy']
-                _php['vx'] *= 0.96  # 감속
-                _php['vy'] *= 0.96
-                _php['vy'] += 0.06  # 미세 중력
+                _php['vx'] *= 0.97
+                _php['vy'] *= 0.97
+                _php['vy'] += 0.04
                 _php['life'] -= 1
                 if _php['life'] > 0:
                     _php_alive.append(_php)
                     _php_t = _php['life'] / _php['max_life']
-                    _php_a = int(200 * _php_t)
-                    _php_sz = max(1, int(_php['size'] * _php_t))
+                    _php_a = int(255 * min(1.0, _php_t * 1.3))
+                    _php_sz = max(1, int(_php['size'] * (0.4 + _php_t * 0.6)))
                     _php_c = _php['color']
+                    # 외곽 글로우 (모든 파편에 적용)
+                    if _php_sz > 1:
+                        _php_ga = int(_php_a * 0.35)
+                        if _php_ga > 3:
+                            pygame.draw.circle(_php_surf, (min(255, _php_c[0] + 30), _php_c[1] + 5, min(255, _php_c[2] + 40), _php_ga),
+                                               (int(_php['x']), int(_php['y'])), _php_sz + 3)
                     # 메인 파편
                     pygame.draw.circle(_php_surf, (*_php_c, _php_a),
                                        (int(_php['x']), int(_php['y'])), _php_sz)
-                    # 글로우 파편 (30%만)
+                    # 밝은 코어 (50%에 적용)
                     if _php.get('glow') and _php_sz > 1:
-                        _php_ga = int(_php_a * 0.3)
-                        if _php_ga > 2:
-                            pygame.draw.circle(_php_surf, (_php_c[0] + 40, _php_c[1] + 10, min(255, _php_c[2] + 50), _php_ga),
-                                               (int(_php['x']), int(_php['y'])), _php_sz + 2)
+                        _php_ca = int(_php_a * 0.5)
+                        if _php_ca > 3:
+                            pygame.draw.circle(_php_surf, (min(255, _php_c[0] + 80), _php_c[1] + 20, min(255, _php_c[2] + 70), _php_ca),
+                                               (int(_php['x']), int(_php['y'])), max(1, _php_sz - 1))
             _viper_phantom_hit_particles = _php_alive
             SCREEN.blit(_php_surf, (0, 0))
         except Exception:
