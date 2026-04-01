@@ -180,9 +180,10 @@ class Dynamite:
             if proj["y"] <= self.BOSS_AREA_Y:
                 # 설치 상태로 전환 - X 좌표를 게임 영역 내로 제한
                 placed_x = max(self.GAME_AREA_LEFT + 20, min(self.GAME_AREA_RIGHT - 20, proj["x"]))
+                # 보스 패들(Y=25) 뒤쪽 벽 근처에 설치 (Y=10~30)
                 placed = {
                     "x": placed_x,
-                    "y": max(30, proj["y"]),  # 화면 밖으로 나가지 않게
+                    "y": random.randint(10, 30),  # 보스 패들 뒤쪽 벽 근처
                     "countdown": self.COUNTDOWN_FRAMES,
                     "active": True,
                     "pulse_timer": 0,
