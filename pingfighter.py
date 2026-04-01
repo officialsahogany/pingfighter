@@ -72727,9 +72727,10 @@ def handle_player(keys):
             _wd_cy = _viper_wall_dive_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_start_y) * _wd_ease + _wd_arc
             PLAYER.centerx = int(_wd_cx)
             PLAYER.centery = int(_wd_cy)
-            # 거미줄 라인 생성 (출발점 → 현재 위치)
+            # 로프 라인: 현재 위치에서 바닥으로 늘어짐 (줄을 타고 올라가는 느낌)
+            _wd_floor_y = 720.0
             _viper_wall_dive_web_lines = [
-                (_viper_wall_dive_start_x, _viper_wall_dive_start_y, _wd_cx, _wd_cy)
+                (_wd_cx, _wd_cy, _wd_cx, _wd_floor_y)
             ]
             # 잔상 파티클
             if _wd_rand.random() < 0.6:
@@ -72748,17 +72749,12 @@ def handle_player(keys):
                 # 벽 착지 이펙트
                 screen_shake_timer = max(screen_shake_timer, 6)
                 screen_shake_intensity = max(screen_shake_intensity, 3)
-                # 거미줄: 벽 착지점에서 방사형
-                _viper_wall_dive_web_lines = []
-                for _wi in range(5):
-                    _w_angle = math.radians(-60 + _wi * 30)
-                    _w_len = _wd_rand.uniform(30, 80)
-                    _w_dir = -1 if _viper_wall_dive_wall_x > WIDTH // 2 else 1
-                    _viper_wall_dive_web_lines.append((
-                        _viper_wall_dive_wall_x, _viper_wall_dive_wall_y,
-                        _viper_wall_dive_wall_x + math.cos(_w_angle) * _w_len * _w_dir,
-                        _viper_wall_dive_wall_y + math.sin(_w_angle) * _w_len,
-                    ))
+                # 로프: 벽 착지점에서 바닥으로 늘어짐
+                _wd_floor_y = 720.0
+                _viper_wall_dive_web_lines = [
+                    (_viper_wall_dive_wall_x, _viper_wall_dive_wall_y,
+                     _viper_wall_dive_wall_x, _wd_floor_y)
+                ]
 
         elif _viper_wall_dive_phase == 1:
             # Phase 1: 벽 매달림 (스파이더맨 포즈, 공 위치 스냅샷)
