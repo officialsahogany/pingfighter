@@ -48303,7 +48303,6 @@ _viper_ps_curve_total_frames = 50     # 현재 커브의 총 프레임 (그라�
 _viper_ps_curve_force = 2.0           # 현재 커브의 강도 (그라데이션 반영)
 _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 기본값 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 기본값
-_VIPER_PS_CURVE_MAX_DX = 4.5          # 커브로 추가되는 최대 수평 속도
 
 # 쉐도우 백스텝 그라데이션 타격 상수
 _VIPER_SS_HIT_SPEED_MIN = 1.2         # 가장자리 공속 배율 (20% 증가)
@@ -48378,6 +48377,7 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     rad = math.radians(-90 + init_angle)
     ball_vel[0] = math.cos(rad) * new_speed
     ball_vel[1] = math.sin(rad) * new_speed
+    print(f"[DEBUG 쉐도우백스텝] 발사각={-90+init_angle:.1f}°(편향={init_angle}) | ball=({BALL.centerx:.0f},{BALL.centery:.0f}) boss=({_ss_boss_cx:.0f}) 거리={_ss_boss_dx:.0f} | vel=({ball_vel[0]:.1f},{ball_vel[1]:.1f}) speed={new_speed:.1f} | 일직선={'Y' if abs(_ss_boss_dx)<100 else 'N'}")
 
     # 커브 적용 (그라데이션 반영)
     global _viper_ps_curve_total_frames, _viper_ps_curve_force
@@ -73039,6 +73039,9 @@ def handle_player(keys):
                             _mk_angle = math.radians(_mk_rand.uniform(-65, -30))
                     ball_vel[0] = math.cos(_mk_angle) * _wd_new_spd
                     ball_vel[1] = math.sin(_mk_angle) * _wd_new_spd
+                    _mk_type = "팬텀킥" if _viper_is_double_marshal else "마샬킥"
+                    _mk_deg = math.degrees(_mk_angle)
+                    print(f"[DEBUG {_mk_type}] 발사각={_mk_deg:.1f}° | ball=({_mk_ball_cx:.0f},{BALL.centery:.0f}) boss=({_mk_boss_cx:.0f}) 거리={_mk_boss_dx:.0f} | vel=({ball_vel[0]:.1f},{ball_vel[1]:.1f}) speed={_wd_new_spd:.1f} | 일직선={'Y' if abs(_mk_boss_dx)<100 else 'N'} 벽={'좌' if _viper_wall_dive_wall_x<WIDTH//2 else '우'}")
                     # 스타버스트 타격 이펙트 트리거
                     _viper_starburst_active = True
                     _viper_starburst_x = float(BALL.centerx)
@@ -73201,7 +73204,7 @@ def handle_player(keys):
             if not _viper_ss_hit_consumed:
                 _viper_ss_kick_ready = False
 
-    # 바이퍼 팬텀 스트라이크 커브 (깔끔한 호 궤적 — 감쇠 힘 + 수평 속도 제한 + 공속 보존)
+    # 바이퍼 팬텀 스트라이크 커브 (깔끔한 호 궤적 — 감쇠 각도 변경 방식)
     if _viper_ps_curve_active:
         _viper_ps_curve_timer -= 1
         if _viper_ps_curve_timer <= 0:
@@ -73209,23 +73212,16 @@ def handle_player(keys):
         else:
             _curve_total = _viper_ps_curve_total_frames if _viper_ps_curve_total_frames > 0 else _VIPER_PS_CURVE_FRAMES
             _curve_progress = 1.0 - (_viper_ps_curve_timer / _curve_total)
-            # 감쇠 커브 — 초반에 강하게 휘고 점차 약해지는 자연스러운 호
-            _curve_strength = (1.0 - _curve_progress) * _viper_ps_curve_force * 0.45
-            _curve_dx_added = _viper_ps_curve_direction * _curve_strength
-            # 커브 적용 전 공속 보존 (커브가 수평만 바꾸고 전체 속도는 유지)
-            _pre_curve_speed = math.hypot(ball_vel[0], ball_vel[1])
-            # 커브로 인한 수평 속도가 상한을 넘지 않도록 제한 (벽 반사 방지)
-            _new_dx = ball_vel[0] + _curve_dx_added
-            _curve_max = _VIPER_PS_CURVE_MAX_DX
-            if abs(_new_dx) > abs(ball_vel[0]):
-                _new_dx = max(-_curve_max, min(_curve_max, _new_dx))
-            ball_vel[0] = _new_dx
-            # 전체 공속을 커브 적용 전과 동일하게 복원 (방향만 변경, 속도 손실 없음)
-            _post_curve_speed = math.hypot(ball_vel[0], ball_vel[1])
-            if _post_curve_speed > 0.1 and _pre_curve_speed > 0.1:
-                _speed_scale = _pre_curve_speed / _post_curve_speed
-                ball_vel[0] *= _speed_scale
-                ball_vel[1] *= _speed_scale
+            # 감쇠 회전 — 공속은 유지하면서 진행 방향만 회전 (초반 강→점차 약)
+            _curve_rot_deg = (1.0 - _curve_progress) * _viper_ps_curve_force * 0.35
+            _curve_rot_rad = math.radians(_viper_ps_curve_direction * _curve_rot_deg)
+            # 현재 속도 벡터를 회전 (크기 보존, 방향만 변경)
+            _old_dx = ball_vel[0]
+            _old_dy = ball_vel[1]
+            _cos_r = math.cos(_curve_rot_rad)
+            _sin_r = math.sin(_curve_rot_rad)
+            ball_vel[0] = _old_dx * _cos_r - _old_dy * _sin_r
+            ball_vel[1] = _old_dx * _sin_r + _old_dy * _cos_r
 
     # === 바이퍼 제트팩 시스템 업데이트 ===
     if selected_character_type == "viper" and not is_odins_eye_transformed():
@@ -141581,6 +141577,9 @@ def calculate_bounce(paddle):
             _force_dir = 1.0 if random.random() > 0.5 else -1.0
             vector.x += _force_dir * 0.5
             vector = vector.normalize()
+    if not is_player_paddle:
+        _dbg_bounce_deg = math.degrees(math.atan2(vector.y, vector.x))
+        print(f"[DEBUG 보스반사] rel_x={rel_x:.3f} incoming_dx={ball_vel[0]:.1f} | vector=({vector.x:.3f},{vector.y:.3f}) 반사각={_dbg_bounce_deg:.1f}° | speed={speed:.1f}")
     # === 다이나믹 물리효과 ===
     #  추가 속도 증가량 추적 (드라이브 외 일반 가속)
     if drive_activated:
