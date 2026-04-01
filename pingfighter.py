@@ -70880,6 +70880,7 @@ def handle_player(keys):
     global blacksmith_turret_state, blacksmith_turret_projectiles, blacksmith_turret_partial_drain
     global blacksmith_turret_manual_cooldown
     global space_just_pressed
+    global _viper_skill_gold_this_frame
     # 코만도 무기 HUD/선택 상태는 이 함수 전반에서 사용되므로 최상단에서 전역 선언
     global soldier_weapon_menu_active, soldier_weapon_hold_frames, soldier_weapon_number_prev
     global soldier_weapon_menu_close_suppress_frames, soldier_weapon_switch_suppress_frames
