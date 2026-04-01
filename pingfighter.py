@@ -106066,223 +106066,28 @@ def check_nemesis_sub_boss_barrier_collision(ball_rect, ball_dy):
     return False
 
 def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
-    """스테이지 6 해양 드론 보스 - 군용 수중 드론 스타일"""
-    import random
-    global laser_cannon_angle, laser_charging, laser_cannon_active, laser_charge_start
-    global shield_antenna_active, stage6_boss_hit_timer, stage6_boss_hit_flash
-    # 피격 효과 타이머 업데이트
-    if stage6_boss_hit_timer > 0:
-        stage6_boss_hit_timer -= 1
-        stage6_boss_hit_flash = (stage6_boss_hit_timer // 4) % 2 == 0
-        if stage6_boss_hit_timer <= 0:
-            stage6_boss_hit_flash = False
-
-    # 해양 드론 크기 (일반 보스와 동일)
-    drone_w = 130
-    drone_h = 40
-    carrier_surface = pygame.Surface((drone_w, drone_h), pygame.SRCALPHA)
-
-    damage_ratio = 1.0 - (boss_current_health / boss_max_health)
-    time_now = pygame.time.get_ticks()
-
-    def apply_hit_effect(color):
-        if stage6_boss_hit_flash:
-            r, g, b = color[:3]
-            return (min(255, r + 120), max(0, g - 30), max(0, b - 30))
-        return color
-
-    cx = drone_w // 2  # 65
-    cy = drone_h // 2  # 20
-
-    # === 메인 바디 (유선형 해양 드론) ===
-    # 하부 그림자
-    pygame.draw.ellipse(carrier_surface, apply_hit_effect((30, 45, 55)),
-                       (10, cy + 8, drone_w - 20, 12))
-
-    # 메인 선체 (유선형 - 앞이 뾰족, 뒤가 넓음)
-    hull_points = [
-        (5, cy),           # 좌측 첨단
-        (15, cy - 12),     # 좌측 상단 곡선
-        (35, cy - 16),     # 좌상단
-        (cx, cy - 18),     # 상단 중앙 (가장 높은 점)
-        (95, cy - 16),     # 우상단
-        (115, cy - 12),    # 우측 상단 곡선
-        (125, cy),         # 우측 첨단
-        (115, cy + 10),    # 우측 하단
-        (95, cy + 14),     # 우하단
-        (cx, cy + 15),     # 하단 중앙
-        (35, cy + 14),     # 좌하단
-        (15, cy + 10),     # 좌측 하단
-    ]
-    # 메인 색상 (짙은 해군 블루-그레이)
-    hull_color = apply_hit_effect((50, 70, 90) if damage_ratio < 0.7 else (40, 55, 70))
-    pygame.draw.polygon(carrier_surface, hull_color, hull_points)
-    # 외곽선
-    pygame.draw.polygon(carrier_surface, apply_hit_effect((70, 95, 120)), hull_points, 2)
-
-    # 상부 장갑 플레이트 (밝은 레이어)
-    upper_plate = [
-        (20, cy - 8), (40, cy - 14), (cx, cy - 16),
-        (90, cy - 14), (110, cy - 8),
-        (105, cy - 3), (25, cy - 3)
-    ]
-    plate_color = apply_hit_effect((65, 85, 110) if damage_ratio < 0.5 else (55, 70, 90))
-    pygame.draw.polygon(carrier_surface, plate_color, upper_plate)
-    pygame.draw.polygon(carrier_surface, apply_hit_effect((85, 110, 140)), upper_plate, 1)
-
-    # === 중앙 센서 돔 (조종 모듈) ===
-    dome_x = cx
-    dome_y = cy - 8
-    # 돔 베이스
-    pygame.draw.ellipse(carrier_surface, apply_hit_effect((55, 75, 100)),
-                       (dome_x - 12, dome_y - 6, 24, 12))
-    # 돔 캐노피 (어두운 유리)
-    pygame.draw.ellipse(carrier_surface, apply_hit_effect((25, 40, 60)),
-                       (dome_x - 8, dome_y - 4, 16, 8))
-    # 센서 라이트 (펄스)
-    sensor_pulse = abs(math.sin(time_now * 0.006))
-    sensor_color = (int(80 + sensor_pulse * 80), int(160 + sensor_pulse * 60), int(220 + sensor_pulse * 35))
-    pygame.draw.circle(carrier_surface, sensor_color, (dome_x, dome_y), 3)
-    pygame.draw.circle(carrier_surface, (200, 230, 255), (dome_x, dome_y), 1)
-
-    # === 좌우 워터젯 / 추진 포드 ===
-    for side in [-1, 1]:
-        pod_x = cx + side * 48
-        pod_y = cy + 2
-        # 포드 바디
-        pod_points = [
-            (pod_x - side * 5, pod_y - 6),
-            (pod_x + side * 12, pod_y - 4),
-            (pod_x + side * 15, pod_y),
-            (pod_x + side * 12, pod_y + 6),
-            (pod_x - side * 5, pod_y + 7),
-            (pod_x - side * 8, pod_y + 2),
-        ]
-        pygame.draw.polygon(carrier_surface, apply_hit_effect((45, 60, 80)), pod_points)
-        pygame.draw.polygon(carrier_surface, apply_hit_effect((60, 80, 105)), pod_points, 1)
-
-        # 워터젯 글로우 (추진)
-        jet_pulse = abs(math.sin(time_now * 0.008 + side * 0.5))
-        jet_color = (int(40 + jet_pulse * 40), int(120 + jet_pulse * 60), int(180 + jet_pulse * 50))
-        jet_x = pod_x + side * 14
-        pygame.draw.circle(carrier_surface, jet_color, (jet_x, pod_y), 4)
-        pygame.draw.circle(carrier_surface, (int(100 + jet_pulse * 80), int(180 + jet_pulse * 50), 255),
-                          (jet_x, pod_y), 2)
-
-        # 이동 중 워터 트레일
-        boss_velocity = abs(boss_speed)
-        if boss_velocity > 0.5:
-            trail_len = int(3 + boss_velocity * 2)
-            for t in range(trail_len):
-                trail_x = jet_x + side * (t * 3 + 5)
-                trail_alpha = max(30, 120 - t * 25)
-                trail_color = (60, int(140 + jet_pulse * 40), int(200 + jet_pulse * 30))
-                pygame.draw.circle(carrier_surface, trail_color, (trail_x, pod_y + random.randint(-1, 1)), max(1, 3 - t))
-
-    # === 하부 수중 센서 어레이 ===
-    # 좌우 소나 노드
-    for i in range(5):
-        node_x = 25 + i * 20
-        node_y = cy + 10
-        node_pulse = abs(math.sin(time_now * 0.004 + i * 0.8))
-        node_color = apply_hit_effect((int(50 + node_pulse * 30), int(80 + node_pulse * 40), int(120 + node_pulse * 50)))
-        pygame.draw.circle(carrier_surface, node_color, (node_x, node_y), 2)
-        if boss_current_health > boss_max_health * 0.3:
-            pygame.draw.circle(carrier_surface, (int(80 + node_pulse * 60), int(140 + node_pulse * 60), 255),
-                              (node_x, node_y), 1)
-
-    # === 전면 수중 라이트 스트립 ===
-    for i in range(7):
-        light_x = 25 + i * 13
-        light_y = cy + 5
-        light_pulse = abs(math.sin(time_now * 0.005 + i * 0.4))
-        light_color = (int(60 + light_pulse * 40), int(100 + light_pulse * 50), int(150 + light_pulse * 60))
-        pygame.draw.rect(carrier_surface, light_color, (light_x, light_y, 6, 2))
-
-    # === 표면 디테일 (리벳, 패널 라인) ===
-    # 수평 패널 라인
-    for i in range(3):
-        line_y = cy - 5 + i * 5
-        line_color = apply_hit_effect((75, 95, 120))
-        pygame.draw.line(carrier_surface, line_color, (22 + i * 3, line_y), (108 - i * 3, line_y), 1)
-
-    # 리벳
-    rivet_positions = [(20, cy - 2), (40, cy - 4), (60, cy - 5), (80, cy - 5),
-                       (100, cy - 4), (110, cy - 2)]
-    for rx, ry in rivet_positions:
-        pygame.draw.circle(carrier_surface, apply_hit_effect((90, 110, 130)), (rx, ry), 1)
-
-    # === 미사일 발사 시스템 (기존 기능 유지) ===
-    global turret_angles, turret_missiles, last_missile_time
-    current_time = pygame.time.get_ticks()
-    # 드론 양쪽에 소형 미사일 포드 (2개)
-    missile_pod_positions = [(25, cy + 3), (105, cy + 3)]
-    score_bonus = min(round_wins, 3)
-    # 점수에 따라 추가 포드
-    extra_pods = [(45, cy + 5), (85, cy + 5), (cx, cy + 8)]
-    missile_pod_positions += extra_pods[:score_bonus]
-
-    for idx, (dx, dy) in enumerate(missile_pod_positions):
-        turret_id = f"turret_{idx}_{dx}_{dy}"
-        if turret_id not in turret_angles:
-            turret_angles[turret_id] = random.randint(0, FULL_ROTATION)
-        turret_angles[turret_id] = (turret_angles[turret_id] + 1) % 120
-        # 미사일 발사
-        if boss_current_health > 0 and random.random() < 0.0015 and boss_confused_timer == 0 and not ball_spawn_animation_active:
-            missile_x = boss_x + dx
-            missile_y = BOSS_Y + dy + 10
-            base_angle = QUARTER_ROTATION
-            spread_angle = random.randint(-30, 30)
-            final_angle = base_angle + spread_angle
-            angle_for_missile = math.radians(final_angle)
-            missile_speed = random.uniform(2, 4)
-            missile_vx = math.cos(angle_for_missile) * missile_speed
-            missile_vy = math.sin(angle_for_missile) * missile_speed
-            new_missile = {
-                'x': missile_x, 'y': missile_y,
-                'vx': missile_vx, 'vy': missile_vy,
-                'age': 0, 'turret_id': turret_id
-            }
-            turret_missiles.append(new_missile)
-
-    # === 손상 효과 ===
-    if damage_ratio > 0.3:
-        for _ in range(int(damage_ratio * 4)):
-            spark_x = random.randint(15, drone_w - 15)
-            spark_y = random.randint(5, drone_h - 8)
-            spark_color = random.choice([(150, 200, 255), (255, 200, 100)])
-            pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), 1)
-
-    if damage_ratio > 0.5:
-        for _ in range(int(damage_ratio * 3)):
-            crack_x = random.randint(20, drone_w - 20)
-            crack_y = random.randint(5, drone_h - 10)
-            crack_len = random.randint(3, 8)
-            pygame.draw.line(carrier_surface, (40, 45, 50),
-                           (crack_x, crack_y), (crack_x + random.randint(-crack_len, crack_len), crack_y + random.randint(-3, 3)), 1)
-
-    health_percent = (boss_current_health / boss_max_health) * 100
-    if health_percent <= 30:
-        fire_count = 2 if health_percent > 10 else 4
-        for _ in range(fire_count):
-            fire_x = random.randint(20, drone_w - 20)
-            fire_y = random.randint(5, drone_h - 10)
-            flame_wave = abs(math.sin(time_now * 0.01 + fire_x))
-            pygame.draw.circle(carrier_surface, (255, 255, 200), (fire_x, fire_y), int(2 + flame_wave))
-            flame_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
-            pygame.draw.circle(flame_surf, (255, 100, 30, 120), (4, 4), 4)
-            carrier_surface.blit(flame_surf, (fire_x - 4, fire_y - 4))
-
-    if health_percent <= 50:
-        smoke_count = max(1, int((50 - health_percent) / 10))
-        for _ in range(smoke_count):
-            smoke_x = random.randint(15, drone_w - 15)
-            smoke_y = random.randint(3, drone_h - 8)
-            smoke_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
-            pygame.draw.circle(smoke_surf, (60, 60, 60, 40), (5, 5), 5)
-            carrier_surface.blit(smoke_surf, (smoke_x - 5, smoke_y - 5))
-
-    return carrier_surface
+    """스테이지 6 네메시스 - 건담 스타일 전투 로봇 (모듈 위임)"""
+    import game_logic.draw_aircraft_carrier_boss_module as _boss_mod
+    # 모듈에 필요한 글로벌 변수 주입
+    _boss_mod.boss_current_health = boss_current_health
+    _boss_mod.boss_max_health = boss_max_health
+    _boss_mod.stage6_boss_hit_timer = stage6_boss_hit_timer
+    _boss_mod.stage6_boss_hit_flash = stage6_boss_hit_flash
+    _boss_mod.laser_cannon_angle = laser_cannon_angle
+    _boss_mod.laser_charging = laser_charging
+    _boss_mod.laser_cannon_active = laser_cannon_active
+    _boss_mod.laser_charge_start = laser_charge_start
+    _boss_mod.shield_antenna_active = shield_antenna_active
+    _boss_mod.boss_confused_timer = boss_confused_timer
+    _boss_mod.BOSS_Y = BOSS_Y
+    _boss_mod.turret_angles = turret_angles
+    _boss_mod.turret_missiles = turret_missiles
+    _boss_mod.last_missile_time = last_missile_time
+    result = _boss_mod.draw_aircraft_carrier_boss(boss_speed, boss_x)
+    # 모듈에서 변경된 글로벌 변수 역동기화
+    globals()['stage6_boss_hit_timer'] = _boss_mod.stage6_boss_hit_timer
+    globals()['stage6_boss_hit_flash'] = _boss_mod.stage6_boss_hit_flash
+    return result
 
 def _build_stage8_walk_pose(base_img, boss_rect):
     """스테이지8 닌자 보스의 걸음 모션을 스프라이트 시트 기반으로 생성한다."""
@@ -108687,7 +108492,7 @@ def draw_objects():
         boss_current_speed = abs(BOSS.x - boss_prev_x) if boss_prev_x else 0
         boss_prev_x = BOSS.x
         boss_img = draw_aircraft_carrier_boss(boss_current_speed, BOSS.x)
-        boss_w, boss_h = 130, 40  # 해양 드론 보스 (일반 보스 동일 크기)
+        boss_w, boss_h = 220, 85  # 건담 스타일 전투 로봇
     else:
         boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
         boss_img.fill(WHITE)
