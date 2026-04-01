@@ -72567,7 +72567,7 @@ def handle_player(keys):
                     _viper_nerve_strike_origin_x = float(PLAYER.centerx)
                     _viper_nerve_strike_origin_y = float(PLAYER.centery)
                     _viper_nerve_strike_target_x = float(BOSS.centerx)
-                    _viper_nerve_strike_target_y = float(BOSS.centery - 40)  # 보스 등뒤 (위쪽)
+                    _viper_nerve_strike_target_y = float(BOSS.centery - (BOSS.height // 2) - 20)  # 보스 등뒤 (높이 기반 동적 계산)
                     _viper_nerve_strike_slash_shown = False
 
                     # 에어 블레이드 스핀 종료 (연계기로 전환)
@@ -73676,7 +73676,7 @@ def handle_player(keys):
                 if _ns_t < 0.8:
                     _ns_track_strength = 0.12 * (1.0 - _ns_t / 0.8)  # 점점 약해지는 추적
                     _viper_nerve_strike_target_x += (float(BOSS.centerx) - _viper_nerve_strike_target_x) * _ns_track_strength
-                    _viper_nerve_strike_target_y += (float(BOSS.centery - 40) - _viper_nerve_strike_target_y) * _ns_track_strength
+                    _viper_nerve_strike_target_y += (float(BOSS.centery - (BOSS.height // 2) - 20) - _viper_nerve_strike_target_y) * _ns_track_strength
                 # 이징: ease-in-out (자연스러운 가감속)
                 _ns_ease = _ns_t * _ns_t * (3.0 - 2.0 * _ns_t)
                 _ns_cur_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _ns_ease
