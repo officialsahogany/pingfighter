@@ -48423,6 +48423,12 @@ _viper_dmk_freeze_active = False     # 팬텀 킥 프리즈 중 (공/보스 정�
 _viper_dmk_freeze_timer = 0          # 프리즈 남은 프레임
 _VIPER_DMK_FREEZE_DURATION = 60      # 프리즈 시간 (1초) — 2배 확장
 
+# 팬텀 킥 흑연 오라 (다크 플레임 나선) — 발동~복귀까지 패들 주변
+_viper_phantom_aura_active = False
+_viper_phantom_aura_start_ms = 0
+# 팬텀 킥 암흑 에너지 파편 파티클 (공 타격 시 폭발)
+_viper_phantom_hit_particles = []
+
 # 바이퍼 스킬 공속 부스트 복귀 시스템
 _viper_speed_boost_active = False     # 공속 부스트 상태 (팬텀 스트라이크/에어 블레이드)
 _viper_speed_boost_original = 0.0     # 부스트 전 원래 공속
@@ -57928,6 +57934,10 @@ def go_to_next_round():
     _viper_double_marshal_ready_timer = 0
     _viper_is_double_marshal = False
     _viper_phantom_kick_knockback_pending = False
+    global _viper_phantom_aura_active, _viper_phantom_aura_start_ms, _viper_phantom_hit_particles
+    _viper_phantom_aura_active = False
+    _viper_phantom_aura_start_ms = 0
+    _viper_phantom_hit_particles = []
     _viper_dive_active = False
     _viper_dive_phase = 0
     _viper_blade_rush_active = False
@@ -72407,6 +72417,7 @@ def handle_player(keys):
         global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer, _viper_starburst_is_double
         global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
         global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
+        global _viper_phantom_aura_active, _viper_phantom_aura_start_ms, _viper_phantom_hit_particles
         global _viper_wall_dive_return_start_x, _viper_wall_dive_return_start_y
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
@@ -72666,6 +72677,9 @@ def handle_player(keys):
             _viper_is_double_marshal = _wd_is_double
             if _wd_is_double:
                 trigger_viper_skill_cooldown("phantom_kick")   # 팬텀 킥 쿨타임 25초
+                # 흑연 오라 활성화
+                _viper_phantom_aura_active = True
+                _viper_phantom_aura_start_ms = pygame.time.get_ticks()
             else:
                 trigger_viper_skill_cooldown("marshal_kick")   # 마샬 킥 쿨타임 15초
             _viper_wall_dive_ready = False
@@ -72969,6 +72983,30 @@ def handle_player(keys):
                         )
                     except Exception:
                         pass
+                    # 팬텀 킥: 보랏빛 암흑 에너지 파편 폭발
+                    if _viper_is_double_marshal:
+                        _ph_bx, _ph_by = float(BALL.centerx), float(BALL.centery)
+                        for _phi in range(55):
+                            _ph_ang = _wd_rand.uniform(0, math.tau)
+                            _ph_spd = _wd_rand.uniform(2.5, 9.0)
+                            _ph_life = _wd_rand.randint(25, 55)
+                            # 어둡고 깊은 보라/자주/암흑 색조
+                            _ph_palette = [
+                                (60, 10, 90), (80, 15, 120), (45, 5, 70),
+                                (100, 20, 140), (30, 0, 50), (70, 0, 100),
+                                (90, 30, 110), (50, 10, 80),
+                            ]
+                            _ph_col = _ph_palette[_phi % len(_ph_palette)]
+                            _viper_phantom_hit_particles.append({
+                                'x': _ph_bx + _wd_rand.uniform(-6, 6),
+                                'y': _ph_by + _wd_rand.uniform(-6, 6),
+                                'vx': math.cos(_ph_ang) * _ph_spd + _wd_rand.uniform(-0.5, 0.5),
+                                'vy': math.sin(_ph_ang) * _ph_spd + _wd_rand.uniform(-0.5, 0.5),
+                                'life': _ph_life, 'max_life': _ph_life,
+                                'size': _wd_rand.uniform(2.5, 6.0),
+                                'color': _ph_col,
+                                'glow': _wd_rand.random() < 0.3,  # 30%에 미세 글로우
+                            })
                     # 마샬 킥 강한 커브 적용
                     _viper_ps_curve_active = True
                     if _viper_is_double_marshal:
@@ -73033,6 +73071,9 @@ def handle_player(keys):
                 _viper_wall_dive_web_lines = []
                 PLAYER.centery = _wd_target_y
                 PLAYER.centerx = _wd_target_x
+                # 팬텀 킥 흑연 오라 비활성화
+                if _viper_is_double_marshal:
+                    _viper_phantom_aura_active = False
 
     # 팬텀 킥 프리즈 타이머 감소
     if _viper_dmk_freeze_active:
@@ -106843,6 +106884,7 @@ def draw_objects():
     global _viper_starburst_active, _viper_starburst_x, _viper_starburst_y, _viper_starburst_frame, _viper_starburst_timer, _viper_starburst_is_double
     global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
     global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
+    global _viper_phantom_aura_active, _viper_phantom_aura_start_ms, _viper_phantom_hit_particles
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
     global _viper_dive_slip_timer
     global special_gauge  #  드라이브 게이지 확인용
@@ -108126,6 +108168,119 @@ def draw_objects():
                     _viper_starburst_active = False
         except Exception:
             _viper_starburst_active = False
+
+    # ✦ 팬텀 킥 흑연 오라 (다크 플레임 나선 — 패들 주변)
+    if _viper_phantom_aura_active and _viper_wall_dive_active and _viper_is_double_marshal:
+        try:
+            _pa_now = pygame.time.get_ticks()
+            _pa_elapsed = (_pa_now - _viper_phantom_aura_start_ms) * 0.001  # 초 단위
+            _pa_cx = float(PLAYER.centerx)
+            _pa_cy = float(PLAYER.centery)
+            _pa_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+            # --- 1. 내부 암흑 글로우 (깊은 보라/흑색, 부드럽게 맥동) ---
+            _pa_pulse = 0.7 + 0.3 * math.sin(_pa_elapsed * 3.5)
+            _pa_inner_r = int(38 * _pa_pulse)
+            for _pa_ir in range(_pa_inner_r, max(0, _pa_inner_r - 25), -4):
+                _pa_ia = int(30 * (1.0 - (_pa_inner_r - _pa_ir) / 25.0) * _pa_pulse)
+                if _pa_ia > 1:
+                    pygame.draw.circle(_pa_surf, (35, 5, 55, _pa_ia), (int(_pa_cx), int(_pa_cy)), _pa_ir)
+
+            # --- 2. 다크 플레임 나선 (4개 암흑 불꽃 나선, 느린 회전) ---
+            for _pa_si in range(4):
+                _pa_spiral_base = (_pa_si / 4.0) * math.tau + _pa_elapsed * 1.8
+                for _pa_sj in range(12):
+                    _pa_t = _pa_sj / 12.0
+                    _pa_ang = _pa_spiral_base + _pa_t * 2.8  # 나선 감김 정도
+                    _pa_r = 14 + _pa_t * 38  # 안쪽에서 바깥으로
+                    _pa_wobble = math.sin(_pa_elapsed * 5.0 + _pa_sj * 0.7 + _pa_si) * 3.0
+                    _pa_sx = _pa_cx + math.cos(_pa_ang) * (_pa_r + _pa_wobble)
+                    _pa_sy = _pa_cy + math.sin(_pa_ang) * (_pa_r + _pa_wobble)
+                    # 바깥으로 갈수록 투명 + 크기 감소
+                    _pa_flame_a = int(110 * (1.0 - _pa_t * 0.7) * _pa_pulse)
+                    _pa_flame_sz = max(1, int(4.5 * (1.0 - _pa_t * 0.5)))
+                    if _pa_flame_a > 3:
+                        # 그라데이션: 안쪽=짙은 보라, 바깥=거의 검정
+                        _pa_cr = int(50 * (1.0 - _pa_t * 0.6))
+                        _pa_cg = int(8 * (1.0 - _pa_t * 0.8))
+                        _pa_cb = int(75 * (1.0 - _pa_t * 0.4))
+                        pygame.draw.circle(_pa_surf, (_pa_cr, _pa_cg, _pa_cb, _pa_flame_a),
+                                           (int(_pa_sx), int(_pa_sy)), _pa_flame_sz)
+                        # 미세 하이라이트 (보라빛 속심)
+                        if _pa_sj < 4:
+                            _pa_hi_a = int(40 * (1.0 - _pa_t * 2.0) * _pa_pulse)
+                            if _pa_hi_a > 2:
+                                pygame.draw.circle(_pa_surf, (100, 30, 130, _pa_hi_a),
+                                                   (int(_pa_sx), int(_pa_sy)), max(1, _pa_flame_sz - 1))
+
+            # --- 3. 외곽 암흑 연기 파티클 (8개, 느리게 회전하며 떠다님) ---
+            for _pa_pi in range(8):
+                _pa_pp = (_pa_pi / 8.0) * math.tau
+                _pa_p_spd = 0.6 + (_pa_pi % 3) * 0.3
+                _pa_p_ang = _pa_pp + _pa_elapsed * _pa_p_spd
+                _pa_p_r = 42 + math.sin(_pa_elapsed * 2.0 + _pa_pp) * 8
+                _pa_px = _pa_cx + math.cos(_pa_p_ang) * _pa_p_r
+                _pa_py = _pa_cy + math.sin(_pa_p_ang) * _pa_p_r
+                _pa_p_a = int(55 + 25 * math.sin(_pa_elapsed * 3.0 + _pa_pi))
+                _pa_p_sz = 3 + (_pa_pi % 2)
+                if _pa_p_a > 5:
+                    pygame.draw.circle(_pa_surf, (25, 3, 40, _pa_p_a),
+                                       (int(_pa_px), int(_pa_py)), _pa_p_sz)
+                    # 잔상 꼬리 (2단)
+                    for _pa_pt in range(2):
+                        _pa_tail_ang = _pa_p_ang - _pa_p_spd * 0.08 * (_pa_pt + 1)
+                        _pa_tail_r = _pa_p_r - _pa_pt * 2
+                        _pa_tx = _pa_cx + math.cos(_pa_tail_ang) * _pa_tail_r
+                        _pa_ty = _pa_cy + math.sin(_pa_tail_ang) * _pa_tail_r
+                        _pa_ta = int(_pa_p_a * 0.35 * (1.0 - _pa_pt * 0.4))
+                        if _pa_ta > 2:
+                            pygame.draw.circle(_pa_surf, (20, 2, 35, _pa_ta),
+                                               (int(_pa_tx), int(_pa_ty)), max(1, _pa_p_sz - _pa_pt - 1))
+
+            # --- 4. 외곽 흑연 링 (단일, 희미한 맥동) ---
+            _pa_ring_r = int(55 + math.sin(_pa_elapsed * 2.5) * 5)
+            _pa_ring_a = int(25 + 15 * math.sin(_pa_elapsed * 4.0))
+            if _pa_ring_a > 3:
+                pygame.draw.circle(_pa_surf, (40, 5, 60, _pa_ring_a),
+                                   (int(_pa_cx), int(_pa_cy)), _pa_ring_r, 2)
+                pygame.draw.circle(_pa_surf, (60, 10, 85, _pa_ring_a // 2),
+                                   (int(_pa_cx), int(_pa_cy)), _pa_ring_r + 5, 1)
+
+            SCREEN.blit(_pa_surf, (0, 0))
+        except Exception:
+            pass
+
+    # ✦ 팬텀 킥 암흑 에너지 파편 파티클 업데이트 + 렌더링
+    if _viper_phantom_hit_particles:
+        try:
+            _php_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            _php_alive = []
+            for _php in _viper_phantom_hit_particles:
+                _php['x'] += _php['vx']
+                _php['y'] += _php['vy']
+                _php['vx'] *= 0.96  # 감속
+                _php['vy'] *= 0.96
+                _php['vy'] += 0.06  # 미세 중력
+                _php['life'] -= 1
+                if _php['life'] > 0:
+                    _php_alive.append(_php)
+                    _php_t = _php['life'] / _php['max_life']
+                    _php_a = int(200 * _php_t)
+                    _php_sz = max(1, int(_php['size'] * _php_t))
+                    _php_c = _php['color']
+                    # 메인 파편
+                    pygame.draw.circle(_php_surf, (*_php_c, _php_a),
+                                       (int(_php['x']), int(_php['y'])), _php_sz)
+                    # 글로우 파편 (30%만)
+                    if _php.get('glow') and _php_sz > 1:
+                        _php_ga = int(_php_a * 0.3)
+                        if _php_ga > 2:
+                            pygame.draw.circle(_php_surf, (_php_c[0] + 40, _php_c[1] + 10, min(255, _php_c[2] + 50), _php_ga),
+                                               (int(_php['x']), int(_php['y'])), _php_sz + 2)
+            _viper_phantom_hit_particles = _php_alive
+            SCREEN.blit(_php_surf, (0, 0))
+        except Exception:
+            _viper_phantom_hit_particles = []
 
     # ✦ 팬텀 킥 프리즈 연출 + 텍스트 렌더링
     # 🐍 팬텀 킥 텍스트 타이머 감소 (렌더링은 draw_objects 맨 끝에서 수행 - 모든 오브젝트 위에 표시)
@@ -116081,13 +116236,24 @@ def draw_objects():
     # 🐍 팬텀 킥 프리즈 연출 (모든 오브젝트 위에 최상단 렌더링)
     if _viper_dmk_freeze_active or _viper_dmk_text_active:
         try:
-            # 프리즈 중: 화면 어둡게 (반투명 검정 오버레이)
+            _dmk_now_ms = pygame.time.get_ticks()
+            # 프리즈 중: 화면 어둡게 (반투명 검정 + 보랏빛 비네트)
             if _viper_dmk_freeze_active:
                 _dmk_freeze_elapsed = _VIPER_DMK_FREEZE_DURATION - _viper_dmk_freeze_timer
                 _dmk_dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                _dmk_dim_alpha = int(120 * min(1.0, _dmk_freeze_elapsed / 6.0))
-                _dmk_dim.fill((0, 0, 0, _dmk_dim_alpha))
+                _dmk_dim_alpha = int(140 * min(1.0, _dmk_freeze_elapsed / 5.0))
+                _dmk_dim.fill((5, 0, 12, _dmk_dim_alpha))
                 SCREEN.blit(_dmk_dim, (0, 0))
+                # 비네트 (가장자리 보랏빛 암흑)
+                _dmk_vig = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                _dmk_vig_a = int(60 * min(1.0, _dmk_freeze_elapsed / 8.0))
+                for _vig_r in range(3):
+                    _vig_inset = _vig_r * 40
+                    _vig_rect = pygame.Rect(_vig_inset, _vig_inset, WIDTH - _vig_inset * 2, HEIGHT - _vig_inset * 2)
+                    _vig_ca = int(_dmk_vig_a * (1.0 - _vig_r * 0.3))
+                    if _vig_ca > 2:
+                        pygame.draw.rect(_dmk_vig, (20, 0, 35, _vig_ca), _vig_rect, max(30, 50 - _vig_r * 15))
+                SCREEN.blit(_dmk_vig, (0, 0))
 
             # 텍스트: 프리즈 중 크게 중앙, 프리즈 후 위로 떠오르며 페이드
             if _viper_dmk_freeze_active:
@@ -116116,24 +116282,56 @@ def draw_objects():
                 try:
                     _dmk_text = "팬텀 킥"
                     _dmk_font = get_font(36)
-                    _dmk_shadow = _dmk_font.render(_dmk_text, True, (0, 0, 0))
-                    _dmk_main = _dmk_font.render(_dmk_text, True, (220, 80, 255))
-                    _dmk_glow = _dmk_font.render(_dmk_text, True, (255, 200, 255))
-                    _dmk_w = _dmk_main.get_width()
-                    _dmk_h = _dmk_main.get_height()
+                    _dmk_w_sample = _dmk_font.render(_dmk_text, True, (255, 255, 255))
+                    _dmk_w = _dmk_w_sample.get_width()
+                    _dmk_h = _dmk_w_sample.get_height()
                     _dmk_x = WIDTH // 2 - _dmk_w // 2
                     _dmk_y = int(HEIGHT // 2 - _dmk_h // 2 + _dmk_y_off)
                     _dmk_shake_x = random.randint(-2, 2) if _dmk_ease < 0.5 and _viper_dmk_freeze_active else 0
                     _dmk_shake_y = random.randint(-1, 1) if _dmk_ease < 0.5 and _viper_dmk_freeze_active else 0
-                    # 글로우
-                    _dmk_glow.set_alpha(int(_dmk_alpha * 0.3))
-                    SCREEN.blit(_dmk_glow, (_dmk_x - 2 + _dmk_shake_x, _dmk_y - 2 + _dmk_shake_y))
-                    # 그림자
+
+                    # --- 다크 오라 글로우 (텍스트 뒤 암흑 빛번짐) ---
+                    _dmk_glow_surf = pygame.Surface((_dmk_w + 60, _dmk_h + 40), pygame.SRCALPHA)
+                    _dmk_glow_cx, _dmk_glow_cy = (_dmk_w + 60) // 2, (_dmk_h + 40) // 2
+                    _dmk_glow_pulse = 0.7 + 0.3 * math.sin(_dmk_now_ms * 0.005)
+                    for _dg_r in range(30, 5, -3):
+                        _dg_a = int(25 * (1.0 - _dg_r / 30.0) * _dmk_glow_pulse * (_dmk_alpha / 255.0))
+                        if _dg_a > 1:
+                            pygame.draw.ellipse(_dmk_glow_surf, (50, 8, 75, _dg_a),
+                                                (_dmk_glow_cx - _dg_r * 3, _dmk_glow_cy - _dg_r,
+                                                 _dg_r * 6, _dg_r * 2))
+                    SCREEN.blit(_dmk_glow_surf,
+                                (_dmk_x - 30 + _dmk_shake_x, _dmk_y - 20 + _dmk_shake_y))
+
+                    # --- 어두운 그림자 (깊은 검정, 약간 큰 오프셋) ---
+                    _dmk_shadow = _dmk_font.render(_dmk_text, True, (10, 0, 15))
                     _dmk_shadow.set_alpha(_dmk_alpha)
                     SCREEN.blit(_dmk_shadow, (_dmk_x + 3 + _dmk_shake_x, _dmk_y + 3 + _dmk_shake_y))
-                    # 메인 텍스트
+
+                    # --- 메인 텍스트 (짙은 보라, 원색 아닌 톤다운) ---
+                    _dmk_main = _dmk_font.render(_dmk_text, True, (160, 50, 200))
                     _dmk_main.set_alpha(_dmk_alpha)
                     SCREEN.blit(_dmk_main, (_dmk_x + _dmk_shake_x, _dmk_y + _dmk_shake_y))
+
+                    # --- 미세 하이라이트 (텍스트 위 은은한 밝은 보라 엣지) ---
+                    _dmk_hi = _dmk_font.render(_dmk_text, True, (200, 120, 230))
+                    _dmk_hi.set_alpha(int(_dmk_alpha * 0.18))
+                    SCREEN.blit(_dmk_hi, (_dmk_x - 1 + _dmk_shake_x, _dmk_y - 1 + _dmk_shake_y))
+
+                    # --- 프리즈 중 텍스트 주변 암흑 파티클 연출 ---
+                    if _viper_dmk_freeze_active:
+                        _dmk_pt_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                        for _dpi in range(14):
+                            _dp_ang = (_dpi / 14.0) * math.tau + _dmk_now_ms * 0.002
+                            _dp_r = 50 + math.sin(_dmk_now_ms * 0.004 + _dpi * 1.2) * 20
+                            _dp_x = WIDTH // 2 + math.cos(_dp_ang) * _dp_r
+                            _dp_y = HEIGHT // 2 + _dmk_y_off + math.sin(_dp_ang) * (_dp_r * 0.4)
+                            _dp_sz = 2 + (_dpi % 3)
+                            _dp_a = int(70 * _dmk_glow_pulse * (_dmk_alpha / 255.0))
+                            if _dp_a > 3:
+                                pygame.draw.circle(_dmk_pt_surf, (45, 5, 65, _dp_a),
+                                                   (int(_dp_x), int(_dp_y)), _dp_sz)
+                        SCREEN.blit(_dmk_pt_surf, (0, 0))
                 except Exception:
                     pass
         except Exception:
@@ -140214,6 +140412,10 @@ def reset_round(is_stage_start=False):
     _viper_double_marshal_ready_timer = 0
     _viper_is_double_marshal = False
     _viper_phantom_kick_knockback_pending = False
+    global _viper_phantom_aura_active, _viper_phantom_aura_start_ms, _viper_phantom_hit_particles
+    _viper_phantom_aura_active = False
+    _viper_phantom_aura_start_ms = 0
+    _viper_phantom_hit_particles = []
     # 바이퍼 베놈 엣지 (신경 타격) 초기화
     global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_combo_used
     global _viper_nerve_strike_slash_shown, _viper_nerve_strike_start_ms
