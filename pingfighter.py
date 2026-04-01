@@ -25564,6 +25564,13 @@ interceptor_launching = False  # 인터셉터 출격 중인지
 interceptor_launch_queue = []  # 출격 대기 중인 인터셉터
 hangar_door_open = False  # 격납고 문 열림 상태
 hangar_door_timer = 0  # 격납고 문 애니메이션 타이머
+# 사출기(런치베이) 돌출 시스템
+launch_bay_protrusion = 0.0  # 돌출 진행도 (0.0 ~ 1.0)
+launch_bay_state = 'retracted'  # retracted, extending, extended, retracting
+launch_bay_max_protrusion = 28  # 최대 돌출 픽셀
+launch_bay_extend_speed = 0.025  # 돌출 속도 (프레임당)
+launch_bay_retract_speed = 0.015  # 수납 속도 (프레임당)
+launch_bay_ready_time = 0  # 돌출 완료 시점 기록
 # 네메시스 보조 보스 패들 (공중부양 드론 우주선)
 nemesis_sub_boss_x = 380  # 보조 보스 X 좌표
 nemesis_sub_boss_y = 70  # 보조 보스 Y 좌표
@@ -106318,6 +106325,7 @@ def draw_objects():
     global turret_angles, turret_missiles, last_missile_time
     global interceptors, interceptor_launch_time, interceptor_cooldown
     global interceptor_launching, interceptor_launch_queue, hangar_door_open, hangar_door_timer
+    global launch_bay_protrusion, launch_bay_state, launch_bay_ready_time
     global player_missile_invulnerable_time  # 미사일 무적 시간
     global round_wins  # 플레이어 득점 (레이저/인터셉터 해금 조건용)
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
@@ -115077,10 +115085,11 @@ def draw_objects():
             # 인터셉터 출격 체크 (혼란 상태가 아닐 때만, 최대 8개 제한)
             max_interceptors = 8
             if not interceptor_launching and current_time - interceptor_launch_time > interceptor_cooldown and boss_confused_timer == 0 and len(interceptors) < max_interceptors:
-                # 출격 준비
+                # 출격 준비 → 사출기 돌출 시작
                 interceptor_launching = True
                 hangar_door_open = True
                 hangar_door_timer = current_time
+                launch_bay_state = 'extending'
                 # 난이도별 인터셉터 출격 수
                 # 주니어리그: 1~2개, 챔피언리그: 2~3개, 신화리그: 3~4개
                 if ai_mode == "junior":
@@ -115091,71 +115100,124 @@ def draw_objects():
                     num_interceptors = random.randint(3, 4)
                 for i in range(num_interceptors):
                     interceptor_launch_queue.append({
-                        'launch_time': current_time + 200 * i,  # 0.2초 간격으로 출격
-                        'id': f"interceptor_{current_time}_{i}"
+                        'launch_time': 0,  # 사출기 돌출 완료 후 시간 재설정
+                        'id': f"interceptor_{current_time}_{i}",
+                        'launch_index': i
                     })
                 # 다음 출격 쿨다운 설정
                 interceptor_cooldown = random.randint(18000, 22000)
-            # 격납고 문 애니메이션 (제거됨 - 게이지바 제거 요청)
-            # if hangar_door_open:
-            #     door_elapsed = current_time - hangar_door_timer
-            #     if door_elapsed < 1000:  # 1초간 열림
-            #         # 격납고 문 그리기
-            #         door_width = int(40 * (door_elapsed / 1000))
-            #         door_x = BOSS.centerx - 20
-            #         door_y = BOSS.bottom - 10
-            #         draw.rect((40, 40, LARGE_SIZE), (door_x, door_y, door_width, 15))
-            #         draw.rect((20, 20, 30), (door_x, door_y, door_width, 15), 2)
-            #         # 내부 빛
-            #         draw.rect((100, 150, 200), (door_x + 2, door_y + 2, door_width - 4, 11))
-            #     else:
-            #         # 문 완전 열림
-            #         door_x = BOSS.centerx - 20
-            #         door_y = BOSS.bottom - 10
-            #         draw.rect((40, 40, 50), (door_x, door_y, 40, 15))
-            #         draw.rect((100, 150, 200), (door_x + 2, door_y + 2, 36, 11))
-            # 인터셉터 출격
-            if interceptor_launch_queue:
+
+            # === 사출기 (런치베이) 돌출/수납 애니메이션 ===
+            if launch_bay_state == 'extending':
+                launch_bay_protrusion = min(1.0, launch_bay_protrusion + launch_bay_extend_speed)
+                if launch_bay_protrusion >= 1.0:
+                    launch_bay_state = 'extended'
+                    launch_bay_ready_time = current_time
+                    # 돌출 완료 → 인터셉터 출격 시간 설정
+                    for i, q in enumerate(interceptor_launch_queue):
+                        q['launch_time'] = current_time + 300 * i  # 0.3초 간격 출격
+            elif launch_bay_state == 'retracting':
+                launch_bay_protrusion = max(0.0, launch_bay_protrusion - launch_bay_retract_speed)
+                if launch_bay_protrusion <= 0.0:
+                    launch_bay_state = 'retracted'
+                    hangar_door_open = False
+
+            # === 사출기 그리기 ===
+            if launch_bay_protrusion > 0.01:
+                bay_protrude = int(launch_bay_protrusion * launch_bay_max_protrusion)
+                bay_x = BOSS.centerx
+                bay_top_y = BOSS.bottom
+                bay_width = 30
+                bay_half = bay_width // 2
+
+                # 사출기 서피스 (투명 배경)
+                bay_surf = pygame.Surface((bay_width + 20, bay_protrude + 12), pygame.SRCALPHA)
+                bw2 = bay_surf.get_width() // 2
+
+                # 사출기 본체 (메탈 프레임)
+                # 좌측 레일
+                pygame.draw.rect(bay_surf, (55, 65, 78), (bw2 - bay_half - 3, 0, 5, bay_protrude + 4))
+                pygame.draw.rect(bay_surf, (78, 90, 105), (bw2 - bay_half - 2, 0, 3, bay_protrude + 4))
+                # 우측 레일
+                pygame.draw.rect(bay_surf, (55, 65, 78), (bw2 + bay_half - 2, 0, 5, bay_protrude + 4))
+                pygame.draw.rect(bay_surf, (78, 90, 105), (bw2 + bay_half - 1, 0, 3, bay_protrude + 4))
+
+                # 중앙 사출 트랙 (에너지 라인)
+                track_pulse = abs(math.sin(current_time * 0.008))
+                track_color = (int(60 + track_pulse * 40), int(100 + track_pulse * 50), int(160 + track_pulse * 60))
+                pygame.draw.rect(bay_surf, (40, 48, 58), (bw2 - bay_half + 3, 0, bay_width - 6, bay_protrude + 2))
+                # 에너지 라인 (세로 2줄)
+                pygame.draw.line(bay_surf, track_color, (bw2 - 5, 0), (bw2 - 5, bay_protrude), 1)
+                pygame.draw.line(bay_surf, track_color, (bw2 + 5, 0), (bw2 + 5, bay_protrude), 1)
+
+                # 사출구 (하단 노즐) - 돌출 완료 시 발광
+                nozzle_y = bay_protrude
+                pygame.draw.rect(bay_surf, (68, 78, 92), (bw2 - bay_half, nozzle_y - 2, bay_width, 6))
+                pygame.draw.rect(bay_surf, (85, 98, 115), (bw2 - bay_half + 2, nozzle_y, bay_width - 4, 4))
+                # 노즐 하이라이트
+                pygame.draw.line(bay_surf, (105, 120, 140), (bw2 - bay_half + 2, nozzle_y), (bw2 + bay_half - 2, nozzle_y), 1)
+
+                if launch_bay_state == 'extended' and interceptor_launch_queue:
+                    # 발사 준비 상태 - 사출구 에너지 글로우
+                    glow_surf = pygame.Surface((bay_width + 8, 10), pygame.SRCALPHA)
+                    glow_pulse2 = 0.6 + 0.4 * abs(math.sin(current_time * 0.012))
+                    glow_color = (int(80 * glow_pulse2), int(150 * glow_pulse2), int(255 * glow_pulse2), int(100 * glow_pulse2))
+                    pygame.draw.ellipse(glow_surf, glow_color, (0, 0, bay_width + 8, 10))
+                    bay_surf.blit(glow_surf, (bw2 - bay_half - 4, nozzle_y - 2))
+                    # 에너지 파티클
+                    for _ in range(2):
+                        px = bw2 + random.randint(-bay_half + 3, bay_half - 3)
+                        py = nozzle_y + random.randint(-2, 4)
+                        pygame.draw.circle(bay_surf, (120, 180, 255), (px, py), 1)
+
+                # 횡방향 보강재 (가로줄)
+                for ry in range(4, bay_protrude, 6):
+                    pygame.draw.line(bay_surf, (72, 82, 95), (bw2 - bay_half + 3, ry), (bw2 + bay_half - 3, ry), 1)
+
+                # 사출기 화면에 블릿
+                SCREEN.blit(bay_surf, (bay_x - bw2, bay_top_y))
+
+            # === 인터셉터 출격 (사출기 돌출 완료 후) ===
+            if interceptor_launch_queue and launch_bay_state == 'extended':
                 to_launch = []
+                bay_protrude = int(launch_bay_protrusion * launch_bay_max_protrusion)
                 for interceptor_data in interceptor_launch_queue:
-                    if current_time >= interceptor_data['launch_time']:
-                        # 인터셉터 생성 - 전체 화면 너비 (760px)에 맞춤
+                    if interceptor_data['launch_time'] > 0 and current_time >= interceptor_data['launch_time']:
+                        # 인터셉터 생성 - 사출기 끝에서 발진
                         game_left = 15
                         game_right = INTERNAL_WIDTH - 15  # 745px
                         new_interceptor = {
                             'id': interceptor_data['id'],
                             'x': BOSS.centerx,
-                            'y': BOSS.bottom,
-                            'target_x': random.randint(game_left, game_right),  # 화면 전체 X 범위
-                            'target_y': random.randint(80, 350),  # 보스 영역부터 중앙까지
+                            'y': BOSS.bottom + bay_protrude,  # 사출기 끝에서 발진
+                            'target_x': random.randint(game_left, game_right),
+                            'target_y': random.randint(80, 350),
                             'speed': 2,
                             'angle': 0,
-                            'state': 'launching',  # launching, patrolling, intercepting, returning
+                            'state': 'launching',
                             'patrol_center_x': 0,
                             'patrol_center_y': 0,
-                            'patrol_target_x': 0,  # 자유 이동 목표 X
-                            'patrol_target_y': 0,  # 자유 이동 목표 Y
-                            'patrol_move_timer': 0,  # 목표 변경 타이머
-                            'health': 1,  # 한 번 맞으면 파괴
+                            'patrol_target_x': 0,
+                            'patrol_target_y': 0,
+                            'patrol_move_timer': 0,
+                            'health': 1,
                             'glow_timer': 0,
-                            'golden': random.random() < 0.02  # 2% 확률로 황금 인터셉터
+                            'golden': random.random() < 0.02
                         }
                         interceptors.append(new_interceptor)
                         to_launch.append(interceptor_data)
-                        play_wall_sound()  # 출격 사운드
-                # 출격한 인터셉터 제거
+                        play_wall_sound()
                 for launched in to_launch:
                     interceptor_launch_queue.remove(launched)
-                # 모든 인터셉터가 출격했으면
+                # 모든 인터셉터 출격 완료 → 사출기 수납 시작
                 if not interceptor_launch_queue:
                     interceptor_launching = False
                     interceptor_launch_time = current_time
-                    # 격납고 문 닫기 타이머
-                    hangar_door_timer = current_time + MILLISECONDS_PER_SECOND
-            # 격납고 문 닫기
-            if not interceptor_launching and hangar_door_open:
-                if current_time - hangar_door_timer > 500:  # 0.5초 후 닫기
-                    hangar_door_open = False
+                    launch_bay_state = 'retracting'
+
+            # 사출기 수납 완료 체크 (interceptor_launching이 False인데 아직 돌출 상태)
+            if not interceptor_launching and not interceptor_launch_queue and launch_bay_state == 'extended':
+                launch_bay_state = 'retracting'
             # 인터셉터 업데이트 및 그리기
             for interceptor in interceptors[:]:
                 # 전체 화면 너비 (760px)에 맞춤
@@ -139698,10 +139760,14 @@ def reset_round(is_stage_start=False):
     # 스테이지 6 (네메시스) 인터셉터 초기화 - 스테이지 시작 시 난이도별 소환
     global interceptors, interceptor_launch_time, interceptor_cooldown
     global interceptor_launching, interceptor_launch_queue
+    global launch_bay_protrusion, launch_bay_state, launch_bay_ready_time
     if current_stage == 6 and is_stage_start:
         interceptors = []
         interceptor_launch_queue = []
         interceptor_launching = False
+        launch_bay_protrusion = 0.0
+        launch_bay_state = 'retracted'
+        launch_bay_ready_time = 0
         # 난이도별 초기 인터셉터 수
         # 주니어리그: 2개, 챔피언리그: 4개, 신화리그: 6개
         if ai_mode == "junior":
