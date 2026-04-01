@@ -6578,7 +6578,7 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
             return {
                 "name": "double_marshal_kick", "korean": "팬텀 킥", "cost": 50, "color": (180, 0, 255),
                 "symbol": "x2", "cooldown": 0.0, "key": "S/↓(연계)",
-                "description": "베놈 엣지 실패 → 마샬 킥 후 보스 반환 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 50 소모, 공속 증가율 120%.",
+                "description": "마샬 킥 후 보스 반환 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 50 소모, 공속 증가율 120%.",
                 "how_to_use": "마샬 킥 후 보스 반환 시 S/↓키",
                 "effect_type": "wall_dive_purple"
             }
@@ -13171,9 +13171,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "팬텀 킥",
         "max_level": 1,
         "descriptions": {
-            1: "베놈 엣지 실패 → 마샬 킥 후 보스 반환 시 2차 마샬 킥 발동 가능 (최대 4연계)",
+            1: "마샬 킥 후 보스 반환 시 2차 마샬 킥 발동 가능 (최대 4연계)",
         },
-        "detail": "에어블레이드 → 베놈 엣지(실패) → 마샬 킥 → 보스 반환 시 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 50 소모, 공속 증가율 120%.",
+        "detail": "마샬 킥 → 보스 반환 시 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 50 소모, 공속 증가율 120%.",
         "icon_color": (180, 0, 255),
         "tree": "viper",
         "character_restriction": "viper"
@@ -72638,7 +72638,6 @@ def handle_player(keys):
             _viper_double_marshal_ready = False
 
     # 마샬 킥 발동: 연계 윈도우 또는 더블 마샬 윈도우 중 S/↓키 단독 입력
-    # 베놈 엣지 실패 후 복귀 체공 중에만 마샬 킥 허용 (에어 블레이드 단독 체공은 불허)
     _wd_br_allow = False
     if _viper_br_spin_active and _viper_br_spin_phase == 2 and _viper_nerve_strike_combo_used:
         _wd_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms
@@ -73775,10 +73774,7 @@ def handle_player(keys):
                 _viper_nerve_strike_active = False
                 _viper_ns_hit_confirmed = False
                 _viper_ns_freeze_active = False
-                # 베놈 엣지 실패(보스 미적중) 시 마샬 킥 연계 윈도우 활성화 (퍽 불필요)
-                if not _viper_nerve_strike_slash_shown and is_viper_skill_unlocked("marshal_kick"):
-                    _viper_wall_dive_ready = True
-                    _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초
+                # 베놈 엣지 실패(보스 미적중) 시 마샬 킥 연계 없음 (블레이드 → 베놈 엣지만 연계)
                 # 복귀 이펙트
                 try:
                     effects_manager.spawn_shockwave(
