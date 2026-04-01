@@ -104984,7 +104984,7 @@ def draw_crocodile_boss(boss_x=0, boss_y=0, ball_x=0, ball_y=0):
     return crocodile_surface
 
 def draw_nemesis_sub_boss():
-    """네메시스 보조 보스 - 소형 해양 호위 드론"""
+    """네메시스 보조 보스 - 고퀄리티 스텔스 해양 호위 드론 (v2)"""
     global nemesis_sub_boss_hit_timer, nemesis_sub_boss_hit_flash
     global nemesis_sub_boss_hover_offset
 
@@ -105037,126 +105037,294 @@ def draw_nemesis_sub_boss():
     cx = width // 2
     cy = height // 2
 
-    # === 하부 수면 반사 글로우 ===
+    # ============================================================
+    # === 1. 하부 수면 반사 (향상된 글로우) ===
+    # ============================================================
     glow_pulse = 0.7 + 0.3 * math.sin(time_now * 0.008)
-    for i in range(3):
-        glow_alpha = int((60 - i * 15) * glow_pulse)
-        glow_color = (40, int(120 + glow_pulse * 40), int(180 + glow_pulse * 40), glow_alpha)
-        pygame.draw.ellipse(surface, glow_color, (cx - 20 - i*3, height - 10 + i, 40 + i*6, 6))
+    for i in range(4):
+        glow_alpha = int((55 - i * 12) * glow_pulse)
+        glow_r = 18 + i * 4
+        glow_color = (30, int(100 + glow_pulse * 50), int(160 + glow_pulse * 50), max(5, glow_alpha))
+        pygame.draw.ellipse(surface, glow_color, (cx - glow_r, height - 10 + i, glow_r * 2, 5))
 
-    # === 메인 바디 (소형 해양 드론 - 타원형 유선체) ===
-    body_color = apply_hit(apply_damage((45, 65, 85)))
-    body_light = apply_hit(apply_damage((65, 90, 115)))
-    body_dark = apply_hit(apply_damage((30, 45, 60)))
+    # ============================================================
+    # === 2. 그림자 ===
+    # ============================================================
+    shadow_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow_surf, (10, 12, 18, 60), (cx - 32, cy + 6, 64, 16))
+    surface.blit(shadow_surf, (2, 2))
 
-    # 하부 플레이트 (수중 부분)
-    pygame.draw.ellipse(surface, body_dark, (cx - 35, cy + 5, 70, 20))
-    pygame.draw.ellipse(surface, body_color, (cx - 33, cy + 3, 66, 18))
+    # ============================================================
+    # === 3. 메인 바디 (스텔스 유선체 - 각진 폴리곤) ===
+    # ============================================================
+    body_color = apply_hit(apply_damage((48, 68, 92)))
+    body_light = apply_hit(apply_damage((70, 95, 125)))
+    body_dark = apply_hit(apply_damage((32, 48, 65)))
+    body_highlight = apply_hit(apply_damage((88, 115, 145)))
 
-    # 상부 돔 (방수 캐노피)
-    pygame.draw.ellipse(surface, body_color, (cx - 28, cy - 12, 56, 30))
-    pygame.draw.ellipse(surface, body_light, (cx - 26, cy - 10, 52, 26))
+    # 하부 플레이트 (수중 킬) - 각진 형태
+    keel_points = [
+        (cx, cy + 14),          # 하단 중앙 (가장 아래)
+        (cx - 36, cy + 5),      # 좌하
+        (cx - 30, cy + 1),      # 좌
+        (cx + 30, cy + 1),      # 우
+        (cx + 36, cy + 5),      # 우하
+    ]
+    pygame.draw.polygon(surface, body_dark, keel_points)
 
-    # 센서 캐노피 (어두운 방수 유리)
-    canopy_color = apply_hit(apply_damage((20, 35, 55)))
-    pygame.draw.ellipse(surface, canopy_color, (cx - 16, cy - 6, 32, 18))
+    # 상부 선체 (스텔스 각진 돔)
+    hull_points = [
+        (cx, cy - 14),          # 상단 중앙 (가장 위)
+        (cx - 12, cy - 13),     # 좌상 내측
+        (cx - 26, cy - 8),      # 좌상 외측
+        (cx - 34, cy - 2),      # 좌측 최외곽
+        (cx - 32, cy + 4),      # 좌하 외측
+        (cx - 18, cy + 8),      # 좌하 내측
+        (cx + 18, cy + 8),      # 우하 내측
+        (cx + 32, cy + 4),      # 우하 외측
+        (cx + 34, cy - 2),      # 우측 최외곽
+        (cx + 26, cy - 8),      # 우상 외측
+        (cx + 12, cy - 13),     # 우상 내측
+    ]
+    pygame.draw.polygon(surface, body_color, hull_points)
+
+    # 선체 상부 하이라이트 (광택)
+    hull_top_points = [
+        (cx, cy - 12),
+        (cx - 10, cy - 11), (cx - 22, cy - 7), (cx - 28, cy - 2),
+        (cx + 28, cy - 2), (cx + 22, cy - 7), (cx + 10, cy - 11),
+    ]
+    pygame.draw.polygon(surface, body_light, hull_top_points)
+
+    # 메탈릭 하이라이트 라인 (상단)
+    pygame.draw.line(surface, body_highlight,
+                    (cx - 20, cy - 9), (cx + 20, cy - 9), 1)
+    pygame.draw.line(surface, body_highlight,
+                    (cx - 15, cy - 11), (cx + 15, cy - 11), 1)
+
+    # 선체 외곽 테두리
     if damage_level < 2:
-        pygame.draw.arc(surface, (80, 120, 160), (cx - 13, cy - 4, 26, 14), 0.3, 2.5, 2)
+        pygame.draw.polygon(surface, (90, 120, 155), hull_points, 1)
 
-    # === 좌우 워터젯 포드 ===
+    # ============================================================
+    # === 4. 장갑판 패널 디테일 ===
+    # ============================================================
+    panel_pulse = abs(math.sin(time_now * 0.004))
+    # 좌측 패널
+    for i in range(3):
+        px = cx - 24 + i * 2
+        py = cy - 5 + i * 3
+        pw, ph = 10, 5
+        panel_color = apply_hit(apply_damage((58, 78, 100)))
+        pygame.draw.rect(surface, panel_color, (px - pw, py, pw, ph))
+        line_color = (int(80 + panel_pulse * 25), int(110 + panel_pulse * 30), int(145 + panel_pulse * 35))
+        pygame.draw.line(surface, line_color, (px - pw + 1, py + ph // 2), (px - 1, py + ph // 2), 1)
+
+    # 우측 패널
+    for i in range(3):
+        px = cx + 14 - i * 2
+        py = cy - 5 + i * 3
+        pw, ph = 10, 5
+        panel_color = apply_hit(apply_damage((58, 78, 100)))
+        pygame.draw.rect(surface, panel_color, (px, py, pw, ph))
+        line_color = (int(80 + panel_pulse * 25), int(110 + panel_pulse * 30), int(145 + panel_pulse * 35))
+        pygame.draw.line(surface, line_color, (px + 1, py + ph // 2), (px + pw - 1, py + ph // 2), 1)
+
+    # ============================================================
+    # === 5. 센서 캐노피 (다면체 유리) ===
+    # ============================================================
+    canopy_color = apply_hit(apply_damage((18, 32, 52)))
+    canopy_points = [
+        (cx, cy - 8),
+        (cx - 14, cy - 3), (cx - 12, cy + 3),
+        (cx + 12, cy + 3), (cx + 14, cy - 3),
+    ]
+    pygame.draw.polygon(surface, canopy_color, canopy_points)
+
+    # 캐노피 반사 하이라이트
+    if damage_level < 2:
+        pygame.draw.line(surface, (75, 115, 158), (cx - 10, cy - 4), (cx + 5, cy - 6), 2)
+        pygame.draw.line(surface, (60, 95, 135), (cx - 8, cy - 2), (cx + 3, cy - 4), 1)
+
+    # 캐노피 내부 HUD 글로우
+    if damage_level < 3:
+        hud_pulse = 0.6 + 0.4 * abs(math.sin(time_now * 0.006))
+        hud_color = (int(40 + hud_pulse * 30), int(80 + hud_pulse * 40), int(130 + hud_pulse * 50), int(80 * hud_pulse))
+        hud_surf = pygame.Surface((16, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(hud_surf, hud_color, (0, 0, 16, 8))
+        surface.blit(hud_surf, (cx - 8, cy - 5))
+
+    # ============================================================
+    # === 6. 좌우 추진 포드 (스텔스 날개형) ===
+    # ============================================================
     for side in [-1, 1]:
-        pod_x = cx + side * 30
+        pod_cx = cx + side * 32
+
+        # 날개형 포드 (각진 형태)
         pod_points = [
-            (cx + side * 18, cy),
-            (pod_x - side * 3, cy - 7),
-            (pod_x + side * 8, cy - 4),
-            (pod_x + side * 10, cy + 3),
-            (pod_x - side * 3, cy + 8),
-            (cx + side * 18, cy + 6),
+            (cx + side * 20, cy - 2),       # 내측 상단
+            (pod_cx - side * 2, cy - 8),     # 외측 상단
+            (pod_cx + side * 10, cy - 4),    # 최외곽 상단
+            (pod_cx + side * 12, cy + 2),    # 최외곽 중앙
+            (pod_cx + side * 8, cy + 7),     # 최외곽 하단
+            (pod_cx - side * 4, cy + 9),     # 외측 하단
+            (cx + side * 20, cy + 5),        # 내측 하단
         ]
         pygame.draw.polygon(surface, body_color, pod_points)
         pygame.draw.polygon(surface, body_dark, pod_points, 1)
 
-        # 워터젯 노즐 (파란 글로우)
-        jet_pulse = 0.5 + 0.5 * math.sin(time_now * 0.01 + side * 0.5)
-        jet_x = pod_x + side * 8
-        jet_color = (int(40 + jet_pulse * 50), int(100 + jet_pulse * 80), int(180 + jet_pulse * 50))
-        pygame.draw.circle(surface, apply_hit(jet_color), (jet_x, cy), 4)
-        pygame.draw.circle(surface, (int(80 + jet_pulse * 80), int(160 + jet_pulse * 60), 255),
-                          (jet_x, cy), 2)
+        # 포드 상부 하이라이트
+        pod_highlight = [
+            (cx + side * 21, cy - 1),
+            (pod_cx - side * 1, cy - 7),
+            (pod_cx + side * 8, cy - 3),
+        ]
+        pygame.draw.polygon(surface, body_light, pod_highlight)
 
-        # 손상 시 금
+        # 워터젯 노즐 (3연장 - 고퀄)
+        for j in range(3):
+            nozzle_y = cy - 3 + j * 3
+            nozzle_x = pod_cx + side * 10
+            jet_pulse = 0.4 + 0.6 * math.sin(time_now * 0.012 + side * 0.5 + j * 0.3)
+            # 노즐 하우징
+            pygame.draw.circle(surface, body_dark, (nozzle_x, nozzle_y), 3)
+            # 제트 글로우
+            jet_color = (int(35 + jet_pulse * 55), int(90 + jet_pulse * 90), int(170 + jet_pulse * 60))
+            pygame.draw.circle(surface, apply_hit(jet_color), (nozzle_x, nozzle_y), 2)
+            if jet_pulse > 0.7:
+                pygame.draw.circle(surface, (int(80 + jet_pulse * 80), int(160 + jet_pulse * 60), 255),
+                                  (nozzle_x, nozzle_y), 1)
+
+        # 포드 무장 마운트
+        mount_x = cx + side * 25
+        mount_y = cy + 5
+        pygame.draw.rect(surface, apply_hit(apply_damage((52, 62, 75))), (mount_x - 2, mount_y, 4, 3))
+        pygame.draw.circle(surface, apply_hit(apply_damage((72, 85, 100))), (mount_x, mount_y + 3), 2)
+
+        # 손상 시 균열 & 화염
         if damage_level >= 2:
-            pygame.draw.line(surface, (30, 25, 20),
-                (cx + side * 20, cy - 2), (pod_x + side * 3, cy + 5), 1)
+            pygame.draw.line(surface, (28, 22, 18),
+                (cx + side * 22, cy - 1), (pod_cx + side * 5, cy + 5), 1)
         if damage_level >= 3:
             flame_pulse = 0.6 + 0.4 * math.sin(time_now * 0.025 + side * 0.5)
-            pygame.draw.circle(surface, (255, int(120 * flame_pulse), 30),
-                (pod_x, cy + 3), 3)
+            pygame.draw.circle(surface, (255, int(115 * flame_pulse), 28),
+                (pod_cx + side * 4, cy + 3), 3)
+            pygame.draw.circle(surface, (255, int(185 * flame_pulse), 65),
+                (pod_cx + side * 4, cy + 3), 2)
 
-    # === 상단 센서 마스트 ===
-    mast_color = apply_hit(apply_damage((60, 75, 90)))
-    pygame.draw.rect(surface, mast_color, (cx - 4, cy - 18, 8, 8))
-    pygame.draw.circle(surface, apply_hit(apply_damage((40, 50, 65))), (cx, cy - 20), 6)
-    # 센서 라이트
+    # ============================================================
+    # === 7. 센서 마스트 (회전 레이더 포함) ===
+    # ============================================================
+    mast_color = apply_hit(apply_damage((55, 70, 88)))
+
+    # 마스트 기둥
+    pygame.draw.rect(surface, mast_color, (cx - 3, cy - 19, 6, 7))
+    # 마스트 연결부 디테일
+    pygame.draw.line(surface, body_light, (cx - 4, cy - 13), (cx + 4, cy - 13), 1)
+
+    # 센서 돔 (다층)
+    pygame.draw.circle(surface, apply_hit(apply_damage((38, 48, 62))), (cx, cy - 21), 7)
+    pygame.draw.circle(surface, apply_hit(apply_damage((52, 65, 82))), (cx, cy - 21), 5)
+
+    # 회전 레이더 디쉬
+    radar_angle = time_now * 0.003
+    radar_len = 8
+    radar_x1 = cx + int(math.cos(radar_angle) * radar_len)
+    radar_y1 = cy - 21 + int(math.sin(radar_angle) * radar_len * 0.4)
+    radar_x2 = cx - int(math.cos(radar_angle) * radar_len)
+    radar_y2 = cy - 21 - int(math.sin(radar_angle) * radar_len * 0.4)
+    pygame.draw.line(surface, apply_hit(apply_damage((85, 105, 128))),
+                    (radar_x1, radar_y1), (radar_x2, radar_y2), 2)
+    # 레이더 중심점
+    pygame.draw.circle(surface, apply_hit(apply_damage((72, 88, 108))), (cx, cy - 21), 3)
+
+    # 센서 라이트 (상태등)
     if damage_level < 3:
         sensor_pulse = 0.5 + 0.5 * math.sin(time_now * 0.015)
         if damage_level >= 2:
             sensor_pulse *= random.uniform(0.3, 1.0)
-        sensor_color = (int(60 + sensor_pulse * 80), int(140 + sensor_pulse * 80), int(200 + sensor_pulse * 55))
-        pygame.draw.circle(surface, sensor_color, (cx, cy - 20), 3)
+        sensor_color = (int(55 + sensor_pulse * 85), int(135 + sensor_pulse * 85), int(195 + sensor_pulse * 60))
+        pygame.draw.circle(surface, sensor_color, (cx, cy - 21), 2)
+        # 센서 글로우
+        if sensor_pulse > 0.6:
+            glow_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*sensor_color, int(50 * sensor_pulse)), (5, 5), 4)
+            surface.blit(glow_surf, (cx - 5, cy - 26))
     else:
-        pygame.draw.circle(surface, (30, 30, 40), (cx, cy - 20), 3)
+        pygame.draw.circle(surface, (28, 28, 38), (cx, cy - 21), 2)
 
-    # === 전면 소나 라이트 스트립 ===
-    for i in range(5):
-        light_x = cx - 16 + i * 8
-        if damage_level >= 2 and i in [1, 3]:
+    # ============================================================
+    # === 8. 전면 소나 어레이 (향상) ===
+    # ============================================================
+    sonar_base_y = cy + 10
+    for i in range(7):
+        light_x = cx - 18 + i * 6
+        if damage_level >= 2 and i in [1, 3, 5]:
             continue
-        if damage_level >= 3 and i in [0, 2, 4]:
-            if random.random() < 0.3:
-                continue
-        light_pulse = 0.4 + 0.6 * math.sin(time_now * 0.01 + i * 0.5)
-        light_color = (int(40 + light_pulse * 30), int(80 + light_pulse * 60), int(140 + light_pulse * 60))
-        pygame.draw.rect(surface, light_color, (light_x, cy + 10, 4, 2))
+        if damage_level >= 3 and random.random() < 0.3:
+            continue
+        light_pulse = 0.3 + 0.7 * math.sin(time_now * 0.01 + i * 0.4)
+        light_color = (int(35 + light_pulse * 35), int(75 + light_pulse * 65), int(130 + light_pulse * 65))
+        pygame.draw.rect(surface, light_color, (light_x, sonar_base_y, 3, 2))
+        # 소나 글로우
+        if light_pulse > 0.7 and damage_level < 2:
+            pygame.draw.circle(surface, (*light_color, ), (light_x + 1, sonar_base_y + 1), 1)
 
-    # === 손상 효과 ===
+    # ============================================================
+    # === 9. 항행등 (좌우 + 전후) ===
+    # ============================================================
+    nav_pulse = 0.5 + 0.5 * abs(math.sin(time_now * 0.005))
+    # 좌현 (적색)
+    pygame.draw.circle(surface, (int(160 + nav_pulse * 80), 25, 25), (cx - 33, cy), 2)
+    # 우현 (녹색)
+    pygame.draw.circle(surface, (25, int(160 + nav_pulse * 80), 25), (cx + 33, cy), 2)
+    # 함미 (백색 점멸)
+    stern_blink = int(time_now * 0.003) % 2
+    if stern_blink and damage_level < 3:
+        pygame.draw.circle(surface, (180, 185, 195), (cx, cy - 13), 1)
+
+    # ============================================================
+    # === 10. 손상 효과 (균열, 화염, 연기) ===
+    # ============================================================
     if damage_level >= 1:
-        crack_color = (30, 25, 20)
-        pygame.draw.line(surface, crack_color, (cx - 12, cy - 5), (cx - 8, cy + 5), 1)
-        pygame.draw.line(surface, crack_color, (cx + 10, cy - 3), (cx + 15, cy + 8), 1)
+        crack_color = (28, 22, 18)
+        pygame.draw.line(surface, crack_color, (cx - 12, cy - 5), (cx - 7, cy + 5), 1)
+        pygame.draw.line(surface, crack_color, (cx + 10, cy - 3), (cx + 14, cy + 7), 1)
     if damage_level >= 2:
-        pygame.draw.line(surface, crack_color, (cx - 20, cy + 2), (cx - 10, cy + 12), 2)
-        fire_flicker = time_now * 0.02
-        for fx, fy in [(cx - 15, cy + 5), (cx + 20, cy - 3)]:
+        pygame.draw.line(surface, crack_color, (cx - 18, cy + 2), (cx - 8, cy + 11), 2)
+        for fx, fy in [(cx - 14, cy + 5), (cx + 18, cy - 3)]:
             for fi in range(2):
-                flame_color = (255, 150 - fi * 40, 50 - fi * 15)
+                flame_color = (255, 145 - fi * 40, 45 - fi * 15)
                 pygame.draw.ellipse(surface, flame_color,
                     (fx - 3 + fi, fy - 6 + fi * 2, 6 - fi * 2, 6 - fi * 2))
     if damage_level >= 3:
-        pygame.draw.line(surface, crack_color, (cx - 25, cy - 8), (cx - 15, cy + 10), 2)
-        pygame.draw.line(surface, crack_color, (cx + 12, cy - 12), (cx + 25, cy + 5), 2)
-        for fx, fy in [(cx - 25, cy + 8), (cx + 10, cy + 10), (cx - 5, cy - 12)]:
+        pygame.draw.line(surface, crack_color, (cx - 22, cy - 8), (cx - 12, cy + 10), 2)
+        pygame.draw.line(surface, crack_color, (cx + 10, cy - 12), (cx + 22, cy + 5), 2)
+        for fx, fy in [(cx - 22, cy + 8), (cx + 8, cy + 10), (cx - 4, cy - 12)]:
             for fi in range(3):
-                flame_color = (255, 150 - fi * 40, 50 - fi * 15)
+                flame_color = (255, 145 - fi * 38, 45 - fi * 14)
                 pygame.draw.ellipse(surface, flame_color,
                     (fx - 3 + fi, fy - 8 + fi * 2, 6 - fi * 2, 8 - fi * 2))
-            pygame.draw.circle(surface, (60, 60, 60), (int(fx), int(fy - 10)), 3)
+            pygame.draw.circle(surface, (55, 55, 55), (int(fx), int(fy - 10)), 3)
 
-    # === 외곽 하이라이트 ===
-    if damage_level < 2:
-        pygame.draw.ellipse(surface, (80, 110, 140), (cx - 28, cy - 12, 56, 30), 1)
-
-    # === 이동 시 워터젯 이펙트 ===
+    # ============================================================
+    # === 11. 이동 시 추진 이펙트 ===
+    # ============================================================
     if move_dir != 0:
-        for jet_offset in [-30, 30]:
-            jet_x = cx + jet_offset
-            jet_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02 + jet_offset * 0.1)
-            for j in range(3):
+        for pod_offset in [-32, 32]:
+            jet_cx = cx + pod_offset
+            jet_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02 + pod_offset * 0.1)
+            # 제트 화염 (3단 그라데이션)
+            for j in range(4):
                 boost_y = height - 10 + j * 2
-                boost_width = 5 - j
-                pygame.draw.ellipse(surface, (0, int(120 * jet_pulse), int(180 * jet_pulse)),
-                                  (jet_x - boost_width, boost_y, boost_width * 2, 3))
+                boost_w = max(1, 6 - j)
+                boost_alpha = int(150 * jet_pulse * (1 - j * 0.2))
+                boost_color = (0, int(100 + jet_pulse * 60), int(170 + jet_pulse * 50))
+                pygame.draw.ellipse(surface, boost_color,
+                                  (jet_cx - boost_w, boost_y, boost_w * 2, 3))
+            # 제트 코어
+            pygame.draw.ellipse(surface, (int(80 * jet_pulse), int(180 * jet_pulse), 255),
+                              (jet_cx - 2, height - 10, 4, 3))
 
     if tilt_angle != 0:
         rotated = pygame.transform.rotate(surface, -tilt_angle)
