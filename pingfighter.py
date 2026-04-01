@@ -73144,7 +73144,7 @@ def handle_player(keys):
 
         global _viper_jetpack_snd_channel
         _was_jetpack_active = _viper_jetpack_active
-        if _jetpack_input and special_gauge >= _VIPER_JETPACK_GAUGE_COST:
+        if _jetpack_input:
             _viper_jetpack_active = True
             _viper_jetpack_hold_timer += 1
             # 최대 체공 시간 초과 시 과열 → 강제 하강 (제트팩 강화 퍽 반영)
@@ -73161,16 +73161,8 @@ def handle_player(keys):
                 # 상승
                 _viper_jetpack_offset_y = max(-_VIPER_JETPACK_MAX_HEIGHT,
                                               _viper_jetpack_offset_y - _VIPER_JETPACK_RISE_SPEED)
-                # 게이지 소모 (0.5초마다)
-                _viper_jetpack_gauge_timer += 1
-                if _viper_jetpack_gauge_timer >= _VIPER_JETPACK_GAUGE_INTERVAL:
-                    _viper_jetpack_gauge_timer = 0
-                    special_gauge = max(0, special_gauge - _VIPER_JETPACK_GAUGE_COST)
-                    if special_gauge <= 0:
-                        _viper_jetpack_active = False
         else:
             _viper_jetpack_active = False
-            _viper_jetpack_gauge_timer = 0
 
         # 제트팩 사운드 루프 재생/정지
         try:
