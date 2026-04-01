@@ -48209,6 +48209,7 @@ _viper_br_arm_raise = 0.0           # 팔 들어올림 비율 (0~1)
 
 # === 바이퍼 대쉬 원점 기억 (쉐도우 백스텝 스냅백용) ===
 _viper_dash_origin_x = 0.0           # 대쉬 시작 전 플레이어 X좌표
+_viper_dash_was_airborne = False     # 대쉬 발동 시 체공 상태였는지 (EMP 차단용)
 
 # === 바이퍼 쉐도우 백스텝 홀로그램 등장 연출 ===
 _viper_ss_hologram_active = False    # 홀로그램 연출 활성
@@ -70868,7 +70869,7 @@ def handle_player(keys):
     global rolling_active, rolling_timer, rolling_direction, rolling_speed
     global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
     global charging_token_index, max_rolling_charge_time  # 순차 충전 시스템 변수
-    global _viper_dash_origin_x  # 바이퍼 쉐도우 백스텝 스냅백용
+    global _viper_dash_origin_x, _viper_dash_was_airborne  # 바이퍼 쉐도우 백스텝 스냅백용
     global _all_tokens_full_sparkle_timer  # 모든 토큰 풀충전 반짝임
     global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y
     global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수
@@ -72386,7 +72387,7 @@ def handle_player(keys):
         global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
         global _viper_br_jump_offset_y, _viper_br_arm_raise
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x, _viper_ss_kick_ready
-        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_ss_hologram_kick_dir, _viper_ss_hologram_kick_hit
+        global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_dash_was_airborne, _viper_ss_hologram_kick_dir, _viper_ss_hologram_kick_hit
         global _viper_ss_was_airborne
         global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
@@ -73261,6 +73262,9 @@ def handle_player(keys):
         # 에어블레이드 동작 중(발사/회전/감속)에는 일반 체공 다이브 차단
         _in_airblade_motion = _viper_blade_rush_active or (_viper_br_spin_active and _viper_br_spin_phase < 2)
         # EMP 스트라이크는 단독기: 대쉬/쉐도우 백스텝/마샬 킥/팬텀 킥 중 발동 불가
+        # 체공 중 대쉬/백스텝 발동 후에는 착지 전까지 EMP 차단
+        _dive_post_backstep_air = (_viper_ss_was_airborne and _viper_jetpack_offset_y < -10)
+        _dive_post_dash_air = (_viper_dash_was_airborne and _viper_jetpack_offset_y < -10)
         _dive_any_skill_active = (
             rolling_active
             or _viper_ss_hologram_active
@@ -73268,6 +73272,8 @@ def handle_player(keys):
             or _viper_wall_dive_ready
             or _viper_double_marshal_ready
             or _viper_nerve_strike_active
+            or _dive_post_backstep_air
+            or _dive_post_dash_air
         )
         if (not _viper_dive_active
                 and ((_viper_jetpack_offset_y < -20 and not _in_airblade_motion) or _dive_from_airblade)
@@ -76156,6 +76162,7 @@ def handle_player(keys):
                             # 🐍 바이퍼 쉐도우 백스텝용 대쉬 원점 기록
                             if selected_character_type == "viper":
                                 _viper_dash_origin_x = float(PLAYER.centerx)
+                                _viper_dash_was_airborne = (_viper_jetpack_offset_y < -10)
                             rolling_active = True
                             # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                             if selected_character_type == "smasher" or ai_mode == "junior":
@@ -76431,6 +76438,7 @@ def handle_player(keys):
                     # 🐍 바이퍼 쉐도우 백스텝용 대쉬 원점 기록
                     if selected_character_type == "viper":
                         _viper_dash_origin_x = float(PLAYER.centerx)
+                        _viper_dash_was_airborne = (_viper_jetpack_offset_y < -10)
                     rolling_active = True
                     # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                     if selected_character_type == "smasher" or ai_mode == "junior":
@@ -76720,6 +76728,7 @@ def handle_player(keys):
                     # 🐍 바이퍼 쉐도우 백스텝용 대쉬 원점 기록
                     if selected_character_type == "viper":
                         _viper_dash_origin_x = float(PLAYER.centerx)
+                        _viper_dash_was_airborne = (_viper_jetpack_offset_y < -10)
                     rolling_active = True
                     # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                     if selected_character_type == "smasher" or ai_mode == "junior":
