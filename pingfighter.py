@@ -3704,8 +3704,8 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 150, "color": (255, 120, 50),
         "symbol": "⇓", "cooldown": 45.0, "key": "체공+S/↓ 꾹",
-        "description": "체공 중 S/↓키를 0.5초 꾹 눌러 급강하.\n착지 연기 장판 생성, 공 반사 + 공속 증가.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
-        "how_to_use": "체공 중 S키 또는 ↓키 0.5초 꾹 누르기",
+        "description": "체공 중 S/↓키를 0.3초 꾹 눌러 급강하.\n착지 연기 장판 생성, 공 반사 + 공속 증가.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
+        "how_to_use": "체공 중 S키 또는 ↓키 0.3초 꾹 누르기",
         "effect_type": "dive_impact"
     },
     {
@@ -13162,7 +13162,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "EMP 스트라이크 스킬 해금 (방어 장판)",
         },
-        "detail": "체공 중 S/↓키를 0.5초 꾹 눌러 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 30초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다. 보스에게 슬립을 부여하며, 지속시간은 체공 높이에 비례합니다 (최저 0.9초 ~ 최고 1.5초).",
+        "detail": "체공 중 S/↓키를 0.3초 꾹 눌러 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 30초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다. 보스에게 슬립을 부여하며, 지속시간은 체공 높이에 비례합니다 (최저 0.9초 ~ 최고 1.5초).",
         "icon_color": (255, 120, 50),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -48482,7 +48482,7 @@ _viper_air_strike_text_pct = 0          # 보너스 퍼센트
 
 # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
 _viper_dive_hold_start_ms = 0           # S/↓키 꾹 누르기 시작 시각 (0=미입력)
-_VIPER_DIVE_HOLD_REQUIRED_MS = 500      # 발동에 필요한 홀드 시간 (0.5초)
+_VIPER_DIVE_HOLD_REQUIRED_MS = 300      # 발동에 필요한 홀드 시간 (0.3초)
 _viper_dive_charge_particles = []       # 차징 중 발밑 화염 파티클
 _viper_dive_active = False              # 급강하 진행 중 여부
 _viper_dive_phase = 0                   # 0=준비동작(공중정지), 1=급강하, 2=착지 충격파
@@ -48498,7 +48498,7 @@ _VIPER_DIVE_SLIP_DURATION_MIN = 54      # 슬립 최소 지속시간 (0.9초, �
 _VIPER_DIVE_SLIP_DURATION_MAX = 90      # 슬립 최대 지속시간 (1.5초, 최고 높이)
 _viper_dive_shockwave_y = 0.0           # 충격파 중심 Y
 _viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (중복 방지)
-_VIPER_DIVE_PREP_MS = 500              # 준비동작 시간 (0.5초)
+_VIPER_DIVE_PREP_MS = 400              # 준비동작 시간 (0.4초)
 _VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
 _VIPER_DIVE_GAUGE_COST = 150           # 게이지 소모량
 _VIPER_DIVE_SHOCKWAVE_RADIUS = WIDTH    # 충격파 X축 범위 — 전체 화면 커버
@@ -73263,7 +73263,7 @@ def handle_player(keys):
     _viper_air_marshal_triggered = False
 
     # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
-    # EMP 스트라이크: 체공 중 S/↓키 0.5초 꾹 누르기로 발동 (단독 사용만)
+    # EMP 스트라이크: 체공 중 S/↓키 0.3초 꾹 누르기로 발동 (단독 사용만)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
         _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
         _dive_dir_held = (
