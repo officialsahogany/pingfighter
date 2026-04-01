@@ -73054,6 +73054,9 @@ def handle_player(keys):
         _viper_phantom_strike_timer -= 1
         if _viper_phantom_strike_timer <= 0:
             _viper_phantom_strike_active = False
+            # 헛방질 시 패들 히트 경로도 차단 (마샬킥 카운터 오활성화 방지)
+            if not _viper_ss_hit_consumed:
+                _viper_ss_kick_ready = False
 
     # 바이퍼 팬텀 스트라이크 커브 (매 프레임 공에 횡방향 힘 적용, 그라데이션 강도 반영)
     if _viper_ps_curve_active:
