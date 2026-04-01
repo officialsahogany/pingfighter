@@ -73185,7 +73185,7 @@ def handle_player(keys):
             if not _viper_ss_hit_consumed:
                 _viper_ss_kick_ready = False
 
-    # 바이퍼 팬텀 스트라이크 커브 (깔끔한 호 궤적 — 감쇠 힘 + 수평 속도 제한)
+    # 바이퍼 팬텀 스트라이크 커브 (깔끔한 호 궤적 — 감쇠 힘 + 수평 속도 제한 + 공속 보존)
     if _viper_ps_curve_active:
         _viper_ps_curve_timer -= 1
         if _viper_ps_curve_timer <= 0:
@@ -73196,12 +73196,20 @@ def handle_player(keys):
             # 감쇠 커브 — 초반에 강하게 휘고 점차 약해지는 자연스러운 호
             _curve_strength = (1.0 - _curve_progress) * _viper_ps_curve_force * 0.45
             _curve_dx_added = _viper_ps_curve_direction * _curve_strength
+            # 커브 적용 전 공속 보존 (커브가 수평만 바꾸고 전체 속도는 유지)
+            _pre_curve_speed = math.hypot(ball_vel[0], ball_vel[1])
             # 커브로 인한 수평 속도가 상한을 넘지 않도록 제한 (벽 반사 방지)
             _new_dx = ball_vel[0] + _curve_dx_added
             _curve_max = _VIPER_PS_CURVE_MAX_DX
-            if abs(_new_dx) > abs(ball_vel[0]):  # 커브 방향으로 속도가 증가할 때만 제한
+            if abs(_new_dx) > abs(ball_vel[0]):
                 _new_dx = max(-_curve_max, min(_curve_max, _new_dx))
             ball_vel[0] = _new_dx
+            # 전체 공속을 커브 적용 전과 동일하게 복원 (방향만 변경, 속도 손실 없음)
+            _post_curve_speed = math.hypot(ball_vel[0], ball_vel[1])
+            if _post_curve_speed > 0.1 and _pre_curve_speed > 0.1:
+                _speed_scale = _pre_curve_speed / _post_curve_speed
+                ball_vel[0] *= _speed_scale
+                ball_vel[1] *= _speed_scale
 
     # === 바이퍼 제트팩 시스템 업데이트 ===
     if selected_character_type == "viper" and not is_odins_eye_transformed():
