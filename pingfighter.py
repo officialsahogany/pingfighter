@@ -48305,8 +48305,8 @@ _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 기본값 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 기본값
 
 # 쉐도우 백스텝 그라데이션 타격 상수
-_VIPER_SS_HIT_SPEED_MIN = 1.6         # 가장자리 공속 배율 (60% 증가)
-_VIPER_SS_HIT_SPEED_MAX = 2.8         # 중심 공속 배율 (180% 증가)
+_VIPER_SS_HIT_SPEED_MIN = 1.8         # 가장자리 공속 배율 (80% 증가)
+_VIPER_SS_HIT_SPEED_MAX = 2.2         # 중심 공속 배율 (120% 증가)
 _VIPER_SS_HIT_CURVE_MIN = 10          # 가장자리 커브 프레임 (약 0.17초)
 _VIPER_SS_HIT_CURVE_MAX = 50          # 중심 커브 프레임 (약 0.83초)
 _VIPER_SS_HIT_FORCE_MIN = 0.4         # 가장자리 커브 강도
@@ -73013,11 +73013,11 @@ def handle_player(keys):
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
                     # 공을 위로 강하게 반사 + 속도 증가
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
-                    # 2차 마샬 킥이면 280% 증가(3.8x), 1차는 140% 증가(2.4x)
+                    # 2차 마샬 킥이면 250% 증가(3.5x), 1차는 160% 증가(2.6x)
                     if _viper_is_double_marshal:
-                        _wd_new_spd = max(_wd_cur_spd * 3.8, 14.0)  # 280% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 3.5, 14.0)  # 250% 증가
                     else:
-                        _wd_new_spd = max(_wd_cur_spd * 2.4, 12.0)  # 140% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 2.6, 12.0)  # 160% 증가
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
                     # 보스 회피 발사 — 보스 X 위치 반대편으로 편향된 각도
