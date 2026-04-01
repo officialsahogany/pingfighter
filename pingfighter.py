@@ -141729,6 +141729,18 @@ def calculate_bounce(paddle):
         # print(f"🔍 [SPEED DEBUG] 보스 추가가속 | 리그:{ai_mode} | 배율:{junior_mult:.2f} | 보스가속:{boss_min:.3f}~{boss_max:.3f} | 적용:{boss_multiplier:.3f}x | 속도:{_debug_speed_before_boss:.2f}→{speed:.2f}")  # 디버그 비활성화
     direction = -1 if paddle == PLAYER else 1
     vector = pygame.math.Vector2(0, direction).rotate_rad(angle)
+    # === 보스 패들 중앙 히트 시 수평 속도 보존 ===
+    # 보스가 공을 받아칠 때 rel_x ≈ 0이면 공이 수직으로 반사되는 문제 수정
+    # 공의 기존 수평 방향을 일부 보존하여 자연스러운 반사각 생성
+    if not is_player_paddle and abs(rel_x) < 0.25:
+        incoming_dx = ball_vel[0]  # 공의 기존 수평 속도
+        if abs(incoming_dx) > 1.0:
+            # rel_x가 0에 가까울수록 수평 속도 보존 비율 증가 (최대 40%)
+            preserve_ratio = 0.4 * (1.0 - abs(rel_x) / 0.25)
+            # 기존 수평 방향으로 벡터를 편향
+            incoming_dir = 1.0 if incoming_dx > 0 else -1.0
+            vector.x += incoming_dir * preserve_ratio
+            vector = vector.normalize()
     # === 다이나믹 물리효과 ===
     #  추가 속도 증가량 추적 (드라이브 외 일반 가속)
     if drive_activated:
