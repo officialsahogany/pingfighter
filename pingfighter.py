@@ -3703,9 +3703,9 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 150, "color": (255, 120, 50),
-        "symbol": "⇓", "cooldown": 45.0, "key": "체공+S/↓",
-        "description": "체공 중 급강하하여 착지 연기 장판을 생성합니다.\n연기에 닿은 공을 위로 반사 + 공속 증가.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
-        "how_to_use": "체공 중 S키 또는 ↓키로 발동",
+        "symbol": "⇓", "cooldown": 45.0, "key": "체공+S/↓ 꾹",
+        "description": "체공 중 S/↓키를 0.5초 꾹 눌러 급강하.\n착지 연기 장판 생성, 공 반사 + 공속 증가.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
+        "how_to_use": "체공 중 S키 또는 ↓키 0.5초 꾹 누르기",
         "effect_type": "dive_impact"
     },
     {
@@ -13162,7 +13162,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "EMP 스트라이크 스킬 해금 (방어 장판)",
         },
-        "detail": "체공 중 S/↓키로 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 30초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다. 보스에게 슬립을 부여하며, 지속시간은 체공 높이에 비례합니다 (최저 0.9초 ~ 최고 1.5초).",
+        "detail": "체공 중 S/↓키를 0.5초 꾹 눌러 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 30초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다. 보스에게 슬립을 부여하며, 지속시간은 체공 높이에 비례합니다 (최저 0.9초 ~ 최고 1.5초).",
         "icon_color": (255, 120, 50),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -48481,6 +48481,8 @@ _viper_air_strike_text_y = 0.0          # 텍스트 Y
 _viper_air_strike_text_pct = 0          # 보너스 퍼센트
 
 # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
+_viper_dive_hold_start_ms = 0           # S/↓키 꾹 누르기 시작 시각 (0=미입력)
+_VIPER_DIVE_HOLD_REQUIRED_MS = 500      # 발동에 필요한 홀드 시간 (0.5초)
 _viper_dive_active = False              # 급강하 진행 중 여부
 _viper_dive_phase = 0                   # 0=준비동작(공중정지), 1=급강하, 2=착지 충격파
 _viper_dive_start_ms = 0                # 급강하 시작 시간
@@ -57908,7 +57910,7 @@ def go_to_next_round():
             _viper_skill_cooldowns["phantom_kick"] = 0
         else:
             _viper_skill_cooldowns["marshal_kick"] = 0
-    global _viper_dive_active, _viper_dive_phase
+    global _viper_dive_active, _viper_dive_phase, _viper_dive_hold_start_ms
     global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_particles
     global _viper_speed_boost_active
@@ -57941,6 +57943,7 @@ def go_to_next_round():
     _viper_phantom_hit_particles = []
     _viper_dive_active = False
     _viper_dive_phase = 0
+    _viper_dive_hold_start_ms = 0
     _viper_blade_rush_active = False
     _viper_br_spin_active = False
     _viper_br_spin_phase = 0
@@ -72403,7 +72406,7 @@ def handle_player(keys):
         global boss_confused_timer
         global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
         global _viper_jetpack_hold_timer, _viper_jetpack_overheat
-        global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms
+        global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms, _viper_dive_hold_start_ms
         global _viper_dive_height_snapshot, _viper_dive_particles
         global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
         global _viper_dive_ball_boosted
@@ -73253,13 +73256,15 @@ def handle_player(keys):
     _viper_air_marshal_triggered = False
 
     # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
-    # EMP 스트라이크: 체공 중 단독 사용만 가능 (에어블레이드/대쉬/백스텝 연계 불가)
+    # EMP 스트라이크: 체공 중 S/↓키 0.5초 꾹 누르기로 발동 (단독 사용만)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
-        # 에어블레이드 동작 중(발사/회전/하강 모두) EMP 차단
-        _in_airblade_motion = _viper_blade_rush_active or _viper_br_spin_active
-        # 체공 중 대쉬/백스텝 발동 후에는 착지 전까지 EMP 차단
-        _dive_post_backstep_air = (_viper_ss_was_airborne and _viper_jetpack_offset_y < -10)
-        _dive_post_dash_air = (_viper_dash_was_airborne and _viper_jetpack_offset_y < -10)
+        _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
+        _dive_dir_held = (
+            keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
+            or keys[pygame.K_a] or keys[pygame.K_d]
+            or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
+        )
+        # 다른 스킬 활성 중이면 홀드 차단
         _dive_any_skill_active = (
             rolling_active
             or _viper_ss_hologram_active
@@ -73267,29 +73272,35 @@ def handle_player(keys):
             or _viper_wall_dive_ready
             or _viper_double_marshal_ready
             or _viper_nerve_strike_active
-            or _in_airblade_motion
-            or _dive_post_backstep_air
-            or _dive_post_dash_air
+            or _viper_blade_rush_active
+            or _viper_br_spin_active
         )
-        if (not _viper_dive_active
-                and _viper_jetpack_offset_y < -20
-                and not _dive_any_skill_active
-                and not is_waiting_for_serve
-                and not is_player_serve and not player_stunned):
-            _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
-            _dive_dir_held = (
-                keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
-                or keys[pygame.K_a] or keys[pygame.K_d]
-                or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
-            )
-            if (_dive_s_input and not _dive_dir_held
-                    and special_gauge >= _VIPER_DIVE_GAUGE_COST
-                    and is_viper_skill_unlocked("dive_strike")
-                    and get_viper_skill_cooldown_remaining("dive_strike") <= 0):
+        # S/↓키 홀드 타이머 관리
+        _dive_can_hold = (
+            not _viper_dive_active
+            and _viper_jetpack_offset_y < -20
+            and not _dive_any_skill_active
+            and not _dive_dir_held
+            and not is_waiting_for_serve
+            and not is_player_serve and not player_stunned
+            and special_gauge >= _VIPER_DIVE_GAUGE_COST
+            and is_viper_skill_unlocked("dive_strike")
+            and get_viper_skill_cooldown_remaining("dive_strike") <= 0
+        )
+        if _dive_s_input and _dive_can_hold:
+            if _viper_dive_hold_start_ms == 0:
+                _viper_dive_hold_start_ms = pygame.time.get_ticks()
+        else:
+            _viper_dive_hold_start_ms = 0
+        # 0.5초 홀드 완료 → 발동
+        if (_viper_dive_hold_start_ms > 0
+                and pygame.time.get_ticks() - _viper_dive_hold_start_ms >= _VIPER_DIVE_HOLD_REQUIRED_MS):
+            _viper_dive_hold_start_ms = 0
+            if _dive_can_hold:
                 special_gauge -= _VIPER_DIVE_GAUGE_COST
                 trigger_viper_skill_cooldown("dive_strike")
                 _viper_dive_active = True
-                _viper_dive_phase = 0  # 준비동작(도움닫기) 부터 시작
+                _viper_dive_phase = 0
                 _viper_dive_start_ms = pygame.time.get_ticks()
                 try:
                     _dp_snd = sound_effects.get('VIPER_DIVE_PREP')
@@ -73301,12 +73312,6 @@ def handle_player(keys):
                 _viper_dive_height_snapshot = abs(_viper_jetpack_offset_y)
                 _viper_dive_ball_boosted = False
                 _viper_dive_particles = []
-                # 에어 블레이드 스핀 phase2 중이면 즉시 종료
-                if _viper_br_spin_active and _viper_br_spin_phase == 2:
-                    _viper_br_spin_active = False
-                    _viper_br_spin_angle = 0.0
-                    _viper_br_jump_offset_y = 0.0
-                    _viper_br_arm_raise = 0.0
                 # 제트팩 즉시 비활성 + 사운드 정지
                 _viper_jetpack_active = False
                 _viper_jetpack_gauge_timer = 0
@@ -140408,10 +140413,11 @@ def reset_round(is_stage_start=False):
     _viper_phantom_strike_active = False
     _viper_phantom_strike_timer = 0
     # 바이퍼 급강하 어택 초기화
-    global _viper_dive_active, _viper_dive_phase, _viper_dive_shockwave_timer
+    global _viper_dive_active, _viper_dive_phase, _viper_dive_shockwave_timer, _viper_dive_hold_start_ms
     global _viper_dive_particles, _viper_dive_ball_boosted
     _viper_dive_active = False
     _viper_dive_phase = 0
+    _viper_dive_hold_start_ms = 0
     _viper_dive_shockwave_timer = 0
     _viper_dive_particles = []
     _viper_dive_ball_boosted = False
