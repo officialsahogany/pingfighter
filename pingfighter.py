@@ -48483,6 +48483,7 @@ _viper_air_strike_text_pct = 0          # 보너스 퍼센트
 # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
 _viper_dive_hold_start_ms = 0           # S/↓키 꾹 누르기 시작 시각 (0=미입력)
 _VIPER_DIVE_HOLD_REQUIRED_MS = 500      # 발동에 필요한 홀드 시간 (0.5초)
+_viper_dive_charge_particles = []       # 차징 중 발밑 화염 파티클
 _viper_dive_active = False              # 급강하 진행 중 여부
 _viper_dive_phase = 0                   # 0=준비동작(공중정지), 1=급강하, 2=착지 충격파
 _viper_dive_start_ms = 0                # 급강하 시작 시간
@@ -57944,6 +57945,7 @@ def go_to_next_round():
     _viper_dive_active = False
     _viper_dive_phase = 0
     _viper_dive_hold_start_ms = 0
+    _viper_dive_charge_particles = []
     _viper_blade_rush_active = False
     _viper_br_spin_active = False
     _viper_br_spin_phase = 0
@@ -72406,7 +72408,7 @@ def handle_player(keys):
         global boss_confused_timer
         global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
         global _viper_jetpack_hold_timer, _viper_jetpack_overheat
-        global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms, _viper_dive_hold_start_ms
+        global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms, _viper_dive_hold_start_ms, _viper_dive_charge_particles
         global _viper_dive_height_snapshot, _viper_dive_particles
         global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
         global _viper_dive_ball_boosted
@@ -73290,12 +73292,42 @@ def handle_player(keys):
         if _dive_s_input and _dive_can_hold:
             if _viper_dive_hold_start_ms == 0:
                 _viper_dive_hold_start_ms = pygame.time.get_ticks()
+                _viper_dive_charge_particles = []
+            # 홀드 진행도 (0→1)에 따라 발밑 화염 파티클 생성
+            _dive_hold_elapsed = pygame.time.get_ticks() - _viper_dive_hold_start_ms
+            _dive_hold_progress = min(1.0, _dive_hold_elapsed / _VIPER_DIVE_HOLD_REQUIRED_MS)
+            import random as _dcp_rand
+            # 진행도에 비례해 파티클 생성량 증가 (초반 1~2개 → 후반 5~6개/프레임)
+            _dcp_spawn_count = int(1 + _dive_hold_progress * 5)
+            _dcp_foot_x = float(PLAYER.centerx)
+            _dcp_foot_y = float(PLAYER.centery + PLAYER.height // 2)
+            for _ in range(_dcp_spawn_count):
+                # 발바닥 좌우로 퍼지며 위로 튀어오르는 불꽃
+                _dcp_palette = [
+                    (255, 180, 60), (255, 140, 30), (255, 210, 90),
+                    (255, 100, 20), (255, 220, 130), (240, 160, 50),
+                    (255, 240, 180), (255, 120, 40),
+                ]
+                _dcp_col = _dcp_palette[_dcp_rand.randint(0, len(_dcp_palette) - 1)]
+                _dcp_spread = 8 + _dive_hold_progress * 14  # 진행도에 따라 넓게
+                _viper_dive_charge_particles.append({
+                    'x': _dcp_foot_x + _dcp_rand.uniform(-_dcp_spread, _dcp_spread),
+                    'y': _dcp_foot_y + _dcp_rand.uniform(-2, 4),
+                    'vx': _dcp_rand.uniform(-0.8, 0.8),
+                    'vy': _dcp_rand.uniform(-3.5, -1.0) * (0.6 + _dive_hold_progress * 0.6),
+                    'life': _dcp_rand.randint(12, 28),
+                    'max_life': 28,
+                    'size': _dcp_rand.uniform(2.0, 4.5 + _dive_hold_progress * 2.0),
+                    'color': _dcp_col,
+                })
         else:
             _viper_dive_hold_start_ms = 0
+            _viper_dive_charge_particles = []
         # 0.5초 홀드 완료 → 발동
         if (_viper_dive_hold_start_ms > 0
                 and pygame.time.get_ticks() - _viper_dive_hold_start_ms >= _VIPER_DIVE_HOLD_REQUIRED_MS):
             _viper_dive_hold_start_ms = 0
+            _viper_dive_charge_particles = []
             if _dive_can_hold:
                 special_gauge -= _VIPER_DIVE_GAUGE_COST
                 trigger_viper_skill_cooldown("dive_strike")
@@ -106902,6 +106934,7 @@ def draw_objects():
     global _viper_dmk_text_active, _viper_dmk_text_timer, _viper_dmk_text_x, _viper_dmk_text_y
     global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
     global _viper_phantom_aura_active, _viper_phantom_aura_start_ms, _viper_phantom_hit_particles
+    global _viper_dive_charge_particles
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer  # 마샬 킥 연계 윈도우
     global _viper_dive_slip_timer
     global special_gauge  #  드라이브 게이지 확인용
@@ -108185,6 +108218,42 @@ def draw_objects():
                     _viper_starburst_active = False
         except Exception:
             _viper_starburst_active = False
+
+    # ✦ EMP 스트라이크 차징 화염 파티클 (발밑에서 튀어오르는 불꽃)
+    if _viper_dive_charge_particles:
+        try:
+            _dcr_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            _dcr_alive = []
+            for _dcp in _viper_dive_charge_particles:
+                _dcp['x'] += _dcp['vx']
+                _dcp['y'] += _dcp['vy']
+                _dcp['vy'] -= 0.05  # 위로 가속 (불꽃 상승)
+                _dcp['vx'] *= 0.97
+                _dcp['life'] -= 1
+                if _dcp['life'] > 0:
+                    _dcr_alive.append(_dcp)
+                    _dcp_t = _dcp['life'] / _dcp['max_life']
+                    _dcp_a = int(220 * _dcp_t)
+                    _dcp_sz = max(1, int(_dcp['size'] * (0.3 + _dcp_t * 0.7)))
+                    _dcp_c = _dcp['color']
+                    # 외곽 글로우
+                    if _dcp_sz > 1:
+                        _dcp_ga = int(_dcp_a * 0.4)
+                        if _dcp_ga > 3:
+                            pygame.draw.circle(_dcr_surf, (min(255, _dcp_c[0] + 20), _dcp_c[1] // 2, 0, _dcp_ga),
+                                               (int(_dcp['x']), int(_dcp['y'])), _dcp_sz + 3)
+                    # 메인 불꽃
+                    pygame.draw.circle(_dcr_surf, (*_dcp_c, _dcp_a),
+                                       (int(_dcp['x']), int(_dcp['y'])), _dcp_sz)
+                    # 밝은 코어 (수명 50% 이상일 때)
+                    if _dcp_t > 0.5 and _dcp_sz > 1:
+                        _dcp_ca = int(_dcp_a * 0.6)
+                        pygame.draw.circle(_dcr_surf, (255, 255, 200, _dcp_ca),
+                                           (int(_dcp['x']), int(_dcp['y'])), max(1, _dcp_sz - 1))
+            _viper_dive_charge_particles = _dcr_alive
+            SCREEN.blit(_dcr_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+        except Exception:
+            _viper_dive_charge_particles = []
 
     # ✦ 팬텀 킥 흑연 오라 (다크 플레임 나선 — 패들 주변)
     if _viper_phantom_aura_active and _viper_wall_dive_active and _viper_is_double_marshal:
@@ -140418,6 +140487,7 @@ def reset_round(is_stage_start=False):
     _viper_dive_active = False
     _viper_dive_phase = 0
     _viper_dive_hold_start_ms = 0
+    _viper_dive_charge_particles = []
     _viper_dive_shockwave_timer = 0
     _viper_dive_particles = []
     _viper_dive_ball_boosted = False
