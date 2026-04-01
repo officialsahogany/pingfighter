@@ -108004,41 +108004,76 @@ def draw_objects():
             if _viper_dive_active and _viper_dive_phase == 0:
                 _dv_prep_elapsed = pygame.time.get_ticks() - _viper_dive_start_ms
                 _dv_prep_pct = min(1.0, _dv_prep_elapsed / _VIPER_DIVE_PREP_MS)
-                _dv_pulse = 0.4 + 0.6 * math.sin(_dv_prep_pct * math.pi * 2)  # 느린 맥동
-                # 외곽 은은한 대형 글로우 (넓고 투명)
-                _dv_outer_r = int(50 + 30 * _dv_prep_pct)
-                _dv_outer_a = int(30 + 40 * _dv_prep_pct * _dv_pulse)
-                _dv_outer_surf = pygame.Surface((_dv_outer_r * 2, _dv_outer_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(_dv_outer_surf, (140, 60, 220, _dv_outer_a),
-                                   (_dv_outer_r, _dv_outer_r), _dv_outer_r)
-                SCREEN.blit(_dv_outer_surf,
-                            (PLAYER.centerx - _dv_outer_r, PLAYER.centery - _dv_outer_r),
-                            special_flags=pygame.BLEND_ADD)
-                # 내부 코어 글로우 (작고 밝음)
-                _dv_inner_r = int(14 + 16 * _dv_prep_pct)
-                _dv_inner_a = int(50 + 80 * _dv_prep_pct * _dv_pulse)
-                _dv_inner_surf = pygame.Surface((_dv_inner_r * 2, _dv_inner_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(_dv_inner_surf, (180, 120, 255, _dv_inner_a),
-                                   (_dv_inner_r, _dv_inner_r), _dv_inner_r)
-                SCREEN.blit(_dv_inner_surf,
-                            (PLAYER.centerx - _dv_inner_r, PLAYER.centery - _dv_inner_r),
-                            special_flags=pygame.BLEND_ADD)
-                # 하강 방향 표시선 (점선 — 은은한 페이드인)
-                _dv_line_a = int(40 + 80 * _dv_prep_pct)
-                for _dli in range(0, 60, 8):
-                    _dly = PLAYER.bottom + _dli
-                    _dv_dist_fade = max(0.2, 1.0 - _dli / 60.0)  # 멀수록 투명
-                    if _dly < HEIGHT:
-                        pygame.draw.line(SCREEN, (160, 90, 240, int(_dv_line_a * _dv_dist_fade)),
-                                         (PLAYER.centerx - 2, _dly),
-                                         (PLAYER.centerx + 2, _dly + 4), 2)
+                _dv_pulse = 0.5 + 0.5 * math.sin(_dv_prep_pct * math.pi * 4)
+                _dv_foot_y = PLAYER.bottom
+                _dv_cx = PLAYER.centerx
+                _dv_emp_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
-            # 급강하 궤적 글로우 (급강하 중)
+                # --- EMP 펄스 링 (발밑에서 동심원으로 퍼져나감) ---
+                _dv_ring_count = 3 + int(_dv_prep_pct * 3)  # 3→6개 링
+                _dv_time_ms = _dv_prep_elapsed
+                for _ri in range(_dv_ring_count):
+                    # 각 링이 시간차를 두고 퍼져나감
+                    _ri_phase = (_ri / max(1, _dv_ring_count)) + _dv_time_ms * 0.003
+                    _ri_t = (_ri_phase % 1.0)  # 0→1 순환
+                    _ri_radius = int(10 + _ri_t * (60 + _dv_prep_pct * 50))
+                    _ri_alpha = int(120 * (1.0 - _ri_t) * (0.5 + _dv_prep_pct * 0.5))
+                    _ri_width = max(1, int(3 * (1.0 - _ri_t * 0.6)))
+                    if _ri_alpha > 3 and _ri_radius > 2:
+                        # 타원형 (수평으로 납작하게 — 발밑 시점)
+                        _ri_w = _ri_radius * 2
+                        _ri_h = max(4, int(_ri_radius * 0.5))
+                        # 주 펄스 (주황-금색)
+                        _ri_cr = min(255, 220 + int(35 * _dv_pulse))
+                        _ri_cg = min(255, 140 + int(60 * (1.0 - _ri_t)))
+                        _ri_cb = int(30 + 40 * _ri_t)
+                        pygame.draw.ellipse(_dv_emp_surf, (_ri_cr, _ri_cg, _ri_cb, _ri_alpha),
+                                            (_dv_cx - _ri_w // 2, _dv_foot_y - _ri_h // 2,
+                                             _ri_w, _ri_h), _ri_width)
+                        # 내부 밝은 엣지 (흰금색)
+                        if _ri_t < 0.4:
+                            _ri_inner_a = int(_ri_alpha * 0.4)
+                            if _ri_inner_a > 2:
+                                pygame.draw.ellipse(_dv_emp_surf, (255, 230, 180, _ri_inner_a),
+                                                    (_dv_cx - _ri_w // 2 + 1, _dv_foot_y - _ri_h // 2 + 1,
+                                                     _ri_w - 2, _ri_h - 2), max(1, _ri_width - 1))
+
+                # --- 중심 에너지 코어 (발밑 — 작고 밝은 금색) ---
+                _dv_core_r = int(6 + 8 * _dv_prep_pct * _dv_pulse)
+                _dv_core_a = int(80 + 100 * _dv_prep_pct)
+                _dv_core_h = max(3, int(_dv_core_r * 0.45))
+                pygame.draw.ellipse(_dv_emp_surf, (255, 200, 80, _dv_core_a),
+                                    (_dv_cx - _dv_core_r, _dv_foot_y - _dv_core_h,
+                                     _dv_core_r * 2, _dv_core_h * 2))
+                # 코어 하이라이트
+                _dv_hi_r = max(2, _dv_core_r - 3)
+                _dv_hi_h = max(2, _dv_core_h - 2)
+                pygame.draw.ellipse(_dv_emp_surf, (255, 245, 200, int(_dv_core_a * 0.5)),
+                                    (_dv_cx - _dv_hi_r, _dv_foot_y - _dv_hi_h,
+                                     _dv_hi_r * 2, _dv_hi_h * 2))
+
+                # --- 하강 방향 표시 (점선 → 전기 아크 스타일) ---
+                _dv_line_a = int(30 + 70 * _dv_prep_pct)
+                for _dli in range(0, 70, 6):
+                    _dly = _dv_foot_y + _dli
+                    _dv_dist_fade = max(0.1, 1.0 - _dli / 70.0)
+                    if _dly < HEIGHT:
+                        _dv_jitter_x = random.randint(-2, 2) if _dv_prep_pct > 0.3 else 0
+                        _dl_ca = int(_dv_line_a * _dv_dist_fade)
+                        if _dl_ca > 3:
+                            pygame.draw.line(_dv_emp_surf, (255, 180, 60, _dl_ca),
+                                             (_dv_cx - 1 + _dv_jitter_x, _dly),
+                                             (_dv_cx + 1 + _dv_jitter_x, _dly + 3), 2)
+
+                SCREEN.blit(_dv_emp_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+
+            # 급강하 궤적 글로우 (급강하 중 — EMP 펄스 잔상)
             if _viper_dive_active and _viper_dive_phase == 1:
-                _dv_trail_surf = pygame.Surface((20, 60), pygame.SRCALPHA)
-                pygame.draw.ellipse(_dv_trail_surf, (200, 80, 255, 100), (0, 0, 20, 60))
+                _dv_trail_surf = pygame.Surface((24, 50), pygame.SRCALPHA)
+                pygame.draw.ellipse(_dv_trail_surf, (255, 160, 40, 90), (2, 0, 20, 50))
+                pygame.draw.ellipse(_dv_trail_surf, (255, 220, 120, 50), (6, 5, 12, 35))
                 SCREEN.blit(_dv_trail_surf,
-                            (PLAYER.centerx - 10, PLAYER.bottom - 10),
+                            (PLAYER.centerx - 12, PLAYER.bottom - 8),
                             special_flags=pygame.BLEND_ADD)
 
             # 착지 연기 효과 (바닥에 깔리는 넓은 연기 레이어)
