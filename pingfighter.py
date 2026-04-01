@@ -72724,7 +72724,9 @@ def handle_player(keys):
 
         if _viper_wall_dive_phase == 0:
             # Phase 0: 로프를 벽에 쏘고 끌려가며 이동 (스파이더맨/산나비 스타일)
-            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_JUMP_MS)
+            # 팬텀 킥(2차)은 로프 이동 30% 빠르게
+            _wd_jump_ms = _VIPER_WALL_DIVE_JUMP_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_JUMP_MS
+            _wd_t = min(1.0, _wd_elapsed / _wd_jump_ms)
             _wd_ease = 1.0 - (1.0 - _wd_t) ** 2  # ease-out quadratic (자연스러운 당김 → 벽 근처 감속)
             # 플레이어가 로프에 끌려감
             _wd_cx = _viper_wall_dive_start_x + (_viper_wall_dive_wall_x - _viper_wall_dive_start_x) * _wd_ease
@@ -72885,7 +72887,9 @@ def handle_player(keys):
 
         elif _viper_wall_dive_phase == 2:
             # Phase 2: 공을 향해 돌진 (실시간 추적)
-            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_CHARGE_MS)
+            # 팬텀 킥(2차)은 돌진 30% 빠르게
+            _wd_charge_ms = _VIPER_WALL_DIVE_CHARGE_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_CHARGE_MS
+            _wd_t = min(1.0, _wd_elapsed / _wd_charge_ms)
             _wd_ease = _wd_t * _wd_t  # ease-in (가속)
             # 매 프레임 공의 실시간 위치로 목표 갱신
             _viper_wall_dive_charge_target_x = float(BALL.centerx)
@@ -108272,7 +108276,8 @@ def draw_objects():
             # 돌진 궤적 (Phase 2)
             if _viper_wall_dive_active and _viper_wall_dive_phase == 2:
                 _ch_elapsed = _wd_ticks - _viper_wall_dive_start_ms
-                _ch_t = min(1.0, _ch_elapsed / _VIPER_WALL_DIVE_CHARGE_MS)
+                _ch_charge_ms = _VIPER_WALL_DIVE_CHARGE_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_CHARGE_MS
+                _ch_t = min(1.0, _ch_elapsed / _ch_charge_ms)
                 _ch_cx = PLAYER.centerx
                 _ch_cy = PLAYER.centery
                 # 돌진 글로우
