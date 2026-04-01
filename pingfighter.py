@@ -73188,7 +73188,12 @@ def handle_player(keys):
 
         # 하강 (제트팩 비활성 또는 과열 시 서서히 내려옴)
         if not _viper_jetpack_active and _viper_jetpack_offset_y < 0:
-            _viper_jetpack_offset_y = min(0, _viper_jetpack_offset_y + _VIPER_JETPACK_FALL_SPEED)
+            # EMP 차징 중이면 하강 속도 서서히 감소 (진행도 비례: 100% → 10%)
+            _jp_fall = _VIPER_JETPACK_FALL_SPEED
+            if _viper_dive_hold_start_ms > 0:
+                _jp_hold_p = min(1.0, (pygame.time.get_ticks() - _viper_dive_hold_start_ms) / _VIPER_DIVE_HOLD_REQUIRED_MS)
+                _jp_fall = _VIPER_JETPACK_FALL_SPEED * (1.0 - _jp_hold_p * 0.9)
+            _viper_jetpack_offset_y = min(0, _viper_jetpack_offset_y + _jp_fall)
 
         # 착지 시 과열 해제 + 체공 타이머 서서히 충전 (비행 소모의 2배 느리게)
         if _viper_jetpack_offset_y >= 0:
