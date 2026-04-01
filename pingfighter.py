@@ -108219,7 +108219,7 @@ def draw_objects():
                 # 수직 방향 (처짐용)
                 _ch_perp_x = -_ch_dy / _ch_dist
                 _ch_perp_y = _ch_dx / _ch_dist
-                _ch_sag = min(20.0, _ch_dist * 0.07)  # 살짝 처짐
+                _ch_sag = 0.0  # 직선 로프 (처짐 없음)
                 # 곡선 포인트 계산 (부드러운 카테너리)
                 _ch_segs = max(6, int(_ch_dist / 8))
                 _ch_points = []
