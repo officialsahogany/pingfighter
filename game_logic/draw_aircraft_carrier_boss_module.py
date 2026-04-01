@@ -1,5 +1,5 @@
 """
-draw_aircraft_carrier_boss 함수 - 고퀄리티 울트라 배틀크루저 (v2)
+draw_aircraft_carrier_boss 함수 - 건담 스타일 전투 로봇 (v3)
 """
 
 import pygame
@@ -7,12 +7,12 @@ import math
 import random
 
 def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
-    """⚔️ 스테이지 6 울트라 배틀크루저 - 최강의 전함 보스 패들 (고퀄리티 v2)"""
+    """⚔️ 스테이지 6 네메시스 - 건담 스타일 공중부양 전투 로봇"""
     import random
     global laser_cannon_angle, laser_charging, laser_cannon_active, laser_charge_start
     global shield_antenna_active, stage6_boss_hit_timer, stage6_boss_hit_flash
 
-    # 🎯 소닉 스타일 피격 효과 타이머 업데이트
+    # 피격 효과 타이머
     if stage6_boss_hit_timer > 0:
         stage6_boss_hit_timer -= 1
         stage6_boss_hit_flash = (stage6_boss_hit_timer // 4) % 2 == 0
@@ -21,464 +21,441 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
 
     carrier_width = 220
     carrier_height = 85
-
-    carrier_surface = pygame.Surface((carrier_width, carrier_height), pygame.SRCALPHA)
+    surface = pygame.Surface((carrier_width, carrier_height), pygame.SRCALPHA)
 
     damage_ratio = 1.0 - (boss_current_health / boss_max_health)
     time_now = pygame.time.get_ticks()
+    cx = carrier_width // 2  # 110
 
-    def apply_hit_effect(color):
+    def hit(color):
         if stage6_boss_hit_flash:
             r, g, b = color[:3]
             return (min(255, r + 120), max(0, g - 30), max(0, b - 30))
         return color
 
-    # ============================================================
-    # === 1. 함선 실루엣 (각진 스텔스 구축함 형태) ===
-    # ============================================================
-    # 뾰족한 함수(bow)가 아래(플레이어 방향), 함미(stern)가 위쪽
-    cx = carrier_width // 2  # 110
+    # === 색상 팔레트 (건담 블루/화이트/다크네이비) ===
+    navy = hit((28, 38, 58))
+    navy_mid = hit((42, 55, 78))
+    navy_light = hit((58, 72, 98))
+    armor_white = hit((175, 185, 200))
+    armor_light = hit((200, 210, 225))
+    armor_mid = hit((145, 155, 172))
+    armor_dark = hit((110, 120, 138))
+    blue_main = hit((55, 100, 175))
+    blue_light = hit((80, 135, 210))
+    blue_dark = hit((35, 68, 130))
+    gold = hit((215, 185, 80))
+    gold_light = hit((240, 215, 120))
+    red_accent = hit((195, 55, 45))
+    eye_green = (0, 230, 120)
+    eye_glow = (120, 255, 180)
+    reactor_blue = (80, 180, 255)
 
-    # 외곽 선체 폴리곤 (스텔스 구축함 실루엣)
-    hull_outline = [
-        (cx, 82),           # 함수 첨단 (하단 중앙 - 플레이어 방향)
-        (cx - 30, 72),      # 함수 좌측
-        (cx - 55, 62),      # 좌현 전방
-        (cx - 80, 50),      # 좌현 중앙
-        (cx - 95, 38),      # 좌현 후방
-        (cx - 90, 22),      # 함미 좌측
-        (cx - 75, 15),      # 함미 좌 코너
-        (cx + 75, 15),      # 함미 우 코너
-        (cx + 90, 22),      # 함미 우측
-        (cx + 95, 38),      # 우현 후방
-        (cx + 80, 50),      # 우현 중앙
-        (cx + 55, 62),      # 우현 전방
-        (cx + 30, 72),      # 함수 우측
-    ]
-
-    # --- 선체 다층 렌더링 (아래서 위로) ---
-
-    # 최하부 그림자
-    shadow_hull = [(x + 2, y + 2) for x, y in hull_outline]
-    pygame.draw.polygon(carrier_surface, (15, 18, 22, 120), shadow_hull)
-
-    # 하부 선체 (짙은 메탈)
-    hull_base = apply_hit_effect((45, 52, 62))
-    pygame.draw.polygon(carrier_surface, hull_base, hull_outline)
-
-    # 중부 선체 (한 단계 밝은 영역 - 약간 안쪽)
-    hull_mid_points = [
-        (cx, 78),
-        (cx - 26, 69), (cx - 50, 60), (cx - 73, 48),
-        (cx - 86, 37), (cx - 82, 23), (cx - 68, 18),
-        (cx + 68, 18), (cx + 82, 23), (cx + 86, 37),
-        (cx + 73, 48), (cx + 50, 60), (cx + 26, 69),
-    ]
-    hull_mid_color = apply_hit_effect((62, 72, 85) if damage_ratio < 0.5 else (55, 62, 72))
-    pygame.draw.polygon(carrier_surface, hull_mid_color, hull_mid_points)
-
-    # 상부 갑판 (가장 밝은 영역 - 더 안쪽)
-    deck_points = [
-        (cx, 74),
-        (cx - 22, 66), (cx - 44, 57), (cx - 65, 46),
-        (cx - 78, 36), (cx - 74, 24), (cx - 60, 20),
-        (cx + 60, 20), (cx + 74, 24), (cx + 78, 36),
-        (cx + 65, 46), (cx + 44, 57), (cx + 22, 66),
-    ]
-    deck_color = apply_hit_effect((78, 90, 105) if damage_ratio < 0.3 else (68, 78, 90))
-    pygame.draw.polygon(carrier_surface, deck_color, deck_points)
-
-    # 갑판 상부 하이라이트 라인
-    highlight_color = (100, 115, 132)
-    for i in range(len(deck_points) - 1):
-        pygame.draw.line(carrier_surface, highlight_color, deck_points[i], deck_points[i + 1], 1)
-    pygame.draw.line(carrier_surface, highlight_color, deck_points[-1], deck_points[0], 1)
+    # 호버 바운스 (부유감)
+    hover = math.sin(time_now * 0.004) * 2
+    # 기체 기울기 (이동 방향)
+    tilt = max(-3, min(3, boss_speed * 0.4))
 
     # ============================================================
-    # === 2. 장갑판 패널 시스템 (대각선 기하학 패턴) ===
+    # === 0. 하부 부유 글로우 (공중부양 이펙트) ===
     # ============================================================
-    panel_base = (95, 108, 125) if boss_current_health > 10 else (80, 90, 105)
-    panel_glow = (115, 140, 175) if boss_current_health > 12 else (95, 115, 140)
-
-    # 좌현 장갑판 (대각선 배치)
-    armor_panels_left = [
-        (cx - 70, 30, 20, 12), (cx - 55, 38, 22, 11),
-        (cx - 42, 47, 20, 10), (cx - 28, 55, 18, 10),
-    ]
-    # 우현 장갑판 (대칭)
-    armor_panels_right = [
-        (cx + 50, 30, 20, 12), (cx + 33, 38, 22, 11),
-        (cx + 22, 47, 20, 10), (cx + 10, 55, 18, 10),
-    ]
-
-    for panels in [armor_panels_left, armor_panels_right]:
-        for px, py, pw, ph in panels:
-            # 패널 외곽 (3D 입체감)
-            pygame.draw.rect(carrier_surface, (55, 65, 78), (px - 1, py - 1, pw + 2, ph + 2))
-            pygame.draw.rect(carrier_surface, apply_hit_effect(panel_base), (px, py, pw, ph))
-            # 패널 테두리 하이라이트
-            pygame.draw.rect(carrier_surface, panel_glow, (px, py, pw, ph), 1)
-            # 에너지 라인 (펄스 효과)
-            pulse = abs(math.sin(time_now * 0.003 + px * 0.05))
-            line_color = (int(100 + pulse * 35), int(120 + pulse * 40), int(140 + pulse * 55))
-            pygame.draw.line(carrier_surface, line_color, (px + 2, py + ph // 2), (px + pw - 2, py + ph // 2), 1)
-            # 에너지 코어 포인트
-            core_x = px + pw // 2
-            core_y = py + ph // 2
-            pygame.draw.circle(carrier_surface, panel_glow, (core_x, core_y), 2)
-            if boss_current_health > 8:
-                pygame.draw.circle(carrier_surface, (170, 200, 240), (core_x, core_y), 1)
-
-    # ============================================================
-    # === 3. 비행갑판 (Flight Deck) - 중앙 활주로 ===
-    # ============================================================
-    # 활주로 영역 (함선 중앙 세로 방향)
-    runway_color = apply_hit_effect((70, 80, 95))
-    runway_light = (90, 105, 120)
-
-    # 중앙 활주로 바닥
-    runway_points = [
-        (cx - 12, 24), (cx + 12, 24),
-        (cx + 15, 45), (cx + 10, 68),
-        (cx - 10, 68), (cx - 15, 45),
-    ]
-    pygame.draw.polygon(carrier_surface, runway_color, runway_points)
-    pygame.draw.polygon(carrier_surface, runway_light, runway_points, 1)
-
-    # 활주로 중앙선 (파선)
-    for i in range(5):
-        line_y = 28 + i * 9
-        line_len = 5
-        pygame.draw.line(carrier_surface, (140, 155, 175), (cx, line_y), (cx, line_y + line_len), 1)
-
-    # 착함 유도등 (활주로 양쪽 점멸)
-    for i in range(6):
-        light_y = 26 + i * 8
-        light_pulse = abs(math.sin(time_now * 0.008 + i * 0.4))
-        light_alpha = int(120 + light_pulse * 135)
-        light_color = (light_alpha, min(255, light_alpha + 30), min(255, int(180 + light_pulse * 75)))
-        pygame.draw.circle(carrier_surface, light_color, (cx - 10, light_y), 1)
-        pygame.draw.circle(carrier_surface, light_color, (cx + 10, light_y), 1)
-
-    # 착함 마크 (원형)
-    pygame.draw.circle(carrier_surface, (100, 115, 135), (cx, 50), 6, 1)
-    pygame.draw.line(carrier_surface, (100, 115, 135), (cx - 4, 50), (cx + 4, 50), 1)
-    pygame.draw.line(carrier_surface, (100, 115, 135), (cx, 46), (cx, 54), 1)
-
-    # ============================================================
-    # === 4. 구조적 디테일 (리벳, 섹션 라인) ===
-    # ============================================================
-    rivet_color = (115, 128, 142)
-
-    # 종방향 구조 라인 (함선 길이 방향)
-    struct_lines = [
-        ((cx - 40, 25), (cx - 18, 68)),
-        ((cx + 40, 25), (cx + 18, 68)),
-        ((cx - 65, 28), (cx - 35, 60)),
-        ((cx + 65, 28), (cx + 35, 60)),
-    ]
-    for start, end in struct_lines:
-        pygame.draw.line(carrier_surface, (85, 95, 110), start, end, 1)
-
-    # 횡방향 구조 라인 (프레임 라인)
-    for y_offset in [30, 42, 55]:
-        # 좌현~우현 곡선 대신 직선으로 단순화
-        left_x = max(cx - 80, cx - int(90 - (y_offset - 20) * 0.8))
-        right_x = min(cx + 80, cx + int(90 - (y_offset - 20) * 0.8))
-        pygame.draw.line(carrier_surface, rivet_color, (left_x, y_offset), (right_x, y_offset), 1)
-        # 리벳 포인트
-        for rx in range(left_x + 10, right_x, 15):
-            pygame.draw.circle(carrier_surface, rivet_color, (rx, y_offset), 1)
-
-    # ============================================================
-    # === 5. 야마토 캐논급 주포 터렛 시스템 ===
-    # ============================================================
-    # 함선 형태에 맞춰 곡선 배치
-    turret_positions = [
-        (cx - 60, 35), (cx - 35, 48), (cx - 15, 60),
-        (cx + 15, 60), (cx + 35, 48), (cx + 60, 35),
-    ]
-    for idx, (tx, ty) in enumerate(turret_positions):
-        # 터렛 베이스 (다층 구조 + 그림자)
-        pygame.draw.circle(carrier_surface, (40, 48, 58), (tx + 1, ty + 1), 9)  # 그림자
-        pygame.draw.circle(carrier_surface, apply_hit_effect((50, 58, 70)), (tx, ty), 9)
-        pygame.draw.circle(carrier_surface, apply_hit_effect((65, 75, 88)), (tx, ty), 7)
-        pygame.draw.circle(carrier_surface, apply_hit_effect((80, 92, 108)), (tx, ty), 5)
-
-        # 듀얼 포신 (쌍발) - 아래(플레이어) 방향
-        gun_angle = math.sin(time_now * 0.00001 + tx * 0.01) * 2
-        for barrel_offset in [-2, 2]:
-            barrel_x = tx + barrel_offset
-            gun_end_x = barrel_x + int(14 * math.cos(math.radians(90 + gun_angle)))
-            gun_end_y = ty + int(14 * math.sin(math.radians(90 + gun_angle)))
-
-            # 포신 그라데이션
-            pygame.draw.line(carrier_surface, (38, 45, 55), (barrel_x, ty), (gun_end_x, gun_end_y), 4)
-            pygame.draw.line(carrier_surface, (55, 65, 78), (barrel_x, ty), (gun_end_x - 1, gun_end_y - 1), 3)
-            pygame.draw.line(carrier_surface, (72, 82, 95), (barrel_x, ty), (gun_end_x - 2, gun_end_y - 2), 2)
-
-        # 터렛 중앙 에너지 코어
-        pygame.draw.circle(carrier_surface, (140, 168, 200), (tx, ty), 3)
-        pygame.draw.circle(carrier_surface, (175, 205, 235), (tx - 1, ty - 1), 1)
-
-    # ============================================================
-    # === 6. 사령부 브릿지 타워 (파고다식 다층 구조) ===
-    # ============================================================
-    bridge_x = cx + 42  # 우현 약간 후방
-
-    # 브릿지 기초 플랫폼
-    pygame.draw.rect(carrier_surface, (48, 55, 65), (bridge_x - 3, 20, 46, 28))
-    pygame.draw.rect(carrier_surface, apply_hit_effect((68, 78, 92)), (bridge_x - 1, 18, 42, 26))
-
-    # 중간층 (전투지휘소 - CIC)
-    bridge_mid = apply_hit_effect((85, 95, 112) if boss_current_health > 5 else (70, 78, 88))
-    pygame.draw.rect(carrier_surface, bridge_mid, (bridge_x + 3, 14, 34, 20))
-    # CIC 수평 디테일 라인
+    hover_pulse = 0.6 + 0.4 * abs(math.sin(time_now * 0.006))
     for i in range(4):
-        pygame.draw.line(carrier_surface, (105, 118, 135),
-                        (bridge_x + 5 + i * 8, 16), (bridge_x + 5 + i * 8, 30), 1)
-
-    # 최상층 (전망대/함장실)
-    bridge_top = apply_hit_effect((95, 108, 125) if boss_current_health > 3 else (78, 88, 100))
-    pygame.draw.rect(carrier_surface, bridge_top, (bridge_x + 7, 10, 26, 13))
-    # 상층 하이라이트
-    pygame.draw.line(carrier_surface, (120, 135, 155), (bridge_x + 7, 10), (bridge_x + 33, 10), 1)
-
-    # 통합 마스트 (안테나 타워)
-    pygame.draw.rect(carrier_surface, (108, 120, 135), (bridge_x + 18, 4, 4, 8))
-    pygame.draw.line(carrier_surface, (128, 140, 158), (bridge_x + 20, 4), (bridge_x + 20, 1), 2)
-
-    # 파노라마 브릿지 창문 시스템 (5개)
-    for i in range(5):
-        window_x = bridge_x + 8 + i * 5
-        pygame.draw.rect(carrier_surface, (85, 95, 108), (window_x - 1, 11, 5, 9), 1)
-        glow_i = int(140 + 60 * abs(math.sin(time_now * 0.002 + i * 0.3)))
-        pygame.draw.rect(carrier_surface, (glow_i, min(255, glow_i + 30), 200), (window_x, 12, 3, 7))
-        pygame.draw.line(carrier_surface, (195, 215, 245), (window_x, 12), (window_x + 2, 12), 1)
+        glow_r = 35 + i * 8
+        glow_alpha = int((50 - i * 10) * hover_pulse)
+        glow_surf = pygame.Surface((glow_r * 2, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_surf, (60, 140, 255, max(5, glow_alpha)), (0, 0, glow_r * 2, 8))
+        surface.blit(glow_surf, (cx - glow_r, 78 + i + int(hover)))
 
     # ============================================================
-    # === 7. 위상 배열 레이더 시스템 (페이저 어레이) ===
+    # === 1. 양팔 (좌우 대칭 - 패들 역할, 펼친 상태) ===
     # ============================================================
-    radar_x = bridge_x + 20
-    # 레이더 베이스 돔
-    pygame.draw.circle(carrier_surface, (72, 82, 95), (radar_x, 8), 7)
-    pygame.draw.circle(carrier_surface, (108, 125, 148), (radar_x, 8), 5)
-    pygame.draw.circle(carrier_surface, (130, 150, 172), (radar_x, 8), 3)
+    for side in [-1, 1]:
+        arm_base_x = cx + side * 42
 
-    # 멀티 레이어 레이더 스캔 (극저속 회전)
-    radar_angle = time_now * 0.00005
-    for r in range(1, 4):
-        angle_offset = radar_angle + r * 0.2
-        scan_range = 6 + r * 2
-        antenna_end_x = radar_x + scan_range * math.cos(angle_offset)
-        antenna_end_y = 8 + scan_range * math.sin(angle_offset)
-        scan_color = (min(255, 75 + r * 15), min(255, 95 + r * 15), min(255, 115 + r * 15))
-        pygame.draw.line(carrier_surface, scan_color, (radar_x, 8), (int(antenna_end_x), int(antenna_end_y)), 2)
+        # --- 어깨 아머 (숄더 번더) ---
+        shoulder_points = [
+            (arm_base_x - side * 5, 22 + int(hover)),
+            (arm_base_x + side * 28, 18 + int(hover)),
+            (arm_base_x + side * 35, 25 + int(hover)),
+            (arm_base_x + side * 32, 38 + int(hover)),
+            (arm_base_x + side * 22, 42 + int(hover)),
+            (arm_base_x - side * 2, 40 + int(hover)),
+        ]
+        # 어깨 그림자
+        shadow_pts = [(x + 1, y + 2) for x, y in shoulder_points]
+        pygame.draw.polygon(surface, (15, 20, 30, 80), shadow_pts)
+        # 어깨 본체
+        pygame.draw.polygon(surface, blue_main, shoulder_points)
+        # 어깨 상면 하이라이트
+        top_pts = shoulder_points[:3] + [shoulder_points[-1]]
+        pygame.draw.polygon(surface, blue_light, top_pts)
+        # 어깨 에지 라인
+        pygame.draw.polygon(surface, blue_dark, shoulder_points, 1)
 
-    # 레이더 코어 펄스
-    pulse = abs(math.sin(time_now * 0.005))
-    core_color = (int(175 + pulse * 80), int(195 + pulse * 60), 255)
-    pygame.draw.circle(carrier_surface, core_color, (radar_x, 8), 2)
+        # 어깨 장갑 디테일
+        detail_x = arm_base_x + side * 15
+        detail_y = 28 + int(hover)
+        pygame.draw.rect(surface, navy_mid, (detail_x - 5, detail_y, 10, 8))
+        pygame.draw.rect(surface, navy_light, (detail_x - 4, detail_y + 1, 8, 6))
+        # 어깨 에너지 벤트
+        vent_pulse = abs(math.sin(time_now * 0.005 + side))
+        vent_color = (int(60 + vent_pulse * 40), int(120 + vent_pulse * 60), int(200 + vent_pulse * 55))
+        pygame.draw.rect(surface, vent_color, (detail_x - 3, detail_y + 2, 6, 2))
 
-    # 보조 통신 안테나
-    for i, ant_x in enumerate([bridge_x + 8, bridge_x + 32]):
-        ant_height = 5 - i
-        pygame.draw.line(carrier_surface, (150, 162, 175), (ant_x, 15), (ant_x, ant_height), 2)
-        pygame.draw.circle(carrier_surface, (192, 205, 218), (ant_x, ant_height), 1)
+        # --- 상완 (Upper Arm) ---
+        upper_arm_x = arm_base_x + side * 30
+        upper_arm_y = 36 + int(hover)
+        pygame.draw.rect(surface, armor_mid, (upper_arm_x - 4, upper_arm_y, 8, 14))
+        pygame.draw.rect(surface, armor_white, (upper_arm_x - 3, upper_arm_y + 1, 6, 12))
+        # 관절 링
+        pygame.draw.circle(surface, navy, (upper_arm_x, upper_arm_y + 14), 4)
+        pygame.draw.circle(surface, navy_mid, (upper_arm_x, upper_arm_y + 14), 3)
+        pygame.draw.circle(surface, navy_light, (upper_arm_x, upper_arm_y + 14), 2)
+
+        # --- 전완 (Forearm) ---
+        forearm_x = arm_base_x + side * 38
+        forearm_y = 48 + int(hover)
+        forearm_points = [
+            (forearm_x - side * 6, forearm_y),
+            (forearm_x + side * 8, forearm_y - 2),
+            (forearm_x + side * 12, forearm_y + 8),
+            (forearm_x + side * 10, forearm_y + 18),
+            (forearm_x - side * 4, forearm_y + 16),
+            (forearm_x - side * 7, forearm_y + 6),
+        ]
+        pygame.draw.polygon(surface, armor_dark, forearm_points)
+        pygame.draw.polygon(surface, armor_mid, [
+            forearm_points[0], forearm_points[1], forearm_points[2], forearm_points[-1]
+        ])
+        pygame.draw.polygon(surface, navy_light, forearm_points, 1)
+
+        # 전완 무장 마운트
+        mount_x = forearm_x + side * 6
+        mount_y = forearm_y + 10
+        pygame.draw.rect(surface, navy, (mount_x - 3, mount_y - 2, 6, 6))
+        pygame.draw.rect(surface, navy_mid, (mount_x - 2, mount_y - 1, 4, 4))
+        # 무장 포구
+        pygame.draw.circle(surface, (50, 55, 65), (mount_x, mount_y + 4), 2)
+        if boss_current_health > 8:
+            weapon_pulse = abs(math.sin(time_now * 0.006 + side * 2))
+            pygame.draw.circle(surface, (int(100 + weapon_pulse * 60), int(160 + weapon_pulse * 50), 255),
+                              (mount_x, mount_y + 4), 1)
+
+        # --- 핸드 / 빔 사벨 마운트 ---
+        hand_x = forearm_x + side * 10
+        hand_y = forearm_y + 16
+        pygame.draw.circle(surface, navy, (hand_x, hand_y), 3)
+        pygame.draw.circle(surface, navy_mid, (hand_x, hand_y), 2)
+
+        # 손상 시 스파크
+        if damage_ratio > 0.4 and random.random() < 0.15:
+            spark_x = arm_base_x + side * random.randint(15, 35)
+            spark_y = random.randint(25, 55) + int(hover)
+            pygame.draw.circle(surface, (200, 220, 255), (spark_x, spark_y), 1)
 
     # ============================================================
-    # === 8. 함선 좌현 무장 클러스터 (CIWS + VLS) ===
+    # === 2. 몸통 (Torso / Core Body) ===
     # ============================================================
-    # VLS 셀 (수직발사대) - 좌현
-    vls_positions = [(cx - 80, 28), (cx - 75, 34), (cx - 68, 40)]
-    for vx, vy in vls_positions:
-        pygame.draw.rect(carrier_surface, (55, 62, 72), (vx - 3, vy - 3, 6, 6))
-        pygame.draw.rect(carrier_surface, (75, 85, 98), (vx - 2, vy - 2, 4, 4))
-        # VLS 해치 라인
-        pygame.draw.line(carrier_surface, (92, 105, 118), (vx - 2, vy), (vx + 2, vy), 1)
-        pygame.draw.line(carrier_surface, (92, 105, 118), (vx, vy - 2), (vx, vy + 2), 1)
+    torso_y = 20 + int(hover)
+
+    # --- 몸통 메인 프레임 ---
+    torso_points = [
+        (cx - 32, torso_y + 2),    # 좌상
+        (cx - 38, torso_y + 12),   # 좌 어깨 연결
+        (cx - 35, torso_y + 35),   # 좌하
+        (cx - 20, torso_y + 45),   # 좌하 스커트
+        (cx + 20, torso_y + 45),   # 우하 스커트
+        (cx + 35, torso_y + 35),   # 우하
+        (cx + 38, torso_y + 12),   # 우 어깨 연결
+        (cx + 32, torso_y + 2),    # 우상
+    ]
+    # 몸통 그림자
+    shadow = [(x + 1, y + 2) for x, y in torso_points]
+    pygame.draw.polygon(surface, (12, 15, 22, 90), shadow)
+    # 몸통 본체
+    pygame.draw.polygon(surface, navy, torso_points)
+
+    # 상부 흉부 장갑 (흰색 V자 패턴 - 건담 특유)
+    chest_upper = [
+        (cx, torso_y + 4),         # V자 꼭지점 (중앙 상단)
+        (cx - 28, torso_y + 14),   # 좌
+        (cx - 25, torso_y + 22),   # 좌하
+        (cx, torso_y + 16),        # 중앙
+        (cx + 25, torso_y + 22),   # 우하
+        (cx + 28, torso_y + 14),   # 우
+    ]
+    pygame.draw.polygon(surface, armor_white, chest_upper)
+    # 흉부 하이라이트
+    pygame.draw.line(surface, armor_light, (cx, torso_y + 5), (cx - 26, torso_y + 14), 1)
+    pygame.draw.line(surface, armor_light, (cx, torso_y + 5), (cx + 26, torso_y + 14), 1)
+
+    # 콕핏 해치 (중앙)
+    cockpit_y = torso_y + 13
+    cockpit_points = [
+        (cx, cockpit_y - 3),
+        (cx - 8, cockpit_y + 2),
+        (cx - 6, cockpit_y + 8),
+        (cx + 6, cockpit_y + 8),
+        (cx + 8, cockpit_y + 2),
+    ]
+    pygame.draw.polygon(surface, navy, cockpit_points)
+    pygame.draw.polygon(surface, navy_mid, cockpit_points, 1)
+    # 콕핏 글래스
+    glass_points = [
+        (cx, cockpit_y - 1),
+        (cx - 5, cockpit_y + 2),
+        (cx - 4, cockpit_y + 6),
+        (cx + 4, cockpit_y + 6),
+        (cx + 5, cockpit_y + 2),
+    ]
+    glass_pulse = 0.7 + 0.3 * abs(math.sin(time_now * 0.003))
+    glass_color = (int(30 * glass_pulse), int(60 + 40 * glass_pulse), int(100 + 50 * glass_pulse))
+    pygame.draw.polygon(surface, glass_color, glass_points)
+    # 글래스 반사
+    pygame.draw.line(surface, (100, 150, 200), (cx - 3, cockpit_y + 1), (cx + 1, cockpit_y - 1), 1)
+
+    # --- 리액터 코어 (가슴 중앙 발광체) ---
+    reactor_y = torso_y + 22
+    reactor_pulse = 0.5 + 0.5 * abs(math.sin(time_now * 0.007))
+    # 리액터 글로우
+    glow_size = int(8 + reactor_pulse * 3)
+    glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, (60, 160, 255, int(50 * reactor_pulse)), (glow_size, glow_size), glow_size)
+    surface.blit(glow_surf, (cx - glow_size, reactor_y - glow_size))
+    # 리액터 본체
+    pygame.draw.circle(surface, blue_dark, (cx, reactor_y), 5)
+    pygame.draw.circle(surface, reactor_blue, (cx, reactor_y), 4)
+    pygame.draw.circle(surface, (180, 225, 255), (cx, reactor_y), 2)
+    pygame.draw.circle(surface, (255, 255, 255), (cx - 1, reactor_y - 1), 1)
+
+    # --- 복부 장갑 ---
+    abdomen_y = torso_y + 28
+    # 복부 중앙 패널
+    pygame.draw.rect(surface, armor_dark, (cx - 12, abdomen_y, 24, 10))
+    pygame.draw.rect(surface, armor_mid, (cx - 10, abdomen_y + 1, 20, 8))
+    # 복부 디테일 라인
+    pygame.draw.line(surface, navy_light, (cx - 8, abdomen_y + 3), (cx + 8, abdomen_y + 3), 1)
+    pygame.draw.line(surface, navy_light, (cx - 6, abdomen_y + 6), (cx + 6, abdomen_y + 6), 1)
+
+    # --- 허리 / 스커트 아머 ---
+    skirt_y = torso_y + 38
+    # 프론트 스커트 (3판)
+    for i in range(3):
+        sx = cx - 16 + i * 12
+        skirt_pts = [
+            (sx, skirt_y), (sx + 10, skirt_y),
+            (sx + 12, skirt_y + 10), (sx - 2, skirt_y + 10),
+        ]
+        skirt_color = blue_main if i == 1 else navy_mid
+        pygame.draw.polygon(surface, skirt_color, skirt_pts)
+        pygame.draw.polygon(surface, navy_light, skirt_pts, 1)
+
+    # 사이드 스커트
+    for side in [-1, 1]:
+        ss_x = cx + side * 25
+        side_skirt = [
+            (ss_x, skirt_y - 2), (ss_x + side * 10, skirt_y),
+            (ss_x + side * 12, skirt_y + 12), (ss_x + side * 2, skirt_y + 10),
+        ]
+        pygame.draw.polygon(surface, blue_dark, side_skirt)
+        pygame.draw.polygon(surface, navy_light, side_skirt, 1)
+
+    # 몸통 외곽 테두리
+    pygame.draw.polygon(surface, navy_light, torso_points, 1)
 
     # ============================================================
-    # === 9. 쉴드 안테나 시스템 ===
+    # === 3. 머리 (Head Unit) ===
     # ============================================================
-    shield_antenna_x = cx
-    shield_antenna_y = 75
+    head_y = 8 + int(hover)
 
-    pygame.draw.circle(carrier_surface, (88, 98, 112), (shield_antenna_x, shield_antenna_y), 5)
-    pygame.draw.circle(carrier_surface, (128, 140, 155), (shield_antenna_x, shield_antenna_y), 3)
-    pygame.draw.line(carrier_surface, (168, 180, 195),
-                    (shield_antenna_x, shield_antenna_y),
-                    (shield_antenna_x, shield_antenna_y - 8), 2)
+    # 목 (넥 조인트)
+    pygame.draw.rect(surface, navy, (cx - 5, head_y + 12, 10, 6))
+    pygame.draw.rect(surface, navy_mid, (cx - 4, head_y + 13, 8, 4))
 
-    tip_glow = abs(math.sin(time_now * 0.003)) * 100
+    # 헬멧 (메인 헤드)
+    helmet_points = [
+        (cx, head_y - 2),          # 정수리
+        (cx - 14, head_y + 4),     # 좌상
+        (cx - 16, head_y + 10),    # 좌
+        (cx - 14, head_y + 15),    # 좌하
+        (cx - 8, head_y + 16),     # 좌하 턱
+        (cx + 8, head_y + 16),     # 우하 턱
+        (cx + 14, head_y + 15),    # 우하
+        (cx + 16, head_y + 10),    # 우
+        (cx + 14, head_y + 4),     # 우상
+    ]
+    pygame.draw.polygon(surface, armor_white, helmet_points)
+    # 헬멧 상부 하이라이트
+    pygame.draw.line(surface, armor_light, (cx - 12, head_y + 4), (cx + 12, head_y + 4), 1)
+
+    # 페이스 플레이트 (진한 색)
+    face_points = [
+        (cx - 10, head_y + 7),
+        (cx + 10, head_y + 7),
+        (cx + 12, head_y + 12),
+        (cx + 8, head_y + 15),
+        (cx - 8, head_y + 15),
+        (cx - 12, head_y + 12),
+    ]
+    pygame.draw.polygon(surface, navy, face_points)
+
+    # 치크 가드 (볼 장갑) - 빨간 액센트
+    for side in [-1, 1]:
+        cheek = [
+            (cx + side * 8, head_y + 10),
+            (cx + side * 13, head_y + 9),
+            (cx + side * 14, head_y + 14),
+            (cx + side * 9, head_y + 15),
+        ]
+        pygame.draw.polygon(surface, red_accent, cheek)
+
+    # 듀얼 아이 (건담 스타일 - 녹색 발광)
+    eye_pulse = 0.7 + 0.3 * abs(math.sin(time_now * 0.008))
+    for side in [-1, 1]:
+        eye_x = cx + side * 5
+        eye_y = head_y + 10
+        # 아이 글로우
+        eye_glow_surf = pygame.Surface((12, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(eye_glow_surf, (0, int(200 * eye_pulse), int(100 * eye_pulse), int(60 * eye_pulse)), (0, 0, 12, 8))
+        surface.blit(eye_glow_surf, (eye_x - 6, eye_y - 4))
+        # 아이 본체
+        pygame.draw.ellipse(surface, eye_green, (eye_x - 3, eye_y - 2, 6, 4))
+        pygame.draw.ellipse(surface, eye_glow, (eye_x - 2, eye_y - 1, 4, 2))
+        # 동공 하이라이트
+        pygame.draw.circle(surface, (255, 255, 255), (eye_x + side, eye_y - 1), 1)
+
+    # 중앙 포어헤드 센서 (이마 카메라)
+    pygame.draw.circle(surface, red_accent, (cx, head_y + 6), 2)
+    pygame.draw.circle(surface, (255, 100, 80), (cx, head_y + 6), 1)
+
+    # === V 핀 (V-Fin) - 건담의 상징 ===
+    vfin_y = head_y - 1
+    # 좌 V핀
+    vfin_left = [
+        (cx - 2, vfin_y + 2),
+        (cx - 18, vfin_y - 8),
+        (cx - 15, vfin_y - 7),
+        (cx - 1, vfin_y + 1),
+    ]
+    pygame.draw.polygon(surface, gold, vfin_left)
+    pygame.draw.polygon(surface, gold_light, vfin_left, 1)
+    # 우 V핀
+    vfin_right = [
+        (cx + 2, vfin_y + 2),
+        (cx + 18, vfin_y - 8),
+        (cx + 15, vfin_y - 7),
+        (cx + 1, vfin_y + 1),
+    ]
+    pygame.draw.polygon(surface, gold, vfin_right)
+    pygame.draw.polygon(surface, gold_light, vfin_right, 1)
+
+    # 헬멧 에지
+    if damage_ratio < 0.5:
+        pygame.draw.polygon(surface, armor_dark, helmet_points, 1)
+
+    # ============================================================
+    # === 4. 백팩 / 스러스터 유닛 (좌우) ===
+    # ============================================================
+    for side in [-1, 1]:
+        bp_x = cx + side * 32
+        bp_y = torso_y + 2
+
+        # 백팩 본체
+        bp_points = [
+            (bp_x - side * 3, bp_y),
+            (bp_x + side * 8, bp_y - 2),
+            (bp_x + side * 10, bp_y + 15),
+            (bp_x + side * 6, bp_y + 20),
+            (bp_x - side * 2, bp_y + 18),
+        ]
+        pygame.draw.polygon(surface, navy, bp_points)
+        pygame.draw.polygon(surface, navy_mid, bp_points, 1)
+
+        # 스러스터 노즐 (2연장)
+        for j in range(2):
+            noz_x = bp_x + side * 5
+            noz_y = bp_y + 12 + j * 6
+            pygame.draw.circle(surface, (40, 48, 58), (noz_x, noz_y), 3)
+            pygame.draw.circle(surface, (55, 65, 78), (noz_x, noz_y), 2)
+
+            # 스러스터 화염 (이동 시)
+            if abs(boss_speed) > 0.3:
+                thrust_pulse = 0.6 + 0.4 * abs(math.sin(time_now * 0.015 + j * 1.5))
+                flame_len = int(5 + abs(boss_speed) * 3)
+                for fi in range(3):
+                    fy = noz_y + 3 + fi * 2
+                    fw = max(1, 3 - fi)
+                    flame_color = (
+                        int(100 + thrust_pulse * 80),
+                        int(160 + thrust_pulse * 60),
+                        255
+                    )
+                    pygame.draw.ellipse(surface, flame_color, (noz_x - fw, fy, fw * 2, 3))
+
+        # 방열 핀
+        for fi in range(3):
+            fin_y = bp_y + 2 + fi * 5
+            pygame.draw.line(surface, navy_light,
+                           (bp_x + side * 8, fin_y), (bp_x + side * 14, fin_y - 1), 1)
+
+    # ============================================================
+    # === 5. 쉴드 안테나 시스템 ===
+    # ============================================================
+    shield_y = torso_y + 8 + int(hover)
     if shield_antenna_active:
-        pygame.draw.circle(carrier_surface, (195, 215, 255),
-                          (shield_antenna_x, shield_antenna_y - 8), 4)
-        pygame.draw.circle(carrier_surface, (255, 255, 255),
-                          (shield_antenna_x, shield_antenna_y - 8), 2)
-        # 쉴드 활성화 시 에너지 방출 이펙트
-        for i in range(3):
-            ring_r = 6 + i * 3 + int(abs(math.sin(time_now * 0.01 + i)) * 2)
-            ring_alpha = max(30, 80 - i * 20)
-            ring_surf = pygame.Surface((ring_r * 2 + 2, ring_r * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(ring_surf, (150, 200, 255, ring_alpha), (ring_r + 1, ring_r + 1), ring_r, 1)
-            carrier_surface.blit(ring_surf, (shield_antenna_x - ring_r - 1, shield_antenna_y - 8 - ring_r - 1))
+        # 양 어깨에서 쉴드 에너지 방출
+        for side in [-1, 1]:
+            ant_x = cx + side * 40
+            pygame.draw.circle(surface, (195, 215, 255), (ant_x, shield_y), 4)
+            pygame.draw.circle(surface, (255, 255, 255), (ant_x, shield_y), 2)
+            for ri in range(3):
+                ring_r = 5 + ri * 3 + int(abs(math.sin(time_now * 0.01 + ri)) * 2)
+                ring_surf = pygame.Surface((ring_r * 2 + 2, ring_r * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(ring_surf, (140, 200, 255, max(20, 70 - ri * 20)),
+                                  (ring_r + 1, ring_r + 1), ring_r, 1)
+                surface.blit(ring_surf, (ant_x - ring_r - 1, shield_y - ring_r - 1))
     else:
-        glow_value = min(255, int(145 + tip_glow))
-        glow_color = (glow_value, min(255, int(165 + tip_glow)), min(255, int(195 + tip_glow)))
-        pygame.draw.circle(carrier_surface, glow_color,
-                          (shield_antenna_x, shield_antenna_y - 8), 3)
-        pygame.draw.circle(carrier_surface, (172, 192, 215),
-                          (shield_antenna_x, shield_antenna_y - 8), 1)
+        for side in [-1, 1]:
+            ant_x = cx + side * 40
+            ant_glow = abs(math.sin(time_now * 0.003)) * 60
+            pygame.draw.circle(surface, (int(140 + ant_glow), int(160 + ant_glow), int(190 + ant_glow)),
+                              (ant_x, shield_y), 3)
 
     # ============================================================
-    # === 10. 플라즈마 레이저 캐논 (함수 하단 중앙) ===
+    # === 6. 레이저 캐논 (리액터 코어에서 발사) ===
     # ============================================================
-    laser_cannon_x = cx
-    laser_cannon_y = 82
-
-    pygame.draw.circle(carrier_surface, (62, 72, 85), (laser_cannon_x, laser_cannon_y), 8)
-    pygame.draw.circle(carrier_surface, (82, 95, 108), (laser_cannon_x, laser_cannon_y), 6)
+    laser_y = reactor_y + 5
 
     if laser_charging or laser_cannon_active:
         cannon_angle_rad = math.radians(laser_cannon_angle)
-        barrel_end_x = laser_cannon_x + int(math.cos(cannon_angle_rad) * 12)
-        barrel_end_y = laser_cannon_y + int(math.sin(cannon_angle_rad) * 12)
+        barrel_end_x = cx + int(math.cos(cannon_angle_rad) * 12)
+        barrel_end_y = laser_y + int(math.sin(cannon_angle_rad) * 12)
 
-        pygame.draw.line(carrier_surface, (45, 55, 65),
-                        (laser_cannon_x, laser_cannon_y), (barrel_end_x, barrel_end_y), 5)
-        pygame.draw.line(carrier_surface, (65, 75, 88),
-                        (laser_cannon_x, laser_cannon_y), (barrel_end_x, barrel_end_y), 3)
-
+        # 충전 이펙트
         if laser_charging:
-            charge_progress = (time_now - laser_charge_start) / 1500.0
-            charge_glow = int(255 * min(1.0, charge_progress))
-            pygame.draw.circle(carrier_surface,
-                             (min(255, charge_glow), min(255, charge_glow + 50), 255),
-                             (barrel_end_x, barrel_end_y), int(3 + charge_progress * 3))
-            for _ in range(int(5 * charge_progress)):
-                spark_angle = random.uniform(0, math.pi * 2)
-                spark_dist = random.uniform(5, 15)
-                spark_x = barrel_end_x + int(math.cos(spark_angle) * spark_dist)
-                spark_y = barrel_end_y + int(math.sin(spark_angle) * spark_dist)
-                pygame.draw.circle(carrier_surface, (145, 195, 255), (spark_x, spark_y), 1)
-    else:
-        pygame.draw.line(carrier_surface, (45, 55, 65),
-                        (laser_cannon_x, laser_cannon_y),
-                        (laser_cannon_x, laser_cannon_y + 12), 5)
-        pygame.draw.line(carrier_surface, (65, 75, 88),
-                        (laser_cannon_x, laser_cannon_y),
-                        (laser_cannon_x, laser_cannon_y + 12), 3)
-
-    pygame.draw.circle(carrier_surface, (105, 115, 128), (laser_cannon_x, laser_cannon_y), 3)
-    if laser_charging or laser_cannon_active:
-        pygame.draw.circle(carrier_surface, (145, 195, 255), (laser_cannon_x, laser_cannon_y), 2)
+            charge_progress = min(1.0, (time_now - laser_charge_start) / 1500.0)
+            charge_glow = int(255 * charge_progress)
+            # 리액터에서 에너지 수렴
+            for _ in range(int(6 * charge_progress)):
+                p_angle = random.uniform(0, math.pi * 2)
+                p_dist = random.uniform(8, 25 * (1 - charge_progress))
+                px = cx + int(math.cos(p_angle) * p_dist)
+                py = laser_y + int(math.sin(p_angle) * p_dist)
+                pygame.draw.circle(surface, (100, int(150 + 100 * charge_progress), 255), (px, py), 1)
+            # 충전 코어
+            core_r = int(4 + 5 * charge_progress)
+            pygame.draw.circle(surface, (140, 200, 255), (cx, laser_y), core_r)
+            pygame.draw.circle(surface, (255, 255, 255), (cx, laser_y), max(1, core_r - 2))
 
     # ============================================================
-    # === 11. 비행대대 편대 시스템 ===
-    # ============================================================
-    max_fighters = 10
-    current_fighters = int(max_fighters * (boss_current_health / boss_max_health))
-
-    # 함선 형태에 맞춘 V자 포메이션
-    fighter_positions = [
-        (cx - 50, 30), (cx - 38, 36), (cx - 26, 42), (cx - 16, 50), (cx - 8, 58),
-        (cx + 50, 30), (cx + 38, 36), (cx + 26, 42), (cx + 16, 50), (cx + 8, 58),
-    ]
-
-    for i in range(current_fighters):
-        if i < len(fighter_positions):
-            fx, fy = fighter_positions[i]
-            # 하이테크 인터셉터 (스텔스)
-            fighter_body = (75, 88, 105) if i < 5 else (65, 78, 92)
-            pygame.draw.polygon(carrier_surface, fighter_body,
-                               [(fx, fy), (fx + 10, fy + 1), (fx + 8, fy + 3), (fx + 2, fy + 3)])
-            # 날개
-            wing_color = (58, 70, 85)
-            pygame.draw.polygon(carrier_surface, wing_color,
-                               [(fx + 3, fy + 1), (fx, fy - 2), (fx + 1, fy + 1)])
-            pygame.draw.polygon(carrier_surface, wing_color,
-                               [(fx + 7, fy + 1), (fx + 10, fy - 2), (fx + 9, fy + 1)])
-            # 콕핏
-            pygame.draw.circle(carrier_surface, (112, 132, 155), (fx + 5, fy + 1), 1)
-
-    # ============================================================
-    # === 12. 플라즈마 부스트 엔진 시스템 (좌현 4기) ===
-    # ============================================================
-    # 엔진을 함선 형태에 맞춰 재배치 (함미 상단)
-    engine_positions = [
-        (cx - 82, 24), (cx - 78, 30), (cx - 72, 36), (cx - 66, 42),
-    ]
-    for idx, (ex, ey) in enumerate(engine_positions):
-        # 엔진 노즐 하우징
-        pygame.draw.rect(carrier_surface, (38, 45, 55), (ex - 8, ey - 1, 16, 8))
-        pygame.draw.rect(carrier_surface, (55, 65, 78), (ex - 6, ey, 12, 6))
-        pygame.draw.rect(carrier_surface, (72, 82, 95), (ex - 4, ey + 1, 8, 4))
-
-        boss_velocity = abs(boss_speed)
-        if boss_velocity > 0.3:
-            jet_length = int(12 + boss_velocity * 6)
-            flame_offset = (time_now // 50) % 3
-
-            # 외곽 화염
-            for i in range(3):
-                offset_y = flame_offset - 1 + i
-                flame_color = (min(255, 200 + i * 15), max(50, 120 - i * 30), 20)
-                pygame.draw.line(carrier_surface, flame_color,
-                                (ex - 8, ey + 2 + offset_y),
-                                (ex - 8 - jet_length - i * 2, ey + 2 + offset_y), 4 - i)
-
-            # 코어 화염 (밝은 흰노랑)
-            core_color = (255, 255, min(255, 180 + int(boss_velocity * 20)))
-            pygame.draw.line(carrier_surface, core_color,
-                            (ex - 7, ey + 3), (ex - 7 - jet_length // 2, ey + 3), 2)
-
-            # 불꽃 파티클
-            for _ in range(int(2 + boss_velocity)):
-                spark_x = ex - 8 - random.randint(0, jet_length + 5)
-                spark_y = ey + 3 + random.randint(-2, 2)
-                spark_color = random.choice([
-                    (255, random.randint(180, 255), random.randint(0, 80)),
-                    (255, 255, random.randint(150, 255))
-                ])
-                pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), 1)
-
-    # 우현 엔진 (대칭)
-    engine_positions_r = [
-        (cx + 82, 24), (cx + 78, 30), (cx + 72, 36), (cx + 66, 42),
-    ]
-    for idx, (ex, ey) in enumerate(engine_positions_r):
-        pygame.draw.rect(carrier_surface, (38, 45, 55), (ex - 8, ey - 1, 16, 8))
-        pygame.draw.rect(carrier_surface, (55, 65, 78), (ex - 6, ey, 12, 6))
-        pygame.draw.rect(carrier_surface, (72, 82, 95), (ex - 4, ey + 1, 8, 4))
-
-        if abs(boss_speed) > 0.3:
-            jet_length = int(12 + abs(boss_speed) * 6)
-            flame_offset = (time_now // 50) % 3
-            for i in range(3):
-                offset_y = flame_offset - 1 + i
-                flame_color = (min(255, 200 + i * 15), max(50, 120 - i * 30), 20)
-                pygame.draw.line(carrier_surface, flame_color,
-                                (ex + 8, ey + 2 + offset_y),
-                                (ex + 8 + jet_length + i * 2, ey + 2 + offset_y), 4 - i)
-            core_color = (255, 255, min(255, 180 + int(abs(boss_speed) * 20)))
-            pygame.draw.line(carrier_surface, core_color,
-                            (ex + 7, ey + 3), (ex + 7 + jet_length // 2, ey + 3), 2)
-            for _ in range(int(2 + abs(boss_speed))):
-                spark_x = ex + 8 + random.randint(0, jet_length + 5)
-                spark_y = ey + 3 + random.randint(-2, 2)
-                spark_color = random.choice([
-                    (255, random.randint(180, 255), random.randint(0, 80)),
-                    (255, 255, random.randint(150, 255))
-                ])
-                pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), 1)
-
-    # ============================================================
-    # === 13. 포인트 디펜스 시스템 (CIWS 터렛) ===
+    # === 7. CIWS 미사일 터렛 (어깨/팔에 배치) ===
     # ============================================================
     defense_positions = [
-        (cx - 70, 25), (cx - 50, 32), (cx - 30, 40), (cx + 30, 40),
-        (cx + 50, 32), (cx + 70, 25), (cx - 20, 52), (cx + 20, 52),
+        (cx - 55, 28 + int(hover)), (cx - 40, 35 + int(hover)),
+        (cx - 25, 42 + int(hover)), (cx + 25, 42 + int(hover)),
+        (cx + 40, 35 + int(hover)), (cx + 55, 28 + int(hover)),
+        (cx - 15, 55 + int(hover)), (cx + 15, 55 + int(hover)),
     ]
 
     global turret_angles, turret_missiles, last_missile_time
@@ -493,272 +470,92 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
         barrel_angle = 60 + turret_angles[turret_id]
         angle_rad = math.radians(barrel_angle)
 
-        # 터렛 베이스
-        pygame.draw.circle(carrier_surface, (58, 68, 78), (dx, dy), 4)
-        pygame.draw.circle(carrier_surface, (78, 88, 100), (dx, dy), 3)
-
-        # 회전 포신
-        barrel_length = 9
+        barrel_length = 8
         barrel_end_x = dx + int(math.cos(angle_rad) * barrel_length)
         barrel_end_y = dy + int(math.sin(angle_rad) * barrel_length)
-        pygame.draw.line(carrier_surface, (82, 95, 108), (dx, dy), (barrel_end_x, barrel_end_y), 3)
-        pygame.draw.circle(carrier_surface, (112, 125, 138), (barrel_end_x, barrel_end_y), 2)
 
         # 미사일 발사
         if boss_current_health > 0 and random.random() < 0.0015 and boss_confused_timer == 0:
             missile_x = boss_x + dx
             missile_y = BOSS_Y + dy + 10
-            base_angle = 90
             spread_angle = random.randint(-30, 30)
-            final_angle = base_angle + spread_angle
-            angle_for_missile = math.radians(final_angle)
+            angle_for_missile = math.radians(90 + spread_angle)
             missile_speed = random.uniform(2, 4)
-            missile_vx = math.cos(angle_for_missile) * missile_speed
-            missile_vy = math.sin(angle_for_missile) * missile_speed
             new_missile = {
                 'x': missile_x, 'y': missile_y,
-                'vx': missile_vx, 'vy': missile_vy,
+                'vx': math.cos(angle_for_missile) * missile_speed,
+                'vy': math.sin(angle_for_missile) * missile_speed,
                 'age': 0, 'turret_id': turret_id
             }
             turret_missiles.append(new_missile)
 
-        # 터렛 렌즈
-        pygame.draw.circle(carrier_surface, (95, 105, 118), (dx, dy), 2)
-
     # ============================================================
-    # === 14. 항행등 (Running Lights) - 애니메이션 ===
-    # ============================================================
-    # 좌현 항행등 (빨간색)
-    port_light_pulse = 0.5 + 0.5 * abs(math.sin(time_now * 0.004))
-    port_light_color = (int(180 + port_light_pulse * 75), 30, 30)
-    pygame.draw.circle(carrier_surface, port_light_color, (cx - 88, 32), 2)
-    # 글로우
-    port_glow_surf = pygame.Surface((12, 12), pygame.SRCALPHA)
-    pygame.draw.circle(port_glow_surf, (*port_light_color, int(60 * port_light_pulse)), (6, 6), 5)
-    carrier_surface.blit(port_glow_surf, (cx - 93, 27))
-
-    # 우현 항행등 (녹색)
-    stbd_light_pulse = 0.5 + 0.5 * abs(math.sin(time_now * 0.004 + 1.0))
-    stbd_light_color = (30, int(180 + stbd_light_pulse * 75), 30)
-    pygame.draw.circle(carrier_surface, stbd_light_color, (cx + 88, 32), 2)
-    stbd_glow_surf = pygame.Surface((12, 12), pygame.SRCALPHA)
-    pygame.draw.circle(stbd_glow_surf, (*stbd_light_color, int(60 * stbd_light_pulse)), (6, 6), 5)
-    carrier_surface.blit(stbd_glow_surf, (cx + 83, 27))
-
-    # 함미등 (백색)
-    stern_light_pulse = 0.6 + 0.4 * abs(math.sin(time_now * 0.003))
-    stern_color = (int(180 + stern_light_pulse * 75), int(185 + stern_light_pulse * 70), int(195 + stern_light_pulse * 60))
-    pygame.draw.circle(carrier_surface, stern_color, (cx - 70, 17), 2)
-    pygame.draw.circle(carrier_surface, stern_color, (cx + 70, 17), 2)
-
-    # 함수 마스트 라이트 (경고등 - 파란색 점멸)
-    bow_blink = int(time_now * 0.003) % 2
-    if bow_blink:
-        pygame.draw.circle(carrier_surface, (100, 160, 255), (cx, 78), 2)
-        bow_glow = pygame.Surface((10, 10), pygame.SRCALPHA)
-        pygame.draw.circle(bow_glow, (100, 160, 255, 50), (5, 5), 4)
-        carrier_surface.blit(bow_glow, (cx - 5, 73))
-
-    # 갑판 엣지 라이트 (좌우 대칭, 교대 점멸)
-    for i in range(6):
-        edge_phase = (time_now // 200 + i) % 6
-        if edge_phase < 3:
-            edge_alpha = int(100 + 80 * abs(math.sin(time_now * 0.006 + i * 0.5)))
-            edge_color = (edge_alpha, min(255, edge_alpha + 20), min(255, int(180 + edge_alpha * 0.3)))
-            # 좌현 엣지
-            ey = 24 + i * 8
-            elx = cx - int(75 - i * 6)
-            pygame.draw.circle(carrier_surface, edge_color, (elx, ey), 1)
-            # 우현 엣지
-            erx = cx + int(75 - i * 6)
-            pygame.draw.circle(carrier_surface, edge_color, (erx, ey), 1)
-
-    # ============================================================
-    # === 15. 전투 손상 시스템 ===
+    # === 8. 전투 손상 효과 ===
     # ============================================================
     if damage_ratio > 0.2:
-        # 시스템 오작동 스파크
-        for _ in range(int(damage_ratio * 6)):
-            spark_x = random.randint(cx - 80, cx + 80)
-            spark_y = random.randint(22, 72)
-            spark_type = random.choice(['electric', 'plasma', 'fire'])
-            if spark_type == 'electric':
-                spark_color = (145, 195, 255)
-            elif spark_type == 'plasma':
-                spark_color = (255, 145, 255)
-            else:
-                spark_color = (255, 195, 95)
-            pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), 1)
+        for _ in range(int(damage_ratio * 5)):
+            sx = random.randint(cx - 40, cx + 40)
+            sy = random.randint(15, 70) + int(hover)
+            spark_color = random.choice([(150, 200, 255), (255, 200, 100), (255, 150, 255)])
+            pygame.draw.circle(surface, spark_color, (sx, sy), 1)
 
     if damage_ratio > 0.4:
-        # 장갑판 균열
-        for _ in range(int(damage_ratio * 4)):
-            crack_x = random.randint(cx - 70, cx + 70)
-            crack_y = random.randint(25, 65)
-            crack_length = random.randint(5, 12)
-            crack_end_x = crack_x + random.randint(-crack_length, crack_length)
-            crack_end_y = crack_y + random.randint(-4, 4)
-            pygame.draw.line(carrier_surface, (38, 42, 48),
-                           (crack_x, crack_y), (crack_end_x, crack_end_y), 1)
+        for _ in range(int(damage_ratio * 3)):
+            cx2 = random.randint(cx - 30, cx + 30)
+            cy2 = random.randint(20, 60) + int(hover)
+            cl = random.randint(5, 10)
+            pygame.draw.line(surface, (35, 40, 48),
+                           (cx2, cy2), (cx2 + random.randint(-cl, cl), cy2 + random.randint(-3, 3)), 1)
 
     if damage_ratio > 0.5:
-        # 화재 및 플라즈마 누출
-        for _ in range(int(damage_ratio * 5)):
-            leak_x = random.randint(cx - 65, cx + 65)
-            leak_y = random.randint(25, 68)
+        for _ in range(int(damage_ratio * 4)):
+            fx = random.randint(cx - 35, cx + 35)
+            fy = random.randint(22, 62) + int(hover)
             if random.random() < 0.6:
-                pygame.draw.circle(carrier_surface, (255, 95, 0), (leak_x, leak_y), 3)
-                pygame.draw.circle(carrier_surface, (255, 145, 0), (leak_x, leak_y), 2)
-                pygame.draw.circle(carrier_surface, (255, 195, 45), (leak_x, leak_y), 1)
+                pygame.draw.circle(surface, (255, 100, 0), (fx, fy), 3)
+                pygame.draw.circle(surface, (255, 150, 0), (fx, fy), 2)
+                pygame.draw.circle(surface, (255, 200, 50), (fx, fy), 1)
             else:
-                pygame.draw.circle(carrier_surface, (95, 145, 255), (leak_x, leak_y), 2)
-                pygame.draw.circle(carrier_surface, (145, 195, 255), (leak_x, leak_y), 1)
-            if random.random() < 0.5:
-                smoke_x = leak_x + random.randint(-4, 4)
-                smoke_y = leak_y - random.randint(3, 8)
-                pygame.draw.circle(carrier_surface, (48, 48, 48), (smoke_x, smoke_y), 2)
+                pygame.draw.circle(surface, (100, 150, 255), (fx, fy), 2)
+                pygame.draw.circle(surface, (150, 200, 255), (fx, fy), 1)
 
-    # ============================================================
-    # === 16. 체력 기반 연기/화염/폭발 ===
-    # ============================================================
-    health_percent = (boss_current_health / boss_max_health) * 100
+    # 체력 50% 이하: 연기
+    health_pct = (boss_current_health / boss_max_health) * 100
+    if health_pct <= 50:
+        smoke_n = 3 if health_pct > 30 else (5 if health_pct > 20 else (7 if health_pct > 10 else 10))
+        for _ in range(smoke_n):
+            sx = random.randint(cx - 35, cx + 35)
+            sy = random.randint(15, 55) + int(hover)
+            for si in range(3):
+                s_size = random.randint(5, 10) + si * 2
+                s_alpha = max(5, random.randint(15, 40) - si * 8)
+                s_surf = pygame.Surface((s_size * 2, s_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(s_surf, (55 + si * 15, 55 + si * 15, 55 + si * 15, s_alpha),
+                                  (s_size, s_size), s_size)
+                surface.blit(s_surf, (sx - s_size, sy - s_size - si * 2))
 
-    if health_percent <= 50:
-        smoke_count = 3
-        if health_percent <= 10:
-            smoke_count = 10
-        elif health_percent <= 20:
-            smoke_count = 7
-        elif health_percent <= 30:
-            smoke_count = 5
+    # 체력 30% 이하: 화염
+    if health_pct <= 30:
+        f_int = 1.0 if health_pct > 20 else (2.0 if health_pct > 10 else 3.0)
+        f_count = 3 if health_pct > 20 else (5 if health_pct > 10 else 7)
+        for _ in range(f_count):
+            fx = random.randint(cx - 30, cx + 30)
+            fy = random.randint(20, 55) + int(hover)
+            fw = abs(math.sin(time_now * 0.01 + fx))
+            cs = int(3 * f_int * (0.8 + fw * 0.2))
+            pygame.draw.circle(surface, (255, 255, 200), (fx, fy), cs)
+            ms = int(5 * f_int * (0.9 + fw * 0.1))
+            m_surf = pygame.Surface((ms * 2, ms * 2), pygame.SRCALPHA)
+            pygame.draw.circle(m_surf, (255, 150, 50, 170), (ms, ms), ms)
+            surface.blit(m_surf, (fx - ms, fy - ms))
 
-        for _ in range(smoke_count):
-            smoke_x = random.randint(cx - 70, cx + 70)
-            smoke_y = random.randint(25, 60)
-            for i in range(3):
-                smoke_size = random.randint(6, 12) + i * 3
-                smoke_alpha = random.randint(18, 50) - i * 8
-                smoke_color = (55 + i * 18, 55 + i * 18, 55 + i * 18, max(5, smoke_alpha))
-                smoke_circle = pygame.Surface((smoke_size * 2, smoke_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(smoke_circle, smoke_color, (smoke_size, smoke_size), smoke_size)
-                offset_x = random.randint(-2, 2)
-                offset_y = random.randint(-4, -1) - i * 2
-                carrier_surface.blit(smoke_circle, (smoke_x - smoke_size + offset_x, smoke_y - smoke_size + offset_y))
+    # 체력 10% 이하: 폭발
+    if health_pct <= 10 and random.random() < 0.2:
+        ex = random.randint(cx - 30, cx + 30)
+        ey = random.randint(20, 55) + int(hover)
+        es = random.randint(10, 18)
+        pygame.draw.circle(surface, (255, 255, 255), (ex, ey), es)
+        pygame.draw.circle(surface, (255, 200, 100), (ex, ey), es - 2)
+        pygame.draw.circle(surface, (255, 100, 0), (ex, ey), es - 5)
 
-    if health_percent <= 30:
-        fire_intensity = 1.0
-        fire_count = 3
-        if health_percent <= 10:
-            fire_intensity = 3.0
-            fire_count = 7
-        elif health_percent <= 20:
-            fire_intensity = 2.0
-            fire_count = 5
-
-        for _ in range(fire_count):
-            fire_x = random.randint(cx - 60, cx + 60)
-            fire_y = random.randint(28, 62)
-            flame_wave = abs(math.sin(time_now * 0.01 + fire_x))
-
-            core_size = int(4 * fire_intensity * (0.8 + flame_wave * 0.2))
-            pygame.draw.circle(carrier_surface, (255, 255, 195), (fire_x, fire_y), core_size)
-
-            mid_size = int(6 * fire_intensity * (0.9 + flame_wave * 0.1))
-            mid_surf = pygame.Surface((mid_size * 2, mid_size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(mid_surf, (255, 145, 45, 175), (mid_size, mid_size), mid_size)
-            carrier_surface.blit(mid_surf, (fire_x - mid_size, fire_y - mid_size))
-
-            outer_size = int(9 * fire_intensity * (1.0 + flame_wave * 0.2))
-            outer_surf = pygame.Surface((outer_size * 2, outer_size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(outer_surf, (255, 45, 25, 115), (outer_size, outer_size), outer_size)
-            carrier_surface.blit(outer_surf, (fire_x - outer_size, fire_y - outer_size - int(flame_wave * 3)))
-
-            if random.random() < 0.3 * fire_intensity:
-                for _ in range(int(2 * fire_intensity)):
-                    spark_x = fire_x + random.randint(-12, 12)
-                    spark_y = fire_y + random.randint(-8, -2)
-                    spark_color = (255, random.randint(95, 195), 0)
-                    pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), random.randint(1, 2))
-
-    if health_percent <= 10:
-        if random.random() < 0.2:
-            explosion_x = random.randint(cx - 60, cx + 60)
-            explosion_y = random.randint(28, 58)
-            flash_size = random.randint(12, 22)
-            pygame.draw.circle(carrier_surface, (255, 255, 255), (explosion_x, explosion_y), flash_size)
-            pygame.draw.circle(carrier_surface, (255, 195, 95), (explosion_x, explosion_y), flash_size - 3)
-            pygame.draw.circle(carrier_surface, (255, 95, 0), (explosion_x, explosion_y), flash_size - 6)
-            for _ in range(6):
-                debris_x = explosion_x + random.randint(-18, 18)
-                debris_y = explosion_y + random.randint(-18, 18)
-                debris_color = (random.randint(145, 255), random.randint(45, 145), 0)
-                pygame.draw.circle(carrier_surface, debris_color, (debris_x, debris_y), random.randint(1, 3))
-
-    # ============================================================
-    # === 17. 대형 레이저 캐논 (함수 전면) ===
-    # ============================================================
-    cannon_x = cx
-    cannon_y = 15
-
-    pygame.draw.circle(carrier_surface, (72, 82, 95), (cannon_x, cannon_y), 12)
-    pygame.draw.circle(carrier_surface, (92, 105, 118), (cannon_x, cannon_y), 10)
-
-    cannon_barrel_length = 20
-    angle_rad = math.radians(laser_cannon_angle)
-    cannon_barrel_end_x = cannon_x + int(math.cos(angle_rad) * cannon_barrel_length)
-    cannon_barrel_end_y = cannon_y + int(math.sin(angle_rad) * cannon_barrel_length)
-
-    pygame.draw.line(carrier_surface, (82, 95, 108),
-                     (cannon_x, cannon_y), (cannon_barrel_end_x, cannon_barrel_end_y), 8)
-    pygame.draw.line(carrier_surface, (105, 118, 130),
-                     (cannon_x, cannon_y), (cannon_barrel_end_x, cannon_barrel_end_y), 6)
-
-    pygame.draw.circle(carrier_surface, (115, 125, 138),
-                      (cannon_barrel_end_x, cannon_barrel_end_y), 6)
-    pygame.draw.circle(carrier_surface, (135, 145, 158),
-                      (cannon_barrel_end_x, cannon_barrel_end_y), 4)
-
-    if laser_charging:
-        charge_time = current_time - laser_charge_start
-        charge_ratio = min(1.0, charge_time / 1000)
-        for _ in range(int(8 * charge_ratio)):
-            particle_angle = random.uniform(0, math.pi * 2)
-            particle_dist = random.uniform(8, 25 * (1 - charge_ratio))
-            particle_x = cannon_barrel_end_x + int(math.cos(particle_angle) * particle_dist)
-            particle_y = cannon_barrel_end_y + int(math.sin(particle_angle) * particle_dist)
-            particle_color = (95, int(145 + 100 * charge_ratio), 255)
-            pygame.draw.circle(carrier_surface, particle_color,
-                             (particle_x, particle_y), random.randint(1, 3))
-        core_size = int(4 + 5 * charge_ratio)
-        pygame.draw.circle(carrier_surface, (145, 195, 255),
-                         (cannon_barrel_end_x, cannon_barrel_end_y), core_size)
-        pygame.draw.circle(carrier_surface, (255, 255, 255),
-                         (cannon_barrel_end_x, cannon_barrel_end_y), core_size - 2)
-
-    # ============================================================
-    # === 18. 쉴드 안테나 (함수 전면 좌우) ===
-    # ============================================================
-    antenna_left_x = cx - 50
-    antenna_right_x = cx + 50
-    antenna_y = 22
-
-    for ant_x in [antenna_left_x, antenna_right_x]:
-        pygame.draw.rect(carrier_surface, (105, 115, 128), (ant_x - 2, antenna_y, 4, 12))
-        pygame.draw.circle(carrier_surface, (132, 142, 155), (ant_x, antenna_y), 4)
-        pygame.draw.circle(carrier_surface, (192, 205, 215), (ant_x, antenna_y - 5), 3)
-        if shield_antenna_active:
-            pygame.draw.circle(carrier_surface, (255, 255, 255), (ant_x, antenna_y - 5), 2)
-
-    # ============================================================
-    # === 19. 선체 외곽 하이라이트 (최종 패스) ===
-    # ============================================================
-    if damage_ratio < 0.6:
-        # 선체 외곽선 하이라이트 (상단)
-        highlight_alpha = int(80 * (1.0 - damage_ratio))
-        for i in range(len(hull_outline) - 1):
-            pygame.draw.line(carrier_surface, (125, 140, 158),
-                           hull_outline[i], hull_outline[i + 1], 1)
-        pygame.draw.line(carrier_surface, (125, 140, 158),
-                       hull_outline[-1], hull_outline[0], 1)
-
-    return carrier_surface
+    return surface
