@@ -152321,15 +152321,7 @@ def handle_boss():
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
         # --- 플레이어 서브 차례 ---
         elif boss_fake_during_player_serve:
-            if current_stage == 6:
-                # 항공모함 보스는 플레이어 서브 중에도 미세한 움직임
-                BOSS.centerx += carrier_standby_motion()
-                # 경계 처리 (게임 영역 기준)
-                boss_min_cx = BOSS.width // 2
-                boss_max_cx = WIDTH - BOSS.width // 2
-                BOSS.centerx = max(boss_min_cx, min(boss_max_cx, BOSS.centerx))
-            else:
-                BOSS.centerx += fake_motion()
+            BOSS.centerx += fake_motion()
         return  # 서브 중에는 아래 일반 이동 로직 실행 안 함
     # --- 일반 AI 이동 로직 ---
     predict_frame = max(10, min(30, int(FPS / max(1, abs(ball_vel[0])))))
