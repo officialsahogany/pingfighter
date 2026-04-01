@@ -96,21 +96,21 @@ BOSS_CONFIGS = {
         "dash_max_distance": 336,  # 20% 증가 (280 → 336)
     },
     6: {
-        "name": "보스러시",
-        "color": (255, 255, 255),
-        "accel": 2.0,
-        "decel": 2.0,
-        "max_speed": 13.0,
-        "instant_stop": 1.5,
-        "predict_distance": 60,
+        "name": "네메시스",
+        "color": (100, 180, 255),
+        "accel": 1.0,
+        "decel": 1.0,
+        "max_speed": 7.8,
+        "instant_stop": 0.9,
+        "predict_distance": 130,
         "skill_power": 1.0,
-        "fail_error": 50,
+        "fail_error": 230,
         "special_skill": "ultimate",
         "is_health_boss": True,
         "max_health": 15,
-        # 스테이지 6: 체력형 보스, 더 자주 대쉬
-        "dash_cooldown_range": (26.0, 38.0),
-        "dash_max_distance": 348,  # 20% 증가 (290 → 348)
+        # 스테이지 6 (실제 스테이지 5): 해양 드론 보스
+        "dash_cooldown_range": (30.0, 44.0),
+        "dash_max_distance": 348,
     },
     7: {
         "name": "테트리서",

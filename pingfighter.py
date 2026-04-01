@@ -104972,41 +104972,35 @@ def draw_crocodile_boss(boss_x=0, boss_y=0, ball_x=0, ball_y=0):
     return crocodile_surface
 
 def draw_nemesis_sub_boss():
-    """네메시스 보조 보스 - 공중부양 드론 우주선 스타일"""
+    """네메시스 보조 보스 - 소형 해양 호위 드론"""
     global nemesis_sub_boss_hit_timer, nemesis_sub_boss_hit_flash
     global nemesis_sub_boss_hover_offset
 
-    # 사망 상태면 그리지 않음
     if not nemesis_sub_boss_alive:
         return pygame.Surface((1, 1), pygame.SRCALPHA)
 
-    # 피격 효과 타이머 업데이트
     if nemesis_sub_boss_hit_timer > 0:
         nemesis_sub_boss_hit_timer -= 1
         nemesis_sub_boss_hit_flash = (nemesis_sub_boss_hit_timer // 4) % 2 == 0
         if nemesis_sub_boss_hit_timer <= 0:
             nemesis_sub_boss_hit_flash = False
 
-    # 부양 애니메이션
     time_now = pygame.time.get_ticks()
     nemesis_sub_boss_hover_offset = math.sin(time_now * 0.005) * 3
 
-    # 이동 방향에 따른 기울기
     move_dir = nemesis_sub_boss_move_direction
-    tilt_angle = move_dir * 8  # 이동 방향으로 8도 기울기
+    tilt_angle = move_dir * 8
 
-    # 광폭화 시 30% 크기 증가
     rage_scale = 1.3 if enraged_boss_active else 1.0
     base_width = int(nemesis_sub_boss_width * rage_scale)
     base_height = int(nemesis_sub_boss_height * rage_scale)
 
-    width = base_width + 40  # 추진 이펙트용 여유 공간
+    width = base_width + 40
     height = base_height + 20
     surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-    # 현재 체력 비율에 따른 손상 단계 (최대 체력 4 기준)
     health_ratio = nemesis_sub_boss_health / nemesis_sub_boss_max_health
-    damage_level = 0  # 0: 정상 (HP 4), 1: 경미 (HP 3), 2: 중간 (HP 2), 3: 심각 (HP 1)
+    damage_level = 0
     if nemesis_sub_boss_health <= 1:
         damage_level = 3
     elif nemesis_sub_boss_health <= 2:
@@ -105014,19 +105008,16 @@ def draw_nemesis_sub_boss():
     elif nemesis_sub_boss_health <= 3:
         damage_level = 1
 
-    # 피격 시 붉은색 효과
     def apply_hit(color):
         if nemesis_sub_boss_hit_flash:
             r, g, b = color[:3]
             return (min(255, r + 100), max(0, g - 30), max(0, b - 30))
         return color
 
-    # 손상에 따른 색상 변화 (더 어둡고 그을린 색상)
     def apply_damage(color):
         if damage_level == 0:
             return color
         r, g, b = color[:3]
-        # 손상도에 따라 어두워지고 붉은 기운 추가
         darken = damage_level * 15
         burn = damage_level * 10
         return (min(255, r + burn), max(0, g - darken), max(0, b - darken))
@@ -105034,190 +105025,127 @@ def draw_nemesis_sub_boss():
     cx = width // 2
     cy = height // 2
 
-    # === 하단 글로우/그림자 ===
+    # === 하부 수면 반사 글로우 ===
     glow_pulse = 0.7 + 0.3 * math.sin(time_now * 0.008)
-    for i in range(4):
-        glow_alpha = int((80 - i * 15) * glow_pulse)
-        glow_color = (180, 60, 60, glow_alpha) if not nemesis_sub_boss_hit_flash else (255, 100, 100, glow_alpha)
-        pygame.draw.ellipse(surface, glow_color, (cx - 25 - i*3, height - 12 + i, 50 + i*6, 8))
+    for i in range(3):
+        glow_alpha = int((60 - i * 15) * glow_pulse)
+        glow_color = (40, int(120 + glow_pulse * 40), int(180 + glow_pulse * 40), glow_alpha)
+        pygame.draw.ellipse(surface, glow_color, (cx - 20 - i*3, height - 10 + i, 40 + i*6, 6))
 
-    # === 메인 바디 (둥근 우주선 형태) ===
-    # 하단 엔진부 (빨간 육각형 엔진 2개)
-    engine_y = height - 18
-    for engine_x in [cx - 30, cx + 30]:
-        # 엔진 하우징
-        engine_points = [
-            (engine_x - 12, engine_y),
-            (engine_x - 8, engine_y - 10),
-            (engine_x + 8, engine_y - 10),
-            (engine_x + 12, engine_y),
-            (engine_x + 8, engine_y + 8),
-            (engine_x - 8, engine_y + 8),
-        ]
-        pygame.draw.polygon(surface, apply_hit((60, 65, 75)), engine_points)
-        pygame.draw.polygon(surface, apply_hit((40, 45, 55)), engine_points, 2)
-        # 엔진 코어 (빨간 발광)
-        core_pulse = 0.6 + 0.4 * math.sin(time_now * 0.012 + engine_x * 0.1)
-        core_color = (int(200 * core_pulse), int(50 * core_pulse), int(50 * core_pulse))
-        pygame.draw.circle(surface, apply_hit(core_color), (engine_x, engine_y), 6)
-        pygame.draw.circle(surface, (255, 150, 150), (engine_x, engine_y), 3)
+    # === 메인 바디 (소형 해양 드론 - 타원형 유선체) ===
+    body_color = apply_hit(apply_damage((45, 65, 85)))
+    body_light = apply_hit(apply_damage((65, 90, 115)))
+    body_dark = apply_hit(apply_damage((30, 45, 60)))
 
-    # 중앙 메인 바디 (타원형 + 돔)
-    body_color = apply_hit(apply_damage((55, 60, 70)))
-    body_light = apply_hit(apply_damage((80, 90, 105)))
-    body_dark = apply_hit(apply_damage((35, 40, 50)))
+    # 하부 플레이트 (수중 부분)
+    pygame.draw.ellipse(surface, body_dark, (cx - 35, cy + 5, 70, 20))
+    pygame.draw.ellipse(surface, body_color, (cx - 33, cy + 3, 66, 18))
 
-    # 하부 플레이트
-    pygame.draw.ellipse(surface, body_dark, (cx - 40, cy + 5, 80, 25))
-    pygame.draw.ellipse(surface, body_color, (cx - 38, cy + 3, 76, 22))
+    # 상부 돔 (방수 캐노피)
+    pygame.draw.ellipse(surface, body_color, (cx - 28, cy - 12, 56, 30))
+    pygame.draw.ellipse(surface, body_light, (cx - 26, cy - 10, 52, 26))
 
-    # 중앙 돔 (조종석)
-    dome_rect = (cx - 30, cy - 15, 60, 35)
-    pygame.draw.ellipse(surface, body_color, dome_rect)
-    pygame.draw.ellipse(surface, body_light, (cx - 28, cy - 13, 56, 30))
-
-    # 조종석 캐노피 (어두운 유리)
-    canopy_color = apply_hit(apply_damage((25, 35, 50)))
-    pygame.draw.ellipse(surface, canopy_color, (cx - 18, cy - 8, 36, 22))
-    # 캐노피 반사광 (손상 시 희미해짐)
+    # 센서 캐노피 (어두운 방수 유리)
+    canopy_color = apply_hit(apply_damage((20, 35, 55)))
+    pygame.draw.ellipse(surface, canopy_color, (cx - 16, cy - 6, 32, 18))
     if damage_level < 2:
-        pygame.draw.arc(surface, (100, 120, 150), (cx - 15, cy - 6, 30, 16), 0.3, 2.5, 2)
+        pygame.draw.arc(surface, (80, 120, 160), (cx - 13, cy - 4, 26, 14), 0.3, 2.5, 2)
 
-    # === 손상 효과: 금 (크랙) ===
-    if damage_level >= 1:
-        crack_color = (30, 25, 20)  # 어두운 금 색상
-        # 레벨 1: 살짝 금
-        pygame.draw.line(surface, crack_color, (cx - 12, cy - 5), (cx - 8, cy + 5), 1)
-        pygame.draw.line(surface, crack_color, (cx + 10, cy - 3), (cx + 15, cy + 8), 1)
-    if damage_level >= 2:
-        # 레벨 2: 더 많은 금
-        pygame.draw.line(surface, crack_color, (cx - 20, cy + 2), (cx - 10, cy + 12), 2)
-        pygame.draw.line(surface, crack_color, (cx + 5, cy - 10), (cx + 18, cy - 2), 1)
-        pygame.draw.line(surface, crack_color, (cx - 5, cy + 8), (cx + 8, cy + 15), 1)
-        # 캐노피에도 금
-        pygame.draw.line(surface, (50, 40, 30), (cx - 10, cy - 3), (cx + 5, cy + 5), 1)
-    if damage_level >= 3:
-        # 레벨 3: 심각한 금
-        pygame.draw.line(surface, crack_color, (cx - 25, cy - 8), (cx - 15, cy + 10), 2)
-        pygame.draw.line(surface, crack_color, (cx + 12, cy - 12), (cx + 25, cy + 5), 2)
-        pygame.draw.line(surface, crack_color, (cx - 8, cy - 15), (cx + 10, cy - 8), 1)
-        pygame.draw.line(surface, crack_color, (cx, cy + 5), (cx + 15, cy + 18), 2)
-        # 캐노피 완전 깨진 느낌
-        pygame.draw.line(surface, (60, 50, 40), (cx - 12, cy - 5), (cx + 8, cy + 8), 2)
-        pygame.draw.line(surface, (50, 40, 30), (cx - 5, cy - 8), (cx - 15, cy + 3), 1)
-
-    # === 손상 효과: 불타는 이펙트 (레벨 2 이상) ===
-    if damage_level >= 2:
-        fire_flicker = time_now * 0.02
-        # 여러 위치에서 불꽃
-        fire_positions = [
-            (cx - 15, cy + 5),
-            (cx + 20, cy - 3),
+    # === 좌우 워터젯 포드 ===
+    for side in [-1, 1]:
+        pod_x = cx + side * 30
+        pod_points = [
+            (cx + side * 18, cy),
+            (pod_x - side * 3, cy - 7),
+            (pod_x + side * 8, cy - 4),
+            (pod_x + side * 10, cy + 3),
+            (pod_x - side * 3, cy + 8),
+            (cx + side * 18, cy + 6),
         ]
-        if damage_level >= 3:
-            fire_positions.extend([
-                (cx - 25, cy + 8),
-                (cx + 10, cy + 10),
-                (cx - 5, cy - 12),
-            ])
-        for fx, fy in fire_positions:
-            # 불꽃 그리기
-            flame_height = 8 + int(3 * math.sin(fire_flicker + fx * 0.1))
-            flame_alpha = 150 + int(50 * math.sin(fire_flicker * 1.5 + fy * 0.1))
-            # 오렌지색 불꽃 베이스
-            for i in range(3):
-                flame_y = fy - i * 3
-                flame_width = 4 - i
-                flame_color = (255, 150 - i * 40, 50 - i * 15)
-                pygame.draw.ellipse(surface, flame_color,
-                    (fx - flame_width, flame_y - flame_height + i * 2, flame_width * 2, flame_height - i * 2))
-            # 연기 (회색)
-            smoke_y = fy - flame_height - 5
-            smoke_alpha = int(80 * (0.5 + 0.5 * math.sin(fire_flicker + fx)))
-            pygame.draw.circle(surface, (60, 60, 60, smoke_alpha), (int(fx), int(smoke_y)), 3)
+        pygame.draw.polygon(surface, body_color, pod_points)
+        pygame.draw.polygon(surface, body_dark, pod_points, 1)
 
-    # === 상단 구조물 (센서/안테나) ===
-    # 중앙 센서 타워
-    tower_color = apply_hit(apply_damage((70, 75, 85)))
-    pygame.draw.rect(surface, tower_color, (cx - 6, cy - 22, 12, 10))
-    pygame.draw.circle(surface, apply_hit(apply_damage((45, 50, 60))), (cx, cy - 25), 8)
-    # 센서 라이트 (깜빡임) - 손상 시 고장
+        # 워터젯 노즐 (파란 글로우)
+        jet_pulse = 0.5 + 0.5 * math.sin(time_now * 0.01 + side * 0.5)
+        jet_x = pod_x + side * 8
+        jet_color = (int(40 + jet_pulse * 50), int(100 + jet_pulse * 80), int(180 + jet_pulse * 50))
+        pygame.draw.circle(surface, apply_hit(jet_color), (jet_x, cy), 4)
+        pygame.draw.circle(surface, (int(80 + jet_pulse * 80), int(160 + jet_pulse * 60), 255),
+                          (jet_x, cy), 2)
+
+        # 손상 시 금
+        if damage_level >= 2:
+            pygame.draw.line(surface, (30, 25, 20),
+                (cx + side * 20, cy - 2), (pod_x + side * 3, cy + 5), 1)
+        if damage_level >= 3:
+            flame_pulse = 0.6 + 0.4 * math.sin(time_now * 0.025 + side * 0.5)
+            pygame.draw.circle(surface, (255, int(120 * flame_pulse), 30),
+                (pod_x, cy + 3), 3)
+
+    # === 상단 센서 마스트 ===
+    mast_color = apply_hit(apply_damage((60, 75, 90)))
+    pygame.draw.rect(surface, mast_color, (cx - 4, cy - 18, 8, 8))
+    pygame.draw.circle(surface, apply_hit(apply_damage((40, 50, 65))), (cx, cy - 20), 6)
+    # 센서 라이트
     if damage_level < 3:
         sensor_pulse = 0.5 + 0.5 * math.sin(time_now * 0.015)
         if damage_level >= 2:
-            # 불안정한 깜빡임
             sensor_pulse *= random.uniform(0.3, 1.0)
-        sensor_color = (int(150 + 100 * sensor_pulse), int(60 * sensor_pulse), int(60 * sensor_pulse))
-        pygame.draw.circle(surface, sensor_color, (cx, cy - 25), 4)
+        sensor_color = (int(60 + sensor_pulse * 80), int(140 + sensor_pulse * 80), int(200 + sensor_pulse * 55))
+        pygame.draw.circle(surface, sensor_color, (cx, cy - 20), 3)
     else:
-        # 완전 고장 - 어두운 상태
-        pygame.draw.circle(surface, (40, 20, 20), (cx, cy - 25), 4)
+        pygame.draw.circle(surface, (30, 30, 40), (cx, cy - 20), 3)
 
-    # === 사이드 윙/암 ===
-    for side in [-1, 1]:
-        arm_x = cx + side * 35
-        # 암 베이스
-        arm_points = [
-            (cx + side * 20, cy),
-            (arm_x - side * 5, cy - 8),
-            (arm_x + side * 10, cy - 5),
-            (arm_x + side * 12, cy + 5),
-            (arm_x - side * 5, cy + 10),
-            (cx + side * 20, cy + 8),
-        ]
-        pygame.draw.polygon(surface, body_color, arm_points)
-        pygame.draw.polygon(surface, body_dark, arm_points, 1)
-
-        # 암 끝 디테일
-        pygame.draw.circle(surface, apply_hit(apply_damage((50, 55, 65))), (arm_x + side * 5, cy), 5)
-        pygame.draw.circle(surface, apply_hit(apply_damage((80, 40, 40))), (arm_x + side * 5, cy), 3)
-
-        # 손상 시 암에 금
-        if damage_level >= 2:
-            pygame.draw.line(surface, crack_color,
-                (cx + side * 22, cy - 2), (arm_x + side * 3, cy + 5), 1)
-        if damage_level >= 3:
-            # 암에 불꽃
-            flame_pulse = 0.6 + 0.4 * math.sin(time_now * 0.025 + side * 0.5)
-            pygame.draw.circle(surface, (255, int(120 * flame_pulse), 30),
-                (arm_x, cy + 3), 4)
-
-    # === 전면 디테일 ===
-    # 전면 라이트 스트립 (손상 시 일부 꺼짐)
+    # === 전면 소나 라이트 스트립 ===
     for i in range(5):
         light_x = cx - 16 + i * 8
-        # 손상 시 일부 라이트 고장
         if damage_level >= 2 and i in [1, 3]:
-            continue  # 꺼진 라이트
+            continue
         if damage_level >= 3 and i in [0, 2, 4]:
-            # 불안정한 깜빡임
             if random.random() < 0.3:
                 continue
         light_pulse = 0.4 + 0.6 * math.sin(time_now * 0.01 + i * 0.5)
-        light_color = (int(60 + 40 * light_pulse), int(70 + 50 * light_pulse), int(90 + 60 * light_pulse))
-        pygame.draw.rect(surface, light_color, (light_x, cy + 12, 4, 2))
+        light_color = (int(40 + light_pulse * 30), int(80 + light_pulse * 60), int(140 + light_pulse * 60))
+        pygame.draw.rect(surface, light_color, (light_x, cy + 10, 4, 2))
 
-    # === 테두리 하이라이트 ===
+    # === 손상 효과 ===
+    if damage_level >= 1:
+        crack_color = (30, 25, 20)
+        pygame.draw.line(surface, crack_color, (cx - 12, cy - 5), (cx - 8, cy + 5), 1)
+        pygame.draw.line(surface, crack_color, (cx + 10, cy - 3), (cx + 15, cy + 8), 1)
+    if damage_level >= 2:
+        pygame.draw.line(surface, crack_color, (cx - 20, cy + 2), (cx - 10, cy + 12), 2)
+        fire_flicker = time_now * 0.02
+        for fx, fy in [(cx - 15, cy + 5), (cx + 20, cy - 3)]:
+            for fi in range(2):
+                flame_color = (255, 150 - fi * 40, 50 - fi * 15)
+                pygame.draw.ellipse(surface, flame_color,
+                    (fx - 3 + fi, fy - 6 + fi * 2, 6 - fi * 2, 6 - fi * 2))
+    if damage_level >= 3:
+        pygame.draw.line(surface, crack_color, (cx - 25, cy - 8), (cx - 15, cy + 10), 2)
+        pygame.draw.line(surface, crack_color, (cx + 12, cy - 12), (cx + 25, cy + 5), 2)
+        for fx, fy in [(cx - 25, cy + 8), (cx + 10, cy + 10), (cx - 5, cy - 12)]:
+            for fi in range(3):
+                flame_color = (255, 150 - fi * 40, 50 - fi * 15)
+                pygame.draw.ellipse(surface, flame_color,
+                    (fx - 3 + fi, fy - 8 + fi * 2, 6 - fi * 2, 8 - fi * 2))
+            pygame.draw.circle(surface, (60, 60, 60), (int(fx), int(fy - 10)), 3)
+
+    # === 외곽 하이라이트 ===
     if damage_level < 2:
-        pygame.draw.ellipse(surface, (100, 110, 130), (cx - 30, cy - 15, 60, 35), 1)
+        pygame.draw.ellipse(surface, (80, 110, 140), (cx - 28, cy - 12, 56, 30), 1)
 
-    # === 이동 시 엔진 에너지 이펙트 ===
+    # === 이동 시 워터젯 이펙트 ===
     if move_dir != 0:
-        boost_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02)
-
-        # 하단 양쪽 엔진에서 파란 에너지 방출
-        for engine_offset in [-30, 30]:
-            engine_x = cx + engine_offset
-            engine_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02 + engine_offset * 0.1)
-
-            # 에너지 방출 (아래로)
+        for jet_offset in [-30, 30]:
+            jet_x = cx + jet_offset
+            jet_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02 + jet_offset * 0.1)
             for j in range(3):
-                boost_y = height - 12 + j * 3
-                boost_width = 6 - j
-                pygame.draw.ellipse(surface, (0, int(150 * engine_pulse), int(200 * engine_pulse)),
-                                  (engine_x - boost_width, boost_y, boost_width * 2, 3))
+                boost_y = height - 10 + j * 2
+                boost_width = 5 - j
+                pygame.draw.ellipse(surface, (0, int(120 * jet_pulse), int(180 * jet_pulse)),
+                                  (jet_x - boost_width, boost_y, boost_width * 2, 3))
 
-    # 기울기 적용 (이동 방향으로 살짝 기울어짐)
     if tilt_angle != 0:
         rotated = pygame.transform.rotate(surface, -tilt_angle)
         return rotated
@@ -105879,964 +105807,222 @@ def check_nemesis_sub_boss_barrier_collision(ball_rect, ball_dy):
     return False
 
 def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
-    """️ 스테이지 6 울트라 배틀크루저 - 최강의 전함 보스 패들"""
+    """스테이지 6 해양 드론 보스 - 군용 수중 드론 스타일"""
     import random
     global laser_cannon_angle, laser_charging, laser_cannon_active, laser_charge_start
     global shield_antenna_active, stage6_boss_hit_timer, stage6_boss_hit_flash
-    #  소닉 스타일 피격 효과 타이머 업데이트
+    # 피격 효과 타이머 업데이트
     if stage6_boss_hit_timer > 0:
         stage6_boss_hit_timer -= 1
-        # 깜빡임 효과 (매 4프레임마다 on/off)
         stage6_boss_hit_flash = (stage6_boss_hit_timer // 4) % 2 == 0
         if stage6_boss_hit_timer <= 0:
             stage6_boss_hit_flash = False
-    carrier_width = 220
-    carrier_height = 85
-    # 배틀크루저 표면 생성
-    carrier_surface = pygame.Surface((carrier_width, carrier_height), pygame.SRCALPHA)
-    # 체력에 따른 손상 정도 계산
+
+    # 해양 드론 크기 (일반 보스와 동일)
+    drone_w = 130
+    drone_h = 40
+    carrier_surface = pygame.Surface((drone_w, drone_h), pygame.SRCALPHA)
+
     damage_ratio = 1.0 - (boss_current_health / boss_max_health)
     time_now = pygame.time.get_ticks()
-    #  체력 기반 에너지 쉴드 효과 (제거)
-    # 파란색 테두리가 나타나지 않도록 주석 처리
-    # if boss_current_health > 10:
-    #     # 외곽 에너지 쉴드 (체력이 높을수록 강함)
-    #     shield_alpha = int(20 + (boss_current_health / boss_max_health) * 30)
-    #     shield_color = (100, 150, 255, shield_alpha)
-    #     for i in range(3):
-    #         pygame.draw.rect(carrier_surface, shield_color, 
-    #                        (3-i, 3-i, carrier_width-6+i*2, carrier_height-6+i*2), 1)
-    # === 메인 선체 (SF 우주전함 스타일 - 고급스러운 디자인) ===
-    #  소닉 스타일 피격 효과 적용 (붉은색 오버레이)
+
     def apply_hit_effect(color):
         if stage6_boss_hit_flash:
-            # 붉은색으로 강하게 변환 (소닉 스타일)
-            r, g, b = color
+            r, g, b = color[:3]
             return (min(255, r + 120), max(0, g - 30), max(0, b - 30))
         return color
 
-    # 함선 중심 좌표
-    cx = carrier_width // 2
+    cx = drone_w // 2  # 65
+    cy = drone_h // 2  # 20
 
-    # === 1단계: 외곽 그림자 및 베이스 ===
-    # 최하부 그림자 (은은한 글로우 효과)
-    for i in range(3):
-        shadow_alpha = 180 - i * 40
-        shadow_color = apply_hit_effect((25 + i*5, 30 + i*5, 40 + i*5))
-        pygame.draw.ellipse(carrier_surface, shadow_color,
-                           (4 + i*2, 50 + i, carrier_width - 8 - i*4, 30 - i*2))
+    # === 메인 바디 (유선형 해양 드론) ===
+    # 하부 그림자
+    pygame.draw.ellipse(carrier_surface, apply_hit_effect((30, 45, 55)),
+                       (10, cy + 8, drone_w - 20, 12))
 
-    # === 2단계: 메인 선체 - 유선형 우주전함 디자인 ===
-    # 하부 선체 (곡선형 + 그라데이션)
-    hull_points_bottom = [
-        (10, 75),  # 좌하단
-        (25, 78),  # 좌측 곡선
-        (cx - 40, 80),  # 좌측 중앙
-        (cx, 82),  # 중앙 (가장 낮은 점)
-        (cx + 40, 80),  # 우측 중앙
-        (carrier_width - 25, 78),  # 우측 곡선
-        (carrier_width - 10, 75),  # 우하단
-        (carrier_width - 8, 65),  # 우측
-        (carrier_width - 12, 55),  # 우상단
-        (12, 55),  # 좌상단
-        (8, 65),  # 좌측
+    # 메인 선체 (유선형 - 앞이 뾰족, 뒤가 넓음)
+    hull_points = [
+        (5, cy),           # 좌측 첨단
+        (15, cy - 12),     # 좌측 상단 곡선
+        (35, cy - 16),     # 좌상단
+        (cx, cy - 18),     # 상단 중앙 (가장 높은 점)
+        (95, cy - 16),     # 우상단
+        (115, cy - 12),    # 우측 상단 곡선
+        (125, cy),         # 우측 첨단
+        (115, cy + 10),    # 우측 하단
+        (95, cy + 14),     # 우하단
+        (cx, cy + 15),     # 하단 중앙
+        (35, cy + 14),     # 좌하단
+        (15, cy + 10),     # 좌측 하단
     ]
-    hull_base = apply_hit_effect((55, 65, 80) if damage_ratio < 0.7 else (45, 50, 60))
-    pygame.draw.polygon(carrier_surface, hull_base, hull_points_bottom)
+    # 메인 색상 (짙은 해군 블루-그레이)
+    hull_color = apply_hit_effect((50, 70, 90) if damage_ratio < 0.7 else (40, 55, 70))
+    pygame.draw.polygon(carrier_surface, hull_color, hull_points)
+    # 외곽선
+    pygame.draw.polygon(carrier_surface, apply_hit_effect((70, 95, 120)), hull_points, 2)
 
-    # 선체 외곽 하이라이트 (메탈릭 느낌)
-    hull_highlight = apply_hit_effect((85, 100, 120))
-    pygame.draw.polygon(carrier_surface, hull_highlight, hull_points_bottom, 2)
-
-    # === 3단계: 중앙 장갑 플레이트 (레이어드 구조) ===
-    # 중앙 메인 플레이트 (위쪽으로 갈수록 밝아지는 그라데이션)
-    for layer in range(5):
-        layer_y = 55 - layer * 6
-        layer_width = carrier_width - 24 - layer * 8
-        layer_x = 12 + layer * 4
-        layer_height = 22 - layer * 2
-
-        # 레이어별 색상 (위로 갈수록 밝게)
-        brightness = 70 + layer * 12
-        layer_color = apply_hit_effect((brightness, brightness + 10, brightness + 20)
-                                       if damage_ratio < 0.5 else (brightness - 10, brightness, brightness + 10))
-
-        # 레이어 그리기 (둥근 모서리 효과)
-        pygame.draw.rect(carrier_surface, layer_color,
-                        (layer_x, layer_y, layer_width, layer_height), border_radius=3)
-
-        # 레이어 상단 하이라이트
-        highlight_color = apply_hit_effect((brightness + 25, brightness + 35, brightness + 45))
-        pygame.draw.line(carrier_surface, highlight_color,
-                        (layer_x + 3, layer_y + 1), (layer_x + layer_width - 3, layer_y + 1), 1)
-
-    # === 4단계: 좌우 날개형 장갑판 (우주전함 느낌) ===
-    # 좌측 윙 아머
-    wing_left = [
-        (5, 55), (8, 48), (20, 42), (35, 40), (40, 45),
-        (35, 55), (20, 60), (8, 62)
+    # 상부 장갑 플레이트 (밝은 레이어)
+    upper_plate = [
+        (20, cy - 8), (40, cy - 14), (cx, cy - 16),
+        (90, cy - 14), (110, cy - 8),
+        (105, cy - 3), (25, cy - 3)
     ]
-    wing_color = apply_hit_effect((65, 75, 90))
-    pygame.draw.polygon(carrier_surface, wing_color, wing_left)
-    pygame.draw.polygon(carrier_surface, apply_hit_effect((95, 110, 130)), wing_left, 1)
+    plate_color = apply_hit_effect((65, 85, 110) if damage_ratio < 0.5 else (55, 70, 90))
+    pygame.draw.polygon(carrier_surface, plate_color, upper_plate)
+    pygame.draw.polygon(carrier_surface, apply_hit_effect((85, 110, 140)), upper_plate, 1)
 
-    # 우측 윙 아머
-    wing_right = [
-        (carrier_width - 5, 55), (carrier_width - 8, 48),
-        (carrier_width - 20, 42), (carrier_width - 35, 40), (carrier_width - 40, 45),
-        (carrier_width - 35, 55), (carrier_width - 20, 60), (carrier_width - 8, 62)
-    ]
-    pygame.draw.polygon(carrier_surface, wing_color, wing_right)
-    pygame.draw.polygon(carrier_surface, apply_hit_effect((95, 110, 130)), wing_right, 1)
+    # === 중앙 센서 돔 (조종 모듈) ===
+    dome_x = cx
+    dome_y = cy - 8
+    # 돔 베이스
+    pygame.draw.ellipse(carrier_surface, apply_hit_effect((55, 75, 100)),
+                       (dome_x - 12, dome_y - 6, 24, 12))
+    # 돔 캐노피 (어두운 유리)
+    pygame.draw.ellipse(carrier_surface, apply_hit_effect((25, 40, 60)),
+                       (dome_x - 8, dome_y - 4, 16, 8))
+    # 센서 라이트 (펄스)
+    sensor_pulse = abs(math.sin(time_now * 0.006))
+    sensor_color = (int(80 + sensor_pulse * 80), int(160 + sensor_pulse * 60), int(220 + sensor_pulse * 35))
+    pygame.draw.circle(carrier_surface, sensor_color, (dome_x, dome_y), 3)
+    pygame.draw.circle(carrier_surface, (200, 230, 255), (dome_x, dome_y), 1)
 
-    # === 5단계: 상부 구조물 (브릿지 연결부) ===
-    # 상단 플레이트
-    top_plate = [
-        (40, 28), (60, 24), (cx - 20, 22), (cx + 20, 22),
-        (carrier_width - 60, 24), (carrier_width - 40, 28),
-        (carrier_width - 45, 35), (45, 35)
-    ]
-    top_color = apply_hit_effect((90, 105, 125) if damage_ratio < 0.3 else (75, 85, 100))
-    pygame.draw.polygon(carrier_surface, top_color, top_plate)
-    pygame.draw.polygon(carrier_surface, apply_hit_effect((120, 140, 160)), top_plate, 1)
+    # === 좌우 워터젯 / 추진 포드 ===
+    for side in [-1, 1]:
+        pod_x = cx + side * 48
+        pod_y = cy + 2
+        # 포드 바디
+        pod_points = [
+            (pod_x - side * 5, pod_y - 6),
+            (pod_x + side * 12, pod_y - 4),
+            (pod_x + side * 15, pod_y),
+            (pod_x + side * 12, pod_y + 6),
+            (pod_x - side * 5, pod_y + 7),
+            (pod_x - side * 8, pod_y + 2),
+        ]
+        pygame.draw.polygon(carrier_surface, apply_hit_effect((45, 60, 80)), pod_points)
+        pygame.draw.polygon(carrier_surface, apply_hit_effect((60, 80, 105)), pod_points, 1)
 
-    # === 6단계: 세부 장식 - 에너지 라인 ===
-    # 중앙 에너지 채널 (파란색 글로우)
-    energy_pulse = abs(math.sin(time_now * 0.004))
-    energy_color = (int(80 + energy_pulse * 40), int(150 + energy_pulse * 60), int(220 + energy_pulse * 35))
+        # 워터젯 글로우 (추진)
+        jet_pulse = abs(math.sin(time_now * 0.008 + side * 0.5))
+        jet_color = (int(40 + jet_pulse * 40), int(120 + jet_pulse * 60), int(180 + jet_pulse * 50))
+        jet_x = pod_x + side * 14
+        pygame.draw.circle(carrier_surface, jet_color, (jet_x, pod_y), 4)
+        pygame.draw.circle(carrier_surface, (int(100 + jet_pulse * 80), int(180 + jet_pulse * 50), 255),
+                          (jet_x, pod_y), 2)
 
-    # 중앙 수평 에너지 라인
-    pygame.draw.line(carrier_surface, energy_color, (45, 45), (carrier_width - 45, 45), 2)
-    pygame.draw.line(carrier_surface, (min(255, energy_color[0] + 50), min(255, energy_color[1] + 30), 255),
-                    (50, 45), (carrier_width - 50, 45), 1)
-
-    # 좌우 대각선 에너지 라인
-    for offset in range(3):
-        line_alpha = 180 - offset * 40
-        # 좌측
-        pygame.draw.line(carrier_surface, apply_hit_effect((60 + offset*10, 100 + offset*15, 160 + offset*20)),
-                        (15 + offset*3, 52 + offset*3), (40 + offset*5, 38 + offset*2), 2 - offset//2)
-        # 우측
-        pygame.draw.line(carrier_surface, apply_hit_effect((60 + offset*10, 100 + offset*15, 160 + offset*20)),
-                        (carrier_width - 15 - offset*3, 52 + offset*3),
-                        (carrier_width - 40 - offset*5, 38 + offset*2), 2 - offset//2)
-
-    # === 7단계: 장갑 리벳 및 볼트 (디테일) ===
-    rivet_positions = [
-        (25, 50), (50, 48), (75, 46), (100, 45), (125, 45),
-        (150, 46), (175, 48), (195, 50)
-    ]
-    for rx, ry in rivet_positions:
-        if rx < carrier_width - 10:
-            # 외곽 링
-            pygame.draw.circle(carrier_surface, apply_hit_effect((50, 55, 65)), (rx, ry), 4)
-            # 내부 볼트
-            pygame.draw.circle(carrier_surface, apply_hit_effect((80, 90, 105)), (rx, ry), 3)
-            # 하이라이트
-            pygame.draw.circle(carrier_surface, apply_hit_effect((110, 125, 145)), (rx - 1, ry - 1), 1)
-
-    # === 8단계: 측면 벤트/배기구 ===
-    # 좌측 벤트
-    for i in range(4):
-        vent_y = 52 + i * 6
-        pygame.draw.rect(carrier_surface, apply_hit_effect((35, 40, 50)), (6, vent_y, 8, 3))
-        # 벤트 내부 글로우 (체력에 따라)
-        if boss_current_health > boss_max_health * 0.3:
-            vent_glow = abs(math.sin(time_now * 0.003 + i * 0.5))
-            vent_color = (int(60 + vent_glow * 40), int(80 + vent_glow * 50), int(120 + vent_glow * 60))
-            pygame.draw.rect(carrier_surface, vent_color, (7, vent_y + 1, 6, 1))
-
-    # 우측 벤트
-    for i in range(4):
-        vent_y = 52 + i * 6
-        pygame.draw.rect(carrier_surface, apply_hit_effect((35, 40, 50)),
-                        (carrier_width - 14, vent_y, 8, 3))
-        if boss_current_health > boss_max_health * 0.3:
-            vent_glow = abs(math.sin(time_now * 0.003 + i * 0.5))
-            vent_color = (int(60 + vent_glow * 40), int(80 + vent_glow * 50), int(120 + vent_glow * 60))
-            pygame.draw.rect(carrier_surface, vent_color,
-                            (carrier_width - 13, vent_y + 1, 6, 1))
-
-    # === 9단계: 하부 글로우 효과 ===
-    # 하부 엔진 글로우 (엔진 노즐에서 퍼지는 곡선형 글로우)
-    glow_pulse = abs(math.sin(time_now * 0.002))
-
-    # 3개의 엔진 노즐 위치
-    engine_glow_points = [
-        (cx - 55, 76),  # 좌측 엔진
-        (cx, 78),       # 중앙 엔진 (살짝 더 아래)
-        (cx + 55, 76),  # 우측 엔진
-    ]
-
-    for ex, ey in engine_glow_points:
-        # 다층 타원형 글로우 (안쪽이 밝고 바깥이 어두움)
-        for radius in range(10, 2, -2):
-            intensity = (10 - radius) / 8.0
-            glow_color = (
-                int(30 + intensity * 50 + glow_pulse * 25),
-                int(70 + intensity * 70 + glow_pulse * 35),
-                int(130 + intensity * 70 + glow_pulse * 30)
-            )
-            # 타원형으로 아래로 퍼지는 느낌
-            pygame.draw.ellipse(carrier_surface, glow_color,
-                               (ex - radius, ey - radius//3, radius * 2, int(radius * 0.7)))
-
-    # === 10단계: 표면 텍스처 (미세한 패턴) ===
-    # 미세한 장갑 패턴 라인
-    for i in range(5):
-        pattern_y = 35 + i * 8
-        pattern_alpha = 40 + i * 5
-        pattern_color = apply_hit_effect((85 + i*3, 95 + i*3, 110 + i*3))
-        pygame.draw.line(carrier_surface, pattern_color,
-                        (25 + i*5, pattern_y), (carrier_width - 25 - i*5, pattern_y), 1)
-    # === 배틀크루저 특유의 고급 장갑판 시스템 ===
-    # 반응형 장갑판 패널들 (체력에 따라 색상 변화)
-    panel_base = (110, 125, 140) if boss_current_health > 10 else (90, 100, 115)
-    panel_glow = (130, 160, 200) if boss_current_health > 12 else (110, 135, 160)
-    for i in range(8):  # 더 많은 패널
-        panel_x = 15 + i * 25
-        if panel_x < carrier_width - 35:
-            # 패널 외곽 (3D 효과)
-            pygame.draw.rect(carrier_surface, (70, 80, 90), (panel_x-1, 27, 23, 17))
-            pygame.draw.rect(carrier_surface, panel_base, (panel_x, 28, 21, 15))
-            pygame.draw.rect(carrier_surface, panel_glow, (panel_x, 28, 21, 15), 1)
-            # 패널 내부 고급 디테일
-            # 에너지 라인 (펄스 효과)
-            pulse = abs(math.sin(time_now * 0.003 + i * 0.5))
-            line_color = (int(120 + pulse * 30), int(130 + pulse * 40), int(145 + pulse * 50))
-            pygame.draw.line(carrier_surface, line_color, 
-                           (panel_x + 2, 30), (panel_x + 19, 30), 1)
-            pygame.draw.line(carrier_surface, line_color, 
-                           (panel_x + 2, 35), (panel_x + 19, 35), 1)
-            pygame.draw.line(carrier_surface, line_color, 
-                           (panel_x + 2, 40), (panel_x + 19, 40), 1)
-            # 중앙 에너지 코어
-            core_x = panel_x + 10
-            core_y = 35
-            pygame.draw.circle(carrier_surface, panel_glow, (core_x, core_y), 2)
-            if boss_current_health > 8:
-                pygame.draw.circle(carrier_surface, (180, 210, 255), (core_x, core_y), 1)
-    # === 중앙 커맨드 센터 ===
-    # 함선 중앙의 메인 구조물
-    center_x = carrier_width // 2
-    center_y = 42
-    
-    # 중앙 돔 구조 (커맨드 센터)
-    # 외부 링
-    pygame.draw.circle(carrier_surface, apply_hit_effect((70, 80, 95)), (center_x, center_y), 15, 2)
-    pygame.draw.circle(carrier_surface, apply_hit_effect((90, 100, 115)), (center_x, center_y), 12, 1)
-    
-    # 중앙 돔
-    pygame.draw.circle(carrier_surface, apply_hit_effect((100, 110, 125)), (center_x, center_y), 10)
-    pygame.draw.circle(carrier_surface, apply_hit_effect((120, 130, 145)), (center_x, center_y), 8)
-    pygame.draw.circle(carrier_surface, apply_hit_effect((140, 150, 165)), (center_x, center_y), 6)
-    
-    # 에너지 코어 (펄싱 효과 - 매우 밝게)
-    core_pulse = abs(math.sin(time_now * 0.003))
-    # 노란색-흰색 코어로 변경 (더 눈에 띄게)
-    core_color = (min(255, int(230 + core_pulse * 25)), 
-                  min(255, int(200 + core_pulse * 50)), 
-                  int(100 + core_pulse * 100))
-    pygame.draw.circle(carrier_surface, core_color, (center_x, center_y), 6)
-    pygame.draw.circle(carrier_surface, (255, 255, 200), (center_x, center_y), 4)
-    pygame.draw.circle(carrier_surface, (255, 255, 255), (center_x, center_y), 2)
-    
-    # 방사형 에너지 라인 (8방향)
-    for angle in range(0, 360, 45):
-        rad = math.radians(angle)
-        line_start_x = center_x + int(math.cos(rad) * 6)
-        line_start_y = center_y + int(math.sin(rad) * 6)
-        line_end_x = center_x + int(math.cos(rad) * 12)
-        line_end_y = center_y + int(math.sin(rad) * 12)
-        
-        line_color = apply_hit_effect((110, 120, 135))
-        pygame.draw.line(carrier_surface, line_color, 
-                        (line_start_x, line_start_y), 
-                        (line_end_x, line_end_y), 1)
-    
-    # 커맨드 센터 주변 소형 모듈들
-    module_positions = [
-        (center_x - 20, center_y - 8),
-        (center_x + 20, center_y - 8),
-        (center_x - 20, center_y + 8),
-        (center_x + 20, center_y + 8)
-    ]
-    
-    for mx, my in module_positions:
-        # 소형 모듈
-        pygame.draw.rect(carrier_surface, apply_hit_effect((90, 100, 115)), 
-                        (mx - 4, my - 3, 8, 6))
-        pygame.draw.rect(carrier_surface, apply_hit_effect((110, 120, 135)), 
-                        (mx - 3, my - 2, 6, 4))
-        # 모듈 창문
-        pygame.draw.rect(carrier_surface, (150, 180, 210), (mx - 2, my - 1, 4, 2))
-    
-    # 연결 통로 (센터와 모듈 연결)
-    for mx, my in module_positions:
-        pygame.draw.line(carrier_surface, apply_hit_effect((100, 110, 125)), 
-                        (center_x, center_y), (mx, my), 2)
-        pygame.draw.line(carrier_surface, apply_hit_effect((120, 130, 145)), 
-                        (center_x, center_y), (mx, my), 1)
-    # === 야마토 캐논급 주포 터렛 시스템 ===
-    # 듀얼 배럴 주포 터렛 (더 강력한 느낌)
-    # 중앙 터렛 제거 (커맨드 센터와 겹침 방지)
-    turret_positions = [(30, 38), (65, 36), (135, 38), (170, 38)]
-    for idx, (tx, ty) in enumerate(turret_positions):
-        if tx < carrier_width - 25:
-            # 터렛 베이스 (다층 구조)
-            pygame.draw.circle(carrier_surface, (50, 60, 70), (tx, ty), 10)
-            pygame.draw.circle(carrier_surface, (70, 80, 90), (tx, ty), 8)
-            pygame.draw.circle(carrier_surface, (90, 100, 110), (tx, ty), 6)
-            # 듀얼 포신 (쌍발)
-            gun_angle = math.sin(time_now * 0.00001 + tx * 0.01) * 2  # 극도로 느린 움직임 (100배 느리게, 각도도 작게)
-            for barrel_offset in [-2, 2]:  # 두 개의 포신
-                barrel_x = tx + barrel_offset
-                gun_end_x = barrel_x + 15 * math.cos(math.radians(gun_angle))
-                gun_end_y = ty + 15 * math.sin(math.radians(gun_angle)) + barrel_offset
-                # 포신 그라데이션 (굵기 변화)
-                pygame.draw.line(carrier_surface, (40, 50, 60), 
-                               (barrel_x, ty), (gun_end_x, gun_end_y), 4)
-                pygame.draw.line(carrier_surface, (60, 70, 80), 
-                               (barrel_x, ty), (gun_end_x-2, gun_end_y), 3)
-                pygame.draw.line(carrier_surface, (80, 90, 100), 
-                               (barrel_x, ty), (gun_end_x-4, gun_end_y), 2)
-                # 포구 플래시 제거 (사용자 요청 - 주황색 빛 제거)
-                # if boss_current_health > 8 and random.random() < 0.1:
-                #     flash_color = (255, 200, 100)
-                #     pygame.draw.circle(carrier_surface, flash_color, 
-                #                      (int(gun_end_x), int(gun_end_y)), 3)
-            # 터렛 중앙 에너지 코어
-            pygame.draw.circle(carrier_surface, (150, 180, 210), (tx, ty), 3)
-            pygame.draw.circle(carrier_surface, (180, 210, 240), (tx-1, ty-1), 1)
-    # === 브릿지 구조 ===
-    # 간단한 브릿지 본체
-    bridge_x = carrier_width - 75
-    # 브릿지 본체
-    bridge_color = apply_hit_effect((85, 95, 110) if boss_current_health > 5 else (75, 85, 100))
-    pygame.draw.rect(carrier_surface, bridge_color, (bridge_x, 15, 50, 25))
-    # 브릿지 상층부
-    pygame.draw.rect(carrier_surface, apply_hit_effect((105, 115, 130)), (bridge_x + 5, 10, 40, 15))
-    
-    # === 우주선 창문 시스템 ===
-    # 상층 파노라마 창문들 (작은 창문 6개)
-    for i in range(6):
-        window_x = bridge_x + 6 + i * 6
-        # 창문 프레임
-        pygame.draw.rect(carrier_surface, apply_hit_effect((120, 130, 145)), 
-                        (window_x, 12, 5, 4), 1)
-        # 창문 내부 빛 (밝은 파란색-흰색)
-        glow_intensity = abs(math.sin(time_now * 0.002 + i * 0.5))
-        window_color = (int(180 + glow_intensity * 40), 
-                       int(200 + glow_intensity * 35), 
-                       min(255, int(230 + glow_intensity * 25)))
-        pygame.draw.rect(carrier_surface, window_color, (window_x + 1, 13, 3, 2))
-        # 창문 하이라이트
-        if i % 2 == 0:
-            pygame.draw.circle(carrier_surface, (230, 240, 255), (window_x + 2, 14), 1)
-    
-    # 중층 대형 창문들 (3개)
-    for i in range(3):
-        window_x = bridge_x + 10 + i * 12
-        # 큰 창문 프레임
-        pygame.draw.rect(carrier_surface, apply_hit_effect((110, 120, 135)), 
-                        (window_x, 18, 10, 7), 1)
-        # 창문 내부 빛
-        glow_intensity = abs(math.sin(time_now * 0.002 + i * 0.3))
-        window_color = (int(160 + glow_intensity * 50), 
-                       int(180 + glow_intensity * 45), 
-                       min(255, int(210 + glow_intensity * 45)))
-        pygame.draw.rect(carrier_surface, window_color, (window_x + 1, 19, 8, 5))
-        # 창문 반사 효과
-        pygame.draw.line(carrier_surface, (220, 235, 255), 
-                        (window_x + 1, 19), (window_x + 4, 19), 1)
-        # 창문 내부 활동 (작은 빛)
-        if random.random() < 0.1:
-            pygame.draw.circle(carrier_surface, (240, 250, 255), 
-                             (window_x + 4, 21), 1)
-    
-    # 하층 작은 원형 창문들 (4개)
-    for i in range(4):
-        window_x = bridge_x + 8 + i * 10
-        window_y = 28
-        # 원형 창문 프레임
-        pygame.draw.circle(carrier_surface, apply_hit_effect((100, 110, 125)), 
-                          (window_x, window_y), 3, 1)
-        # 창문 내부 빛
-        glow_intensity = abs(math.sin(time_now * 0.003 + i * 0.4))
-        window_color = (int(150 + glow_intensity * 60), 
-                       int(170 + glow_intensity * 50), 
-                       min(255, int(200 + glow_intensity * 55)))
-        pygame.draw.circle(carrier_surface, window_color, (window_x, window_y), 2)
-        # 중앙 하이라이트
-        pygame.draw.circle(carrier_surface, (210, 225, 255), (window_x, window_y), 1)
-    # === 레이더 시스템 ===
-    # 간단한 레이더
-    radar_x = bridge_x + 25
-    pygame.draw.circle(carrier_surface, apply_hit_effect((100, 110, 125)), (radar_x, 8), 5)
-    pygame.draw.circle(carrier_surface, apply_hit_effect((120, 130, 145)), (radar_x, 8), 3)
-    # 레이더 안테나
-    pygame.draw.line(carrier_surface, apply_hit_effect((140, 150, 165)), 
-                    (radar_x, 8), (radar_x, 2), 2)
-    # === 쉴드 안테나 시스템 (사용자가 그린 디자인 참고) ===
-    # 안테나 위치 (함선 앞쪽 중앙)
-    shield_antenna_x = carrier_width // 2
-    shield_antenna_y = 75  # 함선 앞쪽
-    # 안테나 베이스 (둥근 돔)
-    pygame.draw.circle(carrier_surface, (100, 110, 120), (shield_antenna_x, shield_antenna_y), 5)
-    pygame.draw.circle(carrier_surface, (140, 150, 160), (shield_antenna_x, shield_antenna_y), 3)
-    # 안테나 기둥
-    pygame.draw.line(carrier_surface, (180, 190, 200), 
-                    (shield_antenna_x, shield_antenna_y), 
-                    (shield_antenna_x, shield_antenna_y - 8), 2)
-    # 안테나 팁 (쉴드 생성기)
-    tip_glow = abs(math.sin(time_now * 0.003)) * 100
-    if shield_antenna_active:
-        # 쉴드 활성화 시 밝게 빛남
-        pygame.draw.circle(carrier_surface, (200, 220, 255), 
-                          (shield_antenna_x, shield_antenna_y - 8), 4)
-        pygame.draw.circle(carrier_surface, WHITE, 
-                          (shield_antenna_x, shield_antenna_y - 8), 2)
-    else:
-        # 비활성화 시 약하게 빛남
-        glow_value = min(255, int(150 + tip_glow))
-        glow_color = (glow_value, min(255, int(170 + tip_glow)), min(255, int(200 + tip_glow)))
-        pygame.draw.circle(carrier_surface, glow_color, 
-                          (shield_antenna_x, shield_antenna_y - 8), 3)
-        pygame.draw.circle(carrier_surface, (180, 200, 220), 
-                          (shield_antenna_x, shield_antenna_y - 8), 1)
-    # === 플라즈마 레이저 캐논 ===
-    # 레이저 캐논 위치 (함선 아래쪽 중앙)
-    laser_cannon_x = carrier_width // 2
-    laser_cannon_y = 85  # 함선 아래쪽
-    # 캐논 베이스 (회전 가능)
-    pygame.draw.circle(carrier_surface, (70, 80, 90), (laser_cannon_x, laser_cannon_y), 8)
-    pygame.draw.circle(carrier_surface, (90, 100, 110), (laser_cannon_x, laser_cannon_y), 6)
-    # 캐논 포신 (각도에 따라 회전)
-    if laser_charging or laser_cannon_active:
-        # 충전 중이거나 발사 중일 때
-        cannon_angle_rad = math.radians(laser_cannon_angle)
-        barrel_end_x = laser_cannon_x + int(math.cos(cannon_angle_rad) * 12)
-        barrel_end_y = laser_cannon_y + int(math.sin(cannon_angle_rad) * 12)
-        # 포신 그리기
-        pygame.draw.line(carrier_surface, (50, 60, 70), 
-                        (laser_cannon_x, laser_cannon_y), 
-                        (barrel_end_x, barrel_end_y), 5)
-        pygame.draw.line(carrier_surface, (70, 80, 90), 
-                        (laser_cannon_x, laser_cannon_y), 
-                        (barrel_end_x, barrel_end_y), 3)
-        # 충전 중 효과
-        if laser_charging:
-            charge_progress = (time_now - laser_charge_start) / 1500.0  # 0 ~ 1
-            charge_glow = int(255 * charge_progress)
-            # 포구에 충전 빛
-            pygame.draw.circle(carrier_surface, 
-                             (min(255, charge_glow), min(255, charge_glow + 50), 255), 
-                             (barrel_end_x, barrel_end_y), int(3 + charge_progress * 3))
-            # 파란색 전기 스파크
-            for _ in range(int(5 * charge_progress)):
-                spark_angle = random.uniform(0, math.pi * 2)
-                spark_dist = random.uniform(5, 15)
-                spark_x = barrel_end_x + int(math.cos(spark_angle) * spark_dist)
-                spark_y = barrel_end_y + int(math.sin(spark_angle) * spark_dist)
-                pygame.draw.circle(carrier_surface, (150, 200, 255), (spark_x, spark_y), 1)
-    else:
-        # 기본 상태 (아래 방향)
-        pygame.draw.line(carrier_surface, (50, 60, 70), 
-                        (laser_cannon_x, laser_cannon_y), 
-                        (laser_cannon_x, laser_cannon_y + 12), 5)
-        pygame.draw.line(carrier_surface, (70, 80, 90), 
-                        (laser_cannon_x, laser_cannon_y), 
-                        (laser_cannon_x, laser_cannon_y + 12), 3)
-    # 캐논 중심 코어
-    pygame.draw.circle(carrier_surface, (110, 120, 130), (laser_cannon_x, laser_cannon_y), 3)
-    if laser_charging or laser_cannon_active:
-        # 충전/발사 중 밝게
-        pygame.draw.circle(carrier_surface, (150, 200, 255), (laser_cannon_x, laser_cannon_y), 2)
-    # === 비행대대 편대 시스템 (체력 기반 전투기 배치) ===
-    max_fighters = 12  # 더 많은 전투기
-    current_fighters = int(max_fighters * (boss_current_health / boss_max_health))
-    # V자 포메이션 전투기 배열
-    fighter_positions = [
-        # 전방 편대
-        (20, 32), (35, 30), (50, 28), (65, 28), (80, 30), (95, 32),
-        # 후방 편대
-        (25, 35), (40, 33), (55, 31), (70, 31), (85, 33), (100, 35)
-    ]
-    for i in range(current_fighters):
-        if i < len(fighter_positions):
-            fx, fy = fighter_positions[i]
-            if fx < carrier_width - 15:
-                # 하이테크 인터셉터 스타일
-                # 동체 (더 날렵한 형태)
-                fighter_body = (80, 95, 110) if i < 6 else (70, 85, 100)  # 전방편대가 더 밝음
-                pygame.draw.polygon(carrier_surface, fighter_body, 
-                                   [(fx, fy), (fx+12, fy+1), (fx+10, fy+3), (fx+2, fy+3)])
-                # 날개 (격납고 형태)
-                wing_color = (65, 80, 95)
-                # 왼쪽 날개
-                pygame.draw.polygon(carrier_surface, wing_color,
-                                   [(fx+3, fy+1), (fx, fy-2), (fx+1, fy+1)])
-                # 오른쪽 날개
-                pygame.draw.polygon(carrier_surface, wing_color,
-                                   [(fx+9, fy+1), (fx+12, fy-2), (fx+11, fy+1)])
-                # 콕핏 하이라이트
-                pygame.draw.circle(carrier_surface, (120, 140, 160), (fx+6, fy+1), 1)
-                # 미사일 마운트 제거 (사용자 요청 - 주황색 선 제거)
-                # if boss_current_health > 10:
-                #     pygame.draw.line(carrier_surface, (200, 100, 50), 
-                #                    (fx+2, fy+3), (fx+2, fy+4), 1)
-                #     pygame.draw.line(carrier_surface, (200, 100, 50), 
-                #                    (fx+10, fy+3), (fx+10, fy+4), 1)
-    # === 플라즈마 부스트 엔진 시스템 ===
-    # 대형 슬링스트림 엔진 4기
-    engine_positions = [(3, 48), (3, 56), (3, 64), (3, 72)]
-    for idx, (ex, ey) in enumerate(engine_positions):
-        # 엔진 노즐 하우징 (입체적)
-        pygame.draw.rect(carrier_surface, (40, 50, 60), (ex, ey-1, 18, 10))
-        pygame.draw.rect(carrier_surface, (60, 70, 80), (ex, ey, 16, 8))
-        pygame.draw.rect(carrier_surface, (80, 90, 100), (ex+2, ey+1, 12, 6))
-        # 플라즈마 제트 효과 (보스 움직임에 따라 동적으로)
+        # 이동 중 워터 트레일
         boss_velocity = abs(boss_speed)
-        # 보스가 움직일 때만 제트 효과 표시
-        if boss_velocity > 0.3:  # 더 민감하게 반응
-            # 움직임 속도에 비례한 제트 길이 (더 길게)
-            jet_length = int(15 + boss_velocity * 8)  # 더 긴 화염
-            jet_intensity = min(255, int(180 + boss_velocity * 30))  # 더 밝게
-            # 애니메이션 효과를 위한 오프셋
-            flame_offset = (pygame.time.get_ticks() // 50) % 3
-            # 외곽 글로우 효과 (더 크게)
-            glow_color = (255, 100, 50, 30)  # 주황색 글로우
-            for g in range(3):
-                pygame.draw.line(carrier_surface, (255, 80 - g*20, 30), 
-                                (ex, ey + 4), (ex - jet_length - g*2, ey + 4), 5 - g)
-            # 메인 화염 (더 화려하게)
-            # 외곽 화염 (빨간색-주황색)
-            for i in range(3):
-                offset_y = flame_offset - 1 + i
-                flame_alpha = 200 - i * 50
-                flame_red = min(255, jet_intensity + i * 10)
-                flame_color = (flame_red, max(50, jet_intensity - 100 - i*30), 20)
-                pygame.draw.line(carrier_surface, flame_color, 
-                                (ex-1, ey + 3 + offset_y), 
-                                (ex - jet_length - i*2, ey + 3 + offset_y), 4 - i)
-            # 중간층 (주황색-노란색)
-            mid_color = (255, min(255, jet_intensity + 30), 80)
-            pygame.draw.line(carrier_surface, mid_color, 
-                            (ex, ey + 4), (ex - jet_length*2//3, ey + 4), 3)
-            # 코어 (밝은 노란색-흰색)
-            core_color = (255, 255, min(255, 180 + boss_velocity * 20))
-            pygame.draw.line(carrier_surface, core_color, 
-                            (ex+1, ey + 4), (ex - jet_length//2, ey + 4), 2)
-            # 플라즈마 번개 효과 (가끔씩)
-            if random.random() < 0.3:
-                bolt_x = ex - random.randint(5, jet_length)
-                bolt_y = ey + 4 + random.randint(-2, 2)
-                pygame.draw.line(carrier_surface, (200, 200, 255),
-                                (ex, ey + 4), (bolt_x, bolt_y), 1)
-            # 불꽃 파티클 효과 (더 많이)
-            particle_count = int(3 + boss_velocity * 2)
-            for _ in range(particle_count):
-                spark_x = ex - random.randint(0, jet_length + 10)
-                spark_y = ey + 4 + random.randint(-3, 3)
-                spark_size = random.choice([1, 1, 2])
-                spark_color = random.choice([
-                    (255, random.randint(180, 255), random.randint(0, 100)),
-                    (255, random.randint(150, 200), 50),
-                    (255, 255, random.randint(150, 255))
-                ])
-                pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), spark_size)
-    # === 포인트 디펜스 미사일 시스템 ===
-    # 자동 방어 미사일 터렛 (플레이어 점수에 따라 터렛 수 증가)
-    # 기본 8개 터렛, 플레이어 1~3점 획득 시 각각 15%씩 증가
-    base_defense_positions = [(25, 22), (45, 20), (65, 22), (85, 20),
-                              (105, 22), (125, 20), (145, 22), (165, 20)]
-    # 추가 터렛 위치 (점수에 따라 활성화)
-    extra_turret_positions = [
-        (15, 24), (55, 18), (95, 24),   # 1점: +3개 (약 15% = 1.2개 → 반올림 1~2개씩)
-        (115, 18), (155, 24), (175, 20) # 2~3점: 추가
-    ]
-    # 플레이어 점수에 따른 추가 터렛 수 계산 (최대 3점까지)
-    score_bonus = min(round_wins, 3)  # 0~3점
-    # 0점: 8개, 1점: 9개(+15%), 2점: 10개(+30%), 3점: 12개(+45%)
-    extra_turret_count = int(len(base_defense_positions) * 0.15 * score_bonus)
-    defense_positions = base_defense_positions + extra_turret_positions[:extra_turret_count]
+        if boss_velocity > 0.5:
+            trail_len = int(3 + boss_velocity * 2)
+            for t in range(trail_len):
+                trail_x = jet_x + side * (t * 3 + 5)
+                trail_alpha = max(30, 120 - t * 25)
+                trail_color = (60, int(140 + jet_pulse * 40), int(200 + jet_pulse * 30))
+                pygame.draw.circle(carrier_surface, trail_color, (trail_x, pod_y + random.randint(-1, 1)), max(1, 3 - t))
+
+    # === 하부 수중 센서 어레이 ===
+    # 좌우 소나 노드
+    for i in range(5):
+        node_x = 25 + i * 20
+        node_y = cy + 10
+        node_pulse = abs(math.sin(time_now * 0.004 + i * 0.8))
+        node_color = apply_hit_effect((int(50 + node_pulse * 30), int(80 + node_pulse * 40), int(120 + node_pulse * 50)))
+        pygame.draw.circle(carrier_surface, node_color, (node_x, node_y), 2)
+        if boss_current_health > boss_max_health * 0.3:
+            pygame.draw.circle(carrier_surface, (int(80 + node_pulse * 60), int(140 + node_pulse * 60), 255),
+                              (node_x, node_y), 1)
+
+    # === 전면 수중 라이트 스트립 ===
+    for i in range(7):
+        light_x = 25 + i * 13
+        light_y = cy + 5
+        light_pulse = abs(math.sin(time_now * 0.005 + i * 0.4))
+        light_color = (int(60 + light_pulse * 40), int(100 + light_pulse * 50), int(150 + light_pulse * 60))
+        pygame.draw.rect(carrier_surface, light_color, (light_x, light_y, 6, 2))
+
+    # === 표면 디테일 (리벳, 패널 라인) ===
+    # 수평 패널 라인
+    for i in range(3):
+        line_y = cy - 5 + i * 5
+        line_color = apply_hit_effect((75, 95, 120))
+        pygame.draw.line(carrier_surface, line_color, (22 + i * 3, line_y), (108 - i * 3, line_y), 1)
+
+    # 리벳
+    rivet_positions = [(20, cy - 2), (40, cy - 4), (60, cy - 5), (80, cy - 5),
+                       (100, cy - 4), (110, cy - 2)]
+    for rx, ry in rivet_positions:
+        pygame.draw.circle(carrier_surface, apply_hit_effect((90, 110, 130)), (rx, ry), 1)
+
+    # === 미사일 발사 시스템 (기존 기능 유지) ===
     global turret_angles, turret_missiles, last_missile_time
     current_time = pygame.time.get_ticks()
-    for idx, (dx, dy) in enumerate(defense_positions):
-        if dx < carrier_width - 15:
-            # 터렛 ID 생성
-            turret_id = f"turret_{idx}_{dx}_{dy}"
-            # 터렛 각도 초기화 및 업데이트
-            if turret_id not in turret_angles:
-                turret_angles[turret_id] = random.randint(0, FULL_ROTATION)
-            # 천천히 좌우로 움직이는 포신 (아래를 향하되 각도가 변함)
-            turret_angles[turret_id] = (turret_angles[turret_id] + 1) % 120  # 0~120도 범위
-            barrel_angle = 60 + turret_angles[turret_id]  # 60~180도 (대략 아래 방향)
-            angle_rad = math.radians(barrel_angle)
-            # 터렛 베이스
-            pygame.draw.circle(carrier_surface, (65, 75, 85), (dx, dy), 4)
-            pygame.draw.circle(carrier_surface, (85, 95, 105), (dx, dy), 3)
-            # 아래를 향하는 포신 그리기
-            barrel_length = 10
-            barrel_end_x = dx + int(math.cos(angle_rad) * barrel_length)
-            barrel_end_y = dy + int(math.sin(angle_rad) * barrel_length)
-            pygame.draw.line(carrier_surface, (90, 100, 110), (dx, dy), (barrel_end_x, barrel_end_y), 3)
-            # 포구 끝부분 (더 크게)
-            pygame.draw.circle(carrier_surface, (120, 130, 140), (barrel_end_x, barrel_end_y), 3)
-            pygame.draw.circle(carrier_surface, (100, 110, 120), (barrel_end_x, barrel_end_y), 2)
-            # 미사일 발사 (터렛별로 다른 타이밍)
-            # 공 생성 애니메이션 중에는 미사일 발사 안함
-            if boss_current_health > 0 and random.random() < 0.0015 and boss_confused_timer == 0 and not ball_spawn_animation_active:  # 0.15% 확률로 매 프레임 발사 (발사 빈도 더 줄임, 혼란 상태가 아닐 때만)
-                # 미사일 발사 위치 (보스 패들 절대 좌표로 변환)
-                missile_x = boss_x + dx
-                missile_y = BOSS_Y + dy + 10  # 포신 끝에서 발사
-                # 아래 방향으로 랜덤한 각도로 발사 (수직에서 ±30도 범위)
-                base_angle = QUARTER_ROTATION  # 아래 방향 (90도)
-                spread_angle = random.randint(-30, 30)  # ±30도 랜덤 스프레드
-                final_angle = base_angle + spread_angle
-                angle_for_missile = math.radians(final_angle)
-                # 미사일 속도 설정 (랜덤 속도)
-                missile_speed = random.uniform(2, 4)  # 2~4 사이 랜덤 속도
-                missile_vx = math.cos(angle_for_missile) * missile_speed
-                missile_vy = math.sin(angle_for_missile) * missile_speed
-                # 미사일 추가
-                new_missile = {
-                    'x': missile_x,
-                    'y': missile_y,
-                    'vx': missile_vx,
-                    'vy': missile_vy,
-                    'age': 0,
-                    'turret_id': turret_id
-                }
-                turret_missiles.append(new_missile)
-            # 터렛 중앙 렌즈
-            lens_color = (100, 100, 100)  # 회색
-            pygame.draw.circle(carrier_surface, lens_color, (dx, dy), 1)
-            pygame.draw.circle(carrier_surface, (100, 110, 120), (dx, dy), 2)
-    # === 울트라 배틀크루저 전투 손상 시스템 ===
-    if damage_ratio > 0.2:
-        # 시스템 오작동 스파크 (안정적인 효과)
-        for _ in range(int(damage_ratio * 8)):
-            spark_x = random.randint(10, carrier_width - 10)
-            spark_y = random.randint(25, 75)
-            # 전기 스파크 색상 변화
-            spark_type = random.choice(['electric', 'plasma', 'fire'])
-            if spark_type == 'electric':
-                spark_color = (150, 200, 255)  # 전기 파란색
-            elif spark_type == 'plasma':
-                spark_color = (255, 150, 255)  # 플라즈마 보라색
-            else:
-                spark_color = (255, 200, 100)  # 화염 노란색
+    # 드론 양쪽에 소형 미사일 포드 (2개)
+    missile_pod_positions = [(25, cy + 3), (105, cy + 3)]
+    score_bonus = min(round_wins, 3)
+    # 점수에 따라 추가 포드
+    extra_pods = [(45, cy + 5), (85, cy + 5), (cx, cy + 8)]
+    missile_pod_positions += extra_pods[:score_bonus]
+
+    for idx, (dx, dy) in enumerate(missile_pod_positions):
+        turret_id = f"turret_{idx}_{dx}_{dy}"
+        if turret_id not in turret_angles:
+            turret_angles[turret_id] = random.randint(0, FULL_ROTATION)
+        turret_angles[turret_id] = (turret_angles[turret_id] + 1) % 120
+        # 미사일 발사
+        if boss_current_health > 0 and random.random() < 0.0015 and boss_confused_timer == 0 and not ball_spawn_animation_active:
+            missile_x = boss_x + dx
+            missile_y = BOSS_Y + dy + 10
+            base_angle = QUARTER_ROTATION
+            spread_angle = random.randint(-30, 30)
+            final_angle = base_angle + spread_angle
+            angle_for_missile = math.radians(final_angle)
+            missile_speed = random.uniform(2, 4)
+            missile_vx = math.cos(angle_for_missile) * missile_speed
+            missile_vy = math.sin(angle_for_missile) * missile_speed
+            new_missile = {
+                'x': missile_x, 'y': missile_y,
+                'vx': missile_vx, 'vy': missile_vy,
+                'age': 0, 'turret_id': turret_id
+            }
+            turret_missiles.append(new_missile)
+
+    # === 손상 효과 ===
+    if damage_ratio > 0.3:
+        for _ in range(int(damage_ratio * 4)):
+            spark_x = random.randint(15, drone_w - 15)
+            spark_y = random.randint(5, drone_h - 8)
+            spark_color = random.choice([(150, 200, 255), (255, 200, 100)])
             pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), 1)
-    if damage_ratio > 0.4:
-        # 장갑판 균열 및 손상
-        for _ in range(int(damage_ratio * 5)):
-            crack_x = random.randint(20, carrier_width - 20)
-            crack_y = random.randint(30, 65)
-            crack_length = random.randint(5, 15)
-            crack_end_x = crack_x + random.randint(-crack_length, crack_length)
-            crack_end_y = crack_y + random.randint(-5, 5)
-            pygame.draw.line(carrier_surface, (40, 45, 50), 
-                           (crack_x, crack_y), (crack_end_x, crack_end_y), 1)
+
     if damage_ratio > 0.5:
-        # 화재 및 플라즈마 누출
-        for _ in range(int(damage_ratio * 7)):
-            leak_x = random.randint(15, carrier_width - 15)
-            leak_y = random.randint(30, 70)
-            if random.random() < 0.6:
-                # 화재 효과 (계층적 화염)
-                pygame.draw.circle(carrier_surface, (255, 100, 0), (leak_x, leak_y), 3)
-                pygame.draw.circle(carrier_surface, (255, 150, 0), (leak_x, leak_y), 2)
-                pygame.draw.circle(carrier_surface, (255, 200, 50), (leak_x, leak_y), 1)
-            else:
-                # 플라즈마 누출 (파란색 에너지)
-                pygame.draw.circle(carrier_surface, (100, 150, 255), (leak_x, leak_y), 2)
-                pygame.draw.circle(carrier_surface, (150, 200, 255), (leak_x, leak_y), 1)
-            # 연기 효과
-            if random.random() < 0.5:
-                smoke_x = leak_x + random.randint(-5, 5)
-                smoke_y = leak_y - random.randint(3, 10)
-                pygame.draw.circle(carrier_surface, (50, 50, 50), (smoke_x, smoke_y), 2)
-    # === 에너지 쉴드 효과 (제거) ===
-    # 파란색 테두리가 나타나지 않도록 주석 처리
-    # if damage_ratio < 0.3:  # 체력이 70% 이상일 때
-    #     shield_alpha = int(30 + 20 * abs(math.sin(time_now * 0.005)))
-    #     shield_color = (100, 150, 255, shield_alpha)
-    #     # 쉴드 윤곽선
-    #     pygame.draw.rect(carrier_surface, shield_color[:3], 
-    #                     (3, 20, carrier_width - 6, carrier_height - 25), 2)
-    #     # 쉴드 헥사곤 패턴
-    #     for i in range(0, carrier_width - 10, 20):
-    #         for j in range(0, carrier_height - 20, 15):
-    #             if random.random() < 0.3:
-    #                 hex_x, hex_y = 8 + i, 25 + j
-    #                 pygame.draw.circle(carrier_surface, shield_color[:3], (hex_x, hex_y), 3, 1)
-    #  체력에 따른 손상 효과 (연기, 화염)
+        for _ in range(int(damage_ratio * 3)):
+            crack_x = random.randint(20, drone_w - 20)
+            crack_y = random.randint(5, drone_h - 10)
+            crack_len = random.randint(3, 8)
+            pygame.draw.line(carrier_surface, (40, 45, 50),
+                           (crack_x, crack_y), (crack_x + random.randint(-crack_len, crack_len), crack_y + random.randint(-3, 3)), 1)
+
     health_percent = (boss_current_health / boss_max_health) * 100
-    # 체력 50% 이하: 연기 효과
-    if health_percent <= 50:
-        # 연기 파티클 생성
-        smoke_points = []
-        if health_percent <= 10:
-            smoke_count = 12  # 체력 10% 이하: 매우 많은 연기
-        elif health_percent <= 20:
-            smoke_count = 8   # 체력 20% 이하: 많은 연기
-        elif health_percent <= 30:
-            smoke_count = 5   # 체력 30% 이하: 중간 연기
-        else:
-            smoke_count = 3   # 체력 50% 이하: 약간의 연기
-        # 랜덤 위치에서 연기 생성
-        for _ in range(smoke_count):
-            smoke_x = random.randint(20, carrier_width - 20)
-            smoke_y = random.randint(30, 60)
-            smoke_points.append((smoke_x, smoke_y))
-        # 연기 그리기
-        for smoke_x, smoke_y in smoke_points:
-            # 여러 크기의 연기 구름
-            for i in range(3):
-                smoke_size = random.randint(8, 15) + i * 3
-                smoke_alpha = random.randint(20, 60) - i * 10
-                smoke_color = (60 + i * 20, 60 + i * 20, 60 + i * 20, smoke_alpha)
-                # 연기 원 그리기
-                smoke_circle = pygame.Surface((smoke_size * 2, smoke_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(smoke_circle, smoke_color, (smoke_size, smoke_size), smoke_size)
-                # 연기 위치 약간 흔들기
-                offset_x = random.randint(-2, 2)
-                offset_y = random.randint(-5, -1) - i * 2
-                carrier_surface.blit(smoke_circle, (smoke_x - smoke_size + offset_x, smoke_y - smoke_size + offset_y))
-    # 체력 30% 이하: 화염 효과 시작
     if health_percent <= 30:
-        fire_intensity = 1.0
-        if health_percent <= 10:
-            fire_intensity = 3.0  # 체력 10% 이하: 대형 화염
-            fire_count = 8
-        elif health_percent <= 20:
-            fire_intensity = 2.0  # 체력 20% 이하: 강한 화염
-            fire_count = 5
-        else:
-            fire_intensity = 1.0  # 체력 30% 이하: 약한 화염
-            fire_count = 3
-        # 화염 위치 생성
-        fire_points = []
+        fire_count = 2 if health_percent > 10 else 4
         for _ in range(fire_count):
-            fire_x = random.randint(25, carrier_width - 25)
-            fire_y = random.randint(35, 65)
-            fire_points.append((fire_x, fire_y))
-        # 화염 그리기
-        for fire_x, fire_y in fire_points:
-            # 화염 애니메이션 (시간에 따라 변화)
+            fire_x = random.randint(20, drone_w - 20)
+            fire_y = random.randint(5, drone_h - 10)
             flame_wave = abs(math.sin(time_now * 0.01 + fire_x))
-            # 화염 코어 (흰색-노란색)
-            core_size = int(4 * fire_intensity * (0.8 + flame_wave * 0.2))
-            pygame.draw.circle(carrier_surface, (255, 255, 200), (fire_x, fire_y), core_size)
-            # 중간 화염 (주황색)
-            mid_size = int(7 * fire_intensity * (0.9 + flame_wave * 0.1))
-            mid_color = (255, 150, 50, 180)
-            flame_mid = pygame.Surface((mid_size * 2, mid_size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(flame_mid, mid_color, (mid_size, mid_size), mid_size)
-            carrier_surface.blit(flame_mid, (fire_x - mid_size, fire_y - mid_size))
-            # 외부 화염 (빨간색)
-            outer_size = int(10 * fire_intensity * (1.0 + flame_wave * 0.2))
-            outer_color = (255, 50, 30, 120)
-            flame_outer = pygame.Surface((outer_size * 2, outer_size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(flame_outer, outer_color, (outer_size, outer_size), outer_size)
-            carrier_surface.blit(flame_outer, (fire_x - outer_size, fire_y - outer_size - int(flame_wave * 3)))
-            # 불꽃 파티클 효과
-            if random.random() < 0.3 * fire_intensity:
-                for _ in range(int(2 * fire_intensity)):
-                    spark_x = fire_x + random.randint(-15, 15)
-                    spark_y = fire_y + random.randint(-10, -2)
-                    spark_color = (255, random.randint(100, 200), 0)
-                    pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), random.randint(1, 2))
-    # 체력 10% 이하: 폭발 효과 추가
-    if health_percent <= 10:
-        # 랜덤 폭발 효과
-        if random.random() < 0.2:  # 20% 확률로 폭발
-            explosion_x = random.randint(30, carrier_width - 30)
-            explosion_y = random.randint(30, 60)
-            # 폭발 플래시
-            flash_size = random.randint(15, 25)
-            pygame.draw.circle(carrier_surface, WHITE, (explosion_x, explosion_y), flash_size)
-            pygame.draw.circle(carrier_surface, (255, 200, 100), (explosion_x, explosion_y), flash_size - 3)
-            pygame.draw.circle(carrier_surface, (255, 100, 0), (explosion_x, explosion_y), flash_size - 6)
-            # 파편 효과
-            for _ in range(8):
-                debris_x = explosion_x + random.randint(-20, 20)
-                debris_y = explosion_y + random.randint(-20, 20)
-                debris_color = (random.randint(150, 255), random.randint(50, 150), 0)
-                pygame.draw.circle(carrier_surface, debris_color, (debris_x, debris_y), random.randint(1, 3))
-    # === 고퀄리티 플라즈마 레이저 캐논 ===
-    current_time = pygame.time.get_ticks()
-    # 캐논 위치 (함선 전면 중앙)
-    cannon_x = carrier_width // 2
-    cannon_y = 15
+            pygame.draw.circle(carrier_surface, (255, 255, 200), (fire_x, fire_y), int(2 + flame_wave))
+            flame_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(flame_surf, (255, 100, 30, 120), (4, 4), 4)
+            carrier_surface.blit(flame_surf, (fire_x - 4, fire_y - 4))
 
-    # 표시용 각도 사용 (조준 중일 때 부드러운 회전)
-    display_angle = laser_display_angle if laser_pre_aiming or laser_charging or laser_cannon_active else laser_cannon_angle
-    angle_rad = math.radians(display_angle)
+    if health_percent <= 50:
+        smoke_count = max(1, int((50 - health_percent) / 10))
+        for _ in range(smoke_count):
+            smoke_x = random.randint(15, drone_w - 15)
+            smoke_y = random.randint(3, drone_h - 8)
+            smoke_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+            pygame.draw.circle(smoke_surf, (60, 60, 60, 40), (5, 5), 5)
+            carrier_surface.blit(smoke_surf, (smoke_x - 5, smoke_y - 5))
 
-    # 포신 길이 증가 (20 → 28)
-    cannon_barrel_length = 28
-
-    # 포신 끝 좌표
-    cannon_barrel_end_x = cannon_x + int(math.cos(angle_rad) * cannon_barrel_length)
-    cannon_barrel_end_y = cannon_y + int(math.sin(angle_rad) * cannon_barrel_length)
-
-    # === 캐논 베이스 (회전 터렛) ===
-    # 메탈릭 베이스 플레이트
-    pygame.draw.circle(carrier_surface, (50, 55, 65), (cannon_x, cannon_y), 16)  # 그림자
-    pygame.draw.circle(carrier_surface, (80, 90, 105), (cannon_x, cannon_y), 14)  # 외곽
-    pygame.draw.circle(carrier_surface, (100, 115, 130), (cannon_x, cannon_y), 12)  # 중간
-    pygame.draw.circle(carrier_surface, (120, 135, 150), (cannon_x, cannon_y), 10)  # 내부
-    # 하이라이트
-    pygame.draw.arc(carrier_surface, (160, 175, 190),
-                   (cannon_x - 10, cannon_y - 10, 20, 20),
-                   math.radians(200), math.radians(340), 2)
-
-    # === 포신 (다중 레이어 고퀄리티) ===
-    # 포신 중간 지점들
-    barrel_mid1_x = cannon_x + int(math.cos(angle_rad) * 10)
-    barrel_mid1_y = cannon_y + int(math.sin(angle_rad) * 10)
-    barrel_mid2_x = cannon_x + int(math.cos(angle_rad) * 20)
-    barrel_mid2_y = cannon_y + int(math.sin(angle_rad) * 20)
-
-    # 포신 외곽 (어두운 색)
-    pygame.draw.line(carrier_surface, (60, 70, 85),
-                     (cannon_x, cannon_y), (cannon_barrel_end_x, cannon_barrel_end_y), 10)
-    # 포신 중간층
-    pygame.draw.line(carrier_surface, (85, 100, 115),
-                     (cannon_x, cannon_y), (cannon_barrel_end_x, cannon_barrel_end_y), 8)
-    # 포신 내부 (밝은 색)
-    pygame.draw.line(carrier_surface, (110, 125, 145),
-                     (cannon_x + int(math.cos(angle_rad) * 3), cannon_y + int(math.sin(angle_rad) * 3)),
-                     (cannon_barrel_end_x, cannon_barrel_end_y), 6)
-    # 포신 하이라이트 (상단)
-    perp_x = -math.sin(angle_rad) * 3
-    perp_y = math.cos(angle_rad) * 3
-    pygame.draw.line(carrier_surface, (140, 155, 175),
-                     (cannon_x + perp_x, cannon_y + perp_y),
-                     (cannon_barrel_end_x + perp_x * 0.7, cannon_barrel_end_y + perp_y * 0.7), 1)
-
-    # === 포신 디테일 (세그먼트/링) ===
-    # 포신 중간 링들
-    for ring_dist in [8, 16, 24]:
-        ring_x = cannon_x + int(math.cos(angle_rad) * ring_dist)
-        ring_y = cannon_y + int(math.sin(angle_rad) * ring_dist)
-        pygame.draw.circle(carrier_surface, (70, 80, 95), (ring_x, ring_y), 5)
-        pygame.draw.circle(carrier_surface, (95, 110, 125), (ring_x, ring_y), 4)
-
-    # === 발사구 (머즐) ===
-    # 외곽 링
-    pygame.draw.circle(carrier_surface, (90, 105, 120),
-                      (cannon_barrel_end_x, cannon_barrel_end_y), 8)
-    pygame.draw.circle(carrier_surface, (110, 125, 145),
-                      (cannon_barrel_end_x, cannon_barrel_end_y), 6)
-    # 내부 구멍 (발사 시 빛남)
-    if laser_charging or laser_cannon_active:
-        pygame.draw.circle(carrier_surface, (150, 200, 255),
-                          (cannon_barrel_end_x, cannon_barrel_end_y), 4)
-        pygame.draw.circle(carrier_surface, (200, 230, 255),
-                          (cannon_barrel_end_x, cannon_barrel_end_y), 2)
-    else:
-        pygame.draw.circle(carrier_surface, (40, 50, 60),
-                          (cannon_barrel_end_x, cannon_barrel_end_y), 4)
-        pygame.draw.circle(carrier_surface, (30, 35, 45),
-                          (cannon_barrel_end_x, cannon_barrel_end_y), 2)
-
-    # === 조준 중 이펙트 ===
-    if laser_pre_aiming:
-        aim_progress = min(1.0, (current_time - laser_pre_aim_start) / LASER_PRE_AIM_DURATION)
-        # 조준 인디케이터 (깜빡이는 레이저 포인터)
-        if (current_time // 100) % 2 == 0:
-            # 레이저 조준선 (짧은 점선)
-            aim_line_length = 40 + int(aim_progress * 30)
-            for i in range(0, aim_line_length, 8):
-                dot_x = cannon_barrel_end_x + int(math.cos(angle_rad) * i)
-                dot_y = cannon_barrel_end_y + int(math.sin(angle_rad) * i)
-                dot_alpha = int(100 * (1 - i / aim_line_length))
-                pygame.draw.circle(carrier_surface, (255, 100, 100), (dot_x, dot_y), 1)
-        # 발사구 경고 글로우
-        glow_intensity = int(50 + 50 * aim_progress)
-        pygame.draw.circle(carrier_surface, (255, glow_intensity, glow_intensity),
-                          (cannon_barrel_end_x, cannon_barrel_end_y), int(5 + aim_progress * 3))
-
-    # === 충전 효과 (강화됨) ===
-    if laser_charging:
-        charge_time = current_time - laser_charge_start
-        charge_ratio = min(1.0, charge_time / 1500)  # 1.5초 충전
-
-        # 에너지 수집 파티클 (포신 끝으로 모이는 효과)
-        num_particles = int(15 * charge_ratio)
-        for _ in range(num_particles):
-            particle_angle = random.uniform(0, math.pi * 2)
-            particle_dist = random.uniform(15, 40 * (1 - charge_ratio * 0.7))
-            particle_x = cannon_barrel_end_x + int(math.cos(particle_angle) * particle_dist)
-            particle_y = cannon_barrel_end_y + int(math.sin(particle_angle) * particle_dist)
-            # 파란색/흰색 에너지 파티클
-            if random.random() < 0.3:
-                particle_color = (200, 230, 255)
-            else:
-                particle_color = (100, 150 + int(100 * charge_ratio), 255)
-            particle_size = random.randint(1, 2 + int(charge_ratio * 2))
-            pygame.draw.circle(carrier_surface, particle_color,
-                             (particle_x, particle_y), particle_size)
-
-        # 충전 코어 (펄스 효과)
-        pulse = abs(math.sin(current_time * 0.01)) * 0.3 + 0.7
-        core_size = int((5 + 8 * charge_ratio) * pulse)
-        # 글로우 레이어
-        for i in range(3):
-            glow_size = core_size + (3 - i) * 3
-            glow_alpha = 100 - i * 30
-            glow_color = (100 + i * 30, 150 + i * 30, 255)
-            pygame.draw.circle(carrier_surface, glow_color,
-                             (cannon_barrel_end_x, cannon_barrel_end_y), glow_size)
-        # 코어 중심
-        pygame.draw.circle(carrier_surface, (180, 220, 255),
-                         (cannon_barrel_end_x, cannon_barrel_end_y), core_size)
-        pygame.draw.circle(carrier_surface, WHITE,
-                         (cannon_barrel_end_x, cannon_barrel_end_y), max(1, core_size - 3))
-
-        # 전기 스파크 효과
-        if charge_ratio > 0.5:
-            for _ in range(int(5 * (charge_ratio - 0.5) * 2)):
-                spark_angle = random.uniform(0, math.pi * 2)
-                spark_start = 5
-                spark_end = 12 + random.randint(0, 8)
-                sx1 = cannon_barrel_end_x + int(math.cos(spark_angle) * spark_start)
-                sy1 = cannon_barrel_end_y + int(math.sin(spark_angle) * spark_start)
-                sx2 = cannon_barrel_end_x + int(math.cos(spark_angle) * spark_end)
-                sy2 = cannon_barrel_end_y + int(math.sin(spark_angle) * spark_end)
-                pygame.draw.line(carrier_surface, (200, 230, 255), (sx1, sy1), (sx2, sy2), 1)
-    # === 쉴드 안테나 시스템 ===
-    # 안테나 위치 (함선 전면 좌우)
-    antenna_left_x = 30
-    antenna_right_x = carrier_width - 30
-    antenna_y = 25
-    # 왼쪽 안테나
-    pygame.draw.rect(carrier_surface, (110, 120, 130), 
-                     (antenna_left_x - 2, antenna_y, 4, 15))
-    pygame.draw.circle(carrier_surface, (140, 150, 160), 
-                      (antenna_left_x, antenna_y), 4)
-    # 안테나 끝 발광체
-    pygame.draw.circle(carrier_surface, (200, 210, 220), 
-                      (antenna_left_x, antenna_y - 5), 3)
-    if shield_antenna_active:
-        # 활성화시 빛나는 효과
-        pygame.draw.circle(carrier_surface, WHITE, 
-                          (antenna_left_x, antenna_y - 5), 2)
-    # 오른쪽 안테나
-    pygame.draw.rect(carrier_surface, (110, 120, 130), 
-                     (antenna_right_x - 2, antenna_y, 4, 15))
-    pygame.draw.circle(carrier_surface, (140, 150, 160), 
-                      (antenna_right_x, antenna_y), 4)
-    # 안테나 끝 발광체
-    pygame.draw.circle(carrier_surface, (200, 210, 220), 
-                      (antenna_right_x, antenna_y - 5), 3)
-    if shield_antenna_active:
-        # 활성화시 빛나는 효과
-        pygame.draw.circle(carrier_surface, WHITE, 
-                          (antenna_right_x, antenna_y - 5), 2)
     return carrier_surface
 
 def _build_stage8_walk_pose(base_img, boss_rect):
@@ -109210,7 +108396,7 @@ def draw_objects():
         boss_current_speed = abs(BOSS.x - boss_prev_x) if boss_prev_x else 0
         boss_prev_x = BOSS.x
         boss_img = draw_aircraft_carrier_boss(boss_current_speed, BOSS.x)
-        boss_w, boss_h = 220, 85  # 배틀크루저는 더 크고 위용있게
+        boss_w, boss_h = 130, 40  # 해양 드론 보스 (일반 보스 동일 크기)
     else:
         boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
         boss_img.fill(WHITE)
@@ -153083,48 +152269,13 @@ def handle_boss():
         if boss_throw_timer <= 0:
             boss_throwing = False
         return  #  이동 로직을 아예 스킵
-    # --- Stage 6 항공모함 보스: 서브 대기 상태가 아닐 때만 근엄한 움직임 ---
-    if current_stage == 6 and not is_waiting_for_serve:
-        # 중앙 기준점 설정
-        center_x = WIDTH // 2
-        movement_range = 80  # 중앙에서 좌우 80픽셀 범위
-        # 항공모함 보스 전용 움직임 변수 초기화
-        if not hasattr(handle_boss, 'carrier_target'):
-            handle_boss.carrier_target = center_x
-            handle_boss.carrier_direction = 1
-            handle_boss.carrier_pause_timer = 0
-        # 일정 시간마다 방향 전환 (근엄한 패턴)
-        handle_boss.carrier_pause_timer += 1
-        # 180프레임(3초)마다 새로운 목표점 설정
-        if handle_boss.carrier_pause_timer >= THREE_SECONDS_FRAMES:
-            handle_boss.carrier_pause_timer = 0
-            # 중앙 범위 내에서 새로운 목표점 선택 (게임 영역 기준)
-            boss_min_cx = BOSS.width // 2
-            boss_max_cx = WIDTH - BOSS.width // 2
-            handle_boss.carrier_target = center_x + random.randint(-movement_range, movement_range)
-            handle_boss.carrier_target = max(boss_min_cx, min(boss_max_cx, handle_boss.carrier_target))
-        # 현재 목표점으로 천천히 이동 (근엄한 속도)
-        carrier_speed = 1.5  # 매우 느린 속도
-        if BOSS.centerx < handle_boss.carrier_target - 5:
-            BOSS.centerx += carrier_speed
-        elif BOSS.centerx > handle_boss.carrier_target + 5:
-            BOSS.centerx -= carrier_speed
-        # 경계 처리 (게임 영역 기준)
-        boss_min_cx = BOSS.width // 2
-        boss_max_cx = WIDTH - BOSS.width // 2
-        BOSS.centerx = max(boss_min_cx, min(boss_max_cx, BOSS.centerx))
-        return  # 스테이지 6은 일반 AI 로직 스킵
+    # --- Stage 6 해양 드론 보스: 일반 AI 로직 사용 (공 궤적 예측) ---
+    # 스테이지 6도 다른 보스와 동일한 AI 루틴을 사용 (return 제거)
     # --- 서브 대기 상태 처리 ---
     if is_waiting_for_serve:
         time_now = pygame.time.get_ticks()
-        # 스테이지 6: 항공모함 보스는 서브 대기 중에도 특별한 움직임
-        if current_stage == 6:
-            # 항공모함 보스 서브 대기 중 움직임 (매우 미세한 좌우 이동)
-            def carrier_standby_motion():
-                return math.sin(time_now / 200) * 0.8  # 매우 느리고 작은 움직임
-        else:
-            # 보스 패들 간보기 움직임 (일반 스테이지)
-            def fake_motion():
+        # 보스 패들 간보기 움직임 (모든 스테이지 동일)
+        def fake_motion():
                 style = random.randint(1, 4)
                 if style == 1:
                     return math.sin(time_now / 100) * 2.5
@@ -153137,14 +152288,7 @@ def handle_boss():
                 return 0
         # --- 보스 서브 차례 ---
         if not is_player_serve and not ball_spawn_animation_active:
-            if current_stage == 6:
-                # 항공모함 보스는 항상 미세한 움직임
-                BOSS.centerx += carrier_standby_motion()
-                # 경계 처리 (게임 영역 기준)
-                boss_min_cx = BOSS.width // 2
-                boss_max_cx = WIDTH - BOSS.width // 2
-                BOSS.centerx = max(boss_min_cx, min(boss_max_cx, BOSS.centerx))
-            elif boss_fake_move and time_now - boss_fake_start_time < wait_delay:
+            if boss_fake_move and time_now - boss_fake_start_time < wait_delay:
                 BOSS.centerx += fake_motion()
             # 모든 스테이지에서 서브 로직 실행 (스테이지 6 포함)
             if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
