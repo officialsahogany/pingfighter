@@ -73253,15 +73253,10 @@ def handle_player(keys):
     _viper_air_marshal_triggered = False
 
     # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
-    # 에어블레이드 스핀 중(phase 2)에도 S/↓키로 EMP 스트라이크 연계 가능
+    # EMP 스트라이크: 체공 중 단독 사용만 가능 (에어블레이드/대쉬/백스텝 연계 불가)
     if selected_character_type == "viper" and not is_odins_eye_transformed():
-        # 급강하 발동: 체공 중 또는 에어블레이드 스핀 중 S키/↓키 단독
-        # 에어블레이드 연계 시 하강 중반(600ms 이후)까지 대기 — 충분히 체공 후 발동
-        _dive_ab_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
-        _dive_from_airblade = (_viper_br_spin_active and _viper_br_spin_phase == 2 and _dive_ab_elapsed >= 600)
-        # 에어블레이드 동작 중(발사/회전/감속)에는 일반 체공 다이브 차단
-        _in_airblade_motion = _viper_blade_rush_active or (_viper_br_spin_active and _viper_br_spin_phase < 2)
-        # EMP 스트라이크는 단독기: 대쉬/쉐도우 백스텝/마샬 킥/팬텀 킥 중 발동 불가
+        # 에어블레이드 동작 중(발사/회전/하강 모두) EMP 차단
+        _in_airblade_motion = _viper_blade_rush_active or _viper_br_spin_active
         # 체공 중 대쉬/백스텝 발동 후에는 착지 전까지 EMP 차단
         _dive_post_backstep_air = (_viper_ss_was_airborne and _viper_jetpack_offset_y < -10)
         _dive_post_dash_air = (_viper_dash_was_airborne and _viper_jetpack_offset_y < -10)
@@ -73272,11 +73267,12 @@ def handle_player(keys):
             or _viper_wall_dive_ready
             or _viper_double_marshal_ready
             or _viper_nerve_strike_active
+            or _in_airblade_motion
             or _dive_post_backstep_air
             or _dive_post_dash_air
         )
         if (not _viper_dive_active
-                and ((_viper_jetpack_offset_y < -20 and not _in_airblade_motion) or _dive_from_airblade)
+                and _viper_jetpack_offset_y < -20
                 and not _dive_any_skill_active
                 and not is_waiting_for_serve
                 and not is_player_serve and not player_stunned):
