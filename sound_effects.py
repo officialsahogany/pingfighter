@@ -125,6 +125,7 @@ SOUND_PATHS = {
     "VIPER_DIVE_STRIKE": "sounds/divestrike.wav",
     "VIPER_DIVE_PREP": "sounds/beforedivestrike.wav",
     "VIPER_SHOW": "sounds/bypershow.wav",
+    "VIPER_PHANTOM_KICK_HIT": "sounds/pentomkick.wav",
 }
 
 

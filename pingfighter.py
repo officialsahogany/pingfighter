@@ -72961,6 +72961,14 @@ def handle_player(keys):
                     # 팬텀 킥: 공이 보스 패들에 맞을 때 넉백 적용 (플래그 설정)
                     if _viper_is_double_marshal:
                         _viper_phantom_kick_knockback_pending = True
+                        # 팬텀 킥 전용 타격 사운드
+                        try:
+                            _pk_hit_snd = sound_effects.get('VIPER_PHANTOM_KICK_HIT')
+                            if _pk_hit_snd:
+                                _pk_hit_snd.set_volume(0.8)
+                                _pk_hit_snd.play()
+                        except Exception:
+                            pass
                     # 히트 이펙트
                     _shake_force = 20 if _viper_is_double_marshal else 12
                     _shake_int = 8 if _viper_is_double_marshal else 5
