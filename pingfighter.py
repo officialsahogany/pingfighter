@@ -48385,7 +48385,7 @@ _viper_wall_dive_particles = []           # 이펙트 파티클
 _viper_wall_dive_web_lines = []           # 거미줄 라인 이펙트
 _VIPER_WALL_DIVE_RETURN_MS = 350         # 복귀 시간 (ms)
 _VIPER_WALL_DIVE_GAUGE_COST = 80          # 게이지 소모
-_VIPER_WALL_DIVE_JUMP_MS = 412            # 벽으로 점프 시간 (ms) - 기존 350에서 15% 느리게
+_VIPER_WALL_DIVE_JUMP_MS = 250            # 벽으로 이동 시간 (ms) - 로프 텐션감 강화
 _VIPER_WALL_DIVE_CLING_MS = 250           # 벽 매달림 시간 (ms)
 _VIPER_WALL_DIVE_CHARGE_MS = 390          # 돌진 시간 (ms) - 기존 350에서 10% 느리게
 _VIPER_WALL_DIVE_HIT_RADIUS = 90          # 공 히트 반경 (px, 실시간 추적이므로 넉넉하게)
@@ -72725,8 +72725,8 @@ def handle_player(keys):
         if _viper_wall_dive_phase == 0:
             # Phase 0: 로프를 벽에 쏘고 끌려가며 이동 (스파이더맨/산나비 스타일)
             _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_JUMP_MS)
-            _wd_ease = _wd_t * _wd_t * (3.0 - 2.0 * _wd_t)  # ease-in-out
-            # 플레이어가 로프를 따라 직선으로 끌려감
+            _wd_ease = 1.0 - (1.0 - _wd_t) ** 3  # ease-out cubic (초반 폭발 가속 → 벽 근처 감속)
+            # 플레이어가 로프에 낚아채이듯 끌려감
             _wd_cx = _viper_wall_dive_start_x + (_viper_wall_dive_wall_x - _viper_wall_dive_start_x) * _wd_ease
             _wd_cy = _viper_wall_dive_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_start_y) * _wd_ease
             PLAYER.centerx = int(_wd_cx)
