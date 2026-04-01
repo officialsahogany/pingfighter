@@ -72471,6 +72471,7 @@ def handle_player(keys):
                         # 대쉬/후딜 즉시 해제
                         rolling_active = False
                         rolling_stun_timer = 0
+                        current_speed = 0  # 대쉬 잔여 속도 제거 (텔레포트 후 역방향 이동 방지)
                         stop_dash_delay_sound()  # 후딜 사운드 즉시 중지
 
                         # 원래 위치에 잔상 생성
