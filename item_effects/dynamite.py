@@ -205,51 +205,40 @@ class Dynamite:
                 self.placed_dynamites.remove(placed)
                 continue
 
-            # ═══ 보스 패들 근접 시 물리 반응 (살짝 밀림 + 흔들림) ═══
+            # ═══ 보스 패들 근접 시 물리 반응 (살짝 뒹구름) ═══
             if boss_rect is not None:
                 # 물리 상태 초기화 (최초 1회)
                 if "nudge_vx" not in placed:
                     placed["nudge_vx"] = 0.0
                     placed["wobble_angle"] = 0.0
                     placed["wobble_vel"] = 0.0
-                    placed["origin_x"] = placed["x"]  # 설치 원점 기억
-
-                MAX_NUDGE_DIST = 35  # 원점에서 최대 밀림 거리 (px)
 
                 prox_dx = boss_rect.centerx - placed["x"]
                 prox_dy = boss_rect.centery - placed["y"]
                 prox_dist = math.hypot(prox_dx, prox_dy)
-                push_range = 60  # 밀림 감지 반경
+                push_range = 55  # 밀림 감지 반경
                 if prox_dist < push_range and prox_dist > 1:
-                    # 원점에서 얼마나 밀렸는지 체크 → 멀수록 힘 감소
-                    dist_from_origin = abs(placed["x"] - placed["origin_x"])
-                    origin_factor = max(0.0, 1.0 - dist_from_origin / MAX_NUDGE_DIST)
-                    push_strength = (1.0 - prox_dist / push_range) * 1.2 * origin_factor
+                    push_strength = (1.0 - prox_dist / push_range) * 0.8
                     push_dir_x = -prox_dx / prox_dist
                     placed["nudge_vx"] += push_dir_x * push_strength
-                    placed["wobble_vel"] += push_dir_x * push_strength * 3.0
+                    placed["wobble_vel"] += push_dir_x * push_strength * 2.5
 
-                # 원점 복원력 (고무줄처럼 원래 자리로 돌아감)
-                dx_from_origin = placed["x"] - placed["origin_x"]
-                placed["nudge_vx"] -= dx_from_origin * 0.02
+                # 밀림 속도 상한 (살짝만)
+                placed["nudge_vx"] = max(-1.5, min(1.5, placed["nudge_vx"]))
 
-                # 밀림 속도 상한
-                placed["nudge_vx"] = max(-2.5, min(2.5, placed["nudge_vx"]))
-
-                # 밀림 적용 + 마찰 감쇠
+                # 밀림 적용 + 강한 마찰 (금방 멈춤)
                 if abs(placed["nudge_vx"]) > 0.05:
                     placed["x"] += placed["nudge_vx"]
-                    placed["nudge_vx"] *= 0.82
-                    # 게임 영역 내 클램프
+                    placed["nudge_vx"] *= 0.75  # 강한 마찰 → 빨리 멈춤
                     placed["x"] = max(self.GAME_AREA_LEFT + 20, min(self.GAME_AREA_RIGHT - 20, placed["x"]))
                 else:
                     placed["nudge_vx"] = 0.0
 
-                # 흔들림 스프링 진동 + 감쇠
-                placed["wobble_vel"] += -placed["wobble_angle"] * 0.25
-                placed["wobble_vel"] *= 0.88
+                # 흔들림 스프링 (뒹구르는 느낌)
+                placed["wobble_vel"] += -placed["wobble_angle"] * 0.2
+                placed["wobble_vel"] *= 0.85
                 placed["wobble_angle"] += placed["wobble_vel"]
-                placed["wobble_angle"] = max(-15, min(15, placed["wobble_angle"]))
+                placed["wobble_angle"] = max(-12, min(12, placed["wobble_angle"]))
                 if abs(placed["wobble_angle"]) < 0.3 and abs(placed["wobble_vel"]) < 0.3:
                     placed["wobble_angle"] = 0.0
                     placed["wobble_vel"] = 0.0
