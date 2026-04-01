@@ -48400,6 +48400,7 @@ _viper_marshal_kick_hit_ms = 0               # 마샬 킥 공 타격 시각 (더
 _viper_double_marshal_ready = False           # 2차 마샬 킥 윈도우
 _viper_double_marshal_ready_timer = 0         # 2차 윈도우 타이머
 _viper_is_double_marshal = False              # 현재 실행 중인 마샬 킥이 2차인지
+_viper_phantom_kick_knockback_pending = False # 팬텀 킥 넉백 대기 (공이 보스 패들에 맞을 때 발동)
 
 # === 바이퍼 스타버스트 타격 이펙트 (쉐도우 백스텝/마샬 킥 공 히트 시) ===
 _viper_starburst_active = False
@@ -57926,6 +57927,7 @@ def go_to_next_round():
     _viper_double_marshal_ready = False
     _viper_double_marshal_ready_timer = 0
     _viper_is_double_marshal = False
+    _viper_phantom_kick_knockback_pending = False
     _viper_dive_active = False
     _viper_dive_phase = 0
     _viper_blade_rush_active = False
@@ -72408,7 +72410,7 @@ def handle_player(keys):
         global _viper_wall_dive_return_start_x, _viper_wall_dive_return_start_y
         global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
         global screen_shake_timer, screen_shake_intensity
-        global boss_fire_knockback_vel
+        global boss_fire_knockback_vel, _viper_phantom_kick_knockback_pending
         global _viper_dive_slip_timer, _viper_dive_slip_vel, _viper_dive_slip_duration
 
         _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
@@ -72932,11 +72934,9 @@ def handle_player(keys):
                     _viper_starburst_frame = 0
                     _viper_starburst_timer = 0
                     _viper_starburst_is_double = _viper_is_double_marshal
-                    # 팬텀 킥: 넉백 (텍스트/프리즈는 Phase 4에서 이미 처리됨)
+                    # 팬텀 킥: 공이 보스 패들에 맞을 때 넉백 적용 (플래그 설정)
                     if _viper_is_double_marshal:
-                        # 보스 넉백 200px (화재 넉백 방식)
-                        _dmk_kb_dir = 1 if BALL.centerx > BOSS.centerx else -1
-                        boss_fire_knockback_vel = _dmk_kb_dir * 18.0  # 높은 초기 속도 → 감속하며 ~200px 이동
+                        _viper_phantom_kick_knockback_pending = True
                     # 히트 이펙트
                     _shake_force = 20 if _viper_is_double_marshal else 12
                     _shake_int = 8 if _viper_is_double_marshal else 5
@@ -140202,6 +140202,7 @@ def reset_round(is_stage_start=False):
     _viper_double_marshal_ready = False
     _viper_double_marshal_ready_timer = 0
     _viper_is_double_marshal = False
+    _viper_phantom_kick_knockback_pending = False
     # 바이퍼 베놈 엣지 (신경 타격) 초기화
     global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_combo_used
     global _viper_nerve_strike_slash_shown, _viper_nerve_strike_start_ms
@@ -148394,6 +148395,13 @@ def handle_ball():
             # 화재 넉백의 20%를 기본으로, 공이 빨라질수록 +30%/+50%/+70% 증가
             # 공의 x 좌표 전달하여 충돌 위치 기반 넉백 방향 결정
             apply_paddle_hit_knockback_boss(BALL.centerx)
+
+        # 🐍 팬텀 킥 넉백: 팬텀 킥으로 발사한 공이 보스 패들에 맞으면 강한 넉백
+        global _viper_phantom_kick_knockback_pending
+        if _viper_phantom_kick_knockback_pending:
+            _viper_phantom_kick_knockback_pending = False
+            _dmk_kb_dir = 1 if BALL.centerx > BOSS.centerx else -1
+            boss_fire_knockback_vel = _dmk_kb_dir * 18.0  # 강한 넉백
 
         # 자폭드론 부스트가 적용된 공이라면 반사 계산 후 최종 속도를 강제 복원(약 3배 느리게)
         try:
