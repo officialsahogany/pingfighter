@@ -205,6 +205,42 @@ class Dynamite:
                 self.placed_dynamites.remove(placed)
                 continue
 
+            # ═══ 보스 패들 근접 시 물리 반응 (밀림 + 흔들림) ═══
+            if boss_rect is not None:
+                # 물리 상태 초기화 (최초 1회)
+                if "nudge_vx" not in placed:
+                    placed["nudge_vx"] = 0.0
+                    placed["wobble_angle"] = 0.0
+                    placed["wobble_vel"] = 0.0
+
+                prox_dx = boss_rect.centerx - placed["x"]
+                prox_dy = boss_rect.centery - placed["y"]
+                prox_dist = math.hypot(prox_dx, prox_dy)
+                push_range = 60  # 밀림 감지 반경
+                if prox_dist < push_range and prox_dist > 1:
+                    push_strength = (1.0 - prox_dist / push_range) * 2.2
+                    push_dir_x = -prox_dx / prox_dist
+                    placed["nudge_vx"] += push_dir_x * push_strength
+                    placed["wobble_vel"] += push_dir_x * push_strength * 3.5
+
+                # 밀림 적용 + 마찰 감쇠
+                if abs(placed["nudge_vx"]) > 0.05:
+                    placed["x"] += placed["nudge_vx"]
+                    placed["nudge_vx"] *= 0.85
+                    # 게임 영역 내 클램프
+                    placed["x"] = max(self.GAME_AREA_LEFT + 20, min(self.GAME_AREA_RIGHT - 20, placed["x"]))
+                else:
+                    placed["nudge_vx"] = 0.0
+
+                # 흔들림 스프링 진동 + 감쇠
+                placed["wobble_vel"] += -placed["wobble_angle"] * 0.25
+                placed["wobble_vel"] *= 0.88
+                placed["wobble_angle"] += placed["wobble_vel"]
+                placed["wobble_angle"] = max(-20, min(20, placed["wobble_angle"]))
+                if abs(placed["wobble_angle"]) < 0.3 and abs(placed["wobble_vel"]) < 0.3:
+                    placed["wobble_angle"] = 0.0
+                    placed["wobble_vel"] = 0.0
+
             # 카운트다운 감소
             placed["countdown"] -= 1
             placed["pulse_timer"] += 1
@@ -415,8 +451,9 @@ class Dynamite:
             countdown = placed["countdown"]
             pulse_timer = placed["pulse_timer"]
 
-            # 다이너마이트 본체
-            self._draw_dynamite_body(screen, x, y, 0, fuse_lit=True, countdown=countdown)
+            # 다이너마이트 본체 (물리 흔들림 각도 반영)
+            wobble = placed.get("wobble_angle", 0.0)
+            self._draw_dynamite_body(screen, x, y, wobble, fuse_lit=True, countdown=countdown)
 
             # 카운트다운 표시
             seconds_left = countdown // 60

@@ -2515,52 +2515,6 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                 item["vel"][1] *= -1
                 item["bounce_count"] = item.get("bounce_count", 0) + 1
 
-            # ═══ 다이너마이트 물리 반응: 보스 패들 근접 시 밀림/흔들림 ═══
-            item_type_check = item.get("type")
-            _dyn_name = item_type_check.get("name", "") if isinstance(item_type_check, dict) else ""
-            if _dyn_name == "dynamite" and boss_rect is not None:
-                # 물리 상태 초기화 (최초 1회)
-                if "nudge_vx" not in item:
-                    item["nudge_vx"] = 0.0
-                    item["nudge_vy"] = 0.0
-                    item["wobble_angle"] = 0.0
-                    item["wobble_vel"] = 0.0
-
-                # 보스 패들 근접 감지 → 밀림
-                prox_dx = boss_rect.centerx - item["x"]
-                prox_dy = boss_rect.centery - item["y"]
-                prox_dist = math.hypot(prox_dx, prox_dy)
-                push_range = 60  # 밀림 감지 반경
-                if prox_dist < push_range and prox_dist > 1:
-                    push_strength = (1.0 - prox_dist / push_range) * 2.0
-                    push_dir_x = -prox_dx / prox_dist
-                    push_dir_y = -prox_dy / prox_dist
-                    item["nudge_vx"] += push_dir_x * push_strength
-                    item["nudge_vy"] += push_dir_y * push_strength
-                    # 밀린 방향으로 흔들림 트리거
-                    item["wobble_vel"] += push_dir_x * push_strength * 3.5
-
-                # 밀림 속도 적용 + 마찰 감쇠
-                if abs(item["nudge_vx"]) > 0.05 or abs(item["nudge_vy"]) > 0.05:
-                    item["x"] += item["nudge_vx"]
-                    item["y"] += item["nudge_vy"]
-                    item["nudge_vx"] *= 0.85
-                    item["nudge_vy"] *= 0.85
-                    # 경계 클램프
-                    item["x"] = max(20, min(WIDTH - 20, item["x"]))
-                    item["y"] = max(20, min(HEIGHT - 20, item["y"]))
-                else:
-                    item["nudge_vx"] = 0.0
-                    item["nudge_vy"] = 0.0
-
-                # 흔들림(wobble) 스프링 진동 + 감쇠
-                item["wobble_vel"] += -item["wobble_angle"] * 0.25  # 복원력 (스프링)
-                item["wobble_vel"] *= 0.88  # 감쇠
-                item["wobble_angle"] += item["wobble_vel"]
-                item["wobble_angle"] = max(-20, min(20, item["wobble_angle"]))  # 최대 기울기
-                if abs(item["wobble_angle"]) < 0.3 and abs(item["wobble_vel"]) < 0.3:
-                    item["wobble_angle"] = 0.0
-                    item["wobble_vel"] = 0.0
         else:
             # 일시정지 중에도 수명은 계속 감소 (악용 방지)
             # 60프레임당 1 bounce로 환산 (약 1초당 1 bounce 증가)
@@ -2754,13 +2708,6 @@ def draw_items(screen):
 
             # ✅ 회전 후 강제로 크기 맞추기
             icon = pygame.transform.scale(icon, (60, 60))  # 다시 강제 스케일링
-
-            # 다이너마이트 물리 흔들림(wobble) 각도 반영
-            _it = item.get("type")
-            _dyn_draw_name = _it.get("name", "") if isinstance(_it, dict) else ""
-            if _dyn_draw_name == "dynamite" and abs(item.get("wobble_angle", 0)) > 0.1:
-                angle = angle + item["wobble_angle"]
-
             rotated_icon = pygame.transform.rotate(icon, angle)
             rect = rotated_icon.get_rect(center=(ix, iy))
             screen.blit(rotated_icon, rect.topleft)
