@@ -114951,7 +114951,7 @@ def draw_objects():
                             'y': BOSS.bottom,
                             'target_x': random.randint(game_left, game_right),  # 화면 전체 X 범위
                             'target_y': random.randint(80, 350),  # 보스 영역부터 중앙까지
-                            'speed': 3,
+                            'speed': 2,
                             'angle': 0,
                             'state': 'launching',  # launching, patrolling, intercepting, returning
                             'patrol_center_x': 0,
@@ -115007,8 +115007,8 @@ def draw_objects():
                     # 공이 보스 영역(Y < 400) 근처에 있으면 공을 향해 이동
                     if BALL.centery < 400:
                         # 공을 향해 이동 (약간 앞서 가도록 예측)
-                        predict_x = BALL.centerx + ball_vel[0] * 10  # 공의 예상 위치
-                        predict_y = BALL.centery + ball_vel[1] * 10
+                        predict_x = BALL.centerx + ball_vel[0] * 7  # 공의 예상 위치 (예측력 -30%)
+                        predict_y = BALL.centery + ball_vel[1] * 7
                         target_x = max(game_left, min(game_right, predict_x))
                         target_y = max(60, min(400, predict_y))
                     else:
@@ -115027,7 +115027,7 @@ def draw_objects():
                         interceptor['patrol_move_timer'] = current_time
                     elif dist > 1:
                         # 목표 지점으로 부드럽게 이동 (공 추적 시 더 빠르게)
-                        move_speed = interceptor['speed'] * (2.0 if BALL.centery < 400 else 1.2)
+                        move_speed = interceptor['speed'] * (1.4 if BALL.centery < 400 else 0.84)
                         interceptor['x'] += (dx / dist) * move_speed
                         interceptor['y'] += (dy / dist) * move_speed
 
@@ -115036,7 +115036,7 @@ def draw_objects():
                         interceptor['angle'] = math.atan2(dy, dx)
 
                     # 공이 가까이 오면 요격 모드로 전환
-                    if ball_dist < 80 and ball_vel[1] < 0:  # 공이 위로 올라가는 중
+                    if ball_dist < 56 and ball_vel[1] < 0:  # 공이 위로 올라가는 중 (감지 범위 -30%)
                         interceptor['state'] = 'intercepting'
                 elif interceptor['state'] == 'intercepting':
                     # 공을 향해 빠르게 이동
@@ -115044,8 +115044,8 @@ def draw_objects():
                     dy = BALL.centery - interceptor['y']
                     dist = math.sqrt(dx**2 + dy**2)
                     if dist > 5:
-                        interceptor['x'] += (dx / dist) * interceptor['speed'] * 4.0  # 빠른 추격 속도
-                        interceptor['y'] += (dy / dist) * interceptor['speed'] * 4.0
+                        interceptor['x'] += (dx / dist) * interceptor['speed'] * 2.8  # 추격 속도 -30%
+                        interceptor['y'] += (dy / dist) * interceptor['speed'] * 2.8
                     # 공과 충돌 체크
                     if dist < 20:
                         # 파워스매싱 중이면 공이 관통하면서 인터셉터 파괴 (공 튕김 없음)
@@ -139542,7 +139542,7 @@ def reset_round(is_stage_start=False):
                 'y': 60,
                 'target_x': random.randint(game_left, game_right),
                 'target_y': random.randint(80, 350),
-                'speed': 3,
+                'speed': 2,
                 'angle': 0,
                 'state': 'launching',
                 'patrol_center_x': 0,
