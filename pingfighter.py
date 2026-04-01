@@ -72687,7 +72687,6 @@ def handle_player(keys):
             _viper_wall_dive_start_y = float(PLAYER.centery)
             _viper_wall_dive_ball_hit = False
             _viper_wall_dive_particles = []
-            _viper_wall_dive_web_lines = []
             # 공 위치 기준 반대쪽 벽으로 점프 (대각선 돌진 궤적)
             _wd_ball_cx = BALL.centerx
             if _wd_ball_cx >= WIDTH // 2:
@@ -72703,6 +72702,11 @@ def handle_player(keys):
             _wd_rise = _wd_min_rise + (_wd_max_rise - _wd_min_rise) * _wd_height_ratio
             _viper_wall_dive_wall_y = float(PLAYER.centery) - _wd_rise
             _viper_wall_dive_wall_y = max(_wd_min_y, min(650.0, _viper_wall_dive_wall_y))
+            # 로프를 벽 목표점까지 즉시 발사 (스파이더맨 스타일)
+            _viper_wall_dive_web_lines = [
+                (float(PLAYER.centerx), float(PLAYER.centery),
+                 _viper_wall_dive_wall_x, _viper_wall_dive_wall_y)
+            ]
             # 사운드
             try:
                 _wd_snd = sound_effects.get('VIPER_BACKSTEP')
@@ -72719,20 +72723,17 @@ def handle_player(keys):
         import random as _wd_rand
 
         if _viper_wall_dive_phase == 0:
-            # Phase 0: 벽으로 점프 (포물선 이동)
+            # Phase 0: 로프를 벽에 쏘고 끌려가며 이동 (스파이더맨/산나비 스타일)
             _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_JUMP_MS)
             _wd_ease = _wd_t * _wd_t * (3.0 - 2.0 * _wd_t)  # ease-in-out
-            # X: 현재 → 벽
+            # 플레이어가 로프를 따라 직선으로 끌려감
             _wd_cx = _viper_wall_dive_start_x + (_viper_wall_dive_wall_x - _viper_wall_dive_start_x) * _wd_ease
-            # Y: 포물선 (위로 약간 아치)
-            _wd_arc = -80.0 * math.sin(_wd_t * math.pi)  # 최대 80px 추가 상승
-            _wd_cy = _viper_wall_dive_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_start_y) * _wd_ease + _wd_arc
+            _wd_cy = _viper_wall_dive_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_start_y) * _wd_ease
             PLAYER.centerx = int(_wd_cx)
             PLAYER.centery = int(_wd_cy)
-            # 로프 라인: 현재 위치에서 바닥으로 늘어짐 (줄을 타고 올라가는 느낌)
-            _wd_floor_y = 720.0
+            # 로프: 플레이어 현재 위치 → 벽 목표점 (항상 벽까지 일직선)
             _viper_wall_dive_web_lines = [
-                (_wd_cx, _wd_cy, _wd_cx, _wd_floor_y)
+                (_wd_cx, _wd_cy, _viper_wall_dive_wall_x, _viper_wall_dive_wall_y)
             ]
             # 잔상 파티클
             if _wd_rand.random() < 0.6:
@@ -72751,12 +72752,8 @@ def handle_player(keys):
                 # 벽 착지 이펙트
                 screen_shake_timer = max(screen_shake_timer, 6)
                 screen_shake_intensity = max(screen_shake_intensity, 3)
-                # 로프: 벽 착지점에서 바닥으로 늘어짐
-                _wd_floor_y = 720.0
-                _viper_wall_dive_web_lines = [
-                    (_viper_wall_dive_wall_x, _viper_wall_dive_wall_y,
-                     _viper_wall_dive_wall_x, _wd_floor_y)
-                ]
+                # 벽 착지: 로프 제거 (도착 완료)
+                _viper_wall_dive_web_lines = []
 
         elif _viper_wall_dive_phase == 1:
             # Phase 1: 벽 매달림 (스파이더맨 포즈, 공 위치 스냅샷)
@@ -72779,6 +72776,11 @@ def handle_player(keys):
                         _viper_wall_dive_wall_x = 15.0
                     # Y는 공 높이에 맞춰 조정 (보스 영역 직전까지 허용)
                     _viper_wall_dive_wall_y = max(120.0, min(650.0, float(BALL.centery) - 50.0))
+                    # 로프를 반대편 벽 목표점까지 즉시 발사
+                    _viper_wall_dive_web_lines = [
+                        (float(_viper_wall_dive_reclimb_start_x), float(_viper_wall_dive_reclimb_start_y),
+                         _viper_wall_dive_wall_x, _viper_wall_dive_wall_y)
+                    ]
                     # 벽다시타기 사운드 (빠르게)
                     try:
                         _wd_reclimb_snd = sound_effects.get('VIPER_BACKSTEP')
@@ -72824,6 +72826,10 @@ def handle_player(keys):
             _wd_cy = _viper_wall_dive_reclimb_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_reclimb_start_y) * _wd_ease
             PLAYER.centerx = int(_wd_cx)
             PLAYER.centery = int(_wd_cy)
+            # 로프: 현재 위치 → 벽 목표점 (끌려가는 동안 로프 유지)
+            _viper_wall_dive_web_lines = [
+                (_wd_cx, _wd_cy, _viper_wall_dive_wall_x, _viper_wall_dive_wall_y)
+            ]
             # 잔상 파티클 (보라색 강조)
             if _wd_rand.random() < 0.8:
                 _viper_wall_dive_particles.append({
