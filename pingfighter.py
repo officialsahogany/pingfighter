@@ -73031,10 +73031,10 @@ def handle_player(keys):
                         _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
                     # 커브 방향: 발사 방향과 같은 쪽으로 (자연스러운 커브)
                     _viper_ps_curve_direction = 1 if ball_vel[0] > 0 else -1
-                    # 🪙 마샬 킥 / 팬텀 킥 타격 골드 보너스 (마샬 30, 팬텀 50, 제트팩 체공 시 x1.5)
+                    # 🪙 마샬 킥 / 팬텀 킥 타격 골드 보너스 (마샬 30, 팬텀 50, 공중 쉐도우 백스텝 연계 시 x1.5)
                     try:
                         _mk_gold = 50 if _viper_is_double_marshal else 30
-                        if _viper_jetpack_offset_y < -10:
+                        if _viper_ss_was_airborne:
                             _mk_gold = int(_mk_gold * 1.5)
                         add_ingame_gold(_mk_gold, BALL.centerx, BALL.centery - 20, source="skill")
                     except Exception:
