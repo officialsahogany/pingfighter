@@ -77806,8 +77806,8 @@ def handle_player(keys):
             # UP 키가 동시에 눌려있으면 물자보급 발동 시도 중이므로 화기류 발사 불가
             if keys[pygame.K_UP]:
                 pass  # 물자보급 발동을 우선시, 화기류 발사하지 않음
-            # 서브 중이 아닐 때만 발사
-            elif not is_waiting_for_serve and not is_player_serve:
+            # 서브 중이 아닐 때만 발사 (온라인 멀티에서는 is_player_serve 무시)
+            elif not is_waiting_for_serve and (not is_player_serve or current_stage == 40):
                 input_debug_log(
                     "pistol/bazooka/net_fire_check:",
                     f"space={space_pressed}",
@@ -151969,11 +151969,13 @@ def _process_bazooka_collisions():
             apply_health_boss_damage(2, source="bazooka")
 
 def _handle_boss_online_sync():
-    """온라인 멀티플레이: 상대방의 PLAYER 위치를 BOSS에 적용한다.
+    """온라인 멀티플레이: 상대방의 PLAYER 위치를 BOSS에 적용 + 서브 처리.
     호스트: P2(클라이언트)의 PLAYER.x → BOSS.x
     클라이언트: P1(호스트)의 PLAYER.x → BOSS.x
     """
     global BOSS, _online_opponent_anim
+    global is_waiting_for_serve, is_player_serve, ball_vel
+    global serve_completed_timer, boss_fake_during_player_serve
 
     if _online_net_manager is None:
         return
@@ -151998,6 +152000,26 @@ def _handle_boss_online_sync():
         BOSS.x = 0
     elif BOSS.x > WIDTH - BOSS.width:
         BOSS.x = WIDTH - BOSS.width
+
+    # ── 온라인 서브 처리 (handle_boss() 안의 서브 로직을 대체) ──
+    if is_waiting_for_serve and is_player_serve and not ball_spawn_animation_active:
+        # 플레이어가 enter/space를 눌렀는지 체크
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
+            # 서브 실행
+            try:
+                serve_result = physics_manager.serve_ball(True, current_stage, ai_mode)
+                apply_serve_result(serve_result)
+                is_waiting_for_serve = serve_result.get('is_waiting_for_serve', False)
+                serve_completed_timer = 180  # 3초 서브 후 딜레이
+                boss_fake_during_player_serve = False
+                play_serve_sound()
+                create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+            except Exception as e:
+                print(f"[Online Serve] 서브 실행 에러: {e}")
+    # 보스 가짜 움직임 (플레이어 서브 대기 중 상대 보스 흔들기)
+    if is_waiting_for_serve and is_player_serve:
+        boss_fake_during_player_serve = True
 
 
 def _handle_boss_with_soap_debuff():
@@ -170548,7 +170570,9 @@ def _online_get_my_anim_state():
             elif globals().get('blacksmith_walking_active', False):
                 anim['state'] = 'walking'
         elif st == "viper":
-            if globals().get('_viper_jetpack_active', False):
+            _jp_active = globals().get('_viper_jetpack_active', False)
+            _jp_offset = globals().get('_viper_jetpack_offset_y', 0)
+            if _jp_active or _jp_offset > 5:
                 anim['state'] = 'flying'
             elif globals().get('_viper_wall_dive_active', False):
                 anim['state'] = 'wall_dive'
