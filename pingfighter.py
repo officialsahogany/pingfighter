@@ -73844,6 +73844,46 @@ def handle_player(keys):
             except Exception:
                 pass
 
+        # 검기-인터셉터 충돌 판정 (페이드아웃 중에는 판정 없음)
+        if not _viper_blade_rush_fadeout and current_stage == 6 and interceptors:
+            try:
+                _br_half_w2 = _viper_blade_rush_width // 2
+                _br_blade_rect2 = pygame.Rect(
+                    int(_viper_blade_rush_x - _br_half_w2),
+                    int(_viper_blade_rush_y - 55),
+                    _viper_blade_rush_width,
+                    55
+                )
+                for interceptor in interceptors[:]:
+                    interceptor_rect = pygame.Rect(
+                        interceptor['x'] - 15,
+                        interceptor['y'] - 15,
+                        30, 30
+                    )
+                    if _br_blade_rect2.colliderect(interceptor_rect):
+                        interceptors.remove(interceptor)
+                        # 폭발 사운드
+                        try:
+                            play_sound_with_volume(SOUND_STAGE6_INTERCEPTOR_HIT)
+                        except Exception:
+                            pass
+                        # 폭발 파티클 이펙트
+                        for _ in range(22):
+                            spark_angle = random.uniform(0, math.pi * 2)
+                            spark_dist = random.uniform(0, 25)
+                            spark_x = interceptor['x'] + math.cos(spark_angle) * spark_dist
+                            spark_y = interceptor['y'] + math.sin(spark_angle) * spark_dist
+                            color = (255, 215, 120) if interceptor.get('golden') else (200, 130, 255)
+                            draw.circle(color, (int(spark_x), int(spark_y)), random.randint(2, 5))
+                        # 황금 인터셉터 보상: 스타포인트 드랍
+                        try:
+                            if interceptor.get('golden') and trade_point_system:
+                                trade_point_system.spawn_star(interceptor['x'], interceptor['y'], "gold_interceptor")
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
         # 목표 도달 시 페이드아웃 시작 (즉시 소멸하지 않음)
         if _viper_blade_rush_y <= _viper_blade_rush_target_y and not _viper_blade_rush_fadeout:
             _viper_blade_rush_fadeout = True
