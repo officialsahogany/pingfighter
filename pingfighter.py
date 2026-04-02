@@ -77828,8 +77828,8 @@ def handle_player(keys):
                 blacksmith_swing_slide_active = False
                 blacksmith_swing_slide_velocity = 0
 
-                # 대쉬 후딜(통제불능) 시간의 2배 적용
-                base_stun_time = 30 * 2  # 대쉬 기본 후딜(30) x 2 = 60프레임 (1초)
+                # 대쉬 기본 후딜과 동일하게 적용
+                base_stun_time = 30  # 대쉬 기본 후딜 30프레임 (0.5초)
                 final_stun_time = base_stun_time
 
                 # 모듈제어 스킬 적용 (대쉬후딜 감소)
