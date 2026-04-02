@@ -73016,9 +73016,9 @@ def handle_player(keys):
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
                     # 공을 위로 강하게 반사 + 속도 증가
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
-                    # 2차 마샬 킥이면 280% 증가(3.8x), 1차는 100% 증가(2.0x)
+                    # 2차 마샬 킥이면 250% 증가(3.5x), 1차는 100% 증가(2.0x)
                     if _viper_is_double_marshal:
-                        _wd_new_spd = max(_wd_cur_spd * 3.8, 14.0)  # 280% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 3.5, 14.0)  # 250% 증가
                     else:
                         _wd_new_spd = max(_wd_cur_spd * 2.0, 11.0)  # 100% 증가
                     _viper_speed_boost_active = True
