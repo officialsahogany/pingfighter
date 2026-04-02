@@ -105627,7 +105627,7 @@ def activate_nemesis_sub_boss_skill():
 
     # 스킬 활성화
     nemesis_sub_boss_skill_active = True
-    nemesis_sub_boss_skill_timer = current_time + 15000  # 15초간 지속
+    nemesis_sub_boss_skill_timer = current_time + (12000 if enraged_boss_active else 7000)  # 광폭화 12초, 일반 7초
     nemesis_sub_boss_skill_cooldown = current_time + 45000  # 45초 쿨타임
     nemesis_sub_boss_barrier_active = True  # 방어막 활성화
 
