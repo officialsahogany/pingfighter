@@ -170588,7 +170588,7 @@ def _online_get_my_anim_state():
         elif st == "viper":
             _jp_active = globals().get('_viper_jetpack_active', False)
             _jp_offset = globals().get('_viper_jetpack_offset_y', 0)
-            if _jp_active or _jp_offset > 5:
+            if _jp_active or _jp_offset < -5:
                 anim['state'] = 'flying'
             elif globals().get('_viper_wall_dive_active', False):
                 anim['state'] = 'wall_dive'

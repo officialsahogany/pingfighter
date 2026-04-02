@@ -126,6 +126,8 @@ def serialize_game_frame(frame_data):
         # 공 추가 상태
         'bs': frame_data.get('ball_spin', 0),
         'bi': frame_data.get('ball_intensity', 0),
+        # 애니메이션 상태
+        'p1a': frame_data.get('p1_anim', None),
     }
 
 
@@ -149,6 +151,7 @@ def deserialize_game_frame(data):
         'p2_stunned': data.get('p2s', False),
         'p2_dashing': data.get('p2d', False),
         'ball_spin': data.get('bs', 0),
+        'p1_anim': data.get('p1a', None),
         'ball_intensity': data.get('bi', 0),
     }
 
