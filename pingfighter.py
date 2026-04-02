@@ -26327,7 +26327,6 @@ ITEM_SLOT_BASE_MAP = {
     "smartphone": "arm",
     "cooltime": "accessory",
     "revival": "accessory",
-    "gold_bar": "accessory",
     "gold_digger": "arm",
     "lucky_coin": "accessory",
     "dowsing_pendulum": "등",
@@ -27774,22 +27773,13 @@ def sync_equipped_passive_effects():
     except Exception:
         pass
 
-    # 금괴: 장착 상태에 따라 이동속도 페널티 동기화
-    # 금괴는 특별함: 소지만 해도 페널티(-30%), 장착하면 페널티 없음
+    # 금괴: 인벤토리 소지 여부만 동기화 (장착 불가 아이템)
     try:
         gold_bar = get_gold_bar_instance()
         if gold_bar:
-            # 인벤토리에 금괴가 있는지 확인
             has_gold_bar = any(item.get("name") == "gold_bar" for item in passive_item_list)
-            if has_gold_bar:
-                gold_bar.active = True
-                items.gold_bar_obtained = True
-                # 장착 여부에 따라 equipped 상태 설정
-                gold_bar.equipped = "gold_bar" in equipped_names
-            else:
-                gold_bar.active = False
-                gold_bar.equipped = False
-                items.gold_bar_obtained = False
+            gold_bar.active = has_gold_bar
+            items.gold_bar_obtained = has_gold_bar
     except Exception as e:
         print(f"[GOLD_BAR_SYNC] 예외 발생: {e}")
 
