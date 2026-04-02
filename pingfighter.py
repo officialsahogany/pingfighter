@@ -140951,6 +140951,9 @@ def choose_server(show_text=True):
             is_player_serve = True  # 일반 튜토리얼은 플레이어 서브
     elif current_stage == 6:
         is_player_serve = True
+    elif current_stage == 40:
+        # 온라인 멀티: 항상 플레이어(로컬) 서브 (보스 AI 없으므로)
+        is_player_serve = True
     else:
         is_player_serve = random.choice([True, False])
     
