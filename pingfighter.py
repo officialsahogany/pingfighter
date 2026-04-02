@@ -25584,8 +25584,8 @@ nemesis_sub_boss_barrier_active = False  # 방어막 활성화 여부
 nemesis_sub_boss_electric_particles = []  # 전기 파티클
 nemesis_sub_boss_pain_particles = []  # 방어막 해제 시 빨간 아픈 이펙트 파티클
 # 서브보스 체력 시스템
-nemesis_sub_boss_max_health = 4  # 최대 체력
-nemesis_sub_boss_health = 4  # 현재 체력
+nemesis_sub_boss_max_health = 5  # 최대 체력
+nemesis_sub_boss_health = 5  # 현재 체력
 nemesis_sub_boss_alive = True  # 생존 여부
 nemesis_sub_boss_debris_particles = []  # 파편 파티클
 nemesis_sub_boss_death_explosion_active = False  # 폭발 애니메이션 활성
@@ -105119,7 +105119,7 @@ def draw_nemesis_sub_boss():
         damage_level = 3
     elif nemesis_sub_boss_health <= 2:
         damage_level = 2
-    elif nemesis_sub_boss_health <= 3:
+    elif nemesis_sub_boss_health <= 4:
         damage_level = 1
 
     def apply_hit(color):
@@ -114979,10 +114979,10 @@ def draw_objects():
             # 피격 시 스타포인트 1개 드랍
             spawn_trade_point_star(sub_boss_cx, sub_boss_cy + 20, source_type="sub_boss_hit")
 
-            # 손상 단계에 따라 파편 생성 (체력 4 기준)
-            if nemesis_sub_boss_health <= 3 and nemesis_sub_boss_health > 0:
-                # 파편 생성 (손상이 심할수록 많이: HP3=1개, HP2=2개, HP1=3개)
-                debris_count = 4 - nemesis_sub_boss_health
+            # 손상 단계에 따라 파편 생성 (체력 5 기준)
+            if nemesis_sub_boss_health <= 4 and nemesis_sub_boss_health > 0:
+                # 파편 생성 (손상이 심할수록 많이: HP4=1개, HP3=2개, HP2=3개, HP1=4개)
+                debris_count = 5 - nemesis_sub_boss_health
                 spawn_nemesis_sub_boss_debris(sub_boss_cx, sub_boss_cy, debris_count)
 
             # 체력 0 이하 = 사망
