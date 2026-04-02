@@ -28084,6 +28084,32 @@ def sync_equipped_passive_effects():
     except Exception as _seal_err:
         print(f"[Bodyguard] 인장 동기화 실패: {_seal_err}")
 
+    # 임시 인장(초급/중급) 보디가드 재소환 (로드 후 _bodyguard_ref가 없을 때)
+    try:
+        from item_effects.minor_hero_seal import get_minor_seal_state, MINOR_SEAL_HEROES
+        from item_effects.intermediate_hero_seal import get_intermediate_seal_state, INTERMEDIATE_SEAL_HEROES
+        from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg_seal, get_bodyguard2 as _get_bg2_seal
+        for _seal_state, _seal_heroes_dict in [
+            (get_minor_seal_state(), MINOR_SEAL_HEROES),
+            (get_intermediate_seal_state(), INTERMEDIATE_SEAL_HEROES),
+        ]:
+            if _seal_state.active and not _seal_state._bodyguard_ref:
+                _seal_hero_id = _seal_state.hero_id
+                _hero_info = _seal_heroes_dict.get(_seal_hero_id, {})
+                _hero_color = _hero_info.get("color", (200, 200, 200))
+                _hero_name = _seal_state.hero_name or _hero_info.get("name", _seal_hero_id)
+                # 빈 보디가드 슬롯에 배치
+                _bg_s = _get_bg_seal()
+                _bg2_s = _get_bg2_seal()
+                _target_bg = _bg_s if not _bg_s.active else (_bg2_s if not _bg2_s.active else None)
+                if _target_bg:
+                    _hero_data = {"id": _seal_hero_id, "name": _hero_name, "color": tuple(_hero_color), "title": ""}
+                    _target_bg.setup(_hero_data, skill_selections=None, first_spawn=True)
+                    _seal_state._bodyguard_ref = _target_bg
+                    print(f"[Seal복원] {_hero_name} 임시 호위무사 재소환 완료")
+    except Exception as _seal_restore_err:
+        print(f"[Seal복원] 임시 인장 보디가드 재소환 실패: {_seal_restore_err}")
+
     # 다우징팬들럼 등 액티브 상태 표시가 필요한 모듈은 위에서 활성/비활성 처리됨
     apply_equipment_paddle_modifiers()
 
