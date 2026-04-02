@@ -10,7 +10,7 @@ Windows와 macOS 모두 지원.
 
 # ============================================================
 # 0. 즉시 스플래시 화면 표시 (무거운 import 전에 실행)
-# ============================================================
+# ============================================================ 
 import os
 import sys
 import time
@@ -37,7 +37,7 @@ if sys.platform == 'win32':
 
 # Windows: 창모드 프레임드랍 방지 (노트북 내장/외장 GPU 전환 + VSync)
 if sys.platform == 'win32':
-    # SDL2 렌더러 힌트: Direct3D 사용 + VSync 활성화
+    # SDL2 렌더러 힌트: Direct3D 사용 + VSync 활성화ㅂ
     os.environ.setdefault('SDL_RENDER_DRIVER', 'direct3d')
     os.environ.setdefault('SDL_RENDER_VSYNC', '1')
     # NVIDIA Optimus: 고성능 GPU 선택 유도
@@ -81,7 +81,6 @@ bulkup_body_size_pct = 0
 bulletproof_hat_resist_pct = 0
 sage_ring_speed_penalty_pct = 0  # 현자의 반지 이동속도 감소 패널티 (10~20%)
 sage_ring_body_penalty_pct = 0   # 현자의 반지 몸집크기 감소 패널티 (10~20%)
-venom_mist_trigger_chance_pct = 40  # 독안개장갑 발동확률 (30~50%)
 horn_charge_boss_knockback_active = False
 horn_charge_player_knockback_active = False
 spiked_helmet_knockback_resist_pct = 0
@@ -2634,8 +2633,12 @@ from item_effects.weather_capsule import (
 from item_effects.gold_bar import (
     get_gold_bar_instance,
     get_gold_bar_speed_multiplier,
+    is_gold_bar_active,
+    is_gold_bar_equipped,
     activate_gold_bar,
     deactivate_gold_bar,
+    equip_gold_bar,
+    unequip_gold_bar,
     reset_gold_bar,
 )
 from item_effects.bluetooth_ring import (
@@ -3699,8 +3702,8 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "stun_purple"
     },
     {
-        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 180, "color": (255, 120, 50),
-        "symbol": "⇓", "cooldown": 60.0, "key": "체공+S/↓ 꾹",
+        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 150, "color": (255, 120, 50),
+        "symbol": "⇓", "cooldown": 45.0, "key": "체공+S/↓ 꾹",
         "description": "체공 중 S/↓키를 0.3초 꾹 눌러 급강하.\n착지 연기 장판 생성, 공 반사 + 공속 증가.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
         "how_to_use": "체공 중 S키 또는 ↓키 0.3초 꾹 누르기",
         "effect_type": "dive_impact"
@@ -3773,30 +3776,6 @@ _viper_skill_unlocked = {
 _viper_tooltip_pause_start = 0
 _viper_tooltip_pause_accumulated = 0
 
-# 일반 일시정지(TAB/ESC 메뉴 등)로 인한 스킬 쿨타임 정지 추적
-_skill_cooldown_general_pause_start = 0
-_skill_cooldown_general_pause_depth = 0  # 중첩 호출 보호용 카운터
-
-
-def _freeze_skill_cooldowns() -> None:
-    """TAB/ESC 메뉴 등 자체 루프를 도는 일시정지 화면 진입 시 스킬 쿨타임을 정지한다."""
-    global _skill_cooldown_general_pause_start, _skill_cooldown_general_pause_depth
-    _skill_cooldown_general_pause_depth += 1
-    if _skill_cooldown_general_pause_start == 0:
-        _skill_cooldown_general_pause_start = pygame.time.get_ticks()
-
-
-def _thaw_skill_cooldowns() -> None:
-    """일시정지 화면에서 복귀할 때 정지된 시간을 누적값에 반영한다."""
-    global _skill_cooldown_general_pause_start, _skill_cooldown_general_pause_depth
-    global _viper_tooltip_pause_accumulated, _smasher_tooltip_pause_accumulated
-    _skill_cooldown_general_pause_depth = max(0, _skill_cooldown_general_pause_depth - 1)
-    if _skill_cooldown_general_pause_depth == 0 and _skill_cooldown_general_pause_start > 0:
-        paused_duration = pygame.time.get_ticks() - _skill_cooldown_general_pause_start
-        _viper_tooltip_pause_accumulated += paused_duration
-        _smasher_tooltip_pause_accumulated += paused_duration
-        _skill_cooldown_general_pause_start = 0
-
 
 def reset_viper_skill_unlocks():
     """바이퍼 스킬 해금 상태 초기화 (새 게임 시작 시)"""
@@ -3828,6 +3807,16 @@ def trigger_viper_skill_cooldown(skill_name: str):
     """바이퍼 스킬 쿨타임 시작"""
     global _viper_skill_cooldowns, _viper_tooltip_pause_accumulated
     _viper_skill_cooldowns[skill_name] = (pygame.time.get_ticks(), _viper_tooltip_pause_accumulated)
+
+    # 스킬 사용 시 골드 보너스
+    skill_gold = calculate_skill_gold_reward(skill_name)
+    if skill_gold > 0:
+        try:
+            player_x = PLAYER.centerx if 'PLAYER' in globals() else GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+            player_y = PLAYER.centery if 'PLAYER' in globals() else INTERNAL_HEIGHT - 50
+            add_ingame_gold(skill_gold, player_x, player_y - 30, source="skill")
+        except:
+            add_ingame_gold(skill_gold, source="skill")
 
 
 def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
@@ -3863,8 +3852,6 @@ def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
     current_pause_time = 0
     if _viper_skill_tooltip_active and _viper_tooltip_pause_start > 0:
         current_pause_time = current_time - _viper_tooltip_pause_start
-    elif _skill_cooldown_general_pause_start > 0:
-        current_pause_time = current_time - _skill_cooldown_general_pause_start
 
     pause_since_cooldown_start = (_viper_tooltip_pause_accumulated + current_pause_time) - start_pause_accumulated
 
@@ -4038,8 +4025,6 @@ def get_smasher_skill_cooldown_remaining(skill_name: str) -> float:
     current_pause_time = 0
     if _smasher_skill_tooltip_active and _smasher_tooltip_pause_start > 0:
         current_pause_time = current_time - _smasher_tooltip_pause_start
-    elif _skill_cooldown_general_pause_start > 0:
-        current_pause_time = current_time - _skill_cooldown_general_pause_start
 
     # 쿨타임 시작 이후의 일시정지 시간만 계산
     # (현재 누적 + 진행 중인 일시정지) - 쿨타임 시작 시점의 누적
@@ -15462,8 +15447,7 @@ def _get_random_passive_for_treasure():
         "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
         "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch",
         "bluetooth_ring", "star_detector", "foul_whistle", "bulletproof_hat", "spiked_helmet",
-        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
-        "venom_mist_gauntlet"
+        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"
     ]
 
     if passive_pool:
@@ -25580,13 +25564,6 @@ interceptor_launching = False  # 인터셉터 출격 중인지
 interceptor_launch_queue = []  # 출격 대기 중인 인터셉터
 hangar_door_open = False  # 격납고 문 열림 상태
 hangar_door_timer = 0  # 격납고 문 애니메이션 타이머
-# 사출기(런치베이) 돌출 시스템
-launch_bay_protrusion = 0.0  # 돌출 진행도 (0.0 ~ 1.0)
-launch_bay_state = 'retracted'  # retracted, extending, extended, retracting
-launch_bay_max_protrusion = 28  # 최대 돌출 픽셀
-launch_bay_extend_speed = 0.025  # 돌출 속도 (프레임당)
-launch_bay_retract_speed = 0.015  # 수납 속도 (프레임당)
-launch_bay_ready_time = 0  # 돌출 완료 시점 기록
 # 네메시스 보조 보스 패들 (공중부양 드론 우주선)
 nemesis_sub_boss_x = 380  # 보조 보스 X 좌표
 nemesis_sub_boss_y = 70  # 보조 보스 Y 좌표
@@ -25612,8 +25589,8 @@ nemesis_sub_boss_barrier_active = False  # 방어막 활성화 여부
 nemesis_sub_boss_electric_particles = []  # 전기 파티클
 nemesis_sub_boss_pain_particles = []  # 방어막 해제 시 빨간 아픈 이펙트 파티클
 # 서브보스 체력 시스템
-nemesis_sub_boss_max_health = 5  # 최대 체력
-nemesis_sub_boss_health = 5  # 현재 체력
+nemesis_sub_boss_max_health = 4  # 최대 체력
+nemesis_sub_boss_health = 4  # 현재 체력
 nemesis_sub_boss_alive = True  # 생존 여부
 nemesis_sub_boss_debris_particles = []  # 파편 파티클
 nemesis_sub_boss_death_explosion_active = False  # 폭발 애니메이션 활성
@@ -26308,7 +26285,6 @@ ITEM_SLOT_BASE_MAP = {
     "bulkup": "top",
     "life_elixir": "top",
     "commando_arm": "arm",
-    "venom_mist_gauntlet": "arm",
     "master": "arm",
     "ragnarok_hammer": "arm",
     "poseidon_trident": "arm",
@@ -26342,7 +26318,7 @@ ITEM_SLOT_BASE_MAP = {
     "smartphone": "arm",
     "cooltime": "accessory",
     "revival": "accessory",
-
+    "gold_bar": "accessory",
     "gold_digger": "arm",
     "lucky_coin": "accessory",
     "dowsing_pendulum": "등",
@@ -26419,9 +26395,6 @@ PASSIVE_OPTION_RANGES = {
     "sage_ring": [
         {"label": "이동속도 감소", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "sage_speed_penalty_pct", "reverse": True},
         {"label": "몸집크기 감소", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "sage_body_penalty_pct", "reverse": True},
-    ],
-    "venom_mist_gauntlet": [
-        {"label": "발동확률", "min": 30, "max": 50, "unit": "%", "prefix": "", "key": "mist_trigger_chance_pct"},
     ],
     "sensor": [
         {"label": "자동대쉬 쿨타임", "min": 13, "max": 20, "unit": "초", "prefix": "", "key": "sensor_cooldown_sec", "reverse": True},
@@ -26806,10 +26779,6 @@ def format_roll_option_with_polish(opt: dict, item: dict = None) -> str:
         reduction = abs(base_value) - reduced_value
         if reduction == 0:
             return base_text
-        # prefix="-"인 패널티 옵션 (예: 이동속도 감소 -17%): 값이 줄어드는 것이 개선이므로 (+N) 표시
-        # 그 외 reverse 옵션 (예: 쿨타임 15초): 값이 줄어듦을 (-N)으로 표시
-        if prefix == "-":
-            return f"{base_text} (+{reduction}{unit})"
         return f"{base_text} (-{reduction}{unit})"
 
     # 일반 옵션: 보너스 값 계산
@@ -27222,15 +27191,6 @@ def apply_roll_bonuses_from_equipped():
             val = _get_roll_value(item, "sage_body_penalty_pct")
             if val is not None:
                 globals()["sage_ring_body_penalty_pct"] = val
-        elif name == "venom_mist_gauntlet":
-            val = _get_roll_value(item, "mist_trigger_chance_pct")
-            if val is not None:
-                globals()["venom_mist_trigger_chance_pct"] = val
-                try:
-                    from item_effects.venom_mist_gauntlet import set_trigger_chance
-                    set_trigger_chance(val)
-                except Exception:
-                    pass
 
     # 스택형 보너스들 한 번에 적용
     globals()["fuel_pouch_bonus"] = fuel_pouch_total_bonus
@@ -27443,15 +27403,6 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val = _get_roll_value(item, "sage_body_penalty_pct")
         if val is not None:
             globals()["sage_ring_body_penalty_pct"] = val
-    elif name == "venom_mist_gauntlet":
-        val = _get_roll_value(item, "mist_trigger_chance_pct")
-        if val is not None:
-            globals()["venom_mist_trigger_chance_pct"] = val
-            try:
-                from item_effects.venom_mist_gauntlet import set_trigger_chance
-                set_trigger_chance(val)
-            except Exception:
-                pass
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -27625,26 +27576,6 @@ def sync_equipped_passive_effects():
     sync_bool("odins_eye", "items.odins_eye_obtained")
     sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
     sync_bool("sage_ring", "items.sage_ring_obtained")
-    sync_bool("venom_mist_gauntlet", "items.venom_mist_gauntlet_obtained")
-
-    # 독안개장갑: 장착 시 효과 활성화/비활성화 + 롤옵션 적용
-    try:
-        from item_effects.venom_mist_gauntlet import (
-            activate_venom_mist_gauntlet, deactivate_venom_mist_gauntlet,
-            set_trigger_chance, set_enhancement_bonus,
-        )
-        if "venom_mist_gauntlet" in equipped_names:
-            activate_venom_mist_gauntlet()
-            vmg_item = next((i for i in equipped_items if i.get("name") == "venom_mist_gauntlet"), None)
-            if vmg_item:
-                apply_roll_bonuses_from_item(vmg_item)
-                enh_pct = vmg_item.get("enhancement_bonus_pct", 0)
-                set_enhancement_bonus(enh_pct)
-        else:
-            deactivate_venom_mist_gauntlet()
-            globals()["venom_mist_trigger_chance_pct"] = 40
-    except Exception:
-        pass
 
     # 현자의 반지: 장착 시 모든 퍽 레벨 +1 (고정 효과) + 패널티 롤옵션 적용
     global sage_ring_perk_bonus, sage_ring_speed_penalty_pct, sage_ring_body_penalty_pct
@@ -27834,13 +27765,22 @@ def sync_equipped_passive_effects():
     except Exception:
         pass
 
-    # 금괴: 인벤토리 소지 여부만 동기화 (장착 불가 아이템)
+    # 금괴: 장착 상태에 따라 이동속도 페널티 동기화
+    # 금괴는 특별함: 소지만 해도 페널티(-30%), 장착하면 페널티 없음
     try:
         gold_bar = get_gold_bar_instance()
         if gold_bar:
+            # 인벤토리에 금괴가 있는지 확인
             has_gold_bar = any(item.get("name") == "gold_bar" for item in passive_item_list)
-            gold_bar.active = has_gold_bar
-            items.gold_bar_obtained = has_gold_bar
+            if has_gold_bar:
+                gold_bar.active = True
+                items.gold_bar_obtained = True
+                # 장착 여부에 따라 equipped 상태 설정
+                gold_bar.equipped = "gold_bar" in equipped_names
+            else:
+                gold_bar.active = False
+                gold_bar.equipped = False
+                items.gold_bar_obtained = False
     except Exception as e:
         print(f"[GOLD_BAR_SYNC] 예외 발생: {e}")
 
@@ -28725,17 +28665,6 @@ except Exception as e:
     commando_arm_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     pygame.draw.circle(commando_arm_icon, (139, 69, 19), (16, 16), 12)
     pygame.draw.circle(commando_arm_icon, (160, 82, 45), (16, 16), 8)
-
-# 독안개장갑 아이콘 로드
-venom_mist_gauntlet_icon = None
-try:
-    venom_mist_gauntlet_icon = pygame.image.load(resource_path("items/venom_mist_gauntlet.png")).convert_alpha()
-    venom_mist_gauntlet_icon = pygame.transform.scale(venom_mist_gauntlet_icon, (ICON_SIZE, ICON_SIZE))
-except Exception as e:
-    print(f"Failed to load venom mist gauntlet icon: {e}")
-    venom_mist_gauntlet_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-    pygame.draw.circle(venom_mist_gauntlet_icon, (80, 200, 80), (16, 16), 12)
-    pygame.draw.circle(venom_mist_gauntlet_icon, (60, 30, 80), (16, 16), 8)
 
 # 블루투스링 아이콘 로드
 bluetooth_ring_icon = None  # 전역 변수로 선언
@@ -48324,14 +48253,13 @@ _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 기본값 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 기본값
 
 # 쉐도우 백스텝 그라데이션 타격 상수
-_VIPER_SS_HIT_SPEED_MIN = 1.4         # 가장자리 공속 배율 (40% 증가)
-_VIPER_SS_HIT_SPEED_MAX = 1.8         # 중심 공속 배율 (80% 증가)
+_VIPER_SS_HIT_SPEED_MIN = 1.2         # 가장자리 공속 배율 (20% 증가)
+_VIPER_SS_HIT_SPEED_MAX = 2.3         # 중심 공속 배율 (130% 증가)
 _VIPER_SS_HIT_CURVE_MIN = 10          # 가장자리 커브 프레임 (약 0.17초)
 _VIPER_SS_HIT_CURVE_MAX = 50          # 중심 커브 프레임 (약 0.83초)
 _VIPER_SS_HIT_FORCE_MIN = 0.4         # 가장자리 커브 강도
 _VIPER_SS_HIT_FORCE_MAX = 2.0         # 중심 커브 강도
 _viper_ss_hit_consumed = False        # 쉐도우 백스텝 타격 중복 방지 플래그
-_viper_skill_gold_this_frame = False  # 바이퍼 스킬 골드 지급 프레임 플래그 (릴레이 골드 중복 방지)
 
 def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: float,
                               curve_dir: int, source: str = "hologram"):
@@ -48383,20 +48311,10 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     new_speed = max(cur_speed * speed_mult, 10.0)
     _viper_speed_boost_active = True
     _viper_speed_boost_original = cur_speed
-    # 보스 회피 발사 — 보스와 일직선일 때 수직 발사 방지
-    _ss_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
-    _ss_boss_dx = _ss_boss_cx - BALL.centerx
-    if abs(_ss_boss_dx) < 100:
-        # 보스와 거의 일직선 → 커브 방향으로 강하게 편향 (최소 35°)
-        init_angle = curve_dir * random.randint(35, 50)
-    else:
-        # 보스 반대편으로 편향
-        _ss_away_dir = -1 if _ss_boss_dx > 0 else 1
-        init_angle = _ss_away_dir * random.randint(25, 45)
+    init_angle = curve_dir * 10
     rad = math.radians(-90 + init_angle)
     ball_vel[0] = math.cos(rad) * new_speed
     ball_vel[1] = math.sin(rad) * new_speed
-    print(f"[DEBUG 쉐도우백스텝] 발사각={-90+init_angle:.1f}°(편향={init_angle}) | ball=({BALL.centerx:.0f},{BALL.centery:.0f}) boss=({_ss_boss_cx:.0f}) 거리={_ss_boss_dx:.0f} | vel=({ball_vel[0]:.1f},{ball_vel[1]:.1f}) speed={new_speed:.1f} | 일직선={'Y' if abs(_ss_boss_dx)<100 else 'N'}")
 
     # 커브 적용 (그라데이션 반영)
     global _viper_ps_curve_total_frames, _viper_ps_curve_force
@@ -48416,13 +48334,11 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
         pass
 
     # 골드 보너스 (쉐도우 백스텝 타격: 16골드, 제트팩 체공 시 x1.5)
-    global _viper_skill_gold_this_frame
     try:
         _ss_gold = 16
         if _viper_jetpack_offset_y < -10:
             _ss_gold = int(_ss_gold * 1.5)
         add_ingame_gold(_ss_gold, BALL.centerx, BALL.centery - 20, source="skill")
-        _viper_skill_gold_this_frame = True
     except Exception:
         pass
 
@@ -58994,12 +58910,6 @@ def apply_effect(effect_name, item_data=None):
         items.commando_arm_count = min(getattr(items, "commando_arm_count", 0) + 1, 2)
         # 효과는 투척 시점에 자동 적용됨
         print("!     ,   50% ,   10% ,   50% !")
-    elif effect_name == "venom_mist_gauntlet":  # 🧤 독안개장갑 패시브 아이템 활성화
-        import items
-        items.venom_mist_gauntlet_obtained = True
-        from item_effects.venom_mist_gauntlet import activate_venom_mist_gauntlet
-        activate_venom_mist_gauntlet()
-        print("[VenomMistGauntlet] 독안개장갑 활성화!")
     elif effect_name == "technical_vest":  # 테크니컬조끼 패시브 아이템 활성화
         vest_state = {
             'current_stage': current_stage
@@ -70960,7 +70870,6 @@ def handle_player(keys):
     global blacksmith_turret_state, blacksmith_turret_projectiles, blacksmith_turret_partial_drain
     global blacksmith_turret_manual_cooldown
     global space_just_pressed
-    global _viper_skill_gold_this_frame
     # 코만도 무기 HUD/선택 상태는 이 함수 전반에서 사용되므로 최상단에서 전역 선언
     global soldier_weapon_menu_active, soldier_weapon_hold_frames, soldier_weapon_number_prev
     global soldier_weapon_menu_close_suppress_frames, soldier_weapon_switch_suppress_frames
@@ -72956,38 +72865,26 @@ def handle_player(keys):
                     'size': _wd_rand.uniform(3, 7), 'type': 'trail',
                 })
             if _wd_t >= 1.0:
-                # 벽다시타기 완료
+                # 벽다시타기 완료 → 즉시 돌진 (Phase 2)으로 전환
+                _viper_wall_dive_phase = 2
+                _viper_wall_dive_start_ms = _wd_now
                 PLAYER.centerx = int(_viper_wall_dive_wall_x)
                 PLAYER.centery = int(_viper_wall_dive_wall_y)
+                _viper_wall_dive_charge_target_x = float(BALL.centerx)
+                _viper_wall_dive_charge_target_y = float(BALL.centery)
+                _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
+                _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
+                _viper_wall_dive_web_lines = []
                 screen_shake_timer = max(screen_shake_timer, 4)
                 screen_shake_intensity = max(screen_shake_intensity, 2)
-                _viper_wall_dive_web_lines = []
-                if _viper_is_double_marshal:
-                    # 팬텀 킥: 재등반 후에도 텍스트 프리즈 연출 (Phase 6)
-                    _viper_wall_dive_phase = 6
-                    _viper_dmk_freeze_active = True
-                    _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
-                    _viper_dmk_show_sound_played = False
-                    _viper_dmk_text_active = True
-                    _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
-                    _viper_dmk_text_x = float(WIDTH // 2)
-                    _viper_dmk_text_y = float(HEIGHT // 2 - 30)
-                else:
-                    # 일반 마샬킥: 즉시 돌진 (Phase 2)
-                    _viper_wall_dive_phase = 2
-                    _viper_wall_dive_start_ms = _wd_now
-                    _viper_wall_dive_charge_target_x = float(BALL.centerx)
-                    _viper_wall_dive_charge_target_y = float(BALL.centery)
-                    _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
-                    _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
-                    # 돌진 사운드
-                    try:
-                        _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                        if _wd_charge_snd:
-                            _wd_charge_snd.set_volume(0.6)
-                            _wd_charge_snd.play()
-                    except Exception:
-                        pass
+                # 돌진 사운드
+                try:
+                    _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
+                    if _wd_charge_snd:
+                        _wd_charge_snd.set_volume(0.6)
+                        _wd_charge_snd.play()
+                except Exception:
+                    pass
 
         elif _viper_wall_dive_phase == 6:
             # Phase 6: 팬텀 킥 텍스트 프리즈 (벽 매달린 상태에서 정지)
@@ -73044,35 +72941,25 @@ def handle_player(keys):
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
                     # 공을 위로 강하게 반사 + 속도 증가
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
-                    # 2차 마샬 킥이면 250% 증가(3.5x), 1차는 100% 증가(2.0x)
+                    # 2차 마샬 킥이면 200% 증가(3.0x), 1차는 80% 증가(1.8x)
                     if _viper_is_double_marshal:
-                        _wd_new_spd = max(_wd_cur_spd * 3.5, 14.0)  # 250% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 3.0, 12.0)  # 200% 증가
                     else:
-                        _wd_new_spd = max(_wd_cur_spd * 2.0, 11.0)  # 100% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 1.8, 10.0)  # 80% 증가
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
-                    # 보스 회피 발사 — 보스 X 위치 반대편으로 편향된 각도
+                    # 벽→보스 방향 발사 (랜덤 각도로 보스 예측 어렵게)
                     import random as _mk_rand
-                    _mk_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
-                    _mk_ball_cx = BALL.centerx
-                    _mk_boss_dx = _mk_boss_cx - _mk_ball_cx  # 보스가 오른쪽이면 양수
-                    if abs(_mk_boss_dx) < 100:
-                        # 보스와 거의 일직선 → 벽 반대편으로 강하게 편향
-                        if _viper_wall_dive_wall_x < WIDTH // 2:
-                            _mk_angle = math.radians(_mk_rand.uniform(-40, -20))
-                        else:
-                            _mk_angle = math.radians(_mk_rand.uniform(-160, -140))
+                    # 발사 각도: -50° ~ -130° (위쪽 반원 범위 내 랜덤)
+                    # 벽 위치에 따라 반대편으로 편향
+                    if _viper_wall_dive_wall_x < WIDTH // 2:
+                        # 좌측 벽 → 오른쪽 상단으로 (각도 -40° ~ -80°)
+                        _mk_angle = math.radians(_mk_rand.uniform(-80, -40))
                     else:
-                        # 보스 반대편으로 발사 (보스가 오른쪽이면 왼쪽으로)
-                        if _mk_boss_dx > 0:
-                            _mk_angle = math.radians(_mk_rand.uniform(-150, -115))
-                        else:
-                            _mk_angle = math.radians(_mk_rand.uniform(-65, -30))
+                        # 우측 벽 → 왼쪽 상단으로 (각도 -100° ~ -140°)
+                        _mk_angle = math.radians(_mk_rand.uniform(-140, -100))
                     ball_vel[0] = math.cos(_mk_angle) * _wd_new_spd
                     ball_vel[1] = math.sin(_mk_angle) * _wd_new_spd
-                    _mk_type = "팬텀킥" if _viper_is_double_marshal else "마샬킥"
-                    _mk_deg = math.degrees(_mk_angle)
-                    print(f"[DEBUG {_mk_type}] 발사각={_mk_deg:.1f}° | ball=({_mk_ball_cx:.0f},{BALL.centery:.0f}) boss=({_mk_boss_cx:.0f}) 거리={_mk_boss_dx:.0f} | vel=({ball_vel[0]:.1f},{ball_vel[1]:.1f}) speed={_wd_new_spd:.1f} | 일직선={'Y' if abs(_mk_boss_dx)<100 else 'N'} 벽={'좌' if _viper_wall_dive_wall_x<WIDTH//2 else '우'}")
                     # 스타버스트 타격 이펙트 트리거
                     _viper_starburst_active = True
                     _viper_starburst_x = float(BALL.centerx)
@@ -73150,7 +73037,6 @@ def handle_player(keys):
                         if _viper_ss_was_airborne:
                             _mk_gold = int(_mk_gold * 1.5)
                         add_ingame_gold(_mk_gold, BALL.centerx, BALL.centery - 20, source="skill")
-                        _viper_skill_gold_this_frame = True
                     except Exception:
                         pass
                     # 공 타격 후 복귀 전환
@@ -73235,24 +73121,17 @@ def handle_player(keys):
             if not _viper_ss_hit_consumed:
                 _viper_ss_kick_ready = False
 
-    # 바이퍼 팬텀 스트라이크 커브 (깔끔한 호 궤적 — 감쇠 각도 변경 방식)
+    # 바이퍼 팬텀 스트라이크 커브 (매 프레임 공에 횡방향 힘 적용, 그라데이션 강도 반영)
     if _viper_ps_curve_active:
         _viper_ps_curve_timer -= 1
         if _viper_ps_curve_timer <= 0:
             _viper_ps_curve_active = False
         else:
+            # 사인파 기반 커브 — 점점 강해졌다 약해지는 S자 궤적
             _curve_total = _viper_ps_curve_total_frames if _viper_ps_curve_total_frames > 0 else _VIPER_PS_CURVE_FRAMES
             _curve_progress = 1.0 - (_viper_ps_curve_timer / _curve_total)
-            # 감쇠 회전 — 공속은 유지하면서 진행 방향만 회전 (초반 강→점차 약)
-            _curve_rot_deg = (1.0 - _curve_progress) * _viper_ps_curve_force * 0.35
-            _curve_rot_rad = math.radians(_viper_ps_curve_direction * _curve_rot_deg)
-            # 현재 속도 벡터를 회전 (크기 보존, 방향만 변경)
-            _old_dx = ball_vel[0]
-            _old_dy = ball_vel[1]
-            _cos_r = math.cos(_curve_rot_rad)
-            _sin_r = math.sin(_curve_rot_rad)
-            ball_vel[0] = _old_dx * _cos_r - _old_dy * _sin_r
-            ball_vel[1] = _old_dx * _sin_r + _old_dy * _cos_r
+            _curve_strength = math.sin(_curve_progress * math.pi) * _viper_ps_curve_force
+            ball_vel[0] += _viper_ps_curve_direction * _curve_strength
 
     # === 바이퍼 제트팩 시스템 업데이트 ===
     if selected_character_type == "viper" and not is_odins_eye_transformed():
@@ -73595,7 +73474,6 @@ def handle_player(keys):
                             # 🪙 EMP 스트라이크 타격 골드 보너스 (20골드)
                             try:
                                 add_ingame_gold(20, BALL.centerx, BALL.centery - 20, source="skill")
-                                _viper_skill_gold_this_frame = True
                             except Exception:
                                 pass
 
@@ -73634,7 +73512,6 @@ def handle_player(keys):
                         # 🪙 EMP 스트라이크 타격 골드 보너스 (20골드)
                         try:
                             add_ingame_gold(20, BALL.centerx, BALL.centery - 20, source="skill")
-                            _viper_skill_gold_this_frame = True
                         except Exception:
                             pass
                         # DIVE STRIKE 텍스트 이펙트
@@ -73835,7 +73712,6 @@ def handle_player(keys):
                     # 🪙 에어 블레이드 타격 골드 보너스 (30골드)
                     try:
                         add_ingame_gold(30, BALL.centerx, BALL.centery - 20, source="skill")
-                        _viper_skill_gold_this_frame = True
                     except Exception:
                         pass
                     # 원래 속도 저장 (보스 반격 시 복귀용)
@@ -73921,14 +73797,6 @@ def handle_player(keys):
                     # 🪙 베놈 엣지 보스 명중 골드 보너스 (60골드)
                     try:
                         add_ingame_gold(60, BOSS.centerx, BOSS.centery - 20, source="skill")
-                        _viper_skill_gold_this_frame = True
-                    except Exception:
-                        pass
-                    # 🧤 독안개장갑: 베놈 엣지 적중 시 독안개 발동 판정
-                    try:
-                        from item_effects.venom_mist_gauntlet import try_spawn_mist
-                        if try_spawn_mist(float(BOSS.centerx), float(BOSS.centery)):
-                            print("[VenomMistGauntlet] 독안개 영역 생성!")
                     except Exception:
                         pass
                 else:
@@ -77197,7 +77065,7 @@ def handle_player(keys):
             if vitamin_pill_active and vitamin_pill_timer > 0:
                 speed_multiplier *= VITAMIN_PILL_SPEED_MULTIPLIER
 
-            # 금괴 소지 시 이동속도 -30% 페널티 적용
+            # 금괴 미착용 페널티 적용 (소지 중이지만 미착용 시 -30% 감소)
             gold_bar_speed_mult = get_gold_bar_speed_multiplier()
             if gold_bar_speed_mult < 1.0:
                 speed_multiplier *= gold_bar_speed_mult
@@ -78710,10 +78578,9 @@ def handle_player(keys):
         except Exception:
             pass
 
-        # 인게임 골드 획득 (랠리 성공 시, 바이퍼 스킬 타격 프레임에서는 중복 방지)
-        if not _viper_skill_gold_this_frame:
-            rally_gold = calculate_rally_gold()
-            add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
+        # 인게임 골드 획득 (랠리 성공 시)
+        rally_gold = calculate_rally_gold()
+        add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
 
         # ⚡ 스매셔 콤보 시스템: handle_player 백업 경로
         # 메인 처리는 handle_ball에서 수행됨. 여기서는 handle_ball이 놓친 경우만 처리
@@ -80736,7 +80603,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -80777,7 +80644,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"]:
         return
 
     # 최대 3개까지만 보관
@@ -81741,12 +81608,15 @@ def store_passive_item(item_data):
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "gold_bar":
-        # 금괴 패시브 아이템 획득 (장착 불가, 판매 전용)
+        # 금괴 패시브 아이템 획득
         if not items.gold_bar_obtained:
             items.gold_bar_obtained = True
             item_data["type"] = "passive"
+            # 금괴 효과 활성화 (미착용 시 이동속도 -30%)
             activate_gold_bar()
+            # print("💰 금괴 획득! 상점에서 2000골드+에 판매 가능! 미착용 시 이동속도 -30%")
         else:
+            # print("이미 금괴를 보유 중입니다.")
             skip_append = True
     elif item_data["name"] == "gold_digger":
         # 골드디거 패시브 아이템 획득 (팔 부위, 골드 획득량 30%~70% 증가)
@@ -81820,19 +81690,6 @@ def store_passive_item(item_data):
             from item_effects.soul_burst import get_soul_burst_instance
             sb = get_soul_burst_instance()
             sb.activate()
-        item_data["type"] = "passive"
-        ensure_passive_rolls(item_data)
-        apply_roll_bonuses_from_item(item_data)
-        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-    elif item_data["name"] == "venom_mist_gauntlet":
-        # 독안개장갑 패시브 아이템 (바이퍼 전용, 팔 부위)
-        # 베놈 엣지 적중 시 30~50% 확률로 보스 주변에 독안개 영역 생성
-        # 중복 파밍 허용 (PASSIVE_DUPLICATE_ALLOWED에 포함됨)
-        if not items.venom_mist_gauntlet_obtained:
-            items.venom_mist_gauntlet_obtained = True
-            _apply_item_to_skin(_skeletal_skin, "venom_mist_gauntlet")
-            from item_effects.venom_mist_gauntlet import activate_venom_mist_gauntlet
-            activate_venom_mist_gauntlet()
         item_data["type"] = "passive"
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -105118,7 +104975,7 @@ def draw_crocodile_boss(boss_x=0, boss_y=0, ball_x=0, ball_y=0):
     return crocodile_surface
 
 def draw_nemesis_sub_boss():
-    """네메시스 보조 보스 - 고퀄리티 스텔스 해양 호위 드론 (v2)"""
+    """네메시스 보조 보스 - 소형 해양 호위 드론"""
     global nemesis_sub_boss_hit_timer, nemesis_sub_boss_hit_flash
     global nemesis_sub_boss_hover_offset
 
@@ -105151,7 +105008,7 @@ def draw_nemesis_sub_boss():
         damage_level = 3
     elif nemesis_sub_boss_health <= 2:
         damage_level = 2
-    elif nemesis_sub_boss_health <= 4:
+    elif nemesis_sub_boss_health <= 3:
         damage_level = 1
 
     def apply_hit(color):
@@ -105171,294 +105028,126 @@ def draw_nemesis_sub_boss():
     cx = width // 2
     cy = height // 2
 
-    # ============================================================
-    # === 1. 하부 수면 반사 (향상된 글로우) ===
-    # ============================================================
+    # === 하부 수면 반사 글로우 ===
     glow_pulse = 0.7 + 0.3 * math.sin(time_now * 0.008)
-    for i in range(4):
-        glow_alpha = int((55 - i * 12) * glow_pulse)
-        glow_r = 18 + i * 4
-        glow_color = (30, int(100 + glow_pulse * 50), int(160 + glow_pulse * 50), max(5, glow_alpha))
-        pygame.draw.ellipse(surface, glow_color, (cx - glow_r, height - 10 + i, glow_r * 2, 5))
-
-    # ============================================================
-    # === 2. 그림자 ===
-    # ============================================================
-    shadow_surf = pygame.Surface((width, height), pygame.SRCALPHA)
-    pygame.draw.ellipse(shadow_surf, (10, 12, 18, 60), (cx - 32, cy + 6, 64, 16))
-    surface.blit(shadow_surf, (2, 2))
-
-    # ============================================================
-    # === 3. 메인 바디 (스텔스 유선체 - 각진 폴리곤) ===
-    # ============================================================
-    body_color = apply_hit(apply_damage((48, 68, 92)))
-    body_light = apply_hit(apply_damage((70, 95, 125)))
-    body_dark = apply_hit(apply_damage((32, 48, 65)))
-    body_highlight = apply_hit(apply_damage((88, 115, 145)))
-
-    # 하부 플레이트 (수중 킬) - 각진 형태
-    keel_points = [
-        (cx, cy + 14),          # 하단 중앙 (가장 아래)
-        (cx - 36, cy + 5),      # 좌하
-        (cx - 30, cy + 1),      # 좌
-        (cx + 30, cy + 1),      # 우
-        (cx + 36, cy + 5),      # 우하
-    ]
-    pygame.draw.polygon(surface, body_dark, keel_points)
-
-    # 상부 선체 (스텔스 각진 돔)
-    hull_points = [
-        (cx, cy - 14),          # 상단 중앙 (가장 위)
-        (cx - 12, cy - 13),     # 좌상 내측
-        (cx - 26, cy - 8),      # 좌상 외측
-        (cx - 34, cy - 2),      # 좌측 최외곽
-        (cx - 32, cy + 4),      # 좌하 외측
-        (cx - 18, cy + 8),      # 좌하 내측
-        (cx + 18, cy + 8),      # 우하 내측
-        (cx + 32, cy + 4),      # 우하 외측
-        (cx + 34, cy - 2),      # 우측 최외곽
-        (cx + 26, cy - 8),      # 우상 외측
-        (cx + 12, cy - 13),     # 우상 내측
-    ]
-    pygame.draw.polygon(surface, body_color, hull_points)
-
-    # 선체 상부 하이라이트 (광택)
-    hull_top_points = [
-        (cx, cy - 12),
-        (cx - 10, cy - 11), (cx - 22, cy - 7), (cx - 28, cy - 2),
-        (cx + 28, cy - 2), (cx + 22, cy - 7), (cx + 10, cy - 11),
-    ]
-    pygame.draw.polygon(surface, body_light, hull_top_points)
-
-    # 메탈릭 하이라이트 라인 (상단)
-    pygame.draw.line(surface, body_highlight,
-                    (cx - 20, cy - 9), (cx + 20, cy - 9), 1)
-    pygame.draw.line(surface, body_highlight,
-                    (cx - 15, cy - 11), (cx + 15, cy - 11), 1)
-
-    # 선체 외곽 테두리
-    if damage_level < 2:
-        pygame.draw.polygon(surface, (90, 120, 155), hull_points, 1)
-
-    # ============================================================
-    # === 4. 장갑판 패널 디테일 ===
-    # ============================================================
-    panel_pulse = abs(math.sin(time_now * 0.004))
-    # 좌측 패널
     for i in range(3):
-        px = cx - 24 + i * 2
-        py = cy - 5 + i * 3
-        pw, ph = 10, 5
-        panel_color = apply_hit(apply_damage((58, 78, 100)))
-        pygame.draw.rect(surface, panel_color, (px - pw, py, pw, ph))
-        line_color = (int(80 + panel_pulse * 25), int(110 + panel_pulse * 30), int(145 + panel_pulse * 35))
-        pygame.draw.line(surface, line_color, (px - pw + 1, py + ph // 2), (px - 1, py + ph // 2), 1)
+        glow_alpha = int((60 - i * 15) * glow_pulse)
+        glow_color = (40, int(120 + glow_pulse * 40), int(180 + glow_pulse * 40), glow_alpha)
+        pygame.draw.ellipse(surface, glow_color, (cx - 20 - i*3, height - 10 + i, 40 + i*6, 6))
 
-    # 우측 패널
-    for i in range(3):
-        px = cx + 14 - i * 2
-        py = cy - 5 + i * 3
-        pw, ph = 10, 5
-        panel_color = apply_hit(apply_damage((58, 78, 100)))
-        pygame.draw.rect(surface, panel_color, (px, py, pw, ph))
-        line_color = (int(80 + panel_pulse * 25), int(110 + panel_pulse * 30), int(145 + panel_pulse * 35))
-        pygame.draw.line(surface, line_color, (px + 1, py + ph // 2), (px + pw - 1, py + ph // 2), 1)
+    # === 메인 바디 (소형 해양 드론 - 타원형 유선체) ===
+    body_color = apply_hit(apply_damage((45, 65, 85)))
+    body_light = apply_hit(apply_damage((65, 90, 115)))
+    body_dark = apply_hit(apply_damage((30, 45, 60)))
 
-    # ============================================================
-    # === 5. 센서 캐노피 (다면체 유리) ===
-    # ============================================================
-    canopy_color = apply_hit(apply_damage((18, 32, 52)))
-    canopy_points = [
-        (cx, cy - 8),
-        (cx - 14, cy - 3), (cx - 12, cy + 3),
-        (cx + 12, cy + 3), (cx + 14, cy - 3),
-    ]
-    pygame.draw.polygon(surface, canopy_color, canopy_points)
+    # 하부 플레이트 (수중 부분)
+    pygame.draw.ellipse(surface, body_dark, (cx - 35, cy + 5, 70, 20))
+    pygame.draw.ellipse(surface, body_color, (cx - 33, cy + 3, 66, 18))
 
-    # 캐노피 반사 하이라이트
+    # 상부 돔 (방수 캐노피)
+    pygame.draw.ellipse(surface, body_color, (cx - 28, cy - 12, 56, 30))
+    pygame.draw.ellipse(surface, body_light, (cx - 26, cy - 10, 52, 26))
+
+    # 센서 캐노피 (어두운 방수 유리)
+    canopy_color = apply_hit(apply_damage((20, 35, 55)))
+    pygame.draw.ellipse(surface, canopy_color, (cx - 16, cy - 6, 32, 18))
     if damage_level < 2:
-        pygame.draw.line(surface, (75, 115, 158), (cx - 10, cy - 4), (cx + 5, cy - 6), 2)
-        pygame.draw.line(surface, (60, 95, 135), (cx - 8, cy - 2), (cx + 3, cy - 4), 1)
+        pygame.draw.arc(surface, (80, 120, 160), (cx - 13, cy - 4, 26, 14), 0.3, 2.5, 2)
 
-    # 캐노피 내부 HUD 글로우
-    if damage_level < 3:
-        hud_pulse = 0.6 + 0.4 * abs(math.sin(time_now * 0.006))
-        hud_color = (int(40 + hud_pulse * 30), int(80 + hud_pulse * 40), int(130 + hud_pulse * 50), int(80 * hud_pulse))
-        hud_surf = pygame.Surface((16, 8), pygame.SRCALPHA)
-        pygame.draw.ellipse(hud_surf, hud_color, (0, 0, 16, 8))
-        surface.blit(hud_surf, (cx - 8, cy - 5))
-
-    # ============================================================
-    # === 6. 좌우 추진 포드 (스텔스 날개형) ===
-    # ============================================================
+    # === 좌우 워터젯 포드 ===
     for side in [-1, 1]:
-        pod_cx = cx + side * 32
-
-        # 날개형 포드 (각진 형태)
+        pod_x = cx + side * 30
         pod_points = [
-            (cx + side * 20, cy - 2),       # 내측 상단
-            (pod_cx - side * 2, cy - 8),     # 외측 상단
-            (pod_cx + side * 10, cy - 4),    # 최외곽 상단
-            (pod_cx + side * 12, cy + 2),    # 최외곽 중앙
-            (pod_cx + side * 8, cy + 7),     # 최외곽 하단
-            (pod_cx - side * 4, cy + 9),     # 외측 하단
-            (cx + side * 20, cy + 5),        # 내측 하단
+            (cx + side * 18, cy),
+            (pod_x - side * 3, cy - 7),
+            (pod_x + side * 8, cy - 4),
+            (pod_x + side * 10, cy + 3),
+            (pod_x - side * 3, cy + 8),
+            (cx + side * 18, cy + 6),
         ]
         pygame.draw.polygon(surface, body_color, pod_points)
         pygame.draw.polygon(surface, body_dark, pod_points, 1)
 
-        # 포드 상부 하이라이트
-        pod_highlight = [
-            (cx + side * 21, cy - 1),
-            (pod_cx - side * 1, cy - 7),
-            (pod_cx + side * 8, cy - 3),
-        ]
-        pygame.draw.polygon(surface, body_light, pod_highlight)
+        # 워터젯 노즐 (파란 글로우)
+        jet_pulse = 0.5 + 0.5 * math.sin(time_now * 0.01 + side * 0.5)
+        jet_x = pod_x + side * 8
+        jet_color = (int(40 + jet_pulse * 50), int(100 + jet_pulse * 80), int(180 + jet_pulse * 50))
+        pygame.draw.circle(surface, apply_hit(jet_color), (jet_x, cy), 4)
+        pygame.draw.circle(surface, (int(80 + jet_pulse * 80), int(160 + jet_pulse * 60), 255),
+                          (jet_x, cy), 2)
 
-        # 워터젯 노즐 (3연장 - 고퀄)
-        for j in range(3):
-            nozzle_y = cy - 3 + j * 3
-            nozzle_x = pod_cx + side * 10
-            jet_pulse = 0.4 + 0.6 * math.sin(time_now * 0.012 + side * 0.5 + j * 0.3)
-            # 노즐 하우징
-            pygame.draw.circle(surface, body_dark, (nozzle_x, nozzle_y), 3)
-            # 제트 글로우
-            jet_color = (int(35 + jet_pulse * 55), int(90 + jet_pulse * 90), int(170 + jet_pulse * 60))
-            pygame.draw.circle(surface, apply_hit(jet_color), (nozzle_x, nozzle_y), 2)
-            if jet_pulse > 0.7:
-                pygame.draw.circle(surface, (int(80 + jet_pulse * 80), int(160 + jet_pulse * 60), 255),
-                                  (nozzle_x, nozzle_y), 1)
-
-        # 포드 무장 마운트
-        mount_x = cx + side * 25
-        mount_y = cy + 5
-        pygame.draw.rect(surface, apply_hit(apply_damage((52, 62, 75))), (mount_x - 2, mount_y, 4, 3))
-        pygame.draw.circle(surface, apply_hit(apply_damage((72, 85, 100))), (mount_x, mount_y + 3), 2)
-
-        # 손상 시 균열 & 화염
+        # 손상 시 금
         if damage_level >= 2:
-            pygame.draw.line(surface, (28, 22, 18),
-                (cx + side * 22, cy - 1), (pod_cx + side * 5, cy + 5), 1)
+            pygame.draw.line(surface, (30, 25, 20),
+                (cx + side * 20, cy - 2), (pod_x + side * 3, cy + 5), 1)
         if damage_level >= 3:
             flame_pulse = 0.6 + 0.4 * math.sin(time_now * 0.025 + side * 0.5)
-            pygame.draw.circle(surface, (255, int(115 * flame_pulse), 28),
-                (pod_cx + side * 4, cy + 3), 3)
-            pygame.draw.circle(surface, (255, int(185 * flame_pulse), 65),
-                (pod_cx + side * 4, cy + 3), 2)
+            pygame.draw.circle(surface, (255, int(120 * flame_pulse), 30),
+                (pod_x, cy + 3), 3)
 
-    # ============================================================
-    # === 7. 센서 마스트 (회전 레이더 포함) ===
-    # ============================================================
-    mast_color = apply_hit(apply_damage((55, 70, 88)))
-
-    # 마스트 기둥
-    pygame.draw.rect(surface, mast_color, (cx - 3, cy - 19, 6, 7))
-    # 마스트 연결부 디테일
-    pygame.draw.line(surface, body_light, (cx - 4, cy - 13), (cx + 4, cy - 13), 1)
-
-    # 센서 돔 (다층)
-    pygame.draw.circle(surface, apply_hit(apply_damage((38, 48, 62))), (cx, cy - 21), 7)
-    pygame.draw.circle(surface, apply_hit(apply_damage((52, 65, 82))), (cx, cy - 21), 5)
-
-    # 회전 레이더 디쉬
-    radar_angle = time_now * 0.003
-    radar_len = 8
-    radar_x1 = cx + int(math.cos(radar_angle) * radar_len)
-    radar_y1 = cy - 21 + int(math.sin(radar_angle) * radar_len * 0.4)
-    radar_x2 = cx - int(math.cos(radar_angle) * radar_len)
-    radar_y2 = cy - 21 - int(math.sin(radar_angle) * radar_len * 0.4)
-    pygame.draw.line(surface, apply_hit(apply_damage((85, 105, 128))),
-                    (radar_x1, radar_y1), (radar_x2, radar_y2), 2)
-    # 레이더 중심점
-    pygame.draw.circle(surface, apply_hit(apply_damage((72, 88, 108))), (cx, cy - 21), 3)
-
-    # 센서 라이트 (상태등)
+    # === 상단 센서 마스트 ===
+    mast_color = apply_hit(apply_damage((60, 75, 90)))
+    pygame.draw.rect(surface, mast_color, (cx - 4, cy - 18, 8, 8))
+    pygame.draw.circle(surface, apply_hit(apply_damage((40, 50, 65))), (cx, cy - 20), 6)
+    # 센서 라이트
     if damage_level < 3:
         sensor_pulse = 0.5 + 0.5 * math.sin(time_now * 0.015)
         if damage_level >= 2:
             sensor_pulse *= random.uniform(0.3, 1.0)
-        sensor_color = (int(55 + sensor_pulse * 85), int(135 + sensor_pulse * 85), int(195 + sensor_pulse * 60))
-        pygame.draw.circle(surface, sensor_color, (cx, cy - 21), 2)
-        # 센서 글로우
-        if sensor_pulse > 0.6:
-            glow_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*sensor_color, int(50 * sensor_pulse)), (5, 5), 4)
-            surface.blit(glow_surf, (cx - 5, cy - 26))
+        sensor_color = (int(60 + sensor_pulse * 80), int(140 + sensor_pulse * 80), int(200 + sensor_pulse * 55))
+        pygame.draw.circle(surface, sensor_color, (cx, cy - 20), 3)
     else:
-        pygame.draw.circle(surface, (28, 28, 38), (cx, cy - 21), 2)
+        pygame.draw.circle(surface, (30, 30, 40), (cx, cy - 20), 3)
 
-    # ============================================================
-    # === 8. 전면 소나 어레이 (향상) ===
-    # ============================================================
-    sonar_base_y = cy + 10
-    for i in range(7):
-        light_x = cx - 18 + i * 6
-        if damage_level >= 2 and i in [1, 3, 5]:
+    # === 전면 소나 라이트 스트립 ===
+    for i in range(5):
+        light_x = cx - 16 + i * 8
+        if damage_level >= 2 and i in [1, 3]:
             continue
-        if damage_level >= 3 and random.random() < 0.3:
-            continue
-        light_pulse = 0.3 + 0.7 * math.sin(time_now * 0.01 + i * 0.4)
-        light_color = (int(35 + light_pulse * 35), int(75 + light_pulse * 65), int(130 + light_pulse * 65))
-        pygame.draw.rect(surface, light_color, (light_x, sonar_base_y, 3, 2))
-        # 소나 글로우
-        if light_pulse > 0.7 and damage_level < 2:
-            pygame.draw.circle(surface, (*light_color, ), (light_x + 1, sonar_base_y + 1), 1)
+        if damage_level >= 3 and i in [0, 2, 4]:
+            if random.random() < 0.3:
+                continue
+        light_pulse = 0.4 + 0.6 * math.sin(time_now * 0.01 + i * 0.5)
+        light_color = (int(40 + light_pulse * 30), int(80 + light_pulse * 60), int(140 + light_pulse * 60))
+        pygame.draw.rect(surface, light_color, (light_x, cy + 10, 4, 2))
 
-    # ============================================================
-    # === 9. 항행등 (좌우 + 전후) ===
-    # ============================================================
-    nav_pulse = 0.5 + 0.5 * abs(math.sin(time_now * 0.005))
-    # 좌현 (적색)
-    pygame.draw.circle(surface, (int(160 + nav_pulse * 80), 25, 25), (cx - 33, cy), 2)
-    # 우현 (녹색)
-    pygame.draw.circle(surface, (25, int(160 + nav_pulse * 80), 25), (cx + 33, cy), 2)
-    # 함미 (백색 점멸)
-    stern_blink = int(time_now * 0.003) % 2
-    if stern_blink and damage_level < 3:
-        pygame.draw.circle(surface, (180, 185, 195), (cx, cy - 13), 1)
-
-    # ============================================================
-    # === 10. 손상 효과 (균열, 화염, 연기) ===
-    # ============================================================
+    # === 손상 효과 ===
     if damage_level >= 1:
-        crack_color = (28, 22, 18)
-        pygame.draw.line(surface, crack_color, (cx - 12, cy - 5), (cx - 7, cy + 5), 1)
-        pygame.draw.line(surface, crack_color, (cx + 10, cy - 3), (cx + 14, cy + 7), 1)
+        crack_color = (30, 25, 20)
+        pygame.draw.line(surface, crack_color, (cx - 12, cy - 5), (cx - 8, cy + 5), 1)
+        pygame.draw.line(surface, crack_color, (cx + 10, cy - 3), (cx + 15, cy + 8), 1)
     if damage_level >= 2:
-        pygame.draw.line(surface, crack_color, (cx - 18, cy + 2), (cx - 8, cy + 11), 2)
-        for fx, fy in [(cx - 14, cy + 5), (cx + 18, cy - 3)]:
+        pygame.draw.line(surface, crack_color, (cx - 20, cy + 2), (cx - 10, cy + 12), 2)
+        fire_flicker = time_now * 0.02
+        for fx, fy in [(cx - 15, cy + 5), (cx + 20, cy - 3)]:
             for fi in range(2):
-                flame_color = (255, 145 - fi * 40, 45 - fi * 15)
+                flame_color = (255, 150 - fi * 40, 50 - fi * 15)
                 pygame.draw.ellipse(surface, flame_color,
                     (fx - 3 + fi, fy - 6 + fi * 2, 6 - fi * 2, 6 - fi * 2))
     if damage_level >= 3:
-        pygame.draw.line(surface, crack_color, (cx - 22, cy - 8), (cx - 12, cy + 10), 2)
-        pygame.draw.line(surface, crack_color, (cx + 10, cy - 12), (cx + 22, cy + 5), 2)
-        for fx, fy in [(cx - 22, cy + 8), (cx + 8, cy + 10), (cx - 4, cy - 12)]:
+        pygame.draw.line(surface, crack_color, (cx - 25, cy - 8), (cx - 15, cy + 10), 2)
+        pygame.draw.line(surface, crack_color, (cx + 12, cy - 12), (cx + 25, cy + 5), 2)
+        for fx, fy in [(cx - 25, cy + 8), (cx + 10, cy + 10), (cx - 5, cy - 12)]:
             for fi in range(3):
-                flame_color = (255, 145 - fi * 38, 45 - fi * 14)
+                flame_color = (255, 150 - fi * 40, 50 - fi * 15)
                 pygame.draw.ellipse(surface, flame_color,
                     (fx - 3 + fi, fy - 8 + fi * 2, 6 - fi * 2, 8 - fi * 2))
-            pygame.draw.circle(surface, (55, 55, 55), (int(fx), int(fy - 10)), 3)
+            pygame.draw.circle(surface, (60, 60, 60), (int(fx), int(fy - 10)), 3)
 
-    # ============================================================
-    # === 11. 이동 시 추진 이펙트 ===
-    # ============================================================
+    # === 외곽 하이라이트 ===
+    if damage_level < 2:
+        pygame.draw.ellipse(surface, (80, 110, 140), (cx - 28, cy - 12, 56, 30), 1)
+
+    # === 이동 시 워터젯 이펙트 ===
     if move_dir != 0:
-        for pod_offset in [-32, 32]:
-            jet_cx = cx + pod_offset
-            jet_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02 + pod_offset * 0.1)
-            # 제트 화염 (3단 그라데이션)
-            for j in range(4):
+        for jet_offset in [-30, 30]:
+            jet_x = cx + jet_offset
+            jet_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02 + jet_offset * 0.1)
+            for j in range(3):
                 boost_y = height - 10 + j * 2
-                boost_w = max(1, 6 - j)
-                boost_alpha = int(150 * jet_pulse * (1 - j * 0.2))
-                boost_color = (0, int(100 + jet_pulse * 60), int(170 + jet_pulse * 50))
-                pygame.draw.ellipse(surface, boost_color,
-                                  (jet_cx - boost_w, boost_y, boost_w * 2, 3))
-            # 제트 코어
-            pygame.draw.ellipse(surface, (int(80 * jet_pulse), int(180 * jet_pulse), 255),
-                              (jet_cx - 2, height - 10, 4, 3))
+                boost_width = 5 - j
+                pygame.draw.ellipse(surface, (0, int(120 * jet_pulse), int(180 * jet_pulse)),
+                                  (jet_x - boost_width, boost_y, boost_width * 2, 3))
 
     if tilt_angle != 0:
         rotated = pygame.transform.rotate(surface, -tilt_angle)
@@ -105659,7 +105348,7 @@ def activate_nemesis_sub_boss_skill():
 
     # 스킬 활성화
     nemesis_sub_boss_skill_active = True
-    nemesis_sub_boss_skill_timer = current_time + (12000 if enraged_boss_active else 7000)  # 광폭화 12초, 일반 7초
+    nemesis_sub_boss_skill_timer = current_time + 15000  # 15초간 지속
     nemesis_sub_boss_skill_cooldown = current_time + 45000  # 45초 쿨타임
     nemesis_sub_boss_barrier_active = True  # 방어막 활성화
 
@@ -106121,28 +105810,223 @@ def check_nemesis_sub_boss_barrier_collision(ball_rect, ball_dy):
     return False
 
 def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
-    """스테이지 6 네메시스 - 건담 스타일 전투 로봇 (모듈 위임)"""
-    import game_logic.draw_aircraft_carrier_boss_module as _boss_mod
-    # 모듈에 필요한 글로벌 변수 주입
-    _boss_mod.boss_current_health = boss_current_health
-    _boss_mod.boss_max_health = boss_max_health
-    _boss_mod.stage6_boss_hit_timer = stage6_boss_hit_timer
-    _boss_mod.stage6_boss_hit_flash = stage6_boss_hit_flash
-    _boss_mod.laser_cannon_angle = laser_cannon_angle
-    _boss_mod.laser_charging = laser_charging
-    _boss_mod.laser_cannon_active = laser_cannon_active
-    _boss_mod.laser_charge_start = laser_charge_start
-    _boss_mod.shield_antenna_active = shield_antenna_active
-    _boss_mod.boss_confused_timer = boss_confused_timer
-    _boss_mod.BOSS_Y = BOSS_Y
-    _boss_mod.turret_angles = turret_angles
-    _boss_mod.turret_missiles = turret_missiles
-    _boss_mod.last_missile_time = last_missile_time
-    result = _boss_mod.draw_aircraft_carrier_boss(boss_speed, boss_x)
-    # 모듈에서 변경된 글로벌 변수 역동기화
-    globals()['stage6_boss_hit_timer'] = _boss_mod.stage6_boss_hit_timer
-    globals()['stage6_boss_hit_flash'] = _boss_mod.stage6_boss_hit_flash
-    return result
+    """스테이지 6 해양 드론 보스 - 군용 수중 드론 스타일"""
+    import random
+    global laser_cannon_angle, laser_charging, laser_cannon_active, laser_charge_start
+    global shield_antenna_active, stage6_boss_hit_timer, stage6_boss_hit_flash
+    # 피격 효과 타이머 업데이트
+    if stage6_boss_hit_timer > 0:
+        stage6_boss_hit_timer -= 1
+        stage6_boss_hit_flash = (stage6_boss_hit_timer // 4) % 2 == 0
+        if stage6_boss_hit_timer <= 0:
+            stage6_boss_hit_flash = False
+
+    # 해양 드론 크기 (일반 보스와 동일)
+    drone_w = 130
+    drone_h = 40
+    carrier_surface = pygame.Surface((drone_w, drone_h), pygame.SRCALPHA)
+
+    damage_ratio = 1.0 - (boss_current_health / boss_max_health)
+    time_now = pygame.time.get_ticks()
+
+    def apply_hit_effect(color):
+        if stage6_boss_hit_flash:
+            r, g, b = color[:3]
+            return (min(255, r + 120), max(0, g - 30), max(0, b - 30))
+        return color
+
+    cx = drone_w // 2  # 65
+    cy = drone_h // 2  # 20
+
+    # === 메인 바디 (유선형 해양 드론) ===
+    # 하부 그림자
+    pygame.draw.ellipse(carrier_surface, apply_hit_effect((30, 45, 55)),
+                       (10, cy + 8, drone_w - 20, 12))
+
+    # 메인 선체 (유선형 - 앞이 뾰족, 뒤가 넓음)
+    hull_points = [
+        (5, cy),           # 좌측 첨단
+        (15, cy - 12),     # 좌측 상단 곡선
+        (35, cy - 16),     # 좌상단
+        (cx, cy - 18),     # 상단 중앙 (가장 높은 점)
+        (95, cy - 16),     # 우상단
+        (115, cy - 12),    # 우측 상단 곡선
+        (125, cy),         # 우측 첨단
+        (115, cy + 10),    # 우측 하단
+        (95, cy + 14),     # 우하단
+        (cx, cy + 15),     # 하단 중앙
+        (35, cy + 14),     # 좌하단
+        (15, cy + 10),     # 좌측 하단
+    ]
+    # 메인 색상 (짙은 해군 블루-그레이)
+    hull_color = apply_hit_effect((50, 70, 90) if damage_ratio < 0.7 else (40, 55, 70))
+    pygame.draw.polygon(carrier_surface, hull_color, hull_points)
+    # 외곽선
+    pygame.draw.polygon(carrier_surface, apply_hit_effect((70, 95, 120)), hull_points, 2)
+
+    # 상부 장갑 플레이트 (밝은 레이어)
+    upper_plate = [
+        (20, cy - 8), (40, cy - 14), (cx, cy - 16),
+        (90, cy - 14), (110, cy - 8),
+        (105, cy - 3), (25, cy - 3)
+    ]
+    plate_color = apply_hit_effect((65, 85, 110) if damage_ratio < 0.5 else (55, 70, 90))
+    pygame.draw.polygon(carrier_surface, plate_color, upper_plate)
+    pygame.draw.polygon(carrier_surface, apply_hit_effect((85, 110, 140)), upper_plate, 1)
+
+    # === 중앙 센서 돔 (조종 모듈) ===
+    dome_x = cx
+    dome_y = cy - 8
+    # 돔 베이스
+    pygame.draw.ellipse(carrier_surface, apply_hit_effect((55, 75, 100)),
+                       (dome_x - 12, dome_y - 6, 24, 12))
+    # 돔 캐노피 (어두운 유리)
+    pygame.draw.ellipse(carrier_surface, apply_hit_effect((25, 40, 60)),
+                       (dome_x - 8, dome_y - 4, 16, 8))
+    # 센서 라이트 (펄스)
+    sensor_pulse = abs(math.sin(time_now * 0.006))
+    sensor_color = (int(80 + sensor_pulse * 80), int(160 + sensor_pulse * 60), int(220 + sensor_pulse * 35))
+    pygame.draw.circle(carrier_surface, sensor_color, (dome_x, dome_y), 3)
+    pygame.draw.circle(carrier_surface, (200, 230, 255), (dome_x, dome_y), 1)
+
+    # === 좌우 워터젯 / 추진 포드 ===
+    for side in [-1, 1]:
+        pod_x = cx + side * 48
+        pod_y = cy + 2
+        # 포드 바디
+        pod_points = [
+            (pod_x - side * 5, pod_y - 6),
+            (pod_x + side * 12, pod_y - 4),
+            (pod_x + side * 15, pod_y),
+            (pod_x + side * 12, pod_y + 6),
+            (pod_x - side * 5, pod_y + 7),
+            (pod_x - side * 8, pod_y + 2),
+        ]
+        pygame.draw.polygon(carrier_surface, apply_hit_effect((45, 60, 80)), pod_points)
+        pygame.draw.polygon(carrier_surface, apply_hit_effect((60, 80, 105)), pod_points, 1)
+
+        # 워터젯 글로우 (추진)
+        jet_pulse = abs(math.sin(time_now * 0.008 + side * 0.5))
+        jet_color = (int(40 + jet_pulse * 40), int(120 + jet_pulse * 60), int(180 + jet_pulse * 50))
+        jet_x = pod_x + side * 14
+        pygame.draw.circle(carrier_surface, jet_color, (jet_x, pod_y), 4)
+        pygame.draw.circle(carrier_surface, (int(100 + jet_pulse * 80), int(180 + jet_pulse * 50), 255),
+                          (jet_x, pod_y), 2)
+
+        # 이동 중 워터 트레일
+        boss_velocity = abs(boss_speed)
+        if boss_velocity > 0.5:
+            trail_len = int(3 + boss_velocity * 2)
+            for t in range(trail_len):
+                trail_x = jet_x + side * (t * 3 + 5)
+                trail_alpha = max(30, 120 - t * 25)
+                trail_color = (60, int(140 + jet_pulse * 40), int(200 + jet_pulse * 30))
+                pygame.draw.circle(carrier_surface, trail_color, (trail_x, pod_y + random.randint(-1, 1)), max(1, 3 - t))
+
+    # === 하부 수중 센서 어레이 ===
+    # 좌우 소나 노드
+    for i in range(5):
+        node_x = 25 + i * 20
+        node_y = cy + 10
+        node_pulse = abs(math.sin(time_now * 0.004 + i * 0.8))
+        node_color = apply_hit_effect((int(50 + node_pulse * 30), int(80 + node_pulse * 40), int(120 + node_pulse * 50)))
+        pygame.draw.circle(carrier_surface, node_color, (node_x, node_y), 2)
+        if boss_current_health > boss_max_health * 0.3:
+            pygame.draw.circle(carrier_surface, (int(80 + node_pulse * 60), int(140 + node_pulse * 60), 255),
+                              (node_x, node_y), 1)
+
+    # === 전면 수중 라이트 스트립 ===
+    for i in range(7):
+        light_x = 25 + i * 13
+        light_y = cy + 5
+        light_pulse = abs(math.sin(time_now * 0.005 + i * 0.4))
+        light_color = (int(60 + light_pulse * 40), int(100 + light_pulse * 50), int(150 + light_pulse * 60))
+        pygame.draw.rect(carrier_surface, light_color, (light_x, light_y, 6, 2))
+
+    # === 표면 디테일 (리벳, 패널 라인) ===
+    # 수평 패널 라인
+    for i in range(3):
+        line_y = cy - 5 + i * 5
+        line_color = apply_hit_effect((75, 95, 120))
+        pygame.draw.line(carrier_surface, line_color, (22 + i * 3, line_y), (108 - i * 3, line_y), 1)
+
+    # 리벳
+    rivet_positions = [(20, cy - 2), (40, cy - 4), (60, cy - 5), (80, cy - 5),
+                       (100, cy - 4), (110, cy - 2)]
+    for rx, ry in rivet_positions:
+        pygame.draw.circle(carrier_surface, apply_hit_effect((90, 110, 130)), (rx, ry), 1)
+
+    # === 미사일 발사 시스템 (기존 기능 유지) ===
+    global turret_angles, turret_missiles, last_missile_time
+    current_time = pygame.time.get_ticks()
+    # 드론 양쪽에 소형 미사일 포드 (2개)
+    missile_pod_positions = [(25, cy + 3), (105, cy + 3)]
+    score_bonus = min(round_wins, 3)
+    # 점수에 따라 추가 포드
+    extra_pods = [(45, cy + 5), (85, cy + 5), (cx, cy + 8)]
+    missile_pod_positions += extra_pods[:score_bonus]
+
+    for idx, (dx, dy) in enumerate(missile_pod_positions):
+        turret_id = f"turret_{idx}_{dx}_{dy}"
+        if turret_id not in turret_angles:
+            turret_angles[turret_id] = random.randint(0, FULL_ROTATION)
+        turret_angles[turret_id] = (turret_angles[turret_id] + 1) % 120
+        # 미사일 발사
+        if boss_current_health > 0 and random.random() < 0.0015 and boss_confused_timer == 0 and not ball_spawn_animation_active:
+            missile_x = boss_x + dx
+            missile_y = BOSS_Y + dy + 10
+            base_angle = QUARTER_ROTATION
+            spread_angle = random.randint(-30, 30)
+            final_angle = base_angle + spread_angle
+            angle_for_missile = math.radians(final_angle)
+            missile_speed = random.uniform(2, 4)
+            missile_vx = math.cos(angle_for_missile) * missile_speed
+            missile_vy = math.sin(angle_for_missile) * missile_speed
+            new_missile = {
+                'x': missile_x, 'y': missile_y,
+                'vx': missile_vx, 'vy': missile_vy,
+                'age': 0, 'turret_id': turret_id
+            }
+            turret_missiles.append(new_missile)
+
+    # === 손상 효과 ===
+    if damage_ratio > 0.3:
+        for _ in range(int(damage_ratio * 4)):
+            spark_x = random.randint(15, drone_w - 15)
+            spark_y = random.randint(5, drone_h - 8)
+            spark_color = random.choice([(150, 200, 255), (255, 200, 100)])
+            pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), 1)
+
+    if damage_ratio > 0.5:
+        for _ in range(int(damage_ratio * 3)):
+            crack_x = random.randint(20, drone_w - 20)
+            crack_y = random.randint(5, drone_h - 10)
+            crack_len = random.randint(3, 8)
+            pygame.draw.line(carrier_surface, (40, 45, 50),
+                           (crack_x, crack_y), (crack_x + random.randint(-crack_len, crack_len), crack_y + random.randint(-3, 3)), 1)
+
+    health_percent = (boss_current_health / boss_max_health) * 100
+    if health_percent <= 30:
+        fire_count = 2 if health_percent > 10 else 4
+        for _ in range(fire_count):
+            fire_x = random.randint(20, drone_w - 20)
+            fire_y = random.randint(5, drone_h - 10)
+            flame_wave = abs(math.sin(time_now * 0.01 + fire_x))
+            pygame.draw.circle(carrier_surface, (255, 255, 200), (fire_x, fire_y), int(2 + flame_wave))
+            flame_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(flame_surf, (255, 100, 30, 120), (4, 4), 4)
+            carrier_surface.blit(flame_surf, (fire_x - 4, fire_y - 4))
+
+    if health_percent <= 50:
+        smoke_count = max(1, int((50 - health_percent) / 10))
+        for _ in range(smoke_count):
+            smoke_x = random.randint(15, drone_w - 15)
+            smoke_y = random.randint(3, drone_h - 8)
+            smoke_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+            pygame.draw.circle(smoke_surf, (60, 60, 60, 40), (5, 5), 5)
+            carrier_surface.blit(smoke_surf, (smoke_x - 5, smoke_y - 5))
+
+    return carrier_surface
 
 def _build_stage8_walk_pose(base_img, boss_rect):
     """스테이지8 닌자 보스의 걸음 모션을 스프라이트 시트 기반으로 생성한다."""
@@ -106257,7 +106141,6 @@ def draw_objects():
     global turret_angles, turret_missiles, last_missile_time
     global interceptors, interceptor_launch_time, interceptor_cooldown
     global interceptor_launching, interceptor_launch_queue, hangar_door_open, hangar_door_timer
-    global launch_bay_protrusion, launch_bay_state, launch_bay_ready_time
     global player_missile_invulnerable_time  # 미사일 무적 시간
     global round_wins  # 플레이어 득점 (레이저/인터셉터 해금 조건용)
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
@@ -106769,115 +106652,6 @@ def draw_objects():
         draw_plasma_field_charging(SCREEN)
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
-
-    # 🧤 독안개장갑 — 자욱한 독안개 영역 렌더링 (Premium Volumetric Fog)
-    try:
-        from item_effects.venom_mist_gauntlet import is_mist_field_active as _vmg_is_active
-        if _vmg_is_active():
-            from item_effects.venom_mist_gauntlet import (
-                get_mist_position, get_mist_radius, get_mist_alpha,
-                get_mist_particles, get_mist_elapsed_frames,
-            )
-            _vmg_mx, _vmg_my = get_mist_position()
-            _vmg_r = get_mist_radius()
-            _vmg_alpha = get_mist_alpha()
-            _vmg_elapsed = get_mist_elapsed_frames()
-            _vmg_t = _vmg_elapsed * 0.025  # 느린 애니메이션 타임
-
-            if _vmg_alpha > 0:
-                _vmg_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                _vmg_cx = int(_vmg_mx)
-                _vmg_cy = int(_vmg_my)
-
-                # ── Layer 0: 방사형 그라데이션 베이스 (안개 바닥) ──
-                for _vmg_gi in range(5):
-                    _vmg_ratio = 1.0 - _vmg_gi / 5.0
-                    _vmg_gr = int(_vmg_r * (0.3 + _vmg_gi * 0.16))
-                    _vmg_breathe = 0.08 * math.sin(_vmg_t * 1.2 + _vmg_gi * 0.9)
-                    _vmg_gr = int(_vmg_gr * (1.0 + _vmg_breathe))
-                    _vmg_ga = int(22 * _vmg_ratio * _vmg_alpha)
-                    if _vmg_ga > 0 and _vmg_gr > 0:
-                        _vmg_gg = int(130 + 50 * _vmg_ratio)
-                        _vmg_gb = int(60 + 40 * (1.0 - _vmg_ratio))
-                        pygame.draw.circle(_vmg_surf, (20, _vmg_gg, _vmg_gb, _vmg_ga),
-                                           (_vmg_cx, _vmg_cy), _vmg_gr)
-
-                # ── Layer 1: 3계층 파티클 안개 (deep→mid→wisp) ──
-                _vmg_particles = get_mist_particles()
-                _vmg_lo = {'deep': 0, 'mid': 1, 'wisp': 2}
-                _vmg_sorted = sorted(_vmg_particles,
-                                     key=lambda _p: _vmg_lo.get(_p.get('layer', 'mid'), 1))
-                for _vmg_p in _vmg_sorted:
-                    _vmg_pa = int(_vmg_p['alpha'] * _vmg_alpha)
-                    if _vmg_pa <= 0:
-                        continue
-                    _vmg_px = int(_vmg_p['x'])
-                    _vmg_py = int(_vmg_p['y'])
-                    _vmg_ps = int(_vmg_p['size'])
-                    _vmg_layer = _vmg_p.get('layer', 'mid')
-
-                    if _vmg_layer == 'deep':
-                        # 깊은 안개: 큰 소프트 2중 원
-                        pygame.draw.circle(_vmg_surf, (25, 140, 70, int(_vmg_pa * 0.4)),
-                                           (_vmg_px, _vmg_py), _vmg_ps)
-                        pygame.draw.circle(_vmg_surf, (30, 155, 80, int(_vmg_pa * 0.7)),
-                                           (_vmg_px, _vmg_py), max(2, _vmg_ps * 2 // 3))
-                    elif _vmg_layer == 'wisp':
-                        # 갈래: 중심→파티클 방향으로 얇은 줄기
-                        _vmg_wdx = _vmg_px - _vmg_cx
-                        _vmg_wdy = _vmg_py - _vmg_cy
-                        _vmg_wd = math.sqrt(_vmg_wdx * _vmg_wdx + _vmg_wdy * _vmg_wdy)
-                        if _vmg_wd > 10:
-                            _vmg_sx = _vmg_cx + int(_vmg_wdx * 0.55)
-                            _vmg_sy = _vmg_cy + int(_vmg_wdy * 0.55)
-                            pygame.draw.line(_vmg_surf, (50, 170, 80, int(_vmg_pa * 0.5)),
-                                             (_vmg_sx, _vmg_sy), (_vmg_px, _vmg_py),
-                                             max(1, _vmg_ps // 4))
-                        pygame.draw.circle(_vmg_surf, (60, 190, 90, int(_vmg_pa * 0.6)),
-                                           (_vmg_px, _vmg_py), max(2, _vmg_ps // 2))
-                    else:
-                        # 중간 구름: 소프트 원 + 하이라이트 코어
-                        pygame.draw.circle(_vmg_surf, (30, 150, 75, int(_vmg_pa * 0.55)),
-                                           (_vmg_px, _vmg_py), _vmg_ps)
-                        pygame.draw.circle(_vmg_surf, (45, 175, 90, int(_vmg_pa * 0.35)),
-                                           (_vmg_px, _vmg_py), max(2, _vmg_ps * 3 // 5))
-
-                # ── Layer 2: 독기 소용돌이 하이라이트 (회전 나선) ──
-                for _vmg_si in range(3):
-                    _vmg_sa = _vmg_t * 0.8 + _vmg_si * (math.tau / 3)
-                    for _vmg_sj in range(4):
-                        _vmg_sd = _vmg_r * (0.25 + _vmg_sj * 0.18)
-                        _vmg_sangle = _vmg_sa + _vmg_sj * 0.35
-                        _vmg_sx2 = _vmg_cx + int(math.cos(_vmg_sangle) * _vmg_sd)
-                        _vmg_sy2 = _vmg_cy + int(math.sin(_vmg_sangle) * _vmg_sd)
-                        _vmg_sa2 = int((18 - _vmg_sj * 3) * _vmg_alpha)
-                        if _vmg_sa2 > 0:
-                            pygame.draw.circle(_vmg_surf, (80, 220, 120, _vmg_sa2),
-                                               (_vmg_sx2, _vmg_sy2), max(2, 6 - _vmg_sj))
-
-                # ── Layer 3: 가장자리 페더링 ──
-                for _vmg_fi in range(3):
-                    _vmg_fr = _vmg_r - _vmg_fi * 3
-                    _vmg_fa = int((8 - _vmg_fi * 2) * _vmg_alpha)
-                    if _vmg_fr > 0 and _vmg_fa > 0:
-                        pygame.draw.circle(_vmg_surf, (40, 160, 70, _vmg_fa),
-                                           (_vmg_cx, _vmg_cy), _vmg_fr, 2)
-
-                # ── Layer 4: 중앙 독기 심볼 (맥동하는 독방울) ──
-                _vmg_sym_a = int(25 * _vmg_alpha * (0.6 + 0.4 * math.sin(_vmg_t * 2.0)))
-                if _vmg_sym_a > 3:
-                    _vmg_dp = []
-                    for _vmg_di in range(12):
-                        _vmg_da = _vmg_di / 12.0 * math.tau
-                        _vmg_dr = 8 + 4 * math.sin(_vmg_da * 2 - math.pi / 2)
-                        _vmg_dp.append((_vmg_cx + int(math.cos(_vmg_da) * _vmg_dr),
-                                        _vmg_cy + int(math.sin(_vmg_da) * _vmg_dr) - 2))
-                    if len(_vmg_dp) >= 3:
-                        pygame.draw.polygon(_vmg_surf, (100, 255, 130, _vmg_sym_a), _vmg_dp, 1)
-
-                SCREEN.blit(_vmg_surf, (0, 0))
-    except Exception:
-        pass
 
     # ⚔ 바이퍼 에어 블레이드 검기 렌더링 (Ultra Premium Crescent Blade Wave)
     if _viper_blade_rush_active:
@@ -108625,7 +108399,7 @@ def draw_objects():
         boss_current_speed = abs(BOSS.x - boss_prev_x) if boss_prev_x else 0
         boss_prev_x = BOSS.x
         boss_img = draw_aircraft_carrier_boss(boss_current_speed, BOSS.x)
-        boss_w, boss_h = 100, 90  # 건담 스타일 전투 로봇 (인간형 비율)
+        boss_w, boss_h = 130, 40  # 해양 드론 보스 (일반 보스 동일 크기)
     else:
         boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
         boss_img.fill(WHITE)
@@ -114166,11 +113940,6 @@ def draw_objects():
             missile['age'] += 1
             # 플레이어와 충돌 체크 (무적 시간이 아니고 연막 안에 있지 않을 때만)
             missile_rect = pygame.Rect(missile['x'] - 3, missile['y'] - 3, 6, 6)
-            # 대쉬/하프대쉬 중 미사일 충돌 → 넉백 없이 미사일만 파괴
-            if missile_rect.colliderect(PLAYER) and (rolling_active or is_half_dash_active):
-                effects_manager.create_impact_effect(missile['x'], missile['y'], 8, is_player=False)
-                play_wall_sound()
-                continue
             collided_with_player = (
                 missile_rect.colliderect(PLAYER)
                 and current_time > player_missile_invulnerable_time
@@ -114183,9 +113952,16 @@ def draw_objects():
                     knockback_direction = missile['vx'] / abs(missile['vx']) if missile['vx'] != 0 else random.choice([-1, 1])
                     stun_applied = try_apply_player_stun(0.15, source="stage5_missile", knockback_scaled=True)
                     if stun_applied > 0:
-                        # 넉백 속도 설정 (handle_player에서 매 프레임 적용)
+                        # 화염탄/우박과 동일: 넉백 속도 설정 (급가속 → 부드러운 감속)
+                        old_x = PLAYER.x
                         player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 14))
                         player_missile_stunned_timer = int(stun_applied * FPS)
+                        # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
+                        PLAYER.x += int(player_missile_knockback_vel)
+                        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                        pass  # print(f"🚀 [MISSILE HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f})")  # 디버그 비활성화
+                        # 즉시 감속 적용 (다음 프레임과의 갭 제거)
+                        player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
                 # 충돌 효과 및 파티클
                 # 불꽃 느낌의 얇은 입자를 위해 주황 계열(플레이어 색)로 렌더
                 effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=True)
@@ -114277,7 +114053,7 @@ def draw_objects():
         # 3점 획득 시: 등대 회전 모드 해금
         # 광폭화 시: 즉시 고정 레이저 해금
         laser_unlocked = round_wins >= 2 or enraged_boss_active  # 2점 이상 또는 광폭화 시 레이저 해금
-        rotating_unlocked = round_wins >= 4  # 4점 이상이면 회전 모드 해금
+        rotating_unlocked = round_wins >= 3  # 3점 이상이면 회전 모드 해금
 
         # === 1단계: 조준 시작 (쿨타임 종료 후) ===
         if laser_unlocked and not laser_pre_aiming and not laser_charging and not laser_cannon_active and current_time - last_laser_time > laser_cooldown and boss_confused_timer == 0:
@@ -114547,9 +114323,9 @@ def draw_objects():
                 SOUND_STAGE6_BEAM.stop()
                 # 다음 레이저 쿨타임 설정 (광폭화 시 단축)
                 if enraged_boss_active:
-                    laser_cooldown = random.randint(14000, 18000)  # 광폭화: 14~18초
+                    laser_cooldown = random.randint(8000, 10000)  # 광폭화: 8~10초
                 else:
-                    laser_cooldown = random.randint(16000, 22000)  # 일반: 16~22초
+                    laser_cooldown = random.randint(12000, 15000)  # 일반: 12~15초
         # 플레이어 감전 상태 체크
         if player_stunned:
             if current_time > player_stun_end_time:
@@ -115084,14 +114860,13 @@ def draw_objects():
             sub_boss_cx = int(nemesis_sub_boss_x)
             sub_boss_cy = int(nemesis_sub_boss_y + nemesis_sub_boss_hover_offset)
 
-            # 피격 시 50% 확률로 스타포인트 1개 드랍
-            if random.random() < 0.5:
-                spawn_trade_point_star(sub_boss_cx, sub_boss_cy + 20, source_type="sub_boss_hit")
+            # 피격 시 스타포인트 1개 드랍
+            spawn_trade_point_star(sub_boss_cx, sub_boss_cy + 20, source_type="sub_boss_hit")
 
-            # 손상 단계에 따라 파편 생성 (체력 5 기준)
-            if nemesis_sub_boss_health <= 4 and nemesis_sub_boss_health > 0:
-                # 파편 생성 (손상이 심할수록 많이: HP4=1개, HP3=2개, HP2=3개, HP1=4개)
-                debris_count = 5 - nemesis_sub_boss_health
+            # 손상 단계에 따라 파편 생성 (체력 4 기준)
+            if nemesis_sub_boss_health <= 3 and nemesis_sub_boss_health > 0:
+                # 파편 생성 (손상이 심할수록 많이: HP3=1개, HP2=2개, HP1=3개)
+                debris_count = 4 - nemesis_sub_boss_health
                 spawn_nemesis_sub_boss_debris(sub_boss_cx, sub_boss_cy, debris_count)
 
             # 체력 0 이하 = 사망
@@ -115125,11 +114900,10 @@ def draw_objects():
             # 인터셉터 출격 체크 (혼란 상태가 아닐 때만, 최대 8개 제한)
             max_interceptors = 8
             if not interceptor_launching and current_time - interceptor_launch_time > interceptor_cooldown and boss_confused_timer == 0 and len(interceptors) < max_interceptors:
-                # 출격 준비 → 사출기 돌출 시작
+                # 출격 준비
                 interceptor_launching = True
                 hangar_door_open = True
                 hangar_door_timer = current_time
-                launch_bay_state = 'extending'
                 # 난이도별 인터셉터 출격 수
                 # 주니어리그: 1~2개, 챔피언리그: 2~3개, 신화리그: 3~4개
                 if ai_mode == "junior":
@@ -115140,124 +114914,71 @@ def draw_objects():
                     num_interceptors = random.randint(3, 4)
                 for i in range(num_interceptors):
                     interceptor_launch_queue.append({
-                        'launch_time': 0,  # 사출기 돌출 완료 후 시간 재설정
-                        'id': f"interceptor_{current_time}_{i}",
-                        'launch_index': i
+                        'launch_time': current_time + 200 * i,  # 0.2초 간격으로 출격
+                        'id': f"interceptor_{current_time}_{i}"
                     })
                 # 다음 출격 쿨다운 설정
                 interceptor_cooldown = random.randint(18000, 22000)
-
-            # === 사출기 (런치베이) 돌출/수납 애니메이션 ===
-            if launch_bay_state == 'extending':
-                launch_bay_protrusion = min(1.0, launch_bay_protrusion + launch_bay_extend_speed)
-                if launch_bay_protrusion >= 1.0:
-                    launch_bay_state = 'extended'
-                    launch_bay_ready_time = current_time
-                    # 돌출 완료 → 인터셉터 출격 시간 설정
-                    for i, q in enumerate(interceptor_launch_queue):
-                        q['launch_time'] = current_time + 300 * i  # 0.3초 간격 출격
-            elif launch_bay_state == 'retracting':
-                launch_bay_protrusion = max(0.0, launch_bay_protrusion - launch_bay_retract_speed)
-                if launch_bay_protrusion <= 0.0:
-                    launch_bay_state = 'retracted'
-                    hangar_door_open = False
-
-            # === 사출기 그리기 ===
-            if launch_bay_protrusion > 0.01:
-                bay_protrude = int(launch_bay_protrusion * launch_bay_max_protrusion)
-                bay_x = BOSS.centerx
-                bay_top_y = BOSS.bottom
-                bay_width = 30
-                bay_half = bay_width // 2
-
-                # 사출기 서피스 (투명 배경)
-                bay_surf = pygame.Surface((bay_width + 20, bay_protrude + 12), pygame.SRCALPHA)
-                bw2 = bay_surf.get_width() // 2
-
-                # 사출기 본체 (메탈 프레임)
-                # 좌측 레일
-                pygame.draw.rect(bay_surf, (55, 65, 78), (bw2 - bay_half - 3, 0, 5, bay_protrude + 4))
-                pygame.draw.rect(bay_surf, (78, 90, 105), (bw2 - bay_half - 2, 0, 3, bay_protrude + 4))
-                # 우측 레일
-                pygame.draw.rect(bay_surf, (55, 65, 78), (bw2 + bay_half - 2, 0, 5, bay_protrude + 4))
-                pygame.draw.rect(bay_surf, (78, 90, 105), (bw2 + bay_half - 1, 0, 3, bay_protrude + 4))
-
-                # 중앙 사출 트랙 (에너지 라인)
-                track_pulse = abs(math.sin(current_time * 0.008))
-                track_color = (int(60 + track_pulse * 40), int(100 + track_pulse * 50), int(160 + track_pulse * 60))
-                pygame.draw.rect(bay_surf, (40, 48, 58), (bw2 - bay_half + 3, 0, bay_width - 6, bay_protrude + 2))
-                # 에너지 라인 (세로 2줄)
-                pygame.draw.line(bay_surf, track_color, (bw2 - 5, 0), (bw2 - 5, bay_protrude), 1)
-                pygame.draw.line(bay_surf, track_color, (bw2 + 5, 0), (bw2 + 5, bay_protrude), 1)
-
-                # 사출구 (하단 노즐) - 돌출 완료 시 발광
-                nozzle_y = bay_protrude
-                pygame.draw.rect(bay_surf, (68, 78, 92), (bw2 - bay_half, nozzle_y - 2, bay_width, 6))
-                pygame.draw.rect(bay_surf, (85, 98, 115), (bw2 - bay_half + 2, nozzle_y, bay_width - 4, 4))
-                # 노즐 하이라이트
-                pygame.draw.line(bay_surf, (105, 120, 140), (bw2 - bay_half + 2, nozzle_y), (bw2 + bay_half - 2, nozzle_y), 1)
-
-                if launch_bay_state == 'extended' and interceptor_launch_queue:
-                    # 발사 준비 상태 - 사출구 에너지 글로우
-                    glow_surf = pygame.Surface((bay_width + 8, 10), pygame.SRCALPHA)
-                    glow_pulse2 = 0.6 + 0.4 * abs(math.sin(current_time * 0.012))
-                    glow_color = (int(80 * glow_pulse2), int(150 * glow_pulse2), int(255 * glow_pulse2), int(100 * glow_pulse2))
-                    pygame.draw.ellipse(glow_surf, glow_color, (0, 0, bay_width + 8, 10))
-                    bay_surf.blit(glow_surf, (bw2 - bay_half - 4, nozzle_y - 2))
-                    # 에너지 파티클
-                    for _ in range(2):
-                        px = bw2 + random.randint(-bay_half + 3, bay_half - 3)
-                        py = nozzle_y + random.randint(-2, 4)
-                        pygame.draw.circle(bay_surf, (120, 180, 255), (px, py), 1)
-
-                # 횡방향 보강재 (가로줄)
-                for ry in range(4, bay_protrude, 6):
-                    pygame.draw.line(bay_surf, (72, 82, 95), (bw2 - bay_half + 3, ry), (bw2 + bay_half - 3, ry), 1)
-
-                # 사출기 화면에 블릿
-                SCREEN.blit(bay_surf, (bay_x - bw2, bay_top_y))
-
-            # === 인터셉터 출격 (사출기 돌출 완료 후) ===
-            if interceptor_launch_queue and launch_bay_state == 'extended':
+            # 격납고 문 애니메이션 (제거됨 - 게이지바 제거 요청)
+            # if hangar_door_open:
+            #     door_elapsed = current_time - hangar_door_timer
+            #     if door_elapsed < 1000:  # 1초간 열림
+            #         # 격납고 문 그리기
+            #         door_width = int(40 * (door_elapsed / 1000))
+            #         door_x = BOSS.centerx - 20
+            #         door_y = BOSS.bottom - 10
+            #         draw.rect((40, 40, LARGE_SIZE), (door_x, door_y, door_width, 15))
+            #         draw.rect((20, 20, 30), (door_x, door_y, door_width, 15), 2)
+            #         # 내부 빛
+            #         draw.rect((100, 150, 200), (door_x + 2, door_y + 2, door_width - 4, 11))
+            #     else:
+            #         # 문 완전 열림
+            #         door_x = BOSS.centerx - 20
+            #         door_y = BOSS.bottom - 10
+            #         draw.rect((40, 40, 50), (door_x, door_y, 40, 15))
+            #         draw.rect((100, 150, 200), (door_x + 2, door_y + 2, 36, 11))
+            # 인터셉터 출격
+            if interceptor_launch_queue:
                 to_launch = []
-                bay_protrude = int(launch_bay_protrusion * launch_bay_max_protrusion)
                 for interceptor_data in interceptor_launch_queue:
-                    if interceptor_data['launch_time'] > 0 and current_time >= interceptor_data['launch_time']:
-                        # 인터셉터 생성 - 사출기 끝에서 발진
+                    if current_time >= interceptor_data['launch_time']:
+                        # 인터셉터 생성 - 전체 화면 너비 (760px)에 맞춤
                         game_left = 15
                         game_right = INTERNAL_WIDTH - 15  # 745px
                         new_interceptor = {
                             'id': interceptor_data['id'],
                             'x': BOSS.centerx,
-                            'y': BOSS.bottom + bay_protrude,  # 사출기 끝에서 발진
-                            'target_x': random.randint(game_left, game_right),
-                            'target_y': random.randint(80, 350),
-                            'speed': 2,
+                            'y': BOSS.bottom,
+                            'target_x': random.randint(game_left, game_right),  # 화면 전체 X 범위
+                            'target_y': random.randint(80, 350),  # 보스 영역부터 중앙까지
+                            'speed': 3,
                             'angle': 0,
-                            'state': 'launching',
+                            'state': 'launching',  # launching, patrolling, intercepting, returning
                             'patrol_center_x': 0,
                             'patrol_center_y': 0,
-                            'patrol_target_x': 0,
-                            'patrol_target_y': 0,
-                            'patrol_move_timer': 0,
-                            'health': 1,
+                            'patrol_target_x': 0,  # 자유 이동 목표 X
+                            'patrol_target_y': 0,  # 자유 이동 목표 Y
+                            'patrol_move_timer': 0,  # 목표 변경 타이머
+                            'health': 1,  # 한 번 맞으면 파괴
                             'glow_timer': 0,
-                            'golden': random.random() < 0.02
+                            'golden': random.random() < 0.02  # 2% 확률로 황금 인터셉터
                         }
                         interceptors.append(new_interceptor)
                         to_launch.append(interceptor_data)
-                        play_wall_sound()
+                        play_wall_sound()  # 출격 사운드
+                # 출격한 인터셉터 제거
                 for launched in to_launch:
                     interceptor_launch_queue.remove(launched)
-                # 모든 인터셉터 출격 완료 → 사출기 수납 시작
+                # 모든 인터셉터가 출격했으면
                 if not interceptor_launch_queue:
                     interceptor_launching = False
                     interceptor_launch_time = current_time
-                    launch_bay_state = 'retracting'
-
-            # 사출기 수납 완료 체크 (interceptor_launching이 False인데 아직 돌출 상태)
-            if not interceptor_launching and not interceptor_launch_queue and launch_bay_state == 'extended':
-                launch_bay_state = 'retracting'
+                    # 격납고 문 닫기 타이머
+                    hangar_door_timer = current_time + MILLISECONDS_PER_SECOND
+            # 격납고 문 닫기
+            if not interceptor_launching and hangar_door_open:
+                if current_time - hangar_door_timer > 500:  # 0.5초 후 닫기
+                    hangar_door_open = False
             # 인터셉터 업데이트 및 그리기
             for interceptor in interceptors[:]:
                 # 전체 화면 너비 (760px)에 맞춤
@@ -115286,8 +115007,8 @@ def draw_objects():
                     # 공이 보스 영역(Y < 400) 근처에 있으면 공을 향해 이동
                     if BALL.centery < 400:
                         # 공을 향해 이동 (약간 앞서 가도록 예측)
-                        predict_x = BALL.centerx + ball_vel[0] * 7  # 공의 예상 위치 (예측력 -30%)
-                        predict_y = BALL.centery + ball_vel[1] * 7
+                        predict_x = BALL.centerx + ball_vel[0] * 10  # 공의 예상 위치
+                        predict_y = BALL.centery + ball_vel[1] * 10
                         target_x = max(game_left, min(game_right, predict_x))
                         target_y = max(60, min(400, predict_y))
                     else:
@@ -115306,7 +115027,7 @@ def draw_objects():
                         interceptor['patrol_move_timer'] = current_time
                     elif dist > 1:
                         # 목표 지점으로 부드럽게 이동 (공 추적 시 더 빠르게)
-                        move_speed = interceptor['speed'] * (1.4 if BALL.centery < 400 else 0.84)
+                        move_speed = interceptor['speed'] * (2.0 if BALL.centery < 400 else 1.2)
                         interceptor['x'] += (dx / dist) * move_speed
                         interceptor['y'] += (dy / dist) * move_speed
 
@@ -115315,7 +115036,7 @@ def draw_objects():
                         interceptor['angle'] = math.atan2(dy, dx)
 
                     # 공이 가까이 오면 요격 모드로 전환
-                    if ball_dist < 56 and ball_vel[1] < 0:  # 공이 위로 올라가는 중 (감지 범위 -30%)
+                    if ball_dist < 80 and ball_vel[1] < 0:  # 공이 위로 올라가는 중
                         interceptor['state'] = 'intercepting'
                 elif interceptor['state'] == 'intercepting':
                     # 공을 향해 빠르게 이동
@@ -115323,8 +115044,8 @@ def draw_objects():
                     dy = BALL.centery - interceptor['y']
                     dist = math.sqrt(dx**2 + dy**2)
                     if dist > 5:
-                        interceptor['x'] += (dx / dist) * interceptor['speed'] * 2.8  # 추격 속도 -30%
-                        interceptor['y'] += (dy / dist) * interceptor['speed'] * 2.8
+                        interceptor['x'] += (dx / dist) * interceptor['speed'] * 4.0  # 빠른 추격 속도
+                        interceptor['y'] += (dy / dist) * interceptor['speed'] * 4.0
                     # 공과 충돌 체크
                     if dist < 20:
                         # 파워스매싱 중이면 공이 관통하면서 인터셉터 파괴 (공 튕김 없음)
@@ -130846,7 +130567,7 @@ def show_item_manager_menu():
     PASSIVE_SLOT_ORDER = [
         ("머리", ["bulletproof_hat", "spiked_helmet"]),
         ("상의", ["technical_vest", "bulkup", "adversity_armor", "shrapnel_armor"]),
-        ("팔", ["commando_arm", "master", "smartphone", "gold_digger", "venom_mist_gauntlet"]),
+        ("팔", ["commando_arm", "master", "smartphone", "gold_digger"]),
         ("벨트", ["gravitybelt", "speedgear", "sensor"]),
         ("무릎", ["knee_pads", "dashgear", "soul_burst"]),
         ("신발", ["speedboots", "spikeboots"]),
@@ -131046,8 +130767,7 @@ def show_item_manager_menu():
         {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
         {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")},
         {"name": "soul_burst", "type": "passive", "icon": get_item_icon("soul_burst")},
-        {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")},
-        {"name": "venom_mist_gauntlet", "type": "passive", "icon": get_item_icon("venom_mist_gauntlet")}
+        {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")}
     ]
 
     # 전설 아이템 추가
@@ -132758,10 +132478,6 @@ def show_item_manager_menu():
                 if event.key == pygame.K_p:  # P키
                     global game_paused
                     game_paused = not game_paused
-                    if game_paused:
-                        _freeze_skill_cooldowns()
-                    else:
-                        _thaw_skill_cooldowns()
                     # print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 elif event.key == pygame.K_QUOTE:
@@ -134577,73 +134293,6 @@ def get_item_icon(item_name):
             sx = cx + int(dx * (gem_r + 3) * s)
             sy = gem_y + int(dy * (gem_r + 3) * s)
             pygame.draw.circle(icon_surface, (255, 255, 230), (sx, sy), max(1, int(1.2 * s)))
-
-        icon_cache[item_name] = icon_surface
-        return icon_surface
-
-    if item_name == "venom_mist_gauntlet":
-        # 독안개장갑 아이콘 - 독기가 감도는 보라+녹색 장갑
-        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-        icon_surface.fill((0, 0, 0, 0))
-        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
-        s = ICON_SIZE / 48
-
-        # 색상 팔레트
-        gauntlet_dark = (40, 20, 50)
-        gauntlet_mid = (60, 30, 80)
-        gauntlet_light = (80, 45, 100)
-        venom_green = (80, 200, 80)
-        venom_glow = (120, 255, 120)
-        mist_color = (60, 180, 60)
-
-        # 배경 독기 오라
-        for i in range(3):
-            r = int((16 - i * 3) * s)
-            aura_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-            pygame.draw.circle(aura_surf, (60, 180, 60, 25 - i * 7), (cx, cy), r)
-            icon_surface.blit(aura_surf, (0, 0))
-
-        # 장갑 본체 (손등 부분)
-        glove_w = int(22 * s)
-        glove_h = int(28 * s)
-        glove_rect = pygame.Rect(cx - glove_w // 2, cy - glove_h // 2 + int(2 * s), glove_w, glove_h)
-        pygame.draw.rect(icon_surface, gauntlet_dark, glove_rect, border_radius=int(5 * s))
-        pygame.draw.rect(icon_surface, gauntlet_mid,
-                         glove_rect.inflate(-int(3 * s), -int(3 * s)),
-                         border_radius=int(4 * s))
-
-        # 손가락 (3개 - 상단)
-        for i in range(3):
-            fx = cx - int(7 * s) + i * int(7 * s)
-            fy = glove_rect.top
-            finger_rect = pygame.Rect(fx - int(2.5 * s), fy - int(8 * s), int(5 * s), int(10 * s))
-            pygame.draw.rect(icon_surface, gauntlet_mid, finger_rect, border_radius=int(2 * s))
-            pygame.draw.rect(icon_surface, gauntlet_light, finger_rect.inflate(-int(2 * s), -int(2 * s)),
-                             border_radius=int(1.5 * s))
-
-        # 중앙 독기 순환 코어
-        core_r = max(3, int(5 * s))
-        pygame.draw.circle(icon_surface, venom_green, (cx, cy + int(2 * s)), core_r)
-        pygame.draw.circle(icon_surface, venom_glow, (cx, cy + int(2 * s)), max(1, core_r - int(2 * s)))
-
-        # 독기 라인 (손등에서 손가락으로)
-        for i in range(3):
-            fx = cx - int(7 * s) + i * int(7 * s)
-            pygame.draw.line(icon_surface, venom_green,
-                             (cx, cy + int(2 * s)),
-                             (fx, glove_rect.top - int(4 * s)), max(1, int(1 * s)))
-
-        # 독안개 파티클 (장갑 주변)
-        mist_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-        particle_offsets = [(-10, -8), (10, -6), (-8, 8), (12, 6), (0, -12)]
-        for dx, dy in particle_offsets:
-            px = cx + int(dx * s)
-            py = cy + int(dy * s)
-            pygame.draw.circle(mist_surf, (60, 200, 60, 80), (px, py), max(2, int(2.5 * s)))
-        icon_surface.blit(mist_surf, (0, 0))
-
-        # 외곽 글로우
-        pygame.draw.rect(icon_surface, mist_color, glove_rect, 1, border_radius=int(5 * s))
 
         icon_cache[item_name] = icon_surface
         return icon_surface
@@ -139872,14 +139521,10 @@ def reset_round(is_stage_start=False):
     # 스테이지 6 (네메시스) 인터셉터 초기화 - 스테이지 시작 시 난이도별 소환
     global interceptors, interceptor_launch_time, interceptor_cooldown
     global interceptor_launching, interceptor_launch_queue
-    global launch_bay_protrusion, launch_bay_state, launch_bay_ready_time
     if current_stage == 6 and is_stage_start:
         interceptors = []
         interceptor_launch_queue = []
         interceptor_launching = False
-        launch_bay_protrusion = 0.0
-        launch_bay_state = 'retracted'
-        launch_bay_ready_time = 0
         # 난이도별 초기 인터셉터 수
         # 주니어리그: 2개, 챔피언리그: 4개, 신화리그: 6개
         if ai_mode == "junior":
@@ -139897,7 +139542,7 @@ def reset_round(is_stage_start=False):
                 'y': 60,
                 'target_x': random.randint(game_left, game_right),
                 'target_y': random.randint(80, 350),
-                'speed': 2,
+                'speed': 3,
                 'angle': 0,
                 'state': 'launching',
                 'patrol_center_x': 0,
@@ -141670,25 +141315,6 @@ def calculate_bounce(paddle):
         # print(f"🔍 [SPEED DEBUG] 보스 추가가속 | 리그:{ai_mode} | 배율:{junior_mult:.2f} | 보스가속:{boss_min:.3f}~{boss_max:.3f} | 적용:{boss_multiplier:.3f}x | 속도:{_debug_speed_before_boss:.2f}→{speed:.2f}")  # 디버그 비활성화
     direction = -1 if paddle == PLAYER else 1
     vector = pygame.math.Vector2(0, direction).rotate_rad(angle)
-    # === 보스 패들 중앙 히트 시 수평 속도 보존 ===
-    # 보스가 공을 받아칠 때 rel_x ≈ 0이면 공이 수직으로 반사되는 문제 수정
-    # 공의 기존 수평 방향을 보존하여 비스듬한 반사각 생성
-    if not is_player_paddle and abs(rel_x) < 0.35:
-        incoming_dx = ball_vel[0]  # 공의 기존 수평 속도
-        if abs(incoming_dx) > 0.5:
-            # rel_x가 0에 가까울수록 수평 속도 보존 비율 증가 (최대 70%)
-            preserve_ratio = 0.7 * (1.0 - abs(rel_x) / 0.35)
-            incoming_dir = 1.0 if incoming_dx > 0 else -1.0
-            vector.x += incoming_dir * preserve_ratio
-            vector = vector.normalize()
-        elif abs(vector.x) < 0.15:
-            # 수평 속도가 거의 없고 반사도 수직인 경우 → 강제 편향
-            _force_dir = 1.0 if random.random() > 0.5 else -1.0
-            vector.x += _force_dir * 0.5
-            vector = vector.normalize()
-    if not is_player_paddle:
-        _dbg_bounce_deg = math.degrees(math.atan2(vector.y, vector.x))
-        print(f"[DEBUG 보스반사] rel_x={rel_x:.3f} incoming_dx={ball_vel[0]:.1f} | vector=({vector.x:.3f},{vector.y:.3f}) 반사각={_dbg_bounce_deg:.1f}° | speed={speed:.1f}")
     # === 다이나믹 물리효과 ===
     #  추가 속도 증가량 추적 (드라이브 외 일반 가속)
     if drive_activated:
@@ -142288,9 +141914,6 @@ def handle_ball():
         nemesis_barrier_trigger_cooldown -= 1
     # 프레임 시작 시 충돌 플래그 리셋 (handle_player에서 처리)
     # player_collision_handled = False  # ⚡ handle_player로 이동됨
-    # 바이퍼 스킬 골드 프레임 플래그 리셋 (릴레이 골드 중복 방지)
-    global _viper_skill_gold_this_frame
-    _viper_skill_gold_this_frame = False
     # 드라이브 & 파워스매싱 시스템
     global drive_ball_active, drive_hit_boss, ball_spin_strength, drive_speed_increase
     global drive_active, drive_spin_speed
@@ -143000,9 +142623,6 @@ def handle_ball():
         nemesis_barrier_trigger_cooldown -= 1
     # 프레임 시작 시 충돌 플래그 리셋 (handle_player에서 처리)
     # player_collision_handled = False  # ⚡ handle_player로 이동됨
-    # 바이퍼 스킬 골드 프레임 플래그 리셋 (릴레이 골드 중복 방지)
-    global _viper_skill_gold_this_frame
-    _viper_skill_gold_this_frame = False
     # 드라이브 & 파워스매싱 시스템
     global drive_ball_active, drive_hit_boss, ball_spin_strength, drive_speed_increase
     global drive_active, drive_spin_speed
@@ -147256,10 +146876,9 @@ def handle_ball():
             except Exception:
                 pass
 
-        # 인게임 골드 획득 (랠리 성공 시, 바이퍼 스킬 타격 프레임에서는 중복 방지)
-        if not _viper_skill_gold_this_frame:
-            rally_gold = calculate_rally_gold()
-            add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
+        # 인게임 골드 획득 (랠리 성공 시)
+        rally_gold = calculate_rally_gold()
+        add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
 
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
@@ -149637,15 +149256,9 @@ def handle_boss_pro():
         else:
             future_x = BALL.centerx
         # 오차 추가
-        _pro_predict_error = config["predict_error"]
-        _pro_fail_chance = config["fail_chance"]
-        # ⚡ 파워스매싱 포물선 중: 보스 집중 → 오차/실패율 감소
-        if power_smashing_parabola_active and power_smashing_combo_consumed >= 3:
-            _pro_predict_error = max(5, _pro_predict_error // 2)
-            _pro_fail_chance *= 0.5
-        future_x += random.randint(-_pro_predict_error, _pro_predict_error)
+        future_x += random.randint(-config["predict_error"], config["predict_error"])
         # 실패 확률 체크
-        if random.random() < _pro_fail_chance:
+        if random.random() < config["fail_chance"]:
             boss_fail_timer = HALF_SECOND_FRAMES
     #  프로리그: 통합 설정 기반 이동 로직
     enhanced_max_speed = config["max_speed"]
@@ -149657,13 +149270,6 @@ def handle_boss_pro():
         enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
-
-    # ⚡ 파워스매싱 대응: 콤보 스택 비례 보스 반응 강화 (투기장 제외)
-    if not arena_mode_enabled and power_smashing_parabola_active and power_smashing_combo_consumed >= 2:
-        # 콤보당 +5% 속도/가속, 최대 +30% (2콤보 +10% ~ 6콤보 +30%)
-        _ps_react = 1.0 + min(power_smashing_combo_consumed * 0.05, 0.30)
-        enhanced_max_speed *= _ps_react
-        enhanced_acceleration *= _ps_react
 
     # 🏟️ 투기장 모드: 아케이드 전용 핸디캡 스킵, 직접 속도 물리 사용 (하단 영웅과 동일)
     if arena_mode_enabled:
@@ -150018,12 +149624,6 @@ def handle_boss_champion():
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
-    # ⚡ 파워스매싱 대응: 콤보 스택 비례 보스 반응 강화 (투기장 제외)
-    if not arena_mode_enabled and power_smashing_parabola_active and power_smashing_combo_consumed >= 2:
-        _ps_react = 1.0 + min(power_smashing_combo_consumed * 0.05, 0.30)
-        enhanced_max_speed *= _ps_react
-        enhanced_acceleration *= _ps_react
-
     # 상모돌리기 강제 해제 모션 중 속도 50% 감소
     if whip_deactivation_active:
         enhanced_max_speed *= 0.5  # 50% 감소 = 50%만 유지
@@ -150083,9 +149683,6 @@ def handle_boss_champion():
             future_x = game_right * 2 - future_x
         #  챔피언리그 난이도 조절 (8% 실수율, 최신 공 매커니즘 고려)
         champion_mistake_chance = 0.08  # 8% 실수율
-        # ⚡ 파워스매싱 포물선 중: 보스 집중 → 실수율 절반
-        if power_smashing_parabola_active and power_smashing_combo_consumed >= 3:
-            champion_mistake_chance *= 0.5
         if random.random() < champion_mistake_chance:
             # 8% 확률로 실수 발생 (현재 공 속도에 비례한 실수 크기)
             mistake_magnitude = min(100, max(50, current_speed * 5))  # 속도에 비례한 실수
@@ -150440,12 +150037,6 @@ def handle_boss_mythic():
         enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
-
-    # ⚡ 파워스매싱 대응: 콤보 스택 비례 보스 반응 강화 (투기장 제외)
-    if not arena_mode_enabled and power_smashing_parabola_active and power_smashing_combo_consumed >= 2:
-        _ps_react = 1.0 + min(power_smashing_combo_consumed * 0.05, 0.30)
-        enhanced_max_speed *= _ps_react
-        enhanced_acceleration *= _ps_react
 
     # 이동 속도 감소 효과 적용
     slow_multiplier = 1.0
@@ -151817,7 +151408,6 @@ def handle_boss():
     global waiting_start_time, wait_delay
     global boss_throwing, boss_throw_timer  #  Stage 5 화염탄 관련 변수
     global ball_vel, boss_special_gauge
-    global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS  # 독안개장갑 게이지 감소용
     global ragnarok_shock_playing  #  라그나로크 전기 감전 사운드 상태
     global _judgment_lightning_stun_top_timer, _judgment_wind_stun_top_timer
     global boss_stunned_timer, boss_knockback_vel  #  화염병 스턴 관련 변수
@@ -152895,26 +152485,6 @@ def handle_boss():
     if boss_plasma_slowed:
         plasma_slow_mult = get_boss_plasma_slow_multiplier()
         slow_multiplier *= plasma_slow_mult
-    # 🧤 독안개장갑 둔화 효과 적용
-    try:
-        from item_effects.venom_mist_gauntlet import is_mist_field_active, update_mist
-        if is_mist_field_active():
-            _vmg_result = update_mist(
-                float(BOSS.centerx), float(BOSS.centery), current_stage,
-                {}
-            )
-            if _vmg_result['slow_active']:
-                slow_multiplier *= (1.0 - _vmg_result['slow_amount'])
-            # 보스 게이지 감소 적용
-            if _vmg_result['gauge_drained'] > 0:
-                boss_special_gauge = max(0, boss_special_gauge - _vmg_result['gauge_drained'])
-            # 홍련 구슬 감소 적용 (스테이지 6 = 코드상 stage5)
-            if _vmg_result['hongryun_orb_drained'] > 0 and current_stage == 5:
-                hongryun_hit_count = max(0, hongryun_hit_count - _vmg_result['hongryun_orb_drained'])
-                if hongryun_hit_count < HONGRYUN_MAX_HITS:
-                    hongryun_ready = False
-    except Exception:
-        pass
     # 🏟️ 투기장 영웅 스킬 둔화/속도증가 효과 적용
     if arena_mode_enabled and arena_skill_manager:
         try:
@@ -154445,6 +154015,15 @@ def show_result(won):
         # 클리어한 보스 이름 저장 (스테이지 전환 전에 캡처)
         session_cleared_boss_names[current_stage] = get_boss_name(current_stage)
         current_stage += 1
+
+        # 스테이지 전환 시 호위무사 소환물(해골궁수 등) 제거
+        try:
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+            for _bg_inst in (get_bodyguard(), get_bodyguard2()):
+                if _bg_inst.active:
+                    _bg_inst.reset_skills_for_new_stage()
+        except Exception:
+            pass
 
         # 스테이지 전환 시 비상충전 사용 가능하게 리셋
         reset_emergency_charge_for_new_stage()
@@ -159008,10 +158587,6 @@ def main(stage_num, new_boss_mode=False):
                 #  일시정지 토글 (P키)
                 if event.key == pygame.K_p:
                     game_paused = not game_paused
-                    if game_paused:
-                        _freeze_skill_cooldowns()
-                    else:
-                        _thaw_skill_cooldowns()
                     # print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 #  AI 모드 전환 (N키)
@@ -164312,7 +163887,6 @@ def show_pause_menu():
     """일시정지 메뉴"""
     global session_medal_earned, medal_score
     _push_stage7_ui_pause()
-    _freeze_skill_cooldowns()
     try:
         font_large = get_font(36)  # 36pt 픽셀 폰트
         font_medium = FontStyle.menu()  # 28pt 픽셀 폰트
@@ -164416,7 +163990,6 @@ def show_pause_menu():
                                 return result
     finally:
         _pop_stage7_ui_pause()
-        _thaw_skill_cooldowns()
 # 그라데이션 캐시 (성능 최적화)
 _gradient_cache = {}
 
@@ -165176,7 +164749,6 @@ def show_character_info(background_surface=None):
                            광장(번화가) 등 전투가 아닌 모드에서 스테이지 잔상이 비치는 문제를 막기 위함.
     """
     _push_stage7_ui_pause()
-    _freeze_skill_cooldowns()
     font_title = FontStyle.subtitle()  # 32pt
     font_body = FontStyle.body()  # 24pt
     font_small = FontStyle.small()  # 20pt
@@ -165957,7 +165529,7 @@ def show_character_info(background_surface=None):
             move_speed *= get_optimus_gauge_ratio()
             move_speed = max(1.0, move_speed)
 
-        # 💰 금괴 소지 시 이동속도 -30% 페널티 반영
+        # 💰 금괴 미착용 시 이동속도 페널티 반영
         gold_bar_mult = get_gold_bar_speed_multiplier()
         if gold_bar_mult < 1.0:
             move_speed *= gold_bar_mult
@@ -165983,10 +165555,6 @@ def show_character_info(background_surface=None):
         # 🧪 기묘한 약병 이동속도 배율 반영
         if strange_vial_active and strange_vial_speed_mult != 1.0:
             move_speed *= strange_vial_speed_mult
-
-        # 💍 현자의 반지 이동속도 감소 패널티 반영 (10~20%)
-        if items.sage_ring_obtained and sage_ring_speed_penalty_pct > 0:
-            move_speed *= (1.0 - sage_ring_speed_penalty_pct / 100.0)
 
         # 👁 오딘의 눈: 변신 상태 이동속도 페널티 반영 (-50%)
         try:
@@ -167567,12 +167135,10 @@ def show_character_info(background_surface=None):
                 if event.key == pygame.K_TAB:
                     on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
-                    _thaw_skill_cooldowns()
                     return
                 if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
                     on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
-                    _thaw_skill_cooldowns()
                     return
                 if event.key in (pygame.K_DOWN, pygame.K_PAGEDOWN):
                     passive_scroll_row = min(passive_scroll_row + 1, passive_scroll_max)
@@ -167782,7 +167348,7 @@ def show_game_info():
         swiftness_bonus = runtime_swiftness_bonus if runtime_swiftness_bonus > 0 else 0
         effective_speed_info = base_speed_info * (1.0 + swiftness_bonus)
 
-        # 💰 금괴 소지 시 이동속도 -30% 페널티 반영
+        # 💰 금괴 미착용 시 이동속도 페널티 반영
         gold_bar_mult = get_gold_bar_speed_multiplier()
         gold_bar_debuff_text = ""
         if gold_bar_mult < 1.0:
@@ -168399,7 +167965,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -168501,7 +168067,6 @@ def get_item_description(item_name):
         "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
         "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 130% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
         "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
-        "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑입니다. 베놈 엣지 적중 시 일정 확률로 보스 주변에 독안개 영역을 생성합니다. 독안개 안에 있는 보스는 이동속도가 50% 감소하고, 1초당 보스 게이지가 50 감소합니다. 스테이지 6 홍련의 경우 1초당 구슬게이지 1개가 감소합니다. [롤옵션] 발동확률 30~50%",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
@@ -170928,7 +170493,7 @@ if __name__ == "__main__":
         # print("[게임 시작] 인트로 컷씬 시작...")
         # 인트로 컷씬 표시 (명언 + 스토리)
         opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
-        # print("[게임 시작] 인트로 컷씬 완료")
+        # print("[게임 시작] 인트로 컷씬 완료")ㅋ
 
         # print("[게임 시작] 오프닝 애니메이션 시작...")
         # 오프닝 애니메이션 표시

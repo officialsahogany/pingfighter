@@ -436,6 +436,21 @@ class InGameBodyguard:
         self._entrance_hero_timer = 0.0
         self._entrance_guard_line = None
 
+    def reset_skills_for_new_stage(self):
+        """스테이지 전환 시 소환물(해골궁수 등) 제거 — 호위무사 자체는 유지"""
+        if not self._guard_system:
+            return
+        game_state = self._skill_manager.game_state if self._skill_manager else {}
+        for hero_id, skills in self._guard_system.skill_instances.items():
+            for skill in skills:
+                if getattr(skill, 'skill_id', '') == 'skeleton_archer':
+                    skill.archers = []
+                    skill.dying_archers = []
+                    skill.arrows = []
+                    skill.arrow_particles = []
+                    skill.is_active = False
+                    skill.active_timer = 0.0
+
     # ── 공격/수비 스탠스 토글 ──
 
     @property
