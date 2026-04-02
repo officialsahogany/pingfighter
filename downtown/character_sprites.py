@@ -27,6 +27,7 @@ CHARACTER_SPRITE_FILES = {
     "soldier": None,                          # 코드로 생성
     "blacksmith": "blacksmith_base.png",      # 발토르 (PNG 파일)
     "optimus": None,                          # 옵티머스 (코드로 생성)
+    "viper": None,                            # 바이퍼 (코드로 생성)
     "normal": None,                           # 스매셔와 동일 (코드로 생성)
 }
 
@@ -88,6 +89,8 @@ def load_character_sprite(character_type):
         sprite = _load_blacksmith_sprite()
     elif character_type == "optimus":
         sprite = _create_optimus_sprite()
+    elif character_type == "viper":
+        sprite = _create_viper_sprite()
 
     # 실패 시 폴백
     if sprite is None:
@@ -131,6 +134,18 @@ def _create_optimus_sprite():
             return _scale_sprite(original)
         except Exception as e:
             print(f"옵티머스 스프라이트 생성 실패: {e}")
+    return None
+
+
+def _create_viper_sprite():
+    """바이퍼 스프라이트 생성 (pingfighter의 create_viper_paddle_surface 활용)"""
+    pf = _get_pingfighter_module()
+    if pf and hasattr(pf, 'create_viper_paddle_surface'):
+        try:
+            original = pf.create_viper_paddle_surface(0.0)
+            return _scale_sprite(original)
+        except Exception as e:
+            print(f"바이퍼 스프라이트 생성 실패: {e}")
     return None
 
 
@@ -182,6 +197,7 @@ def _create_fallback_sprite(character_type):
         "soldier": (60, 80, 50),           # 밀리터리 그린 (코만도)
         "blacksmith": (139, 90, 43),       # 갈색 (대장장이 발토르)
         "optimus": (255, 165, 0),          # 오렌지색 (옵티머스)
+        "viper": (0, 200, 100),            # 녹색 (바이퍼)
         "normal": (70, 102, 162),          # 파란색 (스매셔와 동일)
     }
 
@@ -248,6 +264,7 @@ def get_character_display_name(character_type):
         "soldier": "코만도",
         "blacksmith": "발토르",
         "optimus": "옵티머스",
+        "viper": "바이퍼",
         "normal": "플레이어",
     }
     return names.get(character_type, "플레이어")
