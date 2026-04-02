@@ -28,8 +28,8 @@ ERODE_AMOUNT = 30
 ERODE_RADIUS_SEGS = 6
 
 # 패들 이동 침식 (걷기)
-WALK_ERODE_AMOUNT = 0.8       # 프레임당 깎이는 깊이 (매우 소량)
-WALK_ERODE_RADIUS_SEGS = 3    # 패들 중심 기준 좌우 세그먼트 수
+WALK_ERODE_AMOUNT = 0.12      # 프레임당 깎이는 깊이 (미세하게)
+WALK_ERODE_RADIUS_SEGS = 2    # 패들 중심 기준 좌우 세그먼트 수
 
 # 패들 대쉬 침식
 DASH_ERODE_AMOUNT = 6.0       # 대쉬 시 세그먼트당 깎이는 깊이
