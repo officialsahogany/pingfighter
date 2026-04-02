@@ -167,10 +167,9 @@ def update_mist(boss_cx: float, boss_cy: float, current_stage: int,
                 result['hongryun_orb_drained'] = 1
         else:
             # 일반 스테이지 → 보스 게이지 1초당 50 감소
-            drain_per_frame = _gauge_drain_per_sec / frames_per_drain
-            if _gauge_drain_accumulator >= 1:
+            if _gauge_drain_accumulator >= frames_per_drain:
                 _gauge_drain_accumulator = 0
-                result['gauge_drained'] = int(drain_per_frame * 60)  # 초당 50
+                result['gauge_drained'] = _gauge_drain_per_sec  # 초당 50
 
     return result
 
