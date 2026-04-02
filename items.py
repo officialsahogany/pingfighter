@@ -1441,7 +1441,7 @@ ITEM_TYPES = [
         "color": (255, 215, 0),  # 금색
         "effect": "gold_bar",
         "icon": None,
-        "chance": 0.001,  # 희귀 아이템 (0.3% 확률)
+        "chance": 0.004,  # 희귀 아이템 (판매 전용, 소지 시 이속 -30%)
         "duration": 600,
         "unlock_condition": None,
         "sell_price": 2000,  # 판매 가격
