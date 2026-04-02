@@ -114068,16 +114068,9 @@ def draw_objects():
                     knockback_direction = missile['vx'] / abs(missile['vx']) if missile['vx'] != 0 else random.choice([-1, 1])
                     stun_applied = try_apply_player_stun(0.15, source="stage5_missile", knockback_scaled=True)
                     if stun_applied > 0:
-                        # 화염탄/우박과 동일: 넉백 속도 설정 (급가속 → 부드러운 감속)
-                        old_x = PLAYER.x
+                        # 넉백 속도 설정 (handle_player에서 매 프레임 적용)
                         player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 14))
                         player_missile_stunned_timer = int(stun_applied * FPS)
-                        # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
-                        PLAYER.x += int(player_missile_knockback_vel)
-                        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
-                        pass  # print(f"🚀 [MISSILE HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f})")  # 디버그 비활성화
-                        # 즉시 감속 적용 (다음 프레임과의 갭 제거)
-                        player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
                 # 충돌 효과 및 파티클
                 # 불꽃 느낌의 얇은 입자를 위해 주황 계열(플레이어 색)로 렌더
                 effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=True)
