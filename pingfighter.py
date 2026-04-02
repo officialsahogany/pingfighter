@@ -2636,8 +2636,6 @@ from item_effects.gold_bar import (
     is_gold_bar_active,
     activate_gold_bar,
     deactivate_gold_bar,
-    equip_gold_bar,
-    unequip_gold_bar,
     reset_gold_bar,
 )
 from item_effects.bluetooth_ring import (
