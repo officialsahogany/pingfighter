@@ -2054,6 +2054,9 @@ def reset_items():
     adversity_armor_obtained = False  # adversity_armor 획득 상태 초기화
     sage_ring_obtained = False  # sage_ring 획득 상태 초기화
 
+    global gold_bar_obtained
+    gold_bar_obtained = False  # gold_bar 획득 상태 초기화
+
     global venom_mist_gauntlet_obtained
     venom_mist_gauntlet_obtained = False  # venom_mist_gauntlet 획득 상태 초기화
 
