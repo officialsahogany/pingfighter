@@ -12,6 +12,7 @@ DEBUG_GOLD_BAR = os.environ.get("DEBUG_GOLD_BAR", "0") == "1"
 
 # 상수
 GOLD_BAR_SELL_PRICE = 2000  # 판매 가격
+GOLD_BAR_SPEED_PENALTY = 0.30  # 소지 시 이동속도 30% 감소
 
 
 class GoldBar:
@@ -47,6 +48,12 @@ class GoldBar:
     def get_sell_price(self):
         """판매 가격 반환"""
         return self.sell_price if self.active else 0
+
+    def get_speed_multiplier(self):
+        """이동속도 배율 반환 (소지 중이면 -30%)"""
+        if self.active:
+            return 1.0 - GOLD_BAR_SPEED_PENALTY
+        return 1.0
 
     def is_active(self):
         """소지 중인지 여부"""
@@ -92,6 +99,12 @@ def get_gold_bar_sell_price():
     """금괴 판매 가격 반환"""
     bar = get_gold_bar_instance()
     return bar.get_sell_price()
+
+
+def get_gold_bar_speed_multiplier():
+    """금괴로 인한 이동속도 배율 반환 (소지 시 0.7)"""
+    bar = get_gold_bar_instance()
+    return bar.get_speed_multiplier()
 
 
 def is_gold_bar_active():
