@@ -114169,7 +114169,7 @@ def draw_objects():
         # 3점 획득 시: 등대 회전 모드 해금
         # 광폭화 시: 즉시 고정 레이저 해금
         laser_unlocked = round_wins >= 2 or enraged_boss_active  # 2점 이상 또는 광폭화 시 레이저 해금
-        rotating_unlocked = round_wins >= 3  # 3점 이상이면 회전 모드 해금
+        rotating_unlocked = round_wins >= 4  # 4점 이상이면 회전 모드 해금
 
         # === 1단계: 조준 시작 (쿨타임 종료 후) ===
         if laser_unlocked and not laser_pre_aiming and not laser_charging and not laser_cannon_active and current_time - last_laser_time > laser_cooldown and boss_confused_timer == 0:
