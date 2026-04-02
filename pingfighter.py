@@ -48362,16 +48362,16 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     new_speed = max(cur_speed * speed_mult, 10.0)
     _viper_speed_boost_active = True
     _viper_speed_boost_original = cur_speed
-    # 보스 회피 발사 — 보스와 일직선일 때 수직 발사 방지
+    # 랜덤 발사각 (쉐도우 백스텝: 보스 회피 편향 약함, 거의 순수 랜덤)
+    # 스킬 티어별 가중치: 쉐도우 백스텝=0.2, 마샬 킥=0.5, 팬텀 킥=0.8
+    _ss_bias = 0.2  # 쉐도우 백스텝: 20% 회피 편향, 80% 순수 랜덤
+    _ss_random_angle = random.uniform(-55, 55)  # 순수 랜덤 각도
     _ss_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
     _ss_boss_dx = _ss_boss_cx - BALL.centerx
-    if abs(_ss_boss_dx) < 100:
-        # 보스와 거의 일직선 → 커브 방향으로 강하게 편향 (최소 35°)
-        init_angle = curve_dir * random.randint(35, 50)
-    else:
-        # 보스 반대편으로 편향
-        _ss_away_dir = -1 if _ss_boss_dx > 0 else 1
-        init_angle = _ss_away_dir * random.randint(25, 45)
+    _ss_away_dir = -1 if _ss_boss_dx > 0 else (1 if _ss_boss_dx < 0 else random.choice([-1, 1]))
+    _ss_avoidance = _ss_away_dir * random.uniform(25, 50)  # 회피 보너스 각도
+    init_angle = _ss_random_angle * (1.0 - _ss_bias) + _ss_avoidance * _ss_bias
+    init_angle = max(-60, min(60, init_angle))  # 클램프
     rad = math.radians(-90 + init_angle)
     ball_vel[0] = math.cos(rad) * new_speed
     ball_vel[1] = math.sin(rad) * new_speed
@@ -73028,25 +73028,20 @@ def handle_player(keys):
                         _wd_new_spd = max(_wd_cur_spd * 2.0, 11.0)  # 100% 증가
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
-                    # 보스 회피 발사 — 보스 X 위치 반대편으로 편향된 각도
+                    # 랜덤 발사각 (마샬/팬텀 킥: 티어별 보스 회피 편향 차등 적용)
+                    # 스킬 티어별 가중치: 쉐도우 백스텝=0.2, 마샬 킥=0.5, 팬텀 킥=0.8
                     import random as _mk_rand
+                    _mk_bias = 0.8 if _viper_is_double_marshal else 0.5
+                    _mk_random_angle = _mk_rand.uniform(-55, 55)  # 순수 랜덤 각도
                     _mk_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
-                    _mk_ball_cx = BALL.centerx
-                    _mk_boss_dx = _mk_boss_cx - _mk_ball_cx  # 보스가 오른쪽이면 양수
-                    if abs(_mk_boss_dx) < 100:
-                        # 보스와 거의 일직선 → 벽 반대편으로 강하게 편향
-                        if _viper_wall_dive_wall_x < WIDTH // 2:
-                            _mk_angle = math.radians(_mk_rand.uniform(-40, -20))
-                        else:
-                            _mk_angle = math.radians(_mk_rand.uniform(-160, -140))
-                    else:
-                        # 보스 반대편으로 발사 (보스가 오른쪽이면 왼쪽으로)
-                        if _mk_boss_dx > 0:
-                            _mk_angle = math.radians(_mk_rand.uniform(-150, -115))
-                        else:
-                            _mk_angle = math.radians(_mk_rand.uniform(-65, -30))
-                    ball_vel[0] = math.cos(_mk_angle) * _wd_new_spd
-                    ball_vel[1] = math.sin(_mk_angle) * _wd_new_spd
+                    _mk_boss_dx = _mk_boss_cx - BALL.centerx
+                    _mk_away_dir = -1 if _mk_boss_dx > 0 else (1 if _mk_boss_dx < 0 else _mk_rand.choice([-1, 1]))
+                    _mk_avoidance = _mk_away_dir * _mk_rand.uniform(25, 50)  # 회피 보너스 각도
+                    _mk_final_angle = _mk_random_angle * (1.0 - _mk_bias) + _mk_avoidance * _mk_bias
+                    _mk_final_angle = max(-60, min(60, _mk_final_angle))  # 클램프
+                    _mk_rad = math.radians(-90 + _mk_final_angle)
+                    ball_vel[0] = math.cos(_mk_rad) * _wd_new_spd
+                    ball_vel[1] = math.sin(_mk_rad) * _wd_new_spd
                     # 스타버스트 타격 이펙트 트리거
                     _viper_starburst_active = True
                     _viper_starburst_x = float(BALL.centerx)
@@ -80203,6 +80198,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
     global transcendent_crown_skill_bonus  # 초월자의 관 스킬 보너스
+    global soldier_pistol_perk_unlocked  # 권총 퍽 해금 여부
 
     try:
         # 기본 데이터 복원
@@ -80269,6 +80265,15 @@ def apply_loaded_progress(save_data: dict) -> bool:
             # (이 시점에서는 아직 장비 슬롯에 아이템이 장착되지 않았으므로 여기서 호출하면 안 됨)
             if items.transcendent_crown_obtained:
                 pass  # print(f"[로드] 초월자의 관 - 장비 슬롯에 장착되면 효과가 활성화됩니다")
+
+            # 모든 패시브 아이템의 obtained 플래그 복원
+            for item in passive_item_list:
+                if item and isinstance(item, dict):
+                    iname = item.get("name")
+                    if iname:
+                        obtained_attr = f"{iname}_obtained"
+                        if hasattr(items, obtained_attr):
+                            setattr(items, obtained_attr, True)
             # print(f"[로드] 패시브 아이템 {len(passive_item_list)}개 복원 완료 (아이콘 재로드)")
 
         # 액티브 아이템 복원
@@ -80319,6 +80324,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
                 pending_skill_choices = runtime_skills_data.get("pending_skill_choices", 0)
                 runtime_accessory_slot_bonus = runtime_skills_data.get("accessory_slot_bonus", 0)
                 runtime_swiftness_bonus = runtime_skills_data.get("swiftness_bonus", 0)
+                transcendent_crown_skill_bonus = runtime_skills_data.get("transcendent_crown_skill_bonus", 0)
                 active_runtime_skills = {k: v for k, v in runtime_skill_levels.items() if v > 0}
                 if active_runtime_skills:
                     pass  # print(f"[로드] 런타임 스킬 복원 완료 - 활성 스킬: {active_runtime_skills}")
