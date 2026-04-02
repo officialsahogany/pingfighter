@@ -2633,13 +2633,8 @@ from item_effects.weather_capsule import (
 )
 from item_effects.gold_bar import (
     get_gold_bar_instance,
-    get_gold_bar_speed_multiplier,
-    is_gold_bar_active,
-    is_gold_bar_equipped,
     activate_gold_bar,
     deactivate_gold_bar,
-    equip_gold_bar,
-    unequip_gold_bar,
     reset_gold_bar,
 )
 from item_effects.bluetooth_ring import (
@@ -19083,15 +19078,11 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         except:
             pass
 
-        # 이동속도 표시 (기본 + 신속 보너스 + 금괴 페널티 + 현자의 반지 페널티)
-        gold_bar_penalty = get_gold_bar_speed_multiplier()
+        # 이동속도 표시 (기본 + 신속 보너스 + 현자의 반지 페널티)
         speed_modifiers = []
         has_speed_penalty = False
         if swiftness_bonus > 0:
             speed_modifiers.append(f"+{int(swiftness_bonus*100)}%")
-        if gold_bar_penalty < 1.0:
-            speed_modifiers.append(f"-{int((1.0 - gold_bar_penalty)*100)}%")
-            has_speed_penalty = True
         if items.sage_ring_obtained and sage_ring_speed_penalty_pct > 0:
             speed_modifiers.append(f"💍-{sage_ring_speed_penalty_pct}%")
             has_speed_penalty = True
@@ -26318,7 +26309,7 @@ ITEM_SLOT_BASE_MAP = {
     "smartphone": "arm",
     "cooltime": "accessory",
     "revival": "accessory",
-    "gold_bar": "accessory",
+
     "gold_digger": "arm",
     "lucky_coin": "accessory",
     "dowsing_pendulum": "등",
@@ -27806,22 +27797,13 @@ def sync_equipped_passive_effects():
     except Exception:
         pass
 
-    # 금괴: 장착 상태에 따라 이동속도 페널티 동기화
-    # 금괴는 특별함: 소지만 해도 페널티(-30%), 장착하면 페널티 없음
+    # 금괴: 인벤토리 소지 여부만 동기화 (장착 불가 아이템)
     try:
         gold_bar = get_gold_bar_instance()
         if gold_bar:
-            # 인벤토리에 금괴가 있는지 확인
             has_gold_bar = any(item.get("name") == "gold_bar" for item in passive_item_list)
-            if has_gold_bar:
-                gold_bar.active = True
-                items.gold_bar_obtained = True
-                # 장착 여부에 따라 equipped 상태 설정
-                gold_bar.equipped = "gold_bar" in equipped_names
-            else:
-                gold_bar.active = False
-                gold_bar.equipped = False
-                items.gold_bar_obtained = False
+            gold_bar.active = has_gold_bar
+            items.gold_bar_obtained = has_gold_bar
     except Exception as e:
         print(f"[GOLD_BAR_SYNC] 예외 발생: {e}")
 
@@ -77178,11 +77160,6 @@ def handle_player(keys):
             if vitamin_pill_active and vitamin_pill_timer > 0:
                 speed_multiplier *= VITAMIN_PILL_SPEED_MULTIPLIER
 
-            # 금괴 미착용 페널티 적용 (소지 중이지만 미착용 시 -30% 감소)
-            gold_bar_speed_mult = get_gold_bar_speed_multiplier()
-            if gold_bar_speed_mult < 1.0:
-                speed_multiplier *= gold_bar_speed_mult
-
             # 현자의 반지 이동속도 감소 패널티 적용 (10~20% 감소)
             if items.sage_ring_obtained and sage_ring_speed_penalty_pct > 0:
                 speed_multiplier *= (1.0 - sage_ring_speed_penalty_pct / 100.0)
@@ -81722,15 +81699,12 @@ def store_passive_item(item_data):
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "gold_bar":
-        # 금괴 패시브 아이템 획득
+        # 금괴 패시브 아이템 획득 (장착 불가, 판매 전용)
         if not items.gold_bar_obtained:
             items.gold_bar_obtained = True
             item_data["type"] = "passive"
-            # 금괴 효과 활성화 (미착용 시 이동속도 -30%)
             activate_gold_bar()
-            # print("💰 금괴 획득! 상점에서 2000골드+에 판매 가능! 미착용 시 이동속도 -30%")
         else:
-            # print("이미 금괴를 보유 중입니다.")
             skip_append = True
     elif item_data["name"] == "gold_digger":
         # 골드디거 패시브 아이템 획득 (팔 부위, 골드 획득량 30%~70% 증가)
@@ -165825,11 +165799,6 @@ def show_character_info(background_surface=None):
             move_speed *= get_optimus_gauge_ratio()
             move_speed = max(1.0, move_speed)
 
-        # 💰 금괴 미착용 시 이동속도 페널티 반영
-        gold_bar_mult = get_gold_bar_speed_multiplier()
-        if gold_bar_mult < 1.0:
-            move_speed *= gold_bar_mult
-
         # 🧸 솜뭉치 폭탄 둔화 효과 반영
         if cotton_bomb_slow_timer > 0:
             move_speed *= COTTON_BOMB_SLOW_MULTIPLIER
@@ -167645,12 +167614,6 @@ def show_game_info():
         effective_speed_info = base_speed_info * (1.0 + swiftness_bonus)
 
         # 💰 금괴 미착용 시 이동속도 페널티 반영
-        gold_bar_mult = get_gold_bar_speed_multiplier()
-        gold_bar_debuff_text = ""
-        if gold_bar_mult < 1.0:
-            effective_speed_info *= gold_bar_mult
-            gold_bar_debuff_text = f" (💰-{int((1.0 - gold_bar_mult) * 100)}%)"
-
         # 💍 현자의 반지 이동속도 감소 패널티 반영
         sage_ring_speed_text = ""
         if items.sage_ring_obtained and sage_ring_speed_penalty_pct > 0:
@@ -167699,10 +167662,10 @@ def show_game_info():
         # 이동속도/방향전환속도 표시 문자열 구성
         swiftness_buff_text = f" (🏃+{int(swiftness_bonus * 100)}%)" if swiftness_bonus > 0 else ""
         if rain_active:
-            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{sage_ring_speed_text}{strange_vial_speed_text}{rain_debuff_text}"
+            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{sage_ring_speed_text}{strange_vial_speed_text}{rain_debuff_text}"
         else:
-            if swiftness_bonus > 0 or gold_bar_mult < 1.0 or recovery_boost_active or strange_vial_speed_text or sage_ring_speed_text:
-                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{gold_bar_debuff_text}{sage_ring_speed_text}{strange_vial_speed_text}"
+            if swiftness_bonus > 0 or recovery_boost_active or strange_vial_speed_text or sage_ring_speed_text:
+                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}{recovery_boost_text}{sage_ring_speed_text}{strange_vial_speed_text}"
             else:
                 speed_display = f"기본 이동속도: {base_speed_info}"
 

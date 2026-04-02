@@ -1445,8 +1445,6 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None,
         "sell_price": 2000,  # 판매 가격
-        "slots_required": 2,  # 장신구 2칸 차지
-        "body_part": "accessory",  # 장신구 부위
     },
     {
         "name": "bluetooth_ring",  # 블루투스링 패시브 아이템
