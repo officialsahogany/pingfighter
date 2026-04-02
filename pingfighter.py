@@ -26778,6 +26778,10 @@ def format_roll_option_with_polish(opt: dict, item: dict = None) -> str:
         reduction = abs(base_value) - reduced_value
         if reduction == 0:
             return base_text
+        # prefix="-"인 패널티 옵션 (예: 이동속도 감소 -17%): 값이 줄어드는 것이 개선이므로 (+N) 표시
+        # 그 외 reverse 옵션 (예: 쿨타임 15초): 값이 줄어듦을 (-N)으로 표시
+        if prefix == "-":
+            return f"{base_text} (+{reduction}{unit})"
         return f"{base_text} (-{reduction}{unit})"
 
     # 일반 옵션: 보너스 값 계산
