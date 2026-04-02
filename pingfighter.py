@@ -114976,8 +114976,9 @@ def draw_objects():
             sub_boss_cx = int(nemesis_sub_boss_x)
             sub_boss_cy = int(nemesis_sub_boss_y + nemesis_sub_boss_hover_offset)
 
-            # 피격 시 스타포인트 1개 드랍
-            spawn_trade_point_star(sub_boss_cx, sub_boss_cy + 20, source_type="sub_boss_hit")
+            # 피격 시 50% 확률로 스타포인트 1개 드랍
+            if random.random() < 0.5:
+                spawn_trade_point_star(sub_boss_cx, sub_boss_cy + 20, source_type="sub_boss_hit")
 
             # 손상 단계에 따라 파편 생성 (체력 5 기준)
             if nemesis_sub_boss_health <= 4 and nemesis_sub_boss_health > 0:
