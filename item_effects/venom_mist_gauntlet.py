@@ -156,9 +156,8 @@ def update_mist(boss_cx: float, boss_cy: float, current_stage: int,
         result['slow_active'] = True
         result['slow_amount'] = _boss_slow_amount
 
-        # 게이지 감소 (1초당 _gauge_drain_per_sec)
-        _gauge_drain_accumulator += 1
-        frames_per_drain = 60  # 60fps 기준 1초
+        # 게이지 감소 — 프레임당 0.5 (초당 30)
+        _gauge_drain_accumulator += 0.5
 
         if current_stage == 5:
             # 스테이지 6 홍련 (코드상 stage5) → 구슬게이지 1초당 1개 감소
@@ -166,10 +165,11 @@ def update_mist(boss_cx: float, boss_cy: float, current_stage: int,
                 _gauge_drain_accumulator = 0
                 result['hongryun_orb_drained'] = 1
         else:
-            # 일반 스테이지 → 보스 게이지 1초당 50 감소
-            if _gauge_drain_accumulator >= frames_per_drain:
-                _gauge_drain_accumulator = 0
-                result['gauge_drained'] = _gauge_drain_per_sec  # 초당 50
+            # 일반 스테이지 → 프레임당 0.5씩 누적, 1 이상이면 정수분 드레인
+            if _gauge_drain_accumulator >= 1.0:
+                drained = int(_gauge_drain_accumulator)
+                _gauge_drain_accumulator -= drained
+                result['gauge_drained'] = drained
 
     return result
 
