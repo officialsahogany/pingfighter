@@ -132719,6 +132719,10 @@ def show_item_manager_menu():
                 if event.key == pygame.K_p:  # P키
                     global game_paused
                     game_paused = not game_paused
+                    if game_paused:
+                        _freeze_skill_cooldowns()
+                    else:
+                        _thaw_skill_cooldowns()
                     # print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 elif event.key == pygame.K_QUOTE:
@@ -158981,6 +158985,10 @@ def main(stage_num, new_boss_mode=False):
                 #  일시정지 토글 (P키)
                 if event.key == pygame.K_p:
                     game_paused = not game_paused
+                    if game_paused:
+                        _freeze_skill_cooldowns()
+                    else:
+                        _thaw_skill_cooldowns()
                     # print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 #  AI 모드 전환 (N키)
@@ -168357,6 +168365,7 @@ def show_game_info():
     # 튜토리얼: TAB 창 닫힐 때 콜백 호출
     on_tab_close_for_tutorial()
     _pop_stage7_ui_pause()
+    _thaw_skill_cooldowns()
 
 
 def get_item_name_korean(item_name):
