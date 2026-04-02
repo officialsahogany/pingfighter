@@ -156237,10 +156237,8 @@ def main(stage_num, new_boss_mode=False):
         # 투기장에서는 날씨 이벤트 비활성화 - 진입 시 기존 날씨 초기화
         reset_weather_state()
     elif stage_num == 40:  # Stage 40 (온라인 멀티플레이)
-        # 멀티플레이 배경: 선택된 스테이지 배경 사용 (online_game.py에서 설정)
-        # 기본은 스테이지 1 배경
-        CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
-        CURRENT_BG.fill((40, 50, 80))  # 폴백 배경
+        # 멀티플레이 배경: 스테이지 1 배경 사용
+        CURRENT_BG = STAGE1_BG
         BOSS_COLOR = (255, 100, 100)  # P2 색상 (레드)
         current_boss_name = "Player 2"
         # 멀티플레이에서는 날씨/보스 패턴 비활성화
