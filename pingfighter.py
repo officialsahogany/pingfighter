@@ -70904,6 +70904,7 @@ def handle_player(keys):
     global fire_support_radio_loop_active
     global _judgment_lightning_stun_bottom_timer, _judgment_wind_stun_bottom_timer
     global cleanse_counter_window, _viper_ss_kick_ready, _viper_ss_hit_consumed
+    global _viper_skill_gold_this_frame
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
