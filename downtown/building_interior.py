@@ -5221,14 +5221,29 @@ class BuildingInterior:
             item_name = item.get("name", "")
             is_equipped = bool(item.get("_equipped_slot"))
 
-            # 판매가 계산 (품질 + 롤옵션 수치 + 강화 보너스 반영 가격의 30%)
-            base_price = self._get_item_base_price(item_name)
-            quality_roll_bonus = self._get_quality_and_roll_bonus(item, base_price)
-            # 강화 보너스 적용 (강화 레벨당 +20% 추가 가치)
-            enhancement_level = item.get("enhancement_level", 0)
-            enhancement_price_bonus = int((base_price + quality_roll_bonus) * enhancement_level * 0.2)
-            sell_price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
-            shop_price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 1.0)
+            # 고정 판매가가 있는 아이템(금괴 등)은 ITEM_TYPES의 sell_price 우선 사용
+            fixed_sell_price = None
+            try:
+                import items as _items_mod
+                for _it in _items_mod.ITEM_TYPES:
+                    if _it.get("name") == item_name and "sell_price" in _it:
+                        fixed_sell_price = _it["sell_price"]
+                        break
+            except Exception:
+                pass
+
+            if fixed_sell_price is not None:
+                sell_price = fixed_sell_price
+                shop_price = sell_price
+            else:
+                # 판매가 계산 (품질 + 롤옵션 수치 + 강화 보너스 반영 가격의 30%)
+                base_price = self._get_item_base_price(item_name)
+                quality_roll_bonus = self._get_quality_and_roll_bonus(item, base_price)
+                # 강화 보너스 적용 (강화 레벨당 +20% 추가 가치)
+                enhancement_level = item.get("enhancement_level", 0)
+                enhancement_price_bonus = int((base_price + quality_roll_bonus) * enhancement_level * 0.2)
+                sell_price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
+                shop_price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 1.0)
 
             # 장착 중이면 판매 확인 팝업 띄우기
             if is_equipped:
@@ -7927,13 +7942,27 @@ class BuildingInterior:
             pass
 
         if source == "player":
-            base_price = self._get_item_base_price(item_name)
-            # 품질 + 롤옵션 수치 보너스 계산 (실제 판매가와 동일하게)
-            quality_roll_bonus = self._get_quality_and_roll_bonus(item, base_price)
-            # 강화 보너스 적용 (강화 레벨당 +20% 추가 가치)
-            enhancement_level = item.get("enhancement_level", 0)
-            enhancement_price_bonus = int((base_price + quality_roll_bonus) * enhancement_level * 0.2)
-            price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
+            # 고정 판매가가 있는 아이템(금괴 등)은 ITEM_TYPES의 sell_price 우선 사용
+            fixed_sell_price = None
+            try:
+                import items as _items_mod
+                for _it in _items_mod.ITEM_TYPES:
+                    if _it.get("name") == item_name and "sell_price" in _it:
+                        fixed_sell_price = _it["sell_price"]
+                        break
+            except Exception:
+                pass
+
+            if fixed_sell_price is not None:
+                price = fixed_sell_price
+            else:
+                base_price = self._get_item_base_price(item_name)
+                # 품질 + 롤옵션 수치 보너스 계산 (실제 판매가와 동일하게)
+                quality_roll_bonus = self._get_quality_and_roll_bonus(item, base_price)
+                # 강화 보너스 적용 (강화 레벨당 +20% 추가 가치)
+                enhancement_level = item.get("enhancement_level", 0)
+                enhancement_price_bonus = int((base_price + quality_roll_bonus) * enhancement_level * 0.2)
+                price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
             price_text = f"{price:,}G"
         else:
             original_price = item.get("price", 0)
