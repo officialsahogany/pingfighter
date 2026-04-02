@@ -13,6 +13,7 @@ from enum import Enum
 from dataclasses import dataclass, asdict
 from core.events import EventType, emit_event
 from core.global_manager import GlobalManager
+from network.protocol import OnlinePacketType
 
 
 class NetworkMode(Enum):
@@ -233,8 +234,19 @@ class NetworkManager:
         # 스레드
         self.network_thread = None
         
+        # 온라인 멀티플레이 상태
+        self.online_mode = False           # 온라인 대전 모드 활성화 여부
+        self.online_lobby_state = None     # 로비 상태 (protocol.deserialize_lobby_state)
+        self.online_remote_input = None    # 최신 원격 입력 (protocol.deserialize_input)
+        self.online_game_frame = None      # 최신 게임 프레임 (클라이언트용)
+        self.online_connected = False      # 상대방 접속 여부
+        self.online_game_started = False   # 게임 시작 여부
+        self.online_opponent_name = ""     # 상대방 이름
+        self._online_packet_handlers = {}  # OnlinePacketType 핸들러
+
         # 설정 핸들러
         self.setup_handlers()
+        self.setup_online_handlers()
         
     def setup_handlers(self):
         """패킷 핸들러 설정"""
@@ -260,6 +272,7 @@ class NetworkManager:
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self.server_socket.bind(('', port))
             self.server_socket.listen(1)
             self.server_socket.settimeout(0.1)
@@ -302,6 +315,7 @@ class NetworkManager:
             
         try:
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             client_socket.settimeout(5.0)
             client_socket.connect((host, port))
             client_socket.settimeout(0.1)
@@ -346,6 +360,7 @@ class NetworkManager:
                 if self.mode == NetworkMode.HOST and self.server_socket:
                     try:
                         client_socket, address = self.server_socket.accept()
+                        client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                         client_socket.settimeout(0.1)
                         connection = NetworkConnection(client_socket, address)
                         self.connections.append(connection)
@@ -377,13 +392,132 @@ class NetworkManager:
             except Exception as e:
                 print(f"네트워크 루프 에러: {e}")
                 
+    def setup_online_handlers(self):
+        """온라인 대전 전용 패킷 핸들러 설정"""
+        self._online_packet_handlers = {
+            OnlinePacketType.LOBBY_STATE: self._handle_online_lobby_state,
+            OnlinePacketType.CHAR_SELECT: self._handle_online_char_select,
+            OnlinePacketType.STAGE_SELECT: self._handle_online_stage_select,
+            OnlinePacketType.LOBBY_READY: self._handle_online_lobby_ready,
+            OnlinePacketType.LOBBY_START: self._handle_online_lobby_start,
+            OnlinePacketType.GAME_INPUT: self._handle_online_game_input,
+            OnlinePacketType.GAME_FRAME: self._handle_online_game_frame,
+            OnlinePacketType.GAME_EVENT: self._handle_online_game_event,
+            OnlinePacketType.ONLINE_PING: self._handle_online_ping,
+            OnlinePacketType.ONLINE_PONG: self._handle_online_pong,
+            OnlinePacketType.ONLINE_DISCONNECT: self._handle_online_disconnect,
+        }
+
+    def _handle_online_lobby_state(self, packet, connection):
+        from network.protocol import deserialize_lobby_state
+        self.online_lobby_state = deserialize_lobby_state(packet.data)
+
+    def _handle_online_char_select(self, packet, connection):
+        if self.online_lobby_state:
+            if self.mode == NetworkMode.HOST:
+                self.online_lobby_state['client_character'] = packet.data.get('character')
+            else:
+                self.online_lobby_state['host_character'] = packet.data.get('character')
+
+    def _handle_online_stage_select(self, packet, connection):
+        if self.online_lobby_state:
+            self.online_lobby_state['stage'] = packet.data.get('stage', 1)
+            self.online_lobby_state['items_enabled'] = packet.data.get('items', True)
+
+    def _handle_online_lobby_ready(self, packet, connection):
+        if self.online_lobby_state:
+            ready = packet.data.get('ready', False)
+            if self.mode == NetworkMode.HOST:
+                self.online_lobby_state['client_ready'] = ready
+            else:
+                self.online_lobby_state['host_ready'] = ready
+
+    def _handle_online_lobby_start(self, packet, connection):
+        self.online_game_started = True
+
+    def _handle_online_game_input(self, packet, connection):
+        from network.protocol import deserialize_input
+        self.online_remote_input = deserialize_input(packet.data)
+
+    def _handle_online_game_frame(self, packet, connection):
+        from network.protocol import deserialize_game_frame
+        self.online_game_frame = deserialize_game_frame(packet.data)
+
+    def _handle_online_game_event(self, packet, connection):
+        # 이벤트 처리 (점수 변경, 게임 오버 등)
+        pass
+
+    def _handle_online_ping(self, packet, connection):
+        # 핑 응답 전송
+        self.send_online_packet(OnlinePacketType.ONLINE_PONG,
+                                {'t': packet.data.get('t', 0)}, connection)
+
+    def _handle_online_pong(self, packet, connection):
+        sent_time = packet.data.get('t', 0)
+        if sent_time > 0:
+            connection.latency = (time.time() - sent_time) * 1000
+
+    def _handle_online_disconnect(self, packet, connection):
+        self.online_connected = False
+        connection.connected = False
+
+    def send_online_packet(self, packet_type: OnlinePacketType, data: dict,
+                           connection=None):
+        """온라인 패킷 전송 (OnlinePacketType 사용)"""
+        packet = NetworkPacket(
+            packet_type=PacketType(packet_type.value) if packet_type.value <= 0x0C
+                        else PacketType.SYNC,  # 폴백 타입
+            timestamp=time.time(),
+            sequence=self.get_next_sequence(),
+            data={'_online_type': packet_type.value, **data}
+        )
+        if connection:
+            connection.send_packet(packet)
+        else:
+            for conn in self.connections:
+                conn.send_packet(packet)
+
+    def reset_online_state(self):
+        """온라인 대전 상태 초기화"""
+        from network.protocol import serialize_lobby_state
+        self.online_mode = False
+        self.online_lobby_state = None
+        self.online_remote_input = None
+        self.online_game_frame = None
+        self.online_connected = False
+        self.online_game_started = False
+        self.online_opponent_name = ""
+
+    def get_local_ip(self) -> str:
+        """로컬 IP 주소 반환 (LAN용)"""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
     def process_packet(self, packet: NetworkPacket, connection: NetworkConnection):
         """패킷 처리
-        
+
         Args:
             packet: 수신된 패킷
             connection: 연결
         """
+        # 온라인 패킷 확인 (_online_type 필드)
+        online_type_val = packet.data.get('_online_type') if isinstance(packet.data, dict) else None
+        if online_type_val is not None:
+            try:
+                online_type = OnlinePacketType(online_type_val)
+                handler = self._online_packet_handlers.get(online_type)
+                if handler:
+                    handler(packet, connection)
+                return
+            except (ValueError, KeyError):
+                pass
+
         handler = self.packet_handlers.get(packet.packet_type)
         if handler:
             handler(packet, connection)
