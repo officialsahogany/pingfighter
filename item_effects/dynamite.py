@@ -213,23 +213,23 @@ class Dynamite:
                     placed["wobble_angle"] = 0.0
                     placed["wobble_vel"] = 0.0
 
+                # X축 거리만으로 판정 (Y는 보스와 다이너마이트가 다른 높이라 무시)
                 prox_dx = boss_rect.centerx - placed["x"]
-                prox_dy = boss_rect.centery - placed["y"]
-                prox_dist = math.hypot(prox_dx, prox_dy)
-                push_range = 55  # 밀림 감지 반경
-                if prox_dist < push_range and prox_dist > 1:
-                    push_strength = (1.0 - prox_dist / push_range) * 0.8
-                    push_dir_x = -prox_dx / prox_dist
+                abs_dx = abs(prox_dx)
+                push_range = 80  # X축 밀림 감지 반경
+                if abs_dx < push_range and abs_dx > 1:
+                    push_strength = (1.0 - abs_dx / push_range) * 1.8
+                    push_dir_x = -1.0 if prox_dx > 0 else 1.0
                     placed["nudge_vx"] += push_dir_x * push_strength
                     placed["wobble_vel"] += push_dir_x * push_strength * 2.5
 
-                # 밀림 속도 상한 (살짝만)
-                placed["nudge_vx"] = max(-1.5, min(1.5, placed["nudge_vx"]))
+                # 밀림 속도 상한
+                placed["nudge_vx"] = max(-3.0, min(3.0, placed["nudge_vx"]))
 
-                # 밀림 적용 + 강한 마찰 (금방 멈춤)
+                # 밀림 적용 + 마찰 (뒹구르다 멈춤)
                 if abs(placed["nudge_vx"]) > 0.05:
                     placed["x"] += placed["nudge_vx"]
-                    placed["nudge_vx"] *= 0.75  # 강한 마찰 → 빨리 멈춤
+                    placed["nudge_vx"] *= 0.80
                     placed["x"] = max(self.GAME_AREA_LEFT + 20, min(self.GAME_AREA_RIGHT - 20, placed["x"]))
                 else:
                     placed["nudge_vx"] = 0.0
