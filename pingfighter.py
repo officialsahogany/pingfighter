@@ -48296,8 +48296,8 @@ _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 기본값 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 기본값
 
 # 쉐도우 백스텝 그라데이션 타격 상수
-_VIPER_SS_HIT_SPEED_MIN = 1.8         # 가장자리 공속 배율 (80% 증가)
-_VIPER_SS_HIT_SPEED_MAX = 2.2         # 중심 공속 배율 (120% 증가)
+_VIPER_SS_HIT_SPEED_MIN = 1.4         # 가장자리 공속 배율 (40% 증가)
+_VIPER_SS_HIT_SPEED_MAX = 1.8         # 중심 공속 배율 (80% 증가)
 _VIPER_SS_HIT_CURVE_MIN = 10          # 가장자리 커브 프레임 (약 0.17초)
 _VIPER_SS_HIT_CURVE_MAX = 50          # 중심 커브 프레임 (약 0.83초)
 _VIPER_SS_HIT_FORCE_MIN = 0.4         # 가장자리 커브 강도
