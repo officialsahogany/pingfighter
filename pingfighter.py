@@ -109585,9 +109585,9 @@ def draw_objects():
                     _opp_jp_off = _online_opponent_anim.get('jetpack_offset', 0)
                     if _opp_jp_off < -5:
                         _jp_cx = boss_rect.centerx
-                        _jp_by = boss_rect.bottom  # 보스 스프라이트 하단
+                        _jp_ty = boss_rect.top  # 보스 스프라이트 상단 (Y반전이므로 발=위쪽)
                         _jp_t = pygame.time.get_ticks()
-                        # 간단한 제트팩 불꽃 (시안~퍼플 타원)
+                        # 간단한 제트팩 불꽃 (시안~퍼플 타원) - 위쪽으로 분사
                         for _fi in range(3):
                             _f_w = max(2, 6 - _fi * 2)
                             _f_h = max(3, 12 - _fi * 3)
@@ -109596,7 +109596,7 @@ def draw_objects():
                             _f_color = (0, max(0, 255 - _fi * 80), 200, _f_alpha)
                             _flame_s = pygame.Surface((_f_w * 2, _f_h * 2), pygame.SRCALPHA)
                             pygame.draw.ellipse(_flame_s, _f_color, (0, 0, _f_w * 2, _f_h * 2))
-                            SCREEN.blit(_flame_s, (_jp_cx - _f_w + _f_ox, _jp_by + _fi * 4),
+                            SCREEN.blit(_flame_s, (_jp_cx - _f_w + _f_ox, _jp_ty - _fi * 4 - _f_h * 2),
                                         special_flags=pygame.BLEND_ADD)
                 except Exception:
                     pass
@@ -152032,9 +152032,9 @@ def _handle_boss_online_sync():
     # ── 바이퍼 제트팩 오프셋 적용 (상대방이 체공 중일 때 BOSS.y 변경) ──
     if _online_opponent_anim and _online_opponent_anim.get('state') == 'flying':
         _opp_jp_offset = _online_opponent_anim.get('jetpack_offset', 0)
-        # 상대방의 제트팩 오프셋(음수=위로)을 BOSS에 적용
-        # 상대방이 위로 올라갈수록(offset 음수) → BOSS는 위쪽으로 이동 (Y 감소)
-        BOSS.y = BOSS_Y + int(_opp_jp_offset)  # _opp_jp_offset은 음수
+        # 상대방이 위로 올라갈수록(offset 음수) → 상대 화면의 BOSS는 아래로 내려옴 (Y 증가)
+        # 시점 반전: 내 화면에서 위로 = 상대 화면에서 아래로
+        BOSS.y = BOSS_Y - int(_opp_jp_offset)  # 부호 반전! -(-200) = +200 → 아래로
     else:
         BOSS.y = BOSS_Y  # 체공이 아닐 때는 기본 위치
 
