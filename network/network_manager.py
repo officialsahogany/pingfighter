@@ -447,8 +447,14 @@ class NetworkManager:
         self.online_game_started = True
 
     def _handle_online_game_input(self, packet, connection):
-        from network.protocol import deserialize_input
-        self.online_remote_input = deserialize_input(packet.data)
+        # 위치 기반 입력 (x 필드) 또는 버튼 기반 입력 모두 지원
+        data = packet.data
+        if 'x' in data:
+            # 위치 직접 전송 방식
+            self.online_remote_input = data
+        else:
+            from network.protocol import deserialize_input
+            self.online_remote_input = deserialize_input(data)
 
     def _handle_online_game_frame(self, packet, connection):
         from network.protocol import deserialize_game_frame

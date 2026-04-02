@@ -151295,42 +151295,34 @@ def _process_bazooka_collisions():
             # print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
             apply_health_boss_damage(2, source="bazooka")
 
-def _handle_boss_p2_online():
-    """온라인 멀티플레이: P2의 네트워크 입력으로 보스 패들을 조작한다."""
-    global boss_current_speed, BOSS, online_p2_input
+def _handle_boss_online_sync():
+    """온라인 멀티플레이: 상대방의 PLAYER 위치를 BOSS에 적용한다.
+    호스트: P2(클라이언트)의 PLAYER.x → BOSS.x
+    클라이언트: P1(호스트)의 PLAYER.x → BOSS.x
+    """
+    global BOSS
 
-    # 네트워크에서 최신 입력 가져오기
-    if _online_net_manager is not None:
-        remote = _online_net_manager.online_remote_input
-        if remote is not None:
-            online_p2_input = remote
-
-    if online_p2_input is None:
+    if _online_net_manager is None:
         return
 
-    inp = online_p2_input
-    # P2 이동 처리 (보스 패들 위치 = 상단)
-    p2_speed = 8  # 기본 이동 속도 (플레이어와 동일)
-    move_dir = 0
-    if inp.get('left', False):
-        move_dir = -1
-    elif inp.get('right', False):
-        move_dir = 1
-
-    # 대쉬 (간단 구현)
-    if inp.get('dash', False) and move_dir != 0:
-        p2_speed = 20
-
-    boss_current_speed = move_dir * p2_speed
-    BOSS.x += boss_current_speed
+    if online_is_host:
+        # 호스트: 클라이언트가 보낸 위치를 BOSS에 적용
+        remote = _online_net_manager.online_remote_input
+        if remote is not None and 'x' in remote:
+            BOSS.x = int(remote['x'])
+    else:
+        # 클라이언트: 호스트가 보낸 P1 위치를 BOSS에 적용
+        frame = _online_net_manager.online_game_frame
+        if frame is not None:
+            p1 = frame.get('p1', None)
+            if p1:
+                BOSS.x = int(p1[0])
 
     # 경계 클램핑
     if BOSS.x < 0:
         BOSS.x = 0
-        boss_current_speed = 0
     elif BOSS.x > WIDTH - BOSS.width:
         BOSS.x = WIDTH - BOSS.width
-        boss_current_speed = 0
 
 
 def _handle_boss_with_soap_debuff():
@@ -151345,9 +151337,9 @@ def _handle_boss_with_soap_debuff():
     """
     global boss_current_speed, BOSS
 
-    # ── 온라인 멀티플레이: P2 입력으로 보스 조작 ──
-    if online_multiplayer_enabled and online_is_host:
-        _handle_boss_p2_online()
+    # ── 온라인 멀티플레이: 상대방 위치 동기화 (호스트/클라이언트 모두) ──
+    if online_multiplayer_enabled:
+        _handle_boss_online_sync()
         return
     # ── 비누 디버프 체크 ──
     soap_active = False
@@ -161248,7 +161240,17 @@ def main(stage_num, new_boss_mode=False):
                 # 투기장 모드: 매 프레임 스킬 사운드 플래그 리셋
                 if arena_mode_enabled:
                     globals()['_arena_skill_sound_this_frame'] = False
+                # 온라인 클라이언트: 점수 보호 (호스트만 권위)
+                _online_save_wins = round_wins if (online_multiplayer_enabled and not online_is_host) else None
+                _online_save_losses = round_losses if (online_multiplayer_enabled and not online_is_host) else None
+
                 _handle_ball_result = handle_ball()
+
+                # 온라인 클라이언트: handle_ball()이 변경한 점수 되돌리기
+                if _online_save_wins is not None:
+                    round_wins = _online_save_wins
+                    round_losses = _online_save_losses
+
                 # 투기장 모드: handle_ball() 내부에서 승부 결정 시 즉시 반환
                 if arena_mode_enabled and _handle_ball_result is not None:
                     return _handle_ball_result
@@ -162651,9 +162653,13 @@ def main(stage_num, new_boss_mode=False):
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
                     _handle_boss_with_soap_debuff()
 
-                # 온라인 멀티: 매 프레임 상태 전송
-                if online_multiplayer_enabled and online_is_host:
-                    _online_send_game_state()
+                # 온라인 멀티: 호스트 → 상태 전송, 클라이언트 → 위치 전송 + 상태 수신
+                if online_multiplayer_enabled:
+                    if online_is_host:
+                        _online_send_game_state()
+                    else:
+                        _online_send_player_position()
+                        _online_client_apply_state()
 
                 # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
@@ -169701,7 +169707,9 @@ def get_character_name(character_id):
 
 def start_online_multiplayer():
     """온라인 멀티플레이 진입점.
-    로비 → 캐릭터/스테이지 선택 → 호스트는 main(40) 실행, 클라이언트는 렌더 루프.
+    로비 → 캐릭터/스테이지 선택 → 양쪽 모두 main(40) 실행.
+    호스트(P1): 공 물리 권위, BOSS=P2 위치 수신
+    클라이언트(P2): BOSS=P1 위치 수신, 공=호스트에서 수신
     """
     global online_multiplayer_enabled, online_is_host, online_p2_character
     global online_items_enabled, _online_net_manager, online_p2_input
@@ -169721,33 +169729,27 @@ def start_online_multiplayer():
     online_items_enabled = result.get('items_enabled', True)
     online_p2_input = None
 
+    # 캐릭터 타입 매핑
+    char_map = {
+        "ufo_player": "smasher",
+        "soldier": "soldier",
+        "blacksmith": "blacksmith",
+        "viper": "viper",
+    }
+
     if online_is_host:
-        # 호스트: P1 캐릭터 설정 후 main(40) 실행
+        # 호스트: P1(하단) = 내 캐릭터
         p1_char = result['p1_character']
         online_p2_character = result['p2_character']
-
-        # 캐릭터 타입 매핑
-        char_map = {
-            "ufo_player": "smasher",
-            "soldier": "soldier",
-            "blacksmith": "blacksmith",
-            "viper": "viper",
-        }
         selected_character_type = char_map.get(p1_char, "smasher")
-
-        # 게임 실행 (stage 40)
-        main(STAGE_MULTIPLAYER)
-
     else:
-        # 클라이언트: 렌더 루프 실행
-        from network.client_renderer import run_client_renderer
-        run_client_renderer(
-            screen=SCREEN,
-            width=WIDTH,
-            height=HEIGHT,
-            get_font_func=get_font,
-            net_manager=_online_net_manager,
-        )
+        # 클라이언트: P2(하단) = 내 캐릭터 (내가 PLAYER를 조작)
+        my_char = result['p2_character']
+        online_p2_character = result['p1_character']
+        selected_character_type = char_map.get(my_char, "smasher")
+
+    # 양쪽 모두 main(40) 실행 → 본게임 엔진 그대로 렌더링
+    main(STAGE_MULTIPLAYER)
 
     # 정리
     online_multiplayer_enabled = False
@@ -169771,25 +169773,24 @@ def _online_send_game_state():
     frame_data = {
         'frame_num': pygame.time.get_ticks(),
         'ball': [BALL.x, BALL.y, ball_vel[0], ball_vel[1]],
-        'p1': [PLAYER.x, gauge_value if 'gauge_value' in dir() else 0, round_wins],
+        'p1': [PLAYER.x, 0, round_wins],
         'p2': [BOSS.x, 0, round_losses],
-        'items': [],  # TODO: 아이템 위치
+        'items': [],
         'sounds': _online_sound_queue[:],
         'effects': [],
         'game_over': None,
-        'waiting_serve': is_waiting_for_serve if 'is_waiting_for_serve' in dir() else False,
-        'player_serve': is_player_serve if 'is_player_serve' in dir() else False,
+        'waiting_serve': False,
+        'player_serve': False,
         'round_wins': round_wins,
         'round_losses': round_losses,
         'p1_stunned': False,
         'p1_dashing': False,
-        'p2_stunned': boss_stunned_timer > 0 if 'boss_stunned_timer' in dir() else False,
+        'p2_stunned': False,
         'p2_dashing': False,
         'ball_spin': 0,
         'ball_intensity': 0,
     }
 
-    # 게임 종료 체크
     try:
         if round_wins >= win_goal:
             frame_data['game_over'] = 'p1'
@@ -169801,6 +169802,51 @@ def _online_send_game_state():
     serialized = serialize_game_frame(frame_data)
     _online_net_manager.send_online_packet(OnlinePacketType.GAME_FRAME, serialized)
     _online_sound_queue.clear()
+
+
+def _online_send_player_position():
+    """클라이언트: 매 프레임 내 PLAYER 위치를 호스트에 전송"""
+    if not online_multiplayer_enabled or online_is_host:
+        return
+    if _online_net_manager is None or not _online_net_manager.connections:
+        return
+
+    _online_net_manager.send_online_packet(
+        OnlinePacketType.GAME_INPUT,
+        {'x': PLAYER.x}
+    )
+
+
+def _online_client_apply_state():
+    """클라이언트: 호스트에서 수신한 게임 상태를 적용
+    - 공 위치/속도 → 호스트 권위
+    - 점수 → 호스트 권위 (시점 반전: 호스트 round_wins = 내 round_losses)
+    - BOSS 위치 → _handle_boss_online_sync()에서 이미 처리
+    """
+    global round_wins, round_losses
+
+    if not online_multiplayer_enabled or online_is_host:
+        return
+    if _online_net_manager is None:
+        return
+
+    frame = _online_net_manager.online_game_frame
+    if frame is None:
+        return
+
+    # 공 위치 동기화 (호스트 권위)
+    ball = frame.get('ball', None)
+    if ball and len(ball) >= 4:
+        BALL.x = int(ball[0])
+        BALL.y = int(ball[1])
+        ball_vel[0] = ball[2]
+        ball_vel[1] = ball[3]
+
+    # 점수 동기화 (시점 반전!)
+    # 호스트의 round_wins(P1 득점) = 내(P2) 입장에서 round_losses
+    # 호스트의 round_losses(P1 실점) = 내(P2) 입장에서 round_wins
+    round_wins = frame.get('round_losses', 0)
+    round_losses = frame.get('round_wins', 0)
 
 
 
