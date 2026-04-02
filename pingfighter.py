@@ -108838,6 +108838,39 @@ def draw_objects():
         boss_prev_x = BOSS.x
         boss_img = draw_aircraft_carrier_boss(boss_current_speed, BOSS.x)
         boss_w, boss_h = 100, 90  # 건담 스타일 전투 로봇 (인간형 비율)
+    elif current_stage == 40:
+        # ── 온라인 멀티플레이: 상대 캐릭터 패들 스프라이트 (Y축 반전) ──
+        _mp_opp_char = online_p2_character if online_multiplayer_enabled else "ufo_player"
+        _mp_char_map = {
+            "ufo_player": "smasher", "soldier": "soldier",
+            "blacksmith": "blacksmith", "viper": "viper", "optimus": "optimus",
+        }
+        _mp_opp_type = _mp_char_map.get(_mp_opp_char, "smasher")
+
+        try:
+            if _mp_opp_type == "smasher":
+                _mp_src = SMASHER_PADDLE_IMG if SMASHER_PADDLE_IMG else create_smasher_paddle_surface()
+            elif _mp_opp_type == "soldier":
+                _mp_src = SOLDIER_PADDLE_IMG if SOLDIER_PADDLE_IMG else create_soldier_paddle_surface()
+            elif _mp_opp_type == "blacksmith":
+                _mp_src = BLACKSMITH_PADDLE_IMG if BLACKSMITH_PADDLE_IMG else create_blacksmith_paddle_base()
+            elif _mp_opp_type == "viper":
+                _mp_src = VIPER_PADDLE_IMG if VIPER_PADDLE_IMG else create_viper_paddle_surface()
+            elif _mp_opp_type == "optimus":
+                _mp_src = OPTIMUS_PADDLE_IMG if OPTIMUS_PADDLE_IMG else create_optimus_paddle_surface()
+            else:
+                _mp_src = SMASHER_PADDLE_IMG if SMASHER_PADDLE_IMG else create_smasher_paddle_surface()
+        except Exception:
+            _mp_src = None
+
+        if _mp_src is not None:
+            # Y축 반전 (캐릭터가 아래를 바라보도록)
+            boss_img = pygame.transform.flip(_mp_src, False, True)
+            boss_w, boss_h = boss_img.get_width(), boss_img.get_height()
+        else:
+            boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
+            boss_img.fill(BOSS_COLOR)
+            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     else:
         boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
         boss_img.fill(WHITE)
@@ -157233,6 +157266,52 @@ def main(stage_num, new_boss_mode=False):
 
             # 옵티머스 게이지 기반 스킬 트리거 초기화
             reset_optimus_skill_triggers()
+
+            # 런타임 스킬 시스템 초기화 (ESC 메뉴로 메인 복귀 시)
+            reset_runtime_skill_system()
+
+            # 아레나 퍽 멀티플라이어 초기화 (ESC 메뉴로 메인 복귀 시)
+            reset_arena_perks()
+
+            # 전설 아이템 효과 초기화 (ESC 메뉴로 메인 복귀 시)
+            try:
+                legendary_manager = get_legendary_manager()
+                if legendary_manager:
+                    legendary_manager.reset_for_new_game()
+            except Exception:
+                pass
+
+            # 역경의 갑옷 초기화 (ESC 메뉴로 메인 복귀 시)
+            items.adversity_armor_obtained = False
+            try:
+                from item_effects.adversity_armor import reset_adversity_armor
+                reset_adversity_armor()
+            except Exception:
+                pass
+
+            # 파편 갑옷 초기화 (ESC 메뉴로 메인 복귀 시)
+            items.shrapnel_armor_obtained = False
+            try:
+                from item_effects.shrapnel_armor import reset_shrapnel_armor
+                reset_shrapnel_armor()
+            except Exception:
+                pass
+
+            # 소울 버스트 초기화 (ESC 메뉴로 메인 복귀 시)
+            items.soul_burst_obtained = False
+            try:
+                from item_effects.soul_burst import deactivate_soul_burst
+                deactivate_soul_burst()
+            except Exception:
+                pass
+
+            # 대쉬 매니저 완전 리셋 (ESC 메뉴로 메인 복귀 시)
+            if dash is not None:
+                dash.update_bonuses(False, False, False)
+                dash.reset_to_base()
+
+            # 뼈대 스프라이트 스킨 초기화 (ESC 메뉴로 메인 복귀 시)
+            _reset_skeletal_skin()
 
             # 발토르 건물/청사진 완전 초기화 (ESC 메뉴로 메인 복귀 시)
             globals()["blacksmith_persist_structures"] = None
