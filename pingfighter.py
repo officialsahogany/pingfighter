@@ -106742,33 +106742,111 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
-    # 🧤 독안개장갑 독안개 영역 렌더링
+    # 🧤 독안개장갑 — 자욱한 독안개 영역 렌더링 (Premium Volumetric Fog)
     try:
         from item_effects.venom_mist_gauntlet import is_mist_field_active as _vmg_is_active
         if _vmg_is_active():
             from item_effects.venom_mist_gauntlet import (
-                get_mist_position, get_mist_radius, get_mist_alpha, get_mist_particles,
+                get_mist_position, get_mist_radius, get_mist_alpha,
+                get_mist_particles, get_mist_elapsed_frames,
             )
             _vmg_mx, _vmg_my = get_mist_position()
             _vmg_r = get_mist_radius()
             _vmg_alpha = get_mist_alpha()
+            _vmg_elapsed = get_mist_elapsed_frames()
+            _vmg_t = _vmg_elapsed * 0.025  # 느린 애니메이션 타임
+
             if _vmg_alpha > 0:
-                # 독안개 영역 원형 (반투명 녹색)
                 _vmg_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                _vmg_base_alpha = int(40 * _vmg_alpha)
-                pygame.draw.circle(_vmg_surf, (40, 160, 40, _vmg_base_alpha),
-                                   (int(_vmg_mx), int(_vmg_my)), _vmg_r)
-                # 테두리 글로우
-                pygame.draw.circle(_vmg_surf, (80, 220, 80, int(60 * _vmg_alpha)),
-                                   (int(_vmg_mx), int(_vmg_my)), _vmg_r, 2)
-                # 파티클 렌더링
-                for _vmg_p in get_mist_particles():
+                _vmg_cx = int(_vmg_mx)
+                _vmg_cy = int(_vmg_my)
+
+                # ── Layer 0: 방사형 그라데이션 베이스 (안개 바닥) ──
+                for _vmg_gi in range(5):
+                    _vmg_ratio = 1.0 - _vmg_gi / 5.0
+                    _vmg_gr = int(_vmg_r * (0.3 + _vmg_gi * 0.16))
+                    _vmg_breathe = 0.08 * math.sin(_vmg_t * 1.2 + _vmg_gi * 0.9)
+                    _vmg_gr = int(_vmg_gr * (1.0 + _vmg_breathe))
+                    _vmg_ga = int(22 * _vmg_ratio * _vmg_alpha)
+                    if _vmg_ga > 0 and _vmg_gr > 0:
+                        _vmg_gg = int(130 + 50 * _vmg_ratio)
+                        _vmg_gb = int(60 + 40 * (1.0 - _vmg_ratio))
+                        pygame.draw.circle(_vmg_surf, (20, _vmg_gg, _vmg_gb, _vmg_ga),
+                                           (_vmg_cx, _vmg_cy), _vmg_gr)
+
+                # ── Layer 1: 3계층 파티클 안개 (deep→mid→wisp) ──
+                _vmg_particles = get_mist_particles()
+                _vmg_lo = {'deep': 0, 'mid': 1, 'wisp': 2}
+                _vmg_sorted = sorted(_vmg_particles,
+                                     key=lambda _p: _vmg_lo.get(_p.get('layer', 'mid'), 1))
+                for _vmg_p in _vmg_sorted:
                     _vmg_pa = int(_vmg_p['alpha'] * _vmg_alpha)
-                    if _vmg_pa > 0:
-                        pygame.draw.circle(_vmg_surf,
-                                           (60, 180, 60, _vmg_pa),
-                                           (int(_vmg_p['x']), int(_vmg_p['y'])),
-                                           _vmg_p['size'])
+                    if _vmg_pa <= 0:
+                        continue
+                    _vmg_px = int(_vmg_p['x'])
+                    _vmg_py = int(_vmg_p['y'])
+                    _vmg_ps = int(_vmg_p['size'])
+                    _vmg_layer = _vmg_p.get('layer', 'mid')
+
+                    if _vmg_layer == 'deep':
+                        # 깊은 안개: 큰 소프트 2중 원
+                        pygame.draw.circle(_vmg_surf, (25, 140, 70, int(_vmg_pa * 0.4)),
+                                           (_vmg_px, _vmg_py), _vmg_ps)
+                        pygame.draw.circle(_vmg_surf, (30, 155, 80, int(_vmg_pa * 0.7)),
+                                           (_vmg_px, _vmg_py), max(2, _vmg_ps * 2 // 3))
+                    elif _vmg_layer == 'wisp':
+                        # 갈래: 중심→파티클 방향으로 얇은 줄기
+                        _vmg_wdx = _vmg_px - _vmg_cx
+                        _vmg_wdy = _vmg_py - _vmg_cy
+                        _vmg_wd = math.sqrt(_vmg_wdx * _vmg_wdx + _vmg_wdy * _vmg_wdy)
+                        if _vmg_wd > 10:
+                            _vmg_sx = _vmg_cx + int(_vmg_wdx * 0.55)
+                            _vmg_sy = _vmg_cy + int(_vmg_wdy * 0.55)
+                            pygame.draw.line(_vmg_surf, (50, 170, 80, int(_vmg_pa * 0.5)),
+                                             (_vmg_sx, _vmg_sy), (_vmg_px, _vmg_py),
+                                             max(1, _vmg_ps // 4))
+                        pygame.draw.circle(_vmg_surf, (60, 190, 90, int(_vmg_pa * 0.6)),
+                                           (_vmg_px, _vmg_py), max(2, _vmg_ps // 2))
+                    else:
+                        # 중간 구름: 소프트 원 + 하이라이트 코어
+                        pygame.draw.circle(_vmg_surf, (30, 150, 75, int(_vmg_pa * 0.55)),
+                                           (_vmg_px, _vmg_py), _vmg_ps)
+                        pygame.draw.circle(_vmg_surf, (45, 175, 90, int(_vmg_pa * 0.35)),
+                                           (_vmg_px, _vmg_py), max(2, _vmg_ps * 3 // 5))
+
+                # ── Layer 2: 독기 소용돌이 하이라이트 (회전 나선) ──
+                for _vmg_si in range(3):
+                    _vmg_sa = _vmg_t * 0.8 + _vmg_si * (math.tau / 3)
+                    for _vmg_sj in range(4):
+                        _vmg_sd = _vmg_r * (0.25 + _vmg_sj * 0.18)
+                        _vmg_sangle = _vmg_sa + _vmg_sj * 0.35
+                        _vmg_sx2 = _vmg_cx + int(math.cos(_vmg_sangle) * _vmg_sd)
+                        _vmg_sy2 = _vmg_cy + int(math.sin(_vmg_sangle) * _vmg_sd)
+                        _vmg_sa2 = int((18 - _vmg_sj * 3) * _vmg_alpha)
+                        if _vmg_sa2 > 0:
+                            pygame.draw.circle(_vmg_surf, (80, 220, 120, _vmg_sa2),
+                                               (_vmg_sx2, _vmg_sy2), max(2, 6 - _vmg_sj))
+
+                # ── Layer 3: 가장자리 페더링 ──
+                for _vmg_fi in range(3):
+                    _vmg_fr = _vmg_r - _vmg_fi * 3
+                    _vmg_fa = int((8 - _vmg_fi * 2) * _vmg_alpha)
+                    if _vmg_fr > 0 and _vmg_fa > 0:
+                        pygame.draw.circle(_vmg_surf, (40, 160, 70, _vmg_fa),
+                                           (_vmg_cx, _vmg_cy), _vmg_fr, 2)
+
+                # ── Layer 4: 중앙 독기 심볼 (맥동하는 독방울) ──
+                _vmg_sym_a = int(25 * _vmg_alpha * (0.6 + 0.4 * math.sin(_vmg_t * 2.0)))
+                if _vmg_sym_a > 3:
+                    _vmg_dp = []
+                    for _vmg_di in range(12):
+                        _vmg_da = _vmg_di / 12.0 * math.tau
+                        _vmg_dr = 8 + 4 * math.sin(_vmg_da * 2 - math.pi / 2)
+                        _vmg_dp.append((_vmg_cx + int(math.cos(_vmg_da) * _vmg_dr),
+                                        _vmg_cy + int(math.sin(_vmg_da) * _vmg_dr) - 2))
+                    if len(_vmg_dp) >= 3:
+                        pygame.draw.polygon(_vmg_surf, (100, 255, 130, _vmg_sym_a), _vmg_dp, 1)
+
                 SCREEN.blit(_vmg_surf, (0, 0))
     except Exception:
         pass

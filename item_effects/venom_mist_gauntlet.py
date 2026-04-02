@@ -200,6 +200,20 @@ def get_mist_particles() -> list:
     return _mist_particles
 
 
+def get_mist_timer_ratio() -> float:
+    """독안개 잔여 시간 비율 (1.0=방금 시작, 0.0=끝남) — 애니메이션 페이즈용"""
+    if not _mist_active or _mist_timer <= 0:
+        return 0.0
+    return _mist_timer / _mist_duration_frames
+
+
+def get_mist_elapsed_frames() -> int:
+    """독안개 경과 프레임 반환 — sin/cos 애니메이션 시드용"""
+    if not _mist_active:
+        return 0
+    return _mist_duration_frames - _mist_timer
+
+
 def reset_all() -> None:
     """게임 리셋 시 모든 상태 초기화"""
     global _active, _mist_active, _mist_timer, _gauge_drain_accumulator
@@ -215,47 +229,124 @@ def reset_all() -> None:
 
 # ─── 파티클 내부 함수 ───
 
-def _spawn_initial_particles():
-    """독안개 생성 시 초기 파티클 배치"""
-    global _mist_particles
-    for _ in range(25):
-        angle = random.uniform(0, math.tau)
+def _make_fog_puff(layer: str = "mid") -> dict:
+    """안개 퍼프 파티클 생성. layer: 'deep' | 'mid' | 'wisp'"""
+    angle = random.uniform(0, math.tau)
+
+    if layer == "deep":
+        # 깊은 층: 큰 덩어리, 느리게 소용돌이
+        dist = random.uniform(0, _mist_radius * 0.5)
+        size = random.randint(18, 35)
+        alpha = random.randint(30, 55)
+        life = random.randint(80, 140)
+        speed = random.uniform(0.08, 0.2)
+        drift_phase = random.uniform(0, math.tau)
+    elif layer == "wisp":
+        # 가장자리 갈래: 얇고 빠르게 흩어지는 줄기
+        dist = random.uniform(_mist_radius * 0.5, _mist_radius * 1.05)
+        size = random.randint(6, 14)
+        alpha = random.randint(25, 60)
+        life = random.randint(30, 70)
+        speed = random.uniform(0.3, 0.7)
+        drift_phase = random.uniform(0, math.tau)
+    else:  # mid
+        # 중간 층: 표준 안개 구름
         dist = random.uniform(0, _mist_radius * 0.8)
-        _mist_particles.append({
-            'x': _mist_x + math.cos(angle) * dist,
-            'y': _mist_y + math.sin(angle) * dist,
-            'vx': random.uniform(-0.3, 0.3),
-            'vy': random.uniform(-0.3, 0.3),
-            'size': random.randint(3, 8),
-            'alpha': random.randint(80, 160),
-            'life': random.randint(30, 90),
-        })
+        size = random.randint(10, 22)
+        alpha = random.randint(35, 70)
+        life = random.randint(50, 100)
+        speed = random.uniform(0.12, 0.35)
+        drift_phase = random.uniform(0, math.tau)
+
+    vx = math.cos(angle) * speed
+    vy = math.sin(angle) * speed
+    return {
+        'x': _mist_x + math.cos(angle) * dist,
+        'y': _mist_y + math.sin(angle) * dist,
+        'vx': vx, 'vy': vy,
+        'size': size,
+        'base_alpha': alpha,
+        'alpha': alpha,
+        'life': life,
+        'max_life': life,
+        'layer': layer,
+        'drift_phase': drift_phase,  # 개별 소용돌이 위상
+        'grow': random.uniform(0.98, 1.02),  # 크기 변화율
+    }
+
+
+def _spawn_initial_particles():
+    """독안개 생성 시 초기 파티클 배치 — 3계층 안개"""
+    global _mist_particles
+    # deep 층: 8개 — 코어를 채우는 두꺼운 안개
+    for _ in range(8):
+        _mist_particles.append(_make_fog_puff("deep"))
+    # mid 층: 14개 — 부드러운 볼륨감
+    for _ in range(14):
+        _mist_particles.append(_make_fog_puff("mid"))
+    # wisp 층: 8개 — 가장자리 실타래
+    for _ in range(8):
+        _mist_particles.append(_make_fog_puff("wisp"))
 
 
 def _update_particles():
-    """파티클 위치/수명 업데이트 + 새 파티클 추가"""
+    """파티클 위치/수명 업데이트 + 소용돌이 드리프트 + 새 파티클 보충"""
     global _mist_particles
+
+    elapsed = _mist_duration_frames - _mist_timer
+    t = elapsed * 0.02  # 느린 시간 흐름
 
     alive = []
     for p in _mist_particles:
+        # 소용돌이 드리프트 (중심 주위로 천천히 회전)
+        dx = p['x'] - _mist_x
+        dy = p['y'] - _mist_y
+        dist = math.sqrt(dx * dx + dy * dy)
+        swirl_strength = 0.008 if p['layer'] == 'deep' else 0.015
+        if dist > 1:
+            # 접선 방향 + 약간 바깥 확산
+            tx = -dy / dist * swirl_strength
+            ty = dx / dist * swirl_strength
+            p['vx'] = p['vx'] * 0.92 + tx + random.uniform(-0.02, 0.02)
+            p['vy'] = p['vy'] * 0.92 + ty + random.uniform(-0.02, 0.02)
+
         p['x'] += p['vx']
         p['y'] += p['vy']
+
+        # 크기 맥동
+        p['size'] = max(3, p['size'] * p['grow'])
+        if p['size'] > 40:
+            p['grow'] = min(p['grow'], 0.99)
+        elif p['size'] < 6 and p['layer'] != 'wisp':
+            p['grow'] = max(p['grow'], 1.01)
+
+        # 수명 기반 알파 — 부드러운 페이드인/아웃
         p['life'] -= 1
-        p['alpha'] = max(0, p['alpha'] - 2)
+        life_ratio = p['life'] / max(1, p['max_life'])
+        # ease: 처음 20% 페이드인, 마지막 30% 페이드아웃
+        if life_ratio > 0.8:
+            fade = (1.0 - life_ratio) / 0.2
+        elif life_ratio < 0.3:
+            fade = life_ratio / 0.3
+        else:
+            fade = 1.0
+        p['alpha'] = int(p['base_alpha'] * fade)
+
         if p['life'] > 0 and p['alpha'] > 0:
             alive.append(p)
+
     _mist_particles = alive
 
-    # 새 파티클 추가 (매 프레임 1~2개)
-    for _ in range(random.randint(1, 2)):
-        angle = random.uniform(0, math.tau)
-        dist = random.uniform(0, _mist_radius * 0.9)
-        _mist_particles.append({
-            'x': _mist_x + math.cos(angle) * dist,
-            'y': _mist_y + math.sin(angle) * dist,
-            'vx': random.uniform(-0.4, 0.4),
-            'vy': random.uniform(-0.4, 0.4),
-            'size': random.randint(3, 7),
-            'alpha': random.randint(60, 140),
-            'life': random.randint(20, 60),
-        })
+    # 파티클 보충 — 안개가 자연스럽게 유지되도록
+    deep_count = sum(1 for p in _mist_particles if p['layer'] == 'deep')
+    mid_count = sum(1 for p in _mist_particles if p['layer'] == 'mid')
+    wisp_count = sum(1 for p in _mist_particles if p['layer'] == 'wisp')
+
+    if deep_count < 6:
+        _mist_particles.append(_make_fog_puff("deep"))
+    if mid_count < 10:
+        _mist_particles.append(_make_fog_puff("mid"))
+        if random.random() < 0.5:
+            _mist_particles.append(_make_fog_puff("mid"))
+    if wisp_count < 6:
+        _mist_particles.append(_make_fog_puff("wisp"))
