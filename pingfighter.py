@@ -165835,6 +165835,10 @@ def show_character_info(background_surface=None):
         if strange_vial_active and strange_vial_speed_mult != 1.0:
             move_speed *= strange_vial_speed_mult
 
+        # 💍 현자의 반지 이동속도 감소 패널티 반영 (10~20%)
+        if items.sage_ring_obtained and sage_ring_speed_penalty_pct > 0:
+            move_speed *= (1.0 - sage_ring_speed_penalty_pct / 100.0)
+
         # 👁 오딘의 눈: 변신 상태 이동속도 페널티 반영 (-50%)
         try:
             _mgr = get_legendary_manager()
