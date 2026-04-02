@@ -109,6 +109,7 @@ class OnlineMultiplayer:
         """호스트/참가 선택. 'host', 'join', 또는 None(취소)"""
         selected = 0
         options = ["방 만들기 (호스트)", "참가하기", "뒤로"]
+        option_rects = []
 
         while self.running:
             for event in pygame.event.get():
@@ -128,6 +129,21 @@ class OnlineMultiplayer:
                             return "join"
                         else:
                             return None
+                if event.type == pygame.MOUSEMOTION:
+                    mx, my = event.pos
+                    for i, r in enumerate(option_rects):
+                        if r.collidepoint(mx, my):
+                            selected = i
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mx, my = event.pos
+                    for i, r in enumerate(option_rects):
+                        if r.collidepoint(mx, my):
+                            if i == 0:
+                                return "host"
+                            elif i == 1:
+                                return "join"
+                            else:
+                                return None
 
             self.screen.fill(BG_COLOR)
             title_font = self.get_font(36)
@@ -137,14 +153,20 @@ class OnlineMultiplayer:
             title_rect = title_surf.get_rect(center=(self.width // 2, 120))
             self.screen.blit(title_surf, title_rect)
 
+            option_rects = []
             for i, opt in enumerate(options):
-                color = HIGHLIGHT_COLOR if i == selected else TEXT_COLOR
-                surf = option_font.render(f"{'▶ ' if i == selected else '  '}{opt}", True, color)
-                rect = surf.get_rect(center=(self.width // 2, 280 + i * 60))
-                self.screen.blit(surf, rect)
+                is_sel = i == selected
+                color = HIGHLIGHT_COLOR if is_sel else TEXT_COLOR
+                btn_rect = pygame.Rect(self.width // 2 - 160, 258 + i * 60, 320, 44)
+                option_rects.append(btn_rect)
+                bg = (40, 50, 70) if is_sel else PANEL_COLOR
+                pygame.draw.rect(self.screen, bg, btn_rect, border_radius=8)
+                pygame.draw.rect(self.screen, color, btn_rect, 2 if is_sel else 1, border_radius=8)
+                surf = option_font.render(opt, True, color)
+                self.screen.blit(surf, surf.get_rect(center=btn_rect.center))
 
             hint_font = self.get_font(16)
-            hint = hint_font.render("↑↓ 선택  Enter 확인  ESC 뒤로", True, DIM_COLOR)
+            hint = hint_font.render("↑↓/마우스 선택  Enter/클릭 확인  ESC 뒤로", True, DIM_COLOR)
             self.screen.blit(hint, hint.get_rect(center=(self.width // 2, self.height - 40)))
 
             pygame.display.flip()
@@ -317,6 +339,13 @@ class OnlineMultiplayer:
         self.items_enabled = True
         focus = "character"  # "character", "stage", "items", "ready"
 
+        # 마우스 클릭 히트 영역 (draw에서 갱신)
+        self._lobby_hit = {
+            'char_left': None, 'char_right': None, 'char_box': None,
+            'stage_left': None, 'stage_right': None, 'stage_box': None,
+            'items_box': None, 'ready_btn': None,
+        }
+
         while self.running:
             # 네트워크 상태 체크
             if not self.net.online_connected and not self.net.connections:
@@ -332,7 +361,6 @@ class OnlineMultiplayer:
                 else:
                     opp_char = lobby.get('host_character')
                     self.opponent_ready = lobby.get('host_ready', False)
-                    # 클라이언트는 호스트의 스테이지/아이템 설정 반영
                     self.selected_stage_idx = max(0, lobby.get('stage', 1) - 1)
                     self.items_enabled = lobby.get('items_enabled', True)
 
@@ -356,7 +384,6 @@ class OnlineMultiplayer:
                             return None
                     elif not self.my_ready:
                         self._handle_lobby_input(event, focus)
-                        # focus 전환
                         if event.key == pygame.K_TAB:
                             if focus == "character":
                                 focus = "stage" if self.is_host else "ready"
@@ -370,10 +397,55 @@ class OnlineMultiplayer:
                         if focus == "ready" or self.my_ready:
                             self.my_ready = not self.my_ready
                             self._send_ready(self.my_ready)
-                            # 양쪽 레디 시 게임 시작 (호스트만)
                             if self.is_host and self.my_ready and self.opponent_ready:
                                 self._send_game_start()
                                 return self._build_result()
+
+                # ── 마우스 클릭 처리 ──
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mx, my = event.pos
+                    h = self._lobby_hit
+
+                    # 캐릭터 좌/우 화살표 클릭
+                    if not self.my_ready:
+                        if h['char_left'] and h['char_left'].collidepoint(mx, my):
+                            self.my_character_idx = (self.my_character_idx - 1) % len(CHARACTERS)
+                            self._send_char_select()
+                            focus = "character"
+                        elif h['char_right'] and h['char_right'].collidepoint(mx, my):
+                            self.my_character_idx = (self.my_character_idx + 1) % len(CHARACTERS)
+                            self._send_char_select()
+                            focus = "character"
+                        elif h['char_box'] and h['char_box'].collidepoint(mx, my):
+                            focus = "character"
+
+                        # 스테이지 좌/우 화살표 클릭 (호스트만)
+                        if self.is_host:
+                            if h['stage_left'] and h['stage_left'].collidepoint(mx, my):
+                                self.selected_stage_idx = (self.selected_stage_idx - 1) % len(STAGES)
+                                self._send_stage_select()
+                                focus = "stage"
+                            elif h['stage_right'] and h['stage_right'].collidepoint(mx, my):
+                                self.selected_stage_idx = (self.selected_stage_idx + 1) % len(STAGES)
+                                self._send_stage_select()
+                                focus = "stage"
+                            elif h['stage_box'] and h['stage_box'].collidepoint(mx, my):
+                                focus = "stage"
+
+                        # 아이템 토글 클릭 (호스트만)
+                        if self.is_host and h['items_box'] and h['items_box'].collidepoint(mx, my):
+                            self.items_enabled = not self.items_enabled
+                            self._send_stage_select()
+                            focus = "items"
+
+                    # 레디 버튼 클릭
+                    if h['ready_btn'] and h['ready_btn'].collidepoint(mx, my):
+                        self.my_ready = not self.my_ready
+                        self._send_ready(self.my_ready)
+                        focus = "ready"
+                        if self.is_host and self.my_ready and self.opponent_ready:
+                            self._send_game_start()
+                            return self._build_result()
 
             self._draw_lobby(focus)
             pygame.display.flip()
@@ -432,7 +504,7 @@ class OnlineMultiplayer:
 
         # 조작 힌트
         hint_font = self.get_font(14)
-        hint = hint_font.render("←→ 선택  TAB 항목이동  Enter 레디  ESC 나가기", True, DIM_COLOR)
+        hint = hint_font.render("←→/클릭 선택  TAB 항목이동  Enter/클릭 레디  ESC 나가기", True, DIM_COLOR)
         self.screen.blit(hint, hint.get_rect(center=(cx, self.height - 20)))
 
     def _draw_character_panel(self, cx, y, is_focused):
@@ -464,13 +536,18 @@ class OnlineMultiplayer:
             self.screen.blit(stat_text, stat_text.get_rect(center=(my_box.centerx, stats_y)))
             stats_y += 22
 
-        # 화살표 (선택 가능 표시)
-        if is_focused and not self.my_ready:
+        # 화살표 (항상 표시, 레디 안 했을 때)
+        self._lobby_hit['char_box'] = my_box
+        if not self.my_ready:
             arrow_font = self.get_font(28)
-            left_arrow = arrow_font.render("◀", True, HIGHLIGHT_COLOR)
-            right_arrow = arrow_font.render("▶", True, HIGHLIGHT_COLOR)
-            self.screen.blit(left_arrow, left_arrow.get_rect(midright=(my_box.left - 5, my_box.centery)))
-            self.screen.blit(right_arrow, right_arrow.get_rect(midleft=(my_box.right + 5, my_box.centery)))
+            left_arrow = arrow_font.render("◀", True, HIGHLIGHT_COLOR if is_focused else DIM_COLOR)
+            right_arrow = arrow_font.render("▶", True, HIGHLIGHT_COLOR if is_focused else DIM_COLOR)
+            la_rect = left_arrow.get_rect(midright=(my_box.left - 5, my_box.centery))
+            ra_rect = right_arrow.get_rect(midleft=(my_box.right + 5, my_box.centery))
+            self.screen.blit(left_arrow, la_rect)
+            self.screen.blit(right_arrow, ra_rect)
+            self._lobby_hit['char_left'] = la_rect.inflate(10, 20)
+            self._lobby_hit['char_right'] = ra_rect.inflate(10, 20)
 
         # VS
         vs_font = self.get_font(36)
@@ -526,12 +603,17 @@ class OnlineMultiplayer:
         stage_text = stage_font.render(stage["name"], True, stage["color"])
         self.screen.blit(stage_text, stage_text.get_rect(center=stage_box.center))
 
-        if is_focused and self.is_host and not self.my_ready:
+        self._lobby_hit['stage_box'] = stage_box
+        if self.is_host and not self.my_ready:
             arrow_font = self.get_font(24)
-            left = arrow_font.render("◀", True, HIGHLIGHT_COLOR)
-            right = arrow_font.render("▶", True, HIGHLIGHT_COLOR)
-            self.screen.blit(left, left.get_rect(midright=(stage_box.left - 8, stage_box.centery)))
-            self.screen.blit(right, right.get_rect(midleft=(stage_box.right + 8, stage_box.centery)))
+            left = arrow_font.render("◀", True, HIGHLIGHT_COLOR if is_focused else DIM_COLOR)
+            right = arrow_font.render("▶", True, HIGHLIGHT_COLOR if is_focused else DIM_COLOR)
+            sl_rect = left.get_rect(midright=(stage_box.left - 8, stage_box.centery))
+            sr_rect = right.get_rect(midleft=(stage_box.right + 8, stage_box.centery))
+            self.screen.blit(left, sl_rect)
+            self.screen.blit(right, sr_rect)
+            self._lobby_hit['stage_left'] = sl_rect.inflate(10, 20)
+            self._lobby_hit['stage_right'] = sr_rect.inflate(10, 20)
 
         if not self.is_host:
             host_label = self.get_font(12).render("(호스트가 선택)", True, DIM_COLOR)
@@ -555,6 +637,7 @@ class OnlineMultiplayer:
         else:
             text = toggle_font.render("노아이템전", True, (255, 100, 100))
         self.screen.blit(text, text.get_rect(center=toggle_box.center))
+        self._lobby_hit['items_box'] = toggle_box
 
         if not self.is_host:
             host_label = self.get_font(12).render("(호스트가 선택)", True, DIM_COLOR)
@@ -575,6 +658,7 @@ class OnlineMultiplayer:
             text = btn_font.render("준비", True, color)
 
         self.screen.blit(text, text.get_rect(center=btn_rect.center))
+        self._lobby_hit['ready_btn'] = btn_rect
 
         if self.my_ready and self.opponent_ready:
             start_text = self.get_font(16).render("양쪽 레디 완료! 게임 시작...", True, READY_COLOR)
