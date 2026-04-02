@@ -109578,6 +109578,29 @@ def draw_objects():
                     draw_with_shake(_boss_final_surf, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y))
                 else:
                     draw_with_shake(rotated_boss, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y))
+            # ── 온라인 멀티: 상대방 바이퍼 제트팩 이펙트 (보스 아래 불꽃) ──
+            if (current_stage == 40 and online_multiplayer_enabled
+                    and _online_opponent_anim and _online_opponent_anim.get('state') == 'flying'):
+                try:
+                    _opp_jp_off = _online_opponent_anim.get('jetpack_offset', 0)
+                    if _opp_jp_off < -5:
+                        _jp_cx = boss_rect.centerx
+                        _jp_by = boss_rect.bottom  # 보스 스프라이트 하단
+                        _jp_t = pygame.time.get_ticks()
+                        # 간단한 제트팩 불꽃 (시안~퍼플 타원)
+                        for _fi in range(3):
+                            _f_w = max(2, 6 - _fi * 2)
+                            _f_h = max(3, 12 - _fi * 3)
+                            _f_alpha = max(60, 180 - _fi * 50)
+                            _f_ox = int(math.sin(_jp_t * 0.01 + _fi) * 3)
+                            _f_color = (0, max(0, 255 - _fi * 80), 200, _f_alpha)
+                            _flame_s = pygame.Surface((_f_w * 2, _f_h * 2), pygame.SRCALPHA)
+                            pygame.draw.ellipse(_flame_s, _f_color, (0, 0, _f_w * 2, _f_h * 2))
+                            SCREEN.blit(_flame_s, (_jp_cx - _f_w + _f_ox, _jp_by + _fi * 4),
+                                        special_flags=pygame.BLEND_ADD)
+                except Exception:
+                    pass
+
             # Stage 7 초인 인트로(0.6초) 동안: 양팔 벌린 포효 오버레이 + 매서운 표정
             try:
                 if current_stage == 7 and stage7_super_intro_until_ms > pygame.time.get_ticks():
@@ -141015,11 +141038,12 @@ def choose_server(show_text=True):
     elif current_stage == 6:
         is_player_serve = True
     elif current_stage == 40:
-        # 온라인 멀티: 교대 서브 (호스트만 결정, 클라이언트는 호스트 볼 위치 따름)
+        # 온라인 멀티: 교대 서브 (호스트만 결정, 클라이언트는 프레임 데이터로 동기화)
         if online_is_host:
             is_player_serve = random.choice([True, False])
         else:
-            # 클라이언트는 항상 player serve (로컬 서브는 무시, 호스트 볼 위치로 덮어씀)
+            # 클라이언트: 호스트의 frame_data에서 서브 상태를 동기화받음
+            # 초기값은 True로 설정 (호스트 데이터 수신 전까지 임시)
             is_player_serve = True
     else:
         is_player_serve = random.choice([True, False])
@@ -152005,10 +152029,19 @@ def _handle_boss_online_sync():
     elif BOSS.x > WIDTH - BOSS.width:
         BOSS.x = WIDTH - BOSS.width
 
+    # ── 바이퍼 제트팩 오프셋 적용 (상대방이 체공 중일 때 BOSS.y 변경) ──
+    if _online_opponent_anim and _online_opponent_anim.get('state') == 'flying':
+        _opp_jp_offset = _online_opponent_anim.get('jetpack_offset', 0)
+        # 상대방의 제트팩 오프셋(음수=위로)을 BOSS에 적용
+        # 상대방이 위로 올라갈수록(offset 음수) → BOSS는 위쪽으로 이동 (Y 감소)
+        BOSS.y = BOSS_Y + int(_opp_jp_offset)  # _opp_jp_offset은 음수
+    else:
+        BOSS.y = BOSS_Y  # 체공이 아닐 때는 기본 위치
+
     # ── 온라인 서브 처리 (handle_boss() 안의 서브 로직을 대체) ──
     if is_waiting_for_serve and not ball_spawn_animation_active:
-        if is_player_serve:
-            # 내(로컬 플레이어) 서브: space/enter로 아래에서 위로 발사
+        if is_player_serve and online_is_host:
+            # 호스트 본인 서브: space/enter로 아래에서 위로 발사
             keys = pygame.key.get_pressed()
             if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
                 try:
@@ -152023,10 +152056,19 @@ def _handle_boss_online_sync():
                     print(f"[Online Serve] 플레이어 서브 에러: {e}")
             else:
                 boss_fake_during_player_serve = True
+        elif is_player_serve and not online_is_host:
+            # 클라이언트 본인 서브: 입력은 _online_send_player_position()에서 호스트로 전송
+            # 호스트가 처리한 공 위치를 _online_client_apply_state()에서 수신
+            boss_fake_during_player_serve = True  # 서브 대기 중 보스 움직임 방지
         elif online_is_host:
-            # 상대(보스 위치) 서브: 호스트에서 자동 서브 (1.5초 후)
+            # 상대(클라이언트) 서브: 클라이언트가 space/enter를 누르면 서브
+            _client_serve = False
+            remote = _online_net_manager.online_remote_input
+            if remote is not None and remote.get('serve', False):
+                _client_serve = True
+            # 클라이언트 서브 입력이 없으면 3초 후 자동 서브 (타임아웃 안전장치)
             time_now = pygame.time.get_ticks()
-            if time_now - waiting_start_time >= 1500:
+            if _client_serve or (time_now - waiting_start_time >= 3000):
                 try:
                     serve_result = physics_manager.serve_ball(False, current_stage, ai_mode)
                     apply_serve_result(serve_result)
@@ -170590,6 +170632,7 @@ def _online_get_my_anim_state():
             _jp_offset = globals().get('_viper_jetpack_offset_y', 0)
             if _jp_active or _jp_offset < -5:
                 anim['state'] = 'flying'
+                anim['jetpack_offset'] = _jp_offset  # 제트팩 높이 오프셋 전송
             elif globals().get('_viper_wall_dive_active', False):
                 anim['state'] = 'wall_dive'
                 anim['phase'] = globals().get('_viper_wall_dive_phase', 0)
@@ -170624,8 +170667,8 @@ def _online_send_game_state():
         'sounds': _online_sound_queue[:],
         'effects': [],
         'game_over': None,
-        'waiting_serve': False,
-        'player_serve': False,
+        'waiting_serve': is_waiting_for_serve,
+        'player_serve': is_player_serve,
         'round_wins': round_wins,
         'round_losses': round_losses,
         'p1_stunned': False,
@@ -170657,9 +170700,16 @@ def _online_send_player_position():
     if _online_net_manager is None or not _online_net_manager.connections:
         return
 
+    # 서브 입력 감지: 클라이언트가 서브 차례일 때 space/enter 입력을 호스트에 전달
+    _serve_input = False
+    if is_waiting_for_serve and is_player_serve:
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
+            _serve_input = True
+
     _online_net_manager.send_online_packet(
         OnlinePacketType.GAME_INPUT,
-        {'x': PLAYER.x, 'anim': _online_get_my_anim_state()}
+        {'x': PLAYER.x, 'anim': _online_get_my_anim_state(), 'serve': _serve_input}
     )
 
 
@@ -170670,6 +170720,7 @@ def _online_client_apply_state():
     - BOSS 위치 → _handle_boss_online_sync()에서 이미 처리
     """
     global round_wins, round_losses, _online_opponent_anim
+    global is_waiting_for_serve, is_player_serve
 
     if not online_multiplayer_enabled or online_is_host:
         return
@@ -170685,13 +170736,25 @@ def _online_client_apply_state():
     if p1_anim:
         _online_opponent_anim = p1_anim
 
-    # 공 위치 동기화 (호스트 권위)
+    # 공 위치 동기화 (호스트 권위) - Y축 반전!
+    # 호스트의 아래(PLAYER 근처) = 클라이언트의 위(BOSS 근처)
     ball = frame.get('ball', None)
     if ball and len(ball) >= 4:
         BALL.x = int(ball[0])
-        BALL.y = int(ball[1])
+        BALL.y = HEIGHT - int(ball[1]) - BALL.height  # Y축 반전
         ball_vel[0] = ball[2]
-        ball_vel[1] = ball[3]
+        ball_vel[1] = -ball[3]  # Y 속도도 반전
+
+    # 서브 상태 동기화 (시점 반전!)
+    # 호스트의 player_serve=True(호스트 서브) → 클라이언트 입장에서는 상대방 서브
+    host_waiting = frame.get('waiting_serve', False)
+    host_player_serve = frame.get('player_serve', False)
+    if host_waiting:
+        is_waiting_for_serve = True
+        is_player_serve = not host_player_serve  # 시점 반전!
+    elif is_waiting_for_serve and not host_waiting:
+        # 호스트에서 서브가 완료됨 → 클라이언트도 서브 대기 해제
+        is_waiting_for_serve = False
 
     # 점수 동기화 (시점 반전!)
     # 호스트의 round_wins(P1 득점) = 내(P2) 입장에서 round_losses
