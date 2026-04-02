@@ -26434,6 +26434,7 @@ PASSIVE_OPTION_RANGES = {
     ],
     "venom_mist_gauntlet": [
         {"label": "발동확률", "min": 30, "max": 50, "unit": "%", "prefix": "", "key": "mist_trigger_chance_pct"},
+        {"label": "독안개 지속시간", "min": 2, "max": 5, "unit": "초", "prefix": "", "key": "mist_duration_sec"},
     ],
     "sensor": [
         {"label": "자동대쉬 쿨타임", "min": 13, "max": 20, "unit": "초", "prefix": "", "key": "sensor_cooldown_sec", "reverse": True},
@@ -27239,6 +27240,13 @@ def apply_roll_bonuses_from_equipped():
                     set_trigger_chance(val)
                 except Exception:
                     pass
+            dur = _get_roll_value(item, "mist_duration_sec")
+            if dur is not None:
+                try:
+                    from item_effects.venom_mist_gauntlet import set_mist_duration_sec
+                    set_mist_duration_sec(dur)
+                except Exception:
+                    pass
 
     # 스택형 보너스들 한 번에 적용
     globals()["fuel_pouch_bonus"] = fuel_pouch_total_bonus
@@ -27458,6 +27466,13 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
             try:
                 from item_effects.venom_mist_gauntlet import set_trigger_chance
                 set_trigger_chance(val)
+            except Exception:
+                pass
+        dur = _get_roll_value(item, "mist_duration_sec")
+        if dur is not None:
+            try:
+                from item_effects.venom_mist_gauntlet import set_mist_duration_sec
+                set_mist_duration_sec(dur)
             except Exception:
                 pass
 
@@ -136865,7 +136880,9 @@ def draw_field():
         # 스테이지 진입 시 동적 배경으로 전환
         if current_stage > 0 and current_stage < 50:
             pillar_renderer.set_type('dynamic')
-            pillar_renderer.set_stage(current_stage)
+            # 온라인 멀티(stage 40): 필러가 없으므로 스테이지 1 필러 사용
+            _pillar_stage = 1 if current_stage == 40 else current_stage
+            pillar_renderer.set_stage(_pillar_stage)
         else:
             pillar_renderer.set_type('artwork')
         # 스테이지 1: 나비 흡수 이벤트용 플레이어 위치 전달 (update 전에 호출해야 함)
@@ -170435,6 +170452,10 @@ def start_online_multiplayer():
         my_char = result['p2_character']
         online_p2_character = result['p1_character']
         selected_character_type = char_map.get(my_char, "smasher")
+
+    # 필러 UI 활성화 (게이지 구슬, 아이템 슬롯, 대쉬 토큰 표시에 필요)
+    global _pillar_ui_enabled
+    _pillar_ui_enabled = True
 
     # 양쪽 모두 main(40) 실행 → 본게임 엔진 그대로 렌더링
     main(STAGE_MULTIPLAYER)

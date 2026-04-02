@@ -18,7 +18,7 @@ _mist_timer = 0                   # 독안개 남은 프레임 (0이면 비활�
 _mist_x = 0.0                    # 독안개 중심 X
 _mist_y = 0.0                    # 독안개 중심 Y
 _mist_radius = 120               # 독안개 반경 (px)
-_mist_duration_frames = 300       # 독안개 지속시간 (5초 = 300프레임 @60fps)
+_mist_duration_frames = 180       # 독안개 지속시간 기본 3초 (롤옵션 2~5초)
 _trigger_chance = 0.40            # 발동 확률 기본값 (40%) — 롤옵션 30~50%
 _boss_slow_amount = 0.50          # 보스 감속률 50%
 _gauge_drain_per_sec = 50         # 1초당 보스 게이지 감소량
@@ -43,13 +43,14 @@ def activate_venom_mist_gauntlet() -> None:
 def deactivate_venom_mist_gauntlet() -> None:
     """아이템 비활성화 (장착 해제 시)"""
     global _active, _mist_active, _mist_timer, _gauge_drain_accumulator
-    global _mist_particles, _enhancement_bonus_pct
+    global _mist_particles, _enhancement_bonus_pct, _mist_duration_frames
     _active = False
     _mist_active = False
     _mist_timer = 0
     _gauge_drain_accumulator = 0
     _mist_particles.clear()
     _enhancement_bonus_pct = 0
+    _mist_duration_frames = 180
 
 
 def is_venom_mist_active() -> bool:
@@ -71,6 +72,17 @@ def set_trigger_chance(chance_pct: float) -> None:
 def get_trigger_chance() -> float:
     """현재 발동 확률 반환 (0.0~1.0)"""
     return _trigger_chance
+
+
+def set_mist_duration_sec(sec: float) -> None:
+    """독안개 지속시간 설정 (롤옵션 적용용, 2~5초)"""
+    global _mist_duration_frames
+    _mist_duration_frames = int(max(120, min(300, sec * 60)))
+
+
+def get_mist_duration_sec() -> float:
+    """현재 독안개 지속시간(초) 반환"""
+    return _mist_duration_frames / 60.0
 
 
 def set_enhancement_bonus(pct: float) -> None:
@@ -216,7 +228,7 @@ def get_mist_elapsed_frames() -> int:
 def reset_all() -> None:
     """게임 리셋 시 모든 상태 초기화"""
     global _active, _mist_active, _mist_timer, _gauge_drain_accumulator
-    global _mist_particles, _trigger_chance, _enhancement_bonus_pct
+    global _mist_particles, _trigger_chance, _enhancement_bonus_pct, _mist_duration_frames
     _active = False
     _mist_active = False
     _mist_timer = 0
@@ -224,6 +236,7 @@ def reset_all() -> None:
     _mist_particles.clear()
     _trigger_chance = 0.40
     _enhancement_bonus_pct = 0
+    _mist_duration_frames = 180
 
 
 # ─── 파티클 내부 함수 ───
