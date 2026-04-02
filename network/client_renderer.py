@@ -91,12 +91,17 @@ class ClientRenderer:
             # 네트워크 상태 수신
             self._receive_state()
 
-            # 연결 체크
-            if not self.net.connections or not self.net.online_connected:
+            # 연결 체크 (패킷 수신 여부 기반)
+            time_since_last = time.time() - self.last_frame_time
+            if not self.net.connections:
                 self.disconnect_timer += dt
-                if self.disconnect_timer > 5.0:
+                if self.disconnect_timer > 10.0:
                     self._show_disconnect()
                     return
+            elif time_since_last > 10.0:
+                # 10초간 프레임 수신 없음
+                self._show_disconnect()
+                return
             else:
                 self.disconnect_timer = 0
 

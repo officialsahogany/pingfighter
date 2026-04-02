@@ -116,9 +116,10 @@ class NetworkConnection:
             self.stats['packets_sent'] += 1
             self.stats['bytes_sent'] += len(data)
             return True
-        except Exception as e:
-            print(f"패킷 전송 실패: {e}")
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, OSError):
             self.connected = False
+        except Exception as e:
+            print(f"패킷 전송 에러: {e}")
             return False
             
     def receive_packet(self) -> Optional[NetworkPacket]:
@@ -172,18 +173,23 @@ class NetworkConnection:
                 return None
             self.received_sequences.add(packet.sequence)
             
-            # 오래된 시퀀스 제거
-            if len(self.received_sequences) > 1000:
-                min_seq = min(self.received_sequences)
-                self.received_sequences = {s for s in self.received_sequences if s > min_seq - 100}
+            # 오래된 시퀀스 제거 (60Hz × 2방향 = 초당 ~120패킷)
+            if len(self.received_sequences) > 5000:
+                max_seq = max(self.received_sequences)
+                self.received_sequences = {s for s in self.received_sequences if s > max_seq - 3000}
                 
             return packet
             
         except socket.timeout:
             return None
-        except Exception as e:
-            print(f"패킷 수신 실패: {e}")
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, OSError):
+            # 실제 연결 끊김
             self.connected = False
+            return None
+        except Exception as e:
+            # 파싱 에러 등은 연결을 유지하고 버퍼만 리셋
+            print(f"패킷 수신 에러 (연결 유지): {e}")
+            self.recv_buffer = b''  # 손상된 버퍼 리셋
             return None
             
     def close(self):
@@ -254,7 +260,7 @@ class NetworkManager:
         self.packet_handlers[PacketType.GAME_STATE] = self.handle_game_state
         self.packet_handlers[PacketType.INPUT] = self.handle_input
         self.packet_handlers[PacketType.SYNC] = self.handle_sync
-        self.packet_handlers[PacketType.PING] = self.handle_ping
+        self.packet_handlers[PacketType.PING] = self.handle_ping_or_pong
         self.packet_handlers[PacketType.SCORE_UPDATE] = self.handle_score_update
         
     def start_host(self, port: int = 12345) -> bool:
@@ -372,19 +378,24 @@ class NetworkManager:
                 for connection in self.connections[:]:
                     if not connection.connected:
                         self.connections.remove(connection)
+                        self.online_connected = False
                         continue
-                        
-                    # 패킷 수신
-                    packet = connection.receive_packet()
-                    if packet:
+
+                    # 패킷 수신 (한 루프에 여러 개 처리)
+                    packets_this_loop = 0
+                    while packets_this_loop < 30:  # 최대 30개/루프
+                        packet = connection.receive_packet()
+                        if packet is None:
+                            break
                         self.process_packet(packet, connection)
-                        
+                        packets_this_loop += 1
+
                     # 핑 체크
-                    if time.time() - connection.last_ping > 1.0:
+                    if time.time() - connection.last_ping > 2.0:
                         self.send_ping(connection)
                         
-                # 게임 상태 동기화 (호스트만)
-                if self.mode == NetworkMode.HOST:
+                # 게임 상태 동기화 (호스트만, 온라인 대전 모드가 아닐 때만)
+                if self.mode == NetworkMode.HOST and not self.online_mode:
                     self.sync_game_state()
                     
                 time.sleep(0.001)  # 1ms 대기
@@ -568,16 +579,34 @@ class NetworkManager:
             self.send_handshake(connection)
             
     def send_ping(self, connection: NetworkConnection):
-        """핑 전송"""
-        data = {'timestamp': time.time()}
-        self.send_packet(PacketType.PING, data, connection)
+        """핑 전송 (온라인 모드에서는 자체 핑 사용)"""
+        if self.online_mode:
+            # 온라인 모드: 자체 핑 시스템 사용 (라운드트립)
+            self.send_online_packet(OnlinePacketType.ONLINE_PING,
+                                    {'t': time.time()}, connection)
+        else:
+            data = {'timestamp': time.time()}
+            self.send_packet(PacketType.PING, data, connection)
         connection.last_ping = time.time()
-        
+
     def handle_ping(self, packet: NetworkPacket, connection: NetworkConnection):
-        """핑 처리"""
-        # 레이턴시 계산
-        latency = time.time() - packet.data['timestamp']
-        connection.latency = latency * 1000  # ms로 변환
+        """핑 처리 (PONG 응답)"""
+        # PONG 응답 전송 (상대방의 타임스탬프를 그대로 돌려보냄)
+        self.send_packet(PacketType.PING, {
+            'timestamp': packet.data.get('timestamp', 0),
+            'is_pong': True
+        }, connection)
+
+    def handle_ping_or_pong(self, packet: NetworkPacket, connection: NetworkConnection):
+        """PING/PONG 패킷 분기 처리"""
+        if packet.data.get('is_pong'):
+            # PONG 응답 → 레이턴시 계산
+            sent_time = packet.data.get('timestamp', 0)
+            if sent_time > 0:
+                connection.latency = (time.time() - sent_time) * 1000
+        else:
+            # PING 요청 → PONG 응답 전송
+            self.handle_ping(packet, connection)
         
     def sync_game_state(self):
         """게임 상태 동기화 (호스트)"""
