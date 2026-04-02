@@ -73879,6 +73879,36 @@ def handle_player(keys):
             except Exception:
                 pass
 
+        # 검기-테트로미노 충돌 판정 (스테이지7, 페이드아웃 중에는 판정 없음)
+        if not _viper_blade_rush_fadeout and current_stage == 7 and stage7_tetrominoes:
+            try:
+                _br_half_w3 = _viper_blade_rush_width // 2
+                _br_blade_rect3 = pygame.Rect(
+                    int(_viper_blade_rush_x - _br_half_w3),
+                    int(_viper_blade_rush_y - 55),
+                    _viper_blade_rush_width,
+                    55
+                )
+                for mino in stage7_tetrominoes[:]:
+                    if mino.get("state") not in ("assembling", "falling", "installed"):
+                        continue
+                    _mino_hit = False
+                    for cell in mino.get("cells", []):
+                        if cell.get("evaporated"):
+                            continue
+                        cell_rect = cell.get("rect")
+                        if cell_rect and _br_blade_rect3.colliderect(cell_rect):
+                            _mino_hit = True
+                            break
+                    if _mino_hit:
+                        destroy_stage7_tetromino(
+                            mino,
+                            by_player=True,
+                            by_dash=True,
+                        )
+            except Exception:
+                pass
+
         # 목표 도달 시 페이드아웃 시작 (즉시 소멸하지 않음)
         if _viper_blade_rush_y <= _viper_blade_rush_target_y and not _viper_blade_rush_fadeout:
             _viper_blade_rush_fadeout = True
@@ -80058,6 +80088,31 @@ def save_game_progress(stage_number: int) -> bool:
         except Exception as viper_err:
             print(f"[저장] 바이퍼 스킬 해금 상태 저장 실패: {viper_err}")
 
+        # 초급/중급인장 임시 호위무사 활성 상태 저장
+        try:
+            from item_effects.minor_hero_seal import get_minor_seal_state
+            _ms = get_minor_seal_state()
+            if _ms.active:
+                save_data["minor_seal_state"] = {
+                    "hero_id": _ms.hero_id,
+                    "hero_name": _ms.hero_name,
+                    "stage_snapshot": _ms._stage_snapshot,
+                }
+        except Exception:
+            pass
+        try:
+            from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+            _is = get_intermediate_seal_state()
+            if _is.active:
+                save_data["intermediate_seal_state"] = {
+                    "hero_id": _is.hero_id,
+                    "hero_name": _is.hero_name,
+                    "stage_snapshot": _is._stage_snapshot,
+                    "stages_remaining": _is._stages_remaining,
+                }
+        except Exception:
+            pass
+
         # 튜토리얼 완료 상태 저장
         try:
             save_data["tutorial_completed"] = _ingame_tutorial_completed
@@ -80425,6 +80480,34 @@ def apply_loaded_progress(save_data: dict) -> bool:
                 # print(f"[로드] 노후화 상태: reload_counts={soldier_controller.reload_counts}, degraded={soldier_controller.degraded}")
         except Exception as weapon_err:
             print(f"[로드] 코만도 화기류 복원 실패: {weapon_err}")
+
+        # 초급/중급인장 임시 호위무사 활성 상태 복원
+        try:
+            minor_seal_data = save_data.get("minor_seal_state")
+            if minor_seal_data:
+                from item_effects.minor_hero_seal import get_minor_seal_state
+                _ms = get_minor_seal_state()
+                _ms.active = True
+                _ms.hero_id = minor_seal_data.get("hero_id")
+                _ms.hero_name = minor_seal_data.get("hero_name")
+                _ms._stage_snapshot = minor_seal_data.get("stage_snapshot")
+                print(f"[로드] 초급인장 복원: {_ms.hero_name} (스테이지 {_ms._stage_snapshot})")
+        except Exception as ms_err:
+            print(f"[로드] 초급인장 복원 실패: {ms_err}")
+
+        try:
+            inter_seal_data = save_data.get("intermediate_seal_state")
+            if inter_seal_data:
+                from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+                _is = get_intermediate_seal_state()
+                _is.active = True
+                _is.hero_id = inter_seal_data.get("hero_id")
+                _is.hero_name = inter_seal_data.get("hero_name")
+                _is._stage_snapshot = inter_seal_data.get("stage_snapshot")
+                _is._stages_remaining = inter_seal_data.get("stages_remaining", 0)
+                print(f"[로드] 중급인장 복원: {_is.hero_name} (남은 {_is._stages_remaining}스테이지)")
+        except Exception as is_err:
+            print(f"[로드] 중급인장 복원 실패: {is_err}")
 
         # print(f"[로드] 게임 진행 상황 적용 완료")
         return True
