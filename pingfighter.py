@@ -2634,7 +2634,6 @@ from item_effects.gold_bar import (
     get_gold_bar_instance,
     get_gold_bar_speed_multiplier,
     is_gold_bar_active,
-    is_gold_bar_equipped,
     activate_gold_bar,
     deactivate_gold_bar,
     equip_gold_bar,
