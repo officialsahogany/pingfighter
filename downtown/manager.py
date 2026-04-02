@@ -483,6 +483,15 @@ class DowntownManager:
         while self.is_running:
             dt = self.clock.tick(60) / 1000.0
 
+            # SCREEN 동기화: 디스플레이 모드 전환(F9/F10) 시 SCREEN이 새로 생성되므로
+            # 매 프레임 전역 SCREEN과 동기화하여 렌더링 대상이 항상 최신 Surface를 가리키도록 함
+            try:
+                import pingfighter as _pf_sync
+                if _pf_sync.SCREEN is not self.screen:
+                    self.screen = _pf_sync.SCREEN
+            except Exception:
+                pass
+
             # 이벤트 처리
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -498,6 +507,27 @@ class DowntownManager:
                     # save_and_exit 플래그를 설정하여 다음 스테이지 진행 방지
                     self.result_data['save_and_exit'] = True
                     return self.result_data
+
+                # F9/F10: 디스플레이 모드 전환 (광장에서도 동작)
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_F9:
+                    try:
+                        import pingfighter as _pf_dm
+                        if _pf_dm.get_display_mode() != "fullscreen":
+                            _pf_dm.switch_display_mode("fullscreen")
+                            self.screen = _pf_dm.SCREEN
+                    except Exception:
+                        pass
+                    continue
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_F10:
+                    try:
+                        import pingfighter as _pf_dm
+                        if _pf_dm.get_display_mode() != "windowed":
+                            _pf_dm.switch_display_mode("windowed")
+                            self.screen = _pf_dm.SCREEN
+                    except Exception:
+                        pass
+                    continue
+
                 self._handle_event(event)
 
             # 업데이트
