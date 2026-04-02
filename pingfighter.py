@@ -57949,6 +57949,9 @@ def go_to_next_round():
     # 공 정지
     ball_vel = [0, 0]
     physics_manager.reset_ball(is_player_serve)
+    if current_stage == 40:
+        _dbg_role = "HOST" if online_is_host else "CLIENT"
+        print(f"[Online Serve DEBUG] {_dbg_role}: reset_ball(is_player_serve={is_player_serve}) → BALL=({BALL.x},{BALL.y})")
     serve_power_smash_lockout = 0  # 라운드 시작 시 파워스매싱 서브 잠금 해제
 
     # 무승부 판정 시스템 변수 초기화
@@ -141041,10 +141044,12 @@ def choose_server(show_text=True):
         # 온라인 멀티: 교대 서브 (호스트만 결정, 클라이언트는 프레임 데이터로 동기화)
         if online_is_host:
             is_player_serve = random.choice([True, False])
+            print(f"[Online Serve DEBUG] HOST: go_to_next_round → is_player_serve={is_player_serve}")
         else:
             # 클라이언트: 호스트의 frame_data에서 서브 상태를 동기화받음
             # 초기값은 True로 설정 (호스트 데이터 수신 전까지 임시)
             is_player_serve = True
+            print(f"[Online Serve DEBUG] CLIENT: go_to_next_round → is_player_serve={is_player_serve} (임시, 호스트 동기화 대기)")
     else:
         is_player_serve = random.choice([True, False])
     
@@ -152040,6 +152045,12 @@ def _handle_boss_online_sync():
 
     # ── 온라인 서브 처리 (handle_boss() 안의 서브 로직을 대체) ──
     if is_waiting_for_serve and not ball_spawn_animation_active:
+        _dbg_role = "HOST" if online_is_host else "CLIENT"
+        _dbg_tick = pygame.time.get_ticks()
+        _dbg_last_key = '_online_dbg_last_serve_tick'
+        if _dbg_tick - globals().get(_dbg_last_key, 0) >= 500:  # 0.5초 간격
+            globals()[_dbg_last_key] = _dbg_tick
+            print(f"[Online Serve DEBUG] {_dbg_role} | is_player_serve={is_player_serve} | is_waiting={is_waiting_for_serve} | BALL=({BALL.x},{BALL.y}) | ball_vel={ball_vel}")
         if is_player_serve and online_is_host:
             # 호스트 본인 서브: space/enter로 아래에서 위로 발사
             keys = pygame.key.get_pressed()
@@ -152052,6 +152063,7 @@ def _handle_boss_online_sync():
                     boss_fake_during_player_serve = False
                     play_serve_sound()
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+                    print(f"[Online Serve DEBUG] HOST 서브 완료! BALL=({BALL.x},{BALL.y}) vel={ball_vel}")
                 except Exception as e:
                     print(f"[Online Serve] 플레이어 서브 에러: {e}")
             else:
@@ -152066,9 +152078,12 @@ def _handle_boss_online_sync():
             remote = _online_net_manager.online_remote_input
             if remote is not None and remote.get('serve', False):
                 _client_serve = True
+                print(f"[Online Serve DEBUG] HOST: 클라이언트 서브 입력 수신!")
             # 클라이언트 서브 입력이 없으면 3초 후 자동 서브 (타임아웃 안전장치)
             time_now = pygame.time.get_ticks()
-            if _client_serve or (time_now - waiting_start_time >= 3000):
+            _elapsed = time_now - waiting_start_time
+            if _client_serve or (_elapsed >= 3000):
+                print(f"[Online Serve DEBUG] HOST: 보스(클라이언트) 서브 실행 | client_input={_client_serve} | elapsed={_elapsed}ms")
                 try:
                     serve_result = physics_manager.serve_ball(False, current_stage, ai_mode)
                     apply_serve_result(serve_result)
@@ -152076,8 +152091,12 @@ def _handle_boss_online_sync():
                     serve_completed_timer = 180
                     play_serve_sound()
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                    print(f"[Online Serve DEBUG] HOST: 보스 서브 완료! BALL=({BALL.x},{BALL.y}) vel={ball_vel}")
                 except Exception as e:
                     print(f"[Online Serve] 보스 서브 에러: {e}")
+        else:
+            # 클라이언트인데 is_player_serve=False (상대방 서브) → 호스트가 서브 처리, 공 위치는 프레임 데이터로 수신
+            print(f"[Online Serve DEBUG] CLIENT: 상대방(호스트) 서브 대기 중... BALL=({BALL.x},{BALL.y})")
 
 
 def _handle_boss_with_soap_debuff():
@@ -170688,6 +170707,13 @@ def _online_send_game_state():
     except NameError:
         pass
 
+    # 서브 상태 변경 디버그 (매 프레임은 너무 많으므로 상태 변경 시만)
+    _dbg_key = '_online_dbg_last_serve_state'
+    _dbg_cur = (is_waiting_for_serve, is_player_serve)
+    if globals().get(_dbg_key) != _dbg_cur:
+        globals()[_dbg_key] = _dbg_cur
+        print(f"[Online Serve DEBUG] HOST frame_data: waiting_serve={is_waiting_for_serve} player_serve={is_player_serve} BALL=({BALL.x},{BALL.y}) vel={ball_vel}")
+
     serialized = serialize_game_frame(frame_data)
     _online_net_manager.send_online_packet(OnlinePacketType.GAME_FRAME, serialized)
     _online_sound_queue.clear()
@@ -170706,6 +170732,7 @@ def _online_send_player_position():
         keys = pygame.key.get_pressed()
         if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
             _serve_input = True
+            print(f"[Online Serve DEBUG] CLIENT: 서브 입력 전송! is_waiting={is_waiting_for_serve} is_player_serve={is_player_serve}")
 
     _online_net_manager.send_online_packet(
         OnlinePacketType.GAME_INPUT,
@@ -170749,12 +170776,17 @@ def _online_client_apply_state():
     # 호스트의 player_serve=True(호스트 서브) → 클라이언트 입장에서는 상대방 서브
     host_waiting = frame.get('waiting_serve', False)
     host_player_serve = frame.get('player_serve', False)
+    _prev_waiting = is_waiting_for_serve
+    _prev_player_serve = is_player_serve
     if host_waiting:
         is_waiting_for_serve = True
         is_player_serve = not host_player_serve  # 시점 반전!
     elif is_waiting_for_serve and not host_waiting:
         # 호스트에서 서브가 완료됨 → 클라이언트도 서브 대기 해제
         is_waiting_for_serve = False
+    # 변경이 있을 때만 로그
+    if _prev_waiting != is_waiting_for_serve or _prev_player_serve != is_player_serve:
+        print(f"[Online Serve DEBUG] CLIENT sync: host_waiting={host_waiting} host_player_serve={host_player_serve} → is_waiting={is_waiting_for_serve} is_player_serve={is_player_serve}")
 
     # 점수 동기화 (시점 반전!)
     # 호스트의 round_wins(P1 득점) = 내(P2) 입장에서 round_losses
