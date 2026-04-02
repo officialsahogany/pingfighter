@@ -3773,6 +3773,30 @@ _viper_skill_unlocked = {
 _viper_tooltip_pause_start = 0
 _viper_tooltip_pause_accumulated = 0
 
+# 일반 일시정지(TAB/ESC 메뉴 등)로 인한 스킬 쿨타임 정지 추적
+_skill_cooldown_general_pause_start = 0
+_skill_cooldown_general_pause_depth = 0  # 중첩 호출 보호용 카운터
+
+
+def _freeze_skill_cooldowns() -> None:
+    """TAB/ESC 메뉴 등 자체 루프를 도는 일시정지 화면 진입 시 스킬 쿨타임을 정지한다."""
+    global _skill_cooldown_general_pause_start, _skill_cooldown_general_pause_depth
+    _skill_cooldown_general_pause_depth += 1
+    if _skill_cooldown_general_pause_start == 0:
+        _skill_cooldown_general_pause_start = pygame.time.get_ticks()
+
+
+def _thaw_skill_cooldowns() -> None:
+    """일시정지 화면에서 복귀할 때 정지된 시간을 누적값에 반영한다."""
+    global _skill_cooldown_general_pause_start, _skill_cooldown_general_pause_depth
+    global _viper_tooltip_pause_accumulated, _smasher_tooltip_pause_accumulated
+    _skill_cooldown_general_pause_depth = max(0, _skill_cooldown_general_pause_depth - 1)
+    if _skill_cooldown_general_pause_depth == 0 and _skill_cooldown_general_pause_start > 0:
+        paused_duration = pygame.time.get_ticks() - _skill_cooldown_general_pause_start
+        _viper_tooltip_pause_accumulated += paused_duration
+        _smasher_tooltip_pause_accumulated += paused_duration
+        _skill_cooldown_general_pause_start = 0
+
 
 def reset_viper_skill_unlocks():
     """바이퍼 스킬 해금 상태 초기화 (새 게임 시작 시)"""
@@ -3839,6 +3863,8 @@ def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
     current_pause_time = 0
     if _viper_skill_tooltip_active and _viper_tooltip_pause_start > 0:
         current_pause_time = current_time - _viper_tooltip_pause_start
+    elif _skill_cooldown_general_pause_start > 0:
+        current_pause_time = current_time - _skill_cooldown_general_pause_start
 
     pause_since_cooldown_start = (_viper_tooltip_pause_accumulated + current_pause_time) - start_pause_accumulated
 
@@ -4012,6 +4038,8 @@ def get_smasher_skill_cooldown_remaining(skill_name: str) -> float:
     current_pause_time = 0
     if _smasher_skill_tooltip_active and _smasher_tooltip_pause_start > 0:
         current_pause_time = current_time - _smasher_tooltip_pause_start
+    elif _skill_cooldown_general_pause_start > 0:
+        current_pause_time = current_time - _skill_cooldown_general_pause_start
 
     # 쿨타임 시작 이후의 일시정지 시간만 계산
     # (현재 누적 + 진행 중인 일시정지) - 쿨타임 시작 시점의 누적
@@ -132730,6 +132758,10 @@ def show_item_manager_menu():
                 if event.key == pygame.K_p:  # P키
                     global game_paused
                     game_paused = not game_paused
+                    if game_paused:
+                        _freeze_skill_cooldowns()
+                    else:
+                        _thaw_skill_cooldowns()
                     # print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 elif event.key == pygame.K_QUOTE:
@@ -149605,9 +149637,15 @@ def handle_boss_pro():
         else:
             future_x = BALL.centerx
         # 오차 추가
-        future_x += random.randint(-config["predict_error"], config["predict_error"])
+        _pro_predict_error = config["predict_error"]
+        _pro_fail_chance = config["fail_chance"]
+        # ⚡ 파워스매싱 포물선 중: 보스 집중 → 오차/실패율 감소
+        if power_smashing_parabola_active and power_smashing_combo_consumed >= 3:
+            _pro_predict_error = max(5, _pro_predict_error // 2)
+            _pro_fail_chance *= 0.5
+        future_x += random.randint(-_pro_predict_error, _pro_predict_error)
         # 실패 확률 체크
-        if random.random() < config["fail_chance"]:
+        if random.random() < _pro_fail_chance:
             boss_fail_timer = HALF_SECOND_FRAMES
     #  프로리그: 통합 설정 기반 이동 로직
     enhanced_max_speed = config["max_speed"]
@@ -149619,6 +149657,13 @@ def handle_boss_pro():
         enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
+
+    # ⚡ 파워스매싱 대응: 콤보 스택 비례 보스 반응 강화 (투기장 제외)
+    if not arena_mode_enabled and power_smashing_parabola_active and power_smashing_combo_consumed >= 2:
+        # 콤보당 +5% 속도/가속, 최대 +30% (2콤보 +10% ~ 6콤보 +30%)
+        _ps_react = 1.0 + min(power_smashing_combo_consumed * 0.05, 0.30)
+        enhanced_max_speed *= _ps_react
+        enhanced_acceleration *= _ps_react
 
     # 🏟️ 투기장 모드: 아케이드 전용 핸디캡 스킵, 직접 속도 물리 사용 (하단 영웅과 동일)
     if arena_mode_enabled:
@@ -149973,6 +150018,12 @@ def handle_boss_champion():
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
+    # ⚡ 파워스매싱 대응: 콤보 스택 비례 보스 반응 강화 (투기장 제외)
+    if not arena_mode_enabled and power_smashing_parabola_active and power_smashing_combo_consumed >= 2:
+        _ps_react = 1.0 + min(power_smashing_combo_consumed * 0.05, 0.30)
+        enhanced_max_speed *= _ps_react
+        enhanced_acceleration *= _ps_react
+
     # 상모돌리기 강제 해제 모션 중 속도 50% 감소
     if whip_deactivation_active:
         enhanced_max_speed *= 0.5  # 50% 감소 = 50%만 유지
@@ -150032,6 +150083,9 @@ def handle_boss_champion():
             future_x = game_right * 2 - future_x
         #  챔피언리그 난이도 조절 (8% 실수율, 최신 공 매커니즘 고려)
         champion_mistake_chance = 0.08  # 8% 실수율
+        # ⚡ 파워스매싱 포물선 중: 보스 집중 → 실수율 절반
+        if power_smashing_parabola_active and power_smashing_combo_consumed >= 3:
+            champion_mistake_chance *= 0.5
         if random.random() < champion_mistake_chance:
             # 8% 확률로 실수 발생 (현재 공 속도에 비례한 실수 크기)
             mistake_magnitude = min(100, max(50, current_speed * 5))  # 속도에 비례한 실수
@@ -150386,6 +150440,12 @@ def handle_boss_mythic():
         enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
+
+    # ⚡ 파워스매싱 대응: 콤보 스택 비례 보스 반응 강화 (투기장 제외)
+    if not arena_mode_enabled and power_smashing_parabola_active and power_smashing_combo_consumed >= 2:
+        _ps_react = 1.0 + min(power_smashing_combo_consumed * 0.05, 0.30)
+        enhanced_max_speed *= _ps_react
+        enhanced_acceleration *= _ps_react
 
     # 이동 속도 감소 효과 적용
     slow_multiplier = 1.0
@@ -158948,6 +159008,10 @@ def main(stage_num, new_boss_mode=False):
                 #  일시정지 토글 (P키)
                 if event.key == pygame.K_p:
                     game_paused = not game_paused
+                    if game_paused:
+                        _freeze_skill_cooldowns()
+                    else:
+                        _thaw_skill_cooldowns()
                     # print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 #  AI 모드 전환 (N키)
@@ -164248,6 +164312,7 @@ def show_pause_menu():
     """일시정지 메뉴"""
     global session_medal_earned, medal_score
     _push_stage7_ui_pause()
+    _freeze_skill_cooldowns()
     try:
         font_large = get_font(36)  # 36pt 픽셀 폰트
         font_medium = FontStyle.menu()  # 28pt 픽셀 폰트
@@ -164351,6 +164416,7 @@ def show_pause_menu():
                                 return result
     finally:
         _pop_stage7_ui_pause()
+        _thaw_skill_cooldowns()
 # 그라데이션 캐시 (성능 최적화)
 _gradient_cache = {}
 
@@ -165110,6 +165176,7 @@ def show_character_info(background_surface=None):
                            광장(번화가) 등 전투가 아닌 모드에서 스테이지 잔상이 비치는 문제를 막기 위함.
     """
     _push_stage7_ui_pause()
+    _freeze_skill_cooldowns()
     font_title = FontStyle.subtitle()  # 32pt
     font_body = FontStyle.body()  # 24pt
     font_small = FontStyle.small()  # 20pt
@@ -167500,10 +167567,12 @@ def show_character_info(background_surface=None):
                 if event.key == pygame.K_TAB:
                     on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
+                    _thaw_skill_cooldowns()
                     return
                 if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
                     on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
+                    _thaw_skill_cooldowns()
                     return
                 if event.key in (pygame.K_DOWN, pygame.K_PAGEDOWN):
                     passive_scroll_row = min(passive_scroll_row + 1, passive_scroll_max)
