@@ -114056,6 +114056,11 @@ def draw_objects():
             missile['age'] += 1
             # 플레이어와 충돌 체크 (무적 시간이 아니고 연막 안에 있지 않을 때만)
             missile_rect = pygame.Rect(missile['x'] - 3, missile['y'] - 3, 6, 6)
+            # 대쉬/하프대쉬 중 미사일 충돌 → 넉백 없이 미사일만 파괴
+            if missile_rect.colliderect(PLAYER) and (rolling_active or is_half_dash_active):
+                effects_manager.create_impact_effect(missile['x'], missile['y'], 8, is_player=False)
+                play_wall_sound()
+                continue
             collided_with_player = (
                 missile_rect.colliderect(PLAYER)
                 and current_time > player_missile_invulnerable_time
