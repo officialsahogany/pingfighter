@@ -15448,7 +15448,8 @@ def _get_random_passive_for_treasure():
         "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
         "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch",
         "bluetooth_ring", "star_detector", "foul_whistle", "bulletproof_hat", "spiked_helmet",
-        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"
+        "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
+        "venom_mist_gauntlet"
     ]
 
     if passive_pool:
@@ -106723,6 +106724,111 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
+    # 🧤 독안개장갑 — 자욱한 독안개 영역 렌더링 (Premium Volumetric Fog)
+    try:
+        from item_effects.venom_mist_gauntlet import is_mist_field_active as _vmg_is_active
+        if _vmg_is_active():
+            from item_effects.venom_mist_gauntlet import (
+                get_mist_position, get_mist_radius, get_mist_alpha,
+                get_mist_particles, get_mist_elapsed_frames,
+            )
+            _vmg_mx, _vmg_my = get_mist_position()
+            _vmg_r = get_mist_radius()
+            _vmg_alpha = get_mist_alpha()
+            _vmg_elapsed = get_mist_elapsed_frames()
+            _vmg_t = _vmg_elapsed * 0.025
+
+            if _vmg_alpha > 0:
+                _vmg_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                _vmg_cx = int(_vmg_mx)
+                _vmg_cy = int(_vmg_my)
+
+                # ── Layer 0: 방사형 그라데이션 베이스 ──
+                for _vmg_gi in range(5):
+                    _vmg_ratio = 1.0 - _vmg_gi / 5.0
+                    _vmg_gr = int(_vmg_r * (0.3 + _vmg_gi * 0.16))
+                    _vmg_breathe = 0.08 * math.sin(_vmg_t * 1.2 + _vmg_gi * 0.9)
+                    _vmg_gr = int(_vmg_gr * (1.0 + _vmg_breathe))
+                    _vmg_ga = int(22 * _vmg_ratio * _vmg_alpha)
+                    if _vmg_ga > 0 and _vmg_gr > 0:
+                        _vmg_gg = int(130 + 50 * _vmg_ratio)
+                        _vmg_gb = int(60 + 40 * (1.0 - _vmg_ratio))
+                        pygame.draw.circle(_vmg_surf, (20, _vmg_gg, _vmg_gb, _vmg_ga),
+                                           (_vmg_cx, _vmg_cy), _vmg_gr)
+
+                # ── Layer 1: 3계층 파티클 안개 ──
+                _vmg_particles = get_mist_particles()
+                _vmg_lo = {'deep': 0, 'mid': 1, 'wisp': 2}
+                _vmg_sorted = sorted(_vmg_particles,
+                                     key=lambda _p: _vmg_lo.get(_p.get('layer', 'mid'), 1))
+                for _vmg_p in _vmg_sorted:
+                    _vmg_pa = int(_vmg_p['alpha'] * _vmg_alpha)
+                    if _vmg_pa <= 0:
+                        continue
+                    _vmg_px = int(_vmg_p['x'])
+                    _vmg_py = int(_vmg_p['y'])
+                    _vmg_ps = int(_vmg_p['size'])
+                    _vmg_layer = _vmg_p.get('layer', 'mid')
+                    if _vmg_layer == 'deep':
+                        pygame.draw.circle(_vmg_surf, (25, 140, 70, int(_vmg_pa * 0.4)),
+                                           (_vmg_px, _vmg_py), _vmg_ps)
+                        pygame.draw.circle(_vmg_surf, (30, 155, 80, int(_vmg_pa * 0.7)),
+                                           (_vmg_px, _vmg_py), max(2, _vmg_ps * 2 // 3))
+                    elif _vmg_layer == 'wisp':
+                        _vmg_wdx = _vmg_px - _vmg_cx
+                        _vmg_wdy = _vmg_py - _vmg_cy
+                        _vmg_wd = math.sqrt(_vmg_wdx * _vmg_wdx + _vmg_wdy * _vmg_wdy)
+                        if _vmg_wd > 10:
+                            _vmg_sx = _vmg_cx + int(_vmg_wdx * 0.55)
+                            _vmg_sy = _vmg_cy + int(_vmg_wdy * 0.55)
+                            pygame.draw.line(_vmg_surf, (50, 170, 80, int(_vmg_pa * 0.5)),
+                                             (_vmg_sx, _vmg_sy), (_vmg_px, _vmg_py),
+                                             max(1, _vmg_ps // 4))
+                        pygame.draw.circle(_vmg_surf, (60, 190, 90, int(_vmg_pa * 0.6)),
+                                           (_vmg_px, _vmg_py), max(2, _vmg_ps // 2))
+                    else:
+                        pygame.draw.circle(_vmg_surf, (30, 150, 75, int(_vmg_pa * 0.55)),
+                                           (_vmg_px, _vmg_py), _vmg_ps)
+                        pygame.draw.circle(_vmg_surf, (45, 175, 90, int(_vmg_pa * 0.35)),
+                                           (_vmg_px, _vmg_py), max(2, _vmg_ps * 3 // 5))
+
+                # ── Layer 2: 독기 소용돌이 하이라이트 ──
+                for _vmg_si in range(3):
+                    _vmg_sa = _vmg_t * 0.8 + _vmg_si * (math.tau / 3)
+                    for _vmg_sj in range(4):
+                        _vmg_sd = _vmg_r * (0.25 + _vmg_sj * 0.18)
+                        _vmg_sangle = _vmg_sa + _vmg_sj * 0.35
+                        _vmg_sx2 = _vmg_cx + int(math.cos(_vmg_sangle) * _vmg_sd)
+                        _vmg_sy2 = _vmg_cy + int(math.sin(_vmg_sangle) * _vmg_sd)
+                        _vmg_sa2 = int((18 - _vmg_sj * 3) * _vmg_alpha)
+                        if _vmg_sa2 > 0:
+                            pygame.draw.circle(_vmg_surf, (80, 220, 120, _vmg_sa2),
+                                               (_vmg_sx2, _vmg_sy2), max(2, 6 - _vmg_sj))
+
+                # ── Layer 3: 가장자리 페더링 ──
+                for _vmg_fi in range(3):
+                    _vmg_fr = _vmg_r - _vmg_fi * 3
+                    _vmg_fa = int((8 - _vmg_fi * 2) * _vmg_alpha)
+                    if _vmg_fr > 0 and _vmg_fa > 0:
+                        pygame.draw.circle(_vmg_surf, (40, 160, 70, _vmg_fa),
+                                           (_vmg_cx, _vmg_cy), _vmg_fr, 2)
+
+                # ── Layer 4: 중앙 독기 심볼 ──
+                _vmg_sym_a = int(25 * _vmg_alpha * (0.6 + 0.4 * math.sin(_vmg_t * 2.0)))
+                if _vmg_sym_a > 3:
+                    _vmg_dp = []
+                    for _vmg_di in range(12):
+                        _vmg_da = _vmg_di / 12.0 * math.tau
+                        _vmg_dr = 8 + 4 * math.sin(_vmg_da * 2 - math.pi / 2)
+                        _vmg_dp.append((_vmg_cx + int(math.cos(_vmg_da) * _vmg_dr),
+                                        _vmg_cy + int(math.sin(_vmg_da) * _vmg_dr) - 2))
+                    if len(_vmg_dp) >= 3:
+                        pygame.draw.polygon(_vmg_surf, (100, 255, 130, _vmg_sym_a), _vmg_dp, 1)
+
+                SCREEN.blit(_vmg_surf, (0, 0))
+    except Exception:
+        pass
+
     # ⚔ 바이퍼 에어 블레이드 검기 렌더링 (Ultra Premium Crescent Blade Wave)
     if _viper_blade_rush_active:
         try:
@@ -130631,7 +130737,7 @@ def show_item_manager_menu():
     PASSIVE_SLOT_ORDER = [
         ("머리", ["bulletproof_hat", "spiked_helmet"]),
         ("상의", ["technical_vest", "bulkup", "adversity_armor", "shrapnel_armor"]),
-        ("팔", ["commando_arm", "master", "smartphone", "gold_digger"]),
+        ("팔", ["commando_arm", "master", "smartphone", "gold_digger", "venom_mist_gauntlet"]),
         ("벨트", ["gravitybelt", "speedgear", "sensor"]),
         ("무릎", ["knee_pads", "dashgear", "soul_burst"]),
         ("신발", ["speedboots", "spikeboots"]),
@@ -130831,7 +130937,8 @@ def show_item_manager_menu():
         {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
         {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")},
         {"name": "soul_burst", "type": "passive", "icon": get_item_icon("soul_burst")},
-        {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")}
+        {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")},
+        {"name": "venom_mist_gauntlet", "type": "passive", "icon": get_item_icon("venom_mist_gauntlet")}
     ]
 
     # 전설 아이템 추가
@@ -134358,6 +134465,40 @@ def get_item_icon(item_name):
             sy = gem_y + int(dy * (gem_r + 3) * s)
             pygame.draw.circle(icon_surface, (255, 255, 230), (sx, sy), max(1, int(1.2 * s)))
 
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
+    if item_name == "venom_mist_gauntlet":
+        # 독안개장갑 아이콘 - 독기가 감도는 보라+녹색 장갑
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        s = ICON_SIZE / 48
+        for i in range(3):
+            r = int((16 - i * 3) * s)
+            aura_s = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+            pygame.draw.circle(aura_s, (60, 180, 60, 25 - i * 7), (cx, cy), r)
+            icon_surface.blit(aura_s, (0, 0))
+        gw, gh = int(22 * s), int(28 * s)
+        gr = pygame.Rect(cx - gw // 2, cy - gh // 2 + int(2 * s), gw, gh)
+        pygame.draw.rect(icon_surface, (40, 20, 50), gr, border_radius=int(5 * s))
+        pygame.draw.rect(icon_surface, (60, 30, 80), gr.inflate(-int(3 * s), -int(3 * s)), border_radius=int(4 * s))
+        for i in range(3):
+            fx = cx - int(7 * s) + i * int(7 * s)
+            fr = pygame.Rect(fx - int(2.5 * s), gr.top - int(8 * s), int(5 * s), int(10 * s))
+            pygame.draw.rect(icon_surface, (60, 30, 80), fr, border_radius=int(2 * s))
+            pygame.draw.rect(icon_surface, (80, 45, 100), fr.inflate(-int(2 * s), -int(2 * s)), border_radius=int(1.5 * s))
+        core_r = max(3, int(5 * s))
+        pygame.draw.circle(icon_surface, (80, 200, 80), (cx, cy + int(2 * s)), core_r)
+        pygame.draw.circle(icon_surface, (120, 255, 120), (cx, cy + int(2 * s)), max(1, core_r - int(2 * s)))
+        for i in range(3):
+            fx = cx - int(7 * s) + i * int(7 * s)
+            pygame.draw.line(icon_surface, (80, 200, 80), (cx, cy + int(2 * s)), (fx, gr.top - int(4 * s)), max(1, int(s)))
+        mist_s = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        for dx, dy in [(-10, -8), (10, -6), (-8, 8), (12, 6), (0, -12)]:
+            pygame.draw.circle(mist_s, (60, 200, 60, 80), (cx + int(dx * s), cy + int(dy * s)), max(2, int(2.5 * s)))
+        icon_surface.blit(mist_s, (0, 0))
+        pygame.draw.rect(icon_surface, (60, 180, 60), gr, 1, border_radius=int(5 * s))
         icon_cache[item_name] = icon_surface
         return icon_surface
 
@@ -149332,9 +149473,15 @@ def handle_boss_pro():
         else:
             future_x = BALL.centerx
         # 오차 추가
-        future_x += random.randint(-config["predict_error"], config["predict_error"])
+        _pro_predict_error = config["predict_error"]
+        _pro_fail_chance = config["fail_chance"]
+        # ⚡ 파워스매싱 포물선 중: 보스 집중 → 오차/실패율 감소
+        if power_smashing_parabola_active and power_smashing_combo_consumed >= 3:
+            _pro_predict_error = max(5, _pro_predict_error // 2)
+            _pro_fail_chance *= 0.5
+        future_x += random.randint(-_pro_predict_error, _pro_predict_error)
         # 실패 확률 체크
-        if random.random() < config["fail_chance"]:
+        if random.random() < _pro_fail_chance:
             boss_fail_timer = HALF_SECOND_FRAMES
     #  프로리그: 통합 설정 기반 이동 로직
     enhanced_max_speed = config["max_speed"]
@@ -149700,6 +149847,12 @@ def handle_boss_champion():
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
+    # ⚡ 파워스매싱 대응: 콤보 스택 비례 보스 반응 강화 (투기장 제외)
+    if not arena_mode_enabled and power_smashing_parabola_active and power_smashing_combo_consumed >= 2:
+        _ps_react = 1.0 + min(power_smashing_combo_consumed * 0.05, 0.30)
+        enhanced_max_speed *= _ps_react
+        enhanced_acceleration *= _ps_react
+
     # 상모돌리기 강제 해제 모션 중 속도 50% 감소
     if whip_deactivation_active:
         enhanced_max_speed *= 0.5  # 50% 감소 = 50%만 유지
@@ -149759,6 +149912,9 @@ def handle_boss_champion():
             future_x = game_right * 2 - future_x
         #  챔피언리그 난이도 조절 (8% 실수율, 최신 공 매커니즘 고려)
         champion_mistake_chance = 0.08  # 8% 실수율
+        # ⚡ 파워스매싱 포물선 중: 보스 집중 → 실수율 절반
+        if power_smashing_parabola_active and power_smashing_combo_consumed >= 3:
+            champion_mistake_chance *= 0.5
         if random.random() < champion_mistake_chance:
             # 8% 확률로 실수 발생 (현재 공 속도에 비례한 실수 크기)
             mistake_magnitude = min(100, max(50, current_speed * 5))  # 속도에 비례한 실수
@@ -168123,7 +168279,7 @@ def get_item_name_korean(item_name):
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
-        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지",
+        "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -168225,6 +168381,7 @@ def get_item_description(item_name):
         "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
         "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 130% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
         "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
+        "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑입니다. 베놈 엣지 적중 시 일정 확률로 보스 주변에 독안개 영역을 생성합니다. 독안개 안에 있는 보스는 이동속도가 50% 감소하고, 1초당 보스 게이지가 50 감소합니다. 스테이지 6 홍련의 경우 1초당 구슬게이지 1개가 감소합니다. [롤옵션] 발동확률 30~50%",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
