@@ -48509,7 +48509,7 @@ blacksmith_swing_dash_active = False  # 스윙 대쉬 활성화 상태
 blacksmith_swing_dash_timer = 0  # 스윙 대쉬 지속 프레임
 blacksmith_swing_dash_direction = 0  # 스윙 방향: -1(왼쪽), 1(오른쪽)
 BLACKSMITH_SWING_DASH_DURATION = 12  # 대쉬 지속 프레임 (약 0.2초)
-BLACKSMITH_SWING_DASH_SPEED = 45  # 대쉬 속도 (40% 감소: 70 → 56 → 45)
+BLACKSMITH_SWING_DASH_SPEED = 59  # 대쉬 속도 (기존 45에서 30% 증가)
 BLACKSMITH_SWING_DASH_DELAY = 30  # 스윙 시작 후 대쉬 시작까지 딜레이 (0.5초 = 30프레임)
 BLACKSMITH_SWING_DASH_WINDUP_SPEED = 3  # 딜레이 중 반대방향 이동 속도
 # 미끄러짐 시스템
