@@ -80017,6 +80017,12 @@ def save_game_progress(stage_number: int) -> bool:
         except Exception as smasher_err:
             print(f"[저장] 스매셔 스킬 해금 상태 저장 실패: {smasher_err}")
 
+        # 바이퍼 스킬 해금 상태 저장 (nerve_strike, dive_strike 등)
+        try:
+            save_data["viper_skill_unlocked"] = dict(_viper_skill_unlocked)
+        except Exception as viper_err:
+            print(f"[저장] 바이퍼 스킬 해금 상태 저장 실패: {viper_err}")
+
         # 튜토리얼 완료 상태 저장
         try:
             save_data["tutorial_completed"] = _ingame_tutorial_completed
@@ -80297,6 +80303,26 @@ def apply_loaded_progress(save_data: dict) -> bool:
                 # print(f"[로드] 스매셔 스킬 해금 상태 복원 완료 - 해금된 스킬: {unlocked_skills}")
         except Exception as smasher_err:
             print(f"[로드] 스매셔 스킬 해금 상태 복원 실패: {smasher_err}")
+
+        # 바이퍼 스킬 해금 상태 복원 (nerve_strike, dive_strike 등)
+        global _viper_skill_unlocked, _viper_double_marshal_kick_unlocked
+        try:
+            viper_unlocked_data = save_data.get("viper_skill_unlocked")
+            if viper_unlocked_data:
+                for skill_name, is_unlocked in viper_unlocked_data.items():
+                    if skill_name in _viper_skill_unlocked:
+                        _viper_skill_unlocked[skill_name] = is_unlocked
+            else:
+                # 구버전 세이브: runtime_skill_levels에서 복원
+                if runtime_skill_levels.get("unlock_nerve_strike", 0) > 0:
+                    _viper_skill_unlocked["nerve_strike"] = True
+                if runtime_skill_levels.get("unlock_dive_strike", 0) > 0:
+                    _viper_skill_unlocked["dive_strike"] = True
+            # double_marshal_kick 복원
+            if runtime_skill_levels.get("double_marshal_kick", 0) > 0:
+                _viper_double_marshal_kick_unlocked = True
+        except Exception as viper_err:
+            print(f"[로드] 바이퍼 스킬 해금 상태 복원 실패: {viper_err}")
 
         # 튜토리얼 완료 상태 복원
         global _ingame_tutorial_completed, _ingame_tutorial_wait_first_hit
