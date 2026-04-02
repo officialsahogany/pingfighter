@@ -3703,8 +3703,8 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "stun_purple"
     },
     {
-        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 150, "color": (255, 120, 50),
-        "symbol": "⇓", "cooldown": 45.0, "key": "체공+S/↓ 꾹",
+        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 220, "color": (255, 120, 50),
+        "symbol": "⇓", "cooldown": 50.0, "key": "체공+S/↓ 꾹",
         "description": "체공 중 S/↓키를 0.3초 꾹 눌러 급강하.\n착지 연기 장판 생성, 공 반사 + 공속 증가.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
         "how_to_use": "체공 중 S키 또는 ↓키 0.3초 꾹 누르기",
         "effect_type": "dive_impact"
