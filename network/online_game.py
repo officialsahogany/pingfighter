@@ -7,12 +7,45 @@ import pygame
 import socket
 import time
 import threading
+import json
+import os
 from network.network_manager import get_network_manager, NetworkMode
 from network.protocol import (
     OnlinePacketType, STAGE_MULTIPLAYER, WIN_GOAL_DEFAULT,
     serialize_lobby_state, deserialize_lobby_state,
     serialize_input, DEFAULT_PORT,
 )
+
+# ── IP 히스토리 저장/로드 ──
+_IP_HISTORY_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ip_history.json")
+_MAX_IP_HISTORY = 5
+
+
+def _load_ip_history():
+    try:
+        if os.path.exists(_IP_HISTORY_FILE):
+            with open(_IP_HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("history", [])[:_MAX_IP_HISTORY]
+    except Exception:
+        pass
+    return []
+
+
+def _save_ip_history(history):
+    try:
+        with open(_IP_HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump({"history": history[:_MAX_IP_HISTORY]}, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _add_ip_to_history(ip_str):
+    history = _load_ip_history()
+    if ip_str in history:
+        history.remove(ip_str)
+    history.insert(0, ip_str)
+    _save_ip_history(history[:_MAX_IP_HISTORY])
 
 
 # 캐릭터 목록
@@ -240,12 +273,36 @@ class OnlineMultiplayer:
     # ──────────────────────────────────────────────
     # 클라이언트 접속 화면 (IP 입력)
     # ──────────────────────────────────────────────
+    def _try_connect(self, ip_str):
+        """IP 문자열로 접속 시도. 성공 시 True + 히스토리 저장."""
+        host = ip_str.strip()
+        if not host:
+            return False, "IP를 입력하세요"
+        port = DEFAULT_PORT
+        if ":" in host:
+            parts = host.rsplit(":", 1)
+            host = parts[0]
+            try:
+                port = int(parts[1])
+            except ValueError:
+                pass
+        success = self.net.connect_to_host(host, port)
+        if success:
+            self.net.online_mode = True
+            self.net.online_connected = True
+            _add_ip_to_history(ip_str.strip())
+            time.sleep(0.3)
+            return True, ""
+        return False, "접속 실패 - IP 주소를 확인하세요"
+
     def _client_connect_screen(self):
         """IP 입력 → 접속. True/False"""
-        ip_text = ""
+        ip_history = _load_ip_history()
+        ip_text = ip_history[0] if ip_history else ""
         connecting = False
         error_msg = ""
         cursor_timer = 0
+        history_rects = []
 
         while self.running:
             for event in pygame.event.get():
@@ -258,46 +315,50 @@ class OnlineMultiplayer:
                         else:
                             return False
                     elif event.key == pygame.K_RETURN and not connecting:
-                        if ip_text.strip():
-                            connecting = True
-                            error_msg = ""
-                            # 비동기 접속 시도
-                            host = ip_text.strip()
-                            port = DEFAULT_PORT
-                            if ":" in host:
-                                parts = host.rsplit(":", 1)
-                                host = parts[0]
-                                try:
-                                    port = int(parts[1])
-                                except ValueError:
-                                    pass
-                            success = self.net.connect_to_host(host, port)
-                            if success:
-                                self.net.online_mode = True
-                                self.net.online_connected = True
-                                time.sleep(0.3)
-                                return True
-                            else:
-                                connecting = False
-                                error_msg = "접속 실패 - IP 주소를 확인하세요"
+                        connecting = True
+                        error_msg = ""
+                        ok, err = self._try_connect(ip_text)
+                        if ok:
+                            return True
+                        connecting = False
+                        error_msg = err
                     elif event.key == pygame.K_BACKSPACE:
                         ip_text = ip_text[:-1]
                     elif not connecting:
                         if event.unicode and event.unicode.isprintable():
                             if len(ip_text) < 21:
                                 ip_text += event.unicode
+                # 마우스: 히스토리 클릭 (한 번=선택, 더블클릭=바로 접속)
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not connecting:
+                    mx, my = event.pos
+                    for i, rect in enumerate(history_rects):
+                        if rect.collidepoint(mx, my) and i < len(ip_history):
+                            if ip_text.strip() == ip_history[i]:
+                                # 이미 선택된 IP 다시 클릭 → 바로 접속
+                                connecting = True
+                                error_msg = ""
+                                ok, err = self._try_connect(ip_text)
+                                if ok:
+                                    return True
+                                connecting = False
+                                error_msg = err
+                            else:
+                                ip_text = ip_history[i]
+                            break
 
             # UI
             self.screen.fill(BG_COLOR)
+            cx = self.width // 2
             title_font = self.get_font(28)
             input_font = self.get_font(28)
             info_font = self.get_font(18)
+            hist_font = self.get_font(16)
 
             title = title_font.render("IP 주소 입력", True, ACCENT_COLOR)
-            self.screen.blit(title, title.get_rect(center=(self.width // 2, 150)))
+            self.screen.blit(title, title.get_rect(center=(cx, 100)))
 
             # IP 입력 필드
-            input_box = pygame.Rect(self.width // 2 - 180, 280, 360, 50)
+            input_box = pygame.Rect(cx - 180, 180, 360, 50)
             pygame.draw.rect(self.screen, PANEL_COLOR, input_box, border_radius=8)
             pygame.draw.rect(self.screen, ACCENT_COLOR if not error_msg else (255, 80, 80),
                              input_box, 2, border_radius=8)
@@ -314,14 +375,32 @@ class OnlineMultiplayer:
 
             if connecting:
                 conn_text = info_font.render("접속 중...", True, ACCENT_COLOR)
-                self.screen.blit(conn_text, conn_text.get_rect(center=(self.width // 2, 370)))
+                self.screen.blit(conn_text, conn_text.get_rect(center=(cx, 260)))
 
             if error_msg:
                 err_surf = info_font.render(error_msg, True, (255, 80, 80))
-                self.screen.blit(err_surf, err_surf.get_rect(center=(self.width // 2, 370)))
+                self.screen.blit(err_surf, err_surf.get_rect(center=(cx, 260)))
 
-            hint = self.get_font(16).render("Enter 접속  ESC 뒤로", True, DIM_COLOR)
-            self.screen.blit(hint, hint.get_rect(center=(self.width // 2, self.height - 40)))
+            # ── 최근 접속 IP 히스토리 ──
+            history_rects = []
+            if ip_history:
+                hist_label = hist_font.render("최근 접속", True, DIM_COLOR)
+                self.screen.blit(hist_label, hist_label.get_rect(center=(cx, 310)))
+
+                for i, saved_ip in enumerate(ip_history):
+                    btn_rect = pygame.Rect(cx - 150, 330 + i * 42, 300, 36)
+                    history_rects.append(btn_rect)
+                    is_hover = btn_rect.collidepoint(pygame.mouse.get_pos())
+                    is_current = (saved_ip == ip_text.strip())
+                    bg = (50, 60, 80) if is_hover else (35, 42, 58) if is_current else PANEL_COLOR
+                    border = ACCENT_COLOR if is_current else (60, 70, 90)
+                    pygame.draw.rect(self.screen, bg, btn_rect, border_radius=6)
+                    pygame.draw.rect(self.screen, border, btn_rect, 1, border_radius=6)
+                    ip_surf = hist_font.render(saved_ip, True, ACCENT_COLOR if is_current else TEXT_COLOR)
+                    self.screen.blit(ip_surf, ip_surf.get_rect(center=btn_rect.center))
+
+            hint = self.get_font(14).render("Enter/클릭 접속  ESC 뒤로", True, DIM_COLOR)
+            self.screen.blit(hint, hint.get_rect(center=(cx, self.height - 30)))
 
             pygame.display.flip()
             self.clock.tick(60)
