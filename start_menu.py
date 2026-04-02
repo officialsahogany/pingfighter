@@ -32,7 +32,6 @@ MENU_ICONS = {
     "계속하기": "▷",
     "멀티플레이": "★",
     "온라인 대전": "◈",
-    "로컬플레이": "▷",
     "AI 플레이": "◇",
     "개발테스트": "▣",
     "메달샵": "◆",
@@ -597,7 +596,7 @@ def _run_ai_play_flow(ctx: MenuContext) -> bool:
 
 def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
     """멀티플레이 서브메뉴 - 로컬 플레이 등 선택."""
-    options = ["온라인 대전", "로컬플레이", "뒤로"]
+    options = ["온라인 대전", "뒤로"]
     selected = 0
     clock = pygame.time.Clock()
     while True:
@@ -625,12 +624,6 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
                             ctx.start_online_multiplayer()
                             return True
                         return False
-                    elif choice == "로컬플레이":
-                        # 로컬 멀티플레이 시작
-                        if hasattr(ctx, 'start_local_multiplayer') and ctx.start_local_multiplayer:
-                            ctx.start_local_multiplayer()
-                            return True
-                        return False
                     return False  # 뒤로
                 elif ev.key == pygame.K_ESCAPE:
                     return False
@@ -650,11 +643,6 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
                                 ctx.start_online_multiplayer()
                                 return True
                             return False
-                        elif opt == "로컬플레이":
-                            if hasattr(ctx, 'start_local_multiplayer') and ctx.start_local_multiplayer:
-                                ctx.start_local_multiplayer()
-                                return True
-                            return False
                         return False
 
         font_title = ctx.FontStyle.title()
@@ -663,13 +651,12 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
         overlay.fill((0, 0, 0, 120))
         screen.blit(overlay, (0, 0))
 
-        title = font_title.render(get_localization_manager().get_text("menu.local_play_title", "멀티플레이"), True, (200, 230, 255))
+        title = font_title.render("멀티플레이", True, (200, 230, 255))
         screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 130)))
 
         # 설명 텍스트
         desc_font = ctx.FontStyle.tiny()
-        desc_text = get_localization_manager().get_text("menu.local_play_desc", "같은 PC에서 2명이 대결합니다")
-        desc_surf = desc_font.render(desc_text, True, (180, 200, 220))
+        desc_surf = desc_font.render("IP 주소로 다른 PC와 1:1 대전", True, (180, 200, 220))
         screen.blit(desc_surf, desc_surf.get_rect(center=(width // 2, height // 2 - 90)))
 
         item_w = 220
@@ -692,17 +679,13 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
                 icon_rect = icon_surface.get_rect(center=(rect.centerx, rect.centery - 15))
                 screen.blit(icon_surface, icon_rect)
 
-            _mp_label_map = {"로컬플레이": "menu.local_play", "뒤로": "menu.back"}
+            _mp_label_map = {"뒤로": "menu.back"}
             _opt_display = get_localization_manager().get_text(_mp_label_map.get(opt, ""), opt) if opt in _mp_label_map else opt
             label_surface = font_item.render(_opt_display, True, (255, 255, 255))
             screen.blit(label_surface, label_surface.get_rect(center=(rect.centerx, rect.centery + 15)))
 
             if is_sel and opt == "온라인 대전":
                 hint = "IP 주소로 다른 PC와 1:1 대전"
-                hint_surf = ctx.FontStyle.tiny().render(hint, True, (210, 220, 255))
-                screen.blit(hint_surf, hint_surf.get_rect(center=(width // 2, rect.bottom + 30)))
-            elif is_sel and opt == "로컬플레이":
-                hint = get_localization_manager().get_text("menu.local_play_controls", "P1: 방향키/Shift  |  P2: WASD/Space")
                 hint_surf = ctx.FontStyle.tiny().render(hint, True, (210, 220, 255))
                 screen.blit(hint_surf, hint_surf.get_rect(center=(width // 2, rect.bottom + 30)))
 
