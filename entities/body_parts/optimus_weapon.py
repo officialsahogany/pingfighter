@@ -45,16 +45,16 @@ class OptimusWeaponPart(BodyPart):
                 paddle_anim_active = False
 
         # ── 탁구채 서피스 ──
-        paddle_surf_size = 140 if paddle_upgraded else 100
+        paddle_surf_size = 190 if paddle_upgraded else 140
         paddle_surface = pygame.Surface(
             (paddle_surf_size, paddle_surf_size), pygame.SRCALPHA)
         ps_cx, ps_cy = paddle_surf_size // 2, paddle_surf_size // 2
 
         # 라켓 면 크기
         if paddle_upgraded:
-            paddle_w, paddle_h = 64, 72
+            paddle_w, paddle_h = 88, 99
         else:
-            paddle_w, paddle_h = 48, 56
+            paddle_w, paddle_h = 66, 77
         paddle_rect = pygame.Rect(
             ps_cx - paddle_w // 2, ps_cy - 8, paddle_w, paddle_h)
 
@@ -94,9 +94,9 @@ class OptimusWeaponPart(BodyPart):
 
         # 블릿 위치 (손목 기준)
         paddle_blit_x = (wrist_int[0] - rotated_paddle.get_width() // 2
-                         - (16 if paddle_upgraded else 12))
+                         - (22 if paddle_upgraded else 17))
         paddle_blit_y = (wrist_int[1] - rotated_paddle.get_height() // 2
-                         - (8 if paddle_upgraded else 4))
+                         - (11 if paddle_upgraded else 6))
 
         # ── 강화 애니메이션 ──
         if paddle_anim_active and anim_progress > 0:

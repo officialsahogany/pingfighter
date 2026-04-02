@@ -30209,9 +30209,9 @@ MECHA_CENTER_X = 208            # 중앙 X (416/2)
 MECHA_CENTER_Y = 576            # 중앙 Y (720 * 0.8)
 OPTIMUS_SCALE_MULT = 1.0        # 이미 고해상도이므로 스케일링 불필요
 OPTIMUS_HITBOX_SCALE = 0.52                      # 패들 가로 +13% 확장 (0.46 * 1.13 ≈ 0.52)
-# 옵티머스 기본 스펙 - 고해상도 캔버스에 맞게 조정 (-20% 축소 후 패들 가로 +13%)
-OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_HITBOX_SCALE)   # 416 * 0.52 ≈ 216px
-OPTIMUS_PADDLE_TARGET_WIDTH = int(448 * OPTIMUS_HITBOX_SCALE)                   # 448 * 0.52 ≈ 233px
+# 옵티머스 기본 스펙 - 고해상도 캔버스에 맞게 조정 (-20% 축소 후 패들 가로 +13%, +80px 확장)
+OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_HITBOX_SCALE) + 80   # 216 + 80 = 296px
+OPTIMUS_PADDLE_TARGET_WIDTH = int(448 * OPTIMUS_HITBOX_SCALE) + 80                   # 233 + 80 = 313px
 OPTIMUS_PADDLE_BASE_HEIGHT = 147  # 고정값 (184 * 0.8 ≈ 147px, -20% 축소)
 OPTIMUS_BASE_MAX_SPEED = 4                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
@@ -30219,7 +30219,7 @@ OPTIMUS_TURN_DECEL_MULT = 0.2                    # 좌우 방향 전환 감속 �
 OPTIMUS_FLOOR_ADJUST = 58                        # 렌더링 시 발 위치 하향 보정 (72 * 0.8 ≈ 58, -20% 축소)
 OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용량
 OPTIMUS_GAUGE_DRAIN_PER_SEC = 7                  # 초당 배터리 소모량
-OPTIMUS_MIN_PADDLE_WIDTH = 160                   # 방전 시 패들 최소 너비 (200 * 0.8 = 160, -20% 축소 적용)
+OPTIMUS_MIN_PADDLE_WIDTH = 240                   # 방전 시 패들 최소 너비 (160 + 80 = 240, +80px 확장 적용)
 OPTIMUS_CHARGE_HOLD_MS = 500                     # 충전 시작까지 누르고 있을 시간
 OPTIMUS_CHARGE_RATE_PER_SEC = 60                 # 충전 중 초당 게이지 회복량
 
@@ -31147,15 +31147,15 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                     paddle_anim_active = False
 
             # 탁구채를 별도 서피스에 그린 후 회전
-            paddle_surf_size = 140 if paddle_upgraded else 100
+            paddle_surf_size = 190 if paddle_upgraded else 140
             paddle_surface = pygame.Surface((paddle_surf_size, paddle_surf_size), pygame.SRCALPHA)
             ps_cx, ps_cy = paddle_surf_size // 2, paddle_surf_size // 2  # 서피스 중앙
 
             # 탁구채 라켓 면 크기 (강화 시 더 큼)
             if paddle_upgraded:
-                paddle_w, paddle_h = 64, 72  # 궁극의 탁구채
+                paddle_w, paddle_h = 88, 99  # 궁극의 탁구채
             else:
-                paddle_w, paddle_h = 48, 56
+                paddle_w, paddle_h = 66, 77
             # 라켓 면을 손잡이 바로 아래에 배치 (완전히 붙임)
             paddle_rect = pygame.Rect(ps_cx - paddle_w // 2, ps_cy - 8, paddle_w, paddle_h)
 
@@ -31279,8 +31279,8 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
 
             # 회전된 탁구채를 메인 서피스에 블릿
             # 위치 계산: 손목(왼손) 기준 - 손잡이가 손 위치에 오도록 위로 배치
-            paddle_blit_x = wrist_int[0] - rotated_paddle.get_width() // 2 - (16 if paddle_upgraded else 12)
-            paddle_blit_y = wrist_int[1] - rotated_paddle.get_height() // 2 - (8 if paddle_upgraded else 4)
+            paddle_blit_x = wrist_int[0] - rotated_paddle.get_width() // 2 - (22 if paddle_upgraded else 17)
+            paddle_blit_y = wrist_int[1] - rotated_paddle.get_height() // 2 - (11 if paddle_upgraded else 6)
 
             # 강화 애니메이션 진행 중일 때 조립 이펙트
             if paddle_anim_active and paddle_anim_progress > 0:
