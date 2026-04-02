@@ -108854,25 +108854,71 @@ def draw_objects():
         boss_img = draw_aircraft_carrier_boss(boss_current_speed, BOSS.x)
         boss_w, boss_h = 100, 90  # 건담 스타일 전투 로봇 (인간형 비율)
     elif current_stage == 40:
-        # ── 온라인 멀티플레이: 상대 캐릭터 패들 스프라이트 (Y축 반전) ──
+        # ── 온라인 멀티플레이: 상대 캐릭터 패들 (애니메이션 상태 반영 + Y축 반전) ──
         _mp_opp_char = online_p2_character if online_multiplayer_enabled else "ufo_player"
         _mp_char_map = {
             "ufo_player": "smasher", "soldier": "soldier",
             "blacksmith": "blacksmith", "viper": "viper", "optimus": "optimus",
         }
         _mp_opp_type = _mp_char_map.get(_mp_opp_char, "smasher")
+        _mp_anim = _online_opponent_anim.get('state', 'idle') if _online_opponent_anim else 'idle'
 
         try:
             if _mp_opp_type == "smasher":
-                _mp_src = SMASHER_PADDLE_IMG if SMASHER_PADDLE_IMG else create_smasher_paddle_surface()
+                if _mp_anim == 'walking':
+                    _mp_src = create_smasher_paddle_walking() if 'create_smasher_paddle_walking' in dir() else create_smasher_paddle_surface()
+                elif _mp_anim == 'hit':
+                    _mp_src = _render_skeletal_smasher() if '_render_skeletal_smasher' in dir() else create_smasher_paddle_surface()
+                else:
+                    _mp_src = SMASHER_PADDLE_IMG if SMASHER_PADDLE_IMG else create_smasher_paddle_surface()
+
             elif _mp_opp_type == "soldier":
-                _mp_src = SOLDIER_PADDLE_IMG if SOLDIER_PADDLE_IMG else create_soldier_paddle_surface()
+                if _mp_anim == 'walking':
+                    _mp_src = create_soldier_paddle_walking() if 'create_soldier_paddle_walking' in dir() else create_soldier_paddle_surface()
+                elif _mp_anim == 'swing':
+                    _mp_src = create_soldier_paddle_animated() if 'create_soldier_paddle_animated' in dir() else create_soldier_paddle_surface()
+                elif _mp_anim == 'slingshot':
+                    _mp_src = create_soldier_paddle_surface(include_right_arm=False, include_left_arm=False)
+                else:
+                    _mp_src = SOLDIER_PADDLE_IMG if SOLDIER_PADDLE_IMG else create_soldier_paddle_surface()
+
             elif _mp_opp_type == "blacksmith":
-                _mp_src = BLACKSMITH_PADDLE_IMG if BLACKSMITH_PADDLE_IMG else create_blacksmith_paddle_base()
+                if _mp_anim == 'umbrella':
+                    _progress = _online_opponent_anim.get('progress', 1.0) if _online_opponent_anim else 1.0
+                    _mp_src = create_blacksmith_paddle_umbrella(_progress) if 'create_blacksmith_paddle_umbrella' in dir() else create_blacksmith_paddle_base()
+                elif _mp_anim == 'shield_swing':
+                    _mp_src = create_blacksmith_paddle_swinging() if 'create_blacksmith_paddle_swinging' in dir() else create_blacksmith_paddle_base()
+                elif _mp_anim == 'hammer_swing':
+                    _mp_src = create_blacksmith_paddle_hammering() if 'create_blacksmith_paddle_hammering' in dir() else create_blacksmith_paddle_base()
+                elif _mp_anim == 'walking':
+                    _mp_src = create_blacksmith_paddle_walking() if 'create_blacksmith_paddle_walking' in dir() else create_blacksmith_paddle_base()
+                else:
+                    _mp_src = BLACKSMITH_PADDLE_IMG if BLACKSMITH_PADDLE_IMG else create_blacksmith_paddle_base()
+
             elif _mp_opp_type == "viper":
-                _mp_src = VIPER_PADDLE_IMG if VIPER_PADDLE_IMG else create_viper_paddle_surface()
+                _walk_phase = _online_opponent_anim.get('walk_phase', 0) if _online_opponent_anim else 0
+                if _mp_anim == 'flying':
+                    _mp_src = create_viper_paddle_surface(0.0)
+                elif _mp_anim == 'walking':
+                    _mp_src = create_viper_paddle_surface(float(_walk_phase) / 24.0)
+                elif _mp_anim == 'wall_dive':
+                    _phase = _online_opponent_anim.get('phase', 0) if _online_opponent_anim else 0
+                    if _phase == 1:
+                        _mp_src = create_viper_paddle_surface(0.0, wall_cling=1)
+                    elif _phase in (2, 3):
+                        _mp_src = create_viper_paddle_surface(0.0, flying_kick=1)
+                    else:
+                        _mp_src = create_viper_paddle_surface(0.0)
+                elif _mp_anim == 'hit':
+                    _mp_src = create_viper_paddle_surface(0.0)
+                else:
+                    _mp_src = VIPER_PADDLE_IMG if VIPER_PADDLE_IMG else create_viper_paddle_surface()
+
             elif _mp_opp_type == "optimus":
-                _mp_src = OPTIMUS_PADDLE_IMG if OPTIMUS_PADDLE_IMG else create_optimus_paddle_surface()
+                if _mp_anim == 'walking':
+                    _mp_src = create_optimus_paddle_walking() if 'create_optimus_paddle_walking' in dir() else create_optimus_paddle_surface()
+                else:
+                    _mp_src = OPTIMUS_PADDLE_IMG if OPTIMUS_PADDLE_IMG else create_optimus_paddle_surface()
             else:
                 _mp_src = SMASHER_PADDLE_IMG if SMASHER_PADDLE_IMG else create_smasher_paddle_surface()
         except Exception:
@@ -151927,16 +151973,18 @@ def _handle_boss_online_sync():
     호스트: P2(클라이언트)의 PLAYER.x → BOSS.x
     클라이언트: P1(호스트)의 PLAYER.x → BOSS.x
     """
-    global BOSS
+    global BOSS, _online_opponent_anim
 
     if _online_net_manager is None:
         return
 
     if online_is_host:
-        # 호스트: 클라이언트가 보낸 위치를 BOSS에 적용
+        # 호스트: 클라이언트가 보낸 위치 + 애니메이션 상태 적용
         remote = _online_net_manager.online_remote_input
         if remote is not None and 'x' in remote:
             BOSS.x = int(remote['x'])
+            if 'anim' in remote:
+                _online_opponent_anim = remote['anim']
     else:
         # 클라이언트: 호스트가 보낸 P1 위치를 BOSS에 적용
         frame = _online_net_manager.online_game_frame
@@ -170468,6 +170516,56 @@ def start_online_multiplayer():
         _online_net_manager = None
 
 
+# ── 온라인 멀티: 애니메이션 상태 동기화 ──
+_online_opponent_anim = {'state': 'idle'}  # 상대방 수신 애니메이션 상태
+
+
+def _online_get_my_anim_state():
+    """내 PLAYER의 현재 애니메이션 상태를 간략하게 수집"""
+    st = selected_character_type
+    anim = {'state': 'idle', 'char': st}
+    try:
+        if st == "smasher":
+            if globals().get('smasher_walking_active', False):
+                anim['state'] = 'walking'
+            elif globals().get('smasher_hit_pose_timer', 0) > 0:
+                anim['state'] = 'hit'
+        elif st == "soldier":
+            if globals().get('slingshot_pose_active', False) or globals().get('slingshot_charging', False):
+                anim['state'] = 'slingshot'
+            elif globals().get('soldier_swing_active', False):
+                anim['state'] = 'swing'
+            elif globals().get('soldier_walking_active', False):
+                anim['state'] = 'walking'
+        elif st == "blacksmith":
+            if globals().get('blacksmith_umbrella_open', False):
+                anim['state'] = 'umbrella'
+                anim['progress'] = globals().get('blacksmith_umbrella_anim_timer', 0) / max(1, globals().get('blacksmith_umbrella_anim_duration', 30))
+            elif globals().get('blacksmith_shield_swing_active', False):
+                anim['state'] = 'shield_swing'
+            elif globals().get('blacksmith_hammer_swing_active', False):
+                anim['state'] = 'hammer_swing'
+            elif globals().get('blacksmith_walking_active', False):
+                anim['state'] = 'walking'
+        elif st == "viper":
+            if globals().get('_viper_jetpack_active', False):
+                anim['state'] = 'flying'
+            elif globals().get('_viper_wall_dive_active', False):
+                anim['state'] = 'wall_dive'
+                anim['phase'] = globals().get('_viper_wall_dive_phase', 0)
+            elif globals().get('viper_hit_pose_timer', 0) > 0:
+                anim['state'] = 'hit'
+            elif globals().get('viper_walking_active', False):
+                anim['state'] = 'walking'
+                anim['walk_phase'] = globals().get('viper_walking_timer', 0)
+        elif st == "optimus":
+            if abs(globals().get('current_speed', 0)) > 1.0:
+                anim['state'] = 'walking'
+    except Exception:
+        pass
+    return anim
+
+
 def _online_send_game_state():
     """호스트: 매 프레임 게임 상태를 클라이언트에 전송"""
     if not online_multiplayer_enabled or not online_is_host:
@@ -170496,6 +170594,7 @@ def _online_send_game_state():
         'p2_dashing': False,
         'ball_spin': 0,
         'ball_intensity': 0,
+        'p1_anim': _online_get_my_anim_state(),
     }
 
     try:
@@ -170520,7 +170619,7 @@ def _online_send_player_position():
 
     _online_net_manager.send_online_packet(
         OnlinePacketType.GAME_INPUT,
-        {'x': PLAYER.x}
+        {'x': PLAYER.x, 'anim': _online_get_my_anim_state()}
     )
 
 
@@ -170530,7 +170629,7 @@ def _online_client_apply_state():
     - 점수 → 호스트 권위 (시점 반전: 호스트 round_wins = 내 round_losses)
     - BOSS 위치 → _handle_boss_online_sync()에서 이미 처리
     """
-    global round_wins, round_losses
+    global round_wins, round_losses, _online_opponent_anim
 
     if not online_multiplayer_enabled or online_is_host:
         return
@@ -170540,6 +170639,11 @@ def _online_client_apply_state():
     frame = _online_net_manager.online_game_frame
     if frame is None:
         return
+
+    # 상대방(호스트) 애니메이션 상태 저장
+    p1_anim = frame.get('p1_anim', None)
+    if p1_anim:
+        _online_opponent_anim = p1_anim
 
     # 공 위치 동기화 (호스트 권위)
     ball = frame.get('ball', None)
