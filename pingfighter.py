@@ -3867,6 +3867,8 @@ def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
     current_pause_time = 0
     if _viper_skill_tooltip_active and _viper_tooltip_pause_start > 0:
         current_pause_time = current_time - _viper_tooltip_pause_start
+    elif _skill_cooldown_general_pause_start > 0:
+        current_pause_time = current_time - _skill_cooldown_general_pause_start
 
     pause_since_cooldown_start = (_viper_tooltip_pause_accumulated + current_pause_time) - start_pause_accumulated
 
@@ -4040,6 +4042,8 @@ def get_smasher_skill_cooldown_remaining(skill_name: str) -> float:
     current_pause_time = 0
     if _smasher_skill_tooltip_active and _smasher_tooltip_pause_start > 0:
         current_pause_time = current_time - _smasher_tooltip_pause_start
+    elif _skill_cooldown_general_pause_start > 0:
+        current_pause_time = current_time - _skill_cooldown_general_pause_start
 
     # 쿨타임 시작 이후의 일시정지 시간만 계산
     # (현재 누적 + 진행 중인 일시정지) - 쿨타임 시작 시점의 누적
@@ -164295,6 +164299,7 @@ def show_pause_menu():
     """일시정지 메뉴"""
     global session_medal_earned, medal_score
     _push_stage7_ui_pause()
+    _freeze_skill_cooldowns()
     try:
         font_large = get_font(36)  # 36pt 픽셀 폰트
         font_medium = FontStyle.menu()  # 28pt 픽셀 폰트
@@ -164398,6 +164403,7 @@ def show_pause_menu():
                                 return result
     finally:
         _pop_stage7_ui_pause()
+        _thaw_skill_cooldowns()
 # 그라데이션 캐시 (성능 최적화)
 _gradient_cache = {}
 
@@ -165157,6 +165163,7 @@ def show_character_info(background_surface=None):
                            광장(번화가) 등 전투가 아닌 모드에서 스테이지 잔상이 비치는 문제를 막기 위함.
     """
     _push_stage7_ui_pause()
+    _freeze_skill_cooldowns()
     font_title = FontStyle.subtitle()  # 32pt
     font_body = FontStyle.body()  # 24pt
     font_small = FontStyle.small()  # 20pt
@@ -167543,10 +167550,12 @@ def show_character_info(background_surface=None):
                 if event.key == pygame.K_TAB:
                     on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
+                    _thaw_skill_cooldowns()
                     return
                 if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
                     on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
+                    _thaw_skill_cooldowns()
                     return
                 if event.key in (pygame.K_DOWN, pygame.K_PAGEDOWN):
                     passive_scroll_row = min(passive_scroll_row + 1, passive_scroll_max)
@@ -167709,6 +167718,7 @@ def show_game_info():
         if not tab_prev and keys_now[pygame.K_TAB]:
             on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
             _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
+            _thaw_skill_cooldowns()
             return
         tab_prev = keys_now[pygame.K_TAB]
         # 현재 게임 화면을 배경으로 사용
@@ -168160,11 +168170,13 @@ def show_game_info():
             if event.type in (pygame.KEYDOWN, pygame.KEYUP) and event.key == pygame.K_TAB:
                 on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                 _pop_stage7_ui_pause()
+                _thaw_skill_cooldowns()
                 return
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()
+                    _thaw_skill_cooldowns()
                     return
                 elif event.key == pygame.K_RIGHT and current_page == 0:
                     current_page = 1
