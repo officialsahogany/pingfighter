@@ -141015,8 +141015,12 @@ def choose_server(show_text=True):
     elif current_stage == 6:
         is_player_serve = True
     elif current_stage == 40:
-        # 온라인 멀티: 항상 플레이어(로컬) 서브 (보스 AI 없으므로)
-        is_player_serve = True
+        # 온라인 멀티: 교대 서브 (호스트만 결정, 클라이언트는 호스트 볼 위치 따름)
+        if online_is_host:
+            is_player_serve = random.choice([True, False])
+        else:
+            # 클라이언트는 항상 player serve (로컬 서브는 무시, 호스트 볼 위치로 덮어씀)
+            is_player_serve = True
     else:
         is_player_serve = random.choice([True, False])
     
@@ -152002,24 +152006,36 @@ def _handle_boss_online_sync():
         BOSS.x = WIDTH - BOSS.width
 
     # ── 온라인 서브 처리 (handle_boss() 안의 서브 로직을 대체) ──
-    if is_waiting_for_serve and is_player_serve and not ball_spawn_animation_active:
-        # 플레이어가 enter/space를 눌렀는지 체크
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
-            # 서브 실행
-            try:
-                serve_result = physics_manager.serve_ball(True, current_stage, ai_mode)
-                apply_serve_result(serve_result)
-                is_waiting_for_serve = serve_result.get('is_waiting_for_serve', False)
-                serve_completed_timer = 180  # 3초 서브 후 딜레이
-                boss_fake_during_player_serve = False
-                play_serve_sound()
-                create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
-            except Exception as e:
-                print(f"[Online Serve] 서브 실행 에러: {e}")
-    # 보스 가짜 움직임 (플레이어 서브 대기 중 상대 보스 흔들기)
-    if is_waiting_for_serve and is_player_serve:
-        boss_fake_during_player_serve = True
+    if is_waiting_for_serve and not ball_spawn_animation_active:
+        if is_player_serve:
+            # 내(로컬 플레이어) 서브: space/enter로 아래에서 위로 발사
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
+                try:
+                    serve_result = physics_manager.serve_ball(True, current_stage, ai_mode)
+                    apply_serve_result(serve_result)
+                    is_waiting_for_serve = serve_result.get('is_waiting_for_serve', False)
+                    serve_completed_timer = 180
+                    boss_fake_during_player_serve = False
+                    play_serve_sound()
+                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+                except Exception as e:
+                    print(f"[Online Serve] 플레이어 서브 에러: {e}")
+            else:
+                boss_fake_during_player_serve = True
+        elif online_is_host:
+            # 상대(보스 위치) 서브: 호스트에서 자동 서브 (1.5초 후)
+            time_now = pygame.time.get_ticks()
+            if time_now - waiting_start_time >= 1500:
+                try:
+                    serve_result = physics_manager.serve_ball(False, current_stage, ai_mode)
+                    apply_serve_result(serve_result)
+                    is_waiting_for_serve = serve_result.get('is_waiting_for_serve', False)
+                    serve_completed_timer = 180
+                    play_serve_sound()
+                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                except Exception as e:
+                    print(f"[Online Serve] 보스 서브 에러: {e}")
 
 
 def _handle_boss_with_soap_debuff():
