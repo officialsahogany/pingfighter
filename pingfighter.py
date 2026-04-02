@@ -3703,8 +3703,8 @@ VIPER_SKILL_ICONS_DATA = [
         "effect_type": "stun_purple"
     },
     {
-        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 150, "color": (255, 120, 50),
-        "symbol": "⇓", "cooldown": 45.0, "key": "체공+S/↓ 꾹",
+        "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 180, "color": (255, 120, 50),
+        "symbol": "⇓", "cooldown": 60.0, "key": "체공+S/↓ 꾹",
         "description": "체공 중 S/↓키를 0.3초 꾹 눌러 급강하.\n착지 연기 장판 생성, 공 반사 + 공속 증가.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
         "how_to_use": "체공 중 S키 또는 ↓키 0.3초 꾹 누르기",
         "effect_type": "dive_impact"
@@ -3777,6 +3777,30 @@ _viper_skill_unlocked = {
 _viper_tooltip_pause_start = 0
 _viper_tooltip_pause_accumulated = 0
 
+# 일반 일시정지(TAB/ESC/P키 메뉴 등)로 인한 스킬 쿨타임 정지 추적
+_skill_cooldown_general_pause_start = 0
+_skill_cooldown_general_pause_depth = 0  # 중첩 호출 보호용 카운터
+
+
+def _freeze_skill_cooldowns() -> None:
+    """TAB/ESC/P키 등 일시정지 진입 시 바이퍼/스매셔 스킬 쿨타임을 정지한다."""
+    global _skill_cooldown_general_pause_start, _skill_cooldown_general_pause_depth
+    _skill_cooldown_general_pause_depth += 1
+    if _skill_cooldown_general_pause_start == 0:
+        _skill_cooldown_general_pause_start = pygame.time.get_ticks()
+
+
+def _thaw_skill_cooldowns() -> None:
+    """일시정지 해제 시 정지된 시간을 쿨타임 누적값에 반영한다."""
+    global _skill_cooldown_general_pause_start, _skill_cooldown_general_pause_depth
+    global _viper_tooltip_pause_accumulated, _smasher_tooltip_pause_accumulated
+    _skill_cooldown_general_pause_depth = max(0, _skill_cooldown_general_pause_depth - 1)
+    if _skill_cooldown_general_pause_depth == 0 and _skill_cooldown_general_pause_start > 0:
+        paused_duration = pygame.time.get_ticks() - _skill_cooldown_general_pause_start
+        _viper_tooltip_pause_accumulated += paused_duration
+        _smasher_tooltip_pause_accumulated += paused_duration
+        _skill_cooldown_general_pause_start = 0
+
 
 def reset_viper_skill_unlocks():
     """바이퍼 스킬 해금 상태 초기화 (새 게임 시작 시)"""
@@ -3805,19 +3829,9 @@ def is_viper_skill_unlocked(skill_name: str) -> bool:
 
 
 def trigger_viper_skill_cooldown(skill_name: str):
-    """바이퍼 스킬 쿨타임 시작"""
+    """바이퍼 스킬 쿨타임 시작 (골드는 타격 성공 시에만 지급)"""
     global _viper_skill_cooldowns, _viper_tooltip_pause_accumulated
     _viper_skill_cooldowns[skill_name] = (pygame.time.get_ticks(), _viper_tooltip_pause_accumulated)
-
-    # 스킬 사용 시 골드 보너스
-    skill_gold = calculate_skill_gold_reward(skill_name)
-    if skill_gold > 0:
-        try:
-            player_x = PLAYER.centerx if 'PLAYER' in globals() else GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
-            player_y = PLAYER.centery if 'PLAYER' in globals() else INTERNAL_HEIGHT - 50
-            add_ingame_gold(skill_gold, player_x, player_y - 30, source="skill")
-        except:
-            add_ingame_gold(skill_gold, source="skill")
 
 
 def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
@@ -48292,6 +48306,7 @@ _VIPER_SS_HIT_CURVE_MAX = 50          # 중심 커브 프레임 (약 0.83초)
 _VIPER_SS_HIT_FORCE_MIN = 0.4         # 가장자리 커브 강도
 _VIPER_SS_HIT_FORCE_MAX = 2.0         # 중심 커브 강도
 _viper_ss_hit_consumed = False        # 쉐도우 백스텝 타격 중복 방지 플래그
+_viper_skill_gold_this_frame = False  # 바이퍼 스킬 골드 지급 프레임 플래그 (릴레이 골드 중복 방지)
 
 def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: float,
                               curve_dir: int, source: str = "hologram"):
@@ -48375,11 +48390,13 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
         pass
 
     # 골드 보너스 (쉐도우 백스텝 타격: 16골드, 제트팩 체공 시 x1.5)
+    global _viper_skill_gold_this_frame
     try:
         _ss_gold = 16
         if _viper_jetpack_offset_y < -10:
             _ss_gold = int(_ss_gold * 1.5)
         add_ingame_gold(_ss_gold, BALL.centerx, BALL.centery - 20, source="skill")
+        _viper_skill_gold_this_frame = True
     except Exception:
         pass
 
@@ -73102,6 +73119,7 @@ def handle_player(keys):
                         if _viper_ss_was_airborne:
                             _mk_gold = int(_mk_gold * 1.5)
                         add_ingame_gold(_mk_gold, BALL.centerx, BALL.centery - 20, source="skill")
+                        _viper_skill_gold_this_frame = True
                     except Exception:
                         pass
                     # 공 타격 후 복귀 전환
@@ -73546,6 +73564,7 @@ def handle_player(keys):
                             # 🪙 EMP 스트라이크 타격 골드 보너스 (20골드)
                             try:
                                 add_ingame_gold(20, BALL.centerx, BALL.centery - 20, source="skill")
+                                _viper_skill_gold_this_frame = True
                             except Exception:
                                 pass
 
@@ -73584,6 +73603,7 @@ def handle_player(keys):
                         # 🪙 EMP 스트라이크 타격 골드 보너스 (20골드)
                         try:
                             add_ingame_gold(20, BALL.centerx, BALL.centery - 20, source="skill")
+                            _viper_skill_gold_this_frame = True
                         except Exception:
                             pass
                         # DIVE STRIKE 텍스트 이펙트
@@ -73784,6 +73804,7 @@ def handle_player(keys):
                     # 🪙 에어 블레이드 타격 골드 보너스 (30골드)
                     try:
                         add_ingame_gold(30, BALL.centerx, BALL.centery - 20, source="skill")
+                        _viper_skill_gold_this_frame = True
                     except Exception:
                         pass
                     # 원래 속도 저장 (보스 반격 시 복귀용)
@@ -73869,6 +73890,7 @@ def handle_player(keys):
                     # 🪙 베놈 엣지 보스 명중 골드 보너스 (60골드)
                     try:
                         add_ingame_gold(60, BOSS.centerx, BOSS.centery - 20, source="skill")
+                        _viper_skill_gold_this_frame = True
                     except Exception:
                         pass
                     # 🧤 독안개장갑: 베놈 엣지 적중 시 독안개 발동 판정
@@ -78657,9 +78679,10 @@ def handle_player(keys):
         except Exception:
             pass
 
-        # 인게임 골드 획득 (랠리 성공 시)
-        rally_gold = calculate_rally_gold()
-        add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
+        # 인게임 골드 획득 (랠리 성공 시, 바이퍼 스킬 타격 프레임에서는 중복 방지)
+        if not _viper_skill_gold_this_frame:
+            rally_gold = calculate_rally_gold()
+            add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
 
         # ⚡ 스매셔 콤보 시스템: handle_player 백업 경로
         # 메인 처리는 handle_ball에서 수행됨. 여기서는 handle_ball이 놓친 경우만 처리
@@ -142178,6 +142201,9 @@ def handle_ball():
         nemesis_barrier_trigger_cooldown -= 1
     # 프레임 시작 시 충돌 플래그 리셋 (handle_player에서 처리)
     # player_collision_handled = False  # ⚡ handle_player로 이동됨
+    # 바이퍼 스킬 골드 프레임 플래그 리셋 (릴레이 골드 중복 방지)
+    global _viper_skill_gold_this_frame
+    _viper_skill_gold_this_frame = False
     # 드라이브 & 파워스매싱 시스템
     global drive_ball_active, drive_hit_boss, ball_spin_strength, drive_speed_increase
     global drive_active, drive_spin_speed
@@ -142887,6 +142913,9 @@ def handle_ball():
         nemesis_barrier_trigger_cooldown -= 1
     # 프레임 시작 시 충돌 플래그 리셋 (handle_player에서 처리)
     # player_collision_handled = False  # ⚡ handle_player로 이동됨
+    # 바이퍼 스킬 골드 프레임 플래그 리셋 (릴레이 골드 중복 방지)
+    global _viper_skill_gold_this_frame
+    _viper_skill_gold_this_frame = False
     # 드라이브 & 파워스매싱 시스템
     global drive_ball_active, drive_hit_boss, ball_spin_strength, drive_speed_increase
     global drive_active, drive_spin_speed
@@ -147140,9 +147169,10 @@ def handle_ball():
             except Exception:
                 pass
 
-        # 인게임 골드 획득 (랠리 성공 시)
-        rally_gold = calculate_rally_gold()
-        add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
+        # 인게임 골드 획득 (랠리 성공 시, 바이퍼 스킬 타격 프레임에서는 중복 방지)
+        if not _viper_skill_gold_this_frame:
+            rally_gold = calculate_rally_gold()
+            add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
 
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
