@@ -3683,7 +3683,7 @@ def is_smasher_skill_unlocked(skill_name: str) -> bool:
 VIPER_SKILL_ICONS_DATA = [
     {
         "name": "shadow_step", "korean": "쉐도우 백스텝", "cost": 100, "color": (100, 0, 180),
-        "symbol": "⟐", "cooldown": 10.0, "key": "대쉬+S",
+        "symbol": "⟐", "cooldown": 15.0, "key": "대쉬+S",
         "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.\n에너지파에 공이 닿으면 속도가 30~50% 증가합니다.",
         "how_to_use": "대쉬 중/직후 S키를 눌러 발동",
         "effect_type": "shadow_teleport"
@@ -3697,7 +3697,7 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "nerve_strike", "korean": "베놈 엣지", "cost": 80, "color": (180, 0, 220),
-        "symbol": "◈", "cooldown": 30.0, "key": "W/↑(연계)",
+        "symbol": "◈", "cooldown": 50.0, "key": "W/↑(연계)",
         "description": "에어 블레이드 착지 전 W/↑키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
         "how_to_use": "에어 블레이드 사용 후 착지 전 W/↑키",
         "effect_type": "stun_purple"
@@ -3711,15 +3711,15 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
-        "symbol": "🕷", "cooldown": 15.0, "key": "S/↓(연계)",
-        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 15초.",
+        "symbol": "🕷", "cooldown": 25.0, "key": "S/↓(연계)",
+        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 25초.",
         "how_to_use": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 S/↓키",
         "effect_type": "wall_dive_purple"
     },
     {
-        "name": "phantom_kick", "korean": "팬텀 킥", "cost": 50, "color": (180, 0, 255),
-        "symbol": "x2", "cooldown": 25.0, "key": "S/↓(연계)",
-        "description": "마샬 킥 공 타격 후 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n쿨타임 25초.",
+        "name": "phantom_kick", "korean": "팬텀 킥", "cost": 60, "color": (180, 0, 255),
+        "symbol": "x2", "cooldown": 40.0, "key": "S/↓(연계)",
+        "description": "마샬 킥 공 타격 후 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n쿨타임 40초.",
         "how_to_use": "마샬 킥 공 타격 후 S/↓키 (팬텀 킥 퍽 필요)",
         "effect_type": "wall_dive_purple"
     },
@@ -5411,7 +5411,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         # 팬텀 킥 해금 시 직접 렌더링 (패시브 스킬)
         _dmk_name = "double_marshal_kick"
         _dmk_color = (180, 0, 255)
-        _dmk_cost = 50
+        _dmk_cost = 60
         _dmk_cd_ratio = get_viper_skill_cooldown_remaining("phantom_kick")
         _dmk_on_cd = _dmk_cd_ratio > 0
         _dmk_is_ready = _viper_double_marshal_ready and not _dmk_on_cd
@@ -6595,9 +6595,9 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
         rect = _viper_skill_icon_rects["double_marshal_kick"]
         if rect.collidepoint(local_x, local_y):
             return {
-                "name": "double_marshal_kick", "korean": "팬텀 킥", "cost": 50, "color": (180, 0, 255),
+                "name": "double_marshal_kick", "korean": "팬텀 킥", "cost": 60, "color": (180, 0, 255),
                 "symbol": "x2", "cooldown": 0.0, "key": "S/↓(연계)",
-                "description": "마샬 킥 후 보스 반환 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 50 소모, 공속 증가율 120%.",
+                "description": "마샬 킥 후 보스 반환 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 60 소모, 공속 증가율 120%.",
                 "how_to_use": "마샬 킥 후 보스 반환 시 S/↓키",
                 "effect_type": "wall_dive_purple"
             }
@@ -72546,8 +72546,8 @@ def handle_player(keys):
                     if special_gauge >= 100 and not _viper_ss_hologram_active:
                         _viper_s_key_released = False
                         special_gauge -= 100
-                        # 쉐도우 백스텝 단독: 10초 쿨타임 (마샬킥 사용 시 연장됨)
-                        _viper_skill_cooldown_override.pop("shadow_step", None)  # 오버라이드 초기화 → 기본 10초
+                        # 쉐도우 백스텝 단독: 15초 쿨타임 (마샬킥 사용 시 연장됨)
+                        _viper_skill_cooldown_override.pop("shadow_step", None)  # 오버라이드 초기화 → 기본 15초
                         trigger_viper_skill_cooldown("shadow_step")
                         try:
                             _bs_snd = sound_effects.get('VIPER_BACKSTEP')
@@ -72638,7 +72638,7 @@ def handle_player(keys):
                     _viper_w_key_released = False
                     special_gauge -= 80
                     _viper_nerve_strike_combo_used = True
-                    trigger_viper_skill_cooldown("nerve_strike")  # 베놈 엣지 쿨타임 30초
+                    trigger_viper_skill_cooldown("nerve_strike")  # 베놈 엣지 쿨타임 50초
 
                     # 신경 타격 돌진 애니메이션 시작
                     _viper_nerve_strike_show_sound_played = False  # 텍스트 사운드 플래그 초기화
@@ -72745,7 +72745,7 @@ def handle_player(keys):
             or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
         )
         _wd_is_double = _viper_double_marshal_ready and not _viper_wall_dive_ready
-        _wd_gauge_cost = 50 if _wd_is_double else _VIPER_WALL_DIVE_GAUGE_COST
+        _wd_gauge_cost = 60 if _wd_is_double else _VIPER_WALL_DIVE_GAUGE_COST
         if (_wd_s_input and not _wd_dir_held
                 and special_gauge >= _wd_gauge_cost
                 and is_viper_skill_unlocked("shadow_step")):
@@ -72753,12 +72753,12 @@ def handle_player(keys):
             # 팬텀 킥인지 판별 + 각자 독립 쿨타임 트리거
             _viper_is_double_marshal = _wd_is_double
             if _wd_is_double:
-                trigger_viper_skill_cooldown("phantom_kick")   # 팬텀 킥 쿨타임 25초
+                trigger_viper_skill_cooldown("phantom_kick")   # 팬텀 킥 쿨타임 40초
                 # 흑연 오라 활성화
                 _viper_phantom_aura_active = True
                 _viper_phantom_aura_start_ms = pygame.time.get_ticks()
             else:
-                trigger_viper_skill_cooldown("marshal_kick")   # 마샬 킥 쿨타임 15초
+                trigger_viper_skill_cooldown("marshal_kick")   # 마샬 킥 쿨타임 25초
             _viper_wall_dive_ready = False
             _viper_wall_dive_ready_timer = 0
             _viper_double_marshal_ready = False
