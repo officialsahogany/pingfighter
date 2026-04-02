@@ -252,70 +252,27 @@ SKILL_TREES = {
         "character_exclusive": "blacksmith",  # 발토르 전용 표시
         "skills": [
             {
-                "id": "blacksmith_turret_enhance",
-                "name": "강화포탑 해금",
-                "description": "포탑을 강화 포탑으로 업그레이드할 수 있게 됩니다.\n(유도 미사일, 오버드라이브 사용 가능)",
-                "max_level": 1,
-                "cost": 2,
-                "icon_color": (180, 100, 220),
-                "icon_type": "turret",  # 특수 아이콘 타입
+                "id": "blacksmith_gauge_efficiency",
+                "name": "게이지 효율",
+                "description": "토르쉴드로 공을 막을 때 게이지 획득량 10% 증가",
+                "max_level": 5,
+                "cost": 1,
+                "icon_color": (200, 150, 255),
                 "requires": None,
                 "row": 0,
                 "col": 0
             },
             {
-                "id": "blacksmith_divine_enhance",
-                "name": "디바인 강화 해금",
-                "description": "디바인스톤을 강화 디바인스톤으로 업그레이드할 수 있게 됩니다.\n(검기, 디바인쉴드 사용 가능)",
-                "max_level": 1,
-                "cost": 2,
-                "icon_color": (100, 200, 255),
-                "icon_type": "divine",  # 특수 아이콘 타입
-                "requires": None,
-                "row": 0,
-                "col": 1
-            },
-            {
-                "id": "blacksmith_hammer_shock",
-                "name": "해머쇼크",
-                "description": "해머쇼크 스킬을 사용할 수 있게 됩니다.\nLv.1: 기본 해머쇼크\nLv.2: 넓은 범위, 강한 피해\nLv.3: 최대 범위, 최대 피해",
-                "max_level": 3,
-                "cost": 2,  # 레벨당 비용
-                "icon_color": (255, 150, 50),  # 기본 색상 (레벨에 따라 변경)
-                "icon_type": "hammer_shock",
-                "requires": None,
-                "row": 0,
-                "col": 2,
-                # 레벨별 아이콘 색상 (그라데이션)
-                "level_colors": {
-                    1: (255, 150, 50),   # 주황
-                    2: (255, 100, 50),   # 진한 주황
-                    3: (255, 50, 50)     # 빨강
-                }
-            },
-            {
-                "id": "blacksmith_gauge_efficiency",
-                "name": "게이지 효율",
-                "description": "토르쉴드로 공을 막을 때 게이지 획득량 10% 증가\n(누적 ★4 필요)",
-                "max_level": 5,
-                "cost": 1,
-                "icon_color": (200, 150, 255),
-                "requires_or": ["blacksmith_turret_enhance", "blacksmith_divine_enhance"],
-                "total_tp_required": 4,
-                "row": 1,
-                "col": 0.5
-            },
-            {
                 "id": "blacksmith_build_speed",
                 "name": "숙련된 망치질",
-                "description": "건설 속도 8% 증가\n(누적 ★8 필요)",
+                "description": "건설 속도 8% 증가\n(누적 ★5 필요)",
                 "max_level": 5,
                 "cost": 2,
                 "icon_color": (220, 180, 255),
                 "requires": "blacksmith_gauge_efficiency",
-                "total_tp_required": 8,
-                "row": 2,
-                "col": 0.5
+                "total_tp_required": 5,
+                "row": 1,
+                "col": 0
             }
         ]
     }

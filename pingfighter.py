@@ -1116,6 +1116,10 @@ import skill
 import academy
 import cinematic
 import multiplayer_mode as mp_module
+from network.protocol import (
+    OnlinePacketType, STAGE_MULTIPLAYER, serialize_game_frame, serialize_input,
+    deserialize_input,
+)
 
 if _splash_screen:
     update_splash(0.30, "UI 시스템 로딩 중...")
@@ -22579,6 +22583,15 @@ STAGE7_TETRO_WALL_COLS = 4
 # 실제 런타임 수치는 game_logic.stage7_tetriser.get_tetro_wall_spawn_spec_legacy()
 # 결과를 우선 사용하며, 위 상수들은 예외/폴백 경로에서만 참조됨.
 boss_current_speed = 0               # 현재 AI 보스 속도
+
+# ── 온라인 멀티플레이 전용 변수 ──
+online_multiplayer_enabled = False   # 온라인 대전 모드 활성화
+online_is_host = False               # True=호스트(P1), False=클라이언트(P2)
+online_p2_character = "ufo_player"   # P2 캐릭터 ID
+online_items_enabled = True          # 아이템 드랍 활성화
+online_p2_input = None               # P2 최신 입력 (network에서 수신)
+_online_net_manager = None           # NetworkManager 참조 (캐싱용)
+_online_sound_queue = []             # 이번 프레임 사운드 큐 (클라이언트 전송용)
 
 # 보스 대쉬 관련 설정 및 상태
 BOSS_DASH_GAUGE_COST = 50            # 보스 대쉬 게이지 소모량
@@ -47810,51 +47823,23 @@ def _is_divine_state_active(state: dict[str, object] | None) -> bool:
 
 
 def has_blacksmith_turret_enhance_perk() -> bool:
-    """발토르 강화포탑 해금 퍽을 보유하고 있는지 확인한다."""
-    try:
-        import academy
-        if hasattr(academy, 'skill_system') and academy.skill_system:
-            level = academy.skill_system.get_skill_level("blacksmith_turret_enhance")
-            return level >= 1
-    except Exception as e:
-        print(f"[DEBUG] has_blacksmith_turret_enhance_perk exception: {e}")
-    return False
+    """발토르 강화포탑 - 기본탑재 (항상 True)."""
+    return True
 
 
 def has_blacksmith_divine_enhance_perk() -> bool:
-    """발토르 디바인 강화 해금 퍽을 보유하고 있는지 확인한다."""
-    try:
-        import academy
-        if hasattr(academy, 'skill_system') and academy.skill_system:
-            level = academy.skill_system.get_skill_level("blacksmith_divine_enhance")
-            return level >= 1
-    except Exception:
-        pass
-    return False
+    """발토르 디바인 강화 - 기본탑재 (항상 True)."""
+    return True
 
 
 def get_blacksmith_hammer_shock_max_stage_by_perk() -> int:
-    """해머쇼크 퍽에 따라 사용 가능한 최대 단계를 반환한다.
-
-    Returns:
-        0: 퍽 없음 (해머쇼크 사용 불가)
-        1: Lv.1 퍽 보유 (1단계 해머쇼크)
-        2: Lv.2 퍽 보유 (2단계 해머쇼크)
-        3: Lv.3 퍽 보유 (3단계 해머쇼크)
-    """
-    try:
-        import academy
-        if hasattr(academy, 'skill_system') and academy.skill_system:
-            # 통합된 해머쇼크 퍽 레벨 반환 (0~3)
-            return academy.skill_system.get_skill_level("blacksmith_hammer_shock")
-    except Exception:
-        pass
-    return 0
+    """해머쇼크 - 기본탑재 (항상 최대 단계 3 반환)."""
+    return 3
 
 
 def has_blacksmith_hammer_shock_perk() -> bool:
-    """해머쇼크 1단계 이상 퍽을 보유하고 있는지 확인한다."""
-    return get_blacksmith_hammer_shock_max_stage_by_perk() >= 1
+    """해머쇼크 - 기본탑재 (항상 True)."""
+    return True
 
 
 def get_blacksmith_gauge_efficiency_level() -> int:
@@ -120016,6 +120001,8 @@ def show_start_screen():
     ctx.enter_downtown_dev = enter_downtown_dev
     # 로컬 멀티플레이 콜백 추가
     ctx.start_local_multiplayer = start_local_multiplayer
+    # 온라인 멀티플레이 콜백 추가
+    ctx.start_online_multiplayer = start_online_multiplayer
     # 투기장 배틀 콜백 추가
     ctx.start_arena_battle = start_arena_battle
     # 개발 메뉴 투기장 바로가기
@@ -151317,6 +151304,44 @@ def _process_bazooka_collisions():
             # print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
             apply_health_boss_damage(2, source="bazooka")
 
+def _handle_boss_p2_online():
+    """온라인 멀티플레이: P2의 네트워크 입력으로 보스 패들을 조작한다."""
+    global boss_current_speed, BOSS, online_p2_input
+
+    # 네트워크에서 최신 입력 가져오기
+    if _online_net_manager is not None:
+        remote = _online_net_manager.online_remote_input
+        if remote is not None:
+            online_p2_input = remote
+
+    if online_p2_input is None:
+        return
+
+    inp = online_p2_input
+    # P2 이동 처리 (보스 패들 위치 = 상단)
+    p2_speed = 8  # 기본 이동 속도 (플레이어와 동일)
+    move_dir = 0
+    if inp.get('left', False):
+        move_dir = -1
+    elif inp.get('right', False):
+        move_dir = 1
+
+    # 대쉬 (간단 구현)
+    if inp.get('dash', False) and move_dir != 0:
+        p2_speed = 20
+
+    boss_current_speed = move_dir * p2_speed
+    BOSS.x += boss_current_speed
+
+    # 경계 클램핑
+    if BOSS.x < 0:
+        BOSS.x = 0
+        boss_current_speed = 0
+    elif BOSS.x > WIDTH - BOSS.width:
+        BOSS.x = WIDTH - BOSS.width
+        boss_current_speed = 0
+
+
 def _handle_boss_with_soap_debuff():
     """비누 디버프 / 빙판 날씨: 관성 블렌딩 방식.
 
@@ -151328,6 +151353,11 @@ def _handle_boss_with_soap_debuff():
     동시: blend≈0.126, friction≈0.990 (더 미끄러움)
     """
     global boss_current_speed, BOSS
+
+    # ── 온라인 멀티플레이: P2 입력으로 보스 조작 ──
+    if online_multiplayer_enabled and online_is_host:
+        _handle_boss_p2_online()
+        return
     # ── 비누 디버프 체크 ──
     soap_active = False
     soap_blend = 0.18
@@ -155578,6 +155608,17 @@ def main(stage_num, new_boss_mode=False):
         bgm_manager.play_stage_bgm(30)
         # 투기장에서는 날씨 이벤트 비활성화 - 진입 시 기존 날씨 초기화
         reset_weather_state()
+    elif stage_num == 40:  # Stage 40 (온라인 멀티플레이)
+        # 멀티플레이 배경: 선택된 스테이지 배경 사용 (online_game.py에서 설정)
+        # 기본은 스테이지 1 배경
+        CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
+        CURRENT_BG.fill((40, 50, 80))  # 폴백 배경
+        BOSS_COLOR = (255, 100, 100)  # P2 색상 (레드)
+        current_boss_name = "Player 2"
+        # 멀티플레이에서는 날씨/보스 패턴 비활성화
+        reset_weather_state()
+        # BGM: 스테이지 1 기본
+        bgm_manager.play_stage_bgm(1)
     elif stage_num == 50:  # Stage 50 (튜토리얼)
         # 튜토리얼용 배경 Surface 생성
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
@@ -162618,6 +162659,10 @@ def main(stage_num, new_boss_mode=False):
                 # 같은 프레임 내 즉시 반영되도록 순서를 조정한다.
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
                     _handle_boss_with_soap_debuff()
+
+                # 온라인 멀티: 매 프레임 상태 전송
+                if online_multiplayer_enabled and online_is_host:
+                    _online_send_game_state()
 
                 # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
@@ -170063,6 +170108,114 @@ def show_multiplayer_character_select() -> tuple:
         pygame.display.flip()
 
     return None
+
+
+# ============================================================================
+# 온라인 멀티플레이 (Stage 40)
+# ============================================================================
+
+def start_online_multiplayer():
+    """온라인 멀티플레이 진입점.
+    로비 → 캐릭터/스테이지 선택 → 호스트는 main(40) 실행, 클라이언트는 렌더 루프.
+    """
+    global online_multiplayer_enabled, online_is_host, online_p2_character
+    global online_items_enabled, _online_net_manager, online_p2_input
+    global selected_character_type
+
+    from network.online_game import run_online_multiplayer
+    from network.network_manager import get_network_manager
+
+    # 로비 실행
+    result = run_online_multiplayer(SCREEN, WIDTH, HEIGHT, get_font_func=get_font)
+    if result is None:
+        return  # 취소
+
+    _online_net_manager = get_network_manager()
+    online_multiplayer_enabled = True
+    online_is_host = result['is_host']
+    online_items_enabled = result.get('items_enabled', True)
+    online_p2_input = None
+
+    if online_is_host:
+        # 호스트: P1 캐릭터 설정 후 main(40) 실행
+        p1_char = result['p1_character']
+        online_p2_character = result['p2_character']
+
+        # 캐릭터 타입 매핑
+        char_map = {
+            "ufo_player": "smasher",
+            "soldier": "soldier",
+            "blacksmith": "blacksmith",
+            "viper": "viper",
+        }
+        selected_character_type = char_map.get(p1_char, "smasher")
+
+        # 게임 실행 (stage 40)
+        main(STAGE_MULTIPLAYER)
+
+    else:
+        # 클라이언트: 렌더 루프 실행
+        from network.client_renderer import run_client_renderer
+        run_client_renderer(
+            screen=SCREEN,
+            width=WIDTH,
+            height=HEIGHT,
+            get_font_func=get_font,
+            net_manager=_online_net_manager,
+        )
+
+    # 정리
+    online_multiplayer_enabled = False
+    online_is_host = False
+    online_p2_input = None
+    if _online_net_manager:
+        _online_net_manager.disconnect()
+        _online_net_manager.reset_online_state()
+        _online_net_manager = None
+
+
+def _online_send_game_state():
+    """호스트: 매 프레임 게임 상태를 클라이언트에 전송"""
+    if not online_multiplayer_enabled or not online_is_host:
+        return
+    if _online_net_manager is None or not _online_net_manager.connections:
+        return
+
+    global _online_sound_queue
+
+    frame_data = {
+        'frame_num': pygame.time.get_ticks(),
+        'ball': [BALL.x, BALL.y, ball_vel[0], ball_vel[1]],
+        'p1': [PLAYER.x, gauge_value if 'gauge_value' in dir() else 0, round_wins],
+        'p2': [BOSS.x, 0, round_losses],
+        'items': [],  # TODO: 아이템 위치
+        'sounds': _online_sound_queue[:],
+        'effects': [],
+        'game_over': None,
+        'waiting_serve': is_waiting_for_serve if 'is_waiting_for_serve' in dir() else False,
+        'player_serve': is_player_serve if 'is_player_serve' in dir() else False,
+        'round_wins': round_wins,
+        'round_losses': round_losses,
+        'p1_stunned': False,
+        'p1_dashing': False,
+        'p2_stunned': boss_stunned_timer > 0 if 'boss_stunned_timer' in dir() else False,
+        'p2_dashing': False,
+        'ball_spin': 0,
+        'ball_intensity': 0,
+    }
+
+    # 게임 종료 체크
+    try:
+        if round_wins >= win_goal:
+            frame_data['game_over'] = 'p1'
+        elif round_losses >= win_goal:
+            frame_data['game_over'] = 'p2'
+    except NameError:
+        pass
+
+    serialized = serialize_game_frame(frame_data)
+    _online_net_manager.send_online_packet(OnlinePacketType.GAME_FRAME, serialized)
+    _online_sound_queue.clear()
 
 
 def main_multiplayer():
