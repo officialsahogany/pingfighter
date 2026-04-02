@@ -72700,29 +72700,29 @@ def handle_player(keys):
     # 쉐도우 백스텝 공 타격 후 0.5초 경과 시 마샬 킥 윈도우 자동 활성화 (쿨타임 체크)
     if _viper_ss_ball_touched and not _viper_wall_dive_ready:
         if pygame.time.get_ticks() - _viper_ss_ball_touched_ms >= _VIPER_MARSHAL_KICK_1ST_DELAY_MS:
-            if get_viper_skill_cooldown_remaining("marshal_kick") <= 0:
+            if get_viper_skill_cooldown_remaining("marshal_kick") <= 0 and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST:
                 _viper_wall_dive_ready = True
                 _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_ss_ball_touched = False  # 1회 소모
 
-    # 연계 윈도우 타이머 감소
+    # 연계 윈도우 타이머 감소 (게이지 부족 시 즉시 해제)
     if _viper_wall_dive_ready:
         _viper_wall_dive_ready_timer -= 1
-        if _viper_wall_dive_ready_timer <= 0:
+        if _viper_wall_dive_ready_timer <= 0 or special_gauge < _VIPER_WALL_DIVE_GAUGE_COST:
             _viper_wall_dive_ready = False
 
     # 팬텀 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화 (퍽 해금 + 쿨타임 체크)
     if _viper_marshal_kick_hit_ball and _viper_ss_was_airborne and not _viper_double_marshal_ready:
         if pygame.time.get_ticks() - _viper_marshal_kick_hit_ms >= _VIPER_MARSHAL_KICK_2ND_DELAY_MS:
-            if _viper_double_marshal_kick_unlocked and get_viper_skill_cooldown_remaining("phantom_kick") <= 0:
+            if _viper_double_marshal_kick_unlocked and get_viper_skill_cooldown_remaining("phantom_kick") <= 0 and special_gauge >= 60:
                 _viper_double_marshal_ready = True
                 _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_marshal_kick_hit_ball = False  # 1회 소모
 
-    # 팬텀 킥 윈도우 타이머 감소
+    # 팬텀 킥 윈도우 타이머 감소 (게이지 부족 시 즉시 해제)
     if _viper_double_marshal_ready:
         _viper_double_marshal_ready_timer -= 1
-        if _viper_double_marshal_ready_timer <= 0:
+        if _viper_double_marshal_ready_timer <= 0 or special_gauge < 60:
             _viper_double_marshal_ready = False
 
     # 마샬 킥 발동: 연계 윈도우 또는 더블 마샬 윈도우 중 S/↓키 단독 입력
