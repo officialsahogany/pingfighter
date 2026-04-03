@@ -160100,7 +160100,18 @@ def main(stage_num, new_boss_mode=False):
             # - 좌클릭을 스페이스바와 동일하게 처리하여 서브가 되도록 함
             #   (AGENTS.md: 입력 매핑 최소 수정, 메인 루프 정지 금지)
             # - 공 생성 애니메이션 중에는 서브 입력 무시
-            if is_player_serve and is_waiting_for_serve and not ball_spawn_animation_active:
+            # - 온라인 클라이언트는 여기서 서브하지 않음! (_online_send_player_position에서 호스트로 전송)
+            if is_player_serve and is_waiting_for_serve and not ball_spawn_animation_active and (online_multiplayer_enabled and not online_is_host):
+                # 온라인 클라이언트: 로컬 서브 실행 안 하고, 서브 입력 플래그만 세움
+                space_or_leftclick = (
+                    (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE)
+                    or (event.type == pygame.MOUSEBUTTONDOWN and getattr(event, 'button', 0) == 1)
+                )
+                if space_or_leftclick:
+                    global _online_client_serve_pressed
+                    _online_client_serve_pressed = True
+                    print(f"[Online Serve DEBUG] CLIENT: 서브 키 입력 감지! (이벤트 기반 플래그)")
+            elif is_player_serve and is_waiting_for_serve and not ball_spawn_animation_active:
                 space_or_leftclick = (
                     (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE)
                     or (event.type == pygame.MOUSEBUTTONDOWN and getattr(event, 'button', 0) == 1)
@@ -170617,6 +170628,7 @@ def start_online_multiplayer():
 
 # ── 온라인 멀티: 애니메이션 상태 동기화 ──
 _online_opponent_anim = {'state': 'idle'}  # 상대방 수신 애니메이션 상태
+_online_client_serve_pressed = False  # 클라이언트 서브 입력 플래그 (이벤트 기반)
 
 
 def _online_get_my_anim_state():
@@ -170726,13 +170738,12 @@ def _online_send_player_position():
     if _online_net_manager is None or not _online_net_manager.connections:
         return
 
-    # 서브 입력 감지: 클라이언트가 서브 차례일 때 space/enter 입력을 호스트에 전달
-    _serve_input = False
-    if is_waiting_for_serve and is_player_serve:
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
-            _serve_input = True
-            print(f"[Online Serve DEBUG] CLIENT: 서브 입력 전송! is_waiting={is_waiting_for_serve} is_player_serve={is_player_serve}")
+    # 서브 입력 감지: 이벤트 루프에서 설정된 플래그 사용
+    global _online_client_serve_pressed
+    _serve_input = _online_client_serve_pressed
+    if _serve_input:
+        print(f"[Online Serve DEBUG] CLIENT: 서브 입력 호스트로 전송!")
+        _online_client_serve_pressed = False  # 플래그 리셋
 
     _online_net_manager.send_online_packet(
         OnlinePacketType.GAME_INPUT,
@@ -170765,12 +170776,18 @@ def _online_client_apply_state():
 
     # 공 위치 동기화 (호스트 권위) - Y축 반전!
     # 호스트의 아래(PLAYER 근처) = 클라이언트의 위(BOSS 근처)
+    host_waiting = frame.get('waiting_serve', False)
     ball = frame.get('ball', None)
     if ball and len(ball) >= 4:
         BALL.x = int(ball[0])
         BALL.y = HEIGHT - int(ball[1]) - BALL.height  # Y축 반전
-        ball_vel[0] = ball[2]
-        ball_vel[1] = -ball[3]  # Y 속도도 반전
+        if host_waiting:
+            # 서브 대기 중에는 공 속도 0 (호스트의 미세한 드리프트가 반전되어 문제 일으킴 방지)
+            ball_vel[0] = 0
+            ball_vel[1] = 0
+        else:
+            ball_vel[0] = ball[2]
+            ball_vel[1] = -ball[3]  # Y 속도도 반전
 
     # 서브 상태 동기화 (시점 반전!)
     # 호스트의 player_serve=True(호스트 서브) → 클라이언트 입장에서는 상대방 서브
