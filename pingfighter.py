@@ -73141,19 +73141,22 @@ def handle_player(keys):
                     if _viper_ss_was_airborne and not _viper_is_double_marshal:
                         _viper_marshal_kick_hit_ball = True
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
-                    # 공을 위로 강하게 반사 + 속도 증가
+                    # 공을 위로 강하게 반사 + 속도 증가 (킥 강화 퍽 공속 보너스: +5%/LV)
+                    _mk_kick_lv = runtime_skill_levels.get("kick_enhance", 0)
+                    _mk_speed_bonus = 1.0 + _mk_kick_lv * 0.05  # LV.0=1.0, LV.5=1.25
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
                     # 2차 마샬 킥이면 180% 증가(2.8x), 1차는 100% 증가(2.0x)
                     if _viper_is_double_marshal:
-                        _wd_new_spd = max(_wd_cur_spd * 2.8, 14.0)  # 180% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 2.8 * _mk_speed_bonus, 14.0)  # 180% 증가 + 퍽 보너스
                     else:
-                        _wd_new_spd = max(_wd_cur_spd * 2.0, 11.0)  # 100% 증가
+                        _wd_new_spd = max(_wd_cur_spd * 2.0 * _mk_speed_bonus, 11.0)  # 100% 증가 + 퍽 보너스
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
-                    # 랜덤 발사각 (마샬/팬텀 킥: 티어별 보스 회피 편향 차등 적용)
-                    # 스킬 티어별 가중치: 쉐도우 백스텝=0.2, 마샬 킥=0.5, 팬텀 킥=0.8
+                    # 랜덤 발사각 (킥 강화 퍽 정밀도 반영: LV.0=base, LV.5=1.0)
+                    # base_bias + (1.0 - base_bias) × (level / 5)
                     import random as _mk_rand
-                    _mk_bias = 0.8 if _viper_is_double_marshal else 0.5
+                    _mk_base_bias = 0.8 if _viper_is_double_marshal else 0.5
+                    _mk_bias = _mk_base_bias + (1.0 - _mk_base_bias) * (_mk_kick_lv / 5.0)
                     _mk_random_angle = _mk_rand.uniform(-55, 55)  # 순수 랜덤 각도
                     _mk_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
                     _mk_boss_dx = _mk_boss_cx - BALL.centerx
