@@ -161541,6 +161541,26 @@ def main(stage_num, new_boss_mode=False):
                 if not (online_multiplayer_enabled and not online_is_host):
                     items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused, boss_rect=BOSS)
 
+                    # 온라인 호스트: BOSS(클라이언트) 위치의 아이템 충돌 체크
+                    if online_multiplayer_enabled and online_is_host:
+                        _boss_pickup_remain = []
+                        for _bi in items.item_list:
+                            _bi_rect = pygame.Rect(_bi["x"] - 15, _bi["y"] - 15, 30, 30)
+                            if _bi_rect.colliderect(BOSS):
+                                # 클라이언트가 획득! → 전송 큐에 추가
+                                _bi_type = _bi.get("type", {})
+                                _bi_name = _bi_type.get("name", "") if isinstance(_bi_type, dict) else ""
+                                _bi_color = _bi_type.get("color", (200, 200, 200)) if isinstance(_bi_type, dict) else (200, 200, 200)
+                                _online_client_pickups.append({
+                                    "name": _bi_name,
+                                    "color": list(_bi_color) if isinstance(_bi_color, tuple) else _bi_color,
+                                    "x": _bi["x"],
+                                    "y": _bi["y"],
+                                })
+                            else:
+                                _boss_pickup_remain.append(_bi)
+                        items.item_list = _boss_pickup_remain
+
                 # 석판 수집 퀘스트 업데이트
                 if not is_tutorial_paused:
                     update_quest_tablets()
@@ -170632,6 +170652,7 @@ def start_online_multiplayer():
 # ── 온라인 멀티: 애니메이션 상태 동기화 ──
 _online_opponent_anim = {'state': 'idle'}  # 상대방 수신 애니메이션 상태
 _online_client_serve_pressed = False  # 클라이언트 서브 입력 플래그 (이벤트 기반)
+_online_client_pickups = []  # 호스트→클라이언트: 클라이언트가 획득한 아이템 목록
 
 
 def _online_get_my_anim_state():
@@ -170728,7 +170749,9 @@ def _online_send_game_state():
         'ball_spin': 0,
         'ball_intensity': 0,
         'p1_anim': _online_get_my_anim_state(),
+        'client_pickups': _online_client_pickups[:],  # 클라이언트가 획득한 아이템
     }
+    _online_client_pickups.clear()
 
     try:
         if round_wins >= win_goal:
@@ -170823,6 +170846,35 @@ def _online_client_apply_state():
     # 변경이 있을 때만 로그
     if _prev_waiting != is_waiting_for_serve or _prev_player_serve != is_player_serve:
         print(f"[Online Serve DEBUG] CLIENT sync: host_waiting={host_waiting} host_player_serve={host_player_serve} → is_waiting={is_waiting_for_serve} is_player_serve={is_player_serve}")
+
+    # 클라이언트 아이템 획득 처리 (호스트가 감지한 BOSS 충돌)
+    client_pickups = frame.get('client_pickups', [])
+    for _cp in client_pickups:
+        _cp_name = _cp.get('name', '')
+        _cp_color = tuple(_cp.get('color', [200, 200, 200]))
+        _cp_x = _cp.get('x', 0)
+        _cp_y = HEIGHT - _cp.get('y', 0)  # Y반전
+        if _cp_name:
+            try:
+                if SOUND_ITEM_GET:
+                    SOUND_ITEM_GET.play()
+            except Exception:
+                pass
+            _cp_data = {
+                "name": _cp_name,
+                "color": _cp_color,
+                "effect": _cp_name,
+                "icon": None,
+                "x": _cp_x,
+                "y": _cp_y,
+            }
+            # 패시브/액티브 구분하여 저장
+            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"}
+            if _cp_name in _passive_names:
+                store_passive_item(_cp_data)
+            else:
+                store_active_item(_cp_data)
+            print(f"[Online Item] CLIENT: 아이템 획득! {_cp_name}")
 
     # 아이템 동기화 (호스트가 보낸 아이템 목록을 Y반전하여 표시)
     remote_items = frame.get('items', [])

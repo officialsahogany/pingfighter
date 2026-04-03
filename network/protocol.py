@@ -128,6 +128,8 @@ def serialize_game_frame(frame_data):
         'bi': frame_data.get('ball_intensity', 0),
         # 애니메이션 상태
         'p1a': frame_data.get('p1_anim', None),
+        # 클라이언트 아이템 획득
+        'cp': frame_data.get('client_pickups', []),
     }
 
 
@@ -153,6 +155,7 @@ def deserialize_game_frame(data):
         'ball_spin': data.get('bs', 0),
         'p1_anim': data.get('p1a', None),
         'ball_intensity': data.get('bi', 0),
+        'client_pickups': data.get('cp', []),
     }
 
 
