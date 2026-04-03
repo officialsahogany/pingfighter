@@ -132055,7 +132055,8 @@ def show_item_manager_menu():
     LEGENDARY_SLOT_ORDER = [
         ("머리", ["transcendent_crown"]),
         ("팔", ["ragnarok_hammer", "poseidon_trident"]),
-        ("허리", ["odins_eye"]),
+        ("등", ["pandora_legacy"]),
+        ("허리", ["odins_eye", "megingjord"]),
         ("신발", ["hermes_shoes"]),
         ("장신구", ["angel_blessing", "sacred_laurel"]),
     ]
@@ -132658,7 +132659,10 @@ def show_item_manager_menu():
 
             # 부위별 색상 (전설 아이템용 - 황금빛 계열)
             slot_colors = {
+                "머리": (255, 220, 130),
                 "팔": (255, 200, 100),
+                "등": (200, 170, 130),
+                "허리": (180, 200, 255),
                 "신발": (200, 180, 255),
                 "장신구": (255, 180, 200),
                 "기타": (180, 180, 180),
