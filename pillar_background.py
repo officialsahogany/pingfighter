@@ -1575,7 +1575,8 @@ class PillarBackgroundRenderer:
         else:
             time_since_round_start = current_time - round_start_time
 
-        throwing_items = {"molotov", "grenade", "flare", "spider_mine", "banana", "dynamite"}
+        throwing_items_3s = {"molotov", "grenade", "flare", "spider_mine", "dynamite", "boomerang"}
+        throwing_items_5s = {"banana", "soap"}
 
         # 슬롯 rect 리스트 (클릭/호버 감지용으로 반환)
         slot_rects = []
@@ -1710,9 +1711,15 @@ class PillarBackgroundRenderer:
                         pygame.draw.rect(screen, (255, 230, 100, glow_alpha),
                                        (x - 2, y - 2, SLOT_W + 4, SLOT_H + 4), 3)
 
-            # 투척류 카운트다운 (3초 제한)
-            if item_name in throwing_items and time_since_round_start < 3000:
-                remaining_seconds = int((3000 - time_since_round_start) / 1000) + 1
+            # 투척류 카운트다운 (아이템별 제한시간)
+            if item_name in throwing_items_3s:
+                _throw_limit = 3000
+            elif item_name in throwing_items_5s:
+                _throw_limit = 5000
+            else:
+                _throw_limit = 0
+            if _throw_limit > 0 and time_since_round_start < _throw_limit:
+                remaining_seconds = int((_throw_limit - time_since_round_start) / 1000) + 1
                 # 🔧 최적화: 오버레이 캐시 사용
                 overlay_key = (SLOT_W, SLOT_H, 150)
                 if overlay_key not in self._overlay_cache:
