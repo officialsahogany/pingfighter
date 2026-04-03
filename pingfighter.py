@@ -15040,21 +15040,19 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
             }
             available.append(choice)
 
-    # 다우징 고글 보너스: 고정 +1 퍽 선택지 + 확률 판정으로 추가 +1
-    _goggles_equipped = False
+    # 다우징 고글 보너스: 장착 시 고정 +1 퍽 선택지 (총 4퍽 + 골드변환 = 5장)
+    # 롤옵션(추가 퍽 등장 확률)은 확률 판정으로 +1 추가 (총 5퍽 + 골드변환 = 6장은 안됨)
+    # → 고정 +1만 적용, 롤옵션 확률은 보너스 퍽 등장 판정용으로만 사용
+    _extra_perk = 0
     _bonus_perk_fired = False
     try:
         from item_effects.dowsing_goggles import get_fixed_extra_perk_count, get_bonus_perk_chance, roll_bonus_perk
         if get_bonus_perk_chance() > 0:
-            _goggles_equipped = True
-            _fixed_extra = get_fixed_extra_perk_count()  # 항상 1
-            _bonus_perk_fired = roll_bonus_perk()  # 30~60% 확률 판정
-            _extra_perk = _fixed_extra + (1 if _bonus_perk_fired else 0)
-        else:
-            _extra_perk = 0
+            _extra_perk = get_fixed_extra_perk_count()  # 항상 1 (고정)
+            _bonus_perk_fired = roll_bonus_perk()  # 확률 판정 (발동 시 퍽 품질 향상 등 별도 효과용)
     except Exception:
         _extra_perk = 0
-    base_perk_count = 3 + _extra_perk  # 기본 3개 + 다우징 고글 보너스 (4 또는 5)
+    base_perk_count = 3 + _extra_perk  # 기본 3개 + 고글 고정 1개 = 최대 4개 (+ 골드변환 = 5장)
 
     # 퍽 선택지 수만큼 랜덤 선택
     if len(available) > base_perk_count:
