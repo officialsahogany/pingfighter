@@ -669,11 +669,8 @@ class LegendaryItem:
             
         
     def _spawn_particle(self, screen: pygame.Surface, x: int, y: int):
-        """파티클 스폰"""
-        for _ in range(3):
-            px = x + random.randint(-20, 20)
-            py = y + random.randint(-20, 20)
-            pygame.draw.circle(screen, LEGENDARY_COLOR, (px, py), random.randint(1, 3))
+        """파티클 스폰 (비활성 - 각 서브클래스에서 고유 이펙트 사용)"""
+        pass
 
 
 # 전설 아이템 정의
