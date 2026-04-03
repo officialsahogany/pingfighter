@@ -523,23 +523,31 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
     기존 신화 아이템(라그나로크 해머 등)과 동일한 _draw_common_legendary_frame() 사용:
     - 파란 글로우 펄싱 + 붉은 그라데이션 테두리 + 금색 모서리 + 상하 부유
     그 위에 원본 PNG 아이콘 + 반짝임 이펙트
+
+    _draw_common_legendary_frame()은 모서리를 (x-2, y-2) ~ (x+size+2, y+size+2) 범위에
+    그리므로, 패딩을 포함한 임시 서피스에 그린 뒤 screen에 블릿한다.
     """
     from legendary_items import _draw_common_legendary_frame
 
-    # 신화 아이템 공통 프레임 (라그나로크 해머와 동일)
-    frame_offset = _draw_common_legendary_frame(screen, x, y, size, animation_time)
-    icon_y = y + frame_offset
+    # 모서리 장식이 잘리지 않도록 패딩 추가
+    PAD = 4
+    buf_w = size + PAD * 2
+    buf_h = size + PAD * 2 + 4  # 상하 부유(±2px) 여유분
+    buf = pygame.Surface((buf_w, buf_h), pygame.SRCALPHA)
+
+    # 패딩 안쪽에 아이콘 그리기
+    frame_offset = _draw_common_legendary_frame(buf, PAD, PAD, size, animation_time)
+    icon_y_in_buf = PAD + frame_offset
 
     # 원본 PNG 아이콘 표시
     png_icon = _get_elixir_png(size)
     if png_icon:
-        screen.blit(png_icon, (x, icon_y))
+        buf.blit(png_icon, (PAD, icon_y_in_buf))
     else:
-        # PNG 로드 실패 시 간단한 폴백
-        cx, cy = x + size // 2, icon_y + size // 2
-        pygame.draw.ellipse(screen, (140, 60, 220), (cx - 9, cy - 3, 18, 14))
-        pygame.draw.rect(screen, (120, 60, 200), (cx - 3, cy - 12, 6, 10))
-        pygame.draw.rect(screen, (255, 200, 50), (cx - 4, cy - 15, 8, 4))
+        cx, cy = PAD + size // 2, icon_y_in_buf + size // 2
+        pygame.draw.ellipse(buf, (140, 60, 220), (cx - 9, cy - 3, 18, 14))
+        pygame.draw.rect(buf, (120, 60, 200), (cx - 3, cy - 12, 6, 10))
+        pygame.draw.rect(buf, (255, 200, 50), (cx - 4, cy - 15, 8, 4))
 
     # 마법 별 이펙트 (프레임 0, 3, 6에서 반짝임)
     frame_idx = int(animation_time * 8) % 8
@@ -556,7 +564,10 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
         for ox, oy in offsets:
             color = (255, 220, 255, sparkle_alpha)
             pygame.draw.circle(sparkle_surf, color, (ox, oy), max(1, size // 16))
-        screen.blit(sparkle_surf, (x, icon_y))
+        buf.blit(sparkle_surf, (PAD, icon_y_in_buf))
+
+    # 패딩 오프셋 보정하여 screen에 블릿
+    screen.blit(buf, (x - PAD, y - PAD))
 
 
 def generate_mythical_animation_frames(num_frames=8, size=32):
