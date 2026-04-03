@@ -166665,7 +166665,8 @@ def show_character_info(background_surface=None):
                         opt_text = format_roll_option_with_polish(opt, item)
                         opt_lines.append({"text": opt_text, "color": opt.get("color", (200, 210, 230))})
 
-                # 천사의 가호: 현재 적용 중인 버프 표시
+                # 천사의 가호: 현재 적용 중인 버프를 별도 탭으로 표시
+                _angel_buff_lines = []
                 if item_name == "angel_blessing":
                     try:
                         _lm = get_legendary_manager()
@@ -166680,10 +166681,9 @@ def show_character_info(background_surface=None):
                                 "dash_cooldown": f"대쉬 쿨타임 -{buff_pct}%",
                                 "move_speed": f"이동 속도 +{buff_pct}%",
                             }
-                            opt_lines.append({"text": "── 적용 중 ──", "color": (100, 200, 100)})
                             for _b in _blessing.active_buffs:
                                 _label = _buff_kr.get(_b, _b)
-                                opt_lines.append({"text": f"✦ {_label}", "color": (100, 220, 100)})
+                                _angel_buff_lines.append({"text": f"✦ {_label}", "color": (100, 220, 100)})
                     except Exception:
                         pass
 
@@ -166697,6 +166697,7 @@ def show_character_info(background_surface=None):
                     "slot_label": get_item_slot_label(item_name),
                     "color": get_item_quality_color(item),
                     "options": opt_lines,
+                    "extra_tab": _angel_buff_lines,
                     "desc_lines": desc_lines,
                 }
         return slot_rects, hover_info
@@ -168292,9 +168293,25 @@ def show_character_info(background_surface=None):
                     roll_render_entries = _break_lines(option_entries, roll_width - 20)
                     roll_height = 16 + len(roll_render_entries) * line_height
 
+                    # Extra tab (e.g. angel_blessing active buffs)
+                    extra_entries = hover_info.get("extra_tab") or []
+                    extra_width = 0
+                    extra_height = 0
+                    extra_render_entries = []
+                    extra_title_surface = None
+                    if extra_entries:
+                        extra_title_surface = local_font_tiny.render("적용 중", True, (100, 200, 100))
+                        extra_render_entries = _break_lines(extra_entries, 200)
+                        extra_content_w = max(_calc_width(extra_entries), extra_title_surface.get_width())
+                        extra_width = min(220, max(140, extra_content_w + 20))
+                        extra_render_entries = _break_lines(extra_entries, extra_width - 20)
+                        extra_height = 16 + extra_title_surface.get_height() + 6 + len(extra_render_entries) * line_height
+
                     gap = 12
                     total_width = desc_width + gap + roll_width
-                    max_height = max(desc_height, roll_height)
+                    if extra_width:
+                        total_width += gap + extra_width
+                    max_height = max(desc_height, roll_height, extra_height)
                     tooltip_x = max(8, min(WIDTH - total_width - 8, hover_info["rect"].x + 10))
                     tooltip_y = hover_info["rect"].top - max_height - 12
                     if tooltip_y < 8:
@@ -168331,6 +168348,20 @@ def show_character_info(background_surface=None):
                         line_surface = local_font_tiny.render(entry.get("text", ""), True, entry.get("color", (200, 210, 230)))
                         SCREEN.blit(line_surface, (roll_rect.x + 10, roll_text_y))
                         roll_text_y += line_height
+
+                    # Extra tab (active buffs)
+                    if extra_render_entries and extra_title_surface:
+                        extra_rect = pygame.Rect(roll_rect.right + gap, tooltip_y, extra_width, extra_height)
+                        pygame.draw.rect(SCREEN, (14, 24, 18, 235), extra_rect, border_radius=8)
+                        pygame.draw.rect(SCREEN, (80, 200, 100), extra_rect, 2, border_radius=8)
+                        extra_text_y = extra_rect.y + 10
+                        SCREEN.blit(extra_title_surface, (extra_rect.x + 10, extra_text_y))
+                        extra_text_y += extra_title_surface.get_height() + 6
+                        for entry in extra_render_entries:
+                            line_surface = local_font_tiny.render(entry.get("text", ""), True, entry.get("color", (100, 220, 100)))
+                            SCREEN.blit(line_surface, (extra_rect.x + 10, extra_text_y))
+                            extra_text_y += line_height
+
                     dual_rendered = True
 
             if not dual_rendered:
