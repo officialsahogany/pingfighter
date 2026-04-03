@@ -55,7 +55,6 @@ PLACEHOLDER_LEGENDARY_NAMES = (
 ANGEL_BLESSING_OPTIONS = (
     "paddle_size",
     "gauge_max",
-    "item_spawn",
     "item_cooldown",
     "dash_cost",
     "dash_cooldown",
@@ -4218,8 +4217,6 @@ class AngelBlessing(LegendaryItem):
         """적용된 버프에 따른 전역 배율 복구"""
         import items
         import academy
-        if hasattr(items, "LEGENDARY_ITEM_SPAWN_MULT"):
-            items.LEGENDARY_ITEM_SPAWN_MULT = 1.0
         if hasattr(academy, "ANGEL_ITEM_COOLDOWN_MULTIPLIER"):
             academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = 1.0
         self._set_global_multiplier("ANGEL_PADDLE_SCALE", 1.0)
@@ -4347,10 +4344,6 @@ class AngelBlessing(LegendaryItem):
             except Exception:
                 pass
             if self.DEBUG_ENABLED: print(f"[AngelBlessing] 최대 게이지 버프 적용: +{int(buff_mult*100)}%")
-        elif buff == "item_spawn":
-            if hasattr(items, "LEGENDARY_ITEM_SPAWN_MULT"):
-                items.LEGENDARY_ITEM_SPAWN_MULT = positive_mult
-            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 아이템 스폰률 버프 적용: +{int(buff_mult*100)}%")
         elif buff == "item_cooldown":
             academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = negative_mult
             if self.DEBUG_ENABLED: print(f"[AngelBlessing] 아이템 쿨타임 버프 적용: -{int(buff_mult*100)}%")
@@ -5434,7 +5427,6 @@ class AngelBlessing(LegendaryItem):
         buff_names_kr = {
             "paddle_size": f"패들 크기 +{buff_pct}%",
             "gauge_max": f"최대 게이지 +{buff_pct}%",
-            "item_spawn": f"아이템 스폰률 +{buff_pct}%",
             "item_cooldown": f"아이템 쿨타임 -{buff_pct}%",
             "dash_cost": f"대쉬 비용 -{buff_pct}%",
             "dash_cooldown": f"대쉬 쿨타임 -{buff_pct}%",
@@ -5443,7 +5435,6 @@ class AngelBlessing(LegendaryItem):
         buff_names_en = {
             "paddle_size": f"Paddle Size +{buff_pct}%",
             "gauge_max": f"Max Gauge +{buff_pct}%",
-            "item_spawn": f"Item Spawn +{buff_pct}%",
             "item_cooldown": f"Item Cooldown -{buff_pct}%",
             "dash_cost": f"Dash Cost -{buff_pct}%",
             "dash_cooldown": f"Dash Cooldown -{buff_pct}%",

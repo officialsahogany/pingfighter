@@ -94,8 +94,6 @@ ITEM_ICONS = {}
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
 _LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "odins_eye"}
-# 전설 버프용 아이템 스폰 배율
-LEGENDARY_ITEM_SPAWN_MULT = 1.0
 
 
 def _center_icon_surface(icon: pygame.Surface, size: int = 32, padding: int = 2) -> pygame.Surface:
@@ -2297,11 +2295,6 @@ def spawn_random_item():
     # 스킬 효과 적용: 아이템 스폰 확률 증가
     import skill
     skill_spawn_boost = skill.apply_item_spawn_boost(1.0)  # 기본 확률 1.0에 스킬 효과 적용
-    try:
-        skill_spawn_boost *= LEGENDARY_ITEM_SPAWN_MULT
-    except Exception:
-        pass
-
     legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
