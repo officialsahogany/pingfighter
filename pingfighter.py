@@ -18003,8 +18003,8 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
     elif skill_id == "soldier_pistol_perk":
         # 권총 화기류 - 권총 아이콘
         color = icon_color
-        lt = lighter
-        dk = darker
+        lt = lighter(icon_color)
+        dk = darker(icon_color)
         # 총몸체 (슬라이드)
         body_w = int(16 * scale)
         body_h = int(8 * scale)
