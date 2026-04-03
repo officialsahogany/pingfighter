@@ -4445,6 +4445,14 @@ class AngelBlessing(LegendaryItem):
         self.roll_anim_active = True
         self.roll_timer = 0.0
         self.waiting_for_space = False  # 스페이스바 대기 상태 초기화
+        # 성스러운 빛 강림 사운드 재생
+        try:
+            import pygame
+            snd_path = resource_path(os.path.join("sounds", "angeldice.wav"))
+            if os.path.exists(snd_path):
+                pygame.mixer.Sound(snd_path).play()
+        except Exception:
+            pass
         # 버프 적용
         for buff in selected:
             self._apply_buff(buff)
