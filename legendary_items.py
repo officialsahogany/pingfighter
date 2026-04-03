@@ -448,6 +448,37 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
     return frame_offset
 
 
+def _draw_legendary_border_and_corners(screen: pygame.Surface,
+                                       x: int,
+                                       frame_y: int,
+                                       size: int,
+                                       border_color: Tuple[int, int, int] = COMMON_LEGENDARY_BORDER_COLOR,
+                                       corner_color: Tuple[int, int, int] = COMMON_LEGENDARY_CORNER_COLOR,
+                                       corner_style: str = "default"):
+    """테두리와 코너 장식만 그린다 (프레임 blit 후 위에 덮어 그리기용)."""
+    border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
+    pygame.draw.rect(screen, border_color, border_rect, 2)
+
+    if corner_style == "block":
+        block_size = max(8, size // 6)
+        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
+            block_rect = pygame.Rect(cx - block_size // 2, cy - block_size // 2, block_size, block_size)
+            pygame.draw.rect(screen, corner_color, block_rect)
+    else:
+        corner_size = 8
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
+
+        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
+            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+
+
 def _draw_glow_and_inner_only(screen: pygame.Surface,
                               x: int,
                               y: int,
@@ -5004,6 +5035,10 @@ class AngelBlessing(LegendaryItem):
             pygame.draw.circle(screen, pip_color, (center_x + pip_offset, center_y - pip_offset), pip_size)
             pygame.draw.circle(screen, pip_color, (center_x + pip_offset, center_y), pip_size)
             pygame.draw.circle(screen, pip_color, (center_x + pip_offset, center_y + pip_offset), pip_size)
+
+        # 테두리 + 은색 모서리 장식을 프레임 위에 다시 그리기 (애니메이션 프레임에 덮이지 않도록)
+        frame_y = y + frame_offset
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
 
     def _draw_2d_dice_result(self, screen: pygame.Surface, cx: int, cy: int, size: int, result: int):
         """2D 주사위 결과 그리기 - 결과 숫자만 명확하게 표시
@@ -11641,6 +11676,9 @@ class PandoraLegacy(LegendaryItem):
         else:
             self._draw_fallback_icon(screen, x + 3, frame_y + 3, size - 6)
 
+        # 테두리 + 은색 모서리 장식을 프레임 위에 다시 그리기 (애니메이션 프레임에 덮이지 않도록)
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
+
         # 파티클 효과
         if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size // 2, frame_y + size // 2)
@@ -11680,6 +11718,8 @@ class Megingjord(LegendaryItem):
             icon_path=None  # 고유 애니메이션만 사용
         )
         self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+        self._extra_pick_count = 0  # 현재 퍽 선택 세션에서 연속 발동 횟수
+        self.MAX_EXTRA_PICKS = 2  # 한 세션당 최대 연속 발동 횟수
 
         # 애니메이션 프레임 설정
         self.animation_frames = []
@@ -11709,14 +11749,23 @@ class Megingjord(LegendaryItem):
         """메긴교르드 비활성화"""
         super().deactivate()
 
+    def reset_extra_pick_count(self):
+        """퍽 선택 세션 시작 시 발동 카운터 리셋"""
+        self._extra_pick_count = 0
+
     def check_extra_pick(self) -> bool:
-        """퍽 선택 후 추가 선택 기회 판정
+        """퍽 선택 후 추가 선택 기회 판정 (한 세션당 최대 2회)
         Returns: True이면 추가 선택 기회 발동
         """
         if not self.active:
             return False
+        if self._extra_pick_count >= self.MAX_EXTRA_PICKS:
+            return False
         chance = self.extra_pick_chance / 100.0
-        return random.random() < chance
+        if random.random() < chance:
+            self._extra_pick_count += 1
+            return True
+        return False
 
     def _create_default_animation(self):
         """기본 벨트 아이콘 애니메이션 프레임 생성 (8프레임)"""
