@@ -162066,6 +162066,38 @@ def main(stage_num, new_boss_mode=False):
                                             )
                                             break
 
+                            # 👁 가시-테트로미노 충돌 체크 (스테이지 7)
+                            if current_stage == 7 and stage7_tetrominoes and odins_eye.lurker_spikes:
+                                for spike in odins_eye.lurker_spikes:
+                                    if spike['phase'] not in ('hold', 'rising') or spike['height'] < 10:
+                                        continue
+                                    spike_rect = pygame.Rect(
+                                        spike['x'] - spike['width'] - 5,
+                                        spike['y'] - spike['height'],
+                                        spike['width'] * 2 + 10,
+                                        spike['height']
+                                    )
+                                    for mino in stage7_tetrominoes[:]:
+                                        if mino.get("state") not in ("assembling", "falling", "installed"):
+                                            continue
+                                        _mino_hit = False
+                                        for cell in mino.get("cells", []):
+                                            if cell.get("evaporated"):
+                                                continue
+                                            cell_rect = cell.get("rect")
+                                            if cell_rect and spike_rect.colliderect(cell_rect):
+                                                _mino_hit = True
+                                                break
+                                        if _mino_hit:
+                                            destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+                                            spike['phase'] = 'dissolving'
+                                            spike['phase_timer'] = 0
+                                            spike['dissolve_alpha'] = 255
+                                            odins_eye._spawn_spike_fragments(
+                                                int(spike['x']), int(spike['y'] - spike['height'] // 2), int(spike['height'])
+                                            )
+                                            break
+
                         # 👻 오딘의 눈 잔상 시스템 업데이트 및 충돌 체크
                         if odins_eye and (odins_eye.penalty_active or odins_eye.dark_energy_active):
                             # 잔상 업데이트 (타이머, 페이드)
