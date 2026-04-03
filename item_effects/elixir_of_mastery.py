@@ -517,6 +517,47 @@ def _get_elixir_png(size):
         return None
 
 
+_elixir_border_frames_cache = None  # 테두리 프레임 캐시
+
+
+def _get_elixir_border_frames():
+    """라그나로크 해머 PNG에서 테두리만 추출한 프레임 캐시"""
+    global _elixir_border_frames_cache
+    if _elixir_border_frames_cache is not None:
+        return _elixir_border_frames_cache
+
+    import os, sys
+    def _resource_path(relative_path):
+        try:
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_path, relative_path.replace('/', os.sep))
+
+    frames = []
+    try:
+        from legendary_items import _strip_legendary_red_ring
+        for i in range(8):
+            frame_path = _resource_path(os.path.join("items", "legendary", f"ragnarok_hammer_frame_{i}.png"))
+            frame = pygame.image.load(frame_path).convert_alpha()
+            cleaned = _strip_legendary_red_ring(frame)
+            # 중앙 제거, 테두리 6px 보존
+            result = cleaned.copy()
+            w, h = cleaned.get_size()
+            for py in range(h):
+                for px in range(w):
+                    c = cleaned.get_at((px, py))
+                    if c.a == 0:
+                        continue
+                    if min(px, w - 1 - px, py, h - 1 - py) >= 6:
+                        result.set_at((px, py), (0, 0, 0, 0))
+            frames.append(result)
+    except Exception:
+        pass
+    _elixir_border_frames_cache = frames
+    return frames
+
+
 def draw_elixir_animated_icon(screen, x, y, size, animation_time):
     """엘릭서 오브 마스터리 애니메이션 아이콘 그리기
 
@@ -527,7 +568,13 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
     _draw_common_legendary_frame()은 모서리를 (x-2, y-2) ~ (x+size+2, y+size+2) 범위에
     그리므로, 패딩을 포함한 임시 서피스에 그린 뒤 screen에 블릿한다.
     """
-    from legendary_items import _draw_common_legendary_frame
+    from legendary_items import (
+        _draw_common_legendary_frame,
+        _draw_legendary_border_and_corners,
+        _strip_legendary_red_ring,
+        COMMON_LEGENDARY_BORDER_COLOR,
+        COMMON_LEGENDARY_CORNER_COLOR,
+    )
 
     # 모서리 장식이 잘리지 않도록 패딩 추가
     PAD = 4
@@ -549,6 +596,14 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
         pygame.draw.rect(buf, (120, 60, 200), (cx - 3, cy - 12, 6, 10))
         pygame.draw.rect(buf, (255, 200, 50), (cx - 4, cy - 15, 8, 4))
 
+    # 라그나로크 해머 테두리 프레임 오버레이 (다른 전설 아이템과 동일한 테두리 레이어)
+    border_frames = _get_elixir_border_frames()
+    if border_frames:
+        frame_idx_border = int(animation_time * 8) % len(border_frames)
+        border_frame = border_frames[frame_idx_border]
+        scaled_border = pygame.transform.scale(border_frame, (size, size))
+        buf.blit(scaled_border, (PAD, icon_y_in_buf))
+
     # 마법 별 이펙트 (프레임 0, 3, 6에서 반짝임)
     frame_idx = int(animation_time * 8) % 8
     if frame_idx in [0, 3, 6]:
@@ -565,6 +620,9 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
             color = (255, 220, 255, sparkle_alpha)
             pygame.draw.circle(sparkle_surf, color, (ox, oy), max(1, size // 16))
         buf.blit(sparkle_surf, (PAD, icon_y_in_buf))
+
+    # 테두리 + 은색 모서리 장식을 프레임 위에 다시 그리기 (애니메이션 프레임에 덮이지 않도록)
+    _draw_legendary_border_and_corners(buf, PAD, icon_y_in_buf, size)
 
     # 패딩 오프셋 보정하여 screen에 블릿
     screen.blit(buf, (x - PAD, y - PAD))

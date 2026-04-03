@@ -11761,10 +11761,41 @@ class Megingjord(LegendaryItem):
 
         # 애니메이션 프레임 설정
         self.animation_frames = []
+        self.border_frames = []  # 라그나로크 해머 테두리 프레임
         self.current_frame = 0
         self.frame_counter = 0
         self.animation_speed = 8
         self._create_default_animation()
+        self._load_border_frames()
+
+    def _load_border_frames(self):
+        """라그나로크 해머 PNG에서 테두리만 추출한 프레임 로드 (다른 전설 아이템과 동일한 테두리 레이어)"""
+        self.border_frames = []
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                frame = pygame.image.load(frame_path).convert_alpha()
+                cleaned = _strip_legendary_red_ring(frame)
+                border_only = self._clear_center_content(cleaned)
+                self.border_frames.append(border_only)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _clear_center_content(frame):
+        """프레임에서 테두리 영역(가장자리 6픽셀) 유지, 내부만 제거"""
+        result = frame.copy()
+        width, height = frame.get_size()
+        border_thickness = 6
+        for py in range(height):
+            for px in range(width):
+                color = frame.get_at((px, py))
+                if color.a == 0:
+                    continue
+                min_dist = min(px, width - 1 - px, py, height - 1 - py)
+                if min_dist >= border_thickness:
+                    result.set_at((px, py), (0, 0, 0, 0))
+        return result
 
     @property
     def extra_pick_chance(self) -> float:
@@ -11914,30 +11945,13 @@ class Megingjord(LegendaryItem):
             self.animation_frames.append(frame)
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """아이콘 그리기 with 전설 효과 (글로우 + 부유 + 테두리 그라데이션)"""
-        # 글로우 효과
-        glow_size = int(size * (1.2 + self.glow_intensity * 0.1))
-        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        # 금색 글로우 (토르 테마)
-        glow_color = (255, 215, 0)
-        for i in range(3):
-            alpha = 50 - i * 15
-            pygame.draw.circle(glow_surf, (*glow_color, alpha),
-                             (glow_size//2, glow_size//2),
-                             glow_size//2 - i * 5)
-        screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
-
-        # 프레임별 색상 그라데이션 테두리
-        phase = self.animation_time * 2.0
-        border_r = int(200 + 55 * math.sin(phase))
-        border_g = int(180 + 35 * math.sin(phase + 1.0))
-        border_b = int(50 + 100 * math.sin(phase + 2.0))
-        border_color = (max(0, min(255, border_r)), max(0, min(255, border_g)), max(0, min(255, border_b)))
-        border_rect = pygame.Rect(x - 2, y - 2, size + 4, size + 4)
-        pygame.draw.rect(screen, border_color, border_rect, 3)
+        """아이콘 그리기 (다른 전설 아이템과 동일한 공통 프레임 사용)"""
+        # 공통 전설 프레임 (파란 글로우 + 붉은 내부 테두리 + 외곽 테두리 + 은색 모서리)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        frame_y = y + frame_offset
 
         # 아이콘 (상하 부유 효과)
-        icon_y = y + int(self.animation_offset)
+        icon_y = y + frame_offset + int(self.animation_offset)
 
         # 애니메이션 프레임 사용
         if self.animation_frames:
@@ -11950,6 +11964,15 @@ class Megingjord(LegendaryItem):
             screen.blit(scaled_frame, (x, icon_y))
         else:
             self._draw_fallback_icon(screen, x, icon_y, size)
+
+        # 라그나로크 해머 테두리 프레임 오버레이 (다른 전설 아이템과 동일한 테두리 레이어)
+        if self.border_frames:
+            border_frame = self.border_frames[self.current_frame % len(self.border_frames)]
+            scaled_border = pygame.transform.scale(border_frame, (size, size))
+            screen.blit(scaled_border, (x, icon_y))
+
+        # 테두리 + 은색 모서리 장식을 프레임 위에 다시 그리기
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
 
         # 파티클 효과
         if self.particle_timer > 1.0:
