@@ -4171,22 +4171,25 @@ class AngelBlessing(LegendaryItem):
         except Exception as e:
             if self.DEBUG_ENABLED: print(f"[AngelBlessing.activate] 애니메이션 상태 확인 실패: {e}")
 
+        # game_state에서 명시적으로 전달된 스테이지만 사용 (fallback 없음)
+        # → 메인메뉴/개발자모드 진입 시 current_stage 전역변수 오참조 방지
         stage = None
         try:
             stage = int(game_state.get("current_stage")) if isinstance(game_state, dict) else None
         except Exception:
             stage = game_state.get("current_stage") if isinstance(game_state, dict) else None
-        if stage is None:
-            stage = self._get_current_stage()
+
+        # 유효한 스테이지가 아니면 발동 안 함
+        if stage is None or not isinstance(stage, (int, float)) or stage < 1:
+            return
 
         # 같은 스테이지에서 이미 주사위를 굴렸으면 다시 굴리지 않음 (재장착 방지)
-        if stage is not None and stage in self._triggered_stages:
+        if stage in self._triggered_stages:
             if self.DEBUG_ENABLED: print(f"[AngelBlessing] 스테이지 {stage}에서 이미 발동됨 - 재장착해도 재발동 안됨")
             return
 
         # 새로운 스테이지에서만 주사위 굴림 (_roll_blessing 내부에서 _triggered_stages에 추가)
-        if stage is not None:
-            self._roll_blessing(stage)
+        self._roll_blessing(stage)
 
     # ------------------------------------------------------------------ #
     # Helpers
@@ -11645,21 +11648,8 @@ class LegendaryItemManager:
                     if AngelBlessing.DEBUG_ENABLED: print(f"[AngelBlessing] 애니메이션 상태 확인 실패: {e}")
 
             item.activate(game_state)
-            # 천사의 가호는 활성화 시점에 현재 스테이지 확인
-            # NOTE: _triggered_stages에 이미 발동된 스테이지가 있으면 재발동하지 않음
-            if name == "angel_blessing":
-                try:
-                    current_stage_hint = None
-                    try:
-                        current_stage_hint = int(game_state.get("current_stage"))
-                    except Exception:
-                        current_stage_hint = game_state.get("current_stage")
-                    # 해당 스테이지에서 아직 발동 안 했으면 발동 (유효한 스테이지만)
-                    if current_stage_hint is not None and current_stage_hint >= 1 and current_stage_hint not in item._triggered_stages:
-                        item.applied_stage = None  # 새 발동을 위해 리셋
-                        item.update(0.0, ui_mode=False)
-                except Exception:
-                    pass
+            # 천사의 주사위: activate()에서 이미 _roll_blessing 호출함
+            # update()는 게임루프에서 자동 호출되므로 여기서 호출하지 않음
             if name not in self.active_items:
                 self.active_items.append(name)
                 if LEGENDARY_DEBUG_ENABLED:
