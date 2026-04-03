@@ -83188,16 +83188,23 @@ def update_arrest_rope():
             hit_range = (PLAYER.width * 0.6) if PLAYER else 93
             dist = abs(arrest_rope_target_x - player_cx)
             if dist < hit_range:
-                # 히트! → bound 단계
-                arrest_rope_phase = "bound"
-                arrest_rope_active = True
-                arrest_rope_timer = 180  # 3초
-                arrest_rope_bind_x = float(player_cx)
-                arrest_rope_bind_y = float(PLAYER.y if PLAYER else 710)
-                try:
-                    play_sound_with_volume(SOUND_THROW)
-                except Exception:
-                    pass
+                # 연막 안에 있으면 포승줄 면역
+                if is_player_in_smoke():
+                    arrest_rope_phase = "miss"
+                    arrest_rope_timer = 30
+                    arrest_rope_active = False
+                    show_speech("연막 속에 숨었다!", duration=60)
+                else:
+                    # 히트! → bound 단계
+                    arrest_rope_phase = "bound"
+                    arrest_rope_active = True
+                    arrest_rope_timer = 180  # 3초
+                    arrest_rope_bind_x = float(player_cx)
+                    arrest_rope_bind_y = float(PLAYER.y if PLAYER else 710)
+                    try:
+                        play_sound_with_volume(SOUND_THROW)
+                    except Exception:
+                        pass
             else:
                 # 미스! → miss 단계
                 arrest_rope_phase = "miss"
@@ -84068,21 +84075,27 @@ def update_fan_throw():
         dy = fan_throw_y - py
         dist_sq = dx * dx + dy * dy
         if dist_sq < (hit_radius + PLAYER.width // 2) ** 2:
-            fan_throw_hit = True
-            fan_throw_active = False
-            # 부채던지기 타격 사운드
-            if SOUND_WHIPCRACK:
-                SOUND_WHIPCRACK.set_volume(0.6)
-                SOUND_WHIPCRACK.play()
-            # 화염탄 방식 넉백
-            if player_stun_immunity_timer <= 0:
-                if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
-                    player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
-            # 독립 타격 이펙트 시작
-            fan_throw_hit_effect_timer = 24
-            fan_throw_hit_effect_x = float(px)
-            fan_throw_hit_effect_y = float(py)
-            show_speech("맞았지롱~!", duration=60)
+            # 연막 안에 있으면 부채공격 면역
+            if is_player_in_smoke():
+                fan_throw_hit = True
+                fan_throw_active = False
+                show_speech("연막 속에 숨었다!", duration=60)
+            else:
+                fan_throw_hit = True
+                fan_throw_active = False
+                # 부채던지기 타격 사운드
+                if SOUND_WHIPCRACK:
+                    SOUND_WHIPCRACK.set_volume(0.6)
+                    SOUND_WHIPCRACK.play()
+                # 화염탄 방식 넉백
+                if player_stun_immunity_timer <= 0:
+                    if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
+                        player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
+                # 독립 타격 이펙트 시작
+                fan_throw_hit_effect_timer = 24
+                fan_throw_hit_effect_x = float(px)
+                fan_throw_hit_effect_y = float(py)
+                show_speech("맞았지롱~!", duration=60)
 
     # --- 광폭화 추가 부채 투사체 업데이트 ---
     for proj in fan_throw_extra_projectiles[:]:
@@ -84115,17 +84128,22 @@ def update_fan_throw():
             ddx = proj["x"] - ppx
             ddy = proj["y"] - ppy
             if ddx * ddx + ddy * ddy < (hit_r + PLAYER.width // 2) ** 2:
-                proj["hit"] = True
-                fan_throw_extra_projectiles.remove(proj)
-                if SOUND_WHIPCRACK:
-                    SOUND_WHIPCRACK.set_volume(0.5)
-                    SOUND_WHIPCRACK.play()
-                if player_stun_immunity_timer <= 0:
-                    if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
-                        player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
-                fan_throw_hit_effect_timer = 24
-                fan_throw_hit_effect_x = float(ppx)
-                fan_throw_hit_effect_y = float(ppy)
+                # 연막 안에 있으면 부채공격 면역
+                if is_player_in_smoke():
+                    proj["hit"] = True
+                    fan_throw_extra_projectiles.remove(proj)
+                else:
+                    proj["hit"] = True
+                    fan_throw_extra_projectiles.remove(proj)
+                    if SOUND_WHIPCRACK:
+                        SOUND_WHIPCRACK.set_volume(0.5)
+                        SOUND_WHIPCRACK.play()
+                    if player_stun_immunity_timer <= 0:
+                        if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
+                            player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
+                    fan_throw_hit_effect_timer = 24
+                    fan_throw_hit_effect_x = float(ppx)
+                    fan_throw_hit_effect_y = float(ppy)
 
 
 def _draw_fan_shape(screen, cx, cy, angle, size, alpha=255):
