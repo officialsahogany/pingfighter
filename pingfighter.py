@@ -22263,6 +22263,8 @@ boss_plasma_slow_amount = 0.0        # 보스 둔화량 (0.0 ~ 1.0)
 boss_plasma_slow_timer = 0           # 보스 둔화 지속 시간 (프레임)
 # 플라즈마 접촉 이펙트 (패들 색상 변화)
 plasma_contact_distortion = 0.0      # 찌릿한 효과 강도
+# 플라즈마 게이지 드레인 (독안개와 동일 방식, 프레임당 0.5)
+plasma_gauge_drain_accumulator = 0.0
 
 # ️ 무한 수평 왕복 방지 시스템 변수들
 horizontal_movement_timer = 0   # 수평 움직임 지속 시간 카운터
@@ -53880,7 +53882,8 @@ def update_plasma_wave():
     global plasma_wave_active, plasma_wave_y, plasma_wave_duration
     global plasma_wave_trail, plasma_wave_particles
     global boss_plasma_slowed, boss_plasma_slow_amount, boss_plasma_slow_timer
-    global plasma_shock_playing
+    global plasma_shock_playing, plasma_gauge_drain_accumulator
+    global boss_special_gauge, hongryun_hit_count
 
     if not plasma_wave_active:
         # 웨이브가 비활성화되면 둔화도 즉시 해제
@@ -53949,6 +53952,18 @@ def update_plasma_wave():
         boss_plasma_slowed = True
         boss_plasma_slow_amount = plasma_wave_slow_amount
         boss_plasma_slow_timer = 10  # 매 프레임 갱신되므로 짧게 설정
+
+        # 보스 게이지 드레인 (프레임당 0.5, 초당 30) — 독안개와 동일
+        plasma_gauge_drain_accumulator += 0.5
+        if plasma_gauge_drain_accumulator >= 1.0:
+            drained = int(plasma_gauge_drain_accumulator)
+            plasma_gauge_drain_accumulator -= drained
+            if current_stage == 5:
+                # 스테이지 6 홍련 (코드상 stage5) → 구슬게이지 감소
+                hongryun_hit_count = max(0, hongryun_hit_count - drained)
+            else:
+                boss_special_gauge = max(0, boss_special_gauge - drained)
+
         # 충격 사운드 재생 (전용 채널, 반복 재생)
         if SOUND_PLASMA_SHOCK and PLASMA_SHOCK_CHANNEL:
             if not plasma_shock_playing or not PLASMA_SHOCK_CHANNEL.get_busy():
@@ -53976,6 +53991,7 @@ def update_plasma_wave():
         boss_plasma_slowed = False
         boss_plasma_slow_amount = 0.0
         boss_plasma_slow_timer = 0
+        plasma_gauge_drain_accumulator = 0.0
         # 충격 사운드 정지
         if plasma_shock_playing and PLASMA_SHOCK_CHANNEL:
             PLASMA_SHOCK_CHANNEL.stop()
@@ -53992,6 +54008,7 @@ def update_plasma_wave():
         boss_plasma_slowed = False
         boss_plasma_slow_amount = 0.0
         boss_plasma_slow_timer = 0
+        plasma_gauge_drain_accumulator = 0.0
         # 충격 사운드 정지
         if plasma_shock_playing and PLASMA_SHOCK_CHANNEL:
             PLASMA_SHOCK_CHANNEL.stop()
