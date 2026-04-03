@@ -109932,7 +109932,7 @@ def draw_objects():
                     if _boss_hologram_active:
                         _boss_final_surf = apply_hologram_materialize_effect(_boss_final_surf, _boss_hologram_progress, _hologram_time_now)
                     draw_with_shake(_boss_final_surf, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y))
-                else:
+                elif not ball_spawn_animation_active:
                     draw_with_shake(rotated_boss, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y))
             # ── 온라인 멀티: 상대방 바이퍼 제트팩 이펙트 (보스 아래 불꽃) ──
             if (current_stage == 40 and online_multiplayer_enabled
