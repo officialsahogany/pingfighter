@@ -109667,6 +109667,123 @@ def draw_objects():
                             _ty = HEIGHT - int(_ef.get('y', 0))  # Y반전
                             pygame.draw.circle(SCREEN, (255, 200, 50), (_tx, _ty), 5)
                             pygame.draw.circle(SCREEN, (255, 255, 200), (_tx, _ty), 3)
+                        elif _ef_t == 'bazooka':
+                            # 솔저 바주카 로켓
+                            _bz_x = int(_ef.get('x', 0))
+                            _bz_y = HEIGHT - int(_ef.get('y', 0))
+                            # 로켓 본체
+                            pygame.draw.rect(SCREEN, (100, 100, 100), (_bz_x - 4, _bz_y - 10, 8, 20))
+                            pygame.draw.polygon(SCREEN, (200, 50, 30), [
+                                (_bz_x, _bz_y - 14), (_bz_x - 5, _bz_y - 6), (_bz_x + 5, _bz_y - 6)])
+                            # 연기 꼬리
+                            for _si in range(3):
+                                _sa = max(30, 80 - _si * 25)
+                                _smoke_s = pygame.Surface((8 + _si * 4, 8 + _si * 4), pygame.SRCALPHA)
+                                pygame.draw.circle(_smoke_s, (200, 200, 200, _sa),
+                                                   (4 + _si * 2, 4 + _si * 2), 4 + _si * 2)
+                                SCREEN.blit(_smoke_s, (_bz_x - 4 - _si * 2, _bz_y + 10 + _si * 8))
+                        elif _ef_t == 'ak':
+                            # 솔저 AK-47 총알
+                            _ak_x = int(_ef.get('x', 0))
+                            _ak_y = HEIGHT - int(_ef.get('y', 0))
+                            pygame.draw.circle(SCREEN, (255, 220, 50), (_ak_x, _ak_y), 3)
+                            pygame.draw.circle(SCREEN, (255, 255, 200), (_ak_x, _ak_y), 1)
+                        elif _ef_t == 'net_proj':
+                            # 솔저 그물총 투사체
+                            _np_x = int(_ef.get('x', 0))
+                            _np_y = HEIGHT - int(_ef.get('y', 0))
+                            pygame.draw.circle(SCREEN, (60, 180, 60), (_np_x, _np_y), 6)
+                            pygame.draw.circle(SCREEN, (120, 255, 120), (_np_x, _np_y), 3)
+                        elif _ef_t == 'net':
+                            # 솔저 설치된 그물
+                            _nn_x = int(_ef.get('x', 0))
+                            _nn_y = HEIGHT - int(_ef.get('y', 0))
+                            _nn_w = int(_ef.get('w', 60))
+                            _nn_h = int(_ef.get('h', 20))
+                            _net_s = pygame.Surface((_nn_w, _nn_h), pygame.SRCALPHA)
+                            _net_s.fill((30, 160, 30, 80))
+                            # 그물 격자 패턴
+                            for _gi in range(0, _nn_w, 8):
+                                pygame.draw.line(_net_s, (60, 200, 60, 120), (_gi, 0), (_gi, _nn_h))
+                            for _gi in range(0, _nn_h, 6):
+                                pygame.draw.line(_net_s, (60, 200, 60, 120), (0, _gi), (_nn_w, _gi))
+                            SCREEN.blit(_net_s, (_nn_x - _nn_w // 2, _nn_y - _nn_h // 2))
+                        elif _ef_t == 'trap':
+                            # 솔저 볼링 트랩
+                            _tr_x = int(_ef.get('x', 0))
+                            _tr_y = HEIGHT - int(_ef.get('y', 0))
+                            # 지뢰 형태
+                            pygame.draw.circle(SCREEN, (80, 80, 80), (_tr_x, _tr_y), 8)
+                            pygame.draw.circle(SCREEN, (200, 50, 30), (_tr_x, _tr_y), 5)
+                            pygame.draw.circle(SCREEN, (255, 100, 50), (_tr_x, _tr_y), 2)
+                        elif _ef_t == 'drone':
+                            # 솔저 자폭드론
+                            _dr_x = int(_ef.get('x', 0))
+                            _dr_y = HEIGHT - int(_ef.get('y', 0))
+                            _dr_t = pygame.time.get_ticks()
+                            # 드론 본체
+                            pygame.draw.rect(SCREEN, (60, 60, 70), (_dr_x - 12, _dr_y - 6, 24, 12), border_radius=3)
+                            # 프로펠러 암 4개
+                            for _di in range(4):
+                                _da = math.radians(_dr_t * 0.8 + _di * 90)
+                                _arm_ex = _dr_x + int(math.cos(_da) * 14)
+                                _arm_ey = _dr_y + int(math.sin(_da) * 14)
+                                pygame.draw.line(SCREEN, (80, 80, 90), (_dr_x, _dr_y), (_arm_ex, _arm_ey), 2)
+                                # 프로펠러 회전
+                                _pa = math.radians(_dr_t * 3 + _di * 90)
+                                _p1x = _arm_ex + int(math.cos(_pa) * 6)
+                                _p1y = _arm_ey + int(math.sin(_pa) * 6)
+                                _p2x = _arm_ex - int(math.cos(_pa) * 6)
+                                _p2y = _arm_ey - int(math.sin(_pa) * 6)
+                                pygame.draw.line(SCREEN, (180, 180, 190), (_p1x, _p1y), (_p2x, _p2y), 2)
+                            # 경고등 깜빡임
+                            if (_dr_t // 200) % 2 == 0:
+                                pygame.draw.circle(SCREEN, (255, 50, 30), (_dr_x, _dr_y), 3)
+                        elif _ef_t == 'hshock':
+                            # 발토르 해머 쇼크 투사체
+                            _hs_x = int(_ef.get('x', 0))
+                            _hs_y = HEIGHT - int(_ef.get('y', 0))
+                            _hs_stage = _ef.get('s', 0)
+                            _hs_r = max(6, 8 + _hs_stage * 3)
+                            # 스테이지별 색상
+                            _hs_colors = [(200, 160, 60), (255, 120, 30), (255, 60, 30), (255, 30, 200)]
+                            _hs_c = _hs_colors[min(_hs_stage, 3)]
+                            # 글로우
+                            _hs_gs = pygame.Surface((_hs_r * 4, _hs_r * 4), pygame.SRCALPHA)
+                            pygame.draw.circle(_hs_gs, (*_hs_c, 60), (_hs_r * 2, _hs_r * 2), _hs_r * 2)
+                            SCREEN.blit(_hs_gs, (_hs_x - _hs_r * 2, _hs_y - _hs_r * 2))
+                            pygame.draw.circle(SCREEN, _hs_c, (_hs_x, _hs_y), _hs_r)
+                            pygame.draw.circle(SCREEN, (255, 255, 220), (_hs_x, _hs_y), max(2, _hs_r - 3))
+                        elif _ef_t == 'divine':
+                            # 발토르 디바인 스톤
+                            _dv_x = int(_ef.get('x', 0))
+                            _dv_y = HEIGHT - int(_ef.get('y', 0))
+                            _dv_hp = _ef.get('hp', 0)
+                            _dv_mhp = max(1, _ef.get('mhp', 1))
+                            _dv_shield = _ef.get('sh', 0)
+                            _dv_t = pygame.time.get_ticks()
+                            # 스톤 본체 (육각형)
+                            _dv_r = 18
+                            _dv_pts = []
+                            for _hi in range(6):
+                                _ha = math.radians(60 * _hi - 30)
+                                _dv_pts.append((_dv_x + int(math.cos(_ha) * _dv_r),
+                                                _dv_y + int(math.sin(_ha) * _dv_r)))
+                            pygame.draw.polygon(SCREEN, (140, 120, 80), _dv_pts)
+                            pygame.draw.polygon(SCREEN, (200, 180, 100), _dv_pts, 2)
+                            # HP 바
+                            _hp_ratio = _dv_hp / _dv_mhp
+                            _hp_w = 30
+                            pygame.draw.rect(SCREEN, (60, 60, 60), (_dv_x - _hp_w // 2, _dv_y + _dv_r + 4, _hp_w, 4))
+                            pygame.draw.rect(SCREEN, (50, 200, 50), (_dv_x - _hp_w // 2, _dv_y + _dv_r + 4, int(_hp_w * _hp_ratio), 4))
+                            # 쉴드 이펙트
+                            if _dv_shield:
+                                _sh_pulse = 0.5 + 0.5 * math.sin(_dv_t * 0.005)
+                                _sh_r = int(28 + 4 * _sh_pulse)
+                                _sh_s = pygame.Surface((_sh_r * 2, _sh_r * 2), pygame.SRCALPHA)
+                                pygame.draw.circle(_sh_s, (100, 200, 255, int(40 + 30 * _sh_pulse)), (_sh_r, _sh_r), _sh_r)
+                                pygame.draw.circle(_sh_s, (150, 220, 255, int(60 + 40 * _sh_pulse)), (_sh_r, _sh_r), _sh_r, 2)
+                                SCREEN.blit(_sh_s, (_dv_x - _sh_r, _dv_y - _sh_r))
                     except Exception:
                         pass
 
@@ -170792,14 +170909,83 @@ def _online_get_my_anim_state():
                     'y': _sb.get('y', 0),
                     'c': _sb.get('charge_level', 1),
                 })
+        # 솔저: 바주카 투사체
+        try:
+            from item_effects.bazooka import get_bazooka_instance
+            _baz = get_bazooka_instance()
+            if _baz and getattr(_baz, 'projectiles', None):
+                for _bp in _baz.projectiles[:4]:
+                    if _bp.get('active', False):
+                        _fx.append({'t': 'bazooka', 'x': _bp.get('x', 0), 'y': _bp.get('y', 0)})
+        except Exception:
+            pass
+        # 솔저: AK-47 총알
+        try:
+            from item_effects.ak47 import get_ak47_instance
+            _ak = get_ak47_instance()
+            if _ak and getattr(_ak, 'bullets', None):
+                for _ab in _ak.bullets[:15]:
+                    _fx.append({'t': 'ak', 'x': _ab.get('x', 0), 'y': _ab.get('y', 0)})
+        except Exception:
+            pass
+        # 솔저: 그물총 투사체 + 그물
+        try:
+            from item_effects.net_gun import get_net_gun_instance
+            _ng = get_net_gun_instance()
+            if _ng:
+                for _np in getattr(_ng, 'projectiles', [])[:4]:
+                    _fx.append({'t': 'net_proj', 'x': _np.get('x', 0), 'y': _np.get('y', 0)})
+                for _nn in getattr(_ng, 'nets', [])[:4]:
+                    _nr = _nn.get('rect')
+                    if _nr:
+                        _fx.append({'t': 'net', 'x': _nr.centerx, 'y': _nr.centery, 'w': _nr.width, 'h': _nr.height})
+        except Exception:
+            pass
+        # 솔저: 볼링 트랩
+        try:
+            from item_effects.bowling_trap import get_bowling_trap_instance
+            _bt = get_bowling_trap_instance()
+            if _bt:
+                for _tr in getattr(_bt, 'traps', [])[:6]:
+                    _fx.append({'t': 'trap', 'x': _tr.get('x', 0), 'y': _tr.get('y', 0)})
+        except Exception:
+            pass
+        # 솔저: 자폭드론
+        if globals().get('suicide_drone_active', False):
+            _sd_rect = globals().get('suicide_drone_rect')
+            if _sd_rect:
+                _fx.append({'t': 'drone', 'x': _sd_rect.centerx, 'y': _sd_rect.centery})
+
         # 발토르: 터렛 투사체
         _tp = globals().get('blacksmith_turret_projectiles', [])
-        for _proj in _tp[:8]:  # 최대 8발
+        for _proj in _tp[:8]:
             _fx.append({
                 't': 'turret',
                 'x': _proj.get('x', 0),
                 'y': _proj.get('y', 0),
             })
+        # 발토르: 해머 쇼크 투사체
+        _hsp = globals().get('blacksmith_hammer_shock_projectiles', [])
+        for _hp in _hsp[:4]:
+            _fx.append({
+                't': 'hshock',
+                'x': _hp.get('x', 0),
+                'y': _hp.get('y', 0),
+                's': _hp.get('stage', 0),
+            })
+        # 발토르: 디바인 스톤
+        _ds = globals().get('blacksmith_divine_stone_state')
+        if _ds and isinstance(_ds, dict):
+            _ds_rect = _ds.get('rect')
+            if _ds_rect:
+                _fx.append({
+                    't': 'divine',
+                    'x': _ds_rect.centerx,
+                    'y': _ds_rect.centery,
+                    'hp': _ds.get('hp', 0),
+                    'mhp': _ds.get('max_hp', 1),
+                    'sh': 1 if _ds.get('shield_ready') else 0,
+                })
 
         if _fx:
             anim['fx'] = _fx
