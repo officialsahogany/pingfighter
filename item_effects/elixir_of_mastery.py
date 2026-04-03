@@ -596,14 +596,6 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
         pygame.draw.rect(buf, (120, 60, 200), (cx - 3, cy - 12, 6, 10))
         pygame.draw.rect(buf, (255, 200, 50), (cx - 4, cy - 15, 8, 4))
 
-    # 라그나로크 해머 테두리 프레임 오버레이 (다른 전설 아이템과 동일한 테두리 레이어)
-    border_frames = _get_elixir_border_frames()
-    if border_frames:
-        frame_idx_border = int(animation_time * 8) % len(border_frames)
-        border_frame = border_frames[frame_idx_border]
-        scaled_border = pygame.transform.scale(border_frame, (size, size))
-        buf.blit(scaled_border, (PAD, icon_y_in_buf))
-
     # 마법 별 이펙트 (프레임 0, 3, 6에서 반짝임)
     frame_idx = int(animation_time * 8) % 8
     if frame_idx in [0, 3, 6]:
