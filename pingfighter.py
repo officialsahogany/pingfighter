@@ -18628,6 +18628,17 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     global runtime_skill_choice_pending, pending_skill_choices
     global runtime_skill_levels
 
+    # 메긴교르드 연속 발동 카운터 리셋 (퍽 선택 세션 시작)
+    try:
+        if is_passive_equipped("megingjord"):
+            _mg = get_legendary_manager()
+            if _mg:
+                _mg_item = _mg.get_item("megingjord")
+                if _mg_item:
+                    _mg_item.reset_extra_pick_count()
+    except Exception:
+        pass
+
     # Get current character type
     character_type = selected_character_type
 
