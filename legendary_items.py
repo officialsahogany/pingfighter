@@ -4146,7 +4146,11 @@ class AngelBlessing(LegendaryItem):
         self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
         # 버프 흡수 파티클 (주사위 종료 후 플레이어에게 날아가는 빛 알갱이)
         self._absorb_particles: List[Dict] = []
-        self._absorb_duration = 0.8  # 흡수 애니메이션 시간 (초)
+        self._absorb_duration = 1.8  # 흡수 애니메이션 시간 (초)
+        # 플레이어 발광 이펙트 (파티클 흡수 시)
+        self._player_glow_timer = 0.0
+        self._player_glow_active = False
+        self._player_glow_count = 0  # 남은 발광 횟수
 
     @property
     def buff_level(self) -> int:
@@ -4435,13 +4439,13 @@ class AngelBlessing(LegendaryItem):
         for i in range(count):
             # 각 파티클에 약간 다른 시작 위치와 포물선 곡률
             offset_x = (i - (count - 1) / 2) * 60  # 파티클 간 수평 간격
-            curve = -200 - random.randint(0, 80)  # 포물선 높이 (위로 볼록)
+            curve = -250 - random.randint(0, 100)  # 포물선 높이 (위로 볼록)
             self._absorb_particles.append({
                 "start_x": start_x + offset_x,
                 "start_y": start_y,
                 "curve": curve,  # 베지어 제어점 Y 오프셋
                 "timer": 0.0,
-                "delay": i * 0.12,  # 순차 발사 딜레이
+                "delay": i * 0.25,  # 순차 발사 딜레이 (간격 넓힘)
                 "trail": [],  # 잔상 좌표
             })
 
@@ -4484,38 +4488,85 @@ class AngelBlessing(LegendaryItem):
             if len(p["trail"]) > 8:
                 p["trail"].pop(0)
 
-        # 도착한 파티클 제거 (역순)
+        # 도착한 파티클 → 플레이어 발광 트리거
         for i in reversed(finished):
             self._absorb_particles.pop(i)
+            self._player_glow_active = True
+            self._player_glow_timer = 0.0
+            self._player_glow_count += 1
 
     def draw_absorb_particles(self, screen):
-        """흡수 파티클 렌더링"""
+        """흡수 파티클 + 플레이어 발광 렌더링"""
+        import math, sys
+        pf = sys.modules.get("pingfighter")
+
+        # 플레이어 발광 이펙트 업데이트 + 렌더링
+        if self._player_glow_active and pf:
+            player = getattr(pf, "PLAYER", None)
+            if player:
+                self._player_glow_timer += 0.016  # ~60fps
+                glow_progress = self._player_glow_timer / 0.35  # 0.35초간 발광
+                if glow_progress >= 1.0:
+                    self._player_glow_active = False
+                    self._player_glow_timer = 0.0
+                else:
+                    # 발광 강도: 시작 시 강하고 서서히 감소
+                    intensity = 1.0 - glow_progress
+                    glow_alpha = int(180 * intensity)
+                    # 외곽 글로우 (큰 원)
+                    outer_r = int(player.width * 0.8 + 20 * intensity)
+                    outer_surf = pygame.Surface((outer_r * 2, outer_r * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(outer_surf, (255, 255, 220, int(glow_alpha * 0.4)),
+                                       (outer_r, outer_r), outer_r)
+                    pygame.draw.circle(outer_surf, (255, 255, 240, int(glow_alpha * 0.7)),
+                                       (outer_r, outer_r), int(outer_r * 0.6))
+                    pygame.draw.circle(outer_surf, (255, 255, 255, glow_alpha),
+                                       (outer_r, outer_r), int(outer_r * 0.3))
+                    screen.blit(outer_surf, (player.centerx - outer_r, player.centery - outer_r))
+
         if not self._absorb_particles:
             return
-        import math
+
         for p in self._absorb_particles:
             t = (p["timer"] - p["delay"]) / self._absorb_duration
             if t < 0 or "x" not in p:
                 continue
             x, y = int(p["x"]), int(p["y"])
-            # 잔상 (뒤로 갈수록 작고 투명)
+            # 잔상 (뒤로 갈수록 작고 투명) — 강화된 잔상
+            trail_len = len(p["trail"])
             for j, (tx, ty) in enumerate(p["trail"]):
-                trail_alpha = int(60 + 80 * (j / max(len(p["trail"]), 1)))
-                trail_r = max(2, 6 - j)
+                ratio = j / max(trail_len, 1)
+                trail_alpha = int(40 + 160 * ratio)
+                trail_r = max(3, int(10 * ratio))
                 trail_surf = pygame.Surface((trail_r * 2, trail_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(trail_surf, (255, 255, 230, trail_alpha), (trail_r, trail_r), trail_r)
+                pygame.draw.circle(trail_surf, (255, 255, 200, trail_alpha), (trail_r, trail_r), trail_r)
+                pygame.draw.circle(trail_surf, (255, 255, 255, int(trail_alpha * 0.7)),
+                                   (trail_r, trail_r), max(1, trail_r // 2))
                 screen.blit(trail_surf, (int(tx) - trail_r, int(ty) - trail_r))
-            # 메인 빛 알갱이
-            glow_r = 12
-            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (255, 255, 200, 100), (glow_r, glow_r), glow_r)
-            pygame.draw.circle(glow_surf, (255, 255, 255, 200), (glow_r, glow_r), 6)
-            pygame.draw.circle(glow_surf, (255, 255, 255, 255), (glow_r, glow_r), 3)
-            screen.blit(glow_surf, (x - glow_r, y - glow_r))
+            # 메인 빛 알갱이 — 강렬한 다중 글로우
+            # 외곽 글로우 (부드러운 황금빛)
+            outer_r = 22
+            outer_surf = pygame.Surface((outer_r * 2, outer_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(outer_surf, (255, 240, 150, 60), (outer_r, outer_r), outer_r)
+            pygame.draw.circle(outer_surf, (255, 255, 200, 120), (outer_r, outer_r), 14)
+            pygame.draw.circle(outer_surf, (255, 255, 240, 200), (outer_r, outer_r), 8)
+            pygame.draw.circle(outer_surf, (255, 255, 255, 255), (outer_r, outer_r), 4)
+            screen.blit(outer_surf, (x - outer_r, y - outer_r))
+            # 십자형 빛줄기
+            ray_len = 16 + int(6 * math.sin(p["timer"] * 12))
+            ray_surf = pygame.Surface((ray_len * 2, ray_len * 2), pygame.SRCALPHA)
+            rc = ray_len
+            for thickness in [3, 1]:
+                alpha = 120 if thickness == 3 else 220
+                pygame.draw.line(ray_surf, (255, 255, 255, alpha),
+                                 (rc - ray_len + 4, rc), (rc + ray_len - 4, rc), thickness)
+                pygame.draw.line(ray_surf, (255, 255, 255, alpha),
+                                 (rc, rc - ray_len + 4), (rc, rc + ray_len - 4), thickness)
+            screen.blit(ray_surf, (x - ray_len, y - ray_len))
 
     @property
     def has_absorb_particles(self) -> bool:
-        return bool(self._absorb_particles)
+        return bool(self._absorb_particles) or self._player_glow_active
 
     def deactivate(self):
         """천사의 가호 비활성화 - 모든 버프 효과 즉시 해제
@@ -4540,6 +4591,9 @@ class AngelBlessing(LegendaryItem):
         self.roll_anim_active = False
         self.waiting_for_space = False
         self._absorb_particles.clear()
+        self._player_glow_active = False
+        self._player_glow_timer = 0.0
+        self._player_glow_count = 0
         if self.DEBUG_ENABLED: print("[AngelBlessing] 새 게임 - 발동 이력 초기화됨")
 
     def _roll_blessing(self, current_stage: int):
