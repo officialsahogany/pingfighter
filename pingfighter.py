@@ -133209,7 +133209,7 @@ def show_item_manager_menu():
                         badge_surface.blit(badge_text, ((badge_width - badge_text.get_width()) // 2, (badge_height - badge_text.get_height()) // 2))
                         SCREEN.blit(badge_surface, badge_rect.topleft)
         # 선택된 아이템 정보 표시
-        info_y = grid_start_y + (grid_rows * (item_size + item_spacing)) + LARGE_SIZE + 100
+        info_y = grid_start_y + (grid_rows * (item_size + item_spacing)) + LARGE_SIZE + 50
         info_text = font_medium.render(_t("ui.selected_item", "선택된 아이템:"), True, WHITE)
         SCREEN.blit(info_text, (50, info_y))
         selected_items_text = ""
