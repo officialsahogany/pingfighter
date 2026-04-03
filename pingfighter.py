@@ -148262,18 +148262,7 @@ def handle_ball():
         BOSS.x = BOSS.x - width_diff // 2
         BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 
-    # 스테이지 6에서만 보스 히트박스를 2배로 확장 (항공모함 보스 특성)
-    if current_stage == 6:
-        # 항공모함 보스는 큰 함체를 가지므로 히트박스 확장
-        boss_hitbox_expanded = pygame.Rect(
-            BOSS.x - BOSS.width // 2,  # 왼쪽으로 절반 폭만큼 확장
-            BOSS.y,  # y 위치는 그대로
-            BOSS.width * 2,  # 너비를 2배로
-            BOSS.height  # 높이는 그대로
-        )
-    else:
-        # 다른 스테이지는 원래 크기 사용 (BOSS rect 직접 사용)
-        boss_hitbox_expanded = BOSS
+    boss_hitbox_expanded = BOSS
     # 폭풍질주 버스트업 보스 패들 높이 확장
     if arena_storm_rush_burst_top and arena_storm_rush_height_bonus_top > 0:
         if boss_hitbox_expanded is BOSS:
