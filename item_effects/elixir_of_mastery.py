@@ -489,55 +489,32 @@ class ElixirOfMastery:
 # ============================================================
 # 신화급 아이콘 애니메이션 시스템
 # 라그나로크 해머 등 기존 신화 아이템과 동일한 _draw_common_legendary_frame() 사용
+# 원본 PNG 아이콘을 프레임 안에 표시
 # ============================================================
 
+_elixir_png_cache = {}  # {size: pygame.Surface}
 
-def _draw_elixir_potion(screen, x, y, size):
-    """물약병 아이콘 본체를 그린다 (프레임 내부에 사용)"""
-    cx, cy = x + size // 2, y + size // 2
-    # 크기 비율 계산
-    s = size / 32.0  # 32px 기준 스케일
 
-    # 병 몸체 (둥근 플라스크)
-    body_w = int(18 * s)
-    body_h = int(14 * s)
-    body_x = cx - body_w // 2
-    body_y = cy - int(2 * s)
-    pygame.draw.ellipse(screen, (100, 40, 180), (body_x, body_y, body_w, body_h))
+def _get_elixir_png(size):
+    """원본 PNG 아이콘을 캐시하여 반환"""
+    if size in _elixir_png_cache:
+        return _elixir_png_cache[size]
+    try:
+        import os, sys
+        def _resource_path(relative_path):
+            try:
+                base_path = sys._MEIPASS
+            except Exception:
+                base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            return os.path.join(base_path, relative_path.replace('/', os.sep))
 
-    # 빛나는 액체
-    liq_w = int(14 * s)
-    liq_h = int(9 * s)
-    liq_x = cx - liq_w // 2
-    liq_y = cy + int(1 * s)
-    pygame.draw.ellipse(screen, (200, 120, 255), (liq_x, liq_y, liq_w, liq_h))
-
-    # 액체 하이라이트
-    hl_w = int(6 * s)
-    hl_h = int(4 * s)
-    pygame.draw.ellipse(screen, (230, 180, 255), (cx - hl_w // 2, liq_y + int(1 * s), hl_w, hl_h))
-
-    # 병목
-    neck_w = int(6 * s)
-    neck_h = int(7 * s)
-    neck_x = cx - neck_w // 2
-    neck_y = cy - int(15 * s)
-    pygame.draw.rect(screen, (120, 60, 200), (neck_x, neck_y, neck_w, neck_h))
-
-    # 금색 뚜껑
-    cap_w = int(8 * s)
-    cap_h = int(4 * s)
-    cap_x = cx - cap_w // 2
-    cap_y = neck_y - int(3 * s)
-    pygame.draw.rect(screen, (255, 200, 50), (cap_x, cap_y, cap_w, cap_h), border_radius=max(1, int(s)))
-    # 뚜껑 하이라이트
-    pygame.draw.rect(screen, (255, 230, 100), (cap_x + int(1 * s), cap_y + int(1 * s), cap_w - int(2 * s), cap_h - int(2 * s)))
-
-    # 별 하이라이트
-    star_x = cx - int(5 * s)
-    star_y = cy + int(1 * s)
-    pygame.draw.circle(screen, (255, 255, 200), (star_x, star_y), max(1, int(2 * s)))
-    pygame.draw.circle(screen, (255, 255, 255), (star_x, star_y), max(1, int(1 * s)))
+        png_path = _resource_path(os.path.join("items", "elixir_of_mastery.png"))
+        icon = pygame.image.load(png_path).convert_alpha()
+        icon = pygame.transform.smoothscale(icon, (size, size))
+        _elixir_png_cache[size] = icon
+        return icon
+    except Exception:
+        return None
 
 
 def draw_elixir_animated_icon(screen, x, y, size, animation_time):
@@ -545,7 +522,7 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
 
     기존 신화 아이템(라그나로크 해머 등)과 동일한 _draw_common_legendary_frame() 사용:
     - 파란 글로우 펄싱 + 붉은 그라데이션 테두리 + 금색 모서리 + 상하 부유
-    그 위에 물약 아이콘 본체 + 반짝임 이펙트
+    그 위에 원본 PNG 아이콘 + 반짝임 이펙트
     """
     from legendary_items import _draw_common_legendary_frame
 
@@ -553,8 +530,16 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
     frame_offset = _draw_common_legendary_frame(screen, x, y, size, animation_time)
     icon_y = y + frame_offset
 
-    # 물약 아이콘 본체
-    _draw_elixir_potion(screen, x, icon_y, size)
+    # 원본 PNG 아이콘 표시
+    png_icon = _get_elixir_png(size)
+    if png_icon:
+        screen.blit(png_icon, (x, icon_y))
+    else:
+        # PNG 로드 실패 시 간단한 폴백
+        cx, cy = x + size // 2, icon_y + size // 2
+        pygame.draw.ellipse(screen, (140, 60, 220), (cx - 9, cy - 3, 18, 14))
+        pygame.draw.rect(screen, (120, 60, 200), (cx - 3, cy - 12, 6, 10))
+        pygame.draw.rect(screen, (255, 200, 50), (cx - 4, cy - 15, 8, 4))
 
     # 마법 별 이펙트 (프레임 0, 3, 6에서 반짝임)
     frame_idx = int(animation_time * 8) % 8
