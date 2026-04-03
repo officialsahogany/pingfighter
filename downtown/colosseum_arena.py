@@ -3538,7 +3538,7 @@ class GuardWarriorSystem:
                 c['patrol_wait'] -= dt
             else:
                 if c['patrol_target'] is None:
-                    c['patrol_target'] = random.uniform(left_bound + 20, right_bound - 20)
+                    c['patrol_target'] = random.uniform(left_bound, right_bound)
                     c['patrol_speed'] = random.uniform(110.0, 180.0)
 
                 diff = c['patrol_target'] - c['x']
@@ -3885,7 +3885,7 @@ class GuardWarriorSystem:
                 return
 
             if p2['patrol_target'] is None:
-                p2['patrol_target'] = random.uniform(left_bound + 20, right_bound - 20)
+                p2['patrol_target'] = random.uniform(left_bound, right_bound)
                 p2['patrol_speed'] = random.uniform(110.0, 180.0)
 
             diff = p2['patrol_target'] - p2['x']
@@ -5446,7 +5446,7 @@ class GuardWarriorSystem:
                 return
 
             if self._patrol_target_top is None:
-                self._patrol_target_top = random.uniform(left_bound + 20, right_bound - 20)
+                self._patrol_target_top = random.uniform(left_bound, right_bound)
                 self._patrol_speed_top = random.uniform(110.0, 180.0)
 
             diff = self._patrol_target_top - self.x_top
@@ -5511,7 +5511,7 @@ class GuardWarriorSystem:
                     return
 
                 if self._patrol_target_bottom is None:
-                    self._patrol_target_bottom = random.uniform(left_bound + 20, right_bound - 20)
+                    self._patrol_target_bottom = random.uniform(left_bound, right_bound)
                     self._patrol_speed_bottom = random.uniform(110.0, 180.0)
 
                 diff = self._patrol_target_bottom - self.x_bottom
