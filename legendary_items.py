@@ -4079,6 +4079,16 @@ class EmptyLegendary(LegendaryItem):
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
         frame_y = y + frame_offset
 
+        # 라그나로크 해머 테두리 프레임 오버레이
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+            frame = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled = pygame.transform.scale(frame, (size, size))
+            screen.blit(scaled, (x, frame_y))
+
         # 중앙 물음표 아이콘 (신화 아이템 플레이스홀더)
         pulse = (math.sin(self.animation_time * 3.0) + 1) / 2
         cx, cy = x + size // 2, frame_y + size // 2
@@ -4831,6 +4841,12 @@ class AngelBlessing(LegendaryItem):
             current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
+
+            # 라그나로크 해머 테두리 프레임 오버레이 (다른 전설 아이템과 동일한 테두리 레이어)
+            if self.border_frames:
+                border_frame = self.border_frames[self.current_frame % len(self.border_frames)]
+                scaled_border = pygame.transform.scale(border_frame, (size, size))
+                screen.blit(scaled_border, (x, icon_y))
 
             # ========== 천사의 기운 오오라 애니메이션 ==========
             cx, cy = x + size // 2, icon_y + size // 2
@@ -11523,14 +11539,18 @@ class PandoraLegacy(LegendaryItem):
                 self.animation_frames.append(self._create_default_frame(i))
 
     def _create_pandora_frame(self, base_frame, frame_idx):
-        """투명 배경에 무지개 가방만 그리기 (PNG 테두리 사용 안 함)"""
+        """라그나로크 해머 프레임의 테두리를 보존하고 중앙에 무지개 가방 그리기
+        (다른 전설 아이템과 동일한 테두리 레이어 유지)"""
         import pygame
 
-        width, height = base_frame.get_size()
-        frame = pygame.Surface((width, height), pygame.SRCALPHA)
-        cx, cy = width // 2, height // 2
-        self._draw_rainbow_bag(frame, cx, cy, frame_idx)
-        return frame
+        # 1) 붉은 링 제거
+        cleaned = _strip_legendary_red_ring(base_frame)
+        # 2) 중앙 콘텐츠 제거 (테두리 6px 보존)
+        border_only = self._clear_center_content(cleaned)
+        # 3) 중앙에 무지개 가방 그리기
+        width, height = border_only.get_size()
+        self._draw_rainbow_bag(border_only, width // 2, height // 2, frame_idx)
+        return border_only
 
     def _clear_center_content(self, frame):
         """프레임에서 테두리 영역(가장자리 6픽셀) 유지, 내부만 제거"""
@@ -11640,13 +11660,12 @@ class PandoraLegacy(LegendaryItem):
             corner_color=COMMON_LEGENDARY_CORNER_COLOR,
         )
 
-        # 무지개 가방 애니메이션 프레임 (투명 배경 + 가방만)
+        # 무지개 가방 애니메이션 프레임 (테두리 레이어 포함 - 다른 전설 아이템과 동일)
         frame_y = y + frame_offset
         if self.animation_frames:
             frame = self.animation_frames[self.current_frame % len(self.animation_frames)]
-            inner_size = size - 6
-            scaled = pygame.transform.scale(frame, (inner_size, inner_size))
-            screen.blit(scaled, (x + 3, frame_y + 3))
+            scaled = pygame.transform.scale(frame, (size, size))
+            screen.blit(scaled, (x, frame_y))
         else:
             self._draw_fallback_icon(screen, x + 3, frame_y + 3, size - 6)
 
@@ -11900,6 +11919,12 @@ class Megingjord(LegendaryItem):
             screen.blit(scaled_frame, (x, icon_y))
         else:
             self._draw_fallback_icon(screen, x, icon_y, size)
+
+        # 라그나로크 해머 테두리 프레임 오버레이 (다른 전설 아이템과 동일한 테두리 레이어)
+        if self.border_frames:
+            border_frame = self.border_frames[self.current_frame % len(self.border_frames)]
+            scaled_border = pygame.transform.scale(border_frame, (size, size))
+            screen.blit(scaled_border, (x, icon_y))
 
         # 테두리 + 은색 모서리 장식을 프레임 위에 다시 그리기
         _draw_legendary_border_and_corners(screen, x, frame_y, size)
