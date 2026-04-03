@@ -396,16 +396,16 @@ class DevilDice:
 
         # 결과 영역
         text_panel_y = panel_y + 205
-        text_panel_height = len(STAT_KEYS) * 40 + 110  # 버튼 영역 확보
+        text_panel_height = len(STAT_KEYS) * 34 + 130  # 행 간격 축소 + 버튼 영역 확보
         text_panel = pygame.Surface((panel_width, text_panel_height), pygame.SRCALPHA)
         pygame.draw.rect(text_panel, (20, 0, 0, 180), (0, 0, panel_width, text_panel_height), border_radius=15)
         pygame.draw.rect(text_panel, (139, 0, 0, 200), (0, 0, panel_width, text_panel_height), 2, border_radius=15)
         screen.blit(text_panel, (panel_x, text_panel_y))
 
-        start_y = text_panel_y + 35
+        start_y = text_panel_y + 20
 
         for i, (key, name) in enumerate(STAT_KEYS):
-            y_pos = start_y + i * 40
+            y_pos = start_y + i * 34
 
             if self.small_font:
                 name_text = self.small_font.render(f"{name}:", True, (255, 255, 255))
@@ -450,24 +450,17 @@ class DevilDice:
                     total_rect = total_surface.get_rect(left=panel_x + 380, centery=y_pos + 10)
                     screen.blit(total_surface, total_rect)
 
-        # 사용 횟수 표시
-        if self.small_font and self.roll_animation_timer >= self.roll_animation_duration - 30:
-            count_text = f"사용 횟수: {self.use_count + 1}회"
-            count_surface = self.small_font.render(count_text, True, (180, 180, 200))
-            count_rect = count_surface.get_rect(centerx=screen.get_width() // 2, y=text_panel_y + 10)
-            screen.blit(count_surface, count_rect)
-
         # 버튼 영역 (결과 확정 후)
         if self.waiting_for_confirm and self.small_font:
             mouse_pos = pygame.mouse.get_pos()
-            btn_y = text_panel_y + text_panel_height - 40
+            btn_y = text_panel_y + text_panel_height - 50
             center_x = screen.get_width() // 2
 
             # 남은 횟수 표시
             remaining_text = f"남은 굴리기: {self.rerolls_remaining}회"
             remaining_color = (255, 200, 100) if self.rerolls_remaining > 0 else (120, 120, 120)
             remaining_surface = self.small_font.render(remaining_text, True, remaining_color)
-            remaining_rect = remaining_surface.get_rect(centerx=center_x, y=btn_y - 28)
+            remaining_rect = remaining_surface.get_rect(centerx=center_x, y=btn_y - 24)
             screen.blit(remaining_surface, remaining_rect)
 
             # 마우스 호버 → 선택 커서 자동 이동
