@@ -4116,7 +4116,7 @@ class AngelBlessing(LegendaryItem):
     def __init__(self):
         super().__init__(
             name="angel_blessing",
-            korean_name="천사의 가호",
+            korean_name="천사의 주사위",
             description="스테이지 시작 시 천사의 주사위를 굴려 버프 획득 (롤 옵션: 버프 강도 Lv1~5)",
             unlock_condition="신화 아이템 수집가 업적",
             icon_path=None,  # 직접 렌더링
@@ -5226,7 +5226,7 @@ class AngelBlessing(LegendaryItem):
 
         # 제목 "천사의 가호"
         if title_font:
-            title_surf, title_rect = title_font.render(_t("legend.angel_blessing", "천사의 가호"), (220, 200, 255))
+            title_surf, title_rect = title_font.render(_t("legend.angel_blessing", "천사의 주사위"), (220, 200, 255))
             title_rect.centerx = screen_w // 2
             title_rect.y = panel_y + 20
             screen.blit(title_surf, title_rect)

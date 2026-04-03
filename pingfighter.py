@@ -12790,13 +12790,13 @@ RUNTIME_SKILL_POOL = {
         "name": "보물지도",
         "max_level": 5,
         "descriptions": {
-            1: "신화 확률 +150%",
-            2: "신화 확률 +300%",
-            3: "신화 확률 +450%",
-            4: "신화 확률 +600%",
-            5: "신화 확률 +750%",
+            1: "신화 확률 +150%, 패시브 드랍 +3%",
+            2: "신화 확률 +300%, 패시브 드랍 +6%",
+            3: "신화 확률 +450%, 패시브 드랍 +9%",
+            4: "신화 확률 +600%, 패시브 드랍 +12%",
+            5: "신화 확률 +750%, 패시브 드랍 +15%",
         },
-        "detail": "보물지도로 신화 아이템을 더 쉽게 찾을 수 있습니다.",
+        "detail": "보물지도로 신화 아이템을 더 쉽게 찾을 수 있습니다. 패시브 아이템 드랍 비율도 증가합니다.",
         "icon_color": (255, 223, 0),
         "tree": "downtown"
     },
@@ -81962,7 +81962,7 @@ def store_passive_item(item_data):
                     legendary_manager.items["angel_blessing"].unlocked = True
             except Exception:
                 pass
-            trigger_legendary_acquisition("angel_blessing", "천사의 가호", item_icon,
+            trigger_legendary_acquisition("angel_blessing", "천사의 주사위", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("😇 천사의 가호 첫 획득! 천사의 축복이 함께합니다!")
         item_data["type"] = "legendary"
@@ -169308,7 +169308,7 @@ def get_item_name_korean(item_name):
         "bazooka": "바주카포", "ak47": "AK-47", "net_gun": "그물덫총",
         "suicide_drone": "자폭드론", "bowling_trap": "볼링트랩",
         "ragnarok_hammer": "라그나로크 해머", "hermes_shoes": "헤르메스의 신발",
-        "poseidon_trident": "포세이돈의 삼지창", "angel_blessing": "천사의 가호",
+        "poseidon_trident": "포세이돈의 삼지창", "angel_blessing": "천사의 주사위",
         "sacred_laurel": "신성 월계수", "transcendent_crown": "초월자의 관",
         "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
