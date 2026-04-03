@@ -6319,12 +6319,6 @@ class TranscendentCrown(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-            # 신성한 빛 효과 (왕관 위에서 반짝임)
-            if self.current_frame in [0, 2, 4, 6]:
-                sparkle_color = (255, 255, 200)
-                sparkle_y = y + frame_offset - 3 + int(math.sin(self.animation_time * 4) * 2)
-                pygame.draw.circle(screen, sparkle_color, (x + size // 2, sparkle_y), 2)
-                pygame.draw.circle(screen, (255, 255, 255), (x + size // 2, sparkle_y), 1)
         else:
             # Fallback: 프레임이 없으면 기본 왕관 아이콘 그리기
             icon_y = y + frame_offset + int(self.animation_offset)
