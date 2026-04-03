@@ -12543,10 +12543,11 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
 
 
 def recalculate_transcendent_crown_effects():
-    """초월자의 관 획득/강화 시 스킬 보너스 및 기존 투자된 스킬 효과 재계산
+    """퍽 보너스 변경 시 캐시된 스킬 효과(신속/확장/벌크업 등) 재계산
 
-    ⚠️ 중요: 이 함수는 초월자의 관이 장착되어 있을 때만 효과를 적용합니다.
-    장착되지 않은 상태에서는 스킬 보너스를 0으로 설정합니다.
+    초월자의 관 또는 현자의 반지 등 퍽 레벨 보너스 소스가 변경될 때 호출.
+    초월자의 관이 미장착이어도 캐시 재계산은 항상 실행해야 함
+    (현자의 반지 등 다른 퍽 보너스 소스가 존재할 수 있으므로).
     """
     global runtime_swiftness_bonus, runtime_accessory_slot_bonus, transcendent_crown_skill_bonus
 
@@ -12557,17 +12558,18 @@ def recalculate_transcendent_crown_effects():
     if "transcendent_crown" not in equipped_names:
         # 장착되지 않은 경우 스킬 보너스 비활성화
         transcendent_crown_skill_bonus = 0
-        return  # 장착되지 않으면 효과 계산 스킵
-
-    # 초월자의 관 스킬 보너스 재계산 (강화 보너스 포함)
-    try:
-        legendary_manager = get_legendary_manager()
-        if legendary_manager:
-            crown = legendary_manager.get_item("transcendent_crown")
-            if crown and crown.unlocked:
-                transcendent_crown_skill_bonus = crown.skill_bonus
-    except Exception:
-        pass
+        # ⚠️ early return 하지 않음! 현자의 반지 등 다른 퍽 보너스 소스가 있을 수 있으므로
+        # 아래의 신속/확장/벌크업 등 캐시 재계산은 항상 실행해야 함
+    else:
+        # 초월자의 관 스킬 보너스 재계산 (강화 보너스 포함)
+        try:
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                crown = legendary_manager.get_item("transcendent_crown")
+                if crown and crown.unlocked:
+                    transcendent_crown_skill_bonus = crown.skill_bonus
+        except Exception:
+            pass
 
     # 신속 스킬 효과 재계산
     if runtime_skill_levels.get("common_swiftness", 0) > 0:
