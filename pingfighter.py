@@ -26947,7 +26947,14 @@ def format_roll_option_with_polish(opt: dict, item: dict = None) -> str:
         reduction = abs(base_value) - reduced_value
         if reduction == 0:
             return base_text
-        return f"{base_text} (-{reduction}{unit})"
+        # 패널티 옵션(prefix="-")은 감소폭이 줄어드는 것이므로 (+)로 표시
+        # 예: "이동속도 감소 -13%" → "이동속도 감소 -13% (+4%)" = 패널티 4% 상쇄
+        # 비패널티 옵션(쿨타임 등)은 값 자체가 줄어드므로 (-)로 표시
+        # 예: "쿨타임 15초" → "쿨타임 15초 (-4초)" = 쿨타임 4초 감소
+        if prefix == "-":
+            return f"{base_text} (+{reduction}{unit})"
+        else:
+            return f"{base_text} (-{reduction}{unit})"
 
     # 일반 옵션: 보너스 값 계산
     boosted_value = int(abs(base_value) * total_multiplier)
