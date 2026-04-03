@@ -11728,110 +11728,127 @@ class Megingjord(LegendaryItem):
         return False
 
     def _create_default_animation(self):
-        """기본 벨트 아이콘 애니메이션 프레임 생성 (8프레임)"""
+        """메긴교르드(토르의 힘의 벨트) 고퀄리티 아이콘 애니메이션 (8프레임)"""
         self.animation_frames = []
-        frame_count = 8
-        base_size = 60
+        sz = 60
 
-        for fi in range(frame_count):
-            frame = pygame.Surface((base_size, base_size), pygame.SRCALPHA)
-            t = fi / frame_count  # 0.0 ~ 0.875
+        for fi in range(8):
+            frame = pygame.Surface((sz, sz), pygame.SRCALPHA)
+            phase = fi / 8 * math.pi * 2
+            cx, cy = sz // 2, sz // 2
 
-            cx, cy = base_size // 2, base_size // 2
-            s = base_size / 32  # 스케일 팩터
+            # ── 색상 팔레트 ──
+            leather_shadow = (45, 25, 12)
+            leather_dark = (70, 40, 18)
+            leather_mid = (100, 60, 28)
+            leather_light = (130, 80, 38)
+            leather_highlight = (160, 105, 55)
+            gold_dark = (180, 140, 0)
+            gold_mid = (220, 180, 20)
+            gold_bright = (255, 220, 60)
+            gold_highlight = (255, 245, 150)
+            # 프레임별 룬 발광
+            rune_pulse = (math.sin(phase) + 1) / 2
+            rune_r = int(80 + 175 * rune_pulse)
+            rune_g = int(160 + 95 * rune_pulse)
+            rune_b = 255
+            rune_glow = (rune_r, rune_g, rune_b)
 
-            # 벨트 본체 색상 (진한 갈색 가죽)
-            belt_dark = (60, 35, 20)
-            belt_mid = (90, 55, 30)
-            belt_light = (120, 75, 40)
-            # 버클/룬 색상 (황금 + 번개 파란)
-            gold = (255, 215, 0)
-            gold_bright = (255, 240, 100)
-            lightning_blue = (100, 180, 255)
-            # 프레임별 색상 그라데이션
-            phase = t * math.pi * 2
-            glow_r = int(255 * (0.7 + 0.3 * math.sin(phase)))
-            glow_g = int(215 * (0.7 + 0.3 * math.sin(phase + math.pi * 0.5)))
-            glow_b = int(50 + 150 * (0.5 + 0.5 * math.sin(phase + math.pi)))
-            glow_color = (max(0, min(255, glow_r)), max(0, min(255, glow_g)), max(0, min(255, glow_b)))
+            # ── 벨트 본체 (두꺼운 가죽 벨트 - 둥근 사각형) ──
+            belt_w, belt_h = 48, 18
+            belt_x = cx - belt_w // 2
+            belt_y = cy - belt_h // 2
 
-            # 배경 글로우 (프레임별 변화)
-            glow_alpha = int(60 + 30 * math.sin(phase))
-            glow_surf = pygame.Surface((base_size, base_size), pygame.SRCALPHA)
-            pygame.draw.ellipse(glow_surf, (*glow_color, glow_alpha),
-                              (int(4*s), int(8*s), int(24*s), int(16*s)))
-            frame.blit(glow_surf, (0, 0))
+            # 그림자
+            shadow_rect = pygame.Rect(belt_x + 1, belt_y + 2, belt_w, belt_h)
+            pygame.draw.rect(frame, leather_shadow, shadow_rect, border_radius=6)
+            # 본체
+            body_rect = pygame.Rect(belt_x, belt_y, belt_w, belt_h)
+            pygame.draw.rect(frame, leather_mid, body_rect, border_radius=5)
+            # 상단 하이라이트 (빛 반사)
+            hl_rect = pygame.Rect(belt_x + 2, belt_y + 1, belt_w - 4, 6)
+            pygame.draw.rect(frame, leather_light, hl_rect, border_radius=3)
+            hl2_rect = pygame.Rect(belt_x + 4, belt_y + 1, belt_w - 8, 3)
+            pygame.draw.rect(frame, leather_highlight, hl2_rect, border_radius=2)
+            # 하단 어두운 면
+            btm_rect = pygame.Rect(belt_x + 2, belt_y + belt_h - 5, belt_w - 4, 4)
+            pygame.draw.rect(frame, leather_dark, btm_rect, border_radius=2)
+            # 테두리 스티칭
+            pygame.draw.rect(frame, leather_shadow, body_rect, 1, border_radius=5)
+            # 스티칭 점 (상하단)
+            for sx in range(belt_x + 6, belt_x + belt_w - 5, 5):
+                pygame.draw.rect(frame, leather_shadow, (sx, belt_y + 2, 2, 1))
+                pygame.draw.rect(frame, leather_shadow, (sx, belt_y + belt_h - 3, 2, 1))
 
-            # 벨트 본체 (가로로 긴 타원형)
-            belt_y = int(cy - 3*s)
-            belt_h = int(8*s)
-            belt_w = int(24*s)
-            belt_x = int(cx - belt_w//2)
-
-            # 벨트 그림자
-            pygame.draw.ellipse(frame, belt_dark,
-                              (belt_x, belt_y + int(s), belt_w, belt_h))
-            # 벨트 본체
-            pygame.draw.ellipse(frame, belt_mid,
-                              (belt_x, belt_y, belt_w, belt_h))
-            # 벨트 하이라이트
-            pygame.draw.ellipse(frame, belt_light,
-                              (belt_x + int(2*s), belt_y + int(s), belt_w - int(4*s), int(3*s)))
-
-            # 벨트 테두리
-            pygame.draw.ellipse(frame, belt_dark,
-                              (belt_x, belt_y, belt_w, belt_h), max(1, int(s*0.7)))
-
-            # 중앙 버클 (원형 - 토르의 상징)
-            buckle_r = int(5*s)
-            buckle_cx = cx
-            buckle_cy = belt_y + belt_h // 2
-
+            # ── 버클 (팔각형 금속 버클) ──
+            bk_w, bk_h = 18, 16
+            bk_x = cx - bk_w // 2
+            bk_y = cy - bk_h // 2
             # 버클 외곽 글로우
-            for gi in range(3):
-                ga = 40 - gi * 12
-                gr = buckle_r + 3 - gi
-                pygame.draw.circle(frame, (*glow_color, ga), (buckle_cx, buckle_cy), gr)
+            glow_s = pygame.Surface((bk_w + 8, bk_h + 8), pygame.SRCALPHA)
+            glow_a = int(40 + 30 * rune_pulse)
+            pygame.draw.rect(glow_s, (*rune_glow, glow_a), (0, 0, bk_w + 8, bk_h + 8), border_radius=5)
+            frame.blit(glow_s, (bk_x - 4, bk_y - 4))
+            # 버클 그림자
+            pygame.draw.rect(frame, (80, 60, 0), (bk_x + 1, bk_y + 1, bk_w, bk_h), border_radius=3)
+            # 버클 본체 (금색 그라데이션)
+            pygame.draw.rect(frame, gold_dark, (bk_x, bk_y, bk_w, bk_h), border_radius=3)
+            pygame.draw.rect(frame, gold_mid, (bk_x + 1, bk_y + 1, bk_w - 2, bk_h - 2), border_radius=2)
+            # 버클 상단 하이라이트
+            pygame.draw.rect(frame, gold_bright, (bk_x + 2, bk_y + 1, bk_w - 4, 5), border_radius=2)
+            pygame.draw.rect(frame, gold_highlight, (bk_x + 3, bk_y + 1, bk_w - 6, 3), border_radius=1)
+            # 버클 테두리
+            pygame.draw.rect(frame, gold_dark, (bk_x, bk_y, bk_w, bk_h), 1, border_radius=3)
+            # 내부 홈 (버클 디테일)
+            inner = pygame.Rect(bk_x + 3, bk_y + 3, bk_w - 6, bk_h - 6)
+            pygame.draw.rect(frame, gold_dark, inner, 1, border_radius=2)
 
-            # 버클 본체 (금색 원)
-            pygame.draw.circle(frame, gold, (buckle_cx, buckle_cy), buckle_r)
-            pygame.draw.circle(frame, gold_bright, (buckle_cx, buckle_cy), buckle_r - int(s))
-
-            # 번개 문양 (토르의 상징 - 지그재그)
-            lx = buckle_cx
-            ly_top = buckle_cy - int(3*s)
-            ly_bot = buckle_cy + int(3*s)
-            lightning_pts = [
-                (lx - int(s), ly_top),
-                (lx + int(s*0.5), buckle_cy - int(s*0.5)),
-                (lx - int(s*0.5), buckle_cy + int(s*0.5)),
-                (lx + int(s), ly_bot),
+            # ── 번개 문양 (토르의 상징 - 버클 중앙) ──
+            lx, ly = cx, cy
+            bolt_pts = [
+                (lx - 1, ly - 6), (lx + 2, ly - 2),
+                (lx, ly - 1), (lx + 3, ly + 1),
+                (lx + 1, ly), (lx - 2, ly + 6),
             ]
-            pygame.draw.lines(frame, lightning_blue, False, lightning_pts, max(1, int(s*0.8)))
+            # 번개 글로우
+            glow_bolt_s = pygame.Surface((sz, sz), pygame.SRCALPHA)
+            ba = int(80 + 120 * rune_pulse)
+            pygame.draw.lines(glow_bolt_s, (*rune_glow, ba), False, bolt_pts, 3)
+            frame.blit(glow_bolt_s, (0, 0))
+            # 번개 본체 (밝은 흰색~파란색)
+            bolt_color = (
+                min(255, int(200 + 55 * rune_pulse)),
+                min(255, int(230 + 25 * rune_pulse)),
+                255,
+            )
+            pygame.draw.lines(frame, bolt_color, False, bolt_pts, 1)
 
-            # 좌우 룬 장식 (작은 다이아몬드)
+            # ── 좌우 룬 문자 (노르드 룬 - 발광) ──
             for side in [-1, 1]:
-                rx = buckle_cx + side * int(8*s)
-                ry = buckle_cy
-                rune_size = int(2*s)
-                rune_pts = [
-                    (rx, ry - rune_size),
-                    (rx + rune_size, ry),
-                    (rx, ry + rune_size),
-                    (rx - rune_size, ry),
-                ]
-                rune_color_t = (
-                    min(255, int(glow_color[0] * 0.8)),
-                    min(255, int(glow_color[1] * 0.8)),
-                    min(255, int(glow_color[2] * 0.8)),
-                )
-                pygame.draw.polygon(frame, rune_color_t, rune_pts)
+                rx = cx + side * 18
+                ry = cy
+                # 룬 글로우
+                rg_s = pygame.Surface((8, 10), pygame.SRCALPHA)
+                rga = int(30 + 50 * rune_pulse)
+                pygame.draw.rect(rg_s, (*rune_glow, rga), (0, 0, 8, 10), border_radius=2)
+                frame.blit(rg_s, (rx - 4, ry - 5))
+                # 룬 문자 (ᚦ 토르의 룬 간략화 - 세로선 + 삼각)
+                rc = (min(255, int(150 + 105 * rune_pulse)),
+                      min(255, int(200 + 55 * rune_pulse)), 255)
+                pygame.draw.line(frame, rc, (rx, ry - 4), (rx, ry + 4), 1)
+                if side == -1:
+                    pygame.draw.line(frame, rc, (rx, ry - 3), (rx + 3, ry), 1)
+                    pygame.draw.line(frame, rc, (rx, ry + 1), (rx + 3, ry), 1)
+                else:
+                    pygame.draw.line(frame, rc, (rx, ry - 3), (rx - 3, ry), 1)
+                    pygame.draw.line(frame, rc, (rx, ry + 1), (rx - 3, ry), 1)
 
-            # 벨트 구멍 장식 (양쪽)
+            # ── 금속 리벳 (벨트 고정) ──
             for side in [-1, 1]:
-                hx = buckle_cx + side * int(12*s)
-                hy = buckle_cy
-                pygame.draw.circle(frame, belt_dark, (hx, hy), max(1, int(s*0.8)))
+                rvx = cx + side * 11
+                rvy = cy
+                pygame.draw.circle(frame, gold_dark, (rvx, rvy), 2)
+                pygame.draw.circle(frame, gold_bright, (rvx, rvy), 1)
 
             self.animation_frames.append(frame)
 
