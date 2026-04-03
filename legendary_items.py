@@ -56,7 +56,7 @@ ANGEL_BLESSING_OPTIONS = (
     "paddle_size",
     "gauge_max",
     "item_cooldown",
-    "dash_cost",
+    "active_cooldown",
     "dash_cooldown",
     "move_speed",
 )
@@ -4231,6 +4231,7 @@ class AngelBlessing(LegendaryItem):
             academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = 1.0
         self._set_global_multiplier("ANGEL_PADDLE_SCALE", 1.0)
         self._set_global_multiplier("ANGEL_GAUGE_MULT", 1.0)
+        self._set_global_multiplier("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
         import sys
         pf = sys.modules.get("pingfighter")
         prev_speed_mult = (
@@ -4346,20 +4347,10 @@ class AngelBlessing(LegendaryItem):
         elif buff == "item_cooldown":
             academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = negative_mult
             if self.DEBUG_ENABLED: print(f"[AngelBlessing] 아이템 쿨타임 버프 적용: -{int(buff_mult*100)}%")
-        elif buff == "dash_cost":
-            try:
-                import dash_manager
-                # _GLOBAL_DASH_INST 사용 (pingfighter.py에서 직접 참조하는 인스턴스)
-                dm = dash_manager._GLOBAL_DASH_INST or dash_manager.get_dash_manager()
-                if dm:
-                    old_cost = getattr(dm, 'external_cost_multiplier', 1.0)
-                    dm.set_external_multipliers(cost_mul=negative_mult)
-                    new_cost = getattr(dm, 'external_cost_multiplier', 1.0)
-                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 비용 버프 적용: {old_cost} -> {new_cost} (-{int(buff_mult*100)}%)")
-                else:
-                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
-            except Exception as e:
-                if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 비용 버프 적용 실패: {e}")
+        elif buff == "active_cooldown":
+            # 액티브 아이템 쿨타임 감소
+            self._set_global_multiplier("ANGEL_ACTIVE_COOLDOWN_MULT", negative_mult)
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 액티브 아이템 쿨타임 버프 적용: ANGEL_ACTIVE_COOLDOWN_MULT = {negative_mult} (-{int(buff_mult*100)}%)")
         elif buff == "dash_cooldown":
             try:
                 import dash_manager
@@ -5584,7 +5575,7 @@ class AngelBlessing(LegendaryItem):
             "paddle_size": f"패들 크기 +{buff_pct}%",
             "gauge_max": f"최대 게이지 +{buff_pct}%",
             "item_cooldown": f"아이템 쿨타임 -{buff_pct}%",
-            "dash_cost": f"대쉬 비용 -{buff_pct}%",
+            "active_cooldown": f"스킬 쿨타임 -{buff_pct}%",
             "dash_cooldown": f"대쉬 쿨타임 -{buff_pct}%",
             "move_speed": f"이동 속도 +{buff_pct}%",
         }
@@ -5592,7 +5583,7 @@ class AngelBlessing(LegendaryItem):
             "paddle_size": f"Paddle Size +{buff_pct}%",
             "gauge_max": f"Max Gauge +{buff_pct}%",
             "item_cooldown": f"Item Cooldown -{buff_pct}%",
-            "dash_cost": f"Dash Cost -{buff_pct}%",
+            "active_cooldown": f"Skill Cooldown -{buff_pct}%",
             "dash_cooldown": f"Dash Cooldown -{buff_pct}%",
             "move_speed": f"Move Speed +{buff_pct}%",
         }

@@ -11593,6 +11593,7 @@ except:
 ANGEL_GAUGE_MULT = 1.0
 ANGEL_PADDLE_SCALE = 1.0
 ANGEL_SPEED_MULT = 1.0
+ANGEL_ACTIVE_COOLDOWN_MULT = 1.0
 
 #  동적 최대 게이지 계산 함수
 def get_max_gauge():
@@ -159598,6 +159599,10 @@ def main(stage_num, new_boss_mode=False):
         if is_devil_dice_active():
             multipliers = get_devil_dice_multipliers()
             cooldown_ms = max(0, int(cooldown_ms * multipliers['item_cooldown']))
+        # 천사의 주사위 액티브 쿨타임 배율
+        _angel_active_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+        if _angel_active_cd != 1.0:
+            cooldown_ms = max(0, int(cooldown_ms * _angel_active_cd))
         active_item_cooldown_ms = max(0, cooldown_ms)
 
         for event in pygame.event.get():
@@ -166734,7 +166739,7 @@ def show_character_info(background_surface=None):
                                 "paddle_size": f"패들 크기 +{buff_pct}%",
                                 "gauge_max": f"최대 게이지 +{buff_pct}%",
                                 "item_cooldown": f"아이템 쿨타임 -{buff_pct}%",
-                                "dash_cost": f"대쉬 비용 -{buff_pct}%",
+                                "active_cooldown": f"스킬 쿨타임 -{buff_pct}%",
                                 "dash_cooldown": f"대쉬 쿨타임 -{buff_pct}%",
                                 "move_speed": f"이동 속도 +{buff_pct}%",
                             }
