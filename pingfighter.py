@@ -75386,6 +75386,21 @@ def handle_player(keys):
         if abs(player_knockback_y) < 1:
             player_knockback_y = 0
 
+    # 넉백 좌우 속도 감쇠 (스턴 없이 적용된 넉백도 처리 - 바나나, 저주상자 등)
+    # 스턴 중에는 스턴 블록 내에서 별도 감쇠하므로 여기서는 스턴 아닐 때만 처리
+    if player_stunned_timer <= 0 and abs(player_knockback_vel) > 0.5:
+        PLAYER.x += int(player_knockback_vel)
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        player_knockback_vel *= 0.85
+        if abs(player_knockback_vel) <= 0.5:
+            player_knockback_vel = 0
+
+    # 미사일 넉백 잔존값 감쇠 (미사일 스턴 없이 잔존하는 경우)
+    if player_missile_stunned_timer <= 0 and abs(player_missile_knockback_vel) > 0.5:
+        player_missile_knockback_vel *= 0.85
+        if abs(player_missile_knockback_vel) <= 0.5:
+            player_missile_knockback_vel = 0
+
     if player_burn_timer > 0:
         player_burn_timer -= 1
         if player_burn_timer <= 0:
