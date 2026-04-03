@@ -450,15 +450,6 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
         for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
 
-    # 은색 그라데이션 사각형 코너 장식 (4꼭지점)
-    sq = max(5, size // 10)
-    silver_layers = [(200, 200, 210), (170, 170, 185), (140, 140, 160)]
-    for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-        for i, sc in enumerate(silver_layers):
-            r = pygame.Rect(0, 0, sq - i * 2, sq - i * 2)
-            r.center = (cx, cy)
-            pygame.draw.rect(screen, sc, r)
-
     return frame_offset
 
 
@@ -491,15 +482,6 @@ def _draw_legendary_border_and_corners(screen: pygame.Surface,
 
         for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
-
-    # 은색 그라데이션 사각형 코너 장식 (4꼭지점)
-    sq = max(5, size // 10)
-    silver_layers = [(200, 200, 210), (170, 170, 185), (140, 140, 160)]
-    for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-        for i, sc in enumerate(silver_layers):
-            r = pygame.Rect(0, 0, sq - i * 2, sq - i * 2)
-            r.center = (cx, cy)
-            pygame.draw.rect(screen, sc, r)
 
 
 def _draw_glow_and_inner_only(screen: pygame.Surface,
@@ -4005,15 +3987,6 @@ class SacredLaurel(LegendaryItem):
         # 코너 원형 장식
         for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
-
-        # 은색 그라데이션 사각형 코너 장식 (4꼭지점)
-        sq = max(5, size // 10)
-        silver_layers = [(200, 200, 210), (170, 170, 185), (140, 140, 160)]
-        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-            for i, sc in enumerate(silver_layers):
-                r = pygame.Rect(0, 0, sq - i * 2, sq - i * 2)
-                r.center = (cx, cy)
-                pygame.draw.rect(screen, sc, r)
 
         # 아이콘 프레임 그리기
         if self.animation_frames:
