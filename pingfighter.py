@@ -109604,6 +109604,72 @@ def draw_objects():
                 except Exception:
                     pass
 
+            # ── 온라인 멀티: 상대방 스킬 이펙트 렌더링 ──
+            if current_stage == 40 and online_multiplayer_enabled and _online_opponent_anim:
+                _opp_fx = _online_opponent_anim.get('fx', [])
+                for _ef in _opp_fx:
+                    try:
+                        _ef_t = _ef.get('t', '')
+                        if _ef_t == 'blade':
+                            # 바이퍼 에어 블레이드: 보라색 검기 부채꼴
+                            _bx = int(_ef.get('x', 0))
+                            _by = HEIGHT - int(_ef.get('y', 0))  # Y반전
+                            _blade_w, _blade_h = 80, 120
+                            _blade_surf = pygame.Surface((_blade_w, _blade_h), pygame.SRCALPHA)
+                            # 3겹 부채꼴 검기
+                            for _li in range(3):
+                                _la = max(30, 160 - _li * 50)
+                                _lc = (120 + _li * 40, 30, 200 - _li * 30, _la)
+                                pygame.draw.polygon(_blade_surf, _lc, [
+                                    (_blade_w // 2, 0),
+                                    (_blade_w // 2 - 30 + _li * 8, _blade_h),
+                                    (_blade_w // 2 + 30 - _li * 8, _blade_h),
+                                ])
+                            SCREEN.blit(_blade_surf, (_bx - _blade_w // 2, _by - _blade_h),
+                                        special_flags=pygame.BLEND_ADD)
+                        elif _ef_t == 'nerve':
+                            # 바이퍼 베놈 엣지: 보스 주변 베기 이펙트
+                            _n_phase = _ef.get('p', 0)
+                            _ncx, _ncy = BOSS.centerx, BOSS.centery
+                            if _n_phase == 1:  # 베기 단계
+                                _t_now = pygame.time.get_ticks()
+                                for _ai in range(2):
+                                    _a = math.radians(_t_now * 0.5 + _ai * 180)
+                                    _arc_r = 60
+                                    _sx = int(_ncx + math.cos(_a) * _arc_r)
+                                    _sy = int(_ncy + math.sin(_a) * _arc_r)
+                                    _ex = int(_ncx + math.cos(_a + 2.0) * _arc_r)
+                                    _ey = int(_ncy + math.sin(_a + 2.0) * _arc_r)
+                                    pygame.draw.line(SCREEN, (200, 0, 255), (_sx, _sy), (_ex, _ey), 3)
+                            elif _n_phase == 0:  # 돌진 단계
+                                # 잔상 표시
+                                for _gi in range(3):
+                                    _ga = max(30, 80 - _gi * 25)
+                                    _gs = pygame.Surface((40, 60), pygame.SRCALPHA)
+                                    _gs.fill((180, 0, 220, _ga))
+                                    SCREEN.blit(_gs, (_ncx - 20 + _gi * 15, _ncy - 30))
+                        elif _ef_t == 'bullet':
+                            # 솔저 새총/권총 탄환
+                            _bux = int(_ef.get('x', 0))
+                            _buy = HEIGHT - int(_ef.get('y', 0))  # Y반전
+                            _charge = _ef.get('c', 1)
+                            _bu_r = max(3, 4 + _charge)
+                            pygame.draw.circle(SCREEN, (180, 180, 180), (_bux, _buy), _bu_r)
+                            pygame.draw.circle(SCREEN, (255, 255, 240), (_bux - 1, _buy - 1), max(1, _bu_r - 2))
+                            if _charge >= 3:
+                                # 골드 글로우
+                                _glow_s = pygame.Surface((_bu_r * 4, _bu_r * 4), pygame.SRCALPHA)
+                                pygame.draw.circle(_glow_s, (255, 215, 0, 80), (_bu_r * 2, _bu_r * 2), _bu_r * 2)
+                                SCREEN.blit(_glow_s, (_bux - _bu_r * 2, _buy - _bu_r * 2))
+                        elif _ef_t == 'turret':
+                            # 발토르 터렛 투사체
+                            _tx = int(_ef.get('x', 0))
+                            _ty = HEIGHT - int(_ef.get('y', 0))  # Y반전
+                            pygame.draw.circle(SCREEN, (255, 200, 50), (_tx, _ty), 5)
+                            pygame.draw.circle(SCREEN, (255, 255, 200), (_tx, _ty), 3)
+                    except Exception:
+                        pass
+
             # Stage 7 초인 인트로(0.6초) 동안: 양팔 벌린 포효 오버레이 + 매서운 표정
             try:
                 if current_stage == 7 and stage7_super_intro_until_ms > pygame.time.get_ticks():
@@ -170699,6 +170765,45 @@ def _online_get_my_anim_state():
         elif st == "optimus":
             if abs(globals().get('current_speed', 0)) > 1.0:
                 anim['state'] = 'walking'
+
+        # ── 스킬 이펙트 데이터 (모든 캐릭터 공통) ──
+        _fx = []
+
+        # 바이퍼: 에어 블레이드 (검기)
+        if globals().get('_viper_blade_rush_active', False):
+            _fx.append({
+                't': 'blade',
+                'x': globals().get('_viper_blade_rush_x', 0),
+                'y': globals().get('_viper_blade_rush_y', 0),
+            })
+        # 바이퍼: 베놈 엣지 (연계기)
+        if globals().get('_viper_nerve_strike_active', False):
+            _fx.append({
+                't': 'nerve',
+                'p': globals().get('_viper_nerve_strike_phase', 0),
+            })
+        # 솔저: 새총/권총 탄환
+        _bullets = globals().get('soldier_bullets', [])
+        for _sb in _bullets[:10]:  # 최대 10발
+            if _sb.get('active', False):
+                _fx.append({
+                    't': 'bullet',
+                    'x': _sb.get('x', 0),
+                    'y': _sb.get('y', 0),
+                    'c': _sb.get('charge_level', 1),
+                })
+        # 발토르: 터렛 투사체
+        _tp = globals().get('blacksmith_turret_projectiles', [])
+        for _proj in _tp[:8]:  # 최대 8발
+            _fx.append({
+                't': 'turret',
+                'x': _proj.get('x', 0),
+                'y': _proj.get('y', 0),
+            })
+
+        if _fx:
+            anim['fx'] = _fx
+
     except Exception:
         pass
     return anim
