@@ -162019,6 +162019,61 @@ def main(stage_num, new_boss_mode=False):
                                 except:
                                     pass
 
+                            # 👁 가시-인터셉터/미사일 충돌 체크 (스테이지 5 네메시스)
+                            if current_stage == 6 and odins_eye.lurker_spikes:
+                                for spike in odins_eye.lurker_spikes:
+                                    if spike['phase'] not in ('hold', 'rising') or spike['height'] < 10:
+                                        continue
+                                    spike_rect = pygame.Rect(
+                                        spike['x'] - spike['width'] - 5,
+                                        spike['y'] - spike['height'],
+                                        spike['width'] * 2 + 10,
+                                        spike['height']
+                                    )
+                                    # 인터셉터 충돌
+                                    for interceptor in interceptors[:]:
+                                        interceptor_rect = pygame.Rect(
+                                            interceptor['x'] - 15, interceptor['y'] - 15, 30, 30
+                                        )
+                                        if spike_rect.colliderect(interceptor_rect):
+                                            interceptors.remove(interceptor)
+                                            spike['phase'] = 'dissolving'
+                                            spike['phase_timer'] = 0
+                                            spike['dissolve_alpha'] = 255
+                                            odins_eye._spawn_spike_fragments(
+                                                int(spike['x']), int(spike['y'] - spike['height'] // 2), int(spike['height'])
+                                            )
+                                            try:
+                                                play_sound_with_volume(SOUND_STAGE6_INTERCEPTOR_HIT)
+                                            except:
+                                                pass
+                                            # 황금 인터셉터 보상
+                                            try:
+                                                if interceptor.get('golden') and trade_point_system:
+                                                    trade_point_system.spawn_star(interceptor['x'], interceptor['y'], "gold_interceptor")
+                                            except:
+                                                pass
+                                            break
+                                    # 미사일 충돌
+                                    if spike['phase'] == 'dissolving':
+                                        continue
+                                    for missile in turret_missiles[:]:
+                                        missile_rect = pygame.Rect(
+                                            missile['x'] - 3, missile['y'] - 3, 6, 6
+                                        )
+                                        if spike_rect.colliderect(missile_rect):
+                                            turret_missiles.remove(missile)
+                                            effects_manager.create_impact_effect(
+                                                int(missile['x']), int(missile['y']), 8, is_player=False
+                                            )
+                                            spike['phase'] = 'dissolving'
+                                            spike['phase_timer'] = 0
+                                            spike['dissolve_alpha'] = 255
+                                            odins_eye._spawn_spike_fragments(
+                                                int(spike['x']), int(spike['y'] - spike['height'] // 2), int(spike['height'])
+                                            )
+                                            break
+
                         # 👻 오딘의 눈 잔상 시스템 업데이트 및 충돌 체크
                         if odins_eye and (odins_eye.penalty_active or odins_eye.dark_energy_active):
                             # 잔상 업데이트 (타이머, 페이드)
