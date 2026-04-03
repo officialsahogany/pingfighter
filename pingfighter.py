@@ -63019,7 +63019,13 @@ def update_web_traps():
     # ─── 투사체 이동 처리 ───
     if web_trap_projectile is not None:
         web_trap_projectile["timer"] += 1
-        if web_trap_projectile["timer"] >= web_trap_projectile["duration"]:
+        # 연막에 닿으면 투사체 녹아서 파괴
+        raw_t = min(web_trap_projectile["timer"] / max(1, web_trap_projectile["duration"]), 1.0)
+        _proj_cx = web_trap_projectile["sx"] + (web_trap_projectile["tx"] - web_trap_projectile["sx"]) * raw_t
+        _proj_cy = web_trap_projectile["sy"] + (web_trap_projectile["ty"] - web_trap_projectile["sy"]) * raw_t
+        if is_point_in_smoke(_proj_cx, _proj_cy):
+            web_trap_projectile = None
+        elif web_trap_projectile["timer"] >= web_trap_projectile["duration"]:
             # 도착! → 장판 생성 (펼쳐짐 연출 포함)
             web_traps.append({
                 "x": int(web_trap_projectile["tx"]),
@@ -63050,6 +63056,12 @@ def update_web_traps():
             trap["expand_timer"] -= 1
         if trap["timer"] <= 0:
             expired.append(i)
+            continue
+
+        # 연막에 닿으면 거미줄 장판 녹아서 파괴
+        if trap.get("expand_timer", 0) <= 0 and is_point_in_smoke(trap["x"], trap["y"]):
+            expired.append(i)
+            _spawn_web_break_effect(trap)
             continue
 
         # 대쉬로 거미줄 파괴 (펼쳐짐 완료 후에만)
@@ -63735,6 +63747,13 @@ def update_spider_rage():
     finished = []
     for proj in spider_rage_projectiles:
         proj["timer"] += 1
+        # 연막에 닿으면 분노 거미줄 투사체 녹아서 파괴
+        _rage_t = min(proj["timer"] / max(1, proj["duration"]), 1.0)
+        _rage_cx = proj["sx"] + (proj["tx"] - proj["sx"]) * _rage_t
+        _rage_cy = proj["sy"] + (proj["ty"] - proj["sy"]) * _rage_t
+        if is_point_in_smoke(_rage_cx, _rage_cy):
+            finished.append(proj)
+            continue
         if proj["timer"] >= proj["duration"]:
             # 도착 → 붉은 장판 생성 (rage 플래그, 무한 타이머)
             web_traps.append({
