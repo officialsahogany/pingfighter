@@ -11514,70 +11514,97 @@ class PandoraLegacy(LegendaryItem):
         return frame
 
     def _draw_rainbow_bag(self, surface, cx, cy, frame_idx):
-        """무지개빛 가방 아이콘을 surface에 그리기"""
+        """판도라의 유산 - 무지개빛 보물상자 아이콘"""
         import pygame
         import math
 
         # ── 무지개 색상 (프레임마다 순환) ──
         rainbow = [
-            (255, 80, 80),    # 빨
-            (255, 160, 50),   # 주
-            (255, 230, 50),   # 노
-            (80, 220, 80),    # 초
-            (60, 160, 255),   # 파
-            (100, 80, 255),   # 남
-            (200, 80, 255),   # 보
-            (255, 120, 180),  # 핑크
+            (255, 70, 70), (255, 150, 40), (255, 230, 50), (70, 210, 70),
+            (50, 150, 255), (100, 70, 255), (200, 70, 255), (255, 110, 170),
         ]
-        # 프레임마다 무지개 색상 회전
         c1 = rainbow[(frame_idx + 0) % 8]
         c2 = rainbow[(frame_idx + 2) % 8]
         c3 = rainbow[(frame_idx + 4) % 8]
         c4 = rainbow[(frame_idx + 6) % 8]
+        c5 = rainbow[(frame_idx + 1) % 8]
 
-        # ── 가방 본체 (둥근 사각형) ──
-        bag_w, bag_h = 14, 11
-        bag_x = cx - bag_w // 2
-        bag_y = cy - bag_h // 2 + 1
+        # ── 상자 아래쪽 (본체) ──
+        bw, bh = 16, 8
+        bx = cx - bw // 2
+        by = cy - bh // 2 + 2
 
-        # 무지개 줄무늬 (가로 4줄)
-        stripe_h = bag_h // 4
-        stripes = [c1, c2, c3, c4]
+        # 그림자
+        pygame.draw.rect(surface, (30, 20, 10), (bx + 1, by + 1, bw, bh), border_radius=2)
+        # 본체 - 무지개 스트라이프 (5줄, 더 부드럽게)
+        stripes = [c1, c2, c3, c4, c5]
+        sh = max(1, bh // 5)
         for i, sc in enumerate(stripes):
-            sy = bag_y + i * stripe_h
-            sh = stripe_h if i < 3 else (bag_h - stripe_h * 3)
-            pygame.draw.rect(surface, sc, (bag_x, sy, bag_w, sh))
+            sy = by + i * sh
+            h = sh if i < 4 else (bh - sh * 4)
+            # 밝은 면 (상단 1px)
+            bright = tuple(min(255, c + 50) for c in sc)
+            pygame.draw.rect(surface, bright, (bx, sy, bw, 1))
+            pygame.draw.rect(surface, sc, (bx, sy + 1, bw, max(1, h - 1)))
+        # 본체 테두리
+        pygame.draw.rect(surface, (40, 25, 15), (bx, by, bw, bh), 1, border_radius=2)
+        # 하단 그림자 라인
+        dark_c3 = tuple(max(0, c - 80) for c in c3)
+        pygame.draw.line(surface, dark_c3, (bx + 1, by + bh - 2), (bx + bw - 2, by + bh - 2))
 
-        # 가방 윤곽
-        pygame.draw.rect(surface, (60, 40, 30), (bag_x, bag_y, bag_w, bag_h), 1)
+        # ── 뚜껑 (상단 - 아치형, 살짝 열림) ──
+        lid_h = 5
+        lid_y = by - lid_h + 1
+        lid_color = rainbow[(frame_idx + 3) % 8]
+        lid_bright = tuple(min(255, c + 60) for c in lid_color)
+        lid_dark = tuple(max(0, c - 40) for c in lid_color)
+        # 뚜껑 본체
+        lid_rect = pygame.Rect(bx - 1, lid_y, bw + 2, lid_h)
+        pygame.draw.rect(surface, lid_color, lid_rect, border_radius=3)
+        # 뚜껑 하이라이트
+        pygame.draw.rect(surface, lid_bright, (bx, lid_y, bw, 2), border_radius=2)
+        # 뚜껑 테두리
+        pygame.draw.rect(surface, (40, 25, 15), lid_rect, 1, border_radius=3)
+        # 열린 틈에서 빛 새어나옴
+        glow_alpha = int(120 + 80 * math.sin(frame_idx * math.pi / 4))
+        glow_s = pygame.Surface((bw - 2, 2), pygame.SRCALPHA)
+        glow_s.fill((*rainbow[(frame_idx + 5) % 8], glow_alpha))
+        surface.blit(glow_s, (bx + 1, by - 1))
 
-        # ── 가방 뚜껑 / 플랩 (반원형) ──
-        flap_color_base = rainbow[(frame_idx + 1) % 8]
-        flap_bright = tuple(min(255, c + 40) for c in flap_color_base)
-        flap_rect = pygame.Rect(bag_x - 1, bag_y - 4, bag_w + 2, 5)
-        pygame.draw.rect(surface, flap_bright, flap_rect, border_radius=2)
-        pygame.draw.rect(surface, (60, 40, 30), flap_rect, 1, border_radius=2)
-
-        # ── 손잡이 (반원 아치) ──
-        handle_color = rainbow[(frame_idx + 3) % 8]
-        pygame.draw.arc(surface, handle_color,
-                       (cx - 4, bag_y - 7, 8, 6),
-                       0, math.pi, 2)
-
-        # ── 금색 버클 / 잠금장치 ──
+        # ── 금색 잠금장치 (열쇠 구멍) ──
         gold = (255, 215, 0)
-        pygame.draw.rect(surface, gold, (cx - 2, bag_y - 1, 4, 3))
-        pygame.draw.rect(surface, (200, 170, 0), (cx - 2, bag_y - 1, 4, 3), 1)
+        gold_dark = (190, 155, 0)
+        gold_hi = (255, 245, 140)
+        # 잠금 플레이트
+        pygame.draw.rect(surface, gold_dark, (cx - 3, by - 1, 6, 5), border_radius=1)
+        pygame.draw.rect(surface, gold, (cx - 2, by, 4, 3), border_radius=1)
+        pygame.draw.rect(surface, gold_hi, (cx - 1, by, 2, 1))
+        # 열쇠 구멍
+        pygame.draw.rect(surface, (40, 25, 15), (cx, by + 1, 1, 2))
 
-        # ── 반짝이 파티클 (프레임별 위치 변화) ──
-        sparkle_offsets = [
-            (-4, -3), (5, -2), (-3, 4), (4, 3),
-            (-5, 1), (3, -4), (-2, 5), (5, 0),
+        # ── 측면 금속 장식 ──
+        for side in [-1, 1]:
+            mx = cx + side * (bw // 2 - 1)
+            pygame.draw.line(surface, gold_dark, (mx, by + 1), (mx, by + bh - 2))
+            pygame.draw.rect(surface, gold, (mx - (1 if side == 1 else 0), by + 2, 1, 2))
+
+        # ── 반짝이 파티클 (프레임별 2개) ──
+        sparkle_sets = [
+            [(-5, -4), (6, 3)], [(4, -5), (-6, 2)],
+            [(-3, 5), (5, -3)], [(6, -1), (-4, 4)],
+            [(-6, -2), (3, 5)], [(5, -4), (-5, 3)],
+            [(-2, -5), (6, 1)], [(4, 4), (-6, -3)],
         ]
-        sp_x, sp_y = sparkle_offsets[frame_idx % 8]
-        sparkle_color = rainbow[(frame_idx + 5) % 8]
-        bright_sparkle = tuple(min(255, c + 80) for c in sparkle_color)
-        pygame.draw.rect(surface, bright_sparkle, (cx + sp_x, cy + sp_y, 2, 2))
+        for sp_x, sp_y in sparkle_sets[frame_idx % 8]:
+            sc = rainbow[(frame_idx + sp_x) % 8]
+            bright_sc = tuple(min(255, c + 100) for c in sc)
+            # 십자 모양 스파클
+            px, py = cx + sp_x, cy + sp_y
+            surface.set_at((px, py), bright_sc)
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = px + dx, py + dy
+                if 0 <= nx < surface.get_width() and 0 <= ny < surface.get_height():
+                    surface.set_at((nx, ny), sc)
 
     def update(self, dt: float, ui_mode: bool = False):
         """애니메이션 업데이트"""
