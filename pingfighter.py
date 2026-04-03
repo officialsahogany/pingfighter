@@ -28027,13 +28027,16 @@ def sync_equipped_passive_effects():
                             # 신성월계수의 잎 개수를 퍽 보너스로 적용
                             sacred_laurel_perk_bonus = laurel.max_leaves
                             refresh_perk_leaf_shield()
-                # 천사의 가호: 강화 보너스 동기화
+                # 천사의 주사위: 강화 보너스 동기화 + 활성 버프 재적용
                 if legend_name == "angel_blessing":
                     blessing_item = next((item for item in equipped_items if item.get("name") == "angel_blessing"), None)
                     if blessing_item:
                         blessing = legendary_manager.get_item("angel_blessing")
                         if blessing:
+                            old_pct = blessing.enhancement_bonus_pct
                             blessing.enhancement_bonus_pct = blessing_item.get("enhancement_bonus_pct", 0)
+                            if old_pct != blessing.enhancement_bonus_pct:
+                                blessing.refresh_buffs()
                 # 판도라의 유산: 강화 보너스 동기화
                 if legend_name == "pandora_legacy":
                     pandora_item = next((item for item in equipped_items if item.get("name") == "pandora_legacy"), None)

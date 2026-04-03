@@ -4401,6 +4401,14 @@ class AngelBlessing(LegendaryItem):
             except Exception as e:
                 if self.DEBUG_ENABLED: print(f"[AngelBlessing] 이동속도 버프 적용 실패: {e}")
 
+    def refresh_buffs(self):
+        """강화 보너스 변경 시 활성 버프를 현재 buff_multiplier로 재적용"""
+        if not self.active_buffs:
+            return
+        self._reset_globals()
+        for buff in self.active_buffs:
+            self._apply_buff(buff)
+
     def deactivate(self):
         """천사의 가호 비활성화 - 모든 버프 효과 즉시 해제
 
