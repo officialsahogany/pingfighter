@@ -79628,7 +79628,7 @@ def handle_player(keys):
         # 충돌 처리 플래그 설정
         player_collision_handled = True
         # ⚠️ 버그 수정: 쿨다운 설정 추가 - handle_ball 백업 충돌과 중복 처리 방지
-        player_collision_cooldown = 15
+        player_collision_cooldown = PLAYER_COLLISION_COOLDOWN_FRAMES
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
 
         # 실전 튜토리얼: 플레이어가 공을 맞춤 (주니어리그에서 첫 히트 시 튜토리얼 시작)
@@ -80262,7 +80262,7 @@ def handle_player(keys):
                     special_ready = True
 
             # 충돌 쿨다운 설정하여 중복 충전 방지
-            player_collision_cooldown = 15
+            player_collision_cooldown = PLAYER_COLLISION_COOLDOWN_FRAMES
         elif rolling_active:
             if DEBUG_HANDLE_PLAYER_VERBOSE:
                 pass  # print(f" DEBUG:    handle_player   !")
@@ -144247,6 +144247,122 @@ def draw_fireball_explosion_particles():
 boss_hit_animation_active = False
 boss_hit_animation_timer = 0
 BOSS_HIT_ANIMATION_DURATION = 6  # 기본 프레임 수
+
+# --- 충돌 쿨다운 상수 ---
+PLAYER_COLLISION_COOLDOWN_FRAMES = 15  # 플레이어 패들 충돌 쿨다운 (프레임)
+BOSS_COLLISION_COOLDOWN_FRAMES = 10    # 보스 패들 충돌 쿨다운 (프레임)
+WALL_COLLISION_DAMPING = 0.95          # 벽 충돌 시 속도 감쇠율 (5% 감속)
+
+# 잎사귀 색상 팔레트 (스테이지 2 벽 충돌 이펙트용)
+_JUNGLE_LEAF_COLORS = [
+    (34, 139, 34),   # 숲 녹색
+    (0, 128, 0),     # 중간 녹색
+    (85, 107, 47),   # 올리브 녹색
+    (107, 142, 35),  # 황록색
+    (154, 205, 50),  # 연두색
+    (50, 100, 50),   # 진한 녹색
+]
+
+def _process_wall_bounce(side: str) -> bool:
+    """좌우 벽 충돌 공통 처리 함수.
+
+    Args:
+        side: 'left' 또는 'right'
+
+    Returns:
+        True이면 무승부 판정으로 라운드 리셋됨 (호출자가 즉시 return 해야 함)
+    """
+    global ball_vel, wall_bounce_count, last_wall_hit, last_wall_collision_time
+    global stage2_border_flash_timer, special_gauge
+
+    # --- 반사 + 감속 ---
+    ball_vel[0] *= -1
+    ball_vel[0] *= WALL_COLLISION_DAMPING
+    ball_vel[1] *= WALL_COLLISION_DAMPING
+    play_wall_sound()
+
+    # 에너지볼 벽 충돌 이펙트
+    effect_x = BALL.left if side == 'left' else BALL.right
+    spawn_wall_impact_effect(effect_x, BALL.centery, side)
+
+    # --- 무승부 판정: 좌우 벽 왕복 카운트 ---
+    opposite_side = 'right' if side == 'left' else 'left'
+    current_time = pygame.time.get_ticks()
+    if current_time - last_paddle_hit_time > 100:
+        if last_wall_hit == opposite_side:  # 이전이 반대쪽 벽이었으면 좌우 왕복
+            wall_bounce_count += 1
+            time_without_paddle = current_time - last_paddle_hit_time
+            if wall_bounce_count >= DRAW_BOUNCE_LIMIT and time_without_paddle >= DRAW_TIME_LIMIT:
+                if arena_mode_enabled and arena_battle_result is not None:
+                    return True  # 이미 승부가 결정됨
+                go_to_next_round()
+                draw_font = get_font(48)
+                draw_text = draw_font.render(_t("game.rematch", "재대결!"), True, YELLOW)
+                SCREEN.blit(draw_text, (WIDTH // 2 - draw_text.get_width() // 2, HEIGHT // 2 - 50))
+                pygame.display.flip()
+                pygame.time.delay(1000)
+                return True
+        else:
+            wall_bounce_count = 0
+        last_wall_hit = side
+
+    # --- 충전가방 효과: 벽 충돌 시 게이지 충전 ---
+    if chargebag_obtained and not aipill_active:
+        if selected_character_type == "optimus":
+            base_gauge_gain = 0
+        elif selected_character_type == "soldier":
+            base_gauge_gain = 50
+        elif selected_character_type == "blacksmith":
+            base_gauge_gain = get_blacksmith_umbrella_gauge_gain() if blacksmith_umbrella_open else 30
+        else:
+            base_gauge_gain = 60
+        if base_gauge_gain > 0:
+            bonus_pct = chargebag_bonus_pct
+            current_gain_tmp = base_gauge_gain
+            try:
+                if is_bluetooth_ring_active():
+                    bt_bonus = bluetooth_ring_gain_pct
+                    current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
+            except Exception:
+                pass
+            chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
+            current_max = get_max_gauge()
+            special_gauge = min(current_max, special_gauge + chargebag_gain)
+
+    # --- 스테이지 2: 정글 테두리 + 잎사귀 파티클 ---
+    if current_stage == 2:
+        stage2_border_flash_timer = stage2_border_flash_duration
+        ball_y = BALL.centery
+        is_bush_area = (ball_y <= 150) or (ball_y >= 600)
+        if is_bush_area:
+            current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+            speed_normalized = min(1.0, max(0.0, (current_speed - 3) / 22))
+            leaves_count = max(1, min(6, int(1 + speed_normalized * 5)))
+            # 좌벽: x=0, vx 양수 / 우벽: x=WIDTH, vx 음수
+            leaf_x = 0 if side == 'left' else WIDTH
+            vx_range = (1.0, 3.0) if side == 'left' else (-3.0, -1.0)
+            leaf_types = ['maple', 'oak', 'tropical']
+            for _ in range(leaves_count):
+                stage2_leaves.append({
+                    'x': leaf_x,
+                    'y': BALL.centery + random.randint(-50, 50),
+                    'vx': random.uniform(*vx_range),
+                    'vy': random.uniform(0.5, 2.5),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-8, 8),
+                    'type': random.choice(leaf_types),
+                    'color': random.choice(_JUNGLE_LEAF_COLORS),
+                    'size': random.randint(12, 25),
+                    'life': 150
+                })
+
+    # --- 관성 보존용 타임스탬프 기록 ---
+    last_wall_collision_time = pygame.time.get_ticks()
+    if current_stage != 2:
+        current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+
+    return False
+
 def handle_ball():
     # 게임 상태 변수들
     global round_wins, round_losses, boss_speed_boost_timer, boss_fail_timer
@@ -146617,239 +146733,12 @@ def handle_ball():
         pass
     elif BALL.left <= 0:
         BALL.left = 0
-        ball_vel[0] *= -1
-        # 🔧 벽 충돌 시 속도 약간 감속 (포세이돈 회오리 후 너무 빠른 속도 방지)
-        ball_vel[0] *= 0.95  # 5% 감속
-        ball_vel[1] *= 0.95  # Y 속도도 약간 감속
-        play_wall_sound()
-        # 에너지볼 벽 충돌 이펙트
-        spawn_wall_impact_effect(BALL.left, BALL.centery, 'left')
-        
-        # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트
-        current_time = pygame.time.get_ticks()
-        if current_time - last_paddle_hit_time > 100:  # 패들 충돌 후 0.1초 이상 경과
-            if last_wall_hit == 'right':  # 이전이 우벽이었으면 좌우 왕복
-                wall_bounce_count += 1
-                time_without_paddle = current_time - last_paddle_hit_time
-                # print(f"    : {wall_bounce_count}/{DRAW_BOUNCE_LIMIT},   : {time_without_paddle/1000:.1f}")
-
-                # 무승부 판정 체크 (두 조건 모두 만족해야 함)
-                # 투기장 모드에서 이미 결과가 결정된 경우 무승부 처리 건너뛰기
-                if wall_bounce_count >= DRAW_BOUNCE_LIMIT and time_without_paddle >= DRAW_TIME_LIMIT:
-                    if arena_mode_enabled and arena_battle_result is not None:
-                        return  # 이미 승부가 결정됨 - 무승부 판정 방지
-                    # print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
-                    # 무승부 처리: 점수는 그대로, 라운드만 재시작
-                    go_to_next_round()
-                    # 재대결 메시지 표시
-                    draw_font = get_font(48)
-                    draw_text = draw_font.render(_t("game.rematch", "재대결!"), True, YELLOW)
-                    SCREEN.blit(draw_text, (WIDTH // 2 - draw_text.get_width() // 2, HEIGHT // 2 - 50))
-                    pygame.display.flip()
-                    pygame.time.delay(1000)  # 1초 대기
-                    return
-            else:
-                wall_bounce_count = 0  # 같은 벽 연속이면 리셋
-            last_wall_hit = 'left'
-        # 스테이지 2에서 벽 충돌 시 정글 테두리 효과 활성화
-        if current_stage == 2:
-            stage2_border_flash_timer = stage2_border_flash_duration
-            # 덤불이 있는 영역에서만 잎사귀 생성 (상단: 0-150, 하단: 600-750)
-            ball_y = BALL.centery
-            is_bush_area = (ball_y <= 150) or (ball_y >= 600)
-            
-            if is_bush_area:
-                # 공 속도 계산
-                current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                # 속도에 비례한 잎사귀 개수 계산 (느릴 때 1-2개, 빠를 때 5-6개)
-                # 속도 범위: 대략 3(느림) ~ 25(빠름)
-                min_leaves = 1
-                max_leaves = 6
-                # 속도를 0-1 범위로 정규화 (3-25 속도 범위 기준)
-                speed_normalized = min(1.0, max(0.0, (current_speed - 3) / 22))
-                # 잎사귀 개수 계산
-                leaves_count = int(min_leaves + speed_normalized * (max_leaves - min_leaves))
-                # 최소값과 최대값 범위 보장
-                leaves_count = max(1, min(6, leaves_count))
-                # 충돌 위치에서 디테일한 잎사귀 생성 (좌벽)
-                leaf_types = ['maple', 'oak', 'tropical']
-                for i in range(leaves_count):
-                    leaf = {
-                        'x': 0,  # 좌벽에서 생성
-                        'y': BALL.centery + random.randint(-50, 50),
-                        'vx': random.uniform(1.0, 3.0),  # 오른쪽으로 떨어짐
-                        'vy': random.uniform(0.5, 2.5),
-                        'rotation': random.uniform(0, 360),
-                        'rotation_speed': random.uniform(-8, 8),
-                        'type': random.choice(leaf_types),
-                        'color': random.choice([
-                            (34, 139, 34),  # 숲 녹색
-                            (0, 128, 0),    # 중간 녹색  
-                            (85, 107, 47),  # 올리브 녹색
-                            (107, 142, 35), # 황록색
-                            (154, 205, 50), # 연두색
-                            (50, 100, 50),  # 진한 녹색
-                        ]),
-                        'size': random.randint(12, 25),
-                        'life': 150  # 2.5초 동안 떨어짐
-                    }
-                    stage2_leaves.append(leaf)
-                # 잎사귀 생성 완료
-        # Stage 4는 까마귀를 잡았을 때만 별 생성 (벽 충돌 시 별 생성 제거)
-        #  벽 충돌 시간 기록 (관성 보존용)
-        last_wall_collision_time = pygame.time.get_ticks()
-        if current_stage != 2:  # 스테이지 2가 아닐 때만 속도 재계산
-            current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-        # print(f"  !  : {current_speed:.1f},")  # 디버그 비활성화 (벽 충돌 속도)
-        # 충전가방 효과: 공이 벽에 닿을 때마다 기본 게이지 충전량의 20% 충전
-        if chargebag_obtained and not aipill_active:
-            # 캐릭터별 기본 게이지 충전량
-            if selected_character_type == "optimus":
-                base_gauge_gain = 0  # 옵티머스는 자동 게이지 충전 없음
-            elif selected_character_type == "soldier":
-                base_gauge_gain = 50  # 코만도: 게이지 충전 50
-            elif selected_character_type == "blacksmith":
-                if blacksmith_umbrella_open:
-                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
-                else:
-                    base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
-            else:
-                base_gauge_gain = 60  # 스매셔: 게이지 충전 60
-            if base_gauge_gain > 0:
-                # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
-                bonus_pct = chargebag_bonus_pct
-                current_gain_tmp = base_gauge_gain
-                try:
-                    if is_bluetooth_ring_active():
-                        bt_bonus = bluetooth_ring_gain_pct
-                        current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
-                except Exception:
-                    pass
-                chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
-                # print(f" DEBUG:     ( : {chargebag_gain})")
-                old_gauge = special_gauge
-                #  동적 최대치 계산 적용
-                current_max = get_max_gauge()
-                special_gauge = min(current_max, special_gauge + chargebag_gain)
-                # print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
+        if _process_wall_bounce('left'):
+            return  # 무승부 판정 시 즉시 리턴
     elif BALL.right >= WIDTH:
         BALL.right = WIDTH
-        ball_vel[0] *= -1
-        # 🔧 벽 충돌 시 속도 약간 감속 (포세이돈 회오리 후 너무 빠른 속도 방지)
-        ball_vel[0] *= 0.95  # 5% 감속
-        ball_vel[1] *= 0.95  # Y 속도도 약간 감속
-        play_wall_sound()
-        # 에너지볼 벽 충돌 이펙트
-        spawn_wall_impact_effect(BALL.right, BALL.centery, 'right')
-
-        # 충전가방 효과: 공이 벽에 닿을 때마다 기본 게이지 충전량의 20% 충전
-        if chargebag_obtained and not aipill_active:
-            # 캐릭터별 기본 게이지 충전량
-            if selected_character_type == "optimus":
-                base_gauge_gain = 0  # 옵티머스는 자동 게이지 충전 없음
-            elif selected_character_type == "soldier":
-                base_gauge_gain = 50  # 코만도: 게이지 충전 50
-            elif selected_character_type == "blacksmith":
-                if blacksmith_umbrella_open:
-                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
-                else:
-                    base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
-            else:
-                base_gauge_gain = 60  # 스매셔: 게이지 충전 60
-            if base_gauge_gain > 0:
-                # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
-                bonus_pct = chargebag_bonus_pct
-                current_gain_tmp = base_gauge_gain
-                try:
-                    if is_bluetooth_ring_active():
-                        bt_bonus = bluetooth_ring_gain_pct
-                        current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
-                except Exception:
-                    pass
-                chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
-                # print(f" DEBUG:     ( : {chargebag_gain})")
-                old_gauge = special_gauge
-                #  동적 최대치 계산 적용
-                current_max = get_max_gauge()
-                special_gauge = min(current_max, special_gauge + chargebag_gain)
-                # print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
-        
-        # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트
-        current_time = pygame.time.get_ticks()
-        if current_time - last_paddle_hit_time > 100:  # 패들 충돌 후 0.1초 이상 경과
-            if last_wall_hit == 'left':  # 이전이 좌벽이었으면 좌우 왕복
-                wall_bounce_count += 1
-                time_without_paddle = current_time - last_paddle_hit_time
-                # print(f"    : {wall_bounce_count}/{DRAW_BOUNCE_LIMIT},   : {time_without_paddle/1000:.1f}")
-
-                # 무승부 판정 체크 (두 조건 모두 만족해야 함)
-                # 투기장 모드에서 이미 결과가 결정된 경우 무승부 처리 건너뛰기
-                if wall_bounce_count >= DRAW_BOUNCE_LIMIT and time_without_paddle >= DRAW_TIME_LIMIT:
-                    if arena_mode_enabled and arena_battle_result is not None:
-                        return  # 이미 승부가 결정됨 - 무승부 판정 방지
-                    # print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
-                    # 무승부 처리: 점수는 그대로, 라운드만 재시작
-                    go_to_next_round()
-                    # 재대결 메시지 표시
-                    draw_font = get_font(48)
-                    draw_text = draw_font.render(_t("game.rematch", "재대결!"), True, YELLOW)
-                    SCREEN.blit(draw_text, (WIDTH // 2 - draw_text.get_width() // 2, HEIGHT // 2 - 50))
-                    pygame.display.flip()
-                    pygame.time.delay(1000)  # 1초 대기
-                    return
-            else:
-                wall_bounce_count = 0  # 같은 벽 연속이면 리셋
-            last_wall_hit = 'right'
-        # 스테이지 2에서 벽 충돌 시 정글 테두리 효과 활성화
-        if current_stage == 2:
-            stage2_border_flash_timer = stage2_border_flash_duration
-            # 덤불이 있는 영역에서만 잎사귀 생성 (상단: 0-150, 하단: 600-750)
-            ball_y = BALL.centery
-            is_bush_area = (ball_y <= 150) or (ball_y >= 600)
-            
-            if is_bush_area:
-                # 공 속도 계산
-                current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                # 속도에 비례한 잎사귀 개수 계산 (느릴 때 1-2개, 빠를 때 5-6개)
-                # 속도 범위: 대략 3(느림) ~ 25(빠름)
-                min_leaves = 1
-                max_leaves = 6
-                # 속도를 0-1 범위로 정규화 (3-25 속도 범위 기준)
-                speed_normalized = min(1.0, max(0.0, (current_speed - 3) / 22))
-                # 잎사귀 개수 계산
-                leaves_count = int(min_leaves + speed_normalized * (max_leaves - min_leaves))
-                # 최소값과 최대값 범위 보장
-                leaves_count = max(1, min(6, leaves_count))
-                # 충돌 위치에서 디테일한 잎사귀 생성 (우벽)
-                leaf_types = ['maple', 'oak', 'tropical']
-                for i in range(leaves_count):
-                    leaf = {
-                        'x': WIDTH,  # 우벽에서 생성
-                        'y': BALL.centery + random.randint(-50, 50),
-                        'vx': random.uniform(-3.0, -1.0),  # 왼쪽으로 떨어짐
-                        'vy': random.uniform(0.5, 2.5),
-                        'rotation': random.uniform(0, 360),
-                        'rotation_speed': random.uniform(-8, 8),
-                        'type': random.choice(leaf_types),
-                        'color': random.choice([
-                            (34, 139, 34),  # 숲 녹색
-                            (0, 128, 0),    # 중간 녹색  
-                            (85, 107, 47),  # 올리브 녹색
-                            (107, 142, 35), # 황록색
-                            (154, 205, 50), # 연두색
-                            (50, 100, 50),  # 진한 녹색
-                        ]),
-                        'size': random.randint(12, 25),
-                        'life': 150  # 2.5초 동안 떨어짐
-                    }
-                    stage2_leaves.append(leaf)
-                # 잎사귀 생성 완료
-        # Stage 4는 까마귀를 잡았을 때만 별 생성 (벽 충돌 시 별 생성 제거)
-        #  벽 충돌 시간 기록 (관성 보존용)
-        last_wall_collision_time = pygame.time.get_ticks()
-        if current_stage != 2:  # 스테이지 2가 아닐 때만 속도 재계산
-            current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-        # print(f"  !  : {current_speed:.1f},")  # 디버그 비활성화 (벽 충돌 속도)
+        if _process_wall_bounce('right'):
+            return  # 무승부 판정 시 즉시 리턴
     # --- 수평만 튕김 카운트 ---
     if abs(ball_vel[1]) < 1 and (BALL.left <= 0 or BALL.right >= WIDTH):
         horizontal_bounce_count += 1
@@ -149067,7 +148956,7 @@ def handle_ball():
                 if special_gauge >= 350:  # 파워스매시 발동 조건
                     special_ready = True
             # 충돌 쿨다운 설정
-            player_collision_cooldown = 15
+            player_collision_cooldown = PLAYER_COLLISION_COOLDOWN_FRAMES
         else:
             if DEBUG_HANDLE_BALL_VERBOSE:
                 pass  # print(f" DEBUG:  handle_ball    (: {player_collision_cooldown}, rolling: {rolling_active}, stun: {rolling_stun_timer}, drive_ball: {drive_ball_active})")
@@ -149655,7 +149544,7 @@ def handle_ball():
         # 🔍 디버그: 보스 패들 충돌 시 속도 변화 추적 (calculate_bounce 전)
         _boss_speed_before = math.hypot(ball_vel[0], ball_vel[1])
         # ⚠️ 중요: calculate_bounce 호출 전에 쿨다운 설정하여 중복 충돌 방지
-        boss_collision_cooldown = 10
+        boss_collision_cooldown = BOSS_COLLISION_COOLDOWN_FRAMES
         calculate_bounce(BOSS)
         _boss_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [보스 패들 충돌] calculate_bounce 후 속도: {_boss_speed_before:.2f} → {_boss_speed_after:.2f}, 쿨다운 설정: boss={boss_collision_cooldown}")  # 디버그 비활성화
@@ -149894,7 +149783,7 @@ def handle_ball():
                 drive_hit_boss = False
                 # print(":")
             # 충돌 쿨다운 설정
-            boss_collision_cooldown = 10
+            boss_collision_cooldown = BOSS_COLLISION_COOLDOWN_FRAMES
             return  # 체력형 보스에서는 여기서 종료하여 정지화면 방지
             #  타격 이펙트 생성 (공 속도에 따라 강도 조절)
             create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -150006,7 +149895,7 @@ def handle_ball():
         # 감지센서용 보스 히트 타이머 설정 (무제한)
         boss_hit_timer = 999999
         # 충돌 쿨다운 설정
-        boss_collision_cooldown = 10
+        boss_collision_cooldown = BOSS_COLLISION_COOLDOWN_FRAMES
         # 보스 패들 충돌 애니메이션 활성화
         global boss_hit_animation_active, boss_hit_animation_timer
         boss_hit_animation_active = True
