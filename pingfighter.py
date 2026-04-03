@@ -18919,13 +18919,13 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             _bonus_anim_frame += 1
             # 보너스 카드가 위에서 슬라이드
             card_offsets[_dg_bonus_card_index] += (0 - card_offsets[_dg_bonus_card_index]) * 0.10
-            # "추가 퍽 등장!" 텍스트 페이드
-            if _bonus_anim_frame < 30:
+            # "추가 퍽 등장!" 텍스트 페이드 (30% 더 길게)
+            if _bonus_anim_frame < 40:
                 _bonus_flash_alpha = 255
             else:
-                _bonus_flash_alpha = max(0, 255 - (_bonus_anim_frame - 30) * 8)
+                _bonus_flash_alpha = max(0, 255 - (_bonus_anim_frame - 40) * 6)
             # 애니메이션 완료
-            if abs(card_offsets[_dg_bonus_card_index]) < 3 and _bonus_anim_frame > 50:
+            if abs(card_offsets[_dg_bonus_card_index]) < 3 and _bonus_anim_frame > 65:
                 card_offsets[_dg_bonus_card_index] = 0
                 phase = "active"
 
@@ -18951,7 +18951,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             bonus_text_surf.set_alpha(int(_bonus_flash_alpha))
             bonus_text_rect = bonus_text_surf.get_rect(center=(GAME_AREA_CENTER_X, vertical_y - 35))
             # 글로우 효과
-            if _bonus_anim_frame < 40:
+            if _bonus_anim_frame < 52:
                 glow_scale = 1.0 + 0.3 * math.sin(_bonus_anim_frame * 0.25)
                 glow_surf = pygame.Surface((bonus_text_rect.width + 40, bonus_text_rect.height + 20), pygame.SRCALPHA)
                 glow_alpha = int(min(_bonus_flash_alpha, 80 + 40 * math.sin(_bonus_anim_frame * 0.2)))
