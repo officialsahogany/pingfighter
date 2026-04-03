@@ -315,41 +315,13 @@ def _clear_poseidon_background(surface: pygame.Surface) -> None:
 
 
 def _extract_ring_overlay(surface: pygame.Surface) -> pygame.Surface:
-    """라그나로크 해머 프레임에서 붉은 링/코너 하이라이트만 추출한다."""
-    overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    width, height = surface.get_size()
-    center_x, center_y = width // 2, height // 2
-
-    for y in range(height):
-        for x in range(width):
-            color = surface.get_at((x, y))
-            if color.a == 0:
-                continue
-
-            # 중앙으로부터의 거리 계산
-            dist_from_center = math.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
-
-            # 갈색 해머 손잡이 필터링 (갈색 계열 색상 제외)
-            is_brown = (color.r > 100 and color.r < 180 and
-                       color.g > 50 and color.g < 120 and
-                       color.b < 80)
-
-            # 중앙 근처의 색상 제외 (해머 손잡이 영역)
-            in_center_area = dist_from_center < width * 0.35
-
-            # 테두리 근처 여부 (더 두꺼운 테두리를 위해 범위 확장)
-            near_edge = x < 10 or x >= width - 10 or y < 10 or y >= height - 10
-
-            # 빨간색 계열 (테두리) - 임계값을 낮춰서 더 많은 테두리 포함
-            red_dominant = color.r > 150 and color.r > color.g + 15 and color.r > color.b + 15
-
-            # 따뜻한 하이라이트 (모서리 장식) - 임계값 조정
-            warm_highlight = color.r > 180 and color.g > 100 and color.b > 60
-
-            # 테두리나 하이라이트이면서, 갈색이 아니고, 중앙이 아닌 경우만 복사
-            if (near_edge or red_dominant or warm_highlight) and not is_brown and not in_center_area:
-                overlay.set_at((x, y), color)
-
+    """라그나로크 해머 프레임에서 4꼭지점 장식만 추출한다 (파티클 제거)."""
+    w, h = surface.get_size()
+    overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+    cs = 4  # 꼭지점 보존 크기
+    for rect in [pygame.Rect(0, 0, cs, cs), pygame.Rect(w - cs, 0, cs, cs),
+                  pygame.Rect(0, h - cs, cs, cs), pygame.Rect(w - cs, h - cs, cs, cs)]:
+        overlay.blit(surface, rect.topleft, rect)
     return overlay
 
 
@@ -3260,14 +3232,14 @@ class SacredLaurel(LegendaryItem):
     def _create_laurel_frame(self, base_frame, frame_idx):
         import pygame
         import math
-        frame = base_frame.copy()
-        width, height = frame.get_size()
+        # 꼭지점만 추출 (파티클 제거)
+        width, height = base_frame.get_size()
+        frame = pygame.Surface((width, height), pygame.SRCALPHA)
+        cs = 4
+        for rect in [pygame.Rect(0, 0, cs, cs), pygame.Rect(width - cs, 0, cs, cs),
+                      pygame.Rect(0, height - cs, cs, cs), pygame.Rect(width - cs, height - cs, cs, cs)]:
+            frame.blit(base_frame, rect.topleft, rect)
         cx, cy = width // 2, height // 2
-        for y in range(height):
-            for x in range(width):
-                dist = math.sqrt((x - cx)**2 + (y - cy)**2)
-                if dist < 12:
-                    frame.set_at((x, y), (0, 0, 0, 0))
         # 금빛 잎 색상
         leaf_colors = [(220, 180, 60), (200, 160, 50), (240, 200, 70), (210, 170, 55),
                        (230, 190, 65), (190, 150, 45), (250, 210, 80), (205, 165, 52)]
@@ -6229,24 +6201,19 @@ class TranscendentCrown(LegendaryItem):
                 self.animation_frames.append(self._create_default_crown_frame(i))
 
     def _create_crown_frame(self, base_frame, frame_idx):
-        """기존 프레임에서 중앙 망치를 지우고 왕관 그리기"""
+        """기존 프레임에서 4꼭지점만 보존하고 왕관 그리기"""
         import pygame
-        import math
 
-        frame = base_frame.copy()
-        width, height = frame.get_size()
-        cx, cy = width // 2, height // 2
-
-        # 중앙 영역 전체 지우기 (손잡이 포함 - 테두리만 남김)
-        # 라그나로크 해머의 망치 머리 + 손잡이 전체를 지우기 위해 넓은 영역 클리어
-        clear_radius = min(width, height) // 2 - 3  # 테두리 3px 남기고 전체 지우기
-        for y in range(height):
-            for x in range(width):
-                dist = math.sqrt((x - cx)**2 + (y - cy)**2)
-                if dist < clear_radius:
-                    frame.set_at((x, y), (0, 0, 0, 0))
+        # 꼭지점만 추출 (파티클 제거)
+        w, h = base_frame.get_size()
+        frame = pygame.Surface((w, h), pygame.SRCALPHA)
+        cs = 4
+        for rect in [pygame.Rect(0, 0, cs, cs), pygame.Rect(w - cs, 0, cs, cs),
+                      pygame.Rect(0, h - cs, cs, cs), pygame.Rect(w - cs, h - cs, cs, cs)]:
+            frame.blit(base_frame, rect.topleft, rect)
 
         # 왕관 그리기
+        cx, cy = w // 2, h // 2
         self._draw_crown_on_surface(frame, cx, cy, frame_idx)
 
         return frame
@@ -11180,23 +11147,19 @@ class OdinsEye(LegendaryItem):
                 self.animation_frames.append(self._create_default_belt_eye_frame(i))
 
     def _create_belt_eye_frame(self, base_frame, frame_idx):
-        """기존 프레임에서 중앙을 지우고 벨트+오딘의 눈 그리기"""
+        """기존 프레임에서 4꼭지점만 보존하고 벨트+오딘의 눈 그리기"""
         import pygame
-        import math
 
-        frame = base_frame.copy()
-        width, height = frame.get_size()
-        cx, cy = width // 2, height // 2
-
-        # 중앙 영역 전체 지우기 (테두리만 남김)
-        clear_radius = min(width, height) // 2 - 3
-        for y in range(height):
-            for x in range(width):
-                dist = math.sqrt((x - cx)**2 + (y - cy)**2)
-                if dist < clear_radius:
-                    frame.set_at((x, y), (0, 0, 0, 0))
+        # 꼭지점만 추출 (파티클 제거)
+        w, h = base_frame.get_size()
+        frame = pygame.Surface((w, h), pygame.SRCALPHA)
+        cs = 4
+        for rect in [pygame.Rect(0, 0, cs, cs), pygame.Rect(w - cs, 0, cs, cs),
+                      pygame.Rect(0, h - cs, cs, cs), pygame.Rect(w - cs, h - cs, cs, cs)]:
+            frame.blit(base_frame, rect.topleft, rect)
 
         # 벨트+눈 그리기
+        cx, cy = w // 2, h // 2
         self._draw_belt_eye_on_surface(frame, cx, cy, frame_idx)
 
         return frame
