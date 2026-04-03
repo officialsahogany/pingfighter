@@ -345,14 +345,14 @@ class Soap:
     # -------------------------------------------------------------------------
     # 렌더링
     # -------------------------------------------------------------------------
-    def draw(self, screen: pygame.Surface) -> None:
+    def draw(self, screen: pygame.Surface, boss_rect: Optional[pygame.Rect] = None) -> None:
         """모든 비누와 파티클 그리기."""
         self._draw_foam_trails(screen)
         self._draw_preparing_soap(screen)
         self._draw_projectiles(screen)
         self._draw_landed_soaps(screen)
         self._draw_burst_particles(screen)
-        self._draw_debuff_indicator(screen)
+        self._draw_debuff_indicator(screen, boss_rect)
 
     def _draw_foam_trails(self, screen: pygame.Surface) -> None:
         """보스 이동 경로에 남는 거품 자국."""
@@ -452,18 +452,22 @@ class Soap:
                 screen.blit(bubble_surf, (int(particle["x"]) - size - 1,
                                           int(particle["y"]) - size - 1))
 
-    def _draw_debuff_indicator(self, screen: pygame.Surface) -> None:
-        """보스 미끄러움 디버프 표시 (보스 위에 비누 아이콘 + 타이머)."""
+    def _draw_debuff_indicator(self, screen: pygame.Surface,
+                              boss_rect: Optional[pygame.Rect] = None) -> None:
+        """보스 미끄러움 디버프 표시 (보스 패들 위에 비누 아이콘 + 타이머)."""
         if not self.boss_soaped:
             return
 
-        # 디버프 표시는 pingfighter.py에서 BOSS 좌표를 기반으로 그림
-        # 여기서는 화면 상단에 간단한 인디케이터만 표시
         remaining = self.boss_soap_timer / 60.0
         bar_width = 60
         bar_height = 4
-        bar_x = 380 - bar_width // 2  # 화면 중앙
-        bar_y = 8
+        # 보스 패들 위에 게이지 바 표시
+        if boss_rect is not None:
+            bar_x = boss_rect.centerx - bar_width // 2
+            bar_y = boss_rect.top - 10
+        else:
+            bar_x = 380 - bar_width // 2
+            bar_y = 8
 
         # 남은 시간 비율
         ratio = self.boss_soap_timer / self.DEBUFF_DURATION
