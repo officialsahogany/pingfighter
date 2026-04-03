@@ -59194,6 +59194,20 @@ def apply_effect(effect_name, item_data=None):
             print("기묘한 약병 발동! 거대화: 패들 220% 증가, 이동속도 50% 감소 (30초)")
         else:
             print("기묘한 약병 발동! 축소화: 패들 50% 감소, 이동속도 130% 증가 (30초)")
+    elif effect_name == "elixir_of_mastery":  # 엘릭서 오브 마스터리 (신화급 액티브)
+        from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+        elixir = get_elixir_of_mastery_instance()
+        all_skill_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS, SOLDIER_EXCLUSIVE_SKILLS, VIPER_EXCLUSIVE_SKILLS]
+        result = elixir.activate(runtime_skill_levels, all_skill_pools, apply_runtime_skill_effect)
+        if result:
+            try:
+                play_sound_with_volume(SOUND_DRINK)
+            except Exception:
+                pass
+            print(f"엘릭서 오브 마스터리 발동! {elixir.selected_skill_data.get('name', '???')} → Lv.5")
+        else:
+            print("엘릭서 오브 마스터리: 강화 가능한 퍽이 없습니다!")
+            return False
     elif effect_name == "chargebag":  #  충전가방 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
         # 충전가방은 store_passive_item에서 처리됨
         pass
@@ -71845,6 +71859,14 @@ def handle_player(keys):
         try:
             if is_legendary_effect_active():
                 handle_legendary_space_press()
+        except Exception:
+            pass
+        # 엘릭서 시네마틱도 AI 모드에서 자동 진행
+        try:
+            from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+            _elixir_ai = get_elixir_of_mastery_instance()
+            if _elixir_ai.waiting_for_confirm:
+                _elixir_ai._finish_cinematic()
         except Exception:
             pass
         try:
@@ -131575,6 +131597,7 @@ def show_item_manager_menu():
         {"name": "boomerang", "type": "active", "icon": get_item_icon("boomerang")},
         {"name": "soap", "type": "active", "icon": get_item_icon("soap")},
         {"name": "strange_vial", "type": "active", "icon": get_item_icon("strange_vial")},
+        {"name": "elixir_of_mastery", "type": "active", "icon": get_item_icon("elixir_of_mastery")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -135614,6 +135637,24 @@ def get_item_icon(item_name):
         pygame.draw.line(default_icon, (110, 85, 35), (10, 18), (22, 18), 1)
         # 테두리
         pygame.draw.circle(default_icon, (220, 190, 70), (16, 16), 14, 2)
+    elif item_name == "elixir_of_mastery":
+        # 엘릭서 오브 마스터리 아이콘 (신화급 보라 물약)
+        # 글로우 배경
+        for r in range(14, 6, -1):
+            a = int(40 * (14 - r) / 8)
+            glow_s = pygame.Surface((32, 32), pygame.SRCALPHA)
+            pygame.draw.circle(glow_s, (160, 80, 255, a), (16, 17), r)
+            default_icon.blit(glow_s, (0, 0))
+        # 플라스크 몸체
+        pygame.draw.ellipse(default_icon, (100, 40, 180), (7, 14, 18, 14))
+        pygame.draw.ellipse(default_icon, (200, 120, 255), (9, 17, 14, 9))
+        # 병목 + 금색 뚜껑
+        pygame.draw.rect(default_icon, (120, 60, 200), (13, 8, 6, 7))
+        pygame.draw.rect(default_icon, (255, 200, 50), (12, 5, 8, 4))
+        # 별 하이라이트
+        pygame.draw.circle(default_icon, (255, 255, 200), (11, 17), 2)
+        # 신화급 보라 테두리
+        pygame.draw.rect(default_icon, (180, 100, 255), (0, 0, 32, 32), 1)
     else:
         # unknown_item.png 시도
         try:
@@ -154703,6 +154744,12 @@ def show_result(won):
         # print("Aipill  .")
         deactivate_aipill("round_transition")
     deactivate_strange_vial()
+    # 엘릭서 오브 마스터리 시네마틱 초기화
+    try:
+        from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+        get_elixir_of_mastery_instance().reset()
+    except Exception:
+        pass
     #  상모돌리기 완전 초기화 (스테이지 종료 시)
     whip_active = False
     whip_timer = 0
@@ -155042,6 +155089,9 @@ def show_result(won):
         # 판도라의 상자 아이콘 추가 - get_item_icon 함수 사용하여 통일
         pandora_box_icon = get_item_icon("pandora_box")
         available_items.append({"name": "pandora_box", "color": (255, 0, 255), "type": "active", "icon": pandora_box_icon})
+        # 엘릭서 오브 마스터리 (신화급 액티브)
+        elixir_mastery_icon = get_item_icon("elixir_of_mastery")
+        available_items.append({"name": "elixir_of_mastery", "color": (180, 100, 255), "type": "active", "icon": elixir_mastery_icon})
         # slot_add는 획득한 개수만큼 추가
         for i in range(items.slot_add_obtained):
             available_items.append({"name": "slot_add", "color": (255, 200, 100), "type": "passive", "icon": slot_add_icon})
@@ -160412,11 +160462,25 @@ def main(stage_num, new_boss_mode=False):
                 # 전설 아이템 효과가 스페이스바를 기다리는 중이면 처리
                 if handle_legendary_space_press():
                     continue  # 전설 효과가 스페이스바를 처리했으면 다른 처리 건너뛰기
+                # 엘릭서 오브 마스터리 시네마틱 스페이스바 처리
+                try:
+                    from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+                    if get_elixir_of_mastery_instance().handle_input(event):
+                        continue
+                except Exception:
+                    pass
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     # 마우스 좌클릭으로도 전설 획득 애니메이션 진행
                     if handle_legendary_space_press():
                         continue
+                    # 엘릭서 오브 마스터리 시네마틱 마우스 클릭 처리
+                    try:
+                        from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+                        if get_elixir_of_mastery_instance().handle_input(event):
+                            continue
+                    except Exception:
+                        pass
             
             # 플레이어 서브 입력
             # - 좌클릭을 스페이스바와 동일하게 처리하여 서브가 되도록 함
@@ -161356,7 +161420,18 @@ def main(stage_num, new_boss_mode=False):
         kuromi_awakening_paused = False
         if current_stage == 3 and animated_bg_stage3 is not None:
             kuromi_awakening_paused = animated_bg_stage3.kuromi_awakening
-        
+
+        # 엘릭서 오브 마스터리 시네마틱 업데이트
+        elixir_cinematic_paused = False
+        try:
+            from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+            _elixir_inst = get_elixir_of_mastery_instance()
+            if _elixir_inst.cinematic_active:
+                _elixir_inst.update(legendary_animation_dt / 1000.0 if legendary_animation_dt > 1.5 else legendary_animation_dt)
+                elixir_cinematic_paused = True
+        except Exception:
+            pass
+
         #  일시정지 상태가 아닐 때만 게임 로직 업데이트 (악마의 주사위 포함)
         if (
             not game_paused
@@ -161366,6 +161441,7 @@ def main(stage_num, new_boss_mode=False):
             and not temple_destruction_paused
             and not kuromi_awakening_paused
             and not is_ball_spawn_animation_paused()
+            and not elixir_cinematic_paused
         ):
             # 아이템 스폰 처리 (템스폰) - 전설 애니메이션 중에는 스폰 정지
             # 튜토리얼 스테이지(50) 및 신규 튜토리얼 진행 중에는 아이템 스폰 비활성화
@@ -164235,7 +164311,16 @@ def main(stage_num, new_boss_mode=False):
             font_large = FontStyle.large() if 'FontStyle' in globals() else pygame.font.Font(None, 48)
             font_huge = FontStyle.huge() if 'FontStyle' in globals() and hasattr(FontStyle, 'huge') else pygame.font.Font(None, 72)
             draw_legendary_effect(SCREEN, font_large, font_huge)
-        
+
+        # 엘릭서 오브 마스터리 시네마틱 렌더링
+        try:
+            from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+            _elixir_draw = get_elixir_of_mastery_instance()
+            if _elixir_draw.cinematic_active:
+                _elixir_draw.draw_cinematic(SCREEN, draw_skill_icon_mini)
+        except Exception:
+            pass
+
         #  일시정지 UI 렌더링
         # 퀘스트 엠블럼 호버 중에는 PAUSE 오버레이 표시 안함
         _skip_pause_for_quest_hover = False
@@ -169379,6 +169464,7 @@ def get_item_name_korean(item_name):
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
         "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
+        "elixir_of_mastery": "엘릭서 오브 마스터리",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -169481,6 +169567,7 @@ def get_item_description(item_name):
         "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 130% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
         "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
         "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑입니다. 베놈 엣지 적중 시 일정 확률로 보스 주변에 독안개 영역을 생성합니다. 독안개 안에 있는 보스는 이동속도가 50% 감소하고, 1초당 보스 게이지가 50 감소합니다. 스테이지 6 홍련의 경우 1초당 구슬게이지 1개가 감소합니다. [롤옵션] 발동확률 30~50%",
+        "elixir_of_mastery": "엘릭서 오브 마스터리: [신화급] 사용 시 보유 중인 퍽 중 Lv.5 미만인 퍽 하나가 랜덤으로 선택되어 즉시 Lv.5가 됩니다. 신비로운 연출과 함께 어떤 퍽이 강화되었는지 공개됩니다. Lv.5 미만 퍽이 없으면 사용할 수 없습니다. 극히 희귀한 신화급 물약!",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)

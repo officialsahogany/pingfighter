@@ -3650,6 +3650,7 @@ class BuildingInterior:
             {"name": "regeneration_potion", "korean": "재생물약", "rarity": "common", "type": "active"},
             {"name": "doping_potion", "korean": "도핑물약", "rarity": "common", "type": "active"},
             {"name": "strange_vial", "korean": "기묘한약병", "rarity": "common", "type": "active"},
+            {"name": "elixir_of_mastery", "korean": "엘릭서오브마스터리", "rarity": "legendary", "type": "active"},
         ]
 
         # 발토르 전용 아이템 추가 (발토르로 플레이 시에만)
@@ -8327,6 +8328,7 @@ class BuildingInterior:
             "strange_vial": "기묘한 약병",
             "sage_ring": "현자의 반지",
             "venom_mist_gauntlet": "독안개장갑",
+            "elixir_of_mastery": "엘릭서 오브 마스터리",
         }
         return name_map.get(item_name, item_name)
 

@@ -913,6 +913,7 @@ def load_item_icons():
         "pandora_legacy": "legendary/pandora_legacy.png",  # 판도라의 유산 아이콘
         "regeneration_potion": "regeneration_potion.png",  # 재생물약 아이콘
         "adversity_armor": "adversity_armor.png",  # 역경의 갑옷 아이콘
+        "elixir_of_mastery": "elixir_of_mastery.png",  # 엘릭서 오브 마스터리 아이콘
     }
 
     legendary_manager = None
@@ -1816,6 +1817,15 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None,
         "body_part": "arm"  # 팔 부위
+    },
+    {
+        "name": "elixir_of_mastery",  # 엘릭서 오브 마스터리 (신화급 액티브 아이템)
+        "color": (180, 100, 255),  # 신비로운 보라색
+        "effect": "elixir_of_mastery",
+        "icon": None,
+        "chance": 0.0008,  # 0.08% (신화급 극히 희귀)
+        "duration": 600,
+        "unlock_condition": None
     }
 ]
 
@@ -1965,7 +1975,8 @@ unlocked_items = {
     "soul_burst": True,  # 소울버스트
     "strange_vial": True,  # 기묘한 약병
     "sage_ring": True,  # 현자의 반지
-    "venom_mist_gauntlet": True  # 독안개장갑 (바이퍼 전용)
+    "venom_mist_gauntlet": True,  # 독안개장갑 (바이퍼 전용)
+    "elixir_of_mastery": True  # 엘릭서 오브 마스터리 (신화급 액티브)
 }
 
 # 현재 떠 있는 아이템 리스트
