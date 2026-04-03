@@ -131480,12 +131480,12 @@ def show_item_manager_menu():
 
     MAX_PASSIVE_STACK = 5  # 패시브 수량 선택 한도
     # 아이템 그리드 설정 (기본값 - 엑티브/화기류/전설용)
-    grid_cols = 6
-    grid_rows = 4
-    item_size = 60
-    item_spacing = 20
+    grid_cols = 10
+    grid_rows = 6
+    item_size = 44
+    item_spacing = 8
     grid_start_x = (WIDTH - (grid_cols * item_size + (grid_cols - 1) * item_spacing)) // 2
-    grid_start_y = 200
+    grid_start_y = 180
 
     # 패시브 탭 전용 설정 (부위별 정리)
     passive_item_size = 44
