@@ -396,7 +396,7 @@ class DevilDice:
 
         # 결과 영역
         text_panel_y = panel_y + 205
-        text_panel_height = len(STAT_KEYS) * 34 + 130  # 행 간격 축소 + 버튼 영역 확보
+        text_panel_height = len(STAT_KEYS) * 34 + 150  # 행 간격 축소 + 버튼 영역 확보
         text_panel = pygame.Surface((panel_width, text_panel_height), pygame.SRCALPHA)
         pygame.draw.rect(text_panel, (20, 0, 0, 180), (0, 0, panel_width, text_panel_height), border_radius=15)
         pygame.draw.rect(text_panel, (139, 0, 0, 200), (0, 0, panel_width, text_panel_height), 2, border_radius=15)
@@ -456,19 +456,19 @@ class DevilDice:
             btn_y = text_panel_y + text_panel_height - 50
             center_x = screen.get_width() // 2
 
-            # 남은 횟수 표시
+            # 남은 횟수 표시 (버튼 위)
             remaining_text = f"남은 굴리기: {self.rerolls_remaining}회"
             remaining_color = (255, 200, 100) if self.rerolls_remaining > 0 else (120, 120, 120)
             remaining_surface = self.small_font.render(remaining_text, True, remaining_color)
-            remaining_rect = remaining_surface.get_rect(centerx=center_x, y=btn_y - 24)
+            remaining_rect = remaining_surface.get_rect(centerx=center_x, bottom=btn_y - 24)
             screen.blit(remaining_surface, remaining_rect)
 
             # 마우스 호버 → 선택 커서 자동 이동
             if self.rerolls_remaining > 0:
                 reroll_rect = pygame.Rect(0, 0, 160, 36)
-                reroll_rect.center = (center_x - 90, btn_y)
+                reroll_rect.center = (center_x - 95, btn_y)
                 confirm_rect = pygame.Rect(0, 0, 160, 36)
-                confirm_rect.center = (center_x + 90, btn_y)
+                confirm_rect.center = (center_x + 95, btn_y)
                 if reroll_rect.collidepoint(mouse_pos):
                     self.selected_button = 0
                 elif confirm_rect.collidepoint(mouse_pos):
@@ -477,9 +477,9 @@ class DevilDice:
                 if self.selected_button == 0 and self.rerolls_remaining <= 0:
                     self.selected_button = 1
 
-                self._draw_button(screen, "다시 굴리기", center_x - 90, btn_y,
+                self._draw_button(screen, "다시 굴리기", center_x - 95, btn_y,
                                   (100, 40, 40), selected=(self.selected_button == 0))
-                self._draw_button(screen, "확정", center_x + 90, btn_y,
+                self._draw_button(screen, "확정", center_x + 95, btn_y,
                                   (40, 80, 40), selected=(self.selected_button == 1))
 
                 self._reroll_btn_rect = reroll_rect
