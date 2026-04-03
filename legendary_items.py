@@ -11744,7 +11744,7 @@ class Megingjord(LegendaryItem):
             glow_r = int(255 * (0.7 + 0.3 * math.sin(phase)))
             glow_g = int(215 * (0.7 + 0.3 * math.sin(phase + math.pi * 0.5)))
             glow_b = int(50 + 150 * (0.5 + 0.5 * math.sin(phase + math.pi)))
-            glow_color = (min(255, glow_r), min(255, glow_g), min(255, glow_b))
+            glow_color = (max(0, min(255, glow_r)), max(0, min(255, glow_g)), max(0, min(255, glow_b)))
 
             # 배경 글로우 (프레임별 변화)
             glow_alpha = int(60 + 30 * math.sin(phase))
@@ -11845,7 +11845,7 @@ class Megingjord(LegendaryItem):
         border_r = int(200 + 55 * math.sin(phase))
         border_g = int(180 + 35 * math.sin(phase + 1.0))
         border_b = int(50 + 100 * math.sin(phase + 2.0))
-        border_color = (min(255, border_r), min(255, border_g), min(255, border_b))
+        border_color = (max(0, min(255, border_r)), max(0, min(255, border_g)), max(0, min(255, border_b)))
         border_rect = pygame.Rect(x - 2, y - 2, size + 4, size + 4)
         pygame.draw.rect(screen, border_color, border_rect, 3)
 
