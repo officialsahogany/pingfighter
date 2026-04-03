@@ -109024,15 +109024,11 @@ def draw_objects():
         if _mp_src is not None:
             # flip 없이 원본 스프라이트 그대로 사용 (뒷모습)
             boss_img = _mp_src
-            # 에어 블레이드 회전 모션 적용 (상대방이 회전 중이면 boss_img 회전)
+            # 에어 블레이드 회전 모션 적용 (anim state의 br_spin_angle)
             if _online_opponent_anim:
-                _opp_fx = _online_opponent_anim.get('fx', [])
-                for _spin_ef in _opp_fx:
-                    if _spin_ef.get('t') == 'br_spin':
-                        _spin_a = _spin_ef.get('a', 0) % 360
-                        if abs(_spin_a) > 0.5:
-                            boss_img = pygame.transform.rotate(boss_img, _spin_a)
-                        break
+                _spin_a = _online_opponent_anim.get('br_spin_angle', 0) % 360
+                if abs(_spin_a) > 0.5:
+                    boss_img = pygame.transform.rotate(boss_img, _spin_a)
             boss_w, boss_h = boss_img.get_width(), boss_img.get_height()
         else:
             boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
@@ -109707,8 +109703,13 @@ def draw_objects():
                 except Exception:
                     pass
 
-            # ── 온라인 멀티: 상대방 스킬 이펙트 렌더링 ──
-            if current_stage == 40 and online_multiplayer_enabled and _online_opponent_anim:
+            # ── 온라인 멀티: 상대방 스킬 이펙트 렌더링 (이벤트 기반) ──
+            if current_stage == 40 and online_multiplayer_enabled:
+                _online_receive_effects()
+                _online_update_remote_effects()
+                _online_draw_remote_effects(SCREEN)
+
+            if False and _online_opponent_anim:  # ← 기존 fx 매 프레임 렌더링 비활성화
                 _opp_fx = _online_opponent_anim.get('fx', [])
                 for _ef in _opp_fx:
                     try:
@@ -171311,132 +171312,10 @@ def _online_get_my_anim_state():
             if abs(globals().get('current_speed', 0)) > 1.0:
                 anim['state'] = 'walking'
 
-        # ── 스킬 이펙트 데이터 (모든 캐릭터 공통) ──
-        _fx = []
-
-        # 바이퍼: 에어 블레이드 회전 모션
+        # 스킬 이펙트는 이제 GAME_EFFECT 패킷으로 발동 시 1회만 전송 (fx 배열 제거)
+        # 회전 모션만 anim state로 유지 (패들 회전에 필요)
         if globals().get('_viper_br_spin_active', False):
-            _fx.append({
-                't': 'br_spin',
-                'a': globals().get('_viper_br_spin_angle', 0),
-                'p': globals().get('_viper_br_spin_phase', 0),
-            })
-        # 바이퍼: 에어 블레이드 (검기)
-        if globals().get('_viper_blade_rush_active', False):
-            _br_y = globals().get('_viper_blade_rush_y', 0)
-            _br_sy = globals().get('_viper_blade_rush_start_y', 0)
-            _br_ty = globals().get('_viper_blade_rush_target_y', 0)
-            _br_prog = 1.0 - ((_br_y - _br_ty) / max(1, _br_sy - _br_ty)) if (_br_sy - _br_ty) > 0 else 1.0
-            _br_prog = max(0.0, min(1.0, _br_prog))
-            _br_fo = globals().get('_viper_blade_rush_fadeout', False)
-            _br_fo_t = globals().get('_viper_blade_rush_fadeout_timer', 0)
-            _br_trail = list(globals().get('_viper_blade_rush_trail', []))[-10:]  # 최근 10개
-            _fx.append({
-                't': 'blade',
-                'x': globals().get('_viper_blade_rush_x', 0),
-                'y': globals().get('_viper_blade_rush_y', 0),
-                'hw': globals().get('_viper_blade_rush_width', 350) // 2,
-                'pr': _br_prog,
-                'fo': 1 if _br_fo else 0,
-                'ft': _br_fo_t,
-                'tr': _br_trail,
-            })
-        # 바이퍼: 베놈 엣지 (연계기)
-        if globals().get('_viper_nerve_strike_active', False):
-            _fx.append({
-                't': 'nerve',
-                'p': globals().get('_viper_nerve_strike_phase', 0),
-            })
-        # 솔저: 새총/권총 탄환
-        _bullets = globals().get('soldier_bullets', [])
-        for _sb in _bullets[:10]:  # 최대 10발
-            if _sb.get('active', False):
-                _fx.append({
-                    't': 'bullet',
-                    'x': _sb.get('x', 0),
-                    'y': _sb.get('y', 0),
-                    'c': _sb.get('charge_level', 1),
-                })
-        # 솔저: 바주카 투사체
-        try:
-            from item_effects.bazooka import get_bazooka_instance
-            _baz = get_bazooka_instance()
-            if _baz and getattr(_baz, 'projectiles', None):
-                for _bp in _baz.projectiles[:4]:
-                    if _bp.get('active', False):
-                        _fx.append({'t': 'bazooka', 'x': _bp.get('x', 0), 'y': _bp.get('y', 0)})
-        except Exception:
-            pass
-        # 솔저: AK-47 총알
-        try:
-            from item_effects.ak47 import get_ak47_instance
-            _ak = get_ak47_instance()
-            if _ak and getattr(_ak, 'bullets', None):
-                for _ab in _ak.bullets[:15]:
-                    _fx.append({'t': 'ak', 'x': _ab.get('x', 0), 'y': _ab.get('y', 0)})
-        except Exception:
-            pass
-        # 솔저: 그물총 투사체 + 그물
-        try:
-            from item_effects.net_gun import get_net_gun_instance
-            _ng = get_net_gun_instance()
-            if _ng:
-                for _np in getattr(_ng, 'projectiles', [])[:4]:
-                    _fx.append({'t': 'net_proj', 'x': _np.get('x', 0), 'y': _np.get('y', 0)})
-                for _nn in getattr(_ng, 'nets', [])[:4]:
-                    _nr = _nn.get('rect')
-                    if _nr:
-                        _fx.append({'t': 'net', 'x': _nr.centerx, 'y': _nr.centery, 'w': _nr.width, 'h': _nr.height})
-        except Exception:
-            pass
-        # 솔저: 볼링 트랩
-        try:
-            from item_effects.bowling_trap import get_bowling_trap_instance
-            _bt = get_bowling_trap_instance()
-            if _bt:
-                for _tr in getattr(_bt, 'traps', [])[:6]:
-                    _fx.append({'t': 'trap', 'x': _tr.get('x', 0), 'y': _tr.get('y', 0)})
-        except Exception:
-            pass
-        # 솔저: 자폭드론
-        if globals().get('suicide_drone_active', False):
-            _sd_rect = globals().get('suicide_drone_rect')
-            if _sd_rect:
-                _fx.append({'t': 'drone', 'x': _sd_rect.centerx, 'y': _sd_rect.centery})
-
-        # 발토르: 터렛 투사체
-        _tp = globals().get('blacksmith_turret_projectiles', [])
-        for _proj in _tp[:8]:
-            _fx.append({
-                't': 'turret',
-                'x': _proj.get('x', 0),
-                'y': _proj.get('y', 0),
-            })
-        # 발토르: 해머 쇼크 투사체
-        _hsp = globals().get('blacksmith_hammer_shock_projectiles', [])
-        for _hp in _hsp[:4]:
-            _fx.append({
-                't': 'hshock',
-                'x': _hp.get('x', 0),
-                'y': _hp.get('y', 0),
-                's': _hp.get('stage', 0),
-            })
-        # 발토르: 디바인 스톤
-        _ds = globals().get('blacksmith_divine_stone_state')
-        if _ds and isinstance(_ds, dict):
-            _ds_rect = _ds.get('rect')
-            if _ds_rect:
-                _fx.append({
-                    't': 'divine',
-                    'x': _ds_rect.centerx,
-                    'y': _ds_rect.centery,
-                    'hp': _ds.get('hp', 0),
-                    'mhp': _ds.get('max_hp', 1),
-                    'sh': 1 if _ds.get('shield_ready') else 0,
-                })
-
-        if _fx:
-            anim['fx'] = _fx
+            anim['br_spin_angle'] = globals().get('_viper_br_spin_angle', 0)
 
     except Exception:
         pass

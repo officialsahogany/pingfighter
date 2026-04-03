@@ -242,6 +242,7 @@ class NetworkManager:
         
         # 온라인 멀티플레이 상태 (네트워크 스레드 ↔ 메인 스레드 공유)
         self._online_lock = threading.Lock()  # 스레드 안전성 Lock
+        self.online_effect_queue = []         # 수신된 이펙트 이벤트 큐
         self.online_mode = False           # 온라인 대전 모드 활성화 여부
         self.online_lobby_state = None     # 로비 상태 (protocol.deserialize_lobby_state)
         self.online_remote_input = None    # 최신 원격 입력 (protocol.deserialize_input)
@@ -416,6 +417,7 @@ class NetworkManager:
             OnlinePacketType.GAME_INPUT: self._handle_online_game_input,
             OnlinePacketType.GAME_FRAME: self._handle_online_game_frame,
             OnlinePacketType.GAME_EVENT: self._handle_online_game_event,
+            OnlinePacketType.GAME_EFFECT: self._handle_online_game_effect,
             OnlinePacketType.ONLINE_PING: self._handle_online_ping,
             OnlinePacketType.ONLINE_PONG: self._handle_online_pong,
             OnlinePacketType.ONLINE_DISCONNECT: self._handle_online_disconnect,
@@ -474,6 +476,18 @@ class NetworkManager:
         # 이벤트 처리 (점수 변경, 게임 오버 등)
         pass
 
+    def _handle_online_game_effect(self, packet, connection):
+        """스킬/이펙트 이벤트 수신 → 큐에 추가"""
+        with self._online_lock:
+            self.online_effect_queue.append(packet.data)
+
+    def pop_online_effects(self):
+        """메인 스레드: 이펙트 큐를 꺼내고 비움 (스레드-안전)"""
+        with self._online_lock:
+            effects = self.online_effect_queue[:]
+            self.online_effect_queue.clear()
+            return effects
+
     def _handle_online_ping(self, packet, connection):
         # 핑 응답 전송
         self.send_online_packet(OnlinePacketType.ONLINE_PONG,
@@ -530,6 +544,7 @@ class NetworkManager:
             self.online_connected = False
             self.online_game_started = False
             self.online_opponent_name = ""
+            self.online_effect_queue.clear()
 
     def get_local_ip(self) -> str:
         """로컬 IP 주소 반환 (LAN용)"""
