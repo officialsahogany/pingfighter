@@ -17985,6 +17985,42 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
                          (icon_cx + _dmk_s * 2, icon_cy + _dmk_s + int(2 * scale)),
                          max(1, int(2 * scale)))
 
+    elif skill_id == "soldier_pistol_perk":
+        # 권총 화기류 - 권총 아이콘
+        # 총몸체 (슬라이드)
+        body_w = int(16 * scale)
+        body_h = int(8 * scale)
+        body_x = icon_cx - body_w // 2 - int(1 * scale)
+        body_y = icon_cy - int(6 * scale)
+        # 그림자
+        pygame.draw.rect(surface, dk, (body_x + int(2*scale), body_y + int(2*scale), body_w, body_h), border_radius=max(1, int(2*scale)))
+        # 슬라이드 본체
+        pygame.draw.rect(surface, color, (body_x, body_y, body_w, body_h), border_radius=max(1, int(2*scale)))
+        # 하이라이트 (상단)
+        pygame.draw.rect(surface, lt, (body_x + int(2*scale), body_y, body_w - int(4*scale), int(2*scale)), border_radius=max(1, int(1*scale)))
+        # 총구
+        muzzle_w = int(3 * scale)
+        muzzle_h = int(4 * scale)
+        pygame.draw.rect(surface, dk, (body_x + body_w - int(1*scale), body_y + int(2*scale), muzzle_w, muzzle_h))
+        # 그립 (손잡이)
+        grip_w = int(7 * scale)
+        grip_h = int(10 * scale)
+        grip_x = icon_cx - int(3 * scale)
+        grip_y = body_y + body_h - int(1 * scale)
+        pygame.draw.rect(surface, dk, (grip_x + int(1*scale), grip_y + int(1*scale), grip_w, grip_h), border_radius=max(1, int(2*scale)))
+        pygame.draw.rect(surface, color, (grip_x, grip_y, grip_w, grip_h), border_radius=max(1, int(2*scale)))
+        # 그립 질감 (줄무늬)
+        for i in range(3):
+            ly = grip_y + int((3 + i * 3) * scale)
+            if ly < grip_y + grip_h - int(1*scale):
+                pygame.draw.line(surface, dk, (grip_x + int(1*scale), ly), (grip_x + grip_w - int(2*scale), ly), max(1, int(1*scale)))
+        # 트리거 가드
+        tg_x = grip_x - int(2 * scale)
+        tg_y = body_y + body_h
+        pygame.draw.arc(surface, dk, (tg_x, tg_y, int(6*scale), int(6*scale)), 3.14, 6.28, max(1, int(1*scale)))
+        # 트리거
+        pygame.draw.line(surface, lt, (tg_x + int(3*scale), tg_y + int(1*scale)), (tg_x + int(2*scale), tg_y + int(4*scale)), max(1, int(2*scale)))
+
     elif skill_id == "soldier_magazine_mod":
         # 탄창개조 - 탄창 + 총알 아이콘
         # 탄창 본체 (3D 효과)
@@ -81152,6 +81188,12 @@ def store_active_item(item_data):
     current_time = pygame.time.get_ticks()
     item_data["last_use"] = last_item_use_time
     item_data["temporary_overflow"] = is_overflow_pickup
+
+    # 엘릭서 오브 마스터리: 신화 아이템 획득 애니메이션 트리거
+    if item_data["name"] == "elixir_of_mastery":
+        item_icon = item_data.get("icon") or get_item_icon("elixir_of_mastery")
+        trigger_legendary_acquisition("elixir_of_mastery", "엘릭서 오브 마스터리", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
 
     item_state_adapter.append_active_item(item_data)
     _set_selected_item_index(len(item_state_adapter.active_items()) - 1)
