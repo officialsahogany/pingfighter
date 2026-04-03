@@ -19607,40 +19607,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                     if _megingjord and _megingjord.active and _megingjord.check_extra_pick():
                         pending_skill_choices += 1
                         runtime_skill_choice_pending = True
-                        # "메긴교르드의 효과 발동!" 텍스트 표시
-                        _megin_text = "메긴교르드의 효과 발동!"
-                        _megin_font = get_font(22)
-                        _megin_alpha = 255
-                        _megin_y_offset = 0
-                        _megin_timer = 0
-                        _megin_duration = 90  # 1.5초
-                        _megin_local_clock = pygame.time.Clock()
-                        while _megin_timer < _megin_duration:
-                            _megin_timer += 1
-                            _megin_alpha = max(0, 255 - int(255 * _megin_timer / _megin_duration))
-                            _megin_y_offset = -int(_megin_timer * 0.5)
-
-                            # 배경 유지 (현재 게임 화면)
-                            # 텍스트 렌더링
-                            _megin_surf = pygame.Surface((WIDTH, 60), pygame.SRCALPHA)
-                            _megin_text_surf = _megin_font.render(_megin_text, True, (255, 215, 0))
-                            _megin_text_rect = _megin_text_surf.get_rect(center=(WIDTH // 2, 30))
-                            _megin_surf.set_alpha(_megin_alpha)
-
-                            # 글로우 배경
-                            _glow_rect = _megin_text_rect.inflate(20, 10)
-                            pygame.draw.rect(_megin_surf, (60, 40, 10, min(180, _megin_alpha)),
-                                           _glow_rect, border_radius=8)
-                            pygame.draw.rect(_megin_surf, (255, 215, 0, min(150, _megin_alpha)),
-                                           _glow_rect, 2, border_radius=8)
-                            _megin_surf.blit(_megin_text_surf, _megin_text_rect)
-
-                            SCREEN.blit(_megin_surf, (0, HEIGHT // 2 - 60 + _megin_y_offset))
-                            pygame.display.flip()
-                            _megin_local_clock.tick(60)
-                            for _evt in pygame.event.get():
-                                if _evt.type == pygame.QUIT:
-                                    pass
+                        _play_megingjord_activation_effect(SCREEN)
         except Exception:
             pass
 
@@ -19654,6 +19621,245 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     pygame.event.clear()
 
     return selected_result
+
+
+def _play_megingjord_activation_effect(screen):
+    """메긴교르드 발동 연출 — 번개 + 파티클 + 충격파 + 텍스트"""
+    import math as _m
+    import random as _r
+
+    _clock = pygame.time.Clock()
+    _duration = 75  # 1.25초
+    _cx, _cy = WIDTH // 2, HEIGHT // 2 - 40
+
+    # 배경 스냅샷 저장
+    _bg = screen.copy()
+
+    # 파티클 시스템
+    _particles = []
+    for _ in range(40):
+        angle = _r.uniform(0, _m.pi * 2)
+        speed = _r.uniform(2.0, 7.0)
+        _particles.append({
+            "x": float(_cx), "y": float(_cy),
+            "vx": _m.cos(angle) * speed, "vy": _m.sin(angle) * speed,
+            "life": _r.randint(30, 65),
+            "max_life": 65,
+            "size": _r.uniform(1.5, 4.0),
+            "color_type": _r.choice(["gold", "blue", "white"]),
+        })
+
+    # 번개 볼트 경로 생성 (상→하 지그재그)
+    def _make_bolt(sx, sy, ex, ey, segments=8, jitter=25):
+        pts = [(sx, sy)]
+        for i in range(1, segments):
+            t = i / segments
+            mx = sx + (ex - sx) * t + _r.randint(-jitter, jitter)
+            my = sy + (ey - sy) * t + _r.randint(-jitter // 2, jitter // 2)
+            pts.append((mx, my))
+        pts.append((ex, ey))
+        return pts
+
+    _bolts = []  # (pts, birth_frame, lifetime)
+    _sparks = []  # 충돌 스파크
+
+    for frame in range(_duration):
+        t = frame / _duration  # 0.0 → 1.0
+        screen.blit(_bg, (0, 0))
+
+        # ── 페이즈 계산 ──
+        # 0~0.15: 충격 (화면 플래시 + 번개)
+        # 0.15~0.6: 번개 반복 + 파티클 확산
+        # 0.6~1.0: 텍스트 부각 + 페이드아웃
+
+        # 화면 흔들림 (초반 강하게, 점차 감소)
+        shake = 0
+        if t < 0.4:
+            shake_intensity = int(6 * (1.0 - t / 0.4))
+            shake = _r.randint(-shake_intensity, shake_intensity)
+
+        _overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+        # ── 1. 초반 플래시 (번개 느낌) ──
+        if t < 0.08:
+            flash_a = int(180 * (1.0 - t / 0.08))
+            pygame.draw.rect(_overlay, (255, 255, 220, flash_a), (0, 0, WIDTH, HEIGHT))
+
+        # ── 2. 번개 볼트 생성 ──
+        if frame < 40 and frame % 5 == 0:
+            # 중앙에서 방사형 번개
+            for _ in range(_r.randint(1, 3)):
+                angle = _r.uniform(0, _m.pi * 2)
+                length = _r.randint(60, 160)
+                ex = _cx + int(_m.cos(angle) * length)
+                ey = _cy + int(_m.sin(angle) * length)
+                bolt_pts = _make_bolt(_cx, _cy, ex, ey, segments=_r.randint(5, 8), jitter=20)
+                _bolts.append((bolt_pts, frame, _r.randint(6, 12)))
+                # 끝점에 스파크
+                for _ in range(3):
+                    sa = _r.uniform(0, _m.pi * 2)
+                    _sparks.append({
+                        "x": float(ex), "y": float(ey),
+                        "vx": _m.cos(sa) * _r.uniform(1, 4),
+                        "vy": _m.sin(sa) * _r.uniform(1, 4),
+                        "life": _r.randint(8, 20),
+                    })
+
+        # ── 3. 번개 그리기 ──
+        for bolt_pts, birth, lifetime in _bolts:
+            age = frame - birth
+            if age < 0 or age >= lifetime:
+                continue
+            bolt_alpha = max(0, 255 - int(255 * age / lifetime))
+            # 외곽 글로우 (넓고 투명한 파란색)
+            for i in range(len(bolt_pts) - 1):
+                glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                pygame.draw.line(glow_surf, (100, 180, 255, bolt_alpha // 3),
+                               bolt_pts[i], bolt_pts[i + 1], 7)
+                _overlay.blit(glow_surf, (0, 0))
+            # 내부 코어 (밝은 흰색-파란)
+            core_alpha = min(255, bolt_alpha + 50)
+            for i in range(len(bolt_pts) - 1):
+                pygame.draw.line(_overlay, (220, 240, 255, min(255, core_alpha)),
+                               bolt_pts[i], bolt_pts[i + 1], 3)
+            # 중심선 (순백)
+            for i in range(len(bolt_pts) - 1):
+                pygame.draw.line(_overlay, (255, 255, 255, min(255, core_alpha)),
+                               bolt_pts[i], bolt_pts[i + 1], 1)
+        # 죽은 볼트 제거
+        _bolts = [(p, b, l) for p, b, l in _bolts if frame - b < l]
+
+        # ── 4. 충격파 링 (중앙에서 확산) ──
+        if t < 0.5:
+            ring_progress = t / 0.5
+            ring_r = int(20 + 200 * ring_progress)
+            ring_alpha = max(0, int(200 * (1.0 - ring_progress)))
+            ring_width = max(1, int(3 * (1.0 - ring_progress)))
+            pygame.draw.circle(_overlay, (255, 215, 0, ring_alpha), (_cx, _cy), ring_r, ring_width)
+            # 두 번째 작은 링
+            if ring_progress > 0.15:
+                r2_prog = (ring_progress - 0.15) / 0.85
+                r2 = int(15 + 150 * r2_prog)
+                r2_a = max(0, int(150 * (1.0 - r2_prog)))
+                pygame.draw.circle(_overlay, (100, 180, 255, r2_a), (_cx, _cy), r2, max(1, int(2 * (1.0 - r2_prog))))
+
+        # ── 5. 파티클 업데이트 & 렌더 ──
+        for p in _particles:
+            if p["life"] <= 0:
+                continue
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] += 0.05  # 약간의 중력
+            p["vx"] *= 0.98
+            p["vy"] *= 0.98
+            p["life"] -= 1
+
+            life_ratio = p["life"] / p["max_life"]
+            pa = int(255 * life_ratio)
+            sz = max(1, int(p["size"] * life_ratio))
+
+            if p["color_type"] == "gold":
+                pc = (255, 215, 0, pa)
+            elif p["color_type"] == "blue":
+                pc = (100, 180, 255, pa)
+            else:
+                pc = (255, 255, 255, pa)
+
+            pygame.draw.circle(_overlay, pc, (int(p["x"]), int(p["y"])), sz)
+            # 꼬리 트레일
+            if sz > 1:
+                trail_x = int(p["x"] - p["vx"] * 2)
+                trail_y = int(p["y"] - p["vy"] * 2)
+                pygame.draw.circle(_overlay, (*pc[:3], pa // 3), (trail_x, trail_y), max(1, sz - 1))
+
+        # 스파크 업데이트
+        for sp in _sparks:
+            if sp["life"] <= 0:
+                continue
+            sp["x"] += sp["vx"]
+            sp["y"] += sp["vy"]
+            sp["life"] -= 1
+            sp_a = int(255 * sp["life"] / 20)
+            pygame.draw.circle(_overlay, (255, 255, 200, max(0, sp_a)),
+                             (int(sp["x"]), int(sp["y"])), 2)
+        _sparks = [s for s in _sparks if s["life"] > 0]
+
+        # ── 6. 중앙 글로우 오브 (토르의 힘 느낌) ──
+        if t < 0.7:
+            orb_pulse = 0.5 + 0.5 * _m.sin(frame * 0.3)
+            orb_r = int(15 + 10 * orb_pulse)
+            orb_alpha = int(120 * (1.0 - t / 0.7))
+            for gi in range(4):
+                gr = orb_r + (4 - gi) * 8
+                ga = max(0, orb_alpha // (gi + 1))
+                pygame.draw.circle(_overlay, (255, 215, 50, ga), (_cx, _cy), gr)
+            pygame.draw.circle(_overlay, (255, 255, 220, min(255, orb_alpha + 80)), (_cx, _cy), orb_r)
+
+        # ── 7. 텍스트 렌더링 (0.1 이후 등장) ──
+        if t > 0.08:
+            text_t = (t - 0.08) / 0.92
+            # 텍스트 스케일 인 (바운스)
+            if text_t < 0.15:
+                text_scale = 0.5 + 0.7 * (text_t / 0.15)  # 0.5 → 1.2
+            elif text_t < 0.25:
+                text_scale = 1.2 - 0.2 * ((text_t - 0.15) / 0.10)  # 1.2 → 1.0
+            else:
+                text_scale = 1.0
+
+            # 페이드아웃 (0.7 이후)
+            if text_t > 0.7:
+                text_alpha = max(0, int(255 * (1.0 - (text_t - 0.7) / 0.3)))
+            else:
+                text_alpha = 255
+
+            _font_size = max(12, int(24 * text_scale))
+            _font = get_font(_font_size)
+            _main_text = _font.render("메긴교르드의 효과 발동!", True, (255, 215, 0))
+            _text_rect = _main_text.get_rect(center=(_cx, _cy))
+
+            # 텍스트 배경 글로우
+            _text_bg = pygame.Surface((_text_rect.width + 40, _text_rect.height + 20), pygame.SRCALPHA)
+            bg_alpha = min(160, text_alpha)
+            pygame.draw.rect(_text_bg, (20, 15, 5, bg_alpha),
+                           (0, 0, _text_bg.get_width(), _text_bg.get_height()), border_radius=12)
+            # 금색 테두리
+            border_pulse = int(20 * _m.sin(frame * 0.2))
+            border_c = (max(0, min(255, 200 + border_pulse)), max(0, min(255, 170 + border_pulse)), 0, min(200, text_alpha))
+            pygame.draw.rect(_text_bg, border_c,
+                           (0, 0, _text_bg.get_width(), _text_bg.get_height()), 2, border_radius=12)
+            _text_bg.set_alpha(text_alpha)
+            _overlay.blit(_text_bg, (_text_rect.x - 20, _text_rect.y - 10))
+
+            # 텍스트 그림자
+            _shadow = _font.render("메긴교르드의 효과 발동!", True, (80, 50, 0))
+            _shadow.set_alpha(text_alpha // 2)
+            _overlay.blit(_shadow, (_text_rect.x + 2, _text_rect.y + 2))
+
+            # 텍스트 본체
+            _main_text.set_alpha(text_alpha)
+            _overlay.blit(_main_text, _text_rect)
+
+            # 번개 문양 장식 (텍스트 양옆)
+            if text_alpha > 100:
+                bolt_s = int(8 * text_scale)
+                for side in [-1, 1]:
+                    bx = _text_rect.centerx + side * (_text_rect.width // 2 + 18)
+                    by = _text_rect.centery
+                    bolt_deco = [
+                        (bx - side * 2, by - bolt_s),
+                        (bx + side * 2, by - 1),
+                        (bx - side * 2, by + 1),
+                        (bx + side * 2, by + bolt_s),
+                    ]
+                    pygame.draw.lines(_overlay, (100, 180, 255, text_alpha), False, bolt_deco, 2)
+
+        # ── 합성 (흔들림 적용) ──
+        screen.blit(_overlay, (0, shake))
+        pygame.display.flip()
+        _clock.tick(60)
+        for _evt in pygame.event.get():
+            if _evt.type == pygame.QUIT:
+                pass
 
 
 def _swap_boss_in_current_stage():
