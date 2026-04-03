@@ -37,6 +37,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_head_parts import BulletproofHatPart
         return BulletproofHatPart(block)
 
+    elif item_name == "dowsing_goggles":
+        from entities.body_parts.item_head_parts import DowsingGogglesPart
+        return DowsingGogglesPart(block)
+
     elif item_name == "technical_vest":
         from entities.body_parts.item_torso_parts import TechnicalVestPart
         return TechnicalVestPart(block)
@@ -282,6 +286,7 @@ def remove_item_from_skin(skin: CharacterSkin, item_name: str, block: int = 9) -
 VISUAL_ITEM_NAMES = {
     "spiked_helmet",
     "bulletproof_hat",
+    "dowsing_goggles",
     "technical_vest",
     "bulkup",
     "adversity_armor",
@@ -300,6 +305,7 @@ VISUAL_ITEM_NAMES = {
 ITEM_SLOT_MAP = {
     "spiked_helmet": "head",
     "bulletproof_hat": "head",
+    "dowsing_goggles": "head",
     "technical_vest": "torso",
     "bulkup": "torso",
     "adversity_armor": "torso",

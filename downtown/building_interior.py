@@ -3097,6 +3097,7 @@ class BuildingInterior:
             {"name": "foul_whistle", "base_price": 900, "korean": "반칙호루라기"},
             {"name": "bulletproof_hat", "base_price": 550, "korean": "방탄모자"},
             {"name": "spiked_helmet", "base_price": 700, "korean": "가시투구"},
+            {"name": "dowsing_goggles", "base_price": 650, "korean": "다우징 고글"},
             {"name": "knee_pads", "base_price": 550, "korean": "킥차져"},
             {"name": "lucky_coin", "base_price": 800, "korean": "럭키코인"},
             {"name": "adversity_armor", "base_price": 1100, "korean": "역경의 갑옷"},
@@ -3669,6 +3670,7 @@ class BuildingInterior:
             {"name": "dowsing_pendulum", "korean": "다우징팬들럼", "rarity": "rare", "type": "passive"},
             {"name": "smartphone", "korean": "스마트폰", "rarity": "rare", "type": "passive"},
             {"name": "bulletproof_hat", "korean": "방탄모자", "rarity": "rare", "type": "passive"},
+            {"name": "dowsing_goggles", "korean": "다우징 고글", "rarity": "rare", "type": "passive"},
             {"name": "knee_pads", "korean": "킥차져", "rarity": "rare", "type": "passive"},
             {"name": "slot_add", "korean": "배낭", "rarity": "rare", "type": "passive"},
             {"name": "spikeboots", "korean": "스파이크부츠", "rarity": "rare", "type": "passive"},
@@ -4015,7 +4017,7 @@ class BuildingInterior:
                     passive_items = [
                         # 커먼 패시브
                         "speedboots", "speedgear", "battery", "cooltime", "fuel_pouch",
-                        "dowsing_pendulum", "smartphone", "bulletproof_hat", "knee_pads", "slot_add",
+                        "dowsing_pendulum", "smartphone", "bulletproof_hat", "dowsing_goggles", "knee_pads", "slot_add",
                         # 레어 패시브
                         "spikeboots", "dashgear", "bulkup", "commando_arm", "technical_vest",
                         "chargebag", "spiked_helmet", "bluetooth_ring", "foul_whistle", "star_detector",
@@ -8270,6 +8272,7 @@ class BuildingInterior:
             "foul_whistle": "장신구",
             "bulletproof_hat": "머리",
             "spiked_helmet": "머리",
+            "dowsing_goggles": "머리",
             "knee_pads": "무릎",
             "ragnarok_hammer": "신화",
             "poseidon_trident": "신화",
@@ -8316,6 +8319,7 @@ class BuildingInterior:
             "knee_pads": "킥차져",
             "bluetooth_ring": "블루투스링",
             "bulletproof_hat": "방탄모자",
+            "dowsing_goggles": "다우징 고글",
             "hero_seal": "호위무사의 인장",
             "adversity_armor": "역경의 갑옷",
             "shrapnel_armor": "파편갑옷",
@@ -8362,6 +8366,7 @@ class BuildingInterior:
             "knee_pads": 550,
             "bluetooth_ring": 800,
             "bulletproof_hat": 550,
+            "dowsing_goggles": 650,
             # 전설 아이템
             "ragnarok_hammer": 3600,
             "hermes_shoes": 3000,

@@ -15040,12 +15040,20 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
             }
             available.append(choice)
 
-    # 3개 랜덤 선택
-    if len(available) > 3:
-        available = random.sample(available, 3)
+    # 다우징 고글 보너스: 퍽 선택지 수 증가 (기본 3 → 최대 5)
+    try:
+        from item_effects.dowsing_goggles import get_extra_perk_choices
+        _extra_perk = get_extra_perk_choices()
+    except Exception:
+        _extra_perk = 0
+    base_perk_count = 3 + _extra_perk  # 기본 3개 + 다우징 고글 보너스
 
-    # 3개 미만이면 즉시 사용형 스킬로 채움 (exclude_instant 여부와 관계없이)
-    if len(available) < 3:
+    # 퍽 선택지 수만큼 랜덤 선택
+    if len(available) > base_perk_count:
+        available = random.sample(available, base_perk_count)
+
+    # 부족하면 즉시 사용형 스킬로 채움 (exclude_instant 여부와 관계없이)
+    if len(available) < base_perk_count:
         # 이미 선택된 즉시 스킬 ID 목록
         selected_instant_ids = {c["id"] for c in available if c.get("is_instant")}
 
@@ -15070,11 +15078,11 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
 
         # 부족한 슬롯을 즉시 스킬로 채움
         random.shuffle(instant_fillers)
-        while len(available) < 3 and instant_fillers:
+        while len(available) < base_perk_count and instant_fillers:
             available.append(instant_fillers.pop())
 
-    # 3개 스킬 선택 후 4번째에 골드변환 옵션 추가
-    result = available[:3]
+    # N개 스킬 선택 후 마지막에 골드변환 옵션 추가
+    result = available[:base_perk_count]
 
     # 골드변환 실제 획득 골드 계산 (골드디거 + 광폭화 보너스 반영)
     base_gold = 500
@@ -15507,7 +15515,7 @@ def _get_random_passive_for_treasure():
         "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch",
         "bluetooth_ring", "star_detector", "foul_whistle", "bulletproof_hat", "spiked_helmet",
         "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
-        "venom_mist_gauntlet"
+        "venom_mist_gauntlet", "dowsing_goggles"
     ]
 
     if passive_pool:
@@ -18653,12 +18661,22 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     # Animation variables
     frame_count = 0
     phase = "appearing"  # appearing, active, selected
-    card_offsets = [-400, 600, -400, 400]  # 4개 카드용 오프셋
+    num_cards = len(choices)  # 다우징 고글 보너스에 의해 4~6개 카드 가능
+    # 동적 오프셋 생성: 홀수 카드는 좌에서, 짝수 카드는 우에서, 마지막(골드변환)은 우에서
+    card_offsets = []
+    for _ci in range(num_cards):
+        if _ci == 1:
+            card_offsets.append(600)  # 위에서 내려옴
+        elif _ci == num_cards - 1:
+            card_offsets.append(400)  # 마지막(골드변환) 우에서
+        elif _ci % 2 == 0:
+            card_offsets.append(-400)  # 좌에서
+        else:
+            card_offsets.append(-400)  # 좌에서
     particles = []
     selected_result = None
-    selected_index = 1  # Middle card default
+    selected_index = min(1, num_cards - 1)  # Middle card default
     active = True
-    num_cards = min(4, len(choices))  # 최대 4개 카드
 
     # Create particles - 게임 플레이 영역 내에서만 생성
     for _ in range(40):
@@ -18724,19 +18742,18 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         frame_count += 1
         update_btn_hover_effects()
 
-        # Update card hitbox rectangles based on current positions (4개 카드)
+        # Update card hitbox rectangles based on current positions (동적 카드 수)
         card_rects = []
         for i in range(num_cards):
             # 각 카드의 X 위치 계산 (애니메이션 오프셋 적용)
             base_card_x = start_x + i * (card_width + card_gap)
-            if i == 0:
-                card_x = base_card_x + card_offsets[0]
-            elif i == 1:
-                card_x = base_card_x
-            elif i == 2:
-                card_x = base_card_x - card_offsets[2]
-            else:  # i == 3 (골드변환)
-                card_x = base_card_x - card_offsets[3]
+            off = card_offsets[i] if i < len(card_offsets) else 0
+            if i == 1:
+                card_x = base_card_x  # 1번 카드는 X 고정 (위에서 내려옴)
+            elif off < 0:
+                card_x = base_card_x + off  # 좌에서 슬라이드
+            else:
+                card_x = base_card_x - off  # 우에서 슬라이드
 
             # Y 애니메이션 (1번 카드만 위에서 내려옴)
             card_y_anim = vertical_y
@@ -18845,16 +18862,14 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                                  (int(p['size']), int(p['size'])), int(p['size']))
                 SCREEN.blit(particle_surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
 
-        # Appearing animation (4개 카드)
+        # Appearing animation (동적 카드 수)
         if phase == "appearing":
             easing = 0.12
-            card_offsets[0] += (0 - card_offsets[0]) * easing
-            card_offsets[1] += (0 - card_offsets[1]) * easing
-            card_offsets[2] += (0 - card_offsets[2]) * easing
-            card_offsets[3] += (0 - card_offsets[3]) * easing
+            for _oi in range(len(card_offsets)):
+                card_offsets[_oi] += (0 - card_offsets[_oi]) * easing
 
             if all(abs(offset) < 3 for offset in card_offsets):
-                card_offsets = [0, 0, 0, 0]
+                card_offsets = [0] * num_cards
                 phase = "active"
 
         # Selected animation - exit after delay
@@ -18871,21 +18886,20 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         title_rect = title_surface.get_rect(center=(GAME_AREA_CENTER_X, vertical_y - 70 - title_y_offset))
         SCREEN.blit(title_surface, title_rect)
 
-        # Render cards (최대 4개)
+        # Render cards (동적 카드 수)
         for i, choice in enumerate(choices):
             if i >= num_cards:
                 break
 
             # 각 카드의 X 위치 계산 (애니메이션 오프셋 적용)
             base_card_x = start_x + i * (card_width + card_gap)
-            if i == 0:
-                card_x = base_card_x + card_offsets[0]
-            elif i == 1:
-                card_x = base_card_x
-            elif i == 2:
-                card_x = base_card_x - card_offsets[2]
-            else:  # i == 3 (골드변환)
-                card_x = base_card_x - card_offsets[3]
+            off = card_offsets[i] if i < len(card_offsets) else 0
+            if i == 1:
+                card_x = base_card_x  # 1번 카드는 X 고정 (위에서 내려옴)
+            elif off < 0:
+                card_x = base_card_x + off
+            else:
+                card_x = base_card_x - off
 
             # Y 애니메이션 (1번 카드만 위에서 내려옴)
             card_y_anim = vertical_y
@@ -26493,6 +26507,7 @@ ITEM_SLOT_BASE_MAP = {
     "shrapnel_armor": "top",
     "soul_burst": "knee",
     "sage_ring": "accessory",
+    "dowsing_goggles": "head",
 }
 
 PASSIVE_OPTION_RANGES = {
@@ -26590,6 +26605,9 @@ PASSIVE_OPTION_RANGES = {
     ],
     "soul_burst": [
         {"label": "게이지 소모량", "min": 130, "max": 200, "unit": "", "prefix": "", "key": "gauge_cost", "reverse": True},
+    ],
+    "dowsing_goggles": [
+        {"label": "퍽 선택지 증가", "min": 1, "max": 2, "unit": "개", "prefix": "+", "key": "extra_perk_choices"},
     ],
 }
 
@@ -27015,6 +27033,12 @@ def _reset_roll_bonuses_to_default():
         configure_technical_vest(chance_pct=15, duration_sec=5)
     except Exception:
         pass
+    # 다우징고글 초기화
+    try:
+        from item_effects.dowsing_goggles import deactivate as _dg_deactivate
+        _dg_deactivate()
+    except Exception:
+        pass
 
 
 def get_player_stun_resist_pct() -> float:
@@ -27385,6 +27409,19 @@ def apply_roll_bonuses_from_equipped():
                     set_mist_duration_sec(dur)
                 except Exception:
                     pass
+        elif name == "dowsing_goggles":
+            val = _get_roll_value(item, "extra_perk_choices")
+            if val is not None:
+                try:
+                    from item_effects.dowsing_goggles import set_extra_perk_choices, set_enhancement_bonus
+                    enhancement_pct = item.get("enhancement_bonus_pct", 0)
+                    if enhancement_pct > 0:
+                        enhanced_val = val * (1 + enhancement_pct / 100)
+                        val = int(enhanced_val)
+                    set_extra_perk_choices(val)
+                    set_enhancement_bonus(enhancement_pct)
+                except Exception:
+                    pass
 
     # 스택형 보너스들 한 번에 적용
     globals()["fuel_pouch_bonus"] = fuel_pouch_total_bonus
@@ -27491,6 +27528,20 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val = _get_roll_value(item, "knockback_resist_pct")
         if val is not None:
             globals()["spiked_helmet_knockback_resist_pct"] = max(spiked_helmet_knockback_resist_pct, val)
+    elif name == "dowsing_goggles":
+        val = _get_roll_value(item, "extra_perk_choices")
+        if val is not None:
+            try:
+                from item_effects.dowsing_goggles import set_extra_perk_choices, set_enhancement_bonus
+                # 강화 보너스 적용
+                enhancement_pct = item.get("enhancement_bonus_pct", 0)
+                if enhancement_pct > 0:
+                    enhanced_val = val * (1 + enhancement_pct / 100)
+                    val = int(enhanced_val)
+                set_extra_perk_choices(val)
+                set_enhancement_bonus(enhancement_pct)
+            except Exception:
+                pass
     elif name == "bluetooth_ring":
         val = _get_roll_value(item, "gauge_gain_pct")
         if val is not None:
@@ -27787,8 +27838,22 @@ def sync_equipped_passive_effects():
     sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
     sync_bool("sage_ring", "items.sage_ring_obtained")
     sync_bool("venom_mist_gauntlet", "items.venom_mist_gauntlet_obtained")
+    sync_bool("dowsing_goggles", "items.dowsing_goggles_obtained")
 
-    # 독안개장갑: 장착 시 효과 활성화/비활성화 + 롤옵션 적용
+    # 다우징고글: 장착 시 퍽 선택지 증가 / 해제 시 초기화
+    try:
+        from item_effects.dowsing_goggles import set_extra_perk_choices, set_enhancement_bonus, deactivate as _dg_deactivate
+        if "dowsing_goggles" in equipped_names:
+            dg_item = next((i for i in equipped_items if i.get("name") == "dowsing_goggles"), None)
+            if dg_item:
+                apply_roll_bonuses_from_item(dg_item)
+                set_enhancement_bonus(dg_item.get("enhancement_bonus_pct", 0))
+        else:
+            _dg_deactivate()
+    except Exception:
+        pass
+
+    # 독안개장갑: 장착 시 ���과 활성화/비활성화 + ��옵션 적용
     try:
         from item_effects.venom_mist_gauntlet import (
             activate_venom_mist_gauntlet, deactivate_venom_mist_gauntlet,
@@ -81184,7 +81249,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -81231,7 +81296,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
         return
 
     # 최대 3개까지만 보관
@@ -81292,7 +81357,7 @@ def _arena_top_hero_collect_items():
                 item_color = item.get("color", (200, 200, 200))
 
             # 패시브 아이템은 상단 영웅이 획득하지 않음 (액티브만)
-            passive_items = ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "soul_burst"]
+            passive_items = ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "soul_burst", "dowsing_goggles"]
             if item_name in passive_items:
                 continue  # 패시브 아이템은 하단 영웅에게 양보
 
@@ -81922,6 +81987,14 @@ def store_passive_item(item_data):
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # print("⛑️ 가시투구 획득! 넉백 저항이 적용되었습니다.")
+    elif item_data["name"] == "dowsing_goggles":
+        # 다우징고글 아이템 획득 (패시브)
+        import items
+        items.dowsing_goggles_obtained = True
+        _apply_item_to_skin(_skeletal_skin, "dowsing_goggles")  # 뼈대 외형 변경
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "smartphone":
         # 스마트폰 아이템 획득 (패시브)
         import items
@@ -87933,7 +88006,7 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     # print(f"[DEBUG show_item_obtained_effect] 호출됨! item_data: {item_data.get('name', 'UNKNOWN')}, x={item_x}, y={item_y}")  # 디버그 비활성화
     # 아이템 타입 확인
     item_name = item_data.get("name", "")
-    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt", "shrapnel_armor", "soul_burst"]
+    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt", "shrapnel_armor", "soul_burst", "dowsing_goggles"]
     # 시작 위치 (아이템이 있던 위치 또는 화면 중앙)
     if item_x is not None and item_y is not None:
         start_x = item_x
@@ -131511,7 +131584,7 @@ def show_item_manager_menu():
 
     # 패시브 아이템 부위별 분류
     PASSIVE_SLOT_ORDER = [
-        ("머리", ["bulletproof_hat", "spiked_helmet"]),
+        ("머리", ["bulletproof_hat", "spiked_helmet", "dowsing_goggles"]),
         ("상의", ["technical_vest", "bulkup", "adversity_armor", "shrapnel_armor"]),
         ("팔", ["commando_arm", "master", "smartphone", "gold_digger", "venom_mist_gauntlet"]),
         ("벨트", ["gravitybelt", "speedgear", "sensor"]),
@@ -131708,6 +131781,7 @@ def show_item_manager_menu():
         {"name": "knee_pads", "type": "passive", "icon": get_icon_safe("knee_pads_icon", "knee_pads")},
         {"name": "bulletproof_hat", "type": "passive", "icon": get_icon_safe("bulletproof_hat_icon", "bulletproof_hat")},
         {"name": "spiked_helmet", "type": "passive", "icon": get_icon_safe("spiked_helmet_icon", "spiked_helmet")},
+        {"name": "dowsing_goggles", "type": "passive", "icon": get_item_icon("dowsing_goggles")},
         {"name": "gold_bar", "type": "passive", "icon": get_item_icon("gold_bar")},
         {"name": "gold_digger", "type": "passive", "icon": get_item_icon("gold_digger")},
         {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
@@ -135629,6 +135703,50 @@ def get_item_icon(item_name):
         icon_cache[item_name] = icon_surface
         return icon_surface
     
+    # 다우징 고글 아이콘 - 청록색 탐지 고글
+    if item_name == "dowsing_goggles":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        s = ICON_SIZE / 32.0
+
+        # 고글 밴드 (상단 곡선)
+        band_rect = pygame.Rect(int(4*s), int(8*s), int(24*s), int(10*s))
+        pygame.draw.ellipse(icon_surface, (50, 60, 70), band_rect)
+        pygame.draw.ellipse(icon_surface, (70, 80, 90), band_rect, max(1, int(1*s)))
+
+        # 왼쪽 렌즈
+        lr = max(4, int(5.5*s))
+        lx, ly = cx - int(5.5*s), cy + int(2*s)
+        pygame.draw.circle(icon_surface, (30, 40, 50), (lx, ly), lr + 1)
+        pygame.draw.circle(icon_surface, (40, 200, 170), (lx, ly), lr)
+        pygame.draw.circle(icon_surface, (80, 240, 210), (lx - int(1*s), ly - int(1*s)), max(1, lr // 2))
+
+        # 오른쪽 렌즈
+        rx, ry = cx + int(5.5*s), cy + int(2*s)
+        pygame.draw.circle(icon_surface, (30, 40, 50), (rx, ry), lr + 1)
+        pygame.draw.circle(icon_surface, (40, 200, 170), (rx, ry), lr)
+        pygame.draw.circle(icon_surface, (80, 240, 210), (rx - int(1*s), ry - int(1*s)), max(1, lr // 2))
+
+        # 렌즈 브릿지 (코 부분)
+        pygame.draw.line(icon_surface, (30, 40, 50),
+                         (lx + lr, ly), (rx - lr, ry), max(1, int(2*s)))
+
+        # 렌즈 광택 (탐지 신호 느낌)
+        for _gx, _gy in [(lx, ly), (rx, ry)]:
+            pygame.draw.circle(icon_surface, (160, 255, 230, 120),
+                               (_gx + int(2*s), _gy - int(2*s)), max(1, int(1.5*s)))
+
+        # 상단 안테나 (탐지 장비 느낌)
+        ax = cx
+        pygame.draw.line(icon_surface, (60, 200, 180),
+                         (ax, int(4*s)), (ax, int(8*s)), max(1, int(1.5*s)))
+        pygame.draw.circle(icon_surface, (100, 255, 220), (ax, int(3*s)), max(2, int(2*s)))
+        # 안테나 신호 링
+        pygame.draw.circle(icon_surface, (60, 200, 180), (ax, int(3*s)), max(3, int(3.5*s)), 1)
+
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
     # items 모듈(icons) 폴백: items.ITEM_ICONS에 등록된 표준 아이콘 우선 사용
     try:
         import items as _items_mod
@@ -169534,7 +169652,7 @@ def get_item_name_korean(item_name):
         "pandora_box": "판도라의 상자", "stopwatch": "스탑워치", "repair_kit": "수리키트",
         "devil_dice": "악마의 주사위", "technical_vest": "테크니컬조끼", "fuel_pouch": "연료파우치",
         "bluetooth_ring": "블루투스링", "foul_whistle": "반칙호루라기", "star_detector": "별탐지기",
-        "bulletproof_hat": "방탄모자", "spiked_helmet": "가시투구", "smartphone": "스마트폰",
+        "bulletproof_hat": "방탄모자", "spiked_helmet": "가시투구", "dowsing_goggles": "다우징 고글", "smartphone": "스마트폰",
         "knee_pads": "킥차져", "doping_potion": "도핑물약", "vitamin_pill": "비타민약",
         "berserk_potion": "광폭물약", "ammo_box": "탄약상자", "fire_support": "화력지원",
         "bazooka": "바주카포", "ak47": "AK-47", "net_gun": "그물덫총",
@@ -169650,6 +169768,7 @@ def get_item_description(item_name):
         "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
         "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑입니다. 베놈 엣지 적중 시 일정 확률로 보스 주변에 독안개 영역을 생성합니다. 독안개 안에 있는 보스는 이동속도가 50% 감소하고, 1초당 보스 게이지가 50 감소합니다. 스테이지 6 홍련의 경우 1초당 구슬게이지 1개가 감소합니다. [롤옵션] 발동확률 30~50%",
         "elixir_of_mastery": "엘릭서 오브 마스터리: [신화급] 사용 시 보유 중인 퍽 중 Lv.5 미만인 퍽 하나가 랜덤으로 선택되어 즉시 Lv.5가 됩니다. 신비로운 연출과 함께 어떤 퍽이 강화되었는지 공개됩니다. Lv.5 미만 퍽이 없으면 사용할 수 없습니다. 극히 희귀한 신화급 물약!",
+        "dowsing_goggles": "다우징 고글: 고대 탐지 기술이 내장된 특수 고글입니다. 장착 시 퍽 선택 화면에서 선택할 수 있는 퍽의 수가 증가합니다. [롤옵션] 퍽 선택지 +1~2개 (기본 3개 → 최대 5개, 골드변환은 항상 맨 오른쪽에 고정)",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
@@ -171935,7 +172054,7 @@ def _online_client_apply_state():
                 "y": _cp_y,
             }
             # 패시브/액티브 구분하여 저장
-            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"}
+            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"}
             if _cp_name in _passive_names:
                 store_passive_item(_cp_data)
             else:

@@ -393,3 +393,67 @@ class OdinsEyePart(BodyPart):
             (eye_cx - beam_surf.get_width() // 2, eye_cy + eye_h // 2),
             special_flags=pygame.BLEND_RGBA_ADD,
         )
+
+
+class DowsingGogglesPart(BodyPart):
+    """다우징 고글 (dowsing_goggles).
+
+    청록색 탐지 고글 + 안테나 + 렌즈 빛남.
+    효과: 퍽 선택지 증가.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_HEAD,
+            draw_order=ORDER_HEAD,
+            joint_a="head",
+            joint_b=None,
+        )
+        self.block = block
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        b = self.block
+        hx, hy = joint_a.world_int()
+
+        # ── 고글 밴드 (머리 둘레) ──
+        band_w = int(2.8 * b)
+        band_h = int(1.2 * b)
+        band_rect = pygame.Rect(
+            hx - band_w // 2,
+            hy - int(0.2 * b),
+            band_w, band_h,
+        )
+        pygame.draw.ellipse(surface, (40, 50, 60), band_rect)
+        pygame.draw.ellipse(surface, (60, 70, 80), band_rect, 1)
+
+        # ── 렌즈 2개 (청록색) ──
+        goggle_y = hy + int(0.3 * b)
+        goggle_r = max(3, int(0.5 * b))
+        lens_color = (40, 200, 170)
+        lens_highlight = (80, 240, 210)
+        for gx_off in [-int(0.55 * b), int(0.55 * b)]:
+            gx = hx + gx_off
+            # 프레임
+            pygame.draw.circle(surface, (30, 40, 50), (gx, goggle_y), goggle_r + 1)
+            # 렌즈
+            pygame.draw.circle(surface, lens_color, (gx, goggle_y), goggle_r)
+            # 렌즈 하이라이트
+            pygame.draw.circle(surface, lens_highlight,
+                               (gx - 1, goggle_y - 1), max(1, goggle_r // 2))
+        # 브릿지
+        pygame.draw.line(
+            surface, (30, 40, 50),
+            (hx - int(0.55 * b) + goggle_r, goggle_y),
+            (hx + int(0.55 * b) - goggle_r, goggle_y), 2,
+        )
+
+        # ── 안테나 (상단 중앙) ──
+        ant_base_y = hy - int(0.5 * b)
+        ant_tip_y = ant_base_y - int(1.0 * b)
+        pygame.draw.line(surface, (60, 200, 180), (hx, ant_base_y), (hx, ant_tip_y), 2)
+        # 안테나 끝 빛남 (탐지 신호)
+        glow_pulse = 0.6 + 0.4 * math.sin(phase * math.tau * 2.0)
+        glow_r = max(2, int(0.25 * b * glow_pulse))
+        pygame.draw.circle(surface, (100, 255, 220), (hx, ant_tip_y), glow_r)
