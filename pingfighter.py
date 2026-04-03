@@ -12550,6 +12550,12 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         speed = level * 5
         return f"킥 발사 정밀도 +{precision}%, 공속 보너스 +{speed}%"
 
+    # elec_pad: 확률+2%/레벨, 충전+10/레벨
+    if skill_id == "elec_pad":
+        chance = int((0.03 + level * 0.02) * 100)
+        charge = 30 + level * 10
+        return f"{chance}% 확률 공 타격 시 게이지 +{charge}"
+
     # 패턴이 없으면 최대 레벨 설명 반환
     return descriptions.get(max_level, "효과 없음")
 
@@ -13632,22 +13638,25 @@ def get_mecha_bulk_scale() -> float:
     return 1.0 + (level * 0.05)  # 5% per level
 
 def get_emergency_charge_amount() -> float:
-    """비상충전: 즉시 충전 비율 반환 (0.5, 0.7, 1.0)"""
+    """비상충전: 즉시 충전 비율 반환 (레벨당 +20%, Lv.5 초과 시에도 증가)"""
     level = get_runtime_skill_level("emergency_charge")
-    amounts = {0: 0, 1: 0.5, 2: 0.7, 3: 1.0}
-    return amounts.get(level, 0)
+    if level <= 0:
+        return 0
+    return level * 0.20  # 20% per level (Lv.3=0.6, Lv.5=1.0, Lv.7=1.4)
 
 def get_reboot_time_reduction() -> float:
-    """재부팅강화: 이동불가 시간 단축 비율 반환 (0.0 ~ 0.9)"""
+    """재부팅강화: 이동불가 시간 단축 비율 반환 (레벨당 18%, 최대 90%)"""
     level = get_runtime_skill_level("reboot_enhance")
-    reductions = {0: 0, 1: 0.3, 2: 0.6, 3: 0.9}
-    return reductions.get(level, 0)
+    if level <= 0:
+        return 0
+    return min(0.90, level * 0.18)  # 18% per level, 최대 90%
 
 def get_bug_update_chance() -> float:
-    """버그업데이트: 추가 선택지 확률 반환 (0.0 ~ 0.45)"""
+    """버그업데이트: 추가 선택지 확률 반환 (레벨당 9%, 최대 90%)"""
     level = get_runtime_skill_level("bug_update")
-    chances = {0: 0, 1: 0.25, 2: 0.35, 3: 0.45}
-    return chances.get(level, 0)
+    if level <= 0:
+        return 0
+    return min(0.90, level * 0.09)  # 9% per level, 최대 90%
 
 def get_bulk_up_scale() -> float:
     """벌크업: 패들 크기 증가 비율 반환 (1.0 ~ 1.20)"""
@@ -13666,16 +13675,13 @@ def is_accessory_slot_active(slot_index: int) -> bool:
     return slot_index < active_count
 
 def get_elec_pad_stats() -> tuple:
-    """일렉패드: (확률, 충전량) 튜플 반환"""
+    """일렉패드: (확률, 충전량) 튜플 반환 (레벨당 확률+2%, 충전+10)"""
     level = get_runtime_skill_level("elec_pad")
-    stats = {
-        0: (0, 0),
-        1: (0.05, 40),   # 5%, +40
-        2: (0.07, 50),   # 7%, +50
-        3: (0.09, 60),   # 9%, +60
-        4: (0.11, 70),   # 11%, +70
-    }
-    return stats.get(level, (0, 0))
+    if level <= 0:
+        return (0, 0)
+    chance = 0.03 + level * 0.02   # Lv.1=5%, Lv.4=11%, Lv.5=13%, Lv.7=17%
+    charge = 30 + level * 10       # Lv.1=40, Lv.4=70, Lv.5=80, Lv.7=100
+    return (chance, charge)
 
 
 # ========== 옵티머스 스킬 타입 정의 ==========
