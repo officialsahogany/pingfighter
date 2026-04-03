@@ -185,7 +185,7 @@
   "item.star_detector.desc": "Star Detector: When star points drop, additional stars may appear.",
   "item.bulletproof_hat.desc": "Bulletproof Hat: Increases stun resistance, reducing stun duration.",
   "item.spiked_helmet.desc": "Spiked Helmet: Increases knockback resistance, reducing knockback distance and duration.",
-  "item.smartphone.desc": "Smartphone: Auto-uses potions when gauge is low and auto-activates stopwatch in emergencies.",
+  "item.smartphone.desc": "Smartphone: Auto-uses potions when gauge is low and auto-activates Stopwatch or Holy Barrier in emergencies. (Priority: Stopwatch > Holy Barrier)",
   "item.knee_pads.desc": "Kick Charger: Charges gauge when hitting the ball with half-dash. Golden kick booster flashes on success.",
   "item.doping_potion.desc": "Doping Potion: For 8 seconds, doubles headshot/legshot chance and greatly increases pistol fire rate.",
   "item.vitamin_pill.desc": "Vitamin Pill: Greatly increases movement speed for 10 seconds.",

@@ -185,7 +185,7 @@
   "item.star_detector.desc": "星星探测器: 星点掉落时有一定概率出现额外星星。",
   "item.bulletproof_hat.desc": "防弹帽: 增加眩晕抗性，缩短眩晕持续时间。",
   "item.spiked_helmet.desc": "尖刺头盔: 增加击退抗性，缩短击退距离和持续时间。",
-  "item.smartphone.desc": "智能手机: 最大化用户便利性的道具，能量低时自动使用药水，危急情况下自动启动秒表道具。",
+  "item.smartphone.desc": "智能手机: 最大化用户便利性的道具，能量低时自动使用药水，危急情况下自动启动秒表或圣洁屏障。（优先级：秒表 > 圣洁屏障）",
   "item.knee_pads.desc": "踢力充能器: 半冲刺击球时根据基础能量获取量充能一定比例。成功时金色踢力助推器会闪光。",
   "item.doping_potion.desc": "兴奋药水: 8秒内手枪爆头/腿射概率翻倍，手枪射速大幅提升。",
   "item.vitamin_pill.desc": "维生素药: 10秒内移动速度大幅提升。",
