@@ -549,7 +549,7 @@ def _get_elixir_border_frames():
                     c = cleaned.get_at((px, py))
                     if c.a == 0:
                         continue
-                    if min(px, w - 1 - px, py, h - 1 - py) >= 6:
+                    if min(px, w - 1 - px, py, h - 1 - py) >= 3:
                         result.set_at((px, py), (0, 0, 0, 0))
             frames.append(result)
     except Exception:
