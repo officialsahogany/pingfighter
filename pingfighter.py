@@ -116377,11 +116377,7 @@ def draw_objects():
                                    (orb_x + tooth_x, start_y + orb_radius + 2),
                                    (orb_x + tooth_x, start_y + orb_radius + 4), 1)
     
-    #  악마의 주사위 게이지만 그리기 (주사위 애니메이션은 메인 루프에서 처리)
-    from item_effects.devil_dice import get_devil_dice_instance, is_devil_dice_active
-    if is_devil_dice_active():
-        instance = get_devil_dice_instance()
-        instance.draw_gauge(SCREEN, WIDTH - 10, 60)  # 게이지만 그리기
+    # 😈 악마의 주사위 - 영구 아이템이므로 게이지 표시 없음
 
     # 발토르 광폭물약 화염 이펙트 그리기
     if berserk_potion_active and berserk_potion_timer > 0 and selected_character_type == "blacksmith":
@@ -166668,6 +166664,28 @@ def show_character_info(background_surface=None):
                         # 연마 스킬 보너스가 있으면 (+N) 형태로 표시, 강화 보너스도 포함
                         opt_text = format_roll_option_with_polish(opt, item)
                         opt_lines.append({"text": opt_text, "color": opt.get("color", (200, 210, 230))})
+
+                # 천사의 가호: 현재 적용 중인 버프 표시
+                if item_name == "angel_blessing":
+                    try:
+                        _lm = get_legendary_manager()
+                        _blessing = _lm.get_item("angel_blessing") if _lm else None
+                        if _blessing and _blessing.active_buffs:
+                            buff_pct = int(_blessing.buff_multiplier * 100)
+                            _buff_kr = {
+                                "paddle_size": f"패들 크기 +{buff_pct}%",
+                                "gauge_max": f"최대 게이지 +{buff_pct}%",
+                                "item_cooldown": f"아이템 쿨타임 -{buff_pct}%",
+                                "dash_cost": f"대쉬 비용 -{buff_pct}%",
+                                "dash_cooldown": f"대쉬 쿨타임 -{buff_pct}%",
+                                "move_speed": f"이동 속도 +{buff_pct}%",
+                            }
+                            opt_lines.append({"text": "── 적용 중 ──", "color": (100, 200, 100)})
+                            for _b in _blessing.active_buffs:
+                                _label = _buff_kr.get(_b, _b)
+                                opt_lines.append({"text": f"✦ {_label}", "color": (100, 220, 100)})
+                    except Exception:
+                        pass
 
                 desc_lines = wrap_text(get_item_description(item_name), font_tiny, 300)
                 hover_info = {
