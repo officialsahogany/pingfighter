@@ -107110,6 +107110,115 @@ def draw_objects():
         pass
 
     # ⚔ 바이퍼 에어 블레이드 검기 렌더링 (Ultra Premium Crescent Blade Wave)
+    def _draw_viper_blade_rush(screen, cx, cy, half_w, alive, trail=None, flip_y=False):
+        """에어 블레이드 검기 공통 렌더링. flip_y=True면 아래→위 대신 위→아래 방향."""
+        _fan_w = half_w * 2
+        _fan_h = 55
+        _fan_surf_w = _fan_w + 40
+        _fan_surf_h = _fan_h + 30
+        _fan_surf = pygame.Surface((_fan_surf_w, _fan_surf_h), pygame.SRCALPHA)
+        _fcx = _fan_surf_w // 2
+        _fcy = _fan_surf_h - 8  # 꼭짓점
+
+        # 0. 트레일
+        if trail and len(trail) > 1:
+            _trail_draw = min(10, len(trail))
+            for _ti in range(1, _trail_draw):
+                _t_idx = len(trail) - _trail_draw + _ti
+                _tx, _ty = trail[_t_idx]
+                _px, _py = trail[_t_idx - 1]
+                if flip_y:
+                    _ty = HEIGHT - _ty
+                    _py = HEIGHT - _py
+                _t_p = _ti / max(1, _trail_draw - 1)
+                _t_alpha = int((15 + 45 * _t_p) * alive)
+                _t_w = max(1, int(1 + 3 * _t_p))
+                if _t_alpha > 2:
+                    _tcr = int(85 + 55 * _t_p)
+                    _tcg = int(70 + 60 * _t_p)
+                    _tcb = int(110 + 50 * _t_p)
+                    pygame.draw.line(screen, (_tcr, _tcg, _tcb, _t_alpha),
+                                     (int(_px), int(_py)), (int(_tx), int(_ty)), _t_w)
+
+        # 1. 다층 부채꼴 본체
+        _fan_layers = [
+            (1.00, (55, 30, 90),    30),
+            (0.85, (80, 45, 130),   50),
+            (0.70, (110, 65, 160),  75),
+            (0.55, (140, 90, 185),  105),
+            (0.38, (170, 130, 210), 140),
+            (0.18, (200, 180, 230), 180),
+        ]
+        for _fi, (_f_scale, _f_rgb, _f_base_a) in enumerate(_fan_layers):
+            _f_alpha = int(_f_base_a * alive)
+            if _f_alpha < 2:
+                continue
+            _fw = int(_fan_w * _f_scale * 0.5)
+            _fh = int(_fan_h * _f_scale)
+            _fan_pts = [(_fcx, _fcy)]
+            for _as in range(13):
+                _a_t = _as / 12.0
+                _a_angle = math.pi + (math.pi * 0.15) + _a_t * (math.pi * 0.70)
+                _fan_pts.append((_fcx + int(math.cos(_a_angle) * _fw * 1.15),
+                                 _fcy + int(math.sin(_a_angle) * _fh * 1.1)))
+            if len(_fan_pts) >= 3:
+                pygame.draw.polygon(_fan_surf, (*_f_rgb, _f_alpha), _fan_pts)
+
+        # 2. 에지 라인
+        _edge_pts = []
+        for _es in range(17):
+            _e_t = _es / 16.0
+            _e_angle = math.pi + (math.pi * 0.15) + _e_t * (math.pi * 0.70)
+            _edge_pts.append((_fcx + int(math.cos(_e_angle) * int(_fan_w * 0.5) * 1.15),
+                              _fcy + int(math.sin(_e_angle) * _fan_h * 1.1)))
+        _edge_alpha = int(160 * alive)
+        if len(_edge_pts) > 1 and _edge_alpha > 3:
+            pygame.draw.lines(_fan_surf, (190, 160, 230, _edge_alpha), False, _edge_pts, 2)
+            _inner_pts = []
+            _inner_hw = int(_fan_w * 0.42)
+            for _is2 in range(17):
+                _i_t = _is2 / 16.0
+                _i_angle = math.pi + (math.pi * 0.15) + _i_t * (math.pi * 0.70)
+                _inner_pts.append((_fcx + int(math.cos(_i_angle) * _inner_hw * 1.15),
+                                   _fcy + int(math.sin(_i_angle) * _fan_h * 0.65 * 1.1)))
+            _inner_alpha = int(80 * alive)
+            if _inner_alpha > 2:
+                pygame.draw.lines(_fan_surf, (170, 140, 210, _inner_alpha), False, _inner_pts, 1)
+
+        # 3. 에너지 스파크
+        for _si in range(8):
+            _s_t = _si / 7.0
+            _s_angle = math.pi + (math.pi * 0.15) + _s_t * (math.pi * 0.70)
+            _s_hw = int(_fan_w * 0.5) + random.randint(-8, 8)
+            _s_alpha = int(random.randint(100, 200) * alive)
+            if _s_alpha > 5:
+                pygame.draw.circle(_fan_surf, (185, 150, 230, _s_alpha),
+                                   (_fcx + int(math.cos(_s_angle) * _s_hw * 1.15),
+                                    _fcy + int(math.sin(_s_angle) * _fan_h * 1.1) + random.randint(-3, 3)),
+                                   random.randint(1, 2))
+
+        # 4. 꼭짓점 글로우
+        for _gl in range(3):
+            _gl_r = 10 - _gl * 3
+            _gl_a = int((20 - _gl * 5) * alive)
+            if _gl_r > 0 and _gl_a > 1:
+                pygame.draw.circle(_fan_surf, (130, 80, 180, _gl_a), (_fcx, _fcy), _gl_r)
+
+        # flip_y이면 서피스를 상하 반전
+        if flip_y:
+            _fan_surf = pygame.transform.flip(_fan_surf, False, True)
+
+        screen.blit(_fan_surf, (cx - _fcx, cy - _fcy if not flip_y else cy - (_fan_surf_h - 8)),
+                    special_flags=pygame.BLEND_ADD)
+
+        # 5. 앰비언트 헤일로
+        _amb_r = int(_fan_h * 1.2)
+        _amb_a = int(15 * alive)
+        if _amb_r > 0 and _amb_a > 1:
+            _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(_amb_s, (80, 50, 130, _amb_a), (_amb_r, _amb_r), _amb_r)
+            screen.blit(_amb_s, (cx - _amb_r, cy - _amb_r), special_flags=pygame.BLEND_ADD)
+
     if _viper_blade_rush_active:
         try:
             _br_cx = int(_viper_blade_rush_x)
@@ -107118,8 +107227,6 @@ def draw_objects():
             _br_progress = 1.0 - ((_viper_blade_rush_y - _viper_blade_rush_target_y) /
                                    (_viper_blade_rush_start_y - _viper_blade_rush_target_y)) if (_viper_blade_rush_start_y - _viper_blade_rush_target_y) > 0 else 1.0
             _br_progress = max(0.0, min(1.0, _br_progress))
-            _ticks = pygame.time.get_ticks()
-            _dt_sec = _ticks / 1000.0
 
             # 소멸 페이드
             _fade_start = 0.65
@@ -107129,118 +107236,7 @@ def draw_objects():
                 _fade_factor = max(_fade_factor, 1.0 - _fo_ratio)
             _alive = 1.0 - _fade_factor
 
-            # ── 부채꼴 검기파 (꼭짓점 아래, 위로 펼쳐지는 팬 형태) ──
-            _fan_w = _br_hw * 2  # 부채꼴 상단 전체 폭
-            _fan_h = 55          # 부채꼴 높이 (꼭짓점→상단 호까지)
-            _fan_surf_w = _fan_w + 40
-            _fan_surf_h = _fan_h + 30
-            _fan_surf = pygame.Surface((_fan_surf_w, _fan_surf_h), pygame.SRCALPHA)
-            _fcx = _fan_surf_w // 2
-            _fcy = _fan_surf_h - 8  # 꼭짓점 (하단 중앙)
-
-            # ── 0. 트레일 (라인 기반 궤적) ──
-            _trail_len = len(_viper_blade_rush_trail)
-            _trail_draw = min(10, _trail_len)
-            if _trail_draw > 1:
-                for _ti in range(1, _trail_draw):
-                    _t_idx = _trail_len - _trail_draw + _ti
-                    _tx, _ty = _viper_blade_rush_trail[_t_idx]
-                    _prev_idx = _t_idx - 1
-                    _px, _py = _viper_blade_rush_trail[_prev_idx]
-                    _t_p = _ti / max(1, _trail_draw - 1)
-                    _t_alpha = int((15 + 45 * _t_p) * _alive)
-                    _t_w = max(1, int(1 + 3 * _t_p))
-                    if _t_alpha > 2:
-                        _tcr = int(85 + 55 * _t_p)
-                        _tcg = int(70 + 60 * _t_p)
-                        _tcb = int(110 + 50 * _t_p)
-                        pygame.draw.line(SCREEN, (_tcr, _tcg, _tcb, _t_alpha),
-                                         (int(_px), int(_py)), (int(_tx), int(_ty)), _t_w)
-
-            # ── 1. 다층 부채꼴 본체 (6겹, 바깥→안쪽 점점 밝고 좁아짐) ──
-            _fan_layers = [
-                (1.00, (55, 30, 90),    30),   # 최외곽 — 짙은 보라
-                (0.85, (80, 45, 130),   50),   # 외곽 — 진보라
-                (0.70, (110, 65, 160),  75),   # 중간 — 보라
-                (0.55, (140, 90, 185),  105),  # 중내곽 — 연보라
-                (0.38, (170, 130, 210), 140),  # 코어 — 라벤더
-                (0.18, (200, 180, 230), 180),  # 극코어 — 밝은 라벤더
-            ]
-
-            for _fi, (_f_scale, _f_rgb, _f_base_a) in enumerate(_fan_layers):
-                _f_alpha = int(_f_base_a * _alive)
-                if _f_alpha < 2:
-                    continue
-                _fw = int(_fan_w * _f_scale * 0.5)  # 반폭
-                _fh = int(_fan_h * _f_scale)
-                # 부채꼴 폴리곤: 하단 꼭짓점 → 호 형태 상단
-                _fan_pts = [(_fcx, _fcy)]  # 꼭짓점
-                _arc_steps = 12
-                for _as in range(_arc_steps + 1):
-                    _a_t = _as / _arc_steps  # 0→1 (좌→우)
-                    _a_angle = math.pi + (math.pi * 0.15) + _a_t * (math.pi * 0.70)  # ~207°→~261°
-                    _ax = _fcx + int(math.cos(_a_angle) * _fw * 1.15)
-                    _ay = _fcy + int(math.sin(_a_angle) * _fh * 1.1)
-                    _fan_pts.append((_ax, _ay))
-                if len(_fan_pts) >= 3:
-                    pygame.draw.polygon(_fan_surf, (*_f_rgb, _f_alpha), _fan_pts)
-
-            # ── 2. 상단 호 가장자리 라인 (날의 에지) ──
-            _edge_pts = []
-            _edge_steps = 16
-            _edge_hw = int(_fan_w * 0.5)
-            for _es in range(_edge_steps + 1):
-                _e_t = _es / _edge_steps
-                _e_angle = math.pi + (math.pi * 0.15) + _e_t * (math.pi * 0.70)
-                _ex = _fcx + int(math.cos(_e_angle) * _edge_hw * 1.15)
-                _ey = _fcy + int(math.sin(_e_angle) * _fan_h * 1.1)
-                _edge_pts.append((_ex, _ey))
-            _edge_alpha = int(160 * _alive)
-            if len(_edge_pts) > 1 and _edge_alpha > 3:
-                pygame.draw.lines(_fan_surf, (190, 160, 230, _edge_alpha), False, _edge_pts, 2)
-                # 안쪽 얇은 하이라이트 라인
-                _inner_pts = []
-                _inner_hw = int(_fan_w * 0.42)
-                for _is2 in range(_edge_steps + 1):
-                    _i_t = _is2 / _edge_steps
-                    _i_angle = math.pi + (math.pi * 0.15) + _i_t * (math.pi * 0.70)
-                    _ix = _fcx + int(math.cos(_i_angle) * _inner_hw * 1.15)
-                    _iy = _fcy + int(math.sin(_i_angle) * _fan_h * 0.65 * 1.1)
-                    _inner_pts.append((_ix, _iy))
-                _inner_alpha = int(80 * _alive)
-                if _inner_alpha > 2:
-                    pygame.draw.lines(_fan_surf, (170, 140, 210, _inner_alpha), False, _inner_pts, 1)
-
-            # ── 3. 에너지 스파크 (상단 호를 따라) ──
-            for _si in range(8):
-                _s_t = _si / 7.0
-                _s_angle = math.pi + (math.pi * 0.15) + _s_t * (math.pi * 0.70)
-                _s_hw = int(_fan_w * 0.5) + random.randint(-8, 8)
-                _sx = _fcx + int(math.cos(_s_angle) * _s_hw * 1.15)
-                _sy = _fcy + int(math.sin(_s_angle) * _fan_h * 1.1) + random.randint(-3, 3)
-                _s_alpha = int(random.randint(100, 200) * _alive)
-                if _s_alpha > 5:
-                    pygame.draw.circle(_fan_surf, (185, 150, 230, _s_alpha), (_sx, _sy), random.randint(1, 2))
-
-            # ── 4. 꼭짓점 글로우 (하단 중앙 수렴점) ──
-            for _gl in range(3):
-                _gl_r = 10 - _gl * 3
-                _gl_a = int((20 - _gl * 5) * _alive)
-                if _gl_r > 0 and _gl_a > 1:
-                    pygame.draw.circle(_fan_surf, (130, 80, 180, _gl_a), (_fcx, _fcy), _gl_r)
-
-            SCREEN.blit(_fan_surf, (_br_cx - _fcx, _br_cy - _fcy),
-                        special_flags=pygame.BLEND_ADD)
-
-            # ── 5. 외곽 앰비언트 헤일로 ──
-            _amb_r = int(_fan_h * 1.2)
-            _amb_a = int(15 * _alive)
-            if _amb_r > 0 and _amb_a > 1:
-                _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(_amb_s, (80, 50, 130, _amb_a), (_amb_r, _amb_r), _amb_r)
-                SCREEN.blit(_amb_s, (_br_cx - _amb_r, _br_cy - _amb_r),
-                            special_flags=pygame.BLEND_ADD)
-
+            _draw_viper_blade_rush(SCREEN, _br_cx, _br_cy, _br_hw, _alive, _viper_blade_rush_trail, flip_y=False)
         except Exception:
             pass
 
@@ -108932,6 +108928,15 @@ def draw_objects():
         if _mp_src is not None:
             # flip 없이 원본 스프라이트 그대로 사용 (뒷모습)
             boss_img = _mp_src
+            # 에어 블레이드 회전 모션 적용 (상대방이 회전 중이면 boss_img 회전)
+            if _online_opponent_anim:
+                _opp_fx = _online_opponent_anim.get('fx', [])
+                for _spin_ef in _opp_fx:
+                    if _spin_ef.get('t') == 'br_spin':
+                        _spin_a = _spin_ef.get('a', 0) % 360
+                        if abs(_spin_a) > 0.5:
+                            boss_img = pygame.transform.rotate(boss_img, _spin_a)
+                        break
             boss_w, boss_h = boss_img.get_width(), boss_img.get_height()
         else:
             boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
@@ -109612,23 +109617,27 @@ def draw_objects():
                 for _ef in _opp_fx:
                     try:
                         _ef_t = _ef.get('t', '')
-                        if _ef_t == 'blade':
-                            # 바이퍼 에어 블레이드: 보라색 검기 부채꼴
+                        if _ef_t == 'br_spin':
+                            # 바이퍼 에어 블레이드 회전 모션 → BOSS 패들 회전은 boss_img에서 처리
+                            # (상대방의 패들이 회전해야 함 - 별도 처리 필요)
+                            pass  # 패들 회전은 아래 boss_img 렌더링에서 _online_opp_spin_angle로 처리
+                        elif _ef_t == 'blade':
+                            # 바이퍼 에어 블레이드: 원본과 동일한 렌더링 (Y반전)
                             _bx = int(_ef.get('x', 0))
-                            _by = HEIGHT - int(_ef.get('y', 0))  # Y반전
-                            _blade_w, _blade_h = 80, 120
-                            _blade_surf = pygame.Surface((_blade_w, _blade_h), pygame.SRCALPHA)
-                            # 3겹 부채꼴 검기
-                            for _li in range(3):
-                                _la = max(30, 160 - _li * 50)
-                                _lc = (120 + _li * 40, 30, 200 - _li * 30, _la)
-                                pygame.draw.polygon(_blade_surf, _lc, [
-                                    (_blade_w // 2, 0),
-                                    (_blade_w // 2 - 30 + _li * 8, _blade_h),
-                                    (_blade_w // 2 + 30 - _li * 8, _blade_h),
-                                ])
-                            SCREEN.blit(_blade_surf, (_bx - _blade_w // 2, _by - _blade_h),
-                                        special_flags=pygame.BLEND_ADD)
+                            _by = HEIGHT - int(_ef.get('y', 0))
+                            _b_hw = int(_ef.get('hw', 175))
+                            _b_prog = _ef.get('pr', 0.5)
+                            _b_fo = _ef.get('fo', 0)
+                            _b_ft = _ef.get('ft', 0)
+                            _b_trail = _ef.get('tr', [])
+                            # alive 계산 (원본과 동일)
+                            _fade_start = 0.65
+                            _fade_fac = max(0.0, min(1.0, (_b_prog - _fade_start) / (1.0 - _fade_start))) if _b_prog > _fade_start else 0.0
+                            if _b_fo:
+                                _fo_ratio = _b_ft / max(1, 30)
+                                _fade_fac = max(_fade_fac, 1.0 - _fo_ratio)
+                            _b_alive = 1.0 - _fade_fac
+                            _draw_viper_blade_rush(SCREEN, _bx, _by, _b_hw, _b_alive, _b_trail, flip_y=True)
                         elif _ef_t == 'nerve':
                             # 바이퍼 베놈 엣지: 보스 주변 베기 이펙트
                             _n_phase = _ef.get('p', 0)
@@ -170888,12 +170897,32 @@ def _online_get_my_anim_state():
         # ── 스킬 이펙트 데이터 (모든 캐릭터 공통) ──
         _fx = []
 
+        # 바이퍼: 에어 블레이드 회전 모션
+        if globals().get('_viper_br_spin_active', False):
+            _fx.append({
+                't': 'br_spin',
+                'a': globals().get('_viper_br_spin_angle', 0),
+                'p': globals().get('_viper_br_spin_phase', 0),
+            })
         # 바이퍼: 에어 블레이드 (검기)
         if globals().get('_viper_blade_rush_active', False):
+            _br_y = globals().get('_viper_blade_rush_y', 0)
+            _br_sy = globals().get('_viper_blade_rush_start_y', 0)
+            _br_ty = globals().get('_viper_blade_rush_target_y', 0)
+            _br_prog = 1.0 - ((_br_y - _br_ty) / max(1, _br_sy - _br_ty)) if (_br_sy - _br_ty) > 0 else 1.0
+            _br_prog = max(0.0, min(1.0, _br_prog))
+            _br_fo = globals().get('_viper_blade_rush_fadeout', False)
+            _br_fo_t = globals().get('_viper_blade_rush_fadeout_timer', 0)
+            _br_trail = list(globals().get('_viper_blade_rush_trail', []))[-10:]  # 최근 10개
             _fx.append({
                 't': 'blade',
                 'x': globals().get('_viper_blade_rush_x', 0),
                 'y': globals().get('_viper_blade_rush_y', 0),
+                'hw': globals().get('_viper_blade_rush_width', 350) // 2,
+                'pr': _br_prog,
+                'fo': 1 if _br_fo else 0,
+                'ft': _br_fo_t,
+                'tr': _br_trail,
             })
         # 바이퍼: 베놈 엣지 (연계기)
         if globals().get('_viper_nerve_strike_active', False):
