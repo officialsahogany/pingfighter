@@ -483,6 +483,34 @@ elif item_data["name"] == "legendary_item":
 2. Use `global` keyword in initialization function
 3. Assign to `items.ITEM_TYPES[key]["icon"]`
 
+### ⚠️ CRITICAL: 퍽(Perk) 아이콘이 깨져 보임 (글자 하나만 표시됨)
+**Cause**: `draw_skill_icon_mini()` 함수에 해당 퍽의 `elif skill_id == "..."` 분기가 없음
+**Why**: 이 함수는 2000줄 이상의 하드코딩된 elif 체인으로 각 퍽별 아이콘을 그림. 새 퍽이 추가되면 자동으로 아이콘이 생성되지 않고, `else` 절로 빠져 스킬 이름의 첫 글자만 표시됨.
+**Solution**: 새 퍽 추가 시 반드시 `draw_skill_icon_mini()` 함수 내 `else:` 절 **바로 위에** 해당 퍽의 아이콘 렌더링 코드를 추가해야 함.
+**Location**: `pingfighter.py` 내 `draw_skill_icon_mini()` 함수 (약 16320~18400줄 부근)
+
+```python
+# 새 퍽 아이콘 추가 위치: else 절 바로 위
+elif skill_id == "new_perk_id":
+    color = icon_color  # VIPER_EXCLUSIVE_SKILLS에서 전달됨
+    lt = lighter
+    dk = darker
+    # pygame.draw 로 아이콘 그리기...
+    # 기존 퍽 아이콘 참고 (jetpack_enhance, kick_enhance 등)
+
+else:
+    # 기본 fallback (여기로 빠지면 아이콘 깨짐!)
+    symbol = skill.get("name", "?")[0] ...
+```
+
+### ⚠️ 새 퍽 추가 시 필수 체크리스트
+| # | 작업 | 설명 |
+|---|------|------|
+| 1 | `VIPER_EXCLUSIVE_SKILLS` 딕셔너리 | 퍽 정의 추가 (name, max_level, descriptions, detail, icon_color) |
+| 2 | `apply_runtime_skill_effect()` 함수 | 레벨업 처리 코드 추가 |
+| 3 | **`draw_skill_icon_mini()` 함수** | **elif 분기 추가 [필수! 없으면 아이콘 깨짐]** |
+| 4 | 실제 효과 적용 코드 | 게임 로직에 `runtime_skill_levels.get("perk_id", 0)` 반영 |
+
 ### Korean Text Shows as Boxes
 **Cause**: Wrong font or encoding
 **Solution**: Use pygame.freetype with NanumSquare fonts and UTF-8 encoding

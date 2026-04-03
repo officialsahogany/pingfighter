@@ -18352,6 +18352,48 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.line(surface, (255, 255, 255), (icon_cx - wing, atop + wing), (icon_cx, atop), lw_a)
         pygame.draw.line(surface, (255, 255, 255), (icon_cx + wing, atop + wing), (icon_cx, atop), lw_a)
 
+    elif skill_id == "kick_enhance":
+        # 킥 강화 — 부츠 + 충격파 + 상승 화살표 (오렌지색)
+        color = icon_color
+        lt = lighter
+        dk = darker
+        # 부츠 본체
+        bw = max(3, int(5 * scale))
+        bh = max(4, int(6 * scale))
+        boot_top = icon_cy - int(3 * scale)
+        boot_bot = icon_cy + int(4 * scale)
+        # 다리 (세로)
+        leg_w = max(2, int(3 * scale))
+        pygame.draw.rect(surface, dk(color, 20),
+                        (icon_cx - leg_w // 2, boot_top - int(3 * scale), leg_w, int(5 * scale)))
+        pygame.draw.rect(surface, lt(color, 40),
+                        (icon_cx - leg_w // 2, boot_top - int(3 * scale), leg_w, int(5 * scale)), max(1, int(1 * scale)))
+        # 부츠 (가로 사각형)
+        boot_rect = (icon_cx - bw, boot_bot - int(3 * scale), bw * 2 + int(2 * scale), int(3 * scale))
+        pygame.draw.rect(surface, color, boot_rect)
+        pygame.draw.rect(surface, lt(color, 60), boot_rect, max(1, int(1 * scale)))
+        # 충격파 (부츠 앞쪽에서 발산)
+        kick_x = icon_cx + bw + int(2 * scale)
+        kick_cy = boot_bot - int(2 * scale)
+        for wi in range(3):
+            wave_r = max(2, int((3 + wi * 2.5) * scale))
+            wave_a = max(30, 120 - wi * 40)
+            wave_col = (min(255, color[0] + 40), min(255, color[1] + 40), min(255, color[2] + 40))
+            wave_surf = pygame.Surface((wave_r * 2, wave_r * 2), pygame.SRCALPHA)
+            pygame.draw.arc(wave_surf, (*wave_col, wave_a),
+                          (0, 0, wave_r * 2, wave_r * 2),
+                          -0.8, 0.8, max(1, int(1.5 * scale)))
+            surface.blit(wave_surf, (kick_x - wave_r, kick_cy - wave_r))
+        # 상승 화살표 (강화 표시)
+        al = max(3, int(4 * scale))
+        atop = boot_top - int(6 * scale)
+        abot = boot_top - int(2 * scale)
+        lw_a = max(1, int(1.5 * scale))
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx, atop), (icon_cx, abot), lw_a)
+        wing = max(2, int(3 * scale))
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx - wing, atop + wing), (icon_cx, atop), lw_a)
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx + wing, atop + wing), (icon_cx, atop), lw_a)
+
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
         symbol = skill.get("name", "?")[0] if skill.get("name") else "?"
