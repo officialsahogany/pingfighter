@@ -32,7 +32,6 @@ class Smartphone:
         self.last_ball_y = None
         self.last_y_gap = None
         self.closing_streak = 0
-        self.closing_streak = 0
         
     def _apply_academy_effects(self, main_module, slot_index_hint=None):
         """연금술/게이지 보너스 처리를 공통화"""
@@ -673,14 +672,6 @@ class Smartphone:
         self.last_player_y = paddle_y
         self.last_ball_y = ball_y
         self.last_y_gap = cur_gap
-        # 히스테리시스: 연속으로 갭이 줄어드는 경우 카운트하여 조기 발동 억제
-        try:
-            if prev_gap is not None and (prev_gap - cur_gap) > 1:
-                self.closing_streak = min(self.closing_streak + 1, 5)
-            else:
-                self.closing_streak = 0
-        except Exception:
-            pass
         # 히스테리시스: 연속으로 갭이 줄어드는 경우 카운트하여 조기 발동 억제
         try:
             if prev_gap is not None and (prev_gap - cur_gap) > 2:
