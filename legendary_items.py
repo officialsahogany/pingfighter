@@ -11393,7 +11393,8 @@ class PandoraLegacy(LegendaryItem):
             "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel",
             "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
             "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
-            "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"
+            "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
+            "venom_mist_gauntlet", "dowsing_goggles"
         }
         excluded = {"ammo_box", "fire_support", "doping_potion"}  # 물자보급 전용
         # 발토르(blacksmith) 전용 아이템 — 다른 캐릭터에서는 제외
