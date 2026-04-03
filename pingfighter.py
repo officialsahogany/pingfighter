@@ -63856,6 +63856,25 @@ def update_friend_moles():
         mole["phase_timer"] += 1
         mole["wobble_phase"] += 0.12
 
+        # 연막에 닿으면 즉시 사라짐
+        if mole["phase"] in ("rising", "hold") and not mole["hit"]:
+            if is_point_in_smoke(mole["x"], mole["y"]):
+                mole["phase"] = "falling"
+                mole["phase_timer"] = 0
+                # 연기 퍼프 파티클
+                for _ in range(6):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(1.5, 3.5)
+                    friend_moles_dirt_particles.append({
+                        "x": mole["x"], "y": mole["y"],
+                        "vx": math.cos(angle) * speed,
+                        "vy": math.sin(angle) * speed - 1.0,
+                        "size": random.uniform(3, 6),
+                        "timer": 0, "max_timer": random.randint(12, 20),
+                        "color": (180, 180, 180),
+                    })
+                continue
+
         if mole["phase"] == "rising":
             mole["emerge_amount"] = min(1.0, mole["phase_timer"] / mole["rise_time"])
             if mole["phase_timer"] >= mole["rise_time"]:
