@@ -102,6 +102,12 @@ class BalloonMachineEvent:
         
         # Font for debugging
         self.font = None
+
+        # Surface 캐시 (매 프레임 생성 방지 - 성능 최적화)
+        self._cached_vertical_beam = None    # 수직 빔 Surface (스케일 1.0 기준)
+        self._cached_horizontal_beam = None  # 수평 빔 Surface (스케일 1.0 기준)
+        self._cached_glow_surface = None     # 특별 풍선 글로우 Surface
+        self._cached_glow_radius = 0         # 글로우 캐시의 기준 반지름
         
         # Sound effect
         self.sound_balloon = None
@@ -482,43 +488,55 @@ class BalloonMachineEvent:
                                      (self.machine_x, self.machine_y), radius, 3)
             
     
+    def _ensure_beam_cache(self):
+        """수직/수평 빔 Surface를 스케일 1.0 기준으로 캐싱 (최초 1회만 생성)"""
+        if self._cached_vertical_beam is not None:
+            return
+        beam_width = 30
+        beam_length = 100
+
+        # 수직 빔 (불투명 + 나중에 set_alpha로 투명도 조절)
+        v_surf = pygame.Surface((beam_width, beam_length), pygame.SRCALPHA)
+        for i in range(beam_width):
+            shade = 80 + int(40 * abs((i - beam_width / 2) / (beam_width / 2)))
+            pygame.draw.line(v_surf, (shade, shade, shade + 20, 200), (i, 0), (i, beam_length))
+        pygame.draw.line(v_surf, (200, 200, 220, 200), (beam_width // 2, 0), (beam_width // 2, beam_length), 2)
+        self._cached_vertical_beam = v_surf
+
+        # 수평 빔
+        h_surf = pygame.Surface((beam_length, beam_width), pygame.SRCALPHA)
+        for i in range(beam_width):
+            shade = 80 + int(40 * abs((i - beam_width / 2) / (beam_width / 2)))
+            pygame.draw.line(h_surf, (shade, shade, shade + 20, 200), (0, i), (beam_length, i))
+        pygame.draw.line(h_surf, (200, 200, 220, 200), (0, beam_width // 2), (beam_length, beam_width // 2), 2)
+        self._cached_horizontal_beam = h_surf
+
     def _draw_machine(self, screen: pygame.Surface):
         """풍선 발사 기계 그리기 (메카니컬 십자 터렛 스타일)"""
         if self.machine_scale <= 0:
             return
-            
+
+        self._ensure_beam_cache()
+
         # 투명도 효과
         alpha = int(200 * self.machine_scale)
         center_x = self.machine_x
         center_y = self.machine_y
-        
+
         # 십자형 터렛 베이스 그리기
-        # 수직 빔
         beam_width = int(30 * self.machine_scale)
         beam_length = int(100 * self.machine_scale)
-        
-        # 수직 빔 (위아래)
-        vertical_surface = pygame.Surface((beam_width, beam_length), pygame.SRCALPHA)
-        # 메탈릭 그라데이션 효과
-        for i in range(beam_width):
-            shade = 80 + int(40 * abs((i - beam_width/2) / (beam_width/2)))
-            pygame.draw.line(vertical_surface, (shade, shade, shade + 20, alpha),
-                           (i, 0), (i, beam_length))
-        # 중앙 하이라이트
-        pygame.draw.line(vertical_surface, (200, 200, 220, alpha),
-                       (beam_width//2, 0), (beam_width//2, beam_length), 2)
-        screen.blit(vertical_surface, (center_x - beam_width//2, center_y - beam_length//2))
-        
-        # 수평 빔 (좌우)
-        horizontal_surface = pygame.Surface((beam_length, beam_width), pygame.SRCALPHA)
-        for i in range(beam_width):
-            shade = 80 + int(40 * abs((i - beam_width/2) / (beam_width/2)))
-            pygame.draw.line(horizontal_surface, (shade, shade, shade + 20, alpha),
-                           (0, i), (beam_length, i))
-        # 중앙 하이라이트
-        pygame.draw.line(horizontal_surface, (200, 200, 220, alpha),
-                       (0, beam_width//2), (beam_length, beam_width//2), 2)
-        screen.blit(horizontal_surface, (center_x - beam_length//2, center_y - beam_width//2))
+
+        # 수직 빔 (캐시된 Surface를 스케일링)
+        if beam_width > 0 and beam_length > 0:
+            scaled_v = pygame.transform.scale(self._cached_vertical_beam, (beam_width, beam_length))
+            scaled_v.set_alpha(alpha)
+            screen.blit(scaled_v, (center_x - beam_width // 2, center_y - beam_length // 2))
+
+            # 수평 빔
+            scaled_h = pygame.transform.scale(self._cached_horizontal_beam, (beam_length, beam_width))
+            scaled_h.set_alpha(alpha)
+            screen.blit(scaled_h, (center_x - beam_length // 2, center_y - beam_width // 2))
         
         # 중앙 코어 (원형 터렛 허브)
         core_radius = int(25 * self.machine_scale)
@@ -594,9 +612,14 @@ class BalloonMachineEvent:
             
             if is_special:
                 # 🌟 특별한 풍선 빛나는 효과
-                # 글로우 효과 (여러 층의 반투명 원)
+                # 글로우 효과 (여러 층의 반투명 원) - Surface 재사용으로 성능 최적화
                 glow_intensity = 0.7 + 0.3 * math.sin(self.timer * 0.05)  # 부드럽게 깜빡임
-                glow_surface = pygame.Surface((radius * 6, radius * 6), pygame.SRCALPHA)
+                glow_size = radius * 6
+                if self._cached_glow_surface is None or self._cached_glow_radius != radius:
+                    self._cached_glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+                    self._cached_glow_radius = radius
+                glow_surface = self._cached_glow_surface
+                glow_surface.fill((0, 0, 0, 0))  # 투명으로 초기화 (Surface 재사용)
                 
                 # 외부 글로우 (3층)
                 for i in range(3):
