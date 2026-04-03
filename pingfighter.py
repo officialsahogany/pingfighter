@@ -77426,6 +77426,10 @@ def handle_player(keys):
                 speed_multiplier *= (1.0 + hermes_speed_mult)
                 # print(f"⚡ 헤르메스의 신발 효과 적용! 속도 배율: {speed_multiplier:.1f}x (+{hermes_speed_mult*100:.0f}%)")
 
+            # 천사의 주사위 이동속도 버프 적용
+            if ANGEL_SPEED_MULT != 1.0:
+                speed_multiplier *= ANGEL_SPEED_MULT
+
             # 비타민약 효과 적용 (10초간 50% 증가)
             if vitamin_pill_active and vitamin_pill_timer > 0:
                 speed_multiplier *= VITAMIN_PILL_SPEED_MULTIPLIER

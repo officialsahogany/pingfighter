@@ -4249,18 +4249,7 @@ class AngelBlessing(LegendaryItem):
                 if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 버프 초기화됨: cost=1.0, cooldown=1.0")
         except Exception:
             pass
-        # 이동 속도 복구 (MAX_SPEED)
-        if hasattr(self, "_original_max_speed") and self._original_max_speed is not None:
-            if pf is not None and hasattr(pf, "MAX_SPEED"):
-                pf.MAX_SPEED = self._original_max_speed
-                if self.DEBUG_ENABLED: print(f"[AngelBlessing] MAX_SPEED 복원: {self._original_max_speed}")
-            self._original_max_speed = None
-        # 가속도 복구 (ACCELERATION)
-        if hasattr(self, "_original_acceleration") and self._original_acceleration is not None:
-            if pf is not None and hasattr(pf, "ACCELERATION"):
-                pf.ACCELERATION = self._original_acceleration
-                if self.DEBUG_ENABLED: print(f"[AngelBlessing] ACCELERATION 복원: {self._original_acceleration}")
-            self._original_acceleration = None
+        # 이동속도는 ANGEL_SPEED_MULT 초기화로 충분 (MAX_SPEED/ACCELERATION 직접 수정 안 함)
         # 게이지 재계산
         try:
             calc_max = None
@@ -4386,27 +4375,9 @@ class AngelBlessing(LegendaryItem):
             except Exception as e:
                 if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 쿨타임 버프 적용 실패: {e}")
         elif buff == "move_speed":
-            # MAX_SPEED 증가 (실제 이동속도 결정 변수)
-            try:
-                if pf is not None and hasattr(pf, "MAX_SPEED"):
-                    base_max_speed = getattr(pf, "MAX_SPEED", 5)
-                    # 기본 MAX_SPEED 저장 (복원용) - 값이 None이거나 속성이 없으면 저장
-                    if not hasattr(self, "_original_max_speed") or self._original_max_speed is None:
-                        self._original_max_speed = base_max_speed
-                    pf.MAX_SPEED = int(self._original_max_speed * positive_mult)  # 항상 원본 기준으로 계산
-                    self._set_global_multiplier("ANGEL_SPEED_MULT", positive_mult)
-                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 이동속도 버프 적용: MAX_SPEED {self._original_max_speed} -> {pf.MAX_SPEED} (+{int(buff_mult*100)}%)")
-                # ACCELERATION도 증가 (이동속도 버프의 절반 정도 적용)
-                if pf is not None and hasattr(pf, "ACCELERATION"):
-                    base_accel = getattr(pf, "ACCELERATION", 0.4)
-                    # 기본 ACCELERATION 저장 (복원용) - 값이 None이거나 속성이 없으면 저장
-                    if not hasattr(self, "_original_acceleration") or self._original_acceleration is None:
-                        self._original_acceleration = base_accel
-                    accel_mult = 1.0 + (buff_mult * 0.6)  # 이동속도의 60% 정도 적용
-                    pf.ACCELERATION = self._original_acceleration * accel_mult  # 항상 원본 기준으로 계산
-                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 가속도 버프 적용: ACCELERATION {self._original_acceleration} -> {pf.ACCELERATION}")
-            except Exception as e:
-                if self.DEBUG_ENABLED: print(f"[AngelBlessing] 이동속도 버프 적용 실패: {e}")
+            # ANGEL_SPEED_MULT 배율만 설정 (실제 적용은 pingfighter.py 이동 로직에서 speed_multiplier에 곱해짐)
+            self._set_global_multiplier("ANGEL_SPEED_MULT", positive_mult)
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 이동속도 버프 적용: ANGEL_SPEED_MULT = {positive_mult} (+{int(buff_mult*100)}%)")
 
     def refresh_buffs(self):
         """강화 보너스 변경 시 활성 버프를 현재 buff_multiplier로 재적용"""
