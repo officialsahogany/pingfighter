@@ -240,7 +240,8 @@ class NetworkManager:
         # 스레드
         self.network_thread = None
         
-        # 온라인 멀티플레이 상태
+        # 온라인 멀티플레이 상태 (네트워크 스레드 ↔ 메인 스레드 공유)
+        self._online_lock = threading.Lock()  # 스레드 안전성 Lock
         self.online_mode = False           # 온라인 대전 모드 활성화 여부
         self.online_lobby_state = None     # 로비 상태 (protocol.deserialize_lobby_state)
         self.online_remote_input = None    # 최신 원격 입력 (protocol.deserialize_input)
@@ -378,7 +379,8 @@ class NetworkManager:
                 for connection in self.connections[:]:
                     if not connection.connected:
                         self.connections.remove(connection)
-                        self.online_connected = False
+                        with self._online_lock:
+                            self.online_connected = False
                         continue
 
                     # 패킷 수신 (한 루프에 여러 개 처리)
@@ -421,44 +423,52 @@ class NetworkManager:
 
     def _handle_online_lobby_state(self, packet, connection):
         from network.protocol import deserialize_lobby_state
-        self.online_lobby_state = deserialize_lobby_state(packet.data)
+        with self._online_lock:
+            self.online_lobby_state = deserialize_lobby_state(packet.data)
 
     def _handle_online_char_select(self, packet, connection):
-        if self.online_lobby_state:
-            if self.mode == NetworkMode.HOST:
-                self.online_lobby_state['client_character'] = packet.data.get('character')
-            else:
-                self.online_lobby_state['host_character'] = packet.data.get('character')
+        with self._online_lock:
+            if self.online_lobby_state:
+                if self.mode == NetworkMode.HOST:
+                    self.online_lobby_state['client_character'] = packet.data.get('character')
+                else:
+                    self.online_lobby_state['host_character'] = packet.data.get('character')
 
     def _handle_online_stage_select(self, packet, connection):
-        if self.online_lobby_state:
-            self.online_lobby_state['stage'] = packet.data.get('stage', 1)
-            self.online_lobby_state['items_enabled'] = packet.data.get('items', True)
+        with self._online_lock:
+            if self.online_lobby_state:
+                self.online_lobby_state['stage'] = packet.data.get('stage', 1)
+                self.online_lobby_state['items_enabled'] = packet.data.get('items', True)
 
     def _handle_online_lobby_ready(self, packet, connection):
-        if self.online_lobby_state:
-            ready = packet.data.get('ready', False)
-            if self.mode == NetworkMode.HOST:
-                self.online_lobby_state['client_ready'] = ready
-            else:
-                self.online_lobby_state['host_ready'] = ready
+        with self._online_lock:
+            if self.online_lobby_state:
+                ready = packet.data.get('ready', False)
+                if self.mode == NetworkMode.HOST:
+                    self.online_lobby_state['client_ready'] = ready
+                else:
+                    self.online_lobby_state['host_ready'] = ready
 
     def _handle_online_lobby_start(self, packet, connection):
-        self.online_game_started = True
+        with self._online_lock:
+            self.online_game_started = True
 
     def _handle_online_game_input(self, packet, connection):
         # 위치 기반 입력 (x 필드) 또는 버튼 기반 입력 모두 지원
         data = packet.data
         if 'x' in data:
-            # 위치 직접 전송 방식
-            self.online_remote_input = data
+            with self._online_lock:
+                self.online_remote_input = data
         else:
             from network.protocol import deserialize_input
-            self.online_remote_input = deserialize_input(data)
+            with self._online_lock:
+                self.online_remote_input = deserialize_input(data)
 
     def _handle_online_game_frame(self, packet, connection):
         from network.protocol import deserialize_game_frame
-        self.online_game_frame = deserialize_game_frame(packet.data)
+        frame = deserialize_game_frame(packet.data)
+        with self._online_lock:
+            self.online_game_frame = frame
 
     def _handle_online_game_event(self, packet, connection):
         # 이벤트 처리 (점수 변경, 게임 오버 등)
@@ -475,7 +485,8 @@ class NetworkManager:
             connection.latency = (time.time() - sent_time) * 1000
 
     def _handle_online_disconnect(self, packet, connection):
-        self.online_connected = False
+        with self._online_lock:
+            self.online_connected = False
         connection.connected = False
 
     def send_online_packet(self, packet_type: OnlinePacketType, data: dict,
@@ -494,16 +505,31 @@ class NetworkManager:
             for conn in self.connections:
                 conn.send_packet(packet)
 
+    def get_online_remote_input(self):
+        """스레드-안전 원격 입력 읽기"""
+        with self._online_lock:
+            return self.online_remote_input
+
+    def get_online_game_frame(self):
+        """스레드-안전 게임 프레임 읽기"""
+        with self._online_lock:
+            return self.online_game_frame
+
+    def get_online_lobby_state(self):
+        """스레드-안전 로비 상태 읽기"""
+        with self._online_lock:
+            return self.online_lobby_state
+
     def reset_online_state(self):
         """온라인 대전 상태 초기화"""
-        from network.protocol import serialize_lobby_state
-        self.online_mode = False
-        self.online_lobby_state = None
-        self.online_remote_input = None
-        self.online_game_frame = None
-        self.online_connected = False
-        self.online_game_started = False
-        self.online_opponent_name = ""
+        with self._online_lock:
+            self.online_mode = False
+            self.online_lobby_state = None
+            self.online_remote_input = None
+            self.online_game_frame = None
+            self.online_connected = False
+            self.online_game_started = False
+            self.online_opponent_name = ""
 
     def get_local_ip(self) -> str:
         """로컬 IP 주소 반환 (LAN용)"""

@@ -84958,6 +84958,10 @@ def update_alice_rabbit():
     for i, proj in enumerate(alice_rabbit_projectiles):
         proj["timer"] -= 1
         proj["hop_phase"] += 0.15
+        # 연막에 닿으면 토끼 제거
+        if is_point_in_smoke(proj["x"], proj["y"]):
+            to_remove.append(i)
+            continue
         # 깡충 뛰는 모션 (Y축 사인파)
         hop_offset = abs(math.sin(proj["hop_phase"])) * 8
         # 플레이어 쪽으로 약한 유도 (반드시 도달하도록)
@@ -85016,6 +85020,10 @@ def update_alice_rabbit():
     # === 패들 위 깐족토끼 업데이트 ===
     perch_remove = []
     for j, bunny in enumerate(alice_rabbit_perched):
+        # 연막에 닿으면 깐족토끼 제거
+        if PLAYER and is_point_in_smoke(PLAYER.centerx + bunny["offset_x"], PLAYER.y - int(bunny["size"])):
+            perch_remove.append(j)
+            continue
         # 대쉬로 토끼 즉사 처리
         if rolling_active and PLAYER:
             perch_remove.append(j)
@@ -152300,14 +152308,14 @@ def _handle_boss_online_sync():
         return
     elif online_is_host:
         # 호스트: 클라이언트가 보낸 위치 + 애니메이션 상태 적용
-        remote = _online_net_manager.online_remote_input
+        remote = _online_net_manager.get_online_remote_input()
         if remote is not None and 'x' in remote:
             BOSS.x = int(remote['x'])
             if 'anim' in remote:
                 _online_opponent_anim = remote['anim']
     else:
         # 클라이언트: 호스트가 보낸 P1 위치를 BOSS에 적용
-        frame = _online_net_manager.online_game_frame
+        frame = _online_net_manager.get_online_game_frame()
         if frame is not None:
             p1 = frame.get('p1', None)
             if p1:
@@ -152364,7 +152372,7 @@ def _handle_boss_online_sync():
                 # AI 대전: AI는 즉시 서브 (1.5초 후)
                 pass
             elif _online_net_manager is not None:
-                remote = _online_net_manager.online_remote_input
+                remote = _online_net_manager.get_online_remote_input()
                 if remote is not None and remote.get('serve', False):
                     _client_serve = True
                     print(f"[Online Serve DEBUG] HOST: 클라이언트 서브 입력 수신!")
@@ -171236,7 +171244,7 @@ def _online_client_apply_state():
     if _online_net_manager is None:
         return
 
-    frame = _online_net_manager.online_game_frame
+    frame = _online_net_manager.get_online_game_frame()
     if frame is None:
         return
 
