@@ -11779,11 +11779,11 @@ def process_pending_angel_blessing():
             if current_stage_hint is None:
                 current_stage_hint = angel_blessing._get_current_stage()
 
-            # 전설 애니메이션 완료 후 즉시 주사위 굴림 (조건 체크 없이 강제 실행)
+            # 전설 애니메이션 완료 후 주사위 굴림 (이미 발동됐으면 스킵)
             if current_stage_hint is not None:
-                # _triggered_stages에서 현재 스테이지 제거 (전설 획득 시 처음 획득이므로)
-                angel_blessing._triggered_stages.discard(current_stage_hint)
-                angel_blessing.applied_stage = None
+                if current_stage_hint in angel_blessing._triggered_stages:
+                    if AngelBlessing.DEBUG_ENABLED: print(f"[AngelBlessing] 스테이지 {current_stage_hint}에서 이미 발동됨 - 중복 굴림 방지")
+                    return True
                 angel_blessing._roll_blessing(current_stage_hint)
                 if AngelBlessing.DEBUG_ENABLED: print(f"[AngelBlessing] 전설 획득 후 주사위 애니메이션 시작 (스테이지 {current_stage_hint})")
             return True
