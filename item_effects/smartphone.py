@@ -972,9 +972,11 @@ class Smartphone:
                         else:
                             print(f"[DEBUG] 슬롯 {i}: 예상치 못한 타입 - {type(item)}")
 
-                # Priority: Stopwatch > AI Pill
+                # Priority: Stopwatch > Holy Barrier > AI Pill
                 stopwatch_available = False
+                holy_barrier_slot_available = False
                 ai_pill_available = False
+                holy_barrier_slot_index = None
 
                 for i, item in enumerate(active_items):
                     if item and isinstance(item, dict):
@@ -986,6 +988,12 @@ class Smartphone:
                                 stopwatch_slot_index = i
                             if SMARTPHONE_DEBUG:
                                 print(f"[DEBUG] ✅ 스탑워치 발견! (슬롯 {i})")
+                        elif item_name.lower() == 'holy_barrier':
+                            holy_barrier_slot_available = True
+                            if holy_barrier_slot_index is None:
+                                holy_barrier_slot_index = i
+                            if SMARTPHONE_DEBUG:
+                                print(f"[DEBUG] ✅ 홀리베리어 발견! (슬롯 {i})")
                         elif item_name.lower() in ['aipill', 'ai_pill']:
                             # 자동 사용은 비활성화. 필요 시 슬롯 인덱스만 기록 가능
                             if SMARTPHONE_ALLOW_AI_PILL_AUTOUSE:
@@ -994,27 +1002,33 @@ class Smartphone:
                                     aipill_slot_index = i
                                 if SMARTPHONE_DEBUG:
                                     print(f"[DEBUG] ✅ AI알약 발견! (슬롯 {i})")
-                            
-                # Auto-activate appropriate item (스톱워치 우선)
+
+                # Auto-activate appropriate item (스톱워치 > 홀리베리어 > AI알약)
                 can_fire = ((self.last_activation_time <= 0) and allow_persistent) or self.urgent_override
 
-                # 홀리베리어 활성화 중인지 체크 (활성화 중이면 스톱워치 자동 사용 안함)
-                holy_barrier_active = False
+                # 홀리베리어 활성화 중인지 체크 (이미 활성화 중이면 스톱워치/홀리베리어 자동 사용 안함)
+                holy_barrier_already_active = False
                 try:
                     from item_effects.holy_barrier import is_holy_barrier_active
-                    holy_barrier_active = is_holy_barrier_active()
+                    holy_barrier_already_active = is_holy_barrier_active()
                 except (ImportError, Exception):
                     pass
 
-                if stopwatch_available and can_fire and not holy_barrier_active:
+                if stopwatch_available and can_fire and not holy_barrier_already_active:
                     print("🚨 스마트폰: 위험 감지! 스탑워치 자동 사용!")
                     self.activate_stopwatch(game_state, current_stage, slot_index_hint=stopwatch_slot_index)
                     self.auto_activated = True
                     # 긴급 발동 후에도 기본 쿨타임 설정
                     self.last_activation_time = self.activation_cooldown
                     self.urgent_override = False
-                elif stopwatch_available and can_fire and holy_barrier_active:
-                    print("📱 스마트폰: 홀리베리어 활성화 중 - 스톱워치 자동 사용 대기")
+                elif holy_barrier_slot_available and can_fire and not holy_barrier_already_active:
+                    print("🚨 스마트폰: 위험 감지! 홀리베리어 자동 사용!")
+                    self.activate_holy_barrier(game_state, current_stage, slot_index_hint=holy_barrier_slot_index)
+                    self.auto_activated = True
+                    self.last_activation_time = self.activation_cooldown
+                    self.urgent_override = False
+                elif (stopwatch_available or holy_barrier_slot_available) and can_fire and holy_barrier_already_active:
+                    print("📱 스마트폰: 홀리베리어 활성화 중 - 자동 사용 대기")
                 elif ai_pill_available and can_fire and SMARTPHONE_ALLOW_AI_PILL_AUTOUSE:
                     print("🚨 스마트폰: 위험 감지! AI알약 자동 사용!")
                     self.activate_ai_pill(game_state, current_stage, slot_index_hint=aipill_slot_index)
@@ -1041,6 +1055,30 @@ class Smartphone:
         else:
             print("스탑워치 함수를 찾을 수 없습니다")
             
+    def activate_holy_barrier(self, game_state, current_stage, slot_index_hint=None):
+        """홀리베리어 자동 활성화"""
+        import sys
+        main_module = sys.modules.get('__main__')
+        if main_module:
+            try:
+                from item_effects.holy_barrier import activate_holy_barrier as _activate_hb, is_holy_barrier_active
+                if not is_holy_barrier_active():
+                    WIDTH = getattr(main_module, 'WIDTH', 760)
+                    HEIGHT = getattr(main_module, 'HEIGHT', 750)
+                    _activate_hb(None, getattr(main_module, 'current_stage', None), WIDTH, HEIGHT)
+                    # 액티브 아이템 사운드 재생
+                    try:
+                        play_sound = getattr(main_module, 'play_active_item_sound', None)
+                        if callable(play_sound):
+                            play_sound()
+                    except Exception:
+                        pass
+                    self._handle_item_consumption('holy_barrier', main_module, game_state, slot_index_hint=slot_index_hint)
+            except (ImportError, Exception) as e:
+                print(f"홀리베리어 자동 활성화 실패: {e}")
+        else:
+            print("홀리베리어 함수를 찾을 수 없습니다")
+
     def activate_ai_pill(self, game_state, current_stage, slot_index_hint=None):
         """AI알약 자동 활성화"""
         # 자동 사용 비활성화: 가드 후 바로 반환 (수동 사용은 pingfighter 측 로직으로 가능)
@@ -1101,5 +1139,4 @@ def get_smartphone_instance():
     global smartphone_instance
     if smartphone_instance is None:
         smartphone_instance = Smartphone()
-    else:
-        return smartphone_instance
+    return smartphone_instance

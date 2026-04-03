@@ -147512,8 +147512,13 @@ def handle_ball():
                         (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'stopwatch'),
                         None,
                     )
+                    holy_barrier_slot_index = next(
+                        (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'holy_barrier'),
+                        None,
+                    )
                     has_stopwatch = stopwatch_slot_index is not None
-                    if has_stopwatch:
+                    has_holy_barrier = holy_barrier_slot_index is not None
+                    if has_stopwatch or has_holy_barrier:
                         PRE_ACTIVATE_MARGIN = 16  # 바닥까지 16px 남았을 때
                         MIN_PLAYABLE_MARGIN = 28  # 공 중심이 바닥에서 최소 28px 위 (민감도 상향)
                         dist_to_floor = HEIGHT - BALL.bottom
@@ -147524,7 +147529,11 @@ def handle_ball():
                                 smartphone.urgent_override = True
                             except Exception:
                                 pass
-                            smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
+                            # 스톱워치 우선, 없으면 홀리베리어
+                            if has_stopwatch:
+                                smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
+                            else:
+                                smartphone.activate_holy_barrier(phone_state, current_stage, slot_index_hint=holy_barrier_slot_index)
                             return
         except Exception as e:
             print(f"⚠️ 스마트폰 사전 발동(거리) 실패: {e}")
@@ -147580,7 +147589,12 @@ def handle_ball():
                         (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'stopwatch'),
                         None,
                     )
+                    holy_barrier_slot_index_2 = next(
+                        (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'holy_barrier'),
+                        None,
+                    )
                     has_stopwatch = stopwatch_slot_index is not None
+                    has_holy_barrier_2 = holy_barrier_slot_index_2 is not None
                     # 바닥에 거의 닿았지만 아직 약간의 여유가 있을 때만 강제 발동
                     # 너무 아래(플레이어가 닿기 힘든 위치)에서는 강제 발동하지 않음
                     SAFE_MARGIN_FROM_FLOOR = 28  # px (민감도 상향)
@@ -147596,7 +147610,7 @@ def handle_ball():
                     # X축과 Y축 모두 안전 거리 확보
                     safe_distance_ok = (x_distance > MIN_SAFE_DISTANCE) or (y_distance > MIN_SAFE_DISTANCE)
 
-                    if (not stopwatch_active) and has_stopwatch and (BALL.centery <= HEIGHT - SAFE_MARGIN_FROM_FLOOR) and activation_height_ok and safe_distance_ok:
+                    if (not stopwatch_active) and (has_stopwatch or has_holy_barrier_2) and (BALL.centery <= HEIGHT - SAFE_MARGIN_FROM_FLOOR) and activation_height_ok and safe_distance_ok:
                         # 쿨타임과 무관하게 즉시 발동하도록 플래그 설정 후 발동
                         phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
                         try:
@@ -147604,8 +147618,12 @@ def handle_ball():
                             smartphone.urgent_override = True
                         except Exception:
                             pass
-                        smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
-                        # 스톱워치 발동 후에는 패배 처리를 중단하고 한 프레임 유예
+                        # 스톱워치 우선, 없으면 홀리베리어
+                        if has_stopwatch:
+                            smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
+                        else:
+                            smartphone.activate_holy_barrier(phone_state, current_stage, slot_index_hint=holy_barrier_slot_index_2)
+                        # 발동 후에는 패배 처리를 중단하고 한 프레임 유예
                         return
         except Exception as e:
             print(f"⚠️ 스마트폰 사전 발동 실패: {e}")
