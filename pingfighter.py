@@ -151430,15 +151430,8 @@ def handle_boss_champion():
         if random.random() < 0.2:
             future_x = random.randint(BOSS.width // 2, WIDTH - BOSS.width // 2)
     else:
-        # 간단한 예측
-        future_x = BALL.centerx + ball_vel[0] * predict_frame
-        # 벽 바운스 간단 계산 (게임 영역 기준)
-        game_left = GAME_AREA_OFFSET_X
-        game_right = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
-        if future_x < game_left:
-            future_x = game_left * 2 - future_x
-        elif future_x > game_right:
-            future_x = game_right * 2 - future_x
+        # 벽 반사를 고려한 예측 (_predict_x_with_walls 통합 - 최대 4회 반사 시뮬레이션)
+        future_x = _predict_x_with_walls(float(BALL.centerx), float(ball_vel[0]), float(predict_frame))
         #  챔피언리그 난이도 조절 (8% 실수율, 최신 공 매커니즘 고려)
         champion_mistake_chance = 0.08  # 8% 실수율
         # ⚡ 파워스매싱 포물선 중: 보스 집중 → 실수율 절반
@@ -151826,66 +151819,77 @@ def handle_boss_mythic():
         wall_momentum_active = (pygame.time.get_ticks() - last_wall_collision_time < 800)
     except:
         wall_momentum_active = False
-    # 2️⃣ 다중 시나리오 시뮬레이션 (3가지 예측)
-    predictions = []
-    for scenario in range(3):
-        # 시나리오별 예측 프레임 (짧은/중간/긴 예측)
-        effective_speed = math.hypot(ball_vel[0], ball_vel[1])  # effective_speed 정의
-        if scenario == 0:
-            predict_frames = max(8, min(15, int(40 / max(1, effective_speed))))
-        elif scenario == 1:
-            predict_frames = max(12, min(25, int(FPS / max(1, effective_speed))))
-        else:
-            predict_frames = max(20, min(35, int(80 / max(1, effective_speed))))
-        # 시뮬레이션 시작
-        sim_x = BALL.centerx
-        current_impact_boost = 1.0  # current_impact_boost 초기화
-        sim_vel_x = ball_vel[0] * current_impact_boost
-        sim_vel_y = ball_vel[1] * current_impact_boost
-        # 최신 물리학 시뮬레이션
-        sim_speed = current_speed
-        for frame in range(predict_frames):
-            sim_x += sim_vel_x
-            # 벽 바운스 시뮬레이션 (관성 보존 시스템 반영)
-            if sim_x < 0 or sim_x > WIDTH:
-                if sim_x < 0:
-                    sim_x = -sim_x
-                else:
-                    sim_x = WIDTH * 2 - sim_x
-                sim_vel_x = -sim_vel_x
-                # 관성 보존 보너스 (저속일 때만, 최신 시스템)
-                if sim_speed < 12:
-                    wall_bonus = min(1.4, 1.0 + (12 - sim_speed) * 0.03)
-                    sim_speed *= wall_bonus
-            # 적응형 감속 시스템 시뮬레이션 (최신)
-            if sim_speed < 10:
-                # 저속: 감속 완화 (60% 감소)
-                adaptive_decay = 1.0 - (1.0 - 0.977) * 0.4
-            elif sim_speed < 15:
-                # 중속: 기본 감속
-                adaptive_decay = 0.977
-            else:
-                # 고속: 강화 감속
-                speed_ratio = min((sim_speed - 15) / 20, 1.0)
-                adaptive_decay = 0.977 * (1.0 + speed_ratio * 0.5)
-            sim_speed *= adaptive_decay
-            # 속도 벡터 정규화
-            current_sim_speed = math.sqrt(sim_vel_x**2 + sim_vel_y**2)
-            if current_sim_speed > 0.1:
-                scale = sim_speed / current_sim_speed
-                sim_vel_x *= scale
-                sim_vel_y *= scale
-        predictions.append(sim_x)
-    # 3️⃣ 예측값들의 가중평균 계산 (더 많은 시나리오 처리)
-    if len(predictions) >= 3:
-        weight_short = 0.5  # 짧은 예측에 높은 가중치
-        weight_medium = 0.3
-        weight_long = 0.2
-        predicted_x = (predictions[0] * weight_short + 
-                       predictions[1] * weight_medium + 
-                       predictions[2] * weight_long)
+    # 2️⃣ 다중 시나리오 시뮬레이션 (3가지 예측) - 공 속도 변경 시에만 재계산
+    # 캐시 키: 공 위치 + 속도 (정수 단위로 양자화하여 미세 변동 무시)
+    _cache_key = (int(BALL.centerx), int(ball_vel[0] * 10), int(ball_vel[1] * 10))
+    _prev_key = getattr(handle_boss_mythic, '_sim_cache_key', None)
+    if _cache_key == _prev_key and hasattr(handle_boss_mythic, '_sim_cached_predicted_x'):
+        # 공 궤적이 변하지 않았으면 캐시된 예측값 재사용
+        predicted_x = handle_boss_mythic._sim_cached_predicted_x
     else:
-        predicted_x = predictions[0] if predictions else BALL.centerx
+        # 공 속도/위치가 변했을 때만 시뮬레이션 실행
+        predictions = []
+        for scenario in range(3):
+            # 시나리오별 예측 프레임 (짧은/중간/긴 예측)
+            effective_speed = math.hypot(ball_vel[0], ball_vel[1])  # effective_speed 정의
+            if scenario == 0:
+                predict_frames = max(8, min(15, int(40 / max(1, effective_speed))))
+            elif scenario == 1:
+                predict_frames = max(12, min(25, int(FPS / max(1, effective_speed))))
+            else:
+                predict_frames = max(20, min(35, int(80 / max(1, effective_speed))))
+            # 시뮬레이션 시작
+            sim_x = BALL.centerx
+            current_impact_boost = 1.0  # current_impact_boost 초기화
+            sim_vel_x = ball_vel[0] * current_impact_boost
+            sim_vel_y = ball_vel[1] * current_impact_boost
+            # 최신 물리학 시뮬레이션
+            sim_speed = current_speed
+            for frame in range(predict_frames):
+                sim_x += sim_vel_x
+                # 벽 바운스 시뮬레이션 (관성 보존 시스템 반영)
+                if sim_x < 0 or sim_x > WIDTH:
+                    if sim_x < 0:
+                        sim_x = -sim_x
+                    else:
+                        sim_x = WIDTH * 2 - sim_x
+                    sim_vel_x = -sim_vel_x
+                    # 관성 보존 보너스 (저속일 때만, 최신 시스템)
+                    if sim_speed < 12:
+                        wall_bonus = min(1.4, 1.0 + (12 - sim_speed) * 0.03)
+                        sim_speed *= wall_bonus
+                # 적응형 감속 시스템 시뮬레이션 (최신)
+                if sim_speed < 10:
+                    # 저속: 감속 완화 (60% 감소)
+                    adaptive_decay = 1.0 - (1.0 - 0.977) * 0.4
+                elif sim_speed < 15:
+                    # 중속: 기본 감속
+                    adaptive_decay = 0.977
+                else:
+                    # 고속: 강화 감속
+                    speed_ratio = min((sim_speed - 15) / 20, 1.0)
+                    adaptive_decay = 0.977 * (1.0 + speed_ratio * 0.5)
+                sim_speed *= adaptive_decay
+                # 속도 벡터 정규화
+                current_sim_speed = math.sqrt(sim_vel_x**2 + sim_vel_y**2)
+                if current_sim_speed > 0.1:
+                    scale = sim_speed / current_sim_speed
+                    sim_vel_x *= scale
+                    sim_vel_y *= scale
+            predictions.append(sim_x)
+        # 3️⃣ 예측값들의 가중평균 계산
+        if len(predictions) >= 3:
+            weight_short = 0.5  # 짧은 예측에 높은 가중치
+            weight_medium = 0.3
+            weight_long = 0.2
+            predicted_x = (predictions[0] * weight_short +
+                           predictions[1] * weight_medium +
+                           predictions[2] * weight_long)
+        else:
+            predicted_x = predictions[0] if predictions else BALL.centerx
+        # 캐시 저장
+        handle_boss_mythic._sim_cache_key = _cache_key
+        handle_boss_mythic._sim_cached_predicted_x = predicted_x
     # 4️⃣ 최신 플레이어 패턴 분석 (동적 부스트 시스템 고려)
     player_center = PLAYER.centerx
     player_to_ball_distance = abs(player_center - BALL.centerx)
