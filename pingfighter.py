@@ -145009,15 +145009,7 @@ def handle_ball():
                         continue
                     for cell in guard_block["cells"]:
                         if BALL.colliderect(cell["rect"]):
-                            # 파워스매싱 중에는 관통: 반사/위치 보정 없이 가드 블록 증발 처리
-                            if power_smashing_parabola_active:
-                                destroy_stage7_guard_block(guard_block, by_player=(last_hit_by == "player"))
-                                try:
-                                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
-                                except Exception:
-                                    pass
-                                stage7_guard_hit = True
-                                break
+                            # 가드 블록은 파워스매싱으로도 관통 불가 — 항상 반사 처리
                             # 플레이어가 설치한 벽돌과 유사한 반사 처리:
                             # 이전 프레임 위치를 사용해 충돌 면을 판정하고 해당 축 속도를 반전.
                             cell_rect = cell["rect"]
