@@ -5764,16 +5764,26 @@ class AngelBlessing(LegendaryItem):
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
 
-        # 스테이지 변경 시 자동 주사위 굴림 (타이머 업데이트보다 먼저 체크)
+        # 스테이지 변경 시 자동 주사위 굴림 (공 생성 애니메이션 완료 후)
         current_stage = self._get_current_stage()
         just_rolled = False
         if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
             # 이미 발동된 스테이지면 스킵 (재장착 방지)
             if current_stage not in self._triggered_stages:
-                if os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1":
-                    print(f"[AngelBlessing][DEBUG] stage change detected: prev={self.applied_stage}, now={current_stage}")
-                self._roll_blessing(current_stage)
-                just_rolled = True  # 방금 롤했으면 이번 프레임에서는 타이머 업데이트 스킵
+                # 공 생성 애니메이션이 진행 중이면 대기
+                ball_anim_active = False
+                try:
+                    import sys
+                    pf = sys.modules.get("pingfighter")
+                    if pf and hasattr(pf, "is_ball_spawn_animation_paused"):
+                        ball_anim_active = pf.is_ball_spawn_animation_paused()
+                except Exception:
+                    pass
+                if not ball_anim_active:
+                    if os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1":
+                        print(f"[AngelBlessing][DEBUG] stage change detected: prev={self.applied_stage}, now={current_stage}")
+                    self._roll_blessing(current_stage)
+                    just_rolled = True
 
         # 주사위 애니메이션 타이머 업데이트 (CRITICAL: 이 로직이 없으면 애니메이션이 진행되지 않음)
         if self.roll_anim_active and not just_rolled:
