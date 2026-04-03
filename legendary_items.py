@@ -4150,13 +4150,13 @@ class AngelBlessing(LegendaryItem):
 
     @property
     def buff_level(self) -> int:
-        """버프 강도 레벨 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, Lv1~5)"""
+        """버프 강도 레벨 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
         return int(get_legendary_roll_value("angel_blessing", "buff_level", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct))
 
     @property
     def buff_multiplier(self) -> float:
-        """버프 강도 배율 (레벨에 따라 10%~50%)"""
-        return self.BUFF_LEVEL_MULTIPLIERS.get(self.buff_level, 0.30)
+        """버프 강도 배율 (레벨 × 10%, 최소 10%)"""
+        return max(0.10, self.buff_level * 0.10)
 
     def activate(self, game_state: Dict):
         """장착/획득 시 - 같은 스테이지에서는 재발동하지 않음."""
