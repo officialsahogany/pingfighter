@@ -4144,6 +4144,9 @@ class AngelBlessing(LegendaryItem):
         self.animation_speed = 8  # 라그나로크 해머와 동일
         self._load_animation_frames()
         self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+        # 버프 흡수 파티클 (주사위 종료 후 플레이어에게 날아가는 빛 알갱이)
+        self._absorb_particles: List[Dict] = []
+        self._absorb_duration = 0.8  # 흡수 애니메이션 시간 (초)
 
     @property
     def buff_level(self) -> int:
@@ -4409,6 +4412,111 @@ class AngelBlessing(LegendaryItem):
         for buff in self.active_buffs:
             self._apply_buff(buff)
 
+    # ------------------------------------------------------------------ #
+    # 버프 흡수 파티클 (주사위 종료 후 빛 알갱이 → 플레이어 흡수)
+    # ------------------------------------------------------------------ #
+    def _spawn_absorb_particles(self):
+        """버프 개수만큼 빛 알갱이 생성 (화면 중앙에서 플레이어 패들로 포물선)"""
+        import sys
+        pf = sys.modules.get("pingfighter")
+        if pf is None:
+            return
+        screen_w = getattr(pf, "WIDTH", 760)
+        screen_h = getattr(pf, "HEIGHT", 750)
+        start_x = screen_w / 2
+        start_y = screen_h / 2 - 40  # 주사위 위치 부근
+
+        count = len(self.active_buffs)
+        if count <= 0:
+            return
+
+        self._absorb_particles.clear()
+        import random
+        for i in range(count):
+            # 각 파티클에 약간 다른 시작 위치와 포물선 곡률
+            offset_x = (i - (count - 1) / 2) * 60  # 파티클 간 수평 간격
+            curve = -200 - random.randint(0, 80)  # 포물선 높이 (위로 볼록)
+            self._absorb_particles.append({
+                "start_x": start_x + offset_x,
+                "start_y": start_y,
+                "curve": curve,  # 베지어 제어점 Y 오프셋
+                "timer": 0.0,
+                "delay": i * 0.12,  # 순차 발사 딜레이
+                "trail": [],  # 잔상 좌표
+            })
+
+    def update_absorb_particles(self, dt: float):
+        """흡수 파티클 위치 업데이트 (매 프레임 호출)"""
+        if not self._absorb_particles:
+            return
+        import sys
+        pf = sys.modules.get("pingfighter")
+        if pf is None:
+            self._absorb_particles.clear()
+            return
+        player = getattr(pf, "PLAYER", None)
+        if player is None:
+            self._absorb_particles.clear()
+            return
+
+        target_x = player.centerx
+        target_y = player.centery
+
+        finished = []
+        for i, p in enumerate(self._absorb_particles):
+            p["timer"] += dt
+            t = (p["timer"] - p["delay"]) / self._absorb_duration
+            if t < 0:
+                continue  # 아직 딜레이 중
+            if t >= 1.0:
+                finished.append(i)
+                continue
+            # 2차 베지어 곡선: P0(start) → P1(control) → P2(target)
+            cx = (p["start_x"] + target_x) / 2  # 제어점 X = 중간
+            cy = p["start_y"] + p["curve"]  # 제어점 Y = 위로 볼록
+            inv = 1.0 - t
+            x = inv * inv * p["start_x"] + 2 * inv * t * cx + t * t * target_x
+            y = inv * inv * p["start_y"] + 2 * inv * t * cy + t * t * target_y
+            p["x"] = x
+            p["y"] = y
+            # 잔상 기록 (최대 8개)
+            p["trail"].append((x, y))
+            if len(p["trail"]) > 8:
+                p["trail"].pop(0)
+
+        # 도착한 파티클 제거 (역순)
+        for i in reversed(finished):
+            self._absorb_particles.pop(i)
+
+    def draw_absorb_particles(self, screen):
+        """흡수 파티클 렌더링"""
+        if not self._absorb_particles:
+            return
+        import math
+        for p in self._absorb_particles:
+            t = (p["timer"] - p["delay"]) / self._absorb_duration
+            if t < 0 or "x" not in p:
+                continue
+            x, y = int(p["x"]), int(p["y"])
+            # 잔상 (뒤로 갈수록 작고 투명)
+            for j, (tx, ty) in enumerate(p["trail"]):
+                trail_alpha = int(60 + 80 * (j / max(len(p["trail"]), 1)))
+                trail_r = max(2, 6 - j)
+                trail_surf = pygame.Surface((trail_r * 2, trail_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(trail_surf, (255, 255, 230, trail_alpha), (trail_r, trail_r), trail_r)
+                screen.blit(trail_surf, (int(tx) - trail_r, int(ty) - trail_r))
+            # 메인 빛 알갱이
+            glow_r = 12
+            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (255, 255, 200, 100), (glow_r, glow_r), glow_r)
+            pygame.draw.circle(glow_surf, (255, 255, 255, 200), (glow_r, glow_r), 6)
+            pygame.draw.circle(glow_surf, (255, 255, 255, 255), (glow_r, glow_r), 3)
+            screen.blit(glow_surf, (x - glow_r, y - glow_r))
+
+    @property
+    def has_absorb_particles(self) -> bool:
+        return bool(self._absorb_particles)
+
     def deactivate(self):
         """천사의 가호 비활성화 - 모든 버프 효과 즉시 해제
 
@@ -4431,6 +4539,7 @@ class AngelBlessing(LegendaryItem):
         self.active_buffs.clear()
         self.roll_anim_active = False
         self.waiting_for_space = False
+        self._absorb_particles.clear()
         if self.DEBUG_ENABLED: print("[AngelBlessing] 새 게임 - 발동 이력 초기화됨")
 
     def _roll_blessing(self, current_stage: int):
@@ -5620,6 +5729,8 @@ class AngelBlessing(LegendaryItem):
         if event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN):
             self.roll_anim_active = False
             self.waiting_for_space = False
+            # 버프 흡수 파티클 생성 (버프 개수만큼)
+            self._spawn_absorb_particles()
             if self.DEBUG_ENABLED: print(f"[AngelBlessing] 주사위 애니메이션 종료 - applied_stage: {self.applied_stage}")
             return True
 

@@ -164247,15 +164247,20 @@ def main(stage_num, new_boss_mode=False):
             if cleanse_skill.is_immune():
                 cleanse_skill.draw_immunity_shield(SCREEN, PLAYER.x, PLAYER.y, PLAYER.height, screen_shake_offset_x, screen_shake_offset_y, PLAYER.width)
 
-        # 😇 천사의 가호 주사위 애니메이션 그리기 (스테이지 시작 시)
+        # 😇 천사의 주사위 애니메이션 그리기 (스테이지 시작 시)
         try:
             legendary_manager = get_legendary_manager()
             if legendary_manager and "angel_blessing" in getattr(legendary_manager, "active_items", []):
                 angel_blessing = legendary_manager.get_item("angel_blessing")
-                if angel_blessing and getattr(angel_blessing, "roll_anim_active", False):
-                    angel_blessing.draw_roll_animation(SCREEN)
-        except Exception as e:
-            pass  # 천사의 가호 애니메이션 오류 무시
+                if angel_blessing:
+                    if getattr(angel_blessing, "roll_anim_active", False):
+                        angel_blessing.draw_roll_animation(SCREEN)
+                    # 버프 흡수 파티클 업데이트 + 렌더링
+                    if getattr(angel_blessing, "has_absorb_particles", False):
+                        angel_blessing.update_absorb_particles(clock.get_time() / 1000.0)
+                        angel_blessing.draw_absorb_particles(SCREEN)
+        except Exception:
+            pass
 
         # 📦 탄약상자 효과 그리기
         ammo_box = get_ammo_box_instance()
