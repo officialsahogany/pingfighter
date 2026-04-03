@@ -5639,7 +5639,7 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
             "cost": 50,
             "symbol": "x2",
         })
-    _jetpack_enhance_lv = runtime_skill_levels.get("jetpack_enhance", 0)
+    _jetpack_enhance_lv = get_runtime_skill_level("jetpack_enhance")
     if _jetpack_enhance_lv > 0:
         viper_perks.append({
             "name": "jetpack_enhance",
@@ -12574,9 +12574,7 @@ def recalculate_transcendent_crown_effects():
     # 신속 스킬 효과 재계산
     if runtime_skill_levels.get("common_swiftness", 0) > 0:
         effective_level = get_runtime_skill_level("common_swiftness")
-        old_bonus = runtime_swiftness_bonus
         runtime_swiftness_bonus = effective_level * 0.05
-        print(f"[DEBUG 신속] base_lv={runtime_skill_levels.get('common_swiftness',0)}, crown_bonus={transcendent_crown_skill_bonus}, sage_bonus={sage_ring_perk_bonus}, effective_lv={effective_level}, swiftness_bonus: {old_bonus:.2f} -> {runtime_swiftness_bonus:.2f}")
 
     # 확장 스킬 효과 재계산
     if runtime_skill_levels.get("common_expansion", 0) > 0:
@@ -15209,7 +15207,6 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         global runtime_swiftness_bonus
         effective_level = get_runtime_skill_level("common_swiftness")  # 초월자의 관 보너스 포함
         runtime_swiftness_bonus = effective_level * 0.05  # 레벨당 5%
-        print(f"[DEBUG 신속 레벨업] base_lv={runtime_skill_levels.get('common_swiftness',0)}, crown={transcendent_crown_skill_bonus}, sage={sage_ring_perk_bonus}, effective={effective_level}, bonus={runtime_swiftness_bonus:.2f}")
 
     # 확장: 장신구 슬롯 보너스 즉시 적용 (초월자의 관 보너스 포함)
     if choice_id == "common_expansion":
@@ -48473,17 +48470,17 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     _viper_ss_ball_touched = True
     _viper_ss_ball_touched_ms = pygame.time.get_ticks()
 
-    # 공속 증가 (킥 강화 퍽 공속 보너스 적용: +5%/LV)
-    _ss_kick_lv = runtime_skill_levels.get("kick_enhance", 0)
-    _ss_speed_bonus = 1.0 + _ss_kick_lv * 0.05  # LV.0=1.0, LV.5=1.25
+    # 공속 증가 (킥 강화 퍽 공속 보너스 적용: +5%/LV, 초월자의 관/현자의 반지 보너스 포함)
+    _ss_kick_lv = get_runtime_skill_level("kick_enhance")
+    _ss_speed_bonus = 1.0 + _ss_kick_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
     cur_speed = math.hypot(ball_vel[0], ball_vel[1])
     new_speed = max(cur_speed * speed_mult * _ss_speed_bonus, 10.0)
     _viper_speed_boost_active = True
     _viper_speed_boost_original = cur_speed
-    # 랜덤 발사각 (킥 강화 퍽 정밀도 반영: LV.0=0.2, LV.5=1.0)
-    # base_bias + (1.0 - base_bias) × (level / 5)
+    # 랜덤 발사각 (킥 강화 퍽 정밀도 반영: LV.0=0.2, LV.5+=1.0)
+    # base_bias + (1.0 - base_bias) × min(level / 5, 1.0)
     _ss_base_bias = 0.2  # 쉐도우 백스텝 기본 회피 편향
-    _ss_bias = _ss_base_bias + (1.0 - _ss_base_bias) * (_ss_kick_lv / 5.0)
+    _ss_bias = _ss_base_bias + (1.0 - _ss_base_bias) * min(_ss_kick_lv / 5.0, 1.0)
     _ss_random_angle = random.uniform(-55, 55)  # 순수 랜덤 각도
     _ss_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
     _ss_boss_dx = _ss_boss_cx - BALL.centerx
@@ -48657,8 +48654,8 @@ _VIPER_JETPACK_MAX_HOLD_FRAMES = 180    # 최대 체공 시간 (3초 = 180프레
 _viper_jetpack_hold_timer = 0           # 연속 체공 타이머
 
 def _get_viper_jetpack_max_hold():
-    """제트팩 강화 퍽 레벨에 따른 실제 최대 체공 프레임 계산 (레벨당 +20%)"""
-    level = runtime_skill_levels.get("jetpack_enhance", 0)
+    """제트팩 강화 퍽 레벨에 따른 실제 최대 체공 프레임 계산 (레벨당 +20%, 초월자의 관/현자의 반지 보너스 포함)"""
+    level = get_runtime_skill_level("jetpack_enhance")
     return int(_VIPER_JETPACK_MAX_HOLD_FRAMES * (1.0 + level * 0.2))
 _viper_jetpack_overheat = False         # 과열 상태 (강제 하강 중)
 _viper_jetpack_snd_channel = None       # 제트팩 사운드 채널 (루프 재생 관리)
@@ -53369,7 +53366,7 @@ def activate_strange_vial(duration_frames: int | None = None, *, play_sound: boo
     except (ImportError, AttributeError):
         pass
     try:
-        runtime_level = runtime_skill_levels.get("item_caffeine", 0)
+        runtime_level = get_runtime_skill_level("item_caffeine")
         if runtime_level > 0:
             runtime_bonus = runtime_level * 0.25
             frames = int(frames * (1 + runtime_bonus))
@@ -73200,9 +73197,9 @@ def handle_player(keys):
                     if _viper_ss_was_airborne and not _viper_is_double_marshal:
                         _viper_marshal_kick_hit_ball = True
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
-                    # 공을 위로 강하게 반사 + 속도 증가 (킥 강화 퍽 공속 보너스: +5%/LV)
-                    _mk_kick_lv = runtime_skill_levels.get("kick_enhance", 0)
-                    _mk_speed_bonus = 1.0 + _mk_kick_lv * 0.05  # LV.0=1.0, LV.5=1.25
+                    # 공을 위로 강하게 반사 + 속도 증가 (킥 강화 퍽 공속 보너스: +5%/LV, 초월자의 관/현자의 반지 보너스 포함)
+                    _mk_kick_lv = get_runtime_skill_level("kick_enhance")
+                    _mk_speed_bonus = 1.0 + _mk_kick_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
                     # 2차 마샬 킥이면 180% 증가(2.8x), 1차는 100% 증가(2.0x)
                     if _viper_is_double_marshal:
@@ -73211,11 +73208,11 @@ def handle_player(keys):
                         _wd_new_spd = max(_wd_cur_spd * 2.0 * _mk_speed_bonus, 11.0)  # 100% 증가 + 퍽 보너스
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
-                    # 랜덤 발사각 (킥 강화 퍽 정밀도 반영: LV.0=base, LV.5=1.0)
-                    # base_bias + (1.0 - base_bias) × (level / 5)
+                    # 랜덤 발사각 (킥 강화 퍽 정밀도 반영: LV.0=base, LV.5+=1.0)
+                    # base_bias + (1.0 - base_bias) × min(level / 5, 1.0)
                     import random as _mk_rand
                     _mk_base_bias = 0.8 if _viper_is_double_marshal else 0.5
-                    _mk_bias = _mk_base_bias + (1.0 - _mk_base_bias) * (_mk_kick_lv / 5.0)
+                    _mk_bias = _mk_base_bias + (1.0 - _mk_base_bias) * min(_mk_kick_lv / 5.0, 1.0)
                     _mk_random_angle = _mk_rand.uniform(-55, 55)  # 순수 랜덤 각도
                     _mk_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
                     _mk_boss_dx = _mk_boss_cx - BALL.centerx
@@ -73476,7 +73473,7 @@ def handle_player(keys):
             if _viper_jetpack_overheat:
                 _viper_jetpack_overheat = False
             if _viper_jetpack_hold_timer > 0 and not _viper_jetpack_active:
-                _jp_recharge_rate = 0.5 * (1.0 + runtime_skill_levels.get("jetpack_enhance", 0) * 0.2)  # 퍽 레벨당 충전속도 +20%
+                _jp_recharge_rate = 0.5 * (1.0 + get_runtime_skill_level("jetpack_enhance") * 0.2)  # 퍽 레벨당 충전속도 +20% (초월자의 관/현자의 반지 보너스 포함)
                 _viper_jetpack_hold_timer = max(0, _viper_jetpack_hold_timer - _jp_recharge_rate)
 
         # PLAYER rect Y 위치 적용 (물리 판정에 반영)
@@ -77413,8 +77410,6 @@ def handle_player(keys):
             speed_multiplier = (1.0 + PERMANENT_SPEED_BOOST) if speedboots_obtained else 1.0
 
             # 신속 스킬 효과 적용 (레벨당 5% 증가)
-            if runtime_swiftness_bonus > 0 and frame_count % 300 == 0:  # 5초마다 한번씩만 출력
-                print(f"[DEBUG 이동] runtime_swiftness_bonus={runtime_swiftness_bonus:.2f}, speed_mult_before={speed_multiplier:.2f}")
             speed_multiplier *= (1.0 + runtime_swiftness_bonus)
 
             # 헤르메스의 신발 효과 적용 (롤옵션: 30~60% 증가)
