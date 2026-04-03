@@ -177,7 +177,7 @@
   "item.commando_arm.desc": "Commando Arm: A veteran commando's gauntlet. Skip preparation for throwables and handle defensive items more skillfully.",
   "item.stopwatch.desc": "Stopwatch: Distorts time to freeze ball movement temporarily.",
   "item.repair_kit.desc": "Repair Kit: Instantly repairs Baltor's turret, divine stones, and placed bricks, removing overheat.",
-  "item.devil_dice.desc": "Devil's Dice: Randomly changes all stats. The outcome is up to fate.",
+  "item.devil_dice.desc": "Devil's Dice: Permanently adjusts 7 stats by -10% to +10% each use. Effects stack. (Move Speed/Body Size/Gauge Gain/Dash Distance/Dash Recovery/Dash Cooldown/Item Cooldown)",
   "item.technical_vest.desc": "Technical Vest: Has a chance to emit smoke on ball contact. Smoke blocks various boss skills.",
   "item.fuel_pouch.desc": "Fuel Pouch: Increases maximum gauge capacity.",
   "item.bluetooth_ring.desc": "Bluetooth Ring: Increases gauge gained when hitting the ball.",

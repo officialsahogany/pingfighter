@@ -2562,7 +2562,8 @@ from item_effects.devil_dice import (
     update_devil_dice,
     draw_devil_dice_effects,
     get_devil_dice_multipliers,
-    is_devil_dice_active
+    is_devil_dice_active,
+    get_devil_dice_permanent_bonuses
 )
 from item_effects.technical_vest import (
     activate_technical_vest,
@@ -11638,11 +11639,11 @@ def get_max_gauge():
     fuel_pouch_bonus = get_fuel_pouch_gauge_bonus()
     base_max = base_max + fuel_pouch_bonus
     
-    #  악마의 주사위 스킬 게이지 배율 적용
-    from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-    if is_devil_dice_active():
-        multipliers = get_devil_dice_multipliers()
-        base_max = int(base_max * multipliers['skill_gauge'])
+    # 😈 악마의 주사위 게이지 영구 배율 적용
+    from item_effects.devil_dice import get_devil_dice_multipliers
+    _dd_gauge_mult = get_devil_dice_multipliers().get('skill_gauge', 1.0)
+    if _dd_gauge_mult != 1.0:
+        base_max = int(base_max * _dd_gauge_mult)
 
     # 옵티머스: 스테이지 진행 중 최대 게이지가 서서히 감소
     if globals().get('selected_character_type') == "optimus":
@@ -59163,27 +59164,13 @@ def apply_effect(effect_name, item_data=None):
     elif effect_name == "dashgear":  #  대쉬기어 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
         # 대쉬기어는 store_passive_item에서 처리됨
         pass
-    elif effect_name == "devil_dice":  #  악마의 주사위 아이템 활성화
+    elif effect_name == "devil_dice":  # 😈 악마의 주사위 아이템 활성화 (영구 스탯 조정)
         from item_effects.devil_dice import activate_devil_dice
-        # 게임 상태 정보 수집
         dice_state = {
             'paddle_width': PADDLE_WIDTH,
             'skill_gauge_max': get_max_gauge(),
         }
-        # 악마의 주사위 발동
-        multipliers = activate_devil_dice(dice_state, current_stage)
-        # 가로형 게이지 스택 등록 (비타민/거대화포션과 동일 룩/위치)
-        try:
-            _hg_on_activate('devil_dice')
-        except Exception:
-            pass
-        print("! 6   !")
-        print(f"   : x{multipliers['paddle_size']:.1f}")
-        print(f"   : x{multipliers['skill_gauge']:.1f}")
-        print(f"   : x{multipliers['item_spawn']:.1f}")
-        print(f"아이템 쿨타임: x{multipliers['item_cooldown']:.1f}")
-        print(f"  / : x{multipliers['dash_cost']:.1f}")
-        print(f"   : x{multipliers['dash_cooldown']:.1f}")
+        activate_devil_dice(dice_state, current_stage)
     elif effect_name == "ammo_box":  # 📦 탄약상자 아이템 활성화
         ammo_box = get_ammo_box_instance()
         if ammo_box:
@@ -72078,6 +72065,12 @@ def handle_player(keys):
         skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
         # 👁 오딘의 눈: 변신 상태 대쉬 거리 50% 증가
         skill_distance_boost *= _get_odin_dash_distance_mult()
+        # 😈 악마의 주사위 대쉬거리 영구 배율
+        try:
+            _dd_mults = get_devil_dice_multipliers()
+            skill_distance_boost *= _dd_mults.get('dash_distance', 1.0)
+        except Exception:
+            pass
         set_roll("rolling_timer", int(skill_distance_boost))
         # 연속대쉬 타이밍 계산을 위해 초기 타이머 및 시작 시간 저장
         globals()["_dash_initial_timer"] = int(skill_distance_boost)
@@ -75272,9 +75265,16 @@ def handle_player(keys):
                         from item_effects.dash_boost import get_dash_cooldown_multiplier
                         cooldown_multiplier = get_dash_cooldown_multiplier()
                         if cooldown_multiplier < 1.0:
-                            # 대쉬부스트 활성화 시 후딜 시간도 99% 감소
                             final_stun_time = max(1, int(final_stun_time * cooldown_multiplier))
                     except ImportError:
+                        pass
+                    # 😈 악마의 주사위 대쉬후딜 영구 배율
+                    try:
+                        _dd_mults = get_devil_dice_multipliers()
+                        _dd_recovery = _dd_mults.get('dash_recovery', 1.0)
+                        if _dd_recovery != 1.0:
+                            final_stun_time = max(1, int(final_stun_time * _dd_recovery))
+                    except Exception:
                         pass
 
                     _rolling_set("rolling_stun_timer", final_stun_time)
@@ -102116,144 +102116,12 @@ def draw_player_gauge():
         if _hg_index('adversity_armor') != -1:
             _hg_on_deactivate('adversity_armor')
 
-    #  악마의 주사위 지속시간 게이지 (가로형, 비타민/거대화포션과 동일 스타일)
-    try:
-        from item_effects.devil_dice import is_devil_dice_active, get_devil_dice_duration_ratio
-        dd_active_flag = is_devil_dice_active()
-    except Exception:
-        dd_active_flag = False
-    # 비활성 시 스택 정리
-    if not dd_active_flag and _hg_index('devil_dice') != -1:
+    # 😈 악마의 주사위 - 영구 아이템이므로 지속시간 게이지 없음 (HUD 게이지 스택에서 제거)
+    if _hg_index('devil_dice') != -1:
         try:
             _hg_on_deactivate('devil_dice')
         except Exception:
             pass
-    if dd_active_flag:
-        v_width = 150
-        v_height = 12
-        base_x = WIDTH - v_width - 16
-        base_y = HEIGHT - 28
-        idx = _hg_index('devil_dice')
-        if idx < 0:
-            _hg_on_activate('devil_dice')
-            idx = _hg_index('devil_dice')
-        spacing = 18
-        dd_x = base_x
-        dd_y = base_y - max(0, idx) * spacing
-        hg_stack_any = True
-        hg_top_y = min(hg_top_y, dd_y)
-
-        try:
-            duration_ratio = get_devil_dice_duration_ratio()
-        except Exception:
-            duration_ratio = 0.0
-        remaining_seconds = max(0.0, duration_ratio * 30.0)
-
-        outer_rect = pygame.Rect(dd_x - 5, dd_y - 6, v_width + 10, v_height + 12)
-        mid_rect   = pygame.Rect(dd_x - 3, dd_y - 4, v_width + 6,  v_height + 8)
-        frame_rect = pygame.Rect(dd_x - 2, dd_y - 2, v_width + 4,  v_height + 4)
-        inner_rect = pygame.Rect(dd_x,     dd_y,     v_width,      v_height)
-
-        shadow_surf = pygame.Surface((outer_rect.width, outer_rect.height), pygame.SRCALPHA)
-        pygame.draw.rect(shadow_surf, (0, 0, 0, 70), shadow_surf.get_rect(), border_radius=8)
-        SCREEN.blit(shadow_surf, (outer_rect.x, outer_rect.y))
-
-        # 다크 레드 계열의 메탈릭 프레임
-        draw.rect((16, 16, 22), outer_rect, border_radius=8)
-        draw.rect((100, 30, 40), mid_rect, border_radius=7)
-        draw.rect((180, 60, 70), mid_rect, 2, border_radius=7)
-        draw.rect((24, 20, 24), frame_rect, border_radius=6)
-
-        inner_shadow = pygame.Surface((inner_rect.width, inner_rect.height), pygame.SRCALPHA)
-        for i in range(4):
-            alpha = 40 - i * 8
-            pygame.draw.rect(inner_shadow, (0, 0, 0, alpha), (0, i, inner_rect.width, 1))
-        SCREEN.blit(inner_shadow, (inner_rect.x, inner_rect.y))
-
-        fill_w = max(1, int((v_width - 4) * duration_ratio))
-        if fill_w > 0:
-            if remaining_seconds > 20.0:
-                base = (190, 40, 50)
-                hi = (230, 90, 100)
-                timer_color = (245, 180, 190)
-            elif remaining_seconds > 10.0:
-                base = (220, 90, 60)
-                hi = (245, 140, 100)
-                timer_color = (255, 200, 170)
-            else:
-                p = abs(math.sin(pygame.time.get_ticks() * 0.015))
-                base = (255, int(70 + 90 * p), int(70 + 90 * p))
-                hi = (255, int(120 + 70 * p), int(120 + 70 * p))
-                timer_color = (255, 210, 200)
-
-            fill_rect = pygame.Rect(dd_x + 2, dd_y + 2, fill_w, v_height - 4)
-            grad = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
-            for x in range(fill_rect.width):
-                t = x / max(1, fill_rect.width - 1)
-                col = (
-                    int(base[0] + (hi[0] - base[0]) * t),
-                    int(base[1] + (hi[1] - base[1]) * t),
-                    int(base[2] + (hi[2] - base[2]) * t),
-                    255,
-                )
-                pygame.draw.line(grad, col, (x, 0), (x, fill_rect.height - 1))
-            mask = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
-            pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=3)
-            grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            SCREEN.blit(grad, (fill_rect.x, fill_rect.y))
-
-            pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
-            glow = (
-                int(hi[0] * (0.6 + 0.4 * pulse)),
-                int(hi[1] * (0.6 + 0.4 * pulse)),
-                int(hi[2] * (0.6 + 0.4 * pulse)),
-            )
-            draw.rect(glow, (dd_x + 2, dd_y + 2, fill_w, 2), border_radius=2)
-
-            tick_color = (170, 170, 180)
-            for i in range(1, 10):
-                tx = dd_x + 2 + int((v_width - 4) * (i / 10))
-                pygame.draw.line(SCREEN, tick_color, (tx, dd_y + v_height - 4), (tx, dd_y + v_height - 1), 1)
-
-            end_x = dd_x + 2 + fill_w
-            if 2 < fill_w < (v_width - 4):
-                glint = pygame.Surface((8, v_height), pygame.SRCALPHA)
-                pygame.draw.line(glint, (255, 255, 255, 120), (0, 0), (0, v_height - 3), 2)
-                SCREEN.blit(glint, (end_x - 1, dd_y + 2))
-
-        # 주사위 '굴러가는' 느낌의 엠블럼: 크기 고정 + 회전/살짝 흔들림
-        dd_emblem_base = int(v_height * 1.6)
-        dd_emblem_size = max(8, dd_emblem_base)
-        dd_emblem_x = dd_x - dd_emblem_size - 6
-        dd_emblem_y = dd_y + (v_height - dd_emblem_size) // 2
-        dd_icon = get_item_icon("devil_dice")
-        if dd_icon:
-            # 회전 캐시 (각도 15° 스텝)
-            global _hg_rot_cache
-            if '_hg_rot_cache' not in globals():
-                _hg_rot_cache = {}
-            rot_map = _hg_rot_cache.setdefault('devil_dice', {})
-            # 기본 스케일 캐시
-            if 'base' not in rot_map or rot_map.get('base_size') != dd_emblem_size:
-                rot_map['base'] = pygame.transform.smoothscale(dd_icon, (dd_emblem_size, dd_emblem_size))
-                rot_map['base_size'] = dd_emblem_size
-                # 기존 회전 프레임 초기화
-                for k in [k for k in rot_map.keys() if isinstance(k, int)]:
-                    rot_map.pop(k, None)
-            # 시간 기반 회전 각도
-            angle_raw = (pygame.time.get_ticks() * 0.25) % 360.0  # 초당 90°
-            angle_step = int(angle_raw // 15) * 15
-            if angle_step not in rot_map:
-                rot_map[angle_step] = pygame.transform.rotate(rot_map['base'], -angle_step)
-            rotated = rot_map[angle_step]
-            # 굴림에 따른 미세한 좌우/상하 흔들림
-            roll_dx = int(2 * math.sin(math.radians(angle_raw)))
-            roll_dy = int(1 * math.cos(math.radians(angle_raw * 0.5)))
-            rot_rect = rotated.get_rect(center=(dd_emblem_x + dd_emblem_size // 2 + roll_dx,
-                                                dd_emblem_y + dd_emblem_size // 2 + roll_dy))
-            SCREEN.blit(rotated, rot_rect.topleft)
-
-        # 숫자 남은시간 표시는 제거 (요청사항)
 
     # 레이저스코프 가로 게이지 그리기
     if is_laser_scope_active():
@@ -161234,14 +161102,10 @@ def main(stage_num, new_boss_mode=False):
         if profiler:
             profiler.end_section("Events")
             profiler.start_section("GameLogic")
-        #  악마의 주사위 업데이트 (일시정지와 무관하게 항상 실행)
-        from item_effects.devil_dice import update_devil_dice, is_devil_dice_active, is_devil_dice_rolling, deactivate_devil_dice
-        if is_devil_dice_active():
+        # 😈 악마의 주사위 애니메이션 업데이트 (영구 아이템 - 애니메이션 중에만 호출)
+        from item_effects.devil_dice import update_devil_dice, is_devil_dice_rolling
+        if is_devil_dice_rolling():
             update_devil_dice(current_stage)
-            # 악마의주사위 상태에서 내 연막탄 연막에 닿으면 즉시 해제
-            if not is_devil_dice_rolling() and is_player_in_smoke():
-                deactivate_devil_dice()
-                print("연막에 의해 악마의 주사위 효과가 해제되었습니다!")
 
         # ✨ 스매셔 클렌즈 스킬 업데이트 - 공 생성 애니메이션 중 일시정지
         if selected_character_type == "smasher" and not is_ball_spawn_animation_paused():
@@ -166871,6 +166735,14 @@ def show_character_info(background_surface=None):
         if strange_vial_active and strange_vial_speed_mult != 1.0:
             move_speed *= strange_vial_speed_mult
 
+        # 😈 악마의 주사위 이동속도 영구 배율 반영
+        try:
+            from item_effects.devil_dice import get_devil_dice_multipliers
+            _dd_mults = get_devil_dice_multipliers()
+            move_speed *= _dd_mults.get('player_speed', 1.0)
+        except Exception:
+            pass
+
         # 👁 오딘의 눈: 변신 상태 이동속도 페널티 반영 (-50%)
         try:
             _mgr = get_legendary_manager()
@@ -166907,6 +166779,13 @@ def show_character_info(background_surface=None):
         dash_distance_now = estimate_dash_distance(dash_timer_with_gear)
         # 👁 오딘의 눈: 변신 상태 대쉬 거리 50% 증가 반영
         dash_distance_now *= _get_odin_dash_distance_mult()
+        # 😈 악마의 주사위 대쉬거리 영구 배율 반영
+        try:
+            from item_effects.devil_dice import get_devil_dice_multipliers
+            _dd_mults = get_devil_dice_multipliers()
+            dash_distance_now *= _dd_mults.get('dash_distance', 1.0)
+        except Exception:
+            pass
 
         base_paddle = float(globals().get("PADDLE_BASE_WIDTH", 155))
         def get_effective_paddle_width() -> float:
@@ -166995,10 +166874,10 @@ def show_character_info(background_surface=None):
                     is_devil_dice_active,
                 )
 
-                if is_devil_dice_active():
-                    multipliers = get_devil_dice_multipliers()
-                    paddle_charge_multiplier = multipliers.get("paddle_gauge_charge", 1.0)
-                    current_gain = int(current_gain * paddle_charge_multiplier)
+                multipliers = get_devil_dice_multipliers()
+                gauge_multiplier = multipliers.get("skill_gauge", 1.0)
+                if gauge_multiplier != 1.0:
+                    current_gain = int(current_gain * gauge_multiplier)
             except Exception:
                 pass
             return base_gain, int(current_gain)
@@ -167019,6 +166898,13 @@ def show_character_info(background_surface=None):
                 if is_dash_boost_active():
                     from item_effects.dash_boost import get_dash_cooldown_multiplier
                     current_stun_frames = max(1, int(current_stun_frames * get_dash_cooldown_multiplier()))
+            except Exception:
+                pass
+            # 😈 악마의 주사위 대쉬후딜 영구 배율 반영
+            try:
+                from item_effects.devil_dice import get_devil_dice_multipliers
+                _dd_mults = get_devil_dice_multipliers()
+                current_stun_frames = max(1, int(current_stun_frames * _dd_mults.get('dash_recovery', 1.0)))
             except Exception:
                 pass
             fps_value = float(globals().get("FPS", 60))
@@ -167150,6 +167036,13 @@ def show_character_info(background_surface=None):
                     odins_eye = legendary_manager.get_item("odins_eye")
                     if odins_eye and odins_eye.active and odins_eye.penalty_active:
                         current_frames = int(current_frames * odins_eye.get_dash_cooldown_multiplier())
+            except Exception:
+                pass
+            # 😈 악마의 주사위 대쉬쿨타임 영구 배율 반영
+            try:
+                from item_effects.devil_dice import get_devil_dice_multipliers
+                _dd_mults = get_devil_dice_multipliers()
+                current_frames = max(1, int(current_frames * _dd_mults.get('dash_cooldown', 1.0)))
             except Exception:
                 pass
             fps_value = float(globals().get("FPS", 60) or 60)
