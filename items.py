@@ -1513,6 +1513,16 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None
     },
+    {
+        "name": "dowsing_goggles",  # 다우징 고글 패시브 아이템
+        "color": (60, 200, 180),  # 청록색 (탐지 장비 느낌)
+        "effect": "dowsing_goggles",
+        "icon": None,
+        "chance": 0.005,  # 희귀 패시브 기본 확률
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "head"
+    },
     # 전설 아이템 (필드 스폰 가능)
     {
         "name": "ragnarok_hammer",  # 라그나로크 해머 전설 아이템
@@ -1911,6 +1921,7 @@ shrapnel_armor_obtained = False  # 파편갑옷 아이템 획득 여부
 soul_burst_obtained = False  # 소울버스트 아이템 획득 여부
 sage_ring_obtained = False  # 현자의 반지 아이템 획득 여부
 venom_mist_gauntlet_obtained = False  # 독안개장갑 아이템 획득 여부
+dowsing_goggles_obtained = False  # 다우징고글 아이템 획득 여부
 
 
 active_item_slot = None
@@ -1999,6 +2010,7 @@ unlocked_items = {
     "strange_vial": True,  # 기묘한 약병
     "sage_ring": True,  # 현자의 반지
     "venom_mist_gauntlet": True,  # 독안개장갑 (바이퍼 전용)
+    "dowsing_goggles": True,  # 다우징고글
     "elixir_of_mastery": True  # 엘릭서 오브 마스터리 (신화급 액티브)
 }
 
@@ -2019,7 +2031,8 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "shrapnel_armor",
     "soul_burst",
     "sage_ring",
-    "venom_mist_gauntlet"
+    "venom_mist_gauntlet",
+    "dowsing_goggles"
 }
 
 
@@ -2091,6 +2104,16 @@ def reset_items():
 
     global venom_mist_gauntlet_obtained
     venom_mist_gauntlet_obtained = False  # venom_mist_gauntlet 획득 상태 초기화
+
+    global dowsing_goggles_obtained
+    dowsing_goggles_obtained = False  # dowsing_goggles 획득 상태 초기화
+
+    # 다우징고글 효과 리셋
+    try:
+        from item_effects.dowsing_goggles import reset_all as _dg_reset
+        _dg_reset()
+    except Exception:
+        pass
 
     # 독안개장갑 효과 리셋
     try:
@@ -2297,6 +2320,9 @@ def spawn_random_item():
         if item["name"] == "sage_ring" and sage_ring_obtained and not _allow_duplicate_passive("sage_ring"):
             continue
 
+        if item["name"] == "dowsing_goggles" and dowsing_goggles_obtained and not _allow_duplicate_passive("dowsing_goggles"):
+            continue
+
         if item["name"] == "venom_mist_gauntlet" and venom_mist_gauntlet_obtained and not _allow_duplicate_passive("venom_mist_gauntlet"):
             continue
 
@@ -2354,7 +2380,7 @@ def spawn_random_item():
         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy",
         "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
         "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
-        "venom_mist_gauntlet"
+        "venom_mist_gauntlet", "dowsing_goggles"
     }
 
     for item in available_items:
@@ -2476,6 +2502,15 @@ def spawn_random_item():
                 odins_eye = legendary_manager.get_item("odins_eye")
                 if not odins_eye:
                     # 인스턴스가 없으면 초기화만 함 (activate 호출 안 함)
+                    legendary_manager._init_legendary_items()
+
+        # 판도라의 유산이 스폰되면 애니메이션을 위해 인스턴스만 준비 (효과는 적용하지 않음)
+        if selected_item["name"] == "pandora_legacy":
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                pandora = legendary_manager.get_item("pandora_legacy")
+                if not pandora:
                     legendary_manager._init_legendary_items()
 
         # 신성 월계수도 동일하게 초기화만 수행해 아이콘 애니메이션이 가능하도록 함
@@ -2624,7 +2659,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {
