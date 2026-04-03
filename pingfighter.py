@@ -108857,7 +108857,10 @@ def draw_objects():
         boss_img = draw_aircraft_carrier_boss(boss_current_speed, BOSS.x)
         boss_w, boss_h = 100, 90  # 건담 스타일 전투 로봇 (인간형 비율)
     elif current_stage == 40:
-        # ── 온라인 멀티플레이: 상대 캐릭터 패들 (애니메이션 상태 반영 + Y축 반전) ──
+        # ── 온라인 멀티플레이: 상대 캐릭터 패들 (앞모습 = 정면) ──
+        # 투기장과 동일: 하단=뒷모습(up), 상단=앞모습(down)
+        # 뒷모습 서피스를 가져온 뒤 Y축 flip → 대략적 앞모습
+        # + 정면 디테일(눈/바이저) 오버레이
         _mp_opp_char = online_p2_character if online_multiplayer_enabled else "ufo_player"
         _mp_char_map = {
             "ufo_player": "smasher", "soldier": "soldier",
@@ -108876,13 +108879,10 @@ def draw_objects():
                     _mp_src = SMASHER_PADDLE_IMG if SMASHER_PADDLE_IMG else create_smasher_paddle_surface()
 
             elif _mp_opp_type == "soldier":
-                if _mp_anim == 'walking':
-                    _mp_src = create_soldier_paddle_walking() if 'create_soldier_paddle_walking' in dir() else create_soldier_paddle_surface()
-                elif _mp_anim == 'swing':
-                    _mp_src = create_soldier_paddle_animated() if 'create_soldier_paddle_animated' in dir() else create_soldier_paddle_surface()
-                elif _mp_anim == 'slingshot':
-                    _mp_src = create_soldier_paddle_surface(include_right_arm=False, include_left_arm=False)
-                else:
+                # 코만도는 전용 앞모습 함수 사용
+                try:
+                    _mp_src = create_soldier_front_view()
+                except Exception:
                     _mp_src = SOLDIER_PADDLE_IMG if SOLDIER_PADDLE_IMG else create_soldier_paddle_surface()
 
             elif _mp_opp_type == "blacksmith":
@@ -108928,8 +108928,43 @@ def draw_objects():
             _mp_src = None
 
         if _mp_src is not None:
-            # Y축 반전 (캐릭터가 아래를 바라보도록)
-            boss_img = pygame.transform.flip(_mp_src, False, True)
+            if _mp_opp_type == "soldier":
+                # 코만도 앞모습은 이미 정면이므로 flip 불필요, 크기만 맞춤
+                boss_img = pygame.transform.scale(_mp_src, (BOSS.width + 40, BOSS.height + 40))
+            else:
+                # 다른 캐릭터: Y축 반전 후 정면 디테일 오버레이
+                boss_img = pygame.transform.flip(_mp_src, False, True)
+                # 정면 디테일: 캐릭터별 눈/바이저/얼굴 추가
+                _bw, _bh = boss_img.get_width(), boss_img.get_height()
+                _head_cx = _bw // 2
+                # 머리 Y 위치: flip 후 머리가 하단에 위치 (원본에서 상단→flip 후 하단)
+                _head_cy = int(_bh * 0.65)
+                if _mp_opp_type == "smasher":
+                    # 스매셔: 바이저 눈 (시안색 T자 바이저)
+                    pygame.draw.rect(boss_img, (0, 220, 255), (_head_cx - 12, _head_cy - 3, 24, 6))
+                    pygame.draw.rect(boss_img, (0, 180, 220), (_head_cx - 3, _head_cy - 3, 6, 12))
+                    # 바이저 글로우
+                    _visor_glow = pygame.Surface((30, 12), pygame.SRCALPHA)
+                    pygame.draw.rect(_visor_glow, (0, 255, 255, 40), (0, 0, 30, 12))
+                    boss_img.blit(_visor_glow, (_head_cx - 15, _head_cy - 6))
+                elif _mp_opp_type == "viper":
+                    # 바이퍼: 날카로운 시안색 눈
+                    pygame.draw.polygon(boss_img, (0, 255, 200), [
+                        (_head_cx - 10, _head_cy), (_head_cx - 4, _head_cy - 3), (_head_cx - 4, _head_cy + 3)])
+                    pygame.draw.polygon(boss_img, (0, 255, 200), [
+                        (_head_cx + 10, _head_cy), (_head_cx + 4, _head_cy - 3), (_head_cx + 4, _head_cy + 3)])
+                elif _mp_opp_type == "blacksmith":
+                    # 발토르: 주황색 고글/눈
+                    pygame.draw.circle(boss_img, (255, 160, 30), (_head_cx - 7, _head_cy), 4)
+                    pygame.draw.circle(boss_img, (255, 160, 30), (_head_cx + 7, _head_cy), 4)
+                    pygame.draw.circle(boss_img, (255, 220, 100), (_head_cx - 7, _head_cy), 2)
+                    pygame.draw.circle(boss_img, (255, 220, 100), (_head_cx + 7, _head_cy), 2)
+                elif _mp_opp_type == "optimus":
+                    # 옵티머스: 파란 LED 눈
+                    pygame.draw.rect(boss_img, (50, 120, 255), (_head_cx - 10, _head_cy - 2, 7, 4))
+                    pygame.draw.rect(boss_img, (50, 120, 255), (_head_cx + 3, _head_cy - 2, 7, 4))
+                    pygame.draw.rect(boss_img, (150, 200, 255), (_head_cx - 9, _head_cy - 1, 5, 2))
+                    pygame.draw.rect(boss_img, (150, 200, 255), (_head_cx + 4, _head_cy - 1, 5, 2))
             boss_w, boss_h = boss_img.get_width(), boss_img.get_height()
         else:
             boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
