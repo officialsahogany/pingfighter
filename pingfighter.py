@@ -12574,7 +12574,9 @@ def recalculate_transcendent_crown_effects():
     # 신속 스킬 효과 재계산
     if runtime_skill_levels.get("common_swiftness", 0) > 0:
         effective_level = get_runtime_skill_level("common_swiftness")
+        old_bonus = runtime_swiftness_bonus
         runtime_swiftness_bonus = effective_level * 0.05
+        print(f"[DEBUG 신속] base_lv={runtime_skill_levels.get('common_swiftness',0)}, crown_bonus={transcendent_crown_skill_bonus}, sage_bonus={sage_ring_perk_bonus}, effective_lv={effective_level}, swiftness_bonus: {old_bonus:.2f} -> {runtime_swiftness_bonus:.2f}")
 
     # 확장 스킬 효과 재계산
     if runtime_skill_levels.get("common_expansion", 0) > 0:
@@ -15207,7 +15209,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         global runtime_swiftness_bonus
         effective_level = get_runtime_skill_level("common_swiftness")  # 초월자의 관 보너스 포함
         runtime_swiftness_bonus = effective_level * 0.05  # 레벨당 5%
-        # print(f"[RuntimeSkill] 신속 Lv.{effective_level} - 이동속도 +{int(runtime_swiftness_bonus*100)}%")  # 디버그 비활성화
+        print(f"[DEBUG 신속 레벨업] base_lv={runtime_skill_levels.get('common_swiftness',0)}, crown={transcendent_crown_skill_bonus}, sage={sage_ring_perk_bonus}, effective={effective_level}, bonus={runtime_swiftness_bonus:.2f}")
 
     # 확장: 장신구 슬롯 보너스 즉시 적용 (초월자의 관 보너스 포함)
     if choice_id == "common_expansion":
@@ -77411,6 +77413,8 @@ def handle_player(keys):
             speed_multiplier = (1.0 + PERMANENT_SPEED_BOOST) if speedboots_obtained else 1.0
 
             # 신속 스킬 효과 적용 (레벨당 5% 증가)
+            if runtime_swiftness_bonus > 0 and frame_count % 300 == 0:  # 5초마다 한번씩만 출력
+                print(f"[DEBUG 이동] runtime_swiftness_bonus={runtime_swiftness_bonus:.2f}, speed_mult_before={speed_multiplier:.2f}")
             speed_multiplier *= (1.0 + runtime_swiftness_bonus)
 
             # 헤르메스의 신발 효과 적용 (롤옵션: 30~60% 증가)
@@ -81913,10 +81917,10 @@ def store_passive_item(item_data):
                     legendary_manager.items["ragnarok_hammer"].unlocked = True
             except Exception:
                 pass
-            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
-            trigger_legendary_acquisition("ragnarok_hammer", "라그나로크 해머", item_icon, 
-                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("🔴 라그나로크 해머 첫 획득! 신들의 황혼이 시작됩니다!")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("ragnarok_hammer", "라그나로크 해머", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -81933,10 +81937,10 @@ def store_passive_item(item_data):
                     legendary_manager.items["hermes_shoes"].unlocked = True
             except Exception:
                 pass
-            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
-            trigger_legendary_acquisition("hermes_shoes", "헤르메스의 신발", item_icon,
-                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("⚡ 헤르메스의 신발 첫 획득! 신들의 속도를 얻었습니다!")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("hermes_shoes", "헤르메스의 신발", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -81953,9 +81957,10 @@ def store_passive_item(item_data):
                     legendary_manager.items["poseidon_trident"].unlocked = True
             except Exception:
                 pass
-            trigger_legendary_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon,
-                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("🌊 포세이돈의 삼지창 첫 획득! 바다의 힘이 깃들었습니다!")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -81971,9 +81976,10 @@ def store_passive_item(item_data):
                     legendary_manager.items["angel_blessing"].unlocked = True
             except Exception:
                 pass
-            trigger_legendary_acquisition("angel_blessing", "천사의 주사위", item_icon,
-                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("😇 천사의 가호 첫 획득! 천사의 축복이 함께합니다!")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("angel_blessing", "천사의 주사위", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -81989,9 +81995,10 @@ def store_passive_item(item_data):
                     legendary_manager.items["sacred_laurel"].unlocked = True
             except Exception:
                 pass
-            trigger_legendary_acquisition("sacred_laurel", "신성 월계수", item_icon,
-                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("🌿 신성 월계수 첫 획득! 장착 시 성스러운 월계수 잎이 당신을 보호합니다!")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("sacred_laurel", "신성 월계수", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -82017,10 +82024,10 @@ def store_passive_item(item_data):
                     crown.skill_bonus = skill_bonus
             except Exception as e:
                 print(f"초월자의 관 효과 적용 오류: {e}")
-            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
-            trigger_legendary_acquisition("transcendent_crown", "초월자의 관", item_icon,
-                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("👑 초월자의 관 첫 획득! 장착 시 모든 투자된 스킬 레벨이 상승합니다!")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("transcendent_crown", "초월자의 관", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -82045,9 +82052,10 @@ def store_passive_item(item_data):
                     eye.enhancement_bonus_pct = enhancement_pct
             except Exception as e:
                 print(f"오딘의 눈 효과 적용 오류: {e}")
-            trigger_legendary_acquisition("odins_eye", "오딘의 눈", item_icon,
-                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # print("👁 오딘의 눈 첫 획득! 장착 시 라운드 패배 시 부활 기회가 생깁니다!")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("odins_eye", "오딘의 눈", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -82071,8 +82079,9 @@ def store_passive_item(item_data):
                     pandora.enhancement_bonus_pct = enhancement_pct
             except Exception as e:
                 print(f"판도라의 유산 효과 적용 오류: {e}")
-            trigger_legendary_acquisition("pandora_legacy", "판도라의 유산", item_icon,
-                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("pandora_legacy", "판도라의 유산", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
