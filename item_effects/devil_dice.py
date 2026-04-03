@@ -2,6 +2,7 @@
 😈 Devil's Dice Active Item (개편)
 악마의 주사위 - 사용 시 7가지 스탯을 -10%~+10% 영구적으로 조정하는 아이템
 여러 번 사용 시 효과가 누적됨
+최대 3번 다시 굴리기 가능
 """
 
 import pygame
@@ -26,6 +27,8 @@ STAT_KEYS = [
 # 감소가 이득인 스탯 (색상 반전용)
 LOWER_IS_BETTER = {'dash_recovery', 'dash_cooldown', 'item_cooldown'}
 
+MAX_REROLLS = 3  # 최대 굴리기 횟수 (첫 굴림 포함)
+
 
 class DevilDice:
     """악마의 주사위 - 영구 스탯 조정 아이템"""
@@ -40,12 +43,17 @@ class DevilDice:
         self.use_count = 0  # 총 사용 횟수
         self._roll_applied = False  # 현재 굴림이 적용되었는지
 
+        # 다시 굴리기
+        self.rerolls_remaining = 0  # 남은 굴리기 횟수
+        self.reroll_requested = False  # 다시 굴리기 요청 플래그
+        self.selected_button = 1  # 0=다시굴리기, 1=확정 (기본: 확정 선택)
+        self.confirm_pressed = False  # 확정/선택 입력 플래그
+
         # 주사위 굴리기 애니메이션
         self.is_rolling = False
         self.roll_animation_timer = 0
         self.roll_animation_duration = 120  # 2초 (60fps)
         self.waiting_for_confirm = False
-        self.space_pressed = False
         self.displayed_face_value = 1
         self.locked_face_value = None
         self.final_idle_phase = 0.0
@@ -89,29 +97,33 @@ class DevilDice:
 
     def activate(self, game_state: Dict[str, Any], current_stage: int) -> Dict[str, float]:
         """악마의 주사위 발동 - 각 스탯에 -10%~+10% 영구 조정"""
-        # 이미 굴리는 중이면 무시
         if self.is_rolling:
             return self.get_current_multipliers()
 
-        # 각 스탯에 -10 ~ +10 랜덤 결정 (아직 적용 안 함)
+        self.rerolls_remaining = MAX_REROLLS - 1  # 첫 굴림 제외한 남은 횟수
+        self._start_roll()
+
+        print("😈 악마의 주사위를 굴립니다...")
+        return self.get_current_multipliers()
+
+    def _start_roll(self):
+        """주사위 굴리기 시작 (첫 굴림/다시 굴리기 공용)"""
         for key, _ in STAT_KEYS:
             self.last_roll[key] = random.randint(-10, 10)
 
         self._roll_applied = False
+        self.reroll_requested = False
+        self.confirm_pressed = False
+        self.selected_button = 1  # 기본: 확정 선택
 
-        # 굴리기 애니메이션 시작
         self.is_rolling = True
         self.roll_animation_timer = 0
         self.waiting_for_confirm = False
-        self.space_pressed = False
         self.locked_face_value = None
         self.displayed_face_value = random.randint(1, 6)
         self.final_idle_phase = 0.0
         self.dice_offset_y = 0.0
         self.dice_vertical_velocity = -8.5
-
-        print("😈 악마의 주사위를 굴립니다...")
-        return self.get_current_multipliers()
 
     def _apply_roll(self):
         """마지막 굴림 결과를 영구 보너스에 적용"""
@@ -191,18 +203,25 @@ class DevilDice:
         else:
             pass  # 랜덤 값 표시는 draw에서 처리
 
-        # 스페이스바 대기 중이고 눌렸으면 결과 적용 후 닫기
-        if self.waiting_for_confirm and self.space_pressed:
-            self._apply_roll()
-            self.is_rolling = False
-            self.waiting_for_confirm = False
-            self.space_pressed = False
+        # 확정/선택 입력 처리
+        if self.waiting_for_confirm and self.confirm_pressed:
+            self.confirm_pressed = False
+            if self.selected_button == 0 and self.rerolls_remaining > 0:
+                # 다시 굴리기 선택
+                self.rerolls_remaining -= 1
+                print(f"😈 다시 굴립니다! (남은 횟수: {self.rerolls_remaining})")
+                self._start_roll()
+                return True
+            else:
+                # 확정 선택
+                self._apply_roll()
+                self.is_rolling = False
+                self.waiting_for_confirm = False
             self.locked_face_value = None
             self.displayed_face_value = 1
             self.final_idle_phase = 0.0
             self.dice_offset_y = 0.0
             self.dice_vertical_velocity = 0.0
-            # 패들 이펙트 3초 시작
             self.paddle_effect_timer = self.paddle_effect_duration
 
         if self.waiting_for_confirm:
@@ -218,13 +237,11 @@ class DevilDice:
     def draw_paddle_effect(self, screen: pygame.Surface, paddle_rect: pygame.Rect):
         """패들에 어두운 기운 효과 그리기 (사용 후 3초간, 서서히 사라짐)"""
         if self.paddle_effect_timer <= 0:
-            # 타이머 끝나면 남은 파티클만 소진
             if not self.flame_particles:
                 return
         else:
             self.paddle_effect_timer -= 1
 
-        # 페이드 비율 (1.0 → 0.0)
         fade = self.paddle_effect_timer / self.paddle_effect_duration if self.paddle_effect_timer > 0 else 0.0
 
         if fade > 0 and random.random() < 0.3 * fade:
@@ -331,6 +348,33 @@ class DevilDice:
         rotated_rect = rotated.get_rect(center=(center_x, final_center_y))
         screen.blit(rotated, rotated_rect)
 
+    def _draw_button(self, screen, text, center_x, center_y, color, selected=False):
+        """버튼 그리기"""
+        btn_w, btn_h = 160, 36
+        rect = pygame.Rect(0, 0, btn_w, btn_h)
+        rect.center = (center_x, center_y)
+
+        # 선택된 버튼은 밝게, 아니면 어둡게
+        if selected:
+            bg_color = tuple(min(255, c + 40) for c in color)
+            border_color = (255, 255, 100)
+            border_w = 3
+        else:
+            bg_color = tuple(max(0, c - 20) for c in color)
+            border_color = tuple(min(255, c + 30) for c in color)
+            border_w = 1
+
+        pygame.draw.rect(screen, bg_color, rect, border_radius=8)
+        pygame.draw.rect(screen, border_color, rect, border_w, border_radius=8)
+
+        if self.small_font:
+            txt_color = (255, 255, 255) if selected else (160, 160, 160)
+            txt_surface = self.small_font.render(text, True, txt_color)
+            txt_rect = txt_surface.get_rect(center=rect.center)
+            screen.blit(txt_surface, txt_rect)
+
+        return rect
+
     def draw_dice_results(self, screen: pygame.Surface, x: int, y: int):
         """주사위 결과 표시 (굴리기 애니메이션 포함)"""
         if not self.is_rolling:
@@ -352,7 +396,7 @@ class DevilDice:
 
         # 결과 영역
         text_panel_y = panel_y + 205
-        text_panel_height = len(STAT_KEYS) * 40 + 70
+        text_panel_height = len(STAT_KEYS) * 40 + 110  # 버튼 영역 확보
         text_panel = pygame.Surface((panel_width, text_panel_height), pygame.SRCALPHA)
         pygame.draw.rect(text_panel, (20, 0, 0, 180), (0, 0, panel_width, text_panel_height), border_radius=15)
         pygame.draw.rect(text_panel, (139, 0, 0, 200), (0, 0, panel_width, text_panel_height), 2, border_radius=15)
@@ -364,12 +408,10 @@ class DevilDice:
             y_pos = start_y + i * 40
 
             if self.small_font:
-                # 항목 이름
                 name_text = self.small_font.render(f"{name}:", True, (255, 255, 255))
                 screen.blit(name_text, (panel_x + 50, y_pos))
 
                 if self.roll_animation_timer < self.roll_animation_duration - 30:
-                    # 굴리는 중 - 랜덤 값 깜빡임
                     if self.roll_animation_timer % 6 < 3:
                         result_text = "???"
                         result_color = (150, 150, 150)
@@ -379,22 +421,17 @@ class DevilDice:
                         result_text = f"{sign}{temp_val}%"
                         result_color = (100, 100, 100)
                 else:
-                    # 실제 결과 표시
                     val = self.last_roll[key]
                     sign = "+" if val >= 0 else ""
                     result_text = f"{sign}{val}%"
 
-                    # 색상 결정: 이득이면 초록, 손해면 빨강
                     if val == 0:
                         result_color = (200, 200, 200)
                     elif key in LOWER_IS_BETTER:
-                        # 감소가 이득인 스탯: 마이너스=초록, 플러스=빨강
                         result_color = (100, 255, 100) if val < 0 else (255, 100, 100)
                     else:
-                        # 증가가 이득인 스탯: 플러스=초록, 마이너스=빨강
                         result_color = (100, 255, 100) if val > 0 else (255, 100, 100)
 
-                    # 반짝임 효과
                     if self.roll_animation_timer < self.roll_animation_duration + 30:
                         flash = abs(math.sin((self.roll_animation_timer - self.roll_animation_duration) * 0.3))
                         result_color = tuple(min(255, int(c + flash * 50)) for c in result_color)
@@ -403,7 +440,7 @@ class DevilDice:
                 result_rect = result_surface.get_rect(left=panel_x + 280, centery=y_pos + 10)
                 screen.blit(result_surface, result_rect)
 
-                # 누적값 표시 (결과 확정 후)
+                # 누적값 표시
                 if self.roll_animation_timer >= self.roll_animation_duration - 30:
                     total = self.permanent_bonuses[key] + self.last_roll[key]
                     total_sign = "+" if total >= 0 else ""
@@ -420,22 +457,86 @@ class DevilDice:
             count_rect = count_surface.get_rect(centerx=screen.get_width() // 2, y=text_panel_y + 10)
             screen.blit(count_surface, count_rect)
 
-        # 스페이스바 안내
+        # 버튼 영역 (결과 확정 후)
         if self.waiting_for_confirm and self.small_font:
-            instruction_text = "스페이스바를 눌러 확정하기"
-            instruction_color = (255, 255, 100)
-            if pygame.time.get_ticks() % 1000 < 500:
-                instruction_surface = self.small_font.render(instruction_text, True, instruction_color)
-                instruction_rect = instruction_surface.get_rect(
-                    centerx=screen.get_width() // 2,
-                    y=text_panel_y + text_panel_height - 30
-                )
-                screen.blit(instruction_surface, instruction_rect)
+            mouse_pos = pygame.mouse.get_pos()
+            btn_y = text_panel_y + text_panel_height - 40
+            center_x = screen.get_width() // 2
 
-    def handle_spacebar(self):
-        """스페이스바 입력 처리"""
+            # 남은 횟수 표시
+            remaining_text = f"남은 굴리기: {self.rerolls_remaining}회"
+            remaining_color = (255, 200, 100) if self.rerolls_remaining > 0 else (120, 120, 120)
+            remaining_surface = self.small_font.render(remaining_text, True, remaining_color)
+            remaining_rect = remaining_surface.get_rect(centerx=center_x, y=btn_y - 28)
+            screen.blit(remaining_surface, remaining_rect)
+
+            # 마우스 호버 → 선택 커서 자동 이동
+            if self.rerolls_remaining > 0:
+                reroll_rect = pygame.Rect(0, 0, 160, 36)
+                reroll_rect.center = (center_x - 90, btn_y)
+                confirm_rect = pygame.Rect(0, 0, 160, 36)
+                confirm_rect.center = (center_x + 90, btn_y)
+                if reroll_rect.collidepoint(mouse_pos):
+                    self.selected_button = 0
+                elif confirm_rect.collidepoint(mouse_pos):
+                    self.selected_button = 1
+                # 선택 불가능한 상태면 확정으로 강제
+                if self.selected_button == 0 and self.rerolls_remaining <= 0:
+                    self.selected_button = 1
+
+                self._draw_button(screen, "다시 굴리기", center_x - 90, btn_y,
+                                  (100, 40, 40), selected=(self.selected_button == 0))
+                self._draw_button(screen, "확정", center_x + 90, btn_y,
+                                  (40, 80, 40), selected=(self.selected_button == 1))
+
+                self._reroll_btn_rect = reroll_rect
+                self._confirm_btn_rect = confirm_rect
+            else:
+                # 횟수 소진: [확정] 버튼만
+                self.selected_button = 1
+                confirm_rect = pygame.Rect(0, 0, 160, 36)
+                confirm_rect.center = (center_x, btn_y)
+
+                self._draw_button(screen, "확정", center_x, btn_y,
+                                  (40, 80, 40), selected=True)
+
+                self._reroll_btn_rect = None
+                self._confirm_btn_rect = confirm_rect
+
+            # 조작 안내
+            guide_text = "◀ ▶ 선택  /  Space 확정"
+            guide_surface = self.small_font.render(guide_text, True, (140, 140, 160))
+            guide_rect = guide_surface.get_rect(centerx=center_x, y=btn_y + 24)
+            screen.blit(guide_surface, guide_rect)
+
+    def handle_confirm(self):
+        """확정 입력 (Space/Enter) → 현재 선택된 버튼 실행"""
         if self.waiting_for_confirm:
-            self.space_pressed = True
+            self.confirm_pressed = True
+
+    def handle_move_left(self):
+        """좌측 이동 (←/A) → 다시 굴리기 버튼 선택"""
+        if self.waiting_for_confirm and self.rerolls_remaining > 0:
+            self.selected_button = 0
+
+    def handle_move_right(self):
+        """우측 이동 (→/D) → 확정 버튼 선택"""
+        if self.waiting_for_confirm:
+            self.selected_button = 1
+
+    def handle_mouse_click(self, mouse_pos):
+        """마우스 클릭 처리 → 클릭된 버튼 즉시 실행"""
+        if not self.waiting_for_confirm:
+            return
+        reroll_rect = getattr(self, '_reroll_btn_rect', None)
+        if reroll_rect and reroll_rect.collidepoint(mouse_pos) and self.rerolls_remaining > 0:
+            self.selected_button = 0
+            self.confirm_pressed = True
+            return
+        confirm_rect = getattr(self, '_confirm_btn_rect', None)
+        if confirm_rect and confirm_rect.collidepoint(mouse_pos):
+            self.selected_button = 1
+            self.confirm_pressed = True
 
     def reset(self):
         """모든 영구 보너스 초기화 (게임 오버 / 메인 메뉴 복귀 시)"""
@@ -445,15 +546,20 @@ class DevilDice:
             self.last_roll[key] = 0
         self.use_count = 0
         self._roll_applied = False
+        self.rerolls_remaining = 0
+        self.reroll_requested = False
+        self.selected_button = 1
+        self.confirm_pressed = False
         self.is_rolling = False
         self.waiting_for_confirm = False
-        self.space_pressed = False
         self.locked_face_value = None
         self.displayed_face_value = 1
         self.final_idle_phase = 0.0
         self.dice_offset_y = 0.0
         self.dice_vertical_velocity = 0.0
         self.flame_particles.clear()
+        self._reroll_btn_rect = None
+        self._confirm_btn_rect = None
         print("😈 악마의 주사위 영구 효과가 초기화되었습니다.")
 
     def get_save_data(self) -> Dict[str, Any]:
@@ -526,13 +632,31 @@ def get_devil_dice_duration_ratio() -> float:
 
 
 def handle_devil_dice_spacebar():
-    """악마의 주사위 스페이스바 입력 처리"""
+    """악마의 주사위 확정 입력 (Space/Enter)"""
     instance = get_devil_dice_instance()
-    instance.handle_spacebar()
+    instance.handle_confirm()
+
+
+def handle_devil_dice_move_left():
+    """악마의 주사위 좌측 이동 (←/A)"""
+    instance = get_devil_dice_instance()
+    instance.handle_move_left()
+
+
+def handle_devil_dice_move_right():
+    """악마의 주사위 우측 이동 (→/D)"""
+    instance = get_devil_dice_instance()
+    instance.handle_move_right()
+
+
+def handle_devil_dice_mouse_click(mouse_pos):
+    """악마의 주사위 마우스 클릭 처리"""
+    instance = get_devil_dice_instance()
+    instance.handle_mouse_click(mouse_pos)
 
 
 def is_devil_dice_waiting_confirm() -> bool:
-    """악마의 주사위가 스페이스바 대기 중인지 확인"""
+    """악마의 주사위가 확정/다시굴리기 대기 중인지 확인"""
     instance = get_devil_dice_instance()
     return instance.waiting_for_confirm
 

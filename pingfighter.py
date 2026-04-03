@@ -158544,11 +158544,37 @@ def main(stage_num, new_boss_mode=False):
 
                 if not shield_handled:
                     space_press_frame = frame_counter
-                    #  악마의 주사위 결과 화면 닫기
+                    # 😈 악마의 주사위 확정 (선택된 버튼 실행)
                     from item_effects.devil_dice import handle_devil_dice_spacebar, is_devil_dice_waiting_confirm
                     if is_devil_dice_waiting_confirm():
                         handle_devil_dice_spacebar()
             last_space_state = current_space_state
+
+            # 😈 악마의 주사위 - 방향키/AD로 버튼 선택, 마우스 클릭
+            from item_effects.devil_dice import is_devil_dice_waiting_confirm as _dd_wc
+            if _dd_wc():
+                from item_effects.devil_dice import handle_devil_dice_move_left, handle_devil_dice_move_right, handle_devil_dice_mouse_click
+                # 방향키/AD 입력 (엣지 트리거)
+                _dd_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
+                _dd_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
+                _dd_prev_left = getattr(self_ref, '_dd_prev_left', False) if 'self_ref' in dir() else globals().get('_dd_prev_left', False)
+                _dd_prev_right = getattr(self_ref, '_dd_prev_right', False) if 'self_ref' in dir() else globals().get('_dd_prev_right', False)
+                if _dd_left and not _dd_prev_left:
+                    handle_devil_dice_move_left()
+                if _dd_right and not _dd_prev_right:
+                    handle_devil_dice_move_right()
+                globals()['_dd_prev_left'] = _dd_left
+                globals()['_dd_prev_right'] = _dd_right
+                # 마우스 클릭
+                _dd_mb = pygame.mouse.get_pressed()
+                _dd_mb_prev = globals().get('_dd_prev_mb', False)
+                if _dd_mb[0] and not _dd_mb_prev:
+                    handle_devil_dice_mouse_click(pygame.mouse.get_pos())
+                globals()['_dd_prev_mb'] = _dd_mb[0]
+            else:
+                globals()['_dd_prev_left'] = False
+                globals()['_dd_prev_right'] = False
+                globals()['_dd_prev_mb'] = False
             if selected_character_type == "blacksmith":
                 down_current_state = is_move_down_pressed(keys)
                 if _scheme2 == 'mouse_keyboard':
