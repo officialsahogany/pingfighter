@@ -19782,16 +19782,124 @@ def _play_megingjord_activation_effect(screen):
                              (int(sp["x"]), int(sp["y"])), 2)
         _sparks = [s for s in _sparks if s["life"] > 0]
 
-        # ── 6. 중앙 글로우 오브 (토르의 힘 느낌) ──
-        if t < 0.7:
-            orb_pulse = 0.5 + 0.5 * _m.sin(frame * 0.3)
-            orb_r = int(15 + 10 * orb_pulse)
-            orb_alpha = int(120 * (1.0 - t / 0.7))
-            for gi in range(4):
-                gr = orb_r + (4 - gi) * 8
-                ga = max(0, orb_alpha // (gi + 1))
-                pygame.draw.circle(_overlay, (255, 215, 50, ga), (_cx, _cy), gr)
-            pygame.draw.circle(_overlay, (255, 255, 220, min(255, orb_alpha + 80)), (_cx, _cy), orb_r)
+        # ── 6. 토르의 벨트 엠블럼 (룬 원형 + 번개 심볼 + 신성 기운) ──
+        if t < 0.85:
+            # 엠블럼 페이즈: 0~0.15 확대 등장, 0.15~0.6 회전+빛남, 0.6~0.85 페이드
+            if t < 0.15:
+                emb_scale = t / 0.15  # 0→1 확대
+                emb_alpha = int(255 * emb_scale)
+                emb_rot = frame * 8  # 빠른 등장 회전
+            elif t < 0.6:
+                emb_scale = 1.0
+                emb_alpha = 255
+                emb_rot = frame * 1.5  # 느린 위엄 회전
+            else:
+                fade_t = (t - 0.6) / 0.25
+                emb_scale = 1.0 + fade_t * 0.3  # 약간 확대되며 소멸
+                emb_alpha = max(0, int(255 * (1.0 - fade_t)))
+                emb_rot = frame * 1.5
+
+            emb_r = int(55 * emb_scale)  # 엠블럼 반지름
+            _emb_surf = pygame.Surface((emb_r * 2 + 20, emb_r * 2 + 20), pygame.SRCALPHA)
+            _ec = emb_r + 10  # 엠블럼 서피스 중앙
+
+            # ── 6a. 외곽 룬 링 (회전하는 점선 원) ──
+            rune_count = 12
+            for ri in range(rune_count):
+                rune_angle = _m.radians(ri * (360 / rune_count) + emb_rot)
+                rx = _ec + int(_m.cos(rune_angle) * emb_r)
+                ry = _ec + int(_m.sin(rune_angle) * emb_r)
+                # 룬 다이아몬드
+                rune_sz = max(2, int(4 * emb_scale))
+                rune_pts = [
+                    (rx, ry - rune_sz), (rx + rune_sz, ry),
+                    (rx, ry + rune_sz), (rx - rune_sz, ry),
+                ]
+                # 교대 색상 (금/파란)
+                if ri % 2 == 0:
+                    rc = (255, 215, 0, emb_alpha)
+                else:
+                    rc = (100, 180, 255, emb_alpha)
+                pygame.draw.polygon(_emb_surf, rc, rune_pts)
+
+            # 룬 사이 연결선 (희미한 원호 느낌)
+            ring_line_a = max(0, emb_alpha // 3)
+            pygame.draw.circle(_emb_surf, (255, 215, 0, ring_line_a), (_ec, _ec), emb_r, max(1, int(1.5 * emb_scale)))
+
+            # ── 6b. 내부 원 (반투명 에너지 필드) ──
+            inner_r = int(emb_r * 0.65)
+            field_pulse = 0.5 + 0.5 * _m.sin(frame * 0.25)
+            field_a = max(0, int(60 * field_pulse * (emb_alpha / 255)))
+            pygame.draw.circle(_emb_surf, (255, 230, 150, field_a), (_ec, _ec), inner_r)
+            pygame.draw.circle(_emb_surf, (255, 215, 0, max(0, emb_alpha // 2)), (_ec, _ec), inner_r, max(1, int(2 * emb_scale)))
+
+            # ── 6c. 중앙 번개 심볼 (토르의 상징) ──
+            bolt_h = int(inner_r * 1.4)
+            bolt_w = int(inner_r * 0.5)
+            bcx, bcy = _ec, _ec
+            # 번개 지그재그 (위에서 아래로)
+            bolt_symbol = [
+                (bcx - bolt_w // 4, bcy - bolt_h // 2),      # 상단 왼쪽
+                (bcx + bolt_w // 3, bcy - bolt_h // 6),      # 상단 오른쪽 (꺾임)
+                (bcx - bolt_w // 6, bcy - bolt_h // 12),     # 중앙 왼쪽 (꺾임)
+                (bcx + bolt_w // 4, bcy + bolt_h // 6),      # 하단 오른쪽 (꺾임)
+                (bcx - bolt_w // 5, bcy + bolt_h // 8),      # 하단 왼쪽 (꺾임)
+                (bcx + bolt_w // 6, bcy + bolt_h // 2),      # 최하단
+            ]
+            # 번개 심볼 글로우
+            glow_bolt_a = max(0, int(emb_alpha * 0.4))
+            for gi in range(len(bolt_symbol) - 1):
+                pygame.draw.line(_emb_surf, (100, 180, 255, glow_bolt_a),
+                               bolt_symbol[gi], bolt_symbol[gi + 1], max(3, int(5 * emb_scale)))
+            # 번개 심볼 코어 (밝은 흰색)
+            for gi in range(len(bolt_symbol) - 1):
+                pygame.draw.line(_emb_surf, (255, 255, 255, emb_alpha),
+                               bolt_symbol[gi], bolt_symbol[gi + 1], max(1, int(2 * emb_scale)))
+
+            # ── 6d. 신성한 기운 방출 (엠블럼에서 뻗어나오는 광선) ──
+            if t > 0.1 and t < 0.7:
+                ray_t = (t - 0.1) / 0.6
+                ray_count = 8
+                for ri in range(ray_count):
+                    ray_angle = _m.radians(ri * (360 / ray_count) + emb_rot * 0.5)
+                    ray_len = int((emb_r * 0.8 + emb_r * 1.5 * ray_t))
+                    ray_inner = int(emb_r * 0.7)
+                    ray_alpha_base = max(0, int(150 * (1.0 - ray_t * 0.8)))
+                    # 광선 두께 변화 (가운데 두껍고 끝으로 가늘어짐)
+                    sx = _ec + int(_m.cos(ray_angle) * ray_inner)
+                    sy = _ec + int(_m.sin(ray_angle) * ray_inner)
+                    ex_ray = _ec + int(_m.cos(ray_angle) * ray_len)
+                    ey_ray = _ec + int(_m.sin(ray_angle) * ray_len)
+                    # 글로우
+                    pygame.draw.line(_emb_surf, (255, 215, 0, max(0, ray_alpha_base // 2)),
+                                   (sx, sy), (ex_ray, ey_ray), max(1, int(3 * emb_scale * (1.0 - ray_t * 0.5))))
+                    # 코어
+                    pygame.draw.line(_emb_surf, (255, 255, 220, max(0, ray_alpha_base)),
+                                   (sx, sy), (ex_ray, ey_ray), max(1, int(1 * emb_scale)))
+
+            # ── 6e. 상승하는 룬 파티클 (신성 기운) ──
+            if t > 0.05 and t < 0.75:
+                rune_p_count = 6
+                for rpi in range(rune_p_count):
+                    rp_seed = frame * 0.1 + rpi * 1.7
+                    rp_x = _ec + int(_m.sin(rp_seed * 2.3) * emb_r * 0.9)
+                    rp_base_y = _ec + emb_r - int((frame * 1.5 + rpi * 12) % (emb_r * 2.5))
+                    rp_y = rp_base_y
+                    rp_life = 1.0 - abs(rp_y - _ec) / (emb_r * 1.3)
+                    if rp_life > 0:
+                        rp_a = max(0, int(200 * rp_life * (emb_alpha / 255)))
+                        rp_sz = max(1, int(3 * rp_life * emb_scale))
+                        # 작은 다이아몬드 룬
+                        rp_pts = [
+                            (rp_x, rp_y - rp_sz), (rp_x + rp_sz, rp_y),
+                            (rp_x, rp_y + rp_sz), (rp_x - rp_sz, rp_y),
+                        ]
+                        rp_c = (255, 230, 100, rp_a) if rpi % 2 == 0 else (150, 200, 255, rp_a)
+                        pygame.draw.polygon(_emb_surf, rp_c, rp_pts)
+
+            # 엠블럼 서피스를 오버레이에 합성
+            _emb_surf.set_alpha(emb_alpha)
+            _overlay.blit(_emb_surf, (_cx - _ec, _cy - _ec))
 
         # ── 7. 텍스트 렌더링 (0.1 이후 등장) ──
         if t > 0.08:
@@ -115798,7 +115906,7 @@ def draw_objects():
     # === 비누 그리기 (모든 캐릭터 공용) ===
     from item_effects.soap import get_soap_instance
     soap_inst_draw = get_soap_instance()
-    soap_inst_draw.draw(SCREEN)
+    soap_inst_draw.draw(SCREEN, BOSS)
 
     # === 코만도 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
