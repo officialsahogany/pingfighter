@@ -1774,34 +1774,38 @@ class PoseidonTrident(LegendaryItem):
                     
             # 새로운 파티클 지속적으로 생성 - 소멸 단계 전까지만 (0.8초)
             if self.vortex_timer < 0.8 and len(self.vortex_particles) < 150:  # 양쪽이니까 150개까지
+                vw = self.vortex_width
+                cont_spread = vw * 0.15  # 지속 파티클 퍼짐 (150px→22, 200→30, 250→37)
+                cont_spiral_max = vw * 0.15  # 지속 파티클 나선 반경 (150→22, 200→30, 250→37)
+                cont_size_max = 10 + (vw - 150) * 0.05  # 파티클 최대 크기 (150→10, 200→12.5, 250→15)
                 # 왼쪽 회오리 파티클
                 for _ in range(2):
                     particle = {
-                        "x": self.vortex_left_x + random.uniform(-30, 30),
+                        "x": self.vortex_left_x + random.uniform(-cont_spread, cont_spread),
                         "y": self.vortex_left_y,
                         "vx": random.uniform(-5, 5),
                         "vy": random.uniform(-10, -5),
                         "life": random.randint(30, 60),
                         "color": (50, 150 + random.randint(0, 100), 255),
-                        "size": random.uniform(5, 15),
+                        "size": random.uniform(5, cont_size_max),
                         "spiral_angle": random.uniform(0, math.pi * 2),
-                        "spiral_radius": random.uniform(10, 30),
+                        "spiral_radius": random.uniform(10, cont_spiral_max),
                         "vortex_side": "left"
                     }
                     self.vortex_particles.append(particle)
-                
+
                 # 오른쪽 회오리 파티클
                 for _ in range(2):
                     particle = {
-                        "x": self.vortex_right_x + random.uniform(-30, 30),
+                        "x": self.vortex_right_x + random.uniform(-cont_spread, cont_spread),
                         "y": self.vortex_right_y,
                         "vx": random.uniform(-5, 5),
                         "vy": random.uniform(-10, -5),
                         "life": random.randint(30, 60),
                         "color": (50, 150 + random.randint(0, 100), 255),
-                        "size": random.uniform(5, 15),
+                        "size": random.uniform(5, cont_size_max),
                         "spiral_angle": random.uniform(0, math.pi * 2),
-                        "spiral_radius": random.uniform(10, 30),
+                        "spiral_radius": random.uniform(10, cont_spiral_max),
                         "vortex_side": "right"
                     }
                     self.vortex_particles.append(particle)
