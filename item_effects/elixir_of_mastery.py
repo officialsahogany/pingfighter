@@ -543,7 +543,7 @@ def _get_elixir_border_frames():
             cleaned = _strip_legendary_red_ring(frame)
             # 4꼭지점 영역만 보존, 나머지(파티클 포함) 제거
             w, h = cleaned.get_size()
-            cs = 7
+            cs = 4
             result = pygame.Surface((w, h), pygame.SRCALPHA)
             for rect in [
                 pygame.Rect(0, 0, cs, cs),

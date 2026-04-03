@@ -4042,7 +4042,7 @@ class EmptyLegendary(LegendaryItem):
         """프레임에서 4꼭지점 영역만 보존, 나머지(파티클 포함) 모두 제거"""
         result = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
         w, h = frame.get_size()
-        cs = 7  # 꼭지점 보존 크기 (px)
+        cs = 4  # 꼭지점 보존 크기 (px)
         for rect in [
             pygame.Rect(0, 0, cs, cs),
             pygame.Rect(w - cs, 0, cs, cs),
@@ -11541,7 +11541,7 @@ class PandoraLegacy(LegendaryItem):
         """프레임에서 4꼭지점 영역만 보존, 나머지(파티클 포함) 모두 제거"""
         result = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
         w, h = frame.get_size()
-        cs = 7
+        cs = 4
         for rect in [
             pygame.Rect(0, 0, cs, cs),
             pygame.Rect(w - cs, 0, cs, cs),
@@ -11724,7 +11724,7 @@ class Megingjord(LegendaryItem):
         """프레임에서 4꼭지점 영역만 보존, 나머지(파티클 포함) 모두 제거"""
         result = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
         w, h = frame.get_size()
-        cs = 7
+        cs = 4
         for rect in [
             pygame.Rect(0, 0, cs, cs),
             pygame.Rect(w - cs, 0, cs, cs),
