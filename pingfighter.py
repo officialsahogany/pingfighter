@@ -132046,7 +132046,7 @@ def show_item_manager_menu():
         # 전설 아이템 애니메이션 업데이트
         for item in legendary_items:
             if "item_obj" in item:
-                item["item_obj"].update(dt_seconds)
+                item["item_obj"].update(dt_seconds, ui_mode=True)
         
         # 배경 그리기
         SCREEN.fill((10, 10, 40))
@@ -170206,7 +170206,7 @@ def show_character_item_manager():
         # 전설 아이템 애니메이션 업데이트
         for item in legendary_items:
             if "item_obj" in item:
-                item["item_obj"].update(dt)
+                item["item_obj"].update(dt, ui_mode=True)
         
         # 배경 그리기
         SCREEN.fill((10, 10, 40))
