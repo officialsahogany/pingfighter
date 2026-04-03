@@ -77,6 +77,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     "poseidon_trident": [
         {"key": "cooldown", "label": "쿨타임", "min": 2, "max": 10, "unit": "초", "default": 6, "step": 1, "reverse": True},
         {"key": "gauge_cost", "label": "게이지 소모", "min": 20, "max": 40, "unit": "", "prefix": "-", "default": 30, "reverse": True},
+        {"key": "vortex_size", "label": "소용돌이 크기", "min": 150, "max": 250, "unit": "px", "default": 200, "step": 10},
     ],
     "hermes_shoes": [
         {"key": "speed_bonus", "label": "이동속도", "min": 30, "max": 60, "unit": "%", "default": 50},
@@ -811,7 +812,7 @@ class PoseidonTrident(LegendaryItem):
         self.vortex_right_height = 0  # 시작 높이
         # 공통 속성
         self.vortex_max_height = 350  # 최대 높이 (화면의 약 47% 커버)
-        self.vortex_width = 200  # 회오리 너비 (영향 반경 100픽셀)
+        self._vortex_width_default = 200  # 롤 옵션 미적용 시 기본값
         self.vortex_spin_speed = 0  # 회전 속도
         self.vortex_particles = []  # 회오리 파티클
         self.vortex_deflection_seed = 0  # 공 굴절 랜덤 시드
@@ -927,6 +928,11 @@ class PoseidonTrident(LegendaryItem):
     def gauge_cost(self) -> float:
         """게이지 소모량 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
         return get_legendary_roll_value("poseidon_trident", "gauge_cost", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
+
+    @property
+    def vortex_width(self) -> float:
+        """소용돌이 크기 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value("poseidon_trident", "vortex_size", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
 
     def activate(self, game_state: Dict):
         """삼지창 활성화"""
@@ -1054,12 +1060,16 @@ class PoseidonTrident(LegendaryItem):
         
         
         # 양쪽 회오리에 대한 파티클 대량 생성 (용솟음치는 효과)
+        # 소용돌이 크기에 비례하는 파티클 범위
+        vw = self.vortex_width
+        particle_spread = vw * 0.15  # 파티클 퍼짐 (기본 200 → 30)
+        spiral_max = vw * 0.3  # 나선 최대 반경 (기본 200 → 60)
         # 왼쪽 회오리 파티클
         for i in range(30):  # 각 회오리당 30개
             angle = (i / 10) * math.pi * 2
-            height_offset = random.uniform(0, 200)
+            height_offset = random.uniform(0, vw)
             particle = {
-                "x": self.vortex_left_x + random.uniform(-30, 30),
+                "x": self.vortex_left_x + random.uniform(-particle_spread, particle_spread),
                 "y": self.vortex_left_y - height_offset,
                 "vx": math.cos(angle) * random.uniform(2, 8),
                 "vy": random.uniform(-8, -3),  # 위로 솟구치는 속도
@@ -1067,17 +1077,17 @@ class PoseidonTrident(LegendaryItem):
                 "color": (50, 150 + random.randint(0, 100), 255),
                 "size": random.uniform(3, 10),
                 "spiral_angle": angle,
-                "spiral_radius": random.uniform(20, 60),
+                "spiral_radius": random.uniform(20, spiral_max),
                 "vortex_side": "left"  # 왼쪽 회오리 표시
             }
             self.vortex_particles.append(particle)
-        
+
         # 오른쪽 회오리 파티클
         for i in range(30):  # 각 회오리당 30개
             angle = (i / 10) * math.pi * 2
-            height_offset = random.uniform(0, 200)
+            height_offset = random.uniform(0, vw)
             particle = {
-                "x": self.vortex_right_x + random.uniform(-30, 30),
+                "x": self.vortex_right_x + random.uniform(-particle_spread, particle_spread),
                 "y": self.vortex_right_y - height_offset,
                 "vx": math.cos(angle) * random.uniform(2, 8),
                 "vy": random.uniform(-8, -3),  # 위로 솟구치는 속도
@@ -1085,7 +1095,7 @@ class PoseidonTrident(LegendaryItem):
                 "color": (50, 150 + random.randint(0, 100), 255),
                 "size": random.uniform(3, 10),
                 "spiral_angle": angle,
-                "spiral_radius": random.uniform(20, 60),
+                "spiral_radius": random.uniform(20, spiral_max),
                 "vortex_side": "right"  # 오른쪽 회오리 표시
             }
             self.vortex_particles.append(particle)
@@ -1171,14 +1181,14 @@ class PoseidonTrident(LegendaryItem):
             
             # 왼쪽 회오리 충돌 체크
             x_distance_left = abs(ball_x - self.vortex_left_x)
-            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2)  # 회오리 반경 100픽셀
+            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2)  # 롤 옵션에 따라 반경 75~125
             # Y축 체크: 회오리는 아래에서 위로 올라가므로, 공이 회오리 높이 범위 안에 있는지 체크
             # 회오리 아래쪽(패들 위치)부터 위로 솟은 높이까지 + 여유 공간
             y_in_left_vortex = (self.vortex_left_y - left_vortex_height - 20) <= ball_y <= (self.vortex_left_y + 100)
             
             # 오른쪽 회오리 충돌 체크
             x_distance_right = abs(ball_x - self.vortex_right_x)
-            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2)  # 회오리 반경 100픽셀
+            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2)  # 롤 옵션에 따라 반경 75~125
             # Y축 체크: 회오리는 아래에서 위로 올라가므로, 공이 회오리 높이 범위 안에 있는지 체크
             y_in_right_vortex = (self.vortex_right_y - right_vortex_height - 20) <= ball_y <= (self.vortex_right_y + 100)
             
@@ -1298,7 +1308,7 @@ class PoseidonTrident(LegendaryItem):
                 
                 # 회오리 반경 (충돌 범위를 더 크게 설정)
                 # 시각 효과와 동일하게 설정하여 보이는 대로 작동하도록 함
-                vortex_radius = min(self.vortex_width / 2, 100)  # 최대 반경 100
+                vortex_radius = self.vortex_width / 2  # 롤 옵션에 따라 75~125
                 
                 # 공이 회오리에 처음 들어왔는지 확인 (바운딩에 있으면 더 관대하게)
                 capture_threshold = vortex_radius * 0.9 if in_any_vortex else vortex_radius * 0.8
