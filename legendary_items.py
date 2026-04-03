@@ -4450,11 +4450,17 @@ class AngelBlessing(LegendaryItem):
             if len(p["trail"]) > 8:
                 p["trail"].pop(0)
 
-        # 도착한 파티클 → 플레이어 발광 트리거
+        # 도착한 파티클 → 플레이어 발광 트리거 + 흡수 사운드
         for i in reversed(finished):
             self._absorb_particles.pop(i)
             self._player_glow_active = True
             self._player_glow_timer = 0.0
+            try:
+                snd_path = resource_path(os.path.join("sounds", "angeldicewhisp.wav"))
+                if os.path.exists(snd_path):
+                    pygame.mixer.Sound(snd_path).play()
+            except Exception:
+                pass
             self._player_glow_count += 1
 
     def draw_absorb_particles(self, screen):
