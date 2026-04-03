@@ -15040,19 +15040,20 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
             }
             available.append(choice)
 
-    # 다우징 고글 보너스: 장착 시 고정 +1 퍽 선택지 (총 4퍽 + 골드변환 = 5장)
-    # 롤옵션(추가 퍽 등장 확률)은 확률 판정으로 +1 추가 (총 5퍽 + 골드변환 = 6장은 안됨)
-    # → 고정 +1만 적용, 롤옵션 확률은 보너스 퍽 등장 판정용으로만 사용
+    # 다우징 고글: 롤옵션 확률(30~60%)로 보너스 퍽 +1 발동
+    # 미발동: 3퍽 + 골드변환 = 4장 (기본과 동일)
+    # 발동:   4퍽 + 골드변환 = 5장
     _extra_perk = 0
     _bonus_perk_fired = False
     try:
-        from item_effects.dowsing_goggles import get_fixed_extra_perk_count, get_bonus_perk_chance, roll_bonus_perk
+        from item_effects.dowsing_goggles import get_bonus_perk_chance, roll_bonus_perk
         if get_bonus_perk_chance() > 0:
-            _extra_perk = get_fixed_extra_perk_count()  # 항상 1 (고정)
-            _bonus_perk_fired = roll_bonus_perk()  # 확률 판정 (발동 시 퍽 품질 향상 등 별도 효과용)
+            _bonus_perk_fired = roll_bonus_perk()
+            if _bonus_perk_fired:
+                _extra_perk = 1  # 확률 발동 시에만 +1
     except Exception:
         _extra_perk = 0
-    base_perk_count = 3 + _extra_perk  # 기본 3개 + 고글 고정 1개 = 최대 4개 (+ 골드변환 = 5장)
+    base_perk_count = 3 + _extra_perk  # 기본 3개 + 발동 시 1개 (+ 골드변환)
 
     # 퍽 선택지 수만큼 랜덤 선택
     if len(available) > base_perk_count:
@@ -59525,7 +59526,7 @@ def apply_effect(effect_name, item_data=None):
         # 투척 준비 동작 시작 (수류탄/화염병/조명탄과 동일)
         activate_dynamite()
     elif effect_name == "banana":  # 🍌 바나나 액티브 아이템
-        # 라운드 시작 5초 제한 체크 (다른 투척류와 동일)
+        # 라운드 시작 5초 제한 체크
         current_time = pygame.time.get_ticks()
         if current_time - round_start_time < 5000:  # 5초 미만
             remaining_time = (5000 - (current_time - round_start_time)) / 1000
@@ -59534,7 +59535,7 @@ def apply_effect(effect_name, item_data=None):
         # 투척 준비 동작 시작
         activate_banana()
     elif effect_name == "soap":  # 🧼 비누 액티브 아이템
-        # 라운드 시작 5초 제한 체크 (다른 투척류와 동일)
+        # 라운드 시작 5초 제한 체크
         current_time = pygame.time.get_ticks()
         if current_time - round_start_time < 5000:  # 5초 미만
             remaining_time = (5000 - (current_time - round_start_time)) / 1000
