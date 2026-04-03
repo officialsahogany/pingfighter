@@ -94,6 +94,7 @@ ITEM_ICONS = {}
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
 _LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "odins_eye"}
+_MYTHICAL_ICON_NAMES = {"elixir_of_mastery"}
 
 
 def _center_icon_surface(icon: pygame.Surface, size: int = 32, padding: int = 2) -> pygame.Surface:
@@ -828,6 +829,16 @@ def get_item_icon_animation(item_name, size=None):
                     scaled_frames.append(frame.copy())
                 else:
                     scaled_frames.append(pygame.transform.smoothscale(frame, target_size))
+    elif item_name in _MYTHICAL_ICON_NAMES and frames and frames[0].get_size() != target_size:
+        # 신화급 아이콘 리사이즈: 해당 크기로 프레임 재생성
+        try:
+            from item_effects.elixir_of_mastery import generate_mythical_animation_frames
+            rendered_frames = generate_mythical_animation_frames(num_frames=len(frames), size=target_size[0])
+            if rendered_frames:
+                scaled_frames = rendered_frames
+        except Exception:
+            for frame in frames:
+                scaled_frames.append(pygame.transform.smoothscale(frame, target_size))
     else:
         for frame in frames:
             if frame.get_size() == target_size:
@@ -1003,6 +1014,18 @@ def load_item_icons():
                         continue
             except Exception as exc:
                 print(f"[WARN] Sacred Laurel icon animation sync failed: {exc}")
+
+        # 신화급 아이콘 애니메이션 프레임 생성
+        if item_name in _MYTHICAL_ICON_NAMES:
+            try:
+                from item_effects.elixir_of_mastery import generate_mythical_animation_frames
+                mythical_frames = generate_mythical_animation_frames(num_frames=8, size=32)
+                if mythical_frames:
+                    ITEM_ICON_ANIMATIONS[item_name] = mythical_frames
+                    ITEM_ICONS[item_name] = mythical_frames[0].copy()
+                    continue
+            except Exception as exc:
+                print(f"[WARN] Mythical icon animation generation failed for {item_name}: {exc}")
 
         try:
             icon_path = resource_path(os.path.join("items", icon_file))

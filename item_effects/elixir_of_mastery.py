@@ -485,6 +485,212 @@ class ElixirOfMastery:
             screen.blit(hint_surf, hr)
 
 
+# ============================================================
+# 신화급 아이콘 애니메이션 시스템
+# ============================================================
+
+# 신화급 테마 색상
+MYTHICAL_BORDER_COLOR = (200, 180, 255)   # 연한 보라 (외곽 테두리)
+MYTHICAL_CORNER_COLOR = (200, 210, 230)   # 은색 (모서리 장식)
+_MYTHICAL_BG_CACHE = {}
+
+
+def _draw_mythical_frame(screen, x, y, size, animation_time):
+    """신화급 아이콘의 애니메이션 프레임을 그린다.
+
+    전설 아이템의 _draw_common_legendary_frame()과 동일한 구조이지만
+    보라 그라데이션 테두리 + 은색 모서리 + 보라 글로우로 차별화.
+
+    Returns:
+        int: 상하 부유 Y 오프셋
+    """
+    # 상하 부유 (±2px)
+    frame_offset = int(math.sin(animation_time * 2.5) * 2)
+    frame_y = y + frame_offset
+
+    # ── 보라색 원형 글로우 배경 (펄싱) ──
+    pulse = (math.sin(animation_time * 4.0) + 1) / 2  # 0~1
+    pulse_bucket = int(pulse * 20)
+    cache_key = (size, pulse_bucket)
+
+    glow_surface = _MYTHICAL_BG_CACHE.get(cache_key)
+    if glow_surface is None:
+        pulse_ratio = pulse_bucket / 20 if pulse_bucket else 0
+        base_radius = max(6, int(size * 0.42))
+        outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse_ratio))
+        inner_radius = max(4, int(outer_radius * 0.65))
+
+        glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        center = (size // 2, size // 2)
+        # 3중 보라 글로우 (바깥 어두운 보라 → 중간 → 안쪽 밝은 보라)
+        pygame.draw.circle(glow_surface, (60, 20, 130, 80), center, outer_radius)
+        pygame.draw.circle(glow_surface, (110, 60, 180, 140), center, int(outer_radius * 0.85))
+        pygame.draw.circle(glow_surface, (180, 140, 240, 190), center, inner_radius)
+        _MYTHICAL_BG_CACHE[cache_key] = glow_surface
+
+    screen.blit(glow_surface, (x, frame_y))
+
+    # ── 내부 보라 그라데이션 테두리 (프레임별 색상 변화) ──
+    inner_pulse = (math.sin(animation_time * 6.0) + 1) / 2
+    # 보라 → 분홍 → 보라 순환 그라데이션
+    outer_color = (
+        int(140 + 60 * inner_pulse),   # R: 140~200
+        int(60 + 80 * inner_pulse),    # G: 60~140
+        int(200 + 40 * inner_pulse),   # B: 200~240
+    )
+    inner_color = (
+        int(120 + 50 * inner_pulse),
+        int(40 + 60 * inner_pulse),
+        int(180 + 50 * inner_pulse),
+    )
+    mid_color = (
+        (outer_color[0] + inner_color[0]) // 2,
+        (outer_color[1] + inner_color[1]) // 2,
+        (outer_color[2] + inner_color[2]) // 2,
+    )
+
+    inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+    inner_rect_mid = inner_rect_outer.inflate(-2, -2)
+    inner_rect_inner = inner_rect_outer.inflate(-4, -4)
+
+    pygame.draw.rect(screen, outer_color, inner_rect_outer, 1)
+    pygame.draw.rect(screen, mid_color, inner_rect_mid, 1)
+    pygame.draw.rect(screen, inner_color, inner_rect_inner, 1)
+
+    # ── 외곽 테두리 (연한 보라) ──
+    border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
+    pygame.draw.rect(screen, MYTHICAL_BORDER_COLOR, border_rect, 2)
+
+    # ── 은색 그라데이션 모서리 장식 ──
+    # 은색이 프레임별로 미세하게 반짝이는 효과
+    silver_pulse = (math.sin(animation_time * 3.0) + 1) / 2
+    silver_color = (
+        int(180 + 50 * silver_pulse),   # 180~230
+        int(190 + 50 * silver_pulse),   # 190~240
+        int(210 + 40 * silver_pulse),   # 210~250
+    )
+    corner_size = 8
+    # 좌상
+    pygame.draw.lines(screen, silver_color, False,
+                      [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
+    # 우상
+    pygame.draw.lines(screen, silver_color, False,
+                      [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
+    # 좌하
+    pygame.draw.lines(screen, silver_color, False,
+                      [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
+    # 우하
+    pygame.draw.lines(screen, silver_color, False,
+                      [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
+    # 모서리 점
+    for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
+        pygame.draw.circle(screen, silver_color, (cx, cy), 2)
+
+    return frame_offset
+
+
+def _draw_elixir_potion(screen, x, y, size):
+    """물약병 아이콘 본체를 그린다 (프레임 내부에 사용)"""
+    cx, cy = x + size // 2, y + size // 2
+    # 크기 비율 계산
+    s = size / 32.0  # 32px 기준 스케일
+
+    # 병 몸체 (둥근 플라스크)
+    body_w = int(18 * s)
+    body_h = int(14 * s)
+    body_x = cx - body_w // 2
+    body_y = cy - int(2 * s)
+    pygame.draw.ellipse(screen, (100, 40, 180), (body_x, body_y, body_w, body_h))
+
+    # 빛나는 액체
+    liq_w = int(14 * s)
+    liq_h = int(9 * s)
+    liq_x = cx - liq_w // 2
+    liq_y = cy + int(1 * s)
+    pygame.draw.ellipse(screen, (200, 120, 255), (liq_x, liq_y, liq_w, liq_h))
+
+    # 액체 하이라이트
+    hl_w = int(6 * s)
+    hl_h = int(4 * s)
+    pygame.draw.ellipse(screen, (230, 180, 255), (cx - hl_w // 2, liq_y + int(1 * s), hl_w, hl_h))
+
+    # 병목
+    neck_w = int(6 * s)
+    neck_h = int(7 * s)
+    neck_x = cx - neck_w // 2
+    neck_y = cy - int(15 * s)
+    pygame.draw.rect(screen, (120, 60, 200), (neck_x, neck_y, neck_w, neck_h))
+
+    # 금색 뚜껑
+    cap_w = int(8 * s)
+    cap_h = int(4 * s)
+    cap_x = cx - cap_w // 2
+    cap_y = neck_y - int(3 * s)
+    pygame.draw.rect(screen, (255, 200, 50), (cap_x, cap_y, cap_w, cap_h), border_radius=max(1, int(s)))
+    # 뚜껑 하이라이트
+    pygame.draw.rect(screen, (255, 230, 100), (cap_x + int(1 * s), cap_y + int(1 * s), cap_w - int(2 * s), cap_h - int(2 * s)))
+
+    # 별 하이라이트
+    star_x = cx - int(5 * s)
+    star_y = cy + int(1 * s)
+    pygame.draw.circle(screen, (255, 255, 200), (star_x, star_y), max(1, int(2 * s)))
+    pygame.draw.circle(screen, (255, 255, 255), (star_x, star_y), max(1, int(1 * s)))
+
+
+def draw_elixir_animated_icon(screen, x, y, size, animation_time):
+    """신화급 엘릭서 오브 마스터리 아이콘 그리기 (애니메이션)
+
+    전설 아이템의 draw_icon() 패턴과 동일:
+    1. 신화급 프레임 (보라 글로우 + 그라데이션 테두리 + 은색 모서리)
+    2. 물약 아이콘 본체
+    3. 마법 파티클 이펙트
+    """
+    # 신화급 프레임 그리기 → 상하 부유 오프셋 반환
+    frame_offset = _draw_mythical_frame(screen, x, y, size, animation_time)
+    icon_y = y + frame_offset
+
+    # 물약 아이콘 본체
+    _draw_elixir_potion(screen, x, icon_y, size)
+
+    # 마법 별 이펙트 (프레임 0, 3, 6에서 반짝임)
+    frame_idx = int(animation_time * 8) % 8
+    if frame_idx in [0, 3, 6]:
+        sparkle_pulse = (math.sin(animation_time * 8) + 1) / 2
+        sparkle_alpha = int(150 + 100 * sparkle_pulse)
+        sparkle_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        # 별 반짝임 위치들
+        offsets = [
+            (size // 4, size // 5),
+            (size * 3 // 4, size // 4),
+            (size // 5, size * 3 // 4),
+            (size * 4 // 5, size * 4 // 5),
+        ]
+        for ox, oy in offsets:
+            color = (255, 220, 255, sparkle_alpha)
+            pygame.draw.circle(sparkle_surf, color, (ox, oy), max(1, size // 16))
+        screen.blit(sparkle_surf, (x, icon_y))
+
+
+def generate_mythical_animation_frames(num_frames=8, size=32):
+    """신화급 아이콘 애니메이션 프레임을 프로그래밍으로 생성
+
+    전설 아이템의 _load_animation_frames() + draw_icon() 패턴과 동일.
+    각 프레임마다 animation_time을 다르게 설정하여 테두리 그라데이션이
+    변화하는 애니메이션을 생성한다.
+
+    Returns:
+        list[pygame.Surface]: num_frames개의 프레임 리스트
+    """
+    frames = []
+    for i in range(num_frames):
+        frame_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        # 각 프레임별 animation_time을 다르게 하여 그라데이션 변화
+        anim_time = i / num_frames * (2 * math.pi / 2.5)  # 한 주기 완성
+        draw_elixir_animated_icon(frame_surface, 0, 0, size, anim_time)
+        frames.append(frame_surface)
+    return frames
+
+
 # 싱글톤
 _elixir_instance = None
 

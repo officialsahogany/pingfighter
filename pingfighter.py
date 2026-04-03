@@ -134470,6 +134470,24 @@ def get_item_icon(item_name):
         icon_cache[item_name] = icon_surface
         return icon_surface
 
+    # 신화급 아이템은 애니메이션 프레임에서 첫 프레임을 정적 아이콘으로 사용
+    if item_name == "elixir_of_mastery":
+        try:
+            anim_frames = items.ITEM_ICON_ANIMATIONS.get("elixir_of_mastery")
+            if anim_frames:
+                icon = pygame.transform.smoothscale(anim_frames[0], (ICON_SIZE, ICON_SIZE))
+                icon_cache[item_name] = icon
+                return icon
+            else:
+                # 프레임이 아직 없으면 직접 생성
+                from item_effects.elixir_of_mastery import draw_elixir_animated_icon
+                icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+                draw_elixir_animated_icon(icon_surface, 0, 0, ICON_SIZE, 0.0)
+                icon_cache[item_name] = icon_surface
+                return icon_surface
+        except Exception:
+            pass
+
     # 전설 아이템들은 정적 스냅샷 생성
     if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"]:
         # Import already done globally at line 141
