@@ -1625,9 +1625,8 @@ class PillarBackgroundRenderer:
                 try:
                     import time as _time
                     from item_effects.elixir_of_mastery import draw_elixir_animated_icon
-                    elixir_surf = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
-                    draw_elixir_animated_icon(elixir_surf, 0, 0, SLOT_W, _time.time())
-                    screen.blit(elixir_surf, (x, y))
+                    # screen에 직접 그려야 모서리 장식이 잘리지 않음
+                    draw_elixir_animated_icon(screen, x, y, SLOT_W, _time.time())
                 except Exception:
                     if item.get("icon"):
                         scaled_icon = self._get_scaled_icon(item, (SLOT_W, SLOT_H))
