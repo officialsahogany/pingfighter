@@ -132585,6 +132585,16 @@ def show_item_manager_menu():
                 # 아이콘
                 if selected_category == 3 and "item_obj" in item:
                     item["item_obj"].draw_icon(SCREEN, x + 5, y + 5, item_size - 10)
+                elif item.get("name") == "elixir_of_mastery":
+                    # 엘릭서 오브 마스터리: 실시간 애니메이션 아이콘
+                    try:
+                        import time as _t_dev
+                        from item_effects.elixir_of_mastery import draw_elixir_animated_icon
+                        draw_elixir_animated_icon(SCREEN, x + 5, y + 5, item_size - 10, _t_dev.time())
+                    except Exception:
+                        if item["icon"]:
+                            icon_surface = pygame.transform.scale(item["icon"], (item_size - 10, item_size - 10))
+                            SCREEN.blit(icon_surface, icon_surface.get_rect(center=item_rect.center))
                 elif item["icon"]:
                     icon_surface = pygame.transform.scale(item["icon"], (item_size - 10, item_size - 10))
                     icon_rect = icon_surface.get_rect(center=item_rect.center)
