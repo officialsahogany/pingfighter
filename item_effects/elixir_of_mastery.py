@@ -541,16 +541,17 @@ def _get_elixir_border_frames():
             frame_path = _resource_path(os.path.join("items", "legendary", f"ragnarok_hammer_frame_{i}.png"))
             frame = pygame.image.load(frame_path).convert_alpha()
             cleaned = _strip_legendary_red_ring(frame)
-            # 중앙 제거, 테두리 6px 보존
-            result = cleaned.copy()
+            # 4꼭지점 영역만 보존, 나머지(파티클 포함) 제거
             w, h = cleaned.get_size()
-            for py in range(h):
-                for px in range(w):
-                    c = cleaned.get_at((px, py))
-                    if c.a == 0:
-                        continue
-                    if min(px, w - 1 - px, py, h - 1 - py) >= 3:
-                        result.set_at((px, py), (0, 0, 0, 0))
+            cs = 7
+            result = pygame.Surface((w, h), pygame.SRCALPHA)
+            for rect in [
+                pygame.Rect(0, 0, cs, cs),
+                pygame.Rect(w - cs, 0, cs, cs),
+                pygame.Rect(0, h - cs, cs, cs),
+                pygame.Rect(w - cs, h - cs, cs, cs),
+            ]:
+                result.blit(cleaned, rect.topleft, rect)
             frames.append(result)
     except Exception:
         pass

@@ -4039,32 +4039,17 @@ class EmptyLegendary(LegendaryItem):
         pass  # print(f"빈전설 프레임 {frames_loaded}/8개 로드")  # 디버그 비활성화
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
-        """프레임에서 테두리 영역(가장자리 6픽셀) 그대로 유지, 내부만 완전 제거"""
-        result = frame.copy()
-        width, height = frame.get_size()
-
-        # 테두리 두께 (가장자리에서 이 범위 내의 픽셀은 그대로 유지)
-        border_thickness = 3
-
-        for py in range(height):
-            for px in range(width):
-                color = frame.get_at((px, py))
-                if color.a == 0:
-                    continue
-
-                # 가장자리에서의 거리 계산
-                dist_from_left = px
-                dist_from_right = width - 1 - px
-                dist_from_top = py
-                dist_from_bottom = height - 1 - py
-
-                # 가장 가까운 가장자리까지의 거리
-                min_dist = min(dist_from_left, dist_from_right, dist_from_top, dist_from_bottom)
-
-                # 테두리 영역이 아니면 (내부면) 모두 제거
-                if min_dist >= border_thickness:
-                    result.set_at((px, py), (0, 0, 0, 0))
-
+        """프레임에서 4꼭지점 영역만 보존, 나머지(파티클 포함) 모두 제거"""
+        result = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
+        w, h = frame.get_size()
+        cs = 7  # 꼭지점 보존 크기 (px)
+        for rect in [
+            pygame.Rect(0, 0, cs, cs),
+            pygame.Rect(w - cs, 0, cs, cs),
+            pygame.Rect(0, h - cs, cs, cs),
+            pygame.Rect(w - cs, h - cs, cs, cs),
+        ]:
+            result.blit(frame, rect.topleft, rect)
         return result
 
     def activate(self, game_state: Dict):
@@ -11553,19 +11538,17 @@ class PandoraLegacy(LegendaryItem):
         return border_only
 
     def _clear_center_content(self, frame):
-        """프레임에서 테두리 영역(가장자리 6픽셀) 유지, 내부만 제거"""
-        result = frame.copy()
-        width, height = frame.get_size()
-        border_thickness = 3
-
-        for py in range(height):
-            for px in range(width):
-                color = frame.get_at((px, py))
-                if color.a == 0:
-                    continue
-                min_dist = min(px, width - 1 - px, py, height - 1 - py)
-                if min_dist >= border_thickness:
-                    result.set_at((px, py), (0, 0, 0, 0))
+        """프레임에서 4꼭지점 영역만 보존, 나머지(파티클 포함) 모두 제거"""
+        result = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
+        w, h = frame.get_size()
+        cs = 7
+        for rect in [
+            pygame.Rect(0, 0, cs, cs),
+            pygame.Rect(w - cs, 0, cs, cs),
+            pygame.Rect(0, h - cs, cs, cs),
+            pygame.Rect(w - cs, h - cs, cs, cs),
+        ]:
+            result.blit(frame, rect.topleft, rect)
         return result
 
     def _create_default_frame(self, frame_idx):
@@ -11738,18 +11721,17 @@ class Megingjord(LegendaryItem):
 
     @staticmethod
     def _clear_center_content(frame):
-        """프레임에서 테두리 영역(가장자리 6픽셀) 유지, 내부만 제거"""
-        result = frame.copy()
-        width, height = frame.get_size()
-        border_thickness = 3
-        for py in range(height):
-            for px in range(width):
-                color = frame.get_at((px, py))
-                if color.a == 0:
-                    continue
-                min_dist = min(px, width - 1 - px, py, height - 1 - py)
-                if min_dist >= border_thickness:
-                    result.set_at((px, py), (0, 0, 0, 0))
+        """프레임에서 4꼭지점 영역만 보존, 나머지(파티클 포함) 모두 제거"""
+        result = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
+        w, h = frame.get_size()
+        cs = 7
+        for rect in [
+            pygame.Rect(0, 0, cs, cs),
+            pygame.Rect(w - cs, 0, cs, cs),
+            pygame.Rect(0, h - cs, cs, cs),
+            pygame.Rect(w - cs, h - cs, cs, cs),
+        ]:
+            result.blit(frame, rect.topleft, rect)
         return result
 
     @property
