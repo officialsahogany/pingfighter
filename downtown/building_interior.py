@@ -16681,6 +16681,13 @@ class BuildingInterior:
             # 강화 실패: 아이템 파괴
             if self.enhancement_selected_idx < len(passive_list):
                 del passive_list[self.enhancement_selected_idx]
+            # 파괴된 아이템의 효과 비활성화를 위해 장착 효과 재동기화
+            try:
+                import pingfighter
+                if hasattr(pingfighter, 'sync_equipped_passive_effects'):
+                    pingfighter.sync_equipped_passive_effects()
+            except Exception:
+                pass
 
     def _update_roll_option_bonus(self, item):
         """강화 레벨에 따른 롤옵션 보너스 업데이트"""
