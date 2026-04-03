@@ -1620,10 +1620,22 @@ class PillarBackgroundRenderer:
             # 아이콘 표시
             item_name = item.get("name") or item.get("effect")
 
+            # 신화 아이템 (엘릭서 오브 마스터리 등) 실시간 애니메이션 렌더링
+            if item_name == "elixir_of_mastery":
+                try:
+                    import time as _time
+                    from item_effects.elixir_of_mastery import draw_elixir_animated_icon
+                    elixir_surf = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
+                    draw_elixir_animated_icon(elixir_surf, 0, 0, SLOT_W, _time.time())
+                    screen.blit(elixir_surf, (x, y))
+                except Exception:
+                    if item.get("icon"):
+                        scaled_icon = self._get_scaled_icon(item, (SLOT_W, SLOT_H))
+                        if scaled_icon:
+                            screen.blit(scaled_icon, (x, y))
             # 전설 아이템 처리
-            _LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                                     "odins_eye", "sacred_laurel", "angel_blessing", "transcendent_crown"}
-            if item_name in _LEGENDARY_ICON_NAMES:
+            elif item_name in {"ragnarok_hammer", "hermes_shoes", "poseidon_trident",
+                                     "odins_eye", "sacred_laurel", "angel_blessing", "transcendent_crown"}:
                 try:
                     from legendary_items import get_legendary_manager
                     legendary_manager = get_legendary_manager()

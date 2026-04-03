@@ -55,7 +55,7 @@ class ElixirOfMastery:
         self.waiting_for_confirm = False
 
     def get_eligible_perks(self, runtime_skill_levels, all_skill_pools):
-        """Lv.5 미만인 퍽 목록 반환 (max_level이 5 이상인 퍽만)"""
+        """이미 보유 중이면서 Lv.5 미만인 퍽 목록 반환"""
         eligible = []
         for pool in all_skill_pools:
             for skill_id, skill_data in pool.items():
@@ -63,7 +63,8 @@ class ElixirOfMastery:
                 if max_level < 5:
                     continue  # max_level이 5 미만인 퍽은 제외
                 current = runtime_skill_levels.get(skill_id, 0)
-                if current < 5:
+                if current > 0 and current < 5:
+                    # 이미 보유 중(current > 0)이고 Lv.5 미만인 퍽만 대상
                     eligible.append((skill_id, skill_data, current))
         return eligible
 
@@ -487,106 +488,8 @@ class ElixirOfMastery:
 
 # ============================================================
 # 신화급 아이콘 애니메이션 시스템
+# 라그나로크 해머 등 기존 신화 아이템과 동일한 _draw_common_legendary_frame() 사용
 # ============================================================
-
-# 신화급 테마 색상
-MYTHICAL_BORDER_COLOR = (200, 180, 255)   # 연한 보라 (외곽 테두리)
-MYTHICAL_CORNER_COLOR = (200, 210, 230)   # 은색 (모서리 장식)
-_MYTHICAL_BG_CACHE = {}
-
-
-def _draw_mythical_frame(screen, x, y, size, animation_time):
-    """신화급 아이콘의 애니메이션 프레임을 그린다.
-
-    전설 아이템의 _draw_common_legendary_frame()과 동일한 구조이지만
-    보라 그라데이션 테두리 + 은색 모서리 + 보라 글로우로 차별화.
-
-    Returns:
-        int: 상하 부유 Y 오프셋
-    """
-    # 상하 부유 (±2px)
-    frame_offset = int(math.sin(animation_time * 2.5) * 2)
-    frame_y = y + frame_offset
-
-    # ── 보라색 원형 글로우 배경 (펄싱) ──
-    pulse = (math.sin(animation_time * 4.0) + 1) / 2  # 0~1
-    pulse_bucket = int(pulse * 20)
-    cache_key = (size, pulse_bucket)
-
-    glow_surface = _MYTHICAL_BG_CACHE.get(cache_key)
-    if glow_surface is None:
-        pulse_ratio = pulse_bucket / 20 if pulse_bucket else 0
-        base_radius = max(6, int(size * 0.42))
-        outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse_ratio))
-        inner_radius = max(4, int(outer_radius * 0.65))
-
-        glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-        center = (size // 2, size // 2)
-        # 3중 보라 글로우 (바깥 어두운 보라 → 중간 → 안쪽 밝은 보라)
-        pygame.draw.circle(glow_surface, (60, 20, 130, 80), center, outer_radius)
-        pygame.draw.circle(glow_surface, (110, 60, 180, 140), center, int(outer_radius * 0.85))
-        pygame.draw.circle(glow_surface, (180, 140, 240, 190), center, inner_radius)
-        _MYTHICAL_BG_CACHE[cache_key] = glow_surface
-
-    screen.blit(glow_surface, (x, frame_y))
-
-    # ── 내부 보라 그라데이션 테두리 (프레임별 색상 변화) ──
-    inner_pulse = (math.sin(animation_time * 6.0) + 1) / 2
-    # 보라 → 분홍 → 보라 순환 그라데이션
-    outer_color = (
-        int(140 + 60 * inner_pulse),   # R: 140~200
-        int(60 + 80 * inner_pulse),    # G: 60~140
-        int(200 + 40 * inner_pulse),   # B: 200~240
-    )
-    inner_color = (
-        int(120 + 50 * inner_pulse),
-        int(40 + 60 * inner_pulse),
-        int(180 + 50 * inner_pulse),
-    )
-    mid_color = (
-        (outer_color[0] + inner_color[0]) // 2,
-        (outer_color[1] + inner_color[1]) // 2,
-        (outer_color[2] + inner_color[2]) // 2,
-    )
-
-    inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
-    inner_rect_mid = inner_rect_outer.inflate(-2, -2)
-    inner_rect_inner = inner_rect_outer.inflate(-4, -4)
-
-    pygame.draw.rect(screen, outer_color, inner_rect_outer, 1)
-    pygame.draw.rect(screen, mid_color, inner_rect_mid, 1)
-    pygame.draw.rect(screen, inner_color, inner_rect_inner, 1)
-
-    # ── 외곽 테두리 (연한 보라) ──
-    border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
-    pygame.draw.rect(screen, MYTHICAL_BORDER_COLOR, border_rect, 2)
-
-    # ── 은색 그라데이션 모서리 장식 ──
-    # 은색이 프레임별로 미세하게 반짝이는 효과
-    silver_pulse = (math.sin(animation_time * 3.0) + 1) / 2
-    silver_color = (
-        int(180 + 50 * silver_pulse),   # 180~230
-        int(190 + 50 * silver_pulse),   # 190~240
-        int(210 + 40 * silver_pulse),   # 210~250
-    )
-    corner_size = 8
-    # 좌상
-    pygame.draw.lines(screen, silver_color, False,
-                      [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
-    # 우상
-    pygame.draw.lines(screen, silver_color, False,
-                      [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
-    # 좌하
-    pygame.draw.lines(screen, silver_color, False,
-                      [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
-    # 우하
-    pygame.draw.lines(screen, silver_color, False,
-                      [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
-    # 모서리 점
-    for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-        pygame.draw.circle(screen, silver_color, (cx, cy), 2)
-
-    return frame_offset
 
 
 def _draw_elixir_potion(screen, x, y, size):
@@ -638,15 +541,16 @@ def _draw_elixir_potion(screen, x, y, size):
 
 
 def draw_elixir_animated_icon(screen, x, y, size, animation_time):
-    """신화급 엘릭서 오브 마스터리 아이콘 그리기 (애니메이션)
+    """엘릭서 오브 마스터리 애니메이션 아이콘 그리기
 
-    전설 아이템의 draw_icon() 패턴과 동일:
-    1. 신화급 프레임 (보라 글로우 + 그라데이션 테두리 + 은색 모서리)
-    2. 물약 아이콘 본체
-    3. 마법 파티클 이펙트
+    기존 신화 아이템(라그나로크 해머 등)과 동일한 _draw_common_legendary_frame() 사용:
+    - 파란 글로우 펄싱 + 붉은 그라데이션 테두리 + 금색 모서리 + 상하 부유
+    그 위에 물약 아이콘 본체 + 반짝임 이펙트
     """
-    # 신화급 프레임 그리기 → 상하 부유 오프셋 반환
-    frame_offset = _draw_mythical_frame(screen, x, y, size, animation_time)
+    from legendary_items import _draw_common_legendary_frame
+
+    # 신화 아이템 공통 프레임 (라그나로크 해머와 동일)
+    frame_offset = _draw_common_legendary_frame(screen, x, y, size, animation_time)
     icon_y = y + frame_offset
 
     # 물약 아이콘 본체
@@ -658,7 +562,6 @@ def draw_elixir_animated_icon(screen, x, y, size, animation_time):
         sparkle_pulse = (math.sin(animation_time * 8) + 1) / 2
         sparkle_alpha = int(150 + 100 * sparkle_pulse)
         sparkle_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-        # 별 반짝임 위치들
         offsets = [
             (size // 4, size // 5),
             (size * 3 // 4, size // 4),

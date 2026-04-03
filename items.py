@@ -94,7 +94,7 @@ ITEM_ICONS = {}
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
 _LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "odins_eye"}
-_MYTHICAL_ICON_NAMES = {"elixir_of_mastery"}
+_MYTHICAL_ICON_NAMES = {"elixir_of_mastery"}  # 신화급 아이템 (자체 애니메이션 프레임 생성)
 
 
 def _center_icon_surface(icon: pygame.Surface, size: int = 32, padding: int = 2) -> pygame.Surface:
@@ -2733,6 +2733,12 @@ def draw_items(screen):
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         odins_eye.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
+            elif item_name == "elixir_of_mastery":
+                # 엘릭서 오브 마스터리 필드 애니메이션 (신화 아이템 공통 프레임 사용)
+                import time as _time
+                from item_effects.elixir_of_mastery import draw_elixir_animated_icon
+                draw_elixir_animated_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60, _time.time())
+                continue
 
             # 일반 아이템은 기존 방식대로 처리
             icon = item_type.get("icon")
