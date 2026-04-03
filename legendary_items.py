@@ -4158,6 +4158,8 @@ class AngelBlessing(LegendaryItem):
     def activate(self, game_state: Dict):
         """장착/획득 시 - 같은 스테이지에서는 재발동하지 않음."""
         global _pending_angel_blessing_activation
+        # 🔍 DEBUG
+        print(f"[AngelBlessing DEBUG] activate() 호출됨! game_state={game_state}")
 
         super().activate(game_state)
 
@@ -4427,9 +4429,13 @@ class AngelBlessing(LegendaryItem):
 
     def _roll_blessing(self, current_stage: int):
         """주사위 굴림 및 버프 적용"""
-        import random
+        import random, traceback
+        # 🔍 DEBUG: 호출 경로 추적
+        print(f"[AngelBlessing DEBUG] _roll_blessing 호출됨! stage={current_stage}, applied={self.applied_stage}, triggered={self._triggered_stages}")
+        traceback.print_stack(limit=8)
         # 유효한 스테이지가 아니면 스킵 (메인메뉴/개발자모드 진입 시 오발동 방지)
         if current_stage is None or not isinstance(current_stage, (int, float)) or current_stage < 1:
+            print(f"[AngelBlessing DEBUG] 스킵 - 유효하지 않은 스테이지: {current_stage}")
             return
         # 이미 발동된 스테이지면 스킵 (재장착 방지)
         if current_stage in self._triggered_stages:
@@ -5626,6 +5632,8 @@ class AngelBlessing(LegendaryItem):
         if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
             # 이미 발동된 스테이지면 스킵 (재장착 방지)
             if current_stage not in self._triggered_stages:
+                # 🔍 DEBUG
+                print(f"[AngelBlessing DEBUG] update()에서 _roll_blessing 호출 예정! current_stage={current_stage}, applied={self.applied_stage}, ui_mode={ui_mode}")
                 if os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1":
                     print(f"[AngelBlessing][DEBUG] stage change detected: prev={self.applied_stage}, now={current_stage}")
                 self._roll_blessing(current_stage)
