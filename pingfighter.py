@@ -26665,12 +26665,20 @@ def _commando_timer_reduction(base_timer: int) -> int:
 
 def _commando_range_bonus(base_value: float, per_stack_pct: float = 0.10) -> int:
     count = _get_commando_arm_count()
-    return int(base_value * (1 + per_stack_pct * count)) if count > 0 else int(base_value)
+    if count <= 0:
+        return int(base_value)
+    # 롤 옵션 값 사용 (commando_explosion_range_pct: 5~15%)
+    pct = commando_explosion_range_pct / 100.0
+    return int(base_value * (1 + pct * count))
 
 
 def _commando_duration_bonus(base_duration: int, per_stack_pct: float = 0.50) -> int:
     count = _get_commando_arm_count()
-    return int(base_duration * (1 + per_stack_pct * count)) if count > 0 else base_duration
+    if count <= 0:
+        return base_duration
+    # 롤 옵션 값 사용 (commando_smoke_duration_pct: 20~40%)
+    pct = commando_smoke_duration_pct / 100.0
+    return int(base_duration * (1 + pct * count))
 
 
 def _commando_gauge_bonus(base_gain: int, per_stack_bonus: int = 20) -> int:
@@ -29317,8 +29325,7 @@ def trigger_grenade_style_explosion(
     base_radius = 190
     base_radius = max(10, int(base_radius * radius_scale))
     if apply_commando_bonus and items.commando_arm_obtained:
-        explosion_radius = int(base_radius * 1.1)
-        print(f"🚨 코만도암 효과 적용: 폭발 반경 {explosion_radius} (기본 {base_radius})")
+        explosion_radius = _commando_range_bonus(base_radius)
     else:
         explosion_radius = base_radius
 
@@ -54532,8 +54539,8 @@ def _spawn_drone_fire_zone(cx: float, cy: float) -> None:
     import items
     base_width = 150
     base_height = 60
-    fire_width = _commando_range_bonus(base_width, per_stack_pct=0.10)
-    fire_height = _commando_range_bonus(base_height, per_stack_pct=0.10)
+    fire_width = _commando_range_bonus(base_width)
+    fire_height = _commando_range_bonus(base_height)
     fire_zone = {
         "x": cx,
         "y": cy,
@@ -82911,7 +82918,7 @@ def handle_wall():
                 import items
                 # 코만도암 효과: 연막탄 지속시간 증가 (스택 반영)
                 base_duration = 600  # 10초 지속 (9초 + 1초 페이드아웃)
-                smoke_duration = _commando_duration_bonus(base_duration, per_stack_pct=0.50)
+                smoke_duration = _commando_duration_bonus(base_duration)
                 if items.commando_arm_obtained:
                     pass  # print(f"  !  : {smoke_duration/60:.1f} (: {base_duration/60:.1f})")
                 
@@ -83149,7 +83156,7 @@ def handle_wall():
                 import items
                 # 코만도암 효과: 폭발 범위 10% 증가 (스택 반영)
                 base_radius = 180  # 조명 반경
-                flare_radius = _commando_range_bonus(base_radius, per_stack_pct=0.10)
+                flare_radius = _commando_range_bonus(base_radius)
                 if items.commando_arm_obtained:
                     pass  # print(f"  !   : {flare_radius} (: {base_radius})")
                 
@@ -83256,8 +83263,8 @@ def handle_wall():
             # 코만도암 효과: 폭발 범위 증가 (스택 반영)
             base_width = 150  # 화염 지대 너비
             base_height = 60  # 화염 지대 높이
-            fire_width = _commando_range_bonus(base_width, per_stack_pct=0.10)
-            fire_height = _commando_range_bonus(base_height, per_stack_pct=0.10)
+            fire_width = _commando_range_bonus(base_width)
+            fire_height = _commando_range_bonus(base_height)
             if items.commando_arm_obtained:
                 pass  # print(f"  !   : {fire_width}x{fire_height} (: {base_width}x{base_height})")
             
