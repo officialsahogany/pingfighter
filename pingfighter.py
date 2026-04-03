@@ -37485,6 +37485,10 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         blacksmith_turret_build_progress = 0
         blacksmith_turret_blueprint_active = True
         blacksmith_turret_partial_drain = 0.0
+        # 온라인: 터렛 청사진 배치를 상대방에게 전송
+        _online_send_effect('blueprint', btype='turret',
+                            x=blueprint_rect.centerx, y=blueprint_rect.centery,
+                            w=blueprint_rect.width, h=blueprint_rect.height, dur=60000)
         try:
             play_sound_with_volume(SOUND_ITEM_GET)
         except Exception:
@@ -37620,6 +37624,10 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_hammer_swing_phase = 0
                         blacksmith_manual_hammer_timer = 0
                         blacksmith_manual_hammer_increment = 1
+                        # 온라인: 터렛 건설 완료를 상대방에게 전송
+                        _online_send_effect('building', btype='turret',
+                                            x=turret_rect.centerx, y=turret_rect.centery,
+                                            w=turret_rect.width, h=turret_rect.height, dur=30000)
     else:
         if (
             blacksmith_turret_active
@@ -37746,6 +37754,10 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_hammer_slow_decay_step = 0
                         blacksmith_hammer_swing_phase = 0
                         push_blacksmith_state()
+                        # 온라인: 디바인스톤 건설 완료를 상대방에게 전송
+                        _online_send_effect('building', btype='divine',
+                                            x=stone_rect.centerx, y=stone_rect.centery,
+                                            w=stone_rect.width, h=stone_rect.height, dur=30000)
                 else:
                     pass  # 게이지 부족으로 건설 일시정지
         else:
@@ -46186,6 +46198,10 @@ def blacksmith_start_divine_stone():
     divine.build_progress = 0
     divine.partial_drain = 0.0
     divine.blueprint_active = True
+    # 온라인: 디바인스톤 청사진 배치를 상대방에게 전송
+    _online_send_effect('blueprint', btype='divine',
+                        x=rect.centerx, y=rect.centery,
+                        w=rect.width, h=rect.height, dur=60000)
     try:
         play_sound_with_volume(SOUND_ITEM_GET)
     except Exception:
@@ -77168,6 +77184,9 @@ def handle_player(keys):
                 # 대쉬 감속 구간 캔슬 적용 (왼쪽 대쉬와 동일)
                 # 스턴/감전 상태에서는 대쉬 불가
                 _player_stun_blocked_r = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
+                # 🔧 온라인 대쉬 디버그: 오른쪽 대쉬 조건 실패 시 로그
+                if online_multiplayer_enabled and right_before_down and down_pressed and not (rolling_charges > 0 or _soul_burst_can_dash):
+                    print(f"[DASH_DEBUG] 오른쪽대쉬 토큰부족: charges={rolling_charges}, released={dash_key_released_since_last}")
                 if right_before_down and down_pressed and not dash_down_first_lock and (rolling_charges > 0 or _soul_burst_can_dash) and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last and not _player_stun_blocked_r and not is_deadly_hug_dash_blocked():
                     # 아래키 + 오른쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
@@ -171295,11 +171314,21 @@ def _online_receive_effects():
         # Y축 반전 좌표
         if 'y' in ef:
             ef['y'] = HEIGHT - ef['y']
+        # 속도 Y성분 반전 (bullet/ak 등 vx/vy 기반 이펙트용)
+        if 'vy' in ef:
+            ef['vy'] = -ef['vy']
+        if 'dy' in ef:
+            ef['dy'] = -ef['dy']
         # 방향 반전
         if ef.get('dir') == 'up':
             ef['dir'] = 'down'
         elif ef.get('dir') == 'down':
             ef['dir'] = 'up'
+        # 건물 완성 시 해당 타입의 청사진 이펙트 자동 제거
+        if ef_type == 'building':
+            _btype = ef.get('btype', '')
+            _online_remote_effects[:] = [e for e in _online_remote_effects
+                                          if not (e.get('e') == 'blueprint' and e.get('btype') == _btype)]
         # 로컬 타이머 시작
         ef['_start_ms'] = pygame.time.get_ticks()
         ef['_alive'] = True
@@ -171327,7 +171356,7 @@ def _online_draw_remote_effects(screen):
                 # 바이퍼 회전 모션 → BOSS 패들 회전은 별도 처리 (anim state)
                 pass
             elif ef_type == 'blade':
-                # 바이퍼 에어 블레이드: 원본 동일 렌더링
+                # 바이퍼 에어 블레이드: 인라인 렌더링 (draw_objects 외부에서 접근 가능하도록)
                 _bx = int(ef.get('x', 0))
                 _by = int(ef.get('y', 0))
                 _bhw = int(ef.get('hw', 175))
@@ -171336,12 +171365,71 @@ def _online_draw_remote_effects(screen):
                 # alive 계산
                 _fade_start = 0.65
                 _fade_fac = max(0.0, min(1.0, (_progress - _fade_start) / (1.0 - _fade_start))) if _progress > _fade_start else 0.0
-                _alive = 1.0 - _fade_fac
-                if _alive > 0.01:
+                _bl_alive = 1.0 - _fade_fac
+                if _bl_alive > 0.01:
                     # 검기 Y 이동 (아래→위 또는 위→아래)
                     _travel = 250 * _progress
-                    _draw_y = _by + _travel if ef.get('dir') == 'down' else _by - _travel
-                    _draw_viper_blade_rush(screen, _bx, int(_draw_y), _bhw, _alive, flip_y=(ef.get('dir') == 'down'))
+                    _bl_flip = ef.get('dir') == 'down'
+                    _draw_y = int(_by + _travel if _bl_flip else _by - _travel)
+                    # ── 인라인 검기 렌더링 (부채꼴 크레센트 블레이드) ──
+                    _fan_w = _bhw * 2
+                    _fan_h = 55
+                    _fan_surf_w = _fan_w + 40
+                    _fan_surf_h = _fan_h + 30
+                    _fan_surf = pygame.Surface((_fan_surf_w, _fan_surf_h), pygame.SRCALPHA)
+                    _fcx = _fan_surf_w // 2
+                    _fcy = _fan_surf_h - 8
+                    # 다층 부채꼴 본체
+                    _fan_layers = [
+                        (1.00, (55, 30, 90),    30),
+                        (0.85, (80, 45, 130),   50),
+                        (0.70, (110, 65, 160),  75),
+                        (0.55, (140, 90, 185),  105),
+                        (0.38, (170, 130, 210), 140),
+                        (0.18, (200, 180, 230), 180),
+                    ]
+                    for _fi, (_f_scale, _f_rgb, _f_base_a) in enumerate(_fan_layers):
+                        _f_alpha = int(_f_base_a * _bl_alive)
+                        if _f_alpha < 2:
+                            continue
+                        _fw = int(_fan_w * _f_scale * 0.5)
+                        _fh = int(_fan_h * _f_scale)
+                        _fan_pts = [(_fcx, _fcy)]
+                        for _as in range(13):
+                            _a_t = _as / 12.0
+                            _a_angle = math.pi + (math.pi * 0.15) + _a_t * (math.pi * 0.70)
+                            _fan_pts.append((_fcx + int(math.cos(_a_angle) * _fw * 1.15),
+                                             _fcy + int(math.sin(_a_angle) * _fh * 1.1)))
+                        if len(_fan_pts) >= 3:
+                            pygame.draw.polygon(_fan_surf, (*_f_rgb, _f_alpha), _fan_pts)
+                    # 에지 라인
+                    _edge_pts = []
+                    for _es in range(17):
+                        _e_t = _es / 16.0
+                        _e_angle = math.pi + (math.pi * 0.15) + _e_t * (math.pi * 0.70)
+                        _edge_pts.append((_fcx + int(math.cos(_e_angle) * int(_fan_w * 0.5) * 1.15),
+                                          _fcy + int(math.sin(_e_angle) * _fan_h * 1.1)))
+                    _edge_alpha = int(160 * _bl_alive)
+                    if len(_edge_pts) > 1 and _edge_alpha > 3:
+                        pygame.draw.lines(_fan_surf, (190, 160, 230, _edge_alpha), False, _edge_pts, 2)
+                    # 꼭짓점 글로우
+                    for _gl in range(3):
+                        _gl_r = 10 - _gl * 3
+                        _gl_a = int((20 - _gl * 5) * _bl_alive)
+                        if _gl_r > 0 and _gl_a > 1:
+                            pygame.draw.circle(_fan_surf, (130, 80, 180, _gl_a), (_fcx, _fcy), _gl_r)
+                    # flip_y이면 서피스를 상하 반전
+                    if _bl_flip:
+                        _fan_surf = pygame.transform.flip(_fan_surf, False, True)
+                    screen.blit(_fan_surf, (_bx - _fcx, _draw_y - _fcy if not _bl_flip else _draw_y - (_fan_surf_h - 8)),
+                                special_flags=pygame.BLEND_ADD)
+                    # 앰비언트 헤일로
+                    _amb_r = int(_fan_h * 1.2)
+                    _amb_a = int(15 * _bl_alive)
+                    if _amb_r > 0 and _amb_a > 1:
+                        _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(_amb_s, (100, 60, 160, _amb_a), (_amb_r, _amb_r), _amb_r)
+                        screen.blit(_amb_s, (_bx - _amb_r, _draw_y - _amb_r), special_flags=pygame.BLEND_ADD)
                 else:
                     ef['_alive'] = False
             elif ef_type == 'nerve':
@@ -171537,6 +171625,56 @@ def _online_draw_remote_effects(screen):
             elif ef_type == 'divine_destroy':
                 # 디바인 스톤 파괴 → 이펙트 목록에서 divine도 제거
                 _online_remote_effects[:] = [e for e in _online_remote_effects if e.get('e') != 'divine']
+                ef['_alive'] = False
+            elif ef_type == 'blueprint':
+                # 발토르 건물 청사진 (건설 중 표시)
+                _bp_x = int(ef.get('x', 0))
+                _bp_y = int(ef.get('y', 0))
+                _bp_w = int(ef.get('w', 40))
+                _bp_h = int(ef.get('h', 50))
+                _bp_btype = ef.get('btype', 'turret')
+                _bp_surf = pygame.Surface((_bp_w, _bp_h), pygame.SRCALPHA)
+                # 점선 테두리로 청사진 표시
+                _bp_color = (100, 180, 255, 100) if _bp_btype == 'turret' else (180, 140, 80, 100)
+                _bp_surf.fill((*_bp_color[:3], 30))
+                pygame.draw.rect(_bp_surf, _bp_color, (0, 0, _bp_w, _bp_h), 2)
+                # 깜빡이는 효과
+                if (now // 400) % 2 == 0:
+                    pygame.draw.line(_bp_surf, _bp_color, (_bp_w // 2 - 8, _bp_h // 2), (_bp_w // 2 + 8, _bp_h // 2), 2)
+                    pygame.draw.line(_bp_surf, _bp_color, (_bp_w // 2, _bp_h // 2 - 8), (_bp_w // 2, _bp_h // 2 + 8), 2)
+                screen.blit(_bp_surf, (_bp_x - _bp_w // 2, _bp_y - _bp_h // 2))
+            elif ef_type == 'building':
+                # 발토르 완성된 건물 (터렛/디바인스톤)
+                _bd_x = int(ef.get('x', 0))
+                _bd_y = int(ef.get('y', 0))
+                _bd_w = int(ef.get('w', 40))
+                _bd_h = int(ef.get('h', 50))
+                _bd_btype = ef.get('btype', 'turret')
+                if _bd_btype == 'turret':
+                    # 터렛: 사각형 본체 + 포탑 표시
+                    pygame.draw.rect(screen, (80, 80, 100), (_bd_x - _bd_w // 2, _bd_y - _bd_h // 2, _bd_w, _bd_h))
+                    pygame.draw.rect(screen, (120, 120, 150), (_bd_x - _bd_w // 2, _bd_y - _bd_h // 2, _bd_w, _bd_h), 2)
+                    # 포탑 포신
+                    pygame.draw.rect(screen, (150, 150, 170), (_bd_x - 3, _bd_y - _bd_h // 2 - 12, 6, 14))
+                else:
+                    # 디바인스톤: 육각형
+                    _bd_r = min(_bd_w, _bd_h) // 2
+                    _bd_pts = []
+                    for _hi in range(6):
+                        _ha = math.radians(60 * _hi - 30)
+                        _bd_pts.append((_bd_x + int(math.cos(_ha) * _bd_r), _bd_y + int(math.sin(_ha) * _bd_r)))
+                    pygame.draw.polygon(screen, (140, 120, 80), _bd_pts)
+                    pygame.draw.polygon(screen, (200, 180, 100), _bd_pts, 2)
+                    # 펄스 글로우
+                    _bd_pulse = int(abs(math.sin(now * 0.003)) * 40)
+                    _bd_gs = pygame.Surface((_bd_r * 4, _bd_r * 4), pygame.SRCALPHA)
+                    pygame.draw.circle(_bd_gs, (200, 180, 100, _bd_pulse), (_bd_r * 2, _bd_r * 2), _bd_r * 2)
+                    screen.blit(_bd_gs, (_bd_x - _bd_r * 2, _bd_y - _bd_r * 2))
+            elif ef_type == 'building_destroy':
+                # 건물 파괴 → 이펙트 목록에서 해당 건물 제거
+                _destroy_btype = ef.get('btype', '')
+                _online_remote_effects[:] = [e for e in _online_remote_effects
+                                              if not (e.get('e') in ('building', 'blueprint') and e.get('btype') == _destroy_btype)]
                 ef['_alive'] = False
         except Exception:
             ef['_alive'] = False
