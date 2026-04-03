@@ -53,7 +53,9 @@ class DevilDice:
         self.dice_vertical_velocity = 0.0
         self.dice_gravity = 0.45
 
-        # 시각 효과
+        # 패들 이펙트 (사용 후 3초간만 표시)
+        self.paddle_effect_timer = 0  # 남은 프레임 (0이면 비활성)
+        self.paddle_effect_duration = 180  # 3초 (60fps)
         self.flame_particles = []
 
         # 폰트
@@ -200,6 +202,8 @@ class DevilDice:
             self.final_idle_phase = 0.0
             self.dice_offset_y = 0.0
             self.dice_vertical_velocity = 0.0
+            # 패들 이펙트 3초 시작
+            self.paddle_effect_timer = self.paddle_effect_duration
 
         if self.waiting_for_confirm:
             self.final_idle_phase += 0.08
@@ -212,11 +216,18 @@ class DevilDice:
         return True
 
     def draw_paddle_effect(self, screen: pygame.Surface, paddle_rect: pygame.Rect):
-        """패들에 어두운 기운 효과 그리기 (영구 보너스 존재 시)"""
-        if not self.has_bonuses():
-            return
+        """패들에 어두운 기운 효과 그리기 (사용 후 3초간, 서서히 사라짐)"""
+        if self.paddle_effect_timer <= 0:
+            # 타이머 끝나면 남은 파티클만 소진
+            if not self.flame_particles:
+                return
+        else:
+            self.paddle_effect_timer -= 1
 
-        if random.random() < 0.3:
+        # 페이드 비율 (1.0 → 0.0)
+        fade = self.paddle_effect_timer / self.paddle_effect_duration if self.paddle_effect_timer > 0 else 0.0
+
+        if fade > 0 and random.random() < 0.3 * fade:
             particle = {
                 'x': paddle_rect.centerx + random.randint(-paddle_rect.width // 2, paddle_rect.width // 2),
                 'y': paddle_rect.centery,
@@ -242,7 +253,7 @@ class DevilDice:
                 self.flame_particles.remove(particle)
                 continue
 
-            alpha = particle['life'] / 40
+            alpha = particle['life'] / 40 * max(fade, 0.15)
             for i in range(3):
                 glow_size = int(particle['size'] * (1 + i * 0.5))
                 glow_alpha = alpha * (0.3 - i * 0.1)

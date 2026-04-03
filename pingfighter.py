@@ -164232,9 +164232,11 @@ def main(stage_num, new_boss_mode=False):
             stage5_events.draw(SCREEN)  # 이벤트가 끝나도 화염탄 그리기를 위해 계속 호출
         
         #  악마의 주사위 효과 그리기 (주사위 애니메이션 포함)
-        from item_effects.devil_dice import draw_devil_dice_effects, is_devil_dice_active
-        if is_devil_dice_active():
-            draw_devil_dice_effects(SCREEN, PLAYER)  # 패들 효과와 주사위 애니메이션 모두 그리기
+        from item_effects.devil_dice import draw_devil_dice_effects, is_devil_dice_rolling
+        from item_effects.devil_dice import get_devil_dice_instance
+        _dd_inst = get_devil_dice_instance()
+        if is_devil_dice_rolling() or _dd_inst.paddle_effect_timer > 0 or _dd_inst.flame_particles:
+            draw_devil_dice_effects(SCREEN, PLAYER)
 
         # ✨ 스매셔 클렌즈 스킬 효과 그리기
         if selected_character_type == "smasher":
