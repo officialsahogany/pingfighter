@@ -152199,15 +152199,50 @@ def _handle_boss_online_sync():
     """온라인 멀티플레이: 상대방의 PLAYER 위치를 BOSS에 적용 + 서브 처리.
     호스트: P2(클라이언트)의 PLAYER.x → BOSS.x
     클라이언트: P1(호스트)의 PLAYER.x → BOSS.x
+    AI 대전: AI가 BOSS를 조작
     """
     global BOSS, _online_opponent_anim
     global is_waiting_for_serve, is_player_serve, ball_vel
     global serve_completed_timer, boss_fake_during_player_serve
+    global _online_ai_boss_controller
 
-    if _online_net_manager is None:
+    # ── AI 대전 모드: AI가 BOSS를 직접 조작 ──
+    if _online_ai_boss_enabled:
+        try:
+            if _online_ai_boss_controller is None:
+                from ai.player_ai import PlayerAIController
+                _online_ai_boss_controller = PlayerAIController()
+            # AI 상태 구성
+            _ai_state = {
+                'ball_x': BALL.centerx,
+                'ball_y': BALL.centery,
+                'ball_vx': ball_vel[0],
+                'ball_vy': ball_vel[1],
+                'player_x': BOSS.centerx,  # AI가 BOSS를 조작
+                'player_y': BOSS.centery,
+                'player_width': BOSS.width,
+                'boss_x': PLAYER.centerx,  # 상대는 PLAYER
+                'boss_y': PLAYER.centery,
+                'width': WIDTH,
+                'height': HEIGHT,
+                'special_gauge': 0,
+                'is_waiting_serve': is_waiting_for_serve,
+                'is_player_serve': not is_player_serve,  # AI 입장에서 반전
+                'rolling_active': False,
+                'current_speed': 0,
+            }
+            _ai_keys = _online_ai_boss_controller.decide(_ai_state)
+            # AI 이동 적용
+            _ai_speed = 7
+            if pygame.K_LEFT in _ai_keys:
+                BOSS.x -= _ai_speed
+            if pygame.K_RIGHT in _ai_keys:
+                BOSS.x += _ai_speed
+        except Exception as e:
+            print(f"[AI Boss] 에러: {e}")
+    elif _online_net_manager is None:
         return
-
-    if online_is_host:
+    elif online_is_host:
         # 호스트: 클라이언트가 보낸 위치 + 애니메이션 상태 적용
         remote = _online_net_manager.online_remote_input
         if remote is not None and 'x' in remote:
@@ -152267,16 +152302,21 @@ def _handle_boss_online_sync():
             # 호스트가 처리한 공 위치를 _online_client_apply_state()에서 수신
             boss_fake_during_player_serve = True  # 서브 대기 중 보스 움직임 방지
         elif online_is_host:
-            # 상대(클라이언트) 서브: 클라이언트가 space/enter를 누르면 서브
+            # 상대(클라이언트/AI) 서브
             _client_serve = False
-            remote = _online_net_manager.online_remote_input
-            if remote is not None and remote.get('serve', False):
-                _client_serve = True
-                print(f"[Online Serve DEBUG] HOST: 클라이언트 서브 입력 수신!")
-            # 클라이언트 서브 입력이 없으면 3초 후 자동 서브 (타임아웃 안전장치)
+            if _online_ai_boss_enabled:
+                # AI 대전: AI는 즉시 서브 (1.5초 후)
+                pass
+            elif _online_net_manager is not None:
+                remote = _online_net_manager.online_remote_input
+                if remote is not None and remote.get('serve', False):
+                    _client_serve = True
+                    print(f"[Online Serve DEBUG] HOST: 클라이언트 서브 입력 수신!")
+            # 클라이언트 서브 입력이 없으면 자동 서브 (AI: 1.5초, 온라인: 3초)
             time_now = pygame.time.get_ticks()
             _elapsed = time_now - waiting_start_time
-            if _client_serve or (_elapsed >= 3000):
+            _serve_timeout = 1500 if _online_ai_boss_enabled else 3000
+            if _client_serve or (_elapsed >= _serve_timeout):
                 print(f"[Online Serve DEBUG] HOST: 보스(클라이언트) 서브 실행 | client_input={_client_serve} | elapsed={_elapsed}ms")
                 try:
                     serve_result = physics_manager.serve_ball(False, current_stage, ai_mode)
@@ -170801,7 +170841,11 @@ def start_online_multiplayer():
     if result is None:
         return  # 취소
 
-    _online_net_manager = get_network_manager()
+    # AI 대전 모드 체크
+    _is_ai_test = result.get('ai_test', False)
+
+    if not _is_ai_test:
+        _online_net_manager = get_network_manager()
     online_multiplayer_enabled = True
     online_is_host = result['is_host']
     online_items_enabled = result.get('items_enabled', True)
@@ -170826,6 +170870,10 @@ def start_online_multiplayer():
         online_p2_character = result['p1_character']
         selected_character_type = char_map.get(my_char, "smasher")
 
+    # AI 대전 모드: BOSS를 AI가 조작
+    global _online_ai_boss_enabled
+    _online_ai_boss_enabled = _is_ai_test
+
     # 필러 UI 활성화 (게이지 구슬, 아이템 슬롯, 대쉬 토큰 표시에 필요)
     global _pillar_ui_enabled
     _pillar_ui_enabled = True
@@ -170837,6 +170885,7 @@ def start_online_multiplayer():
     online_multiplayer_enabled = False
     online_is_host = False
     online_p2_input = None
+    _online_ai_boss_enabled = False
     if _online_net_manager:
         _online_net_manager.disconnect()
         _online_net_manager.reset_online_state()
@@ -170847,6 +170896,8 @@ def start_online_multiplayer():
 _online_opponent_anim = {'state': 'idle'}  # 상대방 수신 애니메이션 상태
 _online_client_serve_pressed = False  # 클라이언트 서브 입력 플래그 (이벤트 기반)
 _online_client_pickups = []  # 호스트→클라이언트: 클라이언트가 획득한 아이템 목록
+_online_ai_boss_enabled = False  # AI 대전 모드: BOSS를 AI가 조작
+_online_ai_boss_controller = None  # AI 컨트롤러 인스턴스
 
 
 def _online_get_my_anim_state():

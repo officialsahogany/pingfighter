@@ -114,6 +114,10 @@ class OnlineMultiplayer:
         if mode is None:
             return None
 
+        # AI 대전 모드: 네트워크 접속 없이 바로 결과 반환
+        if mode == "ai_test":
+            return self._run_ai_test_mode()
+
         self.is_host = (mode == "host")
 
         if self.is_host:
@@ -141,7 +145,7 @@ class OnlineMultiplayer:
     def _show_mode_select(self):
         """호스트/참가 선택. 'host', 'join', 또는 None(취소)"""
         selected = 0
-        options = ["방 만들기 (호스트)", "참가하기", "뒤로"]
+        options = ["방 만들기 (호스트)", "참가하기", "AI 대전 (테스트)", "뒤로"]
         option_rects = []
 
         while self.running:
@@ -160,6 +164,8 @@ class OnlineMultiplayer:
                             return "host"
                         elif selected == 1:
                             return "join"
+                        elif selected == 2:
+                            return "ai_test"
                         else:
                             return None
                 if event.type == pygame.MOUSEMOTION:
@@ -175,6 +181,8 @@ class OnlineMultiplayer:
                                 return "host"
                             elif i == 1:
                                 return "join"
+                            elif i == 2:
+                                return "ai_test"
                             else:
                                 return None
 
@@ -831,6 +839,101 @@ class OnlineMultiplayer:
                 'stage': stage,
                 'items_enabled': self.items_enabled,
             }
+
+    # ──────────────────────────────────────────────
+    # AI 대전 모드
+    # ──────────────────────────────────────────────
+    def _run_ai_test_mode(self):
+        """AI 대전: 내 캐릭터 선택 → AI 스매셔와 대전"""
+        selected = 0
+        char_rects = []
+
+        while self.running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return None
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return None
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                        selected = (selected - 1) % len(CHARACTERS)
+                    if event.key in (pygame.K_RIGHT, pygame.K_d):
+                        selected = (selected + 1) % len(CHARACTERS)
+                    if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        my_char = CHARACTERS[selected]["id"]
+                        return {
+                            'is_host': True,
+                            'p1_character': my_char,
+                            'p2_character': 'ufo_player',  # AI는 항상 스매셔
+                            'stage': 1,
+                            'items_enabled': True,
+                            'ai_test': True,
+                        }
+                if event.type == pygame.MOUSEMOTION:
+                    mx, my = event.pos
+                    for i, r in enumerate(char_rects):
+                        if r.collidepoint(mx, my):
+                            selected = i
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mx, my = event.pos
+                    for i, r in enumerate(char_rects):
+                        if r.collidepoint(mx, my):
+                            my_char = CHARACTERS[selected]["id"]
+                            return {
+                                'is_host': True,
+                                'p1_character': my_char,
+                                'p2_character': 'ufo_player',
+                                'stage': 1,
+                                'items_enabled': True,
+                                'ai_test': True,
+                            }
+
+            self.screen.fill(BG_COLOR)
+            title_font = self.get_font(30)
+            char_font = self.get_font(22)
+            hint_font = self.get_font(16)
+
+            title_surf = title_font.render("AI 대전 - 내 캐릭터 선택", True, ACCENT_COLOR)
+            self.screen.blit(title_surf, title_surf.get_rect(center=(self.width // 2, 100)))
+
+            sub_surf = hint_font.render("상대: AI 스매셔", True, DIM_COLOR)
+            self.screen.blit(sub_surf, sub_surf.get_rect(center=(self.width // 2, 140)))
+
+            char_rects = []
+            total_w = len(CHARACTERS) * 140
+            start_x = (self.width - total_w) // 2 + 70
+            cy = self.height // 2
+
+            for i, ch in enumerate(CHARACTERS):
+                cx = start_x + i * 140
+                is_sel = i == selected
+                rect = pygame.Rect(cx - 55, cy - 65, 110, 130)
+                char_rects.append(rect)
+
+                bg = (40, 55, 80) if is_sel else PANEL_COLOR
+                pygame.draw.rect(self.screen, bg, rect, border_radius=10)
+                border_color = ch["color"] if is_sel else (60, 70, 90)
+                pygame.draw.rect(self.screen, border_color, rect, 3 if is_sel else 1, border_radius=10)
+
+                # 캐릭터 색상 원
+                pygame.draw.circle(self.screen, ch["color"], (cx, cy - 20), 25)
+                pygame.draw.circle(self.screen, (255, 255, 255), (cx, cy - 20), 25, 2)
+
+                # 이름
+                name_surf = char_font.render(ch["name"], True, (255, 255, 255) if is_sel else TEXT_COLOR)
+                self.screen.blit(name_surf, name_surf.get_rect(center=(cx, cy + 30)))
+
+                # 선택 표시
+                if is_sel:
+                    sel_surf = hint_font.render("▼", True, HIGHLIGHT_COLOR)
+                    self.screen.blit(sel_surf, sel_surf.get_rect(center=(cx, cy - 60)))
+
+            hint = hint_font.render("←→ 선택  Enter/클릭 확인  ESC 뒤로", True, DIM_COLOR)
+            self.screen.blit(hint, hint.get_rect(center=(self.width // 2, self.height - 40)))
+
+            pygame.display.flip()
+            self.clock.tick(60)
+        return None
 
     # ──────────────────────────────────────────────
     # 유틸리티
