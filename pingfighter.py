@@ -13212,6 +13212,21 @@ VIPER_EXCLUSIVE_SKILLS = {
         "tree": "viper",
         "character_restriction": "viper"
     },
+    "kick_enhance": {
+        "name": "킥 강화",
+        "max_level": 5,
+        "descriptions": {
+            1: "킥 발사 정밀도 +20%, 공속 보너스 +5%",
+            2: "킥 발사 정밀도 +40%, 공속 보너스 +10%",
+            3: "킥 발사 정밀도 +60%, 공속 보너스 +15%",
+            4: "킥 발사 정밀도 +80%, 공속 보너스 +20%",
+            5: "킥 발사 정밀도 +100%, 공속 보너스 +25%",
+        },
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 보스 회피 편향 20% 증가 + 공속 5% 증가.\n(최대 Lv.5: 정밀도 100%, 공속 +25%)",
+        "icon_color": (255, 80, 40),
+        "tree": "viper",
+        "character_restriction": "viper"
+    },
 }
 
 # 코만도 화기류 해금 플래그 (런타임 스킬로 해금됨)
@@ -15168,6 +15183,11 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     if choice_id == "jetpack_enhance":
         old_lv = runtime_skill_levels.get("jetpack_enhance", 0)
         runtime_skill_levels["jetpack_enhance"] = old_lv + 1
+        return True
+
+    if choice_id == "kick_enhance":
+        old_lv = runtime_skill_levels.get("kick_enhance", 0)
+        runtime_skill_levels["kick_enhance"] = old_lv + 1
         return True
 
     # 일반 스킬 레벨업
@@ -48401,14 +48421,17 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     _viper_ss_ball_touched = True
     _viper_ss_ball_touched_ms = pygame.time.get_ticks()
 
-    # 공속 증가
+    # 공속 증가 (킥 강화 퍽 공속 보너스 적용: +5%/LV)
+    _ss_kick_lv = runtime_skill_levels.get("kick_enhance", 0)
+    _ss_speed_bonus = 1.0 + _ss_kick_lv * 0.05  # LV.0=1.0, LV.5=1.25
     cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-    new_speed = max(cur_speed * speed_mult, 10.0)
+    new_speed = max(cur_speed * speed_mult * _ss_speed_bonus, 10.0)
     _viper_speed_boost_active = True
     _viper_speed_boost_original = cur_speed
-    # 랜덤 발사각 (쉐도우 백스텝: 보스 회피 편향 약함, 거의 순수 랜덤)
-    # 스킬 티어별 가중치: 쉐도우 백스텝=0.2, 마샬 킥=0.5, 팬텀 킥=0.8
-    _ss_bias = 0.2  # 쉐도우 백스텝: 20% 회피 편향, 80% 순수 랜덤
+    # 랜덤 발사각 (킥 강화 퍽 정밀도 반영: LV.0=0.2, LV.5=1.0)
+    # base_bias + (1.0 - base_bias) × (level / 5)
+    _ss_base_bias = 0.2  # 쉐도우 백스텝 기본 회피 편향
+    _ss_bias = _ss_base_bias + (1.0 - _ss_base_bias) * (_ss_kick_lv / 5.0)
     _ss_random_angle = random.uniform(-55, 55)  # 순수 랜덤 각도
     _ss_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
     _ss_boss_dx = _ss_boss_cx - BALL.centerx
