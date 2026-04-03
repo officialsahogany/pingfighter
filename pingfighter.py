@@ -12531,12 +12531,23 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         "bug_update": ("", 9, "% 재선택"),
         # Soldier Exclusive
         "soldier_magazine_mod": ("권총 최대 탄환 +", 1, ""),
+        # Viper Exclusive
+        "jetpack_enhance": ("제트팩 최대 게이지 +", 20, "%"),
+        # Common
+        "perk_laurel_shield": ("월계수 잎 ", 1, "개 보호"),
+        "perk_boost_charge": ("부스트차징 발동확률 +", 5, "%"),
     }
 
     if skill_id in skill_patterns:
         prefix, per_level, suffix = skill_patterns[skill_id]
         value = level * per_level
         return f"{prefix}{value}{suffix}"
+
+    # kick_enhance: 정밀도는 100%에서 캡, 공속은 계속 증가
+    if skill_id == "kick_enhance":
+        precision = min(level * 20, 100)
+        speed = level * 5
+        return f"킥 발사 정밀도 +{precision}%, 공속 보너스 +{speed}%"
 
     # 패턴이 없으면 최대 레벨 설명 반환
     return descriptions.get(max_level, "효과 없음")
