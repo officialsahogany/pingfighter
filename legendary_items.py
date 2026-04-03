@@ -450,14 +450,12 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
         for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
 
-    # 은색 그라데이션 사각형 코너 장식 (4꼭지점)
-    sq = max(5, size // 10)
-    silver_layers = [(200, 200, 210), (170, 170, 185), (140, 140, 160)]
-    for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-        for i, sc in enumerate(silver_layers):
-            r = pygame.Rect(0, 0, sq - i * 2, sq - i * 2)
-            r.center = (cx, cy)
-            pygame.draw.rect(screen, sc, r)
+    # 꼭지점 은색 장식 오버레이 (라그나로크 해머 PNG에서 추출)
+    corner_frames = _get_corner_frames()
+    if corner_frames:
+        cf = corner_frames[int(animation_time * 8) % len(corner_frames)]
+        scaled_cf = pygame.transform.scale(cf, (size, size))
+        screen.blit(scaled_cf, (x, frame_y))
 
     return frame_offset
 
@@ -492,14 +490,55 @@ def _draw_legendary_border_and_corners(screen: pygame.Surface,
         for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
 
-    # 은색 그라데이션 사각형 코너 장식 (4꼭지점)
-    sq = max(5, size // 10)
-    silver_layers = [(200, 200, 210), (170, 170, 185), (140, 140, 160)]
-    for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-        for i, sc in enumerate(silver_layers):
-            r = pygame.Rect(0, 0, sq - i * 2, sq - i * 2)
-            r.center = (cx, cy)
-            pygame.draw.rect(screen, sc, r)
+    # 꼭지점 은색 장식 오버레이 (라그나로크 해머 PNG에서 추출)
+    corner_frames = _get_corner_frames()
+    if corner_frames:
+        cf = corner_frames[0]
+        scaled_cf = pygame.transform.scale(cf, (size, size))
+        screen.blit(scaled_cf, (x, frame_y))
+
+
+def _extract_corners_only(frame: pygame.Surface, corner_radius: int = 8) -> pygame.Surface:
+    """프레임에서 4꼭지점 영역만 보존하고 나머지(파티클 포함) 모두 제거.
+
+    corner_radius: 각 꼭지점에서 보존할 정사각형 영역의 한 변 크기(px).
+    """
+    result = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
+    w, h = frame.get_size()
+    cr = corner_radius
+    # 4개 꼭지점 영역 복사
+    for src_rect in [
+        pygame.Rect(0, 0, cr, cr),          # 좌상
+        pygame.Rect(w - cr, 0, cr, cr),      # 우상
+        pygame.Rect(0, h - cr, cr, cr),      # 좌하
+        pygame.Rect(w - cr, h - cr, cr, cr), # 우하
+    ]:
+        result.blit(frame, src_rect.topleft, src_rect)
+    return result
+
+
+# 꼭지점 전용 프레임 캐시 (한 번만 로드)
+_CORNER_FRAMES_CACHE: Optional[List[pygame.Surface]] = None
+
+
+def _get_corner_frames() -> List[pygame.Surface]:
+    """라그나로크 해머 PNG에서 4꼭지점 은색 장식만 추출한 프레임 반환 (캐시)."""
+    global _CORNER_FRAMES_CACHE
+    if _CORNER_FRAMES_CACHE is not None:
+        return _CORNER_FRAMES_CACHE
+
+    frames: List[pygame.Surface] = []
+    for i in range(8):
+        frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+        try:
+            raw = pygame.image.load(frame_path).convert_alpha()
+            cleaned = _strip_legendary_red_ring(raw)
+            corners = _extract_corners_only(cleaned, corner_radius=8)
+            frames.append(corners)
+        except Exception:
+            pass
+    _CORNER_FRAMES_CACHE = frames
+    return frames
 
 
 def _draw_glow_and_inner_only(screen: pygame.Surface,
@@ -4006,14 +4045,12 @@ class SacredLaurel(LegendaryItem):
         for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
 
-        # 은색 그라데이션 사각형 코너 장식 (4꼭지점)
-        sq = max(5, size // 10)
-        silver_layers = [(200, 200, 210), (170, 170, 185), (140, 140, 160)]
-        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-            for i, sc in enumerate(silver_layers):
-                r = pygame.Rect(0, 0, sq - i * 2, sq - i * 2)
-                r.center = (cx, cy)
-                pygame.draw.rect(screen, sc, r)
+        # 꼭지점 은색 장식 오버레이
+        corner_frames = _get_corner_frames()
+        if corner_frames:
+            cf = corner_frames[self.current_frame % len(corner_frames)]
+            scaled_cf = pygame.transform.scale(cf, (size, size))
+            screen.blit(scaled_cf, (x, frame_y))
 
         # 아이콘 프레임 그리기
         if self.animation_frames:
