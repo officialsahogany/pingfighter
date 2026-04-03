@@ -160088,7 +160088,8 @@ def main(stage_num, new_boss_mode=False):
                     pass
 
             # AI 필 수동 종료: 스페이스바 또는 좌클릭으로 즉시 해제
-            if aipill_active:
+            # 바이퍼는 스페이스/좌클릭이 제트팩 입력이므로 수동 해제 제외
+            if aipill_active and selected_character_type != "viper":
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     deactivate_aipill("manual_cancel", allow_override=True)
                     continue
