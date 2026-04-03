@@ -383,13 +383,18 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
         pulse_ratio = pulse_bucket / 20 if pulse_bucket else 0
         base_radius = max(6, int(size * 0.42))
         outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse_ratio))
-        inner_radius = max(4, int(outer_radius * 0.65))
-
         glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
         center = (size // 2, size // 2)
-        pygame.draw.circle(glow_surface, (30, 90, 170, 80), center, outer_radius)
-        pygame.draw.circle(glow_surface, (70, 140, 200, 150), center, int(outer_radius * 0.85))
-        pygame.draw.circle(glow_surface, (140, 190, 220, 190), center, inner_radius)
+        # 부드러운 그라데이션 (8단계 동심원으로 어두운 띠 제거)
+        steps = 8
+        for i in range(steps):
+            t = i / (steps - 1)  # 0.0(외곽) ~ 1.0(중심)
+            r = int(outer_radius * (1.0 - t * 0.45))
+            cr = int(30 + 110 * t)
+            cg = int(90 + 100 * t)
+            cb = int(170 + 50 * t)
+            ca = int(60 + 140 * t)
+            pygame.draw.circle(glow_surface, (cr, cg, cb, ca), center, r)
         _COMMON_LEGENDARY_BG_CACHE[cache_key] = glow_surface
 
     screen.blit(glow_surface, (x, frame_y))
@@ -503,13 +508,19 @@ def _draw_glow_and_inner_only(screen: pygame.Surface,
         pulse_ratio = pulse_bucket / 20 if pulse_bucket else 0
         base_radius = max(6, int(size * 0.42))
         outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse_ratio))
-        inner_radius = max(4, int(outer_radius * 0.65))
 
         glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
         center = (size // 2, size // 2)
-        pygame.draw.circle(glow_surface, (30, 90, 170, 80), center, outer_radius)
-        pygame.draw.circle(glow_surface, (70, 140, 200, 150), center, int(outer_radius * 0.85))
-        pygame.draw.circle(glow_surface, (140, 190, 220, 190), center, inner_radius)
+        # 부드러운 그라데이션 (8단계 동심원으로 어두운 띠 제거)
+        steps = 8
+        for i in range(steps):
+            t = i / (steps - 1)  # 0.0(외곽) ~ 1.0(중심)
+            r = int(outer_radius * (1.0 - t * 0.45))
+            cr = int(30 + 110 * t)
+            cg = int(90 + 100 * t)
+            cb = int(170 + 50 * t)
+            ca = int(60 + 140 * t)
+            pygame.draw.circle(glow_surface, (cr, cg, cb, ca), center, r)
         _COMMON_LEGENDARY_BG_CACHE[cache_key] = glow_surface
 
     screen.blit(glow_surface, (x, frame_y))
@@ -3915,10 +3926,16 @@ class SacredLaurel(LegendaryItem):
 
         glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
         center = (size // 2, size // 2)
-        # 외곽 파란색 글로우 (헤르메스 신발과 동일 색상)
-        pygame.draw.circle(glow_surf, (30, 90, 170, 80), center, outer_radius)
-        pygame.draw.circle(glow_surf, (70, 140, 200, 150), center, int(outer_radius * 0.85))
-        pygame.draw.circle(glow_surf, (140, 190, 220, 190), center, inner_radius)
+        # 부드러운 파란색 글로우 그라데이션 (8단계)
+        steps = 8
+        for i in range(steps):
+            t = i / (steps - 1)
+            r = int(outer_radius * (1.0 - t * 0.45))
+            cr = int(30 + 110 * t)
+            cg = int(90 + 100 * t)
+            cb = int(170 + 50 * t)
+            ca = int(60 + 140 * t)
+            pygame.draw.circle(glow_surf, (cr, cg, cb, ca), center, r)
 
         # 글로우 배치 (위아래 움직임 적용 - 헤르메스 신발과 동일 위치)
         screen.blit(glow_surf, (x, frame_y))
@@ -4027,7 +4044,7 @@ class EmptyLegendary(LegendaryItem):
         width, height = frame.get_size()
 
         # 테두리 두께 (가장자리에서 이 범위 내의 픽셀은 그대로 유지)
-        border_thickness = 6
+        border_thickness = 3
 
         for py in range(height):
             for px in range(width):
@@ -11601,7 +11618,7 @@ class PandoraLegacy(LegendaryItem):
         """프레임에서 테두리 영역(가장자리 6픽셀) 유지, 내부만 제거"""
         result = frame.copy()
         width, height = frame.get_size()
-        border_thickness = 6
+        border_thickness = 3
 
         for py in range(height):
             for px in range(width):
@@ -11786,7 +11803,7 @@ class Megingjord(LegendaryItem):
         """프레임에서 테두리 영역(가장자리 6픽셀) 유지, 내부만 제거"""
         result = frame.copy()
         width, height = frame.get_size()
-        border_thickness = 6
+        border_thickness = 3
         for py in range(height):
             for px in range(width):
                 color = frame.get_at((px, py))
