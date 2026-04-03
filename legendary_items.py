@@ -98,6 +98,9 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "selection_quality", "label": "매직찬스", "min": 10, "max": 30, "unit": "%", "default": 20},
         {"key": "trigger_chance", "label": "승리시 유산 발동률", "min": 40, "max": 70, "unit": "%", "default": 55},
     ],
+    "megingjord": [
+        {"key": "extra_pick_chance", "label": "추가 선택 확률", "min": 20, "max": 40, "unit": "%", "default": 30},
+    ],
 }
 
 # 전설 아이템 롤 값 저장소 (아이템명 -> {옵션키: 값})
@@ -11438,7 +11441,7 @@ class PandoraLegacy(LegendaryItem):
             "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
             "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
             "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel",
-            "transcendent_crown", "odins_eye", "pandora_legacy",
+            "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
             "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
             "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring"
         }
@@ -11658,6 +11661,227 @@ class PandoraLegacy(LegendaryItem):
         pygame.draw.rect(screen, (60, 40, 30), (bx, by, bw, bh), 1)
 
 
+class Megingjord(LegendaryItem):
+    """메긴교르드 - 벨트 부위 전설 아이템
+
+    토르의 힘의 벨트. 퍽 선택 시 20~40% 확률로 한 번 더 선택할 수 있는 기회를 부여합니다.
+    발동 시 선택한 퍽 카드가 회전하며 새로운 퍽 카드가 생성되고,
+    "메긴교르드의 효과 발동!" 텍스트가 표시됩니다.
+
+    롤 옵션: 추가 선택 확률 20~40%
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="megingjord",
+            korean_name="메긴교르드",
+            description="퍽 선택 시 추가 선택 기회 (롤 옵션: 확률 20~40%)",
+            unlock_condition="신화 아이템 획득",
+            icon_path=None  # 고유 애니메이션만 사용
+        )
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+
+        # 애니메이션 프레임 설정
+        self.animation_frames = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8
+        self._create_default_animation()
+
+    @property
+    def extra_pick_chance(self) -> float:
+        """추가 퍽 선택 확률 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 20~40%)"""
+        return get_legendary_roll_value(
+            "megingjord", "extra_pick_chance",
+            apply_polish=True,
+            enhancement_bonus_pct=self.enhancement_bonus_pct
+        )
+
+    def activate(self, game_state: Dict = None):
+        """메긴교르드 활성화"""
+        if self.active:
+            return
+        super().activate(game_state)
+        import items
+        items.megingjord_obtained = True
+
+    def deactivate(self):
+        """메긴교르드 비활성화"""
+        super().deactivate()
+
+    def check_extra_pick(self) -> bool:
+        """퍽 선택 후 추가 선택 기회 판정
+        Returns: True이면 추가 선택 기회 발동
+        """
+        if not self.active:
+            return False
+        chance = self.extra_pick_chance / 100.0
+        return random.random() < chance
+
+    def _create_default_animation(self):
+        """기본 벨트 아이콘 애니메이션 프레임 생성 (8프레임)"""
+        self.animation_frames = []
+        frame_count = 8
+        base_size = 60
+
+        for fi in range(frame_count):
+            frame = pygame.Surface((base_size, base_size), pygame.SRCALPHA)
+            t = fi / frame_count  # 0.0 ~ 0.875
+
+            cx, cy = base_size // 2, base_size // 2
+            s = base_size / 32  # 스케일 팩터
+
+            # 벨트 본체 색상 (진한 갈색 가죽)
+            belt_dark = (60, 35, 20)
+            belt_mid = (90, 55, 30)
+            belt_light = (120, 75, 40)
+            # 버클/룬 색상 (황금 + 번개 파란)
+            gold = (255, 215, 0)
+            gold_bright = (255, 240, 100)
+            lightning_blue = (100, 180, 255)
+            # 프레임별 색상 그라데이션
+            phase = t * math.pi * 2
+            glow_r = int(255 * (0.7 + 0.3 * math.sin(phase)))
+            glow_g = int(215 * (0.7 + 0.3 * math.sin(phase + math.pi * 0.5)))
+            glow_b = int(50 + 150 * (0.5 + 0.5 * math.sin(phase + math.pi)))
+            glow_color = (min(255, glow_r), min(255, glow_g), min(255, glow_b))
+
+            # 배경 글로우 (프레임별 변화)
+            glow_alpha = int(60 + 30 * math.sin(phase))
+            glow_surf = pygame.Surface((base_size, base_size), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (*glow_color, glow_alpha),
+                              (int(4*s), int(8*s), int(24*s), int(16*s)))
+            frame.blit(glow_surf, (0, 0))
+
+            # 벨트 본체 (가로로 긴 타원형)
+            belt_y = int(cy - 3*s)
+            belt_h = int(8*s)
+            belt_w = int(24*s)
+            belt_x = int(cx - belt_w//2)
+
+            # 벨트 그림자
+            pygame.draw.ellipse(frame, belt_dark,
+                              (belt_x, belt_y + int(s), belt_w, belt_h))
+            # 벨트 본체
+            pygame.draw.ellipse(frame, belt_mid,
+                              (belt_x, belt_y, belt_w, belt_h))
+            # 벨트 하이라이트
+            pygame.draw.ellipse(frame, belt_light,
+                              (belt_x + int(2*s), belt_y + int(s), belt_w - int(4*s), int(3*s)))
+
+            # 벨트 테두리
+            pygame.draw.ellipse(frame, belt_dark,
+                              (belt_x, belt_y, belt_w, belt_h), max(1, int(s*0.7)))
+
+            # 중앙 버클 (원형 - 토르의 상징)
+            buckle_r = int(5*s)
+            buckle_cx = cx
+            buckle_cy = belt_y + belt_h // 2
+
+            # 버클 외곽 글로우
+            for gi in range(3):
+                ga = 40 - gi * 12
+                gr = buckle_r + 3 - gi
+                pygame.draw.circle(frame, (*glow_color, ga), (buckle_cx, buckle_cy), gr)
+
+            # 버클 본체 (금색 원)
+            pygame.draw.circle(frame, gold, (buckle_cx, buckle_cy), buckle_r)
+            pygame.draw.circle(frame, gold_bright, (buckle_cx, buckle_cy), buckle_r - int(s))
+
+            # 번개 문양 (토르의 상징 - 지그재그)
+            lx = buckle_cx
+            ly_top = buckle_cy - int(3*s)
+            ly_bot = buckle_cy + int(3*s)
+            lightning_pts = [
+                (lx - int(s), ly_top),
+                (lx + int(s*0.5), buckle_cy - int(s*0.5)),
+                (lx - int(s*0.5), buckle_cy + int(s*0.5)),
+                (lx + int(s), ly_bot),
+            ]
+            pygame.draw.lines(frame, lightning_blue, False, lightning_pts, max(1, int(s*0.8)))
+
+            # 좌우 룬 장식 (작은 다이아몬드)
+            for side in [-1, 1]:
+                rx = buckle_cx + side * int(8*s)
+                ry = buckle_cy
+                rune_size = int(2*s)
+                rune_pts = [
+                    (rx, ry - rune_size),
+                    (rx + rune_size, ry),
+                    (rx, ry + rune_size),
+                    (rx - rune_size, ry),
+                ]
+                rune_color_t = (
+                    min(255, int(glow_color[0] * 0.8)),
+                    min(255, int(glow_color[1] * 0.8)),
+                    min(255, int(glow_color[2] * 0.8)),
+                )
+                pygame.draw.polygon(frame, rune_color_t, rune_pts)
+
+            # 벨트 구멍 장식 (양쪽)
+            for side in [-1, 1]:
+                hx = buckle_cx + side * int(12*s)
+                hy = buckle_cy
+                pygame.draw.circle(frame, belt_dark, (hx, hy), max(1, int(s*0.8)))
+
+            self.animation_frames.append(frame)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """아이콘 그리기 with 전설 효과 (글로우 + 부유 + 테두리 그라데이션)"""
+        # 글로우 효과
+        glow_size = int(size * (1.2 + self.glow_intensity * 0.1))
+        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        # 금색 글로우 (토르 테마)
+        glow_color = (255, 215, 0)
+        for i in range(3):
+            alpha = 50 - i * 15
+            pygame.draw.circle(glow_surf, (*glow_color, alpha),
+                             (glow_size//2, glow_size//2),
+                             glow_size//2 - i * 5)
+        screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
+
+        # 프레임별 색상 그라데이션 테두리
+        phase = self.animation_time * 2.0
+        border_r = int(200 + 55 * math.sin(phase))
+        border_g = int(180 + 35 * math.sin(phase + 1.0))
+        border_b = int(50 + 100 * math.sin(phase + 2.0))
+        border_color = (min(255, border_r), min(255, border_g), min(255, border_b))
+        border_rect = pygame.Rect(x - 2, y - 2, size + 4, size + 4)
+        pygame.draw.rect(screen, border_color, border_rect, 3)
+
+        # 아이콘 (상하 부유 효과)
+        icon_y = y + int(self.animation_offset)
+
+        # 애니메이션 프레임 사용
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+            frame = self.animation_frames[self.current_frame]
+            scaled_frame = pygame.transform.scale(frame, (size, size))
+            screen.blit(scaled_frame, (x, icon_y))
+        else:
+            self._draw_fallback_icon(screen, x, icon_y, size)
+
+        # 파티클 효과
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size//2, y + size//2)
+            self.particle_timer = 0
+
+    def _draw_fallback_icon(self, screen, x, y, size):
+        """폴백 벨트 아이콘"""
+        cx, cy = x + size // 2, y + size // 2
+        s = size / 32
+        belt_color = (90, 55, 30)
+        gold = (255, 215, 0)
+        # 벨트 본체
+        pygame.draw.ellipse(screen, belt_color,
+                          (int(cx - 12*s), int(cy - 4*s), int(24*s), int(8*s)))
+        # 금색 버클
+        pygame.draw.circle(screen, gold, (cx, cy), int(4*s))
+
+
 # 전설 아이템 관리자
 class LegendaryItemManager:
     """전설 아이템 시스템 관리"""
@@ -11683,6 +11907,7 @@ class LegendaryItemManager:
         self.items["transcendent_crown"] = TranscendentCrown()
         self.items["odins_eye"] = OdinsEye()
         self.items["pandora_legacy"] = PandoraLegacy()
+        self.items["megingjord"] = Megingjord()
 
         placeholder_defs = [
             ("empty_legendary", "빈전설"),
@@ -11731,6 +11956,10 @@ class LegendaryItemManager:
         if "pandora_legacy" not in self.unlocked_items:
             self.unlocked_items.append("pandora_legacy")
 
+        self.items["megingjord"].unlocked = True
+        if "megingjord" not in self.unlocked_items:
+            self.unlocked_items.append("megingjord")
+
         for name, _ in placeholder_defs:
             if name not in self.unlocked_items:
                 self.unlocked_items.append(name)
@@ -11767,6 +11996,9 @@ class LegendaryItemManager:
         # 판도라의 유산 초기화
         if "pandora_legacy" not in self.items:
             self.items["pandora_legacy"] = PandoraLegacy()
+        # 메긴교르드 초기화
+        if "megingjord" not in self.items:
+            self.items["megingjord"] = Megingjord()
         # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):

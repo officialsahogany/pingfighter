@@ -3117,6 +3117,7 @@ class BuildingInterior:
             {"name": "transcendent_crown", "base_price": 4560, "korean": "초월자의 관", "type": "legendary"},
             {"name": "odins_eye", "base_price": 3750, "korean": "오딘의 눈", "type": "legendary"},
             {"name": "pandora_legacy", "base_price": 4200, "korean": "판도라의 유산", "type": "legendary"},
+            {"name": "megingjord", "base_price": 3900, "korean": "메긴교르드", "type": "legendary"},
         ]
 
         # 랜덤 아이템 개수 (5~12개)
@@ -3702,6 +3703,7 @@ class BuildingInterior:
             {"name": "sacred_laurel", "korean": "신성월계수", "rarity": "legendary", "type": "passive"},
             {"name": "odins_eye", "korean": "오딘의눈", "rarity": "legendary", "type": "passive"},
             {"name": "pandora_legacy", "korean": "판도라의유산", "rarity": "legendary", "type": "passive"},
+            {"name": "megingjord", "korean": "메긴교르드", "rarity": "legendary", "type": "passive"},
         ]
 
         # 캡슐 색상 (레어리티별)
@@ -5381,6 +5383,9 @@ class BuildingInterior:
                 elif item_name == "pandora_legacy":
                     import items
                     items.pandora_legacy_obtained = True
+                elif item_name == "megingjord":
+                    import items
+                    items.megingjord_obtained = True
 
             return ("bought", {"item": item_name, "price": price})
 
@@ -7642,7 +7647,7 @@ class BuildingInterior:
                 item_name = item.get("name", "")
                 is_legendary_item = item.get("type") == "legendary" or item_name in [
                     "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"
+                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord"
                 ]
 
                 # 전설 아이템은 애니메이션으로 직접 그리기
@@ -7765,7 +7770,7 @@ class BuildingInterior:
                 item_name = item.get("name", "")
                 is_legendary_item = item.get("type") == "legendary" or item_name in [
                     "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"
+                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord"
                 ]
 
                 # 전설 아이템은 애니메이션으로 직접 그리기
@@ -8320,6 +8325,7 @@ class BuildingInterior:
             "transcendent_crown": "초월자의 관",
             "odins_eye": "오딘의 눈",
             "pandora_legacy": "판도라의 유산",
+            "megingjord": "메긴교르드",
             "foul_whistle": "반칙호루라기",
             "spiked_helmet": "가시투구",
             "star_detector": "별탐지기",
@@ -8383,6 +8389,7 @@ class BuildingInterior:
             "transcendent_crown": 4560,
             "odins_eye": 3750,
             "pandora_legacy": 4200,
+            "megingjord": 3900,
             # 호위무사 인장
             "hero_seal": 3333,
             # 유틸리티

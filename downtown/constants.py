@@ -558,6 +558,7 @@ LEGENDARY_ITEM_NAMES = {
     "transcendent_crown",
     "odins_eye",
     "pandora_legacy",
+    "megingjord",
 }
 
 # 강화 애니메이션 시간 (초)

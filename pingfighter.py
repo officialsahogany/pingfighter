@@ -15489,7 +15489,7 @@ def determine_treasure_hunt_result():
 
     if roll < 0.20:  # 20% 전설 아이템
         # 전설 아이템 풀 (중복 획득 허용)
-        all_legendaries = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"]
+        all_legendaries = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord"]
         selected = random.choice(all_legendaries)
         treasure_hunt_result = {
             "type": "legendary",
@@ -19586,6 +19586,52 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         apply_runtime_skill_effect(selected_result)
         pending_skill_choices = max(0, pending_skill_choices - 1)
         runtime_skill_choice_pending = pending_skill_choices > 0
+
+        # 메긴교르드 효과: 퍽 선택 후 추가 선택 기회 판정
+        try:
+            if is_passive_equipped("megingjord"):
+                _legendary_manager = get_legendary_manager()
+                if _legendary_manager:
+                    _megingjord = _legendary_manager.get_item("megingjord")
+                    if _megingjord and _megingjord.active and _megingjord.check_extra_pick():
+                        pending_skill_choices += 1
+                        runtime_skill_choice_pending = True
+                        # "메긴교르드의 효과 발동!" 텍스트 표시
+                        _megin_text = "메긴교르드의 효과 발동!"
+                        _megin_font = get_font(22)
+                        _megin_alpha = 255
+                        _megin_y_offset = 0
+                        _megin_timer = 0
+                        _megin_duration = 90  # 1.5초
+                        _megin_local_clock = pygame.time.Clock()
+                        while _megin_timer < _megin_duration:
+                            _megin_timer += 1
+                            _megin_alpha = max(0, 255 - int(255 * _megin_timer / _megin_duration))
+                            _megin_y_offset = -int(_megin_timer * 0.5)
+
+                            # 배경 유지 (현재 게임 화면)
+                            # 텍스트 렌더링
+                            _megin_surf = pygame.Surface((WIDTH, 60), pygame.SRCALPHA)
+                            _megin_text_surf = _megin_font.render(_megin_text, True, (255, 215, 0))
+                            _megin_text_rect = _megin_text_surf.get_rect(center=(WIDTH // 2, 30))
+                            _megin_surf.set_alpha(_megin_alpha)
+
+                            # 글로우 배경
+                            _glow_rect = _megin_text_rect.inflate(20, 10)
+                            pygame.draw.rect(_megin_surf, (60, 40, 10, min(180, _megin_alpha)),
+                                           _glow_rect, border_radius=8)
+                            pygame.draw.rect(_megin_surf, (255, 215, 0, min(150, _megin_alpha)),
+                                           _glow_rect, 2, border_radius=8)
+                            _megin_surf.blit(_megin_text_surf, _megin_text_rect)
+
+                            SCREEN.blit(_megin_surf, (0, HEIGHT // 2 - 60 + _megin_y_offset))
+                            pygame.display.flip()
+                            _megin_local_clock.tick(60)
+                            for _evt in pygame.event.get():
+                                if _evt.type == pygame.QUIT:
+                                    pass
+        except Exception:
+            pass
 
     # 튜토리얼 런타임 스킬 선택 완료 처리
     try:
@@ -26598,6 +26644,7 @@ ITEM_SLOT_BASE_MAP = {
     "doping_potion": "accessory",
     "berserk_potion": "accessory",
     "odins_eye": "belt",
+    "megingjord": "belt",
     "pandora_legacy": "등",
     "hero_seal": "accessory",
     "adversity_armor": "top",
@@ -27933,6 +27980,7 @@ def sync_equipped_passive_effects():
     sync_bool("transcendent_crown", "items.transcendent_crown_obtained")
     sync_bool("odins_eye", "items.odins_eye_obtained")
     sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
+    sync_bool("megingjord", "items.megingjord_obtained")
     sync_bool("sage_ring", "items.sage_ring_obtained")
     sync_bool("venom_mist_gauntlet", "items.venom_mist_gauntlet_obtained")
     sync_bool("dowsing_goggles", "items.dowsing_goggles_obtained")
@@ -28196,7 +28244,7 @@ def sync_equipped_passive_effects():
                 print(f"[LEGENDARY_ROLL_SYNC] {item_name} 롤 동기화 실패: {e}")
 
         # 장비 슬롯에 존재하면 전설 효과 활성화
-        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"):
+        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord"):
             if legend_name in equipped_names:
                 # 장착된 아이템의 rolled_options를 전역 딕셔너리에 동기화
                 equipped_legend_item = next((item for item in equipped_items if item.get("name") == legend_name), None)
@@ -28279,6 +28327,13 @@ def sync_equipped_passive_effects():
                         pandora = legendary_manager.get_item("pandora_legacy")
                         if pandora:
                             pandora.enhancement_bonus_pct = pandora_item.get("enhancement_bonus_pct", 0)
+                # 메긴교르드: 강화 보너스 동기화
+                if legend_name == "megingjord":
+                    megingjord_item = next((item for item in equipped_items if item.get("name") == "megingjord"), None)
+                    if megingjord_item:
+                        megingjord = legendary_manager.get_item("megingjord")
+                        if megingjord:
+                            megingjord.enhancement_bonus_pct = megingjord_item.get("enhancement_bonus_pct", 0)
                 # 초월자의 관: 강화 보너스 동기화
                 if legend_name == "transcendent_crown":
                     crown_item = next((item for item in equipped_items if item.get("name") == "transcendent_crown"), None)
@@ -28325,6 +28380,10 @@ def sync_equipped_passive_effects():
                     pandora = legendary_manager.get_item("pandora_legacy")
                     if pandora:
                         pandora.enhancement_bonus_pct = 0
+                elif legend_name == "megingjord":
+                    megingjord = legendary_manager.get_item("megingjord")
+                    if megingjord:
+                        megingjord.enhancement_bonus_pct = 0
 
         # 초월자의 관이 장착되어 있으면 스킬 보너스 재계산 (강화 보너스 반영)
         if "transcendent_crown" in equipped_names:
@@ -81377,7 +81436,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -81424,7 +81483,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
         return
 
     # 최대 3개까지만 보관
@@ -82395,6 +82454,32 @@ def store_passive_item(item_data):
                 print(f"판도라의 유산 효과 적용 오류: {e}")
         # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
         trigger_legendary_acquisition("pandora_legacy", "판도라의 유산", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "megingjord":
+        # 메긴교르드 전설 아이템 획득 (벨트 부위 - 퍽 선택 시 추가 선택 기회)
+        # ⚠️ 효과는 장착 시에만 활성화됨
+        if not items.megingjord_obtained:
+            items.megingjord_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "megingjord")  # 뼈대 외형 변경
+            try:
+                legendary_manager = get_legendary_manager()
+                if "megingjord" not in legendary_manager.unlocked_items:
+                    legendary_manager.unlocked_items.append("megingjord")
+                    legendary_manager.items["megingjord"].unlocked = True
+                from legendary_items import randomize_legendary_rolls
+                randomize_legendary_rolls("megingjord")
+                megingjord = legendary_manager.items.get("megingjord")
+                if megingjord:
+                    enhancement_pct = item_data.get("enhancement_bonus_pct", 0)
+                    megingjord.enhancement_bonus_pct = enhancement_pct
+            except Exception as e:
+                print(f"메긴교르드 효과 적용 오류: {e}")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("megingjord", "메긴교르드", item_icon,
                                      (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
@@ -134180,6 +134265,8 @@ def apply_selected_items(
                 items.ragnarok_hammer_obtained = True
             elif item_name == "hermes_shoes":
                 items.hermes_shoes_obtained = True
+            elif item_name == "megingjord":
+                items.megingjord_obtained = True
 
             # 전설 아이템을 패시브 아이템 리스트에 추가 (TAB 키로 볼 수 있도록)
             legendary_item = legendary_manager.get_item(item_name)
@@ -134755,7 +134842,7 @@ def get_item_icon(item_name):
             pass
 
     # 전설 아이템들은 정적 스냅샷 생성
-    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"]:
+    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord"]:
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         if legendary_manager:
@@ -134908,6 +134995,22 @@ def get_item_icon(item_name):
                             _sy = by + _ri * sh
                             pygame.draw.rect(icon_surface, _sc, (bx, _sy, bw, sh if _ri<3 else bh-sh*3))
                         pygame.draw.rect(icon_surface, (60,40,30), (bx, by, bw, bh), 1)
+                elif lookup_name == "megingjord":
+                    # 메긴교르드 - 애니메이션 프레임 사용
+                    if hasattr(legendary_item, 'animation_frames') and legendary_item.animation_frames:
+                        frame = legendary_item.animation_frames[0]
+                        scaled_frame = pygame.transform.scale(frame, (ICON_SIZE, ICON_SIZE))
+                        icon_surface.blit(scaled_frame, (0, 0))
+                    elif hasattr(legendary_item, 'draw_icon'):
+                        legendary_item.draw_icon(icon_surface, 0, 0, ICON_SIZE)
+                    else:
+                        # 폴백: 금색 벨트 아이콘
+                        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+                        belt_color = (90, 55, 30)
+                        gold = (255, 215, 0)
+                        pygame.draw.ellipse(icon_surface, belt_color,
+                                          (cx - ICON_SIZE//3, cy - ICON_SIZE//8, ICON_SIZE*2//3, ICON_SIZE//4))
+                        pygame.draw.circle(icon_surface, gold, (cx, cy), ICON_SIZE//8)
 
                 icon_cache[item_name] = icon_surface
                 return icon_surface
@@ -134997,6 +135100,14 @@ def get_item_icon(item_name):
             for _ri, _sc in enumerate(_rb2):
                 _sy = _by + _ri * _sh
                 pygame.draw.rect(icon_surface, _sc, (_bx, _sy, _bw, _sh if _ri<3 else _bh-_sh*3))
+        elif lookup_name == "megingjord":
+            # 메긴교르드 기본 아이콘 (금색 벨트)
+            cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+            belt_color = (90, 55, 30)
+            gold = (255, 215, 0)
+            pygame.draw.ellipse(icon_surface, belt_color,
+                              (cx - ICON_SIZE//3, cy - ICON_SIZE//8, ICON_SIZE*2//3, ICON_SIZE//4))
+            pygame.draw.circle(icon_surface, gold, (cx, cy), ICON_SIZE//8)
             pygame.draw.rect(icon_surface, (60,40,30), (_bx, _by, _bw, _bh), 1)
         icon_cache[item_name] = icon_surface
         return icon_surface
@@ -169807,7 +169918,7 @@ def get_item_name_korean(item_name):
         "ragnarok_hammer": "라그나로크 해머", "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창", "angel_blessing": "천사의 주사위",
         "sacred_laurel": "신성 월계수", "transcendent_crown": "초월자의 관",
-        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
+        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "megingjord": "메긴교르드", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
         "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
@@ -169907,6 +170018,7 @@ def get_item_description(item_name):
         "boomerang": "부메랑: 보스 방향으로 부메랑을 던져 넉백+스턴을 겁니다. 부메랑이 돌아오면서 경로에 있는 필드 아이템을 자동으로 회수합니다. 공에 닿으면 부메랑이 파괴됩니다.",
         "soap": "비누: 보스 진영에 비누를 던집니다. 보스가 밟으면 3초간 미끄러움 디버프가 발동되어 관성으로 미끄러지며 방향전환이 매우 어려워집니다. 좌우 왕복 공격에 취약해집니다.",
         "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 매직찬스 10~30% (희귀 아이템 출현 확률 상승)",
+        "megingjord": "메긴교르드: 토르의 힘의 벨트. 장착 시 퍽 선택 화면에서 퍽을 고른 후 일정 확률로 한 번 더 고를 수 있는 기회가 주어집니다. 발동 시 선택한 퍽 카드가 회전하며 새로운 퍽 카드가 생성되고, '메긴교르드의 효과 발동!' 텍스트가 표시됩니다. [롤옵션] 추가 선택 확률 20~40%",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
@@ -172201,7 +172313,7 @@ def _online_client_apply_state():
                 "y": _cp_y,
             }
             # 패시브/액티브 구분하여 저장
-            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"}
+            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"}
             if _cp_name in _passive_names:
                 store_passive_item(_cp_data)
             else:

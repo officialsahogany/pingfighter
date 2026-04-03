@@ -106,6 +106,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_arm_parts import VenomMistGauntletPart
         return VenomMistGauntletPart(block)
 
+    elif item_name == "megingjord":
+        from entities.body_parts.item_belt_parts import MegingjordBeltPart
+        return MegingjordBeltPart(block)
+
     elif item_name == "sage_ring":
         # 현자의 반지는 장신구 - 시각적 파츠 없음 (아이콘만 표시)
         return None
@@ -297,6 +301,7 @@ VISUAL_ITEM_NAMES = {
     "poseidon_trident",
     "transcendent_crown",
     "odins_eye",
+    "megingjord",
     "chargebag",
     "soul_burst",
 }
@@ -317,6 +322,7 @@ ITEM_SLOT_MAP = {
     "poseidon_trident": "weapon",
     "transcendent_crown": "head",
     "odins_eye": "face",
+    "megingjord": "torso",
     "chargebag": "back",
     "soul_burst": "legs",
 }
