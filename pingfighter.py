@@ -12500,7 +12500,7 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
     skill_patterns = {
         # Dash Tree
         "dash_lightweight": ("대쉬 쿨타임 ", 10, "% 감소"),
-        "dash_module_control": ("대쉬 후딜 ", 12, "% 감소"),
+        "dash_module_control": ("대쉬 후딜 ", 15, "% 감소"),
         "dash_jump": ("대쉬 거리 ", 7, "% 증가"),
         "dash_amplification": ("대쉬 토큰 +", 1, ""),
         # Item Tree
@@ -12633,11 +12633,11 @@ RUNTIME_SKILL_POOL = {
         "name": "모듈제어",
         "max_level": 5,
         "descriptions": {
-            1: "대쉬 후딜 12% 감소",
-            2: "대쉬 후딜 24% 감소",
-            3: "대쉬 후딜 36% 감소",
-            4: "대쉬 후딜 48% 감소",
-            5: "대쉬 후딜 60% 감소",
+            1: "대쉬 후딜 15% 감소",
+            2: "대쉬 후딜 30% 감소",
+            3: "대쉬 후딜 45% 감소",
+            4: "대쉬 후딜 60% 감소",
+            5: "대쉬 후딜 75% 감소",
         },
         "detail": "대쉬 후 경직 시간을 줄여 더 빠르게 다음 행동을 할 수 있습니다.",
         "icon_color": (150, 100, 255),
@@ -16231,7 +16231,7 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
         effects = {
             # 대쉬 트리
             "dash_lightweight": level * 0.10,       # 쿨타임 10%/레벨 감소
-            "dash_module_control": level * 0.12,    # 후딜 12%/레벨 감소
+            "dash_module_control": level * 0.15,    # 후딜 15%/레벨 감소
             "dash_jump": level * 0.07,              # 거리 7%/레벨 증가
             "dash_battery_pack": level * 0.14,      # 게이지 소모 14%/레벨 감소
             "dash_amplification": level,            # 토큰 +1/레벨
@@ -75250,7 +75250,7 @@ def handle_player(keys):
                     # 일반 대쉬의 경우 기존 로직 적용
                     # 아카데미 스킬 효과: 후딜 시간 감소 (모듈제어)
                     module_control_bonus = get_runtime_skill_bonus("dash_module_control")
-                    stun_reduction = int(module_control_bonus * 42)  # 기본 42프레임에서 12%씩 감소
+                    stun_reduction = int(module_control_bonus * 42)  # 기본 42프레임에서 15%씩 감소
                     # 스파이크부츠 효과: 후딜 시간 감소 (롤 옵션 적용)
                     base_stun_time = apply_spikeboots_afterdelay(42)  # 0.7초 (60fps * 0.7)
                     final_stun_time = max(1, base_stun_time - stun_reduction)  # 최소 1프레임

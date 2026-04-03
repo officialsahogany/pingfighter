@@ -49,7 +49,7 @@ SKILL_TREES = {
             {
                 "id": "dash_module_control", 
                 "name": "모듈제어",
-                "description": "대쉬후딜시간 10% 감소",
+                "description": "대쉬후딜시간 15% 감소",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (100, 150, 255),
@@ -3087,7 +3087,7 @@ class AcademyUI:
         """스킬별 마스터 보너스 문구 반환"""
         master_bonus_map = {
             "dash_lightweight": "보너스: 추가 -7% 효과 적용",
-            "dash_module_control": "보너스: 추가 -10% 효과 적용",
+            "dash_module_control": "보너스: 추가 -15% 효과 적용",
             "dash_jump": "보너스: 추가 +4% 효과 적용",
             "dash_battery_pack": "보너스: 추가 -8% 효과 적용",
             "dash_acceleration": "보너스: 추가 +60% 효과 적용",
@@ -3119,7 +3119,7 @@ class AcademyUI:
         if skill_id == "dash_lightweight":
             lines.append(_el("current", "charge_time", "충전시간", f"-{display_level * 7:.0f}%"))
         elif skill_id == "dash_module_control":
-            lines.append(_el("current", "uncontrol", "통제불능", f"-{display_level * 10:.0f}%"))
+            lines.append(_el("current", "uncontrol", "통제불능", f"-{display_level * 15:.0f}%"))
         elif skill_id == "dash_jump":
             lines.append(_el("current", "dash_distance", "대쉬 거리", f"+{display_level * 4:.0f}%"))
         elif skill_id == "dash_battery_pack":
@@ -3210,7 +3210,7 @@ class AcademyUI:
         if skill_id == "dash_lightweight":
             lines.append(_el("next", "charge_time", "충전시간", f"-{display_level * 7:.0f}%"))
         elif skill_id == "dash_module_control":
-            lines.append(_el("next", "uncontrol", "통제불능", f"-{display_level * 10:.0f}%"))
+            lines.append(_el("next", "uncontrol", "통제불능", f"-{display_level * 15:.0f}%"))
         elif skill_id == "dash_jump":
             lines.append(_el("next", "dash_distance", "대쉬 거리", f"+{display_level * 4:.0f}%"))
         elif skill_id == "dash_battery_pack":
@@ -3826,7 +3826,7 @@ def get_skill_bonus(skill_id):
     bonuses = {
         # 새로운 대시 스킬 ID들 (사용자 요구사항에 맞게 수정)
         "dash_lightweight": level * 0.07,    # 경량화: 충전시간 7% 감소
-        "dash_module_control": level * 0.10, # 모듈제어: 대쉬후딜시간 10% 감소
+        "dash_module_control": level * 0.15, # 모듈제어: 대쉬후딜시간 15% 감소
         "dash_jump": level * 0.04,           # 도약: 대쉬거리 4% 증가
         "dash_battery_pack": level * 0.08,   # 배터리팩: 게이지 소모량 8% 감소
         "dash_acceleration": level * 0.6,    # 버스트업: 대쉬 중 패들 세로 사이즈 60% 증가
