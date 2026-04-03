@@ -26544,8 +26544,8 @@ PASSIVE_OPTION_RANGES = {
         {"label": "무적 지속시간", "min": 8, "max": 15, "unit": "초", "prefix": "", "key": "invincible_duration_sec"},
     ],
     "shrapnel_armor": [
-        {"label": "발동 확률", "min": 15, "max": 25, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
-        {"label": "파편 개수", "min": 5, "max": 9, "unit": "개", "prefix": "", "key": "shard_count"},
+        {"label": "발동 확률", "min": 8, "max": 15, "unit": "%", "prefix": "", "key": "trigger_chance_pct"},
+        {"label": "파편 개수", "min": 4, "max": 8, "unit": "개", "prefix": "", "key": "shard_count"},
         {"label": "넉백 단계", "min": 1, "max": 4, "unit": "Lv", "prefix": "", "key": "knockback_level"},
         {"label": "게이지 소모", "min": 25, "max": 50, "unit": "", "prefix": "-", "key": "gauge_cost", "reverse": True},
     ],
@@ -26656,8 +26656,8 @@ gold_digger_bonus_pct = 50  # 골드 획득량 (30~70% 범위, 기본값 50%)
 lucky_coin_double_spawn_pct = 10  # 더블 스폰 확률 (5~15% 범위, 기본값 10%)
 adversity_armor_trigger_pct = 25  # 역경의 갑옷 무적 발동 확률 (20~30% 범위, 기본값 25%)
 adversity_armor_duration_sec = 10  # 역경의 갑옷 무적 지속시간 (8~15초 범위, 기본값 10초)
-shrapnel_armor_trigger_pct = 20  # 파편갑옷 발동 확률 (15~25% 범위, 기본값 20%)
-shrapnel_armor_shard_count = 7   # 파편갑옷 파편 개수 (5~9 범위, 기본값 7)
+shrapnel_armor_trigger_pct = 12  # 파편갑옷 발동 확률 (8~15% 범위, 기본값 12%)
+shrapnel_armor_shard_count = 6   # 파편갑옷 파편 개수 (4~8 범위, 기본값 6)
 shrapnel_armor_knockback_level = 2  # 파편갑옷 넉백 단계 (1~4 범위, 기본값 2)
 shrapnel_armor_gauge_cost = 35  # 파편갑옷 게이지 소모 (25~50 범위, 기본값 35)
 soul_burst_gauge_cost = 165  # 소울버스트 게이지 소모량 (130~200 범위, 기본값 165)
@@ -26949,8 +26949,8 @@ def _reset_roll_bonuses_to_default():
     globals()["lucky_coin_double_spawn_pct"] = 10  # 럭키코인 기본값
     globals()["adversity_armor_trigger_pct"] = 25  # 역경의 갑옷 기본값
     globals()["adversity_armor_duration_sec"] = 10  # 역경의 갑옷 기본값
-    globals()["shrapnel_armor_trigger_pct"] = 20  # 파편갑옷 기본값
-    globals()["shrapnel_armor_shard_count"] = 7   # 파편갑옷 기본값
+    globals()["shrapnel_armor_trigger_pct"] = 12  # 파편갑옷 기본값
+    globals()["shrapnel_armor_shard_count"] = 6   # 파편갑옷 기본값
     globals()["shrapnel_armor_knockback_level"] = 2  # 파편갑옷 기본값
     globals()["shrapnel_armor_gauge_cost"] = 35  # 파편갑옷 기본값
     globals()["sage_ring_speed_penalty_pct"] = 0  # 현자의 반지 이동속도 감소 기본값
@@ -27516,8 +27516,8 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         try:
             from item_effects.shrapnel_armor import configure_shrapnel_armor
             configure_shrapnel_armor(
-                trigger_chance_pct=globals().get("shrapnel_armor_trigger_pct", 20),
-                shard_count=globals().get("shrapnel_armor_shard_count", 7),
+                trigger_chance_pct=globals().get("shrapnel_armor_trigger_pct", 12),
+                shard_count=globals().get("shrapnel_armor_shard_count", 6),
                 knockback_level=globals().get("shrapnel_armor_knockback_level", 2),
                 gauge_cost=globals().get("shrapnel_armor_gauge_cost", 35)
             )

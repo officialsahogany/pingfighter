@@ -4,8 +4,8 @@
 보스 패들을 넉백시킨다.
 
 롤 옵션:
-- trigger_chance_pct: 발동 확률 (15~25%)
-- shard_count: 파편 개수 (5~9개)
+- trigger_chance_pct: 발동 확률 (8~15%)
+- shard_count: 파편 개수 (4~8개)
 - knockback_level: 넉백 단계 (1~4)
 - gauge_cost: 게이지 소모 (25~50)
 """
@@ -61,8 +61,8 @@ class ShrapnelArmor:
         self.active = False  # 아이템 장착 여부
 
         # 롤 옵션 기본값
-        self.trigger_chance_pct = 20   # 발동 확률 (15~25%)
-        self.shard_count = 7           # 파편 개수 (5~9)
+        self.trigger_chance_pct = 12   # 발동 확률 (8~15%)
+        self.shard_count = 6           # 파편 개수 (4~8)
         self.knockback_level = 2       # 넉백 단계 (1~4)
         self.gauge_cost = 35           # 게이지 소모 (25~50)
 
