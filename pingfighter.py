@@ -15040,13 +15040,21 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
             }
             available.append(choice)
 
-    # 다우징 고글 보너스: 퍽 선택지 수 증가 (기본 3 → 최대 5)
+    # 다우징 고글 보너스: 고정 +1 퍽 선택지 + 확률 판정으로 추가 +1
+    _goggles_equipped = False
+    _bonus_perk_fired = False
     try:
-        from item_effects.dowsing_goggles import get_extra_perk_choices
-        _extra_perk = get_extra_perk_choices()
+        from item_effects.dowsing_goggles import get_fixed_extra_perk_count, get_bonus_perk_chance, roll_bonus_perk
+        if get_bonus_perk_chance() > 0:
+            _goggles_equipped = True
+            _fixed_extra = get_fixed_extra_perk_count()  # 항상 1
+            _bonus_perk_fired = roll_bonus_perk()  # 30~60% 확률 판정
+            _extra_perk = _fixed_extra + (1 if _bonus_perk_fired else 0)
+        else:
+            _extra_perk = 0
     except Exception:
         _extra_perk = 0
-    base_perk_count = 3 + _extra_perk  # 기본 3개 + 다우징 고글 보너스
+    base_perk_count = 3 + _extra_perk  # 기본 3개 + 다우징 고글 보너스 (4 또는 5)
 
     # 퍽 선택지 수만큼 랜덤 선택
     if len(available) > base_perk_count:
@@ -18658,14 +18666,34 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     # UI setup
     local_clock = pygame.time.Clock()
 
+    # 다우징 고글 보너스 퍽 발동 여부 확인
+    _dg_bonus_triggered = False
+    _dg_bonus_card_index = -1  # 보너스 퍽 카드 인덱스 (골드변환 바로 앞)
+    try:
+        from item_effects.dowsing_goggles import was_bonus_perk_triggered, clear_bonus_trigger
+        _dg_bonus_triggered = was_bonus_perk_triggered()
+        if _dg_bonus_triggered:
+            # 보너스 카드 = 골드변환(마지막) 바로 앞 카드
+            _dg_bonus_card_index = len(choices) - 2
+            clear_bonus_trigger()
+    except Exception:
+        pass
+
     # Animation variables
     frame_count = 0
-    phase = "appearing"  # appearing, active, selected
+    # 보너스 퍽 발동 시: appearing → bonus_appearing → active → selected
+    phase = "appearing"
+    _bonus_anim_frame = 0  # 보너스 등장 애니메이션 전용 프레임 카운터
+    _bonus_flash_alpha = 0  # "추가 퍽 등장!" 텍스트 알파
     num_cards = len(choices)  # 다우징 고글 보너스에 의해 4~6개 카드 가능
+    # 보너스 퍽 발동 시 처음에는 보너스 카드를 제외하고 표시
+    _initial_num_cards = num_cards - 1 if _dg_bonus_triggered else num_cards
     # 동적 오프셋 생성: 홀수 카드는 좌에서, 짝수 카드는 우에서, 마지막(골드변환)은 우에서
     card_offsets = []
     for _ci in range(num_cards):
-        if _ci == 1:
+        if _dg_bonus_triggered and _ci == _dg_bonus_card_index:
+            card_offsets.append(-800)  # 보너스 카드: 화면 밖 (나중에 등장)
+        elif _ci == 1:
             card_offsets.append(600)  # 위에서 내려옴
         elif _ci == num_cards - 1:
             card_offsets.append(400)  # 마지막(골드변환) 우에서
@@ -18866,10 +18894,41 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         if phase == "appearing":
             easing = 0.12
             for _oi in range(len(card_offsets)):
+                # 보너스 카드는 아직 등장하지 않음 (오프셋 유지)
+                if _dg_bonus_triggered and _oi == _dg_bonus_card_index:
+                    continue
                 card_offsets[_oi] += (0 - card_offsets[_oi]) * easing
 
-            if all(abs(offset) < 3 for offset in card_offsets):
-                card_offsets = [0] * num_cards
+            # 보너스 카드를 제외한 나머지가 모두 도착했는지 확인
+            check_offsets = [card_offsets[i] for i in range(len(card_offsets))
+                           if not (_dg_bonus_triggered and i == _dg_bonus_card_index)]
+            if all(abs(offset) < 3 for offset in check_offsets):
+                for _oi in range(len(card_offsets)):
+                    if not (_dg_bonus_triggered and _oi == _dg_bonus_card_index):
+                        card_offsets[_oi] = 0
+                if _dg_bonus_triggered:
+                    phase = "bonus_appearing"
+                    _bonus_anim_frame = 0
+                    _bonus_flash_alpha = 255
+                    # 보너스 카드를 위에서 내려오게 설정
+                    card_offsets[_dg_bonus_card_index] = -600
+                else:
+                    card_offsets = [0] * num_cards
+                    phase = "active"
+
+        # 보너스 퍽 등장 애니메이션 (다우징 고글 발동)
+        elif phase == "bonus_appearing":
+            _bonus_anim_frame += 1
+            # 보너스 카드가 위에서 슬라이드
+            card_offsets[_dg_bonus_card_index] += (0 - card_offsets[_dg_bonus_card_index]) * 0.10
+            # "추가 퍽 등장!" 텍스트 페이드
+            if _bonus_anim_frame < 30:
+                _bonus_flash_alpha = 255
+            else:
+                _bonus_flash_alpha = max(0, 255 - (_bonus_anim_frame - 30) * 8)
+            # 애니메이션 완료
+            if abs(card_offsets[_dg_bonus_card_index]) < 3 and _bonus_anim_frame > 50:
+                card_offsets[_dg_bonus_card_index] = 0
                 phase = "active"
 
         # Selected animation - exit after delay
@@ -18886,24 +18945,50 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         title_rect = title_surface.get_rect(center=(GAME_AREA_CENTER_X, vertical_y - 70 - title_y_offset))
         SCREEN.blit(title_surface, title_rect)
 
+        # "추가 퍽 등장!" 텍스트 (보너스 퍽 발동 시)
+        if phase == "bonus_appearing" and _bonus_flash_alpha > 0:
+            bonus_text = "추가 퍽 등장!"
+            # 메인 텍스트
+            bonus_text_surf = title_font.render(bonus_text, True, (60, 220, 200))
+            bonus_text_surf.set_alpha(int(_bonus_flash_alpha))
+            bonus_text_rect = bonus_text_surf.get_rect(center=(GAME_AREA_CENTER_X, vertical_y - 35))
+            # 글로우 효과
+            if _bonus_anim_frame < 40:
+                glow_scale = 1.0 + 0.3 * math.sin(_bonus_anim_frame * 0.25)
+                glow_surf = pygame.Surface((bonus_text_rect.width + 40, bonus_text_rect.height + 20), pygame.SRCALPHA)
+                glow_alpha = int(min(_bonus_flash_alpha, 80 + 40 * math.sin(_bonus_anim_frame * 0.2)))
+                pygame.draw.rect(glow_surf, (40, 200, 180, glow_alpha),
+                               (0, 0, glow_surf.get_width(), glow_surf.get_height()), border_radius=12)
+                glow_rect = glow_surf.get_rect(center=bonus_text_rect.center)
+                SCREEN.blit(glow_surf, glow_rect)
+            SCREEN.blit(bonus_text_surf, bonus_text_rect)
+
         # Render cards (동적 카드 수)
         for i, choice in enumerate(choices):
             if i >= num_cards:
                 break
 
+            # 보너스 카드가 아직 appearing 단계면 화면 밖이므로 스킵 (Y 오프셋 너무 큼)
+            if _dg_bonus_triggered and i == _dg_bonus_card_index and phase == "appearing":
+                continue
+
             # 각 카드의 X 위치 계산 (애니메이션 오프셋 적용)
             base_card_x = start_x + i * (card_width + card_gap)
             off = card_offsets[i] if i < len(card_offsets) else 0
-            if i == 1:
+            if _dg_bonus_triggered and i == _dg_bonus_card_index:
+                card_x = base_card_x  # 보너스 카드는 X 고정 (위에서 내려옴)
+            elif i == 1:
                 card_x = base_card_x  # 1번 카드는 X 고정 (위에서 내려옴)
             elif off < 0:
                 card_x = base_card_x + off
             else:
                 card_x = base_card_x - off
 
-            # Y 애니메이션 (1번 카드만 위에서 내려옴)
+            # Y 애니메이션
             card_y_anim = vertical_y
-            if i == 1:
+            if _dg_bonus_triggered and i == _dg_bonus_card_index:
+                card_y_anim = vertical_y + card_offsets[_dg_bonus_card_index]  # 보너스: 위에서 내려옴
+            elif i == 1:
                 card_y_anim = vertical_y + card_offsets[1]
 
             is_selected = (i == selected_index)
@@ -19075,6 +19160,19 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             card_surface.set_alpha(card_alpha)
             final_x = int(card_x - (scaled_width - card_width) // 2)
             final_y = int(card_y_anim - (scaled_height - card_height) // 2)
+
+            # 보너스 퍽 카드 특수 글로우 효과 (다우징 고글)
+            if _dg_bonus_triggered and i == _dg_bonus_card_index and phase == "bonus_appearing":
+                pulse = 0.5 + 0.5 * math.sin(_bonus_anim_frame * 0.2)
+                for glow_off in range(10, 0, -2):
+                    glow_rect = pygame.Rect(final_x - glow_off, final_y - glow_off,
+                                          scaled_width + glow_off * 2, scaled_height + glow_off * 2)
+                    glow_a = int((40 - glow_off * 3) + pulse * 25)
+                    glow_s = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_s, (60, 220, 200, max(0, glow_a)),
+                                   (0, 0, glow_rect.width, glow_rect.height), border_radius=14)
+                    SCREEN.blit(glow_s, glow_rect.topleft)
+
             SCREEN.blit(card_surface, (final_x, final_y))
 
             # 호버 보더 효과
@@ -26607,7 +26705,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "게이지 소모량", "min": 130, "max": 200, "unit": "", "prefix": "", "key": "gauge_cost", "reverse": True},
     ],
     "dowsing_goggles": [
-        {"label": "퍽 선택지 증가", "min": 1, "max": 2, "unit": "개", "prefix": "+", "key": "extra_perk_choices"},
+        {"label": "추가 퍽 등장 확률", "min": 30, "max": 60, "unit": "%", "prefix": "", "key": "bonus_perk_chance"},
     ],
 }
 
@@ -27410,15 +27508,15 @@ def apply_roll_bonuses_from_equipped():
                 except Exception:
                     pass
         elif name == "dowsing_goggles":
-            val = _get_roll_value(item, "extra_perk_choices")
+            val = _get_roll_value(item, "bonus_perk_chance")
             if val is not None:
                 try:
-                    from item_effects.dowsing_goggles import set_extra_perk_choices, set_enhancement_bonus
+                    from item_effects.dowsing_goggles import set_bonus_perk_chance, set_enhancement_bonus
                     enhancement_pct = item.get("enhancement_bonus_pct", 0)
                     if enhancement_pct > 0:
                         enhanced_val = val * (1 + enhancement_pct / 100)
                         val = int(enhanced_val)
-                    set_extra_perk_choices(val)
+                    set_bonus_perk_chance(val)
                     set_enhancement_bonus(enhancement_pct)
                 except Exception:
                     pass
@@ -27529,16 +27627,16 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         if val is not None:
             globals()["spiked_helmet_knockback_resist_pct"] = max(spiked_helmet_knockback_resist_pct, val)
     elif name == "dowsing_goggles":
-        val = _get_roll_value(item, "extra_perk_choices")
+        val = _get_roll_value(item, "bonus_perk_chance")
         if val is not None:
             try:
-                from item_effects.dowsing_goggles import set_extra_perk_choices, set_enhancement_bonus
-                # 강화 보너스 적용
+                from item_effects.dowsing_goggles import set_bonus_perk_chance, set_enhancement_bonus
+                # 강화 보너스 적용 (확률값에 배율 적용)
                 enhancement_pct = item.get("enhancement_bonus_pct", 0)
                 if enhancement_pct > 0:
                     enhanced_val = val * (1 + enhancement_pct / 100)
                     val = int(enhanced_val)
-                set_extra_perk_choices(val)
+                set_bonus_perk_chance(val)  # 30~60 정수 → 내부에서 0.3~0.6으로 변환
                 set_enhancement_bonus(enhancement_pct)
             except Exception:
                 pass
@@ -27840,9 +27938,9 @@ def sync_equipped_passive_effects():
     sync_bool("venom_mist_gauntlet", "items.venom_mist_gauntlet_obtained")
     sync_bool("dowsing_goggles", "items.dowsing_goggles_obtained")
 
-    # 다우징고글: 장착 시 퍽 선택지 증가 / 해제 시 초기화
+    # 다우징고글: 장착 시 추가 퍽 확률 설정 / 해제 시 초기화
     try:
-        from item_effects.dowsing_goggles import set_extra_perk_choices, set_enhancement_bonus, deactivate as _dg_deactivate
+        from item_effects.dowsing_goggles import set_bonus_perk_chance, set_enhancement_bonus, deactivate as _dg_deactivate
         if "dowsing_goggles" in equipped_names:
             dg_item = next((i for i in equipped_items if i.get("name") == "dowsing_goggles"), None)
             if dg_item:
@@ -169768,7 +169866,7 @@ def get_item_description(item_name):
         "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
         "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑입니다. 베놈 엣지 적중 시 일정 확률로 보스 주변에 독안개 영역을 생성합니다. 독안개 안에 있는 보스는 이동속도가 50% 감소하고, 1초당 보스 게이지가 50 감소합니다. 스테이지 6 홍련의 경우 1초당 구슬게이지 1개가 감소합니다. [롤옵션] 발동확률 30~50%",
         "elixir_of_mastery": "엘릭서 오브 마스터리: [신화급] 사용 시 보유 중인 퍽 중 Lv.5 미만인 퍽 하나가 랜덤으로 선택되어 즉시 Lv.5가 됩니다. 신비로운 연출과 함께 어떤 퍽이 강화되었는지 공개됩니다. Lv.5 미만 퍽이 없으면 사용할 수 없습니다. 극히 희귀한 신화급 물약!",
-        "dowsing_goggles": "다우징 고글: 고대 탐지 기술이 내장된 특수 고글입니다. 장착 시 퍽 선택 화면에서 선택할 수 있는 퍽의 수가 증가합니다. [롤옵션] 퍽 선택지 +1~2개 (기본 3개 → 최대 5개, 골드변환은 항상 맨 오른쪽에 고정)",
+        "dowsing_goggles": "다우징 고글: 고대 탐지 기술이 내장된 특수 고글입니다. 장착 시 퍽 선택지가 1개 고정 증가합니다 (기본 3 → 4개). [롤옵션] 추가 퍽 등장 확률 30~60% - 퍽 선택 시 확률적으로 보너스 퍽 1개가 추가 등장합니다!",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
