@@ -166975,16 +166975,6 @@ def show_character_info(background_surface=None):
                         current_gain = int(current_gain * (1 + bt_bonus / 100.0))
             except Exception:
                 pass
-            try:
-                from item_effects.devil_dice import (
-                    get_devil_dice_multipliers,
-                    is_devil_dice_active,
-                )
-
-                multipliers = get_devil_dice_multipliers()
-                gauge_multiplier = multipliers.get("skill_gauge", 1.0)
-                if gauge_multiplier != 1.0:
-                    current_gain = int(current_gain * gauge_multiplier)
             except Exception:
                 pass
             return base_gain, int(current_gain)
@@ -167176,6 +167166,13 @@ def show_character_info(background_surface=None):
                 "base": gauge_base,
                 "current": gauge_now,
                 "max_hint": 120.0,
+                "unit": "pt",
+            },
+            {
+                "label": "최대 게이지",
+                "base": 500,
+                "current": float(get_max_gauge()),
+                "max_hint": 800.0,
                 "unit": "pt",
             },
             {

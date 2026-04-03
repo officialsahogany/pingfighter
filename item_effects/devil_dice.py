@@ -16,7 +16,7 @@ from resource_path import resource_path
 STAT_KEYS = [
     ('player_speed',  '이동속도'),
     ('paddle_size',   '몸집크기'),
-    ('skill_gauge',   '게이지 획득량'),
+    ('skill_gauge',   '최대 게이지'),
     ('dash_distance', '대쉬거리'),
     ('dash_recovery', '대쉬후딜시간'),
     ('dash_cooldown', '대쉬쿨타임'),
