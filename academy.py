@@ -236,7 +236,7 @@ SKILL_TREES = {
             {
                 "id": "downtown_treasure_map",
                 "name": "보물지도",
-                "description": "전설 필드 확률 +350%, 가챠 전설 +7%",
+                "description": "전설 필드 확률 +350%, 가챠 전설 +7%, 패시브 드랍 +3%/Lv",
                 "max_level": 2,
                 "cost": 4,
                 "icon_color": (255, 220, 120),
@@ -3195,6 +3195,7 @@ class AcademyUI:
         elif skill_id == "downtown_treasure_map":
             lines.append(_el("current", "field_legend", "필드 전설", f"+{display_level * 350}%"))
             lines.append(_el("current", "gacha_legend", "가챠 전설", f"+{display_level * 7}%"))
+            lines.append(_el("current", "passive_drop", "패시브 드랍", f"+{display_level * 3}%"))
 
         return lines
 
@@ -3286,6 +3287,7 @@ class AcademyUI:
         elif skill_id == "downtown_treasure_map":
             lines.append(_el("next", "field_legend", "필드 전설", f"+{display_level * 350}%"))
             lines.append(_el("next", "gacha_legend", "가챠 전설", f"+{display_level * 7}%"))
+            lines.append(_el("next", "passive_drop", "패시브 드랍", f"+{display_level * 3}%"))
 
         return lines
 

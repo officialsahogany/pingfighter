@@ -2333,10 +2333,21 @@ def spawn_random_item():
         else:
             active_sum += w
 
-    # 2) 목표 비율(75/25)에 맞춰 그룹별 스케일링
+    # 2) 목표 비율에 맞춰 그룹별 스케일링 (보물지도: 레벨당 패시브 +3%)
     scaled_weights: list[tuple[dict, float]] = []
-    target_a = TARGET_ACTIVE_DROP_SHARE
-    target_p = TARGET_PASSIVE_DROP_SHARE
+    try:
+        treasure_map_level = academy.get_skill_level("downtown_treasure_map")
+    except Exception:
+        treasure_map_level = 0
+    # 런타임 퍽 레벨도 합산
+    try:
+        import pingfighter
+        treasure_map_level += pingfighter.runtime_skill_levels.get("downtown_treasure_map", 0)
+    except Exception:
+        pass
+    passive_share_bonus = 0.03 * treasure_map_level
+    target_p = TARGET_PASSIVE_DROP_SHARE + passive_share_bonus
+    target_a = 1.0 - target_p
 
     if active_sum > 0 and passive_sum > 0:
         active_scale = target_a / active_sum
