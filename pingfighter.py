@@ -171213,7 +171213,7 @@ def apply_character_selection(character_id):
         reset_optimus_energy(full_gauge=True)
     return selected_character_type
 
-
+    
 def get_character_name(character_id):
     """캐릭터 ID로부터 이름 반환"""
     char_names = {
