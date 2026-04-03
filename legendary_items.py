@@ -2289,6 +2289,12 @@ class PoseidonTrident(LegendaryItem):
                     self.effect_cooldown = 0
                     self.effect_ready = True
                     self._start_water_explosion_effect()  # 폭발 효과만 바로 실행
+                    # 쿨다운 완충 사운드 재생
+                    try:
+                        charge_snd_path = resource_path(os.path.join("sounds", "poseidoncharge.wav"))
+                        pygame.mixer.Sound(charge_snd_path).play()
+                    except Exception:
+                        pass
 
             # 물의 기운 폭발 파티클 업데이트
             if self.water_explosion_active:
