@@ -161051,7 +161051,8 @@ def main(stage_num, new_boss_mode=False):
         ):
             # 아이템 스폰 처리 (템스폰) - 전설 애니메이션 중에는 스폰 정지
             # 튜토리얼 스테이지(50) 및 신규 튜토리얼 진행 중에는 아이템 스폰 비활성화
-            if current_stage != 50 and not _ingame_tutorial_active and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
+            # 온라인 클라이언트는 아이템 스폰 안 함 (호스트가 관리)
+            if current_stage != 50 and not _ingame_tutorial_active and not (online_multiplayer_enabled and not online_is_host) and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
                 items.spawn_random_item()
                 last_item_spawn_time = pygame.time.get_ticks()
 
@@ -161535,8 +161536,10 @@ def main(stage_num, new_boss_mode=False):
 
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
                 # 튜토리얼 일시정지 시 아이템 이동/회전 정지 (두 가지 방식 모두 체크)
+                # 온라인 클라이언트는 아이템 물리/획득 처리 안 함 (호스트가 관리, 클라이언트는 표시만)
                 is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
-                items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused, boss_rect=BOSS)
+                if not (online_multiplayer_enabled and not online_is_host):
+                    items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused, boss_rect=BOSS)
 
                 # 석판 수집 퀘스트 업데이트
                 if not is_tutorial_paused:
@@ -170689,12 +170692,28 @@ def _online_send_game_state():
 
     global _online_sound_queue
 
+    # 아이템 목록 직렬화 (클라이언트에 전송용)
+    _serialized_items = []
+    try:
+        for _fi in items.item_list:
+            _fi_type = _fi.get('type', {})
+            _fi_name = _fi_type.get('name', '') if isinstance(_fi_type, dict) else ''
+            _serialized_items.append({
+                'x': _fi.get('x', 0),
+                'y': _fi.get('y', 0),
+                'name': _fi_name,
+                'angle': _fi.get('angle', 0),
+                'revealed': _fi_type.get('revealed', False) if isinstance(_fi_type, dict) else False,
+            })
+    except Exception:
+        _serialized_items = []
+
     frame_data = {
         'frame_num': pygame.time.get_ticks(),
         'ball': [BALL.x, BALL.y, ball_vel[0], ball_vel[1]],
         'p1': [PLAYER.x, 0, round_wins],
         'p2': [BOSS.x, 0, round_losses],
-        'items': [],
+        'items': _serialized_items,
         'sounds': _online_sound_queue[:],
         'effects': [],
         'game_over': None,
@@ -170804,6 +170823,24 @@ def _online_client_apply_state():
     # 변경이 있을 때만 로그
     if _prev_waiting != is_waiting_for_serve or _prev_player_serve != is_player_serve:
         print(f"[Online Serve DEBUG] CLIENT sync: host_waiting={host_waiting} host_player_serve={host_player_serve} → is_waiting={is_waiting_for_serve} is_player_serve={is_player_serve}")
+
+    # 아이템 동기화 (호스트가 보낸 아이템 목록을 Y반전하여 표시)
+    remote_items = frame.get('items', [])
+    if remote_items:
+        _synced_items = []
+        for _ri in remote_items:
+            _synced_items.append({
+                'x': _ri.get('x', 0),
+                'y': HEIGHT - _ri.get('y', 0),  # Y축 반전
+                'vel': [0, 0],  # 클라이언트는 물리 처리 안 함
+                'type': {'name': _ri.get('name', ''), 'revealed': _ri.get('revealed', False)},
+                'angle': _ri.get('angle', 0),
+                'bounce_count': 0,
+                'max_bounces': 999,  # 클라이언트에서 자연 소멸 방지
+            })
+        items.item_list = _synced_items
+    else:
+        items.item_list = []
 
     # 점수 동기화 (시점 반전!)
     # 호스트의 round_wins(P1 득점) = 내(P2) 입장에서 round_losses
