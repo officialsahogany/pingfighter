@@ -4072,101 +4072,39 @@ class EmptyLegendary(LegendaryItem):
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 신성 월계수 스타일 (중앙 월계수 그림 제외)"""
+        """애니메이션 아이콘 그리기 - 공통 전설 프레임 + 물음표 플레이스홀더"""
         import math
 
-        # 애니메이션 프레임 업데이트
-        self.frame_counter += 1
-        if self.frame_counter >= self.animation_speed:
-            self.frame_counter = 0
-            self.current_frame = (self.current_frame + 1) % 8
-
-        # 위아래 천천히 움직이는 오프셋 (다른 전설 아이템과 동일)
-        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
+        # 공통 전설 프레임 (파란 글로우 + 붉은 내부 테두리 + 외곽 테두리 + 은색 모서리)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
         frame_y = y + frame_offset
 
-        # animation_time 기반 펄스 (신성 월계수와 동일한 속도)
-        pulse = (math.sin(self.animation_time * 4.0) + 1) / 2  # 0~1 사이 값
+        # 라그나로크 해머 테두리 프레임 오버레이
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+            frame = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled = pygame.transform.scale(frame, (size, size))
+            screen.blit(scaled, (x, frame_y))
 
-        # 커졌다 작아졌다 하는 원형 글로우 (금빛)
-        glow_base_size = int(size * 1.3)
-        glow_size = int(glow_base_size + size * 0.15 * pulse)
-        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        # 중앙 물음표 아이콘 (신화 아이템 플레이스홀더)
+        pulse = (math.sin(self.animation_time * 3.0) + 1) / 2
+        cx, cy = x + size // 2, frame_y + size // 2
+        # 물음표 색상 (은색~흰색 펄싱)
+        q_brightness = int(180 + 75 * pulse)
+        q_color = (q_brightness, q_brightness, q_brightness)
+        try:
+            q_font = pygame.font.SysFont(None, max(16, size // 2))
+            q_surf = q_font.render("?", True, q_color)
+            q_rect = q_surf.get_rect(center=(cx, cy))
+            screen.blit(q_surf, q_rect)
+        except Exception:
+            pygame.draw.circle(screen, q_color, (cx, cy), size // 6, 2)
 
-        # 그라데이션 원형 글로우 (금빛)
-        center = glow_size // 2
-        for i in range(4):
-            radius = center - i * (center // 5)
-            if radius > 0:
-                alpha = int(60 - i * 12 + pulse * 20)
-                alpha = max(0, min(255, alpha))
-                gold_intensity = int(180 + pulse * 40)
-                glow_color = (min(255, gold_intensity + 40), min(255, gold_intensity), int(50 + pulse * 30), alpha)
-                pygame.draw.circle(glow_surf, glow_color, (center, center), radius)
-
-        # 글로우 중앙에 배치
-        glow_x = x - (glow_size - size) // 2
-        glow_y = frame_y - (glow_size - size) // 2
-        screen.blit(glow_surf, (glow_x, glow_y))
-
-        # 내부 붉은색 테두리 (프레임별 그라데이션) - 3겹
-        inner_pulse = (math.sin(self.animation_time * 6.0) + 1) / 2
-        outer_inner_color = (
-            int(150 + 70 * inner_pulse),
-            int(30 + 35 * inner_pulse),
-            int(30 + 35 * inner_pulse)
-        )
-        inner_inner_color = (
-            int(120 + 60 * inner_pulse),
-            int(10 + 25 * inner_pulse),
-            int(10 + 25 * inner_pulse)
-        )
-        mid_inner_color = (
-            (outer_inner_color[0] + inner_inner_color[0]) // 2,
-            (outer_inner_color[1] + inner_inner_color[1]) // 2,
-            (outer_inner_color[2] + inner_inner_color[2]) // 2,
-        )
-
-        inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
-        inner_rect_mid = inner_rect_outer.inflate(-2, -2)
-        inner_rect_inner = inner_rect_outer.inflate(-4, -4)
-
-        pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
-        pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
-        pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
-
-        # 외곽 빨간색 테두리
-        border_color = (180, 50, 50)
-        border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
-        pygame.draw.rect(screen, border_color, border_rect, 2)
-
-        # 코너 장식 (파란색/흰색 그라데이션)
-        corner_pulse = (math.sin(self.animation_time * 3.0) + 1) / 2  # 0~1
-        corner_color = (
-            int(100 + 155 * corner_pulse),   # 100~255 (파란색 → 흰색)
-            int(150 + 105 * corner_pulse),   # 150~255
-            int(255)                          # 255 고정
-        )
-        corner_size = 8
-
-        # L자 코너 장식 (다른 전설 아이템과 동일)
-        pygame.draw.lines(screen, corner_color, False,
-                          [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
-        pygame.draw.lines(screen, corner_color, False,
-                          [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
-        pygame.draw.lines(screen, corner_color, False,
-                          [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
-        pygame.draw.lines(screen, corner_color, False,
-                          [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
-
-        # 코너 원형 장식
-        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
-
-        # 중앙은 비워둠 (월계수 그림 제외) - 금빛 배경만 표시
-        bg_pulse = int(pulse * 20)
-        bg_color = (160 + bg_pulse, 130 + bg_pulse, 50)
-        pygame.draw.circle(screen, bg_color, (x + size // 2, frame_y + size // 2), size // 2 - 4)
+        # 테두리 + 은색 모서리 장식을 최상단에 다시 그리기
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
 
 
 class AngelBlessing(LegendaryItem):
