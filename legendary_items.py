@@ -4144,6 +4144,7 @@ class AngelBlessing(LegendaryItem):
         self.animation_speed = 8  # 라그나로크 해머와 동일
         self._load_animation_frames()
         self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+        self._pending_roll_stage: Optional[int] = None  # 공 생성 애니메이션 완료 대기 중인 스테이지
         # 버프 흡수 파티클 (주사위 종료 후 플레이어에게 날아가는 빛 알갱이)
         self._absorb_particles: List[Dict] = []
         self._absorb_duration = 1.8  # 흡수 애니메이션 시간 (초)
@@ -4562,6 +4563,7 @@ class AngelBlessing(LegendaryItem):
         self._player_glow_active = False
         self._player_glow_timer = 0.0
         self._player_glow_count = 0
+        self._pending_roll_stage = None
         if self.DEBUG_ENABLED: print("[AngelBlessing] 새 게임 - 발동 이력 초기화됨")
 
     def _roll_blessing(self, current_stage: int):
@@ -5764,23 +5766,35 @@ class AngelBlessing(LegendaryItem):
         # 스테이지 변경 시 자동 주사위 굴림 (공 생성 애니메이션 완료 후)
         current_stage = self._get_current_stage()
         just_rolled = False
+
+        # 공 생성 애니메이션 상태 확인
+        ball_anim_active = False
+        if not ui_mode:
+            try:
+                import sys
+                pf = sys.modules.get("pingfighter")
+                if pf:
+                    ball_anim_active = getattr(pf, "ball_spawn_animation_active", False)
+            except Exception:
+                pass
+
         if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
-            # 이미 발동된 스테이지면 스킵 (재장착 방지)
             if current_stage not in self._triggered_stages:
-                # 공 생성 애니메이션이 진행 중이면 대기
-                ball_anim_active = False
-                try:
-                    import sys
-                    pf = sys.modules.get("pingfighter")
-                    if pf and hasattr(pf, "is_ball_spawn_animation_paused"):
-                        ball_anim_active = pf.is_ball_spawn_animation_paused()
-                except Exception:
-                    pass
-                if not ball_anim_active:
-                    if os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1":
-                        print(f"[AngelBlessing][DEBUG] stage change detected: prev={self.applied_stage}, now={current_stage}")
+                if ball_anim_active:
+                    # 공 생성 애니메이션 진행 중 → 대기 스테이지 기록
+                    self._pending_roll_stage = current_stage
+                else:
                     self._roll_blessing(current_stage)
+                    self._pending_roll_stage = None
                     just_rolled = True
+
+        # 대기 중인 주사위 굴림: 공 생성 애니메이션 완료 시 발동
+        if not ui_mode and self._pending_roll_stage is not None and not ball_anim_active:
+            stage = self._pending_roll_stage
+            self._pending_roll_stage = None
+            if stage not in self._triggered_stages:
+                self._roll_blessing(stage)
+                just_rolled = True
 
         # 주사위 애니메이션 타이머 업데이트 (CRITICAL: 이 로직이 없으면 애니메이션이 진행되지 않음)
         if self.roll_anim_active and not just_rolled:
