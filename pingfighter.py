@@ -132094,17 +132094,9 @@ def show_item_manager_menu():
         quantity_original_value = 0
         quantity_max_value = 0
 
-    # 아이템 관리자 → 스킬트리(테스트) 버튼 사각형 및 핸들러
-    # 우측 하단 기준: 기존보다 100px 위, 크기 30% 축소
-    skill_tree_button_rect = pygame.Rect(WIDTH - 180, HEIGHT - 196, 140, 45)
-
     # 패시브 탭 아이템 위치 캐시 (부위별 레이아웃용)
     passive_item_rects = []
 
-    def open_skill_tree_test_mode() -> None:
-        """런타임 스킬 현황 화면 표시 (기존 아카데미 스킬트리 대체)."""
-        show_runtime_skill_status()
-    
     while True:
         arrow_up_rect_screen = None
         arrow_down_rect_screen = None
@@ -132721,18 +132713,6 @@ def show_item_manager_menu():
             controls_message = "방향키: 아이템 선택, 마우스 클릭: 선택/해제, TAB: 탭 전환, ENTER/SPACE: 스테이지 선택"
         controls_text = font_small.render(controls_message, True, (150, 150, 150))
         SCREEN.blit(controls_text, (LARGE_SIZE, HEIGHT - LARGE_SIZE))
-
-        # 스킬트리(테스트) 버튼 - 우측 하단
-        mouse_pos = pygame.mouse.get_pos()
-        button_hovered = skill_tree_button_rect.collidepoint(mouse_pos)
-        button_fill = (55, 90, 150) if button_hovered else (40, 70, 120)
-        button_border = (255, 220, 120) if button_hovered else (200, 200, 200)
-
-        pygame.draw.rect(SCREEN, button_fill, skill_tree_button_rect, border_radius=12)
-        pygame.draw.rect(SCREEN, button_border, skill_tree_button_rect, 3, border_radius=12)
-
-        btn_title = font_small.render(_t("ui.perk_status", "퍽 현황"), True, WHITE)
-        SCREEN.blit(btn_title, btn_title.get_rect(center=skill_tree_button_rect.center))
 
         if quantity_selection_mode and quantity_target_item:
             dim_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -133457,10 +133437,6 @@ def show_item_manager_menu():
                                 selected_item_index = new_index
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
-                # 스킬트리(테스트) 버튼 클릭 처리
-                if skill_tree_button_rect.collidepoint(mx, my):
-                    open_skill_tree_test_mode()
-                    continue
                 # 탭 클릭 처리
                 for idx, rect in enumerate(tab_rects):
                     if rect.collidepoint(mx, my):
@@ -171215,7 +171191,7 @@ def get_character_name(character_id):
 # ============================================================================
 
 def start_online_multiplayer():
-    """온라인 멀티플레이 진입점.
+    """온라인 멀티 플레이 진입점.
     로비 → 캐릭터/스테이지 선택 → 양쪽 모두 main(40) 실행.
     호스트(P1): 공 물리 권위, BOSS=P2 위치 수신
     클라이언트(P2): BOSS=P1 위치 수신, 공=호스트에서 수신
