@@ -14388,6 +14388,15 @@ def on_starpoint_collected(amount: int = 1):
     while starpoint_for_skills >= STARPOINT_PER_SKILL_CHOICE:
         starpoint_for_skills -= STARPOINT_PER_SKILL_CHOICE
         pending_skill_choices += 1
+        # 메긴교르드 연속 발동 카운터 리셋 (새 퍽 선택 트리거 시)
+        try:
+            _mg_mgr = get_legendary_manager()
+            if _mg_mgr:
+                _mg_belt = _mg_mgr.get_item("megingjord")
+                if _mg_belt:
+                    _mg_belt.reset_extra_pick_count()
+        except Exception:
+            pass
         # print(f"[RuntimeSkill] 스킬 선택지 획득! 대기: {pending_skill_choices}")  # 디버그 비활성화
 
     # 대기 중인 선택이 있으면 플래그 설정
@@ -18627,17 +18636,6 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     """
     global runtime_skill_choice_pending, pending_skill_choices
     global runtime_skill_levels
-
-    # 메긴교르드 연속 발동 카운터 리셋 (퍽 선택 세션 시작)
-    try:
-        if is_passive_equipped("megingjord"):
-            _mg = get_legendary_manager()
-            if _mg:
-                _mg_item = _mg.get_item("megingjord")
-                if _mg_item:
-                    _mg_item.reset_extra_pick_count()
-    except Exception:
-        pass
 
     # Get current character type
     character_type = selected_character_type
