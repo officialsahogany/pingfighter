@@ -65853,6 +65853,8 @@ AIPILL_BLOCKED_KEYS = (
     pygame.K_RIGHT,
 )
 _AIPILL_BLOCKED_KEY_SET = set(AIPILL_BLOCKED_KEYS)
+# 바이퍼용: Space는 제트팩 입력이므로 차단에서 제외
+_AIPILL_VIPER_BLOCKED_KEY_SET = _AIPILL_BLOCKED_KEY_SET - {pygame.K_SPACE}
 
 _ORIGINAL_GET_PRESSED = pygame.key.get_pressed
 
@@ -65882,10 +65884,39 @@ class _KeyStateProxy:
         return getattr(self._raw, name)
 
 
+class _ViperKeyStateProxy:
+    """바이퍼용 키 차단 프록시 - Space(제트팩)는 허용"""
+    __slots__ = ("_raw",)
+
+    def __init__(self, raw):
+        self._raw = raw
+
+    def __getitem__(self, key):
+        if key in _AIPILL_VIPER_BLOCKED_KEY_SET:
+            return 0
+        try:
+            return self._raw[key]
+        except (IndexError, TypeError):
+            return 0
+
+    def __len__(self):
+        return len(self._raw)
+
+    def __iter__(self):
+        for idx, value in enumerate(self._raw):
+            yield 0 if idx in _AIPILL_VIPER_BLOCKED_KEY_SET else value
+
+    def __getattr__(self, name):
+        return getattr(self._raw, name)
+
+
 def _get_effective_key_state_override():
     raw_keys = _ORIGINAL_GET_PRESSED()
     if not aipill_active:
         return raw_keys
+    # 바이퍼는 Space가 제트팩 입력이므로 차단에서 제외
+    if selected_character_type == "viper":
+        return _ViperKeyStateProxy(raw_keys)
     return _KeyStateProxy(raw_keys)
 
 
