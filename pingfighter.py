@@ -38740,6 +38740,9 @@ def release_blacksmith_hammer_shock():
         "_last_update_ms": current_ticks,
     }
     blacksmith_hammer_shock_projectiles.append(projectile)
+    # 온라인: 해머 쇼크 발사 이벤트
+    _online_send_effect('hshock', x=projectile['x'], y=projectile['y'],
+                        s=projectile.get('stage', 0), dir='up', dur=1500)
     if blacksmith_hammer_charge_position is not None:
         sanitized_charge = _sanitize_blacksmith_hammer_position(blacksmith_hammer_charge_position)
         if sanitized_charge is not None:
@@ -48412,6 +48415,9 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     _ss_away_dir = -1 if _ss_boss_dx > 0 else (1 if _ss_boss_dx < 0 else random.choice([-1, 1]))
     _ss_avoidance = _ss_away_dir * random.uniform(25, 50)  # 회피 보너스 각도
     init_angle = _ss_random_angle * (1.0 - _ss_bias) + _ss_avoidance * _ss_bias
+    # 최소 편향 보장: 수직 발사 방지 (최소 ±15°)
+    if abs(init_angle) < 15:
+        init_angle = 15.0 * (1 if init_angle >= 0 else -1)
     init_angle = max(-60, min(60, init_angle))  # 클램프
     rad = math.radians(-90 + init_angle)
     ball_vel[0] = math.cos(rad) * new_speed
@@ -66318,6 +66324,9 @@ def fire_slingshot_pellet(charge_level: int):
             "charge_level": charge_level,
         }
         soldier_bullets.append(bullet)
+        # 온라인: 새총 발사 이벤트
+        _online_send_effect('bullet', x=bullet_start_x, y=bullet_start_y,
+                            vx=dx_norm * speed, vy=dy_norm * speed, c=charge_level, dur=1500)
 
         # 새총 발사 효과음
         try:
@@ -69331,6 +69340,9 @@ def create_soldier_bullet():
             "color": bullet_color,
         }
         soldier_bullets.append(bullet)
+        # 온라인: 권총 발사 이벤트
+        _online_send_effect('bullet', x=bullet_start_x, y=bullet_start_y,
+                            vx=dx_norm * speed, vy=dy_norm * speed, c=1, dur=1500)
 
         # 권총 UI 반동 애니메이션 활성화
         global pistol_ui_recoil_timer
@@ -72727,6 +72739,9 @@ def handle_player(keys):
                     _viper_nerve_strike_active = True
                     _viper_nerve_strike_phase = 0  # 돌진 단계
                     _viper_nerve_strike_start_ms = pygame.time.get_ticks()
+                    # 온라인: 베놈 엣지 이벤트 전송
+                    _online_send_effect('nerve', x=PLAYER.centerx, y=PLAYER.centery,
+                                        tx=BOSS.centerx, ty=BOSS.centery, dur=600)
                     # 돌진 사운드 재생
                     try:
                         _vm_snd = sound_effects.get('VIPER_VENOM_MOVING')
@@ -72769,6 +72784,8 @@ def handle_player(keys):
                             _viper_br_spin_start_ms = pygame.time.get_ticks()
                             _viper_br_spin_phase = 0  # 회전 단계
                             _viper_br_spin_angle = 0.0
+                            # 온라인: 회전 시작 이벤트 전송
+                            _online_send_effect('br_spin', x=PLAYER.centerx, y=PLAYER.centery, dur=700)
                             # 회전 사운드 재생
                             try:
                                 _spin_snd = sound_effects.get('VIPER_BLADE_SPIN')
@@ -73120,6 +73137,10 @@ def handle_player(keys):
                     _mk_away_dir = -1 if _mk_boss_dx > 0 else (1 if _mk_boss_dx < 0 else _mk_rand.choice([-1, 1]))
                     _mk_avoidance = _mk_away_dir * _mk_rand.uniform(25, 50)  # 회피 보너스 각도
                     _mk_final_angle = _mk_random_angle * (1.0 - _mk_bias) + _mk_avoidance * _mk_bias
+                    # 최소 편향 보장: 수직 발사 방지 (마샬 ±20°, 팬텀 ±25°)
+                    _mk_min_angle = 25.0 if _viper_is_double_marshal else 20.0
+                    if abs(_mk_final_angle) < _mk_min_angle:
+                        _mk_final_angle = _mk_min_angle * (1 if _mk_final_angle >= 0 else -1)
                     _mk_final_angle = max(-60, min(60, _mk_final_angle))  # 클램프
                     _mk_rad = math.radians(-90 + _mk_final_angle)
                     ball_vel[0] = math.cos(_mk_rad) * _wd_new_spd
@@ -73828,6 +73849,9 @@ def handle_player(keys):
                 _viper_blade_rush_hit_ball = False
                 _viper_blade_rush_particles.clear()
                 _viper_blade_rush_trail.clear()
+                # 온라인: 검기 발사 이벤트 전송
+                _online_send_effect('blade', x=PLAYER.centerx, y=PLAYER.centery - 20,
+                                    hw=_viper_blade_rush_width // 2, dir='up', dur=800)
                 try:
                     effects_manager.spawn_shockwave(
                         PLAYER.centerx, PLAYER.centery - 20,
@@ -77878,6 +77902,9 @@ def handle_player(keys):
                             if bazooka.fire(PLAYER, pygame.time.get_ticks()):
                                 global bazooka_ui_recoil_timer
                                 soldier_control_lock_timer = bazooka.control_lock_timer
+                                # 온라인: 바주카 발사 이벤트
+                                _online_send_effect('bazooka', x=PLAYER.centerx, y=PLAYER.top - 20,
+                                                    dir='up', spd=12, dur=2000)
 
                                 # 바주카포 UI 반동 애니메이션 활성화
                                 bazooka_ui_recoil_timer = BAZOOKA_UI_RECOIL_DURATION
@@ -77910,6 +77937,11 @@ def handle_player(keys):
                         boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
 
                         if ak47.fire(player_rect, boss_rect):
+                            # 온라인: AK-47 발사 이벤트 (마지막 총알 데이터 사용)
+                            if ak47.bullets:
+                                _ak_last = ak47.bullets[-1]
+                                _online_send_effect('ak', x=_ak_last.get('x', 0), y=_ak_last.get('y', 0),
+                                                    dx=_ak_last.get('dx', 0), dy=_ak_last.get('dy', 0), dur=1500)
                             # AK-47 UI 반동 애니메이션 활성화
                             global ak47_ui_recoil_timer
                             ak47_ui_recoil_timer = AK47_UI_RECOIL_DURATION
@@ -170962,6 +170994,276 @@ _online_client_serve_pressed = False  # 클라이언트 서브 입력 플래그 
 _online_client_pickups = []  # 호스트→클라이언트: 클라이언트가 획득한 아이템 목록
 _online_ai_boss_enabled = False  # AI 대전 모드: BOSS를 AI가 조작
 _online_ai_boss_controller = None  # AI 컨트롤러 인스턴스
+
+# ── 온라인 이펙트 이벤트 시스템 (단발성 이벤트 → 로컬 재생) ──
+_online_remote_effects = []  # 상대방에서 수신한 이펙트 (로컬 타이머 기반 재생)
+
+
+def _online_send_effect(effect_type, **kwargs):
+    """스킬/이펙트 이벤트 1회 전송 (발동 시점에만 호출)"""
+    if not online_multiplayer_enabled or _online_net_manager is None:
+        return
+    from network.protocol import OnlinePacketType
+    data = {'e': effect_type, **kwargs}
+    _online_net_manager.send_online_packet(OnlinePacketType.GAME_EFFECT, data)
+
+
+def _online_receive_effects():
+    """매 프레임: 수신된 이펙트를 로컬 재생 목록에 추가"""
+    global _online_remote_effects
+    if not online_multiplayer_enabled or _online_net_manager is None:
+        return
+    effects = _online_net_manager.pop_online_effects()
+    for ef in effects:
+        ef_type = ef.get('e', '')
+        # Y축 반전 좌표
+        if 'y' in ef:
+            ef['y'] = HEIGHT - ef['y']
+        # 방향 반전
+        if ef.get('dir') == 'up':
+            ef['dir'] = 'down'
+        elif ef.get('dir') == 'down':
+            ef['dir'] = 'up'
+        # 로컬 타이머 시작
+        ef['_start_ms'] = pygame.time.get_ticks()
+        ef['_alive'] = True
+        _online_remote_effects.append(ef)
+
+
+def _online_update_remote_effects():
+    """매 프레임: 로컬 이펙트 수명 관리 (만료된 것 제거)"""
+    global _online_remote_effects
+    now = pygame.time.get_ticks()
+    _online_remote_effects = [ef for ef in _online_remote_effects
+                               if ef.get('_alive', False) and (now - ef.get('_start_ms', 0)) < ef.get('dur', 2000)]
+
+
+def _online_draw_remote_effects(screen):
+    """매 프레임: 상대방 이펙트 렌더링 (로컬 타이머 기반)"""
+    now = pygame.time.get_ticks()
+    for ef in _online_remote_effects:
+        if not ef.get('_alive', False):
+            continue
+        elapsed = now - ef.get('_start_ms', 0)
+        ef_type = ef.get('e', '')
+        try:
+            if ef_type == 'br_spin':
+                # 바이퍼 회전 모션 → BOSS 패들 회전은 별도 처리 (anim state)
+                pass
+            elif ef_type == 'blade':
+                # 바이퍼 에어 블레이드: 원본 동일 렌더링
+                _bx = int(ef.get('x', 0))
+                _by = int(ef.get('y', 0))
+                _bhw = int(ef.get('hw', 175))
+                _dur = ef.get('dur', 800)
+                _progress = min(1.0, elapsed / max(1, _dur))
+                # alive 계산
+                _fade_start = 0.65
+                _fade_fac = max(0.0, min(1.0, (_progress - _fade_start) / (1.0 - _fade_start))) if _progress > _fade_start else 0.0
+                _alive = 1.0 - _fade_fac
+                if _alive > 0.01:
+                    # 검기 Y 이동 (아래→위 또는 위→아래)
+                    _travel = 250 * _progress
+                    _draw_y = _by + _travel if ef.get('dir') == 'down' else _by - _travel
+                    _draw_viper_blade_rush(screen, _bx, int(_draw_y), _bhw, _alive, flip_y=(ef.get('dir') == 'down'))
+                else:
+                    ef['_alive'] = False
+            elif ef_type == 'nerve':
+                # 바이퍼 베놈 엣지
+                _dur = ef.get('dur', 600)
+                _progress = min(1.0, elapsed / max(1, _dur))
+                _ncx = int(ef.get('tx', BOSS.centerx))  # 타겟 X (보스 위치)
+                _ncy = int(ef.get('ty', BOSS.centery))
+                if _progress < 0.3:
+                    # 돌진 단계: 잔상
+                    for _gi in range(3):
+                        _ga = max(30, 80 - _gi * 25)
+                        _gs = pygame.Surface((40, 60), pygame.SRCALPHA)
+                        _gs.fill((180, 0, 220, _ga))
+                        screen.blit(_gs, (_ncx - 20 + _gi * 15, _ncy - 30))
+                elif _progress < 0.7:
+                    # 베기 단계: 아크 슬래시
+                    _t_now = pygame.time.get_ticks()
+                    for _ai in range(2):
+                        _a = math.radians(_t_now * 0.5 + _ai * 180)
+                        _arc_r = 60
+                        _sx = int(_ncx + math.cos(_a) * _arc_r)
+                        _sy = int(_ncy + math.sin(_a) * _arc_r)
+                        _ex = int(_ncx + math.cos(_a + 2.0) * _arc_r)
+                        _ey = int(_ncy + math.sin(_a + 2.0) * _arc_r)
+                        pygame.draw.line(screen, (200, 0, 255), (_sx, _sy), (_ex, _ey), 3)
+                else:
+                    ef['_alive'] = False
+            elif ef_type == 'bullet':
+                # 솔저 새총/권총 탄환 발사
+                _bx = float(ef.get('x', 0))
+                _by = float(ef.get('y', 0))
+                _bvx = float(ef.get('vx', 0))
+                _bvy = float(ef.get('vy', 0))
+                _charge = ef.get('c', 1)
+                _dur = ef.get('dur', 1500)
+                # 시간에 따른 위치 계산
+                _dt = elapsed / 1000.0  # 초 단위
+                _cx = int(_bx + _bvx * _dt * 60)
+                _cy = int(_by + _bvy * _dt * 60)
+                # 화면 밖이면 종료
+                if _cx < -20 or _cx > WIDTH + 20 or _cy < -20 or _cy > HEIGHT + 20:
+                    ef['_alive'] = False
+                    continue
+                _bu_r = max(3, 4 + _charge)
+                pygame.draw.circle(screen, (180, 180, 180), (_cx, _cy), _bu_r)
+                pygame.draw.circle(screen, (255, 255, 240), (_cx - 1, _cy - 1), max(1, _bu_r - 2))
+                if _charge >= 3:
+                    _glow_s = pygame.Surface((_bu_r * 4, _bu_r * 4), pygame.SRCALPHA)
+                    pygame.draw.circle(_glow_s, (255, 215, 0, 80), (_bu_r * 2, _bu_r * 2), _bu_r * 2)
+                    screen.blit(_glow_s, (_cx - _bu_r * 2, _cy - _bu_r * 2))
+            elif ef_type == 'bazooka':
+                # 솔저 바주카 로켓
+                _bx = float(ef.get('x', 0))
+                _by = float(ef.get('y', 0))
+                _dur = ef.get('dur', 2000)
+                _dt = elapsed / 1000.0
+                _speed = float(ef.get('spd', 12))
+                _dy_dir = 1 if ef.get('dir') == 'down' else -1
+                _cy = int(_by + _dy_dir * _speed * _dt * 60)
+                _cx = int(_bx)
+                if _cy < -30 or _cy > HEIGHT + 30:
+                    ef['_alive'] = False
+                    continue
+                pygame.draw.rect(screen, (100, 100, 100), (_cx - 4, _cy - 10, 8, 20))
+                pygame.draw.polygon(screen, (200, 50, 30), [
+                    (_cx, _cy - 14 * _dy_dir), (_cx - 5, _cy - 6 * _dy_dir), (_cx + 5, _cy - 6 * _dy_dir)])
+                for _si in range(3):
+                    _sa = max(30, 80 - _si * 25)
+                    _ss = pygame.Surface((8 + _si * 4, 8 + _si * 4), pygame.SRCALPHA)
+                    pygame.draw.circle(_ss, (200, 200, 200, _sa), (4 + _si * 2, 4 + _si * 2), 4 + _si * 2)
+                    screen.blit(_ss, (_cx - 4 - _si * 2, _cy + 10 * _dy_dir + _si * 8 * _dy_dir))
+            elif ef_type == 'ak':
+                # AK-47 총알
+                _bx = float(ef.get('x', 0))
+                _by = float(ef.get('y', 0))
+                _dx = float(ef.get('dx', 0))
+                _dy = float(ef.get('dy', 0))
+                _dt = elapsed / 1000.0
+                _cx = int(_bx + _dx * _dt * 60)
+                _cy = int(_by + _dy * _dt * 60)
+                if _cx < -20 or _cx > WIDTH + 20 or _cy < -20 or _cy > HEIGHT + 20:
+                    ef['_alive'] = False
+                    continue
+                pygame.draw.circle(screen, (255, 220, 50), (_cx, _cy), 3)
+                pygame.draw.circle(screen, (255, 255, 200), (_cx, _cy), 1)
+            elif ef_type == 'net_proj':
+                # 그물총 투사체
+                _bx = float(ef.get('x', 0))
+                _by = float(ef.get('y', 0))
+                _dur = ef.get('dur', 1000)
+                _dt = elapsed / 1000.0
+                _dy_dir = 1 if ef.get('dir') == 'down' else -1
+                _cy = int(_by + _dy_dir * 10 * _dt * 60)
+                _cx = int(_bx)
+                if _cy < -20 or _cy > HEIGHT + 20:
+                    ef['_alive'] = False
+                    continue
+                pygame.draw.circle(screen, (60, 180, 60), (_cx, _cy), 6)
+                pygame.draw.circle(screen, (120, 255, 120), (_cx, _cy), 3)
+            elif ef_type == 'net':
+                # 설치된 그물
+                _nx = int(ef.get('x', 0))
+                _ny = int(ef.get('y', 0))
+                _nw = int(ef.get('w', 60))
+                _nh = int(ef.get('h', 20))
+                _dur = ef.get('dur', 5000)
+                _ns = pygame.Surface((_nw, _nh), pygame.SRCALPHA)
+                _ns.fill((30, 160, 30, 80))
+                for _gi in range(0, _nw, 8):
+                    pygame.draw.line(_ns, (60, 200, 60, 120), (_gi, 0), (_gi, _nh))
+                for _gi in range(0, _nh, 6):
+                    pygame.draw.line(_ns, (60, 200, 60, 120), (0, _gi), (_nw, _gi))
+                screen.blit(_ns, (_nx - _nw // 2, _ny - _nh // 2))
+            elif ef_type == 'trap':
+                # 볼링 트랩
+                _tx = int(ef.get('x', 0))
+                _ty = int(ef.get('y', 0))
+                _dur = ef.get('dur', 10000)
+                pygame.draw.circle(screen, (80, 80, 80), (_tx, _ty), 8)
+                pygame.draw.circle(screen, (200, 50, 30), (_tx, _ty), 5)
+                pygame.draw.circle(screen, (255, 100, 50), (_tx, _ty), 2)
+            elif ef_type == 'drone':
+                # 자폭 드론
+                _dx = float(ef.get('x', 0))
+                _dy = float(ef.get('y', 0))
+                _ttx = float(ef.get('tx', WIDTH // 2))
+                _tty = float(ef.get('ty', HEIGHT // 2))
+                _dur = ef.get('dur', 3000)
+                _prog = min(1.0, elapsed / max(1, _dur))
+                _cx = int(_dx + (_ttx - _dx) * _prog)
+                _cy = int(_dy + (_tty - _dy) * _prog)
+                _dr_t = now
+                pygame.draw.rect(screen, (60, 60, 70), (_cx - 12, _cy - 6, 24, 12), border_radius=3)
+                for _di in range(4):
+                    _da = math.radians(_dr_t * 0.8 + _di * 90)
+                    _aex = _cx + int(math.cos(_da) * 14)
+                    _aey = _cy + int(math.sin(_da) * 14)
+                    pygame.draw.line(screen, (80, 80, 90), (_cx, _cy), (_aex, _aey), 2)
+                    _pa = math.radians(_dr_t * 3 + _di * 90)
+                    pygame.draw.line(screen, (180, 180, 190),
+                                     (_aex + int(math.cos(_pa) * 6), _aey + int(math.sin(_pa) * 6)),
+                                     (_aex - int(math.cos(_pa) * 6), _aey - int(math.sin(_pa) * 6)), 2)
+                if (now // 200) % 2 == 0:
+                    pygame.draw.circle(screen, (255, 50, 30), (_cx, _cy), 3)
+            elif ef_type == 'turret':
+                # 발토르 터렛 투사체
+                _tx = float(ef.get('x', 0))
+                _ty = float(ef.get('y', 0))
+                _dur = ef.get('dur', 1500)
+                _dt = elapsed / 1000.0
+                _dy_dir = 1 if ef.get('dir') == 'down' else -1
+                _cy = int(_ty + _dy_dir * 8 * _dt * 60)
+                _cx = int(_tx)
+                if _cy < -20 or _cy > HEIGHT + 20:
+                    ef['_alive'] = False
+                    continue
+                pygame.draw.circle(screen, (255, 200, 50), (_cx, _cy), 5)
+                pygame.draw.circle(screen, (255, 255, 200), (_cx, _cy), 3)
+            elif ef_type == 'hshock':
+                # 발토르 해머 쇼크 투사체
+                _hx = float(ef.get('x', 0))
+                _hy = float(ef.get('y', 0))
+                _stage = ef.get('s', 0)
+                _dur = ef.get('dur', 1500)
+                _dt = elapsed / 1000.0
+                _dy_dir = 1 if ef.get('dir') == 'down' else -1
+                _cy = int(_hy + _dy_dir * 10 * _dt * 60)
+                _cx = int(_hx)
+                if _cy < -30 or _cy > HEIGHT + 30:
+                    ef['_alive'] = False
+                    continue
+                _hs_r = max(6, 8 + _stage * 3)
+                _hs_colors = [(200, 160, 60), (255, 120, 30), (255, 60, 30), (255, 30, 200)]
+                _hs_c = _hs_colors[min(_stage, 3)]
+                _hs_gs = pygame.Surface((_hs_r * 4, _hs_r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(_hs_gs, (*_hs_c, 60), (_hs_r * 2, _hs_r * 2), _hs_r * 2)
+                screen.blit(_hs_gs, (_cx - _hs_r * 2, _cy - _hs_r * 2))
+                pygame.draw.circle(screen, _hs_c, (_cx, _cy), _hs_r)
+                pygame.draw.circle(screen, (255, 255, 220), (_cx, _cy), max(2, _hs_r - 3))
+            elif ef_type == 'divine':
+                # 발토르 디바인 스톤 설치
+                _dv_x = int(ef.get('x', 0))
+                _dv_y = int(ef.get('y', 0))
+                _dur = ef.get('dur', 30000)
+                _dv_r = 18
+                _dv_pts = []
+                for _hi in range(6):
+                    _ha = math.radians(60 * _hi - 30)
+                    _dv_pts.append((_dv_x + int(math.cos(_ha) * _dv_r), _dv_y + int(math.sin(_ha) * _dv_r)))
+                pygame.draw.polygon(screen, (140, 120, 80), _dv_pts)
+                pygame.draw.polygon(screen, (200, 180, 100), _dv_pts, 2)
+            elif ef_type == 'divine_destroy':
+                # 디바인 스톤 파괴 → 이펙트 목록에서 divine도 제거
+                _online_remote_effects[:] = [e for e in _online_remote_effects if e.get('e') != 'divine']
+                ef['_alive'] = False
+        except Exception:
+            ef['_alive'] = False
 
 
 def _online_get_my_anim_state():
