@@ -8055,6 +8055,13 @@ class BuildingInterior:
                     "color": opt.get("color", (200, 210, 230)) if isinstance(opt, dict) else (200, 210, 230)
                 })
 
+        # 고정효과 표시 (롤옵션 위에)
+        if item_name == "sage_ring":
+            option_entries.insert(0, {
+                "text": "[고정] 모든 퍽 레벨 +1",
+                "color": (120, 255, 180)  # 초록색으로 강조
+            })
+
         # 폰트
         font_small = self.fonts.get('small')
         font_tiny = self.fonts.get('tiny') or font_small
