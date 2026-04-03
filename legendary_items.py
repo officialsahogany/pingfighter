@@ -4425,6 +4425,9 @@ class AngelBlessing(LegendaryItem):
     def _roll_blessing(self, current_stage: int):
         """주사위 굴림 및 버프 적용"""
         import random
+        # 유효한 스테이지가 아니면 스킵 (메인메뉴/개발자모드 진입 시 오발동 방지)
+        if current_stage is None or not isinstance(current_stage, (int, float)) or current_stage < 1:
+            return
         # 이미 발동된 스테이지면 스킵 (재장착 방지)
         if current_stage in self._triggered_stages:
             if self.DEBUG_ENABLED: print(f"[AngelBlessing] 스테이지 {current_stage}에서 이미 발동됨 - 스킵")
@@ -11651,8 +11654,8 @@ class LegendaryItemManager:
                         current_stage_hint = int(game_state.get("current_stage"))
                     except Exception:
                         current_stage_hint = game_state.get("current_stage")
-                    # 해당 스테이지에서 아직 발동 안 했으면 발동
-                    if current_stage_hint not in item._triggered_stages:
+                    # 해당 스테이지에서 아직 발동 안 했으면 발동 (유효한 스테이지만)
+                    if current_stage_hint is not None and current_stage_hint >= 1 and current_stage_hint not in item._triggered_stages:
                         item.applied_stage = None  # 새 발동을 위해 리셋
                         item.update(0.0, ui_mode=False)
                 except Exception:
