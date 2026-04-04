@@ -149569,6 +149569,10 @@ def handle_ball():
         # ⚠️ 중요: calculate_bounce 호출 전에 쿨다운 설정하여 중복 충돌 방지
         boss_collision_cooldown = BOSS_COLLISION_COOLDOWN_FRAMES
         calculate_bounce(BOSS)
+        # 위치 보정: 공이 보스 패들 위(상단 경계)에 남아있으면 아래로 밀어냄
+        # 패들 끝에서 급각도(60도) 반사 시 공이 상단 밖으로 나가는 버그 방지
+        if BALL.top < BOSS.bottom + 1:
+            BALL.top = BOSS.bottom + 1
         _boss_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [보스 패들 충돌] calculate_bounce 후 속도: {_boss_speed_before:.2f} → {_boss_speed_after:.2f}, 쿨다운 설정: boss={boss_collision_cooldown}")  # 디버그 비활성화
 
