@@ -144383,6 +144383,7 @@ def handle_ball():
     global screen_shake_timer, screen_shake_intensity, ragnarok_impact_sparks  # ⚡ 라그나로크 화면흔들림+스파크
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
+    global player_stun_immunity_timer  # 화염탄 스턴 면역 타이머
     # 공 물리 & 움직임
     global ball_vel, ball_angle, slow_ball_timer, horizontal_bounce_count
     global ball_impact_boost, ball_boost_decay_rate, ball_min_boost
