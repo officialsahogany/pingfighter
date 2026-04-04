@@ -12193,58 +12193,61 @@ class Megingjord(LegendaryItem):
         ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
         pc = size // 2 + 8
 
-        # 1) 전기 스파크 (버클 주변에서 튀는 불꽃 4개)
-        for si in range(4):
-            sp = (t * 2.0 + si * 0.9) % 1.5
-            if sp < 0.8:
-                s_angle = t * 3 + si * (math.pi / 2)
-                s_dist = size * 0.12 + sp * size * 0.2
+        # 1) 전기 스파크 (버클에서 튀어나가는 밝은 불꽃 6개)
+        for si in range(6):
+            sp = (t * 3.0 + si * 0.6) % 1.2
+            if sp < 0.9:
+                s_angle = t * 4 + si * (math.pi / 3)
+                s_dist = size * 0.1 + sp * size * 0.28
                 sx = pc + int(math.cos(s_angle) * s_dist)
                 sy = pc + int(math.sin(s_angle) * s_dist * 0.7)
-                sa = int(220 * (1 - sp / 0.8))
-                # 스파크 = 짧은 선 2개 (X자)
-                s_len = max(1, int(3 - sp * 2))
-                pygame.draw.line(ps, (150, 200, 255, sa),
+                sa = int(255 * (1 - sp / 0.9))
+                s_len = max(2, int(4 - sp * 3))
+                pygame.draw.line(ps, (180, 220, 255, sa),
                                  (sx - s_len, sy - s_len), (sx + s_len, sy + s_len), 1)
-                pygame.draw.line(ps, (100, 180, 255, sa),
+                pygame.draw.line(ps, (140, 200, 255, sa),
                                  (sx + s_len, sy - s_len), (sx - s_len, sy + s_len), 1)
+                # 중심 밝은 점
+                pygame.draw.circle(ps, (220, 240, 255, min(255, sa + 20)), (sx, sy), 1)
 
-        # 2) 파란 번개 줄 (벨트에서 뻗어나가는 작은 볼트 2개)
-        for bi in range(2):
-            bolt_phase = (t * 1.5 + bi * 1.8) % 2.5
-            if bolt_phase < 1.2:
-                ba = int(180 * (1 - bolt_phase / 1.2))
-                bx_start = pc + (1 if bi == 0 else -1) * int(size * 0.15)
-                by_start = pc
-                # 지그재그 볼트 (3~4 세그먼트)
+        # 2) 번개 볼트 (좌우로 뻗는 지그재그 3개, 더 길고 밝게)
+        for bi in range(3):
+            bolt_phase = (t * 2.0 + bi * 1.2) % 2.0
+            if bolt_phase < 1.5:
+                ba = int(230 * (1 - bolt_phase / 1.5))
+                direction = [-1, 1, 0][bi]
+                bx_start = pc + direction * int(size * 0.1)
+                by_start = pc + (0 if bi < 2 else -int(size * 0.1))
                 pts = [(bx_start, by_start)]
                 bx, by = bx_start, by_start
-                direction = 1 if bi == 0 else -1
-                for seg in range(3):
-                    bx += direction * int(size * 0.06 + math.sin(t * 5 + seg + bi) * 2)
-                    by += int(-size * 0.05 + math.cos(t * 4 + seg * 2) * 3)
+                d = 1 if bi != 1 else -1
+                for seg in range(4):
+                    bx += d * int(size * 0.08 + math.sin(t * 8 + seg + bi) * 3)
+                    by += int(-size * 0.06 + math.cos(t * 6 + seg * 2.5) * 4)
                     pts.append((bx, by))
                 if len(pts) >= 2:
-                    pygame.draw.lines(ps, (120, 180, 255, ba), False, pts, 1)
-                    # 글로우
-                    pygame.draw.lines(ps, (80, 140, 255, ba // 3), False, pts, 2)
+                    # 글로우 (두꺼운 선)
+                    pygame.draw.lines(ps, (80, 150, 255, ba // 2), False, pts, 3)
+                    # 본체 (밝은 선)
+                    pygame.draw.lines(ps, (160, 210, 255, ba), False, pts, 1)
 
-        # 3) 힘의 파동 (버클에서 퍼지는 동심원 펄스)
-        power_pulse = (math.sin(t * 2.0) + 1) / 2
-        for ri in range(2):
-            pr = int(size * 0.08 + size * 0.06 * power_pulse) + ri * 5
-            pa = int((40 - ri * 15) * power_pulse)
+        # 3) 힘의 파동 (3겹, 더 크고 밝게)
+        power_pulse = (math.sin(t * 2.5) + 1) / 2
+        for ri in range(3):
+            pr = int(size * 0.08 + size * 0.08 * power_pulse) + ri * 4
+            pa = int((70 - ri * 18) * power_pulse)
             if pa > 0:
-                pygame.draw.circle(ps, (200, 180, 100, pa), (pc, pc), pr, 1)
+                pygame.draw.circle(ps, (220, 200, 120, pa), (pc, pc), pr, 1)
 
-        # 4) 금빛 입자 (위로 솟는 힘의 파편 3개)
-        for gi in range(3):
-            gp = (t * 0.7 + gi * 1.4) % 2.5
-            gx = pc + int(math.sin(t * 0.5 + gi * 2.8) * size * 0.2)
-            gy = pc + int(size * 0.15) - int(gp * size * 0.18)
-            ga = int(150 * (1 - gp / 2.5))
+        # 4) 금빛 입자 (5개, 더 크고 빠르게)
+        for gi in range(5):
+            gp = (t * 1.0 + gi * 1.0) % 2.0
+            gx = pc + int(math.sin(t * 0.7 + gi * 2.2) * size * 0.3)
+            gy = pc + int(size * 0.2) - int(gp * size * 0.22)
+            ga = int(200 * (1 - gp / 2.0))
             if ga > 0:
-                pygame.draw.circle(ps, (255, 220, 80, ga), (gx, gy), 1)
+                pygame.draw.circle(ps, (255, 230, 100, ga), (gx, gy), 2)
+                pygame.draw.circle(ps, (255, 245, 180, min(255, ga + 30)), (gx, gy), 1)
 
         screen.blit(ps, (x - 8, frame_y - 8))
         _draw_legendary_border_and_corners(screen, x, frame_y, size)
