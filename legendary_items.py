@@ -2171,14 +2171,14 @@ class PoseidonTrident(LegendaryItem):
                     pygame.draw.ellipse(ps, (100, 180, 255, da), (dx - 2, dy, 4, 5))
                     pygame.draw.line(ps, (140, 210, 255, da // 2), (dx, dy - 2), (dx, dy), 1)
 
-        # 2) 파도 곡선 (하단 물결 2겹)
+        # 2) 파도 곡선 (하단 물결 2겹 - 아이콘 박스 안쪽)
         for wi in range(2):
             wa = int(100 + 60 * math.sin(t * 3 + wi * 1.5))
             wc = (80, 160, 255, wa) if wi == 0 else (120, 200, 255, max(0, wa - 30))
-            wy_base = pc + int(size * 0.35) - wi * 3
+            wy_base = pc + int(size * 0.2) - wi * 3
             pts = []
-            for wx in range(0, size + 16, 3):
-                wy = wy_base + int(math.sin(t * 2.5 + wx * 0.15 + wi) * 3)
+            for wx in range(8, size + 8, 3):
+                wy = wy_base + int(math.sin(t * 2.5 + wx * 0.15 + wi) * 2)
                 pts.append((wx, wy))
             if len(pts) >= 2:
                 pygame.draw.lines(ps, wc, False, pts, 1)
