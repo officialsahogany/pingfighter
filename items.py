@@ -1455,7 +1455,7 @@ ITEM_TYPES = [
         "color": (139, 0, 0),  # 다크 레드 (악마의 색)
         "effect": "devil_dice",
         "icon": None,
-        "chance": 0.015,  # 확률 1.5% (일반 등급)
+        "chance": 0.005,  # 확률 0.5%
         "duration": 600,
         "unlock_condition": None
     },
