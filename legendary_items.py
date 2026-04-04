@@ -2109,16 +2109,6 @@ class PoseidonTrident(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-            # 번개 효과 추가 (프레임 0, 4에서) - 라그나로크와 동일
-            if self.current_frame in [0, 4]:
-                # 작은 번개 이펙트
-                bolt_color = (255, 255, 150)
-                pygame.draw.line(screen, bolt_color,
-                               (x + size//4, y + frame_offset - 5),
-                               (x + size//3, y + frame_offset + size//4), 2)
-                pygame.draw.line(screen, bolt_color,
-                               (x + size*3//4, y + frame_offset - 5),
-                               (x + size*2//3, y + frame_offset + size//4), 2)
         else:
             # Fallback: 프레임이 없으면 기본 삼지창 아이콘 그리기
             icon_y = y + frame_offset + int(self.animation_offset)
@@ -2164,11 +2154,61 @@ class PoseidonTrident(LegendaryItem):
                               (wave_x, wave_y, size//6, size//8),
                               0, 3.14, 2)
 
-        # 파티클 효과
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
-            self.particle_timer = 0
-    
+        # ── 바다 테마 파티클 ──
+        frame_y = y + frame_offset
+        t = self.animation_time
+        ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
+        pc = size // 2 + 8  # particle center
+
+        # 1) 물방울 (4개, 다른 궤도에서 낙하)
+        for di in range(4):
+            dp = (t * 1.2 + di * 1.5) % 3.0
+            if dp < 2.0:
+                dx = pc + int(math.sin(t * 0.8 + di * 2.3) * (size * 0.4))
+                dy = pc - int(size * 0.45) + int(dp * size * 0.45)
+                da = int(200 * (1 - dp / 2.0))
+                if da > 0:
+                    pygame.draw.ellipse(ps, (100, 180, 255, da), (dx - 2, dy, 4, 5))
+                    pygame.draw.line(ps, (140, 210, 255, da // 2), (dx, dy - 2), (dx, dy), 1)
+
+        # 2) 파도 곡선 (하단 물결 2겹)
+        for wi in range(2):
+            wa = int(100 + 60 * math.sin(t * 3 + wi * 1.5))
+            wc = (80, 160, 255, wa) if wi == 0 else (120, 200, 255, max(0, wa - 30))
+            wy_base = pc + int(size * 0.35) - wi * 3
+            pts = []
+            for wx in range(0, size + 16, 3):
+                wy = wy_base + int(math.sin(t * 2.5 + wx * 0.15 + wi) * 3)
+                pts.append((wx, wy))
+            if len(pts) >= 2:
+                pygame.draw.lines(ps, wc, False, pts, 1)
+
+        # 3) 거품 (떠오르는 작은 원 3개)
+        for bi in range(3):
+            bp = (t * 0.9 + bi * 2.1) % 2.5
+            bx = pc + int(math.sin(t * 0.6 + bi * 3) * size * 0.3)
+            by = pc + int(size * 0.3) - int(bp * size * 0.25)
+            ba = int(150 * (1 - bp / 2.5))
+            br = max(1, int(2 + math.sin(t * 2 + bi) * 0.8))
+            if ba > 0:
+                pygame.draw.circle(ps, (180, 230, 255, ba), (bx, by), br)
+                pygame.draw.circle(ps, (220, 245, 255, min(255, ba + 50)), (bx - 1, by - 1), max(1, br // 2))
+
+        # 4) 수면 반짝임 (십자형 빛 3개)
+        for si in range(3):
+            sp = (t * 1.8 + si * 2.0) % 2.0
+            sb = math.sin(sp * math.pi)
+            if sb > 0.3:
+                sx = pc + int(math.sin(si * 4.7 + t * 0.3) * size * 0.35)
+                sy = pc + int(math.cos(si * 3.2 + t * 0.4) * size * 0.25)
+                sa = int(200 * sb)
+                sc = (200, 240, 255, sa)
+                pygame.draw.line(ps, sc, (sx - 2, sy), (sx + 2, sy), 1)
+                pygame.draw.line(ps, sc, (sx, sy - 2), (sx, sy + 2), 1)
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
+
     def update(self, dt: float, ui_mode: bool = False):
         """애니메이션 업데이트 - 프레임 카운터 업데이트 포함
         
