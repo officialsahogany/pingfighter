@@ -144703,6 +144703,8 @@ def handle_ball():
                     if player_stun_immunity_timer <= 0:
                         if try_apply_player_stun(0.3, source="stage5_fireball", knockback_scaled=True) > 0:
                             player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
+                            # 화염탄 히트 후 0.4초 스턴 면역 (연속 화염탄 스턴락 방지)
+                            player_stun_immunity_timer = 24  # 0.4초 = 24프레임
                     else:
                         pass  # print("!")
                     #  화염탄 폭발 이펙트 생성
