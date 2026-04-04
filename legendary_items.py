@@ -4041,6 +4041,75 @@ class SacredLaurel(LegendaryItem):
             pygame.draw.circle(screen, (220, 180, 60), (x + size // 2, frame_y + size // 2), size // 2 - 2)
             pygame.draw.circle(screen, (255, 0, 0), (x + size // 2, frame_y + size // 2), size // 2, 2)
 
+        # ── 자연/신성 테마 파티클 ──
+        t = self.animation_time
+        ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
+        pc = size // 2 + 8
+
+        # 1) 떨어지는 금빛 잎 (4개, 좌우로 흔들리며 낙하)
+        for li in range(4):
+            lp = (t * 0.6 + li * 1.2) % 3.5
+            lx = pc + int(math.sin(t * 0.7 + li * 2.4) * size * 0.35)
+            ly = pc - int(size * 0.45) + int(lp * size * 0.27)
+            la = int(200 * (1 - lp / 3.5))
+            if la > 0:
+                # 잎 형태 (기울어진 타원)
+                leaf_angle = math.sin(t * 1.2 + li * 1.8) * 40
+                leaf_s = pygame.Surface((7, 4), pygame.SRCALPHA)
+                # 잎 색상 (금빛~초록)
+                lr = int(200 + 55 * math.sin(li * 1.5))
+                lg = int(180 + 40 * math.cos(li * 2.0))
+                lb = int(30 + 30 * math.sin(li * 0.8))
+                pygame.draw.ellipse(leaf_s, (lr, lg, lb, la), (0, 0, 7, 4))
+                # 잎맥
+                pygame.draw.line(leaf_s, (min(255, lr + 30), min(255, lg + 20), lb, min(255, la + 20)),
+                                 (1, 2), (6, 2), 1)
+                rotated = pygame.transform.rotate(leaf_s, leaf_angle)
+                ps.blit(rotated, (lx - rotated.get_width() // 2, ly - rotated.get_height() // 2))
+
+        # 2) 신성한 빛 입자 (위로 떠오르는 초록/금 빛 3개)
+        for gi in range(3):
+            gp = (t * 0.8 + gi * 1.7) % 2.5
+            gx = pc + int(math.sin(t * 0.5 + gi * 3.1) * size * 0.25)
+            gy = pc + int(size * 0.2) - int(gp * size * 0.3)
+            ga = int(160 * (1 - gp / 2.5))
+            if ga > 0:
+                # 빛 입자 (원 + 후광)
+                gc_r = int(180 + 75 * math.sin(t + gi * 2))
+                gc_g = int(220 + 35 * math.cos(t + gi))
+                pygame.draw.circle(ps, (gc_r, gc_g, 100, ga // 3), (gx, gy), 4)
+                pygame.draw.circle(ps, (gc_r, gc_g, 120, ga), (gx, gy), 2)
+                pygame.draw.circle(ps, (255, 255, 200, min(255, ga + 40)), (gx, gy), 1)
+
+        # 3) 월계수 후광 (아이콘 주변 초록빛 아치 2개)
+        for ai in range(2):
+            aa = int(50 + 40 * math.sin(t * 1.5 + ai * 2.5))
+            ac = (100, 200, 80, aa) if ai == 0 else (180, 220, 100, max(0, aa - 15))
+            arc_r = int(size * 0.38) + ai * 3
+            start_angle = t * 0.5 + ai * 1.0
+            pts = []
+            for step in range(10):
+                a = start_angle + step * 0.35
+                ax = pc + int(math.cos(a) * arc_r)
+                ay = pc + int(math.sin(a) * arc_r * 0.7)
+                pts.append((ax, ay))
+            if len(pts) >= 2:
+                pygame.draw.lines(ps, ac, False, pts, 1)
+
+        # 4) 십자 반짝임 (금빛 2개)
+        for si in range(2):
+            sp = (t * 1.3 + si * 1.8) % 2.0
+            sb = math.sin(sp * math.pi)
+            if sb > 0.3:
+                sx = pc + int(math.cos(si * 4.2 + t * 0.4) * size * 0.3)
+                sy = pc + int(math.sin(si * 3.5 + t * 0.3) * size * 0.2)
+                sa = int(200 * sb)
+                pygame.draw.line(ps, (255, 230, 100, sa), (sx - 3, sy), (sx + 3, sy), 1)
+                pygame.draw.line(ps, (255, 230, 100, sa), (sx, sy - 3), (sx, sy + 3), 1)
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
+
 
 class EmptyLegendary(LegendaryItem):
     """아이템 관리자 전용 전설 프리뷰 슬롯 - 천사의 가호 스타일 (주사위 없음)."""
