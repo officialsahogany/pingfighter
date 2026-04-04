@@ -4026,6 +4026,10 @@ def get_smasher_skill_cooldown_remaining(skill_name: str) -> float:
         return 0.0
 
     cooldown_ms = cooldown_sec * 1000
+    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
+    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+    if _angel_skill_cd != 1.0:
+        cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
     cooldown_data = _smasher_skill_cooldowns.get(skill_name)
 
     # 쿨타임 데이터가 없으면 쿨타임 완료 상태
@@ -8285,6 +8289,10 @@ def get_soldier_skill_cooldown_remaining(skill_name: str) -> float:
         return 0.0
 
     cooldown_ms = cooldown_sec * 1000
+    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
+    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+    if _angel_skill_cd != 1.0:
+        cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
     start_time = _soldier_skill_cooldowns.get(skill_name, 0)
     elapsed = pygame.time.get_ticks() - start_time
 
@@ -8308,6 +8316,10 @@ def get_soldier_skill_cooldown_seconds(skill_name: str) -> float:
         return 0.0
 
     cooldown_ms = cooldown_sec * 1000
+    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
+    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+    if _angel_skill_cd != 1.0:
+        cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
     start_time = _soldier_skill_cooldowns.get(skill_name, 0)
     elapsed = pygame.time.get_ticks() - start_time
 
@@ -39460,6 +39472,10 @@ def release_blacksmith_hammer_shock():
     cooldown_frames = BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION_BY_STAGE.get(
         stage, BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION
     )
+    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
+    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+    if _angel_skill_cd != 1.0:
+        cooldown_frames = max(0, int(cooldown_frames * _angel_skill_cd))
     blacksmith_hammer_shock_cooldown_timer = cooldown_frames
     blacksmith_hammer_shock_last_stage = stage
     blacksmith_hammer_shock_cooldown_total = cooldown_frames
