@@ -2655,41 +2655,74 @@ class HermesShoes(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
             
-            # 헤르메스 특수 효과 없음 (번개 효과 대신)
         else:
-            # 프레임이 없으면 기본 신발 아이콘 그리기
+            # Fallback: 기본 신발 아이콘
             icon_y = y + frame_offset + int(self.animation_offset)
-            shoe_color = (100, 200, 255)  # 하늘색
-            wing_color = (255, 255, 255)  # 흰색
-            
-            # 신발 본체
-            pygame.draw.ellipse(screen, shoe_color, (x + size//4, y + size//2, size//2, size//4))
-            pygame.draw.ellipse(screen, (50, 150, 200), (x + size//4, y + size//2, size//2, size//4), 2)
-            
-            # 날개 (왼쪽)
-            wing_points = [
-                (x + size//4 - 5, y + size//2 + 5),
-                (x + size//4 - 15, y + size//2),
-                (x + size//4 - 10, y + size//2 + 10),
-                (x + size//4, y + size//2 + 8)
-            ]
-            pygame.draw.polygon(screen, wing_color, wing_points)
-            pygame.draw.polygon(screen, shoe_color, wing_points, 1)
-            
-            # 날개 (오른쪽)
-            wing_points = [
-                (x + size*3//4 + 5, y + size//2 + 5),
-                (x + size*3//4 + 15, y + size//2),
-                (x + size*3//4 + 10, y + size//2 + 10),
-                (x + size*3//4, y + size//2 + 8)
-            ]
-            pygame.draw.polygon(screen, wing_color, wing_points)
-            pygame.draw.polygon(screen, shoe_color, wing_points, 1)
-        
-        # 파티클 효과
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
-            self.particle_timer = 0
+            pygame.draw.ellipse(screen, (100, 200, 255), (x + size//4, icon_y + size//3, size//2, size//4))
+
+        # ── 바람/속도 테마 파티클 ──
+        frame_y = y + frame_offset
+        t = self.animation_time
+        ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
+        pc = size // 2 + 8
+
+        # 1) 속도선 (오른쪽에서 왼쪽으로 흐르는 바람 줄 4개)
+        for li in range(4):
+            lp = (t * 2.5 + li * 0.8) % 2.0  # 0~2 반복
+            lx_start = pc + int(size * 0.45) - int(lp * size * 0.45)
+            lx_end = lx_start - int(size * 0.2 + li * 2)
+            ly = pc - int(size * 0.3) + li * int(size * 0.18)
+            la = int(180 * (1 - lp / 2.0))
+            if la > 0:
+                lc = (220, 240, 255, la)
+                pygame.draw.line(ps, lc, (lx_start, ly), (max(0, lx_end), ly), 1)
+
+        # 2) 깃털 (3개, 각각 다른 궤도에서 흩날림)
+        for fi in range(3):
+            fp = (t * 0.7 + fi * 1.8) % 3.0
+            fx = pc + int(math.sin(t * 0.5 + fi * 2.5) * size * 0.3) - int(fp * 4)
+            fy = pc - int(size * 0.4) + int(fp * size * 0.28)
+            fa = int(170 * (1 - fp / 3.0))
+            if fa > 0:
+                # 깃털 = 기울어진 작은 타원
+                angle = math.sin(t * 1.5 + fi) * 0.4
+                fw, fh = 5, 2
+                feather_s = pygame.Surface((fw * 2, fh * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(feather_s, (255, 255, 240, fa), (0, 0, fw * 2, fh * 2))
+                # 깃털 중심선
+                pygame.draw.line(feather_s, (255, 250, 220, min(255, fa + 30)),
+                                 (1, fh), (fw * 2 - 1, fh), 1)
+                rotated = pygame.transform.rotate(feather_s, math.degrees(angle))
+                ps.blit(rotated, (fx - rotated.get_width() // 2, fy - rotated.get_height() // 2))
+
+        # 3) 바람 소용돌이 (아이콘 주변을 도는 곡선 2개)
+        for wi in range(2):
+            wa = int(80 + 60 * math.sin(t * 2 + wi * 3))
+            wc = (200, 230, 255, wa)
+            pts = []
+            for step in range(8):
+                angle = t * 1.5 + step * 0.5 + wi * math.pi
+                radius = size * 0.28 + math.sin(t + step * 0.7) * 4
+                wx = pc + int(math.cos(angle) * radius)
+                wy = pc + int(math.sin(angle) * radius * 0.6)
+                pts.append((wx, wy))
+            if len(pts) >= 2:
+                pygame.draw.lines(ps, wc, False, pts, 1)
+
+        # 4) 금빛 반짝임 (날개에서 떨어지는 빛 입자 3개)
+        for si in range(3):
+            sp = (t * 1.5 + si * 1.3) % 2.0
+            sb = math.sin(sp * math.pi)
+            if sb > 0.2:
+                sx = pc + int(math.cos(t * 0.8 + si * 2.5) * size * 0.25)
+                sy = pc + int(math.sin(t * 0.6 + si * 1.8) * size * 0.2)
+                sa = int(180 * sb)
+                # 금빛 별
+                pygame.draw.circle(ps, (255, 230, 150, sa), (sx, sy), 2)
+                pygame.draw.circle(ps, (255, 245, 200, min(255, sa + 40)), (sx, sy), 1)
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
 
 
 class DivineStone(LegendaryItem):
