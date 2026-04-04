@@ -11861,13 +11861,66 @@ class PandoraLegacy(LegendaryItem):
         else:
             self._draw_fallback_icon(screen, x + 3, frame_y + 3, size - 6)
 
-        # 테두리 + 은색 모서리 장식을 프레임 위에 다시 그리기 (애니메이션 프레임에 덮이지 않도록)
-        _draw_legendary_border_and_corners(screen, x, frame_y, size)
+        # ── 무지개/신비 테마 파티클 ──
+        t = self.animation_time
+        rainbow = [
+            (255, 70, 70), (255, 150, 40), (255, 230, 50), (70, 210, 70),
+            (50, 150, 255), (100, 70, 255), (200, 70, 255), (255, 110, 170),
+        ]
+        ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
+        pc = size // 2 + 8
 
-        # 파티클 효과
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size // 2, frame_y + size // 2)
-            self.particle_timer = 0
+        # 1) 무지개빛 파편 (상자에서 솟아오르는 빛 조각 5개)
+        for fi in range(5):
+            fp = (t * 0.8 + fi * 1.1) % 3.0
+            fx = pc + int(math.sin(t * 0.6 + fi * 2.3) * size * 0.25)
+            fy = pc - int(fp * size * 0.2)
+            fa = int(180 * (1 - fp / 3.0))
+            fc = rainbow[int(t * 2 + fi) % 8]
+            if fa > 0:
+                bright_fc = tuple(min(255, c + 60) for c in fc)
+                pygame.draw.rect(ps, (*fc, fa), (fx - 1, fy - 1, 3, 3))
+                pygame.draw.rect(ps, (*bright_fc, min(255, fa + 30)), (fx, fy, 1, 1))
+
+        # 2) 무지개 후광 고리 (상자 주변을 감싸는 색 변화 곡선)
+        for ai in range(2):
+            arc_color = rainbow[int(t * 1.5 + ai * 4) % 8]
+            aa = int(60 + 40 * math.sin(t * 2 + ai * 2.5))
+            arc_r = int(size * 0.33) + ai * 3
+            pts = []
+            for step in range(10):
+                a = t * 0.6 + ai * 1.2 + step * 0.4
+                ax = pc + int(math.cos(a) * arc_r)
+                ay = pc + int(math.sin(a) * arc_r * 0.65)
+                pts.append((ax, ay))
+            if len(pts) >= 2:
+                pygame.draw.lines(ps, (*arc_color, aa), False, pts, 1)
+
+        # 3) 신비의 안개 (하단에서 무지개빛으로 피어오르는 입자 3개)
+        for mi in range(3):
+            mp = (t * 0.6 + mi * 1.5) % 2.5
+            mx = pc + int(math.sin(t * 0.4 + mi * 3.0) * size * 0.2)
+            my = pc + int(size * 0.2) - int(mp * size * 0.15)
+            ma = int(100 * (1 - mp / 2.5))
+            mc = rainbow[int(t * 3 + mi * 2) % 8]
+            if ma > 0:
+                pygame.draw.circle(ps, (*mc, ma // 2), (mx, my), 3)
+                pygame.draw.circle(ps, (*mc, ma), (mx, my), 1)
+
+        # 4) 별 반짝임 (무지개색 십자 2개)
+        for si in range(2):
+            sp = (t * 1.2 + si * 1.7) % 2.0
+            sb = math.sin(sp * math.pi)
+            if sb > 0.3:
+                sx = pc + int(math.cos(si * 4.5 + t * 0.35) * size * 0.32)
+                sy = pc + int(math.sin(si * 3.3 + t * 0.4) * size * 0.22)
+                sa = int(200 * sb)
+                sc = rainbow[int(t * 2 + si * 3) % 8]
+                pygame.draw.line(ps, (*sc, sa), (sx - 3, sy), (sx + 3, sy), 1)
+                pygame.draw.line(ps, (*sc, sa), (sx, sy - 3), (sx, sy + 3), 1)
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
 
     def _draw_fallback_icon(self, screen, x, y, size):
         """폴백 무지개 가방 아이콘"""
