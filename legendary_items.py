@@ -86,7 +86,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "buff_level", "label": "버프 강도", "min": 1, "max": 5, "unit": "Lv", "default": 3},
     ],
     "sacred_laurel": [
-        {"key": "leaf_count", "label": "월계수 잎", "min": 3, "max": 8, "unit": "개", "default": 6},
+        {"key": "leaf_count", "label": "월계수 잎", "min": 4, "max": 8, "unit": "개", "default": 6},
     ],
     "transcendent_crown": [
         {"key": "skill_bonus", "label": "모든 퍽 레벨 증가", "min": 1, "max": 2, "unit": "+", "default": 2},
@@ -3239,13 +3239,13 @@ class RagnarokHammer(LegendaryItem):
 
 
 class SacredLaurel(LegendaryItem):
-    """신성 월계수 - 월계수 잎이 플레이어 주변을 회전하며 공을 막아줌 (롤 옵션: 잎 개수 3~8)"""
+    """신성 월계수 - 월계수 잎이 플레이어 주변을 회전하며 공을 막아줌 (롤 옵션: 잎 개수 4~8)"""
 
     def __init__(self):
         super().__init__(
             name="sacred_laurel",
             korean_name="신성 월계수",
-            description="월계수 잎이 플레이어 주변을 회전하며 보호 (롤 옵션: 잎 개수 3~8개)",
+            description="월계수 잎이 플레이어 주변을 회전하며 보호 (롤 옵션: 잎 개수 4~8개)",
             unlock_condition="신화 아이템 획득"
         )
         self._base_max_leaves = 6  # 기본 잎 개수 (롤 옵션으로 덮어씀)
