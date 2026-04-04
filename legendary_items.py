@@ -3449,6 +3449,7 @@ class SacredLaurel(LegendaryItem):
         self.player_y = y
 
     def update(self, dt, ui_mode: bool = False):
+        super().update(dt, ui_mode)  # animation_time 업데이트 (파티클 애니메이션용)
         # UI 모드에서는 애니메이션만 업데이트
         if ui_mode:
             self.frame_counter += 1
