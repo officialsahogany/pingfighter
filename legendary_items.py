@@ -12027,11 +12027,16 @@ class Megingjord(LegendaryItem):
         Returns: True이면 추가 선택 기회 발동
         """
         if not self.active:
+            print(f"[메긴교르드] active=False → 발동 불가")
             return False
         if self._extra_pick_count >= self.MAX_EXTRA_PICKS:
+            print(f"[메긴교르드] 연속 발동 한도 도달 ({self._extra_pick_count}/{self.MAX_EXTRA_PICKS})")
             return False
         chance = self.extra_pick_chance / 100.0
-        if random.random() < chance:
+        roll = random.random()
+        result = roll < chance
+        print(f"[메긴교르드] chance={self.extra_pick_chance:.1f}% roll={roll:.3f} → {'발동!' if result else '미발동'} (횟수: {self._extra_pick_count}/{self.MAX_EXTRA_PICKS})")
+        if result:
             self._extra_pick_count += 1
             return True
         return False
