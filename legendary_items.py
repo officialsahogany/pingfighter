@@ -12063,85 +12063,84 @@ class Megingjord(LegendaryItem):
             rune_b = 255
             rune_glow = (rune_r, rune_g, rune_b)
 
-            # ── 벨트 본체 (두꺼운 가죽 벨트 - 둥근 사각형) ──
-            belt_w, belt_h = 48, 18
+            # ── 벨트 본체 (얇은 가죽 벨트 - 버클 뒤로) ──
+            belt_w, belt_h = 50, 12
             belt_x = cx - belt_w // 2
-            belt_y = cy - belt_h // 2
+            belt_y = cy - belt_h // 2 + 1
 
             # 그림자
-            shadow_rect = pygame.Rect(belt_x + 1, belt_y + 2, belt_w, belt_h)
-            pygame.draw.rect(frame, leather_shadow, shadow_rect, border_radius=6)
+            pygame.draw.rect(frame, leather_shadow, (belt_x + 1, belt_y + 2, belt_w, belt_h), border_radius=4)
             # 본체
             body_rect = pygame.Rect(belt_x, belt_y, belt_w, belt_h)
-            pygame.draw.rect(frame, leather_mid, body_rect, border_radius=5)
-            # 상단 하이라이트 (빛 반사)
-            hl_rect = pygame.Rect(belt_x + 2, belt_y + 1, belt_w - 4, 6)
-            pygame.draw.rect(frame, leather_light, hl_rect, border_radius=3)
-            hl2_rect = pygame.Rect(belt_x + 4, belt_y + 1, belt_w - 8, 3)
-            pygame.draw.rect(frame, leather_highlight, hl2_rect, border_radius=2)
-            # 하단 어두운 면
-            btm_rect = pygame.Rect(belt_x + 2, belt_y + belt_h - 5, belt_w - 4, 4)
-            pygame.draw.rect(frame, leather_dark, btm_rect, border_radius=2)
-            # 테두리 스티칭
-            pygame.draw.rect(frame, leather_shadow, body_rect, 1, border_radius=5)
-            # 스티칭 점 (상하단)
-            for sx in range(belt_x + 6, belt_x + belt_w - 5, 5):
+            pygame.draw.rect(frame, leather_mid, body_rect, border_radius=4)
+            # 하이라이트
+            pygame.draw.rect(frame, leather_light, (belt_x + 2, belt_y + 1, belt_w - 4, 4), border_radius=2)
+            pygame.draw.rect(frame, leather_highlight, (belt_x + 4, belt_y + 1, belt_w - 8, 2), border_radius=1)
+            # 하단
+            pygame.draw.rect(frame, leather_dark, (belt_x + 2, belt_y + belt_h - 3, belt_w - 4, 2), border_radius=1)
+            # 테두리
+            pygame.draw.rect(frame, leather_shadow, body_rect, 1, border_radius=4)
+            # 스티칭
+            for sx in range(belt_x + 5, belt_x + belt_w - 4, 5):
                 pygame.draw.rect(frame, leather_shadow, (sx, belt_y + 2, 2, 1))
                 pygame.draw.rect(frame, leather_shadow, (sx, belt_y + belt_h - 3, 2, 1))
 
-            # ── 버클 (팔각형 금속 버클) ──
-            bk_w, bk_h = 18, 16
+            # ── 버클 (대형 금속 버클 - 메인 포컬 포인트) ──
+            bk_w, bk_h = 26, 24
             bk_x = cx - bk_w // 2
             bk_y = cy - bk_h // 2
-            # 버클 외곽 글로우
-            glow_s = pygame.Surface((bk_w + 8, bk_h + 8), pygame.SRCALPHA)
-            glow_a = int(40 + 30 * rune_pulse)
-            pygame.draw.rect(glow_s, (*rune_glow, glow_a), (0, 0, bk_w + 8, bk_h + 8), border_radius=5)
-            frame.blit(glow_s, (bk_x - 4, bk_y - 4))
-            # 버클 그림자
-            pygame.draw.rect(frame, (80, 60, 0), (bk_x + 1, bk_y + 1, bk_w, bk_h), border_radius=3)
-            # 버클 본체 (금색 그라데이션)
-            pygame.draw.rect(frame, gold_dark, (bk_x, bk_y, bk_w, bk_h), border_radius=3)
-            pygame.draw.rect(frame, gold_mid, (bk_x + 1, bk_y + 1, bk_w - 2, bk_h - 2), border_radius=2)
-            # 버클 상단 하이라이트
-            pygame.draw.rect(frame, gold_bright, (bk_x + 2, bk_y + 1, bk_w - 4, 5), border_radius=2)
-            pygame.draw.rect(frame, gold_highlight, (bk_x + 3, bk_y + 1, bk_w - 6, 3), border_radius=1)
-            # 버클 테두리
-            pygame.draw.rect(frame, gold_dark, (bk_x, bk_y, bk_w, bk_h), 1, border_radius=3)
-            # 내부 홈 (버클 디테일)
-            inner = pygame.Rect(bk_x + 3, bk_y + 3, bk_w - 6, bk_h - 6)
+            # 외곽 글로우 (크게)
+            glow_s = pygame.Surface((bk_w + 12, bk_h + 12), pygame.SRCALPHA)
+            glow_a = int(50 + 40 * rune_pulse)
+            pygame.draw.rect(glow_s, (*rune_glow, glow_a), (0, 0, bk_w + 12, bk_h + 12), border_radius=6)
+            frame.blit(glow_s, (bk_x - 6, bk_y - 6))
+            # 그림자
+            pygame.draw.rect(frame, (60, 45, 0), (bk_x + 1, bk_y + 2, bk_w, bk_h), border_radius=4)
+            # 본체 (3층 금색 그라데이션)
+            pygame.draw.rect(frame, gold_dark, (bk_x, bk_y, bk_w, bk_h), border_radius=4)
+            pygame.draw.rect(frame, gold_mid, (bk_x + 1, bk_y + 1, bk_w - 2, bk_h - 2), border_radius=3)
+            pygame.draw.rect(frame, gold_bright, (bk_x + 2, bk_y + 2, bk_w - 4, bk_h - 4), border_radius=2)
+            # 상단 하이라이트 (넓게)
+            pygame.draw.rect(frame, gold_highlight, (bk_x + 3, bk_y + 2, bk_w - 6, 6), border_radius=2)
+            pygame.draw.rect(frame, (255, 250, 200), (bk_x + 5, bk_y + 2, bk_w - 10, 3), border_radius=1)
+            # 하단 어두운 면
+            pygame.draw.rect(frame, gold_dark, (bk_x + 3, bk_y + bk_h - 6, bk_w - 6, 4), border_radius=2)
+            # 외곽 테두리 (두꺼운 금속 테두리)
+            pygame.draw.rect(frame, (140, 110, 0), (bk_x, bk_y, bk_w, bk_h), 2, border_radius=4)
+            # 내부 홈 (이중 테두리)
+            inner = pygame.Rect(bk_x + 4, bk_y + 4, bk_w - 8, bk_h - 8)
             pygame.draw.rect(frame, gold_dark, inner, 1, border_radius=2)
 
-            # ── 번개 문양 (토르의 상징 - 버클 중앙) ──
+            # ── 번개 문양 (토르의 상징 - 버클 중앙, 크게) ──
             lx, ly = cx, cy
             bolt_pts = [
-                (lx - 1, ly - 6), (lx + 2, ly - 2),
-                (lx, ly - 1), (lx + 3, ly + 1),
-                (lx + 1, ly), (lx - 2, ly + 6),
+                (lx - 2, ly - 8), (lx + 3, ly - 3),
+                (lx, ly - 1), (lx + 4, ly + 2),
+                (lx + 1, ly + 1), (lx - 3, ly + 8),
             ]
-            # 번개 글로우
+            # 글로우
             glow_bolt_s = pygame.Surface((sz, sz), pygame.SRCALPHA)
-            ba = int(80 + 120 * rune_pulse)
-            pygame.draw.lines(glow_bolt_s, (*rune_glow, ba), False, bolt_pts, 3)
+            ba = int(100 + 140 * rune_pulse)
+            pygame.draw.lines(glow_bolt_s, (*rune_glow, ba), False, bolt_pts, 4)
             frame.blit(glow_bolt_s, (0, 0))
-            # 번개 본체 (밝은 흰색~파란색)
+            # 본체
             bolt_color = (
                 min(255, int(200 + 55 * rune_pulse)),
                 min(255, int(230 + 25 * rune_pulse)),
                 255,
             )
-            pygame.draw.lines(frame, bolt_color, False, bolt_pts, 1)
+            pygame.draw.lines(frame, bolt_color, False, bolt_pts, 2)
+            # 번개 중심 밝은 점
+            pygame.draw.circle(frame, (255, 255, 240), (lx, ly), 1)
 
-            # ── 좌우 룬 문자 (노르드 룬 - 발광) ──
+            # ── 좌우 룬 문자 ──
             for side in [-1, 1]:
-                rx = cx + side * 18
+                rx = cx + side * 20
                 ry = cy
-                # 룬 글로우
                 rg_s = pygame.Surface((8, 10), pygame.SRCALPHA)
                 rga = int(30 + 50 * rune_pulse)
                 pygame.draw.rect(rg_s, (*rune_glow, rga), (0, 0, 8, 10), border_radius=2)
                 frame.blit(rg_s, (rx - 4, ry - 5))
-                # 룬 문자 (ᚦ 토르의 룬 간략화 - 세로선 + 삼각)
                 rc = (min(255, int(150 + 105 * rune_pulse)),
                       min(255, int(200 + 55 * rune_pulse)), 255)
                 pygame.draw.line(frame, rc, (rx, ry - 4), (rx, ry + 4), 1)
@@ -12152,9 +12151,9 @@ class Megingjord(LegendaryItem):
                     pygame.draw.line(frame, rc, (rx, ry - 3), (rx - 3, ry), 1)
                     pygame.draw.line(frame, rc, (rx, ry + 1), (rx - 3, ry), 1)
 
-            # ── 금속 리벳 (벨트 고정) ──
+            # ── 금속 리벳 ──
             for side in [-1, 1]:
-                rvx = cx + side * 11
+                rvx = cx + side * 13
                 rvy = cy
                 pygame.draw.circle(frame, gold_dark, (rvx, rvy), 2)
                 pygame.draw.circle(frame, gold_bright, (rvx, rvy), 1)
