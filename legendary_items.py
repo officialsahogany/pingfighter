@@ -12187,13 +12187,66 @@ class Megingjord(LegendaryItem):
             scaled_border = pygame.transform.scale(border_frame, (size, size))
             screen.blit(scaled_border, (x, icon_y))
 
-        # 테두리 + 은색 모서리 장식을 프레임 위에 다시 그리기
-        _draw_legendary_border_and_corners(screen, x, frame_y, size)
+        # ── 힘/전기 테마 파티클 ──
+        t = self.animation_time
+        ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
+        pc = size // 2 + 8
 
-        # 파티클 효과
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size//2, y + size//2)
-            self.particle_timer = 0
+        # 1) 전기 스파크 (버클 주변에서 튀는 불꽃 4개)
+        for si in range(4):
+            sp = (t * 2.0 + si * 0.9) % 1.5
+            if sp < 0.8:
+                s_angle = t * 3 + si * (math.pi / 2)
+                s_dist = size * 0.12 + sp * size * 0.2
+                sx = pc + int(math.cos(s_angle) * s_dist)
+                sy = pc + int(math.sin(s_angle) * s_dist * 0.7)
+                sa = int(220 * (1 - sp / 0.8))
+                # 스파크 = 짧은 선 2개 (X자)
+                s_len = max(1, int(3 - sp * 2))
+                pygame.draw.line(ps, (150, 200, 255, sa),
+                                 (sx - s_len, sy - s_len), (sx + s_len, sy + s_len), 1)
+                pygame.draw.line(ps, (100, 180, 255, sa),
+                                 (sx + s_len, sy - s_len), (sx - s_len, sy + s_len), 1)
+
+        # 2) 파란 번개 줄 (벨트에서 뻗어나가는 작은 볼트 2개)
+        for bi in range(2):
+            bolt_phase = (t * 1.5 + bi * 1.8) % 2.5
+            if bolt_phase < 1.2:
+                ba = int(180 * (1 - bolt_phase / 1.2))
+                bx_start = pc + (1 if bi == 0 else -1) * int(size * 0.15)
+                by_start = pc
+                # 지그재그 볼트 (3~4 세그먼트)
+                pts = [(bx_start, by_start)]
+                bx, by = bx_start, by_start
+                direction = 1 if bi == 0 else -1
+                for seg in range(3):
+                    bx += direction * int(size * 0.06 + math.sin(t * 5 + seg + bi) * 2)
+                    by += int(-size * 0.05 + math.cos(t * 4 + seg * 2) * 3)
+                    pts.append((bx, by))
+                if len(pts) >= 2:
+                    pygame.draw.lines(ps, (120, 180, 255, ba), False, pts, 1)
+                    # 글로우
+                    pygame.draw.lines(ps, (80, 140, 255, ba // 3), False, pts, 2)
+
+        # 3) 힘의 파동 (버클에서 퍼지는 동심원 펄스)
+        power_pulse = (math.sin(t * 2.0) + 1) / 2
+        for ri in range(2):
+            pr = int(size * 0.08 + size * 0.06 * power_pulse) + ri * 5
+            pa = int((40 - ri * 15) * power_pulse)
+            if pa > 0:
+                pygame.draw.circle(ps, (200, 180, 100, pa), (pc, pc), pr, 1)
+
+        # 4) 금빛 입자 (위로 솟는 힘의 파편 3개)
+        for gi in range(3):
+            gp = (t * 0.7 + gi * 1.4) % 2.5
+            gx = pc + int(math.sin(t * 0.5 + gi * 2.8) * size * 0.2)
+            gy = pc + int(size * 0.15) - int(gp * size * 0.18)
+            ga = int(150 * (1 - gp / 2.5))
+            if ga > 0:
+                pygame.draw.circle(ps, (255, 220, 80, ga), (gx, gy), 1)
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
 
     def _draw_fallback_icon(self, screen, x, y, size):
         """폴백 벨트 아이콘"""
