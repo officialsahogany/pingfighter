@@ -3852,6 +3852,10 @@ def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
         return 0.0
 
     cooldown_ms = cooldown_sec * 1000
+    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
+    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+    if _angel_skill_cd != 1.0:
+        cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
     cooldown_data = _viper_skill_cooldowns.get(skill_name)
 
     if cooldown_data is None:
