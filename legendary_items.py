@@ -11474,34 +11474,68 @@ class OdinsEye(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-            # 저주받은 빛 효과 (눈 위에서 깜빡임)
-            if self.current_frame in [0, 2, 4, 6]:
-                sparkle_color = (255, 100, 50)
-                sparkle_y = y + frame_offset + size // 3 + int(math.sin(self.animation_time * 4) * 2)
-                pygame.draw.circle(screen, sparkle_color, (x + size // 2, sparkle_y), 2)
-                pygame.draw.circle(screen, (255, 200, 150), (x + size // 2, sparkle_y), 1)
         else:
-            # Fallback: 프레임이 없으면 기본 아이콘 그리기
+            # Fallback
             icon_y = y + frame_offset + int(self.animation_offset)
-
-            # 간단한 벨트+눈 모양
-            belt_color = (60, 40, 30)
-            eye_color = (200, 50, 0)
-
             cx, cy = x + size // 2, icon_y + size // 2
+            pygame.draw.ellipse(screen, (200, 50, 0), (cx - size // 8, cy - size // 10, size // 4, size // 6))
 
-            # 벨트
-            belt_rect = pygame.Rect(cx - size // 4, cy, size // 2, size // 8)
-            pygame.draw.rect(screen, belt_color, belt_rect)
+        # ── 지혜/어둠 테마 파티클 ──
+        frame_y = y + frame_offset
+        t = self.animation_time
+        ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
+        pc = size // 2 + 8
 
-            # 눈
-            pygame.draw.ellipse(screen, eye_color, (cx - size // 8, cy - size // 10, size // 4, size // 6))
-            pygame.draw.ellipse(screen, (0, 0, 0), (cx - size // 20, cy - size // 16, size // 10, size // 8))
+        # 1) 보라색 룬 문자 (3개, 궤도를 돌며 페이드)
+        for ri in range(3):
+            rp = (t * 0.6 + ri * 2.1) % 3.0
+            r_angle = t * 0.8 + ri * (math.pi * 2 / 3)
+            r_radius = size * 0.32 + math.sin(t * 1.5 + ri) * 3
+            rx = pc + int(math.cos(r_angle) * r_radius)
+            ry = pc + int(math.sin(r_angle) * r_radius * 0.7)
+            ra = int(160 * (0.5 + 0.5 * math.sin(t * 2 + ri * 2)))
+            if ra > 20:
+                # 룬 기호 (세로선 + 가지)
+                rc = (160, 80, 255, ra)
+                pygame.draw.line(ps, rc, (rx, ry - 3), (rx, ry + 3), 1)
+                branch_dir = 1 if ri % 2 == 0 else -1
+                pygame.draw.line(ps, rc, (rx, ry - 1), (rx + branch_dir * 3, ry - 3), 1)
+                pygame.draw.line(ps, rc, (rx, ry + 1), (rx + branch_dir * 2, ry + 3), 1)
 
-        # 파티클 효과
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
-            self.particle_timer = 0
+        # 2) 어둠의 안개 (하단에서 피어오르는 보라색 파티클 4개)
+        for mi in range(4):
+            mp = (t * 0.7 + mi * 1.3) % 2.8
+            mx = pc + int(math.sin(t * 0.4 + mi * 2.7) * size * 0.3)
+            my = pc + int(size * 0.3) - int(mp * size * 0.2)
+            ma = int(100 * (1 - mp / 2.8))
+            mr = max(1, int(3 - mp * 0.8))
+            if ma > 0:
+                pygame.draw.circle(ps, (100, 40, 160, ma), (mx, my), mr)
+                pygame.draw.circle(ps, (140, 70, 200, ma // 2), (mx, my), mr + 1)
+
+        # 3) 눈동자 발광 펄스 (중앙에서 퍼지는 주황/붉은 파동)
+        eye_pulse = (math.sin(t * 2.0) + 1) / 2
+        for pi2 in range(2):
+            pulse_r = int(size * 0.06 + size * 0.08 * eye_pulse) + pi2 * 4
+            pulse_a = int((50 - pi2 * 20) * eye_pulse)
+            if pulse_a > 0:
+                pygame.draw.circle(ps, (255, 80, 30, pulse_a), (pc, pc - int(size * 0.02)), pulse_r, 1)
+
+        # 4) 지혜의 빛 (보라색 십자 반짝임 2개)
+        for si in range(2):
+            sp = (t * 1.4 + si * 1.6) % 2.0
+            sb = math.sin(sp * math.pi)
+            if sb > 0.3:
+                sx = pc + int(math.cos(si * 5.1 + t * 0.3) * size * 0.3)
+                sy = pc + int(math.sin(si * 3.7 + t * 0.4) * size * 0.22)
+                sa = int(180 * sb)
+                pygame.draw.line(ps, (180, 120, 255, sa), (sx - 2, sy), (sx + 2, sy), 1)
+                pygame.draw.line(ps, (180, 120, 255, sa), (sx, sy - 2), (sx, sy + 2), 1)
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+        _draw_legendary_border_and_corners(screen, x, frame_y, size,
+                                           border_color=(150, 50, 100),
+                                           corner_color=(100, 150, 255))
 
 
 class PandoraLegacy(LegendaryItem):
