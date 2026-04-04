@@ -6494,10 +6494,61 @@ class TranscendentCrown(LegendaryItem):
             # 중앙 보석
             pygame.draw.circle(screen, ruby_color, (cx, cy - size // 10), size // 12)
 
-        # 파티클 효과
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
-            self.particle_timer = 0
+        # ── 신성/왕권 테마 파티클 ──
+        frame_y = y + frame_offset
+        t = self.animation_time
+        ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
+        pc = size // 2 + 8
+
+        # 1) 금빛 광선 (왕관 위에서 방사, 5개)
+        for ri in range(5):
+            ray_angle = (ri * 36 + t * 20) % 180  # 상단 180도 범위
+            ray_rad = math.radians(180 + ray_angle)  # 위쪽 방향
+            ray_len = int(size * 0.3 + math.sin(t * 2 + ri) * 4)
+            inner_r = int(size * 0.12)
+            rx1 = pc + int(math.cos(ray_rad) * inner_r)
+            ry1 = pc - int(size * 0.1) + int(math.sin(ray_rad) * inner_r)
+            rx2 = pc + int(math.cos(ray_rad) * ray_len)
+            ry2 = pc - int(size * 0.1) + int(math.sin(ray_rad) * ray_len)
+            ra = int(80 + 60 * math.sin(t * 3 + ri * 1.2))
+            pygame.draw.line(ps, (255, 220, 100, ra), (rx1, ry1), (rx2, ry2), 1)
+
+        # 2) 반짝이는 별 (주변에 떠다니는 금색 4각 별 3개)
+        for si in range(3):
+            sp = (t * 1.0 + si * 2.0) % 3.0
+            sb = math.sin(sp * math.pi / 1.5)
+            if sb > 0.2:
+                sx = pc + int(math.cos(t * 0.4 + si * 2.8) * size * 0.35)
+                sy = pc + int(math.sin(t * 0.35 + si * 2.1) * size * 0.28)
+                sa = int(200 * sb)
+                star_r = max(1, int(2 + sb * 2))
+                # 4각 별
+                pts = []
+                for pi2 in range(8):
+                    a = t * 1.5 + si + pi2 * math.pi / 4
+                    r2 = star_r if pi2 % 2 == 0 else star_r * 0.4
+                    pts.append((sx + int(math.cos(a) * r2), sy + int(math.sin(a) * r2)))
+                if len(pts) >= 3:
+                    pygame.draw.polygon(ps, (255, 230, 120, sa), pts)
+                    pygame.draw.circle(ps, (255, 255, 200, min(255, sa + 30)), (sx, sy), 1)
+
+        # 3) 떠오르는 금빛 먼지 (4개, 천천히 상승)
+        for di in range(4):
+            dp = (t * 0.5 + di * 1.4) % 2.5
+            dx = pc + int(math.sin(t * 0.3 + di * 2.6) * size * 0.3)
+            dy = pc + int(size * 0.25) - int(dp * size * 0.22)
+            da = int(140 * (1 - dp / 2.5))
+            if da > 0:
+                pygame.draw.circle(ps, (255, 215, 80, da), (dx, dy), 1)
+
+        # 4) 루비 보석빛 (중앙에서 퍼지는 붉은 펄스)
+        ruby_pulse = (math.sin(t * 2.5) + 1) / 2
+        ruby_a = int(40 + 40 * ruby_pulse)
+        ruby_r = int(size * 0.08 + size * 0.04 * ruby_pulse)
+        pygame.draw.circle(ps, (255, 60, 80, ruby_a), (pc, pc - int(size * 0.05)), ruby_r)
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
 
     def update(self, dt: float, ui_mode: bool = False):
         """애니메이션 업데이트"""
