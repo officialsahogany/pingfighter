@@ -42227,6 +42227,13 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 state_changed = True
                 if not smoke_protected and divine_state["hp"] <= 0:
                     effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
+                    # 🪙 건설물 파괴 금화 스폰
+                    _is_reinforced = divine_state.get("reinforced", False)
+                    if _is_reinforced:
+                        _coin_count = random.randint(22, 28)  # 강화디바인: 220~280골드
+                    else:
+                        _coin_count = random.randint(4, 6)  # 디바인: 40~60골드
+                    spawn_blacksmith_coins(rect.centerx, rect.centery, _coin_count)
                     # 런타임/전역 상태를 즉시 정리해 UI와 필드에서 제거한다.
                     blacksmith_divine_destroy_timer = 0
                     blacksmith_divine_stage_owner = None
@@ -43718,6 +43725,14 @@ def update_blacksmith_turret():
         if turret_state.get("hp", 0) <= 0:
             turret_state["hp"] = 0
             turret_runtime.projectiles.clear()
+            # 🪙 포탑 파괴 금화 스폰
+            _turret_level = int(turret_state.get("level", 1))
+            if _turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+                _tcoin_count = random.randint(5, 8)  # 강화포탑: 50~80골드
+            else:
+                _tcoin_count = random.randint(3, 5)  # 포탑: 30~50골드
+            if turret_rect:
+                spawn_blacksmith_coins(turret_rect.centerx, turret_rect.centery, _tcoin_count)
             try:
                 effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=8)
                 effects_manager.spawn_construction_smoke(
@@ -58345,6 +58360,115 @@ QUAKE_SHAKE_SCALE = 0.8  # 정글지진 공 흔들림 강도 20% 감소
 # 화면 흔들림 효과 (라그나로크 해머 등)
 screen_shake_timer = 0
 screen_shake_intensity = 0
+# === 🪙 발토르 건설물 파괴 금화 시스템 ===
+blacksmith_coins: list = []  # [{x, y, vx, vy, timer, max_timer, blink}]
+BLACKSMITH_COIN_GRAVITY = 0.25  # 금화 중력 가속도
+BLACKSMITH_COIN_GOLD_PER_COIN = 10  # 금화 1개당 골드
+BLACKSMITH_COIN_LIFETIME = 180  # 3초 (60fps)
+BLACKSMITH_COIN_BLINK_START = 60  # 마지막 1초부터 깜빡임
+BLACKSMITH_COIN_SIZE = 7  # 금화 반지름
+BLACKSMITH_COIN_BOUNCE = -0.5  # 바닥 반사 계수
+
+
+def spawn_blacksmith_coins(cx: float, cy: float, coin_count: int):
+    """건설물 파괴 시 금화 스폰 (부채꼴로 흩뿌림)"""
+    global blacksmith_coins
+    import random as _rng
+    for _ in range(coin_count):
+        vx = _rng.uniform(-4.0, 4.0)
+        vy = _rng.uniform(-6.0, -2.0)  # 위로 튀어오름
+        blacksmith_coins.append({
+            'x': float(cx) + _rng.uniform(-10, 10),
+            'y': float(cy) + _rng.uniform(-5, 5),
+            'vx': vx,
+            'vy': vy,
+            'timer': BLACKSMITH_COIN_LIFETIME,
+            'collected': False,
+        })
+
+
+def update_blacksmith_coins(player_rect):
+    """금화 물리 업데이트 + 패들 수집 판정"""
+    global blacksmith_coins
+    if not blacksmith_coins:
+        return
+
+    coins_to_remove = []
+    for coin in blacksmith_coins:
+        if coin['collected']:
+            coins_to_remove.append(coin)
+            continue
+
+        # 중력 적용
+        coin['vy'] += BLACKSMITH_COIN_GRAVITY
+        coin['x'] += coin['vx']
+        coin['y'] += coin['vy']
+
+        # 좌우 벽 반사
+        if coin['x'] < BLACKSMITH_COIN_SIZE:
+            coin['x'] = BLACKSMITH_COIN_SIZE
+            coin['vx'] *= -0.7
+        elif coin['x'] > WIDTH - BLACKSMITH_COIN_SIZE:
+            coin['x'] = WIDTH - BLACKSMITH_COIN_SIZE
+            coin['vx'] *= -0.7
+
+        # 바닥 반사 (플레이어 패들 높이 근처에서 튀김)
+        floor_y = HEIGHT - 35
+        if coin['y'] >= floor_y:
+            coin['y'] = floor_y
+            coin['vy'] *= BLACKSMITH_COIN_BOUNCE
+            coin['vx'] *= 0.85  # 마찰
+            if abs(coin['vy']) < 0.5:
+                coin['vy'] = 0  # 정지
+
+        # 패들 수집 판정
+        coin_rect = pygame.Rect(int(coin['x']) - BLACKSMITH_COIN_SIZE,
+                                int(coin['y']) - BLACKSMITH_COIN_SIZE,
+                                BLACKSMITH_COIN_SIZE * 2, BLACKSMITH_COIN_SIZE * 2)
+        if player_rect and coin_rect.colliderect(player_rect):
+            coin['collected'] = True
+            add_ingame_gold(BLACKSMITH_COIN_GOLD_PER_COIN, coin['x'], coin['y'] - 15, source="skill")
+            try:
+                play_sound_with_volume(SOUND_ITEM_GET)
+            except Exception:
+                pass
+            continue
+
+        # 타이머 감소
+        coin['timer'] -= 1
+        if coin['timer'] <= 0:
+            coins_to_remove.append(coin)
+
+    for coin in coins_to_remove:
+        if coin in blacksmith_coins:
+            blacksmith_coins.remove(coin)
+
+
+def draw_blacksmith_coins(surface):
+    """금화 렌더링 (깜빡임 + 금색 원)"""
+    if not blacksmith_coins:
+        return
+
+    for coin in blacksmith_coins:
+        if coin['collected']:
+            continue
+
+        # 깜빡임 처리 (마지막 1초)
+        if coin['timer'] <= BLACKSMITH_COIN_BLINK_START:
+            # 6프레임 주기로 깜빡
+            if (coin['timer'] // 6) % 2 == 0:
+                continue
+
+        cx = int(coin['x']) + screen_shake_offset_x
+        cy = int(coin['y']) + screen_shake_offset_y
+        r = BLACKSMITH_COIN_SIZE
+
+        # 금화 그리기 (금색 원 + 하이라이트)
+        pygame.draw.circle(surface, (200, 160, 30), (cx, cy), r)  # 외곽 (어두운 금)
+        pygame.draw.circle(surface, (255, 215, 0), (cx, cy), r - 1)  # 본체 (금색)
+        pygame.draw.circle(surface, (255, 245, 120), (cx - 2, cy - 2), max(1, r // 3))  # 하이라이트
+
+
 # 전역
 flame_particles = []
 # 별가루 파티클 시스템 (무중력벨트 + 스피드기어 시너지)
@@ -94628,6 +94752,9 @@ def _draw_common_hud() -> None:
     # items.draw_active_item(...) - 제거됨 (2026-01-04)
     # _draw_active_item_hover_tooltip() - 제거됨
     items.draw_items(SCREEN)
+    # 🪙 발토르 건설물 파괴 금화 렌더링
+    if blacksmith_coins:
+        draw_blacksmith_coins(SCREEN)
 
     draw_pandora_box_effect()
     draw_stopwatch_effect()
@@ -94711,6 +94838,9 @@ def draw_overlay_ui():
         # items.draw_active_item(...) - 제거됨 (2026-01-04)
         # _draw_active_item_hover_tooltip() - 제거됨
         items.draw_items(SCREEN)
+        # 🪙 발토르 건설물 파괴 금화 렌더링
+        if blacksmith_coins:
+            draw_blacksmith_coins(SCREEN)
 
         if selected_character_type == "soldier":
             draw_supply_drop_system(SCREEN)
@@ -162461,6 +162591,10 @@ def main(stage_num, new_boss_mode=False):
 
             update_blacksmith_hammer_shock(keys_now)
             update_blacksmith_turret()
+
+            # 🪙 발토르 건설물 파괴 금화 업데이트
+            if blacksmith_coins:
+                update_blacksmith_coins(PLAYER)
 
             # 디바인쉴드 보호막 공 반사 체크 및 부스트 효과 업데이트
             try:
