@@ -404,40 +404,23 @@ class NemesisOceanFrame:
             pygame.draw.circle(surface, (18, 25, 30, 40), (x + dx, y + dy), 2)
 
     def _draw_surface_texture(self, surface):
-        """빈 면적에 거의 안 보이는 금속 표면 질감 (결정적 패턴, 그리드 아님)"""
+        """빈 면적에 최소한의 금속 표면 질감 (과하지 않게 10개만)"""
         md = self.COLORS['metal_dark']
         lx_end = self.game_x - 16
         rx_start = self.game_x + self.game_width + 16
         rx_end = self.screen_width - 14
 
-        # 좌우 필러 영역에만 미세 점/얼룩 (시드 기반 결정적 배치)
+        # 좌우 각 5개씩만 (25→5로 대폭 축소, 알파도 더 낮춤)
         seed = 73
-        for i in range(25):
-            # 결정적 좌표 (random 대신 시드 산술)
+        for i in range(5):
             px = ((i * seed + 17) % max(lx_end - 16, 1)) + 8
             py = ((i * seed * 3 + 41) % max(self.screen_height - 30, 1)) + 15
-            # 알파 5~12 (거의 안 보임)
-            a = 5 + (i * 7) % 8
-            # 작은 점 (1~2px)
-            sz = 1 + (i % 3 == 0)
-            pygame.draw.circle(surface, (*md, a), (px, py), sz)
+            pygame.draw.circle(surface, (*md, 4), (px, py), 1)
 
-        for i in range(25):
+        for i in range(5):
             px = rx_start + ((i * seed + 23) % max(rx_end - rx_start - 10, 1)) + 5
             py = ((i * seed * 5 + 59) % max(self.screen_height - 30, 1)) + 15
-            a = 5 + (i * 5) % 10
-            sz = 1 + (i % 4 == 0)
-            pygame.draw.circle(surface, (*md, a), (px, py), sz)
-
-        # 좌측: 해수면 위 하늘 영역에 아주 희미한 명암 변화 (2~3개 큰 타원)
-        if lx_end > 20:
-            for i, (yr, xr, a) in enumerate([
-                (0.2, 0.6, 6), (0.4, 0.4, 4), (0.7, 0.5, 5)
-            ]):
-                ey = int(self.screen_height * yr)
-                ew = int(lx_end * xr)
-                ex = (i * 11) % max(lx_end - ew, 1)
-                pygame.draw.ellipse(surface, (*md, a), (ex, ey, ew, 20))
+            pygame.draw.circle(surface, (*md, 4), (px, py), 1)
 
     def _draw_hull_seams(self, surface):
         """좌우 필러 질감 (규칙적 구조선 대신 비대칭 풍화/재료감)"""
