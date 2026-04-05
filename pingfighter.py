@@ -165575,6 +165575,16 @@ def main(stage_num, new_boss_mode=False):
                 if screen_transition_progress <= 0.0:
                     screen_transition_active = False
 
+        # ⚔ 발할라 컷신 오버레이 (flip 직전, 모든 렌더링 위에)
+        try:
+            from item_effects.valhalla_warplate import get_valhalla_warplate_state
+            _vw_overlay = get_valhalla_warplate_state()
+            if _vw_overlay.is_cutscene_active:
+                _vw_overlay.update(1.0 / 60.0)
+                _vw_overlay.draw_cutscene(SCREEN)
+        except Exception as _vw_err:
+            print(f"[WARN] 발할라 컷신 오류: {_vw_err}")
+
         pygame.display.flip()
         # 프로파일러 프레임 종료
         if profiler:
@@ -169052,18 +169062,6 @@ def show_character_info(background_surface=None):
         # 투기장 포획 튜토리얼 오버레이
         if arena_mode_enabled and _arena_capture_tutorial_active:
             _draw_arena_capture_tutorial()
-
-        # ⚔ 발할라 컷신은 실제 프레임 마지막에 그려야 다른 오브젝트/UI에 덮이지 않는다.
-        try:
-            from item_effects.valhalla_warplate import get_valhalla_warplate_state
-            _vw_overlay = get_valhalla_warplate_state()
-            if _vw_overlay.is_cutscene_active:
-                _vw_overlay.update(1.0 / 60.0)
-                _vw_overlay.draw_cutscene(SCREEN)
-        except Exception as _vw_err:
-            if _vw_err:
-                print(f"[WARN] 발할라 컷신 렌더 오류: {_vw_err}")
-
 
         pygame.display.flip()
         for event in pygame.event.get():
