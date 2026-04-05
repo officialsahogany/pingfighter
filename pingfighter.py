@@ -80278,7 +80278,7 @@ def handle_player(keys):
             from item_effects.valhalla_warplate import get_valhalla_warplate_state
             _vw_hp = get_valhalla_warplate_state()
             if _vw_hp.active:
-                _vw_hp.try_summon(int(BALL.centerx), int(BALL.centery))
+                _vw_hp.try_summon()
         except Exception:
             pass
 
@@ -107775,14 +107775,7 @@ def draw_objects():
             # 👁 오딘의 눈 어둠 파편 그리기
             if odins_eye and len(getattr(odins_eye, 'dark_fragments', [])) > 0:
                 odins_eye.draw_dark_fragments(SCREEN)
-            # ⚔ 발할라의 전갑 소환 연출 그리기
-            try:
-                from item_effects.valhalla_warplate import get_valhalla_warplate_state
-                _vw_draw = get_valhalla_warplate_state()
-                if _vw_draw.summoning:
-                    _vw_draw.draw(SCREEN)
-            except Exception:
-                pass
+            # ⚔ 발할라의 전갑: 드로잉은 InGameBodyguard 시스템이 자체 처리
     except:
         pass
 
@@ -148377,7 +148370,7 @@ def handle_ball():
             from item_effects.valhalla_warplate import get_valhalla_warplate_state
             _vw_state = get_valhalla_warplate_state()
             if _vw_state.active:
-                _vw_state.try_summon(int(BALL.centerx), int(BALL.centery))
+                _vw_state.try_summon()
         except Exception:
             pass
 
@@ -162421,28 +162414,13 @@ def main(stage_num, new_boss_mode=False):
                                 pass  # Debug log removed
                         legendary_manager.update(0.016)  # 60fps 기준 0.016초
 
-                        # ⚔ 발할라의 전갑 소환 연출 업데이트 및 스킬 발동
+                        # ⚔ 발할라의 전갑 소환 타이머 (자동 해산 관리)
+                        # 스킬 발동은 InGameBodyguard 시스템이 자체적으로 처리
                         try:
                             from item_effects.valhalla_warplate import get_valhalla_warplate_state
                             _vw = get_valhalla_warplate_state()
                             if _vw.summoning:
-                                _vw_result = _vw.update(0.016)
-                                if _vw_result.get("fire_skill"):
-                                    # 영웅 스킬 발동! 기존 인장 시스템의 스킬 로직 활용
-                                    _vw_hero_id = _vw_result.get("hero_id")
-                                    _vw_skill_idx = _vw_result.get("skill_idx", 0)
-                                    if _vw_hero_id:
-                                        try:
-                                            from downtown.hero_skills import get_hero_skill_manager
-                                            _vw_skill_mgr = get_hero_skill_manager()
-                                            if _vw_skill_mgr:
-                                                _vw_hero_skills = _vw_skill_mgr.get_hero_skills(_vw_hero_id)
-                                                if _vw_hero_skills and len(_vw_hero_skills) > _vw_skill_idx:
-                                                    _vw_skill = _vw_hero_skills[_vw_skill_idx]
-                                                    _vw_skill_mgr.activate_skill(_vw_hero_id, _vw_skill.skill_id)
-                                                    print(f"⚔ 발할라의 전갑: {_vw.summoned_hero['name']}의 [{_vw_skill.korean_name}] 발동!")
-                                        except Exception as _vw_err:
-                                            print(f"[WARN] 발할라 전갑 스킬 발동 실패: {_vw_err}")
+                                _vw.update(0.016)
                         except Exception:
                             pass
 
