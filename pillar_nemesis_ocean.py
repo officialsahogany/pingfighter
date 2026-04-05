@@ -14,30 +14,32 @@ import pygame
 class NemesisOceanFrame:
     """네메시스 해상전투 스타일 필러 배경 - 게임 맵 해수면과 연동"""
 
-    # 게임 맵과 동일한 색상 팔레트
+    # 색상 팔레트 (메인 배경 AnimatedBackgroundStage6와 통일)
     COLORS = {
-        # 하늘 색상 (게임 맵과 동일)
-        'sky_blue': (135, 206, 235),        # 하늘색
-        'horizon_color': (255, 200, 150),   # 수평선 노을색
-        # 바다 색상 (게임 맵과 동일)
-        'ocean_surface': (0, 119, 190),     # 바다 표면
-        'ocean_deep': (0, 80, 140),         # 바다 깊은 부분
-        'wave_foam': (255, 255, 255),       # 파도 거품
-        # 추가 색상
-        'wave': (45, 100, 160),             # 파도색
-        'wave_light': (75, 140, 200),       # 밝은 파도
-        'foam': (200, 230, 245),            # 물거품
-        'white_foam': (240, 248, 255),      # 하얀 거품
-        # 전함 금속
-        'metal': (80, 90, 105),
-        'metal_light': (120, 130, 145),
-        'metal_dark': (50, 55, 65),
-        'gold_trim': (180, 150, 80),
-        'cyan_glow': (0, 200, 220),         # 네온 청록색
+        # 하늘: 폭풍 황혼 (메인 배경과 동일)
+        'sky_top': (15, 20, 45),            # 깊은 네이비
+        'sky_mid': (40, 35, 65),            # 인디고-퍼플
+        'horizon_color': (180, 120, 60),    # 머금은 앰버 노을
+        # 바다: 깊고 위협적 (메인 배경과 동일)
+        'ocean_surface': (10, 40, 80),      # 다크 네이비
+        'ocean_deep': (5, 15, 40),          # 심연
+        'wave_foam': (180, 200, 220),       # 차가운 흰 거품
+        # 파도 톤
+        'wave': (15, 50, 90),               # 어두운 파도
+        'wave_light': (25, 70, 110),        # 약간 밝은 파도
+        'foam': (140, 170, 190),            # 물거품
+        'white_foam': (180, 200, 215),      # 차가운 거품
+        # 전함 금속 (더 어둡게)
+        'metal': (55, 60, 75),
+        'metal_light': (75, 80, 95),
+        'metal_dark': (30, 35, 50),
+        'gold_trim': (140, 110, 60),
+        'cyan_glow': (0, 180, 220),         # 시안 (메인 배경과 동일)
+        'cyan_dim': (0, 80, 110),           # 어두운 시안
         # 표시등
-        'red_light': (180, 60, 60),
-        'green_light': (60, 180, 80),
-        'radar_green': (50, 255, 100),
+        'red_light': (200, 50, 40),
+        'green_light': (50, 160, 70),
+        'radar_green': (40, 200, 80),
     }
 
     def __init__(self, screen_width: int, screen_height: int,
@@ -105,7 +107,7 @@ class NemesisOceanFrame:
         for _ in range(4):
             self.clouds.append({
                 'x': random.randint(0, self.screen_width),
-                'y': random.randint(20, self.horizon_y - 100),
+                'y': random.randint(20, max(self.horizon_y - 100, 21)),
                 'size': random.randint(30, 70),
                 'speed': random.uniform(0.05, 0.2),
                 'opacity': random.randint(40, 80)
@@ -133,35 +135,32 @@ class NemesisOceanFrame:
         self._draw_ship_details(self._frame_surface)
 
     def _draw_sky_ocean_background(self, surface: pygame.Surface):
-        """하늘 + 바다 배경 (게임 맵 해수면과 일치)"""
-        sky_blue = self.COLORS['sky_blue']
+        """하늘 + 바다 배경 (게임 맵 해수면과 일치, 메인 배경과 동일 팔레트)"""
+        sky_top = self.COLORS['sky_top']
+        sky_mid = self.COLORS['sky_mid']
         horizon_color = self.COLORS['horizon_color']
         ocean_surface = self.COLORS['ocean_surface']
         ocean_deep = self.COLORS['ocean_deep']
 
-        # === 하늘 그라데이션 (위에서 해수면까지) ===
-        for y in range(0, self.horizon_y, 2):
-            factor = y / max(1, self.horizon_y)
-            # 하늘색에서 수평선 색으로 그라데이션
-            color = (
-                int(sky_blue[0] + (horizon_color[0] - sky_blue[0]) * factor),
-                int(sky_blue[1] + (horizon_color[1] - sky_blue[1]) * factor),
-                int(sky_blue[2] + (horizon_color[2] - sky_blue[2]) * factor),
-                255
-            )
-            pygame.draw.line(surface, color, (0, y), (self.screen_width, y), 2)
+        # === 하늘 2단계 그라데이션 (메인 배경과 동일 구조) ===
+        mid_y = self.horizon_y // 2
+        # 상단: sky_top → sky_mid
+        for y in range(0, mid_y, 2):
+            f = y / max(mid_y - 1, 1)
+            color = tuple(int(sky_top[c] + (sky_mid[c] - sky_top[c]) * f) for c in range(3))
+            pygame.draw.line(surface, (*color, 255), (0, y), (self.screen_width, y), 2)
+        # 하단: sky_mid → horizon_color
+        for y in range(mid_y, self.horizon_y, 2):
+            f = (y - mid_y) / max(self.horizon_y - mid_y - 1, 1)
+            color = tuple(int(sky_mid[c] + (horizon_color[c] - sky_mid[c]) * f) for c in range(3))
+            pygame.draw.line(surface, (*color, 255), (0, y), (self.screen_width, y), 2)
 
         # === 바다 그라데이션 (해수면에서 아래로) ===
         ocean_height = self.screen_height - self.horizon_y
         for y in range(self.horizon_y, self.screen_height, 2):
-            factor = (y - self.horizon_y) / max(1, ocean_height)
-            color = (
-                int(ocean_surface[0] + (ocean_deep[0] - ocean_surface[0]) * factor),
-                int(ocean_surface[1] + (ocean_deep[1] - ocean_surface[1]) * factor),
-                int(ocean_surface[2] + (ocean_deep[2] - ocean_surface[2]) * factor),
-                255
-            )
-            pygame.draw.line(surface, color, (0, y), (self.screen_width, y), 2)
+            f = (y - self.horizon_y) / max(ocean_height - 1, 1)
+            color = tuple(int(ocean_surface[c] + (ocean_deep[c] - ocean_surface[c]) * f) for c in range(3))
+            pygame.draw.line(surface, (*color, 255), (0, y), (self.screen_width, y), 2)
 
         # === 수평선 강조 ===
         pygame.draw.line(surface, (*horizon_color, 255),
@@ -547,7 +546,7 @@ class NemesisOceanFrame:
             cloud['x'] += cloud['speed']
             if cloud['x'] > self.screen_width + cloud['size']:
                 cloud['x'] = -cloud['size']
-                cloud['y'] = random.randint(20, self.horizon_y - 100)
+                cloud['y'] = random.randint(20, max(self.horizon_y - 100, 21))
 
         # 레이더 회전 제거됨
         # self.radar_angle += dt * 2
@@ -610,7 +609,7 @@ class NemesisOceanFrame:
 
     def resize(self, screen_width: int, screen_height: int,
                game_width: int, game_height: int):
-        """화면 크기 변경"""
+        """화면 크기 변경 - 치수 업데이트 + 캐시/요소 재생성"""
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game_width = game_width
@@ -620,10 +619,11 @@ class NemesisOceanFrame:
         self.game_y = (screen_height - game_height) // 2
         self.horizon_y = self.game_y + game_height // 2
 
-        self.waves = []
+        # 동적 요소 재생성
+        self.waves.clear()
         self._create_waves()
-        self.foam_particles = []
-        self.clouds = []
+        self.foam_particles.clear()
+        self.clouds.clear()
         self._create_clouds()
 
         # 캐시 초기화
@@ -631,13 +631,36 @@ class NemesisOceanFrame:
         self._wave_cache_left = None
         self._wave_cache_right = None
 
+        # 정적 프레임 재생성
         self._frame_surface = None
         self._create_frame()
 
     def trigger_excitement(self, level: float = 1.5):
-        """효과 트리거 (득점 시)"""
-        for _ in range(int(12 * level)):
-            self._spawn_foam()
+        """효과 트리거 (득점 시) - 확률 게이트 우회하여 즉시 스폰"""
+        count = int(12 * level)
+        for _ in range(count):
+            self._spawn_foam_forced()
+
+    def _spawn_foam_forced(self):
+        """확률 조건 없이 물거품 즉시 생성"""
+        if len(self.foam_particles) >= 30:  # 버스트용 상한
+            return
+        if self.game_x <= 20:
+            return
+        if random.random() < 0.5:
+            x = random.randint(5, self.game_x - 15)
+        else:
+            x = random.randint(self.game_x + self.game_width + 15,
+                              self.screen_width - 5)
+        self.foam_particles.append({
+            'x': x,
+            'y': random.randint(self.horizon_y + 20, self.screen_height - 20),
+            'vx': random.uniform(-0.3, 0.3),
+            'vy': random.uniform(-1.2, -0.3),
+            'size': random.randint(2, 5),
+            'alpha': random.randint(100, 200),
+            'decay': random.uniform(0.5, 1.5),
+        })
 
 
 # 호환성을 위한 클래스 별칭
