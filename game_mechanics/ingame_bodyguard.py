@@ -592,19 +592,36 @@ class InGameBodyguard:
                                 fx.update(result)
                         except Exception:
                             pass
-            # game_state에서 핵심 이벤트 추출 (유령소환, 모래회오리 등)
+            # game_state에서 핵심 이벤트 추출 (정상 경로의 _extract_boss_effects와 동일)
+            # 유령소환
             if game_state.get('ghost_summon_ball_hidden', False):
                 fx['ghost_ball_hidden'] = True
             _ghost_rel = game_state.pop('ghost_summon_ball_release', None)
             if _ghost_rel:
                 fx['ghost_ball_release'] = _ghost_rel
                 game_state['ghost_summon_ball_hidden'] = False
+            # 모래회오리
             _vortex_cap = game_state.pop('sand_vortex_ball_captured', None)
             if _vortex_cap:
                 fx['sand_vortex_capture'] = _vortex_cap
-            # 넉백 이벤트
+            # 혼란 (심해의 먹물 등)
+            if game_state.get('top_paddle_confused', False):
+                fx['confuse_frames'] = 6  # 매 프레임 갱신 (스킬이 해제할 때까지 유지)
+            # 바나나 슬라이스 미끄러짐
+            if game_state.get('top_paddle_banana_slip_active', False):
+                fx['banana_slip_active'] = True
+                fx['banana_slip_offset'] = game_state.get('top_paddle_banana_slip_offset', 0)
+            # 둔화 (기름 투척, 모래감옥 등)
+            if game_state.get('top_paddle_slowed', False):
+                fx['slow'] = True
+                fx['slow_amount'] = game_state.get('top_paddle_slow_amount', 0.5)
+                fx['slow_frames'] = 6
+            # 넉백
             if game_state.get('top_paddle_knockback'):
                 fx['stun_frames'] = game_state.pop('top_paddle_knockback_stun', 0)
+            # 감전 (천둥 뇌구)
+            if game_state.get('top_paddle_electric_stun', False):
+                fx['electric_stun'] = True
             # 화면 흔들림
             _shake = game_state.pop('screen_shake', 0)
             if _shake:
