@@ -103,7 +103,7 @@ class AnimatedBackgroundStage6:
         self.fire_line_particles = []  # 불꽃 파티클들
         self.fire_glow_phase = 0  # 불꽃 빛나는 애니메이션 위상
         self.center_circle_radius = 80  # 중앙 원 반지름
-        self.stadium_line_y = 375  # 스타디움 가로 라인 y 위치 (중앙)
+        self.stadium_line_y = height // 2  # 스타디움 가로 라인 y 위치 (중앙)
         self.fire_colors = [
             (255, 100, 50),   # 밝은 주황
             (255, 80, 30),    # 진한 주황
@@ -119,7 +119,7 @@ class AnimatedBackgroundStage6:
         self._sky_gradient_cache = pygame.Surface((self.width, half_height))
         sky_arr = np.zeros((self.width, half_height, 3), dtype=np.uint8)
         y_indices = np.arange(half_height, dtype=np.float32)
-        factors = y_indices / half_height
+        factors = y_indices / max(half_height - 1, 1)
 
         # sky_blue → horizon_color 그라데이션
         sky_r = (self.sky_blue[0] + (self.horizon_color[0] - self.sky_blue[0]) * factors).astype(np.uint8)
