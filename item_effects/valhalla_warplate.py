@@ -11,6 +11,7 @@
 import random
 import math
 import pygame
+import pygame.freetype
 
 # ── 영웅 목록 (투기장 15영웅) ──────────────────────────────────
 VALHALLA_HEROES = [
@@ -165,12 +166,19 @@ class ValhallaWarplateState:
         self.summoned_hero_name = hero["name"]
 
         # 컷신 파티클 생성
+        try:
+            from core.constants import WIDTH, HEIGHT
+            particle_cx = float(WIDTH // 2)
+            particle_cy = float(HEIGHT // 2)
+        except Exception:
+            particle_cx = 380.0
+            particle_cy = 375.0
         self.cutscene_particles.clear()
         for _ in range(30):
             angle = random.uniform(0, math.pi * 2)
             speed = random.uniform(20, 80)
             self.cutscene_particles.append({
-                "x": 380.0, "y": 375.0,
+                "x": particle_cx, "y": particle_cy,
                 "vx": math.cos(angle) * speed,
                 "vy": math.sin(angle) * speed - 20,
                 "life": random.uniform(0.5, 1.0),
@@ -297,7 +305,7 @@ class ValhallaWarplateState:
         if self.state != self.CUTSCENE:
             return
 
-        W, H = 760, 750
+        W, H = screen.get_size()
         progress = min(1.0, self.cutscene_timer / SUMMON_CUTSCENE_DURATION)
         hero = self._pending_hero
         if not hero:
@@ -359,7 +367,6 @@ class ValhallaWarplateState:
             text_alpha = int(255 * (1.0 - (progress - 0.7) / 0.3))
         if text_alpha > 10:
             try:
-                import pygame.freetype
                 from core.constants import resource_path
                 font_path = resource_path("fonts/NanumSquareB.ttf")
                 # 메인 텍스트
