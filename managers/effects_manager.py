@@ -16,8 +16,9 @@ from entities.entity import get_entity_manager
 _particle_surface_cache: Dict[int, pygame.Surface] = {}
 
 def _get_particle_surface(diameter: int) -> pygame.Surface:
-    """지정 크기의 SRCALPHA Surface를 캐시에서 가져온다. 호출자가 fill 후 사용."""
-    d = max(1, int(diameter))
+    """지정 크기의 SRCALPHA Surface를 캐시에서 가져온다. 호출자가 fill 후 사용.
+    크기를 4의 배수로 올림하여 캐시 적중률을 높인다 (1~100 → ~25개 버킷)."""
+    d = max(4, ((int(diameter) + 3) // 4) * 4)  # 4의 배수로 올림 (최소 4)
     surf = _particle_surface_cache.get(d)
     if surf is None or surf.get_width() != d or surf.get_height() != d:
         surf = pygame.Surface((d, d), pygame.SRCALPHA)
