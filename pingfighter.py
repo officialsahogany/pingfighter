@@ -9944,7 +9944,7 @@ def _fullscreen_flip():
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg
                 _bg = _get_bg()
-                if _bg.active:
+                if _bg.active and not getattr(_bg, '_valhalla_dismissed', False):
                     _story_guard_hover = _bg.draw_portrait_ui(
                         REAL_SCREEN,
                         game_offset_x=GAME_OFFSET_X,
@@ -9973,7 +9973,7 @@ def _fullscreen_flip():
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard2 as _get_bg2_flip
                 _bg2_flip = _get_bg2_flip()
-                if _bg2_flip.active:
+                if _bg2_flip.active and not getattr(_bg2_flip, '_valhalla_dismissed', False):
                     _bg1_offset_flip = 0
                     try:
                         from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg1_flip_ref
@@ -10236,7 +10236,7 @@ def _fullscreen_update(*args, **kwargs):
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg1_upd
                 _bg1_upd = _get_bg1_upd()
-                if _bg1_upd.active:
+                if _bg1_upd.active and not getattr(_bg1_upd, '_valhalla_dismissed', False):
                     _story_guard_hover1_upd = _bg1_upd.draw_portrait_ui(
                         REAL_SCREEN,
                         game_offset_x=GAME_OFFSET_X,
@@ -10265,7 +10265,7 @@ def _fullscreen_update(*args, **kwargs):
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard2 as _get_bg2_fn
                 _bg2 = _get_bg2_fn()
-                if _bg2.active:
+                if _bg2.active and not getattr(_bg2, '_valhalla_dismissed', False):
                     # 1번 호위무사 초상화 높이만큼 아래로 오프셋
                     _bg1_offset = 0
                     try:

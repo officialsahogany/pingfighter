@@ -141,12 +141,14 @@ class ValhallaWarplateState:
         if random.random() > effective_chance:
             return False
 
-        # 빈 슬롯 확인
+        # 빈 슬롯 확인 (dismissed 상태는 빈 슬롯으로 간주)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
             _bg = get_bodyguard()
             _bg2 = get_bodyguard2()
-            if _bg.active and _bg2.active:
+            _bg1_avail = not _bg.active or getattr(_bg, '_valhalla_dismissed', False)
+            _bg2_avail = not _bg2.active or getattr(_bg2, '_valhalla_dismissed', False)
+            if not _bg1_avail and not _bg2_avail:
                 return False
         except Exception:
             return False
@@ -202,7 +204,15 @@ class ValhallaWarplateState:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
             _bg = get_bodyguard()
             _bg2 = get_bodyguard2()
-            target_bg = _bg if not _bg.active else (_bg2 if not _bg2.active else None)
+            # dismissed 상태(스킬 잔여물만 남은 슬롯)는 강제 정리 후 재사용
+            def _is_available(bg):
+                if not bg.active:
+                    return True
+                if getattr(bg, '_valhalla_dismissed', False):
+                    bg.reset()  # 잔여 스킬도 정리하고 재사용
+                    return True
+                return False
+            target_bg = _bg if _is_available(_bg) else (_bg2 if _is_available(_bg2) else None)
             if not target_bg:
                 self._clear_state()
                 return
@@ -322,7 +332,7 @@ class ValhallaWarplateState:
         # 2) 소환진 (확장되는 금빛 원형 룬)
         rune_progress = min(1.0, progress * 2)
         rune_r = int(20 + 80 * rune_progress)
-        rune_alpha = int(200 * (1.0 - progress * 0.5))
+        rune_alpha = min(255, max(0, int(200 * (1.0 - progress * 0.5))))
         rune_surf = pygame.Surface((rune_r * 2 + 20, rune_r * 2 + 20), pygame.SRCALPHA)
         rc = rune_r + 10
         # 외곽 원
@@ -354,11 +364,11 @@ class ValhallaWarplateState:
         beam_alpha = int(120 * min(1.0, progress * 2.5))
         beam_w = int(6 + 30 * rune_progress)
         beam_surf = pygame.Surface((beam_w, H), pygame.SRCALPHA)
-        for by in range(H):
+        for by in range(0, H, 2):  # 2픽셀 간격으로 최적화
             dist = abs(by - cy)
-            ba = int(beam_alpha * max(0, 1.0 - dist / 300))
+            ba = min(255, max(0, int(beam_alpha * max(0, 1.0 - dist / 300))))
             if ba > 0:
-                pygame.draw.line(beam_surf, (255, 220, 100, ba), (0, by), (beam_w, by), 1)
+                pygame.draw.line(beam_surf, (255, 220, 100, ba), (0, by), (beam_w, by + 1), 2)
         screen.blit(beam_surf, (cx - beam_w // 2, 0))
 
         # 4) "발할라의 부름" 텍스트
