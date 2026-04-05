@@ -406,25 +406,45 @@ class NemesisOceanFrame:
             pygame.draw.circle(surface, (18, 25, 30, 40), (x + dx, y + dy), 2)
 
     def _draw_hull_seams(self, surface):
-        """좌우 필러에 수평 용접 이음새 (큰 면적 분할)"""
+        """좌우 필러에 장갑판 이음새 (수평+수직 분할로 큰 면적 구조화)"""
         md = self.COLORS['metal_dark']
         ml = self.COLORS['metal_light']
+        lx_end = self.game_x - 18
+        rx_start = self.game_x + self.game_width + 18
+        rx_end = self.screen_width - 3
 
-        # 좌측 필러 이음새 (3개)
-        for ratio in [0.25, 0.5, 0.75]:
+        # --- 수평 이음새 (5개로 증가 - 더 촘촘한 장갑판 느낌) ---
+        for ratio in [0.15, 0.35, 0.5, 0.65, 0.85]:
             sy = int(self.screen_height * ratio)
-            # 어두운 선 + 밝은 하이라이트 (용접 비드)
-            pygame.draw.line(surface, (*md, 50), (3, sy), (self.game_x - 18, sy), 1)
-            pygame.draw.line(surface, (*ml, 25), (3, sy + 1), (self.game_x - 18, sy + 1), 1)
+            # 좌측
+            pygame.draw.line(surface, (*md, 45), (3, sy), (lx_end, sy), 1)
+            pygame.draw.line(surface, (*ml, 20), (3, sy + 1), (lx_end, sy + 1), 1)
+            # 우측
+            pygame.draw.line(surface, (*md, 45), (rx_start, sy), (rx_end, sy), 1)
+            pygame.draw.line(surface, (*ml, 20), (rx_start, sy + 1), (rx_end, sy + 1), 1)
 
-        # 우측 필러 이음새 (3개)
-        rx = self.game_x + self.game_width + 18
-        for ratio in [0.25, 0.5, 0.75]:
-            sy = int(self.screen_height * ratio)
-            pygame.draw.line(surface, (*md, 50),
-                           (rx, sy), (self.screen_width - 3, sy), 1)
-            pygame.draw.line(surface, (*ml, 25),
-                           (rx, sy + 1), (self.screen_width - 3, sy + 1), 1)
+        # --- 수직 분할선 (좌우 필러 중앙에 1개씩) ---
+        if self.game_x > 40:
+            vx = self.game_x // 2
+            pygame.draw.line(surface, (*md, 30), (vx, 14), (vx, self.screen_height - 14), 1)
+        if rx_end - rx_start > 40:
+            vx = rx_start + (rx_end - rx_start) // 2
+            pygame.draw.line(surface, (*md, 30), (vx, 14), (vx, self.screen_height - 14), 1)
+
+        # --- 좌측 필러 약한 풍화 흔적 (완전 정상은 아닌 느낌) ---
+        # 물때 자국 (해수면 근처 수평 얼룩)
+        for dy in range(0, 40, 8):
+            wy = self.horizon_y + 10 + dy
+            wa = max(10, 25 - dy)
+            pygame.draw.line(surface, (8, 30, 50, wa),
+                           (5, wy), (lx_end - 5, wy), 1)
+
+        # 우측 필러 물때 (더 진하게 - 손상 측)
+        for dy in range(0, 50, 7):
+            wy = self.horizon_y + 8 + dy
+            wa = max(12, 30 - dy)
+            pygame.draw.line(surface, (8, 25, 45, wa),
+                           (rx_start + 3, wy), (rx_end - 3, wy), 1)
 
     def _draw_animated_clouds(self, surface: pygame.Surface):
         """구름 애니메이션 (최적화: 캐시 사용)"""
@@ -436,30 +456,30 @@ class NemesisOceanFrame:
                 surface.blit(cloud_surf, (int(cloud['x']), int(cloud['y'])))
 
     def _get_cached_cloud(self, size: int, opacity: int) -> pygame.Surface:
-        """캐시된 구름 Surface 반환"""
-        # 크기 버킷팅 (10px 단위)
-        size_bucket = (size // 10) * 10
-        # 투명도 버킷팅 (20 단위)
-        opacity_bucket = (opacity // 20) * 20
-        cache_key = (size_bucket, opacity_bucket)
+        """캐시된 구름 Surface 반환 (메인 배경과 동일한 어두운 폭풍구름 스타일)"""
+        sb = (size // 10) * 10
+        ob = min((opacity // 20) * 20, 40)  # 투명도 상한 낮춤 (더 은은하게)
+        key = (sb, ob)
 
-        if cache_key in self._cloud_cache:
-            return self._cloud_cache[cache_key]
+        if key in self._cloud_cache:
+            return self._cloud_cache[key]
 
-        # 새 구름 Surface 생성
-        cloud_surface = pygame.Surface((size_bucket * 2, size_bucket), pygame.SRCALPHA)
-        for i in range(3):
-            cx = size_bucket // 2 + i * size_bucket // 3
-            cy = size_bucket // 2
-            radius = size_bucket // 3
-            pygame.draw.circle(cloud_surface, (255, 255, 255, opacity_bucket),
-                             (cx, cy), radius)
+        # 길쭉한 타원 구름 (둥근 원 3개 → 어두운 타원, 메인 배경과 동일)
+        cw = sb * 2
+        ch = max(sb // 2, 10)  # 높이를 절반으로 (길쭉하게)
+        cloud_surface = pygame.Surface((cw + 10, ch + 6), pygame.SRCALPHA)
+        # 외곽 어두운 타원
+        pygame.draw.ellipse(cloud_surface, (20, 20, 30, ob),
+                          (3, 2, cw, ch))
+        # 내부 약간 밝은 코어
+        inner_w = cw * 2 // 3
+        inner_x = 3 + (cw - inner_w) // 2
+        pygame.draw.ellipse(cloud_surface, (30, 30, 45, ob // 2),
+                          (inner_x, 4, inner_w, ch - 4))
 
-        # 캐시 크기 제한
         if len(self._cloud_cache) > 50:
             self._cloud_cache.clear()
-
-        self._cloud_cache[cache_key] = cloud_surface
+        self._cloud_cache[key] = cloud_surface
         return cloud_surface
 
     def _draw_animated_waves(self, surface: pygame.Surface):
