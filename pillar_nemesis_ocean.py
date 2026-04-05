@@ -406,45 +406,49 @@ class NemesisOceanFrame:
             pygame.draw.circle(surface, (18, 25, 30, 40), (x + dx, y + dy), 2)
 
     def _draw_hull_seams(self, surface):
-        """좌우 필러에 장갑판 이음새 (수평+수직 분할로 큰 면적 구조화)"""
+        """좌우 필러 질감 (규칙적 구조선 대신 비대칭 풍화/재료감)"""
         md = self.COLORS['metal_dark']
         ml = self.COLORS['metal_light']
         lx_end = self.game_x - 18
         rx_start = self.game_x + self.game_width + 18
         rx_end = self.screen_width - 3
 
-        # --- 수평 이음새 (5개로 증가 - 더 촘촘한 장갑판 느낌) ---
-        for ratio in [0.15, 0.35, 0.5, 0.65, 0.85]:
+        # --- 수평 이음새 (2개만, 매우 희미하게 - 장갑판 경계 암시) ---
+        for ratio in [0.33, 0.67]:
             sy = int(self.screen_height * ratio)
-            # 좌측
-            pygame.draw.line(surface, (*md, 45), (3, sy), (lx_end, sy), 1)
-            pygame.draw.line(surface, (*ml, 20), (3, sy + 1), (lx_end, sy + 1), 1)
+            # 좌측 (전폭이 아닌 부분적 이음새)
+            seg_end = lx_end - random.randint(5, 15)
+            pygame.draw.line(surface, (*md, 20), (8, sy), (seg_end, sy), 1)
             # 우측
-            pygame.draw.line(surface, (*md, 45), (rx_start, sy), (rx_end, sy), 1)
-            pygame.draw.line(surface, (*ml, 20), (rx_start, sy + 1), (rx_end, sy + 1), 1)
+            seg_start = rx_start + random.randint(3, 10)
+            pygame.draw.line(surface, (*md, 20), (seg_start, sy), (rx_end - 5, sy), 1)
 
-        # --- 수직 분할선 (좌우 필러 중앙에 1개씩) ---
-        if self.game_x > 40:
-            vx = self.game_x // 2
-            pygame.draw.line(surface, (*md, 30), (vx, 14), (vx, self.screen_height - 14), 1)
-        if rx_end - rx_start > 40:
-            vx = rx_start + (rx_end - rx_start) // 2
-            pygame.draw.line(surface, (*md, 30), (vx, 14), (vx, self.screen_height - 14), 1)
+        # --- 수직 분할선 제거 (디버그 그리드처럼 보이므로) ---
 
-        # --- 좌측 필러 약한 풍화 흔적 (완전 정상은 아닌 느낌) ---
-        # 물때 자국 (해수면 근처 수평 얼룩)
-        for dy in range(0, 40, 8):
-            wy = self.horizon_y + 10 + dy
-            wa = max(10, 25 - dy)
-            pygame.draw.line(surface, (8, 30, 50, wa),
-                           (5, wy), (lx_end - 5, wy), 1)
-
-        # 우측 필러 물때 (더 진하게 - 손상 측)
-        for dy in range(0, 50, 7):
+        # --- 좌측 풍화 질감 (해수면 근처 물때 - 불규칙 간격) ---
+        for dy in [0, 6, 15, 22, 33]:
             wy = self.horizon_y + 8 + dy
-            wa = max(12, 30 - dy)
-            pygame.draw.line(surface, (8, 25, 45, wa),
-                           (rx_start + 3, wy), (rx_end - 3, wy), 1)
+            # 불규칙한 시작/끝 (전폭 안 채움)
+            wx1 = 5 + (dy * 3) % 12
+            wx2 = lx_end - 8 - (dy * 7) % 15
+            wa = max(8, 18 - dy // 3)
+            pygame.draw.line(surface, (8, 30, 50, wa), (wx1, wy), (wx2, wy), 1)
+
+        # --- 우측 풍화 질감 (더 진한 물때 + 비대칭 스크래치) ---
+        for dy in [0, 5, 12, 18, 28, 38]:
+            wy = self.horizon_y + 6 + dy
+            wx1 = rx_start + 3 + (dy * 5) % 10
+            wx2 = rx_end - 5 - (dy * 3) % 12
+            wa = max(10, 22 - dy // 3)
+            pygame.draw.line(surface, (8, 25, 45, wa), (wx1, wy), (wx2, wy), 1)
+
+        # 우측에 비대칭 대각선 스크래치 2개 (선체 긁힘)
+        pygame.draw.line(surface, (*ml, 12),
+                        (rx_start + 10, self.horizon_y - 40),
+                        (rx_start + 25, self.horizon_y - 10), 1)
+        pygame.draw.line(surface, (*ml, 8),
+                        (rx_end - 20, self.horizon_y + 60),
+                        (rx_end - 8, self.horizon_y + 90), 1)
 
     def _draw_animated_clouds(self, surface: pygame.Surface):
         """구름 애니메이션 (최적화: 캐시 사용)"""

@@ -813,8 +813,8 @@ class AnimatedBackgroundStage6:
     def _draw_scanlines(self, screen):
         """은은한 수평 홀로그램 간섭 라인"""
         self._scanline_surface.fill(self._transparent)
-        for y in range(self.scanline_offset % 6, self.height, 6):
-            alpha = 5 + int(3 * math.sin(y * 0.05 + self.time * 0.03))
+        for y in range(self.scanline_offset % 10, self.height, 10):  # 6→10px 간격 (안개막 느낌 감소)
+            alpha = 4 + int(2 * math.sin(y * 0.05 + self.time * 0.03))  # 5~8 → 4~6
             pygame.draw.line(self._scanline_surface, (0, 200, 220, alpha),
                            (0, y), (self.width, y))
         screen.blit(self._scanline_surface, (0, 0))
