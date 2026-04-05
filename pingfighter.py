@@ -5242,7 +5242,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
                 cooldown_text = f"{remaining_sec:.1f}"
 
             try:
-                cd_font = pygame.font.Font(None, 28)  # 14 -> 28 (2배)
+                cd_font = _get_cached_cd_font()  # 14 -> 28 (2배)
                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
                 cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
                 # 그림자 효과
@@ -5337,7 +5337,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
             else:
                 cooldown_text = f"{remaining_sec:.1f}" 
             try:
-                cd_font = pygame.font.Font(None, 28)
+                cd_font = _get_cached_cd_font()
                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
                 cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
                 shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
@@ -5616,7 +5616,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             else:
                 cooldown_text = f"{remaining_sec:.1f}"
             try:
-                cd_font = pygame.font.Font(None, 28)
+                cd_font = _get_cached_cd_font()
                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
                 cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
                 shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
@@ -8646,7 +8646,7 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
                 cooldown_text = f"{remaining_sec:.1f}"
 
             try:
-                cd_font = pygame.font.Font(None, 28)
+                cd_font = _get_cached_cd_font()
                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
                 cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
                 shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
@@ -21940,6 +21940,28 @@ def store_bgm_volume(value: float) -> float:
     bgm_volume = set_bgm_volume_state(value)
     return bgm_volume
 
+
+# === 폰트/Surface 캐시 (매 프레임 생성 방지) ===
+_cached_cd_font = None  # 쿨다운 텍스트용 Font(None, 28)
+_cached_gauge_font = None  # 게이지 텍스트용 freetype Font
+
+def _get_cached_cd_font():
+    """쿨다운 텍스트용 폰트 캐시"""
+    global _cached_cd_font
+    if _cached_cd_font is None:
+        _cached_cd_font = pygame.font.Font(None, 28)
+    return _cached_cd_font
+
+def _get_cached_gauge_font():
+    """게이지 텍스트용 freetype 폰트 캐시"""
+    global _cached_gauge_font
+    if _cached_gauge_font is None:
+        try:
+            _cached_gauge_font = pygame.freetype.Font(
+                resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
+        except Exception:
+            _cached_gauge_font = pygame.freetype.SysFont(None, 16)
+    return _cached_gauge_font
 
 _sound_cache: dict[str, pygame.mixer.Sound | None] = {}
 
@@ -100653,7 +100675,7 @@ def draw_player_gauge():
             # === 맨 마지막: 게이지 수치 텍스트 (구슬 중앙) ===
             gauge_text = f"{int(displayed_gauge)}/{int(current_max_gauge)}"
             try:
-                gauge_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
+                gauge_font = _get_cached_gauge_font()
                 text_surface, text_rect_size = gauge_font.render(gauge_text, (255, 255, 255))
                 text_rect = text_surface.get_rect(center=(orb_center_x, orb_center_y))
                 # 텍스트 그림자 (더 진하게)

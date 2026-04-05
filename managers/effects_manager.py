@@ -12,10 +12,25 @@ from core.events import EventType, EventManager
 from entities.entity import get_entity_manager
 
 
+# 파티클 Surface 캐시 풀 (크기별 재사용으로 매 프레임 할당 방지)
+_particle_surface_cache: Dict[int, pygame.Surface] = {}
+
+def _get_particle_surface(diameter: int) -> pygame.Surface:
+    """지정 크기의 SRCALPHA Surface를 캐시에서 가져온다. 호출자가 fill 후 사용."""
+    d = max(1, int(diameter))
+    surf = _particle_surface_cache.get(d)
+    if surf is None or surf.get_width() != d or surf.get_height() != d:
+        surf = pygame.Surface((d, d), pygame.SRCALPHA)
+        _particle_surface_cache[d] = surf
+    else:
+        surf.fill((0, 0, 0, 0))
+    return surf
+
+
 class Particle:
     """파티클 클래스"""
-    
-    def __init__(self, x: float, y: float, vel_x: float, vel_y: float, 
+
+    def __init__(self, x: float, y: float, vel_x: float, vel_y: float,
                  color: Tuple[int, int, int], lifetime: float, size: int = 3,
                  particle_type: str = 'normal'):
         self.x = x
@@ -85,40 +100,38 @@ class Particle:
                 trail_size = self.size * (i / len(self.trail)) * 0.7
                 trail_alpha = int(alpha * t_alpha * (i / len(self.trail)))
                 if trail_alpha > 0 and trail_size > 0:
-                    s = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(s, (*self.color, trail_alpha), 
-                                     (trail_size, trail_size), trail_size)
+                    d = int(trail_size * 2)
+                    s = _get_particle_surface(d)
+                    pygame.draw.circle(s, (*self.color, trail_alpha),
+                                     (d // 2, d // 2), int(trail_size))
                     screen.blit(s, (tx - trail_size, ty - trail_size))
-        
+
         # 글로우 효과
         if self.glow:
             glow_size = self.size * 2
             glow_alpha = alpha // 4
-            s = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
-            pygame.draw.circle(s, (*self.color, glow_alpha), 
-                             (glow_size * 2, glow_size * 2), glow_size * 2)
+            d = int(glow_size * 4)
+            s = _get_particle_surface(d)
+            pygame.draw.circle(s, (*self.color, glow_alpha),
+                             (d // 2, d // 2), int(glow_size * 2))
             screen.blit(s, (self.x - glow_size * 2, self.y - glow_size * 2))
-        
+
         # 메인 파티클 그리기
-        actual_size = self.size * self.scale
+        actual_size = max(1, int(self.size * self.scale))
         particle_color = (*self.color, alpha)
-        
+        d = actual_size * 2
+
         if self.particle_type == 'square':
-            s = pygame.Surface((actual_size * 2, actual_size * 2), pygame.SRCALPHA)
-            pygame.draw.rect(s, particle_color, 
-                           (0, 0, actual_size * 2, actual_size * 2))
+            s = _get_particle_surface(d)
+            pygame.draw.rect(s, particle_color, (0, 0, d, d))
             if self.rotation != 0:
                 s = pygame.transform.rotate(s, self.rotation)
         elif self.particle_type == 'star':
-            s = pygame.Surface((actual_size * 2, actual_size * 2), pygame.SRCALPHA)
-            # 별 모양 그리기
+            s = _get_particle_surface(d)
             points = []
             for i in range(10):
                 angle = (i * math.pi / 5) + self.rotation
-                if i % 2 == 0:
-                    r = actual_size
-                else:
-                    r = actual_size * 0.5
+                r = actual_size if i % 2 == 0 else actual_size * 0.5
                 x = actual_size + r * math.cos(angle)
                 y = actual_size + r * math.sin(angle)
                 points.append((x, y))
@@ -126,9 +139,9 @@ class Particle:
                 pygame.draw.polygon(s, particle_color, points)
         else:
             # 기본 원형
-            s = pygame.Surface((actual_size * 2, actual_size * 2), pygame.SRCALPHA)
+            s = _get_particle_surface(d)
             pygame.draw.circle(s, particle_color, (actual_size, actual_size), actual_size)
-            
+
         screen.blit(s, (self.x - actual_size, self.y - actual_size))
 
 
