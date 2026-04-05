@@ -10,6 +10,7 @@
 
 import random
 import math
+import os
 import pygame
 import pygame.freetype
 
@@ -128,6 +129,9 @@ class ValhallaWarplateState:
             # 새 스킬 발동 방지 + 포탈 이동 플래그
             gs.cooldown_bottom = 99999.0
             self._bodyguard_ref._valhalla_portal_moving = True
+            self._portal_sound_played = False  # 상승 사운드 1회 재생용
+            # 포탈 열림 사운드 재생
+            self._play_sound("potal.wav", 0.7)
             print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 포탈 상승 시작!")
         else:
             self._force_dismiss()
@@ -293,8 +297,11 @@ class ValhallaWarplateState:
             self.portal_particles.clear()
             self.portal_lightning.clear()
             self._pending_hero = None
+            self._portal_sound_played = False  # 하강 사운드 1회 재생용
             # 포탈 이동 중 플래그 설정 (y_bottom 강제 덮어쓰기 방지)
             target_bg._valhalla_portal_moving = True
+            # 포탈 열림 사운드 재생
+            self._play_sound("potal.wav", 0.7)
             print(f"⚔ 발할라의 전갑: {hero['name']} 포탈 하강 시작!")
 
         except Exception as e:
@@ -351,7 +358,10 @@ class ValhallaWarplateState:
                 # 플래시 + 하강 (포탈에서 영웅이 내려옴!)
                 self.portal_scale = 1.0
                 descend_progress = min(1.0, (t - 2.0) / 1.0)
-                # 하강 시작 순간 포탈 반짝
+                # 하강 시작 순간 사운드 + 포탈 반짝
+                if not self._portal_sound_played:
+                    self._portal_sound_played = True
+                    self._play_sound("potal2.wav", 0.8)
                 if descend_progress < 0.15:
                     self.portal_flash = 1.0 - descend_progress / 0.15
                 else:
@@ -447,6 +457,10 @@ class ValhallaWarplateState:
                 # 플래시 + 상승 (영웅이 포탈로 올라감!)
                 self.portal_scale = 1.0
                 ascend_progress = min(1.0, (t - 2.0) / 1.0)
+                # 상승 시작 순간 사운드
+                if not self._portal_sound_played:
+                    self._portal_sound_played = True
+                    self._play_sound("potal2.wav", 0.8)
                 # 포탈 진입 순간 반짝 (상승 80% 지점)
                 if 0.75 < ascend_progress < 0.9:
                     self.portal_flash = (ascend_progress - 0.75) / 0.15
@@ -489,6 +503,18 @@ class ValhallaWarplateState:
                 self._force_dismiss()
 
         pass  # 파티클 업데이트는 각 상태 내에서 처리
+
+    def _play_sound(self, filename, volume=0.7):
+        """사운드 재생 헬퍼"""
+        try:
+            from core.constants import resource_path
+            path = resource_path(os.path.join("sounds", filename))
+            if os.path.exists(path):
+                snd = pygame.mixer.Sound(path)
+                snd.set_volume(volume)
+                snd.play()
+        except Exception:
+            pass
 
     def _spawn_portal_swirl(self, chance):
         """소용돌이 파티클 생성 (매혹과 동일 구조)"""
