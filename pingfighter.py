@@ -107776,6 +107776,14 @@ def draw_objects():
             if odins_eye and len(getattr(odins_eye, 'dark_fragments', [])) > 0:
                 odins_eye.draw_dark_fragments(SCREEN)
             # ⚔ 발할라의 전갑: 드로잉은 InGameBodyguard 시스템이 자체 처리
+            # ⚔ 발할라의 전갑: 소환 컷신 오버레이 (렌더링 최상단에 그리기)
+            try:
+                from item_effects.valhalla_warplate import get_valhalla_warplate_state
+                _vw_render = get_valhalla_warplate_state()
+                if _vw_render.is_cutscene_active:
+                    _vw_render.draw_cutscene(SCREEN)
+            except Exception:
+                pass
     except:
         pass
 
