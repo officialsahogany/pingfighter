@@ -205,30 +205,45 @@ class NemesisOceanFrame:
                         pygame.Rect(4, 4, self.screen_width - 8, self.screen_height - 8), 2)
 
     def _draw_rivets(self, surface: pygame.Surface):
-        """리벳/볼트 장식"""
-        metal_light = self.COLORS['metal_light']
-        metal_dark = self.COLORS['metal_dark']
+        """리벳/볼트 장식 (일부 빠진/손상된 리벳으로 비대칭 질감)"""
+        ml = self.COLORS['metal_light']
+        md = self.COLORS['metal_dark']
+        sp = 35
+        r = 3
 
-        rivet_spacing = 35
-        rivet_size = 3
+        # 손상 패턴용 시드 (일관된 비대칭)
+        damage_seed = 42
 
         # 상하 리벳
-        for x in range(rivet_spacing, self.screen_width - rivet_spacing, rivet_spacing):
-            # 상단
-            pygame.draw.circle(surface, (*metal_dark, 255), (x, 7), rivet_size)
-            pygame.draw.circle(surface, (*metal_light, 200), (x - 1, 6), rivet_size - 1)
-            # 하단
-            pygame.draw.circle(surface, (*metal_dark, 255), (x, self.screen_height - 7), rivet_size)
-            pygame.draw.circle(surface, (*metal_light, 200), (x - 1, self.screen_height - 8), rivet_size - 1)
+        idx = 0
+        for x in range(sp, self.screen_width - sp, sp):
+            idx += 1
+            # 우측 상단 일부 리벳 빠짐 (손상 표현)
+            skip = ((idx * damage_seed) % 17 == 0)
+            if not skip:
+                pygame.draw.circle(surface, (*md, 255), (x, 7), r)
+                pygame.draw.circle(surface, (*ml, 200), (x - 1, 6), r - 1)
+            else:
+                # 빠진 리벳 자국 (어두운 홈)
+                pygame.draw.circle(surface, (20, 22, 35, 150), (x, 7), r - 1)
+
+            pygame.draw.circle(surface, (*md, 255), (x, self.screen_height - 7), r)
+            pygame.draw.circle(surface, (*ml, 200), (x - 1, self.screen_height - 8), r - 1)
 
         # 좌우 리벳
-        for y in range(rivet_spacing, self.screen_height - rivet_spacing, rivet_spacing):
-            # 좌측
-            pygame.draw.circle(surface, (*metal_dark, 255), (7, y), rivet_size)
-            pygame.draw.circle(surface, (*metal_light, 200), (6, y - 1), rivet_size - 1)
-            # 우측
-            pygame.draw.circle(surface, (*metal_dark, 255), (self.screen_width - 7, y), rivet_size)
-            pygame.draw.circle(surface, (*metal_light, 200), (self.screen_width - 8, y - 1), rivet_size - 1)
+        idx = 0
+        for y in range(sp, self.screen_height - sp, sp):
+            idx += 1
+            # 좌측: 정상
+            pygame.draw.circle(surface, (*md, 255), (7, y), r)
+            pygame.draw.circle(surface, (*ml, 200), (6, y - 1), r - 1)
+            # 우측: 일부 손상
+            skip = ((idx * damage_seed) % 13 == 0)
+            if not skip:
+                pygame.draw.circle(surface, (*md, 255), (self.screen_width - 7, y), r)
+                pygame.draw.circle(surface, (*ml, 200), (self.screen_width - 8, y - 1), r - 1)
+            else:
+                pygame.draw.circle(surface, (20, 22, 35, 150), (self.screen_width - 7, y), r - 1)
 
     def _draw_armor_plates(self, surface: pygame.Surface):
         """게임 영역 주변 장갑판"""
@@ -277,84 +292,139 @@ class NemesisOceanFrame:
             pygame.draw.circle(surface, (*cyan, 200), (bx, by), 2)
 
     def _draw_ship_details(self, surface: pygame.Surface):
-        """전함 디테일"""
+        """전함 외장 구조물 디테일"""
         if self.game_x < 50:
             return
 
-        # 좌측 컨트롤 패널
-        self._draw_control_panel(surface, 15, self.game_y + 40, 'left')
+        pw = min(45, self.game_x - 25)
 
-        # 우측 컨트롤 패널
-        self._draw_control_panel(surface, self.screen_width - 15, self.game_y + 40, 'right')
+        # 좌측: 장갑 해치 (정상 상태)
+        self._draw_armor_hatch(surface, 15, self.game_y + 30, pw, 'left')
+        # 좌측 하단: 정비 포트
+        self._draw_maintenance_port(surface, 15, self.game_y + self.game_height - 100, pw)
 
-        # 레이더 제거됨 (좌측 하단)
-        # if self.game_x > 80:
-        #     self._draw_radar_display(surface, self.game_x // 2,
-        #                             self.game_y + self.game_height - 70)
+        # 우측: 장갑 해치 (손상 상태 - 메인 배경의 파손 타워와 연결)
+        self._draw_armor_hatch(surface, self.screen_width - 15 - pw,
+                              self.game_y + 30, pw, 'right')
+        # 우측 하단: 손상된 패널
+        self._draw_damaged_panel(surface, self.screen_width - 15 - pw,
+                                self.game_y + self.game_height - 120, pw)
 
-    def _draw_control_panel(self, surface: pygame.Surface, x: int, y: int, side: str):
-        """컨트롤 패널"""
-        panel_width = min(45, self.game_x - 25)
-        panel_height = 120
+        # 좌우 장갑판 이음새 (수평 용접선)
+        self._draw_hull_seams(surface)
 
-        if side == 'right':
-            x = x - panel_width
-
-        metal = self.COLORS['metal']
-        metal_dark = self.COLORS['metal_dark']
+    def _draw_armor_hatch(self, surface, x, y, pw, side):
+        """장갑 해치 - 전함 외장 정비구 스타일"""
+        md = self.COLORS['metal_dark']
+        ml = self.COLORS['metal_light']
+        m = self.COLORS['metal']
         cyan = self.COLORS['cyan_glow']
 
-        # 패널 배경
-        panel_rect = pygame.Rect(x, y, panel_width, panel_height)
-        pygame.draw.rect(surface, (*metal_dark, 230), panel_rect)
-        pygame.draw.rect(surface, (*cyan, 150), panel_rect, 1)
+        hatch_h = 80
+        # 해치 본체 (어두운 금속판)
+        rect = pygame.Rect(x, y, pw, hatch_h)
+        pygame.draw.rect(surface, (*md, 220), rect)
+        # 해치 테두리 (밝은 엣지 - 볼록 효과)
+        pygame.draw.rect(surface, (*m, 200), rect, 1)
+        # 상단 밝은 엣지 (빛 받는 면)
+        pygame.draw.line(surface, (*ml, 160),
+                        (x + 1, y + 1), (x + pw - 1, y + 1), 1)
 
-        # 표시등들
-        light_colors = [
-            self.COLORS['red_light'],
-            self.COLORS['green_light'],
-            self.COLORS['cyan_glow'],
-        ]
+        # 볼트 4개 (모서리)
+        for bx, by in [(x + 5, y + 5), (x + pw - 5, y + 5),
+                       (x + 5, y + hatch_h - 5), (x + pw - 5, y + hatch_h - 5)]:
+            pygame.draw.circle(surface, (*md, 255), (bx, by), 3)
+            pygame.draw.circle(surface, (*ml, 180), (bx, by - 1), 2)
 
-        for i, color in enumerate(light_colors):
-            ly = y + 18 + i * 22
-            lx = x + panel_width // 2
+        # 중앙 수평 이음새 (해치 분할선)
+        mid_y = y + hatch_h // 2
+        pygame.draw.line(surface, (*md, 255), (x + 3, mid_y), (x + pw - 3, mid_y), 1)
+        pygame.draw.line(surface, (*ml, 80), (x + 3, mid_y + 1), (x + pw - 3, mid_y + 1), 1)
 
-            pygame.draw.circle(surface, (*metal_dark, 255), (lx, ly), 7)
-            pygame.draw.circle(surface, (*color, 150), (lx, ly), 5)
+        # 경고등 1개 (작은, 해치 상단 중앙)
+        pygame.draw.circle(surface, (*md, 255), (x + pw // 2, y + 18), 4)
+        light_color = self.COLORS['red_light'] if side == 'right' else self.COLORS['green_light']
+        pygame.draw.circle(surface, (*light_color, 120), (x + pw // 2, y + 18), 3)
 
-        # 게이지 바
-        gauge_y = y + 90
-        gauge_width = panel_width - 12
-        pygame.draw.rect(surface, (*metal_dark, 255),
-                        (x + 6, gauge_y, gauge_width, 10))
-        pygame.draw.rect(surface, (*cyan, 180),
-                        (x + 8, gauge_y + 2, int(gauge_width * 0.7), 6))
+        # 우측 해치에만 손상 흔적 (메인 배경 파손 타워와 연결)
+        if side == 'right':
+            # 대각선 스크래치
+            pygame.draw.line(surface, (*ml, 60),
+                           (x + 8, y + 25), (x + pw - 10, y + hatch_h - 15), 1)
+            # 작은 찌그러짐 (어두운 점)
+            pygame.draw.circle(surface, (20, 22, 35, 80), (x + pw // 3, y + 50), 3)
 
-    def _draw_radar_display(self, surface: pygame.Surface, cx: int, cy: int):
-        """레이더 디스플레이"""
-        radar_size = min(50, self.game_x // 2 - 15)
+    def _draw_maintenance_port(self, surface, x, y, pw):
+        """정비 포트 - 작은 원형 해치"""
+        md = self.COLORS['metal_dark']
+        ml = self.COLORS['metal_light']
+        m = self.COLORS['metal']
 
-        metal_dark = self.COLORS['metal_dark']
-        radar_green = self.COLORS['radar_green']
+        port_r = min(pw // 3, 12)
+        cx = x + pw // 2
+        cy = y + port_r + 5
 
-        # 레이더 배경
-        pygame.draw.circle(surface, (*metal_dark, 250), (cx, cy), radar_size)
-        pygame.draw.circle(surface, (20, 40, 30, 255), (cx, cy), radar_size - 3)
+        # 외곽 링
+        pygame.draw.circle(surface, (*m, 200), (cx, cy), port_r + 3)
+        pygame.draw.circle(surface, (*md, 230), (cx, cy), port_r)
+        # 볼트 링 (4개)
+        for angle_deg in [0, 90, 180, 270]:
+            bx = cx + int(math.cos(math.radians(angle_deg)) * (port_r + 1))
+            by = cy + int(math.sin(math.radians(angle_deg)) * (port_r + 1))
+            pygame.draw.circle(surface, (*ml, 150), (bx, by), 2)
+        # 십자 마크
+        pygame.draw.line(surface, (*ml, 60),
+                        (cx - port_r + 3, cy), (cx + port_r - 3, cy), 1)
+        pygame.draw.line(surface, (*ml, 60),
+                        (cx, cy - port_r + 3), (cx, cy + port_r - 3), 1)
 
-        # 레이더 그리드
-        for r in range(1, 4):
-            pygame.draw.circle(surface, (*radar_green, 40), (cx, cy),
-                             int(radar_size * r / 4), 1)
+    def _draw_damaged_panel(self, surface, x, y, pw):
+        """손상된 외장 패널 (우측 하단 - 전투 손상 표현)"""
+        md = self.COLORS['metal_dark']
+        ml = self.COLORS['metal_light']
 
-        # 십자선
-        pygame.draw.line(surface, (*radar_green, 60),
-                        (cx - radar_size + 4, cy), (cx + radar_size - 4, cy), 1)
-        pygame.draw.line(surface, (*radar_green, 60),
-                        (cx, cy - radar_size + 4), (cx, cy + radar_size - 4), 1)
+        panel_h = 60
+        rect = pygame.Rect(x, y, pw, panel_h)
+        pygame.draw.rect(surface, (*md, 200), rect)
+        pygame.draw.rect(surface, (20, 25, 38, 180), rect, 1)
 
-        # 테두리
-        pygame.draw.circle(surface, (*self.COLORS['cyan_glow'], 200), (cx, cy), radar_size, 2)
+        # 비대칭 스크래치 3개
+        pygame.draw.line(surface, (*ml, 40),
+                        (x + 5, y + 10), (x + pw - 8, y + 25), 1)
+        pygame.draw.line(surface, (*ml, 30),
+                        (x + 12, y + 30), (x + pw - 5, y + 42), 1)
+        pygame.draw.line(surface, (25, 20, 35, 50),
+                        (x + 3, y + 45), (x + 20, y + 52), 1)
+
+        # 찌그러진 패널 이음새 (비뚤어진 수평선)
+        pygame.draw.line(surface, (*md, 150),
+                        (x + 2, y + panel_h // 2 - 2),
+                        (x + pw - 2, y + panel_h // 2 + 1), 1)
+
+        # 물때/녹 흔적 (어두운 점들)
+        for dx, dy in [(8, 48), (15, 38), (pw - 12, 50)]:
+            pygame.draw.circle(surface, (18, 25, 30, 40), (x + dx, y + dy), 2)
+
+    def _draw_hull_seams(self, surface):
+        """좌우 필러에 수평 용접 이음새 (큰 면적 분할)"""
+        md = self.COLORS['metal_dark']
+        ml = self.COLORS['metal_light']
+
+        # 좌측 필러 이음새 (3개)
+        for ratio in [0.25, 0.5, 0.75]:
+            sy = int(self.screen_height * ratio)
+            # 어두운 선 + 밝은 하이라이트 (용접 비드)
+            pygame.draw.line(surface, (*md, 50), (3, sy), (self.game_x - 18, sy), 1)
+            pygame.draw.line(surface, (*ml, 25), (3, sy + 1), (self.game_x - 18, sy + 1), 1)
+
+        # 우측 필러 이음새 (3개)
+        rx = self.game_x + self.game_width + 18
+        for ratio in [0.25, 0.5, 0.75]:
+            sy = int(self.screen_height * ratio)
+            pygame.draw.line(surface, (*md, 50),
+                           (rx, sy), (self.screen_width - 3, sy), 1)
+            pygame.draw.line(surface, (*ml, 25),
+                           (rx, sy + 1), (self.screen_width - 3, sy + 1), 1)
 
     def _draw_animated_clouds(self, surface: pygame.Surface):
         """구름 애니메이션 (최적화: 캐시 사용)"""
@@ -480,35 +550,24 @@ class NemesisOceanFrame:
                                (cx, cy), (ex, ey), max(1, 2 - i // 4))
 
     def _draw_warning_lights(self, surface: pygame.Surface):
-        """경고등 깜빡임 (성능 최적화: 6→4개)"""
+        """해치 위 경고등 깜빡임 (장갑 해치의 상태등과 연동)"""
         if self.game_x < 50:
             return
 
         flash = self.warning_flash > 0.5
+        pw = min(45, self.game_x - 25)
 
-        # 좌측 경고등 (2개로 축소)
-        lx = 15 + min(45, self.game_x - 25) // 2
-        for i in range(2):
-            ly = self.game_y + 40 + 18 + i * 28
+        # 좌측 해치 경고등 (녹색 = 정상)
+        lx = 15 + pw // 2
+        ly = self.game_y + 48
+        color = self.COLORS['green_light'] if flash else (25, 60, 30)
+        pygame.draw.circle(surface, (*color, 200), (lx, ly), 3)
 
-            if i == 0:
-                color = self.COLORS['red_light'] if flash else (80, 30, 30)
-            else:
-                color = self.COLORS['green_light']
-
-            pygame.draw.circle(surface, (*color, 255), (lx, ly), 4)
-
-        # 우측 경고등 (2개로 축소)
-        rx = self.screen_width - 15 - min(45, self.game_x - 25) // 2
-        for i in range(2):
-            ry = self.game_y + 40 + 18 + i * 28
-
-            if i == 0:
-                color = self.COLORS['red_light'] if flash else (80, 30, 30)
-            else:
-                color = self.COLORS['green_light']
-
-            pygame.draw.circle(surface, (*color, 255), (rx, ry), 4)
+        # 우측 해치 경고등 (적색 = 손상, 점멸)
+        rx = self.screen_width - 15 - pw // 2
+        ry = self.game_y + 48
+        color = self.COLORS['red_light'] if flash else (60, 20, 15)
+        pygame.draw.circle(surface, (*color, 200), (rx, ry), 3)
 
     def _spawn_foam(self):
         """물거품 생성 (해수면 아래에서만, 성능 최적화: 0.02→0.01, 25→12)"""
