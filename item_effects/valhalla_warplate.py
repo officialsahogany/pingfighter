@@ -42,7 +42,10 @@ class ValhallaWarplateState:
         # 소환 관리
         self.summoning = False        # 현재 소환 중
         self.summon_timer = 0.0       # 소환 후 경과 시간
-        self.dismiss_time = 2.0       # 소환 후 자동 해산 시간 (초)
+        self.skill_fired = False      # 스킬이 한 번 이상 발동되었는지
+        self.post_skill_timer = 0.0   # 스킬 발동 후 경과 시간
+        self.post_skill_linger = 1.5  # 스킬 발동 후 퇴장까지 대기 시간 (초)
+        self.max_summon_time = 8.0    # 스킬 미발동 시 최대 대기 시간 (초)
         self._bodyguard_ref = None    # 사용 중인 InGameBodyguard 참조
         self.summoned_hero_name = ""  # 소환된 영웅 이름 (로그용)
 
@@ -69,6 +72,8 @@ class ValhallaWarplateState:
         self._bodyguard_ref = None
         self.summoning = False
         self.summon_timer = 0.0
+        self.skill_fired = False
+        self.post_skill_timer = 0.0
         self.summoned_hero_name = ""
 
     def try_summon(self) -> bool:
@@ -138,15 +143,39 @@ class ValhallaWarplateState:
             return False
 
     def update(self, dt: float):
-        """매 프레임 업데이트 - 소환 타이머 관리 및 자동 해산"""
+        """매 프레임 업데이트 - 스킬 발동 감지 후 퇴장 관리"""
         if not self.summoning:
             return
 
         self.summon_timer += dt
 
-        # dismiss_time 경과 시 자동 해산
-        if self.summon_timer >= self.dismiss_time:
-            print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 퇴장!")
+        # 스킬 발동 감지: GuardWarriorSystem의 phase가 patrolling이 아니면 스킬 사용 중
+        if not self.skill_fired and self._bodyguard_ref and self._bodyguard_ref._guard_system:
+            gs = self._bodyguard_ref._guard_system
+            phase = getattr(gs, 'phase_bottom', 'patrolling')
+            # patrolling 이외의 phase = 스킬 발동 중 (예: "skill_active", "returning" 등)
+            if phase not in ('patrolling', 'patrol_entering', None) or self.summon_timer > 1.5:
+                # 스킬이 시작되었거나 충분히 시간이 지남
+                if phase not in ('patrolling', 'patrol_entering', None):
+                    self.skill_fired = True
+                    self.post_skill_timer = 0.0
+                    print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 스킬 발동!")
+
+        # 스킬 발동 후: 스킬 애니메이션이 끝나면 (phase가 다시 patrolling) 퇴장 카운트
+        if self.skill_fired:
+            gs = self._bodyguard_ref._guard_system if self._bodyguard_ref and self._bodyguard_ref._guard_system else None
+            phase = getattr(gs, 'phase_bottom', 'patrolling') if gs else 'patrolling'
+            # 스킬 완료 후(patrolling으로 복귀) 대기 시간 카운트
+            if phase in ('patrolling', 'patrol_entering', None):
+                self.post_skill_timer += dt
+            if self.post_skill_timer >= self.post_skill_linger:
+                print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 퇴장!")
+                self._dismiss_bodyguard()
+                return
+
+        # 안전장치: 스킬 미발동 시 최대 대기 후 강제 해산
+        if self.summon_timer >= self.max_summon_time:
+            print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 시간 초과 퇴장!")
             self._dismiss_bodyguard()
 
 
