@@ -35197,15 +35197,7 @@ def _draw_optimus_arm_wall_impact_effects(surface: pygame.Surface) -> None:
 
 # UFO 플레이어 이미지 로드 (기본 이미지)
 try:
-    # 먼저 절대 경로로 시도
-    ufo_path = "/Volumes/T7/윈도우용최신/game/bosspong/ufo_player.png"
-    if os.path.exists(ufo_path):
-        PLAYER_IMG = pygame.image.load(ufo_path).convert_alpha()
-        # print(f"[OK] UFO player image loaded: {ufo_path}")
-    else:
-        # resource_path로 시도
-        PLAYER_IMG = pygame.image.load(resource_path("ufo_player.png")).convert_alpha()
-        # print(f"[OK] UFO player image loaded: resource_path")
+    PLAYER_IMG = pygame.image.load(resource_path("ufo_player.png")).convert_alpha()
     
     PLAYER_IMG = pygame.transform.scale(PLAYER_IMG, (250, 100))  # 세로 늘리기
 except Exception as e:
@@ -121088,8 +121080,13 @@ def _make_arena_fonts():
         font = pixel_font_path
     elif os.path.exists(fallback_font_path):
         font = fallback_font_path
-    elif os.path.exists("C:/Windows/Fonts/malgun.ttf"):
-        font = "C:/Windows/Fonts/malgun.ttf"
+    else:
+        # 시스템 폰트 fallback (크로스플랫폼)
+        for sys_font in ["malgun.ttf", "AppleGothic.ttf", "NanumGothic.ttf"]:
+            sys_path = pygame.font.match_font(sys_font.replace(".ttf", ""))
+            if sys_path and os.path.exists(sys_path):
+                font = sys_path
+                break
     try:
         fonts['large'] = pygame.freetype.Font(font, 32)
         fonts['medium'] = pygame.freetype.Font(font, 24)
