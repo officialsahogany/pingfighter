@@ -622,6 +622,16 @@ class InGameBodyguard:
                 fx['generic_knockback_dir'] = game_state.get('top_paddle_knockback_dir', 1)
                 fx['generic_knockback_vel'] = game_state.get('top_paddle_knockback_vel', 120)
                 game_state['top_paddle_knockback'] = False  # 1회성 신호 소비
+            # 폭탄 서프라이즈 넉백 (프레임 기반 지속 넉백)
+            if game_state.get('top_paddle_bomb_kb_active', False):
+                fx['bomb_kb_active'] = True
+                fx['bomb_kb_dir'] = game_state.get('top_paddle_bomb_kb_dir', 0)
+                fx['bomb_kb_vel'] = game_state.get('top_paddle_bomb_kb_vel', 0)
+                fx['bomb_kb_frames'] = game_state.get('top_paddle_bomb_kb_frames', 0)
+            # 스턴 (폭탄 서프라이즈 등) - 1회성 소비!
+            _stun = game_state.pop('top_paddle_stunned', False)
+            if _stun:
+                fx['stun_frames'] = 90  # 1.5초
             # 감전 (천둥 뇌구)
             if game_state.get('top_paddle_electric_stun', False):
                 fx['electric_stun'] = True
