@@ -507,14 +507,17 @@ class ValhallaWarplateState:
     def _play_sound(self, filename, volume=0.7):
         """사운드 재생 헬퍼"""
         try:
-            from core.constants import resource_path
-            path = resource_path(os.path.join("sounds", filename))
+            # 프로젝트 루트 기준 경로 (다른 스킬과 동일 방식)
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            path = os.path.join(project_root, "sounds", filename)
             if os.path.exists(path):
                 snd = pygame.mixer.Sound(path)
                 snd.set_volume(volume)
                 snd.play()
-        except Exception:
-            pass
+            else:
+                print(f"[WARN] 사운드 파일 없음: {path}")
+        except Exception as e:
+            print(f"[WARN] 사운드 재생 실패 ({filename}): {e}")
 
     def _spawn_portal_swirl(self, chance):
         """소용돌이 파티클 생성 (매혹과 동일 구조)"""
