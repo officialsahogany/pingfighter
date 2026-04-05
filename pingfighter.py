@@ -107775,15 +107775,6 @@ def draw_objects():
             # 👁 오딘의 눈 어둠 파편 그리기
             if odins_eye and len(getattr(odins_eye, 'dark_fragments', [])) > 0:
                 odins_eye.draw_dark_fragments(SCREEN)
-            # ⚔ 발할라의 전갑: 드로잉은 InGameBodyguard 시스템이 자체 처리
-            # ⚔ 발할라의 전갑: 소환 컷신 오버레이 (렌더링 최상단에 그리기)
-            try:
-                from item_effects.valhalla_warplate import get_valhalla_warplate_state
-                _vw_render = get_valhalla_warplate_state()
-                if _vw_render.is_cutscene_active:
-                    _vw_render.draw_cutscene(SCREEN)
-            except Exception:
-                pass
     except:
         pass
 
@@ -162864,15 +162855,6 @@ def main(stage_num, new_boss_mode=False):
                 pass
             freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture or freeze_valhalla
 
-            # ⚔ 발할라의 전갑: 컷신 업데이트 + 드로잉 (freeze 중에도 실행)
-            if freeze_valhalla:
-                try:
-                    _vw_cutscene = get_valhalla_warplate_state()
-                    _vw_cutscene.update(1.0 / 60.0)
-                    _vw_cutscene.draw_cutscene(SCREEN)
-                except Exception:
-                    pass
-
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
                 _arena_guard_tutorial_delay_frames -= arena_speed_multiplier
@@ -169070,6 +169052,18 @@ def show_character_info(background_surface=None):
         # 투기장 포획 튜토리얼 오버레이
         if arena_mode_enabled and _arena_capture_tutorial_active:
             _draw_arena_capture_tutorial()
+
+        # ⚔ 발할라 컷신은 실제 프레임 마지막에 그려야 다른 오브젝트/UI에 덮이지 않는다.
+        try:
+            from item_effects.valhalla_warplate import get_valhalla_warplate_state
+            _vw_overlay = get_valhalla_warplate_state()
+            if _vw_overlay.is_cutscene_active:
+                _vw_overlay.update(1.0 / 60.0)
+                _vw_overlay.draw_cutscene(SCREEN)
+        except Exception as _vw_err:
+            if _vw_err:
+                print(f"[WARN] 발할라 컷신 렌더 오류: {_vw_err}")
+
 
         pygame.display.flip()
         for event in pygame.event.get():
