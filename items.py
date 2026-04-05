@@ -2409,7 +2409,7 @@ def spawn_random_item():
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
-        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
+        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin",
         "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
         "venom_mist_gauntlet", "dowsing_goggles"
     }
