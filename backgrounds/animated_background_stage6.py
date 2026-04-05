@@ -274,30 +274,42 @@ class AnimatedBackgroundStage6:
         s1w = int(w * 0.15)   # 넓은 선체
         s1y = 36              # 수선(워터라인)
 
-        # 선체 (선수가 약간 솟은 형태, 선미는 평평)
+        # 선체 (날카로운 선수 + 유기적 곡선 라인)
         pygame.draw.polygon(surf, hull_near, [
-            (s1x - 6, s1y),                   # 선수 끝 (뾰족하게)
-            (s1x + 8, s1y - 3),               # 선수 상단 (살짝 올라감)
-            (s1x + s1w, s1y - 1),             # 선미 상단 (평갑판)
-            (s1x + s1w + 3, s1y + 2),         # 선미 끝
-            (s1x + s1w - 5, s1y + 10),        # 선미 하단
-            (s1x + 3, s1y + 10),              # 선수 하단
+            (s1x - 10, s1y + 2),              # 선수 끝 (더 뾰족하게 연장)
+            (s1x - 2, s1y - 1),               # 선수 이음부 (곡선감)
+            (s1x + 12, s1y - 4),              # 선수 상단 (높이 강조)
+            (s1x + s1w - 5, s1y - 2),         # 갑판 후방 (살짝 낮아짐)
+            (s1x + s1w, s1y),                 # 선미 상단
+            (s1x + s1w + 2, s1y + 3),         # 선미 끝 (트랜섬)
+            (s1x + s1w - 8, s1y + 9),         # 선미 하단
+            (s1x + 5, s1y + 9),               # 선저
+            (s1x - 4, s1y + 5),               # 선수 하단 (V형)
         ])
-        # 갑판선 (수평 강조)
+        # 갑판선 (선수 솟음 → 선미 수평으로 이어지는 자연스러운 라인)
         pygame.draw.line(surf, detail,
-                        (s1x + 8, s1y - 2), (s1x + s1w, s1y - 1), 1)
+                        (s1x + 12, s1y - 3), (s1x + s1w - 5, s1y - 2), 1)
+        # 흘수선 (워터라인 - 선체에 무게감)
+        pygame.draw.line(surf, (24, 19, 34, 35),
+                        (s1x - 2, s1y + 4), (s1x + s1w, s1y + 3), 1)
 
-        # 브리지 타워 (함 중앙 약간 뒤쪽, 3단 구조)
+        # 브리지 타워 (함 중앙 약간 뒤쪽, 3단 구조 - 경사면으로 세련되게)
         bx = s1x + int(s1w * 0.35)
-        # 1단: 넓은 기저부
+        # 1단: 기저부 (경사진 사다리꼴)
         pygame.draw.polygon(surf, hull_near, [
-            (bx, s1y - 3), (bx + 18, s1y - 3),
-            (bx + 16, s1y - 12), (bx + 2, s1y - 12),
+            (bx - 1, s1y - 3), (bx + 20, s1y - 3),
+            (bx + 17, s1y - 13), (bx + 2, s1y - 13),
         ])
-        # 2단: 좁은 중간층
-        pygame.draw.rect(surf, detail, (bx + 4, s1y - 20, 10, 8))
-        # 3단: 레이더 하우스
-        pygame.draw.rect(surf, detail, (bx + 6, s1y - 25, 6, 5))
+        # 2단: 중간층 (더 좁은 경사)
+        pygame.draw.polygon(surf, detail, [
+            (bx + 3, s1y - 13), (bx + 16, s1y - 13),
+            (bx + 14, s1y - 21), (bx + 5, s1y - 21),
+        ])
+        # 3단: 레이더 하우스 (경사 캡)
+        pygame.draw.polygon(surf, detail, [
+            (bx + 6, s1y - 21), (bx + 13, s1y - 21),
+            (bx + 11, s1y - 26), (bx + 7, s1y - 26),
+        ])
 
         # 메인 마스트 (브리지 위)
         mast_x = bx + 9
@@ -463,13 +475,28 @@ class AnimatedBackgroundStage6:
         ]
         pygame.draw.polygon(surf, self.gunmetal_light, upper_pts)
         pygame.draw.polygon(surf, self.gunmetal_edge, upper_pts, 1)
+        # 상층 데크 시안 네온 엣지 (메인 데크와 구분 강화)
+        pygame.draw.line(surf, (*self.cyan_accent, 80),
+                        upper_pts[0], upper_pts[1], 1)
 
-        # --- 관중석 실루엣 범프 ---
+        # --- 관중석 실루엣 범프 (더 촘촘하고 다양한 높이) ---
         crowd_y = base_y - deck_h // 2 - upper_h
-        for i in range(12):
-            bx = upper_x + 15 + i * ((upper_w - 30) // 12)
-            bh = random.randint(3, 6)
-            pygame.draw.rect(surf, (25, 28, 40), (bx, crowd_y - bh, 4, bh))
+        for i in range(16):
+            bx = upper_x + 12 + i * ((upper_w - 24) // 16)
+            bh = random.randint(2, 7)
+            bw = random.choice([3, 4, 5])
+            pygame.draw.rect(surf, (25, 28, 40), (bx, crowd_y - bh, bw, bh))
+
+        # --- 상부 장갑판 디테일 (데크 면에 구조 라인) ---
+        # 메인 데크 상단 경계에 얇은 수평 라인 2개 (갑판 세그먼트)
+        seg_y = base_y - deck_h // 2 + 3
+        seg_left = deck_x + deck_inset + 10
+        seg_right = deck_x + deck_w - deck_inset - 10
+        seg_mid = (seg_left + seg_right) // 2
+        pygame.draw.line(surf, (*self.gunmetal_edge, 100),
+                        (seg_left, seg_y), (seg_mid - 15, seg_y), 1)
+        pygame.draw.line(surf, (*self.gunmetal_edge, 100),
+                        (seg_mid + 15, seg_y), (seg_right, seg_y), 1)
 
         # --- 좌측 안테나 타워 (정상) ---
         tower_h = 45
@@ -821,7 +848,7 @@ class AnimatedBackgroundStage6:
 
     def _update_fire_lines(self):
         """미드필드 라인 불꽃 파티클 생성/업데이트"""
-        if random.random() < 0.2:  # 낮춘 스폰율 (기존 0.3)
+        if random.random() < 0.15:  # 더 낮춘 스폰율 (0.3→0.2→0.15)
             angle = random.uniform(0, math.pi * 2)
             x = self.cx + math.cos(angle) * self.center_circle_radius
             y = self.stadium_line_y + math.sin(angle) * self.center_circle_radius
@@ -842,7 +869,7 @@ class AnimatedBackgroundStage6:
 
     def _create_fire_particle(self, x, y):
         """불꽃 파티클 생성 (최대 80개, 기존 100에서 축소)"""
-        if len(self.fire_line_particles) < 80:
+        if len(self.fire_line_particles) < 60:  # 최대 60개 (80→60)
             self.fire_line_particles.append({
                 'x': x, 'y': y,
                 'vx': random.uniform(-0.4, 0.4),
@@ -855,7 +882,7 @@ class AnimatedBackgroundStage6:
 
     def _draw_fire_lines(self, screen):
         """불타는 미드필드 라인 + 글로우 (아레나를 압도하지 않도록 절제)"""
-        glow = (math.sin(self.fire_glow_phase) + 1) * 0.25 + 0.35  # 0.35~0.85
+        glow = (math.sin(self.fire_glow_phase) + 1) * 0.2 + 0.25  # 0.25~0.65 (더 은은하게)
 
         # 센터 서클 글로우 (기존 3겹 → 2겹)
         for i in range(2):
