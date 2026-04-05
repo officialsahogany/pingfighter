@@ -184,6 +184,17 @@ class AnimatedBackgroundStage6:
         self.radar_speed = 0.02
 
         # ------------------------------------------------------------------
+        #  맥동 비컨 + 함선 점멸등
+        # ------------------------------------------------------------------
+        self.beacon_phase = 0.0        # 중앙 타워 붉은 비컨 맥동
+        self.ship_light_phase = 0.0    # 원경 함선 점멸등
+
+        # ------------------------------------------------------------------
+        #  수면 반사 서피스 (사전 할당)
+        # ------------------------------------------------------------------
+        self._reflection_surface = pygame.Surface((width, 30), pygame.SRCALPHA)
+
+        # ------------------------------------------------------------------
         #  홀로그램 스캔라인
         # ------------------------------------------------------------------
         self.scanline_offset = 0
@@ -338,7 +349,7 @@ class AnimatedBackgroundStage6:
             bh = random.randint(3, 6)
             pygame.draw.rect(surf, (25, 28, 40), (bx, crowd_y - bh, 4, bh))
 
-        # --- 안테나 타워 (양쪽) ---
+        # --- 좌측 안테나 타워 (정상) ---
         tower_h = 45
         lt_x = deck_x + 20
         lt_base_y = base_y - deck_h // 2 - upper_h
@@ -349,34 +360,69 @@ class AnimatedBackgroundStage6:
                         (lt_x + 5, lt_base_y - tower_h + 10), 1)
         pygame.draw.circle(surf, self.cyan_accent, (lt_x, lt_base_y - tower_h), 2)
 
+        # --- 우측 안테나 타워 (파손 - 비대칭) ---
         rt_x = deck_x + deck_w - 20
+        broken_tower_h = 30  # 꺾인 높이 (기존 45에서 축소)
+        # 본체 (꺾인 지점까지만)
         pygame.draw.line(surf, self.gunmetal_edge,
-                        (rt_x, lt_base_y), (rt_x, lt_base_y - tower_h), 2)
-        pygame.draw.line(surf, self.gunmetal_edge,
-                        (rt_x - 5, lt_base_y - tower_h + 10),
-                        (rt_x + 5, lt_base_y - tower_h + 10), 1)
-        pygame.draw.circle(surf, self.cyan_accent, (rt_x, lt_base_y - tower_h), 2)
+                        (rt_x, lt_base_y), (rt_x, lt_base_y - broken_tower_h), 2)
+        # 꺾인 상단 (15도 기울어짐)
+        broken_tip_x = rt_x + 8
+        broken_tip_y = lt_base_y - broken_tower_h - 10
+        pygame.draw.line(surf, (40, 40, 55),
+                        (rt_x, lt_base_y - broken_tower_h),
+                        (broken_tip_x, broken_tip_y), 2)
+        # 파손 파편 (작은 선 조각들)
+        pygame.draw.line(surf, (35, 35, 50),
+                        (rt_x + 2, lt_base_y - broken_tower_h + 3),
+                        (rt_x + 6, lt_base_y - broken_tower_h - 2), 1)
+        # 꺾인 부분 불꽃 (주황 점)
+        pygame.draw.circle(surf, (200, 80, 30), (rt_x, lt_base_y - broken_tower_h), 2)
 
-        # --- 중앙 안테나 (더 높은 메인 레이더 마스트) ---
-        center_tower_h = 55
+        # --- 중앙 안테나 (더 높고 극적인 메인 레이더 마스트) ---
+        center_tower_h = 70  # 기존 55 → 70 (더 극적)
         ct_base_y = base_y - deck_h // 2 - upper_h
+        # 하단 두꺼운 기둥
         pygame.draw.line(surf, self.gunmetal_edge,
-                        (self.cx, ct_base_y), (self.cx, ct_base_y - center_tower_h), 2)
-        dish_y = ct_base_y - center_tower_h + 8
+                        (self.cx, ct_base_y), (self.cx, ct_base_y - 25), 3)
+        # 상단 가느다란 마스트
+        pygame.draw.line(surf, self.gunmetal_edge,
+                        (self.cx, ct_base_y - 25), (self.cx, ct_base_y - center_tower_h), 2)
+        # 레이더 디쉬 (더 큰 삼각형)
+        dish_y = ct_base_y - center_tower_h + 10
         pygame.draw.polygon(surf, self.gunmetal_edge, [
-            (self.cx - 8, dish_y),
-            (self.cx + 8, dish_y),
-            (self.cx, dish_y - 6),
+            (self.cx - 12, dish_y),
+            (self.cx + 12, dish_y),
+            (self.cx, dish_y - 8),
         ])
-        pygame.draw.circle(surf, (255, 60, 40), (self.cx, ct_base_y - center_tower_h), 2)
+        # 중간 크로스바 (구조적 디테일)
+        cross_y = ct_base_y - 40
+        pygame.draw.line(surf, self.gunmetal_edge,
+                        (self.cx - 10, cross_y), (self.cx + 10, cross_y), 1)
+        # 비컨 위치 저장 (draw에서 맥동 애니메이션)
+        self._beacon_x = self.cx
+        self._beacon_local_y = ct_base_y - center_tower_h
 
-        # --- 하부 지지대 (데크 아래 수중으로) ---
+        # --- 하부 구조 (무게감 보강) ---
         strut_count = 5
+        deck_bottom_y = base_y + deck_h // 2
+        # 메인 지지대 (두꺼운)
         for i in range(strut_count):
             sx = deck_x + (deck_w // (strut_count + 1)) * (i + 1)
             pygame.draw.line(surf, (20, 25, 40, 150),
-                           (sx, base_y + deck_h // 2),
-                           (sx, base_y + deck_h // 2 + 25), 2)
+                           (sx, deck_bottom_y),
+                           (sx, deck_bottom_y + 30), 2)
+        # 하부 가로 빔 (지지대 연결)
+        pygame.draw.line(surf, (25, 30, 45, 120),
+                        (deck_x + 30, deck_bottom_y + 15),
+                        (deck_x + deck_w - 30, deck_bottom_y + 15), 1)
+        # 하부 외곽 X자 보강재
+        pygame.draw.line(surf, (20, 25, 40, 80),
+                        (deck_x + 40, deck_bottom_y),
+                        (deck_x + deck_w // 2 - 10, deck_bottom_y + 28), 1)
+        pygame.draw.line(surf, (20, 25, 40, 80),
+                        (deck_x + deck_w - 40, deck_bottom_y),
+                        (deck_x + deck_w // 2 + 10, deck_bottom_y + 28), 1)
 
         # --- 네온 패널 악센트 (데크 면 얇은 수평 스트립) ---
         panel_y = base_y + 2
@@ -402,6 +448,8 @@ class AnimatedBackgroundStage6:
         self.time += 1
         self.fire_glow_phase += 0.04
         self.radar_angle += self.radar_speed
+        self.beacon_phase += 0.08       # 비컨 맥동 (불꽃보다 빠르게)
+        self.ship_light_phase += 0.05   # 함선 점멸등
         self.scanline_offset = (self.scanline_offset + 1) % self.height
 
         # 배경 파도
@@ -440,6 +488,9 @@ class AnimatedBackgroundStage6:
         self._draw_clouds(screen)
         screen.blit(self._haze_surface, (0, self.cy - 20))
 
+        # 함선 점멸등 (원경 위에 미세 애니메이션)
+        self._draw_ship_lights(screen)
+
         # 수평선 (은은하고 따뜻한)
         pygame.draw.line(screen, (*self.horizon_color, 180),
                         (0, self.cy), (self.width, self.cy), 1)
@@ -451,7 +502,9 @@ class AnimatedBackgroundStage6:
         # 플랫폼
         platform_y = self.cy - self._platform_surface.get_height() // 2 + 30
         self._draw_platform_shadow(screen, platform_y)
+        self._draw_water_reflection(screen, platform_y)
         screen.blit(self._platform_surface, (0, platform_y))
+        self._draw_beacon(screen, platform_y)
         self._draw_radar_sweep(screen, platform_y)
 
         # 불꽃 라인 (절제된 - 플랫폼 위에 그리되 지배적이지 않게)
@@ -541,6 +594,63 @@ class AnimatedBackgroundStage6:
                         (int(origin_x), int(origin_y)),
                         (int(end_x), int(end_y)), 1)
         screen.blit(sweep_surface, (0, 0))
+
+    def _draw_beacon(self, screen, platform_y):
+        """중앙 타워 꼭대기 붉은 비컨 맥동 애니메이션"""
+        beacon_x = self._beacon_x
+        beacon_y = platform_y + self._beacon_local_y
+        # 맥동 강도 (0.3 ~ 1.0)
+        intensity = (math.sin(self.beacon_phase) + 1) * 0.35 + 0.3
+        # 외곽 글로우 (큰 원, 낮은 알파)
+        glow_r = int(6 * intensity)
+        glow_alpha = int(40 * intensity)
+        gs = _get_cached_surface(glow_r * 2 + 4, glow_r * 2 + 4)
+        pygame.draw.circle(gs, (255, 40, 20, glow_alpha),
+                         (glow_r + 2, glow_r + 2), glow_r)
+        screen.blit(gs, (beacon_x - glow_r - 2, beacon_y - glow_r - 2))
+        # 코어 (밝은 점)
+        core_r = max(1, int(2 * intensity))
+        core_color = (255, int(60 + 80 * intensity), int(20 + 30 * intensity))
+        pygame.draw.circle(screen, core_color, (beacon_x, int(beacon_y)), core_r)
+
+    def _draw_ship_lights(self, screen):
+        """원경 함선 점멸등 (미세 애니메이션)"""
+        ship_y = self.cy - 60  # _ship_surface blit 위치와 동일
+        w = self.width
+        # 각 함선에 다른 위상의 점멸등
+        lights = [
+            # (x비율, y_offset, 위상차, 색상)
+            (0.12 + 0.04, 35 - 25, 0.0, (255, 200, 100)),    # 함선1 브릿지 등
+            (0.12 + 0.08, 35, 1.5, (255, 50, 30)),           # 함선1 우현등 (적색)
+            (0.75 + 0.03, 38 - 12, 2.8, (255, 200, 100)),    # 함선2 브릿지 등
+            (0.91, 34, 4.0, (100, 255, 100)),                 # 함선3 항해등 (녹색)
+        ]
+        for x_ratio, y_off, phase_off, color in lights:
+            alpha = (math.sin(self.ship_light_phase + phase_off) + 1) * 0.5
+            if alpha > 0.6:  # 60% 이상일 때만 표시 (점멸 효과)
+                lx = int(w * x_ratio)
+                ly = ship_y + y_off
+                a = int(25 * alpha)
+                pygame.draw.circle(screen, (*color, a), (lx, ly), 2)
+
+    def _draw_water_reflection(self, screen, platform_y):
+        """플랫폼 하부 수면 반사 (청록 + 주황 얇은 반사광)"""
+        self._reflection_surface.fill(self._transparent)
+        base_y = self._platform_base_y_local + self._platform_deck_h // 2
+        reflect_y = platform_y + base_y + 35
+        ref_w = int(self.width * 0.4)
+        ref_x = (self.width - ref_w) // 2
+        # 청록 반사 (네온 패널에서)
+        flicker = (math.sin(self.time * 0.03) + 1) * 0.3 + 0.4
+        cyan_a = int(12 * flicker)
+        pygame.draw.ellipse(self._reflection_surface, (0, 160, 200, cyan_a),
+                          (ref_x, 5, ref_w, 15))
+        # 주황/앰버 반사 (파손 부분 불꽃에서)
+        orange_a = int(8 * flicker)
+        orange_x = ref_x + ref_w * 2 // 3
+        pygame.draw.ellipse(self._reflection_surface, (200, 100, 40, orange_a),
+                          (orange_x, 8, ref_w // 4, 10))
+        screen.blit(self._reflection_surface, (0, reflect_y))
 
     def _draw_scanlines(self, screen):
         """은은한 수평 홀로그램 간섭 라인"""
