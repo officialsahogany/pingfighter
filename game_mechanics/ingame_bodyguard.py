@@ -342,6 +342,9 @@ class InGameBodyguard:
         """
         self.hero_data = hero_data
         self.active = True
+        # 발할라 전갑 플래그 초기화 (이전 소환 잔여물 제거)
+        self._valhalla_dismissed = False
+        self._valhalla_portal_moving = False
 
         # 등장 대사 설정 (영웅이 먼저 말하고, 호위무사가 등장 후 말함)
         hero_id = hero_data.get("id", "")
@@ -435,6 +438,9 @@ class InGameBodyguard:
         self._entrance_hero_line = None
         self._entrance_hero_timer = 0.0
         self._entrance_guard_line = None
+        # 발할라 전갑 플래그 초기화 (인장과 충돌 방지)
+        self._valhalla_dismissed = False
+        self._valhalla_portal_moving = False
 
     def dismiss_keep_skills(self):
         """호위무사 캐릭터만 퇴장시키고 활성 스킬 이펙트는 유지.
