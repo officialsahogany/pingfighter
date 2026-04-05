@@ -430,42 +430,109 @@ class AnimatedBackgroundStage6:
         }
 
     def _init_platform_static(self):
-        """다층 데크 아레나 플랫폼 정적 사전 렌더링"""
+        """다층 데크 아레나 플랫폼 정적 사전 렌더링 (섬세한 다단 렌더링)"""
         surf = self._platform_surface
         surf.fill(self._transparent)
         w = self.width
 
-        base_y = surf.get_height() // 2  # 플랫폼 서피스 중앙
-        deck_w = int(w * 0.55)           # 메인 데크 폭
-        deck_x = (w - deck_w) // 2       # 중앙 정렬
+        # 색상 단축 참조
+        gm = self.gunmetal           # (30, 35, 50)
+        gml = self.gunmetal_light    # (45, 50, 65)
+        gme = self.gunmetal_edge     # (55, 60, 75)
+        # 추가 명암 색상 (하이라이트/그림자)
+        highlight = (70, 75, 90)     # 빛 받는 면
+        shadow = (18, 22, 35)        # 그림자 면
+        deep_shadow = (12, 15, 25)   # 깊은 그림자
 
-        upper_w = int(w * 0.38)          # 상층 데크 폭
+        base_y = surf.get_height() // 2
+        deck_w = int(w * 0.55)
+        deck_x = (w - deck_w) // 2
+        upper_w = int(w * 0.38)
         upper_x = (w - upper_w) // 2
-
-        ring_w = int(w * 0.65)           # 외곽 링 폭
+        ring_w = int(w * 0.65)
         ring_x = (w - ring_w) // 2
 
-        # --- 외곽 링 (아레나 주변 타원형 프레임) ---
-        pygame.draw.ellipse(surf, self.gunmetal_edge,
+        # =============================================================
+        #  외곽 링 (다층 타원 — 두께감 있게)
+        # =============================================================
+        # 그림자 링 (아래쪽)
+        pygame.draw.ellipse(surf, (*shadow, 40),
+                          (ring_x - 2, base_y - 5, ring_w + 4, 34), 2)
+        # 메인 링
+        pygame.draw.ellipse(surf, (*gme, 180),
                           (ring_x, base_y - 8, ring_w, 30), 2)
-        pygame.draw.ellipse(surf, (*self.cyan_dim, 60),
-                          (ring_x + 2, base_y - 6, ring_w - 4, 26), 1)
+        # 하이라이트 링 (위쪽)
+        pygame.draw.ellipse(surf, (*highlight, 50),
+                          (ring_x + 3, base_y - 9, ring_w - 6, 28), 1)
+        # 시안 악센트 (안쪽)
+        pygame.draw.ellipse(surf, (*self.cyan_dim, 40),
+                          (ring_x + 5, base_y - 6, ring_w - 10, 24), 1)
 
-        # --- 메인 데크 (원근감을 위한 사다리꼴) ---
+        # =============================================================
+        #  메인 데크 (3레이어: 그림자 → 본체 → 상면 하이라이트)
+        # =============================================================
         deck_inset = 15
         deck_h = 28
+        # 레이어1: 그림자 (본체보다 약간 크고 아래로)
+        shadow_pts = [
+            (deck_x + deck_inset - 2, base_y - deck_h // 2 + 2),
+            (deck_x + deck_w - deck_inset + 2, base_y - deck_h // 2 + 2),
+            (deck_x + deck_w + 3, base_y + deck_h // 2 + 3),
+            (deck_x - 3, base_y + deck_h // 2 + 3),
+        ]
+        pygame.draw.polygon(surf, (*deep_shadow, 100), shadow_pts)
+
+        # 레이어2: 본체 (메인 색)
         deck_pts = [
             (deck_x + deck_inset, base_y - deck_h // 2),
             (deck_x + deck_w - deck_inset, base_y - deck_h // 2),
             (deck_x + deck_w, base_y + deck_h // 2),
             (deck_x, base_y + deck_h // 2),
         ]
-        pygame.draw.polygon(surf, self.gunmetal, deck_pts)
-        pygame.draw.polygon(surf, self.gunmetal_edge, deck_pts, 1)
-        pygame.draw.line(surf, (*self.cyan_accent, 120),
-                        deck_pts[0], deck_pts[1], 1)
+        pygame.draw.polygon(surf, gm, deck_pts)
 
-        # --- 상층 데크 (좁은 계층) ---
+        # 레이어3: 상면 (약간 밝은 톤으로 갑판 표면 느낌)
+        top_surface_pts = [
+            (deck_x + deck_inset, base_y - deck_h // 2),
+            (deck_x + deck_w - deck_inset, base_y - deck_h // 2),
+            (deck_x + deck_w - 8, base_y - 2),
+            (deck_x + 8, base_y - 2),
+        ]
+        pygame.draw.polygon(surf, (35, 40, 55), top_surface_pts)
+
+        # 레이어4: 전면 (아래쪽 사다리꼴 — 더 어두운 톤)
+        front_pts = [
+            (deck_x + 8, base_y - 2),
+            (deck_x + deck_w - 8, base_y - 2),
+            (deck_x + deck_w, base_y + deck_h // 2),
+            (deck_x, base_y + deck_h // 2),
+        ]
+        pygame.draw.polygon(surf, (22, 27, 40), front_pts)
+
+        # 엣지 라인 (상단 밝은 엣지)
+        pygame.draw.line(surf, (*highlight, 120),
+                        deck_pts[0], deck_pts[1], 1)
+        # 하단 어두운 엣지
+        pygame.draw.line(surf, (*shadow, 150),
+                        deck_pts[3], deck_pts[2], 1)
+        # 좌측 엣지 (빛 방향)
+        pygame.draw.line(surf, (*gme, 80), deck_pts[0], deck_pts[3], 1)
+        # 우측 엣지 (그림자)
+        pygame.draw.line(surf, (*shadow, 80), deck_pts[1], deck_pts[2], 1)
+        # 시안 네온 (상단 엣지만, 얇게)
+        pygame.draw.line(surf, (*self.cyan_accent, 100),
+                        (deck_pts[0][0] + 5, deck_pts[0][1]),
+                        (deck_pts[1][0] - 5, deck_pts[1][1]), 1)
+
+        # 갑판 디테일 (판넬 이음새 2개 — 상면에)
+        for offset in [0.3, 0.65]:
+            sx = int(deck_x + deck_inset + (deck_w - 2 * deck_inset) * offset)
+            pygame.draw.line(surf, (*shadow, 40),
+                           (sx, base_y - deck_h // 2 + 2), (sx - 4, base_y - 3), 1)
+
+        # =============================================================
+        #  상층 데크 (명암 분리)
+        # =============================================================
         upper_h = 12
         upper_pts = [
             (upper_x + 8, base_y - deck_h // 2 - upper_h),
@@ -473,116 +540,218 @@ class AnimatedBackgroundStage6:
             (upper_x + upper_w, base_y - deck_h // 2),
             (upper_x, base_y - deck_h // 2),
         ]
-        pygame.draw.polygon(surf, self.gunmetal_light, upper_pts)
-        pygame.draw.polygon(surf, self.gunmetal_edge, upper_pts, 1)
-        # 상층 데크 시안 네온 엣지 (메인 데크와 구분 강화)
-        pygame.draw.line(surf, (*self.cyan_accent, 80),
-                        upper_pts[0], upper_pts[1], 1)
+        # 상면 (밝은 톤)
+        upper_top_pts = [
+            upper_pts[0], upper_pts[1],
+            (upper_x + upper_w - 3, base_y - deck_h // 2 - 3),
+            (upper_x + 3, base_y - deck_h // 2 - 3),
+        ]
+        pygame.draw.polygon(surf, gml, upper_top_pts)
+        # 전면 (어두운 톤)
+        upper_front_pts = [
+            (upper_x + 3, base_y - deck_h // 2 - 3),
+            (upper_x + upper_w - 3, base_y - deck_h // 2 - 3),
+            upper_pts[2], upper_pts[3],
+        ]
+        pygame.draw.polygon(surf, gm, upper_front_pts)
+        # 엣지
+        pygame.draw.line(surf, (*highlight, 80), upper_pts[0], upper_pts[1], 1)
+        pygame.draw.line(surf, (*shadow, 60), upper_pts[3], upper_pts[2], 1)
+        # 시안 네온 (상단)
+        pygame.draw.line(surf, (*self.cyan_accent, 60),
+                        (upper_pts[0][0] + 3, upper_pts[0][1]),
+                        (upper_pts[1][0] - 3, upper_pts[1][1]), 1)
 
-        # --- 관중석 실루엣 범프 (더 촘촘하고 다양한 높이) ---
+        # =============================================================
+        #  관중석 (rect 대신 작은 polygon — 머리+어깨 실루엣)
+        # =============================================================
         crowd_y = base_y - deck_h // 2 - upper_h
-        for i in range(16):
-            bx = upper_x + 12 + i * ((upper_w - 24) // 16)
-            bh = random.randint(2, 7)
-            bw = random.choice([3, 4, 5])
-            pygame.draw.rect(surf, (25, 28, 40), (bx, crowd_y - bh, bw, bh))
+        for i in range(20):
+            bx = upper_x + 10 + i * ((upper_w - 20) // 20)
+            bh = 3 + (i * 7 + 3) % 5  # 결정적 높이
+            # 어깨 (넓은 아래) + 머리 (좁은 위)
+            pygame.draw.rect(surf, (22, 25, 38), (bx, crowd_y - bh + 2, 3, bh - 2))
+            pygame.draw.rect(surf, (20, 23, 35), (bx, crowd_y - bh, 2, 2))
 
-        # --- 상부 장갑판 디테일 (데크 면에 구조 라인) ---
-        # 메인 데크 상단 경계에 얇은 수평 라인 2개 (갑판 세그먼트)
-        seg_y = base_y - deck_h // 2 + 3
-        seg_left = deck_x + deck_inset + 10
-        seg_right = deck_x + deck_w - deck_inset - 10
-        seg_mid = (seg_left + seg_right) // 2
-        pygame.draw.line(surf, (*self.gunmetal_edge, 100),
-                        (seg_left, seg_y), (seg_mid - 15, seg_y), 1)
-        pygame.draw.line(surf, (*self.gunmetal_edge, 100),
-                        (seg_mid + 15, seg_y), (seg_right, seg_y), 1)
-
-        # --- 좌측 안테나 타워 (정상) ---
+        # =============================================================
+        #  좌측 안테나 타워 (사다리꼴 기둥 + 명암)
+        # =============================================================
         tower_h = 45
         lt_x = deck_x + 20
-        lt_base_y = base_y - deck_h // 2 - upper_h
-        pygame.draw.line(surf, self.gunmetal_edge,
-                        (lt_x, lt_base_y), (lt_x, lt_base_y - tower_h), 2)
-        pygame.draw.line(surf, self.gunmetal_edge,
-                        (lt_x - 5, lt_base_y - tower_h + 10),
-                        (lt_x + 5, lt_base_y - tower_h + 10), 1)
-        pygame.draw.circle(surf, self.cyan_accent, (lt_x, lt_base_y - tower_h), 2)
+        lt_base_y = crowd_y
+        # 기둥 본체 (사다리꼴 — 아래 넓고 위 좁게)
+        pygame.draw.polygon(surf, gme, [
+            (lt_x - 2, lt_base_y),
+            (lt_x + 2, lt_base_y),
+            (lt_x + 1, lt_base_y - tower_h),
+            (lt_x - 1, lt_base_y - tower_h),
+        ])
+        # 좌측 하이라이트
+        pygame.draw.line(surf, (*highlight, 80),
+                        (lt_x - 2, lt_base_y), (lt_x - 1, lt_base_y - tower_h), 1)
+        # 우측 그림자
+        pygame.draw.line(surf, (*shadow, 60),
+                        (lt_x + 2, lt_base_y), (lt_x + 1, lt_base_y - tower_h), 1)
+        # 크로스바
+        pygame.draw.line(surf, gme,
+                        (lt_x - 6, lt_base_y - tower_h + 10),
+                        (lt_x + 6, lt_base_y - tower_h + 10), 1)
+        # 크로스바 하이라이트
+        pygame.draw.line(surf, (*highlight, 40),
+                        (lt_x - 6, lt_base_y - tower_h + 9),
+                        (lt_x + 6, lt_base_y - tower_h + 9), 1)
+        # 시안 등대
+        pygame.draw.circle(surf, (*self.cyan_accent, 200), (lt_x, lt_base_y - tower_h), 2)
+        pygame.draw.circle(surf, (*self.cyan_accent, 60), (lt_x, lt_base_y - tower_h), 4)
 
-        # --- 우측 안테나 타워 (파손 - 비대칭) ---
+        # =============================================================
+        #  우측 안테나 타워 (파손 — 꺾인 기둥 + 그림자 + 파편)
+        # =============================================================
         rt_x = deck_x + deck_w - 20
-        broken_tower_h = 30  # 꺾인 높이 (기존 45에서 축소)
-        # 본체 (꺾인 지점까지만)
-        pygame.draw.line(surf, self.gunmetal_edge,
-                        (rt_x, lt_base_y), (rt_x, lt_base_y - broken_tower_h), 2)
-        # 꺾인 상단 (15도 기울어짐)
-        broken_tip_x = rt_x + 8
-        broken_tip_y = lt_base_y - broken_tower_h - 10
-        pygame.draw.line(surf, (40, 40, 55),
-                        (rt_x, lt_base_y - broken_tower_h),
-                        (broken_tip_x, broken_tip_y), 2)
-        # 파손 파편 (작은 선 조각들)
-        pygame.draw.line(surf, (35, 35, 50),
-                        (rt_x + 2, lt_base_y - broken_tower_h + 3),
-                        (rt_x + 6, lt_base_y - broken_tower_h - 2), 1)
-        # 꺾인 부분 불꽃 (주황 점)
-        pygame.draw.circle(surf, (200, 80, 30), (rt_x, lt_base_y - broken_tower_h), 2)
+        broken_h = 30
+        # 기둥 본체 (하단)
+        pygame.draw.polygon(surf, gme, [
+            (rt_x - 2, lt_base_y),
+            (rt_x + 2, lt_base_y),
+            (rt_x + 1, lt_base_y - broken_h),
+            (rt_x - 1, lt_base_y - broken_h),
+        ])
+        pygame.draw.line(surf, (*highlight, 60),
+                        (rt_x - 2, lt_base_y), (rt_x - 1, lt_base_y - broken_h), 1)
+        # 꺾인 상단 (기울어진 사다리꼴)
+        tip_x = rt_x + 8
+        tip_y = lt_base_y - broken_h - 10
+        pygame.draw.polygon(surf, (38, 38, 52), [
+            (rt_x - 1, lt_base_y - broken_h),
+            (rt_x + 1, lt_base_y - broken_h),
+            (tip_x + 1, tip_y),
+            (tip_x - 1, tip_y),
+        ])
+        # 파손점 글로우 (주황 — 2레이어)
+        pygame.draw.circle(surf, (180, 70, 25, 60), (rt_x, lt_base_y - broken_h), 4)
+        pygame.draw.circle(surf, (220, 90, 30), (rt_x, lt_base_y - broken_h), 2)
+        # 파편 (작은 선 2개)
+        pygame.draw.line(surf, (35, 35, 48),
+                        (rt_x + 3, lt_base_y - broken_h + 2),
+                        (rt_x + 7, lt_base_y - broken_h - 4), 1)
+        pygame.draw.line(surf, (30, 30, 42),
+                        (rt_x - 1, lt_base_y - broken_h - 1),
+                        (rt_x + 4, lt_base_y - broken_h - 8), 1)
 
-        # --- 중앙 안테나 (더 높고 극적인 메인 레이더 마스트) ---
-        center_tower_h = 70  # 기존 55 → 70 (더 극적)
-        ct_base_y = base_y - deck_h // 2 - upper_h
-        # 하단 두꺼운 기둥
-        pygame.draw.line(surf, self.gunmetal_edge,
-                        (self.cx, ct_base_y), (self.cx, ct_base_y - 25), 3)
-        # 상단 가느다란 마스트
-        pygame.draw.line(surf, self.gunmetal_edge,
-                        (self.cx, ct_base_y - 25), (self.cx, ct_base_y - center_tower_h), 2)
-        # 레이더 디쉬 (더 큰 삼각형)
+        # =============================================================
+        #  중앙 안테나 (3단 구조 — 기둥/마스트/디쉬 각각 명암 처리)
+        # =============================================================
+        center_tower_h = 70
+        ct_base_y = crowd_y
+        # 1단: 기둥 하단 (두꺼운 사다리꼴)
+        pygame.draw.polygon(surf, gme, [
+            (self.cx - 3, ct_base_y),
+            (self.cx + 3, ct_base_y),
+            (self.cx + 2, ct_base_y - 25),
+            (self.cx - 2, ct_base_y - 25),
+        ])
+        # 기둥 하이라이트 (좌측면)
+        pygame.draw.line(surf, (*highlight, 100),
+                        (self.cx - 3, ct_base_y), (self.cx - 2, ct_base_y - 25), 1)
+        # 기둥 그림자 (우측면)
+        pygame.draw.line(surf, (*shadow, 80),
+                        (self.cx + 3, ct_base_y), (self.cx + 2, ct_base_y - 25), 1)
+        # 이음새 볼트
+        pygame.draw.circle(surf, (*highlight, 60), (self.cx, ct_base_y - 12), 1)
+
+        # 2단: 마스트 상단 (가느다란 사다리꼴)
+        pygame.draw.polygon(surf, gme, [
+            (self.cx - 2, ct_base_y - 25),
+            (self.cx + 2, ct_base_y - 25),
+            (self.cx + 1, ct_base_y - center_tower_h),
+            (self.cx - 1, ct_base_y - center_tower_h),
+        ])
+        pygame.draw.line(surf, (*highlight, 70),
+                        (self.cx - 2, ct_base_y - 25),
+                        (self.cx - 1, ct_base_y - center_tower_h), 1)
+
+        # 크로스바 (중간 — 사다리꼴)
+        cross_y = ct_base_y - 40
+        pygame.draw.polygon(surf, gme, [
+            (self.cx - 12, cross_y),
+            (self.cx + 12, cross_y),
+            (self.cx + 10, cross_y + 2),
+            (self.cx - 10, cross_y + 2),
+        ])
+        pygame.draw.line(surf, (*highlight, 50),
+                        (self.cx - 12, cross_y), (self.cx + 12, cross_y), 1)
+
+        # 3단: 레이더 디쉬 (다단 폴리곤 — 접시+지지대)
         dish_y = ct_base_y - center_tower_h + 10
-        pygame.draw.polygon(surf, self.gunmetal_edge, [
+        # 디쉬 본체 (그림자 아래)
+        pygame.draw.polygon(surf, (*shadow, 80), [
+            (self.cx - 14, dish_y + 2),
+            (self.cx + 14, dish_y + 2),
+            (self.cx, dish_y - 7),
+        ])
+        # 디쉬 본체 (메인)
+        pygame.draw.polygon(surf, gme, [
             (self.cx - 12, dish_y),
             (self.cx + 12, dish_y),
             (self.cx, dish_y - 8),
         ])
-        # 중간 크로스바 (구조적 디테일)
-        cross_y = ct_base_y - 40
-        pygame.draw.line(surf, self.gunmetal_edge,
-                        (self.cx - 10, cross_y), (self.cx + 10, cross_y), 1)
-        # 비컨 위치 저장 (draw에서 맥동 애니메이션)
+        # 디쉬 상면 하이라이트
+        pygame.draw.line(surf, (*highlight, 80),
+                        (self.cx - 10, dish_y), (self.cx, dish_y - 7), 1)
+        # 디쉬 하면 그림자
+        pygame.draw.line(surf, (*shadow, 60),
+                        (self.cx, dish_y - 7), (self.cx + 10, dish_y), 1)
+        # 디쉬-마스트 연결 지지대
+        pygame.draw.line(surf, gme, (self.cx, dish_y), (self.cx, dish_y + 5), 1)
+
+        # 비컨 위치
         self._beacon_x = self.cx
         self._beacon_local_y = ct_base_y - center_tower_h
 
-        # --- 하부 구조 (무게감 보강) ---
+        # =============================================================
+        #  하부 구조 (지지대 — 사다리꼴 + 명암)
+        # =============================================================
         strut_count = 5
         deck_bottom_y = base_y + deck_h // 2
-        # 메인 지지대 (두꺼운)
         for i in range(strut_count):
             sx = deck_x + (deck_w // (strut_count + 1)) * (i + 1)
-            pygame.draw.line(surf, (20, 25, 40, 150),
-                           (sx, deck_bottom_y),
-                           (sx, deck_bottom_y + 30), 2)
-        # 하부 가로 빔 (지지대 연결)
-        pygame.draw.line(surf, (25, 30, 45, 120),
-                        (deck_x + 30, deck_bottom_y + 15),
-                        (deck_x + deck_w - 30, deck_bottom_y + 15), 1)
-        # 하부 외곽 X자 보강재
-        pygame.draw.line(surf, (20, 25, 40, 80),
-                        (deck_x + 40, deck_bottom_y),
-                        (deck_x + deck_w // 2 - 10, deck_bottom_y + 28), 1)
-        pygame.draw.line(surf, (20, 25, 40, 80),
-                        (deck_x + deck_w - 40, deck_bottom_y),
-                        (deck_x + deck_w // 2 + 10, deck_bottom_y + 28), 1)
+            # 사다리꼴 지지대 (위 넓고 아래 좁게)
+            pygame.draw.polygon(surf, (*shadow, 120), [
+                (sx - 2, deck_bottom_y),
+                (sx + 2, deck_bottom_y),
+                (sx + 1, deck_bottom_y + 30),
+                (sx - 1, deck_bottom_y + 30),
+            ])
+            # 좌측 하이라이트
+            pygame.draw.line(surf, (*gme, 80),
+                           (sx - 2, deck_bottom_y), (sx - 1, deck_bottom_y + 30), 1)
 
-        # --- 네온 패널 악센트 (데크 면 얇은 수평 스트립) ---
-        panel_y = base_y + 2
+        # 가로 빔 (상면/하면 분리)
+        beam_y = deck_bottom_y + 15
+        pygame.draw.line(surf, (*gme, 80),
+                        (deck_x + 25, beam_y), (deck_x + deck_w - 25, beam_y), 1)
+        pygame.draw.line(surf, (*highlight, 30),
+                        (deck_x + 25, beam_y - 1), (deck_x + deck_w - 25, beam_y - 1), 1)
+
+        # X자 보강재 (그림자만)
+        pygame.draw.line(surf, (*shadow, 50),
+                        (deck_x + 35, deck_bottom_y + 1),
+                        (deck_x + deck_w // 2 - 8, deck_bottom_y + 28), 1)
+        pygame.draw.line(surf, (*shadow, 50),
+                        (deck_x + deck_w - 35, deck_bottom_y + 1),
+                        (deck_x + deck_w // 2 + 8, deck_bottom_y + 28), 1)
+
+        # =============================================================
+        #  네온 패널 (데크 전면에 — 시안 라인 3개)
+        # =============================================================
         for i in range(3):
-            py = panel_y + i * 6
-            px1 = deck_x + 30 + i * 20
-            px2 = deck_x + deck_w - 30 - i * 20
-            pygame.draw.line(surf, (*self.cyan_accent, 50 + i * 20),
+            py = base_y + 2 + i * 5
+            px1 = deck_x + 25 + i * 15
+            px2 = deck_x + deck_w - 25 - i * 15
+            pygame.draw.line(surf, (*self.cyan_accent, 35 + i * 15),
                            (px1, py), (px2, py), 1)
 
-        # 레이더 스윕 참조용 측정값 저장
+        # 측정값 저장
         self._platform_base_y_local = base_y
         self._platform_deck_h = deck_h
         self._platform_upper_h = upper_h
