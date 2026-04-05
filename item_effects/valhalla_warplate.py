@@ -191,15 +191,31 @@ class ValhallaWarplateState:
             if self.summon_timer >= self.max_summon_time:
                 self._start_exit()
 
-        # ── SKILL_ACTIVE: 스킬 완료 대기 → 퇴장 모션 시작 ──
+        # ── SKILL_ACTIVE: 스킬 시전 완료 대기 → 퇴장 모션 시작 ──
         elif self.state == self.SKILL_ACTIVE:
             if gs:
                 phase = getattr(gs, 'phase_bottom', 'patrolling')
-                # 스킬 완료 = patrolling으로 복귀
+                # 캐릭터가 patrolling으로 복귀했는지 확인
                 if phase in ('patrolling', 'patrol_entering', None):
-                    self.post_skill_timer += dt
-                    if self.post_skill_timer >= self.post_skill_linger:
-                        self._start_exit()
+                    # 스킬 시전 애니메이션이 아직 진행 중이면 대기
+                    # (뼈장막, 해골궁수 등이 완성되기 전에 퇴장하는 것 방지)
+                    casting_done = True
+                    for hero_id, skills in gs.skill_instances.items():
+                        for skill in skills:
+                            # 스킬이 활성 상태이고 시전 초기 단계면 대기
+                            if getattr(skill, 'is_active', False):
+                                active_timer = getattr(skill, 'active_timer', 999)
+                                # 시전 시작 후 2초 이내면 아직 시전 중으로 간주
+                                if active_timer < 2.0:
+                                    casting_done = False
+                                    break
+                        if not casting_done:
+                            break
+
+                    if casting_done:
+                        self.post_skill_timer += dt
+                        if self.post_skill_timer >= self.post_skill_linger:
+                            self._start_exit()
             else:
                 # guard_system 사라짐 → 정리
                 self._clear_state()
