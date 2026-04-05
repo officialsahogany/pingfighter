@@ -42230,7 +42230,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                     # 🪙 건설물 파괴 금화 스폰
                     _is_reinforced = divine_state.get("reinforced", False)
                     if _is_reinforced:
-                        _coin_count = random.randint(22, 28)  # 강화디바인: 220~280골드
+                        _coin_count = random.randint(7, 10)  # 강화디바인: 70~100골드
                     else:
                         _coin_count = random.randint(4, 6)  # 디바인: 40~60골드
                     spawn_blacksmith_coins(rect.centerx, rect.centery, _coin_count)
