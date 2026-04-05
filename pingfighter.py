@@ -21941,6 +21941,34 @@ def store_bgm_volume(value: float) -> float:
     return bgm_volume
 
 
+_sound_cache: dict[str, pygame.mixer.Sound | None] = {}
+
+def get_cached_sound(relative_path: str) -> "pygame.mixer.Sound | None":
+    """사운드를 캐시에서 가져오거나, 없으면 로드 후 캐시. 실패 시 None."""
+    if relative_path in _sound_cache:
+        return _sound_cache[relative_path]
+    try:
+        full_path = resource_path(relative_path)
+        if os.path.exists(full_path):
+            snd = pygame.mixer.Sound(full_path)
+            _sound_cache[relative_path] = snd
+            return snd
+        else:
+            _sound_cache[relative_path] = None
+            return None
+    except Exception:
+        _sound_cache[relative_path] = None
+        return None
+
+
+def play_cached_sound(relative_path: str, volume=None):
+    """캐시된 사운드를 볼륨 적용하여 재생. 채널 반환."""
+    snd = get_cached_sound(relative_path)
+    if snd:
+        return play_sound_with_volume(snd, volume)
+    return None
+
+
 def play_sound_with_volume(sound, volume=None):
     """효과음을 지정된 볼륨으로 재생"""
     global sfx_volume
@@ -22859,7 +22887,7 @@ if not SMOKE_TEST_ENABLED:
         else:
             AUDIO_DISABLED = True
     if mixer_initialized and not AUDIO_DISABLED:
-        pygame.mixer.set_num_channels(32)  # 동시 재생 가능한 채널 수 증가
+        pygame.mixer.set_num_channels(64)  # 동시 재생 가능한 채널 수 증가
 else:
     AUDIO_DISABLED = True
     # print("[INFO] 오디오 초기화 생략 (스모크 테스트 모드)")
@@ -39859,8 +39887,7 @@ def _destroy_stage2_rock_for_blacksmith(rock: dict) -> None:
             rock_y = rock.get("fall_y", rock.get("y", 0))
             trade_points.spawn_star(rock_x, rock_y, "golden_rock")
             try:
-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-                play_sound_with_volume(coin_sound)
+                play_cached_sound("sounds/coin.wav")
             except Exception:
                 pass
 
@@ -46912,20 +46939,20 @@ TREASURE_RESULT_MIN_DURATION = 180  # 최소 3초 결과 표시
 
 # 채굴 사운드 로드
 try:
-    mining_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "mining.wav")))
+    mining_sound = get_cached_sound("sounds/mining.wav")
     mining_sound.set_volume(0.5)
 except:
     mining_sound = None
 
 # 전설 아이템 발견 사운드 로드
 try:
-    legend_open_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "legendopen.wav")))
+    legend_open_sound = get_cached_sound("sounds/legendopen.wav")
 except:
     legend_open_sound = None
 
 # 꽝 사운드 로드
 try:
-    disappointment_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "disappointment.wav")))
+    disappointment_sound = get_cached_sound("sounds/disappointment.wav")
 except:
     disappointment_sound = None
 
@@ -52674,9 +52701,7 @@ class SupplyAircraft:
         
         # 폭발음 재생 (적당한 볼륨)
         try:
-            explosion_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "explosion.wav")))
-            explosion_sound.set_volume(0.5)  # 0.8 → 0.5로 줄임
-            explosion_sound.play()
+            play_cached_sound("sounds/explosion.wav", 0.5)
         except:
             pass
         
@@ -55041,9 +55066,7 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
 
     if play_sound:
         try:
-            switch_sound = pygame.mixer.Sound(resource_path("sounds/weapon_switch.wav"))
-            switch_sound.set_volume(0.3)
-            switch_sound.play()
+            play_cached_sound("sounds/weapon_switch.wav", 0.3)
         except Exception:
             pass
 
@@ -58624,14 +58647,7 @@ def go_to_next_round():
             screen_shake_intensity = 15  # 강한 흔들림
 
             # 쿠로미 각성 사운드 재생
-            try:
-                awake_sound_path = resource_path("sounds/kuromiawake.wav")
-                if os.path.exists(awake_sound_path):
-                    awake_sound = pygame.mixer.Sound(awake_sound_path)
-                    awake_sound.play()
-            except Exception as e:
-                if DEBUG_BOSS:
-                    print(f"쿠로미 각성 사운드 재생 실패: {e}")
+            play_cached_sound("sounds/kuromiawake.wav")
 
             if DEBUG_BOSS:
                 print("Stage 3: 쿠로미 각성 시작! 화면 지진 효과 활성화")
@@ -59614,9 +59630,8 @@ def check_tear_collisions():
 
                 # 눈물 맞았을 때 사운드 재생
                 try:
-                    tears_sound = pygame.mixer.Sound(resource_path("sounds/tears.wav"))
+                    play_cached_sound("sounds/tears.wav")
                     tears_sound.set_volume(0.6)
-                    play_sound_with_volume(tears_sound)
                 except:
                     pass  # 사운드 파일이 없으면 무시
                 
@@ -62002,8 +62017,7 @@ def activate_meditation():
     #  명상 사운드
     try:
         # Stage4 퐁크 위빠사나 명상 전용 사운드
-        meditation_sound = pygame.mixer.Sound(resource_path("sounds/ponkmeditation.wav"))
-        play_sound_with_volume(meditation_sound)
+        play_cached_sound("sounds/ponkmeditation.wav")
     except:
         pass
 def handle_meditation():
@@ -63352,9 +63366,7 @@ def update_tunnel_raid():
 
             # 돌출 사운드
             try:
-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "rocking.wav")))
-                snd.set_volume(0.6)
-                snd.play()
+                play_cached_sound("sounds/rocking.wav", 0.6)
             except Exception:
                 pass
 
@@ -63626,9 +63638,7 @@ def activate_spinning_claw():
 
     # 사운드
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
-        snd.set_volume(0.5)
-        snd.play()
+        play_cached_sound("sounds/clue.wav", 0.5)
     except Exception:
         pass
 
@@ -63729,9 +63739,7 @@ def activate_web_trap():
 
     # 사운드
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
-        snd.set_volume(0.5)
-        snd.play()
+        play_cached_sound("sounds/net.wav", 0.5)
     except Exception:
         pass
 
@@ -63809,9 +63817,7 @@ def update_web_traps():
                 # 파괴 파티클 생성
                 _spawn_web_break_effect(trap)
                 try:
-                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "spiderbite.wav")))
-                    snd.set_volume(0.6)
-                    snd.play()
+                    play_cached_sound("sounds/spiderbite.wav", 0.6)
                 except Exception:
                     pass
                 continue
@@ -64114,9 +64120,7 @@ def activate_web_rescue():
 
     # 사운드
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
-        snd.set_volume(0.5)
-        snd.play()
+        play_cached_sound("sounds/net.wav", 0.5)
     except Exception:
         pass
 
@@ -64190,9 +64194,7 @@ def update_web_rescue():
             web_rescue_timer = 0
             # 타격 사운드
             try:
-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "paddle_hit2.wav")))
-                snd.set_volume(0.6)
-                snd.play()
+                play_cached_sound("sounds/paddle_hit2.wav", 0.6)
             except Exception:
                 pass
             # 스프라이트 히트 연출
@@ -64400,9 +64402,7 @@ def update_spider_rage():
                 pass
             # 발구르기 사운드
             try:
-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "spiderbite.wav")))
-                snd.set_volume(0.5)
-                snd.play()
+                play_cached_sound("sounds/spiderbite.wav", 0.5)
             except Exception:
                 pass
         elif phase_in_stomp == 5:
@@ -64468,9 +64468,7 @@ def update_spider_rage():
         })
         # 발사 사운드
         try:
-            snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
-            snd.set_volume(0.5)
-            snd.play()
+            play_cached_sound("sounds/net.wav", 0.5)
         except Exception:
             pass
 
@@ -64599,9 +64597,7 @@ def update_friend_moles():
             })
         # 사운드
         try:
-            snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
-            snd.set_volume(0.35)
-            snd.play()
+            play_cached_sound("sounds/bonemake.wav", 0.35)
         except Exception:
             pass
 
@@ -64674,9 +64670,7 @@ def update_friend_moles():
                         pass
                     # 타격 사운드
                     try:
-                        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
-                        snd.set_volume(0.5)
-                        snd.play()
+                        play_cached_sound("sounds/smallboyhit.wav", 0.5)
                     except Exception:
                         pass
 
@@ -66892,9 +66886,7 @@ def fire_soldier_bullet():
     
     # 총 장전 사운드 재생 (버튼을 누르자마자)
     try:
-        gunroad_sound = pygame.mixer.Sound(resource_path("sounds/gunroad.wav"))
-        gunroad_sound.set_volume(0.7)
-        gunroad_sound.play()
+        play_cached_sound("sounds/gunroad.wav", 0.7)
     except:
         pass
 
@@ -67091,9 +67083,7 @@ def fire_slingshot_pellet(charge_level: int):
 
         # 새총 발사 효과음
         try:
-            sling_sound = pygame.mixer.Sound(resource_path("sounds/shurikenthrow.wav"))
-            sling_sound.set_volume(0.6)
-            sling_sound.play()
+            play_cached_sound("sounds/shurikenthrow.wav", 0.6)
         except:
             pass
 
@@ -67178,9 +67168,7 @@ def update_soldier_reload():
     # 새로운 총알이 추가되었을 때 사운드 재생
     if bullets_to_show > soldier_last_reload_bullets:
         try:
-            reload_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "pistolreload.wav")))
-            reload_sound.set_volume(0.3)  # 볼륨을 30%로 설정
-            reload_sound.play()
+            play_cached_sound("sounds/pistolreload.wav", 0.3)
         except:
             pass  # 사운드 파일이 없거나 재생 실패시 무시
         soldier_last_reload_bullets = bullets_to_show
@@ -70111,9 +70099,7 @@ def create_soldier_bullet():
 
         # 총 발사 효과음 재생
         try:
-            gun_sound = pygame.mixer.Sound(resource_path("sounds/gunshot.wav"))
-            gun_sound.set_volume(0.5)
-            gun_sound.play()
+            play_cached_sound("sounds/gunshot.wav", 0.5)
         except:
             pass
 
@@ -70501,12 +70487,10 @@ def update_soldier_bullets():
                 try:
                     if _bullet_slingshot_charge > 0:
                         # 새총 타격음 (금속 구슬 타격)
-                        hit_sound = pygame.mixer.Sound(resource_path("sounds/rockhit.wav"))
+                        hit_sound = get_cached_sound("sounds/rockhit.wav")
                         hit_sound.set_volume(0.5 + _bullet_slingshot_charge * 0.1)
                     else:
-                        hit_sound = pygame.mixer.Sound(resource_path("sounds/bullethit.wav"))
-                        hit_sound.set_volume(0.6)
-                    hit_sound.play()
+                        play_cached_sound("sounds/bullethit.wav", 0.6)
                 except:
                     pass
 
@@ -78727,9 +78711,7 @@ def handle_player(keys):
                                 
                                 # 바주카포 발사 사운드 (실제 발사)
                                 try:
-                                    bazooka_sound = pygame.mixer.Sound(resource_path("sounds/rocket_launch.wav"))
-                                    bazooka_sound.set_volume(0.5)
-                                    bazooka_sound.play()
+                                    play_cached_sound("sounds/rocket_launch.wav", 0.5)
                                 except:
                                     pass
                                 
@@ -83003,7 +82985,7 @@ def activate_emotional_overdrive():
     
     # 사이코볼 사운드 재생 (루프)
     try:
-        psycho_sound = pygame.mixer.Sound(resource_path("sounds/psychoball.wav"))
+        psycho_sound = get_cached_sound("sounds/psychoball.wav")
         channel = psycho_sound.play(-1)  # -1 = 무한 루프
         channel.set_volume(0.5)
         # 채널을 저장해서 나중에 중지할 수 있도록
@@ -83085,9 +83067,8 @@ def handle_emotional_overdrive():
                     # 시각적/청각적 피드백
                     try:
                         # 연막 효과음 재생
-                        smoke_sound = pygame.mixer.Sound(resource_path("sounds/smoke_neutralize.wav"))
+                        play_cached_sound("sounds/smoke_neutralize.wav")
                         smoke_sound.set_volume(0.7)
-                        play_sound_with_volume(smoke_sound)
                     except:
                         # 효과음 없으면 기본 사운드
                         try:
@@ -83241,8 +83222,7 @@ def destroy_stage2_rocks_in_smoke(smoke_zone):
         if rock.get("is_golden", False):
             trade_point_system.spawn_star(rect.centerx, rect.centery, "golden_rock")
             try:
-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-                play_sound_with_volume(coin_sound)
+                play_cached_sound("sounds/coin.wav")
             except Exception:
                 pass
 
@@ -85218,9 +85198,7 @@ def activate_curse_chest():
     curse_chest_target_x = random.uniform(GAME_AREA_OFFSET_X + 60, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 60)
     curse_chest_target_y = random.uniform(700, 730)
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "dollcurse.wav")))
-        snd.set_volume(0.3 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/dollcurse.wav", 0.3 * sfx_volume)
     except Exception:
         pass
 
@@ -85264,9 +85242,7 @@ def _trigger_curse_chest_explode():
         })
     # 폭발 사운드
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "weakexplosion.wav")))
-        snd.set_volume(0.3 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/weakexplosion.wav", 0.3 * sfx_volume)
     except Exception:
         pass
     # 폭발 근처 플레이어 넉백
@@ -85324,9 +85300,7 @@ def update_curse_chest():
             curse_chest_y = curse_chest_target_y
             # 착지 사운드
             try:
-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
-                snd.set_volume(0.25 * sfx_volume)
-                snd.play()
+                play_cached_sound("sounds/bonemake.wav", 0.25 * sfx_volume)
             except Exception:
                 pass
         else:
@@ -85667,9 +85641,7 @@ def activate_alice_mirror():
     alice_mirror_fade_timer = 30  # 0.5초 페이드인
     alice_mirror_bg_timer = 0     # 배경 타이머 초기화
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
-        snd.set_volume(0.5 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/clue.wav", 0.5 * sfx_volume)
     except Exception:
         pass
 
@@ -85740,9 +85712,7 @@ def activate_alice_size_shift():
     BALL.centerx = center_x
     BALL.centery = center_y
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "gravityaccel.wav")))
-        snd.set_volume(0.35 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/gravityaccel.wav", 0.35 * sfx_volume)
     except Exception:
         pass
 
@@ -85817,9 +85787,7 @@ def _launch_alice_rabbits():
             "target_y": player_cy,
         })
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyshoot.wav")))
-        snd.set_volume(0.35 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/smallboyshoot.wav", 0.35 * sfx_volume)
     except Exception:
         pass
 
@@ -85891,9 +85859,7 @@ def update_alice_rabbit():
                     "taunt_phase": 0.0,  # 깐족 애니메이션 페이즈
                 })
                 try:
-                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
-                    snd.set_volume(0.3 * sfx_volume)
-                    snd.play()
+                    play_cached_sound("sounds/smallboyhit.wav", 0.3 * sfx_volume)
                 except Exception:
                     pass
     for i in sorted(to_remove, reverse=True):
@@ -85928,9 +85894,7 @@ def update_alice_rabbit():
                     globals()['neutralize_particles'] = []
                 neutralize_particles.append(p)
             try:
-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
-                snd.set_volume(0.25 * sfx_volume)
-                snd.play()
+                play_cached_sound("sounds/smallboyhit.wav", 0.25 * sfx_volume)
             except Exception:
                 pass
             continue
@@ -86184,9 +86148,7 @@ def _launch_cotton_throw():
             "size": random.uniform(18, 28),
         })
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "dollcurse.wav")))
-        snd.set_volume(0.35 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/dollcurse.wav", 0.35 * sfx_volume)
     except Exception:
         pass
 
@@ -86338,9 +86300,7 @@ def _launch_cotton_bombs():
             "hit": False,
         })
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
-        snd.set_volume(0.3 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/bonemake.wav", 0.3 * sfx_volume)
     except Exception:
         pass
 
@@ -86361,9 +86321,7 @@ def _explode_cotton_bomb(bomb):
             "wobble_phase": random.uniform(0, math.pi * 2),
         })
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "weakexplosion.wav")))
-        snd.set_volume(0.25 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/weakexplosion.wav", 0.25 * sfx_volume)
     except Exception:
         pass
 
@@ -86757,9 +86715,7 @@ def activate_deadly_hug():
     deadly_hug_active = False
     deadly_hug_timer = 0
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "grab.wav")))
-        snd.set_volume(0.4 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/grab.wav", 0.4 * sfx_volume)
     except Exception:
         pass
 
@@ -86783,9 +86739,7 @@ def update_deadly_hug():
             deadly_hug_timer = DEADLY_HUG_DURATION
             deadly_hug_zone_y = target_y
             try:
-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "boomstart.wav")))
-                snd.set_volume(0.35 * sfx_volume)
-                snd.play()
+                play_cached_sound("sounds/boomstart.wav", 0.35 * sfx_volume)
             except Exception:
                 pass
         return
@@ -86916,9 +86870,7 @@ def activate_button_eye():
     }
     heart_beam_trail = []
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "kissing.wav")))
-        snd.set_volume(0.35 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/kissing.wav", 0.35 * sfx_volume)
     except Exception:
         pass
 
@@ -86945,9 +86897,7 @@ def _trigger_heart_beam_knockback():
             "applied": False,
         })
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bencylove.wav")))
-        snd.set_volume(0.3 * sfx_volume)
-        snd.play()
+        play_cached_sound("sounds/bencylove.wav", 0.3 * sfx_volume)
     except Exception:
         pass
 
@@ -86978,9 +86928,7 @@ def update_button_eye():
                     screen_shake_timer = max(screen_shake_timer, 6)
                     screen_shake_intensity = max(screen_shake_intensity, 5)
                     try:
-                        slap_snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "slap2.wav")))
-                        slap_snd.set_volume(0.4 * sfx_volume)
-                        slap_snd.play()
+                        play_cached_sound("sounds/slap2.wav", 0.4 * sfx_volume)
                     except Exception:
                         pass
                     # 하트 파편 파티클 생성 (6~10개)
@@ -128010,7 +127958,7 @@ def show_character_selection():
     clock = pygame.time.Clock()
     # 카드 선택 사운드 로드
     try:
-        _card_select_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "cardselect.wav")))
+        _card_select_sound = get_cached_sound("sounds/cardselect.wav")
     except Exception:
         _card_select_sound = None
     soldier_card_preview: pygame.Surface | None = None
@@ -137123,8 +137071,7 @@ def update_trade_point_stars():
         
         # 획득 효과음
         try:
-            coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-            play_sound_with_volume(coin_sound)
+            play_cached_sound("sounds/coin.wav")
         except:
             pass
     
@@ -137195,8 +137142,7 @@ def update_trade_point_stars():
             
             # 획득 효과음
             try:
-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-                play_sound_with_volume(coin_sound)
+                play_cached_sound("sounds/coin.wav")
             except:
                 pass
             
@@ -137416,8 +137362,7 @@ def update_stage3_hearts():
             
             # 획득 효과음
             try:
-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-                play_sound_with_volume(coin_sound)
+                play_cached_sound("sounds/coin.wav")
             except:
                 pass
             heart['life'] = 0  # 하트 제거
@@ -140756,8 +140701,7 @@ def show_fade_text(message):
     #  효과음 재생
     if is_power_smashing:
         try:
-            power_smash_sound = pygame.mixer.Sound(resource_path("sounds/power_smash.wav"))
-            play_sound_with_volume(power_smash_sound)
+            play_cached_sound("sounds/power_smash.wav")
         except:
             pass
     # 폰트 생성 (깔끔한 폰트)
@@ -140848,8 +140792,7 @@ def show_fade_text(message):
     #  파워스매싱 두 번째 효과음
     if is_power_smashing:
         try:
-            power_smash_launch_sound = pygame.mixer.Sound(resource_path("sounds/power_smash_launch.wav"))
-            power_smash_launch_sound.play()
+            play_cached_sound("sounds/power_smash_launch.wav")
         except:
             pass
 # 물리 관련 함수들은 physics_manager로 이동됨
@@ -145543,8 +145486,7 @@ def handle_ball():
                             # print(f"🌟 황금 바위 관통! Star Point 획득!")  # 디버그 비활성화
                             trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                             try:
-                                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-                                play_sound_with_volume(coin_sound)
+                                play_cached_sound("sounds/coin.wav")
                             except:
                                 pass
                         
@@ -145665,8 +145607,7 @@ def handle_ball():
                         # print(f"   ! Star Point  !")  # 디버그 비활성화
                         trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                         try:
-                            coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-                            play_sound_with_volume(coin_sound)
+                            play_cached_sound("sounds/coin.wav")
                         except:
                             pass
                     
@@ -146049,9 +145990,7 @@ def handle_ball():
                         _barrier['alive'] = False
                         _bone_sk._spawn_death_fragments(_barrier)
                         try:
-                            _bb_snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
-                            _bb_snd.set_volume(0.7)
-                            _bb_snd.play()
+                            play_cached_sound("sounds/bonebreak.wav", 0.7)
                         except Exception:
                             pass
                         _bone_blocked = True
@@ -146063,9 +146002,7 @@ def handle_ball():
                         _barrier['alive'] = False
                         _bone_sk._spawn_death_fragments(_barrier)
                         try:
-                            _bb_snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
-                            _bb_snd.set_volume(0.7)
-                            _bb_snd.play()
+                            play_cached_sound("sounds/bonebreak.wav", 0.7)
                         except Exception:
                             pass
                         _bone_blocked = True
@@ -146107,9 +146044,7 @@ def handle_ball():
                             _barrier_s['alive'] = False
                             _bone_sk_s._spawn_death_fragments(_barrier_s)
                             try:
-                                _bb_snd_s = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
-                                _bb_snd_s.set_volume(0.7)
-                                _bb_snd_s.play()
+                                play_cached_sound("sounds/bonebreak.wav", 0.7)
                             except Exception:
                                 pass
                             _bone_blocked_story = True
@@ -146121,9 +146056,7 @@ def handle_ball():
                             _barrier_s['alive'] = False
                             _bone_sk_s._spawn_death_fragments(_barrier_s)
                             try:
-                                _bb_snd_s = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
-                                _bb_snd_s.set_volume(0.7)
-                                _bb_snd_s.play()
+                                play_cached_sound("sounds/bonebreak.wav", 0.7)
                             except Exception:
                                 pass
                             _bone_blocked_story = True
@@ -146994,8 +146927,7 @@ def handle_ball():
                 trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                 # 황금 바위 효과음
                 try:
-                    coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-                    play_sound_with_volume(coin_sound)
+                    play_cached_sound("sounds/coin.wav")
                 except:
                     pass
             
@@ -161774,8 +161706,7 @@ def main(stage_num, new_boss_mode=False):
                                     
                                     # 효과음 재생 (Stage 3 전용 꼬리 채찍 사운드)
                                     try:
-                                        tail_sound = pygame.mixer.Sound(resource_path("sounds/stage3tail.wav"))
-                                        tail_sound.play()
+                                        play_cached_sound("sounds/stage3tail.wav")
                                     except:
                                         pass
                                     
