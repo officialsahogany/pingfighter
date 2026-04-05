@@ -12567,6 +12567,7 @@ class LegendaryItemManager:
         self.items["odins_eye"] = OdinsEye()
         self.items["pandora_legacy"] = PandoraLegacy()
         self.items["megingjord"] = Megingjord()
+        self.items["valhalla_warplate"] = ValhallaWarplate()
 
         placeholder_defs = [
             ("empty_legendary", "빈전설"),
@@ -12618,6 +12619,10 @@ class LegendaryItemManager:
         self.items["megingjord"].unlocked = True
         if "megingjord" not in self.unlocked_items:
             self.unlocked_items.append("megingjord")
+
+        self.items["valhalla_warplate"].unlocked = True
+        if "valhalla_warplate" not in self.unlocked_items:
+            self.unlocked_items.append("valhalla_warplate")
 
         for name, _ in placeholder_defs:
             if name not in self.unlocked_items:
