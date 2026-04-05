@@ -28484,6 +28484,9 @@ def sync_equipped_passive_effects():
     try:
         if "dowsing_pendulum" in equipped_names:
             dowsing_pendulum_effect.activate()
+            dp_item = next((i for i in equipped_items if i.get("name") == "dowsing_pendulum"), None)
+            if dp_item:
+                apply_roll_bonuses_from_item(dp_item)
         else:
             dowsing_pendulum_effect.deactivate()
     except Exception:
@@ -28592,6 +28595,9 @@ def sync_equipped_passive_effects():
 
         if "adversity_armor" in equipped_names:
             activate_adversity_armor()
+            aa_item = next((i for i in equipped_items if i.get("name") == "adversity_armor"), None)
+            if aa_item:
+                apply_roll_bonuses_from_item(aa_item)
         else:
             deactivate_adversity_armor()
     except Exception:
@@ -28608,6 +28614,24 @@ def sync_equipped_passive_effects():
                 apply_roll_bonuses_from_item(sa_item)
         else:
             deactivate_shrapnel_armor()
+    except Exception:
+        pass
+
+    # 골드디거: 장착 시 롤옵션 적용
+    try:
+        if "gold_digger" in equipped_names:
+            gd_item = next((i for i in equipped_items if i.get("name") == "gold_digger"), None)
+            if gd_item:
+                apply_roll_bonuses_from_item(gd_item)
+    except Exception:
+        pass
+
+    # 럭키코인: 장착 시 롤옵션 적용
+    try:
+        if "lucky_coin" in equipped_names:
+            lc_item = next((i for i in equipped_items if i.get("name") == "lucky_coin"), None)
+            if lc_item:
+                apply_roll_bonuses_from_item(lc_item)
     except Exception:
         pass
 
