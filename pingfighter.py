@@ -164013,6 +164013,11 @@ def main(stage_num, new_boss_mode=False):
                     for _bodyguard in [get_bodyguard(), get_bodyguard2()]:
                         if not _bodyguard.active:
                             continue
+                        # 발할라 전갑: 퇴장 후 스킬 이펙트 완료 시 자동 정리
+                        if getattr(_bodyguard, '_valhalla_dismissed', False):
+                            _bodyguard.check_dismissed_cleanup()
+                            if not _bodyguard.active:
+                                continue
                         _bg_fx = _bodyguard.update(
                             1.0 / 60.0 if (not freeze_now or freeze_dark_slash or freeze_hell_fire) else 0.0,
                             boss_rect=BOSS,

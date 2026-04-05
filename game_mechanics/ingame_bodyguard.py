@@ -436,6 +436,63 @@ class InGameBodyguard:
         self._entrance_hero_timer = 0.0
         self._entrance_guard_line = None
 
+    def dismiss_keep_skills(self):
+        """호위무사 캐릭터만 퇴장시키고 활성 스킬 이펙트는 유지.
+
+        발할라의 전갑 등 짧은 소환 후 퇴장 시 사용.
+        소환물(해골궁수, 뼈장막, 수리검 등)은 지속시간이 끝날 때까지 유지됨.
+        active=True를 유지하여 update/draw가 계속 호출되고,
+        _valhalla_dismissed 플래그로 캐릭터 렌더링만 숨김.
+        스킬이 모두 완료되면 자동으로 완전 reset.
+        """
+        # 개틀링 버스트 변신 상태 초기화
+        if self._hero_paddle_renderer and self.hero_data and self.hero_data.get('id') == 'android':
+            try:
+                state = self._hero_paddle_renderer._get_state('android')
+                state['gatling_firing'] = False
+                state['gatling_recoil'] = 0
+                state['gatling_mounting'] = False
+                state['gatling_mount_progress'] = 0.0
+                state['gatling_dismounting'] = False
+                state['gatling_dismount_progress'] = 0.0
+                state['gatling_aim_angle'] = None
+            except Exception:
+                pass
+
+        # 캐릭터만 비활성화 (스킬 인스턴스는 유지)
+        if self._guard_system:
+            self._guard_system.active_bottom = None
+            self._guard_system.phase_bottom = None
+            self._guard_system.guard_warriors_bottom = []
+            self._guard_system._patrol_target_bottom = None
+            self._guard_system._patrol_wait_bottom = 0.0
+
+        # active=True 유지! (update/draw 계속 호출되어 스킬 이펙트 유지)
+        # 대신 플래그로 캐릭터 렌더링/새 스킬 발동 방지
+        self._valhalla_dismissed = True
+        self.hero_data = None
+
+        # 등장 대사 초기화
+        self._entrance_hero_line = None
+        self._entrance_hero_timer = 0.0
+        self._entrance_guard_line = None
+
+    def has_active_skills(self) -> bool:
+        """활성 스킬 이펙트가 남아있는지 확인"""
+        if not self._guard_system:
+            return False
+        for hero_id, skills in self._guard_system.skill_instances.items():
+            for skill in skills:
+                if getattr(skill, 'is_active', False):
+                    return True
+        return False
+
+    def check_dismissed_cleanup(self):
+        """dismiss_keep_skills 후 스킬 완료 시 자동 정리"""
+        if getattr(self, '_valhalla_dismissed', False) and not self.has_active_skills():
+            self._valhalla_dismissed = False
+            self.reset()
+
     def reset_skills_for_new_stage(self):
         """스테이지 전환 시 소환물(해골궁수 등) 제거 — 호위무사 자체는 유지"""
         if not self._guard_system:

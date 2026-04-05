@@ -210,9 +210,9 @@ class ValhallaWarplateState:
                 phase = getattr(gs, 'phase_bottom', None)
                 # exiting 완료 → phase가 None이나 다른 값으로 전환
                 if phase != "exiting":
-                    # 퇴장 완료 → 실제 reset
+                    # 퇴장 완료 → 스킬 이펙트 유지한 채 캐릭터만 해산
                     if bg and bg.active:
-                        bg.reset()
+                        bg.dismiss_keep_skills()
                     self._clear_state()
                     return
             else:
