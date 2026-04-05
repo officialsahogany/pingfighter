@@ -22376,26 +22376,6 @@ def play_paddle_sound():
         play_sound_with_volume(SOUND_PONG_PADDLE)
     else:
         play_sound_with_volume(_get_selected_paddle_sound())
-    # 패들 충돌 시 히트스톱 + 화면 흔들림 자동 트리거
-    trigger_paddle_hitstop()
-
-
-def trigger_paddle_hitstop():
-    """패들 충돌 시 히트스톱 + 화면 흔들림 트리거 (공 속도에 비례)"""
-    global hitstop_frames, screen_shake_timer, screen_shake_intensity
-    import math
-    ball_speed = math.hypot(ball_vel[0], ball_vel[1]) if ball_vel else 0
-    if ball_speed >= HITSTOP_SPEED_THRESHOLD:
-        # 강타: 5프레임 히트스톱 + 강한 화면 흔들림
-        hitstop_frames = max(hitstop_frames, HITSTOP_STRONG_FRAMES)
-        screen_shake_timer = max(screen_shake_timer, 6)
-        screen_shake_intensity = max(screen_shake_intensity, 6)
-    else:
-        # 일반 타격: 3프레임 히트스톱 + 약한 화면 흔들림
-        hitstop_frames = max(hitstop_frames, HITSTOP_BASE_FRAMES)
-        screen_shake_timer = max(screen_shake_timer, 3)
-        screen_shake_intensity = max(screen_shake_intensity, 3)
-
 
 def play_button_hover_sound():
     """버튼 호버 사운드 재생"""
@@ -58343,11 +58323,6 @@ QUAKE_SHAKE_SCALE = 0.8  # 정글지진 공 흔들림 강도 20% 감소
 # 화면 흔들림 효과 (라그나로크 해머 등)
 screen_shake_timer = 0
 screen_shake_intensity = 0
-# 히트스톱 시스템 (공-패들 충돌 시 프레임 정지 연출)
-hitstop_frames = 0  # 남은 히트스톱 프레임 (0이면 비활성)
-HITSTOP_BASE_FRAMES = 3  # 기본 히트스톱 프레임 수
-HITSTOP_STRONG_FRAMES = 5  # 강타 시 히트스톱 프레임 수
-HITSTOP_SPEED_THRESHOLD = 12.0  # 강타 판정 공 속도 기준
 # 전역
 flame_particles = []
 # 별가루 파티클 시스템 (무중력벨트 + 스피드기어 시너지)
@@ -155728,7 +155703,6 @@ def main(stage_num, new_boss_mode=False):
     global boss_stunned_timer, boss_knockback_vel, boss_knockback_timer  # 다이너마이트 넉백용 전역 변수
     global arena_skill_check_timer  # 투기장 스킬 시스템 전역 변수 (arena_skill_manager는 위에서 이미 선언)
     global arena_freeze_frames  # 하수인 스킬 freeze 프레임 카운터
-    global hitstop_frames  # 히트스톱 프레임 카운터 (패들 충돌 연출)
     global arena_perk_comeback_aura_timer  # 기사회생 오오라 애니메이션 타이머
     global boss_plasma_slowed, boss_plasma_slow_amount, boss_plasma_slow_timer  # 호위무사 둔화 효과용
     global boss_confused_timer  # 호위무사 혼란 효과용
@@ -162347,12 +162321,7 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             freeze_capture = (arena_mode_enabled and arena_capture_phase is not None)
-            # 히트스톱 프레임 감소
-            freeze_hitstop = False
-            if hitstop_frames > 0:
-                freeze_hitstop = True
-                hitstop_frames -= 1
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture or freeze_hitstop
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
