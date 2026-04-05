@@ -14541,6 +14541,16 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
         combo_gold_bonus = smasher_combo_count * 0.08
         amount = int(amount * (1.0 + combo_gold_bonus))
 
+    # 🔨 발토르 건설물 유지 골드 보너스 (디바인스톤 +15%, 터렛 +15%, 둘 다 +30%)
+    if selected_character_type == "blacksmith":
+        build_bonus = 0.0
+        if blacksmith_divine_stone_state is not None:
+            build_bonus += 0.15
+        if blacksmith_turret_active:
+            build_bonus += 0.15
+        if build_bonus > 0:
+            amount = int(amount * (1.0 + build_bonus))
+
     ingame_gold += amount
     last_rally_gold = amount
 
@@ -39514,6 +39524,13 @@ def release_blacksmith_hammer_shock():
 
     special_gauge = max(0, special_gauge - cost)
     special_ready = special_gauge >= special_gauge_max
+
+    # 🔨 해머쇼크 단계별 골드 보너스 (1단계: 15, 2단계: 30, 3단계: 50)
+    _hammer_gold = {1: 15, 2: 30, 3: 50}.get(stage, 15)
+    try:
+        add_ingame_gold(_hammer_gold, float(origin_x), float(origin_y) - 20, source="skill")
+    except Exception:
+        pass
 
     blacksmith_hammer_available = False
     cooldown_frames = BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION_BY_STAGE.get(
