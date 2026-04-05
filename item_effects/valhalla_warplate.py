@@ -153,7 +153,12 @@ class ValhallaWarplateState:
         # 컷신 시작! (실제 소환은 컷신 끝에)
         hero = random.choice(VALHALLA_HEROES)
         self._pending_hero = hero
-        self._pending_skill_idx = random.randint(0, 1)
+        skill_idx = random.randint(0, 1)
+        # 스토리모드에서 작동하지 않는 스킬 회피:
+        # - 밴시 매혹(인덱스 0): 적 호위무사가 없어 발동 불가 → 유령소환(인덱스 1) 강제
+        if hero["id"] == "banshee" and skill_idx == 0:
+            skill_idx = 1  # 유령소환 사용
+        self._pending_skill_idx = skill_idx
         self.state = self.CUTSCENE
         self.summoning = True
         self.cutscene_timer = 0.0

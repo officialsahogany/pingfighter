@@ -459,13 +459,16 @@ class InGameBodyguard:
             except Exception:
                 pass
 
-        # 캐릭터만 비활성화 (스킬 인스턴스는 유지)
+        # 캐릭터만 비활성화 (스킬 인스턴스 + guard_paddles는 유지!)
         if self._guard_system:
             self._guard_system.active_bottom = None
             self._guard_system.phase_bottom = None
-            self._guard_system.guard_warriors_bottom = []
+            # guard_warriors_bottom과 guard_paddles는 보존!
+            # 활성 스킬(수리검 등)이 guard_paddle 좌표를 참조하므로 삭제하면 안 됨
             self._guard_system._patrol_target_bottom = None
             self._guard_system._patrol_wait_bottom = 0.0
+            # 새 스킬 발동 방지 (쿨다운을 매우 길게)
+            self._guard_system.cooldown_bottom = 99999.0
 
         # active=True 유지! (update/draw 계속 호출되어 스킬 이펙트 유지)
         # 대신 플래그로 캐릭터 렌더링/새 스킬 발동 방지
@@ -566,6 +569,30 @@ class InGameBodyguard:
         """
         if not self.active or not self._guard_system:
             return {}
+
+        # 발할라 전갑: dismissed 상태면 스킬 이펙트만 업데이트 (캐릭터 이동/순찰 안 함)
+        if getattr(self, '_valhalla_dismissed', False):
+            top_paddle = _PaddleProxy(boss_rect, is_top=True) if boss_rect else _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
+            bottom_paddle = _PaddleProxy(player_rect, is_top=False) if player_rect else _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
+            ball = _BallProxy(ball_rect, ball_vx, ball_vy) if ball_rect else None
+            # 스킬 이펙트만 업데이트 (guard_system 전체 update 대신)
+            gs = self._guard_system
+            game_state = self._skill_manager.game_state if self._skill_manager else {}
+            fx = {}
+            for hero_id, skills in gs.skill_instances.items():
+                guard_paddle = gs.guard_paddles.get(hero_id)
+                if not guard_paddle:
+                    continue
+                target = top_paddle  # 스킬 대상은 보스(상단)
+                for skill in skills:
+                    if getattr(skill, 'is_active', False):
+                        try:
+                            result = skill.update(dt, guard_paddle, target, ball, game_state)
+                            if result:
+                                fx.update(result)
+                        except Exception:
+                            pass
+            return fx
 
         # 영웅 등장 대사 타이머 감소
         if self._entrance_hero_timer > 0:
@@ -854,10 +881,11 @@ class InGameBodyguard:
         if bottom_paddle is None:
             bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
 
-        # 순찰 중 호위무사 Y를 플레이어 패들보다 위에 고정 (update와 동일)
-        _phase = self._guard_system.phase_bottom
-        if _phase in ("patrolling", "patrol_entering", None):
-            self._guard_system.y_bottom = _BODYGUARD_PATROL_Y
+        # dismissed 상태가 아닐 때만 순찰 Y 고정
+        if not getattr(self, '_valhalla_dismissed', False):
+            _phase = self._guard_system.phase_bottom
+            if _phase in ("patrolling", "patrol_entering", None):
+                self._guard_system.y_bottom = _BODYGUARD_PATROL_Y
 
         self._guard_system.draw(
             screen,
