@@ -47127,15 +47127,12 @@ ENERGY_WAVE_AMPLITUDE = 5.0  # 파동 진폭 (더 넓게)
 ENERGY_WAVE_FREQUENCY = 0.3  # 파동 주파수
 energy_wave_phase = 0  # 파동 위상 오프셋
 
-# === 공 잔상 궤적 시스템 (속도 비례 동적 잔상) ===
+# === 공 잔상 궤적 시스템 (투명한 공 형태의 잔상) ===
 ball_ghost_trail: list = []  # 잔상 포인트들 [{x, y, alpha, size, age}]
-BALL_GHOST_MAX_LENGTH = 12  # 잔상 최대 길이 (속도감을 위해 늘림)
-BALL_GHOST_FADE_SPEED = 0.82  # 페이드 속도 (천천히 사라짐)
-BALL_GHOST_MIN_DISTANCE = 4  # 새 포인트 추가 최소 거리 (촘촘하게)
-BALL_GHOST_INITIAL_ALPHA = 120  # 초기 투명도 (더 선명하게)
-# 속도 비례 잔상 파라미터
-BALL_GHOST_SPEED_MIN = 6.0  # 이 속도 이하면 잔상 거의 안 보임
-BALL_GHOST_SPEED_MAX = 18.0  # 이 속도 이상이면 잔상 최대
+BALL_GHOST_MAX_LENGTH = 5  # 잔상 최대 길이 (짧게)
+BALL_GHOST_FADE_SPEED = 0.75  # 페이드 속도 (빠르게 사라짐)
+BALL_GHOST_MIN_DISTANCE = 6  # 새 포인트 추가 최소 거리
+BALL_GHOST_INITIAL_ALPHA = 60  # 초기 투명도 (0-255, 낮을수록 투명)
 
 # 에너지볼 색상 설정 (고퀄리티 애니메이션 버전)
 ENERGY_BALL_CORE_COLOR = (255, 255, 255)  # 밝은 흰색 코어
@@ -48230,50 +48227,29 @@ def reset_rainbow_ball_trail() -> None:
 
 
 def update_ball_ghost_trail(ball_cx: int, ball_cy: int, ball_size: int) -> None:
-    """공 잔상 궤적 업데이트 - 속도에 비례하는 동적 잔상"""
+    """공 잔상 궤적 업데이트 - 투명한 공 형태의 잔상"""
     global ball_ghost_trail
 
-    # 공 속도 계산
-    ball_speed = math.hypot(ball_vel[0], ball_vel[1]) if ball_vel else 0
-
-    # 속도 비율 (0.0 ~ 1.0)
-    speed_ratio = max(0.0, min(1.0, (ball_speed - BALL_GHOST_SPEED_MIN) / (BALL_GHOST_SPEED_MAX - BALL_GHOST_SPEED_MIN)))
-
-    # 속도가 너무 느리면 잔상 안 남김
-    if speed_ratio < 0.05:
-        # 기존 잔상만 페이드 처리
-        for point in ball_ghost_trail:
-            point['alpha'] *= BALL_GHOST_FADE_SPEED
-            point['age'] += 1
-        ball_ghost_trail = [p for p in ball_ghost_trail if p['alpha'] > 3]
-        return
-
-    # 속도에 비례하는 초기 알파 (느리면 약하게, 빠르면 강하게)
-    dynamic_alpha = int(40 + speed_ratio * (BALL_GHOST_INITIAL_ALPHA - 40))
-
-    # 새 포인트 추가 (최소 거리 체크 - 빠를수록 더 촘촘하게)
-    min_dist = max(2, BALL_GHOST_MIN_DISTANCE - int(speed_ratio * 2))
+    # 새 포인트 추가 (최소 거리 체크)
     add_new_point = True
     if ball_ghost_trail:
         last_point = ball_ghost_trail[-1]
         dx = ball_cx - last_point['x']
         dy = ball_cy - last_point['y']
-        if dx * dx + dy * dy < min_dist * min_dist:
+        if dx * dx + dy * dy < BALL_GHOST_MIN_DISTANCE * BALL_GHOST_MIN_DISTANCE:
             add_new_point = False
 
     if add_new_point:
         ball_ghost_trail.append({
             'x': ball_cx,
             'y': ball_cy,
-            'alpha': dynamic_alpha,
+            'alpha': BALL_GHOST_INITIAL_ALPHA,
             'size': ball_size,
-            'age': 0,
-            'speed_ratio': speed_ratio,
+            'age': 0
         })
 
-    # 트레일 길이 제한 (속도에 비례)
-    max_len = int(5 + speed_ratio * (BALL_GHOST_MAX_LENGTH - 5))
-    while len(ball_ghost_trail) > max_len:
+    # 트레일 길이 제한
+    while len(ball_ghost_trail) > BALL_GHOST_MAX_LENGTH:
         ball_ghost_trail.pop(0)
 
     # 기존 포인트들 페이드 및 나이 처리
@@ -48286,7 +48262,7 @@ def update_ball_ghost_trail(ball_cx: int, ball_cy: int, ball_size: int) -> None:
 
 
 def draw_ball_ghost_trail(surface: pygame.Surface, screen_offset_x: int = 0, screen_offset_y: int = 0) -> None:
-    """공 잔상 궤적 렌더링 - 속도에 비례하는 스피드감 잔상"""
+    """공 잔상 궤적 렌더링 - 투명한 공 형태의 그라데이션 잔상 (배경이 비침)"""
     global ball_ghost_trail
 
     if not ball_ghost_trail:
@@ -48300,9 +48276,6 @@ def draw_ball_ghost_trail(surface: pygame.Surface, screen_offset_x: int = 0, scr
     inner_color = ENERGY_BALL_INNER_COLOR  # 파란색 내부
     outer_color = ENERGY_BALL_OUTER_COLOR  # 진한 파란색 외부
 
-    # 현재 공 속도 비율 (가장 최근 잔상의 speed_ratio 사용)
-    latest_speed_ratio = ball_ghost_trail[-1].get('speed_ratio', 0.3) if ball_ghost_trail else 0.3
-
     # 각 잔상 포인트 그리기 (오래된 것부터 새로운 것 순서로)
     for i, point in enumerate(ball_ghost_trail):
         if point['alpha'] < 3:
@@ -48310,18 +48283,20 @@ def draw_ball_ghost_trail(surface: pygame.Surface, screen_offset_x: int = 0, scr
 
         # 위치 비율 (0: 가장 오래됨, 1: 가장 최근)
         position_ratio = i / max(1, total_points - 1)
-        pt_speed_ratio = point.get('speed_ratio', 0.3)
 
-        # 알파 계산 - 속도가 빠를수록 잔상이 더 선명
-        alpha_boost = 0.5 + pt_speed_ratio * 0.5  # 0.5 ~ 1.0
-        base_alpha = point['alpha'] * (position_ratio ** 0.6) * alpha_boost
+        # 알파 계산 - 그라데이션으로 옅어짐 (끝이 더 투명)
+        # position_ratio가 낮을수록 오래된 것 = 더 투명
+        base_alpha = point['alpha'] * (position_ratio ** 0.7) * 0.6
 
         if base_alpha < 3:
             continue
 
-        # 크기 계산 (오래될수록 작아지되, 빠를수록 덜 줄어듦)
-        shrink = 0.5 + pt_speed_ratio * 0.2  # 빠를수록 덜 줄어듦
-        ghost_size = int(point['size'] * (shrink + position_ratio * (1.0 - shrink)))
+        # 잔잔한 파동 효과 (미세한 크기 변화)
+        wave_time = current_time * 0.008 + i * 0.5
+        wave_scale = 1.0 + math.sin(wave_time) * 0.05  # 5% 크기 파동
+
+        # 크기 계산 (오래될수록 약간 작아짐)
+        ghost_size = int(point['size'] * (0.7 + position_ratio * 0.3) * wave_scale)
         if ghost_size < 2:
             continue
 
@@ -48330,44 +48305,40 @@ def draw_ball_ghost_trail(surface: pygame.Surface, screen_offset_x: int = 0, scr
         ghost_surf = _get_reusable_surface(surf_size)
         center = surf_size // 2
 
+        # === 잔잔한 에너지 파동 링 (바깥쪽 투명한 파동) ===
+        wave_ring_offset = math.sin(wave_time * 1.2) * 2
+        ring_radius = ghost_size + 4 + wave_ring_offset
+        ring_alpha = int(base_alpha * 0.15)
+        if ring_alpha > 1 and ring_radius > 0:
+            pygame.draw.circle(ghost_surf, (*outer_color, ring_alpha),
+                             (center, center), int(ring_radius))
+
         # === Layer 1: 외부 글로우 (투명) ===
-        outer_alpha = int(base_alpha * 0.25)
+        outer_alpha = int(base_alpha * 0.2)
         if outer_alpha > 1:
-            pygame.draw.circle(ghost_surf, (*outer_color, min(255, outer_alpha)),
+            pygame.draw.circle(ghost_surf, (*outer_color, outer_alpha),
                              (center, center), ghost_size + 2)
 
         # === Layer 2: 중간층 (반투명) ===
-        mid_alpha = int(base_alpha * 0.45)
+        mid_alpha = int(base_alpha * 0.35)
         if mid_alpha > 1:
-            pygame.draw.circle(ghost_surf, (*inner_color, min(255, mid_alpha)),
+            pygame.draw.circle(ghost_surf, (*inner_color, mid_alpha),
                              (center, center), int(ghost_size * 0.85))
 
-        # === Layer 3: 내부 코어 (밝음) ===
-        inner_alpha = int(base_alpha * 0.6)
+        # === Layer 3: 내부 코어 (약간 밝음) ===
+        inner_alpha = int(base_alpha * 0.5)
         if inner_alpha > 1:
-            pygame.draw.circle(ghost_surf, (*core_color, min(255, inner_alpha)),
+            pygame.draw.circle(ghost_surf, (*core_color, inner_alpha),
                              (center, center), int(ghost_size * 0.5))
 
-        # === 스피드 라인 효과 (빠를 때만, 최근 잔상에만) ===
-        if pt_speed_ratio > 0.5 and position_ratio > 0.4 and i + 1 < total_points:
-            next_point = ball_ghost_trail[i + 1]
-            dx = next_point['x'] - point['x']
-            dy = next_point['y'] - point['y']
-            dist = math.hypot(dx, dy)
-            if dist > 3:
-                # 이동 방향의 스피드 라인
-                line_alpha = int(base_alpha * 0.2 * pt_speed_ratio)
-                if line_alpha > 1:
-                    norm_x = dx / dist
-                    norm_y = dy / dist
-                    # 속도에 비례하는 라인 길이
-                    line_len = int(dist * 0.6 * pt_speed_ratio)
-                    start_x = center - int(norm_x * line_len * 0.5)
-                    start_y = center - int(norm_y * line_len * 0.5)
-                    end_x = center + int(norm_x * line_len * 0.5)
-                    end_y = center + int(norm_y * line_len * 0.5)
-                    pygame.draw.line(ghost_surf, (*inner_color, min(255, line_alpha)),
-                                   (start_x, start_y), (end_x, end_y), 1)
+        # === 파동 효과 (미세한 원형 리플) ===
+        if position_ratio > 0.3:  # 최근 잔상에만
+            ripple_phase = (current_time * 0.015 + i * 0.8) % (math.pi * 2)
+            ripple_alpha = int(base_alpha * 0.1 * math.sin(ripple_phase))
+            if ripple_alpha > 1:
+                ripple_radius = ghost_size + 6 + math.sin(ripple_phase) * 3
+                pygame.draw.circle(ghost_surf, (*inner_color, ripple_alpha),
+                                 (center, center), int(ripple_radius), 1)
 
         # 블렌딩으로 배경 위에 그리기 (투명하게)
         draw_x = int(point['x']) + screen_offset_x - center
