@@ -616,9 +616,12 @@ class InGameBodyguard:
                 fx['slow'] = True
                 fx['slow_amount'] = game_state.get('top_paddle_slow_amount', 0.5)
                 fx['slow_frames'] = 6
-            # 넉백
-            if game_state.get('top_paddle_knockback'):
-                fx['stun_frames'] = game_state.pop('top_paddle_knockback_stun', 0)
+            # 범용 넉백 (해골궁수, 수리검 등) - 1회성 소비!
+            if game_state.get('top_paddle_knockback', False):
+                fx['generic_knockback'] = True
+                fx['generic_knockback_dir'] = game_state.get('top_paddle_knockback_dir', 1)
+                fx['generic_knockback_vel'] = game_state.get('top_paddle_knockback_vel', 120)
+                game_state['top_paddle_knockback'] = False  # 1회성 신호 소비
             # 감전 (천둥 뇌구)
             if game_state.get('top_paddle_electric_stun', False):
                 fx['electric_stun'] = True
