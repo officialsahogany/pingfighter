@@ -648,9 +648,11 @@ class InGameBodyguard:
             bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
 
         # 순찰 중 호위무사 Y를 플레이어 패들보다 위에 고정 (공 가로채기)
-        _phase = self._guard_system.phase_bottom
-        if _phase in ("patrolling", "patrol_entering", None):
-            self._guard_system.y_bottom = _BODYGUARD_PATROL_Y
+        # 발할라 포탈 하강/상승 중에는 위치를 덮어쓰지 않음
+        if not getattr(self, '_valhalla_portal_moving', False):
+            _phase = self._guard_system.phase_bottom
+            if _phase in ("patrolling", "patrol_entering", None):
+                self._guard_system.y_bottom = _BODYGUARD_PATROL_Y
 
         # hero_paddle_top / hero_paddle_bottom 갱신 (해골궁수 등 스킬이 참조)
         # 투기장 SkillManager.update()가 매 프레임 설정하는 것과 동일
@@ -919,8 +921,8 @@ class InGameBodyguard:
         if bottom_paddle is None:
             bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
 
-        # dismissed 상태가 아닐 때만 순찰 Y 고정
-        if not getattr(self, '_valhalla_dismissed', False):
+        # dismissed 또는 포탈 이동 중이 아닐 때만 순찰 Y 고정
+        if not getattr(self, '_valhalla_dismissed', False) and not getattr(self, '_valhalla_portal_moving', False):
             _phase = self._guard_system.phase_bottom
             if _phase in ("patrolling", "patrol_entering", None):
                 self._guard_system.y_bottom = _BODYGUARD_PATROL_Y

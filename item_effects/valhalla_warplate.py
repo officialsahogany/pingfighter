@@ -118,16 +118,22 @@ class ValhallaWarplateState:
             self.portal_x = gs.x_bottom  # 현재 X 위치에서 포탈 열림
             self.state = self.PORTAL_ASCEND
             self.portal_timer = 0.0
-            self.portal_alpha = 0.0
+            self.portal_scale = 0.0
+            self.portal_flash = 0.0
+            self.portal_particles.clear()
+            self.portal_lightning.clear()
             self.summoning = True
-            # 새 스킬 발동 방지
+            # 새 스킬 발동 방지 + 포탈 이동 플래그
             gs.cooldown_bottom = 99999.0
+            self._bodyguard_ref._valhalla_portal_moving = True
             print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 포탈 상승 시작!")
         else:
             self._force_dismiss()
 
     def _clear_state(self):
         """내부 상태 초기화"""
+        if self._bodyguard_ref:
+            self._bodyguard_ref._valhalla_portal_moving = False
         self._bodyguard_ref = None
         self.summoning = False
         self.state = self.IDLE
@@ -254,18 +260,33 @@ class ValhallaWarplateState:
             self.summon_timer = 0.0
             self.post_skill_timer = 0.0
 
-            # 포탈 하강 시작: guard_system의 위치를 포탈 상단에 배치
+            # 포탈 하강 시작: guard_system의 위치와 phase를 강제 오버라이드
             gs = target_bg._guard_system
             if gs:
                 self.portal_x = 380.0  # 화면 중앙
+                # 호위무사를 포탈 위치에 배치 (화면 밖 상단)
                 gs.x_bottom = self.portal_x
-                gs.y_bottom = self.PORTAL_Y  # 포탈 위치(상단)에서 시작
+                gs.y_bottom = self.PORTAL_Y - 30  # 포탈 위쪽 (화면 밖, 하강하면서 등장)
+                # patrol_entering(옆에서 걸어들어오기)을 무효화
+                # phase를 None으로 → guard_system이 자체 이동 안 함
+                gs.phase_bottom = None
+                gs.active_bottom = gs.guard_warriors_bottom[0] if gs.guard_warriors_bottom else None
+                # 쿨다운을 포탈 시간 동안 길게 (하강 완료 후 단축)
+                gs.cooldown_bottom = 99.0
+                # 영웅이 보이도록 걷기 모션 초기화
+                if gs.hero_paddle_renderer and hero:
+                    gs.hero_paddle_renderer.update_movement(hero["id"], self.portal_x, 0.016)
 
             self.state = self.PORTAL_DESCEND
             self.portal_timer = 0.0
-            self.portal_alpha = 1.0
+            self.portal_scale = 0.0
+            self.portal_angle = 0.0
+            self.portal_flash = 0.0
             self.portal_particles.clear()
-            self._pending_hero = None  # 보존 (draw_portal에서 색상 참조용은 summoned_hero_name으로)
+            self.portal_lightning.clear()
+            self._pending_hero = None
+            # 포탈 이동 중 플래그 설정 (y_bottom 강제 덮어쓰기 방지)
+            target_bg._valhalla_portal_moving = True
             print(f"⚔ 발할라의 전갑: {hero['name']} 포탈 하강 시작!")
 
         except Exception as e:
@@ -303,13 +324,19 @@ class ValhallaWarplateState:
             t = self.portal_timer
             if t < 2.0:
                 # 포탈 천천히 열리는 중 (0→1, 2초)
+                # 호위무사는 포탈 위(화면 밖)에 숨겨둠
                 progress = t / 2.0
-                self.portal_scale = 1.0 - (1.0 - progress) ** 3  # ease-out cubic (더 부드럽게)
+                self.portal_scale = 1.0 - (1.0 - progress) ** 3
                 self._spawn_portal_swirl(0.4 + 0.4 * progress)
                 self._spawn_portal_lightning(0.1 + 0.3 * progress)
                 self.portal_flash = 0.0
+                # 호위무사를 포탈 위에 숨김 (phase=None으로 자체 이동 차단)
+                if gs:
+                    gs.y_bottom = self.PORTAL_Y - 30
+                    gs.x_bottom = self.portal_x
+                    gs.phase_bottom = None
             elif t < 3.0:
-                # 플래시 + 하강 (포탈에서 영웅 내려옴)
+                # 플래시 + 하강 (포탈에서 영웅이 내려옴!)
                 self.portal_scale = 1.0
                 descend_progress = min(1.0, (t - 2.0) / 1.0)
                 # 하강 시작 순간 포탈 반짝
@@ -317,10 +344,12 @@ class ValhallaWarplateState:
                     self.portal_flash = 1.0 - descend_progress / 0.15
                 else:
                     self.portal_flash = 0.0
-                eased = 1.0 - (1.0 - descend_progress) ** 2
+                eased = 1.0 - (1.0 - descend_progress) ** 2  # ease-out
                 if gs:
+                    # 포탈 위치(Y=80) → 순찰 위치(Y=620) 하강
                     gs.y_bottom = self.PORTAL_Y + (self.PATROL_Y - self.PORTAL_Y) * eased
                     gs.x_bottom = self.portal_x
+                    # patrolling으로 설정해야 캐릭터가 보임
                     gs.phase_bottom = "patrolling"
                 self._spawn_portal_swirl(0.3)
             elif t < 4.0:
@@ -329,6 +358,10 @@ class ValhallaWarplateState:
                 self.portal_scale = max(0, (1.0 - close_progress) ** 2)
                 self.portal_flash = 0.0
                 self._spawn_portal_swirl(0.15 * self.portal_scale)
+                # 호위무사는 순찰 위치에 고정
+                if gs:
+                    gs.y_bottom = self.PATROL_Y
+                    gs.phase_bottom = "patrolling"
             else:
                 # 완료 → SUMMONED
                 self.portal_scale = 0.0
@@ -339,6 +372,11 @@ class ValhallaWarplateState:
                 self.portal_lightning.clear()
                 if gs:
                     gs.cooldown_bottom = 0.1
+                    gs.phase_bottom = "patrolling"
+                    gs.y_bottom = self.PATROL_Y
+                # 포탈 이동 플래그 해제
+                if bg:
+                    bg._valhalla_portal_moving = False
                 print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 하강 완료 → 스킬 대기")
 
             self._update_portal_particles(dt)
@@ -388,8 +426,13 @@ class ValhallaWarplateState:
                 self._spawn_portal_swirl(0.4 + 0.4 * progress)
                 self._spawn_portal_lightning(0.1 + 0.3 * progress)
                 self.portal_flash = 0.0
+                # 호위무사는 아래에서 대기 (순찰 위치)
+                if gs:
+                    gs.y_bottom = getattr(self, '_ascend_start_y', self.PATROL_Y)
+                    gs.x_bottom = self.portal_x
+                    gs.phase_bottom = "patrolling"
             elif t < 3.0:
-                # 플래시 + 상승 (영웅이 포탈로 올라감)
+                # 플래시 + 상승 (영웅이 포탈로 올라감!)
                 self.portal_scale = 1.0
                 ascend_progress = min(1.0, (t - 2.0) / 1.0)
                 # 포탈 진입 순간 반짝 (상승 80% 지점)
@@ -399,18 +442,24 @@ class ValhallaWarplateState:
                     self.portal_flash = max(0, 1.0 - (ascend_progress - 0.9) / 0.1)
                 else:
                     self.portal_flash = 0.0
-                eased = ascend_progress ** 2  # ease-in
+                eased = ascend_progress ** 2  # ease-in (천천히 → 빠르게)
                 start_y = getattr(self, '_ascend_start_y', self.PATROL_Y)
                 if gs:
+                    # 순찰 위치(Y=620) → 포탈 위치(Y=80) 상승
                     gs.y_bottom = start_y + (self.PORTAL_Y - start_y) * eased
                     gs.x_bottom = self.portal_x
+                    gs.phase_bottom = "patrolling"  # 캐릭터 보이게
                 self._spawn_portal_swirl(0.4)
             elif t < 4.0:
                 # 포탈 천천히 닫힘 (1→0, 1초)
+                # 호위무사는 포탈 안에 사라짐
                 close_progress = (t - 3.0) / 1.0
                 self.portal_scale = max(0, (1.0 - close_progress) ** 2)
                 self.portal_flash = 0.0
                 self._spawn_portal_swirl(0.15 * self.portal_scale)
+                if gs:
+                    gs.y_bottom = self.PORTAL_Y - 30  # 포탈 위로 숨김
+                    gs.phase_bottom = None  # 캐릭터 안 보이게
             else:
                 # 완료 → 스킬 유지한 채 해산
                 self.portal_scale = 0.0
