@@ -576,11 +576,11 @@ class InGameBodyguard:
             bottom_paddle = _PaddleProxy(player_rect, is_top=False) if player_rect else _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
             ball = _BallProxy(ball_rect, ball_vx, ball_vy) if ball_rect else None
             # 스킬 이펙트만 업데이트 (guard_system 전체 update 대신)
-            gs = self._guard_system
+            _gs = self._guard_system
             game_state = self._skill_manager.game_state if self._skill_manager else {}
             fx = {}
-            for hero_id, skills in gs.skill_instances.items():
-                guard_paddle = gs.guard_paddles.get(hero_id)
+            for hero_id, skills in _gs.skill_instances.items():
+                guard_paddle = _gs.guard_paddles.get(hero_id)
                 if not guard_paddle:
                     continue
                 target = top_paddle  # 스킬 대상은 보스(상단)
@@ -592,6 +592,24 @@ class InGameBodyguard:
                                 fx.update(result)
                         except Exception:
                             pass
+            # game_state에서 핵심 이벤트 추출 (유령소환, 모래회오리 등)
+            if game_state.get('ghost_summon_ball_hidden', False):
+                fx['ghost_ball_hidden'] = True
+            _ghost_rel = game_state.pop('ghost_summon_ball_release', None)
+            if _ghost_rel:
+                fx['ghost_ball_release'] = _ghost_rel
+                game_state['ghost_summon_ball_hidden'] = False
+            _vortex_cap = game_state.pop('sand_vortex_ball_captured', None)
+            if _vortex_cap:
+                fx['sand_vortex_capture'] = _vortex_cap
+            # 넉백 이벤트
+            if game_state.get('top_paddle_knockback'):
+                fx['stun_frames'] = game_state.pop('top_paddle_knockback_stun', 0)
+            # 화면 흔들림
+            _shake = game_state.pop('screen_shake', 0)
+            if _shake:
+                fx['screen_shake'] = True
+                fx['shake_intensity'] = _shake if isinstance(_shake, (int, float)) else 15
             return fx
 
         # 영웅 등장 대사 타이머 감소
