@@ -162847,7 +162847,23 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             freeze_capture = (arena_mode_enabled and arena_capture_phase is not None)
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
+            # 발할라의 전갑 소환 컷신 프리즈
+            freeze_valhalla = False
+            try:
+                from item_effects.valhalla_warplate import get_valhalla_warplate_state
+                freeze_valhalla = get_valhalla_warplate_state().is_cutscene_active
+            except Exception:
+                pass
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture or freeze_valhalla
+
+            # ⚔ 발할라의 전갑: 컷신 업데이트 + 드로잉 (freeze 중에도 실행)
+            if freeze_valhalla:
+                try:
+                    _vw_cutscene = get_valhalla_warplate_state()
+                    _vw_cutscene.update(1.0 / 60.0)
+                    _vw_cutscene.draw_cutscene(SCREEN)
+                except Exception:
+                    pass
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:

@@ -9,6 +9,8 @@
 """
 
 import random
+import math
+import pygame
 
 # ── 영웅 목록 (투기장 15영웅) ──────────────────────────────────
 VALHALLA_HEROES = [
@@ -29,6 +31,9 @@ VALHALLA_HEROES = [
     {"id": "monkeyking", "name": "오공",      "color": (200, 120, 50)},
 ]
 
+# ── 소환 연출 상수 ──────────────────────────────────────────────
+SUMMON_CUTSCENE_DURATION = 1.0  # 소환 컷신 시간 (초)
+
 # ── 상태 관리 ──────────────────────────────────────────────────
 
 class ValhallaWarplateState:
@@ -36,9 +41,10 @@ class ValhallaWarplateState:
 
     # 상태 머신
     IDLE = 0           # 대기 중
-    SUMMONED = 1       # 소환됨, 스킬 발동 대기
-    SKILL_ACTIVE = 2   # 스킬 발동 중
-    EXITING = 3        # 퇴장 모션 재생 중
+    CUTSCENE = 1       # 소환 컷신 (화면 정지 + 텍스트)
+    SUMMONED = 2       # 소환됨, 스킬 발동 대기
+    SKILL_ACTIVE = 3   # 스킬 발동 중
+    EXITING = 4        # 퇴장 모션 재생 중
 
     def __init__(self):
         self.active = False           # 장착 중인지
@@ -54,6 +60,17 @@ class ValhallaWarplateState:
         self.max_summon_time = 10.0   # 스킬 미발동 시 최대 대기 시간 (초)
         self._bodyguard_ref = None    # 사용 중인 InGameBodyguard 참조
         self.summoned_hero_name = ""  # 소환된 영웅 이름 (로그용)
+        self._pending_hero = None     # 컷신 중 대기하는 영웅 데이터
+        self._pending_skill_idx = 0   # 컷신 중 대기하는 스킬 인덱스
+
+        # 컷신 연출
+        self.cutscene_timer = 0.0     # 컷신 경과 시간
+        self.cutscene_particles = []  # 컷신 파티클
+
+    @property
+    def is_cutscene_active(self) -> bool:
+        """컷신(화면 정지) 중인지"""
+        return self.state == self.CUTSCENE
 
     def activate(self, summon_chance: float):
         """장착 시 활성화"""
@@ -81,16 +98,13 @@ class ValhallaWarplateState:
         """퇴장 모션 시작 (exiting phase 트리거)"""
         if self._bodyguard_ref and self._bodyguard_ref.active and self._bodyguard_ref._guard_system:
             gs = self._bodyguard_ref._guard_system
-            # exiting phase 설정 (걸어서 나가는 모션)
             gs._exit_start_x_bottom = gs.x_bottom
             gs._exit_start_y_bottom = float(gs.y_bottom)
             gs.phase_bottom = "exiting"
             gs.anim_timer_bottom = 0.0
             self.state = self.EXITING
-            self.summoning = True  # exiting 중에도 summoning 유지
-            print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 퇴장 모션 시작!")
+            self.summoning = True
         else:
-            # guard_system 없으면 바로 해산
             self._force_dismiss()
 
     def _clear_state(self):
@@ -101,9 +115,13 @@ class ValhallaWarplateState:
         self.summon_timer = 0.0
         self.post_skill_timer = 0.0
         self.summoned_hero_name = ""
+        self._pending_hero = None
+        self._pending_skill_idx = 0
+        self.cutscene_timer = 0.0
+        self.cutscene_particles.clear()
 
     def try_summon(self) -> bool:
-        """공 타격 시 소환 시도. 성공하면 True 반환."""
+        """공 타격 시 소환 시도. 성공하면 True (컷신 시작)."""
         if not self.active or self.state != self.IDLE:
             return False
 
@@ -122,26 +140,60 @@ class ValhallaWarplateState:
         if random.random() > effective_chance:
             return False
 
-        # 소환 성공! 실제 InGameBodyguard 시스템 사용
+        # 빈 슬롯 확인
+        try:
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+            _bg = get_bodyguard()
+            _bg2 = get_bodyguard2()
+            if _bg.active and _bg2.active:
+                return False
+        except Exception:
+            return False
+
+        # 컷신 시작! (실제 소환은 컷신 끝에)
         hero = random.choice(VALHALLA_HEROES)
-        skill_idx = random.randint(0, 1)
+        self._pending_hero = hero
+        self._pending_skill_idx = random.randint(0, 1)
+        self.state = self.CUTSCENE
+        self.summoning = True
+        self.cutscene_timer = 0.0
+        self.summoned_hero_name = hero["name"]
+
+        # 컷신 파티클 생성
+        self.cutscene_particles.clear()
+        for _ in range(30):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(20, 80)
+            self.cutscene_particles.append({
+                "x": 380.0, "y": 375.0,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed - 20,
+                "life": random.uniform(0.5, 1.0),
+                "max_life": random.uniform(0.5, 1.0),
+                "size": random.uniform(2, 5),
+                "type": random.choice(["gold", "rune", "light"]),
+            })
+
+        print(f"⚔ 발할라의 부름: {hero['name']} 소환 컷신 시작!")
+        return True
+
+    def _do_actual_summon(self):
+        """컷신 종료 후 실제 호위무사 소환"""
+        hero = self._pending_hero
+        skill_idx = self._pending_skill_idx
+        if not hero:
+            self._clear_state()
+            return
 
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
-
             _bg = get_bodyguard()
             _bg2 = get_bodyguard2()
+            target_bg = _bg if not _bg.active else (_bg2 if not _bg2.active else None)
+            if not target_bg:
+                self._clear_state()
+                return
 
-            # 빈 호위무사 슬롯 찾기
-            target_bg = None
-            if not _bg.active:
-                target_bg = _bg
-            elif not _bg2.active:
-                target_bg = _bg2
-            else:
-                return False
-
-            # 인장과 동일한 방식으로 호위무사 setup
             hero_data = {
                 "id": hero["id"],
                 "name": hero["name"],
@@ -151,27 +203,37 @@ class ValhallaWarplateState:
             skill_sel = {hero["id"]: skill_idx}
             target_bg.setup(hero_data, skill_selections=skill_sel, first_spawn=True)
 
-            # 쿨다운을 거의 0으로 설정 → 즉시 스킬 발동
             if target_bg._guard_system:
                 target_bg._guard_system.cooldown_bottom = 0.1
 
             self._bodyguard_ref = target_bg
             self.state = self.SUMMONED
-            self.summoning = True
             self.summon_timer = 0.0
             self.post_skill_timer = 0.0
-            self.summoned_hero_name = hero["name"]
-
-            print(f"⚔ 발할라의 전갑: {hero['name']} 소환! (스킬 {skill_idx + 1}번 발동 예정)")
-            return True
+            self._pending_hero = None
+            print(f"⚔ 발할라의 전갑: {hero['name']} 소환 완료! (스킬 {skill_idx + 1}번)")
 
         except Exception as e:
             print(f"[WARN] 발할라 전갑 소환 실패: {e}")
-            return False
+            self._clear_state()
 
     def update(self, dt: float):
         """매 프레임 업데이트 - 상태 머신 기반 관리"""
         if self.state == self.IDLE:
+            return
+
+        # ── CUTSCENE: 소환 연출 (화면 정지) ──
+        if self.state == self.CUTSCENE:
+            self.cutscene_timer += dt
+            # 파티클 업데이트
+            for p in self.cutscene_particles:
+                p["x"] += p["vx"] * dt
+                p["y"] += p["vy"] * dt
+                p["life"] -= dt
+            self.cutscene_particles = [p for p in self.cutscene_particles if p["life"] > 0]
+            # 컷신 종료 → 실제 소환
+            if self.cutscene_timer >= SUMMON_CUTSCENE_DURATION:
+                self._do_actual_summon()
             return
 
         self.summon_timer += dt
@@ -182,12 +244,9 @@ class ValhallaWarplateState:
         if self.state == self.SUMMONED:
             if gs:
                 phase = getattr(gs, 'phase_bottom', 'patrolling')
-                # patrolling/patrol_entering 이외 = 스킬 발동 시작
                 if phase not in ('patrolling', 'patrol_entering', None):
                     self.state = self.SKILL_ACTIVE
                     print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 스킬 발동!")
-
-            # 안전장치: 너무 오래 대기하면 퇴장
             if self.summon_timer >= self.max_summon_time:
                 self._start_exit()
 
@@ -195,50 +254,154 @@ class ValhallaWarplateState:
         elif self.state == self.SKILL_ACTIVE:
             if gs:
                 phase = getattr(gs, 'phase_bottom', 'patrolling')
-                # 캐릭터가 patrolling으로 복귀했는지 확인
                 if phase in ('patrolling', 'patrol_entering', None):
-                    # 스킬 시전 애니메이션이 아직 진행 중이면 대기
-                    # (뼈장막, 해골궁수 등이 완성되기 전에 퇴장하는 것 방지)
                     casting_done = True
                     for hero_id, skills in gs.skill_instances.items():
                         for skill in skills:
-                            # 스킬이 활성 상태이고 시전 초기 단계면 대기
                             if getattr(skill, 'is_active', False):
                                 active_timer = getattr(skill, 'active_timer', 999)
-                                # 시전 시작 후 2초 이내면 아직 시전 중으로 간주
                                 if active_timer < 2.0:
                                     casting_done = False
                                     break
                         if not casting_done:
                             break
-
                     if casting_done:
                         self.post_skill_timer += dt
                         if self.post_skill_timer >= self.post_skill_linger:
                             self._start_exit()
             else:
-                # guard_system 사라짐 → 정리
                 self._clear_state()
 
         # ── EXITING: 퇴장 모션 완료 대기 ──
         elif self.state == self.EXITING:
             if gs:
                 phase = getattr(gs, 'phase_bottom', None)
-                # exiting 완료 → phase가 None이나 다른 값으로 전환
                 if phase != "exiting":
-                    # 퇴장 완료 → 스킬 이펙트 유지한 채 캐릭터만 해산
                     if bg and bg.active:
                         bg.dismiss_keep_skills()
                     self._clear_state()
                     return
             else:
-                # guard_system 없으면 정리
                 self._clear_state()
                 return
-
-            # 안전장치: exiting이 너무 오래 걸리면 강제 해산
             if self.summon_timer >= self.max_summon_time + 2.0:
                 self._force_dismiss()
+
+    def draw_cutscene(self, screen: pygame.Surface):
+        """소환 컷신 연출 드로잉 (게임 렌더링 위에 오버레이)"""
+        if self.state != self.CUTSCENE:
+            return
+
+        W, H = 760, 750
+        progress = min(1.0, self.cutscene_timer / SUMMON_CUTSCENE_DURATION)
+        hero = self._pending_hero
+        if not hero:
+            return
+
+        # 1) 반투명 어두운 오버레이
+        overlay = pygame.Surface((W, H), pygame.SRCALPHA)
+        fade = int(100 * min(1.0, progress * 3))  # 빠르게 어두워짐
+        overlay.fill((10, 10, 30, fade))
+        screen.blit(overlay, (0, 0))
+
+        cx, cy = W // 2, H // 2 - 30
+
+        # 2) 소환진 (확장되는 금빛 원형 룬)
+        rune_progress = min(1.0, progress * 2)
+        rune_r = int(20 + 80 * rune_progress)
+        rune_alpha = int(200 * (1.0 - progress * 0.5))
+        rune_surf = pygame.Surface((rune_r * 2 + 20, rune_r * 2 + 20), pygame.SRCALPHA)
+        rc = rune_r + 10
+        # 외곽 원
+        pygame.draw.circle(rune_surf, (255, 215, 80, rune_alpha), (rc, rc), rune_r, 2)
+        # 내곽 원
+        inner_r = int(rune_r * 0.6)
+        pygame.draw.circle(rune_surf, (255, 230, 120, rune_alpha // 2), (rc, rc), inner_r, 1)
+        # 룬 십자
+        cross_len = rune_r - 8
+        pygame.draw.line(rune_surf, (255, 220, 100, rune_alpha // 2),
+                        (rc - cross_len, rc), (rc + cross_len, rc), 1)
+        pygame.draw.line(rune_surf, (255, 220, 100, rune_alpha // 2),
+                        (rc, rc - cross_len), (rc, rc + cross_len), 1)
+        # 대각선 룬
+        diag = int(cross_len * 0.7)
+        pygame.draw.line(rune_surf, (255, 200, 80, rune_alpha // 3),
+                        (rc - diag, rc - diag), (rc + diag, rc + diag), 1)
+        pygame.draw.line(rune_surf, (255, 200, 80, rune_alpha // 3),
+                        (rc + diag, rc - diag), (rc - diag, rc + diag), 1)
+        # 룬 문자 (삼각형 형태 8개)
+        for i in range(8):
+            angle = i * math.pi / 4 + progress * math.pi
+            rx = rc + int(math.cos(angle) * (rune_r - 12))
+            ry = rc + int(math.sin(angle) * (rune_r - 12))
+            pygame.draw.circle(rune_surf, (255, 235, 150, rune_alpha), (rx, ry), 3)
+        screen.blit(rune_surf, (cx - rc, cy - rc))
+
+        # 3) 빛기둥 (중앙에서 위아래로)
+        beam_alpha = int(120 * min(1.0, progress * 2.5))
+        beam_w = int(6 + 30 * rune_progress)
+        beam_surf = pygame.Surface((beam_w, H), pygame.SRCALPHA)
+        for by in range(H):
+            dist = abs(by - cy)
+            ba = int(beam_alpha * max(0, 1.0 - dist / 300))
+            if ba > 0:
+                pygame.draw.line(beam_surf, (255, 220, 100, ba), (0, by), (beam_w, by), 1)
+        screen.blit(beam_surf, (cx - beam_w // 2, 0))
+
+        # 4) "발할라의 부름" 텍스트
+        text_alpha = int(255 * min(1.0, progress * 3))
+        if progress > 0.7:
+            text_alpha = int(255 * (1.0 - (progress - 0.7) / 0.3))
+        if text_alpha > 10:
+            try:
+                import pygame.freetype
+                from core.constants import resource_path
+                font_path = resource_path("fonts/NanumSquareB.ttf")
+                # 메인 텍스트
+                main_font = pygame.freetype.Font(font_path, 32)
+                main_surf, main_rect = main_font.render("발할라의 부름", (255, 230, 150))
+                main_surf.set_alpha(text_alpha)
+                screen.blit(main_surf, (cx - main_rect.width // 2, cy - 60))
+                # 영웅 이름
+                name_font = pygame.freetype.Font(font_path, 20)
+                hero_text = f"― {hero['name']} ―"
+                name_surf, name_rect = name_font.render(hero_text, hero["color"])
+                name_surf.set_alpha(text_alpha)
+                screen.blit(name_surf, (cx - name_rect.width // 2, cy + 40))
+            except Exception:
+                # 폰트 로드 실패 시 기본 폰트
+                try:
+                    font = pygame.font.Font(None, 36)
+                    text_surf = font.render("VALHALLA'S CALL", True, (255, 230, 150))
+                    text_surf.set_alpha(text_alpha)
+                    screen.blit(text_surf, (cx - text_surf.get_width() // 2, cy - 50))
+                except Exception:
+                    pass
+
+        # 5) 파티클
+        for p in self.cutscene_particles:
+            ratio = max(0, p["life"] / p["max_life"])
+            size = int(p["size"] * ratio)
+            if size < 1:
+                continue
+            if p["type"] == "gold":
+                color = (255, 215, 80, int(200 * ratio))
+            elif p["type"] == "rune":
+                color = (180, 160, 255, int(180 * ratio))
+            else:
+                color = (255, 255, 220, int(160 * ratio))
+            ps = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(ps, color, (size + 1, size + 1), size)
+            screen.blit(ps, (int(p["x"]) - size - 1, int(p["y"]) - size - 1))
+
+        # 6) 화면 가장자리 금빛 비네팅
+        vignette_alpha = int(60 * min(1.0, progress * 2))
+        if vignette_alpha > 5:
+            vig = pygame.Surface((W, H), pygame.SRCALPHA)
+            for i in range(3):
+                pygame.draw.rect(vig, (255, 200, 60, vignette_alpha // (i + 1)),
+                               (i * 2, i * 2, W - i * 4, H - i * 4), 2)
+            screen.blit(vig, (0, 0))
 
 
 # ── 싱글톤 ──────────────────────────────────────────────────────
