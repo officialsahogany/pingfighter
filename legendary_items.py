@@ -12312,27 +12312,34 @@ class ValhallaWarplate(LegendaryItem):
         )
 
     def _load_border_frames(self):
-        """라그나로크 해머 PNG에서 테두리만 추출한 프레임 로드"""
+        """라그나로크 해머 PNG에서 4꼭지점만 추출한 프레임 로드 (EmptyLegendary 방식)"""
         self.border_frames = []
         for i in range(8):
             frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 cleaned = _strip_legendary_red_ring(frame)
-                border_only = self._clear_center_content(cleaned)
-                self.border_frames.append(border_only)
+                corners_only = self._extract_corners(cleaned)
+                self.border_frames.append(corners_only)
             except Exception:
                 self.border_frames.append(None)
 
-    def _clear_center_content(self, surface):
-        """중앙 콘텐츠를 지우고 테두리만 남김"""
-        if surface is None:
+    @staticmethod
+    def _extract_corners(frame: pygame.Surface) -> pygame.Surface:
+        """프레임에서 4꼭지점 영역만 보존, 나머지(해머 잔여물 포함) 모두 제거"""
+        if frame is None:
             return None
-        result = surface.copy()
-        w, h = result.get_size()
-        margin = int(w * 0.18)
-        clear_rect = pygame.Rect(margin, margin, w - margin * 2, h - margin * 2)
-        result.fill((0, 0, 0, 0), clear_rect)
+        w, h = frame.get_size()
+        result = pygame.Surface((w, h), pygame.SRCALPHA)
+        cs = 4  # 꼭지점 보존 크기 (px)
+        for rect in [
+            pygame.Rect(0, 0, cs, cs),
+            pygame.Rect(w - cs, 0, cs, cs),
+            pygame.Rect(0, h - cs, cs, cs),
+            pygame.Rect(w - cs, h - cs, cs, cs),
+        ]:
+            result.blit(frame, rect.topleft, rect)
+        return result
         return result
 
     def _create_default_animation(self):
@@ -12442,12 +12449,13 @@ class ValhallaWarplate(LegendaryItem):
             self.animation_frames.append(frame)
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """아이콘 그리기 (다른 전설 아이템과 동일한 공통 프레임 사용)"""
+        """아이콘 그리기 - 공통 전설 프레임 + 갑옷 아이콘 + 발할라 테마 파티클"""
         t = self.animation_time
         ps_size = size + 16
 
         # 공통 프레임 (바탕, 글로우)
-        _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        frame_y = y + int(self.animation_offset)
 
         # 프레임 카운터 업데이트
         self.frame_counter += 1
@@ -12455,15 +12463,13 @@ class ValhallaWarplate(LegendaryItem):
             self.frame_counter = 0
             self.current_frame = (self.current_frame + 1) % max(1, len(self.animation_frames))
 
-        # 아이콘 프레임 렌더
-        frame_y = y + int(self.animation_offset)
-
+        # 갑옷 아이콘 프레임 렌더
         if self.animation_frames:
             anim_frame = self.animation_frames[self.current_frame % len(self.animation_frames)]
             scaled = pygame.transform.smoothscale(anim_frame, (size, size))
             screen.blit(scaled, (x, frame_y))
 
-        # 테두리 오버레이
+        # 4꼭지점 테두리 오버레이 (해머 잔여물 없는 깔끔한 꼭지점만)
         if self.border_frames:
             bi = self.current_frame % len(self.border_frames)
             border = self.border_frames[bi]
@@ -12471,55 +12477,54 @@ class ValhallaWarplate(LegendaryItem):
                 scaled_border = pygame.transform.smoothscale(border, (size, size))
                 screen.blit(scaled_border, (x, frame_y))
 
-        # ── 테마 파티클: 발할라 빛 (금빛 영웅 아우라 + 룬) ──
+        # ── 테마 파티클: 발할라 전사의 영광 (금빛 영혼 + 북유럽 룬) ──
         ps = pygame.Surface((ps_size, ps_size), pygame.SRCALPHA)
         pc = ps_size // 2
 
-        # 1) 영웅 영혼 빛 (작은 금빛 구슬 6개, 상승)
-        for i in range(6):
-            sp = (t * 0.8 + i * 0.9) % 2.5
-            sx = pc + int(math.sin(t * 0.5 + i * 1.8) * size * 0.35)
-            sy = pc + int(size * 0.3) - int(sp * size * 0.25)
-            sa = int(180 * (1 - sp / 2.5))
+        # 1) 전사 영혼 빛 (금빛 구슬, 상승하며 소멸)
+        for i in range(5):
+            sp = (t * 0.7 + i * 1.1) % 2.5
+            sx = pc + int(math.sin(t * 0.6 + i * 1.5) * size * 0.3)
+            sy = pc + int(size * 0.25) - int(sp * size * 0.22)
+            sa = int(160 * (1 - sp / 2.5))
             if sa > 0:
-                # 금빛 글로우
-                pygame.draw.circle(ps, (255, 220, 80, sa // 2), (sx, sy), 4)
-                pygame.draw.circle(ps, (255, 235, 140, sa), (sx, sy), 2)
-                pygame.draw.circle(ps, (255, 250, 200, min(255, sa + 40)), (sx, sy), 1)
+                pygame.draw.circle(ps, (255, 215, 70, sa // 2), (sx, sy), 3)
+                pygame.draw.circle(ps, (255, 235, 130, sa), (sx, sy), 2)
+                pygame.draw.circle(ps, (255, 248, 190, min(255, sa + 30)), (sx, sy), 1)
 
-        # 2) 발할라 게이트 빛줄기 (상단에서 내려오는 광선 3개)
-        for bi in range(3):
-            beam_x = pc + int(math.sin(t * 0.4 + bi * 2.1) * size * 0.2)
-            beam_pulse = (math.sin(t * 2.0 + bi * 1.5) + 1) / 2
-            ba = int(40 + 50 * beam_pulse)
+        # 2) 비프로스트 빛기둥 (상단에서 내려오는 무지개빛 광선 2개)
+        for bi in range(2):
+            beam_x = pc + int(math.sin(t * 0.3 + bi * 3.0) * size * 0.15)
+            beam_pulse = (math.sin(t * 1.8 + bi * 2.0) + 1) / 2
+            ba = int(30 + 40 * beam_pulse)
             if ba > 5:
-                beam_w = 2
                 beam_top = max(0, pc - int(size * 0.4))
-                beam_bot = min(ps_size, pc + int(size * 0.3))
-                beam_surf = pygame.Surface((beam_w + 4, beam_bot - beam_top), pygame.SRCALPHA)
-                beam_surf.fill((255, 215, 100, ba // 3))
-                pygame.draw.line(beam_surf, (255, 230, 150, ba), (beam_w // 2 + 2, 0), (beam_w // 2 + 2, beam_bot - beam_top), 1)
-                ps.blit(beam_surf, (beam_x - beam_w // 2 - 2, beam_top))
+                beam_bot = min(ps_size, pc + int(size * 0.25))
+                # 황금빛 기둥
+                beam_surf = pygame.Surface((4, beam_bot - beam_top), pygame.SRCALPHA)
+                beam_surf.fill((255, 220, 100, ba // 3))
+                pygame.draw.line(beam_surf, (255, 240, 160, ba), (2, 0), (2, beam_bot - beam_top), 1)
+                ps.blit(beam_surf, (beam_x - 2, beam_top))
 
-        # 3) 룬 문자 떠오름 (좌우 2개)
+        # 3) 떠오르는 룬 문자 (좌우)
         for ri in range(2):
-            rp = (t * 0.6 + ri * 1.3) % 2.0
-            rx = pc + (1 if ri % 2 == 0 else -1) * int(size * 0.38)
-            ry = pc + int(size * 0.15) - int(rp * size * 0.2)
-            ra = int(120 * (1 - rp / 2.0))
-            if ra > 10:
-                rune_color = (200, 180, 100, ra)
-                # 간단한 룬 심볼
-                pygame.draw.line(ps, rune_color, (rx, ry - 4), (rx, ry + 4), 1)
-                pygame.draw.line(ps, rune_color, (rx - 2, ry - 2), (rx + 2, ry + 2), 1)
+            rp = (t * 0.5 + ri * 1.5) % 2.0
+            rx = pc + (1 if ri % 2 == 0 else -1) * int(size * 0.35)
+            ry = pc + int(size * 0.1) - int(rp * size * 0.18)
+            ra = int(100 * (1 - rp / 2.0))
+            if ra > 8:
+                rc = (220, 200, 100, ra)
+                # 룬 심볼 (ᚠ 페후 형태)
+                pygame.draw.line(ps, rc, (rx, ry - 3), (rx, ry + 3), 1)
+                pygame.draw.line(ps, rc, (rx, ry - 2), (rx + 2, ry - 1), 1)
+                pygame.draw.line(ps, rc, (rx, ry), (rx + 2, ry + 1), 1)
 
-        # 4) 금빛 원형 아우라 (하단)
-        aura_pulse = (math.sin(t * 1.8) + 1) / 2
-        for ai in range(2):
-            ar = int(size * 0.12 + size * 0.06 * aura_pulse) + ai * 3
-            aa = int((50 - ai * 20) * aura_pulse)
-            if aa > 0:
-                pygame.draw.circle(ps, (255, 200, 80, aa), (pc, pc + int(size * 0.1)), ar, 1)
+        # 4) 전사의 아우라 (금빛 원형 파동)
+        aura_pulse = (math.sin(t * 2.0) + 1) / 2
+        ar = int(size * 0.1 + size * 0.05 * aura_pulse)
+        aa = int(40 * aura_pulse)
+        if aa > 0:
+            pygame.draw.circle(ps, (255, 210, 80, aa), (pc, pc), ar, 1)
 
         screen.blit(ps, (x - 8, frame_y - 8))
         _draw_legendary_border_and_corners(screen, x, frame_y, size)
