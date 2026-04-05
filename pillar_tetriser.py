@@ -30,7 +30,8 @@ class CrystalShieldBlock:
     """보스 주변을 회전하는 크리스탈 테트로미노 블록"""
 
     def __init__(self, start_x: float, start_y: float, target_x: float, target_y: float,
-                 color: Tuple[int, int, int], block_size: int, orbit_angle: float):
+                 color: Tuple[int, int, int], block_size: int, orbit_angle: float,
+                 orbit_radius: float = 100):
         # 시작 위치 (필러에서 분해된 위치)
         self.start_x = start_x
         self.start_y = start_y
@@ -61,7 +62,7 @@ class CrystalShieldBlock:
 
         # 궤도 설정
         self.orbit_angle = orbit_angle  # 보스 주변 궤도 위치
-        self.orbit_radius = 100  # 보스로부터의 거리 (더 작게)
+        self.orbit_radius = orbit_radius  # 보스로부터의 거리
         self.orbit_speed = 0.4  # 회전 속도 (더 느리게)
 
         # 무지개 홀로그램
@@ -247,6 +248,10 @@ class CrystalShieldSystem:
 
     FINAL_SHIELD_COUNT = 24  # 최종 실드 블록 수
 
+    # 기본 궤도 반경 상수
+    BASE_ORBIT_RADIUS = 100       # 블록 궤도 반경 기본값
+    BASE_MERGE_RADIUS = 60        # 결합 타겟 궤도 반경 기본값
+
     def __init__(self):
         self.shield_blocks: List[CrystalShieldBlock] = []
         self.activated = False
@@ -254,6 +259,9 @@ class CrystalShieldSystem:
         self.animation_phase = "idle"
         # idle -> aura -> floating -> gathering -> forming -> active
         self.animation_timer = 0.0
+
+        # 광폭화 상태 (궤도 반경 +30%)
+        self.enraged = False
 
         # 보스 위치 (pingfighter.py에서 업데이트)
         self.boss_x = 0
@@ -305,6 +313,11 @@ class CrystalShieldSystem:
         # 응축 효과 (forming 페이즈)
         self.condensing_energy = 0.0  # 응축 에너지 (0~1)
         self.energy_rings: List[Dict] = []  # 에너지 링
+
+    @property
+    def radius_multiplier(self) -> float:
+        """궤도 반경 배율: 기본 +10%, 광폭화 시 +30%"""
+        return 1.3 if self.enraged else 1.1
 
     def schedule_activation(self, left_game, right_game, boss_x: float, boss_y: float,
                             screen_height: int, screen_width: int = 800):
@@ -442,12 +455,13 @@ class CrystalShieldSystem:
     def _calculate_merge_targets(self):
         """최종 24개 실드 위치 계산 (보스 주변 궤도)"""
         self.merge_targets.clear()
+        merge_radius = self.BASE_MERGE_RADIUS * self.radius_multiplier
 
         for i in range(self.FINAL_SHIELD_COUNT):
             orbit_angle = (2 * math.pi * i) / self.FINAL_SHIELD_COUNT
             self.merge_targets.append({
                 'orbit_angle': orbit_angle,
-                'orbit_radius': 60,
+                'orbit_radius': merge_radius,
                 'blocks_merged': 0,  # 이 위치에 결합된 블록 수
             })
 
@@ -1032,6 +1046,7 @@ class CrystalShieldSystem:
     def _create_final_shield_blocks(self):
         """최종 24개 실드 블록 생성 (여러 블록이 결합되어 형성)"""
         self.shield_blocks.clear()
+        block_orbit_radius = self.BASE_ORBIT_RADIUS * self.radius_multiplier
 
         for i, target in enumerate(self.merge_targets):
             # 이 타겟에 결합된 블록들의 색상 혼합
@@ -1060,7 +1075,8 @@ class CrystalShieldSystem:
                 target_y=self.boss_y,
                 color=color,
                 block_size=16,
-                orbit_angle=target['orbit_angle']
+                orbit_angle=target['orbit_angle'],
+                orbit_radius=block_orbit_radius
             )
             shield_block.phase = "orbiting"
             self.shield_blocks.append(shield_block)
@@ -2574,12 +2590,16 @@ class TetriserPillarBackground:
         # print(f"[CrystalShield] 블록 수집: 좌측 {left_count}개, 우측 {right_count}개, 총 {len(blocks)}개")
         return blocks
 
-    def activate_crystal_shield(self, boss_x: float, boss_y: float):
+    def activate_crystal_shield(self, boss_x: float, boss_y: float, enraged: bool = False):
         """크리스탈 실드 활성화 예약 - 플레이어가 4점 획득 후 호출
         다음 라운드 시작 시 실제 애니메이션이 시작됨
+        enraged: 광폭화 상태면 궤도 반경 +30%
         """
         if self.crystal_shield.activated or self.crystal_shield.pending_activation:
             return False
+
+        # 광폭화 상태 전달
+        self.crystal_shield.enraged = enraged
 
         # 실드 활성화 예약 (테트리스 게임 참조 전달)
         self.crystal_shield.schedule_activation(
@@ -2662,10 +2682,10 @@ def get_tetriser_background() -> TetriserPillarBackground:
     return _tetriser_bg
 
 
-def activate_crystal_shield(boss_x: float, boss_y: float) -> bool:
+def activate_crystal_shield(boss_x: float, boss_y: float, enraged: bool = False) -> bool:
     """크리스탈 실드 활성화 (전역 함수)"""
     if _tetriser_bg:
-        return _tetriser_bg.activate_crystal_shield(boss_x, boss_y)
+        return _tetriser_bg.activate_crystal_shield(boss_x, boss_y, enraged=enraged)
     return False
 
 

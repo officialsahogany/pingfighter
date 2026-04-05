@@ -146404,7 +146404,7 @@ def handle_ball():
                     boss_center_y += additional_offset_y
                 # print(f"[Stage7] 크리스탈 실드 활성화! BOSS.x={BOSS.x}, BOSS.y={BOSS.y}, OFFSET=({GAME_OFFSET_X}, {GAME_OFFSET_Y}), SCALE={GAME_SCALE_FACTOR}")
                 # print(f"[Stage7] 보스 중앙 (REAL_SCREEN): ({boss_center_x}, {boss_center_y})")
-                pillar_renderer.activate_crystal_shield(boss_center_x, boss_center_y)
+                pillar_renderer.activate_crystal_shield(boss_center_x, boss_center_y, enraged=enraged_boss_active)
 
             # Stage 5 네메시스에서 플레이어가 3점 획득 시 다음 라운드에 스킬 발동 예약 (코드상 stage 6 = 실제 스테이지 5 네메시스)
             # 단, 보조 보스(배슬)가 살아있을 때만 예약 (배슬 전용 스킬)
