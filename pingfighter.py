@@ -14536,6 +14536,11 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
         if total_bonus > 0:
             amount = int(amount * (1.0 + total_bonus))
 
+    # ⚡ 스매셔 콤보 골드 보너스 (콤보 1스택당 +8%)
+    if selected_character_type == "smasher" and smasher_combo_count >= 1:
+        combo_gold_bonus = smasher_combo_count * 0.08
+        amount = int(amount * (1.0 + combo_gold_bonus))
+
     ingame_gold += amount
     last_rally_gold = amount
 
