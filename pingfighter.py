@@ -42234,6 +42234,8 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                     else:
                         _coin_count = random.randint(4, 6)  # 디바인: 40~60골드
                     spawn_blacksmith_coins(rect.centerx, rect.centery, _coin_count)
+                    # 🧪 건설물 파괴 드랍 병 스폰 (광폭물약/수리키트)
+                    spawn_blacksmith_drop_bottle(rect.centerx, rect.centery)
                     # 런타임/전역 상태를 즉시 정리해 UI와 필드에서 제거한다.
                     blacksmith_divine_destroy_timer = 0
                     blacksmith_divine_stage_owner = None
@@ -43733,6 +43735,8 @@ def update_blacksmith_turret():
                 _tcoin_count = random.randint(3, 5)  # 포탑: 30~50골드
             if turret_rect:
                 spawn_blacksmith_coins(turret_rect.centerx, turret_rect.centery, _tcoin_count)
+                # 🧪 포탑 파괴 드랍 병 스폰 (광폭물약/수리키트)
+                spawn_blacksmith_drop_bottle(turret_rect.centerx, turret_rect.centery)
             try:
                 effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=8)
                 effects_manager.spawn_construction_smoke(
@@ -58467,6 +58471,197 @@ def draw_blacksmith_coins(surface):
         pygame.draw.circle(surface, (200, 160, 30), (cx, cy), r)  # 외곽 (어두운 금)
         pygame.draw.circle(surface, (255, 215, 0), (cx, cy), r - 1)  # 본체 (금색)
         pygame.draw.circle(surface, (255, 245, 120), (cx - 2, cy - 2), max(1, r // 3))  # 하이라이트
+
+
+# === 🧪 발토르 건설물 파괴 드랍 병 시스템 ===
+blacksmith_drop_bottles: list = []  # [{x, y, vx, vy, timer, collected, item_name}]
+BOTTLE_DROP_GRAVITY = 0.22  # 병 중력 (금화보다 약간 느림)
+BOTTLE_DROP_LIFETIME = 300  # 5초 (60fps) - 금화보다 오래 유지
+BOTTLE_DROP_BLINK_START = 90  # 마지막 1.5초부터 깜빡임
+BOTTLE_DROP_SIZE = 10  # 병 반지름
+BOTTLE_DROP_BOUNCE = -0.45  # 바닥 반사 계수
+BOTTLE_DROP_CHANCE_BERSERK = 0.20  # 광폭물약 드랍 확률 20%
+BOTTLE_DROP_CHANCE_REPAIR = 0.25  # 수리키트 드랍 확률 25%
+# 병 색상 (유리병 느낌)
+BOTTLE_COLOR_BERSERK = (230, 90, 80)  # 붉은색 (광폭물약)
+BOTTLE_COLOR_REPAIR = (220, 210, 140)  # 황동색 (수리키트)
+BOTTLE_GLASS_COLOR = (200, 220, 240, 160)  # 유리병 색상 (반투명 하늘색)
+
+
+def spawn_blacksmith_drop_bottle(cx: float, cy: float):
+    """건설물 파괴 시 확률에 따라 광폭물약/수리키트 병 스폰"""
+    global blacksmith_drop_bottles
+    import random as _rng
+
+    drops = []
+    if _rng.random() < BOTTLE_DROP_CHANCE_REPAIR:
+        drops.append("repair_kit")
+    if _rng.random() < BOTTLE_DROP_CHANCE_BERSERK:
+        drops.append("berserk_potion")
+
+    for item_name in drops:
+        vx = _rng.uniform(-3.0, 3.0)
+        vy = _rng.uniform(-7.0, -3.0)  # 위로 높이 튀어오름
+        blacksmith_drop_bottles.append({
+            'x': float(cx) + _rng.uniform(-8, 8),
+            'y': float(cy) + _rng.uniform(-5, 5),
+            'vx': vx,
+            'vy': vy,
+            'timer': BOTTLE_DROP_LIFETIME,
+            'collected': False,
+            'item_name': item_name,
+            'spin': _rng.uniform(0, 6.28),  # 회전 각도 (장식용)
+        })
+
+
+def update_blacksmith_drop_bottles(player_rect):
+    """드랍 병 물리 업데이트 + 패들 수집 → 액티브 슬롯에 추가"""
+    global blacksmith_drop_bottles
+    if not blacksmith_drop_bottles:
+        return
+
+    bottles_to_remove = []
+    for bottle in blacksmith_drop_bottles:
+        if bottle['collected']:
+            bottles_to_remove.append(bottle)
+            continue
+
+        # 중력 적용
+        bottle['vy'] += BOTTLE_DROP_GRAVITY
+        bottle['x'] += bottle['vx']
+        bottle['y'] += bottle['vy']
+
+        # 회전 애니메이션
+        bottle['spin'] += 0.08
+
+        # 좌우 벽 반사
+        if bottle['x'] < BOTTLE_DROP_SIZE:
+            bottle['x'] = BOTTLE_DROP_SIZE
+            bottle['vx'] *= -0.7
+        elif bottle['x'] > WIDTH - BOTTLE_DROP_SIZE:
+            bottle['x'] = WIDTH - BOTTLE_DROP_SIZE
+            bottle['vx'] *= -0.7
+
+        # 바닥 반사
+        floor_y = HEIGHT - 35
+        if bottle['y'] >= floor_y:
+            bottle['y'] = floor_y
+            bottle['vy'] *= BOTTLE_DROP_BOUNCE
+            bottle['vx'] *= 0.85
+            if abs(bottle['vy']) < 0.5:
+                bottle['vy'] = 0
+
+        # 패들 수집 판정
+        bottle_rect = pygame.Rect(int(bottle['x']) - BOTTLE_DROP_SIZE,
+                                  int(bottle['y']) - BOTTLE_DROP_SIZE,
+                                  BOTTLE_DROP_SIZE * 2, BOTTLE_DROP_SIZE * 2)
+        if player_rect and bottle_rect.colliderect(player_rect):
+            bottle['collected'] = True
+            _pickup_drop_bottle(bottle)
+            continue
+
+        # 타이머 감소
+        bottle['timer'] -= 1
+        if bottle['timer'] <= 0:
+            bottles_to_remove.append(bottle)
+
+    for bottle in bottles_to_remove:
+        if bottle in blacksmith_drop_bottles:
+            blacksmith_drop_bottles.remove(bottle)
+
+
+def _pickup_drop_bottle(bottle):
+    """드랍 병 수집 시 해당 아이템을 액티브 슬롯에 추가"""
+    item_name = bottle['item_name']
+    # items.py에서 해당 아이템 데이터 찾기
+    item_template = None
+    for it in items.ITEM_TYPES:
+        if it["name"] == item_name:
+            item_template = it
+            break
+    if not item_template:
+        return
+
+    # 아이템 데이터 복사 + 위치 정보
+    item_data = dict(item_template)
+    item_data["x"] = bottle['x']
+    item_data["y"] = bottle['y']
+
+    try:
+        play_sound_with_volume(SOUND_ITEM_GET)
+    except Exception:
+        pass
+
+    # 액티브 슬롯에 추가
+    store_active_item(item_data)
+
+
+def draw_blacksmith_drop_bottles(surface):
+    """드랍 병 렌더링 (유리병 + 내부 아이콘 색상)"""
+    if not blacksmith_drop_bottles:
+        return
+
+    for bottle in blacksmith_drop_bottles:
+        if bottle['collected']:
+            continue
+
+        # 깜빡임 처리
+        if bottle['timer'] <= BOTTLE_DROP_BLINK_START:
+            if (bottle['timer'] // 6) % 2 == 0:
+                continue
+
+        bx = int(bottle['x']) + screen_shake_offset_x
+        by = int(bottle['y']) + screen_shake_offset_y
+        r = BOTTLE_DROP_SIZE
+        item_name = bottle['item_name']
+
+        # 아이템별 내용물 색상
+        if item_name == "berserk_potion":
+            liquid_color = BOTTLE_COLOR_BERSERK
+            liquid_dark = (180, 50, 40)
+            glow_color = (255, 120, 80)
+        else:  # repair_kit
+            liquid_color = BOTTLE_COLOR_REPAIR
+            liquid_dark = (170, 160, 90)
+            glow_color = (240, 230, 170)
+
+        # === 유리병 그리기 ===
+        # 병 몸통 (둥근 사각형 느낌)
+        body_rect = pygame.Rect(bx - r + 2, by - r + 3, (r - 2) * 2, (r - 1) * 2)
+        pygame.draw.ellipse(surface, liquid_dark, body_rect)  # 어두운 테두리
+        inner_rect = pygame.Rect(bx - r + 3, by - r + 4, (r - 3) * 2, (r - 2) * 2)
+        pygame.draw.ellipse(surface, liquid_color, inner_rect)  # 내용물 색상
+
+        # 병 목 (위쪽 좁은 부분)
+        neck_w = max(3, r // 2)
+        neck_h = max(3, r // 2)
+        neck_rect = pygame.Rect(bx - neck_w // 2, by - r - 1, neck_w, neck_h + 2)
+        pygame.draw.rect(surface, (180, 200, 220), neck_rect)  # 유리 목
+        # 병 뚜껑 (코르크)
+        cork_rect = pygame.Rect(bx - neck_w // 2 - 1, by - r - 3, neck_w + 2, 3)
+        pygame.draw.rect(surface, (160, 120, 70), cork_rect)  # 코르크 색
+
+        # 유리 하이라이트 (빛 반사)
+        pygame.draw.line(surface, (255, 255, 255), (bx - r + 4, by - r + 5),
+                         (bx - r + 4, by + 2), 1)  # 좌측 하이라이트
+
+        # 내용물 아이콘 (작은 심볼)
+        if item_name == "berserk_potion":
+            # 불꽃 심볼 (삼각형)
+            flame_pts = [(bx, by - 3), (bx - 3, by + 3), (bx + 3, by + 3)]
+            pygame.draw.polygon(surface, glow_color, flame_pts)
+        else:
+            # 렌치 심볼 (십자)
+            pygame.draw.line(surface, glow_color, (bx - 3, by), (bx + 3, by), 2)
+            pygame.draw.line(surface, glow_color, (bx, by - 3), (bx, by + 3), 2)
+
+        # 빛나는 후광 (선택적 — 깜빡일 때 강조)
+        if bottle['timer'] > BOTTLE_DROP_BLINK_START:
+            import math
+            glow_alpha = int(40 + 20 * math.sin(bottle['spin'] * 3))
+            glow_surf = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*glow_color, glow_alpha), (r * 2, r * 2), r * 2)
+            surface.blit(glow_surf, (bx - r * 2, by - r * 2))
 
 
 # 전역
@@ -94755,6 +94950,9 @@ def _draw_common_hud() -> None:
     # 🪙 발토르 건설물 파괴 금화 렌더링
     if blacksmith_coins:
         draw_blacksmith_coins(SCREEN)
+    # 🧪 발토르 건설물 파괴 드랍 병 렌더링
+    if blacksmith_drop_bottles:
+        draw_blacksmith_drop_bottles(SCREEN)
 
     draw_pandora_box_effect()
     draw_stopwatch_effect()
@@ -94841,6 +95039,9 @@ def draw_overlay_ui():
         # 🪙 발토르 건설물 파괴 금화 렌더링
         if blacksmith_coins:
             draw_blacksmith_coins(SCREEN)
+        # 🧪 발토르 건설물 파괴 드랍 병 렌더링
+        if blacksmith_drop_bottles:
+            draw_blacksmith_drop_bottles(SCREEN)
 
         if selected_character_type == "soldier":
             draw_supply_drop_system(SCREEN)
@@ -162595,6 +162796,9 @@ def main(stage_num, new_boss_mode=False):
             # 🪙 발토르 건설물 파괴 금화 업데이트
             if blacksmith_coins:
                 update_blacksmith_coins(PLAYER)
+            # 🧪 발토르 건설물 파괴 드랍 병 업데이트
+            if blacksmith_drop_bottles:
+                update_blacksmith_drop_bottles(PLAYER)
 
             # 디바인쉴드 보호막 공 반사 체크 및 부스트 효과 업데이트
             try:
