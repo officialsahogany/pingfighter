@@ -15529,7 +15529,7 @@ def determine_treasure_hunt_result():
 
     if roll < 0.20:  # 20% 전설 아이템
         # 전설 아이템 풀 (중복 획득 허용)
-        all_legendaries = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord"]
+        all_legendaries = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate"]
         selected = random.choice(all_legendaries)
         treasure_hunt_result = {
             "type": "legendary",
@@ -28385,6 +28385,7 @@ def sync_equipped_passive_effects():
     sync_bool("odins_eye", "items.odins_eye_obtained")
     sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
     sync_bool("megingjord", "items.megingjord_obtained")
+    sync_bool("valhalla_warplate", "items.valhalla_warplate_obtained")
     sync_bool("sage_ring", "items.sage_ring_obtained")
     sync_bool("venom_mist_gauntlet", "items.venom_mist_gauntlet_obtained")
     sync_bool("dowsing_goggles", "items.dowsing_goggles_obtained")
@@ -28765,6 +28766,31 @@ def sync_equipped_passive_effects():
                         megingjord = legendary_manager.get_item("megingjord")
                         if megingjord:
                             megingjord.enhancement_bonus_pct = megingjord_item.get("enhancement_bonus_pct", 0)
+                # 발할라의 전갑: 강화 보너스 동기화 + 소환 상태 활성화
+                if legend_name == "valhalla_warplate":
+                    warplate_item = next((item for item in equipped_items if item.get("name") == "valhalla_warplate"), None)
+                    if warplate_item:
+                        warplate = legendary_manager.get_item("valhalla_warplate")
+                        if warplate:
+                            warplate.enhancement_bonus_pct = warplate_item.get("enhancement_bonus_pct", 0)
+                    # 발할라 전갑 인게임 상태 활성화
+                    try:
+                        from item_effects.valhalla_warplate import get_valhalla_warplate_state
+                        vw_state = get_valhalla_warplate_state()
+                        summon_chance = 10  # 기본값
+                        try:
+                            from legendary_items import get_legendary_roll_value
+                            summon_chance = get_legendary_roll_value(
+                                "valhalla_warplate", "summon_chance",
+                                apply_polish=True,
+                                enhancement_bonus_pct=warplate_item.get("enhancement_bonus_pct", 0) if warplate_item else 0
+                            )
+                        except Exception:
+                            pass
+                        vw_state.activate(summon_chance / 100.0)
+                        vw_state.enhancement_bonus_pct = warplate_item.get("enhancement_bonus_pct", 0) if warplate_item else 0
+                    except Exception:
+                        pass
                 # 초월자의 관: 강화 보너스 동기화
                 if legend_name == "transcendent_crown":
                     crown_item = next((item for item in equipped_items if item.get("name") == "transcendent_crown"), None)
@@ -28815,6 +28841,16 @@ def sync_equipped_passive_effects():
                     megingjord = legendary_manager.get_item("megingjord")
                     if megingjord:
                         megingjord.enhancement_bonus_pct = 0
+                elif legend_name == "valhalla_warplate":
+                    warplate = legendary_manager.get_item("valhalla_warplate")
+                    if warplate:
+                        warplate.enhancement_bonus_pct = 0
+                    # 발할라 전갑 인게임 상태 비활성화
+                    try:
+                        from item_effects.valhalla_warplate import get_valhalla_warplate_state
+                        get_valhalla_warplate_state().deactivate()
+                    except Exception:
+                        pass
 
         # 초월자의 관이 장착되어 있으면 스킬 보너스 재계산 (강화 보너스 반영)
         if "transcendent_crown" in equipped_names:
@@ -80235,7 +80271,16 @@ def handle_player(keys):
         
         # 테크니컬조끼 효과 발동 (30% 확률로 연막 생성)
         on_ball_paddle_collision_technical_vest(PLAYER)
-        
+
+        # 발할라의 전갑 효과 발동 (handle_player에서의 공 타격)
+        try:
+            from item_effects.valhalla_warplate import get_valhalla_warplate_state
+            _vw_hp = get_valhalla_warplate_state()
+            if _vw_hp.active:
+                _vw_hp.try_summon(int(BALL.centerx), int(BALL.centery))
+        except Exception:
+            pass
+
         #  Stage 4: 몽크가 봉을 휘둘러 공 방향 변경 (플레이어가 칠 때 한 번 체크)
         if current_stage == 4 and animated_bg_stage4 is not None:
             animated_bg_stage4.trigger_monk_swing(BALL.centerx, BALL.centery, "player")
@@ -82184,7 +82229,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -82231,7 +82276,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
         return
 
     # 최대 3개까지만 보관
@@ -83228,6 +83273,32 @@ def store_passive_item(item_data):
                 print(f"메긴교르드 효과 적용 오류: {e}")
         # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
         trigger_legendary_acquisition("megingjord", "메긴교르드", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "valhalla_warplate":
+        # 발할라의 전갑 전설 아이템 획득 (상의 부위 - 공 타격 시 영웅 소환)
+        # ⚠️ 효과는 장착 시에만 활성화됨
+        if not items.valhalla_warplate_obtained:
+            items.valhalla_warplate_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "valhalla_warplate")  # 뼈대 외형 변경
+            try:
+                legendary_manager = get_legendary_manager()
+                if "valhalla_warplate" not in legendary_manager.unlocked_items:
+                    legendary_manager.unlocked_items.append("valhalla_warplate")
+                    legendary_manager.items["valhalla_warplate"].unlocked = True
+                from legendary_items import randomize_legendary_rolls
+                randomize_legendary_rolls("valhalla_warplate")
+                warplate = legendary_manager.items.get("valhalla_warplate")
+                if warplate:
+                    enhancement_pct = item_data.get("enhancement_bonus_pct", 0)
+                    warplate.enhancement_bonus_pct = enhancement_pct
+            except Exception as e:
+                print(f"발할라의 전갑 효과 적용 오류: {e}")
+        # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
+        trigger_legendary_acquisition("valhalla_warplate", "발할라의 전갑", item_icon,
                                      (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
@@ -107703,6 +107774,14 @@ def draw_objects():
             # 👁 오딘의 눈 어둠 파편 그리기
             if odins_eye and len(getattr(odins_eye, 'dark_fragments', [])) > 0:
                 odins_eye.draw_dark_fragments(SCREEN)
+            # ⚔ 발할라의 전갑 소환 연출 그리기
+            try:
+                from item_effects.valhalla_warplate import get_valhalla_warplate_state
+                _vw_draw = get_valhalla_warplate_state()
+                if _vw_draw.summoning:
+                    _vw_draw.draw(SCREEN)
+            except Exception:
+                pass
     except:
         pass
 
@@ -135310,7 +135389,7 @@ def get_item_icon(item_name):
             pass
 
     # 전설 아이템들은 정적 스냅샷 생성
-    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord"]:
+    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate"]:
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         if legendary_manager:
@@ -135478,6 +135557,23 @@ def get_item_icon(item_name):
                         gold = (255, 215, 0)
                         pygame.draw.ellipse(icon_surface, belt_color,
                                           (cx - ICON_SIZE//3, cy - ICON_SIZE//8, ICON_SIZE*2//3, ICON_SIZE//4))
+                        pygame.draw.circle(icon_surface, gold, (cx, cy), ICON_SIZE//8)
+                elif lookup_name == "valhalla_warplate":
+                    # 발할라의 전갑 - 애니메이션 프레임 사용
+                    if hasattr(legendary_item, 'animation_frames') and legendary_item.animation_frames:
+                        frame = legendary_item.animation_frames[0]
+                        scaled_frame = pygame.transform.scale(frame, (ICON_SIZE, ICON_SIZE))
+                        icon_surface.blit(scaled_frame, (0, 0))
+                    elif hasattr(legendary_item, 'draw_icon'):
+                        legendary_item.draw_icon(icon_surface, 0, 0, ICON_SIZE)
+                    else:
+                        # 폴백: 은빛 갑옷 아이콘
+                        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+                        steel = (100, 110, 130)
+                        gold = (255, 215, 50)
+                        pygame.draw.rect(icon_surface, steel,
+                                        (cx - ICON_SIZE//4, cy - ICON_SIZE//3, ICON_SIZE//2, ICON_SIZE*2//3),
+                                        border_radius=ICON_SIZE//8)
                         pygame.draw.circle(icon_surface, gold, (cx, cy), ICON_SIZE//8)
 
                 icon_cache[item_name] = icon_surface
@@ -148274,6 +148370,15 @@ def handle_ball():
         # 테크니컬조끼 효과 발동 (handle_ball에서 처리 - 실제 충돌이 여기서 처리됨)
         on_ball_paddle_collision_technical_vest(PLAYER)
 
+        # 발할라의 전갑 효과 발동 (장착 중일 때, 공 타격 시 영웅 소환 시도)
+        try:
+            from item_effects.valhalla_warplate import get_valhalla_warplate_state
+            _vw_state = get_valhalla_warplate_state()
+            if _vw_state.active:
+                _vw_state.try_summon(int(BALL.centerx), int(BALL.centery))
+        except Exception:
+            pass
+
         # 실전 튜토리얼: 플레이어가 공을 맞춤 (주니어리그에서 첫 히트 시 튜토리얼 시작)
         if ai_mode == "junior":  # 주니어리그
             on_player_hit_ball_for_tutorial()
@@ -155857,6 +155962,12 @@ def show_result(won):
                 legendary_manager.reset_for_new_game()
         except Exception:
             pass
+        # 발할라의 전갑 상태 초기화
+        try:
+            from item_effects.valhalla_warplate import get_valhalla_warplate_state
+            get_valhalla_warplate_state().reset()
+        except Exception:
+            pass
         # 뼈대 스프라이트 스킨 초기화 (아이템 외형 리셋)
         _reset_skeletal_skin()
         show_start_screen()
@@ -158097,6 +158208,12 @@ def main(stage_num, new_boss_mode=False):
                 legendary_manager = get_legendary_manager()
                 if legendary_manager:
                     legendary_manager.reset_for_new_game()
+            except Exception:
+                pass
+            # 발할라의 전갑 상태 초기화 (ESC 메뉴로 메인 복귀 시)
+            try:
+                from item_effects.valhalla_warplate import get_valhalla_warplate_state
+                get_valhalla_warplate_state().reset()
             except Exception:
                 pass
 
@@ -162301,6 +162418,31 @@ def main(stage_num, new_boss_mode=False):
                             if trident and trident.vortex_active:
                                 pass  # Debug log removed
                         legendary_manager.update(0.016)  # 60fps 기준 0.016초
+
+                        # ⚔ 발할라의 전갑 소환 연출 업데이트 및 스킬 발동
+                        try:
+                            from item_effects.valhalla_warplate import get_valhalla_warplate_state
+                            _vw = get_valhalla_warplate_state()
+                            if _vw.summoning:
+                                _vw_result = _vw.update(0.016)
+                                if _vw_result.get("fire_skill"):
+                                    # 영웅 스킬 발동! 기존 인장 시스템의 스킬 로직 활용
+                                    _vw_hero_id = _vw_result.get("hero_id")
+                                    _vw_skill_idx = _vw_result.get("skill_idx", 0)
+                                    if _vw_hero_id:
+                                        try:
+                                            from downtown.hero_skills import get_hero_skill_manager
+                                            _vw_skill_mgr = get_hero_skill_manager()
+                                            if _vw_skill_mgr:
+                                                _vw_hero_skills = _vw_skill_mgr.get_hero_skills(_vw_hero_id)
+                                                if _vw_hero_skills and len(_vw_hero_skills) > _vw_skill_idx:
+                                                    _vw_skill = _vw_hero_skills[_vw_skill_idx]
+                                                    _vw_skill_mgr.activate_skill(_vw_hero_id, _vw_skill.skill_id)
+                                                    print(f"⚔ 발할라의 전갑: {_vw.summoned_hero['name']}의 [{_vw_skill.korean_name}] 발동!")
+                                        except Exception as _vw_err:
+                                            print(f"[WARN] 발할라 전갑 스킬 발동 실패: {_vw_err}")
+                        except Exception:
+                            pass
 
                         # 👁 오딘의 눈 부활 애니메이션 업데이트 (폭발 이펙트 포함)
                         odins_eye = legendary_manager.get_item("odins_eye")
@@ -169779,7 +169921,7 @@ def get_item_name_korean(item_name):
         "ragnarok_hammer": "라그나로크 해머", "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창", "angel_blessing": "천사의 주사위",
         "sacred_laurel": "신성 월계수", "transcendent_crown": "초월자의 관",
-        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "megingjord": "메긴교르드", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
+        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "megingjord": "메긴교르드", "valhalla_warplate": "발할라의 전갑", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
         "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
@@ -169880,6 +170022,7 @@ def get_item_description(item_name):
         "soap": "비누: 보스 진영에 비누를 던집니다. 보스가 밟으면 3초간 미끄러움 디버프가 발동되어 관성으로 미끄러지며 방향전환이 매우 어려워집니다. 좌우 왕복 공격에 취약해집니다.",
         "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 매직찬스 10~30% (희귀 아이템 출현 확률 상승)",
         "megingjord": "메긴교르드: 토르의 힘의 벨트. 장착 시 퍽 선택 화면에서 퍽을 고른 후 일정 확률로 한 번 더 고를 수 있는 기회가 주어집니다. 발동 시 선택한 퍽 카드가 회전하며 새로운 퍽 카드가 생성되고, '메긴교르드의 효과 발동!' 텍스트가 표시됩니다. [롤옵션] 추가 선택 확률 20~40%",
+        "valhalla_warplate": "발할라의 전갑: 전사의 영광이 깃든 신성한 갑옷. 장착 시 플레이어가 공을 타격할 때마다 일정 확률로 발할라의 영웅이 호위무사로 소환됩니다. 소환된 영웅은 보유 스킬 2개 중 1개를 랜덤으로 발동한 뒤 즉시 사라집니다. 투기장의 15영웅 중 랜덤 1명이 등장합니다. [롤옵션] 영웅 소환 확률 8~15%",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",

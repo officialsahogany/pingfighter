@@ -559,6 +559,7 @@ LEGENDARY_ITEM_NAMES = {
     "odins_eye",
     "pandora_legacy",
     "megingjord",
+    "valhalla_warplate",
 }
 
 # 강화 애니메이션 시간 (초)

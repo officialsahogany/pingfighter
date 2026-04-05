@@ -93,7 +93,7 @@ ITEM_ICONS = {}
 # 전설 아이콘 애니메이션 프레임 캐시
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
-_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "odins_eye", "megingjord"}
+_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "odins_eye", "megingjord", "valhalla_warplate"}
 _MYTHICAL_ICON_NAMES = {"elixir_of_mastery"}  # 신화급 아이템 (자체 애니메이션 프레임 생성)
 
 
@@ -1034,6 +1034,25 @@ def load_item_icons():
             except Exception as exc:
                 print(f"[WARN] Megingjord icon animation sync failed: {exc}")
 
+        # valhalla_warplate: legendary_manager에서 프레임 사용
+        if item_name == "valhalla_warplate":
+            try:
+                if legendary_manager is None:
+                    from legendary_items import get_legendary_manager
+                    legendary_manager = get_legendary_manager()
+
+                warplate = legendary_manager.get_item("valhalla_warplate") if legendary_manager else None
+                frames = getattr(warplate, "animation_frames", None)
+
+                if frames:
+                    copied_frames = [frame.copy() for frame in frames if frame]
+                    if copied_frames:
+                        ITEM_ICON_ANIMATIONS[item_name] = copied_frames
+                        ITEM_ICONS[item_name] = pygame.transform.smoothscale(copied_frames[0], (32, 32))
+                        continue
+            except Exception as exc:
+                print(f"[WARN] Valhalla Warplate icon animation sync failed: {exc}")
+
         # 신화급 아이콘 애니메이션 프레임 생성
         if item_name in _MYTHICAL_ICON_NAMES:
             try:
@@ -1628,6 +1647,16 @@ ITEM_TYPES = [
         "body_part": "belt"  # 벨트 부위
     },
     {
+        "name": "valhalla_warplate",  # 발할라의 전갑 전설 아이템 (상의 부위)
+        "color": (180, 190, 210),  # 은빛 강철 (발할라 갑옷)
+        "effect": "valhalla_warplate",
+        "icon": None,
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "torso"  # 상의(갑옷) 부위
+    },
+    {
         "name": "knee_pads",  # 킥차져 패시브 아이템
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
@@ -1940,6 +1969,7 @@ transcendent_crown_obtained = False  # 초월자의 관 획득 여부
 odins_eye_obtained = False  # 오딘의 눈 획득 여부
 pandora_legacy_obtained = False  # 판도라의 유산 획득 여부
 megingjord_obtained = False  # 메긴교르드 획득 여부
+valhalla_warplate_obtained = False  # 발할라의 전갑 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 gold_bar_obtained = False  # 금괴 아이템 획득 여부
@@ -2021,6 +2051,7 @@ unlocked_items = {
     "odins_eye": True,
     "pandora_legacy": True,
     "megingjord": True,
+    "valhalla_warplate": True,
 
     # 패시브 아이템
     "knee_pads": True,
@@ -2056,7 +2087,7 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle",
     "smartphone", "knee_pads", "gold_digger", "lucky_coin",
     "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
-    "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
+    "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate",
     "hero_seal",
     "adversity_armor",
     "shrapnel_armor",
@@ -2386,7 +2417,7 @@ def spawn_random_item():
     # 스킬 효과 적용: 아이템 스폰 확률 증가
     import skill
     skill_spawn_boost = skill.apply_item_spawn_boost(1.0)  # 기본 확률 1.0에 스킬 효과 적용
-    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord"}
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
     except Exception:
@@ -2409,6 +2440,7 @@ def spawn_random_item():
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
+        "valhalla_warplate",
         "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin",
         "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
         "venom_mist_gauntlet", "dowsing_goggles"
@@ -2699,7 +2731,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {

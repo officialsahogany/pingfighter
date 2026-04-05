@@ -320,7 +320,7 @@ def init_gacha(available_items, legendary_bonus=0.0):
         filtered_items = gacha_available_items_template
     
     # 전설 아이템과 일반 아이템 분리 (액티브/패시브 구분)
-    legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"]
+    legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate"]
     legendary_items = [item for item in filtered_items if item.get("name", "") in legendary_pool]
     active_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool and item.get("type") == "active"]
     passive_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool and item.get("type") == "passive"]
@@ -713,7 +713,7 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
 
             # 캡슐 내부 아이콘
             item_name = item.get("name", "")
-            legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"}
+            legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate"}
             drew_legendary = False
 
             if item_name in legendary_names:
@@ -1702,7 +1702,7 @@ def show_gacha_result_page(
         icon_surface = None
         drew_legendary_icon = False
 
-        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"}
+        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate"}
         if gacha_result["name"] in legendary_names:
             if legendary_manager is None:
                 from legendary_items import get_legendary_manager  # 지연 import
@@ -2108,7 +2108,7 @@ def show_multi_gacha_result_page(
         total_height = (base_total_rows * row_height) + (bonus_total_rows * row_height) + bonus_section_header
         start_y = container_y + 100 + max(0, (container_height - 160 - total_height) // 2)
 
-        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy"}
+        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate"}
 
         # === 기본 뽑기 아이템 캡슐 그리기 ===
         item_idx = 0

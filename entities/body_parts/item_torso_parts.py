@@ -390,3 +390,95 @@ class ShrapnelArmorPart(BodyPart):
 
         # ── 외곽선 ──
         pygame.draw.rect(surface, (60, 40, 25), armor_rect, 1, border_radius=6)
+
+
+class ValhallaWarplatePart(BodyPart):
+    """발할라의 전갑 (valhalla_warplate).
+
+    은빛 강철 갑옷 + 금빛 날개 문양 + 룬 각인.
+    효과: 공 타격 시 영웅 소환.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_TORSO,
+            draw_order=ORDER_TORSO,
+            joint_a="torso",
+            joint_b="hip",
+        )
+        self.block = block
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        b = self.block
+        cx, ty = joint_a.world_int()
+
+        # ── 갑옷 본체 (은빛 강철) ──
+        armor_w = int(3.8 * b)
+        armor_h = int(2.6 * b)
+        armor_rect = pygame.Rect(cx - armor_w // 2, ty - int(0.5 * b), armor_w, armor_h)
+
+        # 베이스 강철색
+        pygame.draw.rect(surface, (85, 95, 115), armor_rect, border_radius=6)
+        # 내부 패널
+        inner = armor_rect.inflate(-int(0.3 * b), -int(0.3 * b))
+        pygame.draw.rect(surface, (100, 115, 140), inner, border_radius=5)
+        # 상단 하이라이트
+        highlight_h = int(0.6 * b)
+        highlight_rect = pygame.Rect(inner.left + 2, inner.top + 1, inner.width - 4, highlight_h)
+        pygame.draw.rect(surface, (140, 155, 180), highlight_rect, border_radius=3)
+
+        # ── 중앙 장식선 ──
+        line_x = cx
+        pygame.draw.line(surface, (170, 140, 40), (line_x, armor_rect.top + 4), (line_x, armor_rect.bottom - 4), 2)
+        pygame.draw.line(surface, (210, 185, 60), (line_x, armor_rect.top + 5), (line_x, armor_rect.bottom - 5), 1)
+
+        # ── 발할라 문양 (중앙 원형 + 날개) ──
+        emblem_cy = ty + int(0.5 * b)
+        # 문양 글로우
+        glow_pulse = (math.sin(phase * math.tau * 1.5) + 1) / 2
+        glow_r = max(1, int(0.5 * b + 0.1 * b * glow_pulse))
+        glow_alpha = int(40 + 40 * glow_pulse)
+        glow_surf = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (255, 210, 80, glow_alpha), (glow_r + 2, glow_r + 2), glow_r)
+        surface.blit(glow_surf, (cx - glow_r - 2, emblem_cy - glow_r - 2))
+        # 원형 심볼
+        pygame.draw.circle(surface, (180, 150, 30), (cx, emblem_cy), max(1, int(0.3 * b)))
+        pygame.draw.circle(surface, (230, 200, 60), (cx, emblem_cy), max(1, int(0.22 * b)))
+        # 날개
+        for side in [-1, 1]:
+            wing_pts = [
+                (cx + side * int(0.3 * b), emblem_cy),
+                (cx + side * int(0.9 * b), emblem_cy - int(0.4 * b)),
+                (cx + side * int(0.7 * b), emblem_cy),
+            ]
+            pygame.draw.polygon(surface, (210, 185, 60), wing_pts)
+
+        # ── 룬 각인 (좌우) ──
+        rune_color = (170, 155, 80)
+        for side in [-1, 1]:
+            rx = cx + side * int(1.0 * b)
+            ry = ty + int(0.2 * b)
+            pygame.draw.line(surface, rune_color, (rx, ry - 3), (rx, ry + 3), 1)
+            pygame.draw.line(surface, rune_color, (rx - 2, ry - 1), (rx + 2, ry + 1), 1)
+
+        # ── 어깨 보호대 ──
+        guard_w = int(1.3 * b)
+        guard_h = int(0.7 * b)
+        for side in [-1, 1]:
+            guard_rect = pygame.Rect(
+                cx + side * int(1.6 * b) - guard_w // 2,
+                ty - int(0.8 * b),
+                guard_w, guard_h,
+            )
+            pygame.draw.rect(surface, (110, 125, 150), guard_rect, border_radius=3)
+            pygame.draw.rect(surface, (140, 155, 180), guard_rect.inflate(-2, -2), border_radius=2)
+            pygame.draw.rect(surface, (75, 85, 105), guard_rect, 1, border_radius=3)
+            # 금 테두리
+            pygame.draw.line(surface, (200, 170, 50),
+                           (guard_rect.left + 2, guard_rect.bottom - 2),
+                           (guard_rect.right - 2, guard_rect.bottom - 2), 1)
+
+        # ── 외곽선 ──
+        pygame.draw.rect(surface, (60, 70, 85), armor_rect, 1, border_radius=6)

@@ -101,6 +101,9 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     "megingjord": [
         {"key": "extra_pick_chance", "label": "추가 선택 확률", "min": 20, "max": 40, "unit": "%", "default": 30},
     ],
+    "valhalla_warplate": [
+        {"key": "summon_chance", "label": "영웅 소환 확률", "min": 8, "max": 15, "unit": "%", "default": 10},
+    ],
 }
 
 # 전설 아이템 롤 값 저장소 (아이템명 -> {옵션키: 값})
@@ -11620,6 +11623,7 @@ class PandoraLegacy(LegendaryItem):
             "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
             "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel",
             "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
+            "valhalla_warplate",
             "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
             "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
             "venom_mist_gauntlet", "dowsing_goggles"
@@ -12269,6 +12273,274 @@ class Megingjord(LegendaryItem):
         pygame.draw.circle(screen, gold, (cx, cy), int(4*s))
 
 
+class ValhallaWarplate(LegendaryItem):
+    """발할라의 전갑 - 상의(갑옷) 부위 전설 아이템
+
+    플레이어가 공을 타격 시 일정 확률(롤옵션 8~15%)로 투기장 영웅을 호위무사로 소환.
+    소환된 영웅은 보유 스킬 2개 중 1개를 랜덤 발동 후 즉시 사라짐.
+
+    롤 옵션: 소환 확률 8~15%
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="valhalla_warplate",
+            korean_name="발할라의 전갑",
+            description="공 타격 시 영웅 소환 (롤 옵션: 확률 8~15%)",
+            unlock_condition="전설 아이템 획득",
+            icon_path=None
+        )
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+
+        # 애니메이션 프레임 설정
+        self.animation_frames = []
+        self.border_frames = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8
+        self._create_default_animation()
+        self._load_border_frames()
+
+    @property
+    def summon_chance(self) -> float:
+        """소환 확률 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value(
+            "valhalla_warplate",
+            "summon_chance",
+            apply_polish=True,
+            enhancement_bonus_pct=self.enhancement_bonus_pct
+        )
+
+    def _load_border_frames(self):
+        """라그나로크 해머 PNG에서 테두리만 추출한 프레임 로드"""
+        self.border_frames = []
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                frame = pygame.image.load(frame_path).convert_alpha()
+                cleaned = _strip_legendary_red_ring(frame)
+                border_only = self._clear_center_content(cleaned)
+                self.border_frames.append(border_only)
+            except Exception:
+                self.border_frames.append(None)
+
+    def _clear_center_content(self, surface):
+        """중앙 콘텐츠를 지우고 테두리만 남김"""
+        if surface is None:
+            return None
+        result = surface.copy()
+        w, h = result.get_size()
+        margin = int(w * 0.18)
+        clear_rect = pygame.Rect(margin, margin, w - margin * 2, h - margin * 2)
+        result.fill((0, 0, 0, 0), clear_rect)
+        return result
+
+    def _create_default_animation(self):
+        """발할라의 전갑 고퀄리티 아이콘 애니메이션 (8프레임) - 북유럽 갑옷 + 발할라 빛"""
+        self.animation_frames = []
+        sz = 60
+
+        for fi in range(8):
+            frame = pygame.Surface((sz, sz), pygame.SRCALPHA)
+            phase = fi / 8 * math.pi * 2
+            cx, cy = sz // 2, sz // 2
+
+            # ── 색상 팔레트 (발할라 금속 + 신성한 금빛) ──
+            steel_shadow = (40, 45, 55)
+            steel_dark = (65, 70, 85)
+            steel_mid = (90, 100, 120)
+            steel_light = (130, 140, 160)
+            steel_highlight = (180, 190, 210)
+            gold_dark = (170, 130, 0)
+            gold_mid = (210, 170, 20)
+            gold_bright = (250, 215, 50)
+            gold_highlight = (255, 240, 140)
+            # 프레임별 발할라 발광 (금빛 + 시안)
+            valhalla_pulse = (math.sin(phase) + 1) / 2
+            glow_r = int(220 + 35 * valhalla_pulse)
+            glow_g = int(180 + 75 * valhalla_pulse)
+            glow_b = int(80 + 120 * valhalla_pulse)
+            valhalla_glow = (glow_r, glow_g, glow_b)
+
+            # ── 갑옷 본체 (체스트 플레이트) ──
+            armor_w, armor_h = 36, 40
+            armor_x = cx - armor_w // 2
+            armor_y = cy - armor_h // 2 + 2
+
+            # 그림자
+            pygame.draw.rect(frame, steel_shadow, (armor_x + 1, armor_y + 2, armor_w, armor_h), border_radius=6)
+            # 본체
+            body_rect = pygame.Rect(armor_x, armor_y, armor_w, armor_h)
+            pygame.draw.rect(frame, steel_mid, body_rect, border_radius=6)
+            # 상부 하이라이트 (가슴판)
+            pygame.draw.rect(frame, steel_light, (armor_x + 2, armor_y + 2, armor_w - 4, armor_h // 3), border_radius=4)
+            pygame.draw.rect(frame, steel_highlight, (armor_x + 4, armor_y + 3, armor_w - 8, 6), border_radius=3)
+            # 하부 어두운 면
+            pygame.draw.rect(frame, steel_dark, (armor_x + 2, armor_y + armor_h - 10, armor_w - 4, 8), border_radius=3)
+            # 외곽
+            pygame.draw.rect(frame, steel_shadow, body_rect, 1, border_radius=6)
+
+            # ── 중앙 장식선 (수직) ──
+            line_x = cx
+            pygame.draw.line(frame, gold_dark, (line_x, armor_y + 4), (line_x, armor_y + armor_h - 5), 2)
+            pygame.draw.line(frame, gold_bright, (line_x, armor_y + 5), (line_x, armor_y + armor_h - 6), 1)
+
+            # ── 어깨 보호대 ──
+            for side in [-1, 1]:
+                sx = cx + side * 15
+                pauldron_w, pauldron_h = 14, 10
+                px = sx - pauldron_w // 2
+                py = armor_y - 2
+                pygame.draw.rect(frame, steel_light, (px, py, pauldron_w, pauldron_h), border_radius=3)
+                pygame.draw.rect(frame, steel_highlight, (px + 1, py + 1, pauldron_w - 2, 4), border_radius=2)
+                pygame.draw.rect(frame, steel_shadow, (px, py, pauldron_w, pauldron_h), 1, border_radius=3)
+                # 금 테두리
+                pygame.draw.line(frame, gold_mid, (px + 2, py + pauldron_h - 2), (px + pauldron_w - 2, py + pauldron_h - 2), 1)
+
+            # ── 발할라 문양 (가슴 중앙 - 날개 달린 원형 심볼) ──
+            emblem_y = cy + 2
+            # 문양 글로우
+            glow_s = pygame.Surface((22, 22), pygame.SRCALPHA)
+            ga = int(60 + 80 * valhalla_pulse)
+            pygame.draw.circle(glow_s, (*valhalla_glow, ga), (11, 11), 10)
+            frame.blit(glow_s, (cx - 11, emblem_y - 11))
+            # 원형 심볼
+            pygame.draw.circle(frame, gold_dark, (cx, emblem_y), 6)
+            pygame.draw.circle(frame, gold_bright, (cx, emblem_y), 5)
+            pygame.draw.circle(frame, gold_highlight, (cx, emblem_y), 3)
+            # 작은 날개 (좌우)
+            for side in [-1, 1]:
+                wing_pts = [
+                    (cx + side * 6, emblem_y),
+                    (cx + side * 12, emblem_y - 5),
+                    (cx + side * 10, emblem_y),
+                ]
+                wing_color = (min(255, int(200 + 55 * valhalla_pulse)),
+                              min(255, int(180 + 75 * valhalla_pulse)),
+                              min(255, int(80 + 100 * valhalla_pulse)))
+                pygame.draw.polygon(frame, wing_color, wing_pts)
+
+            # ── 룬 각인 (좌우 가슴판) ──
+            for side in [-1, 1]:
+                rx = cx + side * 10
+                ry = cy - 5
+                rc = (min(255, int(150 + 105 * valhalla_pulse)),
+                      min(255, int(200 + 55 * valhalla_pulse)),
+                      min(255, int(100 + 120 * valhalla_pulse)))
+                # 간단한 룬 (수직선 + 가지)
+                pygame.draw.line(frame, rc, (rx, ry - 4), (rx, ry + 4), 1)
+                pygame.draw.line(frame, rc, (rx, ry - 2), (rx + side * 3, ry), 1)
+
+            # ── 금속 리벳 (갑옷 조인트) ──
+            for side in [-1, 1]:
+                for ry_off in [-8, 0, 8]:
+                    rvx = armor_x + (1 if side == -1 else armor_w - 3)
+                    rvy = cy + ry_off
+                    pygame.draw.circle(frame, gold_dark, (rvx, rvy), 2)
+                    pygame.draw.circle(frame, gold_bright, (rvx, rvy), 1)
+
+            self.animation_frames.append(frame)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """아이콘 그리기 (다른 전설 아이템과 동일한 공통 프레임 사용)"""
+        t = self.animation_time
+        ps_size = size + 16
+
+        # 공통 프레임 (바탕, 글로우)
+        _draw_common_legendary_frame(screen, x, y, size)
+
+        # 프레임 카운터 업데이트
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % max(1, len(self.animation_frames))
+
+        # 아이콘 프레임 렌더
+        frame_y = y + int(self.animation_offset)
+
+        if self.animation_frames:
+            anim_frame = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled = pygame.transform.smoothscale(anim_frame, (size, size))
+            screen.blit(scaled, (x, frame_y))
+
+        # 테두리 오버레이
+        if self.border_frames:
+            bi = self.current_frame % len(self.border_frames)
+            border = self.border_frames[bi]
+            if border is not None:
+                scaled_border = pygame.transform.smoothscale(border, (size, size))
+                screen.blit(scaled_border, (x, frame_y))
+
+        # ── 테마 파티클: 발할라 빛 (금빛 영웅 아우라 + 룬) ──
+        ps = pygame.Surface((ps_size, ps_size), pygame.SRCALPHA)
+        pc = ps_size // 2
+
+        # 1) 영웅 영혼 빛 (작은 금빛 구슬 6개, 상승)
+        for i in range(6):
+            sp = (t * 0.8 + i * 0.9) % 2.5
+            sx = pc + int(math.sin(t * 0.5 + i * 1.8) * size * 0.35)
+            sy = pc + int(size * 0.3) - int(sp * size * 0.25)
+            sa = int(180 * (1 - sp / 2.5))
+            if sa > 0:
+                # 금빛 글로우
+                pygame.draw.circle(ps, (255, 220, 80, sa // 2), (sx, sy), 4)
+                pygame.draw.circle(ps, (255, 235, 140, sa), (sx, sy), 2)
+                pygame.draw.circle(ps, (255, 250, 200, min(255, sa + 40)), (sx, sy), 1)
+
+        # 2) 발할라 게이트 빛줄기 (상단에서 내려오는 광선 3개)
+        for bi in range(3):
+            beam_x = pc + int(math.sin(t * 0.4 + bi * 2.1) * size * 0.2)
+            beam_pulse = (math.sin(t * 2.0 + bi * 1.5) + 1) / 2
+            ba = int(40 + 50 * beam_pulse)
+            if ba > 5:
+                beam_w = 2
+                beam_top = max(0, pc - int(size * 0.4))
+                beam_bot = min(ps_size, pc + int(size * 0.3))
+                beam_surf = pygame.Surface((beam_w + 4, beam_bot - beam_top), pygame.SRCALPHA)
+                beam_surf.fill((255, 215, 100, ba // 3))
+                pygame.draw.line(beam_surf, (255, 230, 150, ba), (beam_w // 2 + 2, 0), (beam_w // 2 + 2, beam_bot - beam_top), 1)
+                ps.blit(beam_surf, (beam_x - beam_w // 2 - 2, beam_top))
+
+        # 3) 룬 문자 떠오름 (좌우 2개)
+        for ri in range(2):
+            rp = (t * 0.6 + ri * 1.3) % 2.0
+            rx = pc + (1 if ri % 2 == 0 else -1) * int(size * 0.38)
+            ry = pc + int(size * 0.15) - int(rp * size * 0.2)
+            ra = int(120 * (1 - rp / 2.0))
+            if ra > 10:
+                rune_color = (200, 180, 100, ra)
+                # 간단한 룬 심볼
+                pygame.draw.line(ps, rune_color, (rx, ry - 4), (rx, ry + 4), 1)
+                pygame.draw.line(ps, rune_color, (rx - 2, ry - 2), (rx + 2, ry + 2), 1)
+
+        # 4) 금빛 원형 아우라 (하단)
+        aura_pulse = (math.sin(t * 1.8) + 1) / 2
+        for ai in range(2):
+            ar = int(size * 0.12 + size * 0.06 * aura_pulse) + ai * 3
+            aa = int((50 - ai * 20) * aura_pulse)
+            if aa > 0:
+                pygame.draw.circle(ps, (255, 200, 80, aa), (pc, pc + int(size * 0.1)), ar, 1)
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
+
+    def _draw_fallback_icon(self, screen, x, y, size):
+        """폴백 갑옷 아이콘"""
+        cx, cy = x + size // 2, y + size // 2
+        s = size / 32
+        steel = (100, 110, 130)
+        gold = (255, 215, 50)
+        # 갑옷 본체
+        pygame.draw.rect(screen, steel,
+                        (int(cx - 10*s), int(cy - 12*s), int(20*s), int(24*s)), border_radius=int(4*s))
+        # 어깨
+        for side in [-1, 1]:
+            pygame.draw.rect(screen, steel,
+                            (int(cx + side * 8*s), int(cy - 14*s), int(8*s), int(6*s)), border_radius=int(2*s))
+        # 중앙 발할라 문양
+        pygame.draw.circle(screen, gold, (cx, cy), int(4*s))
+
+
 # 전설 아이템 관리자
 class LegendaryItemManager:
     """전설 아이템 시스템 관리"""
@@ -12386,6 +12658,9 @@ class LegendaryItemManager:
         # 메긴교르드 초기화
         if "megingjord" not in self.items:
             self.items["megingjord"] = Megingjord()
+        # 발할라의 전갑 초기화
+        if "valhalla_warplate" not in self.items:
+            self.items["valhalla_warplate"] = ValhallaWarplate()
         # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):

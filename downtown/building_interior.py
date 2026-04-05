@@ -3118,6 +3118,7 @@ class BuildingInterior:
             {"name": "odins_eye", "base_price": 3750, "korean": "오딘의 눈", "type": "legendary"},
             {"name": "pandora_legacy", "base_price": 4200, "korean": "판도라의 유산", "type": "legendary"},
             {"name": "megingjord", "base_price": 3900, "korean": "메긴교르드", "type": "legendary"},
+            {"name": "valhalla_warplate", "base_price": 4080, "korean": "발할라의 전갑", "type": "legendary"},
         ]
 
         # 랜덤 아이템 개수 (5~12개)
