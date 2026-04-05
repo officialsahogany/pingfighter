@@ -5,39 +5,49 @@
 ============================================================================
 
  An animated background system for a Pygame arcade game's boss battle.
- Theme: "Battleship arena floating over a stormy ocean at dusk"
+ Theme: "Damaged battleship arena floating over a stormy ocean at dusk"
 
  ┌──────────────────────────────────────────────────────────────┐
- │  RENDERING STACK (back → front, 13 layers)                  │
+ │  RENDERING STACK (back → front, 16 layers)                  │
  │                                                              │
  │  FAR ─────────────────────────────────────────────────────── │
  │   1. Sky gradient        numpy-cached dusk (navy→indigo→amber)│
  │   2. Distant warships    3 pre-rendered silhouettes          │
  │   3. Storm clouds        5 drifting dark ellipses            │
  │   4. Horizon haze        atmospheric fog band                │
+ │   5. Ship nav lights     4 blinking lights (per-ship phase)  │
+ │   6. Horizon line        subtle warm amber line              │
  │                                                              │
  │  MID ─────────────────────────────────────────────────────── │
- │   5. Ocean gradient      numpy-cached deep indigo            │
- │   6. Background waves    5 small sine-wave layers            │
- │   7. Platform shadow     dark ellipse on water surface       │
- │   8. Floating arena      multi-deck stadium (pre-rendered)   │
- │   9. Radar sweep         rotating scan beam from antenna     │
- │  10. Fire lines          burning midfield + particles        │
+ │   7. Ocean gradient      numpy-cached deep indigo            │
+ │   8. Background waves    5 small sine-wave layers            │
+ │   9. Platform shadow     dark ellipse on water surface       │
+ │  10. Water reflection    cyan + orange flicker beneath arena │
+ │  11. Floating arena      multi-deck stadium (pre-rendered)   │
+ │  12. Pulsating beacon    red glow on central antenna tip     │
+ │  13. Radar sweep         rotating scan beam from antenna     │
+ │  14. Fire lines          burning midfield + particles        │
  │                                                              │
  │  NEAR ────────────────────────────────────────────────────── │
- │  11. Foreground waves    2 large sine-wave layers            │
- │  12. Hologram scanlines  horizontal CRT interference         │
- │  13. Border              4px thin neon trim                  │
+ │  15. Foreground waves    2 large sine-wave layers            │
+ │  16. Hologram scanlines  horizontal CRT interference         │
+ │  17. Border              4px thin neon trim                  │
+ │                                                              │
+ │  ASYMMETRY: Right antenna tower is broken (30px vs left 45px)│
+ │  with tilted tip, debris fragments, and an orange spark.     │
+ │  This breaks visual symmetry and adds narrative tension —    │
+ │  the arena has been through combat before you arrived.       │
  └──────────────────────────────────────────────────────────────┘
 
  PERFORMANCE STRATEGY
  ────────────────────
  • Gradients: numpy vectorized → 2 surface blits (was ~374 draw.rect)
  • Static elements (ships, platform, haze): pre-rendered once in __init__
- • Reusable surfaces: 8 pre-allocated, cleared each frame (no alloc)
+ • Reusable surfaces: 9 pre-allocated, cleared each frame (no alloc)
  • Glow cache: OrderedDict LRU (evicts oldest, not full clear)
  • Waves: deterministic foam (no per-frame random in draw)
  • Fire particles: capped at 80, spawn rate 20%
+ • Beacon/lights: pure math (sin), no surface allocation
 
  RESOLUTION: 760×750 (full game area including pillar overlays)
 ============================================================================
@@ -100,15 +110,17 @@ class AnimatedBackgroundStage6:
 
     Design principles:
       • Strong central silhouette — multi-deck arena, not a flat rectangle
+      • Asymmetric damage — right tower broken, adding narrative tension
       • 3-layer depth — foreground waves / midground arena / background sky
-      • Narrative tension — distant warships, radar sweep, hologram glitch
+      • Narrative details — distant warships with blinking lights,
+        pulsating red beacon, water reflections, radar sweep
       • Subdued border — frames without competing with the scene
       • Cyan neon as accent only — platform body in dark gunmetal
 
     Public API:
       __init__(width, height)   Pre-allocates all surfaces + caches
       update()                  Advances animation state (call once/frame)
-      draw(screen)              Composites all 13 layers onto screen
+      draw(screen)              Composites all layers onto screen
     """
 
     def __init__(self, width, height):
@@ -153,15 +165,16 @@ class AnimatedBackgroundStage6:
         #  Pre-allocated Render Surfaces (avoid per-frame allocation)
         # ==================================================================
 
-        self._glow_surface     = pygame.Surface((width, height),      pygame.SRCALPHA)
-        self._wave_surface     = pygame.Surface((width, 50),          pygame.SRCALPHA)
-        self._fg_wave_surface  = pygame.Surface((width, 60),          pygame.SRCALPHA)
-        self._shadow_surface   = pygame.Surface((width, 80),          pygame.SRCALPHA)
-        self._platform_surface = pygame.Surface((width, height // 3), pygame.SRCALPHA)
-        self._haze_surface     = pygame.Surface((width, 40),          pygame.SRCALPHA)
-        self._ship_surface     = pygame.Surface((width, 60),          pygame.SRCALPHA)
-        self._scanline_surface = pygame.Surface((width, height),      pygame.SRCALPHA)
-        self._transparent      = (0, 0, 0, 0)
+        self._glow_surface      = pygame.Surface((width, height),      pygame.SRCALPHA)
+        self._wave_surface      = pygame.Surface((width, 50),          pygame.SRCALPHA)
+        self._fg_wave_surface   = pygame.Surface((width, 60),          pygame.SRCALPHA)
+        self._shadow_surface    = pygame.Surface((width, 80),          pygame.SRCALPHA)
+        self._platform_surface  = pygame.Surface((width, height // 3), pygame.SRCALPHA)
+        self._haze_surface      = pygame.Surface((width, 40),          pygame.SRCALPHA)
+        self._ship_surface      = pygame.Surface((width, 60),          pygame.SRCALPHA)
+        self._scanline_surface  = pygame.Surface((width, height),      pygame.SRCALPHA)
+        self._reflection_surface = pygame.Surface((width, 30),         pygame.SRCALPHA)
+        self._transparent       = (0, 0, 0, 0)
 
         # ==================================================================
         #  Gradient Caches (numpy-optimized, computed once)
@@ -229,17 +242,14 @@ class AnimatedBackgroundStage6:
             )
 
         # ==================================================================
-        #  Radar Sweep — rotating scan beam from central antenna
+        #  Animated Systems
         # ==================================================================
 
-        self.radar_angle = 0.0
-        self.radar_speed = 0.02          # radians/frame
-
-        # ==================================================================
-        #  Hologram Scanlines — horizontal CRT interference
-        # ==================================================================
-
-        self.scanline_offset = 0
+        self.radar_angle      = 0.0
+        self.radar_speed      = 0.02     # radians/frame
+        self.beacon_phase     = 0.0      # red beacon pulsation
+        self.ship_light_phase = 0.0      # distant ship nav lights
+        self.scanline_offset  = 0
 
         # ==================================================================
         #  Fire Line Particle System — subdued intensity
@@ -315,7 +325,8 @@ class AnimatedBackgroundStage6:
           • Ship 3 (far right): tiny vessel, barely visible
 
         All drawn in very faint colors (alpha 35–60) for atmospheric
-        distance — they should feel like ghosts on the horizon.
+        distance. Navigation lights are drawn separately in _draw_ship_lights()
+        since they need per-frame animation (blinking).
         """
         self._ship_surface.fill(self._transparent)
         ship_color = (25, 20, 35, 60)
@@ -357,8 +368,9 @@ class AnimatedBackgroundStage6:
         Pre-render the multi-deck cyberpunk arena platform.
 
         Structure (top to bottom):
-          ╭── Central antenna (55px tall, radar dish + red beacon)
-          │   Left/right antenna towers (45px, cyan top lights)
+          ╭── Central antenna (70px tall, 2-stage mast + radar dish + crossbar)
+          │   Left antenna tower (45px, intact, cyan top light)
+          │   Right antenna tower (30px, BROKEN — tilted tip + debris + spark)
           │   Crowd silhouette bumps (12 random-height blocks)
           ├── Upper deck (trapezoid, lighter gunmetal, 38% width)
           ├── Main deck (trapezoid, dark gunmetal, 55% width)
@@ -366,11 +378,22 @@ class AnimatedBackgroundStage6:
           │   3 neon panel accent lines on face
           ├── Outer ring (elliptical frame, 65% width)
           │   Dimmed cyan accent on ring
-          └── Support struts (5 lines hanging below deck)
+          ├── Support struts (5 vertical lines)
+          ├── Horizontal beam connecting struts
+          └── X-brace reinforcement (structural weight)
 
-        All coordinates are relative to the surface center (base_y)
-        and use proportional widths (% of screen width) for
-        resolution independence.
+        The right tower is deliberately broken (30px vs left 45px)
+        with a tilted tip, debris lines, and an orange spark dot.
+        This asymmetry is the "signature element" that makes the
+        arena feel battle-scarred — Nemesis has been here before.
+
+        The central tower is taller (70px vs original 55px) with a
+        2-stage structure: thick base column (3px) + thin mast (2px),
+        larger radar dish, and a structural crossbar at mid-height.
+        The red beacon at the top is animated in _draw_beacon().
+
+        All coordinates use proportional widths (% of screen width)
+        for resolution independence.
         """
         surf = self._platform_surface
         surf.fill(self._transparent)
@@ -424,41 +447,80 @@ class AnimatedBackgroundStage6:
             bh = random.randint(3, 6)
             pygame.draw.rect(surf, (25, 28, 40), (bx, crowd_y - bh, 4, bh))
 
-        # --- Side antenna towers ---
-        tower_h    = 45
-        lt_x       = deck_x + 20
-        lt_base_y  = crowd_y
-        for tx in (lt_x, deck_x + deck_w - 20):
-            pygame.draw.line(surf, self.gunmetal_edge,
-                            (tx, lt_base_y), (tx, lt_base_y - tower_h), 2)
-            pygame.draw.line(surf, self.gunmetal_edge,
-                            (tx - 5, lt_base_y - tower_h + 10),
-                            (tx + 5, lt_base_y - tower_h + 10), 1)
-            pygame.draw.circle(surf, self.cyan_accent,
-                             (tx, lt_base_y - tower_h), 2)
-
-        # --- Central antenna (tallest, radar mast) ---
-        center_tower_h = 55
-        ct_base_y      = crowd_y
+        # --- Left antenna tower (intact) ---
+        tower_h   = 45
+        lt_x      = deck_x + 20
+        lt_base_y = crowd_y
         pygame.draw.line(surf, self.gunmetal_edge,
-                        (self.cx, ct_base_y),
-                        (self.cx, ct_base_y - center_tower_h), 2)
-        # Radar dish (triangle)
-        dish_y = ct_base_y - center_tower_h + 8
-        pygame.draw.polygon(surf, self.gunmetal_edge, [
-            (self.cx - 8, dish_y), (self.cx + 8, dish_y),
-            (self.cx, dish_y - 6),
-        ])
-        # Red beacon at top
-        pygame.draw.circle(surf, (255, 60, 40),
-                         (self.cx, ct_base_y - center_tower_h), 2)
+                        (lt_x, lt_base_y), (lt_x, lt_base_y - tower_h), 2)
+        pygame.draw.line(surf, self.gunmetal_edge,
+                        (lt_x - 5, lt_base_y - tower_h + 10),
+                        (lt_x + 5, lt_base_y - tower_h + 10), 1)
+        pygame.draw.circle(surf, self.cyan_accent, (lt_x, lt_base_y - tower_h), 2)
 
-        # --- Support struts (below deck, into water) ---
-        for i in range(5):
-            sx = deck_x + (deck_w // 6) * (i + 1)
+        # --- Right antenna tower (BROKEN — asymmetric signature element) ---
+        rt_x           = deck_x + deck_w - 20
+        broken_tower_h = 30  # shorter than left (45px)
+        # Main shaft (up to break point only)
+        pygame.draw.line(surf, self.gunmetal_edge,
+                        (rt_x, lt_base_y), (rt_x, lt_base_y - broken_tower_h), 2)
+        # Tilted upper section (~15° lean)
+        broken_tip_x = rt_x + 8
+        broken_tip_y = lt_base_y - broken_tower_h - 10
+        pygame.draw.line(surf, (40, 40, 55),
+                        (rt_x, lt_base_y - broken_tower_h),
+                        (broken_tip_x, broken_tip_y), 2)
+        # Debris fragments (small line shards)
+        pygame.draw.line(surf, (35, 35, 50),
+                        (rt_x + 2, lt_base_y - broken_tower_h + 3),
+                        (rt_x + 6, lt_base_y - broken_tower_h - 2), 1)
+        # Orange spark at break point
+        pygame.draw.circle(surf, (200, 80, 30),
+                         (rt_x, lt_base_y - broken_tower_h), 2)
+
+        # --- Central antenna (70px, 2-stage mast — tallest, most dramatic) ---
+        center_tower_h = 70
+        ct_base_y      = crowd_y
+        # Thick base column (lower 25px)
+        pygame.draw.line(surf, self.gunmetal_edge,
+                        (self.cx, ct_base_y), (self.cx, ct_base_y - 25), 3)
+        # Thin mast (upper section)
+        pygame.draw.line(surf, self.gunmetal_edge,
+                        (self.cx, ct_base_y - 25),
+                        (self.cx, ct_base_y - center_tower_h), 2)
+        # Radar dish (larger triangle than before)
+        dish_y = ct_base_y - center_tower_h + 10
+        pygame.draw.polygon(surf, self.gunmetal_edge, [
+            (self.cx - 12, dish_y), (self.cx + 12, dish_y),
+            (self.cx, dish_y - 8),
+        ])
+        # Structural crossbar at mid-height
+        cross_y = ct_base_y - 40
+        pygame.draw.line(surf, self.gunmetal_edge,
+                        (self.cx - 10, cross_y), (self.cx + 10, cross_y), 1)
+        # Beacon position stored for animated draw
+        self._beacon_x       = self.cx
+        self._beacon_local_y = ct_base_y - center_tower_h
+
+        # --- Undercarriage (structural weight) ---
+        strut_count  = 5
+        deck_bottom_y = base_y + deck_h // 2
+        # Vertical support struts (thicker, longer than before)
+        for i in range(strut_count):
+            sx = deck_x + (deck_w // (strut_count + 1)) * (i + 1)
             pygame.draw.line(surf, (20, 25, 40, 150),
-                           (sx, base_y + deck_h // 2),
-                           (sx, base_y + deck_h // 2 + 25), 2)
+                           (sx, deck_bottom_y), (sx, deck_bottom_y + 30), 2)
+        # Horizontal beam connecting struts
+        pygame.draw.line(surf, (25, 30, 45, 120),
+                        (deck_x + 30, deck_bottom_y + 15),
+                        (deck_x + deck_w - 30, deck_bottom_y + 15), 1)
+        # X-brace reinforcement (visual mass)
+        pygame.draw.line(surf, (20, 25, 40, 80),
+                        (deck_x + 40, deck_bottom_y),
+                        (deck_x + deck_w // 2 - 10, deck_bottom_y + 28), 1)
+        pygame.draw.line(surf, (20, 25, 40, 80),
+                        (deck_x + deck_w - 40, deck_bottom_y),
+                        (deck_x + deck_w // 2 + 10, deck_bottom_y + 28), 1)
 
         # --- Neon panel accents (thin strips on deck face) ---
         for i in range(3):
@@ -480,9 +542,11 @@ class AnimatedBackgroundStage6:
 
     def update(self):
         """Advance all animation state by one frame."""
-        self.time += 1
+        self.time            += 1
         self.fire_glow_phase += 0.04           # slower pulsation than original
         self.radar_angle     += self.radar_speed
+        self.beacon_phase    += 0.08           # beacon pulses faster than fire
+        self.ship_light_phase += 0.05          # ship nav lights
         self.scanline_offset  = (self.scanline_offset + 1) % self.height
 
         for wave in self.bg_waves:
@@ -500,22 +564,23 @@ class AnimatedBackgroundStage6:
         self._update_fire_lines()
 
     # ======================================================================
-    #  DRAW — composites all 13 layers
+    #  DRAW — composites all layers
     # ======================================================================
 
     def draw(self, screen):
         """
         Render the complete background with 3-layer depth separation.
 
-        FAR:   sky gradient → distant ships → clouds → horizon haze
-        MID:   ocean gradient → bg waves → shadow → arena → radar → fire
-        NEAR:  foreground waves → hologram scanlines → border
+        FAR:   sky → ships → clouds → haze → nav lights → horizon
+        MID:   ocean → bg waves → shadow → reflection → arena → beacon → radar → fire
+        NEAR:  fg waves → scanlines → border
         """
         # --- FAR LAYER ---
         screen.blit(self._sky_gradient_cache, (0, 0))
         screen.blit(self._ship_surface, (0, self.cy - 60))
         self._draw_clouds(screen)
         screen.blit(self._haze_surface, (0, self.cy - 20))
+        self._draw_ship_lights(screen)
         pygame.draw.line(screen, (*self.horizon_color, 180),
                         (0, self.cy), (self.width, self.cy), 1)
 
@@ -525,7 +590,9 @@ class AnimatedBackgroundStage6:
 
         platform_y = self.cy - self._platform_surface.get_height() // 2 + 30
         self._draw_platform_shadow(screen, platform_y)
+        self._draw_water_reflection(screen, platform_y)
         screen.blit(self._platform_surface, (0, platform_y))
+        self._draw_beacon(screen, platform_y)
         self._draw_radar_sweep(screen, platform_y)
         self._draw_fire_lines(screen)
 
@@ -573,7 +640,6 @@ class AnimatedBackgroundStage6:
                 y  = surface.get_height() // 2 + amp * math.sin(x * freq + phase)
                 iy = int(y)
                 pygame.draw.circle(surface, ocean_color, (x, iy), circle_r)
-                # Deterministic foam — no per-frame random calls
                 if foam_interval > 0 and x % foam_interval < step:
                     pygame.draw.circle(surface, foam_color, (x, iy - 4), 3)
 
@@ -588,6 +654,90 @@ class AnimatedBackgroundStage6:
         pygame.draw.ellipse(self._shadow_surface, (0, 0, 0, 25),
                           (shadow_x, 15, shadow_w, 50))
         screen.blit(self._shadow_surface, (0, platform_y + base_y + 30))
+
+    def _draw_water_reflection(self, screen, platform_y):
+        """
+        Faint water reflection beneath the platform.
+
+        Two color components that flicker with sin():
+        • Cyan ellipse — reflection of the neon panel accents
+        • Orange ellipse (offset right) — reflection of the broken
+          tower's spark, adding warmth to the cold water
+
+        The flicker creates a sense of water surface movement without
+        needing additional wave geometry.
+        """
+        self._reflection_surface.fill(self._transparent)
+        base_y    = self._platform_base_y_local + self._platform_deck_h // 2
+        reflect_y = platform_y + base_y + 35
+        ref_w     = int(self.width * 0.4)
+        ref_x     = (self.width - ref_w) // 2
+        flicker   = (math.sin(self.time * 0.03) + 1) * 0.3 + 0.4
+        # Cyan reflection (from neon panels)
+        cyan_a = int(12 * flicker)
+        pygame.draw.ellipse(self._reflection_surface, (0, 160, 200, cyan_a),
+                          (ref_x, 5, ref_w, 15))
+        # Orange reflection (from broken tower spark)
+        orange_a = int(8 * flicker)
+        orange_x = ref_x + ref_w * 2 // 3
+        pygame.draw.ellipse(self._reflection_surface, (200, 100, 40, orange_a),
+                          (orange_x, 8, ref_w // 4, 10))
+        screen.blit(self._reflection_surface, (0, reflect_y))
+
+    def _draw_beacon(self, screen, platform_y):
+        """
+        Pulsating red beacon at the top of the central antenna.
+
+        Two-layer rendering:
+        • Outer glow: large circle, low alpha (atmospheric halo)
+        • Inner core: small bright dot (the actual light source)
+
+        Intensity oscillates via sin(beacon_phase) mapped to 0.3–1.0.
+        Faster pulsation than fire (0.08/frame vs 0.04) to feel urgent.
+        """
+        beacon_x = self._beacon_x
+        beacon_y = platform_y + self._beacon_local_y
+        intensity = (math.sin(self.beacon_phase) + 1) * 0.35 + 0.3
+        # Outer glow
+        glow_r    = int(6 * intensity)
+        glow_alpha = int(40 * intensity)
+        gs = _get_cached_surface(glow_r * 2 + 4, glow_r * 2 + 4)
+        pygame.draw.circle(gs, (255, 40, 20, glow_alpha),
+                         (glow_r + 2, glow_r + 2), glow_r)
+        screen.blit(gs, (beacon_x - glow_r - 2, beacon_y - glow_r - 2))
+        # Core
+        core_r = max(1, int(2 * intensity))
+        core_color = (255, int(60 + 80 * intensity), int(20 + 30 * intensity))
+        pygame.draw.circle(screen, core_color, (beacon_x, int(beacon_y)), core_r)
+
+    def _draw_ship_lights(self, screen):
+        """
+        Blinking navigation lights on distant warships.
+
+        4 lights with different phase offsets and colors:
+        • Ship 1 bridge light (warm white) — phase 0.0
+        • Ship 1 starboard light (red, maritime convention) — phase 1.5
+        • Ship 2 bridge light (warm white) — phase 2.8
+        • Ship 3 nav light (green, maritime convention) — phase 4.0
+
+        Lights only render when sin() > 0.6 threshold, creating a
+        realistic blink-on/blink-off pattern rather than smooth fade.
+        """
+        ship_y = self.cy - 60
+        w = self.width
+        lights = [
+            (0.12 + 0.04, 35 - 25, 0.0, (255, 200, 100)),
+            (0.12 + 0.08, 35,      1.5, (255, 50, 30)),
+            (0.75 + 0.03, 38 - 12, 2.8, (255, 200, 100)),
+            (0.91,        34,      4.0, (100, 255, 100)),
+        ]
+        for x_ratio, y_off, phase_off, color in lights:
+            alpha = (math.sin(self.ship_light_phase + phase_off) + 1) * 0.5
+            if alpha > 0.6:
+                lx = int(w * x_ratio)
+                ly = ship_y + y_off
+                a  = int(25 * alpha)
+                pygame.draw.circle(screen, (*color, a), (lx, ly), 2)
 
     def _draw_radar_sweep(self, screen, platform_y):
         """
@@ -653,19 +803,16 @@ class AnimatedBackgroundStage6:
         base   = (10, 15, 30)
         accent = (*self.cyan_dim, 100)
 
-        # Outer frame (4 sides)
         pygame.draw.rect(screen, base, (0, 0, w, t))
         pygame.draw.rect(screen, base, (0, h - t, w, t))
         pygame.draw.rect(screen, base, (0, 0, t, h))
         pygame.draw.rect(screen, base, (w - t, 0, t, h))
 
-        # Inner accent line
         pygame.draw.rect(screen, accent, (t, t, w - 2 * t, 1))
         pygame.draw.rect(screen, accent, (t, h - t - 1, w - 2 * t, 1))
         pygame.draw.rect(screen, accent, (t, t, 1, h - 2 * t))
         pygame.draw.rect(screen, accent, (w - t - 1, t, 1, h - 2 * t))
 
-        # Corner dots
         for corner_x, corner_y in [(t, t), (w - t, t), (t, h - t), (w - t, h - t)]:
             pygame.draw.circle(screen, self.cyan_accent, (corner_x, corner_y), 2)
 
@@ -738,21 +885,19 @@ class AnimatedBackgroundStage6:
             screen.blit(glow_surface, (self.cx - radius - 8,
                                        self.stadium_line_y - radius - 8))
 
-        # Circle outline
         main_color = (230, int(80 + 40 * glow), 40)
         pygame.draw.circle(screen, main_color,
                           (self.cx, self.stadium_line_y),
                           self.center_circle_radius, 1)
 
         # Dashed midfield line
-        dash_len = 18
-        gap_len  = 14
-        margin   = self.width // 6
+        dash_len  = 18
+        gap_len   = 14
+        margin    = self.width // 6
         current_x = margin
         while current_x < self.width - margin:
             dash_end = min(current_x + dash_len, self.width - margin)
 
-            # Single glow pass (was 2 in original)
             alpha = int(15 * glow)
             gs    = _get_cached_surface(dash_len + 8, 8)
             color = (180 + int(55 * glow), 50 + int(30 * glow), 15)
