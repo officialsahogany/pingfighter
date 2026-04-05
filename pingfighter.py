@@ -132597,6 +132597,7 @@ def show_item_manager_menu():
     # 전설 아이템 부위별 분류
     LEGENDARY_SLOT_ORDER = [
         ("머리", ["transcendent_crown"]),
+        ("상의", ["valhalla_warplate"]),
         ("팔", ["ragnarok_hammer", "poseidon_trident"]),
         ("등", ["pandora_legacy"]),
         ("허리", ["odins_eye", "megingjord"]),
