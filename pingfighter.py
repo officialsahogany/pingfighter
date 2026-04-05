@@ -163367,9 +163367,12 @@ def main(stage_num, new_boss_mode=False):
                         ball_in_kuromi = False
                     _ghost_release = _gs_ghost.get('ghost_summon_ball_release')
                     if _ghost_release:
-                        # 유령이 공을 발사 → 실제 BALL 위치 설정 (중심→좌상단 변환)
+                        # 유령이 공을 발사 → 실제 BALL 위치+속도 설정
                         BALL.x = int(_ghost_release['ball_x']) - BALL.width // 2
                         BALL.y = int(_ghost_release['ball_y']) - BALL.height // 2
+                        if 'ball_vx' in _ghost_release:
+                            ball_vel[0] = _ghost_release['ball_vx']
+                            ball_vel[1] = _ghost_release['ball_vy']
                         ball_in_kuromi = False
                         del _gs_ghost['ghost_summon_ball_release']
 
@@ -164213,6 +164216,10 @@ def main(stage_num, new_boss_mode=False):
                             if _ghost_rel:
                                 BALL.x = int(_ghost_rel['ball_x']) - BALL.width // 2
                                 BALL.y = int(_ghost_rel['ball_y']) - BALL.height // 2
+                                # 공 속도 복원 (유령이 뱉을 때 상대 방향으로 발사)
+                                if 'ball_vx' in _ghost_rel:
+                                    ball_vel[0] = _ghost_rel['ball_vx']
+                                    ball_vel[1] = _ghost_rel['ball_vy']
                                 ball_in_kuromi = False
                             # 모래회오리 빙의
                             _vortex_c = _bg_fx.get('sand_vortex_capture')

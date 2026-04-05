@@ -10977,10 +10977,12 @@ class GhostSummon(HeroSkill):
                         # BallWrapper에 속도 직접 설정 (pingfighter에서 ball_vel로 동기화됨)
                         ball.vx = new_vx
                         ball.vy = new_vy
-                        # 위치 변경은 game_state를 통해 전달 (BallWrapper 위치 변경은 동기화 안됨)
+                        # 위치+속도를 game_state를 통해 전달 (dismissed 상태에서도 동기화)
                         game_state['ghost_summon_ball_release'] = {
                             'ball_x': float(rect.centerx),
                             'ball_y': float(rect.centery),
+                            'ball_vx': float(new_vx),
+                            'ball_vy': float(new_vy),
                         }
 
                     # 공 숨김 해제
@@ -11272,14 +11274,18 @@ class GhostSummon(HeroSkill):
                     release_y = float(ghost['rect'].centery)
                     break
             release_dir = 1 if self.caster_is_top else -1
-            ball.vx = self._saved_ball_vx * 0.5
-            ball.vy = abs(self._saved_ball_vy) * release_dir
-            if abs(ball.vy) < 4.0:
-                ball.vy = 4.0 * release_dir
-            # game_state를 통해 위치 변경 + 숨김 해제
+            _rel_vx = self._saved_ball_vx * 0.5
+            _rel_vy = abs(self._saved_ball_vy) * release_dir
+            if abs(_rel_vy) < 4.0:
+                _rel_vy = 4.0 * release_dir
+            ball.vx = _rel_vx
+            ball.vy = _rel_vy
+            # game_state를 통해 위치+속도 변경 + 숨김 해제
             game_state['ghost_summon_ball_release'] = {
                 'ball_x': release_x,
                 'ball_y': release_y,
+                'ball_vx': float(_rel_vx),
+                'ball_vy': float(_rel_vy),
             }
             game_state['ghost_summon_ball_hidden'] = False
             self._eating_ball = False
