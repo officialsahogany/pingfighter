@@ -134,6 +134,9 @@ class NemesisOceanFrame:
         # 전함 디테일
         self._draw_ship_details(self._frame_surface)
 
+        # 빈 면적 미세 질감 (거의 안 보이는 금속 표면 노이즈)
+        self._draw_surface_texture(self._frame_surface)
+
     def _draw_sky_ocean_background(self, surface: pygame.Surface):
         """하늘 + 바다 배경 (게임 맵 해수면과 일치, 메인 배경과 동일 팔레트)"""
         sky_top = self.COLORS['sky_top']
@@ -314,45 +317,40 @@ class NemesisOceanFrame:
         self._draw_hull_seams(surface)
 
     def _draw_armor_hatch(self, surface, x, y, pw, side):
-        """장갑 해치 - 전함 외장 정비구 스타일"""
+        """장갑 해치 - 전함 외장 정비구 (자연스러운 구조물 느낌)"""
         md = self.COLORS['metal_dark']
         ml = self.COLORS['metal_light']
         m = self.COLORS['metal']
-        cyan = self.COLORS['cyan_glow']
 
-        hatch_h = 80
-        # 해치 본체 (어두운 금속판)
+        hatch_h = 70  # 약간 줄여서 덜 지배적으로
+        # 해치 본체 (주변보다 약간만 어두운 금속판)
         rect = pygame.Rect(x, y, pw, hatch_h)
-        pygame.draw.rect(surface, (*md, 220), rect)
-        # 해치 테두리 (밝은 엣지 - 볼록 효과)
-        pygame.draw.rect(surface, (*m, 200), rect, 1)
+        pygame.draw.rect(surface, (*md, 180), rect)  # 220→180 (덜 뚜렷)
+        # 테두리 (은은한 엣지)
+        pygame.draw.rect(surface, (*m, 120), rect, 1)  # 200→120
         # 상단 밝은 엣지 (빛 받는 면)
-        pygame.draw.line(surface, (*ml, 160),
+        pygame.draw.line(surface, (*ml, 80),
                         (x + 1, y + 1), (x + pw - 1, y + 1), 1)
 
-        # 볼트 4개 (모서리)
-        for bx, by in [(x + 5, y + 5), (x + pw - 5, y + 5),
-                       (x + 5, y + hatch_h - 5), (x + pw - 5, y + hatch_h - 5)]:
-            pygame.draw.circle(surface, (*md, 255), (bx, by), 3)
-            pygame.draw.circle(surface, (*ml, 180), (bx, by - 1), 2)
+        # 볼트 4개 (더 작고 미묘하게)
+        for bx, by in [(x + 4, y + 4), (x + pw - 4, y + 4),
+                       (x + 4, y + hatch_h - 4), (x + pw - 4, y + hatch_h - 4)]:
+            pygame.draw.circle(surface, (*md, 200), (bx, by), 2)
+            pygame.draw.circle(surface, (*ml, 100), (bx, by), 1)
 
-        # 중앙 수평 이음새 (해치 분할선)
+        # 이음새 (희미한 수평선 - 패널 느낌보다 용접 자국 느낌)
         mid_y = y + hatch_h // 2
-        pygame.draw.line(surface, (*md, 255), (x + 3, mid_y), (x + pw - 3, mid_y), 1)
-        pygame.draw.line(surface, (*ml, 80), (x + 3, mid_y + 1), (x + pw - 3, mid_y + 1), 1)
+        pygame.draw.line(surface, (*md, 80), (x + 4, mid_y), (x + pw - 4, mid_y), 1)
 
-        # 경고등 1개 (작은, 해치 상단 중앙)
-        pygame.draw.circle(surface, (*md, 255), (x + pw // 2, y + 18), 4)
+        # 경고등 (정적, 상단 — 경고등 느낌보다 상태 표시 리벳)
         light_color = self.COLORS['red_light'] if side == 'right' else self.COLORS['green_light']
-        pygame.draw.circle(surface, (*light_color, 120), (x + pw // 2, y + 18), 3)
+        pygame.draw.circle(surface, (*light_color, 80), (x + pw // 2, y + 14), 2)
 
-        # 우측 해치에만 손상 흔적 (메인 배경 파손 타워와 연결)
+        # 우측만 풍화 (메인 배경 파손 타워와 연결)
         if side == 'right':
-            # 대각선 스크래치
-            pygame.draw.line(surface, (*ml, 60),
-                           (x + 8, y + 25), (x + pw - 10, y + hatch_h - 15), 1)
-            # 작은 찌그러짐 (어두운 점)
-            pygame.draw.circle(surface, (20, 22, 35, 80), (x + pw // 3, y + 50), 3)
+            pygame.draw.line(surface, (*ml, 30),
+                           (x + 6, y + 20), (x + pw - 8, y + hatch_h - 12), 1)
+            pygame.draw.circle(surface, (18, 20, 32, 50), (x + pw // 3, y + 45), 2)
 
     def _draw_maintenance_port(self, surface, x, y, pw):
         """정비 포트 - 작은 원형 해치"""
@@ -404,6 +402,42 @@ class NemesisOceanFrame:
         # 물때/녹 흔적 (어두운 점들)
         for dx, dy in [(8, 48), (15, 38), (pw - 12, 50)]:
             pygame.draw.circle(surface, (18, 25, 30, 40), (x + dx, y + dy), 2)
+
+    def _draw_surface_texture(self, surface):
+        """빈 면적에 거의 안 보이는 금속 표면 질감 (결정적 패턴, 그리드 아님)"""
+        md = self.COLORS['metal_dark']
+        lx_end = self.game_x - 16
+        rx_start = self.game_x + self.game_width + 16
+        rx_end = self.screen_width - 14
+
+        # 좌우 필러 영역에만 미세 점/얼룩 (시드 기반 결정적 배치)
+        seed = 73
+        for i in range(25):
+            # 결정적 좌표 (random 대신 시드 산술)
+            px = ((i * seed + 17) % max(lx_end - 16, 1)) + 8
+            py = ((i * seed * 3 + 41) % max(self.screen_height - 30, 1)) + 15
+            # 알파 5~12 (거의 안 보임)
+            a = 5 + (i * 7) % 8
+            # 작은 점 (1~2px)
+            sz = 1 + (i % 3 == 0)
+            pygame.draw.circle(surface, (*md, a), (px, py), sz)
+
+        for i in range(25):
+            px = rx_start + ((i * seed + 23) % max(rx_end - rx_start - 10, 1)) + 5
+            py = ((i * seed * 5 + 59) % max(self.screen_height - 30, 1)) + 15
+            a = 5 + (i * 5) % 10
+            sz = 1 + (i % 4 == 0)
+            pygame.draw.circle(surface, (*md, a), (px, py), sz)
+
+        # 좌측: 해수면 위 하늘 영역에 아주 희미한 명암 변화 (2~3개 큰 타원)
+        if lx_end > 20:
+            for i, (yr, xr, a) in enumerate([
+                (0.2, 0.6, 6), (0.4, 0.4, 4), (0.7, 0.5, 5)
+            ]):
+                ey = int(self.screen_height * yr)
+                ew = int(lx_end * xr)
+                ex = (i * 11) % max(lx_end - ew, 1)
+                pygame.draw.ellipse(surface, (*md, a), (ex, ey, ew, 20))
 
     def _draw_hull_seams(self, surface):
         """좌우 필러 질감 (규칙적 구조선 대신 비대칭 풍화/재료감)"""
