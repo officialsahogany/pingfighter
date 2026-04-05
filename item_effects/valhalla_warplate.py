@@ -43,9 +43,15 @@ class ValhallaWarplateState:
     # 상태 머신
     IDLE = 0           # 대기 중
     CUTSCENE = 1       # 소환 컷신 (화면 정지 + 텍스트)
-    SUMMONED = 2       # 소환됨, 스킬 발동 대기
-    SKILL_ACTIVE = 3   # 스킬 발동 중
-    EXITING = 4        # 퇴장 모션 재생 중
+    PORTAL_DESCEND = 2 # 포탈에서 하강 중
+    SUMMONED = 3       # 소환됨, 스킬 발동 대기
+    SKILL_ACTIVE = 4   # 스킬 발동 중
+    PORTAL_ASCEND = 5  # 포탈로 상승 퇴장 중
+
+    # 포탈 상수
+    PORTAL_DURATION = 1.0      # 포탈 하강/상승 시간 (초)
+    PORTAL_Y = 80.0            # 포탈 위치 Y (화면 상단)
+    PATROL_Y = 620.0           # 호위무사 순찰 Y
 
     def __init__(self):
         self.active = False           # 장착 중인지
@@ -63,6 +69,12 @@ class ValhallaWarplateState:
         self.summoned_hero_name = ""  # 소환된 영웅 이름 (로그용)
         self._pending_hero = None     # 컷신 중 대기하는 영웅 데이터
         self._pending_skill_idx = 0   # 컷신 중 대기하는 스킬 인덱스
+
+        # 포탈 연출
+        self.portal_timer = 0.0       # 포탈 애니메이션 경과
+        self.portal_x = 380.0         # 포탈 X 위치
+        self.portal_alpha = 0.0       # 포탈 투명도
+        self.portal_particles = []    # 포탈 파티클
 
         # 컷신 연출
         self.cutscene_timer = 0.0     # 컷신 경과 시간
@@ -95,16 +107,19 @@ class ValhallaWarplateState:
             self._bodyguard_ref.reset()
         self._clear_state()
 
-    def _start_exit(self):
-        """퇴장 모션 시작 (exiting phase 트리거)"""
+    def _start_portal_ascend(self):
+        """포탈 상승 퇴장 시작"""
         if self._bodyguard_ref and self._bodyguard_ref.active and self._bodyguard_ref._guard_system:
             gs = self._bodyguard_ref._guard_system
-            gs._exit_start_x_bottom = gs.x_bottom
-            gs._exit_start_y_bottom = float(gs.y_bottom)
-            gs.phase_bottom = "exiting"
-            gs.anim_timer_bottom = 0.0
-            self.state = self.EXITING
+            self._ascend_start_y = gs.y_bottom  # 현재 Y 위치 저장
+            self.portal_x = gs.x_bottom  # 현재 X 위치에서 포탈 열림
+            self.state = self.PORTAL_ASCEND
+            self.portal_timer = 0.0
+            self.portal_alpha = 0.0
             self.summoning = True
+            # 새 스킬 발동 방지
+            gs.cooldown_bottom = 99999.0
+            print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 포탈 상승 시작!")
         else:
             self._force_dismiss()
 
@@ -120,6 +135,9 @@ class ValhallaWarplateState:
         self._pending_skill_idx = 0
         self.cutscene_timer = 0.0
         self.cutscene_particles.clear()
+        self.portal_timer = 0.0
+        self.portal_alpha = 0.0
+        self.portal_particles.clear()
 
     def try_summon(self) -> bool:
         """공 타격 시 소환 시도. 성공하면 True (컷신 시작)."""
@@ -230,11 +248,22 @@ class ValhallaWarplateState:
                 target_bg._guard_system.cooldown_bottom = 0.1
 
             self._bodyguard_ref = target_bg
-            self.state = self.SUMMONED
             self.summon_timer = 0.0
             self.post_skill_timer = 0.0
-            self._pending_hero = None
-            print(f"⚔ 발할라의 전갑: {hero['name']} 소환 완료! (스킬 {skill_idx + 1}번)")
+
+            # 포탈 하강 시작: guard_system의 위치를 포탈 상단에 배치
+            gs = target_bg._guard_system
+            if gs:
+                self.portal_x = 380.0  # 화면 중앙
+                gs.x_bottom = self.portal_x
+                gs.y_bottom = self.PORTAL_Y  # 포탈 위치(상단)에서 시작
+
+            self.state = self.PORTAL_DESCEND
+            self.portal_timer = 0.0
+            self.portal_alpha = 1.0
+            self.portal_particles.clear()
+            self._pending_hero = None  # 보존 (draw_portal에서 색상 참조용은 summoned_hero_name으로)
+            print(f"⚔ 발할라의 전갑: {hero['name']} 포탈 하강 시작!")
 
         except Exception as e:
             print(f"[WARN] 발할라 전갑 소환 실패: {e}")
@@ -263,17 +292,52 @@ class ValhallaWarplateState:
         bg = self._bodyguard_ref
         gs = bg._guard_system if bg and bg.active else None
 
+        # ── PORTAL_DESCEND: 포탈에서 하강 중 ──
+        if self.state == self.PORTAL_DESCEND:
+            self.portal_timer += dt
+            progress = min(1.0, self.portal_timer / self.PORTAL_DURATION)
+            eased = 1.0 - (1.0 - progress) ** 2  # ease-out
+
+            if gs:
+                # 포탈 Y → 순찰 Y 로 하강
+                gs.y_bottom = self.PORTAL_Y + (self.PATROL_Y - self.PORTAL_Y) * eased
+                gs.x_bottom = self.portal_x
+                # 호위무사 캐릭터가 보이도록 phase 유지
+                gs.phase_bottom = "patrolling"
+
+            # 포탈 파티클 생성
+            if random.random() < 0.4:
+                self.portal_particles.append({
+                    "x": self.portal_x + random.uniform(-30, 30),
+                    "y": self.PORTAL_Y + random.uniform(-10, 10),
+                    "vy": random.uniform(20, 60),
+                    "life": random.uniform(0.3, 0.7),
+                    "max_life": 0.7,
+                    "size": random.uniform(2, 4),
+                })
+
+            self.portal_alpha = max(0.0, 1.0 - progress * 0.5)
+
+            if progress >= 1.0:
+                self.state = self.SUMMONED
+                self.portal_alpha = 0.0
+                self.summon_timer = 0.0
+                # 쿨다운 짧게 설정 → 즉시 스킬 발동
+                if gs:
+                    gs.cooldown_bottom = 0.1
+                print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 하강 완료 → 스킬 대기")
+
         # ── SUMMONED: 스킬 발동 대기 ──
-        if self.state == self.SUMMONED:
+        elif self.state == self.SUMMONED:
             if gs:
                 phase = getattr(gs, 'phase_bottom', 'patrolling')
                 if phase not in ('patrolling', 'patrol_entering', None):
                     self.state = self.SKILL_ACTIVE
                     print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 스킬 발동!")
             if self.summon_timer >= self.max_summon_time:
-                self._start_exit()
+                self._start_portal_ascend()
 
-        # ── SKILL_ACTIVE: 스킬 시전 완료 대기 → 퇴장 모션 시작 ──
+        # ── SKILL_ACTIVE: 스킬 시전 완료 대기 → 포탈 상승 시작 ──
         elif self.state == self.SKILL_ACTIVE:
             if gs:
                 phase = getattr(gs, 'phase_bottom', 'patrolling')
@@ -291,24 +355,52 @@ class ValhallaWarplateState:
                     if casting_done:
                         self.post_skill_timer += dt
                         if self.post_skill_timer >= self.post_skill_linger:
-                            self._start_exit()
+                            self._start_portal_ascend()
             else:
                 self._clear_state()
 
-        # ── EXITING: 퇴장 모션 완료 대기 ──
-        elif self.state == self.EXITING:
+        # ── PORTAL_ASCEND: 포탈로 상승 퇴장 중 ──
+        elif self.state == self.PORTAL_ASCEND:
+            self.portal_timer += dt
+            progress = min(1.0, self.portal_timer / self.PORTAL_DURATION)
+            eased = progress ** 2  # ease-in
+
             if gs:
-                phase = getattr(gs, 'phase_bottom', None)
-                if phase != "exiting":
-                    if bg and bg.active:
-                        bg.dismiss_keep_skills()
-                    self._clear_state()
-                    return
-            else:
+                # 현재 위치 → 포탈 Y 로 상승
+                start_y = getattr(self, '_ascend_start_y', self.PATROL_Y)
+                gs.y_bottom = start_y + (self.PORTAL_Y - start_y) * eased
+                gs.x_bottom = self.portal_x
+
+            # 포탈 파티클 생성
+            if random.random() < 0.4:
+                self.portal_particles.append({
+                    "x": self.portal_x + random.uniform(-30, 30),
+                    "y": self.PORTAL_Y + random.uniform(-10, 10),
+                    "vy": random.uniform(20, 60),
+                    "life": random.uniform(0.3, 0.7),
+                    "max_life": 0.7,
+                    "size": random.uniform(2, 4),
+                })
+
+            self.portal_alpha = min(1.0, progress * 1.5)
+
+            if progress >= 1.0:
+                # 포탈 도달 → 스킬 유지한 채 캐릭터만 해산
+                if bg and bg.active:
+                    bg.dismiss_keep_skills()
+                print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 포탈로 퇴장 완료!")
                 self._clear_state()
                 return
-            if self.summon_timer >= self.max_summon_time + 2.0:
+
+            # 안전장치
+            if self.summon_timer >= self.max_summon_time + 3.0:
                 self._force_dismiss()
+
+        # 포탈 파티클 업데이트
+        for p in self.portal_particles:
+            p["y"] += p["vy"] * dt
+            p["life"] -= dt
+        self.portal_particles = [p for p in self.portal_particles if p["life"] > 0]
 
     @staticmethod
     def _clamp(v):
@@ -418,6 +510,70 @@ class ValhallaWarplateState:
 
         # 최종 blit
         screen.blit(cutscene_surf, (0, 0))
+
+    def draw_portal(self, screen: pygame.Surface):
+        """포탈 이펙트 드로잉 (하강/상승 시 호출)"""
+        if self.state not in (self.PORTAL_DESCEND, self.PORTAL_ASCEND):
+            return
+        if self.portal_alpha <= 0.01:
+            return
+
+        _c = self._clamp
+        px, py = int(self.portal_x), int(self.PORTAL_Y)
+        alpha = _c(self.portal_alpha * 255)
+
+        # 포탈 서피스 (SRCALPHA)
+        pw, ph = 120, 50
+        portal_surf = pygame.Surface((pw, ph), pygame.SRCALPHA)
+
+        # 1) 외곽 타원 (황금빛)
+        pygame.draw.ellipse(portal_surf, (255, 200, 60, alpha), (0, 0, pw, ph), 3)
+        # 2) 내부 타원 (밝은 금빛)
+        inner_margin = 8
+        pygame.draw.ellipse(portal_surf, (255, 230, 120, _c(alpha * 0.6)),
+                           (inner_margin, inner_margin // 2, pw - inner_margin * 2, ph - inner_margin), 2)
+        # 3) 내부 채움 (반투명 금빛)
+        fill_margin = 14
+        pygame.draw.ellipse(portal_surf, (255, 220, 80, _c(alpha * 0.25)),
+                           (fill_margin, fill_margin // 2, pw - fill_margin * 2, ph - fill_margin))
+        # 4) 중앙 밝은 점
+        pygame.draw.ellipse(portal_surf, (255, 250, 200, _c(alpha * 0.4)),
+                           (pw // 2 - 15, ph // 2 - 5, 30, 10))
+
+        # 포탈 회전 느낌 (작은 룬 점들)
+        t = self.portal_timer * 3.0
+        for i in range(6):
+            angle = i * math.pi / 3 + t
+            rx = pw // 2 + int(math.cos(angle) * (pw // 2 - 12))
+            ry = ph // 2 + int(math.sin(angle) * (ph // 4 - 4))
+            pygame.draw.circle(portal_surf, (255, 240, 160, _c(alpha * 0.7)), (rx, ry), 2)
+
+        screen.blit(portal_surf, (px - pw // 2, py - ph // 2))
+
+        # 5) 빛줄기 (포탈 → 호위무사 위치)
+        bg = self._bodyguard_ref
+        gs = bg._guard_system if bg and bg.active else None
+        if gs:
+            hero_y = int(gs.y_bottom)
+            beam_alpha = _c(alpha * 0.3)
+            if beam_alpha > 5:
+                beam_surf = pygame.Surface((8, abs(hero_y - py) + 10), pygame.SRCALPHA)
+                beam_surf.fill((255, 220, 100, beam_alpha))
+                pygame.draw.line(beam_surf, (255, 240, 160, _c(beam_alpha * 1.5)),
+                               (4, 0), (4, beam_surf.get_height()), 1)
+                beam_top = min(py, hero_y)
+                screen.blit(beam_surf, (px - 4, beam_top))
+
+        # 6) 포탈 파티클
+        for p in self.portal_particles:
+            ratio = max(0, p["life"] / p["max_life"])
+            sz = int(p["size"] * ratio)
+            if sz < 1:
+                continue
+            pa = _c(180 * ratio * self.portal_alpha)
+            ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (255, 220, 80, pa), (sz + 1, sz + 1), sz)
+            screen.blit(ps, (int(p["x"]) - sz - 1, int(p["y"]) - sz - 1))
 
 
 # ── 싱글톤 ──────────────────────────────────────────────────────

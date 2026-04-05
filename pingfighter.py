@@ -165582,19 +165582,25 @@ def main(stage_num, new_boss_mode=False):
                 if screen_transition_progress <= 0.0:
                     screen_transition_active = False
 
-        # ⚔ 발할라 컷신 오버레이 (flip 직전, 모든 렌더링 위에)
+        # ⚔ 발할라의 전갑 오버레이 (flip 직전, 모든 렌더링 위에)
         try:
             from item_effects.valhalla_warplate import get_valhalla_warplate_state
             _vw_overlay = get_valhalla_warplate_state()
+            # 컷신 (화면 정지 + 텍스트)
             if _vw_overlay.is_cutscene_active:
                 _vw_overlay.update(1.0 / 60.0)
                 try:
                     _vw_overlay.draw_cutscene(SCREEN)
-                except Exception as _vw_draw_err:
+                except Exception:
                     import traceback
                     traceback.print_exc()
+            # 포탈 이펙트 (하강/상승 중)
+            try:
+                _vw_overlay.draw_portal(SCREEN)
+            except Exception:
+                pass
         except Exception as _vw_err:
-            print(f"[WARN] 발할라 컷신 오류: {_vw_err}")
+            print(f"[WARN] 발할라 오류: {_vw_err}")
 
         pygame.display.flip()
         # 프로파일러 프레임 종료
