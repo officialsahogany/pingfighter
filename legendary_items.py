@@ -12447,7 +12447,7 @@ class ValhallaWarplate(LegendaryItem):
         ps_size = size + 16
 
         # 공통 프레임 (바탕, 글로우)
-        _draw_common_legendary_frame(screen, x, y, size)
+        _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
         # 프레임 카운터 업데이트
         self.frame_counter += 1
