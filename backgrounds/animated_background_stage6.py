@@ -246,50 +246,176 @@ class AnimatedBackgroundStage6:
                            (0, y), (self.width, y))
 
     def _init_distant_ships(self):
-        """수평선 위 원거리 군함 실루엣 사전 렌더링"""
+        """
+        수평선 위 원거리 군함 실루엣 사전 렌더링
+
+        3종 함선 각각 다른 클래스로 읽히도록 설계:
+          Ship 1 (좌): 강습상륙함/지휘함 - 길고 평평한 갑판, 높은 브리지 타워
+          Ship 2 (우): 미사일 구축함 - 날카로운 선수, 경사 브리지, VLS 구조
+          Ship 3 (먼 우): 초계함 - 작고 빠른 실루엣, 마스트 1개
+
+        점멸등 좌표는 _ship_light_positions에 저장하여
+        _draw_ship_lights()와 구조적으로 연동.
+        """
         self._ship_surface.fill(self._transparent)
-        ship_color = (25, 20, 35, 60)  # 매우 희미한 대기감
+        surf = self._ship_surface
         w = self.width
 
-        # 함선 1: 대형 항공모함 (좌측)
-        ship1_x = int(w * 0.12)
-        ship1_w = int(w * 0.12)
-        ship1_y = 35
-        hull_pts = [
-            (ship1_x, ship1_y),
-            (ship1_x + ship1_w, ship1_y),
-            (ship1_x + ship1_w - 8, ship1_y + 12),
-            (ship1_x + 5, ship1_y + 12),
-        ]
-        pygame.draw.polygon(self._ship_surface, ship_color, hull_pts)
-        bridge_x = ship1_x + ship1_w // 3
-        pygame.draw.rect(self._ship_surface, ship_color,
-                        (bridge_x, ship1_y - 18, 15, 18))
-        pygame.draw.rect(self._ship_surface, ship_color,
-                        (bridge_x + 3, ship1_y - 25, 8, 7))
-        pygame.draw.line(self._ship_surface, ship_color,
-                        (bridge_x + 7, ship1_y - 25), (bridge_x + 7, ship1_y - 35), 1)
+        # 공통 색상 (원경 대기감 - 거리별 알파 차이)
+        hull_near = (28, 22, 38, 55)    # 가까운 함선
+        hull_far = (22, 18, 32, 40)     # 먼 함선
+        hull_faint = (18, 15, 28, 30)   # 가장 먼 함선
+        detail = (32, 26, 42, 45)       # 상부 구조물
 
-        # 함선 2: 구축함 (우측)
-        ship2_x = int(w * 0.75)
-        ship2_w = int(w * 0.08)
-        ship2_y = 38
-        hull_pts2 = [
-            (ship2_x, ship2_y),
-            (ship2_x + ship2_w, ship2_y),
-            (ship2_x + ship2_w + 5, ship2_y + 8),
-            (ship2_x - 3, ship2_y + 8),
-        ]
-        pygame.draw.polygon(self._ship_surface, ship_color, hull_pts2)
-        pygame.draw.rect(self._ship_surface, ship_color,
-                        (ship2_x + ship2_w // 3, ship2_y - 12, 10, 12))
+        # ==============================================================
+        #  Ship 1: 강습상륙함/지휘함 (좌측, 가장 큼)
+        # ==============================================================
+        s1x = int(w * 0.08)
+        s1w = int(w * 0.15)   # 넓은 선체
+        s1y = 36              # 수선(워터라인)
 
-        # 함선 3: 소형 함정 (우측 끝, 거의 안 보임)
-        ship3_x = int(w * 0.9)
-        pygame.draw.rect(self._ship_surface, (20, 18, 30, 35),
-                        (ship3_x, 40, int(w * 0.04), 5))
-        pygame.draw.rect(self._ship_surface, (20, 18, 30, 35),
-                        (ship3_x + 8, 34, 4, 6))
+        # 선체 (선수가 약간 솟은 형태, 선미는 평평)
+        pygame.draw.polygon(surf, hull_near, [
+            (s1x - 6, s1y),                   # 선수 끝 (뾰족하게)
+            (s1x + 8, s1y - 3),               # 선수 상단 (살짝 올라감)
+            (s1x + s1w, s1y - 1),             # 선미 상단 (평갑판)
+            (s1x + s1w + 3, s1y + 2),         # 선미 끝
+            (s1x + s1w - 5, s1y + 10),        # 선미 하단
+            (s1x + 3, s1y + 10),              # 선수 하단
+        ])
+        # 갑판선 (수평 강조)
+        pygame.draw.line(surf, detail,
+                        (s1x + 8, s1y - 2), (s1x + s1w, s1y - 1), 1)
+
+        # 브리지 타워 (함 중앙 약간 뒤쪽, 3단 구조)
+        bx = s1x + int(s1w * 0.35)
+        # 1단: 넓은 기저부
+        pygame.draw.polygon(surf, hull_near, [
+            (bx, s1y - 3), (bx + 18, s1y - 3),
+            (bx + 16, s1y - 12), (bx + 2, s1y - 12),
+        ])
+        # 2단: 좁은 중간층
+        pygame.draw.rect(surf, detail, (bx + 4, s1y - 20, 10, 8))
+        # 3단: 레이더 하우스
+        pygame.draw.rect(surf, detail, (bx + 6, s1y - 25, 6, 5))
+
+        # 메인 마스트 (브리지 위)
+        mast_x = bx + 9
+        pygame.draw.line(surf, detail,
+                        (mast_x, s1y - 25), (mast_x, s1y - 38), 1)
+        # 레이더 야드암 (수평 바)
+        pygame.draw.line(surf, detail,
+                        (mast_x - 6, s1y - 34), (mast_x + 6, s1y - 34), 1)
+        # 레이더 디쉬 (작은 삼각)
+        pygame.draw.polygon(surf, detail, [
+            (mast_x - 3, s1y - 36), (mast_x + 3, s1y - 36),
+            (mast_x, s1y - 38),
+        ])
+
+        # 굴뚝 (브리지 뒤)
+        funnel_x = bx + 22
+        pygame.draw.polygon(surf, hull_near, [
+            (funnel_x, s1y - 3), (funnel_x + 8, s1y - 3),
+            (funnel_x + 6, s1y - 14), (funnel_x + 2, s1y - 14),
+        ])
+
+        # 후방 마스트 (짧은)
+        rear_mast_x = s1x + int(s1w * 0.75)
+        pygame.draw.line(surf, detail,
+                        (rear_mast_x, s1y - 2), (rear_mast_x, s1y - 18), 1)
+        pygame.draw.line(surf, detail,
+                        (rear_mast_x - 4, s1y - 15), (rear_mast_x + 4, s1y - 15), 1)
+
+        # 점멸등 위치 저장 (ship_surface 로컬 좌표)
+        self._ship1_lights = {
+            'bridge_top': (mast_x, s1y - 38),      # 마스트 꼭대기
+            'starboard': (s1x + s1w - 3, s1y + 2),  # 우현
+            'stern': (s1x + s1w + 1, s1y),           # 선미
+        }
+
+        # ==============================================================
+        #  Ship 2: 미사일 구축함 (우측, 중간 크기)
+        # ==============================================================
+        s2x = int(w * 0.73)
+        s2w = int(w * 0.10)
+        s2y = 38
+
+        # 선체 (스텔스 형태 - 날카로운 선수, 경사진 측면)
+        pygame.draw.polygon(surf, hull_far, [
+            (s2x - 8, s2y + 1),               # 선수 끝 (날카롭게)
+            (s2x, s2y - 2),                    # 선수 상단
+            (s2x + s2w, s2y - 1),              # 선미 상단
+            (s2x + s2w + 2, s2y + 3),          # 선미 끝
+            (s2x + s2w - 3, s2y + 7),          # 선미 하단
+            (s2x + 5, s2y + 7),                # 선수 하단
+        ])
+        # 갑판선
+        pygame.draw.line(surf, hull_far,
+                        (s2x, s2y - 1), (s2x + s2w, s2y - 1), 1)
+
+        # 브리지 (경사진 스텔스 형태, 2단)
+        b2x = s2x + int(s2w * 0.3)
+        # 1단: 경사 기저
+        pygame.draw.polygon(surf, hull_far, [
+            (b2x, s2y - 2), (b2x + 14, s2y - 2),
+            (b2x + 12, s2y - 10), (b2x + 2, s2y - 9),
+        ])
+        # 2단: 레이더 하우스 (경사진 상단)
+        pygame.draw.polygon(surf, detail, [
+            (b2x + 3, s2y - 10), (b2x + 11, s2y - 10),
+            (b2x + 9, s2y - 16), (b2x + 5, s2y - 15),
+        ])
+
+        # 마스트 (브리지 위, 짧고 가느다란)
+        m2x = b2x + 7
+        pygame.draw.line(surf, detail,
+                        (m2x, s2y - 16), (m2x, s2y - 26), 1)
+        # 레이더 바
+        pygame.draw.line(surf, detail,
+                        (m2x - 4, s2y - 23), (m2x + 4, s2y - 23), 1)
+
+        # VLS (수직발사대 - 브리지 앞 낮은 구조물)
+        vls_x = s2x + int(s2w * 0.12)
+        pygame.draw.rect(surf, hull_far, (vls_x, s2y - 5, 8, 3))
+
+        # 후부 무장대 (낮은 박스)
+        pygame.draw.rect(surf, hull_far,
+                        (s2x + int(s2w * 0.7), s2y - 4, 6, 2))
+
+        self._ship2_lights = {
+            'bridge_top': (m2x, s2y - 26),
+            'port': (s2x + 2, s2y + 2),
+        }
+
+        # ==============================================================
+        #  Ship 3: 초계함/호위함 (먼 우측, 가장 작고 희미)
+        # ==============================================================
+        s3x = int(w * 0.89)
+        s3w = int(w * 0.05)
+        s3y = 40
+
+        # 선체 (작고 날렵한)
+        pygame.draw.polygon(surf, hull_faint, [
+            (s3x - 3, s3y + 1),
+            (s3x + 2, s3y - 1),
+            (s3x + s3w, s3y),
+            (s3x + s3w + 1, s3y + 2),
+            (s3x + s3w - 2, s3y + 5),
+            (s3x + 3, s3y + 5),
+        ])
+
+        # 브리지 (작은 단일 구조)
+        b3x = s3x + int(s3w * 0.35)
+        pygame.draw.rect(surf, hull_faint, (b3x, s3y - 5, 6, 5))
+
+        # 마스트 (짧은 하나)
+        m3x = b3x + 3
+        pygame.draw.line(surf, hull_faint,
+                        (m3x, s3y - 5), (m3x, s3y - 12), 1)
+
+        self._ship3_lights = {
+            'mast_top': (m3x, s3y - 12),
+        }
 
     def _init_platform_static(self):
         """다층 데크 아레나 플랫폼 정적 사전 렌더링"""
@@ -612,26 +738,30 @@ class AnimatedBackgroundStage6:
         pygame.draw.circle(screen, core_color, (beacon_x, int(beacon_y)), core_r)
 
     def _draw_ship_lights(self, screen):
-        """원경 함선 점멸등 (미세 애니메이션)"""
+        """원경 함선 점멸등 (구조물 좌표 연동, SRCALPHA 경유)"""
         ship_y = self.cy - 60  # _ship_surface blit 위치와 동일
         w = self.width
-        # 각 함선에 다른 위상의 점멸등
+
+        # 함선 구조에서 저장한 좌표 기반 점멸등
+        # (x, y_local, 위상차, 색상, 반경)
         lights = [
-            # (x비율, y_offset, 위상차, 색상)
-            (0.12 + 0.04, 35 - 25, 0.0, (255, 200, 100)),    # 함선1 브릿지 등
-            (0.12 + 0.08, 35, 1.5, (255, 50, 30)),           # 함선1 우현등 (적색)
-            (0.75 + 0.03, 38 - 12, 2.8, (255, 200, 100)),    # 함선2 브릿지 등
-            (0.91, 34, 4.0, (100, 255, 100)),                 # 함선3 항해등 (녹색)
+            # Ship 1: 지휘함
+            (*self._ship1_lights['bridge_top'], 0.0, (255, 200, 120), 2),   # 마스트 꼭대기 백등
+            (*self._ship1_lights['starboard'],  1.5, (255, 50, 30), 1),     # 우현 적색등
+            (*self._ship1_lights['stern'],      3.2, (255, 200, 120), 1),   # 선미등
+            # Ship 2: 구축함
+            (*self._ship2_lights['bridge_top'], 2.8, (255, 200, 120), 2),   # 마스트 백등
+            (*self._ship2_lights['port'],       4.5, (100, 255, 100), 1),   # 좌현 녹색등
+            # Ship 3: 초계함
+            (*self._ship3_lights['mast_top'],   4.0, (255, 200, 120), 1),   # 마스트 백등
         ]
-        # SRCALPHA 서피스 경유로 알파 보장
+
         light_surf = _get_cached_surface(w, 60)
-        for x_ratio, y_off, phase_off, color in lights:
+        for lx, ly, phase_off, color, radius in lights:
             alpha = (math.sin(self.ship_light_phase + phase_off) + 1) * 0.5
-            if alpha > 0.6:  # 60% 이상일 때만 표시 (점멸 효과)
-                lx = int(w * x_ratio)
-                ly = y_off  # light_surf 로컬 좌표
+            if alpha > 0.6:
                 a = int(25 * alpha)
-                pygame.draw.circle(light_surf, (*color, a), (lx, ly), 2)
+                pygame.draw.circle(light_surf, (*color, a), (lx, ly), radius)
         screen.blit(light_surf, (0, ship_y))
 
     def _draw_water_reflection(self, screen, platform_y):
