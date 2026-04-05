@@ -70,11 +70,13 @@ class ValhallaWarplateState:
         self._pending_hero = None     # 컷신 중 대기하는 영웅 데이터
         self._pending_skill_idx = 0   # 컷신 중 대기하는 스킬 인덱스
 
-        # 포탈 연출
+        # 포탈 연출 (매혹 차원의 문과 동일 구조, 황금빛)
         self.portal_timer = 0.0       # 포탈 애니메이션 경과
         self.portal_x = 380.0         # 포탈 X 위치
-        self.portal_alpha = 0.0       # 포탈 투명도
-        self.portal_particles = []    # 포탈 파티클
+        self.portal_scale = 0.0       # 포탈 열림 스케일 (0→1)
+        self.portal_angle = 0.0       # 소용돌이 회전각
+        self.portal_particles = []    # 소용돌이 파티클
+        self.portal_lightning = []    # 전기 아크
 
         # 컷신 연출
         self.cutscene_timer = 0.0     # 컷신 경과 시간
@@ -292,40 +294,45 @@ class ValhallaWarplateState:
         bg = self._bodyguard_ref
         gs = bg._guard_system if bg and bg.active else None
 
-        # ── PORTAL_DESCEND: 포탈에서 하강 중 ──
+        # ── PORTAL_DESCEND: 포탈 열림(0.8초) → 하강(1.0초) → 포탈 닫힘(0.5초) ──
         if self.state == self.PORTAL_DESCEND:
             self.portal_timer += dt
-            progress = min(1.0, self.portal_timer / self.PORTAL_DURATION)
-            eased = 1.0 - (1.0 - progress) ** 2  # ease-out
+            self.portal_angle += dt * 3.0  # 소용돌이 회전
 
-            if gs:
-                # 포탈 Y → 순찰 Y 로 하강
-                gs.y_bottom = self.PORTAL_Y + (self.PATROL_Y - self.PORTAL_Y) * eased
-                gs.x_bottom = self.portal_x
-                # 호위무사 캐릭터가 보이도록 phase 유지
-                gs.phase_bottom = "patrolling"
-
-            # 포탈 파티클 생성
-            if random.random() < 0.4:
-                self.portal_particles.append({
-                    "x": self.portal_x + random.uniform(-30, 30),
-                    "y": self.PORTAL_Y + random.uniform(-10, 10),
-                    "vy": random.uniform(20, 60),
-                    "life": random.uniform(0.3, 0.7),
-                    "max_life": 0.7,
-                    "size": random.uniform(2, 4),
-                })
-
-            self.portal_alpha = max(0.0, 1.0 - progress * 0.5)
-
-            if progress >= 1.0:
+            phase_time = self.portal_timer
+            if phase_time < 0.8:
+                # 포탈 열리는 중 (0→1)
+                progress = phase_time / 0.8
+                self.portal_scale = 1.0 - (1.0 - progress) ** 2  # ease-out
+                self._spawn_portal_swirl(0.6)
+                self._spawn_portal_lightning(0.3)
+            elif phase_time < 1.8:
+                # 하강 중 (포탈 열린 상태 유지)
+                self.portal_scale = 1.0
+                descend_progress = min(1.0, (phase_time - 0.8) / 1.0)
+                eased = 1.0 - (1.0 - descend_progress) ** 2
+                if gs:
+                    gs.y_bottom = self.PORTAL_Y + (self.PATROL_Y - self.PORTAL_Y) * eased
+                    gs.x_bottom = self.portal_x
+                    gs.phase_bottom = "patrolling"
+                self._spawn_portal_swirl(0.3)
+            elif phase_time < 2.3:
+                # 포탈 닫히는 중 (1→0)
+                close_progress = (phase_time - 1.8) / 0.5
+                self.portal_scale = max(0, (1.0 - close_progress) ** 2)
+                self._spawn_portal_swirl(0.2 * self.portal_scale)
+            else:
+                # 완료 → SUMMONED
+                self.portal_scale = 0.0
                 self.state = self.SUMMONED
-                self.portal_alpha = 0.0
                 self.summon_timer = 0.0
-                # 쿨다운 짧게 설정 → 즉시 스킬 발동
+                self.portal_particles.clear()
+                self.portal_lightning.clear()
                 if gs:
                     gs.cooldown_bottom = 0.1
                 print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 하강 완료 → 스킬 대기")
+
+            self._update_portal_particles(dt)
 
         # ── SUMMONED: 스킬 발동 대기 ──
         elif self.state == self.SUMMONED:
@@ -359,48 +366,95 @@ class ValhallaWarplateState:
             else:
                 self._clear_state()
 
-        # ── PORTAL_ASCEND: 포탈로 상승 퇴장 중 ──
+        # ── PORTAL_ASCEND: 포탈 열림(0.5초) → 상승(1.0초) → 포탈 닫힘(0.5초) ──
         elif self.state == self.PORTAL_ASCEND:
             self.portal_timer += dt
-            progress = min(1.0, self.portal_timer / self.PORTAL_DURATION)
-            eased = progress ** 2  # ease-in
+            self.portal_angle += dt * 3.0
 
-            if gs:
-                # 현재 위치 → 포탈 Y 로 상승
+            phase_time = self.portal_timer
+            if phase_time < 0.5:
+                # 복귀 포탈 열리는 중 (0→1)
+                progress = phase_time / 0.5
+                self.portal_scale = 1.0 - (1.0 - progress) ** 2
+                self._spawn_portal_swirl(0.6)
+                self._spawn_portal_lightning(0.4)
+            elif phase_time < 1.5:
+                # 상승 중 (포탈 열린 상태 유지)
+                self.portal_scale = 1.0
+                ascend_progress = min(1.0, (phase_time - 0.5) / 1.0)
+                eased = ascend_progress ** 2  # ease-in
                 start_y = getattr(self, '_ascend_start_y', self.PATROL_Y)
-                gs.y_bottom = start_y + (self.PORTAL_Y - start_y) * eased
-                gs.x_bottom = self.portal_x
-
-            # 포탈 파티클 생성
-            if random.random() < 0.4:
-                self.portal_particles.append({
-                    "x": self.portal_x + random.uniform(-30, 30),
-                    "y": self.PORTAL_Y + random.uniform(-10, 10),
-                    "vy": random.uniform(20, 60),
-                    "life": random.uniform(0.3, 0.7),
-                    "max_life": 0.7,
-                    "size": random.uniform(2, 4),
-                })
-
-            self.portal_alpha = min(1.0, progress * 1.5)
-
-            if progress >= 1.0:
-                # 포탈 도달 → 스킬 유지한 채 캐릭터만 해산
+                if gs:
+                    gs.y_bottom = start_y + (self.PORTAL_Y - start_y) * eased
+                    gs.x_bottom = self.portal_x
+                self._spawn_portal_swirl(0.4)
+            elif phase_time < 2.0:
+                # 포탈 닫히는 중 (1→0)
+                close_progress = (phase_time - 1.5) / 0.5
+                self.portal_scale = max(0, (1.0 - close_progress) ** 2)
+                self._spawn_portal_swirl(0.2 * self.portal_scale)
+            else:
+                # 완료 → 스킬 유지한 채 해산
+                self.portal_scale = 0.0
                 if bg and bg.active:
                     bg.dismiss_keep_skills()
                 print(f"⚔ 발할라의 전갑: {self.summoned_hero_name} 포탈로 퇴장 완료!")
                 self._clear_state()
                 return
 
+            self._update_portal_particles(dt)
+
             # 안전장치
-            if self.summon_timer >= self.max_summon_time + 3.0:
+            if self.summon_timer >= self.max_summon_time + 5.0:
                 self._force_dismiss()
 
-        # 포탈 파티클 업데이트
+        pass  # 파티클 업데이트는 각 상태 내에서 처리
+
+    def _spawn_portal_swirl(self, chance):
+        """소용돌이 파티클 생성 (매혹과 동일 구조)"""
+        if random.random() < chance:
+            angle = random.uniform(0, math.pi * 2)
+            dist = random.uniform(25, 55)
+            self.portal_particles.append({
+                'x': self.portal_x + math.cos(angle) * dist,
+                'y': self.PORTAL_Y + math.sin(angle) * dist * 0.7,
+                'angle': angle,
+                'dist': dist,
+                'speed': random.uniform(2.0, 4.0),
+                'life': random.uniform(0.4, 0.8),
+                'max_life': 0.8,
+                'size': random.uniform(2, 5),
+            })
+
+    def _spawn_portal_lightning(self, chance):
+        """전기 아크 생성 (매혹과 동일 구조)"""
+        if random.random() < chance and self.portal_scale > 0.15:
+            self.portal_lightning.append({
+                'angle': random.uniform(0, math.pi * 2),
+                'length': random.uniform(8, 22),
+                'life': random.uniform(0.05, 0.15),
+                'max_life': 0.15,
+                'segments': random.randint(2, 4),
+            })
+
+    def _update_portal_particles(self, dt):
+        """파티클 + 번개 업데이트 (매혹과 동일 구조)"""
+        alive = []
         for p in self.portal_particles:
-            p["y"] += p["vy"] * dt
-            p["life"] -= dt
-        self.portal_particles = [p for p in self.portal_particles if p["life"] > 0]
+            p['life'] -= dt
+            if p['life'] > 0:
+                p['angle'] += dt * p['speed']
+                p['dist'] = max(0, p['dist'] - dt * 40)
+                p['x'] = self.portal_x + math.cos(p['angle']) * p['dist']
+                p['y'] = self.PORTAL_Y + math.sin(p['angle']) * p['dist'] * 0.7
+                alive.append(p)
+        self.portal_particles = alive
+        alive_arcs = []
+        for arc in self.portal_lightning:
+            arc['life'] -= dt
+            if arc['life'] > 0:
+                alive_arcs.append(arc)
+        self.portal_lightning = alive_arcs
 
     @staticmethod
     def _clamp(v):
@@ -512,68 +566,120 @@ class ValhallaWarplateState:
         screen.blit(cutscene_surf, (0, 0))
 
     def draw_portal(self, screen: pygame.Surface):
-        """포탈 이펙트 드로잉 (하강/상승 시 호출)"""
+        """포탈 이펙트 드로잉 (매혹 차원의 문과 동일 구조, 황금빛 색상)"""
         if self.state not in (self.PORTAL_DESCEND, self.PORTAL_ASCEND):
             return
-        if self.portal_alpha <= 0.01:
+
+        scale = self.portal_scale
+        if scale < 0.01:
+            return
+
+        cx = int(self.portal_x)
+        cy = int(self.PORTAL_Y)
+        pw = int(45 * scale)    # 포탈 너비
+        ph = int(65 * scale)    # 포탈 높이 (세로 타원)
+        if pw < 2 or ph < 2:
             return
 
         _c = self._clamp
-        px, py = int(self.portal_x), int(self.PORTAL_Y)
-        alpha = _c(self.portal_alpha * 255)
+        aura_t = self.portal_timer
 
-        # 포탈 서피스 (SRCALPHA)
-        pw, ph = 120, 50
-        portal_surf = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        # 1) 바닥 글로우 (황금빛)
+        glow_w, glow_h = pw * 3, ph * 3
+        if glow_w > 0 and glow_h > 0:
+            glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            pulse = (math.sin(aura_t * 4) + 1) * 0.5
+            glow_alpha = _c(30 + 25 * pulse)
+            pygame.draw.ellipse(glow_surf, (200, 160, 40, glow_alpha), (0, 0, glow_w, glow_h))
+            screen.blit(glow_surf, (cx - glow_w // 2, cy - glow_h // 2))
 
-        # 1) 외곽 타원 (황금빛)
-        pygame.draw.ellipse(portal_surf, (255, 200, 60, alpha), (0, 0, pw, ph), 3)
-        # 2) 내부 타원 (밝은 금빛)
-        inner_margin = 8
-        pygame.draw.ellipse(portal_surf, (255, 230, 120, _c(alpha * 0.6)),
-                           (inner_margin, inner_margin // 2, pw - inner_margin * 2, ph - inner_margin), 2)
-        # 3) 내부 채움 (반투명 금빛)
-        fill_margin = 14
-        pygame.draw.ellipse(portal_surf, (255, 220, 80, _c(alpha * 0.25)),
-                           (fill_margin, fill_margin // 2, pw - fill_margin * 2, ph - fill_margin))
-        # 4) 중앙 밝은 점
-        pygame.draw.ellipse(portal_surf, (255, 250, 200, _c(alpha * 0.4)),
-                           (pw // 2 - 15, ph // 2 - 5, 30, 10))
+        # 2) 검은 코어 (공허 - 약간 어두운 금색)
+        core_surf = pygame.Surface((pw * 2, ph * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(core_surf, (18, 12, 2, 230), (0, 0, pw * 2, ph * 2))
+        screen.blit(core_surf, (cx - pw, cy - ph))
 
-        # 포탈 회전 느낌 (작은 룬 점들)
-        t = self.portal_timer * 3.0
-        for i in range(6):
-            angle = i * math.pi / 3 + t
-            rx = pw // 2 + int(math.cos(angle) * (pw // 2 - 12))
-            ry = ph // 2 + int(math.sin(angle) * (ph // 4 - 4))
-            pygame.draw.circle(portal_surf, (255, 240, 160, _c(alpha * 0.7)), (rx, ry), 2)
-
-        screen.blit(portal_surf, (px - pw // 2, py - ph // 2))
-
-        # 5) 빛줄기 (포탈 → 호위무사 위치)
-        bg = self._bodyguard_ref
-        gs = bg._guard_system if bg and bg.active else None
-        if gs:
-            hero_y = int(gs.y_bottom)
-            beam_alpha = _c(alpha * 0.3)
-            if beam_alpha > 5:
-                beam_surf = pygame.Surface((8, abs(hero_y - py) + 10), pygame.SRCALPHA)
-                beam_surf.fill((255, 220, 100, beam_alpha))
-                pygame.draw.line(beam_surf, (255, 240, 160, _c(beam_alpha * 1.5)),
-                               (4, 0), (4, beam_surf.get_height()), 1)
-                beam_top = min(py, hero_y)
-                screen.blit(beam_surf, (px - 4, beam_top))
-
-        # 6) 포탈 파티클
-        for p in self.portal_particles:
-            ratio = max(0, p["life"] / p["max_life"])
-            sz = int(p["size"] * ratio)
-            if sz < 1:
+        # 3) 에너지 링 (다중 레이어, 금→밝은 금)
+        for i in range(4):
+            ring_w = pw + i * 3 + 2
+            ring_h = ph + i * 3 + 2
+            pulse_offset = math.sin(aura_t * (5 + i) + i * 0.8) * 0.3 + 0.7
+            alpha = _c((160 - i * 30) * pulse_offset)
+            if alpha < 10:
                 continue
-            pa = _c(180 * ratio * self.portal_alpha)
-            ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(ps, (255, 220, 80, pa), (sz + 1, sz + 1), sz)
-            screen.blit(ps, (int(p["x"]) - sz - 1, int(p["y"]) - sz - 1))
+            ring_surf = pygame.Surface((ring_w * 2 + 4, ring_h * 2 + 4), pygame.SRCALPHA)
+            r = min(255, 200 + i * 15)
+            g = min(255, 160 + i * 20)
+            b = min(255, 40 + i * 15)
+            pygame.draw.ellipse(ring_surf, (r, g, b, alpha),
+                                (0, 0, ring_w * 2 + 4, ring_h * 2 + 4), max(2, 3 - i))
+            screen.blit(ring_surf, (cx - ring_w - 2, cy - ring_h - 2))
+
+        # 4) 소용돌이 파티클 (타원 궤도)
+        num_swirl = 16
+        for j in range(num_swirl):
+            angle = self.portal_angle + j * (math.pi * 2 / num_swirl)
+            r_mult = 0.55 + 0.15 * math.sin(aura_t * 3 + j * 0.5)
+            sx = cx + int(math.cos(angle) * pw * r_mult)
+            sy = cy + int(math.sin(angle) * ph * r_mult)
+            sz = max(1, int(2 + 1.5 * math.sin(aura_t * 6 + j)))
+            # 금/주황/밝은 금 교대
+            if j % 3 == 0:
+                color = (255, 200, 60, 200)
+            elif j % 3 == 1:
+                color = (255, 160, 40, 180)
+            else:
+                color = (255, 230, 100, 160)
+            dot_s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(dot_s, color, (sz, sz), sz)
+            screen.blit(dot_s, (sx - sz, sy - sz))
+
+        # 5) 내부 소용돌이 (작은 원호)
+        for k in range(8):
+            angle = -self.portal_angle * 1.5 + k * (math.pi * 2 / 8)
+            r_mult = 0.3 + 0.1 * math.sin(aura_t * 5 + k)
+            ix = cx + int(math.cos(angle) * pw * r_mult)
+            iy = cy + int(math.sin(angle) * ph * r_mult)
+            alpha = _c(120 + 60 * math.sin(aura_t * 4 + k * 0.7))
+            dot_s = pygame.Surface((4, 4), pygame.SRCALPHA)
+            pygame.draw.circle(dot_s, (200, 170, 50, alpha), (2, 2), 2)
+            screen.blit(dot_s, (ix - 2, iy - 2))
+
+        # 6) 전기 아크 (황금 번개선)
+        for arc in self.portal_lightning:
+            ratio = arc['life'] / arc['max_life']
+            arc_alpha = _c(220 * ratio)
+            start_angle = arc['angle']
+            arc_len = arc['length'] * scale
+            sx = cx + int(math.cos(start_angle) * pw)
+            sy = cy + int(math.sin(start_angle) * ph)
+            points = [(sx, sy)]
+            for seg in range(arc['segments']):
+                frac = (seg + 1) / arc['segments']
+                nx = sx + int(math.cos(start_angle) * arc_len * frac)
+                ny = sy + int(math.sin(start_angle) * arc_len * frac)
+                nx += random.randint(-4, 4)
+                ny += random.randint(-4, 4)
+                points.append((nx, ny))
+            if len(points) >= 2:
+                arc_s = pygame.Surface((int(pw * 3), int(ph * 3)), pygame.SRCALPHA)
+                offset_x = cx - int(pw * 1.5)
+                offset_y = cy - int(ph * 1.5)
+                adj_pts = [(p[0] - offset_x, p[1] - offset_y) for p in points]
+                try:
+                    pygame.draw.lines(arc_s, (255, 220, 120, arc_alpha), False, adj_pts, 1)
+                except Exception:
+                    pass
+                screen.blit(arc_s, (offset_x, offset_y))
+
+        # 7) 흩어지는 파티클
+        for p in self.portal_particles:
+            ratio = p['life'] / p['max_life']
+            alpha = _c(180 * ratio)
+            sz = max(1, int(p['size'] * ratio))
+            c = (255, 210, 60, alpha) if int(p['angle'] * 10) % 2 == 0 else (255, 180, 40, alpha)
+            ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ps, c, (sz, sz), sz)
+            screen.blit(ps, (int(p['x']) - sz, int(p['y']) - sz))
 
 
 # ── 싱글톤 ──────────────────────────────────────────────────────
