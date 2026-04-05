@@ -310,120 +310,114 @@ class ValhallaWarplateState:
             if self.summon_timer >= self.max_summon_time + 2.0:
                 self._force_dismiss()
 
+    @staticmethod
+    def _clamp(v):
+        """RGBA alpha 값을 0~255 범위로 클램프"""
+        return min(255, max(0, int(v)))
+
     def draw_cutscene(self, screen: pygame.Surface):
         """소환 컷신 연출 드로잉 (게임 렌더링 위에 오버레이)"""
         if self.state != self.CUTSCENE:
             return
 
-        W, H = screen.get_size()
+        _c = self._clamp
+        W, H = 760, 750  # 게임 내부 해상도 고정
         progress = min(1.0, self.cutscene_timer / SUMMON_CUTSCENE_DURATION)
         hero = self._pending_hero
         if not hero:
             return
 
-        # 1) 반투명 어두운 오버레이
-        overlay = pygame.Surface((W, H), pygame.SRCALPHA)
-        fade = int(100 * min(1.0, progress * 3))  # 빠르게 어두워짐
-        overlay.fill((10, 10, 30, fade))
-        screen.blit(overlay, (0, 0))
-
         cx, cy = W // 2, H // 2 - 30
+
+        # 전체를 하나의 SRCALPHA 서피스에 그림 (screen 직접 그리기 금지)
+        cutscene_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+
+        # 1) 반투명 어두운 오버레이
+        fade = _c(100 * min(1.0, progress * 3))
+        cutscene_surf.fill((10, 10, 30, fade))
 
         # 2) 소환진 (확장되는 금빛 원형 룬)
         rune_progress = min(1.0, progress * 2)
         rune_r = int(20 + 80 * rune_progress)
-        rune_alpha = min(255, max(0, int(200 * (1.0 - progress * 0.5))))
-        rune_surf = pygame.Surface((rune_r * 2 + 20, rune_r * 2 + 20), pygame.SRCALPHA)
+        ra = _c(200 * (1.0 - progress * 0.5))
         rc = rune_r + 10
-        # 외곽 원
-        pygame.draw.circle(rune_surf, (255, 215, 80, rune_alpha), (rc, rc), rune_r, 2)
-        # 내곽 원
-        inner_r = int(rune_r * 0.6)
-        pygame.draw.circle(rune_surf, (255, 230, 120, rune_alpha // 2), (rc, rc), inner_r, 1)
-        # 룬 십자
-        cross_len = rune_r - 8
-        pygame.draw.line(rune_surf, (255, 220, 100, rune_alpha // 2),
-                        (rc - cross_len, rc), (rc + cross_len, rc), 1)
-        pygame.draw.line(rune_surf, (255, 220, 100, rune_alpha // 2),
-                        (rc, rc - cross_len), (rc, rc + cross_len), 1)
-        # 대각선 룬
-        diag = int(cross_len * 0.7)
-        pygame.draw.line(rune_surf, (255, 200, 80, rune_alpha // 3),
-                        (rc - diag, rc - diag), (rc + diag, rc + diag), 1)
-        pygame.draw.line(rune_surf, (255, 200, 80, rune_alpha // 3),
-                        (rc + diag, rc - diag), (rc - diag, rc + diag), 1)
-        # 룬 문자 (삼각형 형태 8개)
+        rune_surf = pygame.Surface((rc * 2, rc * 2), pygame.SRCALPHA)
+        pygame.draw.circle(rune_surf, (255, 215, 80, ra), (rc, rc), rune_r, 2)
+        pygame.draw.circle(rune_surf, (255, 230, 120, _c(ra * 0.5)), (rc, rc), int(rune_r * 0.6), 1)
+        cl = rune_r - 8
+        pygame.draw.line(rune_surf, (255, 220, 100, _c(ra * 0.5)), (rc - cl, rc), (rc + cl, rc), 1)
+        pygame.draw.line(rune_surf, (255, 220, 100, _c(ra * 0.5)), (rc, rc - cl), (rc, rc + cl), 1)
+        diag = int(cl * 0.7)
+        pygame.draw.line(rune_surf, (255, 200, 80, _c(ra * 0.33)), (rc - diag, rc - diag), (rc + diag, rc + diag), 1)
+        pygame.draw.line(rune_surf, (255, 200, 80, _c(ra * 0.33)), (rc + diag, rc - diag), (rc - diag, rc + diag), 1)
         for i in range(8):
             angle = i * math.pi / 4 + progress * math.pi
             rx = rc + int(math.cos(angle) * (rune_r - 12))
             ry = rc + int(math.sin(angle) * (rune_r - 12))
-            pygame.draw.circle(rune_surf, (255, 235, 150, rune_alpha), (rx, ry), 3)
-        screen.blit(rune_surf, (cx - rc, cy - rc))
+            pygame.draw.circle(rune_surf, (255, 235, 150, ra), (rx, ry), 3)
+        cutscene_surf.blit(rune_surf, (cx - rc, cy - rc))
 
-        # 3) 빛기둥 (중앙에서 위아래로)
-        beam_alpha = int(120 * min(1.0, progress * 2.5))
-        beam_w = int(6 + 30 * rune_progress)
-        beam_surf = pygame.Surface((beam_w, H), pygame.SRCALPHA)
-        for by in range(0, H, 2):  # 2픽셀 간격으로 최적화
-            dist = abs(by - cy)
-            ba = min(255, max(0, int(beam_alpha * max(0, 1.0 - dist / 300))))
-            if ba > 0:
-                pygame.draw.line(beam_surf, (255, 220, 100, ba), (0, by), (beam_w, by + 1), 2)
-        screen.blit(beam_surf, (cx - beam_w // 2, 0))
+        # 3) 빛기둥 (간소화 - 그라데이션 직사각형)
+        beam_a = _c(100 * min(1.0, progress * 2))
+        beam_w = int(6 + 24 * rune_progress)
+        if beam_a > 5:
+            beam_surf = pygame.Surface((beam_w, H), pygame.SRCALPHA)
+            beam_surf.fill((255, 220, 100, _c(beam_a * 0.3)))
+            # 중앙이 밝은 1px 선
+            pygame.draw.line(beam_surf, (255, 240, 160, beam_a), (beam_w // 2, 0), (beam_w // 2, H), 1)
+            cutscene_surf.blit(beam_surf, (cx - beam_w // 2, 0))
 
         # 4) "발할라의 부름" 텍스트
-        text_alpha = int(255 * min(1.0, progress * 3))
+        ta = _c(255 * min(1.0, progress * 3))
         if progress > 0.7:
-            text_alpha = int(255 * (1.0 - (progress - 0.7) / 0.3))
-        if text_alpha > 10:
+            ta = _c(255 * (1.0 - (progress - 0.7) / 0.3))
+        if ta > 10:
             try:
                 from core.constants import resource_path
                 font_path = resource_path("fonts/NanumSquareB.ttf")
-                # 메인 텍스트
                 main_font = pygame.freetype.Font(font_path, 32)
                 main_surf, main_rect = main_font.render("발할라의 부름", (255, 230, 150))
-                main_surf.set_alpha(text_alpha)
-                screen.blit(main_surf, (cx - main_rect.width // 2, cy - 60))
-                # 영웅 이름
+                main_surf.set_alpha(ta)
+                cutscene_surf.blit(main_surf, (cx - main_rect.width // 2, cy - 60))
                 name_font = pygame.freetype.Font(font_path, 20)
-                hero_text = f"― {hero['name']} ―"
-                name_surf, name_rect = name_font.render(hero_text, hero["color"])
-                name_surf.set_alpha(text_alpha)
-                screen.blit(name_surf, (cx - name_rect.width // 2, cy + 40))
+                name_surf, name_rect = name_font.render(f"― {hero['name']} ―", tuple(hero["color"][:3]))
+                name_surf.set_alpha(ta)
+                cutscene_surf.blit(name_surf, (cx - name_rect.width // 2, cy + 40))
             except Exception:
-                # 폰트 로드 실패 시 기본 폰트
                 try:
                     font = pygame.font.Font(None, 36)
                     text_surf = font.render("VALHALLA'S CALL", True, (255, 230, 150))
-                    text_surf.set_alpha(text_alpha)
-                    screen.blit(text_surf, (cx - text_surf.get_width() // 2, cy - 50))
+                    text_surf.set_alpha(ta)
+                    cutscene_surf.blit(text_surf, (cx - text_surf.get_width() // 2, cy - 50))
                 except Exception:
                     pass
 
         # 5) 파티클
         for p in self.cutscene_particles:
             ratio = max(0, p["life"] / p["max_life"])
-            size = int(p["size"] * ratio)
-            if size < 1:
+            sz = int(p["size"] * ratio)
+            if sz < 1:
                 continue
+            pa = _c(200 * ratio)
             if p["type"] == "gold":
-                color = (255, 215, 80, int(200 * ratio))
+                col = (255, 215, 80, pa)
             elif p["type"] == "rune":
-                color = (180, 160, 255, int(180 * ratio))
+                col = (180, 160, 255, pa)
             else:
-                color = (255, 255, 220, int(160 * ratio))
-            ps = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(ps, color, (size + 1, size + 1), size)
-            screen.blit(ps, (int(p["x"]) - size - 1, int(p["y"]) - size - 1))
+                col = (255, 255, 220, pa)
+            ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(ps, col, (sz + 1, sz + 1), sz)
+            cutscene_surf.blit(ps, (int(p["x"]) - sz - 1, int(p["y"]) - sz - 1))
 
-        # 6) 화면 가장자리 금빛 비네팅
-        vignette_alpha = int(60 * min(1.0, progress * 2))
-        if vignette_alpha > 5:
-            vig = pygame.Surface((W, H), pygame.SRCALPHA)
+        # 6) 금빛 비네팅
+        va = _c(60 * min(1.0, progress * 2))
+        if va > 5:
             for i in range(3):
-                pygame.draw.rect(vig, (255, 200, 60, vignette_alpha // (i + 1)),
+                pygame.draw.rect(cutscene_surf, (255, 200, 60, _c(va / (i + 1))),
                                (i * 2, i * 2, W - i * 4, H - i * 4), 2)
-            screen.blit(vig, (0, 0))
+
+        # 최종 blit
+        screen.blit(cutscene_surf, (0, 0))
 
 
 # ── 싱글톤 ──────────────────────────────────────────────────────

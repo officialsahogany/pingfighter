@@ -165588,7 +165588,11 @@ def main(stage_num, new_boss_mode=False):
             _vw_overlay = get_valhalla_warplate_state()
             if _vw_overlay.is_cutscene_active:
                 _vw_overlay.update(1.0 / 60.0)
-                _vw_overlay.draw_cutscene(SCREEN)
+                try:
+                    _vw_overlay.draw_cutscene(SCREEN)
+                except Exception as _vw_draw_err:
+                    import traceback
+                    traceback.print_exc()
         except Exception as _vw_err:
             print(f"[WARN] 발할라 컷신 오류: {_vw_err}")
 
