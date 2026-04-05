@@ -51,7 +51,7 @@ class ValhallaWarplateState:
     # 포탈 상수
     PORTAL_DURATION = 1.0      # 포탈 하강/상승 시간 (초)
     PORTAL_Y = 80.0            # 포탈 위치 Y (화면 상단)
-    PATROL_Y = 620.0           # 호위무사 순찰 Y
+    PATROL_Y = 690.0           # 호위무사 순찰 Y (_BODYGUARD_PATROL_Y와 동일)
 
     def __init__(self):
         self.active = False           # 장착 중인지
