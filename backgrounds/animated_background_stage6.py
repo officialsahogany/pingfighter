@@ -38,7 +38,7 @@ def _get_cached_surface(width: int, height: int) -> pygame.Surface:
     """LRU 캐시에서 초기화된 SRCALPHA Surface 반환"""
     key = (width, height)
     if key not in _surface_cache:
-        if len(_surface_cache) > 100:
+        if len(_surface_cache) >= 100:
             _surface_cache.popitem(last=False)  # 가장 오래된 것만 제거
         _surface_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
     else:
@@ -47,15 +47,11 @@ def _get_cached_surface(width: int, height: int) -> pygame.Surface:
     surface.fill((0, 0, 0, 0))
     return surface
 
-# 화면 크기 - config에서 가져오기
+# 화면 크기 (현재 이 배경은 760x750 전용이지만, 상수로 참조 가능하게 유지)
 try:
-    from config.constants import PILLAR_UI_WIDTH, GAME_PLAY_WIDTH, SCREEN_HEIGHT
-    PILLAR_OFFSET = PILLAR_UI_WIDTH  # 80px
-    GAME_WIDTH = GAME_PLAY_WIDTH  # 600px
+    from config.constants import SCREEN_HEIGHT
     HEIGHT = SCREEN_HEIGHT  # 750px
 except ImportError:
-    PILLAR_OFFSET = 80
-    GAME_WIDTH = 600
     HEIGHT = 750
 
 
@@ -107,7 +103,6 @@ class AnimatedBackgroundStage6:
         # ------------------------------------------------------------------
         #  사전 할당 서피스
         # ------------------------------------------------------------------
-        self._glow_surface = pygame.Surface((width, height), pygame.SRCALPHA)
         self._wave_surface = pygame.Surface((width, 50), pygame.SRCALPHA)
         self._fg_wave_surface = pygame.Surface((width, 60), pygame.SRCALPHA)
         self._shadow_surface = pygame.Surface((width, 80), pygame.SRCALPHA)
@@ -115,6 +110,7 @@ class AnimatedBackgroundStage6:
         self._haze_surface = pygame.Surface((width, 40), pygame.SRCALPHA)
         self._ship_surface = pygame.Surface((width, 60), pygame.SRCALPHA)
         self._scanline_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        self._overlay_surface = pygame.Surface((width, height), pygame.SRCALPHA)  # alpha 오버레이용
         self._transparent = (0, 0, 0, 0)
 
         # ------------------------------------------------------------------
@@ -167,7 +163,7 @@ class AnimatedBackgroundStage6:
             cloud_h = random.randint(20, 40)
             self.clouds.append({
                 'x': random.randint(-cloud_w, width),
-                'y': random.randint(30, self.cy - 80),
+                'y': random.randint(30, max(self.cy - 80, 31)),
                 'w': cloud_w,
                 'h': cloud_h,
                 'speed': random.uniform(0.08, 0.25),
@@ -465,7 +461,7 @@ class AnimatedBackgroundStage6:
             cloud['x'] += cloud['speed']
             if cloud['x'] > self.width + cloud['w']:
                 cloud['x'] = -cloud['w'] - random.randint(0, 50)
-                cloud['y'] = random.randint(30, self.cy - 80)
+                cloud['y'] = random.randint(30, max(self.cy - 80, 31))
 
         # 불꽃 파티클
         self._update_fire_lines()
@@ -491,9 +487,11 @@ class AnimatedBackgroundStage6:
         # 함선 점멸등 (원경 위에 미세 애니메이션)
         self._draw_ship_lights(screen)
 
-        # 수평선 (은은하고 따뜻한)
-        pygame.draw.line(screen, (*self.horizon_color, 180),
-                        (0, self.cy), (self.width, self.cy), 1)
+        # 수평선 (은은하고 따뜻한 - SRCALPHA 서피스 경유로 알파 보장)
+        horizon_surf = _get_cached_surface(self.width, 3)
+        pygame.draw.line(horizon_surf, (*self.horizon_color, 180),
+                        (0, 1), (self.width, 1), 1)
+        screen.blit(horizon_surf, (0, self.cy - 1))
 
         # --- 중경 레이어 ---
         screen.blit(self._ocean_gradient_cache, (0, self.cy))
@@ -625,13 +623,16 @@ class AnimatedBackgroundStage6:
             (0.75 + 0.03, 38 - 12, 2.8, (255, 200, 100)),    # 함선2 브릿지 등
             (0.91, 34, 4.0, (100, 255, 100)),                 # 함선3 항해등 (녹색)
         ]
+        # SRCALPHA 서피스 경유로 알파 보장
+        light_surf = _get_cached_surface(w, 60)
         for x_ratio, y_off, phase_off, color in lights:
             alpha = (math.sin(self.ship_light_phase + phase_off) + 1) * 0.5
             if alpha > 0.6:  # 60% 이상일 때만 표시 (점멸 효과)
                 lx = int(w * x_ratio)
-                ly = ship_y + y_off
+                ly = y_off  # light_surf 로컬 좌표
                 a = int(25 * alpha)
-                pygame.draw.circle(screen, (*color, a), (lx, ly), 2)
+                pygame.draw.circle(light_surf, (*color, a), (lx, ly), 2)
+        screen.blit(light_surf, (0, ship_y))
 
     def _draw_water_reflection(self, screen, platform_y):
         """플랫폼 하부 수면 반사 (청록 + 주황 얇은 반사광)"""
@@ -656,7 +657,7 @@ class AnimatedBackgroundStage6:
         """은은한 수평 홀로그램 간섭 라인"""
         self._scanline_surface.fill(self._transparent)
         for y in range(self.scanline_offset % 6, self.height, 6):
-            alpha = 8 + int(4 * math.sin(y * 0.05 + self.time * 0.03))
+            alpha = 5 + int(3 * math.sin(y * 0.05 + self.time * 0.03))
             pygame.draw.line(self._scanline_surface, (0, 200, 220, alpha),
                            (0, y), (self.width, y))
         screen.blit(self._scanline_surface, (0, 0))
@@ -674,15 +675,15 @@ class AnimatedBackgroundStage6:
         pygame.draw.rect(screen, base, (0, 0, t, h))
         pygame.draw.rect(screen, base, (w - t, 0, t, h))
 
-        # 내부 악센트 라인
-        pygame.draw.rect(screen, accent, (t, t, w - 2 * t, 1))
-        pygame.draw.rect(screen, accent, (t, h - t - 1, w - 2 * t, 1))
-        pygame.draw.rect(screen, accent, (t, t, 1, h - 2 * t))
-        pygame.draw.rect(screen, accent, (w - t - 1, t, 1, h - 2 * t))
-
-        # 코너 도트 (작은)
+        # 내부 악센트 라인 + 코너 도트 (SRCALPHA 서피스 경유로 알파 보장)
+        self._overlay_surface.fill(self._transparent)
+        pygame.draw.rect(self._overlay_surface, accent, (t, t, w - 2 * t, 1))
+        pygame.draw.rect(self._overlay_surface, accent, (t, h - t - 1, w - 2 * t, 1))
+        pygame.draw.rect(self._overlay_surface, accent, (t, t, 1, h - 2 * t))
+        pygame.draw.rect(self._overlay_surface, accent, (w - t - 1, t, 1, h - 2 * t))
         for corner_x, corner_y in [(t, t), (w - t, t), (t, h - t), (w - t, h - t)]:
-            pygame.draw.circle(screen, self.cyan_accent, (corner_x, corner_y), 2)
+            pygame.draw.circle(self._overlay_surface, self.cyan_accent, (corner_x, corner_y), 2)
+        screen.blit(self._overlay_surface, (0, 0))
 
     # ======================================================================
     #  불꽃 라인 파티클 시스템 (절제된 강도)
