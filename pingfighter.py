@@ -27717,8 +27717,8 @@ def _get_roll_value(item: dict, key: str, apply_polish: bool = True) -> int | No
                 if is_reverse and total_multiplier > 1.0:
                     base_value = int(base_value / total_multiplier)
                 elif total_multiplier > 1.0:
-                    # 일반 옵션: 값이 증가
-                    base_value = int(base_value * total_multiplier)
+                    # 일반 옵션: 값이 증가 (round로 소수점 반올림 — 작은 값도 강화 반영)
+                    base_value = round(base_value * total_multiplier)
 
             return base_value
     return None
@@ -42217,6 +42217,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 shield_active = bool(divine_state.get("shield_active", False))
                 if not smoke_protected and not shield_active:
                     divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)  # 연막 보호 시 체력 유지
+                    print(f"[DEBUG] 디바인스톤 HP 감소: {divine_state['hp']}")
                     _cancel_repair_job("divine", state=divine_state)
                     # 손상 효과 업데이트
                     damage_manager = get_damage_manager()
@@ -42225,8 +42226,13 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
                 effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
                 state_changed = True
+                print(f"[DEBUG] 디바인 파괴 체크: smoke={smoke_protected}, hp={divine_state['hp']}")
                 if not smoke_protected and divine_state["hp"] <= 0:
-                    effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
+                    print(f"[DEBUG] 디바인 파괴 진입! 금화 스폰 시작")
+                    try:
+                        effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
+                    except Exception as _e:
+                        print(f"[DEBUG] create_impact_effect 예외: {_e}")
                     # 🪙 건설물 파괴 금화 스폰
                     _is_reinforced = divine_state.get("reinforced", False)
                     if _is_reinforced:
@@ -43288,6 +43294,7 @@ def update_blacksmith_turret():
                 shield_active = False
             if not smoke_protected and not shield_active:
                 turret_state["hp"] -= 1  # 연막 밖에서만 체력 감소
+                print(f"[DEBUG] 터렛 HP 감소: {turret_state['hp']}")
                 _cancel_repair_job("turret", state=turret_state)
                 # 손상 효과 업데이트
                 damage_manager.update_building_hp("turret", turret_state["hp"])
@@ -43723,8 +43730,11 @@ def update_blacksmith_turret():
         except Exception:
             pass
 
+    if turret_runtime.active and turret_state and turret_state.get("hp", 0) <= 0:
+        print(f"[DEBUG] 터렛 파괴 체크 도달! active={turret_runtime.active}, hp={turret_state.get('hp', '?')}")
     if turret_runtime.active and turret_state:
         if turret_state.get("hp", 0) <= 0:
+            print(f"[DEBUG] 터렛 파괴 진입! turret_rect={turret_rect}")
             turret_state["hp"] = 0
             turret_runtime.projectiles.clear()
             # 🪙 포탑 파괴 금화 스폰
@@ -58372,22 +58382,26 @@ BLACKSMITH_COIN_LIFETIME = 180  # 3초 (60fps)
 BLACKSMITH_COIN_BLINK_START = 60  # 마지막 1초부터 깜빡임
 BLACKSMITH_COIN_SIZE = 7  # 금화 반지름
 BLACKSMITH_COIN_BOUNCE = -0.5  # 바닥 반사 계수
+BLACKSMITH_COIN_SPAWN_Y_OFFSET = 18  # 상단 건설물 파괴 시 HUD/이펙트에 묻지 않도록 아래에서 시작
+BLACKSMITH_COIN_MIN_SPAWN_Y = 96  # 상단 UI 아래에서 드랍이 확실히 보이도록 최소 시작 Y
 
 
 def spawn_blacksmith_coins(cx: float, cy: float, coin_count: int):
     """건설물 파괴 시 금화 스폰 (부채꼴로 흩뿌림)"""
     global blacksmith_coins
     import random as _rng
+    spawn_y = max(float(cy) + BLACKSMITH_COIN_SPAWN_Y_OFFSET, float(BLACKSMITH_COIN_MIN_SPAWN_Y))
     for _ in range(coin_count):
         vx = _rng.uniform(-4.0, 4.0)
         vy = _rng.uniform(-6.0, -2.0)  # 위로 튀어오름
         blacksmith_coins.append({
             'x': float(cx) + _rng.uniform(-10, 10),
-            'y': float(cy) + _rng.uniform(-5, 5),
+            'y': spawn_y + _rng.uniform(-5, 5),
             'vx': vx,
             'vy': vy,
             'timer': BLACKSMITH_COIN_LIFETIME,
             'collected': False,
+            'shine': _rng.uniform(0.0, 6.28),
         })
 
 
@@ -58466,11 +58480,23 @@ def draw_blacksmith_coins(surface):
         cx = int(coin['x']) + screen_shake_offset_x
         cy = int(coin['y']) + screen_shake_offset_y
         r = BLACKSMITH_COIN_SIZE
+        coin['shine'] = coin.get('shine', 0.0) + 0.12
 
-        # 금화 그리기 (금색 원 + 하이라이트)
-        pygame.draw.circle(surface, (200, 160, 30), (cx, cy), r)  # 외곽 (어두운 금)
-        pygame.draw.circle(surface, (255, 215, 0), (cx, cy), r - 1)  # 본체 (금색)
-        pygame.draw.circle(surface, (255, 245, 120), (cx - 2, cy - 2), max(1, r // 3))  # 하이라이트
+        shadow_rect = pygame.Rect(cx - r, cy + r - 1, r * 2, max(2, r // 2 + 1))
+        pygame.draw.ellipse(surface, (40, 25, 8), shadow_rect)
+
+        glow_alpha = 70 + int(25 * math.sin(coin['shine']))
+        glow_radius = r + 5
+        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (255, 210, 80, glow_alpha), (glow_radius, glow_radius), glow_radius)
+        surface.blit(glow_surf, (cx - glow_radius, cy - glow_radius))
+
+        pygame.draw.circle(surface, (120, 72, 8), (cx, cy), r + 1)
+        pygame.draw.circle(surface, (212, 150, 18), (cx, cy), r)
+        pygame.draw.circle(surface, (255, 215, 0), (cx, cy), max(1, r - 1))
+        pygame.draw.circle(surface, (255, 233, 110), (cx, cy), max(1, r - 3), 1)
+        pygame.draw.circle(surface, (196, 120, 12), (cx, cy), max(1, r // 2), 1)
+        pygame.draw.circle(surface, (255, 250, 170), (cx - 2, cy - 2), max(1, r // 3))
 
 
 # === 🧪 발토르 건설물 파괴 드랍 병 시스템 ===
@@ -100666,8 +100692,6 @@ def draw_player_gauge():
                         _qx = int(_cx + math.cos(_qa) * _qd)
                         _qy = int(_cy + math.sin(_qa) * _qd)
                         pygame.draw.circle(_fc, (160, 135, 75, 140), (_qx, _qy), 1)
-                pygame.draw.circle(_fc, (25, 20, 12), (_cx, _cy), _r + 2, 2)
-                pygame.draw.circle(_fc, (90, 75, 45), (_cx, _cy), _r + 1, 1)
                 _blue_orb_cache["frame"] = _fc
                 # --- 배경 그라데이션 캐시 ---
                 _bg_cache = pygame.Surface((_r * 2 + 2, _r * 2 + 2), pygame.SRCALPHA)
