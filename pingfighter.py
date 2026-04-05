@@ -31424,9 +31424,15 @@ def _resolve_mecha_phase(step_phase: float | None) -> float:
     return phase % 1.0
 
 
+_mecha_paddle_surface: pygame.Surface | None = None
+
 def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pygame.Surface:
     """고해상도 메카 캐릭터 렌더링 (2배 스케일 - 모든 수치 2배)"""
-    surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
+    global _mecha_paddle_surface
+    if _mecha_paddle_surface is None:
+        _mecha_paddle_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
+    surface = _mecha_paddle_surface
+    surface.fill((0, 0, 0, 0))
     cx = MECHA_CENTER_X
     base_cy = MECHA_CENTER_Y
 
@@ -32939,6 +32945,8 @@ viper_right_kick_timer = 0             # 오른발 킥 타이머
 viper_swing_intensity = 1.0            # 타격 강도 (1.0=일반)
 
 
+_viper_paddle_surface: pygame.Surface | None = None
+
 def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0, wall_cling: int = 0, flying_kick: int = 0, flying_kick_intensity: float = 1.0) -> pygame.Surface:
     """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
     다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프.
@@ -32946,7 +32954,11 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
     wall_cling: 0=일반, -1=왼쪽벽 매달림, 1=오른쪽벽 매달림 (마샬 킥 벽타기 포즈)
     flying_kick: 0=일반, -1=왼쪽으로 날라차기, 1=오른쪽으로 날라차기 (마샬 킥 돌진 포즈)
     flying_kick_intensity: 0.0~1.0 날라차기 강도 (1.0=최대, 낙하 시 서서히 0으로)"""
-    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    global _viper_paddle_surface
+    if _viper_paddle_surface is None:
+        _viper_paddle_surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    surface = _viper_paddle_surface
+    surface.fill((0, 0, 0, 0))
     b = 8
     cx = surface.get_width() // 2
     base_y = 46
@@ -33840,8 +33852,11 @@ _skeletal_skeleton = _get_smasher_skeleton(force_recreate=True)
 _skeletal_skin = _create_smasher_skin()
 
 
+_skeletal_smasher_surface: pygame.Surface | None = None
+
 def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> pygame.Surface:
     """뼈대 시스템으로 스매셔를 렌더링 (기존 create_smasher_paddle_surface 대체)."""
+    global _skeletal_smasher_surface
     sk = _skeletal_skeleton
     skin = _skeletal_skin
     motion = skin.motion
@@ -33948,7 +33963,10 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> 
     else:
         sk.update(root_pos=(125.0, 56.0))
 
-    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    if _skeletal_smasher_surface is None:
+        _skeletal_smasher_surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    surface = _skeletal_smasher_surface
+    surface.fill((0, 0, 0, 0))
 
     # ── VFX: 에너지 코어 HP 연동 + 바이저 깜빡임 정보를 스킨에 전달 ──
     skin._vfx_energy_core = vfx.energy_core
@@ -33975,8 +33993,12 @@ def _reset_skeletal_skin():
 
 # ========== 아케이드 캐릭터 아이들 애니메이션 시스템 ==========
 
+_idle_effect_surface: pygame.Surface | None = None
+_idle_effect_size: tuple[int, int] = (0, 0)
+
 def _apply_character_idle_effects(base_img: pygame.Surface, character_type: str) -> pygame.Surface:
     """아케이드 캐릭터 대기 상태 미세 호흡/체중이동 효과 적용"""
+    global _idle_effect_surface, _idle_effect_size
     t = pygame.time.get_ticks() / 1000.0
     w, h = base_img.get_size()
 
@@ -33991,9 +34013,13 @@ def _apply_character_idle_effects(base_img: pygame.Surface, character_type: str)
         breathe_y = int(math.sin(t * 2.2) * 1.3)
         sway_x = int(math.sin(t * 1.1 + 0.5) * 0.7)
 
-    result = pygame.Surface((w, h), pygame.SRCALPHA)
-    result.blit(base_img, (sway_x, breathe_y))
-    return result
+    if _idle_effect_surface is None or _idle_effect_size != (w, h):
+        _idle_effect_surface = pygame.Surface((w, h), pygame.SRCALPHA)
+        _idle_effect_size = (w, h)
+    else:
+        _idle_effect_surface.fill((0, 0, 0, 0))
+    _idle_effect_surface.blit(base_img, (sway_x, breathe_y))
+    return _idle_effect_surface
 
 
 # ========== 옵티머스 암 스킬 UI 아이콘 및 핵심 함수들 ==========
@@ -35259,6 +35285,8 @@ except Exception as e:
 # 코만도 패들 이미지 생성 (고퀄리티 개선 버전)
 
 
+_soldier_paddle_surface: pygame.Surface | None = None
+
 def create_soldier_paddle_surface(
     step_phase: float = 0.0,
     swing_strength: float = 0.0,
@@ -35267,7 +35295,11 @@ def create_soldier_paddle_surface(
     include_right_arm: bool = True,
     include_left_arm: bool = True,
 ) -> pygame.Surface:
-    surface = pygame.Surface((320, 108), pygame.SRCALPHA)
+    global _soldier_paddle_surface
+    if _soldier_paddle_surface is None:
+        _soldier_paddle_surface = pygame.Surface((320, 108), pygame.SRCALPHA)
+    surface = _soldier_paddle_surface
+    surface.fill((0, 0, 0, 0))
     block = 7
     center_x = surface.get_width() // 2
     torso_base_y = 48
@@ -38816,6 +38848,7 @@ blacksmith_umbrella_knockback_timer: float = 0.0
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 blacksmith_umbrella_anchor_smoothed_x: float = 0.0
 paddle_scale_ratio: float = 1.0
+_paddle_scale_dest: pygame.Surface | None = None  # transform.scale 대상 Surface 캐시
 # 스윙 메인 단계에서 토르쉴드 폴리곤 경계를 1:1로 쓰는 엄격 모드
 BLACKSMITH_UMBRELLA_HITBOX_STRICT = True
 blacksmith_umbrella_hitbox_extents_strict: tuple[float, float] = (0.0, 0.0)
@@ -111595,7 +111628,19 @@ def draw_objects():
     if scale_ratio != 1.0 and scale_ratio > 0:
         new_width = max(1, int(base_ufo_img.get_width() * scale_ratio))
         new_height = max(1, int(base_ufo_img.get_height() * scale_ratio))
-        base_ufo_img = pygame.transform.scale(base_ufo_img, (new_width, new_height))
+        # 대상 Surface 재사용으로 매 프레임 할당 방지
+        global _paddle_scale_dest
+        try:
+            _dest = _paddle_scale_dest
+            if _dest is None or _dest.get_width() != new_width or _dest.get_height() != new_height:
+                _dest = pygame.Surface((new_width, new_height), pygame.SRCALPHA)
+                _paddle_scale_dest = _dest
+            else:
+                _dest.fill((0, 0, 0, 0))
+            pygame.transform.scale(base_ufo_img, (new_width, new_height), _dest)
+            base_ufo_img = _dest
+        except Exception:
+            base_ufo_img = pygame.transform.scale(base_ufo_img, (new_width, new_height))
         if (
             selected_character_type == "blacksmith"
             and blacksmith_hammer_head_surface_point is not None
