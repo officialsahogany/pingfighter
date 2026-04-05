@@ -28603,6 +28603,9 @@ def sync_equipped_passive_effects():
 
         if "shrapnel_armor" in equipped_names:
             activate_shrapnel_armor()
+            sa_item = next((i for i in equipped_items if i.get("name") == "shrapnel_armor"), None)
+            if sa_item:
+                apply_roll_bonuses_from_item(sa_item)
         else:
             deactivate_shrapnel_armor()
     except Exception:
@@ -161537,7 +161540,7 @@ def main(stage_num, new_boss_mode=False):
                 if _sa_kb_vel != 0:
                     # 짧은 스턴(0.25초) + 넉백 속도 → handle_boss 내부 스턴 넉백으로 처리
                     boss_stunned_timer = 15
-                    boss_knockback_vel = _sa_kb_vel
+                    _apply_boss_knockback_velocity(_sa_kb_vel)
         except Exception:
             pass
 
