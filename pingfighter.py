@@ -162413,15 +162413,7 @@ def main(stage_num, new_boss_mode=False):
                                 pass  # Debug log removed
                         legendary_manager.update(0.016)  # 60fps 기준 0.016초
 
-                        # ⚔ 발할라의 전갑 소환 타이머 (자동 해산 관리)
-                        # 스킬 발동은 InGameBodyguard 시스템이 자체적으로 처리
-                        try:
-                            from item_effects.valhalla_warplate import get_valhalla_warplate_state
-                            _vw = get_valhalla_warplate_state()
-                            if _vw.summoning:
-                                _vw.update(0.016)
-                        except Exception:
-                            pass
+                        # ⚔ 발할라의 전갑: update는 flip 직전에서 통합 실행
 
                         # 👁 오딘의 눈 부활 애니메이션 업데이트 (폭발 이펙트 포함)
                         odins_eye = legendary_manager.get_item("odins_eye")
@@ -165586,9 +165578,11 @@ def main(stage_num, new_boss_mode=False):
         try:
             from item_effects.valhalla_warplate import get_valhalla_warplate_state
             _vw_overlay = get_valhalla_warplate_state()
-            # 컷신 (화면 정지 + 텍스트)
-            if _vw_overlay.is_cutscene_active:
+            # 쿨타임/상태 업데이트 (항상 실행)
+            if _vw_overlay.active:
                 _vw_overlay.update(1.0 / 60.0)
+            # 컷신 드로잉 (화면 정지 + 텍스트)
+            if _vw_overlay.is_cutscene_active:
                 try:
                     _vw_overlay.draw_cutscene(SCREEN)
                 except Exception:

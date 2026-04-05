@@ -65,6 +65,8 @@ class ValhallaWarplateState:
         self.post_skill_timer = 0.0   # 스킬 발동 후 경과 시간
         self.post_skill_linger = 1.0  # 스킬 완료 후 퇴장 시작까지 대기 (초)
         self.max_summon_time = 10.0   # 스킬 미발동 시 최대 대기 시간 (초)
+        self.summon_cooldown = 0.0    # 소환 쿨타임 (연속 소환 방지)
+        self.SUMMON_COOLDOWN_TIME = 5.0  # 소환 간 최소 간격 (초)
         self._bodyguard_ref = None    # 사용 중인 InGameBodyguard 참조
         self.summoned_hero_name = ""  # 소환된 영웅 이름 (로그용)
         self._pending_hero = None     # 컷신 중 대기하는 영웅 데이터
@@ -137,6 +139,8 @@ class ValhallaWarplateState:
         self._bodyguard_ref = None
         self.summoning = False
         self.state = self.IDLE
+        # 소환 쿨타임 시작 (연속 소환 방지)
+        self.summon_cooldown = self.SUMMON_COOLDOWN_TIME
         self.summon_timer = 0.0
         self.post_skill_timer = 0.0
         self.summoned_hero_name = ""
@@ -151,6 +155,10 @@ class ValhallaWarplateState:
     def try_summon(self) -> bool:
         """공 타격 시 소환 시도. 성공하면 True (컷신 시작)."""
         if not self.active or self.state != self.IDLE:
+            return False
+
+        # 소환 쿨타임 체크 (연속 소환 방지)
+        if self.summon_cooldown > 0:
             return False
 
         # 실제 소환 확률 계산 (연마 + 강화 보너스 적용)
@@ -295,6 +303,10 @@ class ValhallaWarplateState:
 
     def update(self, dt: float):
         """매 프레임 업데이트 - 상태 머신 기반 관리"""
+        # 소환 쿨타임 감소 (IDLE 상태에서도)
+        if self.summon_cooldown > 0:
+            self.summon_cooldown -= dt
+
         if self.state == self.IDLE:
             return
 
