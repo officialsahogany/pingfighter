@@ -14561,10 +14561,12 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
     _gold_hud_accumulator += amount
     _gold_hud_accum_timer = _gold_hud_accum_window  # 윈도우 리셋
 
-    # 축적량 임계치 도달 시 이펙트 트리거
+    # 축적량 임계치 도달 시 이펙트 트리거 (트리거 후 accumulator 리셋)
     if _gold_hud_accumulator >= 50 and _gold_hud_effect_tier != "epic":
         _gold_hud_effect_tier = "epic"
         _gold_hud_effect_timer = 90  # 1.5초
+        _gold_hud_accumulator = 0   # 리셋하여 연속 재트리거 방지
+        _gold_hud_accum_timer = 0
         import random as _rng
         _gold_hud_effect_particles = []
         for _ in range(12):
@@ -14576,6 +14578,8 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
     elif _gold_hud_accumulator >= 30 and _gold_hud_effect_tier == "none":
         _gold_hud_effect_tier = "rare"
         _gold_hud_effect_timer = 60  # 1초
+        _gold_hud_accumulator = 0   # 리셋
+        _gold_hud_accum_timer = 0
 
     # 항목별 골드 추적
     if source == "rally":
