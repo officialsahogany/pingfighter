@@ -26,10 +26,12 @@ class SoundManager:
     def __init__(self):
         self.global_manager = GlobalManager.get_instance()
         self.event_manager = EventManager.get_instance()
-        
-        # Pygame mixer 초기화 (더 많은 채널)
-        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
-        pygame.mixer.set_num_channels(16)  # 16개 채널 사용
+
+        # Pygame mixer가 아직 초기화되지 않았을 때만 초기화
+        # (pingfighter.py에서 이미 64채널로 초기화하므로 덮어쓰지 않는다)
+        if not pygame.mixer.get_init():
+            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+            pygame.mixer.set_num_channels(64)
         
         # 사운드 캐시
         self.sounds = {}

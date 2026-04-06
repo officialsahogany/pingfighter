@@ -11,7 +11,6 @@ from core.input_keys import is_move_down_event
 
 from pixel_font_manager import FontStyle
 from config.settings_system import get_settings_manager
-from managers.sound_manager import get_sound_manager
 from game_state.audio import clamp_volume, get_bgm_muted, set_bgm_muted, get_sfx_muted, set_sfx_muted
 from config import constants as const
 from localization.manager import get_localization_manager
@@ -208,8 +207,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     # 음소거 상태
     bgm_muted = get_bgm_muted()
     sfx_muted = get_sfx_muted()
-    # 사운드 매니저 기반 옵션 읽기
-    sm = get_sound_manager()
+    # NOTE: get_sound_manager() 호출 제거 — SoundManager 싱글톤 생성이
+    # mixer를 재초기화하여 채널 수를 64→16으로 줄이는 버그가 있었음
     # 컨트롤 설정
     settings = get_settings_manager()
     control_scheme = settings.get_setting('controls', 'control_scheme', 'keyboard')
