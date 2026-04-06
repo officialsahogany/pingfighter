@@ -164,8 +164,8 @@ class ValhallaWarplateState:
         self.portal_particles.clear()
         self.portal_lightning.clear()
 
-    def try_summon(self) -> bool:
-        """공 타격 시 소환 시도. 성공하면 True (컷신 시작)."""
+    def try_summon(self, ball_x: int = 380) -> bool:
+        """공 타격 시 소환 시도. ball_x는 공을 친 시점의 X좌표."""
         if not self.active or self.state != self.IDLE:
             return False
 
@@ -232,19 +232,16 @@ class ValhallaWarplateState:
         self._pending_skill_idx = skill_idx
         self.state = self.CUTSCENE
         self.summoning = True
+        # 소환 위치를 공을 친 X좌표로 설정 (화면 범위 내 클램프)
+        self.portal_x = float(max(100, min(660, ball_x)))
         # 컷신 시작 사운드
         self._play_sound("potal2.wav", 0.8)
         self.cutscene_timer = 0.0
         self.summoned_hero_name = hero["name"]
 
-        # 컷신 파티클 생성
-        try:
-            from core.constants import WIDTH, HEIGHT
-            particle_cx = float(WIDTH // 2)
-            particle_cy = float(HEIGHT // 2)
-        except Exception:
-            particle_cx = 380.0
-            particle_cy = 375.0
+        # 컷신 파티클 생성 (소환 위치 기준)
+        particle_cx = self.portal_x
+        particle_cy = 375.0  # 화면 중앙 Y
         self.cutscene_particles.clear()
         for _ in range(30):
             angle = random.uniform(0, math.pi * 2)
@@ -306,7 +303,7 @@ class ValhallaWarplateState:
             # 포탈 하강 시작: guard_system의 위치와 phase를 강제 오버라이드
             gs = target_bg._guard_system
             if gs:
-                self.portal_x = 380.0  # 화면 중앙
+                # portal_x는 try_summon에서 ball_x 기준으로 이미 설정됨
                 # 호위무사를 포탈 위치에 배치 (화면 밖 상단)
                 gs.x_bottom = self.portal_x
                 gs.y_bottom = self.PORTAL_Y - 30  # 포탈 위쪽 (화면 밖, 하강하면서 등장)
@@ -621,7 +618,7 @@ class ValhallaWarplateState:
         if not hero:
             return
 
-        cx, cy = W // 2, H // 2 - 30
+        cx, cy = int(self.portal_x), H // 2 - 30
         t = self.cutscene_timer
 
         # 등장(0~0.3) / 체류(0.3~1.0) - 소멸은 포탈 열림과 함께 별도 처리
@@ -758,7 +755,7 @@ class ValhallaWarplateState:
 
         _c = self._clamp
         W, H = 760, 750
-        cx, cy = W // 2, H // 2 - 30
+        cx, cy = int(self.portal_x), H // 2 - 30
         # 소멸 진행도: 1.0(시작) → 0.0(완료)
         fade = max(0, self.cutscene_dissolve_timer / CUTSCENE_DISSOLVE_DURATION)
 

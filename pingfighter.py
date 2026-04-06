@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """PingFighter (핑파이터) - 아케이드 스타일 탁구 보스 배틀 게임
 
 보스 배틀, 파워업, 특수 능력이 포함된 Python/Pygame 기반 게임.
@@ -80394,7 +80394,7 @@ def handle_player(keys):
             from item_effects.valhalla_warplate import get_valhalla_warplate_state
             _vw_hp = get_valhalla_warplate_state()
             if _vw_hp.active:
-                _vw_hp.try_summon()
+                _vw_hp.try_summon(ball_x=int(BALL.centerx))
         except Exception:
             pass
 
@@ -115516,7 +115516,7 @@ def draw_objects():
     ):
         # 프리즘 에너지볼 효과 (무지개빛 회전 고리)
         prism_time = pygame.time.get_ticks() * 0.003
-        prism_surf_size = BALL.width * 4
+        prism_surf_size = BALL.width * 4 
         prism_surf = pygame.Surface((prism_surf_size, prism_surf_size), pygame.SRCALPHA)
         prism_center = prism_surf_size // 2
         
@@ -148490,7 +148490,7 @@ def handle_ball():
             from item_effects.valhalla_warplate import get_valhalla_warplate_state
             _vw_state = get_valhalla_warplate_state()
             if _vw_state.active:
-                _vw_state.try_summon()
+                _vw_state.try_summon(ball_x=int(BALL.centerx))
         except Exception:
             pass
 
