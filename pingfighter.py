@@ -49431,23 +49431,6 @@ def _set_viper_kick_curve(curve_frames: int, curve_force: float, curve_dir: int)
     _viper_ps_curve_direction = curve_dir if curve_dir != 0 else 1
 
 
-def _show_viper_phantom_kick_text() -> None:
-    """Phase 6에서 돌진 전 '팬텀 킥' 텍스트+사운드만 표시 (프리즈 없음)."""
-    global _viper_dmk_text_active, _viper_dmk_text_timer
-    global _viper_dmk_text_x, _viper_dmk_text_y, _viper_dmk_show_sound_played
-    _viper_dmk_show_sound_played = False
-    _viper_dmk_text_active = True
-    _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
-    _viper_dmk_text_x = float(WIDTH // 2)
-    _viper_dmk_text_y = float(HEIGHT // 2 - 30)
-
-
-def _trigger_viper_phantom_kick_freeze() -> None:
-    """타격 순간 히트스톱 프리즈만 발동 (텍스트는 이미 Phase 6에서 표시됨)."""
-    global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
-    _viper_dmk_freeze_active = True
-    _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
-
 
 def _start_viper_wall_dive_charge(start_ms: int) -> None:
     global _viper_wall_dive_phase, _viper_wall_dive_start_ms
@@ -58755,6 +58738,9 @@ def update_blacksmith_coins(player_rect):
 def draw_blacksmith_coins(surface):
     """금화 렌더링 (깜빡임 + 금색 원)"""
     if not blacksmith_coins:
+        return
+    print(f"[DEBUG] draw_coins 호출! count={len(blacksmith_coins)}, pos=({blacksmith_coins[0]['x']:.0f},{blacksmith_coins[0]['y']:.0f}), timer={blacksmith_coins[0]['timer']}", flush=True)
+    if False:  # 원래 return 자리 - 위에서 이미 처리
         return
 
     for coin in blacksmith_coins:
@@ -74435,7 +74421,13 @@ def handle_player(keys):
                 else:
                     if _viper_is_double_marshal:
                         _viper_wall_dive_phase = 6
-                        _show_viper_phantom_kick_text()
+                        _viper_dmk_freeze_active = True
+                        _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
+                        _viper_dmk_show_sound_played = False
+                        _viper_dmk_text_active = True
+                        _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
+                        _viper_dmk_text_x = float(WIDTH // 2)
+                        _viper_dmk_text_y = float(HEIGHT // 2 - 30)
                     else:
                         _start_viper_wall_dive_charge(_wd_now)
 
@@ -74469,17 +74461,22 @@ def handle_player(keys):
                 screen_shake_intensity = max(screen_shake_intensity, 2)
                 if _viper_is_double_marshal:
                     _viper_wall_dive_phase = 6
-                    _show_viper_phantom_kick_text()
+                    _viper_dmk_freeze_active = True
+                    _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
+                    _viper_dmk_show_sound_played = False
+                    _viper_dmk_text_active = True
+                    _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
+                    _viper_dmk_text_x = float(WIDTH // 2)
+                    _viper_dmk_text_y = float(HEIGHT // 2 - 30)
                 else:
                     _start_viper_wall_dive_charge(_wd_now)
 
         elif _viper_wall_dive_phase == 6:
-            # Phase 6: 팬텀 킥 텍스트 표시 + 벽 포즈 유지 → 짧은 연출 후 돌진
+            # Phase 6: 팬텀 킥 텍스트 프리즈 (벽 매달린 상태에서 정지)
             PLAYER.centerx = int(_viper_wall_dive_wall_x)
             PLAYER.centery = int(_viper_wall_dive_wall_y)
-            # 텍스트 연출 시간 (약 0.5초) 대기 후 돌진 전환
-            _VIPER_PHASE6_POSE_MS = 500
-            if _wd_elapsed >= _VIPER_PHASE6_POSE_MS:
+            # 프리즈 끝나면 돌진 Phase 2로 전환
+            if not _viper_dmk_freeze_active:
                 _start_viper_wall_dive_charge(_wd_now)
 
         elif _viper_wall_dive_phase == 2:
@@ -74599,8 +74596,6 @@ def handle_player(keys):
                                 'glow': _wd_rand.random() < 0.5,
                             })
                     # 마샬 킥 강한 커브 적용
-                    if _viper_is_double_marshal:
-                        _trigger_viper_phantom_kick_freeze()
                     _mk_curve_frames = int(_VIPER_PS_CURVE_FRAMES * 2.5) if _viper_is_double_marshal else _VIPER_PS_CURVE_FRAMES
                     _mk_curve_dir = 1 if ball_vel[0] > 0 else -1
                     _set_viper_kick_curve(_mk_curve_frames, _VIPER_PS_CURVE_FORCE, _mk_curve_dir)
@@ -74697,14 +74692,10 @@ def handle_player(keys):
 
     # 바이퍼 팬텀 스트라이크 커브 (깔끔한 호 궤적 — 감쇠 각도 변경 방식)
     if _viper_ps_curve_active:
-        # 프리즈 중에는 커브 진행도 멈춤 (타이머 소모 + 회전 모두 중지)
-        if _viper_dmk_freeze_active:
-            pass
-        elif _viper_ps_curve_timer <= 1:
-            _viper_ps_curve_timer = 0
+        _viper_ps_curve_timer -= 1
+        if _viper_ps_curve_timer <= 0:
             _viper_ps_curve_active = False
         else:
-            _viper_ps_curve_timer -= 1
             _curve_total = _viper_ps_curve_total_frames if _viper_ps_curve_total_frames > 0 else _VIPER_PS_CURVE_FRAMES
             _curve_progress = 1.0 - (_viper_ps_curve_timer / _curve_total)
             # 감쇠 회전 — 공속은 유지하면서 진행 방향만 회전 (초반 강→점차 약)
