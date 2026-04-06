@@ -69,7 +69,7 @@ _pending_angel_blessing_activation: Optional[Dict] = None
 # ============================================================================
 LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     "ragnarok_hammer": [
-        {"key": "trigger_chance", "label": "발동 확률", "min": 20, "max": 50, "unit": "%", "default": 35},
+        {"key": "trigger_chance", "label": "발동 확률", "min": 20, "max": 40, "unit": "%", "default": 30},
         {"key": "stun_duration", "label": "스턴 시간", "min": 0.4, "max": 0.8, "unit": "초", "default": 0.6, "step": 0.1},
         {"key": "speed_boost", "label": "공속 증가율", "min": 15, "max": 35, "unit": "%", "default": 25},
         {"key": "gauge_cost", "label": "게이지 소모", "min": 20, "max": 40, "unit": "", "default": 30, "reverse": True},
