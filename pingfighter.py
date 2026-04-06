@@ -155522,7 +155522,7 @@ def show_death_evaluation():
             else:
                 section4_h = 60
             section4_rect = pygame.Rect(content_x, y_cursor, content_width, section4_h)
-            draw_section_container(SCREEN, section4_rect, _t("ui.acquired_perks_fmt", "획득 퍽 ({count}개)").format(count=len(acquired_perks)), "idea")
+            draw_section_container(SCREEN, section4_rect, _t("ui.acquired_perks_fmt", "획득 퍽").rstrip() + f" ({len(acquired_perks)}개)", "idea")
 
             if acquired_perks:
                 display_perks = acquired_perks[:max_display_perks]
