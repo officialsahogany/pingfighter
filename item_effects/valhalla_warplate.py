@@ -700,6 +700,70 @@ class ValhallaWarplateState:
             flash_surf.fill((255, 230, 150, _c(80 * flash)))
             screen.blit(flash_surf, (0, 0))
 
+        # ── 0.5) 시공간 균열 (포탈 열리기 전, scale < 0.6) ──
+        if scale < 0.6:
+            crack_intensity = 1.0 - scale / 0.6  # 1.0 → 0.0 (포탈이 열리면서 사라짐)
+            crack_surf = pygame.Surface((200, 200), pygame.SRCALPHA)
+            crack_cx, crack_cy = 100, 100
+
+            # 균열선 (중앙에서 뻗어나가는 불규칙한 갈라진 선들)
+            random.seed(int(t * 2))  # 시간에 따라 약간씩 변화하되 안정적
+            num_cracks = 6 + int(scale * 8)  # 점점 많아짐
+            for ci in range(num_cracks):
+                angle = ci * (math.pi * 2 / num_cracks) + math.sin(t * 1.5 + ci) * 0.3
+                length = int(20 + 60 * scale + random.uniform(-10, 10))
+                # 불규칙 지그재그 선
+                pts = [(crack_cx, crack_cy)]
+                segments = random.randint(3, 6)
+                for seg in range(segments):
+                    frac = (seg + 1) / segments
+                    nx = crack_cx + int(math.cos(angle) * length * frac)
+                    ny = crack_cy + int(math.sin(angle) * length * frac)
+                    # 지그재그 (균열 느낌)
+                    nx += random.randint(-6, 6)
+                    ny += random.randint(-6, 6)
+                    pts.append((nx, ny))
+                if len(pts) >= 2:
+                    # 글로우 (두꺼운 어두운 금색선)
+                    ca = _c(120 * crack_intensity)
+                    pygame.draw.lines(crack_surf, (200, 160, 40, ca), False, pts, 3)
+                    # 밝은 코어선
+                    ca2 = _c(200 * crack_intensity)
+                    pygame.draw.lines(crack_surf, (255, 230, 140, ca2), False, pts, 1)
+
+                    # 균열 끝에서 작은 파편 스파크
+                    if seg > 1:
+                        ex, ey = pts[-1]
+                        spark_a = _c(150 * crack_intensity)
+                        pygame.draw.circle(crack_surf, (255, 240, 160, spark_a), (ex, ey), 2)
+            random.seed()  # 시드 리셋
+
+            # 중앙 왜곡 효과 (시공간이 찢어지는 느낌의 밝은 점)
+            distort_pulse = (math.sin(t * 8) + 1) * 0.5
+            distort_r = max(2, int(5 + 8 * scale))
+            distort_a = _c((100 + 60 * distort_pulse) * crack_intensity)
+            pygame.draw.circle(crack_surf, (255, 240, 180, distort_a),
+                             (crack_cx, crack_cy), distort_r)
+            # 내부 흰색 점 (더 밝게)
+            pygame.draw.circle(crack_surf, (255, 255, 240, _c(distort_a * 0.8)),
+                             (crack_cx, crack_cy), max(1, distort_r // 2))
+
+            # 파편 입자 (균열에서 떨어져 나오는 작은 조각들)
+            for fi in range(int(8 * crack_intensity)):
+                f_angle = random.uniform(0, math.pi * 2)
+                f_dist = random.uniform(15, 50 + 30 * scale)
+                fx = crack_cx + int(math.cos(f_angle + t * 0.5) * f_dist)
+                fy = crack_cy + int(math.sin(f_angle + t * 0.5) * f_dist)
+                f_sz = random.randint(1, 3)
+                fa = _c(120 * crack_intensity * random.uniform(0.3, 1.0))
+                if random.random() < 0.3:
+                    fc = (255, 220, 100, fa)  # 금빛
+                else:
+                    fc = (200, 180, 140, fa)  # 돌조각 색
+                pygame.draw.circle(crack_surf, fc, (fx, fy), f_sz)
+
+            screen.blit(crack_surf, (cx - 100, cy - 100))
+
         # ── 1) 외곽 글로우 (3중, 넓게 퍼지는 황금 빛) ──
         for gi in range(3):
             gw = pw * (4 - gi) + 10
