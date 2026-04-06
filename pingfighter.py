@@ -52459,7 +52459,7 @@ def activate_supply_drop_item(item_name: str) -> None:
             bazooka.equip()
             try:
                 if SOUND_ITEM_GET:
-                    SOUND_ITEM_GET.play()
+                    play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
         return
@@ -52472,7 +52472,7 @@ def activate_supply_drop_item(item_name: str) -> None:
             ak47.active = True  # 활성 상태로 설정
             try:
                 if SOUND_ITEM_GET:
-                    SOUND_ITEM_GET.play()
+                    play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
         return
@@ -52485,7 +52485,7 @@ def activate_supply_drop_item(item_name: str) -> None:
             net_gun.equip()
             try:
                 if SOUND_ITEM_GET:
-                    SOUND_ITEM_GET.play()
+                    play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
         return
@@ -52498,7 +52498,7 @@ def activate_supply_drop_item(item_name: str) -> None:
             fire_support.equip()
             try:
                 if SOUND_ITEM_GET:
-                    SOUND_ITEM_GET.play()
+                    play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
         return
@@ -52510,7 +52510,7 @@ def activate_supply_drop_item(item_name: str) -> None:
             _reset_suicide_drone_state()
             try:
                 if SOUND_ITEM_GET:
-                    SOUND_ITEM_GET.play()
+                    play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
         return
@@ -52523,7 +52523,7 @@ def activate_supply_drop_item(item_name: str) -> None:
             bowling_trap.equip()
             try:
                 if SOUND_ITEM_GET:
-                    SOUND_ITEM_GET.play()
+                    play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
         return
@@ -52541,7 +52541,7 @@ def activate_supply_drop_item(item_name: str) -> None:
         print(f"💎 물자보급 아이템 획득 완료: {item_name}")
         try:
             if SOUND_ITEM_GET:
-                SOUND_ITEM_GET.play()
+                play_sound_with_volume(SOUND_ITEM_GET)
         except Exception:
             pass
     else:
@@ -71150,7 +71150,8 @@ def update_soldier_bullets():
                     if _bullet_slingshot_charge > 0:
                         # 새총 타격음 (금속 구슬 타격)
                         hit_sound = get_cached_sound("sounds/rockhit.wav")
-                        hit_sound.set_volume(0.5 + _bullet_slingshot_charge * 0.1)
+                        if hit_sound:
+                            play_sound_with_volume(hit_sound, sfx_volume * (0.5 + _bullet_slingshot_charge * 0.1))
                     else:
                         play_cached_sound("sounds/bullethit.wav", 0.6)
                 except:
@@ -82495,7 +82496,7 @@ def _arena_top_hero_collect_items():
             # 아이템 획득 사운드
             try:
                 if SOUND_ITEM_GET:
-                    SOUND_ITEM_GET.play()
+                    play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
 
@@ -108655,8 +108656,7 @@ def draw_objects():
                             try:
                                 _vs_snd = sound_effects.get('VIPER_SHOW')
                                 if _vs_snd:
-                                    _vs_snd.set_volume(0.7)
-                                    _vs_snd.play()
+                                    play_sound_with_volume(_vs_snd, sfx_volume * 0.7)
                             except Exception:
                                 pass
                         try:
@@ -117724,8 +117724,7 @@ def draw_objects():
                     try:
                         _vs_snd = sound_effects.get('VIPER_SHOW')
                         if _vs_snd:
-                            _vs_snd.set_volume(0.7)
-                            _vs_snd.play()
+                            play_sound_with_volume(_vs_snd, sfx_volume * 0.7)
                     except Exception:
                         pass
                 try:
@@ -172486,7 +172485,7 @@ def _online_client_apply_state():
         if _cp_name:
             try:
                 if SOUND_ITEM_GET:
-                    SOUND_ITEM_GET.play()
+                    play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
             _cp_data = {
