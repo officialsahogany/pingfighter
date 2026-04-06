@@ -69,6 +69,7 @@ _ingame_bodyguard_dokkaebi_ball = False
 _bodyguard_stance_popup_effects = []          # 스토리모드 호위무사 스탠스 전환 팝업
 _bodyguard_key_e_pressed = False              # E키 이전 프레임 눌림 상태
 _is_ingame_active = False
+_arcade_highlight_recorder = None  # 아케이드 모드 하이라이트 녹화기
 _odins_prev_player_x = 0
 _optimus_arm_mb_prev = True
 _optimus_arm_ui_debug_counter = 0
@@ -81156,6 +81157,12 @@ QUEST_DATA = {
         "condition_desc": "3분 내 클리어",
         "reward_gold": 1300,
     },
+    "bare_hands": {
+        "name": "빈손의 전사",
+        "description": "패시브 아이템을 하나도 장착하지 않고 승리하세요!",
+        "condition_desc": "패시브 미장착으로 승리",
+        "reward_gold": 1800,
+    },
 }
 
 # 퀘스트 완료 빛 효과 상태
@@ -81603,6 +81610,16 @@ def check_and_complete_quests():
                         "name": "스피드런",
                         "reward_gold": 1300
                     })
+
+        elif quest_id == "bare_hands":
+            # 빈손의 전사 - 패시브 아이템 미장착으로 승리
+            equipped = get_equipped_passive_items()
+            if len(equipped) == 0:
+                completed_quests.append({
+                    "id": quest_id,
+                    "name": "빈손의 전사",
+                    "reward_gold": 1800
+                })
 
     # 보상 지급 및 퀘스트 목록에서 제거
     for quest in completed_quests:

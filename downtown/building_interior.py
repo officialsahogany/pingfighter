@@ -2934,6 +2934,16 @@ class BuildingInterior:
                 "active": False,
                 "completed": False,
             },
+            {
+                "id": "bare_hands",
+                "name": "빈손의 전사",
+                "description": "패시브 아이템을 하나도 장착하지\n않은 상태로 승리하세요!\n(장비 탭에서 모두 해제 후 도전)",
+                "condition_desc": "패시브 미장착으로 승리",
+                "reward_gold": 1800,
+                "reward_items": [],
+                "active": False,
+                "completed": False,
+            },
         ]
         self.quest_message = None  # 퀘스트 메시지
         self.quest_message_timer = 0  # 메시지 타이머
