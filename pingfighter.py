@@ -49449,8 +49449,7 @@ def _start_viper_wall_dive_charge(start_ms: int) -> None:
     try:
         _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
         if _wd_charge_snd:
-            _wd_charge_snd.set_volume(0.6)
-            _wd_charge_snd.play()
+            play_sound_with_volume(_wd_charge_snd, sfx_volume * 0.6)
     except Exception:
         pass
 
@@ -49525,8 +49524,7 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     try:
         _sk_snd = sound_effects.get('VIPER_SHADOW_KICK')
         if _sk_snd:
-            _sk_snd.set_volume(0.6)
-            _sk_snd.play()
+            play_sound_with_volume(_sk_snd, sfx_volume * 0.6)
     except Exception:
         pass
 
@@ -74069,8 +74067,7 @@ def handle_player(keys):
                         try:
                             _bs_snd = sound_effects.get('VIPER_BACKSTEP')
                             if _bs_snd:
-                                _bs_snd.set_volume(0.5)
-                                _bs_snd.play()
+                                play_sound_with_volume(_bs_snd, sfx_volume * 0.5)
                         except Exception:
                             pass
                         # 대쉬/후딜 즉시 해제
@@ -74169,8 +74166,7 @@ def handle_player(keys):
                     try:
                         _vm_snd = sound_effects.get('VIPER_VENOM_MOVING')
                         if _vm_snd:
-                            _vm_snd.set_volume(0.6)
-                            _vm_snd.play()
+                            play_sound_with_volume(_vm_snd, sfx_volume * 0.6)
                     except Exception:
                         pass
                     _viper_nerve_strike_origin_x = float(PLAYER.centerx)
@@ -74213,8 +74209,7 @@ def handle_player(keys):
                             try:
                                 _spin_snd = sound_effects.get('VIPER_BLADE_SPIN')
                                 if _spin_snd:
-                                    _spin_snd.set_volume(0.8)
-                                    _spin_snd.play()
+                                    play_sound_with_volume(_spin_snd, sfx_volume * 0.8)
                             except Exception:
                                 pass
 
@@ -74324,8 +74319,7 @@ def handle_player(keys):
             try:
                 _wd_snd = sound_effects.get('VIPER_BACKSTEP')
                 if _wd_snd:
-                    _wd_snd.set_volume(0.5)
-                    _wd_snd.play()
+                    play_sound_with_volume(_wd_snd, sfx_volume * 0.5)
             except Exception:
                 pass
 
@@ -74400,8 +74394,7 @@ def handle_player(keys):
                     try:
                         _wd_reclimb_snd = sound_effects.get('VIPER_BACKSTEP')
                         if _wd_reclimb_snd:
-                            _wd_reclimb_snd.set_volume(0.4)
-                            _wd_reclimb_snd.play()
+                            play_sound_with_volume(_wd_reclimb_snd, sfx_volume * 0.4)
                     except Exception:
                         pass
                 else:
@@ -74522,8 +74515,7 @@ def handle_player(keys):
                         try:
                             _pk_hit_snd = sound_effects.get('VIPER_PHANTOM_KICK_HIT')
                             if _pk_hit_snd:
-                                _pk_hit_snd.set_volume(0.8)
-                                _pk_hit_snd.play()
+                                play_sound_with_volume(_pk_hit_snd, sfx_volume * 0.8)
                         except Exception:
                             pass
                     # 히트 이펙트
@@ -74729,7 +74721,7 @@ def handle_player(keys):
             if _viper_jetpack_active and not _was_jetpack_active:
                 _jp_snd = sound_effects.get('VIPER_JETPACK')
                 if _jp_snd:
-                    _jp_snd.set_volume(0.35)
+                    _jp_snd.set_volume(sfx_volume * 0.35)
                     _viper_jetpack_snd_channel = _jp_snd.play(loops=-1)
             elif not _viper_jetpack_active and _was_jetpack_active:
                 if _viper_jetpack_snd_channel and _viper_jetpack_snd_channel.get_busy():
@@ -74894,8 +74886,7 @@ def handle_player(keys):
                 try:
                     _dp_snd = sound_effects.get('VIPER_DIVE_PREP')
                     if _dp_snd:
-                        _dp_snd.set_volume(0.6)
-                        _dp_snd.play()
+                        play_sound_with_volume(_dp_snd, sfx_volume * 0.6)
                 except Exception:
                     pass
                 _viper_dive_height_snapshot = abs(_viper_jetpack_offset_y)
@@ -74948,8 +74939,7 @@ def handle_player(keys):
                     try:
                         _ds_snd = sound_effects.get('VIPER_DIVE_STRIKE')
                         if _ds_snd:
-                            _ds_snd.set_volume(0.6)
-                            _ds_snd.play()
+                            play_sound_with_volume(_ds_snd, sfx_volume * 0.6)
                     except Exception:
                         pass
                     # 착지 화면 흔들림
@@ -75196,8 +75186,7 @@ def handle_player(keys):
                 try:
                     _blade_snd = sound_effects.get('VIPER_BLADE')
                     if _blade_snd:
-                        _blade_snd.set_volume(0.5)
-                        _blade_snd.play()
+                        play_sound_with_volume(_blade_snd, sfx_volume * 0.5)
                 except Exception:
                     pass
                 _viper_blade_rush_active = True
@@ -75457,8 +75446,7 @@ def handle_player(keys):
                 try:
                     _va_snd = sound_effects.get('VIPER_VENOM_ATTACK')
                     if _va_snd:
-                        _va_snd.set_volume(0.6)
-                        _va_snd.play()
+                        play_sound_with_volume(_va_snd, sfx_volume * 0.6)
                 except Exception:
                     pass
                 # 베기 이펙트 — 보스 위치에 충격파
@@ -75488,8 +75476,7 @@ def handle_player(keys):
                 try:
                     _vm_snd2 = sound_effects.get('VIPER_VENOM_MOVING')
                     if _vm_snd2:
-                        _vm_snd2.set_volume(0.6)
-                        _vm_snd2.play()
+                        play_sound_with_volume(_vm_snd2, sfx_volume * 0.6)
                 except Exception:
                     pass
 
@@ -79284,8 +79271,7 @@ def handle_player(keys):
                         else:
                         # 바주카포 발사 시작 효과음 (발사 준비)
                             try:
-                                SOUND_BAZOOKA_GOING.set_volume(0.6)
-                                SOUND_BAZOOKA_GOING.play()
+                                play_sound_with_volume(SOUND_BAZOOKA_GOING, sfx_volume * 0.6)
                             except:
                                 pass
                             
@@ -79339,8 +79325,7 @@ def handle_player(keys):
 
                             # AK-47 발사 사운드 재생
                             try:
-                                SOUND_AK47.set_volume(0.5)
-                                SOUND_AK47.play()
+                                play_sound_with_volume(SOUND_AK47, sfx_volume * 0.5)
                             except Exception:
                                 pass
                 elif current_weapon == "fire_support":
@@ -85592,8 +85577,7 @@ def update_fan_throw():
         TWO_PI = math.pi * 2
         if int(prev_spin / TWO_PI) < int(fan_throw_spin / TWO_PI):
             if SOUND_FAN:
-                SOUND_FAN.set_volume(0.35)
-                SOUND_FAN.play()
+                play_sound_with_volume(SOUND_FAN, sfx_volume * 0.35)
 
         # 나비 날갯짓 패턴 이동 (빠르게↔느리게 반복 + 좌우 사행)
         elapsed = 180 - fan_throw_timer  # 경과 프레임
@@ -85629,8 +85613,7 @@ def update_fan_throw():
                 fan_throw_active = False
                 # 부채던지기 타격 사운드
                 if SOUND_WHIPCRACK:
-                    SOUND_WHIPCRACK.set_volume(0.6)
-                    SOUND_WHIPCRACK.play()
+                    play_sound_with_volume(SOUND_WHIPCRACK, sfx_volume * 0.6)
                 # 화염탄 방식 넉백
                 if player_stun_immunity_timer <= 0:
                     if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
@@ -85649,8 +85632,7 @@ def update_fan_throw():
         # 회전 시 부채 사운드
         if int(prev_sp / (math.pi * 2)) < int(proj["spin"] / (math.pi * 2)):
             if SOUND_FAN:
-                SOUND_FAN.set_volume(0.25)
-                SOUND_FAN.play()
+                play_sound_with_volume(SOUND_FAN, sfx_volume * 0.25)
         elapsed_p = 180 - proj["timer"]
         speed_mod_p = 0.6 + 0.5 * math.sin(elapsed_p * 0.25)
         sway_p = math.sin(elapsed_p * 0.15) * 1.8
@@ -85680,8 +85662,7 @@ def update_fan_throw():
                     proj["hit"] = True
                     fan_throw_extra_projectiles.remove(proj)
                     if SOUND_WHIPCRACK:
-                        SOUND_WHIPCRACK.set_volume(0.5)
-                        SOUND_WHIPCRACK.play()
+                        play_sound_with_volume(SOUND_WHIPCRACK, sfx_volume * 0.5)
                     if player_stun_immunity_timer <= 0:
                         if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
                             player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
@@ -91872,8 +91853,7 @@ def advance_ingame_tutorial():
         _ingame_tutorial_clap_active = True
         _ingame_tutorial_clap_timer = 240  # 4초 (2배 연장)
         if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
-            sound_effects["MISSION_CLEAR"].set_volume(0.8)
-            sound_effects["MISSION_CLEAR"].play()
+            play_sound_with_volume(sound_effects["MISSION_CLEAR"], sfx_volume * 0.8)
     elif trigger == "end_tutorial":
         # 튜토리얼 완전 종료 - 일반 게임으로 전환
         _ingame_tutorial_active = False
@@ -91885,8 +91865,7 @@ def advance_ingame_tutorial():
         # print("[DEBUG] 튜토리얼: 완전 종료 - 일반 게임 시작!")
         # 완료 사운드 재생
         if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
-            sound_effects["MISSION_CLEAR"].set_volume(0.6)
-            sound_effects["MISSION_CLEAR"].play()
+            play_sound_with_volume(sound_effects["MISSION_CLEAR"], sfx_volume * 0.6)
         # 스테이지 BGM 복원
         try:
             bgm_manager.play_stage_bgm(1)  # 스테이지 1 BGM
@@ -91952,8 +91931,7 @@ def advance_ingame_tutorial():
                 is_praise_message = True
                 # 칭찬 메시지 사운드 재생 (MISSION_CLEAR 사용)
                 if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
-                    sound_effects["MISSION_CLEAR"].set_volume(0.7)
-                    sound_effects["MISSION_CLEAR"].play()
+                    play_sound_with_volume(sound_effects["MISSION_CLEAR"], sfx_volume * 0.7)
                 break
 
         # 칭찬 메시지일 때 박수 애니메이션 활성화
@@ -137684,26 +137662,22 @@ def draw_stage2_jungle_border():
         # 벽 충돌 시 깜빡임 효과 (은은하게)
         if stage2_border_flash_timer > 0:
             flash_ratio = stage2_border_flash_timer / stage2_border_flash_duration
-            # 최대 알파 30으로 제한 + 그라데이션 (벽→안쪽으로 페이드아웃)
-            base_alpha = int(30 * flash_ratio)
+            # 최대 알파 12 + 세제곱 감쇠 그라데이션 + 일반 블렌딩
+            base_alpha = int(12 * flash_ratio)
             bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
             grad_steps = max(1, bt // 2)
             for i in range(grad_steps):
-                t = 1.0 - (i / grad_steps)  # 1.0(벽면) → 0.0(안쪽)
-                a = int(base_alpha * t * t)  # 제곱 감쇠로 더 은은하게
+                t = 1.0 - (i / grad_steps)
+                a = int(base_alpha * t * t * t)  # 세제곱 감쇠
                 if a <= 0:
                     break
-                c = (50, 140, 50, a)
-                # 상단
+                c = (30, 90, 30, a)
                 pygame.draw.rect(flash_surf, c, (0, i, game_w, 1))
-                # 하단
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
-                # 좌측
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
-                # 우측
                 pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
-            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            SCREEN.blit(flash_surf, (x_off, 0))
             stage2_border_flash_timer -= 1
 def update_stage2_leaves():
     """떨어지는 잎사귀 업데이트"""
