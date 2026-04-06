@@ -12530,7 +12530,7 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         "item_recycle": ("아이템 유지 확률 ", 7, "%"),
         # Downtown Tree
         "downtown_gamble": ("가챠 추가 1회 확률 ", 10, "%"),
-        "downtown_treasure_map": ("신화 확률 +", 150, "%"),
+        "downtown_treasure_map": ("신화 확률 +", 200, "%"),
         "downtown_bargain": ("상점 아이템 가격 ", 10, "% 할인"),
         # Common Tree
         "common_swiftness": ("이동속도 ", 5, "% 증가"),
@@ -16423,7 +16423,7 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
 
             # 광장 트리
             "downtown_gamble": level * 0.10,        # 추가 가챠 확률 10%/레벨
-            "downtown_treasure_map": level * 1.50,  # 전설 확률 +150%/레벨
+            "downtown_treasure_map": level * 2.00,  # 전설 확률 +200%/레벨
             "downtown_bargain": level * 0.10,       # 상점 할인 10%/레벨
 
             # 공통 트리
