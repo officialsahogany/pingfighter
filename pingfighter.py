@@ -4813,121 +4813,165 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         pygame.draw.circle(surface, shadow_color, (skull_x + 1, skull_y - 1), 1)
 
     elif skill_name == "marshal_kick":
-        # ⚡ 마샬 킥: 벽 점프 → 공 돌진 (다이나믹 포즈)
+        # 🦶 마샬 킥: 발차기 + 타격 이펙트
 
-        # 벽 (좌측, 입체감)
-        wall_x = cx - s * 2 // 3
-        pygame.draw.line(surface, shadow_color, (wall_x + 2, cy - s * 2 // 3), (wall_x + 2, cy + s * 2 // 3), 4)
-        pygame.draw.line(surface, accent_color, (wall_x, cy - s * 2 // 3), (wall_x, cy + s * 2 // 3), 3)
-        pygame.draw.line(surface, highlight_color, (wall_x - 1, cy - s * 2 // 3), (wall_x - 1, cy + s * 2 // 3), 1)
-        # 벽면 텍스처
-        for i in range(4):
-            ty = cy - s // 2 + i * (s // 3)
-            pygame.draw.line(surface, shadow_color, (wall_x - 1, ty), (wall_x + 3, ty), 1)
+        # 다리 (허벅지→무릎→종아리, 대각선 킥 포즈)
+        hip_x = cx - s * 2 // 5
+        hip_y = cy + s // 3
+        knee_x = cx - s // 8
+        knee_y = cy + s // 8
+        ankle_x = cx + s // 3
+        ankle_y = cy - s // 6
 
-        # 도약 실루엣 (다이나믹 포즈)
-        launch_x = wall_x + s // 4
-        launch_y = cy - s // 4
-        body_pts = [
-            (launch_x, launch_y - s // 4),
-            (launch_x + s // 4, launch_y),
-            (launch_x + s // 6, launch_y + s // 3),
-            (launch_x - s // 8, launch_y + s // 5),
+        # 다리 두께
+        leg_w = max(3, s // 3)
+        leg_w_thin = max(2, s // 4)
+
+        # 허벅지 (두꺼운 부분) - 그림자
+        pygame.draw.line(surface, shadow_color, (hip_x + 1, hip_y + 1), (knee_x + 1, knee_y + 1), leg_w + 1)
+        pygame.draw.line(surface, accent_color, (hip_x, hip_y), (knee_x, knee_y), leg_w)
+        pygame.draw.line(surface, highlight_color, (hip_x - 1, hip_y - 1), (knee_x - 1, knee_y - 1), max(1, leg_w // 3))
+
+        # 종아리 (약간 가는 부분) - 그림자
+        pygame.draw.line(surface, shadow_color, (knee_x + 1, knee_y + 1), (ankle_x + 1, ankle_y + 1), leg_w_thin + 1)
+        pygame.draw.line(surface, accent_color, (knee_x, knee_y), (ankle_x, ankle_y), leg_w_thin)
+        pygame.draw.line(surface, highlight_color, (knee_x - 1, knee_y - 1), (ankle_x - 1, ankle_y - 1), max(1, leg_w_thin // 3))
+
+        # 무릎 관절 (둥글게)
+        pygame.draw.circle(surface, highlight_color, (knee_x, knee_y), max(2, leg_w // 2))
+
+        # 발 (삼각형, 킥 방향으로 뻗은 모양)
+        foot_tip_x = cx + s * 3 // 4
+        foot_tip_y = cy - s // 3
+        foot_pts = [
+            (ankle_x - s // 8, ankle_y + s // 6),   # 발뒤꿈치 하단
+            (ankle_x - s // 10, ankle_y - s // 6),   # 발뒤꿈치 상단
+            (foot_tip_x, foot_tip_y - s // 10),      # 발끝 상단
+            (foot_tip_x, foot_tip_y + s // 8),       # 발끝 하단
         ]
-        pygame.draw.polygon(surface, accent_color, body_pts)
-        pygame.draw.polygon(surface, highlight_color, body_pts, 1)
-        pygame.draw.circle(surface, highlight_color, (launch_x, launch_y - s // 4), max(2, s // 6))
-        pygame.draw.circle(surface, main_color, (launch_x - 1, launch_y - s // 4 - 1), 1)
+        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in foot_pts])
+        pygame.draw.polygon(surface, accent_color, foot_pts)
+        pygame.draw.polygon(surface, highlight_color, foot_pts, 1)
+        # 발 하이라이트
+        pygame.draw.line(surface, main_color,
+                        (ankle_x - s // 10, ankle_y - s // 7),
+                        (foot_tip_x - s // 8, foot_tip_y - s // 12), max(1, s // 8))
 
-        # 거미줄 (곡선)
+        # 타격 이펙트 (발끝에서 방사)
+        impact_cx = foot_tip_x + s // 8
+        impact_cy = foot_tip_y
+        # 충격파 원호
         for i in range(3):
-            web_start_y = cy - s // 3 + i * (s // 4)
-            mid_x = wall_x + s // 4
-            mid_y = (web_start_y + launch_y) // 2 - s // 6
-            web_pts = [
-                (wall_x + 2, web_start_y),
-                (mid_x, mid_y),
-                (launch_x - s // 8, launch_y),
-            ]
-            pygame.draw.lines(surface, main_color, False, web_pts, 1)
-
-        # 돌진 궤적 (그라데이션 에너지 라인)
-        target_x = cx + s * 2 // 3
-        target_y = cy + s // 4
-        num_dots = 6
-        for i in range(num_dots):
-            t = (i + 1) / num_dots
-            dx = int(launch_x + (target_x - launch_x) * t)
-            dy = int(launch_y + (target_y - launch_y) * t)
-            dot_r = max(1, int(3 * t))
-            dc = tuple(min(255, int(c * (0.4 + t * 0.6))) for c in highlight_color[:3])
-            pygame.draw.circle(surface, dc, (dx, dy), dot_r)
-
-        # 타겟 공
-        ball_r = max(2, s // 4)
-        pygame.draw.circle(surface, shadow_color, (target_x + 1, target_y + 1), ball_r)
-        pygame.draw.circle(surface, main_color, (target_x, target_y), ball_r)
-        pygame.draw.circle(surface, highlight_color, (target_x, target_y), ball_r, 1)
-        pygame.draw.circle(surface, (255, 255, 255), (target_x - ball_r // 3, target_y - ball_r // 3), max(1, ball_r // 3))
-
-        # 임팩트 충격파
-        for i in range(2):
-            impact_r = ball_r + 3 + i * 4
-            ic = tuple(max(0, c - i * 40) for c in highlight_color[:3])
-            pygame.draw.circle(surface, ic, (target_x, target_y), impact_r, 1)
-        for angle in [0, 45, 90, 135, 180, 225, 270, 315]:
+            arc_r = s // 4 + i * (s // 5)
+            arc_alpha = max(0, 200 - i * 60)
+            ic = tuple(min(255, c + 40 - i * 20) for c in highlight_color[:3])
+            pygame.draw.arc(surface, ic,
+                          (impact_cx - arc_r, impact_cy - arc_r, arc_r * 2, arc_r * 2),
+                          math.radians(-60), math.radians(60), max(1, 2 - i // 2))
+        # 방사형 타격선
+        for angle in [-40, -15, 10, 35]:
             rad = math.radians(angle)
-            ix1 = target_x + int(math.cos(rad) * (ball_r + 2))
-            iy1 = target_y + int(math.sin(rad) * (ball_r + 2))
-            ix2 = target_x + int(math.cos(rad) * (ball_r + 6))
-            iy2 = target_y + int(math.sin(rad) * (ball_r + 6))
-            pygame.draw.line(surface, highlight_color, (ix1, iy1), (ix2, iy2), 1)
+            lx1 = impact_cx + int(math.cos(rad) * (s // 5))
+            ly1 = impact_cy + int(math.sin(rad) * (s // 5))
+            lx2 = impact_cx + int(math.cos(rad) * (s // 2))
+            ly2 = impact_cy + int(math.sin(rad) * (s // 2))
+            pygame.draw.line(surface, highlight_color, (lx1, ly1), (lx2, ly2), max(1, 2))
+        # 스타 이펙트 (작은 별)
+        star_x = impact_cx + s // 6
+        star_y = impact_cy - s // 4
+        star_r = max(2, s // 6)
+        pygame.draw.line(surface, main_color, (star_x - star_r, star_y), (star_x + star_r, star_y), 1)
+        pygame.draw.line(surface, main_color, (star_x, star_y - star_r), (star_x, star_y + star_r), 1)
 
     elif skill_name == "double_marshal_kick":
-        # x2 팬텀 킥: 두 번의 킥 + x2 표시
+        # 👊🦶 팬텀 킥: 강렬한 발차기 + 폭발적 타격 이펙트
 
-        # 좌측 첫번째 킥 발자국
-        foot1_x = cx - s // 3
-        foot1_y = cy - s // 6
-        foot1_pts = [
-            (foot1_x - s // 5, foot1_y - s // 4),
-            (foot1_x + s // 6, foot1_y - s // 3),
-            (foot1_x + s // 4, foot1_y),
-            (foot1_x + s // 8, foot1_y + s // 4),
-            (foot1_x - s // 4, foot1_y + s // 6),
+        # 다리 (더 역동적인 각도, 위에서 아래로 내려찍는 느낌)
+        hip_x = cx - s // 2
+        hip_y = cy + s // 2
+        knee_x = cx - s // 5
+        knee_y = cy
+        ankle_x = cx + s // 4
+        ankle_y = cy - s // 3
+
+        leg_w = max(4, s * 2 // 5)
+        leg_w_thin = max(3, s // 3)
+
+        # 잔상 (팬텀 느낌 - 반투명 이전 위치)
+        ghost_offset = s // 4
+        ghost_color = tuple(max(0, c // 3) for c in accent_color[:3])
+        pygame.draw.line(surface, ghost_color,
+                        (hip_x + ghost_offset // 2, hip_y),
+                        (knee_x + ghost_offset // 2, knee_y + ghost_offset // 3), max(2, leg_w // 2))
+        pygame.draw.line(surface, ghost_color,
+                        (knee_x + ghost_offset // 2, knee_y + ghost_offset // 3),
+                        (ankle_x - ghost_offset // 3, ankle_y + ghost_offset // 2), max(2, leg_w_thin // 2))
+
+        # 허벅지
+        pygame.draw.line(surface, shadow_color, (hip_x + 1, hip_y + 1), (knee_x + 1, knee_y + 1), leg_w + 1)
+        pygame.draw.line(surface, accent_color, (hip_x, hip_y), (knee_x, knee_y), leg_w)
+        pygame.draw.line(surface, highlight_color, (hip_x - 1, hip_y - 1), (knee_x - 1, knee_y - 1), max(1, leg_w // 3))
+
+        # 종아리
+        pygame.draw.line(surface, shadow_color, (knee_x + 1, knee_y + 1), (ankle_x + 1, ankle_y + 1), leg_w_thin + 1)
+        pygame.draw.line(surface, accent_color, (knee_x, knee_y), (ankle_x, ankle_y), leg_w_thin)
+        pygame.draw.line(surface, highlight_color, (knee_x - 1, knee_y - 1), (ankle_x - 1, ankle_y - 1), max(1, leg_w_thin // 3))
+
+        # 무릎 관절
+        pygame.draw.circle(surface, highlight_color, (knee_x, knee_y), max(3, leg_w // 2))
+
+        # 발 (더 크고 날카로운 킥)
+        foot_tip_x = cx + s * 3 // 4
+        foot_tip_y = cy - s * 2 // 5
+        foot_pts = [
+            (ankle_x - s // 6, ankle_y + s // 5),
+            (ankle_x - s // 8, ankle_y - s // 5),
+            (foot_tip_x, foot_tip_y - s // 8),
+            (foot_tip_x + s // 10, foot_tip_y + s // 12),
+            (foot_tip_x - s // 8, foot_tip_y + s // 5),
         ]
-        pygame.draw.polygon(surface, accent_color, foot1_pts)
-        pygame.draw.polygon(surface, highlight_color, foot1_pts, 1)
+        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in foot_pts])
+        pygame.draw.polygon(surface, accent_color, foot_pts)
+        pygame.draw.polygon(surface, highlight_color, foot_pts, 2)
+        # 발 에너지 라인
+        pygame.draw.line(surface, main_color,
+                        (ankle_x - s // 8, ankle_y - s // 6),
+                        (foot_tip_x - s // 6, foot_tip_y - s // 10), max(1, s // 6))
 
-        # 우측 두번째 킥 발자국 (약간 오프셋)
-        foot2_x = cx + s // 6
-        foot2_y = cy + s // 8
-        foot2_pts = [
-            (foot2_x - s // 5, foot2_y - s // 4),
-            (foot2_x + s // 6, foot2_y - s // 3),
-            (foot2_x + s // 4, foot2_y),
-            (foot2_x + s // 8, foot2_y + s // 4),
-            (foot2_x - s // 4, foot2_y + s // 6),
-        ]
-        pygame.draw.polygon(surface, accent_color, foot2_pts)
-        pygame.draw.polygon(surface, highlight_color, foot2_pts, 1)
-
-        # x2 텍스트
-        x2_size = max(6, s * 2 // 3)
-        try:
-            x2_font = pygame.font.SysFont("Arial", x2_size, bold=True)
-            x2_surf = x2_font.render("x2", True, main_color)
-            x2_rect = x2_surf.get_rect(center=(cx + s // 4, cy + s // 3))
-            surface.blit(x2_surf, x2_rect)
-        except Exception:
-            pygame.draw.line(surface, main_color, (cx + s // 8, cy + s // 6), (cx + s // 2, cy + s // 3), 2)
-
-        # 충격파 이펙트
-        for i in range(2):
-            impact_r = s // 2 + i * 3
-            ic = tuple(max(0, c - i * 30) for c in highlight_color[:3])
-            pygame.draw.arc(surface, ic, (cx - impact_r, cy - impact_r, impact_r * 2, impact_r * 2),
-                          math.radians(200), math.radians(340), 1)
+        # 폭발적 타격 이펙트 (더 크고 강렬)
+        impact_cx = foot_tip_x + s // 6
+        impact_cy = foot_tip_y - s // 10
+        # 큰 충격파 원호들
+        for i in range(4):
+            arc_r = s // 3 + i * (s // 4)
+            ic = tuple(min(255, c + 60 - i * 15) for c in highlight_color[:3])
+            pygame.draw.arc(surface, ic,
+                          (impact_cx - arc_r, impact_cy - arc_r, arc_r * 2, arc_r * 2),
+                          math.radians(-70), math.radians(70), max(1, 3 - i // 2))
+        # 방사형 타격선 (더 많고 길게)
+        for angle in [-55, -35, -15, 5, 25, 45]:
+            rad = math.radians(angle)
+            lx1 = impact_cx + int(math.cos(rad) * (s // 4))
+            ly1 = impact_cy + int(math.sin(rad) * (s // 4))
+            lx2 = impact_cx + int(math.cos(rad) * (s * 3 // 4))
+            ly2 = impact_cy + int(math.sin(rad) * (s * 3 // 4))
+            pygame.draw.line(surface, highlight_color, (lx1, ly1), (lx2, ly2), max(1, 2))
+        # 파편 (작은 삼각형 파티클)
+        for angle in [-50, -10, 30, 55]:
+            rad = math.radians(angle)
+            px = impact_cx + int(math.cos(rad) * (s * 2 // 3))
+            py = impact_cy + int(math.sin(rad) * (s * 2 // 3))
+            tri_s = max(2, s // 6)
+            tri_pts = [
+                (px, py - tri_s),
+                (px - tri_s // 2, py + tri_s // 2),
+                (px + tri_s // 2, py + tri_s // 2),
+            ]
+            pygame.draw.polygon(surface, main_color, tri_pts)
+        # 중앙 플래시 (폭발 핵심)
+        flash_r = max(3, s // 4)
+        pygame.draw.circle(surface, main_color, (impact_cx, impact_cy), flash_r)
+        pygame.draw.circle(surface, highlight_color, (impact_cx, impact_cy), flash_r + 2, 2)
 
     elif skill_name == "dive_strike":
         # ⇓ EMP 스트라이크: 급강하 + 착지 연기 장판
@@ -12661,7 +12705,7 @@ RUNTIME_SKILL_POOL = {
             4: "대쉬 쿨타임 40% 감소",
             5: "대쉬 쿨타임 50% 감소",
         },
-        "detail": "대쉬 시스템을 경량화하여 쿨타임이 감소합니다.",
+        "detail": "빨간구슬 대쉬토큰이 충전되는 속도가 빨라집니다.",
         "icon_color": (100, 200, 255),
         "tree": "dash"
     },
@@ -12689,7 +12733,7 @@ RUNTIME_SKILL_POOL = {
             4: "대쉬 거리 28% 증가",
             5: "대쉬 거리 35% 증가",
         },
-        "detail": "대쉬 거리가 증가하여 더 넓은 범위를 커버할 수 있습니다.",
+        "detail": "대쉬 거리가 증가합니다.",
         "icon_color": (100, 255, 150),
         "tree": "dash"
     },
@@ -12746,7 +12790,7 @@ RUNTIME_SKILL_POOL = {
             4: "액티브 사용시 게이지 +48",
             5: "액티브 사용시 게이지 +60",
         },
-        "detail": "아이템 사용 시 보너스 게이지를 획득합니다.",
+        "detail": "엑티브아이템 사용 시 보너스 게이지를 획득합니다.",
         "icon_color": (150, 255, 100),
         "tree": "item"
     },
@@ -12774,7 +12818,7 @@ RUNTIME_SKILL_POOL = {
             4: "타이머형 아이템 지속 80% 증가",
             5: "타이머형 아이템 지속 100% 증가",
         },
-        "detail": "카페인 부스트로 아이템 효과가 더 오래 지속됩니다.",
+        "detail": "카페인 부스트로 지속시간형 엑티브 아이템 효과가 더 오래 지속됩니다.",
         "icon_color": (139, 69, 19),
         "tree": "item"
     },
@@ -12832,7 +12876,7 @@ RUNTIME_SKILL_POOL = {
             4: "신화 확률 +600%, 패시브 드랍 +12%",
             5: "신화 확률 +750%, 패시브 드랍 +15%",
         },
-        "detail": "보물지도로 신화 아이템을 더 쉽게 찾을 수 있습니다. 패시브 아이템 드랍 비율도 증가합니다.",
+        "detail": "신화 아이템의 획득할 확률이 증가합니다. 패시브 아이템 드랍 비율도 증가합니다.",
         "icon_color": (255, 223, 0),
         "tree": "downtown"
     },
@@ -12846,7 +12890,7 @@ RUNTIME_SKILL_POOL = {
             4: "상점 아이템 가격 40% 할인",
             5: "상점 아이템 가격 50% 할인",
         },
-        "detail": "뛰어난 흥정 실력으로 상점에서 아이템을 더 싸게 구매합니다.",
+        "detail": "뛰어난 흥정 실력으로 상점에서 아이템을 더 싸게 구매할 수 있게 해줍니다.",
         "icon_color": (255, 180, 50),
         "tree": "downtown"
     },
@@ -12873,7 +12917,7 @@ RUNTIME_SKILL_POOL = {
             1: "장신구 슬롯 +1",
             2: "장신구 슬롯 +2",
         },
-        "detail": "장신구 슬롯을 추가로 활성화합니다. 처음에는 4개 중 2개만 사용 가능합니다.",
+        "detail": "장신구 슬롯을 추가로 활성화합니다.",
         "icon_color": (200, 150, 255),
         "tree": "common"
     },
@@ -12901,7 +12945,7 @@ RUNTIME_SKILL_POOL = {
             4: "월계수 잎 4개 보호",
             5: "월계수 잎 5개 보호",
         },
-        "detail": "신성한 월계수 잎이 패들 주위를 회전하며 보스의 공을 막아줍니다.",
+        "detail": "공을 막아주는 신성한 월계수잎이 주변을 보호합니다.",
         "icon_color": (100, 200, 100),
         "tree": "common"
     },
@@ -12915,7 +12959,7 @@ RUNTIME_SKILL_POOL = {
             4: "부스트차징 발동확률 +20%",
             5: "부스트차징 발동확률 +25%",
         },
-        "detail": "대쉬 후 일정 확률로 토큰이 즉시 충전됩니다. 대쉬기어와 중첩됩니다.",
+        "detail": "발동 시 대쉬 후 대쉬토큰이 즉시 충전됩니다..",
         "icon_color": (80, 160, 255),
         "tree": "common"
     },
@@ -12929,7 +12973,7 @@ RUNTIME_SKILL_POOL = {
             4: "대쉬시 패들 크기 280% 증가",
             5: "대쉬시 패들 크기 350% 증가",
         },
-        "detail": "대쉬할 때 패들 크기가 증가하여 강력한 리턴이 가능합니다.",
+        "detail": "대쉬할 때 순간 타격 범위가 증가합니다.",
         "icon_color": (255, 100, 50),
         "tree": "dash"
     },
@@ -12947,7 +12991,7 @@ SMASHER_EXCLUSIVE_SKILLS = {
             4: "대쉬시 28% 확률로 레이저 잔상",
             5: "대쉬시 35% 확률로 레이저 잔상",
         },
-        "detail": "대쉬 시 확률적으로 레이저 잔상이 생성되어 추가 데미지를 줍니다.",
+        "detail": "대쉬 시 일정확률로 레이저 잔상이 생성되어 공을 막아줍니다.",
         "icon_color": (0, 255, 255),
         "tree": "dash",
         "character_restriction": "smasher"
@@ -12959,7 +13003,7 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "플라즈마 스킬 해금",
         },
-        "detail": "게이지 스킬 '플라즈마'를 해금합니다. W키로 게이지 40을 소모해 플라즈마 볼을 발사합니다.",
+        "detail": "게이지 스킬 '플라즈마'를 해금합니다. W키를 눌러 플라즈마 볼을 발사합니다.",
         "icon_color": (0, 200, 255),
         "tree": "smasher_unlock",
         "character_restriction": "smasher"
@@ -12970,7 +13014,7 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "리커버리 스킬 해금",
         },
-        "detail": "게이지 스킬 '리커버리'를 해금합니다. 대쉬 직후 W키를 누르면 즉시 대쉬후딜이 제거되고 일정기간동안 이동속도 30% 보너스를 얻습니다.",
+        "detail": "게이지 스킬 '리커버리'를 해금합니다. 대쉬 직후 W키를 누르면 즉시 대쉬후딜이 제거되고 일정기간동안 이동속도 보너스를 얻습니다.",
         "icon_color": (50, 255, 150),
         "tree": "smasher_unlock",
         "character_restriction": "smasher"
@@ -13192,7 +13236,7 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "기본 화기를 권총으로 교체",
         },
-        "detail": "기본 새총을 권총으로 교체합니다. 연사 가능하며 탄창 재장전 시스템이 활성화됩니다.",
+        "detail": "기본 새총을 권총으로 교체합니다.",
         "icon_color": (140, 130, 120),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -13207,7 +13251,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "베놈 엣지 스킬 해금 (에어 블레이드 연계기)",
         },
-        "detail": "에어 블레이드 연계기 '베놈 엣지'를 해금합니다. 에어 블레이드 착지 전 클릭/Space로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 베고 복귀합니다. 5초간 보스 혼란.",
+        "detail": "에어 블레이드 연계기 '베놈 엣지'를 해금합니다. 에어 블레이드 착지 전 클릭/Space로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 눈을 베어 상대를 혼란에 빠트립니다.",
         "icon_color": (180, 0, 220),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -13218,7 +13262,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "EMP 스트라이크 스킬 해금 (방어 장판)",
         },
-        "detail": "체공 중 S/↓키를 0.3초 꾹 눌러 급강하하여 착지 연기 장판을 생성합니다. 게이지 150 소모, 쿨타임 30초. 연기에 닿은 공을 위로 반사하고 공속을 20~50% 증가시킵니다. 보스에게 슬립을 부여하며, 지속시간은 체공 높이에 비례합니다 (최저 0.9초 ~ 최고 1.5초).",
+        "detail": "체공 중 S/↓키를 꾹 눌러 급강하하여 착지 연기 장판을 생성합니다. 연기에 닿은 공을 위로 반사하고 상대를 일시적 패닉상태에 빠뜨립니다, 패닉 지속시간은 체공 높이에 비례합니다.",
         "icon_color": (255, 120, 50),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -13227,9 +13271,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "팬텀 킥",
         "max_level": 1,
         "descriptions": {
-            1: "마샬 킥 적중 후 2차 마샬 킥 발동 가능 (최대 4연계)",
+            1: "마샬 킥 적중 후 팬텀 킥 발동 가능 (최대 4연계)",
         },
-        "detail": "마샬 킥 적중 후 1.5초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 60 소모, 공속 증가율 180%.",
+        "detail": "마샬 킥 적중 후 연계기로 S/↓키로 팬텀 킥을 사용할 수 있습니다. 상대에게 공포를 선사합니다",
         "icon_color": (180, 0, 255),
         "tree": "viper",
         "character_restriction": "viper"
@@ -13244,7 +13288,7 @@ VIPER_EXCLUSIVE_SKILLS = {
             4: "제트팩 최대 게이지 +80%",
             5: "제트팩 최대 게이지 +100%",
         },
-        "detail": "제트팩의 최대 체공 게이지가 레벨당 20%씩 증가하여 더 오래 날 수 있습니다. (최대 Lv.5: +100%)",
+        "detail": "제트팩의 최대 체공 게이지가 레벨당 20%씩 증가하여 더 오래 날 수 있습니다.",
         "icon_color": (0, 200, 255),
         "tree": "viper",
         "character_restriction": "viper"
@@ -13351,8 +13395,8 @@ def grant_soldier_weapon_degraded(weapon_name: str) -> bool:
 INSTANT_RUNTIME_SKILLS = {
     "instant_gauge_full": {
         "name": "풀게이징",
-        "description": "모든 게이지/쿨타임 즉시 완충",
-        "detail": "긴급 상황에서 사용할 수 있는 만능 에너지 팩입니다. 스페셜 게이지 최대 충전, 모든 대쉬 토큰 완충, 아이템 쿨타임 초기화, 스킬 쿨타임 초기화를 모두 수행합니다.",
+        "description": "모든 게이지/스킬 쿨타임 즉시 완충",
+        "detail": "긴급 상황에서 사용할 수 있는 만능 에너지 팩입니다.게이지 최대 충전,대쉬 토큰 완충, 아이템 쿨타임, 스킬 쿨타임 초기화를 모두 수행합니다.",
         "icon_color": (100, 255, 200),
         "tree": "instant",
         "is_instant": True  # 단발성 스킬 표시
@@ -13360,7 +13404,7 @@ INSTANT_RUNTIME_SKILLS = {
     "instant_dimension_gate": {
         "name": "차원개방",
         "description": "3초간 아이템 스폰이 대폭 증가합니다",
-        "detail": "차원의 문을 열어 아이템이 쏟아집니다. 판도라의 상자와 동일한 효과입니다.",
+        "detail": "차원의 문을 열어 아이템이 쏟아집니다.",
         "icon_color": (255, 100, 255),
         "tree": "instant",
         "is_instant": True
@@ -18112,35 +18156,66 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
 
     elif skill_id == "double_marshal_kick":
-        # 팬텀 킥 - 두 개의 발 아이콘 (겹친 킥)
-        _dmk_s = int(5 * scale)
-        # 첫 번째 발 (뒤, 어두운 색)
-        _dmk_c1 = tuple(max(0, c - 60) for c in icon_color)
-        pygame.draw.polygon(surface, _dmk_c1, [
-            (icon_cx - _dmk_s * 2, icon_cy - _dmk_s),
-            (icon_cx + _dmk_s, icon_cy - _dmk_s),
-            (icon_cx + _dmk_s * 2, icon_cy),
-            (icon_cx + _dmk_s, icon_cy + _dmk_s),
-            (icon_cx - _dmk_s * 2, icon_cy + _dmk_s),
-        ])
-        # 두 번째 발 (앞, 밝은 색)
-        _dmk_off = int(3 * scale)
-        pygame.draw.polygon(surface, icon_color, [
-            (icon_cx - _dmk_s * 2 + _dmk_off, icon_cy - _dmk_s - _dmk_off),
-            (icon_cx + _dmk_s + _dmk_off, icon_cy - _dmk_s - _dmk_off),
-            (icon_cx + _dmk_s * 2 + _dmk_off, icon_cy - _dmk_off),
-            (icon_cx + _dmk_s + _dmk_off, icon_cy + _dmk_s - _dmk_off),
-            (icon_cx - _dmk_s * 2 + _dmk_off, icon_cy + _dmk_s - _dmk_off),
-        ])
-        # "x2" 텍스트
-        pygame.draw.line(surface, (255, 255, 100),
-                         (icon_cx + _dmk_s * 2, icon_cy + _dmk_s - int(2 * scale)),
-                         (icon_cx + _dmk_s * 3, icon_cy + _dmk_s + int(2 * scale)),
-                         max(1, int(2 * scale)))
-        pygame.draw.line(surface, (255, 255, 100),
-                         (icon_cx + _dmk_s * 3, icon_cy + _dmk_s - int(2 * scale)),
-                         (icon_cx + _dmk_s * 2, icon_cy + _dmk_s + int(2 * scale)),
-                         max(1, int(2 * scale)))
+        # 팬텀 킥 - 강렬한 발차기 + 폭발 이펙트 (미니)
+        color = icon_color
+        lt = lighter(icon_color)
+        dk = darker(icon_color)
+        _s = int(5 * scale)
+
+        # 잔상 (팬텀 느낌)
+        ghost_c = tuple(max(0, c // 3) for c in color)
+        pygame.draw.line(surface, ghost_c,
+                        (icon_cx - _s * 2 + _s, icon_cy + _s),
+                        (icon_cx + _s // 2, icon_cy + _s // 2), max(1, int(2 * scale)))
+        pygame.draw.line(surface, ghost_c,
+                        (icon_cx + _s // 2, icon_cy + _s // 2),
+                        (icon_cx + _s, icon_cy - _s // 2 + _s // 2), max(1, int(2 * scale)))
+
+        # 다리 (종아리→발)
+        pygame.draw.line(surface, dk,
+                        (icon_cx - _s * 2, icon_cy + _s),
+                        (icon_cx - _s // 2, icon_cy), max(2, int(3 * scale)))
+        pygame.draw.line(surface, color,
+                        (icon_cx - _s * 2, icon_cy + _s),
+                        (icon_cx - _s // 2, icon_cy), max(2, int(2.5 * scale)))
+        pygame.draw.line(surface, dk,
+                        (icon_cx - _s // 2, icon_cy),
+                        (icon_cx + _s // 2, icon_cy - _s // 2), max(2, int(2.5 * scale)))
+        pygame.draw.line(surface, color,
+                        (icon_cx - _s // 2, icon_cy),
+                        (icon_cx + _s // 2, icon_cy - _s // 2), max(1, int(2 * scale)))
+
+        # 발 (삼각형)
+        foot_tip_x = icon_cx + _s + int(2 * scale)
+        foot_tip_y = icon_cy - _s
+        foot_pts = [
+            (icon_cx + _s // 3, icon_cy - _s // 2 + int(2 * scale)),
+            (icon_cx + _s // 3, icon_cy - _s // 2 - int(2 * scale)),
+            (foot_tip_x, foot_tip_y),
+            (foot_tip_x, foot_tip_y + int(3 * scale)),
+        ]
+        pygame.draw.polygon(surface, color, foot_pts)
+        pygame.draw.polygon(surface, lt, foot_pts, max(1, int(1 * scale)))
+
+        # 타격 이펙트 (방사선 + 충격파)
+        imp_x = foot_tip_x + int(2 * scale)
+        imp_y = foot_tip_y
+        for i in range(3):
+            arc_r = int((3 + i * 3) * scale)
+            ic = tuple(min(255, c + 40 - i * 20) for c in lt)
+            pygame.draw.arc(surface, ic,
+                          (imp_x - arc_r, imp_y - arc_r, arc_r * 2, arc_r * 2),
+                          math.radians(-60), math.radians(60), max(1, int(1.5 * scale)))
+        # 방사선
+        for angle in [-40, -10, 20, 45]:
+            rad = math.radians(angle)
+            lx1 = imp_x + int(math.cos(rad) * int(2 * scale))
+            ly1 = imp_y + int(math.sin(rad) * int(2 * scale))
+            lx2 = imp_x + int(math.cos(rad) * int(6 * scale))
+            ly2 = imp_y + int(math.sin(rad) * int(6 * scale))
+            pygame.draw.line(surface, lt, (lx1, ly1), (lx2, ly2), max(1, int(1 * scale)))
+        # 중앙 플래시
+        pygame.draw.circle(surface, (255, 255, 255), (imp_x, imp_y), max(2, int(2 * scale)))
 
     elif skill_id == "soldier_pistol_perk":
         # 권총 화기류 - 권총 아이콘
@@ -58683,6 +58758,7 @@ def update_blacksmith_coins(player_rect):
     global blacksmith_coins
     if not blacksmith_coins:
         return
+    print(f"[DEBUG] update_coins! count={len(blacksmith_coins)}, timer={blacksmith_coins[0]['timer']}", flush=True)
 
     coins_to_remove = []
     for coin in blacksmith_coins:
@@ -58740,8 +58816,6 @@ def draw_blacksmith_coins(surface):
     if not blacksmith_coins:
         return
     print(f"[DEBUG] draw_coins 호출! count={len(blacksmith_coins)}, pos=({blacksmith_coins[0]['x']:.0f},{blacksmith_coins[0]['y']:.0f}), timer={blacksmith_coins[0]['timer']}", flush=True)
-    if False:  # 원래 return 자리 - 위에서 이미 처리
-        return
 
     for coin in blacksmith_coins:
         if coin['collected']:
@@ -95326,6 +95400,7 @@ def draw_overlay_ui():
         items.draw_items(SCREEN)
         # 🪙 발토르 건설물 파괴 금화 렌더링
         if blacksmith_coins:
+            print(f"[DEBUG] overlay_ui에서 draw_coins 호출 직전! count={len(blacksmith_coins)}", flush=True)
             draw_blacksmith_coins(SCREEN)
         # 🧪 발토르 건설물 파괴 드랍 병 렌더링
         if blacksmith_drop_bottles:
@@ -117814,6 +117889,13 @@ def draw_objects():
                     pass
         except Exception:
             pass
+
+    # 🪙 발토르 건설물 파괴 금화 렌더링 (모든 렌더 경로에서 보이도록 draw_objects 끝에 배치)
+    if blacksmith_coins:
+        draw_blacksmith_coins(SCREEN)
+    # 🧪 발토르 건설물 파괴 드랍 병 렌더링
+    if blacksmith_drop_bottles:
+        draw_blacksmith_drop_bottles(SCREEN)
 
 def calculate_total_earned_medals(up_to_stage):
     total = 0
@@ -165868,6 +165950,8 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)
             draw_laser_evaporation_particles(SCREEN)
             draw_neutralize_particles(SCREEN)
+            if blacksmith_coins:
+                print(f"[DEBUG] 메인루프 draw_overlay_ui 직전! coins={len(blacksmith_coins)}", flush=True)
             draw_overlay_ui()
             draw_score()
             draw_stage8_boss_gauge_bar()
@@ -170179,7 +170263,7 @@ def get_item_description(item_name):
         "speedboots": "스피드부츠: 플레이어의 이동 속도를 증가시켜줍니다.",
         "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",
         "speedgear": "보정벨트: 좌,우 방향 전환 속도가 증가합니다.",
-        "battery": "배터리팩: 다음 스테이지로 넘어갈 때 게이지를 보존합니다. (롤옵션: 보존율 60~100%)",
+        "battery": "배터리팩: 다음 스테이지로 넘어갈 때 게이지를 보존합니다.",
         "slot_add": "배낭: 엑티브아이템 슬롯을 1~3칸 추가합니다.",
         "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다.",
         "master": "토르의 망치: 벽돌 길이를 늘려주며, 아이템 쿨타임도 줄여줍니다.",
@@ -170191,24 +170275,24 @@ def get_item_description(item_name):
         "sensor": "위험감지벨트: 위험 시 자동으로 대쉬를 시전합니다.",
         "dashholder": "대쉬홀더: 대쉬토큰을 추가로 얻습니다.",
         "dowsing_pendulum": "다우징팬들럼: 주위 아이템을 끌어당깁니다.",
-        "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 2개 동시에 나타납니다.",
-        "adversity_armor": "역경의 갑옷: 실점 후 일정 확률로 무적이 발동됩니다. 무적 발동 시 다음 라운드에서 일정 시간 동안 공이 바닥에 닿아도 반사되며, 서브 시 공 속도가 20% 증가합니다.",
-        "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 게이지를 소모하여 파편을 발사합니다. 파편이 보스 패들에 명중하면 보스를 넉백시킵니다. 게이지가 부족하면 발동하지 않습니다. [롤옵션] 발동확률 15~25%, 파편 5~9개, 넉백 Lv1~4, 게이지소모 25~50",
-        "magnet_field": "자기장 발생기: 8초간 자기장을 발생시켜 반경 400px 이내의 보스가 친 공이 플레이어 패들 쪽으로 끌려옵니다. 위기 상황에서 방어용으로 유용합니다.",
-        "boomerang": "부메랑: 보스 방향으로 부메랑을 던져 넉백+스턴을 겁니다. 부메랑이 돌아오면서 경로에 있는 필드 아이템을 자동으로 회수합니다. 공에 닿으면 부메랑이 파괴됩니다.",
-        "soap": "비누: 보스 진영에 비누를 던집니다. 보스가 밟으면 3초간 미끄러움 디버프가 발동되어 관성으로 미끄러지며 방향전환이 매우 어려워집니다. 좌우 왕복 공격에 취약해집니다.",
-        "pandora_legacy": "판도라의 유산: 판도라의 상자 업그레이드. 매 라운드 승리 후 다음 라운드 시작 시 3개의 액티브 아이템 선택지가 화면에 표시됩니다. 원하는 아이템을 선택하여 전략적으로 빌드를 구성할 수 있습니다. [롤옵션] 매직찬스 10~30% (희귀 아이템 출현 확률 상승)",
-        "megingjord": "메긴교르드: 토르의 힘의 벨트. 장착 시 퍽 선택 화면에서 퍽을 고른 후 일정 확률로 한 번 더 고를 수 있는 기회가 주어집니다. 발동 시 선택한 퍽 카드가 회전하며 새로운 퍽 카드가 생성되고, '메긴교르드의 효과 발동!' 텍스트가 표시됩니다. [롤옵션] 추가 선택 확률 30~50%",
-        "valhalla_warplate": "발할라의 전갑: 전사의 영광이 깃든 신성한 갑옷. 장착 시 플레이어가 공을 타격할 때마다 일정 확률로 발할라의 영웅이 호위무사로 소환됩니다. 소환된 영웅은 보유 스킬 2개 중 1개를 랜덤으로 발동한 뒤 즉시 사라집니다. 투기장의 15영웅 중 랜덤 1명이 등장합니다. [롤옵션] 영웅 소환 확률 8~15%, 게이지 소모 30~60",
+        "lucky_coin": "럭키코인: 행운의 금화입니다. 아이템 스폰 시 일정 확률로 아이템이 1개 더 스폰됩니다.",
+        "adversity_armor": "역경의 갑옷: 실점 후 그다음 라운드에 일정 확률로 사용자를 보호하는 무적의 벽이 생성됩니다. 서브 시 공 속도가 증가합니다.",
+        "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 게이지를 소모하여 상대를 넉백시키는 가시 파편을 발사합니다.",
+        "magnet_field": "자기장 발생기: 일정기간 자기장을 발생시켜 일정반경이내 공을 플레이어 패들 쪽으로 끌어옵니다.",
+        "boomerang": "부메랑: 상대방을 기절시키는 부메랑을 던집니다. 발사한 부메랑은 다시 되돌아와 회수할 수 있지만 공에 닿으면 부메랑이 파괴됩니다.",
+        "soap": "비누: 상대가 밟았을 때 이동을 미끄럽게 하는 비누를 던집니다.",
+        "pandora_legacy": "판도라의 유산: 초고대문명의 과학자가 남긴 유물, 게임에서 승리 시 일정확률로 '판도라의 유산'이 작동하며 원하는 엑티브아이템을 고를 수 있습니다.",
+        "megingjord": "메긴교르드: 토르의 힘의 깃든 벨트. 퍽 선택 화면에서 퍽을 고른 후 일정 확률로 한 번 더 고를 수 있는 기회가 주어집니다. 최대 연속 2회 발동됩니다",
+        "valhalla_warplate": "발할라의 전갑: 고대 전사의 영광이 깃든 신성한 갑옷. 공을 타격시 일정 확률로 발할라의 영웅이 호위무사로 소환됩니다.",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
-        "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 풀 대쉬를 발동합니다. 게이지가 충분하면 토큰 없이도 대쉬가 가능합니다. [롤옵션] 게이지 소모량 130~200 (낮을수록 좋음)",
-        "strange_vial": "기묘한 약병: 마시면 50% 확률로 두 가지 효과 중 하나가 발동됩니다. [거대화] 패들 크기 220% 증가, 이동속도 50% 감소. [축소화] 패들 크기 50% 감소, 이동속도 130% 증가. 지속시간 30초. 어떤 효과가 나올지는 운에 달려있습니다!",
-        "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 장착 시 모든 퍽 레벨이 1 증가합니다. 이미 투자한 퍽에만 적용되며, 최대 레벨을 초과할 수 있습니다. [고정효과] 모든 퍽 레벨 +1 [패널티 롤옵션] 이동속도 10~20% 감소, 몸집크기 10~20% 감소 (낮을수록 상위옵)",
-        "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑입니다. 베놈 엣지 적중 시 일정 확률로 보스 주변에 독안개 영역을 생성합니다. 독안개 안에 있는 보스는 이동속도가 50% 감소하고, 1초당 보스 게이지가 50 감소합니다. 스테이지 6 홍련의 경우 1초당 구슬게이지 1개가 감소합니다. [롤옵션] 발동확률 30~50%",
-        "elixir_of_mastery": "엘릭서 오브 마스터리: [신화급] 사용 시 보유 중인 퍽 중 Lv.5 미만인 퍽 하나가 랜덤으로 선택되어 즉시 Lv.5가 됩니다. 신비로운 연출과 함께 어떤 퍽이 강화되었는지 공개됩니다. Lv.5 미만 퍽이 없으면 사용할 수 없습니다. 극히 희귀한 신화급 물약!",
-        "dowsing_goggles": "다우징 고글: 고대 탐지 기술이 내장된 특수 고글입니다. 장착 시 퍽 선택지가 1개 고정 증가합니다 (기본 3 → 4개). [롤옵션] 추가 퍽 등장 확률 30~60% - 퍽 선택 시 확률적으로 보너스 퍽 1개가 추가 등장합니다!",
+        "soul_burst": "소울버스트: 대쉬 토큰이 없을 때 스페셜 게이지를 소모하여 하프대쉬 대신 대쉬를 발동합니다.",
+        "strange_vial": "기묘한 약병: 미치광이 연금술사가 제조한 고대비약, 어떤 효과가 나올지는 운에 달려있습니다!",
+        "sage_ring": "현자의 반지: 고대 현자가 남긴 신비로운 반지입니다. 강력하지만 다루기가 어려운 반지",
+        "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑. 베놈 엣지를 더 강력하게 업그레이드 시켜줍니다. 베놈엣지의 독안개 안에 있는 보스는 이동속도가 감소하고, 게이지가 지속적으로 감소합니다.",
+        "elixir_of_mastery": "엘릭서 오브 마스터리: 신을 보좌하는 신성연금술사가 만든 비약, 사용 시 보유 중인 퍽 중 하나가 랜덤으로 선택되어 즉시 Lv.5가 됩니다.",
+        "dowsing_goggles": "다우징 고글: 고대 탐지 기술이 내장된 특수 고글입니다. 일정확률로 퍽 선택지가 1개 고정 증가합니다.",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
