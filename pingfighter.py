@@ -62973,6 +62973,7 @@ def activate_quake(animated_bg=None):
         original_ball_speed_quake = ball_vel.copy()
     # 정글지진 효과음 재생
     try:
+        SOUND_QUAKE.set_volume(sfx_volume)
         SOUND_QUAKE.play(loops=-1)  # 무한루프로 재생
     except:
         pass  # 사운드 오류 발생 시 무시하고 계속 진행
@@ -65804,12 +65805,12 @@ def handle_gods_judgment():
     # 석상 등장 사운드 (IDLE → MERGE 전환 시)
     if prev_phase == 0 and cur_phase == 1:
         if SOUND_GOD_POP:
-            SOUND_GOD_POP.play()
+            play_sound_with_volume(SOUND_GOD_POP)
 
     # 석상 하강 사운드 (→ RETURN 전환 시)
     if prev_phase != 5 and cur_phase == 5:
         if SOUND_GOD_OUT:
-            SOUND_GOD_OUT.play()
+            play_sound_with_volume(SOUND_GOD_OUT)
 
     is_eq = bg.is_judgment_earthquake_active()
     was_eq = _judgment_prev_earthquake_active
@@ -65957,6 +65958,7 @@ def handle_gods_judgment():
         if bg.judgment_phase == 11 and not _judgment_wind_sound_playing:
             try:
                 if SOUND_GOD_WIND:
+                    SOUND_GOD_WIND.set_volume(sfx_volume)
                     SOUND_GOD_WIND.play(loops=-1)
                 _judgment_wind_sound_playing = True
             except Exception:
@@ -149660,7 +149662,7 @@ def handle_ball():
                 global stage6_boss_hit_timer, stage6_boss_hit_flash
                 stage6_boss_hit_timer = HALF_SECOND_FRAMES  # 0.5초간 깜빡임 (60 FPS 기준)
                 stage6_boss_hit_flash = True
-                SOUND_STAGE6_BOSS_HIT.play()  # 피격 사운드 재생
+                play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)  # 피격 사운드 재생
                 # print(f"  6  ! : {boss_current_health}/{boss_max_health}")
             #  보스 체력이 0이 되면 즉시 승리
             if boss_current_health <= 0:
