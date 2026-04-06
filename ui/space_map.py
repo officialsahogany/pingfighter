@@ -9861,14 +9861,14 @@ class SpaceMap:
     # ──────────────────────────────────────────────
     # ── 스테이지 정보 (테마 줌인 뷰용) ──
     _STAGE_INFO = {
-        1: {"title": "STAGE 1", "subtitle": "조선 : 풍류의 거리", "color": (255, 220, 220)},
-        2: {"title": "STAGE 2", "subtitle": "정글 : 야생의 늪지", "color": (240, 220, 180)},
-        3: {"title": "STAGE 3", "subtitle": "멘헤라 : 인형의 방", "color": (255, 180, 255)},
-        4: {"title": "STAGE 4", "subtitle": "사원 : 잊혀진 성소", "color": (255, 240, 200)},
-        5: {"title": "STAGE 5", "subtitle": "해상 : 전장의 파도", "color": (0, 255, 255)},
-        6: {"title": "STAGE 6", "subtitle": "화염 : 홍련의 거리", "color": (255, 150, 100)},
-        7: {"title": "STAGE 7", "subtitle": "전자 : 블록의 차원", "color": (120, 180, 255)},
-        8: {"title": "STAGE 8", "subtitle": "심해 : 어둠의 끝", "color": (90, 140, 200)},
+        1: {"title": "STAGE 1", "subtitle": _t("stage.1.subtitle", "조선 : 풍류의 거리"), "color": (255, 220, 220)},
+        2: {"title": "STAGE 2", "subtitle": _t("stage.2.subtitle", "정글 : 야생의 늪지"), "color": (240, 220, 180)},
+        3: {"title": "STAGE 3", "subtitle": _t("stage.3.subtitle", "멘헤라 : 인형의 방"), "color": (255, 180, 255)},
+        4: {"title": "STAGE 4", "subtitle": _t("stage.4.subtitle", "사원 : 잊혀진 성소"), "color": (255, 240, 200)},
+        5: {"title": "STAGE 5", "subtitle": _t("stage.5.subtitle", "해상 : 전장의 파도"), "color": (0, 255, 255)},
+        6: {"title": "STAGE 6", "subtitle": _t("stage.6.subtitle", "화염 : 홍련의 거리"), "color": (255, 150, 100)},
+        7: {"title": "STAGE 7", "subtitle": _t("stage.7.subtitle", "전자 : 블록의 차원"), "color": (120, 180, 255)},
+        8: {"title": "STAGE 8", "subtitle": _t("stage.8.subtitle", "심해 : 어둠의 끝"), "color": (90, 140, 200)},
     }
 
     # ── 탐색 UI 텍스트 시퀀스 ──

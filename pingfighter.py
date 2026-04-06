@@ -170234,20 +170234,21 @@ def get_item_display_name(item) -> str:
             if name_key == "hero_seal":
                 hero_name = item.get("hero_name", "")
                 if hero_name:
-                    base_name = f"{hero_name}의 인장"
+                    base_name = _t("ui.hero_seal_fmt", "{name}의 인장").format(name=hero_name)
                 else:
-                    base_name = "호위무사의 인장"
+                    base_name = _t("ui.hero_seal_default", "호위무사의 인장")
                 if prefix:
                     return f"{prefix} {base_name}".strip()
                 return base_name
             # 초급/중급인장: 영웅 이름 포함 동적 표시
             if name_key in ("minor_hero_seal", "intermediate_hero_seal"):
                 hero_name = item.get("hero_name", "")
-                grade = item.get("seal_grade", "초급" if name_key == "minor_hero_seal" else "중급")
+                grade_key = "ui.seal_grade_minor" if name_key == "minor_hero_seal" else "ui.seal_grade_intermediate"
+                grade = item.get("seal_grade", _t(grade_key, "초급" if name_key == "minor_hero_seal" else "중급"))
                 if hero_name:
-                    base_name = f"{hero_name}의 {grade}인장"
+                    base_name = _t("ui.seal_fmt", "{name}의 {grade}인장").format(name=hero_name, grade=grade)
                 else:
-                    base_name = f"{grade}인장"
+                    base_name = _t("ui.seal_default_fmt", "{grade}인장").format(grade=grade)
                 if prefix:
                     return f"{prefix} {base_name}".strip()
                 return base_name
