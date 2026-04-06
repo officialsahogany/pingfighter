@@ -51485,6 +51485,7 @@ def start_blacksmith_construction_sound():
 
     # 새 채널로 재생 시작
     try:
+        SOUND_CONSTRUCTION.set_volume(sfx_volume)
         channel = SOUND_CONSTRUCTION.play(-1)
     except Exception:
         channel = None
@@ -60752,8 +60753,9 @@ def activate_dynamite():
     dynamite_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"🧨 코만도암 적용! 투척 준비시간: {dynamite_throw_timer/60:.2f}초")
-        SOUND_THROW_BEFORE.set_volume(sfx_volume)
-        SOUND_THROW_BEFORE.play(maxtime=200)
+        _tb_ch = SOUND_THROW_BEFORE.play(maxtime=200)
+        if _tb_ch:
+            _tb_ch.set_volume(sfx_volume)
     else:
         print(f"🧨 다이너마이트 투척 준비: {dynamite_throw_timer/60:.2f}초")
         play_sound_with_volume(SOUND_THROW_BEFORE)
@@ -60777,8 +60779,9 @@ def activate_banana():
     banana_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"🍌 코만도암 적용! 투척 준비시간: {banana_throw_timer/60:.2f}초")
-        SOUND_THROW_BEFORE.set_volume(sfx_volume)
-        SOUND_THROW_BEFORE.play(maxtime=200)
+        _tb_ch = SOUND_THROW_BEFORE.play(maxtime=200)
+        if _tb_ch:
+            _tb_ch.set_volume(sfx_volume)
     else:
         print(f"🍌 바나나 투척 준비: {banana_throw_timer/60:.2f}초")
         play_sound_with_volume(SOUND_THROW_BEFORE)
@@ -60802,8 +60805,9 @@ def activate_soap():
     soap_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"[Soap] 코만도암 적용! 투척 준비시간: {soap_throw_timer/60:.2f}초")
-        SOUND_THROW_BEFORE.set_volume(sfx_volume)
-        SOUND_THROW_BEFORE.play(maxtime=200)
+        _tb_ch = SOUND_THROW_BEFORE.play(maxtime=200)
+        if _tb_ch:
+            _tb_ch.set_volume(sfx_volume)
     else:
         print(f"[Soap] 비누 투척 준비: {soap_throw_timer/60:.2f}초")
         play_sound_with_volume(SOUND_THROW_BEFORE)
@@ -60832,8 +60836,9 @@ def activate_boomerang_throw():
     boomerang_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"🪃 코만도암 적용! 투척 준비시간: {boomerang_throw_timer/60:.2f}초")
-        SOUND_THROW_BEFORE.set_volume(sfx_volume)
-        SOUND_THROW_BEFORE.play(maxtime=200)
+        _tb_ch = SOUND_THROW_BEFORE.play(maxtime=200)
+        if _tb_ch:
+            _tb_ch.set_volume(sfx_volume)
     else:
         print(f"🪃 부메랑 투척 준비: {boomerang_throw_timer/60:.2f}초")
         play_sound_with_volume(SOUND_THROW_BEFORE)
@@ -60895,8 +60900,9 @@ def activate_flare():
     flare_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"   !   {flare_throw_timer/60:.2f}")
-        SOUND_THROW_BEFORE.set_volume(sfx_volume)
-        SOUND_THROW_BEFORE.play(maxtime=200)
+        _tb_ch = SOUND_THROW_BEFORE.play(maxtime=200)
+        if _tb_ch:
+            _tb_ch.set_volume(sfx_volume)
     else:
         print(f"    : {flare_throw_timer/60:.2f}")
         play_sound_with_volume(SOUND_THROW_BEFORE)
@@ -61175,8 +61181,9 @@ def activate_grenade():
     grenade_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"   !   {grenade_throw_timer/60:.2f}")
-        SOUND_THROW_BEFORE.set_volume(sfx_volume)
-        SOUND_THROW_BEFORE.play(maxtime=200)  # 200ms만 재생
+        _tb_ch = SOUND_THROW_BEFORE.play(maxtime=200)
+        if _tb_ch:
+            _tb_ch.set_volume(sfx_volume)  # 200ms만 재생
     else:
         print(f"   : {grenade_throw_timer/60:.2f}")
         play_sound_with_volume(SOUND_THROW_BEFORE)
@@ -61756,8 +61763,9 @@ def activate_molotov():
     base_timer = 36  # 0.6초 (60fps * 0.6)
     molotov_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
-        SOUND_THROW_BEFORE.set_volume(sfx_volume)
-        SOUND_THROW_BEFORE.play(maxtime=200)  # 200ms만 재생
+        _tb_ch = SOUND_THROW_BEFORE.play(maxtime=200)
+        if _tb_ch:
+            _tb_ch.set_volume(sfx_volume)  # 200ms만 재생
     else:
         play_sound_with_volume(SOUND_THROW_BEFORE)
     # 효과음 재생 (투척 시작)
@@ -61814,7 +61822,7 @@ def create_brick_destruction_effect(brick_rect):
     # 벽돌 부서지는 사운드 재생 - rock_break.wav 제거됨
     # 대신 stonebreak2.wav 사용
     try:
-        SOUND_BRICK_DESTROY.play()
+        play_sound_with_volume(SOUND_BRICK_DESTROY)
     except:
         pass
     
@@ -79379,7 +79387,7 @@ def handle_player(keys):
                             if net_gun.fire(PLAYER, boss_rect):
                                 soldier_control_lock_timer = net_gun.CONTROL_LOCK_FRAMES
                                 try:
-                                    SOUND_THROW.play()
+                                    play_sound_with_volume(SOUND_THROW)
                                 except Exception:
                                     pass
                 elif current_weapon == "suicide_drone":
@@ -145814,7 +145822,7 @@ def handle_ball():
                         # 벽돌 완전 파괴
                         if 'SOUND_BRICK_DESTROY' in globals() and SOUND_BRICK_DESTROY:
                             try:
-                                SOUND_BRICK_DESTROY.play()
+                                play_sound_with_volume(SOUND_BRICK_DESTROY)
                             except:
                                 play_wall_sound()
                         else:
