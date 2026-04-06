@@ -122461,6 +122461,12 @@ def _play_replay(filepath: str):
     result = rp.metadata.get('result', '')
     capture_fps = rp.metadata.get('capture_fps', 30)
 
+    # 🎵 스테이지 BGM 재생
+    try:
+        bgm_manager.play_stage_bgm(stage)
+    except Exception:
+        pass
+
     info_font = get_font(14)
     speed_font = get_font(16)
     btn_font = get_font(15)
@@ -122493,6 +122499,7 @@ def _play_replay(filepath: str):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     rp.stop()
+                    bgm_manager.stop_bgm()
                     return
                 if event.key == pygame.K_SPACE:
                     rp.toggle_pause()
@@ -122534,6 +122541,7 @@ def _play_replay(filepath: str):
         # 프레임 진행
         surf = rp.advance()
         if surf is None and not rp.playing and not rp.paused:
+            bgm_manager.stop_bgm()
             _show_replay_end_screen(result, boss_name, stage)
             return
         if surf is None:
