@@ -657,37 +657,7 @@ class ValhallaWarplateState:
                     pygame.draw.line(beam_surf, (r, g, b_col, line_a), (0, by), (bw, by + 2), 2)
             cutscene_surf.blit(beam_surf, (cx - bw // 2, 0))
 
-        # ── 3) 소환진 (겹타원 + 회전 룬) ──
-        rune_scale = min(1.0, progress * 2.0) * fade_mult
-        rune_r = int(30 + 70 * rune_scale)
-        if rune_r > 5:
-            ra = _c(220 * fade_mult)
-            rc = rune_r + 12
-            rune_surf = pygame.Surface((rc * 2, rc * 2), pygame.SRCALPHA)
-            # 3중 타원 (바깥→안쪽)
-            for ri in range(3):
-                rr = rune_r - ri * 8
-                if rr < 3:
-                    break
-                r_a = _c(ra * (1.0 - ri * 0.25))
-                r_g = min(255, 200 + ri * 20)
-                pygame.draw.ellipse(rune_surf, (255, r_g, 80, r_a),
-                                   (rc - rr, rc - int(rr * 0.7), rr * 2, int(rr * 1.4)), 2 - ri if ri < 2 else 1)
-            # 회전 룬 문자 12개
-            for i in range(12):
-                angle = i * math.pi / 6 + t * 1.5
-                rx = rc + int(math.cos(angle) * (rune_r - 10))
-                ry = rc + int(math.sin(angle) * (rune_r * 0.7 - 7))
-                dot_a = _c(ra * (0.5 + 0.5 * math.sin(t * 4 + i)))
-                pygame.draw.circle(rune_surf, (255, 240, 150, dot_a), (rx, ry), 2)
-            # 중앙 십자
-            cr_len = rune_r - 15
-            cr_a = _c(ra * 0.4)
-            pygame.draw.line(rune_surf, (255, 230, 120, cr_a), (rc - cr_len, rc), (rc + cr_len, rc), 1)
-            pygame.draw.line(rune_surf, (255, 230, 120, cr_a), (rc, rc - int(cr_len * 0.7)), (rc, rc + int(cr_len * 0.7)), 1)
-            cutscene_surf.blit(rune_surf, (cx - rc, cy - rc))
-
-        # ── 4) 텍스트: "발할라의 부름" + 영웅 이름 ──
+        # ── 3) 텍스트: "발할라의 부름" + 영웅 이름 ──
         ta = _c(255 * fade_mult)
         if ta > 10:
             try:
@@ -779,17 +749,7 @@ class ValhallaWarplateState:
                         pygame.draw.line(beam_s, (255, 230, 130, la), (0, by), (bw, by + 3), 3)
                 dissolve_surf.blit(beam_s, (cx - bw // 2, 0))
 
-        # 3) 소환진 잔상 (축소되며 사라짐)
-        rune_r = max(3, int(80 * fade))
-        ra = _c(150 * fade)
-        if ra > 5:
-            rc = rune_r + 8
-            rune_s = pygame.Surface((rc * 2, rc * 2), pygame.SRCALPHA)
-            pygame.draw.ellipse(rune_s, (255, 220, 80, ra),
-                               (rc - rune_r, rc - int(rune_r * 0.7), rune_r * 2, int(rune_r * 1.4)), 2)
-            dissolve_surf.blit(rune_s, (cx - rc, cy - rc))
-
-        # 4) 흩뿌려지는 파편 (핵심 소멸 이펙트!)
+        # 3) 흩뿌려지는 파편 (핵심 소멸 이펙트!)
         scatter = 1.0 - fade  # 0(시작) → 1(완료)
         _rng = _vfx_rng
         _rng.seed(42)
