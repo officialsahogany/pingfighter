@@ -182,6 +182,27 @@ class ValhallaWarplateState:
         if random.random() > effective_chance:
             return False
 
+        # 게이지 소모량 계산 (롤옵션, reverse=True이므로 낮을수록 좋음)
+        gauge_cost = 45  # 기본값
+        try:
+            from legendary_items import get_legendary_roll_value
+            gauge_cost = get_legendary_roll_value(
+                "valhalla_warplate", "gauge_cost",
+                apply_polish=True,
+                enhancement_bonus_pct=self.enhancement_bonus_pct
+            )
+        except Exception:
+            pass
+
+        # 게이지 잔량 체크 + 소모 (special_gauge 사용, 라그나로크와 동일)
+        try:
+            import pingfighter
+            if pingfighter.special_gauge < gauge_cost:
+                return False  # 게이지 부족
+            pingfighter.consume_special_gauge(int(gauge_cost))
+        except Exception:
+            pass
+
         # 빈 슬롯 확인 (dismissed 상태는 빈 슬롯으로 간주)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2

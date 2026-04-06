@@ -103,6 +103,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     ],
     "valhalla_warplate": [
         {"key": "summon_chance", "label": "영웅 소환 확률", "min": 8, "max": 15, "unit": "%", "default": 10},
+        {"key": "gauge_cost", "label": "게이지 소모", "min": 30, "max": 60, "unit": "", "default": 45, "reverse": True},
     ],
 }
 
