@@ -80909,7 +80909,7 @@ game_state.deuce_losses = deuce_losses
 stage2_border_active = False  # 스테이지 2 테두리 활성화 상태
 stage2_border_timer = 0  # 테두리 애니메이션 타이머
 stage2_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
-stage2_border_flash_duration = 25  # 깜빡임 지속 시간
+stage2_border_flash_duration = 12  # 깜빡임 지속 시간 (은은하게)
 stage2_vines = []  # 덩굴 위치 리스트
 stage2_leaves = []  # 나뮇잎 위치 리스트
 # 통합 트레이드 포인트 별 시스템
@@ -137645,19 +137645,18 @@ def draw_stage2_jungle_border():
         draw.circle(highlight_green, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
         # 우하단
         draw.circle(highlight_green, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-        # 벽 충돌 시 깜빡임 효과
+        # 벽 충돌 시 깜빡임 효과 (은은하게)
         if stage2_border_flash_timer > 0:
-            flash_alpha = stage2_border_flash_timer / stage2_border_flash_duration
-            flash_color = (
-                int(100 + 155 * flash_alpha),
-                int(200 + 55 * flash_alpha),
-                int(100 + 155 * flash_alpha)
-            )
-            # 테두리 하이라이트 (스테이지 1과 동일한 두께)
-            pygame.draw.rect(SCREEN, flash_color, (x_off, 0, game_w, border_thickness), 0)
-            pygame.draw.rect(SCREEN, flash_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness), 0)
-            pygame.draw.rect(SCREEN, flash_color, (x_off, 0, border_thickness, HEIGHT), 0)
-            pygame.draw.rect(SCREEN, flash_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT), 0)
+            flash_ratio = stage2_border_flash_timer / stage2_border_flash_duration
+            # 최대 알파 60으로 제한하여 은은하게
+            alpha_val = int(60 * flash_ratio)
+            flash_color = (80, 180, 80, alpha_val)
+            flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
+            pygame.draw.rect(flash_surf, flash_color, (0, 0, game_w, border_thickness))
+            pygame.draw.rect(flash_surf, flash_color, (0, HEIGHT - border_thickness, game_w, border_thickness))
+            pygame.draw.rect(flash_surf, flash_color, (0, 0, border_thickness, HEIGHT))
+            pygame.draw.rect(flash_surf, flash_color, (game_w - border_thickness, 0, border_thickness, HEIGHT))
+            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
             stage2_border_flash_timer -= 1
 def update_stage2_leaves():
     """떨어지는 잎사귀 업데이트"""
