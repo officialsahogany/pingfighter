@@ -165604,6 +165604,11 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     import traceback
                     traceback.print_exc()
+            # 컷신 소멸 이펙트 (포탈 열림과 동시에 흩뿌려지며 사라짐)
+            try:
+                _vw_overlay.draw_cutscene_dissolve(SCREEN)
+            except Exception:
+                pass
             # 포탈 이펙트 (하강/상승 중)
             try:
                 _vw_overlay.draw_portal(SCREEN)

@@ -35,6 +35,7 @@ VALHALLA_HEROES = [
 
 # ── 소환 연출 상수 ──────────────────────────────────────────────
 SUMMON_CUTSCENE_DURATION = 1.0  # 소환 컷신 시간 (초)
+CUTSCENE_DISSOLVE_DURATION = 1.5  # 컷신 소멸 이펙트 지속 시간 (포탈 열림과 겹침)
 
 # ── 상태 관리 ──────────────────────────────────────────────────
 
@@ -85,6 +86,7 @@ class ValhallaWarplateState:
         # 컷신 연출
         self.cutscene_timer = 0.0     # 컷신 경과 시간
         self.cutscene_particles = []  # 컷신 파티클
+        self.cutscene_dissolve_timer = 0.0  # 컷신 소멸 잔여 이펙트 타이머
 
     @property
     def is_cutscene_active(self) -> bool:
@@ -326,14 +328,19 @@ class ValhallaWarplateState:
                 p["y"] += p["vy"] * dt
                 p["life"] -= dt
             self.cutscene_particles = [p for p in self.cutscene_particles if p["life"] > 0]
-            # 컷신 종료 → 실제 소환
+            # 컷신 종료 → 실제 소환 (소멸 이펙트는 포탈 단계에서 계속)
             if self.cutscene_timer >= SUMMON_CUTSCENE_DURATION:
+                self.cutscene_dissolve_timer = CUTSCENE_DISSOLVE_DURATION
                 self._do_actual_summon()
             return
 
         self.summon_timer += dt
         bg = self._bodyguard_ref
         gs = bg._guard_system if bg and bg.active else None
+
+        # 컷신 소멸 타이머 (포탈 단계에서도 계속 감소)
+        if self.cutscene_dissolve_timer > 0:
+            self.cutscene_dissolve_timer -= dt
 
         # ── PORTAL_DESCEND: 포탈 열림(2.0초) → 플래시+하강(1.0초) → 포탈 닫힘(1.0초) ──
         if self.state == self.PORTAL_DESCEND:
@@ -571,7 +578,7 @@ class ValhallaWarplateState:
         return min(255, max(0, int(v)))
 
     def draw_cutscene(self, screen: pygame.Surface):
-        """소환 컷신 연출 드로잉 - 고퀄리티 (흩뿌려지며 등장/소멸)"""
+        """소환 컷신 연출 드로잉 - 고퀄리티"""
         if self.state != self.CUTSCENE:
             return
 
@@ -585,15 +592,11 @@ class ValhallaWarplateState:
         cx, cy = W // 2, H // 2 - 30
         t = self.cutscene_timer
 
-        # 등장(0~0.3) / 체류(0.3~0.7) / 소멸(0.7~1.0) 페이즈
+        # 등장(0~0.3) / 체류(0.3~1.0) - 소멸은 포탈 열림과 함께 별도 처리
         if progress < 0.3:
-            appear = progress / 0.3  # 0→1
-            fade_mult = appear
-        elif progress < 0.7:
-            fade_mult = 1.0
+            fade_mult = progress / 0.3
         else:
-            disappear = (progress - 0.7) / 0.3  # 0→1
-            fade_mult = 1.0 - disappear
+            fade_mult = 1.0
 
         cutscene_surf = pygame.Surface((W, H), pygame.SRCALPHA)
 
@@ -708,30 +711,7 @@ class ValhallaWarplateState:
             pygame.draw.circle(ps, col, (sz + 2, sz + 2), sz)
             cutscene_surf.blit(ps, (int(p["x"]) - sz - 2, int(p["y"]) - sz - 2))
 
-        # ── 6) 소멸 시 흩뿌려지는 파편 ──
-        if progress > 0.65:
-            scatter = (progress - 0.65) / 0.35  # 0→1
-            random.seed(42)  # 안정적 랜덤
-            for si in range(25):
-                s_angle = random.uniform(0, math.pi * 2)
-                s_dist = random.uniform(30, 200) * scatter
-                s_x = cx + int(math.cos(s_angle) * s_dist)
-                s_y = cy + int(math.sin(s_angle) * s_dist * 0.7)
-                s_sz = max(1, int(random.uniform(1, 4) * (1.0 - scatter)))
-                s_a = _c(180 * (1.0 - scatter) * random.uniform(0.4, 1.0))
-                if s_a > 5 and s_sz > 0:
-                    if si % 3 == 0:
-                        s_col = (255, 220, 80, s_a)
-                    elif si % 3 == 1:
-                        s_col = (255, 245, 200, s_a)
-                    else:
-                        s_col = (200, 170, 60, s_a)
-                    fs = pygame.Surface((s_sz * 2 + 2, s_sz * 2 + 2), pygame.SRCALPHA)
-                    pygame.draw.circle(fs, s_col, (s_sz + 1, s_sz + 1), s_sz)
-                    cutscene_surf.blit(fs, (s_x - s_sz - 1, s_y - s_sz - 1))
-            random.seed()
-
-        # ── 7) 비네팅 (금빛 프레임) ──
+        # ── 6) 비네팅 (금빛 프레임) ──
         va = _c(50 * fade_mult)
         if va > 3:
             for i in range(4):
@@ -739,6 +719,90 @@ class ValhallaWarplateState:
                                (i * 3, i * 3, W - i * 6, H - i * 6), 2)
 
         screen.blit(cutscene_surf, (0, 0))
+
+    def draw_cutscene_dissolve(self, screen: pygame.Surface):
+        """컷신 소멸 이펙트 (포탈 열림과 동시에 진행 - 흩뿌려지며 사라짐)"""
+        if self.cutscene_dissolve_timer <= 0:
+            return
+
+        _c = self._clamp
+        W, H = 760, 750
+        cx, cy = W // 2, H // 2 - 30
+        # 소멸 진행도: 1.0(시작) → 0.0(완료)
+        fade = max(0, self.cutscene_dissolve_timer / CUTSCENE_DISSOLVE_DURATION)
+
+        dissolve_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+
+        # 1) 어두운 오버레이 서서히 사라짐
+        overlay_a = _c(80 * fade)
+        if overlay_a > 2:
+            dissolve_surf.fill((5, 5, 20, overlay_a))
+
+        # 2) 빛기둥 잔상 (서서히 얇아지며 사라짐)
+        for bi in range(3):
+            bw = max(1, int((3 + bi * 6) * fade))
+            ba = _c((50 - bi * 15) * fade)
+            if ba > 3 and bw > 0:
+                beam_s = pygame.Surface((bw, H), pygame.SRCALPHA)
+                for by in range(0, H, 4):
+                    dist = abs(by - cy)
+                    la = _c(ba * max(0, 1.0 - dist / 300))
+                    if la > 0:
+                        pygame.draw.line(beam_s, (255, 230, 130, la), (0, by), (bw, by + 3), 3)
+                dissolve_surf.blit(beam_s, (cx - bw // 2, 0))
+
+        # 3) 소환진 잔상 (축소되며 사라짐)
+        rune_r = max(3, int(80 * fade))
+        ra = _c(150 * fade)
+        if ra > 5:
+            rc = rune_r + 8
+            rune_s = pygame.Surface((rc * 2, rc * 2), pygame.SRCALPHA)
+            pygame.draw.ellipse(rune_s, (255, 220, 80, ra),
+                               (rc - rune_r, rc - int(rune_r * 0.7), rune_r * 2, int(rune_r * 1.4)), 2)
+            dissolve_surf.blit(rune_s, (cx - rc, cy - rc))
+
+        # 4) 흩뿌려지는 파편 (핵심 소멸 이펙트!)
+        scatter = 1.0 - fade  # 0(시작) → 1(완료)
+        random.seed(42)
+        for si in range(35):
+            s_angle = random.uniform(0, math.pi * 2)
+            s_base_dist = random.uniform(20, 180)
+            s_dist = s_base_dist * scatter + random.uniform(-5, 5)
+            s_x = cx + int(math.cos(s_angle) * s_dist)
+            s_y = cy + int(math.sin(s_angle) * s_dist * 0.7)
+            # 크기: 시작엔 크고 끝에 작아짐
+            s_sz = max(1, int(random.uniform(2, 5) * fade))
+            s_a = _c(200 * fade * random.uniform(0.3, 1.0))
+            if s_a > 3 and s_sz > 0:
+                if si % 4 == 0:
+                    s_col = (255, 230, 100, s_a)  # 밝은 금
+                elif si % 4 == 1:
+                    s_col = (255, 250, 210, s_a)  # 흰 금
+                elif si % 4 == 2:
+                    s_col = (220, 180, 60, s_a)   # 어두운 금
+                else:
+                    s_col = (255, 200, 80, s_a)   # 금
+                fs = pygame.Surface((s_sz * 2 + 4, s_sz * 2 + 4), pygame.SRCALPHA)
+                # 글로우 + 코어
+                pygame.draw.circle(fs, (*s_col[:3], _c(s_a * 0.3)), (s_sz + 2, s_sz + 2), s_sz + 2)
+                pygame.draw.circle(fs, s_col, (s_sz + 2, s_sz + 2), s_sz)
+                dissolve_surf.blit(fs, (s_x - s_sz - 2, s_y - s_sz - 2))
+        random.seed()
+
+        # 5) 텍스트 잔상 ("발할라의 부름"이 흐려지며 사라짐)
+        ta = _c(180 * fade)
+        if ta > 8:
+            try:
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                font_path = os.path.join(project_root, "fonts", "NanumSquareB.ttf")
+                main_font = pygame.freetype.Font(font_path, 34)
+                main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
+                main_surf.set_alpha(ta)
+                dissolve_surf.blit(main_surf, (cx - main_rect.width // 2, cy - 65))
+            except Exception:
+                pass
+
+        screen.blit(dissolve_surf, (0, 0))
 
     def draw_portal(self, screen: pygame.Surface):
         """포탈 이펙트 드로잉 (매혹 차원의 문과 동일 구조, 황금빛 고퀄리티)"""
