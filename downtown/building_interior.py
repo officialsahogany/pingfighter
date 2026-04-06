@@ -8346,6 +8346,7 @@ class BuildingInterior:
             "strange_vial": "기묘한 약병",
             "sage_ring": "현자의 반지",
             "venom_mist_gauntlet": "독안개장갑",
+            "valhalla_warplate": "발할라의 전갑",
             "elixir_of_mastery": "엘릭서 오브 마스터리",
         }
         return name_map.get(item_name, item_name)
@@ -8391,6 +8392,7 @@ class BuildingInterior:
             "odins_eye": 3750,
             "pandora_legacy": 4200,
             "megingjord": 3900,
+            "valhalla_warplate": 4080,
             # 호위무사 인장
             "hero_seal": 3333,
             # 유틸리티
