@@ -99,7 +99,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "trigger_chance", "label": "승리시 유산 발동률", "min": 40, "max": 70, "unit": "%", "default": 55},
     ],
     "megingjord": [
-        {"key": "extra_pick_chance", "label": "추가 선택 확률", "min": 20, "max": 40, "unit": "%", "default": 30},
+        {"key": "extra_pick_chance", "label": "추가 선택 확률", "min": 30, "max": 50, "unit": "%", "default": 40},
     ],
     "valhalla_warplate": [
         {"key": "summon_chance", "label": "영웅 소환 확률", "min": 8, "max": 15, "unit": "%", "default": 10},
@@ -11957,7 +11957,7 @@ class Megingjord(LegendaryItem):
         super().__init__(
             name="megingjord",
             korean_name="메긴교르드",
-            description="퍽 선택 시 추가 선택 기회 (롤 옵션: 확률 20~40%)",
+            description="퍽 선택 시 추가 선택 기회 (롤 옵션: 확률 30~50%)",
             unlock_condition="신화 아이템 획득",
             icon_path=None  # 고유 애니메이션만 사용
         )
@@ -12004,7 +12004,7 @@ class Megingjord(LegendaryItem):
 
     @property
     def extra_pick_chance(self) -> float:
-        """추가 퍽 선택 확률 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 20~40%)"""
+        """추가 퍽 선택 확률 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 30~50%)"""
         return get_legendary_roll_value(
             "megingjord", "extra_pick_chance",
             apply_polish=True,
