@@ -51485,8 +51485,9 @@ def start_blacksmith_construction_sound():
 
     # 새 채널로 재생 시작
     try:
-        SOUND_CONSTRUCTION.set_volume(sfx_volume)
         channel = SOUND_CONSTRUCTION.play(-1)
+        if channel:
+            channel.set_volume(sfx_volume)
     except Exception:
         channel = None
 
