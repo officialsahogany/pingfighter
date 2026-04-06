@@ -1117,6 +1117,7 @@ import opening
 import skill
 import academy
 import cinematic
+from replay.replay_system import get_recorder as get_replay_recorder, ReplayPlayer, list_replays, delete_replay
 from network.protocol import (
     OnlinePacketType, STAGE_MULTIPLAYER, serialize_game_frame, serialize_input,
     deserialize_input,
@@ -9336,12 +9337,13 @@ def _draw_pillar_ui(screen, renderer):
             # 현재 골드 값 계산
             current_gold = downtown_gold + ingame_gold
 
-            # 캐시 히트 체크 (골드 값이 바뀌면 재생성)
-            if _gold_hud_cache is None or _gold_hud_cached_value != current_gold:
+            # 캐시 히트 체크 (골드 값 변경 또는 HUD 이펙트 활성 시 매 프레임 재생성)
+            _hud_fx_on = _gold_hud_effect_timer > 0
+            if _gold_hud_cache is None or _gold_hud_cached_value != current_gold or _hud_fx_on:
                 _gold_hud_cache = pygame.Surface((100, 40), pygame.SRCALPHA)
                 _draw_ingame_gold_hud_internal(_gold_hud_cache)
-                _gold_hud_cached_value = current_gold
-                _gold_hud_scaled_cache.clear()  # 스케일 캐시도 클리어
+                _gold_hud_cached_value = current_gold if not _hud_fx_on else -1
+                _gold_hud_scaled_cache.clear()
 
             # 화면에 배치
             scaled_hud_w = int(100 * GAME_SCALE_FACTOR)
@@ -156634,6 +156636,18 @@ def main(stage_num, new_boss_mode=False):
     # 메인 메뉴 BGM 정지
     bgm_manager.stop_bgm()
 
+    # 🎬 리플레이 자동 녹화 시작
+    _replay_rec = get_replay_recorder()
+    try:
+        _replay_rec.start(
+            stage=stage_num,
+            boss_name=get_boss_name(stage_num),
+            ai_mode=ai_mode,
+            character=selected_character_type,
+        )
+    except Exception as _re:
+        print(f"[Replay] 녹화 시작 실패: {_re}")
+
     # BGM 볼륨 초기화
     global bgm_volume
     global fire_support_radio_loop_active
@@ -166139,6 +166153,17 @@ def main(stage_num, new_boss_mode=False):
         except Exception:
             pass
 
+        # 🎬 리플레이 프레임 기록
+        try:
+            if _replay_rec.recording and BALL and PLAYER and BOSS:
+                _replay_rec.record(
+                    BALL, PLAYER, BOSS, ball_vel,
+                    player_score, boss_score,
+                    special_gauge if 'special_gauge' in dir() else 0,
+                )
+        except Exception:
+            pass
+
         pygame.display.flip()
         # 프로파일러 프레임 종료
         if profiler:
@@ -166155,6 +166180,11 @@ def main(stage_num, new_boss_mode=False):
             deactivate_whip()  # 통합된 비활성화 함수 사용
             if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
                 BOSS.whip_sound.stop()
+            # 🎬 리플레이 녹화 종료 (승리)
+            try:
+                _replay_rec.stop(result='win')
+            except Exception:
+                pass
             show_result(True)
             if arena_mode_enabled:
                 if arena_battle_result is not None:
@@ -166169,6 +166199,11 @@ def main(stage_num, new_boss_mode=False):
                 BOSS.whip_sound.stop()
             #  스테이지 실패 기록
             record_stage_result(current_stage, cleared=False)
+            # 🎬 리플레이 녹화 종료 (패배)
+            try:
+                _replay_rec.stop(result='lose')
+            except Exception:
+                pass
             show_result(False)
             if arena_mode_enabled:
                 return arena_battle_result
