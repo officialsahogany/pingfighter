@@ -22579,14 +22579,14 @@ def play_ragnarok_shot_sound():
     try:
         if ragnarok_shot_channel and ragnarok_shot_channel.get_busy():
             ragnarok_shot_channel.stop()
-        ragnarok_shot_channel = SOUND_RAGNAROK_SHOT.play()
+        ragnarok_shot_channel = play_sound_with_volume(SOUND_RAGNAROK_SHOT)
     except Exception:
         pass  # 사운드 파일이 없으면 무시
 
 def play_ragnarok_boom_sound():
     """라그나로크 보스 반격 사운드 재생"""
     try:
-        SOUND_RAGNAROK_BOOM.play()
+        play_sound_with_volume(SOUND_RAGNAROK_BOOM)
     except:
         pass  # 사운드 파일이 없으면 무시
 
@@ -22594,6 +22594,7 @@ def play_ragnarok_shock_sound():
     """라그나로크 전기 감전 사운드 재생 (루프)"""
     try:
         # -1은 무한 루프를 의미
+        SOUND_RAGNAROK_SHOCK.set_volume(sfx_volume)
         SOUND_RAGNAROK_SHOCK.play(-1)
     except:
         pass  # 사운드 파일이 없으면 무시
@@ -41228,7 +41229,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                             stage6_boss_hit_timer = max(stage6_boss_hit_timer, HALF_SECOND_FRAMES)
                             stage6_boss_hit_flash = True
                             if SOUND_STAGE6_BOSS_HIT:
-                                SOUND_STAGE6_BOSS_HIT.play()
+                                play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
                         except Exception:
                             pass
 
@@ -65822,7 +65823,7 @@ def handle_gods_judgment():
         _judgment_ball_speed_backup = ball_vel.copy()
         # 신의 심판 시작 사운드
         if SOUND_GOD_START:
-            SOUND_GOD_START.play()
+            play_sound_with_volume(SOUND_GOD_START)
         # 화면 중앙 텍스트 (텍스트 표시 중 judgment 타이머 일시정지)
         bg.judgment_text_display_paused = True
         show_fade_text("신의 심판: 땅의 분노")
@@ -65830,6 +65831,7 @@ def handle_gods_judgment():
         # 지진 루프 사운드 (텍스트 표시 후 재생 → godstart와 겹치지 않음)
         try:
             if SOUND_GOD_EARTHQUAKE:
+                SOUND_GOD_EARTHQUAKE.set_volume(sfx_volume)
                 SOUND_GOD_EARTHQUAKE.play(loops=-1)
             _judgment_quake_sound_playing = True
         except Exception:
@@ -65888,7 +65890,7 @@ def handle_gods_judgment():
             bg.judgment_text_display_paused = False
             # 투척 사운드
             if SOUND_GOD_THUNDER_THROW:
-                SOUND_GOD_THUNDER_THROW.play()
+                play_sound_with_volume(SOUND_GOD_THUNDER_THROW)
 
         # ── 번개의 분노: 폭발 시 스턴 판정 (consume-flag 방식) ──
         if bg.judgment_bolt_explosion_started and not _judgment_lightning_stun_applied:
@@ -65897,7 +65899,7 @@ def handle_gods_judgment():
             _judgment_lightning_stun_type = True
             # 폭발 사운드
             if SOUND_GOD_THUNDER:
-                SOUND_GOD_THUNDER.play()
+                play_sound_with_volume(SOUND_GOD_THUNDER)
             ex = bg.judgment_explosion_x
             ey = bg.judgment_explosion_y
             stun_radius = bg.judgment_explosion_max_radius
@@ -116956,7 +116958,7 @@ def draw_objects():
             nemesis_sub_boss_hit_flash = True
             # 보스 패들과 동일한 사운드 재생
             if SOUND_STAGE6_BOSS_HIT:
-                SOUND_STAGE6_BOSS_HIT.play()
+                play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
             # 이펙트
             effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=8)
 
@@ -149837,7 +149839,7 @@ def handle_ball():
                 globals()['stage6_boss_hit_timer'] = HALF_SECOND_FRAMES  # 0.5초간 깜빡임
                 globals()['stage6_boss_hit_flash'] = True
                 if SOUND_STAGE6_BOSS_HIT:
-                    SOUND_STAGE6_BOSS_HIT.play()
+                    play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
                 pass  # print(f"🛡️ [네메시스] 보스 피격 이펙트 발동!")  # 디버그 비활성화
             elif current_stage == 2 and speed_defense_active:
                 play_sound_with_volume(SOUND_DEFENSE_HIT)
