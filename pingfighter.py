@@ -137646,14 +137646,25 @@ def draw_stage2_jungle_border():
         # 벽 충돌 시 깜빡임 효과 (은은하게)
         if stage2_border_flash_timer > 0:
             flash_ratio = stage2_border_flash_timer / stage2_border_flash_duration
-            # 최대 알파 60으로 제한하여 은은하게
-            alpha_val = int(60 * flash_ratio)
-            flash_color = (80, 180, 80, alpha_val)
+            # 최대 알파 30으로 제한 + 그라데이션 (벽→안쪽으로 페이드아웃)
+            base_alpha = int(30 * flash_ratio)
+            bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
-            pygame.draw.rect(flash_surf, flash_color, (0, 0, game_w, border_thickness))
-            pygame.draw.rect(flash_surf, flash_color, (0, HEIGHT - border_thickness, game_w, border_thickness))
-            pygame.draw.rect(flash_surf, flash_color, (0, 0, border_thickness, HEIGHT))
-            pygame.draw.rect(flash_surf, flash_color, (game_w - border_thickness, 0, border_thickness, HEIGHT))
+            grad_steps = max(1, bt // 2)
+            for i in range(grad_steps):
+                t = 1.0 - (i / grad_steps)  # 1.0(벽면) → 0.0(안쪽)
+                a = int(base_alpha * t * t)  # 제곱 감쇠로 더 은은하게
+                if a <= 0:
+                    break
+                c = (50, 140, 50, a)
+                # 상단
+                pygame.draw.rect(flash_surf, c, (0, i, game_w, 1))
+                # 하단
+                pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
+                # 좌측
+                pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
+                # 우측
+                pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
             SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
             stage2_border_flash_timer -= 1
 def update_stage2_leaves():
