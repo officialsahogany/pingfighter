@@ -247,7 +247,7 @@ class ValhallaWarplateState:
         particle_cx = self.portal_x
         particle_cy = 375.0  # 화면 중앙 Y
         self.cutscene_particles.clear()
-        for _ in range(30):
+        for _ in range(18):
             angle = random.uniform(0, math.pi * 2)
             speed = random.uniform(20, 80)
             self.cutscene_particles.append({
@@ -559,11 +559,13 @@ class ValhallaWarplateState:
                 self._cached_surfaces[key] = None
         return self._cached_surfaces.get(key)
 
-    def _get_surface(self, key, width, height):
-        """재사용 Surface 캐시 (크기가 같으면 재사용, 다르면 재생성)"""
+    def _get_surface(self, key, width, height, skip_clear=False):
+        """재사용 Surface 캐시 (크기가 같으면 재사용, 다르면 재생성)
+        skip_clear=True: 호출자가 직접 fill()할 경우 이중 fill 방지"""
         cached = self._cached_surfaces.get(key)
         if cached and cached.get_width() == width and cached.get_height() == height:
-            cached.fill((0, 0, 0, 0))
+            if not skip_clear:
+                cached.fill((0, 0, 0, 0))
             return cached
         surf = pygame.Surface((width, height), pygame.SRCALPHA)
         self._cached_surfaces[key] = surf
@@ -586,8 +588,10 @@ class ValhallaWarplateState:
             pass
 
     def _spawn_portal_swirl(self, chance):
-        """소용돌이 파티클 생성 (매혹과 동일 구조)"""
-        if random.random() < chance:
+        """소용돌이 파티클 생성 (최대 개수 제한으로 프레임 드랍 방지)"""
+        if len(self.portal_particles) >= 20:  # 파티클 상한
+            return
+        if random.random() < chance * 0.6:  # 스폰율 40% 감소
             angle = random.uniform(0, math.pi * 2)
             dist = random.uniform(25, 55)
             self.portal_particles.append({
@@ -602,7 +606,9 @@ class ValhallaWarplateState:
             })
 
     def _spawn_portal_lightning(self, chance):
-        """전기 아크 생성 (매혹과 동일 구조)"""
+        """전기 아크 생성 (최대 개수 제한)"""
+        if len(self.portal_lightning) >= 6:  # 번개 상한
+            return
         if random.random() < chance and self.portal_scale > 0.15:
             self.portal_lightning.append({
                 'angle': random.uniform(0, math.pi * 2),
@@ -637,7 +643,7 @@ class ValhallaWarplateState:
         return min(255, max(0, int(v)))
 
     def draw_cutscene(self, screen: pygame.Surface):
-        """소환 컷신 연출 드로잉 - 고퀄리티"""
+        """소환 컷신 연출 드로잉 - 최적화"""
         if self.state != self.CUTSCENE:
             return
 
@@ -647,34 +653,33 @@ class ValhallaWarplateState:
         hero = self._pending_hero
         if not hero:
             return
-        # 재사용 Surface (매 프레임 new 방지)
-        cutscene_surf = self._get_surface('cutscene_main', W, H)
+        # skip_clear=True: 바로 아래에서 fill()하므로 이중 fill 방지
+        cutscene_surf = self._get_surface('cutscene_main', W, H, skip_clear=True)
 
         cx, cy = int(self.portal_x), H // 2 - 30
         t = self.cutscene_timer
 
-        # 등장(0~0.3) / 체류(0.3~1.0) - 소멸은 포탈 열림과 함께 별도 처리
         if progress < 0.3:
             fade_mult = progress / 0.3
         else:
             fade_mult = 1.0
 
-        # ── 1) 어두운 오버레이 (부드러운 페이드) ──
+        # ── 1) 어두운 오버레이 (이것이 전체 fill이므로 별도 clear 불필요) ──
         overlay_a = _c(120 * fade_mult)
         cutscene_surf.fill((5, 5, 20, overlay_a))
 
-        # ── 2) 빛기둥 (3겹, 간소화 - 직사각형 fill + 중앙 밝은 선) ──
+        # ── 2) 빛기둥 (2겹으로 축소) ──
         beam_appear = min(1.0, progress * 2.5)
         beam_fade = fade_mult
-        for bi in range(3):
-            bw = int((6 + bi * 12) * beam_appear)
+        for bi in range(2):
+            bw = int((6 + bi * 14) * beam_appear)
             if bw < 2:
                 continue
-            ba = _c((60 - bi * 18) * beam_fade)
+            ba = _c((55 - bi * 22) * beam_fade)
             if ba < 3:
                 continue
             beam_surf = self._get_surface(f'beam_{bi}', bw, H)
-            beam_surf.fill((255, 220 + bi * 10, 100 + bi * 30, _c(ba * 0.25)))
+            beam_surf.fill((255, 220 + bi * 15, 100 + bi * 40, _c(ba * 0.25)))
             pygame.draw.line(beam_surf, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
             cutscene_surf.blit(beam_surf, (cx - bw // 2, 0))
 
@@ -690,7 +695,6 @@ class ValhallaWarplateState:
                     tx = cx - main_rect.width // 2
                     ty_main = cy - 65
                     cutscene_surf.blit(main_surf, (tx, ty_main))
-                    # 텍스트 아래 장식선
                     line_w = int(main_rect.width * 0.8)
                     if line_w > 10:
                         line_a = _c(ta * 0.4)
@@ -710,7 +714,7 @@ class ValhallaWarplateState:
                 except Exception:
                     pass
 
-        # ── 5) 파티클 (cutscene_surf에 직접 draw - 개별 Surface 생성 없음) ──
+        # ── 5) 파티클 (cutscene_surf에 직접 draw) ──
         for p in self.cutscene_particles:
             ratio = max(0, p["life"] / p["max_life"])
             sz = max(1, int(p["size"] * ratio))
@@ -725,48 +729,50 @@ class ValhallaWarplateState:
                 col = (255, 255, 230, pa)
             pygame.draw.circle(cutscene_surf, col, (int(p["x"]), int(p["y"])), sz)
 
-        # ── 6) 비네팅 (금빛 프레임) ──
+        # ── 6) 비네팅 (금빛 프레임 - 2겹으로 축소) ──
         va = _c(50 * fade_mult)
         if va > 3:
-            for i in range(4):
+            for i in range(2):
                 pygame.draw.rect(cutscene_surf, (255, 200, 60, _c(va / (i + 1))),
-                               (i * 3, i * 3, W - i * 6, H - i * 6), 2)
+                               (i * 4, i * 4, W - i * 8, H - i * 8), 2)
 
         screen.blit(cutscene_surf, (0, 0))
 
     def draw_cutscene_dissolve(self, screen: pygame.Surface):
-        """컷신 소멸 이펙트 (포탈 열림과 동시에 진행 - 흩뿌려지며 사라짐)"""
+        """컷신 소멸 이펙트 (최적화 - 파편 수 축소, 이중 fill 제거)"""
         if self.cutscene_dissolve_timer <= 0:
             return
 
         _c = self._clamp
         W, H = 760, 750
         cx, cy = int(self.portal_x), H // 2 - 30
-        # 소멸 진행도: 1.0(시작) → 0.0(완료)
         fade = max(0, self.cutscene_dissolve_timer / CUTSCENE_DISSOLVE_DURATION)
 
-        dissolve_surf = self._get_surface('dissolve_main', W, H)
+        # skip_clear=True: 바로 아래 fill()로 대체
+        dissolve_surf = self._get_surface('dissolve_main', W, H, skip_clear=True)
 
-        # 1) 어두운 오버레이 서서히 사라짐
+        # 1) 어두운 오버레이 (전체 fill이므로 별도 clear 불필요)
         overlay_a = _c(80 * fade)
         if overlay_a > 2:
             dissolve_surf.fill((5, 5, 20, overlay_a))
+        else:
+            dissolve_surf.fill((0, 0, 0, 0))
 
-        # 2) 빛기둥 잔상 (간소화)
-        for bi in range(2):
-            bw = max(1, int((4 + bi * 8) * fade))
-            ba = _c((40 - bi * 18) * fade)
-            if ba > 3 and bw > 0:
-                beam_s = self._get_surface(f'dissolve_beam_{bi}', bw, H)
-                beam_s.fill((255, 230, 130, _c(ba * 0.2)))
-                pygame.draw.line(beam_s, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
-                dissolve_surf.blit(beam_s, (cx - bw // 2, 0))
+        # 2) 빛기둥 잔상 (1겹으로 축소)
+        bw = max(1, int(8 * fade))
+        ba = _c(35 * fade)
+        if ba > 3 and bw > 0:
+            beam_s = self._get_surface('dissolve_beam_0', bw, H)
+            beam_s.fill((255, 230, 130, _c(ba * 0.2)))
+            pygame.draw.line(beam_s, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
+            dissolve_surf.blit(beam_s, (cx - bw // 2, 0))
 
-        # 3) 흩뿌려지는 파편 (dissolve_surf에 직접 draw)
+        # 3) 흩뿌려지는 파편 (25→14개로 축소)
         scatter = 1.0 - fade
         _rng = _vfx_rng
         _rng.seed(42)
-        for si in range(25):
+        cols = [(255, 230, 100), (255, 250, 210), (220, 180, 60), (255, 200, 80)]
+        for si in range(14):
             s_angle = _rng.uniform(0, math.pi * 2)
             s_dist = _rng.uniform(20, 180) * scatter + _rng.uniform(-5, 5)
             s_x = cx + int(math.cos(s_angle) * s_dist)
@@ -774,10 +780,9 @@ class ValhallaWarplateState:
             s_sz = max(1, int(_rng.uniform(2, 4) * fade))
             s_a = _c(180 * fade * _rng.uniform(0.3, 1.0))
             if s_a > 3 and s_sz > 0:
-                cols = [(255, 230, 100), (255, 250, 210), (220, 180, 60), (255, 200, 80)]
                 pygame.draw.circle(dissolve_surf, (*cols[si % 4], s_a), (s_x, s_y), s_sz)
 
-        # 4) 텍스트 잔상 (캐시된 폰트 사용)
+        # 4) 텍스트 잔상
         ta = _c(180 * fade)
         if ta > 8:
             try:
@@ -792,7 +797,7 @@ class ValhallaWarplateState:
         screen.blit(dissolve_surf, (0, 0))
 
     def draw_portal(self, screen: pygame.Surface):
-        """포탈 이펙트 드로잉 (최적화: 단일 재사용 Surface)"""
+        """포탈 이펙트 드로잉 (최적화: Surface 축소, 연산 감소)"""
         if self.state not in (self.PORTAL_DESCEND, self.PORTAL_ASCEND):
             return
 
@@ -811,49 +816,53 @@ class ValhallaWarplateState:
         t = self.portal_timer
         flash = getattr(self, 'portal_flash', 0.0)
 
-        # 단일 포탈 Surface (재사용)
-        PS = 300  # 포탈 렌더 영역 크기
+        # 포탈 Surface 축소: 300→180 (실제 포탈 크기 대비 충분)
+        PS = 180
         portal_surf = self._get_surface('portal_main', PS, PS)
-        pc = PS // 2  # 포탈 중심
+        pc = PS // 2
 
-        # ── 0) 플래시 ──
+        # ── 0) 플래시 (전체 화면 Surface 대신 screen에 직접 rect fill) ──
         if flash > 0.05:
-            flash_s = self._get_surface('portal_flash', 760, 750)
-            flash_s.fill((255, 230, 150, _c(80 * flash)))
+            flash_a = _c(80 * flash)
+            flash_s = self._get_surface('portal_flash', 760, 750, skip_clear=True)
+            flash_s.fill((255, 230, 150, flash_a))
             screen.blit(flash_s, (0, 0))
 
-        # ── 0.5) 시공간 균열 (scale < 0.6) ──
+        # ── 0.5) 시공간 균열 (scale < 0.6, 크기 축소 200→120) ──
         if scale < 0.6:
             ci_val = 1.0 - scale / 0.6
-            crack_s = self._get_surface('portal_crack', 200, 200)
-            cc = 100
+            CS = 120
+            cc = CS // 2
+            crack_s = self._get_surface('portal_crack', CS, CS)
             _rng = _vfx_rng
             _rng.seed(int(t * 2))
-            for ci in range(6 + int(scale * 8)):
-                angle = ci * (math.pi * 2 / max(1, 6 + int(scale * 8))) + math.sin(t * 1.5 + ci) * 0.3
-                length = int(20 + 60 * scale + _rng.uniform(-10, 10))
+            n_cracks = 4 + int(scale * 5)  # 6~10 → 4~8개로 축소
+            step = math.pi * 2 / max(1, n_cracks)
+            for ci in range(n_cracks):
+                angle = ci * step + math.sin(t * 1.5 + ci) * 0.3
+                length = int(15 + 40 * scale + _rng.uniform(-8, 8))
+                cos_a, sin_a = math.cos(angle), math.sin(angle)
                 pts = [(cc, cc)]
-                for seg in range(_rng.randint(3, 5)):
+                for seg in range(_rng.randint(2, 4)):
                     frac = (seg + 1) / 4
-                    pts.append((cc + int(math.cos(angle) * length * frac) + _rng.randint(-5, 5),
-                                cc + int(math.sin(angle) * length * frac) + _rng.randint(-5, 5)))
+                    pts.append((cc + int(cos_a * length * frac) + _rng.randint(-4, 4),
+                                cc + int(sin_a * length * frac) + _rng.randint(-4, 4)))
                 if len(pts) >= 2:
-                    pygame.draw.lines(crack_s, (200, 160, 40, _c(120 * ci_val)), False, pts, 2)
-                    pygame.draw.lines(crack_s, (255, 230, 140, _c(180 * ci_val)), False, pts, 1)
-            # 중앙 왜곡
-            dr = max(2, int(5 + 8 * scale))
-            da = _c((100 + 60 * ((math.sin(t * 8) + 1) * 0.5)) * ci_val)
+                    # 1겹으로 축소 (2겹→1겹)
+                    pygame.draw.lines(crack_s, (255, 220, 120, _c(150 * ci_val)), False, pts, 2)
+            dr = max(2, int(4 + 6 * scale))
+            da = _c((100 + 50 * ((math.sin(t * 8) + 1) * 0.5)) * ci_val)
             pygame.draw.circle(crack_s, (255, 240, 180, da), (cc, cc), dr)
             screen.blit(crack_s, (cx - cc, cy - cc))
 
-        # ── 1) 외곽 글로우 (portal_surf에 그림) ──
-        for gi in range(3):
-            gw = pw * (4 - gi) + 10
-            gh = ph * (4 - gi) + 10
+        # ── 1) 외곽 글로우 (3→2겹) ──
+        for gi in range(2):
+            gw = pw * (3 - gi) + 8
+            gh = ph * (3 - gi) + 8
             if gw > 0 and gh > 0:
-                pulse = (math.sin(t * 3.5 + gi * 0.5) + 1) * 0.5
-                ga = _c((20 + 15 * pulse) * scale)
-                colors = [(220, 180, 50), (200, 150, 30), (180, 130, 20)]
+                pulse = (math.sin(t * 3.5 + gi * 0.7) + 1) * 0.5
+                ga = _c((22 + 15 * pulse) * scale)
+                colors = [(220, 180, 50), (190, 140, 30)]
                 pygame.draw.ellipse(portal_surf, (*colors[gi], ga),
                                    (pc - gw // 2, pc - gh // 2, gw, gh))
 
@@ -866,59 +875,64 @@ class ValhallaWarplateState:
             pygame.draw.ellipse(portal_surf, (2, 1, 6, 250),
                                (pc - cw // 2 + im, pc - ch // 2 + im, cw - im * 2, ch - im * 2))
 
-        # ── 3) 에너지 링 (4중으로 축소) ──
-        for i in range(4):
-            rw = pw + i * 5 + 3
-            rh = ph + i * 5 + 3
-            po = math.sin(t * (4 + i * 0.8) + i) * 0.3 + 0.7
-            ra = _c((160 - i * 35) * po * scale)
+        # ── 3) 에너지 링 (4→3중) ──
+        for i in range(3):
+            rw = pw + i * 6 + 3
+            rh = ph + i * 6 + 3
+            po = math.sin(t * (4 + i) + i) * 0.3 + 0.7
+            ra = _c((160 - i * 45) * po * scale)
             if ra < 8:
                 continue
-            r = min(255, 255 - i * 10)
-            g = min(255, 220 - i * 25)
-            b = min(255, 80 + i * 12)
+            r = min(255, 255 - i * 12)
+            g = min(255, 220 - i * 30)
+            b = min(255, 80 + i * 15)
             pygame.draw.ellipse(portal_surf, (r, g, b, ra),
                                (pc - rw, pc - rh, rw * 2, rh * 2), max(1, 3 - i))
 
-        # ── 4) 소용돌이 + 내부 (portal_surf에 직접) ──
-        for j in range(12):
-            angle = self.portal_angle + j * (math.pi * 2 / 12)
-            rm = 0.5 + 0.2 * math.sin(t * 2.5 + j * 0.5)
+        # ── 4) 소용돌이 (12→8개) + 내부 (6→4개) ──
+        step8 = math.pi * 2 / 8
+        for j in range(8):
+            angle = self.portal_angle + j * step8
+            rm = 0.5 + 0.2 * math.sin(t * 2.5 + j * 0.7)
             sx = pc + int(math.cos(angle) * pw * rm)
             sy = pc + int(math.sin(angle) * ph * rm)
             sz = max(1, int(2 + 1.5 * math.sin(t * 5 + j)))
             cols = [(255, 220, 80, 200), (255, 245, 180, 180), (255, 180, 50, 170)]
             pygame.draw.circle(portal_surf, cols[j % 3], (sx, sy), sz)
-        for k in range(6):
-            angle = -self.portal_angle * 1.8 + k * (math.pi * 2 / 6)
+        step4 = math.pi * 2 / 4
+        for k in range(4):
+            angle = -self.portal_angle * 1.8 + k * step4
             rm = 0.25 + 0.1 * math.sin(t * 4 + k)
             pygame.draw.circle(portal_surf, (255, 240, 160, 140),
                              (pc + int(math.cos(angle) * pw * rm),
                               pc + int(math.sin(angle) * ph * rm)), 2)
 
-        # ── 5) 전기 아크 (portal_surf에 직접) ──
+        # ── 5) 전기 아크 ──
         for arc in self.portal_lightning:
             ratio = arc['life'] / arc['max_life']
             aa = _c(220 * ratio)
             sa = arc['angle']
             al = arc['length'] * scale
-            sx = pc + int(math.cos(sa) * pw)
-            sy = pc + int(math.sin(sa) * ph)
+            cos_sa, sin_sa = math.cos(sa), math.sin(sa)
+            sx = pc + int(cos_sa * pw)
+            sy = pc + int(sin_sa * ph)
             pts = [(sx, sy)]
             for seg in range(arc['segments']):
                 frac = (seg + 1) / arc['segments']
-                pts.append((sx + int(math.cos(sa) * al * frac) + _vfx_rng.randint(-4, 4),
-                            sy + int(math.sin(sa) * al * frac) + _vfx_rng.randint(-4, 4)))
+                pts.append((sx + int(cos_sa * al * frac) + _vfx_rng.randint(-4, 4),
+                            sy + int(sin_sa * al * frac) + _vfx_rng.randint(-4, 4)))
             if len(pts) >= 2:
                 try:
                     pygame.draw.lines(portal_surf, (255, 240, 160, aa), False, pts, 1)
                 except Exception:
                     pass
 
-        # ── 6) 파티클 (portal_surf에 직접) ──
+        # ── 6) 파티클 ──
         for p in self.portal_particles:
             ratio = p['life'] / p['max_life']
             pa = _c(180 * ratio)
+            if pa < 3:
+                continue
             sz = max(1, int(p['size'] * ratio))
             px = pc + int(p['x'] - self.portal_x)
             py = pc + int(p['y'] - self.PORTAL_Y)
