@@ -14,6 +14,9 @@ import os
 import pygame
 import pygame.freetype
 
+# 연출용 로컬 RNG (전역 RNG 오염 방지)
+_vfx_rng = random.Random(42)
+
 # ── 영웅 목록 (투기장 15영웅) ──────────────────────────────────
 VALHALLA_HEROES = [
     {"id": "mugen",      "name": "무겐",       "color": (120, 60, 180)},
@@ -153,10 +156,13 @@ class ValhallaWarplateState:
         self._pending_hero = None
         self._pending_skill_idx = 0
         self.cutscene_timer = 0.0
+        self.cutscene_dissolve_timer = 0.0
         self.cutscene_particles.clear()
         self.portal_timer = 0.0
-        self.portal_alpha = 0.0
+        self.portal_scale = 0.0
+        self.portal_flash = 0.0
         self.portal_particles.clear()
+        self.portal_lightning.clear()
 
     def try_summon(self) -> bool:
         """공 타격 시 소환 시도. 성공하면 True (컷신 시작)."""
@@ -194,16 +200,7 @@ class ValhallaWarplateState:
         except Exception:
             pass
 
-        # 게이지 잔량 체크 + 소모 (special_gauge 사용, 라그나로크와 동일)
-        try:
-            import pingfighter
-            if pingfighter.special_gauge < gauge_cost:
-                return False  # 게이지 부족
-            pingfighter.consume_special_gauge(int(gauge_cost))
-        except Exception:
-            pass
-
-        # 빈 슬롯 확인 (dismissed 상태는 빈 슬롯으로 간주)
+        # 빈 슬롯 확인 먼저! (게이지 소모 전에 소환 가능 여부 확인)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
             _bg = get_bodyguard()
@@ -214,6 +211,15 @@ class ValhallaWarplateState:
                 return False
         except Exception:
             return False
+
+        # 게이지 잔량 체크 + 소모 (슬롯 확인 후 소모 - 게이지 낭비 방지)
+        try:
+            import pingfighter
+            if pingfighter.special_gauge < gauge_cost:
+                return False  # 게이지 부족
+            pingfighter.consume_special_gauge(int(gauge_cost))
+        except Exception:
+            pass
 
         # 컷신 시작! (실제 소환은 컷신 끝에)
         hero = random.choice(VALHALLA_HEROES)
@@ -527,20 +533,30 @@ class ValhallaWarplateState:
 
         pass  # 파티클 업데이트는 각 상태 내에서 처리
 
+    @staticmethod
+    def _resolve_resource(relative_path):
+        """resource_path 우선, 실패 시 프로젝트 루트 기준 fallback (PyInstaller 호환)"""
+        try:
+            from core.constants import resource_path
+            p = resource_path(relative_path)
+            if os.path.exists(p):
+                return p
+        except Exception:
+            pass
+        # fallback: __file__ 기준
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(project_root, relative_path)
+
     def _play_sound(self, filename, volume=0.7):
         """사운드 재생 헬퍼"""
         try:
-            # 프로젝트 루트 기준 경로 (다른 스킬과 동일 방식)
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            path = os.path.join(project_root, "sounds", filename)
+            path = self._resolve_resource(os.path.join("sounds", filename))
             if os.path.exists(path):
                 snd = pygame.mixer.Sound(path)
                 snd.set_volume(volume)
                 snd.play()
-            else:
-                print(f"[WARN] 사운드 파일 없음: {path}")
-        except Exception as e:
-            print(f"[WARN] 사운드 재생 실패 ({filename}): {e}")
+        except Exception:
+            pass
 
     def _spawn_portal_swirl(self, chance):
         """소용돌이 파티클 생성 (매혹과 동일 구조)"""
@@ -678,8 +694,7 @@ class ValhallaWarplateState:
         ta = _c(255 * fade_mult)
         if ta > 10:
             try:
-                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                font_path = os.path.join(project_root, "NanumSquareB.ttf")
+                font_path = self._resolve_resource("NanumSquareB.ttf")
                 # 메인 텍스트
                 main_font = pygame.freetype.Font(font_path, 34)
                 main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
@@ -779,38 +794,35 @@ class ValhallaWarplateState:
 
         # 4) 흩뿌려지는 파편 (핵심 소멸 이펙트!)
         scatter = 1.0 - fade  # 0(시작) → 1(완료)
-        random.seed(42)
+        _rng = _vfx_rng
+        _rng.seed(42)
         for si in range(35):
-            s_angle = random.uniform(0, math.pi * 2)
-            s_base_dist = random.uniform(20, 180)
-            s_dist = s_base_dist * scatter + random.uniform(-5, 5)
+            s_angle = _rng.uniform(0, math.pi * 2)
+            s_base_dist = _rng.uniform(20, 180)
+            s_dist = s_base_dist * scatter + _rng.uniform(-5, 5)
             s_x = cx + int(math.cos(s_angle) * s_dist)
             s_y = cy + int(math.sin(s_angle) * s_dist * 0.7)
-            # 크기: 시작엔 크고 끝에 작아짐
-            s_sz = max(1, int(random.uniform(2, 5) * fade))
-            s_a = _c(200 * fade * random.uniform(0.3, 1.0))
+            s_sz = max(1, int(_rng.uniform(2, 5) * fade))
+            s_a = _c(200 * fade * _rng.uniform(0.3, 1.0))
             if s_a > 3 and s_sz > 0:
                 if si % 4 == 0:
-                    s_col = (255, 230, 100, s_a)  # 밝은 금
+                    s_col = (255, 230, 100, s_a)
                 elif si % 4 == 1:
-                    s_col = (255, 250, 210, s_a)  # 흰 금
+                    s_col = (255, 250, 210, s_a)
                 elif si % 4 == 2:
-                    s_col = (220, 180, 60, s_a)   # 어두운 금
+                    s_col = (220, 180, 60, s_a)
                 else:
-                    s_col = (255, 200, 80, s_a)   # 금
+                    s_col = (255, 200, 80, s_a)
                 fs = pygame.Surface((s_sz * 2 + 4, s_sz * 2 + 4), pygame.SRCALPHA)
-                # 글로우 + 코어
                 pygame.draw.circle(fs, (*s_col[:3], _c(s_a * 0.3)), (s_sz + 2, s_sz + 2), s_sz + 2)
                 pygame.draw.circle(fs, s_col, (s_sz + 2, s_sz + 2), s_sz)
                 dissolve_surf.blit(fs, (s_x - s_sz - 2, s_y - s_sz - 2))
-        random.seed()
 
         # 5) 텍스트 잔상 ("발할라의 부름"이 흐려지며 사라짐)
         ta = _c(180 * fade)
         if ta > 8:
             try:
-                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                font_path = os.path.join(project_root, "NanumSquareB.ttf")
+                font_path = self._resolve_resource("NanumSquareB.ttf")
                 main_font = pygame.freetype.Font(font_path, 34)
                 main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
                 main_surf.set_alpha(ta)
@@ -853,36 +865,30 @@ class ValhallaWarplateState:
             crack_cx, crack_cy = 100, 100
 
             # 균열선 (중앙에서 뻗어나가는 불규칙한 갈라진 선들)
-            random.seed(int(t * 2))  # 시간에 따라 약간씩 변화하되 안정적
-            num_cracks = 6 + int(scale * 8)  # 점점 많아짐
+            _rng = _vfx_rng
+            _rng.seed(int(t * 2))  # 시간에 따라 약간씩 변화하되 안정적
+            num_cracks = 6 + int(scale * 8)
             for ci in range(num_cracks):
                 angle = ci * (math.pi * 2 / num_cracks) + math.sin(t * 1.5 + ci) * 0.3
-                length = int(20 + 60 * scale + random.uniform(-10, 10))
-                # 불규칙 지그재그 선
+                length = int(20 + 60 * scale + _rng.uniform(-10, 10))
                 pts = [(crack_cx, crack_cy)]
-                segments = random.randint(3, 6)
+                segments = _rng.randint(3, 6)
                 for seg in range(segments):
                     frac = (seg + 1) / segments
                     nx = crack_cx + int(math.cos(angle) * length * frac)
                     ny = crack_cy + int(math.sin(angle) * length * frac)
-                    # 지그재그 (균열 느낌)
-                    nx += random.randint(-6, 6)
-                    ny += random.randint(-6, 6)
+                    nx += _rng.randint(-6, 6)
+                    ny += _rng.randint(-6, 6)
                     pts.append((nx, ny))
                 if len(pts) >= 2:
-                    # 글로우 (두꺼운 어두운 금색선)
                     ca = _c(120 * crack_intensity)
                     pygame.draw.lines(crack_surf, (200, 160, 40, ca), False, pts, 3)
-                    # 밝은 코어선
                     ca2 = _c(200 * crack_intensity)
                     pygame.draw.lines(crack_surf, (255, 230, 140, ca2), False, pts, 1)
-
-                    # 균열 끝에서 작은 파편 스파크
                     if seg > 1:
                         ex, ey = pts[-1]
                         spark_a = _c(150 * crack_intensity)
                         pygame.draw.circle(crack_surf, (255, 240, 160, spark_a), (ex, ey), 2)
-            random.seed()  # 시드 리셋
 
             # 중앙 왜곡 효과 (시공간이 찢어지는 느낌의 밝은 점)
             distort_pulse = (math.sin(t * 8) + 1) * 0.5
@@ -896,13 +902,13 @@ class ValhallaWarplateState:
 
             # 파편 입자 (균열에서 떨어져 나오는 작은 조각들)
             for fi in range(int(8 * crack_intensity)):
-                f_angle = random.uniform(0, math.pi * 2)
-                f_dist = random.uniform(15, 50 + 30 * scale)
+                f_angle = _rng.uniform(0, math.pi * 2)
+                f_dist = _rng.uniform(15, 50 + 30 * scale)
                 fx = crack_cx + int(math.cos(f_angle + t * 0.5) * f_dist)
                 fy = crack_cy + int(math.sin(f_angle + t * 0.5) * f_dist)
-                f_sz = random.randint(1, 3)
-                fa = _c(120 * crack_intensity * random.uniform(0.3, 1.0))
-                if random.random() < 0.3:
+                f_sz = _rng.randint(1, 3)
+                fa = _c(120 * crack_intensity * _rng.uniform(0.3, 1.0))
+                if _rng.random() < 0.3:
                     fc = (255, 220, 100, fa)  # 금빛
                 else:
                     fc = (200, 180, 140, fa)  # 돌조각 색

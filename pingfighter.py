@@ -141646,6 +141646,14 @@ def reset_round(is_stage_start=False):
     _viper_ps_curve_timer = 0
     _viper_speed_boost_active = False
     _viper_speed_boost_original = 0.0
+    # 야생의 포효 공속 가속 플래그 초기화 (라운드 넘어갈 때 잔존 방지)
+    try:
+        for _wr_bg in [get_bodyguard(), get_bodyguard2()]:
+            if _wr_bg.active and _wr_bg._skill_manager:
+                _wr_bg._skill_manager.game_state.pop('wild_roar_boosted', None)
+                _wr_bg._skill_manager.game_state.pop('wild_roar_original_speed', None)
+    except Exception:
+        pass
     # 바이퍼 팬텀 스트라이크 버프 초기화
     global _viper_phantom_strike_active, _viper_phantom_strike_timer
     _viper_phantom_strike_active = False
