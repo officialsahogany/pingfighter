@@ -97,16 +97,22 @@ class ReplayRecorder:
             'total_frames': 0,
             'created_at': self.start_time,
         }
+        print(f"[Replay] 녹화 시작 — Stage {stage}, boss={boss_name}, char={character}")
 
     def stop(self, result: str = "") -> bool:
         """녹화 중지 + 자동 저장. result: 'win' / 'lose' / ''"""
         if not self.recording:
+            print(f"[Replay] stop() 호출됐으나 recording=False (이미 중지됨)")
             return False
         self.recording = False
         self.metadata['duration'] = time.time() - self.start_time
         self.metadata['total_frames'] = len(self.frames)
         if result:
             self.metadata['result'] = result
+        print(f"[Replay] 녹화 중지 — {len(self.frames)}프레임, result={result}")
+        if len(self.frames) == 0:
+            print(f"[Replay] 프레임이 0개라 저장 건너뜀")
+            return False
         return self._save()
 
     def record(self, ball, player, boss, ball_vel,
@@ -161,6 +167,7 @@ class ReplayRecorder:
             return True
         except Exception as e:
             print(f"[Replay] 저장 실패: {e}")
+            import traceback; traceback.print_exc()
             return False
 
 

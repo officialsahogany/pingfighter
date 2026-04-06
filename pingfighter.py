@@ -166597,13 +166597,14 @@ def main(stage_num, new_boss_mode=False):
 
         # 🎬 리플레이 프레임 기록
         try:
-            if _replay_rec.recording and BALL and PLAYER and BOSS:
+            if _replay_rec.recording and BALL is not None and PLAYER is not None and BOSS is not None:
                 _replay_rec.record(
                     BALL, PLAYER, BOSS, ball_vel,
                     player_score, boss_score, special_gauge,
                 )
-        except Exception:
-            pass
+        except Exception as _rec_err:
+            if _replay_rec.current_frame < 3:  # 초반 에러만 출력
+                print(f"[Replay] 프레임 기록 실패: {_rec_err}")
 
         pygame.display.flip()
         # 프로파일러 프레임 종료
@@ -166624,8 +166625,9 @@ def main(stage_num, new_boss_mode=False):
             # 🎬 리플레이 녹화 종료 (승리)
             try:
                 _replay_rec.stop(result='win')
-            except Exception:
-                pass
+            except Exception as _rec_err:
+                print(f"[Replay] 녹화 저장 실패(승리): {_rec_err}")
+                import traceback; traceback.print_exc()
             show_result(True)
             if arena_mode_enabled:
                 if arena_battle_result is not None:
@@ -166643,8 +166645,9 @@ def main(stage_num, new_boss_mode=False):
             # 🎬 리플레이 녹화 종료 (패배)
             try:
                 _replay_rec.stop(result='lose')
-            except Exception:
-                pass
+            except Exception as _rec_err:
+                print(f"[Replay] 녹화 저장 실패(패배): {_rec_err}")
+                import traceback; traceback.print_exc()
             show_result(False)
             if arena_mode_enabled:
                 return arena_battle_result
