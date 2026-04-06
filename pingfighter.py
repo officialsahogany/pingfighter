@@ -27922,6 +27922,8 @@ def apply_roll_bonuses_from_equipped():
     foul_whistle_total_negate = 0
     master_wall_total = 0
     master_cooldown_total = 0
+    sage_ring_total_speed_penalty = 0
+    sage_ring_total_body_penalty = 0
 
     for item in equipped:
         name = item.get("name")
@@ -28036,10 +28038,10 @@ def apply_roll_bonuses_from_equipped():
         elif name == "sage_ring":
             val = _get_roll_value(item, "sage_speed_penalty_pct")
             if val is not None:
-                globals()["sage_ring_speed_penalty_pct"] = val
+                sage_ring_total_speed_penalty += val
             val = _get_roll_value(item, "sage_body_penalty_pct")
             if val is not None:
-                globals()["sage_ring_body_penalty_pct"] = val
+                sage_ring_total_body_penalty += val
         elif name == "venom_mist_gauntlet":
             val = _get_roll_value(item, "mist_trigger_chance_pct")
             if val is not None:
@@ -28079,6 +28081,8 @@ def apply_roll_bonuses_from_equipped():
     globals()["foul_whistle_negate_chance_pct"] = min(100, foul_whistle_total_negate)
     globals()["master_wall_length_pct"] = master_wall_total
     globals()["master_item_cooldown_pct"] = master_cooldown_total
+    globals()["sage_ring_speed_penalty_pct"] = sage_ring_total_speed_penalty
+    globals()["sage_ring_body_penalty_pct"] = sage_ring_total_body_penalty
 
     try:
         from item_effects.fuel_pouch import get_fuel_pouch_instance
@@ -28520,18 +28524,27 @@ def sync_equipped_passive_effects():
     except Exception:
         pass
 
-    # 현자의 반지: 장착 시 모든 퍽 레벨 +1 (고정 효과) + 패널티 롤옵션 적용
+    # 현자의 반지: 장착 시 모든 퍽 레벨 +N (장착 개수만큼) + 패널티 롤옵션 합산
     global sage_ring_perk_bonus, sage_ring_speed_penalty_pct, sage_ring_body_penalty_pct
     try:
         from item_effects.sage_ring import get_sage_ring_instance
         ring = get_sage_ring_instance()
-        if "sage_ring" in equipped_names:
+        sage_rings = [i for i in equipped_items if i.get("name") == "sage_ring"]
+        if sage_rings:
             ring.activate()
-            sage_ring_perk_bonus = ring.perk_bonus
-            # 장착된 현자의 반지에서 패널티 롤옵션 적용
-            sage_item = next((i for i in equipped_items if i.get("name") == "sage_ring"), None)
-            if sage_item:
-                apply_roll_bonuses_from_item(sage_item)
+            sage_ring_perk_bonus = ring.perk_bonus * len(sage_rings)
+            # 장착된 모든 현자의 반지에서 패널티 롤옵션 합산
+            total_speed_penalty = 0
+            total_body_penalty = 0
+            for sage_item in sage_rings:
+                spd = _get_roll_value(sage_item, "sage_speed_penalty_pct")
+                if spd is not None:
+                    total_speed_penalty += spd
+                body = _get_roll_value(sage_item, "sage_body_penalty_pct")
+                if body is not None:
+                    total_body_penalty += body
+            sage_ring_speed_penalty_pct = total_speed_penalty
+            sage_ring_body_penalty_pct = total_body_penalty
         else:
             ring.deactivate()
             sage_ring_perk_bonus = 0
