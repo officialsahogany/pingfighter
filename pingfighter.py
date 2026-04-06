@@ -22109,14 +22109,15 @@ def play_cached_sound(relative_path: str, volume=None):
 
 
 def play_sound_with_volume(sound, volume=None):
-    """효과음을 지정된 볼륨으로 재생"""
+    """효과음을 지정된 볼륨으로 재생 (Channel 볼륨 사용, Sound 객체 오염 방지)"""
     global sfx_volume
     if not sound:
         return None
     if volume is None:
         volume = sfx_volume
-    sound.set_volume(volume)
     channel = sound.play()
+    if channel:
+        channel.set_volume(volume)
     return channel
 
 
@@ -91952,7 +91953,7 @@ def advance_ingame_tutorial():
         _ingame_tutorial_completed = True
         # 튜토리얼 완료 사운드 재생
         if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
-            sound_effects["MISSION_CLEAR"].play()
+            play_sound_with_volume(sound_effects["MISSION_CLEAR"], sfx_volume * 0.7)
         # 튜토리얼 중 점수 고정 해제 - 실전 시작!
         _ingame_tutorial_score_frozen = False
         round_wins = 0
@@ -92024,8 +92025,7 @@ def advance_ingame_tutorial():
             round_losses = 0
             # print("[DEBUG] 튜토리얼: 완전 종료 (advance) - 일반 게임 시작!")
             if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
-                sound_effects["MISSION_CLEAR"].set_volume(0.6)
-                sound_effects["MISSION_CLEAR"].play()
+                play_sound_with_volume(sound_effects["MISSION_CLEAR"], sfx_volume * 0.6)
             # 스테이지 BGM 복원
             try:
                 bgm_manager.play_stage_bgm(1)  # 스테이지 1 BGM
@@ -123177,7 +123177,7 @@ def show_tutorial_success_feedback_blocking(message, level="normal"):
 
     # 미션 클리어 사운드 재생 (마스터/완벽/튜토리얼 완료 시)
     if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
-        sound_effects["MISSION_CLEAR"].play()
+        play_sound_with_volume(sound_effects["MISSION_CLEAR"], sfx_volume * 0.7)
 
     # 폰트 설정
     font_large = FontStyle.subtitle()  # 32pt
@@ -123330,7 +123330,7 @@ def show_chapter_completion_summary(chapter_num):
 
     # 미션 클리어 사운드 재생
     if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
-        sound_effects["MISSION_CLEAR"].play()
+        play_sound_with_volume(sound_effects["MISSION_CLEAR"], sfx_volume * 0.7)
 
     # 폰트 설정
     font_title = FontStyle.title()  # 48pt
@@ -148375,7 +148375,7 @@ def handle_ball():
                         _spawn_flash_inspiration_particles(False)
                         if SOUND_CLEANSE:
                             try:
-                                play_sound_with_volume(SOUND_CLEANSE, volume=0.4)
+                                play_sound_with_volume(SOUND_CLEANSE, sfx_volume * 0.4)
                             except:
                                 pass
                         arena_show_speech_bubble(False, '번뜩이는 영감!', hero_id=hero_id)
@@ -149302,7 +149302,7 @@ def handle_ball():
                         _spawn_flash_inspiration_particles(True)
                         if SOUND_CLEANSE:
                             try:
-                                play_sound_with_volume(SOUND_CLEANSE, volume=0.4)
+                                play_sound_with_volume(SOUND_CLEANSE, sfx_volume * 0.4)
                             except:
                                 pass
                         arena_show_speech_bubble(True, '번뜩이는 영감!', hero_id=hero_id)
@@ -161468,7 +161468,7 @@ def main(stage_num, new_boss_mode=False):
                     # 클렌즈 사운드 재생
                     if SOUND_CLEANSE:
                         try:
-                            play_sound_with_volume(SOUND_CLEANSE, volume=0.5)
+                            play_sound_with_volume(SOUND_CLEANSE, sfx_volume * 0.5)
                         except:
                             pass
                     # 모든 상태이상 해제
