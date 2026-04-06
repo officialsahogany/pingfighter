@@ -155994,6 +155994,14 @@ def show_result(won):
     global speedboots_obtained, speedgear_obtained  #  패시브 아이템 효과 초기화용
     global game_session_active  #  게임 세션 상태
 
+    # 🎬 리플레이 녹화 종료 (모든 경기 종료 경로가 여기를 거침)
+    try:
+        _rec = get_replay_recorder()
+        if _rec.recording:
+            _rec.stop(result='win' if won else 'lose')
+    except Exception as _re:
+        print(f"[Replay] show_result 내 녹화 저장 실패: {_re}")
+
     # 🎬 결과 화면 전환 페이드아웃
     try:
         play_fade_out(12)
@@ -158989,7 +158997,9 @@ def main(stage_num, new_boss_mode=False):
         if game_should_exit:
             # 🎬 리플레이 녹화 종료 (중도 퇴장)
             try:
-                _replay_rec.stop(result='quit')
+                _quit_rec = get_replay_recorder()
+                if _quit_rec.recording:
+                    _quit_rec.stop(result='quit')
             except Exception:
                 pass
             # BGM 정지 (메인 메뉴로 돌아가기 전)
@@ -166622,12 +166632,6 @@ def main(stage_num, new_boss_mode=False):
             deactivate_whip()  # 통합된 비활성화 함수 사용
             if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
                 BOSS.whip_sound.stop()
-            # 🎬 리플레이 녹화 종료 (승리)
-            try:
-                _replay_rec.stop(result='win')
-            except Exception as _rec_err:
-                print(f"[Replay] 녹화 저장 실패(승리): {_rec_err}")
-                import traceback; traceback.print_exc()
             show_result(True)
             if arena_mode_enabled:
                 if arena_battle_result is not None:
@@ -166642,12 +166646,6 @@ def main(stage_num, new_boss_mode=False):
                 BOSS.whip_sound.stop()
             #  스테이지 실패 기록
             record_stage_result(current_stage, cleared=False)
-            # 🎬 리플레이 녹화 종료 (패배)
-            try:
-                _replay_rec.stop(result='lose')
-            except Exception as _rec_err:
-                print(f"[Replay] 녹화 저장 실패(패배): {_rec_err}")
-                import traceback; traceback.print_exc()
             show_result(False)
             if arena_mode_enabled:
                 return arena_battle_result
