@@ -3011,9 +3011,13 @@ class DowntownManager:
                 return False
 
             # 가챠 시스템 초기화
+            # 투기장 전용 아이템은 가챠에서 제외
+            ARENA_ONLY_ITEMS = {"hero_seal", "minor_hero_seal", "intermediate_hero_seal"}
             available_items = []
             for item_data in items.ITEM_TYPES:
                 item_name = item_data.get("name", "")
+                if item_name in ARENA_ONLY_ITEMS:
+                    continue
                 if items.unlocked_items.get(item_name, False):
                     available_items.append(item_data)
 
@@ -3233,9 +3237,13 @@ class DowntownManager:
                 return False  # 골드로 이미 결제함
 
             # 가챠 시스템 초기화 - 사용 가능한 아이템 목록 생성
+            # 투기장 전용 아이템은 가챠에서 제외
+            ARENA_ONLY_ITEMS = {"hero_seal", "minor_hero_seal", "intermediate_hero_seal"}
             available_items = []
             for item_data in items.ITEM_TYPES:
                 item_name = item_data.get("name", "")
+                if item_name in ARENA_ONLY_ITEMS:
+                    continue
                 # 잠금 해제된 아이템만 추가
                 if items.unlocked_items.get(item_name, False):
                     available_items.append(item_data)

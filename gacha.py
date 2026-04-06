@@ -281,6 +281,11 @@ def init_gacha(available_items, legendary_bonus=0.0):
     for item in gacha_available_items_template:
         item_name = item.get("name", "")
 
+        # 투기장 전용 아이템은 가챠에서 제외 (투기장 보상으로만 획득 가능)
+        ARENA_ONLY_ITEMS = {"hero_seal", "minor_hero_seal", "intermediate_hero_seal"}
+        if item_name in ARENA_ONLY_ITEMS:
+            continue
+
         # 코만도 전용 아이템은 가챠에서 제외 (물자보급에서만 획득 가능)
         if item_name in COMMANDO_SUPPLY_ONLY_ITEMS:
             continue
