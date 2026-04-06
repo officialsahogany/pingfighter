@@ -277,6 +277,7 @@ class ValhallaWarplateState:
             self._clear_state()
             return
 
+        _setup_bg = None  # setup() 성공한 bodyguard 추적 (예외 시 정리용)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
             _bg = get_bodyguard()
@@ -304,6 +305,7 @@ class ValhallaWarplateState:
             }
             skill_sel = {hero["id"]: skill_idx}
             target_bg.setup(hero_data, skill_selections=skill_sel, first_spawn=True)
+            _setup_bg = target_bg  # setup 성공 → 예외 시 reset 대상
 
             if target_bg._guard_system:
                 target_bg._guard_system.cooldown_bottom = 0.1
@@ -315,17 +317,11 @@ class ValhallaWarplateState:
             # 포탈 하강 시작: guard_system의 위치와 phase를 강제 오버라이드
             gs = target_bg._guard_system
             if gs:
-                # portal_x는 try_summon에서 ball_x 기준으로 이미 설정됨
-                # 호위무사를 포탈 위치에 배치 (화면 밖 상단)
                 gs.x_bottom = self.portal_x
-                gs.y_bottom = self.PORTAL_Y - 30  # 포탈 위쪽 (화면 밖, 하강하면서 등장)
-                # patrol_entering(옆에서 걸어들어오기)을 무효화
-                # phase를 None으로 → guard_system이 자체 이동 안 함
+                gs.y_bottom = self.PORTAL_Y - 30
                 gs.phase_bottom = None
                 gs.active_bottom = gs.guard_warriors_bottom[0] if gs.guard_warriors_bottom else None
-                # 쿨다운을 포탈 시간 동안 길게 (하강 완료 후 단축)
                 gs.cooldown_bottom = 99.0
-                # 영웅이 보이도록 걷기 모션 초기화
                 if gs.hero_paddle_renderer and hero:
                     gs.hero_paddle_renderer.update_movement(hero["id"], self.portal_x, 0.016)
 
@@ -337,15 +333,19 @@ class ValhallaWarplateState:
             self.portal_particles.clear()
             self.portal_lightning.clear()
             self._pending_hero = None
-            self._portal_sound_played = False  # 하강 사운드 1회 재생용
-            # 포탈 이동 중 플래그 설정 (y_bottom 강제 덮어쓰기 방지)
+            self._portal_sound_played = False
             target_bg._valhalla_portal_moving = True
-            # 포탈 열림 사운드 재생
             self._play_sound("potal.wav", 0.7)
             print(f"⚔ 발할라의 전갑: {hero['name']} 포탈 하강 시작!")
 
         except Exception as e:
             print(f"[WARN] 발할라 전갑 소환 실패: {e}")
+            # setup() 이후 예외 → 이미 활성화된 bodyguard 정리
+            if _setup_bg is not None:
+                try:
+                    _setup_bg.reset()
+                except Exception:
+                    pass
             self._refund_gauge()
             self._clear_state()
 
