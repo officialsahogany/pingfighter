@@ -165745,25 +165745,15 @@ def main(stage_num, new_boss_mode=False):
             # 쿨타임/상태 업데이트 (항상 실행)
             if _vw_overlay.active:
                 _vw_overlay.update(1.0 / 60.0)
-            # 컷신 드로잉 (화면 정지 + 텍스트)
+            # 컷신 OR 소멸 (상호 배타적 - 같은 overlay Surface 공유)
             if _vw_overlay.is_cutscene_active:
-                try:
-                    _vw_overlay.draw_cutscene(SCREEN)
-                except Exception:
-                    import traceback
-                    traceback.print_exc()
-            # 컷신 소멸 이펙트 (포탈 열림과 동시에 흩뿌려지며 사라짐)
-            try:
+                _vw_overlay.draw_cutscene(SCREEN)
+            elif _vw_overlay.cutscene_dissolve_timer > 0:
                 _vw_overlay.draw_cutscene_dissolve(SCREEN)
-            except Exception:
-                pass
-            # 포탈 이펙트 (하강/상승 중)
-            try:
-                _vw_overlay.draw_portal(SCREEN)
-            except Exception:
-                pass
-        except Exception as _vw_err:
-            print(f"[WARN] 발할라 오류: {_vw_err}")
+            # 포탈 이펙트 (하강/상승 중, flash는 dissolve와 겹치지 않게 내부 처리)
+            _vw_overlay.draw_portal(SCREEN)
+        except Exception:
+            pass
 
         pygame.display.flip()
         # 프로파일러 프레임 종료

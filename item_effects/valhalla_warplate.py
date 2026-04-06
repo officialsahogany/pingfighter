@@ -66,6 +66,8 @@ class ValhallaWarplateState:
         # 캐시 (프레임마다 재생성 방지)
         self._cached_sounds = {}        # {filename: pygame.mixer.Sound}
         self._cached_surfaces = {}      # {key: pygame.Surface / pygame.freetype.Font}
+        self._cached_text = {}          # {text_key: (surface, rect)} 텍스트 래스터 캐시
+        self._consumed_gauge = 0        # 환불용 게이지 소모량
 
         # 소환 관리
         self.state = self.IDLE
@@ -159,6 +161,7 @@ class ValhallaWarplateState:
         self.summoned_hero_name = ""
         self._pending_hero = None
         self._pending_skill_idx = 0
+        self._consumed_gauge = 0
         self.cutscene_timer = 0.0
         self.cutscene_dissolve_timer = 0.0
         self.cutscene_particles.clear()
@@ -167,6 +170,8 @@ class ValhallaWarplateState:
         self.portal_flash = 0.0
         self.portal_particles.clear()
         self.portal_lightning.clear()
+        # 영웅별 텍스트 캐시 정리 (다음 소환 시 다른 영웅일 수 있음)
+        self._cached_text = {k: v for k, v in self._cached_text.items() if not k.startswith('hero_')}
 
     def try_summon(self, ball_x: int = 380) -> bool:
         """공 타격 시 소환 시도. ball_x는 공을 친 시점의 X좌표."""
@@ -222,6 +227,7 @@ class ValhallaWarplateState:
             if pingfighter.special_gauge < gauge_cost:
                 return False  # 게이지 부족
             pingfighter.consume_special_gauge(int(gauge_cost))
+            self._consumed_gauge = int(gauge_cost)  # 환불용 저장
         except Exception:
             pass
 
@@ -285,6 +291,8 @@ class ValhallaWarplateState:
                 return False
             target_bg = _bg if _is_available(_bg) else (_bg2 if _is_available(_bg2) else None)
             if not target_bg:
+                # 슬롯이 사라졌으면 게이지 환불
+                self._refund_gauge()
                 self._clear_state()
                 return
 
@@ -338,7 +346,23 @@ class ValhallaWarplateState:
 
         except Exception as e:
             print(f"[WARN] 발할라 전갑 소환 실패: {e}")
+            self._refund_gauge()
             self._clear_state()
+
+    def _refund_gauge(self):
+        """소환 실패 시 소모된 게이지 환불"""
+        refund = getattr(self, '_consumed_gauge', 0)
+        if refund > 0:
+            try:
+                import pingfighter
+                pingfighter.special_gauge = min(
+                    pingfighter.special_gauge + refund,
+                    pingfighter.special_gauge_max
+                )
+                print(f"⚔ 발할라의 전갑: 소환 실패 → 게이지 {refund} 환불")
+            except Exception:
+                pass
+            self._consumed_gauge = 0
 
     def update(self, dt: float):
         """매 프레임 업데이트 - 상태 머신 기반 관리"""
@@ -559,6 +583,17 @@ class ValhallaWarplateState:
                 self._cached_surfaces[key] = None
         return self._cached_surfaces.get(key)
 
+    def _get_cached_text(self, text_key, text, font_size, color):
+        """텍스트 Surface 캐시 (매 프레임 래스터라이즈 방지)"""
+        if text_key in self._cached_text:
+            return self._cached_text[text_key]
+        font = self._get_font(font_size)
+        if font:
+            surf, rect = font.render(text, color)
+            self._cached_text[text_key] = (surf, rect)
+            return (surf, rect)
+        return None
+
     def _get_surface(self, key, width, height, skip_clear=False):
         """재사용 Surface 캐시 (크기가 같으면 재사용, 다르면 재생성)
         skip_clear=True: 호출자가 직접 fill()할 경우 이중 fill 방지"""
@@ -643,7 +678,7 @@ class ValhallaWarplateState:
         return min(255, max(0, int(v)))
 
     def draw_cutscene(self, screen: pygame.Surface):
-        """소환 컷신 연출 드로잉 - 최적화"""
+        """소환 컷신 연출 드로잉 - 단일 오버레이 Surface, 텍스트 캐시"""
         if self.state != self.CUTSCENE:
             return
 
@@ -653,24 +688,24 @@ class ValhallaWarplateState:
         hero = self._pending_hero
         if not hero:
             return
-        # skip_clear=True: 바로 아래에서 fill()하므로 이중 fill 방지
-        cutscene_surf = self._get_surface('cutscene_main', W, H, skip_clear=True)
+        # 단일 오버레이 Surface (cutscene + dissolve 공유, skip_clear: 직후 fill)
+        overlay = self._get_surface('vw_overlay', W, H, skip_clear=True)
 
         cx, cy = int(self.portal_x), H // 2 - 30
-        t = self.cutscene_timer
 
         if progress < 0.3:
             fade_mult = progress / 0.3
         else:
             fade_mult = 1.0
 
-        # ── 1) 어두운 오버레이 (이것이 전체 fill이므로 별도 clear 불필요) ──
-        overlay_a = _c(120 * fade_mult)
-        cutscene_surf.fill((5, 5, 20, overlay_a))
+        # ── 1) 어두운 오버레이 (전체 fill = clear 대체) ──
+        overlay.fill((5, 5, 20, _c(120 * fade_mult)))
 
-        # ── 2) 빛기둥 (2겹으로 축소) ──
+        # ── 2) 빛기둥 (고정 크기 beam Surface 재사용, 너비는 alpha로 조절) ──
         beam_appear = min(1.0, progress * 2.5)
         beam_fade = fade_mult
+        BW_MAX = 22  # 최대 beam 너비 (6 + 1*14 = 20 근사)
+        beam_surf = self._get_surface('beam_shared', BW_MAX, H, skip_clear=True)
         for bi in range(2):
             bw = int((6 + bi * 14) * beam_appear)
             if bw < 2:
@@ -678,43 +713,36 @@ class ValhallaWarplateState:
             ba = _c((55 - bi * 22) * beam_fade)
             if ba < 3:
                 continue
-            beam_surf = self._get_surface(f'beam_{bi}', bw, H)
             beam_surf.fill((255, 220 + bi * 15, 100 + bi * 40, _c(ba * 0.25)))
-            pygame.draw.line(beam_surf, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
-            cutscene_surf.blit(beam_surf, (cx - bw // 2, 0))
+            pygame.draw.line(beam_surf, (255, 240, 160, ba), (BW_MAX // 2, 0), (BW_MAX // 2, H), 1)
+            overlay.blit(beam_surf, (cx - BW_MAX // 2, 0))
 
-        # ── 3) 텍스트: "발할라의 부름" + 영웅 이름 ──
+        # ── 3) 텍스트 (캐시된 Surface 재사용) ──
         ta = _c(255 * fade_mult)
         if ta > 10:
             try:
-                main_font = self._get_font(34)
-                name_font = self._get_font(22)
-                if main_font:
-                    main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
+                main_res = self._get_cached_text('valhalla_call', "발할라의 부름", 34, (255, 235, 160))
+                if main_res:
+                    main_surf, main_rect = main_res
                     main_surf.set_alpha(ta)
                     tx = cx - main_rect.width // 2
                     ty_main = cy - 65
-                    cutscene_surf.blit(main_surf, (tx, ty_main))
+                    overlay.blit(main_surf, (tx, ty_main))
                     line_w = int(main_rect.width * 0.8)
                     if line_w > 10:
-                        line_a = _c(ta * 0.4)
-                        pygame.draw.line(cutscene_surf, (255, 220, 100, line_a),
+                        pygame.draw.line(overlay, (255, 220, 100, _c(ta * 0.4)),
                                        (cx - line_w // 2, ty_main + main_rect.height + 4),
                                        (cx + line_w // 2, ty_main + main_rect.height + 4), 1)
-                if name_font:
-                    name_surf, name_rect = name_font.render(f"― {hero['name']} ―", tuple(hero["color"][:3]))
+                hero_key = f'hero_{hero["id"]}'
+                name_res = self._get_cached_text(hero_key, f'― {hero["name"]} ―', 22, tuple(hero["color"][:3]))
+                if name_res:
+                    name_surf, name_rect = name_res
                     name_surf.set_alpha(ta)
-                    cutscene_surf.blit(name_surf, (cx - name_rect.width // 2, cy + 40))
+                    overlay.blit(name_surf, (cx - name_rect.width // 2, cy + 40))
             except Exception:
-                try:
-                    font = pygame.font.Font(None, 36)
-                    txt = font.render("VALHALLA'S CALL", True, (255, 230, 150))
-                    txt.set_alpha(ta)
-                    cutscene_surf.blit(txt, (cx - txt.get_width() // 2, cy - 50))
-                except Exception:
-                    pass
+                pass
 
-        # ── 5) 파티클 (cutscene_surf에 직접 draw) ──
+        # ── 4) 파티클 ──
         for p in self.cutscene_particles:
             ratio = max(0, p["life"] / p["max_life"])
             sz = max(1, int(p["size"] * ratio))
@@ -727,19 +755,19 @@ class ValhallaWarplateState:
                 col = (200, 180, 255, pa)
             else:
                 col = (255, 255, 230, pa)
-            pygame.draw.circle(cutscene_surf, col, (int(p["x"]), int(p["y"])), sz)
+            pygame.draw.circle(overlay, col, (int(p["x"]), int(p["y"])), sz)
 
-        # ── 6) 비네팅 (금빛 프레임 - 2겹으로 축소) ──
+        # ── 5) 비네팅 ──
         va = _c(50 * fade_mult)
         if va > 3:
             for i in range(2):
-                pygame.draw.rect(cutscene_surf, (255, 200, 60, _c(va / (i + 1))),
+                pygame.draw.rect(overlay, (255, 200, 60, _c(va / (i + 1))),
                                (i * 4, i * 4, W - i * 8, H - i * 8), 2)
 
-        screen.blit(cutscene_surf, (0, 0))
+        screen.blit(overlay, (0, 0))
 
     def draw_cutscene_dissolve(self, screen: pygame.Surface):
-        """컷신 소멸 이펙트 (최적화 - 파편 수 축소, 이중 fill 제거)"""
+        """컷신 소멸 이펙트 (cutscene과 동일 오버레이 Surface 공유, 텍스트 캐시)"""
         if self.cutscene_dissolve_timer <= 0:
             return
 
@@ -748,26 +776,25 @@ class ValhallaWarplateState:
         cx, cy = int(self.portal_x), H // 2 - 30
         fade = max(0, self.cutscene_dissolve_timer / CUTSCENE_DISSOLVE_DURATION)
 
-        # skip_clear=True: 바로 아래 fill()로 대체
-        dissolve_surf = self._get_surface('dissolve_main', W, H, skip_clear=True)
+        # cutscene과 동일한 Surface 재사용 (동시에 활성화되지 않음)
+        overlay = self._get_surface('vw_overlay', W, H, skip_clear=True)
 
-        # 1) 어두운 오버레이 (전체 fill이므로 별도 clear 불필요)
+        # 1) 어두운 오버레이
         overlay_a = _c(80 * fade)
         if overlay_a > 2:
-            dissolve_surf.fill((5, 5, 20, overlay_a))
+            overlay.fill((5, 5, 20, overlay_a))
         else:
-            dissolve_surf.fill((0, 0, 0, 0))
+            overlay.fill((0, 0, 0, 0))
 
-        # 2) 빛기둥 잔상 (1겹으로 축소)
-        bw = max(1, int(8 * fade))
+        # 2) 빛기둥 잔상 (고정 크기 beam 재사용)
         ba = _c(35 * fade)
-        if ba > 3 and bw > 0:
-            beam_s = self._get_surface('dissolve_beam_0', bw, H)
+        if ba > 3:
+            beam_s = self._get_surface('beam_shared', 22, H, skip_clear=True)
             beam_s.fill((255, 230, 130, _c(ba * 0.2)))
-            pygame.draw.line(beam_s, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
-            dissolve_surf.blit(beam_s, (cx - bw // 2, 0))
+            pygame.draw.line(beam_s, (255, 240, 160, ba), (11, 0), (11, H), 1)
+            overlay.blit(beam_s, (cx - 11, 0))
 
-        # 3) 흩뿌려지는 파편 (25→14개로 축소)
+        # 3) 흩뿌려지는 파편
         scatter = 1.0 - fade
         _rng = _vfx_rng
         _rng.seed(42)
@@ -780,21 +807,21 @@ class ValhallaWarplateState:
             s_sz = max(1, int(_rng.uniform(2, 4) * fade))
             s_a = _c(180 * fade * _rng.uniform(0.3, 1.0))
             if s_a > 3 and s_sz > 0:
-                pygame.draw.circle(dissolve_surf, (*cols[si % 4], s_a), (s_x, s_y), s_sz)
+                pygame.draw.circle(overlay, (*cols[si % 4], s_a), (s_x, s_y), s_sz)
 
-        # 4) 텍스트 잔상
+        # 4) 텍스트 잔상 (캐시된 Surface)
         ta = _c(180 * fade)
         if ta > 8:
             try:
-                main_font = self._get_font(34)
-                if main_font:
-                    main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
+                main_res = self._get_cached_text('valhalla_call', "발할라의 부름", 34, (255, 235, 160))
+                if main_res:
+                    main_surf, main_rect = main_res
                     main_surf.set_alpha(ta)
-                    dissolve_surf.blit(main_surf, (cx - main_rect.width // 2, cy - 65))
+                    overlay.blit(main_surf, (cx - main_rect.width // 2, cy - 65))
             except Exception:
                 pass
 
-        screen.blit(dissolve_surf, (0, 0))
+        screen.blit(overlay, (0, 0))
 
     def draw_portal(self, screen: pygame.Surface):
         """포탈 이펙트 드로잉 (최적화: Surface 축소, 연산 감소)"""
@@ -821,12 +848,12 @@ class ValhallaWarplateState:
         portal_surf = self._get_surface('portal_main', PS, PS)
         pc = PS // 2
 
-        # ── 0) 플래시 (전체 화면 Surface 대신 screen에 직접 rect fill) ──
+        # ── 0) 플래시 (vw_overlay 재사용 → 별도 전체화면 Surface 제거) ──
         if flash > 0.05:
             flash_a = _c(80 * flash)
-            flash_s = self._get_surface('portal_flash', 760, 750, skip_clear=True)
-            flash_s.fill((255, 230, 150, flash_a))
-            screen.blit(flash_s, (0, 0))
+            flash_ov = self._get_surface('vw_overlay', 760, 750, skip_clear=True)
+            flash_ov.fill((255, 230, 150, flash_a))
+            screen.blit(flash_ov, (0, 0))
 
         # ── 0.5) 시공간 균열 (scale < 0.6, 크기 축소 200→120) ──
         if scale < 0.6:
