@@ -2731,6 +2731,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
+            stored = False
             if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
@@ -2742,7 +2743,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                         "x": item["x"],
                         "y": item["y"]
                     }
-                    store_passive_func(item_data)
+                    stored = store_passive_func(item_data)
             else:
                 # 엑티브 아이템 처리 - store_active_item을 통해 슬롯에 저장
                 if store_active_func:
@@ -2754,7 +2755,10 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                         "x": item["x"],
                         "y": item["y"]
                     }
-                    store_active_func(item_data)
+                    stored = store_active_func(item_data)
+            # 저장 실패 시 아이템을 필드에 유지 (슬롯 가득 참, aipill 등)
+            if stored is False:
+                new_items.append(item)
         else:
             # 튜토리얼 아이템은 바운스 횟수 무관하게 유지
             bounce_count = item.get("bounce_count", 0)

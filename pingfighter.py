@@ -42421,20 +42421,24 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 state_changed = True
                 print(f"[DEBUG] 디바인 파괴 체크: smoke={smoke_protected}, hp={divine_state['hp']}")
                 if not smoke_protected and divine_state["hp"] <= 0:
-                    print(f"[DEBUG] 디바인 파괴 진입! 금화 스폰 시작")
+                    print(f"[DEBUG] 디바인 파괴 진입! 금화 스폰 시작", flush=True)
                     try:
-                        effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
-                    except Exception as _e:
-                        print(f"[DEBUG] create_impact_effect 예외: {_e}")
-                    # 🪙 건설물 파괴 금화 스폰
-                    _is_reinforced = divine_state.get("reinforced", False)
-                    if _is_reinforced:
-                        _coin_count = random.randint(7, 10)  # 강화디바인: 70~100골드
-                    else:
-                        _coin_count = random.randint(4, 6)  # 디바인: 40~60골드
-                    spawn_blacksmith_coins(rect.centerx, rect.centery, _coin_count)
-                    # 🧪 건설물 파괴 드랍 병 스폰 (광폭물약/수리키트)
-                    spawn_blacksmith_drop_bottle(rect.centerx, rect.centery)
+                        try:
+                            effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
+                            print("[DEBUG] divine step1 완료", flush=True)
+                        except Exception as _e:
+                            print(f"[DEBUG] impact 예외: {_e}", flush=True)
+                        print("[DEBUG] divine step2 금화직전", flush=True)
+                        _is_reinforced = divine_state.get("reinforced", False)
+                        _coin_count = random.randint(7, 10) if _is_reinforced else random.randint(4, 6)
+                        print(f"[DEBUG] divine step3 count={_coin_count}", flush=True)
+                        spawn_blacksmith_coins(rect.centerx, rect.centery, _coin_count)
+                        print("[DEBUG] divine step4 금화완료", flush=True)
+                        spawn_blacksmith_drop_bottle(rect.centerx, rect.centery)
+                        print("[DEBUG] divine step5 병완료", flush=True)
+                    except Exception as _derr:
+                        print(f"[DEBUG] 디바인파괴 예외! {type(_derr).__name__}: {_derr}", flush=True)
+                        import traceback; traceback.print_exc()
                     # 런타임/전역 상태를 즉시 정리해 UI와 필드에서 제거한다.
                     blacksmith_divine_destroy_timer = 0
                     blacksmith_divine_stage_owner = None
@@ -43928,18 +43932,27 @@ def update_blacksmith_turret():
     if turret_runtime.active and turret_state:
         if turret_state.get("hp", 0) <= 0:
             print(f"[DEBUG] 터렛 파괴 진입! turret_rect={turret_rect}")
-            turret_state["hp"] = 0
-            turret_runtime.projectiles.clear()
-            # 🪙 포탑 파괴 금화 스폰
-            _turret_level = int(turret_state.get("level", 1))
-            if _turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
-                _tcoin_count = random.randint(5, 8)  # 강화포탑: 50~80골드
-            else:
-                _tcoin_count = random.randint(3, 5)  # 포탑: 30~50골드
-            if turret_rect:
-                spawn_blacksmith_coins(turret_rect.centerx, turret_rect.centery, _tcoin_count)
-                # 🧪 포탑 파괴 드랍 병 스폰 (광폭물약/수리키트)
-                spawn_blacksmith_drop_bottle(turret_rect.centerx, turret_rect.centery)
+            try:
+                turret_state["hp"] = 0
+                print("[DEBUG] step1: hp=0 설정 완료")
+                turret_runtime.projectiles.clear()
+                print("[DEBUG] step2: projectiles clear 완료")
+                # 🪙 포탑 파괴 금화 스폰
+                _turret_level = int(turret_state.get("level", 1))
+                print(f"[DEBUG] step3: turret_level={_turret_level}")
+                if _turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+                    _tcoin_count = random.randint(5, 8)  # 강화포탑: 50~80골드
+                else:
+                    _tcoin_count = random.randint(3, 5)  # 포탑: 30~50골드
+                print(f"[DEBUG] step4: coin_count={_tcoin_count}")
+                if turret_rect:
+                    spawn_blacksmith_coins(turret_rect.centerx, turret_rect.centery, _tcoin_count)
+                    # 🧪 포탑 파괴 드랍 병 스폰 (광폭물약/수리키트)
+                    spawn_blacksmith_drop_bottle(turret_rect.centerx, turret_rect.centery)
+                print("[DEBUG] step5: 금화+병 스폰 완료")
+            except Exception as _turret_err:
+                print(f"[DEBUG] 터렛 파괴 예외 발생! {type(_turret_err).__name__}: {_turret_err}")
+                import traceback; traceback.print_exc()
             try:
                 effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=8)
                 effects_manager.spawn_construction_smoke(
@@ -82386,21 +82399,21 @@ def store_active_item(item_data):
     global active_item_slot, selected_item_index, aipill_active, last_item_use_time, long_boost_active
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
-        return
+        return False
     # long_boost가 이미 활성화되어 있으면 long_boost 아이템 획득 불가
     if item_data["name"] == "long_boost" and long_boost_active:
         # print("!")
-        return
+        return False
     if item_data["name"] == "fire_support" and selected_character_type != "soldier":
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
-        return
+        return False
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
     if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
-        return
+        return False
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
     if is_overflow_pickup and not allow_overflow:
-        return
+        return False
 
     # 모든 액티브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
     if "icon" not in item_data or item_data["icon"] is None:
@@ -82431,6 +82444,7 @@ def store_active_item(item_data):
 
     # 튜토리얼: 아이템 획득 체크
     on_item_collect_for_tutorial(item_data)
+    return True
 
 
 def store_arena_top_active_item(item_data):
@@ -82857,7 +82871,7 @@ def store_passive_item(item_data):
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
         # print("Aipill     .")
-        return
+        return False
     
     # 모든 패시브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
     if "icon" not in item_data or item_data["icon"] is None:
@@ -83623,6 +83637,7 @@ def store_passive_item(item_data):
             skip_legendary_animation()
         except Exception:
             pass
+    return True
 
 def activate_emotional_overdrive():
     global emotional_overdrive_active, emotional_overdrive_timer
@@ -137685,22 +137700,22 @@ def draw_stage2_jungle_border():
         # 벽 충돌 시 깜빡임 효과 (은은하게)
         if stage2_border_flash_timer > 0:
             flash_ratio = stage2_border_flash_timer / stage2_border_flash_duration
-            # 최대 알파 12 + 세제곱 감쇠 그라데이션 + 일반 블렌딩
-            base_alpha = int(12 * flash_ratio)
+            # 알파 20 + 제곱 감쇠 그라데이션
+            base_alpha = int(20 * flash_ratio)
             bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
             grad_steps = max(1, bt // 2)
             for i in range(grad_steps):
                 t = 1.0 - (i / grad_steps)
-                a = int(base_alpha * t * t * t)  # 세제곱 감쇠
+                a = int(base_alpha * t * t)  # 제곱 감쇠
                 if a <= 0:
                     break
-                c = (30, 90, 30, a)
+                c = (40, 120, 40, a)
                 pygame.draw.rect(flash_surf, c, (0, i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
                 pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
-            SCREEN.blit(flash_surf, (x_off, 0))
+            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
             stage2_border_flash_timer -= 1
 def update_stage2_leaves():
     """떨어지는 잎사귀 업데이트"""
