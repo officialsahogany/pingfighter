@@ -428,7 +428,7 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
         if turret_id not in turret_angles:
             turret_angles[turret_id] = random.randint(0, 360)
         turret_angles[turret_id] = (turret_angles[turret_id] + 1) % 120
-        if boss_current_health > 0 and random.random() < 0.0015 and boss_confused_timer == 0:
+        if boss_current_health > 0 and random.random() < 0.0012 and boss_confused_timer == 0:
             missile_x = boss_x + dx
             missile_y = BOSS_Y + dy + 10
             angle_for_missile = math.radians(90 + random.randint(-30, 30))
