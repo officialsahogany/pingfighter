@@ -651,13 +651,16 @@ class InGameBodyguard:
                 fx['bomb_kb_dir'] = game_state.get('top_paddle_bomb_kb_dir', 0)
                 fx['bomb_kb_vel'] = game_state.get('top_paddle_bomb_kb_vel', 0)
                 fx['bomb_kb_frames'] = game_state.get('top_paddle_bomb_kb_frames', 0)
-            # 스턴 (폭탄 서프라이즈 등) - 1회성 소비!
-            _stun = game_state.pop('top_paddle_stunned', False)
-            if _stun:
-                fx['stun_frames'] = 90  # 1.5초
-            # 감전 (천둥 뇌구)
-            if game_state.get('top_paddle_electric_stun', False):
+            # 감전 (천둥 뇌구) - 감전 중에는 stunned를 소비하지 않음!
+            _electric_active = game_state.get('top_paddle_electric_stun', False)
+            if _electric_active:
                 fx['electric_stun'] = True
+                fx['stun_frames'] = 6  # 매 프레임 갱신 (감전이 해제할 때까지 유지)
+            else:
+                # 스턴 (폭탄 서프라이즈 등) - 1회성 소비
+                _stun = game_state.pop('top_paddle_stunned', False)
+                if _stun:
+                    fx['stun_frames'] = 90  # 1.5초
             # 화면 흔들림
             _shake = game_state.pop('screen_shake', 0)
             if _shake:
