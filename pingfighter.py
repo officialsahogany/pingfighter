@@ -120043,8 +120043,8 @@ def show_victory_screen(stage_cleared, reward):
     _hl_clip_count = len(_hl_recorder.get_clips()) if _hl_has_clips else 0
     _hl_btn_w, _hl_btn_h = 150, 36
     _hl_btn_rect = pygame.Rect(
-        PILLAR_UI_WIDTH + GAME_PLAY_WIDTH - _hl_btn_w - 2,
-        HEIGHT - _hl_btn_h - 4,
+        WIDTH - _hl_btn_w,
+        HEIGHT - _hl_btn_h,
         _hl_btn_w, _hl_btn_h
     )
     _hl_btn_hovered = False
@@ -122318,6 +122318,27 @@ def show_replay_viewer():
                     if replays:
                         delete_confirm = selected
 
+            # 마우스 휠 스크롤
+            if event.type == pygame.MOUSEWHEEL and delete_confirm < 0 and replays:
+                if event.y > 0:  # 위로
+                    selected = max(0, selected - 1)
+                    if selected < scroll_offset:
+                        scroll_offset = selected
+                elif event.y < 0:  # 아래로
+                    selected = min(len(replays) - 1, selected + 1)
+                    if selected >= scroll_offset + max_visible:
+                        scroll_offset = selected - max_visible + 1
+
+            # 마우스 호버 — 항목 위에 올리면 선택 변경
+            if event.type == pygame.MOUSEMOTION and delete_confirm < 0 and replays:
+                mx, my = event.pos
+                list_y_start = 140
+                for i in range(scroll_offset, min(scroll_offset + max_visible, len(replays))):
+                    item_y = list_y_start + (i - scroll_offset) * 65
+                    if pygame.Rect(40, item_y, WIDTH - 80, 58).collidepoint(mx, my):
+                        selected = i
+                        break
+
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if delete_confirm >= 0:
                     delete_confirm = -1
@@ -122328,11 +122349,25 @@ def show_replay_viewer():
                     item_y = list_y_start + (i - scroll_offset) * 65
                     item_rect = pygame.Rect(40, item_y, WIDTH - 80, 58)
                     if item_rect.collidepoint(mx, my):
-                        if selected == i:
-                            _play_replay(replays[i]['filepath'])
-                            replays = list_replays()
-                        else:
-                            selected = i
+                        # 클릭 = 바로 재생
+                        _play_replay(replays[i]['filepath'])
+                        replays = list_replays()
+                        if selected >= len(replays):
+                            selected = max(0, len(replays) - 1)
+                        break
+
+            # 우클릭 → 삭제 확인
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+                if delete_confirm >= 0:
+                    delete_confirm = -1
+                    continue
+                mx, my = event.pos
+                list_y_start = 140
+                for i in range(scroll_offset, min(scroll_offset + max_visible, len(replays))):
+                    item_y = list_y_start + (i - scroll_offset) * 65
+                    if pygame.Rect(40, item_y, WIDTH - 80, 58).collidepoint(mx, my):
+                        selected = i
+                        delete_confirm = i
                         break
 
         SCREEN.fill((15, 15, 25))
@@ -122342,7 +122377,7 @@ def show_replay_viewer():
         SCREEN.blit(title_surf, (WIDTH // 2 - title_surf.get_width() // 2, 30))
 
         hint_font = get_font(16)
-        hint_text = _t("replay.hint", "Enter: 재생 | Del: 삭제 | ESC: 뒤로")
+        hint_text = _t("replay.hint", "클릭/Enter: 재생 | 우클릭/Del: 삭제 | ESC: 뒤로")
         hint_surf = hint_font.render(hint_text, True, (120, 120, 140))
         SCREEN.blit(hint_surf, (WIDTH // 2 - hint_surf.get_width() // 2, 80))
 
@@ -122434,6 +122469,24 @@ def _play_replay(filepath: str):
     score_font = get_font(32)
     info_font = get_font(14)
     speed_font = get_font(16)
+    btn_font = get_font(15)
+
+    # 타임라인 바 레이아웃 (렌더링과 동일 좌표 사용)
+    bar_x = 60
+    bar_w = WIDTH - 120
+    bar_y = HEIGHT - 50
+    bar_h = 8
+    bar_click_area = pygame.Rect(bar_x, bar_y - 10, bar_w, bar_h + 20)  # 클릭 영역 넓힘
+
+    # 하단 버튼 레이아웃
+    btn_h = 26
+    btn_y_pos = HEIGHT - 84
+    btn_pause = pygame.Rect(WIDTH // 2 - 30, btn_y_pos, 60, btn_h)
+    btn_speed = pygame.Rect(WIDTH // 2 + 40, btn_y_pos, 60, btn_h)
+    btn_back5 = pygame.Rect(WIDTH // 2 - 120, btn_y_pos, 40, btn_h)
+    btn_fwd5 = pygame.Rect(WIDTH // 2 + 110, btn_y_pos, 40, btn_h)
+
+    dragging_timeline = False  # 타임라인 드래그 중
 
     while True:
         clock.tick(60)
@@ -122454,6 +122507,44 @@ def _play_replay(filepath: str):
                     rp.seek_relative(-300)
                 if event.key == pygame.K_RIGHT:
                     rp.seek_relative(300)
+
+            # 마우스 휠 — 앞뒤 2초 이동
+            if event.type == pygame.MOUSEWHEEL:
+                rp.seek_relative(int(event.y * -120))  # 위=과거, 아래=미래
+
+            # 마우스 클릭
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                # 타임라인 바 클릭 → seek
+                if bar_click_area.collidepoint(mx, my):
+                    dragging_timeline = True
+                    ratio = max(0.0, min(1.0, (mx - bar_x) / bar_w))
+                    target = int(ratio * len(rp.frames))
+                    rp.current_index = max(0, min(len(rp.frames) - 1, target))
+                # 버튼 클릭
+                elif btn_pause.collidepoint(mx, my):
+                    rp.toggle_pause()
+                elif btn_speed.collidepoint(mx, my):
+                    rp.cycle_speed()
+                elif btn_back5.collidepoint(mx, my):
+                    rp.seek_relative(-300)
+                elif btn_fwd5.collidepoint(mx, my):
+                    rp.seek_relative(300)
+                else:
+                    # 게임 영역 클릭 → 일시정지 토글
+                    if 80 < mx < WIDTH - 80 and 70 < my < bar_y - 30:
+                        rp.toggle_pause()
+
+            # 타임라인 드래그 중
+            if event.type == pygame.MOUSEMOTION and dragging_timeline:
+                mx, _ = event.pos
+                ratio = max(0.0, min(1.0, (mx - bar_x) / bar_w))
+                target = int(ratio * len(rp.frames))
+                rp.current_index = max(0, min(len(rp.frames) - 1, target))
+
+            # 마우스 버튼 떼기
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                dragging_timeline = False
 
         frame_data = rp.advance()
         if frame_data is None and not rp.playing and not rp.paused:
@@ -122511,16 +122602,32 @@ def _play_replay(filepath: str):
         bn = hud_font.render(boss_name, True, (255, 150, 150))
         SCREEN.blit(bn, (WIDTH // 2 - bn.get_width() // 2, 50))
 
-        # 타임라인 바
-        bar_y = HEIGHT - 50
-        bar_x = 60
-        bar_w = WIDTH - 120
-        bar_h = 8
+        # ── 하단 컨트롤 버튼 ──
+        mouse_pos = pygame.mouse.get_pos()
 
+        def _draw_btn(rect, label, hover_color=(50, 70, 100), base_color=(30, 40, 55)):
+            hovered = rect.collidepoint(mouse_pos)
+            c = hover_color if hovered else base_color
+            pygame.draw.rect(SCREEN, c, rect, border_radius=5)
+            pygame.draw.rect(SCREEN, (80, 100, 140), rect, width=1, border_radius=5)
+            s = btn_font.render(label, True, (200, 210, 230))
+            SCREEN.blit(s, (rect.centerx - s.get_width() // 2, rect.centery - s.get_height() // 2))
+
+        _draw_btn(btn_back5, "<<5s")
+        _draw_btn(btn_pause, "II" if not rp.paused else ">")
+        _draw_btn(btn_speed, f"x{rp.speed:.2g}")
+        _draw_btn(btn_fwd5, "5s>>")
+
+        # 타임라인 바
         pygame.draw.rect(SCREEN, (40, 45, 60), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
         fill_w = int(bar_w * rp.progress)
         if fill_w > 0:
             pygame.draw.rect(SCREEN, (0, 180, 255), (bar_x, bar_y, fill_w, bar_h), border_radius=4)
+        # 타임라인 핸들 (동그란 포인터)
+        handle_x = bar_x + fill_w
+        pygame.draw.circle(SCREEN, (0, 220, 255), (handle_x, bar_y + bar_h // 2), 6)
+        if dragging_timeline:
+            pygame.draw.circle(SCREEN, (255, 255, 255), (handle_x, bar_y + bar_h // 2), 8, 2)
 
         cur_t = rp.current_time
         tot_t = rp.total_time
@@ -122531,12 +122638,10 @@ def _play_replay(filepath: str):
         sp_s = speed_font.render(sp_str, True, (200, 200, 100))
         SCREEN.blit(sp_s, (bar_x + bar_w - sp_s.get_width(), bar_y + 14))
 
+        # 일시정지 오버레이
         if rp.paused:
             pf = get_font(48)
             SCREEN.blit(pf.render("II", True, (255, 255, 255)), (WIDTH // 2 - 20, HEIGHT // 2 - 30))
-
-        ctrl = "SPACE: 일시정지 | TAB: 배속 | ←→: 5초 이동 | ESC: 나가기"
-        SCREEN.blit(info_font.render(ctrl, True, (80, 85, 100)), (WIDTH // 2 - info_font.size(ctrl)[0] // 2, HEIGHT - 22))
 
         wm = get_font(14).render("REPLAY", True, (60, 65, 80))
         SCREEN.blit(wm, (WIDTH - 80 - wm.get_width(), 80))
