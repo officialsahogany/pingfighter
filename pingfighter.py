@@ -23748,7 +23748,7 @@ arena_flash_inspiration_timer_bottom = 0.0     # 하단 번뜩이는 영감 이�
 ARENA_FLASH_INSPIRATION_DURATION = 0.5         # 번뜩이는 영감 이펙트 지속 시간 (초)
 arena_flash_inspiration_particles_top = []     # 상단 반짝임 파티클
 arena_flash_inspiration_particles_bottom = []  # 하단 반짝임 파티클
-# 기사회생 퍽 (상대 4점 시 1라운드 스킬쿨 -70%)
+# 기사회생 퍽 (상대 4점 시 경기 종료까지 스킬쿨 -70%)
 arena_perk_comeback_has_top = False              # 상단 영웅 기사회생 퍽 보유
 arena_perk_comeback_has_bottom = False            # 하단 영웅 기사회생 퍽 보유
 arena_perk_comeback_value_top = 0.70              # 상단 기사회생 스킬쿨 감소량
@@ -146866,11 +146866,7 @@ def handle_ball():
             if not _ending:
                 draw_score()  # 3:0 완승 보너스 메시지도 표시
 
-            # 🔥 기사회생 퍽: 듀스 모드에서도 라운드 종료 시 해제
-            if arena_mode_enabled:
-                # print(f"[DEBUG 기사회생] --- 듀스(하단득점) 라운드 종료, 기사회생 해제 ---")
-                _arena_comeback_deactivate(True)
-                _arena_comeback_deactivate(False)
+            # 🔥 기사회생 퍽: 경기 종료까지 유지 (라운드 종료 시 해제하지 않음)
 
             #  Stage 1 듀스 모드 - 타이머 기반으로 변경되어 더 이상 점수 체크하지 않음
             # 기존 코드 주석 처리 (타이머 기반으로 변경)
@@ -146953,17 +146949,10 @@ def handle_ball():
                 if _hl_rec:
                     _hl_rec.save_highlight()
 
-            # 🔥 기사회생 퍽: 라운드 종료 시 해제 + 상대 4점 시 발동
+            # 🔥 기사회생 퍽: 상대 4점 시 발동 (경기 종료까지 유지)
             if arena_mode_enabled:
-                # print(f"[DEBUG 기사회생] --- 하단 득점! score: wins={round_wins} losses={round_losses} ---")
-                # print(f"[DEBUG 기사회생]   has_top={arena_perk_comeback_has_top}, has_bottom={arena_perk_comeback_has_bottom}")
-                # print(f"[DEBUG 기사회생]   active_top={arena_perk_comeback_active_top}, active_bottom={arena_perk_comeback_active_bottom}")
-                # print(f"[DEBUG 기사회생]   tenacity_top_triggered={tenacity_top_triggered}")
-                # 기존 기사회생 해제 (이전 라운드에서 발동 중이었다면)
-                _arena_comeback_deactivate(True)
-                _arena_comeback_deactivate(False)
                 # 하단(플레이어)이 4점에 도달하면 상단(상대) 기사회생 발동
-                if arena_perk_comeback_has_top and round_wins == 4 and not tenacity_top_triggered:
+                if arena_perk_comeback_has_top and not arena_perk_comeback_active_top and round_wins == 4 and not tenacity_top_triggered:
                     # print(f"[DEBUG 기사회생] ★ 조건 충족! 상단 기사회생 발동 (round_wins=={round_wins})")
                     _arena_comeback_activate(True)
                 else:
@@ -147973,11 +147962,7 @@ def handle_ball():
             except Exception:
                 pass
 
-            # 🔥 기사회생 퍽: 듀스 모드에서도 라운드 종료 시 해제
-            if arena_mode_enabled:
-                # print(f"[DEBUG 기사회생] --- 듀스(상단득점) 라운드 종료, 기사회생 해제 ---")
-                _arena_comeback_deactivate(True)
-                _arena_comeback_deactivate(False)
+            # 🔥 기사회생 퍽: 경기 종료까지 유지 (라운드 종료 시 해제하지 않음)
 
             if try_trigger_foul_whistle("deuce"):
                 return
@@ -148126,17 +148111,10 @@ def handle_ball():
             if current_stage == 30 and pillar_renderer is not None:
                 _arena_crowd_on_score(pillar_renderer, "top", round_wins, round_losses)
 
-            # 🔥 기사회생 퍽: 라운드 종료 시 해제 + 상대 4점 시 발동
+            # 🔥 기사회생 퍽: 상대 4점 시 발동 (경기 종료까지 유지)
             if arena_mode_enabled:
-                # print(f"[DEBUG 기사회생] --- 상단 득점! score: wins={round_wins} losses={round_losses} ---")
-                # print(f"[DEBUG 기사회생]   has_top={arena_perk_comeback_has_top}, has_bottom={arena_perk_comeback_has_bottom}")
-                # print(f"[DEBUG 기사회생]   active_top={arena_perk_comeback_active_top}, active_bottom={arena_perk_comeback_active_bottom}")
-                # print(f"[DEBUG 기사회생]   tenacity_triggered={tenacity_triggered}")
-                # 기존 기사회생 해제 (이전 라운드에서 발동 중이었다면)
-                _arena_comeback_deactivate(True)
-                _arena_comeback_deactivate(False)
                 # 상대(상단)가 4점에 도달하면 하단(플레이어) 기사회생 발동
-                if arena_perk_comeback_has_bottom and round_losses == 4 and not tenacity_triggered:
+                if arena_perk_comeback_has_bottom and not arena_perk_comeback_active_bottom and round_losses == 4 and not tenacity_triggered:
                     # print(f"[DEBUG 기사회생] ★ 조건 충족! 하단 기사회생 발동 (round_losses=={round_losses})")
                     _arena_comeback_activate(False)
                 else:

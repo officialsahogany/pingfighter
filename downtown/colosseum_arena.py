@@ -1812,7 +1812,7 @@ ARENA_PERK_POOL = [
     {
         "id": "comeback",
         "name": "기사회생",
-        "description": "상대 4점 획득 시 다음 1라운드\n스킬 쿨타임 70% 감소",
+        "description": "상대 4점 획득 시 경기 종료까지\n스킬 쿨타임 70% 감소",
         "icon_color": (220, 50, 50),    # 붉은색 (불굴)
         "effect_type": "comeback",
         "value": 0.70,
