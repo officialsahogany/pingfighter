@@ -11652,17 +11652,22 @@ class PandoraLegacy(LegendaryItem):
         if len(active_pool) < 3:
             return []
 
-        # 품질 보너스 적용: 높은 등급 아이템 가중치 증가
+        # 품질 보너스 적용: 원래 스폰 확률 기반 가중치 + 매직찬스 보너스
+        # 기본 가중치를 chance 기반으로 설정하여 희귀 아이템이 과도하게 나오지 않도록 함
         weighted_pool = []
         for item in active_pool:
             chance = item.get("chance", 0.01)
-            # 낮은 확률(희귀)일수록 품질 보너스로 가중치 증가
+            # 기본 가중치: chance의 제곱근으로 희귀도 격차를 압축하되 유지
+            # (chance 0.05 → 0.224, chance 0.01 → 0.1, chance 0.0008 → 0.028)
+            import math
+            base_weight = math.sqrt(chance)
+            # 매직찬스 보너스: 희귀할수록 더 큰 보너스
             if chance < 0.005:
-                weight = 1.0 + quality_bonus * 3  # 희귀 아이템 가중치 상승
+                weight = base_weight * (1.0 + quality_bonus * 3)  # 신화/전설급
             elif chance < 0.01:
-                weight = 1.0 + quality_bonus * 2
+                weight = base_weight * (1.0 + quality_bonus * 2)  # 희귀급
             else:
-                weight = 1.0
+                weight = base_weight
             weighted_pool.append((item, weight))
 
         # 3개 선택 (중복 없이)
