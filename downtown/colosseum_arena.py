@@ -5672,6 +5672,12 @@ class GuardWarriorSystem:
         if not wild_roar or not ball:
             return True  # WildRoar 아님 → 정상 진행
 
+        # 서브 대기 중(공 속도 0)이면 발동 안 함
+        bvx = getattr(ball, 'vx', None) or getattr(ball, 'speed_x', 0)
+        bvy = getattr(ball, 'vy', None) or getattr(ball, 'speed_y', 0)
+        if abs(bvx) < 0.1 and abs(bvy) < 0.1:
+            return False
+
         # 호위무사 위치로 가상 패들 생성
         gp = _GuardPaddle(gx, gy, is_top)
         self.guard_paddles[guard_id] = gp
