@@ -350,7 +350,7 @@ class ValhallaWarplateState:
             self._clear_state()
 
     def _refund_gauge(self):
-        """소환 실패 시 소모된 게이지 환불"""
+        """소환 실패 시 소모된 게이지 환불 (special_ready / game_state 동기화 포함)"""
         refund = getattr(self, '_consumed_gauge', 0)
         if refund > 0:
             try:
@@ -359,6 +359,13 @@ class ValhallaWarplateState:
                     pingfighter.special_gauge + refund,
                     pingfighter.special_gauge_max
                 )
+                # consume_special_gauge()와 동일한 상태 동기화
+                pingfighter.special_ready = pingfighter.special_gauge >= 350
+                try:
+                    pingfighter.game_state.special_gauge = pingfighter.special_gauge
+                    pingfighter.game_state.special_ready = pingfighter.special_ready
+                except Exception:
+                    pass
                 print(f"⚔ 발할라의 전갑: 소환 실패 → 게이지 {refund} 환불")
             except Exception:
                 pass
@@ -584,15 +591,26 @@ class ValhallaWarplateState:
         return self._cached_surfaces.get(key)
 
     def _get_cached_text(self, text_key, text, font_size, color):
-        """텍스트 Surface 캐시 (매 프레임 래스터라이즈 방지)"""
+        """텍스트 Surface 캐시 (매 프레임 래스터라이즈 방지, 폰트 fallback 포함)"""
         if text_key in self._cached_text:
             return self._cached_text[text_key]
         font = self._get_font(font_size)
         if font:
-            surf, rect = font.render(text, color)
+            try:
+                surf, rect = font.render(text, color)
+                self._cached_text[text_key] = (surf, rect)
+                return (surf, rect)
+            except Exception:
+                pass
+        # fallback: 기본 폰트 (NanumSquare 로드 실패 또는 렌더 실패 시)
+        try:
+            fb = pygame.font.Font(None, font_size + 2)
+            surf = fb.render(text, True, color[:3] if len(color) > 3 else color)
+            rect = surf.get_rect()
             self._cached_text[text_key] = (surf, rect)
             return (surf, rect)
-        return None
+        except Exception:
+            return None
 
     def _get_surface(self, key, width, height, skip_clear=False):
         """재사용 Surface 캐시 (크기가 같으면 재사용, 다르면 재생성)
@@ -701,10 +719,10 @@ class ValhallaWarplateState:
         # ── 1) 어두운 오버레이 (전체 fill = clear 대체) ──
         overlay.fill((5, 5, 20, _c(120 * fade_mult)))
 
-        # ── 2) 빛기둥 (고정 크기 beam Surface 재사용, 너비는 alpha로 조절) ──
+        # ── 2) 빛기둥 (고정 Surface, 실제 너비 bw 영역만 blit) ──
         beam_appear = min(1.0, progress * 2.5)
         beam_fade = fade_mult
-        BW_MAX = 22  # 최대 beam 너비 (6 + 1*14 = 20 근사)
+        BW_MAX = 22
         beam_surf = self._get_surface('beam_shared', BW_MAX, H, skip_clear=True)
         for bi in range(2):
             bw = int((6 + bi * 14) * beam_appear)
@@ -715,7 +733,9 @@ class ValhallaWarplateState:
                 continue
             beam_surf.fill((255, 220 + bi * 15, 100 + bi * 40, _c(ba * 0.25)))
             pygame.draw.line(beam_surf, (255, 240, 160, ba), (BW_MAX // 2, 0), (BW_MAX // 2, H), 1)
-            overlay.blit(beam_surf, (cx - BW_MAX // 2, 0))
+            # bw 영역만 클리핑하여 blit → 초반 가늘게 열리는 애니메이션 유지
+            clip_x = (BW_MAX - bw) // 2
+            overlay.blit(beam_surf, (cx - bw // 2, 0), area=(clip_x, 0, bw, H))
 
         # ── 3) 텍스트 (캐시된 Surface 재사용) ──
         ta = _c(255 * fade_mult)
@@ -786,13 +806,15 @@ class ValhallaWarplateState:
         else:
             overlay.fill((0, 0, 0, 0))
 
-        # 2) 빛기둥 잔상 (고정 크기 beam 재사용)
+        # 2) 빛기둥 잔상 (고정 Surface, fade에 따라 너비 축소)
+        bw_d = max(1, int(8 * fade))
         ba = _c(35 * fade)
-        if ba > 3:
+        if ba > 3 and bw_d > 0:
             beam_s = self._get_surface('beam_shared', 22, H, skip_clear=True)
             beam_s.fill((255, 230, 130, _c(ba * 0.2)))
             pygame.draw.line(beam_s, (255, 240, 160, ba), (11, 0), (11, H), 1)
-            overlay.blit(beam_s, (cx - 11, 0))
+            clip_x = (22 - bw_d) // 2
+            overlay.blit(beam_s, (cx - bw_d // 2, 0), area=(clip_x, 0, bw_d, H))
 
         # 3) 흩뿌려지는 파편
         scatter = 1.0 - fade
