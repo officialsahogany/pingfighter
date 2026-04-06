@@ -49398,17 +49398,22 @@ def _set_viper_kick_curve(curve_frames: int, curve_force: float, curve_dir: int)
     _viper_ps_curve_direction = curve_dir if curve_dir != 0 else 1
 
 
-def _trigger_viper_phantom_kick_freeze() -> None:
-    global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
+def _show_viper_phantom_kick_text() -> None:
+    """Phase 6에서 돌진 전 '팬텀 킥' 텍스트+사운드만 표시 (프리즈 없음)."""
     global _viper_dmk_text_active, _viper_dmk_text_timer
     global _viper_dmk_text_x, _viper_dmk_text_y, _viper_dmk_show_sound_played
-    _viper_dmk_freeze_active = True
-    _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
     _viper_dmk_show_sound_played = False
     _viper_dmk_text_active = True
     _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
     _viper_dmk_text_x = float(WIDTH // 2)
     _viper_dmk_text_y = float(HEIGHT // 2 - 30)
+
+
+def _trigger_viper_phantom_kick_freeze() -> None:
+    """타격 순간 히트스톱 프리즈만 발동 (텍스트는 이미 Phase 6에서 표시됨)."""
+    global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
+    _viper_dmk_freeze_active = True
+    _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
 
 
 def _start_viper_wall_dive_charge(start_ms: int) -> None:
@@ -74384,6 +74389,7 @@ def handle_player(keys):
                 else:
                     if _viper_is_double_marshal:
                         _viper_wall_dive_phase = 6
+                        _show_viper_phantom_kick_text()
                     else:
                         _start_viper_wall_dive_charge(_wd_now)
 
@@ -74417,14 +74423,17 @@ def handle_player(keys):
                 screen_shake_intensity = max(screen_shake_intensity, 2)
                 if _viper_is_double_marshal:
                     _viper_wall_dive_phase = 6
+                    _show_viper_phantom_kick_text()
                 else:
                     _start_viper_wall_dive_charge(_wd_now)
 
         elif _viper_wall_dive_phase == 6:
-            # Phase 6: 팬텀 킥 전이 포즈 유지 후 즉시 돌진 대기
+            # Phase 6: 팬텀 킥 텍스트 표시 + 벽 포즈 유지 → 짧은 연출 후 돌진
             PLAYER.centerx = int(_viper_wall_dive_wall_x)
             PLAYER.centery = int(_viper_wall_dive_wall_y)
-            if not _viper_dmk_freeze_active:
+            # 텍스트 연출 시간 (약 0.5초) 대기 후 돌진 전환
+            _VIPER_PHASE6_POSE_MS = 500
+            if _wd_elapsed >= _VIPER_PHASE6_POSE_MS:
                 _start_viper_wall_dive_charge(_wd_now)
 
         elif _viper_wall_dive_phase == 2:
