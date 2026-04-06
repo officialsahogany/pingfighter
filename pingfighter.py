@@ -60752,6 +60752,7 @@ def activate_dynamite():
     dynamite_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"🧨 코만도암 적용! 투척 준비시간: {dynamite_throw_timer/60:.2f}초")
+        SOUND_THROW_BEFORE.set_volume(sfx_volume)
         SOUND_THROW_BEFORE.play(maxtime=200)
     else:
         print(f"🧨 다이너마이트 투척 준비: {dynamite_throw_timer/60:.2f}초")
@@ -60776,6 +60777,7 @@ def activate_banana():
     banana_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"🍌 코만도암 적용! 투척 준비시간: {banana_throw_timer/60:.2f}초")
+        SOUND_THROW_BEFORE.set_volume(sfx_volume)
         SOUND_THROW_BEFORE.play(maxtime=200)
     else:
         print(f"🍌 바나나 투척 준비: {banana_throw_timer/60:.2f}초")
@@ -60800,6 +60802,7 @@ def activate_soap():
     soap_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"[Soap] 코만도암 적용! 투척 준비시간: {soap_throw_timer/60:.2f}초")
+        SOUND_THROW_BEFORE.set_volume(sfx_volume)
         SOUND_THROW_BEFORE.play(maxtime=200)
     else:
         print(f"[Soap] 비누 투척 준비: {soap_throw_timer/60:.2f}초")
@@ -60829,6 +60832,7 @@ def activate_boomerang_throw():
     boomerang_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"🪃 코만도암 적용! 투척 준비시간: {boomerang_throw_timer/60:.2f}초")
+        SOUND_THROW_BEFORE.set_volume(sfx_volume)
         SOUND_THROW_BEFORE.play(maxtime=200)
     else:
         print(f"🪃 부메랑 투척 준비: {boomerang_throw_timer/60:.2f}초")
@@ -60891,6 +60895,7 @@ def activate_flare():
     flare_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"   !   {flare_throw_timer/60:.2f}")
+        SOUND_THROW_BEFORE.set_volume(sfx_volume)
         SOUND_THROW_BEFORE.play(maxtime=200)
     else:
         print(f"    : {flare_throw_timer/60:.2f}")
@@ -61170,6 +61175,7 @@ def activate_grenade():
     grenade_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
         print(f"   !   {grenade_throw_timer/60:.2f}")
+        SOUND_THROW_BEFORE.set_volume(sfx_volume)
         SOUND_THROW_BEFORE.play(maxtime=200)  # 200ms만 재생
     else:
         print(f"   : {grenade_throw_timer/60:.2f}")
@@ -61750,6 +61756,7 @@ def activate_molotov():
     base_timer = 36  # 0.6초 (60fps * 0.6)
     molotov_throw_timer = _commando_timer_reduction(base_timer)
     if items.commando_arm_obtained:
+        SOUND_THROW_BEFORE.set_volume(sfx_volume)
         SOUND_THROW_BEFORE.play(maxtime=200)  # 200ms만 재생
     else:
         play_sound_with_volume(SOUND_THROW_BEFORE)
@@ -65884,7 +65891,7 @@ def handle_gods_judgment():
         if bg.judgment_bolt_throw_started:
             bg.judgment_bolt_throw_started = False
             if SOUND_GOD_START:
-                SOUND_GOD_START.play()
+                play_sound_with_volume(SOUND_GOD_START)
             bg.judgment_text_display_paused = True
             show_fade_text("신의 심판: 번개의 분노")
             bg.judgment_text_display_paused = False
@@ -65932,7 +65939,7 @@ def handle_gods_judgment():
         if bg.judgment_fan_swing_started:
             bg.judgment_fan_swing_started = False
             if SOUND_GOD_START:
-                SOUND_GOD_START.play()
+                play_sound_with_volume(SOUND_GOD_START)
             bg.judgment_text_display_paused = True
             show_fade_text("신의 심판: 바람의 분노")
             bg.judgment_text_display_paused = False
@@ -67814,7 +67821,7 @@ def start_soldier_reload():
     
     # 재장전 시작 사운드 재생
     try:
-        SOUND_PISTOL_RELOAD_START.play()
+        play_sound_with_volume(SOUND_PISTOL_RELOAD_START)
     except:
         pass  # 사운드 재생 실패시 무시
 
@@ -73659,7 +73666,7 @@ def handle_player(keys):
                 globals()["boost_charging_token_idx"] = _next_charge_idx
                 # 부스트차징 사운드 재생
                 if SOUND_BOOST_CHARGING and not AUDIO_DISABLED:
-                    SOUND_BOOST_CHARGING.play()
+                    play_sound_with_volume(SOUND_BOOST_CHARGING)
                 # 부스트차징 발동 이펙트 트리거
                 globals()["boost_charging_effect_timer"] = BOOST_CHARGING_EFFECT_DURATION
                 globals()["boost_charging_effect_x"] = PLAYER.centerx
@@ -76803,7 +76810,7 @@ def handle_player(keys):
                         # 리커버리 사운드 효과
                         try:
                             if SOUND_RECOVERY:
-                                SOUND_RECOVERY.play()
+                                play_sound_with_volume(SOUND_RECOVERY)
                         except:
                             pass
 
@@ -77161,7 +77168,7 @@ def handle_player(keys):
                                 globals()["boost_charging_token_idx"] = _next_charge_idx
                                 # 부스트차징 사운드 재생
                                 if SOUND_BOOST_CHARGING and not AUDIO_DISABLED:
-                                    SOUND_BOOST_CHARGING.play()
+                                    play_sound_with_volume(SOUND_BOOST_CHARGING)
                                 # 부스트차징 발동 이펙트 트리거
                                 globals()["boost_charging_effect_timer"] = BOOST_CHARGING_EFFECT_DURATION
                                 globals()["boost_charging_effect_x"] = PLAYER.centerx
@@ -77426,7 +77433,7 @@ def handle_player(keys):
                                 globals()["boost_charging_token_idx"] = _next_charge_idx
                                 # 부스트차징 사운드 재생
                                 if SOUND_BOOST_CHARGING and not AUDIO_DISABLED:
-                                    SOUND_BOOST_CHARGING.play()
+                                    play_sound_with_volume(SOUND_BOOST_CHARGING)
                                 # 부스트차징 발동 이펙트 트리거
                                 globals()["boost_charging_effect_timer"] = BOOST_CHARGING_EFFECT_DURATION
                                 globals()["boost_charging_effect_x"] = PLAYER.centerx
@@ -78338,7 +78345,7 @@ def handle_player(keys):
                                 globals()["boost_charging_token_idx"] = _next_charge_idx
                                 # 부스트차징 사운드 재생
                                 if SOUND_BOOST_CHARGING and not AUDIO_DISABLED:
-                                    SOUND_BOOST_CHARGING.play()
+                                    play_sound_with_volume(SOUND_BOOST_CHARGING)
                                 # 부스트차징 발동 이펙트 트리거
                                 globals()["boost_charging_effect_timer"] = BOOST_CHARGING_EFFECT_DURATION
                                 globals()["boost_charging_effect_x"] = PLAYER.centerx
@@ -78631,7 +78638,7 @@ def handle_player(keys):
                                 globals()["boost_charging_token_idx"] = _next_charge_idx
                                 # 부스트차징 사운드 재생
                                 if SOUND_BOOST_CHARGING and not AUDIO_DISABLED:
-                                    SOUND_BOOST_CHARGING.play()
+                                    play_sound_with_volume(SOUND_BOOST_CHARGING)
                                 # 부스트차징 발동 이펙트 트리거
                                 globals()["boost_charging_effect_timer"] = BOOST_CHARGING_EFFECT_DURATION
                                 globals()["boost_charging_effect_x"] = PLAYER.centerx
@@ -82567,7 +82574,7 @@ def _apply_arena_top_item_effect(effect_name):
         # 효과음
         try:
             if SOUND_THROW_BEFORE:
-                SOUND_THROW_BEFORE.play()
+                play_sound_with_volume(SOUND_THROW_BEFORE)
         except Exception:
             pass
 
@@ -167039,7 +167046,7 @@ def show_character_info(background_surface=None):
         sync_equipped_passive_effects()
         # 장비 착용/이동 사운드 재생
         if SOUND_EQUIPMENT:
-            SOUND_EQUIPMENT.play()
+            play_sound_with_volume(SOUND_EQUIPMENT)
         return True
 
     def unequip_slot(slot_key, slot_state):
@@ -167052,7 +167059,7 @@ def show_character_info(background_surface=None):
             sync_equipped_passive_effects()
             # 장비 해제 사운드 재생
             if SOUND_EQUIPMENT:
-                SOUND_EQUIPMENT.play()
+                play_sound_with_volume(SOUND_EQUIPMENT)
         return item
 
     def draw_bag_grid(items, area_rect, mouse_pos, drag_item=None, *, max_rows=None, start_row=0, title="인벤토리", label_font=None, tiny_font=None):
