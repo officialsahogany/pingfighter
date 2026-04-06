@@ -28874,6 +28874,22 @@ def sync_equipped_passive_effects():
             _temp_seal_active_bg.add(id(_is._bodyguard_ref))
     except Exception:
         pass
+    # 발할라의 전갑이 사용 중인 bodyguard도 인장 해제에서 제외
+    try:
+        from item_effects.valhalla_warplate import get_valhalla_warplate_state
+        _vw_s = get_valhalla_warplate_state()
+        if _vw_s.state != _vw_s.IDLE and _vw_s._bodyguard_ref:
+            _temp_seal_active_bg.add(id(_vw_s._bodyguard_ref))
+    except Exception:
+        pass
+    # dismissed 상태(스킬 잔여물 유지 중) bodyguard도 인장 해제에서 제외
+    try:
+        from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg_check, get_bodyguard2 as _get_bg2_check
+        for _bg_check in [_get_bg_check(), _get_bg2_check()]:
+            if getattr(_bg_check, '_valhalla_dismissed', False) and _bg_check.active:
+                _temp_seal_active_bg.add(id(_bg_check))
+    except Exception:
+        pass
     try:
         from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
         _equipped_seals = [
