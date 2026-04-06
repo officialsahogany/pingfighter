@@ -120043,8 +120043,8 @@ def show_victory_screen(stage_cleared, reward):
     _hl_clip_count = len(_hl_recorder.get_clips()) if _hl_has_clips else 0
     _hl_btn_w, _hl_btn_h = 150, 36
     _hl_btn_rect = pygame.Rect(
-        PILLAR_UI_WIDTH + GAME_PLAY_WIDTH - _hl_btn_w - 10,
-        HEIGHT - _hl_btn_h - 10,
+        PILLAR_UI_WIDTH + GAME_PLAY_WIDTH - _hl_btn_w - 2,
+        HEIGHT - _hl_btn_h - 4,
         _hl_btn_w, _hl_btn_h
     )
     _hl_btn_hovered = False
@@ -122255,6 +122255,338 @@ def start_dojo_dev():
         bgm_manager.stop_bgm()
     except Exception:
         pass
+
+
+# ============================================================================
+# 🎬 리플레이 뷰어 시스템
+# ============================================================================
+def show_replay_viewer():
+    """메인 메뉴에서 호출 — 리플레이 목록 + 재생 화면"""
+    clock = pygame.time.Clock()
+    replays = list_replays()
+    selected = 0
+    scroll_offset = 0
+    max_visible = 8
+    delete_confirm = -1
+
+    stage_boss = {
+        1: "풍악보이", 2: "악어장군", 3: "멘헤라걸", 4: "퐁크",
+        5: "네메시스", 6: "홍련", 7: "테트리서", 8: "아카무 리고",
+        30: "투기장",
+    }
+
+    while True:
+        clock.tick(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    if delete_confirm >= 0:
+                        delete_confirm = -1
+                        continue
+                    return
+
+                if delete_confirm >= 0:
+                    if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        if 0 <= delete_confirm < len(replays):
+                            delete_replay(replays[delete_confirm]['filepath'])
+                            replays = list_replays()
+                            if selected >= len(replays):
+                                selected = max(0, len(replays) - 1)
+                        delete_confirm = -1
+                    elif event.key == pygame.K_n:
+                        delete_confirm = -1
+                    continue
+
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    selected = max(0, selected - 1)
+                    if selected < scroll_offset:
+                        scroll_offset = selected
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    if replays:
+                        selected = min(len(replays) - 1, selected + 1)
+                        if selected >= scroll_offset + max_visible:
+                            scroll_offset = selected - max_visible + 1
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if replays:
+                        _play_replay(replays[selected]['filepath'])
+                        replays = list_replays()
+                elif event.key in (pygame.K_DELETE, pygame.K_BACKSPACE):
+                    if replays:
+                        delete_confirm = selected
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if delete_confirm >= 0:
+                    delete_confirm = -1
+                    continue
+                mx, my = event.pos
+                list_y_start = 140
+                for i in range(scroll_offset, min(scroll_offset + max_visible, len(replays))):
+                    item_y = list_y_start + (i - scroll_offset) * 65
+                    item_rect = pygame.Rect(40, item_y, WIDTH - 80, 58)
+                    if item_rect.collidepoint(mx, my):
+                        if selected == i:
+                            _play_replay(replays[i]['filepath'])
+                            replays = list_replays()
+                        else:
+                            selected = i
+                        break
+
+        SCREEN.fill((15, 15, 25))
+
+        title_font = get_font(36)
+        title_surf = title_font.render(_t("replay.title", "리플레이"), True, (0, 220, 255))
+        SCREEN.blit(title_surf, (WIDTH // 2 - title_surf.get_width() // 2, 30))
+
+        hint_font = get_font(16)
+        hint_text = _t("replay.hint", "Enter: 재생 | Del: 삭제 | ESC: 뒤로")
+        hint_surf = hint_font.render(hint_text, True, (120, 120, 140))
+        SCREEN.blit(hint_surf, (WIDTH // 2 - hint_surf.get_width() // 2, 80))
+
+        if not replays:
+            empty_font = get_font(24)
+            empty_surf = empty_font.render(_t("replay.empty", "저장된 리플레이가 없습니다"), True, (100, 100, 120))
+            SCREEN.blit(empty_surf, (WIDTH // 2 - empty_surf.get_width() // 2, HEIGHT // 2 - 20))
+        else:
+            item_font = get_font(20)
+            detail_font = get_font(15)
+            list_y_start = 140
+
+            for i in range(scroll_offset, min(scroll_offset + max_visible, len(replays))):
+                r = replays[i]
+                y = list_y_start + (i - scroll_offset) * 65
+                is_sel = (i == selected)
+
+                card_color = (35, 45, 65) if is_sel else (22, 28, 38)
+                border_color = (0, 180, 255) if is_sel else (50, 60, 80)
+                card_rect = pygame.Rect(40, y, WIDTH - 80, 58)
+                pygame.draw.rect(SCREEN, card_color, card_rect, border_radius=8)
+                pygame.draw.rect(SCREEN, border_color, card_rect, width=2, border_radius=8)
+
+                stg = r.get('stage', 0)
+                boss = r.get('boss_name', '') or stage_boss.get(stg, f"Stage {stg}")
+                res = r.get('result', '')
+                res_tag = ""
+                res_color = (180, 180, 180)
+                if res == 'win':
+                    res_tag = " [WIN]"
+                    res_color = (100, 255, 100)
+                elif res == 'lose':
+                    res_tag = " [LOSE]"
+                    res_color = (255, 100, 100)
+                elif res == 'quit':
+                    res_tag = " [QUIT]"
+                    res_color = (180, 180, 100)
+
+                t_surf = item_font.render(f"Stage {stg} - {boss}{res_tag}", True, res_color)
+                SCREEN.blit(t_surf, (60, y + 8))
+
+                dur = r.get('duration', 0)
+                created = r.get('created_at', 0)
+                date_str = time.strftime("%Y-%m-%d %H:%M", time.localtime(created)) if created > 0 else "???"
+                detail_text = f"{date_str}  |  {int(dur)//60}:{int(dur)%60:02d}  |  {r.get('character','')}  |  {r.get('ai_mode','')}"
+                d_surf = detail_font.render(detail_text, True, (100, 110, 130))
+                SCREEN.blit(d_surf, (60, y + 33))
+
+            if len(replays) > max_visible:
+                total_h = max_visible * 65
+                bar_h = max(20, int(max_visible / len(replays) * total_h))
+                bar_y = 140 + int(scroll_offset / max(1, len(replays) - max_visible) * (total_h - bar_h))
+                pygame.draw.rect(SCREEN, (50, 60, 80), (WIDTH - 30, 140, 8, total_h), border_radius=4)
+                pygame.draw.rect(SCREEN, (0, 150, 255), (WIDTH - 30, bar_y, 8, bar_h), border_radius=4)
+
+        if delete_confirm >= 0:
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 160))
+            SCREEN.blit(overlay, (0, 0))
+            cf = get_font(24)
+            cs = cf.render(_t("replay.delete_confirm", "이 리플레이를 삭제하시겠습니까?"), True, (255, 200, 100))
+            SCREEN.blit(cs, (WIDTH // 2 - cs.get_width() // 2, HEIGHT // 2 - 30))
+            hf = get_font(18)
+            hs = hf.render("Enter: 삭제 | ESC: 취소", True, (180, 180, 180))
+            SCREEN.blit(hs, (WIDTH // 2 - hs.get_width() // 2, HEIGHT // 2 + 15))
+
+        pygame.display.flip()
+
+
+def _play_replay(filepath: str):
+    """리플레이 파일을 로드하고 재생 루프 실행"""
+    rp = ReplayPlayer()
+    if not rp.load(filepath):
+        return
+
+    clock = pygame.time.Clock()
+    rp.start()
+
+    BALL_RADIUS = 8
+    PADDLE_H = 12
+    PLAYER_C = (0, 200, 255)
+    BOSS_C = (255, 80, 80)
+
+    stage = rp.metadata.get('stage', 0)
+    boss_name = rp.metadata.get('boss_name', f"Stage {stage}")
+    result = rp.metadata.get('result', '')
+
+    hud_font = get_font(18)
+    score_font = get_font(32)
+    info_font = get_font(14)
+    speed_font = get_font(16)
+
+    while True:
+        clock.tick(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    rp.stop()
+                    return
+                if event.key == pygame.K_SPACE:
+                    rp.toggle_pause()
+                if event.key == pygame.K_TAB:
+                    rp.cycle_speed()
+                if event.key == pygame.K_LEFT:
+                    rp.seek_relative(-300)
+                if event.key == pygame.K_RIGHT:
+                    rp.seek_relative(300)
+
+        frame_data = rp.advance()
+        if frame_data is None and not rp.playing and not rp.paused:
+            _show_replay_end_screen(result, boss_name, stage)
+            return
+
+        if frame_data is None:
+            frame_data = rp.get_current_frame()
+        if frame_data is None:
+            continue
+
+        fn, ts = frame_data[0], frame_data[1]
+        bx, by = frame_data[2], frame_data[3]
+        px, py_ = frame_data[6], frame_data[7]
+        pw = frame_data[8]
+        ox, oy = frame_data[9], frame_data[10]
+        ow = frame_data[11]
+        p_score, b_score = frame_data[12], frame_data[13]
+
+        SCREEN.fill((10, 10, 20))
+
+        # 중앙선
+        pygame.draw.line(SCREEN, (30, 35, 50), (0, HEIGHT // 2), (WIDTH, HEIGHT // 2), 1)
+
+        # 필러 영역
+        pillar_surf = pygame.Surface((80, HEIGHT), pygame.SRCALPHA)
+        pillar_surf.fill((20, 25, 35, 180))
+        SCREEN.blit(pillar_surf, (0, 0))
+        SCREEN.blit(pillar_surf, (WIDTH - 80, 0))
+
+        # 공 + 글로우
+        pygame.draw.circle(SCREEN, (255, 255, 100), (bx, by), BALL_RADIUS)
+        glow = pygame.Surface((BALL_RADIUS * 6, BALL_RADIUS * 6), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (255, 255, 100, 40), (BALL_RADIUS * 3, BALL_RADIUS * 3), BALL_RADIUS * 3)
+        SCREEN.blit(glow, (bx - BALL_RADIUS * 3, by - BALL_RADIUS * 3))
+
+        # 패들
+        pr = pygame.Rect(px - pw // 2, py_ - PADDLE_H // 2, pw, PADDLE_H)
+        pygame.draw.rect(SCREEN, PLAYER_C, pr, border_radius=4)
+        pygame.draw.rect(SCREEN, (0, 255, 255), pr, width=1, border_radius=4)
+
+        br = pygame.Rect(ox - ow // 2, oy - PADDLE_H // 2, ow, PADDLE_H)
+        pygame.draw.rect(SCREEN, BOSS_C, br, border_radius=4)
+        pygame.draw.rect(SCREEN, (255, 120, 120), br, width=1, border_radius=4)
+
+        # 점수판
+        ps = score_font.render(str(p_score), True, PLAYER_C)
+        bs = score_font.render(str(b_score), True, BOSS_C)
+        SCREEN.blit(ps, (WIDTH // 2 - 50 - ps.get_width(), 10))
+        SCREEN.blit(bs, (WIDTH // 2 + 50, 10))
+        dash_s = score_font.render("-", True, (80, 80, 100))
+        SCREEN.blit(dash_s, (WIDTH // 2 - dash_s.get_width() // 2, 10))
+
+        # 보스 이름
+        bn = hud_font.render(boss_name, True, (255, 150, 150))
+        SCREEN.blit(bn, (WIDTH // 2 - bn.get_width() // 2, 50))
+
+        # 타임라인 바
+        bar_y = HEIGHT - 50
+        bar_x = 60
+        bar_w = WIDTH - 120
+        bar_h = 8
+
+        pygame.draw.rect(SCREEN, (40, 45, 60), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+        fill_w = int(bar_w * rp.progress)
+        if fill_w > 0:
+            pygame.draw.rect(SCREEN, (0, 180, 255), (bar_x, bar_y, fill_w, bar_h), border_radius=4)
+
+        cur_t = rp.current_time
+        tot_t = rp.total_time
+        time_str = f"{int(cur_t)//60}:{int(cur_t)%60:02d} / {int(tot_t)//60}:{int(tot_t)%60:02d}"
+        SCREEN.blit(info_font.render(time_str, True, (140, 150, 170)), (bar_x, bar_y + 14))
+
+        sp_str = f"x{rp.speed:.2g}"
+        sp_s = speed_font.render(sp_str, True, (200, 200, 100))
+        SCREEN.blit(sp_s, (bar_x + bar_w - sp_s.get_width(), bar_y + 14))
+
+        if rp.paused:
+            pf = get_font(48)
+            SCREEN.blit(pf.render("II", True, (255, 255, 255)), (WIDTH // 2 - 20, HEIGHT // 2 - 30))
+
+        ctrl = "SPACE: 일시정지 | TAB: 배속 | ←→: 5초 이동 | ESC: 나가기"
+        SCREEN.blit(info_font.render(ctrl, True, (80, 85, 100)), (WIDTH // 2 - info_font.size(ctrl)[0] // 2, HEIGHT - 22))
+
+        wm = get_font(14).render("REPLAY", True, (60, 65, 80))
+        SCREEN.blit(wm, (WIDTH - 80 - wm.get_width(), 80))
+
+        pygame.display.flip()
+
+
+def _show_replay_end_screen(result: str, boss_name: str, stage: int):
+    """리플레이 재생 완료 후 결과 화면"""
+    clock = pygame.time.Clock()
+    timer = 0
+    result_text = "VICTORY" if result == 'win' else "DEFEAT" if result == 'lose' else "REPLAY END"
+    result_color = (100, 255, 100) if result == 'win' else (255, 100, 100) if result == 'lose' else (180, 180, 200)
+
+    while timer < 180:
+        clock.tick(60)
+        timer += 1
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                return
+
+        SCREEN.fill((10, 10, 20))
+
+        alpha = min(255, timer * 6)
+        rf = get_font(48)
+        rs = rf.render(result_text, True, result_color)
+        alpha_s = pygame.Surface(rs.get_size(), pygame.SRCALPHA)
+        alpha_s.fill((255, 255, 255, alpha))
+        rs_copy = rs.copy()
+        rs_copy.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        SCREEN.blit(rs_copy, (WIDTH // 2 - rs.get_width() // 2, HEIGHT // 2 - 60))
+
+        if_font = get_font(22)
+        inf = if_font.render(f"Stage {stage} - {boss_name}", True, (150, 150, 170))
+        inf_a = pygame.Surface(inf.get_size(), pygame.SRCALPHA)
+        inf_a.fill((255, 255, 255, min(255, max(0, (timer - 30) * 8))))
+        inf_c = inf.copy()
+        inf_c.blit(inf_a, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        SCREEN.blit(inf_c, (WIDTH // 2 - inf.get_width() // 2, HEIGHT // 2 + 10))
+
+        if timer > 60:
+            hf = get_font(16)
+            hs = hf.render(_t("replay.end_hint", "아무 키나 눌러서 돌아가기"), True, (100, 100, 120))
+            SCREEN.blit(hs, (WIDTH // 2 - hs.get_width() // 2, HEIGHT // 2 + 60))
+
+        pygame.display.flip()
 
 
 def show_start_screen():
@@ -138039,8 +138371,8 @@ def draw_stage2_jungle_border():
         # 벽 충돌 시 깜빡임 효과 (은은하게)
         if stage2_border_flash_timer > 0:
             flash_ratio = stage2_border_flash_timer / stage2_border_flash_duration
-            # 알파 35 + 제곱 감쇠 그라데이션 (테두리 두께 x2 범위)
-            base_alpha = int(35 * flash_ratio)
+            # 알파 22 + 제곱 감쇠 그라데이션
+            base_alpha = int(22 * flash_ratio)
             bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
             grad_steps = max(2, bt)  # 테두리 두께만큼 그라데이션
