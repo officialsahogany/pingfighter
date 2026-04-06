@@ -584,6 +584,15 @@ class InGameBodyguard:
             # 스킬 이펙트만 업데이트 (guard_system 전체 update 대신)
             _gs = self._guard_system
             game_state = self._skill_manager.game_state if self._skill_manager else {}
+            # hero_paddle_top/bottom 갱신 (해골궁수 등 스킬이 보스 위치 참조)
+            game_state['hero_paddle_top'] = {
+                'x': top_paddle.x, 'y': top_paddle.y,
+                'width': top_paddle.width, 'height': top_paddle.height,
+            }
+            game_state['hero_paddle_bottom'] = {
+                'x': bottom_paddle.x, 'y': bottom_paddle.y,
+                'width': bottom_paddle.width, 'height': bottom_paddle.height,
+            }
             fx = {}
             # 스킬 update 전 공 속도 저장 (반사 감지용)
             _orig_vx = ball.vx if ball else 0
