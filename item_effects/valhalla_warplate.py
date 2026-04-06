@@ -16,21 +16,21 @@ import pygame.freetype
 
 # ── 영웅 목록 (투기장 15영웅) ──────────────────────────────────
 VALHALLA_HEROES = [
-    {"id": "mugen",      "name": "무겐",     "color": (120, 60, 180)},
-    {"id": "kraken",     "name": "크라켄",    "color": (40, 120, 140)},
-    {"id": "chronos",    "name": "크로노스",  "color": (200, 170, 100)},
-    {"id": "onimaru",    "name": "오니마루",  "color": (200, 50, 70)},
-    {"id": "maria",      "name": "연화",      "color": (180, 100, 150)},
-    {"id": "ignis",      "name": "이그니스",  "color": (220, 100, 40)},
-    {"id": "gear",       "name": "기어",      "color": (140, 100, 60)},
-    {"id": "kurokage",   "name": "쿠로카게",  "color": (50, 50, 70)},
-    {"id": "banshee",    "name": "밴시",      "color": (100, 200, 180)},
-    {"id": "necro",      "name": "네크로",    "color": (80, 60, 100)},
-    {"id": "joker",      "name": "조커",      "color": (220, 180, 50)},
-    {"id": "mirage",     "name": "미라쥬",    "color": (200, 170, 120)},
-    {"id": "android",    "name": "안드로이드", "color": (100, 150, 200)},
-    {"id": "ra",         "name": "라",        "color": (255, 200, 50)},
-    {"id": "monkeyking", "name": "오공",      "color": (200, 120, 50)},
+    {"id": "mugen",      "name": "무겐",       "color": (120, 60, 180)},
+    {"id": "kraken",     "name": "크라켄",      "color": (40, 120, 140)},
+    {"id": "chronos",    "name": "크로노스",    "color": (200, 170, 100)},
+    {"id": "onimaru",    "name": "오니마루",    "color": (200, 50, 70)},
+    {"id": "maria",      "name": "연화",        "color": (180, 100, 150)},
+    {"id": "ignis",      "name": "이그니스",    "color": (220, 100, 40)},
+    {"id": "gear",       "name": "기어",        "color": (140, 100, 60)},
+    {"id": "kurokage",   "name": "쿠로카게",    "color": (50, 50, 70)},
+    {"id": "banshee",    "name": "벤시",        "color": (80, 130, 160)},
+    {"id": "necro",      "name": "네크로",      "color": (80, 60, 100)},
+    {"id": "joker",      "name": "조커",        "color": (220, 60, 80)},
+    {"id": "mirage",     "name": "세트",        "color": (210, 180, 100)},
+    {"id": "android",    "name": "안드로이드",  "color": (130, 140, 160)},
+    {"id": "ra",         "name": "호루스",      "color": (230, 160, 40)},
+    {"id": "monkeyking", "name": "원숭이왕",    "color": (205, 165, 75)},
 ]
 
 # ── 소환 연출 상수 ──────────────────────────────────────────────
