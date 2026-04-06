@@ -16646,7 +16646,7 @@ class BuildingInterior:
 
     def _get_enhanceable_items(self):
         """강화 가능한 아이템 목록 반환 (롤옵션 있는 패시브 아이템 + 전설 아이템)"""
-        from .constants import LEGENDARY_ITEM_NAMES
+        from .constants import LEGENDARY_ITEM_NAMES, MAX_ENHANCEMENT_LEVEL
         try:
             import pingfighter
             passive_list = getattr(pingfighter, 'passive_item_list', [])
@@ -16657,6 +16657,10 @@ class BuildingInterior:
         for i, item in enumerate(passive_list):
             item_name = item.get("name", "")
             is_legendary = item.get("type") == "legendary" or item_name in LEGENDARY_ITEM_NAMES
+
+            # 최대 강화 레벨(10강) 도달 시 목록에서 제외
+            if item.get("enhancement_level", 0) >= MAX_ENHANCEMENT_LEVEL:
+                continue
 
             # 롤옵션이 있는 아이템 또는 전설 아이템
             if item.get("rolled_options") and len(item.get("rolled_options", [])) > 0:
