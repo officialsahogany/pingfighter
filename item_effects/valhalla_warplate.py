@@ -63,6 +63,12 @@ class ValhallaWarplateState:
         self.summon_chance = 0.10     # 소환 확률 (롤옵션에서 갱신)
         self.enhancement_bonus_pct = 0
 
+        # 캐시 (프레임마다 재생성 방지)
+        self._cached_font_main = None   # pygame.freetype.Font 캐시
+        self._cached_font_name = None
+        self._cached_sounds = {}        # {filename: pygame.mixer.Sound}
+        self._cached_surfaces = {}      # {key: pygame.Surface} 재사용 서피스
+
         # 소환 관리
         self.state = self.IDLE
         self.summoning = False        # 현재 소환 중 (하위호환)
@@ -544,12 +550,38 @@ class ValhallaWarplateState:
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         return os.path.join(project_root, relative_path)
 
+    def _get_font(self, size):
+        """폰트 캐시 (매 프레임 재로딩 방지)"""
+        key = f"font_{size}"
+        if key not in self._cached_surfaces:
+            try:
+                font_path = self._resolve_resource("NanumSquareB.ttf")
+                self._cached_surfaces[key] = pygame.freetype.Font(font_path, size)
+            except Exception:
+                self._cached_surfaces[key] = None
+        return self._cached_surfaces.get(key)
+
+    def _get_surface(self, key, width, height):
+        """재사용 Surface 캐시 (크기가 같으면 재사용, 다르면 재생성)"""
+        cached = self._cached_surfaces.get(key)
+        if cached and cached.get_width() == width and cached.get_height() == height:
+            cached.fill((0, 0, 0, 0))
+            return cached
+        surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        self._cached_surfaces[key] = surf
+        return surf
+
     def _play_sound(self, filename, volume=0.7):
-        """사운드 재생 헬퍼"""
+        """사운드 재생 헬퍼 (캐시 사용)"""
         try:
-            path = self._resolve_resource(os.path.join("sounds", filename))
-            if os.path.exists(path):
-                snd = pygame.mixer.Sound(path)
+            if filename not in self._cached_sounds:
+                path = self._resolve_resource(os.path.join("sounds", filename))
+                if os.path.exists(path):
+                    self._cached_sounds[filename] = pygame.mixer.Sound(path)
+                else:
+                    self._cached_sounds[filename] = None
+            snd = self._cached_sounds.get(filename)
+            if snd:
                 snd.set_volume(volume)
                 snd.play()
         except Exception:
@@ -617,6 +649,8 @@ class ValhallaWarplateState:
         hero = self._pending_hero
         if not hero:
             return
+        # 재사용 Surface (매 프레임 new 방지)
+        cutscene_surf = self._get_surface('cutscene_main', W, H)
 
         cx, cy = int(self.portal_x), H // 2 - 30
         t = self.cutscene_timer
@@ -626,8 +660,6 @@ class ValhallaWarplateState:
             fade_mult = progress / 0.3
         else:
             fade_mult = 1.0
-
-        cutscene_surf = pygame.Surface((W, H), pygame.SRCALPHA)
 
         # ── 1) 어두운 오버레이 (부드러운 페이드) ──
         overlay_a = _c(120 * fade_mult)
@@ -643,9 +675,8 @@ class ValhallaWarplateState:
             ba = _c((60 - bi * 18) * beam_fade)
             if ba < 3:
                 continue
-            beam_surf = pygame.Surface((bw, H), pygame.SRCALPHA)
+            beam_surf = self._get_surface(f'beam_{bi}', bw, H)
             beam_surf.fill((255, 220 + bi * 10, 100 + bi * 30, _c(ba * 0.25)))
-            # 중앙 밝은 선 1개만
             pygame.draw.line(beam_surf, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
             cutscene_surf.blit(beam_surf, (cx - bw // 2, 0))
 
@@ -653,26 +684,25 @@ class ValhallaWarplateState:
         ta = _c(255 * fade_mult)
         if ta > 10:
             try:
-                font_path = self._resolve_resource("NanumSquareB.ttf")
-                # 메인 텍스트
-                main_font = pygame.freetype.Font(font_path, 34)
-                main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
-                main_surf.set_alpha(ta)
-                tx = cx - main_rect.width // 2
-                ty_main = cy - 65
-                cutscene_surf.blit(main_surf, (tx, ty_main))
-                # 텍스트 아래 장식선
-                line_w = int(main_rect.width * 0.8 * rune_scale)
-                if line_w > 10:
-                    line_a = _c(ta * 0.4)
-                    pygame.draw.line(cutscene_surf, (255, 220, 100, line_a),
-                                   (cx - line_w // 2, ty_main + main_rect.height + 4),
-                                   (cx + line_w // 2, ty_main + main_rect.height + 4), 1)
-                # 영웅 이름
-                name_font = pygame.freetype.Font(font_path, 22)
-                name_surf, name_rect = name_font.render(f"― {hero['name']} ―", tuple(hero["color"][:3]))
-                name_surf.set_alpha(ta)
-                cutscene_surf.blit(name_surf, (cx - name_rect.width // 2, cy + 40))
+                main_font = self._get_font(34)
+                name_font = self._get_font(22)
+                if main_font:
+                    main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
+                    main_surf.set_alpha(ta)
+                    tx = cx - main_rect.width // 2
+                    ty_main = cy - 65
+                    cutscene_surf.blit(main_surf, (tx, ty_main))
+                    # 텍스트 아래 장식선
+                    line_w = int(main_rect.width * 0.8)
+                    if line_w > 10:
+                        line_a = _c(ta * 0.4)
+                        pygame.draw.line(cutscene_surf, (255, 220, 100, line_a),
+                                       (cx - line_w // 2, ty_main + main_rect.height + 4),
+                                       (cx + line_w // 2, ty_main + main_rect.height + 4), 1)
+                if name_font:
+                    name_surf, name_rect = name_font.render(f"― {hero['name']} ―", tuple(hero["color"][:3]))
+                    name_surf.set_alpha(ta)
+                    cutscene_surf.blit(name_surf, (cx - name_rect.width // 2, cy + 40))
             except Exception:
                 try:
                     font = pygame.font.Font(None, 36)
@@ -682,12 +712,12 @@ class ValhallaWarplateState:
                 except Exception:
                     pass
 
-        # ── 5) 파티클 (흩뿌려지며 등장/소멸) ──
+        # ── 5) 파티클 (cutscene_surf에 직접 draw - 개별 Surface 생성 없음) ──
         for p in self.cutscene_particles:
             ratio = max(0, p["life"] / p["max_life"])
             sz = max(1, int(p["size"] * ratio))
-            pa = _c(220 * ratio * fade_mult)
-            if pa < 3:
+            pa = _c(180 * ratio * fade_mult)
+            if pa < 3 or sz < 1:
                 continue
             if p["type"] == "gold":
                 col = (255, 215, 80, pa)
@@ -695,11 +725,7 @@ class ValhallaWarplateState:
                 col = (200, 180, 255, pa)
             else:
                 col = (255, 255, 230, pa)
-            ps = pygame.Surface((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
-            # 글로우 (큰 원) + 코어 (작은 원)
-            pygame.draw.circle(ps, (*col[:3], _c(pa * 0.3)), (sz + 2, sz + 2), sz + 2)
-            pygame.draw.circle(ps, col, (sz + 2, sz + 2), sz)
-            cutscene_surf.blit(ps, (int(p["x"]) - sz - 2, int(p["y"]) - sz - 2))
+            pygame.draw.circle(cutscene_surf, col, (int(p["x"]), int(p["y"])), sz)
 
         # ── 6) 비네팅 (금빛 프레임) ──
         va = _c(50 * fade_mult)
@@ -721,58 +747,47 @@ class ValhallaWarplateState:
         # 소멸 진행도: 1.0(시작) → 0.0(완료)
         fade = max(0, self.cutscene_dissolve_timer / CUTSCENE_DISSOLVE_DURATION)
 
-        dissolve_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        dissolve_surf = self._get_surface('dissolve_main', W, H)
 
         # 1) 어두운 오버레이 서서히 사라짐
         overlay_a = _c(80 * fade)
         if overlay_a > 2:
             dissolve_surf.fill((5, 5, 20, overlay_a))
 
-        # 2) 빛기둥 잔상 (서서히 얇아지며 사라짐 - 간소화)
+        # 2) 빛기둥 잔상 (간소화)
         for bi in range(2):
             bw = max(1, int((4 + bi * 8) * fade))
             ba = _c((40 - bi * 18) * fade)
             if ba > 3 and bw > 0:
-                beam_s = pygame.Surface((bw, H), pygame.SRCALPHA)
+                beam_s = self._get_surface(f'dissolve_beam_{bi}', bw, H)
                 beam_s.fill((255, 230, 130, _c(ba * 0.2)))
                 pygame.draw.line(beam_s, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
                 dissolve_surf.blit(beam_s, (cx - bw // 2, 0))
 
-        # 3) 흩뿌려지는 파편 (핵심 소멸 이펙트!)
-        scatter = 1.0 - fade  # 0(시작) → 1(완료)
+        # 3) 흩뿌려지는 파편 (dissolve_surf에 직접 draw)
+        scatter = 1.0 - fade
         _rng = _vfx_rng
         _rng.seed(42)
-        for si in range(35):
+        for si in range(25):
             s_angle = _rng.uniform(0, math.pi * 2)
-            s_base_dist = _rng.uniform(20, 180)
-            s_dist = s_base_dist * scatter + _rng.uniform(-5, 5)
+            s_dist = _rng.uniform(20, 180) * scatter + _rng.uniform(-5, 5)
             s_x = cx + int(math.cos(s_angle) * s_dist)
             s_y = cy + int(math.sin(s_angle) * s_dist * 0.7)
-            s_sz = max(1, int(_rng.uniform(2, 5) * fade))
-            s_a = _c(200 * fade * _rng.uniform(0.3, 1.0))
+            s_sz = max(1, int(_rng.uniform(2, 4) * fade))
+            s_a = _c(180 * fade * _rng.uniform(0.3, 1.0))
             if s_a > 3 and s_sz > 0:
-                if si % 4 == 0:
-                    s_col = (255, 230, 100, s_a)
-                elif si % 4 == 1:
-                    s_col = (255, 250, 210, s_a)
-                elif si % 4 == 2:
-                    s_col = (220, 180, 60, s_a)
-                else:
-                    s_col = (255, 200, 80, s_a)
-                fs = pygame.Surface((s_sz * 2 + 4, s_sz * 2 + 4), pygame.SRCALPHA)
-                pygame.draw.circle(fs, (*s_col[:3], _c(s_a * 0.3)), (s_sz + 2, s_sz + 2), s_sz + 2)
-                pygame.draw.circle(fs, s_col, (s_sz + 2, s_sz + 2), s_sz)
-                dissolve_surf.blit(fs, (s_x - s_sz - 2, s_y - s_sz - 2))
+                cols = [(255, 230, 100), (255, 250, 210), (220, 180, 60), (255, 200, 80)]
+                pygame.draw.circle(dissolve_surf, (*cols[si % 4], s_a), (s_x, s_y), s_sz)
 
-        # 5) 텍스트 잔상 ("발할라의 부름"이 흐려지며 사라짐)
+        # 4) 텍스트 잔상 (캐시된 폰트 사용)
         ta = _c(180 * fade)
         if ta > 8:
             try:
-                font_path = self._resolve_resource("NanumSquareB.ttf")
-                main_font = pygame.freetype.Font(font_path, 34)
-                main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
-                main_surf.set_alpha(ta)
-                dissolve_surf.blit(main_surf, (cx - main_rect.width // 2, cy - 65))
+                main_font = self._get_font(34)
+                if main_font:
+                    main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
+                    main_surf.set_alpha(ta)
+                    dissolve_surf.blit(main_surf, (cx - main_rect.width // 2, cy - 65))
             except Exception:
                 pass
 
