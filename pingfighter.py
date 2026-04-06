@@ -42528,7 +42528,6 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 shield_active = bool(divine_state.get("shield_active", False))
                 if not smoke_protected and not shield_active:
                     divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)  # 연막 보호 시 체력 유지
-                    print(f"[DEBUG] 디바인스톤 HP 감소: {divine_state['hp']}")
                     _cancel_repair_job("divine", state=divine_state)
                     # 손상 효과 업데이트
                     damage_manager = get_damage_manager()
@@ -42537,26 +42536,15 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
                 effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
                 state_changed = True
-                print(f"[DEBUG] 디바인 파괴 체크: smoke={smoke_protected}, hp={divine_state['hp']}")
                 if not smoke_protected and divine_state["hp"] <= 0:
-                    print(f"[DEBUG] 디바인 파괴 진입! 금화 스폰 시작", flush=True)
                     try:
-                        try:
-                            effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
-                            print("[DEBUG] divine step1 완료", flush=True)
-                        except Exception as _e:
-                            print(f"[DEBUG] impact 예외: {_e}", flush=True)
-                        print("[DEBUG] divine step2 금화직전", flush=True)
-                        _is_reinforced = divine_state.get("reinforced", False)
-                        _coin_count = random.randint(7, 10) if _is_reinforced else random.randint(4, 6)
-                        print(f"[DEBUG] divine step3 count={_coin_count}", flush=True)
-                        spawn_blacksmith_coins(rect.centerx, rect.centery, _coin_count)
-                        print("[DEBUG] divine step4 금화완료", flush=True)
-                        spawn_blacksmith_drop_bottle(rect.centerx, rect.centery)
-                        print("[DEBUG] divine step5 병완료", flush=True)
-                    except Exception as _derr:
-                        print(f"[DEBUG] 디바인파괴 예외! {type(_derr).__name__}: {_derr}", flush=True)
-                        import traceback; traceback.print_exc()
+                        effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
+                    except Exception:
+                        pass
+                    _is_reinforced = divine_state.get("reinforced", False)
+                    _coin_count = random.randint(7, 10) if _is_reinforced else random.randint(4, 6)
+                    spawn_blacksmith_coins(rect.centerx, rect.centery, _coin_count)
+                    spawn_blacksmith_drop_bottle(rect.centerx, rect.centery)
                     # 런타임/전역 상태를 즉시 정리해 UI와 필드에서 제거한다.
                     blacksmith_divine_destroy_timer = 0
                     blacksmith_divine_stage_owner = None
@@ -43609,7 +43597,6 @@ def update_blacksmith_turret():
                 shield_active = False
             if not smoke_protected and not shield_active:
                 turret_state["hp"] -= 1  # 연막 밖에서만 체력 감소
-                print(f"[DEBUG] 터렛 HP 감소: {turret_state['hp']}")
                 _cancel_repair_job("turret", state=turret_state)
                 # 손상 효과 업데이트
                 damage_manager.update_building_hp("turret", turret_state["hp"])
@@ -44045,32 +44032,20 @@ def update_blacksmith_turret():
         except Exception:
             pass
 
-    if turret_runtime.active and turret_state and turret_state.get("hp", 0) <= 0:
-        print(f"[DEBUG] 터렛 파괴 체크 도달! active={turret_runtime.active}, hp={turret_state.get('hp', '?')}")
     if turret_runtime.active and turret_state:
         if turret_state.get("hp", 0) <= 0:
-            print(f"[DEBUG] 터렛 파괴 진입! turret_rect={turret_rect}")
-            try:
-                turret_state["hp"] = 0
-                print("[DEBUG] step1: hp=0 설정 완료")
-                turret_runtime.projectiles.clear()
-                print("[DEBUG] step2: projectiles clear 완료")
-                # 🪙 포탑 파괴 금화 스폰
-                _turret_level = int(turret_state.get("level", 1))
-                print(f"[DEBUG] step3: turret_level={_turret_level}")
-                if _turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
-                    _tcoin_count = random.randint(5, 8)  # 강화포탑: 50~80골드
-                else:
-                    _tcoin_count = random.randint(3, 5)  # 포탑: 30~50골드
-                print(f"[DEBUG] step4: coin_count={_tcoin_count}")
-                if turret_rect:
-                    spawn_blacksmith_coins(turret_rect.centerx, turret_rect.centery, _tcoin_count)
-                    # 🧪 포탑 파괴 드랍 병 스폰 (광폭물약/수리키트)
-                    spawn_blacksmith_drop_bottle(turret_rect.centerx, turret_rect.centery)
-                print("[DEBUG] step5: 금화+병 스폰 완료")
-            except Exception as _turret_err:
-                print(f"[DEBUG] 터렛 파괴 예외 발생! {type(_turret_err).__name__}: {_turret_err}")
-                import traceback; traceback.print_exc()
+            turret_state["hp"] = 0
+            turret_runtime.projectiles.clear()
+            # 🪙 포탑 파괴 금화 스폰
+            _turret_level = int(turret_state.get("level", 1))
+            if _turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+                _tcoin_count = random.randint(5, 8)  # 강화포탑: 50~80골드
+            else:
+                _tcoin_count = random.randint(3, 5)  # 포탑: 30~50골드
+            if turret_rect:
+                spawn_blacksmith_coins(turret_rect.centerx, turret_rect.centery, _tcoin_count)
+                # 🧪 포탑 파괴 드랍 병 스폰 (광폭물약/수리키트)
+                spawn_blacksmith_drop_bottle(turret_rect.centerx, turret_rect.centery)
             try:
                 effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=8)
                 effects_manager.spawn_construction_smoke(
@@ -58771,27 +58746,31 @@ screen_shake_timer = 0
 screen_shake_intensity = 0
 # === 🪙 발토르 건설물 파괴 금화 시스템 ===
 blacksmith_coins: list = []  # [{x, y, vx, vy, timer, max_timer, blink}]
-BLACKSMITH_COIN_GRAVITY = 0.25  # 금화 중력 가속도
+BLACKSMITH_COIN_GRAVITY = 0.35  # 금화 중력 가속도 (강하게)
 BLACKSMITH_COIN_GOLD_PER_COIN = 10  # 금화 1개당 골드
-BLACKSMITH_COIN_LIFETIME = 180  # 3초 (60fps)
-BLACKSMITH_COIN_BLINK_START = 60  # 마지막 1초부터 깜빡임
+BLACKSMITH_COIN_LIFETIME = 240  # 4초 (60fps) - 넓게 퍼지므로 여유 있게
+BLACKSMITH_COIN_BLINK_START = 80  # 마지막 1.3초부터 깜빡임
 BLACKSMITH_COIN_SIZE = 7  # 금화 반지름
-BLACKSMITH_COIN_BOUNCE = -0.5  # 바닥 반사 계수
+BLACKSMITH_COIN_BOUNCE = -0.55  # 바닥 반사 계수 (탱탱하게)
 BLACKSMITH_COIN_SPAWN_Y_OFFSET = 18  # 상단 건설물 파괴 시 HUD/이펙트에 묻지 않도록 아래에서 시작
 BLACKSMITH_COIN_MIN_SPAWN_Y = 96  # 상단 UI 아래에서 드랍이 확실히 보이도록 최소 시작 Y
 
 
 def spawn_blacksmith_coins(cx: float, cy: float, coin_count: int):
-    """건설물 파괴 시 금화 스폰 (부채꼴로 흩뿌림)"""
+    """건설물 파괴 시 금화 스폰 — 소닉 링처럼 방사형 폭발!"""
     global blacksmith_coins
     import random as _rng
+    import math as _m
     spawn_y = max(float(cy) + BLACKSMITH_COIN_SPAWN_Y_OFFSET, float(BLACKSMITH_COIN_MIN_SPAWN_Y))
-    for _ in range(coin_count):
-        vx = _rng.uniform(-4.0, 4.0)
-        vy = _rng.uniform(-6.0, -2.0)  # 위로 튀어오름
+    for i in range(coin_count):
+        # 방사형 균등 분포 + 약간의 랜덤
+        base_angle = (2 * _m.pi * i / coin_count) + _rng.uniform(-0.3, 0.3)
+        speed = _rng.uniform(6.0, 11.0)  # 강한 초기 속도로 폭발
+        vx = _m.cos(base_angle) * speed
+        vy = _m.sin(base_angle) * speed - 4.0  # 전체적으로 위로 솟구침
         blacksmith_coins.append({
-            'x': float(cx) + _rng.uniform(-10, 10),
-            'y': spawn_y + _rng.uniform(-5, 5),
+            'x': float(cx) + _rng.uniform(-4, 4),
+            'y': spawn_y + _rng.uniform(-4, 4),
             'vx': vx,
             'vy': vy,
             'timer': BLACKSMITH_COIN_LIFETIME,
@@ -58805,7 +58784,6 @@ def update_blacksmith_coins(player_rect):
     global blacksmith_coins
     if not blacksmith_coins:
         return
-    print(f"[DEBUG] update_coins! count={len(blacksmith_coins)}, timer={blacksmith_coins[0]['timer']}", flush=True)
 
     coins_to_remove = []
     for coin in blacksmith_coins:
@@ -58831,8 +58809,8 @@ def update_blacksmith_coins(player_rect):
         if coin['y'] >= floor_y:
             coin['y'] = floor_y
             coin['vy'] *= BLACKSMITH_COIN_BOUNCE
-            coin['vx'] *= 0.85  # 마찰
-            if abs(coin['vy']) < 0.5:
+            coin['vx'] *= 0.92  # 바닥 마찰 (약하게 — 더 굴러가도록)
+            if abs(coin['vy']) < 0.8:
                 coin['vy'] = 0  # 정지
 
         # 패들 수집 판정
@@ -58862,7 +58840,6 @@ def draw_blacksmith_coins(surface):
     """금화 렌더링 (깜빡임 + 금색 원)"""
     if not blacksmith_coins:
         return
-    print(f"[DEBUG] draw_coins 호출! count={len(blacksmith_coins)}, pos=({blacksmith_coins[0]['x']:.0f},{blacksmith_coins[0]['y']:.0f}), timer={blacksmith_coins[0]['timer']}", flush=True)
 
     for coin in blacksmith_coins:
         if coin['collected']:
@@ -95534,7 +95511,6 @@ def draw_overlay_ui():
         items.draw_items(SCREEN)
         # 🪙 발토르 건설물 파괴 금화 렌더링
         if blacksmith_coins:
-            print(f"[DEBUG] overlay_ui에서 draw_coins 호출 직전! count={len(blacksmith_coins)}", flush=True)
             draw_blacksmith_coins(SCREEN)
         # 🧪 발토르 건설물 파괴 드랍 병 렌더링
         if blacksmith_drop_bottles:
@@ -166270,8 +166246,6 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)
             draw_laser_evaporation_particles(SCREEN)
             draw_neutralize_particles(SCREEN)
-            if blacksmith_coins:
-                print(f"[DEBUG] 메인루프 draw_overlay_ui 직전! coins={len(blacksmith_coins)}", flush=True)
             draw_overlay_ui()
             draw_score()
             draw_stage8_boss_gauge_bar()
