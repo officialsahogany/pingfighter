@@ -157,6 +157,9 @@ class PillarBackgroundRenderer:
         self._quest_tablet_count = 0              # 석판 수집 카운터
         self._quest_tablet_target = 5             # 석판 수집 목표
         self._quest_has_tablet_quest = False       # 석판 퀘스트 활성 여부
+        self._quest_speedrun_active = False        # 스피드런 퀘스트 활성 여부
+        self._quest_speedrun_elapsed = 0.0         # 스피드런 경과 시간 (초)
+        self._quest_speedrun_limit = 180           # 스피드런 제한 시간 (초)
         self._create_quest_parchment_icon()      # 양피지 아이콘 생성
 
         # === 🎮 투기장 영웅 스킬 아이콘 캐시 ===
@@ -2844,6 +2847,12 @@ class PillarBackgroundRenderer:
         self._quest_tablet_target = target
         self._quest_has_tablet_quest = active
 
+    def set_quest_speedrun(self, active: bool, elapsed: float = 0.0, limit: float = 180.0):
+        """스피드런 퀘스트 타이머 설정"""
+        self._quest_speedrun_active = active
+        self._quest_speedrun_elapsed = elapsed
+        self._quest_speedrun_limit = limit
+
     def draw_quest_emblem(self, screen, dt: float = 0.016):
         """퀘스트 양피지 엠블럼 그리기 (우측 필러 상단 박스 아래)
 
@@ -2870,18 +2879,15 @@ class PillarBackgroundRenderer:
             # 애니메이션 타이머 업데이트
             self._quest_animation_time += dt
 
-            # 위치 계산 (광폭화 아이콘과 같은 X축, 그 아래에 배치)
+            # 위치 계산 (보스 대쉬 구슬 아래에 배치)
             right_x = self.game_offset_x + self.game_width
             icon_w = self._quest_emblem_w
             icon_h = self._quest_emblem_h
 
-            # X: 광폭화 아이콘과 동일한 X축 계산 (대쉬토큰 중앙 기준 왼쪽 110px)
-            bottom_box_width = 60
-            bottom_box_x = right_x + (self.right_pillar_width - bottom_box_width) // 2
-            dash_token_center_x = bottom_box_x + bottom_box_width // 2
-            base_x = dash_token_center_x - icon_w // 2 - 110
-            # Y: 광폭화 아이콘(Y=75, H=68) 아래에 배치
-            base_y = 155
+            # X: 우측 필러 중앙 정렬
+            base_x = right_x + (self.right_pillar_width - icon_w) // 2
+            # Y: 보스 구슬 하단(~game_offset_y+140) 아래 + 광폭화 아이콘(68px) 여유
+            base_y = self.game_offset_y + 230
 
             # 미세한 떠다니는 애니메이션 (상하로 살짝 흔들림)
             float_offset = int(2.0 * math.sin(self._quest_animation_time * 1.5))
@@ -2944,22 +2950,61 @@ class PillarBackgroundRenderer:
             # === 아이콘 그리기 ===
             screen.blit(self._quest_emblem_surface, (x, y))
 
-            # === 석판 카운터 표시 (엠블럼 아래) ===
+            # === 퀘스트 부가 정보 표시 (엠블럼 아래) ===
+            info_y = y + icon_h + 4
+
+            # 석판 카운터
             if self._quest_has_tablet_quest:
                 try:
                     counter_text = f"{self._quest_tablet_count}/{self._quest_tablet_target}"
                     counter_font = pygame.font.Font(None, 18)
                     counter_surf = counter_font.render(counter_text, True, (200, 210, 230))
                     counter_x = x + icon_w // 2 - counter_surf.get_width() // 2
-                    counter_y = y + icon_h + 4
-                    # 배경 박스
                     bg_w = counter_surf.get_width() + 8
                     bg_h = counter_surf.get_height() + 4
                     bg_surf = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
                     pygame.draw.rect(bg_surf, (30, 30, 40, 160), (0, 0, bg_w, bg_h), border_radius=3)
                     pygame.draw.rect(bg_surf, (120, 130, 160, 100), (0, 0, bg_w, bg_h), 1, border_radius=3)
-                    screen.blit(bg_surf, (counter_x - 4, counter_y - 2))
-                    screen.blit(counter_surf, (counter_x, counter_y))
+                    screen.blit(bg_surf, (counter_x - 4, info_y - 2))
+                    screen.blit(counter_surf, (counter_x, info_y))
+                    info_y += bg_h + 3
+                except:
+                    pass
+
+            # 스피드런 타이머
+            if self._quest_speedrun_active:
+                try:
+                    remaining = max(0.0, self._quest_speedrun_limit - self._quest_speedrun_elapsed)
+                    minutes = int(remaining) // 60
+                    seconds = int(remaining) % 60
+                    timer_text = f"{minutes}:{seconds:02d}"
+                    timer_font = pygame.font.Font(None, 20)
+                    # 시간에 따른 색상 (여유: 흰색, 1분 미만: 주황, 30초 미만: 빨강 깜빡)
+                    if remaining < 30:
+                        blink = 0.5 + 0.5 * math.sin(self._quest_animation_time * 8)
+                        r_val = int(255 * blink)
+                        timer_color = (255, max(50, int(80 * blink)), max(50, int(80 * blink)))
+                    elif remaining < 60:
+                        timer_color = (255, 180, 80)
+                    else:
+                        timer_color = (200, 220, 255)
+                    timer_surf = timer_font.render(timer_text, True, timer_color)
+                    timer_x = x + icon_w // 2 - timer_surf.get_width() // 2
+                    bg_w = timer_surf.get_width() + 10
+                    bg_h = timer_surf.get_height() + 4
+                    bg_surf = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
+                    pygame.draw.rect(bg_surf, (20, 20, 35, 180), (0, 0, bg_w, bg_h), border_radius=3)
+                    # 테두리 색상도 시간에 따라 변경
+                    if remaining < 30:
+                        border_color = (200, 60, 60, 140)
+                    elif remaining < 60:
+                        border_color = (200, 150, 60, 120)
+                    else:
+                        border_color = (100, 120, 180, 100)
+                    pygame.draw.rect(bg_surf, border_color, (0, 0, bg_w, bg_h), 1, border_radius=3)
+                    screen.blit(bg_surf, (timer_x - 5, info_y - 2))
+                    screen.blit(timer_surf, (timer_x, info_y))
+                    info_y += bg_h + 3
                 except:
                     pass
 

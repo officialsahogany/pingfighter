@@ -2924,6 +2924,16 @@ class BuildingInterior:
                 "active": False,
                 "completed": False,
             },
+            {
+                "id": "speedrun",
+                "name": "스피드런",
+                "description": "다음 스테이지를 3분 이내에\n클리어하세요!\n(우측 필러에 타이머가 표시됩니다)",
+                "condition_desc": "3분 내 클리어",
+                "reward_gold": 1300,
+                "reward_items": [],
+                "active": False,
+                "completed": False,
+            },
         ]
         self.quest_message = None  # 퀘스트 메시지
         self.quest_message_timer = 0  # 메시지 타이머

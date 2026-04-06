@@ -9692,6 +9692,12 @@ def _draw_pillar_ui(screen, renderer):
                 quest_tablets_target,
                 "collect_tablets" in active_quests
             )
+            # 스피드런 타이머 동기화
+            if quest_speedrun_active:
+                elapsed = (pygame.time.get_ticks() - quest_speedrun_start_ticks) / 1000.0
+                renderer.set_quest_speedrun(True, elapsed, QUEST_SPEEDRUN_TIME_LIMIT)
+            else:
+                renderer.set_quest_speedrun(False)
 
             if has_active_quests or quest_completion_glow_active:
                 renderer.draw_quest_emblem(screen, dt=0.016)
@@ -81114,6 +81120,9 @@ quest_stage_boss_score = 0  # 이번 스테이지에서 보스가 득점한 횟�
 quest_completed_rewards = []  # 완료된 퀘스트 보상 목록 (UI 표시용)
 quest_small_paddle_active = False  # 작은 패들 퀘스트 활성 여부 (패들 50% 축소)
 QUEST_SMALL_PADDLE_SCALE = 0.5  # 작은 패들 퀘스트 배율
+quest_speedrun_active = False  # 스피드런 퀘스트 활성 여부
+quest_speedrun_start_ticks = 0  # 스피드런 시작 시간 (pygame.time.get_ticks)
+QUEST_SPEEDRUN_TIME_LIMIT = 180  # 스피드런 제한 시간 (초)
 
 # 퀘스트 상세 데이터 (선술집에서 수락 시 동기화 - 툴팁 표시용)
 QUEST_DATA = {
@@ -81140,6 +81149,12 @@ QUEST_DATA = {
         "description": "패들 크기가 50% 축소된 상태로 승리하세요!",
         "condition_desc": "축소 패들로 승리",
         "reward_gold": 1500,
+    },
+    "speedrun": {
+        "name": "스피드런",
+        "description": "3분 이내에 스테이지를 클리어하세요!",
+        "condition_desc": "3분 내 클리어",
+        "reward_gold": 1300,
     },
 }
 
@@ -81577,6 +81592,17 @@ def check_and_complete_quests():
                 "name": "작은 패들",
                 "reward_gold": 1500
             })
+
+        elif quest_id == "speedrun":
+            # 스피드런 - 3분 이내 클리어
+            if quest_speedrun_active and quest_speedrun_start_ticks > 0:
+                elapsed = (pygame.time.get_ticks() - quest_speedrun_start_ticks) / 1000.0
+                if elapsed <= QUEST_SPEEDRUN_TIME_LIMIT:
+                    completed_quests.append({
+                        "id": quest_id,
+                        "name": "스피드런",
+                        "reward_gold": 1300
+                    })
 
     # 보상 지급 및 퀘스트 목록에서 제거
     for quest in completed_quests:
@@ -132225,7 +132251,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     global player_ai_enabled, aipill_active
     global PADDLE_BASE_WIDTH, PADDLE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_HEIGHT
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
-    global quest_small_paddle_active
+    global quest_small_paddle_active, quest_speedrun_active, quest_speedrun_start_ticks
     global special_gauge, displayed_gauge  # 플레이어 게이지 초기화용
     # 메뉴에서 수동 진입하면 AI 자동조종은 끈다.
     player_ai_enabled = False
@@ -132307,6 +132333,8 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     CURRENT_PADDLE_SIZE_SCALE = 1.0
     CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
     quest_small_paddle_active = False
+    quest_speedrun_active = False
+    quest_speedrun_start_ticks = 0
 
     # 투기장 모드에서는 패들 크기를 BOSS와 동일하게 유지 (130x40)
     if arena_mode_enabled:
@@ -156061,6 +156089,8 @@ def show_result(won):
         CURRENT_PADDLE_SIZE_SCALE = 1.0
         CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
         quest_small_paddle_active = False
+        quest_speedrun_active = False
+        quest_speedrun_start_ticks = 0
         PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
         PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
         PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
@@ -156617,7 +156647,7 @@ def main(stage_num, new_boss_mode=False):
     # 패들 크기 관련 전역 변수 (옵티머스 스케일 초기화용)
     global PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
-    global quest_small_paddle_active
+    global quest_small_paddle_active, quest_speedrun_active, quest_speedrun_start_ticks
     # 스테이지 2 정글 테두리 효과
     global stage2_border_active, stage2_border_timer, stage2_border_flash_timer
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
@@ -156698,10 +156728,15 @@ def main(stage_num, new_boss_mode=False):
 
     # 📜 퀘스트 추적 변수 초기화 (새 스테이지 시작 시)
     global quest_stage_active_item_used, quest_stage_boss_score, quest_small_paddle_active
+    global quest_speedrun_active, quest_speedrun_start_ticks
     quest_stage_active_item_used = False
     quest_stage_boss_score = 0
     # 작은 패들 퀘스트 활성화
     quest_small_paddle_active = "small_paddle" in active_quests
+    # 스피드런 퀘스트 활성화
+    quest_speedrun_active = "speedrun" in active_quests
+    if quest_speedrun_active:
+        quest_speedrun_start_ticks = pygame.time.get_ticks()
     # 석판 수집 퀘스트 초기화
     if "collect_tablets" in active_quests:
         reset_quest_tablet_state()
@@ -158397,6 +158432,8 @@ def main(stage_num, new_boss_mode=False):
             CURRENT_PADDLE_SIZE_SCALE = 1.0
             CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
             quest_small_paddle_active = False
+            quest_speedrun_active = False
+            quest_speedrun_start_ticks = 0
             PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
             PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
             PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
