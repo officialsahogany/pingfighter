@@ -585,6 +585,9 @@ class InGameBodyguard:
             _gs = self._guard_system
             game_state = self._skill_manager.game_state if self._skill_manager else {}
             fx = {}
+            # 스킬 update 전 공 속도 저장 (반사 감지용)
+            _orig_vx = ball.vx if ball else 0
+            _orig_vy = ball.vy if ball else 0
             for hero_id, skills in _gs.skill_instances.items():
                 guard_paddle = _gs.guard_paddles.get(hero_id)
                 if not guard_paddle:
@@ -598,6 +601,11 @@ class InGameBodyguard:
                                 fx.update(result)
                         except Exception:
                             pass
+            # 스킬이 공 속도를 변경했으면 (뼈장막 반사 등) fx에 포함
+            if ball and (ball.vx != _orig_vx or ball.vy != _orig_vy):
+                fx['ball_vel_override'] = True
+                fx['ball_vx'] = ball.vx
+                fx['ball_vy'] = ball.vy
             # game_state에서 핵심 이벤트 추출 (정상 경로의 _extract_boss_effects와 동일)
             # 유령소환
             if game_state.get('ghost_summon_ball_hidden', False):

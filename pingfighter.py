@@ -164150,6 +164150,10 @@ def main(stage_num, new_boss_mode=False):
                                 _play_electric_shock_sound()
                                 globals()['_bodyguard_electric_stun_active'] = True
                                 boss_stunned_timer = max(boss_stunned_timer, 6)
+                            # 공 속도 직접 변경 (뼈장막 반사 등)
+                            if _bg_fx.get('ball_vel_override'):
+                                ball_vel[0] = _bg_fx['ball_vx']
+                                ball_vel[1] = _bg_fx['ball_vy']
                             # 달빛베기 커브 효과
                             if _bg_fx.get('dark_slash_spin_strength', 0) > 0:
                                 globals()['ball_spin_strength'] = _bg_fx['dark_slash_spin_strength']
