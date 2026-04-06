@@ -2696,29 +2696,6 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
         item_rect = pygame.Rect(item["x"] - 15, item["y"] - 15, 30, 30)
 
         if item_rect.colliderect(player_rect):
-            # 아이템 획득 시 revealed를 True로 설정
-            item_type = item.get("type")
-            if isinstance(item_type, dict):
-                item_type["revealed"] = True
-
-            # 튜토리얼 아이템 획득 콜백 호출
-            if on_item_collect_callback:
-                on_item_collect_callback(item)
-
-            # 아이템 획득 사운드 재생 (외부에서 전달받은 사운드 사용)
-            if sound_item_get:
-                try:
-                    sound_item_get.play()
-                except Exception as e:
-                    print(f"  : {e}")
-            else:
-                # 내부 사운드 시도
-                if SOUND_ITEM_GET:
-                    try:
-                        SOUND_ITEM_GET.play()
-                    except Exception as e:
-                        print(f"   : {e}")
-            
             # item["type"]이 딕셔너리인지 확인
             item_type_data = item.get("type")
             if isinstance(item_type_data, dict):
@@ -2756,9 +2733,33 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                         "y": item["y"]
                     }
                     stored = store_active_func(item_data)
-            # 저장 실패 시 아이템을 필드에 유지 (슬롯 가득 참, aipill 등)
+
             if stored is False:
+                # 저장 실패 시 아이템을 필드에 유지 (슬롯 가득 참, aipill 등)
+                # revealed/사운드는 재생하지 않음 — 아이콘이 ?에서 바뀌거나 사운드 반복 재생 방지
                 new_items.append(item)
+            else:
+                # 저장 성공 시에만 revealed 설정, 사운드 재생, 콜백 호출
+                item_type = item.get("type")
+                if isinstance(item_type, dict):
+                    item_type["revealed"] = True
+
+                # 튜토리얼 아이템 획득 콜백 호출
+                if on_item_collect_callback:
+                    on_item_collect_callback(item)
+
+                # 아이템 획득 사운드 재생
+                if sound_item_get:
+                    try:
+                        sound_item_get.play()
+                    except Exception as e:
+                        print(f"  : {e}")
+                else:
+                    if SOUND_ITEM_GET:
+                        try:
+                            SOUND_ITEM_GET.play()
+                        except Exception as e:
+                            print(f"   : {e}")
         else:
             # 튜토리얼 아이템은 바운스 횟수 무관하게 유지
             bounce_count = item.get("bounce_count", 0)
