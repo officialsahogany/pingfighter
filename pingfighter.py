@@ -23016,8 +23016,6 @@ if not SMOKE_TEST_ENABLED:
             AUDIO_DISABLED = True
     if mixer_initialized and not AUDIO_DISABLED:
         pygame.mixer.set_num_channels(64)  # 동시 재생 가능한 채널 수 증가
-        # 전용 채널(28~30)을 자동 할당에서 제외 — 플라즈마 사운드 전용
-        pygame.mixer.set_reserved(31)
 else:
     AUDIO_DISABLED = True
     # print("[INFO] 오디오 초기화 생략 (스모크 테스트 모드)")
