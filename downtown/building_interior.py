@@ -2914,6 +2914,16 @@ class BuildingInterior:
                 "active": False,
                 "completed": False,
             },
+            {
+                "id": "small_paddle",
+                "name": "작은 패들",
+                "description": "다음 스테이지에서 패들 크기가\n50% 축소된 상태로 승리하세요!\n(장비 효과와 중첩됩니다)",
+                "condition_desc": "축소 패들로 승리",
+                "reward_gold": 1500,
+                "reward_items": [],
+                "active": False,
+                "completed": False,
+            },
         ]
         self.quest_message = None  # 퀘스트 메시지
         self.quest_message_timer = 0  # 메시지 타이머

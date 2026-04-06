@@ -22050,7 +22050,9 @@ def apply_equipment_paddle_modifiers() -> None:
     if items.sage_ring_obtained and sage_ring_body_penalty_pct > 0:
         sage_ring_body_penalty = sage_ring_body_penalty_pct / 100.0
     combined_bulk_scale = 1.0 + bulkup_bonus + bulk_up_bonus + mecha_bulk_bonus - sage_ring_body_penalty
-    effective_scale = CURRENT_PADDLE_SIZE_SCALE * ANGEL_PADDLE_SCALE * gauge_scale * combined_bulk_scale
+    # 작은 패들 퀘스트 배율 적용
+    quest_paddle_scale = QUEST_SMALL_PADDLE_SCALE if quest_small_paddle_active else 1.0
+    effective_scale = CURRENT_PADDLE_SIZE_SCALE * ANGEL_PADDLE_SCALE * gauge_scale * combined_bulk_scale * quest_paddle_scale
     CURRENT_PADDLE_EFFECTIVE_SCALE = effective_scale
 
     prev_centerx = PLAYER.centerx
@@ -27503,8 +27505,10 @@ def roll_passive_options(item_name: str) -> list[dict]:
             color = _OPTION_COLOR_MID
         else:
             color = _OPTION_COLOR_HIGH
-        text = f"{opt['label']} {opt.get('prefix','')}{val}{opt.get('unit','')}"
-        rolled.append({"text": text, "color": color, "key": opt.get("key"), "value": val, "unit": opt.get("unit", "")})
+        _label = _t(f"roll.{opt.get('key','')}", opt['label'])
+        _unit = _t(f"roll.unit_{opt.get('unit','')}", opt.get('unit','')) if opt.get('unit') in ('초','개') else opt.get('unit','')
+        text = f"{_label} {opt.get('prefix','')}{val}{_unit}"
+        rolled.append({"text": text, "color": color, "key": opt.get("key"), "value": val, "unit": _unit})
     return rolled
 
 
@@ -27562,8 +27566,10 @@ def roll_legendary_options(item_name: str) -> list[dict]:
         else:
             color = _OPTION_COLOR_HIGH
         prefix = opt.get("prefix", "")
-        text = f"{opt['label']} {prefix}{val}{opt.get('unit','')}"
-        rolled.append({"text": text, "color": color, "key": opt.get("key"), "value": val, "unit": opt.get("unit", ""), "min": v_min, "max": v_max, "reverse": reverse})
+        _label = _t(f"roll.{opt.get('key','')}", opt['label'])
+        _unit = _t(f"roll.unit_{opt.get('unit','')}", opt.get('unit','')) if opt.get('unit') in ('초','개') else opt.get('unit','')
+        text = f"{_label} {prefix}{val}{_unit}"
+        rolled.append({"text": text, "color": color, "key": opt.get("key"), "value": val, "unit": _unit, "min": v_min, "max": v_max, "reverse": reverse})
     return rolled
 
 
@@ -65858,7 +65864,7 @@ def show_judgment_debug_menu():
             SCREEN.blit(num_surf, (cx - 110, y + 2))
             # 라벨
             label_color = (255, 255, 255) if is_sel else (160, 160, 160)
-            label_surf = font_option.render(opt["label"], True, label_color)
+            label_surf = font_option.render(_t(f"roll.{opt.get('key','')}", opt["label"]), True, label_color)
             SCREEN.blit(label_surf, (cx - 80, y + 2))
             # 선택 마커
             if is_sel:
@@ -81106,6 +81112,8 @@ active_quests = []  # 현재 진행 중인 퀘스트 ID 목록 (예: ["no_active
 quest_stage_active_item_used = False  # 이번 스테이지에서 액티브 아이템 사용 여부
 quest_stage_boss_score = 0  # 이번 스테이지에서 보스가 득점한 횟수
 quest_completed_rewards = []  # 완료된 퀘스트 보상 목록 (UI 표시용)
+quest_small_paddle_active = False  # 작은 패들 퀘스트 활성 여부 (패들 50% 축소)
+QUEST_SMALL_PADDLE_SCALE = 0.5  # 작은 패들 퀘스트 배율
 
 # 퀘스트 상세 데이터 (선술집에서 수락 시 동기화 - 툴팁 표시용)
 QUEST_DATA = {
@@ -81126,6 +81134,12 @@ QUEST_DATA = {
         "description": "바닥에 나타나는 석판 5개를 수집하세요\n(대쉬로 닿으면 석판이 파괴됩니다!)",
         "condition_desc": "석판 5개 수집 (0/5)",
         "reward_gold": 800,
+    },
+    "small_paddle": {
+        "name": "작은 패들",
+        "description": "패들 크기가 50% 축소된 상태로 승리하세요!",
+        "condition_desc": "축소 패들로 승리",
+        "reward_gold": 1500,
     },
 }
 
@@ -81555,7 +81569,14 @@ def check_and_complete_quests():
                     "name": "석판 수집가",
                     "reward_gold": 800
                 })
-                # print(f"📜 [퀘스트 완료] 석판 수집가 - 석판 {quest_tablets_collected}개 수집!")
+
+        elif quest_id == "small_paddle":
+            # 작은 패들로 승리 (50% 축소 상태 - 스테이지 승리 시 자동 완료)
+            completed_quests.append({
+                "id": quest_id,
+                "name": "작은 패들",
+                "reward_gold": 1500
+            })
 
     # 보상 지급 및 퀘스트 목록에서 제거
     for quest in completed_quests:
@@ -132204,6 +132225,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     global player_ai_enabled, aipill_active
     global PADDLE_BASE_WIDTH, PADDLE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_HEIGHT
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
+    global quest_small_paddle_active
     global special_gauge, displayed_gauge  # 플레이어 게이지 초기화용
     # 메뉴에서 수동 진입하면 AI 자동조종은 끈다.
     player_ai_enabled = False
@@ -132284,6 +132306,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     optimus_gauge_scale = 1.0
     CURRENT_PADDLE_SIZE_SCALE = 1.0
     CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
+    quest_small_paddle_active = False
 
     # 투기장 모드에서는 패들 크기를 BOSS와 동일하게 유지 (130x40)
     if arena_mode_enabled:
@@ -154682,14 +154705,14 @@ def show_death_evaluation():
             SCREEN.blit(overlay, (0, 0))
 
             # 메인 패널
-            draw_modern_panel(SCREEN, panel_rect, "게임 오버 요약", (255, 100, 100))
+            draw_modern_panel(SCREEN, panel_rect, _t("ui.gameover_summary", "게임 오버 요약"), (255, 100, 100))
 
             y_cursor = panel_y + 55
 
             # === 섹션 1: 골드 / 플레이타임 ===
             section1_h = 65
             section1_rect = pygame.Rect(content_x, y_cursor, content_width, section1_h)
-            draw_section_container(SCREEN, section1_rect, "골드 / 플레이타임", "trophy")
+            draw_section_container(SCREEN, section1_rect, _t("ui.gold_playtime", "골드 / 플레이타임"), "trophy")
 
             gold_text = font_body.render(_t("ui.accumulated_gold_fmt", "누적 골드: {}G").format(accumulated_gold), True, (255, 215, 0))
             SCREEN.blit(gold_text, (content_x + 20, y_cursor + 40))
@@ -154708,7 +154731,7 @@ def show_death_evaluation():
             else:
                 section2_h = 60
             section2_rect = pygame.Rect(content_x, y_cursor, content_width, section2_h)
-            draw_section_container(SCREEN, section2_rect, "클리어한 보스", "medal")
+            draw_section_container(SCREEN, section2_rect, _t("ui.cleared_bosses", "클리어한 보스"), "medal")
 
             if cleared_bosses:
                 boss_spacing = boss_thumb_size + 12
@@ -154757,7 +154780,7 @@ def show_death_evaluation():
             section3_h += 8
 
             section3_rect = pygame.Rect(content_x, y_cursor, content_width, section3_h)
-            draw_section_container(SCREEN, section3_rect, f"획득 아이템 ({total_items}개)", "trophy")
+            draw_section_container(SCREEN, section3_rect, _t("ui.acquired_items_fmt", "획득 아이템 ({count}개)").format(count=total_items), "trophy")
 
             item_y = y_cursor + 38
 
@@ -154812,7 +154835,7 @@ def show_death_evaluation():
             else:
                 section4_h = 60
             section4_rect = pygame.Rect(content_x, y_cursor, content_width, section4_h)
-            draw_section_container(SCREEN, section4_rect, f"획득 퍽 ({len(acquired_perks)}개)", "idea")
+            draw_section_container(SCREEN, section4_rect, _t("ui.acquired_perks_fmt", "획득 퍽 ({count}개)").format(count=len(acquired_perks)), "idea")
 
             if acquired_perks:
                 display_perks = acquired_perks[:max_display_perks]
@@ -156037,6 +156060,7 @@ def show_result(won):
         optimus_gauge_scale = 1.0
         CURRENT_PADDLE_SIZE_SCALE = 1.0
         CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
+        quest_small_paddle_active = False
         PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
         PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
         PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
@@ -156593,6 +156617,7 @@ def main(stage_num, new_boss_mode=False):
     # 패들 크기 관련 전역 변수 (옵티머스 스케일 초기화용)
     global PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
+    global quest_small_paddle_active
     # 스테이지 2 정글 테두리 효과
     global stage2_border_active, stage2_border_timer, stage2_border_flash_timer
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
@@ -156672,9 +156697,11 @@ def main(stage_num, new_boss_mode=False):
     reset_hail_state()  # 우박 상태도 리셋
 
     # 📜 퀘스트 추적 변수 초기화 (새 스테이지 시작 시)
-    global quest_stage_active_item_used, quest_stage_boss_score
+    global quest_stage_active_item_used, quest_stage_boss_score, quest_small_paddle_active
     quest_stage_active_item_used = False
     quest_stage_boss_score = 0
+    # 작은 패들 퀘스트 활성화
+    quest_small_paddle_active = "small_paddle" in active_quests
     # 석판 수집 퀘스트 초기화
     if "collect_tablets" in active_quests:
         reset_quest_tablet_state()
@@ -158369,6 +158396,7 @@ def main(stage_num, new_boss_mode=False):
             optimus_gauge_scale = 1.0
             CURRENT_PADDLE_SIZE_SCALE = 1.0
             CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
+            quest_small_paddle_active = False
             PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
             PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
             PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
@@ -167353,7 +167381,7 @@ def show_character_info(background_surface=None):
                     "raw_name": item.get("name", ""),
                     "desc": get_item_description(item.get("name", "")),
                     "lines": build_tooltip_lines(item, 300),
-                    "slot_label": "엑티브",
+                    "slot_label": _t("ui.slot_active", "엑티브"),
                     "color": get_item_quality_color(item),
                     "font_small": label_font,
                     "font_tiny": tiny_font,
@@ -168020,62 +168048,62 @@ def show_character_info(background_surface=None):
 
         stats = [
             {
-                "label": "이동속도",
+                "label": _t("stat.move_speed", "이동속도"),
                 "base": base_max_speed,
                 "current": move_speed,
                 "max_hint": 7.0,
                 "unit": "x",
             },
             {
-                "label": "몸집크기",
+                "label": _t("stat.body_size", "몸집크기"),
                 "base": base_paddle,
                 "current": paddle_now,
                 "max_hint": base_paddle * 1.8,
                 "unit": "px",
             },
             {
-                "label": "게이지 획득량",
+                "label": _t("stat.gauge_gain", "게이지 획득량"),
                 "base": gauge_base,
                 "current": gauge_now,
                 "max_hint": 120.0,
                 "unit": "pt",
             },
             {
-                "label": "최대 게이지",
+                "label": _t("stat.max_gauge", "최대 게이지"),
                 "base": 500,
                 "current": float(get_max_gauge()),
                 "max_hint": 800.0,
                 "unit": "pt",
             },
             {
-                "label": "대쉬 거리",
+                "label": _t("stat.dash_distance", "대쉬 거리"),
                 "base": base_dash_distance,
                 "current": dash_distance_now,
                 "max_hint": 480.0,
                 "unit": "px",
             },
             {
-                "label": "대쉬후딜시간",
+                "label": _t("stat.dash_delay", "대쉬후딜시간"),
                 "base": stun_base_s,
                 "current": stun_now_s,
                 "max_hint": 1.2,
-                "unit": "초",
+                "unit": _t("stat.unit_sec", "초"),
                 "higher_is_better": False,
             },
             {
-                "label": "대쉬쿨타임",
+                "label": _t("stat.dash_cooldown", "대쉬쿨타임"),
                 "base": dash_cd_base_s,
                 "current": dash_cd_now_s,
                 "max_hint": 5.0,
-                "unit": "초",
+                "unit": _t("stat.unit_sec", "초"),
                 "higher_is_better": False,
             },
             {
-                "label": "아이템쿨타임",
+                "label": _t("stat.item_cooldown", "아이템쿨타임"),
                 "base": cooldown_base_s,
                 "current": cooldown_now_s,
                 "max_hint": 12.0,
-                "unit": "초",
+                "unit": _t("stat.unit_sec", "초"),
                 "higher_is_better": False,
             },
         ]
