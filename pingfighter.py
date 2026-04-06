@@ -166495,8 +166495,7 @@ def main(stage_num, new_boss_mode=False):
             if _replay_rec.recording and BALL and PLAYER and BOSS:
                 _replay_rec.record(
                     BALL, PLAYER, BOSS, ball_vel,
-                    player_score, boss_score,
-                    special_gauge if 'special_gauge' in dir() else 0,
+                    player_score, boss_score, special_gauge,
                 )
         except Exception:
             pass

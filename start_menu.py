@@ -26,7 +26,7 @@ from pillar_background import get_pillar_renderer
 from localization.manager import get_localization_manager
 from config.language_options import LANGUAGE_OPTIONS, LANGUAGE_CODES
 
-BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "개발테스트", "메달샵", "설정", "크레딧"]
+BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "리플레이", "개발테스트", "메달샵", "설정", "크레딧"]
 MENU_ICONS = {
     "경기장 입장": "▶",
     "계속하기": "▷",
@@ -3401,6 +3401,10 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
         return _show_mode_selection(ctx, state)
     if choice == "멀티플레이":
         return _show_multiplayer_menu(ctx, state)
+    if choice == "리플레이":
+        from pingfighter import show_replay_viewer
+        show_replay_viewer()
+        return True
     if choice == "AI 플레이":
         return _run_ai_play_flow(ctx)
     if choice == "개발테스트":

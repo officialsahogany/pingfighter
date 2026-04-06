@@ -1,573 +1,325 @@
 """
-Replay System - 게임 리플레이 시스템
-게임 녹화 및 재생 기능
+Replay System - 게임 리플레이 녹화 및 재생
+매 프레임 핵심 게임 상태(공, 패들, 점수 등)를 경량 기록하고,
+gzip 압축된 .rpg 파일로 자동 저장한다.
 """
 
 import pickle
 import gzip
-import json
 import time
 import os
+import sys
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, asdict
-from enum import Enum
-from core.events import EventType, emit_event, subscribe
-from core.global_manager import GlobalManager
+from dataclasses import dataclass
 
 
-class ReplayEventType(Enum):
-    """리플레이 이벤트 타입"""
-    INPUT = "input"
-    GAME_STATE = "game_state"
-    COLLISION = "collision"
-    SCORE = "score"
-    ITEM = "item"
-    SPECIAL = "special"
-    POSITION = "position"
-    FRAME = "frame"
+def _replays_dir() -> str:
+    """replays 폴더 절대 경로 반환 (PyInstaller 대응)"""
+    try:
+        base = sys._MEIPASS
+    except AttributeError:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, "replays")
 
 
+# ============================================================================
+# 프레임 데이터 구조
+# ============================================================================
 @dataclass
 class ReplayFrame:
-    """리플레이 프레임 데이터"""
-    frame_number: int
-    timestamp: float
-    events: List[Dict[str, Any]]
-    game_state: Dict[str, Any]
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """딕셔너리로 변환"""
-        return {
-            'frame_number': self.frame_number,
-            'timestamp': self.timestamp,
-            'events': self.events,
-            'game_state': self.game_state
-        }
-        
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ReplayFrame':
-        """딕셔너리에서 생성"""
-        return cls(
-            frame_number=data['frame_number'],
-            timestamp=data['timestamp'],
-            events=data['events'],
-            game_state=data['game_state']
+    """한 프레임의 게임 상태 스냅샷 (경량)"""
+    fn: int              # frame_number
+    ts: float            # timestamp (초)
+    bx: int              # ball center x
+    by: int              # ball center y
+    bvx: float           # ball vel x
+    bvy: float           # ball vel y
+    px: int              # player paddle center x
+    py: int              # player paddle center y
+    pw: int              # player paddle width
+    ox: int              # boss paddle center x
+    oy: int              # boss paddle center y
+    ow: int              # boss paddle width
+    ps: int              # player score
+    bs: int              # boss score
+    sg: int              # special gauge (0-400)
+    ev: List[Dict]       # events this frame (score, item, etc.)
+
+    def to_tuple(self):
+        return (
+            self.fn, self.ts,
+            self.bx, self.by, self.bvx, self.bvy,
+            self.px, self.py, self.pw,
+            self.ox, self.oy, self.ow,
+            self.ps, self.bs, self.sg,
+            self.ev,
         )
 
+    @classmethod
+    def from_tuple(cls, t):
+        return cls(*t)
 
+
+# ============================================================================
+# 레코더 — pingfighter.py 게임 루프에서 직접 호출
+# ============================================================================
 class ReplayRecorder:
-    """리플레이 레코더"""
-    
+    """매 프레임 호출하여 게임 상태를 기록하는 레코더"""
+
+    MAX_FRAMES = 36000  # 60fps × 10분
+
     def __init__(self):
-        self.global_manager = GlobalManager.get_instance()
-        
-        # 녹화 상태
         self.recording = False
-        self.frames: List[ReplayFrame] = []
-        self.start_time = 0
+        self.frames: List[tuple] = []
+        self.event_buffer: List[Dict] = []
+        self.start_time = 0.0
         self.current_frame = 0
-        
-        # 이벤트 버퍼
-        self.event_buffer: List[Dict[str, Any]] = []
-        
-        # 녹화 설정
-        self.max_frames = 36000  # 60fps * 10분 = 36000 프레임
-        self.record_interval = 1  # 매 프레임 기록
-        
-        # 메타데이터
-        self.metadata = {
-            'version': '1.0.0',
-            'stage': 1,
-            'player_name': 'Player',
-            'difficulty': 'normal',
-            'duration': 0,
-            'total_frames': 0,
-            'created_at': 0
-        }
-        
-    def start_recording(self, metadata: Optional[Dict[str, Any]] = None):
-        """녹화 시작
-        
-        Args:
-            metadata: 메타데이터
-        """
-        if self.recording:
-            return
-            
+        self.metadata: Dict[str, Any] = {}
+
+    # ------------------------------------------------------------------
+    def start(self, stage: int = 1, boss_name: str = "",
+              ai_mode: str = "normal", character: str = "smasher",
+              result: str = ""):
+        """녹화 시작 — main() 함수 진입 시 호출"""
         self.recording = True
         self.frames = []
+        self.event_buffer = []
         self.current_frame = 0
         self.start_time = time.time()
-        self.event_buffer = []
-        
-        # 메타데이터 업데이트
-        if metadata:
-            self.metadata.update(metadata)
-        self.metadata['created_at'] = self.start_time
-        
-        print("🔴 녹화 시작")
-        emit_event(EventType.MENU_OPENED, {'type': 'replay_recording'})
-        
-    def stop_recording(self) -> bool:
-        """녹화 중지
-        
-        Returns:
-            성공 여부
-        """
+        self.metadata = {
+            'version': '2.0.0',
+            'stage': stage,
+            'boss_name': boss_name,
+            'ai_mode': ai_mode,
+            'character': character,
+            'result': result,
+            'duration': 0,
+            'total_frames': 0,
+            'created_at': self.start_time,
+        }
+
+    def stop(self, result: str = "") -> bool:
+        """녹화 중지 + 자동 저장. result: 'win' / 'lose' / ''"""
         if not self.recording:
             return False
-            
         self.recording = False
-        
-        # 메타데이터 업데이트
         self.metadata['duration'] = time.time() - self.start_time
         self.metadata['total_frames'] = len(self.frames)
-        
-        print(f"⏹️ 녹화 중지 - {len(self.frames)} 프레임 저장됨")
-        
-        # 자동 저장
-        filename = self.generate_filename()
-        return self.save_replay(filename)
-        
-    def record_frame(self):
-        """현재 프레임 기록"""
+        if result:
+            self.metadata['result'] = result
+        return self._save()
+
+    def record(self, ball, player, boss, ball_vel,
+               player_score: int, boss_score: int,
+               special_gauge: int = 0):
+        """매 프레임 호출 — pygame.Rect 객체와 게임 변수를 직접 전달받음"""
         if not self.recording:
             return
-            
-        # 프레임 제한 체크
-        if len(self.frames) >= self.max_frames:
-            self.stop_recording()
+        if len(self.frames) >= self.MAX_FRAMES:
+            self.stop()
             return
-            
-        # 현재 게임 상태 캡처
-        game_state = self.capture_game_state()
-        
-        # 프레임 생성
-        frame = ReplayFrame(
-            frame_number=self.current_frame,
-            timestamp=time.time() - self.start_time,
-            events=self.event_buffer.copy(),
-            game_state=game_state
+        ts = time.time() - self.start_time
+        frame = (
+            self.current_frame, ts,
+            int(ball.centerx), int(ball.centery),
+            float(ball_vel[0]), float(ball_vel[1]),
+            int(player.centerx), int(player.centery), int(player.width),
+            int(boss.centerx), int(boss.centery), int(boss.width),
+            int(player_score), int(boss_score), int(special_gauge),
+            self.event_buffer.copy(),
         )
-        
         self.frames.append(frame)
         self.event_buffer.clear()
         self.current_frame += 1
-        
-    def record_event(self, event_type: ReplayEventType, data: Dict[str, Any]):
-        """이벤트 기록
-        
-        Args:
-            event_type: 이벤트 타입
-            data: 이벤트 데이터
-        """
+
+    def add_event(self, event_type: str, data: Dict = None):
+        """이벤트 기록 (득점, 아이템 획득 등)"""
         if not self.recording:
             return
-            
-        event = {
-            'type': event_type.value,
-            'data': data,
-            'frame': self.current_frame,
-            'timestamp': time.time() - self.start_time
-        }
-        
-        self.event_buffer.append(event)
-        
-    def capture_game_state(self) -> Dict[str, Any]:
-        """현재 게임 상태 캡처
-        
-        Returns:
-            게임 상태 딕셔너리
-        """
-        # 주요 오브젝트 위치
-        ball_rect = self.global_manager.get('BALL')
-        player_rect = self.global_manager.get('PLAYER')
-        boss_rect = self.global_manager.get('BOSS')
-        
-        state = {
-            'ball': {
-                'x': ball_rect.centerx if ball_rect else 0,
-                'y': ball_rect.centery if ball_rect else 0,
-                'dx': self.global_manager.get('ball_dx', 0),
-                'dy': self.global_manager.get('ball_dy', 5)
-            },
-            'player': {
-                'x': player_rect.centerx if player_rect else 300,
-                'y': player_rect.centery if player_rect else 650
-            },
-            'boss': {
-                'x': boss_rect.centerx if boss_rect else 300,
-                'y': boss_rect.centery if boss_rect else 50
-            },
-            'score': {
-                'player': self.global_manager.get('player_score', 0),
-                'boss': self.global_manager.get('boss_score', 0)
-            },
-            'stage': self.global_manager.get('current_stage', 1)
-        }
-        
-        return state
-        
-    def save_replay(self, filename: str) -> bool:
-        """리플레이 저장
-        
-        Args:
-            filename: 파일명
-            
-        Returns:
-            성공 여부
-        """
+        self.event_buffer.append({'t': event_type, 'd': data or {}})
+
+    # ------------------------------------------------------------------
+    def _save(self) -> bool:
+        """replays/ 폴더에 압축 저장"""
         try:
-            # 리플레이 디렉토리 생성
-            os.makedirs('replays', exist_ok=True)
-            filepath = os.path.join('replays', filename)
-            
-            # 데이터 준비
-            replay_data = {
+            replay_dir = _replays_dir()
+            os.makedirs(replay_dir, exist_ok=True)
+            ts_str = time.strftime("%Y%m%d_%H%M%S")
+            stage = self.metadata.get('stage', 0)
+            filename = f"replay_s{stage}_{ts_str}.rpg"
+            filepath = os.path.join(replay_dir, filename)
+
+            data = {
                 'metadata': self.metadata,
-                'frames': [frame.to_dict() for frame in self.frames]
+                'frames': self.frames,  # List[tuple] — 매우 경량
             }
-            
-            # 압축 저장
-            with gzip.open(filepath, 'wb') as f:
-                pickle.dump(replay_data, f)
-                
-            print(f"💾 리플레이 저장됨: {filepath}")
+            with gzip.open(filepath, 'wb', compresslevel=4) as f:
+                pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+            size_kb = os.path.getsize(filepath) / 1024
+            print(f"[Replay] 저장 완료: {filename} ({len(self.frames)}프레임, {size_kb:.0f}KB)")
             return True
-            
         except Exception as e:
-            print(f"❌ 리플레이 저장 실패: {e}")
+            print(f"[Replay] 저장 실패: {e}")
             return False
-            
-    def generate_filename(self) -> str:
-        """파일명 생성
-        
-        Returns:
-            파일명
-        """
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        stage = self.metadata.get('stage', 1)
-        return f"replay_stage{stage}_{timestamp}.rpg"
 
 
+# ============================================================================
+# 플레이어 — 리플레이 재생 엔진
+# ============================================================================
 class ReplayPlayer:
-    """리플레이 플레이어"""
-    
+    """저장된 리플레이를 프레임 단위로 재생"""
+
+    SPEED_OPTIONS = [0.25, 0.5, 1.0, 1.5, 2.0, 4.0]
+
     def __init__(self):
-        self.global_manager = GlobalManager.get_instance()
-        
-        # 재생 상태
+        self.frames: List[tuple] = []
+        self.metadata: Dict[str, Any] = {}
         self.playing = False
         self.paused = False
-        self.frames: List[ReplayFrame] = []
-        self.current_frame_index = 0
-        self.playback_speed = 1.0
-        
-        # 메타데이터
-        self.metadata = {}
-        
-        # 재생 타이머
-        self.frame_timer = 0
-        self.frame_interval = 1/60  # 60fps
-        
-    def load_replay(self, filename: str) -> bool:
-        """리플레이 로드
-        
-        Args:
-            filename: 파일명
-            
-        Returns:
-            성공 여부
-        """
+        self.current_index = 0
+        self.speed = 1.0
+        self.frame_accum = 0.0
+
+    def load(self, filepath: str) -> bool:
+        """리플레이 파일 로드"""
         try:
-            filepath = os.path.join('replays', filename)
-            
-            # 압축 파일 읽기
             with gzip.open(filepath, 'rb') as f:
-                replay_data = pickle.load(f)
-                
-            # 데이터 로드
-            self.metadata = replay_data['metadata']
-            self.frames = [ReplayFrame.from_dict(frame) for frame in replay_data['frames']]
-            
-            print(f"📂 리플레이 로드됨: {filename}")
-            print(f"   프레임: {len(self.frames)}")
-            print(f"   시간: {self.metadata.get('duration', 0):.1f}초")
-            
+                data = pickle.load(f)
+            self.metadata = data['metadata']
+            self.frames = data['frames']
+            self.current_index = 0
+            self.frame_accum = 0.0
             return True
-            
         except Exception as e:
-            print(f"❌ 리플레이 로드 실패: {e}")
+            print(f"[Replay] 로드 실패: {e}")
             return False
-            
-    def start_playback(self):
-        """재생 시작"""
+
+    def start(self):
         if not self.frames:
-            print("❌ 재생할 리플레이가 없습니다")
             return
-            
         self.playing = True
         self.paused = False
-        self.current_frame_index = 0
-        self.frame_timer = 0
-        
-        print("▶️ 리플레이 재생 시작")
-        emit_event(EventType.MENU_OPENED, {'type': 'replay_playing'})
-        
-    def stop_playback(self):
-        """재생 중지"""
+        self.current_index = 0
+        self.frame_accum = 0.0
+
+    def stop(self):
         self.playing = False
         self.paused = False
-        
-        print("⏹️ 리플레이 재생 중지")
-        
-    def pause_playback(self):
-        """재생 일시정지"""
+
+    def toggle_pause(self):
         self.paused = not self.paused
-        
-        if self.paused:
-            print("⏸️ 리플레이 일시정지")
-        else:
-            print("▶️ 리플레이 재생 재개")
-            
-    def update(self, dt: float):
-        """재생 업데이트
-        
-        Args:
-            dt: 델타 타임
-        """
-        if not self.playing or self.paused:
-            return
-            
-        # 타이머 업데이트
-        self.frame_timer += dt * self.playback_speed
-        
-        # 프레임 재생
-        while self.frame_timer >= self.frame_interval:
-            self.frame_timer -= self.frame_interval
-            
-            if self.current_frame_index < len(self.frames):
-                self.play_frame(self.frames[self.current_frame_index])
-                self.current_frame_index += 1
-            else:
-                # 재생 완료
-                self.stop_playback()
-                break
-                
-    def play_frame(self, frame: ReplayFrame):
-        """프레임 재생
-        
-        Args:
-            frame: 재생할 프레임
-        """
-        # 게임 상태 복원
-        self.restore_game_state(frame.game_state)
-        
-        # 이벤트 재생
-        for event in frame.events:
-            self.replay_event(event)
-            
-    def restore_game_state(self, state: Dict[str, Any]):
-        """게임 상태 복원
-        
-        Args:
-            state: 게임 상태
-        """
-        # 공 위치 복원
-        ball_rect = self.global_manager.get('BALL')
-        if ball_rect and 'ball' in state:
-            ball_rect.centerx = state['ball']['x']
-            ball_rect.centery = state['ball']['y']
-            self.global_manager.set('ball_dx', state['ball']['dx'])
-            self.global_manager.set('ball_dy', state['ball']['dy'])
-            
-        # 플레이어 위치 복원
-        player_rect = self.global_manager.get('PLAYER')
-        if player_rect and 'player' in state:
-            player_rect.centerx = state['player']['x']
-            player_rect.centery = state['player']['y']
-            
-        # 보스 위치 복원
-        boss_rect = self.global_manager.get('BOSS')
-        if boss_rect and 'boss' in state:
-            boss_rect.centerx = state['boss']['x']
-            boss_rect.centery = state['boss']['y']
-            
-        # 점수 복원
-        if 'score' in state:
-            self.global_manager.set('player_score', state['score']['player'])
-            self.global_manager.set('boss_score', state['score']['boss'])
-            
-    def replay_event(self, event: Dict[str, Any]):
-        """이벤트 재생
-        
-        Args:
-            event: 이벤트 데이터
-        """
-        event_type = event['type']
-        data = event['data']
-        
-        # 이벤트 타입별 처리
-        if event_type == ReplayEventType.INPUT.value:
-            # 입력 이벤트는 이미 상태로 복원됨
-            pass
-        elif event_type == ReplayEventType.COLLISION.value:
-            # 충돌 이펙트 재생
-            emit_event(EventType.COLLISION, data)
-        elif event_type == ReplayEventType.ITEM.value:
-            # 아이템 이펙트 재생
-            emit_event(EventType.ITEM_COLLECTED, data)
-            
-    def seek(self, frame_index: int):
-        """특정 프레임으로 이동
-        
-        Args:
-            frame_index: 프레임 인덱스
-        """
-        if 0 <= frame_index < len(self.frames):
-            self.current_frame_index = frame_index
-            self.play_frame(self.frames[frame_index])
-            
-    def get_playback_info(self) -> Dict[str, Any]:
-        """재생 정보 반환
-        
-        Returns:
-            재생 정보
-        """
-        total_frames = len(self.frames)
-        current_time = 0
-        total_time = self.metadata.get('duration', 0)
-        
-        if total_frames > 0 and self.current_frame_index < total_frames:
-            current_time = self.frames[self.current_frame_index].timestamp
-            
-        return {
-            'playing': self.playing,
-            'paused': self.paused,
-            'current_frame': self.current_frame_index,
-            'total_frames': total_frames,
-            'current_time': current_time,
-            'total_time': total_time,
-            'playback_speed': self.playback_speed,
-            'progress': self.current_frame_index / total_frames if total_frames > 0 else 0
-        }
-        
-    def set_playback_speed(self, speed: float):
-        """재생 속도 설정
-        
-        Args:
-            speed: 재생 속도 (0.25 ~ 4.0)
-        """
-        self.playback_speed = max(0.25, min(4.0, speed))
 
-
-class ReplayManager:
-    """리플레이 매니저"""
-    
-    def __init__(self):
-        self.recorder = ReplayRecorder()
-        self.player = ReplayPlayer()
-        
-        # 리플레이 목록
-        self.replays: List[str] = []
-        
-        # 이벤트 핸들러 등록
-        self.setup_event_handlers()
-        
-    def setup_event_handlers(self):
-        """이벤트 핸들러 설정"""
-        # 게임 이벤트 구독
-        subscribe(EventType.GAME_START, self.on_game_start)
-        subscribe(EventType.GAME_OVER, self.on_game_over)
-        subscribe(EventType.COLLISION, self.on_collision)
-        subscribe(EventType.ITEM_COLLECTED, self.on_item_collected)
-        
-    def on_game_start(self, event):
-        """게임 시작 이벤트 처리"""
-        # 자동 녹화 시작
-        metadata = {
-            'stage': event.data.get('stage', 1),
-            'player_name': GlobalManager.get_instance().get('player_name', 'Player'),
-            'difficulty': GlobalManager.get_instance().get_setting('difficulty', 'normal')
-        }
-        self.recorder.start_recording(metadata)
-        
-    def on_game_over(self, event):
-        """게임 오버 이벤트 처리"""
-        # 녹화 중지
-        if self.recorder.recording:
-            self.recorder.stop_recording()
-            
-    def on_collision(self, event):
-        """충돌 이벤트 처리"""
-        if self.recorder.recording:
-            self.recorder.record_event(ReplayEventType.COLLISION, event.data)
-            
-    def on_item_collected(self, event):
-        """아이템 수집 이벤트 처리"""
-        if self.recorder.recording:
-            self.recorder.record_event(ReplayEventType.ITEM, event.data)
-            
-    def update(self, dt: float):
-        """업데이트
-        
-        Args:
-            dt: 델타 타임
-        """
-        # 녹화 중이면 프레임 기록
-        if self.recorder.recording:
-            self.recorder.record_frame()
-            
-        # 재생 중이면 재생 업데이트
-        if self.player.playing:
-            self.player.update(dt)
-            
-    def get_replay_list(self) -> List[Dict[str, Any]]:
-        """리플레이 목록 반환
-        
-        Returns:
-            리플레이 목록
-        """
-        replays = []
-        
+    def cycle_speed(self):
+        """다음 배속으로 전환"""
         try:
-            # 리플레이 디렉토리 스캔
-            if os.path.exists('replays'):
-                for filename in os.listdir('replays'):
-                    if filename.endswith('.rpg'):
-                        filepath = os.path.join('replays', filename)
-                        
-                        # 메타데이터 읽기
-                        try:
-                            with gzip.open(filepath, 'rb') as f:
-                                data = pickle.load(f)
-                                metadata = data['metadata']
-                                
-                            replays.append({
-                                'filename': filename,
-                                'stage': metadata.get('stage', 1),
-                                'duration': metadata.get('duration', 0),
-                                'created_at': metadata.get('created_at', 0),
-                                'player_name': metadata.get('player_name', 'Unknown')
-                            })
-                        except:
-                            pass
-                            
-        except Exception as e:
-            print(f"리플레이 목록 로드 실패: {e}")
-            
-        # 날짜 순으로 정렬
-        replays.sort(key=lambda x: x['created_at'], reverse=True)
-        
+            idx = self.SPEED_OPTIONS.index(self.speed)
+            self.speed = self.SPEED_OPTIONS[(idx + 1) % len(self.SPEED_OPTIONS)]
+        except ValueError:
+            self.speed = 1.0
+
+    def seek_relative(self, delta_frames: int):
+        """현재 위치에서 상대적 이동"""
+        new_idx = max(0, min(len(self.frames) - 1, self.current_index + delta_frames))
+        self.current_index = new_idx
+
+    def advance(self) -> Optional[tuple]:
+        """매 게임 프레임(60fps) 호출. 현재 재생할 프레임 데이터를 반환."""
+        if not self.playing or self.paused or not self.frames:
+            if self.paused and self.frames and 0 <= self.current_index < len(self.frames):
+                return self.frames[self.current_index]
+            return None
+
+        self.frame_accum += self.speed
+        result = None
+        while self.frame_accum >= 1.0:
+            self.frame_accum -= 1.0
+            if self.current_index < len(self.frames):
+                result = self.frames[self.current_index]
+                self.current_index += 1
+            else:
+                self.stop()
+                break
+        return result
+
+    def get_current_frame(self) -> Optional[tuple]:
+        """현재 인덱스의 프레임 반환 (렌더링용)"""
+        if self.frames and 0 <= self.current_index < len(self.frames):
+            return self.frames[self.current_index]
+        return None
+
+    @property
+    def progress(self) -> float:
+        if not self.frames:
+            return 0.0
+        return self.current_index / len(self.frames)
+
+    @property
+    def current_time(self) -> float:
+        if self.frames and 0 <= self.current_index < len(self.frames):
+            return self.frames[self.current_index][1]
+        return 0.0
+
+    @property
+    def total_time(self) -> float:
+        return self.metadata.get('duration', 0)
+
+    @property
+    def finished(self) -> bool:
+        return not self.playing and self.current_index >= len(self.frames)
+
+
+# ============================================================================
+# 유틸: 리플레이 목록 조회 / 삭제
+# ============================================================================
+def list_replays() -> List[Dict[str, Any]]:
+    """replays/ 폴더의 리플레이 목록 반환 (최신순)"""
+    replays = []
+    replay_dir = _replays_dir()
+    if not os.path.isdir(replay_dir):
         return replays
+    for fn in os.listdir(replay_dir):
+        if not fn.endswith('.rpg'):
+            continue
+        fp = os.path.join(replay_dir, fn)
+        try:
+            with gzip.open(fp, 'rb') as f:
+                data = pickle.load(f)
+            md = data.get('metadata', {})
+            replays.append({
+                'filename': fn,
+                'filepath': fp,
+                'stage': md.get('stage', 0),
+                'boss_name': md.get('boss_name', ''),
+                'ai_mode': md.get('ai_mode', ''),
+                'character': md.get('character', ''),
+                'result': md.get('result', ''),
+                'duration': md.get('duration', 0),
+                'total_frames': md.get('total_frames', 0),
+                'created_at': md.get('created_at', 0),
+            })
+        except Exception:
+            pass
+    replays.sort(key=lambda x: x['created_at'], reverse=True)
+    return replays
 
 
-# 싱글톤 인스턴스
-_replay_manager = None
+def delete_replay(filepath: str) -> bool:
+    try:
+        os.remove(filepath)
+        return True
+    except Exception:
+        return False
 
-def get_replay_manager() -> ReplayManager:
-    """리플레이 매니저 싱글톤 반환"""
-    global _replay_manager
-    if _replay_manager is None:
-        _replay_manager = ReplayManager()
-    return _replay_manager
+
+# ============================================================================
+# 싱글톤 레코더 (전역 접근용)
+# ============================================================================
+_recorder: Optional[ReplayRecorder] = None
+
+
+def get_recorder() -> ReplayRecorder:
+    global _recorder
+    if _recorder is None:
+        _recorder = ReplayRecorder()
+    return _recorder
