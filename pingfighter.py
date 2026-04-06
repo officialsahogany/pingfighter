@@ -122448,7 +122448,7 @@ def show_replay_viewer():
 
 
 def _play_replay(filepath: str):
-    """리플레이 파일을 로드하고 재생 루프 실행"""
+    """리플레이 파일을 로드하고 재생 루프 실행 — 화면 캡처 기반"""
     rp = ReplayPlayer()
     if not rp.load(filepath):
         return
@@ -122456,41 +122456,32 @@ def _play_replay(filepath: str):
     clock = pygame.time.Clock()
     rp.start()
 
-    BALL_RADIUS = 10
-    PADDLE_H = 16
-    PLAYER_C = (0, 200, 255)
-    BOSS_C = (255, 80, 80)
-
     stage = rp.metadata.get('stage', 0)
     boss_name = rp.metadata.get('boss_name', f"Stage {stage}")
     result = rp.metadata.get('result', '')
+    capture_fps = rp.metadata.get('capture_fps', 30)
 
-    # 공 궤적 버퍼
-    ball_trail = []
-    TRAIL_MAX = 12
-
-    hud_font = get_font(18)
-    score_font = get_font(32)
     info_font = get_font(14)
     speed_font = get_font(16)
     btn_font = get_font(15)
 
-    # 타임라인 바 레이아웃 (렌더링과 동일 좌표 사용)
+    # 타임라인 바 레이아웃
     bar_x = 60
     bar_w = WIDTH - 120
-    bar_y = HEIGHT - 50
+    bar_y = HEIGHT - 40
     bar_h = 8
-    bar_click_area = pygame.Rect(bar_x, bar_y - 10, bar_w, bar_h + 20)  # 클릭 영역 넓힘
+    bar_click_area = pygame.Rect(bar_x, bar_y - 10, bar_w, bar_h + 20)
 
     # 하단 버튼 레이아웃
     btn_h = 26
-    btn_y_pos = HEIGHT - 84
+    btn_y_pos = HEIGHT - 74
     btn_pause = pygame.Rect(WIDTH // 2 - 30, btn_y_pos, 60, btn_h)
     btn_speed = pygame.Rect(WIDTH // 2 + 40, btn_y_pos, 60, btn_h)
     btn_back5 = pygame.Rect(WIDTH // 2 - 120, btn_y_pos, 40, btn_h)
     btn_fwd5 = pygame.Rect(WIDTH // 2 + 110, btn_y_pos, 40, btn_h)
 
-    dragging_timeline = False  # 타임라인 드래그 중
+    dragging_timeline = False
+    seek_amount = capture_fps * 5  # 5초 분량
 
     while True:
         clock.tick(60)
@@ -122508,165 +122499,58 @@ def _play_replay(filepath: str):
                 if event.key == pygame.K_TAB:
                     rp.cycle_speed()
                 if event.key == pygame.K_LEFT:
-                    rp.seek_relative(-300)
+                    rp.seek_relative(-seek_amount)
                 if event.key == pygame.K_RIGHT:
-                    rp.seek_relative(300)
+                    rp.seek_relative(seek_amount)
 
-            # 마우스 휠 — 앞뒤 2초 이동
             if event.type == pygame.MOUSEWHEEL:
-                rp.seek_relative(int(event.y * -120))  # 위=과거, 아래=미래
+                rp.seek_relative(int(event.y * -(capture_fps * 2)))
 
-            # 마우스 클릭
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
-                # 타임라인 바 클릭 → seek
                 if bar_click_area.collidepoint(mx, my):
                     dragging_timeline = True
                     ratio = max(0.0, min(1.0, (mx - bar_x) / bar_w))
-                    target = int(ratio * len(rp.frames))
-                    rp.current_index = max(0, min(len(rp.frames) - 1, target))
-                # 버튼 클릭
+                    rp.current_index = max(0, min(rp.total_frames - 1, int(ratio * rp.total_frames)))
                 elif btn_pause.collidepoint(mx, my):
                     rp.toggle_pause()
                 elif btn_speed.collidepoint(mx, my):
                     rp.cycle_speed()
                 elif btn_back5.collidepoint(mx, my):
-                    rp.seek_relative(-300)
+                    rp.seek_relative(-seek_amount)
                 elif btn_fwd5.collidepoint(mx, my):
-                    rp.seek_relative(300)
-                else:
-                    # 게임 영역 클릭 → 일시정지 토글
-                    if 80 < mx < WIDTH - 80 and 70 < my < bar_y - 30:
-                        rp.toggle_pause()
+                    rp.seek_relative(seek_amount)
+                elif 0 < mx < WIDTH and 0 < my < btn_y_pos - 10:
+                    rp.toggle_pause()
 
-            # 타임라인 드래그 중
             if event.type == pygame.MOUSEMOTION and dragging_timeline:
                 mx, _ = event.pos
                 ratio = max(0.0, min(1.0, (mx - bar_x) / bar_w))
-                target = int(ratio * len(rp.frames))
-                rp.current_index = max(0, min(len(rp.frames) - 1, target))
+                rp.current_index = max(0, min(rp.total_frames - 1, int(ratio * rp.total_frames)))
 
-            # 마우스 버튼 떼기
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 dragging_timeline = False
 
-        frame_data = rp.advance()
-        if frame_data is None and not rp.playing and not rp.paused:
+        # 프레임 진행
+        surf = rp.advance()
+        if surf is None and not rp.playing and not rp.paused:
             _show_replay_end_screen(result, boss_name, stage)
             return
-
-        if frame_data is None:
-            frame_data = rp.get_current_frame()
-        if frame_data is None:
+        if surf is None:
+            surf = rp.get_frame_surface()
+        if surf is None:
             continue
 
-        fn, ts = frame_data[0], frame_data[1]
-        bx, by = frame_data[2], frame_data[3]
-        px, py_ = frame_data[6], frame_data[7]
-        pw = max(frame_data[8], 60)  # 최소 패들 너비 보장
-        ox, oy = frame_data[9], frame_data[10]
-        ow = max(frame_data[11], 60)
-        p_score, b_score = frame_data[12], frame_data[13]
+        # ── 게임 화면 표시 (캡처된 화면을 풀사이즈로 확대) ──
+        scaled = pygame.transform.scale(surf, (WIDTH, HEIGHT))
+        SCREEN.blit(scaled, (0, 0))
 
-        # 공 궤적 추가
-        ball_trail.append((bx, by))
-        if len(ball_trail) > TRAIL_MAX:
-            ball_trail.pop(0)
+        # ── 하단 컨트롤 오버레이 ──
+        # 반투명 배경
+        ctrl_bg = pygame.Surface((WIDTH, 90), pygame.SRCALPHA)
+        ctrl_bg.fill((0, 0, 0, 140))
+        SCREEN.blit(ctrl_bg, (0, HEIGHT - 90))
 
-        # ── 배경 ──
-        SCREEN.fill((12, 15, 25))
-
-        # 코트 그리드 라인 (은은한 격자)
-        grid_color = (22, 28, 40)
-        for gx in range(80, WIDTH - 80, 40):
-            pygame.draw.line(SCREEN, grid_color, (gx, 0), (gx, HEIGHT), 1)
-        for gy in range(0, HEIGHT, 40):
-            pygame.draw.line(SCREEN, grid_color, (80, gy), (WIDTH - 80, gy), 1)
-
-        # 중앙선 (점선)
-        center_y = HEIGHT // 2
-        for dx in range(80, WIDTH - 80, 16):
-            pygame.draw.line(SCREEN, (40, 50, 70), (dx, center_y), (dx + 8, center_y), 2)
-
-        # 코트 경계선
-        court_color = (40, 55, 80)
-        pygame.draw.line(SCREEN, court_color, (80, 0), (80, HEIGHT), 2)
-        pygame.draw.line(SCREEN, court_color, (WIDTH - 80, 0), (WIDTH - 80, HEIGHT), 2)
-
-        # 필러 영역 (반투명 어둡게)
-        pillar_surf = pygame.Surface((80, HEIGHT), pygame.SRCALPHA)
-        pillar_surf.fill((8, 10, 18, 200))
-        SCREEN.blit(pillar_surf, (0, 0))
-        SCREEN.blit(pillar_surf, (WIDTH - 80, 0))
-
-        # ── 공 궤적 (잔상) ──
-        for i, (tx, ty) in enumerate(ball_trail):
-            alpha = int(40 + 180 * (i / TRAIL_MAX))
-            radius = max(2, int(BALL_RADIUS * (0.3 + 0.7 * i / TRAIL_MAX)))
-            trail_s = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(trail_s, (255, 220, 80, alpha), (radius, radius), radius)
-            SCREEN.blit(trail_s, (tx - radius, ty - radius))
-
-        # ── 공 (메인) + 글로우 ──
-        glow_r = BALL_RADIUS * 4
-        glow = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (255, 230, 80, 30), (glow_r, glow_r), glow_r)
-        pygame.draw.circle(glow, (255, 240, 100, 50), (glow_r, glow_r), glow_r // 2)
-        SCREEN.blit(glow, (bx - glow_r, by - glow_r))
-        pygame.draw.circle(SCREEN, (255, 255, 200), (bx, by), BALL_RADIUS)
-        pygame.draw.circle(SCREEN, (255, 255, 100), (bx, by), BALL_RADIUS - 2)
-
-        # ── 플레이어 패들 ──
-        pr = pygame.Rect(px - pw // 2, py_ - PADDLE_H // 2, pw, PADDLE_H)
-        # 패들 본체 (그라데이션 효과)
-        paddle_s = pygame.Surface((pw, PADDLE_H), pygame.SRCALPHA)
-        for row in range(PADDLE_H):
-            t = row / PADDLE_H
-            r_c = int(0 + 30 * t)
-            g_c = int(220 - 40 * t)
-            b_c = 255
-            pygame.draw.line(paddle_s, (r_c, g_c, b_c), (0, row), (pw, row))
-        SCREEN.blit(paddle_s, pr.topleft)
-        pygame.draw.rect(SCREEN, (100, 240, 255), pr, width=2, border_radius=3)
-        # 패들 글로우
-        p_glow = pygame.Surface((pw + 16, PADDLE_H + 16), pygame.SRCALPHA)
-        pygame.draw.rect(p_glow, (0, 200, 255, 25), (0, 0, pw + 16, PADDLE_H + 16), border_radius=6)
-        SCREEN.blit(p_glow, (pr.x - 8, pr.y - 8))
-
-        # ── 보스 패들 ──
-        br = pygame.Rect(ox - ow // 2, oy - PADDLE_H // 2, ow, PADDLE_H)
-        boss_s = pygame.Surface((ow, PADDLE_H), pygame.SRCALPHA)
-        for row in range(PADDLE_H):
-            t = row / PADDLE_H
-            r_c = int(255 - 30 * t)
-            g_c = int(60 + 40 * t)
-            b_c = int(60 + 20 * t)
-            pygame.draw.line(boss_s, (r_c, g_c, b_c), (0, row), (ow, row))
-        SCREEN.blit(boss_s, br.topleft)
-        pygame.draw.rect(SCREEN, (255, 130, 130), br, width=2, border_radius=3)
-        # 보스 글로우
-        b_glow = pygame.Surface((ow + 16, PADDLE_H + 16), pygame.SRCALPHA)
-        pygame.draw.rect(b_glow, (255, 80, 80, 25), (0, 0, ow + 16, PADDLE_H + 16), border_radius=6)
-        SCREEN.blit(b_glow, (br.x - 8, br.y - 8))
-
-        # ── 점수판 (중앙 상단) ──
-        score_bg = pygame.Surface((160, 44), pygame.SRCALPHA)
-        pygame.draw.rect(score_bg, (10, 15, 30, 180), (0, 0, 160, 44), border_radius=8)
-        pygame.draw.rect(score_bg, (40, 60, 100, 150), (0, 0, 160, 44), width=1, border_radius=8)
-        SCREEN.blit(score_bg, (WIDTH // 2 - 80, 6))
-
-        ps = score_font.render(str(p_score), True, PLAYER_C)
-        bs = score_font.render(str(b_score), True, BOSS_C)
-        SCREEN.blit(ps, (WIDTH // 2 - 45 - ps.get_width() // 2, 12))
-        SCREEN.blit(bs, (WIDTH // 2 + 45 - bs.get_width() // 2, 12))
-        dash_s = score_font.render(":", True, (80, 90, 120))
-        SCREEN.blit(dash_s, (WIDTH // 2 - dash_s.get_width() // 2, 12))
-
-        # 보스 이름
-        bn = hud_font.render(boss_name, True, (255, 150, 150))
-        SCREEN.blit(bn, (WIDTH // 2 - bn.get_width() // 2, 54))
-
-        # ── 하단 컨트롤 버튼 ──
         mouse_pos = pygame.mouse.get_pos()
 
         def _draw_btn(rect, label, hover_color=(50, 70, 100), base_color=(30, 40, 55)):
@@ -122687,7 +122571,6 @@ def _play_replay(filepath: str):
         fill_w = int(bar_w * rp.progress)
         if fill_w > 0:
             pygame.draw.rect(SCREEN, (0, 180, 255), (bar_x, bar_y, fill_w, bar_h), border_radius=4)
-        # 타임라인 핸들 (동그란 포인터)
         handle_x = bar_x + fill_w
         pygame.draw.circle(SCREEN, (0, 220, 255), (handle_x, bar_y + bar_h // 2), 6)
         if dragging_timeline:
@@ -122696,19 +122579,23 @@ def _play_replay(filepath: str):
         cur_t = rp.current_time
         tot_t = rp.total_time
         time_str = f"{int(cur_t)//60}:{int(cur_t)%60:02d} / {int(tot_t)//60}:{int(tot_t)%60:02d}"
-        SCREEN.blit(info_font.render(time_str, True, (140, 150, 170)), (bar_x, bar_y + 14))
+        SCREEN.blit(info_font.render(time_str, True, (160, 170, 190)), (bar_x, bar_y + 14))
 
-        sp_str = f"x{rp.speed:.2g}"
-        sp_s = speed_font.render(sp_str, True, (200, 200, 100))
+        sp_s = speed_font.render(f"x{rp.speed:.2g}", True, (200, 200, 100))
         SCREEN.blit(sp_s, (bar_x + bar_w - sp_s.get_width(), bar_y + 14))
 
         # 일시정지 오버레이
         if rp.paused:
-            pf = get_font(48)
-            SCREEN.blit(pf.render("II", True, (255, 255, 255)), (WIDTH // 2 - 20, HEIGHT // 2 - 30))
+            pause_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            pause_overlay.fill((0, 0, 0, 60))
+            SCREEN.blit(pause_overlay, (0, 0))
+            pf = get_font(64)
+            ps = pf.render("II", True, (255, 255, 255))
+            SCREEN.blit(ps, (WIDTH // 2 - ps.get_width() // 2, HEIGHT // 2 - 60))
 
-        wm = get_font(14).render("REPLAY", True, (60, 65, 80))
-        SCREEN.blit(wm, (WIDTH - 80 - wm.get_width(), 80))
+        # REPLAY 워터마크
+        wm = get_font(12).render("REPLAY", True, (255, 255, 255, 80))
+        SCREEN.blit(wm, (WIDTH - 75, 8))
 
         pygame.display.flip()
 
@@ -157154,6 +157041,8 @@ def main(stage_num, new_boss_mode=False):
             boss_name=get_boss_name(stage_num),
             ai_mode=ai_mode,
             character=selected_character_type,
+            screen_w=WIDTH,
+            screen_h=HEIGHT,
         )
     except Exception as _re:
         print(f"[Replay] 녹화 시작 실패: {_re}")
@@ -166669,16 +166558,12 @@ def main(stage_num, new_boss_mode=False):
         except Exception:
             pass
 
-        # 🎬 리플레이 프레임 기록
+        # 🎬 리플레이 화면 캡처
         try:
-            if _replay_rec.recording and BALL is not None and PLAYER is not None and BOSS is not None:
-                _replay_rec.record(
-                    BALL, PLAYER, BOSS, ball_vel,
-                    player_score, boss_score, special_gauge,
-                )
-        except Exception as _rec_err:
-            if _replay_rec.current_frame < 3:  # 초반 에러만 출력
-                print(f"[Replay] 프레임 기록 실패: {_rec_err}")
+            if _replay_rec.recording:
+                _replay_rec.capture(SCREEN)
+        except Exception:
+            pass
 
         pygame.display.flip()
         # 프로파일러 프레임 종료
