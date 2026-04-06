@@ -58767,9 +58767,9 @@ def spawn_blacksmith_coins(cx: float, cy: float, coin_count: int):
     for i in range(coin_count):
         # 방사형 균등 분포 + 약간의 랜덤
         base_angle = (2 * _m.pi * i / coin_count) + _rng.uniform(-0.3, 0.3)
-        speed = _rng.uniform(6.0, 11.0)  # 강한 초기 속도로 폭발
+        speed = _rng.uniform(9.0, 16.0)  # 더 강하게 폭발 — 화면 넓게 퍼짐
         vx = _m.cos(base_angle) * speed
-        vy = _m.sin(base_angle) * speed - 4.0  # 전체적으로 위로 솟구침
+        vy = _m.sin(base_angle) * speed - 5.0  # 위로 더 높이 솟구침
         blacksmith_coins.append({
             'x': float(cx) + _rng.uniform(-4, 4),
             'y': spawn_y + _rng.uniform(-4, 4),
@@ -158550,6 +158550,11 @@ def main(stage_num, new_boss_mode=False):
         
         #  게임 완전 종료 체크
         if game_should_exit:
+            # 🎬 리플레이 녹화 종료 (중도 퇴장)
+            try:
+                _replay_rec.stop(result='quit')
+            except Exception:
+                pass
             # BGM 정지 (메인 메뉴로 돌아가기 전)
             bgm_manager.stop_bgm()
             # 스테이지4 중력자기장 사운드 정지 (ESC 종료 시)
