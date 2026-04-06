@@ -10116,6 +10116,13 @@ def _fullscreen_flip():
 
         # 참고: 플레이어 게이지는 SCREEN의 오른쪽 필러 영역(680-759)에 그려지므로
         # SCREEN이 REAL_SCREEN에 블릿될 때 자동으로 필러 위에 표시됨
+    # 아케이드 모드 하이라이트 프레임 캡처 (전체화면 모드 - SCREEN 원본 해상도)
+    _ahl_rec_fs = globals().get('_arcade_highlight_recorder')
+    if _ahl_rec_fs and _is_ingame_active and not globals().get('arena_mode_enabled', False):
+        try:
+            _ahl_rec_fs.capture_frame(SCREEN)
+        except Exception:
+            pass
     _original_flip()
 
 def _fullscreen_update(*args, **kwargs):
@@ -10449,6 +10456,13 @@ else:
         if _custom_cursor_enabled:
             mouse_x, mouse_y = pygame.mouse.get_pos()
             _draw_custom_cursor(SCREEN, mouse_x, mouse_y)
+        # 아케이드 모드 하이라이트 프레임 캡처 (윈도우 모드)
+        _ahl_rec = globals().get('_arcade_highlight_recorder')
+        if _ahl_rec and _is_ingame_active and not globals().get('arena_mode_enabled', False):
+            try:
+                _ahl_rec.capture_frame(SCREEN)
+            except Exception:
+                pass
         _original_flip()
 
     def _windowed_update(*args, **kwargs):
@@ -30886,8 +30900,19 @@ _is_ingame_active = False
 
 def set_ingame_active(active: bool):
     """인게임 상태 설정 (구슬 표시 제어용)"""
-    global _is_ingame_active
+    global _is_ingame_active, _arcade_highlight_recorder
     _is_ingame_active = active
+    # 아케이드 모드 하이라이트 녹화 시작/중지
+    if active and not arena_mode_enabled:
+        try:
+            from downtown.colosseum_arena import HighlightRecorder
+            if _arcade_highlight_recorder is None:
+                _arcade_highlight_recorder = HighlightRecorder()
+            _arcade_highlight_recorder.start()
+        except Exception:
+            pass
+    elif not active and _arcade_highlight_recorder is not None:
+        _arcade_highlight_recorder.stop()
 
 def is_ingame_active() -> bool:
     """현재 인게임 상태인지 반환"""
@@ -73401,6 +73426,9 @@ def handle_player(keys):
         if tutorial_reset and current_stage == 50 and 'tutorial_dash_already_counted' in globals():
             globals()["tutorial_dash_already_counted"] = False
         set_roll("rolling_active", True)
+        # 📜 대시 금지령 퀘스트 추적
+        global quest_stage_dash_used
+        quest_stage_dash_used = True
         # 포승줄 포박 중 대쉬 → 즉시 끊어짐
         _break_arrest_rope_on_dash()
         # 대시 골드 보너스 활성화 (다음 랠리 2배)
@@ -81118,6 +81146,7 @@ deposit_pending_interest_rates: dict[str, float] = {}  # 스테이지별 예정 
 active_quests = []  # 현재 진행 중인 퀘스트 ID 목록 (예: ["no_active_item", "perfect_victory"])
 quest_stage_active_item_used = False  # 이번 스테이지에서 액티브 아이템 사용 여부
 quest_stage_boss_score = 0  # 이번 스테이지에서 보스가 득점한 횟수
+quest_stage_dash_used = False  # 이번 스테이지에서 대시 사용 여부
 quest_completed_rewards = []  # 완료된 퀘스트 보상 목록 (UI 표시용)
 quest_small_paddle_active = False  # 작은 패들 퀘스트 활성 여부 (패들 50% 축소)
 QUEST_SMALL_PADDLE_SCALE = 0.5  # 작은 패들 퀘스트 배율
@@ -81162,6 +81191,12 @@ QUEST_DATA = {
         "description": "패시브 아이템을 하나도 장착하지 않고 승리하세요!",
         "condition_desc": "패시브 미장착으로 승리",
         "reward_gold": 1800,
+    },
+    "no_dash": {
+        "name": "대시 금지령",
+        "description": "대시를 한 번도 사용하지 않고 승리하세요!\n(회피 불가 — 순수 포지셔닝만으로 도전!)",
+        "condition_desc": "대시 미사용으로 승리",
+        "reward_gold": 2500,
     },
 }
 
@@ -81619,6 +81654,15 @@ def check_and_complete_quests():
                     "id": quest_id,
                     "name": "빈손의 전사",
                     "reward_gold": 1800
+                })
+
+        elif quest_id == "no_dash":
+            # 대시 금지령 - 대시 미사용으로 승리
+            if not quest_stage_dash_used:
+                completed_quests.append({
+                    "id": quest_id,
+                    "name": "대시 금지령",
+                    "reward_gold": 2500
                 })
 
     # 보상 지급 및 퀘스트 목록에서 제거
@@ -119988,7 +120032,125 @@ def show_victory_screen(stage_cleared, reward):
     frame_count = 0
     glow_intensity = 0
     clock = pygame.time.Clock()
-    
+
+    # 🎬 아케이드 하이라이트 버튼 설정
+    _hl_recorder = _arcade_highlight_recorder
+    _hl_has_clips = _hl_recorder is not None and _hl_recorder.has_clips()
+    _hl_clip_count = len(_hl_recorder.get_clips()) if _hl_has_clips else 0
+    _hl_btn_w, _hl_btn_h = 150, 36
+    _hl_btn_rect = pygame.Rect(
+        PILLAR_UI_WIDTH + GAME_PLAY_WIDTH - _hl_btn_w - 10,
+        HEIGHT - _hl_btn_h - 10,
+        _hl_btn_w, _hl_btn_h
+    )
+    _hl_btn_hovered = False
+
+    def _play_arcade_highlight_replay():
+        """아케이드 모드 하이라이트 리플레이 재생"""
+        nonlocal _hl_has_clips
+        if not _hl_recorder or not _hl_recorder.has_clips():
+            return
+        clips = _hl_recorder.get_clips()
+        clip_index = 0
+        phase = "fade_in"  # fade_in / playing / fade_out
+        phase_timer = 0.0
+        frame_progress = 0.0
+        replay_clock = pygame.time.Clock()
+
+        # 리플레이 BGM (현재 BGM 유지)
+        hl_font_medium = get_font(22, style="bold")
+        hl_font_small = get_font(16, style="regular")
+
+        while clip_index < len(clips):
+            dt = replay_clock.tick(60) / 1000.0
+            phase_timer += dt
+            clip = clips[clip_index]
+            if not clip:
+                clip_index += 1
+                continue
+
+            # 페이즈 전환
+            if phase == "fade_in":
+                fade_alpha = int(min(255, (phase_timer / 0.5) * 255))
+                if phase_timer >= 0.5:
+                    phase = "playing"
+                    phase_timer = 0.0
+                    frame_progress = 0.0
+            elif phase == "playing":
+                progress = min(1.0, phase_timer / 4.0)
+                frame_progress = min(progress * (len(clip) - 1), len(clip) - 1)
+                fade_alpha = 255
+                if phase_timer >= 4.0:
+                    phase = "fade_out"
+                    phase_timer = 0.0
+            elif phase == "fade_out":
+                fade_alpha = int(max(0, (1.0 - phase_timer / 0.5) * 255))
+                if phase_timer >= 0.5:
+                    clip_index += 1
+                    phase = "fade_in"
+                    phase_timer = 0.0
+                    frame_progress = 0.0
+                    continue
+
+            # 렌더링
+            SCREEN.fill((0, 0, 0))
+            idx_a = max(0, min(int(frame_progress), len(clip) - 1))
+            idx_b = min(idx_a + 1, len(clip) - 1)
+            blend_t = frame_progress - int(frame_progress)
+            frame_a = clip[idx_a]
+            if idx_a != idx_b and blend_t > 0.01:
+                frame_a.set_alpha(fade_alpha)
+                frame_b = clip[idx_b]
+                frame_b.set_alpha(int(blend_t * fade_alpha))
+                SCREEN.blit(frame_a, (0, 0))
+                SCREEN.blit(frame_b, (0, 0))
+            else:
+                frame_a.set_alpha(fade_alpha)
+                SCREEN.blit(frame_a, (0, 0))
+
+            # 오버레이 UI
+            if fade_alpha > 50:
+                total_clips = len(clips)
+                current_num = clip_index + 1
+                # 상단 "HIGHLIGHT 1/3"
+                hl_text = f"HIGHLIGHT  {current_num}/{total_clips}"
+                hl_surf = hl_font_medium.render(hl_text, True, (255, 255, 255))
+                bar_h = hl_surf.get_height() + 16
+                bar_surf = pygame.Surface((WIDTH, bar_h), pygame.SRCALPHA)
+                bar_surf.fill((0, 0, 0, min(fade_alpha, 140)))
+                SCREEN.blit(bar_surf, (0, 0))
+                SCREEN.blit(hl_surf, (WIDTH // 2 - hl_surf.get_width() // 2, 8))
+                # 좌상단 "▶ REPLAY"
+                pulse = int(abs(math.sin(phase_timer * 3)) * 50)
+                wm_color = (200 + pulse // 2, 50 + pulse, 50 + pulse)
+                wm_surf = hl_font_small.render("▶ REPLAY", True, wm_color)
+                SCREEN.blit(wm_surf, (10, bar_h + 5))
+                # 하단 "클릭하여 건너뛰기"
+                skip_alpha_val = int(80 + abs(math.sin(phase_timer * 2)) * 80)
+                skip_surf = hl_font_small.render(
+                    _t("ui.click_skip", "클릭하여 건너뛰기"), True,
+                    (skip_alpha_val, skip_alpha_val, skip_alpha_val))
+                SCREEN.blit(skip_surf, (WIDTH // 2 - skip_surf.get_width() // 2, HEIGHT - 30))
+
+            pygame.display.flip()
+
+            # 이벤트 처리 (클릭/키 → 리플레이 종료)
+            for ev in pygame.event.get():
+                if ev.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if ev.type in (pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN):
+                    # 리플레이 즉시 종료
+                    # 프레임 알파 복원
+                    for c in clips:
+                        for f in c:
+                            f.set_alpha(255)
+                    return
+        # 정상 종료 시 프레임 알파 복원
+        for c in clips:
+            for f in c:
+                f.set_alpha(255)
+
     ai_victory_done = False
 
     def show_reroll_confirmation_dialog(bonus_percent: int) -> bool:
@@ -120731,6 +120893,30 @@ def show_victory_screen(stage_cleared, reward):
                 text_rect = button_text.get_rect(center=rect.center)
                 SCREEN.blit(button_text, text_rect)
 
+        # 🎬 아케이드 하이라이트 버튼 (우하단, 클립이 있을 때만)
+        if _hl_has_clips and animation_complete and choice_ui_state['ui_shown'] and not transition_state['active']:
+            _hl_mouse = pygame.mouse.get_pos()
+            _hl_btn_hovered = _hl_btn_rect.collidepoint(_hl_mouse)
+            # 버튼 배경
+            _hl_bg_color = (30, 80, 160, 220) if _hl_btn_hovered else (20, 40, 80, 180)
+            _hl_btn_surf = pygame.Surface((_hl_btn_w, _hl_btn_h), pygame.SRCALPHA)
+            _hl_btn_surf.fill(_hl_bg_color)
+            # 테두리
+            _hl_border_color = (100, 200, 255) if _hl_btn_hovered else (60, 120, 180)
+            pygame.draw.rect(_hl_btn_surf, _hl_border_color, (0, 0, _hl_btn_w, _hl_btn_h), 2, border_radius=6)
+            SCREEN.blit(_hl_btn_surf, _hl_btn_rect.topleft)
+            # 텍스트
+            _hl_text_str = f"▶ {_t('ui.highlight', '하이라이트')} ({_hl_clip_count})"
+            _hl_text_surf = font_info.render(_hl_text_str, True, (200, 230, 255) if _hl_btn_hovered else (140, 170, 200))
+            _hl_text_rect = _hl_text_surf.get_rect(center=_hl_btn_rect.center)
+            SCREEN.blit(_hl_text_surf, _hl_text_rect)
+            # 호버 시 글로우
+            if _hl_btn_hovered:
+                _hl_glow = pygame.Surface((_hl_btn_w + 6, _hl_btn_h + 6), pygame.SRCALPHA)
+                _hl_glow_alpha = int(40 + abs(math.sin(frame_count * 0.08)) * 40)
+                pygame.draw.rect(_hl_glow, (100, 200, 255, _hl_glow_alpha), (0, 0, _hl_btn_w + 6, _hl_btn_h + 6), 3, border_radius=8)
+                SCREEN.blit(_hl_glow, (_hl_btn_rect.x - 3, _hl_btn_rect.y - 3))
+
         # 이벤트 처리를 먼저 수행
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -120808,6 +120994,11 @@ def show_victory_screen(stage_cleared, reward):
             elif event.type == pygame.MOUSEBUTTONDOWN and animation_complete and choice_ui_state['ui_shown']:
                 if event.button == 1:
                     mx, my = event.pos
+                    # 🎬 하이라이트 버튼 클릭 체크
+                    if _hl_has_clips and _hl_btn_rect.collidepoint(mx, my):
+                        _play_arcade_highlight_replay()
+                        pygame.event.get()  # 리플레이 종료 후 이벤트 큐 비우기
+                        continue
                     clicked = None
                     for rect, _text, idx in buttons:
                         if rect.collidepoint(mx, my):
@@ -120987,6 +121178,9 @@ def show_victory_screen(stage_cleared, reward):
         clock.tick(60)  # 60 FPS로 제한
 
         if pending_transition:
+            # 🎬 승리 화면 이탈 시 하이라이트 메모리 해제
+            if _arcade_highlight_recorder is not None:
+                _arcade_highlight_recorder.clear()
             mode, target_stage = pending_transition
             if mode == 'start':
                 # print("!  !")
@@ -146996,6 +147190,13 @@ def handle_ball():
         # 🔥 랠리 카운트 초기화 (득점 시)
         reset_ball_rally()
 
+        # 🎬 아케이드 모드 하이라이트 저장 (플레이어 득점 시)
+        if _arcade_highlight_recorder and not arena_mode_enabled:
+            try:
+                _arcade_highlight_recorder.save_highlight()
+            except Exception:
+                pass
+
         if deuce_mode:
             deuce_wins += 1
             # 👁 오딘의 눈: 듀스 라운드 승리 시 부활 상태 초기화
@@ -156018,6 +156219,9 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+        # 🎬 아케이드 하이라이트 메모리 해제 (게임 오버)
+        if _arcade_highlight_recorder is not None:
+            _arcade_highlight_recorder.clear()
         # 초급/중급인장 리셋
         try:
             from item_effects.minor_hero_seal import get_minor_seal_state
@@ -156745,9 +156949,10 @@ def main(stage_num, new_boss_mode=False):
 
     # 📜 퀘스트 추적 변수 초기화 (새 스테이지 시작 시)
     global quest_stage_active_item_used, quest_stage_boss_score, quest_small_paddle_active
-    global quest_speedrun_active, quest_speedrun_start_ticks
+    global quest_speedrun_active, quest_speedrun_start_ticks, quest_stage_dash_used
     quest_stage_active_item_used = False
     quest_stage_boss_score = 0
+    quest_stage_dash_used = False
     # 작은 패들 퀘스트 활성화
     quest_small_paddle_active = "small_paddle" in active_quests
     # 스피드런 퀘스트 활성화
@@ -158365,6 +158570,9 @@ def main(stage_num, new_boss_mode=False):
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+            # 🎬 아케이드 하이라이트 메모리 해제 (ESC 복귀)
+            if _arcade_highlight_recorder is not None:
+                _arcade_highlight_recorder.clear()
             # 초급/중급인장 리셋
             try:
                 from item_effects.minor_hero_seal import get_minor_seal_state
@@ -160939,6 +161147,9 @@ def main(stage_num, new_boss_mode=False):
                     #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
                     acceleration_skill_level = 0
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+                    # 🎬 아케이드 하이라이트 메모리 해제 (강제 종료)
+                    if _arcade_highlight_recorder is not None:
+                        _arcade_highlight_recorder.clear()
                     # 초급/중급인장 리셋
                     try:
                         from item_effects.minor_hero_seal import get_minor_seal_state

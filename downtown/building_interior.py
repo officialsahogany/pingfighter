@@ -2944,6 +2944,16 @@ class BuildingInterior:
                 "active": False,
                 "completed": False,
             },
+            {
+                "id": "no_dash",
+                "name": "대시 금지령",
+                "description": "대시를 한 번도 사용하지 않고\n승리하세요!\n(회피 불가 — 순수 포지셔닝 도전!)",
+                "condition_desc": "대시 미사용으로 승리",
+                "reward_gold": 2500,
+                "reward_items": [],
+                "active": False,
+                "completed": False,
+            },
         ]
         self.quest_message = None  # 퀘스트 메시지
         self.quest_message_timer = 0  # 메시지 타이머
