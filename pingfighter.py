@@ -149056,6 +149056,21 @@ def handle_ball():
                 _restore_ratio = _viper_speed_boost_original / _cur_spd
                 ball_vel[0] *= _restore_ratio
                 ball_vel[1] *= _restore_ratio
+        # 야생의 포효 공속 가속 해제 → 원래 속도로 복귀
+        try:
+            for _wr_bg in [get_bodyguard(), get_bodyguard2()]:
+                if _wr_bg.active and _wr_bg._skill_manager:
+                    _wr_gs = _wr_bg._skill_manager.game_state
+                    if _wr_gs.get('wild_roar_boosted', False):
+                        _wr_gs['wild_roar_boosted'] = False
+                        _wr_orig = _wr_gs.get('wild_roar_original_speed', 0)
+                        _wr_cur = math.hypot(ball_vel[0], ball_vel[1])
+                        if _wr_cur > 0.1 and _wr_orig > 0.1:
+                            _wr_ratio = _wr_orig / _wr_cur
+                            ball_vel[0] *= _wr_ratio
+                            ball_vel[1] *= _wr_ratio
+        except Exception:
+            pass
         # 바이퍼 마샬 킥 연계: 보스 반환 시 처리 제거 (0.5초 딜레이 방식으로 이전됨)
 
         # 팬텀 킥: 보스 반환 트리거 제거 (0.2초 딜레이 방식으로 이전됨)

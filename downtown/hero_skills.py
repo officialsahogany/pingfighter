@@ -17842,6 +17842,10 @@ class WildRoar(HeroSkill):
                     ball.vy = -ball.vy
                 elif not self.caster_is_top and ball.vy > 0:
                     ball.vy = -ball.vy
+                # 보스가 받아치면 속도 복원하도록 플래그 설정
+                game_state['wild_roar_boosted'] = True
+                game_state['wild_roar_original_speed'] = speed  # 가속 전 원래 속도 저장
+
                 self._create_impact(ball_cx, ball_cy)
                 if self._hit_sound:
                     try:
