@@ -205,6 +205,8 @@ class ValhallaWarplateState:
         self._pending_skill_idx = skill_idx
         self.state = self.CUTSCENE
         self.summoning = True
+        # 컷신 시작 사운드
+        self._play_sound("potal2.wav", 0.8)
         self.cutscene_timer = 0.0
         self.summoned_hero_name = hero["name"]
 
@@ -365,10 +367,7 @@ class ValhallaWarplateState:
                 # 플래시 + 하강 (포탈에서 영웅이 내려옴!)
                 self.portal_scale = 1.0
                 descend_progress = min(1.0, (t - 2.0) / 1.0)
-                # 하강 시작 순간 사운드 + 포탈 반짝
-                if not self._portal_sound_played:
-                    self._portal_sound_played = True
-                    self._play_sound("potal2.wav", 0.8)
+                # 하강 시작 순간 포탈 반짝
                 if descend_progress < 0.15:
                     self.portal_flash = 1.0 - descend_progress / 0.15
                 else:
@@ -464,10 +463,6 @@ class ValhallaWarplateState:
                 # 플래시 + 상승 (영웅이 포탈로 올라감!)
                 self.portal_scale = 1.0
                 ascend_progress = min(1.0, (t - 2.0) / 1.0)
-                # 상승 시작 순간 사운드
-                if not self._portal_sound_played:
-                    self._portal_sound_played = True
-                    self._play_sound("potal2.wav", 0.8)
                 # 포탈 진입 순간 반짝 (상승 80% 지점)
                 if 0.75 < ascend_progress < 0.9:
                     self.portal_flash = (ascend_progress - 0.75) / 0.15
