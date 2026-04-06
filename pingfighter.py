@@ -3685,7 +3685,7 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "shadow_step", "korean": "쉐도우 백스텝", "cost": 100, "color": (100, 0, 180),
         "symbol": "⟐", "cooldown": 15.0, "key": "대쉬+S",
-        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.\n에너지파에 공이 닿으면 속도가 30~50% 증가합니다.",
+        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.\n공 타격 시 속도가 40~80% 증가합니다.",
         "how_to_use": "대쉬 중/직후 S키를 눌러 발동",
         "effect_type": "shadow_teleport"
     },
@@ -3713,15 +3713,15 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
         "symbol": "🕷", "cooldown": 25.0, "key": "S/↓(연계)",
-        "description": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 80% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 25초.",
-        "how_to_use": "쉐도우 백스텝 후 보스 반환 시 또는 에어 블레이드 후 S/↓키",
+        "description": "쉐도우 백스텝 적중 후 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 100% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 25초.",
+        "how_to_use": "쉐도우 백스텝 적중 후 또는 에어 블레이드 후 S/↓키",
         "effect_type": "wall_dive_purple"
     },
     {
         "name": "phantom_kick", "korean": "팬텀 킥", "cost": 60, "color": (180, 0, 255),
         "symbol": "x2", "cooldown": 40.0, "key": "S/↓(연계)",
-        "description": "마샬 킥 공 타격 후 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n쿨타임 40초.",
-        "how_to_use": "마샬 킥 공 타격 후 S/↓키 (팬텀 킥 퍽 필요)",
+        "description": "마샬 킥 적중 후 1.5초간 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n공속 180% 증가, 1초간 프리즈.\n쿨타임 40초.",
+        "how_to_use": "마샬 킥 적중 후 1.5초 안에 S/↓키 (팬텀 킥 퍽 필요)",
         "effect_type": "wall_dive_purple"
     },
 ]
@@ -5644,7 +5644,7 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
         viper_perks.append({
             "name": "double_marshal_kick",
             "color": (180, 0, 255),
-            "cost": 50,
+            "cost": 60,
             "symbol": "x2",
         })
     _jetpack_enhance_lv = get_runtime_skill_level("jetpack_enhance")
@@ -6606,8 +6606,8 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
             return {
                 "name": "double_marshal_kick", "korean": "팬텀 킥", "cost": 60, "color": (180, 0, 255),
                 "symbol": "x2", "cooldown": 0.0, "key": "S/↓(연계)",
-                "description": "마샬 킥 후 보스 반환 시\n3초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 60 소모, 공속 증가율 120%.",
-                "how_to_use": "마샬 킥 후 보스 반환 시 S/↓키",
+                "description": "마샬 킥 적중 후\n1.5초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 60 소모, 공속 증가율 180%.",
+                "how_to_use": "마샬 킥 적중 후 1.5초 안에 S/↓키",
                 "effect_type": "wall_dive_purple"
             }
 
@@ -13227,9 +13227,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "팬텀 킥",
         "max_level": 1,
         "descriptions": {
-            1: "마샬 킥 후 보스 반환 시 2차 마샬 킥 발동 가능 (최대 4연계)",
+            1: "마샬 킥 적중 후 2차 마샬 킥 발동 가능 (최대 4연계)",
         },
-        "detail": "마샬 킥 → 보스 반환 시 3초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 50 소모, 공속 증가율 120%.",
+        "detail": "마샬 킥 적중 후 1.5초간 S/↓키로 2차 마샬 킥을 사용할 수 있습니다. 게이지 60 소모, 공속 증가율 180%.",
         "icon_color": (180, 0, 255),
         "tree": "viper",
         "character_restriction": "viper"
@@ -13259,7 +13259,7 @@ VIPER_EXCLUSIVE_SKILLS = {
             4: "킥 발사 정밀도 +80%, 공속 보너스 +20%",
             5: "킥 발사 정밀도 +100%, 공속 보너스 +25%",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 보스 회피 편향 20% 증가 + 공속 5% 증가.\n(최대 Lv.5: 정밀도 100%, 공속 +25%)",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 20% 증가(최대 Lv.5: 100%) + 공속 5% 증가.\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
         "icon_color": (255, 80, 40),
         "tree": "viper",
         "character_restriction": "viper"
@@ -14572,55 +14572,150 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
     if y is None:
         y = INTERNAL_HEIGHT // 2
 
+    # 골드량에 따른 차등 이펙트 등급 결정
+    if amount >= 50:
+        gold_tier = "epic"      # 50G 이상: 대형 + 파티클 + 흔들림
+    elif amount >= 30:
+        gold_tier = "rare"      # 30G 이상: 중형 + 밝은 오렌지
+    else:
+        gold_tier = "normal"    # 기본
+
     ingame_gold_animations.append({
         "amount": amount,
         "x": x,
         "y": y,
-        "timer": 60,  # 1초 (60프레임)
+        "timer": 75 if gold_tier == "epic" else (68 if gold_tier == "rare" else 60),
+        "max_timer": 75 if gold_tier == "epic" else (68 if gold_tier == "rare" else 60),
         "alpha": 255,
-        "vy": -2  # 위로 떠오르는 속도
+        "vy": -1.5 if gold_tier == "epic" else (-1.8 if gold_tier == "rare" else -2),
+        "tier": gold_tier,
+        "scale": 1.0,
+        "particles": [],  # 파티클 리스트 (epic 전용)
+        "shake_offset": 0.0,  # 흔들림 오프셋
     })
+
+    # epic 등급: 스파크 파티클 생성
+    if gold_tier == "epic":
+        import random as _rng
+        anim = ingame_gold_animations[-1]
+        for _ in range(8):
+            anim["particles"].append({
+                "dx": _rng.uniform(-3, 3),
+                "dy": _rng.uniform(-4, -1),
+                "life": _rng.randint(15, 30),
+                "max_life": _rng.randint(15, 30),
+                "size": _rng.randint(2, 4),
+            })
 
 
 def update_ingame_gold_animations():
-    """인게임 골드 획득 애니메이션 업데이트"""
+    """인게임 골드 획득 애니메이션 업데이트 (차등 이펙트 포함)"""
     global ingame_gold_animations
+    import math as _math
 
     for anim in ingame_gold_animations[:]:
         anim["timer"] -= 1
+        max_t = anim.get("max_timer", 60)
         anim["y"] += anim["vy"]
-        anim["alpha"] = int(255 * (anim["timer"] / 60))
+        anim["alpha"] = max(0, int(255 * (anim["timer"] / max_t)))
+        tier = anim.get("tier", "normal")
+
+        # rare/epic: 초반 스케일업 효과 (팝업 느낌)
+        if tier in ("rare", "epic"):
+            elapsed = max_t - anim["timer"]
+            if elapsed < 8:
+                anim["scale"] = 1.0 + 0.4 * _math.sin(elapsed / 8 * _math.pi)
+            else:
+                anim["scale"] = 1.0
+
+        # epic: 흔들림 + 파티클 업데이트
+        if tier == "epic":
+            anim["shake_offset"] = _math.sin(anim["timer"] * 0.8) * 2.5
+            for p in anim.get("particles", []):
+                p["life"] -= 1
+                p["dx"] *= 0.95
+                p["dy"] += 0.1  # 중력
 
         if anim["timer"] <= 0:
             ingame_gold_animations.remove(anim)
 
 
 def draw_ingame_gold_animations(screen):
-    """인게임 골드 획득 애니메이션 그리기"""
+    """인게임 골드 획득 애니메이션 그리기 (차등 이펙트)"""
     global ingame_gold_animations
 
     for anim in ingame_gold_animations:
-        if anim["alpha"] > 0:
-            # 골드 텍스트 그리기
-            gold_text = f"+{anim['amount']}G"
+        if anim["alpha"] <= 0:
+            continue
+
+        tier = anim.get("tier", "normal")
+        amount = anim["amount"]
+        gold_text = f"+{amount}G"
+        scale = anim.get("scale", 1.0)
+        shake = anim.get("shake_offset", 0.0)
+
+        # 등급별 색상 및 크기 결정
+        if tier == "epic":
+            color = (255, 80, 50)       # 빨간-금색
+            glow_color = (255, 180, 0)  # 외곽 글로우
+            font_size = 22
+            surf_w, surf_h = 140, 40
+        elif tier == "rare":
+            color = (255, 175, 30)      # 밝은 오렌지-금색
+            glow_color = None
+            font_size = 19
+            surf_w, surf_h = 110, 32
+        else:
+            color = (255, 215, 0)       # 기본 금색
+            glow_color = None
             font_size = 16
+            surf_w, surf_h = 80, 24
 
-            # 금색 텍스트
-            text_surface = pygame.Surface((80, 24), pygame.SRCALPHA)
+        text_surface = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
 
-            try:
-                if korean_font:
-                    text_render, _ = korean_font.render(gold_text, (255, 215, 0))
-                    text_surface.blit(text_render, (0, 0))
-                else:
-                    small_font = pygame.font.Font(None, font_size)
-                    text_render = small_font.render(gold_text, True, (255, 215, 0))
-                    text_surface.blit(text_render, (0, 0))
-            except:
-                pass
+        try:
+            # epic: 글로우 (텍스트 뒤에 밝은 색 한 겹)
+            if tier == "epic" and glow_color and korean_font:
+                glow_render, _ = korean_font.render(gold_text, glow_color)
+                for ox, oy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    text_surface.blit(glow_render, (4 + ox, 4 + oy))
 
-            text_surface.set_alpha(anim["alpha"])
-            screen.blit(text_surface, (int(anim["x"]) - 20, int(anim["y"])))
+            if korean_font:
+                text_render, _ = korean_font.render(gold_text, color)
+                text_surface.blit(text_render, (4, 4))
+            else:
+                fallback_font = pygame.font.Font(None, font_size)
+                text_render = fallback_font.render(gold_text, True, color)
+                text_surface.blit(text_render, (4, 4))
+        except:
+            pass
+
+        # 스케일 적용 (rare/epic 팝업)
+        if scale != 1.0:
+            new_w = int(surf_w * scale)
+            new_h = int(surf_h * scale)
+            text_surface = pygame.transform.smoothscale(text_surface, (new_w, new_h))
+            # 스케일 보정 오프셋
+            scale_ox = (new_w - surf_w) // 2
+            scale_oy = (new_h - surf_h) // 2
+        else:
+            scale_ox, scale_oy = 0, 0
+
+        text_surface.set_alpha(anim["alpha"])
+        draw_x = int(anim["x"] + shake) - surf_w // 2 - scale_ox
+        draw_y = int(anim["y"]) - scale_oy
+        screen.blit(text_surface, (draw_x, draw_y))
+
+        # epic: 스파크 파티클 그리기
+        if tier == "epic":
+            for p in anim.get("particles", []):
+                if p["life"] > 0:
+                    p_alpha = int(255 * (p["life"] / p["max_life"])) * anim["alpha"] // 255
+                    px = int(anim["x"] + p["dx"] * (p["max_life"] - p["life"]))
+                    py = int(anim["y"] + p["dy"] * (p["max_life"] - p["life"]))
+                    spark_surf = pygame.Surface((p["size"] * 2, p["size"] * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(spark_surf, (255, 220, 80, p_alpha), (p["size"], p["size"]), p["size"])
+                    screen.blit(spark_surf, (px - p["size"], py - p["size"]))
 
 
 def draw_ingame_gold_hud(screen):
@@ -49246,6 +49341,96 @@ _VIPER_SS_HIT_FORCE_MAX = 2.0         # 중심 커브 강도
 _viper_ss_hit_consumed = False        # 쉐도우 백스텝 타격 중복 방지 플래그
 _viper_skill_gold_this_frame = False  # 바이퍼 스킬 골드 지급 프레임 플래그 (릴레이 골드 중복 방지)
 
+def _get_viper_kick_enhance_levels() -> tuple[int, int]:
+    """Return (aim_level, speed_level) for Viper kick skills."""
+    effective_level = get_runtime_skill_level("kick_enhance")
+    return min(effective_level, 5), effective_level
+
+
+def _get_viper_kick_bias(base_bias: float, aim_level: int) -> float:
+    return base_bias + (1.0 - base_bias) * min(aim_level / 5.0, 1.0)
+
+
+def _compute_viper_kick_launch_angle(
+    kick_dir: int,
+    base_bias: float,
+    aim_level: int,
+    min_angle: float,
+    random_max_angle: float = 55.0,
+    clamp_angle: float = 60.0,
+) -> float:
+    """Blend boss-aware aim with the visible kick direction without flipping the kick sign."""
+    if kick_dir == 0:
+        boss_cx = BOSS.centerx if BOSS else WIDTH // 2
+        kick_dir = 1 if boss_cx >= BALL.centerx else -1
+
+    bias = _get_viper_kick_bias(base_bias, aim_level)
+    motion_angle = kick_dir * random.uniform(min_angle, random_max_angle)
+
+    boss_cx = BOSS.centerx if BOSS else WIDTH // 2
+    boss_dx = boss_cx - BALL.centerx
+    boss_side = kick_dir if boss_dx == 0 else (1 if boss_dx > 0 else -1)
+
+    if boss_side == kick_dir:
+        guided_min = min_angle
+        guided_max = min(random_max_angle, min_angle + 15.0)
+    else:
+        guided_min = min(random_max_angle, min_angle + 10.0)
+        guided_max = random_max_angle
+
+    if guided_min > guided_max:
+        guided_min = guided_max
+
+    guided_angle = kick_dir * random.uniform(guided_min, guided_max)
+    final_angle = motion_angle * (1.0 - bias) + guided_angle * bias
+    final_mag = max(min_angle, min(clamp_angle, abs(final_angle)))
+    return kick_dir * final_mag
+
+
+def _set_viper_kick_curve(curve_frames: int, curve_force: float, curve_dir: int) -> None:
+    global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
+    global _viper_ps_curve_total_frames, _viper_ps_curve_force
+    _viper_ps_curve_active = True
+    _viper_ps_curve_timer = curve_frames
+    _viper_ps_curve_total_frames = curve_frames
+    _viper_ps_curve_force = curve_force
+    _viper_ps_curve_direction = curve_dir if curve_dir != 0 else 1
+
+
+def _trigger_viper_phantom_kick_freeze() -> None:
+    global _viper_dmk_freeze_active, _viper_dmk_freeze_timer
+    global _viper_dmk_text_active, _viper_dmk_text_timer
+    global _viper_dmk_text_x, _viper_dmk_text_y, _viper_dmk_show_sound_played
+    _viper_dmk_freeze_active = True
+    _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
+    _viper_dmk_show_sound_played = False
+    _viper_dmk_text_active = True
+    _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
+    _viper_dmk_text_x = float(WIDTH // 2)
+    _viper_dmk_text_y = float(HEIGHT // 2 - 30)
+
+
+def _start_viper_wall_dive_charge(start_ms: int) -> None:
+    global _viper_wall_dive_phase, _viper_wall_dive_start_ms
+    global _viper_wall_dive_charge_target_x, _viper_wall_dive_charge_target_y
+    global _viper_wall_dive_charge_start_x, _viper_wall_dive_charge_start_y
+    global _viper_wall_dive_web_lines
+    _viper_wall_dive_phase = 2
+    _viper_wall_dive_start_ms = start_ms
+    _viper_wall_dive_charge_target_x = float(BALL.centerx)
+    _viper_wall_dive_charge_target_y = float(BALL.centery)
+    _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
+    _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
+    _viper_wall_dive_web_lines = []
+    try:
+        _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
+        if _wd_charge_snd:
+            _wd_charge_snd.set_volume(0.6)
+            _wd_charge_snd.play()
+    except Exception:
+        pass
+
+
 def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: float,
                               curve_dir: int, source: str = "hologram"):
     """쉐도우 백스텝 공 타격 공통 처리 (그라데이션: 중심=강, 가장자리=약)
@@ -49292,37 +49477,25 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     _viper_ss_ball_touched_ms = pygame.time.get_ticks()
 
     # 공속 증가 (킥 강화 퍽 공속 보너스 적용: +5%/LV, 초월자의 관/현자의 반지 보너스 포함)
-    _ss_kick_lv = get_runtime_skill_level("kick_enhance")
-    _ss_speed_bonus = 1.0 + _ss_kick_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
+    _ss_aim_lv, _ss_speed_lv = _get_viper_kick_enhance_levels()
+    _ss_speed_bonus = 1.0 + _ss_speed_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
     cur_speed = math.hypot(ball_vel[0], ball_vel[1])
     new_speed = max(cur_speed * speed_mult * _ss_speed_bonus, 10.0)
     _viper_speed_boost_active = True
     _viper_speed_boost_original = cur_speed
-    # 랜덤 발사각 (킥 강화 퍽 정밀도 반영: LV.0=0.2, LV.5+=1.0)
-    # base_bias + (1.0 - base_bias) × min(level / 5, 1.0)
-    _ss_base_bias = 0.2  # 쉐도우 백스텝 기본 회피 편향
-    _ss_bias = _ss_base_bias + (1.0 - _ss_base_bias) * min(_ss_kick_lv / 5.0, 1.0)
-    _ss_random_angle = random.uniform(-55, 55)  # 순수 랜덤 각도
-    _ss_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
-    _ss_boss_dx = _ss_boss_cx - BALL.centerx
-    _ss_away_dir = -1 if _ss_boss_dx > 0 else (1 if _ss_boss_dx < 0 else random.choice([-1, 1]))
-    _ss_avoidance = _ss_away_dir * random.uniform(25, 50)  # 회피 보너스 각도
-    init_angle = _ss_random_angle * (1.0 - _ss_bias) + _ss_avoidance * _ss_bias
-    # 최소 편향 보장: 수직 발사 방지 (최소 ±15°)
-    if abs(init_angle) < 15:
-        init_angle = 15.0 * (1 if init_angle >= 0 else -1)
-    init_angle = max(-60, min(60, init_angle))  # 클램프
+    _ss_base_bias = 0.2  # 쉐도우 백스텝 기본 유도 편향
+    init_angle = _compute_viper_kick_launch_angle(
+        curve_dir,
+        _ss_base_bias,
+        _ss_aim_lv,
+        min_angle=15.0,
+    )
     rad = math.radians(-90 + init_angle)
     ball_vel[0] = math.cos(rad) * new_speed
     ball_vel[1] = math.sin(rad) * new_speed
 
     # 커브 적용 (그라데이션 반영)
-    global _viper_ps_curve_total_frames, _viper_ps_curve_force
-    _viper_ps_curve_active = True
-    _viper_ps_curve_timer = curve_frames
-    _viper_ps_curve_total_frames = curve_frames
-    _viper_ps_curve_force = curve_force
-    _viper_ps_curve_direction = curve_dir
+    _set_viper_kick_curve(curve_frames, curve_force, curve_dir)
 
     # 사운드
     try:
@@ -74208,33 +74381,10 @@ def handle_player(keys):
                     except Exception:
                         pass
                 else:
-                    # 팬텀 킥이면 돌진 전에 텍스트 프리즈 연출 (Phase 6)
                     if _viper_is_double_marshal:
-                        _viper_wall_dive_phase = 6  # 텍스트 프리즈 Phase
-                        _viper_dmk_freeze_active = True
-                        _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
-                        _viper_dmk_show_sound_played = False
-                        _viper_dmk_text_active = True
-                        _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
-                        _viper_dmk_text_x = float(WIDTH // 2)
-                        _viper_dmk_text_y = float(HEIGHT // 2 - 30)
+                        _viper_wall_dive_phase = 6
                     else:
-                        _viper_wall_dive_phase = 2
-                        _viper_wall_dive_start_ms = _wd_now
-                        # 돌진 목표: 실시간 공 위치 추적 (매 프레임 갱신됨)
-                        _viper_wall_dive_charge_target_x = float(BALL.centerx)
-                        _viper_wall_dive_charge_target_y = float(BALL.centery)
-                        _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
-                        _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
-                        _viper_wall_dive_web_lines = []  # 거미줄 제거
-                        # 돌진 사운드
-                        try:
-                            _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                            if _wd_charge_snd:
-                                _wd_charge_snd.set_volume(0.6)
-                                _wd_charge_snd.play()
-                        except Exception:
-                            pass
+                        _start_viper_wall_dive_charge(_wd_now)
 
         elif _viper_wall_dive_phase == 3:
             # Phase 3: 벽다시타기 - 반대편 벽으로 매우 빠르게 이동
@@ -74265,53 +74415,16 @@ def handle_player(keys):
                 screen_shake_timer = max(screen_shake_timer, 4)
                 screen_shake_intensity = max(screen_shake_intensity, 2)
                 if _viper_is_double_marshal:
-                    # 팬텀 킥: 재등반 후에도 텍스트 프리즈 연출 (Phase 6)
                     _viper_wall_dive_phase = 6
-                    _viper_dmk_freeze_active = True
-                    _viper_dmk_freeze_timer = _VIPER_DMK_FREEZE_DURATION
-                    _viper_dmk_show_sound_played = False
-                    _viper_dmk_text_active = True
-                    _viper_dmk_text_timer = _VIPER_DMK_TEXT_DURATION + _VIPER_DMK_FREEZE_DURATION
-                    _viper_dmk_text_x = float(WIDTH // 2)
-                    _viper_dmk_text_y = float(HEIGHT // 2 - 30)
                 else:
-                    # 일반 마샬킥: 즉시 돌진 (Phase 2)
-                    _viper_wall_dive_phase = 2
-                    _viper_wall_dive_start_ms = _wd_now
-                    _viper_wall_dive_charge_target_x = float(BALL.centerx)
-                    _viper_wall_dive_charge_target_y = float(BALL.centery)
-                    _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
-                    _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
-                    # 돌진 사운드
-                    try:
-                        _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                        if _wd_charge_snd:
-                            _wd_charge_snd.set_volume(0.6)
-                            _wd_charge_snd.play()
-                    except Exception:
-                        pass
+                    _start_viper_wall_dive_charge(_wd_now)
 
         elif _viper_wall_dive_phase == 6:
-            # Phase 6: 팬텀 킥 텍스트 프리즈 (벽 매달린 상태에서 정지)
+            # Phase 6: 팬텀 킥 전이 포즈 유지 후 즉시 돌진 대기
             PLAYER.centerx = int(_viper_wall_dive_wall_x)
             PLAYER.centery = int(_viper_wall_dive_wall_y)
-            # 프리즈 끝나면 돌진 Phase 2로 전환
             if not _viper_dmk_freeze_active:
-                _viper_wall_dive_phase = 2
-                _viper_wall_dive_start_ms = _wd_now
-                _viper_wall_dive_charge_target_x = float(BALL.centerx)
-                _viper_wall_dive_charge_target_y = float(BALL.centery)
-                _viper_wall_dive_charge_start_x = float(_viper_wall_dive_wall_x)
-                _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
-                _viper_wall_dive_web_lines = []
-                # 돌진 사운드
-                try:
-                    _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
-                    if _wd_charge_snd:
-                        _wd_charge_snd.set_volume(0.6)
-                        _wd_charge_snd.play()
-                except Exception:
-                    pass
+                _start_viper_wall_dive_charge(_wd_now)
 
         elif _viper_wall_dive_phase == 2:
             # Phase 2: 공을 향해 돌진 (실시간 추적)
@@ -74345,8 +74458,8 @@ def handle_player(keys):
                         _viper_marshal_kick_hit_ball = True
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
                     # 공을 위로 강하게 반사 + 속도 증가 (킥 강화 퍽 공속 보너스: +5%/LV, 초월자의 관/현자의 반지 보너스 포함)
-                    _mk_kick_lv = get_runtime_skill_level("kick_enhance")
-                    _mk_speed_bonus = 1.0 + _mk_kick_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
+                    _mk_aim_lv, _mk_speed_lv = _get_viper_kick_enhance_levels()
+                    _mk_speed_bonus = 1.0 + _mk_speed_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
                     # 2차 마샬 킥이면 180% 증가(2.8x), 1차는 100% 증가(2.0x)
                     if _viper_is_double_marshal:
@@ -74355,22 +74468,15 @@ def handle_player(keys):
                         _wd_new_spd = max(_wd_cur_spd * 2.0 * _mk_speed_bonus, 11.0)  # 100% 증가 + 퍽 보너스
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
-                    # 랜덤 발사각 (킥 강화 퍽 정밀도 반영: LV.0=base, LV.5+=1.0)
-                    # base_bias + (1.0 - base_bias) × min(level / 5, 1.0)
-                    import random as _mk_rand
                     _mk_base_bias = 0.8 if _viper_is_double_marshal else 0.5
-                    _mk_bias = _mk_base_bias + (1.0 - _mk_base_bias) * min(_mk_kick_lv / 5.0, 1.0)
-                    _mk_random_angle = _mk_rand.uniform(-55, 55)  # 순수 랜덤 각도
-                    _mk_boss_cx = BOSS.centerx if BOSS else WIDTH // 2
-                    _mk_boss_dx = _mk_boss_cx - BALL.centerx
-                    _mk_away_dir = -1 if _mk_boss_dx > 0 else (1 if _mk_boss_dx < 0 else _mk_rand.choice([-1, 1]))
-                    _mk_avoidance = _mk_away_dir * _mk_rand.uniform(25, 50)  # 회피 보너스 각도
-                    _mk_final_angle = _mk_random_angle * (1.0 - _mk_bias) + _mk_avoidance * _mk_bias
-                    # 최소 편향 보장: 수직 발사 방지 (마샬 ±20°, 팬텀 ±25°)
                     _mk_min_angle = 25.0 if _viper_is_double_marshal else 20.0
-                    if abs(_mk_final_angle) < _mk_min_angle:
-                        _mk_final_angle = _mk_min_angle * (1 if _mk_final_angle >= 0 else -1)
-                    _mk_final_angle = max(-60, min(60, _mk_final_angle))  # 클램프
+                    _mk_kick_dir = 1 if _viper_wall_dive_wall_x < WIDTH // 2 else -1
+                    _mk_final_angle = _compute_viper_kick_launch_angle(
+                        _mk_kick_dir,
+                        _mk_base_bias,
+                        _mk_aim_lv,
+                        min_angle=_mk_min_angle,
+                    )
                     _mk_rad = math.radians(-90 + _mk_final_angle)
                     ball_vel[0] = math.cos(_mk_rad) * _wd_new_spd
                     ball_vel[1] = math.sin(_mk_rad) * _wd_new_spd
@@ -74438,13 +74544,11 @@ def handle_player(keys):
                                 'glow': _wd_rand.random() < 0.5,
                             })
                     # 마샬 킥 강한 커브 적용
-                    _viper_ps_curve_active = True
                     if _viper_is_double_marshal:
-                        _viper_ps_curve_timer = int(_VIPER_PS_CURVE_FRAMES * 2.5)  # 더블: 커브 2.5배 지속 (괴랄한 궤적)
-                    else:
-                        _viper_ps_curve_timer = _VIPER_PS_CURVE_FRAMES
-                    # 커브 방향: 발사 방향과 같은 쪽으로 (자연스러운 커브)
-                    _viper_ps_curve_direction = 1 if ball_vel[0] > 0 else -1
+                        _trigger_viper_phantom_kick_freeze()
+                    _mk_curve_frames = int(_VIPER_PS_CURVE_FRAMES * 2.5) if _viper_is_double_marshal else _VIPER_PS_CURVE_FRAMES
+                    _mk_curve_dir = 1 if ball_vel[0] > 0 else -1
+                    _set_viper_kick_curve(_mk_curve_frames, _VIPER_PS_CURVE_FORCE, _mk_curve_dir)
                     # 🪙 마샬 킥 / 팬텀 킥 타격 골드 보너스 (마샬 30, 팬텀 50, 공중 쉐도우 백스텝 연계 시 x1.5)
                     try:
                         _mk_gold = 50 if _viper_is_double_marshal else 30
@@ -172481,3 +172585,4 @@ if __name__ == "__main__":
             input()
         except:
             pass
+
