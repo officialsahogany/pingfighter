@@ -122456,14 +122456,18 @@ def _play_replay(filepath: str):
     clock = pygame.time.Clock()
     rp.start()
 
-    BALL_RADIUS = 8
-    PADDLE_H = 12
+    BALL_RADIUS = 10
+    PADDLE_H = 16
     PLAYER_C = (0, 200, 255)
     BOSS_C = (255, 80, 80)
 
     stage = rp.metadata.get('stage', 0)
     boss_name = rp.metadata.get('boss_name', f"Stage {stage}")
     result = rp.metadata.get('result', '')
+
+    # 공 궤적 버퍼
+    ball_trail = []
+    TRAIL_MAX = 12
 
     hud_font = get_font(18)
     score_font = get_font(32)
@@ -122559,48 +122563,108 @@ def _play_replay(filepath: str):
         fn, ts = frame_data[0], frame_data[1]
         bx, by = frame_data[2], frame_data[3]
         px, py_ = frame_data[6], frame_data[7]
-        pw = frame_data[8]
+        pw = max(frame_data[8], 60)  # 최소 패들 너비 보장
         ox, oy = frame_data[9], frame_data[10]
-        ow = frame_data[11]
+        ow = max(frame_data[11], 60)
         p_score, b_score = frame_data[12], frame_data[13]
 
-        SCREEN.fill((10, 10, 20))
+        # 공 궤적 추가
+        ball_trail.append((bx, by))
+        if len(ball_trail) > TRAIL_MAX:
+            ball_trail.pop(0)
 
-        # 중앙선
-        pygame.draw.line(SCREEN, (30, 35, 50), (0, HEIGHT // 2), (WIDTH, HEIGHT // 2), 1)
+        # ── 배경 ──
+        SCREEN.fill((12, 15, 25))
 
-        # 필러 영역
+        # 코트 그리드 라인 (은은한 격자)
+        grid_color = (22, 28, 40)
+        for gx in range(80, WIDTH - 80, 40):
+            pygame.draw.line(SCREEN, grid_color, (gx, 0), (gx, HEIGHT), 1)
+        for gy in range(0, HEIGHT, 40):
+            pygame.draw.line(SCREEN, grid_color, (80, gy), (WIDTH - 80, gy), 1)
+
+        # 중앙선 (점선)
+        center_y = HEIGHT // 2
+        for dx in range(80, WIDTH - 80, 16):
+            pygame.draw.line(SCREEN, (40, 50, 70), (dx, center_y), (dx + 8, center_y), 2)
+
+        # 코트 경계선
+        court_color = (40, 55, 80)
+        pygame.draw.line(SCREEN, court_color, (80, 0), (80, HEIGHT), 2)
+        pygame.draw.line(SCREEN, court_color, (WIDTH - 80, 0), (WIDTH - 80, HEIGHT), 2)
+
+        # 필러 영역 (반투명 어둡게)
         pillar_surf = pygame.Surface((80, HEIGHT), pygame.SRCALPHA)
-        pillar_surf.fill((20, 25, 35, 180))
+        pillar_surf.fill((8, 10, 18, 200))
         SCREEN.blit(pillar_surf, (0, 0))
         SCREEN.blit(pillar_surf, (WIDTH - 80, 0))
 
-        # 공 + 글로우
-        pygame.draw.circle(SCREEN, (255, 255, 100), (bx, by), BALL_RADIUS)
-        glow = pygame.Surface((BALL_RADIUS * 6, BALL_RADIUS * 6), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (255, 255, 100, 40), (BALL_RADIUS * 3, BALL_RADIUS * 3), BALL_RADIUS * 3)
-        SCREEN.blit(glow, (bx - BALL_RADIUS * 3, by - BALL_RADIUS * 3))
+        # ── 공 궤적 (잔상) ──
+        for i, (tx, ty) in enumerate(ball_trail):
+            alpha = int(40 + 180 * (i / TRAIL_MAX))
+            radius = max(2, int(BALL_RADIUS * (0.3 + 0.7 * i / TRAIL_MAX)))
+            trail_s = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(trail_s, (255, 220, 80, alpha), (radius, radius), radius)
+            SCREEN.blit(trail_s, (tx - radius, ty - radius))
 
-        # 패들
+        # ── 공 (메인) + 글로우 ──
+        glow_r = BALL_RADIUS * 4
+        glow = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (255, 230, 80, 30), (glow_r, glow_r), glow_r)
+        pygame.draw.circle(glow, (255, 240, 100, 50), (glow_r, glow_r), glow_r // 2)
+        SCREEN.blit(glow, (bx - glow_r, by - glow_r))
+        pygame.draw.circle(SCREEN, (255, 255, 200), (bx, by), BALL_RADIUS)
+        pygame.draw.circle(SCREEN, (255, 255, 100), (bx, by), BALL_RADIUS - 2)
+
+        # ── 플레이어 패들 ──
         pr = pygame.Rect(px - pw // 2, py_ - PADDLE_H // 2, pw, PADDLE_H)
-        pygame.draw.rect(SCREEN, PLAYER_C, pr, border_radius=4)
-        pygame.draw.rect(SCREEN, (0, 255, 255), pr, width=1, border_radius=4)
+        # 패들 본체 (그라데이션 효과)
+        paddle_s = pygame.Surface((pw, PADDLE_H), pygame.SRCALPHA)
+        for row in range(PADDLE_H):
+            t = row / PADDLE_H
+            r_c = int(0 + 30 * t)
+            g_c = int(220 - 40 * t)
+            b_c = 255
+            pygame.draw.line(paddle_s, (r_c, g_c, b_c), (0, row), (pw, row))
+        SCREEN.blit(paddle_s, pr.topleft)
+        pygame.draw.rect(SCREEN, (100, 240, 255), pr, width=2, border_radius=3)
+        # 패들 글로우
+        p_glow = pygame.Surface((pw + 16, PADDLE_H + 16), pygame.SRCALPHA)
+        pygame.draw.rect(p_glow, (0, 200, 255, 25), (0, 0, pw + 16, PADDLE_H + 16), border_radius=6)
+        SCREEN.blit(p_glow, (pr.x - 8, pr.y - 8))
 
+        # ── 보스 패들 ──
         br = pygame.Rect(ox - ow // 2, oy - PADDLE_H // 2, ow, PADDLE_H)
-        pygame.draw.rect(SCREEN, BOSS_C, br, border_radius=4)
-        pygame.draw.rect(SCREEN, (255, 120, 120), br, width=1, border_radius=4)
+        boss_s = pygame.Surface((ow, PADDLE_H), pygame.SRCALPHA)
+        for row in range(PADDLE_H):
+            t = row / PADDLE_H
+            r_c = int(255 - 30 * t)
+            g_c = int(60 + 40 * t)
+            b_c = int(60 + 20 * t)
+            pygame.draw.line(boss_s, (r_c, g_c, b_c), (0, row), (ow, row))
+        SCREEN.blit(boss_s, br.topleft)
+        pygame.draw.rect(SCREEN, (255, 130, 130), br, width=2, border_radius=3)
+        # 보스 글로우
+        b_glow = pygame.Surface((ow + 16, PADDLE_H + 16), pygame.SRCALPHA)
+        pygame.draw.rect(b_glow, (255, 80, 80, 25), (0, 0, ow + 16, PADDLE_H + 16), border_radius=6)
+        SCREEN.blit(b_glow, (br.x - 8, br.y - 8))
 
-        # 점수판
+        # ── 점수판 (중앙 상단) ──
+        score_bg = pygame.Surface((160, 44), pygame.SRCALPHA)
+        pygame.draw.rect(score_bg, (10, 15, 30, 180), (0, 0, 160, 44), border_radius=8)
+        pygame.draw.rect(score_bg, (40, 60, 100, 150), (0, 0, 160, 44), width=1, border_radius=8)
+        SCREEN.blit(score_bg, (WIDTH // 2 - 80, 6))
+
         ps = score_font.render(str(p_score), True, PLAYER_C)
         bs = score_font.render(str(b_score), True, BOSS_C)
-        SCREEN.blit(ps, (WIDTH // 2 - 50 - ps.get_width(), 10))
-        SCREEN.blit(bs, (WIDTH // 2 + 50, 10))
-        dash_s = score_font.render("-", True, (80, 80, 100))
-        SCREEN.blit(dash_s, (WIDTH // 2 - dash_s.get_width() // 2, 10))
+        SCREEN.blit(ps, (WIDTH // 2 - 45 - ps.get_width() // 2, 12))
+        SCREEN.blit(bs, (WIDTH // 2 + 45 - bs.get_width() // 2, 12))
+        dash_s = score_font.render(":", True, (80, 90, 120))
+        SCREEN.blit(dash_s, (WIDTH // 2 - dash_s.get_width() // 2, 12))
 
         # 보스 이름
         bn = hud_font.render(boss_name, True, (255, 150, 150))
-        SCREEN.blit(bn, (WIDTH // 2 - bn.get_width() // 2, 50))
+        SCREEN.blit(bn, (WIDTH // 2 - bn.get_width() // 2, 54))
 
         # ── 하단 컨트롤 버튼 ──
         mouse_pos = pygame.mouse.get_pos()
