@@ -108374,7 +108374,7 @@ def draw_objects():
                     _vmg_gr = int(_vmg_r * (0.3 + _vmg_gi * 0.16))
                     _vmg_breathe = 0.08 * math.sin(_vmg_t * 1.2 + _vmg_gi * 0.9)
                     _vmg_gr = int(_vmg_gr * (1.0 + _vmg_breathe))
-                    _vmg_ga = int(22 * _vmg_ratio * _vmg_alpha)
+                    _vmg_ga = int(55 * _vmg_ratio * _vmg_alpha)
                     if _vmg_ga > 0 and _vmg_gr > 0:
                         _vmg_gg = int(130 + 50 * _vmg_ratio)
                         _vmg_gb = int(60 + 40 * (1.0 - _vmg_ratio))
@@ -108395,9 +108395,9 @@ def draw_objects():
                     _vmg_ps = int(_vmg_p['size'])
                     _vmg_layer = _vmg_p.get('layer', 'mid')
                     if _vmg_layer == 'deep':
-                        pygame.draw.circle(_vmg_surf, (25, 140, 70, int(_vmg_pa * 0.4)),
+                        pygame.draw.circle(_vmg_surf, (25, 140, 70, int(_vmg_pa * 0.7)),
                                            (_vmg_px, _vmg_py), _vmg_ps)
-                        pygame.draw.circle(_vmg_surf, (30, 155, 80, int(_vmg_pa * 0.7)),
+                        pygame.draw.circle(_vmg_surf, (30, 155, 80, int(_vmg_pa * 0.9)),
                                            (_vmg_px, _vmg_py), max(2, _vmg_ps * 2 // 3))
                     elif _vmg_layer == 'wisp':
                         _vmg_wdx = _vmg_px - _vmg_cx
@@ -108406,15 +108406,15 @@ def draw_objects():
                         if _vmg_wd > 10:
                             _vmg_sx = _vmg_cx + int(_vmg_wdx * 0.55)
                             _vmg_sy = _vmg_cy + int(_vmg_wdy * 0.55)
-                            pygame.draw.line(_vmg_surf, (50, 170, 80, int(_vmg_pa * 0.5)),
+                            pygame.draw.line(_vmg_surf, (50, 170, 80, int(_vmg_pa * 0.8)),
                                              (_vmg_sx, _vmg_sy), (_vmg_px, _vmg_py),
-                                             max(1, _vmg_ps // 4))
-                        pygame.draw.circle(_vmg_surf, (60, 190, 90, int(_vmg_pa * 0.6)),
+                                             max(1, _vmg_ps // 3))
+                        pygame.draw.circle(_vmg_surf, (60, 190, 90, int(_vmg_pa * 0.85)),
                                            (_vmg_px, _vmg_py), max(2, _vmg_ps // 2))
                     else:
-                        pygame.draw.circle(_vmg_surf, (30, 150, 75, int(_vmg_pa * 0.55)),
+                        pygame.draw.circle(_vmg_surf, (30, 150, 75, int(_vmg_pa * 0.8)),
                                            (_vmg_px, _vmg_py), _vmg_ps)
-                        pygame.draw.circle(_vmg_surf, (45, 175, 90, int(_vmg_pa * 0.35)),
+                        pygame.draw.circle(_vmg_surf, (45, 175, 90, int(_vmg_pa * 0.55)),
                                            (_vmg_px, _vmg_py), max(2, _vmg_ps * 3 // 5))
 
                 # ── Layer 2: 독기 소용돌이 하이라이트 ──
@@ -108425,21 +108425,21 @@ def draw_objects():
                         _vmg_sangle = _vmg_sa + _vmg_sj * 0.35
                         _vmg_sx2 = _vmg_cx + int(math.cos(_vmg_sangle) * _vmg_sd)
                         _vmg_sy2 = _vmg_cy + int(math.sin(_vmg_sangle) * _vmg_sd)
-                        _vmg_sa2 = int((18 - _vmg_sj * 3) * _vmg_alpha)
+                        _vmg_sa2 = int((40 - _vmg_sj * 7) * _vmg_alpha)
                         if _vmg_sa2 > 0:
                             pygame.draw.circle(_vmg_surf, (80, 220, 120, _vmg_sa2),
-                                               (_vmg_sx2, _vmg_sy2), max(2, 6 - _vmg_sj))
+                                               (_vmg_sx2, _vmg_sy2), max(2, 7 - _vmg_sj))
 
                 # ── Layer 3: 가장자리 페더링 ──
                 for _vmg_fi in range(3):
                     _vmg_fr = _vmg_r - _vmg_fi * 3
-                    _vmg_fa = int((8 - _vmg_fi * 2) * _vmg_alpha)
+                    _vmg_fa = int((20 - _vmg_fi * 5) * _vmg_alpha)
                     if _vmg_fr > 0 and _vmg_fa > 0:
                         pygame.draw.circle(_vmg_surf, (40, 160, 70, _vmg_fa),
                                            (_vmg_cx, _vmg_cy), _vmg_fr, 2)
 
                 # ── Layer 4: 중앙 독기 심볼 ──
-                _vmg_sym_a = int(25 * _vmg_alpha * (0.6 + 0.4 * math.sin(_vmg_t * 2.0)))
+                _vmg_sym_a = int(50 * _vmg_alpha * (0.6 + 0.4 * math.sin(_vmg_t * 2.0)))
                 if _vmg_sym_a > 3:
                     _vmg_dp = []
                     for _vmg_di in range(12):

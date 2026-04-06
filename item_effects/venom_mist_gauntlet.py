@@ -248,24 +248,24 @@ def _make_fog_puff(layer: str = "mid") -> dict:
     if layer == "deep":
         # 깊은 층: 큰 덩어리, 느리게 소용돌이
         dist = random.uniform(0, _mist_radius * 0.5)
-        size = random.randint(18, 35)
-        alpha = random.randint(30, 55)
+        size = random.randint(22, 40)
+        alpha = random.randint(70, 120)
         life = random.randint(80, 140)
         speed = random.uniform(0.08, 0.2)
         drift_phase = random.uniform(0, math.tau)
     elif layer == "wisp":
         # 가장자리 갈래: 얇고 빠르게 흩어지는 줄기
         dist = random.uniform(_mist_radius * 0.5, _mist_radius * 1.05)
-        size = random.randint(6, 14)
-        alpha = random.randint(25, 60)
+        size = random.randint(8, 16)
+        alpha = random.randint(55, 100)
         life = random.randint(30, 70)
         speed = random.uniform(0.3, 0.7)
         drift_phase = random.uniform(0, math.tau)
     else:  # mid
         # 중간 층: 표준 안개 구름
         dist = random.uniform(0, _mist_radius * 0.8)
-        size = random.randint(10, 22)
-        alpha = random.randint(35, 70)
+        size = random.randint(14, 28)
+        alpha = random.randint(65, 115)
         life = random.randint(50, 100)
         speed = random.uniform(0.12, 0.35)
         drift_phase = random.uniform(0, math.tau)
