@@ -633,28 +633,20 @@ class ValhallaWarplateState:
         overlay_a = _c(120 * fade_mult)
         cutscene_surf.fill((5, 5, 20, overlay_a))
 
-        # ── 2) 빛기둥 (여러 겹, 중앙에서 위아래로 길게) ──
+        # ── 2) 빛기둥 (3겹, 간소화 - 직사각형 fill + 중앙 밝은 선) ──
         beam_appear = min(1.0, progress * 2.5)
         beam_fade = fade_mult
-        for bi in range(5):
-            bw = int((4 + bi * 8) * beam_appear)
-            if bw < 1:
+        for bi in range(3):
+            bw = int((6 + bi * 12) * beam_appear)
+            if bw < 2:
                 continue
-            # 각 기둥의 알파 (바깥쪽일수록 연해짐)
-            ba = _c((80 - bi * 14) * beam_fade)
+            ba = _c((60 - bi * 18) * beam_fade)
             if ba < 3:
                 continue
             beam_surf = pygame.Surface((bw, H), pygame.SRCALPHA)
-            # 중앙에서 가장자리로 알파 감소
-            for by in range(0, H, 3):
-                dist = abs(by - cy)
-                line_a = _c(ba * max(0, 1.0 - dist / 350))
-                if line_a > 0:
-                    # 금빛 → 흰빛 그라데이션
-                    r = min(255, 255 - bi * 5)
-                    g = min(255, 220 + bi * 5)
-                    b_col = min(255, 100 + bi * 25)
-                    pygame.draw.line(beam_surf, (r, g, b_col, line_a), (0, by), (bw, by + 2), 2)
+            beam_surf.fill((255, 220 + bi * 10, 100 + bi * 30, _c(ba * 0.25)))
+            # 중앙 밝은 선 1개만
+            pygame.draw.line(beam_surf, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
             cutscene_surf.blit(beam_surf, (cx - bw // 2, 0))
 
         # ── 3) 텍스트: "발할라의 부름" + 영웅 이름 ──
@@ -736,17 +728,14 @@ class ValhallaWarplateState:
         if overlay_a > 2:
             dissolve_surf.fill((5, 5, 20, overlay_a))
 
-        # 2) 빛기둥 잔상 (서서히 얇아지며 사라짐)
-        for bi in range(3):
-            bw = max(1, int((3 + bi * 6) * fade))
-            ba = _c((50 - bi * 15) * fade)
+        # 2) 빛기둥 잔상 (서서히 얇아지며 사라짐 - 간소화)
+        for bi in range(2):
+            bw = max(1, int((4 + bi * 8) * fade))
+            ba = _c((40 - bi * 18) * fade)
             if ba > 3 and bw > 0:
                 beam_s = pygame.Surface((bw, H), pygame.SRCALPHA)
-                for by in range(0, H, 4):
-                    dist = abs(by - cy)
-                    la = _c(ba * max(0, 1.0 - dist / 300))
-                    if la > 0:
-                        pygame.draw.line(beam_s, (255, 230, 130, la), (0, by), (bw, by + 3), 3)
+                beam_s.fill((255, 230, 130, _c(ba * 0.2)))
+                pygame.draw.line(beam_s, (255, 240, 160, ba), (bw // 2, 0), (bw // 2, H), 1)
                 dissolve_surf.blit(beam_s, (cx - bw // 2, 0))
 
         # 3) 흩뿌려지는 파편 (핵심 소멸 이펙트!)
@@ -913,39 +902,33 @@ class ValhallaWarplateState:
                                 (0, 0, ring_w * 2 + 4, ring_h * 2 + 4), thickness)
             screen.blit(ring_surf, (cx - ring_w - 2, cy - ring_h - 2))
 
-        # ── 4) 소용돌이 에너지 (20개, 타원 궤도) ──
-        for j in range(20):
-            angle = self.portal_angle + j * (math.pi * 2 / 20)
-            r_mult = 0.5 + 0.2 * math.sin(t * 2.5 + j * 0.4)
-            sx = cx + int(math.cos(angle) * pw * r_mult)
-            sy = cy + int(math.sin(angle) * ph * r_mult)
-            sz = max(1, int(2.5 + 2.0 * math.sin(t * 5 + j)))
-            # 색상 변화: 밝은 금 → 흰금 → 주황
-            phase = (j + t * 2) % 3
-            if phase < 1:
-                color = (255, 220, 80, 220)
-            elif phase < 2:
-                color = (255, 245, 180, 200)
-            else:
-                color = (255, 180, 50, 190)
-            dot_s = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(dot_s, color, (sz + 1, sz + 1), sz)
-            # 글로우
-            if sz > 1:
-                pygame.draw.circle(dot_s, (255, 240, 150, 60), (sz + 1, sz + 1), sz + 2)
-            screen.blit(dot_s, (sx - sz - 1, sy - sz - 1))
-
-        # ── 5) 내부 소용돌이 (역방향 회전, 12개) ──
-        for k in range(12):
-            angle = -self.portal_angle * 1.8 + k * (math.pi * 2 / 12)
-            r_mult = 0.25 + 0.12 * math.sin(t * 4 + k)
-            ix = cx + int(math.cos(angle) * pw * r_mult)
-            iy = cy + int(math.sin(angle) * ph * r_mult)
-            ia = _c(140 + 80 * math.sin(t * 3.5 + k * 0.5))
-            ds = pygame.Surface((6, 6), pygame.SRCALPHA)
-            pygame.draw.circle(ds, (255, 235, 160, ia), (3, 3), 2)
-            pygame.draw.circle(ds, (255, 250, 220, _c(ia * 0.5)), (3, 3), 3)
-            screen.blit(ds, (ix - 3, iy - 3))
+        # ── 4) 소용돌이 에너지 (16개, 단일 Surface에 일괄 렌더) ──
+        swirl_size = max(pw, ph) * 2 + 20
+        if swirl_size > 10:
+            swirl_surf = pygame.Surface((int(swirl_size), int(swirl_size)), pygame.SRCALPHA)
+            sc = int(swirl_size) // 2
+            for j in range(16):
+                angle = self.portal_angle + j * (math.pi * 2 / 16)
+                r_mult = 0.5 + 0.2 * math.sin(t * 2.5 + j * 0.4)
+                sx = sc + int(math.cos(angle) * pw * r_mult)
+                sy = sc + int(math.sin(angle) * ph * r_mult)
+                sz = max(1, int(2.5 + 1.5 * math.sin(t * 5 + j)))
+                phase = (j + t * 2) % 3
+                if phase < 1:
+                    color = (255, 220, 80, 200)
+                elif phase < 2:
+                    color = (255, 245, 180, 180)
+                else:
+                    color = (255, 180, 50, 170)
+                pygame.draw.circle(swirl_surf, color, (sx, sy), sz)
+            # 내부 소용돌이 (역방향, 8개)
+            for k in range(8):
+                angle = -self.portal_angle * 1.8 + k * (math.pi * 2 / 8)
+                r_mult = 0.25 + 0.1 * math.sin(t * 4 + k)
+                ix = sc + int(math.cos(angle) * pw * r_mult)
+                iy = sc + int(math.sin(angle) * ph * r_mult)
+                pygame.draw.circle(swirl_surf, (255, 240, 160, 150), (ix, iy), 2)
+            screen.blit(swirl_surf, (cx - sc, cy - sc))
 
         # ── 6) 전기 아크 (황금 번개) ──
         for arc in self.portal_lightning:
@@ -976,24 +959,29 @@ class ValhallaWarplateState:
                         pass
                     screen.blit(arc_s, (ox, oy))
 
-        # ── 7) 흩어지는 파티클 ──
-        for p in self.portal_particles:
-            ratio = p['life'] / p['max_life']
-            alpha = _c(200 * ratio)
-            sz = max(1, int(p['size'] * ratio))
-            c = (255, 220, 80, alpha) if int(p['angle'] * 10) % 2 == 0 else (255, 190, 50, alpha)
-            ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(ps, c, (sz + 1, sz + 1), sz)
-            screen.blit(ps, (int(p['x']) - sz - 1, int(p['y']) - sz - 1))
+        # ── 7) 흩어지는 파티클 (단일 Surface에 일괄) ──
+        if self.portal_particles:
+            p_surf = pygame.Surface((200, 200), pygame.SRCALPHA)
+            p_cx, p_cy = 100, 100
+            for p in self.portal_particles:
+                ratio = p['life'] / p['max_life']
+                alpha = _c(200 * ratio)
+                sz = max(1, int(p['size'] * ratio))
+                px = p_cx + int(p['x'] - self.portal_x)
+                py = p_cy + int(p['y'] - self.PORTAL_Y)
+                if 0 <= px < 200 and 0 <= py < 200:
+                    c = (255, 220, 80, alpha) if int(p['angle'] * 10) % 2 == 0 else (255, 190, 50, alpha)
+                    pygame.draw.circle(p_surf, c, (px, py), sz)
+            screen.blit(p_surf, (cx - p_cx, cy - p_cy))
 
-        # ── 8) 중앙 코어 빛 (빛나는 중심) ──
-        core_glow_r = max(3, int(8 * scale))
+        # ── 8) 중앙 코어 빛 ──
+        core_r = max(3, int(8 * scale))
         pulse = (math.sin(t * 6) + 1) * 0.5
         cg_a = _c(80 + 60 * pulse)
-        cg = pygame.Surface((core_glow_r * 4, core_glow_r * 4), pygame.SRCALPHA)
-        pygame.draw.circle(cg, (255, 240, 180, cg_a), (core_glow_r * 2, core_glow_r * 2), core_glow_r * 2)
-        pygame.draw.circle(cg, (255, 250, 220, _c(cg_a * 1.3)), (core_glow_r * 2, core_glow_r * 2), core_glow_r)
-        screen.blit(cg, (cx - core_glow_r * 2, cy - core_glow_r * 2))
+        cg = pygame.Surface((core_r * 4, core_r * 4), pygame.SRCALPHA)
+        pygame.draw.circle(cg, (255, 240, 180, cg_a), (core_r * 2, core_r * 2), core_r * 2)
+        pygame.draw.circle(cg, (255, 250, 220, _c(cg_a * 1.3)), (core_r * 2, core_r * 2), core_r)
+        screen.blit(cg, (cx - core_r * 2, cy - core_r * 2))
 
 
 # ── 싱글톤 ──────────────────────────────────────────────────────
