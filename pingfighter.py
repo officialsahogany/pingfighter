@@ -80961,7 +80961,7 @@ game_state.deuce_losses = deuce_losses
 stage2_border_active = False  # 스테이지 2 테두리 활성화 상태
 stage2_border_timer = 0  # 테두리 애니메이션 타이머
 stage2_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
-stage2_border_flash_duration = 12  # 깜빡임 지속 시간 (은은하게)
+stage2_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 stage2_vines = []  # 덩굴 위치 리스트
 stage2_leaves = []  # 나뮇잎 위치 리스트
 # 통합 트레이드 포인트 별 시스템
@@ -137700,11 +137700,11 @@ def draw_stage2_jungle_border():
         # 벽 충돌 시 깜빡임 효과 (은은하게)
         if stage2_border_flash_timer > 0:
             flash_ratio = stage2_border_flash_timer / stage2_border_flash_duration
-            # 알파 20 + 제곱 감쇠 그라데이션
-            base_alpha = int(20 * flash_ratio)
+            # 알파 35 + 제곱 감쇠 그라데이션 (테두리 두께 x2 범위)
+            base_alpha = int(35 * flash_ratio)
             bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
-            grad_steps = max(1, bt // 2)
+            grad_steps = max(2, bt)  # 테두리 두께만큼 그라데이션
             for i in range(grad_steps):
                 t = 1.0 - (i / grad_steps)
                 a = int(base_alpha * t * t)  # 제곱 감쇠
