@@ -658,7 +658,7 @@ class ValhallaWarplateState:
         if ta > 10:
             try:
                 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                font_path = os.path.join(project_root, "fonts", "NanumSquareB.ttf")
+                font_path = os.path.join(project_root, "NanumSquareB.ttf")
                 # 메인 텍스트
                 main_font = pygame.freetype.Font(font_path, 34)
                 main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
@@ -789,7 +789,7 @@ class ValhallaWarplateState:
         if ta > 8:
             try:
                 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                font_path = os.path.join(project_root, "fonts", "NanumSquareB.ttf")
+                font_path = os.path.join(project_root, "NanumSquareB.ttf")
                 main_font = pygame.freetype.Font(font_path, 34)
                 main_surf, main_rect = main_font.render("발할라의 부름", (255, 235, 160))
                 main_surf.set_alpha(ta)
