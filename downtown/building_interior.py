@@ -2954,6 +2954,16 @@ class BuildingInterior:
                 "active": False,
                 "completed": False,
             },
+            {
+                "id": "rally_streak",
+                "name": "연속 히트",
+                "description": "공을 보스와 15회 연속으로\n주고받으세요!\n(실점하면 카운트 초기화)",
+                "condition_desc": "15회 연속 랠리",
+                "reward_gold": 800,
+                "reward_items": [],
+                "active": False,
+                "completed": False,
+            },
         ]
         self.quest_message = None  # 퀘스트 메시지
         self.quest_message_timer = 0  # 메시지 타이머

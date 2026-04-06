@@ -9699,6 +9699,11 @@ def _draw_pillar_ui(screen, renderer):
                 renderer.set_quest_speedrun(True, elapsed, QUEST_SPEEDRUN_TIME_LIMIT)
             else:
                 renderer.set_quest_speedrun(False)
+            # 연속 히트 카운터 동기화
+            if "rally_streak" in active_quests:
+                renderer.set_quest_rally(True, ball_rally_count, QUEST_RALLY_TARGET)
+            else:
+                renderer.set_quest_rally(False)
 
             if has_active_quests or quest_completion_glow_active:
                 renderer.draw_quest_emblem(screen, dt=0.016)
@@ -47731,6 +47736,10 @@ def update_ball_rally(hit_by: str) -> None:
     # 다른 쪽에서 받아쳤을 때만 랠리 증가
     if ball_last_hit_by != "" and ball_last_hit_by != hit_by:
         ball_rally_count += 1
+        # 📜 연속 히트 퀘스트 최대 랠리 갱신
+        global quest_stage_max_rally
+        if ball_rally_count > quest_stage_max_rally:
+            quest_stage_max_rally = ball_rally_count
 
     ball_last_hit_by = hit_by
 
@@ -81147,6 +81156,8 @@ active_quests = []  # 현재 진행 중인 퀘스트 ID 목록 (예: ["no_active
 quest_stage_active_item_used = False  # 이번 스테이지에서 액티브 아이템 사용 여부
 quest_stage_boss_score = 0  # 이번 스테이지에서 보스가 득점한 횟수
 quest_stage_dash_used = False  # 이번 스테이지에서 대시 사용 여부
+quest_stage_max_rally = 0  # 이번 스테이지 최대 연속 랠리
+QUEST_RALLY_TARGET = 15  # 연속 히트 퀘스트 목표
 quest_completed_rewards = []  # 완료된 퀘스트 보상 목록 (UI 표시용)
 quest_small_paddle_active = False  # 작은 패들 퀘스트 활성 여부 (패들 50% 축소)
 QUEST_SMALL_PADDLE_SCALE = 0.5  # 작은 패들 퀘스트 배율
@@ -81197,6 +81208,12 @@ QUEST_DATA = {
         "description": "대시를 한 번도 사용하지 않고 승리하세요!\n(회피 불가 — 순수 포지셔닝만으로 도전!)",
         "condition_desc": "대시 미사용으로 승리",
         "reward_gold": 2500,
+    },
+    "rally_streak": {
+        "name": "연속 히트",
+        "description": "공을 보스와 15회 연속으로 주고받으세요!\n(실점하면 카운트가 초기화됩니다)",
+        "condition_desc": "15회 연속 랠리 (0/15)",
+        "reward_gold": 800,
     },
 }
 
@@ -81663,6 +81680,15 @@ def check_and_complete_quests():
                     "id": quest_id,
                     "name": "대시 금지령",
                     "reward_gold": 2500
+                })
+
+        elif quest_id == "rally_streak":
+            # 연속 히트 - 15회 연속 랠리 달성
+            if quest_stage_max_rally >= QUEST_RALLY_TARGET:
+                completed_quests.append({
+                    "id": quest_id,
+                    "name": "연속 히트",
+                    "reward_gold": 800
                 })
 
     # 보상 지급 및 퀘스트 목록에서 제거
@@ -156949,10 +156975,11 @@ def main(stage_num, new_boss_mode=False):
 
     # 📜 퀘스트 추적 변수 초기화 (새 스테이지 시작 시)
     global quest_stage_active_item_used, quest_stage_boss_score, quest_small_paddle_active
-    global quest_speedrun_active, quest_speedrun_start_ticks, quest_stage_dash_used
+    global quest_speedrun_active, quest_speedrun_start_ticks, quest_stage_dash_used, quest_stage_max_rally
     quest_stage_active_item_used = False
     quest_stage_boss_score = 0
     quest_stage_dash_used = False
+    quest_stage_max_rally = 0
     # 작은 패들 퀘스트 활성화
     quest_small_paddle_active = "small_paddle" in active_quests
     # 스피드런 퀘스트 활성화

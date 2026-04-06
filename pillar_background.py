@@ -160,6 +160,9 @@ class PillarBackgroundRenderer:
         self._quest_speedrun_active = False        # 스피드런 퀘스트 활성 여부
         self._quest_speedrun_elapsed = 0.0         # 스피드런 경과 시간 (초)
         self._quest_speedrun_limit = 180           # 스피드런 제한 시간 (초)
+        self._quest_rally_active = False           # 연속 히트 퀘스트 활성 여부
+        self._quest_rally_current = 0              # 현재 랠리 카운트
+        self._quest_rally_target = 15              # 목표 랠리 수
         self._create_quest_parchment_icon()      # 양피지 아이콘 생성
 
         # === 🎮 투기장 영웅 스킬 아이콘 캐시 ===
@@ -2853,6 +2856,12 @@ class PillarBackgroundRenderer:
         self._quest_speedrun_elapsed = elapsed
         self._quest_speedrun_limit = limit
 
+    def set_quest_rally(self, active: bool, current: int = 0, target: int = 15):
+        """연속 히트 퀘스트 카운터 설정"""
+        self._quest_rally_active = active
+        self._quest_rally_current = current
+        self._quest_rally_target = target
+
     def draw_quest_emblem(self, screen, dt: float = 0.016):
         """퀘스트 양피지 엠블럼 그리기 (우측 필러 상단 박스 아래)
 
@@ -3004,6 +3013,31 @@ class PillarBackgroundRenderer:
                     pygame.draw.rect(bg_surf, border_color, (0, 0, bg_w, bg_h), 1, border_radius=3)
                     screen.blit(bg_surf, (timer_x - 5, info_y - 2))
                     screen.blit(timer_surf, (timer_x, info_y))
+                    info_y += bg_h + 3
+                except:
+                    pass
+
+            # 연속 히트 카운터
+            if self._quest_rally_active:
+                try:
+                    cur = self._quest_rally_current
+                    tgt = self._quest_rally_target
+                    rally_text = f"{cur}/{tgt}"
+                    rally_font = pygame.font.Font(None, 18)
+                    # 달성 시 금색, 진행 중 흰색
+                    if cur >= tgt:
+                        rally_color = (255, 215, 80)
+                    else:
+                        rally_color = (200, 210, 230)
+                    rally_surf = rally_font.render(rally_text, True, rally_color)
+                    rally_x = x + icon_w // 2 - rally_surf.get_width() // 2
+                    bg_w = rally_surf.get_width() + 8
+                    bg_h = rally_surf.get_height() + 4
+                    bg_surf = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
+                    pygame.draw.rect(bg_surf, (30, 30, 40, 160), (0, 0, bg_w, bg_h), border_radius=3)
+                    pygame.draw.rect(bg_surf, (120, 130, 160, 100), (0, 0, bg_w, bg_h), 1, border_radius=3)
+                    screen.blit(bg_surf, (rally_x - 4, info_y - 2))
+                    screen.blit(rally_surf, (rally_x, info_y))
                     info_y += bg_h + 3
                 except:
                     pass
