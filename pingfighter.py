@@ -74664,10 +74664,14 @@ def handle_player(keys):
 
     # 바이퍼 팬텀 스트라이크 커브 (깔끔한 호 궤적 — 감쇠 각도 변경 방식)
     if _viper_ps_curve_active:
-        _viper_ps_curve_timer -= 1
-        if _viper_ps_curve_timer <= 0:
+        # 프리즈 중에는 커브 진행도 멈춤 (타이머 소모 + 회전 모두 중지)
+        if _viper_dmk_freeze_active:
+            pass
+        elif _viper_ps_curve_timer <= 1:
+            _viper_ps_curve_timer = 0
             _viper_ps_curve_active = False
         else:
+            _viper_ps_curve_timer -= 1
             _curve_total = _viper_ps_curve_total_frames if _viper_ps_curve_total_frames > 0 else _VIPER_PS_CURVE_FRAMES
             _curve_progress = 1.0 - (_viper_ps_curve_timer / _curve_total)
             # 감쇠 회전 — 공속은 유지하면서 진행 방향만 회전 (초반 강→점차 약)
