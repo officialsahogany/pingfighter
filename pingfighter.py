@@ -49370,26 +49370,27 @@ def _compute_viper_kick_launch_angle(
         kick_dir = 1 if boss_cx >= BALL.centerx else -1
 
     bias = _get_viper_kick_bias(base_bias, aim_level)
-    motion_angle = kick_dir * random.uniform(min_angle, random_max_angle)
+    # 랜덤 발사각: 이전과 동일하게 전체 범위(-max~+max)에서 시작
+    raw_random = random.uniform(-random_max_angle, random_max_angle)
 
+    # 보스 회피 유도 (킥 방향 축 안에서 블렌딩)
     boss_cx = BOSS.centerx if BOSS else WIDTH // 2
     boss_dx = boss_cx - BALL.centerx
-    boss_side = kick_dir if boss_dx == 0 else (1 if boss_dx > 0 else -1)
+    away_dir = -1 if boss_dx > 0 else (1 if boss_dx < 0 else kick_dir)
+    avoidance = away_dir * random.uniform(25, 50)
 
-    if boss_side == kick_dir:
-        guided_min = min_angle
-        guided_max = min(random_max_angle, min_angle + 15.0)
-    else:
-        guided_min = min(random_max_angle, min_angle + 10.0)
-        guided_max = random_max_angle
-
-    if guided_min > guided_max:
-        guided_min = guided_max
-
-    guided_angle = kick_dir * random.uniform(guided_min, guided_max)
-    final_angle = motion_angle * (1.0 - bias) + guided_angle * bias
-    final_mag = max(min_angle, min(clamp_angle, abs(final_angle)))
-    return kick_dir * final_mag
+    # 킥 방향으로 편향: 킥 반대쪽 발사 방지
+    final_angle = raw_random * (1.0 - bias) + avoidance * bias
+    # 킥 방향과 반대면 킥 방향 쪽으로 최소각 보정
+    if kick_dir > 0 and final_angle < 0:
+        final_angle = max(final_angle, -min_angle * 0.5)
+    elif kick_dir < 0 and final_angle > 0:
+        final_angle = min(final_angle, min_angle * 0.5)
+    # 수직 발사 방지: 최소 편향 보장
+    if abs(final_angle) < min_angle:
+        final_angle = min_angle * (1 if final_angle >= 0 else -1)
+    final_angle = max(-clamp_angle, min(clamp_angle, final_angle))
+    return final_angle
 
 
 def _set_viper_kick_curve(curve_frames: int, curve_force: float, curve_dir: int) -> None:
