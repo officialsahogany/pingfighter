@@ -896,10 +896,10 @@ class PillarBackgroundRenderer:
 
     # ===== Stage 7 크리스탈 실드 시스템 =====
 
-    def activate_crystal_shield(self, boss_x: float, boss_y: float) -> bool:
+    def activate_crystal_shield(self, boss_x: float, boss_y: float, enraged: bool = False) -> bool:
         """크리스탈 실드 활성화 (플레이어 4점 획득 시 호출)"""
         if self._tetriser_bg is not None:
-            return self._tetriser_bg.activate_crystal_shield(boss_x, boss_y)
+            return self._tetriser_bg.activate_crystal_shield(boss_x, boss_y, enraged=enraged)
         return False
 
     def update_tetriser_with_boss(self, dt: float, boss_x: float, boss_y: float):
