@@ -10583,7 +10583,7 @@ class BuildingInterior:
         # 로고 텍스트
         font_large = self.fonts.get('large')
         if font_large:
-            text_surf, text_rect = font_large.render("전투 아카데미", ACCENT_GOLD)
+            text_surf, text_rect = font_large.render(_t("building.combat_academy", "전투 아카데미"), ACCENT_GOLD)
             screen.blit(text_surf, (sign_x - text_rect.width // 2, sign_y + 4))
 
         # 7. 왼쪽: 훈련 장비 (타이어, 수류탄 상자)
@@ -12213,7 +12213,7 @@ class BuildingInterior:
         font_small = self.fonts.get('small')
         if font_small:
             # 타이틀: "환율" (노란색 LED)
-            title_surf, title_rect = font_small.render("환율", LED_YELLOW)
+            title_surf, title_rect = font_small.render(_t("building.exchange_rate", "환율"), LED_YELLOW)
             screen.blit(title_surf, (x + 8, y + 4))
 
             # 오른쪽에 "RATE"
@@ -12371,7 +12371,7 @@ class BuildingInterior:
         font_small = self.fonts.get('small')
         if font_small:
             # 타이틀: "이자율" (노란색 LED)
-            title_surf, _ = font_small.render("이자율", LED_YELLOW)
+            title_surf, _ = font_small.render(_t("building.interest_rate", "이자율"), LED_YELLOW)
             screen.blit(title_surf, (x + 8, y + 4))
 
             # 오른쪽에 등급 표시
@@ -12383,7 +12383,7 @@ class BuildingInterior:
 
         # "예금" 라벨
         if font_small:
-            label_surf, _ = font_small.render("예금", LED_CYAN)
+            label_surf, _ = font_small.render(_t("building.deposit", "예금"), LED_CYAN)
             screen.blit(label_surf, (x + 8, main_y))
 
         # 큰 이자율 숫자
@@ -16888,7 +16888,7 @@ class BuildingInterior:
         font_small = self.fonts.get('small')
 
         if font_medium:
-            title_surf, _ = font_medium.render("대장 헤파이토스", TEXT_GOLD)
+            title_surf, _ = font_medium.render(_t("building.smith_hephaestus", "대장 헤파이토스"), TEXT_GOLD)
             screen.blit(title_surf, (menu_x + (menu_w - title_surf.get_width()) // 2, menu_y + 12))
 
         # 강화하기 버튼
@@ -16952,7 +16952,7 @@ class BuildingInterior:
 
         # 제목
         if font_medium:
-            title_surf, _ = font_medium.render("강화할 아이템 선택", TEXT_GOLD)
+            title_surf, _ = font_medium.render(_t("building.select_enhance_item", "강화할 아이템 선택"), TEXT_GOLD)
             screen.blit(title_surf, (ui_x + 20, ui_y + 15))
 
         # 닫기 버튼
@@ -16969,9 +16969,9 @@ class BuildingInterior:
         if not items:
             # 강화 가능한 아이템 없음
             if font_small:
-                no_item_surf, _ = font_small.render("강화 가능한 아이템이 없습니다", TEXT_GRAY)
+                no_item_surf, _ = font_small.render(_t("building.no_enhance_items", "강화 가능한 아이템이 없습니다"), TEXT_GRAY)
                 screen.blit(no_item_surf, (ui_x + (total_w - no_item_surf.get_width()) // 2, ui_y + 180))
-                hint_surf, _ = font_small.render("(롤옵션이 있는 패시브/신화 아이템 강화 가능)", (120, 120, 140))
+                hint_surf, _ = font_small.render(_t("building.enhance_hint", "(롤옵션이 있는 패시브/신화 아이템 강화 가능)"), (120, 120, 140))
                 screen.blit(hint_surf, (ui_x + (total_w - hint_surf.get_width()) // 2, ui_y + 210))
             return
 
@@ -17052,7 +17052,7 @@ class BuildingInterior:
 
         # 하단 안내
         if font_small:
-            hint_surf, _ = font_small.render("클릭하여 강화할 아이템 선택", TEXT_GRAY)
+            hint_surf, _ = font_small.render(_t("building.click_to_enhance", "클릭하여 강화할 아이템 선택"), TEXT_GRAY)
             screen.blit(hint_surf, (ui_x + (total_w - hint_surf.get_width()) // 2, ui_y + total_h - 35))
 
     def _draw_enhancement_item_tooltip(self, screen, mouse_pos):
@@ -17828,7 +17828,7 @@ class BuildingInterior:
             screen.blit(desc_surf, (dialog_x + (dialog_w - desc_surf.get_width()) // 2, dialog_y + 70))
 
             # 클릭 안내
-            hint_surf, _ = font_small.render("(클릭하여 닫기)", (140, 140, 150))
+            hint_surf, _ = font_small.render(_t("building.click_to_close", "(클릭하여 닫기)"), (140, 140, 150))
             screen.blit(hint_surf, (dialog_x + (dialog_w - hint_surf.get_width()) // 2, dialog_y + 110))
 
     # =========================================================================

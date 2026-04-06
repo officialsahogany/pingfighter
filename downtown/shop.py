@@ -5,6 +5,14 @@ import pygame
 import pygame.freetype
 from .constants import SCREEN_WIDTH, SCREEN_HEIGHT, Colors
 
+try:
+    from localization.manager import get_localization_manager as _get_loc
+    def _t(key, fallback=""):
+        return _get_loc().get_text(key, fallback)
+except ImportError:
+    def _t(key, fallback=""):
+        return fallback
+
 class ShopItem:
     """상점 아이템 정보"""
     def __init__(self, name, description, price, item_type, icon="📦"):
@@ -373,7 +381,7 @@ def preview_shop_themes(screen, freetype_fonts):
         # 제목
         font_large = freetype_fonts.get('large')
         if font_large:
-            title_surf, title_rect = font_large.render("상점 테마 선택", Colors.TEXT_WHITE)
+            title_surf, title_rect = font_large.render(_t("shop.select_theme", "상점 테마 선택"), Colors.TEXT_WHITE)
             screen.blit(title_surf, ((SCREEN_WIDTH - title_rect.width) // 2, 30))
 
         # 테마 카드들

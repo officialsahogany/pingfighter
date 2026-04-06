@@ -651,12 +651,13 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
         overlay.fill((0, 0, 0, 120))
         screen.blit(overlay, (0, 0))
 
-        title = font_title.render("멀티플레이", True, (200, 230, 255))
+        _loc = get_localization_manager()
+        title = font_title.render(_loc.get_text("menu.multiplayer", "멀티플레이"), True, (200, 230, 255))
         screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 130)))
 
         # 설명 텍스트
         desc_font = ctx.FontStyle.tiny()
-        desc_surf = desc_font.render("IP 주소로 다른 PC와 1:1 대전", True, (180, 200, 220))
+        desc_surf = desc_font.render(_loc.get_text("menu.multiplayer_desc", "IP 주소로 다른 PC와 1:1 대전"), True, (180, 200, 220))
         screen.blit(desc_surf, desc_surf.get_rect(center=(width // 2, height // 2 - 90)))
 
         item_w = 220

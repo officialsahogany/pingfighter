@@ -20128,7 +20128,7 @@ def _play_megingjord_activation_effect(screen):
 
             _font_size = max(12, int(24 * text_scale))
             _font = get_font(_font_size)
-            _main_text = _font.render("메긴교르드의 효과 발동!", True, (255, 215, 0))
+            _main_text = _font.render(_t("fx.megingjord_activate", "메긴교르드의 효과 발동!"), True, (255, 215, 0))
             _text_rect = _main_text.get_rect(center=(_cx, _cy))
 
             # 텍스트 배경 글로우
@@ -20145,7 +20145,7 @@ def _play_megingjord_activation_effect(screen):
             _overlay.blit(_text_bg, (_text_rect.x - 20, _text_rect.y - 10))
 
             # 텍스트 그림자
-            _shadow = _font.render("메긴교르드의 효과 발동!", True, (80, 50, 0))
+            _shadow = _font.render(_t("fx.megingjord_activate", "메긴교르드의 효과 발동!"), True, (80, 50, 0))
             _shadow.set_alpha(text_alpha // 2)
             _overlay.blit(_shadow, (_text_rect.x + 2, _text_rect.y + 2))
 
@@ -53538,7 +53538,7 @@ def draw_pandora_legacy_selection_ui(screen):
     # 타이틀
     try:
         title_font = FontStyle.subtitle()
-        title_surf, title_rect = title_font.render("📦 판도라의 유산 - 아이템 선택", (255, 215, 0))
+        title_surf, title_rect = title_font.render(_t("ui.pandora_title", "📦 판도라의 유산 - 아이템 선택"), (255, 215, 0))
         screen.blit(title_surf, (WIDTH // 2 - title_rect.width // 2, 100))
     except Exception:
         pass
@@ -53546,7 +53546,7 @@ def draw_pandora_legacy_selection_ui(screen):
     # 설명 텍스트
     try:
         desc_font = FontStyle.body()
-        desc_surf, desc_rect = desc_font.render("◀ ▶ 키 또는 마우스로 선택, SPACE/클릭으로 확정", (200, 200, 200))
+        desc_surf, desc_rect = desc_font.render(_t("ui.pandora_guide", "◀ ▶ 키 또는 마우스로 선택, SPACE/클릭으로 확정"), (200, 200, 200))
         screen.blit(desc_surf, (WIDTH // 2 - desc_rect.width // 2, 140))
     except Exception:
         pass
@@ -59090,7 +59090,7 @@ def show_hongryun_explosion():
         pygame.display.flip()
         pygame.time.delay(HALF_SECOND_FRAMES)
     #  show_fade_text 호출 수정
-    show_fade_text("홍련폭염!!")  # duration 제거
+    show_fade_text(_t("fx.hongryun_explosion", "홍련폭염!!"))  # duration 제거
     for alpha in range(200, 0, -20):  # 페이드 아웃
         overlay.set_alpha(alpha)
         SCREEN.blit(overlay, (0, 0))
@@ -65915,7 +65915,7 @@ def handle_gods_judgment():
             play_sound_with_volume(SOUND_GOD_START)
         # 화면 중앙 텍스트 (텍스트 표시 중 judgment 타이머 일시정지)
         bg.judgment_text_display_paused = True
-        show_fade_text("신의 심판: 땅의 분노")
+        show_fade_text(_t("fx.god_judgment_earth", "신의 심판: 땅의 분노"))
         bg.judgment_text_display_paused = False
         # 지진 루프 사운드 (텍스트 표시 후 재생 → godstart와 겹치지 않음)
         try:
@@ -65975,7 +65975,7 @@ def handle_gods_judgment():
             if SOUND_GOD_START:
                 play_sound_with_volume(SOUND_GOD_START)
             bg.judgment_text_display_paused = True
-            show_fade_text("신의 심판: 번개의 분노")
+            show_fade_text(_t("fx.god_judgment_lightning", "신의 심판: 번개의 분노"))
             bg.judgment_text_display_paused = False
             # 투척 사운드
             if SOUND_GOD_THUNDER_THROW:
@@ -66023,7 +66023,7 @@ def handle_gods_judgment():
             if SOUND_GOD_START:
                 play_sound_with_volume(SOUND_GOD_START)
             bg.judgment_text_display_paused = True
-            show_fade_text("신의 심판: 바람의 분노")
+            show_fade_text(_t("fx.god_judgment_wind", "신의 심판: 바람의 분노"))
             bg.judgment_text_display_paused = False
 
         # ── 바람의 분노: 모래바람 히트 판정 (consume-flag 방식) ──
@@ -120998,8 +120998,8 @@ def confirm_rest(stage_cleared, reward):
     while True:
         update_btn_hover_effects()
         SCREEN.fill((30, 0, 0))
-        ui_manager.draw_centered_text("이번 회차에서 획득한 메달의 70%만 가져갈 수 있습니다.", 26, -50)
-        ui_manager.draw_centered_text("괜찮으시겠습니까?", 30, 0)
+        ui_manager.draw_centered_text(_t("ui.confirm_rest_medal", "이번 회차에서 획득한 메달의 70%만 가져갈 수 있습니다."), 26, -50)
+        ui_manager.draw_centered_text(_t("ui.confirm_rest_ok", "괜찮으시겠습니까?"), 30, 0)
 
         # 마우스 호버 체크
         _cr_mpos = pygame.mouse.get_pos()
@@ -132490,8 +132490,8 @@ def show_developer_stage_select():
     while True:
         update_btn_hover_effects()
         SCREEN.fill((10, 10, 40))
-        ui_manager.draw_centered_text("개발자 스테이지 선택", 40, -250)
-        ui_manager.draw_centered_text("←↑↓→ 또는 WASD로 이동, SPACE로 선택", 24, -200)
+        ui_manager.draw_centered_text(_t("ui.dev_stage_select", "개발자 스테이지 선택"), 40, -250)
+        ui_manager.draw_centered_text(_t("ui.dev_stage_hint", "←↑↓→ 또는 WASD로 이동, SPACE로 선택"), 24, -200)
 
         # 마우스 호버 체크
         _ds_mpos = pygame.mouse.get_pos()
@@ -139351,7 +139351,7 @@ def _draw_captured_guard_ui(surface):
                 font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
                 _cg_font2 = pygame.freetype.Font(font_path, 13)
                 _draw_captured_guard_ui._font2 = _cg_font2
-            ns, nr = _cg_font2.render(f"Q: {name} 소환", (255, 255, 220))
+            ns, nr = _cg_font2.render(_t("ui.summon_guard", "Q: {name} 소환").format(name=name), (255, 255, 220))
             tip_x = pil_x + btn_w + 4
             tip_y = pil_y + btn_h // 2 - nr.height // 2
             # 툴팁 배경
@@ -146737,7 +146737,7 @@ def handle_ball():
     if horizontal_bounce_count >= 6:
         if arena_mode_enabled and arena_battle_result is not None:
             return  # 이미 승부가 결정됨 - 무승부 판정 방지
-        show_fade_text("재대결!")
+        show_fade_text(_t("fx.rematch", "재대결!"))
         reset_round()
         return
     # --- 뼈장막 안전망: 빠른 공이 장벽을 통과한 경우 득점 방지 ---
@@ -147080,7 +147080,7 @@ def handle_ball():
                     except Exception:
                         pass
                 except Exception:
-                    show_fade_text("상대 반칙왕 발동!")
+                    show_fade_text(_t("fx.opponent_foul_king", "상대 반칙왕 발동!"))
                     go_to_next_round()
                 return
 
@@ -147430,14 +147430,14 @@ def handle_ball():
                         # 타이틀
                         try:
                             _p_title_font = get_font(32)
-                            _p_title_s = _p_title_font.render("판도라의 유산", True, (255, 215, 0))
+                            _p_title_s = _p_title_font.render(_t("ui.pandora_title_short", "판도라의 유산"), True, (255, 215, 0))
                             _p_title_r = _p_title_s.get_rect(centerx=WIDTH // 2, top=95)
                             SCREEN.blit(_p_title_s, _p_title_r)
                         except: pass
                         # 부제
                         try:
                             _p_sub_font = get_font(20)
-                            _p_sub_s = _p_sub_font.render("아이템을 선택하세요", True, (220, 200, 240))
+                            _p_sub_s = _p_sub_font.render(_t("ui.pandora_select_item", "아이템을 선택하세요"), True, (220, 200, 240))
                             _p_sub_r = _p_sub_s.get_rect(centerx=WIDTH // 2, top=130)
                             SCREEN.blit(_p_sub_s, _p_sub_r)
                         except: pass
@@ -147446,7 +147446,7 @@ def handle_ball():
                             try:
                                 _p_guide_font = get_font(16)
                                 _guide_pulse = int(160 + 60 * _p_math.sin(_p_timer * 0.06))
-                                _p_guide_s = _p_guide_font.render("◀ ▶ / 마우스    SPACE / 클릭", True, (_guide_pulse, _guide_pulse, _guide_pulse))
+                                _p_guide_s = _p_guide_font.render(_t("ui.pandora_control_guide", "◀ ▶ / 마우스    SPACE / 클릭"), True, (_guide_pulse, _guide_pulse, _guide_pulse))
                                 _p_guide_r = _p_guide_s.get_rect(centerx=WIDTH // 2, top=_p_cy + _p_ch + 25)
                                 SCREEN.blit(_p_guide_s, _p_guide_r)
                             except: pass
@@ -148242,7 +148242,7 @@ def handle_ball():
                     except Exception:
                         pass
                 except Exception:
-                    show_fade_text("반칙왕 발동!")
+                    show_fade_text(_t("fx.foul_king", "반칙왕 발동!"))
                     go_to_next_round()
                 return
 
@@ -150060,7 +150060,7 @@ def handle_ball():
                 if (not alice_mirror_active
                     and alice_mirror_cooldown_timer <= 0
                     and boss_special_gauge >= 500):
-                    show_fade_text("거울 세계!")
+                    show_fade_text(_t("fx.mirror_world", "거울 세계!"))
                     activate_alice_mirror()
                     _mirror_shouts = ["거울 나라로 초대할게~!", "현실이 뒤집혀!", "어디가 어딘지 모르겠지~?"]
                     show_speech(random.choice(_mirror_shouts), duration=120)
@@ -150132,7 +150132,7 @@ def handle_ball():
                     boss_red_intensity -= (boss_red_intensity - target) * 0.1
                 boss_red_intensity = min(220, max(0, boss_red_intensity))
                 if boss_special_ready:
-                    show_fade_text("사이코볼!")
+                    show_fade_text(_t("fx.psycho_ball", "사이코볼!"))
                     activate_emotional_overdrive()
                     boss_special_ready = False
                     boss_special_gauge = 0
@@ -155871,7 +155871,7 @@ def show_result(won):
     else:
         # 부활 아이템이 있고 아직 사용하지 않았다면 부활 기회 제공
         if revival_obtained and not revival_used:
-            show_fade_text("부활 아이템이 발동됩니다!")
+            show_fade_text(_t("fx.revival_activate", "부활 아이템이 발동됩니다!"))
             SCREEN.fill(BLACK)
             pygame.display.flip()
             pygame.time.delay(MILLISECONDS_PER_SECOND)
@@ -169172,7 +169172,7 @@ def show_character_info(background_surface=None):
                     extra_render_entries = []
                     extra_title_surface = None
                     if extra_entries:
-                        extra_title_surface = local_font_tiny.render("적용 중", True, (100, 200, 100))
+                        extra_title_surface = local_font_tiny.render(_t("ui.applying", "적용 중"), True, (100, 200, 100))
                         extra_render_entries = _break_lines(extra_entries, 200)
                         extra_content_w = max(_calc_width(extra_entries), extra_title_surface.get_width())
                         extra_width = min(220, max(140, extra_content_w + 20))
@@ -169918,11 +169918,11 @@ def show_game_info():
                 # ── 현자의 반지 2탭 레이아웃 ──
                 divider_x = desc_panel_x + desc_panel_width * 3 // 5
                 # 좌측: 설명
-                _sr_desc = "고대 현자가 남긴 신비로운 반지. 장착 시 모든 퍽 레벨이 1 증가합니다."
+                _sr_desc = _t("ui.sage_ring_desc", "고대 현자가 남긴 신비로운 반지. 장착 시 모든 퍽 레벨이 1 증가합니다.")
                 _sr_lines = smart_text_wrap(_sr_desc, max_width_chars=22)
                 _sr_font = get_font(13)
                 # 좌측 탭 라벨
-                _tab_label_l = _sr_font.render("설명", True, (160, 200, 255))
+                _tab_label_l = _sr_font.render(_t("ui.tab_description", "설명"), True, (160, 200, 255))
                 SCREEN.blit(_tab_label_l, (desc_panel_x + 10, desc_panel_y + 6))
                 # 구분선 아래 설명 텍스트
                 for li, ln in enumerate(_sr_lines):
@@ -169934,21 +169934,21 @@ def show_game_info():
                 pygame.draw.line(SCREEN, (80, 100, 160), (divider_x, desc_panel_y + 4), (divider_x, desc_panel_y + desc_panel_height - 4), 1)
 
                 # 우측: 옵션
-                _tab_label_r = _sr_font.render("옵션", True, (255, 200, 100))
+                _tab_label_r = _sr_font.render(_t("ui.tab_options", "옵션"), True, (255, 200, 100))
                 SCREEN.blit(_tab_label_r, (divider_x + 10, desc_panel_y + 6))
                 # 고정 효과 표시
                 _opt_font = get_font(14)
-                _opt_label = _opt_font.render("고정효과", True, (180, 140, 255))
+                _opt_label = _opt_font.render(_t("ui.fixed_effect", "고정효과"), True, (180, 140, 255))
                 SCREEN.blit(_opt_label, (divider_x + 10, desc_panel_y + 30))
-                _opt_value = _opt_font.render("모든 퍽 레벨 +1", True, (255, 230, 140))
+                _opt_value = _opt_font.render(_t("ui.all_perk_plus1", "모든 퍽 레벨 +1"), True, (255, 230, 140))
                 SCREEN.blit(_opt_value, (divider_x + 10, desc_panel_y + 52))
                 # 장착 상태 표시
                 _equipped = selected_item.get("_equipped_slot") if selected_item else None
                 if _equipped:
-                    _eq_text = _sr_font.render("장착 중", True, (100, 255, 100))
+                    _eq_text = _sr_font.render(_t("ui.equipped", "장착 중"), True, (100, 255, 100))
                     SCREEN.blit(_eq_text, (divider_x + 10, desc_panel_y + 76))
                 else:
-                    _eq_text = _sr_font.render("미장착", True, (150, 150, 150))
+                    _eq_text = _sr_font.render(_t("ui.not_equipped", "미장착"), True, (150, 150, 150))
                     SCREEN.blit(_eq_text, (divider_x + 10, desc_panel_y + 76))
             else:
                 lines = smart_text_wrap(description)

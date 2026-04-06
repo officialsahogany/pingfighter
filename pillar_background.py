@@ -10,6 +10,14 @@ import math
 import platform
 import pygame
 
+try:
+    from localization.manager import get_localization_manager as _get_loc
+    def _t(key, fallback=""):
+        return _get_loc().get_text(key, fallback)
+except ImportError:
+    def _t(key, fallback=""):
+        return fallback
+
 # 스테이지별 특수 배경
 from pillar_stadium import StadiumPillarBackground, init_stadium_background, get_stadium_background
 from pillar_jungle import MossyStoneFrame as JungleSwampBackground, init_jungle_background, get_jungle_background, get_monkey_event_manager
@@ -3009,7 +3017,7 @@ class PillarBackgroundRenderer:
             # 툴팁 내용 구성
             lines = []
             # 헤더
-            header_surf, header_rect = title_font.render("진행 중인 퀘스트", (255, 220, 150))
+            header_surf, header_rect = title_font.render(_t("ui.active_quest", "진행 중인 퀘스트"), (255, 220, 150))
             lines.append(("header", header_surf, header_rect))
 
             for i, quest in enumerate(quest_info_list):

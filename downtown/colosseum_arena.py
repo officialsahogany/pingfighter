@@ -12,6 +12,14 @@ import time
 from enum import Enum
 from typing import List, Dict, Optional, Tuple
 
+try:
+    from localization.manager import get_localization_manager as _get_loc
+    def _t(key, fallback=""):
+        return _get_loc().get_text(key, fallback)
+except ImportError:
+    def _t(key, fallback=""):
+        return fallback
+
 # 영웅 스킬 시스템 임포트
 try:
     from downtown.hero_skills import (
@@ -7980,7 +7988,7 @@ class ColosseumsArena:
                 # hero1 선택 표시
                 if is_hero1_selected:
                     if self.fonts and "small" in self.fonts:
-                        tag_surf, _ = self.fonts["small"].render("상단", (100, 255, 100))
+                        tag_surf, _ = self.fonts["small"].render(_t("arena.top", "상단"), (100, 255, 100))
                         self.screen.blit(tag_surf, (cx + card_w - tag_surf.get_width() - 10, cy + 8))
 
     def _select_difficulty(self, diff_index: int):
@@ -12091,7 +12099,7 @@ class ColosseumsArena:
         pygame.draw.rect(scr, (10, 35, 70), (_btn_x, _btn_y, _btn_w, _btn_h), border_radius=14)
         pygame.draw.rect(scr, (0, 220, 255), (_btn_x, _btn_y, _btn_w, _btn_h), 3, border_radius=14)
         _btn_font = self._load_korean_font(30)
-        _bt = _btn_font.render("아이템 받기", True, (255, 255, 255))
+        _bt = _btn_font.render(_t("arena.get_item", "아이템 받기"), True, (255, 255, 255))
         _btr = _bt.get_rect(center=(_btn_x + _btn_w // 2, _btn_y + _btn_h // 2))
         scr.blit(_bt, _btr)
 
@@ -13364,7 +13372,7 @@ class ColosseumsArena:
                     h_color = (min(255, int(h_base[0] * pulse)),
                                min(255, int(h_base[1] * pulse)),
                                min(255, int(h_base[2] * pulse)))
-                    surf, _ = self.fonts["small"].render("클릭!", h_color)
+                    surf, _ = self.fonts["small"].render(_t("arena.click", "클릭!"), h_color)
                     self.screen.blit(surf, (cx - surf.get_width() // 2, cy + 30))
                 return
 
@@ -13791,7 +13799,7 @@ class ColosseumsArena:
 
         # 하단 닫기 안내
         if self.fonts and "small" in self.fonts:
-            hint_surf, _ = self.fonts["small"].render("TAB 또는 ESC로 닫기", ET["text_subtitle"])
+            hint_surf, _ = self.fonts["small"].render(_t("arena.close_hint", "TAB 또는 ESC로 닫기"), ET["text_subtitle"])
             hint_bg = _get_arena_surface(hint_surf.get_width() + 20, hint_surf.get_height() + 10)
             hint_bg.fill((*ET["bg_dark"], 200))
             self.screen.blit(hint_bg, (SCREEN_WIDTH // 2 - hint_bg.get_width() // 2, SCREEN_HEIGHT - 30))
@@ -13835,7 +13843,7 @@ class ColosseumsArena:
         # 타이틀
         title_y = base_y + 8
         if self.fonts and "medium" in self.fonts:
-            title_surf, _ = self.fonts["medium"].render("스킬 결정!", ET["gold_medium"])
+            title_surf, _ = self.fonts["medium"].render(_t("arena.skill_decided", "스킬 결정!"), ET["gold_medium"])
             self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_surf.get_width() // 2, title_y))
 
         # 카드 레이아웃 (큰 아이콘 중심)
@@ -14106,12 +14114,12 @@ class ColosseumsArena:
             if self.fonts and "small" in self.fonts:
                 dot_count = int(timer * 3) % 4
                 dots = "." * dot_count
-                surf, _ = self.fonts["small"].render(f"스킬 결정 중{dots}", ET["text_hint"])
+                surf, _ = self.fonts["small"].render(f"{_t('arena.skill_deciding', '스킬 결정 중')}{dots}", ET["text_hint"])
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, hint_y))
         elif phase == "selected":
             if self.fonts and "small" in self.fonts:
                 hint_alpha = min(200, int(max(0, sel_timer - 0.5) * 300))
-                surf, _ = self.fonts["small"].render("클릭하여 계속", (hint_alpha, hint_alpha, hint_alpha + 20))
+                surf, _ = self.fonts["small"].render(_t("arena.click_continue", "클릭하여 계속"), (hint_alpha, hint_alpha, hint_alpha + 20))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, hint_y))
 
     def _draw_skill_reveal(self):
@@ -14339,7 +14347,7 @@ class ColosseumsArena:
             if skill.duration and skill.duration > 0 and skill.duration < 999:
                 if self.fonts and "small" in self.fonts:
                     dur_color = ET["malachite_light"] if not is_faded else (40, 100, 55)
-                    surf, _ = self.fonts["small"].render(f"지속: {skill.duration:.1f}초", dur_color)
+                    surf, _ = self.fonts["small"].render(_t("arena.duration_fmt", "지속: {dur}초").format(dur=f"{skill.duration:.1f}"), dur_color)
                     self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 195))
 
             # 선택됨 마크 (페이드인 + 글로우)
@@ -14371,12 +14379,12 @@ class ColosseumsArena:
             if self.fonts and "small" in self.fonts:
                 dot_count = int(timer * 3) % 4
                 dots = "." * dot_count
-                surf, _ = self.fonts["small"].render(f"스킬 결정 중{dots}", ET["text_hint"])
+                surf, _ = self.fonts["small"].render(f"{_t('arena.skill_deciding', '스킬 결정 중')}{dots}", ET["text_hint"])
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
         elif phase == "selected":
             if self.fonts and "small" in self.fonts:
                 hint_alpha = min(200, int(sel_timer * 200))
-                surf, _ = self.fonts["small"].render("클릭하여 계속", (hint_alpha, hint_alpha, hint_alpha + 20))
+                surf, _ = self.fonts["small"].render(_t("arena.click_continue", "클릭하여 계속"), (hint_alpha, hint_alpha, hint_alpha + 20))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
 
     def _draw_prison_bars_overlay(self, cx, cy, cw, ch, is_hovered, open_ratio=0.0):
@@ -15002,7 +15010,7 @@ class ColosseumsArena:
 
             # "-- 승리 --" 타이틀
             if self.fonts and "large" in self.fonts:
-                surf, _ = self.fonts["large"].render("-- 승리 --", ET["gold_bright"])
+                surf, _ = self.fonts["large"].render(_t("arena.victory", "-- 승리 --"), ET["gold_bright"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 18))
 
             # "~강 진출!" 텍스트 + 트로피 아이콘
@@ -15096,7 +15104,7 @@ class ColosseumsArena:
 
             # 안내
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render("클릭하여 계속", ET["text_hint"])
+                surf, _ = self.fonts["small"].render(_t("arena.click_continue", "클릭하여 계속"), ET["text_hint"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, hint_y))
 
         else:
@@ -15110,7 +15118,7 @@ class ColosseumsArena:
 
             # "패배..." 타이틀 + 해골 아이콘
             if self.fonts and "large" in self.fonts:
-                surf, _ = self.fonts["large"].render("패배...", ET["carnelian_light"])
+                surf, _ = self.fonts["large"].render(_t("arena.defeat", "패배..."), ET["carnelian_light"])
                 title_x = cx - surf.get_width() // 2
                 title_y = panel_y + 25
                 self.screen.blit(surf, (title_x, title_y))
@@ -15126,13 +15134,13 @@ class ColosseumsArena:
 
             # 손실 표시
             if self.fonts and "medium" in self.fonts:
-                profit_text = f"입장료 {self.entry_fee}G를 잃었습니다!"
+                profit_text = _t("arena.lost_entry_fee", "입장료 {fee}G를 잃었습니다!").format(fee=self.entry_fee)
                 surf, _ = self.fonts["medium"].render(profit_text, ET["carnelian_light"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 115))
 
             # 추가 메시지
             if self.fonts and "small" in self.fonts:
-                lose_msg = f"누적 상금 {self.accumulated_prize}G 몰수..."
+                lose_msg = _t("arena.prize_forfeit", "누적 상금 {prize}G 몰수...").format(prize=self.accumulated_prize)
                 surf, _ = self.fonts["small"].render(lose_msg, ET["text_disabled"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 155))
 
@@ -15147,7 +15155,7 @@ class ColosseumsArena:
 
             # 안내
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render("클릭하여 계속", ET["text_hint"])
+                surf, _ = self.fonts["small"].render(_t("arena.click_continue", "클릭하여 계속"), ET["text_hint"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, hint_y))
 
     def _draw_difficulty_select(self):
@@ -15159,7 +15167,7 @@ class ColosseumsArena:
         if self.fonts and "large" in self.fonts:
             pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
             gold_color = (int(ET["gold_bright"][0] * pulse), int(ET["gold_bright"][1] * pulse), int(ET["gold_bright"][2] * pulse))
-            surf, _ = self.fonts["large"].render("난이도 선택", gold_color)
+            surf, _ = self.fonts["large"].render(_t("arena.select_difficulty", "난이도 선택"), gold_color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 80))
             # 검 아이콘
             icon_y = 80 + surf.get_height() // 2
@@ -15366,7 +15374,7 @@ class ColosseumsArena:
             if re_hovered:
                 pygame.draw.rect(self.screen, ET["lapis_light"], exit_rect, 2, border_radius=5)
             if self.fonts and "medium" in self.fonts:
-                surf, _ = self.fonts["medium"].render("보상 받기", ET["text_white"])
+                surf, _ = self.fonts["medium"].render(_t("arena.receive_reward", "보상 받기"), ET["text_white"])
                 btn_text_x = exit_rect.centerx - surf.get_width() // 2
                 self._draw_coin_icon(btn_text_x - 12, exit_rect.y + 15 + surf.get_height() // 2, 12)
                 self.screen.blit(surf, (btn_text_x, exit_rect.y + 15))
@@ -15375,7 +15383,7 @@ class ColosseumsArena:
             # ========== Phase 1: 골드 수령 vs 인장 획득 ==========
             # 보상 선택 안내
             if self.fonts and "medium" in self.fonts:
-                guide = "보상을 선택하세요!"
+                guide = _t("arena.select_reward", "보상을 선택하세요!")
                 surf, _ = self.fonts["medium"].render(guide, (255, 215, 0))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 80))
 
@@ -15402,7 +15410,7 @@ class ColosseumsArena:
                     surf, _ = self.fonts["large"].render(f"{prize}G", ET["text_white"])
                     self.screen.blit(surf, (gold_rect.centerx - surf.get_width() // 2, gold_rect.y + 12))
                 if "small" in self.fonts:
-                    surf, _ = self.fonts["small"].render("골드 수령", ET["gold_pale"])
+                    surf, _ = self.fonts["small"].render(_t("arena.receive_gold", "골드 수령"), ET["gold_pale"])
                     self.screen.blit(surf, (gold_rect.centerx - surf.get_width() // 2, gold_rect.y + 50))
 
             # 인장 획득 버튼
@@ -15644,7 +15652,7 @@ class ColosseumsArena:
             if "large" in self.fonts:
                 pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
                 gold = (int(255 * pulse), int(215 * pulse), 0)
-                surf, _ = self.fonts["large"].render("토너먼트 우승!", gold)
+                surf, _ = self.fonts["large"].render(_t("arena.tournament_champion", "토너먼트 우승!"), gold)
                 alpha_s = _get_arena_surface(*surf.get_size())
                 alpha_s.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -15708,7 +15716,7 @@ class ColosseumsArena:
             self.screen.blit(gold_surf, gold_rect.topleft)
             if "medium" in self.fonts:
                 prize = 5000  # 최종우승 고정 보상
-                surf, _ = self.fonts["medium"].render(f"{prize}G 수령", (255, 255, 255))
+                surf, _ = self.fonts["medium"].render(_t("arena.gold_receive_fmt", "{prize}G 수령").format(prize=prize), (255, 255, 255))
                 self._draw_coin_icon(gold_rect.centerx - surf.get_width() // 2 - 14,
                                      gold_rect.centery, 12)
                 self.screen.blit(surf, (gold_rect.centerx - surf.get_width() // 2,
@@ -15777,7 +15785,7 @@ class ColosseumsArena:
         # === 하단 힌트 (버튼 나오기 전) ===
         if timer < 3.0 and timer > 1.5 and self.fonts and "small" in self.fonts:
             blink = abs(_sin(self.animation_timer * 2)) * 155 + 100
-            surf, _ = self.fonts["small"].render("잠시 후 보상을 선택합니다...", (int(blink), int(blink), int(blink)))
+            surf, _ = self.fonts["small"].render(_t("arena.reward_selecting", "잠시 후 보상을 선택합니다..."), (int(blink), int(blink), int(blink)))
             self.screen.blit(surf, (center_x - surf.get_width() // 2, 690))
 
     def _draw_tournament_end_ui(self):
@@ -19018,7 +19026,7 @@ class ColosseumsArena:
         title_y = int(80 * progress)
         font = self.fonts.get("title") or self.fonts.get("korean_large")
         if font:
-            surf, rect = font.render("생포 기회!", ET["gold_bright"])
+            surf, rect = font.render(_t("arena.capture_chance", "생포 기회!"), ET["gold_bright"])
             if surf:
                 x = screen_w // 2 - rect.width // 2
                 self.screen.blit(surf, (x, title_y))
@@ -19035,7 +19043,7 @@ class ColosseumsArena:
         # 안내 텍스트
         hint_font = self.fonts.get("korean_small")
         if hint_font and progress > 0.8:
-            hs, hr = hint_font.render("도망치는 호위무사를 그물로 잡아라!", (200, 200, 180))
+            hs, hr = hint_font.render(_t("arena.capture_hint", "도망치는 호위무사를 그물로 잡아라!"), (200, 200, 180))
             if hs:
                 self.screen.blit(hs, (screen_w // 2 - hr.width // 2, 280))
 
@@ -19066,7 +19074,7 @@ class ColosseumsArena:
         # 안내
         hint_font = self.fonts.get("korean_small")
         if hint_font:
-            hs, hr = hint_font.render("스페이스바로 그물을 던져라!", (220, 220, 200))
+            hs, hr = hint_font.render(_t("arena.throw_net", "스페이스바로 그물을 던져라!"), (220, 220, 200))
             if hs:
                 self.screen.blit(hs, (screen_w // 2 - hr.width // 2, 545))
         # 타임아웃 표시
@@ -19074,7 +19082,7 @@ class ColosseumsArena:
         timeout = self._CAP_TIMEOUT.get(round_name, 8.0)
         remaining = max(0, timeout - self.capture_timer)
         if hint_font:
-            ts, tr = hint_font.render(f"남은 시간: {remaining:.1f}초", (255, 180, 100) if remaining < 3 else (180, 180, 160))
+            ts, tr = hint_font.render(_t("arena.time_remaining", "남은 시간: {time}초").format(time=f"{remaining:.1f}"), (255, 180, 100) if remaining < 3 else (180, 180, 160))
             if ts:
                 self.screen.blit(ts, (screen_w // 2 - tr.width // 2, 570))
         # 발사 원점 (플레이어 위치 표시)
@@ -19116,10 +19124,10 @@ class ColosseumsArena:
             result_text = "PERFECT!"
             result_color = ET["gold_bright"]
         elif self.capture_result == "good":
-            result_text = "생포 성공!"
+            result_text = _t("arena.capture_success", "생포 성공!")
             result_color = ET["malachite"]
         else:
-            result_text = "생포 실패..."
+            result_text = _t("arena.capture_fail", "생포 실패...")
             result_color = ET["btn_danger"]
         if font:
             surf, rect = font.render(result_text, result_color)
@@ -19128,11 +19136,11 @@ class ColosseumsArena:
         # 보너스 골드 (PERFECT)
         sub_font = self.fonts.get("korean_medium") or self.fonts.get("korean_small")
         if self.capture_result == "perfect" and sub_font:
-            gs, gr = sub_font.render("+200G 보너스!", (255, 215, 50))
+            gs, gr = sub_font.render(_t("arena.bonus_gold", "+200G 보너스!"), (255, 215, 50))
             if gs:
                 self.screen.blit(gs, (screen_w // 2 - gr.width // 2, 380))
         elif self.capture_result == "miss" and sub_font:
-            gs, gr = sub_font.render("호위무사가 도주했다!", (200, 150, 120))
+            gs, gr = sub_font.render(_t("arena.guard_escaped", "호위무사가 도주했다!"), (200, 150, 120))
             if gs:
                 self.screen.blit(gs, (screen_w // 2 - gr.width // 2, 380))
 
@@ -19147,7 +19155,7 @@ class ColosseumsArena:
             # 진행 안내
             hint_font = self.fonts.get("korean_small")
             if hint_font and self.capture_timer > 0.8:
-                hs, hr = hint_font.render("클릭하여 계속", (160, 160, 140))
+                hs, hr = hint_font.render(_t("arena.click_continue", "클릭하여 계속"), (160, 160, 140))
                 if hs:
                     self.screen.blit(hs, (screen_w // 2 - hr.width // 2, 600))
 
@@ -19158,7 +19166,7 @@ class ColosseumsArena:
             # 설명
             old_name = self.captured_guard.get("name", "???") if self.captured_guard else "???"
             new_name = self.capture_target.get("name", "???") if self.capture_target else "???"
-            ts, tr = sub_font.render(f"기존 포로: {old_name}  /  신규 포로: {new_name}", (200, 200, 180))
+            ts, tr = sub_font.render(_t("arena.swap_prisoner", "기존 포로: {old}  /  신규 포로: {new}").format(old=old_name, new=new_name), (200, 200, 180))
             if ts:
                 self.screen.blit(ts, (screen_w // 2 - tr.width // 2, 440))
         # 버튼
@@ -19177,7 +19185,7 @@ class ColosseumsArena:
             pygame.draw.rect(self.screen, (0, 0, 0), swap_rect.inflate(-4, -4), 0, border_radius=4)
         btn_font = self.fonts.get("korean_small")
         if btn_font:
-            bs, br = btn_font.render("교체하기", ET["gold_bright"] if swap_hover else ET["text_body"])
+            bs, br = btn_font.render(_t("arena.swap", "교체하기"), ET["gold_bright"] if swap_hover else ET["text_body"])
             if bs:
                 self.screen.blit(bs, (swap_rect.centerx - br.width // 2, swap_rect.centery - br.height // 2))
         # 유지하기 버튼
@@ -19186,7 +19194,7 @@ class ColosseumsArena:
         if keep_hover:
             pygame.draw.rect(self.screen, (0, 0, 0), keep_rect.inflate(-4, -4), 0, border_radius=4)
         if btn_font:
-            ks, kr = btn_font.render("유지하기", ET["malachite"] if keep_hover else ET["text_body"])
+            ks, kr = btn_font.render(_t("arena.keep", "유지하기"), ET["malachite"] if keep_hover else ET["text_body"])
             if ks:
                 self.screen.blit(ks, (keep_rect.centerx - kr.width // 2, keep_rect.centery - kr.height // 2))
 
@@ -20832,7 +20840,7 @@ class ColosseumsArena:
                 start_x = hero1_x - total_w // 2
                 # "하수인" 라벨
                 if "small" in self.fonts:
-                    lbl_surf, _ = self.fonts["small"].render("하수인", (160, 120, 180))
+                    lbl_surf, _ = self.fonts["small"].render(_t("arena.henchman", "하수인"), (160, 120, 180))
                     self.screen.blit(lbl_surf, (hero1_x - lbl_surf.get_width() // 2, hench_y - 14))
                 hench_y += 4
                 for hi, hench in enumerate(h1_henchmen):
@@ -20940,7 +20948,7 @@ class ColosseumsArena:
                 start_x = hero2_x - total_w // 2
                 # "하수인" 라벨
                 if "small" in self.fonts:
-                    lbl_surf, _ = self.fonts["small"].render("하수인", (160, 120, 180))
+                    lbl_surf, _ = self.fonts["small"].render(_t("arena.henchman", "하수인"), (160, 120, 180))
                     self.screen.blit(lbl_surf, (hero2_x - lbl_surf.get_width() // 2, hench_y - 14))
                 hench_y += 4
                 for hi, hench in enumerate(h2_henchmen):
