@@ -22394,14 +22394,10 @@ def play_paddle_sound():
 
 def play_button_hover_sound():
     """버튼 호버 사운드 재생"""
-    global sfx_volume
-    SOUND_BUTTON_HOVER.set_volume(sfx_volume)
     play_sound_with_volume(SOUND_BUTTON_HOVER)
 
 def play_button_click_sound():
     """버튼 클릭 사운드 재생"""
-    global sfx_volume
-    SOUND_BUTTON_CLICK.set_volume(sfx_volume)
     play_sound_with_volume(SOUND_BUTTON_CLICK)
 
 
@@ -129572,7 +129568,6 @@ def show_character_selection():
                 elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
                     if characters[selected]["unlocked"] and not card_pickup_active:
                         if _card_select_sound:
-                            _card_select_sound.set_volume(sfx_volume)
                             play_sound_with_volume(_card_select_sound)
                         else:
                             play_button_click_sound()
@@ -129688,7 +129683,6 @@ def show_character_selection():
                         # 중앙 선택 카드 클릭 시 확정(시작)
                         if characters[selected]["unlocked"] and not card_pickup_active:
                             if _card_select_sound:
-                                _card_select_sound.set_volume(sfx_volume)
                                 play_sound_with_volume(_card_select_sound)
                             else:
                                 play_button_click_sound()
@@ -170643,10 +170637,11 @@ def set_sfx_volume(volume):
     """효과음 볼륨 설정 함수"""
     global sfx_volume
     sfx_volume = set_sfx_volume_state(volume)
-    # 모든 효과음 채널의 볼륨 조절
-    for i in range(pygame.mixer.get_num_channels()):
-        channel = pygame.mixer.Channel(i)
-        channel.set_volume(sfx_volume)
+    # NOTE: 채널 볼륨은 건드리지 않는다.
+    # pygame 최종 볼륨 = Sound.volume × Channel.volume 이므로
+    # 여기서 Channel.set_volume(sfx_volume)을 하면 이미
+    # Sound.set_volume(sfx_volume)을 거친 사운드가 sfx_volume² 로 재생된다.
+    # sfx_volume은 play_sound_with_volume() 등 재생 시점에서 Sound에 적용된다.
     return sfx_volume
 
 def show_surrender_confirm():
