@@ -156949,6 +156949,7 @@ def main(stage_num, new_boss_mode=False):
     global spinning_claw_active, spinning_claw_timer, spinning_claw_last_used, spinning_claw_direction
     global spinning_claw_hit_x, spinning_claw_hit_y
     global web_traps, web_trap_last_used
+    global selected_character_type
     if stage_num != 30 and arena_mode_enabled:
         print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
         arena_mode_enabled = False
@@ -157174,7 +157175,6 @@ def main(stage_num, new_boss_mode=False):
     global game_paused, game_paused_by_tooltip
     # 코만도 총알 시스템
     global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
-    global selected_character_type
     # 코만도 무기 HUD/선택 상태 (전역)
     global soldier_weapon_menu_active, soldier_weapon_hold_frames, soldier_weapon_number_prev, soldier_weapon_menu_close_suppress_frames
     global soldier_weapon_switch_suppress_frames
