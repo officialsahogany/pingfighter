@@ -64,10 +64,8 @@ class ValhallaWarplateState:
         self.enhancement_bonus_pct = 0
 
         # 캐시 (프레임마다 재생성 방지)
-        self._cached_font_main = None   # pygame.freetype.Font 캐시
-        self._cached_font_name = None
         self._cached_sounds = {}        # {filename: pygame.mixer.Sound}
-        self._cached_surfaces = {}      # {key: pygame.Surface} 재사용 서피스
+        self._cached_surfaces = {}      # {key: pygame.Surface / pygame.freetype.Font}
 
         # 소환 관리
         self.state = self.IDLE
@@ -794,7 +792,7 @@ class ValhallaWarplateState:
         screen.blit(dissolve_surf, (0, 0))
 
     def draw_portal(self, screen: pygame.Surface):
-        """포탈 이펙트 드로잉 (매혹 차원의 문과 동일 구조, 황금빛 고퀄리티)"""
+        """포탈 이펙트 드로잉 (최적화: 단일 재사용 Surface)"""
         if self.state not in (self.PORTAL_DESCEND, self.PORTAL_ASCEND):
             return
 
@@ -804,8 +802,8 @@ class ValhallaWarplateState:
 
         cx = int(self.portal_x)
         cy = int(self.PORTAL_Y)
-        pw = int(50 * scale)    # 포탈 너비 (약간 키움)
-        ph = int(70 * scale)    # 포탈 높이 (세로 타원)
+        pw = int(50 * scale)
+        ph = int(70 * scale)
         if pw < 2 or ph < 2:
             return
 
@@ -813,190 +811,129 @@ class ValhallaWarplateState:
         t = self.portal_timer
         flash = getattr(self, 'portal_flash', 0.0)
 
-        # ── 0) 플래시 (진입/퇴장 순간 화면 반짝) ──
+        # 단일 포탈 Surface (재사용)
+        PS = 300  # 포탈 렌더 영역 크기
+        portal_surf = self._get_surface('portal_main', PS, PS)
+        pc = PS // 2  # 포탈 중심
+
+        # ── 0) 플래시 ──
         if flash > 0.05:
-            flash_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
-            flash_surf.fill((255, 230, 150, _c(80 * flash)))
-            screen.blit(flash_surf, (0, 0))
+            flash_s = self._get_surface('portal_flash', 760, 750)
+            flash_s.fill((255, 230, 150, _c(80 * flash)))
+            screen.blit(flash_s, (0, 0))
 
-        # ── 0.5) 시공간 균열 (포탈 열리기 전, scale < 0.6) ──
+        # ── 0.5) 시공간 균열 (scale < 0.6) ──
         if scale < 0.6:
-            crack_intensity = 1.0 - scale / 0.6  # 1.0 → 0.0 (포탈이 열리면서 사라짐)
-            crack_surf = pygame.Surface((200, 200), pygame.SRCALPHA)
-            crack_cx, crack_cy = 100, 100
-
-            # 균열선 (중앙에서 뻗어나가는 불규칙한 갈라진 선들)
+            ci_val = 1.0 - scale / 0.6
+            crack_s = self._get_surface('portal_crack', 200, 200)
+            cc = 100
             _rng = _vfx_rng
-            _rng.seed(int(t * 2))  # 시간에 따라 약간씩 변화하되 안정적
-            num_cracks = 6 + int(scale * 8)
-            for ci in range(num_cracks):
-                angle = ci * (math.pi * 2 / num_cracks) + math.sin(t * 1.5 + ci) * 0.3
+            _rng.seed(int(t * 2))
+            for ci in range(6 + int(scale * 8)):
+                angle = ci * (math.pi * 2 / max(1, 6 + int(scale * 8))) + math.sin(t * 1.5 + ci) * 0.3
                 length = int(20 + 60 * scale + _rng.uniform(-10, 10))
-                pts = [(crack_cx, crack_cy)]
-                segments = _rng.randint(3, 6)
-                for seg in range(segments):
-                    frac = (seg + 1) / segments
-                    nx = crack_cx + int(math.cos(angle) * length * frac)
-                    ny = crack_cy + int(math.sin(angle) * length * frac)
-                    nx += _rng.randint(-6, 6)
-                    ny += _rng.randint(-6, 6)
-                    pts.append((nx, ny))
+                pts = [(cc, cc)]
+                for seg in range(_rng.randint(3, 5)):
+                    frac = (seg + 1) / 4
+                    pts.append((cc + int(math.cos(angle) * length * frac) + _rng.randint(-5, 5),
+                                cc + int(math.sin(angle) * length * frac) + _rng.randint(-5, 5)))
                 if len(pts) >= 2:
-                    ca = _c(120 * crack_intensity)
-                    pygame.draw.lines(crack_surf, (200, 160, 40, ca), False, pts, 3)
-                    ca2 = _c(200 * crack_intensity)
-                    pygame.draw.lines(crack_surf, (255, 230, 140, ca2), False, pts, 1)
-                    if seg > 1:
-                        ex, ey = pts[-1]
-                        spark_a = _c(150 * crack_intensity)
-                        pygame.draw.circle(crack_surf, (255, 240, 160, spark_a), (ex, ey), 2)
+                    pygame.draw.lines(crack_s, (200, 160, 40, _c(120 * ci_val)), False, pts, 2)
+                    pygame.draw.lines(crack_s, (255, 230, 140, _c(180 * ci_val)), False, pts, 1)
+            # 중앙 왜곡
+            dr = max(2, int(5 + 8 * scale))
+            da = _c((100 + 60 * ((math.sin(t * 8) + 1) * 0.5)) * ci_val)
+            pygame.draw.circle(crack_s, (255, 240, 180, da), (cc, cc), dr)
+            screen.blit(crack_s, (cx - cc, cy - cc))
 
-            # 중앙 왜곡 효과 (시공간이 찢어지는 느낌의 밝은 점)
-            distort_pulse = (math.sin(t * 8) + 1) * 0.5
-            distort_r = max(2, int(5 + 8 * scale))
-            distort_a = _c((100 + 60 * distort_pulse) * crack_intensity)
-            pygame.draw.circle(crack_surf, (255, 240, 180, distort_a),
-                             (crack_cx, crack_cy), distort_r)
-            # 내부 흰색 점 (더 밝게)
-            pygame.draw.circle(crack_surf, (255, 255, 240, _c(distort_a * 0.8)),
-                             (crack_cx, crack_cy), max(1, distort_r // 2))
-
-            # 파편 입자 (균열에서 떨어져 나오는 작은 조각들)
-            for fi in range(int(8 * crack_intensity)):
-                f_angle = _rng.uniform(0, math.pi * 2)
-                f_dist = _rng.uniform(15, 50 + 30 * scale)
-                fx = crack_cx + int(math.cos(f_angle + t * 0.5) * f_dist)
-                fy = crack_cy + int(math.sin(f_angle + t * 0.5) * f_dist)
-                f_sz = _rng.randint(1, 3)
-                fa = _c(120 * crack_intensity * _rng.uniform(0.3, 1.0))
-                if _rng.random() < 0.3:
-                    fc = (255, 220, 100, fa)  # 금빛
-                else:
-                    fc = (200, 180, 140, fa)  # 돌조각 색
-                pygame.draw.circle(crack_surf, fc, (fx, fy), f_sz)
-
-            screen.blit(crack_surf, (cx - 100, cy - 100))
-
-        # ── 1) 외곽 글로우 (3중, 넓게 퍼지는 황금 빛) ──
+        # ── 1) 외곽 글로우 (portal_surf에 그림) ──
         for gi in range(3):
             gw = pw * (4 - gi) + 10
             gh = ph * (4 - gi) + 10
             if gw > 0 and gh > 0:
-                gs = pygame.Surface((gw, gh), pygame.SRCALPHA)
                 pulse = (math.sin(t * 3.5 + gi * 0.5) + 1) * 0.5
                 ga = _c((20 + 15 * pulse) * scale)
                 colors = [(220, 180, 50), (200, 150, 30), (180, 130, 20)]
-                pygame.draw.ellipse(gs, (*colors[gi], ga), (0, 0, gw, gh))
-                screen.blit(gs, (cx - gw // 2, cy - gh // 2))
+                pygame.draw.ellipse(portal_surf, (*colors[gi], ga),
+                                   (pc - gw // 2, pc - gh // 2, gw, gh))
 
-        # ── 2) 검은 코어 (공허의 구멍, 깊은 어둠) ──
-        core_w, core_h = int(pw * 1.6), int(ph * 1.6)
-        core_surf = pygame.Surface((core_w, core_h), pygame.SRCALPHA)
-        # 2중 코어 (더 깊은 느낌)
-        pygame.draw.ellipse(core_surf, (5, 3, 12, 240), (0, 0, core_w, core_h))
-        inner_m = max(2, int(core_w * 0.15))
-        pygame.draw.ellipse(core_surf, (2, 1, 6, 250),
-                           (inner_m, inner_m, core_w - inner_m * 2, core_h - inner_m * 2))
-        screen.blit(core_surf, (cx - core_w // 2, cy - core_h // 2))
+        # ── 2) 검은 코어 ──
+        cw, ch = int(pw * 1.6), int(ph * 1.6)
+        if cw > 2 and ch > 2:
+            pygame.draw.ellipse(portal_surf, (5, 3, 12, 240),
+                               (pc - cw // 2, pc - ch // 2, cw, ch))
+            im = max(2, int(cw * 0.15))
+            pygame.draw.ellipse(portal_surf, (2, 1, 6, 250),
+                               (pc - cw // 2 + im, pc - ch // 2 + im, cw - im * 2, ch - im * 2))
 
-        # ── 3) 에너지 링 (6중 레이어, 밝은 금→어두운 금) ──
-        for i in range(6):
-            ring_w = pw + i * 4 + 3
-            ring_h = ph + i * 4 + 3
-            pulse_offset = math.sin(t * (4 + i * 0.7) + i * 1.0) * 0.3 + 0.7
-            alpha = _c((180 - i * 25) * pulse_offset * scale)
-            if alpha < 8:
+        # ── 3) 에너지 링 (4중으로 축소) ──
+        for i in range(4):
+            rw = pw + i * 5 + 3
+            rh = ph + i * 5 + 3
+            po = math.sin(t * (4 + i * 0.8) + i) * 0.3 + 0.7
+            ra = _c((160 - i * 35) * po * scale)
+            if ra < 8:
                 continue
-            ring_surf = pygame.Surface((ring_w * 2 + 4, ring_h * 2 + 4), pygame.SRCALPHA)
-            # 밝은 금(안쪽) → 어두운 금(바깥)
-            r = min(255, 255 - i * 8)
-            g = min(255, 220 - i * 20)
-            b = min(255, 80 + i * 10)
-            thickness = max(1, 4 - i)
-            pygame.draw.ellipse(ring_surf, (r, g, b, alpha),
-                                (0, 0, ring_w * 2 + 4, ring_h * 2 + 4), thickness)
-            screen.blit(ring_surf, (cx - ring_w - 2, cy - ring_h - 2))
+            r = min(255, 255 - i * 10)
+            g = min(255, 220 - i * 25)
+            b = min(255, 80 + i * 12)
+            pygame.draw.ellipse(portal_surf, (r, g, b, ra),
+                               (pc - rw, pc - rh, rw * 2, rh * 2), max(1, 3 - i))
 
-        # ── 4) 소용돌이 에너지 (16개, 단일 Surface에 일괄 렌더) ──
-        swirl_size = max(pw, ph) * 2 + 20
-        if swirl_size > 10:
-            swirl_surf = pygame.Surface((int(swirl_size), int(swirl_size)), pygame.SRCALPHA)
-            sc = int(swirl_size) // 2
-            for j in range(16):
-                angle = self.portal_angle + j * (math.pi * 2 / 16)
-                r_mult = 0.5 + 0.2 * math.sin(t * 2.5 + j * 0.4)
-                sx = sc + int(math.cos(angle) * pw * r_mult)
-                sy = sc + int(math.sin(angle) * ph * r_mult)
-                sz = max(1, int(2.5 + 1.5 * math.sin(t * 5 + j)))
-                phase = (j + t * 2) % 3
-                if phase < 1:
-                    color = (255, 220, 80, 200)
-                elif phase < 2:
-                    color = (255, 245, 180, 180)
-                else:
-                    color = (255, 180, 50, 170)
-                pygame.draw.circle(swirl_surf, color, (sx, sy), sz)
-            # 내부 소용돌이 (역방향, 8개)
-            for k in range(8):
-                angle = -self.portal_angle * 1.8 + k * (math.pi * 2 / 8)
-                r_mult = 0.25 + 0.1 * math.sin(t * 4 + k)
-                ix = sc + int(math.cos(angle) * pw * r_mult)
-                iy = sc + int(math.sin(angle) * ph * r_mult)
-                pygame.draw.circle(swirl_surf, (255, 240, 160, 150), (ix, iy), 2)
-            screen.blit(swirl_surf, (cx - sc, cy - sc))
+        # ── 4) 소용돌이 + 내부 (portal_surf에 직접) ──
+        for j in range(12):
+            angle = self.portal_angle + j * (math.pi * 2 / 12)
+            rm = 0.5 + 0.2 * math.sin(t * 2.5 + j * 0.5)
+            sx = pc + int(math.cos(angle) * pw * rm)
+            sy = pc + int(math.sin(angle) * ph * rm)
+            sz = max(1, int(2 + 1.5 * math.sin(t * 5 + j)))
+            cols = [(255, 220, 80, 200), (255, 245, 180, 180), (255, 180, 50, 170)]
+            pygame.draw.circle(portal_surf, cols[j % 3], (sx, sy), sz)
+        for k in range(6):
+            angle = -self.portal_angle * 1.8 + k * (math.pi * 2 / 6)
+            rm = 0.25 + 0.1 * math.sin(t * 4 + k)
+            pygame.draw.circle(portal_surf, (255, 240, 160, 140),
+                             (pc + int(math.cos(angle) * pw * rm),
+                              pc + int(math.sin(angle) * ph * rm)), 2)
 
-        # ── 6) 전기 아크 (황금 번개) ──
+        # ── 5) 전기 아크 (portal_surf에 직접) ──
         for arc in self.portal_lightning:
             ratio = arc['life'] / arc['max_life']
-            arc_alpha = _c(240 * ratio)
+            aa = _c(220 * ratio)
             sa = arc['angle']
             al = arc['length'] * scale
-            sx = cx + int(math.cos(sa) * pw)
-            sy = cy + int(math.sin(sa) * ph)
-            points = [(sx, sy)]
+            sx = pc + int(math.cos(sa) * pw)
+            sy = pc + int(math.sin(sa) * ph)
+            pts = [(sx, sy)]
             for seg in range(arc['segments']):
                 frac = (seg + 1) / arc['segments']
-                nx = sx + int(math.cos(sa) * al * frac) + random.randint(-5, 5)
-                ny = sy + int(math.sin(sa) * al * frac) + random.randint(-5, 5)
-                points.append((nx, ny))
-            if len(points) >= 2:
-                buf_w, buf_h = int(pw * 3), int(ph * 3)
-                if buf_w > 4 and buf_h > 4:
-                    arc_s = pygame.Surface((buf_w, buf_h), pygame.SRCALPHA)
-                    ox, oy = cx - buf_w // 2, cy - buf_h // 2
-                    adj = [(p[0] - ox, p[1] - oy) for p in points]
-                    try:
-                        # 글로우 (두꺼운)
-                        pygame.draw.lines(arc_s, (255, 200, 80, _c(arc_alpha * 0.4)), False, adj, 3)
-                        # 본체 (얇은)
-                        pygame.draw.lines(arc_s, (255, 240, 160, arc_alpha), False, adj, 1)
-                    except Exception:
-                        pass
-                    screen.blit(arc_s, (ox, oy))
+                pts.append((sx + int(math.cos(sa) * al * frac) + _vfx_rng.randint(-4, 4),
+                            sy + int(math.sin(sa) * al * frac) + _vfx_rng.randint(-4, 4)))
+            if len(pts) >= 2:
+                try:
+                    pygame.draw.lines(portal_surf, (255, 240, 160, aa), False, pts, 1)
+                except Exception:
+                    pass
 
-        # ── 7) 흩어지는 파티클 (단일 Surface에 일괄) ──
-        if self.portal_particles:
-            p_surf = pygame.Surface((200, 200), pygame.SRCALPHA)
-            p_cx, p_cy = 100, 100
-            for p in self.portal_particles:
-                ratio = p['life'] / p['max_life']
-                alpha = _c(200 * ratio)
-                sz = max(1, int(p['size'] * ratio))
-                px = p_cx + int(p['x'] - self.portal_x)
-                py = p_cy + int(p['y'] - self.PORTAL_Y)
-                if 0 <= px < 200 and 0 <= py < 200:
-                    c = (255, 220, 80, alpha) if int(p['angle'] * 10) % 2 == 0 else (255, 190, 50, alpha)
-                    pygame.draw.circle(p_surf, c, (px, py), sz)
-            screen.blit(p_surf, (cx - p_cx, cy - p_cy))
+        # ── 6) 파티클 (portal_surf에 직접) ──
+        for p in self.portal_particles:
+            ratio = p['life'] / p['max_life']
+            pa = _c(180 * ratio)
+            sz = max(1, int(p['size'] * ratio))
+            px = pc + int(p['x'] - self.portal_x)
+            py = pc + int(p['y'] - self.PORTAL_Y)
+            if 0 <= px < PS and 0 <= py < PS:
+                pygame.draw.circle(portal_surf, (255, 220, 80, pa), (px, py), sz)
 
-        # ── 8) 중앙 코어 빛 ──
-        core_r = max(3, int(8 * scale))
+        # ── 7) 코어 빛 ──
+        cr = max(3, int(8 * scale))
         pulse = (math.sin(t * 6) + 1) * 0.5
-        cg_a = _c(80 + 60 * pulse)
-        cg = pygame.Surface((core_r * 4, core_r * 4), pygame.SRCALPHA)
-        pygame.draw.circle(cg, (255, 240, 180, cg_a), (core_r * 2, core_r * 2), core_r * 2)
-        pygame.draw.circle(cg, (255, 250, 220, _c(cg_a * 1.3)), (core_r * 2, core_r * 2), core_r)
-        screen.blit(cg, (cx - core_r * 2, cy - core_r * 2))
+        ca = _c(80 + 60 * pulse)
+        pygame.draw.circle(portal_surf, (255, 240, 180, ca), (pc, pc), cr * 2)
+        pygame.draw.circle(portal_surf, (255, 250, 220, _c(ca * 1.3)), (pc, pc), cr)
+
+        # 1회 blit
+        screen.blit(portal_surf, (cx - pc, cy - pc))
 
 
 # ── 싱글톤 ──────────────────────────────────────────────────────
