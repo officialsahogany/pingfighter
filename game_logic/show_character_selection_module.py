@@ -14,6 +14,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 게임 상수 임포트
 from config.constants import WIDTH, HEIGHT
 
+try:
+    from localization.manager import get_localization_manager as _get_loc
+    def _t(key, fallback=""):
+        return _get_loc().get_text(key, fallback)
+except ImportError:
+    def _t(key, fallback=""):
+        return fallback
+
 # 전역 screen 객체 가져오기
 def get_screen():
     return pygame.display.get_surface() or pygame.display.set_mode((WIDTH, HEIGHT))
@@ -41,89 +49,94 @@ def show_character_selection():
     SOUND_BUTTON_HOVER = sounds['SOUND_BUTTON_HOVER']
     clock = pygame.time.Clock()
     
-    # 6개 캐릭터 정의 (해금 시스템 포함)
+    # 스탯 키 번역
+    _spd = _t("char.stat.speed", "속도")
+    _pwr = _t("char.stat.power", "파워")
+    _def = _t("char.stat.defense", "방어")
+
+    # 7개 캐릭터 정의 (해금 시스템 포함)
     characters = [
         {
             "id": "ufo_player",
-            "name": "스매셔",
-            "description": "게이지 폭발로 연속 파워스매시.\n공격 템포를 쥐는 핵심 스트라이커.",
+            "name": _t("char.ufo_player", "스매셔"),
+            "description": _t("char.ufo_player.desc", "게이지 폭발로 연속 파워스매시.\n공격 템포를 쥐는 핵심 스트라이커."),
             "image": "ufo_player.png",
-            "stats": {"속도": 5, "파워": 5, "방어": 5},
-            "special": "🌟 평범하지만 안정적인 플레이",
+            "stats": {_spd: 5, _pwr: 5, _def: 5},
+            "special": _t("char.ufo_player.special", "🌟 평범하지만 안정적인 플레이"),
             "unlocked": True,
-            "card_color": (0, 255, 255),  # 사이버 청록
+            "card_color": (0, 255, 255),
             "glow_color": (0, 200, 255),
             "card_suit": "◆"
         },
         {
             "id": "speed_player",
-            "name": "스피드 레이서",
-            "description": "순간 가속과 체공 드리프트.\n스텝 페인트로 빈틈을 찌름.",
+            "name": _t("char.speed_player", "스피드 레이서"),
+            "description": _t("char.speed_player.desc", "순간 가속과 체공 드리프트.\n스텝 페인트로 빈틈을 찌름."),
             "image": "speed_player.png",
-            "stats": {"속도": 8, "파워": 3, "방어": 4},
-            "special": "⚡ 고속 이동과 빠른 반응",
+            "stats": {_spd: 8, _pwr: 3, _def: 4},
+            "special": _t("char.speed_player.special", "⚡ 고속 이동과 빠른 반응"),
             "unlocked": False,
-            "card_color": (255, 0, 128),  # 네온 핑크
+            "card_color": (255, 0, 128),
             "glow_color": (255, 50, 150),
             "card_suit": "◆"
         },
         {
-            "id": "power_player", 
-            "name": "파워 스매셔",
-            "description": "초중량 파워샷 한 방 역전.\n충돌 이후에도 압박 지속.",
+            "id": "power_player",
+            "name": _t("char.power_player", "파워 스매셔"),
+            "description": _t("char.power_player.desc", "초중량 파워샷 한 방 역전.\n충돌 이후에도 압박 지속."),
             "image": "power_player.png",
-            "stats": {"속도": 3, "파워": 8, "방어": 4},
-            "special": "💪 강력한 스매싱과 파워샷",
+            "stats": {_spd: 3, _pwr: 8, _def: 4},
+            "special": _t("char.power_player.special", "💪 강력한 스매싱과 파워샷"),
             "unlocked": False,
-            "card_color": (255, 128, 0),  # 네온 오렌지
+            "card_color": (255, 128, 0),
             "glow_color": (255, 150, 50),
             "card_suit": "◆"
         },
         {
             "id": "defense_player",
-            "name": "가디언",
-            "description": "다층 방벽으로 라인 봉쇄.\n정밀 카운터로 역습 완성.",
-            "image": "defense_player.png", 
-            "stats": {"속도": 4, "파워": 3, "방어": 8},
-            "special": "🛡️ 뛰어난 방어력과 카운터",
+            "name": _t("char.defense_player", "가디언"),
+            "description": _t("char.defense_player.desc", "다층 방벽으로 라인 봉쇄.\n정밀 카운터로 역습 완성."),
+            "image": "defense_player.png",
+            "stats": {_spd: 4, _pwr: 3, _def: 8},
+            "special": _t("char.defense_player.special", "🛡️ 뛰어난 방어력과 카운터"),
             "unlocked": False,
-            "card_color": (128, 255, 0),  # 네온 그린
+            "card_color": (128, 255, 0),
             "glow_color": (150, 255, 50),
             "card_suit": "◆"
         },
         {
             "id": "tech_player",
-            "name": "테크 마스터",
-            "description": "드론·트랩으로 리듬 해킹.\n상황별 버프로 멀티 컨트롤.",
+            "name": _t("char.tech_player", "테크 마스터"),
+            "description": _t("char.tech_player.desc", "드론·트랩으로 리듬 해킹.\n상황별 버프로 멀티 컨트롤."),
             "image": "tech_player.png",
-            "stats": {"속도": 6, "파워": 6, "방어": 3},
-            "special": "🔧 특수 아이템과 기술력",
+            "stats": {_spd: 6, _pwr: 6, _def: 3},
+            "special": _t("char.tech_player.special", "🔧 특수 아이템과 기술력"),
             "unlocked": False,
-            "card_color": (128, 0, 255),  # 네온 퍼플
+            "card_color": (128, 0, 255),
             "glow_color": (150, 50, 255),
             "card_suit": "◆"
         },
         {
             "id": "mystic_player",
-            "name": "미스틱",
-            "description": "시간 왜곡으로 타이밍 파괴.\n궤도 교란으로 패턴 전복.",
+            "name": _t("char.mystic_player", "미스틱"),
+            "description": _t("char.mystic_player.desc", "시간 왜곡으로 타이밍 파괴.\n궤도 교란으로 패턴 전복."),
             "image": "mystic_player.png",
-            "stats": {"속도": 7, "파워": 7, "방어": 1},
-            "special": "🌟 예측 불가능한 특수 능력",
+            "stats": {_spd: 7, _pwr: 7, _def: 1},
+            "special": _t("char.mystic_player.special", "🌟 예측 불가능한 특수 능력"),
             "unlocked": False,
-            "card_color": (255, 255, 0),  # 네온 옐로우
+            "card_color": (255, 255, 0),
             "glow_color": (255, 255, 100),
             "card_suit": "◆"
         },
         {
             "id": "viper",
-            "name": "바이퍼",
-            "description": "빠른 연속 슬래시로 적을 베어내는\n사이버 어쌔신.",
+            "name": _t("char.viper", "바이퍼"),
+            "description": _t("char.viper.desc", "빠른 연속 슬래시로 적을 베어내는\n사이버 어쌔신."),
             "image": "viper.png",
-            "stats": {"속도": 4, "파워": 5, "방어": 3},
-            "special": "⚔ 플라즈마 블레이드 전용 스킬트리",
+            "stats": {_spd: 4, _pwr: 5, _def: 3},
+            "special": _t("char.viper.special", "⚔ 플라즈마 블레이드 전용 스킬트리"),
             "unlocked": True,
-            "card_color": (160, 0, 255),  # 네온 퍼플
+            "card_color": (160, 0, 255),
             "glow_color": (180, 50, 255),
             "card_suit": "◆"
         }
