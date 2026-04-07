@@ -122776,13 +122776,26 @@ def _play_replay(filepath: str):
     except Exception:
         pass
 
-    # 재생 대상: 전체화면이면 REAL_SCREEN에 직접, 아니면 SCREEN
-    if _is_fullscreen_active and REAL_SCREEN is not None:
-        _draw_screen = REAL_SCREEN
+    # 재생 대상: 항상 SCREEN(760x750)에 그림 — SCALED 모드 호환
+    # 캡처 해상도가 다르면 비율 유지 letterbox로 맞춤
+    _draw_screen = SCREEN
+    _dw = WIDTH
+    _dh = HEIGHT
+    _cap_w = rp.scaled_w  # 캡처된 원본 해상도
+    _cap_h = rp.scaled_h
+    # letterbox 계산: 캡처 비율을 SCREEN 안에 맞추기
+    _cap_ratio = _cap_w / _cap_h if _cap_h > 0 else 1.0
+    _scr_ratio = _dw / _dh
+    if _cap_ratio > _scr_ratio:
+        # 캡처가 더 넓음 → 좌우 맞추고 상하 레터박스
+        _fit_w = _dw
+        _fit_h = int(_dw / _cap_ratio)
     else:
-        _draw_screen = SCREEN
-    _dw = _draw_screen.get_width()
-    _dh = _draw_screen.get_height()
+        # 캡처가 더 좁음 → 상하 맞추고 좌우 레터박스
+        _fit_h = _dh
+        _fit_w = int(_dh * _cap_ratio)
+    _fit_x = (_dw - _fit_w) // 2
+    _fit_y = (_dh - _fit_h) // 2
 
     info_font = get_font(14)
     speed_font = get_font(16)
@@ -122877,9 +122890,10 @@ def _play_replay(filepath: str):
         if surf is None:
             continue
 
-        # ── 게임 화면 표시 (캡처된 화면을 재생 Surface 크기로 확대) ──
-        scaled = pygame.transform.scale(surf, (_dw, _dh))
-        _draw_screen.blit(scaled, (0, 0))
+        # ── 게임 화면 표시 (비율 유지 letterbox) ──
+        _draw_screen.fill((0, 0, 0))
+        scaled = pygame.transform.scale(surf, (_fit_w, _fit_h))
+        _draw_screen.blit(scaled, (_fit_x, _fit_y))
 
         # ── 하단 컨트롤 오버레이 (마우스 하단 호버 또는 일시정지 시에만 표시) ──
         mouse_pos = pygame.mouse.get_pos()
