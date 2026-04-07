@@ -157041,19 +157041,19 @@ def main(stage_num, new_boss_mode=False):
     # 메인 메뉴 BGM 정지
     bgm_manager.stop_bgm()
 
-    # 🎬 리플레이 자동 녹화 시작
+    # 🎬 리플레이 자동 녹화 (비활성화)
     _replay_rec = get_replay_recorder()
-    try:
-        _replay_rec.start(
-            stage=stage_num,
-            boss_name=get_boss_name(stage_num),
-            ai_mode=ai_mode,
-            character=selected_character_type,
-            screen_w=WIDTH,
-            screen_h=HEIGHT,
-        )
-    except Exception as _re:
-        print(f"[Replay] 녹화 시작 실패: {_re}")
+    # try:
+    #     _replay_rec.start(
+    #         stage=stage_num,
+    #         boss_name=get_boss_name(stage_num),
+    #         ai_mode=ai_mode,
+    #         character=selected_character_type,
+    #         screen_w=WIDTH,
+    #         screen_h=HEIGHT,
+    #     )
+    # except Exception as _re:
+    #     print(f"[Replay] 녹화 시작 실패: {_re}")
 
     # BGM 볼륨 초기화
     global bgm_volume
