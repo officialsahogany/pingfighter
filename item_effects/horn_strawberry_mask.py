@@ -21,13 +21,12 @@ except Exception:
 # ── 상수 ──────────────────────────────────────────────────
 COMMAND_SEQUENCE = [pygame.K_a, pygame.K_w, pygame.K_d]  # A→W→D
 COMMAND_TIMEOUT = 1.5  # 커맨드 입력 허용 시간 (초)
-TRANSFORM_GAUGE_COST = 450  # 기본 게이지 소모 (롤옵션 400~500)
+TRANSFORM_GAUGE_COST = 500  # 게이지 소모 (고정)
 TRANSFORM_DURATION = 60.0  # 기본 변신 지속시간 (초, 롤옵션으로 변동)
 TRANSFORM_START_EVENT_DURATION = 3.0  # 변신 시작 이벤트 시간 (초)
 TRANSFORM_END_EVENT_DURATION = 2.0  # 변신 해제 이벤트 시간 (초)
 
 # 변신 중 능력치
-TRANSFORM_PADDLE_SIZE_BONUS = 0.30  # 패들 크기 30% 증가 (기본)
 TRANSFORM_MOVE_SPEED = 8  # 이동속도
 TRANSFORM_GAUGE_ON_HIT = 30  # 공 타격 시 게이지 회복
 
@@ -215,16 +214,16 @@ class HornStrawberryTransformState:
         # 롤옵션 캐시 (장착 시 동기화)
         self._transform_duration = TRANSFORM_DURATION
         self._gauge_cost = TRANSFORM_GAUGE_COST
-        self._paddle_size_bonus = TRANSFORM_PADDLE_SIZE_BONUS
+        self._paddle_size_bonus = 0.0  # 기본 패들 보너스 없음 (딸기먹기 성장만)
         self._eat_paddle_growth_bonus = 0.0
         self._eat_input_prev_down = False
 
     def sync_roll_options(self, legendary_item):
-        """전설 아이템 인스턴스에서 롤옵션 값 동기화"""
+        """전설 아이템 인스턴스에서 롤옵션 값 동기화 (변신 지속시간만)"""
         if legendary_item:
             self._transform_duration = legendary_item.transform_duration
-            self._gauge_cost = legendary_item.gauge_cost
-            self._paddle_size_bonus = legendary_item.paddle_size_bonus / 100.0
+            self._gauge_cost = TRANSFORM_GAUGE_COST  # 고정 500
+            self._paddle_size_bonus = 0.0  # 없음
 
     def reset(self):
         """게임 종료/메뉴 복귀 시 완전 초기화"""

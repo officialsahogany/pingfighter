@@ -107,8 +107,6 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     ],
     "horn_strawberry_mask": [
         {"key": "transform_duration", "label": "변신 지속시간", "min": 50, "max": 70, "unit": "초", "default": 60, "step": 5},
-        {"key": "gauge_cost", "label": "변신 게이지 소모", "min": 400, "max": 500, "unit": "", "default": 450, "reverse": True},
-        {"key": "paddle_size_bonus", "label": "패들 크기 증가", "min": 20, "max": 40, "unit": "%", "default": 30},
     ],
 }
 
@@ -12564,7 +12562,7 @@ class HornStrawberryMask(LegendaryItem):
     변신 중: 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30
     전용 스킬 3종: 뿔박치기(W), 딸기장판(S홀드), 딸기먹기(Space/마우스)
 
-    롤 옵션: 변신 지속시간 50~70초, 게이지 소모 200~350, 패들 크기 증가 20~40%
+    롤 옵션: 변신 지속시간 50~70초
     """
 
     def __init__(self):
@@ -12601,23 +12599,13 @@ class HornStrawberryMask(LegendaryItem):
 
     @property
     def gauge_cost(self) -> float:
-        """변신 게이지 소모량 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
-        return get_legendary_roll_value(
-            "horn_strawberry_mask",
-            "gauge_cost",
-            apply_polish=True,
-            enhancement_bonus_pct=self.enhancement_bonus_pct
-        )
+        """변신 게이지 소모량 (고정 500)"""
+        return 500
 
     @property
     def paddle_size_bonus(self) -> float:
-        """패들 크기 증가 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
-        return get_legendary_roll_value(
-            "horn_strawberry_mask",
-            "paddle_size_bonus",
-            apply_polish=True,
-            enhancement_bonus_pct=self.enhancement_bonus_pct
-        )
+        """패들 크기 증가 (없음 — 딸기먹기 성장만 적용)"""
+        return 0
 
     def _load_border_frames(self):
         """라그나로크 해머 PNG에서 4꼭지점만 추출한 프레임 로드"""
