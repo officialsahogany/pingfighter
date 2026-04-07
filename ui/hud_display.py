@@ -351,7 +351,7 @@ class HUDDisplay:
                 # play_sound_with_volume 사용하여 리플레이 사운드 훅도 작동
                 try:
                     from pingfighter import play_sound_with_volume as _play_sfx
-                    _play_sfx(HUDDisplay._roundset_sound, 0.4)
+                    _play_sfx(HUDDisplay._roundset_sound)
                 except Exception:
                     HUDDisplay._roundset_sound.play()
         except Exception:
