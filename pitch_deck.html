@@ -648,15 +648,15 @@ body {
 <h3 class="wiki-h3">3.1. 승리 조건 (포인트제)</h3>
 <div class="wiki-note">핑파이터에는 HP(체력) 개념이 없다. 순수하게 <b>포인트제 탁구</b>로 승부한다.</div>
 <p>
-공이 상대편 뒤로 빠지면 1포인트를 획득한다. <b>5포인트를 먼저 달성하면 1세트 승리</b>, <b>5세트를 먼저 달성하면 스테이지 클리어</b>이다.
+공이 상대편 뒤로 빠지면 1포인트를 획득한다. <b>5포인트를 먼저 달성하면 스테이지 클리어</b>이다. 동점 시 듀스 시스템이 발동한다.
 </p>
 <table class="wiki-table">
     <tr><th>규칙</th><th>내용</th></tr>
     <tr><td><b>1포인트</b></td><td>공이 상대 골라인 통과</td></tr>
-    <tr><td><b>1세트 승리</b></td><td>5포인트 선취</td></tr>
-    <tr><td><b>스테이지 클리어</b></td><td>5세트 선취</td></tr>
-    <tr><td><b>듀스</b></td><td>4-4 동점 시 2포인트 연속 선취 필요</td></tr>
-    <tr><td><b>매치 포인트</b></td><td>4세트 도달 시 특수 연출 발동</td></tr>
+    <tr><td><b>승리</b></td><td>5포인트 선취 (win_goal = 5)</td></tr>
+    <tr><td><b>듀스 (1차)</b></td><td>4:4 동점 시 발동 &rarr; 6점 선취 목표로 변경</td></tr>
+    <tr><td><b>듀스 (2차)</b></td><td>5:5 재동점 시 &rarr; 7점 선취 목표로 변경 (최대)</td></tr>
+    <tr><td><b>매치 포인트</b></td><td>한쪽이 4점 도달 시 특수 연출 발동</td></tr>
 </table>
 
 <h3 class="wiki-h3">3.2. 대시 시스템</h3>
@@ -715,14 +715,14 @@ body {
         <td><b style="color:#4caf50;">악어장군</b></td>
         <td>정글 / 늪지</td>
         <td>&#9733;&#9733;&#9734;&#9734;&#9734;</td>
-        <td>물 공격, 덤불 속 엄폐. 정글 환경 활용</td>
+        <td>정글 환경 활용. 덤불 엄폐</td>
     </tr>
     <tr>
         <td style="text-align:center; color:#e91e8b;">&#9733; 3</td>
         <td><b style="color:#e91e8b;">멘헤라걸</b></td>
         <td>멘헤라 / 인형</td>
         <td>&#9733;&#9733;&#9733;&#9734;&#9734;</td>
-        <td>감정 기반 패턴 변화 (평온/행복/슬픔). 눈물 공격, 먹기 애니메이션</td>
+        <td>감정 기반 패턴 변화. 먹기 애니메이션, 주사위 이벤트</td>
     </tr>
     <tr>
         <td style="text-align:center; color:#ff9800;">&#9733; 4</td>
@@ -767,104 +767,82 @@ body {
     <tr><td><b>미식</b></td><td>빠름</td><td>빠름</td><td>전체 + 쿨감</td></tr>
 </table>
 
-<h3 class="wiki-h3">4.2. 보스 스킬 예시</h3>
+<h3 class="wiki-h3">4.2. 보스 전투 메카닉 (실제 구현)</h3>
 <details class="wiki-collapse">
-    <summary>보스 스킬 상세 목록 (클릭하여 펼치기)</summary>
+    <summary>보스별 해금 메카닉 상세 (클릭하여 펼치기)</summary>
     <div class="collapse-content">
-        <h4 class="wiki-h4">번개 마스터 계열</h4>
+        <p>보스의 공격 패턴은 <b>플레이어 점수에 따라 점진적으로 해금</b>된다:</p>
         <table class="wiki-table">
-            <tr><th>스킬</th><th>쿨타임</th><th>효과</th></tr>
-            <tr><td>썬더 스트라이크</td><td>5초</td><td>번개 투사체, 1초 스턴</td></tr>
-            <tr><td>체인 라이트닝</td><td>8초</td><td>3회 바운스, 범위 150px</td></tr>
-            <tr><td>일렉트릭 필드</td><td>12초</td><td>반경 200px, 50% 감속</td></tr>
+            <tr><th>보스</th><th>해금 조건</th><th>메카닉</th></tr>
+            <tr><td><b>풍악보이</b></td><td>3점 이상</td><td>풍선 이벤트 (스테이지 전용)</td></tr>
+            <tr><td><b>멘헤라걸</b></td><td>3점 이상</td><td>쿠로미 각성 (패턴 변화)</td></tr>
+            <tr><td rowspan="2"><b>네메시스</b></td><td>2점 이상</td><td>레이저 + 실드 해금</td></tr>
+            <tr><td>4점 이상</td><td>회전 모드 해금</td></tr>
+            <tr><td><b>네메시스</b></td><td>3점 이상</td><td>서브 보스 스킬 / 물대포 해금</td></tr>
+            <tr><td><b>네메시스</b></td><td>상시</td><td>배리어 시스템 (무지개 모드 10~40초 쿨타임)</td></tr>
+            <tr><td><b>홍련</b></td><td>세트당</td><td>10타 제한 + 화염 이벤트</td></tr>
+            <tr><td><b>모든 보스</b></td><td>광폭화</td><td>전체 스킬 즉시 해금 + 속도 강화</td></tr>
         </table>
-        <h4 class="wiki-h4">화염 기사 계열</h4>
-        <table class="wiki-table">
-            <tr><th>스킬</th><th>쿨타임</th><th>효과</th></tr>
-            <tr><td>화염 파동</td><td>4초</td><td>300px 범위 파동, 속도 5</td></tr>
-            <tr><td>메테오 스트라이크</td><td>9초</td><td>운석 3개, 반경 80px</td></tr>
-            <tr><td>인페르노</td><td>15초</td><td>반경 250px 지속 화염</td></tr>
-        </table>
-        <h4 class="wiki-h4">빙결 여왕 계열</h4>
-        <table class="wiki-table">
-            <tr><th>스킬</th><th>쿨타임</th><th>효과</th></tr>
-            <tr><td>아이스 샤드</td><td>3초</td><td>투사체, 0.5초 빙결</td></tr>
-            <tr><td>블리자드</td><td>10초</td><td>반경 300px, 70% 감속</td></tr>
-            <tr><td>아이스 월</td><td>7초</td><td>이동 차단 벽 (200&times;30px)</td></tr>
-        </table>
+        <p>보스는 HP가 아닌 <b>포인트 실점</b>으로만 패배한다. AI 반응 속도와 공격 주기로 난이도를 표현.</p>
     </div>
 </details>
 
 <!-- ===== 5. 플레이어블 영웅 ===== -->
 <h2 class="wiki-h2" id="s5"><span class="section-num">5.</span> 플레이어블 영웅</h2>
-<p>7명의 고유 영웅이 존재하며, 각자 다른 스탯 분배와 전용 스킬 트리를 보유한다.</p>
+<p>현재 <b>6종의 캐릭터</b>가 구현되어 있으며, 각자 다른 플레이스타일과 전용 스킬 트리를 보유한다.</p>
 
 <table class="wiki-table dark">
     <tr>
         <th>영웅</th>
-        <th>속도</th>
-        <th>파워</th>
-        <th>방어</th>
+        <th>코드 ID</th>
         <th>특성</th>
-        <th>해금</th>
+        <th>전용 장비 / 스킬</th>
+        <th>상태</th>
     </tr>
     <tr>
         <td><b style="color:#58a6ff;">스매셔</b></td>
-        <td style="text-align:center;">5</td>
-        <td style="text-align:center;">5</td>
-        <td style="text-align:center;">5</td>
-        <td>게이지 폭발 &rarr; 체인 파워 스매시. 대시 스피릿 (레이저 잔상)</td>
-        <td style="color:#4caf50;">기본 해금</td>
+        <td>smasher</td>
+        <td>올라운더. 게이지 폭발 &rarr; 체인 파워 스매시</td>
+        <td>대시 스피릿, 플라즈마, 리커버리, 클렌즈 (퍽 해금)</td>
+        <td style="color:#4caf50;">구현 완료</td>
     </tr>
     <tr>
         <td><b style="color:#ff9800;">코만도</b></td>
-        <td style="text-align:center;">6</td>
-        <td style="text-align:center;">6</td>
-        <td style="text-align:center;">6</td>
-        <td>권총 사격 (탄창 개조), 화력지원/그물총/볼링트랩/자폭드론 해금</td>
-        <td style="color:#aaa;">잠금</td>
+        <td>soldier</td>
+        <td>화기 특화. 코만도암 기본 장착</td>
+        <td>권총 (탄창 개조), 화력지원/그물총/볼링트랩/자폭드론 (퍽 해금)</td>
+        <td style="color:#4caf50;">구현 완료</td>
     </tr>
     <tr>
         <td><b style="color:#9c27b0;">발토르</b></td>
-        <td style="text-align:center;">5</td>
-        <td style="text-align:center;">7</td>
-        <td style="text-align:center;">5</td>
-        <td>토르쉴드 방어, 건설 시스템, 광폭물약/수리키트 전용</td>
-        <td style="color:#aaa;">잠금</td>
+        <td>blacksmith</td>
+        <td>건설/방어 특화. 장인의 망치 + 벽돌 기본 장착</td>
+        <td>토르쉴드, 건설 시스템, 광폭물약/수리키트 전용. 아카데미 전용 트리</td>
+        <td style="color:#4caf50;">구현 완료</td>
     </tr>
     <tr>
         <td><b style="color:#4caf50;">바이퍼</b></td>
-        <td style="text-align:center;">4</td>
-        <td style="text-align:center;">5</td>
-        <td style="text-align:center;">3</td>
-        <td>제트팩, 마샬킥, 팬텀킥 연계 (최대 4연타). EMP 스트라이크</td>
-        <td style="color:#4caf50;">기본 해금</td>
+        <td>viper</td>
+        <td>공중기동 특화. 배터리 + 자기장 기본 장착</td>
+        <td>제트팩, 마샬킥, 팬텀킥 (4연타), EMP 스트라이크, 베놈 엣지</td>
+        <td style="color:#4caf50;">구현 완료</td>
     </tr>
     <tr>
         <td><b style="color:#f44336;">옵티머스</b></td>
-        <td style="text-align:center;">6</td>
-        <td style="text-align:center;">6</td>
-        <td style="text-align:center;">3</td>
-        <td>메카닉 계열. 게이지 효율, 비상충전, 옵티머스암 (보스 잡아 던지기)</td>
-        <td style="color:#aaa;">잠금</td>
+        <td>optimus</td>
+        <td>메카닉. 확대 히트박스, 에너지 시스템</td>
+        <td>옵티머스암 (보스 잡아 던지기), 비상충전, 일렉패드, 스타체인지</td>
+        <td style="color:#4caf50;">구현 완료</td>
     </tr>
     <tr>
-        <td><b style="color:#00bcd4;">가디언</b></td>
-        <td style="text-align:center;">4</td>
-        <td style="text-align:center;">3</td>
-        <td style="text-align:center;">8</td>
-        <td>다층 방어막 + 정밀 카운터. 탱크형</td>
-        <td style="color:#aaa;">잠금</td>
-    </tr>
-    <tr>
-        <td><b style="color:#e91e63;">미스틱</b></td>
-        <td style="text-align:center;">7</td>
-        <td style="text-align:center;">7</td>
-        <td style="text-align:center;">1</td>
-        <td>시간 왜곡 + 궤적 교란. 고위험 고보상 캐릭터</td>
-        <td style="color:#aaa;">잠금</td>
+        <td><b style="color:#8b949e;">기본 (Normal)</b></td>
+        <td>normal</td>
+        <td>스킬 없는 기본 패들</td>
+        <td>전용 스킬 없음</td>
+        <td style="color:#8b949e;">기본값</td>
     </tr>
 </table>
+<div class="wiki-note">캐릭터 카드 UI에는 추가 캐릭터(가디언, 미스틱, 스피드 레이서 등)가 표시되지만, 현재 빌드에서 전투 로직이 연결된 캐릭터는 위 6종이다.</div>
 
 <div class="screenshot-gallery">
     <div class="screenshot-item">
@@ -879,7 +857,7 @@ body {
 
 <!-- ===== 6. 아이템 시스템 ===== -->
 <h2 class="wiki-h2" id="s6"><span class="section-num">6.</span> 아이템 시스템</h2>
-<p>총 <b>78종</b>의 아이템이 존재하며, 3계층으로 분류된다. 필드 드롭, 가챠, 상점, 보물 탐색 등 다양한 경로로 획득할 수 있다.</p>
+<p>총 <b>78종</b>의 아이템이 존재하며, 3계층으로 분류된다. 필드 드롭, 가챠(500메달/회), 상점, 보물 탐색 등 다양한 경로로 획득할 수 있다.</p>
 
 <div class="content-stats">
     <div class="stat-card">
@@ -1102,15 +1080,14 @@ body {
 </div>
 
 <h3 class="wiki-h3">6.5. 가챠 시스템</h3>
-<p>캡슐 머신 연출로 아이템을 획득하는 시스템. 코인 투입 &rarr; 머신 회전 &rarr; 캡슐 낙하 &rarr; 결과 공개의 4단계 연출.</p>
+<p>캡슐 머신 연출로 아이템을 획득하는 시스템. <b>1회 500메달</b>. 코인 투입 &rarr; 머신 회전 &rarr; 캡슐 낙하 &rarr; 결과 공개. 1회 뽑기에 40개 캡슐 생성.</p>
 <table class="wiki-table">
-    <tr><th>등급</th><th>기본 확률</th><th>캡슐 색상</th></tr>
-    <tr><td><span class="tag tag-common">커먼</span></td><td>60%</td><td>회색</td></tr>
-    <tr><td><span class="tag tag-rare">레어</span></td><td>30%</td><td>파란색</td></tr>
-    <tr><td><span class="tag tag-epic">에픽</span></td><td>8%</td><td>보라색</td></tr>
-    <tr><td><span class="tag tag-legendary">레전더리</span></td><td>2%</td><td>금색</td></tr>
+    <tr><th>등급</th><th>기본 확률</th><th>보너스 적용 시</th></tr>
+    <tr><td><span class="tag tag-legendary">전설</span></td><td>5%</td><td>최대 30% (gacha_legendary_bonus 적용)</td></tr>
+    <tr><td><span class="tag tag-active">액티브</span></td><td>50%</td><td>잔여 확률의 50%</td></tr>
+    <tr><td><span class="tag tag-passive">패시브</span></td><td>45%</td><td>잔여 확률의 45%</td></tr>
 </table>
-<p>보물지도 스킬을 통해 전설 필드 확률 +350%, 가챠 전설 +7%까지 상향 가능.</p>
+<p>보물지도 스킬로 전설 필드 확률 +350%, 가챠 전설 보너스 상향 가능.</p>
 
 <div class="screenshot-gallery single">
     <div class="screenshot-item">
@@ -1182,7 +1159,7 @@ body {
 
 <!-- ===== 8. 콜로세움 ===== -->
 <h2 class="wiki-h2" id="s8"><span class="section-num">8.</span> 콜로세움 (아레나)</h2>
-<p>다운타운의 콜로세움에서 <b>AI 히어로들과 토너먼트 대전</b>을 벌이는 PvE 모드. 15명의 AI 영웅이 등장한다.</p>
+<p>다운타운의 콜로세움에서 <b>AI 히어로들과 대전</b>을 벌이는 PvE 아레나 모드. 15명의 AI 영웅 로스터가 구현되어 있다.</p>
 
 <h3 class="wiki-h3">8.1. 아레나 영웅 (15명)</h3>
 <table class="wiki-table dark">
@@ -1208,17 +1185,17 @@ body {
 
 <!-- ===== 9. 다운타운 ===== -->
 <h2 class="wiki-h2" id="s9"><span class="section-num">9.</span> 다운타운 (허브 월드)</h2>
-<p>보스 전투 사이에 탐험하는 <b>도시 허브 월드</b>. 타일 기반 자유 이동(19&times;50 타일, 760&times;2000px)으로 건물에 들어가 다양한 활동을 할 수 있다.</p>
+<p>보스 전투 사이에 탐험하는 <b>도시 허브 월드</b>. 타일 기반 자유 이동(19&times;50 타일, 760&times;2000px)으로 건물에 들어가 다양한 활동을 할 수 있다. 현재 <b>13종의 건물 타입</b>이 정의되어 있으며, 그 중 12종이 활성 상태.</p>
 
 <h3 class="wiki-h3">9.1. 시설 목록</h3>
 <table class="wiki-table">
     <tr><th>시설</th><th>한국어</th><th>기능</th><th>AP</th></tr>
-    <tr><td style="font-weight:700;">콜로세움</td><td>콜로세움</td><td>PvP 토너먼트. 15명의 AI 영웅과 대전</td><td>2</td></tr>
+    <tr><td style="font-weight:700;">콜로세움</td><td>고대 투기장</td><td>PvE 아레나. 15명의 AI 영웅 로스터와 대전</td><td>2</td></tr>
     <tr><td style="font-weight:700;">용광로 대장간</td><td>용광로 대장간</td><td>장비 강화 / 제련</td><td>1</td></tr>
     <tr><td style="font-weight:700;">모험가의 선술집</td><td>모험가의 선술집</td><td>퀘스트 / 정보 허브</td><td>1</td></tr>
     <tr><td style="font-weight:700;">스타뱅크</td><td>스타뱅크</td><td>화폐 교환 / 금융</td><td>1</td></tr>
     <tr><td style="font-weight:700;">레트로 아케이드</td><td>레트로 아케이드</td><td>미니게임</td><td>1</td></tr>
-    <tr><td style="font-weight:700;">스타 가챠샵</td><td>스타 가챠샵</td><td>100메달로 아이템 뽑기</td><td>1</td></tr>
+    <tr><td style="font-weight:700;">스타 가챠샵</td><td>스타 가챠샵</td><td>500메달로 아이템 뽑기</td><td>1</td></tr>
     <tr><td style="font-weight:700;">아카데미</td><td>아카데미</td><td>스킬 트리 투자</td><td>1</td></tr>
     <tr><td style="font-weight:700;">상점</td><td>상점 (6종 테마)</td><td>아이템 구매 (사이버펑크/판타지/스팀펑크/자연/럭셔리)</td><td>1</td></tr>
 </table>
@@ -1453,7 +1430,7 @@ body {
 <table class="wiki-table">
     <tr><th>항목</th><th>수량</th><th>비고</th></tr>
     <tr><td>보스 캐릭터</td><td style="text-align:center; font-weight:700;">6</td><td>각각 고유 AI + 스킬 세트</td></tr>
-    <tr><td>플레이어블 영웅</td><td style="text-align:center; font-weight:700;">7</td><td>각각 전용 스킬 트리</td></tr>
+    <tr><td>플레이어블 영웅</td><td style="text-align:center; font-weight:700;">6</td><td>5종 전용 스킬 트리 + 1종 기본</td></tr>
     <tr><td>아레나 영웅</td><td style="text-align:center; font-weight:700;">15</td><td>4가지 스타일 (공격/수비/트릭/밸런스)</td></tr>
     <tr><td>메인 스테이지</td><td style="text-align:center; font-weight:700;">8</td><td>+ 아레나 스테이지 1</td></tr>
     <tr><td>아이템</td><td style="text-align:center; font-weight:700;">78</td><td>액티브 31 + 패시브 32 + 전설 11 + 기타 4</td></tr>
@@ -1461,7 +1438,7 @@ body {
     <tr><td>전설 아이콘</td><td style="text-align:center; font-weight:700;">11</td><td>8프레임 애니메이션 포함</td></tr>
     <tr><td>스킬 & 퍽</td><td style="text-align:center; font-weight:700;">61</td><td>아카데미 17 + 런타임 44</td></tr>
     <tr><td>효과음</td><td style="text-align:center; font-weight:700;">40+</td><td>WAV 포맷</td></tr>
-    <tr><td>다운타운 건물</td><td style="text-align:center; font-weight:700;">8 (활성)</td><td>+ 5개 개발 예정</td></tr>
+    <tr><td>다운타운 건물 타입</td><td style="text-align:center; font-weight:700;">12 (활성)</td><td>+ 1종 비활성 (카지노)</td></tr>
     <tr><td>지원 언어</td><td style="text-align:center; font-weight:700;">4</td><td>한국어, 영어, 일본어, 중국어</td></tr>
     <tr><td>스크린샷</td><td style="text-align:center; font-weight:700;">805장</td><td>281MB 아카이브</td></tr>
 </table>
