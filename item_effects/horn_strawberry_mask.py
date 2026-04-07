@@ -453,6 +453,8 @@ class HornStrawberryTransformState:
         cx = x + width // 2
         eat_skill = getattr(self, "strawberry_eat", None)
         is_eating = bool(getattr(eat_skill, "eating", False))
+        field_skill = getattr(self, "strawberry_field", None)
+        is_holding_field = bool(getattr(field_skill, "holding", False))
 
         # ── 걷기 모션 ──
         prev_x = getattr(self, '_prev_paddle_x', cx)
@@ -472,6 +474,15 @@ class HornStrawberryTransformState:
             lean = math.sin(chew_timer * 0.55) * 2.4
             foot_bob = math.sin(chew_timer * 1.8) * 1.6
             leaf_drop = 2 + int(chew_bob * 3.0)
+        elif is_holding_field:
+            # 딸기장판 홀드 중 — 부들부들 떨리는 집중 모션
+            shake_t = t * 0.04  # 빠른 떨림
+            shake_intensity = min(1.0, getattr(field_skill, "hold_timer", 0.0) / 0.5)  # 점점 강해짐
+            bounce_y = 1.0 + abs(math.sin(shake_t * 3.0)) * 2.0 * shake_intensity
+            squash = 1.0 + math.sin(shake_t * 5.7) * 0.05 * shake_intensity
+            lean = math.sin(shake_t * 4.3) * 3.0 * shake_intensity
+            foot_bob = math.sin(shake_t * 6.0) * 1.5 * shake_intensity
+            leaf_drop = 0
         elif is_moving:
             bounce_y = abs(math.sin(walk_timer * 3.5)) * 5
             squash = 1.0 + math.sin(walk_timer * 7.0) * 0.06
