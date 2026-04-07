@@ -10130,6 +10130,16 @@ def _fullscreen_flip():
             _ahl_rec_fs.capture_frame(SCREEN)
         except Exception:
             pass
+    # 🎬 리플레이 캡처 (최종 합성 완료 후 — 필러+구슬+UI 모두 포함)
+    try:
+        _rr = globals().get('_replay_rec')
+        if _rr is None:
+            from replay.replay_system import get_recorder as _get_rr
+            _rr = _get_rr()
+        if _rr and _rr.recording and REAL_SCREEN is not None:
+            _rr.capture(REAL_SCREEN)
+    except Exception:
+        pass
     _original_flip()
 
 def _fullscreen_update(*args, **kwargs):
@@ -10470,6 +10480,16 @@ else:
                 _ahl_rec.capture_frame(SCREEN)
             except Exception:
                 pass
+        # 🎬 리플레이 캡처 (윈도우 모드 — SCREEN = 최종 프레임)
+        try:
+            _rr_w = globals().get('_replay_rec')
+            if _rr_w is None:
+                from replay.replay_system import get_recorder as _get_rr_w
+                _rr_w = _get_rr_w()
+            if _rr_w and _rr_w.recording:
+                _rr_w.capture(SCREEN)
+        except Exception:
+            pass
         _original_flip()
 
     def _windowed_update(*args, **kwargs):
@@ -122740,15 +122760,6 @@ def show_replay_viewer():
         pygame.display.flip()
 
 
-def _restore_display_after_replay(orig_size):
-    """리플레이 재생 후 디스플레이 모드 복원"""
-    try:
-        pygame.display.set_mode(orig_size, pygame.SCALED)
-        print(f"[Replay] 디스플레이 복원: {orig_size[0]}x{orig_size[1]}")
-    except Exception as e:
-        print(f"[Replay] 디스플레이 복원 실패: {e}")
-
-
 def _play_replay(filepath: str):
     """리플레이 파일을 로드하고 재생 루프 실행 — 화면 캡처 기반"""
     print(f"[Replay] 재생 시작: {filepath}")
@@ -122771,13 +122782,9 @@ def _play_replay(filepath: str):
 
     # 🔊 사운드 이벤트 트랙 로드
     sound_events = rp.metadata.get('sound_events', {})
-    # 키가 문자열로 저장될 수 있으므로 int로 변환
     sound_events = {int(k): v for k, v in sound_events.items()}
-
-    # 사운드 매핑: 이름 → pygame.Sound 객체 (sound_effects 딕셔너리 그대로 사용)
-    _replay_sounds = dict(sound_effects)  # 모든 사운드 자동 매핑
-
-    _last_played_frame = -1  # 중복 재생 방지
+    _replay_sounds = dict(sound_effects)
+    _last_played_frame = -1
 
     # 🎵 스테이지 BGM 재생
     try:
@@ -122785,19 +122792,13 @@ def _play_replay(filepath: str):
     except Exception:
         pass
 
-    # 재생 전용 디스플레이 모드: 캡처 해상도로 임시 변경
-    _cap_w = rp.scaled_w
-    _cap_h = rp.scaled_h
-    _orig_display_surface = pygame.display.get_surface()
-    _orig_size = (_orig_display_surface.get_width(), _orig_display_surface.get_height()) if _orig_display_surface else (760, 750)
-    try:
-        _replay_display = pygame.display.set_mode((_cap_w, _cap_h), pygame.SCALED)
-        print(f"[Replay] 디스플레이 모드 변경: {_cap_w}x{_cap_h}")
-    except Exception:
-        _replay_display = pygame.display.get_surface()
-    _draw_screen = _replay_display
+    # 재생 Surface: REAL_SCREEN에 직접 그리고 _original_flip() 호출
+    # (pygame.display.flip 래퍼를 우회하여 SCREEN→REAL_SCREEN 합성 방지)
+    _use_real = _is_fullscreen_active and REAL_SCREEN is not None
+    _draw_screen = REAL_SCREEN if _use_real else SCREEN
     _dw = _draw_screen.get_width()
     _dh = _draw_screen.get_height()
+    print(f"[Replay] 재생 Surface: {_dw}x{_dh}, use_real={_use_real}")
 
     info_font = get_font(14)
     speed_font = get_font(16)
@@ -122833,7 +122834,6 @@ def _play_replay(filepath: str):
                     rp.stop()
                     rp.close()
                     bgm_manager.stop_bgm()
-                    _restore_display_after_replay(_orig_size)
                     return
                 if event.key == pygame.K_SPACE:
                     rp.toggle_pause()
@@ -122888,7 +122888,6 @@ def _play_replay(filepath: str):
         if surf is None and not rp.playing and not rp.paused:
             rp.close()
             bgm_manager.stop_bgm()
-            _restore_display_after_replay(_orig_size)
             _show_replay_end_screen(result, boss_name, stage)
             return
         if surf is None:
@@ -122952,7 +122951,9 @@ def _play_replay(filepath: str):
         wm = get_font(12).render("REPLAY", True, (255, 255, 255, 80))
         _draw_screen.blit(wm, (_dw - 75, 8))
 
-        pygame.display.flip()
+        # flip 래퍼 우회 — _original_flip 직접 호출
+        # (래퍼가 SCREEN→REAL_SCREEN 합성을 다시 해서 리플레이 프레임을 덮어쓰는 것 방지)
+        _original_flip()
 
 
 def _show_replay_end_screen(result: str, boss_name: str, stage: int):
@@ -157395,8 +157396,9 @@ def main(stage_num, new_boss_mode=False):
     # 🎬 리플레이 자동 녹화 시작
     _replay_rec = get_replay_recorder()
     try:
-        _rec_w = REAL_SCREEN.get_width() if (_is_fullscreen_active and REAL_SCREEN is not None) else WIDTH
-        _rec_h = REAL_SCREEN.get_height() if (_is_fullscreen_active and REAL_SCREEN is not None) else HEIGHT
+        _use_real_cap = _is_fullscreen_active and REAL_SCREEN is not None
+        _rec_w = REAL_SCREEN.get_width() if _use_real_cap else WIDTH
+        _rec_h = REAL_SCREEN.get_height() if _use_real_cap else HEIGHT
         _replay_rec.start(
             stage=stage_num,
             boss_name=get_boss_name(stage_num),
@@ -157404,6 +157406,7 @@ def main(stage_num, new_boss_mode=False):
             character=selected_character_type,
             screen_w=_rec_w,
             screen_h=_rec_h,
+            capture_mode='fullscreen' if _use_real_cap else 'screen',
         )
     except Exception as _re:
         print(f"[Replay] 녹화 시작 실패: {_re}")
@@ -166921,14 +166924,7 @@ def main(stage_num, new_boss_mode=False):
         except Exception:
             pass
 
-        # 🎬 리플레이 화면 캡처 (전체화면: REAL_SCREEN 필러+구슬 포함, 창모드: SCREEN)
-        try:
-            if _replay_rec.recording:
-                _cap = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
-                _replay_rec.capture(_cap)
-        except Exception:
-            pass
-
+        # 🎬 리플레이 캡처는 flip 래퍼 내부에서 수행 (최종 합성 후)
         pygame.display.flip()
         # 프로파일러 프레임 종료
         if profiler:
