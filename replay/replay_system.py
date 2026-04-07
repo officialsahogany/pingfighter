@@ -305,7 +305,7 @@ class ReplayPlayer:
             return self._current_surface
 
     def advance(self) -> Optional[pygame.Surface]:
-        """매 프레임 호출 — 현재 재생할 Surface 반환"""
+        """매 프레임(60fps) 호출 — 캡처 fps에 맞춰 정속 재생"""
         if not self.playing and not self.paused:
             return None
         if self.paused:
@@ -313,7 +313,12 @@ class ReplayPlayer:
         if not self.playing:
             return None
 
-        self.frame_accum += self.speed
+        # 캡처 fps / 디스플레이 fps 비율 (30/60 = 0.5)
+        # x1 속도에서 2 게임프레임마다 1 캡처프레임 진행해야 정속
+        capture_fps = self.metadata.get('capture_fps', 30)
+        step = self.speed * (capture_fps / 60.0)
+
+        self.frame_accum += step
         surf = None
         while self.frame_accum >= 1.0:
             self.frame_accum -= 1.0
