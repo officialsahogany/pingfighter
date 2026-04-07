@@ -9488,6 +9488,7 @@ def _draw_pillar_ui(screen, renderer):
     global _rage_indicator_tooltip_active, _rage_tooltip_prev_game_paused, _rage_tooltip_forced_pause
     global _quest_emblem_tooltip_active, _quest_tooltip_prev_game_paused, _quest_tooltip_forced_pause
     global quest_completion_glow_active, quest_completion_glow_timer, quest_completion_glow_duration
+    global _horn_strawberry_tooltip_active
     if _is_ingame:
       try:
         if selected_character_type == "smasher" and not is_horn_strawberry_transformed():
