@@ -122748,6 +122748,10 @@ def _play_replay(filepath: str):
         print(f"[Replay] 로드 실패!")
         return
 
+    # 이벤트 큐 비우기 (이전 키 이벤트가 남아 즉시 ESC 처리되는 버그 방지)
+    pygame.event.clear()
+    pygame.event.pump()
+
     clock = pygame.time.Clock()
     rp.start()
 

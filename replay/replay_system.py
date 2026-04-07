@@ -350,6 +350,7 @@ class ReplayPlayer:
         if self.current_index < 0 or self.current_index >= self.total_frames:
             return self._current_surface
         if not self._file:
+            print(f"[Replay] 파일 핸들 없음!")
             return self._current_surface
         try:
             offset, size = self._frame_index[self.current_index]
@@ -359,7 +360,9 @@ class ReplayPlayer:
             surf = pygame.image.fromstring(raw, (self.scaled_w, self.scaled_h), 'RGB')
             self._current_surface = surf
             return surf
-        except Exception:
+        except Exception as e:
+            if self.current_index < 3:
+                print(f"[Replay] 프레임 {self.current_index} 디코딩 실패: {e}")
             return self._current_surface
 
     def advance(self):
