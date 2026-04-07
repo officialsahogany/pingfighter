@@ -102,10 +102,31 @@ class ReplayRecorder:
             self.file.write(_MAGIC)
             self.file.write(struct.pack('I', 0))
 
-            # 백그라운드 스레드 시작
+            # 백그라운드 스레드 시작 (큐/이벤트/락/파일을 클로저로 바인딩)
             self._queue.clear()
             self._stop_event.clear()
-            self._thread = threading.Thread(target=self._writer_loop, daemon=True)
+            _q = self._queue
+            _se = self._stop_event
+            _lk = self._lock
+            _f_ref = [self.file]  # list로 감싸서 mutable 참조
+
+            def _writer(queue=_q, stop_event=_se, lock=_lk, file_ref=_f_ref):
+                while not stop_event.is_set() or len(queue) > 0:
+                    if len(queue) > 0:
+                        raw = queue.popleft()
+                        try:
+                            compressed = zlib.compress(raw, COMPRESS_LEVEL)
+                            with lock:
+                                fh = file_ref[0]
+                                if fh and not fh.closed:
+                                    fh.write(struct.pack('I', len(compressed)))
+                                    fh.write(compressed)
+                        except Exception:
+                            pass
+                    else:
+                        time.sleep(0.005)
+
+            self._thread = threading.Thread(target=_writer, daemon=True)
             self._thread.start()
 
             self.recording = True
@@ -156,21 +177,7 @@ class ReplayRecorder:
         except Exception:
             self.sound_events[frame].append({'id': sound_id})
 
-    def _writer_loop(self):
-        """백그라운드 스레드 — 큐에서 꺼내서 압축 + 디스크 쓰기"""
-        while not self._stop_event.is_set() or len(self._queue) > 0:
-            if len(self._queue) > 0:
-                raw = self._queue.popleft()
-                try:
-                    compressed = zlib.compress(raw, COMPRESS_LEVEL)
-                    with self._lock:
-                        if self.file and not self.file.closed:
-                            self.file.write(struct.pack('I', len(compressed)))
-                            self.file.write(compressed)
-                except Exception:
-                    pass
-            else:
-                time.sleep(0.005)  # 큐 비었으면 잠깐 대기
+    # _writer_loop은 start() 내 클로저로 대체됨
 
     def stop(self, result: str = "") -> bool:
         if not self.recording:
