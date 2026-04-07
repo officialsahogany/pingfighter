@@ -76793,6 +76793,7 @@ def handle_player(keys):
                 and not blacksmith_hammer_shock_charging
                 and (blacksmith_hammer_available or blacksmith_hammer_shock_cooldown_timer > 0)
                 and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
+                and not is_horn_strawberry_skills_locked()  # 🍓 뿔딸기 변신 중 차단
             ):
                 if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active:
                     stop_blacksmith_construction_sound()
