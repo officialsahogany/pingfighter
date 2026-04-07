@@ -29269,7 +29269,7 @@ def sync_equipped_passive_effects():
                 print(f"[LEGENDARY_ROLL_SYNC] {item_name} 롤 동기화 실패: {e}")
 
         # 장비 슬롯에 존재하면 전설 효과 활성화
-        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate"):
+        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask"):
             if legend_name in equipped_names:
                 # 장착된 아이템의 rolled_options를 전역 딕셔너리에 동기화
                 equipped_legend_item = next((item for item in equipped_items if item.get("name") == legend_name), None)
@@ -167774,8 +167774,8 @@ def main(stage_num, new_boss_mode=False):
             _hs_keys = pygame.key.get_pressed()
             update_horn_strawberry_transform(_hs_keys, 1.0 / 60.0)
             draw_horn_strawberry_effects(SCREEN)
-        except Exception:
-            pass
+        except Exception as _hs_err:
+            print(f"[뿔딸기] 오류: {_hs_err}")
 
         # 🎬 리플레이 캡처는 flip 래퍼 내부에서 수행 (최종 합성 후)
         pygame.display.flip()
