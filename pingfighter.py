@@ -22329,10 +22329,11 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
     if not _gs:
         return
 
-    if getattr(ts.horn_charge, "active", False):
-        player_stunned_timer = max(player_stunned_timer, 2)
+    # 돌진/충돌/복귀 중에는 is_horn_strawberry_control_locked()로 입력만 잠금
+    # player_stunned_timer는 STUN 페이즈에서만 적용 (패들 이미지 떨림 방지)
 
     if _gs.get("bottom_paddle_stunned"):
+        # STUN 페이즈 — 플레이어 실제 스턴
         player_stunned_timer = max(player_stunned_timer, 2)
     if _gs.get("top_paddle_stunned"):
         boss_stunned_timer = max(boss_stunned_timer, 2)
