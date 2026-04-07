@@ -22311,6 +22311,11 @@ def is_horn_strawberry_control_locked():
     ts = _get_horn_strawberry_transform()
     return bool(ts and ts.is_transformed and getattr(ts.horn_charge, "active", False))
 
+def is_horn_strawberry_skills_locked():
+    """뿔딸기 변신 중에는 기존 캐릭터 스킬을 차단한다 (이동은 허용)."""
+    ts = _get_horn_strawberry_transform()
+    return bool(ts and ts.is_transformed)
+
 
 def is_horn_strawberry_charge_visual_locked():
     """돌진/복귀 중에는 스턴 별을 숨기고, 실제 기절 단계만 별을 보여준다."""
@@ -35489,8 +35494,10 @@ def _update_optimus_arm_wall_impact_effects() -> None:
 
 def handle_optimus_arm_throw_input(direction: int) -> bool:
     """옵티머스 암 던지기 입력 처리 (direction: -1=왼쪽, 1=오른쪽)"""
+    if is_horn_strawberry_skills_locked():
+        return False
     global optimus_arm_state, optimus_arm_throw_direction, optimus_arm_throw_start_ms
-    
+
     if optimus_arm_state != "grabbing" or not optimus_arm_grabbed_boss:
         return False
     
@@ -39081,6 +39088,8 @@ def _update_blacksmith_round_blueprint_cache() -> None:
 
 def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_blueprint=False):
     """발토르 포탑 설치/건설 입력을 처리한다."""
+    if is_horn_strawberry_skills_locked():
+        return
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, special_gauge, special_ready
@@ -49874,6 +49883,8 @@ blacksmith_divine_slash_scheduled: dict[str, object] | None = None
 
 def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
     """강화디바인스톤이 있을 때 토르쉴드 스윙으로 검기 발사체를 생성한다."""
+    if is_horn_strawberry_skills_locked():
+        return
 
     global blacksmith_divine_slash_projectiles
     global paddle_scale_ratio
@@ -68290,6 +68301,8 @@ def handle_new_boss_skills_timer():
 
 def fire_soldier_bullet():
     """코만도 캐릭터가 총알을 발사하는 함수"""
+    if is_horn_strawberry_skills_locked():
+        return
     global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
     global soldier_gun_target_x, soldier_gun_target_y
@@ -164029,7 +164042,8 @@ def main(stage_num, new_boss_mode=False):
 
             # W키(ㅈ키)가 새로 눌렸을 때만 발동 (마우스 좌클릭 제외)
             w_key_triggered = w_key_poll and not cleanse_poll._w_key_was_pressed
-            cleanse_input_triggered = w_key_triggered
+            # 🍓 뿔딸기 변신 중에는 기존 캐릭터 W스킬 차단
+            cleanse_input_triggered = w_key_triggered and not is_horn_strawberry_transformed()
 
             if cleanse_input_triggered and is_smasher_skill_unlocked("cleanse"):
                 if DEBUG_MODE:
