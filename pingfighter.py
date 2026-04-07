@@ -122769,24 +122769,30 @@ def _play_replay(filepath: str):
     except Exception:
         pass
 
+    # 재생 대상 Surface 결정 (전체화면이면 REAL_SCREEN, 아니면 SCREEN)
+    _use_real = _is_fullscreen_active and REAL_SCREEN is not None
+    _draw_screen = REAL_SCREEN if _use_real else SCREEN
+    _dw = _draw_screen.get_width()
+    _dh = _draw_screen.get_height()
+
     info_font = get_font(14)
     speed_font = get_font(16)
     btn_font = get_font(15)
 
-    # 타임라인 바 레이아웃
+    # 타임라인 바 레이아웃 (재생 Surface 기준)
     bar_x = 60
-    bar_w = WIDTH - 120
-    bar_y = HEIGHT - 40
+    bar_w = _dw - 120
+    bar_y = _dh - 40
     bar_h = 8
     bar_click_area = pygame.Rect(bar_x, bar_y - 10, bar_w, bar_h + 20)
 
     # 하단 버튼 레이아웃
     btn_h = 26
-    btn_y_pos = HEIGHT - 74
-    btn_pause = pygame.Rect(WIDTH // 2 - 30, btn_y_pos, 60, btn_h)
-    btn_speed = pygame.Rect(WIDTH // 2 + 40, btn_y_pos, 60, btn_h)
-    btn_back5 = pygame.Rect(WIDTH // 2 - 120, btn_y_pos, 40, btn_h)
-    btn_fwd5 = pygame.Rect(WIDTH // 2 + 110, btn_y_pos, 40, btn_h)
+    btn_y_pos = _dh - 74
+    btn_pause = pygame.Rect(_dw // 2 - 30, btn_y_pos, 60, btn_h)
+    btn_speed = pygame.Rect(_dw // 2 + 40, btn_y_pos, 60, btn_h)
+    btn_back5 = pygame.Rect(_dw // 2 - 120, btn_y_pos, 40, btn_h)
+    btn_fwd5 = pygame.Rect(_dw // 2 + 110, btn_y_pos, 40, btn_h)
 
     dragging_timeline = False
     seek_amount = capture_fps * 5  # 5초 분량
@@ -122862,26 +122868,26 @@ def _play_replay(filepath: str):
         if surf is None:
             continue
 
-        # ── 게임 화면 표시 (캡처된 화면을 풀사이즈로 확대) ──
-        scaled = pygame.transform.scale(surf, (WIDTH, HEIGHT))
-        SCREEN.blit(scaled, (0, 0))
+        # ── 게임 화면 표시 (캡처된 화면을 재생 Surface 크기로 확대) ──
+        scaled = pygame.transform.scale(surf, (_dw, _dh))
+        _draw_screen.blit(scaled, (0, 0))
 
         # ── 하단 컨트롤 오버레이 (마우스 하단 호버 또는 일시정지 시에만 표시) ──
         mouse_pos = pygame.mouse.get_pos()
-        show_controls = rp.paused or mouse_pos[1] > HEIGHT - 100 or dragging_timeline
+        show_controls = rp.paused or mouse_pos[1] > _dh - 100 or dragging_timeline
 
         if show_controls:
-            ctrl_bg = pygame.Surface((WIDTH, 90), pygame.SRCALPHA)
+            ctrl_bg = pygame.Surface((_dw, 90), pygame.SRCALPHA)
             ctrl_bg.fill((0, 0, 0, 140))
-            SCREEN.blit(ctrl_bg, (0, HEIGHT - 90))
+            _draw_screen.blit(ctrl_bg, (0, _dh - 90))
 
             def _draw_btn(rect, label, hover_color=(50, 70, 100), base_color=(30, 40, 55)):
                 hovered = rect.collidepoint(mouse_pos)
                 c = hover_color if hovered else base_color
-                pygame.draw.rect(SCREEN, c, rect, border_radius=5)
-                pygame.draw.rect(SCREEN, (80, 100, 140), rect, width=1, border_radius=5)
+                pygame.draw.rect(_draw_screen, c, rect, border_radius=5)
+                pygame.draw.rect(_draw_screen, (80, 100, 140), rect, width=1, border_radius=5)
                 s = btn_font.render(label, True, (200, 210, 230))
-                SCREEN.blit(s, (rect.centerx - s.get_width() // 2, rect.centery - s.get_height() // 2))
+                _draw_screen.blit(s, (rect.centerx - s.get_width() // 2, rect.centery - s.get_height() // 2))
 
             _draw_btn(btn_back5, "<<5s")
             _draw_btn(btn_pause, "II" if not rp.paused else ">")
@@ -122889,35 +122895,35 @@ def _play_replay(filepath: str):
             _draw_btn(btn_fwd5, "5s>>")
 
             # 타임라인 바
-            pygame.draw.rect(SCREEN, (40, 45, 60), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+            pygame.draw.rect(_draw_screen, (40, 45, 60), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
             fill_w = int(bar_w * rp.progress)
             if fill_w > 0:
-                pygame.draw.rect(SCREEN, (0, 180, 255), (bar_x, bar_y, fill_w, bar_h), border_radius=4)
+                pygame.draw.rect(_draw_screen, (0, 180, 255), (bar_x, bar_y, fill_w, bar_h), border_radius=4)
             handle_x = bar_x + fill_w
-            pygame.draw.circle(SCREEN, (0, 220, 255), (handle_x, bar_y + bar_h // 2), 6)
+            pygame.draw.circle(_draw_screen, (0, 220, 255), (handle_x, bar_y + bar_h // 2), 6)
             if dragging_timeline:
-                pygame.draw.circle(SCREEN, (255, 255, 255), (handle_x, bar_y + bar_h // 2), 8, 2)
+                pygame.draw.circle(_draw_screen, (255, 255, 255), (handle_x, bar_y + bar_h // 2), 8, 2)
 
             cur_t = rp.current_time
             tot_t = rp.total_time
             time_str = f"{int(cur_t)//60}:{int(cur_t)%60:02d} / {int(tot_t)//60}:{int(tot_t)%60:02d}"
-            SCREEN.blit(info_font.render(time_str, True, (160, 170, 190)), (bar_x, bar_y + 14))
+            _draw_screen.blit(info_font.render(time_str, True, (160, 170, 190)), (bar_x, bar_y + 14))
 
             sp_s = speed_font.render(f"x{rp.speed:.2g}", True, (200, 200, 100))
-            SCREEN.blit(sp_s, (bar_x + bar_w - sp_s.get_width(), bar_y + 14))
+            _draw_screen.blit(sp_s, (bar_x + bar_w - sp_s.get_width(), bar_y + 14))
 
         # 일시정지 오버레이
         if rp.paused:
-            pause_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            pause_overlay = pygame.Surface((_dw, _dh), pygame.SRCALPHA)
             pause_overlay.fill((0, 0, 0, 60))
-            SCREEN.blit(pause_overlay, (0, 0))
+            _draw_screen.blit(pause_overlay, (0, 0))
             pf = get_font(64)
             ps = pf.render("II", True, (255, 255, 255))
-            SCREEN.blit(ps, (WIDTH // 2 - ps.get_width() // 2, HEIGHT // 2 - 60))
+            _draw_screen.blit(ps, (_dw // 2 - ps.get_width() // 2, _dh // 2 - 60))
 
         # REPLAY 워터마크
         wm = get_font(12).render("REPLAY", True, (255, 255, 255, 80))
-        SCREEN.blit(wm, (WIDTH - 75, 8))
+        _draw_screen.blit(wm, (_dw - 75, 8))
 
         pygame.display.flip()
 
