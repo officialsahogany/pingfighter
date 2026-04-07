@@ -14,7 +14,6 @@ import sys
 
 # 게임 모듈 임포트 (필요시 bosspong.py에서 전달받음)
 import items
-import academy
 import cinematic
 import ui_manager
 import gacha
@@ -136,11 +135,11 @@ class MenuSystem:
         """메인 메뉴 표시
         
         Returns:
-            str: 선택된 메뉴 옵션 ("start", "boss_battle", "medal_shop", "options", "quit")
+            str: 선택된 메뉴 옵션 ("start", "boss_battle", "options", "quit")
             None: 메뉴가 아직 활성화 중
         """
-        menu_options = ["경기시작", "NEW BOSS BATTLE", "메달샵", "옵션", "게임종료"]
-        menu_actions = ["start", "boss_battle", "medal_shop", "options", "quit"]
+        menu_options = ["경기시작", "NEW BOSS BATTLE", "옵션", "게임종료"]
+        menu_actions = ["start", "boss_battle", "options", "quit"]
         
         clock = pygame.time.Clock()
         selected = 0

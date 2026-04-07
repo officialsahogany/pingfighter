@@ -16,7 +16,7 @@ def show_improved_start_screen(SCREEN, WIDTH, HEIGHT):
     space_bg = SpaceBackground(WIDTH, HEIGHT)
     
     # 메뉴 옵션
-    menu_options = ["경기시작", "NEW BOSS BATTLE", "메달샵", "옵션", "게임종료"]
+    menu_options = ["경기시작", "NEW BOSS BATTLE", "옵션", "게임종료"]
     selected = 0
     last_selected = -1
     
@@ -73,11 +73,9 @@ def show_improved_start_screen(SCREEN, WIDTH, HEIGHT):
                         return "start"
                     elif selected == 1:  # NEW BOSS BATTLE
                         return "boss_battle"
-                    elif selected == 2:  # 메달샵
-                        return "medal_shop"
-                    elif selected == 3:  # 옵션
+                    elif selected == 2:  # 옵션
                         return "options"
-                    elif selected == 4:  # 게임종료
+                    elif selected == 3:  # 게임종료
                         return "quit"
                 
                 elif event.key == pygame.K_ESCAPE:
