@@ -473,58 +473,77 @@ class HornStrawberryTransformState:
             pygame.draw.ellipse(surf, (240, 80, 90),
                                (int(foot_x) - 3, int(fy) - 1, 5, 3))
 
-        # ── 딸기 본체 (통통한 타원, 아래가 살짝 좁은 물방울형) ──
-        # 상부 (넓은 부분)
-        top_w = body_w
-        top_h = int(body_h * 0.65)
+        # ── 딸기 본체 (하트형 — 상단 두 봉우리 + 하단 뾰족) ──
         top_y = scy - body_h // 2
-        pygame.draw.ellipse(surf, STRAWBERRY_RED,
-                           (scx - top_w // 2, top_y, top_w, top_h))
-        # 하부 (좁아지는 부분)
-        bot_w = int(body_w * 0.85)
-        bot_h = int(body_h * 0.55)
-        bot_y = scy - 2
-        pygame.draw.ellipse(surf, STRAWBERRY_RED,
-                           (scx - bot_w // 2, bot_y, bot_w, bot_h))
-        # 연결부
-        pygame.draw.rect(surf, STRAWBERRY_RED,
-                        (scx - bot_w // 2, scy - 4, bot_w, 10))
+        lobe_r = int(body_w * 0.30)  # 봉우리 반지름
+        lobe_y = top_y + lobe_r      # 봉우리 중심 Y
+        tip_y = scy + body_h // 2 + 2  # 하단 끝점
 
-        # ── 광택 하이라이트 (좌상단 반짝) ──
-        hi_w = int(top_w * 0.55)
-        hi_h = int(top_h * 0.5)
-        pygame.draw.ellipse(surf, STRAWBERRY_LIGHT,
-                           (scx - top_w // 2 + 4, top_y + 3, hi_w, hi_h))
-        # 작은 반짝 점
-        pygame.draw.ellipse(surf, STRAWBERRY_HIGHLIGHT,
-                           (scx - top_w // 2 + 7, top_y + 5, max(3, hi_w // 2), max(2, hi_h // 3)))
+        # 하트 형태를 폴리곤 + 원 조합으로 구성
+        # 좌우 봉우리 (상단 두 둥근 부분)
+        for side in [-1, 1]:
+            lobe_cx = scx + side * int(lobe_r * 0.85)
+            pygame.draw.circle(surf, STRAWBERRY_RED, (lobe_cx, lobe_y), lobe_r)
+        # 하단 삼각형 (봉우리 아래~뾰족한 끝)
+        tri_pts = [
+            (scx - int(body_w * 0.48), lobe_y),
+            (scx + int(body_w * 0.48), lobe_y),
+            (scx, tip_y),
+        ]
+        pygame.draw.polygon(surf, STRAWBERRY_RED, tri_pts)
+        # 봉우리 사이 V 홈 채우기 (살짝 어두운 빨강)
+        notch_depth = max(2, lobe_r // 3)
+        pygame.draw.polygon(surf, (200, 30, 40), [
+            (scx - 4, lobe_y - lobe_r + notch_depth + 2),
+            (scx + 4, lobe_y - lobe_r + notch_depth + 2),
+            (scx, lobe_y - lobe_r + notch_depth + 6),
+        ])
 
-        # 큰 광택 원 (유리알 반사)
+        # ── 광택 하이라이트 (좌측 봉우리에 반짝) ──
+        hi_r = max(3, lobe_r // 2)
+        left_lobe_cx = scx - int(lobe_r * 0.85)
+        pygame.draw.circle(surf, STRAWBERRY_LIGHT,
+                          (left_lobe_cx - 2, lobe_y - 3), hi_r)
+        pygame.draw.circle(surf, STRAWBERRY_HIGHLIGHT,
+                          (left_lobe_cx - 3, lobe_y - 5), max(2, hi_r // 2))
+
+        # 유리알 반사 (작은 흰 점)
         shine_alpha = int(100 + 50 * math.sin(t * 0.005))
-        shine_surf = pygame.Surface((12, 10), pygame.SRCALPHA)
-        pygame.draw.ellipse(shine_surf, (255, 255, 255, shine_alpha), (0, 0, 12, 10))
-        surf.blit(shine_surf, (scx - top_w // 2 + 8, top_y + 6))
+        shine_surf = pygame.Surface((8, 6), pygame.SRCALPHA)
+        pygame.draw.ellipse(shine_surf, (255, 255, 255, shine_alpha), (0, 0, 8, 6))
+        surf.blit(shine_surf, (left_lobe_cx - 5, lobe_y - lobe_r + 3))
+
+        # 우측 봉우리에도 살짝 반사
+        right_lobe_cx = scx + int(lobe_r * 0.85)
+        pygame.draw.circle(surf, STRAWBERRY_LIGHT,
+                          (right_lobe_cx + 1, lobe_y - 2), max(2, hi_r - 2))
 
         # ── 외곽선 ──
-        pygame.draw.ellipse(surf, STRAWBERRY_DARK,
-                           (scx - top_w // 2, top_y, top_w, top_h), 2)
-        pygame.draw.ellipse(surf, STRAWBERRY_DARK,
-                           (scx - bot_w // 2, bot_y, bot_w, bot_h), 2)
-        # 하단 꼭지점
+        for side in [-1, 1]:
+            lobe_cx = scx + side * int(lobe_r * 0.85)
+            pygame.draw.circle(surf, STRAWBERRY_DARK, (lobe_cx, lobe_y), lobe_r, 2)
+        pygame.draw.polygon(surf, STRAWBERRY_DARK, tri_pts, 2)
+        # 하단 꼭지점 강조
         pygame.draw.polygon(surf, STRAWBERRY_DARK,
-                           [(scx - 3, scy + body_h // 2 - 4),
-                            (scx + 3, scy + body_h // 2 - 4),
-                            (scx, scy + body_h // 2 + 1)])
+                           [(scx - 2, tip_y - 3), (scx + 2, tip_y - 3), (scx, tip_y + 1)])
 
-        # ── 씨앗 (깊이감 있게) ──
+        # ── 씨앗 (하트 형태 안에 배치) ──
         seed_rng = random.Random(77)
         seed_positions = []
-        for _ in range(14):
+        for _ in range(16):
             sx = scx - int(body_w * 0.35) + seed_rng.randint(0, max(1, int(body_w * 0.7)))
-            sy = top_y + 8 + seed_rng.randint(0, max(1, body_h - 14))
-            dx = (sx - scx) / (body_w / 2)
-            dy = (sy - scy) / (body_h / 2)
-            if dx * dx + dy * dy < 0.65:
+            sy = lobe_y - lobe_r // 2 + seed_rng.randint(0, max(1, int(tip_y - lobe_y + lobe_r // 2 - 4)))
+            # 하트 안에 있는지 확인 (봉우리 원 또는 삼각형 안)
+            in_left = ((sx - (scx - int(lobe_r * 0.85)))**2 + (sy - lobe_y)**2) < (lobe_r * 0.85)**2
+            in_right = ((sx - (scx + int(lobe_r * 0.85)))**2 + (sy - lobe_y)**2) < (lobe_r * 0.85)**2
+            # 삼각형 내부 근사
+            if sy >= lobe_y:
+                progress = (sy - lobe_y) / max(1, tip_y - lobe_y)
+                half_w = int(body_w * 0.48 * (1.0 - progress))
+                in_tri = abs(sx - scx) < half_w
+            else:
+                in_tri = False
+            if in_left or in_right or in_tri:
                 seed_positions.append((sx, sy))
         for sx, sy in seed_positions:
             # 씨앗 홈 (어두운 점)
@@ -534,8 +553,8 @@ class HornStrawberryTransformState:
             # 씨앗 하이라이트
             pygame.draw.rect(surf, (240, 210, 80), (sx + 1, sy, 1, 1))
 
-        # ── 잎사귀 (머리 위, 큰 잎 3장) ──
-        leaf_base_y = top_y + 2
+        # ── 잎사귀 (하트 상단 V 홈 사이, 큰 잎 3장) ──
+        leaf_base_y = lobe_y - lobe_r + notch_depth + 2
         leaf_sway = math.sin(t * 0.004) * 3
 
         # 중앙 잎 (가장 큰)
@@ -1295,12 +1314,6 @@ class _StrawberryFieldSkillCore:
                     alpha=205,
                     tilt=18 if idx % 2 == 0 else -18,
                 )
-
-        pulse_alpha = int((35 if built else 18) * (0.65 + 0.35 * math.sin(t_now * 0.7 + x * 0.03)))
-        if pulse_alpha > 0:
-            glow_surf = pygame.Surface((w + 40, 42), pygame.SRCALPHA)
-            pygame.draw.ellipse(glow_surf, (255, 90, 110, pulse_alpha), (0, 10, w + 40, 18))
-            screen.blit(glow_surf, (x - 20, berry_row_y - 12), special_flags=pygame.BLEND_ADD)
 
     def _draw_dying_barrier(self, screen, dying):
         death_duration = max(0.001, float(getattr(self._skill, "DEATH_DURATION", 0.6)))
