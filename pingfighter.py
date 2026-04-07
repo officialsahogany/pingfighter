@@ -122840,25 +122840,33 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                 except Exception:
                     ffmpeg_exe = 'ffmpeg'  # PATH에서 찾기
 
-            # ffmpeg 프로세스 시작 (stdin으로 raw 프레임 전달)
-            cmd = [
+            # 스테이지 BGM 파일 경로 찾기
+            bgm_path = None
+            try:
+                stage_key = f"stage{stage}"
+                bgm_path = bgm_manager._resolve_bgm_path(stage_key)
+            except Exception:
+                pass
+
+            # 1단계: 영상만 임시 파일로 생성
+            temp_video = out_path + ".tmp_video.mp4"
+            cmd_video = [
                 ffmpeg_exe,
-                '-y',  # 덮어쓰기
+                '-y',
                 '-f', 'rawvideo',
                 '-vcodec', 'rawvideo',
                 '-s', f'{sw}x{sh}',
                 '-pix_fmt', 'rgb24',
                 '-r', str(cap_fps),
-                '-i', '-',  # stdin
+                '-i', '-',
                 '-c:v', 'libx264',
                 '-preset', 'fast',
                 '-crf', '23',
                 '-pix_fmt', 'yuv420p',
-                '-movflags', '+faststart',
-                out_path,
+                temp_video,
             ]
 
-            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            proc = subprocess.Popen(cmd_video, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
             # 프레임 인덱스 스캔
             with open(filepath, 'rb') as f:
@@ -122868,7 +122876,7 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                     status['active'] = False
                     status['done'] = True
                     return
-                f.read(4)  # meta_len
+                f.read(4)
 
                 frame_positions = []
                 while True:
@@ -122880,7 +122888,7 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                     f.seek(data_offset + chunk_size)
                     nb = f.read(4)
                     if len(nb) < 4:
-                        break  # 마지막 = 메타
+                        break
                     f.seek(data_offset + chunk_size)
                     frame_positions.append((data_offset, chunk_size))
 
@@ -122893,7 +122901,6 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                     status['done'] = True
                     return
 
-                # 프레임을 하나씩 읽어서 ffmpeg에 전달
                 for idx, (offset, size) in enumerate(frame_positions):
                     f.seek(offset)
                     compressed = f.read(size)
@@ -122902,18 +122909,57 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                         proc.stdin.write(raw)
                     except BrokenPipeError:
                         break
-                    status['progress'] = (idx + 1) / total
+                    # 영상 인코딩 = 90%, BGM 합성 = 10%
+                    status['progress'] = (idx + 1) / total * 0.9
 
             proc.stdin.close()
-            proc.wait(timeout=30)
+            proc.wait(timeout=60)
 
-            if proc.returncode == 0 and os.path.exists(out_path):
+            if proc.returncode != 0 or not os.path.exists(temp_video):
+                status['message'] = "영상 인코딩 실패"
+                print(f"[Replay] MP4 영상 인코딩 실패 (returncode={proc.returncode})")
+                return
+
+            # 2단계: BGM과 합성
+            if bgm_path and os.path.exists(bgm_path):
+                status['progress'] = 0.92
+                print(f"[Replay] BGM 합성 중: {bgm_path}")
+                cmd_mux = [
+                    ffmpeg_exe,
+                    '-y',
+                    '-i', temp_video,
+                    '-i', bgm_path,
+                    '-c:v', 'copy',
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
+                    '-shortest',
+                    '-movflags', '+faststart',
+                    out_path,
+                ]
+                mux_result = subprocess.run(cmd_mux, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, timeout=60)
+                # 임시 파일 삭제
+                try:
+                    os.remove(temp_video)
+                except Exception:
+                    pass
+
+                if mux_result.returncode == 0 and os.path.exists(out_path):
+                    status['progress'] = 1.0
+                    size_mb = os.path.getsize(out_path) / (1024 * 1024)
+                    status['message'] = f"저장 완료! ({size_mb:.0f}MB)"
+                    print(f"[Replay] MP4+BGM 저장 완료: {out_path} ({size_mb:.1f}MB)")
+                else:
+                    # BGM 합성 실패 시 영상만이라도 저장
+                    if os.path.exists(temp_video):
+                        os.rename(temp_video, out_path)
+                    status['message'] = "저장 완료 (BGM 없음)"
+                    print(f"[Replay] BGM 합성 실패, 영상만 저장")
+            else:
+                # BGM 없으면 영상만 최종 파일로
+                os.rename(temp_video, out_path)
                 size_mb = os.path.getsize(out_path) / (1024 * 1024)
                 status['message'] = f"저장 완료! ({size_mb:.0f}MB)"
-                print(f"[Replay] MP4 저장 완료: {out_path} ({size_mb:.1f}MB)")
-            else:
-                status['message'] = "변환 실패"
-                print(f"[Replay] MP4 변환 실패 (returncode={proc.returncode})")
+                print(f"[Replay] MP4 저장 완료 (BGM 없음): {out_path} ({size_mb:.1f}MB)")
 
         except Exception as e:
             status['message'] = f"오류: {e}"
