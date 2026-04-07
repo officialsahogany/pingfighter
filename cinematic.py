@@ -2,8 +2,214 @@ import pygame
 import random
 import math
 import sys
+import zlib
+import struct
+import os
+
 
 def show_cinematic_scenes(SCREEN, WIDTH, HEIGHT):
+    """리플레이가 있으면 리플레이 클립 화면보호기, 없으면 기존 시네마틱"""
+    try:
+        from replay.replay_system import list_replays, _MAGIC, _read_metadata_fast
+        replays = list_replays()
+        if replays:
+            _show_replay_screensaver(SCREEN, WIDTH, HEIGHT, replays)
+            return
+    except Exception:
+        pass
+    _show_legacy_cinematic(SCREEN, WIDTH, HEIGHT)
+
+
+def _show_replay_screensaver(SCREEN, WIDTH, HEIGHT, replays):
+    """저장된 리플레이에서 랜덤 구간을 뽑아 짤막하게 재생하는 화면보호기"""
+    clock = pygame.time.Clock()
+    random.shuffle(replays)
+
+    # 스테이지 보스 이름
+    stage_boss = {
+        1: "풍악보이", 2: "악어장군", 3: "멘헤라걸", 4: "퐁크",
+        5: "네메시스", 6: "홍련", 7: "테트리서", 8: "아카무 리고", 30: "투기장",
+    }
+
+    clip_idx = 0
+    CLIP_DURATION = 480  # 8초 (60fps)
+    FADE_FRAMES = 40     # 페이드 전환 프레임
+    overall_timer = 0
+    MAX_TOTAL = 3600     # 최대 60초 후 자동 종료
+
+    try:
+        from pixel_font_manager import get_font
+    except Exception:
+        get_font = pygame.font.SysFont
+
+    while clip_idx < len(replays) and overall_timer < MAX_TOTAL:
+        r = replays[clip_idx % len(replays)]
+        clip_idx += 1
+
+        # 리플레이 파일에서 프레임 인덱스 스캔
+        filepath = r['filepath']
+        try:
+            from replay.replay_system import _MAGIC
+            f = open(filepath, 'rb')
+            magic = f.read(4)
+            if magic != _MAGIC:
+                f.close()
+                continue
+            f.read(4)  # meta_len
+
+            frame_positions = []
+            while True:
+                sb = f.read(4)
+                if len(sb) < 4:
+                    break
+                chunk_size = struct.unpack('I', sb)[0]
+                data_offset = f.tell()
+                f.seek(data_offset + chunk_size)
+                nb = f.read(4)
+                if len(nb) < 4:
+                    break
+                f.seek(data_offset + chunk_size)
+                frame_positions.append((data_offset, chunk_size))
+
+            total_frames = len(frame_positions)
+            if total_frames < 120:  # 2초 미만이면 스킵
+                f.close()
+                continue
+
+            # 메타데이터
+            from replay.replay_system import _read_metadata_fast
+            md = _read_metadata_fast(filepath)
+            sw = md.get('scaled_w', 760) if md else 760
+            sh = md.get('scaled_h', 750) if md else 750
+            cap_fps = md.get('capture_fps', 60) if md else 60
+            stg = md.get('stage', 0) if md else 0
+            boss = md.get('boss_name', '') if md else ''
+            if not boss:
+                boss = stage_boss.get(stg, '')
+            result_text = md.get('result', '') if md else ''
+
+            # 랜덤 시작 지점 (앞 10% ~ 뒤 20% 사이에서)
+            start_frame = random.randint(int(total_frames * 0.1), max(int(total_frames * 0.1) + 1, int(total_frames * 0.8)))
+            end_frame = min(start_frame + CLIP_DURATION, total_frames)
+
+            # 재생 속도 (캡처 fps에 맞춤)
+            frame_accum = 0.0
+            step = cap_fps / 60.0
+
+            clip_timer = 0
+            clip_total = end_frame - start_frame
+            cur_frame = start_frame
+            exiting = False
+
+            while cur_frame < end_frame:
+                clock.tick(60)
+                clip_timer += 1
+                overall_timer += 1
+
+                # 입력 체크 — 아무 키/클릭이면 화면보호기 종료
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        f.close()
+                        pygame.quit()
+                        sys.exit()
+                    if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEWHEEL):
+                        exiting = True
+
+                if exiting or overall_timer >= MAX_TOTAL:
+                    break
+
+                # 프레임 진행
+                frame_accum += step
+                if frame_accum < 1.0:
+                    continue
+                frame_accum -= 1.0
+
+                if cur_frame >= len(frame_positions):
+                    break
+
+                # 프레임 디코딩
+                try:
+                    offset, size = frame_positions[cur_frame]
+                    f.seek(offset)
+                    compressed = f.read(size)
+                    raw = zlib.decompress(compressed)
+                    surf = pygame.image.fromstring(raw, (sw, sh), 'RGB')
+                except Exception:
+                    cur_frame += 1
+                    continue
+
+                cur_frame += 1
+
+                # 화면에 표시 (비율 유지 letterbox)
+                SCREEN.fill((0, 0, 0))
+                cap_ratio = sw / sh if sh > 0 else 1.0
+                scr_ratio = WIDTH / HEIGHT
+                if cap_ratio > scr_ratio:
+                    fit_w = WIDTH
+                    fit_h = int(WIDTH / cap_ratio)
+                else:
+                    fit_h = HEIGHT
+                    fit_w = int(HEIGHT * cap_ratio)
+                fit_x = (WIDTH - fit_w) // 2
+                fit_y = (HEIGHT - fit_h) // 2
+                scaled = pygame.transform.scale(surf, (fit_w, fit_h))
+                SCREEN.blit(scaled, (fit_x, fit_y))
+
+                # 페이드 인/아웃
+                fade_alpha = 0
+                frames_into_clip = cur_frame - start_frame
+                frames_remaining = end_frame - cur_frame
+                if frames_into_clip < FADE_FRAMES:
+                    fade_alpha = int(255 * (1.0 - frames_into_clip / FADE_FRAMES))
+                elif frames_remaining < FADE_FRAMES:
+                    fade_alpha = int(255 * (1.0 - frames_remaining / FADE_FRAMES))
+
+                if fade_alpha > 0:
+                    fade_surf = pygame.Surface((WIDTH, HEIGHT))
+                    fade_surf.fill((0, 0, 0))
+                    fade_surf.set_alpha(fade_alpha)
+                    SCREEN.blit(fade_surf, (0, 0))
+
+                # 하단 정보 오버레이
+                try:
+                    info_bg = pygame.Surface((WIDTH, 36), pygame.SRCALPHA)
+                    info_bg.fill((0, 0, 0, 100))
+                    SCREEN.blit(info_bg, (0, HEIGHT - 36))
+
+                    label = f"Stage {stg} - {boss}"
+                    if result_text == 'win':
+                        label += "  WIN"
+                    elif result_text == 'lose':
+                        label += "  LOSE"
+                    info_s = get_font(16).render(label, True, (180, 190, 210))
+                    SCREEN.blit(info_s, (12, HEIGHT - 30))
+
+                    tag_s = get_font(12).render("REPLAY", True, (80, 100, 140))
+                    SCREEN.blit(tag_s, (WIDTH - tag_s.get_width() - 12, HEIGHT - 28))
+                except Exception:
+                    pass
+
+                pygame.display.flip()
+
+            f.close()
+
+            if exiting:
+                break
+
+        except Exception:
+            continue
+
+    # 최종 페이드아웃
+    for alpha in range(0, 256, 8):
+        fade = pygame.Surface((WIDTH, HEIGHT))
+        fade.fill((0, 0, 0))
+        fade.set_alpha(alpha)
+        SCREEN.blit(fade, (0, 0))
+        pygame.display.flip()
+        clock.tick(60)
+
+
+def _show_legacy_cinematic(SCREEN, WIDTH, HEIGHT):
     """환상적인 시네마틱 영상 - 6개 장면"""
     
     # 기본 설정
