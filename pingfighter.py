@@ -122740,6 +122740,15 @@ def show_replay_viewer():
         pygame.display.flip()
 
 
+def _restore_display_after_replay(orig_size):
+    """리플레이 재생 후 디스플레이 모드 복원"""
+    try:
+        pygame.display.set_mode(orig_size, pygame.SCALED)
+        print(f"[Replay] 디스플레이 복원: {orig_size[0]}x{orig_size[1]}")
+    except Exception as e:
+        print(f"[Replay] 디스플레이 복원 실패: {e}")
+
+
 def _play_replay(filepath: str):
     """리플레이 파일을 로드하고 재생 루프 실행 — 화면 캡처 기반"""
     print(f"[Replay] 재생 시작: {filepath}")
@@ -122776,26 +122785,19 @@ def _play_replay(filepath: str):
     except Exception:
         pass
 
-    # 재생 대상: 항상 SCREEN(760x750)에 그림 — SCALED 모드 호환
-    # 캡처 해상도가 다르면 비율 유지 letterbox로 맞춤
-    _draw_screen = SCREEN
-    _dw = WIDTH
-    _dh = HEIGHT
-    _cap_w = rp.scaled_w  # 캡처된 원본 해상도
+    # 재생 전용 디스플레이 모드: 캡처 해상도로 임시 변경
+    _cap_w = rp.scaled_w
     _cap_h = rp.scaled_h
-    # letterbox 계산: 캡처 비율을 SCREEN 안에 맞추기
-    _cap_ratio = _cap_w / _cap_h if _cap_h > 0 else 1.0
-    _scr_ratio = _dw / _dh
-    if _cap_ratio > _scr_ratio:
-        # 캡처가 더 넓음 → 좌우 맞추고 상하 레터박스
-        _fit_w = _dw
-        _fit_h = int(_dw / _cap_ratio)
-    else:
-        # 캡처가 더 좁음 → 상하 맞추고 좌우 레터박스
-        _fit_h = _dh
-        _fit_w = int(_dh * _cap_ratio)
-    _fit_x = (_dw - _fit_w) // 2
-    _fit_y = (_dh - _fit_h) // 2
+    _orig_display_surface = pygame.display.get_surface()
+    _orig_size = (_orig_display_surface.get_width(), _orig_display_surface.get_height()) if _orig_display_surface else (760, 750)
+    try:
+        _replay_display = pygame.display.set_mode((_cap_w, _cap_h), pygame.SCALED)
+        print(f"[Replay] 디스플레이 모드 변경: {_cap_w}x{_cap_h}")
+    except Exception:
+        _replay_display = pygame.display.get_surface()
+    _draw_screen = _replay_display
+    _dw = _draw_screen.get_width()
+    _dh = _draw_screen.get_height()
 
     info_font = get_font(14)
     speed_font = get_font(16)
@@ -122829,7 +122831,9 @@ def _play_replay(filepath: str):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     rp.stop()
+                    rp.close()
                     bgm_manager.stop_bgm()
+                    _restore_display_after_replay(_orig_size)
                     return
                 if event.key == pygame.K_SPACE:
                     rp.toggle_pause()
@@ -122882,7 +122886,9 @@ def _play_replay(filepath: str):
                     except Exception:
                         pass
         if surf is None and not rp.playing and not rp.paused:
+            rp.close()
             bgm_manager.stop_bgm()
+            _restore_display_after_replay(_orig_size)
             _show_replay_end_screen(result, boss_name, stage)
             return
         if surf is None:
@@ -122890,10 +122896,8 @@ def _play_replay(filepath: str):
         if surf is None:
             continue
 
-        # ── 게임 화면 표시 (비율 유지 letterbox) ──
-        _draw_screen.fill((0, 0, 0))
-        scaled = pygame.transform.scale(surf, (_fit_w, _fit_h))
-        _draw_screen.blit(scaled, (_fit_x, _fit_y))
+        # ── 게임 화면 표시 (캡처 해상도 = 디스플레이 해상도, 스케일링 불필요) ──
+        _draw_screen.blit(surf, (0, 0))
 
         # ── 하단 컨트롤 오버레이 (마우스 하단 호버 또는 일시정지 시에만 표시) ──
         mouse_pos = pygame.mouse.get_pos()
