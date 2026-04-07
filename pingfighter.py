@@ -22347,11 +22347,11 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
 
         if _target_is_top:
             boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
-            boss_stunned_timer = max(boss_stunned_timer, 45)
+            boss_stunned_timer = max(boss_stunned_timer, 120)  # 보스 경직 2초
             globals()["horn_charge_boss_knockback_active"] = True
         else:
             player_knockback_vel = _kb_dir * _kb_vel
-            player_stunned_timer = max(player_stunned_timer, 45)
+            player_stunned_timer = max(player_stunned_timer, 120)
             globals()["horn_charge_player_knockback_active"] = True
 
         _gs["horn_charge_apply_knockback"] = False

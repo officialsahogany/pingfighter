@@ -11,6 +11,13 @@ import math
 import random
 import pygame
 
+try:
+    from downtown.hero_skills import BoneBarrier as HeroBoneBarrier
+    from downtown.hero_skills import HornCharge as HeroHornCharge
+except Exception:
+    HeroBoneBarrier = None
+    HeroHornCharge = None
+
 # ── 상수 ──────────────────────────────────────────────────
 COMMAND_SEQUENCE = [pygame.K_a, pygame.K_w, pygame.K_d]  # A→W→D
 COMMAND_TIMEOUT = 1.5  # 커맨드 입력 허용 시간 (초)
@@ -58,6 +65,100 @@ GREEN_BRIGHT = (80, 200, 60)
 SEED_COLOR = (240, 220, 100)
 
 
+def _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel):
+    """Build lightweight wrappers that match downtown.hero_skills expectations."""
+
+    class _PaddleProxy:
+        def __init__(self, rect, is_top):
+            self.x = float(rect.x) if rect is not None else 0.0
+            self.y = float(rect.y) if rect is not None else 0.0
+            self.width = int(rect.width) if rect is not None else 0
+            self.height = int(rect.height) if rect is not None else 0
+            self.is_top = is_top
+
+    class _BallProxy:
+        def __init__(self, rect, vel):
+            self.x = float(rect.x) if rect is not None else 0.0
+            self.y = float(rect.y) if rect is not None else 0.0
+            self.width = int(rect.width) if rect is not None else 0
+            self.height = int(rect.height) if rect is not None else 0
+            self.vx = float(vel[0]) if vel is not None else 0.0
+            self.vy = float(vel[1]) if vel is not None else 0.0
+
+        def sync_velocity(self, vel):
+            if vel is None:
+                return
+            vel[0] = self.vx
+            vel[1] = self.vy
+
+    return _PaddleProxy(player_rect, False), _PaddleProxy(boss_rect, True), _BallProxy(ball_rect, ball_vel)
+
+
+def _draw_strawberry_sprite(screen, cx, cy, size, alpha=255, tilt=0.0):
+    """Draw a small strawberry sprite with optional alpha/tilt."""
+    size = max(6, int(size))
+    alpha = max(0, min(255, int(alpha)))
+    if alpha <= 0:
+        return
+
+    surf_size = size * 4
+    surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+    center = surf_size // 2
+
+    body_w = max(8, int(size * 1.25))
+    body_h = max(10, int(size * 1.55))
+    body_rect = pygame.Rect(center - body_w // 2, center - body_h // 2 + int(size * 0.1), body_w, body_h)
+
+    shadow_rect = body_rect.move(2, 3)
+    pygame.draw.ellipse(surf, (90, 12, 20, min(alpha, 90)), shadow_rect)
+    pygame.draw.ellipse(surf, (*STRAWBERRY_RED, alpha), body_rect)
+    pygame.draw.ellipse(surf, (*STRAWBERRY_LIGHT, int(alpha * 0.85)),
+                        (body_rect.x + 2, body_rect.y + 1, max(4, body_rect.w - 4), max(4, body_rect.h // 2)))
+    pygame.draw.ellipse(surf, (*STRAWBERRY_HIGHLIGHT, int(alpha * 0.55)),
+                        (body_rect.x + 3, body_rect.y + 2, max(3, body_rect.w - 8), max(2, body_rect.h // 5)))
+    pygame.draw.ellipse(surf, (*STRAWBERRY_DARK, alpha), body_rect, 1)
+
+    seed_positions = (
+        (-0.22, -0.08), (0.18, -0.04), (-0.28, 0.18), (0.0, 0.2), (0.27, 0.14)
+    )
+    for sx_mul, sy_mul in seed_positions:
+        sx = int(center + sx_mul * body_w)
+        sy = int(center + sy_mul * body_h)
+        pygame.draw.ellipse(surf, (*SEED_COLOR, int(alpha * 0.95)), (sx - 1, sy - 1, 3, 2))
+
+    leaf_base_y = body_rect.y + 2
+    leaf_span = max(4, body_w // 3)
+    for side in (-1, 1):
+        hx = center + side * leaf_span
+        leaf_tip_x = hx + side * max(2, size // 6)
+        leaf_tip_y = leaf_base_y - max(6, int(size * 0.55))
+        pygame.draw.polygon(
+            surf,
+            (*GREEN_MID, alpha),
+            [(hx - 3, leaf_base_y + 1), (hx + 3, leaf_base_y + 1), (leaf_tip_x, leaf_tip_y)],
+        )
+        pygame.draw.polygon(
+            surf,
+            (*GREEN_BRIGHT, int(alpha * 0.7)),
+            [(hx - 1, leaf_base_y), (hx + 1, leaf_base_y), (leaf_tip_x, leaf_tip_y + 2)],
+        )
+
+    stem_h = max(4, int(size * 0.35))
+    pygame.draw.line(
+        surf,
+        (*GREEN_DARK, alpha),
+        (center, leaf_base_y + 1),
+        (center, leaf_base_y - stem_h),
+        2,
+    )
+
+    if abs(tilt) > 0.05:
+        surf = pygame.transform.rotozoom(surf, tilt, 1.0)
+
+    rect = surf.get_rect(center=(int(cx), int(cy)))
+    screen.blit(surf, rect)
+
+
 class HornStrawberryTransformState:
     """뿔딸기 변신 상태 관리"""
 
@@ -79,8 +180,8 @@ class HornStrawberryTransformState:
         self.prev_keys = {}  # 이전 프레임 키 상태
 
         # 스킬 상태
-        self.horn_charge = HornChargeSkill()
-        self.strawberry_field = StrawberryFieldSkill()
+        self.horn_charge = _HornChargeSkillCore()
+        self.strawberry_field = _StrawberryFieldSkillCore()
         self.strawberry_eat = StrawberryEatSkill()
 
         # 변신 연출 파티클
@@ -193,6 +294,9 @@ class HornStrawberryTransformState:
             self.strawberry_eat.update_cooldown(dt)
 
             if self.transform_timer <= 0:
+                self.horn_charge.reset()
+                self.strawberry_field.reset()
+                self.strawberry_eat.reset()
                 self.state = self.DETRANSFORM_EVENT
                 self.event_timer = TRANSFORM_END_EVENT_DURATION
                 self.flash_alpha = 255
@@ -680,6 +784,409 @@ class StrawberryFieldSkill:
             pygame.draw.rect(surf, (*STRAWBERRY_HIGHLIGHT, alpha // 2),
                            (3, 2, b["w"] - 6, 3), border_radius=2)
             screen.blit(surf, (int(b["x"]), int(b["y"])))
+
+
+class _HornChargeSkillCore:
+    """Wrapper that reuses downtown.hero_skills.HornCharge."""
+
+    def __init__(self):
+        self._skill = HeroHornCharge() if HeroHornCharge is not None else None
+        if self._skill is not None:
+            self._skill.cooldown = HORN_CHARGE_COOLDOWN
+        self._game_state = self._create_game_state()
+        self._trail_nodes = []
+        self._trail_spawn_timer = 0.0
+
+    @staticmethod
+    def _create_game_state():
+        return {
+            "horn_charge_active": False,
+            "horn_charge_y_offset": 0.0,
+            "horn_charge_x_offset": 0.0,
+            "horn_charge_apply_knockback": False,
+            "horn_charge_knockback_dir": 0,
+            "horn_charge_knockback_vel": 0.0,
+            "horn_charge_target_is_top": True,
+            "horn_charge_caster_is_top": False,
+            "horn_charge_impact_shockwave": None,
+            "horn_charge_explosion": None,
+            "top_paddle_stunned": False,
+            "bottom_paddle_stunned": False,
+        }
+
+    @property
+    def active(self):
+        return bool(self._skill is not None and self._skill.is_active)
+
+    @property
+    def cooldown(self):
+        if self._skill is None:
+            return 0.0
+        return max(0.0, self._skill.current_cooldown)
+
+    @property
+    def game_state(self):
+        return self._game_state
+
+    def reset(self):
+        if self._skill is not None:
+            self._skill.reset()
+            self._skill.cooldown = HORN_CHARGE_COOLDOWN
+        self._game_state = self._create_game_state()
+        self._trail_nodes.clear()
+        self._trail_spawn_timer = 0.0
+
+    def can_use(self, current_gauge):
+        return (
+            self._skill is not None
+            and self._skill.can_use()
+            and current_gauge >= HORN_CHARGE_GAUGE_COST
+        )
+
+    def activate(self, player_rect, boss_rect, ball_rect, ball_vel, consume_gauge_fn, play_sound_fn=None):
+        if self._skill is None or player_rect is None or boss_rect is None:
+            return False
+        if not self.can_use(HORN_CHARGE_GAUGE_COST):
+            return False
+        if not consume_gauge_fn(HORN_CHARGE_GAUGE_COST):
+            return False
+
+        self._trail_nodes.clear()
+        self._trail_spawn_timer = 0.0
+        caster, target, ball = _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel)
+        self._skill.cooldown = HORN_CHARGE_COOLDOWN
+        effect = self._skill.use(caster, target, ball, self._game_state)
+        ball.sync_velocity(ball_vel)
+
+        if play_sound_fn is not None and effect.get("sound") == "horncharge":
+            try:
+                play_sound_fn("sounds/horncharge.wav", 0.65)
+            except Exception:
+                pass
+        return True
+
+    def update_cooldown(self, dt):
+        if self._skill is not None and not self._skill.is_active and self._skill.current_cooldown > 0:
+            self._skill.current_cooldown = max(0.0, self._skill.current_cooldown - dt)
+
+    def needs_runtime_update(self):
+        if self._skill is None:
+            return False
+        shockwave = self._game_state.get("horn_charge_impact_shockwave")
+        return bool(
+            self._skill.is_active
+            or self._game_state.get("horn_charge_active")
+            or self._game_state.get("top_paddle_stunned")
+            or self._game_state.get("bottom_paddle_stunned")
+            or (shockwave and shockwave.get("active"))
+        )
+
+    def update(self, dt, player_rect, boss_rect, ball_rect, ball_vel):
+        if self._skill is None or player_rect is None or boss_rect is None:
+            return
+        caster, target, ball = _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel)
+        self._skill.update(dt, caster, target, ball, self._game_state)
+        ball.sync_velocity(ball_vel)
+        # 딸기뿔박치기: 플레이어 STUN 페이즈를 0.5초로 단축 (원본 1.0초)
+        if self._skill.is_active and self._skill.phase == 3:  # PHASE_STUN
+            if self._skill.phase_timer >= 0.5:
+                # 0.5초에 강제 종료 — phase_timer를 1.0으로 밀어서 원본 종료 로직 트리거
+                self._skill.phase_timer = 1.0
+        self._update_trail(dt, player_rect)
+
+    def get_draw_offsets(self):
+        if not self._game_state.get("horn_charge_active"):
+            return 0.0, 0.0
+        return (
+            float(self._game_state.get("horn_charge_x_offset", 0.0)),
+            float(self._game_state.get("horn_charge_y_offset", 0.0)),
+        )
+
+    def _update_trail(self, dt, player_rect):
+        _phase = getattr(self._skill, "phase", None)
+        _charging_phase = getattr(self._skill, "PHASE_CHARGING", -999)
+        _returning_phase = getattr(self._skill, "PHASE_RETURNING", -998)
+
+        if self._game_state.get("horn_charge_active") and _phase == _charging_phase:
+            self._trail_spawn_timer += dt
+            _trail_interval = 0.028
+            _x_offset, _y_offset = self.get_draw_offsets()
+            _center_x = float(player_rect.centerx) + _x_offset
+            _center_y = float(player_rect.centery) + _y_offset
+
+            while self._trail_spawn_timer >= _trail_interval:
+                self._trail_spawn_timer -= _trail_interval
+                self._trail_nodes.append({
+                    "x": _center_x,
+                    "y": _center_y,
+                    "life": 0.38,
+                    "max_life": 0.38,
+                    "size": random.uniform(0.8, 1.25),
+                    "tilt": random.uniform(-24, 24),
+                    "scatter": random.uniform(5, 11),
+                })
+            self._trail_nodes = self._trail_nodes[-16:]
+        elif not self._game_state.get("horn_charge_active") or _phase == _returning_phase:
+            self._trail_spawn_timer = 0.0
+
+        alive = []
+        for node in self._trail_nodes:
+            node["life"] -= dt
+            node["y"] += 8.0 * dt
+            if node["life"] > 0:
+                alive.append(node)
+        self._trail_nodes = alive
+
+    def draw_trail(self, screen):
+        for idx, node in enumerate(self._trail_nodes):
+            life_ratio = max(0.0, min(1.0, node["life"] / node["max_life"]))
+            alpha = int(210 * life_ratio)
+            berry_size = 11 + int(9 * node["size"] * life_ratio)
+            scatter = node["scatter"]
+            wobble = math.sin((pygame.time.get_ticks() * 0.01) + idx * 0.7) * 2.2
+
+            _draw_strawberry_sprite(
+                screen,
+                node["x"] - scatter,
+                node["y"] + wobble,
+                berry_size,
+                alpha=alpha,
+                tilt=node["tilt"],
+            )
+            _draw_strawberry_sprite(
+                screen,
+                node["x"] + scatter * 0.8,
+                node["y"] - wobble * 0.7,
+                max(8, int(berry_size * 0.82)),
+                alpha=int(alpha * 0.85),
+                tilt=-node["tilt"] * 0.75,
+            )
+
+            seed_alpha = max(0, min(255, int(alpha * 0.65)))
+            if seed_alpha > 0:
+                for spark_idx in range(2):
+                    spark_x = int(node["x"] + (spark_idx * 2 - 1) * scatter * 0.55)
+                    spark_y = int(node["y"] - 6 + spark_idx * 4)
+                    pygame.draw.ellipse(screen, (*SEED_COLOR, seed_alpha), (spark_x, spark_y, 4, 2))
+
+
+class _StrawberryFieldSkillCore:
+    """Hold-to-cast wrapper that reuses downtown.hero_skills.BoneBarrier."""
+
+    def __init__(self):
+        self.holding = False
+        self.hold_timer = 0.0
+        self.gauge_consumed = 0.0
+        self._skill = HeroBoneBarrier() if HeroBoneBarrier is not None else None
+        self._game_state = {}
+        if self._skill is not None:
+            self._skill.cooldown = STRAWBERRY_FIELD_COOLDOWN
+
+    @property
+    def cooldown(self):
+        if self._skill is None:
+            return 0.0
+        return max(0.0, self._skill.current_cooldown)
+
+    @property
+    def barriers(self):
+        if self._skill is None:
+            return []
+        return self._skill.barriers
+
+    def reset(self):
+        self.holding = False
+        self.hold_timer = 0.0
+        self.gauge_consumed = 0.0
+        self._game_state = {}
+        if self._skill is not None:
+            self._skill.reset()
+            self._skill.cooldown = STRAWBERRY_FIELD_COOLDOWN
+            self._skill.barriers = []
+            self._skill.dying_barriers = []
+            self._skill._next_id = 0
+
+    def can_use(self):
+        return (
+            self._skill is not None
+            and not self.holding
+            and self._skill.current_cooldown <= 0
+        )
+
+    def start_hold(self):
+        if self.can_use():
+            self.holding = True
+            self.hold_timer = 0.0
+            self.gauge_consumed = 0.0
+            return True
+        return False
+
+    def update_hold(self, dt, current_gauge, consume_gauge_fn, player_rect, boss_rect, ball_rect, ball_vel):
+        if not self.holding:
+            return False
+
+        self.hold_timer += dt
+        gauge_per_sec = STRAWBERRY_FIELD_GAUGE_COST / STRAWBERRY_FIELD_HOLD_MIN
+        consume_amount = gauge_per_sec * dt
+        remaining_cost = max(0.0, STRAWBERRY_FIELD_GAUGE_COST - self.gauge_consumed)
+        consume_amount = min(consume_amount, remaining_cost)
+        if current_gauge >= consume_amount and consume_amount > 0:
+            consume_gauge_fn(consume_amount)
+            self.gauge_consumed += consume_amount
+        elif remaining_cost > 0:
+            self.holding = False
+            self.hold_timer = 0.0
+            self.gauge_consumed = 0.0
+            return False
+
+        if self.hold_timer >= STRAWBERRY_FIELD_HOLD_MIN and self._skill is not None:
+            self.holding = False
+            caster, target, ball = _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel)
+            self._skill.cooldown = STRAWBERRY_FIELD_COOLDOWN
+            self._skill.use(caster, target, ball, self._game_state)
+            ball.sync_velocity(ball_vel)
+            return True
+        return False
+
+    def release_hold(self):
+        if self.holding and self.hold_timer < STRAWBERRY_FIELD_HOLD_MIN:
+            self.holding = False
+            self.hold_timer = 0.0
+            self.gauge_consumed = 0.0
+
+    def update_cooldown(self, dt):
+        if (
+            self._skill is not None
+            and not self.holding
+            and not self._skill.is_active
+            and not self._skill.barriers
+            and not self._skill.dying_barriers
+            and self._skill.current_cooldown > 0
+        ):
+            self._skill.current_cooldown = max(0.0, self._skill.current_cooldown - dt)
+
+    def needs_runtime_update(self):
+        return bool(
+            self._skill is not None
+            and (
+                self._skill.is_active
+                or self._skill.barriers
+                or self._skill.dying_barriers
+            )
+        )
+
+    def update(self, dt, player_rect, boss_rect, ball_rect, ball_vel):
+        if self._skill is None or player_rect is None or boss_rect is None:
+            return
+        caster, target, ball = _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel)
+        self._skill.update(dt, caster, target, ball, self._game_state)
+        ball.sync_velocity(ball_vel)
+
+    def draw_barriers(self, screen):
+        if self._skill is None:
+            return
+        for barrier in self._skill.barriers:
+            self._draw_barrier(screen, barrier)
+        for dying in self._skill.dying_barriers:
+            self._draw_dying_barrier(screen, dying)
+
+    def _draw_barrier(self, screen, barrier):
+        if not barrier.get("alive", False):
+            return
+
+        x = int(barrier["x"])
+        y = int(barrier["y"])
+        w = int(barrier["width"])
+        built = bool(barrier.get("built", False))
+        is_top = bool(barrier.get("is_top", False))
+        build_time = max(0.001, float(getattr(self._skill, "BUILD_TIME", 3.0)))
+        build_progress = min(1.0, float(barrier.get("build_timer", 0.0)) / build_time)
+        t_now = pygame.time.get_ticks() / 180.0
+
+        berry_row_y = y + 16 if is_top else y - 16
+        vine_y = berry_row_y - 12
+        glow_alpha = 55 if built else int(45 * build_progress)
+
+        vine_shadow = pygame.Surface((w + 18, 18), pygame.SRCALPHA)
+        pygame.draw.line(vine_shadow, (20, 65, 18, max(20, glow_alpha // 2)), (8, 11), (w + 8, 11), 6)
+        pygame.draw.line(vine_shadow, (55, 150, 45, max(40, glow_alpha)), (8, 9), (w + 8, 9), 4)
+        pygame.draw.line(vine_shadow, (120, 230, 100, max(20, glow_alpha // 2)), (10, 7), (w + 6, 7), 1)
+        screen.blit(vine_shadow, (x - 9, vine_y - 9))
+
+        berry_count = max(4, w // 26)
+        span = w - 20
+        for idx in range(berry_count):
+            local_progress = 1.0 if built else max(0.0, min(1.0, build_progress * berry_count - idx + 0.35))
+            if local_progress <= 0:
+                continue
+
+            cx = x + 10 + (span * idx / max(1, berry_count - 1))
+            bob = math.sin(t_now + idx * 0.9) * 1.4
+            cy = berry_row_y + bob
+            berry_size = max(8, int((17 + (idx % 2) * 2) * local_progress))
+            alpha = int((230 if built else 190) * local_progress)
+
+            pygame.draw.line(
+                screen,
+                (*GREEN_DARK, alpha),
+                (int(cx), int(vine_y + 2)),
+                (int(cx), int(cy - berry_size * 0.55)),
+                2,
+            )
+            _draw_strawberry_sprite(
+                screen,
+                cx,
+                cy,
+                berry_size,
+                alpha=alpha,
+                tilt=(-10 if idx % 2 == 0 else 10) * (0.6 + 0.4 * local_progress),
+            )
+
+        if built:
+            for idx in range(berry_count - 1):
+                bridge_x = x + 10 + (span * (idx + 0.5) / max(1, berry_count - 1))
+                bridge_y = berry_row_y + math.sin(t_now + idx * 0.9 + 0.45) * 1.2
+                _draw_strawberry_sprite(
+                    screen,
+                    bridge_x,
+                    bridge_y + (5 if idx % 2 == 0 else -3),
+                    11,
+                    alpha=205,
+                    tilt=18 if idx % 2 == 0 else -18,
+                )
+
+        pulse_alpha = int((35 if built else 18) * (0.65 + 0.35 * math.sin(t_now * 0.7 + x * 0.03)))
+        if pulse_alpha > 0:
+            glow_surf = pygame.Surface((w + 40, 42), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (255, 90, 110, pulse_alpha), (0, 10, w + 40, 18))
+            screen.blit(glow_surf, (x - 20, berry_row_y - 12), special_flags=pygame.BLEND_ADD)
+
+    def _draw_dying_barrier(self, screen, dying):
+        death_duration = max(0.001, float(getattr(self._skill, "DEATH_DURATION", 0.6)))
+        progress = float(dying.get("death_time", 0.0)) / death_duration
+        if progress >= 1.0:
+            return
+
+        alpha = max(0, int(255 * (1.0 - progress)))
+        for idx, frag in enumerate(dying.get("fragments", [])):
+            fx = frag["x"] + frag["vx"] * dying["death_time"]
+            fy = frag["y"] + frag["vy"] * dying["death_time"] + 120 * dying["death_time"] * dying["death_time"]
+            frag_size = max(5, int(frag.get("length", 6) * (0.9 - progress * 0.35)))
+            _draw_strawberry_sprite(
+                screen,
+                fx,
+                fy,
+                frag_size,
+                alpha=int(alpha * 0.78),
+                tilt=((idx % 2) * 2 - 1) * (14 + idx % 5 * 5),
+            )
+            seed_alpha = int(alpha * 0.55)
+            if seed_alpha > 0:
+                pygame.draw.ellipse(
+                    screen,
+                    (*SEED_COLOR, seed_alpha),
+                    (int(fx - 2), int(fy + frag_size * 0.25), 4, 2),
+                )
 
 
 class StrawberryEatSkill:
