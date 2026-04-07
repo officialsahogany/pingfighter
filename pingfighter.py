@@ -9841,6 +9841,13 @@ def _fullscreen_flip():
                 import traceback; traceback.print_exc()
                 globals()['arena_capture_phase'] = None
                 globals()['arena_battle_result'] = True
+                # 🎬 투기장 리플레이 녹화 종료 (에러 복구)
+                try:
+                    _rec_err = get_replay_recorder()
+                    if _rec_err.recording:
+                        _rec_err.stop(result='win')
+                except Exception:
+                    pass
 
         # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
         if pillar_renderer is not None:
@@ -10472,6 +10479,13 @@ else:
             except Exception:
                 globals()['arena_capture_phase'] = None
                 globals()['arena_battle_result'] = True
+                # 🎬 투기장 리플레이 녹화 종료 (에러 복구)
+                try:
+                    _rec_err_w = get_replay_recorder()
+                    if _rec_err_w.recording:
+                        _rec_err_w.stop(result='win')
+                except Exception:
+                    pass
         # 투기장 배속 버튼 (윈도우 모드)
         if globals().get('arena_mode_enabled', False):
             try:
@@ -22303,8 +22317,16 @@ def _handle_strawberry_skills(keys, ts, dt):
     # Space/클릭: 딸기먹기
     space_pressed = keys[pygame.K_SPACE]
     mouse_pressed = pygame.mouse.get_pressed()[0]
+    eat_input_down = bool(space_pressed or mouse_pressed)
+    eat_just_pressed = eat_input_down and not bool(getattr(ts, "_eat_input_prev_down", False))
+    ts._eat_input_prev_down = eat_input_down
     _eat_cost = int(getattr(ts.strawberry_eat, "gauge_cost", 50))
-    if (space_pressed or mouse_pressed) and ts.strawberry_eat.can_use() and special_gauge >= _eat_cost:
+    if (
+        eat_just_pressed
+        and not bool(getattr(ts.horn_charge, "active", False))
+        and ts.strawberry_eat.can_use()
+        and special_gauge >= _eat_cost
+    ):
         try:
             ts.strawberry_eat._anchor_player_centerx = float(PLAYER.centerx) if PLAYER else None
         except Exception:
@@ -22466,17 +22488,21 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
         _kb_dir = _gs.get("horn_charge_knockback_dir", 1)
         _kb_vel = _gs.get("horn_charge_knockback_vel", 73)
         _target_is_top = _gs.get("horn_charge_target_is_top", True)
+        try:
+            _target_stun_frames = int(ts.horn_charge.get_target_stun_frames())
+        except Exception:
+            _target_stun_frames = 60
 
         screen_shake_timer = 24
         screen_shake_intensity = 35
 
         if _target_is_top:
             boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
-            boss_stunned_timer = max(boss_stunned_timer, 45)
+            boss_stunned_timer = max(boss_stunned_timer, _target_stun_frames)
             globals()["horn_charge_boss_knockback_active"] = True
         else:
             player_knockback_vel = _kb_dir * _kb_vel
-            player_stunned_timer = max(player_stunned_timer, 45)
+            player_stunned_timer = max(player_stunned_timer, _target_stun_frames)
             globals()["horn_charge_player_knockback_active"] = True
 
         _gs["horn_charge_apply_knockback"] = False
@@ -143310,6 +143336,15 @@ def _update_arena_capture_phase(screen):
         if animated_bg_stage30 is not None:
             animated_bg_stage30.judgment_cooldown = _cap_random.uniform(50.0, 60.0)
         arena_battle_result = True
+        # 🎬 투기장 포획 완료 후 리플레이 녹화 종료
+        try:
+            _rec = get_replay_recorder()
+            if _rec.recording:
+                _rec.metadata['boss_name'] = (arena_top_hero.get('name', '?') if arena_top_hero else '?')
+                _rec.metadata['stage'] = 30
+                _rec.stop(result='win')
+        except Exception:
+            pass
         # print(f"[CAPTURE] 포획 페이즈 완료. 결과={arena_capture_result_flag}")
 
 
@@ -158238,6 +158273,15 @@ def show_result(won):
             # print(f"[CAPTURE] 포획 페이즈 시작! 대상: {_top_name}")
             return
         arena_battle_result = won  # True=하단(플레이어AI) 승리, False=상단 승리
+        # 🎬 투기장 리플레이 녹화 종료
+        try:
+            _rec = get_replay_recorder()
+            if _rec.recording:
+                _rec.metadata['boss_name'] = (arena_top_hero.get('name', '?') if arena_top_hero else '?')
+                _rec.metadata['stage'] = 30
+                _rec.stop(result='win' if won else 'lose')
+        except Exception as _re:
+            print(f"[Replay] 투기장 녹화 저장 실패: {_re}")
         _bottom_name = arena_bottom_hero.get('name', '?') if arena_bottom_hero else '?'
         _top_name = arena_top_hero.get('name', '?') if arena_top_hero else '?'
         if won:
