@@ -157717,6 +157717,9 @@ def show_result(won):
     try:
         _rec = get_replay_recorder()
         if _rec.recording:
+            # 보스 이름을 최종 확정값으로 업데이트 (녹화 시작 시점에는 이전 값일 수 있음)
+            _rec.metadata['boss_name'] = get_boss_name(current_stage)
+            _rec.metadata['stage'] = current_stage
             _rec.stop(result='win' if won else 'lose')
     except Exception as _re:
         print(f"[Replay] show_result 내 녹화 저장 실패: {_re}")
