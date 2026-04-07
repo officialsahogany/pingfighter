@@ -22329,13 +22329,28 @@ def is_horn_strawberry_charge_visual_locked():
 def _apply_horn_strawberry_horn_charge_runtime(ts):
     """원본 HornCharge game_state를 메인 게임 전역 상태에 연결한다."""
     global boss_knockback_vel, boss_stunned_timer, player_knockback_vel, player_stunned_timer
+    global current_speed, rolling_active, rolling_timer
+    global player_fire_knockback_vel, player_missile_knockback_vel
     global screen_shake_timer, screen_shake_intensity
     _gs = getattr(ts.horn_charge, "game_state", None)
     if not _gs:
         return
 
-    # 돌진/충돌/복귀 중에는 is_horn_strawberry_control_locked()로 입력만 잠금
-    # player_stunned_timer는 STUN 페이즈에서만 적용 (패들 이미지 떨림 방지)
+    # 돌진/충돌/복귀 중에는 실제 패들을 원위치에 고정하고 이동/대쉬를 차단한다.
+    if getattr(ts.horn_charge, "active", False):
+        try:
+            _anchor_centerx = ts.horn_charge.get_anchor_centerx()
+        except Exception:
+            _anchor_centerx = None
+        if PLAYER is not None and _anchor_centerx is not None:
+            PLAYER.centerx = int(_anchor_centerx)
+            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        current_speed = 0
+        rolling_active = False
+        rolling_timer = 0
+        player_knockback_vel = 0
+        player_fire_knockback_vel = 0.0
+        player_missile_knockback_vel = 0.0
 
     if _gs.get("bottom_paddle_stunned"):
         # STUN 페이즈 — 플레이어 실제 스턴
@@ -22353,11 +22368,11 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
 
         if _target_is_top:
             boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
-            boss_stunned_timer = max(boss_stunned_timer, 120)  # 보스 경직 2초
+            boss_stunned_timer = max(boss_stunned_timer, 45)
             globals()["horn_charge_boss_knockback_active"] = True
         else:
             player_knockback_vel = _kb_dir * _kb_vel
-            player_stunned_timer = max(player_stunned_timer, 120)
+            player_stunned_timer = max(player_stunned_timer, 45)
             globals()["horn_charge_player_knockback_active"] = True
 
         _gs["horn_charge_apply_knockback"] = False
@@ -22455,12 +22470,25 @@ def draw_horn_strawberry_effects(screen):
         ts.draw_transform_event(screen, px, py)
 
     if ts.is_transformed:
+        _base_player_x = PLAYER.x if PLAYER else 0
+        _base_player_y = PLAYER.y if PLAYER else 0
         _charge_x_offset = 0
         _charge_y_offset = 0
         try:
             _charge_x_offset, _charge_y_offset = ts.horn_charge.get_draw_offsets()
         except Exception:
             pass
+
+        try:
+            _anchor_centerx = ts.horn_charge.get_anchor_centerx()
+        except Exception:
+            _anchor_centerx = None
+
+        if PLAYER and _anchor_centerx is not None and getattr(ts.horn_charge, "active", False):
+            PLAYER.centerx = int(_anchor_centerx)
+            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+            _base_player_x = PLAYER.x
+            _base_player_y = PLAYER.y
 
         try:
             ts.horn_charge.draw_trail(screen)
@@ -22470,11 +22498,11 @@ def draw_horn_strawberry_effects(screen):
         # 패들 위에 뿔딸기 캐릭터 오버레이
         # x_offset은 centerx 기준이므로, 패들 좌측 끝 x도 centerx 기준으로 보정
         if PLAYER:
-            _draw_x = int(PLAYER.centerx + _charge_x_offset - PLAYER.width // 2)
+            _draw_x = int(_base_player_x + _charge_x_offset)
             ts.draw_strawberry_paddle(
                 screen,
                 _draw_x,
-                int(PLAYER.y + _charge_y_offset),
+                int(_base_player_y + _charge_y_offset),
                 PLAYER.width,
                 PLAYER.height,
             )
@@ -74834,9 +74862,15 @@ def handle_player(keys):
         global boss_fire_knockback_vel, _viper_phantom_kick_knockback_pending
         global _viper_dive_slip_timer, _viper_dive_slip_vel, _viper_dive_slip_duration
 
-        _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]  # W키 또는 ↑키 (에어 블레이드/베놈 엣지)
-        _viper_e_pressed = keys[pygame.K_e]
-        _viper_s_pressed = keys[pygame.K_s]
+        # 뿔딸기 변신 중에는 바이퍼 스킬 입력 전체 차단
+        if is_horn_strawberry_skills_locked():
+            _viper_w_pressed = False
+            _viper_e_pressed = False
+            _viper_s_pressed = False
+        else:
+            _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]
+            _viper_e_pressed = keys[pygame.K_e]
+            _viper_s_pressed = keys[pygame.K_s]
 
         # 키 릴리즈 감지 (연속 발동 방지)
         # 서브 중에는 릴리즈 플래그를 리셋하여 서브 발사 직후 에어 블레이드 오발동 방지
@@ -76600,6 +76634,7 @@ def handle_player(keys):
             and space_pressed_raw
             and not player_stunned
             and not is_horn_strawberry_control_locked()
+            and not is_horn_strawberry_skills_locked()
             and swing_stun_timer <= 0  # 스윙 통제불능 시간 중 스윙 불가
             and blacksmith_swing_cooldown <= 0  # 스윙 쿨다운 중 스윙 불가
         ):
@@ -165568,6 +165603,13 @@ def main(stage_num, new_boss_mode=False):
                     INPUT_SNAPSHOT_VALID = False
                     keys_now = pygame.key.get_pressed()
 
+                # 🍓 뿔딸기 변신가면 업데이트는 메인 게임 로직보다 먼저 처리한다.
+                # 그래야 뿔박치기 넉백/스턴/입력잠금이 같은 프레임에 반영된다.
+                try:
+                    update_horn_strawberry_transform(keys_now, 1.0 / 60.0)
+                except Exception:
+                    pass
+
             # 초각성/극정호신 연출 중이면 입력/로직을 잠시 정지
             # 공 생성 애니메이션 중에도 게임 로직 정지
             # 툴팁 일시정지 (game_paused_by_tooltip) 포함
@@ -168366,8 +168408,6 @@ def main(stage_num, new_boss_mode=False):
 
         # 🍓 뿔딸기 변신가면 오버레이 (flip 직전)
         try:
-            _hs_keys = pygame.key.get_pressed()
-            update_horn_strawberry_transform(_hs_keys, 1.0 / 60.0)
             draw_horn_strawberry_effects(SCREEN)
         except Exception:
             pass
