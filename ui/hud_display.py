@@ -348,39 +348,53 @@ class HUDDisplay:
                     HUDDisplay._roundset_sound = pygame.mixer.Sound(_rs_full)
                     HUDDisplay._roundset_sound.set_volume(0.4)
             if HUDDisplay._roundset_sound:
-                HUDDisplay._roundset_sound.play()
+                # play_sound_with_volume 사용하여 리플레이 사운드 훅도 작동
+                try:
+                    from pingfighter import play_sound_with_volume as _play_sfx
+                    _play_sfx(HUDDisplay._roundset_sound, 0.4)
+                except Exception:
+                    HUDDisplay._roundset_sound.play()
         except Exception:
             pass
 
         # 🎬 리플레이 캡처 훅 (전광판도 녹화되도록)
+        _score_rec = None
+        _capture_surface = self.screen  # 기본: 내부 Surface
         try:
             from replay.replay_system import get_recorder as _get_replay_rec
             _score_rec = _get_replay_rec()
+            # 전체화면이면 REAL_SCREEN 캡처
+            try:
+                from pingfighter import REAL_SCREEN as _RS, _is_fullscreen_active as _fs
+                if _fs and _RS is not None:
+                    _capture_surface = _RS
+            except Exception:
+                pass
         except Exception:
-            _score_rec = None
+            pass
 
         # 페이드인 애니메이션
         for alpha in range(0, 256, 18):
-            pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
+            pygame.event.pump()
             self._draw_kbo_scoreboard(player_score, ai_score, board_x, board_y,
                                       board_width, board_height, inner_x, inner_y,
                                       inner_w, inner_h, animation_timer, alpha,
                                       player_name=player_name, boss_name=boss_name)
             if _score_rec and _score_rec.recording:
-                _score_rec.capture(self.screen)
+                _score_rec.capture(_capture_surface)
             pygame.display.flip()
             clock.tick(60)
             animation_timer += 1
 
         # 점수판 표시 시간 (1.5초)
         for _ in range(90):
-            pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
+            pygame.event.pump()
             self._draw_kbo_scoreboard(player_score, ai_score, board_x, board_y,
                                       board_width, board_height, inner_x, inner_y,
                                       inner_w, inner_h, animation_timer, 255,
                                       player_name=player_name, boss_name=boss_name)
             if _score_rec and _score_rec.recording:
-                _score_rec.capture(self.screen)
+                _score_rec.capture(_capture_surface)
             pygame.display.flip()
             clock.tick(60)
             animation_timer += 1
