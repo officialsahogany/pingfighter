@@ -9595,6 +9595,34 @@ def _draw_pillar_ui(screen, renderer):
             _viper_tooltip_pause_accumulated += pygame.time.get_ticks() - _viper_tooltip_pause_start
             _viper_tooltip_pause_start = 0
 
+    # 🍓 뿔딸기 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
+    if _is_ingame and is_horn_strawberry_transformed():
+      try:
+        mouse_pos = pygame.mouse.get_pos()
+        hs_hovered = _check_horn_strawberry_skill_tooltip(mouse_pos, GAME_SCALE_FACTOR)
+        if hs_hovered:
+            if not _horn_strawberry_tooltip_active:
+                _horn_strawberry_tooltip_active = True
+                if not game_paused_by_tooltip:
+                    _tooltip_prev_game_paused = game_paused
+                    _tooltip_forced_pause = not _tooltip_prev_game_paused
+                    game_paused = True
+                    game_paused_by_tooltip = True
+            try:
+                current_gauge = player_gauge
+            except Exception:
+                current_gauge = 0
+            _draw_horn_strawberry_skill_tooltip(screen, hs_hovered, mouse_pos, current_gauge)
+        else:
+            if _horn_strawberry_tooltip_active:
+                _horn_strawberry_tooltip_active = False
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active:
+                    game_paused = _tooltip_prev_game_paused
+                    game_paused_by_tooltip = False
+                    _tooltip_forced_pause = False
+      except Exception:
+        _horn_strawberry_tooltip_active = False
+
     # 오딘의 늪 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
     if _is_ingame:
       try:
@@ -19567,7 +19595,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             # 실제 전역 변수 참조
             # 캐릭터별 기본 이동속도 (MAX_SPEED 대신 캐릭터별 값 사용)
             char_type = selected_character_type
-            if char_type == "optimus":
+            _hs_move_speed_display = get_horn_strawberry_move_speed()
+            if _hs_move_speed_display is not None:
+                actual_player_speed = _hs_move_speed_display
+            elif char_type == "optimus":
                 actual_player_speed = OPTIMUS_BASE_MAX_SPEED
             elif char_type == "blacksmith":
                 actual_player_speed = 4
@@ -22261,6 +22292,10 @@ def _handle_strawberry_skills(keys, ts, dt):
     space_pressed = keys[pygame.K_SPACE]
     mouse_pressed = pygame.mouse.get_pressed()[0]
     if (space_pressed or mouse_pressed) and ts.strawberry_eat.can_use():
+        try:
+            ts.strawberry_eat._anchor_player_centerx = float(PLAYER.centerx) if PLAYER else None
+        except Exception:
+            pass
         ts.strawberry_eat.activate()
 
     if ts.strawberry_eat.eating or ts.strawberry_eat.projectiles:
@@ -22312,9 +22347,12 @@ def is_horn_strawberry_control_locked():
     if not ts or not ts.is_transformed:
         return False
     try:
-        return bool(ts.horn_charge.is_control_locked())
+        if ts.horn_charge.is_control_locked():
+            return True
     except Exception:
-        return bool(getattr(ts.horn_charge, "active", False))
+        if bool(getattr(ts.horn_charge, "active", False)):
+            return True
+    return bool(getattr(ts.strawberry_eat, "eating", False))
 
 def is_horn_strawberry_skills_locked():
     """뿔딸기 변신 중에는 기존 캐릭터 스킬을 차단한다 (이동은 허용)."""
@@ -22343,8 +22381,14 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
     if not _gs:
         return
 
+    try:
+        _horn_charge_locked = bool(ts.horn_charge.is_control_locked())
+    except Exception:
+        _horn_charge_locked = bool(getattr(ts.horn_charge, "active", False))
+    _eat_locked = bool(getattr(ts.strawberry_eat, "eating", False))
+
     # 돌진/충돌/복귀 중에는 실제 패들을 원위치에 고정하고 이동/대쉬를 차단한다.
-    if is_horn_strawberry_control_locked():
+    if _horn_charge_locked:
         try:
             _anchor_centerx = ts.horn_charge.get_anchor_centerx()
         except Exception:
@@ -22359,8 +22403,17 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
         player_fire_knockback_vel = 0.0
         player_missile_knockback_vel = 0.0
 
-    if _gs.get("top_paddle_stunned"):
-        boss_stunned_timer = max(boss_stunned_timer, 2)
+    if _eat_locked:
+        _eat_anchor_centerx = getattr(ts.strawberry_eat, "_anchor_player_centerx", None)
+        if PLAYER is not None and _eat_anchor_centerx is not None:
+            PLAYER.centerx = int(_eat_anchor_centerx)
+            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        current_speed = 0
+        rolling_active = False
+        rolling_timer = 0
+        player_knockback_vel = 0
+        player_fire_knockback_vel = 0.0
+        player_missile_knockback_vel = 0.0
 
     if _gs.get("horn_charge_apply_knockback"):
         _kb_dir = _gs.get("horn_charge_knockback_dir", 1)
@@ -22488,7 +22541,12 @@ def draw_horn_strawberry_effects(screen):
         except Exception:
             _anchor_centerx = None
 
-        if PLAYER and _anchor_centerx is not None and is_horn_strawberry_control_locked():
+        try:
+            _horn_charge_locked = bool(ts.horn_charge.is_control_locked())
+        except Exception:
+            _horn_charge_locked = bool(getattr(ts.horn_charge, "active", False))
+
+        if PLAYER and _anchor_centerx is not None and _horn_charge_locked:
             PLAYER.centerx = int(_anchor_centerx)
             PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
             _base_player_x = PLAYER.x
@@ -22525,11 +22583,141 @@ def draw_horn_strawberry_effects(screen):
 
         # 전용 스킬 구슬 UI는 필러 좌측에서 그림 (_draw_horn_strawberry_pillar_skills)
 
+_horn_strawberry_skill_icon_rects = {}  # 뿔딸기 스킬 아이콘 히트박스
+_horn_strawberry_tooltip_active = False
+
+
+def _check_horn_strawberry_skill_tooltip(mouse_pos, scale_factor=1.0):
+    """마우스 호버 시 뿔딸기 스킬 데이터 반환"""
+    if not _horn_strawberry_skill_icon_rects or not is_horn_strawberry_transformed():
+        return None
+
+    raw_mouse_x, raw_mouse_y = _original_mouse_get_pos()
+    surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
+    local_x = (raw_mouse_x - surf_offset_x) / scale_factor if scale_factor != 1.0 else (raw_mouse_x - surf_offset_x)
+    local_y = (raw_mouse_y - surf_offset_y) / scale_factor if scale_factor != 1.0 else (raw_mouse_y - surf_offset_y)
+
+    for skill_data in HORN_STRAWBERRY_SKILL_DATA:
+        skill_name = skill_data["name"]
+        if skill_name in _horn_strawberry_skill_icon_rects:
+            rect = _horn_strawberry_skill_icon_rects[skill_name]
+            if rect.collidepoint(local_x, local_y):
+                return skill_data
+    return None
+
+
+def _draw_horn_strawberry_skill_tooltip(surface, skill_data, mouse_pos, current_gauge):
+    """뿔딸기 스킬 툴팁 그리기 (스매셔 툴팁과 동일한 구조)"""
+    tooltip_width = 280
+    tooltip_height = 200
+    padding = 12
+
+    surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
+    pillar_width = int(250 * GAME_SCALE_FACTOR)
+    tooltip_x = surf_offset_x + pillar_width + 10
+    tooltip_y = mouse_pos[1] - tooltip_height // 2
+
+    screen_width, screen_height = surface.get_size()
+    if tooltip_y < 10:
+        tooltip_y = 10
+    if tooltip_y + tooltip_height > screen_height - 10:
+        tooltip_y = screen_height - tooltip_height - 10
+
+    # 툴팁 서피스
+    ts = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+    ts.fill((20, 25, 35, 230))
+    pygame.draw.rect(ts, skill_data["color"], (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
+
+    # 헤더
+    header_h = 36
+    pygame.draw.rect(ts, (*skill_data["color"][:3], 60), (2, 2, tooltip_width - 4, header_h), border_radius=6)
+
+    # 폰트
+    try:
+        import pygame.freetype as _ft
+        _title_f = _ft.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 15)
+        _body_f = _ft.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 11)
+        _small_f = _ft.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+    except Exception:
+        import pygame.freetype as _ft
+        _title_f = _ft.SysFont("malgun gothic", 15)
+        _body_f = _ft.SysFont("malgun gothic", 11)
+        _small_f = _ft.SysFont("malgun gothic", 10)
+
+    y_cursor = 8
+
+    # 스킬 이름 + 키
+    _title_f.render_to(ts, (padding, y_cursor), skill_data["korean"], skill_data["color"])
+    key_text = f"[{skill_data['key']}]"
+    _small_f.render_to(ts, (tooltip_width - padding - len(key_text) * 7, y_cursor + 4), key_text, (180, 180, 180))
+    y_cursor += header_h + 4
+
+    # 게이지 비용
+    cost = skill_data["cost"]
+    if cost > 0:
+        can_afford = current_gauge >= cost
+        cost_color = (100, 255, 100) if can_afford else (255, 80, 80)
+        _body_f.render_to(ts, (padding, y_cursor), f"게이지: {cost}", cost_color)
+        y_cursor += 18
+
+    # 쿨타임
+    _body_f.render_to(ts, (padding, y_cursor), f"쿨타임: {skill_data['cooldown']}초", (180, 200, 220))
+    y_cursor += 22
+
+    # 설명 (줄바꿈)
+    desc = skill_data["description"]
+    line_width = tooltip_width - padding * 2
+    chars_per_line = max(1, line_width // 7)
+    lines = []
+    while desc:
+        if len(desc) <= chars_per_line:
+            lines.append(desc)
+            break
+        cut = desc[:chars_per_line].rfind(' ')
+        if cut <= 0:
+            cut = chars_per_line
+        lines.append(desc[:cut])
+        desc = desc[cut:].lstrip()
+
+    for line in lines:
+        _small_f.render_to(ts, (padding, y_cursor), line, (200, 210, 220))
+        y_cursor += 15
+
+    y_cursor += 8
+
+    # 조작법
+    _small_f.render_to(ts, (padding, y_cursor), f"조작: {skill_data['how_to_use']}", (150, 160, 170))
+
+    surface.blit(ts, (tooltip_x, tooltip_y))
+
+HORN_STRAWBERRY_SKILL_DATA = [
+    {
+        "name": "horn_charge", "korean": "딸기뿔박치기", "cost": 300,
+        "color": (220, 40, 50), "key": "W", "cooldown": 20.0,
+        "description": "보스를 향해 돌진! 적중 시 넉백 + 2초 스턴. 발동 후 0.5초 경직.",
+        "how_to_use": "W키를 눌러 발동",
+    },
+    {
+        "name": "strawberry_field", "korean": "딸기장막", "cost": 100,
+        "color": (50, 150, 40), "key": "S홀드", "cooldown": 10.0,
+        "description": "S키 1초 홀드 시 장막 설치. 공을 1회 반사한 뒤 파괴됨.",
+        "how_to_use": "S키를 1초 이상 홀드",
+    },
+    {
+        "name": "strawberry_eat", "korean": "딸기먹기", "cost": 0,
+        "color": (240, 220, 100), "key": "Space", "cooldown": 0.8,
+        "description": "0.8초간 딸기를 먹어 게이지 150 회복 + 대시토큰 1 회복. 먹은 뒤 꼭지를 발사하여 넉백+스턴.",
+        "how_to_use": "Space 또는 마우스 좌클릭",
+    },
+]
+
 def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
                                         current_gauge, max_gauge):
     """뿔딸기 변신 중 필러 좌측 스킬 구슬 3개 (기존 스킬 대체)"""
+    global _horn_strawberry_skill_icon_rects
     ts = _get_horn_strawberry_transform()
     if ts is None or not ts.is_transformed:
+        _horn_strawberry_skill_icon_rects = {}
         return
 
     icon_radius = 21
@@ -22552,10 +22740,14 @@ def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
 
     time_now = pygame.time.get_ticks()
 
-    for skill in skills:
+    for i, skill in enumerate(skills):
         angle_rad = math.radians(skill["angle"])
         cx = int(orb_cx + math.cos(angle_rad) * orbit_radius)
         cy = int(orb_cy + math.sin(angle_rad) * orbit_radius)
+
+        # 히트박스 저장 (툴팁용)
+        _horn_strawberry_skill_icon_rects[HORN_STRAWBERRY_SKILL_DATA[i]["name"]] = pygame.Rect(
+            cx - icon_radius, cy - icon_radius, icon_radius * 2, icon_radius * 2)
 
         is_cd = skill["cooldown"] > 0
         is_active = skill["active"]
@@ -74844,7 +75036,8 @@ def handle_player(keys):
         global _viper_ns_hit_confirmed, _viper_ns_freeze_active
         global boss_confused_timer
         global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
-        global _viper_jetpack_hold_timer, _viper_jetpack_overheat
+        global _viper_jetpack_hold_timer, _viper_jetpack_overheat, _viper_jetpack_snd_channel
+        global _viper_air_strike_text_timer
         global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms, _viper_dive_hold_start_ms, _viper_dive_charge_particles
         global _viper_dive_height_snapshot, _viper_dive_particles
         global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
@@ -74867,11 +75060,44 @@ def handle_player(keys):
         global boss_fire_knockback_vel, _viper_phantom_kick_knockback_pending
         global _viper_dive_slip_timer, _viper_dive_slip_vel, _viper_dive_slip_duration
 
+        _viper_original_skills_blocked = (
+            is_horn_strawberry_transformed()
+            or is_horn_strawberry_skills_locked()
+            or is_horn_strawberry_control_locked()
+        )
+
         # 뿔딸기 변신 중에는 바이퍼 스킬 입력 전체 차단
-        if is_horn_strawberry_skills_locked():
+        if _viper_original_skills_blocked:
             _viper_w_pressed = False
             _viper_e_pressed = False
             _viper_s_pressed = False
+            if (
+                _viper_jetpack_active
+                or abs(_viper_jetpack_offset_y) > 0.01
+                or _viper_jetpack_overheat
+                or _viper_jetpack_particles
+            ):
+                _viper_jetpack_active = False
+                _viper_jetpack_offset_y = 0.0
+                _viper_jetpack_gauge_timer = 0
+                _viper_jetpack_hold_timer = 0
+                _viper_jetpack_overheat = False
+                _viper_jetpack_particles.clear()
+                _viper_air_strike_text_timer = 0
+                try:
+                    if _viper_jetpack_snd_channel and _viper_jetpack_snd_channel.get_busy():
+                        _viper_jetpack_snd_channel.fadeout(120)
+                    _viper_jetpack_snd_channel = None
+                except Exception:
+                    _viper_jetpack_snd_channel = None
+                try:
+                    if PLAYER is not None:
+                        _viper_floor_bottom = _compute_player_floor_bottom(
+                            CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+                        )
+                        PLAYER.bottom = int(_viper_floor_bottom)
+                except Exception:
+                    pass
         else:
             _viper_w_pressed = keys[pygame.K_w] or keys[pygame.K_UP]
             _viper_e_pressed = keys[pygame.K_e]
@@ -75107,6 +75333,7 @@ def handle_player(keys):
             _wd_br_allow = True
     _wd_can_fire = _viper_wall_dive_ready or _viper_double_marshal_ready
     if (selected_character_type == "viper" and not is_odins_eye_transformed()
+            and not _viper_original_skills_blocked
             and _wd_can_fire and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
             and not _viper_nerve_strike_active
@@ -75547,7 +75774,7 @@ def handle_player(keys):
             ball_vel[1] = _old_dx * _sin_r + _old_dy * _cos_r
 
     # === 바이퍼 제트팩 시스템 업데이트 ===
-    if selected_character_type == "viper" and not is_odins_eye_transformed():
+    if selected_character_type == "viper" and not is_odins_eye_transformed() and not _viper_original_skills_blocked:
         # 입력 감지: Space/좌클릭 홀드 (서브 대기/스턴/신경 타격/에어 블레이드 스핀/과열/급강하 중에는 비활성)
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
@@ -75561,7 +75788,6 @@ def handle_player(keys):
             except Exception:
                 pass
 
-        global _viper_jetpack_snd_channel
         _was_jetpack_active = _viper_jetpack_active
         if _jetpack_input:
             _viper_jetpack_active = True
@@ -75652,7 +75878,7 @@ def handle_player(keys):
                 })
 
         # AIR STRIKE 텍스트 타이머 감소
-        global _viper_air_strike_text_timer, _viper_air_strike_text_x, _viper_air_strike_text_y, _viper_air_strike_text_pct
+        global _viper_air_strike_text_x, _viper_air_strike_text_y, _viper_air_strike_text_pct
         if _viper_air_strike_text_timer > 0:
             _viper_air_strike_text_timer -= 1
             _viper_air_strike_text_y -= 1.2  # 위로 떠오름
@@ -75675,7 +75901,7 @@ def handle_player(keys):
 
     # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
     # EMP 스트라이크: 체공 중 S/↓키 0.3초 꾹 누르기로 발동 (단독 사용만)
-    if selected_character_type == "viper" and not is_odins_eye_transformed():
+    if selected_character_type == "viper" and not is_odins_eye_transformed() and not _viper_original_skills_blocked:
         _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
         _dive_dir_held = (
             keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
@@ -79605,8 +79831,13 @@ def handle_player(keys):
 
             # 스킬 효과 적용: 패들 속도 증가
             skill_speed_boost = skill.apply_paddle_speed_boost(0)
+            _hs_move_speed = get_horn_strawberry_move_speed()
+            _hs_speed_active = _hs_move_speed is not None
             # 캐릭터별 기본 최대 속도 분기
-            if selected_character_type == "blacksmith":
+            if _hs_speed_active:
+                base_max_speed = float(_hs_move_speed)
+                skill_speed_boost = 0.0
+            elif selected_character_type == "blacksmith":
                 base_max_speed = 4
             elif selected_character_type == "optimus":
                 base_max_speed = OPTIMUS_BASE_MAX_SPEED
@@ -79617,13 +79848,13 @@ def handle_player(keys):
             else:
                 base_max_speed = MAX_SPEED
             effective_max_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
-            if selected_character_type == "optimus":
+            if selected_character_type == "optimus" and not _hs_speed_active:
                 effective_max_speed *= get_optimus_gauge_ratio()
                 # 게이지 소진 후에도 최소 이동속도 1 확보
                 effective_max_speed = max(1.0, effective_max_speed)
 
             # 발토르 해머쇼크 차징 중 이동속도 감소 적용
-            if selected_character_type == "blacksmith" and blacksmith_hammer_shock_charging:
+            if selected_character_type == "blacksmith" and blacksmith_hammer_shock_charging and not _hs_speed_active:
                 # 차징 단계별 이동속도 감소: 1단계 -20%, 2단계 -35%, 3단계 -50%
                 if blacksmith_hammer_shock_stage >= 3:
                     effective_max_speed *= 0.50  # 50% 감소
@@ -79638,7 +79869,7 @@ def handle_player(keys):
                 effective_max_speed *= (1.0 - rain_penalty)
 
             # ✨ 리커버리 이동속도 보너스 (5초간 30% 증가) - 스매셔 전용
-            if selected_character_type == "smasher":
+            if selected_character_type == "smasher" and not _hs_speed_active:
                 recovery_boost = get_recovery_speed_boost_multiplier()
                 if recovery_boost > 1.0:
                     effective_max_speed *= recovery_boost
@@ -79765,7 +79996,7 @@ def handle_player(keys):
                             # 🏟️ 투기장 둔화+부스트: 무중력벨트 경로에도 동일하게 적용
                             _gb_mult = arena_player_slow_mult * arena_player_speed_boost_only
                             # 🚀 바이퍼 제트팩 체공 이동 보너스 (높을수록 최대 +215%)
-                            if selected_character_type == "viper" and _viper_jetpack_offset_y < 0:
+                            if selected_character_type == "viper" and _viper_jetpack_offset_y < 0 and not _hs_speed_active:
                                 _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
                                 _gb_mult *= 1.0 + _jet_height_ratio * 2.15
                             if left_pressed:
@@ -79787,7 +80018,11 @@ def handle_player(keys):
                             
                             # AK-47 연사 시 이동속도 감소 배율 가져오기
                             ak47_speed_multiplier = 1.0
-                            if selected_character_type == "soldier" and 'ak47' in soldier_controller.weapons:
+                            if (
+                                selected_character_type == "soldier"
+                                and 'ak47' in soldier_controller.weapons
+                                and not _hs_speed_active
+                            ):
                                 ak47 = get_ak47_instance()
                                 ak47_speed_multiplier = ak47.get_movement_speed_multiplier()
                             
@@ -79799,7 +80034,7 @@ def handle_player(keys):
                             # 🧊 얼음 이벤트: 가속도 75% 감소 (미끄러워서 출발이 느림)
                             if is_ice_active():
                                 adjusted_acceleration *= get_ice_acceleration_multiplier()
-                            if selected_character_type == "optimus":
+                            if selected_character_type == "optimus" and not _hs_speed_active:
                                 adjusted_deceleration *= OPTIMUS_DECELERATION_MULT  # 감속을 2배 느리게
                             adjusted_max_speed = effective_max_speed * speed_factor * combined_speed_multiplier
                             # 🏟️ 투기장 둔화: 이동 파라미터에 적용 (상단과 동일 방식)
@@ -79830,11 +80065,16 @@ def handle_player(keys):
                                     adjusted_acceleration *= 0.5
                                     adjusted_max_speed *= 0.5
                             # 🚀 바이퍼 제트팩 체공 이동 보너스 (높을수록 최대 +215%)
-                            if selected_character_type == "viper" and _viper_jetpack_offset_y < 0:
+                            if selected_character_type == "viper" and _viper_jetpack_offset_y < 0 and not _hs_speed_active:
                                 _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
                                 _jet_speed_bonus = 1.0 + _jet_height_ratio * 2.15  # 최대 3.15배 (4 × 3.15 ≈ 12.6)
                                 adjusted_acceleration *= _jet_speed_bonus
                                 adjusted_max_speed *= _jet_speed_bonus
+                            if _hs_speed_active:
+                                if current_speed > adjusted_max_speed:
+                                    current_speed = adjusted_max_speed
+                                elif current_speed < -adjusted_max_speed:
+                                    current_speed = -adjusted_max_speed
                             # 즉시 속도 제한 (투기장 둔화/부스트 또는 거미줄 장판)
                             if arena_player_slow_mult != 1.0 or arena_player_speed_boost_only > 1.0 or web_slow < 1.0:
                                 if current_speed > adjusted_max_speed:
@@ -170218,8 +170458,11 @@ def show_character_info(background_surface=None):
             return stats
 
         char_type = selected_character_type
+        _hs_move_speed = get_horn_strawberry_move_speed()
         # 캐릭터별 기본 이동속도: 옵티머스는 자체 상수(OPTIMUS_BASE_MAX_SPEED) 사용
-        if char_type == "blacksmith":
+        if _hs_move_speed is not None:
+            base_max_speed = float(_hs_move_speed)
+        elif char_type == "blacksmith":
             base_max_speed = 4.0
         elif char_type == "optimus":
             base_max_speed = float(globals().get("OPTIMUS_BASE_MAX_SPEED", 2.0))
@@ -170266,7 +170509,7 @@ def show_character_info(background_surface=None):
         # 🏃 신속 스킬 보너스 반영 (레벨당 4% 이동속도 증가)
         swiftness_bonus = runtime_swiftness_bonus
         move_speed = (base_max_speed + skill_speed_boost) * speed_multiplier * (1.0 + swiftness_bonus)
-        if char_type == "optimus":
+        if char_type == "optimus" and _hs_move_speed is None:
             move_speed *= get_optimus_gauge_ratio()
             move_speed = max(1.0, move_speed)
 
@@ -170294,9 +170537,8 @@ def show_character_info(background_surface=None):
             move_speed *= recovery_boost
 
         # 🍓 뿔딸기 변신 중 이동속도 오버라이드
-        _hs_speed = get_horn_strawberry_move_speed()
-        if _hs_speed is not None:
-            move_speed = _hs_speed
+        if _hs_move_speed is not None:
+            move_speed = _hs_move_speed
         # 🍓 딸기먹기 중 이동 불가
         _hs_ts = _get_horn_strawberry_transform()
         if _hs_ts and _hs_ts.is_transformed and _hs_ts.strawberry_eat.eating:
