@@ -1344,7 +1344,7 @@ class TournamentRound(Enum):
 # 하이라이트 리플레이 녹화 시스템
 # ============================================================================
 class HighlightRecorder:
-    """투기장 하이라이트 녹화 - 원본 해상도 60fps 캡처 (최고 화질)"""
+    """투기장 하이라이트 녹화 - 원본 해상도 60fps 캡처 + 사운드 이벤트"""
     CAPTURE_INTERVAL = 1   # 매 프레임 캡처 (60fps)
     BUFFER_SIZE = 180      # 3초 분량 (60fps × 3s)
     MAX_CLIPS = 3          # 최대 저장 클립 수
@@ -1353,14 +1353,21 @@ class HighlightRecorder:
         from collections import deque
         self.frame_buffer = deque(maxlen=self.BUFFER_SIZE)
         self.frame_counter = 0
-        self.highlight_clips = []   # List[List[pygame.Surface]]
+        self.highlight_clips = []      # List[List[pygame.Surface]]
+        self.highlight_sound_clips = []  # List[Dict[int, List[str]]] — 클립별 사운드
         self.recording = False
+        # 사운드 버퍼: {프레임번호: [사운드ID, ...]}
+        self._sound_buffer = {}
+        self._sound_buffer_start = 0  # frame_buffer 시작 시점의 frame_counter
 
     def start(self):
         """녹화 시작"""
         self.frame_buffer.clear()
         self.frame_counter = 0
         self.highlight_clips.clear()
+        self.highlight_sound_clips.clear()
+        self._sound_buffer = {}
+        self._sound_buffer_start = 0
         self.recording = True
 
     def stop(self):
@@ -1376,25 +1383,56 @@ class HighlightRecorder:
             return
         try:
             self.frame_buffer.append(screen.copy())
+            # 사운드 버퍼에서 오래된 항목 정리 (frame_buffer 범위 밖)
+            buf_start = self.frame_counter - self.BUFFER_SIZE
+            keys_to_del = [k for k in self._sound_buffer if k < buf_start]
+            for k in keys_to_del:
+                del self._sound_buffer[k]
         except Exception:
-            pass  # 캡처 실패 시 무시
+            pass
+
+    def add_sound(self, sound_id: str):
+        """현재 프레임에 사운드 이벤트 기록"""
+        if not self.recording:
+            return
+        fc = self.frame_counter
+        if fc not in self._sound_buffer:
+            self._sound_buffer[fc] = []
+        self._sound_buffer[fc].append(sound_id)
 
     def save_highlight(self):
         """현재 버퍼를 하이라이트 클립으로 저장 (득점 시 호출)"""
         if len(self.frame_buffer) < 10:
-            return  # 너무 짧으면 무시
+            return
         clip = list(self.frame_buffer)
+        # 사운드 이벤트도 클립 프레임에 매핑하여 저장
+        buf_len = len(clip)
+        buf_start_frame = self.frame_counter - buf_len + 1
+        sound_clip = {}
+        for fc, sids in self._sound_buffer.items():
+            clip_frame_idx = fc - buf_start_frame
+            if 0 <= clip_frame_idx < buf_len:
+                sound_clip[clip_frame_idx] = list(sids)
         self.highlight_clips.append(clip)
+        self.highlight_sound_clips.append(sound_clip)
         # 최대 개수 초과 시 가장 오래된 것 제거
         while len(self.highlight_clips) > self.MAX_CLIPS:
             old = self.highlight_clips.pop(0)
             del old
+            if self.highlight_sound_clips:
+                self.highlight_sound_clips.pop(0)
 
     def has_clips(self) -> bool:
         return len(self.highlight_clips) > 0
 
     def get_clips(self):
         return self.highlight_clips
+
+    def get_clip_sounds(self, clip_idx: int):
+        """클립의 사운드 이벤트 딕셔너리 반환"""
+        if clip_idx < len(self.highlight_sound_clips):
+            return self.highlight_sound_clips[clip_idx]
+        return {}
 
     def get_clip_frame(self, clip_idx: int, frame_idx: int) -> pygame.Surface:
         """클립 프레임 반환 (원본 해상도)"""
@@ -1411,6 +1449,8 @@ class HighlightRecorder:
         for clip in self.highlight_clips:
             clip.clear()
         self.highlight_clips.clear()
+        self.highlight_sound_clips.clear()
+        self._sound_buffer = {}
         self.recording = False
 
 
@@ -18360,6 +18400,7 @@ class ColosseumsArena:
         self.highlight_frame_progress = 0.0  # float 보간용
         self.highlight_phase = "fade_in"
         self.highlight_phase_timer = 0.0
+        self._highlight_last_sound_frame = -1  # 사운드 중복 방지
         self.state = TournamentState.HIGHLIGHT_REPLAY
         # 투기장 배틀 BGM 재생
         try:
@@ -18367,6 +18408,12 @@ class ColosseumsArena:
             bgm_manager.play_stage_bgm(30)
         except Exception:
             pass
+        # 사운드 뱅크 로드
+        try:
+            from pingfighter import sound_effects as _se
+            self._highlight_sound_bank = {n: s for n, s in _se.items() if s is not None}
+        except Exception:
+            self._highlight_sound_bank = {}
 
     def _update_highlight_replay(self, dt: float):
         """하이라이트 리플레이 업데이트"""
@@ -18392,9 +18439,9 @@ class ColosseumsArena:
 
         elif self.highlight_phase == "playing":
             # 4초간 재생 (프레임 진행) - 부드러운 보간을 위해 float 저장
+            prev_frame_idx = self.highlight_frame_index
             if len(clip) > 0:
                 progress = min(1.0, self.highlight_phase_timer / 4.0)
-                # float 프레임 인덱스 (인접 프레임 블렌딩용)
                 self.highlight_frame_progress = min(
                     progress * (len(clip) - 1),
                     len(clip) - 1
@@ -18403,6 +18450,24 @@ class ColosseumsArena:
                     int(self.highlight_frame_progress),
                     len(clip) - 1
                 )
+            # 🔊 프레임 진행 시 사운드 재생
+            if self.highlight_frame_index != prev_frame_idx:
+                try:
+                    sound_clip = self.highlight_recorder.get_clip_sounds(self.highlight_clip_index)
+                    bank = getattr(self, '_highlight_sound_bank', {})
+                    # prev_frame_idx+1 ~ highlight_frame_index 범위의 사운드 재생
+                    for fi in range(prev_frame_idx + 1, self.highlight_frame_index + 1):
+                        if fi in sound_clip:
+                            for sid in sound_clip[fi]:
+                                snd = bank.get(sid)
+                                if snd:
+                                    try:
+                                        from pingfighter import play_sound_with_volume
+                                        play_sound_with_volume(snd)
+                                    except Exception:
+                                        pass
+                except Exception:
+                    pass
             if self.highlight_phase_timer >= 4.0:
                 self.highlight_phase = "fade_out"
                 self.highlight_phase_timer = 0.0
