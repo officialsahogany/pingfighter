@@ -1,27 +1,28 @@
 """
-Replay System v3 — 화면 캡처 기반 리플레이
-게임 중 실제 화면을 축소/압축하여 디스크에 스트리밍 기록.
-재생 시 원본 그대로 보여주므로 아이템, 스킬, 이펙트 모두 재현.
+Replay System v4 — 화면 캡처 기반 리플레이 (비동기 압축)
+게임 루프에서는 screen.copy()만 수행 (빠름),
+압축 + 디스크 쓰기는 백그라운드 스레드가 처리 → 프레임드랍 없음.
 """
 
 import pygame
 import zlib
 import struct
 import pickle
-import gzip
 import time
 import os
 import sys
+import threading
+from collections import deque
 from typing import Dict, Any, List, Optional
 
 # 파일 매직 + 버전
 _MAGIC = b'PFRP'
-_VERSION = 3
+_VERSION = 4
 
 # 캡처 설정
 CAPTURE_INTERVAL = 2    # 2프레임마다 1회 캡처 (30fps)
-SCALE_FACTOR = 0.75     # 75% 축소 — 프레임드랍 방지 + 고화질 유지
-COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름, 9=최대)
+SCALE_FACTOR = 1.0      # 원본 해상도 (100%) — 압축은 백그라운드에서 처리
+COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름)
 MAX_DURATION = 600      # 최대 10분
 
 
@@ -34,10 +35,9 @@ def _replays_dir() -> str:
 
 
 # ============================================================================
-# 레코더 — 화면을 축소/압축하여 디스크에 바로 쓰기 (메모리 부담 없음)
+# 레코더 — 게임 루프에서는 copy만, 압축/쓰기는 백그라운드 스레드
 # ============================================================================
 class ReplayRecorder:
-    """게임 루프에서 매 프레임 capture() 호출 → 디스크 스트리밍 기록"""
 
     def __init__(self):
         self.recording = False
@@ -49,12 +49,17 @@ class ReplayRecorder:
         self.metadata: Dict[str, Any] = {}
         self.scaled_w = 0
         self.scaled_h = 0
-        self.current_frame = 0  # 호환용
+        self.current_frame = 0
+
+        # 백그라운드 압축 스레드
+        self._queue: deque = deque()
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+        self._lock = threading.Lock()
 
     def start(self, stage: int = 1, boss_name: str = "",
               ai_mode: str = "normal", character: str = "smasher",
               result: str = "", screen_w: int = 760, screen_h: int = 750):
-        """녹화 시작 — 임시 파일에 프레임 스트리밍 기록 시작"""
         if self.recording:
             self.stop()
 
@@ -82,53 +87,70 @@ class ReplayRecorder:
             'capture_fps': 60 // CAPTURE_INTERVAL,
         }
 
-        # 임시 파일 열기
         replay_dir = _replays_dir()
         os.makedirs(replay_dir, exist_ok=True)
         self.filepath = os.path.join(replay_dir, f"_recording_{int(self.start_time)}.tmp")
         try:
             self.file = open(self.filepath, 'wb')
-            # 헤더: 매직 + 메타데이터 공간 예약 (나중에 덮어씀)
             self.file.write(_MAGIC)
-            self.file.write(struct.pack('I', 0))  # 메타데이터 길이 (나중에 채움)
+            self.file.write(struct.pack('I', 0))
+
+            # 백그라운드 스레드 시작
+            self._queue.clear()
+            self._stop_event.clear()
+            self._thread = threading.Thread(target=self._writer_loop, daemon=True)
+            self._thread.start()
+
             self.recording = True
-            print(f"[Replay] 화면 녹화 시작 — Stage {stage}, {self.scaled_w}x{self.scaled_h} @{60//CAPTURE_INTERVAL}fps")
+            print(f"[Replay] 녹화 시작 — Stage {stage}, {self.scaled_w}x{self.scaled_h} @{60//CAPTURE_INTERVAL}fps (비동기)")
         except Exception as e:
             print(f"[Replay] 녹화 파일 생성 실패: {e}")
             self.recording = False
 
     def capture(self, screen: pygame.Surface):
-        """매 게임 프레임(60fps) 호출 — CAPTURE_INTERVAL마다 실제 캡처"""
-        if not self.recording or self.file is None:
+        """매 게임 프레임 호출 — copy + tostring만 수행 (빠름)"""
+        if not self.recording:
             return
         self.game_frame += 1
         self.current_frame = self.game_frame
 
-        # 시간 제한 체크
         if time.time() - self.start_time > MAX_DURATION:
             self.stop()
             return
 
-        # 캡처 간격 체크
         if self.game_frame % CAPTURE_INTERVAL != 0:
             return
 
         try:
-            # 축소
-            small = pygame.transform.scale(screen, (self.scaled_w, self.scaled_h))
-            # 픽셀 데이터 추출
-            raw = pygame.image.tostring(small, 'RGB')
-            # 압축
-            compressed = zlib.compress(raw, COMPRESS_LEVEL)
-            # 파일에 쓰기: [4바이트 길이][압축 데이터]
-            self.file.write(struct.pack('I', len(compressed)))
-            self.file.write(compressed)
+            # 게임 루프에서 하는 일: scale(필요시) + tostring만
+            if SCALE_FACTOR < 1.0:
+                small = pygame.transform.scale(screen, (self.scaled_w, self.scaled_h))
+                raw = pygame.image.tostring(small, 'RGB')
+            else:
+                raw = pygame.image.tostring(screen, 'RGB')
+            # 큐에 넣기 (백그라운드 스레드가 압축+쓰기)
+            self._queue.append(raw)
             self.captured_frames += 1
         except Exception:
-            pass  # 캡처 실패 시 무시 (게임 프레임에 영향 주지 않음)
+            pass
+
+    def _writer_loop(self):
+        """백그라운드 스레드 — 큐에서 꺼내서 압축 + 디스크 쓰기"""
+        while not self._stop_event.is_set() or len(self._queue) > 0:
+            if len(self._queue) > 0:
+                raw = self._queue.popleft()
+                try:
+                    compressed = zlib.compress(raw, COMPRESS_LEVEL)
+                    with self._lock:
+                        if self.file and not self.file.closed:
+                            self.file.write(struct.pack('I', len(compressed)))
+                            self.file.write(compressed)
+                except Exception:
+                    pass
+            else:
+                time.sleep(0.005)  # 큐 비었으면 잠깐 대기
 
     def stop(self, result: str = "") -> bool:
-        """녹화 중지 + 파일 완성"""
         if not self.recording:
             return False
         self.recording = False
@@ -140,6 +162,11 @@ class ReplayRecorder:
 
         print(f"[Replay] 녹화 중지 — {self.captured_frames}프레임, {self.metadata['duration']:.1f}초, result={result}")
 
+        # 백그라운드 스레드 종료 대기 (남은 큐 처리)
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=10)
+
         if self.captured_frames == 0 or self.file is None:
             print(f"[Replay] 프레임이 0개라 저장 건너뜀")
             self._cleanup_temp()
@@ -148,19 +175,16 @@ class ReplayRecorder:
         return self._finalize()
 
     def _finalize(self) -> bool:
-        """임시 파일을 최종 .rpl 파일로 변환"""
         try:
-            # 메타데이터를 파일 끝에 추가
             meta_bytes = pickle.dumps(self.metadata, protocol=pickle.HIGHEST_PROTOCOL)
-            self.file.write(struct.pack('I', len(meta_bytes)))
-            self.file.write(meta_bytes)
-            # 파일 선두의 메타데이터 길이 업데이트
-            self.file.seek(len(_MAGIC))
-            self.file.write(struct.pack('I', len(meta_bytes)))
-            self.file.close()
+            with self._lock:
+                self.file.write(struct.pack('I', len(meta_bytes)))
+                self.file.write(meta_bytes)
+                self.file.seek(len(_MAGIC))
+                self.file.write(struct.pack('I', len(meta_bytes)))
+                self.file.close()
             self.file = None
 
-            # 최종 파일명으로 리네임
             replay_dir = _replays_dir()
             ts_str = time.strftime("%Y%m%d_%H%M%S")
             stage = self.metadata.get('stage', 0)
@@ -178,7 +202,6 @@ class ReplayRecorder:
             return False
 
     def _cleanup_temp(self):
-        """임시 파일 정리"""
         if self.file:
             try:
                 self.file.close()
@@ -196,7 +219,6 @@ class ReplayRecorder:
 # 플레이어 — .rpl 파일에서 프레임을 읽어 재생
 # ============================================================================
 class ReplayPlayer:
-    """화면 캡처 리플레이 재생"""
 
     SPEED_OPTIONS = [0.25, 0.5, 1.0, 1.5, 2.0, 4.0]
 
@@ -210,15 +232,12 @@ class ReplayPlayer:
         self.total_frames = 0
         self.scaled_w = 0
         self.scaled_h = 0
-        # 프레임 데이터 — 파일에서 전부 읽어서 메모리에 보관
-        self.frame_data: List[bytes] = []  # 압축된 프레임 데이터
+        self.frame_data: List[bytes] = []
         self._current_surface: Optional[pygame.Surface] = None
 
     def load(self, filepath: str) -> bool:
-        """리플레이 파일을 읽어서 프레임 데이터 로드"""
         try:
             with open(filepath, 'rb') as f:
-                # 매직 체크
                 magic = f.read(4)
                 if magic != _MAGIC:
                     print(f"[Replay] 잘못된 파일 형식")
@@ -227,7 +246,6 @@ class ReplayPlayer:
                 meta_len_bytes = f.read(4)
                 meta_len = struct.unpack('I', meta_len_bytes)[0]
 
-                # 프레임 데이터 읽기
                 self.frame_data = []
                 while True:
                     size_bytes = f.read(4)
@@ -238,16 +256,13 @@ class ReplayPlayer:
                     if len(chunk) < chunk_size:
                         break
 
-                    # 마지막 청크가 메타데이터인지 체크
-                    # 파일 끝에 도달했는지 확인
                     pos = f.tell()
                     next_bytes = f.read(4)
                     if len(next_bytes) < 4:
-                        # 이게 마지막 청크 = 메타데이터
                         self.metadata = pickle.loads(chunk)
                         break
                     else:
-                        f.seek(pos)  # 되돌리기
+                        f.seek(pos)
                         self.frame_data.append(chunk)
 
             self.total_frames = len(self.frame_data)
@@ -292,7 +307,6 @@ class ReplayPlayer:
         self._current_surface = None
 
     def get_frame_surface(self) -> Optional[pygame.Surface]:
-        """현재 인덱스의 프레임을 Surface로 디코딩하여 반환"""
         if self.current_index < 0 or self.current_index >= self.total_frames:
             return self._current_surface
         try:
@@ -313,8 +327,6 @@ class ReplayPlayer:
         if not self.playing:
             return None
 
-        # 캡처 fps / 디스플레이 fps 비율 (30/60 = 0.5)
-        # x1 속도에서 2 게임프레임마다 1 캡처프레임 진행해야 정속
         capture_fps = self.metadata.get('capture_fps', 30)
         step = self.speed * (capture_fps / 60.0)
 
@@ -351,7 +363,6 @@ class ReplayPlayer:
     def finished(self) -> bool:
         return not self.playing and self.current_index >= self.total_frames
 
-    # frames 속성 호환 (기존 코드에서 len(rp.frames) 사용)
     @property
     def frames(self):
         return self.frame_data
@@ -361,7 +372,6 @@ class ReplayPlayer:
 # 유틸: 리플레이 목록 조회 / 삭제
 # ============================================================================
 def list_replays() -> List[Dict[str, Any]]:
-    """replays/ 폴더의 리플레이 목록 반환 (최신순)"""
     replays = []
     replay_dir = _replays_dir()
     if not os.path.isdir(replay_dir):
@@ -371,7 +381,6 @@ def list_replays() -> List[Dict[str, Any]]:
             continue
         fp = os.path.join(replay_dir, fn)
         try:
-            # .rpl 파일에서 메타데이터만 빠르게 읽기
             md = _read_metadata_fast(fp)
             if md:
                 replays.append({
@@ -393,7 +402,6 @@ def list_replays() -> List[Dict[str, Any]]:
 
 
 def _read_metadata_fast(filepath: str) -> Optional[Dict]:
-    """파일 끝에서 메타데이터만 빠르게 읽기"""
     try:
         file_size = os.path.getsize(filepath)
         if file_size < 16:
@@ -405,7 +413,6 @@ def _read_metadata_fast(filepath: str) -> Optional[Dict]:
             meta_len = struct.unpack('I', f.read(4))[0]
             if meta_len == 0 or meta_len > file_size:
                 return None
-            # 메타데이터는 파일 끝에 있음: [4바이트 길이][메타 데이터]
             f.seek(file_size - meta_len)
             meta_bytes = f.read(meta_len)
             return pickle.loads(meta_bytes)
@@ -422,7 +429,7 @@ def delete_replay(filepath: str) -> bool:
 
 
 # ============================================================================
-# 싱글톤 레코더 (전역 접근용)
+# 싱글톤 레코더
 # ============================================================================
 _recorder: Optional[ReplayRecorder] = None
 
