@@ -409,6 +409,8 @@ class HornStrawberryTransformState:
 
         t = pygame.time.get_ticks()
         cx = x + width // 2
+        eat_skill = getattr(self, "strawberry_eat", None)
+        is_eating = bool(getattr(eat_skill, "eating", False))
 
         # ── 걷기 모션 ──
         prev_x = getattr(self, '_prev_paddle_x', cx)
@@ -420,18 +422,33 @@ class HornStrawberryTransformState:
             walk_timer += 0.15
         self._walk_timer = walk_timer
 
-        if is_moving:
+        if is_eating:
+            chew_timer = t * 0.028
+            chew_bob = abs(math.sin(chew_timer))
+            bounce_y = 2.0 + chew_bob * 5.0
+            squash = 0.92 + chew_bob * 0.14
+            lean = math.sin(chew_timer * 0.55) * 2.4
+            foot_bob = math.sin(chew_timer * 1.8) * 1.6
+            leaf_drop = 2 + int(chew_bob * 3.0)
+        elif is_moving:
             bounce_y = abs(math.sin(walk_timer * 3.5)) * 5
             squash = 1.0 + math.sin(walk_timer * 7.0) * 0.06
+            lean = min(6, max(-6, move_dir * 1.2)) if is_moving else 0
+            foot_bob = math.sin(walk_timer * 7) * 2.5
+            leaf_drop = 0
         else:
             bounce_y = math.sin(t * 0.003) * 1.5
             squash = 1.0 + math.sin(t * 0.004) * 0.02
-        lean = min(6, max(-6, move_dir * 1.2)) if is_moving else 0
+            lean = 0
+            foot_bob = 0
+            leaf_drop = 0
 
         # ── 크기 (둥글둥글) ──
         r = max(20, int(width * 0.28))
         body_cx = cx
-        body_cy = int(y + height // 2 - bounce_y)
+        # 발바닥이 패들 하단(y+height)에 맞닿도록 — 딸기 중심을 위로
+        bh_est = int(r * 2.2)  # 딸기 높이 추정
+        body_cy = int(y + height - bh_est // 2 - 8 - bounce_y + (1 if is_eating else 0))
 
         # ── 서피스 ──
         pad = 30
@@ -445,7 +462,6 @@ class HornStrawberryTransformState:
                            (sc - sh_w // 2, sc + r + 3, sh_w, sh_h))
 
         # ── 발 (동그란 빨간 발) ──
-        foot_bob = math.sin(walk_timer * 7) * 2.5 if is_moving else 0
         for side in [-1, 1]:
             fx = sc + side * int(r * 0.45)
             fy = sc + r + 1 + (foot_bob if side == 1 else -foot_bob)
@@ -455,6 +471,9 @@ class HornStrawberryTransformState:
         # ── 딸기 몸통 (딸기형 — 폴리곤으로 위 넓고 아래 좁은 매끈한 곡선) ──
         bw = int(r * 2 * (2.0 - squash))
         bh = int(r * 2.2 * squash)
+        if is_eating:
+            bw = int(bw * 1.06)
+            bh = int(bh * 0.96)
         top_y = sc - bh // 2
 
         # 딸기 실루엣을 폴리곤 점들로 구성 (위 넓고 아래 좁은 곡선)
@@ -505,7 +524,7 @@ class HornStrawberryTransformState:
             pygame.draw.rect(surf, (240, 215, 85), (sx, sy, 2, 1))
 
         # ── 잎사귀 (상단 3장) ──
-        leaf_y = sc - bh // 2 + 2
+        leaf_y = sc - bh // 2 + 2 + leaf_drop
         sway = math.sin(t * 0.004) * 2.5
         pygame.draw.polygon(surf, (55, 155, 40), [
             (sc - 8, leaf_y + 3), (sc + 8, leaf_y + 3), (sc + sway, leaf_y - 14)])
@@ -1406,6 +1425,12 @@ class StrawberryEatSkill:
         # 먹기 모션 (패들 위에 딸기 아이콘 + 먹기 이펙트)
         if self.eating:
             progress = 1.0 - (self.eat_timer / STRAWBERRY_EAT_DURATION)
+            progress = max(0.0, min(1.0, progress))
+            self._draw_eating_fragments(screen, player_x, player_y, progress)
+            self._draw_eating_strawberry(screen, player_x, player_y, progress)
+            for p in self.projectiles:
+                self._draw_stem_projectile(screen, p)
+            return
             # 딸기 아이콘 (줄어듦)
             size = max(4, int(16 * (1.0 - progress)))
             s = pygame.Surface((size, size), pygame.SRCALPHA)
@@ -1423,6 +1448,90 @@ class StrawberryEatSkill:
         # 꼭지 투사체
         for p in self.projectiles:
             self._draw_stem_projectile(screen, p)
+
+    @staticmethod
+    def _draw_eating_strawberry(screen, player_x, player_y, progress):
+        t = pygame.time.get_ticks() * 0.001
+        chew_wave = math.sin(t * 17.0)
+        chew_bob = abs(chew_wave)
+        strawberry_x = float(player_x + math.sin(t * 12.0) * 1.4)
+        strawberry_y = float(player_y - 28 - chew_bob * 4.0)
+        size = max(10, int(16 - progress * 3))
+
+        surf_size = max(52, size * 4)
+        surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+        center = surf_size // 2
+        _draw_strawberry_sprite(surf, center, center, size, alpha=255, tilt=0.0)
+
+        bite_radius = max(4, int(size * 0.22))
+        bite_offsets = (
+            (size * 0.36, -size * 0.18),
+            (size * 0.34, size * 0.05),
+            (size * 0.24, size * 0.30),
+        )
+        bite_count = min(len(bite_offsets), 1 + int((0.25 + progress * 0.95) * 2.2))
+        for bite_x, bite_y in bite_offsets[:bite_count]:
+            pygame.draw.circle(
+                surf,
+                (0, 0, 0, 0),
+                (int(center + bite_x), int(center + bite_y)),
+                bite_radius,
+            )
+
+        if abs(chew_wave) > 0.01:
+            surf = pygame.transform.rotozoom(surf, chew_wave * 5.5, 1.0)
+
+        rect = surf.get_rect(center=(int(strawberry_x), int(strawberry_y)))
+        screen.blit(surf, rect)
+
+    @staticmethod
+    def _draw_eating_fragments(screen, player_x, player_y, progress):
+        t = pygame.time.get_ticks() * 0.001
+        chew_power = 0.45 + 0.55 * abs(math.sin(t * 17.0))
+        spray = pygame.Surface((180, 96), pygame.SRCALPHA)
+        origin_x = spray.get_width() // 2
+        origin_y = spray.get_height() // 2
+        base_alpha = int(140 + chew_power * 80)
+
+        for side in (-1, 1):
+            side_phase = 0.35 if side > 0 else 0.0
+            for idx in range(4):
+                phase = t * 10.5 + idx * 0.78 + side_phase
+                chunk_x = origin_x + side * (14 + progress * 10 + idx * 10 + math.sin(phase) * 2.8)
+                chunk_y = origin_y - 4 + math.cos(phase * 1.25) * 4.0 - idx * 1.8
+                chunk_size = max(6, int(10 - idx + chew_power * 2.0))
+                chunk_alpha = max(70, base_alpha - idx * 25)
+                _draw_strawberry_sprite(
+                    spray,
+                    chunk_x,
+                    chunk_y,
+                    chunk_size,
+                    alpha=chunk_alpha,
+                    tilt=side * (18 + idx * 10 + math.sin(phase) * 12),
+                )
+
+                for seed_idx in range(2 if idx < 2 else 1):
+                    seed_x = origin_x + side * (
+                        20 + progress * 18 + idx * 12 + seed_idx * 6 + math.cos(phase + seed_idx) * 2.0
+                    )
+                    seed_y = origin_y + math.sin(phase * 1.8 + seed_idx) * 5.0 - idx * 2.4
+                    seed_alpha = max(80, chunk_alpha)
+                    juice_alpha = max(60, chunk_alpha - 25)
+                    pygame.draw.ellipse(
+                        spray,
+                        (*SEED_COLOR, seed_alpha),
+                        (int(seed_x), int(seed_y), 4, 2),
+                    )
+                    juice_x = seed_x - side * (4 + seed_idx)
+                    juice_y = seed_y + 3 + math.cos(phase * 1.4 + seed_idx) * 1.6
+                    pygame.draw.ellipse(
+                        spray,
+                        (*STRAWBERRY_LIGHT, juice_alpha),
+                        (int(juice_x), int(juice_y), 5, 3),
+                    )
+
+        rect = spray.get_rect(center=(int(player_x), int(player_y - 24 - chew_power * 2.0)))
+        screen.blit(spray, rect)
 
     @staticmethod
     def _draw_stem_projectile(screen, proj):
