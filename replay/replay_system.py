@@ -24,6 +24,7 @@ CAPTURE_INTERVAL = 1    # 매 프레임 캡처 (60fps) — 비동기 압축으�
 SCALE_FACTOR = 1.0      # 원본 해상도 (100%) — 압축은 백그라운드에서 처리
 COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름)
 MAX_DURATION = 600      # 최대 10분
+MAX_REPLAYS = 10        # 최대 리플레이 파일 수 (초과 시 가장 오래된 파일 자동 삭제)
 
 
 def _replays_dir() -> str:
@@ -208,6 +209,8 @@ class ReplayRecorder:
 
             size_mb = os.path.getsize(final_path) / (1024 * 1024)
             print(f"[Replay] 저장 완료: {final_name} ({self.captured_frames}프레임, {size_mb:.1f}MB)")
+            # 오래된 리플레이 자동 삭제 (MAX_REPLAYS 초과 시)
+            _cleanup_old_replays()
             return True
         except Exception as e:
             print(f"[Replay] 저장 실패: {e}")
@@ -440,6 +443,30 @@ def delete_replay(filepath: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def _cleanup_old_replays():
+    """MAX_REPLAYS 초과 시 가장 오래된 리플레이 자동 삭제"""
+    replay_dir = _replays_dir()
+    if not os.path.isdir(replay_dir):
+        return
+    rpl_files = []
+    for fn in os.listdir(replay_dir):
+        if fn.endswith('.rpl'):
+            fp = os.path.join(replay_dir, fn)
+            rpl_files.append((fp, os.path.getmtime(fp)))
+    if len(rpl_files) <= MAX_REPLAYS:
+        return
+    # 오래된 순으로 정렬
+    rpl_files.sort(key=lambda x: x[1])
+    to_delete = len(rpl_files) - MAX_REPLAYS
+    for i in range(to_delete):
+        fp = rpl_files[i][0]
+        try:
+            os.remove(fp)
+            print(f"[Replay] 오래된 리플레이 삭제: {os.path.basename(fp)}")
+        except Exception:
+            pass
 
 
 # ============================================================================
