@@ -22337,11 +22337,110 @@ def draw_horn_strawberry_effects(screen):
         # 변신 타이머 표시 (화면 하단)
         _draw_transform_timer(screen, ts.transform_timer, ts._transform_duration)
 
-        # 전용 스킬 구슬 UI
-        draw_horn_strawberry_skill_orbs(screen)
+        # 전용 스킬 구슬 UI는 필러 좌측에서 그림 (_draw_horn_strawberry_pillar_skills)
+
+def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
+                                        current_gauge, max_gauge):
+    """뿔딸기 변신 중 필러 좌측 스킬 구슬 3개 (기존 스킬 대체)"""
+    ts = _get_horn_strawberry_transform()
+    if ts is None or not ts.is_transformed:
+        return
+
+    icon_radius = 21
+    orbit_radius = orb_radius + icon_radius + 18
+
+    skills = [
+        {"name": "뿔박치기", "key": "W", "color": (220, 40, 50),
+         "cooldown": ts.horn_charge.cooldown, "max_cd": 20.0,
+         "active": ts.horn_charge.active, "cost": 300,
+         "angle": 195},
+        {"name": "딸기장판", "key": "S", "color": (50, 150, 40),
+         "cooldown": ts.strawberry_field.cooldown, "max_cd": 10.0,
+         "active": ts.strawberry_field.holding, "cost": 100,
+         "angle": 225},
+        {"name": "딸기먹기", "key": "SPC", "color": (240, 220, 100),
+         "cooldown": ts.strawberry_eat.cooldown, "max_cd": 0.8,
+         "active": ts.strawberry_eat.eating, "cost": 0,
+         "angle": 255},
+    ]
+
+    time_now = pygame.time.get_ticks()
+
+    for skill in skills:
+        angle_rad = math.radians(skill["angle"])
+        cx = int(orb_cx + math.cos(angle_rad) * orbit_radius)
+        cy = int(orb_cy + math.sin(angle_rad) * orbit_radius)
+
+        is_cd = skill["cooldown"] > 0
+        is_active = skill["active"]
+        can_afford = current_gauge >= skill["cost"] or skill["cost"] == 0
+
+        # 배경색
+        if is_active:
+            bg = (255, 255, 200)
+        elif is_cd:
+            bg = (40, 30, 30)
+        elif can_afford:
+            # 사용 가능 펄스
+            pulse = (math.sin(time_now * 0.005) + 1) / 2
+            r = int(skill["color"][0] * (0.3 + 0.2 * pulse))
+            g = int(skill["color"][1] * (0.3 + 0.2 * pulse))
+            b = int(skill["color"][2] * (0.3 + 0.2 * pulse))
+            bg = (min(255, r), min(255, g), min(255, b))
+        else:
+            bg = (30, 25, 25)
+
+        # 그림자 + 배경 + 테두리
+        pygame.draw.circle(surface, (15, 10, 10), (cx + 1, cy + 1), icon_radius + 2)
+        pygame.draw.circle(surface, bg, (cx, cy), icon_radius)
+        border = skill["color"] if not is_cd else (60, 50, 50)
+        pygame.draw.circle(surface, border, (cx, cy), icon_radius, 2)
+
+        # 스킬 아이콘
+        if skill["name"] == "뿔박치기":
+            _draw_horn_charge_icon(surface, cx, cy, icon_radius - 4)
+        elif skill["name"] == "딸기장판":
+            _draw_strawberry_field_icon(surface, cx, cy, icon_radius - 4)
+        else:
+            _draw_strawberry_eat_icon(surface, cx, cy, icon_radius - 4)
+
+        # 쿨타임 오버레이
+        if is_cd and skill["max_cd"] > 0:
+            cd_ratio = skill["cooldown"] / skill["max_cd"]
+            cd_surf = pygame.Surface((icon_radius * 2, icon_radius * 2), pygame.SRCALPHA)
+            start_angle = -math.pi / 2
+            end_angle = start_angle + 2 * math.pi * cd_ratio
+            points = [(icon_radius, icon_radius)]
+            for a in range(int(start_angle * 180 / math.pi), int(end_angle * 180 / math.pi) + 1):
+                rad = a * math.pi / 180
+                px = icon_radius + math.cos(rad) * icon_radius
+                py = icon_radius + math.sin(rad) * icon_radius
+                points.append((px, py))
+            if len(points) > 2:
+                pygame.draw.polygon(cd_surf, (0, 0, 0, 140), points)
+            surface.blit(cd_surf, (cx - icon_radius, cy - icon_radius))
+
+            # 쿨타임 텍스트
+            try:
+                cd_font = pygame.font.SysFont(None, 14)
+                cd_text = cd_font.render(f"{skill['cooldown']:.1f}", True, (255, 255, 255))
+                cd_rect = cd_text.get_rect(center=(cx, cy))
+                surface.blit(cd_text, cd_rect)
+            except Exception:
+                pass
+
+        # 키 표시
+        try:
+            key_font = pygame.font.SysFont(None, 11)
+            key_text = key_font.render(skill["key"], True, (180, 180, 180))
+            key_rect = key_text.get_rect(center=(cx, cy + icon_radius + 8))
+            surface.blit(key_text, key_rect)
+        except Exception:
+            pass
+
 
 def draw_horn_strawberry_skill_orbs(screen):
-    """변신 중 전용 스킬 구슬 3개 그리기"""
+    """변신 중 전용 스킬 구슬 3개 그리기 (더 이상 인게임에 직접 그리지 않음 — 필러에서 그림)"""
     ts = _get_horn_strawberry_transform()
     if ts is None or not ts.is_transformed:
         return
@@ -101876,9 +101975,19 @@ def draw_player_gauge():
             except Exception as e:
                 pass  # 오딘의 눈 없으면 일반 스킬 표시
 
+            # === 🍓 뿔딸기 변신 상태 체크 ===
+            _horn_strawberry_transformed = is_horn_strawberry_transformed()
+            if _horn_strawberry_transformed and not _odins_eye_transformed:
+                # 뿔딸기 전용 스킬 구슬 3개 그리기 (기존 스킬 대신)
+                _draw_horn_strawberry_pillar_skills(
+                    _player_gauge_surface_left,
+                    orb_center_x, orb_center_y, orb_radius,
+                    displayed_gauge, current_max_gauge
+                )
+
             # === 스매셔 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
             # 오딘의 눈 변신 중에는 기존 스킬 잠금
-            if selected_character_type == "smasher" and not _odins_eye_transformed:
+            if selected_character_type == "smasher" and not _odins_eye_transformed and not _horn_strawberry_transformed:
                 _draw_smasher_skill_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -101889,7 +101998,7 @@ def draw_player_gauge():
                 )
 
             # === 바이퍼 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
-            if selected_character_type == "viper" and not _odins_eye_transformed:
+            if selected_character_type == "viper" and not _odins_eye_transformed and not _horn_strawberry_transformed:
                 _draw_viper_skill_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -101902,7 +102011,7 @@ def draw_player_gauge():
 
             # === 코만도 화기류 인벤토리 표시 (게이지 구슬 위에 쌓아서 표시) ===
             # 오딘의 눈 변신 중에는 무기 인벤토리도 숨김
-            if selected_character_type == "soldier" and not _odins_eye_transformed:
+            if selected_character_type == "soldier" and not _odins_eye_transformed and not _horn_strawberry_transformed:
                 draw_pillar_weapon_inventory(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -101912,7 +102021,7 @@ def draw_player_gauge():
 
             # === 발토르 포탑 UI 표시 (게이지 구슬 위에 표시, 코만도 화기류와 동일 위치) ===
             # 오딘의 눈 변신 중에는 포탑 UI도 숨김
-            if selected_character_type == "blacksmith" and not _odins_eye_transformed:
+            if selected_character_type == "blacksmith" and not _odins_eye_transformed and not _horn_strawberry_transformed:
                 draw_pillar_blacksmith_turret(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -101922,7 +102031,7 @@ def draw_player_gauge():
 
             # === 발토르 디바인스톤 UI 표시 (포탑 UI 아래) ===
             # 오딘의 눈 변신 중에는 디바인스톤 UI도 숨김
-            if selected_character_type == "blacksmith" and not _odins_eye_transformed:
+            if selected_character_type == "blacksmith" and not _odins_eye_transformed and not _horn_strawberry_transformed:
                 draw_pillar_blacksmith_divine(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -101932,7 +102041,7 @@ def draw_player_gauge():
 
             # === 코만도 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
             # 오딘의 눈 변신 중에는 기존 스킬 잠금
-            if selected_character_type == "soldier" and not _odins_eye_transformed:
+            if selected_character_type == "soldier" and not _odins_eye_transformed and not _horn_strawberry_transformed:
                 _draw_soldier_skill_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -101944,7 +102053,7 @@ def draw_player_gauge():
 
             # === 발토르 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
             # 오딘의 눈 변신 중에는 기존 스킬 잠금
-            if selected_character_type == "blacksmith" and not _odins_eye_transformed:
+            if selected_character_type == "blacksmith" and not _odins_eye_transformed and not _horn_strawberry_transformed:
                 _draw_blacksmith_skill_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -114354,6 +114463,8 @@ def draw_objects():
             pass
 
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
+    # 🍓 뿔딸기 변신 중이면 기존 패들 숨김 (뿔딸기 패들은 draw_horn_strawberry_effects에서 그림)
+    _horn_strawberry_hide_paddle = is_horn_strawberry_transformed() or is_horn_strawberry_event_playing()
     if _arena_paddle_drawn:
         pass  # 투기장 모드에서 영웅 패들을 그렸으므로 스킵
     elif arena_mode_enabled:
@@ -114362,6 +114473,8 @@ def draw_objects():
         pass  # 이미 오딘의 눈 패들을 그렸으므로 스킵
     elif _odins_eye_hide_paddle:
         pass  # 💀 죽음 애니메이션 후 패들 숨김 - 점수 화면에서 기존 캐릭터 안 보이게
+    elif _horn_strawberry_hide_paddle:
+        pass  # 🍓 뿔딸기 변신 중 기존 패들 숨김
     elif special_ready:
         if (time_now // 250) % 2 == 0:
             #  성능 최적화: 블렌딩 모드를 사용한 깜빡임 효과
