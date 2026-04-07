@@ -22197,7 +22197,9 @@ def update_horn_strawberry_transform(keys, dt):
     # 커맨드 입력 감지 (A→W→D)
     if ts.update_command_input(keys, dt):
         # 커맨드 완성! 변신 시도
-        ts.try_transform(special_gauge, consume_special_gauge)
+        print(f"[뿔딸기] 커맨드 완성! gauge={special_gauge}, cost={ts._gauge_cost}, state={ts.state}")
+        result = ts.try_transform(special_gauge, consume_special_gauge)
+        print(f"[뿔딸기] 변신 시도 결과={result}, state={ts.state}, event_timer={ts.event_timer}")
 
     # 변신 상태 업데이트
     ts.update(dt)
@@ -123214,11 +123216,7 @@ def _parse_replay_sound_event(entry, default_volume: float) -> tuple[str | None,
     return sound_id, max(0.0, volume)
 
 
-def _get_replay_bgm_name(metadata: dict) -> str | None:
-    track_name = metadata.get('bgm_track')
-    if track_name:
-        return str(track_name)
-    stage = int(metadata.get('stage', 0) or 0)
+def _get_stage_bgm_name(stage: int) -> str | None:
     return {
         1: 'stage1',
         2: 'stage2',
@@ -123229,7 +123227,14 @@ def _get_replay_bgm_name(metadata: dict) -> str | None:
         7: 'stage7',
         8: 'stage8',
         50: 'tutorial',
-    }.get(stage)
+    }.get(int(stage or 0))
+
+
+def _get_replay_bgm_name(metadata: dict) -> str | None:
+    track_name = metadata.get('bgm_track')
+    if track_name:
+        return str(track_name)
+    return _get_stage_bgm_name(int(metadata.get('stage', 0) or 0))
 
 
 def _resolve_replay_bgm_path(metadata: dict) -> str | None:
@@ -159303,7 +159308,7 @@ def main(stage_num, new_boss_mode=False):
     
     try:
         if _replay_rec.recording:
-            _replay_rec.metadata['bgm_track'] = getattr(bgm_manager, 'current_bgm', '')
+            _replay_rec.metadata['bgm_track'] = getattr(bgm_manager, 'current_bgm', None) or _get_stage_bgm_name(stage_num) or ''
             _replay_rec.metadata['bgm_volume'] = float(getattr(bgm_manager, 'volume', 0.4))
             _replay_rec.metadata['sfx_volume'] = float(sfx_volume)
     except Exception:
