@@ -1,4 +1,4 @@
-"""
+﻿"""
 뿔딸기 변신가면 (Horn Strawberry Mask) - 전설 아이템 효과 모듈
 
 머리 부위 전설 아이템.
@@ -51,9 +51,13 @@ STRAWBERRY_FIELD_HEIGHT = 12
 # 스킬: 딸기먹기 (Space/클릭)
 STRAWBERRY_EAT_DURATION = 0.8  # 먹는 시간 (초)
 STRAWBERRY_EAT_GAUGE_COST = 50
-STRAWBERRY_EAT_PADDLE_GROWTH_BONUS = 0.05
+STRAWBERRY_EAT_PADDLE_GROWTH_BONUS = 0.10
+STRAWBERRY_STEM_BURST_COUNT = 3
+STRAWBERRY_STEM_BURST_INTERVAL = 0.08
+STRAWBERRY_STEM_SPREAD_DEGREES = 10.0
 STRAWBERRY_EAT_COOLDOWN = 0.8
 STRAWBERRY_STEM_SPEED_MULT = 2.5  # 권총 대비 250% 속도 (빠른 투사체)
+STRAWBERRY_STEM_KNOCKBACK = 32.2  # 현재 권총급 넉백(14)의 2.3배
 
 # ── 색상 팔레트 ──────────────────────────────────────────
 STRAWBERRY_RED = (220, 40, 50)
@@ -197,6 +201,7 @@ class HornStrawberryTransformState:
         self._gauge_cost = TRANSFORM_GAUGE_COST
         self._paddle_size_bonus = TRANSFORM_PADDLE_SIZE_BONUS
         self._eat_paddle_growth_bonus = 0.0
+        self._eat_input_prev_down = False
 
     def sync_roll_options(self, legendary_item):
         """전설 아이템 인스턴스에서 롤옵션 값 동기화"""
@@ -220,6 +225,7 @@ class HornStrawberryTransformState:
         self.strawberry_eat.reset()
         self.event_particles.clear()
         self.flash_alpha = 0
+        self._eat_input_prev_down = False
 
     @property
     def is_transformed(self):
@@ -293,6 +299,7 @@ class HornStrawberryTransformState:
                 self.state = self.TRANSFORMED
                 self.transform_timer = self._transform_duration
                 self._eat_paddle_growth_bonus = 0.0
+                self._eat_input_prev_down = False
                 self.horn_charge.reset()
                 self.strawberry_field.reset()
                 self.strawberry_eat.reset()
@@ -306,6 +313,7 @@ class HornStrawberryTransformState:
 
             if self.transform_timer <= 0:
                 self._eat_paddle_growth_bonus = 0.0
+                self._eat_input_prev_down = False
                 self.horn_charge.reset()
                 # strawberry_field는 리셋하지 않음 — 변신 종료 후에도 장판 유지
                 self.strawberry_eat.reset()
@@ -321,6 +329,7 @@ class HornStrawberryTransformState:
             if self.event_timer <= 0:
                 self.state = self.IDLE
                 self.flash_alpha = 0
+                self._eat_input_prev_down = False
 
         # 이벤트 파티클 업데이트 (항상)
         self._update_event_particles(dt)
@@ -615,7 +624,7 @@ class HornStrawberryTransformState:
                 # 하이라이트 점
                 pygame.draw.rect(surf, (245, 220, 90), (sx, sy, 2, 1))
 
-        # ── 잎사귀 (상단 — 큰 중앙 잎 + 좌우 펼침 잎 + 뒤쪽 작은 잎) ──
+        # ── 잎사귀 (상단 — 좌우 작은 장식 잎만, 중앙 잎 없음) ──
         leaf_y = sc - bh // 2 + 2 + leaf_drop
         sway = math.sin(t * 0.004) * 2.5
 
@@ -626,61 +635,129 @@ class HornStrawberryTransformState:
                 (bx - 2 * s, leaf_y + 5), (bx + 4 * s, leaf_y + 5),
                 (bx + s * 7 + sway * 0.3, leaf_y - 3)])
 
-        # 중앙 큰 잎 (두꺼운 느낌)
-        pygame.draw.polygon(surf, (55, 160, 42), [
-            (sc - 9, leaf_y + 4), (sc + 9, leaf_y + 4),
-            (int(sc + sway), leaf_y - 16)])
-        # 잎맥 (중심선)
-        pygame.draw.line(surf, (80, 200, 60), (sc, leaf_y + 3),
-                        (int(sc + sway * 0.5), leaf_y - 12), 1)
-        # 외곽선
-        pygame.draw.polygon(surf, (35, 110, 25), [
-            (sc - 9, leaf_y + 4), (sc + 9, leaf_y + 4),
-            (int(sc + sway), leaf_y - 16)], 1)
-
-        # 좌우 잎 (옆으로 넓게 펼침)
+        # 좌우 잎 (옆으로 넓게 펼침 — 뿔 밑동 장식)
         for s in [-1, 1]:
             lx = sc + s * int(r * 0.35)
-            tip_x = lx + s * 12 + sway * 0.7
+            tip_x = lx + s * 14 + sway * 0.7
+            # 잎 본체
             pygame.draw.polygon(surf, (50, 150, 38), [
-                (lx - 4 * s, leaf_y + 5), (lx + 6 * s, leaf_y + 5),
-                (int(tip_x), leaf_y - 8)])
+                (lx - 5 * s, leaf_y + 5), (lx + 7 * s, leaf_y + 5),
+                (int(tip_x), leaf_y - 9)])
             # 잎맥
             pygame.draw.line(surf, (75, 185, 50), (lx + s * 2, leaf_y + 4),
-                            (int(tip_x - s), leaf_y - 5), 1)
+                            (int(tip_x - s), leaf_y - 6), 1)
+            # 외곽선
             pygame.draw.polygon(surf, (35, 110, 25), [
-                (lx - 4 * s, leaf_y + 5), (lx + 6 * s, leaf_y + 5),
-                (int(tip_x), leaf_y - 8)], 1)
+                (lx - 5 * s, leaf_y + 5), (lx + 7 * s, leaf_y + 5),
+                (int(tip_x), leaf_y - 9)], 1)
 
-        # ── 뿔 2개 (잎 사이에서 솟아남, 통통 곡선 + 울퉁불퉁) ──
+        # ── 뿔 2개 (고퀄리티 — 두꺼운 베이스에서 뾰족한 끝으로 이어지는 곡선 뿔) ──
         for s in [-1, 1]:
             hw = math.sin(t * 0.005 + s * 0.8) * 2.5
-            hbx = sc + s * int(r * 0.5)
-            hby = leaf_y + 3
-            htx = hbx + s * 7 + hw
-            hty = hby - 18
+            hbx = sc + s * int(r * 0.45)
+            hby = leaf_y + 2
+            # 뿔 끝점 (바깥 위로 곡선)
+            htx = hbx + s * 12 + hw
+            hty = hby - 26
 
-            # 뿔 베이스 (두꺼운 부분)
-            pygame.draw.polygon(surf, GREEN_MID, [
-                (hbx - 4, hby), (hbx + 4, hby),
-                (int(htx + 2), int(hty + 2)), (int(htx - 2), int(hty + 2))])
-            # 하이라이트 줄기
-            pygame.draw.polygon(surf, GREEN_BRIGHT, [
-                (hbx - 1, hby - 1), (hbx + 2, hby - 1),
-                (int(htx + 1), int(hty + 4))])
-            # 끝 (동글동글)
-            pygame.draw.circle(surf, (110, 225, 90), (int(htx), int(hty)), 3)
-            pygame.draw.circle(surf, (160, 245, 130), (int(htx) - 1, int(hty) - 1), 1)
-            # 외곽
-            pygame.draw.polygon(surf, GREEN_DARK, [
-                (hbx - 4, hby), (hbx + 4, hby),
-                (int(htx + 2), int(hty + 2)), (int(htx - 2), int(hty + 2))], 1)
-            # 작은 돌기 (울퉁불퉁 디테일)
-            for bi in range(2):
-                bt = (bi + 1) / 3.0
-                bpx = hbx + (htx - hbx) * bt + s * 2
-                bpy = hby + (hty - hby) * bt
-                pygame.draw.circle(surf, GREEN_MID, (int(bpx), int(bpy)), 2)
+            # --- 뿔 본체 (폴리곤 곡선으로 부드럽게) ---
+            horn_pts = []
+            horn_hi_pts = []  # 하이라이트용
+            num_seg = 10
+            for i in range(num_seg + 1):
+                t_frac = i / num_seg
+                # 베지어 곡선: base → control → tip
+                ctrl_x = hbx + s * 3  # 컨트롤 포인트 (안쪽으로 살짝 휘어짐)
+                ctrl_y = hby - 14
+                # quadratic bezier
+                ix = (1 - t_frac) ** 2 * hbx + 2 * (1 - t_frac) * t_frac * ctrl_x + t_frac ** 2 * htx
+                iy = (1 - t_frac) ** 2 * hby + 2 * (1 - t_frac) * t_frac * ctrl_y + t_frac ** 2 * hty
+                # 뿔 두께 (아래 두꺼움 → 위 뾰족)
+                thickness = 5.5 * (1.0 - t_frac * 0.82)
+                # 법선 방향 (대략 수직)
+                if i < num_seg:
+                    nx_frac = (i + 1) / num_seg
+                    nx = (1 - nx_frac) ** 2 * hbx + 2 * (1 - nx_frac) * nx_frac * ctrl_x + nx_frac ** 2 * htx
+                    ny = (1 - nx_frac) ** 2 * hby + 2 * (1 - nx_frac) * nx_frac * ctrl_y + nx_frac ** 2 * hty
+                    dx, dy = nx - ix, ny - iy
+                else:
+                    dx, dy = htx - ix, hty - iy
+                length = max(0.01, math.sqrt(dx * dx + dy * dy))
+                perp_x, perp_y = -dy / length, dx / length
+                horn_pts.append((int(ix + perp_x * thickness), int(iy + perp_y * thickness)))
+                horn_hi_pts.append((int(ix + perp_x * thickness * 0.3), int(iy + perp_y * thickness * 0.3)))
+            # 반대쪽 (역순)
+            for i in range(num_seg, -1, -1):
+                t_frac = i / num_seg
+                ctrl_x = hbx + s * 3
+                ctrl_y = hby - 14
+                ix = (1 - t_frac) ** 2 * hbx + 2 * (1 - t_frac) * t_frac * ctrl_x + t_frac ** 2 * htx
+                iy = (1 - t_frac) ** 2 * hby + 2 * (1 - t_frac) * t_frac * ctrl_y + t_frac ** 2 * hty
+                thickness = 5.5 * (1.0 - t_frac * 0.82)
+                if i < num_seg:
+                    nx_frac = (i + 1) / num_seg
+                    nx = (1 - nx_frac) ** 2 * hbx + 2 * (1 - nx_frac) * nx_frac * ctrl_x + nx_frac ** 2 * htx
+                    ny = (1 - nx_frac) ** 2 * hby + 2 * (1 - nx_frac) * nx_frac * ctrl_y + nx_frac ** 2 * hty
+                    dx, dy = nx - ix, ny - iy
+                else:
+                    dx, dy = htx - ix, hty - iy
+                length = max(0.01, math.sqrt(dx * dx + dy * dy))
+                perp_x, perp_y = -dy / length, dx / length
+                horn_pts.append((int(ix - perp_x * thickness), int(iy - perp_y * thickness)))
+
+            # 뿔 그림자 (약간 오프셋으로 깊이감)
+            shadow_pts = [(px + 1, py + 1) for px, py in horn_pts]
+            pygame.draw.polygon(surf, (25, 80, 15), shadow_pts)
+
+            # 뿔 본체 (짙은 초록 → 밝은 초록 그라데이션 느낌)
+            pygame.draw.polygon(surf, GREEN_MID, horn_pts)
+
+            # 뿔 내부 하이라이트 (중심선 따라 밝은 띠)
+            hi_inner = []
+            for i in range(num_seg + 1):
+                t_frac = i / num_seg
+                ctrl_x = hbx + s * 3
+                ctrl_y = hby - 14
+                ix = (1 - t_frac) ** 2 * hbx + 2 * (1 - t_frac) * t_frac * ctrl_x + t_frac ** 2 * htx
+                iy = (1 - t_frac) ** 2 * hby + 2 * (1 - t_frac) * t_frac * ctrl_y + t_frac ** 2 * hty
+                thickness = 2.5 * (1.0 - t_frac * 0.9)
+                hi_inner.append((int(ix - s * thickness * 0.5), int(iy)))
+            for i in range(num_seg, -1, -1):
+                t_frac = i / num_seg
+                ctrl_x = hbx + s * 3
+                ctrl_y = hby - 14
+                ix = (1 - t_frac) ** 2 * hbx + 2 * (1 - t_frac) * t_frac * ctrl_x + t_frac ** 2 * htx
+                iy = (1 - t_frac) ** 2 * hby + 2 * (1 - t_frac) * t_frac * ctrl_y + t_frac ** 2 * hty
+                thickness = 2.5 * (1.0 - t_frac * 0.9)
+                hi_inner.append((int(ix - s * thickness * 0.5 + s * thickness), int(iy)))
+            if len(hi_inner) >= 3:
+                pygame.draw.polygon(surf, GREEN_BRIGHT, hi_inner)
+
+            # 뿔 외곽선
+            pygame.draw.polygon(surf, GREEN_DARK, horn_pts, 2)
+
+            # 뿔 끝 광택 (둥글게 빛나는 끝)
+            pygame.draw.circle(surf, (120, 235, 100), (int(htx), int(hty)), 4)
+            pygame.draw.circle(surf, (170, 250, 145), (int(htx) - 1, int(hty) - 1), 2)
+            pygame.draw.circle(surf, (210, 255, 200), (int(htx) - 1, int(hty) - 2), 1)
+
+            # 뿔 세로 줄무늬 (입체감)
+            for si in range(1, 4):
+                st = si / 4.0
+                ctrl_x = hbx + s * 3
+                ctrl_y = hby - 14
+                sx_s = (1 - st) ** 2 * hbx + 2 * (1 - st) * st * ctrl_x + st ** 2 * htx
+                sy_s = (1 - st) ** 2 * hby + 2 * (1 - st) * st * ctrl_y + st ** 2 * hty
+                stripe_r = max(1, int(3 * (1.0 - st * 0.7)))
+                pygame.draw.circle(surf, (40, 130, 30, 60), (int(sx_s + s * 1), int(sy_s)), stripe_r)
+
+            # 베이스 연결부 (뿔 밑동 두꺼운 링)
+            pygame.draw.ellipse(surf, (40, 130, 30),
+                               (hbx - 6, hby - 2, 12, 5))
+            pygame.draw.ellipse(surf, GREEN_MID,
+                               (hbx - 5, hby - 1, 10, 4))
+            pygame.draw.ellipse(surf, GREEN_DARK,
+                               (hbx - 6, hby - 2, 12, 5), 1)
 
         # ── 기울기 + 그리기 ──
         if abs(lean) > 0.3:
@@ -702,8 +779,6 @@ class HornChargeSkill:
         self.phase = self.PHASE_CHARGING
         self.phase_timer = 0.0
         self.cooldown = 0.0
-        self.gauge_cost = STRAWBERRY_EAT_GAUGE_COST
-        self.paddle_growth_bonus = STRAWBERRY_EAT_PADDLE_GROWTH_BONUS
         self.start_y = 0
         self.target_y = 65  # 보스 패들 하단
         self.current_y_offset = 0
@@ -1051,6 +1126,14 @@ class _HornChargeSkillCore:
     def game_state(self):
         return self._game_state
 
+    def get_target_stun_frames(self, fps=60):
+        """메인 게임 런타임에서 사용할 대상 스턴 프레임 수."""
+        try:
+            stun_seconds = float(HORN_CHARGE_PHASES.get("STUN", 1.0))
+        except Exception:
+            stun_seconds = 1.0
+        return max(1, int(round(stun_seconds * fps)))
+
     def reset(self):
         if self._skill is not None:
             self._skill.reset()
@@ -1111,17 +1194,10 @@ class _HornChargeSkillCore:
         if self._skill is None or not self._skill.is_active:
             return False
         _phase = getattr(self._skill, "phase", None)
-        if _phase in (
+        return _phase in (
             getattr(self._skill, "PHASE_CHARGING", -999),
             getattr(self._skill, "PHASE_IMPACT", -998),
-        ):
-            return True
-        if _phase == getattr(self._skill, "PHASE_RETURNING", -997):
-            _x_offset = abs(float(self._game_state.get("horn_charge_x_offset", 0.0)))
-            _y_offset = abs(float(self._game_state.get("horn_charge_y_offset", 0.0)))
-            # 시각적으로 거의 복귀한 뒤까지 입력이 잠겨 self-stun처럼 느껴지는 구간을 잘라낸다.
-            return _x_offset > 8.0 or _y_offset > 18.0
-        return False
+        )
 
     def update(self, dt, player_rect, boss_rect, ball_rect, ball_vel):
         if self._skill is None or player_rect is None or boss_rect is None:
@@ -1136,8 +1212,10 @@ class _HornChargeSkillCore:
             self._game_state["horn_charge_active"] = False
             self._game_state["horn_charge_x_offset"] = 0.0
             self._game_state["horn_charge_y_offset"] = 0.0
-            if self._anchor_player_centerx is not None:
-                player_rect.centerx = int(self._anchor_player_centerx)
+            # 딸기뿔박치기는 복귀가 끝나는 즉시 이동권을 돌려줘야 한다.
+            # STUN 페이즈에서 centerx를 앵커로 다시 덮어쓰면
+            # 사용자가 잠깐 움직였다가 다음 프레임에 제자리로 끌려오는 버그가 난다.
+            self._anchor_player_centerx = None
             self._skill.phase_timer = 1.0
         # 딸기뿔박치기: 플레이어 STUN 페이즈를 0.5초로 단축 (원본 1.0초)
         if self._skill.is_active and self._skill.phase == 3:  # PHASE_STUN
@@ -1482,12 +1560,22 @@ class StrawberryEatSkill:
         self.gauge_cost = STRAWBERRY_EAT_GAUGE_COST
         self.paddle_growth_bonus = STRAWBERRY_EAT_PADDLE_GROWTH_BONUS
         self.projectiles = []  # 발사된 꼭지 투사체
+        self._anchor_player_centerx = None
+        self._queued_stem_shots = 0
+        self._stem_burst_timer = 0.0
+        self._stem_burst_origin_x = 0.0
+        self._stem_burst_origin_y = 0.0
 
     def reset(self):
         self.eating = False
         self.eat_timer = 0.0
         self.cooldown = 0.0
         self.projectiles.clear()
+        self._anchor_player_centerx = None
+        self._queued_stem_shots = 0
+        self._stem_burst_timer = 0.0
+        self._stem_burst_origin_x = 0.0
+        self._stem_burst_origin_y = 0.0
 
     def can_use(self):
         return not self.eating and self.cooldown <= 0
@@ -1500,22 +1588,28 @@ class StrawberryEatSkill:
         return False
 
     def update(self, dt, player_x, player_y, recover_gauge_fn, recover_dash_fn):
-        """먹기 업데이트. 반환: True면 이동 불가 상태"""
+        """딸기먹기 및 후속 3연사 투사체를 업데이트한다."""
         if self.eating:
             self.eat_timer -= dt
             if self.eat_timer <= 0:
                 self.eating = False
                 self.cooldown = STRAWBERRY_EAT_COOLDOWN
-                # 먹기 완료: 게이지 회복 + 대시 토큰 회복
                 recover_dash_fn(1)
-                # 꼭지 투사체 발사
-                self._fire_stem(player_x, player_y)
-            return True  # 이동 불가
+                self._anchor_player_centerx = None
+                self._start_stem_burst(player_x, player_y)
+            return True
 
-        # 투사체 업데이트
+        if self._queued_stem_shots > 0:
+            self._stem_burst_timer -= dt
+            while self._queued_stem_shots > 0 and self._stem_burst_timer <= 0:
+                self._fire_stem(self._stem_burst_origin_x, self._stem_burst_origin_y)
+                self._queued_stem_shots -= 1
+                self._stem_burst_timer += STRAWBERRY_STEM_BURST_INTERVAL
+
         alive = []
         for p in self.projectiles:
-            p["y"] -= p["speed"] * dt * 60  # 프레임 독립
+            p["x"] += p["vx"] * dt * 60
+            p["y"] += p["vy"] * dt * 60
             p["rotation"] += p["rot_speed"] * dt * 60
             p["life"] -= dt
             if p["life"] > 0 and p["y"] > -20:
@@ -1524,15 +1618,26 @@ class StrawberryEatSkill:
 
         return False
 
+    def _start_stem_burst(self, player_x, player_y):
+        self._stem_burst_origin_x = float(player_x)
+        self._stem_burst_origin_y = float(player_y)
+        self._fire_stem(self._stem_burst_origin_x, self._stem_burst_origin_y)
+        self._queued_stem_shots = max(0, STRAWBERRY_STEM_BURST_COUNT - 1)
+        self._stem_burst_timer = STRAWBERRY_STEM_BURST_INTERVAL
+
     def _fire_stem(self, player_x, player_y):
         """딸기 꼭지 투사체 발사"""
         # 코만도 권총 속도의 120%
         base_speed = 7  # 권총 기본 속도
         speed = base_speed * STRAWBERRY_STEM_SPEED_MULT
+        angle_deg = random.uniform(-STRAWBERRY_STEM_SPREAD_DEGREES, STRAWBERRY_STEM_SPREAD_DEGREES)
+        angle_rad = math.radians(angle_deg)
         self.projectiles.append({
             "x": player_x, "y": player_y - 20,
             "speed": speed,
-            "rotation": 0,
+            "vx": math.sin(angle_rad) * speed,
+            "vy": -math.cos(angle_rad) * speed,
+            "rotation": angle_rad,
             "rot_speed": 5,
             "life": 3.0,
             "damage": 1,
@@ -1540,7 +1645,7 @@ class StrawberryEatSkill:
             "knockback": 120,  # 코만도 권총과 동일한 넉백
         })
         self.projectiles[-1]["stun_duration"] = 0.3
-        self.projectiles[-1]["knockback"] = 14
+        self.projectiles[-1]["knockback"] = STRAWBERRY_STEM_KNOCKBACK
 
     def update_cooldown(self, dt):
         if self.cooldown > 0:
@@ -1718,3 +1823,4 @@ def reset_stage_transform():
     global _transform_state
     if _transform_state:
         _transform_state._used_this_stage = False
+
