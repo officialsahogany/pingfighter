@@ -122776,11 +122776,11 @@ def _play_replay(filepath: str):
     except Exception:
         pass
 
-    # 재생 대상 Surface 결정 (전체화면이면 REAL_SCREEN, 아니면 SCREEN)
-    _use_real = _is_fullscreen_active and REAL_SCREEN is not None
-    _draw_screen = REAL_SCREEN if _use_real else SCREEN
+    # 재생 대상 = 실제 디스플레이 Surface (pygame.display.get_surface())
+    _draw_screen = pygame.display.get_surface()
     _dw = _draw_screen.get_width()
     _dh = _draw_screen.get_height()
+    print(f"[Replay] 재생 화면: {_dw}x{_dh}")
 
     info_font = get_font(14)
     speed_font = get_font(16)
