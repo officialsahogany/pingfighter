@@ -122484,7 +122484,11 @@ def show_replay_viewer():
             'rename': pygame.Rect(bx + BTN_W + 8, base_y, BTN_W, BTN_H),
             'lock': pygame.Rect(bx, base_y + BTN_H + 6, BTN_W, BTN_H),
             'delete': pygame.Rect(bx + BTN_W + 8, base_y + BTN_H + 6, BTN_W, BTN_H),
+            'export': pygame.Rect(bx, base_y + (BTN_H + 6) * 2, BTN_W * 2 + 8, BTN_H),
         }
+
+    # MP4 내보내기 상태
+    _export_status = {'active': False, 'progress': 0.0, 'message': '', 'done': False}
 
     while True:
         clock.tick(60)
@@ -122589,6 +122593,9 @@ def show_replay_viewer():
                     elif btns['delete'].collidepoint(mx, my):
                         if not r.get('locked', False):
                             delete_confirm = selected
+                    elif btns['export'].collidepoint(mx, my):
+                        if not _export_status['active']:
+                            _export_replay_to_mp4(r['filepath'], _export_status)
 
         # ── 렌더링 ──
         SCREEN.fill((12, 14, 22))
@@ -122752,6 +122759,23 @@ def show_replay_viewer():
             lock_label = "잠금 해제" if is_locked else "잠금"
             _draw_btn(btns['lock'], lock_label, (255, 200, 50) if is_locked else (200, 180, 100))
             _draw_btn(btns['delete'], "삭제", (255, 80, 80), disabled=is_locked)
+            # MP4 내보내기 버튼
+            if _export_status['active']:
+                # 진행 중 프로그레스 표시
+                exp_rect = btns['export']
+                pygame.draw.rect(SCREEN, (20, 25, 35), exp_rect, border_radius=6)
+                prog_w = int(exp_rect.width * _export_status['progress'])
+                if prog_w > 0:
+                    pygame.draw.rect(SCREEN, (0, 120, 80), (exp_rect.x, exp_rect.y, prog_w, exp_rect.height), border_radius=6)
+                pygame.draw.rect(SCREEN, (0, 200, 120), exp_rect, width=1, border_radius=6)
+                pct = int(_export_status['progress'] * 100)
+                exp_label = f"변환 중... {pct}%"
+                exp_s = get_font(12).render(exp_label, True, (150, 255, 180))
+                SCREEN.blit(exp_s, (exp_rect.centerx - exp_s.get_width() // 2, exp_rect.centery - exp_s.get_height() // 2))
+            elif _export_status.get('done'):
+                _draw_btn(btns['export'], _export_status.get('message', '완료!'), (0, 200, 120))
+            else:
+                _draw_btn(btns['export'], "MP4 영상 저장", (0, 180, 100))
         else:
             ns = get_font(16).render("리플레이를 선택하세요", True, (60, 65, 80))
             SCREEN.blit(ns, (PANEL_X + PANEL_W // 2 - ns.get_width() // 2, PANEL_Y + PANEL_H // 2))
@@ -122771,6 +122795,136 @@ def show_replay_viewer():
         SCREEN.blit(hint, (WIDTH // 2 - hint.get_width() // 2, HEIGHT - 18))
 
         pygame.display.flip()
+
+
+def _export_replay_to_mp4(filepath: str, status: dict):
+    """리플레이 .rpl을 MP4 영상으로 변환 (백그라운드 스레드)"""
+    import threading as _th
+
+    def _do_export():
+        status['active'] = True
+        status['progress'] = 0.0
+        status['done'] = False
+        status['message'] = ''
+
+        try:
+            import subprocess
+            import zlib as _zlib
+            import struct as _struct
+            from replay.replay_system import _MAGIC, _read_metadata_fast, _replays_dir
+
+            # 메타데이터 읽기
+            md = _read_metadata_fast(filepath)
+            if not md:
+                status['message'] = "메타데이터 읽기 실패"
+                status['active'] = False
+                status['done'] = True
+                return
+
+            sw = md.get('scaled_w', 760)
+            sh = md.get('scaled_h', 750)
+            cap_fps = md.get('capture_fps', 60)
+            stage = md.get('stage', 0)
+
+            # 출력 파일 경로
+            replay_dir = _replays_dir()
+            base_name = os.path.splitext(os.path.basename(filepath))[0]
+            out_path = os.path.join(replay_dir, f"{base_name}.mp4")
+
+            # ffmpeg 경로
+            ffmpeg_exe = os.environ.get('IMAGEIO_FFMPEG_EXE') or os.environ.get('FFMPEG_BINARY')
+            if not ffmpeg_exe or not os.path.isfile(ffmpeg_exe):
+                try:
+                    import imageio_ffmpeg
+                    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+                except Exception:
+                    ffmpeg_exe = 'ffmpeg'  # PATH에서 찾기
+
+            # ffmpeg 프로세스 시작 (stdin으로 raw 프레임 전달)
+            cmd = [
+                ffmpeg_exe,
+                '-y',  # 덮어쓰기
+                '-f', 'rawvideo',
+                '-vcodec', 'rawvideo',
+                '-s', f'{sw}x{sh}',
+                '-pix_fmt', 'rgb24',
+                '-r', str(cap_fps),
+                '-i', '-',  # stdin
+                '-c:v', 'libx264',
+                '-preset', 'fast',
+                '-crf', '23',
+                '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart',
+                out_path,
+            ]
+
+            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # 프레임 인덱스 스캔
+            with open(filepath, 'rb') as f:
+                magic = f.read(4)
+                if magic != _MAGIC:
+                    status['message'] = "잘못된 파일"
+                    status['active'] = False
+                    status['done'] = True
+                    return
+                f.read(4)  # meta_len
+
+                frame_positions = []
+                while True:
+                    sb = f.read(4)
+                    if len(sb) < 4:
+                        break
+                    chunk_size = _struct.unpack('I', sb)[0]
+                    data_offset = f.tell()
+                    f.seek(data_offset + chunk_size)
+                    nb = f.read(4)
+                    if len(nb) < 4:
+                        break  # 마지막 = 메타
+                    f.seek(data_offset + chunk_size)
+                    frame_positions.append((data_offset, chunk_size))
+
+                total = len(frame_positions)
+                if total == 0:
+                    proc.stdin.close()
+                    proc.wait()
+                    status['message'] = "프레임 없음"
+                    status['active'] = False
+                    status['done'] = True
+                    return
+
+                # 프레임을 하나씩 읽어서 ffmpeg에 전달
+                for idx, (offset, size) in enumerate(frame_positions):
+                    f.seek(offset)
+                    compressed = f.read(size)
+                    raw = _zlib.decompress(compressed)
+                    try:
+                        proc.stdin.write(raw)
+                    except BrokenPipeError:
+                        break
+                    status['progress'] = (idx + 1) / total
+
+            proc.stdin.close()
+            proc.wait()
+
+            if proc.returncode == 0:
+                size_mb = os.path.getsize(out_path) / (1024 * 1024)
+                status['message'] = f"저장 완료! ({size_mb:.0f}MB)"
+                print(f"[Replay] MP4 저장 완료: {out_path} ({size_mb:.1f}MB)")
+            else:
+                stderr = proc.stderr.read().decode('utf-8', errors='replace')[-200:]
+                status['message'] = "변환 실패"
+                print(f"[Replay] MP4 변환 실패: {stderr}")
+
+        except Exception as e:
+            status['message'] = f"오류: {e}"
+            print(f"[Replay] MP4 변환 오류: {e}")
+            import traceback; traceback.print_exc()
+        finally:
+            status['active'] = False
+            status['done'] = True
+
+    _th.Thread(target=_do_export, daemon=True).start()
 
 
 def _play_replay(filepath: str):
