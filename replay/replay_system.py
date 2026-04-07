@@ -233,9 +233,10 @@ class ReplayRecorder:
 
 
 # ============================================================================
-# 플레이어 — .rpl 파일에서 프레임을 읽어 재생
+# 플레이어 — .rpl 파일에서 프레임을 스트리밍 재생 (메모리 절약)
 # ============================================================================
 class ReplayPlayer:
+    """프레임 위치만 인덱싱하고, 재생 시 디스크에서 1프레임씩 읽어 디코딩"""
 
     SPEED_OPTIONS = [0.25, 0.5, 1.0, 1.5, 2.0, 4.0]
 
@@ -249,52 +250,73 @@ class ReplayPlayer:
         self.total_frames = 0
         self.scaled_w = 0
         self.scaled_h = 0
-        self.frame_data: List[bytes] = []
-        self._current_surface: Optional[pygame.Surface] = None
+        self._current_surface = None
+        # 스트리밍용
+        self._filepath = ""
+        self._frame_index: List[tuple] = []  # [(file_offset, chunk_size), ...]
+        self._file = None  # 열린 파일 핸들
 
     def load(self, filepath: str) -> bool:
+        """파일을 스캔하여 프레임 위치만 인덱싱 (메모리에 데이터 안 올림)"""
+        self.close()
         try:
-            with open(filepath, 'rb') as f:
-                magic = f.read(4)
-                if magic != _MAGIC:
-                    print(f"[Replay] 잘못된 파일 형식")
-                    return False
+            f = open(filepath, 'rb')
+            magic = f.read(4)
+            if magic != _MAGIC:
+                print(f"[Replay] 잘못된 파일 형식")
+                f.close()
+                return False
 
-                meta_len_bytes = f.read(4)
-                meta_len = struct.unpack('I', meta_len_bytes)[0]
+            f.read(4)  # meta_len (헤더)
 
-                self.frame_data = []
-                while True:
-                    size_bytes = f.read(4)
-                    if len(size_bytes) < 4:
-                        break
-                    chunk_size = struct.unpack('I', size_bytes)[0]
-                    chunk = f.read(chunk_size)
-                    if len(chunk) < chunk_size:
-                        break
+            # 프레임 위치 인덱싱
+            self._frame_index = []
+            while True:
+                size_bytes = f.read(4)
+                if len(size_bytes) < 4:
+                    break
+                chunk_size = struct.unpack('I', size_bytes)[0]
+                data_offset = f.tell()
+                f.seek(data_offset + chunk_size)
 
-                    pos = f.tell()
-                    next_bytes = f.read(4)
-                    if len(next_bytes) < 4:
-                        self.metadata = pickle.loads(chunk)
-                        break
-                    else:
-                        f.seek(pos)
-                        self.frame_data.append(chunk)
+                # 다음 청크가 있는지 확인
+                next_b = f.read(4)
+                if len(next_b) < 4:
+                    # 마지막 청크 = 메타데이터
+                    f.seek(data_offset)
+                    meta_bytes = f.read(chunk_size)
+                    self.metadata = pickle.loads(meta_bytes)
+                    break
+                else:
+                    f.seek(data_offset + chunk_size)  # 되돌리기
+                    self._frame_index.append((data_offset, chunk_size))
 
-            self.total_frames = len(self.frame_data)
+            self.total_frames = len(self._frame_index)
             self.scaled_w = self.metadata.get('scaled_w', 380)
             self.scaled_h = self.metadata.get('scaled_h', 375)
             self.current_index = 0
             self.frame_accum = 0.0
+            self._filepath = filepath
+            self._file = f  # 파일 핸들 유지
 
             size_mb = os.path.getsize(filepath) / (1024 * 1024)
-            print(f"[Replay] 로드: {self.total_frames}프레임, {self.scaled_w}x{self.scaled_h}, {size_mb:.1f}MB")
+            print(f"[Replay] 로드 (스트리밍): {self.total_frames}프레임, {self.scaled_w}x{self.scaled_h}, {size_mb:.1f}MB")
             return self.total_frames > 0
         except Exception as e:
             print(f"[Replay] 로드 실패: {e}")
             import traceback; traceback.print_exc()
             return False
+
+    def close(self):
+        """파일 핸들 정리"""
+        if self._file:
+            try:
+                self._file.close()
+            except Exception:
+                pass
+            self._file = None
+        self._frame_index = []
+        self.total_frames = 0
 
     def start(self):
         if self.total_frames == 0:
@@ -323,11 +345,16 @@ class ReplayPlayer:
         self.current_index = new_idx
         self._current_surface = None
 
-    def get_frame_surface(self) -> Optional[pygame.Surface]:
+    def get_frame_surface(self):
+        """현재 인덱스의 프레임을 디스크에서 읽어 Surface로 디코딩"""
         if self.current_index < 0 or self.current_index >= self.total_frames:
             return self._current_surface
+        if not self._file:
+            return self._current_surface
         try:
-            compressed = self.frame_data[self.current_index]
+            offset, size = self._frame_index[self.current_index]
+            self._file.seek(offset)
+            compressed = self._file.read(size)
             raw = zlib.decompress(compressed)
             surf = pygame.image.fromstring(raw, (self.scaled_w, self.scaled_h), 'RGB')
             self._current_surface = surf
@@ -335,7 +362,7 @@ class ReplayPlayer:
         except Exception:
             return self._current_surface
 
-    def advance(self) -> Optional[pygame.Surface]:
+    def advance(self):
         """매 프레임(60fps) 호출 — 캡처 fps에 맞춰 정속 재생"""
         if not self.playing and not self.paused:
             return None
@@ -382,7 +409,10 @@ class ReplayPlayer:
 
     @property
     def frames(self):
-        return self.frame_data
+        return self._frame_index
+
+    def __del__(self):
+        self.close()
 
 
 # ============================================================================
