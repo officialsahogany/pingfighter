@@ -107,7 +107,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     ],
     "horn_strawberry_mask": [
         {"key": "transform_duration", "label": "변신 지속시간", "min": 50, "max": 70, "unit": "초", "default": 60, "step": 5},
-        {"key": "gauge_cost", "label": "변신 게이지 소모", "min": 200, "max": 350, "unit": "", "default": 300, "reverse": True},
+        {"key": "gauge_cost", "label": "변신 게이지 소모", "min": 400, "max": 500, "unit": "", "default": 450, "reverse": True},
         {"key": "paddle_size_bonus", "label": "패들 크기 증가", "min": 20, "max": 40, "unit": "%", "default": 30},
     ],
 }

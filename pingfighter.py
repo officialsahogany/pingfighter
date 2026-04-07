@@ -22708,11 +22708,57 @@ def _handle_horn_strawberry_barrier_safety_net():
 
     return False
 
+_horn_strawberry_hint_angle = 0.0  # 딸기 힌트 회전 각도
+
+def _draw_horn_strawberry_ready_hint(screen, ts):
+    """변신 가능 상태일 때 플레이어 머리 위에 작은 딸기가 빙글빙글 도는 힌트"""
+    global _horn_strawberry_hint_angle
+    if not PLAYER or not ts.active:
+        return
+    if ts.state != ts.IDLE or ts._used_this_stage:
+        return
+    if special_gauge < ts._gauge_cost:
+        return
+
+    import math
+    _horn_strawberry_hint_angle += 0.05  # 회전 속도
+
+    cx = PLAYER.centerx
+    cy = PLAYER.y - 18  # 패들 위 18px
+
+    # 딸기 궤도 반경
+    orbit_r = 10
+    sx = cx + int(orbit_r * math.cos(_horn_strawberry_hint_angle))
+    sy = cy + int(orbit_r * math.sin(_horn_strawberry_hint_angle * 0.7))
+
+    # 작은 딸기 그리기 (8x10 크기)
+    sz = 5  # 딸기 반경
+    # 딸기 몸체 (빨간색)
+    pygame.draw.ellipse(screen, (220, 30, 50), (sx - sz, sy - sz + 1, sz * 2, int(sz * 2.2)))
+    # 씨앗 점
+    for seed_angle in range(0, 360, 90):
+        seed_x = sx + int(sz * 0.4 * math.cos(math.radians(seed_angle + _horn_strawberry_hint_angle * 30)))
+        seed_y = sy + int(sz * 0.5 * math.sin(math.radians(seed_angle + _horn_strawberry_hint_angle * 30))) + 1
+        pygame.draw.circle(screen, (255, 220, 100), (seed_x, seed_y), 1)
+    # 꼭지 (초록색)
+    pygame.draw.polygon(screen, (50, 180, 50), [
+        (sx, sy - sz), (sx - 3, sy - sz - 3), (sx + 3, sy - sz - 3)
+    ])
+
+    # 반짝임 파티클 (글로우)
+    glow_alpha = int(120 + 80 * math.sin(_horn_strawberry_hint_angle * 3))
+    glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, (255, 100, 120, glow_alpha), (8, 8), 6)
+    screen.blit(glow_surf, (sx - 8, sy - 7))
+
 def draw_horn_strawberry_effects(screen):
     """뿔딸기 변신 관련 모든 이펙트 그리기"""
     ts = _get_horn_strawberry_transform()
     if ts is None:
         return
+
+    # 변신 가능 힌트 (IDLE 상태에서 게이지 충분할 때)
+    _draw_horn_strawberry_ready_hint(screen, ts)
 
     # 변신/해제 이벤트 연출
     if ts.is_event_playing:

@@ -21,7 +21,7 @@ except Exception:
 # ── 상수 ──────────────────────────────────────────────────
 COMMAND_SEQUENCE = [pygame.K_a, pygame.K_w, pygame.K_d]  # A→W→D
 COMMAND_TIMEOUT = 1.5  # 커맨드 입력 허용 시간 (초)
-TRANSFORM_GAUGE_COST = 300  # 기본 게이지 소모 (롤옵션으로 변동)
+TRANSFORM_GAUGE_COST = 450  # 기본 게이지 소모 (롤옵션 400~500)
 TRANSFORM_DURATION = 60.0  # 기본 변신 지속시간 (초, 롤옵션으로 변동)
 TRANSFORM_START_EVENT_DURATION = 3.0  # 변신 시작 이벤트 시간 (초)
 TRANSFORM_END_EVENT_DURATION = 2.0  # 변신 해제 이벤트 시간 (초)
