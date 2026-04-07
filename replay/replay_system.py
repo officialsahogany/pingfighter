@@ -386,6 +386,62 @@ class ReplayPlayer:
 
 
 # ============================================================================
+# 리플레이 메타 관리 (이름 변경, 잠금) — replay_meta.json
+# ============================================================================
+def _meta_json_path() -> str:
+    return os.path.join(_replays_dir(), "replay_meta.json")
+
+
+def _load_meta_json() -> Dict[str, Dict]:
+    """replay_meta.json 로드. {filename: {custom_name, locked}}"""
+    path = _meta_json_path()
+    if not os.path.exists(path):
+        return {}
+    try:
+        import json
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_meta_json(data: Dict[str, Dict]):
+    import json
+    path = _meta_json_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def rename_replay(filename: str, new_name: str):
+    """리플레이에 커스텀 이름 설정"""
+    meta = _load_meta_json()
+    if filename not in meta:
+        meta[filename] = {}
+    meta[filename]['custom_name'] = new_name.strip()
+    _save_meta_json(meta)
+
+
+def set_replay_locked(filename: str, locked: bool):
+    """리플레이 잠금/해제"""
+    meta = _load_meta_json()
+    if filename not in meta:
+        meta[filename] = {}
+    meta[filename]['locked'] = locked
+    _save_meta_json(meta)
+
+
+def is_replay_locked(filename: str) -> bool:
+    meta = _load_meta_json()
+    return meta.get(filename, {}).get('locked', False)
+
+
+def get_replay_custom_name(filename: str) -> str:
+    meta = _load_meta_json()
+    return meta.get(filename, {}).get('custom_name', '')
+
+
+# ============================================================================
 # 유틸: 리플레이 목록 조회 / 삭제
 # ============================================================================
 def list_replays() -> List[Dict[str, Any]]:
@@ -393,6 +449,7 @@ def list_replays() -> List[Dict[str, Any]]:
     replay_dir = _replays_dir()
     if not os.path.isdir(replay_dir):
         return replays
+    meta = _load_meta_json()
     for fn in os.listdir(replay_dir):
         if not fn.endswith('.rpl'):
             continue
@@ -400,6 +457,7 @@ def list_replays() -> List[Dict[str, Any]]:
         try:
             md = _read_metadata_fast(fp)
             if md:
+                file_meta = meta.get(fn, {})
                 replays.append({
                     'filename': fn,
                     'filepath': fp,
@@ -411,6 +469,8 @@ def list_replays() -> List[Dict[str, Any]]:
                     'duration': md.get('duration', 0),
                     'total_frames': md.get('total_frames', 0),
                     'created_at': md.get('created_at', 0),
+                    'custom_name': file_meta.get('custom_name', ''),
+                    'locked': file_meta.get('locked', False),
                 })
         except Exception:
             pass
@@ -439,34 +499,53 @@ def _read_metadata_fast(filepath: str) -> Optional[Dict]:
 
 def delete_replay(filepath: str) -> bool:
     try:
+        fn = os.path.basename(filepath)
         os.remove(filepath)
+        # 메타 정보도 제거
+        meta = _load_meta_json()
+        if fn in meta:
+            del meta[fn]
+            _save_meta_json(meta)
         return True
     except Exception:
         return False
 
 
 def _cleanup_old_replays():
-    """MAX_REPLAYS 초과 시 가장 오래된 리플레이 자동 삭제"""
+    """MAX_REPLAYS 초과 시 가장 오래된 잠금 안 된 리플레이 자동 삭제"""
     replay_dir = _replays_dir()
     if not os.path.isdir(replay_dir):
         return
-    rpl_files = []
+    meta = _load_meta_json()
+    # 잠금 안 된 파일만 삭제 대상
+    unlocked_files = []
+    total_count = 0
     for fn in os.listdir(replay_dir):
         if fn.endswith('.rpl'):
-            fp = os.path.join(replay_dir, fn)
-            rpl_files.append((fp, os.path.getmtime(fp)))
-    if len(rpl_files) <= MAX_REPLAYS:
+            total_count += 1
+            if not meta.get(fn, {}).get('locked', False):
+                fp = os.path.join(replay_dir, fn)
+                unlocked_files.append((fp, fn, os.path.getmtime(fp)))
+    if total_count <= MAX_REPLAYS:
         return
     # 오래된 순으로 정렬
-    rpl_files.sort(key=lambda x: x[1])
-    to_delete = len(rpl_files) - MAX_REPLAYS
-    for i in range(to_delete):
-        fp = rpl_files[i][0]
+    unlocked_files.sort(key=lambda x: x[2])
+    to_delete = total_count - MAX_REPLAYS
+    deleted = 0
+    for fp, fn, _ in unlocked_files:
+        if deleted >= to_delete:
+            break
         try:
             os.remove(fp)
-            print(f"[Replay] 오래된 리플레이 삭제: {os.path.basename(fp)}")
+            # 메타 정보도 제거
+            if fn in meta:
+                del meta[fn]
+            print(f"[Replay] 오래된 리플레이 삭제: {fn}")
+            deleted += 1
         except Exception:
             pass
+    if deleted > 0:
+        _save_meta_json(meta)
 
 
 # ============================================================================

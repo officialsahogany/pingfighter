@@ -1117,7 +1117,7 @@ import opening
 import skill
 import academy
 import cinematic
-from replay.replay_system import get_recorder as get_replay_recorder, ReplayPlayer, list_replays, delete_replay
+from replay.replay_system import get_recorder as get_replay_recorder, ReplayPlayer, list_replays, delete_replay, rename_replay, set_replay_locked, is_replay_locked
 from network.protocol import (
     OnlinePacketType, STAGE_MULTIPLAYER, serialize_game_frame, serialize_input,
     deserialize_input,
@@ -122283,6 +122283,66 @@ def start_dojo_dev():
 # ============================================================================
 # 🎬 리플레이 뷰어 시스템
 # ============================================================================
+def _replay_rename_dialog(current_name: str) -> str:
+    """리플레이 이름 변경 다이얼로그 — 텍스트 입력"""
+    clock = pygame.time.Clock()
+    input_text = current_name
+    cursor_blink = 0
+
+    while True:
+        clock.tick(60)
+        cursor_blink += 1
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return current_name  # 취소
+                if event.key == pygame.K_RETURN:
+                    return input_text.strip() if input_text.strip() else current_name
+                if event.key == pygame.K_BACKSPACE:
+                    input_text = input_text[:-1]
+                else:
+                    ch = event.unicode
+                    if ch and len(input_text) < 30:
+                        input_text += ch
+
+        # 렌더링
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 다이얼로그 박스
+        dw, dh = 500, 160
+        dx = (WIDTH - dw) // 2
+        dy = (HEIGHT - dh) // 2
+        pygame.draw.rect(SCREEN, (25, 30, 45), (dx, dy, dw, dh), border_radius=12)
+        pygame.draw.rect(SCREEN, (0, 180, 255), (dx, dy, dw, dh), width=2, border_radius=12)
+
+        tf = get_font(22)
+        ts = tf.render("리플레이 이름 변경", True, (0, 220, 255))
+        SCREEN.blit(ts, (WIDTH // 2 - ts.get_width() // 2, dy + 20))
+
+        # 입력 필드
+        field_rect = pygame.Rect(dx + 30, dy + 65, dw - 60, 36)
+        pygame.draw.rect(SCREEN, (15, 18, 28), field_rect, border_radius=6)
+        pygame.draw.rect(SCREEN, (60, 80, 120), field_rect, width=1, border_radius=6)
+
+        inf = get_font(18)
+        cursor_char = "|" if (cursor_blink // 30) % 2 == 0 else ""
+        display_text = input_text + cursor_char
+        its = inf.render(display_text, True, (220, 230, 240))
+        SCREEN.blit(its, (field_rect.x + 8, field_rect.y + 8))
+
+        hf = get_font(14)
+        hs = hf.render("Enter: 확인 | ESC: 취소", True, (100, 110, 130))
+        SCREEN.blit(hs, (WIDTH // 2 - hs.get_width() // 2, dy + 120))
+
+        pygame.display.flip()
+
+
 def show_replay_viewer():
     """메인 메뉴에서 호출 — 리플레이 목록 + 재생 화면"""
     clock = pygame.time.Clock()
@@ -122297,6 +122357,10 @@ def show_replay_viewer():
         5: "네메시스", 6: "홍련", 7: "테트리서", 8: "아카무 리고",
         30: "투기장",
     }
+
+    # 잠금 버튼 크기
+    lock_btn_w = 28
+    lock_btn_h = 28
 
     while True:
         clock.tick(60)
@@ -122338,21 +122402,36 @@ def show_replay_viewer():
                         _play_replay(replays[selected]['filepath'])
                         replays = list_replays()
                 elif event.key in (pygame.K_DELETE, pygame.K_BACKSPACE):
-                    if replays:
+                    if replays and not replays[selected].get('locked', False):
                         delete_confirm = selected
+                elif event.key == pygame.K_F2:
+                    # F2: 이름 변경
+                    if replays:
+                        r = replays[selected]
+                        cur_name = r.get('custom_name', '') or f"Stage {r.get('stage',0)} - {r.get('boss_name','')}"
+                        new_name = _replay_rename_dialog(cur_name)
+                        if new_name != cur_name:
+                            rename_replay(r['filename'], new_name)
+                            replays = list_replays()
+                elif event.key == pygame.K_l:
+                    # L: 잠금 토글
+                    if replays:
+                        r = replays[selected]
+                        set_replay_locked(r['filename'], not r.get('locked', False))
+                        replays = list_replays()
 
             # 마우스 휠 스크롤
             if event.type == pygame.MOUSEWHEEL and delete_confirm < 0 and replays:
-                if event.y > 0:  # 위로
+                if event.y > 0:
                     selected = max(0, selected - 1)
                     if selected < scroll_offset:
                         scroll_offset = selected
-                elif event.y < 0:  # 아래로
+                elif event.y < 0:
                     selected = min(len(replays) - 1, selected + 1)
                     if selected >= scroll_offset + max_visible:
                         scroll_offset = selected - max_visible + 1
 
-            # 마우스 호버 — 항목 위에 올리면 선택 변경
+            # 마우스 호버
             if event.type == pygame.MOUSEMOTION and delete_confirm < 0 and replays:
                 mx, my = event.pos
                 list_y_start = 140
@@ -122368,18 +122447,30 @@ def show_replay_viewer():
                     continue
                 mx, my = event.pos
                 list_y_start = 140
+                clicked_item = False
                 for i in range(scroll_offset, min(scroll_offset + max_visible, len(replays))):
                     item_y = list_y_start + (i - scroll_offset) * 65
-                    item_rect = pygame.Rect(40, item_y, WIDTH - 80, 58)
-                    if item_rect.collidepoint(mx, my):
-                        # 클릭 = 바로 재생
+                    # 잠금 버튼 영역 체크
+                    lock_x = WIDTH - 80 - lock_btn_w - 10
+                    lock_y = item_y + (58 - lock_btn_h) // 2
+                    lock_rect = pygame.Rect(lock_x, lock_y, lock_btn_w, lock_btn_h)
+                    if lock_rect.collidepoint(mx, my):
+                        r = replays[i]
+                        set_replay_locked(r['filename'], not r.get('locked', False))
+                        replays = list_replays()
+                        clicked_item = True
+                        break
+                    # 카드 영역 클릭 = 재생
+                    card_rect = pygame.Rect(40, item_y, WIDTH - 80, 58)
+                    if card_rect.collidepoint(mx, my):
                         _play_replay(replays[i]['filepath'])
                         replays = list_replays()
                         if selected >= len(replays):
                             selected = max(0, len(replays) - 1)
+                        clicked_item = True
                         break
 
-            # 우클릭 → 삭제 확인
+            # 우클릭 → 삭제 확인 (잠긴 건 삭제 불가)
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
                 if delete_confirm >= 0:
                     delete_confirm = -1
@@ -122390,7 +122481,8 @@ def show_replay_viewer():
                     item_y = list_y_start + (i - scroll_offset) * 65
                     if pygame.Rect(40, item_y, WIDTH - 80, 58).collidepoint(mx, my):
                         selected = i
-                        delete_confirm = i
+                        if not replays[i].get('locked', False):
+                            delete_confirm = i
                         break
 
         SCREEN.fill((15, 15, 25))
@@ -122399,8 +122491,8 @@ def show_replay_viewer():
         title_surf = title_font.render(_t("replay.title", "리플레이"), True, (0, 220, 255))
         SCREEN.blit(title_surf, (WIDTH // 2 - title_surf.get_width() // 2, 30))
 
-        hint_font = get_font(16)
-        hint_text = _t("replay.hint", "클릭/Enter: 재생 | 우클릭/Del: 삭제 | ESC: 뒤로")
+        hint_font = get_font(13)
+        hint_text = "클릭: 재생 | 우클릭: 삭제 | F2: 이름변경 | L: 잠금 | ESC: 뒤로"
         hint_surf = hint_font.render(hint_text, True, (120, 120, 140))
         SCREEN.blit(hint_surf, (WIDTH // 2 - hint_surf.get_width() // 2, 80))
 
@@ -122409,23 +122501,28 @@ def show_replay_viewer():
             empty_surf = empty_font.render(_t("replay.empty", "저장된 리플레이가 없습니다"), True, (100, 100, 120))
             SCREEN.blit(empty_surf, (WIDTH // 2 - empty_surf.get_width() // 2, HEIGHT // 2 - 20))
         else:
-            item_font = get_font(20)
-            detail_font = get_font(15)
+            item_font = get_font(18)
+            detail_font = get_font(13)
+            lock_font = get_font(16)
             list_y_start = 140
 
             for i in range(scroll_offset, min(scroll_offset + max_visible, len(replays))):
                 r = replays[i]
                 y = list_y_start + (i - scroll_offset) * 65
                 is_sel = (i == selected)
+                is_locked = r.get('locked', False)
 
                 card_color = (35, 45, 65) if is_sel else (22, 28, 38)
                 border_color = (0, 180, 255) if is_sel else (50, 60, 80)
+                if is_locked:
+                    border_color = (255, 200, 50) if is_sel else (180, 150, 50)
                 card_rect = pygame.Rect(40, y, WIDTH - 80, 58)
                 pygame.draw.rect(SCREEN, card_color, card_rect, border_radius=8)
                 pygame.draw.rect(SCREEN, border_color, card_rect, width=2, border_radius=8)
 
                 stg = r.get('stage', 0)
                 boss = r.get('boss_name', '') or stage_boss.get(stg, f"Stage {stg}")
+                custom = r.get('custom_name', '')
                 res = r.get('result', '')
                 res_tag = ""
                 res_color = (180, 180, 180)
@@ -122439,7 +122536,9 @@ def show_replay_viewer():
                     res_tag = " [QUIT]"
                     res_color = (180, 180, 100)
 
-                t_surf = item_font.render(f"Stage {stg} - {boss}{res_tag}", True, res_color)
+                # 커스텀 이름이 있으면 그걸 표시
+                display_name = custom if custom else f"Stage {stg} - {boss}"
+                t_surf = item_font.render(f"{display_name}{res_tag}", True, res_color)
                 SCREEN.blit(t_surf, (60, y + 8))
 
                 dur = r.get('duration', 0)
@@ -122448,6 +122547,18 @@ def show_replay_viewer():
                 detail_text = f"{date_str}  |  {int(dur)//60}:{int(dur)%60:02d}  |  {r.get('character','')}  |  {r.get('ai_mode','')}"
                 d_surf = detail_font.render(detail_text, True, (100, 110, 130))
                 SCREEN.blit(d_surf, (60, y + 33))
+
+                # 잠금 버튼
+                lock_x = WIDTH - 80 - lock_btn_w - 10
+                lock_y = y + (58 - lock_btn_h) // 2
+                lock_rect = pygame.Rect(lock_x, lock_y, lock_btn_w, lock_btn_h)
+                mouse_pos = pygame.mouse.get_pos()
+                lock_hover = lock_rect.collidepoint(mouse_pos)
+                lock_bg = (60, 50, 20) if is_locked else ((40, 50, 65) if lock_hover else (30, 35, 48))
+                pygame.draw.rect(SCREEN, lock_bg, lock_rect, border_radius=5)
+                pygame.draw.rect(SCREEN, (180, 150, 50) if is_locked else (60, 70, 90), lock_rect, width=1, border_radius=5)
+                lock_icon = lock_font.render("L" if is_locked else "U", True, (255, 200, 50) if is_locked else (80, 90, 110))
+                SCREEN.blit(lock_icon, (lock_rect.centerx - lock_icon.get_width() // 2, lock_rect.centery - lock_icon.get_height() // 2))
 
             if len(replays) > max_visible:
                 total_h = max_visible * 65
