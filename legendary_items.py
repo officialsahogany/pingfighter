@@ -12650,7 +12650,7 @@ class HornStrawberryMask(LegendaryItem):
         return result
 
     def _create_default_animation(self):
-        """뿔딸기 변신가면 고퀄리티 아이콘 애니메이션 (8프레임) - 딸기 가면 + 뿔"""
+        """뿔딸기 변신가면 고퀄리티 아이콘 애니메이션 (8프레임) - 통통한 딸기 + 귀여운 뿔"""
         self.animation_frames = []
         sz = 60
 
@@ -12659,98 +12659,167 @@ class HornStrawberryMask(LegendaryItem):
             phase = fi / 8 * math.pi * 2
             cx, cy = sz // 2, sz // 2
 
-            # ── 색상 팔레트 (딸기 레드 + 초록 뿔) ──
-            strawberry_dark = (180, 20, 30)
-            strawberry_mid = (220, 40, 50)
-            strawberry_light = (240, 70, 70)
-            strawberry_highlight = (255, 120, 120)
-            green_dark = (30, 100, 20)
-            green_mid = (50, 150, 40)
-            green_bright = (80, 200, 60)
-            green_highlight = (120, 230, 100)
-            seed_color = (240, 220, 100)  # 씨앗 노란색
-            mask_gold = (210, 170, 20)
-            mask_gold_bright = (250, 215, 50)
+            # ── 색상 팔레트 ──
+            # 딸기 그라데이션 (진한 빨강 ~ 밝은 핑크)
+            straw_deep = (190, 15, 25)
+            straw_mid = (225, 35, 45)
+            straw_light = (245, 75, 80)
+            straw_pink = (255, 130, 140)
+            straw_shine = (255, 200, 210)
+            # 초록 뿔/꼭지
+            horn_dark = (25, 90, 15)
+            horn_mid = (45, 140, 35)
+            horn_bright = (75, 195, 55)
+            horn_tip = (110, 225, 90)
+            # 씨앗
+            seed_dark = (200, 175, 50)
+            seed_light = (245, 225, 90)
 
-            # 프레임별 발광 펄스
             pulse = (math.sin(phase) + 1) / 2
+            bounce = math.sin(phase * 2) * 1.2  # 통통 바운스
 
-            # ── 가면 본체 (딸기 모양 타원) ──
-            body_w, body_h = 30, 34
-            body_x = cx - body_w // 2
-            body_y = cy - body_h // 2 + 4
+            # ── 딸기 본체 (통통한 물방울/하트 모양) ──
+            # 아래가 좁고 위가 넓은 딸기 실루엣 (여러 타원 합성)
+            body_cx = cx
+            body_cy = cy + 5 + bounce
 
-            # 그림자
-            pygame.draw.ellipse(frame, (100, 10, 15),
-                              (body_x + 1, body_y + 2, body_w, body_h))
-            # 본체 (딸기 레드)
-            pygame.draw.ellipse(frame, strawberry_mid,
-                              (body_x, body_y, body_w, body_h))
-            # 상부 하이라이트
-            pygame.draw.ellipse(frame, strawberry_light,
-                              (body_x + 3, body_y + 2, body_w - 6, body_h // 2))
-            pygame.draw.ellipse(frame, strawberry_highlight,
-                              (body_x + 6, body_y + 3, body_w - 12, 8))
-            # 외곽선
-            pygame.draw.ellipse(frame, strawberry_dark,
-                              (body_x, body_y, body_w, body_h), 1)
+            # 그림자 (부드럽게)
+            shadow_surf = pygame.Surface((sz, sz), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (80, 5, 10, 60),
+                               (body_cx - 16, body_cy - 12, 32, 30))
+            frame.blit(shadow_surf, (2, 2))
 
-            # ── 딸기 씨앗 (노란 점들) ──
+            # 메인 딸기 몸체 — 위쪽 넓고 아래쪽 살짝 좁은 느낌
+            # 상부 (넓은 부분)
+            pygame.draw.ellipse(frame, straw_mid,
+                               (body_cx - 15, body_cy - 14, 30, 22))
+            # 하부 (살짝 좁아지는 부분)
+            pygame.draw.ellipse(frame, straw_mid,
+                               (body_cx - 12, body_cy + 2, 24, 14))
+            # 연결부 매끄럽게
+            pygame.draw.rect(frame, straw_mid,
+                            (body_cx - 12, body_cy - 2, 24, 8))
+
+            # 광택 하이라이트 (좌상단 — 반짝임)
+            pygame.draw.ellipse(frame, straw_light,
+                               (body_cx - 12, body_cy - 12, 20, 14))
+            pygame.draw.ellipse(frame, straw_pink,
+                               (body_cx - 9, body_cy - 10, 12, 8))
+            # 작은 반짝 점
+            shine_alpha = int(160 + 90 * pulse)
+            pygame.draw.circle(frame, (shine_alpha, min(255, shine_alpha + 40), min(255, shine_alpha + 50)),
+                              (body_cx - 5, int(body_cy - 7)), 2)
+            pygame.draw.circle(frame, (255, 255, 255, 200),
+                              (body_cx - 4, int(body_cy - 8)), 1)
+
+            # 외곽선 (진한 빨강)
+            pygame.draw.ellipse(frame, straw_deep,
+                               (body_cx - 15, body_cy - 14, 30, 22), 1)
+            pygame.draw.ellipse(frame, straw_deep,
+                               (body_cx - 12, body_cy + 2, 24, 14), 1)
+
+            # 하단 꼭지 (딸기 꼭지점)
+            tip_y = body_cy + 14
+            pygame.draw.polygon(frame, straw_deep,
+                               [(body_cx - 3, tip_y - 2),
+                                (body_cx + 3, tip_y - 2),
+                                (body_cx, tip_y + 3)])
+
+            # ── 씨앗 (물방울 모양, 살짝 깊이감) ──
             import random as _rng
-            _rng.seed(42 + fi)  # 프레임별 일관된 씨앗 위치
-            for _ in range(8):
-                sx = body_x + 5 + _rng.randint(0, body_w - 10)
-                sy = body_y + 6 + _rng.randint(0, body_h - 12)
-                # 타원 안에 있는지 대략 확인
-                dx = (sx - cx) / (body_w / 2)
-                dy = (sy - (cy + 4)) / (body_h / 2)
+            _rng.seed(42)  # 모든 프레임 동일 위치
+            seed_positions = []
+            for _ in range(12):
+                sx = body_cx - 10 + _rng.randint(0, 20)
+                sy = int(body_cy) - 9 + _rng.randint(0, 22)
+                # 딸기 안에 있는지 확인
+                dx = (sx - body_cx) / 14.0
+                dy = (sy - body_cy) / 14.0
                 if dx * dx + dy * dy < 0.75:
-                    seed_bright = int(200 + 40 * pulse)
-                    pygame.draw.ellipse(frame, (seed_bright, seed_bright - 20, 60),
-                                       (sx, sy, 3, 2))
+                    seed_positions.append((sx, sy))
+            for sx, sy in seed_positions:
+                # 씨앗 홈 (어두운 점)
+                pygame.draw.ellipse(frame, (straw_deep[0] - 30, straw_deep[1], straw_deep[2]),
+                                   (sx - 1, sy, 3, 2))
+                # 씨앗 (밝은 노란색 타원)
+                s_bright = int(210 + 35 * pulse)
+                pygame.draw.ellipse(frame, (s_bright, s_bright - 25, 55),
+                                   (sx, sy, 2, 2))
 
-            # ── 뿔 2개 (초록 꼭지) ──
-            horn_y_base = body_y - 2
-            for hx_offset in [-8, 8]:
-                horn_x = cx + hx_offset
-                # 뿔 움직임 (프레임별 미세 흔들림)
-                horn_sway = math.sin(phase + hx_offset * 0.5) * 1.5
+            # ── 뿔 2개 (초록 꼭지, 두툼하고 귀여운 곡선) ──
+            horn_base_y = int(body_cy - 14)
+            for side in [-1, 1]:
+                horn_cx = body_cx + side * 9
+                sway = math.sin(phase + side * 1.2) * 2.0
 
-                # 뿔 본체 (초록 삼각형)
+                # 뿔 베이스 (두꺼운 부분)
+                base_w = 7
+                pygame.draw.ellipse(frame, horn_mid,
+                                   (horn_cx - base_w // 2, horn_base_y - 2, base_w, 6))
+
+                # 뿔 줄기 (곡선으로 올라가는 삼각형)
+                tip_x = horn_cx + sway * side
+                tip_y = horn_base_y - 16
                 pts = [
-                    (horn_x - 3, horn_y_base),
-                    (horn_x + 3, horn_y_base),
-                    (horn_x + horn_sway, horn_y_base - 14),
+                    (horn_cx - 4, horn_base_y),
+                    (horn_cx + 4, horn_base_y),
+                    (tip_x + 1, tip_y),
+                    (tip_x - 1, tip_y),
                 ]
-                pygame.draw.polygon(frame, green_mid, pts)
-                pygame.draw.polygon(frame, green_dark, pts, 1)
-                # 뿔 하이라이트
+                pygame.draw.polygon(frame, horn_mid, pts)
+
+                # 뿔 하이라이트 (밝은 라인)
                 pts_hi = [
-                    (horn_x - 1, horn_y_base - 1),
-                    (horn_x + 1, horn_y_base - 1),
-                    (horn_x + horn_sway * 0.5, horn_y_base - 10),
+                    (horn_cx - 1, horn_base_y - 1),
+                    (horn_cx + 2, horn_base_y - 1),
+                    (tip_x + 1, tip_y + 2),
                 ]
-                pygame.draw.polygon(frame, green_bright, pts_hi)
+                pygame.draw.polygon(frame, horn_bright, pts_hi)
 
-            # ── 가면 눈구멍 (두 개의 검은 타원) ──
-            eye_y = cy + 2
-            for ex_offset in [-6, 6]:
-                eye_x = cx + ex_offset
-                # 눈구멍 (어두운 타원)
-                pygame.draw.ellipse(frame, (30, 5, 5), (eye_x - 3, eye_y - 2, 6, 5))
-                # 눈 광채 (작은 하얀 점)
-                glow_alpha = int(180 + 75 * pulse)
-                pygame.draw.circle(frame, (glow_alpha, glow_alpha, glow_alpha),
-                                  (eye_x - 1, eye_y - 1), 1)
+                # 뿔 끝 (동글동글한 끝)
+                pygame.draw.circle(frame, horn_tip, (int(tip_x), int(tip_y)), 2)
+                # 끝 반짝
+                pygame.draw.circle(frame, (180, 255, 150), (int(tip_x), int(tip_y) - 1), 1)
 
-            # ── 가면 테두리 장식 (금색) ──
-            pygame.draw.ellipse(frame, mask_gold,
-                              (body_x - 1, body_y - 1, body_w + 2, body_h + 2), 2)
-            # 이마 장식 (금색 곡선)
-            gold_glow = int(170 + 80 * pulse)
-            pygame.draw.arc(frame, (gold_glow, gold_glow - 40, 10),
-                           (body_x + 4, body_y + body_h - 10, body_w - 8, 8),
-                           0, math.pi, 2)
+                # 외곽선
+                pygame.draw.polygon(frame, horn_dark, [
+                    (horn_cx - 4, horn_base_y),
+                    (horn_cx + 4, horn_base_y),
+                    (tip_x + 1, tip_y),
+                    (tip_x - 1, tip_y),
+                ], 1)
+
+            # ── 귀여운 눈 (반짝이는 큰 눈) ──
+            eye_y = int(body_cy - 1)
+            for side in [-1, 1]:
+                eye_x = body_cx + side * 6
+                # 눈 흰자
+                pygame.draw.ellipse(frame, (255, 255, 255),
+                                   (eye_x - 4, eye_y - 3, 8, 7))
+                # 눈동자 (크고 반짝)
+                pygame.draw.ellipse(frame, (30, 10, 10),
+                                   (eye_x - 2, eye_y - 2, 5, 5))
+                # 눈 하이라이트 (반짝 — 생기 있게)
+                pygame.draw.circle(frame, (255, 255, 255),
+                                  (eye_x + side, eye_y - 1), 2)
+                pygame.draw.circle(frame, (255, 240, 240),
+                                  (eye_x - side, eye_y + 1), 1)
+
+            # ── 볼 홍조 (양쪽 볼에 분홍 동그라미) ──
+            blush_alpha = int(120 + 60 * pulse)
+            blush_surf = pygame.Surface((10, 6), pygame.SRCALPHA)
+            pygame.draw.ellipse(blush_surf, (255, 120, 140, blush_alpha), (0, 0, 10, 6))
+            frame.blit(blush_surf, (body_cx - 14, int(body_cy + 2)))
+            frame.blit(blush_surf, (body_cx + 4, int(body_cy + 2)))
+
+            # ── 작은 입 (ω 모양 — 귀여운 고양이 입) ──
+            mouth_y = int(body_cy + 6)
+            pygame.draw.arc(frame, straw_deep,
+                           (body_cx - 4, mouth_y - 2, 4, 4),
+                           math.pi, 2 * math.pi, 1)
+            pygame.draw.arc(frame, straw_deep,
+                           (body_cx, mouth_y - 2, 4, 4),
+                           math.pi, 2 * math.pi, 1)
 
             self.animation_frames.append(frame)
 
