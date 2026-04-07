@@ -22253,6 +22253,10 @@ def update_horn_strawberry_transform(keys, dt):
                 except Exception:
                     pass
 
+    # 변신 해제 후에도 장판 업데이트 유지 (공반사 + 건설/파괴)
+    if not ts.is_transformed and ts.strawberry_field.needs_runtime_update():
+        ts.strawberry_field.update(dt, PLAYER, BOSS, BALL, ball_vel)
+
     return ts
 
 def _handle_strawberry_skills(keys, ts, dt):
@@ -22389,6 +22393,7 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
         _horn_charge_locked = bool(ts.horn_charge.is_control_locked())
     except Exception:
         _horn_charge_locked = bool(getattr(ts.horn_charge, "active", False))
+    _horn_charge_active = bool(getattr(ts.horn_charge, "active", False))
     _eat_locked = bool(getattr(ts.strawberry_eat, "eating", False))
 
     # 돌진/충돌/복귀 중에는 실제 패들을 원위치에 고정하고 이동/대쉬를 차단한다.
@@ -22406,6 +22411,17 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
         player_knockback_vel = 0
         player_fire_knockback_vel = 0.0
         player_missile_knockback_vel = 0.0
+
+    # 딸기뿔박치기는 사용자가 스턴/넉백에 걸리지 않아야 하므로,
+    # 복귀 잠금이 풀린 뒤 self-knockback 흔적이 남아 있으면 즉시 제거한다.
+    if (
+        _horn_charge_active
+        and not _horn_charge_locked
+        and globals().get("horn_charge_player_knockback_active", False)
+    ):
+        player_knockback_vel = 0
+        player_stunned_timer = 0
+        globals()["horn_charge_player_knockback_active"] = False
 
     if _eat_locked:
         _eat_anchor_centerx = getattr(ts.strawberry_eat, "_anchor_player_centerx", None)
@@ -22575,9 +22591,6 @@ def draw_horn_strawberry_effects(screen):
 
         _draw_horn_strawberry_charge_shockwave(screen, ts)
 
-        # 딸기장판
-        ts.strawberry_field.draw_barriers(screen)
-
         # 딸기먹기 이펙트 + 투사체
         if PLAYER:
             ts.strawberry_eat.draw(screen, PLAYER.centerx, PLAYER.y)
@@ -22586,6 +22599,13 @@ def draw_horn_strawberry_effects(screen):
         _draw_transform_timer(screen, ts.transform_timer, ts._transform_duration)
 
         # 전용 스킬 구슬 UI는 필러 좌측에서 그림 (_draw_horn_strawberry_pillar_skills)
+
+    # 딸기장판 — 변신 해제 후에도 유지 (is_transformed 밖에서 그림)
+    try:
+        ts.strawberry_field.draw_barriers(screen)
+        ts.strawberry_field.update_cooldown(1.0 / 60.0)
+    except Exception:
+        pass
 
 _horn_strawberry_skill_icon_rects = {}  # 뿔딸기 스킬 아이콘 히트박스
 _horn_strawberry_tooltip_active = False
@@ -76954,6 +76974,14 @@ def handle_player(keys):
         selected_character_type == "soldier"
         and len(soldier_controller.weapons) > 1
     )
+    _soldier_original_skills_blocked = (
+        selected_character_type == "soldier"
+        and (
+            is_horn_strawberry_transformed()
+            or is_horn_strawberry_skills_locked()
+            or is_horn_strawberry_control_locked()
+        )
+    )
 
     global soldier_down_tap_timer, soldier_down_tap_count, soldier_down_tap_suppress_timer
     global soldier_emergency_supply_used, soldier_emergency_supply_stage
@@ -76970,6 +76998,14 @@ def handle_player(keys):
         if soldier_down_tap_suppress_timer > 0:
             soldier_down_tap_suppress_timer -= 1
 
+        if _soldier_original_skills_blocked:
+            soldier_down_tap_timer = 0
+            soldier_down_tap_count = 0
+            soldier_down_tap_suppress_timer = 0
+            supply_drop_state.hold_time = 0
+            if not supply_drop_state.active:
+                supply_runtime.hold_active = False
+
         # 비상보급(↓ 두 번)은 좌우 이동 입력 중에만 차단하고, 입력이 없으면 즉시 허용한다.
         # (속도 잔류로 인한 오검지를 방지하기 위해 이동 속도 조건은 제거)
         soldier_idle_for_emergency = (
@@ -76977,7 +77013,7 @@ def handle_player(keys):
             and not right_pressed_raw
         )
 
-        if down_just_pressed:
+        if down_just_pressed and not _soldier_original_skills_blocked:
             if not soldier_idle_for_emergency:
                 soldier_down_tap_timer = 0
                 soldier_down_tap_count = 0
@@ -77058,6 +77094,7 @@ def handle_player(keys):
         and not supply_drop_state.active
         and soldier_down_tap_suppress_timer == 0
         and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
+        and not _soldier_original_skills_blocked
     ):
         # 쿨타임 체크 추가
         if is_soldier_skill_on_cooldown("supply_drop"):
@@ -77191,16 +77228,30 @@ def handle_player(keys):
         if abs(player_missile_knockback_vel) <= 0.5:
             player_missile_knockback_vel = 0
 
+    def _get_runtime_player_target_width() -> int:
+        """피격/스턴 중에도 현재 적용 중인 패들 크기 배율을 유지한다."""
+        _hs_paddle_bonus = 1.0 + get_horn_strawberry_paddle_size_bonus()
+        return max(
+            1,
+            int(
+                PADDLE_WIDTH
+                * long_boost_scale
+                * devil_dice_paddle_multiplier
+                * strange_vial_scale
+                * _hs_paddle_bonus
+            ),
+        )
+
     if player_burn_timer > 0:
         player_burn_timer -= 1
         if player_burn_timer <= 0:
             player_burn_effect = False
             player_knockback_y = 0  # 화상 종료 시 Y 넉백 즉시 리셋
         # 버그 수정: 너비가 변경될 때만 업데이트
-        _target_width = int(PADDLE_WIDTH * long_boost_scale * strange_vial_scale)
+        _target_width = _get_runtime_player_target_width()
         if PLAYER.width != _target_width:
             _prev_center = PLAYER.centerx
-            PLAYER.width = _target_width  # 화상 중에도 거대화포션 효과 적용
+            PLAYER.width = _target_width  # 화상 중에도 실시간 패들 크기 효과 유지
             PLAYER.centerx = _prev_center  # 크기 변경 시에도 중심 유지해 강제 이동 방지
         return  # 화상 중에는 조작 불가
     
@@ -77225,10 +77276,10 @@ def handle_player(keys):
         if soldier_control_lock_timer > 0:
             soldier_control_lock_timer = max(0, soldier_control_lock_timer - 1)
         # 버그 수정: 너비가 변경될 때만 업데이트
-        _target_width = int(PADDLE_WIDTH * long_boost_scale * strange_vial_scale)
+        _target_width = _get_runtime_player_target_width()
         if PLAYER.width != _target_width:
             _prev_center = PLAYER.centerx
-            PLAYER.width = _target_width  # 스턴 중에도 거대화포션 효과 적용
+            PLAYER.width = _target_width  # 스턴 중에도 실시간 패들 크기 효과 유지
             PLAYER.centerx = _prev_center
         return  #  스턴 중에는 조작 불가
     
@@ -77245,10 +77296,10 @@ def handle_player(keys):
         # 감속 (화염탄과 동일한 0.85)
         player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
         # 버그 수정: 너비가 변경될 때만 업데이트
-        _target_width = int(PADDLE_WIDTH * long_boost_scale * strange_vial_scale)
+        _target_width = _get_runtime_player_target_width()
         if PLAYER.width != _target_width:
             _prev_center = PLAYER.centerx
-            PLAYER.width = _target_width  # 스턴 중에도 거대화포션 효과 적용
+            PLAYER.width = _target_width  # 스턴 중에도 실시간 패들 크기 효과 유지
             PLAYER.centerx = _prev_center
         return  # 넉백 중에는 조작 불가
 
@@ -80359,6 +80410,7 @@ def handle_player(keys):
             and (soldier_weapon_menu_close_suppress_frames if 'soldier_weapon_menu_close_suppress_frames' in globals() else 0) == 0
             and (soldier_weapon_switch_suppress_frames if 'soldier_weapon_switch_suppress_frames' in globals() else 0) == 0
             and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
+            and not _soldier_original_skills_blocked
         ):
             # UP 키가 동시에 눌려있으면 물자보급 발동 시도 중이므로 화기류 발사 불가
             if keys[pygame.K_UP]:

@@ -45,7 +45,7 @@ HORN_CHARGE_PHASES = {
 STRAWBERRY_FIELD_GAUGE_COST = 100  # 홀딩 중 총 소모
 STRAWBERRY_FIELD_COOLDOWN = 10.0
 STRAWBERRY_FIELD_HOLD_MIN = 1.0  # 최소 홀드 시간 (초)
-STRAWBERRY_FIELD_WIDTH = 120
+STRAWBERRY_FIELD_WIDTH = 180
 STRAWBERRY_FIELD_HEIGHT = 12
 
 # 스킬: 딸기먹기 (Space/클릭)
@@ -307,7 +307,7 @@ class HornStrawberryTransformState:
             if self.transform_timer <= 0:
                 self._eat_paddle_growth_bonus = 0.0
                 self.horn_charge.reset()
-                self.strawberry_field.reset()
+                # strawberry_field는 리셋하지 않음 — 변신 종료 후에도 장판 유지
                 self.strawberry_eat.reset()
                 self.state = self.DETRANSFORM_EVENT
                 self.event_timer = TRANSFORM_END_EVENT_DURATION
@@ -1111,11 +1111,17 @@ class _HornChargeSkillCore:
         if self._skill is None or not self._skill.is_active:
             return False
         _phase = getattr(self._skill, "phase", None)
-        return _phase in (
+        if _phase in (
             getattr(self._skill, "PHASE_CHARGING", -999),
             getattr(self._skill, "PHASE_IMPACT", -998),
-            getattr(self._skill, "PHASE_RETURNING", -997),
-        )
+        ):
+            return True
+        if _phase == getattr(self._skill, "PHASE_RETURNING", -997):
+            _x_offset = abs(float(self._game_state.get("horn_charge_x_offset", 0.0)))
+            _y_offset = abs(float(self._game_state.get("horn_charge_y_offset", 0.0)))
+            # 시각적으로 거의 복귀한 뒤까지 입력이 잠겨 self-stun처럼 느껴지는 구간을 잘라낸다.
+            return _x_offset > 8.0 or _y_offset > 18.0
+        return False
 
     def update(self, dt, player_rect, boss_rect, ball_rect, ball_vel):
         if self._skill is None or player_rect is None or boss_rect is None:
