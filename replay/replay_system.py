@@ -19,8 +19,8 @@ _MAGIC = b'PFRP'
 _VERSION = 3
 
 # 캡처 설정
-CAPTURE_INTERVAL = 2    # 2프레임마다 1회 캡처 (30fps) — 프레임드랍 방지
-SCALE_FACTOR = 1.0      # 원본 해상도 (100%)
+CAPTURE_INTERVAL = 2    # 2프레임마다 1회 캡처 (30fps)
+SCALE_FACTOR = 0.75     # 75% 축소 — 프레임드랍 방지 + 고화질 유지
 COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름, 9=최대)
 MAX_DURATION = 600      # 최대 10분
 
