@@ -169683,9 +169683,18 @@ def show_character_info(background_surface=None):
         stats_title = stats_font.render(_t("ui.stats", "능력치"), True, WHITE)
         SCREEN.blit(stats_title, (stats_area.x + 12, stats_area.y + 8))
         line_y = stats_area.y + 30
+        _stat_avail_w = stats_area.width - 28  # 라벨+값 사용 가능 너비
+        # 라벨이 사용 가능 너비의 55% 초과 시 작은 폰트 사용
+        _stat_label_font = stats_font
+        _test_longest = max((stats_font.size(s["label"])[0] for s in stats_list), default=0)
+        if _test_longest > _stat_avail_w * 0.55:
+            try:
+                _stat_label_font = get_font(max(10, stats_font.get_height() - 4))
+            except Exception:
+                _stat_label_font = stats_font
         line_gap = max(20, int(stats_font.get_height() * 1.05))
         for stat in stats_list:
-            label_surface = stats_font.render(stat["label"], True, (200, 210, 230))
+            label_surface = _stat_label_font.render(stat["label"], True, (200, 210, 230))
             base = stat["base"]
             current = stat["current"]
             higher_better = stat.get("higher_is_better", True)
@@ -169702,14 +169711,15 @@ def show_character_info(background_surface=None):
                 value_color = WHITE
 
             unit = stat.get("unit", "")
-            if unit in ("x", "s", "초"):
+            _time_units = ("x", "s", "초", "秒")
+            if unit in _time_units:
                 value_text = f"{current:.2f}"
             else:
                 value_text = f"{int(current)}" if unit else f"{current:.0f}"
             if unit and unit not in ("x", ""):
                 value_text += unit
             if abs(delta) > 0.001:
-                if unit in ("x", "s", "초"):
+                if unit in _time_units:
                     inc_text = f"{delta:+.2f}"
                 else:
                     inc_text = f"{delta:+.0f}" if unit else f"{delta:+.0f}"
