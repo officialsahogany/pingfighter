@@ -122776,11 +122776,12 @@ def _play_replay(filepath: str):
     except Exception:
         pass
 
-    # 재생 대상 = 실제 디스플레이 Surface (pygame.display.get_surface())
-    _draw_screen = pygame.display.get_surface()
-    _dw = _draw_screen.get_width()
-    _dh = _draw_screen.get_height()
-    print(f"[Replay] 재생 화면: {_dw}x{_dh}")
+    # 재생 대상 Surface와 표시 방법 결정
+    # SCREEN(내부)에 그린 뒤, 전체화면이면 REAL_SCREEN에 합성하여 flip
+    _draw_screen = SCREEN
+    _dw = WIDTH
+    _dh = HEIGHT
+    _needs_blit_to_real = _is_fullscreen_active and REAL_SCREEN is not None
 
     info_font = get_font(14)
     speed_font = get_font(16)
@@ -122931,6 +122932,19 @@ def _play_replay(filepath: str):
         # REPLAY 워터마크
         wm = get_font(12).render("REPLAY", True, (255, 255, 255, 80))
         _draw_screen.blit(wm, (_dw - 75, 8))
+
+        # 전체화면이면 SCREEN → REAL_SCREEN 합성
+        if _needs_blit_to_real:
+            REAL_SCREEN.fill((0, 0, 0))
+            # SCREEN을 REAL_SCREEN 중앙에 스케일링하여 표시
+            rs_w, rs_h = REAL_SCREEN.get_size()
+            scale_factor = min(rs_w / _dw, rs_h / _dh)
+            scaled_w = int(_dw * scale_factor)
+            scaled_h = int(_dh * scale_factor)
+            offset_x = (rs_w - scaled_w) // 2
+            offset_y = (rs_h - scaled_h) // 2
+            scaled_screen = pygame.transform.scale(SCREEN, (scaled_w, scaled_h))
+            REAL_SCREEN.blit(scaled_screen, (offset_x, offset_y))
 
         pygame.display.flip()
 
