@@ -22213,6 +22213,21 @@ def play_cached_sound(relative_path: str, volume=None):
     return None
 
 
+_sound_id_map: dict = {}  # id(Sound) → 사운드 이름 (리플레이 사운드 기록용)
+
+def _build_sound_id_map():
+    """Sound 객체 → 이름 역매핑 테이블 구축"""
+    global _sound_id_map
+    for name, snd in sound_effects.items():
+        if snd is not None:
+            _sound_id_map[id(snd)] = name
+
+# import 완료 후 호출 (모듈 로딩 순서 때문에 지연)
+try:
+    _build_sound_id_map()
+except Exception:
+    pass
+
 def play_sound_with_volume(sound, volume=None):
     """효과음을 지정된 볼륨으로 재생 (Channel 볼륨 사용, Sound 객체 오염 방지)"""
     global sfx_volume
@@ -22223,6 +22238,15 @@ def play_sound_with_volume(sound, volume=None):
     channel = sound.play()
     if channel:
         channel.set_volume(volume)
+    # 🎬 리플레이 사운드 이벤트 자동 기록
+    try:
+        rec = get_replay_recorder()
+        if rec.recording:
+            snd_name = _sound_id_map.get(id(sound))
+            if snd_name:
+                rec.add_sound(snd_name)
+    except Exception:
+        pass
     return channel
 
 
@@ -22448,11 +22472,6 @@ def play_dash_sound():
             play_sound_with_volume(SOUND_DASH)  # bustup.wav가 없으면 기본 대쉬 사운드 재생
     else:
         play_sound_with_volume(SOUND_DASH)
-    # 🎬 리플레이 사운드 이벤트 기록
-    try:
-        get_replay_recorder().add_sound('dash')
-    except Exception:
-        pass
 
 #  사운드 재생 헬퍼 함수들 (중복 제거용)
 def play_dash_charge_sound():
@@ -22570,11 +22589,6 @@ def play_wall_sound():
         play_sound_with_volume(SOUND_PONG_WALL)
     else:
         play_sound_with_volume(SOUND_WALL)
-    # 🎬 리플레이 사운드 이벤트 기록
-    try:
-        get_replay_recorder().add_sound('wall')
-    except Exception:
-        pass
 
 def _get_selected_paddle_sound():
     """설정에서 선택된 패들 타격 사운드 반환"""
@@ -22609,11 +22623,6 @@ def play_paddle_sound():
         play_sound_with_volume(SOUND_PONG_PADDLE)
     else:
         play_sound_with_volume(_get_selected_paddle_sound())
-    # 🎬 리플레이 사운드 이벤트 기록
-    try:
-        get_replay_recorder().add_sound('paddle')
-    except Exception:
-        pass
 
 def play_button_hover_sound():
     """버튼 호버 사운드 재생"""
@@ -122481,14 +122490,8 @@ def _play_replay(filepath: str):
     # 키가 문자열로 저장될 수 있으므로 int로 변환
     sound_events = {int(k): v for k, v in sound_events.items()}
 
-    # 사운드 매핑: ID → pygame.Sound 객체
-    _replay_sounds = {}
-    try:
-        _replay_sounds['paddle'] = _get_selected_paddle_sound()
-        _replay_sounds['wall'] = SOUND_WALL
-        _replay_sounds['dash'] = SOUND_DASH
-    except Exception:
-        pass
+    # 사운드 매핑: 이름 → pygame.Sound 객체 (sound_effects 딕셔너리 그대로 사용)
+    _replay_sounds = dict(sound_effects)  # 모든 사운드 자동 매핑
 
     _last_played_frame = -1  # 중복 재생 방지
 
