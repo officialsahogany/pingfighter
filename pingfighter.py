@@ -122543,6 +122543,7 @@ def show_replay_viewer():
                     btns = _get_btn_rects(btn_base_y)
                     r = replays[selected]
                     if btns['play'].collidepoint(mx, my):
+                        print(f"[Replay] 재생 버튼 클릭! filepath={r['filepath']}")
                         _play_replay(r['filepath'])
                         replays = list_replays(); prev_selected = -1
                     elif btns['rename'].collidepoint(mx, my):
@@ -122741,8 +122742,10 @@ def show_replay_viewer():
 
 def _play_replay(filepath: str):
     """리플레이 파일을 로드하고 재생 루프 실행 — 화면 캡처 기반"""
+    print(f"[Replay] 재생 시작: {filepath}")
     rp = ReplayPlayer()
     if not rp.load(filepath):
+        print(f"[Replay] 로드 실패!")
         return
 
     clock = pygame.time.Clock()
