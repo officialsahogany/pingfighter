@@ -19,7 +19,7 @@ _MAGIC = b'PFRP'
 _VERSION = 3
 
 # 캡처 설정
-CAPTURE_INTERVAL = 1    # 매 프레임 캡처 (60fps) — 투기장 하이라이트와 동일
+CAPTURE_INTERVAL = 2    # 2프레임마다 1회 캡처 (30fps) — 프레임드랍 방지
 SCALE_FACTOR = 1.0      # 원본 해상도 (100%)
 COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름, 9=최대)
 MAX_DURATION = 600      # 최대 10분
