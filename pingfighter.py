@@ -22206,6 +22206,22 @@ def update_horn_strawberry_transform(keys, dt):
         # 변신 중 스킬 입력 처리
         _handle_strawberry_skills(keys, ts, dt)
 
+        # 딸기 꼭지 투사체 ↔ 보스 충돌 체크
+        if BOSS and ts.strawberry_eat.projectiles:
+            hit = ts.strawberry_eat.check_boss_collision(BOSS)
+            if hit:
+                # 코만도 권총과 동일한 넉백 + 스턴 적용
+                global boss_knockback_vel, boss_stunned_timer, screen_shake_timer, screen_shake_intensity
+                _kb_dir = 1 if random.random() > 0.5 else -1
+                boss_knockback_vel = _kb_dir * hit.get("knockback", 120)
+                boss_stunned_timer = int(hit.get("stun_duration", 0.75) * 60)
+                screen_shake_timer = 12
+                screen_shake_intensity = 15
+                try:
+                    play_cached_sound("sounds/bullethit.wav", 0.3)
+                except Exception:
+                    pass
+
     return ts
 
 def _handle_strawberry_skills(keys, ts, dt):
@@ -23540,6 +23556,7 @@ else:
 _build_sound_id_map()
 
 SOUND_SERVE = sound_effects['SERVE']
+SOUND_STAGE_START = sound_effects.get('STAGE_START')
 SOUND_WALL = sound_effects['WALL']
 SOUND_BRICK_DESTROY = sound_effects['BRICK_DESTROY']
 SOUND_PADDLE = sound_effects['PADDLE']
@@ -34475,6 +34492,8 @@ def create_smasher_paddle_walking() -> pygame.Surface:
 
 def create_viper_paddle_walking() -> pygame.Surface:
     """바이퍼 전용 걷기 함수 (자체 타이머/사이클 사용)."""
+    if is_horn_strawberry_transformed():
+        return pygame.Surface((1, 1), pygame.SRCALPHA)
     if VIPER_WALKING_CYCLE <= 0:
         return create_viper_paddle_surface(0.0)
     phase = (viper_walking_timer % VIPER_WALKING_CYCLE) / VIPER_WALKING_CYCLE
@@ -34491,6 +34510,8 @@ def create_optimus_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 
 
 def create_optimus_paddle_walking() -> pygame.Surface:
+    if is_horn_strawberry_transformed():
+        return pygame.Surface((1, 1), pygame.SRCALPHA)
     if OPTIMUS_WALKING_CYCLE <= 0:
         return create_optimus_paddle_surface()
     phase = (optimus_walking_timer % OPTIMUS_WALKING_CYCLE) / OPTIMUS_WALKING_CYCLE
@@ -34566,6 +34587,10 @@ _skeletal_skin = _create_smasher_skin()
 
 
 def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> pygame.Surface:
+    # 뿔딸기 변신 중이면 캐릭터 스프라이트를 숨김 (빈 서피스 반환)
+    if is_horn_strawberry_transformed():
+        return pygame.Surface((1, 1), pygame.SRCALPHA)
+
     sk = _skeletal_skeleton
     skin = _skeletal_skin
     motion = skin.motion
@@ -38614,6 +38639,8 @@ def create_blacksmith_paddle_base(include_hammer: bool = True) -> pygame.Surface
     raise RuntimeError("Failed to create blacksmith paddle surface")
 
 def create_blacksmith_paddle_walking(*, force_hammer: bool | None = None):
+    if is_horn_strawberry_transformed():
+        return pygame.Surface((1, 1), pygame.SRCALPHA)
     global blacksmith_walking_timer, blacksmith_walk_direction
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     progress = (blacksmith_walking_timer % BLACKSMITH_WALKING_CYCLE) / BLACKSMITH_WALKING_CYCLE
@@ -52038,6 +52065,8 @@ def create_soldier_paddle_animated(*, include_right_arm: bool = True) -> pygame.
 
 def create_soldier_paddle_walking(*, include_right_arm: bool = True) -> pygame.Surface:
     """걷기 애니메이션이 적용된 코만도 패들 이미지 생성"""
+    if is_horn_strawberry_transformed():
+        return pygame.Surface((1, 1), pygame.SRCALPHA)
     global soldier_walking_timer
 
     if SOLDIER_WALKING_CYCLE <= 0:
@@ -54704,7 +54733,7 @@ def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bo
             fallback_sound = gm.get('SOUND_ACTIVE_ITEM')
             if fallback_sound:
                 try:
-                    fallback_sound.play()
+                    play_sound_with_volume(fallback_sound)
                 except Exception:  # noqa: BLE001
                     pass
 
@@ -54818,7 +54847,7 @@ def activate_berserk_potion(duration_frames: int | None = None, *, play_sound: b
             fallback_sound = gm.get('SOUND_ACTIVE_ITEM')
             if fallback_sound:
                 try:
-                    fallback_sound.play()
+                    play_sound_with_volume(fallback_sound)
                 except Exception:  # noqa: BLE001
                     pass
 
@@ -81808,7 +81837,7 @@ def update_quest_tablets(dt_frames=1):
                 try:
                     sfx = SOUND_ITEM_GET
                     if sfx:
-                        sfx.play()
+                        play_sound_with_volume(sfx)
                 except:
                     pass
 
@@ -122868,7 +122897,8 @@ def show_replay_viewer():
             'rename': pygame.Rect(bx + BTN_W + 8, base_y, BTN_W, BTN_H),
             'lock': pygame.Rect(bx, base_y + BTN_H + 6, BTN_W, BTN_H),
             'delete': pygame.Rect(bx + BTN_W + 8, base_y + BTN_H + 6, BTN_W, BTN_H),
-            'export': pygame.Rect(bx, base_y + (BTN_H + 6) * 2, BTN_W * 2 + 8, BTN_H),
+            'export': pygame.Rect(bx, base_y + (BTN_H + 6) * 2, BTN_W, BTN_H),
+            'feedback': pygame.Rect(bx + BTN_W + 8, base_y + (BTN_H + 6) * 2, BTN_W, BTN_H),
         }
 
     # MP4 내보내기 상태
@@ -122980,6 +123010,8 @@ def show_replay_viewer():
                     elif btns['export'].collidepoint(mx, my):
                         if not _export_status['active']:
                             _export_replay_to_mp4(r['filepath'], _export_status)
+                    elif btns['feedback'].collidepoint(mx, my):
+                        _show_replay_feedback(r)
 
         # ── 렌더링 ──
         SCREEN.fill((12, 14, 22))
@@ -123159,7 +123191,9 @@ def show_replay_viewer():
             elif _export_status.get('done'):
                 _draw_btn(btns['export'], _export_status.get('message', '완료!'), (0, 200, 120))
             else:
-                _draw_btn(btns['export'], "MP4 영상 저장", (0, 180, 100))
+                _draw_btn(btns['export'], "MP4 저장", (0, 180, 100))
+            # 피드백 버튼
+            _draw_btn(btns['feedback'], "피드백", (180, 120, 255))
         else:
             ns = get_font(16).render("리플레이를 선택하세요", True, (60, 65, 80))
             SCREEN.blit(ns, (PANEL_X + PANEL_W // 2 - ns.get_width() // 2, PANEL_Y + PANEL_H // 2))
@@ -160001,17 +160035,8 @@ def main(stage_num, new_boss_mode=False):
     if _DEBUG_ANIM_VERBOSE:
         pass  # print(f"[DEBUG ANIM] 타이머 리셋 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
 
-    # 효과음 미리 로딩 (재생 시 지연 방지)
-    stagestart_sound = None
-    try:
-        sound_path = resource_path(os.path.join("sounds", "stagestart.wav"))
-        if os.path.exists(sound_path):
-            stagestart_sound = pygame.mixer.Sound(sound_path)
-            stagestart_sound.set_volume(0.7)
-            if _DEBUG_ANIM_VERBOSE:
-                pass  # print(f"[DEBUG ANIM] 사운드 로딩 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
-    except Exception as e:
-        print(f"[WARNING] 스테이지 시작 사운드 로딩 실패: {e}")
+    # 전역 사운드 뱅크를 사용해야 리플레이/MP4에도 동일하게 기록된다.
+    stagestart_sound = SOUND_STAGE_START
 
     # 첫 프레임 디버그용 카운터
     _debug_frame_count = 0
@@ -160505,7 +160530,7 @@ def main(stage_num, new_boss_mode=False):
 
             # 첫 프레임에 사운드 재생 (화면이 실제로 그려지는 시점)
             if not _debug_sound_played and stagestart_sound:
-                stagestart_sound.play()
+                play_sound_with_volume(stagestart_sound, 0.7)
                 _debug_sound_played = True
                 if COORDINATE_DEBUG_MODE:
                     pass  # print(f"[DEBUG ANIM] 🔊 사운드 재생! elapsed={now_ms - _debug_anim_start_time}ms")
@@ -162379,8 +162404,7 @@ def main(stage_num, new_boss_mode=False):
                                 )
                                 # 사운드 효과
                                 try:
-                                    if "ITEM_USE" in sound_effects and sound_effects["ITEM_USE"]:
-                                        sound_effects["ITEM_USE"].play()
+                                    play_active_item_sound()
                                 except:
                                     pass
                                 continue  # 이벤트 처리됨
@@ -165022,7 +165046,9 @@ def main(stage_num, new_boss_mode=False):
                 freeze_valhalla = get_valhalla_warplate_state().is_cutscene_active
             except Exception:
                 pass
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture or freeze_valhalla
+            # 뿔딸기 변신가면 변신/해제 이벤트 프리즈
+            freeze_horn_strawberry = is_horn_strawberry_event_playing()
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture or freeze_valhalla or freeze_horn_strawberry
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:

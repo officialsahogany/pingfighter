@@ -45,7 +45,7 @@ STRAWBERRY_FIELD_HEIGHT = 12
 STRAWBERRY_EAT_DURATION = 0.8  # 먹는 시간 (초)
 STRAWBERRY_EAT_GAUGE_RECOVER = 150
 STRAWBERRY_EAT_COOLDOWN = 0.8
-STRAWBERRY_STEM_SPEED_MULT = 1.2  # 권총 대비 120% 속도
+STRAWBERRY_STEM_SPEED_MULT = 2.5  # 권총 대비 250% 속도 (빠른 투사체)
 
 # ── 색상 팔레트 ──────────────────────────────────────────
 STRAWBERRY_RED = (220, 40, 50)
@@ -297,7 +297,7 @@ class HornStrawberryTransformState:
             screen.blit(ps, (px - sz, py - sz))
 
     def draw_strawberry_paddle(self, screen, x, y, width, height):
-        """변신 상태 패들 - 뿔딸기 캐릭터로 그리기"""
+        """변신 상태 패들 - 뿔딸기 캐릭터로 그리기 (기존 캐릭터를 완전히 덮음)"""
         if not self.is_transformed:
             return
 
@@ -305,33 +305,34 @@ class HornStrawberryTransformState:
         cy = y + height // 2
 
         # ── 딸기 본체 (패들 크기에 맞춤) ──
-        body_w = width
-        body_h = height + 8
-        body_y = y - 4
+        body_w = max(width, 50)
+        body_h = max(height + 20, 40)
+        body_x = cx - body_w // 2
+        body_y = y - 12
 
         # 그림자
         pygame.draw.ellipse(screen, (100, 10, 15, 80),
-                           (x + 2, body_y + 3, body_w, body_h))
+                           (body_x + 2, body_y + 3, body_w, body_h))
         # 본체
         pygame.draw.ellipse(screen, STRAWBERRY_RED,
-                           (x, body_y, body_w, body_h))
+                           (body_x, body_y, body_w, body_h))
         # 하이라이트
         pygame.draw.ellipse(screen, STRAWBERRY_LIGHT,
-                           (x + 4, body_y + 2, body_w - 8, body_h // 2))
+                           (body_x + 4, body_y + 2, body_w - 8, body_h // 2))
         pygame.draw.ellipse(screen, STRAWBERRY_HIGHLIGHT,
-                           (x + 8, body_y + 3, body_w - 16, 6))
+                           (body_x + 8, body_y + 3, body_w - 16, 6))
         # 외곽선
         pygame.draw.ellipse(screen, STRAWBERRY_DARK,
-                           (x, body_y, body_w, body_h), 2)
+                           (body_x, body_y, body_w, body_h), 2)
 
         # ── 딸기 씨앗 ──
         seed_rng = random.Random(77)
-        num_seeds = max(4, width // 12)
+        num_seeds = max(4, body_w // 10)
         for _ in range(num_seeds):
-            sx = x + 6 + seed_rng.randint(0, max(1, body_w - 12))
+            sx = body_x + 6 + seed_rng.randint(0, max(1, body_w - 12))
             sy = body_y + 5 + seed_rng.randint(0, max(1, body_h - 10))
             dx = (sx - cx) / (body_w / 2)
-            dy = (sy - (cy)) / (body_h / 2)
+            dy = (sy - (cy - 2)) / (body_h / 2)
             if dx * dx + dy * dy < 0.7:
                 pygame.draw.ellipse(screen, SEED_COLOR, (sx, sy, 3, 2))
 
@@ -744,8 +745,8 @@ class StrawberryEatSkill:
             "rot_speed": 5,
             "life": 3.0,
             "damage": 1,
-            "stun_duration": 0.3,  # 짧은 스턴
-            "knockback": 73,  # 오니마루 뿔박치기와 동일한 넉백
+            "stun_duration": 0.75,  # 코만도 권총과 동일한 스턴 (45프레임)
+            "knockback": 120,  # 코만도 권총과 동일한 넉백
         })
 
     def update_cooldown(self, dt):
@@ -755,7 +756,7 @@ class StrawberryEatSkill:
     def check_boss_collision(self, boss_rect):
         """보스와 꼭지 투사체 충돌 체크. 반환: hit된 투사체 or None"""
         for p in self.projectiles:
-            proj_rect = pygame.Rect(int(p["x"]) - 5, int(p["y"]) - 5, 10, 10)
+            proj_rect = pygame.Rect(int(p["x"]) - 10, int(p["y"]) - 10, 20, 20)
             if proj_rect.colliderect(boss_rect):
                 self.projectiles.remove(p)
                 return p
@@ -786,27 +787,30 @@ class StrawberryEatSkill:
 
     @staticmethod
     def _draw_stem_projectile(screen, proj):
-        """딸기 꼭지 투사체 그리기"""
+        """딸기 꼭지 투사체 그리기 (큰 크기)"""
         x, y = int(proj["x"]), int(proj["y"])
         rot = proj["rotation"]
-        # 꼭지 본체 (초록 + 갈색 줄기)
-        sz = 10
+        # 꼭지 본체 (초록 + 갈색 줄기) — 크게
+        sz = 20
         s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
         center = sz
-        # 잎사귀 (3개)
+        # 잎사귀 (3개, 크고 두꺼운)
         for i in range(3):
             angle = rot + i * (math.pi * 2 / 3)
-            lx = center + math.cos(angle) * 5
-            ly = center + math.sin(angle) * 5
+            lx = center + math.cos(angle) * 12
+            ly = center + math.sin(angle) * 12
             pts = [
                 (center, center),
-                (int(lx - 2), int(ly)),
-                (int(lx + 2), int(ly)),
+                (int(lx - 4), int(ly)),
+                (int(lx + 4), int(ly)),
             ]
             pygame.draw.polygon(s, GREEN_MID, pts)
-        # 중앙 (줄기)
-        pygame.draw.circle(s, GREEN_DARK, (center, center), 3)
-        pygame.draw.circle(s, (100, 70, 30), (center, center), 2)
+            # 잎맥 하이라이트
+            pygame.draw.line(s, GREEN_BRIGHT, (center, center), (int(lx), int(ly)), 1)
+        # 중앙 (줄기 — 크게)
+        pygame.draw.circle(s, GREEN_DARK, (center, center), 6)
+        pygame.draw.circle(s, (100, 70, 30), (center, center), 4)
+        pygame.draw.circle(s, (130, 90, 40), (center - 1, center - 1), 2)
         screen.blit(s, (x - sz, y - sz))
 
 
