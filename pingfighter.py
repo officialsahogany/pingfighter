@@ -122284,27 +122284,54 @@ def start_dojo_dev():
 # 🎬 리플레이 뷰어 시스템
 # ============================================================================
 def _replay_rename_dialog(current_name: str) -> str:
-    """리플레이 이름 변경 다이얼로그"""
+    """리플레이 이름 변경 다이얼로그 (한글 IME 지원)"""
     clock = pygame.time.Clock()
     input_text = current_name
     cursor_blink = 0
+    composing_text = ""  # IME 조합 중인 텍스트
+
+    # IME 텍스트 입력 활성화
+    pygame.key.start_text_input()
+    try:
+        # 입력 영역 힌트 (일부 플랫폼에서 IME 위치 지정)
+        dw, dh = 500, 160
+        dx, dy = (WIDTH - dw) // 2, (HEIGHT - dh) // 2
+        input_rect = pygame.Rect(dx + 30, dy + 65, dw - 60, 36)
+        pygame.key.set_text_input_rect(input_rect)
+    except Exception:
+        pass
+
     while True:
         clock.tick(60)
         cursor_blink += 1
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                pygame.key.stop_text_input()
                 pygame.quit(); sys.exit()
+
+            # IME 조합 중 (한글 자모 조합 표시)
+            if event.type == pygame.TEXTEDITING:
+                composing_text = event.text
+
+            # IME 조합 완료 or 영문 직접 입력
+            if event.type == pygame.TEXTINPUT:
+                composing_text = ""
+                if len(input_text) < 30:
+                    input_text += event.text
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    pygame.key.stop_text_input()
                     return current_name
                 if event.key == pygame.K_RETURN:
+                    pygame.key.stop_text_input()
                     return input_text.strip() if input_text.strip() else current_name
                 if event.key == pygame.K_BACKSPACE:
-                    input_text = input_text[:-1]
-                else:
-                    ch = event.unicode
-                    if ch and len(input_text) < 30:
-                        input_text += ch
+                    if composing_text:
+                        composing_text = ""
+                    elif input_text:
+                        input_text = input_text[:-1]
+
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         SCREEN.blit(overlay, (0, 0))
@@ -122318,8 +122345,15 @@ def _replay_rename_dialog(current_name: str) -> str:
         pygame.draw.rect(SCREEN, (15, 18, 28), fr, border_radius=6)
         pygame.draw.rect(SCREEN, (60, 80, 120), fr, width=1, border_radius=6)
         cursor_ch = "|" if (cursor_blink // 30) % 2 == 0 else ""
-        its = get_font(18).render(input_text + cursor_ch, True, (220, 230, 240))
+        # 조합 중인 텍스트를 밑줄로 표시
+        display = input_text + composing_text + cursor_ch
+        its = get_font(18).render(display, True, (220, 230, 240))
         SCREEN.blit(its, (fr.x + 8, fr.y + 8))
+        # 조합 중 밑줄
+        if composing_text:
+            comp_x = fr.x + 8 + get_font(18).size(input_text)[0]
+            comp_w = get_font(18).size(composing_text)[0]
+            pygame.draw.line(SCREEN, (0, 200, 255), (comp_x, fr.y + 32), (comp_x + comp_w, fr.y + 32), 2)
         hs = get_font(14).render("Enter: 확인 | ESC: 취소", True, (100, 110, 130))
         SCREEN.blit(hs, (WIDTH // 2 - hs.get_width() // 2, dy + 120))
         pygame.display.flip()
