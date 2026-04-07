@@ -53,7 +53,7 @@ class ReplayRecorder:
         self.current_frame = 0
 
         # 사운드 이벤트 트랙: {캡처프레임번호: [사운드ID, ...]}
-        self.sound_events: Dict[int, List[str]] = {}
+        self.sound_events: Dict[int, List[Any]] = {}
 
         # 백그라운드 압축 스레드
         self._queue: deque = deque()
@@ -141,14 +141,20 @@ class ReplayRecorder:
         except Exception:
             pass
 
-    def add_sound(self, sound_id: str):
+    def add_sound(self, sound_id: str, volume: float | None = None):
         """사운드 이벤트 기록 — 현재 캡처 프레임에 사운드 ID 추가"""
         if not self.recording:
             return
         frame = self.captured_frames
         if frame not in self.sound_events:
             self.sound_events[frame] = []
-        self.sound_events[frame].append(sound_id)
+        if volume is None:
+            self.sound_events[frame].append(sound_id)
+            return
+        try:
+            self.sound_events[frame].append({'id': sound_id, 'volume': float(volume)})
+        except Exception:
+            self.sound_events[frame].append({'id': sound_id})
 
     def _writer_loop(self):
         """백그라운드 스레드 — 큐에서 꺼내서 압축 + 디스크 쓰기"""
@@ -186,47 +192,65 @@ class ReplayRecorder:
             self._cleanup_temp()
             return False
 
-        # 백그라운드에서 남은 큐 처리 + 저장 완료 (메인 스레드 블로킹 없음)
-        save_thread = threading.Thread(target=self._finish_save_async, daemon=True)
-        save_thread.start()
+        # 현재 상태를 로컬로 캡처 (다음 start()가 덮어쓰기 전에)
+        _save_file = self.file
+        _save_filepath = self.filepath
+        _save_metadata = dict(self.metadata)
+        _save_queue = self._queue
+        _save_stop_event = self._stop_event
+        _save_thread = self._thread
+        _save_lock = self._lock
+
+        # 싱글톤 필드 초기화 (다음 start()가 안전하게 새 파일을 열 수 있도록)
+        self.file = None
+        self.filepath = None
+        self._queue = deque()
+        self._stop_event = threading.Event()
+        self._thread = None
+        self._lock = threading.Lock()
+
+        # 백그라운드에서 저장 완료
+        def _finish():
+            _save_stop_event.set()
+            if _save_thread and _save_thread.is_alive():
+                _save_thread.join(timeout=30)
+            self._finalize_file(_save_file, _save_filepath, _save_metadata)
+
+        threading.Thread(target=_finish, daemon=True).start()
         return True
 
-    def _finish_save_async(self):
-        """백그라운드에서 남은 큐 처리 후 파일 완성"""
-        # 기존 writer 스레드가 큐를 비울 때까지 대기
-        self._stop_event.set()
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=30)
-        # 파일 완성
-        self._finalize()
-
-    def _finalize(self) -> bool:
+    @staticmethod
+    def _finalize_file(file_handle, filepath, metadata) -> bool:
+        """파일 핸들과 메타데이터를 받아 파일 완성 (싱글톤 상태 건드리지 않음)"""
         try:
-            meta_bytes = pickle.dumps(self.metadata, protocol=pickle.HIGHEST_PROTOCOL)
-            with self._lock:
-                self.file.write(struct.pack('I', len(meta_bytes)))
-                self.file.write(meta_bytes)
-                self.file.seek(len(_MAGIC))
-                self.file.write(struct.pack('I', len(meta_bytes)))
-                self.file.close()
-            self.file = None
+            meta_bytes = pickle.dumps(metadata, protocol=pickle.HIGHEST_PROTOCOL)
+            file_handle.write(struct.pack('I', len(meta_bytes)))
+            file_handle.write(meta_bytes)
+            file_handle.seek(len(_MAGIC))
+            file_handle.write(struct.pack('I', len(meta_bytes)))
+            file_handle.close()
 
             replay_dir = _replays_dir()
             ts_str = time.strftime("%Y%m%d_%H%M%S")
-            stage = self.metadata.get('stage', 0)
+            stage = metadata.get('stage', 0)
             final_name = f"replay_s{stage}_{ts_str}.rpl"
             final_path = os.path.join(replay_dir, final_name)
-            os.rename(self.filepath, final_path)
+            os.rename(filepath, final_path)
 
+            total_frames = metadata.get('total_frames', 0)
             size_mb = os.path.getsize(final_path) / (1024 * 1024)
-            print(f"[Replay] 저장 완료: {final_name} ({self.captured_frames}프레임, {size_mb:.1f}MB)")
-            # 오래된 리플레이 자동 삭제 (MAX_REPLAYS 초과 시)
+            print(f"[Replay] 저장 완료: {final_name} ({total_frames}프레임, {size_mb:.1f}MB)")
             _cleanup_old_replays()
             return True
         except Exception as e:
             print(f"[Replay] 저장 실패: {e}")
             import traceback; traceback.print_exc()
-            self._cleanup_temp()
+            # 임시 파일 정리
+            try:
+                if filepath and os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception:
+                pass
             return False
 
     def _cleanup_temp(self):
