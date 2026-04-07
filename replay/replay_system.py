@@ -63,7 +63,8 @@ class ReplayRecorder:
 
     def start(self, stage: int = 1, boss_name: str = "",
               ai_mode: str = "normal", character: str = "smasher",
-              result: str = "", screen_w: int = 760, screen_h: int = 750):
+              result: str = "", screen_w: int = 760, screen_h: int = 750,
+              capture_mode: str = "screen"):
         if self.recording:
             self.stop()
 
@@ -90,6 +91,7 @@ class ReplayRecorder:
             'scaled_w': self.scaled_w,
             'scaled_h': self.scaled_h,
             'capture_fps': 60 // CAPTURE_INTERVAL,
+            'capture_mode': capture_mode,
         }
 
         replay_dir = _replays_dir()
@@ -175,19 +177,28 @@ class ReplayRecorder:
         if result:
             self.metadata['result'] = result
 
-        print(f"[Replay] 녹화 중지 — {self.captured_frames}프레임, {self.metadata['duration']:.1f}초, result={result}")
-
-        # 백그라운드 스레드 종료 대기 (남은 큐 처리)
-        self._stop_event.set()
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=10)
+        remaining = len(self._queue)
+        print(f"[Replay] 녹화 중지 — {self.captured_frames}프레임, {self.metadata['duration']:.1f}초, 큐 잔여: {remaining}")
 
         if self.captured_frames == 0 or self.file is None:
             print(f"[Replay] 프레임이 0개라 저장 건너뜀")
+            self._stop_event.set()
             self._cleanup_temp()
             return False
 
-        return self._finalize()
+        # 백그라운드에서 남은 큐 처리 + 저장 완료 (메인 스레드 블로킹 없음)
+        save_thread = threading.Thread(target=self._finish_save_async, daemon=True)
+        save_thread.start()
+        return True
+
+    def _finish_save_async(self):
+        """백그라운드에서 남은 큐 처리 후 파일 완성"""
+        # 기존 writer 스레드가 큐를 비울 때까지 대기
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=30)
+        # 파일 완성
+        self._finalize()
 
     def _finalize(self) -> bool:
         try:
