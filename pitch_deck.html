@@ -553,10 +553,11 @@ body {
         <li><a href="#s10">스테이지 & 비주얼</a></li>
         <li><a href="#s11">온라인 멀티플레이</a></li>
         <li><a href="#s12">리플레이 시스템</a></li>
-        <li><a href="#s13">시장 분석</a></li>
-        <li><a href="#s14">비즈니스 모델</a></li>
-        <li><a href="#s15">개발 현황 & 콘텐츠 규모</a></li>
-        <li><a href="#s16">로드맵</a></li>
+        <li><a href="#s13">추가 시스템</a></li>
+        <li><a href="#s14">시장 분석</a></li>
+        <li><a href="#s15">비즈니스 모델</a></li>
+        <li><a href="#s16">개발 현황 & 콘텐츠 규모</a></li>
+        <li><a href="#s17">로드맵</a></li>
     </ol>
 </div>
 
@@ -693,59 +694,96 @@ body {
 
 <!-- ===== 4. 보스 캐릭터 ===== -->
 <h2 class="wiki-h2" id="s4"><span class="section-num">4.</span> 보스 캐릭터</h2>
-<p>6개 스테이지에 각각 고유한 테마, AI, 특수 공격을 가진 보스가 등장한다. 보스 난이도는 스테이지가 진행될수록 상승하며, AI 반응 속도와 스킬 사용 빈도가 증가한다.</p>
+<p>6개 스테이지에 <b>총 13명의 보스</b>가 등장한다. 각 스테이지에는 메인 보스 외에 <b>변형 보스(서브 보스)</b>가 존재하며, 서브 보스마다 고유한 특수 스킬을 보유한다.</p>
 
 <table class="wiki-table dark">
     <tr>
         <th>스테이지</th>
-        <th>보스</th>
+        <th>메인 보스</th>
+        <th>서브 보스</th>
         <th>테마</th>
-        <th>난이도</th>
-        <th>특수 능력</th>
+        <th>서브 보스 고유 스킬</th>
     </tr>
     <tr>
-        <td style="text-align:center; color:#ffd700;">&#9733; 1</td>
+        <td rowspan="3" style="text-align:center; color:#ffd700;">&#9733; 1</td>
         <td><b style="color:#e0e0e0;">풍악보이</b></td>
-        <td>한국 전통</td>
-        <td>&#9733;&#9734;&#9734;&#9734;&#9734;</td>
-        <td>입문용 보스. 기본 AI 패턴 학습. 최대 속도 7.0</td>
+        <td>-</td>
+        <td rowspan="3">한국 전통</td>
+        <td>기본 AI (입문용)</td>
     </tr>
     <tr>
-        <td style="text-align:center; color:#4caf50;">&#9733; 2</td>
+        <td></td>
+        <td><b style="color:#8b6a2f;">포도대장</b></td>
+        <td>포승줄 (arrest_rope) &mdash; 로프 투척, 적중 시 이동 저하</td>
+    </tr>
+    <tr>
+        <td></td>
+        <td><b style="color:#c83232;">각시탈</b></td>
+        <td>부채던지기 (fan_throw) &mdash; 부채 투사체, 광폭 시 4발</td>
+    </tr>
+    <tr>
+        <td rowspan="3" style="text-align:center; color:#4caf50;">&#9733; 2</td>
         <td><b style="color:#4caf50;">악어장군</b></td>
-        <td>정글 / 늪지</td>
-        <td>&#9733;&#9733;&#9734;&#9734;&#9734;</td>
-        <td>정글 환경 활용. 덤불 엄폐</td>
+        <td>-</td>
+        <td rowspan="3">정글 / 늪지</td>
+        <td>기본 정글 보스</td>
     </tr>
     <tr>
-        <td style="text-align:center; color:#e91e8b;">&#9733; 3</td>
+        <td></td>
+        <td><b style="color:#8b5a2b;">두더지왕</b></td>
+        <td>땅굴 습격 (claw_dig) &mdash; 스파이크 돌출, 게이지 500 필요</td>
+    </tr>
+    <tr>
+        <td></td>
+        <td><b style="color:#502819;">아라크네</b></td>
+        <td>거미줄 장판 (web_trap) &mdash; 바닥 함정, 이동속도 -30%</td>
+    </tr>
+    <tr>
+        <td rowspan="3" style="text-align:center; color:#e91e8b;">&#9733; 3</td>
         <td><b style="color:#e91e8b;">멘헤라걸</b></td>
-        <td>멘헤라 / 인형</td>
-        <td>&#9733;&#9733;&#9733;&#9734;&#9734;</td>
-        <td>감정 기반 패턴 변화. 먹기 애니메이션, 주사위 이벤트</td>
+        <td>-</td>
+        <td rowspan="3">멘헤라 / 인형</td>
+        <td>감정 패턴 변화, 주사위 이벤트</td>
     </tr>
     <tr>
-        <td style="text-align:center; color:#ff9800;">&#9733; 4</td>
+        <td></td>
+        <td><b style="color:#b4825a;">테디베어</b></td>
+        <td>솜뭉치 투척 (cotton_throw) &mdash; 3~5발 산탄</td>
+    </tr>
+    <tr>
+        <td></td>
+        <td><b style="color:#8cb4ff;">앨리스</b></td>
+        <td>거울 세계 (mirror_world) &mdash; 화면 좌우 반전!</td>
+    </tr>
+    <tr>
+        <td rowspan="2" style="text-align:center; color:#ff9800;">&#9733; 4</td>
         <td><b style="color:#ff9800;">퐁크</b></td>
-        <td>소림 사원</td>
-        <td>&#9733;&#9733;&#9733;&#9733;&#9734;</td>
-        <td>명상 스킬, 수련 패턴. 탑 파괴 연출</td>
+        <td>-</td>
+        <td rowspan="2">소림 사원</td>
+        <td>명상, 탑 파괴 연출</td>
+    </tr>
+    <tr>
+        <td></td>
+        <td><b style="color:#b49650;">인왕</b></td>
+        <td>금강저 카운터 (vajra_counter) &mdash; 속도 -20%, 급정지 +20%</td>
     </tr>
     <tr>
         <td style="text-align:center; color:#42a5f5;">&#9733; 5</td>
         <td><b style="color:#42a5f5;">네메시스</b></td>
+        <td>-</td>
         <td>해상 전투</td>
-        <td>&#9733;&#9733;&#9733;&#9733;&#9734;</td>
-        <td>사이버펑크 아레나. 레이더 탐색, 복합 페이즈 전투. 최대 속도 9.0</td>
+        <td>레이저/실드/회전모드 점진 해금, 배리어 시스템</td>
     </tr>
     <tr>
         <td style="text-align:center; color:#f44336;">&#9733; 6</td>
         <td><b style="color:#f44336;">홍련</b></td>
+        <td>-</td>
         <td>중국 / 화염</td>
-        <td>&#9733;&#9733;&#9733;&#9733;&#9733;</td>
-        <td>화구 공격. 세트당 10타 제한. 매화 파티클. 최대 속도 9.5</td>
+        <td>화구 공격, 세트당 10타 제한, 화염 이벤트</td>
     </tr>
 </table>
+
+<div class="wiki-note">각 서브 보스는 메인 보스의 기본 스탯을 공유하되, 고유 special_skill과 일부 스탯 변형(아라크네: 속도 -30%, 인왕: 속도 -20%/급정지 +20%)을 가진다.</div>
 
 <div class="screenshot-gallery">
     <div class="screenshot-item">
@@ -1183,6 +1221,37 @@ body {
 
 <p><b>스타일 상성:</b> 공격 &gt; 수비 &gt; 트릭 &gt; 밸런스 (가위바위보 구조)</p>
 
+<h3 class="wiki-h3">8.2. 투기장 메타루프: 생포 &rarr; 하수인 &rarr; 호위무사</h3>
+<p>투기장의 핵심은 단순 승패가 아닌, <b>적 영웅을 아군으로 전환하는 승급 루프</b>이다:</p>
+<div class="game-loop">
+    <div class="loop-node">영웅<br>격파</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">생포<br>미니게임</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">하수인<br>등록</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">퍽 선택<br>(recall_guard)</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">호위무사<br>승급!</div>
+</div>
+
+<table class="wiki-table">
+    <tr><th>단계</th><th>설명</th></tr>
+    <tr><td><b>1. 생포 미니게임</b></td><td>대전 승리 후 포획 게이지 에이밍. perfect / good / miss 판정</td></tr>
+    <tr><td><b>2. 하수인 등록</b></td><td>생포 성공 시 패배 영웅이 하수인(henchman) 풀에 추가</td></tr>
+    <tr><td><b>3. 호위무사 승급</b></td><td>recall_guard 퍽 선택 시 하수인 → 영구 호위무사로 승급</td></tr>
+</table>
+
+<h3 class="wiki-h3">8.3. 인장 시스템 & 호위무사</h3>
+<p>투기장 보상으로 획득하는 <b>인장</b>은 호위무사를 소환하는 핵심 아이템이다. 최대 <b>2명</b>까지 호위무사 장착 가능.</p>
+<table class="wiki-table">
+    <tr><th>인장</th><th>획득 조건</th><th>지속</th><th>효과</th></tr>
+    <tr><td><span class="tag tag-common">초급인장</span></td><td>8강 (Quarter Final) 승리</td><td><b>1 스테이지</b></td><td>해당 스테이지 동안 임시 호위무사 동행</td></tr>
+    <tr><td><span class="tag tag-rare">중급인장</span></td><td>4강 (Semi Final) 승리</td><td><b>2 스테이지</b></td><td>2개 스테이지 동안 임시 호위무사 동행</td></tr>
+    <tr><td><span class="tag tag-legendary">호위무사 인장</span></td><td>결승 (Finals) 우승</td><td><b>영구</b></td><td>패시브 슬롯 장착 → 영구 호위무사. 다운타운에서 팔로워로 동행</td></tr>
+</table>
+<p>호위무사 인장을 패시브 슬롯에 장착하면, 전투 중 호위무사가 참전하며 <b>다운타운에서도 팔로워로 따라다닌다</b> (최대 2명).</p>
+
 <!-- ===== 9. 다운타운 ===== -->
 <h2 class="wiki-h2" id="s9"><span class="section-num">9.</span> 다운타운 (허브 월드)</h2>
 <p>보스 전투 사이에 탐험하는 <b>도시 허브 월드</b>. 타일 기반 자유 이동(19&times;50 타일, 760&times;2000px)으로 건물에 들어가 다양한 활동을 할 수 있다. 현재 <b>13종의 건물 타입</b>이 정의되어 있으며, 그 중 12종이 활성 상태.</p>
@@ -1353,8 +1422,72 @@ body {
     </div>
 </div>
 
-<!-- ===== 13. 시장 분석 ===== -->
-<h2 class="wiki-h2" id="s13"><span class="section-num">13.</span> 시장 분석</h2>
+<!-- ===== 13. 추가 시스템 ===== -->
+<h2 class="wiki-h2" id="s13"><span class="section-num">13.</span> 추가 시스템</h2>
+
+<h3 class="wiki-h3">13.1. 퀘스트 시스템 (8종)</h3>
+<p>전투 중 조건을 달성하면 골드 보상을 받는 <b>전투 미션</b> 시스템. 양피지 엠블럼 UI로 진행 상황 표시.</p>
+<table class="wiki-table">
+    <tr><th>퀘스트</th><th>한국어</th><th>조건</th><th>보상</th></tr>
+    <tr><td>no_active_item</td><td>순수한 실력</td><td>액티브 아이템 미사용 승리</td><td>1,500G</td></tr>
+    <tr><td>perfect_victory</td><td>완벽한 승리</td><td>5:0 완봉 승리</td><td>1,000G</td></tr>
+    <tr><td>collect_tablets</td><td>석판 수집가</td><td>바닥 석판 5개 수집 (대시로 파괴 가능)</td><td>800G</td></tr>
+    <tr><td>small_paddle</td><td>작은 패들</td><td>패들 크기 50% 축소 상태로 승리</td><td>1,500G</td></tr>
+    <tr><td>speedrun</td><td>스피드런</td><td>3분 이내 스테이지 클리어</td><td>1,300G</td></tr>
+    <tr><td>bare_hands</td><td>빈손의 전사</td><td>패시브 아이템 0개로 승리</td><td>1,800G</td></tr>
+    <tr><td>no_dash</td><td>대시 금지령</td><td>대시 미사용 승리</td><td>2,500G</td></tr>
+    <tr><td>rally_streak</td><td>연속 히트</td><td>보스와 15회 연속 랠리 달성</td><td>800G</td></tr>
+</table>
+
+<h3 class="wiki-h3">13.2. 업적 시스템</h3>
+<p>영구 저장형 업적 시스템. 6개 카테고리, 4단계 레어리티.</p>
+<table class="wiki-table">
+    <tr><th>카테고리</th><th>예시 업적</th></tr>
+    <tr><td><b>일반</b></td><td>첫 승리, 대시 100회 사용</td></tr>
+    <tr><td><b>전투</b></td><td>3연승, 5연승, 완봉승, 역전승 (2점차 이상에서)</td></tr>
+    <tr><td><b>스킬</b></td><td>20회 이상 단일 랠리</td></tr>
+    <tr><td><b>수집</b></td><td>아이템 수집 관련</td></tr>
+    <tr><td><b>특별 / 숨김</b></td><td>비밀 조건 달성</td></tr>
+</table>
+<p>레어리티: <span class="tag tag-common">일반</span> <span class="tag tag-rare">희귀</span> <span class="tag tag-epic">영웅</span> <span class="tag tag-legendary">전설</span></p>
+
+<h3 class="wiki-h3">13.3. 날씨 시스템 (7종)</h3>
+<p>라운드 단위로 날씨가 변하며 게임플레이에 영향을 주는 환경 시스템.</p>
+<table class="wiki-table">
+    <tr><th>날씨</th><th>효과</th><th>파티클</th></tr>
+    <tr><td><b>미풍 (breeze)</b></td><td>약한 바람 효과</td><td>바람 입자</td></tr>
+    <tr><td><b>돌풍 (gust)</b></td><td>강한 바람, 공 궤적 영향</td><td>강풍 입자</td></tr>
+    <tr><td><b>화염 (fire)</b></td><td>게이지 감소 효과</td><td>화염 바닥, 불꽃 트레일</td></tr>
+    <tr><td><b>빙결 (ice)</b></td><td>바닥 미끄러짐</td><td>얼음 바닥, 반짝임</td></tr>
+    <tr><td><b>비 (rain)</b></td><td>스플래시 효과</td><td>빗방울, 물튀김</td></tr>
+    <tr><td><b>우박 (hail)</b></td><td>충돌 피해</td><td>우박 입자, 충격 이펙트</td></tr>
+    <tr><td><b>모래폭풍 (sand)</b></td><td>시야 제한</td><td>모래 입자</td></tr>
+</table>
+<p>지속: 1라운드(50%) / 2라운드(30%) / 3라운드(20%) 가중치. 기상조절캡슐 아이템으로 즉시 발동 가능.</p>
+
+<h3 class="wiki-h3">13.4. 튜토리얼 시스템</h3>
+<p>6단계 인게임 튜토리얼로 초보자를 안내한다.</p>
+<table class="wiki-table">
+    <tr><th>챕터</th><th>내용</th><th>목표</th></tr>
+    <tr><td>INTRO</td><td>인트로 대화</td><td>-</td></tr>
+    <tr><td>CH.1 서브</td><td>기본 서브 메카닉</td><td>3회 타격</td></tr>
+    <tr><td>CH.2 대시</td><td>풀 대시 / 하프 대시 / 연속 대시</td><td>풀 3회, 하프 2회, 연속 1회</td></tr>
+    <tr><td>CH.3 드라이브</td><td>드라이브 메카닉</td><td>3회 드라이브 (게이지 160+)</td></tr>
+    <tr><td>CH.4 파워</td><td>파워 스매시</td><td>3회 파워 스매시 (게이지 500+)</td></tr>
+    <tr><td>COMPLETE</td><td>완료 화면</td><td>-</td></tr>
+</table>
+<p>투기장 전용 튜토리얼도 별도 존재 (호위무사, 영웅 선택, 게임 속도, 하수인, 생포).</p>
+
+<h3 class="wiki-h3">13.5. 오프닝 연출</h3>
+<p>게임 시작 시 인트로 컷씬이 재생된다.</p>
+<div class="wiki-quote">
+    "To live is to choose." &mdash; 사는 것은 선택하는 것이다.<br>
+    "Life is a series of choices." &mdash; 인생은 선택의 연속이다.
+</div>
+<p>영어+한국어 이중 표시, 페이드 인/아웃 전환. ESC/스페이스/클릭으로 스킵 가능, Ctrl로 전체 스킵.</p>
+
+<!-- ===== 14. 시장 분석 ===== -->
+<h2 class="wiki-h2" id="s14"><span class="section-num">14.</span> 시장 분석</h2>
 
 <h3 class="wiki-h3">13.1. 비교 타이틀</h3>
 <table class="wiki-table">
@@ -1395,7 +1528,7 @@ body {
 </table>
 
 <!-- ===== 14. 비즈니스 모델 ===== -->
-<h2 class="wiki-h2" id="s14"><span class="section-num">14.</span> 비즈니스 모델</h2>
+<h2 class="wiki-h2" id="s15"><span class="section-num">15.</span> 비즈니스 모델</h2>
 
 <table class="wiki-table">
     <tr><th>수익 경로</th><th>설명</th><th>예상 가격</th></tr>
@@ -1406,7 +1539,7 @@ body {
 </table>
 
 <!-- ===== 15. 개발 현황 ===== -->
-<h2 class="wiki-h2" id="s15"><span class="section-num">15.</span> 개발 현황 & 콘텐츠 규모</h2>
+<h2 class="wiki-h2" id="s16"><span class="section-num">16.</span> 개발 현황 & 콘텐츠 규모</h2>
 
 <div class="content-stats">
     <div class="stat-card">
@@ -1429,7 +1562,7 @@ body {
 
 <table class="wiki-table">
     <tr><th>항목</th><th>수량</th><th>비고</th></tr>
-    <tr><td>보스 캐릭터</td><td style="text-align:center; font-weight:700;">6</td><td>각각 고유 AI + 스킬 세트</td></tr>
+    <tr><td>보스 캐릭터</td><td style="text-align:center; font-weight:700;">13</td><td>메인 6 + 서브 7 (각각 고유 special_skill)</td></tr>
     <tr><td>플레이어블 영웅</td><td style="text-align:center; font-weight:700;">6</td><td>5종 전용 스킬 트리 + 1종 기본</td></tr>
     <tr><td>아레나 영웅</td><td style="text-align:center; font-weight:700;">15</td><td>4가지 스타일 (공격/수비/트릭/밸런스)</td></tr>
     <tr><td>메인 스테이지</td><td style="text-align:center; font-weight:700;">8</td><td>+ 아레나 스테이지 1</td></tr>
@@ -1437,6 +1570,9 @@ body {
     <tr><td>아이템 아이콘</td><td style="text-align:center; font-weight:700;">62</td><td>32&times;32 픽셀아트 PNG</td></tr>
     <tr><td>전설 아이콘</td><td style="text-align:center; font-weight:700;">11</td><td>8프레임 애니메이션 포함</td></tr>
     <tr><td>스킬 & 퍽</td><td style="text-align:center; font-weight:700;">61</td><td>아카데미 17 + 런타임 44</td></tr>
+    <tr><td>퀘스트</td><td style="text-align:center; font-weight:700;">8</td><td>전투 미션 (석판수집, 스피드런, 랠리 등)</td></tr>
+    <tr><td>날씨</td><td style="text-align:center; font-weight:700;">7</td><td>라운드 단위 환경 효과</td></tr>
+    <tr><td>튜토리얼</td><td style="text-align:center; font-weight:700;">6</td><td>챕터 기반 + 투기장 전용 5종</td></tr>
     <tr><td>효과음</td><td style="text-align:center; font-weight:700;">40+</td><td>WAV 포맷</td></tr>
     <tr><td>다운타운 건물 타입</td><td style="text-align:center; font-weight:700;">12 (활성)</td><td>+ 1종 비활성 (카지노)</td></tr>
     <tr><td>지원 언어</td><td style="text-align:center; font-weight:700;">4</td><td>한국어, 영어, 일본어, 중국어</td></tr>
@@ -1457,7 +1593,7 @@ body {
 </table>
 
 <!-- ===== 16. 로드맵 ===== -->
-<h2 class="wiki-h2" id="s16"><span class="section-num">16.</span> 로드맵</h2>
+<h2 class="wiki-h2" id="s17"><span class="section-num">17.</span> 로드맵</h2>
 
 <table class="wiki-table">
     <tr><th>단계</th><th>목표</th><th>상태</th></tr>
