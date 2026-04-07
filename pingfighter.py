@@ -122463,9 +122463,18 @@ def show_replay_viewer():
     BTN_W = (PANEL_W - 48) // 2
     BTN_H = 32
 
-    # 썸네일 캐시
-    thumb_cache: dict = {}  # filename → Surface
+    # 썸네일 캐시 (비동기 로드)
+    thumb_cache: dict = {}  # filename → Surface or None
+    _thumb_loading: set = set()  # 로딩 중인 파일명
     prev_selected = -1
+
+    import threading as _th
+
+    def _async_load_thumb(fn, fp):
+        """백그라운드에서 썸네일 로드"""
+        result = _load_replay_thumbnail(fp)
+        thumb_cache[fn] = result
+        _thumb_loading.discard(fn)
 
     # 버튼 rects (매 프레임 계산)
     def _get_btn_rects(base_y):
@@ -122485,9 +122494,9 @@ def show_replay_viewer():
             prev_selected = selected
             r = replays[selected]
             fn = r['filename']
-            if fn not in thumb_cache:
-                thumb = _load_replay_thumbnail(r['filepath'])
-                thumb_cache[fn] = thumb
+            if fn not in thumb_cache and fn not in _thumb_loading:
+                _thumb_loading.add(fn)
+                _th.Thread(target=_async_load_thumb, args=(fn, r['filepath']), daemon=True).start()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -122670,6 +122679,10 @@ def show_replay_viewer():
             if thumb:
                 scaled_thumb = pygame.transform.scale(thumb, (PREVIEW_W, PREVIEW_H))
                 SCREEN.blit(scaled_thumb, (PREVIEW_X, PREVIEW_Y))
+            elif r['filename'] in _thumb_loading:
+                ld_s = get_font(16).render("로딩 중...", True, (80, 100, 140))
+                SCREEN.blit(ld_s, (PREVIEW_X + PREVIEW_W // 2 - ld_s.get_width() // 2,
+                                   PREVIEW_Y + PREVIEW_H // 2 - 8))
             else:
                 no_s = get_font(16).render("미리보기 없음", True, (60, 65, 80))
                 SCREEN.blit(no_s, (PREVIEW_X + PREVIEW_W // 2 - no_s.get_width() // 2,
@@ -122784,6 +122797,13 @@ def _play_replay(filepath: str):
     sound_events = rp.metadata.get('sound_events', {})
     sound_events = {int(k): v for k, v in sound_events.items()}
     _replay_sounds = dict(sound_effects)
+    # 전광판 사운드는 sound_effects에 없으므로 수동 추가
+    try:
+        from ui.hud_display import HUDDisplay as _HUD
+        if hasattr(_HUD, '_roundset_sound') and _HUD._roundset_sound:
+            _replay_sounds['ROUNDSET'] = _HUD._roundset_sound
+    except Exception:
+        pass
     _last_played_frame = -1
 
     # 🎵 스테이지 BGM 재생
@@ -122951,8 +122971,15 @@ def _play_replay(filepath: str):
         wm = get_font(12).render("REPLAY", True, (255, 255, 255, 80))
         _draw_screen.blit(wm, (_dw - 75, 8))
 
+        # 커스텀 마우스 커서 그리기 (flip 래퍼 우회하므로 직접 그려야 함)
+        if _custom_cursor_enabled:
+            try:
+                mx, my = _original_mouse_get_pos()
+                _draw_custom_cursor(_draw_screen, mx, my)
+            except Exception:
+                pass
+
         # flip 래퍼 우회 — _original_flip 직접 호출
-        # (래퍼가 SCREEN→REAL_SCREEN 합성을 다시 해서 리플레이 프레임을 덮어쓰는 것 방지)
         _original_flip()
 
 

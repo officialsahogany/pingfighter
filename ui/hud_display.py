@@ -348,9 +348,13 @@ class HUDDisplay:
                     HUDDisplay._roundset_sound = pygame.mixer.Sound(_rs_full)
                     HUDDisplay._roundset_sound.set_volume(0.4)
             if HUDDisplay._roundset_sound:
-                # play_sound_with_volume 사용하여 리플레이 사운드 훅도 작동
+                # play_sound_with_volume + 수동 리플레이 사운드 기록
                 try:
-                    from pingfighter import play_sound_with_volume as _play_sfx
+                    from pingfighter import play_sound_with_volume as _play_sfx, _sound_id_map
+                    # _sound_id_map에 등록 (한 번만)
+                    _sid = id(HUDDisplay._roundset_sound)
+                    if _sid not in _sound_id_map:
+                        _sound_id_map[_sid] = 'ROUNDSET'
                     _play_sfx(HUDDisplay._roundset_sound)
                 except Exception:
                     HUDDisplay._roundset_sound.play()
