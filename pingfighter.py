@@ -22265,7 +22265,6 @@ def update_horn_strawberry_transform(keys, dt):
             hit = ts.strawberry_eat.check_boss_collision(BOSS)
             if hit:
                 # 코만도 권총과 동일한 넉백 + 스턴 적용
-                global boss_stunned_timer, screen_shake_timer, screen_shake_intensity, boss_knockback_vel
                 trigger_soldier_bullet_knockback(hit.get("x", BOSS.centerx), hit.get("y", BOSS.centery), slingshot_charge=0)
                 _stem_knockback = max(0.0, float(hit.get("knockback", 14)))
                 _knockback_scale = _stem_knockback / 14.0 if _stem_knockback > 0 else 0.0
@@ -22379,10 +22378,12 @@ def _handle_strawberry_skills(keys, ts, dt):
                     strawberry_eat_channel = pygame.mixer.find_channel()
                     if strawberry_eat_channel:
                         strawberry_eat_channel.play(SOUND_STRAWBERRY_EAT)
+                        ts.strawberry_eat._sound_channel = strawberry_eat_channel
                 except Exception:
                     pass
 
     if ts.strawberry_eat.eating or ts.strawberry_eat.projectiles:
+        _was_eating = ts.strawberry_eat.eating
         px = PLAYER.centerx if PLAYER else 380
         py = PLAYER.y if PLAYER else 710
         def _recover_gauge(amount):
@@ -22392,6 +22393,13 @@ def _handle_strawberry_skills(keys, ts, dt):
             global rolling_charges
             rolling_charges = min(rolling_charges + count, 3)
         ts.strawberry_eat.update(dt, px, py, _recover_gauge, _recover_dash)
+        # 먹기 종료 시 사운드 정지
+        if _was_eating and not ts.strawberry_eat.eating:
+            if strawberry_eat_channel is not None:
+                try:
+                    strawberry_eat_channel.stop()
+                except Exception:
+                    pass
 
     # A+D 동시 홀드: 딸기폭탄
     from item_effects.horn_strawberry_mask import STRAWBERRY_BOMB_GAUGE_COST

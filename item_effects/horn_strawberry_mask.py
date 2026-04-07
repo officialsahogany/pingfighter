@@ -38,7 +38,7 @@ HORN_CHARGE_PHASES = {
     "CHARGING": 0.43,   # 돌진
     "IMPACT": 0.2,      # 충돌
     "RETURNING": 0.5,   # 복귀
-    "STUN": 1.0,        # 경직
+    "STUN": 1.5,        # 경직
 }
 
 # 스킬: 딸기장판 (S 홀드)
@@ -58,6 +58,21 @@ STRAWBERRY_STEM_SPREAD_DEGREES = 10.0
 STRAWBERRY_EAT_COOLDOWN = 0.8
 STRAWBERRY_STEM_SPEED_MULT = 2.5  # 권총 대비 250% 속도 (빠른 투사체)
 STRAWBERRY_STEM_KNOCKBACK = 32.2  # 현재 권총급 넉백(14)의 2.3배
+
+# 스킬: 딸기폭탄 (A+D 동시 홀드 0.5초)
+STRAWBERRY_BOMB_GAUGE_COST = 400
+STRAWBERRY_BOMB_COOLDOWN = 30.0
+STRAWBERRY_BOMB_COUNT = 30  # 1초간 투척 개수
+STRAWBERRY_BOMB_THROW_DURATION = 1.0  # 투척 시간 (초)
+STRAWBERRY_BOMB_HOP_INTERVAL = 0.12  # 점프 궤적 변경 간격 (초)
+STRAWBERRY_BOMB_BASE_SPEED = 4.0  # 기본 이동 속도
+STRAWBERRY_BOMB_HOP_HEIGHT = 40.0  # 점프 높이
+STRAWBERRY_BOMB_STUN_DURATION = 1.0  # 폭발 시 스턴 (초)
+STRAWBERRY_BOMB_KNOCKBACK = 50.0  # 폭발 시 넉백
+STRAWBERRY_BOMB_PAINT_DURATION = 5.0  # 페인트 지속시간 (초)
+STRAWBERRY_BOMB_PAINT_SLOW = 0.30  # 이동속도 30% 감소
+STRAWBERRY_BOMB_PAINT_RADIUS = 28  # 페인트 반경
+STRAWBERRY_BOMB_HOLD_TIME = 0.5  # A+D 동시 홀드 필요 시간 (초)
 
 # ── 색상 팔레트 ──────────────────────────────────────────
 STRAWBERRY_RED = (220, 40, 50)
@@ -191,6 +206,7 @@ class HornStrawberryTransformState:
         self.horn_charge = _HornChargeSkillCore()
         self.strawberry_field = _StrawberryFieldSkillCore()
         self.strawberry_eat = StrawberryEatSkill()
+        self.strawberry_bomb = StrawberryBombSkill()
 
         # 변신 연출 파티클
         self.event_particles = []
@@ -223,6 +239,7 @@ class HornStrawberryTransformState:
         self.horn_charge.reset()
         self.strawberry_field.reset()
         self.strawberry_eat.reset()
+        self.strawberry_bomb.reset()
         self.event_particles.clear()
         self.flash_alpha = 0
         self._eat_input_prev_down = False
@@ -303,6 +320,7 @@ class HornStrawberryTransformState:
                 self.horn_charge.reset()
                 self.strawberry_field.reset()
                 self.strawberry_eat.reset()
+                self.strawberry_bomb.reset()
 
         elif self.state == self.TRANSFORMED:
             self.transform_timer -= dt
@@ -310,6 +328,7 @@ class HornStrawberryTransformState:
             self.horn_charge.update_cooldown(dt)
             self.strawberry_field.update_cooldown(dt)
             self.strawberry_eat.update_cooldown(dt)
+            self.strawberry_bomb.update_cooldown(dt)
 
             if self.transform_timer <= 0:
                 self._eat_paddle_growth_bonus = 0.0
@@ -317,6 +336,10 @@ class HornStrawberryTransformState:
                 self.horn_charge.reset()
                 # strawberry_field는 리셋하지 않음 — 변신 종료 후에도 장판 유지
                 self.strawberry_eat.reset()
+                # strawberry_bomb: 투척 중단, 페인트는 유지
+                self.strawberry_bomb.throwing = False
+                self.strawberry_bomb.active = False
+                self.strawberry_bomb._anchor_player_centerx = None
                 self.state = self.DETRANSFORM_EVENT
                 self.event_timer = TRANSFORM_END_EVENT_DURATION
                 self.flash_alpha = 255
@@ -1565,6 +1588,7 @@ class StrawberryEatSkill:
         self._stem_burst_timer = 0.0
         self._stem_burst_origin_x = 0.0
         self._stem_burst_origin_y = 0.0
+        self._sound_channel = None  # pingfighter에서 설정하는 사운드 채널 참조
 
     def reset(self):
         self.eating = False
@@ -1576,6 +1600,13 @@ class StrawberryEatSkill:
         self._stem_burst_timer = 0.0
         self._stem_burst_origin_x = 0.0
         self._stem_burst_origin_y = 0.0
+        # 사운드 정지
+        if self._sound_channel is not None:
+            try:
+                self._sound_channel.stop()
+            except Exception:
+                pass
+            self._sound_channel = None
 
     def can_use(self):
         return not self.eating and self.cooldown <= 0
@@ -1802,6 +1833,320 @@ class StrawberryEatSkill:
         screen.blit(s, (x - sz, y - sz))
 
 
+# ── 딸기폭탄 스킬 ──────────────────────────────────────
+class StrawberryBombSkill:
+    """딸기폭탄 스킬 - A+D 동시 홀드 0.5초로 발동, 30개 딸기폭탄 투척"""
+
+    def __init__(self):
+        self.cooldown = 0.0
+        self.active = False  # 투척 중
+        self.throwing = False  # 투척 모션 중 (이동 불가)
+        self.throw_timer = 0.0  # 투척 남은 시간
+        self._throw_interval = 0.0  # 다음 폭탄까지 남은 시간
+        self._thrown_count = 0
+        self._anchor_player_centerx = None
+
+        # A+D 동시 홀드 감지
+        self._ad_hold_timer = 0.0  # A+D 동시 누른 시간
+        self._ad_held_prev = False
+
+        # 폭탄 투사체 목록
+        self.bombs = []  # 날아가는 폭탄들
+        self.explosions = []  # 폭발 이펙트
+        self.paint_splatters = []  # 바닥 페인트 (슬로우)
+
+    def reset(self):
+        self.cooldown = 0.0
+        self.active = False
+        self.throwing = False
+        self.throw_timer = 0.0
+        self._throw_interval = 0.0
+        self._thrown_count = 0
+        self._anchor_player_centerx = None
+        self._ad_hold_timer = 0.0
+        self._ad_held_prev = False
+        self.bombs.clear()
+        self.explosions.clear()
+        self.paint_splatters.clear()
+
+    def can_use(self):
+        return not self.active and not self.throwing and self.cooldown <= 0
+
+    def update_cooldown(self, dt):
+        if self.cooldown > 0:
+            self.cooldown -= dt
+
+    def check_ad_hold(self, keys, dt):
+        """A+D 동시 홀드 감지. 0.5초 이상이면 True 반환"""
+        a_pressed = keys[pygame.K_a]
+        d_pressed = keys[pygame.K_d]
+        both = a_pressed and d_pressed
+
+        if both:
+            self._ad_hold_timer += dt
+            if self._ad_hold_timer >= STRAWBERRY_BOMB_HOLD_TIME:
+                return True
+        else:
+            self._ad_hold_timer = 0.0
+        return False
+
+    def activate(self, player_centerx):
+        """폭탄 투척 시작"""
+        if not self.can_use():
+            return False
+        self.active = True
+        self.throwing = True
+        self.throw_timer = STRAWBERRY_BOMB_THROW_DURATION
+        self._throw_interval = 0.0
+        self._thrown_count = 0
+        self._anchor_player_centerx = float(player_centerx)
+        self._ad_hold_timer = 0.0
+        return True
+
+    def update(self, dt, player_x, player_y, screen_width, boss_y=25):
+        """매 프레임 업데이트: 투척 + 폭탄 물리 + 폭발 + 페인트"""
+        hits = []  # 이번 프레임에 터진 폭탄 정보
+
+        # 1) 투척 중 - 일정 간격으로 폭탄 발사
+        if self.throwing:
+            self.throw_timer -= dt
+            self._throw_interval -= dt
+
+            interval = STRAWBERRY_BOMB_THROW_DURATION / STRAWBERRY_BOMB_COUNT
+            while self._throw_interval <= 0 and self._thrown_count < STRAWBERRY_BOMB_COUNT:
+                self._spawn_bomb(player_x, player_y, screen_width)
+                self._thrown_count += 1
+                self._throw_interval += interval
+
+            if self.throw_timer <= 0 or self._thrown_count >= STRAWBERRY_BOMB_COUNT:
+                self.throwing = False
+                self._anchor_player_centerx = None
+
+        # 2) 폭탄 물리 업데이트
+        alive_bombs = []
+        for b in self.bombs:
+            b["age"] += dt
+            # 점프(홉) 궤적
+            b["hop_timer"] -= dt
+            if b["hop_timer"] <= 0:
+                b["hop_timer"] = STRAWBERRY_BOMB_HOP_INTERVAL
+                # 궤적 변경: 약간 랜덤한 좌우 + 위쪽 방향 변경
+                b["vx"] += random.uniform(-2.0, 2.0)
+                b["vy"] = -(STRAWBERRY_BOMB_BASE_SPEED + random.uniform(0, 2.0))
+                b["hop_phase"] = 0.0  # 새 홉 시작
+
+            b["hop_phase"] += dt
+            # 포물선 홉: 위로 갔다 아래로
+            hop_t = b["hop_phase"] / STRAWBERRY_BOMB_HOP_INTERVAL
+            hop_offset = -STRAWBERRY_BOMB_HOP_HEIGHT * math.sin(hop_t * math.pi)
+
+            b["x"] += b["vx"] * dt * 60
+            b["base_y"] += b["vy"] * dt * 60
+            b["visual_y"] = b["base_y"] + hop_offset
+
+            # 벽 반사
+            if b["x"] <= 6:
+                b["x"] = 6
+                b["vx"] = abs(b["vx"]) * 0.9
+            elif b["x"] >= screen_width - 6:
+                b["x"] = screen_width - 6
+                b["vx"] = -abs(b["vx"]) * 0.9
+
+            # 보스쪽 벽(상단)에 도달하면 폭발
+            if b["base_y"] <= boss_y + 40:
+                hits.append({"x": b["x"], "y": b["base_y"], "hit_boss": False})
+                self._create_explosion(b["x"], b["base_y"])
+                continue
+
+            # 수명 초과
+            if b["age"] > 4.0:
+                self._create_explosion(b["x"], b["base_y"])
+                continue
+
+            alive_bombs.append(b)
+
+        self.bombs = alive_bombs
+
+        # 3) 폭발 이펙트 업데이트
+        alive_explosions = []
+        for e in self.explosions:
+            e["timer"] -= dt
+            if e["timer"] > 0:
+                alive_explosions.append(e)
+        self.explosions = alive_explosions
+
+        # 4) 페인트 업데이트 (서서히 사라짐)
+        alive_paint = []
+        for p in self.paint_splatters:
+            p["timer"] -= dt
+            if p["timer"] > 0:
+                p["alpha"] = max(0, int(255 * (p["timer"] / STRAWBERRY_BOMB_PAINT_DURATION)))
+                alive_paint.append(p)
+        self.paint_splatters = alive_paint
+
+        # 5) 투척 완료 + 모든 폭탄 소진 → 쿨타임 시작
+        if not self.throwing and len(self.bombs) == 0 and self.active:
+            self.active = False
+            self.cooldown = STRAWBERRY_BOMB_COOLDOWN
+
+        return hits
+
+    def check_boss_collision(self, boss_rect):
+        """보스와 폭탄 충돌 체크. 히트된 폭탄 목록 반환"""
+        hits = []
+        remaining = []
+        for b in self.bombs:
+            bomb_rect = pygame.Rect(int(b["x"]) - 6, int(b["base_y"]) - 6, 12, 12)
+            if bomb_rect.colliderect(boss_rect):
+                hits.append({"x": b["x"], "y": b["base_y"], "hit_boss": True})
+                self._create_explosion(b["x"], b["base_y"])
+            else:
+                remaining.append(b)
+        self.bombs = remaining
+        return hits
+
+    def _spawn_bomb(self, player_x, player_y, screen_width):
+        """폭탄 하나 생성"""
+        spread = random.uniform(-3.0, 3.0)
+        self.bombs.append({
+            "x": float(player_x) + random.uniform(-15, 15),
+            "base_y": float(player_y) - 10,
+            "visual_y": float(player_y) - 10,
+            "vx": spread,
+            "vy": -(STRAWBERRY_BOMB_BASE_SPEED + random.uniform(0, 1.5)),
+            "hop_timer": random.uniform(0.02, STRAWBERRY_BOMB_HOP_INTERVAL),
+            "hop_phase": 0.0,
+            "age": 0.0,
+            "rotation": random.uniform(0, math.pi * 2),
+            "rot_speed": random.uniform(3, 8),
+        })
+
+    def _create_explosion(self, x, y):
+        """폭발 이펙트 + 페인트 생성"""
+        self.explosions.append({
+            "x": x, "y": y, "timer": 0.5,
+            "max_timer": 0.5,
+            "particles": [
+                {
+                    "dx": random.uniform(-20, 20),
+                    "dy": random.uniform(-20, 20),
+                    "size": random.randint(3, 7),
+                    "color": random.choice([
+                        STRAWBERRY_RED, STRAWBERRY_LIGHT, SEED_COLOR,
+                        (255, 100, 80), (200, 40, 40),
+                    ]),
+                }
+                for _ in range(12)
+            ],
+        })
+        # 페인트 (슬로우 장판)
+        self.paint_splatters.append({
+            "x": x, "y": y,
+            "radius": STRAWBERRY_BOMB_PAINT_RADIUS + random.randint(-4, 4),
+            "timer": STRAWBERRY_BOMB_PAINT_DURATION,
+            "alpha": 255,
+            "blobs": [
+                {
+                    "dx": random.uniform(-18, 18),
+                    "dy": random.uniform(-12, 12),
+                    "r": random.randint(5, 12),
+                }
+                for _ in range(random.randint(4, 7))
+            ],
+        })
+
+    def is_boss_in_paint(self, boss_rect):
+        """보스가 페인트 위에 있는지 체크"""
+        for p in self.paint_splatters:
+            if p["timer"] <= 0:
+                continue
+            paint_rect = pygame.Rect(
+                int(p["x"]) - p["radius"],
+                int(p["y"]) - p["radius"],
+                p["radius"] * 2,
+                p["radius"] * 2,
+            )
+            if paint_rect.colliderect(boss_rect):
+                return True
+        return False
+
+    def needs_runtime_update(self):
+        return self.active or self.throwing or self.bombs or self.explosions or self.paint_splatters
+
+    def draw(self, screen, screen_width):
+        """폭탄, 폭발 이펙트, 페인트 전부 그리기"""
+        # 페인트 (바닥에 먼저)
+        for p in self.paint_splatters:
+            if p["alpha"] <= 0:
+                continue
+            for blob in p["blobs"]:
+                bx = int(p["x"] + blob["dx"])
+                by = int(p["y"] + blob["dy"])
+                br = blob["r"]
+                surf = pygame.Surface((br * 2, br * 2), pygame.SRCALPHA)
+                a = min(255, int(p["alpha"] * 0.7))
+                pygame.draw.ellipse(surf, (180, 20, 20, a), (0, 0, br * 2, br * 2))
+                # 하이라이트
+                pygame.draw.ellipse(surf, (220, 60, 50, a // 2),
+                                    (br // 3, br // 4, br, int(br * 0.6)))
+                screen.blit(surf, (bx - br, by - br))
+
+        # 폭탄
+        for b in self.bombs:
+            self._draw_bomb(screen, b)
+
+        # 폭발 이펙트
+        for e in self.explosions:
+            progress = 1.0 - (e["timer"] / e["max_timer"])
+            alpha = int(255 * (1.0 - progress))
+            for part in e["particles"]:
+                px = int(e["x"] + part["dx"] * progress * 2)
+                py = int(e["y"] + part["dy"] * progress * 2)
+                sz = max(1, int(part["size"] * (1.0 - progress * 0.5)))
+                c = part["color"]
+                s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(s, (*c, max(0, alpha)), (sz, sz), sz)
+                screen.blit(s, (px - sz, py - sz))
+            # 폭발 중심 플래시
+            if progress < 0.3:
+                flash_r = int(25 * (1.0 - progress / 0.3))
+                flash_s = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(flash_s, (255, 255, 200, int(200 * (1.0 - progress / 0.3))),
+                                   (flash_r, flash_r), flash_r)
+                screen.blit(flash_s, (int(e["x"]) - flash_r, int(e["y"]) - flash_r))
+
+    @staticmethod
+    def _draw_bomb(screen, bomb):
+        """딸기폭탄 하나 그리기 (작은 딸기 + 도화선)"""
+        x, y = int(bomb["x"]), int(bomb["visual_y"])
+        rot = bomb["rotation"]
+        sz = 7  # 반지름
+
+        s = pygame.Surface((sz * 4, sz * 4), pygame.SRCALPHA)
+        cx, cy = sz * 2, sz * 2
+        # 딸기 몸체
+        pygame.draw.ellipse(s, STRAWBERRY_RED, (cx - sz, cy - sz + 1, sz * 2, int(sz * 2.2)))
+        pygame.draw.ellipse(s, STRAWBERRY_LIGHT, (cx - sz + 2, cy - sz + 2, sz * 2 - 4, int(sz * 0.8)))
+        # 씨앗
+        for sx, sy in [(cx - 2, cy), (cx + 2, cy), (cx, cy + 3)]:
+            pygame.draw.circle(s, SEED_COLOR, (sx, sy), 1)
+        # 잎
+        pygame.draw.ellipse(s, GREEN_MID, (cx - 4, cy - sz - 2, 8, 4))
+        # 도화선 (불꽃)
+        fuse_x = cx
+        fuse_y = cy - sz - 3
+        t = pygame.time.get_ticks() * 0.01
+        spark_col = (255, int(180 + 50 * math.sin(t + bomb["rotation"])), 50)
+        pygame.draw.line(s, (80, 60, 40), (fuse_x, fuse_y + 2), (fuse_x, fuse_y - 2), 1)
+        pygame.draw.circle(s, spark_col, (fuse_x, fuse_y - 3), 2)
+        pygame.draw.circle(s, (255, 255, 200), (fuse_x, fuse_y - 3), 1)
+
+        # 회전 적용
+        rotated = pygame.transform.rotozoom(s, -math.degrees(rot), 1.0)
+        rect = rotated.get_rect(center=(x, y))
+        screen.blit(rotated, rect)
+
+
 # ── 싱글톤 인스턴스 ──────────────────────────────────────
 _transform_state = None
 
@@ -1823,4 +2168,3 @@ def reset_stage_transform():
     global _transform_state
     if _transform_state:
         _transform_state._used_this_stage = False
-
