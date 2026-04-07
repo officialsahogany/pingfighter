@@ -61,6 +61,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_torso_parts import ValhallaWarplatePart
         return ValhallaWarplatePart(block)
 
+    elif item_name == "horn_strawberry_mask":
+        from entities.body_parts.item_head_parts import HornStrawberryMaskPart
+        return HornStrawberryMaskPart(block)
+
     elif item_name == "commando_arm":
         if side == "right":
             from entities.body_parts.item_arm_parts import CommandoArmRightPart
@@ -328,6 +332,7 @@ ITEM_SLOT_MAP = {
     "odins_eye": "face",
     "megingjord": "torso",
     "valhalla_warplate": "torso",
+    "horn_strawberry_mask": "head",
     "chargebag": "back",
     "soul_burst": "legs",
 }

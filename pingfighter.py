@@ -22173,6 +22173,331 @@ def consume_special_gauge(amount):
         pass
 
 
+# ── 뿔딸기 변신가면 인게임 통합 ──────────────────────────────
+_horn_strawberry_transform = None
+
+def _get_horn_strawberry_transform():
+    """뿔딸기 변신 상태 싱글톤 (lazy import)"""
+    global _horn_strawberry_transform
+    if _horn_strawberry_transform is None:
+        try:
+            from item_effects.horn_strawberry_mask import get_transform_state
+            _horn_strawberry_transform = get_transform_state()
+        except Exception:
+            pass
+    return _horn_strawberry_transform
+
+def update_horn_strawberry_transform(keys, dt):
+    """뿔딸기 변신 시스템 매 프레임 업데이트.
+    메인 게임 루프에서 호출. 반환: 변신 상태 객체 or None"""
+    ts = _get_horn_strawberry_transform()
+    if ts is None or not ts.active:
+        return None
+
+    # 커맨드 입력 감지 (A→W→D)
+    if ts.update_command_input(keys, dt):
+        # 커맨드 완성! 변신 시도
+        ts.try_transform(special_gauge, consume_special_gauge)
+
+    # 변신 상태 업데이트
+    ts.update(dt)
+
+    if ts.is_transformed:
+        # 변신 중 스킬 입력 처리
+        _handle_strawberry_skills(keys, ts, dt)
+
+    return ts
+
+def _handle_strawberry_skills(keys, ts, dt):
+    """변신 중 전용 스킬 입력 처리"""
+    global special_gauge, rolling_charges, player_paddle
+
+    # W키: 뿔박치기
+    w_pressed = keys[pygame.K_w]
+    if w_pressed and ts.horn_charge.can_use(special_gauge):
+        def _consume(amount):
+            consume_special_gauge(amount)
+            return True
+        player_y = player_paddle.y if player_paddle else 710
+        ts.horn_charge.activate(player_y, _consume)
+
+    # 뿔박치기 업데이트
+    if ts.horn_charge.active and player_paddle:
+        y_off, x_off, apply_kb, is_stunned = ts.horn_charge.update(
+            dt, player_paddle.centerx, player_paddle.y)
+        # y_offset 적용은 렌더링에서 처리
+
+    # S키: 딸기장판 홀드
+    s_pressed = keys[pygame.K_s]
+    if s_pressed:
+        if not ts.strawberry_field.holding:
+            ts.strawberry_field.start_hold()
+        if ts.strawberry_field.holding:
+            def _consume_field(amount):
+                consume_special_gauge(amount)
+            px = player_paddle.centerx if player_paddle else 380
+            py = player_paddle.y if player_paddle else 710
+            ts.strawberry_field.update_hold(dt, special_gauge, _consume_field, px, py)
+    else:
+        ts.strawberry_field.release_hold()
+
+    # Space/클릭: 딸기먹기
+    space_pressed = keys[pygame.K_SPACE]
+    mouse_pressed = pygame.mouse.get_pressed()[0]
+    if (space_pressed or mouse_pressed) and ts.strawberry_eat.can_use():
+        ts.strawberry_eat.activate()
+
+    if ts.strawberry_eat.eating or ts.strawberry_eat.projectiles:
+        px = player_paddle.centerx if player_paddle else 380
+        py = player_paddle.y if player_paddle else 710
+        def _recover_gauge(amount):
+            global special_gauge
+            special_gauge = min(special_gauge + amount, get_max_gauge())
+        def _recover_dash(count):
+            global rolling_charges
+            rolling_charges = min(rolling_charges + count, 3)
+        ts.strawberry_eat.update(dt, px, py, _recover_gauge, _recover_dash)
+
+def get_horn_strawberry_paddle_size_bonus():
+    """변신 중 패들 크기 보너스 비율 반환 (0.0 = 보너스 없음)"""
+    ts = _get_horn_strawberry_transform()
+    if ts and ts.is_transformed:
+        return ts._paddle_size_bonus
+    return 0.0
+
+def get_horn_strawberry_move_speed():
+    """변신 중 이동속도 반환 (None = 기본 속도 사용)"""
+    ts = _get_horn_strawberry_transform()
+    if ts and ts.is_transformed:
+        return 8
+    return None
+
+def get_horn_strawberry_gauge_on_hit():
+    """변신 중 공 타격 시 게이지 회복량 (0 = 추가 없음)"""
+    ts = _get_horn_strawberry_transform()
+    if ts and ts.is_transformed:
+        return 30
+    return 0
+
+def is_horn_strawberry_transformed():
+    """현재 뿔딸기 변신 상태인지"""
+    ts = _get_horn_strawberry_transform()
+    return ts is not None and ts.is_transformed
+
+def is_horn_strawberry_event_playing():
+    """변신/해제 이벤트 연출 중인지"""
+    ts = _get_horn_strawberry_transform()
+    return ts is not None and ts.is_event_playing
+
+def draw_horn_strawberry_effects(screen):
+    """뿔딸기 변신 관련 모든 이펙트 그리기"""
+    ts = _get_horn_strawberry_transform()
+    if ts is None:
+        return
+
+    # 변신/해제 이벤트 연출
+    if ts.is_event_playing:
+        px = player_paddle.centerx if player_paddle else 380
+        py = player_paddle.y if player_paddle else 710
+        ts.draw_transform_event(screen, px, py)
+
+    if ts.is_transformed:
+        # 패들 위에 뿔딸기 캐릭터 오버레이
+        if player_paddle:
+            ts.draw_strawberry_paddle(screen, player_paddle.x, player_paddle.y,
+                                     player_paddle.width, player_paddle.height)
+
+        # 뿔박치기 트레일
+        if ts.horn_charge.active and player_paddle:
+            ts.horn_charge.draw_trail(screen, player_paddle.centerx, player_paddle.y)
+
+        # 딸기장판
+        ts.strawberry_field.draw_barriers(screen)
+
+        # 딸기먹기 이펙트 + 투사체
+        if player_paddle:
+            ts.strawberry_eat.draw(screen, player_paddle.centerx, player_paddle.y)
+
+        # 변신 타이머 표시 (화면 하단)
+        _draw_transform_timer(screen, ts.transform_timer, ts._transform_duration)
+
+        # 전용 스킬 구슬 UI
+        draw_horn_strawberry_skill_orbs(screen)
+
+def draw_horn_strawberry_skill_orbs(screen):
+    """변신 중 전용 스킬 구슬 3개 그리기"""
+    ts = _get_horn_strawberry_transform()
+    if ts is None or not ts.is_transformed:
+        return
+
+    # 스킬 구슬 위치 (화면 하단 좌측)
+    orb_start_x = 90
+    orb_y = 700
+    orb_spacing = 55
+    orb_radius = 22
+    time_now = pygame.time.get_ticks()
+
+    skills = [
+        {
+            "name": "뿔박치기",
+            "key": "W",
+            "color": (220, 40, 50),  # 딸기 레드
+            "cooldown": ts.horn_charge.cooldown,
+            "max_cooldown": 20.0,
+            "active": ts.horn_charge.active,
+            "gauge_cost": 300,
+            "icon_draw": _draw_horn_charge_icon,
+        },
+        {
+            "name": "딸기장판",
+            "key": "S홀드",
+            "color": (50, 150, 40),  # 초록
+            "cooldown": ts.strawberry_field.cooldown,
+            "max_cooldown": 10.0,
+            "active": ts.strawberry_field.holding,
+            "gauge_cost": 100,
+            "icon_draw": _draw_strawberry_field_icon,
+        },
+        {
+            "name": "딸기먹기",
+            "key": "SPC",
+            "color": (240, 220, 100),  # 씨앗 노란색
+            "cooldown": ts.strawberry_eat.cooldown,
+            "max_cooldown": 0.8,
+            "active": ts.strawberry_eat.eating,
+            "gauge_cost": 0,
+            "icon_draw": _draw_strawberry_eat_icon,
+        },
+    ]
+
+    for i, skill in enumerate(skills):
+        cx = orb_start_x + i * orb_spacing
+        cy = orb_y
+
+        # 배경 원
+        is_on_cd = skill["cooldown"] > 0
+        is_active = skill["active"]
+
+        if is_active:
+            bg_color = (255, 255, 200)  # 활성 중
+        elif is_on_cd:
+            bg_color = (40, 30, 30)  # 쿨타임
+        else:
+            bg_color = (60, 50, 50)  # 대기
+
+        # 그림자
+        pygame.draw.circle(screen, (20, 15, 15), (cx + 1, cy + 1), orb_radius + 2)
+        # 배경
+        pygame.draw.circle(screen, bg_color, (cx, cy), orb_radius)
+        # 테두리
+        border_color = skill["color"] if not is_on_cd else (80, 60, 60)
+        pygame.draw.circle(screen, border_color, (cx, cy), orb_radius, 2)
+
+        # 스킬 아이콘 그리기
+        skill["icon_draw"](screen, cx, cy, orb_radius - 4)
+
+        # 쿨타임 오버레이 (파이 차트)
+        if is_on_cd and skill["max_cooldown"] > 0:
+            cd_ratio = skill["cooldown"] / skill["max_cooldown"]
+            cd_surf = pygame.Surface((orb_radius * 2, orb_radius * 2), pygame.SRCALPHA)
+            # 파이 차트 (어두운 오버레이)
+            import math as _m
+            start_angle = -_m.pi / 2
+            end_angle = start_angle + 2 * _m.pi * cd_ratio
+            points = [(orb_radius, orb_radius)]
+            for a in range(int(start_angle * 180 / _m.pi), int(end_angle * 180 / _m.pi) + 1):
+                rad = a * _m.pi / 180
+                px = orb_radius + _m.cos(rad) * orb_radius
+                py = orb_radius + _m.sin(rad) * orb_radius
+                points.append((px, py))
+            if len(points) > 2:
+                pygame.draw.polygon(cd_surf, (0, 0, 0, 140), points)
+            screen.blit(cd_surf, (cx - orb_radius, cy - orb_radius))
+
+            # 쿨타임 숫자
+            try:
+                cd_font = pygame.font.SysFont(None, 16)
+                cd_text = cd_font.render(f"{skill['cooldown']:.1f}", True, (255, 255, 255))
+                cd_rect = cd_text.get_rect(center=(cx, cy + orb_radius + 10))
+                screen.blit(cd_text, cd_rect)
+            except Exception:
+                pass
+
+        # 키 표시
+        try:
+            key_font = pygame.font.SysFont(None, 12)
+            key_text = key_font.render(skill["key"], True, (200, 200, 200))
+            key_rect = key_text.get_rect(center=(cx, cy - orb_radius - 8))
+            screen.blit(key_text, key_rect)
+        except Exception:
+            pass
+
+def _draw_horn_charge_icon(screen, cx, cy, radius):
+    """뿔박치기 스킬 아이콘 - 딸기 뿔 돌진"""
+    # 딸기 본체
+    pygame.draw.circle(screen, (220, 40, 50), (cx, cy + 2), radius // 2)
+    # 뿔
+    pts = [(cx - 3, cy - 2), (cx + 3, cy - 2), (cx, cy - radius + 2)]
+    pygame.draw.polygon(screen, (50, 150, 40), pts)
+    # 돌진 화살표
+    pygame.draw.line(screen, (255, 200, 100), (cx, cy - radius + 4), (cx, cy - radius - 2), 2)
+
+def _draw_strawberry_field_icon(screen, cx, cy, radius):
+    """딸기장판 스킬 아이콘 - 딸기 젤리 바닥"""
+    # 장판 (빨간 직사각형)
+    bar_w = radius * 2 - 4
+    bar_h = 6
+    pygame.draw.rect(screen, (220, 40, 50),
+                    (cx - bar_w // 2, cy - bar_h // 2, bar_w, bar_h), border_radius=2)
+    # 씨앗 점
+    for dx in [-6, 0, 6]:
+        pygame.draw.circle(screen, (240, 220, 100), (cx + dx, cy), 2)
+    # S 텍스트 위
+    pygame.draw.line(screen, (50, 150, 40), (cx - 4, cy + 6), (cx + 4, cy + 6), 2)
+
+def _draw_strawberry_eat_icon(screen, cx, cy, radius):
+    """딸기먹기 스킬 아이콘 - 딸기 + 먹기"""
+    # 딸기 (작은 타원)
+    pygame.draw.ellipse(screen, (220, 40, 50),
+                       (cx - 5, cy - 6, 10, 12))
+    # 뿔 (초록)
+    pygame.draw.polygon(screen, (50, 150, 40),
+                       [(cx - 3, cy - 6), (cx + 3, cy - 6), (cx, cy - 12)])
+    # 회복 +표시
+    pygame.draw.line(screen, (100, 255, 100), (cx + 7, cy - 2), (cx + 7, cy + 4), 2)
+    pygame.draw.line(screen, (100, 255, 100), (cx + 4, cy + 1), (cx + 10, cy + 1), 2)
+
+
+def _draw_transform_timer(screen, remaining, total):
+    """변신 남은 시간 표시"""
+    if remaining <= 0 or total <= 0:
+        return
+    bar_w = 120
+    bar_h = 8
+    bar_x = 380 - bar_w // 2  # 화면 중앙
+    bar_y = 740  # 화면 하단
+    ratio = remaining / total
+
+    # 배경
+    pygame.draw.rect(screen, (40, 20, 20), (bar_x - 1, bar_y - 1, bar_w + 2, bar_h + 2), border_radius=3)
+    # 잔량
+    fill_w = int(bar_w * ratio)
+    if remaining < 10:
+        color = (255, 80, 80)  # 10초 미만 빨간색
+    else:
+        color = (220, 40, 50)
+    pygame.draw.rect(screen, color, (bar_x, bar_y, fill_w, bar_h), border_radius=2)
+    # 텍스트
+    try:
+        font = pygame.font.SysFont(None, 14)
+        text = font.render(f"{int(remaining)}s", True, (255, 255, 255))
+        screen.blit(text, (bar_x + bar_w + 4, bar_y - 1))
+    except Exception:
+        pass
+
+# ── 뿔딸기 변신가면 끝 ──────────────────────────────────────
+
+
 def store_bgm_volume(value: float) -> float:
     """오디오 상태 모듈과 전역 변수 모두에 BGM 볼륨을 반영."""
 
@@ -22260,7 +22585,7 @@ def play_sound_with_volume(sound, volume=None):
         if rec.recording:
             snd_name = _sound_id_map.get(id(sound))
             if snd_name:
-                rec.add_sound(snd_name)
+                rec.add_sound(snd_name, volume)
     except Exception:
         pass
     return channel
@@ -28643,6 +28968,7 @@ def sync_equipped_passive_effects():
     sync_bool("pandora_legacy", "items.pandora_legacy_obtained")
     sync_bool("megingjord", "items.megingjord_obtained")
     sync_bool("valhalla_warplate", "items.valhalla_warplate_obtained")
+    sync_bool("horn_strawberry_mask", "items.horn_strawberry_mask_obtained")
     sync_bool("sage_ring", "items.sage_ring_obtained")
     sync_bool("venom_mist_gauntlet", "items.venom_mist_gauntlet_obtained")
     sync_bool("dowsing_goggles", "items.dowsing_goggles_obtained")
@@ -29057,6 +29383,21 @@ def sync_equipped_passive_effects():
                         vw_state.enhancement_bonus_pct = warplate_item.get("enhancement_bonus_pct", 0) if warplate_item else 0
                     except Exception:
                         pass
+                # 뿔딸기 변신가면: 강화 보너스 동기화 + 변신 상태 활성화
+                if legend_name == "horn_strawberry_mask":
+                    mask_item = next((item for item in equipped_items if item.get("name") == "horn_strawberry_mask"), None)
+                    if mask_item:
+                        mask_legendary = legendary_manager.get_item("horn_strawberry_mask")
+                        if mask_legendary:
+                            mask_legendary.enhancement_bonus_pct = mask_item.get("enhancement_bonus_pct", 0)
+                    try:
+                        from item_effects.horn_strawberry_mask import get_transform_state
+                        ts = get_transform_state()
+                        ts.active = True
+                        if mask_legendary:
+                            ts.sync_roll_options(mask_legendary)
+                    except Exception:
+                        pass
                 # 초월자의 관: 강화 보너스 동기화
                 if legend_name == "transcendent_crown":
                     crown_item = next((item for item in equipped_items if item.get("name") == "transcendent_crown"), None)
@@ -29115,6 +29456,18 @@ def sync_equipped_passive_effects():
                     try:
                         from item_effects.valhalla_warplate import get_valhalla_warplate_state
                         get_valhalla_warplate_state().deactivate()
+                    except Exception:
+                        pass
+                elif legend_name == "horn_strawberry_mask":
+                    mask_legendary = legendary_manager.get_item("horn_strawberry_mask")
+                    if mask_legendary:
+                        mask_legendary.enhancement_bonus_pct = 0
+                    # 뿔딸기 변신 상태 비활성화
+                    try:
+                        from item_effects.horn_strawberry_mask import get_transform_state
+                        ts = get_transform_state()
+                        ts.active = False
+                        ts.reset()
                     except Exception:
                         pass
 
@@ -79966,7 +80319,8 @@ def handle_player(keys):
     # 패들 크기 변화를 고려한 X 좌표 제한
     # 악마의 주사위 배율도 포함
     # 버그 수정: 너비가 실제로 변경될 때만 업데이트 (매 프레임 업데이트 시 떨림 버그 발생)
-    actual_paddle_width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier * strange_vial_scale)
+    _hs_paddle_bonus = 1.0 + get_horn_strawberry_paddle_size_bonus()
+    actual_paddle_width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier * strange_vial_scale * _hs_paddle_bonus)
     if PLAYER.width != actual_paddle_width:
         _prev_center = PLAYER.centerx
         PLAYER.width = actual_paddle_width  # 거대화포션 + 악마의 주사위 + 기묘한 약병 효과 적용
@@ -80588,6 +80942,11 @@ def handle_player(keys):
                 _vw_hp.try_summon(ball_x=int(BALL.centerx))
         except Exception:
             pass
+
+        # 뿔딸기 변신 중 공 타격 시 게이지 회복
+        _hs_gauge_bonus = get_horn_strawberry_gauge_on_hit()
+        if _hs_gauge_bonus > 0:
+            special_gauge = min(special_gauge + _hs_gauge_bonus, get_max_gauge())
 
         #  Stage 4: 몽크가 봉을 휘둘러 공 방향 변경 (플레이어가 칠 때 한 번 체크)
         if current_stage == 4 and animated_bg_stage4 is not None:
@@ -82629,7 +82988,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return False
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
         return False
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -82677,7 +83036,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
         return
 
     # 최대 3개까지만 보관
@@ -83700,6 +84059,30 @@ def store_passive_item(item_data):
                 print(f"발할라의 전갑 효과 적용 오류: {e}")
         # 전설 아이템 획득 애니메이션 트리거 (매 획득 시 재생)
         trigger_legendary_acquisition("valhalla_warplate", "발할라의 전갑", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "horn_strawberry_mask":
+        # 뿔딸기 변신가면 전설 아이템 획득 (머리 부위 - 커맨드 입력으로 변신)
+        if not items.horn_strawberry_mask_obtained:
+            items.horn_strawberry_mask_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "horn_strawberry_mask")
+            try:
+                legendary_manager = get_legendary_manager()
+                if "horn_strawberry_mask" not in legendary_manager.unlocked_items:
+                    legendary_manager.unlocked_items.append("horn_strawberry_mask")
+                    legendary_manager.items["horn_strawberry_mask"].unlocked = True
+                from legendary_items import randomize_legendary_rolls
+                randomize_legendary_rolls("horn_strawberry_mask")
+                mask_item = legendary_manager.items.get("horn_strawberry_mask")
+                if mask_item:
+                    enhancement_pct = item_data.get("enhancement_bonus_pct", 0)
+                    mask_item.enhancement_bonus_pct = enhancement_pct
+            except Exception as e:
+                print(f"뿔딸기 변신가면 효과 적용 오류: {e}")
+        trigger_legendary_acquisition("horn_strawberry_mask", "뿔딸기 변신가면", item_icon,
                                      (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
@@ -122797,8 +123180,69 @@ def show_replay_viewer():
         pygame.display.flip()
 
 
+def _get_replay_sound_bank() -> dict[str, pygame.mixer.Sound]:
+    """리플레이 재생/내보내기에 사용하는 사운드 뱅크."""
+    bank = {name: snd for name, snd in sound_effects.items() if snd is not None}
+    try:
+        from ui.hud_display import HUDDisplay as _HUD
+        if hasattr(_HUD, '_roundset_sound') and _HUD._roundset_sound:
+            bank['ROUNDSET'] = _HUD._roundset_sound
+    except Exception:
+        pass
+    return bank
+
+
+def _parse_replay_sound_event(entry, default_volume: float) -> tuple[str | None, float]:
+    """구버전(str) / 신버전(dict{id, volume}) 사운드 이벤트를 모두 처리."""
+    sound_id = None
+    raw_volume = default_volume
+    if isinstance(entry, dict):
+        sound_id = entry.get('id') or entry.get('sound_id')
+        raw_volume = entry.get('volume', default_volume)
+    elif isinstance(entry, (list, tuple)):
+        if entry:
+            sound_id = entry[0]
+        if len(entry) > 1:
+            raw_volume = entry[1]
+    else:
+        sound_id = entry
+    try:
+        volume = float(raw_volume)
+    except Exception:
+        volume = float(default_volume)
+    return sound_id, max(0.0, volume)
+
+
+def _get_replay_bgm_name(metadata: dict) -> str | None:
+    track_name = metadata.get('bgm_track')
+    if track_name:
+        return str(track_name)
+    stage = int(metadata.get('stage', 0) or 0)
+    return {
+        1: 'stage1',
+        2: 'stage2',
+        3: 'stage3',
+        4: 'stage4',
+        5: 'stage5',
+        6: 'stage6',
+        7: 'stage7',
+        8: 'stage8',
+        50: 'tutorial',
+    }.get(stage)
+
+
+def _resolve_replay_bgm_path(metadata: dict) -> str | None:
+    bgm_name = _get_replay_bgm_name(metadata)
+    if not bgm_name:
+        return None
+    try:
+        return bgm_manager._resolve_bgm_path(bgm_name)
+    except Exception:
+        return None
+
+
 def _export_replay_to_mp4(filepath: str, status: dict):
-    """리플레이 .rpl을 MP4 영상으로 변환 (백그라운드 스레드)"""
+    """리플레이 .rpl을 MP4 영상으로 변환 (BGM + 효과음 오디오 포함)."""
     import threading as _th
 
     def _do_export():
@@ -122807,48 +123251,46 @@ def _export_replay_to_mp4(filepath: str, status: dict):
         status['done'] = False
         status['message'] = ''
 
+        temp_video = None
+        temp_audio = None
         try:
             import subprocess
+            import wave as _wave
             import zlib as _zlib
             import struct as _struct
             from replay.replay_system import _MAGIC, _read_metadata_fast, _replays_dir
 
-            # 메타데이터 읽기
             md = _read_metadata_fast(filepath)
             if not md:
                 status['message'] = "메타데이터 읽기 실패"
-                status['active'] = False
-                status['done'] = True
                 return
 
-            sw = md.get('scaled_w', 760)
-            sh = md.get('scaled_h', 750)
-            cap_fps = md.get('capture_fps', 60)
-            stage = md.get('stage', 0)
+            sw = int(md.get('scaled_w', 760) or 760)
+            sh = int(md.get('scaled_h', 750) or 750)
+            cap_fps = max(1, int(md.get('capture_fps', 60) or 60))
+            fallback_sfx_volume = float(md.get('sfx_volume', sfx_volume))
+            sound_events_raw = md.get('sound_events', {}) or {}
+            sound_events = {}
+            for key, value in sound_events_raw.items():
+                try:
+                    sound_events[int(key)] = value
+                except Exception:
+                    continue
 
-            # 출력 파일 경로
             replay_dir = _replays_dir()
             base_name = os.path.splitext(os.path.basename(filepath))[0]
             out_path = os.path.join(replay_dir, f"{base_name}.mp4")
 
-            # ffmpeg 경로
             ffmpeg_exe = os.environ.get('IMAGEIO_FFMPEG_EXE') or os.environ.get('FFMPEG_BINARY')
             if not ffmpeg_exe or not os.path.isfile(ffmpeg_exe):
                 try:
                     import imageio_ffmpeg
                     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
                 except Exception:
-                    ffmpeg_exe = 'ffmpeg'  # PATH에서 찾기
+                    ffmpeg_exe = 'ffmpeg'
 
-            # 스테이지 BGM 파일 경로 찾기
-            bgm_path = None
-            try:
-                stage_key = f"stage{stage}"
-                bgm_path = bgm_manager._resolve_bgm_path(stage_key)
-            except Exception:
-                pass
+            bgm_path = _resolve_replay_bgm_path(md)
 
-            # 1단계: 영상만 임시 파일로 생성
             temp_video = out_path + ".tmp_video.mp4"
             cmd_video = [
                 ffmpeg_exe,
@@ -122865,40 +123307,43 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                 '-pix_fmt', 'yuv420p',
                 temp_video,
             ]
+            proc = subprocess.Popen(
+                cmd_video,
+                stdin=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
 
-            proc = subprocess.Popen(cmd_video, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-
-            # 프레임 인덱스 스캔
+            frame_positions = []
             with open(filepath, 'rb') as f:
                 magic = f.read(4)
                 if magic != _MAGIC:
                     status['message'] = "잘못된 파일"
-                    status['active'] = False
-                    status['done'] = True
+                    if proc.stdin:
+                        proc.stdin.close()
+                    proc.wait(timeout=10)
                     return
                 f.read(4)
 
-                frame_positions = []
                 while True:
-                    sb = f.read(4)
-                    if len(sb) < 4:
+                    size_bytes = f.read(4)
+                    if len(size_bytes) < 4:
                         break
-                    chunk_size = _struct.unpack('I', sb)[0]
+                    chunk_size = _struct.unpack('I', size_bytes)[0]
                     data_offset = f.tell()
                     f.seek(data_offset + chunk_size)
-                    nb = f.read(4)
-                    if len(nb) < 4:
+                    next_bytes = f.read(4)
+                    if len(next_bytes) < 4:
                         break
                     f.seek(data_offset + chunk_size)
                     frame_positions.append((data_offset, chunk_size))
 
-                total = len(frame_positions)
-                if total == 0:
-                    proc.stdin.close()
-                    proc.wait()
+                total_frames = len(frame_positions)
+                if total_frames == 0:
+                    if proc.stdin:
+                        proc.stdin.close()
+                    proc.wait(timeout=10)
                     status['message'] = "프레임 없음"
-                    status['active'] = False
-                    status['done'] = True
                     return
 
                 for idx, (offset, size) in enumerate(frame_positions):
@@ -122906,29 +123351,151 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                     compressed = f.read(size)
                     raw = _zlib.decompress(compressed)
                     try:
-                        proc.stdin.write(raw)
+                        if proc.stdin:
+                            proc.stdin.write(raw)
                     except BrokenPipeError:
                         break
-                    # 영상 인코딩 = 90%, BGM 합성 = 10%
-                    status['progress'] = (idx + 1) / total * 0.9
+                    status['progress'] = (idx + 1) / total_frames * 0.88
 
-            proc.stdin.close()
-            proc.wait(timeout=60)
-
+            if proc.stdin:
+                proc.stdin.close()
+            proc.wait(timeout=90)
             if proc.returncode != 0 or not os.path.exists(temp_video):
                 status['message'] = "영상 인코딩 실패"
                 print(f"[Replay] MP4 영상 인코딩 실패 (returncode={proc.returncode})")
                 return
 
-            # 2단계: BGM과 합성
+            duration_s = max(float(md.get('duration', 0) or 0), total_frames / cap_fps)
+            has_audio_source = bool(sound_events)
             if bgm_path and os.path.exists(bgm_path):
-                status['progress'] = 0.92
-                print(f"[Replay] BGM 합성 중: {bgm_path}")
+                has_audio_source = True
+
+            if has_audio_source:
+                status['message'] = "오디오 합성 중..."
+                status['progress'] = 0.9
+                mixer_cfg = pygame.mixer.get_init()
+                audio_rate = int(mixer_cfg[0]) if mixer_cfg else 44100
+                audio_channels = 2
+                total_samples = max(1, int(math.ceil(duration_s * audio_rate)))
+                mixed_audio = np.zeros((total_samples, audio_channels), dtype=np.float32)
+
+                def _decode_audio_file_to_float(path: str) -> np.ndarray | None:
+                    cmd = [
+                        ffmpeg_exe,
+                        '-v', 'error',
+                        '-i', path,
+                        '-vn',
+                        '-f', 's16le',
+                        '-acodec', 'pcm_s16le',
+                        '-ac', str(audio_channels),
+                        '-ar', str(audio_rate),
+                        '-',
+                    ]
+                    result = subprocess.run(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                        timeout=120,
+                    )
+                    if result.returncode != 0 or not result.stdout:
+                        return None
+                    arr = np.frombuffer(result.stdout, dtype=np.int16)
+                    if arr.size == 0:
+                        return None
+                    return arr.reshape((-1, audio_channels)).astype(np.float32) / 32768.0
+
+                def _sound_to_float(sound_obj) -> np.ndarray | None:
+                    try:
+                        arr = pygame.sndarray.array(sound_obj)
+                    except Exception:
+                        return None
+                    if arr is None or getattr(arr, 'size', 0) == 0:
+                        return None
+                    orig_dtype = arr.dtype
+                    if arr.ndim == 1:
+                        arr = arr[:, None]
+                    if np.issubdtype(orig_dtype, np.unsignedinteger):
+                        info = np.iinfo(orig_dtype)
+                        center = (info.max + 1) / 2.0
+                        arr = (arr.astype(np.float32) - center) / max(center, 1.0)
+                    elif np.issubdtype(orig_dtype, np.integer):
+                        info = np.iinfo(orig_dtype)
+                        scale = float(max(abs(info.min), info.max))
+                        arr = arr.astype(np.float32) / max(scale, 1.0)
+                    else:
+                        arr = arr.astype(np.float32)
+                    if arr.shape[1] < audio_channels:
+                        arr = np.repeat(arr, audio_channels, axis=1)
+                    elif arr.shape[1] > audio_channels:
+                        arr = arr[:, :audio_channels]
+                    return arr
+
+                if bgm_path and os.path.exists(bgm_path):
+                    bgm_audio = _decode_audio_file_to_float(bgm_path)
+                    if bgm_audio is not None and bgm_audio.size > 0:
+                        bgm_volume = float(md.get('bgm_volume', getattr(bgm_manager, 'volume', 0.4)))
+                        if bgm_audio.shape[0] < total_samples:
+                            repeat_count = (total_samples + bgm_audio.shape[0] - 1) // bgm_audio.shape[0]
+                            bgm_audio = np.tile(bgm_audio, (repeat_count, 1))
+                        mixed_audio += bgm_audio[:total_samples] * max(0.0, bgm_volume)
+                        print(f"[Replay] BGM 오디오 합성: {bgm_path}")
+
+                sound_bank = _get_replay_sound_bank()
+                sound_cache: dict[str, np.ndarray | None] = {}
+                total_events = sum(len(events) for events in sound_events.values())
+                processed_events = 0
+
+                for frame_idx in sorted(sound_events):
+                    sample_idx = int(round((frame_idx / cap_fps) * audio_rate))
+                    if sample_idx >= total_samples:
+                        processed_events += len(sound_events[frame_idx])
+                        continue
+                    for entry in sound_events[frame_idx]:
+                        sound_id, event_volume = _parse_replay_sound_event(entry, fallback_sfx_volume)
+                        processed_events += 1
+                        if not sound_id:
+                            continue
+                        snd = sound_bank.get(sound_id)
+                        if snd is None:
+                            continue
+                        if sound_id not in sound_cache:
+                            sound_cache[sound_id] = _sound_to_float(snd)
+                        snd_arr = sound_cache.get(sound_id)
+                        if snd_arr is None:
+                            continue
+                        try:
+                            base_volume = float(snd.get_volume())
+                        except Exception:
+                            base_volume = 1.0
+                        effect_arr = snd_arr * max(0.0, base_volume) * max(0.0, event_volume)
+                        end_idx = min(total_samples, sample_idx + effect_arr.shape[0])
+                        if end_idx > sample_idx:
+                            mixed_audio[sample_idx:end_idx] += effect_arr[:end_idx - sample_idx]
+                        if total_events > 0:
+                            status['progress'] = 0.9 + (processed_events / total_events) * 0.08
+
+                peak = float(np.max(np.abs(mixed_audio))) if mixed_audio.size else 0.0
+                if peak > 1.0:
+                    mixed_audio /= (peak * 1.01)
+                if peak > 0.0001:
+                    fd, temp_audio = tempfile.mkstemp(suffix=".wav")
+                    os.close(fd)
+                    pcm = np.ascontiguousarray((np.clip(mixed_audio, -1.0, 1.0) * 32767).astype(np.int16))
+                    with _wave.open(temp_audio, 'wb') as wf:
+                        wf.setnchannels(audio_channels)
+                        wf.setsampwidth(2)
+                        wf.setframerate(audio_rate)
+                        wf.writeframes(pcm.tobytes())
+                else:
+                    print("[Replay] 내보낼 오디오가 없어 무음 영상으로 저장")
+
+            status['progress'] = 0.99
+            if temp_audio and os.path.exists(temp_audio):
                 cmd_mux = [
                     ffmpeg_exe,
                     '-y',
                     '-i', temp_video,
-                    '-i', bgm_path,
+                    '-i', temp_audio,
                     '-c:v', 'copy',
                     '-c:a', 'aac',
                     '-b:a', '192k',
@@ -122936,36 +123503,49 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                     '-movflags', '+faststart',
                     out_path,
                 ]
-                mux_result = subprocess.run(cmd_mux, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, timeout=60)
-                # 임시 파일 삭제
-                try:
-                    os.remove(temp_video)
-                except Exception:
-                    pass
-
+                mux_result = subprocess.run(
+                    cmd_mux,
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    timeout=120,
+                )
                 if mux_result.returncode == 0 and os.path.exists(out_path):
-                    status['progress'] = 1.0
+                    try:
+                        os.remove(temp_video)
+                    except Exception:
+                        pass
                     size_mb = os.path.getsize(out_path) / (1024 * 1024)
-                    status['message'] = f"저장 완료! ({size_mb:.0f}MB)"
-                    print(f"[Replay] MP4+BGM 저장 완료: {out_path} ({size_mb:.1f}MB)")
+                    status['progress'] = 1.0
+                    status['message'] = f"저장 완료! ({size_mb:.0f}MB, 오디오 포함)"
+                    print(f"[Replay] MP4 저장 완료 (오디오 포함): {out_path} ({size_mb:.1f}MB)")
                 else:
-                    # BGM 합성 실패 시 영상만이라도 저장
-                    if os.path.exists(temp_video):
-                        os.rename(temp_video, out_path)
-                    status['message'] = "저장 완료 (BGM 없음)"
-                    print(f"[Replay] BGM 합성 실패, 영상만 저장")
+                    os.replace(temp_video, out_path)
+                    size_mb = os.path.getsize(out_path) / (1024 * 1024)
+                    status['progress'] = 1.0
+                    status['message'] = f"저장 완료! ({size_mb:.0f}MB, 영상만)"
+                    print("[Replay] 오디오 mux 실패, 영상만 저장")
             else:
-                # BGM 없으면 영상만 최종 파일로
-                os.rename(temp_video, out_path)
+                os.replace(temp_video, out_path)
                 size_mb = os.path.getsize(out_path) / (1024 * 1024)
-                status['message'] = f"저장 완료! ({size_mb:.0f}MB)"
-                print(f"[Replay] MP4 저장 완료 (BGM 없음): {out_path} ({size_mb:.1f}MB)")
+                status['progress'] = 1.0
+                status['message'] = f"저장 완료! ({size_mb:.0f}MB, 영상만)"
+                print(f"[Replay] MP4 저장 완료 (영상만): {out_path} ({size_mb:.1f}MB)")
 
         except Exception as e:
             status['message'] = f"오류: {e}"
             print(f"[Replay] MP4 변환 오류: {e}")
             import traceback; traceback.print_exc()
         finally:
+            if temp_audio and os.path.exists(temp_audio):
+                try:
+                    os.remove(temp_audio)
+                except Exception:
+                    pass
+            if temp_video and os.path.exists(temp_video):
+                try:
+                    os.remove(temp_video)
+                except Exception:
+                    pass
             status['active'] = False
             status['done'] = True
 
@@ -122995,14 +123575,8 @@ def _play_replay(filepath: str):
     # 🔊 사운드 이벤트 트랙 로드
     sound_events = rp.metadata.get('sound_events', {})
     sound_events = {int(k): v for k, v in sound_events.items()}
-    _replay_sounds = dict(sound_effects)
-    # 전광판 사운드는 sound_effects에 없으므로 수동 추가
-    try:
-        from ui.hud_display import HUDDisplay as _HUD
-        if hasattr(_HUD, '_roundset_sound') and _HUD._roundset_sound:
-            _replay_sounds['ROUNDSET'] = _HUD._roundset_sound
-    except Exception:
-        pass
+    _replay_sounds = _get_replay_sound_bank()
+    _default_replay_sfx_volume = float(rp.metadata.get('sfx_volume', sfx_volume))
     _last_played_frame = -1
 
     # 🎵 스테이지 BGM 재생
@@ -123097,11 +123671,12 @@ def _play_replay(filepath: str):
         cur_idx = rp.current_index
         if cur_idx != _last_played_frame and cur_idx in sound_events and rp.playing:
             _last_played_frame = cur_idx
-            for sid in sound_events[cur_idx]:
+            for entry in sound_events[cur_idx]:
+                sid, replay_volume = _parse_replay_sound_event(entry, _default_replay_sfx_volume)
                 snd = _replay_sounds.get(sid)
                 if snd:
                     try:
-                        play_sound_with_volume(snd)
+                        play_sound_with_volume(snd, replay_volume)
                     except Exception:
                         pass
         if surf is None and not rp.playing and not rp.paused:
@@ -134066,7 +134641,7 @@ def show_item_manager_menu():
 
     # 전설 아이템 부위별 분류
     LEGENDARY_SLOT_ORDER = [
-        ("머리", ["transcendent_crown"]),
+        ("머리", ["transcendent_crown", "horn_strawberry_mask"]),
         ("상의", ["valhalla_warplate"]),
         ("팔", ["ragnarok_hammer", "poseidon_trident"]),
         ("등", ["pandora_legacy"]),
@@ -137046,6 +137621,24 @@ def get_item_icon(item_name):
                                         (cx - ICON_SIZE//4, cy - ICON_SIZE//3, ICON_SIZE//2, ICON_SIZE*2//3),
                                         border_radius=ICON_SIZE//8)
                         pygame.draw.circle(icon_surface, gold, (cx, cy), ICON_SIZE//8)
+                elif lookup_name == "horn_strawberry_mask":
+                    # 뿔딸기 변신가면 - 애니메이션 프레임 사용
+                    if hasattr(legendary_item, 'animation_frames') and legendary_item.animation_frames:
+                        frame = legendary_item.animation_frames[0]
+                        scaled_frame = pygame.transform.scale(frame, (ICON_SIZE, ICON_SIZE))
+                        icon_surface.blit(scaled_frame, (0, 0))
+                    elif hasattr(legendary_item, 'draw_icon'):
+                        legendary_item.draw_icon(icon_surface, 0, 0, ICON_SIZE)
+                    else:
+                        # 폴백: 딸기 아이콘
+                        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+                        pygame.draw.ellipse(icon_surface, (220, 40, 50),
+                                           (cx - ICON_SIZE//3, cy - ICON_SIZE//4, ICON_SIZE*2//3, ICON_SIZE//2))
+                        for side in [-1, 1]:
+                            pts = [(cx + side * ICON_SIZE//6, cy - ICON_SIZE//4),
+                                   (cx + side * ICON_SIZE//5, cy - ICON_SIZE//4),
+                                   (cx + side * ICON_SIZE//6, cy - ICON_SIZE//2)]
+                            pygame.draw.polygon(icon_surface, (50, 150, 40), pts)
 
                 icon_cache[item_name] = icon_surface
                 return icon_surface
@@ -149849,6 +150442,11 @@ def handle_ball():
         except Exception:
             pass
 
+        # 뿔딸기 변신 중 공 타격 시 게이지 회복
+        _hs_gauge_bonus2 = get_horn_strawberry_gauge_on_hit()
+        if _hs_gauge_bonus2 > 0:
+            special_gauge = min(special_gauge + _hs_gauge_bonus2, get_max_gauge())
+
         # 실전 튜토리얼: 플레이어가 공을 맞춤 (주니어리그에서 첫 히트 시 튜토리얼 시작)
         if ai_mode == "junior":  # 주니어리그
             on_player_hit_ball_for_tutorial()
@@ -157471,6 +158069,12 @@ def show_result(won):
             get_valhalla_warplate_state().reset()
         except Exception:
             pass
+        # 뿔딸기 변신가면 상태 초기화
+        try:
+            from item_effects.horn_strawberry_mask import reset_transform_state
+            reset_transform_state()
+        except Exception:
+            pass
         # 뼈대 스프라이트 스킨 초기화 (아이템 외형 리셋)
         _reset_skeletal_skin()
         show_start_screen()
@@ -158696,6 +159300,14 @@ def main(stage_num, new_boss_mode=False):
         # 튜토리얼 BGM 재생
         bgm_manager.play_stage_bgm(50)
     
+    try:
+        if _replay_rec.recording:
+            _replay_rec.metadata['bgm_track'] = getattr(bgm_manager, 'current_bgm', '')
+            _replay_rec.metadata['bgm_volume'] = float(getattr(bgm_manager, 'volume', 0.4))
+            _replay_rec.metadata['sfx_volume'] = float(sfx_volume)
+    except Exception:
+        pass
+
     # round_start_time 초기화 (게임 시작 시)
     global round_start_time
     round_start_time = pygame.time.get_ticks()
@@ -159760,6 +160372,12 @@ def main(stage_num, new_boss_mode=False):
             try:
                 from item_effects.valhalla_warplate import get_valhalla_warplate_state
                 get_valhalla_warplate_state().reset()
+            except Exception:
+                pass
+            # 뿔딸기 변신가면 상태 초기화 (ESC 메뉴로 메인 복귀 시)
+            try:
+                from item_effects.horn_strawberry_mask import reset_transform_state
+                reset_transform_state()
             except Exception:
                 pass
 
@@ -167150,6 +167768,14 @@ def main(stage_num, new_boss_mode=False):
         except Exception:
             pass
 
+        # 🍓 뿔딸기 변신가면 오버레이 (flip 직전)
+        try:
+            _hs_keys = pygame.key.get_pressed()
+            update_horn_strawberry_transform(_hs_keys, 1.0 / 60.0)
+            draw_horn_strawberry_effects(SCREEN)
+        except Exception:
+            pass
+
         # 🎬 리플레이 캡처는 flip 래퍼 내부에서 수행 (최종 합성 후)
         pygame.display.flip()
         # 프로파일러 프레임 종료
@@ -169024,6 +169650,15 @@ def show_character_info(background_surface=None):
         recovery_boost = get_recovery_speed_boost_multiplier()
         if recovery_boost > 1.0:
             move_speed *= recovery_boost
+
+        # 🍓 뿔딸기 변신 중 이동속도 오버라이드
+        _hs_speed = get_horn_strawberry_move_speed()
+        if _hs_speed is not None:
+            move_speed = _hs_speed
+        # 🍓 딸기먹기 중 이동 불가
+        _hs_ts = _get_horn_strawberry_transform()
+        if _hs_ts and _hs_ts.is_transformed and _hs_ts.strawberry_eat.eating:
+            move_speed = 0.0
 
         # 🧪 기묘한 약병 이동속도 배율 반영
         if strange_vial_active and strange_vial_speed_mult != 1.0:
@@ -171507,7 +172142,7 @@ def get_item_name_korean(item_name):
         "ragnarok_hammer": "라그나로크 해머", "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창", "angel_blessing": "천사의 주사위",
         "sacred_laurel": "신성 월계수", "transcendent_crown": "초월자의 관",
-        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "megingjord": "메긴교르드", "valhalla_warplate": "발할라의 전갑", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
+        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "megingjord": "메긴교르드", "valhalla_warplate": "발할라의 전갑", "horn_strawberry_mask": "뿔딸기 변신가면", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
         "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
@@ -171610,6 +172245,7 @@ def get_item_description(item_name):
         "pandora_legacy": "판도라의 유산: 초고대문명의 과학자가 남긴 유물, 게임에서 승리 시 일정확률로 '판도라의 유산'이 작동하며 원하는 엑티브아이템을 고를 수 있습니다.",
         "megingjord": "메긴교르드: 토르의 힘의 깃든 벨트. 퍽 선택 화면에서 퍽을 고른 후 일정 확률로 한 번 더 고를 수 있는 기회가 주어집니다. 최대 연속 2회 발동됩니다",
         "valhalla_warplate": "발할라의 전갑: 고대 전사의 영광이 깃든 신성한 갑옷. 공을 타격시 일정 확률로 발할라의 영웅이 호위무사로 소환됩니다.",
+        "horn_strawberry_mask": "뿔딸기 변신가면: 희귀한 뿔딸기를 본뜬 신화의 가면. 장착 후 A→W→D 커맨드 입력으로 뿔딸기로 변신! 변신 중 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30. 전용 스킬: 뿔박치기(W, 300게이지, 쿨20초), 딸기장판(S홀드 1초, 100게이지, 쿨10초), 딸기먹기(Space, 게이지150회복+대시토큰1+꼭지투척, 쿨0.8초).",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",

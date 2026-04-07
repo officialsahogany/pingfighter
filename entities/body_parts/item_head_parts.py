@@ -457,3 +457,98 @@ class DowsingGogglesPart(BodyPart):
         glow_pulse = 0.6 + 0.4 * math.sin(phase * math.tau * 2.0)
         glow_r = max(2, int(0.25 * b * glow_pulse))
         pygame.draw.circle(surface, (100, 255, 220), (hx, ant_tip_y), glow_r)
+
+
+class HornStrawberryMaskPart(BodyPart):
+    """뿔딸기 변신가면 (horn_strawberry_mask).
+
+    딸기 모양의 빨간 가면 + 초록 뿔 2개.
+    효과: 커맨드 입력으로 뿔딸기 변신 해금.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_HEAD,
+            draw_order=ORDER_HEAD,
+            joint_a="head",
+            joint_b=None,
+        )
+        self.block = block
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        b = self.block
+        hx, hy = joint_a.world_int()
+
+        # 색상
+        strawberry_red = (220, 40, 50)
+        strawberry_dark = (180, 20, 30)
+        strawberry_light = (240, 70, 70)
+        green_mid = (50, 150, 40)
+        green_dark = (30, 100, 20)
+        green_bright = (80, 200, 60)
+        seed_color = (240, 220, 100)
+        gold = (210, 170, 20)
+
+        # ── 가면 본체 (딸기 타원) ──
+        mask_w = int(3.0 * b)
+        mask_h = int(2.8 * b)
+        mask_x = hx - mask_w // 2
+        mask_y = hy - mask_h // 2 - int(0.3 * b)
+
+        # 그림자
+        pygame.draw.ellipse(surface, (100, 10, 15),
+                           (mask_x + 1, mask_y + 2, mask_w, mask_h))
+        # 본체
+        pygame.draw.ellipse(surface, strawberry_red,
+                           (mask_x, mask_y, mask_w, mask_h))
+        # 하이라이트
+        pygame.draw.ellipse(surface, strawberry_light,
+                           (mask_x + 2, mask_y + 2, mask_w - 4, mask_h // 2))
+        # 외곽선
+        pygame.draw.ellipse(surface, strawberry_dark,
+                           (mask_x, mask_y, mask_w, mask_h), 1)
+
+        # ── 씨앗 (노란 점) ──
+        import random as _rng
+        _rng.seed(77)
+        for _ in range(5):
+            sx = mask_x + 3 + _rng.randint(0, max(1, mask_w - 6))
+            sy = mask_y + 4 + _rng.randint(0, max(1, mask_h - 8))
+            dx = (sx - hx) / (mask_w / 2)
+            dy = (sy - (hy - int(0.3 * b))) / (mask_h / 2)
+            if dx * dx + dy * dy < 0.6:
+                pygame.draw.ellipse(surface, seed_color, (sx, sy, 2, 2))
+
+        # ── 뿔 2개 (초록 꼭지) ──
+        horn_base_y = mask_y - 1
+        sway = math.sin(phase * math.tau) * 1.5
+        for side in [-1, 1]:
+            horn_x = hx + side * int(0.8 * b)
+            pts = [
+                (horn_x - 2, horn_base_y),
+                (horn_x + 2, horn_base_y),
+                (int(horn_x + sway * side), horn_base_y - int(1.5 * b)),
+            ]
+            pygame.draw.polygon(surface, green_mid, pts)
+            pygame.draw.polygon(surface, green_dark, pts, 1)
+            # 뿔 하이라이트
+            pts_hi = [
+                (horn_x, horn_base_y - 1),
+                (horn_x + 1, horn_base_y - 1),
+                (int(horn_x + sway * side * 0.5), horn_base_y - int(1.0 * b)),
+            ]
+            pygame.draw.polygon(surface, green_bright, pts_hi)
+
+        # ── 눈구멍 ──
+        eye_y = hy - int(0.1 * b)
+        for ex_side in [-1, 1]:
+            eye_x = hx + ex_side * int(0.6 * b)
+            pygame.draw.ellipse(surface, (30, 5, 5),
+                               (eye_x - 2, eye_y - 2, 4, 3))
+            pygame.draw.circle(surface, (200, 200, 200), (eye_x - 1, eye_y - 1), 1)
+
+        # ── 금색 테두리 장식 ──
+        pygame.draw.ellipse(surface, gold,
+                           (mask_x - 1, mask_y - 1, mask_w + 2, mask_h + 2), 1)

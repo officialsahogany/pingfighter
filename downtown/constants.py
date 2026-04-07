@@ -560,6 +560,7 @@ LEGENDARY_ITEM_NAMES = {
     "pandora_legacy",
     "megingjord",
     "valhalla_warplate",
+    "horn_strawberry_mask",
 }
 
 # 강화 애니메이션 시간 (초)

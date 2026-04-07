@@ -105,6 +105,11 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "summon_chance", "label": "영웅 소환 확률", "min": 8, "max": 15, "unit": "%", "default": 10},
         {"key": "gauge_cost", "label": "게이지 소모", "min": 30, "max": 60, "unit": "", "default": 45, "reverse": True},
     ],
+    "horn_strawberry_mask": [
+        {"key": "transform_duration", "label": "변신 지속시간", "min": 50, "max": 70, "unit": "초", "default": 60, "step": 5},
+        {"key": "gauge_cost", "label": "변신 게이지 소모", "min": 200, "max": 350, "unit": "", "default": 300, "reverse": True},
+        {"key": "paddle_size_bonus", "label": "패들 크기 증가", "min": 20, "max": 40, "unit": "%", "default": 30},
+    ],
 }
 
 # 전설 아이템 롤 값 저장소 (아이템명 -> {옵션키: 값})
@@ -11624,7 +11629,7 @@ class PandoraLegacy(LegendaryItem):
             "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
             "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel",
             "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
-            "valhalla_warplate",
+            "valhalla_warplate", "horn_strawberry_mask",
             "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
             "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
             "venom_mist_gauntlet", "dowsing_goggles"
@@ -12552,6 +12557,317 @@ class ValhallaWarplate(LegendaryItem):
         pygame.draw.circle(screen, gold, (cx, cy), int(4*s))
 
 
+class HornStrawberryMask(LegendaryItem):
+    """뿔딸기 변신가면 - 머리 부위 전설 아이템
+
+    커맨드 입력(A→W→D, 1.5초 이내)으로 게이지 소모 후 60초간 뿔딸기로 변신.
+    변신 중: 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30
+    전용 스킬 3종: 뿔박치기(W), 딸기장판(S홀드), 딸기먹기(Space/마우스)
+
+    롤 옵션: 변신 지속시간 50~70초, 게이지 소모 200~350, 패들 크기 증가 20~40%
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="horn_strawberry_mask",
+            korean_name="뿔딸기 변신가면",
+            description="커맨드 입력으로 뿔딸기 변신! 전용 스킬 3종 해금",
+            unlock_condition="전설 아이템 획득",
+            icon_path=None
+        )
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+
+        # 애니메이션 프레임 설정
+        self.animation_frames = []
+        self.border_frames = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8
+        self._create_default_animation()
+        self._load_border_frames()
+
+        # 테마 파티클 시스템 (딸기 씨앗 + 잎 파티클)
+        self.theme_particles = []
+
+    @property
+    def transform_duration(self) -> float:
+        """변신 지속시간 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value(
+            "horn_strawberry_mask",
+            "transform_duration",
+            apply_polish=True,
+            enhancement_bonus_pct=self.enhancement_bonus_pct
+        )
+
+    @property
+    def gauge_cost(self) -> float:
+        """변신 게이지 소모량 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value(
+            "horn_strawberry_mask",
+            "gauge_cost",
+            apply_polish=True,
+            enhancement_bonus_pct=self.enhancement_bonus_pct
+        )
+
+    @property
+    def paddle_size_bonus(self) -> float:
+        """패들 크기 증가 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value(
+            "horn_strawberry_mask",
+            "paddle_size_bonus",
+            apply_polish=True,
+            enhancement_bonus_pct=self.enhancement_bonus_pct
+        )
+
+    def _load_border_frames(self):
+        """라그나로크 해머 PNG에서 4꼭지점만 추출한 프레임 로드"""
+        self.border_frames = []
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                frame = pygame.image.load(frame_path).convert_alpha()
+                cleaned = _strip_legendary_red_ring(frame)
+                corners_only = self._extract_corners(cleaned)
+                self.border_frames.append(corners_only)
+            except Exception:
+                self.border_frames.append(None)
+
+    @staticmethod
+    def _extract_corners(frame: pygame.Surface) -> pygame.Surface:
+        """프레임에서 4꼭지점 영역만 보존"""
+        if frame is None:
+            return None
+        w, h = frame.get_size()
+        result = pygame.Surface((w, h), pygame.SRCALPHA)
+        cs = 4
+        for rect in [
+            pygame.Rect(0, 0, cs, cs),
+            pygame.Rect(w - cs, 0, cs, cs),
+            pygame.Rect(0, h - cs, cs, cs),
+            pygame.Rect(w - cs, h - cs, cs, cs),
+        ]:
+            result.blit(frame, rect.topleft, rect)
+        return result
+
+    def _create_default_animation(self):
+        """뿔딸기 변신가면 고퀄리티 아이콘 애니메이션 (8프레임) - 딸기 가면 + 뿔"""
+        self.animation_frames = []
+        sz = 60
+
+        for fi in range(8):
+            frame = pygame.Surface((sz, sz), pygame.SRCALPHA)
+            phase = fi / 8 * math.pi * 2
+            cx, cy = sz // 2, sz // 2
+
+            # ── 색상 팔레트 (딸기 레드 + 초록 뿔) ──
+            strawberry_dark = (180, 20, 30)
+            strawberry_mid = (220, 40, 50)
+            strawberry_light = (240, 70, 70)
+            strawberry_highlight = (255, 120, 120)
+            green_dark = (30, 100, 20)
+            green_mid = (50, 150, 40)
+            green_bright = (80, 200, 60)
+            green_highlight = (120, 230, 100)
+            seed_color = (240, 220, 100)  # 씨앗 노란색
+            mask_gold = (210, 170, 20)
+            mask_gold_bright = (250, 215, 50)
+
+            # 프레임별 발광 펄스
+            pulse = (math.sin(phase) + 1) / 2
+
+            # ── 가면 본체 (딸기 모양 타원) ──
+            body_w, body_h = 30, 34
+            body_x = cx - body_w // 2
+            body_y = cy - body_h // 2 + 4
+
+            # 그림자
+            pygame.draw.ellipse(frame, (100, 10, 15),
+                              (body_x + 1, body_y + 2, body_w, body_h))
+            # 본체 (딸기 레드)
+            pygame.draw.ellipse(frame, strawberry_mid,
+                              (body_x, body_y, body_w, body_h))
+            # 상부 하이라이트
+            pygame.draw.ellipse(frame, strawberry_light,
+                              (body_x + 3, body_y + 2, body_w - 6, body_h // 2))
+            pygame.draw.ellipse(frame, strawberry_highlight,
+                              (body_x + 6, body_y + 3, body_w - 12, 8))
+            # 외곽선
+            pygame.draw.ellipse(frame, strawberry_dark,
+                              (body_x, body_y, body_w, body_h), 1)
+
+            # ── 딸기 씨앗 (노란 점들) ──
+            import random as _rng
+            _rng.seed(42 + fi)  # 프레임별 일관된 씨앗 위치
+            for _ in range(8):
+                sx = body_x + 5 + _rng.randint(0, body_w - 10)
+                sy = body_y + 6 + _rng.randint(0, body_h - 12)
+                # 타원 안에 있는지 대략 확인
+                dx = (sx - cx) / (body_w / 2)
+                dy = (sy - (cy + 4)) / (body_h / 2)
+                if dx * dx + dy * dy < 0.75:
+                    seed_bright = int(200 + 40 * pulse)
+                    pygame.draw.ellipse(frame, (seed_bright, seed_bright - 20, 60),
+                                       (sx, sy, 3, 2))
+
+            # ── 뿔 2개 (초록 꼭지) ──
+            horn_y_base = body_y - 2
+            for hx_offset in [-8, 8]:
+                horn_x = cx + hx_offset
+                # 뿔 움직임 (프레임별 미세 흔들림)
+                horn_sway = math.sin(phase + hx_offset * 0.5) * 1.5
+
+                # 뿔 본체 (초록 삼각형)
+                pts = [
+                    (horn_x - 3, horn_y_base),
+                    (horn_x + 3, horn_y_base),
+                    (horn_x + horn_sway, horn_y_base - 14),
+                ]
+                pygame.draw.polygon(frame, green_mid, pts)
+                pygame.draw.polygon(frame, green_dark, pts, 1)
+                # 뿔 하이라이트
+                pts_hi = [
+                    (horn_x - 1, horn_y_base - 1),
+                    (horn_x + 1, horn_y_base - 1),
+                    (horn_x + horn_sway * 0.5, horn_y_base - 10),
+                ]
+                pygame.draw.polygon(frame, green_bright, pts_hi)
+
+            # ── 가면 눈구멍 (두 개의 검은 타원) ──
+            eye_y = cy + 2
+            for ex_offset in [-6, 6]:
+                eye_x = cx + ex_offset
+                # 눈구멍 (어두운 타원)
+                pygame.draw.ellipse(frame, (30, 5, 5), (eye_x - 3, eye_y - 2, 6, 5))
+                # 눈 광채 (작은 하얀 점)
+                glow_alpha = int(180 + 75 * pulse)
+                pygame.draw.circle(frame, (glow_alpha, glow_alpha, glow_alpha),
+                                  (eye_x - 1, eye_y - 1), 1)
+
+            # ── 가면 테두리 장식 (금색) ──
+            pygame.draw.ellipse(frame, mask_gold,
+                              (body_x - 1, body_y - 1, body_w + 2, body_h + 2), 2)
+            # 이마 장식 (금색 곡선)
+            gold_glow = int(170 + 80 * pulse)
+            pygame.draw.arc(frame, (gold_glow, gold_glow - 40, 10),
+                           (body_x + 4, body_y + body_h - 10, body_w - 8, 8),
+                           0, math.pi, 2)
+
+            self.animation_frames.append(frame)
+
+    def activate(self, game_state: Dict):
+        """변신가면 활성화 (장착 시)"""
+        self.active = True
+
+    def deactivate(self):
+        """변신가면 비활성화"""
+        self.active = False
+
+    def update(self, dt: float, ui_mode: bool = False):
+        """애니메이션 + 테마 파티클 업데이트"""
+        super().update(dt, ui_mode)
+
+        # 테마 파티클 업데이트
+        alive = []
+        for p in self.theme_particles:
+            p["life"] -= 1
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] += 0.05  # 중력
+            if p["life"] > 0:
+                alive.append(p)
+        self.theme_particles = alive
+
+        # 파티클 자동 생성 (UI 모드에서만)
+        if ui_mode and self.particle_timer > 0.3:
+            self.particle_timer = 0
+            self._spawn_theme_particle()
+
+    def _spawn_theme_particle(self):
+        """딸기 테마 파티클 생성 (씨앗 + 작은 잎)"""
+        import random
+        for _ in range(2):
+            ptype = random.choice(["seed", "leaf", "sparkle"])
+            self.theme_particles.append({
+                "x": random.uniform(-20, 20),
+                "y": random.uniform(-20, 10),
+                "vx": random.uniform(-0.8, 0.8),
+                "vy": random.uniform(-1.5, -0.3),
+                "life": random.randint(25, 45),
+                "max_life": 45,
+                "type": ptype,
+                "size": random.uniform(2, 4),
+                "rot": random.uniform(0, math.pi * 2),
+            })
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """애니메이션 아이콘 그리기 - 공통 전설 프레임 + 뿔딸기 가면"""
+        # 공통 전설 프레임 (파란 글로우 + 붉은 내부 테두리)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        frame_y = y + frame_offset
+
+        # 4꼭지점 테두리 프레임
+        if self.border_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.border_frames)
+            bf = self.border_frames[self.current_frame % len(self.border_frames)]
+            if bf:
+                scaled = pygame.transform.scale(bf, (size, size))
+                screen.blit(scaled, (x, frame_y))
+
+        # 뿔딸기 가면 아이콘 (애니메이션 프레임)
+        if self.animation_frames:
+            af_idx = self.current_frame % len(self.animation_frames)
+            anim_frame = self.animation_frames[af_idx]
+            scaled_icon = pygame.transform.smoothscale(anim_frame, (size, size))
+            screen.blit(scaled_icon, (x, frame_y))
+
+        # 테마 파티클 렌더링
+        pcx, pcy = x + size // 2, frame_y + size // 2
+        for p in self.theme_particles:
+            alpha = max(0, min(255, int(255 * p["life"] / p["max_life"])))
+            px = int(pcx + p["x"])
+            py = int(pcy + p["y"])
+            ps = max(1, int(p["size"]))
+            if p["type"] == "seed":
+                c = (240, 220, 100, alpha)
+                s = pygame.Surface((ps + 2, ps), pygame.SRCALPHA)
+                pygame.draw.ellipse(s, c, (0, 0, ps + 2, ps))
+                screen.blit(s, (px, py))
+            elif p["type"] == "leaf":
+                c = (80, 200, 60, alpha)
+                s = pygame.Surface((ps + 1, ps + 3), pygame.SRCALPHA)
+                pygame.draw.ellipse(s, c, (0, 0, ps + 1, ps + 3))
+                screen.blit(s, (px, py))
+            else:  # sparkle
+                c = (255, 150, 150, alpha)
+                s = pygame.Surface((ps, ps), pygame.SRCALPHA)
+                pygame.draw.circle(s, c, (ps // 2, ps // 2), ps // 2)
+                screen.blit(s, (px, py))
+
+        # 테두리 + 모서리 장식 최상단
+        _draw_legendary_border_and_corners(screen, x, frame_y, size)
+
+    def _draw_fallback_icon(self, screen, x, y, size):
+        """폴백 딸기 아이콘"""
+        cx, cy = x + size // 2, y + size // 2
+        s = size / 32
+        red = (220, 40, 50)
+        green = (50, 150, 40)
+        # 딸기 본체
+        pygame.draw.ellipse(screen, red,
+                           (int(cx - 9*s), int(cy - 8*s), int(18*s), int(20*s)))
+        # 뿔
+        for side in [-1, 1]:
+            pts = [
+                (int(cx + side * 5*s), int(cy - 8*s)),
+                (int(cx + side * 7*s), int(cy - 8*s)),
+                (int(cx + side * 6*s), int(cy - 16*s)),
+            ]
+            pygame.draw.polygon(screen, green, pts)
+
+
 # 전설 아이템 관리자
 class LegendaryItemManager:
     """전설 아이템 시스템 관리"""
@@ -12579,6 +12895,7 @@ class LegendaryItemManager:
         self.items["pandora_legacy"] = PandoraLegacy()
         self.items["megingjord"] = Megingjord()
         self.items["valhalla_warplate"] = ValhallaWarplate()
+        self.items["horn_strawberry_mask"] = HornStrawberryMask()
 
         placeholder_defs = [
             ("empty_legendary", "빈전설"),
@@ -12635,6 +12952,10 @@ class LegendaryItemManager:
         if "valhalla_warplate" not in self.unlocked_items:
             self.unlocked_items.append("valhalla_warplate")
 
+        self.items["horn_strawberry_mask"].unlocked = True
+        if "horn_strawberry_mask" not in self.unlocked_items:
+            self.unlocked_items.append("horn_strawberry_mask")
+
         for name, _ in placeholder_defs:
             if name not in self.unlocked_items:
                 self.unlocked_items.append(name)
@@ -12677,6 +12998,9 @@ class LegendaryItemManager:
         # 발할라의 전갑 초기화
         if "valhalla_warplate" not in self.items:
             self.items["valhalla_warplate"] = ValhallaWarplate()
+        # 뿔딸기 변신가면 초기화
+        if "horn_strawberry_mask" not in self.items:
+            self.items["horn_strawberry_mask"] = HornStrawberryMask()
         # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):
