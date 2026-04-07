@@ -22205,6 +22205,7 @@ def update_horn_strawberry_transform(keys, dt):
     if ts.is_transformed:
         # 변신 중 스킬 입력 처리
         _handle_strawberry_skills(keys, ts, dt)
+        _apply_horn_strawberry_horn_charge_runtime(ts)
 
         # 딸기 꼭지 투사체 ↔ 보스 충돌 체크
         if BOSS and ts.strawberry_eat.projectiles:
@@ -22232,16 +22233,15 @@ def _handle_strawberry_skills(keys, ts, dt):
     w_pressed = keys[pygame.K_w]
     if w_pressed and ts.horn_charge.can_use(special_gauge):
         def _consume(amount):
+            if special_gauge < amount:
+                return False
             consume_special_gauge(amount)
             return True
-        player_y = PLAYER.y if PLAYER else 710
-        ts.horn_charge.activate(player_y, _consume)
+        ts.horn_charge.activate(PLAYER, BOSS, BALL, ball_vel, _consume, play_cached_sound)
 
     # 뿔박치기 업데이트
-    if ts.horn_charge.active and PLAYER:
-        y_off, x_off, apply_kb, is_stunned = ts.horn_charge.update(
-            dt, PLAYER.centerx, PLAYER.y)
-        # y_offset 적용은 렌더링에서 처리
+    if ts.horn_charge.needs_runtime_update():
+        ts.horn_charge.update(dt, PLAYER, BOSS, BALL, ball_vel)
 
     # S키: 딸기장판 홀드
     s_pressed = keys[pygame.K_s]
@@ -22251,11 +22251,11 @@ def _handle_strawberry_skills(keys, ts, dt):
         if ts.strawberry_field.holding:
             def _consume_field(amount):
                 consume_special_gauge(amount)
-            px = PLAYER.centerx if PLAYER else 380
-            py = PLAYER.y if PLAYER else 710
-            ts.strawberry_field.update_hold(dt, special_gauge, _consume_field, px, py)
+            ts.strawberry_field.update_hold(dt, special_gauge, _consume_field, PLAYER, BOSS, BALL, ball_vel)
     else:
         ts.strawberry_field.release_hold()
+    if ts.strawberry_field.needs_runtime_update():
+        ts.strawberry_field.update(dt, PLAYER, BOSS, BALL, ball_vel)
 
     # Space/클릭: 딸기먹기
     space_pressed = keys[pygame.K_SPACE]
@@ -22305,6 +22305,137 @@ def is_horn_strawberry_event_playing():
     ts = _get_horn_strawberry_transform()
     return ts is not None and ts.is_event_playing
 
+
+def is_horn_strawberry_control_locked():
+    """뿔박치기 연출 중에는 플레이어 직접 입력을 잠근다."""
+    ts = _get_horn_strawberry_transform()
+    return bool(ts and ts.is_transformed and getattr(ts.horn_charge, "active", False))
+
+
+def is_horn_strawberry_charge_visual_locked():
+    """돌진/복귀 중에는 스턴 별을 숨기고, 실제 기절 단계만 별을 보여준다."""
+    ts = _get_horn_strawberry_transform()
+    if not ts or not ts.is_transformed or not getattr(ts.horn_charge, "active", False):
+        return False
+    _gs = getattr(ts.horn_charge, "game_state", {})
+    return not _gs.get("bottom_paddle_stunned", False)
+
+
+def _apply_horn_strawberry_horn_charge_runtime(ts):
+    """원본 HornCharge game_state를 메인 게임 전역 상태에 연결한다."""
+    global boss_knockback_vel, boss_stunned_timer, player_knockback_vel, player_stunned_timer
+    global screen_shake_timer, screen_shake_intensity
+    _gs = getattr(ts.horn_charge, "game_state", None)
+    if not _gs:
+        return
+
+    if getattr(ts.horn_charge, "active", False):
+        player_stunned_timer = max(player_stunned_timer, 2)
+
+    if _gs.get("bottom_paddle_stunned"):
+        player_stunned_timer = max(player_stunned_timer, 2)
+    if _gs.get("top_paddle_stunned"):
+        boss_stunned_timer = max(boss_stunned_timer, 2)
+
+    if _gs.get("horn_charge_apply_knockback"):
+        _kb_dir = _gs.get("horn_charge_knockback_dir", 1)
+        _kb_vel = _gs.get("horn_charge_knockback_vel", 73)
+        _target_is_top = _gs.get("horn_charge_target_is_top", True)
+
+        screen_shake_timer = 24
+        screen_shake_intensity = 35
+
+        if _target_is_top:
+            boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
+            boss_stunned_timer = max(boss_stunned_timer, 45)
+            globals()["horn_charge_boss_knockback_active"] = True
+        else:
+            player_knockback_vel = _kb_dir * _kb_vel
+            player_stunned_timer = max(player_stunned_timer, 45)
+            globals()["horn_charge_player_knockback_active"] = True
+
+        _gs["horn_charge_apply_knockback"] = False
+
+
+def _draw_horn_strawberry_charge_shockwave(screen, ts):
+    _gs = getattr(ts.horn_charge, "game_state", None)
+    if not _gs:
+        return
+    _shockwave = _gs.get("horn_charge_impact_shockwave")
+    if not (_shockwave and _shockwave.get("active")):
+        return
+
+    _sw_x = int(_shockwave["x"])
+    _sw_y = int(_shockwave["y"])
+    _rings = _shockwave.get("rings", [])
+    _max_radius = max((int(_ring["radius"]) for _ring in _rings), default=0) + 20
+    if _max_radius > 0:
+        _sw_surf = pygame.Surface((_max_radius * 2 + 40, _max_radius * 2 + 40), pygame.SRCALPHA)
+        _center = _max_radius + 20
+        for _ring in _rings:
+            _r = int(_ring["radius"])
+            _a = int(_ring["alpha"])
+            _w = _ring.get("width", 4)
+            if _r > 0 and _a > 0:
+                pygame.draw.circle(_sw_surf, (255, 80 + _r % 100, 30, _a), (_center, _center), _r, _w)
+        screen.blit(
+            _sw_surf,
+            (_sw_x - _center + screen_shake_offset_x, _sw_y - _center + screen_shake_offset_y),
+            special_flags=pygame.BLEND_ADD,
+        )
+
+    for _particle in _shockwave.get("particles", []):
+        _px = int(_particle["x"])
+        _py = int(_particle["y"])
+        _alpha = min(255, _particle["life"] * 10)
+        _size = _particle.get("size", 4)
+        if _alpha > 0:
+            _p_surf = pygame.Surface((_size * 2, _size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(_p_surf, (255, 120, 50, _alpha), (_size, _size), _size)
+            screen.blit(
+                _p_surf,
+                (_px - _size + screen_shake_offset_x, _py - _size + screen_shake_offset_y),
+                special_flags=pygame.BLEND_ADD,
+            )
+
+
+def _handle_horn_strawberry_barrier_safety_net():
+    """빠른 공이 딸기장막을 통과해도 득점 전에 한 번 더 막아준다."""
+    ts = _get_horn_strawberry_transform()
+    if ts is None:
+        return False
+
+    _barriers = getattr(ts.strawberry_field, "barriers", [])
+    for _barrier in _barriers:
+        if not _barrier.get("alive") or not _barrier.get("built"):
+            continue
+        _bx_left = int(_barrier["x"])
+        _bx_right = _bx_left + int(_barrier["width"])
+        _ball_x_overlap = (BALL.right > _bx_left and BALL.left < _bx_right)
+
+        if _barrier.get("is_top") and BALL.top <= 0 and _ball_x_overlap:
+            BALL.top = int(_barrier["y"]) + int(_barrier["height"] / 2) + 2
+            ball_vel[1] = abs(ball_vel[1]) * 1.05
+        elif (not _barrier.get("is_top")) and BALL.bottom >= HEIGHT and _ball_x_overlap:
+            BALL.bottom = int(_barrier["y"]) - int(_barrier["height"] / 2) - 2
+            ball_vel[1] = -abs(ball_vel[1]) * 1.05
+        else:
+            continue
+
+        _barrier["alive"] = False
+        try:
+            if hasattr(ts.strawberry_field, "_skill") and ts.strawberry_field._skill is not None:
+                ts.strawberry_field._skill._spawn_death_fragments(_barrier)
+        except Exception:
+            pass
+        try:
+            play_cached_sound("sounds/bonebreak.wav", 0.7)
+        except Exception:
+            pass
+        return True
+
+    return False
+
 def draw_horn_strawberry_effects(screen):
     """뿔딸기 변신 관련 모든 이펙트 그리기"""
     ts = _get_horn_strawberry_transform()
@@ -22318,14 +22449,29 @@ def draw_horn_strawberry_effects(screen):
         ts.draw_transform_event(screen, px, py)
 
     if ts.is_transformed:
+        _charge_x_offset = 0
+        _charge_y_offset = 0
+        try:
+            _charge_x_offset, _charge_y_offset = ts.horn_charge.get_draw_offsets()
+        except Exception:
+            pass
+
+        try:
+            ts.horn_charge.draw_trail(screen)
+        except Exception:
+            pass
+
         # 패들 위에 뿔딸기 캐릭터 오버레이
         if PLAYER:
-            ts.draw_strawberry_paddle(screen, PLAYER.x, PLAYER.y,
-                                     PLAYER.width, PLAYER.height)
+            ts.draw_strawberry_paddle(
+                screen,
+                int(PLAYER.x + _charge_x_offset),
+                int(PLAYER.y + _charge_y_offset),
+                PLAYER.width,
+                PLAYER.height,
+            )
 
-        # 뿔박치기 트레일
-        if ts.horn_charge.active and PLAYER:
-            ts.horn_charge.draw_trail(screen, PLAYER.centerx, PLAYER.y)
+        _draw_horn_strawberry_charge_shockwave(screen, ts)
 
         # 딸기장판
         ts.strawberry_field.draw_barriers(screen)
@@ -22350,7 +22496,7 @@ def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
     orbit_radius = orb_radius + icon_radius + 18
 
     skills = [
-        {"name": "뿔박치기", "key": "W", "color": (220, 40, 50),
+        {"name": "딸기뿔박치기", "key": "W", "color": (220, 40, 50),
          "cooldown": ts.horn_charge.cooldown, "max_cd": 20.0,
          "active": ts.horn_charge.active, "cost": 300,
          "angle": 195},
@@ -22454,7 +22600,7 @@ def draw_horn_strawberry_skill_orbs(screen):
 
     skills = [
         {
-            "name": "뿔박치기",
+            "name": "딸기뿔박치기",
             "key": "W",
             "color": (220, 40, 50),  # 딸기 레드
             "cooldown": ts.horn_charge.cooldown,
@@ -22695,14 +22841,21 @@ def play_sound_with_volume(sound, volume=None):
     if channel:
         channel.set_volume(volume)
     # 🎬 리플레이 사운드 이벤트 자동 기록
-    try:
-        rec = get_replay_recorder()
-        if rec.recording:
-            snd_name = _sound_id_map.get(id(sound))
-            if snd_name:
+    snd_name = _sound_id_map.get(id(sound))
+    if snd_name:
+        try:
+            rec = get_replay_recorder()
+            if rec.recording:
                 rec.add_sound(snd_name, volume)
-    except Exception:
-        pass
+        except Exception:
+            pass
+        # 🎬 투기장 하이라이트 사운드 기록
+        try:
+            _ahl = globals().get('_arcade_highlight_recorder')
+            if _ahl and _ahl.recording:
+                _ahl.add_sound(snd_name)
+        except Exception:
+            pass
     return channel
 
 
@@ -74903,7 +75056,8 @@ def handle_player(keys):
             and not rolling_active and not _viper_dive_active
             and not _viper_nerve_strike_active
             and (not _viper_br_spin_active or _wd_br_allow)
-            and not is_waiting_for_serve and not is_player_serve and not player_stunned):
+            and not is_waiting_for_serve and not is_player_serve and not player_stunned
+            and not is_horn_strawberry_control_locked()):
         _wd_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
         _wd_dir_held = (
             keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
@@ -75492,6 +75646,7 @@ def handle_player(keys):
             and not _dive_dir_held
             and not is_waiting_for_serve
             and not is_player_serve and not player_stunned
+            and not is_horn_strawberry_control_locked()
             and special_gauge >= _VIPER_DIVE_GAUGE_COST
             and is_viper_skill_unlocked("dive_strike")
             and get_viper_skill_cooldown_remaining("dive_strike") <= 0
@@ -76428,6 +76583,7 @@ def handle_player(keys):
             and not blacksmith_umbrella_swing_active
             and space_pressed_raw
             and not player_stunned
+            and not is_horn_strawberry_control_locked()
             and swing_stun_timer <= 0  # 스윙 통제불능 시간 중 스윙 불가
             and blacksmith_swing_cooldown <= 0  # 스윙 쿨다운 중 스윙 불가
         ):
@@ -79497,7 +79653,7 @@ def handle_player(keys):
                         right_pressed = True
                 else:
                     # 키보드 조작 (감전 상태가 아닐 때만)
-                    if not player_stunned:
+                    if not player_stunned and not is_horn_strawberry_control_locked():
                         input_direction = -1 if left_pressed else (1 if right_pressed else 0)
                         umbrella_turn_blocked = False
                         if umbrella_guarding:
@@ -79669,7 +79825,7 @@ def handle_player(keys):
         temple_destruction_active = animated_bg_stage4.is_destruction_animation_active()
     
     #  스피드기어 효과: 빠른 방향 전환 감속 (무중력벨트 없을 때만, 감전 상태일 때 제외, 사원 파괴 애니메이션 중 제외)
-    if not gravitybelt_obtained and not player_stunned and not temple_destruction_active:
+    if not gravitybelt_obtained and not player_stunned and not is_horn_strawberry_control_locked() and not temple_destruction_active:
         #  악마의 주사위 플레이어 속도 배율 가져오기 (방향 전환에도 적용)
         devil_dice_speed_multiplier = 1.0
         from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
@@ -79824,6 +79980,7 @@ def handle_player(keys):
             and not is_waiting_for_serve
             and not is_player_serve
             and not player_stunned
+            and not is_horn_strawberry_control_locked()
             and not soldier_weapon_menu_active
         )
         input_debug_log(
@@ -79873,7 +80030,7 @@ def handle_player(keys):
             last_net_constrict_dir = dir_input
             last_net_constrict_tick = now
 
-    if not player_stunned:
+    if not player_stunned and not is_horn_strawberry_control_locked():
         if suicide_drone_active:
             current_speed = 0
         # 코만도 캐릭터 총알 발사 처리 (마우스+키보드: 좌클릭도 SPACE로 인정)
@@ -114836,6 +114993,8 @@ def draw_objects():
         _arena_gs_for_stun = arena_skill_manager.game_state
         if _arena_gs_for_stun.get('bottom_paddle_stunned', False):
             _skip_normal_stun_stars = True
+    if is_horn_strawberry_charge_visual_locked():
+        _skip_normal_stun_stars = True
 
     if not _skip_normal_stun_stars and (player_missile_stunned_timer > 0 or player_stunned_timer > 0):
         # 스턴 중일 때 머리 위에 별 효과
@@ -149030,6 +149189,8 @@ def handle_ball():
                 return
         except Exception:
             pass
+    if _handle_horn_strawberry_barrier_safety_net():
+        return
 
     # --- 뼈장막 안전망 (스토리모드 호위무사용) ---
     # 호위무사의 뼈장막도 투기장과 동일하게 빠른 공 통과 방지
@@ -161496,7 +161657,7 @@ def main(stage_num, new_boss_mode=False):
                 return
         last_nine_state = current_nine_state
         # 스페이스바 입력 감지 (감전 상태일 때는 무시)
-        if not player_stunned:
+        if not player_stunned and not is_horn_strawberry_control_locked():
             base_space_state = keys[pygame.K_SPACE] or keys[pygame.K_x]  # X 키도 특수 입력으로 허용
             current_space_state = base_space_state
             # AI 모드에서는 AI가 남긴 SNAP_space_pressed를 병합해 실제 키보드 입력이 없어도 인식되게 함
@@ -161819,7 +161980,7 @@ def main(stage_num, new_boss_mode=False):
             mb_left_just_pressed = False
             last_mb_left_state = False
         #  방향키 입력 감지 (감전 상태일 때는 무시)
-        if not player_stunned:
+        if not player_stunned and not is_horn_strawberry_control_locked():
             # 방향 입력: 스냅샷 우선 사용, 없으면 키 상태 + IME 보조 매핑
             if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
                 current_left_state = bool(SNAP_left_state)
@@ -165473,6 +165634,7 @@ def main(stage_num, new_boss_mode=False):
                         not rolling_active
                         and rolling_stun_timer <= 0
                         and not player_stunned
+                        and not is_horn_strawberry_control_locked()
                         and not half_dash_used_flag
                         and not long_boost_active
                         and not block_active
