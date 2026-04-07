@@ -22309,7 +22309,12 @@ def is_horn_strawberry_event_playing():
 def is_horn_strawberry_control_locked():
     """뿔박치기 연출 중에는 플레이어 직접 입력을 잠근다."""
     ts = _get_horn_strawberry_transform()
-    return bool(ts and ts.is_transformed and getattr(ts.horn_charge, "active", False))
+    if not ts or not ts.is_transformed:
+        return False
+    try:
+        return bool(ts.horn_charge.is_control_locked())
+    except Exception:
+        return bool(getattr(ts.horn_charge, "active", False))
 
 def is_horn_strawberry_skills_locked():
     """뿔딸기 변신 중에는 기존 캐릭터 스킬을 차단한다 (이동은 허용)."""
@@ -22320,10 +22325,12 @@ def is_horn_strawberry_skills_locked():
 def is_horn_strawberry_charge_visual_locked():
     """돌진/복귀 중에는 스턴 별을 숨기고, 실제 기절 단계만 별을 보여준다."""
     ts = _get_horn_strawberry_transform()
-    if not ts or not ts.is_transformed or not getattr(ts.horn_charge, "active", False):
+    if not ts or not ts.is_transformed:
         return False
-    _gs = getattr(ts.horn_charge, "game_state", {})
-    return not _gs.get("bottom_paddle_stunned", False)
+    try:
+        return bool(ts.horn_charge.is_control_locked())
+    except Exception:
+        return bool(getattr(ts.horn_charge, "active", False))
 
 
 def _apply_horn_strawberry_horn_charge_runtime(ts):
@@ -22337,7 +22344,7 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
         return
 
     # 돌진/충돌/복귀 중에는 실제 패들을 원위치에 고정하고 이동/대쉬를 차단한다.
-    if getattr(ts.horn_charge, "active", False):
+    if is_horn_strawberry_control_locked():
         try:
             _anchor_centerx = ts.horn_charge.get_anchor_centerx()
         except Exception:
@@ -22352,9 +22359,6 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
         player_fire_knockback_vel = 0.0
         player_missile_knockback_vel = 0.0
 
-    if _gs.get("bottom_paddle_stunned"):
-        # STUN 페이즈 — 플레이어 실제 스턴
-        player_stunned_timer = max(player_stunned_timer, 2)
     if _gs.get("top_paddle_stunned"):
         boss_stunned_timer = max(boss_stunned_timer, 2)
 
@@ -22484,7 +22488,7 @@ def draw_horn_strawberry_effects(screen):
         except Exception:
             _anchor_centerx = None
 
-        if PLAYER and _anchor_centerx is not None and getattr(ts.horn_charge, "active", False):
+        if PLAYER and _anchor_centerx is not None and is_horn_strawberry_control_locked():
             PLAYER.centerx = int(_anchor_centerx)
             PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
             _base_player_x = PLAYER.x
@@ -73550,6 +73554,7 @@ def handle_player(keys):
             or is_player_serve
             or power_smashing_freeze_active
             or power_smashing_parabola_active
+            or is_horn_strawberry_skills_locked()
         ):
             # 불가 조건에서 키를 떼면 자기장 발사
             if plasma_field_charging and plasma_field_gauge_consumed > 0:
@@ -77618,7 +77623,7 @@ def handle_player(keys):
             # ========== 리커버리 스킬 체크 (스매셔 전용) ==========
             # 통제불능 상태에서 상키(W)로 즉시 해제
             # 👁 오딘의 눈 변신 상태에서는 기존 스킬 사용 불가
-            if selected_character_type == "smasher" and not is_odins_eye_transformed():
+            if selected_character_type == "smasher" and not is_odins_eye_transformed() and not is_horn_strawberry_skills_locked():
                 global _recovery_up_key_released
                 if '_recovery_up_key_released' not in globals():
                     _recovery_up_key_released = True
@@ -145705,7 +145710,7 @@ def calculate_bounce(paddle):
     ):
         #  드라이브 발동을 위한 게이지 확인 (150 게이지 필요) + 쿨타임 체크
         # 👁 오딘의 눈 변신 상태에서는 드라이브 사용 불가
-        if special_gauge >= 150 and get_smasher_skill_cooldown_remaining("drive") <= 0 and not is_odins_eye_transformed():
+        if special_gauge >= 150 and get_smasher_skill_cooldown_remaining("drive") <= 0 and not is_odins_eye_transformed() and not is_horn_strawberry_skills_locked():
             perfect_shot = True
             drive_activated = True  #  드라이브 발동 표시
             trigger_smasher_contact_animation(BALL.centerx - paddle.centerx, intensity=1.5)
@@ -162361,6 +162366,7 @@ def main(stage_num, new_boss_mode=False):
                     and not is_waiting_for_serve  # 서브 대기 상태에서는 파워스매싱 금지
                     and get_smasher_skill_cooldown_remaining("power_smashing") <= 0  # 쿨타임 체크
                     and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
+                    and not is_horn_strawberry_skills_locked()  # 🍓 뿔딸기 변신 중 차단
                 ):  # 파워스매싱은 스매셔 전용
                     # 파워스매싱 발동 (고스트샷 제거됨)
                     global power_smashing_parabola_active
