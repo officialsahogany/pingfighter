@@ -120778,7 +120778,7 @@ def show_victory_screen(stage_cleared, reward):
     _hl_btn_hovered = False
 
     def _play_arcade_highlight_replay():
-        """아케이드 모드 하이라이트 리플레이 재생"""
+        """아케이드 모드 하이라이트 리플레이 재생 (사운드 포함)"""
         nonlocal _hl_has_clips
         if not _hl_recorder or not _hl_recorder.has_clips():
             return
@@ -120787,6 +120787,7 @@ def show_victory_screen(stage_cleared, reward):
         phase = "fade_in"  # fade_in / playing / fade_out
         phase_timer = 0.0
         frame_progress = 0.0
+        _prev_frame_idx = -1  # 사운드 재생용 이전 프레임 추적
         replay_clock = pygame.time.Clock()
 
         # 리플레이 BGM (현재 BGM 유지)
@@ -120799,6 +120800,7 @@ def show_victory_screen(stage_cleared, reward):
             clip = clips[clip_index]
             if not clip:
                 clip_index += 1
+                _prev_frame_idx = -1
                 continue
 
             # 페이즈 전환
@@ -120808,10 +120810,25 @@ def show_victory_screen(stage_cleared, reward):
                     phase = "playing"
                     phase_timer = 0.0
                     frame_progress = 0.0
+                    _prev_frame_idx = -1
             elif phase == "playing":
                 progress = min(1.0, phase_timer / 4.0)
                 frame_progress = min(progress * (len(clip) - 1), len(clip) - 1)
                 fade_alpha = 255
+                # 🔊 프레임 진행 시 사운드 재생
+                cur_fi = int(frame_progress)
+                if cur_fi != _prev_frame_idx:
+                    try:
+                        sound_clip = _hl_recorder.get_clip_sounds(clip_index)
+                        for fi in range(max(0, _prev_frame_idx + 1), cur_fi + 1):
+                            if fi in sound_clip:
+                                for sid in sound_clip[fi]:
+                                    snd = sound_effects.get(sid)
+                                    if snd:
+                                        play_sound_with_volume(snd)
+                    except Exception:
+                        pass
+                    _prev_frame_idx = cur_fi
                 if phase_timer >= 4.0:
                     phase = "fade_out"
                     phase_timer = 0.0
@@ -120822,6 +120839,7 @@ def show_victory_screen(stage_cleared, reward):
                     phase = "fade_in"
                     phase_timer = 0.0
                     frame_progress = 0.0
+                    _prev_frame_idx = -1
                     continue
 
             # 렌더링
