@@ -431,7 +431,7 @@ class HornStrawberryTransformState:
         # ── 크기 (둥글둥글) ──
         r = max(20, int(width * 0.28))
         body_cx = cx
-        body_cy = int(y - r + 2 - bounce_y)
+        body_cy = int(y + height // 2 - bounce_y)
 
         # ── 서피스 ──
         pad = 30
@@ -934,6 +934,7 @@ class _HornChargeSkillCore:
         self._trail_spawn_timer = 0.0
         self._anchor_player_centerx = float(player_rect.centerx)
         caster, target, ball = _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel)
+        self._skill.caster_is_top = False
         self._skill.cooldown = HORN_CHARGE_COOLDOWN
         effect = self._skill.use(caster, target, ball, self._game_state)
         ball.sync_velocity(ball_vel)
@@ -979,12 +980,14 @@ class _HornChargeSkillCore:
         ball.sync_velocity(ball_vel)
         _stun_phase = getattr(self._skill, "PHASE_STUN", 3)
         if self._skill.is_active and self._skill.phase == _stun_phase:
+            self._game_state["top_paddle_stunned"] = False
             self._game_state["bottom_paddle_stunned"] = False
             self._game_state["horn_charge_active"] = False
             self._game_state["horn_charge_x_offset"] = 0.0
             self._game_state["horn_charge_y_offset"] = 0.0
             if self._anchor_player_centerx is not None:
                 player_rect.centerx = int(self._anchor_player_centerx)
+            self._skill.phase_timer = 1.0
         # 딸기뿔박치기: 플레이어 STUN 페이즈를 0.5초로 단축 (원본 1.0초)
         if self._skill.is_active and self._skill.phase == 3:  # PHASE_STUN
             if self._skill.phase_timer >= 0.5:
