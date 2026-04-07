@@ -123279,6 +123279,158 @@ def _resolve_replay_bgm_path(metadata: dict) -> str | None:
         return None
 
 
+def _analyze_replay(replay_info: dict) -> list:
+    """리플레이 메타데이터에서 경기 분석 피드백 생성"""
+    from replay.replay_system import _read_metadata_fast
+    md = _read_metadata_fast(replay_info['filepath'])
+    if not md:
+        return [("분석 실패", "메타데이터를 읽을 수 없습니다.", (255, 100, 100))]
+
+    se = md.get('sound_events', {})
+    duration = md.get('duration', 0)
+    result = md.get('result', '')
+    stage = md.get('stage', 1)
+
+    # 사운드 이벤트 카운트
+    counts = {}
+    for evts in se.values():
+        for e in evts:
+            sid = e.get('id', e) if isinstance(e, dict) else e
+            counts[sid] = counts.get(sid, 0) + 1
+
+    paddle = counts.get('PADDLE', 0)
+    wall = counts.get('WALL', 0)
+    dash = counts.get('DASH', 0)
+    half_dash = counts.get('HALF_DASH', 0)
+    power_smash = counts.get('POWER_SMASH', 0)
+    drive = counts.get('DRIVE', 0)
+    item_get = counts.get('ITEM_GET', 0)
+    active_item = counts.get('ACTIVE_ITEM', 0)
+    serve = counts.get('SERVE', 0)
+    rounds = max(serve, 1)
+    mins = int(duration) // 60
+    secs = int(duration) % 60
+    total_dash = dash + half_dash
+
+    feedback = []
+
+    if result == 'win':
+        feedback.append(("승리!", f"Stage {stage}를 {mins}분 {secs}초 만에 클리어했습니다.", (100, 255, 100)))
+    elif result == 'lose':
+        feedback.append(("패배", f"Stage {stage}에서 {mins}분 {secs}초 동안 분투했습니다.", (255, 100, 100)))
+
+    rallies_per_round = paddle / rounds if rounds > 0 else 0
+    if rallies_per_round >= 15:
+        feedback.append(("랠리 마스터", f"라운드당 평균 {rallies_per_round:.0f}회 랠리! 훌륭한 수비력입니다.", (100, 255, 200)))
+    elif rallies_per_round >= 8:
+        feedback.append(("안정적인 랠리", f"라운드당 평균 {rallies_per_round:.0f}회 랠리. 괜찮은 수준입니다.", (200, 220, 255)))
+    else:
+        feedback.append(("랠리 부족", f"라운드당 평균 {rallies_per_round:.0f}회 랠리. 수비에 더 집중해보세요.", (255, 200, 100)))
+
+    if total_dash >= 10:
+        feedback.append(("적극적인 대시", f"대시 {dash}회 + 하프대시 {half_dash}회! 기동력이 뛰어납니다.", (100, 200, 255)))
+    elif total_dash >= 3:
+        feedback.append(("대시 활용 보통", f"대시 {total_dash}회 사용. 더 적극적으로 활용하면 좋겠습니다.", (200, 200, 180)))
+    else:
+        feedback.append(("대시 미활용", f"대시를 {total_dash}회만 사용했습니다. 대시로 위기를 탈출해보세요!", (255, 180, 80)))
+
+    if power_smash >= 5:
+        feedback.append(("파워스매시 달인", f"파워스매시 {power_smash}회! 공격적인 플레이입니다.", (255, 220, 100)))
+    elif power_smash >= 1:
+        feedback.append(("파워스매시 사용", f"파워스매시 {power_smash}회. 기회를 더 노려보세요.", (200, 200, 180)))
+    else:
+        feedback.append(("파워스매시 미사용", "파워스매시를 한 번도 안 썼습니다. 강력한 한 방을 노려보세요!", (255, 150, 100)))
+
+    if drive >= 3:
+        feedback.append(("드라이브 활용", f"드라이브 {drive}회 발동! 스킬을 잘 활용하고 있습니다.", (180, 255, 180)))
+    elif drive == 0:
+        feedback.append(("드라이브 미사용", "드라이브를 사용하지 않았습니다. 게이지가 차면 활용해보세요.", (200, 180, 150)))
+
+    if item_get >= 5:
+        feedback.append(("아이템 수집왕", f"아이템 {item_get}개 획득! 필드를 잘 활용하고 있습니다.", (255, 200, 255)))
+    elif item_get == 0:
+        feedback.append(("아이템 무시", "아이템을 하나도 줍지 않았습니다. 필드 아이템을 챙겨보세요.", (200, 150, 150)))
+
+    if active_item >= 3:
+        feedback.append(("전략적 아이템 사용", f"액티브 아이템 {active_item}회 사용! 전술적입니다.", (200, 255, 200)))
+    elif active_item == 0 and item_get > 0:
+        feedback.append(("아이템 사용 안 함", "아이템을 주웠지만 사용하지 않았습니다. X키로 사용해보세요.", (255, 180, 130)))
+
+    if wall > paddle * 0.8:
+        feedback.append(("벽 반사 주의", f"벽 충돌 {wall}회로 패들 접촉보다 많습니다. 공을 더 적극적으로 받아보세요.", (255, 160, 130)))
+
+    # 종합 점수
+    score = 0
+    score += min(30, int(rallies_per_round * 2))
+    score += min(20, total_dash * 2)
+    score += min(15, power_smash * 3)
+    score += min(10, drive * 3)
+    score += min(10, item_get * 2)
+    score += min(10, active_item * 3)
+    score += 5 if result == 'win' else 0
+    grade = "S" if score >= 80 else "A" if score >= 60 else "B" if score >= 40 else "C" if score >= 20 else "D"
+    grade_color = {"S": (255, 215, 0), "A": (100, 255, 100), "B": (100, 200, 255), "C": (200, 200, 150), "D": (255, 120, 120)}
+    feedback.insert(0, (f"종합 등급: {grade} ({score}점)", "", grade_color.get(grade, (200, 200, 200))))
+
+    return feedback
+
+
+def _show_replay_feedback(replay_info: dict):
+    """리플레이 피드백 화면"""
+    clock = pygame.time.Clock()
+    feedback = _analyze_replay(replay_info)
+    scroll_y = 0
+    max_scroll = max(0, len(feedback) * 55 - (HEIGHT - 120))
+
+    stage_boss = {1: "풍악보이", 2: "악어장군", 3: "멘헤라걸", 4: "퐁크",
+                  5: "네메시스", 6: "홍련", 7: "테트리서", 8: "아카무 리고", 30: "투기장"}
+    stg = replay_info.get('stage', 0)
+    boss = replay_info.get('boss_name', '') or stage_boss.get(stg, f"Stage {stg}")
+    custom = replay_info.get('custom_name', '')
+    title = custom if custom else f"Stage {stg} - {boss}"
+
+    while True:
+        clock.tick(60)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
+                return
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                return
+            if event.type == pygame.MOUSEWHEEL:
+                scroll_y = max(0, min(max_scroll, scroll_y - event.y * 30))
+
+        SCREEN.fill((12, 14, 22))
+
+        ts = get_font(26).render("경기 피드백", True, (180, 120, 255))
+        SCREEN.blit(ts, (WIDTH // 2 - ts.get_width() // 2, 15))
+        sub = get_font(16).render(title, True, (150, 160, 180))
+        SCREEN.blit(sub, (WIDTH // 2 - sub.get_width() // 2, 48))
+
+        y_start = 80 - scroll_y
+        title_font = get_font(16)
+        desc_font = get_font(13)
+
+        for i, (ftitle, fdesc, fcolor) in enumerate(feedback):
+            y = y_start + i * 55
+            if y < 60 or y > HEIGHT - 30:
+                continue
+            card = pygame.Rect(30, y, WIDTH - 60, 48)
+            pygame.draw.rect(SCREEN, (20, 25, 38), card, border_radius=8)
+            pygame.draw.rect(SCREEN, (fcolor[0] // 3, fcolor[1] // 3, fcolor[2] // 3), card, width=1, border_radius=8)
+            pygame.draw.rect(SCREEN, fcolor, (30, y, 4, 48), border_radius=2)
+            ft = title_font.render(ftitle, True, fcolor)
+            SCREEN.blit(ft, (44, y + 6))
+            if fdesc:
+                fd = desc_font.render(fdesc, True, (140, 150, 170))
+                SCREEN.blit(fd, (44, y + 27))
+
+        hint = get_font(12).render("클릭 또는 ESC: 돌아가기", True, (60, 65, 80))
+        SCREEN.blit(hint, (WIDTH // 2 - hint.get_width() // 2, HEIGHT - 18))
+        pygame.display.flip()
+
+
 def _export_replay_to_mp4(filepath: str, status: dict):
     """리플레이 .rpl을 MP4 영상으로 변환 (BGM + 효과음 오디오 포함)."""
     import threading as _th
