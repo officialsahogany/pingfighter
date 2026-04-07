@@ -22565,6 +22565,11 @@ def play_wall_sound():
         play_sound_with_volume(SOUND_PONG_WALL)
     else:
         play_sound_with_volume(SOUND_WALL)
+    # 🎬 리플레이 사운드 이벤트 기록
+    try:
+        get_replay_recorder().add_sound('wall')
+    except Exception:
+        pass
 
 def _get_selected_paddle_sound():
     """설정에서 선택된 패들 타격 사운드 반환"""
@@ -22599,6 +22604,11 @@ def play_paddle_sound():
         play_sound_with_volume(SOUND_PONG_PADDLE)
     else:
         play_sound_with_volume(_get_selected_paddle_sound())
+    # 🎬 리플레이 사운드 이벤트 기록
+    try:
+        get_replay_recorder().add_sound('paddle')
+    except Exception:
+        pass
 
 def play_button_hover_sound():
     """버튼 호버 사운드 재생"""
@@ -155535,7 +155545,11 @@ def show_death_evaluation():
             score_text = font_body.render(_t("ui.final_score", "최종 스코어: {wins} - {losses}").format(wins=final_wins, losses=final_losses), True, WHITE)
             SCREEN.blit(score_text, (content_x + 20, y_cursor + 38))
 
-            stage_text = font_body.render(_t("ui.stage_boss", "스테이지 {stage}: {boss}").format(stage=display_stage, boss=current_boss_name), True, (200, 200, 255))
+            _stage_boss_str = _t("ui.stage_boss", "스테이지 {stage}: {boss}").format(stage=display_stage, boss=current_boss_name)
+            stage_text = font_body.render(_stage_boss_str, True, (200, 200, 255))
+            # 텍스트가 패널 너비의 55%를 초과하면 작은 폰트 사용
+            if stage_text.get_width() > content_width * 0.55:
+                stage_text = font_detail.render(_stage_boss_str, True, (200, 200, 255))
             stage_rect = stage_text.get_rect(right=content_x + content_width - 20, top=y_cursor + 38)
             SCREEN.blit(stage_text, stage_rect)
 
@@ -166906,6 +166920,10 @@ def draw_modern_panel(surface, rect, title="", title_color=(255, 215, 0)):
         # 타이틀 텍스트
         font_title = FontStyle.body()  # 24pt 픽셀 폰트
         title_surface = font_title.render(title, True, title_color)
+        # 타이틀이 헤더 영역을 초과하면 작은 폰트로 재렌더링
+        if title_surface.get_width() > header_rect.width - 20:
+            font_title = FontStyle.tiny()
+            title_surface = font_title.render(title, True, title_color)
         title_rect = title_surface.get_rect(center=get_center_pos(header_rect))
         surface.blit(title_surface, title_rect)
 SECTION_ICON_CACHE: dict[str, pygame.Surface] = {}
@@ -167093,9 +167111,14 @@ def draw_section_container(surface, rect, title, icon=""):
         surface.blit(icon_surface, icon_rect)
         text_left = icon_rect.right + 8
     title_surface = font_section.render(title, True, (200, 220, 255))
+    # 타이틀이 패널 오른쪽 경계를 넘으면 작은 폰트로 재렌더링
+    _max_title_w = rect.right - text_left - 15
+    if title_surface.get_width() > _max_title_w:
+        _small_font = get_font(max(12, 18 - 4))
+        title_surface = _small_font.render(title, True, (200, 220, 255))
     title_rect = title_surface.get_rect(left=text_left, centery=text_center_y)
     surface.blit(title_surface, title_rect)
-    pygame.draw.line(surface, (150, 180, 220), 
+    pygame.draw.line(surface, (150, 180, 220),
                     (rect.x + 15, rect.y + 35), 
                     (rect.x + rect.width - 15, rect.y + 35), 2)
 def show_player_info():

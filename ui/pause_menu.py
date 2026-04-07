@@ -459,7 +459,19 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             lang_label = font_medium.render(_t("settings.language.label", "언어 선택"), True, const.WHITE)
             ctx.screen.blit(lang_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
             _lang_options = LANGUAGE_OPTIONS
-            _lpill_w, _lpill_h = 100, 36
+            # 동적 버튼 너비: CJK 라벨이 잘리지 않도록 최대 텍스트 폭 기준 계산
+            _max_lw = 70
+            for _lc, _ll in _lang_options:
+                try:
+                    if _lc in ("ja", "zh"):
+                        from pixel_font_manager import get_cjk_font
+                        _tw = get_cjk_font(18).size(_ll)[0]
+                    else:
+                        _tw = font_small.size(_ll)[0]
+                    _max_lw = max(_max_lw, _tw)
+                except Exception:
+                    pass
+            _lpill_w, _lpill_h = max(100, _max_lw + 24), 36
             _lpill_gap = 10
             lang_pills = []
             for i, (_lcode, _llabel) in enumerate(_lang_options):
