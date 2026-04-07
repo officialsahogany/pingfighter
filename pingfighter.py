@@ -139606,8 +139606,8 @@ def draw_stage2_jungle_border():
         # 벽 충돌 시 깜빡임 효과 (은은하게)
         if stage2_border_flash_timer > 0:
             flash_ratio = stage2_border_flash_timer / stage2_border_flash_duration
-            # 알파 22 + 제곱 감쇠 그라데이션
-            base_alpha = int(22 * flash_ratio)
+            # 알파 13 + 제곱 감쇠 그라데이션
+            base_alpha = int(13 * flash_ratio)
             bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
             grad_steps = max(2, bt)  # 테두리 두께만큼 그라데이션
