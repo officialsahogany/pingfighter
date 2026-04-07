@@ -587,12 +587,38 @@ def delete_replay(filepath: str) -> bool:
 
 
 def _cleanup_old_replays():
-    """MAX_REPLAYS 초과 시 가장 오래된 잠금 안 된 리플레이 자동 삭제"""
+    """MAX_REPLAYS 초과 시 가장 오래된 잠금 안 된 리플레이 자동 삭제 + 고아 파일 정리"""
     replay_dir = _replays_dir()
     if not os.path.isdir(replay_dir):
         return
     meta = _load_meta_json()
-    # 잠금 안 된 파일만 삭제 대상
+
+    # 1) 고아 .tmp 파일 정리 (10분 이상 된 녹화 임시 파일 = 비정상 종료 잔여물)
+    _ORPHAN_AGE = 600  # 10분
+    now = time.time()
+    for fn in os.listdir(replay_dir):
+        if fn.startswith('_recording_') and fn.endswith('.tmp'):
+            fp = os.path.join(replay_dir, fn)
+            try:
+                if now - os.path.getmtime(fp) > _ORPHAN_AGE:
+                    os.remove(fp)
+                    print(f"[Replay] 고아 임시파일 삭제: {fn}")
+            except Exception:
+                pass
+
+    # 2) .rpl 이외의 잔여 리플레이 파일 정리 (.rpg, .mp4 등 이전 포맷)
+    _KEEP_EXTS = {'.rpl', '.tmp', '.json'}
+    for fn in os.listdir(replay_dir):
+        _, ext = os.path.splitext(fn)
+        if ext and ext not in _KEEP_EXTS:
+            fp = os.path.join(replay_dir, fn)
+            try:
+                os.remove(fp)
+                print(f"[Replay] 잔여 파일 삭제: {fn}")
+            except Exception:
+                pass
+
+    # 3) .rpl 파일 개수 제한 (MAX_REPLAYS 초과 시 오래된 것 삭제)
     unlocked_files = []
     total_count = 0
     for fn in os.listdir(replay_dir):
