@@ -50,7 +50,8 @@ STRAWBERRY_FIELD_HEIGHT = 12
 
 # 스킬: 딸기먹기 (Space/클릭)
 STRAWBERRY_EAT_DURATION = 0.8  # 먹는 시간 (초)
-STRAWBERRY_EAT_GAUGE_RECOVER = 150
+STRAWBERRY_EAT_GAUGE_COST = 50
+STRAWBERRY_EAT_PADDLE_GROWTH_BONUS = 0.05
 STRAWBERRY_EAT_COOLDOWN = 0.8
 STRAWBERRY_STEM_SPEED_MULT = 2.5  # 권총 대비 250% 속도 (빠른 투사체)
 
@@ -194,6 +195,7 @@ class HornStrawberryTransformState:
         self._transform_duration = TRANSFORM_DURATION
         self._gauge_cost = TRANSFORM_GAUGE_COST
         self._paddle_size_bonus = TRANSFORM_PADDLE_SIZE_BONUS
+        self._eat_paddle_growth_bonus = 0.0
 
     def sync_roll_options(self, legendary_item):
         """전설 아이템 인스턴스에서 롤옵션 값 동기화"""
@@ -207,6 +209,7 @@ class HornStrawberryTransformState:
         self.state = self.IDLE
         self.transform_timer = 0.0
         self.event_timer = 0.0
+        self._eat_paddle_growth_bonus = 0.0
         self.command_buffer.clear()
         self.command_timer = 0.0
         self.prev_keys.clear()
@@ -284,6 +287,7 @@ class HornStrawberryTransformState:
             if self.event_timer <= 0:
                 self.state = self.TRANSFORMED
                 self.transform_timer = self._transform_duration
+                self._eat_paddle_growth_bonus = 0.0
                 self.horn_charge.reset()
                 self.strawberry_field.reset()
                 self.strawberry_eat.reset()
@@ -296,6 +300,7 @@ class HornStrawberryTransformState:
             self.strawberry_eat.update_cooldown(dt)
 
             if self.transform_timer <= 0:
+                self._eat_paddle_growth_bonus = 0.0
                 self.horn_charge.reset()
                 self.strawberry_field.reset()
                 self.strawberry_eat.reset()
@@ -494,15 +499,15 @@ class HornStrawberryTransformState:
 
         pygame.draw.polygon(surf, STRAWBERRY_RED, body_pts)
 
-        # 광택 (좌상단)
-        hi_r = max(5, r // 2)
-        pygame.draw.circle(surf, STRAWBERRY_LIGHT,
-                          (sc - int(bw * 0.18), top_y + int(bh * 0.25)), hi_r)
-        pygame.draw.circle(surf, (255, 190, 195),
-                          (sc - int(bw * 0.2), top_y + int(bh * 0.2)), max(2, hi_r // 2))
-        shine_a = int(140 + 60 * math.sin(t * 0.005))
-        pygame.draw.circle(surf, (255, 255, 255, shine_a),
-                          (sc - int(bw * 0.22), top_y + int(bh * 0.17)), 2)
+        # 광택 (좌상단 — 작고 부드러운 하이라이트)
+        _hi_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
+        _hi_x = int(bw * 0.28)
+        _hi_y = int(bh * 0.22)
+        _hi_r1 = max(3, r // 4)
+        pygame.draw.circle(_hi_surf, (*STRAWBERRY_LIGHT, 100), (_hi_x, _hi_y), _hi_r1)
+        # 작은 반짝 점
+        pygame.draw.circle(_hi_surf, (255, 255, 255, 160), (_hi_x - 1, _hi_y - 1), max(1, _hi_r1 // 3))
+        surf.blit(_hi_surf, (sc - bw // 2, top_y))
 
         # 외곽선
         pygame.draw.polygon(surf, STRAWBERRY_DARK, body_pts, 2)
@@ -578,6 +583,8 @@ class HornChargeSkill:
         self.phase = self.PHASE_CHARGING
         self.phase_timer = 0.0
         self.cooldown = 0.0
+        self.gauge_cost = STRAWBERRY_EAT_GAUGE_COST
+        self.paddle_growth_bonus = STRAWBERRY_EAT_PADDLE_GROWTH_BONUS
         self.start_y = 0
         self.target_y = 65  # 보스 패들 하단
         self.current_y_offset = 0
@@ -1347,6 +1354,8 @@ class StrawberryEatSkill:
         self.eating = False
         self.eat_timer = 0.0
         self.cooldown = 0.0
+        self.gauge_cost = STRAWBERRY_EAT_GAUGE_COST
+        self.paddle_growth_bonus = STRAWBERRY_EAT_PADDLE_GROWTH_BONUS
         self.projectiles = []  # 발사된 꼭지 투사체
 
     def reset(self):
@@ -1373,7 +1382,6 @@ class StrawberryEatSkill:
                 self.eating = False
                 self.cooldown = STRAWBERRY_EAT_COOLDOWN
                 # 먹기 완료: 게이지 회복 + 대시 토큰 회복
-                recover_gauge_fn(STRAWBERRY_EAT_GAUGE_RECOVER)
                 recover_dash_fn(1)
                 # 꼭지 투사체 발사
                 self._fire_stem(player_x, player_y)
@@ -1406,6 +1414,8 @@ class StrawberryEatSkill:
             "stun_duration": 0.75,  # 코만도 권총과 동일한 스턴 (45프레임)
             "knockback": 120,  # 코만도 권총과 동일한 넉백
         })
+        self.projectiles[-1]["stun_duration"] = 0.3
+        self.projectiles[-1]["knockback"] = 14
 
     def update_cooldown(self, dt):
         if self.cooldown > 0:
