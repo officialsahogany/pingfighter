@@ -22197,9 +22197,7 @@ def update_horn_strawberry_transform(keys, dt):
     # 커맨드 입력 감지 (A→W→D)
     if ts.update_command_input(keys, dt):
         # 커맨드 완성! 변신 시도
-        print(f"[뿔딸기] 커맨드 완성! gauge={special_gauge}, cost={ts._gauge_cost}, state={ts.state}")
-        result = ts.try_transform(special_gauge, consume_special_gauge)
-        print(f"[뿔딸기] 변신 시도 결과={result}, state={ts.state}, event_timer={ts.event_timer}")
+        ts.try_transform(special_gauge, consume_special_gauge)
 
     # 변신 상태 업데이트
     ts.update(dt)
@@ -22212,7 +22210,7 @@ def update_horn_strawberry_transform(keys, dt):
 
 def _handle_strawberry_skills(keys, ts, dt):
     """변신 중 전용 스킬 입력 처리"""
-    global special_gauge, rolling_charges, player_paddle
+    global special_gauge, rolling_charges
 
     # W키: 뿔박치기
     w_pressed = keys[pygame.K_w]
@@ -22220,13 +22218,13 @@ def _handle_strawberry_skills(keys, ts, dt):
         def _consume(amount):
             consume_special_gauge(amount)
             return True
-        player_y = player_paddle.y if player_paddle else 710
+        player_y = PLAYER.y if PLAYER else 710
         ts.horn_charge.activate(player_y, _consume)
 
     # 뿔박치기 업데이트
-    if ts.horn_charge.active and player_paddle:
+    if ts.horn_charge.active and PLAYER:
         y_off, x_off, apply_kb, is_stunned = ts.horn_charge.update(
-            dt, player_paddle.centerx, player_paddle.y)
+            dt, PLAYER.centerx, PLAYER.y)
         # y_offset 적용은 렌더링에서 처리
 
     # S키: 딸기장판 홀드
@@ -22237,8 +22235,8 @@ def _handle_strawberry_skills(keys, ts, dt):
         if ts.strawberry_field.holding:
             def _consume_field(amount):
                 consume_special_gauge(amount)
-            px = player_paddle.centerx if player_paddle else 380
-            py = player_paddle.y if player_paddle else 710
+            px = PLAYER.centerx if PLAYER else 380
+            py = PLAYER.y if PLAYER else 710
             ts.strawberry_field.update_hold(dt, special_gauge, _consume_field, px, py)
     else:
         ts.strawberry_field.release_hold()
@@ -22250,8 +22248,8 @@ def _handle_strawberry_skills(keys, ts, dt):
         ts.strawberry_eat.activate()
 
     if ts.strawberry_eat.eating or ts.strawberry_eat.projectiles:
-        px = player_paddle.centerx if player_paddle else 380
-        py = player_paddle.y if player_paddle else 710
+        px = PLAYER.centerx if PLAYER else 380
+        py = PLAYER.y if PLAYER else 710
         def _recover_gauge(amount):
             global special_gauge
             special_gauge = min(special_gauge + amount, get_max_gauge())
@@ -22299,26 +22297,26 @@ def draw_horn_strawberry_effects(screen):
 
     # 변신/해제 이벤트 연출
     if ts.is_event_playing:
-        px = player_paddle.centerx if player_paddle else 380
-        py = player_paddle.y if player_paddle else 710
+        px = PLAYER.centerx if PLAYER else 380
+        py = PLAYER.y if PLAYER else 710
         ts.draw_transform_event(screen, px, py)
 
     if ts.is_transformed:
         # 패들 위에 뿔딸기 캐릭터 오버레이
-        if player_paddle:
-            ts.draw_strawberry_paddle(screen, player_paddle.x, player_paddle.y,
-                                     player_paddle.width, player_paddle.height)
+        if PLAYER:
+            ts.draw_strawberry_paddle(screen, PLAYER.x, PLAYER.y,
+                                     PLAYER.width, PLAYER.height)
 
         # 뿔박치기 트레일
-        if ts.horn_charge.active and player_paddle:
-            ts.horn_charge.draw_trail(screen, player_paddle.centerx, player_paddle.y)
+        if ts.horn_charge.active and PLAYER:
+            ts.horn_charge.draw_trail(screen, PLAYER.centerx, PLAYER.y)
 
         # 딸기장판
         ts.strawberry_field.draw_barriers(screen)
 
         # 딸기먹기 이펙트 + 투사체
-        if player_paddle:
-            ts.strawberry_eat.draw(screen, player_paddle.centerx, player_paddle.y)
+        if PLAYER:
+            ts.strawberry_eat.draw(screen, PLAYER.centerx, PLAYER.y)
 
         # 변신 타이머 표시 (화면 하단)
         _draw_transform_timer(screen, ts.transform_timer, ts._transform_duration)
@@ -167779,8 +167777,8 @@ def main(stage_num, new_boss_mode=False):
             _hs_keys = pygame.key.get_pressed()
             update_horn_strawberry_transform(_hs_keys, 1.0 / 60.0)
             draw_horn_strawberry_effects(SCREEN)
-        except Exception as _hs_err:
-            print(f"[뿔딸기] 오류: {_hs_err}")
+        except Exception:
+            pass
 
         # 🎬 리플레이 캡처는 flip 래퍼 내부에서 수행 (최종 합성 후)
         pygame.display.flip()
