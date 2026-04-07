@@ -6,7 +6,6 @@ import pygame
 import math
 import random
 import items
-import academy
 from core.input_keys import is_move_down_event
 from ui.menu_system import MenuSystem
 from game_logic.show_character_selection_module import show_character_selection
@@ -44,9 +43,6 @@ def show_start_screen():
     chargebag_obtained = False
     spikeboots_obtained = False
     dashgear_obtained = False
-    
-    # 🎓 아카데미 스킬 포인트 초기화 (게임 시작시 0포인트)
-    academy.reset_skill_points()
     
     # 🎮 새로운 메뉴 시스템 초기화
     menu_system = MenuSystem(SCREEN, WIDTH, HEIGHT)

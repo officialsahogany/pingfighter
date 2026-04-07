@@ -1,9 +1,8 @@
 """
-Scoring System - 점수 및 메달 시스템
-점수 계산, 메달 획득, 듀스 모드 관리
+Scoring System - 점수 시스템
+점수 계산, 듀스 모드 관리
 """
 
-import json
 from typing import Dict, Optional, Tuple
 from core.game_state import GameState
 from core.global_manager import GlobalManager
@@ -29,40 +28,18 @@ class ScoringSystem:
         self.deuce_losses = 0
         self.deuce_goal = 2
         
-        # 메달 시스템
-        self.medal_score = 0
-        self.session_medal_earned = 0
-        self.medal_data = self.load_medal_data()
-        
         # 스테이지별 설정
         self.stage_config = {
-            1: {'win_score': 11, 'medal_per_win': 10},
-            2: {'win_score': 11, 'medal_per_win': 15},
-            3: {'win_score': 11, 'medal_per_win': 20},
-            4: {'win_score': 11, 'medal_per_win': 25},
-            5: {'win_score': 11, 'medal_per_win': 30},
-            6: {'win_score': 11, 'medal_per_win': 40}
+            1: {'win_score': 11},
+            2: {'win_score': 11},
+            3: {'win_score': 11},
+            4: {'win_score': 11},
+            5: {'win_score': 11},
+            6: {'win_score': 11}
         }
         
         self.current_stage = 1
         
-    def load_medal_data(self) -> Dict:
-        """메달 데이터 로드"""
-        try:
-            with open('medal_data.json', 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return {
-                'total_medals': 0,
-                'highest_streak': 0,
-                'stages_cleared': []
-            }
-            
-    def save_medal_data(self):
-        """메달 데이터 저장"""
-        with open('medal_data.json', 'w') as f:
-            json.dump(self.medal_data, f, indent=2)
-            
     def add_player_score(self) -> bool:
         """플레이어 득점
         
@@ -160,25 +137,12 @@ class ScoringSystem:
             True (라운드 종료)
         """
         self.round_wins += 1
-        
-        # 메달 획득
-        config = self.stage_config[self.current_stage]
-        medals_earned = config['medal_per_win']
-        
-        # 보너스 메달 (무실점 승리 등)
-        if self.boss_score == 0:
-            medals_earned *= 2  # 퍼펙트 승리
-        elif self.deuce_mode:
-            medals_earned = int(medals_earned * 1.5)  # 듀스 승리
-            
-        self.add_medals(medals_earned)
-        
+
         # 이벤트 발생
         emit_event(EventType.ROUND_WIN, {
             'stage': self.current_stage,
             'player_score': self.player_score,
-            'boss_score': self.boss_score,
-            'medals_earned': medals_earned
+            'boss_score': self.boss_score
         })
         
         return True
@@ -199,25 +163,6 @@ class ScoringSystem:
         })
         
         return True
-        
-    def add_medals(self, amount: int):
-        """메달 추가
-        
-        Args:
-            amount: 추가할 메달 수
-        """
-        self.medal_score += amount
-        self.session_medal_earned += amount
-        self.medal_data['total_medals'] += amount
-        
-        # 이벤트 발생
-        emit_event(EventType.MEDAL_EARNED, {
-            'amount': amount,
-            'total': self.medal_score
-        })
-        
-        # GlobalManager 동기화
-        self.global_manager.set('medal_score', self.medal_score)
         
     def get_score_text(self) -> str:
         """점수 텍스트 반환"""
@@ -256,10 +201,6 @@ class ScoringSystem:
         self.round_wins = 0
         self.round_losses = 0
         
-    def save_progress(self):
-        """진행상황 저장"""
-        self.save_medal_data()
-        
     def get_stats(self) -> Dict:
         """통계 반환"""
         return {
@@ -267,8 +208,6 @@ class ScoringSystem:
             'boss_score': self.boss_score,
             'round_wins': self.round_wins,
             'round_losses': self.round_losses,
-            'medal_score': self.medal_score,
-            'session_medals': self.session_medal_earned,
             'deuce_mode': self.deuce_mode
         }
 

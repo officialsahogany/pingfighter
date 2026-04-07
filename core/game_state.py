@@ -53,10 +53,6 @@ class GameState:
         self.deuce_losses = 0
         self.deuce_goal = 2
         
-        # ========== 메달 시스템 ==========
-        self.medal_score = 0
-        self.session_medal_earned = 0
-        
         # ========== 플레이어 상태 ==========
         self.player_character = "ufo"  # ufo, eagle
         self.player_x = 0
@@ -254,7 +250,6 @@ class GameState:
         """게임 상태 저장"""
         state_dict = {
             'current_stage': self.current_stage,
-            'medal_score': self.medal_score,
             'items_obtained': self.items_obtained,
             'passive_items': self.passive_items,
             # 필요한 다른 상태들 추가
@@ -270,7 +265,6 @@ class GameState:
                 state_dict = json.load(f)
                 
             self.current_stage = state_dict.get('current_stage', 1)
-            self.medal_score = state_dict.get('medal_score', 0)
             self.items_obtained = state_dict.get('items_obtained', {})
             self.passive_items = state_dict.get('passive_items', [])
             # 필요한 다른 상태들 로드
@@ -301,26 +295,24 @@ class GameState:
             'ai_score': 'ai_score',
             'round_wins': 'round_wins',
             'round_losses': 'round_losses',
-            'medal_score': 'medal_score',
             'special_gauge': 'special_gauge',
             'special_ready': 'special_ready',
             'special_active': 'special_active',
             # 필요한 매핑 추가
         }
-        
+
         for global_name, attr_name in mapping.items():
             if global_name in globals_dict:
                 setattr(self, attr_name, globals_dict[global_name])
-                
+
     def sync_to_globals(self, globals_dict: Dict[str, Any]):
         """GameState의 값을 전역 변수로 동기화"""
         mapping = {
             'current_stage': 'current_stage',
             'player_score': 'player_score',
-            'ai_score': 'ai_score', 
+            'ai_score': 'ai_score',
             'round_wins': 'round_wins',
             'round_losses': 'round_losses',
-            'medal_score': 'medal_score',
             'special_gauge': 'special_gauge',
             'special_ready': 'special_ready',
             'special_active': 'special_active',

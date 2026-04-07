@@ -130,15 +130,10 @@ class RoundManager:
         """스테이지 완료"""
         self.stage_complete = True
         
-        # 메달 보너스
-        bonus_medals = self.stage_configs[self.current_stage]['rounds_to_win'] * 20
-        self.scoring_system.add_medals(bonus_medals)
-        
         # 이벤트 발생
         emit_event(EventType.BOSS_DEFEATED, {
             'stage': self.current_stage,
-            'total_rounds': self.current_round,
-            'bonus_medals': bonus_medals
+            'total_rounds': self.current_round
         })
         
         # 다음 스테이지로
@@ -175,15 +170,10 @@ class RoundManager:
         
     def game_complete(self):
         """게임 완료 (모든 스테이지 클리어)"""
-        # 특별 보너스
-        completion_bonus = 1000
-        self.scoring_system.add_medals(completion_bonus)
-        
         # 이벤트 발생
         emit_event(EventType.GAME_OVER, {
             'stage': 6,
             'game_complete': True,
-            'total_medals': self.scoring_system.medal_score,
             'winner': 'player'
         })
         

@@ -2925,7 +2925,7 @@ def draw_items(screen):
 
 
 # 해금 조건 체크 함수
-def check_item_unlock_conditions(current_stage, medal_score):
+def check_item_unlock_conditions(current_stage, medal_score=0):
     for item in ITEM_TYPES:
         if unlocked_items.get(item["name"], False):
             continue
@@ -2933,8 +2933,6 @@ def check_item_unlock_conditions(current_stage, medal_score):
         if not cond:
             continue
         if cond["type"] == "stage_clear" and current_stage >= cond["stage"]:
-            unlocked_items[item["name"]] = True
-        elif cond["type"] == "medal" and medal_score >= cond["amount"]:
             unlocked_items[item["name"]] = True
 
 

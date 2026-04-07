@@ -82438,7 +82438,6 @@ try:
     game_state.display_stage = stage_logic_to_display(current_stage)
 except Exception:
     pass
-game_state.medal_score = medal_score
 game_state.special_gauge = special_gauge
 game_state.special_ready = special_ready
 game_state.deuce_mode = deuce_mode
@@ -83113,7 +83112,7 @@ def save_game_progress(stage_number: int) -> bool:
     """
     global downtown_gold, downtown_ap_current, downtown_ap_is_first_stage
     global deposit_balance, deposit_interest_rate, deposit_last_deposit_stage
-    global deposit_pending_interest_rates, passive_item_list, medal_score
+    global deposit_pending_interest_rates, passive_item_list
     global selected_character_type, ai_mode, active_item_slot
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
@@ -83152,7 +83151,6 @@ def save_game_progress(stage_number: int) -> bool:
             "deposit_interest_rate": deposit_interest_rate,
             "deposit_last_deposit_stage": deposit_last_deposit_stage,
             "deposit_pending_interest_rates": deposit_pending_interest_rates,
-            "medal_score": medal_score if 'medal_score' in globals() else 0,
             "passive_items": serializable_passive_items,
             "active_items": serializable_active_items,
         }
@@ -83362,7 +83360,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
     """
     global downtown_gold, downtown_ap_current, downtown_ap_is_first_stage, downtown_map_seed
     global deposit_balance, deposit_interest_rate, deposit_last_deposit_stage
-    global deposit_pending_interest_rates, passive_item_list, medal_score
+    global deposit_pending_interest_rates, passive_item_list
     global selected_character_type, active_item_slot
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
@@ -83381,7 +83379,6 @@ def apply_loaded_progress(save_data: dict) -> bool:
         deposit_interest_rate = save_data.get("deposit_interest_rate", 0.0)
         deposit_last_deposit_stage = save_data.get("deposit_last_deposit_stage", 0)
         deposit_pending_interest_rates = save_data.get("deposit_pending_interest_rates", {})
-        medal_score = save_data.get("medal_score", 0)
 
         # 캐릭터 타입 복원
         char_type = save_data.get("character_type", "smasher")
@@ -83905,20 +83902,7 @@ def stage_logic_to_display(stage_num: int) -> int:
     """로직 상 스테이지 번호를 사용자에게 보이는 번호로 변환한다."""
     return STAGE_SWAP_MAP.get(stage_num, stage_num)
 
-stage_medal_rewards = {
-    1: 10,
-    2: 20,
-    3: 40,
-    4: 80,
-    5: 100,
-    6: 130,
-    7: 180,
-    8: 200,
-    9: 250,
-    10: 300,
-    11: 350
-}
-session_medal_earned = 0  # main 함수 외부에 선언
+session_medal_earned = 0  # main 함수 외부에 선언 (레거시 - 미사용)
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
 
 
@@ -119442,13 +119426,6 @@ def draw_objects():
     if blacksmith_drop_bottles:
         draw_blacksmith_drop_bottles(SCREEN)
 
-def calculate_total_earned_medals(up_to_stage):
-    total = 0
-    for stage in range(1, up_to_stage + 1):
-        total += stage_medal_rewards.get(stage, 0)
-    return total
-
-
 def run_downtown_hub(next_stage_display: int) -> bool:
     """스코어 화면 이후 광장으로 이동시키는 헬퍼.
 
@@ -121405,9 +121382,9 @@ def show_victory_screen(stage_cleared, reward):
     _pre_num_perks = min(_pre_num_perks, 14)
     _pre_perk_rows = ((_pre_num_perks - 1) // 7 + 1) if _pre_num_perks > 0 else 0
     # 패널 높이 산출 (실제 렌더링 좌표 기준으로 정확히 계산)
-    # 패널 top=180, medal_y=220(+40), breakdown_start=270(+90)
+    # 패널 top=180, breakdown_start=210(+30)
     # breakdown lines: count*32, separator: +15, total gold: ~30px
-    _panel_h = 135 + _breakdown_count * 32         # 메달(90) + 정산 + 구분선+획득골드(45)
+    _panel_h = 45 + _breakdown_count * 32          # 정산 + 구분선+획득골드(45)
     if _pre_item_rows > 0:
         _panel_h += 15 + _pre_item_rows * 44       # 아이템 영역 (총합 아래 15px 갭 + 행)
     if _pre_perk_rows > 0:
@@ -121438,23 +121415,6 @@ def show_victory_screen(stage_cleared, reward):
         skip_to_stage_rect = pygame.Rect(game_center_x - button_width // 2, _btn_start_y, button_width, button_height)
         next_stage_rect = pygame.Rect(game_center_x - button_width // 2, _btn_start_y + button_height, button_width, button_height)
         rest_rect = pygame.Rect(game_center_x - button_width // 2, _btn_start_y + 2 * button_height, button_width, button_height)
-
-    total_medals = calculate_total_earned_medals(stage_cleared)
-    medal_y = 220  # 패널 시작 위치에 맞춰 조정
-    medal_x = game_center_x - 70
-    medal_count_surface = font_info.render(f"{total_medals}", True, WHITE)
-    reward_surface = font_info.render(f"(+ {reward})", True, (100, 255, 100))
-
-    medal_icon_surface = pygame.Surface((35, 35), pygame.SRCALPHA)
-    try:
-        loaded_medal = pygame.image.load(resource_path("medal.png")).convert_alpha()
-        medal_icon_surface = pygame.transform.smoothscale(loaded_medal, (35, 35))
-    except Exception:
-        pygame.draw.circle(medal_icon_surface, (255, 215, 0), (17, 17), 17)
-        pygame.draw.circle(medal_icon_surface, (200, 170, 0), (17, 17), 15, 2)
-
-    medal_count_pos = (game_center_x - 25, medal_y - 10)
-    reward_pos = (game_center_x + 15, medal_y - 10)
 
     victory_background = pygame.Surface((WIDTH, HEIGHT))
     for y in range(HEIGHT):
@@ -121789,11 +121749,6 @@ def show_victory_screen(stage_cleared, reward):
         draw.circle(line_color, (game_center_x + 120, line_y), 4)
         # 정보 패널 배경 (중앙으로 이동) - 높이 증가
         SCREEN.blit(info_panel_surface, info_panel_rect.topleft)
-        # 메달 정보 출력 (메달 아이콘 + 숫자 + 보상)
-        SCREEN.blit(medal_icon_surface, (medal_x, medal_y - 17))
-        SCREEN.blit(medal_count_surface, medal_count_pos)
-        SCREEN.blit(reward_surface, reward_pos)
-
         # 골드 애니메이션 목표 위치 계산 (기존 필러 골드 HUD 위치 사용)
         # 전체화면 모드: REAL_SCREEN 좌표, 윈도우 모드: SCREEN 좌표
         hud_box_width = 100
@@ -121840,8 +121795,8 @@ def show_victory_screen(stage_cleared, reward):
                                (0, 0, hud_box_width + 30, hud_box_height + 30), border_radius=12)
                 SCREEN.blit(glow_surf, (gold_hud_target_x - 65, gold_hud_target_y - 35))
 
-        # 항목별 골드 정산 표시 (메달 정보 아래)
-        breakdown_start_y = medal_y + 50
+        # 항목별 골드 정산 표시
+        breakdown_start_y = 210
         breakdown_line_height = 32
         current_breakdown_y = breakdown_start_y
 
@@ -122699,8 +122654,6 @@ def show_victory_screen(stage_cleared, reward):
                     main(next_stage_display)
             return
 def confirm_rest(stage_cleared, reward):
-    # 메달 정산 전역은 함수 초기에 선언
-    global medal_score, session_medal_earned
     font_small = FontStyle.menu()  # 26pt 픽셀 폰트
     # 게임 영역 중앙 X 좌표 (필러 오프셋 적용)
     game_center_x = PILLAR_UI_WIDTH + GAME_PLAY_WIDTH // 2
@@ -122711,8 +122664,7 @@ def confirm_rest(stage_cleared, reward):
     while True:
         update_btn_hover_effects()
         SCREEN.fill((30, 0, 0))
-        ui_manager.draw_centered_text(_t("ui.confirm_rest_medal", "이번 회차에서 획득한 메달의 70%만 가져갈 수 있습니다."), 26, -50)
-        ui_manager.draw_centered_text(_t("ui.confirm_rest_ok", "괜찮으시겠습니까?"), 30, 0)
+        ui_manager.draw_centered_text(_t("ui.confirm_rest_ok", "휴식하시겠습니까?"), 30, 0)
 
         # 마우스 호버 체크
         _cr_mpos = pygame.mouse.get_pos()
@@ -122747,9 +122699,6 @@ def confirm_rest(stage_cleared, reward):
                     play_button_hover_sound()
                 elif event.key == pygame.K_SPACE:
                     if selected == 0:
-                        earned = int(session_medal_earned * 0.7)
-                        medal_score += earned
-                        session_medal_earned = 0
                         # 아이템 전부 초기화
                         items.reset_items()
                         try:
@@ -122765,9 +122714,6 @@ def confirm_rest(stage_cleared, reward):
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
                 if yes_rect.collidepoint(mx, my):
-                    earned = int(session_medal_earned * 0.7)
-                    medal_score += earned
-                    session_medal_earned = 0
                     items.reset_items()
                     try:
                         deactivate_vitamin_pill()
@@ -125341,7 +125287,6 @@ def show_start_screen():
         show_item_manager_menu=show_item_manager_menu,
         show_developer_stage_select=show_developer_stage_select,
         show_credits_screen=show_credits_screen,
-        medal_score_getter=lambda: medal_score,
         get_font=get_font,
         FontStyle=FontStyle,
         resource_path=resource_path,
@@ -158435,7 +158380,7 @@ def draw_nemesis_death_animation(screen):
 
 
 def show_result(won):
-    global medal_score, current_stage, session_medal_earned
+    global current_stage
     global special_gauge, special_ready, special_active
     global speedboots_obtained, speedgear_obtained  #  패시브 아이템 효과 초기화용
     global game_session_active  #  게임 세션 상태
@@ -158706,8 +158651,7 @@ def show_result(won):
 
         # 네메시스 폭발 애니메이션은 show_result 호출 전에 이미 실행됨
 
-        reward = stage_medal_rewards.get(current_stage, 0)
-        session_medal_earned += reward
+        reward = 0
         #  스테이지 클리어 기록
         record_stage_result(current_stage, cleared=True)
         show_fade_text(f"Stage {stage_logic_to_display(current_stage)} 클리어!")
@@ -159079,9 +159023,6 @@ def show_result(won):
                 main(restart_stage)
             return  # 부활했으므로 게임 계속
         # 부활 아이템이 없거나 이미 사용했다면 일반 패배 처리
-        earned = int(session_medal_earned * 0.5)
-        medal_score += earned
-        session_medal_earned = 0
         # 인게임 상태 비활성화 (구슬 숨김 - 게임 오버)
         set_ingame_active(False)
         show_fade_text("game over")
@@ -159749,7 +159690,7 @@ def main(stage_num, new_boss_mode=False):
     global is_waiting_for_serve, is_player_serve, serve_power_smash_lockout, last_item_spawn_time, next_item_spawn_delay
     global tutorial_needs_dash_practice  # 대쉬 튜토리얼 플래그
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown  # 드라이브 튜토리얼 플래그
-    global boss_fail_timer, session_medal_earned, medal_score
+    global boss_fail_timer
     # 아이템 시스템
     global selected_item_index, last_item_use_time, active_item_cooldown_ms
     global master_obtained, cooltime_obtained
@@ -163991,9 +163932,6 @@ def main(stage_num, new_boss_mode=False):
                     except:
                         pass  # 평가 실패해도 계속 진행
                     # 기권 처리
-                    earned = int(session_medal_earned * 0.5)
-                    medal_score += earned
-                    session_medal_earned = 0
                     # 아이템 관련 전부 초기화
                     items.reset_items()
                     try:
@@ -169286,7 +169224,6 @@ def draw_pause_overlay():
     SCREEN.blit(cached["hint"], hint_rect)
 def show_pause_menu():
     """일시정지 메뉴"""
-    global session_medal_earned, medal_score
     _push_stage7_ui_pause()
     _freeze_skill_cooldowns()
     try:
@@ -172936,8 +172873,6 @@ def show_game_info():
             f"게임 모드: {mode_info}",
             f"현재 스테이지: {current_stage}",
             f"라운드 점수: {round_wins} : {round_losses}",
-            f"획득한 메달: {session_medal_earned}",
-            f"총 메달: {medal_score}",
             f"캐릭터: {character_info}",
             speed_display,
             turn_display,
@@ -174178,7 +174113,7 @@ def show_surrender_confirm():
         message_text = font_large.render(_t("pause.surrender_question", "기권하시겠습니까?"), True, WHITE)
         message_rect = message_text.get_rect(center=(center_x, start_y - 80))
         SCREEN.blit(message_text, message_rect)
-        warning_text = font_medium.render(_t("pause.surrender_warning", "획득한 메달의 50%만 받을 수 있습니다"), True, (255, 200, 200))
+        warning_text = font_medium.render(_t("pause.surrender_warning", "진행 상황이 초기화됩니다"), True, (255, 200, 200))
         warning_rect = warning_text.get_rect(center=(center_x, start_y - 40))
         SCREEN.blit(warning_text, warning_rect)
         # 마우스 호버 체크

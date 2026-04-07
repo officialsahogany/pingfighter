@@ -26,7 +26,7 @@ from pillar_background import get_pillar_renderer
 from localization.manager import get_localization_manager
 from config.language_options import LANGUAGE_OPTIONS, LANGUAGE_CODES
 
-BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "리플레이", "개발테스트", "메달샵", "설정", "크레딧"]
+BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "리플레이", "개발테스트", "설정", "크레딧"]
 MENU_ICONS = {
     "경기장 입장": "▶",
     "계속하기": "▷",
@@ -34,7 +34,7 @@ MENU_ICONS = {
     "온라인 대전": "◈",
     "AI 플레이": "◇",
     "개발테스트": "▣",
-    "메달샵": "◆",
+
     "설정": "⚙",
     "크레딧": "●",
     "개발자": "☆",
@@ -157,50 +157,6 @@ _mode_mouse_trail: list = []         # 마우스 궤적 파티클
 _mode_bg_energy_particles: list = [] # 배경 에너지 파티클
 _mode_card_flash = [0.0, 0.0]        # 카드 선택 전환 시 플래시
 
-MEDAL_FRAME_DURATION = 0.085
-MEDAL_BASE_SIZE = 40
-
-
-def _ensure_medal_animation_assets(ctx: MenuContext, state: MenuState) -> None:
-    """메달 애니메이션에 필요한 프레임을 초기화."""
-    if state.medal_icon_frames:
-        return
-
-    base_icon: pygame.Surface | None = None
-    try:
-        medal_path = ctx.resource_path("medal.png")
-        base_icon = pygame.image.load(medal_path).convert_alpha()
-    except Exception:
-        base_icon = None
-
-    if base_icon is not None:
-        base_icon = pygame.transform.smoothscale(base_icon, (MEDAL_BASE_SIZE, MEDAL_BASE_SIZE))
-    else:
-        # 이미지 로드 실패 시 간단한 원형 아이콘 생성
-        base_icon = pygame.Surface((MEDAL_BASE_SIZE, MEDAL_BASE_SIZE), pygame.SRCALPHA)
-        center = MEDAL_BASE_SIZE // 2
-        pygame.draw.circle(base_icon, (255, 220, 120), (center, center), center)
-        pygame.draw.circle(base_icon, (255, 240, 200), (center, center), center - 4)
-        pygame.draw.circle(base_icon, (240, 180, 60), (center, center), center - 8)
-
-    scales = [1.0]
-    for scale in scales:
-        size = max(8, int(MEDAL_BASE_SIZE * scale))
-        frame = pygame.transform.smoothscale(base_icon, (size, size))
-        state.medal_icon_frames.append(frame)
-
-
-def _advance_medal_animation(state: MenuState, elapsed: float) -> None:
-    """프레임 타이머를 업데이트하고 현재 프레임을 선택."""
-    if not state.medal_icon_frames:
-        return
-
-    state.medal_frame_timer += elapsed
-    if state.medal_frame_timer >= MEDAL_FRAME_DURATION:
-        steps = int(state.medal_frame_timer / MEDAL_FRAME_DURATION)
-        state.medal_frame_timer -= MEDAL_FRAME_DURATION * steps
-        state.medal_frame_index = (state.medal_frame_index + steps) % len(state.medal_icon_frames)
-
 def _run_idle_cinematic_if_needed(
     ctx: MenuContext,
     state: MenuState,
@@ -282,45 +238,7 @@ def _render_menu(
     height: int,
     current_menu_options: List[str],
 ) -> None:
-    _ensure_medal_animation_assets(ctx, state)
-
-    elapsed = max(0.0, state.animation_timer - state.medal_anim_prev_time)
-    state.medal_anim_prev_time = state.animation_timer
-    _advance_medal_animation(state, elapsed)
-
     # 바로크 액자는 _update_background_layers에서 필러 영역에 렌더링됨
-
-    medal_center_x = width - 70
-    medal_center_y = 45
-
-    if state.medal_icon_frames:
-        current_frame = state.medal_icon_frames[state.medal_frame_index]
-        frame_rect = current_frame.get_rect(center=(medal_center_x, medal_center_y))
-
-        glow_radius = int(max(frame_rect.width, frame_rect.height) * 0.6)
-        glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-        glow_alpha = 40 + int(30 * (math.sin(state.animation_timer * 2.0) * 0.5 + 0.5))
-        pygame.draw.circle(glow_surface, (255, 215, 140, glow_alpha), (glow_radius, glow_radius), glow_radius)
-        screen.blit(glow_surface, (frame_rect.centerx - glow_radius, frame_rect.centery - glow_radius))
-
-        screen.blit(current_frame, frame_rect)
-    else:
-        fallback_size = MEDAL_BASE_SIZE
-        fallback_surface = pygame.Surface((fallback_size, fallback_size), pygame.SRCALPHA)
-        pygame.draw.circle(fallback_surface, (255, 220, 120), (fallback_size // 2, fallback_size // 2), fallback_size // 2)
-        frame_rect = fallback_surface.get_rect(center=(medal_center_x, medal_center_y))
-        screen.blit(fallback_surface, frame_rect)
-
-    font_medal = ctx.FontStyle.body()
-    medal_value = str(ctx.medal_score_getter())
-    text_surface = font_medal.render(medal_value, True, (255, 230, 150))
-    shadow_surface = font_medal.render(medal_value, True, (40, 30, 10))
-    text_rect = text_surface.get_rect(midleft=(frame_rect.right + 12, frame_rect.centery))
-    shadow_rect = text_rect.copy()
-    shadow_rect.x += 2
-    shadow_rect.y += 2
-    screen.blit(shadow_surface, shadow_rect)
-    screen.blit(text_surface, text_rect)
 
     _draw_titles(ctx, screen, width, state.animation_timer)
 
@@ -380,8 +298,6 @@ def _render_menu(
             display_text = _loc.get_text("menu.dev_short", "개발")
         elif option == "멀티플레이":
             display_text = _loc.get_text("menu.multi_short", "멀티")
-        elif option == "메달샵":
-            display_text = _loc.get_text("menu.medal_shop", "메달샵")
         elif option == "설정":
             display_text = _loc.get_text("menu.settings", "설정")
         elif option == "크레딧":
@@ -3424,9 +3340,6 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
         return _run_ai_play_flow(ctx)
     if choice == "개발테스트":
         return _show_dev_test_menu(ctx, state)
-    if choice == "메달샵":
-        state.locked_message_timer = ctx.two_seconds_frames
-        return False
     if choice == "설정":
         _show_settings_screen(ctx, state)
         return False
@@ -3633,7 +3546,6 @@ class MenuContext:
     show_item_manager_menu: Callable[[], None]
     show_developer_stage_select: Callable[[], None]
     show_credits_screen: Callable[[], None]
-    medal_score_getter: Callable[[], int]
     get_font: Callable[[int], pygame.font.Font]
     FontStyle: object
     resource_path: Callable[[str], str]
@@ -3659,10 +3571,6 @@ class MenuState:
     scan_lines: List[dict] = field(default_factory=list)
     input_buffer: List[int] = field(default_factory=list)
     locked_message_timer: int = 0
-    medal_icon_frames: List[pygame.Surface] = field(default_factory=list)
-    medal_frame_index: int = 0
-    medal_frame_timer: float = 0.0
-    medal_anim_prev_time: float = 0.0
     # 첫 진입 원클릭 보장: 초반 N프레임 동안 다운/업 보정 허용
     first_click_grace_frames: int = 12
     last_mb_left_state: bool = False

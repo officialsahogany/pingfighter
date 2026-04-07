@@ -27,9 +27,6 @@ class LegacyBridge:
             'ai_score': 'ai_score',
             'round_wins': 'round_wins',
             'round_losses': 'round_losses',
-            'medal_score': 'medal_score',
-            'session_medal_earned': 'session_medal_earned',
-            
             # 듀스 모드
             'deuce_mode': 'deuce_mode',
             'deuce_wins': 'deuce_wins',

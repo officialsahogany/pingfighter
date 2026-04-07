@@ -155,10 +155,6 @@ class EventHandlers:
         item_name = event.data.get('item_name')
         print(f"아이템 획득: {item_name}")
         
-        # 메달 보상
-        if event.data.get('medal_reward'):
-            self.game_state.medal_score += event.data['medal_reward']
-            
     def handle_item_activated(self, event):
         """아이템 활성화 이벤트 처리"""
         item_name = event.data.get('item_name')

@@ -294,7 +294,6 @@ class HUDDisplay:
         self.font_score = get_font(140)  # 140pt 픽셀 폰트 (숫자)
         self.font_subtitle = FontStyle.menu()  # 28pt 픽셀 폰트 (PLAYER, BOSS)
         self.font_vs = get_font(36)  # 36pt 픽셀 폰트 (VS)
-        self.font_medal = FontStyle.body()  # 24pt 픽셀 폰트 (메달 점수)
         self.font_large = get_font(48)  # 48pt 폰트 (팀 이름) - 20% 감소: 60 → 48
         self.font_medium = get_font(29)  # 29pt 폰트 - 20% 감소: 36 → 29
         self.font_small = get_font(19)  # 19pt 폰트 - 20% 감소: 24 → 19
@@ -557,21 +556,6 @@ class HUDDisplay:
         board_surface.set_alpha(alpha)
         self.screen.blit(board_surface, (board_x - 20, board_y - 20))
 
-    def draw_medal_score(self, medal_score):
-        """메달 점수 표시"""
-        medal_text = f"🏅 {medal_score}"
-        text_surface = self.font_medal.render(medal_text, True, (255, 215, 0))
-        text_rect = text_surface.get_rect()
-        text_rect.topright = (self.width - 20, 20)
-
-        # 배경 박스
-        padding = 10
-        bg_rect = text_rect.inflate(padding * 2, padding)
-        pygame.draw.rect(self.screen, (0, 0, 0, 128), bg_rect)
-        pygame.draw.rect(self.screen, (255, 215, 0), bg_rect, 2)
-
-        self.screen.blit(text_surface, text_rect)
-
     def draw_dash_spirit_lasers(self, player_rect, dash_spirits):
         """대시 스피릿 레이저 그리기 - 매우 얇고 긴 타원형"""
         for laser in dash_spirits:
@@ -712,13 +696,6 @@ def show_score(screen, player_score, ai_score, width=600, height=750, draw_field
         if current_stage is not None:
             _hud_display.set_stage(current_stage)
     _hud_display.show_score(player_score, ai_score, player_name=player_name, boss_name=boss_name)
-
-def draw_medal_score(screen, medal_score, width=600, height=750):
-    """메달 점수 표시 (호환성 래퍼)"""
-    global _hud_display
-    if _hud_display is None:
-        _hud_display = HUDDisplay(screen, width, height)
-    _hud_display.draw_medal_score(medal_score)
 
 def draw_dash_spirit_lasers(screen, player_rect, dash_spirits, width=600, height=750):
     """대시 스피릿 레이저 그리기 (호환성 래퍼)"""

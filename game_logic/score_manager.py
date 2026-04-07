@@ -1,6 +1,6 @@
 """
 ScoreManager - 점수 관리
-점수 계산, 메달 시스템, 듀스 모드 관리
+점수 계산, 듀스 모드 관리
 """
 
 from typing import Tuple, Optional
@@ -106,45 +106,3 @@ class ScoreManager:
             'boss_score': self.game_state.round_losses
         })
         
-    def add_medal_score(self, amount: int):
-        """메달 점수 추가
-        
-        Args:
-            amount: 추가할 메달 점수
-        """
-        self.game_state.medal_score += amount
-        self.game_state.session_medal_earned += amount
-        
-        emit_event(EventType.MEDAL_EARNED, {
-            'amount': amount,
-            'total': self.game_state.medal_score
-        })
-        
-    def get_stage_medal_reward(self, stage: int) -> int:
-        """스테이지별 메달 보상 반환
-        
-        Args:
-            stage: 스테이지 번호
-            
-        Returns:
-            메달 보상량
-        """
-        # 스테이지별 보상 테이블
-        rewards = {
-            1: 10,
-            2: 20,
-            3: 40,
-            4: 80,
-            5: 100,
-            6: 130,
-            7: 180,
-            8: 200,
-            9: 250,
-            10: 300,
-        }
-        
-        # 10 스테이지 이후는 50씩 증가
-        if stage > 10:
-            return 300 + (stage - 10) * 50
-            
-        return rewards.get(stage, 10)
