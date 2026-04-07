@@ -452,67 +452,60 @@ class HornStrawberryTransformState:
             pygame.draw.ellipse(surf, (210, 45, 55), (fx - 4, int(fy) - 2, 8, 6))
             pygame.draw.ellipse(surf, (250, 100, 110), (fx - 2, int(fy) - 1, 4, 3))
 
-        # ── 딸기 몸통 (위 넓고 아래 좁은 딸기 실루엣) ──
+        # ── 딸기 몸통 (딸기형 — 폴리곤으로 위 넓고 아래 좁은 매끈한 곡선) ──
         bw = int(r * 2 * (2.0 - squash))
-        bh = int(r * 2.3 * squash)
+        bh = int(r * 2.2 * squash)
         top_y = sc - bh // 2
 
-        # 상부 (넓은 어깨)
-        top_w = bw
-        top_h = int(bh * 0.55)
-        pygame.draw.ellipse(surf, STRAWBERRY_RED,
-                           (sc - top_w // 2, top_y, top_w, top_h))
-        # 하부 (좁아지며 뾰족)
-        bot_w = int(bw * 0.7)
-        bot_h = int(bh * 0.55)
-        bot_y = top_y + top_h - int(top_h * 0.2)
-        pygame.draw.ellipse(surf, STRAWBERRY_RED,
-                           (sc - bot_w // 2, bot_y, bot_w, bot_h))
-        # 연결부
-        pygame.draw.rect(surf, STRAWBERRY_RED,
-                        (sc - bot_w // 2, top_y + top_h // 2, bot_w, int(bh * 0.2)))
-        # 하단 꼭지
-        tip_y = bot_y + bot_h - 4
-        pygame.draw.polygon(surf, STRAWBERRY_RED, [
-            (sc - 4, tip_y - 2), (sc + 4, tip_y - 2), (sc, tip_y + 4)])
+        # 딸기 실루엣을 폴리곤 점들로 구성 (위 넓고 아래 좁은 곡선)
+        num_pts = 24
+        body_pts = []
+        for i in range(num_pts):
+            angle = 2 * math.pi * i / num_pts - math.pi / 2  # 상단부터 시계방향
+            # Y 위치에 따라 폭 조절: 위(넓음) → 아래(좁음)
+            norm_y = math.sin(angle)  # -1(위) ~ 1(아래)
+            # 딸기 폭 함수: 위쪽 1.0, 중간 1.05(가장 넓음), 아래쪽 0.5
+            if norm_y < 0:
+                w_scale = 1.0 + abs(norm_y) * 0.05  # 위→중간: 약간 볼록
+            else:
+                w_scale = 1.0 - norm_y * 0.45  # 중간→아래: 점점 좁아짐
+            px = sc + math.cos(angle) * bw // 2 * w_scale
+            py = sc + math.sin(angle) * bh // 2
+            body_pts.append((int(px), int(py)))
 
-        # 광택 (좌상단 큰 반짝)
+        pygame.draw.polygon(surf, STRAWBERRY_RED, body_pts)
+
+        # 광택 (좌상단)
         hi_r = max(5, r // 2)
         pygame.draw.circle(surf, STRAWBERRY_LIGHT,
-                          (sc - int(top_w * 0.2), top_y + int(top_h * 0.3)), hi_r)
+                          (sc - int(bw * 0.18), top_y + int(bh * 0.25)), hi_r)
         pygame.draw.circle(surf, (255, 190, 195),
-                          (sc - int(top_w * 0.22), top_y + int(top_h * 0.25)), max(2, hi_r // 2))
+                          (sc - int(bw * 0.2), top_y + int(bh * 0.2)), max(2, hi_r // 2))
         shine_a = int(140 + 60 * math.sin(t * 0.005))
         pygame.draw.circle(surf, (255, 255, 255, shine_a),
-                          (sc - int(top_w * 0.24), top_y + int(top_h * 0.2)), 2)
+                          (sc - int(bw * 0.22), top_y + int(bh * 0.17)), 2)
 
         # 외곽선
-        pygame.draw.ellipse(surf, STRAWBERRY_DARK,
-                           (sc - top_w // 2, top_y, top_w, top_h), 2)
-        pygame.draw.ellipse(surf, STRAWBERRY_DARK,
-                           (sc - bot_w // 2, bot_y, bot_w, bot_h), 2)
-        pygame.draw.polygon(surf, STRAWBERRY_DARK, [
-            (sc - 3, tip_y - 1), (sc + 3, tip_y - 1), (sc, tip_y + 4)], 1)
+        pygame.draw.polygon(surf, STRAWBERRY_DARK, body_pts, 2)
 
-        # ── 씨앗 (딸기 실루엣 안에 배치) ──
+        # ── 씨앗 (딸기 형태 안에 배치) ──
         seed_rng = random.Random(77)
-        body_center_y = top_y + int(bh * 0.4)
         for _ in range(14):
             sa = seed_rng.uniform(0, math.pi * 2)
-            sd = seed_rng.uniform(0.15, 0.7)
-            raw_x = math.cos(sa) * sd
-            raw_y = math.sin(sa) * sd
-            # 하단으로 갈수록 좁아지는 딸기 형태 반영
-            y_ratio = (raw_y + 0.5)  # 0~1 (위~아래)
-            width_at_y = 1.0 - y_ratio * 0.4  # 위=1.0, 아래=0.6
-            sx = int(sc + raw_x * r * 0.8 * width_at_y)
-            sy = int(body_center_y + raw_y * r * 1.0)
+            sd = seed_rng.uniform(0.15, 0.65)
+            norm_y = math.sin(sa)
+            if norm_y < 0:
+                ws = 1.0 + abs(norm_y) * 0.05
+            else:
+                ws = 1.0 - norm_y * 0.45
+            sx = int(sc + math.cos(sa) * bw // 2 * ws * sd)
+            sy = int(sc + norm_y * bh // 2 * sd)
             pygame.draw.ellipse(surf, (160, 15, 25), (sx - 2, sy - 1, 5, 4))
             pygame.draw.ellipse(surf, (215, 180, 55), (sx - 1, sy, 4, 3))
             pygame.draw.rect(surf, (240, 215, 85), (sx, sy, 2, 1))
 
         # ── 잎사귀 (상단 3장) ──
-        leaf_y = top_y + 2
+        leaf_y = sc - bh // 2 + 2
         sway = math.sin(t * 0.004) * 2.5
         pygame.draw.polygon(surf, (55, 155, 40), [
             (sc - 8, leaf_y + 3), (sc + 8, leaf_y + 3), (sc + sway, leaf_y - 14)])
