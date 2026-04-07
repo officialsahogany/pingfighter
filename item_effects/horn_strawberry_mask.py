@@ -64,9 +64,9 @@ STRAWBERRY_BOMB_GAUGE_COST = 400
 STRAWBERRY_BOMB_COOLDOWN = 30.0
 STRAWBERRY_BOMB_COUNT = 30  # 1초간 투척 개수
 STRAWBERRY_BOMB_THROW_DURATION = 1.0  # 투척 시간 (초)
-STRAWBERRY_BOMB_HOP_INTERVAL = 0.12  # 점프 궤적 변경 간격 (초)
-STRAWBERRY_BOMB_BASE_SPEED = 4.0  # 기본 이동 속도
-STRAWBERRY_BOMB_HOP_HEIGHT = 40.0  # 점프 높이
+STRAWBERRY_BOMB_HOP_INTERVAL = 0.38  # 점프 궤적 변경 간격 (초) — 넓직한 포물선
+STRAWBERRY_BOMB_BASE_SPEED = 3.2  # 기본 이동 속도
+STRAWBERRY_BOMB_HOP_HEIGHT = 55.0  # 점프 높이 (넓은 포물선)
 STRAWBERRY_BOMB_STUN_DURATION = 1.0  # 폭발 시 스턴 (초)
 STRAWBERRY_BOMB_KNOCKBACK = 50.0  # 폭발 시 넉백
 STRAWBERRY_BOMB_PAINT_DURATION = 5.0  # 페인트 지속시간 (초)
@@ -785,6 +785,24 @@ class HornStrawberryTransformState:
         # ── 기울기 + 그리기 ──
         if abs(lean) > 0.3:
             surf = pygame.transform.rotozoom(surf, -lean, 1.0)
+
+        # ── 딸기폭탄 투척 중 발레리나 회전 (X축 기준 회전 = 가로 스케일 oscillation) ──
+        bomb_skill = getattr(self, "strawberry_bomb", None)
+        is_bomb_throwing = bool(getattr(bomb_skill, "throwing", False))
+        if is_bomb_throwing:
+            spin_speed = 12.0  # 빠른 회전
+            spin_phase = t * 0.001 * spin_speed * math.pi * 2
+            # cos로 가로 스케일: 1.0 → 0.15(얇게) → -1.0(뒤집힘) → 0.15 → 1.0
+            x_scale = math.cos(spin_phase)
+            abs_scale = max(0.12, abs(x_scale))  # 최소 12% (완전히 안 사라지게)
+            orig_w = surf.get_width()
+            orig_h = surf.get_height()
+            new_w = max(2, int(orig_w * abs_scale))
+            surf = pygame.transform.smoothscale(surf, (new_w, orig_h))
+            # x_scale < 0이면 좌우 반전 (뒤쪽 보임)
+            if x_scale < 0:
+                surf = pygame.transform.flip(surf, True, False)
+
         rect = surf.get_rect(center=(body_cx, body_cy))
         screen.blit(surf, rect)
 
@@ -2006,15 +2024,19 @@ class StrawberryBombSkill:
         return hits
 
     def _spawn_bomb(self, player_x, player_y, screen_width):
-        """폭탄 하나 생성"""
-        spread = random.uniform(-3.0, 3.0)
+        """폭탄 하나 생성 — 왼쪽→오른쪽으로 촤라락 뿌리기"""
+        # 진행률 0~1: 왼쪽(-1)→오른쪽(+1)으로 스윕
+        progress = self._thrown_count / max(1, STRAWBERRY_BOMB_COUNT - 1)
+        sweep_angle = -1.0 + 2.0 * progress  # -1 ~ +1
+        sweep_vx = sweep_angle * 4.0 + random.uniform(-0.8, 0.8)
+        spawn_offset_x = sweep_angle * 25 + random.uniform(-5, 5)
         self.bombs.append({
-            "x": float(player_x) + random.uniform(-15, 15),
+            "x": float(player_x) + spawn_offset_x,
             "base_y": float(player_y) - 10,
             "visual_y": float(player_y) - 10,
-            "vx": spread,
+            "vx": sweep_vx,
             "vy": -(STRAWBERRY_BOMB_BASE_SPEED + random.uniform(0, 1.5)),
-            "hop_timer": random.uniform(0.02, STRAWBERRY_BOMB_HOP_INTERVAL),
+            "hop_timer": random.uniform(0.05, STRAWBERRY_BOMB_HOP_INTERVAL * 0.5),
             "hop_phase": 0.0,
             "age": 0.0,
             "rotation": random.uniform(0, math.pi * 2),
