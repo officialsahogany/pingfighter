@@ -22241,6 +22241,7 @@ def update_horn_strawberry_transform(keys, dt):
         # 변신 중 스킬 입력 처리
         _handle_strawberry_skills(keys, ts, dt)
         _apply_horn_strawberry_horn_charge_runtime(ts)
+        _apply_horn_strawberry_eat_runtime(ts)
 
         # 딸기 꼭지 투사체 ↔ 보스 충돌 체크
         if BOSS and ts.strawberry_eat.projectiles:
@@ -22358,14 +22359,16 @@ def is_horn_strawberry_event_playing():
 
 
 def is_horn_strawberry_control_locked():
-    """뿔박치기 돌진/충돌 중에만 이동을 잠근다. 딸기먹기 중에는 이동 허용."""
+    """뿔박치기 돌진/충돌 및 딸기먹기 모션 동안 이동을 잠근다."""
     ts = _get_horn_strawberry_transform()
     if not ts or not ts.is_transformed:
         return False
     try:
-        return bool(ts.horn_charge.is_control_locked())
+        charge_locked = bool(ts.horn_charge.is_control_locked())
     except Exception:
-        return bool(getattr(ts.horn_charge, "active", False))
+        charge_locked = bool(getattr(ts.horn_charge, "active", False))
+    eat_locked = bool(getattr(ts.strawberry_eat, "eating", False))
+    return charge_locked or eat_locked
 
 def is_horn_strawberry_skills_locked():
     """뿔딸기 변신 중에는 기존 캐릭터 스킬을 차단한다 (이동은 허용)."""
@@ -22410,7 +22413,6 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
     except Exception:
         _horn_charge_locked = bool(getattr(ts.horn_charge, "active", False))
     _horn_charge_active = bool(getattr(ts.horn_charge, "active", False))
-    _eat_locked = bool(getattr(ts.strawberry_eat, "eating", False))
 
     # 돌진/충돌/복귀 중에는 실제 패들을 원위치에 고정하고 이동/대쉬를 차단한다.
     if _horn_charge_locked:
@@ -22460,8 +22462,6 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
             player_knockback_vel = 0
             globals()["horn_charge_player_knockback_active"] = False
 
-    # 딸기먹기 중에도 이동 허용 (먹으면서 움직일 수 있음)
-
     if _gs.get("horn_charge_apply_knockback"):
         _kb_dir = _gs.get("horn_charge_knockback_dir", 1)
         _kb_vel = _gs.get("horn_charge_knockback_vel", 73)
@@ -22480,6 +22480,27 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
             globals()["horn_charge_player_knockback_active"] = True
 
         _gs["horn_charge_apply_knockback"] = False
+
+
+def _apply_horn_strawberry_eat_runtime(ts):
+    """딸기먹기 모션 중에는 플레이어를 제자리에 고정한다."""
+    global current_speed, rolling_active, rolling_timer
+    global player_knockback_vel, player_fire_knockback_vel, player_missile_knockback_vel
+
+    if not bool(getattr(ts.strawberry_eat, "eating", False)):
+        return
+
+    _anchor_centerx = getattr(ts.strawberry_eat, "_anchor_player_centerx", None)
+    if PLAYER is not None and _anchor_centerx is not None:
+        PLAYER.centerx = int(round(_anchor_centerx))
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+
+    current_speed = 0
+    rolling_active = False
+    rolling_timer = 0
+    player_knockback_vel = 0
+    player_fire_knockback_vel = 0.0
+    player_missile_knockback_vel = 0.0
 
 
 def _draw_horn_strawberry_charge_shockwave(screen, ts):
@@ -170676,10 +170697,7 @@ def show_character_info(background_surface=None):
         # 🍓 뿔딸기 변신 중 이동속도 오버라이드
         if _hs_move_speed is not None:
             move_speed = _hs_move_speed
-        # 🍓 딸기먹기 중 이동 불가
-        _hs_ts = _get_horn_strawberry_transform()
-        if _hs_ts and _hs_ts.is_transformed and _hs_ts.strawberry_eat.eating:
-            move_speed = 0.0
+        # 🍓 딸기먹기 중에도 이동 허용 (먹으면서 움직일 수 있음)
 
         # 🧪 기묘한 약병 이동속도 배율 반영
         if strange_vial_active and strange_vial_speed_mult != 1.0:
