@@ -122597,44 +122597,45 @@ def _play_replay(filepath: str):
         scaled = pygame.transform.scale(surf, (WIDTH, HEIGHT))
         SCREEN.blit(scaled, (0, 0))
 
-        # ── 하단 컨트롤 오버레이 ──
-        # 반투명 배경
-        ctrl_bg = pygame.Surface((WIDTH, 90), pygame.SRCALPHA)
-        ctrl_bg.fill((0, 0, 0, 140))
-        SCREEN.blit(ctrl_bg, (0, HEIGHT - 90))
-
+        # ── 하단 컨트롤 오버레이 (마우스 하단 호버 또는 일시정지 시에만 표시) ──
         mouse_pos = pygame.mouse.get_pos()
+        show_controls = rp.paused or mouse_pos[1] > HEIGHT - 100 or dragging_timeline
 
-        def _draw_btn(rect, label, hover_color=(50, 70, 100), base_color=(30, 40, 55)):
-            hovered = rect.collidepoint(mouse_pos)
-            c = hover_color if hovered else base_color
-            pygame.draw.rect(SCREEN, c, rect, border_radius=5)
-            pygame.draw.rect(SCREEN, (80, 100, 140), rect, width=1, border_radius=5)
-            s = btn_font.render(label, True, (200, 210, 230))
-            SCREEN.blit(s, (rect.centerx - s.get_width() // 2, rect.centery - s.get_height() // 2))
+        if show_controls:
+            ctrl_bg = pygame.Surface((WIDTH, 90), pygame.SRCALPHA)
+            ctrl_bg.fill((0, 0, 0, 140))
+            SCREEN.blit(ctrl_bg, (0, HEIGHT - 90))
 
-        _draw_btn(btn_back5, "<<5s")
-        _draw_btn(btn_pause, "II" if not rp.paused else ">")
-        _draw_btn(btn_speed, f"x{rp.speed:.2g}")
-        _draw_btn(btn_fwd5, "5s>>")
+            def _draw_btn(rect, label, hover_color=(50, 70, 100), base_color=(30, 40, 55)):
+                hovered = rect.collidepoint(mouse_pos)
+                c = hover_color if hovered else base_color
+                pygame.draw.rect(SCREEN, c, rect, border_radius=5)
+                pygame.draw.rect(SCREEN, (80, 100, 140), rect, width=1, border_radius=5)
+                s = btn_font.render(label, True, (200, 210, 230))
+                SCREEN.blit(s, (rect.centerx - s.get_width() // 2, rect.centery - s.get_height() // 2))
 
-        # 타임라인 바
-        pygame.draw.rect(SCREEN, (40, 45, 60), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
-        fill_w = int(bar_w * rp.progress)
-        if fill_w > 0:
-            pygame.draw.rect(SCREEN, (0, 180, 255), (bar_x, bar_y, fill_w, bar_h), border_radius=4)
-        handle_x = bar_x + fill_w
-        pygame.draw.circle(SCREEN, (0, 220, 255), (handle_x, bar_y + bar_h // 2), 6)
-        if dragging_timeline:
-            pygame.draw.circle(SCREEN, (255, 255, 255), (handle_x, bar_y + bar_h // 2), 8, 2)
+            _draw_btn(btn_back5, "<<5s")
+            _draw_btn(btn_pause, "II" if not rp.paused else ">")
+            _draw_btn(btn_speed, f"x{rp.speed:.2g}")
+            _draw_btn(btn_fwd5, "5s>>")
 
-        cur_t = rp.current_time
-        tot_t = rp.total_time
-        time_str = f"{int(cur_t)//60}:{int(cur_t)%60:02d} / {int(tot_t)//60}:{int(tot_t)%60:02d}"
-        SCREEN.blit(info_font.render(time_str, True, (160, 170, 190)), (bar_x, bar_y + 14))
+            # 타임라인 바
+            pygame.draw.rect(SCREEN, (40, 45, 60), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+            fill_w = int(bar_w * rp.progress)
+            if fill_w > 0:
+                pygame.draw.rect(SCREEN, (0, 180, 255), (bar_x, bar_y, fill_w, bar_h), border_radius=4)
+            handle_x = bar_x + fill_w
+            pygame.draw.circle(SCREEN, (0, 220, 255), (handle_x, bar_y + bar_h // 2), 6)
+            if dragging_timeline:
+                pygame.draw.circle(SCREEN, (255, 255, 255), (handle_x, bar_y + bar_h // 2), 8, 2)
 
-        sp_s = speed_font.render(f"x{rp.speed:.2g}", True, (200, 200, 100))
-        SCREEN.blit(sp_s, (bar_x + bar_w - sp_s.get_width(), bar_y + 14))
+            cur_t = rp.current_time
+            tot_t = rp.total_time
+            time_str = f"{int(cur_t)//60}:{int(cur_t)%60:02d} / {int(tot_t)//60}:{int(tot_t)%60:02d}"
+            SCREEN.blit(info_font.render(time_str, True, (160, 170, 190)), (bar_x, bar_y + 14))
+
+            sp_s = speed_font.render(f"x{rp.speed:.2g}", True, (200, 200, 100))
+            SCREEN.blit(sp_s, (bar_x + bar_w - sp_s.get_width(), bar_y + 14))
 
         # 일시정지 오버레이
         if rp.paused:
