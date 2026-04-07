@@ -22307,7 +22307,7 @@ def _handle_strawberry_skills(keys, ts, dt):
         if ts.strawberry_eat.activate():
             consume_special_gauge(_eat_cost)
             ts._eat_paddle_growth_bonus = float(getattr(ts, "_eat_paddle_growth_bonus", 0.0)) + float(
-                getattr(ts.strawberry_eat, "paddle_growth_bonus", 0.05)
+                getattr(ts.strawberry_eat, "paddle_growth_bonus", 0.10)
             )
 
     if ts.strawberry_eat.eating or ts.strawberry_eat.projectiles:
@@ -22416,6 +22416,17 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
         player_fire_knockback_vel = 0.0
         player_missile_knockback_vel = 0.0
 
+    if _horn_charge_active:
+        # 딸기뿔박치기는 사용자 self-stun이 없어야 한다.
+        if player_stunned_timer > 0:
+            print(f"[뿔딸기DEBUG] active 중 player_stunned_timer={player_stunned_timer}, bottom_stunned={_gs.get('bottom_paddle_stunned')}, phase={getattr(ts.horn_charge._skill, 'phase', '?')}")
+        player_stunned_timer = 0
+        # bottom_paddle_stunned도 강제 해제 (원본 HornCharge가 STUN 페이즈에서 설정)
+        _gs["bottom_paddle_stunned"] = False
+        if globals().get("horn_charge_player_knockback_active", False):
+            player_knockback_vel = 0
+            globals()["horn_charge_player_knockback_active"] = False
+
     # 딸기뿔박치기는 사용자가 스턴/넉백에 걸리지 않아야 하므로,
     # 복귀 잠금이 풀린 뒤 self-knockback 흔적이 남아 있으면 즉시 제거한다.
     if (
@@ -22426,6 +22437,16 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
         player_knockback_vel = 0
         player_stunned_timer = 0
         globals()["horn_charge_player_knockback_active"] = False
+
+    # HornCharge가 끝났는데 잔여 스턴/넉백이 남아있으면 정리
+    if not _horn_charge_active:
+        if _gs.get("bottom_paddle_stunned"):
+            _gs["bottom_paddle_stunned"] = False
+            player_stunned_timer = 0
+            print(f"[뿔딸기DEBUG] charge 종료 후 잔여 bottom_stunned 정리!")
+        if globals().get("horn_charge_player_knockback_active", False):
+            player_knockback_vel = 0
+            globals()["horn_charge_player_knockback_active"] = False
 
     if _eat_locked:
         _eat_anchor_centerx = getattr(ts.strawberry_eat, "_anchor_player_centerx", None)
@@ -22734,7 +22755,7 @@ HORN_STRAWBERRY_SKILL_DATA = [
     {
         "name": "strawberry_eat", "korean": "딸기먹기", "cost": 50,
         "color": (240, 220, 100), "key": "Space", "cooldown": 0.8,
-        "description": "0.8초간 딸기를 먹어 게이지 50 소모, 대시토큰 1 회복. 사용할 때마다 패들 5% 성장. 먹은 뒤 꼭지를 발사하여 넉백+스턴.",
+        "description": "0.8초간 딸기를 먹어 게이지 50 소모, 대시토큰 1 회복. 사용할 때마다 패들 10% 성장. 먹은 뒤 꼭지를 발사하여 넉백+스턴.",
         "how_to_use": "Space 또는 마우스 좌클릭",
     },
 ]
@@ -173202,7 +173223,7 @@ def get_item_description(item_name):
         "pandora_legacy": "판도라의 유산: 초고대문명의 과학자가 남긴 유물, 게임에서 승리 시 일정확률로 '판도라의 유산'이 작동하며 원하는 엑티브아이템을 고를 수 있습니다.",
         "megingjord": "메긴교르드: 토르의 힘의 깃든 벨트. 퍽 선택 화면에서 퍽을 고른 후 일정 확률로 한 번 더 고를 수 있는 기회가 주어집니다. 최대 연속 2회 발동됩니다",
         "valhalla_warplate": "발할라의 전갑: 고대 전사의 영광이 깃든 신성한 갑옷. 공을 타격시 일정 확률로 발할라의 영웅이 호위무사로 소환됩니다.",
-        "horn_strawberry_mask": "뿔딸기 변신가면: 희귀한 뿔딸기를 본뜬 신화의 가면. 장착 후 A→W→D 커맨드 입력으로 뿔딸기로 변신! 변신 중 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30. 전용 스킬: 뿔박치기(W, 300게이지, 쿨20초), 딸기장판(S홀드 1초, 100게이지, 쿨10초), 딸기먹기(Space, 게이지50소모+대시토큰1+꼭지투척, 사용 시마다 패들 5% 성장, 쿨0.8초).",
+        "horn_strawberry_mask": "뿔딸기 변신가면: 희귀한 뿔딸기를 본뜬 신화의 가면. 장착 후 A→W→D 커맨드 입력으로 뿔딸기로 변신! 변신 중 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30. 전용 스킬: 뿔박치기(W, 300게이지, 쿨20초), 딸기장판(S홀드 1초, 100게이지, 쿨10초), 딸기먹기(Space, 게이지50소모+대시토큰1+꼭지투척, 사용 시마다 패들 10% 성장, 쿨0.8초).",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
