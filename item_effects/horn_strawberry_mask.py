@@ -28,7 +28,7 @@ TRANSFORM_END_EVENT_DURATION = 2.0  # 변신 해제 이벤트 시간 (초)
 
 # 변신 중 능력치
 TRANSFORM_MOVE_SPEED = 8  # 이동속도
-TRANSFORM_GAUGE_ON_HIT = 30  # 공 타격 시 게이지 회복
+TRANSFORM_GAUGE_ON_HIT = 80  # 공 타격 시 게이지 회복 (단독 충전, 기본 캐릭터 충전 대체)
 
 # 스킬: 뿔박치기 (W)
 HORN_CHARGE_GAUGE_COST = 300

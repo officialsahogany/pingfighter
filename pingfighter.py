@@ -22442,10 +22442,10 @@ def get_horn_strawberry_move_speed():
     return None
 
 def get_horn_strawberry_gauge_on_hit():
-    """변신 중 공 타격 시 게이지 회복량 (0 = 추가 없음)"""
+    """변신 중 공 타격 시 게이지 회복량 (0 = 추가 없음, 단독 충전)"""
     ts = _get_horn_strawberry_transform()
     if ts and ts.is_transformed:
-        return 30
+        return 80
     return 0
 
 def is_horn_strawberry_transformed():
@@ -82392,7 +82392,9 @@ def handle_player(keys):
 
             if DEBUG_HANDLE_PLAYER_VERBOSE:
                 pass  # print(f" DEBUG:  handle_player   ({total_gauge_gain})")
-            if selected_character_type == "optimus":
+            if is_horn_strawberry_transformed():
+                pass  # 뿔딸기 변신 중: 기본 캐릭터 게이지 충전 비활성 (단독 80 충전은 위에서 처리)
+            elif selected_character_type == "optimus":
                 if DEBUG_HANDLE_PLAYER_VERBOSE:
                     pass  # print(" DEBUG:  handle_player   (optimus - no gauge charge)")
             else:
@@ -152038,7 +152040,9 @@ def handle_ball():
                 whip_angle = 0
                 # print("상모돌리기 종료 - 플레이어 패들 충돌")  # 디버그 비활성화
             
-            if selected_character_type == "optimus":
+            if is_horn_strawberry_transformed():
+                pass  # 뿔딸기 변신 중: 기본 캐릭터 게이지 충전 비활성 (단독 80 충전은 위에서 처리)
+            elif selected_character_type == "optimus":
                 if DEBUG_HANDLE_BALL_VERBOSE:
                     pass  # print(" DEBUG:  handle_ball    (optimus - no gauge charge)")
             else:
