@@ -123393,7 +123393,7 @@ def _resolve_replay_bgm_path(metadata: dict) -> str | None:
 
 
 def _analyze_replay(replay_info: dict) -> list:
-    """리플레이 메타데이터에서 경기 분석 피드백 생성"""
+    """리플레이 메타데이터에서 캐릭터별 경기 분석 피드백 생성"""
     from replay.replay_system import _read_metadata_fast
     md = _read_metadata_fast(replay_info['filepath'])
     if not md:
@@ -123403,6 +123403,7 @@ def _analyze_replay(replay_info: dict) -> list:
     duration = md.get('duration', 0)
     result = md.get('result', '')
     stage = md.get('stage', 1)
+    character = md.get('character', replay_info.get('character', 'smasher')).lower()
 
     # 사운드 이벤트 카운트
     counts = {}
@@ -123411,79 +123412,179 @@ def _analyze_replay(replay_info: dict) -> list:
             sid = e.get('id', e) if isinstance(e, dict) else e
             counts[sid] = counts.get(sid, 0) + 1
 
+    # 공통 지표
     paddle = counts.get('PADDLE', 0)
     wall = counts.get('WALL', 0)
     dash = counts.get('DASH', 0)
     half_dash = counts.get('HALF_DASH', 0)
-    power_smash = counts.get('POWER_SMASH', 0)
-    drive = counts.get('DRIVE', 0)
     item_get = counts.get('ITEM_GET', 0)
     active_item = counts.get('ACTIVE_ITEM', 0)
     serve = counts.get('SERVE', 0)
+    drive = counts.get('DRIVE', 0)
     rounds = max(serve, 1)
     mins = int(duration) // 60
     secs = int(duration) % 60
     total_dash = dash + half_dash
 
+    # 캐릭터 이름 매핑
+    char_names = {'smasher': '스매셔', 'viper': '바이퍼', 'soldier': '코만도', 'blacksmith': '발토르'}
+    char_display = char_names.get(character, character)
+
     feedback = []
 
+    # 승패 + 캐릭터
     if result == 'win':
-        feedback.append(("승리!", f"Stage {stage}를 {mins}분 {secs}초 만에 클리어했습니다.", (100, 255, 100)))
+        feedback.append(("승리!", f"{char_display}로 Stage {stage}를 {mins}분 {secs}초 만에 클리어!", (100, 255, 100)))
     elif result == 'lose':
-        feedback.append(("패배", f"Stage {stage}에서 {mins}분 {secs}초 동안 분투했습니다.", (255, 100, 100)))
+        feedback.append(("패배", f"{char_display}로 Stage {stage}에서 {mins}분 {secs}초 분투.", (255, 100, 100)))
+    else:
+        feedback.append(("경기 기록", f"{char_display} — Stage {stage}, {mins}분 {secs}초", (180, 180, 200)))
 
+    # ── 공통 분석 ──
     rallies_per_round = paddle / rounds if rounds > 0 else 0
     if rallies_per_round >= 15:
-        feedback.append(("랠리 마스터", f"라운드당 평균 {rallies_per_round:.0f}회 랠리! 훌륭한 수비력입니다.", (100, 255, 200)))
+        feedback.append(("랠리 마스터", f"라운드당 평균 {rallies_per_round:.0f}회 랠리! 훌륭한 수비력.", (100, 255, 200)))
     elif rallies_per_round >= 8:
-        feedback.append(("안정적인 랠리", f"라운드당 평균 {rallies_per_round:.0f}회 랠리. 괜찮은 수준입니다.", (200, 220, 255)))
+        feedback.append(("안정적인 랠리", f"라운드당 평균 {rallies_per_round:.0f}회 랠리.", (200, 220, 255)))
     else:
-        feedback.append(("랠리 부족", f"라운드당 평균 {rallies_per_round:.0f}회 랠리. 수비에 더 집중해보세요.", (255, 200, 100)))
+        feedback.append(("랠리 부족", f"라운드당 평균 {rallies_per_round:.0f}회 랠리. 수비에 집중!", (255, 200, 100)))
 
     if total_dash >= 10:
-        feedback.append(("적극적인 대시", f"대시 {dash}회 + 하프대시 {half_dash}회! 기동력이 뛰어납니다.", (100, 200, 255)))
+        feedback.append(("적극적인 대시", f"대시 {dash}회 + 하프대시 {half_dash}회! 기동력 우수.", (100, 200, 255)))
     elif total_dash >= 3:
-        feedback.append(("대시 활용 보통", f"대시 {total_dash}회 사용. 더 적극적으로 활용하면 좋겠습니다.", (200, 200, 180)))
+        feedback.append(("대시 보통", f"대시 {total_dash}회. 더 적극 활용 추천.", (200, 200, 180)))
     else:
-        feedback.append(("대시 미활용", f"대시를 {total_dash}회만 사용했습니다. 대시로 위기를 탈출해보세요!", (255, 180, 80)))
+        feedback.append(("대시 미활용", f"대시 {total_dash}회만 사용. 위기 탈출에 활용하세요!", (255, 180, 80)))
 
-    if power_smash >= 5:
-        feedback.append(("파워스매시 달인", f"파워스매시 {power_smash}회! 공격적인 플레이입니다.", (255, 220, 100)))
-    elif power_smash >= 1:
-        feedback.append(("파워스매시 사용", f"파워스매시 {power_smash}회. 기회를 더 노려보세요.", (200, 200, 180)))
-    else:
-        feedback.append(("파워스매시 미사용", "파워스매시를 한 번도 안 썼습니다. 강력한 한 방을 노려보세요!", (255, 150, 100)))
+    # ── 캐릭터별 전용 분석 ──
+    score_bonus = 0
 
-    if drive >= 3:
-        feedback.append(("드라이브 활용", f"드라이브 {drive}회 발동! 스킬을 잘 활용하고 있습니다.", (180, 255, 180)))
-    elif drive == 0:
-        feedback.append(("드라이브 미사용", "드라이브를 사용하지 않았습니다. 게이지가 차면 활용해보세요.", (200, 180, 150)))
+    if character == 'smasher':
+        power_smash = counts.get('POWER_SMASH', 0)
+        if power_smash >= 5:
+            feedback.append(("파워스매시 달인", f"파워스매시 {power_smash}회! 공격적인 플레이.", (255, 220, 100)))
+            score_bonus += 15
+        elif power_smash >= 1:
+            feedback.append(("파워스매시 사용", f"파워스매시 {power_smash}회. 더 노려보세요.", (200, 200, 180)))
+            score_bonus += power_smash * 3
+        else:
+            feedback.append(("파워스매시 미사용", "강력한 한 방을 노려보세요!", (255, 150, 100)))
 
+        if drive >= 3:
+            feedback.append(("드라이브 활용", f"드라이브 {drive}회! 스킬 활용 우수.", (180, 255, 180)))
+            score_bonus += 10
+        elif drive == 0:
+            feedback.append(("드라이브 미사용", "게이지가 차면 드라이브를 활용해보세요.", (200, 180, 150)))
+
+    elif character == 'viper':
+        blade = counts.get('VIPER_BLADE', 0) + counts.get('VIPER_BLADE_SPIN', 0)
+        kick = counts.get('VIPER_SHADOW_KICK', 0) + counts.get('VIPER_PHANTOM_KICK_HIT', 0)
+        dive = counts.get('VIPER_DIVE_STRIKE', 0)
+        backstep = counts.get('VIPER_BACKSTEP', 0)
+
+        if blade >= 5:
+            feedback.append(("블레이드 달인", f"블레이드 {blade}회! 근접 압박이 뛰어납니다.", (200, 100, 255)))
+            score_bonus += 15
+        elif blade >= 1:
+            feedback.append(("블레이드 사용", f"블레이드 {blade}회. 더 적극적으로!", (180, 150, 220)))
+            score_bonus += blade * 3
+        else:
+            feedback.append(("블레이드 미사용", "블레이드로 보스를 압박해보세요!", (255, 150, 200)))
+
+        if kick >= 3:
+            feedback.append(("킥 마스터", f"킥 {kick}회! 공격과 방어를 겸비.", (255, 180, 100)))
+            score_bonus += 10
+        elif kick == 0:
+            feedback.append(("킥 미사용", "섀도킥으로 보스를 견제해보세요.", (200, 160, 130)))
+
+        if dive >= 2:
+            feedback.append(("다이브 스트라이크", f"다이브 {dive}회! 급강하 공격 활용 우수.", (100, 220, 255)))
+            score_bonus += 8
+        elif dive == 0:
+            feedback.append(("다이브 미사용", "체공 중 S키로 급강하를 시도해보세요.", (180, 180, 150)))
+
+        if backstep >= 3:
+            feedback.append(("백스텝 활용", f"백스텝 {backstep}회! 회피 기동 우수.", (150, 255, 200)))
+            score_bonus += 5
+
+    elif character == 'soldier':
+        grenade = counts.get('GRENADE', 0) + counts.get('THROW', 0)
+        ak47 = counts.get('AK47', 0)
+        bazooka = counts.get('BAZOOKA_GOING', 0)
+        spider = counts.get('SPIDER_MINE_SETUP', 0)
+
+        total_weapons = grenade + ak47 + bazooka + spider
+        if total_weapons >= 8:
+            feedback.append(("화력 집중!", f"무기 총 {total_weapons}회 사용! 화력이 압도적.", (255, 200, 80)))
+            score_bonus += 15
+        elif total_weapons >= 3:
+            feedback.append(("무기 활용", f"무기 {total_weapons}회 사용.", (200, 200, 150)))
+            score_bonus += total_weapons * 2
+        else:
+            feedback.append(("무기 미활용", f"무기를 {total_weapons}회만 사용. 적극적으로 쏘세요!", (255, 150, 100)))
+
+        if grenade >= 3:
+            feedback.append(("수류탄 사격왕", f"수류탄/투척 {grenade}회! 범위 공격 우수.", (200, 255, 100)))
+            score_bonus += 5
+        if ak47 >= 3:
+            feedback.append(("AK47 활용", f"소총 {ak47}회 발사! 지속 화력 우수.", (255, 220, 150)))
+            score_bonus += 5
+        if spider >= 1:
+            feedback.append(("지뢰 전개", f"스파이더 지뢰 {spider}회 설치! 전술적.", (180, 200, 255)))
+            score_bonus += 5
+
+    elif character == 'blacksmith':
+        hammer_charge = counts.get('BLACKSMITH_HAMMER_CHARGE', 0)
+        hammer_throw = counts.get('BLACKSMITH_HAMMER_THROW', 0)
+        hammer_boom = counts.get('BLACKSMITH_HAMMER_EXPLOSION', 0)
+        umbrella = counts.get('BLACKSMITH_UMBRELLA_SWING', 0) + counts.get('BLACKSMITH_UMBRELLA_OPEN', 0)
+        block = counts.get('BLACKSMITH_UMBRELLA_BLOCK', 0)
+
+        total_build = hammer_charge + hammer_throw + hammer_boom + umbrella
+        if total_build >= 8:
+            feedback.append(("건축의 대가", f"건축 스킬 {total_build}회! 발토르의 진가 발휘.", (255, 180, 80)))
+            score_bonus += 15
+        elif total_build >= 3:
+            feedback.append(("건축 활용", f"건축 스킬 {total_build}회.", (200, 200, 150)))
+            score_bonus += total_build * 2
+        else:
+            feedback.append(("건축 미활용", f"건축 스킬 {total_build}회만 사용. 더 지어보세요!", (255, 150, 100)))
+
+        if hammer_throw >= 2:
+            feedback.append(("해머 투척", f"해머 {hammer_throw}회 투척! 원거리 공격 우수.", (255, 220, 100)))
+            score_bonus += 5
+        if block >= 2:
+            feedback.append(("우산 방어", f"우산 블로킹 {block}회! 수비 활용 우수.", (100, 200, 255)))
+            score_bonus += 5
+
+    # ── 공통: 아이템 ──
     if item_get >= 5:
-        feedback.append(("아이템 수집왕", f"아이템 {item_get}개 획득! 필드를 잘 활용하고 있습니다.", (255, 200, 255)))
+        feedback.append(("아이템 수집왕", f"아이템 {item_get}개 획득!", (255, 200, 255)))
     elif item_get == 0:
-        feedback.append(("아이템 무시", "아이템을 하나도 줍지 않았습니다. 필드 아이템을 챙겨보세요.", (200, 150, 150)))
+        feedback.append(("아이템 무시", "필드 아이템을 챙겨보세요.", (200, 150, 150)))
 
     if active_item >= 3:
-        feedback.append(("전략적 아이템 사용", f"액티브 아이템 {active_item}회 사용! 전술적입니다.", (200, 255, 200)))
+        feedback.append(("전략적 아이템", f"액티브 아이템 {active_item}회 사용!", (200, 255, 200)))
     elif active_item == 0 and item_get > 0:
-        feedback.append(("아이템 사용 안 함", "아이템을 주웠지만 사용하지 않았습니다. X키로 사용해보세요.", (255, 180, 130)))
+        feedback.append(("아이템 미사용", "X키로 아이템을 사용해보세요.", (255, 180, 130)))
 
     if wall > paddle * 0.8:
-        feedback.append(("벽 반사 주의", f"벽 충돌 {wall}회로 패들 접촉보다 많습니다. 공을 더 적극적으로 받아보세요.", (255, 160, 130)))
+        feedback.append(("벽 반사 주의", f"벽 충돌이 패들 접촉보다 많습니다.", (255, 160, 130)))
 
-    # 종합 점수
+    # ── 종합 점수 ──
     score = 0
-    score += min(30, int(rallies_per_round * 2))
-    score += min(20, total_dash * 2)
-    score += min(15, power_smash * 3)
-    score += min(10, drive * 3)
+    score += min(25, int(rallies_per_round * 2))
+    score += min(15, total_dash * 2)
+    score += min(25, score_bonus)  # 캐릭터 전용 보너스
     score += min(10, item_get * 2)
     score += min(10, active_item * 3)
+    score += min(10, drive * 3)
     score += 5 if result == 'win' else 0
+    score = min(100, score)
+
     grade = "S" if score >= 80 else "A" if score >= 60 else "B" if score >= 40 else "C" if score >= 20 else "D"
     grade_color = {"S": (255, 215, 0), "A": (100, 255, 100), "B": (100, 200, 255), "C": (200, 200, 150), "D": (255, 120, 120)}
-    feedback.insert(0, (f"종합 등급: {grade} ({score}점)", "", grade_color.get(grade, (200, 200, 200))))
+    feedback.insert(0, (f"종합 등급: {grade} ({score}점) — {char_display}", "", grade_color.get(grade, (200, 200, 200))))
 
     return feedback
 
