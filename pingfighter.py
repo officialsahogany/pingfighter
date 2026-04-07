@@ -122325,7 +122325,7 @@ def _replay_rename_dialog(current_name: str) -> str:
         pygame.display.flip()
 
 
-def _load_replay_thumbnail(filepath: str) -> Optional[pygame.Surface]:
+def _load_replay_thumbnail(filepath: str):
     """리플레이 파일에서 30% 지점 프레임을 썸네일로 로드"""
     try:
         import zlib as _zlib
