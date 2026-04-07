@@ -22468,10 +22468,12 @@ def draw_horn_strawberry_effects(screen):
             pass
 
         # 패들 위에 뿔딸기 캐릭터 오버레이
+        # x_offset은 centerx 기준이므로, 패들 좌측 끝 x도 centerx 기준으로 보정
         if PLAYER:
+            _draw_x = int(PLAYER.centerx + _charge_x_offset - PLAYER.width // 2)
             ts.draw_strawberry_paddle(
                 screen,
-                int(PLAYER.x + _charge_x_offset),
+                _draw_x,
                 int(PLAYER.y + _charge_y_offset),
                 PLAYER.width,
                 PLAYER.height,

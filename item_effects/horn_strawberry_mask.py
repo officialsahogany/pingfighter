@@ -70,7 +70,9 @@ def _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel):
 
     class _PaddleProxy:
         def __init__(self, rect, is_top):
-            self.x = float(rect.x) if rect is not None else 0.0
+            # x를 centerx로 설정 — HornCharge가 caster_original_x = paddle.x로 저장하는데
+            # 이걸 패들 중앙으로 해야 돌진 후 원래 위치로 정확히 복귀한다
+            self.x = float(rect.centerx) if rect is not None else 0.0
             self.y = float(rect.y) if rect is not None else 0.0
             self.width = int(rect.width) if rect is not None else 0
             self.height = int(rect.height) if rect is not None else 0
