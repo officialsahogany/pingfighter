@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>핑파이터 (PingFighter) - 게임 피치덱</title>
+<style>
+/* ===== 나무위키 스타일 기본 ===== */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    background: #f5f5f5;
+    color: #1a1a1a;
+    line-height: 1.8;
+    font-size: 15px;
+}
+
+/* ===== 나무위키 레이아웃 ===== */
+.wiki-wrapper {
+    max-width: 920px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    min-height: 100vh;
+}
+
+/* 상단 제목 바 */
+.wiki-header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+    padding: 40px 30px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.wiki-header::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at center, rgba(88,166,255,0.15) 0%, transparent 70%);
+}
+.wiki-header h1 {
+    font-size: 42px;
+    font-weight: 900;
+    color: #58a6ff;
+    text-shadow: 0 0 30px rgba(88,166,255,0.4);
+    position: relative;
+    letter-spacing: -1px;
+}
+.wiki-header .subtitle {
+    color: #8b949e;
+    font-size: 16px;
+    margin-top: 8px;
+    position: relative;
+}
+.wiki-header .tagline {
+    color: #f0f6fc;
+    font-size: 20px;
+    font-weight: 700;
+    margin-top: 16px;
+    position: relative;
+    background: linear-gradient(90deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* 나무위키 목차 */
+.wiki-toc {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    margin: 20px;
+    padding: 16px 20px;
+    border-radius: 0;
+}
+.wiki-toc h3 {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #ddd;
+}
+.wiki-toc ol {
+    padding-left: 24px;
+    font-size: 14px;
+    columns: 2;
+    column-gap: 20px;
+}
+.wiki-toc li {
+    margin: 3px 0;
+    break-inside: avoid;
+}
+.wiki-toc a {
+    color: #0275d8;
+    text-decoration: none;
+}
+.wiki-toc a:hover { text-decoration: underline; }
+
+/* 나무위키 본문 */
+.wiki-content {
+    padding: 0 20px 40px;
+}
+
+/* 섹션 제목 */
+.wiki-h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a1a;
+    border-bottom: 2px solid #0275d8;
+    padding: 14px 0 8px;
+    margin: 32px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.wiki-h2 .section-num {
+    color: #0275d8;
+    font-weight: 900;
+}
+
+.wiki-h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #333;
+    border-left: 4px solid #0275d8;
+    padding-left: 10px;
+    margin: 20px 0 10px;
+}
+
+.wiki-h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #555;
+    margin: 14px 0 8px;
+}
+
+/* 나무위키 인포박스 */
+.infobox {
+    float: right;
+    width: 320px;
+    border: 1px solid #aaa;
+    background: #f9f9f9;
+    margin: 0 0 16px 20px;
+    font-size: 13px;
+}
+.infobox-title {
+    background: #0d1117;
+    color: #58a6ff;
+    text-align: center;
+    font-weight: 700;
+    padding: 10px;
+    font-size: 18px;
+}
+.infobox-image {
+    text-align: center;
+    padding: 8px;
+    background: #1a1a2e;
+}
+.infobox-image img {
+    max-width: 100%;
+    border: 1px solid #333;
+}
+.infobox table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.infobox th {
+    background: #e8e8e8;
+    text-align: left;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    width: 100px;
+    font-weight: 500;
+    color: #333;
+}
+.infobox td {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    background: #fff;
+}
+
+/* 나무위키 테이블 */
+.wiki-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 14px;
+}
+.wiki-table th {
+    background: #e8f4fd;
+    border: 1px solid #b8d4e8;
+    padding: 8px 12px;
+    text-align: center;
+    font-weight: 600;
+    color: #1a5276;
+}
+.wiki-table td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    vertical-align: top;
+}
+.wiki-table tr:nth-child(even) td {
+    background: #fafafa;
+}
+
+/* 다크 테이블 변형 (보스, 영웅 등) */
+.wiki-table.dark th {
+    background: #1a1a2e;
+    color: #58a6ff;
+    border-color: #333;
+}
+.wiki-table.dark td {
+    background: #0d1117;
+    color: #c9d1d9;
+    border-color: #30363d;
+}
+.wiki-table.dark tr:nth-child(even) td {
+    background: #161b22;
+}
+
+/* 강조 박스 */
+.wiki-quote {
+    background: #f0f7ff;
+    border-left: 4px solid #0275d8;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-style: italic;
+    color: #333;
+    font-size: 16px;
+}
+
+.wiki-note {
+    background: #fff8e1;
+    border: 1px solid #ffcc02;
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0;
+    font-size: 14px;
+}
+.wiki-note::before {
+    content: '!';
+    display: inline-block;
+    background: #ffcc02;
+    color: #333;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 20px;
+    font-weight: 900;
+    font-size: 13px;
+    margin-right: 8px;
+}
+
+/* 스크린샷 갤러리 */
+.screenshot-gallery {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+}
+.screenshot-gallery.single {
+    grid-template-columns: 1fr;
+}
+.screenshot-gallery.triple {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+.screenshot-item {
+    border: 1px solid #ddd;
+    background: #1a1a2e;
+    overflow: hidden;
+}
+.screenshot-item img {
+    width: 100%;
+    display: block;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.screenshot-item img:hover {
+    transform: scale(1.02);
+}
+.screenshot-item .caption {
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #8b949e;
+    text-align: center;
+    background: #0d1117;
+}
+
+/* 스탯 바 */
+.stat-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0;
+}
+.stat-bar-label {
+    width: 50px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+}
+.stat-bar {
+    flex: 1;
+    height: 14px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.stat-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+.stat-bar-value {
+    width: 24px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    color: #333;
+}
+
+/* 태그 */
+.tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 2px;
+}
+.tag-legendary { background: #ffd700; color: #333; }
+.tag-active { background: #0275d8; color: #fff; }
+.tag-passive { background: #5cb85c; color: #fff; }
+.tag-mythical { background: #9b59b6; color: #fff; }
+.tag-common { background: #95a5a6; color: #fff; }
+.tag-rare { background: #3498db; color: #fff; }
+.tag-epic { background: #8e44ad; color: #fff; }
+
+/* 게임 루프 다이어그램 */
+.game-loop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+.loop-node {
+    background: linear-gradient(135deg, #0d1117, #161b22);
+    color: #58a6ff;
+    padding: 12px 18px;
+    border: 1px solid #30363d;
+    font-weight: 700;
+    font-size: 14px;
+    text-align: center;
+    min-width: 100px;
+}
+.loop-arrow {
+    color: #58a6ff;
+    font-size: 20px;
+    padding: 0 6px;
+    font-weight: 900;
+}
+
+/* 피처 그리드 */
+.feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+}
+.feature-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    padding: 16px;
+}
+.feature-card h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0275d8;
+    margin-bottom: 6px;
+}
+.feature-card p {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.6;
+}
+.feature-card .feature-icon {
+    font-size: 28px;
+    margin-bottom: 6px;
+}
+
+/* 콘텐츠 숫자 하이라이트 */
+.content-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+}
+.stat-card {
+    background: linear-gradient(135deg, #0d1117, #161b22);
+    border: 1px solid #30363d;
+    padding: 16px;
+    text-align: center;
+}
+.stat-card .stat-number {
+    font-size: 32px;
+    font-weight: 900;
+    background: linear-gradient(90deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.stat-card .stat-label {
+    color: #8b949e;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* 아이템 아이콘 그리드 */
+.item-icon-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 8px 0;
+}
+.item-icon-grid img {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #333;
+    background: #0d1117;
+    image-rendering: pixelated;
+}
+
+/* 전설 아이템 카드 */
+.legendary-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid #ffd700;
+    padding: 12px;
+    margin: 8px 0;
+}
+.legendary-card img {
+    width: 48px;
+    height: 48px;
+    image-rendering: pixelated;
+    border: 2px solid #ffd700;
+    background: #0d1117;
+}
+.legendary-card .legendary-info h5 {
+    color: #ffd700;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+.legendary-card .legendary-info p {
+    color: #8b949e;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* 클리어 플로트 */
+.clearfix::after {
+    content: '';
+    display: table;
+    clear: both;
+}
+
+/* 푸터 */
+.wiki-footer {
+    background: #0d1117;
+    color: #8b949e;
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    border-top: 1px solid #30363d;
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+    .infobox { float: none; width: 100%; margin: 16px 0; }
+    .screenshot-gallery { grid-template-columns: 1fr; }
+    .screenshot-gallery.triple { grid-template-columns: 1fr; }
+    .content-stats { grid-template-columns: repeat(2, 1fr); }
+    .feature-grid { grid-template-columns: 1fr; }
+    .wiki-toc ol { columns: 1; }
+    .wiki-header h1 { font-size: 28px; }
+}
+
+/* 접기/펼치기 */
+.wiki-collapse {
+    border: 1px solid #ddd;
+    margin: 12px 0;
+}
+.wiki-collapse summary {
+    background: #f0f0f0;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    user-select: none;
+}
+.wiki-collapse summary:hover {
+    background: #e4e4e4;
+}
+.wiki-collapse .collapse-content {
+    padding: 12px 14px;
+}
+
+/* 비교 타이틀 */
+.comp-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+}
+.comp-vs {
+    background: #dc3545;
+    color: #fff;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 2px;
+}
+</style>
+</head>
+<body>
+
+<div class="wiki-wrapper">
+
+<!-- ==================== 헤더 ==================== -->
+<div class="wiki-header">
+    <h1>PingFighter (핑파이터)</h1>
+    <div class="subtitle">Game Pitch Deck &mdash; 2026</div>
+    <div class="tagline">"패들 하나로 보스를 쓰러뜨리는 아케이드 액션"</div>
+</div>
+
+<!-- ==================== 목차 ==================== -->
+<div class="wiki-toc">
+    <h3>목차</h3>
+    <ol>
+        <li><a href="#s1">개요</a></li>
+        <li><a href="#s2">게임 컨셉</a></li>
+        <li><a href="#s3">핵심 게임플레이</a></li>
+        <li><a href="#s4">보스 캐릭터</a></li>
+        <li><a href="#s5">플레이어블 영웅</a></li>
+        <li><a href="#s6">아이템 시스템</a></li>
+        <li><a href="#s7">스킬 & 퍽 시스템</a></li>
+        <li><a href="#s8">콜로세움 (아레나)</a></li>
+        <li><a href="#s9">다운타운 (허브 월드)</a></li>
+        <li><a href="#s10">스테이지 & 비주얼</a></li>
+        <li><a href="#s11">온라인 멀티플레이</a></li>
+        <li><a href="#s12">리플레이 시스템</a></li>
+        <li><a href="#s13">시장 분석</a></li>
+        <li><a href="#s14">비즈니스 모델</a></li>
+        <li><a href="#s15">개발 현황 & 콘텐츠 규모</a></li>
+        <li><a href="#s16">로드맵</a></li>
+    </ol>
+</div>
+
+<!-- ==================== 본문 ==================== -->
+<div class="wiki-content">
+
+<!-- ===== 1. 개요 ===== -->
+<h2 class="wiki-h2" id="s1"><span class="section-num">1.</span> 개요</h2>
+
+<div class="infobox">
+    <div class="infobox-title">PingFighter</div>
+    <div class="infobox-image">
+        <img src="screenshots/screenshot_20260406_211107.png" alt="핑파이터 게임플레이">
+    </div>
+    <table>
+        <tr><th>타이틀</th><td>핑파이터<br>(PingFighter)</td></tr>
+        <tr><th>장르</th><td>아케이드 액션<br>보스배틀 퐁</td></tr>
+        <tr><th>플랫폼</th><td>Windows / macOS</td></tr>
+        <tr><th>엔진</th><td>Python + Pygame<br>(커스텀 엔진)</td></tr>
+        <tr><th>해상도</th><td>760 &times; 750</td></tr>
+        <tr><th>프레임</th><td>60 FPS (VSync)</td></tr>
+        <tr><th>언어</th><td>한국어 / 영어 / 일본어 / 중국어</td></tr>
+        <tr><th>조작</th><td>키보드 + 마우스</td></tr>
+        <tr><th>개발</th><td>officialsahogany</td></tr>
+        <tr><th>상태</th><td>개발 중 (UI 리팩토링)</td></tr>
+    </table>
+</div>
+
+<div class="clearfix">
+<p>
+<b>핑파이터(PingFighter)</b>는 클래식 <b>퐁(Pong)</b> 게임에 <b>보스 AI 전투</b>, <b>스킬 트리</b>, <b>70종 이상의 아이템</b>, <b>온라인 대전</b>, <b>도시 탐험</b>을 결합한 새로운 장르의 아케이드 액션 게임이다.
+</p>
+<p>
+플레이어는 패들을 조작해 공을 쳐 상대편 골라인에 넣는 방식으로 보스와 대결한다. 단순한 탁구가 아닌, 각 보스마다 <b>고유 AI 패턴</b>과 <b>특수 공격</b>을 보유하며, 플레이어는 <b>대시</b>, <b>아이템</b>, <b>스킬</b>을 활용해 전략적으로 플레이한다.
+</p>
+
+<div class="wiki-quote">
+"탁구 + 보스배틀 + RPG 성장 &mdash; 누구나 쉽게 시작하지만, 모든 것을 마스터하기는 어렵다."
+</div>
+</div>
+
+<!-- ===== 2. 게임 컨셉 ===== -->
+<h2 class="wiki-h2" id="s2"><span class="section-num">2.</span> 게임 컨셉</h2>
+
+<h3 class="wiki-h3">2.1. 핵심 아이덴티티</h3>
+<p>핑파이터는 <b>"쉬운 입문, 깊은 마스터리"</b>를 추구한다. 조작은 좌우 이동과 대시 2가지뿐이지만, 아이템 타이밍, 대시 관리, 보스 패턴 읽기 등 전략적 깊이를 제공한다.</p>
+
+<div class="feature-grid">
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F3AE;</div>
+        <h4>직관적 조작</h4>
+        <p>방향키로 이동, 스페이스로 대시. 1분 안에 게임을 이해할 수 있다.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F47E;</div>
+        <h4>보스 AI 전투</h4>
+        <p>6명의 보스, 각각 고유 AI 패턴과 특수 공격. 같은 방식으로는 이길 수 없다.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F4E6;</div>
+        <h4>수집 & 성장</h4>
+        <p>70종 이상의 아이템, 60개 이상의 스킬, 전설 장비 파밍. 끝없는 성장.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F3D9;&#xFE0F;</div>
+        <h4>허브 월드</h4>
+        <p>다운타운에서 상점, 아카데미, 뽑기, 콜로세움 등 다양한 활동.</p>
+    </div>
+</div>
+
+<h3 class="wiki-h3">2.2. 게임 루프</h3>
+<div class="game-loop">
+    <div class="loop-node">스테이지<br>선택</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">보스<br>전투</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">아이템<br>획득</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">스킬<br>투자</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">다운타운<br>탐험</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">다음<br>스테이지</div>
+</div>
+
+<!-- ===== 3. 핵심 게임플레이 ===== -->
+<h2 class="wiki-h2" id="s3"><span class="section-num">3.</span> 핵심 게임플레이</h2>
+
+<h3 class="wiki-h3">3.1. 승리 조건 (포인트제)</h3>
+<div class="wiki-note">핑파이터에는 HP(체력) 개념이 없다. 순수하게 <b>포인트제 탁구</b>로 승부한다.</div>
+<p>
+공이 상대편 뒤로 빠지면 1포인트를 획득한다. <b>5포인트를 먼저 달성하면 1세트 승리</b>, <b>5세트를 먼저 달성하면 스테이지 클리어</b>이다.
+</p>
+<table class="wiki-table">
+    <tr><th>규칙</th><th>내용</th></tr>
+    <tr><td><b>1포인트</b></td><td>공이 상대 골라인 통과</td></tr>
+    <tr><td><b>1세트 승리</b></td><td>5포인트 선취</td></tr>
+    <tr><td><b>스테이지 클리어</b></td><td>5세트 선취</td></tr>
+    <tr><td><b>듀스</b></td><td>4-4 동점 시 2포인트 연속 선취 필요</td></tr>
+    <tr><td><b>매치 포인트</b></td><td>4세트 도달 시 특수 연출 발동</td></tr>
+</table>
+
+<h3 class="wiki-h3">3.2. 대시 시스템</h3>
+<p>핑파이터의 핵심 메카닉. 패들을 순간이동시켜 위기를 모면하거나 공격적 포지셔닝이 가능하다.</p>
+<table class="wiki-table">
+    <tr><th>종류</th><th>거리</th><th>소모</th><th>쿨타임</th><th>특징</th></tr>
+    <tr><td><b>풀 대시</b></td><td>150px</td><td>1 토큰</td><td>60프레임 (1초)</td><td>기본 대시. 방향키 + 스페이스</td></tr>
+    <tr><td><b>하프 대시</b></td><td>75px</td><td>0 토큰</td><td>공유</td><td>토큰 소진 시 자동 발동. 긴급 회피용</td></tr>
+    <tr><td><b>연속 대시</b></td><td>150px</td><td>1 토큰</td><td>200ms 딜레이</td><td>토큰이 여러 개일 때 빠른 연타</td></tr>
+</table>
+<p>대시 후에는 <b>0.5초 경직</b>이 발생한다. 무작정 대시하면 오히려 불리해지므로 <b>타이밍 판단</b>이 중요하다.</p>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260403_083058.png" alt="게임플레이 - 태극 무늬 코트">
+        <div class="caption">스테이지 1: 풍악보이 전투 (태극 코트에서 공을 주고받는 모습)</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260406_015040.png" alt="게임플레이 - 보스 전투">
+        <div class="caption">스테이지 4: 퐁크 전투 (기본 전투 화면)</div>
+    </div>
+</div>
+
+<h3 class="wiki-h3">3.3. 공 물리</h3>
+<table class="wiki-table">
+    <tr><th>속성</th><th>값</th><th>설명</th></tr>
+    <tr><td>기본 속도</td><td>9.0</td><td>공의 기본 이동 속도</td></tr>
+    <tr><td>중력 효과</td><td>0.06/프레임</td><td>공에 미세한 중력이 적용</td></tr>
+    <tr><td>스핀</td><td>-1.0 ~ +1.0</td><td>패들 타격 위치에 따라 좌/우 회전</td></tr>
+    <tr><td>스핀 감쇠</td><td>0.98x/프레임</td><td>프레임당 2%씩 스핀 감소</td></tr>
+    <tr><td>커브볼</td><td>강도 0.5</td><td>충전 후 발사 시 곡선 궤적</td></tr>
+    <tr><td>반지름</td><td>22px</td><td>공의 충돌 반지름</td></tr>
+</table>
+
+<!-- ===== 4. 보스 캐릭터 ===== -->
+<h2 class="wiki-h2" id="s4"><span class="section-num">4.</span> 보스 캐릭터</h2>
+<p>6개 스테이지에 각각 고유한 테마, AI, 특수 공격을 가진 보스가 등장한다. 보스 난이도는 스테이지가 진행될수록 상승하며, AI 반응 속도와 스킬 사용 빈도가 증가한다.</p>
+
+<table class="wiki-table dark">
+    <tr>
+        <th>스테이지</th>
+        <th>보스</th>
+        <th>테마</th>
+        <th>난이도</th>
+        <th>특수 능력</th>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#ffd700;">&#9733; 1</td>
+        <td><b style="color:#e0e0e0;">풍악보이</b></td>
+        <td>한국 전통</td>
+        <td>&#9733;&#9734;&#9734;&#9734;&#9734;</td>
+        <td>입문용 보스. 기본 AI 패턴 학습. 최대 속도 7.0</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#4caf50;">&#9733; 2</td>
+        <td><b style="color:#4caf50;">악어장군</b></td>
+        <td>정글 / 늪지</td>
+        <td>&#9733;&#9733;&#9734;&#9734;&#9734;</td>
+        <td>물 공격, 덤불 속 엄폐. 정글 환경 활용</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#e91e8b;">&#9733; 3</td>
+        <td><b style="color:#e91e8b;">멘헤라걸</b></td>
+        <td>멘헤라 / 인형</td>
+        <td>&#9733;&#9733;&#9733;&#9734;&#9734;</td>
+        <td>감정 기반 패턴 변화 (평온/행복/슬픔). 눈물 공격, 먹기 애니메이션</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#ff9800;">&#9733; 4</td>
+        <td><b style="color:#ff9800;">퐁크</b></td>
+        <td>소림 사원</td>
+        <td>&#9733;&#9733;&#9733;&#9733;&#9734;</td>
+        <td>명상 스킬, 수련 패턴. 탑 파괴 연출</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#42a5f5;">&#9733; 5</td>
+        <td><b style="color:#42a5f5;">네메시스</b></td>
+        <td>해상 전투</td>
+        <td>&#9733;&#9733;&#9733;&#9733;&#9734;</td>
+        <td>사이버펑크 아레나. 레이더 탐색, 복합 페이즈 전투. 최대 속도 9.0</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#f44336;">&#9733; 6</td>
+        <td><b style="color:#f44336;">홍련</b></td>
+        <td>중국 / 화염</td>
+        <td>&#9733;&#9733;&#9733;&#9733;&#9733;</td>
+        <td>화구 공격. 세트당 10타 제한. 매화 파티클. 최대 속도 9.5</td>
+    </tr>
+</table>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260402_104022.png" alt="멘헤라걸 스테이지">
+        <div class="caption">스테이지 3: 멘헤라걸 - 캐릭터 정보창 & 핑크 배경</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260405_200559.png" alt="네메시스 스테이지">
+        <div class="caption">스테이지 5: 네메시스 - 해상 사이버펑크 아레나</div>
+    </div>
+</div>
+
+<h3 class="wiki-h3">4.1. 보스 AI 시스템</h3>
+<p>보스 AI는 3단계 난이도 모드를 지원한다:</p>
+<table class="wiki-table">
+    <tr><th>모드</th><th>보스 속도</th><th>반응 시간</th><th>스킬 사용</th></tr>
+    <tr><td><b>주니어</b></td><td>느림</td><td>느림</td><td>기본만</td></tr>
+    <tr><td><b>챔피언</b></td><td>보통</td><td>보통</td><td>일반</td></tr>
+    <tr><td><b>미식</b></td><td>빠름</td><td>빠름</td><td>전체 + 쿨감</td></tr>
+</table>
+
+<h3 class="wiki-h3">4.2. 보스 스킬 예시</h3>
+<details class="wiki-collapse">
+    <summary>보스 스킬 상세 목록 (클릭하여 펼치기)</summary>
+    <div class="collapse-content">
+        <h4 class="wiki-h4">번개 마스터 계열</h4>
+        <table class="wiki-table">
+            <tr><th>스킬</th><th>쿨타임</th><th>효과</th></tr>
+            <tr><td>썬더 스트라이크</td><td>5초</td><td>번개 투사체, 1초 스턴</td></tr>
+            <tr><td>체인 라이트닝</td><td>8초</td><td>3회 바운스, 범위 150px</td></tr>
+            <tr><td>일렉트릭 필드</td><td>12초</td><td>반경 200px, 50% 감속</td></tr>
+        </table>
+        <h4 class="wiki-h4">화염 기사 계열</h4>
+        <table class="wiki-table">
+            <tr><th>스킬</th><th>쿨타임</th><th>효과</th></tr>
+            <tr><td>화염 파동</td><td>4초</td><td>300px 범위 파동, 속도 5</td></tr>
+            <tr><td>메테오 스트라이크</td><td>9초</td><td>운석 3개, 반경 80px</td></tr>
+            <tr><td>인페르노</td><td>15초</td><td>반경 250px 지속 화염</td></tr>
+        </table>
+        <h4 class="wiki-h4">빙결 여왕 계열</h4>
+        <table class="wiki-table">
+            <tr><th>스킬</th><th>쿨타임</th><th>효과</th></tr>
+            <tr><td>아이스 샤드</td><td>3초</td><td>투사체, 0.5초 빙결</td></tr>
+            <tr><td>블리자드</td><td>10초</td><td>반경 300px, 70% 감속</td></tr>
+            <tr><td>아이스 월</td><td>7초</td><td>이동 차단 벽 (200&times;30px)</td></tr>
+        </table>
+    </div>
+</details>
+
+<!-- ===== 5. 플레이어블 영웅 ===== -->
+<h2 class="wiki-h2" id="s5"><span class="section-num">5.</span> 플레이어블 영웅</h2>
+<p>7명의 고유 영웅이 존재하며, 각자 다른 스탯 분배와 전용 스킬 트리를 보유한다.</p>
+
+<table class="wiki-table dark">
+    <tr>
+        <th>영웅</th>
+        <th>속도</th>
+        <th>파워</th>
+        <th>방어</th>
+        <th>특성</th>
+        <th>해금</th>
+    </tr>
+    <tr>
+        <td><b style="color:#58a6ff;">스매셔</b></td>
+        <td style="text-align:center;">5</td>
+        <td style="text-align:center;">5</td>
+        <td style="text-align:center;">5</td>
+        <td>게이지 폭발 &rarr; 체인 파워 스매시. 대시 스피릿 (레이저 잔상)</td>
+        <td style="color:#4caf50;">기본 해금</td>
+    </tr>
+    <tr>
+        <td><b style="color:#ff9800;">코만도</b></td>
+        <td style="text-align:center;">6</td>
+        <td style="text-align:center;">6</td>
+        <td style="text-align:center;">6</td>
+        <td>권총 사격 (탄창 개조), 화력지원/그물총/볼링트랩/자폭드론 해금</td>
+        <td style="color:#aaa;">잠금</td>
+    </tr>
+    <tr>
+        <td><b style="color:#9c27b0;">발토르</b></td>
+        <td style="text-align:center;">5</td>
+        <td style="text-align:center;">7</td>
+        <td style="text-align:center;">5</td>
+        <td>토르쉴드 방어, 건설 시스템, 광폭물약/수리키트 전용</td>
+        <td style="color:#aaa;">잠금</td>
+    </tr>
+    <tr>
+        <td><b style="color:#4caf50;">바이퍼</b></td>
+        <td style="text-align:center;">4</td>
+        <td style="text-align:center;">5</td>
+        <td style="text-align:center;">3</td>
+        <td>제트팩, 마샬킥, 팬텀킥 연계 (최대 4연타). EMP 스트라이크</td>
+        <td style="color:#4caf50;">기본 해금</td>
+    </tr>
+    <tr>
+        <td><b style="color:#f44336;">옵티머스</b></td>
+        <td style="text-align:center;">6</td>
+        <td style="text-align:center;">6</td>
+        <td style="text-align:center;">3</td>
+        <td>메카닉 계열. 게이지 효율, 비상충전, 옵티머스암 (보스 잡아 던지기)</td>
+        <td style="color:#aaa;">잠금</td>
+    </tr>
+    <tr>
+        <td><b style="color:#00bcd4;">가디언</b></td>
+        <td style="text-align:center;">4</td>
+        <td style="text-align:center;">3</td>
+        <td style="text-align:center;">8</td>
+        <td>다층 방어막 + 정밀 카운터. 탱크형</td>
+        <td style="color:#aaa;">잠금</td>
+    </tr>
+    <tr>
+        <td><b style="color:#e91e63;">미스틱</b></td>
+        <td style="text-align:center;">7</td>
+        <td style="text-align:center;">7</td>
+        <td style="text-align:center;">1</td>
+        <td>시간 왜곡 + 궤적 교란. 고위험 고보상 캐릭터</td>
+        <td style="color:#aaa;">잠금</td>
+    </tr>
+</table>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/hero_paddles_preview.png" alt="아레나 영웅 패들 프리뷰">
+        <div class="caption">아레나 히어로 패들 디자인 (상단: 탑 히어로 / 하단: 바텀 히어로)</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260403_175428.png" alt="캐릭터 장비 화면">
+        <div class="caption">캐릭터 정보창 - 장비 슬롯, 능력치, 패시브 아이템</div>
+    </div>
+</div>
+
+<!-- ===== 6. 아이템 시스템 ===== -->
+<h2 class="wiki-h2" id="s6"><span class="section-num">6.</span> 아이템 시스템</h2>
+<p>총 <b>78종</b>의 아이템이 존재하며, 3계층으로 분류된다. 필드 드롭, 가챠, 상점, 보물 탐색 등 다양한 경로로 획득할 수 있다.</p>
+
+<div class="content-stats">
+    <div class="stat-card">
+        <div class="stat-number">31</div>
+        <div class="stat-label">액티브 아이템</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">32</div>
+        <div class="stat-label">패시브 아이템</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">11</div>
+        <div class="stat-label">전설 아이템</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">1</div>
+        <div class="stat-label">신화 아이템</div>
+    </div>
+</div>
+
+<h3 class="wiki-h3">6.1. 아이템 아이콘 갤러리</h3>
+<p>62종의 고유 아이콘이 32&times;32 픽셀아트로 제작되었다:</p>
+<div class="item-icon-grid">
+    <img src="items/adversity_armor.png" title="역경의 갑옷">
+    <img src="items/aipill.png" title="AI 필">
+    <img src="items/ak47.png" title="AK47">
+    <img src="items/ammo_box.png" title="탄약상자">
+    <img src="items/battery.png" title="배터리">
+    <img src="items/bazooka.png" title="바주카">
+    <img src="items/berserk_potion.png" title="광폭물약">
+    <img src="items/bluetooth_ring.png" title="블루투스링">
+    <img src="items/boomerang.png" title="부메랑">
+    <img src="items/bulkup.png" title="벌크업">
+    <img src="items/bulletproof_hat.png" title="방탄모자">
+    <img src="items/chargebag.png" title="충전가방">
+    <img src="items/commando_arm.png" title="코만도암">
+    <img src="items/coolingball.png" title="쿨링볼">
+    <img src="items/dash_boost.png" title="대쉬부스트">
+    <img src="items/dashgear.png" title="대쉬기어">
+    <img src="items/dashholder.png" title="대쉬홀더">
+    <img src="items/devil_dice.png" title="악마의 주사위">
+    <img src="items/dynamite.png" title="다이너마이트">
+    <img src="items/elixir_of_mastery.png" title="엘릭서 오브 마스터리">
+    <img src="items/fire_support.png" title="화력지원">
+    <img src="items/fireball.png" title="파이어볼">
+    <img src="items/flare.png" title="조명탄">
+    <img src="items/foul_whistle.png" title="반칙호루라기">
+    <img src="items/fuel_pouch.png" title="연료파우치">
+    <img src="items/gauge_200.png" title="게이지충전">
+    <img src="items/gold_bar.png" title="금괴">
+    <img src="items/gold_digger.png" title="골드디거">
+    <img src="items/gravitybelt.png" title="무중력벨트">
+    <img src="items/grenade.png" title="수류탄">
+    <img src="items/holy_barrier.png" title="홀리베리어">
+    <img src="items/knee_pads.png" title="킥차져">
+    <img src="items/life_elixir.png" title="생명수">
+    <img src="items/long_boost_icon.png" title="롱부스트">
+    <img src="items/lucky_coin.png" title="럭키코인">
+    <img src="items/master.png" title="장인">
+    <img src="items/molotov.png" title="화염병">
+    <img src="items/pandora_box.png" title="판도라 상자">
+    <img src="items/repair_kit.png" title="수리키트">
+    <img src="items/revival.png" title="부활">
+    <img src="items/sensor.png" title="감지센서">
+    <img src="items/smartphone.png" title="스마트폰">
+    <img src="items/smoke_grenade.png" title="연막탄">
+    <img src="items/soul_burst.png" title="소울버스트">
+    <img src="items/speedboots.png" title="스피드부츠">
+    <img src="items/speedgear.png" title="스피드기어">
+    <img src="items/spider_mine.png" title="스파이더지뢰">
+    <img src="items/spikeboots.png" title="스파이크부츠">
+    <img src="items/spiked_helmet.png" title="가시투구">
+    <img src="items/star_detector.png" title="별탐지기">
+    <img src="items/stopwatch_icon.png" title="스탑워치">
+    <img src="items/strange_vial.png" title="기묘한 약병">
+    <img src="items/technical_vest.png" title="테크니컬조끼">
+    <img src="items/venom_mist_gauntlet.png" title="독안개장갑">
+    <img src="items/wall.png" title="벽">
+    <img src="items/weather_capsule.png" title="기상조절캡슐">
+</div>
+
+<h3 class="wiki-h3">6.2. 액티브 아이템 (31종)</h3>
+<p>전투 중 사용하는 소모성 아이템. 쿨타임 8초 기준, 최대 3~6개 슬롯에 장비 가능.</p>
+
+<details class="wiki-collapse">
+    <summary>액티브 아이템 전체 목록 (클릭하여 펼치기)</summary>
+    <div class="collapse-content">
+        <table class="wiki-table">
+            <tr><th>이름</th><th>한국어</th><th>스폰율</th><th>효과</th></tr>
+            <tr><td>Gauge Charge</td><td>게이지 충전</td><td>4.2%</td><td>게이지 즉시 충전 (가장 높은 스폰율)</td></tr>
+            <tr><td>Wall</td><td>벽</td><td>3.5%</td><td>벽돌 배치. 공을 막는 장벽</td></tr>
+            <tr><td>Long Boost</td><td>롱부스트</td><td>2.8%</td><td>지속형 파워 부스트</td></tr>
+            <tr><td>Flare</td><td>조명탄</td><td>2.0%</td><td>조명 효과</td></tr>
+            <tr><td>Grenade</td><td>수류탄</td><td>1.8%</td><td>폭발 범위 공격</td></tr>
+            <tr><td>Smoke Grenade</td><td>연막탄</td><td>1.8%</td><td>시야 차단 연막</td></tr>
+            <tr><td>Molotov</td><td>화염병</td><td>1.5%</td><td>화염 장판. 10초 지속</td></tr>
+            <tr><td>Banana</td><td>바나나</td><td>1.2%</td><td>투척형 함정</td></tr>
+            <tr><td>Vitamin Pill</td><td>비타민약</td><td>1.2%</td><td>능력치 강화</td></tr>
+            <tr><td>Life Elixir</td><td>생명수</td><td>0.8%</td><td>즉시 회복</td></tr>
+            <tr><td>Regen Potion</td><td>재생물약</td><td>0.8%</td><td>점진적 회복</td></tr>
+            <tr><td>Spider Mine</td><td>스파이더지뢰</td><td>0.7%</td><td>설치형 함정</td></tr>
+            <tr><td>Dynamite</td><td>다이너마이트</td><td>0.6%</td><td>시한폭탄</td></tr>
+            <tr><td>Stopwatch</td><td>스탑워치</td><td>0.6%</td><td>시간 조작</td></tr>
+            <tr><td>AI Pill</td><td>AI 필</td><td>0.6%</td><td>5초간 AI 어시스트</td></tr>
+            <tr><td>Laser Scope</td><td>레이저스코프</td><td>0.5%</td><td>조준 보조. 25초</td></tr>
+            <tr><td>Dash Boost</td><td>대쉬부스트</td><td>0.5%</td><td>대시 강화. 8초</td></tr>
+            <tr><td>Strange Vial</td><td>기묘한 약병</td><td>0.5%</td><td>랜덤 효과 물약</td></tr>
+            <tr><td>Weather Capsule</td><td>기상조절캡슐</td><td>0.4%</td><td>날씨 변경 효과</td></tr>
+            <tr><td>Magnet Field</td><td>자기장 발생기</td><td>0.4%</td><td>공 끌어당기기/밀어내기</td></tr>
+            <tr><td>Berserk Potion</td><td>광폭물약</td><td>0.4%</td><td>발토르 전용. 15초 광폭 모드</td></tr>
+            <tr><td>Repair Kit</td><td>수리키트</td><td>0.4%</td><td>발토르 전용. 건축물 수리</td></tr>
+            <tr><td>Pandora Box</td><td>판도라 상자</td><td>0.3%</td><td>행운/불운 랜덤 효과</td></tr>
+            <tr><td>Holy Barrier</td><td>홀리베리어</td><td>0.3%</td><td>6초간 반사 장벽 (10회)</td></tr>
+            <tr><td>Boomerang</td><td>부메랑</td><td>0.3%</td><td>되돌아오는 투사체</td></tr>
+            <tr><td>Soap</td><td>비누</td><td>0.4%</td><td>미끄러짐 효과</td></tr>
+            <tr><td>Net Gun</td><td>그물총</td><td>-</td><td>코만도 전용 해금</td></tr>
+            <tr><td>Fire Support</td><td>화력지원</td><td>-</td><td>코만도 전용 해금</td></tr>
+            <tr><td>Bowling Trap</td><td>볼링트랩</td><td>-</td><td>코만도 전용 해금</td></tr>
+            <tr><td>Cleanse</td><td>클렌즈</td><td>-</td><td>상태이상 해제</td></tr>
+            <tr><td>Elixir of Mastery</td><td>엘릭서 오브 마스터리</td><td>0.08%</td><td><span class="tag tag-mythical">신화</span> 최고 레어리티. 즉시 초월 변신</td></tr>
+        </table>
+    </div>
+</details>
+
+<h3 class="wiki-h3">6.3. 패시브 아이템 (32종)</h3>
+<p>장비하면 지속적으로 효과가 적용되는 아이템. 롤 옵션으로 스탯이 랜덤 부여된다.</p>
+
+<details class="wiki-collapse">
+    <summary>패시브 아이템 전체 목록 (클릭하여 펼치기)</summary>
+    <div class="collapse-content">
+        <table class="wiki-table">
+            <tr><th>이름</th><th>한국어</th><th>스폰율</th><th>효과</th></tr>
+            <tr><td>Speedboots</td><td>스피드부츠</td><td>0.5%</td><td>이동속도 증가</td></tr>
+            <tr><td>Speedgear</td><td>스피드기어</td><td>0.5%</td><td>기어 속도 증가</td></tr>
+            <tr><td>Battery</td><td>배터리</td><td>0.5%</td><td>게이지 자동 회복</td></tr>
+            <tr><td>Revival</td><td>부활</td><td>0.5%</td><td>1회 부활 기회</td></tr>
+            <tr><td>Master</td><td>장인</td><td>0.5%</td><td>스킬 마스터리 강화</td></tr>
+            <tr><td>Cooltime</td><td>쿨타임</td><td>0.5%</td><td>쿨타임 감소</td></tr>
+            <tr><td>Dashholder</td><td>대쉬홀더</td><td>0.8%</td><td>대시 토큰 +1</td></tr>
+            <tr><td>Dashgear</td><td>대쉬기어</td><td>0.5%</td><td>대시 파워 강화</td></tr>
+            <tr><td>Spikeboots</td><td>스파이크부츠</td><td>0.5%</td><td>접촉 피해 부여</td></tr>
+            <tr><td>Bulkup</td><td>벌크업</td><td>0.5%</td><td>넉백 저항</td></tr>
+            <tr><td>Sensor</td><td>감지센서</td><td>0.5%</td><td>공 탐지 범위 확대</td></tr>
+            <tr><td>Technical Vest</td><td>테크니컬조끼</td><td>0.5%</td><td>피해 감소</td></tr>
+            <tr><td>Bulletproof Hat</td><td>방탄모자</td><td>0.6%</td><td>머리 보호</td></tr>
+            <tr><td>Spiked Helmet</td><td>가시투구</td><td>0.6%</td><td>가시 반사</td></tr>
+            <tr><td>Adversity Armor</td><td>역경의 갑옷</td><td>0.4%</td><td>뒤처질수록 강해짐</td></tr>
+            <tr><td>Shrapnel Armor</td><td>파편갑옷</td><td>0.4%</td><td>피격 시 파편 반사</td></tr>
+            <tr><td>Soul Burst</td><td>소울버스트</td><td>0.4%</td><td>에너지 폭발</td></tr>
+            <tr><td>Smartphone</td><td>스마트폰</td><td>0.4%</td><td>위험 감지 시 자동 대응</td></tr>
+            <tr><td>Lucky Coin</td><td>럭키코인</td><td>0.4%</td><td>보너스 아이템 스폰율 증가</td></tr>
+            <tr><td>Bluetooth Ring</td><td>블루투스링</td><td>0.6%</td><td>원격 아이템 연동</td></tr>
+            <tr><td>Gold Digger</td><td>골드디거</td><td>0.5%</td><td>팔 슬롯 - 골드 생성</td></tr>
+            <tr><td>Venom Gauntlet</td><td>독안개장갑</td><td>0.4%</td><td>바이퍼 전용 - 독 공격</td></tr>
+            <tr><td>Commando Arm</td><td>코만도암</td><td>0.6%</td><td>팔 힘 강화</td></tr>
+            <tr><td>Knee Pads</td><td>킥차져</td><td>0.5%</td><td>킥 파워 증가</td></tr>
+            <tr><td>Slot Add</td><td>슬롯 추가</td><td>0.6%</td><td>아이템 슬롯 +1</td></tr>
+            <tr><td>Gold Bar</td><td>금괴</td><td>0.1%</td><td>판매 전용. 이동속도 -30% 패널티</td></tr>
+            <tr><td>Hero Seal</td><td>호위무사 인장</td><td>0%</td><td>토너먼트 우승 보상</td></tr>
+        </table>
+    </div>
+</details>
+
+<h3 class="wiki-h3">6.4. 전설 아이템 (11종)</h3>
+<p>가장 희귀한 등급. <b>롤 옵션</b>으로 랜덤 스탯이 부여되며, <b>연마(Polish)</b> 퍽과 <b>강화 버프</b>로 스탯을 극대화할 수 있다. 중복 획득이 가능하여 더 좋은 롤을 파밍할 수 있다.</p>
+
+<div class="legendary-card">
+    <img src="items/legendary/ragnarok_hammer.png" alt="라그나로크 해머">
+    <div class="legendary-info">
+        <h5>라그나로크 해머 (Ragnarok Hammer)</h5>
+        <p>발동 확률 20~40% | 스턴 0.4~0.8초 | 속도 보너스 15~35% | 8프레임 애니메이션</p>
+    </div>
+</div>
+<div class="legendary-card">
+    <img src="items/legendary/hermes_shoes.png" alt="헤르메스의 신발">
+    <div class="legendary-info">
+        <h5>헤르메스의 신발 (Hermes Shoes)</h5>
+        <p>이동속도 보너스 30~60%. 빠른 포지셔닝의 핵심</p>
+    </div>
+</div>
+<div class="legendary-card">
+    <img src="items/legendary/poseidon_trident.png" alt="포세이돈의 삼지창">
+    <div class="legendary-info">
+        <h5>포세이돈의 삼지창 (Poseidon Trident)</h5>
+        <p>소용돌이 크기 150~250px | 쿨타임 2~10초 | 물결 이펙트로 공 궤적 교란</p>
+    </div>
+</div>
+<div class="legendary-card">
+    <img src="items/legendary/sacred_laurel.png" alt="신성 월계수">
+    <div class="legendary-info">
+        <h5>신성 월계수 (Sacred Laurel)</h5>
+        <p>보호 잎 4~8개. 투사체를 막아주는 방어용 전설 아이템</p>
+    </div>
+</div>
+<div class="legendary-card">
+    <img src="items/legendary/pandora_legacy.png" alt="판도라의 유산">
+    <div class="legendary-info">
+        <h5>판도라의 유산 (Pandora Legacy)</h5>
+        <p>승리 시 40~70% 확률로 발동 | 마법 품질 10~30%. 추가 아이템 보상</p>
+    </div>
+</div>
+<div class="legendary-card">
+    <img src="items/legendary/infinity_gauntlet.png" alt="무한의 건틀릿">
+    <div class="legendary-info">
+        <h5>무한의 건틀릿 (Infinity Gauntlet)</h5>
+        <p>파워 레벨 증폭. 전투 능력 직접 강화</p>
+    </div>
+</div>
+<p>기타: <b>천사의 가호</b> (다중 버프), <b>초월자의 관</b> (퍽 레벨 +1~2), <b>오딘의 눈</b> (부활 확률 25~40%), <b>메긴교르드</b> (추가 선택 30~50%), <b>발할라의 전갑</b> (영웅 소환 8~15%)</p>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260401_032716.png" alt="천사의 가호 획득">
+        <div class="caption">전설 아이템 "천사의 가호" 획득 연출</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260404_071959.png" alt="아이템 개발자 모드">
+        <div class="caption">전체 아이템 목록 (개발자 모드 / 부위별 분류)</div>
+    </div>
+</div>
+
+<h3 class="wiki-h3">6.5. 가챠 시스템</h3>
+<p>캡슐 머신 연출로 아이템을 획득하는 시스템. 코인 투입 &rarr; 머신 회전 &rarr; 캡슐 낙하 &rarr; 결과 공개의 4단계 연출.</p>
+<table class="wiki-table">
+    <tr><th>등급</th><th>기본 확률</th><th>캡슐 색상</th></tr>
+    <tr><td><span class="tag tag-common">커먼</span></td><td>60%</td><td>회색</td></tr>
+    <tr><td><span class="tag tag-rare">레어</span></td><td>30%</td><td>파란색</td></tr>
+    <tr><td><span class="tag tag-epic">에픽</span></td><td>8%</td><td>보라색</td></tr>
+    <tr><td><span class="tag tag-legendary">레전더리</span></td><td>2%</td><td>금색</td></tr>
+</table>
+<p>보물지도 스킬을 통해 전설 필드 확률 +350%, 가챠 전설 +7%까지 상향 가능.</p>
+
+<div class="screenshot-gallery single">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260406_184456.png" alt="5연속 뽑기 결과">
+        <div class="caption">5연속 뽑기 결과 화면 (컨페티 이펙트 + 등급별 원형 표시)</div>
+    </div>
+</div>
+
+<!-- ===== 7. 스킬 & 퍽 시스템 ===== -->
+<h2 class="wiki-h2" id="s7"><span class="section-num">7.</span> 스킬 & 퍽 시스템</h2>
+<p>핑파이터는 <b>2중 스킬 시스템</b>을 채택한다: 영구적인 <b>아카데미 스킬</b>과 전투 중 선택하는 <b>런타임 퍽</b>.</p>
+
+<h3 class="wiki-h3">7.1. 아카데미 스킬 (영구 투자)</h3>
+<p>스테이지 클리어로 획득한 스킬 포인트를 투자하여 영구적으로 능력치를 강화한다. 티어 게이트 시스템으로 점진적 해금.</p>
+
+<table class="wiki-table">
+    <tr><th>트리</th><th>색상</th><th>주요 스킬 (예시)</th><th>스킬 수</th></tr>
+    <tr>
+        <td style="color:#6496ff; font-weight:700;">대시 트리</td>
+        <td style="background:#6496ff; width:30px;"></td>
+        <td>경량화 (쿨감 7%/Lv), 도약 (거리 +4%/Lv), 증폭 (토큰 +1), 대시 스피릿 (레이저 잔상)</td>
+        <td style="text-align:center;">7</td>
+    </tr>
+    <tr>
+        <td style="color:#ff9664; font-weight:700;">아이템 트리</td>
+        <td style="background:#ff9664; width:30px;"></td>
+        <td>행운 (스폰 -6%/Lv), 숙련 (쿨감 8%/Lv), 연마 (롤옵션 +20%/Lv), 연금술 (아이템 유지 확률)</td>
+        <td style="text-align:center;">7</td>
+    </tr>
+    <tr>
+        <td style="color:#ffc864; font-weight:700;">광장 트리</td>
+        <td style="background:#ffc864; width:30px;"></td>
+        <td>도박 (추가 가챠 25%), 보물지도 (전설 확률 +350%)</td>
+        <td style="text-align:center;">2</td>
+    </tr>
+    <tr>
+        <td style="color:#b464dc; font-weight:700;">발토르 전용</td>
+        <td style="background:#b464dc; width:30px;"></td>
+        <td>게이지 효율 (+10%/Lv), 숙련된 망치질 (건설속도 +8%/Lv)</td>
+        <td style="text-align:center;">2</td>
+    </tr>
+</table>
+
+<div class="wiki-note">티어 게이트: Tier 1 = 누적 ★4, Tier 2 = 누적 ★8, Tier 3 = 누적 ★12 필요. 상위 스킬에 접근하려면 하위 스킬에 충분히 투자해야 한다.</div>
+
+<h3 class="wiki-h3">7.2. 런타임 퍽 (전투 중 선택)</h3>
+<p>전투 중 <b>스타 포인트</b>를 모으면 3개의 퍽 중 하나를 선택할 수 있다. 매 게임마다 다른 빌드가 가능.</p>
+
+<table class="wiki-table">
+    <tr><th>분류</th><th>퍽 수</th><th>대표 퍽</th></tr>
+    <tr><td><b>공통 퍽</b></td><td>21종</td><td>신속 (이동속도 +5%/Lv), 벌크업 (패들 +4%/Lv), 월계수잎 (보호 +1/Lv)</td></tr>
+    <tr><td><b>스매셔 전용</b></td><td>4종</td><td>대쉬 스피릿, 플라즈마 해금, 리커버리 해금, 클렌즈 해금</td></tr>
+    <tr><td><b>옵티머스 전용</b></td><td>9종</td><td>메카체인, 비상충전, 옵티머스암 (보스 잡아 던지기!)</td></tr>
+    <tr><td><b>코만도 전용</b></td><td>5종</td><td>탄창개조, 그물덫총/화력지원/볼링트랩/자폭드론 해금</td></tr>
+    <tr><td><b>바이퍼 전용</b></td><td>5종</td><td>베놈 엣지, EMP 스트라이크, 팬텀 킥 (4연계), 제트팩/킥 강화</td></tr>
+    <tr><td><b>즉발 퍽</b></td><td>5종</td><td>풀게이징 (만충), 차원개방 (아이템 폭주), 보물탐색 (전설 20%)</td></tr>
+</table>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260403_171620.png" alt="아카데미 스킬 트리">
+        <div class="caption">아카데미 스킬 투자 화면</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260405_094743.png" alt="캐릭터 장비 정보">
+        <div class="caption">장비 슬롯 + 능력치 상세 + 패시브 아이템 장착 상태</div>
+    </div>
+</div>
+
+<!-- ===== 8. 콜로세움 ===== -->
+<h2 class="wiki-h2" id="s8"><span class="section-num">8.</span> 콜로세움 (아레나)</h2>
+<p>다운타운의 콜로세움에서 <b>AI 히어로들과 토너먼트 대전</b>을 벌이는 PvE 모드. 15명의 AI 영웅이 등장한다.</p>
+
+<h3 class="wiki-h3">8.1. 아레나 영웅 (15명)</h3>
+<table class="wiki-table dark">
+    <tr><th>영웅</th><th>한국어</th><th>칭호</th><th>스타일</th><th>속도</th><th>반응</th><th>파워</th></tr>
+    <tr><td style="color:#7840b0;">무겐</td><td>무겐</td><td>Noble Swordsman</td><td style="color:#f44336;">공격</td><td>1.3x</td><td>0.85x</td><td>1.25x</td></tr>
+    <tr><td style="color:#287890;">크라켄</td><td>크라켄</td><td>Deep Sea Predator</td><td style="color:#ff9800;">트릭</td><td>0.95x</td><td>1.1x</td><td>1.15x</td></tr>
+    <tr><td style="color:#7850a0;">키르케</td><td>키르케</td><td>Dark Witch</td><td style="color:#2196f3;">수비</td><td>0.85x</td><td>1.35x</td><td>0.75x</td></tr>
+    <tr><td style="color:#c83246;">오니마루</td><td>오니마루</td><td>Demon Oni Warrior</td><td style="color:#4caf50;">밸런스</td><td>1.2x</td><td>0.9x</td><td>1.35x</td></tr>
+    <tr><td style="color:#b46496;">연화</td><td>연화</td><td>Puppeteer</td><td style="color:#ff9800;">트릭</td><td>1.0x</td><td>1.0x</td><td>1.1x</td></tr>
+    <tr><td style="color:#dc6428;">이그니스</td><td>이그니스</td><td>Dragon Knight</td><td style="color:#4caf50;">밸런스</td><td>1.0x</td><td>0.95x</td><td>1.1x</td></tr>
+    <tr><td style="color:#8c643c;">마리</td><td>마리</td><td>Steampunk Mechanic</td><td style="color:#2196f3;">수비</td><td>0.9x</td><td>1.25x</td><td>0.95x</td></tr>
+    <tr><td style="color:#323246;">쿠로카게</td><td>쿠로카게</td><td>Shadow Ninja</td><td style="color:#f44336;">공격</td><td>1.4x</td><td>0.85x</td><td>1.0x</td></tr>
+    <tr><td style="color:#5082a0;">벤시</td><td>벤시</td><td>Phantom Queen</td><td style="color:#ff9800;">트릭</td><td>1.1x</td><td>1.15x</td><td>0.9x</td></tr>
+    <tr><td style="color:#a050c8;">네크로</td><td>네크로</td><td>Skeleton Queen</td><td style="color:#ff9800;">트릭</td><td>1.1x</td><td>0.9x</td><td>0.9x</td></tr>
+    <tr><td style="color:#dc3c50;">조커</td><td>조커</td><td>Jester</td><td style="color:#ff9800;">트릭</td><td>1.15x</td><td>0.88x</td><td>0.95x</td></tr>
+    <tr><td style="color:#d2b464;">세트</td><td>세트</td><td>Desert Illusionist</td><td style="color:#ff9800;">트릭</td><td>1.05x</td><td>0.92x</td><td>0.88x</td></tr>
+    <tr><td style="color:#828ca0;">안드로이드</td><td>안드로이드</td><td>Combat Weapon</td><td style="color:#f44336;">공격</td><td>1.15x</td><td>0.88x</td><td>1.3x</td></tr>
+    <tr><td style="color:#e6a028;">호루스</td><td>호루스</td><td>Thunder Hawk</td><td style="color:#4caf50;">밸런스</td><td>1.1x</td><td>0.95x</td><td>1.0x</td></tr>
+    <tr><td style="color:#cda54b;">원숭이왕</td><td>원숭이왕</td><td>Jungle Overlord</td><td style="color:#f44336;">공격</td><td>1.3x</td><td>0.88x</td><td>1.25x</td></tr>
+</table>
+
+<p><b>스타일 상성:</b> 공격 &gt; 수비 &gt; 트릭 &gt; 밸런스 (가위바위보 구조)</p>
+
+<!-- ===== 9. 다운타운 ===== -->
+<h2 class="wiki-h2" id="s9"><span class="section-num">9.</span> 다운타운 (허브 월드)</h2>
+<p>보스 전투 사이에 탐험하는 <b>도시 허브 월드</b>. 타일 기반 자유 이동(19&times;50 타일, 760&times;2000px)으로 건물에 들어가 다양한 활동을 할 수 있다.</p>
+
+<h3 class="wiki-h3">9.1. 시설 목록</h3>
+<table class="wiki-table">
+    <tr><th>시설</th><th>한국어</th><th>기능</th><th>AP</th></tr>
+    <tr><td style="font-weight:700;">콜로세움</td><td>콜로세움</td><td>PvP 토너먼트. 15명의 AI 영웅과 대전</td><td>2</td></tr>
+    <tr><td style="font-weight:700;">용광로 대장간</td><td>용광로 대장간</td><td>장비 강화 / 제련</td><td>1</td></tr>
+    <tr><td style="font-weight:700;">모험가의 선술집</td><td>모험가의 선술집</td><td>퀘스트 / 정보 허브</td><td>1</td></tr>
+    <tr><td style="font-weight:700;">스타뱅크</td><td>스타뱅크</td><td>화폐 교환 / 금융</td><td>1</td></tr>
+    <tr><td style="font-weight:700;">레트로 아케이드</td><td>레트로 아케이드</td><td>미니게임</td><td>1</td></tr>
+    <tr><td style="font-weight:700;">스타 가챠샵</td><td>스타 가챠샵</td><td>100메달로 아이템 뽑기</td><td>1</td></tr>
+    <tr><td style="font-weight:700;">아카데미</td><td>아카데미</td><td>스킬 트리 투자</td><td>1</td></tr>
+    <tr><td style="font-weight:700;">상점</td><td>상점 (6종 테마)</td><td>아이템 구매 (사이버펑크/판타지/스팀펑크/자연/럭셔리)</td><td>1</td></tr>
+</table>
+
+<p><b>AP 시스템:</b> 시작 시 3AP, 최대 10AP. 스테이지 클리어마다 +1AP. 건물 방문 시 AP 소모.</p>
+<p><b>8가지 행성 테마:</b> 사이버 시티, 사막 마을, 숲 마을, 얼음 기지, 우주 정거장 등으로 배경이 변경된다.</p>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260406_100537.png" alt="다운타운 상점">
+        <div class="caption">다운타운 상점 화면 - 아이템 구매 & 장비 관리</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260406_195107.png" alt="다운타운 상점 2">
+        <div class="caption">다운타운 상점 - 아이템 상세 설명</div>
+    </div>
+</div>
+
+<!-- ===== 10. 스테이지 & 비주얼 ===== -->
+<h2 class="wiki-h2" id="s10"><span class="section-num">10.</span> 스테이지 & 비주얼</h2>
+<p>8개의 메인 스테이지 + 1개의 아레나 스테이지. 각 스테이지는 <b>고유한 프로시저럴 애니메이션 배경</b>을 가진다.</p>
+
+<table class="wiki-table dark">
+    <tr><th>스테이지</th><th>보스</th><th>테마</th><th>비주얼 특징</th></tr>
+    <tr>
+        <td style="text-align:center;">1</td>
+        <td>풍악보이</td>
+        <td>한국 전통</td>
+        <td>화강암 바닥 타일 (프로시저럴), 태극 문양 애니메이션, 단청 색상, 20개 부유 파티클</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">2</td>
+        <td>악어장군</td>
+        <td>정글</td>
+        <td>프리렌더링 정글 배경, 150px 그리드 덤불 시스템 (흔들림 효과), 낙엽 파티클, 덩굴 반짝임</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">3</td>
+        <td>멘헤라걸</td>
+        <td>멘헤라/인형</td>
+        <td>파스텔 핑크+라벤더, 벚꽃잎 낙하, 픽셀 하트 펄스, 감정 상태별 색상 전환</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">4</td>
+        <td>퐁크</td>
+        <td>소림 사원</td>
+        <td>5층 탑 건축, 연꽃 홀로그램 (8잎 회전), 등불 글로우, <b>탑 파괴 시퀀스</b> (달 적변, 벽 균열, 먼지 파티클)</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">5</td>
+        <td>네메시스</td>
+        <td>해상 전투</td>
+        <td><b>13레이어 깊이</b>: 폭풍 하늘 &rarr; 전함 실루엣 &rarr; 먹구름 &rarr; 수평선 안개 &rarr; 바다 &rarr; 파도 &rarr; 사이버펑크 아레나 &rarr; 레이더 스캔 &rarr; 홀로그램 스캔라인 &rarr; 네온 트림</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">6</td>
+        <td>홍련</td>
+        <td>중국/화염</td>
+        <td>팔괘(八卦) 회전 심볼, 매화 낙하 (8개), 15개 화염 파티클, 불꽃 라인, 글로우 펄스</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">7</td>
+        <td>-</td>
+        <td>중세 요새</td>
+        <td>횃불 4개 + 잔광 입자 12개, 200px 이동 조명대, <b>의사 3D 회전 큐브</b> (실시간 퍼스펙티브 투영)</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">8</td>
+        <td>-</td>
+        <td>닌자 저택</td>
+        <td>등롱 4개 + 창문 조명 시스템 (11개), 수리검 회전 애니메이션, 닌자 그림자, 연기 파티클</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">30</td>
+        <td>아레나</td>
+        <td>고대 로마</td>
+        <td>다층 콜로세움 구조, 관중 실루엣, 모래 바닥</td>
+    </tr>
+</table>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260403_083036.png" alt="스테이지 1">
+        <div class="caption">스테이지 1: 한국 전통 - 화강암 바닥 + 태극 문양</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260403_205314.png" alt="스테이지 2">
+        <div class="caption">스테이지 2: 정글 - 덤불 & 나뭇잎 환경</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260404_093023.png" alt="스테이지 3">
+        <div class="caption">스테이지 3: 멘헤라 - 핑크 파스텔 세계 & 주사위 이벤트</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260405_200559.png" alt="스테이지 5">
+        <div class="caption">스테이지 5: 해상 전투 - 13레이어 사이버펑크 해상 아레나</div>
+    </div>
+</div>
+
+<h3 class="wiki-h3">10.1. 렌더링 시스템</h3>
+<p>6단계 레이어 합성 렌더링:</p>
+<table class="wiki-table">
+    <tr><th>레이어</th><th>순서</th><th>내용</th></tr>
+    <tr><td>BACKGROUND</td><td>0</td><td>스테이지별 애니메이션 배경</td></tr>
+    <tr><td>FIELD</td><td>1</td><td>게임 필드, 필러 (좌우 장식)</td></tr>
+    <tr><td>ENTITIES</td><td>2</td><td>공, 패들, 아이템, 투사체</td></tr>
+    <tr><td>EFFECTS</td><td>3</td><td>파티클, 폭발, 레이저, 번개</td></tr>
+    <tr><td>UI</td><td>4</td><td>점수판 (LED 7세그먼트), 게이지, HUD</td></tr>
+    <tr><td>OVERLAY</td><td>5</td><td>화면 흔들림, 플래시, 비네팅</td></tr>
+</table>
+
+<!-- ===== 11. 온라인 멀티플레이 ===== -->
+<h2 class="wiki-h2" id="s11"><span class="section-num">11.</span> 온라인 멀티플레이</h2>
+<p>P2P 소켓 기반 온라인 대전. 호스트/게스트 방식으로 매칭.</p>
+
+<table class="wiki-table">
+    <tr><th>항목</th><th>사양</th></tr>
+    <tr><td>프로토콜</td><td>커스텀 바이너리 직렬화 (0x20~0x43 패킷)</td></tr>
+    <tr><td>포트</td><td>12345 (기본)</td></tr>
+    <tr><td>프레임 전송</td><td>60/초 (입력 + 게임 상태)</td></tr>
+    <tr><td>연결 타임아웃</td><td>5초</td></tr>
+    <tr><td>재연결</td><td>자동 재연결 (10초 이내)</td></tr>
+    <tr><td>보간/예측</td><td>원격 플레이어 이동 보간 지원</td></tr>
+    <tr><td>로비</td><td>캐릭터 & 스테이지 선택, 준비 상태, 채팅</td></tr>
+    <tr><td>핑 제한</td><td>200ms</td></tr>
+    <tr><td>IP 기록</td><td>최근 5개 IP 자동 저장</td></tr>
+</table>
+
+<div class="screenshot-gallery single">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260331_220115.png" alt="모드 선택 화면">
+        <div class="caption">모드 선택 화면 - 아케이드 모드 / 투기장(아레나) 모드</div>
+    </div>
+</div>
+
+<!-- ===== 12. 리플레이 시스템 ===== -->
+<h2 class="wiki-h2" id="s12"><span class="section-num">12.</span> 리플레이 시스템</h2>
+<p>전투를 <b>60fps 풀스크린</b>으로 자동 녹화하여 언제든 다시 볼 수 있다.</p>
+<table class="wiki-table">
+    <tr><th>항목</th><th>사양</th></tr>
+    <tr><td>캡처 방식</td><td>비동기 백그라운드 압축 (프레임드랍 없음)</td></tr>
+    <tr><td>해상도</td><td>760 &times; 750 (원본 100%)</td></tr>
+    <tr><td>프레임</td><td>60 FPS</td></tr>
+    <tr><td>압축</td><td>zlib 레벨 1 (고속)</td></tr>
+    <tr><td>최대 녹화</td><td>10분 (600초)</td></tr>
+    <tr><td>효과음</td><td>프레임별 사운드 이벤트 자동 동기화</td></tr>
+    <tr><td>메타데이터</td><td>스테이지, 보스, 난이도, 캐릭터, 승패, 타임스탬프</td></tr>
+    <tr><td>파일 포맷</td><td>PFRP v4 (커스텀 바이너리)</td></tr>
+</table>
+
+<div class="screenshot-gallery single">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260407_043004.png" alt="리플레이 뷰어">
+        <div class="caption">리플레이 뷰어 - 하단 진행 바, 재생 컨트롤, 프레임 카운터</div>
+    </div>
+</div>
+
+<!-- ===== 13. 시장 분석 ===== -->
+<h2 class="wiki-h2" id="s13"><span class="section-num">13.</span> 시장 분석</h2>
+
+<h3 class="wiki-h3">13.1. 비교 타이틀</h3>
+<table class="wiki-table">
+    <tr><th>게임</th><th>유사점</th><th>핑파이터 차별점</th></tr>
+    <tr>
+        <td><b>Windjammers 2</b></td>
+        <td>아케이드 대전</td>
+        <td><span class="comp-vs">+</span> RPG 성장, 보스 AI, 허브 월드</td>
+    </tr>
+    <tr>
+        <td><b>Lethal League Blaze</b></td>
+        <td>공 기반 격투</td>
+        <td><span class="comp-vs">+</span> 70종 아이템, 스킬 트리, 가챠</td>
+    </tr>
+    <tr>
+        <td><b>Pong Quest</b></td>
+        <td>퐁 + RPG</td>
+        <td><span class="comp-vs">+</span> 온라인 대전, 60개 스킬, 15명 아레나 영웅</td>
+    </tr>
+    <tr>
+        <td><b>Nidhogg 2</b></td>
+        <td>1v1 아케이드</td>
+        <td><span class="comp-vs">+</span> PvE 캠페인, 다운타운, 수집 요소</td>
+    </tr>
+    <tr>
+        <td><b>Hades</b></td>
+        <td>로그라이크 빌드</td>
+        <td><span class="comp-vs">=</span> 유사한 "매 런마다 다른 빌드" 구조를 퐁 메카닉에 적용</td>
+    </tr>
+</table>
+
+<h3 class="wiki-h3">13.2. 타겟 유저</h3>
+<table class="wiki-table">
+    <tr><th>순위</th><th>타겟</th><th>이유</th></tr>
+    <tr><td><b>1차</b></td><td>레트로 아케이드 팬 (20~35세)</td><td>직관적 조작 + 현대적 깊이. 퐁에 대한 향수</td></tr>
+    <tr><td><b>2차</b></td><td>수집/성장 캐주얼 게이머</td><td>70종 아이템, 전설 파밍, 롤 옵션. "한 판 더" 중독성</td></tr>
+    <tr><td><b>3차</b></td><td>경쟁적 대전 플레이어</td><td>온라인 대전, 아레나 토너먼트, 캐릭터별 차별화</td></tr>
+</table>
+
+<!-- ===== 14. 비즈니스 모델 ===== -->
+<h2 class="wiki-h2" id="s14"><span class="section-num">14.</span> 비즈니스 모델</h2>
+
+<table class="wiki-table">
+    <tr><th>수익 경로</th><th>설명</th><th>예상 가격</th></tr>
+    <tr><td><b>기본 게임 (Premium)</b></td><td>스팀/itch.io 유료 판매</td><td>$9.99 ~ $14.99</td></tr>
+    <tr><td><b>스테이지 DLC</b></td><td>추가 보스, 스테이지, 스토리</td><td>$4.99 / 팩</td></tr>
+    <tr><td><b>캐릭터 DLC</b></td><td>신규 플레이어블 영웅</td><td>$2.99 ~ $4.99</td></tr>
+    <tr><td><b>코스메틱</b></td><td>패들 스킨, 이펙트 변경, 배경 테마</td><td>$0.99 ~ $2.99</td></tr>
+</table>
+
+<!-- ===== 15. 개발 현황 ===== -->
+<h2 class="wiki-h2" id="s15"><span class="section-num">15.</span> 개발 현황 & 콘텐츠 규모</h2>
+
+<div class="content-stats">
+    <div class="stat-card">
+        <div class="stat-number">173K+</div>
+        <div class="stat-label">코드 라인 수<br>(pingfighter.py)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">99+</div>
+        <div class="stat-label">Python 모듈</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">78</div>
+        <div class="stat-label">아이템 종류</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">61</div>
+        <div class="stat-label">스킬 & 퍽</div>
+    </div>
+</div>
+
+<table class="wiki-table">
+    <tr><th>항목</th><th>수량</th><th>비고</th></tr>
+    <tr><td>보스 캐릭터</td><td style="text-align:center; font-weight:700;">6</td><td>각각 고유 AI + 스킬 세트</td></tr>
+    <tr><td>플레이어블 영웅</td><td style="text-align:center; font-weight:700;">7</td><td>각각 전용 스킬 트리</td></tr>
+    <tr><td>아레나 영웅</td><td style="text-align:center; font-weight:700;">15</td><td>4가지 스타일 (공격/수비/트릭/밸런스)</td></tr>
+    <tr><td>메인 스테이지</td><td style="text-align:center; font-weight:700;">8</td><td>+ 아레나 스테이지 1</td></tr>
+    <tr><td>아이템</td><td style="text-align:center; font-weight:700;">78</td><td>액티브 31 + 패시브 32 + 전설 11 + 기타 4</td></tr>
+    <tr><td>아이템 아이콘</td><td style="text-align:center; font-weight:700;">62</td><td>32&times;32 픽셀아트 PNG</td></tr>
+    <tr><td>전설 아이콘</td><td style="text-align:center; font-weight:700;">11</td><td>8프레임 애니메이션 포함</td></tr>
+    <tr><td>스킬 & 퍽</td><td style="text-align:center; font-weight:700;">61</td><td>아카데미 17 + 런타임 44</td></tr>
+    <tr><td>효과음</td><td style="text-align:center; font-weight:700;">40+</td><td>WAV 포맷</td></tr>
+    <tr><td>다운타운 건물</td><td style="text-align:center; font-weight:700;">8 (활성)</td><td>+ 5개 개발 예정</td></tr>
+    <tr><td>지원 언어</td><td style="text-align:center; font-weight:700;">4</td><td>한국어, 영어, 일본어, 중국어</td></tr>
+    <tr><td>스크린샷</td><td style="text-align:center; font-weight:700;">805장</td><td>281MB 아카이브</td></tr>
+</table>
+
+<h3 class="wiki-h3">15.1. 기술 스택</h3>
+<table class="wiki-table">
+    <tr><th>항목</th><th>기술</th></tr>
+    <tr><td>언어</td><td>Python 3.12+</td></tr>
+    <tr><td>그래픽</td><td>Pygame 2.6+ (Direct3D / Metal / OpenGL)</td></tr>
+    <tr><td>네트워크</td><td>커스텀 소켓 프로토콜 (바이너리 직렬화)</td></tr>
+    <tr><td>빌드</td><td>PyInstaller (Windows .exe / macOS .app)</td></tr>
+    <tr><td>캐싱</td><td>LRU OrderedDict + NumPy 그래디언트 최적화</td></tr>
+    <tr><td>압축</td><td>zlib (리플레이), 비동기 스레드 처리</td></tr>
+    <tr><td>GPU</td><td>NVIDIA Optimus 지원, VSync, DPI Aware v2</td></tr>
+    <tr><td>접근성</td><td>색맹 모드, 고대비, 모션 감소, 큰 글자, 자막</td></tr>
+</table>
+
+<!-- ===== 16. 로드맵 ===== -->
+<h2 class="wiki-h2" id="s16"><span class="section-num">16.</span> 로드맵</h2>
+
+<table class="wiki-table">
+    <tr><th>단계</th><th>목표</th><th>상태</th></tr>
+    <tr>
+        <td style="font-weight:700;">Phase 1<br><small>현재</small></td>
+        <td>
+            UI 리팩토링, 모듈화 안정화<br>
+            접근성 옵션 구현<br>
+            버그 픽스 & QA
+        </td>
+        <td style="color:#ff9800; font-weight:700;">진행 중</td>
+    </tr>
+    <tr>
+        <td style="font-weight:700;">Phase 2</td>
+        <td>
+            추가 보스 & 스테이지 (7~8 완성)<br>
+            신규 캐릭터 해금 시스템<br>
+            밸런스 조정
+        </td>
+        <td style="color:#aaa;">예정</td>
+    </tr>
+    <tr>
+        <td style="font-weight:700;">Phase 3</td>
+        <td>
+            스팀 출시 준비<br>
+            컨트롤러 지원<br>
+            랭킹 시스템
+        </td>
+        <td style="color:#aaa;">예정</td>
+    </tr>
+    <tr>
+        <td style="font-weight:700;">Phase 4</td>
+        <td>
+            DLC 콘텐츠 (보스, 캐릭터, 스테이지)<br>
+            커뮤니티 이벤트<br>
+            모바일 포팅 검토
+        </td>
+        <td style="color:#aaa;">예정</td>
+    </tr>
+</table>
+
+<br>
+
+<div class="wiki-quote" style="text-align:center; font-style:normal;">
+    <b style="font-size:20px;">PingFighter</b><br>
+    <span style="font-size:15px;">패들 하나로 시작하는 보스 헌팅 아케이드</span><br><br>
+    <span style="font-size:13px; color:#666;">
+        "To live is to choose." &mdash; 사는 것은 선택하는 것이다.
+    </span>
+</div>
+
+</div><!-- /wiki-content -->
+
+<!-- ==================== 푸터 ==================== -->
+<div class="wiki-footer">
+    PingFighter Pitch Deck &copy; 2026 officialsahogany<br>
+    Built with Python + Pygame | 173,000+ lines of code<br>
+    <a href="https://github.com/officialsahogany/pingfighter" style="color:#58a6ff;">github.com/officialsahogany/pingfighter</a>
+</div>
+
+</div><!-- /wiki-wrapper -->
+
+</body>
+</html>
