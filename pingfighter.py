@@ -122858,7 +122858,7 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                 out_path,
             ]
 
-            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
             # 프레임 인덱스 스캔
             with open(filepath, 'rb') as f:
@@ -122905,16 +122905,15 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                     status['progress'] = (idx + 1) / total
 
             proc.stdin.close()
-            proc.wait()
+            proc.wait(timeout=30)
 
-            if proc.returncode == 0:
+            if proc.returncode == 0 and os.path.exists(out_path):
                 size_mb = os.path.getsize(out_path) / (1024 * 1024)
                 status['message'] = f"저장 완료! ({size_mb:.0f}MB)"
                 print(f"[Replay] MP4 저장 완료: {out_path} ({size_mb:.1f}MB)")
             else:
-                stderr = proc.stderr.read().decode('utf-8', errors='replace')[-200:]
                 status['message'] = "변환 실패"
-                print(f"[Replay] MP4 변환 실패: {stderr}")
+                print(f"[Replay] MP4 변환 실패 (returncode={proc.returncode})")
 
         except Exception as e:
             status['message'] = f"오류: {e}"
