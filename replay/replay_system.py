@@ -20,7 +20,7 @@ _VERSION = 3
 
 # 캡처 설정
 CAPTURE_INTERVAL = 2    # 2프레임마다 1회 캡처 → 실질 30fps
-SCALE_FACTOR = 0.5      # 50% 축소
+SCALE_FACTOR = 0.75     # 75% 축소 (고화질)
 COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름, 9=최대)
 MAX_DURATION = 600      # 최대 10분
 
