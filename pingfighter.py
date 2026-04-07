@@ -22239,6 +22239,8 @@ def _get_horn_strawberry_transform():
 def update_horn_strawberry_transform(keys, dt):
     """뿔딸기 변신 시스템 매 프레임 업데이트.
     메인 게임 루프에서 호출. 반환: 변신 상태 객체 or None"""
+    global boss_stunned_timer, screen_shake_timer, screen_shake_intensity, boss_knockback_vel
+    global boss_speed_reduction_active, boss_speed_reduction_factor
     ts = _get_horn_strawberry_transform()
     if ts is None or not ts.active:
         return None
@@ -22256,6 +22258,7 @@ def update_horn_strawberry_transform(keys, dt):
         _handle_strawberry_skills(keys, ts, dt)
         _apply_horn_strawberry_horn_charge_runtime(ts)
         _apply_horn_strawberry_eat_runtime(ts)
+        _apply_horn_strawberry_bomb_runtime(ts)
 
         # 딸기 꼭지 투사체 ↔ 보스 충돌 체크
         if BOSS and ts.strawberry_eat.projectiles:
@@ -22276,9 +22279,42 @@ def update_horn_strawberry_transform(keys, dt):
                 except Exception:
                     pass
 
+        # 딸기폭탄 ↔ 보스 충돌 체크
+        if BOSS and ts.strawberry_bomb.bombs:
+            bomb_hits = ts.strawberry_bomb.check_boss_collision(BOSS)
+            from item_effects.horn_strawberry_mask import STRAWBERRY_BOMB_STUN_DURATION, STRAWBERRY_BOMB_KNOCKBACK
+            for bh in bomb_hits:
+                boss_stunned_timer = max(boss_stunned_timer, int(STRAWBERRY_BOMB_STUN_DURATION * 60))
+                _kb = STRAWBERRY_BOMB_KNOCKBACK
+                if bh.get("x", 0) < BOSS.centerx:
+                    boss_knockback_vel = _apply_boss_knockback_velocity(_kb)
+                else:
+                    boss_knockback_vel = _apply_boss_knockback_velocity(-_kb)
+                screen_shake_timer = max(screen_shake_timer, 8)
+                screen_shake_intensity = max(screen_shake_intensity, 12)
+
+        # 딸기폭탄 페인트 → 보스 슬로우 체크
+        if BOSS and ts.strawberry_bomb.paint_splatters:
+            if ts.strawberry_bomb.is_boss_in_paint(BOSS):
+                boss_speed_reduction_active = True
+                boss_speed_reduction_factor = min(boss_speed_reduction_factor,
+                                                   1.0 - 0.30)  # 30% 감소
+
     # 변신 해제 후에도 장판 업데이트 유지 (공반사 + 건설/파괴)
     if not ts.is_transformed and ts.strawberry_field.needs_runtime_update():
         ts.strawberry_field.update(dt, PLAYER, BOSS, BALL, ball_vel)
+
+    # 변신 해제 후에도 딸기폭탄 페인트/폭발 유지 + 보스 슬로우
+    if not ts.is_transformed and ts.strawberry_bomb.needs_runtime_update():
+        px = PLAYER.centerx if PLAYER else 380
+        py = PLAYER.y if PLAYER else 710
+        boss_y = BOSS.y if BOSS else 25
+        ts.strawberry_bomb.update(dt, px, py, WIDTH, boss_y)
+        if BOSS and ts.strawberry_bomb.paint_splatters:
+            if ts.strawberry_bomb.is_boss_in_paint(BOSS):
+                boss_speed_reduction_active = True
+                boss_speed_reduction_factor = min(boss_speed_reduction_factor,
+                                                   1.0 - 0.30)
 
     return ts
 
@@ -22336,6 +22372,15 @@ def _handle_strawberry_skills(keys, ts, dt):
             ts._eat_paddle_growth_bonus = float(getattr(ts, "_eat_paddle_growth_bonus", 0.0)) + float(
                 getattr(ts.strawberry_eat, "paddle_growth_bonus", 0.10)
             )
+            # 딸기먹기 사운드 재생 (먹는 동안만)
+            global strawberry_eat_channel
+            if SOUND_STRAWBERRY_EAT and not AUDIO_DISABLED:
+                try:
+                    strawberry_eat_channel = pygame.mixer.find_channel()
+                    if strawberry_eat_channel:
+                        strawberry_eat_channel.play(SOUND_STRAWBERRY_EAT)
+                except Exception:
+                    pass
 
     if ts.strawberry_eat.eating or ts.strawberry_eat.projectiles:
         px = PLAYER.centerx if PLAYER else 380
@@ -22347,6 +22392,31 @@ def _handle_strawberry_skills(keys, ts, dt):
             global rolling_charges
             rolling_charges = min(rolling_charges + count, 3)
         ts.strawberry_eat.update(dt, px, py, _recover_gauge, _recover_dash)
+
+    # A+D 동시 홀드: 딸기폭탄
+    from item_effects.horn_strawberry_mask import STRAWBERRY_BOMB_GAUGE_COST
+    if (
+        ts.strawberry_bomb.check_ad_hold(keys, dt)
+        and ts.strawberry_bomb.can_use()
+        and special_gauge >= STRAWBERRY_BOMB_GAUGE_COST
+        and not bool(getattr(ts.horn_charge, "active", False))
+        and not bool(getattr(ts.strawberry_eat, "eating", False))
+    ):
+        if PLAYER:
+            ts.strawberry_bomb._anchor_player_centerx = float(PLAYER.centerx)
+        if ts.strawberry_bomb.activate(PLAYER.centerx if PLAYER else 380):
+            consume_special_gauge(STRAWBERRY_BOMB_GAUGE_COST)
+            try:
+                play_cached_sound("sounds/bullethit.wav", 0.4)
+            except Exception:
+                pass
+
+    # 딸기폭탄 업데이트
+    if ts.strawberry_bomb.needs_runtime_update():
+        px = PLAYER.centerx if PLAYER else 380
+        py = PLAYER.y if PLAYER else 710
+        boss_y = BOSS.y if BOSS else 25
+        ts.strawberry_bomb.update(dt, px, py, WIDTH, boss_y)
 
 def get_horn_strawberry_paddle_size_bonus():
     """변신 중 패들 크기 보너스 비율 반환 (0.0 = 보너스 없음)"""
@@ -22390,7 +22460,8 @@ def is_horn_strawberry_control_locked():
     except Exception:
         charge_locked = bool(getattr(ts.horn_charge, "active", False))
     eat_locked = bool(getattr(ts.strawberry_eat, "eating", False))
-    return charge_locked or eat_locked
+    bomb_locked = bool(getattr(ts.strawberry_bomb, "throwing", False))
+    return charge_locked or eat_locked or bomb_locked
 
 def is_horn_strawberry_skills_locked():
     """뿔딸기 변신 중에는 기존 캐릭터 스킬을 차단한다 (이동은 허용)."""
@@ -22517,6 +22588,27 @@ def _apply_horn_strawberry_eat_runtime(ts):
         return
 
     _anchor_centerx = getattr(ts.strawberry_eat, "_anchor_player_centerx", None)
+    if PLAYER is not None and _anchor_centerx is not None:
+        PLAYER.centerx = int(round(_anchor_centerx))
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+
+    current_speed = 0
+    rolling_active = False
+    rolling_timer = 0
+    player_knockback_vel = 0
+    player_fire_knockback_vel = 0.0
+    player_missile_knockback_vel = 0.0
+
+
+def _apply_horn_strawberry_bomb_runtime(ts):
+    """딸기폭탄 투척 중에는 플레이어를 제자리에 고정한다."""
+    global current_speed, rolling_active, rolling_timer
+    global player_knockback_vel, player_fire_knockback_vel, player_missile_knockback_vel
+
+    if not bool(getattr(ts.strawberry_bomb, "throwing", False)):
+        return
+
+    _anchor_centerx = getattr(ts.strawberry_bomb, "_anchor_player_centerx", None)
     if PLAYER is not None and _anchor_centerx is not None:
         PLAYER.centerx = int(round(_anchor_centerx))
         PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
@@ -22669,6 +22761,10 @@ def draw_horn_strawberry_effects(screen):
         if PLAYER:
             ts.strawberry_eat.draw(screen, PLAYER.centerx, PLAYER.y)
 
+        # 딸기폭탄 이펙트
+        if ts.strawberry_bomb.needs_runtime_update():
+            ts.strawberry_bomb.draw(screen, WIDTH)
+
         # 변신 타이머 표시 (화면 하단)
         _draw_transform_timer(screen, ts.transform_timer, ts._transform_duration)
 
@@ -22680,6 +22776,13 @@ def draw_horn_strawberry_effects(screen):
         ts.strawberry_field.update_cooldown(1.0 / 60.0)
     except Exception:
         pass
+
+    # 딸기폭탄 — 변신 해제 후에도 페인트/폭발 유지
+    if not ts.is_transformed and ts.strawberry_bomb.needs_runtime_update():
+        try:
+            ts.strawberry_bomb.draw(screen, WIDTH)
+        except Exception:
+            pass
 
 _horn_strawberry_skill_icon_rects = {}  # 뿔딸기 스킬 아이콘 히트박스
 _horn_strawberry_tooltip_active = False
@@ -22807,11 +22910,17 @@ HORN_STRAWBERRY_SKILL_DATA = [
         "description": "0.8초간 딸기를 먹어 게이지 50 소모, 대시토큰 1 회복. 사용할 때마다 패들 10% 성장. 먹은 뒤 꼭지를 발사하여 넉백+스턴.",
         "how_to_use": "Space 또는 마우스 좌클릭",
     },
+    {
+        "name": "strawberry_bomb", "korean": "딸기폭탄", "cost": 400,
+        "color": (255, 80, 40), "key": "A+D홀드", "cooldown": 30.0,
+        "description": "1초간 딸기폭탄 30개를 투척! 폭탄은 통통 튀며 상대를 향해 이동. 적중 시 넉백+1초 스턴. 폭발 지점에 빨간 물감(이동속도 -30%, 5초).",
+        "how_to_use": "A+D키를 동시에 0.5초 이상 홀드",
+    },
 ]
 
 def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
                                         current_gauge, max_gauge):
-    """뿔딸기 변신 중 필러 좌측 스킬 구슬 3개 (기존 스킬 대체)"""
+    """뿔딸기 변신 중 필러 좌측 스킬 구슬 4개 (기존 스킬 대체)"""
     global _horn_strawberry_skill_icon_rects
     ts = _get_horn_strawberry_transform()
     if ts is None or not ts.is_transformed:
@@ -22834,6 +22943,10 @@ def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
          "cooldown": ts.strawberry_eat.cooldown, "max_cd": 0.8,
          "active": ts.strawberry_eat.eating, "cost": int(getattr(ts.strawberry_eat, "gauge_cost", 50)),
          "angle": 255},
+        {"name": "딸기폭탄", "key": "A+D", "color": (255, 80, 40),
+         "cooldown": ts.strawberry_bomb.cooldown, "max_cd": 30.0,
+         "active": ts.strawberry_bomb.throwing, "cost": 400,
+         "angle": 285},
     ]
 
     time_now = pygame.time.get_ticks()
@@ -22873,10 +22986,12 @@ def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
         pygame.draw.circle(surface, border, (cx, cy), icon_radius, 2)
 
         # 스킬 아이콘
-        if skill["name"] == "뿔박치기":
+        if skill["name"] == "딸기뿔박치기":
             _draw_horn_charge_icon(surface, cx, cy, icon_radius - 4)
         elif skill["name"] == "딸기장판":
             _draw_strawberry_field_icon(surface, cx, cy, icon_radius - 4)
+        elif skill["name"] == "딸기폭탄":
+            _draw_strawberry_bomb_icon(surface, cx, cy, icon_radius - 4)
         else:
             _draw_strawberry_eat_icon(surface, cx, cy, icon_radius - 4)
 
@@ -23058,6 +23173,24 @@ def _draw_strawberry_eat_icon(screen, cx, cy, radius):
     pygame.draw.line(screen, (100, 255, 100), (cx + 7, cy - 2), (cx + 7, cy + 4), 2)
     pygame.draw.line(screen, (100, 255, 100), (cx + 4, cy + 1), (cx + 10, cy + 1), 2)
 
+def _draw_strawberry_bomb_icon(screen, cx, cy, radius):
+    """딸기폭탄 스킬 아이콘 - 딸기 + 폭발"""
+    # 딸기 몸체 (빨간 원)
+    pygame.draw.circle(screen, (220, 40, 50), (cx - 2, cy + 1), radius // 2)
+    # 잎
+    pygame.draw.ellipse(screen, (50, 150, 40), (cx - 5, cy - 5, 6, 4))
+    # 도화선
+    pygame.draw.line(screen, (80, 60, 40), (cx - 2, cy - 4), (cx + 2, cy - 8), 2)
+    # 불꽃 (폭발 스파크)
+    t = pygame.time.get_ticks() * 0.01
+    spark_r = max(1, int(2 + math.sin(t) * 1))
+    pygame.draw.circle(screen, (255, 200, 50), (cx + 2, cy - 9), spark_r)
+    pygame.draw.circle(screen, (255, 255, 200), (cx + 2, cy - 9), max(1, spark_r - 1))
+    # 폭발 이펙트 (오른쪽)
+    pygame.draw.line(screen, (255, 120, 40), (cx + 5, cy - 2), (cx + 9, cy - 5), 2)
+    pygame.draw.line(screen, (255, 120, 40), (cx + 6, cy + 2), (cx + 10, cy + 1), 2)
+    pygame.draw.line(screen, (255, 180, 60), (cx + 4, cy - 5), (cx + 7, cy - 8), 1)
+
 
 def _draw_transform_timer(screen, remaining, total):
     """변신 남은 시간 표시 (우측 가로형 게이지바, 거대화포션 스타일)"""
@@ -23238,6 +23371,9 @@ def play_cached_sound(relative_path: str, volume=None):
     """캐시된 사운드를 볼륨 적용하여 재생. 채널 반환."""
     snd = get_cached_sound(relative_path)
     if snd:
+        # 리플레이 사운드 매핑에 등록 (sound_effects 외 캐시 사운드도 녹음되도록)
+        if id(snd) not in _sound_id_map:
+            _sound_id_map[id(snd)] = relative_path
         return play_sound_with_volume(snd, volume)
     return None
 
@@ -24343,6 +24479,8 @@ SOUND_BOOMERANG_BREAK = sound_effects.get('BOOMERANG_BREAK')
 SOUND_HYDRO = sound_effects.get('HYDRO')
 SOUND_ROCKHIT = sound_effects.get('ROCKHIT')
 SOUND_ALCHEMY = sound_effects.get('ALCHEMY')
+SOUND_STRAWBERRY_EAT = sound_effects.get('STRAWBERRY_EAT')
+strawberry_eat_channel = None  # 딸기먹기 사운드 채널
 boomerang_sound_channel = None  # 부메랑 루프 재생 채널
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
@@ -124067,6 +124205,10 @@ def show_replay_viewer():
 def _get_replay_sound_bank() -> dict[str, pygame.mixer.Sound]:
     """리플레이 재생/내보내기에 사용하는 사운드 뱅크."""
     bank = {name: snd for name, snd in sound_effects.items() if snd is not None}
+    # play_cached_sound()로 재생된 사운드도 포함 (뿔딸기 스킬 등)
+    for path, snd in _sound_cache.items():
+        if snd is not None and path not in bank:
+            bank[path] = snd
     try:
         from ui.hud_display import HUDDisplay as _HUD
         if hasattr(_HUD, '_roundset_sound') and _HUD._roundset_sound:
@@ -124596,6 +124738,11 @@ def _export_replay_to_mp4(filepath: str, status: dict):
                         if not sound_id:
                             continue
                         snd = sound_bank.get(sound_id)
+                        # 경로 기반 사운드 동적 로드
+                        if snd is None and ('/' in sound_id or '\\' in sound_id):
+                            snd = get_cached_sound(sound_id)
+                            if snd:
+                                sound_bank[sound_id] = snd
                         if snd is None:
                             continue
                         if sound_id not in sound_cache:
@@ -124814,6 +124961,11 @@ def _play_replay(filepath: str):
             for entry in sound_events[cur_idx]:
                 sid, replay_volume = _parse_replay_sound_event(entry, _default_replay_sfx_volume)
                 snd = _replay_sounds.get(sid)
+                # 경로 기반 사운드 (play_cached_sound로 녹음된 것) 동적 로드
+                if snd is None and sid and ('/' in sid or '\\' in sid):
+                    snd = get_cached_sound(sid)
+                    if snd:
+                        _replay_sounds[sid] = snd
                 if snd:
                     try:
                         play_sound_with_volume(snd, replay_volume)
