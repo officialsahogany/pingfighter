@@ -157092,13 +157092,16 @@ def main(stage_num, new_boss_mode=False):
     # 🎬 리플레이 자동 녹화 시작
     _replay_rec = get_replay_recorder()
     try:
+        # 전체화면: REAL_SCREEN 해상도, 창모드: SCREEN 해상도
+        _rec_w = FULLSCREEN_WIDTH if (_is_fullscreen_active and REAL_SCREEN is not None and FULLSCREEN_WIDTH > 0) else WIDTH
+        _rec_h = FULLSCREEN_HEIGHT if (_is_fullscreen_active and REAL_SCREEN is not None and FULLSCREEN_HEIGHT > 0) else HEIGHT
         _replay_rec.start(
             stage=stage_num,
             boss_name=get_boss_name(stage_num),
             ai_mode=ai_mode,
             character=selected_character_type,
-            screen_w=WIDTH,
-            screen_h=HEIGHT,
+            screen_w=_rec_w,
+            screen_h=_rec_h,
         )
     except Exception as _re:
         print(f"[Replay] 녹화 시작 실패: {_re}")
@@ -166616,10 +166619,11 @@ def main(stage_num, new_boss_mode=False):
         except Exception:
             pass
 
-        # 🎬 리플레이 화면 캡처
+        # 🎬 리플레이 화면 캡처 (전체화면: REAL_SCREEN, 창모드: SCREEN)
         try:
             if _replay_rec.recording:
-                _replay_rec.capture(SCREEN)
+                _capture_target = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
+                _replay_rec.capture(_capture_target)
         except Exception:
             pass
 
