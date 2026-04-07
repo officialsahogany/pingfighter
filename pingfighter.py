@@ -22353,18 +22353,34 @@ def is_horn_strawberry_event_playing():
     return ts is not None and ts.is_event_playing
 
 
+_hs_control_lock_log_counter = 0
+
 def is_horn_strawberry_control_locked():
     """뿔박치기 연출 중에는 플레이어 직접 입력을 잠근다."""
+    global _hs_control_lock_log_counter
     ts = _get_horn_strawberry_transform()
     if not ts or not ts.is_transformed:
         return False
     try:
-        if ts.horn_charge.is_control_locked():
-            return True
+        charge_locked = ts.horn_charge.is_control_locked()
     except Exception:
-        if bool(getattr(ts.horn_charge, "active", False)):
-            return True
-    return bool(getattr(ts.strawberry_eat, "eating", False))
+        charge_locked = bool(getattr(ts.horn_charge, "active", False))
+    eat_locked = bool(getattr(ts.strawberry_eat, "eating", False))
+    result = charge_locked or eat_locked
+    if result:
+        _hs_control_lock_log_counter += 1
+        if _hs_control_lock_log_counter <= 5 or _hs_control_lock_log_counter % 60 == 0:
+            _phase = "?"
+            try:
+                _phase = getattr(ts.horn_charge._skill, "phase", "?")
+            except Exception:
+                pass
+            print(f"[뿔딸기LOCK] locked=True charge={charge_locked} eat={eat_locked} "
+                  f"active={getattr(ts.horn_charge, 'active', '?')} phase={_phase} "
+                  f"stunTimer={player_stunned_timer}")
+    else:
+        _hs_control_lock_log_counter = 0
+    return result
 
 def is_horn_strawberry_skills_locked():
     """뿔딸기 변신 중에는 기존 캐릭터 스킬을 차단한다 (이동은 허용)."""
