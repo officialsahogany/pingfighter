@@ -77232,6 +77232,13 @@ def handle_player(keys):
         if abs(player_missile_knockback_vel) <= 0.5:
             player_missile_knockback_vel = 0
 
+    # 악마의 주사위 배율 가져오기 (nested function에서 참조하므로 먼저 계산)
+    from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
+    devil_dice_paddle_multiplier = 1.0
+    if is_devil_dice_active():
+        multipliers = get_devil_dice_multipliers()
+        devil_dice_paddle_multiplier = multipliers['paddle_size']
+
     def _get_runtime_player_target_width() -> int:
         """피격/스턴 중에도 현재 적용 중인 패들 크기 배율을 유지한다."""
         _hs_paddle_bonus = 1.0 + get_horn_strawberry_paddle_size_bonus()
@@ -80214,13 +80221,8 @@ def handle_player(keys):
             elif _right_any and current_speed < 0:
                 current_speed += adjusted_instant_decel
     # 무중력벨트가 있으면 모든 감속 로직 완전 무시 (속도 유지)
-    #  악마의 주사위 배율 가져오기
-    from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-    devil_dice_paddle_multiplier = 1.0
-    if is_devil_dice_active():
-        multipliers = get_devil_dice_multipliers()
-        devil_dice_paddle_multiplier = multipliers['paddle_size']
-    
+    # (악마의 주사위 배율은 위 _get_runtime_player_target_width 정의 전에 이미 계산됨)
+
     # ️ 스턴 면역 타이머 감소
     if player_stun_immunity_timer > 0:
         player_stun_immunity_timer -= 1
