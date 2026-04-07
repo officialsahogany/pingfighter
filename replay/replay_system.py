@@ -51,6 +51,9 @@ class ReplayRecorder:
         self.scaled_h = 0
         self.current_frame = 0
 
+        # 사운드 이벤트 트랙: {캡처프레임번호: [사운드ID, ...]}
+        self.sound_events: Dict[int, List[str]] = {}
+
         # 백그라운드 압축 스레드
         self._queue: deque = deque()
         self._thread: Optional[threading.Thread] = None
@@ -69,6 +72,7 @@ class ReplayRecorder:
         self.captured_frames = 0
         self.start_time = time.time()
         self.current_frame = 0
+        self.sound_events = {}
 
         self.metadata = {
             'version': _VERSION,
@@ -134,6 +138,15 @@ class ReplayRecorder:
         except Exception:
             pass
 
+    def add_sound(self, sound_id: str):
+        """사운드 이벤트 기록 — 현재 캡처 프레임에 사운드 ID 추가"""
+        if not self.recording:
+            return
+        frame = self.captured_frames
+        if frame not in self.sound_events:
+            self.sound_events[frame] = []
+        self.sound_events[frame].append(sound_id)
+
     def _writer_loop(self):
         """백그라운드 스레드 — 큐에서 꺼내서 압축 + 디스크 쓰기"""
         while not self._stop_event.is_set() or len(self._queue) > 0:
@@ -157,6 +170,7 @@ class ReplayRecorder:
 
         self.metadata['duration'] = time.time() - self.start_time
         self.metadata['total_frames'] = self.captured_frames
+        self.metadata['sound_events'] = self.sound_events
         if result:
             self.metadata['result'] = result
 

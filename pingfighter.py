@@ -22448,6 +22448,11 @@ def play_dash_sound():
             play_sound_with_volume(SOUND_DASH)  # bustup.wav가 없으면 기본 대쉬 사운드 재생
     else:
         play_sound_with_volume(SOUND_DASH)
+    # 🎬 리플레이 사운드 이벤트 기록
+    try:
+        get_replay_recorder().add_sound('dash')
+    except Exception:
+        pass
 
 #  사운드 재생 헬퍼 함수들 (중복 제거용)
 def play_dash_charge_sound():
@@ -122471,6 +122476,22 @@ def _play_replay(filepath: str):
     result = rp.metadata.get('result', '')
     capture_fps = rp.metadata.get('capture_fps', 30)
 
+    # 🔊 사운드 이벤트 트랙 로드
+    sound_events = rp.metadata.get('sound_events', {})
+    # 키가 문자열로 저장될 수 있으므로 int로 변환
+    sound_events = {int(k): v for k, v in sound_events.items()}
+
+    # 사운드 매핑: ID → pygame.Sound 객체
+    _replay_sounds = {}
+    try:
+        _replay_sounds['paddle'] = _get_selected_paddle_sound()
+        _replay_sounds['wall'] = SOUND_WALL
+        _replay_sounds['dash'] = SOUND_DASH
+    except Exception:
+        pass
+
+    _last_played_frame = -1  # 중복 재생 방지
+
     # 🎵 스테이지 BGM 재생
     try:
         bgm_manager.play_stage_bgm(stage)
@@ -122548,8 +122569,19 @@ def _play_replay(filepath: str):
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 dragging_timeline = False
 
-        # 프레임 진행
+        # 프레임 진행 + 사운드 이벤트 재생
         surf = rp.advance()
+        # 현재 프레임에 사운드 이벤트가 있으면 재생
+        cur_idx = rp.current_index
+        if cur_idx != _last_played_frame and cur_idx in sound_events and rp.playing:
+            _last_played_frame = cur_idx
+            for sid in sound_events[cur_idx]:
+                snd = _replay_sounds.get(sid)
+                if snd:
+                    try:
+                        play_sound_with_volume(snd)
+                    except Exception:
+                        pass
         if surf is None and not rp.playing and not rp.paused:
             bgm_manager.stop_bgm()
             _show_replay_end_screen(result, boss_name, stage)
