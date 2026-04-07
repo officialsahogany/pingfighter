@@ -8,6 +8,7 @@ import pygame
 
 SOUND_PATHS = {
     "SERVE": "sounds/serve.wav",
+    "STAGE_START": "sounds/stagestart.wav",
     "WALL": "sounds/wall_hit.wav",
     "BRICK_DESTROY": "sounds/stonebreak2.wav",
     "PADDLE": "sounds/paddle_hit.wav",
@@ -126,6 +127,7 @@ SOUND_PATHS = {
     "VIPER_DIVE_PREP": "sounds/beforedivestrike.wav",
     "VIPER_SHOW": "sounds/bypershow.wav",
     "VIPER_PHANTOM_KICK_HIT": "sounds/pentomkick.wav",
+    "STRAWBERRY_EAT": "sounds/strawberryeat.wav",
 }
 
 
