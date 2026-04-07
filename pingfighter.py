@@ -23060,31 +23060,124 @@ def _draw_strawberry_eat_icon(screen, cx, cy, radius):
 
 
 def _draw_transform_timer(screen, remaining, total):
-    """변신 남은 시간 표시"""
+    """변신 남은 시간 표시 (우측 가로형 게이지바, 거대화포션 스타일)"""
     if remaining <= 0 or total <= 0:
+        _hg_on_deactivate('horn_strawberry')
         return
-    bar_w = 120
-    bar_h = 8
-    bar_x = 380 - bar_w // 2  # 화면 중앙
-    bar_y = 740  # 화면 하단
-    ratio = remaining / total
 
-    # 배경
-    pygame.draw.rect(screen, (40, 20, 20), (bar_x - 1, bar_y - 1, bar_w + 2, bar_h + 2), border_radius=3)
-    # 잔량
-    fill_w = int(bar_w * ratio)
-    if remaining < 10:
-        color = (255, 80, 80)  # 10초 미만 빨간색
-    else:
-        color = (220, 40, 50)
-    pygame.draw.rect(screen, color, (bar_x, bar_y, fill_w, bar_h), border_radius=2)
-    # 텍스트
-    try:
-        font = pygame.font.SysFont(None, 14)
-        text = font.render(f"{int(remaining)}s", True, (255, 255, 255))
-        screen.blit(text, (bar_x + bar_w + 4, bar_y - 1))
-    except Exception:
-        pass
+    v_width = 150
+    v_height = 12
+    base_x = WIDTH - v_width - 16
+    base_y = HEIGHT - 28
+    idx = _hg_index('horn_strawberry')
+    if idx < 0:
+        _hg_on_activate('horn_strawberry')
+        idx = _hg_index('horn_strawberry')
+    spacing = 18
+    hs_x = base_x
+    hs_y = base_y - max(0, idx) * spacing
+
+    remaining_ratio = remaining / total
+    remaining_seconds = remaining
+
+    # 다층 프레임 (거대화포션 동일)
+    outer_rect = pygame.Rect(hs_x - 5, hs_y - 6, v_width + 10, v_height + 12)
+    mid_rect   = pygame.Rect(hs_x - 3, hs_y - 4, v_width + 6,  v_height + 8)
+    frame_rect = pygame.Rect(hs_x - 2, hs_y - 2, v_width + 4,  v_height + 4)
+    inner_rect = pygame.Rect(hs_x,     hs_y,     v_width,      v_height)
+
+    shadow_surf = pygame.Surface((outer_rect.width, outer_rect.height), pygame.SRCALPHA)
+    pygame.draw.rect(shadow_surf, (0, 0, 0, 70), shadow_surf.get_rect(), border_radius=8)
+    screen.blit(shadow_surf, (outer_rect.x, outer_rect.y))
+
+    pygame.draw.rect(screen, (32, 16, 22), outer_rect, border_radius=8)
+    pygame.draw.rect(screen, (120, 55, 85), mid_rect, border_radius=7)
+    pygame.draw.rect(screen, (190, 110, 150), mid_rect, 2, border_radius=7)
+    pygame.draw.rect(screen, (36, 24, 28), frame_rect, border_radius=6)
+    inner_shadow = pygame.Surface((inner_rect.width, inner_rect.height), pygame.SRCALPHA)
+    for i in range(4):
+        alpha = 40 - i * 8
+        pygame.draw.rect(inner_shadow, (0, 0, 0, alpha), (0, i, inner_rect.width, 1))
+    screen.blit(inner_shadow, (inner_rect.x, inner_rect.y))
+
+    fill_w = max(1, int((v_width - 4) * remaining_ratio))
+    if fill_w > 0:
+        # 색상 단계 (핑크 → 오렌지 → 레드 펄스)
+        if remaining_seconds > 15.0:
+            base_c = (255, 60, 100)
+            hi_c = (255, 140, 180)
+        elif remaining_seconds > 7.0:
+            base_c = (255, 120, 60)
+            hi_c = (255, 180, 100)
+        else:
+            p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+            base_c = (255, int(50 + 70 * p), int(50 + 30 * p))
+            hi_c = (255, int(100 + 60 * p), int(80 + 40 * p))
+
+        # 수평 그라데이션 + 라운드 마스크
+        fill_rect = pygame.Rect(hs_x + 2, hs_y + 2, fill_w, v_height - 4)
+        grad = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+        for x in range(fill_rect.width):
+            t = x / max(1, fill_rect.width - 1)
+            col = (
+                int(base_c[0] + (hi_c[0] - base_c[0]) * t),
+                int(base_c[1] + (hi_c[1] - base_c[1]) * t),
+                int(base_c[2] + (hi_c[2] - base_c[2]) * t),
+                255,
+            )
+            pygame.draw.line(grad, col, (x, 0), (x, fill_rect.height - 1))
+        mask = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=3)
+        grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        screen.blit(grad, (fill_rect.x, fill_rect.y))
+
+        # 상단 하이라이트 글로우
+        pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+        glow = (
+            int(hi_c[0] * (0.6 + 0.4 * pulse)),
+            int(hi_c[1] * (0.6 + 0.4 * pulse)),
+            int(hi_c[2] * (0.6 + 0.4 * pulse)),
+        )
+        pygame.draw.rect(screen, glow, (hs_x + 2, hs_y + 2, fill_w, 2), border_radius=2)
+
+        # 티크 마크(10분할)
+        tick_color = (220, 180, 200)
+        for i in range(1, 10):
+            tx = hs_x + 2 + int((v_width - 4) * (i / 10))
+            pygame.draw.line(screen, tick_color, (tx, hs_y + v_height - 4), (tx, hs_y + v_height - 1), 1)
+
+        # 채움 끝점 글린트
+        end_x = hs_x + 2 + fill_w
+        if 2 < fill_w < (v_width - 4):
+            glint = pygame.Surface((8, v_height), pygame.SRCALPHA)
+            pygame.draw.line(glint, (255, 255, 255, 120), (0, 0), (0, v_height - 3), 2)
+            screen.blit(glint, (end_x - 1, hs_y + 2))
+
+    # 엠블럼(왼쪽): 딸기 아이콘 (펄스 애니메이션)
+    emb_base = int(v_height * 1.5)
+    pulse = 1.0 + 0.15 * math.sin(pygame.time.get_ticks() * 0.02)
+    emb_size = max(10, int(emb_base * pulse))
+    emb_x = hs_x - emb_size - 6
+    emb_y = hs_y + (v_height - emb_size) // 2
+    # 딸기 그림 그리기
+    straw_surf = pygame.Surface((emb_size, emb_size), pygame.SRCALPHA)
+    sc = emb_size / 16.0  # 16px 기준 스케일
+    scx, scy = int(emb_size * 0.5), int(emb_size * 0.6)
+    # 몸체 (빨간 타원)
+    body_w, body_h = max(2, int(6 * sc)), max(2, int(7 * sc))
+    pygame.draw.ellipse(straw_surf, (230, 40, 50), (scx - body_w, scy - body_h, body_w * 2, body_h * 2))
+    pygame.draw.ellipse(straw_surf, (255, 80, 90), (scx - body_w + 1, scy - body_h + 1, body_w * 2 - 2, int(body_h * 0.8)))
+    # 꼭지 (초록 잎)
+    leaf_y = scy - body_h
+    lw = max(2, int(4 * sc))
+    pygame.draw.ellipse(straw_surf, (50, 180, 50), (scx - lw, leaf_y - int(2 * sc), lw * 2, max(2, int(4 * sc))))
+    # 씨앗 (노란 점)
+    seed_c = (255, 220, 80)
+    for sx, sy in [(scx - int(2*sc), scy - int(1*sc)), (scx + int(2*sc), scy - int(1*sc)),
+                   (scx, scy + int(2*sc)), (scx - int(1*sc), scy + int(1*sc))]:
+        if 0 <= sx < emb_size and 0 <= sy < emb_size:
+            pygame.draw.circle(straw_surf, seed_c, (sx, sy), max(1, int(sc)))
+    screen.blit(straw_surf, (emb_x, emb_y))
 
 # ── 뿔딸기 변신가면 끝 ──────────────────────────────────────
 
