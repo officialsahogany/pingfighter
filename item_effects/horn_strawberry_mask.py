@@ -502,12 +502,22 @@ class HornStrawberryTransformState:
             foot_bob = 0
             leaf_drop = 0
 
+        # ── 꼭지 발사 머리 숙임 모션 ──
+        head_bob_offset = 0.0
+        _hb = getattr(eat_skill, "head_bob_timer", 0.0) if eat_skill else 0.0
+        if _hb > 0:
+            # 0.4→0: 앞쪽 0.2초 숙임(sin 올라감), 뒤쪽 0.2초 올림(sin 내려감)
+            bob_progress = 1.0 - (_hb / 0.4)  # 0→1
+            head_bob_offset = math.sin(bob_progress * math.pi) * 14  # 최대 14px 아래로
+            # 숙일 때 살짝 찌그러짐
+            squash *= (1.0 + math.sin(bob_progress * math.pi) * 0.08)
+
         # ── 크기 (둥글둥글) ──
         r = max(20, int(width * 0.28))
         body_cx = cx
         # 발바닥이 패들 하단(y+height)에 맞닿도록 — 딸기 중심을 위로
         bh_est = int(r * 2.2)  # 딸기 높이 추정
-        body_cy = int(y + height - bh_est // 2 - 8 - bounce_y + (1 if is_eating else 0))
+        body_cy = int(y + height - bh_est // 2 - 8 - bounce_y + (1 if is_eating else 0) + head_bob_offset)
 
         # ── 서피스 ──
         pad = 30
@@ -1624,6 +1634,7 @@ class StrawberryEatSkill:
         self._stem_burst_origin_x = 0.0
         self._stem_burst_origin_y = 0.0
         self._sound_channel = None  # pingfighter에서 설정하는 사운드 채널 참조
+        self.head_bob_timer = 0.0  # 꼭지 발사 시 머리 숙임 모션 타이머
 
     def reset(self):
         self.eating = False
@@ -1635,6 +1646,7 @@ class StrawberryEatSkill:
         self._stem_burst_timer = 0.0
         self._stem_burst_origin_x = 0.0
         self._stem_burst_origin_y = 0.0
+        self.head_bob_timer = 0.0
         # 사운드 정지
         if self._sound_channel is not None:
             try:
@@ -1663,7 +1675,12 @@ class StrawberryEatSkill:
                 recover_dash_fn(1)
                 self._anchor_player_centerx = None
                 self._start_stem_burst(player_x, player_y)
+                self.head_bob_timer = 0.4  # 머리 숙임→올림 모션 시작
             return True
+
+        # 머리 숙임 타이머 감소
+        if self.head_bob_timer > 0:
+            self.head_bob_timer -= dt
 
         if self._queued_stem_shots > 0:
             self._stem_burst_timer -= dt
