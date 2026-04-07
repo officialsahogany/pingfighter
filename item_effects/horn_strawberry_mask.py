@@ -452,34 +452,67 @@ class HornStrawberryTransformState:
             pygame.draw.ellipse(surf, (210, 45, 55), (fx - 4, int(fy) - 2, 8, 6))
             pygame.draw.ellipse(surf, (250, 100, 110), (fx - 2, int(fy) - 1, 4, 3))
 
-        # ── 딸기 몸통 (큰 원형 타원) ──
+        # ── 딸기 몸통 (위 넓고 아래 좁은 딸기 실루엣) ──
         bw = int(r * 2 * (2.0 - squash))
-        bh = int(r * 2 * squash)
-        pygame.draw.ellipse(surf, STRAWBERRY_RED, (sc - bw // 2, sc - bh // 2, bw, bh))
+        bh = int(r * 2.3 * squash)
+        top_y = sc - bh // 2
 
-        # 광택 (좌상단)
-        hi_r = max(4, r // 2)
-        pygame.draw.circle(surf, STRAWBERRY_LIGHT, (sc - r // 3, sc - r // 3), hi_r)
-        pygame.draw.circle(surf, (255, 180, 185), (sc - r // 3 - 1, sc - r // 3 - 2), max(2, hi_r // 2))
+        # 상부 (넓은 어깨)
+        top_w = bw
+        top_h = int(bh * 0.55)
+        pygame.draw.ellipse(surf, STRAWBERRY_RED,
+                           (sc - top_w // 2, top_y, top_w, top_h))
+        # 하부 (좁아지며 뾰족)
+        bot_w = int(bw * 0.7)
+        bot_h = int(bh * 0.55)
+        bot_y = top_y + top_h - int(top_h * 0.2)
+        pygame.draw.ellipse(surf, STRAWBERRY_RED,
+                           (sc - bot_w // 2, bot_y, bot_w, bot_h))
+        # 연결부
+        pygame.draw.rect(surf, STRAWBERRY_RED,
+                        (sc - bot_w // 2, top_y + top_h // 2, bot_w, int(bh * 0.2)))
+        # 하단 꼭지
+        tip_y = bot_y + bot_h - 4
+        pygame.draw.polygon(surf, STRAWBERRY_RED, [
+            (sc - 4, tip_y - 2), (sc + 4, tip_y - 2), (sc, tip_y + 4)])
+
+        # 광택 (좌상단 큰 반짝)
+        hi_r = max(5, r // 2)
+        pygame.draw.circle(surf, STRAWBERRY_LIGHT,
+                          (sc - int(top_w * 0.2), top_y + int(top_h * 0.3)), hi_r)
+        pygame.draw.circle(surf, (255, 190, 195),
+                          (sc - int(top_w * 0.22), top_y + int(top_h * 0.25)), max(2, hi_r // 2))
         shine_a = int(140 + 60 * math.sin(t * 0.005))
-        pygame.draw.circle(surf, (255, 255, 255, shine_a), (sc - r // 3 - 2, sc - r // 3 - 3), 2)
+        pygame.draw.circle(surf, (255, 255, 255, shine_a),
+                          (sc - int(top_w * 0.24), top_y + int(top_h * 0.2)), 2)
 
         # 외곽선
-        pygame.draw.ellipse(surf, STRAWBERRY_DARK, (sc - bw // 2, sc - bh // 2, bw, bh), 2)
+        pygame.draw.ellipse(surf, STRAWBERRY_DARK,
+                           (sc - top_w // 2, top_y, top_w, top_h), 2)
+        pygame.draw.ellipse(surf, STRAWBERRY_DARK,
+                           (sc - bot_w // 2, bot_y, bot_w, bot_h), 2)
+        pygame.draw.polygon(surf, STRAWBERRY_DARK, [
+            (sc - 3, tip_y - 1), (sc + 3, tip_y - 1), (sc, tip_y + 4)], 1)
 
-        # ── 씨앗 ──
+        # ── 씨앗 (딸기 실루엣 안에 배치) ──
         seed_rng = random.Random(77)
-        for _ in range(12):
+        body_center_y = top_y + int(bh * 0.4)
+        for _ in range(14):
             sa = seed_rng.uniform(0, math.pi * 2)
-            sd = seed_rng.uniform(0.2, 0.75)
-            sx = int(sc + math.cos(sa) * r * sd * 0.85)
-            sy = int(sc + math.sin(sa) * r * sd * 0.85)
+            sd = seed_rng.uniform(0.15, 0.7)
+            raw_x = math.cos(sa) * sd
+            raw_y = math.sin(sa) * sd
+            # 하단으로 갈수록 좁아지는 딸기 형태 반영
+            y_ratio = (raw_y + 0.5)  # 0~1 (위~아래)
+            width_at_y = 1.0 - y_ratio * 0.4  # 위=1.0, 아래=0.6
+            sx = int(sc + raw_x * r * 0.8 * width_at_y)
+            sy = int(body_center_y + raw_y * r * 1.0)
             pygame.draw.ellipse(surf, (160, 15, 25), (sx - 2, sy - 1, 5, 4))
             pygame.draw.ellipse(surf, (215, 180, 55), (sx - 1, sy, 4, 3))
             pygame.draw.rect(surf, (240, 215, 85), (sx, sy, 2, 1))
 
         # ── 잎사귀 (상단 3장) ──
-        leaf_y = sc - bh // 2 + 2
+        leaf_y = top_y + 2
         sway = math.sin(t * 0.004) * 2.5
         pygame.draw.polygon(surf, (55, 155, 40), [
             (sc - 8, leaf_y + 3), (sc + 8, leaf_y + 3), (sc + sway, leaf_y - 14)])
@@ -935,12 +968,30 @@ class _HornChargeSkillCore:
             or (shockwave and shockwave.get("active"))
         )
 
+    def is_control_locked(self):
+        if self._skill is None or not self._skill.is_active:
+            return False
+        _phase = getattr(self._skill, "phase", None)
+        return _phase in (
+            getattr(self._skill, "PHASE_CHARGING", -999),
+            getattr(self._skill, "PHASE_IMPACT", -998),
+            getattr(self._skill, "PHASE_RETURNING", -997),
+        )
+
     def update(self, dt, player_rect, boss_rect, ball_rect, ball_vel):
         if self._skill is None or player_rect is None or boss_rect is None:
             return
         caster, target, ball = _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel)
         self._skill.update(dt, caster, target, ball, self._game_state)
         ball.sync_velocity(ball_vel)
+        _stun_phase = getattr(self._skill, "PHASE_STUN", 3)
+        if self._skill.is_active and self._skill.phase == _stun_phase:
+            self._game_state["bottom_paddle_stunned"] = False
+            self._game_state["horn_charge_active"] = False
+            self._game_state["horn_charge_x_offset"] = 0.0
+            self._game_state["horn_charge_y_offset"] = 0.0
+            if self._anchor_player_centerx is not None:
+                player_rect.centerx = int(self._anchor_player_centerx)
         # 딸기뿔박치기: 플레이어 STUN 페이즈를 0.5초로 단축 (원본 1.0초)
         if self._skill.is_active and self._skill.phase == 3:  # PHASE_STUN
             if self._skill.phase_timer >= 0.5:
@@ -1101,9 +1152,43 @@ class _StrawberryFieldSkillCore:
             caster, target, ball = _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel)
             self._skill.cooldown = STRAWBERRY_FIELD_COOLDOWN
             self._skill.use(caster, target, ball, self._game_state)
+            self._snap_latest_barrier_to_paddle(player_rect)
             ball.sync_velocity(ball_vel)
             return True
         return False
+
+    def _snap_latest_barrier_to_paddle(self, player_rect):
+        if self._skill is None or player_rect is None or not self._skill.barriers:
+            return
+
+        barrier = self._skill.barriers[-1]
+        width = float(barrier.get("width", getattr(self._skill, "BARRIER_WIDTH", 120)))
+        height = float(barrier.get("height", getattr(self._skill, "BARRIER_HEIGHT", 12)))
+        min_x = float(getattr(self._skill, "GAME_LEFT", 0))
+        max_x = float(getattr(self._skill, "GAME_RIGHT", 760) - width)
+
+        desired_x = float(player_rect.centerx - width / 2.0)
+        desired_x = max(min_x, min(max_x, desired_x))
+        if barrier.get("is_top", False):
+            desired_y = float(player_rect.top - height / 2.0)
+        else:
+            desired_y = float(player_rect.bottom + height / 2.0)
+
+        dx = desired_x - float(barrier.get("x", desired_x))
+        dy = desired_y - float(barrier.get("y", desired_y))
+
+        barrier["x"] = desired_x
+        barrier["y"] = desired_y
+
+        for segment in barrier.get("bone_segments", []):
+            if "start_x" in segment:
+                segment["start_x"] = float(segment["start_x"]) + dx
+            if "final_x" in segment:
+                segment["final_x"] = float(segment["final_x"]) + dx
+            if "start_y" in segment:
+                segment["start_y"] = float(segment["start_y"]) + dy
+            if "final_y" in segment:
+                segment["final_y"] = float(segment["final_y"]) + dy
 
     def release_hold(self):
         if self.holding and self.hold_timer < STRAWBERRY_FIELD_HOLD_MIN:
