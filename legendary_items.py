@@ -12789,21 +12789,30 @@ class HornStrawberryMask(LegendaryItem):
                     (tip_x - 1, tip_y),
                 ], 1)
 
-            # ── 귀여운 눈 (반짝이는 큰 눈) ──
+            # ── 귀여운 눈 (크고 동글동글한 캐릭터 눈) ──
             eye_y = int(body_cy - 1)
+            blink = max(0, math.sin(phase * 0.5))  # 살짝 깜빡임
             for side in [-1, 1]:
                 eye_x = body_cx + side * 6
-                # 눈 흰자
+                # 눈 흰자 (더 크고 동글하게)
                 pygame.draw.ellipse(frame, (255, 255, 255),
-                                   (eye_x - 4, eye_y - 3, 8, 7))
-                # 눈동자 (크고 반짝)
-                pygame.draw.ellipse(frame, (30, 10, 10),
-                                   (eye_x - 2, eye_y - 2, 5, 5))
-                # 눈 하이라이트 (반짝 — 생기 있게)
+                                   (eye_x - 5, eye_y - 4, 10, 9))
+                # 흰자 외곽 (부드러운 테두리)
+                pygame.draw.ellipse(frame, (180, 60, 70),
+                                   (eye_x - 5, eye_y - 4, 10, 9), 1)
+                # 눈동자 (동글동글, 아래쪽에 위치 — 올려보는 느낌)
+                pupil_y = eye_y
+                pygame.draw.circle(frame, (40, 20, 20),
+                                  (eye_x, pupil_y), 3)
+                # 눈동자 안 밝은 부분 (깊이감)
+                pygame.draw.circle(frame, (70, 35, 35),
+                                  (eye_x, pupil_y + 1), 2)
+                # 큰 하이라이트 (반짝 — 생기있는 눈)
                 pygame.draw.circle(frame, (255, 255, 255),
-                                  (eye_x + side, eye_y - 1), 2)
-                pygame.draw.circle(frame, (255, 240, 240),
-                                  (eye_x - side, eye_y + 1), 1)
+                                  (eye_x - 1, pupil_y - 2), 2)
+                # 작은 하이라이트 (반대편 아래)
+                pygame.draw.circle(frame, (255, 240, 245),
+                                  (eye_x + 1, pupil_y + 1), 1)
 
             # ── 볼 홍조 (양쪽 볼에 분홍 동그라미) ──
             blush_alpha = int(120 + 60 * pulse)
