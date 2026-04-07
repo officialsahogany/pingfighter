@@ -455,6 +455,8 @@ class HornStrawberryTransformState:
         is_eating = bool(getattr(eat_skill, "eating", False))
         field_skill = getattr(self, "strawberry_field", None)
         is_holding_field = bool(getattr(field_skill, "holding", False))
+        bomb_skill = getattr(self, "strawberry_bomb", None)
+        is_holding_bomb = bool(getattr(bomb_skill, "_ad_hold_timer", 0.0) > 0.05 and not getattr(bomb_skill, "throwing", False))
 
         # ── 걷기 모션 ──
         prev_x = getattr(self, '_prev_paddle_x', cx)
@@ -474,10 +476,14 @@ class HornStrawberryTransformState:
             lean = math.sin(chew_timer * 0.55) * 2.4
             foot_bob = math.sin(chew_timer * 1.8) * 1.6
             leaf_drop = 2 + int(chew_bob * 3.0)
-        elif is_holding_field:
-            # 딸기장판 홀드 중 — 부들부들 떨리는 집중 모션
+        elif is_holding_field or is_holding_bomb:
+            # 딸기장판/딸기폭탄 홀드 중 — 부들부들 떨리는 집중 모션
             shake_t = t * 0.04  # 빠른 떨림
-            shake_intensity = min(1.0, getattr(field_skill, "hold_timer", 0.0) / 0.5)  # 점점 강해짐
+            if is_holding_field:
+                _hold_time = getattr(field_skill, "hold_timer", 0.0)
+            else:
+                _hold_time = getattr(bomb_skill, "_ad_hold_timer", 0.0)
+            shake_intensity = min(1.0, _hold_time / 0.5)  # 점점 강해짐
             bounce_y = 1.0 + abs(math.sin(shake_t * 3.0)) * 2.0 * shake_intensity
             squash = 1.0 + math.sin(shake_t * 5.7) * 0.05 * shake_intensity
             lean = math.sin(shake_t * 4.3) * 3.0 * shake_intensity
