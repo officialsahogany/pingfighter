@@ -357,11 +357,18 @@ class HUDDisplay:
         except Exception:
             pass
 
-        # 🎬 리플레이 캡처 훅 (전광판도 녹화되도록 — 항상 self.screen = SCREEN)
+        # 🎬 리플레이 캡처 훅 (전광판도 녹화 — 전체화면이면 REAL_SCREEN)
         _score_rec = None
+        _score_cap_surface = self.screen
         try:
             from replay.replay_system import get_recorder as _get_replay_rec
             _score_rec = _get_replay_rec()
+            try:
+                from pingfighter import REAL_SCREEN as _RS, _is_fullscreen_active as _fs
+                if _fs and _RS is not None:
+                    _score_cap_surface = _RS
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -373,7 +380,7 @@ class HUDDisplay:
                                       inner_w, inner_h, animation_timer, alpha,
                                       player_name=player_name, boss_name=boss_name)
             if _score_rec and _score_rec.recording:
-                _score_rec.capture(self.screen)
+                _score_rec.capture(_score_cap_surface)
             pygame.display.flip()
             clock.tick(60)
             animation_timer += 1
@@ -386,7 +393,7 @@ class HUDDisplay:
                                       inner_w, inner_h, animation_timer, 255,
                                       player_name=player_name, boss_name=boss_name)
             if _score_rec and _score_rec.recording:
-                _score_rec.capture(self.screen)
+                _score_rec.capture(_score_cap_surface)
             pygame.display.flip()
             clock.tick(60)
             animation_timer += 1

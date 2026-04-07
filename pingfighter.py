@@ -122776,10 +122776,13 @@ def _play_replay(filepath: str):
     except Exception:
         pass
 
-    # 재생 대상 = SCREEN (760x750), flip 시 REAL_SCREEN에 합성
-    _draw_screen = SCREEN
-    _dw = WIDTH
-    _dh = HEIGHT
+    # 재생 대상: 전체화면이면 REAL_SCREEN에 직접, 아니면 SCREEN
+    if _is_fullscreen_active and REAL_SCREEN is not None:
+        _draw_screen = REAL_SCREEN
+    else:
+        _draw_screen = SCREEN
+    _dw = _draw_screen.get_width()
+    _dh = _draw_screen.get_height()
 
     info_font = get_font(14)
     speed_font = get_font(16)
@@ -122930,17 +122933,6 @@ def _play_replay(filepath: str):
         # REPLAY 워터마크
         wm = get_font(12).render("REPLAY", True, (255, 255, 255, 80))
         _draw_screen.blit(wm, (_dw - 75, 8))
-
-        # SCREEN → REAL_SCREEN 합성 (전체화면 대응)
-        if _is_fullscreen_active and REAL_SCREEN is not None:
-            REAL_SCREEN.fill((0, 0, 0))
-            rs_w, rs_h = REAL_SCREEN.get_size()
-            scale_f = min(rs_w / _dw, rs_h / _dh)
-            sw = int(_dw * scale_f)
-            sh = int(_dh * scale_f)
-            ox = (rs_w - sw) // 2
-            oy = (rs_h - sh) // 2
-            REAL_SCREEN.blit(pygame.transform.scale(SCREEN, (sw, sh)), (ox, oy))
 
         pygame.display.flip()
 
@@ -157385,13 +157377,15 @@ def main(stage_num, new_boss_mode=False):
     # 🎬 리플레이 자동 녹화 시작
     _replay_rec = get_replay_recorder()
     try:
+        _rec_w = REAL_SCREEN.get_width() if (_is_fullscreen_active and REAL_SCREEN is not None) else WIDTH
+        _rec_h = REAL_SCREEN.get_height() if (_is_fullscreen_active and REAL_SCREEN is not None) else HEIGHT
         _replay_rec.start(
             stage=stage_num,
             boss_name=get_boss_name(stage_num),
             ai_mode=ai_mode,
             character=selected_character_type,
-            screen_w=WIDTH,
-            screen_h=HEIGHT,
+            screen_w=_rec_w,
+            screen_h=_rec_h,
         )
     except Exception as _re:
         print(f"[Replay] 녹화 시작 실패: {_re}")
@@ -166909,10 +166903,11 @@ def main(stage_num, new_boss_mode=False):
         except Exception:
             pass
 
-        # 🎬 리플레이 화면 캡처 (항상 SCREEN = 게임 영역 760x750)
+        # 🎬 리플레이 화면 캡처 (전체화면: REAL_SCREEN 필러+구슬 포함, 창모드: SCREEN)
         try:
             if _replay_rec.recording:
-                _replay_rec.capture(SCREEN)
+                _cap = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
+                _replay_rec.capture(_cap)
         except Exception:
             pass
 
