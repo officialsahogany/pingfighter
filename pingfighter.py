@@ -22216,17 +22216,13 @@ def play_cached_sound(relative_path: str, volume=None):
 _sound_id_map: dict = {}  # id(Sound) → 사운드 이름 (리플레이 사운드 기록용)
 
 def _build_sound_id_map():
-    """Sound 객체 → 이름 역매핑 테이블 구축"""
+    """Sound 객체 → 이름 역매핑 테이블 구축 (sound_effects 초기화 후 호출)"""
     global _sound_id_map
+    _sound_id_map.clear()
     for name, snd in sound_effects.items():
         if snd is not None:
             _sound_id_map[id(snd)] = name
-
-# import 완료 후 호출 (모듈 로딩 순서 때문에 지연)
-try:
-    _build_sound_id_map()
-except Exception:
-    pass
+    print(f"[Replay] 사운드 매핑 구축: {len(_sound_id_map)}개")
 
 def play_sound_with_volume(sound, volume=None):
     """효과음을 지정된 볼륨으로 재생 (Channel 볼륨 사용, Sound 객체 오염 방지)"""
@@ -23194,6 +23190,9 @@ if AUDIO_DISABLED:
     pygame.mixer.get_num_channels = lambda: 0  # type: ignore[assignment]
 else:
     sound_effects = load_sound_effects(resource_path)
+
+# 🎬 리플레이 사운드 역매핑 테이블 구축 (sound_effects 초기화 직후)
+_build_sound_id_map()
 
 SOUND_SERVE = sound_effects['SERVE']
 SOUND_WALL = sound_effects['WALL']
