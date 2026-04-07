@@ -27630,6 +27630,7 @@ ITEM_SLOT_BASE_MAP = {
     "sage_ring": "accessory",
     "dowsing_goggles": "head",
     "valhalla_warplate": "top",
+    "horn_strawberry_mask": "head",
 }
 
 PASSIVE_OPTION_RANGES = {
