@@ -471,31 +471,68 @@ class HornStrawberryTransformState:
         pygame.draw.ellipse(surf, (0, 0, 0, 40),
                            (sc - sh_w // 2, sc + r + 3, sh_w, sh_h))
 
-        # ── 발 (통통한 빨간 발 — 아장아장 모션) ──
+        # ── 발 (정교한 아장아장 걷기 모션) ──
+        ground_y = sc + r + 2  # 바닥 기준선
         for side in [-1, 1]:
-            fx = sc + side * int(r * 0.4)
-            # 아장아장: 좌우 발이 교대로 들렸다 내려감 + 살짝 앞뒤로
+            fx_base = sc + side * int(r * 0.4)
+            phase_offset = 0 if side == 1 else math.pi
+            step_phase = walk_timer * 3.5 + phase_offset
+
             if is_moving:
-                lift = abs(math.sin(walk_timer * 3.5 + (0 if side == 1 else math.pi))) * 4
-                fwd = math.sin(walk_timer * 3.5 + (0 if side == 1 else math.pi)) * 2
+                # 걸음 사이클: 올림(0~π) → 내림(π~2π)
+                cycle = math.sin(step_phase)
+                lift = max(0, cycle) * 6          # 최대 6px 들어올림
+                fwd = math.sin(step_phase) * 3    # 앞뒤로 3px 스윙
+                # 발 회전 (들릴 때 앞쪽이 올라감)
+                foot_tilt = max(0, cycle) * 12     # 최대 12도 기울기
+                # 이동방향 반영: 이동 방향으로 벌어짐
+                spread = move_dir * 0.3 * side
+                # 찍는 순간 찌그러짐 (내려올 때)
+                land_squash = max(0, -math.sin(step_phase + 0.3)) * 0.15
+            elif is_eating:
+                lift = abs(math.sin(t * 0.014 + phase_offset)) * 2
+                fwd = 0
+                foot_tilt = 0
+                spread = 0
+                land_squash = 0
             else:
+                # 정지 시 살짝 좌우 흔들림
                 lift = 0
                 fwd = 0
-            fy = sc + r + 1 - lift
-            fx_draw = fx + fwd
-            # 발 그림자
-            if lift > 1:
-                pygame.draw.ellipse(surf, (0, 0, 0, 30),
-                                   (int(fx_draw) - 4, sc + r + 2, 8, 3))
-            # 발 본체 (통통한 타원)
-            pygame.draw.ellipse(surf, (210, 45, 55),
-                               (int(fx_draw) - 5, int(fy) - 3, 10, 7))
-            # 발 하이라이트
-            pygame.draw.ellipse(surf, (250, 110, 120),
-                               (int(fx_draw) - 3, int(fy) - 2, 6, 4))
-            # 발 외곽
-            pygame.draw.ellipse(surf, (170, 25, 35),
-                               (int(fx_draw) - 5, int(fy) - 3, 10, 7), 1)
+                foot_tilt = 0
+                spread = math.sin(t * 0.002 + phase_offset) * 0.3
+                land_squash = 0
+
+            fx_draw = fx_base + fwd + spread
+            fy_draw = ground_y - lift
+
+            # 발 크기 (찌그러짐 반영)
+            fw = int(10 + land_squash * 6)   # 착지 시 살짝 넓어짐
+            fh = int(7 - land_squash * 3)    # 착지 시 살짝 납작해짐
+
+            # 발 서피스 (회전 가능)
+            foot_surf = pygame.Surface((fw + 4, fh + 4), pygame.SRCALPHA)
+            fc = (fw // 2 + 2, fh // 2 + 2)
+            # 발 본체
+            pygame.draw.ellipse(foot_surf, (210, 45, 55), (2, 2, fw, fh))
+            # 하이라이트
+            pygame.draw.ellipse(foot_surf, (250, 115, 125), (4, 3, max(2, fw - 4), max(2, fh - 3)))
+            # 외곽
+            pygame.draw.ellipse(foot_surf, (170, 25, 35), (2, 2, fw, fh), 1)
+
+            # 회전 적용 (들릴 때 기울어짐)
+            if abs(foot_tilt) > 0.5:
+                foot_surf = pygame.transform.rotozoom(foot_surf, foot_tilt * side, 1.0)
+
+            # 그림자 (들린 높이에 비례하여 작아짐)
+            shadow_alpha = max(10, int(40 - lift * 4))
+            shadow_w = max(4, int(fw * (1.0 - lift * 0.06)))
+            pygame.draw.ellipse(surf, (0, 0, 0, shadow_alpha),
+                               (int(fx_draw) - shadow_w // 2, ground_y, shadow_w, 3))
+
+            # 발 그리기
+            foot_rect = foot_surf.get_rect(center=(int(fx_draw), int(fy_draw)))
+            surf.blit(foot_surf, foot_rect)
 
         # ── 딸기 몸통 (딸기형 — 폴리곤으로 위 넓고 아래 좁은 매끈한 곡선) ──
         bw = int(r * 2 * (2.0 - squash))
