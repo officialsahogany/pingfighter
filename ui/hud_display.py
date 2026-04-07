@@ -352,6 +352,13 @@ class HUDDisplay:
         except Exception:
             pass
 
+        # 🎬 리플레이 캡처 훅 (전광판도 녹화되도록)
+        try:
+            from replay.replay_system import get_recorder as _get_replay_rec
+            _score_rec = _get_replay_rec()
+        except Exception:
+            _score_rec = None
+
         # 페이드인 애니메이션
         for alpha in range(0, 256, 18):
             pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
@@ -359,6 +366,8 @@ class HUDDisplay:
                                       board_width, board_height, inner_x, inner_y,
                                       inner_w, inner_h, animation_timer, alpha,
                                       player_name=player_name, boss_name=boss_name)
+            if _score_rec and _score_rec.recording:
+                _score_rec.capture(self.screen)
             pygame.display.flip()
             clock.tick(60)
             animation_timer += 1
@@ -370,6 +379,8 @@ class HUDDisplay:
                                       board_width, board_height, inner_x, inner_y,
                                       inner_w, inner_h, animation_timer, 255,
                                       player_name=player_name, boss_name=boss_name)
+            if _score_rec and _score_rec.recording:
+                _score_rec.capture(self.screen)
             pygame.display.flip()
             clock.tick(60)
             animation_timer += 1

@@ -158879,6 +158879,8 @@ def main(stage_num, new_boss_mode=False):
         start_ball_spawn_animation(is_player_serve, player_y, boss_y)
         ball_spawn_animation_active = True
         ball_spawn_animation_stage_start = True
+        # 공 생성 사운드 재생
+        play_serve_sound()
         # 인게임 상태 활성화 (구슬 표시)
         set_ingame_active(True)
         # 구슬 생성 애니메이션도 함께 시작 (전체화면 모드에서만)
