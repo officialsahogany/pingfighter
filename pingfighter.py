@@ -6149,7 +6149,9 @@ def _check_smasher_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) ->
     if not _smasher_skill_icon_rects:
         return None
 
-    # 오딘의 눈 변신 상태에서는 기존 스매셔 스킬 툴팁 표시 안함
+    # 오딘의 눈 또는 뿔딸기 변신 상태에서는 기존 스매셔 스킬 툴팁 표시 안함
+    if is_horn_strawberry_transformed():
+        return None
     try:
         from legendary_items import get_legendary_manager
         _odins_mgr = get_legendary_manager()
@@ -6619,7 +6621,9 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
     if not _viper_skill_icon_rects:
         return None
 
-    # 오딘의 눈 변신 상태에서는 바이퍼 스킬 툴팁 표시 안함
+    # 뿔딸기 또는 오딘의 눈 변신 상태에서는 바이퍼 스킬 툴팁 표시 안함
+    if is_horn_strawberry_transformed():
+        return None
     try:
         from legendary_items import get_legendary_manager
         _odins_mgr = get_legendary_manager()
@@ -9486,7 +9490,7 @@ def _draw_pillar_ui(screen, renderer):
     global quest_completion_glow_active, quest_completion_glow_timer, quest_completion_glow_duration
     if _is_ingame:
       try:
-        if selected_character_type == "smasher":
+        if selected_character_type == "smasher" and not is_horn_strawberry_transformed():
             mouse_pos = pygame.mouse.get_pos()
             hovered_skill = _check_smasher_skill_tooltip(mouse_pos, GAME_SCALE_FACTOR)
             if hovered_skill:
@@ -9552,7 +9556,7 @@ def _draw_pillar_ui(screen, renderer):
     global _viper_skill_tooltip_active, _viper_tooltip_pause_start, _viper_tooltip_pause_accumulated
     if _is_ingame:
       try:
-        if selected_character_type == "viper":
+        if selected_character_type == "viper" and not is_horn_strawberry_transformed():
             mouse_pos = pygame.mouse.get_pos()
             hovered_skill = _check_viper_skill_tooltip(mouse_pos, GAME_SCALE_FACTOR)
             if hovered_skill:
