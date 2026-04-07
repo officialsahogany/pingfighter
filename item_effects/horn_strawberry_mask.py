@@ -471,12 +471,31 @@ class HornStrawberryTransformState:
         pygame.draw.ellipse(surf, (0, 0, 0, 40),
                            (sc - sh_w // 2, sc + r + 3, sh_w, sh_h))
 
-        # ── 발 (동그란 빨간 발) ──
+        # ── 발 (통통한 빨간 발 — 아장아장 모션) ──
         for side in [-1, 1]:
-            fx = sc + side * int(r * 0.45)
-            fy = sc + r + 1 + (foot_bob if side == 1 else -foot_bob)
-            pygame.draw.ellipse(surf, (210, 45, 55), (fx - 4, int(fy) - 2, 8, 6))
-            pygame.draw.ellipse(surf, (250, 100, 110), (fx - 2, int(fy) - 1, 4, 3))
+            fx = sc + side * int(r * 0.4)
+            # 아장아장: 좌우 발이 교대로 들렸다 내려감 + 살짝 앞뒤로
+            if is_moving:
+                lift = abs(math.sin(walk_timer * 3.5 + (0 if side == 1 else math.pi))) * 4
+                fwd = math.sin(walk_timer * 3.5 + (0 if side == 1 else math.pi)) * 2
+            else:
+                lift = 0
+                fwd = 0
+            fy = sc + r + 1 - lift
+            fx_draw = fx + fwd
+            # 발 그림자
+            if lift > 1:
+                pygame.draw.ellipse(surf, (0, 0, 0, 30),
+                                   (int(fx_draw) - 4, sc + r + 2, 8, 3))
+            # 발 본체 (통통한 타원)
+            pygame.draw.ellipse(surf, (210, 45, 55),
+                               (int(fx_draw) - 5, int(fy) - 3, 10, 7))
+            # 발 하이라이트
+            pygame.draw.ellipse(surf, (250, 110, 120),
+                               (int(fx_draw) - 3, int(fy) - 2, 6, 4))
+            # 발 외곽
+            pygame.draw.ellipse(surf, (170, 25, 35),
+                               (int(fx_draw) - 5, int(fy) - 3, 10, 7), 1)
 
         # ── 딸기 몸통 (딸기형 — 폴리곤으로 위 넓고 아래 좁은 매끈한 곡선) ──
         bw = int(r * 2 * (2.0 - squash))
@@ -504,69 +523,127 @@ class HornStrawberryTransformState:
 
         pygame.draw.polygon(surf, STRAWBERRY_RED, body_pts)
 
-        # 광택 (좌상단 — 작고 부드러운 하이라이트)
-        _hi_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
-        _hi_x = int(bw * 0.28)
-        _hi_y = int(bh * 0.22)
-        _hi_r1 = max(3, r // 4)
-        pygame.draw.circle(_hi_surf, (*STRAWBERRY_LIGHT, 100), (_hi_x, _hi_y), _hi_r1)
-        # 작은 반짝 점
-        pygame.draw.circle(_hi_surf, (255, 255, 255, 160), (_hi_x - 1, _hi_y - 1), max(1, _hi_r1 // 3))
-        surf.blit(_hi_surf, (sc - bw // 2, top_y))
+        # 그라데이션 (아래쪽 살짝 어두움)
+        _grad_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
+        for gy in range(bh):
+            dark = int(30 * (gy / bh))
+            pygame.draw.line(_grad_surf, (0, 0, 0, dark),
+                            (0, gy), (bw, gy))
+        # 딸기 형태로 클리핑 (폴리곤 마스크)
+        _mask_surf = pygame.Surface((sz, sz), pygame.SRCALPHA)
+        pygame.draw.polygon(_mask_surf, (255, 255, 255, 255), body_pts)
+        _grad_full = pygame.Surface((sz, sz), pygame.SRCALPHA)
+        _grad_full.blit(_grad_surf, (sc - bw // 2, top_y))
+        _grad_full.blit(_mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        surf.blit(_grad_full, (0, 0))
 
-        # 외곽선
+        # 광택 (좌상단 부드러운 하이라이트 + 반짝)
+        _hi_surf = pygame.Surface((sz, sz), pygame.SRCALPHA)
+        _hi_cx = sc - int(bw * 0.15)
+        _hi_cy = sc - int(bh * 0.2)
+        _hi_r1 = max(3, r // 3)
+        pygame.draw.circle(_hi_surf, (*STRAWBERRY_LIGHT, 70), (_hi_cx, _hi_cy), _hi_r1)
+        pygame.draw.circle(_hi_surf, (255, 220, 225, 50), (_hi_cx, _hi_cy), _hi_r1 + 2)
+        # 작은 반짝 점 2개
+        pygame.draw.circle(_hi_surf, (255, 255, 255, 180),
+                          (_hi_cx - 2, _hi_cy - 2), max(1, _hi_r1 // 4))
+        pygame.draw.circle(_hi_surf, (255, 255, 255, 120),
+                          (_hi_cx + 3, _hi_cy + 1), 1)
+        surf.blit(_hi_surf, (0, 0))
+
+        # 외곽선 (살짝 두껍게)
         pygame.draw.polygon(surf, STRAWBERRY_DARK, body_pts, 2)
 
-        # ── 씨앗 (딸기 형태 안에 배치) ──
+        # ── 씨앗 (물방울형, 가지런히 배치) ──
         seed_rng = random.Random(77)
-        for _ in range(14):
-            sa = seed_rng.uniform(0, math.pi * 2)
-            sd = seed_rng.uniform(0.15, 0.65)
-            norm_y = math.sin(sa)
-            if norm_y < 0:
-                ws = 1.0 + abs(norm_y) * 0.05
+        # 3줄로 가지런하게 배치
+        seed_rows = [(-0.25, 5), (0.05, 6), (0.35, 4)]
+        for row_y_norm, count in seed_rows:
+            if row_y_norm < 0:
+                ws = 1.0 + abs(row_y_norm) * 0.05
             else:
-                ws = 1.0 - norm_y * 0.45
-            sx = int(sc + math.cos(sa) * bw // 2 * ws * sd)
-            sy = int(sc + norm_y * bh // 2 * sd)
-            pygame.draw.ellipse(surf, (160, 15, 25), (sx - 2, sy - 1, 5, 4))
-            pygame.draw.ellipse(surf, (215, 180, 55), (sx - 1, sy, 4, 3))
-            pygame.draw.rect(surf, (240, 215, 85), (sx, sy, 2, 1))
+                ws = 1.0 - row_y_norm * 0.45
+            row_w = bw // 2 * ws * 0.7
+            for j in range(count):
+                frac = (j + 0.5) / count
+                sx = int(sc - row_w + frac * row_w * 2)
+                sy = int(sc + row_y_norm * bh // 2)
+                # 약간 랜덤 오프셋
+                sx += seed_rng.randint(-1, 1)
+                sy += seed_rng.randint(-1, 1)
+                # 씨앗 홈 (타원형 움푹)
+                pygame.draw.ellipse(surf, (150, 12, 22), (sx - 2, sy - 1, 5, 4))
+                # 씨앗 알맹이 (황금색)
+                pygame.draw.ellipse(surf, (220, 185, 60), (sx - 1, sy, 4, 3))
+                # 하이라이트 점
+                pygame.draw.rect(surf, (245, 220, 90), (sx, sy, 2, 1))
 
-        # ── 잎사귀 (상단 3장) ──
+        # ── 잎사귀 (상단 — 큰 중앙 잎 + 좌우 펼침 잎 + 뒤쪽 작은 잎) ──
         leaf_y = sc - bh // 2 + 2 + leaf_drop
         sway = math.sin(t * 0.004) * 2.5
-        pygame.draw.polygon(surf, (55, 155, 40), [
-            (sc - 8, leaf_y + 3), (sc + 8, leaf_y + 3), (sc + sway, leaf_y - 14)])
-        pygame.draw.polygon(surf, (40, 120, 30), [
-            (sc - 8, leaf_y + 3), (sc + 8, leaf_y + 3), (sc + sway, leaf_y - 14)], 1)
-        pygame.draw.line(surf, (75, 185, 55), (sc, leaf_y + 2),
-                        (int(sc + sway * 0.4), leaf_y - 10), 1)
-        for s in [-1, 1]:
-            lx = sc + s * int(r * 0.4)
-            pygame.draw.polygon(surf, (50, 145, 38), [
-                (lx - 3 * s, leaf_y + 4), (lx + 5 * s, leaf_y + 4),
-                (lx + s * 10 + sway * 0.6, leaf_y - 6)])
-            pygame.draw.polygon(surf, (35, 110, 25), [
-                (lx - 3 * s, leaf_y + 4), (lx + 5 * s, leaf_y + 4),
-                (lx + s * 10 + sway * 0.6, leaf_y - 6)], 1)
 
-        # ── 뿔 2개 (잎사귀 바깥, 귀여운 곡선) ──
+        # 뒤쪽 작은 잎 2장 (먼저 그려서 뒤에 깔림)
         for s in [-1, 1]:
-            hw = math.sin(t * 0.005 + s) * 2
-            hbx = sc + s * int(r * 0.55)
-            hby = leaf_y + 2
-            htx = hbx + s * 6 + hw
-            hty = hby - 16
+            bx = sc + s * int(r * 0.25)
+            pygame.draw.polygon(surf, (45, 130, 32), [
+                (bx - 2 * s, leaf_y + 5), (bx + 4 * s, leaf_y + 5),
+                (bx + s * 7 + sway * 0.3, leaf_y - 3)])
+
+        # 중앙 큰 잎 (두꺼운 느낌)
+        pygame.draw.polygon(surf, (55, 160, 42), [
+            (sc - 9, leaf_y + 4), (sc + 9, leaf_y + 4),
+            (int(sc + sway), leaf_y - 16)])
+        # 잎맥 (중심선)
+        pygame.draw.line(surf, (80, 200, 60), (sc, leaf_y + 3),
+                        (int(sc + sway * 0.5), leaf_y - 12), 1)
+        # 외곽선
+        pygame.draw.polygon(surf, (35, 110, 25), [
+            (sc - 9, leaf_y + 4), (sc + 9, leaf_y + 4),
+            (int(sc + sway), leaf_y - 16)], 1)
+
+        # 좌우 잎 (옆으로 넓게 펼침)
+        for s in [-1, 1]:
+            lx = sc + s * int(r * 0.35)
+            tip_x = lx + s * 12 + sway * 0.7
+            pygame.draw.polygon(surf, (50, 150, 38), [
+                (lx - 4 * s, leaf_y + 5), (lx + 6 * s, leaf_y + 5),
+                (int(tip_x), leaf_y - 8)])
+            # 잎맥
+            pygame.draw.line(surf, (75, 185, 50), (lx + s * 2, leaf_y + 4),
+                            (int(tip_x - s), leaf_y - 5), 1)
+            pygame.draw.polygon(surf, (35, 110, 25), [
+                (lx - 4 * s, leaf_y + 5), (lx + 6 * s, leaf_y + 5),
+                (int(tip_x), leaf_y - 8)], 1)
+
+        # ── 뿔 2개 (잎 사이에서 솟아남, 통통 곡선 + 울퉁불퉁) ──
+        for s in [-1, 1]:
+            hw = math.sin(t * 0.005 + s * 0.8) * 2.5
+            hbx = sc + s * int(r * 0.5)
+            hby = leaf_y + 3
+            htx = hbx + s * 7 + hw
+            hty = hby - 18
+
+            # 뿔 베이스 (두꺼운 부분)
             pygame.draw.polygon(surf, GREEN_MID, [
-                (hbx - 3, hby), (hbx + 3, hby),
-                (int(htx + 1), int(hty)), (int(htx - 1), int(hty))])
+                (hbx - 4, hby), (hbx + 4, hby),
+                (int(htx + 2), int(hty + 2)), (int(htx - 2), int(hty + 2))])
+            # 하이라이트 줄기
             pygame.draw.polygon(surf, GREEN_BRIGHT, [
-                (hbx, hby - 1), (hbx + 2, hby - 1), (int(htx), int(hty + 3))])
-            pygame.draw.circle(surf, (120, 230, 100), (int(htx), int(hty)), 2)
+                (hbx - 1, hby - 1), (hbx + 2, hby - 1),
+                (int(htx + 1), int(hty + 4))])
+            # 끝 (동글동글)
+            pygame.draw.circle(surf, (110, 225, 90), (int(htx), int(hty)), 3)
+            pygame.draw.circle(surf, (160, 245, 130), (int(htx) - 1, int(hty) - 1), 1)
+            # 외곽
             pygame.draw.polygon(surf, GREEN_DARK, [
-                (hbx - 3, hby), (hbx + 3, hby),
-                (int(htx + 1), int(hty)), (int(htx - 1), int(hty))], 1)
+                (hbx - 4, hby), (hbx + 4, hby),
+                (int(htx + 2), int(hty + 2)), (int(htx - 2), int(hty + 2))], 1)
+            # 작은 돌기 (울퉁불퉁 디테일)
+            for bi in range(2):
+                bt = (bi + 1) / 3.0
+                bpx = hbx + (htx - hbx) * bt + s * 2
+                bpy = hby + (hty - hby) * bt
+                pygame.draw.circle(surf, GREEN_MID, (int(bpx), int(bpy)), 2)
 
         # ── 기울기 + 그리기 ──
         if abs(lean) > 0.3:
