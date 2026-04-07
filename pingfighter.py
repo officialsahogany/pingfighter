@@ -22247,8 +22247,12 @@ def update_horn_strawberry_transform(keys, dt):
             hit = ts.strawberry_eat.check_boss_collision(BOSS)
             if hit:
                 # 코만도 권총과 동일한 넉백 + 스턴 적용
-                global boss_stunned_timer, screen_shake_timer, screen_shake_intensity
+                global boss_stunned_timer, screen_shake_timer, screen_shake_intensity, boss_knockback_vel
                 trigger_soldier_bullet_knockback(hit.get("x", BOSS.centerx), hit.get("y", BOSS.centery), slingshot_charge=0)
+                _stem_knockback = max(0.0, float(hit.get("knockback", 14)))
+                _knockback_scale = _stem_knockback / 14.0 if _stem_knockback > 0 else 0.0
+                if _knockback_scale > 0.0 and abs(boss_knockback_vel) > 0.0:
+                    boss_knockback_vel = _apply_boss_knockback_velocity(boss_knockback_vel * _knockback_scale)
                 boss_stunned_timer = max(boss_stunned_timer, int(hit.get("stun_duration", 0.3) * 60))
                 screen_shake_timer = 12
                 screen_shake_intensity = 15
@@ -22353,39 +22357,31 @@ def is_horn_strawberry_event_playing():
     return ts is not None and ts.is_event_playing
 
 
-_hs_control_lock_log_counter = 0
-
 def is_horn_strawberry_control_locked():
-    """뿔박치기 연출 중에는 플레이어 직접 입력을 잠근다."""
-    global _hs_control_lock_log_counter
+    """뿔박치기 돌진/충돌 중에만 이동을 잠근다. 딸기먹기 중에는 이동 허용."""
     ts = _get_horn_strawberry_transform()
     if not ts or not ts.is_transformed:
         return False
     try:
-        charge_locked = ts.horn_charge.is_control_locked()
+        return bool(ts.horn_charge.is_control_locked())
     except Exception:
-        charge_locked = bool(getattr(ts.horn_charge, "active", False))
-    eat_locked = bool(getattr(ts.strawberry_eat, "eating", False))
-    result = charge_locked or eat_locked
-    if result:
-        _hs_control_lock_log_counter += 1
-        if _hs_control_lock_log_counter <= 5 or _hs_control_lock_log_counter % 60 == 0:
-            _phase = "?"
-            try:
-                _phase = getattr(ts.horn_charge._skill, "phase", "?")
-            except Exception:
-                pass
-            print(f"[뿔딸기LOCK] locked=True charge={charge_locked} eat={eat_locked} "
-                  f"active={getattr(ts.horn_charge, 'active', '?')} phase={_phase} "
-                  f"stunTimer={player_stunned_timer}")
-    else:
-        _hs_control_lock_log_counter = 0
-    return result
+        return bool(getattr(ts.horn_charge, "active", False))
 
 def is_horn_strawberry_skills_locked():
     """뿔딸기 변신 중에는 기존 캐릭터 스킬을 차단한다 (이동은 허용)."""
     ts = _get_horn_strawberry_transform()
     return bool(ts and ts.is_transformed)
+
+
+def is_horn_strawberry_character_skill_blocked(character_type: str) -> bool:
+    """뿔딸기 변신 중 특정 캐릭터의 원본 스킬 입력을 막아야 하는지 반환한다."""
+    if globals().get("selected_character_type") != character_type:
+        return False
+    return (
+        is_horn_strawberry_transformed()
+        or is_horn_strawberry_skills_locked()
+        or is_horn_strawberry_control_locked()
+    )
 
 
 def is_horn_strawberry_charge_visual_locked():
@@ -22464,17 +22460,7 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
             player_knockback_vel = 0
             globals()["horn_charge_player_knockback_active"] = False
 
-    if _eat_locked:
-        _eat_anchor_centerx = getattr(ts.strawberry_eat, "_anchor_player_centerx", None)
-        if PLAYER is not None and _eat_anchor_centerx is not None:
-            PLAYER.centerx = int(_eat_anchor_centerx)
-            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
-        current_speed = 0
-        rolling_active = False
-        rolling_timer = 0
-        player_knockback_vel = 0
-        player_fire_knockback_vel = 0.0
-        player_missile_knockback_vel = 0.0
+    # 딸기먹기 중에도 이동 허용 (먹으면서 움직일 수 있음)
 
     if _gs.get("horn_charge_apply_knockback"):
         _kb_dir = _gs.get("horn_charge_knockback_dir", 1)
@@ -39379,8 +39365,9 @@ def _update_blacksmith_round_blueprint_cache() -> None:
 
 def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_blueprint=False):
     """발토르 포탑 설치/건설 입력을 처리한다."""
-    if is_horn_strawberry_skills_locked():
-        return
+    if is_horn_strawberry_character_skill_blocked("blacksmith"):
+        stop_blacksmith_construction_sound()
+        return down_just_pressed
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, special_gauge, special_ready
@@ -48124,7 +48111,7 @@ def blacksmith_has_available_buildings() -> bool:
 
 def blacksmith_open_build_menu():
     # 👁 오딘의 눈 변신 상태에서는 빌드 메뉴 사용 불가
-    if is_odins_eye_transformed():
+    if is_odins_eye_transformed() or is_horn_strawberry_character_skill_blocked("blacksmith"):
         return
     if not blacksmith_has_available_buildings():
         return
@@ -48201,6 +48188,8 @@ def blacksmith_start_divine_stone():
 def blacksmith_select_build_option(option: str):
     global blacksmith_build_menu_active
     if selected_character_type != "blacksmith":
+        return
+    if is_horn_strawberry_character_skill_blocked("blacksmith"):
         return
     if option not in BLACKSMITH_BUILD_OPTIONS:
         return
@@ -76718,6 +76707,40 @@ def handle_player(keys):
 
         if blacksmith_umbrella_damage_flash_timer > 0:
             blacksmith_umbrella_damage_flash_timer -= 1
+
+        if is_horn_strawberry_character_skill_blocked("blacksmith"):
+            stop_blacksmith_construction_sound()
+            stop_blacksmith_hammer_charge_sound()
+            blacksmith_down_hold_frames = 0
+            if blacksmith_build_menu_active:
+                blacksmith_close_build_menu()
+                blacksmith_build_menu_active = False
+            blacksmith_umbrella_open = False
+            blacksmith_umbrella_anim_timer = 0
+            blacksmith_umbrella_retracting = False
+            blacksmith_umbrella_anim_direction = 1
+            blacksmith_umbrella_retract_start_frame = -1000
+            blacksmith_umbrella_retract_grace_timer = 0
+            blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
+            blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
+            blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
+            blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
+            blacksmith_umbrella_hitbox_raw = None
+            blacksmith_umbrella_swing_active = False
+            blacksmith_umbrella_swing_timer = 0
+            blacksmith_umbrella_swing_stage = 0
+            blacksmith_umbrella_swing_progress = 0.0
+            blacksmith_umbrella_swing_recover_pre = 0.0
+            blacksmith_umbrella_swing_recover_main = 0.0
+            blacksmith_umbrella_swing_sound_timer = 0
+            blacksmith_umbrella_swing_sound_pending = False
+            blacksmith_umbrella_swing_direction = 1
+            blacksmith_umbrella_knockback_active = False
+            blacksmith_umbrella_knockback_start_x = float(PLAYER.x) if 'PLAYER' in globals() and PLAYER is not None else 0.0
+            blacksmith_umbrella_knockback_target_x = float(PLAYER.x) if 'PLAYER' in globals() and PLAYER is not None else 0.0
+            blacksmith_umbrella_knockback_velocity = 0.0
+            blacksmith_umbrella_knockback_timer = 0.0
+            blacksmith_umbrella_anchor_smoothed_x = 0.0
 
         if blacksmith_umbrella_open:
             blacksmith_umbrella_recharge_progress = 0
@@ -162479,6 +162502,13 @@ def main(stage_num, new_boss_mode=False):
                 pass
             if selected_character_type == "blacksmith":
                 can_open_build_menu = blacksmith_has_available_buildings()
+                if is_horn_strawberry_character_skill_blocked("blacksmith"):
+                    blacksmith_down_hold_frames = 0
+                    if blacksmith_build_menu_active:
+                        blacksmith_close_build_menu()
+                        blacksmith_build_menu_active = False
+                    current_down_state = False
+                    down_just_pressed = False
                 # AI는 HUD를 사용하지 않으므로 다운홀드 카운트를 막아 HUD 오픈을 차단
                 if player_ai_enabled:
                     blacksmith_down_hold_frames = 0
