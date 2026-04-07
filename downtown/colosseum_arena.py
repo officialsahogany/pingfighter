@@ -13758,13 +13758,27 @@ class ColosseumsArena:
 
         hover_idx = -1
 
+        # Shift 키로 임시 전체 해금 미리보기
+        keys = pygame.key.get_pressed()
+        peek_all = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+
         # 해금 카운트 표시
         unlocked_count = sum(1 for h in all_heroes if is_hero_unlocked(h["id"]))
         total_count = len(all_heroes)
         if self.fonts and "small" in self.fonts:
-            count_text = f"{unlocked_count}/{total_count}"
-            count_surf, _ = self.fonts["small"].render(count_text, ET.get("gold_medium", (218, 175, 32)))
+            if peek_all:
+                count_text = f"{total_count}/{total_count}"
+                count_color = (180, 220, 255)
+            else:
+                count_text = f"{unlocked_count}/{total_count}"
+                count_color = ET.get("gold_medium", (218, 175, 32))
+            count_surf, _ = self.fonts["small"].render(count_text, count_color)
             self.screen.blit(count_surf, (SCREEN_WIDTH - count_surf.get_width() - 45, 18))
+
+        # Shift 누르고 있을 때 힌트 표시
+        if peek_all and self.fonts and "small" in self.fonts:
+            peek_surf, _ = self.fonts["small"].render("👁 미리보기 모드", (180, 220, 255))
+            self.screen.blit(peek_surf, (10, 18))
 
         for i, hero in enumerate(all_heroes):
             col = i % cols
@@ -13776,7 +13790,7 @@ class ColosseumsArena:
             if cy + card_h < 0 or cy > SCREEN_HEIGHT:
                 continue
 
-            unlocked = is_hero_unlocked(hero["id"])
+            unlocked = is_hero_unlocked(hero["id"]) or peek_all
 
             # 호버 체크
             is_hovered = (cx <= mx <= cx + card_w and cy <= my <= cy + card_h)
