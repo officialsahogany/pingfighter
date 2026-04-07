@@ -176,6 +176,7 @@ class HornStrawberryTransformState:
         self.state = self.IDLE
         self.transform_timer = 0.0  # 변신 남은 시간
         self.event_timer = 0.0  # 이벤트 연출 타이머
+        self._used_this_stage = False  # 이번 스테이지에서 이미 변신했는지
 
         # 커맨드 입력 추적
         self.command_buffer = []  # 입력된 키 시퀀스
@@ -210,6 +211,7 @@ class HornStrawberryTransformState:
         self.transform_timer = 0.0
         self.event_timer = 0.0
         self._eat_paddle_growth_bonus = 0.0
+        self._used_this_stage = False
         self.command_buffer.clear()
         self.command_timer = 0.0
         self.prev_keys.clear()
@@ -229,7 +231,7 @@ class HornStrawberryTransformState:
 
     def update_command_input(self, keys, dt):
         """커맨드 입력 감지 (A→W→D)"""
-        if self.state != self.IDLE or not self.active:
+        if self.state != self.IDLE or not self.active or self._used_this_stage:
             return False
 
         # 커맨드 타이머 업데이트
@@ -267,13 +269,16 @@ class HornStrawberryTransformState:
         return False
 
     def try_transform(self, current_gauge, consume_gauge_fn):
-        """변신 시도 (게이지 충분하면 변신 시작)"""
+        """변신 시도 (게이지 충분하면 변신 시작, 스테이지당 1회)"""
+        if self._used_this_stage:
+            return False
         cost = self._gauge_cost
         if current_gauge >= cost:
             consume_gauge_fn(cost)
             self.state = self.TRANSFORM_EVENT
             self.event_timer = TRANSFORM_START_EVENT_DURATION
             self.flash_alpha = 255
+            self._used_this_stage = True
             self._spawn_transform_particles()
             return True
         return False
@@ -1587,3 +1592,9 @@ def reset_transform_state():
     global _transform_state
     if _transform_state:
         _transform_state.reset()
+
+def reset_stage_transform():
+    """새 스테이지 시작 시 변신 횟수만 리셋 (장착 상태 유지)"""
+    global _transform_state
+    if _transform_state:
+        _transform_state._used_this_stage = False

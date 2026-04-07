@@ -22243,10 +22243,9 @@ def update_horn_strawberry_transform(keys, dt):
             hit = ts.strawberry_eat.check_boss_collision(BOSS)
             if hit:
                 # 코만도 권총과 동일한 넉백 + 스턴 적용
-                global boss_knockback_vel, boss_stunned_timer, screen_shake_timer, screen_shake_intensity
-                _kb_dir = 1 if random.random() > 0.5 else -1
-                boss_knockback_vel = _kb_dir * hit.get("knockback", 120)
-                boss_stunned_timer = int(hit.get("stun_duration", 0.75) * 60)
+                global boss_stunned_timer, screen_shake_timer, screen_shake_intensity
+                trigger_soldier_bullet_knockback(hit.get("x", BOSS.centerx), hit.get("y", BOSS.centery), slingshot_charge=0)
+                boss_stunned_timer = max(boss_stunned_timer, int(hit.get("stun_duration", 0.3) * 60))
                 screen_shake_timer = 12
                 screen_shake_intensity = 15
                 try:
@@ -22291,12 +22290,17 @@ def _handle_strawberry_skills(keys, ts, dt):
     # Space/클릭: 딸기먹기
     space_pressed = keys[pygame.K_SPACE]
     mouse_pressed = pygame.mouse.get_pressed()[0]
-    if (space_pressed or mouse_pressed) and ts.strawberry_eat.can_use():
+    _eat_cost = int(getattr(ts.strawberry_eat, "gauge_cost", 50))
+    if (space_pressed or mouse_pressed) and ts.strawberry_eat.can_use() and special_gauge >= _eat_cost:
         try:
             ts.strawberry_eat._anchor_player_centerx = float(PLAYER.centerx) if PLAYER else None
         except Exception:
             pass
-        ts.strawberry_eat.activate()
+        if ts.strawberry_eat.activate():
+            consume_special_gauge(_eat_cost)
+            ts._eat_paddle_growth_bonus = float(getattr(ts, "_eat_paddle_growth_bonus", 0.0)) + float(
+                getattr(ts.strawberry_eat, "paddle_growth_bonus", 0.05)
+            )
 
     if ts.strawberry_eat.eating or ts.strawberry_eat.projectiles:
         px = PLAYER.centerx if PLAYER else 380
@@ -22313,7 +22317,7 @@ def get_horn_strawberry_paddle_size_bonus():
     """변신 중 패들 크기 보너스 비율 반환 (0.0 = 보너스 없음)"""
     ts = _get_horn_strawberry_transform()
     if ts and ts.is_transformed:
-        return ts._paddle_size_bonus
+        return float(getattr(ts, "_paddle_size_bonus", 0.0)) + float(getattr(ts, "_eat_paddle_growth_bonus", 0.0))
     return 0.0
 
 def get_horn_strawberry_move_speed():
@@ -22704,9 +22708,9 @@ HORN_STRAWBERRY_SKILL_DATA = [
         "how_to_use": "S키를 1초 이상 홀드",
     },
     {
-        "name": "strawberry_eat", "korean": "딸기먹기", "cost": 0,
+        "name": "strawberry_eat", "korean": "딸기먹기", "cost": 50,
         "color": (240, 220, 100), "key": "Space", "cooldown": 0.8,
-        "description": "0.8초간 딸기를 먹어 게이지 150 회복 + 대시토큰 1 회복. 먹은 뒤 꼭지를 발사하여 넉백+스턴.",
+        "description": "0.8초간 딸기를 먹어 게이지 50 소모, 대시토큰 1 회복. 사용할 때마다 패들 5% 성장. 먹은 뒤 꼭지를 발사하여 넉백+스턴.",
         "how_to_use": "Space 또는 마우스 좌클릭",
     },
 ]
@@ -22734,7 +22738,7 @@ def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
          "angle": 225},
         {"name": "딸기먹기", "key": "SPC", "color": (240, 220, 100),
          "cooldown": ts.strawberry_eat.cooldown, "max_cd": 0.8,
-         "active": ts.strawberry_eat.eating, "cost": 0,
+         "active": ts.strawberry_eat.eating, "cost": int(getattr(ts.strawberry_eat, "gauge_cost", 50)),
          "angle": 255},
     ]
 
@@ -22858,7 +22862,7 @@ def draw_horn_strawberry_skill_orbs(screen):
             "cooldown": ts.strawberry_eat.cooldown,
             "max_cooldown": 0.8,
             "active": ts.strawberry_eat.eating,
-            "gauge_cost": 0,
+            "gauge_cost": int(getattr(ts.strawberry_eat, "gauge_cost", 50)),
             "icon_draw": _draw_strawberry_eat_icon,
         },
     ]
@@ -158554,6 +158558,13 @@ def show_result(won):
         session_cleared_boss_names[current_stage] = get_boss_name(current_stage)
         current_stage += 1
 
+        # 뿔딸기 변신 횟수 리셋 (새 스테이지에서 다시 변신 가능)
+        try:
+            from item_effects.horn_strawberry_mask import reset_stage_transform
+            reset_stage_transform()
+        except Exception:
+            pass
+
         # 스테이지 전환 시 호위무사 소환물(해골궁수 등) 제거
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -170629,6 +170640,10 @@ def show_character_info(background_surface=None):
                 scale *= float(globals().get("strange_vial_scale", 1.0))
             except Exception:
                 pass
+            try:
+                scale *= 1.0 + float(get_horn_strawberry_paddle_size_bonus())
+            except Exception:
+                pass
             return width * scale
 
         paddle_now = get_effective_paddle_width()
@@ -173129,7 +173144,7 @@ def get_item_description(item_name):
         "pandora_legacy": "판도라의 유산: 초고대문명의 과학자가 남긴 유물, 게임에서 승리 시 일정확률로 '판도라의 유산'이 작동하며 원하는 엑티브아이템을 고를 수 있습니다.",
         "megingjord": "메긴교르드: 토르의 힘의 깃든 벨트. 퍽 선택 화면에서 퍽을 고른 후 일정 확률로 한 번 더 고를 수 있는 기회가 주어집니다. 최대 연속 2회 발동됩니다",
         "valhalla_warplate": "발할라의 전갑: 고대 전사의 영광이 깃든 신성한 갑옷. 공을 타격시 일정 확률로 발할라의 영웅이 호위무사로 소환됩니다.",
-        "horn_strawberry_mask": "뿔딸기 변신가면: 희귀한 뿔딸기를 본뜬 신화의 가면. 장착 후 A→W→D 커맨드 입력으로 뿔딸기로 변신! 변신 중 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30. 전용 스킬: 뿔박치기(W, 300게이지, 쿨20초), 딸기장판(S홀드 1초, 100게이지, 쿨10초), 딸기먹기(Space, 게이지150회복+대시토큰1+꼭지투척, 쿨0.8초).",
+        "horn_strawberry_mask": "뿔딸기 변신가면: 희귀한 뿔딸기를 본뜬 신화의 가면. 장착 후 A→W→D 커맨드 입력으로 뿔딸기로 변신! 변신 중 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30. 전용 스킬: 뿔박치기(W, 300게이지, 쿨20초), 딸기장판(S홀드 1초, 100게이지, 쿨10초), 딸기먹기(Space, 게이지50소모+대시토큰1+꼭지투척, 사용 시마다 패들 5% 성장, 쿨0.8초).",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
