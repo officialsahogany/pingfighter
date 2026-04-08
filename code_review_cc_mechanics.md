@@ -25,7 +25,7 @@
 | **스턴** | 행동 불가 + 넉백 드리프트만 허용 | ✅ 완전 차단 | ❌ (넉백만) | ❌ (max 덮어쓰기) |
 | **넉백 (스턴형)** | 강제 밀림 + 행동 불가 | ✅ 완전 차단 | 넉백 방향만 | ❌ |
 | **넉백 (화재형)** | 강제 밀림 + 조작 가능 | ❌ | ✅ 동시 이동 가능 | ✅ 누적 |
-| **둔화** | 이동속도 감소 | ❌ | ✅ (느리게) | ✅ 곱연산 누적 |
+| **둔화** | 이동속도 감소 | ❌ | ✅ (느리게) | 부분적 (아래 4.3 참조) |
 
 ### CC 처리 흐름
 ```
@@ -47,11 +47,10 @@
 | `smasher_power_recoil_stun_pending` | pingfighter.py:29148 | 스매셔 반동 스턴 대기 플래그 |
 
 #### 보스 스턴
-| 변수 | 파일:라인 | 용도 |
-|------|----------|------|
-| `boss_stunned_timer` | pingfighter.py:22221 | 메인 보스 스턴 타이머 |
-| `boss_stun_timer` | pingfighter.py:154285 | 보스 AI 내부 스턴 추적 |
-| `Boss.is_stunned` / `Boss.stun_timer` | entities/boss.py:98-99 | 엔티티 클래스 스턴 |
+| 변수 | 파일:라인 | 용도 | 런타임 사용 |
+|------|----------|------|------------|
+| `boss_stunned_timer` | pingfighter.py:146822 | 메인 보스 스턴 타이머 (전역) | ✅ **실제 경로** (14개소에서 직접 할당) |
+| `Boss.is_stunned` / `Boss.stun_timer` | entities/boss.py:98-99 | 엔티티 클래스 스턴 | ❌ **미사용** (Boss.stun() 호출 없음) |
 
 #### 아레나 스턴
 | 변수 | 파일:라인 | 용도 |
@@ -87,13 +86,23 @@ def try_apply_player_stun(stun_seconds, source="", knockback_scaled=False):
 ```
 
 #### 보스 스턴 적용
+
+> **주의**: `entities/boss.py`에 `Boss.stun(duration)` 메서드가 정의되어 있으나,
+> 실제 게임 런타임에서는 **한 번도 호출되지 않는다** (grep 확인 완료).
+> 보스 스턴은 전부 `pingfighter.py`의 전역 변수 직접 할당으로 처리된다.
+
 ```python
-# entities/boss.py:354-359
-def stun(self, duration):
-    self.is_stunned = True
-    self.stun_timer = duration
-    self.velocity_x = 0  # 속도 즉시 0
-    self.velocity_y = 0
+# 실제 런타임 경로 (pingfighter.py, 14개소 이상에서 직접 할당)
+boss_stunned_timer = max(boss_stunned_timer, int(stun_duration * 60))
+
+# 예시 호출 위치:
+# L22227 - 슬링샷 총알 히트
+# L22240 - 딸기 폭탄 히트
+# L22536 - 뿔돌진 스킬
+# L31548 - 수류탄 폭발
+# L56912 - 자폭 드론
+# L72543 - 헤드샷
+# L72693 - AK47
 ```
 
 ### 2.3 스턴의 게임플레이 영향
@@ -115,14 +124,24 @@ if player_stunned_timer > 0:
     return  # ← handle_player 함수 조기 종료 (모든 입력 차단)
 ```
 
-#### 보스 스턴 시
+#### 보스 스턴 시 (실제 런타임 경로)
 ```python
-# pingfighter.py:154285-154313
+# pingfighter.py:153864-153886 (handle_boss 내부)
 if boss_stunned_timer > 0:
     boss_stunned_timer -= 1
-    boss_current_speed = 0      # 속도 완전 0
-    # AI 로직 전체 비활성화
-    return                       # ← handle_boss 함수 조기 종료
+    # 넉백 적용 (스턴 중에도 밀림은 처리)
+    BOSS.x += boss_knockback_vel
+    # 벽 충돌 시 멈춤 (튕기지 않음)
+    if BOSS.x <= 0:
+        BOSS.x = 0; boss_knockback_vel = 0
+    elif BOSS.x >= WIDTH - BOSS.width:
+        BOSS.x = WIDTH - BOSS.width; boss_knockback_vel = 0
+    # 감쇠 (뿔돌진: 0.92, 일반: 0.85)
+    if horn_charge_boss_knockback_active:
+        boss_knockback_vel *= 0.92
+    else:
+        boss_knockback_vel *= 0.85
+    return  # ← AI 전체 비활성화
 ```
 
 #### 대시 차단
@@ -151,17 +170,31 @@ _player_stun_blocked = (
 
 ### 2.5 스턴 소스 목록
 
-`try_apply_player_stun()`의 `source` 파라미터로 추적:
-- `"missile_explosion"` - 미사일 폭발
-- `"땅굴습격"` - 땅굴 습격
-- `"smasher_power_recoil"` - 스매셔 반동
-- `"stage1_fan_throw"` - 스테이지1 부채 투척
-- `"stage7_tetro_explosion"` - 스테이지7 테트로미노 폭발
-- `"hail"` - 우박 날씨 이벤트
-- `"stage5_missile"` - 스테이지5 미사일
-- `"stage5_fireball"` - 스테이지5 화염구
-- `"flame_trail"` - 화염 자취
-- `"tear_shower"` - 눈물 샤워
+`try_apply_player_stun()`의 `source` 파라미터로 추적 (11개 유니크 소스, 12개 호출):
+
+| 소스 | 지속시간 | knockback_scaled | 비고 |
+|------|---------|-----------------|------|
+| `"missile_explosion"` | 0.3초 | ✅ | 미사일 폭발 |
+| `"땅굴 습격"` | 1.0초 | ✅ | 땅굴 습격 |
+| `"optimus_charge_release"` | 0.5초 | ❌ | 옵티머스 차지 해제 |
+| `"smasher_power_recoil"` | 0.5초 | ❌ | 스매셔 반동 (**아래 주의** 참조) |
+| `"stage1_fan_throw"` | 0.3초 | ✅ | 스테이지1 부채 투척 (2개소) |
+| `"stage7_tetro_explosion"` | 가변 | ✅ | 테트로미노 폭발 |
+| `"hail"` | 가변 | ✅ | 우박 날씨 이벤트 |
+| `"stage5_missile"` | 0.15초 | ✅ | 스테이지5 미사일 |
+| `"stage5_fireball"` | 0.3초 | ✅ | 스테이지5 화염구 |
+| `"flame_trail"` | 0.3초 | ✅ | 화염 자취 |
+| `"tear_shower"` | 0.3초 | ✅ | 눈물 샤워 |
+
+> **BUG: smasher_power_recoil 경로가 중앙 스턴 계약을 우회함**
+> ```python
+> # pingfighter.py:81185-81187
+> if try_apply_player_stun(0.5, source="smasher_power_recoil", knockback_scaled=False) == 0:
+>     player_stunned_timer = max(player_stunned_timer, int(0.5 * FPS))  # ← 면역 무시!
+> ```
+> `try_apply_player_stun()`이 클렌즈 면역이나 저항으로 0을 반환하면,
+> 호출측이 그 0을 "실패"로 간주해 `player_stunned_timer`를 직접 강제 설정한다.
+> 이로 인해 클렌즈 면역 중에도 스매셔 반동 스턴이 적용됨.
 
 ### 2.6 스턴 시각 효과
 
@@ -453,38 +486,60 @@ _boss_slow_amount = 0.50             # 50% 감속
 _gauge_drain_per_sec = 50            # 보스 게이지 추가 감소
 ```
 
-### 4.3 둔화 적용 메커니즘 (곱연산 누적)
+### 4.3 둔화 적용 메커니즘 (2계층 구조)
+
+플레이어 둔화는 **2계층**으로 작동한다:
+
+#### 계층 1: 공유 슬롯 (`player_slow_timer` / `player_slow_factor`) — 덮어쓰기
+
+눈물 샤워, 자기장 투사체, 스테이지8 표창은 **같은 변수 쌍을 공유**한다.
+이들은 독립 스택이 아니라 **마지막 기록값이 이전 값을 덮어쓴다**.
 
 ```python
-# pingfighter.py:77826-77873 (handle_player 내부)
-speed_factor = 1.0
+# 눈물 샤워 (L61667): 누적 감산 방식
+player_slow_timer = 130
+player_slow_factor -= 0.20  # 피격마다 누적 (max 0.80 감속)
 
-# 눈물 둔화
-if player_slow_timer > 0:
-    speed_factor = player_slow_factor          # ×0.2~1.0
+# 자기장 투사체 (L147758-147760): 매 프레임 덮어쓰기
+player_slow_timer = 10           # ← 눈물의 130을 10으로 덮어씀!
+player_slow_factor = 0.4         # ← 눈물 누적값을 0.4로 덮어씀!
 
-# 포승줄
-if arrest_rope_active:
-    speed_factor *= 0.5                        # ×0.5
-
-# 코만도 홀드
-if commando_hold_active:
-    speed_factor *= 0.6                        # ×0.6
-
-# 거미줄
-web_slow = get_web_trap_player_slow()
-if web_slow < 1.0:
-    speed_factor *= web_slow                   # ×0.4
-
-# 우산
-if umbrella_guarding:
-    speed_factor *= BLACKSMITH_UMBRELLA_MOVE_MULTIPLIER
-
-# 최종 이동속도 = base_speed * speed_factor
-PLAYER.x += direction * base_speed * speed_factor
+# 스테이지8 표창 (L101794-101796): 즉시 덮어쓰기
+player_slow_timer = 120          # STAGE8_SHURIKEN_SLOW_FRAMES
+player_slow_factor = 0.2         # STAGE8_SHURIKEN_SLOW_FACTOR
 ```
 
-**핵심**: 둔화는 **곱연산으로 누적**됨. 눈물(0.6) + 거미줄(0.4) = 최종 0.24 (76% 감속)
+#### 계층 2: 독립 곱연산 (`speed_factor *=`) — handle_player 내부
+
+포승줄, 거미줄, 우산 등은 `speed_factor`에 곱연산으로 추가 적용된다.
+이들은 계층 1과 **독립적으로 중첩**된다.
+
+```python
+# pingfighter.py:77810-77873 (handle_player 내부)
+# 계층 1: 공유 슬롯에서 초기값 결정
+if player_slow_timer > 0:
+    speed_factor = player_slow_factor          # 마지막 기록값 (0.2~1.0)
+else:
+    speed_factor = 1.0
+    player_slow_factor = 1.0                   # 타이머 만료 시 리셋
+
+# 계층 2: 독립 소스 곱연산
+if arrest_rope_active:
+    speed_factor *= 0.5                        # 포승줄 (독립)
+if commando_hold_active:
+    speed_factor *= 0.6                        # 코만도 홀드 (독립)
+web_slow = get_web_trap_player_slow()
+if web_slow < 1.0:
+    speed_factor *= web_slow                   # 거미줄 (독립)
+if umbrella_guarding:
+    speed_factor *= BLACKSMITH_UMBRELLA_MOVE_MULTIPLIER  # 우산 (독립)
+```
+
+**핵심 정리**:
+- 계층 1 (눈물/자기장/표창): **단일 슬롯 덮어쓰기** — 동시에 2개가 걸리면 마지막이 이김
+- 계층 2 (포승줄/거미줄/우산/홀드): **곱연산 누적** — 이들끼리는 독립 중첩
+- 계층 1 + 계층 2: 곱연산 — 예: 표창(0.2) × 거미줄(0.4) = 0.08 (92% 감속)
+- **하한선 없음** — 이론상 이동 불가 수준까지 감속 가능
 
 ### 4.4 둔화 시각 효과
 
@@ -525,15 +580,40 @@ self.time_scale = 0.3               # 전체 게임 속도 30%로 (70% 감소)
 CLEANSE_GAUGE_COST = 100
 CLEANSE_COOLDOWN = 60               # 1초
 CLEANSE_IMMUNITY_DURATION = 300     # 5초 면역
+```
 
-def _check_player_has_debuff():
-    """현재 디버프 보유 여부 (스턴/둔화/화상/넉백 전부 체크)"""
+> **주의: 디버프 판정 함수가 2개 존재하며 범위가 다름**
+
+#### A. `_check_player_has_debuff()` (pingfighter.py:3966-3991) — UI 표시용
+```python
+def _check_player_has_debuff() -> bool:
+    """스킬 아이콘 활성 상태 표시용"""
+    # 체크 대상: 스턴, 둔화, 화상
+    # ❌ 넉백 명시적 제외 (L3988: "짧은 물리 효과이므로")
     if player_stunned_timer > 0: return True
     if player_slow_timer > 0: return True
     if spider_mine_slow_active: return True
     if player_burn_timer > 0: return True
+    return False
+```
+- **사용처**: 클렌즈 스킬 아이콘 활성 표시 (L5135, L5249)
+
+#### B. `check_player_has_status_effect()` (cleanse_skill.py:530-568) — 실제 발동 판정
+```python
+def check_player_has_status_effect(
+    player_stunned_timer, player_knockback_vel, 
+    player_missile_knockback_vel, smasher_power_recoil_timer, ...
+) -> bool:
+    """W키 클렌즈 실제 발동 가능 여부"""
+    # 체크 대상: 스턴 + 둔화 + 화상 + ✅ 넉백 + ✅ 리코일
+    if abs(player_knockback_vel) > 0.5: return True      # ← 넉백 포함!
+    if abs(player_missile_knockback_vel) > 0.5: return True
+    if smasher_power_recoil_timer > 0: return True        # ← 리코일 포함!
     # ...
 ```
+- **사용처**: W키 클렌즈 실제 발동 경로 (L164790-164802)
+
+**불일치 결과**: UI가 클렌즈 비활성으로 표시하지만 실제로는 발동 가능한 상태가 존재함 (넉백만 걸린 경우).
 
 ### 5.2 스턴 저항 (방탄모자)
 
@@ -567,11 +647,23 @@ def apply_knockback_resist(value):
 def clear_player_knockback_if_immune():
     """100% 저항 시 남은 넉백 전부 제거"""
     if _get_knockback_resist_scale() <= 0.0:
+        global player_knockback_vel, player_missile_knockback_vel
+        global player_flame_zone_knockback_vel, player_knockback_y
+        global smasher_power_recoil_timer, smasher_power_recoil_vel
         player_knockback_vel = 0
         player_missile_knockback_vel = 0
         player_flame_zone_knockback_vel = 0
         player_knockback_y = 0
+        smasher_power_recoil_timer = 0
+        smasher_power_recoil_vel = 0.0
+        smasher_power_recoil_pending_dir = 0      # ⚠️ BUG: global 선언 누락
+        smasher_power_recoil_stun_pending = False  # ⚠️ BUG: global 선언 누락
 ```
+
+> **BUG (pingfighter.py:29097-29098)**: `smasher_power_recoil_pending_dir`와
+> `smasher_power_recoil_stun_pending`에 `global` 선언이 없어 지역 변수로 처리됨.
+> 전역 pending 상태가 정리되지 않으므로 100% 넉백 저항 시에도
+> 스매셔 반동 스턴이 계속 대기 상태로 남는다.
 
 ### 5.4 저항 아이템 롤 옵션
 
@@ -608,17 +700,25 @@ if _viper_ss_hologram_active:
 
 6. **스턴 적용 경로 불일치**: 플레이어 스턴은 `try_apply_player_stun()`으로 중앙화되어 있으나, 보스 스턴은 `boss_stunned_timer = max(...)` 직접 할당이 곳곳에 산재.
 
-### 6.3 잠재적 버그
+### 6.3 확인된 버그 (코드 검증 완료)
 
-7. **넉백 + 스턴 동시 적용 시**: `player_stunned_timer > 0`이면 `return`으로 즉시 종료하므로, 화재 넉백(`player_fire_knockback_vel`)이 스턴 중에는 처리 안 됨. 스턴 해제 후 잔여 화재 넉백이 갑자기 적용될 수 있음.
+7. **[높음] smasher_power_recoil 스턴 면역 우회** (pingfighter.py:81185-81187): `try_apply_player_stun()`이 0을 반환하면 (면역/저항), 호출측이 `player_stunned_timer`를 직접 강제 설정하여 클렌즈 면역을 무시한다. 중앙 스턴 함수의 계약을 깨는 버그.
 
-8. **둔화 최소값 미보장**: 눈물(0.2) + 거미줄(0.4) + 포승줄(0.5) = 0.04 (96% 감속). 이동 불가에 가까운 상태가 될 수 있으나, 하한선이 없음.
+8. **[높음] 클렌즈 디버프 판정 불일치**: UI용 `_check_player_has_debuff()`는 넉백을 제외하지만, 발동용 `check_player_has_status_effect()`는 넉백을 포함. 넉백만 걸렸을 때 UI는 비활성이지만 실제 W키 발동은 가능한 상태가 됨.
 
-9. **보스 스턴 해제 시 속도 복원**: `boss_current_speed = 0` 이후 스턴 해제 시 속도가 어떻게 복원되는지 불명확. `return` 이후 다음 프레임에서 AI가 다시 계산하는 것에 의존.
+9. **[중간] clear_player_knockback_if_immune() global 누락** (pingfighter.py:29097-29098): `smasher_power_recoil_pending_dir`와 `smasher_power_recoil_stun_pending`에 global 선언이 없어 지역 변수로 처리됨. 100% 넉백 저항 시에도 pending 상태가 남아 반동 스턴이 트리거될 수 있음.
 
-### 6.4 개선 제안
+### 6.4 잠재적 이슈
 
-10. **CC 상태 매니저 도입**: 
+10. **넉백 + 스턴 동시 적용 시**: `player_stunned_timer > 0`이면 `return`으로 즉시 종료하므로, 화재 넉백(`player_fire_knockback_vel`)이 스턴 중에는 처리 안 됨. 스턴 해제 후 잔여 화재 넉백이 갑자기 적용될 수 있음.
+
+11. **둔화 최소값 미보장**: 계층1(0.2) × 거미줄(0.4) × 포승줄(0.5) = 0.04 (96% 감속). 이동 불가에 가까운 상태가 될 수 있으나, 하한선이 없음.
+
+12. **보스 스턴 해제 시 속도 복원**: 스턴 중 `return`으로 AI를 건너뛰다가, 해제 후 다음 프레임에서 AI가 속도를 재계산하는 것에 의존. 명시적 복원 코드 없음.
+
+### 6.5 개선 제안
+
+13. **CC 상태 매니저 도입**: 
 ```python
 class CCState:
     def __init__(self):
@@ -634,9 +734,9 @@ class CCState:
         return max(0.1, result)  # 최소 10% 속도 보장
 ```
 
-11. **넉백 프로파일 통합**: `legendary_items.py`의 `KNOCKBACK_PROFILES`와 `compute_knockback_magnitude()` 패턴을 전체 넉백 시스템에 확장 적용.
+14. **넉백 프로파일 통합**: `legendary_items.py`의 `KNOCKBACK_PROFILES`와 `compute_knockback_magnitude()` 패턴을 전체 넉백 시스템에 확장 적용.
 
-12. **CC 이벤트 로깅**: `try_apply_player_stun()`처럼 모든 CC 적용을 중앙 함수를 통해 처리하고, source 추적 + 디버그 로깅 통합.
+15. **CC 이벤트 로깅**: `try_apply_player_stun()`처럼 모든 CC 적용을 중앙 함수를 통해 처리하고, source 추적 + 디버그 로깅 통합.
 
 ---
 
