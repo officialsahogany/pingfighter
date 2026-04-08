@@ -22249,7 +22249,29 @@ def update_horn_strawberry_transform(keys, dt):
     # 커맨드 입력 감지 (A→W→D)
     if ts.update_command_input(keys, dt):
         # 커맨드 완성! 변신 시도
-        ts.try_transform(special_gauge, consume_special_gauge)
+        if ts.try_transform(special_gauge, consume_special_gauge):
+            # 변신 성공 — 현재 패들 이미지를 스냅샷으로 캡처 (회전 연출용)
+            try:
+                _snap = None
+                _ct = globals().get("selected_character_type", "smasher")
+                if _ct == "smasher":
+                    _snap = globals().get("SMASHER_PADDLE_IMG")
+                elif _ct == "viper":
+                    _snap = globals().get("VIPER_PADDLE_IMG")
+                elif _ct == "soldier":
+                    _snap = globals().get("SOLDIER_PADDLE_IMG")
+                elif _ct == "optimus":
+                    _snap = globals().get("OPTIMUS_PADDLE_IMG")
+                elif _ct == "blacksmith":
+                    _snap = globals().get("BLACKSMITH_PADDLE_IMG")
+                if _snap is None:
+                    _snap = globals().get("PLAYER_IMG")
+                if _snap is not None:
+                    ts._tf_paddle_snapshot = _snap.copy()
+                else:
+                    ts._tf_paddle_snapshot = None
+            except Exception:
+                ts._tf_paddle_snapshot = None
 
     # 변신 상태 업데이트
     ts.update(dt)

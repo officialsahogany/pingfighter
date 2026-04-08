@@ -8,7 +8,9 @@
 """
 
 import math
+import os
 import random
+import sys
 import pygame
 
 try:
@@ -17,6 +19,39 @@ try:
 except Exception:
     HeroBoneBarrier = None
     HeroHornCharge = None
+
+
+def _resource_path(relative_path: str) -> str:
+    """PyInstaller 호환 리소스 경로"""
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path.replace('/', os.sep).replace('\\', os.sep))
+
+
+# 사운드 캐시 (한 번만 로드)
+_sound_stem_fire = None   # 꼭지 발사 사운드
+_sound_stem_hit = None    # 꼭지 명중 사운드
+
+
+def _load_stem_sounds():
+    """딸기 꼭지 발사/명중 사운드 로드 (lazy)"""
+    global _sound_stem_fire, _sound_stem_hit
+    if not pygame.mixer.get_init():
+        return
+    if _sound_stem_fire is None:
+        try:
+            _sound_stem_fire = pygame.mixer.Sound(_resource_path(os.path.join("sounds", "arrow.wav")))
+            _sound_stem_fire.set_volume(0.5)
+        except Exception:
+            _sound_stem_fire = False
+    if _sound_stem_hit is None:
+        try:
+            _sound_stem_hit = pygame.mixer.Sound(_resource_path(os.path.join("sounds", "bullethit.wav")))
+            _sound_stem_hit.set_volume(0.4)
+        except Exception:
+            _sound_stem_hit = False
 
 # ── 상수 ──────────────────────────────────────────────────
 COMMAND_SEQUENCE = [pygame.K_a, pygame.K_w, pygame.K_d]  # A→W→D
@@ -220,6 +255,7 @@ class HornStrawberryTransformState:
         self._tf_descend_y = 0.0        # 착지 높이 (뿔딸기 등장)
         self._tf_light_rays = []        # 빛줄기 각도 목록
         self._tf_flash_triggered = False  # 번쩍임 트리거 여부
+        self._tf_paddle_snapshot = None  # 실제 패들 서피스 캡처 (회전 연출용)
 
         # 롤옵션 캐시 (장착 시 동기화)
         self._transform_duration = TRANSFORM_DURATION
@@ -260,6 +296,7 @@ class HornStrawberryTransformState:
         self._tf_descend_y = 0.0
         self._tf_light_rays = []
         self._tf_flash_triggered = False
+        self._tf_paddle_snapshot = None
 
     @property
     def is_transformed(self):
@@ -329,7 +366,6 @@ class HornStrawberryTransformState:
         if self.state == self.TRANSFORM_EVENT:
             self.event_timer -= dt
             self.flash_alpha = max(0, int(255 * (self.event_timer / TRANSFORM_START_EVENT_DURATION)))
-            self._update_event_particles(dt)
             if self.event_timer <= 0:
                 self.state = self.TRANSFORMED
                 self.transform_timer = self._transform_duration
@@ -366,7 +402,6 @@ class HornStrawberryTransformState:
         elif self.state == self.DETRANSFORM_EVENT:
             self.event_timer -= dt
             self.flash_alpha = max(0, int(255 * (self.event_timer / TRANSFORM_END_EVENT_DURATION)))
-            self._update_event_particles(dt)
             if self.event_timer <= 0:
                 self.state = self.IDLE
                 self.flash_alpha = 0
@@ -442,43 +477,68 @@ class HornStrawberryTransformState:
             p["life"] -= dt
             p["angle"] += p["speed"] * dt
             # 소용돌이: 점점 안으로 빨려들어감
-            shrink = max(0.15, 1.0 - (1.0 - p["life"] / p["max_life"]) * 0.7)
             p["dist"] *= (1.0 - dt * 0.8)
             if p["life"] > 0 and p["dist"] > 5:
                 alive.append(p)
         self._tf_swirl_particles = alive
 
-    def _draw_paddle_silhouette(self, screen, cx, cy, spin_angle, scale_y=1.0, alpha=255):
-        """Y축 회전 중인 패들 실루엣 (발레리노 회전)"""
-        # Y축 회전 시뮬레이션: cos(angle)으로 수평 스케일 결정
-        h_scale = abs(math.cos(spin_angle))
-        h_scale = max(0.05, h_scale)  # 완전히 사라지지 않게
+    def _draw_paddle_spinning(self, screen, cx, cy, spin_angle, alpha=255):
+        """Y축 회전 중인 실제 패들 캐릭터 (머리를 축으로 발레리노 회전)
 
-        pw = int(80 * h_scale)
-        ph = int(20 * scale_y)
-        if pw < 2 or ph < 2:
-            return
+        캡처된 _tf_paddle_snapshot을 수평 스케일링하여 Y축 회전을 시뮬레이션.
+        스냅샷이 없으면 폴백 실루엣 사용.
+        """
+        # Y축 회전: cos(angle)으로 수평 폭 결정
+        h_scale = math.cos(spin_angle)
+        abs_h = max(0.08, abs(h_scale))
 
-        surf = pygame.Surface((pw + 20, ph + 30), pygame.SRCALPHA)
-        scx = (pw + 20) // 2
-        scy = (ph + 30) // 2
+        snapshot = self._tf_paddle_snapshot
+        if snapshot is not None:
+            orig_w, orig_h = snapshot.get_size()
+            # 수평 스케일링으로 Y축 회전 시뮬레이션
+            new_w = max(4, int(orig_w * abs_h))
+            new_h = orig_h
+            try:
+                scaled = pygame.transform.smoothscale(snapshot, (new_w, new_h))
+            except Exception:
+                scaled = pygame.transform.scale(snapshot, (new_w, new_h))
 
-        # 패들 본체
-        body_color = (200, 180, 160, min(255, alpha))
-        pygame.draw.ellipse(surf, body_color, (scx - pw // 2, scy - ph // 2, pw, ph))
-        # 하이라이트
-        hl_color = (240, 220, 200, min(180, alpha))
-        pygame.draw.ellipse(surf, hl_color, (scx - pw // 3, scy - ph // 3, pw // 2, ph // 2))
+            if alpha < 255:
+                scaled.set_alpha(alpha)
 
-        # 글로우 효과
-        glow_r = max(pw, ph) + 8
+            # 머리(상단)를 축으로 회전 → 피봇은 상단 중앙
+            # 상단 중앙이 cx,cy에 위치하도록 배치
+            rect = scaled.get_rect(midtop=(int(cx), int(cy)))
+            screen.blit(scaled, rect)
+
+            # 회전 잔상 (반대편에 희미하게)
+            if alpha > 60:
+                ghost_alpha = max(20, alpha // 5)
+                ghost_offset = int(8 * h_scale)  # 회전 방향에 따라 좌우 오프셋
+                ghost = scaled.copy()
+                ghost.set_alpha(ghost_alpha)
+                ghost_rect = ghost.get_rect(midtop=(int(cx) + ghost_offset, int(cy)))
+                screen.blit(ghost, ghost_rect)
+        else:
+            # 스냅샷 없으면 폴백: 타원 실루엣
+            pw = int(80 * abs_h)
+            ph = 20
+            if pw < 2:
+                return
+            surf = pygame.Surface((pw + 20, ph + 30), pygame.SRCALPHA)
+            scx = (pw + 20) // 2
+            scy = (ph + 30) // 2
+            pygame.draw.ellipse(surf, (200, 180, 160, min(255, alpha)),
+                                (scx - pw // 2, scy - ph // 2, pw, ph))
+            rect = surf.get_rect(center=(int(cx), int(cy)))
+            screen.blit(surf, rect)
+
+        # 글로우 후광 (회전 속도에 비례하여 강해짐)
+        glow_r = max(40, int(60 * abs_h)) + 12
         glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-        glow_alpha = min(60, alpha // 3)
+        glow_alpha = min(50, alpha // 4)
         pygame.draw.circle(glow_surf, (255, 200, 200, glow_alpha), (glow_r, glow_r), glow_r)
         screen.blit(glow_surf, (int(cx) - glow_r, int(cy) - glow_r))
-
-        rect = surf.get_rect(center=(int(cx), int(cy)))
-        screen.blit(surf, rect)
 
     def draw_transform_event(self, screen, player_x, player_y):
         """변신/해제 이벤트 연출 그리기 — 4단계 시네마틱"""
@@ -541,7 +601,7 @@ class HornStrawberryTransformState:
 
             draw_y = base_y + self._tf_levitate_y
             paddle_alpha = max(80, int(255 * (1.0 - p1 * 0.3)))
-            self._draw_paddle_silhouette(screen, cx, draw_y, self._tf_spin_angle, 1.0, paddle_alpha)
+            self._draw_paddle_spinning(screen, cx, draw_y, self._tf_spin_angle, paddle_alpha)
 
             # 회전에 따른 약간의 파티클 흩날림
             if random.random() < 0.3 + p1 * 0.5:
@@ -609,10 +669,10 @@ class HornStrawberryTransformState:
             pygame.draw.circle(core_s, (255, 180, 180, core_a // 2), (energy_r, energy_r), max(3, energy_r // 2))
             screen.blit(core_s, (int(cx) - energy_r, int(draw_y) - energy_r))
 
-            # 패들 실루엣 (에너지에 가려지며 사라짐)
+            # 패들 캐릭터 (에너지에 가려지며 사라짐)
             sil_alpha = max(0, int(200 * (1.0 - p2)))
             if sil_alpha > 0:
-                self._draw_paddle_silhouette(screen, cx, draw_y, self._tf_spin_angle, 1.0, sil_alpha)
+                self._draw_paddle_spinning(screen, cx, draw_y, self._tf_spin_angle, sil_alpha)
 
         # ── Phase 3 (60~75%): 화면 번쩍 + 에너지 폭발 ──
         elif progress < 0.75:
@@ -720,19 +780,31 @@ class HornStrawberryTransformState:
                                     (int(cx), int(draw_y) - 15), (int(end_x), int(end_y)), 2)
                     screen.blit(ray_surf, (0, 0))
 
-            # 뿔딸기 캐릭터 그리기
+            # 뿔딸기 캐릭터 그리기 — 실제 draw_strawberry_paddle 사용
             try:
                 pw = 80 if not hasattr(self, '_last_paddle_w') else self._last_paddle_w
                 ph = 20 if not hasattr(self, '_last_paddle_h') else self._last_paddle_h
                 char_alpha = min(255, int(255 * min(1.0, p4 / 0.3)))
-                # 알파 적용을 위한 임시 서피스
-                temp_surf = pygame.Surface((pw + 60, ph + 80), pygame.SRCALPHA)
-                temp_cx = (pw + 60) // 2
-                temp_cy = ph + 40
-                self._draw_mini_strawberry_char(temp_surf, temp_cx, temp_cy, pw, ph)
+
+                # 임시로 변신 상태를 켜서 draw_strawberry_paddle 호출
+                _saved_state = self.state
+                self.state = self.TRANSFORMED
+                # 알파 적용을 위한 임시 서피스에 그리기
+                buf_w = max(pw + 80, 200)
+                buf_h = max(ph + 100, 160)
+                temp_surf = pygame.Surface((buf_w, buf_h), pygame.SRCALPHA)
+                self.draw_strawberry_paddle(
+                    temp_surf,
+                    buf_w // 2 - pw // 2,  # x (좌측 시작)
+                    buf_h - ph - 10,        # y (하단 정렬)
+                    pw, ph
+                )
+                self.state = _saved_state  # 상태 복원
+
                 if char_alpha < 255:
                     temp_surf.set_alpha(char_alpha)
-                screen.blit(temp_surf, (int(cx) - temp_cx, int(draw_y) - temp_cy + 10))
+                screen.blit(temp_surf,
+                            (int(cx) - buf_w // 2, int(draw_y) - buf_h + ph + 10))
             except Exception:
                 pass
 
@@ -765,10 +837,12 @@ class HornStrawberryTransformState:
                 screen.blit(wave_s, (int(cx) - wave_r, int(base_y) + 5))
 
         # ── 공통: 산란 파티클 렌더링 (모든 Phase) ──
+        # 부양 위치에 앵커링 (base_y가 아닌 부양 반영 위치)
+        anchor_y = base_y + self._tf_levitate_y
         for p in self.event_particles:
             alpha = max(0, min(255, int(255 * p["life"] / p["max_life"])))
             px = int(cx + p["x"])
-            py = int(base_y + p["y"])
+            py = int(anchor_y + p["y"])
             sz = max(1, int(p["size"] * (p["life"] / p["max_life"])))
             ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
             pygame.draw.circle(ps, (*p["color"], alpha), (sz, sz), sz)
@@ -2090,6 +2164,11 @@ class StrawberryEatSkill:
         })
         self.projectiles[-1]["stun_duration"] = 0.3
         self.projectiles[-1]["knockback"] = STRAWBERRY_STEM_KNOCKBACK
+
+        # 꼭지 발사 사운드
+        _load_stem_sounds()
+        if _sound_stem_fire and _sound_stem_fire is not False:
+            _sound_stem_fire.play()
 
     def update_cooldown(self, dt):
         if self.cooldown > 0:
