@@ -521,8 +521,13 @@ class InGameBodyguard:
                         or getattr(skill, 'arrows', None)
                         or getattr(skill, 'arrow_particles', None))
         if sid == 'dwarf_magic':
+            # shrink_timer > 0: 축소 지속 중
+            # is_shrinking: 축소 애니메이션 진행 중
+            # is_restoring: shrink_timer <= 0 이후 복구 애니메이션 (0.3초)
             return bool(getattr(skill, 'hit_target', False)
-                        and getattr(skill, 'shrink_timer', 0) > 0)
+                        and (getattr(skill, 'shrink_timer', 0) > 0
+                             or getattr(skill, 'is_shrinking', False)
+                             or getattr(skill, 'is_restoring', False)))
         if sid == 'tentacle_wrap':
             return bool(getattr(skill, 'retracting', False))
         if sid == 'abyss_ink':
