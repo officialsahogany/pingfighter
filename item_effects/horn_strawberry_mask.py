@@ -128,6 +128,16 @@ GREEN_MID = (50, 150, 40)
 GREEN_BRIGHT = (80, 200, 60)
 SEED_COLOR = (240, 220, 100)
 
+# ── 변신 연출 전용 상큼 파스텔 팔레트 ──
+_TF_PINK_SOFT = (255, 180, 200)      # 부드러운 분홍
+_TF_PINK_HOT = (255, 100, 140)       # 진한 핑크
+_TF_CORAL = (255, 130, 110)          # 코랄
+_TF_CREAM = (255, 240, 210)          # 크림색
+_TF_MINT = (160, 240, 200)           # 민트
+_TF_LEAF = (100, 200, 80)            # 상큼한 잎
+_TF_GOLD_SPARK = (255, 230, 120)     # 금빛 반짝
+_TF_WHITE_GLOW = (255, 250, 245)     # 따스한 화이트
+
 
 def _build_bottom_skill_context(player_rect, boss_rect, ball_rect, ball_vel):
     """Build lightweight wrappers that match downtown.hero_skills expectations."""
@@ -592,69 +602,97 @@ class HornStrawberryTransformState:
             return
 
         # ════════════════════════════════════════════════════════
-        # ── 변신 시작 연출: 4단계 시네마틱 ──
+        # ── 변신 시작 연출: 4단계 시네마틱 (귀엽고 상큼한 마법소녀 테마) ──
         # ════════════════════════════════════════════════════════
-        dt = 1.0 / 60.0  # 프레임 기준
+        dt = 1.0 / 60.0
         total = TRANSFORM_START_EVENT_DURATION
         progress = 1.0 - (self.event_timer / total)  # 0 → 1
+        t_ms = pygame.time.get_ticks()
 
         cx = player_x
         base_y = player_y
 
-        # 패들 시각적 중심 오프셋 (스냅샷 높이 절반)
+        # 패들 시각적 중심 오프셋
         _snap = self._tf_paddle_snapshot
         _half_h = (_snap.get_height() // 2) if _snap is not None else 50
 
-        # ── Phase 1 (0~35%): 발레리노 Y축 회전 + 공중 부양 ──
+        # ── Phase 1 (0~35%): 반짝이는 상승 — 발레리노 회전 + 꽃잎/별빛 부양 ──
         if progress < 0.35:
-            p1 = progress / 0.35  # 0→1 within phase
-            # 천천히 시작해서 가속 회전
-            self._tf_spin_angle += dt * (1.5 + p1 * 8.0)
-            # 부드러운 부양 (ease-out)
-            target_lev = -80.0 - _half_h  # 캐릭터 중심 기준으로 부양
-            self._tf_levitate_y = target_lev * (1.0 - (1.0 - p1) ** 2)
+            p1 = progress / 0.35
 
-            # 캐릭터 중심 Y = base_y + levitate + half_h
+            # 회전 가속 (부드럽게)
+            self._tf_spin_angle += dt * (1.5 + p1 * 8.0)
+            target_lev = -80.0 - _half_h
+            self._tf_levitate_y = target_lev * (1.0 - (1.0 - p1) ** 2)
             center_y = base_y + self._tf_levitate_y + _half_h
+
+            # 부드러운 비네트 (핑크 틴트)
+            dim_alpha = int(25 * p1)
+            if dim_alpha > 0:
+                dim_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+                dim_surf.fill((30, 0, 15, dim_alpha))
+                screen.blit(dim_surf, (0, 0))
+
+            # ★ 상승 기류 — 아래에서 위로 올라오는 부드러운 빛 줄기
+            for i in range(3):
+                stream_x = cx + (i - 1) * 25
+                stream_a = int(35 * p1)
+                if stream_a > 0:
+                    stream_h = int(60 + 80 * p1)
+                    ss = pygame.Surface((12, stream_h), pygame.SRCALPHA)
+                    for sy in range(stream_h):
+                        sa = int(stream_a * (1.0 - sy / stream_h) * (0.5 + 0.5 * math.sin(t_ms * 0.005 + i)))
+                        sa = max(0, min(255, sa))
+                        pygame.draw.line(ss, (*_TF_PINK_SOFT, sa), (4, sy), (8, sy))
+                    screen.blit(ss, (stream_x - 6, int(center_y)))
+
+            # ★ 캐릭터 그리기 (회전)
             paddle_alpha = max(80, int(255 * (1.0 - p1 * 0.3)))
             self._draw_paddle_spinning(screen, cx, center_y, self._tf_spin_angle, paddle_alpha)
 
-            # 회전에 따른 약간의 파티클 흩날림
-            if random.random() < 0.3 + p1 * 0.5:
-                angle = random.uniform(0, math.pi * 2)
-                speed = random.uniform(1, 3)
+            # ★ 반짝이 별빛 파티클 (위로 부유)
+            if random.random() < 0.4 + p1 * 0.6:
+                sp_angle = random.uniform(0, math.pi * 2)
+                sp_dist = random.uniform(15, 50)
                 self.event_particles.append({
-                    "x": random.uniform(-20, 20), "y": random.uniform(-10, 10),
-                    "vx": math.cos(angle) * speed,
-                    "vy": math.sin(angle) * speed - 1.5,
-                    "life": random.uniform(0.5, 1.5),
-                    "max_life": 1.5,
-                    "color": random.choice([STRAWBERRY_LIGHT, STRAWBERRY_HIGHLIGHT, (255, 200, 200)]),
-                    "size": random.uniform(2, 5),
+                    "x": math.cos(sp_angle) * sp_dist,
+                    "y": math.sin(sp_angle) * sp_dist * 0.4,
+                    "vx": random.uniform(-0.8, 0.8),
+                    "vy": random.uniform(-2.5, -1.0),
+                    "life": random.uniform(0.8, 1.8),
+                    "max_life": 1.8,
+                    "color": random.choice([_TF_GOLD_SPARK, _TF_PINK_SOFT, _TF_CREAM,
+                                            _TF_WHITE_GLOW, _TF_MINT]),
+                    "size": random.uniform(2, 6),
+                    "shape": random.choice(["star", "circle", "circle"]),
+                })
+            # ★ 꽃잎 파티클 (느리게 흩날림)
+            if random.random() < 0.15 + p1 * 0.3:
+                self.event_particles.append({
+                    "x": random.uniform(-40, 40),
+                    "y": random.uniform(-20, 20),
+                    "vx": random.uniform(-1.5, 1.5),
+                    "vy": random.uniform(-1.0, 0.3),
+                    "life": random.uniform(1.2, 2.5),
+                    "max_life": 2.5,
+                    "color": random.choice([_TF_PINK_SOFT, _TF_CORAL, STRAWBERRY_HIGHLIGHT,
+                                            _TF_LEAF]),
+                    "size": random.uniform(4, 8),
+                    "shape": "petal",
                 })
 
-            # 약한 배경 딤
-            dim_alpha = int(30 * p1)
-            if dim_alpha > 0:
-                dim_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-                dim_surf.fill((0, 0, 0, dim_alpha))
-                screen.blit(dim_surf, (0, 0))
-
-        # ── Phase 2 (35~60%): 딸기 파티클 소용돌이 + 붉은 에너지 광원 성장 ──
+        # ── Phase 2 (35~60%): 딸기 소용돌이 — 코랄/핑크 에너지 응집 ──
         elif progress < 0.60:
-            p2 = (progress - 0.35) / 0.25  # 0→1 within phase
-
-            # 캐릭터 중심 Y (패들+광원 동일 높이)
+            p2 = (progress - 0.35) / 0.25
             center_y = base_y + self._tf_levitate_y + _half_h
-            # 회전 계속 (빠르게)
             self._tf_spin_angle += dt * 12.0
 
-            # 배경 어둡게
+            # 배경: 따스한 핑크 비네트
             dim_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-            dim_surf.fill((0, 0, 0, int(60 + 40 * p2)))
+            dim_surf.fill((40, 0, 20, int(50 + 50 * p2)))
             screen.blit(dim_surf, (0, 0))
 
-            # 소용돌이 파티클 업데이트 및 렌더링
+            # ★ 소용돌이 파티클
             self._update_swirl_particles(dt, cx, center_y, progress)
             for p in self._tf_swirl_particles:
                 alpha = max(0, min(255, int(255 * p["life"] / p["max_life"])))
@@ -665,158 +703,247 @@ class HornStrawberryTransformState:
                     _draw_strawberry_sprite(screen, px, py, sz * 1.5, alpha,
                                            tilt=math.degrees(p["angle"]) * 0.3)
                 else:
+                    # 꼬리 트레일 (소용돌이 방향)
+                    trail_a = max(0, alpha // 3)
+                    if trail_a > 0 and p["dist"] > 15:
+                        tx = int(cx + math.cos(p["angle"] - 0.3) * (p["dist"] + 5))
+                        ty = int(center_y + math.sin(p["angle"] - 0.3) * (p["dist"] + 5) * 0.5 + p["y_off"])
+                        ts2 = max(1, sz - 1)
+                        tsurf = pygame.Surface((ts2 * 2, ts2 * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(tsurf, (*p["color"], trail_a), (ts2, ts2), ts2)
+                        screen.blit(tsurf, (tx - ts2, ty - ts2))
                     ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
                     pygame.draw.circle(ps, (*p["color"], alpha), (sz, sz), sz)
                     screen.blit(ps, (px - sz, py - sz))
 
-            # 붉은 에너지 광원 (점점 커짐) — 캐릭터 중심에 맞춤
-            self._tf_energy_radius = 15 + p2 * 50
+            # ★ 다중 에너지 링 (펄싱, 코랄~핑크 그라데이션)
+            self._tf_energy_radius = 15 + p2 * 55
             energy_r = int(self._tf_energy_radius)
-            for layer in range(4, 0, -1):
-                r = energy_r + layer * 12
-                a = max(5, int(40 / layer * (0.5 + p2 * 0.5)))
+            pulse = 0.5 + 0.5 * math.sin(t_ms * 0.012)
+            for layer in range(5, 0, -1):
+                r = energy_r + layer * 10
+                a = max(3, int(35 * pulse / layer * (0.4 + p2 * 0.6)))
                 glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow, (255, 40 + layer * 20, 40, a), (r, r), r)
+                # 바깥 → 안쪽: 핑크 → 코랄 → 크림
+                lr = min(255, 255)
+                lg = min(255, 120 + layer * 25)
+                lb = min(255, 140 + layer * 20)
+                pygame.draw.circle(glow, (lr, lg, lb, a), (r, r), r)
                 screen.blit(glow, (int(cx) - r, int(center_y) - r))
 
-            # 중앙 에너지 코어
-            core_a = int(120 + 100 * p2)
+            # ★ 회전하는 에너지 링 테두리 (마법진 느낌)
+            ring_a = int(80 + 60 * pulse)
+            ring_r = energy_r + 5
+            ring_surf = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(ring_surf, (*_TF_PINK_HOT, ring_a),
+                               (ring_r + 2, ring_r + 2), ring_r, 2)
+            # 링 위에 작은 장식 점 (회전)
+            for dot_i in range(6):
+                dot_angle = self._tf_spin_angle * 0.5 + dot_i * math.pi / 3
+                dx = int(ring_r + 2 + math.cos(dot_angle) * ring_r)
+                dy = int(ring_r + 2 + math.sin(dot_angle) * ring_r)
+                pygame.draw.circle(ring_surf, (*_TF_GOLD_SPARK, min(255, ring_a + 40)),
+                                   (dx, dy), 3)
+            screen.blit(ring_surf, (int(cx) - ring_r - 2, int(center_y) - ring_r - 2))
+
+            # ★ 코어: 부드러운 크림~핑크 중심
+            core_a = int(100 + 120 * p2)
             core_s = pygame.Surface((energy_r * 2, energy_r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(core_s, (255, 80, 80, core_a), (energy_r, energy_r), energy_r)
-            pygame.draw.circle(core_s, (255, 180, 180, core_a // 2), (energy_r, energy_r), max(3, energy_r // 2))
+            pygame.draw.circle(core_s, (*_TF_CORAL, core_a), (energy_r, energy_r), energy_r)
+            inner_r = max(4, energy_r // 2)
+            pygame.draw.circle(core_s, (*_TF_CREAM, min(255, core_a + 30)),
+                               (energy_r, energy_r), inner_r)
             screen.blit(core_s, (int(cx) - energy_r, int(center_y) - energy_r))
 
-            # 패들 캐릭터 (에너지에 가려지며 사라짐)
+            # ★ 씨앗 파티클 (중심 주위 궤도)
+            for seed_i in range(4):
+                sa = self._tf_spin_angle * 1.5 + seed_i * math.pi * 0.5
+                sr = energy_r * 0.6
+                sx = int(cx + math.cos(sa) * sr)
+                sy = int(center_y + math.sin(sa) * sr * 0.5)
+                seed_alpha = int(180 * (0.6 + 0.4 * math.sin(t_ms * 0.01 + seed_i)))
+                seed_s = pygame.Surface((8, 6), pygame.SRCALPHA)
+                pygame.draw.ellipse(seed_s, (*SEED_COLOR, seed_alpha), (0, 0, 8, 6))
+                screen.blit(seed_s, (sx - 4, sy - 3))
+
+            # 패들 (에너지에 가려지며 페이드아웃)
             sil_alpha = max(0, int(200 * (1.0 - p2)))
             if sil_alpha > 0:
                 self._draw_paddle_spinning(screen, cx, center_y, self._tf_spin_angle, sil_alpha)
 
-        # ── Phase 3 (60~75%): 화면 번쩍 + 에너지 폭발 ──
+        # ── Phase 3 (60~75%): 상큼 폭발 — 핑크 플래시 + 씨앗/꽃잎 산란 ──
         elif progress < 0.75:
-            p3 = (progress - 0.60) / 0.15  # 0→1 within phase
-
+            p3 = (progress - 0.60) / 0.15
             center_y = base_y + self._tf_levitate_y + _half_h
 
-            # 거대한 에너지 폭발 (확장)
-            explode_r = int(self._tf_energy_radius + p3 * 200)
-            for layer in range(3, 0, -1):
-                r = explode_r + layer * 20
-                a = max(5, int(80 * (1.0 - p3) / layer))
-                if a > 0:
-                    glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(glow, (255, 100 + layer * 30, 80, a), (r, r), r)
-                    screen.blit(glow, (int(cx) - r, int(center_y) - r))
+            # ★ 에너지 터짐 (부드러운 확장)
+            explode_r = int(self._tf_energy_radius + p3 * 180)
+            for layer in range(4, 0, -1):
+                r = explode_r + layer * 15
+                a = max(3, int(60 * (1.0 - p3) / layer))
+                glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                lr = 255
+                lg = min(255, 160 + layer * 20)
+                lb = min(255, 170 + layer * 15)
+                pygame.draw.circle(glow, (lr, lg, lb, a), (r, r), r)
+                screen.blit(glow, (int(cx) - r, int(center_y) - r))
 
-            # 화면 전체 번쩍임 (강렬한 화이트 → 레드 플래시)
-            flash_intensity = 1.0 - p3  # 시작에서 가장 강하고 점점 사라짐
-            if flash_intensity > 0:
+            # ★ 충격파 링 (동심원, 확장)
+            for ring_i in range(3):
+                ring_delay = ring_i * 0.15
+                ring_p = max(0.0, p3 - ring_delay) / (1.0 - ring_delay) if p3 > ring_delay else 0.0
+                if ring_p > 0:
+                    rr = int(20 + ring_p * (120 + ring_i * 50))
+                    ra = max(0, int(160 * (1.0 - ring_p)))
+                    if ra > 0:
+                        rs = pygame.Surface((rr * 2 + 4, rr * 2 + 4), pygame.SRCALPHA)
+                        c = _TF_PINK_HOT if ring_i == 0 else (_TF_CORAL if ring_i == 1 else _TF_PINK_SOFT)
+                        pygame.draw.circle(rs, (*c, ra), (rr + 2, rr + 2), rr, max(2, 4 - ring_i))
+                        screen.blit(rs, (int(cx) - rr - 2, int(center_y) - rr - 2))
+
+            # ★ 화면 플래시 (화이트 → 핑크, 부드럽게)
+            flash_i = 1.0 - p3
+            if flash_i > 0:
                 flash_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-                fa = int(255 * flash_intensity ** 0.5)
-                if p3 < 0.3:
-                    flash_surf.fill((255, 255, 255, fa))
+                fa = int(220 * flash_i ** 0.6)
+                if p3 < 0.25:
+                    flash_surf.fill((255, 250, 245, fa))
                 else:
-                    flash_surf.fill((255, 120, 120, int(fa * 0.7)))
+                    flash_surf.fill((255, 190, 200, int(fa * 0.6)))
                 screen.blit(flash_surf, (0, 0))
 
-            # 폭발 파티클 — 사방으로 퍼짐
+            # ★ 폭발 파티클 — 씨앗, 꽃잎, 별빛, 딸기가 사방으로
             if not self._tf_flash_triggered:
                 self._tf_flash_triggered = True
-                for _ in range(80):
+                for _ in range(50):
                     angle = random.uniform(0, math.pi * 2)
-                    speed = random.uniform(3, 15)
+                    speed = random.uniform(3, 12)
                     self.event_particles.append({
-                        "x": 0, "y": self._tf_levitate_y,
+                        "x": 0, "y": self._tf_levitate_y + _half_h,
                         "vx": math.cos(angle) * speed,
                         "vy": math.sin(angle) * speed,
-                        "life": random.uniform(0.8, 2.5),
-                        "max_life": 2.5,
+                        "life": random.uniform(1.0, 3.0),
+                        "max_life": 3.0,
                         "color": random.choice([
-                            STRAWBERRY_RED, STRAWBERRY_LIGHT, (255, 200, 150),
-                            (255, 255, 200), STRAWBERRY_HIGHLIGHT, (255, 80, 60)
+                            _TF_PINK_SOFT, _TF_CORAL, _TF_CREAM, _TF_GOLD_SPARK,
+                            STRAWBERRY_RED, STRAWBERRY_HIGHLIGHT, _TF_MINT,
                         ]),
-                        "size": random.uniform(4, 12),
+                        "size": random.uniform(4, 10),
+                        "shape": random.choice(["circle", "star", "petal", "petal",
+                                                 "seed", "strawberry"]),
+                    })
+                # 잎사귀 전용 (더 크고 느리게)
+                for _ in range(12):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(1.5, 5)
+                    self.event_particles.append({
+                        "x": 0, "y": self._tf_levitate_y + _half_h,
+                        "vx": math.cos(angle) * speed,
+                        "vy": math.sin(angle) * speed - 1,
+                        "life": random.uniform(1.5, 3.5),
+                        "max_life": 3.5,
+                        "color": random.choice([_TF_LEAF, GREEN_MID, GREEN_BRIGHT]),
+                        "size": random.uniform(5, 9),
+                        "shape": "leaf",
                     })
 
-            # 빛줄기 (방사형)
-            for i, ray_angle in enumerate(self._tf_light_rays):
-                ray_len = int(150 + 300 * p3)
-                ray_a = max(0, int(120 * (1.0 - p3)))
+            # ★ 방사형 빛줄기 (부드러운 핑크/크림)
+            for ray_angle in self._tf_light_rays:
+                ray_len = int(100 + 250 * p3)
+                ray_a = max(0, int(80 * (1.0 - p3)))
                 if ray_a > 0:
                     end_x = cx + math.cos(math.radians(ray_angle)) * ray_len
                     end_y = center_y + math.sin(math.radians(ray_angle)) * ray_len
                     ray_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-                    pygame.draw.line(ray_surf, (255, 200, 180, ray_a),
-                                    (int(cx), int(center_y)), (int(end_x), int(end_y)), 3)
+                    ray_c = _TF_CREAM if int(ray_angle) % 60 < 30 else _TF_PINK_SOFT
+                    pygame.draw.line(ray_surf, (*ray_c, ray_a),
+                                    (int(cx), int(center_y)), (int(end_x), int(end_y)),
+                                    2 + int(2 * (1.0 - p3)))
                     screen.blit(ray_surf, (0, 0))
 
-        # ── Phase 4 (75~100%): 뿔딸기 캐릭터 등장 + 빛 뿜으며 착지 ──
+        # ── Phase 4 (75~100%): 뿔딸기 등장 — 반짝이며 통통 착지 ──
         else:
-            p4 = (progress - 0.75) / 0.25  # 0→1 within phase
+            p4 = (progress - 0.75) / 0.25
 
-            # 배경 딤 해제
-            dim_fade = max(0, int(60 * (1.0 - p4)))
+            # 배경 복원
+            dim_fade = max(0, int(50 * (1.0 - p4)))
             if dim_fade > 0:
                 dim_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-                dim_surf.fill((0, 0, 0, dim_fade))
+                dim_surf.fill((30, 0, 15, dim_fade))
                 screen.blit(dim_surf, (0, 0))
 
-            # 뿔딸기 캐릭터 내려오기 (ease-out bounce)
-            # 공중에서 시작 → 바닥으로
-            if p4 < 0.6:
-                # 내려오는 중
-                ease = (p4 / 0.6) ** 0.5
+            # ★ 통통 바운스 착지 (2번 튕김)
+            if p4 < 0.5:
+                ease = (p4 / 0.5) ** 0.5
                 descend_y = self._tf_levitate_y * (1.0 - ease)
-            elif p4 < 0.75:
-                # 살짝 바운스
-                bounce = math.sin((p4 - 0.6) / 0.15 * math.pi) * 8
+            elif p4 < 0.65:
+                bounce = math.sin((p4 - 0.5) / 0.15 * math.pi) * 12
                 descend_y = -bounce
+            elif p4 < 0.78:
+                bounce2 = math.sin((p4 - 0.65) / 0.13 * math.pi) * 5
+                descend_y = -bounce2
             else:
                 descend_y = 0.0
 
             draw_y = base_y + descend_y
 
-            # 캐릭터 주변 빛 후광 (점점 사라짐)
-            aura_alpha = max(0, int(180 * (1.0 - p4 * 0.8)))
+            # ★ 캐릭터 후광 — 부드러운 핑크/크림 다중 레이어
+            aura_alpha = max(0, int(200 * (1.0 - p4 * 0.7)))
             if aura_alpha > 0:
-                for layer in range(3, 0, -1):
-                    ar = 40 + layer * 18
-                    a = max(5, aura_alpha // layer)
+                for layer in range(4, 0, -1):
+                    ar = 35 + layer * 15
+                    a = max(3, aura_alpha // layer)
                     aura_s = pygame.Surface((ar * 2, ar * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(aura_s, (255, 200, 180, a), (ar, ar), ar)
+                    ac = _TF_PINK_SOFT if layer % 2 == 0 else _TF_CREAM
+                    pygame.draw.circle(aura_s, (*ac, a), (ar, ar), ar)
                     screen.blit(aura_s, (int(cx) - ar, int(draw_y) - 15 - ar))
 
-            # 빛줄기 (착지 시 방출, 점점 사라짐)
-            ray_alpha = max(0, int(100 * (1.0 - p4)))
+            # ★ 반짝이 별 (착지 주변에서 톡톡 튀어나옴)
+            if p4 < 0.7 and random.random() < 0.5:
+                sp_angle = random.uniform(0, math.pi * 2)
+                sp_dist = random.uniform(20, 60)
+                self.event_particles.append({
+                    "x": math.cos(sp_angle) * sp_dist,
+                    "y": math.sin(sp_angle) * sp_dist * 0.3 + (descend_y - self._tf_levitate_y),
+                    "vx": random.uniform(-1, 1),
+                    "vy": random.uniform(-2, -0.5),
+                    "life": random.uniform(0.5, 1.2),
+                    "max_life": 1.2,
+                    "color": random.choice([_TF_GOLD_SPARK, _TF_PINK_SOFT, _TF_WHITE_GLOW]),
+                    "size": random.uniform(3, 6),
+                    "shape": "star",
+                })
+
+            # ★ 부드러운 빛줄기 (점점 페이드)
+            ray_alpha = max(0, int(70 * (1.0 - p4)))
             if ray_alpha > 0:
                 for ray_angle in self._tf_light_rays:
-                    ray_len = int(80 + 120 * (1.0 - p4))
+                    ray_len = int(60 + 100 * (1.0 - p4))
                     end_x = cx + math.cos(math.radians(ray_angle)) * ray_len
                     end_y = draw_y - 15 + math.sin(math.radians(ray_angle)) * ray_len
                     ray_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-                    pygame.draw.line(ray_surf, (255, 220, 200, ray_alpha),
+                    pygame.draw.line(ray_surf, (*_TF_CREAM, ray_alpha),
                                     (int(cx), int(draw_y) - 15), (int(end_x), int(end_y)), 2)
                     screen.blit(ray_surf, (0, 0))
 
-            # 뿔딸기 캐릭터 그리기 — 실제 draw_strawberry_paddle 사용
+            # ★ 뿔딸기 캐릭터 등장 (실제 draw_strawberry_paddle)
             try:
                 pw = 80 if not hasattr(self, '_last_paddle_w') else self._last_paddle_w
                 ph = 20 if not hasattr(self, '_last_paddle_h') else self._last_paddle_h
-                char_alpha = min(255, int(255 * min(1.0, p4 / 0.3)))
+                char_alpha = min(255, int(255 * min(1.0, p4 / 0.25)))
 
-                # 임시로 변신 상태를 켜서 draw_strawberry_paddle 호출
                 _saved_state = self.state
                 self.state = self.TRANSFORMED
-                # 알파 적용을 위한 임시 서피스에 그리기
                 buf_w = max(pw + 80, 200)
                 buf_h = max(ph + 100, 160)
                 temp_surf = pygame.Surface((buf_w, buf_h), pygame.SRCALPHA)
                 self.draw_strawberry_paddle(
                     temp_surf,
-                    buf_w // 2 - pw // 2,  # x (좌측 시작)
-                    buf_h - ph - 10,        # y (하단 정렬)
+                    buf_w // 2 - pw // 2,
+                    buf_h - ph - 10,
                     pw, ph
                 )
-                self.state = _saved_state  # 상태 복원
+                self.state = _saved_state
 
                 if char_alpha < 255:
                     temp_surf.set_alpha(char_alpha)
@@ -825,45 +952,126 @@ class HornStrawberryTransformState:
             except Exception:
                 pass
 
-            # "뿔딸기변신!" 텍스트 (Phase 4 후반에 등장)
-            if p4 > 0.4:
-                text_p = (p4 - 0.4) / 0.6
-                font_size = max(16, int(52 * min(1.0, text_p / 0.3)))
-                text_alpha = min(255, int(255 * text_p))
+            # ★ "뿔딸기변신!" 텍스트 (통통 바운스 등장)
+            if p4 > 0.35:
+                text_p = (p4 - 0.35) / 0.65
+                # 바운스 스케일
+                if text_p < 0.3:
+                    t_scale = (text_p / 0.3) * 1.2
+                elif text_p < 0.5:
+                    t_scale = 1.2 - 0.2 * ((text_p - 0.3) / 0.2)
+                else:
+                    t_scale = 1.0
+                font_size = max(16, int(48 * t_scale))
+                text_alpha = min(255, int(255 * min(1.0, text_p / 0.2)))
                 try:
                     font = pygame.font.SysFont("malgungothic", font_size)
-                    text_surf = font.render("뿔딸기변신!", True, STRAWBERRY_RED)
+                    # 외곽선 효과 (흰색 테두리 + 핑크 본문)
+                    text_y = int(draw_y) - 80
+                    for ox, oy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, 1)]:
+                        outline = font.render("뿔딸기변신!", True, (255, 255, 255))
+                        if text_alpha < 255:
+                            outline.set_alpha(text_alpha)
+                        screen.blit(outline, outline.get_rect(center=(w // 2 + ox, text_y + oy)))
+                    text_surf = font.render("뿔딸기변신!", True, _TF_PINK_HOT)
                     if text_alpha < 255:
                         text_surf.set_alpha(text_alpha)
-                    shadow_surf = font.render("뿔딸기변신!", True, (0, 0, 0))
-                    if text_alpha < 255:
-                        shadow_surf.set_alpha(text_alpha)
-                    text_y = int(draw_y) - 80
-                    screen.blit(shadow_surf, shadow_surf.get_rect(center=(w // 2 + 2, text_y + 2)))
                     screen.blit(text_surf, text_surf.get_rect(center=(w // 2, text_y)))
                 except Exception:
                     pass
 
-            # 착지 충격파 (바닥 도착 시)
-            if 0.55 < p4 < 0.85:
-                wave_p = (p4 - 0.55) / 0.30
-                wave_r = int(20 + wave_p * 100)
-                wave_a = max(0, int(120 * (1.0 - wave_p)))
-                wave_s = pygame.Surface((wave_r * 2, 30), pygame.SRCALPHA)
-                pygame.draw.ellipse(wave_s, (255, 180, 160, wave_a), (0, 5, wave_r * 2, 20))
-                screen.blit(wave_s, (int(cx) - wave_r, int(base_y) + 5))
+            # ★ 착지 충격파 — 핑크 동심원 2중 링
+            if 0.45 < p4 < 0.85:
+                wave_p = (p4 - 0.45) / 0.40
+                for wi in range(2):
+                    wp = max(0.0, wave_p - wi * 0.12) / (1.0 - wi * 0.12) if wave_p > wi * 0.12 else 0.0
+                    if wp > 0:
+                        wr = int(15 + wp * (90 + wi * 40))
+                        wa = max(0, int((100 - wi * 30) * (1.0 - wp)))
+                        ws = pygame.Surface((wr * 2, 24), pygame.SRCALPHA)
+                        wc = _TF_PINK_SOFT if wi == 0 else _TF_CORAL
+                        pygame.draw.ellipse(ws, (*wc, wa), (0, 4, wr * 2, 16))
+                        screen.blit(ws, (int(cx) - wr, int(base_y) + 3))
 
-        # ── 공통: 산란 파티클 렌더링 (모든 Phase) ──
-        # 캐릭터 중심에 앵커링
+            # ★ 착지 시 꽃잎 파바박 (바닥 도달 순간)
+            if 0.48 < p4 < 0.55:
+                for _ in range(8):
+                    angle = random.uniform(-math.pi, 0)  # 위쪽으로만
+                    speed = random.uniform(2, 6)
+                    self.event_particles.append({
+                        "x": random.uniform(-15, 15),
+                        "y": 0,
+                        "vx": math.cos(angle) * speed,
+                        "vy": math.sin(angle) * speed,
+                        "life": random.uniform(0.6, 1.5),
+                        "max_life": 1.5,
+                        "color": random.choice([_TF_PINK_SOFT, _TF_LEAF, _TF_CORAL,
+                                                STRAWBERRY_HIGHLIGHT]),
+                        "size": random.uniform(3, 7),
+                        "shape": random.choice(["petal", "leaf"]),
+                    })
+
+        # ── 공통: 파티클 렌더 (모양별 분기) ──
         anchor_y = base_y + self._tf_levitate_y + _half_h
         for p in self.event_particles:
             alpha = max(0, min(255, int(255 * p["life"] / p["max_life"])))
             px = int(cx + p["x"])
             py = int(anchor_y + p["y"])
             sz = max(1, int(p["size"] * (p["life"] / p["max_life"])))
-            ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
-            pygame.draw.circle(ps, (*p["color"], alpha), (sz, sz), sz)
-            screen.blit(ps, (px - sz, py - sz))
+            shape = p.get("shape", "circle")
+
+            if shape == "star" and sz >= 2:
+                # ★ 4각 별 모양
+                star_s = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
+                sc = sz * 3 // 2
+                pts = []
+                for si in range(8):
+                    a2 = si * math.pi / 4 + (p["life"] * 2)
+                    r2 = sz if si % 2 == 0 else sz * 0.4
+                    pts.append((int(sc + math.cos(a2) * r2), int(sc + math.sin(a2) * r2)))
+                pygame.draw.polygon(star_s, (*p["color"], alpha), pts)
+                screen.blit(star_s, (px - sc, py - sc))
+            elif shape == "petal" and sz >= 2:
+                # 꽃잎 모양 (타원 + 회전)
+                pw2 = max(3, sz)
+                ph2 = max(2, sz // 2)
+                pet_s = pygame.Surface((pw2 * 2 + 2, ph2 * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(pet_s, (*p["color"], alpha), (1, 1, pw2 * 2, ph2 * 2))
+                rot_angle = p["life"] * 120
+                pet_r = pygame.transform.rotate(pet_s, rot_angle)
+                pr = pet_r.get_rect(center=(px, py))
+                screen.blit(pet_r, pr)
+            elif shape == "leaf" and sz >= 2:
+                # 잎 모양 (녹색 타원 + 중앙선)
+                lw = max(4, sz + 2)
+                lh = max(2, sz // 2)
+                leaf_s = pygame.Surface((lw * 2 + 2, lh * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(leaf_s, (*p["color"], alpha), (1, 1, lw * 2, lh * 2))
+                pygame.draw.line(leaf_s, (*GREEN_DARK, max(0, alpha - 40)),
+                                 (1, lh + 1), (lw * 2, lh + 1), 1)
+                rot_a = p["life"] * 90 + hash(id(p)) % 60
+                leaf_r = pygame.transform.rotate(leaf_s, rot_a)
+                lr = leaf_r.get_rect(center=(px, py))
+                screen.blit(leaf_r, lr)
+            elif shape == "seed":
+                # 씨앗 (작은 타원)
+                seed_s = pygame.Surface((6, 4), pygame.SRCALPHA)
+                pygame.draw.ellipse(seed_s, (*SEED_COLOR, alpha), (0, 0, 6, 4))
+                screen.blit(seed_s, (px - 3, py - 2))
+            elif shape == "strawberry" and sz >= 4:
+                # 미니 딸기 스프라이트
+                _draw_strawberry_sprite(screen, px, py, sz, alpha,
+                                        tilt=p["life"] * 60)
+            else:
+                # 기본 원형 + 글로우
+                if sz >= 3:
+                    gs = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
+                    ga = max(0, alpha // 4)
+                    pygame.draw.circle(gs, (*p["color"], ga), (sz * 3 // 2, sz * 3 // 2), sz * 3 // 2)
+                    screen.blit(gs, (px - sz * 3 // 2, py - sz * 3 // 2))
+                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (*p["color"], alpha), (sz, sz), sz)
+                screen.blit(ps, (px - sz, py - sz))
 
     def _draw_mini_strawberry_char(self, surf, cx, cy, pw, ph):
         """변신 연출용 간이 뿔딸기 캐릭터 (등장 시)"""
