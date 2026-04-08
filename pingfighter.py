@@ -4815,152 +4815,121 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         pygame.draw.circle(surface, shadow_color, (skull_x + 1, skull_y - 1), 1)
 
     elif skill_name == "marshal_kick":
-        # 🦶 마샬 킥: 옆에서 본 발 실루엣 (위로 차올리는 킥 자세) + 속도선
-        # 참고: 발바닥이 보이는 각도, 발가락이 위를 향함
+        # 🦶 마샬 킥: 풋프린트(발자국) 실루엣 + 킥 속도선
+        # 시점: 아래에서 올려다 본 발바닥 (3/4뷰, 발가락 위)
+        # 실루엣 기준: 검정 채우기만으로 발로 읽히는 형태
 
-        # === 발 실루엣 (polygon) - 발바닥 보이는 킥 자세 ===
-        # 발목(하단) → 뒤꿈치 → 발바닥 아치 → 앞꿈치 → 발가락들 → 발등 순서
-        r = s * 7 // 10  # 전체 크기 (구슬 안에 맞게)
+        r = s * 3 // 5  # 구슬 내부 여유
 
-        # 발 중심을 살짝 위로
-        fy = cy - r // 8
-
-        # 발바닥이 왼쪽을 향하고 발가락이 위를 가리키는 자세 (시계방향)
-        foot_shape = [
-            # 발목 (아래쪽, 다리 연결부)
-            (cx + r // 5,      fy + r * 3 // 4),
-            (cx - r // 6,      fy + r * 3 // 4),
-            # 뒤꿈치 (둥글게)
-            (cx - r // 3,      fy + r // 2),
-            (cx - r * 2 // 5,  fy + r // 4),
-            # 발바닥 아치 (곡선 느낌 - 왼쪽 오목)
-            (cx - r // 3,      fy),
-            (cx - r // 4,      fy - r // 4),
-            # 앞꿈치 볼 (넓은 부분)
-            (cx - r // 3,      fy - r // 2),
-            (cx - r // 5,      fy - r * 2 // 3),
-            # 발가락 (위를 향해 살짝 벌어진 형태)
-            (cx - r // 8,      fy - r * 4 // 5),   # 엄지
-            (cx + r // 10,     fy - r * 5 // 6),   # 검지 (가장 높이)
-            (cx + r // 4,      fy - r * 3 // 4),   # 중지
-            (cx + r // 3,      fy - r * 2 // 3),   # 약지+새끼
-            # 발등 (오른쪽으로 돌아옴)
-            (cx + r * 2 // 5,  fy - r // 2),
-            (cx + r // 3,      fy - r // 4),
-            (cx + r // 3,      fy),
-            (cx + r // 3,      fy + r // 4),
-            (cx + r // 4,      fy + r // 2),
+        # === 발 몸통 (볼 + 아치컷 + 뒤꿈치, 하나의 폴리곤) ===
+        sole = [
+            # 앞꿈치 볼 (상단, 가장 넓음)
+            (cx - r * 3 // 5,  cy - r // 5),       # 볼 왼쪽 끝
+            (cx - r * 2 // 5,  cy - r * 3 // 5),   # 볼 왼쪽 위
+            (cx + r // 6,      cy - r * 2 // 3),   # 볼 상단 중앙
+            (cx + r // 2,      cy - r * 3 // 5),   # 볼 오른쪽 위
+            (cx + r * 3 // 5,  cy - r // 5),       # 볼 오른쪽 끝
+            # 아치 (오른쪽 오목 컷 — 핵심!)
+            (cx + r // 3,      cy + r // 10),       # 아치 시작
+            (cx + r // 5,      cy + r // 4),        # 아치 가장 오목한 점
+            (cx + r // 4,      cy + r * 2 // 5),    # 아치 끝
+            # 뒤꿈치 (하단, 좁고 둥글게)
+            (cx + r // 3,      cy + r * 3 // 5),    # 뒤꿈치 오른쪽
+            (cx,               cy + r * 3 // 4),    # 뒤꿈치 바닥
+            (cx - r // 3,      cy + r * 3 // 5),    # 뒤꿈치 왼쪽
+            # 왼쪽 바깥 (볼록, 매끈하게 올라감)
+            (cx - r * 2 // 5,  cy + r // 4),        # 왼쪽 하단
+            (cx - r // 2,      cy),                  # 왼쪽 중간
         ]
+        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in sole])
+        pygame.draw.polygon(surface, accent_color, sole)
+        pygame.draw.polygon(surface, highlight_color, sole, max(1, s // 10))
 
-        # 그림자
-        shadow_pts = [(px + 1, py + 1) for px, py in foot_shape]
-        pygame.draw.polygon(surface, shadow_color, shadow_pts)
-        # 메인 발 채우기
-        pygame.draw.polygon(surface, accent_color, foot_shape)
-        # 외곽선
-        pygame.draw.polygon(surface, highlight_color, foot_shape, max(1, s // 10))
-
-        # 발가락 골 (분리선) - 위쪽에 짧은 선으로 발가락 구분
-        toe_lines = [
-            ((cx - r // 8, fy - r * 4 // 5), (cx - r // 10, fy - r * 2 // 3)),
-            ((cx + r // 10, fy - r * 5 // 6), (cx + r // 10, fy - r * 2 // 3)),
-            ((cx + r // 4, fy - r * 3 // 4), (cx + r // 5, fy - r * 3 // 5)),
+        # === 발가락 (외곽 돌출 원 3개, 크기 차이로 엄지 방향 표현) ===
+        toe_data = [
+            # (x, y, 반지름) — 엄지가 크고 왼쪽, 새끼가 작고 오른쪽
+            (cx - r * 2 // 5,  cy - r * 4 // 5,   max(3, r // 3)),    # 엄지 (크게)
+            (cx + r // 10,     cy - r,             max(2, r * 2 // 7)),  # 검지+중지 (중간)
+            (cx + r * 2 // 5,  cy - r * 4 // 5,   max(2, r // 4)),    # 약지+새끼 (작게)
         ]
-        for p1, p2 in toe_lines:
-            pygame.draw.line(surface, shadow_color, p1, p2, max(1, s // 12))
+        for tx, ty, tr in toe_data:
+            pygame.draw.circle(surface, shadow_color, (tx + 1, ty + 1), tr)
+            pygame.draw.circle(surface, accent_color, (tx, ty), tr)
+            pygame.draw.circle(surface, highlight_color, (tx, ty), tr, max(1, s // 12))
 
-        # 발바닥 아치 커브 (디테일, 안쪽)
-        pygame.draw.arc(surface, shadow_color,
-                       (cx - r // 3 - r // 8, fy - r // 6, r // 3, r // 2),
-                       math.radians(-30), math.radians(150), max(1, s // 10))
-
-        # 속도선 (발목 뒤쪽에서 아래로, 킥 방향과 반대)
+        # === 속도선 (뒤꿈치 아래, 킥 방향=위, 수평선 3줄) ===
         for i in range(3):
-            lx = cx + r // 3 + r // 6 + i * (r // 5)
-            ly_start = fy + r // 3 + i * (r // 6)
-            ly_end = ly_start + r // 3
-            lc = tuple(min(255, c + 40 - i * 15) for c in highlight_color[:3])
-            pygame.draw.line(surface, lc, (lx, ly_start), (lx, ly_end), max(1, 2 - i // 2))
+            ly = cy + r * 4 // 5 + max(3, r // 4) + i * max(3, r // 3)
+            hw = r // 2 - i * (r // 5)  # 점점 짧아짐
+            lc = tuple(min(255, c + 50 - i * 25) for c in highlight_color[:3])
+            pygame.draw.line(surface, lc,
+                           (cx - hw, ly), (cx + hw, ly),
+                           max(1, 2 - i // 2))
 
     elif skill_name == "double_marshal_kick":
-        # 👊🦶 팬텀 킥: 마샬킥과 동일 발 + 잔상(팬텀) + 에너지 글로우
+        # 👊🦶 팬텀 킥: 풋프린트 실루엣 × 2 (본체 + 분리된 잔상)
+        # 잔상이 본체와 3~4px 간격으로 분리되어 팬텀 느낌
 
-        r = s * 7 // 10
-        fy = cy - r // 8
+        r = s * 3 // 5
+        go = max(3, s // 4)  # 잔상 오프셋 (본체와 분리 간격)
 
-        # === 잔상 (팬텀 느낌 - 살짝 오프셋, 어두운 색) ===
+        # --- 잔상 풋프린트 (오프셋, 어두운 색) ---
         ghost_color = tuple(max(0, c // 3) for c in accent_color[:3])
-        go = r // 4  # ghost offset
-        ghost_shape = [
-            (cx + r // 5 + go,      fy + r * 3 // 4 + go // 2),
-            (cx - r // 6 + go,      fy + r * 3 // 4 + go // 2),
-            (cx - r // 3 + go,      fy + r // 2 + go // 2),
-            (cx - r * 2 // 5 + go,  fy + r // 4 + go // 2),
-            (cx - r // 3 + go,      fy + go // 2),
-            (cx - r // 4 + go,      fy - r // 4 + go // 2),
-            (cx - r // 3 + go,      fy - r // 2 + go // 2),
-            (cx - r // 5 + go,      fy - r * 2 // 3 + go // 2),
-            (cx - r // 8 + go,      fy - r * 4 // 5 + go // 2),
-            (cx + r // 10 + go,     fy - r * 5 // 6 + go // 2),
-            (cx + r // 4 + go,      fy - r * 3 // 4 + go // 2),
-            (cx + r // 3 + go,      fy - r * 2 // 3 + go // 2),
-            (cx + r * 2 // 5 + go,  fy - r // 2 + go // 2),
-            (cx + r // 3 + go,      fy - r // 4 + go // 2),
-            (cx + r // 3 + go,      fy + go // 2),
-            (cx + r // 3 + go,      fy + r // 4 + go // 2),
-            (cx + r // 4 + go,      fy + r // 2 + go // 2),
+        ghost_sole = [
+            (cx - r * 3 // 5 + go,  cy - r // 5 + go),
+            (cx - r * 2 // 5 + go,  cy - r * 3 // 5 + go),
+            (cx + r // 6 + go,      cy - r * 2 // 3 + go),
+            (cx + r // 2 + go,      cy - r * 3 // 5 + go),
+            (cx + r * 3 // 5 + go,  cy - r // 5 + go),
+            (cx + r // 3 + go,      cy + r // 10 + go),
+            (cx + r // 5 + go,      cy + r // 4 + go),
+            (cx + r // 4 + go,      cy + r * 2 // 5 + go),
+            (cx + r // 3 + go,      cy + r * 3 // 5 + go),
+            (cx + go,               cy + r * 3 // 4 + go),
+            (cx - r // 3 + go,      cy + r * 3 // 5 + go),
+            (cx - r * 2 // 5 + go,  cy + r // 4 + go),
+            (cx - r // 2 + go,      cy + go),
         ]
-        pygame.draw.polygon(surface, ghost_color, ghost_shape)
-
-        # === 메인 발 실루엣 ===
-        foot_shape = [
-            (cx + r // 5,      fy + r * 3 // 4),
-            (cx - r // 6,      fy + r * 3 // 4),
-            (cx - r // 3,      fy + r // 2),
-            (cx - r * 2 // 5,  fy + r // 4),
-            (cx - r // 3,      fy),
-            (cx - r // 4,      fy - r // 4),
-            (cx - r // 3,      fy - r // 2),
-            (cx - r // 5,      fy - r * 2 // 3),
-            (cx - r // 8,      fy - r * 4 // 5),
-            (cx + r // 10,     fy - r * 5 // 6),
-            (cx + r // 4,      fy - r * 3 // 4),
-            (cx + r // 3,      fy - r * 2 // 3),
-            (cx + r * 2 // 5,  fy - r // 2),
-            (cx + r // 3,      fy - r // 4),
-            (cx + r // 3,      fy),
-            (cx + r // 3,      fy + r // 4),
-            (cx + r // 4,      fy + r // 2),
+        pygame.draw.polygon(surface, ghost_color, ghost_sole)
+        # 잔상 발가락
+        ghost_toes = [
+            (cx - r * 2 // 5 + go,  cy - r * 4 // 5 + go, max(2, r // 3)),
+            (cx + r // 10 + go,     cy - r + go,           max(2, r * 2 // 7)),
+            (cx + r * 2 // 5 + go,  cy - r * 4 // 5 + go, max(2, r // 4)),
         ]
-        shadow_pts = [(px + 1, py + 1) for px, py in foot_shape]
-        pygame.draw.polygon(surface, shadow_color, shadow_pts)
-        pygame.draw.polygon(surface, accent_color, foot_shape)
-        # 에너지 글로우 (팬텀 킥 강화 외곽선)
-        pygame.draw.polygon(surface, main_color, foot_shape, max(2, s // 6))
+        for tx, ty, tr in ghost_toes:
+            pygame.draw.circle(surface, ghost_color, (tx, ty), tr)
 
-        # 발가락 골
-        toe_lines = [
-            ((cx - r // 8, fy - r * 4 // 5), (cx - r // 10, fy - r * 2 // 3)),
-            ((cx + r // 10, fy - r * 5 // 6), (cx + r // 10, fy - r * 2 // 3)),
-            ((cx + r // 4, fy - r * 3 // 4), (cx + r // 5, fy - r * 3 // 5)),
+        # --- 메인 풋프린트 (마샬 킥과 동일 실루엣) ---
+        sole = [
+            (cx - r * 3 // 5,  cy - r // 5),
+            (cx - r * 2 // 5,  cy - r * 3 // 5),
+            (cx + r // 6,      cy - r * 2 // 3),
+            (cx + r // 2,      cy - r * 3 // 5),
+            (cx + r * 3 // 5,  cy - r // 5),
+            (cx + r // 3,      cy + r // 10),
+            (cx + r // 5,      cy + r // 4),
+            (cx + r // 4,      cy + r * 2 // 5),
+            (cx + r // 3,      cy + r * 3 // 5),
+            (cx,               cy + r * 3 // 4),
+            (cx - r // 3,      cy + r * 3 // 5),
+            (cx - r * 2 // 5,  cy + r // 4),
+            (cx - r // 2,      cy),
         ]
-        for p1, p2 in toe_lines:
-            pygame.draw.line(surface, shadow_color, p1, p2, max(1, s // 12))
+        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in sole])
+        pygame.draw.polygon(surface, accent_color, sole)
+        pygame.draw.polygon(surface, main_color, sole, max(2, s // 6))
 
-        # 발바닥 아치 커브
-        pygame.draw.arc(surface, shadow_color,
-                       (cx - r // 3 - r // 8, fy - r // 6, r // 3, r // 2),
-                       math.radians(-30), math.radians(150), max(1, s // 10))
-
-        # 에너지 방사 (발 주변 짧은 선, 파워 느낌)
-        for i in range(4):
-            angle = -60 + i * 40
-            rad = math.radians(angle)
-            ex = cx + int(math.cos(rad) * (r + 2))
-            ey = fy - r // 4 + int(math.sin(rad) * (r + 2))
-            ex2 = cx + int(math.cos(rad) * (r + r // 3))
-            ey2 = fy - r // 4 + int(math.sin(rad) * (r + r // 3))
-            pygame.draw.line(surface, highlight_color, (ex, ey), (ex2, ey2), max(1, 2))
+        # 메인 발가락
+        toe_data = [
+            (cx - r * 2 // 5,  cy - r * 4 // 5,   max(3, r // 3)),
+            (cx + r // 10,     cy - r,             max(2, r * 2 // 7)),
+            (cx + r * 2 // 5,  cy - r * 4 // 5,   max(2, r // 4)),
+        ]
+        for tx, ty, tr in toe_data:
+            pygame.draw.circle(surface, shadow_color, (tx + 1, ty + 1), tr)
+            pygame.draw.circle(surface, accent_color, (tx, ty), tr)
+            pygame.draw.circle(surface, main_color, (tx, ty), tr, max(1, s // 10))
 
     elif skill_name == "dive_strike":
         # ⇓ EMP 스트라이크: 급강하 + 착지 연기 장판
@@ -18265,55 +18234,50 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
 
     elif skill_id == "double_marshal_kick":
-        # 팬텀 킥 - 발 실루엣 + 잔상 (미니)
+        # 팬텀 킥 미니 — 풋프린트 실루엣 + 분리 잔상 (내부선 없음)
         color = icon_color
         lt = lighter(icon_color)
         dk = darker(icon_color)
-        r = int(5 * scale)  # 반지름 기준
+        r = int(4 * scale)  # 미니 반지름
+        go = max(2, int(2 * scale))  # 잔상 분리 간격
 
-        fy = icon_cy - r // 8
-
-        # 잔상 (살짝 오프셋)
+        # --- 잔상 (오프셋, 어두운 색) ---
         ghost_c = tuple(max(0, c // 3) for c in color)
-        go = max(1, r // 4)
-        ghost_pts = [
-            (icon_cx + r // 5 + go,      fy + r * 3 // 4 + go // 2),
-            (icon_cx - r // 6 + go,      fy + r * 3 // 4 + go // 2),
-            (icon_cx - r // 3 + go,      fy + r // 4 + go // 2),
-            (icon_cx - r // 4 + go,      fy - r // 4 + go // 2),
-            (icon_cx - r // 5 + go,      fy - r * 2 // 3 + go // 2),
-            (icon_cx + r // 10 + go,     fy - r * 5 // 6 + go // 2),
-            (icon_cx + r // 3 + go,      fy - r * 2 // 3 + go // 2),
-            (icon_cx + r // 3 + go,      fy + go // 2),
-            (icon_cx + r // 4 + go,      fy + r // 2 + go // 2),
+        # 잔상 몸통 (단순화: 7포인트)
+        g_sole = [
+            (icon_cx - r * 2 // 3 + go, icon_cy - r // 5 + go),
+            (icon_cx + go,               icon_cy - r * 2 // 3 + go),
+            (icon_cx + r * 2 // 3 + go,  icon_cy - r // 5 + go),
+            (icon_cx + r // 3 + go,      icon_cy + r // 4 + go),
+            (icon_cx + r // 3 + go,      icon_cy + r * 2 // 3 + go),
+            (icon_cx - r // 3 + go,      icon_cy + r * 2 // 3 + go),
+            (icon_cx - r // 2 + go,      icon_cy + go),
         ]
-        pygame.draw.polygon(surface, ghost_c, ghost_pts)
+        pygame.draw.polygon(surface, ghost_c, g_sole)
+        # 잔상 발가락 (2개)
+        pygame.draw.circle(surface, ghost_c, (icon_cx - r // 3 + go, icon_cy - r * 4 // 5 + go), max(1, r // 3))
+        pygame.draw.circle(surface, ghost_c, (icon_cx + r // 3 + go, icon_cy - r * 4 // 5 + go), max(1, r // 4))
 
-        # 메인 발 실루엣
-        foot_pts = [
-            (icon_cx + r // 5,      fy + r * 3 // 4),
-            (icon_cx - r // 6,      fy + r * 3 // 4),
-            (icon_cx - r // 3,      fy + r // 4),
-            (icon_cx - r // 4,      fy - r // 4),
-            (icon_cx - r // 5,      fy - r * 2 // 3),
-            (icon_cx + r // 10,     fy - r * 5 // 6),
-            (icon_cx + r // 3,      fy - r * 2 // 3),
-            (icon_cx + r // 3,      fy),
-            (icon_cx + r // 4,      fy + r // 2),
+        # --- 메인 풋프린트 ---
+        sole = [
+            (icon_cx - r * 2 // 3, icon_cy - r // 5),
+            (icon_cx,               icon_cy - r * 2 // 3),
+            (icon_cx + r * 2 // 3,  icon_cy - r // 5),
+            (icon_cx + r // 3,      icon_cy + r // 4),
+            (icon_cx + r // 3,      icon_cy + r * 2 // 3),
+            (icon_cx - r // 3,      icon_cy + r * 2 // 3),
+            (icon_cx - r // 2,      icon_cy),
         ]
-        pygame.draw.polygon(surface, dk, [(px + 1, py + 1) for px, py in foot_pts])
-        pygame.draw.polygon(surface, color, foot_pts)
-        pygame.draw.polygon(surface, lt, foot_pts, max(1, int(1 * scale)))
-
-        # 에너지 방사선
-        for i in range(3):
-            angle = -50 + i * 50
-            rad = math.radians(angle)
-            lx1 = icon_cx + int(math.cos(rad) * int(5 * scale))
-            ly1 = fy - r // 4 + int(math.sin(rad) * int(5 * scale))
-            lx2 = icon_cx + int(math.cos(rad) * int(6.5 * scale))
-            ly2 = fy - r // 4 + int(math.sin(rad) * int(6.5 * scale))
-            pygame.draw.line(surface, lt, (lx1, ly1), (lx2, ly2), max(1, int(1 * scale)))
+        pygame.draw.polygon(surface, dk, [(px + 1, py + 1) for px, py in sole])
+        pygame.draw.polygon(surface, color, sole)
+        pygame.draw.polygon(surface, lt, sole, max(1, int(1 * scale)))
+        # 메인 발가락 (2개 원)
+        t1r = max(2, r // 3)
+        t2r = max(1, r // 4)
+        pygame.draw.circle(surface, dk, (icon_cx - r // 3 + 1, icon_cy - r * 4 // 5 + 1), t1r)
+        pygame.draw.circle(surface, color, (icon_cx - r // 3, icon_cy - r * 4 // 5), t1r)
+        pygame.draw.circle(surface, dk, (icon_cx + r // 3 + 1, icon_cy - r * 4 // 5 + 1), t2r)
+        pygame.draw.circle(surface, color, (icon_cx + r // 3, icon_cy - r * 4 // 5), t2r)
 
     elif skill_id == "soldier_pistol_perk":
         # 권총 화기류 - 권총 아이콘
