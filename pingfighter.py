@@ -11949,6 +11949,8 @@ optimus_arm_trail_particles = []         # 팔 이동 궤적 파티클
 # ========== 우주 행성 맵 시스템 ==========
 cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복귀 시 리셋)
 discovered_item_names = set()  # 현재 세이브에서 한 번이라도 확인한 아이템 이름
+discovered_perk_names = set()  # 한 번이라도 해금한 퍽 이름 (영구 기록)
+discovered_boss_ids = set()    # 한 번이라도 클리어한 보스 스테이지 번호 (영구 기록)
 
 
 def mark_item_discovered(item_name: str) -> None:
@@ -11956,6 +11958,19 @@ def mark_item_discovered(item_name: str) -> None:
     if not item_name:
         return
     discovered_item_names.add(str(item_name))
+
+
+def mark_perk_discovered(perk_id: str) -> None:
+    """도감용 퍽 발견 상태를 기록한다."""
+    if not perk_id:
+        return
+    discovered_perk_names.add(str(perk_id))
+
+
+def mark_boss_discovered(stage_num: int) -> None:
+    """도감용 보스 클리어 상태를 기록한다."""
+    if stage_num:
+        discovered_boss_ids.add(int(stage_num))
 
 def show_space_map_transition(from_planet, to_planet, ingame_frame=None, stage_num=None):
     """우주맵 행성 이동 — 지형 하강 + 인게임 화면 줌인 + 스테이지 텍스트"""
@@ -15419,6 +15434,10 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     # 빈 슬롯 무시
     if choice_id.startswith("empty_"):
         return True
+
+    # 도감용 퍽/스킬 발견 기록 (영구)
+    if not choice_id.startswith("convert_") and not choice_id.startswith("instant_"):
+        mark_perk_discovered(choice_id)
 
     # 골드변환 처리 (4번째 옵션)
     if choice_id == "convert_to_gold":
@@ -83210,7 +83229,7 @@ def save_game_progress(stage_number: int) -> bool:
     global selected_character_type, ai_mode, active_item_slot
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
-    global discovered_item_names, cleared_planets
+    global discovered_item_names, cleared_planets, discovered_perk_names, discovered_boss_ids
 
     try:
         # 패시브 아이템 목록을 저장 가능한 형태로 변환
@@ -83250,6 +83269,8 @@ def save_game_progress(stage_number: int) -> bool:
             "active_items": serializable_active_items,
             "cleared_planets": list(cleared_planets),
             "discovered_items": sorted(discovered_item_names),
+            "discovered_perks": sorted(discovered_perk_names),
+            "discovered_bosses": sorted(discovered_boss_ids),
         }
         # print(f"[DEBUG 세이브] downtown_map_seed = {downtown_map_seed}")
 
@@ -83463,7 +83484,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
     global transcendent_crown_skill_bonus  # 초월자의 관 스킬 보너스
     global soldier_pistol_perk_unlocked  # 권총 퍽 해금 여부
-    global discovered_item_names, cleared_planets
+    global discovered_item_names, cleared_planets, discovered_perk_names, discovered_boss_ids
 
     try:
         # 기본 데이터 복원
@@ -83479,6 +83500,8 @@ def apply_loaded_progress(save_data: dict) -> bool:
         deposit_pending_interest_rates = save_data.get("deposit_pending_interest_rates", {})
         cleared_planets = list(save_data.get("cleared_planets", []))
         discovered_item_names = set(save_data.get("discovered_items", []))
+        discovered_perk_names = set(save_data.get("discovered_perks", []))
+        discovered_boss_ids = set(save_data.get("discovered_bosses", []))
 
         # 캐릭터 타입 복원
         char_type = save_data.get("character_type", "smasher")
@@ -121244,6 +121267,8 @@ def show_victory_screen(stage_cleared, reward):
     global cleared_planets
     if display_stage_cleared not in cleared_planets:
         cleared_planets.append(display_stage_cleared)
+    # 도감용 보스 발견 기록 (영구)
+    mark_boss_discovered(display_stage_cleared)
 
     # ========== 스테이지 클리어 시 선택지 UI는 더 이상 표시하지 않음 ==========
     # 옵티머스 스킬 선택은 게이지가 400/300에 도달했을 때 게임 중 표시됨

@@ -6781,6 +6781,7 @@ class BuildingInterior:
         elif self.codex_type == "perks":
             try:
                 runtime_levels = getattr(runtime_module, 'runtime_skill_levels', {}) if runtime_module else {}
+                discovered_perks = set(getattr(runtime_module, 'discovered_perk_names', set()) or []) if runtime_module else set()
                 # 모든 스킬 풀에서 퍽만 수집 (스킬 해금 "_unlock" 트리 제외)
                 skill_pools = []
                 for pool_name in ('RUNTIME_SKILL_POOL', 'SMASHER_EXCLUSIVE_SKILLS',
@@ -6800,8 +6801,8 @@ class BuildingInterior:
                         tree = skill_info.get("tree", "")
                         if tree.endswith("_unlock"):
                             continue
-                        level = runtime_levels.get(skill_id, 0)
-                        unlocked = level > 0
+                        # 영구 기록 또는 현재 세션에서 해금
+                        unlocked = skill_id in discovered_perks or runtime_levels.get(skill_id, 0) > 0
                         name_kr = skill_info.get("name", skill_id)
                         icon_color = skill_info.get("icon_color", (150, 150, 150))
                         entries.append({
@@ -6817,9 +6818,10 @@ class BuildingInterior:
             try:
                 boss_names = getattr(runtime_module, 'boss_names', {}) if runtime_module else {}
                 cleared = set(getattr(runtime_module, 'cleared_planets', []) or []) if runtime_module else set()
+                discovered_bosses = set(getattr(runtime_module, 'discovered_boss_ids', set()) or []) if runtime_module else set()
                 for stage_num in range(1, 9):
                     boss_name = boss_names.get(stage_num, f"Stage {stage_num}")
-                    unlocked = stage_num in cleared
+                    unlocked = stage_num in cleared or stage_num in discovered_bosses
                     # 스테이지 1은 항상 해금 (시작 보스)
                     if stage_num == 1:
                         unlocked = True
