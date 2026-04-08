@@ -25,7 +25,7 @@
 | **스턴** | 행동 불가 + 넉백 드리프트만 허용 | ✅ 완전 차단 | ❌ (넉백만) | ❌ (max 덮어쓰기) |
 | **넉백 (스턴형)** | 강제 밀림 + 행동 불가 | ✅ 완전 차단 | 넉백 방향만 | ❌ |
 | **넉백 (화재형)** | 강제 밀림 + 조작 가능 | ❌ | ✅ 동시 이동 가능 | ✅ 누적 |
-| **둔화** | 이동속도 감소 | ❌ | ✅ (느리게) | 부분적 (아래 4.3 참조) |
+| **둔화** | 이동속도 감소 | ❌ | ✅ (느리게) | 3계층 혼합 (4.3 참조) |
 
 ### CC 처리 흐름
 ```
@@ -39,25 +39,28 @@
 ### 2.1 핵심 변수
 
 #### 플레이어 스턴
-| 변수 | 파일:라인 | 용도 |
-|------|----------|------|
-| `player_stunned_timer` | pingfighter.py:29157 | 메인 스턴 타이머 (프레임 단위) |
-| `player_missile_stunned_timer` | pingfighter.py:27093 | 미사일 폭발 전용 스턴 |
-| `rolling_stun_timer` | core/player_state.py:73-78 | 대시 후 경직 (바이퍼 전용) |
-| `smasher_power_recoil_stun_pending` | pingfighter.py:29148 | 스매셔 반동 스턴 대기 플래그 |
+| 변수 | 위치 | 용도 |
+|------|------|------|
+| `player_stunned_timer` | pingfighter.py (전역) | 메인 스턴 타이머 (프레임 단위) |
+| `player_missile_stunned_timer` | pingfighter.py (전역) | 미사일 폭발 전용 스턴 |
+| `rolling_stun_timer` | core/player_state.py | 대시 후 경직 (바이퍼 전용) |
+| `smasher_power_recoil_stun_pending` | pingfighter.py (전역) | 스매셔 반동 스턴 대기 플래그 |
 
 #### 보스 스턴
-| 변수 | 파일:라인 | 용도 | 런타임 사용 |
-|------|----------|------|------------|
-| `boss_stunned_timer` | pingfighter.py:146822 | 메인 보스 스턴 타이머 (전역) | ✅ **실제 경로** (14개소에서 직접 할당) |
-| `Boss.is_stunned` / `Boss.stun_timer` | entities/boss.py:98-99 | 엔티티 클래스 스턴 | ❌ **미사용** (Boss.stun() 호출 없음) |
+| 변수 | 용도 | 런타임 사용 |
+|------|------|------------|
+| `boss_stunned_timer` | 범용 보스 스턴 타이머 (전역) | ✅ **주 경로** (여러 런타임 경로에서 직접 할당) |
+| `boss_stun_timer` | 라그나로크 해머 전용 스턴 타이머 (전역) | ✅ **별도 경로** (해머 전용) |
+| `Boss.is_stunned` / `Boss.stun_timer` | 엔티티 클래스 스턴 | ❌ **미사용** (Boss.stun() 호출 없음) |
+
+> **참고**: `boss_stunned_timer`(범용)와 `boss_stun_timer`(라그나로크 해머 전용)는 서로 다른 변수로, 독립적인 스턴 경로를 가진다.
 
 #### 아레나 스턴
-| 변수 | 파일:라인 | 용도 |
-|------|----------|------|
-| `arena_top_dash_stun_timer` | pingfighter.py:24806 | 보스 대시 후 경직 (30프레임) |
-| `arena_bottom_dash_stun_timer` | pingfighter.py:24837 | 플레이어 대시 후 경직 |
-| `_judgment_lightning_stun_top_timer` | pingfighter.py:67076 | 스테이지30 번개 스턴 (2초) |
+| 변수 | 위치 | 용도 |
+|------|------|------|
+| `arena_top_dash_stun_timer` | pingfighter.py (전역) | 보스 대시 후 경직 (30프레임) |
+| `arena_bottom_dash_stun_timer` | pingfighter.py (전역) | 플레이어 대시 후 경직 |
+| `_judgment_lightning_stun_top_timer` | pingfighter.py (전역) | 스테이지30 번개 스턴 (2초) |
 
 ### 2.2 스턴 적용 함수
 
@@ -89,20 +92,20 @@ def try_apply_player_stun(stun_seconds, source="", knockback_scaled=False):
 
 > **주의**: `entities/boss.py`에 `Boss.stun(duration)` 메서드가 정의되어 있으나,
 > 실제 게임 런타임에서는 **한 번도 호출되지 않는다** (grep 확인 완료).
-> 보스 스턴은 전부 `pingfighter.py`의 전역 변수 직접 할당으로 처리된다.
+> 보스 스턴은 `pingfighter.py`의 여러 런타임 경로에서 전역 변수 직접 할당으로 처리된다.
 
 ```python
-# 실제 런타임 경로 (pingfighter.py, 14개소 이상에서 직접 할당)
-boss_stunned_timer = max(boss_stunned_timer, int(stun_duration * 60))
+# 실제 런타임 경로 (pingfighter.py, 여러 런타임 경로에서 직접 할당)
+# 패턴: boss_stunned_timer = max(boss_stunned_timer, stun_frames)
+# 주요 소스: 슬링샷, 딸기폭탄, 뿔돌진, 수류탄, 터렛, 자폭드론,
+#           헤드샷, AK47, 옵티머스 팔, 다크 폭발 등
+```
 
-# 예시 호출 위치:
-# L22227 - 슬링샷 총알 히트
-# L22240 - 딸기 폭탄 히트
-# L22536 - 뿔돌진 스킬
-# L31548 - 수류탄 폭발
-# L56912 - 자폭 드론
-# L72543 - 헤드샷
-# L72693 - AK47
+추가로 `boss_stun_timer`(라그나로크 해머 전용)는 별도 경로:
+```python
+# pingfighter.py (라그나로크 해머 전용 스턴)
+boss_stun_timer = ragnarok_stun_pending  # 해머 히트 시 설정
+# handle_boss 내에서 boss_stunned_timer와 독립적으로 감소/처리
 ```
 
 ### 2.3 스턴의 게임플레이 영향
@@ -236,22 +239,24 @@ if rolling_stun_timer > 0:
 ### 3.2 핵심 변수
 
 #### 플레이어 넉백
-| 변수 | 파일:라인 | 용도 |
-|------|----------|------|
-| `player_knockback_vel` | pingfighter.py:146864 | 스턴 상태 좌우 밀림 속도 |
-| `player_fire_knockback_vel` | pingfighter.py:146844 | 화재/패들 히트 넉백 (조작 가능) |
-| `player_missile_knockback_vel` | pingfighter.py:27811 | 스테이지6 미사일 넉백 |
-| `player_flame_zone_knockback_vel` | pingfighter.py | 화염 지대 넉백 |
-| `player_knockback_y` | pingfighter.py:146870 | Y축 넉백 (화상용) |
+| 변수 | 용도 |
+|------|------|
+| `player_knockback_vel` | 스턴 상태 좌우 밀림 속도 |
+| `player_fire_knockback_vel` | 화재/패들 히트 넉백 (조작 가능) |
+| `player_missile_knockback_vel` | 스테이지6 미사일 넉백 |
+| `player_flame_zone_knockback_vel` | 화염 지대 넉백 |
+| `player_knockback_y` | Y축 넉백 (화상용) |
 
 #### 보스 넉백
-| 변수 | 파일:라인 | 용도 |
-|------|----------|------|
-| `boss_knockback_vel` | pingfighter.py:146873 | 좌우 밀림 속도 |
-| `boss_fire_knockback_vel` | pingfighter.py:146845 | 화재 넉백 |
-| `boss_knockback_timer` | pingfighter.py:146882 | 넉백 지속 프레임 |
-| `boss_knockback_active` | pingfighter.py:59193 | 패들 히트 넉백 활성 플래그 |
-| `boss_knockback_offset_x/y` | pingfighter.py:59194-59195 | 시각적 오프셋 |
+| 변수 | 용도 |
+|------|------|
+| `boss_knockback_vel` | 좌우 밀림 속도 |
+| `boss_fire_knockback_vel` | 화재 넉백 |
+| `boss_knockback_timer` | 넉백 지속 프레임 |
+| `boss_knockback_active` | 패들 히트 넉백 활성 플래그 |
+| `boss_knockback_offset_x/y` | 시각적 오프셋 |
+
+> 모든 넉백 변수는 `pingfighter.py` 전역 스코프에 정의되어 있다.
 
 ### 3.3 넉백 스케일링 시스템
 
@@ -535,10 +540,26 @@ if umbrella_guarding:
     speed_factor *= BLACKSMITH_UMBRELLA_MOVE_MULTIPLIER  # 우산 (독립)
 ```
 
+#### 계층 3: 최종 move_speed 승수 — 별도 파이프라인
+
+그물덫총과 솜사탕 폭탄은 `speed_factor`가 아니라 최종 `move_speed`에 직접 곱해진다.
+이 경로는 handle_player의 speed_factor 체인 바깥에서 별도로 적용된다.
+
+```python
+# 그물덫총 (net_gun.py → pingfighter.py 이동 계산부)
+net_gun = get_net_gun_instance()
+speed_multiplier *= net_gun.get_player_speed_multiplier()  # 0.7 (30% 감속)
+
+# 솜사탕 폭탄 (pingfighter.py 이동 계산부)
+if cotton_bomb_slow_timer > 0:
+    move_speed *= COTTON_BOMB_SLOW_MULTIPLIER              # 0.5 (50% 감속)
+```
+
 **핵심 정리**:
 - 계층 1 (눈물/자기장/표창): **단일 슬롯 덮어쓰기** — 동시에 2개가 걸리면 마지막이 이김
-- 계층 2 (포승줄/거미줄/우산/홀드): **곱연산 누적** — 이들끼리는 독립 중첩
-- 계층 1 + 계층 2: 곱연산 — 예: 표창(0.2) × 거미줄(0.4) = 0.08 (92% 감속)
+- 계층 2 (포승줄/거미줄/우산/홀드): **speed_factor 곱연산** — 이들끼리는 독립 중첩
+- 계층 3 (그물덫총/솜사탕 폭탄): **move_speed 승수** — speed_factor 체인 바깥에서 별도 적용
+- 계층 1 + 계층 2 + 계층 3: 전부 곱연산 — 예: 표창(0.2) × 거미줄(0.4) × 그물(0.7) = 0.056
 - **하한선 없음** — 이론상 이동 불가 수준까지 감속 가능
 
 ### 4.4 둔화 시각 효과
@@ -688,7 +709,7 @@ if _viper_ss_hologram_active:
 
 1. **전역 변수 과다**: 스턴/넉백/둔화 모두 전역 변수로 관리 (`player_stunned_timer`, `boss_knockback_vel` 등). 상태 객체로 캡슐화하면 초기화 누락 버그 예방 가능.
 
-2. **중복 스턴 변수**: `boss_stunned_timer`(pingfighter.py:22221)와 `boss_stun_timer`(pingfighter.py:154285), `Boss.stun_timer`(entities/boss.py) 3개가 별도 존재. 동기화 실수 위험.
+2. **보스 스턴 변수 3계통**: `boss_stunned_timer`(범용), `boss_stun_timer`(라그나로크 해머 전용), `Boss.stun_timer`(엔티티 클래스, 미사용)가 별도 존재. 범용과 해머 전용은 독립 경로로 정상 동작하나, 엔티티 클래스의 것은 데드코드. 향후 혼동 위험.
 
 3. **넉백 타입이 변수명으로만 구분**: `player_knockback_vel` vs `player_fire_knockback_vel` vs `player_missile_knockback_vel`이 각각 다른 동작(조작 차단/허용, 감쇠율 등)을 하지만 명시적 타입 없이 변수명으로만 구분.
 
