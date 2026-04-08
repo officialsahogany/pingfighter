@@ -23472,6 +23472,11 @@ def _build_sound_id_map():
     for name, snd in sound_effects.items():
         if snd is not None:
             _sound_id_map[id(snd)] = name
+    # items.py 자체 사운드도 매핑 (리플레이 녹음용)
+    if items.SOUND_ITEM_GET is not None:
+        _sound_id_map[id(items.SOUND_ITEM_GET)] = 'ITEM_GET'
+    if items.SOUND_LUCKY_SPAWN is not None:
+        _sound_id_map[id(items.SOUND_LUCKY_SPAWN)] = 'sounds/clue.wav'
     print(f"[Replay] 사운드 매핑 구축: {len(_sound_id_map)}개")
 
 def play_sound_with_volume(sound, volume=None):
@@ -23754,6 +23759,18 @@ def stop_dash_delay_sound():
             _dash_delay_channel.fadeout(100)  # 100ms 페이드아웃
     except Exception:
         pass
+
+class _ReplaySoundProxy:
+    """Sound.play() 호출을 play_sound_with_volume()으로 중계하여 리플레이에 녹음되게 하는 래퍼"""
+    def __init__(self, sound):
+        self._sound = sound
+    def play(self):
+        if self._sound:
+            play_sound_with_volume(self._sound)
+    def __bool__(self):
+        return bool(self._sound)
+
+# SOUND_ITEM_GET_PROXY는 SOUND_ITEM_GET 정의 이후에 생성됨 (아래 sound_effects 블록 참조)
 
 def play_active_item_sound():
     """아이템 사용 사운드 재생"""
@@ -24450,6 +24467,8 @@ else:
 
 # 🎬 리플레이 사운드 역매핑 테이블 구축 (sound_effects 초기화 직후)
 _build_sound_id_map()
+# items.py에 리플레이 녹음 콜백 등록 (순환 import 방지)
+items.set_play_sound_fn(play_sound_with_volume)
 
 SOUND_SERVE = sound_effects['SERVE']
 SOUND_STAGE_START = sound_effects.get('STAGE_START')
@@ -24547,6 +24566,8 @@ SOUND_NINJA_SHIELD = sound_effects['NINJA_SHIELD']
 SOUND_DIVINE_SHIELD = sound_effects['DIVINE_SHIELD']
 SOUND_DIVINE_UPGRADE = sound_effects['DIVINE_UPGRADE']
 SOUND_ITEM_GET = sound_effects['ITEM_GET']
+# items.update_items()에 전달할 래퍼 (Sound.play() → play_sound_with_volume 경유)
+SOUND_ITEM_GET_PROXY = _ReplaySoundProxy(SOUND_ITEM_GET)
 SOUND_NOTIFICATION = sound_effects['NOTIFICATION']
 SOUND_HONGRYUN_CHARGE = sound_effects['HONGRYUN_CHARGE']
 SOUND_HONGRYUN_SHOOT = sound_effects['HONGRYUN_SHOOT']
@@ -165893,7 +165914,7 @@ def main(stage_num, new_boss_mode=False):
                 # 온라인 클라이언트는 아이템 물리/획득 처리 안 함 (호스트가 관리, 클라이언트는 표시만)
                 is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
                 if not (online_multiplayer_enabled and not online_is_host):
-                    items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused, boss_rect=BOSS)
+                    items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET_PROXY, paused=is_tutorial_paused, boss_rect=BOSS)
 
                     # 온라인 호스트: BOSS(클라이언트) 위치의 아이템 충돌 체크
                     if online_multiplayer_enabled and online_is_host:
@@ -169211,7 +169232,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
         try:
             # 튜토리얼 일시정지 시 아이템 이동/회전 정지 (두 가지 방식 모두 체크)
             is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
-            items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused, boss_rect=BOSS)
+            items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET_PROXY, paused=is_tutorial_paused, boss_rect=BOSS)
             if not is_tutorial_paused:
                 update_quest_tablets()
         except Exception:
