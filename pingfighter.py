@@ -22241,10 +22241,13 @@ def update_horn_strawberry_transform(keys, dt):
     """뿔딸기 변신 시스템 매 프레임 업데이트.
     메인 게임 루프에서 호출. 반환: 변신 상태 객체 or None"""
     global boss_stunned_timer, screen_shake_timer, screen_shake_intensity, boss_knockback_vel
-    global boss_speed_reduction_active, boss_speed_reduction_factor
+    global boss_speed_reduction_active, boss_speed_reduction_factor, boss_strawberry_paint_slowed
     ts = _get_horn_strawberry_transform()
     if ts is None or not ts.active:
+        boss_strawberry_paint_slowed = False
         return None
+    # 매 프레임 초기화 후 조건 충족 시 다시 True로 설정
+    boss_strawberry_paint_slowed = False
 
     # 커맨드 입력 감지 (A→W→D)
     if ts.update_command_input(keys, dt):
@@ -22321,6 +22324,7 @@ def update_horn_strawberry_transform(keys, dt):
                 boss_speed_reduction_active = True
                 boss_speed_reduction_factor = min(boss_speed_reduction_factor,
                                                    1.0 - 0.30)  # 30% 감소
+                boss_strawberry_paint_slowed = True
 
     # 변신 해제 후에도 장판 업데이트 유지 (공반사 + 건설/파괴)
     if not ts.is_transformed and ts.strawberry_field.needs_runtime_update():
@@ -22337,6 +22341,7 @@ def update_horn_strawberry_transform(keys, dt):
                 boss_speed_reduction_active = True
                 boss_speed_reduction_factor = min(boss_speed_reduction_factor,
                                                    1.0 - 0.30)
+                boss_strawberry_paint_slowed = True
 
     return ts
 
@@ -63002,6 +63007,14 @@ def draw_spider_mine_slow_effect(screen):
         screen.blit(wave_surface, wave_rect)
 
     # 텍스트 알림 제거 (시각 효과만 유지)
+
+def draw_strawberry_paint_slow_effect(screen):
+    """딸기페인트 둔화 시각 효과 - 보스가 딸기장판 위에 있을 때 분홍색 둔화 웨이브"""
+    if boss_strawberry_paint_slowed and BOSS:
+        wave_surface = create_slow_wave_surface(132, 56, (255, 100, 140), intensity=0.85)
+        wave_rect = wave_surface.get_rect(midbottom=(BOSS.centerx, BOSS.top + 8))
+        screen.blit(wave_surface, wave_rect)
+
 def install_smoke_grenade():
     """연막탄 즉시 설치 (설치류 아이템)"""
     global smoke_grenades, PLAYER, smoke_grenade_target_x, smoke_grenade_target_y
@@ -118453,6 +118466,9 @@ def draw_objects():
     # === 스파이더지뢰 둔화 효과 그리기 ===
     draw_spider_mine_slow_effect(SCREEN)
 
+    # === 딸기페인트 둔화 효과 그리기 ===
+    draw_strawberry_paint_slow_effect(SCREEN)
+
     # === 헤드샷 효과 그리기 ===
     if selected_character_type == "soldier":
         draw_head_shot_effect(SCREEN)
@@ -146842,6 +146858,7 @@ boss_knockback_vel = 0        # 좌우 튕김 속도
 #  화염 지대 내 보스 속도 감소 효과
 boss_speed_reduction_active = False  # 보스가 화염 지대 안에 있는지
 boss_speed_reduction_factor = 1.0    # 속도 감소 배율 (1.0 = 정상속도)
+boss_strawberry_paint_slowed = False  # 보스가 딸기페인트 장판 위에 있는지 (둔화 이펙트용)
 #  🔥 화재 날씨 이벤트 넉백 전용 변수 (스턴 없이 점진적 감속)
 player_fire_knockback_vel = 0.0      # 플레이어 화재 넉백 속도
 boss_fire_knockback_vel = 0.0        # 보스 화재 넉백 속도
