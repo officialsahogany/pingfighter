@@ -159636,7 +159636,7 @@ def main(stage_num, new_boss_mode=False):
         except Exception as _re:
             print(f"[Replay] 녹화 시작 실패: {_re}")
     else:
-        print("[Replay] 리플레이 자동저장 비활성화 — 녹화 건너뜀")
+        print("[Replay] 리플레이 자동저장 비활성화 - 녹화 건너뜀")
 
     # BGM 볼륨 초기화
     global bgm_volume

@@ -150,7 +150,7 @@ class ReplayRecorder:
             self._thread.start()
 
             self.recording = True
-            print(f"[Replay] 녹화 시작 — Stage {stage}, {self.scaled_w}x{self.scaled_h} @{60//CAPTURE_INTERVAL}fps (비동기)")
+            print(f"[Replay] 녹화 시작 - Stage {stage}, {self.scaled_w}x{self.scaled_h} @{60//CAPTURE_INTERVAL}fps (비동기)")
         except Exception as e:
             print(f"[Replay] 녹화 파일 생성 실패: {e}")
             self.recording = False
@@ -172,7 +172,7 @@ class ReplayRecorder:
         if len(self._queue) >= MAX_PENDING_FRAMES:
             self.dropped_frames += 1
             if self.dropped_frames == 1 or self.dropped_frames % 60 == 0:
-                print(f"[Replay] 압축 큐 포화 — 캡처 스킵 {self.dropped_frames}프레임")
+                print(f"[Replay] 압축 큐 포화 - 캡처 스킵 {self.dropped_frames}프레임")
             return
 
         try:
@@ -214,15 +214,16 @@ class ReplayRecorder:
         self.metadata['total_frames'] = self.captured_frames
         self.metadata['sound_events'] = self.sound_events
         self.metadata['dropped_frames'] = self.dropped_frames
-        if self.metadata['duration'] > 0 and self.captured_frames > 0:
+        if self.dropped_frames > 0 and self.metadata['duration'] > 0 and self.captured_frames > 0:
+            nominal_fps = max(1, int(self.metadata.get('capture_fps', 60) or 60))
             effective_fps = max(1, int(round(self.captured_frames / self.metadata['duration'])))
-            self.metadata['capture_fps'] = effective_fps
+            self.metadata['capture_fps'] = min(nominal_fps, effective_fps)
         if result:
             self.metadata['result'] = result
 
         remaining = len(self._queue)
         print(
-            f"[Replay] 녹화 중지 — {self.captured_frames}프레임, "
+            f"[Replay] 녹화 중지 - {self.captured_frames}프레임, "
             f"{self.metadata['duration']:.1f}초, 큐 잔여: {remaining}, "
             f"스킵: {self.dropped_frames}"
         )
