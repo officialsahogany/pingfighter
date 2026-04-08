@@ -123832,7 +123832,7 @@ def _replay_rename_dialog(current_name: str) -> str:
         cursor_ch = "|" if (cursor_blink // 30) % 2 == 0 else ""
         # 조합 중인 텍스트를 밑줄로 표시
         display = input_text + composing_text + cursor_ch
-        its = get_font(18).render(display, True, (220, 230, 240))
+        its = get_font(18).render(display or " ", True, (220, 230, 240))
         SCREEN.blit(its, (fr.x + 8, fr.y + 8))
         # 조합 중 밑줄
         if composing_text:
@@ -124929,11 +124929,17 @@ def _play_replay(filepath: str):
     sound_events = {int(k): v for k, v in sound_events.items()}
     _replay_sounds = _get_replay_sound_bank()
     _default_replay_sfx_volume = float(rp.metadata.get('sfx_volume', sfx_volume))
-    _last_played_frame = -1
 
-    # 🎵 스테이지 BGM 재생
+    # 🎵 BGM 재생 — 녹화 시 저장된 트랙/볼륨 메타데이터 우선 사용
     try:
-        bgm_manager.play_stage_bgm(stage)
+        _replay_bgm_track = rp.metadata.get('bgm_track')
+        _replay_bgm_vol = rp.metadata.get('bgm_volume')
+        if _replay_bgm_track:
+            bgm_manager.play_bgm(_replay_bgm_track)
+            if _replay_bgm_vol is not None:
+                bgm_manager.set_bgm_volume(float(_replay_bgm_vol))
+        else:
+            bgm_manager.play_stage_bgm(stage)
     except Exception:
         pass
 
@@ -125018,24 +125024,24 @@ def _play_replay(filepath: str):
                 dragging_timeline = False
 
         # 프레임 진행 + 사운드 이벤트 재생
-        surf = rp.advance()
-        # 현재 프레임에 사운드 이벤트가 있으면 재생
-        cur_idx = rp.current_index
-        if cur_idx != _last_played_frame and cur_idx in sound_events and rp.playing:
-            _last_played_frame = cur_idx
-            for entry in sound_events[cur_idx]:
-                sid, replay_volume = _parse_replay_sound_event(entry, _default_replay_sfx_volume)
-                snd = _replay_sounds.get(sid)
-                # 경로 기반 사운드 (play_cached_sound로 녹음된 것) 동적 로드
-                if snd is None and sid and ('/' in sid or '\\' in sid):
-                    snd = get_cached_sound(sid)
-                    if snd:
-                        _replay_sounds[sid] = snd
-                if snd:
-                    try:
-                        play_sound_with_volume(snd, replay_volume)
-                    except Exception:
-                        pass
+        surf, (snd_start, snd_end) = rp.advance()
+        # advance()가 소비한 프레임 범위(start <= i < end)의 사운드를 모두 재생
+        if snd_start >= 0 and snd_end > snd_start and rp.playing:
+            for fi in range(snd_start, snd_end):
+                if fi in sound_events:
+                    for entry in sound_events[fi]:
+                        sid, replay_volume = _parse_replay_sound_event(entry, _default_replay_sfx_volume)
+                        snd = _replay_sounds.get(sid)
+                        # 경로 기반 사운드 (play_cached_sound로 녹음된 것) 동적 로드
+                        if snd is None and sid and ('/' in sid or '\\' in sid):
+                            snd = get_cached_sound(sid)
+                            if snd:
+                                _replay_sounds[sid] = snd
+                        if snd:
+                            try:
+                                play_sound_with_volume(snd, replay_volume)
+                            except Exception:
+                                pass
         if surf is None and not rp.playing and not rp.paused:
             rp.close()
             bgm_manager.stop_bgm()

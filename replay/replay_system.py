@@ -28,9 +28,11 @@ MAX_REPLAYS = 10        # 최대 리플레이 파일 수 (초과 시 가장 오�
 
 
 def _replays_dir() -> str:
-    try:
-        base = sys._MEIPASS
-    except AttributeError:
+    # PyInstaller 빌드에서는 _MEIPASS가 임시 폴더이므로 사용자 데이터 경로 사용
+    if getattr(sys, 'frozen', False):
+        # 패키징 빌드: 실행 파일이 있는 디렉토리에 replays 폴더 생성
+        base = os.path.dirname(sys.executable)
+    else:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, "replays")
 
@@ -56,7 +58,7 @@ class ReplayRecorder:
         self.sound_events: Dict[int, List[Any]] = {}
 
         # 백그라운드 압축 스레드
-        self._queue: deque = deque()
+        self._queue: deque = deque(maxlen=300)  # ~5초 버퍼, 초과 시 오래된 프레임 드롭
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
@@ -408,19 +410,23 @@ class ReplayPlayer:
             return self._current_surface
 
     def advance(self):
-        """매 프레임(60fps) 호출 — 캡처 fps에 맞춰 정속 재생"""
+        """매 프레임(60fps) 호출 — 캡처 fps에 맞춰 정속 재생.
+        Returns (surface, (start_idx, end_idx)) — 이번 호출에서 소비한 프레임 범위.
+        사운드 재생 시 start_idx <= i < end_idx 범위의 이벤트를 모두 처리해야 함.
+        """
         if not self.playing and not self.paused:
-            return None
+            return None, (-1, -1)
         if self.paused:
-            return self.get_frame_surface()
+            return self.get_frame_surface(), (-1, -1)
         if not self.playing:
-            return None
+            return None, (-1, -1)
 
         capture_fps = self.metadata.get('capture_fps', 30)
         step = self.speed * (capture_fps / 60.0)
 
         self.frame_accum += step
         surf = None
+        start_idx = self.current_index
         while self.frame_accum >= 1.0:
             self.frame_accum -= 1.0
             if self.current_index < self.total_frames:
@@ -429,7 +435,8 @@ class ReplayPlayer:
             else:
                 self.stop()
                 break
-        return surf
+        end_idx = self.current_index
+        return surf, (start_idx, end_idx)
 
     @property
     def progress(self) -> float:
@@ -607,7 +614,7 @@ def _cleanup_old_replays():
                 pass
 
     # 2) .rpl 이외의 잔여 리플레이 파일 정리 (.rpg, .mp4 등 이전 포맷)
-    _KEEP_EXTS = {'.rpl', '.tmp', '.json'}
+    _KEEP_EXTS = {'.rpl', '.tmp', '.json', '.mp4'}
     for fn in os.listdir(replay_dir):
         _, ext = os.path.splitext(fn)
         if ext and ext not in _KEEP_EXTS:
