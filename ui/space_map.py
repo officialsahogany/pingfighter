@@ -9377,15 +9377,17 @@ class SpaceMap:
         grain_gap = max(3, int(6 * arena_scale))
         grain_c = (wood_deep[0] + 5, wood_deep[1] + 4, wood_deep[2] + 2, 30)
         for side_y, side_h in [(oy - bw // 2, bw // 2), (oy + fh, bw // 2)]:
-            for gx in range(ox - bw // 2 + 2, ox + fw + bw // 2 - 2, grain_gap):
-                gl = random.randint(3, side_h - 2)
-                pygame.draw.line(brd, grain_c,
-                                 (gx, side_y + 1), (gx, side_y + gl), 1)
+            if side_h >= 5:  # side_h - 2 >= 3 이어야 randint 유효
+                for gx in range(ox - bw // 2 + 2, ox + fw + bw // 2 - 2, grain_gap):
+                    gl = random.randint(3, side_h - 2)
+                    pygame.draw.line(brd, grain_c,
+                                     (gx, side_y + 1), (gx, side_y + gl), 1)
         for side_x, side_w in [(ox - bw // 2, bw // 2), (ox + fw, bw // 2)]:
-            for gy in range(oy + 2, oy + fh - 2, grain_gap):
-                gl = random.randint(3, side_w - 2)
-                pygame.draw.line(brd, grain_c,
-                                 (side_x + 1, gy), (side_x + gl, gy), 1)
+            if side_w >= 5:  # side_w - 2 >= 3 이어야 randint 유효
+                for gy in range(oy + 2, oy + fh - 2, grain_gap):
+                    gl = random.randint(3, side_w - 2)
+                    pygame.draw.line(brd, grain_c,
+                                     (side_x + 1, gy), (side_x + gl, gy), 1)
 
         # ===== 4. 장지문 격자 프리즈 =====
         shoji_gap = max(4, int(10 * arena_scale))
