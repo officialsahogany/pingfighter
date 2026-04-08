@@ -1,6 +1,6 @@
 # PingFighter Performance Optimization Code Review
 > Codex Code Review Document | 2026-04-09 | feature/refactor-ui
-> **v2** - 런타임 통합 여부 검증 반영 (미통합 코드 분리)
+> **v3** - 프로파일러 section timing 활성 상태 반영, line reference 수정
 
 ---
 
@@ -30,7 +30,7 @@
 |---|---------|------|------|
 | 8 | [optimization_patch.py 전체](#9-optimization_patchpy) | optimization_patch.py | **미통합** - import 없음 |
 | 9 | [자동 품질 조절 시스템](#10-자동-품질-조절-시스템) | core/performance_optimizer.py | **미통합** - import 없음 |
-| 10 | [프로파일링 시스템](#11-프로파일링--모니터링) | core/profiler.py | **부분 통합** - 초기화만, 계측 API 미사용 |
+| 10 | [프로파일링 시스템](#11-프로파일링--모니터링) | core/profiler.py | **부분 통합** - FPS/메모리/섹션 타이밍 활성, draw_call/particle 카운터 미사용 |
 | 11 | [시간 캐싱 헬퍼](#12-시간-캐싱-헬퍼-미완료) | pingfighter.py | **미완료** - 정의만, 호출처 0곳 |
 | 12 | [리소스 캐시 (LRU)](#13-리소스-캐시-lru) | managers/resource_manager.py | **미통합** - 메인에서 미사용 |
 
@@ -417,20 +417,28 @@ if self.quality_level < 0.6: self.reduce_shadows = True
 ## 11. 프로파일링 & 모니터링
 
 **파일**: `core/profiler.py`
-**상태**: **부분 통합** — `pingfighter.py:2559`에서 import, `pingfighter.py:11331`에서 `init_profiler(SCREEN, enabled=True)` 호출. 그러나 계측 API(`count_draw_call()`, `count_particle()`, `count_ui_element()`, `start_section()`, `end_section()`)의 호출처가 코드베이스에 **0곳**.
+**상태**: **부분 통합** — `pingfighter.py:2559`에서 import, `pingfighter.py:11383`에서 `init_profiler(SCREEN, enabled=True)` 호출.
+
+**활성 기능**:
+- FPS, frame_time, memory — 자동 수집
+- `start_section()` / `end_section()` — 메인 루프 4개 섹션에서 사용 중:
+  - `pingfighter.py:161947` — `start_section("Input")`
+  - `pingfighter.py:163609` — `end_section("Input")` + `start_section("Events")`
+  - `pingfighter.py:165205` — `end_section("Events")` + `start_section("GameLogic")`
+  - `pingfighter.py:168070` — `end_section("GameLogic")` + `start_section("Rendering")`
+  - `pingfighter.py:168438` — `end_section("Rendering")` + `profiler.draw()`
 
 ```python
 # 현재 유효한 기능: FPS, frame_time, memory (자동 수집)
+#                   section_times: Input, Events, GameLogic, Rendering (4섹션 활성)
 # 현재 무효한 기능: draw_calls, particles, ui_elements (카운터 항상 0)
-#                   section_times (start/end 호출 없음)
 #                   최적화 제안 중 draw_call/particle 기반 항목 (항상 미트리거)
 ```
 
-**`GameProfiler.draw()`**: `visible` 토글 기능이 있지만, 토글 키 바인딩이 연결되어 있는지 확인 필요.
-
 ### Review Notes
-- FPS/메모리 자동 수집은 동작하므로 오버레이 표시 시 기본적인 모니터링은 가능
-- 계측 API를 게임 루프 핵심 지점에 삽입하면 활성화 가능하지만, 현재는 사실상 빈 껍데기
+- FPS/메모리 자동 수집 + 4개 섹션 타이밍이 동작하므로 병목 구간 식별에 유용
+- `count_draw_call()`, `count_particle()`, `count_ui_element()` 카운터 API는 호출처 없음 → 해당 메트릭은 항상 0
+- 최적화 제안 시스템 중 draw_call/particle 기반 항목은 사실상 트리거되지 않음
 
 ---
 
@@ -457,7 +465,7 @@ TWO_SECONDS_FRAMES = 120
 THREE_SECONDS_FRAMES = 180
 ```
 
-**메인 루프 갱신 코드** (`pingfighter.py:161759-161761`):
+**메인 루프 갱신 코드** (`pingfighter.py:161816-161817`):
 ```python
 _current_frame_ticks = now_ms    # 값은 매 프레임 갱신됨
 _frame_counter += 1              # 카운터도 증가함
@@ -533,7 +541,7 @@ self.font_cache = ResourceCache(max_size=20)     # 폰트
 |------|------|------------|----------|
 | `optimization_patch.py` 전체 | 미통합 | 중 | 중복 (기존 캐시로 충분) |
 | `core/performance_optimizer.py` | 미통합 | 상 | 자동 품질 조절 — FPS 저하 시 유용 |
-| `core/profiler.py` 계측 API | 부분 통합 | 하 | 병목 진단에 즉시 활용 가능 |
+| `core/profiler.py` 카운터 API | 부분 통합 (섹션 타이밍은 활성) | 하 | draw_call/particle 카운터 연결 시 추가 진단 가능 |
 | `get_frame_ticks()` 전면 대체 | 미완료 (699곳) | 중 | 미미 (get_ticks() 자체 비용 작음) |
 | `ResourceCache` | 미통합 | 중 | 중복 (기존 캐시로 충분) |
 
@@ -541,7 +549,7 @@ self.font_cache = ResourceCache(max_size=20)     # 폰트
 
 | 우선순위 | 항목 | 현재 | 권장 |
 |---------|------|------|------|
-| **P1** | 프로파일러 계측 API 연결 | init만 됨, 카운터 미사용 | 게임 루프 핵심 지점에 `start_section()`/`end_section()` 삽입 — 병목 진단에 즉시 유용 |
+| **P1** | 프로파일러 카운터 API 연결 | 섹션 타이밍 활성, draw_call/particle/ui 카운터 미사용 | `count_draw_call()`/`count_particle()` 삽입 — 렌더링 부하 정량 진단에 유용 |
 | **P1** | 자동 품질 조절 통합 검토 | 미통합 | 저사양 PC에서 FPS 유지에 효과적. `reduce_particles` 플래그를 파티클 생성 코드에 연결 |
 | **P2** | 16종 개별 캐시 딕셔너리 | 각각 독립 관리 | 통합 CacheManager 클래스 (크기 제한, LRU, 모니터링) |
 | **P2** | 패들 캐시 eviction | O(n) 절반 삭제 | `collections.OrderedDict` 기반 O(1) LRU |
@@ -561,3 +569,4 @@ self.font_cache = ResourceCache(max_size=20)     # 폰트
 
 *이 문서는 PingFighter 코드베이스의 프레임드랍 방지 최적화 코드를 코드 리뷰 관점에서 정리한 것입니다.*
 *v2 (2026-04-09): 런타임 통합 여부 검증 반영. 미통합 코드를 Part B로 분리.*
+*v3 (2026-04-09): 프로파일러 section timing 활성 상태 반영, line reference 수정.*
