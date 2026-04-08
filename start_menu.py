@@ -508,7 +508,7 @@ def _run_ai_play_flow(ctx: MenuContext) -> bool:
 
     char_id, _ = ai_chars[selected]
     ctx.start_ai_play(character=char_id)
-    return True
+    return False
 
 
 def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
@@ -539,7 +539,7 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
                     if choice == "온라인 대전":
                         if hasattr(ctx, 'start_online_multiplayer') and ctx.start_online_multiplayer:
                             ctx.start_online_multiplayer()
-                            return True
+                            return False
                         return False
                     return False  # 뒤로
                 elif ev.key == pygame.K_ESCAPE:
@@ -558,7 +558,7 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
                         if opt == "온라인 대전":
                             if hasattr(ctx, 'start_online_multiplayer') and ctx.start_online_multiplayer:
                                 ctx.start_online_multiplayer()
-                                return True
+                                return False
                             return False
                         return False
 
@@ -1841,18 +1841,18 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                     if character == "__TUTORIAL__":
                         ctx.set_tutorial_mode(True)
                         ctx.start_game_with_difficulty("ufo_player", "junior")
-                        return True
+                        return False
                     if character is not None:
                         difficulty = ctx.show_difficulty_selection()
                         if difficulty is not None:
                             ctx.set_tutorial_mode(False)
                             ctx.start_game_with_difficulty(character, difficulty)
-                    return True
+                            return False
+                    # 캐릭터/난이도 선택 취소 시 모드 선택 화면으로 복귀
+                    continue
                 else:
                     # 투기장 하위 선택
-                    result = _show_arena_sub_selection(ctx, state)
-                    if result:
-                        return True
+                    _show_arena_sub_selection(ctx, state)
                     # 돌아오면 계속 루프
                     continue
 
@@ -1882,9 +1882,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                     ctx.play_click_sound()
                     if selected == 1:
                         # 투기장 → 즉시 하위 선택으로
-                        result = _show_arena_sub_selection(ctx, state)
-                        if result:
-                            return True
+                        _show_arena_sub_selection(ctx, state)
                     else:
                         click_anim = {"card": selected, "timer": 0.0, "dur": 0.3}
 
@@ -1912,9 +1910,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                         ctx.play_click_sound()
                         if i == 1:
                             # 투기장 → 즉시 하위 선택으로
-                            result = _show_arena_sub_selection(ctx, state)
-                            if result:
-                                return True
+                            _show_arena_sub_selection(ctx, state)
                         else:
                             click_anim = {"card": i, "timer": 0.0, "dur": 0.3}
 
@@ -2072,7 +2068,7 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                 click_anim = None
                 if chosen == 0:
                     ctx.start_arena_dev()
-                    return True
+                    return False
                 elif chosen == 1:
                     # 도장깨기 준비 중
                     preparing_timer = 2.0
@@ -3347,7 +3343,7 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
                 if not getattr(pf_module, 'game_should_exit', False):
                     pingfighter_main(next_stage_display)
 
-                return True
+                return False
             else:
                 print("[계속하기] 저장 데이터 없음")
         except Exception as e:
@@ -3373,10 +3369,10 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
         return False
     if choice == "크레딧":
         ctx.show_credits_screen()
-        return True
+        return False
     if choice == "개발자":
         ctx.show_developer_stage_select()
-        return True
+        return False
     return False
 
 

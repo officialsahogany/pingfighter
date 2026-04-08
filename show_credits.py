@@ -15,7 +15,6 @@ def show_credits_screen():
         HEIGHT,
         FontStyle,
         SimpleMenuBackground,
-        show_start_screen,
     )
 
     # 심플 배경
@@ -148,5 +147,5 @@ def show_credits_screen():
 
         pygame.display.flip()
 
-    # 메인 메뉴로 복귀
-    show_start_screen()
+    # 메인 메뉴로 복귀 (호출자에게 return하여 메뉴 루프가 계속되도록 함)
+    return
