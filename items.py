@@ -86,6 +86,23 @@ try:
 except:
     SOUND_LUCKY_SPAWN = None
 
+# 리플레이 녹음 지원: pingfighter에서 콜백 등록 (순환 import 방지)
+_play_sound_fn = None  # play_sound_with_volume 콜백
+
+def set_play_sound_fn(fn):
+    """pingfighter.py에서 play_sound_with_volume 콜백 등록"""
+    global _play_sound_fn
+    _play_sound_fn = fn
+
+def _play_sound(sound):
+    """사운드 재생 — 콜백 등록 시 리플레이 녹음 경유, 미등록 시 직접 재생"""
+    if sound is None:
+        return
+    if _play_sound_fn:
+        _play_sound_fn(sound)
+    else:
+        sound.play()
+
 LONG_BOOST_ICON = None  # 이미지 로딩은 main에서 처리됨
 
 # 아이템 아이콘 dictionary
@@ -2668,7 +2685,7 @@ def _spawn_bonus_item(available_items, skill_spawn_boost=1.0):
     # 보너스 스폰 효과음 재생
     if SOUND_LUCKY_SPAWN:
         try:
-            SOUND_LUCKY_SPAWN.play()
+            _play_sound(SOUND_LUCKY_SPAWN)
         except Exception:
             pass
 
@@ -2770,7 +2787,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                 else:
                     if SOUND_ITEM_GET:
                         try:
-                            SOUND_ITEM_GET.play()
+                            _play_sound(SOUND_ITEM_GET)
                         except Exception as e:
                             print(f"   : {e}")
         else:
