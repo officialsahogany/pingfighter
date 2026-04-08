@@ -4815,165 +4815,100 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         pygame.draw.circle(surface, shadow_color, (skull_x + 1, skull_y - 1), 1)
 
     elif skill_name == "marshal_kick":
-        # 🦶 마샬 킥: 발차기 + 타격 이펙트
+        # 🦶 마샬 킥: 발바닥 킥 아이콘 (참고 이미지 기반 - 구슬 안에 맞게)
 
-        # 다리 (허벅지→무릎→종아리, 대각선 킥 포즈)
-        hip_x = cx - s * 2 // 5
-        hip_y = cy + s // 3
-        knee_x = cx - s // 8
-        knee_y = cy + s // 8
-        ankle_x = cx + s // 3
-        ankle_y = cy - s // 6
+        # 발바닥 (타원형, 오른쪽 위를 향해 차는 모양)
+        foot_cx = cx + s // 10
+        foot_cy = cy - s // 10
 
-        # 다리 두께
-        leg_w = max(3, s // 3)
-        leg_w_thin = max(2, s // 4)
+        # 발바닥 몸체 (둥근 타원)
+        sole_w = s // 2
+        sole_h = s * 2 // 3
+        sole_rect = (foot_cx - sole_w // 2, foot_cy - sole_h // 3, sole_w, sole_h)
+        # 그림자
+        pygame.draw.ellipse(surface, shadow_color, (sole_rect[0] + 1, sole_rect[1] + 1, sole_rect[2], sole_rect[3]))
+        pygame.draw.ellipse(surface, accent_color, sole_rect)
+        pygame.draw.ellipse(surface, highlight_color, sole_rect, max(1, s // 12))
 
-        # 허벅지 (두꺼운 부분) - 그림자
-        pygame.draw.line(surface, shadow_color, (hip_x + 1, hip_y + 1), (knee_x + 1, knee_y + 1), leg_w + 1)
-        pygame.draw.line(surface, accent_color, (hip_x, hip_y), (knee_x, knee_y), leg_w)
-        pygame.draw.line(surface, highlight_color, (hip_x - 1, hip_y - 1), (knee_x - 1, knee_y - 1), max(1, leg_w // 3))
+        # 발가락 (4~5개 작은 원, 발바닥 위쪽에)
+        toe_y = foot_cy - sole_h // 3 - s // 10
+        toe_r = max(2, s // 10)
+        toe_positions = [-sole_w // 3, -sole_w // 8, sole_w // 8, sole_w // 3]
+        for tx in toe_positions:
+            toe_x = foot_cx + tx
+            pygame.draw.circle(surface, shadow_color, (toe_x + 1, toe_y + 1), toe_r)
+            pygame.draw.circle(surface, accent_color, (toe_x, toe_y), toe_r)
+            pygame.draw.circle(surface, highlight_color, (toe_x, toe_y), toe_r, 1)
 
-        # 종아리 (약간 가는 부분) - 그림자
-        pygame.draw.line(surface, shadow_color, (knee_x + 1, knee_y + 1), (ankle_x + 1, ankle_y + 1), leg_w_thin + 1)
-        pygame.draw.line(surface, accent_color, (knee_x, knee_y), (ankle_x, ankle_y), leg_w_thin)
-        pygame.draw.line(surface, highlight_color, (knee_x - 1, knee_y - 1), (ankle_x - 1, ankle_y - 1), max(1, leg_w_thin // 3))
+        # 발바닥 아치 라인 (디테일)
+        arch_y = foot_cy + s // 8
+        pygame.draw.arc(surface, shadow_color,
+                       (foot_cx - sole_w // 3, arch_y - s // 8, sole_w * 2 // 3, s // 4),
+                       math.radians(0), math.radians(180), max(1, s // 12))
 
-        # 무릎 관절 (둥글게)
-        pygame.draw.circle(surface, highlight_color, (knee_x, knee_y), max(2, leg_w // 2))
-
-        # 발 (삼각형, 킥 방향으로 뻗은 모양)
-        foot_tip_x = cx + s * 3 // 4
-        foot_tip_y = cy - s // 3
-        foot_pts = [
-            (ankle_x - s // 8, ankle_y + s // 6),   # 발뒤꿈치 하단
-            (ankle_x - s // 10, ankle_y - s // 6),   # 발뒤꿈치 상단
-            (foot_tip_x, foot_tip_y - s // 10),      # 발끝 상단
-            (foot_tip_x, foot_tip_y + s // 8),       # 발끝 하단
-        ]
-        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in foot_pts])
-        pygame.draw.polygon(surface, accent_color, foot_pts)
-        pygame.draw.polygon(surface, highlight_color, foot_pts, 1)
-        # 발 하이라이트
-        pygame.draw.line(surface, main_color,
-                        (ankle_x - s // 10, ankle_y - s // 7),
-                        (foot_tip_x - s // 8, foot_tip_y - s // 12), max(1, s // 8))
-
-        # 타격 이펙트 (발끝에서 방사)
-        impact_cx = foot_tip_x + s // 8
-        impact_cy = foot_tip_y
-        # 충격파 원호
+        # 속도선 (왼쪽 아래에서 발 방향으로)
         for i in range(3):
-            arc_r = s // 4 + i * (s // 5)
-            arc_alpha = max(0, 200 - i * 60)
-            ic = tuple(min(255, c + 40 - i * 20) for c in highlight_color[:3])
-            pygame.draw.arc(surface, ic,
-                          (impact_cx - arc_r, impact_cy - arc_r, arc_r * 2, arc_r * 2),
-                          math.radians(-60), math.radians(60), max(1, 2 - i // 2))
-        # 방사형 타격선
-        for angle in [-40, -15, 10, 35]:
-            rad = math.radians(angle)
-            lx1 = impact_cx + int(math.cos(rad) * (s // 5))
-            ly1 = impact_cy + int(math.sin(rad) * (s // 5))
-            lx2 = impact_cx + int(math.cos(rad) * (s // 2))
-            ly2 = impact_cy + int(math.sin(rad) * (s // 2))
-            pygame.draw.line(surface, highlight_color, (lx1, ly1), (lx2, ly2), max(1, 2))
-        # 스타 이펙트 (작은 별)
-        star_x = impact_cx + s // 6
-        star_y = impact_cy - s // 4
-        star_r = max(2, s // 6)
-        pygame.draw.line(surface, main_color, (star_x - star_r, star_y), (star_x + star_r, star_y), 1)
-        pygame.draw.line(surface, main_color, (star_x, star_y - star_r), (star_x, star_y + star_r), 1)
+            line_y = foot_cy + s // 6 + i * (s // 6)
+            line_x_start = cx - s * 2 // 3 + i * (s // 8)
+            line_x_end = line_x_start + s // 3
+            line_alpha = max(100, 220 - i * 50)
+            lc = tuple(min(255, c + 30) for c in highlight_color[:3])
+            pygame.draw.line(surface, lc, (line_x_start, line_y), (line_x_end, line_y), max(1, 2 - i // 2))
 
     elif skill_name == "double_marshal_kick":
-        # 👊🦶 팬텀 킥: 강렬한 발차기 + 폭발적 타격 이펙트
+        # 👊🦶 팬텀 킥: 발바닥 킥 + 잔상/에너지 이펙트 (구슬 안에 맞게)
 
-        # 다리 (더 역동적인 각도, 위에서 아래로 내려찍는 느낌)
-        hip_x = cx - s // 2
-        hip_y = cy + s // 2
-        knee_x = cx - s // 5
-        knee_y = cy
-        ankle_x = cx + s // 4
-        ankle_y = cy - s // 3
-
-        leg_w = max(4, s * 2 // 5)
-        leg_w_thin = max(3, s // 3)
-
-        # 잔상 (팬텀 느낌 - 반투명 이전 위치)
-        ghost_offset = s // 4
+        # 잔상 발바닥 (팬텀 느낌, 살짝 뒤에)
         ghost_color = tuple(max(0, c // 3) for c in accent_color[:3])
-        pygame.draw.line(surface, ghost_color,
-                        (hip_x + ghost_offset // 2, hip_y),
-                        (knee_x + ghost_offset // 2, knee_y + ghost_offset // 3), max(2, leg_w // 2))
-        pygame.draw.line(surface, ghost_color,
-                        (knee_x + ghost_offset // 2, knee_y + ghost_offset // 3),
-                        (ankle_x - ghost_offset // 3, ankle_y + ghost_offset // 2), max(2, leg_w_thin // 2))
+        ghost_ox = -s // 6
+        ghost_oy = s // 5
+        ghost_sole_w = s // 2
+        ghost_sole_h = s * 2 // 3
+        ghost_rect = (cx + ghost_ox - ghost_sole_w // 2, cy + ghost_oy - ghost_sole_h // 3, ghost_sole_w, ghost_sole_h)
+        pygame.draw.ellipse(surface, ghost_color, ghost_rect)
+        # 잔상 발가락
+        ghost_toe_y = cy + ghost_oy - ghost_sole_h // 3 - s // 10
+        ghost_toe_r = max(2, s // 10)
+        for tx in [-ghost_sole_w // 3, -ghost_sole_w // 8, ghost_sole_w // 8, ghost_sole_w // 3]:
+            pygame.draw.circle(surface, ghost_color, (cx + ghost_ox + tx, ghost_toe_y), ghost_toe_r)
 
-        # 허벅지
-        pygame.draw.line(surface, shadow_color, (hip_x + 1, hip_y + 1), (knee_x + 1, knee_y + 1), leg_w + 1)
-        pygame.draw.line(surface, accent_color, (hip_x, hip_y), (knee_x, knee_y), leg_w)
-        pygame.draw.line(surface, highlight_color, (hip_x - 1, hip_y - 1), (knee_x - 1, knee_y - 1), max(1, leg_w // 3))
+        # 메인 발바닥 (타원형)
+        foot_cx = cx + s // 10
+        foot_cy = cy - s // 10
+        sole_w = s // 2
+        sole_h = s * 2 // 3
+        sole_rect = (foot_cx - sole_w // 2, foot_cy - sole_h // 3, sole_w, sole_h)
+        # 그림자
+        pygame.draw.ellipse(surface, shadow_color, (sole_rect[0] + 1, sole_rect[1] + 1, sole_rect[2], sole_rect[3]))
+        pygame.draw.ellipse(surface, accent_color, sole_rect)
+        # 에너지 글로우 (팬텀 킥 특유의 강화)
+        glow_rect = (sole_rect[0] - 2, sole_rect[1] - 2, sole_rect[2] + 4, sole_rect[3] + 4)
+        pygame.draw.ellipse(surface, highlight_color, glow_rect, max(1, s // 8))
 
-        # 종아리
-        pygame.draw.line(surface, shadow_color, (knee_x + 1, knee_y + 1), (ankle_x + 1, ankle_y + 1), leg_w_thin + 1)
-        pygame.draw.line(surface, accent_color, (knee_x, knee_y), (ankle_x, ankle_y), leg_w_thin)
-        pygame.draw.line(surface, highlight_color, (knee_x - 1, knee_y - 1), (ankle_x - 1, ankle_y - 1), max(1, leg_w_thin // 3))
+        # 발가락 (4개)
+        toe_y = foot_cy - sole_h // 3 - s // 10
+        toe_r = max(2, s // 10)
+        toe_positions = [-sole_w // 3, -sole_w // 8, sole_w // 8, sole_w // 3]
+        for tx in toe_positions:
+            toe_x = foot_cx + tx
+            pygame.draw.circle(surface, shadow_color, (toe_x + 1, toe_y + 1), toe_r)
+            pygame.draw.circle(surface, accent_color, (toe_x, toe_y), toe_r)
+            pygame.draw.circle(surface, main_color, (toe_x, toe_y), toe_r, 1)
 
-        # 무릎 관절
-        pygame.draw.circle(surface, highlight_color, (knee_x, knee_y), max(3, leg_w // 2))
+        # 발바닥 아치 라인
+        arch_y = foot_cy + s // 8
+        pygame.draw.arc(surface, shadow_color,
+                       (foot_cx - sole_w // 3, arch_y - s // 8, sole_w * 2 // 3, s // 4),
+                       math.radians(0), math.radians(180), max(1, s // 10))
 
-        # 발 (더 크고 날카로운 킥)
-        foot_tip_x = cx + s * 3 // 4
-        foot_tip_y = cy - s * 2 // 5
-        foot_pts = [
-            (ankle_x - s // 6, ankle_y + s // 5),
-            (ankle_x - s // 8, ankle_y - s // 5),
-            (foot_tip_x, foot_tip_y - s // 8),
-            (foot_tip_x + s // 10, foot_tip_y + s // 12),
-            (foot_tip_x - s // 8, foot_tip_y + s // 5),
-        ]
-        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in foot_pts])
-        pygame.draw.polygon(surface, accent_color, foot_pts)
-        pygame.draw.polygon(surface, highlight_color, foot_pts, 2)
-        # 발 에너지 라인
-        pygame.draw.line(surface, main_color,
-                        (ankle_x - s // 8, ankle_y - s // 6),
-                        (foot_tip_x - s // 6, foot_tip_y - s // 10), max(1, s // 6))
-
-        # 폭발적 타격 이펙트 (더 크고 강렬)
-        impact_cx = foot_tip_x + s // 6
-        impact_cy = foot_tip_y - s // 10
-        # 큰 충격파 원호들
-        for i in range(4):
-            arc_r = s // 3 + i * (s // 4)
-            ic = tuple(min(255, c + 60 - i * 15) for c in highlight_color[:3])
-            pygame.draw.arc(surface, ic,
-                          (impact_cx - arc_r, impact_cy - arc_r, arc_r * 2, arc_r * 2),
-                          math.radians(-70), math.radians(70), max(1, 3 - i // 2))
-        # 방사형 타격선 (더 많고 길게)
-        for angle in [-55, -35, -15, 5, 25, 45]:
+        # 에너지 방사 (발바닥 주변 짧은 선)
+        for angle in [30, 75, 120, 165, 210, 255, 300, 345]:
             rad = math.radians(angle)
-            lx1 = impact_cx + int(math.cos(rad) * (s // 4))
-            ly1 = impact_cy + int(math.sin(rad) * (s // 4))
-            lx2 = impact_cx + int(math.cos(rad) * (s * 3 // 4))
-            ly2 = impact_cy + int(math.sin(rad) * (s * 3 // 4))
+            lx1 = foot_cx + int(math.cos(rad) * (s // 3 + 2))
+            ly1 = foot_cy + int(math.sin(rad) * (s // 3 + 2))
+            lx2 = foot_cx + int(math.cos(rad) * (s * 2 // 5 + 2))
+            ly2 = foot_cy + int(math.sin(rad) * (s * 2 // 5 + 2))
             pygame.draw.line(surface, highlight_color, (lx1, ly1), (lx2, ly2), max(1, 2))
-        # 파편 (작은 삼각형 파티클)
-        for angle in [-50, -10, 30, 55]:
-            rad = math.radians(angle)
-            px = impact_cx + int(math.cos(rad) * (s * 2 // 3))
-            py = impact_cy + int(math.sin(rad) * (s * 2 // 3))
-            tri_s = max(2, s // 6)
-            tri_pts = [
-                (px, py - tri_s),
-                (px - tri_s // 2, py + tri_s // 2),
-                (px + tri_s // 2, py + tri_s // 2),
-            ]
-            pygame.draw.polygon(surface, main_color, tri_pts)
-        # 중앙 플래시 (폭발 핵심)
-        flash_r = max(3, s // 4)
-        pygame.draw.circle(surface, main_color, (impact_cx, impact_cy), flash_r)
-        pygame.draw.circle(surface, highlight_color, (impact_cx, impact_cy), flash_r + 2, 2)
 
     elif skill_name == "dive_strike":
         # ⇓ EMP 스트라이크: 급강하 + 착지 연기 장판
@@ -11961,6 +11896,14 @@ optimus_arm_trail_particles = []         # 팔 이동 궤적 파티클
 
 # ========== 우주 행성 맵 시스템 ==========
 cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복귀 시 리셋)
+discovered_item_names = set()  # 현재 세이브에서 한 번이라도 확인한 아이템 이름
+
+
+def mark_item_discovered(item_name: str) -> None:
+    """도감용 아이템 발견 상태를 기록한다."""
+    if not item_name:
+        return
+    discovered_item_names.add(str(item_name))
 
 def show_space_map_transition(from_planet, to_planet, ingame_frame=None, stage_num=None):
     """우주맵 행성 이동 — 지형 하강 + 인게임 화면 줌인 + 스테이지 텍스트"""
@@ -18251,66 +18194,51 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
 
     elif skill_id == "double_marshal_kick":
-        # 팬텀 킥 - 강렬한 발차기 + 폭발 이펙트 (미니)
+        # 팬텀 킥 - 발바닥 + 잔상/에너지 (미니, 구슬 안에 맞게)
         color = icon_color
         lt = lighter(icon_color)
         dk = darker(icon_color)
         _s = int(5 * scale)
 
-        # 잔상 (팬텀 느낌)
+        # 잔상 발바닥 (팬텀 느낌, 살짝 뒤에)
         ghost_c = tuple(max(0, c // 3) for c in color)
-        pygame.draw.line(surface, ghost_c,
-                        (icon_cx - _s * 2 + _s, icon_cy + _s),
-                        (icon_cx + _s // 2, icon_cy + _s // 2), max(1, int(2 * scale)))
-        pygame.draw.line(surface, ghost_c,
-                        (icon_cx + _s // 2, icon_cy + _s // 2),
-                        (icon_cx + _s, icon_cy - _s // 2 + _s // 2), max(1, int(2 * scale)))
+        ghost_ox = -int(2 * scale)
+        ghost_oy = int(2 * scale)
+        ghost_r_w = int(4 * scale)
+        ghost_r_h = int(6 * scale)
+        pygame.draw.ellipse(surface, ghost_c,
+                           (icon_cx + ghost_ox - ghost_r_w, icon_cy + ghost_oy - ghost_r_h // 3, ghost_r_w * 2, ghost_r_h))
+        # 잔상 발가락
+        for tx in [-int(2.5 * scale), -int(1 * scale), int(1 * scale), int(2.5 * scale)]:
+            pygame.draw.circle(surface, ghost_c,
+                              (icon_cx + ghost_ox + tx, icon_cy + ghost_oy - ghost_r_h // 3 - int(1.5 * scale)),
+                              max(1, int(1.2 * scale)))
 
-        # 다리 (종아리→발)
-        pygame.draw.line(surface, dk,
-                        (icon_cx - _s * 2, icon_cy + _s),
-                        (icon_cx - _s // 2, icon_cy), max(2, int(3 * scale)))
-        pygame.draw.line(surface, color,
-                        (icon_cx - _s * 2, icon_cy + _s),
-                        (icon_cx - _s // 2, icon_cy), max(2, int(2.5 * scale)))
-        pygame.draw.line(surface, dk,
-                        (icon_cx - _s // 2, icon_cy),
-                        (icon_cx + _s // 2, icon_cy - _s // 2), max(2, int(2.5 * scale)))
-        pygame.draw.line(surface, color,
-                        (icon_cx - _s // 2, icon_cy),
-                        (icon_cx + _s // 2, icon_cy - _s // 2), max(1, int(2 * scale)))
+        # 메인 발바닥 (타원)
+        sole_w = int(4 * scale)
+        sole_h = int(6 * scale)
+        sole_rect = (icon_cx - sole_w, icon_cy - sole_h // 3, sole_w * 2, sole_h)
+        pygame.draw.ellipse(surface, dk, (sole_rect[0] + 1, sole_rect[1] + 1, sole_rect[2], sole_rect[3]))
+        pygame.draw.ellipse(surface, color, sole_rect)
+        # 에너지 글로우
+        glow_rect = (sole_rect[0] - 1, sole_rect[1] - 1, sole_rect[2] + 2, sole_rect[3] + 2)
+        pygame.draw.ellipse(surface, lt, glow_rect, max(1, int(1 * scale)))
 
-        # 발 (삼각형)
-        foot_tip_x = icon_cx + _s + int(2 * scale)
-        foot_tip_y = icon_cy - _s
-        foot_pts = [
-            (icon_cx + _s // 3, icon_cy - _s // 2 + int(2 * scale)),
-            (icon_cx + _s // 3, icon_cy - _s // 2 - int(2 * scale)),
-            (foot_tip_x, foot_tip_y),
-            (foot_tip_x, foot_tip_y + int(3 * scale)),
-        ]
-        pygame.draw.polygon(surface, color, foot_pts)
-        pygame.draw.polygon(surface, lt, foot_pts, max(1, int(1 * scale)))
+        # 발가락 (4개)
+        toe_y = icon_cy - sole_h // 3 - int(1.5 * scale)
+        for tx in [-int(2.5 * scale), -int(1 * scale), int(1 * scale), int(2.5 * scale)]:
+            toe_x = icon_cx + tx
+            pygame.draw.circle(surface, dk, (toe_x + 1, toe_y + 1), max(1, int(1.2 * scale)))
+            pygame.draw.circle(surface, color, (toe_x, toe_y), max(1, int(1.2 * scale)))
 
-        # 타격 이펙트 (방사선 + 충격파)
-        imp_x = foot_tip_x + int(2 * scale)
-        imp_y = foot_tip_y
-        for i in range(3):
-            arc_r = int((3 + i * 3) * scale)
-            ic = tuple(min(255, c + 40 - i * 20) for c in lt)
-            pygame.draw.arc(surface, ic,
-                          (imp_x - arc_r, imp_y - arc_r, arc_r * 2, arc_r * 2),
-                          math.radians(-60), math.radians(60), max(1, int(1.5 * scale)))
-        # 방사선
-        for angle in [-40, -10, 20, 45]:
+        # 에너지 방사선 (짧은 선)
+        for angle in [45, 90, 135, 225, 270, 315]:
             rad = math.radians(angle)
-            lx1 = imp_x + int(math.cos(rad) * int(2 * scale))
-            ly1 = imp_y + int(math.sin(rad) * int(2 * scale))
-            lx2 = imp_x + int(math.cos(rad) * int(6 * scale))
-            ly2 = imp_y + int(math.sin(rad) * int(6 * scale))
+            lx1 = icon_cx + int(math.cos(rad) * int(4 * scale))
+            ly1 = icon_cy + int(math.sin(rad) * int(4 * scale))
+            lx2 = icon_cx + int(math.cos(rad) * int(5.5 * scale))
+            ly2 = icon_cy + int(math.sin(rad) * int(5.5 * scale))
             pygame.draw.line(surface, lt, (lx1, ly1), (lx2, ly2), max(1, int(1 * scale)))
-        # 중앙 플래시
-        pygame.draw.circle(surface, (255, 255, 255), (imp_x, imp_y), max(2, int(2 * scale)))
 
     elif skill_id == "soldier_pistol_perk":
         # 권총 화기류 - 권총 아이콘
@@ -83226,6 +83154,7 @@ def save_game_progress(stage_number: int) -> bool:
     global selected_character_type, ai_mode, active_item_slot
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
+    global discovered_item_names, cleared_planets
 
     try:
         # 패시브 아이템 목록을 저장 가능한 형태로 변환
@@ -83263,6 +83192,8 @@ def save_game_progress(stage_number: int) -> bool:
             "deposit_pending_interest_rates": deposit_pending_interest_rates,
             "passive_items": serializable_passive_items,
             "active_items": serializable_active_items,
+            "cleared_planets": list(cleared_planets),
+            "discovered_items": sorted(discovered_item_names),
         }
         # print(f"[DEBUG 세이브] downtown_map_seed = {downtown_map_seed}")
 
@@ -83476,6 +83407,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
     global transcendent_crown_skill_bonus  # 초월자의 관 스킬 보너스
     global soldier_pistol_perk_unlocked  # 권총 퍽 해금 여부
+    global discovered_item_names, cleared_planets
 
     try:
         # 기본 데이터 복원
@@ -83489,6 +83421,8 @@ def apply_loaded_progress(save_data: dict) -> bool:
         deposit_interest_rate = save_data.get("deposit_interest_rate", 0.0)
         deposit_last_deposit_stage = save_data.get("deposit_last_deposit_stage", 0)
         deposit_pending_interest_rates = save_data.get("deposit_pending_interest_rates", {})
+        cleared_planets = list(save_data.get("cleared_planets", []))
+        discovered_item_names = set(save_data.get("discovered_items", []))
 
         # 캐릭터 타입 복원
         char_type = save_data.get("character_type", "smasher")
@@ -83550,6 +83484,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
                         obtained_attr = f"{iname}_obtained"
                         if hasattr(items, obtained_attr):
                             setattr(items, obtained_attr, True)
+                        mark_item_discovered(iname)
             # print(f"[로드] 패시브 아이템 {len(passive_item_list)}개 복원 완료 (아이콘 재로드)")
 
         # 액티브 아이템 복원
@@ -83569,6 +83504,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
                     if "last_use" in item_data:
                         del item_data["last_use"]
                     active_item_slot.append(item_data)
+                    mark_item_discovered(item_name)
             # 전역 쿨타임도 초기화
             global last_item_use_time
             last_item_use_time = 0
@@ -90870,6 +90806,7 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     # print(f"[DEBUG show_item_obtained_effect] 호출됨! item_data: {item_data.get('name', 'UNKNOWN')}, x={item_x}, y={item_y}")  # 디버그 비활성화
     # 아이템 타입 확인
     item_name = item_data.get("name", "")
+    mark_item_discovered(item_name)
     is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt", "shrapnel_armor", "soul_burst", "dowsing_goggles"]
     # 시작 위치 (아이템이 있던 위치 또는 화면 중앙)
     if item_x is not None and item_y is not None:
