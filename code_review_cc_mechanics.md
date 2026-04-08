@@ -162,14 +162,14 @@ _player_stun_blocked = (
 
 | 소스 | 지속시간 | 파일:라인 |
 |------|---------|----------|
-| 대시 경직 (아레나) | 0.5초 (30프레임) | pingfighter.py:24841 |
-| 대장간 터렛 일반 | 0.1초 (6프레임) | pingfighter.py:51182 |
-| 대장간 터렛 유도 | 0.4초 (24프레임) | pingfighter.py:51199 |
-| AK47 | 0.1초 (6프레임) | pingfighter.py:55265 |
-| 스테이지8 초고속대시 | ~0.03초 (1.8프레임) | pingfighter.py:50292 |
-| 뿔돌진 딸기폭탄 | 0.75초 (45프레임) | item_effects/horn_strawberry_mask.py:2387 |
-| 번개 심판 (스테이지30) | 2.0초 | pingfighter.py:67334 |
-| 폭탄 서프라이즈 (아레나) | 1.5초 (90프레임) | game_mechanics/ingame_bodyguard.py:700 |
+| 대시 경직 (아레나) | 0.5초 (30프레임) | `ARENA_DASH_STUN_FRAMES` |
+| 대장간 터렛 일반 | 0.1초 (6프레임) | `BLACKSMITH_TURRET_STUN_DURATION` |
+| 대장간 터렛 유도 | 0.4초 (24프레임) | `BLACKSMITH_TURRET_HOMING_STUN_DURATION` |
+| AK47 | 0.1초 (6프레임) | `AK47_STUN_FRAMES` |
+| 스테이지8 초고속대시 | ~0.03초 (1.8프레임) | `STAGE8_SUPERSPEED_DASH_STUN_FRAMES` |
+| 뿔돌진 딸기폭탄 | 0.75초 (45프레임) | `HORN_CHARGE_STUN_DURATION` |
+| 번개 심판 (스테이지30) | 2.0초 | `_judgment_lightning_stun_*_timer` |
+| 폭탄 서프라이즈 (아레나) | 1.5초 (90프레임) | ingame_bodyguard.py |
 
 ### 2.5 스턴 소스 목록
 
@@ -491,7 +491,7 @@ _boss_slow_amount = 0.50             # 50% 감속
 _gauge_drain_per_sec = 50            # 보스 게이지 추가 감소
 ```
 
-### 4.3 둔화 적용 메커니즘 (2계층 구조)
+### 4.3 둔화 적용 메커니즘 (3계층 구조)
 
 플레이어 둔화는 **2계층**으로 작동한다:
 
@@ -575,9 +575,9 @@ def create_slow_wave_surface(width, height, base_color=(170,120,255), intensity=
 
 | 둔화 소스 | 이펙트 색상 | 파일:라인 |
 |-----------|-----------|----------|
-| 거미지뢰 | (110, 170, 255) 파랑 | pingfighter.py:63001 |
-| 레그샷 | (180, 110, 255) 보라 | pingfighter.py:72896 |
-| 딸기 페인트 | (255, 100, 140) 핑크 | pingfighter.py:63012 |
+| 거미지뢰 | (110, 170, 255) 파랑 | `draw_spider_mine_slow_effect()` |
+| 레그샷 | (180, 110, 255) 보라 | `draw_leg_shot_effect()` |
+| 딸기 페인트 | (255, 100, 140) 핑크 | `draw_strawberry_paint_slow_effect()` |
 | 독안개 | 3레이어 파티클 시스템 | venom_mist_gauntlet.py |
 
 ### 4.5 시간 둔화 (전설 아이템)
@@ -605,7 +605,7 @@ CLEANSE_IMMUNITY_DURATION = 300     # 5초 면역
 
 > **주의: 디버프 판정 함수가 2개 존재하며 범위가 다름**
 
-#### A. `_check_player_has_debuff()` (pingfighter.py:3966-3991) — UI 표시용
+#### A. `_check_player_has_debuff()` (pingfighter.py 내부) — UI 표시용
 ```python
 def _check_player_has_debuff() -> bool:
     """스킬 아이콘 활성 상태 표시용"""
@@ -619,7 +619,7 @@ def _check_player_has_debuff() -> bool:
 ```
 - **사용처**: 클렌즈 스킬 아이콘 활성 표시 (L5135, L5249)
 
-#### B. `check_player_has_status_effect()` (cleanse_skill.py:530-568) — 실제 발동 판정
+#### B. `check_player_has_status_effect()` (cleanse_skill.py 내부) — 실제 발동 판정
 ```python
 def check_player_has_status_effect(
     player_stunned_timer, player_knockback_vel, 
@@ -681,7 +681,7 @@ def clear_player_knockback_if_immune():
         smasher_power_recoil_stun_pending = False  # ⚠️ BUG: global 선언 누락
 ```
 
-> **BUG (pingfighter.py:29097-29098)**: `smasher_power_recoil_pending_dir`와
+> **BUG** (`clear_player_knockback_if_immune()` 함수 내부): `smasher_power_recoil_pending_dir`와
 > `smasher_power_recoil_stun_pending`에 `global` 선언이 없어 지역 변수로 처리됨.
 > 전역 pending 상태가 정리되지 않으므로 100% 넉백 저항 시에도
 > 스매셔 반동 스턴이 계속 대기 상태로 남는다.
@@ -723,11 +723,11 @@ if _viper_ss_hologram_active:
 
 ### 6.3 확인된 버그 (코드 검증 완료)
 
-7. **[높음] smasher_power_recoil 스턴 면역 우회** (pingfighter.py:81185-81187): `try_apply_player_stun()`이 0을 반환하면 (면역/저항), 호출측이 `player_stunned_timer`를 직접 강제 설정하여 클렌즈 면역을 무시한다. 중앙 스턴 함수의 계약을 깨는 버그.
+7. **[높음] smasher_power_recoil 스턴 면역 우회** (pingfighter.py, `smasher_power_recoil_timer == 0` 분기): `try_apply_player_stun()`이 0을 반환하면 (면역/저항), 호출측이 `player_stunned_timer`를 직접 강제 설정하여 클렌즈 면역을 무시한다. 중앙 스턴 함수의 계약을 깨는 버그.
 
 8. **[높음] 클렌즈 디버프 판정 불일치**: UI용 `_check_player_has_debuff()`는 넉백을 제외하지만, 발동용 `check_player_has_status_effect()`는 넉백을 포함. 넉백만 걸렸을 때 UI는 비활성이지만 실제 W키 발동은 가능한 상태가 됨.
 
-9. **[중간] clear_player_knockback_if_immune() global 누락** (pingfighter.py:29097-29098): `smasher_power_recoil_pending_dir`와 `smasher_power_recoil_stun_pending`에 global 선언이 없어 지역 변수로 처리됨. 100% 넉백 저항 시에도 pending 상태가 남아 반동 스턴이 트리거될 수 있음.
+9. **[중간] clear_player_knockback_if_immune() global 누락** (pingfighter.py, `clear_player_knockback_if_immune()` 함수 내부): `smasher_power_recoil_pending_dir`와 `smasher_power_recoil_stun_pending`에 global 선언이 없어 지역 변수로 처리됨. 100% 넉백 저항 시에도 pending 상태가 남아 반동 스턴이 트리거될 수 있음.
 
 ### 6.4 잠재적 이슈
 
