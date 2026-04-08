@@ -2869,6 +2869,9 @@ class BuildingInterior:
         self.codex_type = None  # 현재 열린 도감 종류 ("items"/"perks"/"bosses")
         self.codex_scroll = 0  # 도감 스크롤 위치
         self.codex_selected = 0  # 선택된 항목 인덱스
+        self.codex_scrollbar_dragging = False  # 스크롤바 드래그 중 여부
+        self.codex_scrollbar_rect = None  # 스크롤바 트랙 영역 (draw에서 설정)
+        self.codex_thumb_rect = None  # 스크롤바 썸 영역 (draw에서 설정)
 
         # 선술집 메뉴 상태 (TAVERN 전용)
         self.tavern_menu_open = False  # 선술집 메뉴창
@@ -5121,6 +5124,10 @@ class BuildingInterior:
 
     def handle_mouse_up(self, pos, button=1):
         """마우스 버튼 릴리즈 처리"""
+        # 도감 스크롤바 드래그 종료
+        if self.codex_scrollbar_dragging and button == 1:
+            self.codex_scrollbar_dragging = False
+
         # 환전 슬라이더 드래그 종료
         if self.exchange_menu_open and button == 1:
             if self._handle_exchange_slider_release():
@@ -6139,6 +6146,11 @@ class BuildingInterior:
                     self.crane_confirm_selection = 0  # 기본: 예
                     return ("crane_confirm_dialog", nearby_crane)
 
+            # 아카데미 책장 상호작용
+            if self.building_type == BuildingType.ACADEMY and self.nearby_shelf_index is not None and not self.nearby_headmaster:
+                self._open_codex(self.nearby_shelf_index)
+                return ("codex_open", self.academy_shelf_types[self.nearby_shelf_index])
+
             # NPC 상호작용
             return self._try_interact_with_npc()
 
@@ -6696,6 +6708,24 @@ class BuildingInterior:
 
     # ===== 도감(Codex) 시스템 =====
 
+    def _get_runtime_progress_source(self):
+        """실행 중인 메인 모듈에서 도감/런타임 진행 상태를 가져온다."""
+        import sys
+
+        main_module = sys.modules.get("__main__")
+        if main_module and hasattr(main_module, "get_item_name_korean"):
+            return main_module
+
+        pingfighter_module = sys.modules.get("pingfighter")
+        if pingfighter_module:
+            return pingfighter_module
+
+        try:
+            import pingfighter as pingfighter_module
+            return pingfighter_module
+        except Exception:
+            return None
+
     def _open_codex(self, shelf_index):
         """도감 열기"""
         self.codex_open = True
@@ -6706,22 +6736,32 @@ class BuildingInterior:
     def _get_codex_entries(self):
         """현재 도감 타입에 맞는 항목 목록 반환 [{"name": str, "display": str, "unlocked": bool}, ...]"""
         entries = []
+        runtime_module = self._get_runtime_progress_source()
         if self.codex_type == "items":
             try:
                 import items as _items
-                # pingfighter에서 한글 이름 함수 가져오기
-                try:
-                    import pingfighter as _pf
-                    get_korean = getattr(_pf, 'get_item_name_korean', None)
-                except Exception:
-                    get_korean = None
+                get_korean = getattr(runtime_module, 'get_item_name_korean', None) if runtime_module else None
+                discovered_items = set(getattr(runtime_module, 'discovered_item_names', set()) or []) if runtime_module else set()
+
+                if runtime_module:
+                    for collection_name in ('active_item_slot', 'passive_item_list'):
+                        for item_data in getattr(runtime_module, collection_name, []) or []:
+                            if isinstance(item_data, dict):
+                                discovered_name = item_data.get("name")
+                                if discovered_name:
+                                    discovered_items.add(discovered_name)
 
                 for item in _items.ITEM_TYPES:
                     item_name = item.get("name", "")
                     if not item_name:
                         continue
-                    # 해금 여부: unlocked_items에 있고 True인지
-                    unlocked = _items.unlocked_items.get(item_name, False)
+                    obtained_attr = f"{item_name}_obtained"
+                    obtained_value = getattr(_items, obtained_attr, False)
+                    unlocked = item_name in discovered_items
+                    if isinstance(obtained_value, bool):
+                        unlocked = unlocked or obtained_value
+                    elif isinstance(obtained_value, int):
+                        unlocked = unlocked or obtained_value > 0
                     # 한글 이름
                     if unlocked and get_korean:
                         display = get_korean(item_name)
@@ -6740,9 +6780,8 @@ class BuildingInterior:
 
         elif self.codex_type == "perks":
             try:
-                import pingfighter as _pf
-                skills = getattr(_pf, 'VIPER_EXCLUSIVE_SKILLS', {})
-                runtime_levels = getattr(_pf, 'runtime_skill_levels', {})
+                skills = getattr(runtime_module, 'VIPER_EXCLUSIVE_SKILLS', {}) if runtime_module else {}
+                runtime_levels = getattr(runtime_module, 'runtime_skill_levels', {}) if runtime_module else {}
                 for skill_id, skill_info in skills.items():
                     # 퍽이 해금(레벨 1 이상)인지 체크
                     level = runtime_levels.get(skill_id, 0)
@@ -6760,9 +6799,8 @@ class BuildingInterior:
 
         elif self.codex_type == "bosses":
             try:
-                import pingfighter as _pf
-                boss_names = getattr(_pf, 'boss_names', {})
-                cleared = getattr(_pf, 'cleared_planets', [])
+                boss_names = getattr(runtime_module, 'boss_names', {}) if runtime_module else {}
+                cleared = set(getattr(runtime_module, 'cleared_planets', []) or []) if runtime_module else set()
                 for stage_num in range(1, 9):
                     boss_name = boss_names.get(stage_num, f"Stage {stage_num}")
                     unlocked = stage_num in cleared
@@ -6797,12 +6835,24 @@ class BuildingInterior:
         close_btn = pygame.Rect(SCREEN_WIDTH - 40, 10, 30, 30)
         if close_btn.collidepoint(pos):
             self.codex_open = False
+            self.codex_scrollbar_dragging = False
             return ("codex_close", None)
+
+        # 스크롤바 트랙 클릭 → 해당 위치로 점프 또는 드래그 시작
+        if self.codex_scrollbar_rect and self.codex_scrollbar_rect.collidepoint(pos):
+            max_scroll = self._get_codex_max_scroll()
+            if max_scroll > 0:
+                track = self.codex_scrollbar_rect
+                ratio = (pos[1] - track.y) / track.height
+                self.codex_scroll = max(0, min(max_scroll, int(ratio * (max_scroll + 1))))
+                self.codex_scrollbar_dragging = True
+            return None
 
         # 도감 영역 밖 클릭 → 닫기
         codex_rect = pygame.Rect(30, 30, SCREEN_WIDTH - 60, SCREEN_HEIGHT - 60)
         if not codex_rect.collidepoint(pos):
             self.codex_open = False
+            self.codex_scrollbar_dragging = False
             return ("codex_close", None)
 
         return None
@@ -6834,6 +6884,25 @@ class BuildingInterior:
             self.codex_scroll = selected_row - visible_rows + 1
 
         return None
+
+    def _get_codex_max_scroll(self):
+        """도감 최대 스크롤 값 계산"""
+        import math
+        entries = self._get_codex_entries()
+        items_per_row = 4
+        visible_rows = 5
+        total_rows = math.ceil(len(entries) / items_per_row) if entries else 1
+        return max(0, total_rows - visible_rows)
+
+    def handle_codex_scroll(self, event):
+        """도감 마우스 휠 스크롤 처리"""
+        if not self.codex_open:
+            return
+        max_scroll = self._get_codex_max_scroll()
+        if event.y > 0:  # 위로 스크롤
+            self.codex_scroll = max(0, self.codex_scroll - 1)
+        elif event.y < 0:  # 아래로 스크롤
+            self.codex_scroll = min(max_scroll, self.codex_scroll + 1)
 
     def _handle_crane_confirm_click(self, pos):
         """크레인 게임 확인 다이얼로그 클릭 처리"""
@@ -8873,7 +8942,8 @@ class BuildingInterior:
         header_h = 50
         footer_h = 25
         content_h = panel_h - header_h - footer_h
-        card_w = (panel_w - card_margin * (items_per_row + 1)) // items_per_row
+        scrollbar_area = 20  # 스크롤바 + 여백
+        card_w = (panel_w - scrollbar_area - card_margin * (items_per_row + 1)) // items_per_row
         card_h = (content_h - card_margin * (visible_rows + 1)) // visible_rows
 
         # 배경 어둡게
@@ -8969,17 +9039,50 @@ class BuildingInterior:
                         screen.blit(q_surf, (cx + card_w // 2 - q_rect.width // 2,
                                             cy + card_h // 2 - q_rect.height // 2))
 
-        # 스크롤 인디케이터
+        # 스크롤바 (우측)
         total_rows = math.ceil(len(entries) / items_per_row) if entries else 1
-        if total_rows > visible_rows and font_small:
-            scroll_text = f"▲▼ {self.codex_scroll + 1}-{min(self.codex_scroll + visible_rows, total_rows)} / {total_rows}"
-            scroll_surf, scroll_rect = font_small.render(scroll_text, TEXT_DIM)
-            screen.blit(scroll_surf, (panel_x + panel_w // 2 - scroll_rect.width // 2,
-                                     panel_y + panel_h - footer_h + 3))
+        SCROLLBAR_W = 10
+        scrollbar_x = panel_x + panel_w - SCROLLBAR_W - 6
+        scrollbar_y = panel_y + header_h + 4
+        scrollbar_h = content_h - 8
+        track_rect = pygame.Rect(scrollbar_x, scrollbar_y, SCROLLBAR_W, scrollbar_h)
+        self.codex_scrollbar_rect = track_rect
+
+        if total_rows > visible_rows:
+            max_scroll = max(1, total_rows - visible_rows)
+            # 트랙 배경
+            pygame.draw.rect(screen, (40, 35, 60), track_rect, border_radius=4)
+            pygame.draw.rect(screen, (60, 50, 90), track_rect, 1, border_radius=4)
+
+            # 썸(핸들) 크기와 위치 계산
+            thumb_ratio = visible_rows / total_rows
+            thumb_h = max(20, int(scrollbar_h * thumb_ratio))
+            thumb_travel = scrollbar_h - thumb_h
+            thumb_y = scrollbar_y + int((self.codex_scroll / max_scroll) * thumb_travel) if max_scroll > 0 else scrollbar_y
+            thumb_rect = pygame.Rect(scrollbar_x, thumb_y, SCROLLBAR_W, thumb_h)
+            self.codex_thumb_rect = thumb_rect
+
+            # 드래그 중이면 강조 색상
+            if self.codex_scrollbar_dragging:
+                thumb_color = tuple(min(255, c + 40) for c in accent)
+            else:
+                mouse_pos = pygame.mouse.get_pos()
+                thumb_color = tuple(min(255, c + 20) for c in accent) if thumb_rect.collidepoint(mouse_pos) else accent
+            pygame.draw.rect(screen, thumb_color, thumb_rect, border_radius=4)
+            pygame.draw.rect(screen, (255, 255, 255, 60), thumb_rect, 1, border_radius=4)
+
+            # 페이지 인디케이터 텍스트
+            if font_small:
+                scroll_text = f"{self.codex_scroll + 1}-{min(self.codex_scroll + visible_rows, total_rows)} / {total_rows}"
+                scroll_surf, scroll_rect = font_small.render(scroll_text, TEXT_DIM)
+                screen.blit(scroll_surf, (panel_x + panel_w // 2 - scroll_rect.width // 2,
+                                         panel_y + panel_h - footer_h + 3))
+        else:
+            self.codex_thumb_rect = None
 
         # 하단 힌트
         if font_small:
-            hint_text = "← → ↑ ↓ 탐색  |  ESC 닫기"
+            hint_text = "← → ↑ ↓ 탐색  |  마우스 휠  |  ESC 닫기"
             hint_surf, hint_rect = font_small.render(hint_text, (100, 100, 120))
             screen.blit(hint_surf, (panel_x + 15, panel_y + panel_h - footer_h + 3))
 
@@ -10667,7 +10770,7 @@ class BuildingInterior:
 
         shelf_labels = {"items": "아이템 도감", "perks": "퍽 도감", "bosses": "보스 도감"}
         shelf_type = self.academy_shelf_types[idx]
-        hint_text = f"CLICK - {shelf_labels.get(shelf_type, '도감')}"
+        hint_text = f"CLICK / SPACE - {shelf_labels.get(shelf_type, '도감')}"
 
         pulse = abs(math.sin(self.animation_timer * 3))
         ACCENT = (180, 140, 255)

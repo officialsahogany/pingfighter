@@ -2601,6 +2601,8 @@ class DowntownManager:
                             interior.deposit_menu_open = False
                         elif interior.tavern_menu_open:
                             interior.tavern_menu_open = False
+                        elif interior.codex_open:
+                            interior.codex_open = False
                         elif interior.academy_dialog_open:
                             interior.academy_dialog_open = False
                         elif interior.crane_confirm_dialog_open:
@@ -2715,14 +2717,24 @@ class DowntownManager:
                     # 빠칭코 게임 중이면 빠칭코 게임에 휠 이벤트 전달
                     elif interior.pachinko_game_playing:
                         interior.handle_key(event)
+                    # 도감이 열려있으면 도감 스크롤
+                    elif interior.codex_open:
+                        interior.handle_codex_scroll(event)
                     else:
                         # 마우스 휠 처리 (환전 양 조절 - 슬라이더 위에서만)
                         mouse_pos = pygame.mouse.get_pos()
                         interior.handle_scroll(event, mouse_pos)
 
                 elif event.type == pygame.MOUSEMOTION:
+                    # 도감 스크롤바 드래그 중이면 스크롤 업데이트
+                    if interior.codex_scrollbar_dragging and interior.codex_scrollbar_rect:
+                        track = interior.codex_scrollbar_rect
+                        max_scroll = interior._get_codex_max_scroll()
+                        if max_scroll > 0 and track.height > 0:
+                            ratio = max(0.0, min(1.0, (event.pos[1] - track.y) / track.height))
+                            interior.codex_scroll = max(0, min(max_scroll, int(ratio * (max_scroll + 1))))
                     # 포커 게임 중이면 호버 이벤트 전달
-                    if interior.poker_game_playing:
+                    elif interior.poker_game_playing:
                         interior.handle_key(event)
 
             # 업데이트 (플레이어 이동, NPC 애니메이션, 문 나가기 체크)
