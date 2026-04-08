@@ -248,7 +248,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     checkbox_size = 20  # 체크박스 크기
 
     panel_width = min(900, max(640, int(ctx.width * 0.82)))
-    panel_height = 320
+    panel_height = 360
     panel_x = (ctx.width - panel_width) // 2
     panel_y = (ctx.height - panel_height) // 2
 
@@ -406,12 +406,15 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 ctx.screen.blit(s, s.get_rect(center=r.center))
 
             # ── 리플레이 자동저장 ──
-            replay_y = hit_y + 50
+            replay_y = hit_y + 55
             replay_label = font_medium.render(_t("settings.play.replay_autosave", "리플레이 자동저장"), True, const.WHITE)
-            ctx.screen.blit(replay_label, replay_label.get_rect(left=panel_x + margin_x, centery=replay_y + 16))
+            _replay_label_rect = replay_label.get_rect(left=panel_x + margin_x, centery=replay_y + 16)
+            ctx.screen.blit(replay_label, _replay_label_rect)
 
+            # 체크박스 (라벨 우측에 여백 두고 배치)
             cb_size = 28
-            replay_cb_rect = pygame.Rect(bgm_slider_x, replay_y + 2, cb_size, cb_size)
+            _cb_x = _replay_label_rect.right + 16
+            replay_cb_rect = pygame.Rect(_cb_x, replay_y + 2, cb_size, cb_size)
             cb_border = (0, 255, 255) if focus == "replay_autosave" else (150, 150, 150)
             cb_bg = (60, 90, 130) if replay_auto_save else (45, 55, 70)
             pygame.draw.rect(ctx.screen, cb_bg, replay_cb_rect, border_radius=6)

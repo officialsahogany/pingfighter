@@ -2536,7 +2536,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
         # ─── 패널 ───
         panel_width = min(600, max(500, int(width * 0.82)))
-        panel_height = 340 if current_tab == "sound" else 300
+        panel_height = 340 if current_tab in ("sound", "play") else 300
         panel_x = (width - panel_width) // 2
         panel_y = (height - panel_height) // 2
 
@@ -2745,19 +2745,20 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 screen.blit(s, s.get_rect(center=r.center))
 
             # ── 리플레이 자동저장 ──
-            replay_y = hit_y + 50
+            replay_y = hit_y + 55
             replay_label = font_medium.render(_t("settings.play.replay_autosave", "리플레이 자동저장"), True, (255, 255, 255))
-            screen.blit(replay_label, replay_label.get_rect(left=panel_x + margin_x, centery=replay_y + 18))
+            _replay_label_rect = replay_label.get_rect(left=panel_x + margin_x, centery=replay_y + 18)
+            screen.blit(replay_label, _replay_label_rect)
 
-            # 체크박스
+            # 체크박스 (라벨 우측에 여백 두고 배치)
             cb_size = 28
-            replay_cb_rect = pygame.Rect(slider_x, replay_y + 4, cb_size, cb_size)
+            _cb_x = _replay_label_rect.right + 16
+            replay_cb_rect = pygame.Rect(_cb_x, replay_y + 4, cb_size, cb_size)
             cb_border = (0, 255, 255) if focus == "replay_autosave" else (150, 150, 150)
             cb_bg = (60, 90, 130) if replay_auto_save else (45, 55, 70)
             pygame.draw.rect(screen, cb_bg, replay_cb_rect, border_radius=6)
             pygame.draw.rect(screen, cb_border, replay_cb_rect, 2, border_radius=6)
             if replay_auto_save:
-                # 체크마크 그리기
                 cx, cy = replay_cb_rect.centerx, replay_cb_rect.centery
                 pygame.draw.line(screen, (0, 255, 255), (cx - 7, cy), (cx - 2, cy + 6), 3)
                 pygame.draw.line(screen, (0, 255, 255), (cx - 2, cy + 6), (cx + 8, cy - 5), 3)
