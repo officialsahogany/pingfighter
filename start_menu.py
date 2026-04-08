@@ -3363,7 +3363,7 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
     if choice == "리플레이":
         from pingfighter import show_replay_viewer
         show_replay_viewer()
-        return True
+        return False
     if choice == "AI 플레이":
         return _run_ai_play_flow(ctx)
     if choice == "개발테스트":
