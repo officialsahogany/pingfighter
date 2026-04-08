@@ -6834,11 +6834,22 @@ class BuildingInterior:
                         7: (100, 255, 200),   # 테트리서 - 민트
                         8: (200, 100, 255),   # 아카무 리고 - 보라
                     }
+                    boss_descs = {
+                        1: "한국 전통 테마의 보스. 채찍을 휘두르며 공격한다.",
+                        2: "정글/늪지 테마의 보스. 거대한 악어장군의 턱을 조심하라!",
+                        3: "멘헤라/인형 테마의 보스. 기괴한 인형들을 소환한다.",
+                        4: "사원 테마의 보스. 고대 사원의 수호자.",
+                        5: "해상전투 테마의 보스. 전함 위에서의 결전!",
+                        6: "중국/화염 테마의 보스. 불꽃과 등롱이 난무한다.",
+                        7: "테트리스 테마의 보스. 블록이 쏟아져 내린다!",
+                        8: "최종 보스. 모든 것을 초월한 존재.",
+                    }
                     entries.append({
                         "name": f"stage_{stage_num}",
                         "display": f"Stage {stage_num} - {boss_name}" if unlocked else f"Stage {stage_num} - ???",
                         "unlocked": unlocked,
                         "color": boss_colors.get(stage_num, (150, 150, 150)),
+                        "desc": boss_descs.get(stage_num, "") if unlocked else "",
                     })
             except Exception as e:
                 print(f"[도감] 보스 목록 로드 실패: {e}")
@@ -6846,15 +6857,15 @@ class BuildingInterior:
         return entries
 
     def _handle_codex_click(self, pos):
-        """도감 UI 클릭 처리"""
-        # 닫기 버튼 (우상단)
-        close_btn = pygame.Rect(SCREEN_WIDTH - 40, 10, 30, 30)
-        if close_btn.collidepoint(pos):
-            self.codex_open = False
-            self.codex_scrollbar_dragging = False
-            return ("codex_close", None)
+        """도감 UI 클릭 처리 — 책 형태"""
+        import math
+        margin = 20
+        book_x, book_y = margin, margin
+        book_w = SCREEN_WIDTH - margin * 2
+        book_h = SCREEN_HEIGHT - margin * 2
+        thumb_area_h = 90
 
-        # 스크롤바 트랙 클릭 → 해당 위치로 점프 또는 드래그 시작
+        # 스크롤바 클릭
         if self.codex_scrollbar_rect and self.codex_scrollbar_rect.collidepoint(pos):
             max_scroll = self._get_codex_max_scroll()
             if max_scroll > 0:
@@ -6865,35 +6876,78 @@ class BuildingInterior:
             return None
 
         # 도감 영역 밖 클릭 → 닫기
-        codex_rect = pygame.Rect(30, 30, SCREEN_WIDTH - 60, SCREEN_HEIGHT - 60)
+        codex_rect = pygame.Rect(book_x, book_y, book_w, book_h)
         if not codex_rect.collidepoint(pos):
             self.codex_open = False
             self.codex_scrollbar_dragging = False
             return ("codex_close", None)
 
+        # 썸네일 영역 클릭 → 항목 선택
+        entries = self._get_codex_entries()
+        thumb_y_start = book_y + book_h - thumb_area_h
+        thumb_size = 38
+        thumb_margin = 5
+        thumbs_per_row = self._get_codex_thumbs_per_row()
+        thumb_start_x = book_x + (book_w - thumbs_per_row * (thumb_size + thumb_margin)) // 2
+        visible_thumb_rows = 2
+
+        for row in range(visible_thumb_rows):
+            actual_row = row + self.codex_scroll
+            for col in range(thumbs_per_row):
+                idx = actual_row * thumbs_per_row + col
+                if idx >= len(entries):
+                    break
+                tx = thumb_start_x + col * (thumb_size + thumb_margin)
+                ty = thumb_y_start + 4 + row * (thumb_size + thumb_margin)
+                thumb_rect = pygame.Rect(tx, ty, thumb_size, thumb_size)
+                if thumb_rect.collidepoint(pos):
+                    self.codex_selected = idx
+                    return None
+
+        # 화살표 클릭 (◀ 이전 / ▶ 다음)
+        arrow_y = thumb_y_start - 25
+        spine_w = 6
+        half_w = (book_w - spine_w) // 2
+        if pos[1] >= arrow_y and pos[1] <= arrow_y + 20:
+            if pos[0] < book_x + half_w and self.codex_selected > 0:
+                self.codex_selected -= 1
+                return None
+            elif pos[0] > book_x + half_w + spine_w and entries and self.codex_selected < len(entries) - 1:
+                self.codex_selected += 1
+                return None
+
         return None
 
+    def _get_codex_thumbs_per_row(self):
+        """도감 썸네일 행당 개수 계산"""
+        margin = 20
+        book_w = SCREEN_WIDTH - margin * 2
+        thumb_size = 38
+        thumb_margin = 5
+        return max(1, (book_w - 50) // (thumb_size + thumb_margin))
+
     def _handle_codex_key(self, key):
-        """도감 키보드 처리"""
+        """도감 키보드 처리 — 책 형태 UI"""
         entries = self._get_codex_entries()
         max_idx = len(entries) - 1 if entries else 0
-        items_per_row = 4
-        visible_rows = 5
+        thumbs_per_row = self._get_codex_thumbs_per_row()
+        visible_rows = 2
 
         if key == pygame.K_ESCAPE:
             self.codex_open = False
+            self.codex_scrollbar_dragging = False
             return ("codex_close", None)
-        elif key == pygame.K_UP or key == pygame.K_w:
-            self.codex_selected = max(0, self.codex_selected - items_per_row)
-        elif key == pygame.K_DOWN or key == pygame.K_s:
-            self.codex_selected = min(max_idx, self.codex_selected + items_per_row)
         elif key == pygame.K_LEFT or key == pygame.K_a:
             self.codex_selected = max(0, self.codex_selected - 1)
         elif key == pygame.K_RIGHT or key == pygame.K_d:
             self.codex_selected = min(max_idx, self.codex_selected + 1)
+        elif key == pygame.K_UP or key == pygame.K_w:
+            self.codex_selected = max(0, self.codex_selected - thumbs_per_row)
+        elif key == pygame.K_DOWN or key == pygame.K_s:
+            self.codex_selected = min(max_idx, self.codex_selected + thumbs_per_row)
 
-        # 스크롤 조정 (선택된 항목이 보이도록)
-        selected_row = self.codex_selected // items_per_row
+        # 썸네일 스크롤 자동 조정
+        selected_row = self.codex_selected // thumbs_per_row
         if selected_row < self.codex_scroll:
             self.codex_scroll = selected_row
         elif selected_row >= self.codex_scroll + visible_rows:
@@ -6905,9 +6959,9 @@ class BuildingInterior:
         """도감 최대 스크롤 값 계산"""
         import math
         entries = self._get_codex_entries()
-        items_per_row = 4
-        visible_rows = 5
-        total_rows = math.ceil(len(entries) / items_per_row) if entries else 1
+        thumbs_per_row = self._get_codex_thumbs_per_row()
+        visible_rows = 2
+        total_rows = math.ceil(len(entries) / thumbs_per_row) if entries else 1
         return max(0, total_rows - visible_rows)
 
     def handle_codex_scroll(self, event):
@@ -8918,23 +8972,76 @@ class BuildingInterior:
             screen.blit(hint_surf, (dialog_rect.x + (dialog_rect.width - hint_rect.width) // 2,
                                     dialog_rect.y + dialog_rect.height - 14))
 
+    def _get_codex_entry_icon(self, entry):
+        """도감 항목의 실제 아이콘 Surface 반환 (없으면 None)"""
+        try:
+            if self.codex_type == "items":
+                runtime = self._get_runtime_progress_source()
+                get_icon = getattr(runtime, 'get_item_icon', None) if runtime else None
+                if get_icon and entry.get("unlocked"):
+                    icon = get_icon(entry["name"])
+                    if icon:
+                        return icon
+            elif self.codex_type == "perks":
+                # 퍽 아이콘은 draw_skill_icon_mini로 직접 그림 (Surface 반환 불가, 별도 처리)
+                pass
+            elif self.codex_type == "bosses":
+                pass
+        except Exception:
+            pass
+        return None
+
+    def _get_codex_entry_description(self, entry):
+        """도감 항목의 설명 텍스트 반환"""
+        try:
+            if self.codex_type == "items":
+                runtime = self._get_runtime_progress_source()
+                get_desc = getattr(runtime, 'get_item_description', None) if runtime else None
+                if get_desc and entry.get("unlocked"):
+                    return get_desc(entry["name"]) or ""
+            elif self.codex_type == "perks":
+                runtime = self._get_runtime_progress_source()
+                # 모든 스킬 풀에서 퍽 정보 찾기
+                for pool_name in ('RUNTIME_SKILL_POOL', 'SMASHER_EXCLUSIVE_SKILLS',
+                                  'OPTIMUS_EXCLUSIVE_SKILLS', 'SOLDIER_EXCLUSIVE_SKILLS',
+                                  'VIPER_EXCLUSIVE_SKILLS'):
+                    pool = getattr(runtime, pool_name, None) if runtime else None
+                    if pool and entry["name"] in pool:
+                        skill_info = pool[entry["name"]]
+                        detail = skill_info.get("detail", "")
+                        if detail:
+                            return detail
+                        descs = skill_info.get("descriptions", {})
+                        if descs:
+                            return descs.get(1, "")
+                        break
+            elif self.codex_type == "bosses":
+                if entry.get("unlocked"):
+                    return entry.get("desc", "")
+        except Exception:
+            pass
+        return ""
+
     def _draw_codex(self, screen):
-        """도감 UI 그리기 (아이템/퍽/보스)"""
+        """도감 UI 그리기 — 펼친 책 형태"""
         import math
 
-        # 색상
-        BG_DARK = (20, 15, 35)
-        BORDER_COLOR = (160, 120, 220)
-        BORDER_GLOW = (100, 60, 160)
-        TEXT_WHITE = (240, 245, 255)
+        # 색상 팔레트
+        PARCHMENT = (45, 38, 55)
+        PARCHMENT_LEFT = (40, 34, 50)
+        PARCHMENT_RIGHT = (48, 42, 60)
+        SPINE_COLOR = (70, 55, 40)
+        BORDER_DARK = (90, 70, 50)
+        BORDER_GOLD = (200, 170, 100)
+        TEXT_WHITE = (235, 230, 220)
         TEXT_GOLD = (255, 215, 100)
-        TEXT_DIM = (120, 120, 140)
-        CARD_BG = (40, 30, 60)
-        CARD_UNLOCKED = (55, 45, 80)
-        CARD_LOCKED = (30, 25, 45)
-        CARD_SELECTED = (80, 60, 120)
+        TEXT_DIM = (140, 135, 125)
+        TEXT_DESC = (200, 195, 185)
+        THUMB_BG = (35, 30, 45)
+        THUMB_SELECTED = (70, 55, 90)
+        THUMB_LOCKED = (28, 25, 38)
+        ACCENT_GLOW = (180, 150, 80)
 
-        # 도감 타입별 제목/색상
         codex_titles = {"items": "아이템 도감", "perks": "퍽 도감", "bosses": "보스 도감"}
         codex_accent = {
             "items": (100, 200, 255),
@@ -8942,165 +9049,286 @@ class BuildingInterior:
             "bosses": (255, 80, 80),
         }
         title = codex_titles.get(self.codex_type, "도감")
-        accent = codex_accent.get(self.codex_type, BORDER_COLOR)
+        accent = codex_accent.get(self.codex_type, BORDER_GOLD)
 
-        # 항목 가져오기
         entries = self._get_codex_entries()
-
-        # 레이아웃
-        margin = 30
-        panel_x, panel_y = margin, margin
-        panel_w = SCREEN_WIDTH - margin * 2
-        panel_h = SCREEN_HEIGHT - margin * 2
-        items_per_row = 4
-        visible_rows = 5
-        card_margin = 8
-        header_h = 50
-        footer_h = 25
-        content_h = panel_h - header_h - footer_h
-        scrollbar_area = 20  # 스크롤바 + 여백
-        card_w = (panel_w - scrollbar_area - card_margin * (items_per_row + 1)) // items_per_row
-        card_h = (content_h - card_margin * (visible_rows + 1)) // visible_rows
-
-        # 배경 어둡게
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
-        screen.blit(overlay, (0, 0))
-
-        # 패널 배경
-        panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-        pygame.draw.rect(panel_surf, (*BG_DARK, 240), (0, 0, panel_w, panel_h), border_radius=10)
-        screen.blit(panel_surf, (panel_x, panel_y))
-
-        # 테두리
-        pygame.draw.rect(screen, BORDER_GLOW, (panel_x - 2, panel_y - 2, panel_w + 4, panel_h + 4), 3, border_radius=12)
-        pygame.draw.rect(screen, accent, (panel_x, panel_y, panel_w, panel_h), 2, border_radius=10)
-
-        # 헤더
         font_medium = self.fonts.get('medium')
         font_small = self.fonts.get('small')
+        font_tiny = self.fonts.get('tiny') or font_small
+
+        # === 레이아웃 계산 ===
+        margin = 20
+        book_x, book_y = margin, margin
+        book_w = SCREEN_WIDTH - margin * 2
+        book_h = SCREEN_HEIGHT - margin * 2
+        spine_w = 6
+        half_w = (book_w - spine_w) // 2
+        thumb_area_h = 90  # 하단 썸네일 영역 높이
+        page_content_h = book_h - thumb_area_h - 10
+
+        left_x = book_x
+        right_x = book_x + half_w + spine_w
+        content_top = book_y + 8
+
+        # === 배경 오버레이 ===
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 190))
+        screen.blit(overlay, (0, 0))
+
+        # === 책 본체 ===
+        # 좌측 페이지
+        left_surf = pygame.Surface((half_w, book_h), pygame.SRCALPHA)
+        pygame.draw.rect(left_surf, (*PARCHMENT_LEFT, 245), (0, 0, half_w, book_h), border_radius=8)
+        screen.blit(left_surf, (left_x, book_y))
+        # 우측 페이지
+        right_surf = pygame.Surface((half_w, book_h), pygame.SRCALPHA)
+        pygame.draw.rect(right_surf, (*PARCHMENT_RIGHT, 245), (0, 0, half_w, book_h), border_radius=8)
+        screen.blit(right_surf, (right_x, book_y))
+        # 중앙 책등
+        pygame.draw.rect(screen, SPINE_COLOR, (book_x + half_w, book_y, spine_w, book_h))
+        pygame.draw.line(screen, (50, 40, 30), (book_x + half_w, book_y), (book_x + half_w, book_y + book_h), 1)
+        pygame.draw.line(screen, (50, 40, 30), (book_x + half_w + spine_w, book_y), (book_x + half_w + spine_w, book_y + book_h), 1)
+        # 외곽 테두리
+        pygame.draw.rect(screen, BORDER_DARK, (left_x, book_y, half_w, book_h), 2, border_radius=8)
+        pygame.draw.rect(screen, BORDER_DARK, (right_x, book_y, half_w, book_h), 2, border_radius=8)
+
+        # === 제목 (우측 상단) ===
         if font_medium:
             title_surf, title_rect = font_medium.render(title, TEXT_GOLD)
-            screen.blit(title_surf, (panel_x + panel_w // 2 - title_rect.width // 2, panel_y + 12))
+            screen.blit(title_surf, (right_x + half_w // 2 - title_rect.width // 2, content_top + 8))
 
-        # 해금/전체 카운트
+        # 해금 카운트
         unlocked_count = sum(1 for e in entries if e["unlocked"])
         total_count = len(entries)
         if font_small:
             count_text = f"{unlocked_count} / {total_count}"
             count_surf, count_rect = font_small.render(count_text, accent)
-            screen.blit(count_surf, (panel_x + panel_w - count_rect.width - 15, panel_y + 18))
+            screen.blit(count_surf, (right_x + half_w - count_rect.width - 12, content_top + 12))
 
+        # === 현재 선택된 항목 표시 ===
+        current_entry = entries[self.codex_selected] if entries and 0 <= self.codex_selected < len(entries) else None
+
+        if current_entry:
+            if current_entry["unlocked"]:
+                # --- 좌측 페이지: 아이콘 ---
+                icon_area_x = left_x + 20
+                icon_area_y = content_top + 20
+                icon_area_w = half_w - 40
+                icon_area_h = page_content_h - 40
+
+                # 아이콘 프레임 배경
+                frame_size = min(icon_area_w, icon_area_h) - 20
+                frame_x = icon_area_x + (icon_area_w - frame_size) // 2
+                frame_y = icon_area_y + (icon_area_h - frame_size) // 2 - 10
+                pygame.draw.rect(screen, (30, 25, 42), (frame_x, frame_y, frame_size, frame_size), border_radius=10)
+                pygame.draw.rect(screen, BORDER_GOLD, (frame_x, frame_y, frame_size, frame_size), 2, border_radius=10)
+
+                # 실제 아이콘 로드 및 표시
+                icon_surf = self._get_codex_entry_icon(current_entry)
+                if icon_surf:
+                    # 아이콘을 프레임 안에 맞게 스케일
+                    display_size = frame_size - 30
+                    try:
+                        scaled_icon = pygame.transform.smoothscale(icon_surf, (display_size, display_size))
+                    except Exception:
+                        scaled_icon = pygame.transform.scale(icon_surf, (display_size, display_size))
+                    icon_dx = frame_x + (frame_size - display_size) // 2
+                    icon_dy = frame_y + (frame_size - display_size) // 2
+                    screen.blit(scaled_icon, (icon_dx, icon_dy))
+                else:
+                    # 아이콘 없으면 색상 원 fallback
+                    circle_r = frame_size // 4
+                    cx = frame_x + frame_size // 2
+                    cy = frame_y + frame_size // 2
+                    pygame.draw.circle(screen, current_entry["color"], (cx, cy), circle_r)
+                    pygame.draw.circle(screen, tuple(min(255, c + 60) for c in current_entry["color"]),
+                                      (cx, cy), circle_r, 3)
+
+                # 좌측 하단에 이름 표시
+                if font_medium:
+                    name_surf, name_rect = font_medium.render(current_entry["display"], TEXT_WHITE)
+                    name_x = left_x + half_w // 2 - name_rect.width // 2
+                    name_y = frame_y + frame_size + 15
+                    screen.blit(name_surf, (name_x, name_y))
+
+                # --- 우측 페이지: 이름 + 설명 ---
+                desc_x = right_x + 20
+                desc_y = content_top + 45
+                desc_w = half_w - 40
+
+                # 이름 (큰 글씨)
+                if font_medium:
+                    name_surf2, name_rect2 = font_medium.render(current_entry["display"], TEXT_GOLD)
+                    screen.blit(name_surf2, (desc_x, desc_y))
+                    desc_y += name_rect2.height + 8
+
+                # 구분선
+                pygame.draw.line(screen, BORDER_GOLD, (desc_x, desc_y), (desc_x + desc_w, desc_y), 1)
+                desc_y += 10
+
+                # 설명 텍스트 (줄바꿈 처리)
+                description = self._get_codex_entry_description(current_entry)
+                if description and font_small:
+                    max_desc_y = book_y + page_content_h - 10
+                    # 텍스트를 단어 단위로 줄바꿈
+                    words = description.replace('\n', ' ').split()
+                    line = ""
+                    for word in words:
+                        test_line = line + word + " " if line else word + " "
+                        test_surf, test_rect = font_small.render(test_line, TEXT_DESC)
+                        if test_rect.width > desc_w and line:
+                            line_surf, line_rect = font_small.render(line.rstrip(), TEXT_DESC)
+                            screen.blit(line_surf, (desc_x, desc_y))
+                            desc_y += line_rect.height + 4
+                            line = word + " "
+                            if desc_y > max_desc_y:
+                                break
+                        else:
+                            line = test_line
+                    if line.strip() and desc_y <= max_desc_y:
+                        line_surf, line_rect = font_small.render(line.rstrip(), TEXT_DESC)
+                        screen.blit(line_surf, (desc_x, desc_y))
+                elif not description and font_small:
+                    no_desc_surf, _ = font_small.render("설명이 없습니다.", TEXT_DIM)
+                    screen.blit(no_desc_surf, (desc_x, desc_y))
+
+            else:
+                # --- 미해금 항목 ---
+                # 좌측: 큰 "?" 표시
+                if font_medium:
+                    for pg_x in (left_x, right_x):
+                        q_surf, q_rect = font_medium.render("?", TEXT_DIM)
+                        screen.blit(q_surf, (pg_x + half_w // 2 - q_rect.width // 2,
+                                            content_top + page_content_h // 2 - q_rect.height // 2))
+                if font_small:
+                    lock_surf, lock_rect = font_small.render("아직 발견하지 못한 항목입니다", TEXT_DIM)
+                    screen.blit(lock_surf, (right_x + half_w // 2 - lock_rect.width // 2,
+                                           content_top + page_content_h // 2 + 25))
+
+        # === 하단 썸네일 그리드 ===
+        thumb_y_start = book_y + book_h - thumb_area_h
         # 구분선
-        pygame.draw.line(screen, BORDER_GLOW,
-                        (panel_x + 10, panel_y + header_h),
-                        (panel_x + panel_w - 10, panel_y + header_h), 1)
+        pygame.draw.line(screen, BORDER_DARK,
+                        (book_x + 8, thumb_y_start - 2),
+                        (book_x + book_w - 8, thumb_y_start - 2), 1)
 
-        # 카드 그리기
-        content_y = panel_y + header_h + card_margin
+        # 썸네일 레이아웃
+        thumb_size = 38
+        thumb_margin = 5
+        thumbs_per_row = (book_w - 50) // (thumb_size + thumb_margin)
+        visible_thumb_rows = 2
+        total_thumbs = thumbs_per_row * visible_thumb_rows
+        thumb_start_x = book_x + (book_w - thumbs_per_row * (thumb_size + thumb_margin)) // 2
+
+        # 스크롤 범위 (썸네일 행 단위)
+        total_thumb_rows = math.ceil(len(entries) / thumbs_per_row) if entries else 1
+        max_scroll = max(0, total_thumb_rows - visible_thumb_rows)
+        self.codex_scroll = max(0, min(max_scroll, self.codex_scroll))
+
+        # 스크롤바 영역 저장 (우측 썸네일 영역에 세로 스크롤바)
+        scrollbar_w = 8
+        scrollbar_x = book_x + book_w - scrollbar_w - 6
+        scrollbar_y_top = thumb_y_start + 4
+        scrollbar_h = thumb_area_h - 12
+        track_rect = pygame.Rect(scrollbar_x, scrollbar_y_top, scrollbar_w, scrollbar_h)
+        self.codex_scrollbar_rect = track_rect
+
         mouse_pos = pygame.mouse.get_pos()
-
-        for row in range(visible_rows):
+        # 썸네일 그리기
+        for row in range(visible_thumb_rows):
             actual_row = row + self.codex_scroll
-            for col in range(items_per_row):
-                idx = actual_row * items_per_row + col
+            for col in range(thumbs_per_row):
+                idx = actual_row * thumbs_per_row + col
                 if idx >= len(entries):
                     break
 
                 entry = entries[idx]
-                cx = panel_x + card_margin + col * (card_w + card_margin)
-                cy = content_y + row * (card_h + card_margin)
-                card_rect = pygame.Rect(cx, cy, card_w, card_h)
+                tx = thumb_start_x + col * (thumb_size + thumb_margin)
+                ty = thumb_y_start + 4 + row * (thumb_size + thumb_margin)
+                thumb_rect = pygame.Rect(tx, ty, thumb_size, thumb_size)
 
-                # 카드 배경색 결정
                 is_selected = idx == self.codex_selected
-                is_hover = card_rect.collidepoint(mouse_pos)
-                if is_selected:
-                    bg = CARD_SELECTED
-                elif entry["unlocked"]:
-                    bg = CARD_UNLOCKED if not is_hover else (65, 55, 95)
-                else:
-                    bg = CARD_LOCKED if not is_hover else (38, 32, 55)
+                is_hover = thumb_rect.collidepoint(mouse_pos)
 
-                # 카드 그리기
-                pygame.draw.rect(screen, bg, card_rect, border_radius=6)
-                border_c = accent if is_selected else (BORDER_GLOW if entry["unlocked"] else (50, 45, 65))
-                pygame.draw.rect(screen, border_c, card_rect, 2 if is_selected else 1, border_radius=6)
+                if is_selected:
+                    bg = THUMB_SELECTED
+                    border_c = accent
+                elif entry["unlocked"]:
+                    bg = (50, 42, 68) if is_hover else THUMB_BG
+                    border_c = (100, 85, 120) if is_hover else (60, 50, 75)
+                else:
+                    bg = (32, 28, 42) if is_hover else THUMB_LOCKED
+                    border_c = (50, 45, 60)
+
+                pygame.draw.rect(screen, bg, thumb_rect, border_radius=4)
+                pygame.draw.rect(screen, border_c, thumb_rect, 2 if is_selected else 1, border_radius=4)
 
                 if entry["unlocked"]:
-                    # 아이콘 영역 (색상 원)
-                    icon_y = cy + 10
-                    icon_size = min(card_w - 20, card_h - 35, 32)
-                    icon_cx = cx + card_w // 2
-                    icon_cy = icon_y + icon_size // 2
-                    pygame.draw.circle(screen, entry["color"], (icon_cx, icon_cy), icon_size // 2)
-                    pygame.draw.circle(screen, tuple(min(255, c + 60) for c in entry["color"]),
-                                      (icon_cx, icon_cy), icon_size // 2, 2)
-
-                    # 이름 텍스트
-                    if font_small:
-                        name_surf, name_rect = font_small.render(entry["display"], TEXT_WHITE)
-                        # 텍스트가 카드보다 넓으면 자르기
-                        if name_rect.width > card_w - 8:
-                            clip_surf = pygame.Surface((card_w - 8, name_rect.height), pygame.SRCALPHA)
-                            clip_surf.blit(name_surf, (0, 0))
-                            screen.blit(clip_surf, (cx + 4, cy + card_h - name_rect.height - 6))
-                        else:
-                            screen.blit(name_surf, (cx + card_w // 2 - name_rect.width // 2,
-                                                    cy + card_h - name_rect.height - 6))
+                    # 실제 아이콘 축소 표시
+                    icon_surf = self._get_codex_entry_icon(entry)
+                    if icon_surf:
+                        try:
+                            mini = pygame.transform.smoothscale(icon_surf, (thumb_size - 8, thumb_size - 8))
+                        except Exception:
+                            mini = pygame.transform.scale(icon_surf, (thumb_size - 8, thumb_size - 8))
+                        screen.blit(mini, (tx + 4, ty + 4))
+                    else:
+                        # 색상 원 fallback
+                        r = (thumb_size - 12) // 2
+                        pygame.draw.circle(screen, entry["color"],
+                                          (tx + thumb_size // 2, ty + thumb_size // 2), r)
                 else:
-                    # 잠김 표시 - "?" 큰 글씨
-                    if font_medium:
-                        q_surf, q_rect = font_medium.render("?", TEXT_DIM)
-                        screen.blit(q_surf, (cx + card_w // 2 - q_rect.width // 2,
-                                            cy + card_h // 2 - q_rect.height // 2))
+                    if font_tiny:
+                        q_surf, q_rect = font_tiny.render("?", TEXT_DIM)
+                        screen.blit(q_surf, (tx + thumb_size // 2 - q_rect.width // 2,
+                                            ty + thumb_size // 2 - q_rect.height // 2))
 
-        # 스크롤바 (우측)
-        total_rows = math.ceil(len(entries) / items_per_row) if entries else 1
-        SCROLLBAR_W = 10
-        scrollbar_x = panel_x + panel_w - SCROLLBAR_W - 6
-        scrollbar_y = panel_y + header_h + 4
-        scrollbar_h = content_h - 8
-        track_rect = pygame.Rect(scrollbar_x, scrollbar_y, SCROLLBAR_W, scrollbar_h)
-        self.codex_scrollbar_rect = track_rect
-
-        if total_rows > visible_rows:
-            max_scroll = max(1, total_rows - visible_rows)
-            # 트랙 배경
-            pygame.draw.rect(screen, (40, 35, 60), track_rect, border_radius=4)
-            pygame.draw.rect(screen, (60, 50, 90), track_rect, 1, border_radius=4)
-
-            # 썸(핸들) 크기와 위치 계산
-            thumb_ratio = visible_rows / total_rows
-            thumb_h = max(20, int(scrollbar_h * thumb_ratio))
-            thumb_travel = scrollbar_h - thumb_h
-            thumb_y = scrollbar_y + int((self.codex_scroll / max_scroll) * thumb_travel) if max_scroll > 0 else scrollbar_y
-            thumb_rect = pygame.Rect(scrollbar_x, thumb_y, SCROLLBAR_W, thumb_h)
-            self.codex_thumb_rect = thumb_rect
-
-            # 드래그 중이면 강조 색상
-            if self.codex_scrollbar_dragging:
-                thumb_color = tuple(min(255, c + 40) for c in accent)
-            else:
-                mouse_pos = pygame.mouse.get_pos()
-                thumb_color = tuple(min(255, c + 20) for c in accent) if thumb_rect.collidepoint(mouse_pos) else accent
-            pygame.draw.rect(screen, thumb_color, thumb_rect, border_radius=4)
-            pygame.draw.rect(screen, (255, 255, 255, 60), thumb_rect, 1, border_radius=4)
-
-            # 페이지 인디케이터 텍스트
-            if font_small:
-                scroll_text = f"{self.codex_scroll + 1}-{min(self.codex_scroll + visible_rows, total_rows)} / {total_rows}"
-                scroll_surf, scroll_rect = font_small.render(scroll_text, TEXT_DIM)
-                screen.blit(scroll_surf, (panel_x + panel_w // 2 - scroll_rect.width // 2,
-                                         panel_y + panel_h - footer_h + 3))
+        # 스크롤바 그리기
+        if total_thumb_rows > visible_thumb_rows:
+            pygame.draw.rect(screen, (35, 30, 50), track_rect, border_radius=3)
+            thumb_ratio = visible_thumb_rows / total_thumb_rows
+            sth = max(15, int(scrollbar_h * thumb_ratio))
+            st_travel = scrollbar_h - sth
+            st_y = scrollbar_y_top + int((self.codex_scroll / max(1, max_scroll)) * st_travel)
+            st_rect = pygame.Rect(scrollbar_x, st_y, scrollbar_w, sth)
+            self.codex_thumb_rect = st_rect
+            sc = tuple(min(255, c + 30) for c in accent) if self.codex_scrollbar_dragging else accent
+            if st_rect.collidepoint(mouse_pos):
+                sc = tuple(min(255, c + 20) for c in sc)
+            pygame.draw.rect(screen, sc, st_rect, border_radius=3)
         else:
             self.codex_thumb_rect = None
 
-        # 하단 힌트
-        if font_small:
-            hint_text = "← → ↑ ↓ 탐색  |  마우스 휠  |  ESC 닫기"
-            hint_surf, hint_rect = font_small.render(hint_text, (100, 100, 120))
-            screen.blit(hint_surf, (panel_x + 15, panel_y + panel_h - footer_h + 3))
+        # === 페이지 넘김 화살표 ===
+        arrow_y = thumb_y_start - 25
+        # ◀ 이전
+        if self.codex_selected > 0:
+            arrow_left_rect = pygame.Rect(left_x + 10, arrow_y, 30, 20)
+            is_hover_l = arrow_left_rect.collidepoint(mouse_pos)
+            pygame.draw.polygon(screen,
+                               accent if is_hover_l else TEXT_DIM,
+                               [(left_x + 30, arrow_y + 2), (left_x + 12, arrow_y + 10), (left_x + 30, arrow_y + 18)])
+            if font_tiny:
+                prev_s, _ = font_tiny.render("◀ 이전", accent if is_hover_l else TEXT_DIM)
+                screen.blit(prev_s, (left_x + 35, arrow_y + 3))
+        # ▶ 다음
+        if entries and self.codex_selected < len(entries) - 1:
+            if font_tiny:
+                next_s, next_r = font_tiny.render("다음 ▶", accent if True else TEXT_DIM)
+                nx = right_x + half_w - next_r.width - 35
+                screen.blit(next_s, (nx, arrow_y + 3))
+            pygame.draw.polygon(screen,
+                               accent,
+                               [(right_x + half_w - 15, arrow_y + 2),
+                                (right_x + half_w - 5, arrow_y + 10),
+                                (right_x + half_w - 15, arrow_y + 18)])
+
+        # === 하단 힌트 ===
+        if font_tiny:
+            hint_text = "← → 넘기기  |  클릭으로 선택  |  마우스 휠  |  ESC 닫기"
+            hint_surf, hint_rect = font_tiny.render(hint_text, TEXT_DIM)
+            screen.blit(hint_surf, (book_x + book_w // 2 - hint_rect.width // 2,
+                                   book_y + book_h - 14))
 
     def _draw_academy_dialog(self, screen):
         """학장 아르카나와의 대화창 그리기"""
