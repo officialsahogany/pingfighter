@@ -23472,11 +23472,13 @@ def _build_sound_id_map():
     for name, snd in sound_effects.items():
         if snd is not None:
             _sound_id_map[id(snd)] = name
-    # items.py 자체 사운드도 매핑 (리플레이 녹음용)
-    if items.SOUND_ITEM_GET is not None:
-        _sound_id_map[id(items.SOUND_ITEM_GET)] = 'ITEM_GET'
-    if items.SOUND_LUCKY_SPAWN is not None:
-        _sound_id_map[id(items.SOUND_LUCKY_SPAWN)] = 'sounds/clue.wav'
+    # items.py 자체 사운드도 매핑 (리플레이 녹음용, 지연 로드 getter 사용)
+    _item_get_snd = items.get_sound_item_get()
+    if _item_get_snd is not None:
+        _sound_id_map[id(_item_get_snd)] = 'ITEM_GET'
+    _lucky_spawn_snd = items.get_sound_lucky_spawn()
+    if _lucky_spawn_snd is not None:
+        _sound_id_map[id(_lucky_spawn_snd)] = 'sounds/clue.wav'
     print(f"[Replay] 사운드 매핑 구축: {len(_sound_id_map)}개")
 
 def play_sound_with_volume(sound, volume=None):

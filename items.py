@@ -23,13 +23,14 @@ from localization.manager import get_localization_manager
 def _t(key, fallback=None):
     return get_localization_manager().get_text(key, fallback)
  
-# pingfighter.py에서 get_item_icon 함수 import
-try:
-    from pingfighter import get_item_icon
-except ImportError:
-    # import 실패 시 ITEM_ICONS에서 아이콘 찾기
-    def get_item_icon(item_name):
-        # ITEM_ICONS 딕셔너리에서 아이콘 반환
+# pingfighter.py의 get_item_icon은 순환 import 때문에 모듈 레벨에서 import 불가.
+# 실제 사용 시점(load_item_icons 등)에서 지연 import로 가져온다.
+def get_item_icon(item_name):
+    """pingfighter의 get_item_icon을 지연 import로 호출, 실패 시 ITEM_ICONS 폴백."""
+    try:
+        from pingfighter import get_item_icon as _real_get_item_icon
+        return _real_get_item_icon(item_name)
+    except (ImportError, AttributeError):
         if 'ITEM_ICONS' in globals() and item_name in ITEM_ICONS:
             return ITEM_ICONS[item_name]
         return None
@@ -72,19 +73,37 @@ def get_alchemy_font():
             _alchemy_font = pygame.font.Font(None, 18)
     return _alchemy_font
 
-# 사운드 로드
-try:
-    SOUND_ITEM_GET = pygame.mixer.Sound(resource_path(os.path.join("sounds", "itemget.wav")))
-    SOUND_ITEM_GET.set_volume(0.5)  # 볼륨 조절 (0.0 ~ 1.0)
-except:
-    SOUND_ITEM_GET = None
+# 사운드 지연 로드 (pygame.mixer 초기화 이후 첫 사용 시 로드)
+_SOUND_ITEM_GET = None
+_SOUND_LUCKY_SPAWN = None
+_sounds_loaded = False
 
-# 럭키코인 보너스 스폰 효과음
-try:
-    SOUND_LUCKY_SPAWN = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
-    SOUND_LUCKY_SPAWN.set_volume(0.6)
-except:
-    SOUND_LUCKY_SPAWN = None
+def _ensure_sounds_loaded():
+    """pygame.mixer 초기화 후 첫 호출 시 사운드를 로드한다."""
+    global _SOUND_ITEM_GET, _SOUND_LUCKY_SPAWN, _sounds_loaded
+    if _sounds_loaded:
+        return
+    _sounds_loaded = True
+    try:
+        if pygame.mixer.get_init():
+            _SOUND_ITEM_GET = pygame.mixer.Sound(resource_path(os.path.join("sounds", "itemget.wav")))
+            _SOUND_ITEM_GET.set_volume(0.5)
+    except Exception:
+        _SOUND_ITEM_GET = None
+    try:
+        if pygame.mixer.get_init():
+            _SOUND_LUCKY_SPAWN = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
+            _SOUND_LUCKY_SPAWN.set_volume(0.6)
+    except Exception:
+        _SOUND_LUCKY_SPAWN = None
+
+def get_sound_item_get():
+    _ensure_sounds_loaded()
+    return _SOUND_ITEM_GET
+
+def get_sound_lucky_spawn():
+    _ensure_sounds_loaded()
+    return _SOUND_LUCKY_SPAWN
 
 # 리플레이 녹음 지원: pingfighter에서 콜백 등록 (순환 import 방지)
 _play_sound_fn = None  # play_sound_with_volume 콜백
@@ -2618,24 +2637,28 @@ def spawn_random_item():
         # 신성 월계수도 동일하게 초기화만 수행해 아이콘 애니메이션이 가능하도록 함
 
         # 럭키코인 효과: 확률적으로 보너스 아이템 1개 추가 스폰
+        # scaled_weights를 전달하여 보물지도/액티브-패시브 가중치가 동일하게 적용되도록 함
         try:
             from item_effects.lucky_coin import should_double_spawn
             if should_double_spawn():
-                _spawn_bonus_item(available_items, skill_spawn_boost)
+                _spawn_bonus_item(scaled_weights)
         except Exception:
             pass
 
 
-def _spawn_bonus_item(available_items, skill_spawn_boost=1.0):
-    """럭키코인 더블 스폰용 보너스 아이템 생성 (럭키코인 자체는 제외)"""
+def _spawn_bonus_item(scaled_weights):
+    """럭키코인 더블 스폰용 보너스 아이템 생성 (럭키코인 자체는 제외)
+
+    scaled_weights: 메인 스폰 경로에서 계산된 (item, weight) 리스트
+                    (보물지도 배율, 액티브/패시브 비율 조정 모두 적용된 상태)
+    """
     import random as _rng
 
     # 럭키코인을 제외한 아이템 목록으로 가중치 계산
     candidates = []
-    for item in available_items:
+    for item, w in scaled_weights:
         if item["name"] == "lucky_coin":
             continue  # 럭키코인이 또 나오는 건 방지
-        w = item["chance"] * skill_spawn_boost
         if w > 0:
             candidates.append((item, w))
 
@@ -2683,9 +2706,10 @@ def _spawn_bonus_item(available_items, skill_spawn_boost=1.0):
     item_list.append(new_item)
 
     # 보너스 스폰 효과음 재생
-    if SOUND_LUCKY_SPAWN:
+    lucky_sound = get_sound_lucky_spawn()
+    if lucky_sound:
         try:
-            _play_sound(SOUND_LUCKY_SPAWN)
+            _play_sound(lucky_sound)
         except Exception:
             pass
 
@@ -2785,9 +2809,10 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                     except Exception as e:
                         print(f"  : {e}")
                 else:
-                    if SOUND_ITEM_GET:
+                    item_get_sound = get_sound_item_get()
+                    if item_get_sound:
                         try:
-                            _play_sound(SOUND_ITEM_GET)
+                            _play_sound(item_get_sound)
                         except Exception as e:
                             print(f"   : {e}")
         else:
@@ -3145,7 +3170,7 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
             item_name = item.get("name", item.get("effect", ""))
             all_throwing_items = throwing_items | throwing_items_3sec
             if item_name in all_throwing_items and time_since_round_start < 3000:
-                remaining_seconds = int((3000 - time_since_round_start) / 1000) + 1  # 3, 2, 1
+                remaining_seconds = math.ceil((3000 - time_since_round_start) / 1000)  # 3, 2, 1
 
                 # OPTIMIZATION: Use cached overlay surface
                 overlay = _get_overlay_surface(SLOT_W, SLOT_H)
@@ -3262,6 +3287,11 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
 
                 # 메인 텍스트
                 screen.blit(number_text, (x + 2, y + 1))
+
+            # 멀티슬롯 툴팁 대상 기록
+            slot_rect = pygame.Rect(x, y, SLOT_W, SLOT_H)
+            if slot_rect.collidepoint(mouse_pos) and item.get("name"):
+                tooltip = item.get("name")
 
             if alchemy_notices and notice_font:
                 for notice in alchemy_notices:
