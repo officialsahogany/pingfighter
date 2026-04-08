@@ -1047,7 +1047,7 @@ class DowntownManager:
             return
 
         info = BUILDING_INFO[building_type]
-        ap_cost = 1  # 모든 건물 입장 비용 1 AP로 통일
+        ap_cost = info.get('ap_cost', 1)
 
         # AP 체크
         if not self.ap_system.can_use(ap_cost):
