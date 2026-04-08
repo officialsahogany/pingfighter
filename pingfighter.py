@@ -159570,23 +159570,27 @@ def main(stage_num, new_boss_mode=False):
     # 메인 메뉴 BGM 정지
     bgm_manager.stop_bgm()
 
-    # 🎬 리플레이 자동 녹화 시작
+    # 🎬 리플레이 자동 녹화 시작 (설정에서 활성화된 경우만)
+    _replay_auto_save_enabled = bool(get_settings_manager().get_setting("gameplay", "replay_auto_save", True))
     _replay_rec = get_replay_recorder()
-    try:
-        _use_real_cap = _is_fullscreen_active and REAL_SCREEN is not None
-        _rec_w = REAL_SCREEN.get_width() if _use_real_cap else WIDTH
-        _rec_h = REAL_SCREEN.get_height() if _use_real_cap else HEIGHT
-        _replay_rec.start(
-            stage=stage_num,
-            boss_name=get_boss_name(stage_num),
-            ai_mode=ai_mode,
-            character=selected_character_type,
-            screen_w=_rec_w,
-            screen_h=_rec_h,
-            capture_mode='fullscreen' if _use_real_cap else 'screen',
-        )
-    except Exception as _re:
-        print(f"[Replay] 녹화 시작 실패: {_re}")
+    if _replay_auto_save_enabled:
+        try:
+            _use_real_cap = _is_fullscreen_active and REAL_SCREEN is not None
+            _rec_w = REAL_SCREEN.get_width() if _use_real_cap else WIDTH
+            _rec_h = REAL_SCREEN.get_height() if _use_real_cap else HEIGHT
+            _replay_rec.start(
+                stage=stage_num,
+                boss_name=get_boss_name(stage_num),
+                ai_mode=ai_mode,
+                character=selected_character_type,
+                screen_w=_rec_w,
+                screen_h=_rec_h,
+                capture_mode='fullscreen' if _use_real_cap else 'screen',
+            )
+        except Exception as _re:
+            print(f"[Replay] 녹화 시작 실패: {_re}")
+    else:
+        print("[Replay] 리플레이 자동저장 비활성화 — 녹화 건너뜀")
 
     # BGM 볼륨 초기화
     global bgm_volume

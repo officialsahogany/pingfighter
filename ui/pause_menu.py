@@ -214,6 +214,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     control_scheme = settings.get_setting('controls', 'control_scheme', 'keyboard')
     paddle_hit_sound = int(settings.get_setting('audio', 'paddle_hit_sound', 1))
     ball_type = settings.get_setting('gameplay', 'ball_type', 'energy')
+    replay_auto_save = bool(settings.get_setting('gameplay', 'replay_auto_save', True))
     modern_loop_enabled = ctx.get_modern_loop_enabled()
     # 언어 설정
     current_language = settings.get_setting('language', 'language', 'ko')
@@ -403,6 +404,22 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 pygame.draw.rect(ctx.screen, border_col, r, 2, border_radius=16)
                 s = font_small.render(lbl, True, txt_col)
                 ctx.screen.blit(s, s.get_rect(center=r.center))
+
+            # ── 리플레이 자동저장 ──
+            replay_y = hit_y + 50
+            replay_label = font_medium.render(_t("settings.play.replay_autosave", "리플레이 자동저장"), True, const.WHITE)
+            ctx.screen.blit(replay_label, replay_label.get_rect(left=panel_x + margin_x, centery=replay_y + 16))
+
+            cb_size = 28
+            replay_cb_rect = pygame.Rect(bgm_slider_x, replay_y + 2, cb_size, cb_size)
+            cb_border = (0, 255, 255) if focus == "replay_autosave" else (150, 150, 150)
+            cb_bg = (60, 90, 130) if replay_auto_save else (45, 55, 70)
+            pygame.draw.rect(ctx.screen, cb_bg, replay_cb_rect, border_radius=6)
+            pygame.draw.rect(ctx.screen, cb_border, replay_cb_rect, 2, border_radius=6)
+            if replay_auto_save:
+                cx, cy = replay_cb_rect.centerx, replay_cb_rect.centery
+                pygame.draw.line(ctx.screen, (0, 255, 255), (cx - 7, cy), (cx - 2, cy + 6), 3)
+                pygame.draw.line(ctx.screen, (0, 255, 255), (cx - 2, cy + 6), (cx + 8, cy - 5), 3)
 
         elif current_tab == 'controls':
             # 조작 방식 선택(키보드만 / 마우스+키보드)
@@ -611,6 +628,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     settings.set_setting('controls','control_scheme', control_scheme)
                     settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
                     settings.set_setting('gameplay', 'ball_type', ball_type)
+                    settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
                     settings.set_setting('language', 'language', current_language)
                     settings.save_settings()
                     # 디스플레이 모드 변경 적용
@@ -706,7 +724,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     elif current_tab == 'display':
                         order = ["dispmode", "back"]
                     elif current_tab == 'play':
-                        order = ["balltype", "hitsound", "back"] if ball_type != "pingpong" else ["balltype", "back"]
+                        order = ["balltype", "hitsound", "replay_autosave", "back"] if ball_type != "pingpong" else ["balltype", "replay_autosave", "back"]
                     else:
                         order = ["bgm", "sfx", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
@@ -718,7 +736,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     elif current_tab == 'display':
                         order = ["dispmode", "back"]
                     elif current_tab == 'play':
-                        order = ["balltype", "hitsound", "back"] if ball_type != "pingpong" else ["balltype", "back"]
+                        order = ["balltype", "hitsound", "replay_autosave", "back"] if ball_type != "pingpong" else ["balltype", "replay_autosave", "back"]
                     else:
                         order = ["bgm", "sfx", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
@@ -745,6 +763,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                             _ps.play()
                     elif current_tab == 'play' and focus == 'balltype':
                         ball_type = "pingpong" if ball_type == "energy" else "energy"
+                    elif current_tab == 'play' and focus == 'replay_autosave':
+                        replay_auto_save = not replay_auto_save
                     elif focus == "back":
                         ctx.play_button_click_sound()
                         current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
@@ -752,6 +772,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         settings.set_setting('controls', 'control_scheme', control_scheme)
                         settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
                         settings.set_setting('gameplay', 'ball_type', ball_type)
+                        settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
                         settings.save_settings()
                         # 디스플레이 모드 변경 적용
                         try:
@@ -796,6 +817,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         settings.set_setting('controls', 'control_scheme', control_scheme)
                         settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
                         settings.set_setting('gameplay', 'ball_type', ball_type)
+                        settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
                         settings.save_settings()
                         # 디스플레이 모드 변경 적용
                         try:
@@ -880,6 +902,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                                         _ps.set_volume(current_sfx_volume)
                                         _ps.play()
                                     break
+                        # 리플���이 자동저장 체크박스 클릭
+                        if replay_cb_rect.collidepoint(mouse_pos):
+                            replay_auto_save = not replay_auto_save
+                            focus = "replay_autosave"
 
                     bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
                     if current_tab == 'sound' and (bgm_slider_rect.collidepoint(mouse_pos) or ('bgm_handle_rect' in locals() and bgm_handle_rect.collidepoint(mouse_pos))):
@@ -940,5 +966,6 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     ctx.set_sfx_volume(current_sfx_volume)
     settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
     settings.set_setting('gameplay', 'ball_type', ball_type)
+    settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
     settings.set_setting('language', 'language', current_language)
     settings.save_settings()

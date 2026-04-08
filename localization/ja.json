@@ -52,6 +52,7 @@
   "settings.play.sound_1": "サウンド1",
   "settings.play.sound_2": "サウンド2",
   "settings.play.sound_3": "サウンド3",
+  "settings.play.replay_autosave": "リプレイ自動保存",
   "settings.language.label": "言語選択",
   "settings.back": "戻る",
   "settings.hint": "TAB: タブ切替  |  ←→: 調整  |  ESC: 戻る",

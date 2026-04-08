@@ -19,7 +19,7 @@
     "audio": {
       "master_volume": 0.8,
       "sfx_volume": 1.0,
-      "music_volume": 0.42000000000000004,
+      "music_volume": 0.4,
       "ambient_volume": 0.5,
       "ui_volume": 0.8,
       "env_volume": 0.8,
@@ -30,9 +30,10 @@
       "mute_all": false,
       "spatial_audio": true,
       "dynamic_music": true,
-      "paddle_hit_sound": 3
+      "paddle_hit_sound": 1
     },
     "gameplay": {
+      "ball_type": "energy",
       "difficulty": "normal",
       "auto_save": true,
       "save_interval": 60,
@@ -41,7 +42,8 @@
       "camera_shake_intensity": 1.0,
       "slow_motion_effect": true,
       "damage_numbers": true,
-      "auto_pause_on_focus_loss": true
+      "auto_pause_on_focus_loss": true,
+      "replay_auto_save": true
     },
     "controls": {
       "control_scheme": "mouse_keyboard",

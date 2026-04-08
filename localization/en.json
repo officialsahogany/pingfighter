@@ -52,6 +52,7 @@
   "settings.play.sound_1": "Sound 1",
   "settings.play.sound_2": "Sound 2",
   "settings.play.sound_3": "Sound 3",
+  "settings.play.replay_autosave": "Replay Auto-Save",
   "settings.language.label": "Language",
   "settings.back": "Back",
   "settings.hint": "TAB: Switch Tab  |  ←→: Adjust  |  ESC: Back",

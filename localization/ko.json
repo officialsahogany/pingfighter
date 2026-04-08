@@ -52,6 +52,7 @@
   "settings.play.sound_1": "사운드 1",
   "settings.play.sound_2": "사운드 2",
   "settings.play.sound_3": "사운드 3",
+  "settings.play.replay_autosave": "리플레이 자동저장",
   "settings.language.label": "언어 선택",
   "settings.back": "뒤로가기",
   "settings.hint": "TAB: 탭 전환  |  ←→: 조절  |  ESC: 뒤로",

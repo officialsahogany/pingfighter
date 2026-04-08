@@ -52,6 +52,7 @@
   "settings.play.sound_1": "音效 1",
   "settings.play.sound_2": "音效 2",
   "settings.play.sound_3": "音效 3",
+  "settings.play.replay_autosave": "回放自动保存",
   "settings.language.label": "语言选择",
   "settings.back": "返回",
   "settings.hint": "TAB: 切换标签  |  ←→: 调节  |  ESC: 返回",
