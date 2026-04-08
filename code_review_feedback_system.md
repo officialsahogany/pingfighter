@@ -217,7 +217,7 @@ class PlayerStats:
 | 챔피언 (Champion) | 1300 | 🏆 |
 | 신 (God) | 1700 | 🌟 |
 
-#### 클래스: `PlayerSkillAnalyzer` (L149-490+)
+#### 클래스: `PlayerSkillAnalyzer` (L149-1084)
 
 **기록 메서드** (게임 루프에서 호출):
 ```python
@@ -480,7 +480,7 @@ def _show_replay_feedback(replay_info: dict):
     # ESC/클릭/Enter/Space → 복귀
 ```
 
-#### 2.6.4 실시간 피드백 HUD (F키, L155570+ / L169798+)
+#### 2.6.4 실시간 피드백 HUD (F키, L155645 / L169726+)
 
 ```python
 # pingfighter.py 내부 전역 변수
@@ -607,15 +607,14 @@ HUD 렌더링: feedback_data["skill_feedback"]만 표시 (최대 20줄)
 | # | 이슈 | 심각도 | 위치 | 설명 |
 |---|------|--------|------|------|
 | 8 | **프레임 원본 크기 유지** | Low | replay_system.py:24-25 | `SCALE_FACTOR=1.0`으로 760×750 풀 해상도 캡처. 파일 크기 증가. 0.5 축소 고려 |
-| 9 | **압축 큐 폴링** | Low | _writer 클로저:147 | `time.sleep(0.005)`로 폴링. `threading.Event` 또는 `queue.Queue`의 블로킹 get 사용이 더 효율적 |
 
 ### 4.4 UX/기능
 
 | # | 이슈 | 심각도 | 위치 | 설명 |
 |---|------|--------|------|------|
-| 10 | **마크다운 렌더링 안됨** | Low | feedback_system.py 전체 | `**bold**` 구문이 pygame 텍스트에서 raw로 표시됨. 이모지도 폰트 미지원 시 깨짐 |
-| 11 | **리플레이 피드백 고정 카드 높이** | Low | _show_replay_feedback:L124515 | 카드 높이 48px 고정. 긴 설명 텍스트 잘림 가능 |
-| 12 | **캐릭터 미인식 시 fallback 없음** | Low | _analyze_replay:L124288 | 새 캐릭터 추가 시 전용 분석 누락 (공통 분석만 적용) |
+| 9 | **마크다운 렌더링 안됨** | Low | feedback_system.py 전체 | `**bold**` 구문이 pygame 텍스트에서 raw로 표시됨. 이모지도 폰트 미지원 시 깨짐 |
+| 10 | **리플레이 피드백 고정 카드 높이** | Low | _show_replay_feedback:L124515 | 카드 높이 48px 고정. 긴 설명 텍스트 잘림 가능 |
+| 11 | **캐릭터 미인식 시 fallback 없음** | Low | _analyze_replay:L124288 | 새 캐릭터 추가 시 전용 분석 누락 (공통 분석만 적용) |
 
 ---
 
@@ -646,7 +645,7 @@ HUD 렌더링: feedback_data["skill_feedback"]만 표시 (최대 20줄)
 | `pingfighter.py:123835-124006` | 171 | 리플레이 뷰어 UI | ✅ 경로 A |
 | `pingfighter.py:124277-124471` | 194 | `_analyze_replay()` — 사운드 이벤트 기반 분석 | ✅ 경로 A |
 | `pingfighter.py:124474-124527` | 53 | `_show_replay_feedback()` — 피드백 카드 렌더링 | ✅ 경로 A |
-| `pingfighter.py:153388-153421` | 33 | `initialize_player_analyzer()` — 캐릭터별 분석기 초기화 | ✅ 경로 B |
-| `pingfighter.py:169798-169956` | ~160 | HUD 기본 뷰 + F키 상세 오버레이 | ✅ 경로 B |
+| `pingfighter.py:153463+` | ~40 | `initialize_player_analyzer()` — 캐릭터별 분석기 초기화 | ✅ 경로 B |
+| `pingfighter.py:169726-169975` | ~250 | `show_player_info()` HUD 기본 뷰 + F키 상세 오버레이 | ✅ 경로 B |
 | `replays/` | - | .rpl 파일 저장 디렉토리 | ✅ 경로 A |
 | `replays/replay_meta.json` | - | 커스텀 이름/잠금 상태 저장 | ✅ 경로 A |
