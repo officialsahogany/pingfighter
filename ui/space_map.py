@@ -9255,20 +9255,24 @@ class SpaceMap:
             ti = random.randint(0, 3)
             tc = tetro_colors[random.randint(0, 6)]
             shape = shapes_mini[ti]
-            # 프레임 영역 내에 배치
+            # 프레임 영역 내에 배치 (arena_scale이 작을 때 범위 역전 방지)
             side = random.randint(0, 3)
+            _x_lo = ox - bw // 2 + 2
+            _x_hi = max(_x_lo, ox + fw + bw // 2 - 20)
             if side == 0:  # 상단
-                sx = random.randint(ox - bw // 2 + 2, ox + fw + bw // 2 - 20)
-                sy = random.randint(oy - bw // 2 + 2, oy - 4)
+                sx = random.randint(_x_lo, _x_hi)
+                sy = random.randint(min(oy - bw // 2 + 2, oy - 4), oy - 4)
             elif side == 1:  # 하단
-                sx = random.randint(ox - bw // 2 + 2, ox + fw + bw // 2 - 20)
-                sy = random.randint(oy + fh + 2, oy + fh + bw // 2 - 8)
+                sx = random.randint(_x_lo, _x_hi)
+                _y_lo = oy + fh + 2
+                sy = random.randint(_y_lo, max(_y_lo, oy + fh + bw // 2 - 8))
             elif side == 2:  # 좌측
-                sx = random.randint(ox - bw // 2 + 2, ox - 4)
-                sy = random.randint(oy + 2, oy + fh - 15)
+                sx = random.randint(min(ox - bw // 2 + 2, ox - 4), ox - 4)
+                sy = random.randint(oy + 2, max(oy + 2, oy + fh - 15))
             else:  # 우측
-                sx = random.randint(ox + fw + 2, ox + fw + bw // 2 - 8)
-                sy = random.randint(oy + 2, oy + fh - 15)
+                _rx_lo = ox + fw + 2
+                sx = random.randint(_rx_lo, max(_rx_lo, ox + fw + bw // 2 - 8))
+                sy = random.randint(oy + 2, max(oy + 2, oy + fh - 15))
             ta = random.randint(60, 140)
             for dx, dy in shape:
                 rx, ry = sx + dx * cell, sy + dy * cell
