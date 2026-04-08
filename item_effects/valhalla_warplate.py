@@ -214,14 +214,21 @@ class ValhallaWarplateState:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
             _bg = get_bodyguard()
             _bg2 = get_bodyguard2()
-            _bg1_avail = not _bg.active or getattr(_bg, '_valhalla_dismissed', False)
-            _bg2_avail = not _bg2.active or getattr(_bg2, '_valhalla_dismissed', False)
-            if not _bg1_avail and not _bg2_avail:
+            # dismissed 슬롯이라도 잔여 스킬 이펙트가 남아있으면 재사용 불가
+            # (이전 영웅의 해골궁수/유령/축소 등이 중간에 끊기는 것을 방지)
+            def _slot_available(bg):
+                if not bg.active:
+                    return True
+                if getattr(bg, '_valhalla_dismissed', False) and not bg.has_active_skills():
+                    return True
+                return False
+            if not _slot_available(_bg) and not _slot_available(_bg2):
                 return False
         except Exception:
             return False
 
         # 게이지 잔량 체크 + 소모 (슬롯 확인 후 소모 - 게이지 낭비 방지)
+        # ⚠️ 실패 시 반드시 소환 중단 (무료 소환 방지)
         try:
             import pingfighter
             if pingfighter.special_gauge < gauge_cost:
@@ -229,7 +236,7 @@ class ValhallaWarplateState:
             pingfighter.consume_special_gauge(int(gauge_cost))
             self._consumed_gauge = int(gauge_cost)  # 환불용 저장
         except Exception:
-            pass
+            return False  # 게이지 시스템 오류 시 소환 불가
 
         # 컷신 시작! (실제 소환은 컷신 끝에)
         hero = random.choice(VALHALLA_HEROES)
@@ -282,12 +289,13 @@ class ValhallaWarplateState:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
             _bg = get_bodyguard()
             _bg2 = get_bodyguard2()
-            # dismissed 상태(스킬 잔여물만 남은 슬롯)는 강제 정리 후 재사용
+            # dismissed 상태 + 잔여 이펙트 완료된 슬롯만 재사용
+            # (잔여 스킬 이펙트가 남아있으면 중간에 끊기므로 재사용 불가)
             def _is_available(bg):
                 if not bg.active:
                     return True
-                if getattr(bg, '_valhalla_dismissed', False):
-                    bg.reset()  # 잔여 스킬도 정리하고 재사용
+                if getattr(bg, '_valhalla_dismissed', False) and not bg.has_active_skills():
+                    bg.reset()  # 잔여 이펙트 완료 확인 후 정리
                     return True
                 return False
             target_bg = _bg if _is_available(_bg) else (_bg2 if _is_available(_bg2) else None)

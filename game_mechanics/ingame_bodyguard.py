@@ -487,13 +487,50 @@ class InGameBodyguard:
         self._entrance_guard_line = None
 
     def has_active_skills(self) -> bool:
-        """활성 스킬 이펙트가 남아있는지 확인"""
+        """활성 스킬 이펙트가 남아있는지 확인 (잔여 이펙트 포함)"""
         if not self._guard_system:
             return False
         for hero_id, skills in self._guard_system.skill_instances.items():
             for skill in skills:
                 if getattr(skill, 'is_active', False):
                     return True
+                # is_active=False 이후에도 잔여 이펙트가 남아있는 스킬들 체크
+                if self._has_lingering_effects(skill):
+                    return True
+        return False
+
+    @staticmethod
+    def _has_lingering_effects(skill) -> bool:
+        """스킬의 잔여 이펙트(페이드아웃/사망 애니메이션 등)가 남아있는지 확인.
+
+        is_active=False 이후에도 추가 update/draw 프레임이 필요한 스킬:
+        - ghost_summon: dying_ghosts, _teleport_effects, _ghost_particles
+        - skeleton_archer: dying_archers, arrows, arrow_particles
+        - dwarf_magic(chronos): hit_target + shrink_timer > 0 (축소/복구 중)
+        - tentacle_wrap: retracting (되감기 애니메이션)
+        - abyss_ink: dissolving (분해 애니메이션)
+        - balloon_wall: popping 풍선, pop_effects
+        """
+        sid = getattr(skill, 'skill_id', '')
+        if sid == 'ghost_summon':
+            return bool(getattr(skill, 'dying_ghosts', None)
+                        or getattr(skill, '_teleport_effects', None)
+                        or getattr(skill, '_ghost_particles', None))
+        if sid == 'skeleton_archer':
+            return bool(getattr(skill, 'dying_archers', None)
+                        or getattr(skill, 'arrows', None)
+                        or getattr(skill, 'arrow_particles', None))
+        if sid == 'dwarf_magic':
+            return bool(getattr(skill, 'hit_target', False)
+                        and getattr(skill, 'shrink_timer', 0) > 0)
+        if sid == 'tentacle_wrap':
+            return bool(getattr(skill, 'retracting', False))
+        if sid == 'abyss_ink':
+            return bool(getattr(skill, 'dissolving', False))
+        if sid == 'balloon_wall':
+            balloons = getattr(skill, 'balloons', [])
+            return bool(any(b.get('alive') for b in balloons)
+                        or getattr(skill, 'pop_effects', None))
         return False
 
     def check_dismissed_cleanup(self):

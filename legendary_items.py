@@ -12349,7 +12349,6 @@ class ValhallaWarplate(LegendaryItem):
         ]:
             result.blit(frame, rect.topleft, rect)
         return result
-        return result
 
     def _create_default_animation(self):
         """발할라의 전갑 고퀄리티 아이콘 애니메이션 (8프레임) - 북유럽 갑옷 + 발할라 빛"""
