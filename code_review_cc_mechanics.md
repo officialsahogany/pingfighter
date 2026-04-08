@@ -160,15 +160,15 @@ _player_stun_blocked = (
 
 ### 2.4 스턴 지속시간 상수
 
-| 소스 | 지속시간 | 파일:라인 |
-|------|---------|----------|
+| 소스 | 지속시간 | 근거 |
+|------|---------|------|
 | 대시 경직 (아레나) | 0.5초 (30프레임) | `ARENA_DASH_STUN_FRAMES` |
 | 대장간 터렛 일반 | 0.1초 (6프레임) | `BLACKSMITH_TURRET_STUN_DURATION` |
 | 대장간 터렛 유도 | 0.4초 (24프레임) | `BLACKSMITH_TURRET_HOMING_STUN_DURATION` |
 | AK47 | 0.1초 (6프레임) | `AK47_STUN_FRAMES` |
 | 스테이지8 초고속대시 | ~0.03초 (1.8프레임) | `STAGE8_SUPERSPEED_DASH_STUN_FRAMES` |
-| 뿔돌진 딸기폭탄 | 0.75초 (45프레임) | `HORN_CHARGE_STUN_DURATION` |
-| 번개 심판 (스테이지30) | 2.0초 | `_judgment_lightning_stun_*_timer` |
+| 뿔돌진 딸기폭탄 | 0.75초 (45프레임) | horn_strawberry_mask.py `"stun_duration": 0.75` |
+| 번개 심판 (스테이지30) | 2.0초 | `_judgment_lightning_stun_*_timer` 설정부 |
 | 폭탄 서프라이즈 (아레나) | 1.5초 (90프레임) | ingame_bodyguard.py |
 
 ### 2.5 스턴 소스 목록
@@ -573,7 +573,7 @@ def create_slow_wave_surface(width, height, base_color=(170,120,255), intensity=
     # 반투명 물결 오버레이
 ```
 
-| 둔화 소스 | 이펙트 색상 | 파일:라인 |
+| 둔화 소스 | 이펙트 색상 | 렌더 함수 |
 |-----------|-----------|----------|
 | 거미지뢰 | (110, 170, 255) 파랑 | `draw_spider_mine_slow_effect()` |
 | 레그샷 | (180, 110, 255) 보라 | `draw_leg_shot_effect()` |
