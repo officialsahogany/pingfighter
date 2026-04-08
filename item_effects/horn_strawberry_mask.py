@@ -10,8 +10,9 @@
 import math
 import os
 import random
-import sys
 import pygame
+
+from resource_path import resource_path
 
 try:
     from downtown.hero_skills import BoneBarrier as HeroBoneBarrier
@@ -19,16 +20,6 @@ try:
 except Exception:
     HeroBoneBarrier = None
     HeroHornCharge = None
-
-
-def _resource_path(relative_path: str) -> str:
-    """PyInstaller 호환 리소스 경로"""
-    try:
-        base_path = sys._MEIPASS
-    except AttributeError:
-        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path.replace('/', os.sep).replace('\\', os.sep))
-
 
 # 사운드 캐시 (한 번만 로드)
 _sound_stem_fire = None   # 꼭지 발사 사운드
@@ -43,13 +34,13 @@ def _load_stem_sounds():
         return
     if _sound_stem_fire is None:
         try:
-            _sound_stem_fire = pygame.mixer.Sound(_resource_path(os.path.join("sounds", "arrow.wav")))
+            _sound_stem_fire = pygame.mixer.Sound(resource_path(os.path.join("sounds", "arrow.wav")))
             _sound_stem_fire.set_volume(0.5)
         except Exception:
             _sound_stem_fire = False
     if _sound_stem_hit is None:
         try:
-            _sound_stem_hit = pygame.mixer.Sound(_resource_path(os.path.join("sounds", "bullethit.wav")))
+            _sound_stem_hit = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bullethit.wav")))
             _sound_stem_hit.set_volume(0.4)
         except Exception:
             _sound_stem_hit = False
@@ -62,7 +53,7 @@ def _play_transform_sound():
         return
     if _sound_transform is None:
         try:
-            _sound_transform = pygame.mixer.Sound(_resource_path(os.path.join("sounds", "strawberrychange.wav")))
+            _sound_transform = pygame.mixer.Sound(resource_path(os.path.join("sounds", "strawberrychange.wav")))
             _sound_transform.set_volume(0.7)
         except Exception:
             _sound_transform = False
@@ -507,6 +498,7 @@ class HornStrawberryTransformState:
 
         캡처된 _tf_paddle_snapshot을 수평 스케일링하여 Y축 회전을 시뮬레이션.
         스냅샷이 없으면 폴백 실루엣 사용.
+        cy는 패들의 시각적 중심 Y 좌표 (호출부에서 보정하여 전달).
         """
         # Y축 회전: cos(angle)으로 수평 폭 결정
         h_scale = math.cos(spin_angle)
@@ -526,9 +518,8 @@ class HornStrawberryTransformState:
             if alpha < 255:
                 scaled.set_alpha(alpha)
 
-            # 머리(상단)를 축으로 회전 → 피봇은 상단 중앙
-            # 상단 중앙이 cx,cy에 위치하도록 배치
-            rect = scaled.get_rect(midtop=(int(cx), int(cy)))
+            # 캐릭터 중심에 배치 (center 기준)
+            rect = scaled.get_rect(center=(int(cx), int(cy)))
             screen.blit(scaled, rect)
 
             # 회전 잔상 (반대편에 희미하게)
@@ -537,7 +528,7 @@ class HornStrawberryTransformState:
                 ghost_offset = int(8 * h_scale)  # 회전 방향에 따라 좌우 오프셋
                 ghost = scaled.copy()
                 ghost.set_alpha(ghost_alpha)
-                ghost_rect = ghost.get_rect(midtop=(int(cx) + ghost_offset, int(cy)))
+                ghost_rect = ghost.get_rect(center=(int(cx) + ghost_offset, int(cy)))
                 screen.blit(ghost, ghost_rect)
         else:
             # 스냅샷 없으면 폴백: 타원 실루엣
@@ -553,7 +544,7 @@ class HornStrawberryTransformState:
             rect = surf.get_rect(center=(int(cx), int(cy)))
             screen.blit(surf, rect)
 
-        # 글로우 후광 (회전 속도에 비례하여 강해짐)
+        # 글로우 후광 — 캐릭터 중심에 맞춤
         glow_r = max(40, int(60 * abs_h)) + 12
         glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
         glow_alpha = min(50, alpha // 4)
@@ -610,18 +601,23 @@ class HornStrawberryTransformState:
         cx = player_x
         base_y = player_y
 
+        # 패들 시각적 중심 오프셋 (스냅샷 높이 절반)
+        _snap = self._tf_paddle_snapshot
+        _half_h = (_snap.get_height() // 2) if _snap is not None else 50
+
         # ── Phase 1 (0~35%): 발레리노 Y축 회전 + 공중 부양 ──
         if progress < 0.35:
             p1 = progress / 0.35  # 0→1 within phase
             # 천천히 시작해서 가속 회전
             self._tf_spin_angle += dt * (1.5 + p1 * 8.0)
             # 부드러운 부양 (ease-out)
-            target_lev = -80.0
+            target_lev = -80.0 - _half_h  # 캐릭터 중심 기준으로 부양
             self._tf_levitate_y = target_lev * (1.0 - (1.0 - p1) ** 2)
 
-            draw_y = base_y + self._tf_levitate_y
+            # 캐릭터 중심 Y = base_y + levitate + half_h
+            center_y = base_y + self._tf_levitate_y + _half_h
             paddle_alpha = max(80, int(255 * (1.0 - p1 * 0.3)))
-            self._draw_paddle_spinning(screen, cx, draw_y, self._tf_spin_angle, paddle_alpha)
+            self._draw_paddle_spinning(screen, cx, center_y, self._tf_spin_angle, paddle_alpha)
 
             # 회전에 따른 약간의 파티클 흩날림
             if random.random() < 0.3 + p1 * 0.5:
@@ -648,7 +644,8 @@ class HornStrawberryTransformState:
         elif progress < 0.60:
             p2 = (progress - 0.35) / 0.25  # 0→1 within phase
 
-            draw_y = base_y + self._tf_levitate_y
+            # 캐릭터 중심 Y (패들+광원 동일 높이)
+            center_y = base_y + self._tf_levitate_y + _half_h
             # 회전 계속 (빠르게)
             self._tf_spin_angle += dt * 12.0
 
@@ -658,11 +655,11 @@ class HornStrawberryTransformState:
             screen.blit(dim_surf, (0, 0))
 
             # 소용돌이 파티클 업데이트 및 렌더링
-            self._update_swirl_particles(dt, cx, draw_y, progress)
+            self._update_swirl_particles(dt, cx, center_y, progress)
             for p in self._tf_swirl_particles:
                 alpha = max(0, min(255, int(255 * p["life"] / p["max_life"])))
                 px = int(cx + math.cos(p["angle"]) * p["dist"])
-                py = int(draw_y + math.sin(p["angle"]) * p["dist"] * 0.5 + p["y_off"])
+                py = int(center_y + math.sin(p["angle"]) * p["dist"] * 0.5 + p["y_off"])
                 sz = max(2, int(p["size"] * (p["life"] / p["max_life"])))
                 if p["is_strawberry"]:
                     _draw_strawberry_sprite(screen, px, py, sz * 1.5, alpha,
@@ -672,7 +669,7 @@ class HornStrawberryTransformState:
                     pygame.draw.circle(ps, (*p["color"], alpha), (sz, sz), sz)
                     screen.blit(ps, (px - sz, py - sz))
 
-            # 붉은 에너지 광원 (점점 커짐)
+            # 붉은 에너지 광원 (점점 커짐) — 캐릭터 중심에 맞춤
             self._tf_energy_radius = 15 + p2 * 50
             energy_r = int(self._tf_energy_radius)
             for layer in range(4, 0, -1):
@@ -680,25 +677,25 @@ class HornStrawberryTransformState:
                 a = max(5, int(40 / layer * (0.5 + p2 * 0.5)))
                 glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
                 pygame.draw.circle(glow, (255, 40 + layer * 20, 40, a), (r, r), r)
-                screen.blit(glow, (int(cx) - r, int(draw_y) - r))
+                screen.blit(glow, (int(cx) - r, int(center_y) - r))
 
             # 중앙 에너지 코어
             core_a = int(120 + 100 * p2)
             core_s = pygame.Surface((energy_r * 2, energy_r * 2), pygame.SRCALPHA)
             pygame.draw.circle(core_s, (255, 80, 80, core_a), (energy_r, energy_r), energy_r)
             pygame.draw.circle(core_s, (255, 180, 180, core_a // 2), (energy_r, energy_r), max(3, energy_r // 2))
-            screen.blit(core_s, (int(cx) - energy_r, int(draw_y) - energy_r))
+            screen.blit(core_s, (int(cx) - energy_r, int(center_y) - energy_r))
 
             # 패들 캐릭터 (에너지에 가려지며 사라짐)
             sil_alpha = max(0, int(200 * (1.0 - p2)))
             if sil_alpha > 0:
-                self._draw_paddle_spinning(screen, cx, draw_y, self._tf_spin_angle, sil_alpha)
+                self._draw_paddle_spinning(screen, cx, center_y, self._tf_spin_angle, sil_alpha)
 
         # ── Phase 3 (60~75%): 화면 번쩍 + 에너지 폭발 ──
         elif progress < 0.75:
             p3 = (progress - 0.60) / 0.15  # 0→1 within phase
 
-            draw_y = base_y + self._tf_levitate_y
+            center_y = base_y + self._tf_levitate_y + _half_h
 
             # 거대한 에너지 폭발 (확장)
             explode_r = int(self._tf_energy_radius + p3 * 200)
@@ -708,7 +705,7 @@ class HornStrawberryTransformState:
                 if a > 0:
                     glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
                     pygame.draw.circle(glow, (255, 100 + layer * 30, 80, a), (r, r), r)
-                    screen.blit(glow, (int(cx) - r, int(draw_y) - r))
+                    screen.blit(glow, (int(cx) - r, int(center_y) - r))
 
             # 화면 전체 번쩍임 (강렬한 화이트 → 레드 플래시)
             flash_intensity = 1.0 - p3  # 시작에서 가장 강하고 점점 사라짐
@@ -746,10 +743,10 @@ class HornStrawberryTransformState:
                 ray_a = max(0, int(120 * (1.0 - p3)))
                 if ray_a > 0:
                     end_x = cx + math.cos(math.radians(ray_angle)) * ray_len
-                    end_y = draw_y + math.sin(math.radians(ray_angle)) * ray_len
+                    end_y = center_y + math.sin(math.radians(ray_angle)) * ray_len
                     ray_surf = pygame.Surface((w, h), pygame.SRCALPHA)
                     pygame.draw.line(ray_surf, (255, 200, 180, ray_a),
-                                    (int(cx), int(draw_y)), (int(end_x), int(end_y)), 3)
+                                    (int(cx), int(center_y)), (int(end_x), int(end_y)), 3)
                     screen.blit(ray_surf, (0, 0))
 
         # ── Phase 4 (75~100%): 뿔딸기 캐릭터 등장 + 빛 뿜으며 착지 ──
@@ -857,8 +854,8 @@ class HornStrawberryTransformState:
                 screen.blit(wave_s, (int(cx) - wave_r, int(base_y) + 5))
 
         # ── 공통: 산란 파티클 렌더링 (모든 Phase) ──
-        # 부양 위치에 앵커링 (base_y가 아닌 부양 반영 위치)
-        anchor_y = base_y + self._tf_levitate_y
+        # 캐릭터 중심에 앵커링
+        anchor_y = base_y + self._tf_levitate_y + _half_h
         for p in self.event_particles:
             alpha = max(0, min(255, int(255 * p["life"] / p["max_life"])))
             px = int(cx + p["x"])
