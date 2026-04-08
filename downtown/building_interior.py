@@ -2861,6 +2861,15 @@ class BuildingInterior:
         self.academy_dialog_selection = 0  # 0: 예, 1: 아니오
         self.open_skill_menu_requested = False  # 스킬 메뉴 열기 요청 플래그
 
+        # 아카데미 도감 책장 (ACADEMY 전용)
+        self.academy_shelf_rects = []  # 책장 3개의 충돌 영역
+        self.academy_shelf_types = ["items", "perks", "bosses"]  # 책장 종류
+        self.nearby_shelf_index = None  # 근처 책장 인덱스 (0~2, None이면 없음)
+        self.codex_open = False  # 도감 UI 열림 여부
+        self.codex_type = None  # 현재 열린 도감 종류 ("items"/"perks"/"bosses")
+        self.codex_scroll = 0  # 도감 스크롤 위치
+        self.codex_selected = 0  # 선택된 항목 인덱스
+
         # 선술집 메뉴 상태 (TAVERN 전용)
         self.tavern_menu_open = False  # 선술집 메뉴창
         self.tavern_menu_selection = 0  # 0: 에일, 1: 미드, 2: 특제 스튜, 3: 나가기
@@ -4186,6 +4195,24 @@ class BuildingInterior:
         # 100픽셀 이내에 있으면 True
         return distance <= 100
 
+    def _check_nearby_shelf(self):
+        """아카데미 도감 책장 근처에 있는지 확인"""
+        if self.building_type != BuildingType.ACADEMY:
+            return None
+        if not self.academy_shelf_rects:
+            return None
+
+        player_x = self.player.x
+        player_y = self.player.y
+
+        for i, rect in enumerate(self.academy_shelf_rects):
+            cx = rect.centerx
+            cy = rect.centery
+            distance = math.sqrt((player_x - cx) ** 2 + (player_y - cy) ** 2)
+            if distance <= 80:
+                return i
+        return None
+
     def _check_gacha_machine_click(self, world_x, world_y):
         """가챠 머신이 클릭되었는지 확인 (플레이어가 근처에 있어야 함)"""
         if self.building_type != BuildingType.GACHA:
@@ -4830,7 +4857,7 @@ class BuildingInterior:
             self.entry_cooldown -= dt
 
         # 메뉴가 열려있으면 플레이어 입력 차단
-        if self.bank_menu_open or self.exchange_menu_open or self.academy_dialog_open or self.crane_confirm_dialog_open or self.tavern_menu_open or self.quest_menu_open:
+        if self.bank_menu_open or self.exchange_menu_open or self.academy_dialog_open or self.crane_confirm_dialog_open or self.tavern_menu_open or self.quest_menu_open or self.codex_open:
             # 선술집 메시지 타이머 업데이트
             if self.tavern_message_timer > 0:
                 self.tavern_message_timer -= dt
@@ -4886,9 +4913,11 @@ class BuildingInterior:
             self.nearby_gacha_machine = self._check_nearby_gacha_machine()
             self.nearby_crane_game = self._check_nearby_crane_game()
 
-        # 아카데미 건물에서 학장 근처 체크
+        # 아카데미 건물에서 학장/책장 근처 체크
         if self.building_type == BuildingType.ACADEMY:
             self.nearby_headmaster = self._check_nearby_headmaster()
+            if not self.codex_open:
+                self.nearby_shelf_index = self._check_nearby_shelf()
 
         # 카지노에서 포커 테이블 근처 체크
         if self.building_type == BuildingType.CASINO:
@@ -4964,6 +4993,10 @@ class BuildingInterior:
             else:  # 좌클릭 = 닫기 체크 (UI 바깥 클릭시)
                 return self._handle_shop_trade_left_click(pos)
 
+        # 아카데미 도감이 열려있으면 도감 클릭 처리
+        if self.codex_open:
+            return self._handle_codex_click(pos)
+
         # 아카데미 대화창이 열려있으면 대화창 클릭 처리
         if self.academy_dialog_open:
             return self._handle_academy_dialog_click(pos)
@@ -5029,6 +5062,13 @@ class BuildingInterior:
                 self.crane_confirm_dialog_open = True  # 확인 다이얼로그 열기
                 self.crane_confirm_selection = 0  # 기본: 예
                 return ("crane_confirm_dialog", clicked_crane)
+
+        # 아카데미 도감 책장 클릭 체크
+        if self.building_type == BuildingType.ACADEMY and self.nearby_shelf_index is not None:
+            for i, shelf_rect in enumerate(self.academy_shelf_rects):
+                if shelf_rect.collidepoint(world_x, world_y) and i == self.nearby_shelf_index:
+                    self._open_codex(i)
+                    return ("codex_open", self.academy_shelf_types[i])
 
         # NPC 클릭 체크 (플레이어가 가까이 있어야 함)
         for npc in self.npcs:
@@ -5843,6 +5883,10 @@ class BuildingInterior:
                 return ("enhancement_close", None)
             return None
 
+        # 아카데미 도감이 열려있을 때
+        if self.codex_open:
+            return self._handle_codex_key(event.key)
+
         # 아카데미 대화창이 열려있을 때
         if self.academy_dialog_open:
             if self._handle_academy_dialog_key(event.key):
@@ -6649,6 +6693,147 @@ class BuildingInterior:
             self.academy_dialog_open = False
             return True
         return False
+
+    # ===== 도감(Codex) 시스템 =====
+
+    def _open_codex(self, shelf_index):
+        """도감 열기"""
+        self.codex_open = True
+        self.codex_type = self.academy_shelf_types[shelf_index]
+        self.codex_scroll = 0
+        self.codex_selected = 0
+
+    def _get_codex_entries(self):
+        """현재 도감 타입에 맞는 항목 목록 반환 [{"name": str, "display": str, "unlocked": bool}, ...]"""
+        entries = []
+        if self.codex_type == "items":
+            try:
+                import items as _items
+                # pingfighter에서 한글 이름 함수 가져오기
+                try:
+                    import pingfighter as _pf
+                    get_korean = getattr(_pf, 'get_item_name_korean', None)
+                except Exception:
+                    get_korean = None
+
+                for item in _items.ITEM_TYPES:
+                    item_name = item.get("name", "")
+                    if not item_name:
+                        continue
+                    # 해금 여부: unlocked_items에 있고 True인지
+                    unlocked = _items.unlocked_items.get(item_name, False)
+                    # 한글 이름
+                    if unlocked and get_korean:
+                        display = get_korean(item_name)
+                    elif unlocked:
+                        display = item_name
+                    else:
+                        display = "???"
+                    entries.append({
+                        "name": item_name,
+                        "display": display,
+                        "unlocked": unlocked,
+                        "color": item.get("color", (150, 150, 150)),
+                    })
+            except Exception as e:
+                print(f"[도감] 아이템 목록 로드 실패: {e}")
+
+        elif self.codex_type == "perks":
+            try:
+                import pingfighter as _pf
+                skills = getattr(_pf, 'VIPER_EXCLUSIVE_SKILLS', {})
+                runtime_levels = getattr(_pf, 'runtime_skill_levels', {})
+                for skill_id, skill_info in skills.items():
+                    # 퍽이 해금(레벨 1 이상)인지 체크
+                    level = runtime_levels.get(skill_id, 0)
+                    unlocked = level > 0
+                    name_kr = skill_info.get("name", skill_id)
+                    icon_color = skill_info.get("icon_color", (150, 150, 150))
+                    entries.append({
+                        "name": skill_id,
+                        "display": name_kr if unlocked else "???",
+                        "unlocked": unlocked,
+                        "color": icon_color,
+                    })
+            except Exception as e:
+                print(f"[도감] 퍽 목록 로드 실패: {e}")
+
+        elif self.codex_type == "bosses":
+            try:
+                import pingfighter as _pf
+                boss_names = getattr(_pf, 'boss_names', {})
+                cleared = getattr(_pf, 'cleared_planets', [])
+                for stage_num in range(1, 9):
+                    boss_name = boss_names.get(stage_num, f"Stage {stage_num}")
+                    unlocked = stage_num in cleared
+                    # 스테이지 1은 항상 해금 (시작 보스)
+                    if stage_num == 1:
+                        unlocked = True
+                    # 보스 테마 색상
+                    boss_colors = {
+                        1: (255, 200, 100),   # 풍악보이 - 금
+                        2: (100, 180, 80),    # 악어장군 - 초록
+                        3: (255, 150, 200),   # 멘헤라걸 - 핑크
+                        4: (200, 150, 100),   # 퐁크 - 갈색
+                        5: (80, 150, 255),    # 네메시스 - 파랑
+                        6: (255, 80, 60),     # 홍련 - 빨강
+                        7: (100, 255, 200),   # 테트리서 - 민트
+                        8: (200, 100, 255),   # 아카무 리고 - 보라
+                    }
+                    entries.append({
+                        "name": f"stage_{stage_num}",
+                        "display": f"Stage {stage_num} - {boss_name}" if unlocked else f"Stage {stage_num} - ???",
+                        "unlocked": unlocked,
+                        "color": boss_colors.get(stage_num, (150, 150, 150)),
+                    })
+            except Exception as e:
+                print(f"[도감] 보스 목록 로드 실패: {e}")
+
+        return entries
+
+    def _handle_codex_click(self, pos):
+        """도감 UI 클릭 처리"""
+        # 닫기 버튼 (우상단)
+        close_btn = pygame.Rect(SCREEN_WIDTH - 40, 10, 30, 30)
+        if close_btn.collidepoint(pos):
+            self.codex_open = False
+            return ("codex_close", None)
+
+        # 도감 영역 밖 클릭 → 닫기
+        codex_rect = pygame.Rect(30, 30, SCREEN_WIDTH - 60, SCREEN_HEIGHT - 60)
+        if not codex_rect.collidepoint(pos):
+            self.codex_open = False
+            return ("codex_close", None)
+
+        return None
+
+    def _handle_codex_key(self, key):
+        """도감 키보드 처리"""
+        entries = self._get_codex_entries()
+        max_idx = len(entries) - 1 if entries else 0
+        items_per_row = 4
+        visible_rows = 5
+
+        if key == pygame.K_ESCAPE:
+            self.codex_open = False
+            return ("codex_close", None)
+        elif key == pygame.K_UP or key == pygame.K_w:
+            self.codex_selected = max(0, self.codex_selected - items_per_row)
+        elif key == pygame.K_DOWN or key == pygame.K_s:
+            self.codex_selected = min(max_idx, self.codex_selected + items_per_row)
+        elif key == pygame.K_LEFT or key == pygame.K_a:
+            self.codex_selected = max(0, self.codex_selected - 1)
+        elif key == pygame.K_RIGHT or key == pygame.K_d:
+            self.codex_selected = min(max_idx, self.codex_selected + 1)
+
+        # 스크롤 조정 (선택된 항목이 보이도록)
+        selected_row = self.codex_selected // items_per_row
+        if selected_row < self.codex_scroll:
+            self.codex_scroll = selected_row
+        elif selected_row >= self.codex_scroll + visible_rows:
+            self.codex_scroll = selected_row - visible_rows + 1
+
+        return None
 
     def _handle_crane_confirm_click(self, pos):
         """크레인 게임 확인 다이얼로그 클릭 처리"""
@@ -7516,6 +7701,10 @@ class BuildingInterior:
         if self.deposit_menu_open:
             self._draw_deposit_menu(screen)
 
+        # 아카데미 도감 (맨 위에)
+        if self.codex_open:
+            self._draw_codex(screen)
+
         # 아카데미 대화창 (맨 위에)
         if self.academy_dialog_open:
             self._draw_academy_dialog(screen)
@@ -7549,6 +7738,10 @@ class BuildingInterior:
         # 아카데미 학장 상호작용 힌트 (대화창 닫혀있고 근처일 때만)
         if self.building_type == BuildingType.ACADEMY:
             self._draw_headmaster_interact_hint(screen)
+
+        # 아카데미 도감 책장 상호작용 힌트
+        if self.building_type == BuildingType.ACADEMY and self.nearby_shelf_index is not None and not self.codex_open and not self.academy_dialog_open:
+            self._draw_shelf_interact_hint(screen)
 
         # 일반 NPC 상호작용 힌트 (근처일 때만)
         self._draw_npc_interact_hint(screen)
@@ -8639,6 +8832,156 @@ class BuildingInterior:
             hint_surf, hint_rect = font_tiny.render(hint, (130, 140, 170))
             screen.blit(hint_surf, (dialog_rect.x + (dialog_rect.width - hint_rect.width) // 2,
                                     dialog_rect.y + dialog_rect.height - 14))
+
+    def _draw_codex(self, screen):
+        """도감 UI 그리기 (아이템/퍽/보스)"""
+        import math
+
+        # 색상
+        BG_DARK = (20, 15, 35)
+        BORDER_COLOR = (160, 120, 220)
+        BORDER_GLOW = (100, 60, 160)
+        TEXT_WHITE = (240, 245, 255)
+        TEXT_GOLD = (255, 215, 100)
+        TEXT_DIM = (120, 120, 140)
+        CARD_BG = (40, 30, 60)
+        CARD_UNLOCKED = (55, 45, 80)
+        CARD_LOCKED = (30, 25, 45)
+        CARD_SELECTED = (80, 60, 120)
+
+        # 도감 타입별 제목/색상
+        codex_titles = {"items": "아이템 도감", "perks": "퍽 도감", "bosses": "보스 도감"}
+        codex_accent = {
+            "items": (100, 200, 255),
+            "perks": (255, 180, 80),
+            "bosses": (255, 80, 80),
+        }
+        title = codex_titles.get(self.codex_type, "도감")
+        accent = codex_accent.get(self.codex_type, BORDER_COLOR)
+
+        # 항목 가져오기
+        entries = self._get_codex_entries()
+
+        # 레이아웃
+        margin = 30
+        panel_x, panel_y = margin, margin
+        panel_w = SCREEN_WIDTH - margin * 2
+        panel_h = SCREEN_HEIGHT - margin * 2
+        items_per_row = 4
+        visible_rows = 5
+        card_margin = 8
+        header_h = 50
+        footer_h = 25
+        content_h = panel_h - header_h - footer_h
+        card_w = (panel_w - card_margin * (items_per_row + 1)) // items_per_row
+        card_h = (content_h - card_margin * (visible_rows + 1)) // visible_rows
+
+        # 배경 어둡게
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        # 패널 배경
+        panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        pygame.draw.rect(panel_surf, (*BG_DARK, 240), (0, 0, panel_w, panel_h), border_radius=10)
+        screen.blit(panel_surf, (panel_x, panel_y))
+
+        # 테두리
+        pygame.draw.rect(screen, BORDER_GLOW, (panel_x - 2, panel_y - 2, panel_w + 4, panel_h + 4), 3, border_radius=12)
+        pygame.draw.rect(screen, accent, (panel_x, panel_y, panel_w, panel_h), 2, border_radius=10)
+
+        # 헤더
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
+        if font_medium:
+            title_surf, title_rect = font_medium.render(title, TEXT_GOLD)
+            screen.blit(title_surf, (panel_x + panel_w // 2 - title_rect.width // 2, panel_y + 12))
+
+        # 해금/전체 카운트
+        unlocked_count = sum(1 for e in entries if e["unlocked"])
+        total_count = len(entries)
+        if font_small:
+            count_text = f"{unlocked_count} / {total_count}"
+            count_surf, count_rect = font_small.render(count_text, accent)
+            screen.blit(count_surf, (panel_x + panel_w - count_rect.width - 15, panel_y + 18))
+
+        # 구분선
+        pygame.draw.line(screen, BORDER_GLOW,
+                        (panel_x + 10, panel_y + header_h),
+                        (panel_x + panel_w - 10, panel_y + header_h), 1)
+
+        # 카드 그리기
+        content_y = panel_y + header_h + card_margin
+        mouse_pos = pygame.mouse.get_pos()
+
+        for row in range(visible_rows):
+            actual_row = row + self.codex_scroll
+            for col in range(items_per_row):
+                idx = actual_row * items_per_row + col
+                if idx >= len(entries):
+                    break
+
+                entry = entries[idx]
+                cx = panel_x + card_margin + col * (card_w + card_margin)
+                cy = content_y + row * (card_h + card_margin)
+                card_rect = pygame.Rect(cx, cy, card_w, card_h)
+
+                # 카드 배경색 결정
+                is_selected = idx == self.codex_selected
+                is_hover = card_rect.collidepoint(mouse_pos)
+                if is_selected:
+                    bg = CARD_SELECTED
+                elif entry["unlocked"]:
+                    bg = CARD_UNLOCKED if not is_hover else (65, 55, 95)
+                else:
+                    bg = CARD_LOCKED if not is_hover else (38, 32, 55)
+
+                # 카드 그리기
+                pygame.draw.rect(screen, bg, card_rect, border_radius=6)
+                border_c = accent if is_selected else (BORDER_GLOW if entry["unlocked"] else (50, 45, 65))
+                pygame.draw.rect(screen, border_c, card_rect, 2 if is_selected else 1, border_radius=6)
+
+                if entry["unlocked"]:
+                    # 아이콘 영역 (색상 원)
+                    icon_y = cy + 10
+                    icon_size = min(card_w - 20, card_h - 35, 32)
+                    icon_cx = cx + card_w // 2
+                    icon_cy = icon_y + icon_size // 2
+                    pygame.draw.circle(screen, entry["color"], (icon_cx, icon_cy), icon_size // 2)
+                    pygame.draw.circle(screen, tuple(min(255, c + 60) for c in entry["color"]),
+                                      (icon_cx, icon_cy), icon_size // 2, 2)
+
+                    # 이름 텍스트
+                    if font_small:
+                        name_surf, name_rect = font_small.render(entry["display"], TEXT_WHITE)
+                        # 텍스트가 카드보다 넓으면 자르기
+                        if name_rect.width > card_w - 8:
+                            clip_surf = pygame.Surface((card_w - 8, name_rect.height), pygame.SRCALPHA)
+                            clip_surf.blit(name_surf, (0, 0))
+                            screen.blit(clip_surf, (cx + 4, cy + card_h - name_rect.height - 6))
+                        else:
+                            screen.blit(name_surf, (cx + card_w // 2 - name_rect.width // 2,
+                                                    cy + card_h - name_rect.height - 6))
+                else:
+                    # 잠김 표시 - "?" 큰 글씨
+                    if font_medium:
+                        q_surf, q_rect = font_medium.render("?", TEXT_DIM)
+                        screen.blit(q_surf, (cx + card_w // 2 - q_rect.width // 2,
+                                            cy + card_h // 2 - q_rect.height // 2))
+
+        # 스크롤 인디케이터
+        total_rows = math.ceil(len(entries) / items_per_row) if entries else 1
+        if total_rows > visible_rows and font_small:
+            scroll_text = f"▲▼ {self.codex_scroll + 1}-{min(self.codex_scroll + visible_rows, total_rows)} / {total_rows}"
+            scroll_surf, scroll_rect = font_small.render(scroll_text, TEXT_DIM)
+            screen.blit(scroll_surf, (panel_x + panel_w // 2 - scroll_rect.width // 2,
+                                     panel_y + panel_h - footer_h + 3))
+
+        # 하단 힌트
+        if font_small:
+            hint_text = "← → ↑ ↓ 탐색  |  ESC 닫기"
+            hint_surf, hint_rect = font_small.render(hint_text, (100, 100, 120))
+            screen.blit(hint_surf, (panel_x + 15, panel_y + panel_h - footer_h + 3))
 
     def _draw_academy_dialog(self, screen):
         """학장 아르카나와의 대화창 그리기"""
@@ -10312,6 +10655,58 @@ class BuildingInterior:
             star_points.append((star_x + 4 * math.cos(angle_inner), star_y + 4 * math.sin(angle_inner)))
         pygame.draw.polygon(screen, ACCENT_GOLD, star_points)
 
+    def _draw_shelf_interact_hint(self, screen):
+        """도감 책장 근처일 때 상호작용 힌트 표시"""
+        import math
+        # 학장 힌트가 이미 표시 중이면 스킵 (중복 방지)
+        if self.nearby_headmaster:
+            return
+        idx = self.nearby_shelf_index
+        if idx is None or idx >= len(self.academy_shelf_types):
+            return
+
+        shelf_labels = {"items": "아이템 도감", "perks": "퍽 도감", "bosses": "보스 도감"}
+        shelf_type = self.academy_shelf_types[idx]
+        hint_text = f"CLICK - {shelf_labels.get(shelf_type, '도감')}"
+
+        pulse = abs(math.sin(self.animation_timer * 3))
+        ACCENT = (180, 140, 255)
+        BG = (25, 20, 50)
+
+        box_w = 200
+        box_h = 32
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 55
+
+        # 글로우
+        for glow in range(2, 0, -1):
+            glow_alpha = int((40 - glow * 15) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 4, box_h + glow * 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*ACCENT, glow_alpha),
+                           (0, 0, box_w + glow * 4, box_h + glow * 4), border_radius=6)
+            screen.blit(glow_surf, (box_x - glow * 2, box_y - glow * 2))
+
+        # 박스
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (*BG, 220), (0, 0, box_w, box_h), border_radius=5)
+        screen.blit(box_surf, (box_x, box_y))
+        pygame.draw.rect(screen, ACCENT, (box_x, box_y, box_w, box_h), 2, border_radius=5)
+
+        # 텍스트
+        font = self.fonts.get("small")
+        if font:
+            text_surf, text_rect = font.render(hint_text, (255, 255, 255))
+            screen.blit(text_surf, (box_x + (box_w - text_rect.width) // 2,
+                                   box_y + (box_h - text_rect.height) // 2))
+
+        # 책 아이콘 (좌측)
+        bx = box_x + 12
+        by = box_y + (box_h - 16) // 2
+        pygame.draw.rect(screen, ACCENT, (bx, by, 12, 16), border_radius=2)
+        pygame.draw.rect(screen, (220, 200, 255), (bx + 3, by + 3, 6, 1))
+        pygame.draw.rect(screen, (220, 200, 255), (bx + 3, by + 6, 6, 1))
+        pygame.draw.rect(screen, (220, 200, 255), (bx + 3, by + 9, 4, 1))
+
     def _draw_poker_table_hint(self, screen):
         """포커 테이블 근처일 때 상호작용 힌트 표시"""
         # 딜러 파산 시 다른 메시지 표시
@@ -10466,7 +10861,7 @@ class BuildingInterior:
             return
 
         # 대화창/메뉴가 열려있으면 힌트 숨기기
-        if self.academy_dialog_open or self.bank_menu_open or self.shop_trade_open:
+        if self.academy_dialog_open or self.bank_menu_open or self.shop_trade_open or self.codex_open:
             return
 
         # NPC 이름 가져오기
@@ -10582,15 +10977,18 @@ class BuildingInterior:
         capsule_x, capsule_y = self.pixel_width - 130, wall_h + 240
         self.academy_obstacle_rects.append(pygame.Rect(capsule_x, capsule_y, 80, 110))
 
-        # 6) 도서관 책장들 (3개 가로 배치 - 학장 아르카나 왼쪽)
+        # 6) 도감 책장들 (3개 가로 배치 - 학장 아르카나 왼쪽)
         shelf_w, shelf_h = 55, 90
         # 학장 위치 (약 x=512, y=138) 왼쪽에 배치
         headmaster_x = int(self.pixel_width * 0.5)  # 약 512
         shelf_start_x = headmaster_x - 250  # 학장보다 250픽셀 왼쪽
         shelf_y = wall_h + 60  # 벽 바로 아래 (학장과 비슷한 y 위치)
+        self.academy_shelf_rects = []
         for i in range(3):
             shelf_x = shelf_start_x + i * (shelf_w + 15)  # 가로로 간격 두고 배치
-            self.academy_obstacle_rects.append(pygame.Rect(shelf_x, shelf_y, shelf_w, shelf_h))
+            rect = pygame.Rect(shelf_x, shelf_y, shelf_w, shelf_h)
+            self.academy_shelf_rects.append(rect)
+            self.academy_obstacle_rects.append(rect)
 
         # 1. 배경
         screen.fill(BG_DARK)
@@ -11919,7 +12317,7 @@ class BuildingInterior:
             (shelf_start_x + shelf_w + 15, shelf_y),
             (shelf_start_x + (shelf_w + 15) * 2, shelf_y),
         ]
-        shelf_labels = ["전술", "기록", "역사"]
+        shelf_labels = ["아이템", "퍽", "보스"]
 
         for idx, (shelf_x, shelf_y) in enumerate(shelf_positions):
             sx = shelf_x - cam_x
@@ -11981,7 +12379,7 @@ class BuildingInterior:
                     book_x += book_w + 1
 
             # 책장 상단 장식 (금속 라벨)
-            label_w, label_h = 40, 12
+            label_w, label_h = 48, 12
             label_x = sx + (shelf_w - label_w) // 2
             label_y = sy + 8
 
