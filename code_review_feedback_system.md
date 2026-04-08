@@ -25,23 +25,25 @@
    └────┬─────┘        └─────┬─────┘           └─────┬─────┘
         │                    │                       │
         ▼                    ▼                       ▼
-  ┌───────────┐     ┌────────────────┐     ┌──────────────────┐
-  │ Replay    │     │ feedback_      │     │ _analyze_replay()│
-  │ Viewer UI │     │ system.py      │     │ (메타데이터 분석) │
-  │           │     │ enhanced_      │     │                  │
-  │           │     │ feedback.py    │     │                  │
-  └─────┬─────┘     └───────┬────────┘     └────────┬─────────┘
-        │                   │                       │
-        ▼                   ▼                       ▼
-  ┌─────────────────────────────────────────────────────────┐
-  │              피드백 표시 (2가지 경로)                      │
-  │                                                          │
-  │  경로 A: 리플레이 뷰어 → _show_replay_feedback()          │
-  │          (사운드 이벤트 기반 사후 분석)                     │
-  │                                                          │
-  │  경로 B: F키 오버레이 → get_detailed_feedback()            │
-  │          (실시간 누적 통계 기반)                            │
-  └─────────────────────────────────────────────────────────┘
+  ┌───────────┐     ┌────────────────────────────┐  ┌──────────────────┐
+  │ Replay    │     │ get_detailed_feedback()     │  │ _analyze_replay()│
+  │ Viewer UI │     │  ├─ LiteraryFeedbackSystem  │  │ (메타데이터 분석) │
+  │           │     │  │  (우선: 문학적 서사)       │  │                  │
+  │           │     │  └─ feedback_system.py       │  │                  │
+  │           │     │     (폴백: 등급별 텍스트)      │  │                  │
+  └─────┬─────┘     └────────────┬───────────────┘  └────────┬─────────┘
+        │                       │                           │
+        ▼                       ▼                           ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │              피드백 표시 (2가지 경로)                          │
+  │                                                              │
+  │  경로 A: 리플레이 뷰어 → _show_replay_feedback()              │
+  │          (사운드 이벤트 기반 사후 분석)                         │
+  │                                                              │
+  │  경로 B: F키 오버레이 → get_detailed_feedback() → dict 반환    │
+  │          LiteraryFeedbackSystem 우선, ImportError 시 폴백      │
+  │          HUD는 feedback_data["skill_feedback"]만 렌더링        │
+  └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -150,9 +152,9 @@ _cleanup_old_replays()           # MAX_REPLAYS(10) 초과 시 잠금 안 된 가
 
 ---
 
-### 2.2 `player_skill_analyzer.py` (~490줄)
+### 2.2 `player_skill_analyzer.py` (1090줄)
 
-실시간 플레이어 통계 수집 및 등급 산출.
+실시간 플레이어 통계 수집, 등급 산출, **상세 피드백 생성의 진입점**.
 
 #### 데이터클래스: `PlayerStats` (L13-87)
 ```python
@@ -239,8 +241,38 @@ get_dash_mastery_score() -> float     # 대쉬 활용 능력 (0-100)
 get_item_mastery_score() -> float     # 아이템 활용 능력 (0-100)
 get_guard_ability_score() -> float    # 가드 능력 (0-100)
 get_current_rank(stage) -> dict       # 종합 등급 산출
-get_detailed_feedback(stage) -> str   # 상세 피드백 텍스트 생성
+get_detailed_analysis(stage) -> dict  # 통계+업적+개선팁 (HUD 기본 뷰)
+get_detailed_feedback(stage) -> dict  # 상세 피드백 (F키 오버레이용, 아래 참조)
 ```
+
+**`get_detailed_feedback()` 상세 (L985-1064) — 실시간 피드백의 핵심 진입점**:
+
+이 함수는 **dict를 반환** (str이 아님!):
+```python
+def get_detailed_feedback(self, current_stage=1) -> dict:
+    try:
+        from literary_feedback_system import LiteraryFeedbackSystem  # 우선 경로
+        literary_system = LiteraryFeedbackSystem(self)
+        # 4가지 능력 점수 계산 → 문학적 서사 생성
+        return {
+            "skill_feedback": format_feedback(skill_fb),   # 문학적 서사 텍스트
+            "dash_feedback": format_feedback(dash_fb),
+            "item_feedback": format_feedback(item_fb),
+            "guard_feedback": format_feedback(guard_fb),
+            "overall_feedback": literary_system.generate_epic_narrative(),
+            "improvement_tips": literary_system.compose_journey_ahead(...)
+        }
+    except ImportError:
+        # 폴백 경로: feedback_system.py의 등급별 텍스트 사용
+        return {
+            "skill_feedback": get_skill_feedback(score, grade),
+            "dash_feedback": get_dash_feedback(score, grade),
+            ...
+        }
+```
+
+**우선순위 체인**: `LiteraryFeedbackSystem` → (ImportError 시) → `feedback_system.py`
+`enhanced_feedback_system.py`는 이 경로에서 **호출되지 않음** (독립적인 분석 도구로만 존재).
 
 **특이사항**:
 - 캐릭터별 분석기 분리 (`player_analyzer_profiles` 딕셔너리)
@@ -282,7 +314,39 @@ def get_xxx_feedback(score: float, grade: str) -> str:
 
 ---
 
-### 2.4 `enhanced_feedback_system.py` (577줄)
+### 2.4 `literary_feedback_system.py` (472줄) — **활성 경로**
+
+**`get_detailed_feedback()`의 우선 경로.** 문학적 표현과 유머로 플레이어 실력을 서술.
+
+```python
+class LiteraryFeedbackSystem:
+    def __init__(self, player_analyzer):
+        self.analyzer = player_analyzer
+        self.stats = player_analyzer.stats
+
+    def get_skill_narrative(score, grade) -> dict:
+        # {title, grade, narrative, highlights, growth, wisdom}
+        # 점수 구간별 (90+, 70+, 50+, 30+, 0+) 서로 다른 문학적 서사 반환
+        # 예: "당신의 손끝에서 번개가 춤춥니다..."
+
+    def get_dash_narrative(score, grade) -> dict
+    def get_item_narrative(score, grade) -> dict
+    def get_guard_narrative(score, grade) -> dict
+
+    def generate_epic_narrative() -> str      # 종합 서사
+    def compose_journey_ahead(...) -> str     # 다음 목표 제안
+```
+
+**format_feedback()** (player_skill_analyzer.py L1013-1021에서 정의):
+dict → 문자열 변환. `━━━ {title} ━━━\n🏆 등급: ...\n📖 이야기\n...` 포맷.
+
+---
+
+### 2.5 `enhanced_feedback_system.py` (577줄) — **비활성 경로 (독립 분석 도구)**
+
+> **주의**: 이 모듈은 `get_detailed_feedback()` 체인에서 호출되지 않음.
+> 독립적인 정밀 분석 도구로, `get_enhanced_feedback()` 함수를 통해 직접 호출해야 동작.
+> 현재 런타임에서 이 모듈을 import하는 코드는 없음.
 
 게임 메커니즘 기반 정밀 분석. `PlayerSkillAnalyzer` 인스턴스를 주입받아 동작.
 
@@ -331,9 +395,9 @@ def get_enhanced_feedback(player_analyzer, current_stage=1) -> str:
 
 ---
 
-### 2.5 `pingfighter.py` 내 통합 코드
+### 2.6 `pingfighter.py` 내 통합 코드
 
-#### 2.5.1 리플레이 뷰어 UI (`show_replay_viewer()`, L123835-124006)
+#### 2.6.1 리플레이 뷰어 UI (`show_replay_viewer()`, L123835-124006)
 
 2패널 레이아웃:
 - **좌측**: 리플레이 목록 (스크롤, 선택, 더블클릭 재생)
@@ -363,7 +427,7 @@ def get_enhanced_feedback(player_analyzer, current_stage=1) -> str:
 
 **썸네일**: 비동기 로딩 (`threading.Thread`), `thumb_cache` 딕셔너리 캐시.
 
-#### 2.5.2 리플레이 분석 (`_analyze_replay()`, L124277-124471)
+#### 2.6.2 리플레이 분석 (`_analyze_replay()`, L124277-124471)
 
 ```python
 def _analyze_replay(replay_info: dict) -> list:
@@ -404,7 +468,7 @@ score += 5 if result == 'win' else 0            # 승리 보너스
 score = min(100, score)
 ```
 
-#### 2.5.3 피드백 표시 (`_show_replay_feedback()`, L124474-124527)
+#### 2.6.3 피드백 표시 (`_show_replay_feedback()`, L124474-124527)
 
 ```python
 def _show_replay_feedback(replay_info: dict):
@@ -416,7 +480,7 @@ def _show_replay_feedback(replay_info: dict):
     # ESC/클릭/Enter/Space → 복귀
 ```
 
-#### 2.5.4 실시간 피드백 HUD (F키, L155570+)
+#### 2.6.4 실시간 피드백 HUD (F키, L155570+ / L169798+)
 
 ```python
 # pingfighter.py 내부 전역 변수
@@ -429,9 +493,27 @@ def initialize_player_analyzer(reset_session=False):
     player_analyzer = player_analyzer_profiles[char_type]
 ```
 
-F키로 토글되는 오버레이:
+**HUD 기본 뷰** (L169799):
 - `player_analyzer.get_current_rank(current_stage)` → 등급 표시
-- `player_analyzer.get_detailed_analysis(current_stage)` → 상세 통계
+- `player_analyzer.get_detailed_analysis(current_stage)` → stats, achievements, improvement_tips
+- 좌측: 텍스트 통계 + 우측: 레이더 차트
+- 하단 좌측: 업적 (최근 3개) + 하단 우측: 개선 피드백 (최대 2개)
+
+**F키 상세 피드백 오버레이** (L169922-169956):
+```python
+if show_feedback:
+    feedback_data = player_analyzer.get_detailed_feedback(current_stage)  # dict 반환
+    # 500×600 반투명 패널
+    # ⚠️ skill_feedback 키의 텍스트만 렌더링 (최대 20줄)
+    skill_feedback = feedback_data["skill_feedback"]
+    lines = skill_feedback.split('\n')
+    for line in lines[:20]:
+        # font_tiny로 렌더링 (70자 초과 시 잘림)
+```
+
+**현재 UI 계약**: `get_detailed_feedback()`가 반환하는 dict의 6개 키 중
+`skill_feedback`만 HUD에 렌더링됨. `dash_feedback`, `item_feedback`,
+`guard_feedback`, `overall_feedback`, `improvement_tips`는 **사용되지 않음**.
 
 ---
 
@@ -479,22 +561,23 @@ _show_replay_feedback()  → 카드 UI 렌더링
   ├─ player_analyzer.record_victory_result()
   │
   ▼
-F키 토글 → 오버레이 표시
+HUD 기본 뷰 (항상 표시)
   │
   ├─ get_current_rank(stage) → 등급 + 점수
-  ├─ get_detailed_analysis(stage) → 통계 요약
+  ├─ get_detailed_analysis(stage) → stats, achievements, improvement_tips
   │
   ▼
-feedback_system.py / enhanced_feedback_system.py
+F키 토글 → 상세 오버레이
   │
-  ├─ get_skill_feedback(score, grade)
-  ├─ get_dash_feedback(score, grade)
-  ├─ get_item_feedback(score, grade)
-  ├─ get_guard_feedback(score, grade)
-  ├─ get_overall_feedback(...)
+  ├─ player_analyzer.get_detailed_feedback(stage)  → dict 반환
+  │   ├─ [우선] LiteraryFeedbackSystem (literary_feedback_system.py)
+  │   │   └─ 문학적 서사 텍스트 생성 (━━━ 스킬 마스터리 ━━━ ...)
+  │   └─ [폴백] feedback_system.py (ImportError 시)
+  │       └─ 등급별 정형 텍스트 생성
   │
   ▼
-HUD 오버레이 렌더링 (500×600 반투명 패널)
+HUD 렌더링: feedback_data["skill_feedback"]만 표시 (최대 20줄)
+  ⚠️ dash/item/guard/overall/tips 키는 미사용
 ```
 
 ---
@@ -505,10 +588,11 @@ HUD 오버레이 렌더링 (500×600 반투명 패널)
 
 | # | 이슈 | 심각도 | 위치 | 설명 |
 |---|------|--------|------|------|
-| 1 | **피드백 시스템 이중화** | Medium | feedback_system.py vs enhanced_feedback_system.py | 같은 역할의 두 모듈이 공존. `feedback_system.py`는 단순 텍스트, `enhanced_feedback_system.py`는 정밀 분석. 통합 또는 역할 분리 필요 |
+| 1 | **피드백 모듈 3중화** | Medium | literary_feedback_system.py, feedback_system.py, enhanced_feedback_system.py | 3개 모듈이 유사 역할. `literary_feedback_system.py`가 활성 경로, `feedback_system.py`가 폴백, `enhanced_feedback_system.py`는 어디에서도 호출되지 않는 데드 코드. 정리 또는 통합 필요 |
 | 2 | **두 분석 경로의 데이터 불일치** | Medium | _analyze_replay vs PlayerSkillAnalyzer | 리플레이 분석은 사운드 이벤트 기반, 실시간 분석은 통계 누적 기반. 같은 경기에 대해 다른 등급이 나올 수 있음 |
-| 3 | **등급 체계 불일치** | Low | 3곳에서 각각 정의 | `SkillRank`(6단계), `feedback_system.py`(7단계 S~F), `_analyze_replay`(5단계 S~D). 통일 필요 |
+| 3 | **등급 체계 불일치** | Low | 4곳에서 각각 정의 | `SkillRank`(6단계), `feedback_system.py`(7단계 S~F), `_analyze_replay`(5단계 S~D), `_score_to_grade_text`(7단계). 통일 필요 |
 | 4 | **PlayerStats 필드 동적 추가** | Medium | player_skill_analyzer.py:157 | `_ensure_new_fields()`로 런타임에 필드 추가. dataclass 사용 의미 감소 |
+| 4b | **F키 오버레이 skill_feedback만 표시** | Medium | pingfighter.py:169942 | `get_detailed_feedback()`가 6개 키를 반환하지만 HUD는 `skill_feedback`만 렌더링. 나머지 5개 키(dash/item/guard/overall/tips)는 계산만 하고 버려짐. 의도적 미구현인지 불명 |
 
 ### 4.2 보안/안정성
 
@@ -516,7 +600,7 @@ HUD 오버레이 렌더링 (500×600 반투명 패널)
 |---|------|--------|------|------|
 | 5 | **pickle 역직렬화** | High | replay_system.py:610 | `pickle.loads(meta_bytes)` — 악의적 .rpl 파일로 임의 코드 실행 가능. JSON 전환 또는 unpickler 제한 권장 |
 | 6 | **파일 핸들 누수 가능성** | Medium | ReplayPlayer.load():340 | `load()` 성공 시 파일 핸들 유지. `__del__`에서 close() 하지만 GC 타이밍 불확실. context manager 패턴 권장 |
-| 7 | **스레드 안전성** | Medium | ReplayRecorder._queue | `deque.popleft()`/`append()`는 CPython GIL 보호, 하지만 len(queue) 체크 후 popleft() 사이 race 가능 |
+| 7 | **busy-wait 비효율** | Low | replay_system.py:147 (_writer 클로저) | `time.sleep(0.005)`로 5ms 폴링. 소비자(writer thread) 1개 + 생산자(게임 루프) 1개 구조라 race 이슈는 없으나, `queue.Queue`의 블로킹 get()으로 교체하면 CPU 낭비 제거 가능 |
 
 ### 4.3 성능
 
@@ -550,18 +634,19 @@ HUD 오버레이 렌더링 (500×600 반투명 패널)
 
 ## 6. 파일 위치 인덱스
 
-| 파일 | 줄 수 | 역할 |
-|------|-------|------|
-| `replay/replay_system.py` | 703 | 리플레이 녹화/재생/관리 핵심 모듈 |
-| `replay/__init__.py` | 2 | 패키지 마커 |
-| `feedback_system.py` | 463 | 등급별 한글 피드백 텍스트 생성 (순수 함수) |
-| `enhanced_feedback_system.py` | 577 | 게임 메커니즘 기반 정밀 분석 |
-| `player_skill_analyzer.py` | ~490 | 실시간 통계 수집 + 등급 산출 |
-| `test_feedback_display.py` | 155 | 피드백 UI 렌더링 테스트 |
-| `pingfighter.py:123835-124006` | 171 | 리플레이 뷰어 UI |
-| `pingfighter.py:124277-124471` | 194 | `_analyze_replay()` — 사운드 이벤트 기반 분석 |
-| `pingfighter.py:124474-124527` | 53 | `_show_replay_feedback()` — 피드백 카드 렌더링 |
-| `pingfighter.py:153388-153421` | 33 | `initialize_player_analyzer()` — 캐릭터별 분석기 초기화 |
-| `pingfighter.py:155570+` | ~100 | F키 실시간 피드백 HUD |
-| `replays/` | - | .rpl 파일 저장 디렉토리 |
-| `replays/replay_meta.json` | - | 커스텀 이름/잠금 상태 저장 |
+| 파일 | 줄 수 | 역할 | 활성 경로 |
+|------|-------|------|----------|
+| `replay/replay_system.py` | 703 | 리플레이 녹화/재생/관리 핵심 모듈 | ✅ 경로 A |
+| `replay/__init__.py` | 2 | 패키지 마커 | - |
+| `literary_feedback_system.py` | 472 | **문학적 서사형 피드백 (우선 경로)** | ✅ 경로 B 우선 |
+| `feedback_system.py` | 463 | 등급별 한글 피드백 텍스트 (폴백) | ✅ 경로 B 폴백 |
+| `enhanced_feedback_system.py` | 577 | 게임 메커니즘 기반 정밀 분석 | ❌ 미사용 (데드 코드) |
+| `player_skill_analyzer.py` | 1090 | 실시간 통계 수집 + 등급 산출 + 피드백 진입점 | ✅ 경로 B |
+| `test_feedback_display.py` | 155 | 피드백 UI 렌더링 테스트 | 테스트용 |
+| `pingfighter.py:123835-124006` | 171 | 리플레이 뷰어 UI | ✅ 경로 A |
+| `pingfighter.py:124277-124471` | 194 | `_analyze_replay()` — 사운드 이벤트 기반 분석 | ✅ 경로 A |
+| `pingfighter.py:124474-124527` | 53 | `_show_replay_feedback()` — 피드백 카드 렌더링 | ✅ 경로 A |
+| `pingfighter.py:153388-153421` | 33 | `initialize_player_analyzer()` — 캐릭터별 분석기 초기화 | ✅ 경로 B |
+| `pingfighter.py:169798-169956` | ~160 | HUD 기본 뷰 + F키 상세 오버레이 | ✅ 경로 B |
+| `replays/` | - | .rpl 파일 저장 디렉토리 | ✅ 경로 A |
+| `replays/replay_meta.json` | - | 커스텀 이름/잠금 상태 저장 | ✅ 경로 A |
