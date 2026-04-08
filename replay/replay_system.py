@@ -18,6 +18,7 @@ from typing import Dict, Any, List, Optional
 # 파일 매직 + 버전
 _MAGIC = b'PFRP'
 _VERSION = 4
+_APP_NAME = "PingFighter"
 
 # 캡처 설정
 CAPTURE_INTERVAL = 1    # 매 프레임 캡처 (60fps) — 비동기 압축으로 부담 없음
@@ -25,13 +26,28 @@ SCALE_FACTOR = 1.0      # 원본 해상도 (100%) — 압축은 백그라운드�
 COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름)
 MAX_DURATION = 600      # 최대 10분
 MAX_REPLAYS = 10        # 최대 리플레이 파일 수 (초과 시 가장 오래된 파일 자동 삭제)
+MAX_PENDING_FRAMES = 300  # 압축 스레드가 밀릴 때 메모리 폭증 방지용 대기 프레임 수 상한
+
+
+def _user_data_dir() -> str:
+    if sys.platform == 'win32':
+        base = os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+        if base:
+            return os.path.join(base, _APP_NAME)
+    elif sys.platform == 'darwin':
+        return os.path.join(os.path.expanduser("~"), "Library", "Application Support", _APP_NAME)
+    else:
+        base = os.environ.get('XDG_DATA_HOME')
+        if base:
+            return os.path.join(base, _APP_NAME)
+        return os.path.join(os.path.expanduser("~"), ".local", "share", _APP_NAME)
+    return os.path.dirname(sys.executable)
 
 
 def _replays_dir() -> str:
-    # PyInstaller 빌드에서는 _MEIPASS가 임시 폴더이므로 사용자 데이터 경로 사용
+    # PyInstaller 빌드에서는 _MEIPASS/실행 파일 폴더 대신 사용자 데이터 경로 사용
     if getattr(sys, 'frozen', False):
-        # 패키징 빌드: 실행 파일이 있는 디렉토리에 replays 폴더 생성
-        base = os.path.dirname(sys.executable)
+        base = _user_data_dir()
     else:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, "replays")
@@ -56,9 +72,10 @@ class ReplayRecorder:
 
         # 사운드 이벤트 트랙: {캡처프레임번호: [사운드ID, ...]}
         self.sound_events: Dict[int, List[Any]] = {}
+        self.dropped_frames = 0
 
         # 백그라운드 압축 스레드
-        self._queue: deque = deque(maxlen=300)  # ~5초 버퍼, 초과 시 오래된 프레임 드롭
+        self._queue: deque = deque()
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
@@ -77,6 +94,7 @@ class ReplayRecorder:
         self.start_time = time.time()
         self.current_frame = 0
         self.sound_events = {}
+        self.dropped_frames = 0
 
         self.metadata = {
             'version': _VERSION,
@@ -151,6 +169,12 @@ class ReplayRecorder:
         if self.game_frame % CAPTURE_INTERVAL != 0:
             return
 
+        if len(self._queue) >= MAX_PENDING_FRAMES:
+            self.dropped_frames += 1
+            if self.dropped_frames == 1 or self.dropped_frames % 60 == 0:
+                print(f"[Replay] 압축 큐 포화 — 캡처 스킵 {self.dropped_frames}프레임")
+            return
+
         try:
             # 게임 루프에서 하는 일: scale(필요시) + tostring만
             if SCALE_FACTOR < 1.0:
@@ -189,11 +213,19 @@ class ReplayRecorder:
         self.metadata['duration'] = time.time() - self.start_time
         self.metadata['total_frames'] = self.captured_frames
         self.metadata['sound_events'] = self.sound_events
+        self.metadata['dropped_frames'] = self.dropped_frames
+        if self.metadata['duration'] > 0 and self.captured_frames > 0:
+            effective_fps = max(1, int(round(self.captured_frames / self.metadata['duration'])))
+            self.metadata['capture_fps'] = effective_fps
         if result:
             self.metadata['result'] = result
 
         remaining = len(self._queue)
-        print(f"[Replay] 녹화 중지 — {self.captured_frames}프레임, {self.metadata['duration']:.1f}초, 큐 잔여: {remaining}")
+        print(
+            f"[Replay] 녹화 중지 — {self.captured_frames}프레임, "
+            f"{self.metadata['duration']:.1f}초, 큐 잔여: {remaining}, "
+            f"스킵: {self.dropped_frames}"
+        )
 
         if self.captured_frames == 0 or self.file is None:
             print(f"[Replay] 프레임이 0개라 저장 건너뜀")
