@@ -50848,7 +50848,7 @@ def _start_viper_wall_dive_charge(start_ms: int) -> None:
     _viper_wall_dive_charge_start_y = float(_viper_wall_dive_wall_y)
     _viper_wall_dive_web_lines = []
     try:
-        _wd_charge_snd = sound_effects.get('VIPER_SHADOW_KICK')
+        _wd_charge_snd = sound_effects.get('VIPER_MARSHAL_KICK')
         if _wd_charge_snd:
             play_sound_with_volume(_wd_charge_snd, sfx_volume * 0.6)
     except Exception:
