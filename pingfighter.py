@@ -124176,8 +124176,8 @@ def show_replay_viewer():
             res = r.get('result', '')
             dur = r.get('duration', 0)
             created = r.get('created_at', 0)
-            char = r.get('character', '')
-            ai = r.get('ai_mode', '')
+            char = r.get('character', '') or '-'
+            ai = r.get('ai_mode', '') or '-'
             is_locked = r.get('locked', False)
 
             res_text = "승리" if res == 'win' else "패배" if res == 'lose' else "중도 퇴장" if res == 'quit' else "-"
@@ -124202,7 +124202,7 @@ def show_replay_viewer():
             for label, value, color in info_items:
                 ls = label_font.render(f"{label}:", True, (80, 90, 110))
                 SCREEN.blit(ls, (PANEL_X + 14, row_y))
-                vs = label_font.render(value, True, color)
+                vs = label_font.render(value or "-", True, color)
                 SCREEN.blit(vs, (PANEL_X + 75, row_y))
                 row_y += 17
 
