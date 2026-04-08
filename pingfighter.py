@@ -22765,6 +22765,9 @@ def draw_horn_strawberry_effects(screen):
     if ts.is_event_playing:
         px = PLAYER.centerx if PLAYER else 380
         py = PLAYER.y if PLAYER else 710
+        if PLAYER:
+            ts._last_paddle_w = PLAYER.width
+            ts._last_paddle_h = PLAYER.height
         ts.draw_transform_event(screen, px, py)
 
     if ts.is_transformed:
