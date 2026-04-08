@@ -466,6 +466,7 @@ class SpaceMap:
         4: '_draw_surface_temple',
         5: '_draw_surface_ocean',
         6: '_draw_surface_fire',
+        7: '_draw_surface_tetris',
         30: '_draw_surface_colosseum',
     }
 
@@ -7487,6 +7488,265 @@ class SpaceMap:
 
         random.seed()
 
+    # ──────────────────────────────────────────────
+    #  Stage 7 — 테트리스 (테트리서 / Digital Block Dimension)
+    # ──────────────────────────────────────────────
+    def _draw_surface_tetris(self, surf, t, alpha=255):
+        """테트리스 행성 표면 — 중세 요새 + 디지털 아케이드 혼합.
+        t: 0(고공) ~ 1(지표면). Stage 7 테트리서 인게임 테마 색상 기반.
+        pillar_tetriser / animated_background_stage7 매칭."""
+        W, H = surf.get_width(), surf.get_height()
+        random.seed(77770)
+
+        # ===== 컬러 팔레트 =====
+        bg_top = (30, 50, 80)
+        bg_mid = (40, 65, 100)
+        bg_bottom = (15, 28, 50)
+        bg_deep = (10, 18, 35)
+        frame_dark = (25, 40, 65)
+        frame_mid = (45, 70, 105)
+        frame_light = (70, 100, 140)
+        neon_cyan = (0, 255, 255)
+        neon_magenta = (255, 0, 255)
+        neon_blue = (80, 140, 255)
+        text_glow = (100, 180, 255)
+        stone_base = (28, 44, 82)
+        stone_accent = (18, 32, 62)
+        torch_glow = (255, 168, 68)
+        torch_core = (255, 210, 120)
+        # 테트로미노 컬러 (뮤트)
+        tetro_colors = [
+            (70, 140, 150),   # I — 틸
+            (150, 140, 80),   # O — 카키
+            (110, 80, 140),   # T — 퍼플
+            (80, 130, 90),    # S — 그린
+            (140, 80, 90),    # Z — 버건디
+            (70, 90, 140),    # J — 네이비
+            (140, 110, 80),   # L — 브라운
+        ]
+
+        # ===== 1. 하늘 그라디언트 (디지털 블루) =====
+        cy = H // 2 + 10
+        for y in range(cy):
+            ratio = y / max(1, cy)
+            if ratio < 0.5:
+                r2 = ratio / 0.5
+                r = int(bg_top[0] + (bg_mid[0] - bg_top[0]) * r2)
+                g = int(bg_top[1] + (bg_mid[1] - bg_top[1]) * r2)
+                b = int(bg_top[2] + (bg_mid[2] - bg_top[2]) * r2)
+            else:
+                r2 = (ratio - 0.5) / 0.5
+                r = int(bg_mid[0] + (bg_bottom[0] - bg_mid[0]) * r2)
+                g = int(bg_mid[1] + (bg_bottom[1] - bg_mid[1]) * r2)
+                b = int(bg_mid[2] + (bg_bottom[2] - bg_mid[2]) * r2)
+            pygame.draw.line(surf, (r, g, b, alpha), (0, y), (W, y))
+
+        # ===== 2. 디지털 그리드 (하늘) =====
+        grid_s = pygame.Surface((W, cy), pygame.SRCALPHA)
+        grid_c_pri = (44, 74, 118, min(255, int(30 * alpha / 255)))
+        grid_c_sec = (28, 54, 94, min(255, int(15 * alpha / 255)))
+        for gy in range(0, cy, 8):
+            pygame.draw.line(grid_s, grid_c_sec, (0, gy), (W, gy), 1)
+        for gx in range(0, W, 12):
+            pygame.draw.line(grid_s, grid_c_sec, (gx, 0), (gx, cy), 1)
+        for gy in range(0, cy, 32):
+            pygame.draw.line(grid_s, grid_c_pri, (0, gy), (W, gy), 1)
+        for gx in range(0, W, 48):
+            pygame.draw.line(grid_s, grid_c_pri, (gx, 0), (gx, cy), 1)
+        surf.blit(grid_s, (0, 0))
+
+        # ===== 3. 지평선 글로우 (시안 빛줄기) =====
+        horizon_y = cy
+        glow_h = 25
+        glow_s = pygame.Surface((W, glow_h), pygame.SRCALPHA)
+        for gy in range(glow_h):
+            ga = int(40 * (1.0 - abs(gy - glow_h // 2) / (glow_h // 2)) * alpha / 255)
+            pygame.draw.line(glow_s, (80, 140, 255, max(0, ga)),
+                             (0, gy), (W, gy))
+        surf.blit(glow_s, (0, horizon_y - glow_h // 2))
+
+        # ===== 4. 건물 실루엣 (중세 요새 + 타워) =====
+        sil_c = (12, 20, 38, min(255, int(200 * alpha / 255)))
+        towers = [
+            # (x_ratio, width, height, has_battlement)
+            (0.06, 40, 60, True),
+            (0.18, 55, 45, False),
+            (0.28, 35, 70, True),
+            (0.40, 50, 50, False),
+            (0.50, 65, 85, True),
+            (0.62, 45, 55, True),
+            (0.74, 35, 40, False),
+            (0.84, 50, 65, True),
+            (0.94, 40, 50, False),
+        ]
+        bld_s = pygame.Surface((W, H), pygame.SRCALPHA)
+        for tx_r, tw, th, battlement in towers:
+            tx = int(W * tx_r)
+            ty = horizon_y - th
+            pygame.draw.rect(bld_s, sil_c, (tx, ty, tw, th))
+            if battlement:
+                # 성곽 흉벽
+                merlon_w = max(3, tw // 6)
+                for mx in range(tx, tx + tw, merlon_w * 2):
+                    pygame.draw.rect(bld_s, sil_c,
+                                     (mx, ty - merlon_w, merlon_w, merlon_w))
+            # 방패/문양 빛 (네온 액센트)
+            if random.random() > 0.4:
+                nc = [neon_cyan, neon_magenta, neon_blue][random.randint(0, 2)]
+                nw, nh = 4, 5
+                nx = tx + tw // 2 - 2
+                ny = ty + th // 3
+                na = min(255, int(random.randint(30, 60) * alpha / 255))
+                ns = pygame.Surface((nw + 4, nh + 4), pygame.SRCALPHA)
+                pygame.draw.rect(ns, (*nc, na // 2), (0, 0, nw + 4, nh + 4))
+                pygame.draw.rect(ns, (*nc, na), (2, 2, nw, nh))
+                bld_s.blit(ns, (nx - 2, ny - 2))
+        surf.blit(bld_s, (0, 0))
+
+        # ===== 5. 횃불 (건물 위 4개) =====
+        torch_positions = [
+            (int(W * 0.06) + 20, horizon_y - 60 - 8),
+            (int(W * 0.28) + 17, horizon_y - 70 - 8),
+            (int(W * 0.62) + 22, horizon_y - 55 - 8),
+            (int(W * 0.84) + 25, horizon_y - 65 - 8),
+        ]
+        for tpx, tpy in torch_positions:
+            # 글로우
+            gs = pygame.Surface((30, 30), pygame.SRCALPHA)
+            pygame.draw.circle(gs, (*torch_glow, min(255, int(50 * alpha / 255))),
+                               (15, 15), 14)
+            pygame.draw.circle(gs, (*torch_core, min(255, int(90 * alpha / 255))),
+                               (15, 15), 6)
+            surf.blit(gs, (tpx - 15, tpy - 15))
+            # 기둥
+            pygame.draw.line(surf, (*stone_base, min(255, int(150 * alpha / 255))),
+                             (tpx, tpy + 8), (tpx, tpy + 20), 2)
+
+        # ===== 6. 지면 (어두운 네이비 + 석재 텍스처) =====
+        for y in range(horizon_y, H):
+            ratio = (y - horizon_y) / max(1, H - horizon_y)
+            r = int(bg_bottom[0] + (bg_deep[0] - bg_bottom[0]) * ratio)
+            g = int(bg_bottom[1] + (bg_deep[1] - bg_bottom[1]) * ratio)
+            b = int(bg_bottom[2] + (bg_deep[2] - bg_bottom[2]) * ratio)
+            pygame.draw.line(surf, (r, g, b, alpha), (0, y), (W, y))
+
+        # 석재 블록 패턴
+        block_w, block_h = 54, 36
+        for row in range((H - horizon_y) // block_h + 1):
+            offset = (block_w // 2) if row % 2 else 0
+            by = horizon_y + row * block_h
+            for col in range(-1, W // block_w + 2):
+                bx = col * block_w + offset
+                bc = stone_base if random.random() > 0.3 else stone_accent
+                ba = min(255, int(random.randint(30, 60) * alpha / 255))
+                pygame.draw.rect(surf, (*bc, ba), (bx, by, block_w - 1, block_h - 1))
+                # 상단 하이라이트
+                pygame.draw.line(surf, (*frame_mid, min(255, int(20 * alpha / 255))),
+                                 (bx + 1, by), (bx + block_w - 2, by), 1)
+
+        # ===== 7. 지면 디지털 그리드 =====
+        grid_ground = pygame.Surface((W, H - horizon_y), pygame.SRCALPHA)
+        for gy in range(0, H - horizon_y, 12):
+            pygame.draw.line(grid_ground, grid_c_sec, (0, gy), (W, gy), 1)
+        for gx in range(0, W, 12):
+            pygame.draw.line(grid_ground, grid_c_sec, (gx, 0), (gx, H - horizon_y), 1)
+        surf.blit(grid_ground, (0, horizon_y))
+
+        # ===== 8. 테트로미노 블록 (떨어진 파편) =====
+        tetro_shapes = [
+            [(0, 0), (1, 0), (2, 0), (3, 0)],   # I
+            [(0, 0), (1, 0), (0, 1), (1, 1)],    # O
+            [(0, 0), (1, 0), (2, 0), (1, 1)],    # T
+            [(1, 0), (2, 0), (0, 1), (1, 1)],    # S
+            [(0, 0), (1, 0), (1, 1), (2, 1)],    # Z
+            [(0, 0), (0, 1), (1, 1), (2, 1)],    # J
+            [(2, 0), (0, 1), (1, 1), (2, 1)],    # L
+        ]
+        cell_size = max(4, int(8 * min(1.0, t + 0.3)))
+        for _ in range(12):
+            ti = random.randint(0, 6)
+            tc = tetro_colors[ti]
+            shape = tetro_shapes[ti]
+            bx = random.randint(20, W - 60)
+            by = random.randint(horizon_y + 10, H - 40)
+            ta = min(255, int(random.randint(80, 160) * alpha / 255))
+            for dx, dy in shape:
+                rx = bx + dx * cell_size
+                ry = by + dy * cell_size
+                # 블록 본체
+                pygame.draw.rect(surf, (*tc, ta),
+                                 (rx, ry, cell_size - 1, cell_size - 1))
+                # 하이라이트
+                pygame.draw.line(surf, (min(255, tc[0] + 40),
+                                        min(255, tc[1] + 40),
+                                        min(255, tc[2] + 40), ta),
+                                 (rx, ry), (rx + cell_size - 2, ry), 1)
+                # 그림자
+                pygame.draw.line(surf, (max(0, tc[0] - 30),
+                                        max(0, tc[1] - 30),
+                                        max(0, tc[2] - 30), ta),
+                                 (rx, ry + cell_size - 2),
+                                 (rx + cell_size - 2, ry + cell_size - 2), 1)
+
+        # ===== 9. 중앙 큐브 와이어프레임 (정적 스냅샷) =====
+        cube_cx = W // 2
+        cube_cy = horizon_y + 40
+        cube_r = 30
+        # 심플 큐브 (정적 회전 각도)
+        cube_pts_2d = []
+        angle_y, angle_x = 0.4, 0.25
+        for vx, vy, vz in [(-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1),
+                            (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1)]:
+            # Y축 회전
+            x2 = vx * math.cos(angle_y) - vz * math.sin(angle_y)
+            z2 = vx * math.sin(angle_y) + vz * math.cos(angle_y)
+            # X축 회전
+            y2 = vy * math.cos(angle_x) - z2 * math.sin(angle_x)
+            z3 = vy * math.sin(angle_x) + z2 * math.cos(angle_x)
+            # 투영
+            scale = 1.0 / (3.0 + z3)
+            px = cube_cx + int(x2 * cube_r * scale)
+            py = cube_cy + int(y2 * cube_r * scale)
+            cube_pts_2d.append((px, py))
+        edges = [(0, 1), (1, 2), (2, 3), (3, 0),
+                 (4, 5), (5, 6), (6, 7), (7, 4),
+                 (0, 4), (1, 5), (2, 6), (3, 7)]
+        cube_s = pygame.Surface((W, H), pygame.SRCALPHA)
+        # 글로우 라인
+        for a, b in edges:
+            pygame.draw.line(cube_s, (*text_glow, min(255, int(30 * alpha / 255))),
+                             cube_pts_2d[a], cube_pts_2d[b], 3)
+        # 메인 라인
+        for a, b in edges:
+            pygame.draw.line(cube_s, (220, 240, 255, min(255, int(140 * alpha / 255))),
+                             cube_pts_2d[a], cube_pts_2d[b], 1)
+        surf.blit(cube_s, (0, 0))
+
+        # ===== 10. 네온 보더 + 스캔라인 =====
+        pygame.draw.rect(surf, (*frame_dark, min(255, int(180 * alpha / 255))),
+                         (0, 0, W, H), 4)
+        pygame.draw.rect(surf, (*neon_blue, min(255, int(60 * alpha / 255))),
+                         (2, 2, W - 4, H - 4), 1)
+        # 코너 도트
+        for dx, dy in [(6, 6), (W - 7, 6), (6, H - 7), (W - 7, H - 7)]:
+            pygame.draw.circle(surf, (*neon_cyan, min(255, int(180 * alpha / 255))),
+                               (dx, dy), 2)
+        # 스캔라인 오버레이
+        scan_s = pygame.Surface((W, H), pygame.SRCALPHA)
+        for y in range(0, H, 6):
+            pygame.draw.line(scan_s, (120, 200, 255, min(255, int(4 * alpha / 255))),
+                             (0, y), (W, y), 1)
+        surf.blit(scan_s, (0, 0))
+
+        # ===== 11. 고공 헤이즈 =====
+        haze_a = max(0, int(50 * (1.0 - t * 2.5) * alpha / 255))
+        if haze_a > 2:
+            haze = pygame.Surface((W, H), pygame.SRCALPHA)
+            haze.fill((10, 18, 35, haze_a))
+            surf.blit(haze, (0, 0))
+
+        random.seed()
+
     def _draw_surface_colosseum(self, surf, t, alpha=255):
         """투기장/콜로세움 행성 표면 — 초고퀄리티. Stage 30 테마.
         t: 0(고공) ~ 1(지표면). 로마 콜로세움 + 이집트 장식 + 모래 지형.
@@ -8655,6 +8915,175 @@ class SpaceMap:
         # ── 최종 블릿 ──
         blit_x = ix - half_out - margin
         blit_y = iy - half_out - frieze_h - margin
+        screen.blit(brd, (blit_x, blit_y))
+
+    def _draw_tetris_arena_border(self, screen, ix, iy, ig_w, ig_h, arena_scale):
+        """경기장 가장자리 위에 테트리스 디지털 요새 프레임.
+        석재 패널 + 네온 액센트 + 테트로미노 장식 + 스캔라인."""
+        bw = max(8, int(36 * arena_scale))
+        margin = max(2, int(5 * arena_scale))
+        half_out = bw // 2 + margin
+
+        brd_w = ig_w + half_out * 2 + margin * 2
+        brd_h = ig_h + half_out * 2 + margin * 2
+        brd = pygame.Surface((brd_w, brd_h), pygame.SRCALPHA)
+
+        ox = half_out + margin
+        oy = half_out + margin
+        fw, fh = ig_w, ig_h
+
+        random.seed(77771)
+
+        # 팔레트
+        frame_deep = (10, 18, 35)
+        frame_dark = (25, 40, 65)
+        frame_mid = (45, 70, 105)
+        frame_light = (70, 100, 140)
+        neon_cyan = (0, 255, 255)
+        neon_blue = (80, 140, 255)
+        text_glow = (100, 180, 255)
+        stone_base = (28, 44, 82)
+        stone_accent = (18, 32, 62)
+        tetro_colors = [
+            (70, 140, 150), (150, 140, 80), (110, 80, 140),
+            (80, 130, 90), (140, 80, 90), (70, 90, 140), (140, 110, 80),
+        ]
+
+        # ===== 1. 외곽 글로우 (네온 블루) =====
+        for gi in range(3):
+            glow_a = 25 - gi * 8
+            gc = (40 + gi * 15, 70 + gi * 25, 120 + gi * 35)
+            pygame.draw.rect(brd, (*gc, max(1, glow_a)),
+                             (ox - bw // 2 - 3 - gi * 2, oy - bw // 2 - 3 - gi * 2,
+                              fw + bw + 6 + gi * 4, fh + bw + 6 + gi * 4), 2)
+
+        # ===== 2. 메인 프레임 — 석재 3레이어 =====
+        pygame.draw.rect(brd, frame_deep,
+                         (ox - bw // 2, oy - bw // 2, fw + bw, fh + bw))
+        inner_m = max(2, bw // 6)
+        pygame.draw.rect(brd, frame_dark,
+                         (ox - bw // 2 + inner_m, oy - bw // 2 + inner_m,
+                          fw + bw - inner_m * 2, fh + bw - inner_m * 2))
+        inner_m2 = max(3, bw // 3)
+        pygame.draw.rect(brd, frame_mid,
+                         (ox - bw // 2 + inner_m2, oy - bw // 2 + inner_m2,
+                          fw + bw - inner_m2 * 2, fh + bw - inner_m2 * 2))
+        pygame.draw.rect(brd, (0, 0, 0, 0), (ox, oy, fw, fh))
+
+        # ===== 3. 석재 블록 패턴 =====
+        block_w = max(8, int(16 * arena_scale))
+        block_h = max(5, int(10 * arena_scale))
+        for side_y, side_h in [(oy - bw // 2, bw // 2), (oy + fh, bw // 2)]:
+            by = side_y + 1
+            row = 0
+            while by < side_y + side_h - 1:
+                bx = ox - bw // 2 + (block_w // 2 if row % 2 else 0) + 1
+                while bx < ox + fw + bw // 2 - 2:
+                    pw = block_w + random.randint(-1, 1)
+                    pc = stone_base if random.random() > 0.4 else stone_accent
+                    pygame.draw.rect(brd, pc, (bx, by, pw - 1, block_h - 1))
+                    pygame.draw.line(brd, frame_mid,
+                                     (bx, by), (bx + pw - 2, by), 1)
+                    pygame.draw.line(brd, frame_deep,
+                                     (bx + pw - 1, by), (bx + pw - 1, by + block_h - 1), 1)
+                    bx += pw
+                by += block_h
+                row += 1
+        for side_x, side_w in [(ox - bw // 2, bw // 2), (ox + fw, bw // 2)]:
+            by = oy + 1
+            while by < oy + fh - 1:
+                bx = side_x + 1
+                while bx < side_x + side_w - 1:
+                    pw = min(side_w - 2, block_w + random.randint(-1, 1))
+                    ph = block_h + random.randint(-1, 1)
+                    pc = stone_base if random.random() > 0.4 else stone_accent
+                    pygame.draw.rect(brd, pc, (bx, by, pw - 1, ph - 1))
+                    pygame.draw.line(brd, frame_mid, (bx, by), (bx + pw - 2, by), 1)
+                    bx += pw
+                by += block_h
+                row += 1
+
+        # ===== 4. 디지털 그리드 오버레이 (프레임 위) =====
+        grid_a = 15
+        for gy in range(oy - bw // 2, oy + fh + bw // 2, 8):
+            pygame.draw.line(brd, (44, 74, 118, grid_a),
+                             (ox - bw // 2, gy), (ox + fw + bw // 2, gy), 1)
+        for gx in range(ox - bw // 2, ox + fw + bw // 2, 12):
+            pygame.draw.line(brd, (44, 74, 118, grid_a),
+                             (gx, oy - bw // 2), (gx, oy + fh + bw // 2), 1)
+
+        # ===== 5. 테트로미노 장식 (프레임 곳곳) =====
+        cell = max(3, int(5 * arena_scale))
+        shapes_mini = [
+            [(0, 0), (1, 0), (2, 0), (3, 0)],
+            [(0, 0), (1, 0), (0, 1), (1, 1)],
+            [(0, 0), (1, 0), (2, 0), (1, 1)],
+            [(1, 0), (2, 0), (0, 1), (1, 1)],
+        ]
+        for _ in range(14):
+            ti = random.randint(0, 3)
+            tc = tetro_colors[random.randint(0, 6)]
+            shape = shapes_mini[ti]
+            # 프레임 영역 내에 배치
+            side = random.randint(0, 3)
+            if side == 0:  # 상단
+                sx = random.randint(ox - bw // 2 + 2, ox + fw + bw // 2 - 20)
+                sy = random.randint(oy - bw // 2 + 2, oy - 4)
+            elif side == 1:  # 하단
+                sx = random.randint(ox - bw // 2 + 2, ox + fw + bw // 2 - 20)
+                sy = random.randint(oy + fh + 2, oy + fh + bw // 2 - 8)
+            elif side == 2:  # 좌측
+                sx = random.randint(ox - bw // 2 + 2, ox - 4)
+                sy = random.randint(oy + 2, oy + fh - 15)
+            else:  # 우측
+                sx = random.randint(ox + fw + 2, ox + fw + bw // 2 - 8)
+                sy = random.randint(oy + 2, oy + fh - 15)
+            ta = random.randint(60, 140)
+            for dx, dy in shape:
+                rx, ry = sx + dx * cell, sy + dy * cell
+                pygame.draw.rect(brd, (*tc, ta), (rx, ry, cell - 1, cell - 1))
+
+        # ===== 6. 시안 네온 내부 테두리 =====
+        pygame.draw.rect(brd, (*neon_blue, 60),
+                         (ox - 2, oy - 2, fw + 4, fh + 4), max(1, int(2 * arena_scale)))
+        pygame.draw.rect(brd, (*neon_cyan, 40),
+                         (ox - 1, oy - 1, fw + 2, fh + 2), 1)
+
+        # ===== 7. 코너 장식 (횃불 + 네온 원) =====
+        corner_r = max(6, int(16 * arena_scale))
+        corner_positions = [
+            (ox - bw // 4, oy - bw // 4),
+            (ox + fw + bw // 4, oy - bw // 4),
+            (ox - bw // 4, oy + fh + bw // 4),
+            (ox + fw + bw // 4, oy + fh + bw // 4),
+        ]
+        for cpx, cpy in corner_positions:
+            # 횃불 글로우
+            gs = pygame.Surface((corner_r * 4, corner_r * 4), pygame.SRCALPHA)
+            pygame.draw.circle(gs, (255, 168, 68, 30),
+                               (corner_r * 2, corner_r * 2), corner_r * 2)
+            brd.blit(gs, (cpx - corner_r * 2, cpy - corner_r * 2))
+            # 석재 원
+            pygame.draw.circle(brd, frame_dark, (cpx, cpy), corner_r)
+            pygame.draw.circle(brd, frame_mid, (cpx, cpy), corner_r - 2)
+            # 네온 링
+            pygame.draw.circle(brd, (*neon_blue, 50), (cpx, cpy), corner_r - 1, 1)
+            # 중앙 빛
+            pygame.draw.circle(brd, (255, 210, 120, 140), (cpx, cpy),
+                               max(2, corner_r // 3))
+
+        # ===== 8. 코너 도트 (시안) =====
+        for dx, dy in [(ox - bw // 2 + 3, oy - bw // 2 + 3),
+                       (ox + fw + bw // 2 - 4, oy - bw // 2 + 3),
+                       (ox - bw // 2 + 3, oy + fh + bw // 2 - 4),
+                       (ox + fw + bw // 2 - 4, oy + fh + bw // 2 - 4)]:
+            pygame.draw.circle(brd, (*neon_cyan, 200), (dx, dy),
+                               max(1, int(2 * arena_scale)))
+
+        random.seed()
+
+        blit_x = ix - half_out - margin
+        blit_y = iy - half_out - margin
         screen.blit(brd, (blit_x, blit_y))
 
     # ──────────────────────────────────────────────
@@ -10854,6 +11283,9 @@ class SpaceMap:
                                 self.screen, ix, iy, ig_w, ig_h, arena_scale)
                         elif to_planet == 6:
                             self._draw_fire_arena_border(
+                                self.screen, ix, iy, ig_w, ig_h, arena_scale)
+                        elif to_planet == 7:
+                            self._draw_tetris_arena_border(
                                 self.screen, ix, iy, ig_w, ig_h, arena_scale)
                         elif to_planet == 30:
                             self._draw_colosseum_arena_border(
