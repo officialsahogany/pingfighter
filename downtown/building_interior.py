@@ -6780,20 +6780,36 @@ class BuildingInterior:
 
         elif self.codex_type == "perks":
             try:
-                skills = getattr(runtime_module, 'VIPER_EXCLUSIVE_SKILLS', {}) if runtime_module else {}
                 runtime_levels = getattr(runtime_module, 'runtime_skill_levels', {}) if runtime_module else {}
-                for skill_id, skill_info in skills.items():
-                    # 퍽이 해금(레벨 1 이상)인지 체크
-                    level = runtime_levels.get(skill_id, 0)
-                    unlocked = level > 0
-                    name_kr = skill_info.get("name", skill_id)
-                    icon_color = skill_info.get("icon_color", (150, 150, 150))
-                    entries.append({
-                        "name": skill_id,
-                        "display": name_kr if unlocked else "???",
-                        "unlocked": unlocked,
-                        "color": icon_color,
-                    })
+                # 모든 스킬 풀에서 퍽만 수집 (스킬 해금 "_unlock" 트리 제외)
+                skill_pools = []
+                for pool_name in ('RUNTIME_SKILL_POOL', 'SMASHER_EXCLUSIVE_SKILLS',
+                                  'OPTIMUS_EXCLUSIVE_SKILLS', 'SOLDIER_EXCLUSIVE_SKILLS',
+                                  'VIPER_EXCLUSIVE_SKILLS'):
+                    pool = getattr(runtime_module, pool_name, None) if runtime_module else None
+                    if pool:
+                        skill_pools.append(pool)
+
+                seen = set()
+                for pool in skill_pools:
+                    for skill_id, skill_info in pool.items():
+                        if skill_id in seen:
+                            continue
+                        seen.add(skill_id)
+                        # 스킬 해금은 퍽이 아님 → 제외
+                        tree = skill_info.get("tree", "")
+                        if tree.endswith("_unlock"):
+                            continue
+                        level = runtime_levels.get(skill_id, 0)
+                        unlocked = level > 0
+                        name_kr = skill_info.get("name", skill_id)
+                        icon_color = skill_info.get("icon_color", (150, 150, 150))
+                        entries.append({
+                            "name": skill_id,
+                            "display": name_kr if unlocked else "???",
+                            "unlocked": unlocked,
+                            "color": icon_color,
+                        })
             except Exception as e:
                 print(f"[도감] 퍽 목록 로드 실패: {e}")
 
