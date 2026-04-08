@@ -33,6 +33,7 @@ def _resource_path(relative_path: str) -> str:
 # 사운드 캐시 (한 번만 로드)
 _sound_stem_fire = None   # 꼭지 발사 사운드
 _sound_stem_hit = None    # 꼭지 명중 사운드
+_sound_transform = None   # 변신 사운드
 
 
 def _load_stem_sounds():
@@ -52,6 +53,24 @@ def _load_stem_sounds():
             _sound_stem_hit.set_volume(0.4)
         except Exception:
             _sound_stem_hit = False
+
+
+def _play_transform_sound():
+    """변신 사운드 재생 (lazy 로드)"""
+    global _sound_transform
+    if not pygame.mixer.get_init():
+        return
+    if _sound_transform is None:
+        try:
+            _sound_transform = pygame.mixer.Sound(_resource_path(os.path.join("sounds", "strawberrychange.wav")))
+            _sound_transform.set_volume(0.7)
+        except Exception:
+            _sound_transform = False
+    if _sound_transform and _sound_transform is not False:
+        try:
+            _sound_transform.play()
+        except Exception:
+            pass
 
 # ── 상수 ──────────────────────────────────────────────────
 COMMAND_SEQUENCE = [pygame.K_a, pygame.K_w, pygame.K_d]  # A→W→D
@@ -358,6 +377,7 @@ class HornStrawberryTransformState:
             self._used_this_stage = True
             self._spawn_transform_particles()
             self._init_transform_cinema()
+            _play_transform_sound()
             return True
         return False
 
