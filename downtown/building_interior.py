@@ -21294,7 +21294,8 @@ class BuildingInterior:
         # === 3. 네온 벽면 ===
         wall_h = int(TILE_SIZE * 4)
         self._draw_arcade_walls(screen, cam_x, cam_y, wall_h,
-                                 WALL_BASE, WALL_DARK, WALL_PANEL, NEON_CYAN, NEON_PINK)
+                                 WALL_BASE, WALL_DARK, WALL_PANEL, NEON_CYAN, NEON_PINK,
+                                 anim)
 
         # === 4. 벽면 네온 사인 "THE PIXEL ARCADE" ===
         sign_x = self.pixel_width // 2 - int(TILE_SIZE * 3.5)
@@ -21409,7 +21410,8 @@ class BuildingInterior:
                                (draw_x, draw_y, tile, tile), 1)
 
     def _draw_arcade_walls(self, screen, cam_x, cam_y, wall_h,
-                            wall_base, wall_dark, wall_panel, neon_cyan, neon_pink):
+                            wall_base, wall_dark, wall_panel, neon_cyan, neon_pink,
+                            anim=0):
         """네온 조명이 있는 어두운 벽"""
         # 벽 배경
         wall_rect = pygame.Rect(-cam_x, -cam_y, self.pixel_width, wall_h)
