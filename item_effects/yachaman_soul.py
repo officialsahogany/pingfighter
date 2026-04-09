@@ -101,6 +101,7 @@ def reset_for_new_round():
     yachaman_anim_timer = 0
     yachaman_anim_phase = 0
     yachaman_particles = []
+    reset_bomb_spin()
 
 
 def reset_all():
@@ -118,6 +119,7 @@ def reset_all():
     yachaman_particles = []
     _activation_chance = 65
     _enhancement_bonus_pct = 0
+    reset_bomb_spin()
 
 
 def update_animation() -> bool:
@@ -360,3 +362,211 @@ def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
 
     # ── 머리 테두리 ──
     draw.circle(screen, DARKER, (cx, head_y), head_r, 1)
+
+
+# ============================================================================
+# 💣 폭탄돌리기 스킬 (Bomb Spin)
+# ============================================================================
+# 이동 중 Space/좌클릭 → 양손으로 투구 잡고 2바퀴 회전 → 2바퀴째 전진 대시
+# 투구(검은 원)도 공과 충돌 판정
+
+# ── 스킬 상태 ──
+bomb_spin_active = False
+bomb_spin_timer = 0
+bomb_spin_phase = 0        # 0=준비, 1=1바퀴, 2=2바퀴+대시, 3=종료
+bomb_spin_direction = 0    # -1=좌, 1=우 (발동 시 이동 방향)
+bomb_spin_angle = 0.0      # 현재 회전 각도 (라디안)
+bomb_spin_cooldown = 0     # 쿨다운 타이머
+
+# 투구 히트박스 (공 충돌용)
+bomb_spin_helmet_x = 0
+bomb_spin_helmet_y = 0
+BOMB_SPIN_HELMET_R = 14    # 투구 반지름
+
+# 타이밍 (프레임 @ 60fps)
+BOMB_SPIN_WINDUP = 8       # 준비 (팔 내밈)
+BOMB_SPIN_SPIN1 = 20       # 1바퀴 회전
+BOMB_SPIN_SPIN2 = 20       # 2바퀴 회전 + 대시
+BOMB_SPIN_RECOVERY = 10    # 복귀
+BOMB_SPIN_TOTAL = BOMB_SPIN_WINDUP + BOMB_SPIN_SPIN1 + BOMB_SPIN_SPIN2 + BOMB_SPIN_RECOVERY
+BOMB_SPIN_COOLDOWN = 90    # 쿨다운 1.5초
+BOMB_SPIN_DASH_SPEED = 18  # 2바퀴째 대시 속도 (px/frame)
+
+
+def try_bomb_spin(direction: int) -> bool:
+    """폭탄돌리기 시도. 이동 중(direction!=0)이고 쿨다운이 아닐 때 발동."""
+    global bomb_spin_active, bomb_spin_timer, bomb_spin_phase
+    global bomb_spin_direction, bomb_spin_angle
+
+    if not yachaman_active:
+        return False
+    if bomb_spin_active or bomb_spin_cooldown > 0:
+        return False
+    if direction == 0:
+        return False
+
+    bomb_spin_active = True
+    bomb_spin_timer = 0
+    bomb_spin_phase = 0
+    bomb_spin_direction = direction
+    bomb_spin_angle = 0.0
+    return True
+
+
+def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
+    """매 프레임 호출. 플레이어 중심 좌표 전달.
+    Returns dict: {dx: 이동량, helmet_rect: (x,y,r) or None, done: bool}
+    """
+    global bomb_spin_active, bomb_spin_timer, bomb_spin_phase
+    global bomb_spin_angle, bomb_spin_cooldown
+    global bomb_spin_helmet_x, bomb_spin_helmet_y
+
+    # 쿨다운 감소
+    if bomb_spin_cooldown > 0:
+        bomb_spin_cooldown -= 1
+
+    if not bomb_spin_active:
+        return {"dx": 0, "helmet_rect": None, "done": False}
+
+    bomb_spin_timer += 1
+    dx = 0
+    helmet = None
+
+    t = bomb_spin_timer
+
+    if t <= BOMB_SPIN_WINDUP:
+        # 준비: 팔을 앞으로 내밈 (투구를 잡는 모션)
+        bomb_spin_phase = 0
+        progress = t / BOMB_SPIN_WINDUP
+        arm_extend = int(progress * 20)
+        bomb_spin_helmet_x = player_cx
+        bomb_spin_helmet_y = player_cy - 40 - arm_extend
+        helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
+
+    elif t <= BOMB_SPIN_WINDUP + BOMB_SPIN_SPIN1:
+        # 1바퀴: 제자리 회전
+        bomb_spin_phase = 1
+        spin_t = t - BOMB_SPIN_WINDUP
+        bomb_spin_angle = (spin_t / BOMB_SPIN_SPIN1) * math.pi * 2
+        # 투구가 캐릭터 주위를 원형으로 회전
+        orbit_r = 22
+        bomb_spin_helmet_x = player_cx + int(math.sin(bomb_spin_angle) * orbit_r)
+        bomb_spin_helmet_y = player_cy - 30 + int(-math.cos(bomb_spin_angle) * orbit_r * 0.5)
+        helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
+
+    elif t <= BOMB_SPIN_WINDUP + BOMB_SPIN_SPIN1 + BOMB_SPIN_SPIN2:
+        # 2바퀴: 회전 + 전진 대시
+        bomb_spin_phase = 2
+        spin_t = t - BOMB_SPIN_WINDUP - BOMB_SPIN_SPIN1
+        bomb_spin_angle = (spin_t / BOMB_SPIN_SPIN2) * math.pi * 2
+        # 대시 이동
+        progress = spin_t / BOMB_SPIN_SPIN2
+        speed = BOMB_SPIN_DASH_SPEED * (1.0 - progress * 0.5)  # 점점 감속
+        dx = int(bomb_spin_direction * speed)
+        # 투구 회전 + 전방 오프셋
+        orbit_r = 24
+        fwd_offset = int(bomb_spin_direction * 15)
+        bomb_spin_helmet_x = player_cx + fwd_offset + int(math.sin(bomb_spin_angle) * orbit_r)
+        bomb_spin_helmet_y = player_cy - 30 + int(-math.cos(bomb_spin_angle) * orbit_r * 0.5)
+        helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
+
+    else:
+        # 복귀
+        bomb_spin_phase = 3
+        rec_t = t - BOMB_SPIN_WINDUP - BOMB_SPIN_SPIN1 - BOMB_SPIN_SPIN2
+        if rec_t >= BOMB_SPIN_RECOVERY:
+            bomb_spin_active = False
+            bomb_spin_cooldown = BOMB_SPIN_COOLDOWN
+            bomb_spin_phase = 0
+            return {"dx": 0, "helmet_rect": None, "done": True}
+        # 투구가 머리로 돌아감
+        progress = rec_t / BOMB_SPIN_RECOVERY
+        bomb_spin_helmet_x = player_cx
+        bomb_spin_helmet_y = player_cy - 30 - int((1 - progress) * 20)
+        helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
+
+    return {"dx": dx, "helmet_rect": helmet, "done": False}
+
+
+def check_bomb_spin_ball_collision(ball_rect) -> bool:
+    """투구와 공의 충돌 판정. 충돌 시 True."""
+    if not bomb_spin_active or bomb_spin_phase not in (1, 2):
+        return False
+    # 원형 충돌 (투구 원 vs 공 rect 중심)
+    bcx = ball_rect.centerx
+    bcy = ball_rect.centery
+    dist = math.hypot(bcx - bomb_spin_helmet_x, bcy - bomb_spin_helmet_y)
+    return dist < BOMB_SPIN_HELMET_R + ball_rect.width // 2
+
+
+def draw_bomb_spin(screen, pygame_module, player_cx, player_cy, phase_timer=0):
+    """폭탄돌리기 스킬 이펙트 그리기."""
+    if not bomb_spin_active:
+        return
+
+    draw = pygame_module.draw
+    BLACK = (25, 25, 30)
+    DARK = (35, 35, 40)
+    DARKER = (18, 18, 22)
+
+    hx, hy = bomb_spin_helmet_x, bomb_spin_helmet_y
+    r = BOMB_SPIN_HELMET_R
+
+    # ── 투구 (검은 봄버맨 헤드) ──
+    draw.circle(screen, BLACK, (hx, hy), r)
+    draw.circle(screen, DARK, (hx - 2, hy - 3), int(r * 0.6))
+
+    # 회전 중 모션 블러/궤적
+    if bomb_spin_phase in (1, 2):
+        # 궤적 잔상
+        trail_alpha = 80
+        for i in range(3):
+            trail_angle = bomb_spin_angle - (i + 1) * 0.5
+            orbit_r = 22 if bomb_spin_phase == 1 else 24
+            tx = player_cx + int(math.sin(trail_angle) * orbit_r)
+            ty = player_cy - 30 + int(-math.cos(trail_angle) * orbit_r * 0.5)
+            if bomb_spin_phase == 2:
+                tx += int(bomb_spin_direction * 15)
+            t_surf = pygame_module.Surface((r * 2, r * 2), pygame_module.SRCALPHA)
+            a = max(20, trail_alpha - i * 25)
+            pygame_module.draw.circle(t_surf, (25, 25, 30, a), (r, r), r)
+            screen.blit(t_surf, (tx - r, ty - r))
+
+    # 퓨즈 + 불꽃 (투구 위)
+    fuse_tip = (hx + 3, hy - r - 6)
+    draw.line(screen, (90, 80, 70), (hx, hy - r + 2), fuse_tip, 2)
+    wobble = math.sin(phase_timer * 0.3) * 2
+    for cr, cg, cb, fr in [(255, 220, 80, 4), (255, 140, 0, 3), (255, 80, 0, 2)]:
+        draw.circle(screen, (cr, cg, cb),
+                    (int(fuse_tip[0] + wobble), int(fuse_tip[1] - (4 - fr) + wobble)), fr)
+
+    # 대시 중 스피드 라인
+    if bomb_spin_phase == 2:
+        for i in range(5):
+            ly = hy - 8 + i * 4
+            lx_start = hx - bomb_spin_direction * 20 - i * 3
+            lx_end = lx_start - bomb_spin_direction * (12 + i * 2)
+            line_surf = pygame_module.Surface((abs(lx_end - lx_start) + 2, 2), pygame_module.SRCALPHA)
+            pygame_module.draw.line(line_surf, (255, 200, 100, 120 - i * 20),
+                                   (0, 0), (abs(lx_end - lx_start), 0), 1)
+            screen.blit(line_surf, (min(lx_start, lx_end), ly))
+
+    # 테두리
+    draw.circle(screen, DARKER, (hx, hy), r, 1)
+
+    # 충돌 중 글로우
+    if bomb_spin_phase in (1, 2):
+        glow = pygame_module.Surface((r * 3, r * 3), pygame_module.SRCALPHA)
+        pygame_module.draw.circle(glow, (255, 120, 0, 40), (r * 3 // 2, r * 3 // 2), r + 4)
+        screen.blit(glow, (hx - r * 3 // 2, hy - r * 3 // 2))
+
+
+def reset_bomb_spin():
+    """스킬 상태 리셋."""
+    global bomb_spin_active, bomb_spin_timer, bomb_spin_phase
+    global bomb_spin_angle, bomb_spin_cooldown
+    bomb_spin_active = False
+    bomb_spin_timer = 0
+    bomb_spin_phase = 0
+    bomb_spin_angle = 0.0
+    bomb_spin_cooldown = 0

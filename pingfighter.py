@@ -18878,6 +18878,9 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
                     globals()['yachaman_phase_timer'] = globals().get('yachaman_phase_timer', 0) + 1
                     _ys_mod.draw_yachaman_paddle(SCREEN, pygame, PLAYER, globals()['yachaman_phase_timer'])
                     _ys_mod.draw_yachaman_character(SCREEN, pygame, PLAYER, globals()['yachaman_phase_timer'])
+                    # 💣 폭탄돌리기 이펙트
+                    if _ys_mod.bomb_spin_active:
+                        _ys_mod.draw_bomb_spin(SCREEN, pygame, PLAYER.centerx, PLAYER.centery, globals()['yachaman_phase_timer'])
                     _ys_draw_override = True
             except Exception:
                 pass
@@ -164053,6 +164056,26 @@ def main(stage_num, new_boss_mode=False):
                 except:
                     pass
 
+            # 💣 야차맨 폭탄돌리기 스킬 발동 (Space/좌클릭 + 이동 중)
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not game_paused:
+                try:
+                    from item_effects import yachaman_soul as _ys_skill
+                    if _ys_skill.yachaman_active and not _ys_skill.bomb_spin_active:
+                        _ys_dir = _ys_skill._yachaman_move_dir
+                        if _ys_dir != 0 and _ys_skill.try_bomb_spin(_ys_dir):
+                            continue  # 이벤트 처리됨
+                except Exception:
+                    pass
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and not game_paused:
+                try:
+                    from item_effects import yachaman_soul as _ys_skill2
+                    if _ys_skill2.yachaman_active and not _ys_skill2.bomb_spin_active:
+                        _ys_dir2 = _ys_skill2._yachaman_move_dir
+                        if _ys_dir2 != 0 and _ys_skill2.try_bomb_spin(_ys_dir2):
+                            continue
+                except Exception:
+                    pass
+
             # AI 필 수동 종료: 스페이스바 또는 좌클릭으로 즉시 해제
             # 바이퍼는 스페이스/좌클릭이 제트팩 입력이므로 수동 해제 제외
             if aipill_active and selected_character_type != "viper":
@@ -166321,6 +166344,28 @@ def main(stage_num, new_boss_mode=False):
                         except Exception as _ys_err:
                             print(f"[WARN] 야차맨 애니메이션 업데이트 오류: {_ys_err}")
                             globals()['yachaman_revival_anim_active'] = False
+
+                        # 💣 야차맨 폭탄돌리기 스킬 업데이트 + 공 충돌
+                        try:
+                            from item_effects import yachaman_soul as _ys_bs
+                            if _ys_bs.bomb_spin_active and PLAYER is not None:
+                                bs_result = _ys_bs.update_bomb_spin(PLAYER.centerx, PLAYER.centery)
+                                # 대시 이동 적용
+                                if bs_result["dx"] != 0:
+                                    PLAYER.x += bs_result["dx"]
+                                    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                                # 투구-공 충돌 판정
+                                if bs_result["helmet_rect"] and BALL is not None:
+                                    if _ys_bs.check_bomb_spin_ball_collision(BALL):
+                                        # 공을 위쪽으로 튕김 (보스 방향)
+                                        _bs_speed = max(10.0, math.hypot(ball_vel[0], ball_vel[1]) * 1.2)
+                                        ball_vel[1] = -abs(_bs_speed)
+                                        ball_vel[0] = _ys_bs.bomb_spin_direction * abs(_bs_speed) * 0.3
+                                        BALL.bottom = min(BALL.bottom, _ys_bs.bomb_spin_helmet_y - _ys_bs.BOMB_SPIN_HELMET_R - 2)
+                                        globals()['last_hit_by'] = "player"
+                                        game_vars.ball.last_hit_by = "player"
+                        except Exception:
+                            pass
 
                         # 💀 오딘의 눈 죽음 애니메이션 업데이트
                         if odins_eye and odins_eye.is_death_animating:
