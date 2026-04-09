@@ -135868,7 +135868,7 @@ def show_item_manager_menu():
 
     # 패시브 아이템 부위별 분류
     PASSIVE_SLOT_ORDER = [
-        ("머리", ["bulletproof_hat", "spiked_helmet", "dowsing_goggles"]),
+        ("머리", ["bulletproof_hat", "spiked_helmet", "dowsing_goggles", "yachaman_soul"]),
         ("상의", ["technical_vest", "bulkup", "adversity_armor", "shrapnel_armor"]),
         ("팔", ["commando_arm", "master", "smartphone", "gold_digger", "venom_mist_gauntlet"]),
         ("벨트", ["gravitybelt", "speedgear", "sensor"]),

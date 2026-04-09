@@ -303,6 +303,7 @@ VISUAL_ITEM_NAMES = {
     "spiked_helmet",
     "bulletproof_hat",
     "dowsing_goggles",
+    "yachaman_soul",
     "technical_vest",
     "bulkup",
     "adversity_armor",
@@ -337,6 +338,7 @@ ITEM_SLOT_MAP = {
     "megingjord": "torso",
     "valhalla_warplate": "torso",
     "horn_strawberry_mask": "head",
+    "yachaman_soul": "head",
     "chargebag": "back",
     "soul_burst": "legs",
 }
