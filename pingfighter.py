@@ -113560,6 +113560,30 @@ def draw_objects():
             pygame.draw.circle(glow_surface, (255, 255, 100, 60), 
                              (star_size * 1.5, star_size * 1.5), star_size)
             SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
+    # === 범용 둔화 애니메이션 (어떤 스킬이든 보스가 둔화 상태면 표시) ===
+    if BOSS and not arena_mode_enabled:
+        _any_boss_slowed = False
+        # 개별 둔화 플래그 통합 체크
+        if boss_plasma_slowed:
+            _any_boss_slowed = True
+        if spider_mine_slow_active:
+            _any_boss_slowed = True
+        if leg_shot_active:
+            _any_boss_slowed = True
+        if boss_strawberry_paint_slowed:
+            _any_boss_slowed = True
+        if boss_speed_reduction_active:
+            _any_boss_slowed = True
+        try:
+            from item_effects.venom_mist_gauntlet import is_mist_field_active as _univ_vmg_check
+            if _univ_vmg_check():
+                _any_boss_slowed = True
+        except Exception:
+            pass
+        if _any_boss_slowed:
+            _slow_wave = create_slow_wave_surface(132, 56, (170, 120, 255), intensity=0.9)
+            _slow_wave_rect = _slow_wave.get_rect(midbottom=(BOSS.centerx, BOSS.top + 8))
+            SCREEN.blit(_slow_wave, _slow_wave_rect)
     # === Stage 4 인왕 스킬 업데이트/렌더링 ===
     if current_stage == 4 and current_boss_name == "인왕":
         update_inwang_vajra()
@@ -118474,11 +118498,7 @@ def draw_objects():
     if selected_character_type == "soldier":
         draw_leg_shot_effect(SCREEN)
 
-    # === 스파이더지뢰 둔화 효과 그리기 ===
-    draw_spider_mine_slow_effect(SCREEN)
-
-    # === 딸기페인트 둔화 효과 그리기 ===
-    draw_strawberry_paint_slow_effect(SCREEN)
+    # === 스파이더지뢰/딸기페인트 둔화 효과는 범용 둔화 애니메이션으로 통합됨 (113563줄 부근) ===
 
     # === 헤드샷 효과 그리기 ===
     if selected_character_type == "soldier":
