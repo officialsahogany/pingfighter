@@ -2770,6 +2770,7 @@ from backgrounds.animated_background_stage6 import AnimatedBackgroundStage6
 from backgrounds.animated_background_stage7 import AnimatedBackgroundStage7
 from backgrounds.animated_background_stage8 import AnimatedBackgroundStage8
 from backgrounds.animated_background_stage30 import AnimatedBackgroundStage30
+from backgrounds.animated_background_stage33 import AnimatedBackgroundStage33
 importlib.reload(items)
 # 설정 파일 임포트
 # config import 위치 조정(초기 로딩 전에 해상도/상수 확보)
@@ -9574,6 +9575,35 @@ def _draw_pillar_ui(screen, renderer):
       except Exception:
         _horn_strawberry_tooltip_active = False
 
+    # 💣 야차맨 폭탄돌리기 스킬 툴팁 그리기 (REAL_SCREEN에 그림)
+    _yachaman_tooltip_active = globals().get('_yachaman_tooltip_active', False)
+    if _is_ingame and is_yachaman_transformed():
+      try:
+        mouse_pos = pygame.mouse.get_pos()
+        ys_hovered = _check_yachaman_skill_tooltip(mouse_pos, GAME_SCALE_FACTOR)
+        if ys_hovered:
+            if not _yachaman_tooltip_active:
+                globals()['_yachaman_tooltip_active'] = True
+                if not game_paused_by_tooltip:
+                    _tooltip_prev_game_paused = game_paused
+                    _tooltip_forced_pause = not _tooltip_prev_game_paused
+                    game_paused = True
+                    game_paused_by_tooltip = True
+            try:
+                current_gauge = player_gauge
+            except Exception:
+                current_gauge = 0
+            _draw_yachaman_skill_tooltip(screen, ys_hovered, mouse_pos, current_gauge)
+        else:
+            if _yachaman_tooltip_active:
+                globals()['_yachaman_tooltip_active'] = False
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _horn_strawberry_tooltip_active and not _odin_swamp_tooltip_active and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active:
+                    game_paused = _tooltip_prev_game_paused
+                    game_paused_by_tooltip = False
+                    _tooltip_forced_pause = False
+      except Exception:
+        globals()['_yachaman_tooltip_active'] = False
+
     # 오딘의 늪 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
     if _is_ingame:
       try:
@@ -11549,6 +11579,8 @@ animated_bg_stage7 = stage_backgrounds.animated_bg_stage7
 animated_bg_stage8 = stage_backgrounds.animated_bg_stage8
 # 스테이지 30 (투기장) 애니메이션 배경 - 전체 화면 크기(760x750)로 초기화
 animated_bg_stage30 = AnimatedBackgroundStage30(WIDTH, HEIGHT)
+# 스테이지 33 (패널티킥) 네온 아케이드 배경
+animated_bg_stage33 = AnimatedBackgroundStage33(WIDTH, HEIGHT)
 # 빠칭코 기계 이미지 로드
 try:
     pachinko_machine_img = pygame.image.load(resource_path("itemmachine.png")).convert_alpha()
@@ -23003,6 +23035,230 @@ HORN_STRAWBERRY_SKILL_DATA = [
     },
 ]
 
+
+# ============================================================================
+# 💣 야차맨 폭탄돌리기 스킬 구슬 시스템
+# ============================================================================
+_yachaman_skill_icon_rects = {}
+
+YACHAMAN_SKILL_DATA = [
+    {
+        "name": "bomb_spin", "korean": "폭탄돌리기", "cost": 0,
+        "color": (255, 120, 0), "key": "SPC/클릭", "cooldown": 1.5,
+        "description": "이동 중 투구를 잡고 2바퀴 회전! 2바퀴째 전방 대시. 회전하는 투구가 공과 충돌하면 보스 방향으로 강타.",
+        "how_to_use": "좌/우 이동 중 Space 또는 좌클릭",
+    },
+]
+
+
+def _draw_yachaman_bomb_spin_orb(surface, orb_cx, orb_cy, orb_radius, current_gauge):
+    """야차맨 변신 중 폭탄돌리기 스킬 구슬 그리기"""
+    global _yachaman_skill_icon_rects
+    try:
+        from item_effects import yachaman_soul as _ys
+        if not _ys.yachaman_active:
+            _yachaman_skill_icon_rects = {}
+            return
+    except Exception:
+        return
+
+    icon_radius = 21
+    orbit_radius = orb_radius + icon_radius + 18
+    angle_rad = math.radians(195)
+    cx = int(orb_cx + math.cos(angle_rad) * orbit_radius)
+    cy = int(orb_cy + math.sin(angle_rad) * orbit_radius)
+
+    _yachaman_skill_icon_rects["bomb_spin"] = pygame.Rect(
+        cx - icon_radius, cy - icon_radius, icon_radius * 2, icon_radius * 2)
+
+    is_cd = _ys.bomb_spin_cooldown > 0
+    is_active = _ys.bomb_spin_active
+    time_now = pygame.time.get_ticks()
+    skill_color = (255, 120, 0)
+
+    # 배경색
+    if is_active:
+        bg = (255, 220, 150)
+    elif is_cd:
+        bg = (40, 30, 30)
+    else:
+        pulse = (math.sin(time_now * 0.005) + 1) / 2
+        r = int(skill_color[0] * (0.3 + 0.2 * pulse))
+        g = int(skill_color[1] * (0.3 + 0.2 * pulse))
+        b = int(skill_color[2] * (0.3 + 0.2 * pulse))
+        bg = (min(255, r), min(255, g), min(255, b))
+
+    # 그림자 + 배경 + 테두리
+    pygame.draw.circle(surface, (15, 10, 10), (cx + 1, cy + 1), icon_radius + 2)
+    pygame.draw.circle(surface, bg, (cx, cy), icon_radius)
+    border = skill_color if not is_cd else (60, 50, 50)
+    pygame.draw.circle(surface, border, (cx, cy), icon_radius, 2)
+
+    # 폭탄돌리기 아이콘 그리기 (봄버맨 머리 + 회전 화살표)
+    _draw_bomb_spin_icon(surface, cx, cy, icon_radius - 4)
+
+    # 쿨타임 오버레이
+    if is_cd:
+        cd_ratio = _ys.bomb_spin_cooldown / 90.0  # BOMB_SPIN_COOLDOWN = 90
+        cd_surf = pygame.Surface((icon_radius * 2, icon_radius * 2), pygame.SRCALPHA)
+        start_angle = -math.pi / 2
+        end_angle = start_angle + 2 * math.pi * cd_ratio
+        points = [(icon_radius, icon_radius)]
+        for a in range(int(start_angle * 180 / math.pi), int(end_angle * 180 / math.pi) + 1):
+            rad = a * math.pi / 180
+            px = icon_radius + math.cos(rad) * icon_radius
+            py = icon_radius + math.sin(rad) * icon_radius
+            points.append((px, py))
+        if len(points) > 2:
+            pygame.draw.polygon(cd_surf, (0, 0, 0, 140), points)
+        surface.blit(cd_surf, (cx - icon_radius, cy - icon_radius))
+        # 쿨타임 텍스트
+        try:
+            cd_font = pygame.font.SysFont(None, 14)
+            cd_secs = _ys.bomb_spin_cooldown / 60.0
+            cd_text = cd_font.render(f"{cd_secs:.1f}", True, (255, 255, 255))
+            cd_rect = cd_text.get_rect(center=(cx, cy))
+            surface.blit(cd_text, cd_rect)
+        except Exception:
+            pass
+
+    # 키 표시
+    try:
+        key_font = pygame.font.SysFont(None, 11)
+        key_text = key_font.render("SPC", True, (180, 180, 180))
+        key_rect = key_text.get_rect(center=(cx, cy + icon_radius + 8))
+        surface.blit(key_text, key_rect)
+    except Exception:
+        pass
+
+
+def _draw_bomb_spin_icon(surface, cx, cy, r):
+    """폭탄돌리기 아이콘: 봄버맨 머리 + 회전 화살표"""
+    # 봄버맨 머리 (검은 원)
+    head_r = max(4, r // 2)
+    pygame.draw.circle(surface, (25, 25, 30), (cx, cy - 2), head_r)
+    pygame.draw.circle(surface, (40, 40, 45), (cx - 1, cy - 4), max(2, head_r // 2))
+
+    # 퓨즈 + 불꽃
+    fuse_top = cy - 2 - head_r - 3
+    pygame.draw.line(surface, (90, 80, 70), (cx + 1, cy - 2 - head_r), (cx + 2, fuse_top), 1)
+    pygame.draw.circle(surface, (255, 200, 50), (cx + 2, fuse_top), 2)
+    pygame.draw.circle(surface, (255, 120, 0), (cx + 2, fuse_top - 1), 1)
+
+    # 회전 화살표 (봄버맨 주위를 둘러싸는 원형)
+    arrow_r = r - 2
+    arrow_color = (255, 140, 40)
+    # 호 그리기 (270도 정도)
+    points = []
+    for deg in range(30, 300, 15):
+        rad = math.radians(deg)
+        px = cx + int(math.cos(rad) * arrow_r)
+        py = cy + int(math.sin(rad) * arrow_r)
+        points.append((px, py))
+    if len(points) > 1:
+        pygame.draw.lines(surface, arrow_color, False, points, 2)
+    # 화살표 머리
+    if points:
+        end = points[-1]
+        rad_end = math.radians(300)
+        ax1 = end[0] + int(math.cos(rad_end - 0.5) * 5)
+        ay1 = end[1] + int(math.sin(rad_end - 0.5) * 5)
+        ax2 = end[0] + int(math.cos(rad_end + 0.8) * 5)
+        ay2 = end[1] + int(math.sin(rad_end + 0.8) * 5)
+        pygame.draw.polygon(surface, arrow_color, [end, (ax1, ay1), (ax2, ay2)])
+
+
+def _check_yachaman_skill_tooltip(mouse_pos, scale_factor=1.0):
+    """마우스 호버 시 야차맨 스킬 데이터 반환"""
+    if not _yachaman_skill_icon_rects or not is_yachaman_transformed():
+        return None
+
+    raw_mouse_x, raw_mouse_y = _original_mouse_get_pos()
+    surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
+    local_x = (raw_mouse_x - surf_offset_x) / scale_factor if scale_factor != 1.0 else (raw_mouse_x - surf_offset_x)
+    local_y = (raw_mouse_y - surf_offset_y) / scale_factor if scale_factor != 1.0 else (raw_mouse_y - surf_offset_y)
+
+    for skill_data in YACHAMAN_SKILL_DATA:
+        skill_name = skill_data["name"]
+        if skill_name in _yachaman_skill_icon_rects:
+            rect = _yachaman_skill_icon_rects[skill_name]
+            if rect.collidepoint(local_x, local_y):
+                return skill_data
+    return None
+
+
+def _draw_yachaman_skill_tooltip(surface, skill_data, mouse_pos, current_gauge):
+    """야차맨 스킬 툴팁 그리기"""
+    tooltip_width = 280
+    tooltip_height = 200
+    padding = 12
+
+    surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
+    pillar_width = int(250 * GAME_SCALE_FACTOR)
+    tooltip_x = surf_offset_x + pillar_width + 10
+    tooltip_y = mouse_pos[1] - tooltip_height // 2
+
+    screen_width, screen_height = surface.get_size()
+    if tooltip_y < 10:
+        tooltip_y = 10
+    if tooltip_y + tooltip_height > screen_height - 10:
+        tooltip_y = screen_height - tooltip_height - 10
+
+    ts = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+    ts.fill((20, 25, 35, 230))
+    pygame.draw.rect(ts, skill_data["color"], (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
+
+    # 헤더
+    header_h = 36
+    pygame.draw.rect(ts, (*skill_data["color"][:3], 60), (2, 2, tooltip_width - 4, header_h), border_radius=6)
+
+    try:
+        import pygame.freetype as _ft
+        _title_f = _ft.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 15)
+        _body_f = _ft.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 11)
+        _small_f = _ft.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+    except Exception:
+        import pygame.freetype as _ft
+        _title_f = _ft.SysFont("malgun gothic", 15)
+        _body_f = _ft.SysFont("malgun gothic", 11)
+        _small_f = _ft.SysFont("malgun gothic", 10)
+
+    y_cursor = 8
+
+    # 스킬 이름 + 키
+    _title_f.render_to(ts, (padding, y_cursor), skill_data["korean"], skill_data["color"])
+    key_text = f"[{skill_data['key']}]"
+    _small_f.render_to(ts, (tooltip_width - padding - len(key_text) * 7, y_cursor + 4), key_text, (180, 180, 180))
+    y_cursor += header_h + 4
+
+    # 쿨타임
+    _body_f.render_to(ts, (padding, y_cursor), f"쿨타임: {skill_data['cooldown']}초", (180, 200, 220))
+    y_cursor += 22
+
+    # 설명 (줄바꿈)
+    desc = skill_data["description"]
+    line_width = tooltip_width - padding * 2
+    chars_per_line = max(1, line_width // 7)
+    lines = []
+    while desc:
+        if len(desc) <= chars_per_line:
+            lines.append(desc)
+            break
+        cut = desc[:chars_per_line].rfind(' ')
+        if cut <= 0:
+            cut = chars_per_line
+        lines.append(desc[:cut])
+        desc = desc[cut:].lstrip()
+
+    for line in lines:
+        _small_f.render_to(ts, (padding, y_cursor), line, (200, 210, 220))
+        y_cursor += 15
+
+    y_cursor += 8
+    _small_f.render_to(ts, (padding, y_cursor), f"조작: {skill_data['how_to_use']}", (150, 160, 170))
+
+    surface.blit(ts, (tooltip_x, tooltip_y))
+
 def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
                                         current_gauge, max_gauge):
     """뿔딸기 변신 중 필러 좌측 스킬 구슬 4개 (기존 스킬 대체)"""
@@ -25173,6 +25429,25 @@ arena_perk_comeback_base_skill_cd_bottom = 1.0    # 하단 기사회생 발동 �
 arena_perk_comeback_aura_timer = 0.0              # 기사회생 오오라 애니메이션 타이머
 arena_freeze_frames = 0                           # 하수인 스킬 freeze 프레임 카운터
 arena_battle_arena_obj = None                # ColosseumsArena 인스턴스 참조 (F8 퍽 선택용)
+
+# ============================================================================
+# 패널티킥 핑퐁 모드 (오락실 - 네온 아케이드)
+# ============================================================================
+penalty_kick_mode_enabled = False           # 패널티킥 모드 활성화 여부
+penalty_kick_battle_result = None           # 배틀 결과 (True=플레이어 승, False=보스 승, None=ESC)
+penalty_kick_round = 0                      # 현재 라운드 (0~9, 이후 서든데스)
+penalty_kick_player_score = 0               # 플레이어 득점 수
+penalty_kick_boss_score = 0                 # 보스 득점 수
+penalty_kick_total_rounds = 10              # 정규 라운드 수 (5:5)
+penalty_kick_is_player_serve = True         # 현재 서브권 (True=플레이어, False=보스)
+penalty_kick_is_sudden_death = False        # 서든데스 진입 여부
+penalty_kick_round_results = []             # 라운드별 결과 [("player"/"boss", "goal"/"save"), ...]
+penalty_kick_round_transition = False       # 라운드 전환 중 여부
+penalty_kick_round_transition_timer = 0     # 라운드 전환 타이머 (프레임)
+penalty_kick_game_over = False              # 게임 종료 여부
+penalty_kick_game_over_timer = 0            # 게임 종료 연출 타이머
+PENALTY_KICK_ROUND_TRANSITION_FRAMES = 120  # 라운드 전환 연출 시간 (2초)
+PENALTY_KICK_GAME_OVER_FRAMES = 240         # 게임 종료 연출 시간 (4초)
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     """배틀 시작 시 hero_perks에서 멀티플라이어 계산 후 전역 변수에 반영"""
@@ -103063,9 +103338,18 @@ def draw_player_gauge():
                     displayed_gauge, current_max_gauge
                 )
 
+            # === 💣 야차맨 변신 상태 체크 ===
+            _yachaman_transformed = is_yachaman_transformed()
+            if _yachaman_transformed and not _odins_eye_transformed and not _horn_strawberry_transformed:
+                _draw_yachaman_bomb_spin_orb(
+                    _player_gauge_surface_left,
+                    orb_center_x, orb_center_y, orb_radius,
+                    displayed_gauge
+                )
+
             # === 스매셔 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
-            # 오딘의 눈 변신 중에는 기존 스킬 잠금
-            if selected_character_type == "smasher" and not _odins_eye_transformed and not _horn_strawberry_transformed:
+            # 오딘의 눈 / 뿔딸기 / 야차맨 변신 중에는 기존 스킬 잠금
+            if selected_character_type == "smasher" and not _odins_eye_transformed and not _horn_strawberry_transformed and not _yachaman_transformed:
                 _draw_smasher_skill_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -103076,7 +103360,7 @@ def draw_player_gauge():
                 )
 
             # === 바이퍼 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
-            if selected_character_type == "viper" and not _odins_eye_transformed and not _horn_strawberry_transformed:
+            if selected_character_type == "viper" and not _odins_eye_transformed and not _horn_strawberry_transformed and not _yachaman_transformed:
                 _draw_viper_skill_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -103088,8 +103372,8 @@ def draw_player_gauge():
                 # 바이퍼 퍽 구슬은 _draw_viper_skill_icons 내부에서 우측 슬롯으로 통합 렌더링
 
             # === 코만도 화기류 인벤토리 표시 (게이지 구슬 위에 쌓아서 표시) ===
-            # 오딘의 눈 변신 중에는 무기 인벤토리도 숨김
-            if selected_character_type == "soldier" and not _odins_eye_transformed and not _horn_strawberry_transformed:
+            # 변신 중에는 무기 인벤토리도 숨김
+            if selected_character_type == "soldier" and not _odins_eye_transformed and not _horn_strawberry_transformed and not _yachaman_transformed:
                 draw_pillar_weapon_inventory(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -103098,8 +103382,8 @@ def draw_player_gauge():
                 )
 
             # === 발토르 포탑 UI 표시 (게이지 구슬 위에 표시, 코만도 화기류와 동일 위치) ===
-            # 오딘의 눈 변신 중에는 포탑 UI도 숨김
-            if selected_character_type == "blacksmith" and not _odins_eye_transformed and not _horn_strawberry_transformed:
+            # 변신 중에는 포탑 UI도 숨김
+            if selected_character_type == "blacksmith" and not _odins_eye_transformed and not _horn_strawberry_transformed and not _yachaman_transformed:
                 draw_pillar_blacksmith_turret(
                     _player_gauge_surface_left,
                     orb_center_x,
@@ -123708,6 +123992,86 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         sync_equipped_passive_effects()  # 패시브 효과 재활성화
 
     # ESC 나가기 시 "main_menu" 문자열 반환 → boolean이 아니면 None (배틀 취소)
+    if result is not True and result is not False:
+        result = None
+    return result
+
+
+# ============================================================================
+# 패널티킥 핑퐁 배틀 시작 함수 (오락실 아케이드 캐비닛에서 호출)
+# ============================================================================
+def start_penalty_kick_battle():
+    """패널티킥 핑퐁 모드 시작 - 기존 게임 엔진 활용 (투기장 패턴)
+
+    5:5 교대 서브 승부차기. 각 라운드 1점 선취로 승패 결정.
+    10라운드 후 동점이면 서든데스.
+    상대: 오락실 마스터 (고정 NPC AI)
+
+    Returns:
+        True=플레이어 승, False=보스 승, None=ESC 퇴장
+    """
+    global penalty_kick_mode_enabled, penalty_kick_battle_result
+    global penalty_kick_round, penalty_kick_player_score, penalty_kick_boss_score
+    global penalty_kick_total_rounds, penalty_kick_is_player_serve
+    global penalty_kick_is_sudden_death, penalty_kick_round_results
+    global penalty_kick_round_transition, penalty_kick_round_transition_timer
+    global penalty_kick_game_over, penalty_kick_game_over_timer
+    global player_ai_enabled, ai_mode, win_goal, is_player_serve
+    global _pillar_ui_enabled
+
+    _saved_ai_mode = ai_mode
+    _saved_win_goal = win_goal
+    _saved_is_player_serve = is_player_serve
+
+    result = None
+    try:
+        # 패널티킥 모드 활성화
+        penalty_kick_mode_enabled = True
+        penalty_kick_battle_result = None
+        penalty_kick_round = 0
+        penalty_kick_player_score = 0
+        penalty_kick_boss_score = 0
+        penalty_kick_total_rounds = 10
+        penalty_kick_is_player_serve = True  # 플레이어 먼저 서브
+        penalty_kick_is_sudden_death = False
+        penalty_kick_round_results = []
+        penalty_kick_round_transition = False
+        penalty_kick_round_transition_timer = 0
+        penalty_kick_game_over = False
+        penalty_kick_game_over_timer = 0
+
+        # 공 속도 고정 (투기장과 동일)
+        ai_mode = "junior"
+
+        # 플레이어 직접 조작
+        player_ai_enabled = False
+
+        # 라운드당 1점 선취
+        win_goal = 1
+
+        # 첫 서브: 플레이어
+        is_player_serve = True
+
+        # 필러 UI 활성화
+        _pillar_ui_enabled = True
+
+        result = main(33)  # 스테이지 33 = 패널티킥 네온 아케이드
+    finally:
+        # 패널티킥 모드 종료 및 상태 복원
+        penalty_kick_mode_enabled = False
+        penalty_kick_battle_result = None
+        penalty_kick_round = 0
+        penalty_kick_round_results = []
+        penalty_kick_round_transition = False
+        penalty_kick_game_over = False
+
+        # 상태 복원
+        ai_mode = _saved_ai_mode
+        win_goal = _saved_win_goal
+        is_player_serve = _saved_is_player_serve
+        player_ai_enabled = False
+
+    # 결과 정규화
     if result is not True and result is not False:
         result = None
     return result
