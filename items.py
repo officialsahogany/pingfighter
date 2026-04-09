@@ -2168,6 +2168,7 @@ def reset_items():
     MAX_ITEM_SLOTS = 3  # 기본값으로 초기화
     passive_item_list = []  # 패시브 아이템 초기화
     item_list = []  # 필드 아이템도 초기화
+    _rotated_icon_cache.clear()  # 아이콘 캐시 초기화
     
     global slot_add_obtained, speedboots_obtained, speedgear_obtained, battery_obtained
     global revival_obtained, revival_used, master_obtained, cooltime_obtained
@@ -2830,6 +2831,9 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
 
 
 
+# 아이템 아이콘 회전 캐시: (icon_id, angle) → rotated Surface
+_rotated_icon_cache = {}
+
 def draw_items(screen):
     for item in item_list:
         # item["type"]이 딕셔너리인지 문자열인지 확인
@@ -2839,8 +2843,11 @@ def draw_items(screen):
             icon = item.get("icon")
             if icon:
                 angle = item.get("angle", 0)
-                icon = pygame.transform.scale(icon, (60, 60))
-                rotated_icon = pygame.transform.rotate(icon, angle)
+                cache_key = (id(icon), angle)
+                if cache_key not in _rotated_icon_cache:
+                    scaled = pygame.transform.scale(icon, (60, 60))
+                    _rotated_icon_cache[cache_key] = pygame.transform.rotate(scaled, angle)
+                rotated_icon = _rotated_icon_cache[cache_key]
                 rect = rotated_icon.get_rect(center=(int(item["x"]), int(item["y"])))
                 screen.blit(rotated_icon, rect.topleft)
             continue
@@ -2934,15 +2941,18 @@ def draw_items(screen):
                 item["lucky_glow_timer"] = item.get("lucky_glow_timer", 0) + 1
                 t = item["lucky_glow_timer"]
 
-                # 1) 외곽 펄싱 글로우 (금색)
+                # 1) 외곽 펄싱 글로우 (금색) — 크기/알파별 캐시
                 pulse = 0.5 + 0.5 * _m.sin(t * 0.08)
                 glow_alpha = int(60 + 80 * pulse)
                 glow_radius = int(38 + 6 * pulse)
-                glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (255, 215, 0, glow_alpha), (glow_radius, glow_radius), glow_radius)
-                screen.blit(glow_surf, (ix - glow_radius, iy - glow_radius))
+                _glow_key = ("lucky_glow", glow_radius, glow_alpha)
+                if _glow_key not in _rotated_icon_cache:
+                    _gs = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(_gs, (255, 215, 0, glow_alpha), (glow_radius, glow_radius), glow_radius)
+                    _rotated_icon_cache[_glow_key] = _gs
+                screen.blit(_rotated_icon_cache[_glow_key], (ix - glow_radius, iy - glow_radius))
 
-                # 2) 반짝이는 파티클 (4개, 회전)
+                # 2) 반짝이는 파티클 (4개, 회전) — 크기/알파별 캐시
                 for i in range(4):
                     a = _m.radians(t * 2 + i * 90)
                     dist = 28 + 4 * _m.sin(t * 0.12 + i)
@@ -2950,13 +2960,19 @@ def draw_items(screen):
                     py = iy + int(dist * _m.sin(a))
                     spark_alpha = max(0, min(255, int(120 + 135 * _m.sin(t * 0.15 + i * 1.5))))
                     spark_size = max(2, int(3 + 1.5 * _m.sin(t * 0.1 + i)))
-                    spark_surf = pygame.Surface((spark_size * 2, spark_size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(spark_surf, (255, 255, 180, spark_alpha), (spark_size, spark_size), spark_size)
-                    screen.blit(spark_surf, (px - spark_size, py - spark_size))
+                    _spark_key = ("lucky_spark", spark_size, spark_alpha)
+                    if _spark_key not in _rotated_icon_cache:
+                        _ss = pygame.Surface((spark_size * 2, spark_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(_ss, (255, 255, 180, spark_alpha), (spark_size, spark_size), spark_size)
+                        _rotated_icon_cache[_spark_key] = _ss
+                    screen.blit(_rotated_icon_cache[_spark_key], (px - spark_size, py - spark_size))
 
-            # ✅ 회전 후 강제로 크기 맞추기
-            icon = pygame.transform.scale(icon, (60, 60))  # 다시 강제 스케일링
-            rotated_icon = pygame.transform.rotate(icon, angle)
+            # ✅ 회전 후 강제로 크기 맞추기 (캐시 사용)
+            cache_key = (id(icon), angle)
+            if cache_key not in _rotated_icon_cache:
+                scaled = pygame.transform.scale(icon, (60, 60))
+                _rotated_icon_cache[cache_key] = pygame.transform.rotate(scaled, angle)
+            rotated_icon = _rotated_icon_cache[cache_key]
             rect = rotated_icon.get_rect(center=(ix, iy))
             screen.blit(rotated_icon, rect.topleft)
 
