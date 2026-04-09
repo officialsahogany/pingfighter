@@ -136108,7 +136108,8 @@ def show_item_manager_menu():
         {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")},
         {"name": "soul_burst", "type": "passive", "icon": get_item_icon("soul_burst")},
         {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")},
-        {"name": "venom_mist_gauntlet", "type": "passive", "icon": get_item_icon("venom_mist_gauntlet")}
+        {"name": "venom_mist_gauntlet", "type": "passive", "icon": get_item_icon("venom_mist_gauntlet")},
+        {"name": "yachaman_soul", "type": "passive", "icon": get_item_icon("yachaman_soul")}
     ]
 
     # 전설 아이템 추가
