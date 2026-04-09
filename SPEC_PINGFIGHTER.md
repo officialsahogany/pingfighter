@@ -110,7 +110,8 @@ Y=750  └───────────────────────�
 | 이동 속도 | 8 px/f | 8 px/f (기본) | |
 | 최대 속도 | - | 15 px/f (가속 시) | |
 | 가속률 | - | 0.5 px/f² | |
-| 이동 범위 | - | X: 0 ~ (760 - 패들폭) | `max(0, min(WIDTH - PLAYER.width, x))` |
+| 이동 범위 (기본) | - | X: 0 ~ (760 - 패들폭) | `max(0, min(WIDTH - PLAYER.width, x))` |
+| 이동 범위 (일부 모드) | - | X: 80 ~ (680 - 패들폭) | 아레나/특수효과 시 `GAME_AREA_OFFSET_X` ~ `GAME_AREA_RIGHT_X - width`로 제한되는 경우 있음 |
 | 히트박스 확장 | - | 상하좌우 +5px | collision.py |
 | 아레나 모드 크기 | - | 130×40 | 콜로세움 전투 시 별도 크기 |
 | 옵티머스 기본 크기 | - | 296×147 | 메카 히트박스 (확장형) |
@@ -309,8 +310,8 @@ Y=750  └───────────────────────�
 ## 8.1 기본 규칙
 - 발동 확률: 매 라운드 **10%**
 - 지속: 1라운드(50%) / 2라운드(30%) / 3라운드(20%)
-- **6종류 (구현 완료)**: 미풍, 강풍, 불, 얼음, 소나기, 우박
-- 모래폭풍: ⚠️ 날씨 시스템에 미구현 (스테이지 전용 이벤트로만 존재)
+- **7종류**: 미풍, 강풍, 불, 얼음, 소나기, 우박, 사막화
+- 각 1/7 확률(≈14.3%)로 균등 선택
 
 ## 8.2 날씨별 효과
 
@@ -364,10 +365,15 @@ Y=750  └───────────────────────�
 | 스턴 | 0.1초 |
 | 연속피격 방지 | 45프레임 쿨다운 |
 
-### 모래폭풍 (Sandstorm)
-> **⚠️ 미구현 확인**: `events/weather_event.py`에 sandstorm 분기 없음.
-> `pingfighter.py`에 `judgment_sandstorm` 참조가 있으나 이는 **스테이지 전용 이벤트**(심판 모래폭풍)이며 날씨 시스템과는 별개.
-> **Godot 전환 시**: 날씨는 6종(미풍/강풍/불/얼음/소나기/우박)으로 구현하고, 모래폭풍은 추후 추가로 분류할 것.
+### 사막화 (Sand/Desertification)
+| 효과 | 값 |
+|------|-----|
+| 지속 | **1라운드 고정** (강풍과 동일) |
+| UI 색상 | 모래색 (230, 200, 130) |
+| 테스트 함수 | `force_start_sand_event()` |
+
+> 사막화의 구체적 물리 효과(시야 제한, 패들 둔화 등)는 `pingfighter.py` 본체에서 추가 확인 필요.
+> 별도로 `judgment_sandstorm`은 스테이지 전용 이벤트(심판 모래폭풍)이며 날씨 시스템과는 다른 시스템.
 
 ---
 
@@ -473,9 +479,10 @@ Y=750  └───────────────────────�
 | **노말** | 기본 | 특수 능력 없음 |
 
 ## 11.2 공통 스탯
-- 패들 크기: 100 × 10 px (기본)
+- 패들 크기: **155 × 50 px** (런타임 기본, 섹션 3.1 참조)
 - 이동 속도: 8 px/f (기본)
 - 히어로별 세부 차이는 전용 퍽과 스킬에서 발생
+- 옵티머스는 별도 기본 크기: 296 × 147 px (메카 히트박스)
 
 ---
 
@@ -720,7 +727,7 @@ if rolling_charges == 0 AND down_pressed AND direction_pressed AND cooldown == 0
 | 화면 구조 | config/constants.py |
 | 공/패들 물리 | game_logic/collision.py, entities/ball.py, entities/paddle.py |
 | 대시 | game_mechanics/half_dash_system.py |
-| 점수 | config/constants.py (POINTS_TO_WIN, DEUCE) |
+| 점수 | **pingfighter.py** (win_goal=5, deuce_goal=6/7) — ⚠️ constants.py의 POINTS_TO_WIN=3은 미사용 |
 | 보스 AI | config/stage_configs.py, game_logic/boss_ai.py, ai/ |
 | 날씨 | events/weather_event.py |
 | 아이템 | items.py, item_effects/ (40개 모듈) |
