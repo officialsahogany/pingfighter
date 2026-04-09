@@ -146,7 +146,7 @@ class DowntownManager:
     - 이벤트 처리
     """
 
-    def __init__(self, screen, academy=None, arena_battle_callback=None):
+    def __init__(self, screen, academy=None, arena_battle_callback=None, penalty_kick_callback=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
 
@@ -155,6 +155,9 @@ class DowntownManager:
 
         # 투기장 배틀 콜백 (실제 게임 엔진 사용)
         self.arena_battle_callback = arena_battle_callback
+
+        # 패널티킥 배틀 콜백 (오락실 아케이드)
+        self.penalty_kick_callback = penalty_kick_callback
 
         # 폰트 초기화
         self._init_fonts()
@@ -2564,7 +2567,8 @@ class DowntownManager:
             building_type, self._freetype_fonts, player_sprite,
             player_data=self.player_data,
             academy=self.academy,
-            ap_system=self.ap_system
+            ap_system=self.ap_system,
+            penalty_kick_callback=self.penalty_kick_callback
         )
 
         clock = pygame.time.Clock()

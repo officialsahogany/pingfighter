@@ -9897,6 +9897,10 @@ def _fullscreen_flip():
         if pillar_renderer is not None:
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
+        # 패널티킥 HUD (라운드 마커, 스코어보드)
+        if penalty_kick_mode_enabled and current_stage == 33:
+            _draw_penalty_kick_hud(REAL_SCREEN)
+
         # 🎯 통합 쿨타임 큐 UI (왼쪽 필러, 영웅+호위무사)
         _skip_guard_icons = False
         _queue_hover = None
@@ -18893,6 +18897,11 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         dt = (elapsed_ms / 1000.0) * arena_speed_multiplier
         animated_bg_stage30.update(dt)
         animated_bg_stage30.draw(SCREEN, offset_x=shake_x, offset_y=shake_y)
+    elif current_stage == 33 and animated_bg_stage33 is not None:
+        # 패널티킥 (네온 아케이드) 배경
+        dt = (elapsed_ms / 1000.0)
+        animated_bg_stage33.update(dt)
+        animated_bg_stage33.draw(SCREEN, offset_x=shake_x, offset_y=shake_y)
     else:
         try:
             SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
@@ -120038,7 +120047,7 @@ def run_downtown_hub(next_stage_display: int) -> bool:
         }
         # print(f"[DEBUG run_downtown_hub] 전역 downtown_map_seed = {downtown_map_seed}")
         # print(f"[DEBUG run_downtown_hub] player_data['downtown_map_seed'] = {player_data.get('downtown_map_seed')}")
-        manager = DowntownManager(screen, academy=academy, arena_battle_callback=start_arena_battle)
+        manager = DowntownManager(screen, academy=academy, arena_battle_callback=start_arena_battle, penalty_kick_callback=start_penalty_kick_battle)
         manager.initialize(stage_number=next_stage_display, player_data=player_data)
 
         # === 광장 초기화 후 시드 동기화 및 자동저장 ===
@@ -123998,6 +124007,189 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
 
 
 # ============================================================================
+# 패널티킥 핑퐁 HUD 렌더링
+# ============================================================================
+def _draw_penalty_kick_hud(screen):
+    """패널티킥 전용 HUD: 라운드 마커, 스코어보드, 서든데스 표시"""
+    if not penalty_kick_mode_enabled:
+        return
+
+    import pygame.freetype as ft
+
+    # 폰트 준비
+    try:
+        _font_path = get_pixel_font_path()
+        if not hasattr(_draw_penalty_kick_hud, '_font'):
+            _draw_penalty_kick_hud._font = ft.Font(_font_path, 14)
+            _draw_penalty_kick_hud._font_large = ft.Font(_font_path, 20)
+            _draw_penalty_kick_hud._font_title = ft.Font(_font_path, 12)
+    except Exception:
+        return
+
+    font = _draw_penalty_kick_hud._font
+    font_large = _draw_penalty_kick_hud._font_large
+    font_title = _draw_penalty_kick_hud._font_title
+
+    cx = WIDTH // 2  # 380
+    top_y = 4
+
+    # "PENALTY KICK" 타이틀
+    title_color = (0, 255, 255) if not penalty_kick_is_sudden_death else (255, 50, 50)
+    title_text = "SUDDEN DEATH" if penalty_kick_is_sudden_death else "PENALTY KICK"
+    t_surf, t_rect = font_title.render(title_text, title_color)
+    screen.blit(t_surf, (cx - t_rect.width // 2, top_y))
+
+    # 스코어: P score - B score
+    score_y = top_y + 16
+    p_color = (100, 255, 100)
+    b_color = (255, 100, 100)
+    dash_color = (200, 200, 200)
+
+    p_text = str(penalty_kick_player_score)
+    b_text = str(penalty_kick_boss_score)
+
+    p_surf, p_rect = font_large.render(p_text, p_color)
+    b_surf, b_rect = font_large.render(b_text, b_color)
+    d_surf, d_rect = font_large.render(" - ", dash_color)
+
+    total_w = p_rect.width + d_rect.width + b_rect.width
+    start_x = cx - total_w // 2
+    screen.blit(p_surf, (start_x, score_y))
+    screen.blit(d_surf, (start_x + p_rect.width, score_y))
+    screen.blit(b_surf, (start_x + p_rect.width + d_rect.width, score_y))
+
+    # 라운드 마커 (O/X) - 상단 5개 + 하단 5개
+    marker_y = score_y + 28
+    marker_size = 10
+    marker_gap = 4
+    total_markers = min(penalty_kick_total_rounds, 10)
+    half = total_markers // 2
+
+    # 플레이어 서브 라운드 (0, 2, 4, 6, 8)
+    player_rounds = [i for i in range(total_markers) if i % 2 == 0]
+    # 보스 서브 라운드 (1, 3, 5, 7, 9)
+    boss_rounds = [i for i in range(total_markers) if i % 2 == 1]
+
+    def draw_markers(rounds, base_y, label, label_color):
+        total_w = len(rounds) * (marker_size + marker_gap) - marker_gap
+        sx = cx - total_w // 2
+        # 라벨
+        l_surf, l_rect = font_title.render(label, label_color)
+        screen.blit(l_surf, (sx - l_rect.width - 6, base_y + 1))
+        for idx, r_idx in enumerate(rounds):
+            mx = sx + idx * (marker_size + marker_gap)
+            if r_idx < len(penalty_kick_round_results):
+                attacker, result = penalty_kick_round_results[r_idx]
+                if (label == "P" and result == "goal" and attacker == "player") or \
+                   (label == "B" and result == "goal" and attacker == "boss"):
+                    # 이 쪽이 서브해서 상대가 실점 → O (득점)
+                    pygame.draw.circle(screen, (100, 255, 100),
+                                       (mx + marker_size // 2, base_y + marker_size // 2),
+                                       marker_size // 2, 2)
+                else:
+                    # 이 쪽이 서브했는데 자기가 실점 → X (실점)
+                    x1, y1 = mx + 2, base_y + 2
+                    x2, y2 = mx + marker_size - 2, base_y + marker_size - 2
+                    pygame.draw.line(screen, (255, 80, 80), (x1, y1), (x2, y2), 2)
+                    pygame.draw.line(screen, (255, 80, 80), (x2, y1), (x1, y2), 2)
+            else:
+                # 아직 진행 안 된 라운드
+                color = (80, 80, 80)
+                if r_idx == penalty_kick_round:
+                    color = (255, 255, 100)  # 현재 라운드 하이라이트
+                pygame.draw.circle(screen, color,
+                                   (mx + marker_size // 2, base_y + marker_size // 2),
+                                   marker_size // 2, 1)
+
+    draw_markers(player_rounds, marker_y, "P", (100, 255, 100))
+    draw_markers(boss_rounds, marker_y + marker_size + 4, "B", (255, 100, 100))
+
+    # 라운드 번호
+    round_text = f"R{penalty_kick_round + 1}"
+    if penalty_kick_is_sudden_death:
+        sd_num = penalty_kick_round - penalty_kick_total_rounds + 1
+        round_text = f"SD{sd_num}"
+    r_surf, r_rect = font_title.render(round_text, (200, 200, 200))
+    screen.blit(r_surf, (cx + 50, marker_y + marker_size // 2))
+
+
+# ============================================================================
+# 패널티킥 핑퐁 라운드 관리 헬퍼
+# ============================================================================
+def _penalty_kick_on_round_end(player_won: bool):
+    """패널티킥 라운드 종료 처리.
+
+    Returns:
+        None - 다음 라운드 계속
+        True/False - 최종 결과 (플레이어 승/패)
+    """
+    global penalty_kick_round, penalty_kick_player_score, penalty_kick_boss_score
+    global penalty_kick_is_player_serve, penalty_kick_is_sudden_death
+    global penalty_kick_round_results, penalty_kick_battle_result
+    global penalty_kick_game_over
+
+    # 라운드 결과 기록
+    if player_won:
+        penalty_kick_player_score += 1
+        penalty_kick_round_results.append(("player", "goal"))
+    else:
+        penalty_kick_boss_score += 1
+        penalty_kick_round_results.append(("boss", "goal"))
+
+    penalty_kick_round += 1
+
+    # 서브권 교대 (홀수 라운드=플레이어, 짝수 라운드=보스)
+    penalty_kick_is_player_serve = (penalty_kick_round % 2 == 0)
+
+    # 정규 라운드 종료 체크
+    if not penalty_kick_is_sudden_death:
+        remaining = penalty_kick_total_rounds - penalty_kick_round
+        p_score = penalty_kick_player_score
+        b_score = penalty_kick_boss_score
+
+        # 조기 종료: 남은 라운드를 다 이겨도 역전 불가능한 경우
+        if p_score > b_score + remaining:
+            penalty_kick_battle_result = True
+            penalty_kick_game_over = True
+            return True
+        if b_score > p_score + remaining:
+            penalty_kick_battle_result = False
+            penalty_kick_game_over = True
+            return False
+
+        # 정규 10라운드 완료
+        if penalty_kick_round >= penalty_kick_total_rounds:
+            if p_score > b_score:
+                penalty_kick_battle_result = True
+                penalty_kick_game_over = True
+                return True
+            elif b_score > p_score:
+                penalty_kick_battle_result = False
+                penalty_kick_game_over = True
+                return False
+            else:
+                # 동점 → 서든데스 진입
+                penalty_kick_is_sudden_death = True
+                return None  # 계속 진행
+    else:
+        # 서든데스: 양쪽 다 차고 점수 차이 나면 종료
+        # 서든데스는 2라운드씩 (양쪽 1번씩) 단위로 판정
+        sd_start = penalty_kick_total_rounds
+        sd_rounds_played = penalty_kick_round - sd_start
+        if sd_rounds_played >= 2 and sd_rounds_played % 2 == 0:
+            if penalty_kick_player_score > penalty_kick_boss_score:
+                penalty_kick_battle_result = True
+                penalty_kick_game_over = True
+                return True
+            elif penalty_kick_boss_score > penalty_kick_player_score:
+                penalty_kick_battle_result = False
+                penalty_kick_game_over = True
+                return False
+
+    return None  # 다음 라운드 계속
+
+
+# ============================================================================
 # 패널티킥 핑퐁 배틀 시작 함수 (오락실 아케이드 캐비닛에서 호출)
 # ============================================================================
 def start_penalty_kick_battle():
@@ -125901,7 +126093,7 @@ def show_start_screen():
             # 맵 시드 (개발자 모드: None으로 랜덤 생성)
             "downtown_map_seed": None,
         }
-        manager = DowntownManager(SCREEN, academy=academy, arena_battle_callback=start_arena_battle)
+        manager = DowntownManager(SCREEN, academy=academy, arena_battle_callback=start_arena_battle, penalty_kick_callback=start_penalty_kick_battle)
         manager.initialize(stage_number=1, player_data=player_data)
         try:
             bgm_manager.play_downtown_bgm()
@@ -142555,6 +142747,16 @@ def draw_field():
             offset_x=screen_shake_offset_x,
             offset_y=screen_shake_offset_y,
         )
+    elif current_stage == 33 and animated_bg_stage33 is not None:
+        # 스테이지33: 패널티킥 (네온 아케이드) 배경
+        elapsed_ms = clock.get_time() if 'clock' in globals() else 16
+        dt = elapsed_ms / 1000.0
+        animated_bg_stage33.update(dt)
+        animated_bg_stage33.draw(
+            SCREEN,
+            offset_x=screen_shake_offset_x,
+            offset_y=screen_shake_offset_y,
+        )
     else:
         # 기본 배경 (화면 흔들림 오프셋 적용)
         SCREEN.blit(CURRENT_BG, (screen_shake_offset_x, screen_shake_offset_y))
@@ -146386,6 +146588,9 @@ def choose_server(show_text=True):
             is_player_serve = True  # 일반 튜토리얼은 플레이어 서브
     elif current_stage == 6:
         is_player_serve = True
+    elif current_stage == 33:
+        # 패널티킥: 교대 서브 (penalty_kick_is_player_serve에 따라)
+        is_player_serve = penalty_kick_is_player_serve
     elif current_stage == 40:
         # 온라인 멀티: 교대 서브 (호스트만 결정, 클라이언트는 프레임 데이터로 동기화)
         if online_is_host:
@@ -169910,28 +170115,53 @@ def main(stage_num, new_boss_mode=False):
             deactivate_whip()  # 통합된 비활성화 함수 사용
             if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
                 BOSS.whip_sound.stop()
-            show_result(True)
-            if arena_mode_enabled:
+            # === 패널티킥 모드: 라운드 진행 ===
+            if penalty_kick_mode_enabled:
+                _pk_result = _penalty_kick_on_round_end(player_won=True)
+                if _pk_result is not None:
+                    return _pk_result
+                # 다음 라운드 계속 진행
+                round_wins = 0
+                round_losses = 0
+                go_to_next_round()
+            elif arena_mode_enabled:
+                show_result(True)
                 if arena_battle_result is not None:
                     return arena_battle_result
                 # 포획 페이즈 진행 중 - 메인 루프 계속
             else:
+                show_result(True)
                 return
         elif round_losses >= win_goal:
             #  게임 종료 시 즉시 상모돌리기 사운드 정지
             deactivate_whip()  # 통합된 비활성화 함수 사용
             if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
                 BOSS.whip_sound.stop()
-            #  스테이지 실패 기록
-            record_stage_result(current_stage, cleared=False)
-            show_result(False)
-            if arena_mode_enabled:
+            # === 패널티킥 모드: 라운드 진행 ===
+            if penalty_kick_mode_enabled:
+                _pk_result = _penalty_kick_on_round_end(player_won=False)
+                if _pk_result is not None:
+                    return _pk_result
+                # 다음 라운드 계속 진행
+                round_wins = 0
+                round_losses = 0
+                go_to_next_round()
+            elif arena_mode_enabled:
+                #  스테이지 실패 기록
+                record_stage_result(current_stage, cleared=False)
+                show_result(False)
                 return arena_battle_result
-            return
+            else:
+                #  스테이지 실패 기록
+                record_stage_result(current_stage, cleared=False)
+                show_result(False)
+                return
         # 듀스 모드에서 handle_ball() 내부에서 이미 결과가 결정된 경우 (arena_battle_result 설정됨)
         # handle_ball()의 반환값이 캡처되지 않으므로 여기서 별도로 체크
         if arena_mode_enabled and arena_battle_result is not None:
             return arena_battle_result
+        if penalty_kick_mode_enabled and penalty_kick_battle_result is not None:
+            return penalty_kick_battle_result
 def get_legacy_game_loop_hooks() -> LegacyHooks:
     """GameLoop과 레거시 업데이트 루프를 연결하기 위한 훅 생성."""
 

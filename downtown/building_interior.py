@@ -2757,7 +2757,8 @@ class BuildingInterior:
     # 광장과 동일한 타일 크기 사용 (constants.py의 TILE_SIZE = 40)
 
     def __init__(self, building_type, freetype_fonts, player_sprite=None,
-                 player_data=None, academy=None, ap_system=None):
+                 player_data=None, academy=None, ap_system=None,
+                 penalty_kick_callback=None):
         self.building_type = building_type
         self.fonts = freetype_fonts
         self.animation_timer = 0
@@ -2766,6 +2767,9 @@ class BuildingInterior:
         self.player_data = player_data or {'gold': 0, 'star_points': 0}
         self.academy = academy
         self.ap_system = ap_system
+
+        # 패널티킥 배틀 콜백 (오락실 아케이드)
+        self.penalty_kick_callback = penalty_kick_callback
         # 상점 거래창 스크롤 상태
         self.shop_player_scroll = 0
         self.shop_shop_scroll = 0
@@ -3538,22 +3542,31 @@ class BuildingInterior:
         return None
 
     def _start_penalty_kick_game(self):
-        """패널티킥 게임 시작"""
+        """패널티킥 게임 시작 - 핑퐁 엔진 콜백 방식"""
         if self.penalty_kick_playing:
             return False
 
-        try:
-            from .penalty_kick_game import PenaltyKickGameUI
-        except ImportError:
+        if self.penalty_kick_callback is not None:
+            # 핑퐁 엔진 콜백 방식 (투기장 패턴)
+            self.penalty_kick_playing = True
+            result = self.penalty_kick_callback()
+            self.penalty_kick_playing = False
+            # result: True=플레이어 승, False=보스 승, None=ESC
+            return True
+        else:
+            # 폴백: 기존 FIFA식 패널티킥 (콜백 없을 때)
             try:
-                from downtown.penalty_kick_game import PenaltyKickGameUI
+                from .penalty_kick_game import PenaltyKickGameUI
             except ImportError:
-                return False
+                try:
+                    from downtown.penalty_kick_game import PenaltyKickGameUI
+                except ImportError:
+                    return False
 
-        self.penalty_kick_ui = PenaltyKickGameUI(SCREEN_WIDTH, SCREEN_HEIGHT, fonts=self.fonts)
-        self.penalty_kick_ui.start_game()
-        self.penalty_kick_playing = True
-        return True
+            self.penalty_kick_ui = PenaltyKickGameUI(SCREEN_WIDTH, SCREEN_HEIGHT, fonts=self.fonts)
+            self.penalty_kick_ui.start_game()
+            self.penalty_kick_playing = True
+            return True
 
     def _update_penalty_kick_game(self, dt):
         """패널티킥 게임 업데이트"""
