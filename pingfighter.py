@@ -16406,6 +16406,13 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
                             max_charges = min(max_charges, token_limit)
             except Exception:
                 pass
+            # 💀 야차맨 변신 상태: 대시 토큰 1개 제한
+            try:
+                from item_effects.yachaman_soul import yachaman_active as _ys_tk
+                if _ys_tk:
+                    max_charges = min(max_charges, 1)
+            except Exception:
+                pass
 
             old_tokens = rolling_charges
             token_states = [True] * max_charges
@@ -32240,6 +32247,16 @@ def is_odins_eye_transformed() -> bool:
         pass
     return False
 
+
+def is_yachaman_transformed() -> bool:
+    """💀 야차맨의 영혼 변신 상태인지 확인 (변신 중에는 기존 스킬 사용 불가)"""
+    try:
+        from item_effects.yachaman_soul import yachaman_active
+        return yachaman_active
+    except Exception:
+        pass
+    return False
+
 # === 공 생성 애니메이션 ===
 ball_spawn_animation_active = False
 ball_spawn_animation_stage_start = False
@@ -35861,8 +35878,8 @@ def can_use_optimus_arm() -> bool:
     if selected_character_type != "optimus":
         return False
 
-    # 👁 오딘의 눈 변신 상태에서는 옵티머스 암 사용 불가
-    if is_odins_eye_transformed():
+    # 👁 오딘의 눈 / 💀 야차맨 변신 상태에서는 옵티머스 암 사용 불가
+    if is_odins_eye_transformed() or is_yachaman_transformed():
         return False
 
     # 옵티머스 암이 해금되지 않았으면 불가 (스테이지 클리어 선택으로 해금)
@@ -48533,8 +48550,8 @@ def blacksmith_has_available_buildings() -> bool:
 
 
 def blacksmith_open_build_menu():
-    # 👁 오딘의 눈 변신 상태에서는 빌드 메뉴 사용 불가
-    if is_odins_eye_transformed() or is_horn_strawberry_character_skill_blocked("blacksmith"):
+    # 👁 오딘의 눈 / 💀 야차맨 변신 상태에서는 빌드 메뉴 사용 불가
+    if is_odins_eye_transformed() or is_yachaman_transformed() or is_horn_strawberry_character_skill_blocked("blacksmith"):
         return
     if not blacksmith_has_available_buildings():
         return
@@ -62191,6 +62208,13 @@ def apply_effect(effect_name, item_data=None):
                             max_charges = min(max_charges, token_limit)
             except Exception:
                 pass
+            # 💀 야차맨 변신 상태: 대시 토큰 1개 제한
+            try:
+                from item_effects.yachaman_soul import yachaman_active as _ys_tk2
+                if _ys_tk2:
+                    max_charges = min(max_charges, 1)
+            except Exception:
+                pass
 
             token_states = [True] * max_charges
             rolling_charges = max_charges
@@ -74075,6 +74099,14 @@ def handle_player(keys):
                     token_states = [True] * rolling_charges
     except Exception:
         pass
+    # 💀 야차맨 변신 상태: 대시 토큰 1개 제한
+    try:
+        from item_effects.yachaman_soul import yachaman_active as _ys_tk3
+        if _ys_tk3 and rolling_charges > 1:
+            rolling_charges = 1
+            token_states = [True] * rolling_charges
+    except Exception:
+        pass
 
     # 옵티머스 수동 충전 (↓ 키 길게 누름)
     def _handle_optimus_manual_charge(now_ms: int, down_held: bool) -> None:
@@ -75490,21 +75522,21 @@ def handle_player(keys):
     _is_rolling_active = _rolling_get("rolling_active") if '_rolling_get' in dir() else False
     if not down_pressed and not _is_rolling_active:
         dash_key_released_since_last = True
-    # 👁 오딘의 눈 변신 상태에서는 옵티머스 수동 충전 사용 불가
+    # 👁 오딘의 눈 / 💀 야차맨 변신 상태에서는 옵티머스 수동 충전 사용 불가
     optimus_down_for_charge = down_pressed
-    if is_odins_eye_transformed():
+    if is_odins_eye_transformed() or is_yachaman_transformed():
         optimus_down_for_charge = False
     _handle_optimus_manual_charge(pygame.time.get_ticks(), optimus_down_for_charge)
 
     # ⚡ 스매셔 플라즈마 자기장 스킬 (W/↑ 키 홀드)
-    # 👁 오딘의 눈 변신 상태에서는 기존 스킬 사용 불가
+    # 👁 오딘의 눈 / 💀 야차맨 변신 상태에서는 기존 스킬 사용 불가
     up_for_plasma = up_pressed_raw or keys[pygame.K_w] or keys[pygame.K_UP]
-    if is_odins_eye_transformed():
+    if is_odins_eye_transformed() or is_yachaman_transformed():
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
 
-    # ⚔ 바이퍼 스킬 발동 처리 (W/↑: 에어 블레이드/베놈 엣지 연계, Space/좌클릭 홀드: 제트팩, 대쉬+S: 쉐도우 백스텝, Q: 베놈 엣지, R: 마샬 킥)
-    if selected_character_type == "viper" and not is_odins_eye_transformed():
+    # ⚔ 바이퍼 스킬 발동 처리
+    if selected_character_type == "viper" and not is_odins_eye_transformed() and not is_yachaman_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
         global _viper_blade_rush_start_y, _viper_blade_rush_target_y, _viper_blade_rush_hit_ball
@@ -75823,7 +75855,7 @@ def handle_player(keys):
         if _wd_br_elapsed >= 300:
             _wd_br_allow = True
     _wd_can_fire = _viper_wall_dive_ready or _viper_double_marshal_ready
-    if (selected_character_type == "viper" and not is_odins_eye_transformed()
+    if (selected_character_type == "viper" and not is_odins_eye_transformed() and not is_yachaman_transformed()
             and not _viper_original_skills_blocked
             and _wd_can_fire and not _viper_wall_dive_active
             and not rolling_active and not _viper_dive_active
@@ -76265,7 +76297,7 @@ def handle_player(keys):
             ball_vel[1] = _old_dx * _sin_r + _old_dy * _cos_r
 
     # === 바이퍼 제트팩 시스템 업데이트 ===
-    if selected_character_type == "viper" and not is_odins_eye_transformed() and not _viper_original_skills_blocked:
+    if selected_character_type == "viper" and not is_odins_eye_transformed() and not is_yachaman_transformed() and not _viper_original_skills_blocked:
         # 입력 감지: Space/좌클릭 홀드 (서브 대기/스턴/신경 타격/에어 블레이드 스핀/과열/급강하 중에는 비활성)
         _jetpack_input = False
         if not (is_waiting_for_serve or is_player_serve or player_stunned
@@ -76392,7 +76424,7 @@ def handle_player(keys):
 
     # === 바이퍼 급강하 어택 (EMP 스트라이크) ===
     # EMP 스트라이크: 체공 중 S/↓키 0.3초 꾹 누르기로 발동 (단독 사용만)
-    if selected_character_type == "viper" and not is_odins_eye_transformed() and not _viper_original_skills_blocked:
+    if selected_character_type == "viper" and not is_odins_eye_transformed() and not is_yachaman_transformed() and not _viper_original_skills_blocked:
         _dive_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
         _dive_dir_held = (
             keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
@@ -77110,7 +77142,7 @@ def handle_player(keys):
     
     # 옵티머스 옵티머스 암 던지기 입력 처리 (잡기 상태에서 좌/우 방향키)
     # 👁 오딘의 눈 변신 상태에서는 옵티머스 암 던지기 사용 불가
-    if selected_character_type == "optimus" and optimus_arm_state == "grabbing" and optimus_arm_grabbed_boss and not is_odins_eye_transformed():
+    if selected_character_type == "optimus" and optimus_arm_state == "grabbing" and optimus_arm_grabbed_boss and not is_odins_eye_transformed() and not is_yachaman_transformed():
         if left_pressed_raw and not right_pressed_raw:
             handle_optimus_arm_throw_input(-1)  # 왼쪽으로 던지기
         elif right_pressed_raw and not left_pressed_raw:
@@ -77269,6 +77301,7 @@ def handle_player(keys):
                 and not blacksmith_hammer_shock_charging
                 and (blacksmith_hammer_available or blacksmith_hammer_shock_cooldown_timer > 0)
                 and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
+                and not is_yachaman_transformed()  # 💀 야차맨 변신 상태에서는 차단
                 and not is_horn_strawberry_skills_locked()  # 🍓 뿔딸기 변신 중 차단
             ):
                 if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active:
@@ -77596,6 +77629,7 @@ def handle_player(keys):
         and not supply_drop_state.active
         and soldier_down_tap_suppress_timer == 0
         and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
+        and not is_yachaman_transformed()  # 💀 야차맨 변신 상태에서는 차단
         and not _soldier_original_skills_blocked
     ):
         # 쿨타임 체크 추가
@@ -78413,7 +78447,7 @@ def handle_player(keys):
             # ========== 리커버리 스킬 체크 (스매셔 전용) ==========
             # 통제불능 상태에서 상키(W)로 즉시 해제
             # 👁 오딘의 눈 변신 상태에서는 기존 스킬 사용 불가
-            if selected_character_type == "smasher" and not is_odins_eye_transformed() and not is_horn_strawberry_skills_locked():
+            if selected_character_type == "smasher" and not is_odins_eye_transformed() and not is_yachaman_transformed() and not is_horn_strawberry_skills_locked():
                 global _recovery_up_key_released
                 if '_recovery_up_key_released' not in globals():
                     _recovery_up_key_released = True
@@ -80922,6 +80956,7 @@ def handle_player(keys):
             and (soldier_weapon_menu_close_suppress_frames if 'soldier_weapon_menu_close_suppress_frames' in globals() else 0) == 0
             and (soldier_weapon_switch_suppress_frames if 'soldier_weapon_switch_suppress_frames' in globals() else 0) == 0
             and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
+            and not is_yachaman_transformed()  # 💀 야차맨 변신 상태에서는 차단
             and not _soldier_original_skills_blocked
         ):
             # UP 키가 동시에 눌려있으면 물자보급 발동 시도 중이므로 화기류 발사 불가
@@ -146607,7 +146642,7 @@ def calculate_bounce(paddle):
     ):
         #  드라이브 발동을 위한 게이지 확인 (150 게이지 필요) + 쿨타임 체크
         # 👁 오딘의 눈 변신 상태에서는 드라이브 사용 불가
-        if special_gauge >= 150 and get_smasher_skill_cooldown_remaining("drive") <= 0 and not is_odins_eye_transformed() and not is_horn_strawberry_skills_locked():
+        if special_gauge >= 150 and get_smasher_skill_cooldown_remaining("drive") <= 0 and not is_odins_eye_transformed() and not is_yachaman_transformed() and not is_horn_strawberry_skills_locked():
             perfect_shot = True
             drive_activated = True  #  드라이브 발동 표시
             trigger_smasher_contact_animation(BALL.centerx - paddle.centerx, intensity=1.5)
@@ -162977,8 +163012,8 @@ def main(stage_num, new_boss_mode=False):
                             pass  # print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
                     else:
                         pass  # print("[DEBUG 발토르] 포탑 수동 발사 대기중 - 쿨다운")
-                # 👁 오딘의 눈 변신 상태에서는 해머쇼크 사용 불가
-                elif hammer_ready and not is_odins_eye_transformed():
+                # 👁 오딘의 눈 / 💀 야차맨 변신 상태에서는 해머쇼크 사용 불가
+                elif hammer_ready and not is_odins_eye_transformed() and not is_yachaman_transformed():
                     blacksmith_hammer_shock_charging = True
                     blacksmith_hammer_shock_charge_frames = 0
                     blacksmith_hammer_shock_stage = 0
@@ -163345,6 +163380,7 @@ def main(stage_num, new_boss_mode=False):
                     and not is_waiting_for_serve  # 서브 대기 상태에서는 파워스매싱 금지
                     and get_smasher_skill_cooldown_remaining("power_smashing") <= 0  # 쿨타임 체크
                     and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
+                    and not is_yachaman_transformed()  # 💀 야차맨 변신 상태에서는 차단
                     and not is_horn_strawberry_skills_locked()  # 🍓 뿔딸기 변신 중 차단
                 ):  # 파워스매싱은 스매셔 전용
                     # 파워스매싱 발동 (고스트샷 제거됨)
@@ -165044,7 +165080,7 @@ def main(stage_num, new_boss_mode=False):
         # pygame.key.get_pressed()는 IME와 관계없이 물리적 키 상태를 확인
         # 플라즈마 차징 중에는 클렌즈 발동 불가
         # 👁 오딘의 눈 변신 상태에서는 기존 스킬 사용 불가
-        if selected_character_type == "smasher" and not game_paused and not plasma_field_charging and not is_odins_eye_transformed():
+        if selected_character_type == "smasher" and not game_paused and not plasma_field_charging and not is_odins_eye_transformed() and not is_yachaman_transformed():
             # 참고: 클렌즈 관련 전역 변수들은 함수 상단(95442~95446)에서 이미 global 선언됨
 
             keys_poll = pygame.key.get_pressed()
@@ -166243,6 +166279,9 @@ def main(stage_num, new_boss_mode=False):
                                         # 변신 완료! 공 리셋
                                         globals()['yachaman_revival_anim_active'] = False
                                         globals()['yachaman_revival_pending_reset'] = False
+
+                                        # 💀 스킬 구슬(게이지) 초기화
+                                        globals()['special_gauge'] = 0
 
                                         # 공을 플레이어 바로 위에 배치
                                         BALL.centerx = PLAYER.centerx
