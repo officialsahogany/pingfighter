@@ -1598,7 +1598,7 @@ ITEM_TYPES = [
         "body_part": "head"
     },
     {
-        "name": "yachaman_soul",  # 야차맨의 영혼 패시브 아이템 (머리 부위)
+        "name": "yachaman_soul",  # 야차맨의 투구 패시브 아이템 (머리 부위)
         "color": (30, 30, 35),  # 검은색 (봄버맨 다크 테마)
         "effect": "yachaman_soul",
         "icon": None,
@@ -2039,7 +2039,7 @@ soul_burst_obtained = False  # 소울버스트 아이템 획득 여부
 sage_ring_obtained = False  # 현자의 반지 아이템 획득 여부
 venom_mist_gauntlet_obtained = False  # 독안개장갑 아이템 획득 여부
 dowsing_goggles_obtained = False  # 다우징고글 아이템 획득 여부
-yachaman_soul_obtained = False  # 야차맨의 영혼 아이템 획득 여부
+yachaman_soul_obtained = False  # 야차맨의 투구 아이템 획득 여부
 
 
 active_item_slot = None
@@ -2132,7 +2132,7 @@ unlocked_items = {
     "sage_ring": True,  # 현자의 반지
     "venom_mist_gauntlet": True,  # 독안개장갑 (바이퍼 전용)
     "dowsing_goggles": True,  # 다우징고글
-    "yachaman_soul": True,  # 야차맨의 영혼
+    "yachaman_soul": True,  # 야차맨의 투구
     "elixir_of_mastery": True  # 엘릭서 오브 마스터리 (신화급 액티브)
 }
 

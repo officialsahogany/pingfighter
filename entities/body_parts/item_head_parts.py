@@ -555,7 +555,7 @@ class HornStrawberryMaskPart(BodyPart):
 
 
 class YachamanSoulPart(BodyPart):
-    """야차맨의 영혼 (yachaman_soul).
+    """야차맨의 투구 (yachaman_soul).
 
     검은 봄버맨 스타일 투구 + 불꽃 퓨즈.
     효과: 실점 시 봄버맨 형태로 변신 부활.

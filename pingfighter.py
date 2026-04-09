@@ -29934,7 +29934,7 @@ def sync_equipped_passive_effects():
     sync_bool("dowsing_goggles", "items.dowsing_goggles_obtained")
     sync_bool("yachaman_soul", "items.yachaman_soul_obtained")
 
-    # 야차맨의 영혼: 장착 시 발동확률 동기화 / 해제 시 초기화
+    # 야차맨의 투구: 장착 시 발동확률 동기화 / 해제 시 초기화
     try:
         from item_effects.yachaman_soul import set_activation_chance, set_enhancement_bonus, reset_all as _ys_reset
         if "yachaman_soul" in equipped_names:
@@ -32224,7 +32224,7 @@ serve_completed_timer = 0  # 서브 완료 후 3초간 물자보급/대시 금�
 odins_eye_revival_anim_active = False  # 부활 애니메이션 진행 중 여부
 odins_eye_revival_anim_pending_reset = False  # 애니메이션 완료 후 공 리셋 대기
 
-# === 💀 야차맨의 영혼 부활 애니메이션 상태 ===
+# === 💀 야차맨의 투구 부활 애니메이션 상태 ===
 yachaman_revival_anim_active = False  # 야차맨 변신 애니메이션 진행 중 여부
 yachaman_revival_pending_reset = False  # 애니메이션 완료 후 공 리셋 대기
 yachaman_phase_timer = 0  # 야차맨 패들 애니메이션 타이머
@@ -32249,7 +32249,7 @@ def is_odins_eye_transformed() -> bool:
 
 
 def is_yachaman_transformed() -> bool:
-    """💀 야차맨의 영혼 변신 상태인지 확인 (변신 중에는 기존 스킬 사용 불가)"""
+    """💀 야차맨의 투구 변신 상태인지 확인 (변신 중에는 기존 스킬 사용 불가)"""
     try:
         from item_effects import yachaman_soul as _ys
         return _ys.yachaman_active
@@ -74086,7 +74086,7 @@ def handle_player(keys):
     # 👁 오딘의 눈 부활/죽음 애니메이션 중에는 플레이어 입력 처리 건너뛰기
     if odins_eye_revival_anim_active or odins_eye_death_anim_active:
         return
-    # 💀 야차맨의 영혼 변신 애니메이션 중에는 플레이어 입력 처리 건너뛰기
+    # 💀 야차맨의 투구 변신 애니메이션 중에는 플레이어 입력 처리 건너뛰기
     if yachaman_revival_anim_active:
         return
 
@@ -80485,7 +80485,7 @@ def handle_player(keys):
             except Exception:
                 pass
 
-            # 💀 야차맨의 영혼 변신 상태: 이동속도 4 고정
+            # 💀 야차맨의 투구 변신 상태: 이동속도 4 고정
             try:
                 from item_effects import yachaman_soul as _ys_speed_mod
                 if _ys_speed_mod.yachaman_active:
@@ -84922,7 +84922,7 @@ def store_passive_item(item_data):
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "yachaman_soul":
-        # 야차맨의 영혼 아이템 획득 (패시브, 머리 부위)
+        # 야차맨의 투구 아이템 획득 (패시브, 머리 부위)
         import items
         items.yachaman_soul_obtained = True
         _apply_item_to_skin(_skeletal_skin, "yachaman_soul")  # 뼈대 외형 변경
@@ -109768,7 +109768,7 @@ def draw_objects():
     except:
         pass
 
-    # 💀 야차맨의 영혼 변신 애니메이션 그리기
+    # 💀 야차맨의 투구 변신 애니메이션 그리기
     try:
         if yachaman_revival_anim_active:
             from item_effects.yachaman_soul import draw_animation as _ys_draw_anim, yachaman_anim_active as _ys_anim_flag
@@ -115573,6 +115573,22 @@ def draw_objects():
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
     # 🍓 뿔딸기 변신 중이면 기존 패들 숨김 (뿔딸기 패들은 draw_horn_strawberry_effects에서 그림)
     _horn_strawberry_hide_paddle = is_horn_strawberry_transformed() or is_horn_strawberry_event_playing()
+    _yachaman_drawn = False
+    if not _arena_paddle_drawn and not arena_mode_enabled and not _odins_eye_dark_paddle_drawn and not _odins_eye_hide_paddle and not _horn_strawberry_hide_paddle and is_yachaman_transformed():
+        try:
+            from item_effects import yachaman_soul as _ys_draw_mod
+
+            _yachaman_draw_rect = pygame.Rect(PLAYER)
+            _yachaman_draw_rect.x += int(screen_shake_offset_x)
+            _yachaman_draw_rect.y += int(screen_shake_offset_y + player_knockback_y)
+            globals()['yachaman_phase_timer'] = globals().get('yachaman_phase_timer', 0) + 1
+            _ys_draw_mod.draw_yachaman_paddle(SCREEN, pygame, _yachaman_draw_rect, globals()['yachaman_phase_timer'])
+            _ys_draw_mod.draw_yachaman_character(SCREEN, pygame, _yachaman_draw_rect, globals()['yachaman_phase_timer'])
+            if recovery_effect_active and selected_character_type == "smasher":
+                draw_recovery_paddle_overlay(SCREEN, _yachaman_draw_rect)
+            _yachaman_drawn = True
+        except Exception:
+            _yachaman_drawn = False
     if _arena_paddle_drawn:
         pass  # 투기장 모드에서 영웅 패들을 그렸으므로 스킵
     elif arena_mode_enabled:
@@ -115583,6 +115599,8 @@ def draw_objects():
         pass  # 💀 죽음 애니메이션 후 패들 숨김 - 점수 화면에서 기존 캐릭터 안 보이게
     elif _horn_strawberry_hide_paddle:
         pass  # 🍓 뿔딸기 변신 중 기존 패들 숨김
+    elif _yachaman_drawn:
+        pass  # 💀 야차맨 변신 전용 외형을 이미 직접 그렸으므로 스킵
     elif special_ready:
         if (time_now // 250) % 2 == 0:
             #  성능 최적화: 블렌딩 모드를 사용한 깜빡임 효과
@@ -138527,7 +138545,7 @@ def get_item_icon(item_name):
     if item_name in icon_cache:
         return icon_cache[item_name]
     
-    # 야차맨의 영혼 아이콘 - 검은 봄버맨 투구 + 불꽃
+    # 야차맨의 투구 아이콘 - 검은 봄버맨 투구 + 불꽃
     if item_name == "yachaman_soul":
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
         icon_surface.fill((0, 0, 0, 0))
@@ -148736,7 +148754,7 @@ def handle_ball():
     # 👁 오딘의 눈 부활/죽음 애니메이션 중에는 공 물리 멈춤
     if odins_eye_revival_anim_active or odins_eye_death_anim_active:
         return  # 애니메이션 중에는 물리 업데이트 전체 스킵
-    # 💀 야차맨의 영혼 변신 애니메이션 중에는 공 물리 멈춤
+    # 💀 야차맨의 투구 변신 애니메이션 중에는 공 물리 멈춤
     if yachaman_revival_anim_active:
         return
 
@@ -150355,7 +150373,7 @@ def handle_ball():
                         odins_eye.reset_for_new_round()
             except Exception:
                 pass
-            # 💀 야차맨의 영혼: 라운드 리셋
+            # 💀 야차맨의 투구: 라운드 리셋
             try:
                 from item_effects.yachaman_soul import reset_for_new_round as _ys_round_reset
                 _ys_round_reset()
@@ -151576,7 +151594,7 @@ def handle_ball():
                 print(f"👁 오딘의 눈 부활 체크 오류: {e}")
                 traceback.print_exc()
 
-            # 💀 야차맨의 영혼: 실점 시 변신 부활 체크
+            # 💀 야차맨의 투구: 실점 시 변신 부활 체크
             yachaman_revival_success = False
             try:
                 if items.yachaman_soul_obtained:
@@ -151608,7 +151626,7 @@ def handle_ball():
                                 ball_vel[1] = 0
                                 return  # 패배 처리 중단, 애니메이션 진행
             except Exception as e:
-                print(f"💀 야차맨의 영혼 부활 체크 오류: {e}")
+                print(f"💀 야차맨의 투구 부활 체크 오류: {e}")
 
             # 튜토리얼 중이면 점수 고정 (0:0 유지)
             # 튜토리얼이 활성화되었고 아직 완료되지 않은 경우에만 점수 고정
@@ -151657,7 +151675,7 @@ def handle_ball():
                         odins_eye.reset_for_new_round()
             except Exception:
                 pass
-            # 💀 야차맨의 영혼: 라운드 패배 시 리셋
+            # 💀 야차맨의 투구: 라운드 패배 시 리셋
             try:
                 from item_effects.yachaman_soul import reset_for_new_round as _ys_rr3
                 _ys_rr3()
@@ -159898,7 +159916,7 @@ def main(stage_num, new_boss_mode=False):
     global waiting_start_time  # 서브 대기 타이머 (자동 서브용)
     # 👁 오딘의 눈 부활 애니메이션 상태
     global odins_eye_revival_anim_active, odins_eye_revival_anim_pending_reset
-    # 💀 야차맨의 영혼 부활 애니메이션 상태
+    # 💀 야차맨의 투구 부활 애니메이션 상태
     global yachaman_revival_anim_active, yachaman_revival_pending_reset, yachaman_phase_timer
     # 🎬 화면 전환 효과
     global screen_transition_active, screen_transition_progress, screen_transition_phase
@@ -166272,7 +166290,7 @@ def main(stage_num, new_boss_mode=False):
                                 # 어둠의 늪 스킬 활성화
                                 odins_eye.enable_dark_swamp()
 
-                        # 💀 야차맨의 영혼 변신 애니메이션 업데이트
+                        # 💀 야차맨의 투구 변신 애니메이션 업데이트
                         try:
                             if yachaman_revival_anim_active:
                                 from item_effects.yachaman_soul import update_animation as _ys_update, yachaman_anim_active as _ys_aa
@@ -173837,7 +173855,7 @@ def get_item_name_korean(item_name):
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
         "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
         "elixir_of_mastery": "엘릭서 오브 마스터리",
-        "yachaman_soul": "야차맨의 영혼",
+        "yachaman_soul": "야차맨의 투구",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -173946,7 +173964,7 @@ def get_item_description(item_name):
         "venom_mist_gauntlet": "독안개장갑: 바이퍼 전용 아이템. 독기가 순환하는 전투 장갑. 베놈 엣지를 더 강력하게 업그레이드 시켜줍니다. 베놈엣지의 독안개 안에 있는 보스는 이동속도가 감소하고, 게이지가 지속적으로 감소합니다.",
         "elixir_of_mastery": "엘릭서 오브 마스터리: 신을 보좌하는 신성연금술사가 만든 비약, 사용 시 보유 중인 퍽 중 하나가 랜덤으로 선택되어 즉시 Lv.5가 됩니다.",
         "dowsing_goggles": "다우징 고글: 고대 탐지 기술이 내장된 특수 고글입니다. 일정확률로 퍽 선택지가 1개 고정 증가합니다.",
-        "yachaman_soul": "야차맨의 영혼: 어둠의 전사 야차맨의 영혼이 깃든 투구입니다. 라운드 실점 시 일정 확률(50~80%, 롤옵션)로 봄버맨 형상의 야차맨으로 변신하여 부활합니다. 변신 상태에서는 이동속도 4 고정, 패들 크기 30% 감소. 변신 상태에서 재패배 시 실점 처리됩니다.",
+        "yachaman_soul": "야차맨의 투구: 어둠의 전사 야차맨의 투구이 깃든 투구입니다. 라운드 실점 시 일정 확률(50~80%, 롤옵션)로 봄버맨 형상의 야차맨으로 변신하여 부활합니다. 변신 상태에서는 이동속도 4 고정, 패들 크기 30% 감소. 변신 상태에서 재패배 시 실점 처리됩니다.",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
