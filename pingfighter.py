@@ -5187,10 +5187,8 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
             glow_alpha = int(180 * (1 - progress))
             glow_radius = icon_radius + int(8 * (1 - progress))
 
-            # 글로우 원
-            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (*skill_color[:3], glow_alpha),
-                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            # 글로우 원 (캐시 사용)
+            glow_surface = get_predrawn_glow_circle(glow_radius * 2 + 4, skill_color[:3], glow_alpha)
             surface.blit(glow_surface, (icon_x - glow_radius - 2, icon_y - glow_radius - 2))
 
         # === 원형 아이콘 배경 그리기 ===
@@ -5296,9 +5294,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
             skill_color = skill_data["color"]
             glow_alpha = int(180 * (1 - progress))
             glow_radius = icon_radius + int(8 * (1 - progress))
-            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (*skill_color[:3], glow_alpha),
-                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            glow_surface = get_predrawn_glow_circle(glow_radius * 2 + 4, skill_color[:3], glow_alpha)
             surface.blit(glow_surface, (icon_x - glow_radius - 2, icon_y - glow_radius - 2))
 
         pygame.draw.circle(surface, bg_color, (icon_x, icon_y), icon_radius)
@@ -5557,9 +5553,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             skill_color = skill_data["color"]
             glow_alpha = int(180 * (1 - progress))
             glow_radius = icon_radius + int(8 * (1 - progress))
-            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (*skill_color[:3], glow_alpha),
-                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            glow_surface = get_predrawn_glow_circle(glow_radius * 2 + 4, skill_color[:3], glow_alpha)
             surface.blit(glow_surface, (icon_x - glow_radius - 2, icon_y - glow_radius - 2))
 
         # 원형 아이콘 배경
@@ -5925,9 +5919,7 @@ def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb
         progress = activation_elapsed / activation_effect_duration
         glow_alpha = int(100 * (1 - progress))
         glow_radius = icon_radius + int(8 * (1 - progress))
-        glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surface, (*color[:3], glow_alpha),
-                           (glow_radius + 2, glow_radius + 2), glow_radius)
+        glow_surface = get_predrawn_glow_circle(glow_radius * 2 + 4, color[:3], glow_alpha)
         surface.blit(glow_surface, (slot_x - glow_radius - 2, slot_y - glow_radius - 2))
 
     # 아이콘 배경 원
@@ -8600,9 +8592,7 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
             glow_alpha = int(180 * (1 - progress))
             glow_radius = icon_radius + int(8 * (1 - progress))
 
-            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (*skill_color[:3], glow_alpha),
-                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            glow_surface = get_predrawn_glow_circle(glow_radius * 2 + 4, skill_color[:3], glow_alpha)
             surface.blit(glow_surface, (icon_x - glow_radius - 2, icon_y - glow_radius - 2))
 
         # === 원형 아이콘 배경 ===
@@ -19044,6 +19034,11 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     hovered_index = -1  # Currently hovered card index
     reset_btn_hover()
 
+    # 오버레이 서피스 (루프 밖에서 한 번만 생성, fill로 재사용)
+    _overlay_surf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+    # 파티클 서피스 캐시 (크기별 재사용)
+    _particle_surf_cache = {}
+
     while active:
         frame_count += 1
         update_btn_hover_effects()
@@ -19154,18 +19149,22 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                 p['alpha'] = random.randint(100, 220)
         particles = [p for p in particles if p['alpha'] > 0]
 
-        # Semi-transparent overlay - 전체 화면에 적용
+        # Semi-transparent overlay - 전체 화면에 적용 (서피스 재사용)
         overlay_alpha = min(160, frame_count * 6)
-        overlay = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 20, overlay_alpha))
-        SCREEN.blit(overlay, (0, 0))
+        _overlay_surf.fill((0, 0, 20, overlay_alpha))
+        SCREEN.blit(_overlay_surf, (0, 0))
 
-        # Draw particles
+        # Draw particles (서피스 크기별 캐시 재사용)
         for p in particles:
             if p['alpha'] > 0:
-                particle_surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                _ps = int(p['size'])
+                _ps2 = _ps * 2
+                if _ps2 not in _particle_surf_cache:
+                    _particle_surf_cache[_ps2] = pygame.Surface((_ps2, _ps2), pygame.SRCALPHA)
+                particle_surf = _particle_surf_cache[_ps2]
+                particle_surf.fill((0, 0, 0, 0))
                 pygame.draw.circle(particle_surf, (*p['color'], int(p['alpha'])),
-                                 (int(p['size']), int(p['size'])), int(p['size']))
+                                 (_ps, _ps), _ps)
                 SCREEN.blit(particle_surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
 
         # Appearing animation (동적 카드 수)
@@ -19934,6 +19933,10 @@ def _play_megingjord_activation_effect(screen):
     _bolts = []  # (pts, birth_frame, lifetime)
     _sparks = []  # 충돌 스파크
 
+    # 오버레이 서피스 (루프 밖에서 한 번만 생성)
+    _overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    _glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
     for frame in range(_duration):
         t = frame / _duration  # 0.0 → 1.0
         screen.blit(_bg, (0, 0))
@@ -19949,7 +19952,7 @@ def _play_megingjord_activation_effect(screen):
             shake_intensity = int(6 * (1.0 - t / 0.4))
             shake = _r.randint(-shake_intensity, shake_intensity)
 
-        _overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        _overlay.fill((0, 0, 0, 0))
 
         # ── 1. 초반 플래시 (번개 느낌) ──
         if t < 0.08:
@@ -19982,12 +19985,12 @@ def _play_megingjord_activation_effect(screen):
             if age < 0 or age >= lifetime:
                 continue
             bolt_alpha = max(0, 255 - int(255 * age / lifetime))
-            # 외곽 글로우 (넓고 투명한 파란색)
+            # 외곽 글로우 (넓고 투명한 파란색) — 서피스 재사용
+            _glow_surf.fill((0, 0, 0, 0))
             for i in range(len(bolt_pts) - 1):
-                glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                pygame.draw.line(glow_surf, (100, 180, 255, bolt_alpha // 3),
+                pygame.draw.line(_glow_surf, (100, 180, 255, bolt_alpha // 3),
                                bolt_pts[i], bolt_pts[i + 1], 7)
-                _overlay.blit(glow_surf, (0, 0))
+            _overlay.blit(_glow_surf, (0, 0))
             # 내부 코어 (밝은 흰색-파란)
             core_alpha = min(255, bolt_alpha + 50)
             for i in range(len(bolt_pts) - 1):
@@ -20284,6 +20287,10 @@ def _swap_boss_in_current_stage():
     _font_sm = get_font(16, style="regular")
     running = True
 
+    # 오버레이 서피스 (루프 밖에서 한 번만 생성)
+    _overlay_surf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+    _overlay_surf.fill((0, 0, 0, 160))
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -20304,10 +20311,8 @@ def _swap_boss_in_current_stage():
                     selected_idx = (selected_idx + 1) % len(boss_names)
                     running = False
 
-        # 렌더링
-        overlay = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 160))
-        REAL_SCREEN.blit(overlay, (0, 0))
+        # 렌더링 (서피스 재사용)
+        REAL_SCREEN.blit(_overlay_surf, (0, 0))
 
         # 타이틀
         title_surf = _font.render(_t("ui.boss_switch", "보스 교체 (Stage {0})").format(stage), True, (255, 255, 255))
@@ -60506,15 +60511,16 @@ def show_winner_text(winner_name):
     winner_surface = font_small.render(winner_name if show_winner_name else "", True, accent_color)
     # 게임 영역 중앙 X 좌표 (필러 오프셋 적용)
     game_center_x = PILLAR_UI_WIDTH + GAME_PLAY_WIDTH // 2
+    # 오버레이 서피스 (루프 밖에서 한 번만 생성)
+    _fade_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     #  빠른 페이드인 (0.4초)
     for alpha in range(0, 256, 25):
         pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
         draw_field()
         draw_objects()
-        # 반투명 오버레이
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, min(DEFAULT_ALPHA, alpha)))
-        SCREEN.blit(overlay, (0, 0))
+        # 반투명 오버레이 (서피스 재사용)
+        _fade_overlay.fill((0, 0, 0, min(DEFAULT_ALPHA, alpha)))
+        SCREEN.blit(_fade_overlay, (0, 0))
         # 메인 텍스트 위치 (패배 시에는 중앙에만 표시)
         if show_winner_name:
             result_rect = result_surface.get_rect(center=(game_center_x, HEIGHT // 2 - 20))
@@ -67168,6 +67174,10 @@ def show_judgment_debug_menu():
     font_option = get_font(22)
     font_hint = get_font(14)
 
+    # 반투명 배경 오버레이 (루프 밖에서 한 번만 생성)
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180))
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -67187,8 +67197,6 @@ def show_judgment_debug_menu():
                     running = False
 
         # 반투명 배경
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
         SCREEN.blit(overlay, (0, 0))
 
         cx = WIDTH // 2
@@ -126477,6 +126485,12 @@ def show_tutorial_success_feedback_blocking(message, level="normal"):
             'size': random.randint(3, 8)
         })
     
+    # 텍스트 배경용 서피스 (최대 크기로 한 번만 생성)
+    _base_text = font_large.render(message, True, main_color)
+    _max_w = int(_base_text.get_width() * 1.2) + 40
+    _max_h = int(_base_text.get_height() * 1.2) + 20
+    _bg_surf = pygame.Surface((_max_w, _max_h), pygame.SRCALPHA)
+
     # 애니메이션 루프 (1.5초간 칭찬 애니메이션) - 원래대로 복원
     animation_duration = 90  # 1.5초
     for frame in range(animation_duration):
@@ -126518,11 +126532,12 @@ def show_tutorial_success_feedback_blocking(message, level="normal"):
                                               int(text_surface.get_height() * text_scale)))
         text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
         
-        # 텍스트 배경 (반투명)
-        bg_surface = pygame.Surface((text_rect.width + 40, text_rect.height + 20), pygame.SRCALPHA)
-        bg_surface.fill((0, 0, 0, 100))
-        bg_rect = bg_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-        SCREEN.blit(bg_surface, bg_rect)
+        # 텍스트 배경 (반투명, 서피스 재사용)
+        _bg_surf.fill((0, 0, 0, 0))
+        _bg_w = text_rect.width + 40
+        _bg_h = text_rect.height + 20
+        pygame.draw.rect(_bg_surf, (0, 0, 0, 100), (0, 0, _bg_w, _bg_h))
+        SCREEN.blit(_bg_surf, (WIDTH // 2 - _bg_w // 2, HEIGHT // 2 - _bg_h // 2))
         
         # 텍스트 그리기
         SCREEN.blit(text_surface, text_rect)
