@@ -3542,31 +3542,22 @@ class BuildingInterior:
         return None
 
     def _start_penalty_kick_game(self):
-        """패널티킥 게임 시작 - 핑퐁 엔진 콜백 방식"""
+        """패널티킥 게임 시작 - FIFA식 독립 미니게임 (네온 아케이드 배경)"""
         if self.penalty_kick_playing:
             return False
 
-        if self.penalty_kick_callback is not None:
-            # 핑퐁 엔진 콜백 방식 (투기장 패턴)
-            self.penalty_kick_playing = True
-            result = self.penalty_kick_callback()
-            self.penalty_kick_playing = False
-            # result: True=플레이어 승, False=보스 승, None=ESC
-            return True
-        else:
-            # 폴백: 기존 FIFA식 패널티킥 (콜백 없을 때)
+        try:
+            from .penalty_kick_game import PenaltyKickGameUI
+        except ImportError:
             try:
-                from .penalty_kick_game import PenaltyKickGameUI
+                from downtown.penalty_kick_game import PenaltyKickGameUI
             except ImportError:
-                try:
-                    from downtown.penalty_kick_game import PenaltyKickGameUI
-                except ImportError:
-                    return False
+                return False
 
-            self.penalty_kick_ui = PenaltyKickGameUI(SCREEN_WIDTH, SCREEN_HEIGHT, fonts=self.fonts)
-            self.penalty_kick_ui.start_game()
-            self.penalty_kick_playing = True
-            return True
+        self.penalty_kick_ui = PenaltyKickGameUI(SCREEN_WIDTH, SCREEN_HEIGHT, fonts=self.fonts)
+        self.penalty_kick_ui.start_game()
+        self.penalty_kick_playing = True
+        return True
 
     def _update_penalty_kick_game(self, dt):
         """패널티킥 게임 업데이트"""

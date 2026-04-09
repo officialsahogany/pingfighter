@@ -13,6 +13,11 @@ import os
 import sys
 import time
 
+try:
+    from backgrounds.animated_background_stage33 import AnimatedBackgroundStage33
+except Exception:
+    AnimatedBackgroundStage33 = None
+
 
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and PyInstaller"""
@@ -81,6 +86,16 @@ COLOR_DARK_BG = (15, 20, 15)
 COLOR_WHITE = (255, 255, 255)
 COLOR_GRAY = (150, 150, 150)
 COLOR_BLACK = (0, 0, 0)
+
+ZONE_BASE_ANGLES = {
+    GOAL_LEFT: -0.72,
+    GOAL_CENTER: 0.0,
+    GOAL_RIGHT: 0.72,
+}
+
+
+def _clamp(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
 
 
 # ============================================
@@ -255,11 +270,12 @@ class PenaltyKickGameUI:
         self.screen_height = screen_height
         self.fonts = fonts
         self._font_cache = {}
+        self.arcade_background = AnimatedBackgroundStage33(WIDTH, HEIGHT) if AnimatedBackgroundStage33 else None
 
         # 게임 상태
         self.state = GameState.ROLE_SELECT
-        self.role = None  # 현재 킥의 역할 (공격/수비)
-        self.first_role = None  # 처음 선택한 역할
+        self.role = Role.ATTACK
+        self.first_role = Role.ATTACK
 
         # FIFA 스코어
         self.player_score = 0
@@ -270,6 +286,7 @@ class PenaltyKickGameUI:
         self.is_sudden_death = False
 
         # 공격 조작 변수
+        self.attack_target_zone = GOAL_CENTER
         self.power = 0
         self.angle_offset = 0  # -1 ~ 1
         self.curve_amount = 0  # -1 ~ 1 (양수=우커브)
@@ -288,6 +305,7 @@ class PenaltyKickGameUI:
         self.keeper = Keeper()
 
         # 보스 AI
+        self.boss_target_zone = GOAL_CENTER
         self.boss_kick_power = 0
         self.boss_kick_angle = 0
         self.boss_kick_curve = 0
@@ -347,13 +365,18 @@ class PenaltyKickGameUI:
     # ============================================
     def start_game(self):
         """게임 초기화 및 시작"""
-        self.state = GameState.ROLE_SELECT
+        self.state = GameState.AIM
+        self.role = Role.ATTACK
+        self.first_role = Role.ATTACK
         self.player_score = 0
         self.boss_score = 0
         self.current_kick = 0
         self.kick_results = []
         self.is_sudden_death = False
         self.menu_selection = 0
+        self.attack_target_zone = GOAL_CENTER
+        self.boss_target_zone = GOAL_CENTER
+        self._start_next_kick()
 
     # ============================================
     # 이벤트 처리
@@ -415,7 +438,13 @@ class PenaltyKickGameUI:
 
     def _handle_aim(self, event):
         """조준 시작 - 스페이스바 누르면 충전 시작"""
-        if event.key == pygame.K_SPACE:
+        if event.key == pygame.K_LEFT:
+            self.attack_target_zone = GOAL_LEFT
+        elif event.key == pygame.K_RIGHT:
+            self.attack_target_zone = GOAL_RIGHT
+        elif event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+            self.attack_target_zone = GOAL_CENTER
+        elif event.key == pygame.K_SPACE:
             self.state = GameState.CHARGING
             self.charging = True
             self.space_held = True
@@ -481,9 +510,11 @@ class PenaltyKickGameUI:
     def _start_next_kick(self):
         """다음 킥 시작"""
         self.ball.reset()
+        self.ball.x = WIDTH // 2
         self.power = 0
         self.angle_offset = 0
         self.curve_amount = 0
+        self.attack_target_zone = GOAL_CENTER
         self.left_held = False
         self.right_held = False
         self.down_held = False
@@ -494,31 +525,33 @@ class PenaltyKickGameUI:
         self.ready_timer = 90  # 1.5초 준비 시간
 
         # 짝수 킥: 첫번째 역할, 홀수 킥: 반대 역할 (교대)
-        if self.current_kick % 2 == 0:
-            self.role = self.first_role
-        else:
-            self.role = Role.DEFENSE if self.first_role == Role.ATTACK else Role.ATTACK
+        self.role = Role.ATTACK if self._is_player_kick(self.current_kick) else Role.DEFENSE
 
         if self.role == Role.ATTACK:
             # 플레이어 공격 모드
-            self.ball.x = WIDTH // 2
             self.ball.y = BALL_START_ATTACK_Y
             self.keeper.set_position(GOAL_TOP_Y + GOAL_HEIGHT // 2 - KEEPER_HEIGHT // 2)
             self.state = GameState.AIM
-            self.ready_text = "KICK!"
+            self.ready_text = "PLAYER SHOOTS"
         else:
             # 플레이어 수비 모드
             self.ball.x = WIDTH // 2
-            self.ball.y = BALL_START_DEFENSE_Y
-            self.keeper.set_position(GOAL_BOTTOM_Y + GOAL_HEIGHT // 2 - KEEPER_HEIGHT // 2)
+            self.ball.y = BALL_START_ATTACK_Y
+            self.keeper.set_position(GOAL_TOP_Y + GOAL_HEIGHT // 2 - KEEPER_HEIGHT // 2)
             self.defense_choice = GOAL_CENTER
             self.state = GameState.DEFENSE_SELECT
-            self.ready_text = "SAVE!"
+            self.ready_text = "BOSS SHOOTS"
 
             # 보스 AI 킥 파라미터 미리 결정
+            self.boss_target_zone = random.choice([GOAL_LEFT, GOAL_CENTER, GOAL_RIGHT])
             self.boss_kick_power = random.randint(55, 90)
-            self.boss_kick_angle = random.uniform(-0.8, 0.8)
-            self.boss_kick_curve = random.uniform(-0.6, 0.6)
+            self.boss_kick_angle = _clamp(
+                ZONE_BASE_ANGLES[self.boss_target_zone] + random.uniform(-0.18, 0.18),
+                -1.0,
+                1.0,
+            )
+            curve_bias = {GOAL_LEFT: -0.18, GOAL_CENTER: 0.0, GOAL_RIGHT: 0.18}[self.boss_target_zone]
+            self.boss_kick_curve = _clamp(random.uniform(-0.5, 0.5) + curve_bias, -0.8, 0.8)
 
     def _launch_player_kick(self):
         """플레이어 킥 발사"""
@@ -527,6 +560,11 @@ class PenaltyKickGameUI:
         # 보스 골키퍼 랜덤 다이빙 결정
         boss_dive = random.choice([GOAL_LEFT, GOAL_CENTER, GOAL_RIGHT])
         self.keeper.decide_dive(boss_dive)
+        final_angle = _clamp(
+            ZONE_BASE_ANGLES[self.attack_target_zone] + self.angle_offset * 0.55,
+            -1.0,
+            1.0,
+        )
 
         # 공 발사
         self.ball.launch(
@@ -534,7 +572,7 @@ class PenaltyKickGameUI:
             start_y=BALL_START_ATTACK_Y,
             target_y=GOAL_TOP_Y + GOAL_HEIGHT // 2,
             power=self.power,
-            angle_offset=self.angle_offset,
+            angle_offset=final_angle,
             curve=self.curve_amount
         )
 
@@ -550,25 +588,20 @@ class PenaltyKickGameUI:
         # 보스 공 발사 (위에서 아래로)
         self.ball.launch(
             start_x=WIDTH // 2,
-            start_y=BALL_START_DEFENSE_Y,
-            target_y=GOAL_BOTTOM_Y + GOAL_HEIGHT // 2,
+            start_y=BALL_START_ATTACK_Y,
+            target_y=GOAL_TOP_Y + GOAL_HEIGHT // 2,
             power=self.boss_kick_power,
             angle_offset=self.boss_kick_angle,
             curve=self.boss_kick_curve
         )
 
-        self._spawn_kick_particles(WIDTH // 2, BALL_START_DEFENSE_Y)
+        self._spawn_kick_particles(WIDTH // 2, BALL_START_ATTACK_Y)
 
     def _check_ball_result(self):
         """공의 결과 판정"""
-        if self.role == Role.ATTACK:
-            goal_x = GOAL_X
-            goal_y = GOAL_TOP_Y
-            direction = -1
-        else:
-            goal_x = GOAL_X
-            goal_y = GOAL_BOTTOM_Y
-            direction = 1
+        goal_x = GOAL_X
+        goal_y = GOAL_TOP_Y
+        direction = -1
 
         # 공이 골대를 지나갔는지
         if self.ball.is_past_goal(goal_y, direction):
@@ -665,10 +698,7 @@ class PenaltyKickGameUI:
 
     def _is_player_kick(self, kick_index):
         """해당 킥이 플레이어 공격인지"""
-        if kick_index % 2 == 0:
-            return self.first_role == Role.ATTACK
-        else:
-            return self.first_role == Role.DEFENSE
+        return kick_index % 2 == 0
 
     # ============================================
     # 업데이트
@@ -676,6 +706,9 @@ class PenaltyKickGameUI:
     def update(self, dt):
         """매 프레임 업데이트"""
         self.animation_timer += 1
+
+        if self.arcade_background is not None:
+            self.arcade_background.update(_clamp(dt or (1 / 60), 1 / 240, 0.05))
 
         # 준비 타이머
         if self.ready_timer > 0:
@@ -1374,3 +1407,368 @@ class PenaltyKickGameUI:
 
         # 파티클
         self._draw_particles(screen)
+
+    def _draw_field(self, screen):
+        if self.arcade_background is not None:
+            self.arcade_background.draw(screen)
+        else:
+            screen.fill(COLOR_DARK_BG)
+
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((10, 18, 28, 120))
+        screen.blit(overlay, (0, 0))
+
+        pitch_rect = pygame.Rect(48, 58, WIDTH - 96, HEIGHT - 116)
+        pitch_surf = pygame.Surface((pitch_rect.width, pitch_rect.height), pygame.SRCALPHA)
+        pitch_surf.fill((8, 36, 34, 95))
+        screen.blit(pitch_surf, pitch_rect.topleft)
+
+        neon_color = (180, 255, 250)
+        neon_magenta = (255, 90, 210)
+        pygame.draw.rect(screen, neon_color, pitch_rect, 3, border_radius=10)
+        pygame.draw.rect(screen, neon_magenta, pitch_rect.inflate(-18, -18), 1, border_radius=10)
+        pygame.draw.line(screen, neon_color, (60, HEIGHT // 2), (WIDTH - 60, HEIGHT // 2), 2)
+        pygame.draw.circle(screen, neon_color, (WIDTH // 2, HEIGHT // 2), 60, 2)
+        pygame.draw.circle(screen, neon_color, (WIDTH // 2, HEIGHT // 2), 4)
+
+        box_w = 360
+        box_h = 160
+        box_x = (WIDTH - box_w) // 2
+        pygame.draw.rect(screen, neon_color, (box_x, 0, box_w, box_h), 2)
+        pygame.draw.arc(screen, neon_color, (WIDTH // 2 - 60, box_h - 30, 120, 60), 0, math.pi, 2)
+        pygame.draw.rect(screen, neon_magenta, (box_x, HEIGHT - box_h, box_w, box_h), 2)
+        pygame.draw.arc(screen, neon_magenta, (WIDTH // 2 - 60, HEIGHT - box_h - 30, 120, 60), math.pi, math.pi * 2, 2)
+        pygame.draw.circle(screen, neon_color, (WIDTH // 2, 130), 4)
+        pygame.draw.circle(screen, neon_magenta, (WIDTH // 2, HEIGHT - 130), 4)
+
+        if self.goal_flash > 0:
+            flash_alpha = int((self.goal_flash / 30) * 80)
+            flash_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            flash_surf.fill((255, 215, 0, flash_alpha))
+            screen.blit(flash_surf, (0, 0))
+
+    def _draw_characters(self, screen):
+        if self.role == Role.ATTACK:
+            self._draw_keeper(screen, self.keeper.x, self.keeper.y, is_boss=True)
+            self._draw_kicker(screen, WIDTH // 2, BALL_START_ATTACK_Y + 30, is_boss=False)
+        else:
+            self._draw_keeper(screen, self.keeper.x, self.keeper.y, is_boss=False)
+            self._draw_kicker(screen, WIDTH // 2, BALL_START_ATTACK_Y + 30, is_boss=True)
+
+    def _draw_keeper(self, screen, x, y, is_boss=False):
+        shadow_surf = pygame.Surface((KEEPER_WIDTH + 10, 15), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 60), (0, 0, KEEPER_WIDTH + 10, 15))
+        screen.blit(shadow_surf, (x - KEEPER_WIDTH // 2 - 5, y + KEEPER_HEIGHT - 5))
+
+        body_color = (205, 55, 55) if is_boss else (60, 120, 200)
+        trim_color = (25, 25, 35) if is_boss else (210, 235, 255)
+        glove_color = (255, 180, 0) if is_boss else (120, 220, 255)
+
+        leg_w, leg_h = 12, 25
+        pygame.draw.rect(screen, (50, 50, 50), (x - 15, y + KEEPER_HEIGHT - 30, leg_w, leg_h))
+        pygame.draw.rect(screen, (50, 50, 50), (x + 3, y + KEEPER_HEIGHT - 30, leg_w, leg_h))
+
+        torso_rect = pygame.Rect(x - KEEPER_WIDTH // 4, y + 15, KEEPER_WIDTH // 2, 40)
+        pygame.draw.rect(screen, body_color, torso_rect, border_radius=5)
+        pygame.draw.rect(screen, trim_color, torso_rect, 2, border_radius=5)
+        if is_boss:
+            for offset in (-12, -4, 4, 12):
+                pygame.draw.line(screen, trim_color, (x + offset, y + 18), (x + offset, y + 52), 3)
+
+        font = self._get_font(14)
+        font.render_to(screen, (x - 8, y + 28), "33" if is_boss else "1", COLOR_WHITE)
+
+        head_r = 14
+        pygame.draw.circle(screen, (230, 190, 150), (x, y + 10), head_r)
+        hair_color = (40, 30, 20) if is_boss else (80, 60, 40)
+        pygame.draw.arc(screen, hair_color, (x - head_r, y - 5, head_r * 2, head_r), 0, math.pi, 4)
+        if is_boss:
+            pygame.draw.line(screen, (240, 240, 240), (x - 12, y + 7), (x + 12, y + 7), 3)
+
+        if self.keeper.diving:
+            dive_offset = (self.keeper.x - WIDTH // 2) * 0.3
+            pygame.draw.circle(screen, glove_color, (int(x - 30 + dive_offset), int(y + 25)), 10)
+            pygame.draw.circle(screen, glove_color, (int(x + 30 + dive_offset), int(y + 25)), 10)
+        else:
+            pygame.draw.circle(screen, glove_color, (x - 25, y + 30), 10)
+            pygame.draw.circle(screen, glove_color, (x + 25, y + 30), 10)
+
+    def _draw_kicker(self, screen, x, y, is_boss=False):
+        body_color = (210, 55, 55) if is_boss else (60, 120, 200)
+        trim_color = (30, 30, 35) if is_boss else (210, 240, 255)
+        sock_color = (245, 245, 245) if is_boss else (160, 220, 255)
+
+        shadow_surf = pygame.Surface((KICKER_WIDTH + 10, 12), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 60), (0, 0, KICKER_WIDTH + 10, 12))
+        screen.blit(shadow_surf, (x - KICKER_WIDTH // 2 - 5, y + KICKER_HEIGHT - 5))
+
+        pygame.draw.rect(screen, (50, 50, 50), (x - 12, y + KICKER_HEIGHT - 25, 10, 22))
+        pygame.draw.rect(screen, (50, 50, 50), (x + 2, y + KICKER_HEIGHT - 25, 10, 22))
+        pygame.draw.rect(screen, sock_color, (x - 12, y + KICKER_HEIGHT - 16, 10, 7))
+        pygame.draw.rect(screen, sock_color, (x + 2, y + KICKER_HEIGHT - 16, 10, 7))
+
+        torso_rect = pygame.Rect(x - KICKER_WIDTH // 4, y + 15, KICKER_WIDTH // 2, 35)
+        pygame.draw.rect(screen, body_color, torso_rect, border_radius=5)
+        pygame.draw.rect(screen, trim_color, torso_rect, 2, border_radius=5)
+        if is_boss:
+            for offset in (-10, 0, 10):
+                pygame.draw.line(screen, trim_color, (x + offset, y + 18), (x + offset, y + 47), 3)
+            pygame.draw.rect(screen, trim_color, (x - 16, y + 50, 32, 10), border_radius=4)
+
+        font = self._get_font(14)
+        font.render_to(screen, (x - 8, y + 25), "33" if is_boss else "10", COLOR_WHITE)
+
+        head_r = 12
+        pygame.draw.circle(screen, (230, 190, 150), (x, y + 10), head_r)
+        hair_color = (35, 25, 20) if is_boss else (70, 55, 35)
+        pygame.draw.arc(screen, hair_color, (x - head_r, y - 4, head_r * 2, head_r), 0, math.pi, 3)
+        if is_boss:
+            pygame.draw.line(screen, (245, 245, 245), (x - 10, y + 8), (x + 10, y + 8), 3)
+
+    def _draw_ball(self, screen):
+        if not self.ball.active and self.state not in (GameState.AIM, GameState.CHARGING, GameState.DEFENSE_SELECT):
+            return
+
+        bx, by = self.ball.x, self.ball.y
+        if not self.ball.active:
+            bx, by = WIDTH // 2, BALL_START_ATTACK_Y
+
+        if self.ball.active and len(self.ball.trail) > 1:
+            for i, (tx, ty) in enumerate(self.ball.trail):
+                alpha = int(255 * (i / len(self.ball.trail)) * 0.4)
+                r = max(2, int(BALL_RADIUS * 0.5 * (i / len(self.ball.trail))))
+                trail_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(trail_surf, (255, 255, 255, alpha), (r, r), r)
+                screen.blit(trail_surf, (int(tx) - r, int(ty) - r))
+
+        shadow_y = by + 15
+        shadow_r = int(BALL_RADIUS * self.ball.scale * 0.8)
+        shadow_surf = pygame.Surface((shadow_r * 4, shadow_r * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, shadow_r * 4, shadow_r * 2))
+        screen.blit(shadow_surf, (int(bx) - shadow_r * 2, int(shadow_y) - shadow_r))
+
+        r = max(4, int(BALL_RADIUS * self.ball.scale))
+        pygame.draw.circle(screen, COLOR_BALL, (int(bx), int(by)), r)
+        pygame.draw.circle(screen, (200, 200, 200), (int(bx), int(by)), r, 2)
+        pent_r = r * 0.4
+        for angle_offset in range(0, 360, 72):
+            a = math.radians(angle_offset + self.ball.rotation)
+            px = bx + math.cos(a) * pent_r
+            py = by + math.sin(a) * pent_r
+            pygame.draw.circle(screen, (50, 50, 50), (int(px), int(py)), max(1, int(r * 0.15)))
+
+    def _draw_hud(self, screen):
+        hud_h = 50
+        hud_surf = pygame.Surface((WIDTH, hud_h), pygame.SRCALPHA)
+        hud_surf.fill((0, 0, 0, 160))
+        screen.blit(hud_surf, (0, 0))
+
+        font_big = self._get_font(24)
+        font_sm = self._get_font(14)
+        font_big.render_to(screen, (WIDTH // 2 - 80, 12), str(self.player_score), COLOR_BLUE)
+        font_sm.render_to(screen, (WIDTH // 2 - 80, 35), "PLAYER", COLOR_BLUE)
+        font_big.render_to(screen, (WIDTH // 2 - 10, 12), "-", COLOR_WHITE)
+        font_big.render_to(screen, (WIDTH // 2 + 55, 12), str(self.boss_score), COLOR_RED)
+        font_sm.render_to(screen, (WIDTH // 2 + 18, 35), "ARCADE MASTER", COLOR_RED)
+
+        kick_text = "SUDDEN DEATH" if self.is_sudden_death else f"KICK {min(self.current_kick + 1, self.total_kicks)}/{self.total_kicks}"
+        font_sm.render_to(screen, (20, 18), kick_text, COLOR_GOLD)
+
+        role_text = "ATTACK" if self.role == Role.ATTACK else "DEFEND"
+        role_color = COLOR_BLUE if self.role == Role.ATTACK else (100, 200, 100)
+        font_sm.render_to(screen, (WIDTH - 92, 18), role_text, role_color)
+        self._draw_kick_markers(screen)
+
+    def _draw_aim_ui(self, screen):
+        zone_w = GOAL_WIDTH // 3
+        for i in range(3):
+            zx = GOAL_X + zone_w * i
+            zy = GOAL_TOP_Y
+            zone_surf = pygame.Surface((zone_w, GOAL_HEIGHT), pygame.SRCALPHA)
+            if i == self.attack_target_zone:
+                zone_surf.fill((255, 220, 80, 65))
+                pygame.draw.rect(screen, COLOR_GOLD, (zx, zy, zone_w, GOAL_HEIGHT), 3)
+            else:
+                zone_surf.fill((255, 255, 255, 14))
+            screen.blit(zone_surf, (zx, zy))
+
+        gauge_x = 30
+        gauge_y = HEIGHT - 280
+        gauge_w = 25
+        gauge_h = 200
+        pygame.draw.rect(screen, (30, 30, 30), (gauge_x - 2, gauge_y - 2, gauge_w + 4, gauge_h + 4), border_radius=3)
+        pygame.draw.rect(screen, (60, 60, 60), (gauge_x, gauge_y, gauge_w, gauge_h), border_radius=2)
+
+        fill_h = int((self.power / POWER_MAX) * gauge_h)
+        if fill_h > 0:
+            ratio = self.power / POWER_MAX
+            color = (int(ratio * 2 * 255), 200, 50) if ratio < 0.5 else (255, int((1 - ratio) * 2 * 200), 50)
+            pygame.draw.rect(screen, color, (gauge_x, gauge_y + gauge_h - fill_h, gauge_w, fill_h), border_radius=2)
+
+        danger_y = gauge_y + int((1 - 0.85) * gauge_h)
+        pygame.draw.line(screen, COLOR_RED, (gauge_x, danger_y), (gauge_x + gauge_w, danger_y), 2)
+
+        font = self._get_font(11)
+        font.render_to(screen, (gauge_x - 2, gauge_y - 18), "POWER", COLOR_WHITE)
+        font.render_to(screen, (gauge_x, gauge_y + gauge_h + 5), f"{int(self.power)}%", COLOR_WHITE)
+
+        dir_x = WIDTH // 2
+        dir_y = HEIGHT - 60
+        bar_w = 200
+        pygame.draw.line(screen, COLOR_GRAY, (dir_x - bar_w // 2, dir_y), (dir_x + bar_w // 2, dir_y), 3)
+        marker_x = dir_x + int(self.angle_offset * bar_w // 2)
+        pygame.draw.circle(screen, COLOR_GOLD, (marker_x, dir_y), 8)
+        pygame.draw.circle(screen, COLOR_WHITE, (marker_x, dir_y), 8, 2)
+        font.render_to(screen, (dir_x - 18, dir_y + 15), "BEND", COLOR_WHITE)
+
+        curve_x = WIDTH - 55
+        curve_y = HEIGHT - 280
+        curve_w = 25
+        curve_h = 200
+        pygame.draw.rect(screen, (30, 30, 30), (curve_x - 2, curve_y - 2, curve_w + 4, curve_h + 4), border_radius=3)
+        pygame.draw.rect(screen, (60, 60, 60), (curve_x, curve_y, curve_w, curve_h), border_radius=2)
+        curve_fill = int(abs(self.curve_amount) * curve_h)
+        if curve_fill > 0:
+            pygame.draw.rect(screen, (100, 180, 255), (curve_x, curve_y + curve_h - curve_fill, curve_w, curve_fill), border_radius=2)
+        font.render_to(screen, (curve_x - 2, curve_y - 18), "CURVE", COLOR_WHITE)
+        font.render_to(screen, (curve_x, curve_y + curve_h + 5), f"{int(abs(self.curve_amount) * 100)}%", COLOR_WHITE)
+
+        guide_font = self._get_font(14)
+        guide_surf = pygame.Surface((430, 42), pygame.SRCALPHA)
+        guide_surf.fill((0, 0, 0, 140))
+        screen.blit(guide_surf, (WIDTH // 2 - 215, HEIGHT - 48))
+        guide_font.render_to(screen, (WIDTH // 2 - 200, HEIGHT - 43), "LEFT/RIGHT/UP: TARGET  HOLD SPACE: POWER", COLOR_GOLD)
+        guide_font.render_to(screen, (WIDTH // 2 - 200, HEIGHT - 24), "HOLD LEFT/RIGHT: ANGLE  HOLD DOWN: CURVE", COLOR_WHITE)
+
+    def _draw_defense_ui(self, screen):
+        zone_w = GOAL_WIDTH // 3
+        for i in range(3):
+            zx = GOAL_X + zone_w * i
+            zy = GOAL_TOP_Y
+            selected = i == self.defense_choice
+            sel_surf = pygame.Surface((zone_w, GOAL_HEIGHT), pygame.SRCALPHA)
+            if selected:
+                sel_surf.fill((50, 150, 255, 80))
+                screen.blit(sel_surf, (zx, zy))
+                pygame.draw.rect(screen, COLOR_BLUE, (zx, zy, zone_w, GOAL_HEIGHT), 3)
+            else:
+                sel_surf.fill((255, 255, 255, 20))
+                screen.blit(sel_surf, (zx, zy))
+
+        font = self._get_font(16)
+        labels = ["LEFT", "CENTER", "RIGHT"]
+        keys = ["<-", "^", "->"]
+        for i, (label, key) in enumerate(zip(labels, keys)):
+            zx = GOAL_X + zone_w * i + zone_w // 2
+            zy = GOAL_TOP_Y + GOAL_HEIGHT + 20
+            color = COLOR_BLUE if i == self.defense_choice else COLOR_GRAY
+            text_w = len(label) * 8
+            font.render_to(screen, (zx - text_w // 2, zy), label, color)
+            font.render_to(screen, (zx - 8, zy + 20), key, color)
+
+        if not self.defense_confirmed:
+            guide_font = self._get_font(16)
+            guide_surf = pygame.Surface((360, 30), pygame.SRCALPHA)
+            guide_surf.fill((0, 0, 0, 120))
+            screen.blit(guide_surf, (WIDTH // 2 - 180, HEIGHT - 35))
+            guide_font.render_to(screen, (WIDTH // 2 - 160, HEIGHT - 30), "Arrow: Pick Zone  SPACE: Confirm", COLOR_GOLD)
+
+    def _draw_role_select(self, screen):
+        if self.arcade_background is not None:
+            self.arcade_background.draw(screen)
+        else:
+            screen.fill(COLOR_DARK_BG)
+
+        fade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        fade.fill((0, 0, 0, 160))
+        screen.blit(fade, (0, 0))
+
+        font_title = self._get_font(32)
+        font_sub = self._get_font(18)
+        font_guide = self._get_font(16)
+        font_title.render_to(screen, (WIDTH // 2 - 120, 110), "PENALTY KICK", COLOR_GOLD)
+        font_sub.render_to(screen, (WIDTH // 2 - 170, 165), "FIFA RULES ON STAGE 33 ARCADE FLOOR", COLOR_WHITE)
+        font_sub.render_to(screen, (WIDTH // 2 - 155, 220), "Player shoots first, then defends.", (180, 220, 255))
+        font_sub.render_to(screen, (WIDTH // 2 - 170, 252), "SPACE: Start  ESC: Exit", COLOR_GRAY)
+        font_guide.render_to(screen, (WIDTH // 2 - 200, 330), "Target left / center / right, then charge power and bend.", COLOR_WHITE)
+        font_guide.render_to(screen, (WIDTH // 2 - 150, 360), "Boss keeper and boss shooter both choose randomly.", COLOR_WHITE)
+
+    def _draw_game_over(self, screen):
+        if self.arcade_background is not None:
+            self.arcade_background.draw(screen)
+        else:
+            screen.fill(COLOR_DARK_BG)
+
+        fade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        fade.fill((0, 0, 0, 165))
+        screen.blit(fade, (0, 0))
+
+        if self.player_score > self.boss_score:
+            title = "YOU WIN!"
+            title_color = COLOR_GOLD
+        elif self.player_score < self.boss_score:
+            title = "YOU LOSE"
+            title_color = COLOR_RED
+        else:
+            title = "DRAW"
+            title_color = COLOR_GRAY
+
+        font_title = self._get_font(40)
+        t_surf, t_rect = font_title.render(title, title_color)
+        screen.blit(t_surf, (WIDTH // 2 - t_rect.width // 2, 120))
+
+        font_score = self._get_font(60)
+        score_text = f"{self.player_score} - {self.boss_score}"
+        s_surf, s_rect = font_score.render(score_text, COLOR_WHITE)
+        screen.blit(s_surf, (WIDTH // 2 - s_rect.width // 2, 200))
+
+        font_sm = self._get_font(14)
+        y_offset = 300
+        for i, (attacker, is_goal) in enumerate(self.kick_results):
+            kick_num_text = f"SD {i - self.total_kicks + 1}" if i >= self.total_kicks else f"#{i + 1}"
+            who = "Player" if attacker == "player" else "Boss"
+            result = "GOAL" if is_goal else "MISS"
+            color = COLOR_BLUE if attacker == "player" else COLOR_RED
+            result_color = COLOR_GOLD if is_goal else COLOR_GRAY
+            font_sm.render_to(screen, (WIDTH // 2 - 100, y_offset), kick_num_text, COLOR_WHITE)
+            font_sm.render_to(screen, (WIDTH // 2 - 50, y_offset), who, color)
+            font_sm.render_to(screen, (WIDTH // 2 + 40, y_offset), result, result_color)
+            y_offset += 22
+
+        font_guide = self._get_font(16)
+        font_guide.render_to(screen, (WIDTH // 2 - 80, HEIGHT - 60), "SPACE: Exit", COLOR_GRAY)
+        self._draw_particles(screen)
+
+    def _draw_goal(self, screen):
+        """골대 렌더링 - 상단 골대만 (네온 스타일)"""
+        self._draw_single_goal_neon(screen, GOAL_X, GOAL_TOP_Y, GOAL_WIDTH, GOAL_HEIGHT)
+
+    def _draw_single_goal_neon(self, screen, x, y, w, h):
+        """네온 스타일 골대"""
+        neon_cyan = (0, 255, 255)
+        neon_white = (220, 240, 255)
+
+        # 골 네트 배경
+        net_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        net_surf.fill((0, 20, 30, 50))
+        for i in range(0, w, 18):
+            pygame.draw.line(net_surf, (0, 255, 255, 30), (i, 0), (i, h))
+        for j in range(0, h, 18):
+            pygame.draw.line(net_surf, (0, 255, 255, 30), (0, j), (w, j))
+        screen.blit(net_surf, (x, y))
+
+        # 골 포스트 (네온 글로우)
+        post_w = 5
+        pygame.draw.rect(screen, neon_cyan, (x - post_w // 2, y, post_w, h))
+        pygame.draw.rect(screen, neon_cyan, (x + w - post_w // 2, y, post_w, h))
+
+        # 크로스바
+        pygame.draw.rect(screen, neon_white, (x, y + h - 3, w, 5))
+
+        # 3등분 가이드 (반투명 네온)
+        guide_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        zone_w = w // 3
+        for i in range(1, 3):
+            pygame.draw.line(guide_surf, (255, 0, 255, 50),
+                             (zone_w * i, 0), (zone_w * i, h), 1)
+        screen.blit(guide_surf, (x, y))
