@@ -2701,26 +2701,27 @@ INTERIOR_CONFIGS = {
     },
     BuildingType.MINIGAME: {
         "name": "레트로 아케이드",
-        "map_size": (14, 12),
-        "bg_color": (20, 25, 35),
-        "floor_color": (40, 45, 60),
+        "map_size": (18, 14),
+        "bg_color": (12, 8, 22),
+        "floor_color": (25, 20, 40),
         "floor_pattern": "arcade_carpet",
-        "wall_color": (30, 35, 50),
-        "accent_color": (57, 255, 20),
-        "secondary_color": (255, 100, 255),
-        "decorations": ["arcade_cabinet", "prize_claw", "pinball", "neon_tube"],
+        "wall_color": (18, 14, 32),
+        "accent_color": (0, 255, 255),
+        "secondary_color": (255, 0, 255),
+        "decorations": [],
+        "special_interior": "neon_arcade",
         "main_npc": {
             "name": "아케이드 마스터",
-            "color": (57, 255, 20),
-            "position": (0.5, 0.3),
+            "color": (0, 255, 255),
+            "position": (0.5, 0.28),
             "dialogue": [
-                "레트로 아케이드에 온 걸 환영해!",
+                "네온 아케이드에 온 걸 환영해!",
                 "추억의 게임을 즐겨봐!",
-                "아직 기계 점검 중이야~",
-                "곧 플레이할 수 있을 거야!"
+                "하이스코어에 도전해 볼래?",
+                "오늘 신작이 들어왔어!"
             ]
         },
-        "customer_range": (3, 6),
+        "customer_range": (3, 5),
         "staff_count": 1,
     },
 }
@@ -3100,6 +3101,13 @@ class BuildingInterior:
         self.pachinko_game_ui = None  # 빠칭코 게임 UI 인스턴스
         self._init_slot_machine_zones()  # 슬롯머신 영역 초기화
 
+        # 패널티킥 게임 상호작용 (MINIGAME/아케이드 전용)
+        self.arcade_cabinet_rects = []  # 아케이드 캐비닛 상호작용 영역
+        self.nearby_arcade_cabinet = None  # 근처 캐비닛 인덱스
+        self.penalty_kick_playing = False  # 패널티킥 게임 플레이 중
+        self.penalty_kick_ui = None  # 패널티킥 게임 UI 인스턴스
+        self._init_arcade_cabinet_zones()  # 아케이드 캐비닛 영역 초기화
+
         # ===== 강화 시스템 (BLACKSMITH 전용) =====
         self.enhancement_menu_open = False  # 강화 메뉴 열림 여부
         self.enhancement_item_select_open = False  # 아이템 선택창 열림
@@ -3472,6 +3480,106 @@ class BuildingInterior:
                 return i
 
         return None
+
+    # ===== 아케이드 캐비닛 / 패널티킥 =====
+
+    def _init_arcade_cabinet_zones(self):
+        """아케이드 캐비닛 상호작용 영역 초기화 (MINIGAME 전용)"""
+        if self.building_type != BuildingType.MINIGAME:
+            return
+
+        self.arcade_cabinet_rects = []
+        wall_h = int(TILE_SIZE * 4)
+
+        # 좌측 캐비닛 2대 (pacman, invaders)
+        cab1_x = int(TILE_SIZE * 1.5)
+        cab1_y = wall_h + int(TILE_SIZE * 0.5)
+        self.arcade_cabinet_rects.append(pygame.Rect(
+            cab1_x - 10, cab1_y - 10,
+            int(TILE_SIZE * 2) + 20, int(TILE_SIZE * 3.5) + 20
+        ))
+
+        cab2_x = int(TILE_SIZE * 4)
+        cab2_y = wall_h + int(TILE_SIZE * 0.5)
+        self.arcade_cabinet_rects.append(pygame.Rect(
+            cab2_x - 10, cab2_y - 10,
+            int(TILE_SIZE * 2) + 20, int(TILE_SIZE * 3.5) + 20
+        ))
+
+        # 우측 캐비닛 2대 (tetris, racing)
+        cab3_x = self.pixel_width - int(TILE_SIZE * 6)
+        cab3_y = wall_h + int(TILE_SIZE * 0.5)
+        self.arcade_cabinet_rects.append(pygame.Rect(
+            cab3_x - 10, cab3_y - 10,
+            int(TILE_SIZE * 2) + 20, int(TILE_SIZE * 3.5) + 20
+        ))
+
+        cab4_x = self.pixel_width - int(TILE_SIZE * 3.5)
+        cab4_y = wall_h + int(TILE_SIZE * 0.5)
+        self.arcade_cabinet_rects.append(pygame.Rect(
+            cab4_x - 10, cab4_y - 10,
+            int(TILE_SIZE * 2) + 20, int(TILE_SIZE * 3.5) + 20
+        ))
+
+    def _check_nearby_arcade_cabinet(self):
+        """플레이어 근처에 아케이드 캐비닛이 있는지 확인"""
+        if self.building_type != BuildingType.MINIGAME:
+            return None
+        if not self.arcade_cabinet_rects:
+            return None
+
+        player_rect = pygame.Rect(
+            self.player.x - 40, self.player.y - 40, 80, 80
+        )
+
+        for i, cab_rect in enumerate(self.arcade_cabinet_rects):
+            if player_rect.colliderect(cab_rect):
+                return i
+        return None
+
+    def _start_penalty_kick_game(self):
+        """패널티킥 게임 시작"""
+        if self.penalty_kick_playing:
+            return False
+
+        try:
+            from .penalty_kick_game import PenaltyKickGameUI
+        except ImportError:
+            try:
+                from downtown.penalty_kick_game import PenaltyKickGameUI
+            except ImportError:
+                return False
+
+        self.penalty_kick_ui = PenaltyKickGameUI(SCREEN_WIDTH, SCREEN_HEIGHT, fonts=self.fonts)
+        self.penalty_kick_ui.start_game()
+        self.penalty_kick_playing = True
+        return True
+
+    def _update_penalty_kick_game(self, dt):
+        """패널티킥 게임 업데이트"""
+        if not self.penalty_kick_playing or not self.penalty_kick_ui:
+            return
+        self.penalty_kick_ui.update(dt)
+
+    def _handle_penalty_kick_event(self, event):
+        """패널티킥 게임 이벤트 처리"""
+        if not self.penalty_kick_playing or not self.penalty_kick_ui:
+            return None
+
+        result = self.penalty_kick_ui.handle_event(event)
+
+        if result == 'exit':
+            self.penalty_kick_playing = False
+            self.penalty_kick_ui = None
+            return 'penalty_kick_exit'
+
+        return result
+
+    def _draw_penalty_kick_game(self, screen):
+        """패널티킥 게임 화면 그리기"""
+        if not self.penalty_kick_playing or not self.penalty_kick_ui:
+            return
+        self.penalty_kick_ui.draw(screen)
 
     def _start_pachinko_game(self):
         """빠칭코(슬롯머신) 게임 시작"""
@@ -4835,6 +4943,11 @@ class BuildingInterior:
             self._update_enhancement_animation(dt)
             return  # 강화 애니메이션 중에는 다른 업데이트 차단
 
+        # 패널티킥 게임 업데이트
+        if self.penalty_kick_playing:
+            self._update_penalty_kick_game(dt)
+            return  # 패널티킥 게임 중에는 다른 업데이트 차단
+
         # 포커 게임 업데이트
         if self.poker_game_playing:
             self._update_poker_game(dt)
@@ -4921,6 +5034,10 @@ class BuildingInterior:
             self.nearby_headmaster = self._check_nearby_headmaster()
             if not self.codex_open:
                 self.nearby_shelf_index = self._check_nearby_shelf()
+
+        # 아케이드에서 캐비닛 근처 체크
+        if self.building_type == BuildingType.MINIGAME:
+            self.nearby_arcade_cabinet = self._check_nearby_arcade_cabinet()
 
         # 카지노에서 포커 테이블 근처 체크
         if self.building_type == BuildingType.CASINO:
@@ -5774,6 +5891,15 @@ class BuildingInterior:
 
     def handle_key(self, event):
         """키 입력 처리 (이벤트 기반)"""
+        # 패널티킥 게임 중일 때 - 모든 입력을 패널티킥 게임으로 전달
+        if self.penalty_kick_playing:
+            if event.type in [pygame.KEYDOWN, pygame.KEYUP]:
+                result = self._handle_penalty_kick_event(event)
+                if result:
+                    return (result, None)
+                return ("penalty_kick_input", None)
+            return None
+
         # 포커 게임 중일 때 - 모든 입력을 포커 게임으로 전달 (키보드 + 마우스)
         if self.poker_game_playing:
             # 포커 게임에서 처리할 이벤트 타입들
@@ -6128,6 +6254,15 @@ class BuildingInterior:
                     else:
                         # 골드 부족 등의 이유로 시작 실패
                         return ("poker_fail", _t("interior.not_enough_gold2", "골드가 부족합니다"))
+
+            # 아케이드 건물에서 캐비닛 상호작용 → 패널티킥 게임
+            if self.building_type == BuildingType.MINIGAME:
+                if self.nearby_arcade_cabinet is not None:
+                    result = self._start_penalty_kick_game()
+                    if result == True:
+                        return ("penalty_kick_start", None)
+                    else:
+                        return ("penalty_kick_fail", "게임을 시작할 수 없습니다.")
 
             # 가챠 건물에서는 먼저 가챠 머신 상호작용 확인
             if self.building_type == BuildingType.GACHA:
@@ -7781,6 +7916,9 @@ class BuildingInterior:
         elif special_interior == "colosseum":
             # 고대 투기장 전용 인테리어
             self._draw_colosseum_interior(screen)
+        elif special_interior == "neon_arcade":
+            # 네온 아케이드 전용 인테리어
+            self._draw_neon_arcade_interior(screen)
         else:
             # 기본 인테리어
             # 배경
@@ -7858,6 +7996,10 @@ class BuildingInterior:
         if self.crane_game_playing:
             self._draw_crane_game_screen(screen)
 
+        # 패널티킥 게임 플레이 화면 (최상위)
+        if self.penalty_kick_playing:
+            self._draw_penalty_kick_game(screen)
+
         # 포커 게임 플레이 화면 (최상위)
         if self.poker_game_playing:
             self._draw_poker_game(screen)
@@ -7865,6 +8007,11 @@ class BuildingInterior:
         # 빠칭코(슬롯머신) 게임 플레이 화면 (최상위)
         if self.pachinko_game_playing:
             self._draw_pachinko_game(screen)
+
+        # 아케이드 캐비닛 상호작용 힌트
+        if self.building_type == BuildingType.MINIGAME and self.nearby_arcade_cabinet is not None:
+            if not self.penalty_kick_playing:
+                self._draw_arcade_cabinet_hint(screen)
 
         # 카지노 포커 테이블 상호작용 힌트
         if self.building_type == BuildingType.CASINO and self.nearby_poker_table:
@@ -11055,6 +11202,56 @@ class BuildingInterior:
         pygame.draw.rect(screen, (220, 200, 255), (bx + 3, by + 3, 6, 1))
         pygame.draw.rect(screen, (220, 200, 255), (bx + 3, by + 6, 6, 1))
         pygame.draw.rect(screen, (220, 200, 255), (bx + 3, by + 9, 4, 1))
+
+    def _draw_arcade_cabinet_hint(self, screen):
+        """아케이드 캐비닛 근처일 때 상호작용 힌트 표시"""
+        hint_text = "SPACE - 패널티킥 게임"
+        pulse = abs(math.sin(self.animation_timer * 4))
+
+        NEON_GREEN = (57, 255, 20)
+        NEON_CYAN = (0, 255, 255)
+        DARK_BG = (15, 20, 30)
+
+        box_w = 240
+        box_h = 45
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 85
+
+        # 글로우 효과 (네온 그린)
+        for glow in range(3, 0, -1):
+            glow_alpha = int((70 - glow * 18) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 8, box_h + glow * 8), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*NEON_GREEN, glow_alpha),
+                           (0, 0, box_w + glow * 8, box_h + glow * 8), border_radius=10)
+            screen.blit(glow_surf, (box_x - glow * 4, box_y - glow * 4))
+
+        # 박스 배경
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (*DARK_BG, 240), (0, 0, box_w, box_h), border_radius=8)
+        screen.blit(box_surf, (box_x, box_y))
+
+        # 테두리
+        pygame.draw.rect(screen, NEON_GREEN, (box_x, box_y, box_w, box_h), 2, border_radius=8)
+        pygame.draw.rect(screen, NEON_CYAN, (box_x + 2, box_y + 2, box_w - 4, box_h - 4), 1, border_radius=6)
+
+        # 축구공 아이콘 (좌측)
+        icon_x = box_x + 22
+        icon_y = box_y + box_h // 2
+        pygame.draw.circle(screen, (255, 255, 255), (icon_x, icon_y), 10)
+        pygame.draw.circle(screen, (180, 180, 180), (icon_x, icon_y), 10, 1)
+        for a in range(0, 360, 72):
+            px = icon_x + int(math.cos(math.radians(a)) * 4)
+            py = icon_y + int(math.sin(math.radians(a)) * 4)
+            pygame.draw.circle(screen, (50, 50, 50), (px, py), 2)
+
+        # 텍스트
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_surf, text_rect = font.render(hint_text, (255, 255, 255))
+                text_x = box_x + (box_w - text_rect.width) // 2 + 10
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
 
     def _draw_poker_table_hint(self, screen):
         """포커 테이블 근처일 때 상호작용 힌트 표시"""
@@ -21050,3 +21247,744 @@ class BuildingInterior:
 
         # 다리 (앉은 자세)
         pygame.draw.rect(screen, (45, 45, 50), (x - 6, y + 10, 12, 8))
+
+    # ========================================================================
+    # 네온 아케이드 전용 인테리어
+    # ========================================================================
+
+    def _draw_neon_arcade_interior(self, screen):
+        """네온 아케이드 전용 인테리어 - 레트로 네온 오락실"""
+        import math
+
+        # 색상 팔레트 (어두운 실내 + 네온 조명)
+        BG_DARK = (12, 8, 22)
+        FLOOR_BASE = (22, 18, 35)
+        FLOOR_DARK = (15, 12, 28)
+        FLOOR_ACCENT1 = (40, 0, 60)       # 보라 카펫 무늬
+        FLOOR_ACCENT2 = (0, 40, 50)        # 청록 카펫 무늬
+        WALL_BASE = (18, 14, 32)
+        WALL_DARK = (12, 8, 22)
+        WALL_PANEL = (25, 20, 45)
+        NEON_CYAN = (0, 255, 255)
+        NEON_PINK = (255, 0, 200)
+        NEON_GREEN = (57, 255, 20)
+        NEON_ORANGE = (255, 165, 0)
+        NEON_YELLOW = (255, 255, 50)
+        NEON_PURPLE = (180, 0, 255)
+        CABINET_BODY = (45, 40, 55)
+        CABINET_DARK = (30, 25, 40)
+        CABINET_TRIM = (65, 55, 80)
+        SCREEN_BG = (5, 5, 15)
+        COUNTER_TOP = (50, 35, 60)
+        COUNTER_FRONT = (35, 25, 48)
+        STOOL_RED = (180, 40, 40)
+        STOOL_CHROME = (140, 140, 150)
+
+        cam_x, cam_y = self.camera_offset
+        anim = self.animation_timer
+
+        # === 1. 배경 ===
+        screen.fill(BG_DARK)
+
+        # === 2. 아케이드 카펫 바닥 ===
+        self._draw_arcade_carpet_floor(screen, cam_x, cam_y, anim,
+                                        FLOOR_BASE, FLOOR_DARK, FLOOR_ACCENT1, FLOOR_ACCENT2)
+
+        # === 3. 네온 벽면 ===
+        wall_h = int(TILE_SIZE * 4)
+        self._draw_arcade_walls(screen, cam_x, cam_y, wall_h,
+                                 WALL_BASE, WALL_DARK, WALL_PANEL, NEON_CYAN, NEON_PINK)
+
+        # === 4. 벽면 네온 사인 "THE PIXEL ARCADE" ===
+        sign_x = self.pixel_width // 2 - int(TILE_SIZE * 3.5)
+        sign_y = int(TILE_SIZE * 0.4)
+        self._draw_arcade_neon_sign(screen, sign_x - cam_x, sign_y - cam_y, anim,
+                                     NEON_CYAN, NEON_PINK)
+
+        # === 5. 벽면 장식 (팩맨 고스트, 인베이더 등) ===
+        self._draw_arcade_wall_art(screen, cam_x, cam_y, wall_h, anim,
+                                    NEON_CYAN, NEON_PINK, NEON_GREEN, NEON_YELLOW)
+
+        # === 6. 좌측 아케이드 캐비닛 2대 ===
+        cab1_x = int(TILE_SIZE * 1.5)
+        cab1_y = wall_h + int(TILE_SIZE * 0.5)
+        self._draw_arcade_cabinet(screen, cab1_x - cam_x, cab1_y - cam_y, anim,
+                                   CABINET_BODY, CABINET_DARK, CABINET_TRIM, SCREEN_BG,
+                                   NEON_CYAN, "pacman")
+
+        cab2_x = int(TILE_SIZE * 4)
+        cab2_y = wall_h + int(TILE_SIZE * 0.5)
+        self._draw_arcade_cabinet(screen, cab2_x - cam_x, cab2_y - cam_y, anim,
+                                   CABINET_BODY, CABINET_DARK, CABINET_TRIM, SCREEN_BG,
+                                   NEON_PINK, "invaders")
+
+        # === 7. 우측 아케이드 캐비닛 2대 ===
+        cab3_x = self.pixel_width - int(TILE_SIZE * 6)
+        cab3_y = wall_h + int(TILE_SIZE * 0.5)
+        self._draw_arcade_cabinet(screen, cab3_x - cam_x, cab3_y - cam_y, anim,
+                                   CABINET_BODY, CABINET_DARK, CABINET_TRIM, SCREEN_BG,
+                                   NEON_GREEN, "tetris")
+
+        cab4_x = self.pixel_width - int(TILE_SIZE * 3.5)
+        cab4_y = wall_h + int(TILE_SIZE * 0.5)
+        self._draw_arcade_cabinet(screen, cab4_x - cam_x, cab4_y - cam_y, anim,
+                                   CABINET_BODY, CABINET_DARK, CABINET_TRIM, SCREEN_BG,
+                                   NEON_ORANGE, "racing")
+
+        # === 8. 중앙 카운터 + 스툴 ===
+        counter_x = int(TILE_SIZE * 3)
+        counter_y = wall_h - int(TILE_SIZE * 0.3)
+        counter_w = int(TILE_SIZE * 12)
+        self._draw_arcade_counter(screen, counter_x - cam_x, counter_y - cam_y,
+                                   counter_w, anim, COUNTER_TOP, COUNTER_FRONT,
+                                   STOOL_RED, STOOL_CHROME, NEON_CYAN)
+
+        # === 9. 하단 핀볼 + 크레인 ===
+        pinball_x = int(TILE_SIZE * 1.5)
+        pinball_y = wall_h + int(TILE_SIZE * 5)
+        self._draw_arcade_pinball(screen, pinball_x - cam_x, pinball_y - cam_y, anim,
+                                   CABINET_BODY, CABINET_TRIM, NEON_PURPLE, NEON_YELLOW)
+
+        crane_x = self.pixel_width - int(TILE_SIZE * 4.5)
+        crane_y = wall_h + int(TILE_SIZE * 5)
+        self._draw_arcade_crane(screen, crane_x - cam_x, crane_y - cam_y, anim,
+                                 CABINET_BODY, CABINET_TRIM, NEON_PINK, NEON_CYAN)
+
+        # === 10. 바닥 네온 라인 ===
+        self._draw_arcade_floor_neon(screen, cam_x, cam_y, wall_h, anim,
+                                      NEON_CYAN, NEON_PINK, NEON_PURPLE)
+
+        # === 11. 네온 조명 + 천장 글로우 ===
+        self._draw_arcade_ceiling_lights(screen, cam_x, cam_y, anim,
+                                          NEON_CYAN, NEON_PINK, NEON_PURPLE)
+
+        # === 12. 충돌 영역 ===
+        self.shop_obstacle_rects = []
+        self.shop_obstacle_rects.append(pygame.Rect(0, 0, self.pixel_width, wall_h - int(TILE_SIZE * 0.3)))
+        self.shop_obstacle_rects.append(pygame.Rect(counter_x, counter_y, counter_w, int(TILE_SIZE * 2)))
+        self.shop_obstacle_rects.append(pygame.Rect(cab1_x - 5, cab1_y - 5, int(TILE_SIZE * 2), int(TILE_SIZE * 3.5)))
+        self.shop_obstacle_rects.append(pygame.Rect(cab2_x - 5, cab2_y - 5, int(TILE_SIZE * 2), int(TILE_SIZE * 3.5)))
+        self.shop_obstacle_rects.append(pygame.Rect(cab3_x - 5, cab3_y - 5, int(TILE_SIZE * 2), int(TILE_SIZE * 3.5)))
+        self.shop_obstacle_rects.append(pygame.Rect(cab4_x - 5, cab4_y - 5, int(TILE_SIZE * 2), int(TILE_SIZE * 3.5)))
+        self.shop_obstacle_rects.append(pygame.Rect(pinball_x - 5, pinball_y - 5, int(TILE_SIZE * 3), int(TILE_SIZE * 3)))
+        self.shop_obstacle_rects.append(pygame.Rect(crane_x - 5, crane_y - 5, int(TILE_SIZE * 3.5), int(TILE_SIZE * 3.5)))
+
+        # === 13. 문 ===
+        self._draw_door(screen)
+
+    def _draw_arcade_carpet_floor(self, screen, cam_x, cam_y, anim,
+                                   base, dark, accent1, accent2):
+        """아케이드 카펫 바닥 (기하학적 네온 패턴)"""
+        tile = TILE_SIZE
+        for ty in range(0, self.map_height):
+            for tx in range(0, self.map_width):
+                draw_x = tx * tile - cam_x
+                draw_y = ty * tile - cam_y
+
+                # 기본 어두운 카펫
+                if (tx + ty) % 2 == 0:
+                    color = base
+                else:
+                    color = dark
+
+                pygame.draw.rect(screen, color, (draw_x, draw_y, tile, tile))
+
+                # 다이아몬드 무늬 (레트로 카펫 느낌)
+                cx = draw_x + tile // 2
+                cy = draw_y + tile // 2
+                half = tile // 4
+
+                if (tx + ty) % 4 == 0:
+                    diamond = [(cx, cy - half), (cx + half, cy),
+                               (cx, cy + half), (cx - half, cy)]
+                    pygame.draw.polygon(screen, accent1, diamond, 1)
+                elif (tx + ty) % 4 == 2:
+                    diamond = [(cx, cy - half), (cx + half, cy),
+                               (cx, cy + half), (cx - half, cy)]
+                    pygame.draw.polygon(screen, accent2, diamond, 1)
+
+                # 타일 경계 (미세한 라인)
+                pygame.draw.rect(screen, (18, 14, 30),
+                               (draw_x, draw_y, tile, tile), 1)
+
+    def _draw_arcade_walls(self, screen, cam_x, cam_y, wall_h,
+                            wall_base, wall_dark, wall_panel, neon_cyan, neon_pink):
+        """네온 조명이 있는 어두운 벽"""
+        # 벽 배경
+        wall_rect = pygame.Rect(-cam_x, -cam_y, self.pixel_width, wall_h)
+        pygame.draw.rect(screen, wall_base, wall_rect)
+
+        # 세로 패널 라인
+        panel_w = int(TILE_SIZE * 1.2)
+        for i in range(0, self.pixel_width + panel_w, panel_w):
+            px = i - cam_x
+            pygame.draw.line(screen, wall_dark, (px, -cam_y), (px, wall_h - cam_y), 2)
+            pygame.draw.line(screen, wall_panel, (px + 1, -cam_y), (px + 1, wall_h - cam_y), 1)
+
+        # 상단 네온 트림
+        glow_a = int(150 + 80 * math.sin(anim * 2))
+        trim_surf = pygame.Surface((self.pixel_width, 4), pygame.SRCALPHA)
+        trim_surf.fill((*neon_cyan, glow_a))
+        screen.blit(trim_surf, (-cam_x, -cam_y))
+
+        # 하단 네온 트림 (벽-바닥 경계)
+        glow_b = int(150 + 80 * math.sin(anim * 2 + 1.5))
+        trim_surf2 = pygame.Surface((self.pixel_width, 3), pygame.SRCALPHA)
+        trim_surf2.fill((*neon_pink, glow_b))
+        screen.blit(trim_surf2, (-cam_x, wall_h - 3 - cam_y))
+
+        # 좌우 벽
+        side_w = TILE_SIZE
+        left_wall = pygame.Rect(-cam_x, -cam_y, side_w, self.pixel_height)
+        pygame.draw.rect(screen, wall_dark, left_wall)
+        right_wall = pygame.Rect(self.pixel_width - side_w - cam_x, -cam_y,
+                                  side_w, self.pixel_height)
+        pygame.draw.rect(screen, wall_dark, right_wall)
+
+        # 좌우 벽 네온 스트라이프
+        for i in range(3):
+            stripe_y = int(TILE_SIZE * (2 + i * 3)) - cam_y
+            stripe_a = int(100 + 60 * math.sin(anim * 3 + i))
+            s = pygame.Surface((4, TILE_SIZE * 2), pygame.SRCALPHA)
+            s.fill((*neon_pink, stripe_a))
+            screen.blit(s, (2 - cam_x, stripe_y))
+            screen.blit(s, (self.pixel_width - 6 - cam_x, stripe_y))
+
+    def _draw_arcade_neon_sign(self, screen, x, y, anim, cyan, pink):
+        """벽면 네온 간판 'PIXEL ARCADE'"""
+        import math
+
+        w = int(TILE_SIZE * 7)
+        h = int(TILE_SIZE * 1.8)
+
+        # 간판 배경 (어두운 패널)
+        pygame.draw.rect(screen, (15, 10, 25), (x, y, w, h), border_radius=8)
+        pygame.draw.rect(screen, (30, 20, 45), (x, y, w, h), 3, border_radius=8)
+
+        # 네온 외곽 글로우
+        glow_a = int(120 + 80 * math.sin(anim * 2.5))
+        glow_surf = pygame.Surface((w + 12, h + 12), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*cyan, glow_a // 3), (0, 0, w + 12, h + 12), border_radius=12)
+        screen.blit(glow_surf, (x - 6, y - 6))
+
+        # 네온 테두리
+        border_a = int(180 + 60 * math.sin(anim * 2.5))
+        border_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(border_surf, (*cyan, border_a), (0, 0, w, h), 2, border_radius=8)
+        screen.blit(border_surf, (x, y))
+
+        # "PIXEL ARCADE" 텍스트 (픽셀 블록으로)
+        text_y = y + h // 2 - 8
+        # 간단한 네온 텍스트 블록
+        block_size = 4
+        text_start_x = x + 15
+
+        # "P" 문자를 네온 블록으로
+        letters_data = [
+            # P
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(2,1),(1,1)],
+            # I
+            [(0,0),(0,1),(0,2),(0,3),(0,4)],
+            # X
+            [(0,0),(2,0),(1,1),(1,2),(1,3),(0,4),(2,4),(0,2),(2,2)],
+            # E
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(1,2),(2,2),(1,4),(2,4)],
+            # L
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,4),(2,4)],
+        ]
+
+        # PIXEL
+        cur_x = text_start_x
+        for letter in letters_data:
+            for bx, by in letter:
+                glow_v = int(200 + 55 * math.sin(anim * 3 + bx * 0.5))
+                c = (0, glow_v, glow_v)
+                pygame.draw.rect(screen, c,
+                               (cur_x + bx * block_size, text_y + by * block_size,
+                                block_size - 1, block_size - 1))
+            cur_x += block_size * 3 + 4
+
+        cur_x += 8  # 공백
+
+        # ARCADE
+        letters_data2 = [
+            # A
+            [(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(2,1),(2,2),(2,3),(2,4),(1,2)],
+            # R
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(2,1),(1,1),(1,3),(2,4)],
+            # C
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(1,4),(2,4)],
+            # A
+            [(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(2,1),(2,2),(2,3),(2,4),(1,2)],
+            # D
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,1),(2,2),(2,3),(1,4)],
+            # E
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(1,2),(2,2),(1,4),(2,4)],
+        ]
+
+        for letter in letters_data2:
+            for bx, by in letter:
+                glow_v = int(200 + 55 * math.sin(anim * 3 + bx * 0.5 + 1.0))
+                c = (glow_v, 0, int(glow_v * 0.8))
+                pygame.draw.rect(screen, c,
+                               (cur_x + bx * block_size, text_y + by * block_size,
+                                block_size - 1, block_size - 1))
+            cur_x += block_size * 3 + 4
+
+    def _draw_arcade_wall_art(self, screen, cam_x, cam_y, wall_h, anim,
+                               cyan, pink, green, yellow):
+        """벽면 장식 - 팩맨 고스트, 인베이더, HIGH SCORE 등"""
+        import math
+
+        # === 좌측: 팩맨 + 고스트 ===
+        pac_x = int(TILE_SIZE * 1.5) - cam_x
+        pac_y = int(TILE_SIZE * 0.6) - cam_y
+
+        # 팩맨 (입 벌리기 애니메이션)
+        mouth_angle = abs(math.sin(anim * 5)) * 45
+        pac_r = 12
+        pygame.draw.circle(screen, yellow, (pac_x, pac_y), pac_r)
+        # 입 (삼각형으로 잘라내기)
+        if mouth_angle > 5:
+            mouth_pts = [
+                (pac_x, pac_y),
+                (pac_x + pac_r + 2, pac_y - int(pac_r * math.sin(math.radians(mouth_angle)))),
+                (pac_x + pac_r + 2, pac_y + int(pac_r * math.sin(math.radians(mouth_angle))))
+            ]
+            pygame.draw.polygon(screen, (18, 14, 32), mouth_pts)
+
+        # 고스트들 (3마리)
+        ghost_colors = [(255, 0, 0), (255, 180, 255), cyan]
+        for i, gc in enumerate(ghost_colors):
+            gx = pac_x + 35 + i * 22
+            gy = pac_y + int(2 * math.sin(anim * 3 + i))
+            # 몸통
+            pygame.draw.ellipse(screen, gc, (gx - 8, gy - 10, 16, 16))
+            pygame.draw.rect(screen, gc, (gx - 8, gy, 16, 6))
+            # 하단 물결
+            for j in range(3):
+                wave_x = gx - 8 + j * 6
+                pygame.draw.circle(screen, gc, (wave_x + 3, gy + 6), 3)
+            # 눈
+            pygame.draw.circle(screen, (255, 255, 255), (gx - 3, gy - 5), 3)
+            pygame.draw.circle(screen, (255, 255, 255), (gx + 3, gy - 5), 3)
+            pygame.draw.circle(screen, (20, 20, 40), (gx - 2, gy - 5), 1)
+            pygame.draw.circle(screen, (20, 20, 40), (gx + 4, gy - 5), 1)
+
+        # === 우측: 스페이스 인베이더 ===
+        inv_base_x = self.pixel_width - int(TILE_SIZE * 3.5) - cam_x
+        inv_base_y = int(TILE_SIZE * 0.5) - cam_y
+        inv_colors = [green, cyan, pink]
+        for row in range(3):
+            for col in range(4):
+                ix = inv_base_x + col * 16
+                iy = inv_base_y + row * 14
+                ic = inv_colors[row % 3]
+                gv = int(180 + 75 * math.sin(anim * 2 + row + col))
+                ic_g = tuple(min(255, int(c * gv / 255)) for c in ic)
+                # 인베이더 본체 (간단한 픽셀)
+                pygame.draw.rect(screen, ic_g, (ix + 2, iy, 8, 6))
+                pygame.draw.rect(screen, ic_g, (ix, iy + 2, 12, 2))
+                # 다리
+                pygame.draw.rect(screen, ic_g, (ix + 1, iy + 6, 2, 3))
+                pygame.draw.rect(screen, ic_g, (ix + 9, iy + 6, 2, 3))
+
+        # === "HIGH SCORE" 네온 텍스트 (중앙 상단) ===
+        # 간단한 도트로 표현
+        hs_x = self.pixel_width // 2 + int(TILE_SIZE * 1.5) - cam_x
+        hs_y = int(TILE_SIZE * 2.5) - cam_y
+        hs_glow = int(200 + 55 * math.sin(anim * 2))
+        hs_color = (hs_glow, hs_glow, 0)
+
+        # 별 아이콘
+        star_pts = []
+        for i in range(5):
+            angle = math.radians(-90 + i * 72)
+            star_pts.append((hs_x + int(8 * math.cos(angle)),
+                           hs_y + int(8 * math.sin(angle))))
+            angle2 = math.radians(-90 + i * 72 + 36)
+            star_pts.append((hs_x + int(4 * math.cos(angle2)),
+                           hs_y + int(4 * math.sin(angle2))))
+        pygame.draw.polygon(screen, hs_color, star_pts)
+
+        # COIN 표시 (좌측 상단)
+        coin_x = int(TILE_SIZE * 2.5) - cam_x
+        coin_y = int(TILE_SIZE * 2.5) - cam_y
+        coin_glow = int(200 + 55 * math.sin(anim * 4))
+        pygame.draw.circle(screen, (coin_glow, coin_glow, 0), (coin_x, coin_y), 8, 2)
+        pygame.draw.circle(screen, (coin_glow, coin_glow, 0), (coin_x, coin_y), 4)
+
+    def _draw_arcade_cabinet(self, screen, x, y, anim,
+                              body, body_dark, trim, screen_bg, neon_color, game_type):
+        """아케이드 캐비닛 한 대 (게임 타입별 화면 내용)"""
+        import math
+
+        cab_w = int(TILE_SIZE * 1.6)
+        cab_h = int(TILE_SIZE * 3.2)
+
+        # 본체
+        pygame.draw.rect(screen, body, (x, y, cab_w, cab_h), border_radius=4)
+        pygame.draw.rect(screen, trim, (x, y, cab_w, cab_h), 2, border_radius=4)
+
+        # 모니터 영역
+        scr_x = x + 6
+        scr_y = y + 8
+        scr_w = cab_w - 12
+        scr_h = int(cab_h * 0.4)
+        pygame.draw.rect(screen, screen_bg, (scr_x, scr_y, scr_w, scr_h), border_radius=3)
+
+        # 모니터 네온 테두리
+        glow_a = int(120 + 80 * math.sin(anim * 3))
+        border_s = pygame.Surface((scr_w + 4, scr_h + 4), pygame.SRCALPHA)
+        pygame.draw.rect(border_s, (*neon_color, glow_a), (0, 0, scr_w + 4, scr_h + 4), 2, border_radius=4)
+        screen.blit(border_s, (scr_x - 2, scr_y - 2))
+
+        # 게임별 화면 내용
+        if game_type == "pacman":
+            self._draw_cabinet_screen_pacman(screen, scr_x, scr_y, scr_w, scr_h, anim)
+        elif game_type == "invaders":
+            self._draw_cabinet_screen_invaders(screen, scr_x, scr_y, scr_w, scr_h, anim)
+        elif game_type == "tetris":
+            self._draw_cabinet_screen_tetris(screen, scr_x, scr_y, scr_w, scr_h, anim)
+        elif game_type == "racing":
+            self._draw_cabinet_screen_racing(screen, scr_x, scr_y, scr_w, scr_h, anim)
+
+        # CRT 스캔라인
+        for sy in range(scr_y, scr_y + scr_h, 3):
+            scan_s = pygame.Surface((scr_w, 1), pygame.SRCALPHA)
+            scan_s.fill((0, 0, 0, 30))
+            screen.blit(scan_s, (scr_x, sy))
+
+        # 컨트롤 패널
+        ctrl_y = scr_y + scr_h + 8
+        pygame.draw.rect(screen, body_dark, (x + 4, ctrl_y, cab_w - 8, 25), border_radius=3)
+
+        # 조이스틱
+        js_x = x + cab_w // 3
+        js_y = ctrl_y + 12
+        pygame.draw.rect(screen, (80, 80, 90), (js_x - 2, js_y - 8, 4, 12))
+        pygame.draw.circle(screen, (200, 50, 50), (js_x, js_y - 10), 5)
+
+        # 버튼들
+        btn_colors = [neon_color, (255, 255, 50), (255, 100, 50)]
+        for i, bc in enumerate(btn_colors):
+            bx = x + cab_w // 2 + 5 + i * 12
+            by = ctrl_y + 10
+            glow_v = int(180 + 75 * math.sin(anim * 4 + i * 1.2))
+            bc_g = tuple(min(255, int(c * glow_v / 255)) for c in bc)
+            pygame.draw.circle(screen, bc_g, (bx, by), 4)
+
+        # 하단 코인 슬롯
+        coin_y = y + cab_h - 25
+        pygame.draw.rect(screen, (40, 40, 50), (x + cab_w // 2 - 10, coin_y, 20, 6), border_radius=2)
+        pygame.draw.rect(screen, (70, 70, 80), (x + cab_w // 2 - 8, coin_y + 1, 16, 4), border_radius=1)
+
+        # 상단 마퀴 (게임 이름 조명)
+        marquee_h = 6
+        marquee_surf = pygame.Surface((cab_w - 8, marquee_h), pygame.SRCALPHA)
+        marquee_glow = int(180 + 60 * math.sin(anim * 2))
+        marquee_surf.fill((*neon_color, marquee_glow))
+        screen.blit(marquee_surf, (x + 4, y + 1))
+
+    def _draw_cabinet_screen_pacman(self, screen, x, y, w, h, anim):
+        """팩맨 화면"""
+        import math
+        # 미로 라인
+        maze_color = (0, 0, 180)
+        for i in range(3):
+            ly = y + 8 + i * (h // 4)
+            pygame.draw.line(screen, maze_color, (x + 5, ly), (x + w - 5, ly), 1)
+        for i in range(4):
+            lx = x + 8 + i * (w // 5)
+            pygame.draw.line(screen, maze_color, (lx, y + 5), (lx, y + h - 5), 1)
+
+        # 팩맨
+        pac_x = x + int((w * 0.3) + (w * 0.4) * abs(math.sin(anim * 2)))
+        pac_y = y + h // 2
+        pygame.draw.circle(screen, (255, 255, 0), (pac_x, pac_y), 5)
+
+        # 점들
+        for i in range(5):
+            dot_x = x + 8 + i * (w // 6)
+            if dot_x > pac_x + 3:
+                pygame.draw.circle(screen, (255, 255, 200), (dot_x, pac_y), 1)
+
+    def _draw_cabinet_screen_invaders(self, screen, x, y, w, h, anim):
+        """스페이스 인베이더 화면"""
+        import math
+        # 인베이더 줄
+        for row in range(2):
+            for col in range(4):
+                ix = x + 6 + col * (w // 5)
+                iy = y + 6 + row * 12 + int(2 * math.sin(anim * 3 + col))
+                pygame.draw.rect(screen, (0, 255, 0), (ix, iy, 6, 4))
+                pygame.draw.rect(screen, (0, 255, 0), (ix + 1, iy + 4, 4, 2))
+
+        # 플레이어 포대
+        ship_x = x + w // 2 + int(8 * math.sin(anim * 1.5))
+        ship_y = y + h - 10
+        pygame.draw.rect(screen, (0, 255, 0), (ship_x - 4, ship_y, 8, 4))
+        pygame.draw.rect(screen, (0, 255, 0), (ship_x - 1, ship_y - 3, 2, 3))
+
+        # 총알
+        bullet_y = ship_y - 5 - int(anim * 30) % (h - 20)
+        if bullet_y > y:
+            pygame.draw.rect(screen, (255, 255, 255), (ship_x, bullet_y, 1, 4))
+
+    def _draw_cabinet_screen_tetris(self, screen, x, y, w, h, anim):
+        """테트리스 화면"""
+        import math
+        block = 5
+        colors = [(255, 0, 0), (0, 255, 0), (0, 100, 255), (255, 255, 0),
+                  (255, 100, 0), (200, 0, 255), (0, 255, 255)]
+
+        # 쌓인 블록들
+        stacked = [
+            (0,7),(1,7),(2,7),(3,7),(4,7),(5,7),
+            (0,6),(1,6),(3,6),(4,6),(5,6),
+            (1,5),(2,5),(3,5),(5,5),
+            (2,4),(3,4),
+        ]
+        for bx, by in stacked:
+            c = colors[(bx + by) % len(colors)]
+            rx = x + 5 + bx * block
+            ry = y + 5 + by * block
+            pygame.draw.rect(screen, c, (rx, ry, block - 1, block - 1))
+
+        # 떨어지는 블록 (T 피스)
+        fall_y = int(anim * 15) % 4
+        tc = (200, 0, 255)
+        for bx, by in [(2, fall_y), (3, fall_y), (4, fall_y), (3, fall_y - 1)]:
+            rx = x + 5 + bx * block
+            ry = y + 5 + by * block
+            if ry >= y + 5:
+                pygame.draw.rect(screen, tc, (rx, ry, block - 1, block - 1))
+
+    def _draw_cabinet_screen_racing(self, screen, x, y, w, h, anim):
+        """레이싱 게임 화면"""
+        import math
+        # 도로 (원근감)
+        road_color = (60, 60, 60)
+        for i in range(h):
+            ry = y + i
+            perspective = 0.3 + 0.7 * (i / h)
+            road_w = int(w * 0.3 * perspective)
+            road_x = x + w // 2 - road_w // 2
+            stripe = int(anim * 40 + i * 3) % 12
+            if stripe < 6:
+                rc = road_color
+            else:
+                rc = (70, 70, 70)
+            pygame.draw.line(screen, rc, (road_x, ry), (road_x + road_w, ry))
+
+        # 차 (플레이어)
+        car_x = x + w // 2 + int(6 * math.sin(anim * 2))
+        car_y = y + h - 14
+        pygame.draw.rect(screen, (255, 0, 0), (car_x - 3, car_y, 6, 10))
+        pygame.draw.rect(screen, (255, 200, 0), (car_x - 1, car_y + 8, 2, 2))
+
+    def _draw_arcade_counter(self, screen, x, y, w, anim,
+                              top, front, stool_red, stool_chrome, neon):
+        """카운터 바 + 빨간 스툴"""
+        import math
+
+        # 카운터 앞면
+        counter_h = int(TILE_SIZE * 1.8)
+        pygame.draw.rect(screen, front, (x, y, w, counter_h), border_radius=3)
+
+        # 카운터 상판
+        pygame.draw.rect(screen, top, (x - 5, y, w + 10, 8), border_radius=2)
+
+        # 네온 라인 (카운터 앞면)
+        glow_a = int(100 + 80 * math.sin(anim * 2))
+        neon_s = pygame.Surface((w, 2), pygame.SRCALPHA)
+        neon_s.fill((*neon, glow_a))
+        screen.blit(neon_s, (x, y + counter_h - 6))
+
+        # 카운터 위 물건들
+        # 레지스터
+        reg_x = x + w // 2 - 15
+        pygame.draw.rect(screen, (50, 50, 60), (reg_x, y - 18, 30, 18), border_radius=2)
+        pygame.draw.rect(screen, (20, 60, 20), (reg_x + 5, y - 15, 20, 8), border_radius=1)
+
+        # 빨간 스툴들 (카운터 앞)
+        stool_count = w // int(TILE_SIZE * 1.8)
+        for i in range(stool_count):
+            sx = x + int(TILE_SIZE * 0.9) + i * int(TILE_SIZE * 1.8)
+            sy = y + counter_h + 15
+
+            # 스툴 다리 (크롬)
+            pygame.draw.line(screen, stool_chrome, (sx, sy + 5), (sx, sy + 18), 2)
+
+            # 스툴 좌석 (빨간 원)
+            pygame.draw.ellipse(screen, stool_red, (sx - 9, sy - 3, 18, 10))
+            # 하이라이트
+            pygame.draw.ellipse(screen, (220, 80, 80), (sx - 5, sy - 1, 10, 5))
+
+    def _draw_arcade_pinball(self, screen, x, y, anim, body, trim, purple, yellow):
+        """핀볼 머신"""
+        import math
+
+        pw = int(TILE_SIZE * 2.5)
+        ph = int(TILE_SIZE * 2.5)
+
+        # 본체 (기울어진 상판)
+        pygame.draw.rect(screen, body, (x, y, pw, ph), border_radius=5)
+        pygame.draw.rect(screen, trim, (x, y, pw, ph), 2, border_radius=5)
+
+        # 유리 상판 (플레이 필드)
+        glass_x = x + 6
+        glass_y = y + 6
+        glass_w = pw - 12
+        glass_h = ph - 30
+        pygame.draw.rect(screen, (5, 5, 20), (glass_x, glass_y, glass_w, glass_h), border_radius=3)
+
+        # 범퍼들
+        bumper_data = [
+            (glass_x + glass_w // 3, glass_y + glass_h // 3),
+            (glass_x + glass_w * 2 // 3, glass_y + glass_h // 3),
+            (glass_x + glass_w // 2, glass_y + glass_h // 2),
+        ]
+        for i, (bx, by) in enumerate(bumper_data):
+            glow_v = int(180 + 75 * math.sin(anim * 5 + i * 2))
+            bc = (glow_v, 0, glow_v) if i % 2 == 0 else (glow_v, glow_v, 0)
+            pygame.draw.circle(screen, bc, (bx, by), 6)
+            pygame.draw.circle(screen, (255, 255, 255), (bx, by), 6, 1)
+
+        # 공
+        ball_x = glass_x + int(glass_w * 0.5 + glass_w * 0.3 * math.sin(anim * 4))
+        ball_y = glass_y + int(glass_h * 0.4 + glass_h * 0.3 * math.cos(anim * 3))
+        pygame.draw.circle(screen, (200, 200, 210), (ball_x, ball_y), 3)
+
+        # 플리퍼
+        flip_y = glass_y + glass_h - 8
+        pygame.draw.line(screen, yellow, (glass_x + 8, flip_y), (glass_x + glass_w // 2 - 5, flip_y - 3), 3)
+        pygame.draw.line(screen, yellow, (glass_x + glass_w - 8, flip_y), (glass_x + glass_w // 2 + 5, flip_y - 3), 3)
+
+        # 스코어 표시
+        pygame.draw.rect(screen, (20, 0, 30), (x + 8, y + ph - 20, pw - 16, 14), border_radius=2)
+        score_glow = int(200 + 55 * math.sin(anim * 2))
+        for i in range(5):
+            dx = x + 14 + i * 10
+            pygame.draw.rect(screen, (score_glow, 0, score_glow), (dx, y + ph - 17, 6, 8))
+
+    def _draw_arcade_crane(self, screen, x, y, anim, body, trim, pink, cyan):
+        """크레인 게임 (경품 뽑기)"""
+        import math
+
+        cw = int(TILE_SIZE * 3)
+        ch = int(TILE_SIZE * 3)
+
+        # 본체 (유리 케이스)
+        pygame.draw.rect(screen, body, (x, y, cw, ch), border_radius=5)
+        pygame.draw.rect(screen, trim, (x, y, cw, ch), 2, border_radius=5)
+
+        # 유리 영역
+        glass_x = x + 5
+        glass_y = y + 18
+        glass_w = cw - 10
+        glass_h = ch - 35
+        pygame.draw.rect(screen, (10, 5, 20), (glass_x, glass_y, glass_w, glass_h), border_radius=3)
+
+        # 유리 반사
+        reflect_s = pygame.Surface((glass_w, glass_h), pygame.SRCALPHA)
+        pygame.draw.line(reflect_s, (255, 255, 255, 30), (5, 0), (5, glass_h), 2)
+        pygame.draw.line(reflect_s, (255, 255, 255, 15), (10, 0), (10, glass_h), 1)
+        screen.blit(reflect_s, (glass_x, glass_y))
+
+        # 경품들 (인형 / 공)
+        prizes = [
+            ((255, 150, 200), glass_x + 12, glass_y + glass_h - 18),
+            ((150, 255, 150), glass_x + 30, glass_y + glass_h - 15),
+            ((150, 150, 255), glass_x + 50, glass_y + glass_h - 18),
+            ((255, 255, 100), glass_x + 68, glass_y + glass_h - 12),
+            ((255, 200, 150), glass_x + 22, glass_y + glass_h - 30),
+            ((200, 150, 255), glass_x + 55, glass_y + glass_h - 28),
+        ]
+        for pc, px, py in prizes:
+            # 작은 인형 형태
+            pygame.draw.circle(screen, pc, (px, py - 5), 6)  # 머리
+            pygame.draw.rect(screen, pc, (px - 4, py, 8, 8))  # 몸
+            # 눈
+            pygame.draw.circle(screen, (30, 30, 40), (px - 2, py - 6), 1)
+            pygame.draw.circle(screen, (30, 30, 40), (px + 2, py - 6), 1)
+
+        # 크레인 암
+        crane_arm_x = glass_x + int(glass_w * 0.5 + glass_w * 0.3 * math.sin(anim * 1.2))
+        crane_arm_y = glass_y + 5
+
+        # 레일
+        pygame.draw.line(screen, (100, 100, 110), (glass_x + 3, glass_y + 3),
+                        (glass_x + glass_w - 3, glass_y + 3), 2)
+
+        # 크레인 줄
+        pygame.draw.line(screen, (120, 120, 130), (crane_arm_x, glass_y + 3),
+                        (crane_arm_x, crane_arm_y + 20), 1)
+
+        # 크레인 집게
+        pygame.draw.line(screen, (180, 180, 190), (crane_arm_x - 5, crane_arm_y + 20),
+                        (crane_arm_x, crane_arm_y + 25), 2)
+        pygame.draw.line(screen, (180, 180, 190), (crane_arm_x + 5, crane_arm_y + 20),
+                        (crane_arm_x, crane_arm_y + 25), 2)
+
+        # 상단 마퀴 (PRIZE)
+        marquee_glow = int(180 + 60 * math.sin(anim * 3))
+        pygame.draw.rect(screen, (marquee_glow, 0, marquee_glow // 2),
+                        (x + 8, y + 2, cw - 16, 12), border_radius=3)
+
+        # 조작 버튼 (하단)
+        btn_y = y + ch - 12
+        pygame.draw.circle(screen, (255, 50, 50), (x + cw // 2 - 12, btn_y), 5)
+        pygame.draw.circle(screen, cyan, (x + cw // 2 + 12, btn_y), 5)
+
+    def _draw_arcade_floor_neon(self, screen, cam_x, cam_y, wall_h, anim,
+                                 cyan, pink, purple):
+        """바닥 네온 라인 (통로 가이드)"""
+        import math
+
+        # 세로 중앙 네온 라인
+        center_x = self.pixel_width // 2 - cam_x
+        glow_a = int(60 + 40 * math.sin(anim * 2))
+
+        line_s = pygame.Surface((2, self.pixel_height), pygame.SRCALPHA)
+        line_s.fill((*cyan, glow_a))
+        screen.blit(line_s, (center_x, wall_h - cam_y))
+
+        # 가로 네온 라인 (캐비닛 앞)
+        cab_line_y = wall_h + int(TILE_SIZE * 4) - cam_y
+        glow_b = int(50 + 40 * math.sin(anim * 2 + 1))
+        hline_s = pygame.Surface((self.pixel_width, 2), pygame.SRCALPHA)
+        hline_s.fill((*pink, glow_b))
+        screen.blit(hline_s, (-cam_x, cab_line_y))
+
+    def _draw_arcade_ceiling_lights(self, screen, cam_x, cam_y, anim,
+                                     cyan, pink, purple):
+        """천장 네온 조명 효과"""
+        import math
+
+        light_positions = [
+            (self.pixel_width // 4, cyan),
+            (self.pixel_width // 2, pink),
+            (self.pixel_width * 3 // 4, purple),
+        ]
+
+        for lx, color in light_positions:
+            draw_x = lx - cam_x
+            draw_y = 2 - cam_y
+
+            glow_a = int(30 + 25 * math.sin(anim * 2.5 + lx * 0.01))
+
+            # 빛 콘 (아래로 퍼지는 삼각형)
+            cone_h = int(TILE_SIZE * 6)
+            cone_w = int(TILE_SIZE * 3)
+            cone_surf = pygame.Surface((cone_w, cone_h), pygame.SRCALPHA)
+            for cy in range(cone_h):
+                ratio = cy / cone_h
+                line_w = int(cone_w * ratio)
+                alpha = int(glow_a * (1 - ratio * 0.7))
+                if alpha > 0 and line_w > 0:
+                    pygame.draw.line(cone_surf, (*color, alpha),
+                                   (cone_w // 2 - line_w // 2, cy),
+                                   (cone_w // 2 + line_w // 2, cy))
+
+            screen.blit(cone_surf, (draw_x - cone_w // 2, draw_y))

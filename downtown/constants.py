@@ -264,7 +264,7 @@ CLOSED_BUILDINGS = {
     BuildingType.MAGIC_STORE,    # 마법 성소
     BuildingType.PET_SHOP,       # 숲의 펫샵
     BuildingType.ELDER,          # 피라미드 현자
-    BuildingType.MINIGAME,       # 레트로 아케이드
+    # BuildingType.MINIGAME,     # 레트로 아케이드 (영업 개시!)
     # BuildingType.TAVERN,       # 모험가의 선술집 (영업 개시!)
     BuildingType.MYSTERY,        # ???
 }

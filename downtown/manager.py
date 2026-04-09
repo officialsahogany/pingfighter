@@ -2581,8 +2581,11 @@ class DowntownManager:
 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
+                        # 패널티킥 게임 중이면 패널티킥 게임에 ESC 전달
+                        if interior.penalty_kick_playing:
+                            menu_result = interior.handle_key(event)
                         # 포커 게임 중이면 포커 게임에 ESC 전달
-                        if interior.poker_game_playing:
+                        elif interior.poker_game_playing:
                             menu_result = interior.handle_key(event)
                             # 포커 게임 종료 처리됨
                         # 빠칭코 게임 중이면 빠칭코 게임에 ESC 전달
@@ -2667,12 +2670,16 @@ class DowntownManager:
                             )
 
                 elif event.type == pygame.KEYUP:
-                    # 키 릴리즈 처리 (한글 키보드 및 이동 키)
-                    scancode = getattr(event, 'scancode', None)
-                    unicode_char = getattr(event, 'unicode', '')
-                    interior.player.handle_movement_key_event(
-                        False, scancode=scancode, keycode=event.key, unicode_char=unicode_char
-                    )
+                    # 패널티킥 게임 중이면 KEYUP도 게임에 전달 (스페이스바 릴리즈 = 킥 발사)
+                    if interior.penalty_kick_playing:
+                        interior.handle_key(event)
+                    else:
+                        # 키 릴리즈 처리 (한글 키보드 및 이동 키)
+                        scancode = getattr(event, 'scancode', None)
+                        unicode_char = getattr(event, 'unicode', '')
+                        interior.player.handle_movement_key_event(
+                            False, scancode=scancode, keycode=event.key, unicode_char=unicode_char
+                        )
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     # 포커 게임 중이면 포커 게임에 마우스 이벤트 전달
