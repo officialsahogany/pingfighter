@@ -166291,8 +166291,7 @@ def main(stage_num, new_boss_mode=False):
                                         base_speed = 9.0
                                         ball_vel[0] = angle_variation * base_speed
                                         ball_vel[1] = -base_speed
-                                        global last_hit_by
-                                        last_hit_by = "player"
+                                        globals()['last_hit_by'] = "player"
                                         game_vars.ball.last_hit_by = "player"
                                 else:
                                     # 애니메이션이 이미 끝남 (비정상 상태 정리)
