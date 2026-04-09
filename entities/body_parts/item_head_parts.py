@@ -552,3 +552,59 @@ class HornStrawberryMaskPart(BodyPart):
         # ── 금색 테두리 장식 ──
         pygame.draw.ellipse(surface, gold,
                            (mask_x - 1, mask_y - 1, mask_w + 2, mask_h + 2), 1)
+
+
+class YachamanSoulPart(BodyPart):
+    """야차맨의 영혼 (yachaman_soul).
+
+    검은 봄버맨 스타일 투구 + 불꽃 퓨즈.
+    효과: 실점 시 봄버맨 형태로 변신 부활.
+    """
+
+    def __init__(self, block: int = 9):
+        super().__init__(
+            slot=SLOT_HEAD,
+            draw_order=ORDER_HEAD,
+            joint_a="head",
+            joint_b=None,
+        )
+        self.block = block
+        self._phase = 0.0
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        b = self.block
+        hx, hy = joint_a.world_int()
+        self._phase += 0.1
+
+        # ── 봄버맨 투구 본체 (검은색 둥근 형태) ──
+        helmet_r = int(1.6 * b)
+        pygame.draw.circle(surface, (25, 25, 30), (hx, hy - int(0.2 * b)), helmet_r)
+        # 내부 약간 밝은 면 (입체감)
+        inner_r = int(1.2 * b)
+        pygame.draw.circle(surface, (35, 35, 40), (hx - int(0.2 * b), hy - int(0.5 * b)), inner_r)
+
+        # ── 봄버맨 눈 (흰색 + 검은 동공) ──
+        eye_size = max(2, int(0.35 * b))
+        eye_y = hy - int(0.1 * b)
+        for ex_side in [-1, 1]:
+            eye_x = hx + ex_side * int(0.5 * b)
+            pygame.draw.circle(surface, (255, 255, 255), (eye_x, eye_y), eye_size)
+            pygame.draw.circle(surface, (20, 20, 20), (eye_x, eye_y), max(1, eye_size // 2))
+
+        # ── 퓨즈 (머리 위 심지 + 불꽃) ──
+        fuse_base_y = hy - int(0.2 * b) - helmet_r
+        fuse_tip_y = fuse_base_y - int(1.0 * b)
+        pygame.draw.line(surface, (80, 80, 80), (hx, fuse_base_y), (hx, fuse_tip_y), 2)
+
+        # 불꽃 (애니메이션)
+        flame_offset = math.sin(self._phase) * 2
+        flame_colors = [(255, 200, 50), (255, 140, 0), (255, 80, 0)]
+        for i, color in enumerate(flame_colors):
+            fr = max(2, int(0.3 * b) - i)
+            fy = int(fuse_tip_y - i * 2 + flame_offset)
+            pygame.draw.circle(surface, color, (hx, fy), fr)
+
+        # ── 테두리 ──
+        pygame.draw.circle(surface, (15, 15, 18), (hx, hy - int(0.2 * b)), helmet_r, 1)

@@ -8937,6 +8937,7 @@ class BuildingInterior:
             # 유틸리티
             "lucky_coin": 800,
             "venom_mist_gauntlet": 700,
+            "yachaman_soul": 850,
         }
         return price_map.get(item_name, 500)
 

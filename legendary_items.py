@@ -11630,7 +11630,7 @@ class PandoraLegacy(LegendaryItem):
             "valhalla_warplate", "horn_strawberry_mask",
             "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
             "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
-            "venom_mist_gauntlet", "dowsing_goggles"
+            "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul"
         }
         excluded = {"ammo_box", "fire_support", "doping_potion"}  # 물자보급 전용
         # 발토르(blacksmith) 전용 아이템 — 다른 캐릭터에서는 제외

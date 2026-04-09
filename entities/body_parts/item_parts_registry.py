@@ -41,6 +41,10 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_head_parts import DowsingGogglesPart
         return DowsingGogglesPart(block)
 
+    elif item_name == "yachaman_soul":
+        from entities.body_parts.item_head_parts import YachamanSoulPart
+        return YachamanSoulPart(block)
+
     elif item_name == "technical_vest":
         from entities.body_parts.item_torso_parts import TechnicalVestPart
         return TechnicalVestPart(block)

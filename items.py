@@ -1597,6 +1597,16 @@ ITEM_TYPES = [
         "unlock_condition": None,
         "body_part": "head"
     },
+    {
+        "name": "yachaman_soul",  # 야차맨의 영혼 패시브 아이템 (머리 부위)
+        "color": (30, 30, 35),  # 검은색 (봄버맨 다크 테마)
+        "effect": "yachaman_soul",
+        "icon": None,
+        "chance": 0.004,  # 희귀 패시브
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "head"
+    },
     # 전설 아이템 (필드 스폰 가능)
     {
         "name": "ragnarok_hammer",  # 라그나로크 해머 전설 아이템
@@ -2029,6 +2039,7 @@ soul_burst_obtained = False  # 소울버스트 아이템 획득 여부
 sage_ring_obtained = False  # 현자의 반지 아이템 획득 여부
 venom_mist_gauntlet_obtained = False  # 독안개장갑 아이템 획득 여부
 dowsing_goggles_obtained = False  # 다우징고글 아이템 획득 여부
+yachaman_soul_obtained = False  # 야차맨의 영혼 아이템 획득 여부
 
 
 active_item_slot = None
@@ -2121,6 +2132,7 @@ unlocked_items = {
     "sage_ring": True,  # 현자의 반지
     "venom_mist_gauntlet": True,  # 독안개장갑 (바이퍼 전용)
     "dowsing_goggles": True,  # 다우징고글
+    "yachaman_soul": True,  # 야차맨의 영혼
     "elixir_of_mastery": True  # 엘릭서 오브 마스터리 (신화급 액티브)
 }
 
@@ -2143,7 +2155,8 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "soul_burst",
     "sage_ring",
     "venom_mist_gauntlet",
-    "dowsing_goggles"
+    "dowsing_goggles",
+    "yachaman_soul"
 }
 
 
@@ -2219,6 +2232,16 @@ def reset_items():
 
     global dowsing_goggles_obtained
     dowsing_goggles_obtained = False  # dowsing_goggles 획득 상태 초기화
+
+    global yachaman_soul_obtained
+    yachaman_soul_obtained = False  # yachaman_soul 획득 상태 초기화
+
+    # 야차맨 효과 리셋
+    try:
+        from item_effects.yachaman_soul import reset_all as _ys_reset
+        _ys_reset()
+    except Exception:
+        pass
 
     # 다우징고글 효과 리셋
     try:
@@ -2493,7 +2516,7 @@ def spawn_random_item():
         "valhalla_warplate", "horn_strawberry_mask",
         "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin",
         "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
-        "venom_mist_gauntlet", "dowsing_goggles"
+        "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul"
     }
 
     for item in available_items:
@@ -2764,7 +2787,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
 
             # 패시브 아이템과 엑티브 아이템 구분
             stored = False
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {
