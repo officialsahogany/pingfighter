@@ -259,10 +259,21 @@ def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
     # 발바닥 = 패들 하단 (패들에 밀착)
     foot_y = paddle_rect.bottom
 
+    skill_active = bomb_spin_active
+    skill_phase = bomb_spin_phase if skill_active else -1
+    skill_dir = bomb_spin_direction if bomb_spin_direction != 0 else (_yachaman_move_dir if _yachaman_move_dir != 0 else 1)
+
     # 이동 감지
     dx = cx - _yachaman_prev_x
     _yachaman_prev_x = cx
-    if dx < -1:
+    if skill_active:
+        if bomb_spin_direction != 0:
+            _yachaman_move_dir = bomb_spin_direction
+        if skill_phase == 2 and abs(dx) > 0.5:
+            _yachaman_walk_timer += 1
+        else:
+            _yachaman_walk_timer = max(0, _yachaman_walk_timer - 1)
+    elif dx < -1:
         _yachaman_move_dir = -1
         _yachaman_walk_timer += 1
     elif dx > 1:
@@ -274,7 +285,7 @@ def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
 
     walk_phase = (_yachaman_walk_timer * 0.18) % math.tau if _yachaman_move_dir != 0 else 0.0
     walk_swing = math.sin(walk_phase)
-    bob = int(abs(walk_swing) * 2) if _yachaman_move_dir != 0 else 0
+    bob = int(abs(walk_swing) * 2) if _yachaman_move_dir != 0 and not skill_active else 0
 
     # ── 크기 기준 ──
     char_h = 58
@@ -298,10 +309,61 @@ def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
     DARKER = (18, 18, 22)
     BELT_COL = (120, 90, 20)
     SHOE = (40, 40, 45)
+    ARM_GLOW = (255, 170, 70)
 
-    # ── 다리 (걷기 모션) ──
+    recovery_progress = 0.0
+    if skill_active and skill_phase == 3:
+        rec_t = bomb_spin_timer - BOMB_SPIN_WINDUP - BOMB_SPIN_SPIN1 - BOMB_SPIN_SPIN2
+        recovery_progress = min(1.0, max(0.0, rec_t / max(1, BOMB_SPIN_RECOVERY)))
+
+    body_shift_x = 0
+    torso_offset_y = 0
+    if skill_active:
+        if skill_phase == 0:
+            body_shift_x = int(skill_dir * 2)
+            torso_offset_y = 2
+        elif skill_phase == 1:
+            body_shift_x = int(math.sin(bomb_spin_angle) * 2)
+            torso_offset_y = int(math.cos(bomb_spin_angle * 2.0) * 2)
+        elif skill_phase == 2:
+            body_shift_x = int(skill_dir * 5 + math.sin(bomb_spin_angle) * 2)
+            torso_offset_y = -1 + int(math.cos(bomb_spin_angle * 2.0) * 2)
+        elif skill_phase == 3:
+            body_shift_x = int(skill_dir * 3 * (1.0 - recovery_progress))
+            torso_offset_y = int(2 * (1.0 - recovery_progress))
+
+    body_cx = cx + body_shift_x
+    body_top += torso_offset_y
+    hip_y += torso_offset_y
+
+    if skill_active and skill_phase in (1, 2):
+        spin_shadow_w = 24 + int(abs(math.sin(bomb_spin_angle)) * 8)
+        shadow_rect = pygame_module.Rect(body_cx - spin_shadow_w // 2, foot_y - 3, spin_shadow_w, 7)
+        draw.ellipse(screen, (18, 18, 22), shadow_rect)
+        swirl_rect = pygame_module.Rect(body_cx - 18, body_top - 4, 36, 30)
+        swirl_start = bomb_spin_angle + (0.3 if skill_phase == 2 else 0.0)
+        draw.arc(screen, ARM_GLOW, swirl_rect, swirl_start, swirl_start + math.pi * 1.15, 2)
+
+    # ── 다리 (걷기 / 회전 자세) ──
     leg_spread = 7
-    if _yachaman_move_dir != 0:
+    if skill_active:
+        leg_spread = 9
+        if skill_phase == 0:
+            l_off = -skill_dir * 2
+            r_off = skill_dir * 2
+        elif skill_phase == 1:
+            twist = math.sin(bomb_spin_angle)
+            l_off = int(twist * 5)
+            r_off = int(-twist * 5)
+        elif skill_phase == 2:
+            twist = math.sin(bomb_spin_angle)
+            l_off = int(skill_dir * 4 + twist * 3)
+            r_off = int(skill_dir * 2 - twist * 3)
+        else:
+            settle = 1.0 - recovery_progress
+            l_off = int(skill_dir * 2 * settle)
+            r_off = int(skill_dir * 1 * settle)
+    elif _yachaman_move_dir != 0:
         l_off = int(walk_swing * 6)
         r_off = int(-walk_swing * 6)
     else:
@@ -309,7 +371,7 @@ def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
         r_off = 0
 
     for side, offset in [(-1, l_off), (1, r_off)]:
-        lx = cx + side * leg_spread
+        lx = body_cx + side * leg_spread
         top = (lx, hip_y)
         bot = (lx + offset, hip_y + leg_len)
         draw.line(screen, BLACK, top, bot, leg_w)
@@ -317,51 +379,92 @@ def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
                      pygame_module.Rect(bot[0] - foot_w // 2, bot[1], foot_w, foot_h))
 
     # ── 몸통 ──
-    body_rect = pygame_module.Rect(cx - body_w // 2, body_top, body_w, body_h)
+    body_rect = pygame_module.Rect(body_cx - body_w // 2, body_top, body_w, body_h)
     draw.rect(screen, BLACK, body_rect, border_radius=5)
     # 뒷면 세로줄 (등 디테일)
-    draw.line(screen, DARKER, (cx, body_top + 3), (cx, body_top + body_h - 4), 2)
+    draw.line(screen, DARKER, (body_cx, body_top + 3), (body_cx, body_top + body_h - 4), 2)
 
     # 벨트 (뒷면에서도 보임)
     belt_y = body_top + body_h - 5
-    draw.line(screen, BELT_COL, (cx - body_w // 2 + 2, belt_y), (cx + body_w // 2 - 2, belt_y), 2)
+    draw.line(screen, BELT_COL, (body_cx - body_w // 2 + 2, belt_y), (body_cx + body_w // 2 - 2, belt_y), 2)
 
-    # ── 팔 (걷기 반대 스윙) ──
+    # ── 팔 (걷기 / 폭탄돌리기 포즈) ──
     shoulder_y = body_top + 4
-    if _yachaman_move_dir != 0:
+    if skill_active:
+        if skill_phase == 0:
+            extend = min(1.0, bomb_spin_timer / max(1, BOMB_SPIN_WINDUP))
+        elif skill_phase in (1, 2):
+            extend = 1.0
+        else:
+            extend = max(0.4, 1.0 - recovery_progress * 0.4)
+
+        hold_x = bomb_spin_helmet_x if bomb_spin_helmet_x != 0 else body_cx
+        hold_y = bomb_spin_helmet_y if bomb_spin_helmet_y != 0 else head_y - head_r
+
+        for side in (-1, 1):
+            shoulder = (body_cx + side * (body_w // 2 + 1), shoulder_y)
+            hand_target = (
+                int(shoulder[0] + ((hold_x + side * 4) - shoulder[0]) * extend),
+                int(shoulder[1] + ((hold_y + 2) - shoulder[1]) * extend),
+            )
+            elbow_bias_y = -9 if skill_phase in (0, 1) else -6
+            elbow = (
+                int((shoulder[0] + hand_target[0]) * 0.5 + side * 6 - skill_dir * 2),
+                int((shoulder[1] + hand_target[1]) * 0.5 + elbow_bias_y),
+            )
+            draw.line(screen, BLACK, shoulder, elbow, arm_w)
+            draw.line(screen, BLACK, elbow, hand_target, arm_w)
+            draw.circle(screen, DARK, hand_target, 3)
+            if skill_phase in (1, 2):
+                draw.line(screen, ARM_GLOW, elbow, hand_target, 1)
+    elif _yachaman_move_dir != 0:
         la_sw = int(-walk_swing * 5)
         ra_sw = int(walk_swing * 5)
+        for side, sw in [(-1, la_sw), (1, ra_sw)]:
+            a_top = (body_cx + side * (body_w // 2 + 1), shoulder_y)
+            a_bot = (body_cx + side * (body_w // 2 + arm_len) + sw, shoulder_y + arm_len)
+            draw.line(screen, BLACK, a_top, a_bot, arm_w)
+            draw.circle(screen, DARK, a_bot, 3)
     else:
-        la_sw = 0
-        ra_sw = 0
+        for side in (-1, 1):
+            a_top = (body_cx + side * (body_w // 2 + 1), shoulder_y)
+            a_bot = (body_cx + side * (body_w // 2 + arm_len), shoulder_y + arm_len)
+            draw.line(screen, BLACK, a_top, a_bot, arm_w)
+            draw.circle(screen, DARK, a_bot, 3)
 
-    for side, sw in [(-1, la_sw), (1, ra_sw)]:
-        a_top = (cx + side * (body_w // 2 + 1), shoulder_y)
-        a_bot = (cx + side * (body_w // 2 + arm_len) + sw, shoulder_y + arm_len)
-        draw.line(screen, BLACK, a_top, a_bot, arm_w)
-        draw.circle(screen, DARK, a_bot, 3)
+    # ── 머리 / 투구를 벗은 자리 ──
+    if skill_active:
+        neck_rect = pygame_module.Rect(body_cx - 8, head_y - 3, 16, 10)
+        draw.ellipse(screen, DARK, neck_rect)
+        core_surf = pygame_module.Surface((18, 18), pygame_module.SRCALPHA)
+        pygame_module.draw.circle(core_surf, (255, 120, 20, 80), (9, 9), 7)
+        screen.blit(core_surf, (body_cx - 9, head_y - 10))
+        draw.line(screen, (255, 210, 120), (body_cx - 3, head_y - 2), (body_cx + 3, head_y - 2), 2)
+        if skill_phase in (1, 2):
+            spark_offset = int(math.sin(bomb_spin_angle * 2.0) * 2)
+            draw.circle(screen, (255, 160, 40), (body_cx - 5, head_y - 9 + spark_offset), 2)
+            draw.circle(screen, (255, 110, 10), (body_cx + 5, head_y - 11 - spark_offset), 2)
+    else:
+        draw.circle(screen, BLACK, (body_cx, head_y), head_r)
+        # 뒤통수 하이라이트 (약간 위쪽 밝은 반달)
+        hl_surf = pygame_module.Surface((head_r * 2, head_r * 2), pygame_module.SRCALPHA)
+        pygame_module.draw.circle(hl_surf, (40, 40, 45, 120),
+                                  (head_r, head_r - 3), int(head_r * 0.7))
+        screen.blit(hl_surf, (body_cx - head_r, head_y - head_r))
 
-    # ── 머리 (뒷모습 — 둥근 검은 뒤통수) ──
-    draw.circle(screen, BLACK, (cx, head_y), head_r)
-    # 뒤통수 하이라이트 (약간 위쪽 밝은 반달)
-    hl_surf = pygame_module.Surface((head_r * 2, head_r * 2), pygame_module.SRCALPHA)
-    pygame_module.draw.circle(hl_surf, (40, 40, 45, 120),
-                              (head_r, head_r - 3), int(head_r * 0.7))
-    screen.blit(hl_surf, (cx - head_r, head_y - head_r))
+        # ── 퓨즈 + 불꽃 (뒤에서도 머리 위에 보임) ──
+        fuse_base = (body_cx, head_y - head_r + 2)
+        fuse_tip = (body_cx + 3, head_y - head_r - 10 + bob)
+        draw.line(screen, (90, 80, 70), fuse_base, fuse_tip, 2)
 
-    # ── 퓨즈 + 불꽃 (뒤에서도 머리 위에 보임) ──
-    fuse_base = (cx, head_y - head_r + 2)
-    fuse_tip = (cx + 3, head_y - head_r - 10 + bob)
-    draw.line(screen, (90, 80, 70), fuse_base, fuse_tip, 2)
+        flame_wobble = math.sin(phase_timer * 0.2) * 2
+        for r, g, b, fr in [(255, 220, 80, 5), (255, 160, 30, 4), (255, 80, 0, 3)]:
+            fy = int(fuse_tip[1] - (5 - fr) * 1.5 + flame_wobble)
+            fx = int(fuse_tip[0] + flame_wobble * 0.5)
+            draw.circle(screen, (r, g, b), (fx, fy), fr)
 
-    flame_wobble = math.sin(phase_timer * 0.2) * 2
-    for r, g, b, fr in [(255, 220, 80, 5), (255, 160, 30, 4), (255, 80, 0, 3)]:
-        fy = int(fuse_tip[1] - (5 - fr) * 1.5 + flame_wobble)
-        fx = int(fuse_tip[0] + flame_wobble * 0.5)
-        draw.circle(screen, (r, g, b), (fx, fy), fr)
-
-    # ── 머리 테두리 ──
-    draw.circle(screen, DARKER, (cx, head_y), head_r, 1)
+        # ── 머리 테두리 ──
+        draw.circle(screen, DARKER, (body_cx, head_y), head_r, 1)
 
 
 # ============================================================================
@@ -390,7 +493,8 @@ BOMB_SPIN_SPIN2 = 20       # 2바퀴 회전 + 대시
 BOMB_SPIN_RECOVERY = 10    # 복귀
 BOMB_SPIN_TOTAL = BOMB_SPIN_WINDUP + BOMB_SPIN_SPIN1 + BOMB_SPIN_SPIN2 + BOMB_SPIN_RECOVERY
 BOMB_SPIN_COOLDOWN = 90    # 쿨다운 1.5초
-BOMB_SPIN_DASH_SPEED = 18  # 2바퀴째 대시 속도 (px/frame)
+BOMB_SPIN_SPIN1_SPEED = 6   # 1바퀴째 이동 속도 (px/frame)
+BOMB_SPIN_DASH_SPEED = 22   # 2바퀴째 대시 속도 (px/frame)
 
 
 def try_bomb_spin(direction: int) -> bool:
@@ -444,10 +548,14 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
         helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
 
     elif t <= BOMB_SPIN_WINDUP + BOMB_SPIN_SPIN1:
-        # 1바퀴: 제자리 회전
+        # 1바퀴: 회전 + 이동방향으로 전진
         bomb_spin_phase = 1
         spin_t = t - BOMB_SPIN_WINDUP
         bomb_spin_angle = (spin_t / BOMB_SPIN_SPIN1) * math.pi * 2
+        # 1바퀴 이동 (가속 → 등속)
+        progress = spin_t / BOMB_SPIN_SPIN1
+        speed = BOMB_SPIN_SPIN1_SPEED * min(1.0, progress * 2)
+        dx = int(bomb_spin_direction * speed)
         # 투구가 캐릭터 주위를 원형으로 회전
         orbit_r = 22
         bomb_spin_helmet_x = player_cx + int(math.sin(bomb_spin_angle) * orbit_r)
@@ -455,17 +563,17 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
         helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
 
     elif t <= BOMB_SPIN_WINDUP + BOMB_SPIN_SPIN1 + BOMB_SPIN_SPIN2:
-        # 2바퀴: 회전 + 전진 대시
+        # 2바퀴: 회전 + 고속 대시 전진
         bomb_spin_phase = 2
         spin_t = t - BOMB_SPIN_WINDUP - BOMB_SPIN_SPIN1
         bomb_spin_angle = (spin_t / BOMB_SPIN_SPIN2) * math.pi * 2
-        # 대시 이동
+        # 대시 이동 (초반 최고속 → 후반 감속)
         progress = spin_t / BOMB_SPIN_SPIN2
-        speed = BOMB_SPIN_DASH_SPEED * (1.0 - progress * 0.5)  # 점점 감속
+        speed = BOMB_SPIN_DASH_SPEED * (1.0 - progress * 0.4)
         dx = int(bomb_spin_direction * speed)
         # 투구 회전 + 전방 오프셋
-        orbit_r = 24
-        fwd_offset = int(bomb_spin_direction * 15)
+        orbit_r = 26
+        fwd_offset = int(bomb_spin_direction * 20)
         bomb_spin_helmet_x = player_cx + fwd_offset + int(math.sin(bomb_spin_angle) * orbit_r)
         bomb_spin_helmet_y = player_cy - 30 + int(-math.cos(bomb_spin_angle) * orbit_r * 0.5)
         helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
@@ -504,22 +612,13 @@ def draw_bomb_spin(screen, pygame_module, player_cx, player_cy, phase_timer=0):
     if not bomb_spin_active:
         return
 
-    draw = pygame_module.draw
-    BLACK = (25, 25, 30)
-    DARK = (35, 35, 40)
-    DARKER = (18, 18, 22)
-
     hx, hy = bomb_spin_helmet_x, bomb_spin_helmet_y
     r = BOMB_SPIN_HELMET_R
-
-    # ── 투구 (검은 봄버맨 헤드) ──
-    draw.circle(screen, BLACK, (hx, hy), r)
-    draw.circle(screen, DARK, (hx - 2, hy - 3), int(r * 0.6))
 
     # 회전 중 모션 블러/궤적
     if bomb_spin_phase in (1, 2):
         # 궤적 잔상
-        trail_alpha = 80
+        trail_alpha = 110
         for i in range(3):
             trail_angle = bomb_spin_angle - (i + 1) * 0.5
             orbit_r = 22 if bomb_spin_phase == 1 else 24
@@ -527,18 +626,11 @@ def draw_bomb_spin(screen, pygame_module, player_cx, player_cy, phase_timer=0):
             ty = player_cy - 30 + int(-math.cos(trail_angle) * orbit_r * 0.5)
             if bomb_spin_phase == 2:
                 tx += int(bomb_spin_direction * 15)
-            t_surf = pygame_module.Surface((r * 2, r * 2), pygame_module.SRCALPHA)
-            a = max(20, trail_alpha - i * 25)
-            pygame_module.draw.circle(t_surf, (25, 25, 30, a), (r, r), r)
-            screen.blit(t_surf, (tx - r, ty - r))
+            a = max(28, trail_alpha - i * 28)
+            _draw_bomb_spin_helmet(screen, pygame_module, tx, ty, r, trail_angle, alpha=a, draw_flame=False)
 
-    # 퓨즈 + 불꽃 (투구 위)
-    fuse_tip = (hx + 3, hy - r - 6)
-    draw.line(screen, (90, 80, 70), (hx, hy - r + 2), fuse_tip, 2)
-    wobble = math.sin(phase_timer * 0.3) * 2
-    for cr, cg, cb, fr in [(255, 220, 80, 4), (255, 140, 0, 3), (255, 80, 0, 2)]:
-        draw.circle(screen, (cr, cg, cb),
-                    (int(fuse_tip[0] + wobble), int(fuse_tip[1] - (4 - fr) + wobble)), fr)
+    current_angle = bomb_spin_angle if bomb_spin_phase in (1, 2) else 0.0
+    _draw_bomb_spin_helmet(screen, pygame_module, hx, hy, r, current_angle, alpha=255, draw_flame=True)
 
     # 대시 중 스피드 라인
     if bomb_spin_phase == 2:
@@ -552,21 +644,67 @@ def draw_bomb_spin(screen, pygame_module, player_cx, player_cy, phase_timer=0):
             screen.blit(line_surf, (min(lx_start, lx_end), ly))
 
     # 테두리
-    draw.circle(screen, DARKER, (hx, hy), r, 1)
-
-    # 충돌 중 글로우
     if bomb_spin_phase in (1, 2):
         glow = pygame_module.Surface((r * 3, r * 3), pygame_module.SRCALPHA)
         pygame_module.draw.circle(glow, (255, 120, 0, 40), (r * 3 // 2, r * 3 // 2), r + 4)
         screen.blit(glow, (hx - r * 3 // 2, hy - r * 3 // 2))
 
 
+def _draw_bomb_spin_helmet(screen, pygame_module, cx, cy, radius, spin_angle, alpha=255, draw_flame=True):
+    """회전 중 x축 뒤집힘이 보이는 투구를 그린다."""
+    draw = pygame_module.draw
+    surf_size = radius * 4
+    surf = pygame_module.Surface((surf_size, surf_size), pygame_module.SRCALPHA)
+    local_cx = surf_size // 2
+    local_cy = surf_size // 2
+
+    flip_strength = abs(math.cos(spin_angle * 1.7))
+    shell_h = max(8, int(radius * 2 * (0.45 + flip_strength * 0.55)))
+    shell_rect = pygame_module.Rect(local_cx - radius, local_cy - shell_h // 2, radius * 2, shell_h)
+
+    draw.ellipse(surf, (25, 25, 30, alpha), shell_rect)
+
+    highlight_w = max(8, int(radius * 1.2))
+    highlight_h = max(4, int(shell_h * 0.55))
+    highlight_rect = pygame_module.Rect(
+        local_cx - highlight_w // 2 - 2,
+        local_cy - highlight_h // 2 - 3,
+        highlight_w,
+        highlight_h,
+    )
+    draw.ellipse(surf, (40, 40, 45, min(alpha, 160)), highlight_rect)
+
+    if shell_h >= radius + 8:
+        visor_rect = pygame_module.Rect(local_cx - radius // 2, local_cy - 1, radius, max(2, shell_h // 5))
+        draw.ellipse(surf, (60, 60, 68, min(alpha, 140)), visor_rect)
+
+    if draw_flame:
+        fuse_base = (local_cx, shell_rect.top + 3)
+        fuse_tip = (local_cx + 3, shell_rect.top - 7 + int(math.sin(spin_angle * 2.5) * 2))
+        draw.line(surf, (90, 80, 70, alpha), fuse_base, fuse_tip, 2)
+        wobble = math.sin(spin_angle * 3.1) * 2
+        for cr, cg, cb, fr in [(255, 220, 80, 4), (255, 140, 0, 3), (255, 80, 0, 2)]:
+            draw.circle(
+                surf,
+                (cr, cg, cb, min(alpha, 230)),
+                (int(fuse_tip[0] + wobble), int(fuse_tip[1] - (4 - fr) + wobble * 0.5)),
+                fr,
+            )
+
+    draw.ellipse(surf, (18, 18, 22, alpha), shell_rect, 1)
+    screen.blit(surf, (cx - local_cx, cy - local_cy))
+
+
 def reset_bomb_spin():
     """스킬 상태 리셋."""
     global bomb_spin_active, bomb_spin_timer, bomb_spin_phase
     global bomb_spin_angle, bomb_spin_cooldown
+    global bomb_spin_direction, bomb_spin_helmet_x, bomb_spin_helmet_y
     bomb_spin_active = False
     bomb_spin_timer = 0
     bomb_spin_phase = 0
     bomb_spin_angle = 0.0
     bomb_spin_cooldown = 0
+    bomb_spin_direction = 0
+    bomb_spin_helmet_x = 0
+    bomb_spin_helmet_y = 0
