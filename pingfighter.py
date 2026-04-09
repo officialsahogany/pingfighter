@@ -16408,8 +16408,8 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
                 pass
             # 💀 야차맨 변신 상태: 대시 토큰 1개 제한
             try:
-                from item_effects.yachaman_soul import yachaman_active as _ys_tk
-                if _ys_tk:
+                from item_effects import yachaman_soul as _ys_tk_mod
+                if _ys_tk_mod.yachaman_active:
                     max_charges = min(max_charges, 1)
             except Exception:
                 pass
@@ -18873,12 +18873,11 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
             # 플레이어 패들
             _ys_draw_override = False
             try:
-                from item_effects.yachaman_soul import yachaman_active as _ys_act_draw
-                if _ys_act_draw and PLAYER is not None:
-                    from item_effects.yachaman_soul import draw_yachaman_paddle, draw_yachaman_character
+                from item_effects import yachaman_soul as _ys_mod
+                if _ys_mod.yachaman_active and PLAYER is not None:
                     globals()['yachaman_phase_timer'] = globals().get('yachaman_phase_timer', 0) + 1
-                    draw_yachaman_paddle(SCREEN, pygame, PLAYER, globals()['yachaman_phase_timer'])
-                    draw_yachaman_character(SCREEN, pygame, PLAYER, globals()['yachaman_phase_timer'])
+                    _ys_mod.draw_yachaman_paddle(SCREEN, pygame, PLAYER, globals()['yachaman_phase_timer'])
+                    _ys_mod.draw_yachaman_character(SCREEN, pygame, PLAYER, globals()['yachaman_phase_timer'])
                     _ys_draw_override = True
             except Exception:
                 pass
@@ -22144,9 +22143,9 @@ def apply_equipment_paddle_modifiers() -> None:
     effective_scale = CURRENT_PADDLE_SIZE_SCALE * ANGEL_PADDLE_SCALE * gauge_scale * combined_bulk_scale * quest_paddle_scale
     # 💀 야차맨 변신 상태: 패들 사이즈 -30%
     try:
-        from item_effects.yachaman_soul import yachaman_active as _ys_active_p, YACHAMAN_PADDLE_SIZE_MULT
-        if _ys_active_p:
-            effective_scale *= YACHAMAN_PADDLE_SIZE_MULT
+        from item_effects import yachaman_soul as _ys_paddle_mod
+        if _ys_paddle_mod.yachaman_active:
+            effective_scale *= _ys_paddle_mod.YACHAMAN_PADDLE_SIZE_MULT
     except Exception:
         pass
     CURRENT_PADDLE_EFFECTIVE_SCALE = effective_scale
@@ -32252,8 +32251,8 @@ def is_odins_eye_transformed() -> bool:
 def is_yachaman_transformed() -> bool:
     """💀 야차맨의 영혼 변신 상태인지 확인 (변신 중에는 기존 스킬 사용 불가)"""
     try:
-        from item_effects.yachaman_soul import yachaman_active
-        return yachaman_active
+        from item_effects import yachaman_soul as _ys
+        return _ys.yachaman_active
     except Exception:
         pass
     return False
@@ -62214,8 +62213,8 @@ def apply_effect(effect_name, item_data=None):
                 pass
             # 💀 야차맨 변신 상태: 대시 토큰 1개 제한
             try:
-                from item_effects.yachaman_soul import yachaman_active as _ys_tk2
-                if _ys_tk2:
+                from item_effects import yachaman_soul as _ys_tk2_mod
+                if _ys_tk2_mod.yachaman_active:
                     max_charges = min(max_charges, 1)
             except Exception:
                 pass
@@ -74105,8 +74104,8 @@ def handle_player(keys):
         pass
     # 💀 야차맨 변신 상태: 대시 토큰 1개 제한
     try:
-        from item_effects.yachaman_soul import yachaman_active as _ys_tk3
-        if _ys_tk3 and rolling_charges > 1:
+        from item_effects import yachaman_soul as _ys_tk3_mod
+        if _ys_tk3_mod.yachaman_active and rolling_charges > 1:
             rolling_charges = 1
             token_states = [True] * rolling_charges
     except Exception:
@@ -80488,9 +80487,9 @@ def handle_player(keys):
 
             # 💀 야차맨의 영혼 변신 상태: 이동속도 4 고정
             try:
-                from item_effects.yachaman_soul import yachaman_active as _ys_active, YACHAMAN_MOVE_SPEED
-                if _ys_active:
-                    effective_max_speed = YACHAMAN_MOVE_SPEED
+                from item_effects import yachaman_soul as _ys_speed_mod
+                if _ys_speed_mod.yachaman_active:
+                    effective_max_speed = _ys_speed_mod.YACHAMAN_MOVE_SPEED
             except Exception:
                 pass
 
