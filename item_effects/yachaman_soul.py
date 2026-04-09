@@ -233,44 +233,172 @@ def draw_animation(screen, pygame_module):
 
 
 def draw_yachaman_paddle(screen, pygame_module, paddle_rect, phase_timer=0):
-    """야차맨 변신 상태의 봄버맨 스타일 패들 그리기."""
+    """야차맨 변신 상태 - 봄버맨 풀 캐릭터 그리기 (패들 위에 봄버맨 전신)."""
+    # 패들 히트박스는 그대로 유지 (투명), 봄버맨 캐릭터를 패들 위에 그림
+    # 패들 바를 반투명으로 표시
+    bar_surf = pygame_module.Surface((paddle_rect.width, paddle_rect.height), pygame_module.SRCALPHA)
+    pygame_module.draw.rect(bar_surf, (30, 30, 35, 100), (0, 0, paddle_rect.width, paddle_rect.height), border_radius=4)
+    screen.blit(bar_surf, paddle_rect.topleft)
+
+
+# ── 봄버맨 캐릭터 전체 그리기 (패들 위) ──
+_yachaman_walk_timer = 0
+_yachaman_move_dir = 0  # -1=좌, 0=정지, 1=우
+_yachaman_prev_x = 0
+
+
+def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
+    """패들 위에 봄버맨 전신 캐릭터를 그리기 (걷기 모션 포함)."""
     import math
-    x, y = paddle_rect.centerx, paddle_rect.centery
-    w, h = paddle_rect.width, paddle_rect.height
+    global _yachaman_walk_timer, _yachaman_move_dir, _yachaman_prev_x
 
-    # 봄버맨 몸통 (검은 둥근 직사각형)
-    body_rect = pygame_module.Rect(x - w // 2, y - h // 2, w, h)
-    pygame_module.draw.rect(screen, (25, 25, 30), body_rect, border_radius=6)
+    draw = pygame_module.draw
+    cx = paddle_rect.centerx
+    foot_y = paddle_rect.top  # 발바닥 = 패들 상단
 
-    # 봄버맨 눈 (흰색 원 + 검은 동공)
-    eye_size = max(3, h // 5)
-    eye_y = y - h // 6
-    left_eye_x = x - w // 5
-    right_eye_x = x + w // 5
-    pygame_module.draw.circle(screen, (255, 255, 255), (left_eye_x, eye_y), eye_size)
-    pygame_module.draw.circle(screen, (255, 255, 255), (right_eye_x, eye_y), eye_size)
-    pygame_module.draw.circle(screen, (20, 20, 20), (left_eye_x, eye_y), eye_size // 2 + 1)
-    pygame_module.draw.circle(screen, (20, 20, 20), (right_eye_x, eye_y), eye_size // 2 + 1)
+    # 이동 감지
+    dx = cx - _yachaman_prev_x
+    _yachaman_prev_x = cx
+    if dx < -1:
+        _yachaman_move_dir = -1
+        _yachaman_walk_timer += 1
+    elif dx > 1:
+        _yachaman_move_dir = 1
+        _yachaman_walk_timer += 1
+    else:
+        _yachaman_move_dir = 0
+        _yachaman_walk_timer = 0
 
-    # 봄버맨 안테나/퓨즈 (머리 위 불꽃)
-    fuse_x = x
-    fuse_base_y = y - h // 2
-    fuse_tip_y = fuse_base_y - max(6, h // 3)
-    pygame_module.draw.line(screen, (80, 80, 80), (fuse_x, fuse_base_y), (fuse_x, fuse_tip_y), 2)
+    walk_phase = (_yachaman_walk_timer * 0.18) % (2 * math.pi) if _yachaman_move_dir != 0 else 0
+    walk_swing = math.sin(walk_phase)  # -1 ~ 1
+    bob = int(abs(walk_swing) * 2) if _yachaman_move_dir != 0 else 0  # 상하 바운스
 
-    # 불꽃 애니메이션
-    flame_offset = math.sin(phase_timer * 0.15) * 2
-    flame_colors = [(255, 200, 50), (255, 140, 0), (255, 80, 0)]
-    for i, color in enumerate(flame_colors):
-        fr = max(2, 5 - i)
-        fy = fuse_tip_y - i * 2 + int(flame_offset)
-        pygame_module.draw.circle(screen, color, (fuse_x, fy), fr)
+    # ── 크기 기준 (캐릭터 높이 ~60px) ──
+    char_h = 58
+    head_r = 14
+    body_w = 22
+    body_h = 18
+    arm_len = 12
+    arm_w = 5
+    leg_len = 14
+    leg_w = 5
+    foot_w = 8
+    foot_h = 4
 
-    # 봄버맨 벨트 (가로 줄)
-    belt_y = y + h // 6
-    pygame_module.draw.line(screen, (80, 60, 0), (x - w // 2 + 3, belt_y), (x + w // 2 - 3, belt_y), 2)
-    # 벨트 버클
-    pygame_module.draw.circle(screen, (200, 180, 50), (x, belt_y), 3)
+    head_y = foot_y - char_h + head_r + bob
+    body_top = head_y + head_r - 2
+    body_bot = body_top + body_h
+    hip_y = body_bot
 
-    # 테두리 하이라이트
-    pygame_module.draw.rect(screen, (60, 60, 65), body_rect, width=1, border_radius=6)
+    # 색상
+    BLACK = (25, 25, 30)
+    DARK = (35, 35, 40)
+    WHITE = (255, 255, 255)
+    PUPIL = (15, 15, 15)
+    BELT_COL = (120, 90, 20)
+    BUCKLE = (220, 200, 60)
+    SHOE = (40, 40, 45)
+
+    # ── 다리 (걷기 모션) ──
+    leg_spread = 7
+    left_leg_x = cx - leg_spread
+    right_leg_x = cx + leg_spread
+
+    if _yachaman_move_dir != 0:
+        left_leg_offset = int(walk_swing * 6)
+        right_leg_offset = int(-walk_swing * 6)
+    else:
+        left_leg_offset = 0
+        right_leg_offset = 0
+
+    # 왼쪽 다리
+    ll_top = (left_leg_x, hip_y)
+    ll_bot = (left_leg_x + left_leg_offset, hip_y + leg_len)
+    draw.line(screen, BLACK, ll_top, ll_bot, leg_w)
+    # 왼쪽 발
+    lf_rect = pygame_module.Rect(ll_bot[0] - foot_w // 2, ll_bot[1], foot_w, foot_h)
+    draw.ellipse(screen, SHOE, lf_rect)
+
+    # 오른쪽 다리
+    rl_top = (right_leg_x, hip_y)
+    rl_bot = (right_leg_x + right_leg_offset, hip_y + leg_len)
+    draw.line(screen, BLACK, rl_top, rl_bot, leg_w)
+    # 오른쪽 발
+    rf_rect = pygame_module.Rect(rl_bot[0] - foot_w // 2, rl_bot[1], foot_w, foot_h)
+    draw.ellipse(screen, SHOE, rf_rect)
+
+    # ── 몸통 ──
+    body_rect = pygame_module.Rect(cx - body_w // 2, body_top, body_w, body_h)
+    draw.rect(screen, BLACK, body_rect, border_radius=5)
+    # 몸통 하이라이트
+    hl_rect = pygame_module.Rect(cx - body_w // 2 + 3, body_top + 2, body_w - 6, body_h - 4)
+    draw.rect(screen, DARK, hl_rect, border_radius=3)
+
+    # 벨트
+    belt_y = body_top + body_h - 5
+    draw.line(screen, BELT_COL, (cx - body_w // 2 + 2, belt_y), (cx + body_w // 2 - 2, belt_y), 2)
+    draw.circle(screen, BUCKLE, (cx, belt_y), 3)
+
+    # ── 팔 (걷기 시 반대 스윙) ──
+    shoulder_y = body_top + 4
+
+    if _yachaman_move_dir != 0:
+        left_arm_swing = int(-walk_swing * 5)
+        right_arm_swing = int(walk_swing * 5)
+    else:
+        left_arm_swing = 0
+        right_arm_swing = 0
+
+    # 왼팔
+    la_top = (cx - body_w // 2 - 1, shoulder_y)
+    la_bot = (cx - body_w // 2 - arm_len + left_arm_swing, shoulder_y + arm_len)
+    draw.line(screen, BLACK, la_top, la_bot, arm_w)
+    # 왼손 (둥글)
+    draw.circle(screen, DARK, la_bot, 3)
+
+    # 오른팔
+    ra_top = (cx + body_w // 2 + 1, shoulder_y)
+    ra_bot = (cx + body_w // 2 + arm_len + right_arm_swing, shoulder_y + arm_len)
+    draw.line(screen, BLACK, ra_top, ra_bot, arm_w)
+    draw.circle(screen, DARK, ra_bot, 3)
+
+    # ── 머리 (큰 둥근 봄버맨 헤드) ──
+    draw.circle(screen, BLACK, (cx, head_y), head_r)
+    # 머리 하이라이트
+    draw.circle(screen, DARK, (cx - 3, head_y - 4), int(head_r * 0.6))
+
+    # ── 눈 ──
+    eye_r = 4
+    eye_y_pos = head_y + 1
+    pupil_r = 2
+    # 이동 방향에 따라 동공 시선
+    pupil_offset = _yachaman_move_dir * 1
+
+    for side in [-1, 1]:
+        ex = cx + side * 6
+        draw.circle(screen, WHITE, (ex, eye_y_pos), eye_r)
+        draw.circle(screen, PUPIL, (ex + pupil_offset, eye_y_pos), pupil_r)
+
+    # ── 퓨즈 + 불꽃 ──
+    fuse_base = (cx + 2, head_y - head_r + 2)
+    fuse_tip = (cx + 5, head_y - head_r - 10 + bob)
+    draw.line(screen, (90, 80, 70), fuse_base, fuse_tip, 2)
+
+    # 불꽃 (흔들림)
+    flame_x = fuse_tip[0]
+    flame_y = fuse_tip[1]
+    flame_wobble = math.sin(phase_timer * 0.2) * 2
+    flames = [(255, 220, 80, 5), (255, 160, 30, 4), (255, 80, 0, 3)]
+    for r, g, b, fr in flames:
+        fy = int(flame_y - (5 - fr) * 1.5 + flame_wobble)
+        fx = int(flame_x + flame_wobble * 0.5)
+        draw.circle(screen, (r, g, b), (fx, fy), fr)
+
+    # ── ? 마크 (봄버맨 몸통 중앙) ──
+    try:
+        font = pygame_module.font.Font(None, 16)
+        q_surf = font.render("?", True, (180, 180, 180))
+        q_rect = q_surf.get_rect(center=(cx, body_top + body_h // 2 - 1))
+        screen.blit(q_surf, q_rect)
+    except Exception:
+        pass

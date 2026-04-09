@@ -18875,9 +18875,10 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
             try:
                 from item_effects.yachaman_soul import yachaman_active as _ys_act_draw
                 if _ys_act_draw and PLAYER is not None:
-                    from item_effects.yachaman_soul import draw_yachaman_paddle
+                    from item_effects.yachaman_soul import draw_yachaman_paddle, draw_yachaman_character
                     globals()['yachaman_phase_timer'] = globals().get('yachaman_phase_timer', 0) + 1
                     draw_yachaman_paddle(SCREEN, pygame, PLAYER, globals()['yachaman_phase_timer'])
+                    draw_yachaman_character(SCREEN, pygame, PLAYER, globals()['yachaman_phase_timer'])
                     _ys_draw_override = True
             except Exception:
                 pass
@@ -35564,6 +35565,9 @@ _skeletal_skin = _create_smasher_skin()
 def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> pygame.Surface:
     # 뿔딸기 변신 중이면 캐릭터 스프라이트를 숨김 (빈 서피스 반환)
     if is_horn_strawberry_transformed():
+        return pygame.Surface((1, 1), pygame.SRCALPHA)
+    # 💀 야차맨 변신 중이면 캐릭터 스프라이트를 숨김 (봄버맨 캐릭터로 대체)
+    if is_yachaman_transformed():
         return pygame.Surface((1, 1), pygame.SRCALPHA)
 
     sk = _skeletal_skeleton
