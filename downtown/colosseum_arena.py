@@ -7595,6 +7595,13 @@ class ColosseumsArena:
         self.skill_check_timer = 0.0
         self.skill_check_interval = 0.5  # 0.5초마다 체크
 
+        # 수동 조작 모드 (플레이어가 하단 영웅을 직접 컨트롤)
+        self.manual_control_active = False  # 자동/수동 토글
+        self.manual_control_btn_rect = None  # 토글 버튼 영역
+        self.manual_move_left = False  # A/← 키 누름 상태
+        self.manual_move_right = False  # D/→ 키 누름 상태
+        self.manual_skill_cooldown_order = []  # 스킬 충전 완료 순서 추적
+
         # 말풍선 시스템 (스킬 발동 시 외침)
         self.top_speech_text = ""       # 상단 영웅 말풍선 텍스트
         self.top_speech_timer = 0       # 상단 영웅 말풍선 타이머
@@ -8672,7 +8679,9 @@ class ColosseumsArena:
         if not self.battle_active:
             return False
 
-        # 배속 적용
+        # 배속 적용 (수동 모드에서는 강제 1x)
+        if self.manual_control_active:
+            self.speed_multiplier = 1
         dt *= self.speed_multiplier
 
         # === 달빛 베기 화면 정지 체크 (스킬 업데이트 전에 체크!) ===
@@ -8717,15 +8726,20 @@ class ColosseumsArena:
         #             print(f"[BombKB-DEBUG] PRE-CHECK → {_dbg_pfx} kb_active=True, is_frozen={is_frozen}, spawn_phase={self.spawn_phase}")
 
         if not is_frozen:
-            # AI 패들 업데이트 (실제 게임과 동일한 파라미터)
+            # AI 패들 업데이트 (상단은 항상 AI)
             self.top_paddle.update(
                 self.ball.x, self.ball.y,
                 self.ball.vx, self.ball.vy, dt
             )
-            self.bottom_paddle.update(
-                self.ball.x, self.ball.y,
-                self.ball.vx, self.ball.vy, dt
-            )
+
+            # 하단 패들: 수동 모드면 플레이어 입력, 아니면 AI
+            if self.manual_control_active:
+                self._update_manual_paddle(dt)
+            else:
+                self.bottom_paddle.update(
+                    self.ball.x, self.ball.y,
+                    self.ball.vx, self.ball.vy, dt
+                )
 
             # 💣 폭탄 서프라이즈 넉백 처리 (AI 이동 후 적용, 최종 위치 오버라이드)
             if self.skill_manager:
@@ -8999,8 +9013,8 @@ class ColosseumsArena:
                     self._play_skill_sound(result)
                     self.show_speech_bubble(True, result['skill_korean_name'])
 
-        # 하단 영웅 스킬
-        if self.selected_match:
+        # 하단 영웅 스킬 (수동 모드에서는 자동 발동 안함 - 플레이어가 좌클릭으로 발동)
+        if self.selected_match and not self.manual_control_active:
             chance_bottom = self._get_style_skill_chance(self.selected_match.hero2)
             if random.random() < chance_bottom:
                 result = self.skill_manager.try_use_skill(
@@ -9014,6 +9028,117 @@ class ColosseumsArena:
                 if result and 'skill_korean_name' in result:
                     self._play_skill_sound(result)
                     self.show_speech_bubble(False, result['skill_korean_name'])
+
+        # 수동 모드: 스킬 충전 완료 순서 추적 (먼저 찬 스킬 우선 발동용)
+        if self.manual_control_active and self.selected_match and self.skill_manager:
+            hero_id = self.selected_match.hero2["id"]
+            skills = self.skill_manager.active_skills.get(hero_id, [])
+            for s in skills:
+                if s.can_use() and s.trigger != SkillTrigger.PASSIVE:
+                    if s.skill_id not in self.manual_skill_cooldown_order:
+                        self.manual_skill_cooldown_order.append(s.skill_id)
+
+    def _update_manual_paddle(self, dt: float):
+        """수동 모드: 플레이어 키 입력으로 하단 패들 이동"""
+        paddle = self.bottom_paddle
+        if not paddle:
+            return
+
+        # 대쉬/귀신발걸음 상태 업데이트 (물리는 유지)
+        paddle.update_dash(dt)
+        paddle.update_ghost_step(dt)
+
+        # 스턴/대쉬 중에는 이동 불가
+        if paddle.is_stunned or paddle.dash_active or paddle.dash_stun_timer > 0:
+            return
+
+        # 이동 방향 계산
+        move_dir = 0
+        if self.manual_move_left:
+            move_dir -= 1
+        if self.manual_move_right:
+            move_dir += 1
+
+        # 혼란 상태면 방향 반전
+        if paddle.is_confused:
+            move_dir = -move_dir
+
+        # 목표 속도 계산
+        target_velocity = move_dir * paddle.base_speed * paddle.slow_multiplier
+
+        # 속도 제한
+        max_spd = paddle.max_speed * paddle.slow_multiplier
+        target_velocity = max(-max_spd, min(max_spd, target_velocity))
+
+        # 가속도 적용 (부드러운 이동)
+        accel = 0.5 * paddle.slow_multiplier
+        if abs(target_velocity - paddle.velocity) > accel:
+            if target_velocity > paddle.velocity:
+                paddle.velocity += accel
+            else:
+                paddle.velocity -= accel
+        else:
+            paddle.velocity = target_velocity
+
+        # 키 미입력 시 감속
+        if move_dir == 0:
+            paddle.velocity *= 0.85
+
+        # 위치 업데이트
+        paddle.x += paddle.velocity
+
+        # 중력 드리프트 적용
+        if paddle.gravity_drift != 0:
+            paddle.x += paddle.gravity_drift * dt
+
+        # 경계 체크
+        paddle.x = max(GAME_AREA_X, min(paddle.x, GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH))
+
+    def _manual_try_use_skill(self):
+        """수동 모드: 좌클릭 시 먼저 쿨타임이 찬 스킬 발동"""
+        if not self.skill_manager or not self.selected_match:
+            return
+
+        hero_id = self.selected_match.hero2["id"]
+        skills = self.skill_manager.active_skills.get(hero_id, [])
+        if not skills:
+            return
+
+        # 사용 가능한 스킬 필터 (쿨타임 충전 완료 + 비활성 상태)
+        usable = [s for s in skills if s.can_use() and s.trigger != SkillTrigger.PASSIVE]
+        if not usable:
+            return
+
+        # 먼저 쿨타임이 충전된 스킬 우선 (충전 순서 추적)
+        # manual_skill_cooldown_order에 기록된 순서대로 우선 발동
+        chosen = None
+        for skill_id in self.manual_skill_cooldown_order:
+            for s in usable:
+                if s.skill_id == skill_id:
+                    chosen = s
+                    break
+            if chosen:
+                break
+
+        # 순서 추적에 없으면 첫 번째 사용 가능한 스킬
+        if not chosen:
+            chosen = usable[0]
+
+        # 스킬 발동
+        result = self.skill_manager.try_use_skill(
+            hero_id,
+            chosen.trigger,
+            self.bottom_paddle,
+            self.top_paddle,
+            self.ball
+        )
+        if result and 'skill_korean_name' in result:
+            self._play_skill_sound(result)
+            self.show_speech_bubble(False, result['skill_korean_name'])
+
+        # 발동된 스킬은 충전 순서에서 제거
+        if chosen.skill_id in self.manual_skill_cooldown_order:
+            self.manual_skill_cooldown_order.remove(chosen.skill_id)
 
     def show_speech_bubble(self, is_top: bool, skill_name: str):
         """영웅 말풍선 표시"""
@@ -9470,6 +9595,11 @@ class ColosseumsArena:
             return
 
         self.battle_active = False
+
+        # 수동 모드 키 입력 상태 초기화
+        self.manual_move_left = False
+        self.manual_move_right = False
+        self.manual_skill_cooldown_order = []
 
         # 하이라이트 녹화 중단 (클립은 유지)
         if self.highlight_recorder:
@@ -10222,6 +10352,23 @@ class ColosseumsArena:
         if self.admin_hero_select_active:
             return self._handle_admin_hero_select_event(event)
 
+        # 수동 모드 키보드 입력 (KEYDOWN/KEYUP)
+        if self.state == TournamentState.BATTLE and self.manual_control_active:
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_a, pygame.K_LEFT):
+                    self.manual_move_left = True
+                    return False
+                elif event.key in (pygame.K_d, pygame.K_RIGHT):
+                    self.manual_move_right = True
+                    return False
+            elif event.type == pygame.KEYUP:
+                if event.key in (pygame.K_a, pygame.K_LEFT):
+                    self.manual_move_left = False
+                    return False
+                elif event.key in (pygame.K_d, pygame.K_RIGHT):
+                    self.manual_move_right = False
+                    return False
+
         if event.type == pygame.KEYDOWN:
             # F5: 관리자 영웅 선택 모드 (초반 대진표 화면에서만)
             if event.key == pygame.K_F5:
@@ -10840,12 +10987,33 @@ class ColosseumsArena:
                     return
             return
 
-        # 배속 버튼 클릭 처리
+        # 자동/수동 토글 버튼 클릭 처리
         if self.state == TournamentState.BATTLE:
-            for multiplier, rect in self.speed_btn_rects.items():
-                if rect.collidepoint(mx, my):
-                    self.speed_multiplier = multiplier
-                    return
+            if self.manual_control_btn_rect and self.manual_control_btn_rect.collidepoint(mx, my):
+                self.manual_control_active = not self.manual_control_active
+                if self.manual_control_active:
+                    # 수동 모드 진입: 배속 1x 강제, 키 상태 초기화
+                    self.speed_multiplier = 1
+                    self.manual_move_left = False
+                    self.manual_move_right = False
+                    self.manual_skill_cooldown_order = []
+                return
+
+        # 배속 버튼 클릭 처리 (수동 모드에서는 비활성)
+        if self.state == TournamentState.BATTLE:
+            if self.manual_control_active:
+                pass  # 수동 모드에서는 배속 변경 불가
+            else:
+                for multiplier, rect in self.speed_btn_rects.items():
+                    if rect.collidepoint(mx, my):
+                        self.speed_multiplier = multiplier
+                        return
+
+        # 수동 모드: 좌클릭 스킬 발동 (토글 버튼/배속 버튼 영역이 아닌 경우)
+        if self.state == TournamentState.BATTLE and self.manual_control_active:
+            if self.skill_manager and self.selected_match and self.bottom_paddle and self.top_paddle and self.ball:
+                self._manual_try_use_skill()
+            return
 
         # 호위무사 선택 클릭 처리
         if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
@@ -12734,6 +12902,9 @@ class ColosseumsArena:
         # 배속 버튼
         self._draw_speed_buttons()
 
+        # 자동/수동 조작 토글 버튼
+        self._draw_manual_control_button()
+
         # 통합 쿨타임 큐 UI (영웅 + 호위무사 통합, 왼쪽 필러)
         self._draw_cooldown_queue()
 
@@ -12834,7 +13005,11 @@ class ColosseumsArena:
             self.speed_btn_rects[mult] = rect
 
             is_active = (self.speed_multiplier == mult)
-            if is_active:
+            # 수동 모드일 때 배속 버튼 비활성화 표시
+            if self.manual_control_active and mult != 1:
+                bg = (35, 38, 45)
+                text_color = (80, 80, 80)
+            elif is_active:
                 bg = (220, 180, 80)
                 text_color = (30, 25, 15)
             else:
@@ -12849,6 +13024,33 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(label, text_color)
                 self.screen.blit(surf, (x + btn_w // 2 - surf.get_width() // 2,
                                         start_y + btn_h // 2 - surf.get_height() // 2))
+
+    def _draw_manual_control_button(self):
+        """자동/수동 조작 토글 버튼 그리기 (배속 버튼 아래)"""
+        btn_w, btn_h = 50, 22
+        # 배속 버튼 영역의 오른쪽 끝에 맞춤 (점수판 오른쪽)
+        x = SCREEN_WIDTH // 2 + 65
+        y = 44  # 배속 버튼(y=18, h=22) 아래
+
+        rect = pygame.Rect(x, y, btn_w, btn_h)
+        self.manual_control_btn_rect = rect
+
+        if self.manual_control_active:
+            bg = (80, 180, 120)  # 수동: 초록색
+            text_color = (20, 40, 25)
+            label = "수동"
+        else:
+            bg = (50, 55, 65)  # 자동: 회색
+            text_color = (140, 140, 140)
+            label = "자동"
+
+        pygame.draw.rect(self.screen, bg, rect, border_radius=3)
+        pygame.draw.rect(self.screen, (80, 85, 95), rect, 1, border_radius=3)
+
+        if self.fonts and "small" in self.fonts:
+            surf, _ = self.fonts["small"].render(label, text_color)
+            self.screen.blit(surf, (x + btn_w // 2 - surf.get_width() // 2,
+                                    y + btn_h // 2 - surf.get_height() // 2))
 
     def _draw_scoreboard(self):
         """점수판 그리기"""
