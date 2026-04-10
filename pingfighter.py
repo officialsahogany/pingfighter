@@ -2184,7 +2184,17 @@ try:
     # 2) 로컬 파일이 없으면 imageio_ffmpeg가 제공하는 경로 사용
     if ffmpeg_path is None:
         try:
-            ffmpeg_candidate = imageio_ffmpeg.get_ffmpeg_exe()
+            import threading
+            _ffmpeg_result = [None]
+            def _probe_ffmpeg():
+                try:
+                    _ffmpeg_result[0] = imageio_ffmpeg.get_ffmpeg_exe()
+                except Exception:
+                    pass
+            _t = threading.Thread(target=_probe_ffmpeg, daemon=True)
+            _t.start()
+            _t.join(timeout=5)  # 5초 안에 응답 없으면 포기
+            ffmpeg_candidate = _ffmpeg_result[0]
             if ffmpeg_candidate and os.path.isfile(ffmpeg_candidate):
                 ffmpeg_path = ffmpeg_candidate
         except Exception:
