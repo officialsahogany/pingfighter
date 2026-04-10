@@ -16,7 +16,7 @@ yachaman_anim_y = 0
 yachaman_particles = []
 
 # Transformation stats
-YACHAMAN_MOVE_SPEED = 4
+YACHAMAN_MOVE_SPEED = 3
 YACHAMAN_PADDLE_SIZE_MULT = 0.7
 
 # Animation timings
