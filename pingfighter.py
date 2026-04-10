@@ -1475,6 +1475,15 @@ def _draw_loading_frame() -> None:
         version_surface = small_font.render("v1.0 // PING FIGHTER", True, (60, 80, 100))
         SCREEN.blit(version_surface, (30, HEIGHT - 35))
 
+        # SCREEN(오프스크린 서피스)을 REAL_SCREEN(실제 디스플레이)에 전송
+        if REAL_SCREEN is not None:
+            REAL_SCREEN.fill((15, 15, 25))
+            if GAME_SCALE_FACTOR != 1.0:
+                scaled = pygame.transform.scale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+                REAL_SCREEN.blit(scaled, (GAME_OFFSET_X, GAME_OFFSET_Y))
+            else:
+                REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+
         pygame.display.flip()
 
     except Exception as e:
@@ -1816,6 +1825,15 @@ def show_loading_screen(message: str, target_progress: float | None = None) -> N
             version_text = "v1.0 // PING FIGHTER"
             version_surface = small_font.render(version_text, True, (60, 80, 100))
             SCREEN.blit(version_surface, (30, HEIGHT - 35))
+
+            # SCREEN(오프스크린 서피스)을 REAL_SCREEN(실제 디스플레이)에 전송
+            if REAL_SCREEN is not None:
+                REAL_SCREEN.fill((15, 15, 25))
+                if GAME_SCALE_FACTOR != 1.0:
+                    scaled = pygame.transform.scale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+                    REAL_SCREEN.blit(scaled, (GAME_OFFSET_X, GAME_OFFSET_Y))
+                else:
+                    REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
 
             pygame.display.flip()
 
@@ -123975,6 +123993,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             '_arena_hench_key1_pressed', '_arena_hench_key2_pressed', '_arena_hench_key3_pressed',
             '_arena_key_period_pressed', '_arena_key_comma_pressed',
             '_arena_key_slash_pressed', '_arena_key_e_pressed',
+            '_arena_q_pressed',
+            '_arena_keyF1_pressed', '_arena_keyF2_pressed',
+            '_arena_keyF3_pressed', '_arena_keyF4_pressed',
         ]:
             try:
                 setattr(main, _edge_attr, False)
@@ -159937,6 +159958,7 @@ def show_result(won):
     global arena_battle_result
     global arena_capture_phase, arena_capture_timer, arena_capture_result_flag
     global arena_capture_flee_x, arena_capture_flee_y, arena_capture_flee_vx
+    global arena_capture_flee_dir, arena_capture_flee_dodge_timer
     global arena_capture_shots_left, arena_capture_net_active
     if arena_mode_enabled:
         # 이미 결과가 설정되어 있으면 중복 호출 방지
