@@ -5,11 +5,14 @@
       "Bash(find /d/main/bosspong -name \"*.py\" -type f -exec grep -l \"yachaman\" {} \\\\;)",
       "Bash(taskkill //F //IM python.exe)",
       "Bash(taskkill //F //IM py.exe)",
-      "Read(//^def main/\\(stage_num/**)"
+      "Read(//^def main/\\(stage_num/**)",
+      "Bash(taskkill //PID 3836 //F)",
+      "Bash(taskkill //PID 23472 //F)"
     ],
     "additionalDirectories": [
       "C:\\Users\\woduq\\Documents\\pingfighter",
-      "d:\\main\\bosspong\\assets"
+      "d:\\main\\bosspong\\assets",
+      "D:\\main\\bosspong\\.git"
     ]
   }
 }

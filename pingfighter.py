@@ -25462,6 +25462,22 @@ penalty_kick_round_transition_timer = 0     # 라운드 전환 타이머 (프레
 penalty_kick_game_over = False              # 게임 종료 여부
 penalty_kick_game_over_timer = 0            # 게임 종료 연출 타이머
 penalty_kick_ui = None                      # stage33 FIFA 패널티킥 UI 인스턴스
+penalty_kick_state = {
+    "phase": "idle",
+    "attacker": "player",
+    "target_zone": 1,
+    "defense_zone": 1,
+    "keeper_zone": 1,
+    "power": 0.0,
+    "angle": 0.0,
+    "curve": 0.0,
+    "curve_dir": 0.0,
+    "result_text": "",
+    "result_color": (255, 255, 255),
+    "result_timer": 0.0,
+    "pending_result": None,
+    "boss_target_zone": 1,
+}
 PENALTY_KICK_ROUND_TRANSITION_FRAMES = 120  # 라운드 전환 연출 시간 (2초)
 PENALTY_KICK_GAME_OVER_FRAMES = 240         # 게임 종료 연출 시간 (4초)
 
@@ -112356,6 +112372,9 @@ def draw_objects():
         img_scale = max(1.0, float(globals().get('stage7_super_scale', 1.0)))
         boss_w = max(1, int(boss_w * img_scale))
         boss_h = max(1, int(boss_h * img_scale))
+    elif current_stage == 33:
+        boss_img = BOSS_IMG_TUTORIAL
+        boss_w, boss_h = BOSS_IMG_TUTORIAL_WIDTH, BOSS_IMG_TUTORIAL_HEIGHT
     elif current_stage == 50:
         # Tutorial Stage - Instructor (smaller size)
         boss_img = BOSS_IMG_TUTORIAL
@@ -124230,14 +124249,446 @@ def _penalty_kick_on_round_end(player_won: bool):
     return None  # 다음 라운드 계속
 
 
+def _penalty_kick_goal_rect():
+    goal_width = 340
+    goal_height = 64
+    return pygame.Rect((WIDTH - goal_width) // 2, 38, goal_width, goal_height)
+
+
+def _penalty_kick_zone_rect(zone_index: int):
+    goal_rect = _penalty_kick_goal_rect()
+    zone_width = goal_rect.width / 3.0
+    zone_x = int(goal_rect.left + zone_width * zone_index)
+    next_x = int(goal_rect.left + zone_width * (zone_index + 1))
+    return pygame.Rect(zone_x, goal_rect.top, max(1, next_x - zone_x), goal_rect.height)
+
+
+def _penalty_kick_zone_center(zone_index: int) -> int:
+    return _penalty_kick_zone_rect(zone_index).centerx
+
+
+def _penalty_kick_clamp_center(rect: pygame.Rect, center_x: float) -> int:
+    half_width = rect.width // 2
+    return int(max(half_width, min(WIDTH - half_width, center_x)))
+
+
+def _penalty_kick_keeper_y() -> int:
+    return 112
+
+
+def _penalty_kick_shooter_y(rect: pygame.Rect) -> int:
+    return HEIGHT - rect.height - 82
+
+
+def _penalty_kick_ball_rest_position(shooter_rect: pygame.Rect) -> tuple[int, int]:
+    ball_half_h = BALL.height // 2 if BALL else 8
+    return shooter_rect.centerx, shooter_rect.top - ball_half_h - 8
+
+
+def _penalty_kick_set_ball_velocity(vx: float, vy: float):
+    global ball_vel
+    ball_vel[0] = float(vx)
+    ball_vel[1] = float(vy)
+    try:
+        game_vars.ball.vel[0] = ball_vel[0]
+        game_vars.ball.vel[1] = ball_vel[1]
+    except Exception:
+        pass
+
+
+def _penalty_kick_reset_round_state():
+    global is_waiting_for_serve, ball_spawn_animation_active, ball_spawn_animation_stage_start
+    global last_hit_by, player_collision_cooldown, boss_collision_cooldown
+
+    if PLAYER is None or BOSS is None or BALL is None:
+        return
+
+    attacker = "player" if penalty_kick_is_player_serve else "boss"
+    keeper_rect = BOSS if attacker == "player" else PLAYER
+    shooter_rect = PLAYER if attacker == "player" else BOSS
+
+    keeper_rect.y = _penalty_kick_keeper_y()
+    shooter_rect.y = _penalty_kick_shooter_y(shooter_rect)
+    keeper_rect.centerx = _penalty_kick_clamp_center(keeper_rect, _penalty_kick_zone_center(1))
+    shooter_rect.centerx = WIDTH // 2
+
+    BALL.centerx, BALL.centery = _penalty_kick_ball_rest_position(shooter_rect)
+    _penalty_kick_set_ball_velocity(0.0, 0.0)
+
+    is_waiting_for_serve = False
+    ball_spawn_animation_active = False
+    ball_spawn_animation_stage_start = False
+    player_collision_cooldown = 0
+    boss_collision_cooldown = 0
+
+    last_hit_by = attacker
+    try:
+        game_vars.ball.last_hit_by = attacker
+    except Exception:
+        pass
+
+    penalty_kick_state.update(
+        {
+            "phase": "attack_select" if attacker == "player" else "defense_select",
+            "attacker": attacker,
+            "target_zone": 1,
+            "defense_zone": 1,
+            "keeper_zone": 1,
+            "power": 0.0,
+            "angle": 0.0,
+            "curve": 0.0,
+            "curve_dir": 0.0,
+            "result_text": "",
+            "result_color": (255, 255, 255),
+            "result_timer": 0.0,
+            "pending_result": None,
+            "boss_target_zone": 1,
+        }
+    )
+
+
+def _penalty_kick_register_attempt(attacker: str, is_goal: bool):
+    global penalty_kick_round, penalty_kick_player_score, penalty_kick_boss_score
+    global penalty_kick_is_player_serve, penalty_kick_is_sudden_death
+    global penalty_kick_round_results
+
+    if attacker == "player":
+        if is_goal:
+            penalty_kick_player_score += 1
+    else:
+        if is_goal:
+            penalty_kick_boss_score += 1
+
+    penalty_kick_round_results.append((attacker, "goal" if is_goal else "save"))
+    penalty_kick_round += 1
+    penalty_kick_is_player_serve = (penalty_kick_round % 2 == 0)
+
+    player_attempts = sum(1 for who, _ in penalty_kick_round_results if who == "player")
+    boss_attempts = sum(1 for who, _ in penalty_kick_round_results if who == "boss")
+
+    if not penalty_kick_is_sudden_death:
+        player_remaining = max(0, 5 - player_attempts)
+        boss_remaining = max(0, 5 - boss_attempts)
+
+        if penalty_kick_player_score > penalty_kick_boss_score + boss_remaining:
+            return True
+        if penalty_kick_boss_score > penalty_kick_player_score + player_remaining:
+            return False
+
+        if player_attempts >= 5 and boss_attempts >= 5:
+            if penalty_kick_player_score > penalty_kick_boss_score:
+                return True
+            if penalty_kick_boss_score > penalty_kick_player_score:
+                return False
+            penalty_kick_is_sudden_death = True
+            return None
+        return None
+
+    sudden_death_attempts = max(0, player_attempts + boss_attempts - 10)
+    if sudden_death_attempts >= 2 and sudden_death_attempts % 2 == 0 and player_attempts == boss_attempts:
+        if penalty_kick_player_score > penalty_kick_boss_score:
+            return True
+        if penalty_kick_boss_score > penalty_kick_player_score:
+            return False
+
+    return None
+
+
+def _penalty_kick_finish_attempt(attacker: str, is_goal: bool, text: str, color: tuple[int, int, int]):
+    _result = _penalty_kick_register_attempt(attacker, is_goal)
+    penalty_kick_state["phase"] = "result"
+    penalty_kick_state["result_text"] = text
+    penalty_kick_state["result_color"] = color
+    penalty_kick_state["result_timer"] = 1.0
+    penalty_kick_state["pending_result"] = _result
+    _penalty_kick_set_ball_velocity(0.0, 0.0)
+
+
+def _penalty_kick_launch_shot(attacker: str, target_zone: int, power_ratio: float, angle_hold: float, curve_amount: float):
+    global last_hit_by
+
+    if PLAYER is None or BOSS is None or BALL is None:
+        return
+
+    shooter_rect = PLAYER if attacker == "player" else BOSS
+    goal_rect = _penalty_kick_goal_rect()
+    BALL.centerx, BALL.centery = _penalty_kick_ball_rest_position(shooter_rect)
+
+    target_x = _penalty_kick_zone_center(target_zone)
+    target_y = goal_rect.top + int(goal_rect.height * 0.65)
+    dx = float(target_x - BALL.centerx)
+    dy = float(target_y - BALL.centery)
+    dist = max(1.0, math.hypot(dx, dy))
+    speed = 12.0 + power_ratio * 11.0
+    shot_vx = (dx / dist) * speed + angle_hold * 7.0
+    shot_vy = (dy / dist) * speed
+
+    curve_dir = 0.0
+    if abs(angle_hold) > 0.08:
+        curve_dir = 1.0 if angle_hold > 0 else -1.0
+    elif target_zone != 1:
+        curve_dir = 1.0 if target_zone == 2 else -1.0
+
+    penalty_kick_state["attacker"] = attacker
+    penalty_kick_state["keeper_zone"] = random.choice([0, 1, 2]) if attacker == "player" else penalty_kick_state["defense_zone"]
+    penalty_kick_state["boss_target_zone"] = target_zone
+    penalty_kick_state["power"] = power_ratio * 100.0
+    penalty_kick_state["angle"] = angle_hold
+    penalty_kick_state["curve"] = curve_amount
+    penalty_kick_state["curve_dir"] = curve_dir * (2.2 + curve_amount * 3.4)
+    penalty_kick_state["phase"] = "attack_flight" if attacker == "player" else "defense_flight"
+
+    last_hit_by = attacker
+    try:
+        game_vars.ball.last_hit_by = attacker
+    except Exception:
+        pass
+    _penalty_kick_set_ball_velocity(shot_vx, shot_vy)
+
+
+def _penalty_kick_launch_player_shot():
+    power_ratio = max(0.25, min(1.0, penalty_kick_state["power"] / 100.0))
+    _penalty_kick_launch_shot(
+        "player",
+        penalty_kick_state["target_zone"],
+        power_ratio,
+        penalty_kick_state["angle"],
+        penalty_kick_state["curve"],
+    )
+
+
+def _penalty_kick_launch_boss_shot():
+    _zone = random.choice([0, 1, 2])
+    _power = random.uniform(0.58, 0.96)
+    _angle = random.uniform(-0.22, 0.22)
+    if _zone == 0:
+        _angle -= random.uniform(0.10, 0.26)
+    elif _zone == 2:
+        _angle += random.uniform(0.10, 0.26)
+    _curve = random.uniform(0.12, 0.82)
+    _penalty_kick_launch_shot("boss", _zone, _power, max(-1.0, min(1.0, _angle)), _curve)
+
+
+def _penalty_kick_update_keeper(dt: float):
+    if PLAYER is None or BOSS is None:
+        return
+
+    attacker = penalty_kick_state["attacker"]
+    keeper_rect = BOSS if attacker == "player" else PLAYER
+    target_cx = _penalty_kick_zone_center(int(penalty_kick_state["keeper_zone"]))
+    dash_speed = 760.0
+    move_step = dash_speed * dt
+    current_cx = float(keeper_rect.centerx)
+    if abs(target_cx - current_cx) <= move_step:
+        keeper_rect.centerx = _penalty_kick_clamp_center(keeper_rect, target_cx)
+        return
+    keeper_rect.centerx = _penalty_kick_clamp_center(
+        keeper_rect,
+        current_cx + move_step if target_cx > current_cx else current_cx - move_step,
+    )
+
+
+def _penalty_kick_update_shot(dt: float):
+    if BALL is None:
+        return
+
+    _penalty_kick_update_keeper(dt)
+
+    dt_frames = max(0.35, min(2.4, dt * 60.0))
+    ball_vel[0] += penalty_kick_state["curve_dir"] * 0.11 * dt_frames
+    BALL.x += int(round(ball_vel[0] * dt_frames))
+    BALL.y += int(round(ball_vel[1] * dt_frames))
+
+    goal_rect = _penalty_kick_goal_rect()
+    attacker = penalty_kick_state["attacker"]
+    keeper_rect = BOSS if attacker == "player" else PLAYER
+    save_rect = keeper_rect.inflate(28, 14)
+
+    if BALL.colliderect(save_rect) and BALL.centery <= goal_rect.bottom + 10:
+        _text = "SAVED!" if attacker == "player" else "SAVE!"
+        _color = (120, 240, 255) if attacker == "boss" else (255, 120, 120)
+        _penalty_kick_finish_attempt(attacker, False, _text, _color)
+        return
+
+    if BALL.centery <= goal_rect.top + 6:
+        if goal_rect.left <= BALL.centerx <= goal_rect.right:
+            _penalty_kick_finish_attempt(attacker, True, "GOAL!", (255, 220, 90))
+        else:
+            _penalty_kick_finish_attempt(attacker, False, "MISS!", (255, 120, 120))
+
+
+def _penalty_kick_update_stage(dt: float):
+    if PLAYER is None or BOSS is None or BALL is None:
+        return None
+
+    if penalty_kick_state["phase"] == "idle":
+        _penalty_kick_reset_round_state()
+        return None
+
+    if penalty_kick_state["phase"] == "attack_charge":
+        _keys = pygame.key.get_pressed()
+        penalty_kick_state["power"] = min(100.0, penalty_kick_state["power"] + 78.0 * dt)
+        if _keys[pygame.K_LEFT] and not _keys[pygame.K_RIGHT]:
+            penalty_kick_state["angle"] = max(-1.0, penalty_kick_state["angle"] - 1.55 * dt)
+        elif _keys[pygame.K_RIGHT] and not _keys[pygame.K_LEFT]:
+            penalty_kick_state["angle"] = min(1.0, penalty_kick_state["angle"] + 1.55 * dt)
+        if _keys[pygame.K_DOWN]:
+            penalty_kick_state["curve"] = min(1.0, penalty_kick_state["curve"] + 1.75 * dt)
+        return None
+
+    if penalty_kick_state["phase"] in ("attack_flight", "defense_flight"):
+        _penalty_kick_update_shot(dt)
+        return None
+
+    if penalty_kick_state["phase"] == "result":
+        penalty_kick_state["result_timer"] = max(0.0, penalty_kick_state["result_timer"] - dt)
+        if penalty_kick_state["result_timer"] > 0:
+            return None
+        _pending = penalty_kick_state.get("pending_result")
+        penalty_kick_state["pending_result"] = None
+        if _pending is True or _pending is False:
+            return _pending
+        _penalty_kick_reset_round_state()
+        return None
+
+    return None
+
+
+def _handle_penalty_kick_stage_event(event):
+    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+        return "exit"
+
+    if event.type not in (pygame.KEYDOWN, pygame.KEYUP):
+        return None
+
+    phase = penalty_kick_state["phase"]
+
+    if phase == "attack_select" and event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_LEFT:
+            penalty_kick_state["target_zone"] = 0
+        elif event.key in (pygame.K_UP, pygame.K_DOWN):
+            penalty_kick_state["target_zone"] = 1
+        elif event.key == pygame.K_RIGHT:
+            penalty_kick_state["target_zone"] = 2
+        elif event.key == pygame.K_SPACE:
+            penalty_kick_state["phase"] = "attack_charge"
+            penalty_kick_state["power"] = 0.0
+            penalty_kick_state["angle"] = 0.0
+            penalty_kick_state["curve"] = 0.0
+        return None
+
+    if phase == "attack_charge" and event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
+        _penalty_kick_launch_player_shot()
+        return None
+
+    if phase == "defense_select" and event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_LEFT:
+            penalty_kick_state["defense_zone"] = 0
+        elif event.key in (pygame.K_UP, pygame.K_DOWN):
+            penalty_kick_state["defense_zone"] = 1
+        elif event.key == pygame.K_RIGHT:
+            penalty_kick_state["defense_zone"] = 2
+        elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+            _penalty_kick_launch_boss_shot()
+        return None
+
+    return None
+
+
+def _draw_penalty_kick_stage_overlay(screen):
+    goal_rect = _penalty_kick_goal_rect()
+    neon_cyan = (120, 255, 245)
+    neon_gold = (255, 220, 90)
+    neon_blue = (90, 180, 255)
+    warning_red = (255, 110, 110)
+
+    goal_glow = pygame.Surface((goal_rect.width + 18, goal_rect.height + 18), pygame.SRCALPHA)
+    pygame.draw.rect(goal_glow, (0, 255, 255, 28), goal_glow.get_rect(), 10, border_radius=12)
+    screen.blit(goal_glow, (goal_rect.x - 9, goal_rect.y - 9))
+    pygame.draw.rect(screen, neon_cyan, goal_rect, 3, border_radius=10)
+
+    for zone_index in range(3):
+        zone_rect = _penalty_kick_zone_rect(zone_index)
+        if penalty_kick_state["phase"] in ("attack_select", "attack_charge") and zone_index == penalty_kick_state["target_zone"]:
+            zone_surf = pygame.Surface((zone_rect.width, zone_rect.height), pygame.SRCALPHA)
+            zone_surf.fill((255, 220, 90, 54))
+            screen.blit(zone_surf, zone_rect.topleft)
+            pygame.draw.rect(screen, neon_gold, zone_rect, 2, border_radius=8)
+        elif penalty_kick_state["phase"] == "defense_select" and zone_index == penalty_kick_state["defense_zone"]:
+            zone_surf = pygame.Surface((zone_rect.width, zone_rect.height), pygame.SRCALPHA)
+            zone_surf.fill((80, 180, 255, 52))
+            screen.blit(zone_surf, zone_rect.topleft)
+            pygame.draw.rect(screen, neon_blue, zone_rect, 2, border_radius=8)
+        else:
+            pygame.draw.rect(screen, (120, 120, 140), zone_rect, 1, border_radius=8)
+
+    try:
+        font = get_font(18)
+        small_font = get_font(14)
+    except Exception:
+        font = pygame.font.Font(None, 24)
+        small_font = pygame.font.Font(None, 18)
+
+    attacker = penalty_kick_state["attacker"]
+    phase = penalty_kick_state["phase"]
+    top_text = "PLAYER SHOOTS" if attacker == "player" else "BOSS SHOOTS"
+    if attacker == "boss" and phase == "defense_select":
+        top_text = "CHOOSE A SAVE ZONE"
+    text_surface = font.render(top_text, True, neon_cyan if attacker == "player" else warning_red)
+    screen.blit(text_surface, text_surface.get_rect(center=(WIDTH // 2, goal_rect.bottom + 28)))
+
+    if phase in ("attack_select", "attack_charge"):
+        guide_1 = "LEFT / UP / RIGHT : TARGET"
+        guide_2 = "HOLD SPACE : POWER   HOLD LEFT/RIGHT : ANGLE   HOLD DOWN : CURVE"
+        g1 = small_font.render(guide_1, True, (240, 240, 240))
+        g2 = small_font.render(guide_2, True, (200, 220, 255))
+        screen.blit(g1, g1.get_rect(center=(WIDTH // 2, HEIGHT - 56)))
+        screen.blit(g2, g2.get_rect(center=(WIDTH // 2, HEIGHT - 34)))
+
+        gauge_x = 26
+        gauge_y = HEIGHT - 240
+        gauge_h = 150
+        pygame.draw.rect(screen, (30, 35, 50), (gauge_x, gauge_y, 18, gauge_h), border_radius=5)
+        filled_h = int(gauge_h * (penalty_kick_state["power"] / 100.0))
+        if filled_h > 0:
+            pygame.draw.rect(screen, neon_gold, (gauge_x, gauge_y + gauge_h - filled_h, 18, filled_h), border_radius=5)
+        gauge_label = small_font.render("PWR", True, (255, 245, 180))
+        screen.blit(gauge_label, (gauge_x - 2, gauge_y - 18))
+
+        angle_y = HEIGHT - 76
+        angle_w = 180
+        pygame.draw.line(screen, (140, 140, 160), (WIDTH // 2 - angle_w // 2, angle_y), (WIDTH // 2 + angle_w // 2, angle_y), 3)
+        marker_x = WIDTH // 2 + int(penalty_kick_state["angle"] * (angle_w // 2))
+        pygame.draw.circle(screen, neon_cyan, (marker_x, angle_y), 8)
+        angle_label = small_font.render("ANGLE", True, (190, 240, 255))
+        screen.blit(angle_label, angle_label.get_rect(center=(WIDTH // 2, angle_y - 18)))
+
+        curve_x = WIDTH - 44
+        pygame.draw.rect(screen, (30, 35, 50), (curve_x, gauge_y, 18, gauge_h), border_radius=5)
+        curve_h = int(gauge_h * penalty_kick_state["curve"])
+        if curve_h > 0:
+            pygame.draw.rect(screen, neon_blue, (curve_x, gauge_y + gauge_h - curve_h, 18, curve_h), border_radius=5)
+        curve_label = small_font.render("CRV", True, (180, 220, 255))
+        screen.blit(curve_label, (curve_x - 3, gauge_y - 18))
+
+    elif phase == "defense_select":
+        guide = small_font.render("LEFT / UP / RIGHT : DIVE ZONE   SPACE : READY", True, (220, 235, 255))
+        screen.blit(guide, guide.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
+
+    if penalty_kick_state["phase"] == "result" and penalty_kick_state["result_text"]:
+        result_surface = font.render(
+            penalty_kick_state["result_text"],
+            True,
+            penalty_kick_state.get("result_color", (255, 255, 255)),
+        )
+        screen.blit(result_surface, result_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30)))
+
+
 # ============================================================================
 # 패널티킥 핑퐁 배틀 시작 함수 (오락실 아케이드 캐비닛에서 호출)
 # ============================================================================
 def start_penalty_kick_battle():
-    """패널티킥 모드 시작 - stage 33 경로에서 FIFA식 미니게임 실행.
-
-    메인 게임 루프는 pingfighter.py의 stage 33 경로를 사용하고,
-    실제 패널티킥 입력/판정/렌더는 PenaltyKickGameUI에 위임한다.
+    """패널티킥 모드 시작 - stage 33 경로에서 기존 PLAYER/BOSS/BALL로 진행.
 
     Returns:
         True=플레이어 승, False=보스 승, None=ESC 퇴장
@@ -124248,7 +124699,7 @@ def start_penalty_kick_battle():
     global penalty_kick_is_sudden_death, penalty_kick_round_results
     global penalty_kick_round_transition, penalty_kick_round_transition_timer
     global penalty_kick_game_over, penalty_kick_game_over_timer
-    global penalty_kick_ui
+    global penalty_kick_ui, penalty_kick_state
     global player_ai_enabled, ai_mode, win_goal, is_player_serve
     global _pillar_ui_enabled
 
@@ -124260,8 +124711,6 @@ def start_penalty_kick_battle():
 
     result = None
     try:
-        from downtown.penalty_kick_game import PenaltyKickGameUI
-
         # 패널티킥 모드 활성화
         penalty_kick_mode_enabled = True
         penalty_kick_battle_result = None
@@ -124286,9 +124735,8 @@ def start_penalty_kick_battle():
         # 일반 인게임 HUD 대신 패널티킥 전용 UI만 사용
         _pillar_ui_enabled = False
 
-        penalty_kick_ui = PenaltyKickGameUI(WIDTH, HEIGHT, fonts=_make_arena_fonts())
-        penalty_kick_ui.start_game()
-        penalty_kick_ui.arcade_background = animated_bg_stage33
+        penalty_kick_ui = None
+        penalty_kick_state["phase"] = "idle"
 
         result = main(33)  # 스테이지 33 = 패널티킥 네온 아케이드
     finally:
@@ -124300,6 +124748,10 @@ def start_penalty_kick_battle():
         penalty_kick_round_transition = False
         penalty_kick_game_over = False
         penalty_kick_ui = None
+        penalty_kick_state["phase"] = "idle"
+        penalty_kick_state["pending_result"] = None
+        penalty_kick_state["result_timer"] = 0.0
+        penalty_kick_state["result_text"] = ""
 
         # 상태 복원
         ai_mode = _saved_ai_mode
@@ -162793,39 +163245,27 @@ def main(stage_num, new_boss_mode=False):
                 continue  # 게임 로직 스킵
 
         # === 공 생성 애니메이션 업데이트 ===
-        if penalty_kick_mode_enabled and current_stage == 33 and penalty_kick_ui is not None:
+        if penalty_kick_mode_enabled and current_stage == 33:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
 
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                pk_event_result = _handle_penalty_kick_stage_event(event)
+                if pk_event_result == "exit":
                     penalty_kick_battle_result = None
                     return None
 
-                pk_event_result = penalty_kick_ui.handle_event(event)
-                if pk_event_result == 'exit':
-                    if penalty_kick_ui.player_score > penalty_kick_ui.boss_score:
-                        penalty_kick_battle_result = True
-                        return True
-                    if penalty_kick_ui.player_score < penalty_kick_ui.boss_score:
-                        penalty_kick_battle_result = False
-                        return False
-                    penalty_kick_battle_result = None
-                    return None
+            penalty_dt = max(1 / 240, min(0.05, dt_ms / 1000.0))
+            pk_update_result = _penalty_kick_update_stage(penalty_dt)
+            if pk_update_result is True or pk_update_result is False:
+                penalty_kick_battle_result = pk_update_result
+                return pk_update_result
 
-            penalty_kick_ui.update(dt_ms / 1000.0)
-            penalty_kick_player_score = penalty_kick_ui.player_score
-            penalty_kick_boss_score = penalty_kick_ui.boss_score
-            penalty_kick_round = penalty_kick_ui.current_kick
-            penalty_kick_is_sudden_death = penalty_kick_ui.is_sudden_death
-            penalty_kick_round_results = [
-                (attacker, "goal" if is_goal else "save")
-                for attacker, is_goal in penalty_kick_ui.kick_results
-            ]
-
-            SCREEN.fill(BLACK)
-            penalty_kick_ui.draw(SCREEN)
+            draw_field()
+            draw_objects()
+            _draw_penalty_kick_stage_overlay(SCREEN)
+            _draw_penalty_kick_hud(SCREEN)
             pygame.display.flip()
             continue
 
