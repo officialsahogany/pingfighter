@@ -629,12 +629,15 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
 def check_bomb_spin_ball_collision(ball_rect) -> bool:
     """투구와 공의 충돌 판정. 충돌 시 True + 공에 폭탄 장전."""
     global bomb_loaded_on_ball
-    if not bomb_spin_active or bomb_spin_phase not in (1, 2):
+    if not bomb_spin_active or bomb_spin_phase not in (0, 1, 2):
         return False
+    if bomb_loaded_on_ball:
+        return False  # 이미 장전됨
     bcx = ball_rect.centerx
     bcy = ball_rect.centery
     dist = math.hypot(bcx - bomb_spin_helmet_x, bcy - bomb_spin_helmet_y)
-    if dist < BOMB_SPIN_HELMET_R + ball_rect.width // 2:
+    # 충돌 판정 (투구 반지름 + 공 반지름 + 여유 4px)
+    if dist < BOMB_SPIN_HELMET_R + ball_rect.width // 2 + 4:
         bomb_loaded_on_ball = True  # 공에 폭탄 실림!
         return True
     return False
