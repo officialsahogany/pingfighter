@@ -2191,9 +2191,9 @@ try:
                     _ffmpeg_result[0] = imageio_ffmpeg.get_ffmpeg_exe()
                 except Exception:
                     pass
-            _t = threading.Thread(target=_probe_ffmpeg, daemon=True)
-            _t.start()
-            _t.join(timeout=5)  # 5초 안에 응답 없으면 포기
+            _ffmpeg_thread = threading.Thread(target=_probe_ffmpeg, daemon=True)
+            _ffmpeg_thread.start()
+            _ffmpeg_thread.join(timeout=5)  # 5초 안에 응답 없으면 포기
             ffmpeg_candidate = _ffmpeg_result[0]
             if ffmpeg_candidate and os.path.isfile(ffmpeg_candidate):
                 ffmpeg_path = ffmpeg_candidate
