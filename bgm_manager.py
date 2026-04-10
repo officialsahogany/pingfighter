@@ -457,6 +457,10 @@ def play_colosseum_room_bgm():
     """투기장 대기실 BGM 재생 (스킬 선택, 대진표 등)"""
     bgm_manager.play_bgm('colosseum_room')
 
+def play_bgm(bgm_name, loop=-1):
+    """지정된 BGM 재생"""
+    bgm_manager.play_bgm(bgm_name, loop)
+
 def stop_bgm():
     """BGM 정지"""
     bgm_manager.stop_bgm()

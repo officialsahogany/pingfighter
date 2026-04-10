@@ -126201,17 +126201,22 @@ def _play_replay(filepath: str):
     _default_replay_sfx_volume = float(rp.metadata.get('sfx_volume', sfx_volume))
 
     # 🎵 BGM 재생 — 녹화 시 저장된 트랙/볼륨 메타데이터 우선 사용
+    _replay_bgm_ok = False
     try:
         _replay_bgm_track = rp.metadata.get('bgm_track')
         _replay_bgm_vol = rp.metadata.get('bgm_volume')
         if _replay_bgm_track:
-            bgm_manager.play_bgm(_replay_bgm_track)
+            bgm_manager.bgm_manager.play_bgm(_replay_bgm_track)
             if _replay_bgm_vol is not None:
                 bgm_manager.set_bgm_volume(float(_replay_bgm_vol))
-        else:
-            bgm_manager.play_stage_bgm(stage)
+            _replay_bgm_ok = True
     except Exception:
         pass
+    if not _replay_bgm_ok:
+        try:
+            bgm_manager.play_stage_bgm(stage)
+        except Exception:
+            pass
 
     # 재생 Surface: REAL_SCREEN에 직접 그리고 _original_flip() 호출
     # (pygame.display.flip 래퍼를 우회하여 SCREEN→REAL_SCREEN 합성 방지)
