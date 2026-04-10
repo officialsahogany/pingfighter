@@ -486,6 +486,16 @@ bomb_spin_helmet_x = 0
 bomb_spin_helmet_y = 0
 BOMB_SPIN_HELMET_R = 14    # 투구 반지름
 
+# ── 인간 머리 노출 상태 (투구를 벗은 상태) ──
+helmet_removed = False                # 투구가 벗겨진 상태 (인간 뒤통수 노출)
+
+# ── 폭탄 회수 상태 (폭발 후 투구가 돌아옴) ──
+helmet_returning = False
+helmet_return_timer = 0
+helmet_return_x = 0.0
+helmet_return_y = 0.0
+HELMET_RETURN_FRAMES = 30            # 회수 시간 0.5초
+
 # ── 폭탄 장전 상태 (공에 폭탄 실림) ──
 bomb_loaded_on_ball = False           # 공에 폭탄이 실린 상태
 bomb_explosion_active = False         # 폭발 애니메이션 진행 중
@@ -511,11 +521,11 @@ BOMB_SPIN_DASH_SPEED = 22   # 2바퀴째 대시 속도 (px/frame)
 def try_bomb_spin(direction: int) -> bool:
     """폭탄돌리기 시도. 이동 중(direction!=0)이고 쿨다운이 아닐 때 발동."""
     global bomb_spin_active, bomb_spin_timer, bomb_spin_phase
-    global bomb_spin_direction, bomb_spin_angle
+    global bomb_spin_direction, bomb_spin_angle, helmet_removed
 
     if not yachaman_active:
         return False
-    if bomb_spin_active or bomb_spin_cooldown > 0:
+    if bomb_spin_active or bomb_spin_cooldown > 0 or helmet_returning:
         return False
     if direction == 0:
         return False
@@ -524,6 +534,7 @@ def try_bomb_spin(direction: int) -> bool:
     bomb_spin_timer = 0
     bomb_spin_phase = 0
     bomb_spin_direction = direction
+    helmet_removed = True  # 투구 벗김 → 인간 뒤통수 노출
     bomb_spin_angle = 0.0
     return True
 
@@ -602,6 +613,9 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
             bomb_spin_active = False
             bomb_spin_cooldown = BOMB_SPIN_COOLDOWN
             bomb_spin_phase = 0
+            # 폭탄이 공에 안 실렸으면 투구 바로 복귀
+            if not bomb_loaded_on_ball:
+                helmet_removed = False
             return {"dx": 0, "helmet_rect": None, "done": True}
         # 투구가 앞으로나란히 → 머리로 돌아감
         progress = rec_t / BOMB_SPIN_RECOVERY
@@ -630,6 +644,7 @@ def trigger_bomb_explosion(boss_cx: int, boss_cy: int):
     """보스가 폭탄 공을 반격 시 폭발 발동. 넉백+스턴 적용을 위한 데이터 반환."""
     global bomb_loaded_on_ball, bomb_explosion_active, bomb_explosion_timer
     global bomb_explosion_x, bomb_explosion_y, bomb_explosion_particles
+    global helmet_returning, helmet_return_timer, helmet_return_x, helmet_return_y
 
     if not bomb_loaded_on_ball:
         return None
@@ -639,6 +654,19 @@ def trigger_bomb_explosion(boss_cx: int, boss_cy: int):
     bomb_explosion_timer = 0
     bomb_explosion_x = boss_cx
     bomb_explosion_y = boss_cy
+
+    # 폭발 후 투구 회수 시작
+    helmet_returning = True
+    helmet_return_timer = 0
+    helmet_return_x = float(boss_cx)
+    helmet_return_y = float(boss_cy)
+
+    # 수류탄 폭발 사운드 재생
+    try:
+        from pingfighter import play_cached_sound
+        play_cached_sound("sounds/explosion.wav", 0.6)
+    except Exception:
+        pass
 
     # 폭발 파티클
     bomb_explosion_particles = []
@@ -686,6 +714,34 @@ def update_bomb_explosion():
     bomb_explosion_particles = [p for p in bomb_explosion_particles if p["life"] > 0]
 
 
+def update_helmet_return(player_cx: int, player_cy: int):
+    """폭발 후 투구가 플레이어에게 돌아오는 업데이트."""
+    global helmet_returning, helmet_return_timer
+    global helmet_return_x, helmet_return_y, helmet_removed
+
+    if not helmet_returning:
+        return
+
+    helmet_return_timer += 1
+    progress = min(1.0, helmet_return_timer / HELMET_RETURN_FRAMES)
+
+    # 보스 위치 → 플레이어 머리로 곡선 이동
+    target_x = float(player_cx)
+    target_y = float(player_cy - 50)  # 머리 위치
+
+    # 이징 (ease-in-out)
+    t = progress * progress * (3 - 2 * progress)
+    helmet_return_x = bomb_explosion_x + (target_x - bomb_explosion_x) * t
+    helmet_return_y = bomb_explosion_y + (target_y - bomb_explosion_y) * t
+    # 포물선 효과 (중간에 위로 올라감)
+    arc = -80 * (progress * (1 - progress) * 4)
+    helmet_return_y += arc
+
+    if helmet_return_timer >= HELMET_RETURN_FRAMES:
+        helmet_returning = False
+        helmet_removed = False  # 투구 복귀 → 원래 모습으로
+
+
 def draw_bomb_explosion(screen, pygame_module):
     """폭발 이펙트 그리기."""
     if not bomb_explosion_active:
@@ -721,16 +777,65 @@ def draw_bomb_explosion(screen, pygame_module):
         screen.blit(s, (int(p["x"]) - p["size"] // 2, int(p["y"]) - p["size"] // 2))
 
 
-def draw_bomb_indicator_on_ball(screen, pygame_module, ball_rect):
-    """공에 폭탄이 실린 상태 표시 (공 위에 작은 폭탄 아이콘)."""
+def draw_bomb_ball(screen, pygame_module, ball_rect):
+    """공이 폭탄 모양으로 변함 (공 전체를 봄버맨 폭탄으로 대체)."""
     if not bomb_loaded_on_ball:
+        return False  # 일반 공 그리기
+    bcx, bcy = ball_rect.centerx, ball_rect.centery
+    br = max(ball_rect.width, ball_rect.height) // 2 + 1
+
+    # 검은 폭탄 본체
+    pygame_module.draw.circle(screen, (25, 25, 30), (bcx, bcy), br)
+    # 하이라이트
+    pygame_module.draw.circle(screen, (45, 45, 50), (bcx - br // 3, bcy - br // 3), br // 2)
+
+    # 퓨즈
+    fuse_top = bcy - br - 5
+    pygame_module.draw.line(screen, (100, 90, 70), (bcx + 2, bcy - br), (bcx + 3, fuse_top), 2)
+
+    # 불꽃 (깜빡임)
+    import time
+    blink = int(time.time() * 8) % 2
+    if blink:
+        pygame_module.draw.circle(screen, (255, 220, 60), (bcx + 3, fuse_top - 2), 4)
+        pygame_module.draw.circle(screen, (255, 140, 0), (bcx + 3, fuse_top - 3), 2)
+    else:
+        pygame_module.draw.circle(screen, (255, 160, 30), (bcx + 3, fuse_top - 2), 3)
+        pygame_module.draw.circle(screen, (255, 80, 0), (bcx + 3, fuse_top - 3), 2)
+
+    # 테두리
+    pygame_module.draw.circle(screen, (15, 15, 18), (bcx, bcy), br, 1)
+    return True  # 폭탄으로 그렸음 → 일반 공 안그림
+
+
+def draw_helmet_return(screen, pygame_module):
+    """폭발 후 투구가 플레이어에게 돌아오는 이펙트."""
+    if not helmet_returning:
         return
-    bcx, bcy = ball_rect.centerx, ball_rect.top - 6
-    # 작은 검은 원 + 불꽃
-    pygame_module.draw.circle(screen, (25, 25, 30), (bcx, bcy), 5)
-    pygame_module.draw.circle(screen, (255, 200, 50), (bcx + 1, bcy - 6), 3)
-    pygame_module.draw.circle(screen, (255, 120, 0), (bcx + 1, bcy - 7), 2)
-    pygame_module.draw.line(screen, (80, 80, 80), (bcx, bcy - 5), (bcx + 1, bcy - 4), 1)
+    hx, hy = int(helmet_return_x), int(helmet_return_y)
+    r = BOMB_SPIN_HELMET_R
+
+    # 투구 본체
+    pygame_module.draw.circle(screen, (25, 25, 30), (hx, hy), r)
+    pygame_module.draw.circle(screen, (40, 40, 45), (hx - 2, hy - 3), int(r * 0.6))
+    # 퓨즈+불꽃
+    pygame_module.draw.line(screen, (90, 80, 70), (hx, hy - r + 2), (hx + 2, hy - r - 5), 2)
+    pygame_module.draw.circle(screen, (255, 200, 50), (hx + 2, hy - r - 6), 3)
+
+    # 이동 궤적
+    progress = helmet_return_timer / HELMET_RETURN_FRAMES
+    trail_alpha = int(120 * (1 - progress))
+    for i in range(3):
+        t_back = max(0, progress - (i + 1) * 0.08)
+        tx = bomb_explosion_x + (hx - bomb_explosion_x) * t_back / max(0.01, progress)
+        ty = bomb_explosion_y + (hy - bomb_explosion_y) * t_back / max(0.01, progress)
+        ts = pygame_module.Surface((r * 2, r * 2), pygame_module.SRCALPHA)
+        a = max(20, trail_alpha - i * 30)
+        pygame_module.draw.circle(ts, (25, 25, 30, a), (r, r), r - i)
+        screen.blit(ts, (int(tx) - r, int(ty) - r))
+
+    # 테두리
+    pygame_module.draw.circle(screen, (18, 18, 22), (hx, hy), r, 1)
 
 
 def draw_bomb_spin(screen, pygame_module, player_cx, player_cy, phase_timer=0):
@@ -828,6 +933,7 @@ def reset_bomb_spin():
     global bomb_spin_direction, bomb_spin_helmet_x, bomb_spin_helmet_y
     global bomb_loaded_on_ball, bomb_explosion_active, bomb_explosion_timer
     global bomb_explosion_particles
+    global helmet_removed, helmet_returning, helmet_return_timer
     bomb_spin_active = False
     bomb_spin_timer = 0
     bomb_spin_phase = 0
@@ -840,3 +946,6 @@ def reset_bomb_spin():
     bomb_explosion_particles = []
     bomb_spin_helmet_x = 0
     bomb_spin_helmet_y = 0
+    helmet_removed = False
+    helmet_returning = False
+    helmet_return_timer = 0

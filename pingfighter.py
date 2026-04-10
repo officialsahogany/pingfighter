@@ -18925,9 +18925,9 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
                     # 💣 폭발 이펙트
                     if _ys_mod.bomb_explosion_active:
                         _ys_mod.draw_bomb_explosion(SCREEN, pygame)
-                    # 💣 공 위 폭탄 표시
-                    if _ys_mod.bomb_loaded_on_ball and BALL is not None:
-                        _ys_mod.draw_bomb_indicator_on_ball(SCREEN, pygame, BALL)
+                    # 💣 투구 회수 이펙트 (폭발 후 투구가 돌아옴)
+                    if _ys_mod.helmet_returning:
+                        _ys_mod.draw_helmet_return(SCREEN, pygame)
                     _ys_draw_override = True
             except Exception:
                 pass
@@ -117871,9 +117871,18 @@ def draw_objects():
 
             # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
             if not ball_already_drawn and not ball_in_kuromi:
-                # 고퀄리티 에너지볼만 그리기 (PNG 이미지 제거)
-                draw_energy_ball(SCREEN, ball_rect.centerx + screen_shake_offset_x,
-                                ball_rect.centery + screen_shake_offset_y, BALL.width // 2 + 2)
+                # 💣 야차맨 폭탄이 실린 공은 폭탄 모양으로 대체
+                _bomb_ball_drawn = False
+                try:
+                    from item_effects import yachaman_soul as _ys_bb
+                    if _ys_bb.bomb_loaded_on_ball:
+                        _bomb_ball_drawn = _ys_bb.draw_bomb_ball(SCREEN, pygame, BALL)
+                except Exception:
+                    pass
+                if not _bomb_ball_drawn:
+                    # 고퀄리티 에너지볼만 그리기 (PNG 이미지 제거)
+                    draw_energy_ball(SCREEN, ball_rect.centerx + screen_shake_offset_x,
+                                    ball_rect.centery + screen_shake_offset_y, BALL.width // 2 + 2)
 
     # 디바인스톤(건설형) 월드 이펙트(번개/전기 폭발) 오버레이
     try:
@@ -166975,10 +166984,12 @@ def main(stage_num, new_boss_mode=False):
                                         game_vars.ball.last_hit_by = "player"
                         except Exception:
                             pass
-                        # 💣 야차맨 폭탄 폭발 애니메이션 업데이트
+                        # 💣 야차맨 폭탄 폭발 + 투구 회수 업데이트
                         try:
                             from item_effects import yachaman_soul as _ys_exp
                             _ys_exp.update_bomb_explosion()
+                            if _ys_exp.helmet_returning and PLAYER is not None:
+                                _ys_exp.update_helmet_return(PLAYER.centerx, PLAYER.centery)
                         except Exception:
                             pass
 
