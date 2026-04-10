@@ -6,7 +6,7 @@
 
 > **"Pong × Boss Battles × RPG Progression — An arcade action game where you defeat bosses with a single paddle."**
 
-PingFighter reinvents the classic Pong formula by adding **boss AI combat**, **skill trees**, **item collection**, **an explorable hub world**, and **online PvP** — creating an entirely new sub-genre of arcade action.
+PingFighter reinvents the classic Pong formula by adding **boss AI combat**, **perk builds**, **item collection**, **an explorable hub world**, and **online PvP** — creating an entirely new sub-genre of arcade action.
 
 ---
 
@@ -76,7 +76,7 @@ Stage Select → Boss Battle → Item Drops → Perk Investment → Next Stage
 - **21 universal** + **23 character-exclusive** + **5 instant** perks
 - Every run produces a different build
 
-### B. Item System — 74 Items Total
+### B. Item System — 78 Items Total
 | Category | Count | Examples |
 |----------|-------|---------|
 | Active Items | 31 | Grenade, Molotov, Holy Barrier, AI Pill, Stopwatch, Weather Capsule |
@@ -167,11 +167,11 @@ Stage Select → Boss Battle → Item Drops → Perk Investment → Next Stage
 | Content | Count |
 |---------|-------|
 | Boss Characters | 15 (8 main + 7 sub) |
-| Playable Heroes | 6 (5 with skill trees + 1 basic) |
+| Playable Heroes | 6 (5 with perk builds + 1 basic) |
 | Stages | 8 + 1 Arena |
-| Total Items | 74 (31 active + 32 passive + 11 mythic) |
+| Total Items | 78 (31 active + 32 passive + 11 mythic + 4 special) |
 | Perks | 49 (21 universal + 23 exclusive + 5 instant) |
-| Downtown Buildings | 13 (7 active) |
+| Downtown Buildings | 7 active (of 13 total) |
 | Quests | 8 |
 | Weather Types | 7 |
 | Tutorials | 6 chapters + 5 arena |
@@ -187,8 +187,8 @@ Stage Select → Boss Battle → Item Drops → Perk Investment → Next Stage
 |------|-----------|-------------------|
 | **Windjammers 2** | Arcade 1v1 sports | + RPG progression, boss AI, item system |
 | **Lethal League Blaze** | Ball-based fighting | + PvE campaign, hub world, collection |
-| **Pong Quest** | Pong + RPG | + Online PvP, skill trees, gacha, arena |
-| **Nidhogg 2** | 1v1 arcade | + 15 bosses, 74 items, deep endgame |
+| **Pong Quest** | Pong + RPG | + Online PvP, perk builds, gacha, arena |
+| **Nidhogg 2** | 1v1 arcade | + 15 bosses, 78 items, deep endgame |
 
 ### Target Audience
 - **Primary**: Retro arcade fans & indie game enthusiasts (20–35)
@@ -269,7 +269,7 @@ We are open to revenue-share, advance-against-royalties, or hybrid deal structur
 2. **Endless Progression** — 49 perks, mythic items, random roll farming
 3. **Visual Spectacle** — Per-stage intro videos, 8 animated themes, gacha animations
 4. **Competitive Fun** — Online PvP, 6 differentiated heroes, arena meta-loop
-5. **Exploration** — Downtown hub with 13 buildings, 8 quests, bodyguard system
+5. **Exploration** — Downtown hub with 7 buildings, 8 quests, bodyguard system
 6. **Accessibility** — 6-chapter tutorial, keyboard-only instant play
 
 ---

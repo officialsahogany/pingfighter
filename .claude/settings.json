@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cmd /c \"for %I in \\(d:\\\\main\\\\bosspong\\\\dist\\\\PingFighter.exe\\) do @echo %~zI bytes\")"
+      "Bash(cmd /c \"for %I in \\(d:\\\\main\\\\bosspong\\\\dist\\\\PingFighter.exe\\) do @echo %~zI bytes\")",
+      "Bash(find /d/main/bosspong -name \"*.py\" -type f -exec grep -l \"yachaman\" {} \\\\;)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(taskkill //F //IM py.exe)",
+      "Read(//^def main/\\(stage_num/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\woduq\\Documents\\pingfighter",
+      "d:\\main\\bosspong\\assets"
     ]
   }
 }

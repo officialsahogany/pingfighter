@@ -1,0 +1,16 @@
+[모니터] 감지된 모니터 2개:
+  - \\.\DISPLAY1: 물리 3840x2160, 가상 3840x2160 (100% DPI), 위치 (0,0)
+  - \\.\DISPLAY5: 물리 1920x1200, 가상 1920x1200 (100% DPI), 위치 (468,2160)
+[모니터] 선택: 3840x2160 @ (0,0)
+D:\main\bosspong\.venv_win\Lib\site-packages\pygame\pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import resource_stream, resource_exists
+설정 로드 실패 (기본값 사용): 'cp949' codec can't encode character '\u2699' in position 0: illegal multibyte sequence
+BGM Manager 초기화 완료
+시스템 음소거 OFF (복원 트랙: None)
+[Font] Font status:
+  [OK] Pixel font: PFStardust.ttf
+  [OK] Fallback Bold: NanumSquareB.ttf
+  [OK] Fallback Regular: NanumSquareR.ttf
+[Font] Dot font enabled: PFStardust
+
+[디스플레이] 창모드(SCALED x2) 시작... 합성=1488x918 → 목표 2976x1836

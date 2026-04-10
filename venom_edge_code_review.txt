@@ -1,0 +1,610 @@
+================================================================================
+  바이퍼 베놈 엣지 (Venom Edge / nerve_strike) - 코드 리뷰용 정리
+  파일: pingfighter.py
+  정리 날짜: 2026-04-01
+================================================================================
+
+[개요]
+- 에어 블레이드 연계기로 발동 (에어 블레이드 하강 중 W/↑키)
+- 보스에게 돌진 → 등 뒤에서 베기 → 제자리 복귀
+- 적중 시 5초간 보스 혼란 + 프리즈 컷씬 연출
+- 게이지 80 소모, 쿨타임 30초
+
+================================================================================
+1. 스킬 정의 (약 3698줄)
+================================================================================
+
+    {
+        "name": "nerve_strike", "korean": "베놈 엣지", "cost": 80, "color": (180, 0, 220),
+        "symbol": "◈", "cooldown": 30.0, "key": "W/↑(연계)",
+        "description": "에어 블레이드 착지 전 W/↑키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
+        "how_to_use": "에어 블레이드 사용 후 착지 전 W/↑키",
+        "effect_type": "stun_purple"
+    },
+
+================================================================================
+2. 스킬 아이콘 드로잉 (약 4733~4779줄)
+================================================================================
+
+    elif skill_name == "nerve_strike":
+        # ◈ 베놈 엣지: 보스 등뒤 돌진 베기 (독기 + 블레이드)
+
+        # 독기 오라 (동심원)
+        for i in range(3):
+            aura_r = s - i * 3
+            if aura_r > 0:
+                aura_c = tuple(max(0, c - i * 25) for c in shadow_color[:3])
+                pygame.draw.circle(surface, aura_c, (cx, cy), aura_r, 1)
+
+        # 블레이드 (대각선 칼날)
+        blade_pts = [
+            (cx + s // 5, cy - s * 3 // 4),
+            (cx + s // 3, cy - s // 3),
+            (cx + s // 6, cy + s // 2),
+            (cx - s // 8, cy + s // 3),
+            (cx - s // 6, cy - s // 4),
+            (cx, cy - s * 2 // 3),
+        ]
+        blade_shadow = [(x + 1, y + 1) for x, y in blade_pts]
+        pygame.draw.polygon(surface, shadow_color, blade_shadow)
+        pygame.draw.polygon(surface, accent_color, blade_pts)
+        pygame.draw.polygon(surface, highlight_color, blade_pts, 2)
+
+        # 칼날 반사광
+        pygame.draw.line(surface, main_color,
+                         (cx + s // 10, cy - s // 2), (cx, cy + s // 4), 1)
+
+        # 독기 방울
+        drop_data = [
+            (cx + s // 4, cy + s // 3, 3),
+            (cx + s // 8, cy + s // 2, 2),
+            (cx - s // 10, cy + s * 2 // 3, 1),
+        ]
+        for dx, dy, dr in drop_data:
+            pygame.draw.circle(surface, accent_color, (dx, dy), dr)
+            pygame.draw.circle(surface, highlight_color, (dx, dy), dr, 1)
+
+        # 베기 궤적 호
+        arc_pts = []
+        for t in range(0, 91, 10):
+            rad = math.radians(t - 45)
+            ax = cx + int(math.cos(rad) * s * 0.7)
+            ay = cy + int(math.sin(rad) * s * 0.7)
+            arc_pts.append((ax, ay))
+        if len(arc_pts) >= 2:
+            pygame.draw.lines(surface, highlight_color, False, arc_pts, 2)
+
+================================================================================
+3. 상태 변수 (약 48430~48449줄)
+================================================================================
+
+# === 바이퍼 신경 타격 (에어 블레이드 연계기) ===
+_viper_nerve_strike_active = False       # 연계기 애니메이션 활성
+_viper_nerve_strike_phase = 0            # 0=돌진, 1=등뒤 베기, 2=복귀
+_viper_nerve_strike_start_ms = 0         # 애니메이션 시작 시각
+_viper_nerve_strike_origin_x = 0.0       # 돌진 전 원래 X
+_viper_nerve_strike_origin_y = 0.0       # 돌진 전 원래 Y
+_viper_nerve_strike_target_x = 0.0       # 보스 등뒤 X
+_viper_nerve_strike_target_y = 0.0       # 보스 등뒤 Y (보스 뒤)
+_viper_nerve_strike_slash_shown = False   # 베기 이펙트 표시 여부
+_viper_nerve_strike_show_sound_played = False  # 베놈 엣지 텍스트 사운드 1회 재생 플래그
+_viper_nerve_strike_combo_used = False    # 이번 에어 블레이드에서 연계기 사용했는지
+_VIPER_NS_DASH_DURATION = 500            # 돌진 시간 (ms) — 보스가 피할 여유 있음
+_VIPER_NS_SLASH_DURATION = 300           # 등뒤 베기 연출 시간 (ms)
+_VIPER_NS_RETURN_DURATION = 150          # 복귀 시간 (ms) — 빠른 귀환
+_VIPER_NS_HIT_RADIUS = 120              # 도착 시 보스 히트 판정 반경 (px)
+_VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
+_viper_ns_hit_confirmed = False          # 적중 여부 (적중 시 연출 강화)
+_viper_ns_freeze_active = False          # 적중 시 화면 프리즈 (공/보스 정지)
+_VIPER_NS_SLASH_DURATION_HIT = 2300      # 적중 시 베기 연출 시간 (ms) — 텍스트 정지 + 할퀴기
+_VIPER_NS_RETURN_DURATION_HIT = 250      # 적중 시 복귀 시간 (ms) — 빠른 하강
+
+================================================================================
+4. 스킬 발동 트리거 (약 72538~72584줄)
+================================================================================
+
+        elif _viper_can_act:
+            # 에어 블레이드 (W/↑키) — 전방으로 검기 발사 또는 베놈 엣지 연계
+            if _viper_w_pressed and _viper_w_key_released:
+                # 연계기 판정: 에어 블레이드 Phase 2 하강 구간 (검기 발사 후 내려올 때 ~ 착지 전)
+                _ns_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
+                if (_viper_br_spin_active and _viper_br_spin_phase == 2
+                        and _ns_br_elapsed >= 300  # 점프 정점 이후 (하강 시작)
+                        and not _viper_nerve_strike_combo_used
+                        and not _viper_nerve_strike_active
+                        and is_viper_skill_unlocked("nerve_strike")
+                        and special_gauge >= 80):
+                    _viper_w_key_released = False
+                    special_gauge -= 80
+                    _viper_nerve_strike_combo_used = True
+                    trigger_viper_skill_cooldown("nerve_strike")  # 베놈 엣지 쿨타임 30초
+
+                    # 신경 타격 돌진 애니메이션 시작
+                    _viper_nerve_strike_show_sound_played = False  # 텍스트 사운드 플래그 초기화
+                    _viper_nerve_strike_active = True
+                    _viper_nerve_strike_phase = 0  # 돌진 단계
+                    _viper_nerve_strike_start_ms = pygame.time.get_ticks()
+                    # 돌진 사운드 재생
+                    try:
+                        _vm_snd = sound_effects.get('VIPER_VENOM_MOVING')
+                        if _vm_snd:
+                            _vm_snd.set_volume(0.6)
+                            _vm_snd.play()
+                    except Exception:
+                        pass
+                    _viper_nerve_strike_origin_x = float(PLAYER.centerx)
+                    _viper_nerve_strike_origin_y = float(PLAYER.centery)
+                    _viper_nerve_strike_target_x = float(BOSS.centerx)
+                    _viper_nerve_strike_target_y = float(BOSS.centery - 40)  # 보스 등뒤 (위쪽)
+                    _viper_nerve_strike_slash_shown = False
+
+                    # 에어 블레이드 스핀 종료 (연계기로 전환)
+                    _viper_br_spin_active = False
+                    _viper_br_spin_angle = 0.0
+                    _viper_br_jump_offset_y = 0.0
+                    _viper_br_arm_raise = 0.0
+
+                    try:
+                        effects_manager.spawn_shockwave(
+                            PLAYER.centerx, PLAYER.centery - 20,
+                            force=8, color=(180, 0, 220),
+                        )
+                    except Exception:
+                        pass
+
+================================================================================
+5. 애니메이션 로직 - Phase 0: 돌진 (약 73667~73703줄)
+================================================================================
+
+    # === 바이퍼 신경 타격 연계기 애니메이션 업데이트 ===
+    if _viper_nerve_strike_active:
+        _ns_now = pygame.time.get_ticks()
+        _ns_elapsed = _ns_now - _viper_nerve_strike_start_ms
+
+        if _viper_nerve_strike_phase == 0:
+            # Phase 0: 보스에게 돌진 (부드러운 타겟 추적 — 전반부만)
+            if _ns_elapsed < _VIPER_NS_DASH_DURATION:
+                _ns_t = _ns_elapsed / _VIPER_NS_DASH_DURATION
+                # 전반 80% 구간에서 타겟을 보스 쪽으로 보정 (후반 20%는 고정 → 빗나갈 여지)
+                if _ns_t < 0.8:
+                    _ns_track_strength = 0.12 * (1.0 - _ns_t / 0.8)  # 점점 약해지는 추적
+                    _viper_nerve_strike_target_x += (float(BOSS.centerx) - _viper_nerve_strike_target_x) * _ns_track_strength
+                    _viper_nerve_strike_target_y += (float(BOSS.centery - 40) - _viper_nerve_strike_target_y) * _ns_track_strength
+                # 이징: ease-in-out (자연스러운 가감속)
+                _ns_ease = _ns_t * _ns_t * (3.0 - 2.0 * _ns_t)
+                _ns_cur_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _ns_ease
+                _ns_cur_y = _viper_nerve_strike_origin_y + (_viper_nerve_strike_target_y - _viper_nerve_strike_origin_y) * _ns_ease
+                PLAYER.centerx = int(_ns_cur_x)
+                PLAYER.centery = int(_ns_cur_y)
+            else:
+                # 도착 — 보스가 히트 범위 안에 있는지 판정
+                PLAYER.centerx = int(_viper_nerve_strike_target_x)
+                PLAYER.centery = int(_viper_nerve_strike_target_y)
+                _ns_dx = BOSS.centerx - _viper_nerve_strike_target_x
+                _ns_dy = BOSS.centery - _viper_nerve_strike_target_y
+                _ns_dist = math.sqrt(_ns_dx * _ns_dx + _ns_dy * _ns_dy)
+
+                if _ns_dist <= _VIPER_NS_HIT_RADIUS:
+                    # 적중! → 베기 연출로 전환 (프리즈 컷씬)
+                    _viper_nerve_strike_phase = 1
+                    _viper_nerve_strike_start_ms = _ns_now
+                    _viper_ns_hit_confirmed = True
+                    _viper_ns_freeze_active = True
+                else:
+                    # 무효 (보스가 피함) → 즉시 복귀
+                    _viper_nerve_strike_phase = 2
+                    _viper_nerve_strike_start_ms = _ns_now
+
+================================================================================
+6. 애니메이션 로직 - Phase 1: 등뒤 베기 (약 73705~73754줄)
+================================================================================
+
+        elif _viper_nerve_strike_phase == 1:
+            # Phase 1: 등뒤에서 베기 연출 (적중 시에만 진입)
+            # 적중 시 프리즈 컷씬: 더 긴 연출 시간 사용
+            _ns_slash_dur = _VIPER_NS_SLASH_DURATION_HIT if _viper_ns_hit_confirmed else _VIPER_NS_SLASH_DURATION
+            PLAYER.centerx = int(_viper_nerve_strike_target_x)
+            PLAYER.centery = int(_viper_nerve_strike_target_y)
+
+            # 베기 사운드 + 이펙트: 후반부(45% 이후)에 재생 — 텍스트 정지 후 할퀴기와 동시
+            _ns_slash_45pct = int(_ns_slash_dur * 0.45)
+            if not _viper_nerve_strike_slash_shown and _ns_elapsed >= _ns_slash_45pct:
+                _viper_nerve_strike_slash_shown = True
+                # 베기 사운드 재생
+                try:
+                    _va_snd = sound_effects.get('VIPER_VENOM_ATTACK')
+                    if _va_snd:
+                        _va_snd.set_volume(0.6)
+                        _va_snd.play()
+                except Exception:
+                    pass
+                # 베기 이펙트 — 보스 위치에 충격파
+                try:
+                    effects_manager.spawn_shockwave(
+                        BOSS.centerx, BOSS.centery,
+                        force=12, color=(180, 0, 220),
+                    )
+                except Exception:
+                    pass
+
+            if _ns_elapsed >= _ns_slash_dur:
+                # 혼란 효과 적용! (조명탄과 동일한 시스템)
+                boss_confused_timer = _VIPER_NS_CONFUSION_FRAMES  # 5초
+                # 프리즈는 착지 완료까지 유지 (Phase 2 끝에서 해제)
+
+                # 복귀 X를 공의 X좌표로 변경 (착지 후 바로 받아칠 수 있도록)
+                _ns_land_x = float(BALL.centerx)
+                # 화면 밖으로 나가지 않도록 패들 반폭 고려하여 클램프
+                _ns_half_pw = PLAYER.width // 2
+                _ns_land_x = max(_ns_half_pw, min(WIDTH - _ns_half_pw, _ns_land_x))
+                _viper_nerve_strike_origin_x = _ns_land_x
+
+                _viper_nerve_strike_phase = 2
+                _viper_nerve_strike_start_ms = _ns_now
+                # 복귀 사운드 재생
+                try:
+                    _vm_snd2 = sound_effects.get('VIPER_VENOM_MOVING')
+                    if _vm_snd2:
+                        _vm_snd2.set_volume(0.6)
+                        _vm_snd2.play()
+                except Exception:
+                    pass
+
+================================================================================
+7. 애니메이션 로직 - Phase 2: 복귀 (약 73756~73785줄)
+================================================================================
+
+        elif _viper_nerve_strike_phase == 2:
+            # Phase 2: 제자리 복귀 (적중 시 천천히, 미적중 시 빠르게)
+            _ns_ret_dur = _VIPER_NS_RETURN_DURATION_HIT if _viper_ns_hit_confirmed else _VIPER_NS_RETURN_DURATION
+            if _ns_elapsed < _ns_ret_dur:
+                _ns_t = _ns_elapsed / _ns_ret_dur
+                # 이징: 적중 시 ease-out (빠르게 출발 → 천천히 착지), 미적중 시 ease-in
+                _ns_ease = 1.0 - (1.0 - _ns_t) ** 2 if _viper_ns_hit_confirmed else _ns_t ** 2
+                _ns_cur_x = _viper_nerve_strike_target_x + (_viper_nerve_strike_origin_x - _viper_nerve_strike_target_x) * _ns_ease
+                _ns_cur_y = _viper_nerve_strike_target_y + (_viper_nerve_strike_origin_y - _viper_nerve_strike_target_y) * _ns_ease
+                PLAYER.centerx = int(_ns_cur_x)
+                PLAYER.centery = int(_ns_cur_y)
+            else:
+                # 복귀 완료
+                PLAYER.centerx = int(_viper_nerve_strike_origin_x)
+                PLAYER.centery = int(_viper_nerve_strike_origin_y)
+                _viper_nerve_strike_active = False
+                _viper_ns_hit_confirmed = False
+                _viper_ns_freeze_active = False
+                # 베놈 엣지 실패(보스 미적중) 시 마샬 킥 연계 윈도우 활성화 (퍽 불필요)
+                if not _viper_nerve_strike_slash_shown and is_viper_skill_unlocked("marshal_kick"):
+                    _viper_wall_dive_ready = True
+                    _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초
+                # 복귀 이펙트
+                try:
+                    effects_manager.spawn_shockwave(
+                        PLAYER.centerx, PLAYER.centery,
+                        force=6, color=(180, 0, 220),
+                    )
+                except Exception:
+                    pass
+
+================================================================================
+8. 렌더링 - Phase 0: 돌진 이펙트 (약 107502~107544줄)
+================================================================================
+
+    # ⚡ 바이퍼 신경 타격 연계기 — 돌진/베기/복귀 렌더링
+    if _viper_nerve_strike_active:
+        try:
+            _ns_rnow = pygame.time.get_ticks()
+            _ns_relapsed = _ns_rnow - _viper_nerve_strike_start_ms
+
+            if _viper_nerve_strike_phase == 0:
+                # -- Dash: Viper silhouette afterimages + speed lines --
+                _ns_t = min(1.0, _ns_relapsed / _VIPER_NS_DASH_DURATION)
+                try:
+                    _ns_sil_base = create_viper_paddle_surface(0.0)
+                    _ns_sil_w, _ns_sil_h = _ns_sil_base.get_size()
+                    for _ti in range(3):
+                        _tt = max(0.0, _ns_t - (_ti * 0.08))
+                        _tt_ease = _tt * _tt * (3.0 - 2.0 * _tt)
+                        _trail_x = _viper_nerve_strike_origin_x + (_viper_nerve_strike_target_x - _viper_nerve_strike_origin_x) * _tt_ease
+                        _trail_y = _viper_nerve_strike_origin_y + (_viper_nerve_strike_target_y - _viper_nerve_strike_origin_y) * _tt_ease
+                        _sil_alpha = int(140 * (1.0 - _ti / 3.0) * (0.5 + 0.5 * (1.0 - _ns_t)))
+                        if _sil_alpha > 8:
+                            _sil_copy = _ns_sil_base.copy()
+                            _tint_s = pygame.Surface((_ns_sil_w, _ns_sil_h), pygame.SRCALPHA)
+                            _tint_s.fill((180, 0, 220, _sil_alpha))
+                            _sil_copy.blit(_tint_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                            _sil_copy.set_alpha(_sil_alpha)
+                            SCREEN.blit(_sil_copy,
+                                        (int(_trail_x) - _ns_sil_w // 2, int(_trail_y) - _ns_sil_h // 2),
+                                        special_flags=pygame.BLEND_ADD)
+                except Exception:
+                    pass
+                _ns_dx = _viper_nerve_strike_target_x - _viper_nerve_strike_origin_x
+                _ns_dy = _viper_nerve_strike_target_y - _viper_nerve_strike_origin_y
+                _ns_dist = math.sqrt(_ns_dx * _ns_dx + _ns_dy * _ns_dy)
+                if _ns_dist > 1.0:
+                    _ns_px = -_ns_dy / _ns_dist
+                    _ns_py = _ns_dx / _ns_dist
+                    for _li in range(5):
+                        _lo = (_li - 2) * 12
+                        _la = int(100 * (1.0 - abs(_li - 2) / 2.5) * _ns_t * (1.0 - _ns_t * 0.5))
+                        if _la > 5:
+                            _lsx = int(PLAYER.centerx + _ns_px * _lo + _ns_dx * 0.15)
+                            _lsy = int(PLAYER.centery + _ns_py * _lo + _ns_dy * 0.15)
+                            _lex = int(PLAYER.centerx + _ns_px * _lo - _ns_dx * 0.1)
+                            _ley = int(PLAYER.centery + _ns_py * _lo - _ns_dy * 0.1)
+                            pygame.draw.line(SCREEN, (180, 80, 255), (_lsx, _lsy), (_lex, _ley), 1)
+
+================================================================================
+9. 렌더링 - Phase 1: 베기 연출 + 프리즈 컷씬 (약 107546~107683줄)
+   ★ 이 부분이 "뒤에서 칼로 베는 모습"의 핵심 렌더링 ★
+================================================================================
+
+            elif _viper_nerve_strike_phase == 1:
+                # -- Slash: dual arc slashes + sparks + screen flash --
+                # 적중 시 프리즈 컷씬: 더 긴 연출 시간 사용
+                _ns_slash_render_dur = _VIPER_NS_SLASH_DURATION_HIT if _viper_ns_hit_confirmed else _VIPER_NS_SLASH_DURATION
+                _ns_st = min(1.0, _ns_relapsed / _ns_slash_render_dur)
+                _scx = BOSS.centerx
+                _scy = BOSS.centery
+                _sr = 70
+                _ssz = _sr * 2 + 60
+                _ss = pygame.Surface((_ssz, _ssz), pygame.SRCALPHA)
+                _ssc = _ssz // 2
+
+                # ── 적중 프리즈 컷씬 전용 연출 ──
+                if _viper_ns_hit_confirmed:
+                    # 화면 어둡게 (반투명 검은색 오버레이)
+                    _dim_alpha = int(120 * min(1.0, _ns_st * 5.0))  # 빠르게 어두워짐
+                    if _dim_alpha > 3:
+                        _dim_s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                        _dim_s.fill((0, 0, 0, _dim_alpha))
+                        SCREEN.blit(_dim_s, (0, 0))
+
+                    # "베놈 엣지!" 텍스트 (전반부: 0~0.5) → 할퀴기 (후반부: 0.5~1.0)
+                    # 텍스트: 전반부에 나타나서 유지
+                    _text_appear = min(1.0, _ns_st * 5.0)  # 빠르게 나타남
+                    _text_fade = max(0.0, 1.0 - max(0.0, _ns_st - 0.45) * 5.0)  # 0.45 이후 페이드아웃
+                    _text_alpha = int(255 * min(_text_appear, _text_fade))
+                    if _text_alpha > 10:
+                        # 텍스트 첫 출현 시 쇼 사운드 1회 재생
+                        global _viper_nerve_strike_show_sound_played
+                        if not _viper_nerve_strike_show_sound_played:
+                            _viper_nerve_strike_show_sound_played = True
+                            try:
+                                _vs_snd = sound_effects.get('VIPER_SHOW')
+                                if _vs_snd:
+                                    _vs_snd.set_volume(0.7)
+                                    _vs_snd.play()
+                            except Exception:
+                                pass
+                        try:
+                            _ve_font = get_font(48)
+                            _ve_text = "베놈 엣지!"
+                            _ve_shadow = _ve_font.render(_ve_text, True, (0, 0, 0))
+                            _ve_main = _ve_font.render(_ve_text, True, (220, 80, 255))
+                            _ve_glow = _ve_font.render(_ve_text, True, (255, 200, 255))
+                            _ve_w = _ve_main.get_width()
+                            _ve_h = _ve_main.get_height()
+                            _ve_x = WIDTH // 2 - _ve_w // 2
+                            _ve_y = HEIGHT // 2 - _ve_h // 2
+                            # 약간의 흔들림 효과
+                            _ve_shake_x = random.randint(-2, 2) if _text_appear < 0.5 else 0
+                            _ve_shake_y = random.randint(-1, 1) if _text_appear < 0.5 else 0
+                            # 글로우 (확대)
+                            _ve_glow.set_alpha(int(_text_alpha * 0.3))
+                            SCREEN.blit(_ve_glow, (_ve_x - 2 + _ve_shake_x, _ve_y - 2 + _ve_shake_y))
+                            # 그림자
+                            _ve_shadow.set_alpha(_text_alpha)
+                            SCREEN.blit(_ve_shadow, (_ve_x + 3 + _ve_shake_x, _ve_y + 3 + _ve_shake_y))
+                            # 메인 텍스트
+                            _ve_main.set_alpha(_text_alpha)
+                            SCREEN.blit(_ve_main, (_ve_x + _ve_shake_x, _ve_y + _ve_shake_y))
+                        except Exception:
+                            pass
+
+                    # 할퀴기 자국 (후반부: _ns_st >= 0.5 이후 등장)
+                    if _ns_st >= 0.45:
+                        _scratch_local_t = (_ns_st - 0.45) / 0.55  # 0→1 (후반부 내에서)
+                        _scratch_t = min(1.0, _scratch_local_t * 3.0)  # 빠르게 나타남
+                        if _scratch_t > 0.05:
+                            _scratch_len = int(100 * _scratch_t)
+                            _scratch_alpha = int(255 * min(1.0, _scratch_t * 2.0) * max(0.0, 1.0 - (_scratch_local_t - 0.5) * 2.0))
+                            if _scratch_alpha > 5:
+                                _scratch_s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                                for _sci in range(3):
+                                    _sc_offset = (_sci - 1) * 18
+                                    _sc_x1 = _scx - 40 + _sc_offset
+                                    _sc_y1 = _scy - _scratch_len // 2
+                                    _sc_x2 = _scx + 40 + _sc_offset
+                                    _sc_y2 = _scy + _scratch_len // 2
+                                    pygame.draw.line(_scratch_s, (200, 50, 255, _scratch_alpha),
+                                                    (_sc_x1, _sc_y1), (_sc_x2, _sc_y2), 3)
+                                    pygame.draw.line(_scratch_s, (255, 150, 255, _scratch_alpha // 2),
+                                                    (_sc_x1 - 1, _sc_y1), (_sc_x2 - 1, _sc_y2), 5)
+                                SCREEN.blit(_scratch_s, (0, 0), special_flags=pygame.BLEND_ADD)
+
+                # 원래 베기 이펙트 (프리즈 여부와 무관하게 표시)
+                # 화면 플래시 (초반)
+                if _ns_st < 0.27:
+                    _ft = _ns_st / 0.27
+                    _fa = int(60 * (1.0 - _ft))
+                    if _fa > 3:
+                        _fo = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                        _fo.fill((180, 0, 220, _fa))
+                        SCREEN.blit(_fo, (0, 0))
+
+                # 첫 번째 아크 슬래시
+                _a1p = min(1.0, _ns_st * 3.0)
+                _a1a = int(255 * max(0.0, 1.0 - (_ns_st - 0.1) * 1.5))
+                if _a1a > 5 and _a1p > 0.01:
+                    _a1w = max(2, int(5 * (1.0 - _ns_st * 0.7)))
+                    _a1r = pygame.Rect(_ssc - _sr, _ssc - _sr, _sr * 2, _sr * 2)
+                    pygame.draw.arc(_ss, (255, 120, 255, _a1a), _a1r, -0.5, -0.5 + _a1p * 2.4, _a1w)
+                    _a1ca = int(200 * max(0.0, 1.0 - _ns_st * 2.0))
+                    if _a1ca > 5:
+                        _a1ir = pygame.Rect(_ssc - _sr + 4, _ssc - _sr + 4, _sr * 2 - 8, _sr * 2 - 8)
+                        pygame.draw.arc(_ss, (255, 220, 255, _a1ca), _a1ir, -0.5, -0.5 + _a1p * 2.4, max(1, _a1w - 2))
+
+                # 두 번째 아크 슬래시 (약간 지연)
+                _a2t = max(0.0, _ns_st - 0.15)
+                _a2p = min(1.0, _a2t * 3.5)
+                _a2a = int(230 * max(0.0, 1.0 - (_a2t - 0.05) * 1.5))
+                if _a2a > 5 and _a2p > 0.01:
+                    _a2w = max(2, int(4 * (1.0 - _a2t * 0.8)))
+                    _a2r = pygame.Rect(_ssc - _sr + 8, _ssc - _sr + 8, _sr * 2 - 16, _sr * 2 - 16)
+                    pygame.draw.arc(_ss, (200, 80, 255, _a2a), _a2r, 2.6, 2.6 + _a2p * 2.2, _a2w)
+                    _a2ca = int(180 * max(0.0, 1.0 - _a2t * 2.2))
+                    if _a2ca > 5:
+                        _a2ir = pygame.Rect(_ssc - _sr + 12, _ssc - _sr + 12, _sr * 2 - 24, _sr * 2 - 24)
+                        pygame.draw.arc(_ss, (255, 200, 255, _a2ca), _a2ir, 2.6, 2.6 + _a2p * 2.2, max(1, _a2w - 2))
+
+                # 임팩트 플래시 (초반)
+                if _ns_st < 0.33:
+                    _it = _ns_st / 0.33
+                    _ir = int(30 * (1.0 - _it * 0.5))
+                    _ia = int(220 * (1.0 - _it))
+                    if _ia > 5:
+                        pygame.draw.circle(_ss, (255, 255, 255, _ia), (_ssc, _ssc), _ir)
+                        pygame.draw.circle(_ss, (255, 180, 255, int(_ia * 0.6)), (_ssc, _ssc), int(_ir * 1.5))
+
+                # 스파크 파티클 (8개)
+                for _si in range(8):
+                    _spt = max(0.0, _ns_st - _si * 0.03)
+                    if 0.0 < _spt < 0.6:
+                        _spp = _spt / 0.6
+                        _spa = (_si / 8.0) * math.pi * 2.0 + _ns_st * 4.0
+                        _spd = _sr * (0.5 + 0.8 * _spp)
+                        _spx = _ssc + int(math.cos(_spa) * _spd)
+                        _spy = _ssc + int(math.sin(_spa) * _spd)
+                        _spalpha = int(200 * (1.0 - _spp))
+                        _sps = max(1, int(3 * (1.0 - _spp)))
+                        if 0 <= _spx < _ssz and 0 <= _spy < _ssz and _spalpha > 5:
+                            pygame.draw.circle(_ss, (255, 200, 100, _spalpha), (_spx, _spy), _sps)
+
+                # 글로우 링
+                _glt = min(1.0, _ns_st * 2.0)
+                _glr = int(_sr * (0.6 + 0.6 * _glt))
+                _gla = int(40 * (1.0 - _glt))
+                if _gla > 2:
+                    pygame.draw.circle(_ss, (160, 0, 220, _gla), (_ssc, _ssc), _glr, 2)
+
+                # 서피스 블릿 (보스 위치 중심)
+                SCREEN.blit(_ss, (_scx - _ssc, _scy - _ssc), special_flags=pygame.BLEND_ADD)
+
+================================================================================
+10. 렌더링 - Phase 2: 복귀 이펙트 (약 107685~107720줄)
+================================================================================
+
+            elif _viper_nerve_strike_phase == 2:
+                # -- Return: fading silhouette + landing shockwave + dust --
+                _ns_t = min(1.0, _ns_relapsed / _VIPER_NS_RETURN_DURATION)
+                _fade_a = int(120 * (1.0 - _ns_t))
+                if _fade_a > 5:
+                    try:
+                        _ret_sil = create_viper_paddle_surface(0.0)
+                        _rw, _rh = _ret_sil.get_size()
+                        _tint = pygame.Surface((_rw, _rh), pygame.SRCALPHA)
+                        _tint.fill((180, 0, 220, _fade_a))
+                        _ret_sil.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                        _ret_sil.set_alpha(_fade_a)
+                        SCREEN.blit(_ret_sil,
+                                    (int(_viper_nerve_strike_target_x) - _rw // 2,
+                                     int(_viper_nerve_strike_target_y) - _rh // 2),
+                                    special_flags=pygame.BLEND_ADD)
+                    except Exception:
+                        pass
+                # 착지 충격파 + 먼지 (복귀 후반)
+                if _ns_t > 0.7:
+                    _ldt = (_ns_t - 0.7) / 0.3
+                    _ldx = int(PLAYER.centerx)
+                    _ldy = int(_viper_nerve_strike_origin_y)
+                    _rr = int(10 + 40 * _ldt)
+                    _ra = int(180 * (1.0 - _ldt))
+                    if _ra > 5:
+                        pygame.draw.circle(SCREEN, (160, 80, 255), (_ldx, _ldy), _rr, 2)
+                    for _di in range(6):
+                        _da = (_di / 6.0) * math.pi - math.pi * 0.5
+                        _dd = 15 + 35 * _ldt
+                        _dx = _ldx + int(math.cos(_da) * _dd)
+                        _dy = _ldy + int(math.sin(_da * 0.3) * 5) - int(10 * _ldt)
+                        _dalpha = int(120 * (1.0 - _ldt))
+                        _ds = max(1, int(3 * (1.0 - _ldt * 0.7)))
+                        if _dalpha > 5:
+                            pygame.draw.circle(SCREEN, (140, 100, 180), (_dx, _dy), _ds)
+
+================================================================================
+11. 게임 리셋 시 초기화 (약 140212~140222줄)
+================================================================================
+
+    # 바이퍼 베놈 엣지 (신경 타격) 초기화
+    global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_combo_used
+    global _viper_nerve_strike_slash_shown, _viper_nerve_strike_start_ms
+    global _viper_ns_hit_confirmed, _viper_ns_freeze_active
+    _viper_nerve_strike_active = False
+    _viper_nerve_strike_phase = 0
+    _viper_nerve_strike_combo_used = False
+    _viper_nerve_strike_slash_shown = False
+    _viper_nerve_strike_start_ms = 0
+    _viper_ns_hit_confirmed = False
+    _viper_ns_freeze_active = False
+    # 보스 혼란 상태 초기화 (베놈 엣지 등에 의한 혼란)
+
+================================================================================
+12. 프리즈 처리 - 공 물리/보스 AI 정지 (약 143952줄, 151907줄)
+================================================================================
+
+    # 🐍 바이퍼 베놈 엣지 / 팬텀 킥 프리즈 중에는 공 물리 멈춤
+    if _viper_ns_freeze_active or _viper_dmk_freeze_active:
+        return
+
+    # (약 151907줄)
+    # 🐍 바이퍼 베놈 엣지 / 팬텀 킥 프리즈 중에는 보스 AI 정지
+    # 단, 넉백 물리는 프리즈 중에도 적용 (팬텀 킥 넉백)
+    if _viper_ns_freeze_active or _viper_dmk_freeze_active:
+        if abs(boss_fire_knockback_vel) > 0.3:
+            _kb_new_x = BOSS.x + boss_fire_knockback_vel
+            _kb_min_x = 0
+            _kb_max_x = WIDTH - BOSS.width
+
+================================================================================
+13. 라운드 전환 시 초기화 (약 57891~57918줄)
+================================================================================
+
+    # 🐍 바이퍼 스킬 상태 초기화 (라운드 전환 시 진행 중인 스킬 강제 종료)
+    global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_combo_used
+    global _viper_nerve_strike_slash_shown, _viper_nerve_strike_start_ms
+    global _viper_ns_hit_confirmed, _viper_ns_freeze_active
+    # ... (다른 스킬 초기화들) ...
+    _viper_nerve_strike_active = False
+    _viper_nerve_strike_phase = 0
+    _viper_nerve_strike_combo_used = False
+    _viper_nerve_strike_slash_shown = False
+    _viper_nerve_strike_start_ms = 0
+    _viper_ns_hit_confirmed = False
+    _viper_ns_freeze_active = False
+
+================================================================================
+[사운드 리소스]
+================================================================================
+- VIPER_VENOM_MOVING : 돌진/복귀 이동 사운드
+- VIPER_VENOM_ATTACK : 베기 공격 사운드
+- VIPER_SHOW         : "베놈 엣지!" 텍스트 출현 사운드
+
+================================================================================
+[흐름 요약]
+================================================================================
+1. 에어 블레이드 하강 중 W/↑키 입력 → 게이지 80 소모 → 돌진 시작
+2. Phase 0 (돌진, 500ms): ease-in-out 이징으로 보스에게 돌진, 전반 80%만 추적
+3. 도착 시 히트 판정 (반경 120px)
+   - 적중 → Phase 1 진입 (프리즈 컷씬)
+   - 미적중 → Phase 2 즉시 복귀
+4. Phase 1 (베기, 적중 시 2300ms / 미적중 시 300ms):
+   - 화면 어둡게 + "베놈 엣지!" 텍스트 + 할퀴기 자국
+   - 듀얼 아크 슬래시 + 스파크 + 화면 플래시
+   - 45% 지점에서 베기 사운드 + 충격파
+   - 완료 시 보스 혼란 5초 적용
+5. Phase 2 (복귀, 적중 시 250ms / 미적중 시 150ms):
+   - 잔상 + 착지 충격파 + 먼지 이펙트
+   - 미적중 시 마샬 킥 연계 윈도우 활성화
+6. 프리즈 동안 공 물리 + 보스 AI 정지 (넉백은 허용)
+================================================================================

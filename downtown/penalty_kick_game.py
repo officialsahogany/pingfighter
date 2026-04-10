@@ -1415,37 +1415,79 @@ class PenaltyKickGameUI:
             screen.fill(COLOR_DARK_BG)
 
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((10, 18, 28, 120))
+        overlay.fill((6, 10, 18, 72))
         screen.blit(overlay, (0, 0))
 
-        pitch_rect = pygame.Rect(48, 58, WIDTH - 96, HEIGHT - 116)
-        pitch_surf = pygame.Surface((pitch_rect.width, pitch_rect.height), pygame.SRCALPHA)
-        pitch_surf.fill((8, 36, 34, 95))
-        screen.blit(pitch_surf, pitch_rect.topleft)
+        frame_rect = pygame.Rect(58, 46, WIDTH - 116, HEIGHT - 92)
+        frame_fill = pygame.Surface((frame_rect.width, frame_rect.height), pygame.SRCALPHA)
+        frame_fill.fill((8, 16, 24, 52))
+        screen.blit(frame_fill, frame_rect.topleft)
 
-        neon_color = (180, 255, 250)
+        neon_cyan = (170, 255, 248)
         neon_magenta = (255, 90, 210)
-        pygame.draw.rect(screen, neon_color, pitch_rect, 3, border_radius=10)
-        pygame.draw.rect(screen, neon_magenta, pitch_rect.inflate(-18, -18), 1, border_radius=10)
-        pygame.draw.line(screen, neon_color, (60, HEIGHT // 2), (WIDTH - 60, HEIGHT // 2), 2)
-        pygame.draw.circle(screen, neon_color, (WIDTH // 2, HEIGHT // 2), 60, 2)
-        pygame.draw.circle(screen, neon_color, (WIDTH // 2, HEIGHT // 2), 4)
+        pygame.draw.rect(screen, neon_cyan, frame_rect, 2, border_radius=16)
+        pygame.draw.rect(screen, neon_magenta, frame_rect.inflate(-18, -18), 1, border_radius=14)
 
-        box_w = 360
-        box_h = 160
-        box_x = (WIDTH - box_w) // 2
-        pygame.draw.rect(screen, neon_color, (box_x, 0, box_w, box_h), 2)
-        pygame.draw.arc(screen, neon_color, (WIDTH // 2 - 60, box_h - 30, 120, 60), 0, math.pi, 2)
-        pygame.draw.rect(screen, neon_magenta, (box_x, HEIGHT - box_h, box_w, box_h), 2)
-        pygame.draw.arc(screen, neon_magenta, (WIDTH // 2 - 60, HEIGHT - box_h - 30, 120, 60), math.pi, math.pi * 2, 2)
-        pygame.draw.circle(screen, neon_color, (WIDTH // 2, 130), 4)
-        pygame.draw.circle(screen, neon_magenta, (WIDTH // 2, HEIGHT - 130), 4)
+        banner_rect = pygame.Rect(WIDTH // 2 - 118, 56, 236, 28)
+        banner = pygame.Surface((banner_rect.width, banner_rect.height), pygame.SRCALPHA)
+        banner.fill((0, 0, 0, 125))
+        screen.blit(banner, banner_rect.topleft)
+        pygame.draw.rect(screen, neon_cyan, banner_rect, 1, border_radius=8)
+        font = self._get_font(14)
+        font.render_to(screen, (WIDTH // 2 - 68, 63), "STAGE 33 ARENA", neon_cyan)
+
+        self._draw_stage33_play_lane(screen)
 
         if self.goal_flash > 0:
             flash_alpha = int((self.goal_flash / 30) * 80)
             flash_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             flash_surf.fill((255, 215, 0, flash_alpha))
             screen.blit(flash_surf, (0, 0))
+
+    def _draw_stage33_play_lane(self, screen):
+        lane_points = [
+            (GOAL_X - 22, GOAL_TOP_Y + GOAL_HEIGHT + 12),
+            (GOAL_X + GOAL_WIDTH + 22, GOAL_TOP_Y + GOAL_HEIGHT + 12),
+            (WIDTH // 2 + 190, HEIGHT - 88),
+            (WIDTH // 2 - 190, HEIGHT - 88),
+        ]
+
+        lane_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        pygame.draw.polygon(lane_surf, (6, 28, 34, 86), lane_points)
+        pygame.draw.polygon(lane_surf, (0, 255, 255, 38), lane_points, 2)
+        screen.blit(lane_surf, (0, 0))
+
+        guide_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        zone_w = GOAL_WIDTH // 3
+        shooter_y = BALL_START_ATTACK_Y + 16
+        for i in range(3):
+            zone_center_x = GOAL_X + zone_w * i + zone_w // 2
+            color = (255, 215, 90, 65) if i == self.attack_target_zone and self.role == Role.ATTACK else (255, 255, 255, 28)
+            pygame.draw.line(
+                guide_surf,
+                color,
+                (zone_center_x, GOAL_TOP_Y + GOAL_HEIGHT - 8),
+                (WIDTH // 2, shooter_y),
+                1,
+            )
+
+        for offset, color in ((-150, (0, 255, 255, 42)), (150, (255, 0, 255, 42))):
+            pygame.draw.line(
+                guide_surf,
+                color,
+                (WIDTH // 2 + offset, HEIGHT - 88),
+                (WIDTH // 2 + int(offset * 0.42), GOAL_TOP_Y + GOAL_HEIGHT + 18),
+                2,
+            )
+        screen.blit(guide_surf, (0, 0))
+
+        pad_rect = pygame.Rect(WIDTH // 2 - 126, HEIGHT - 116, 252, 44)
+        pad_surf = pygame.Surface((pad_rect.width, pad_rect.height), pygame.SRCALPHA)
+        pad_surf.fill((18, 12, 34, 126))
+        screen.blit(pad_surf, pad_rect.topleft)
+        pygame.draw.rect(screen, (255, 90, 210), pad_rect, 2, border_radius=12)
+        pygame.draw.circle(screen, (0, 255, 255), (WIDTH // 2, BALL_START_ATTACK_Y + 6), 8, 2)
+        pygame.draw.circle(screen, (255, 90, 210), (WIDTH // 2, BALL_START_ATTACK_Y + 6), 18, 1)
 
     def _draw_characters(self, screen):
         if self.role == Role.ATTACK:

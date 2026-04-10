@@ -1,0 +1,333 @@
+================================================================================
+ 마샬 킥 / 팬텀 킥 로프 시스템 코드 브리핑 (Code Review용)
+ 파일: pingfighter.py
+ 최종 수정: 2026-04-01
+================================================================================
+
+■ 개요
+- 바이퍼 캐릭터의 마샬 킥(1차) / 팬텀 킥(2차) 스킬
+- 스파이더맨/산나비 스타일: 벽에 로프를 직선 발사 → 로프를 따라 끌려감 → 벽 매달림 → 공으로 돌진
+- 로프는 검보라색 다층 글로우 직선으로 렌더링
+
+■ Phase 흐름도
+┌─────────────────────────────────────────────────────────────┐
+│  발동 → Phase 0 (로프 발사+끌려감) → Phase 1 (벽 매달림)    │
+│         │                                                    │
+│         ├─ 공이 가까움 → Phase 3 (벽다시타기) → Phase 1      │
+│         │                                                    │
+│         ├─ 마샬킥 → Phase 2 (돌진) → Phase 4 (복���)         │
+│         │                                                    │
+│         └─ 팬텀킥 → Phase 6 (텍스트 프리즈)                  │
+│                    → Phase 2 (돌진) → Phase 5 (프리즈 대기)   │
+│                    → Phase 4 (복귀)                           │
+└───��─────────────────────────────────────────────────────────┘
+
+
+================================================================================
+ 1. 상태 변수 선언 (line 48365~48403)
+================================================================================
+
+_viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 백스텝 후 보스가 공 반환 시)
+_viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
+_VIPER_WALL_DIVE_READY_FRAMES = 90       # 연계 윈도우 1.5초 (60fps)
+_viper_wall_dive_active = False           # 마샬 킥 진행 중
+_viper_wall_dive_phase = 0                # 0=벽으로 점프, 1=벽 매달���, 2=공으로 돌진
+_viper_wall_dive_start_ms = 0             # 페��즈 시작 시각
+_viper_wall_dive_start_x = 0.0            # 출발 X
+_viper_wall_dive_start_y = 0.0            # 출발 Y
+_viper_wall_dive_wall_x = 0.0             # 벽 X (15 또는 WIDTH-15)
+_viper_wall_dive_wall_y = 0.0             # 벽 매달림 Y
+_viper_wall_dive_charge_target_x = 0.0    # 돌진 목표 X (공 위치, 실시간 갱신)
+_viper_wall_dive_charge_target_y = 0.0    # 돌진 목표 Y
+_viper_wall_dive_charge_start_x = 0.0     # 돌진 출발 X (벽)
+_viper_wall_dive_charge_start_y = 0.0     # 돌진 출발 Y (벽)
+_viper_wall_dive_ball_hit = False          # 공 히트 여부
+_viper_wall_dive_reclimb_start_x = 0.0    # 벽다시타기 출��� X
+_viper_wall_dive_reclimb_start_y = 0.0    # 벽다시타기 출발 Y
+_viper_wall_dive_return_start_x = 0.0     # 복귀 출발 X (공 타격 후)
+_viper_wall_dive_return_start_y = 0.0     # 복귀 출발 Y
+_viper_wall_dive_particles = []            # 이펙트 파티클
+_viper_wall_dive_web_lines = []            # 로프 라인 [(x1,y1,x2,y2), ...]
+
+# 타이밍 상수
+_VIPER_WALL_DIVE_RETURN_MS = 350          # 복귀 시간 (ms)
+_VIPER_WALL_DIVE_GAUGE_COST = 80          # 게이지 소모 (마샬킥)
+_VIPER_WALL_DIVE_JUMP_MS = 412            # 벽으로 이동 시간 (ms)
+_VIPER_WALL_DIVE_CLING_MS = 250           # 벽 매달림 시간 (ms)
+_VIPER_WALL_DIVE_CHARGE_MS = 390          # 돌진 시간 (ms)
+_VIPER_WALL_DIVE_HIT_RADIUS = 90          # 공 히트 반경 (px)
+_VIPER_WALL_DIVE_RECLIMB_THRESHOLD = 120  # 벽다시타기 X거리 임계값 (px)
+_VIPER_WALL_DIVE_RECLIMB_MS = 180         # 벽다시타기 이동 시간 (ms)
+
+# 팬텀 킥 전용
+_viper_is_double_marshal = False              # 현재 킥이 팬��� 킥인지
+_viper_phantom_kick_knockback_pending = False  # 공이 보스 패들에 맞을 때 넉백 발동 대기
+
+
+================================================================================
+ 2. 발동 조건 + 초기화 (line 72639~72717)
+================================================================================
+
+# 발동 조건:
+# - 바이퍼 캐릭터
+# - _viper_wall_dive_ready 또는 _viper_double_marshal_ready
+# - S/↓키 단독 입력 (방향키 미입력)
+# - 게이지 충분 (마샬킥=80, 팬텀킥=50)
+# - 다른 스킬 미사용 중
+
+if (_wd_s_input and not _wd_dir_held
+        and special_gauge >= _wd_gauge_cost
+        and is_viper_skill_unlocked("shadow_step")):
+    special_gauge -= _wd_gauge_cost
+    _viper_is_double_marshal = _wd_is_double  # 팬텀 킥 여부 저장
+
+    # --- 초기화 ---
+    _viper_wall_dive_active = True
+    _viper_wall_dive_phase = 0
+    _viper_wall_dive_start_ms = pygame.time.get_ticks()
+    _viper_wall_dive_start_x = float(PLAYER.centerx)
+    _viper_wall_dive_start_y = float(PLAYER.centery)
+
+    # 벽 X: 공의 반대쪽 벽 선택
+    if BALL.centerx >= WIDTH // 2:
+        _viper_wall_dive_wall_x = 15.0       # 좌측 벽
+    else:
+        _viper_wall_dive_wall_x = float(WIDTH - 15)  # 우측 벽
+
+    # 벽 Y: 현재 높이에 비례하여 상승량 조정
+    _wd_ground_y = 710.0   # 바닥 기준
+    _wd_min_y = 200.0      # 벽타기 최소 Y
+    _wd_max_rise = 200.0   # 바닥에서의 최대 상승량
+    _wd_min_rise = 50.0    # 최소 상승량
+    _wd_height_ratio = max(0.0, min(1.0, (PLAYER.centery - _wd_min_y) / (_wd_ground_y - _wd_min_y)))
+    _wd_rise = _wd_min_rise + (_wd_max_rise - _wd_min_rise) * _wd_height_ratio
+    _viper_wall_dive_wall_y = float(PLAYER.centery) - _wd_rise
+    _viper_wall_dive_wall_y = max(_wd_min_y, min(650.0, _viper_wall_dive_wall_y))
+    # 결과: 바닥(710) → 200px 상승, 중간(450) → ~148px, 높은곳(300) → ~89px
+
+    # ★ 로프 즉시 발사 (플레이어 → 벽 목표점)
+    _viper_wall_dive_web_lines = [
+        (float(PLAYER.centerx), float(PLAYER.centery),
+         _viper_wall_dive_wall_x, _viper_wall_dive_wall_y)
+    ]
+
+
+================================================================================
+ 3. Phase 0: 로프를 따라 벽으로 이동 (line 72725~72756)
+================================================================================
+
+if _viper_wall_dive_phase == 0:
+    _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_JUMP_MS)  # 0→1 (412ms)
+    _wd_ease = _wd_t * _wd_t * (3.0 - 2.0 * _wd_t)  # ease-in-out
+
+    # 플레이어가 로프를 따라 직선으로 끌려감 (아크 없음)
+    _wd_cx = start_x + (wall_x - start_x) * _wd_ease
+    _wd_cy = start_y + (wall_y - start_y) * _wd_ease
+    PLAYER.centerx = int(_wd_cx)
+    PLAYER.centery = int(_wd_cy)
+
+    # ★ 로프: 플레이어 현재 위치 → 벽 목표점 (매 프레임 갱신, 로프가 짧아지는 연출)
+    _viper_wall_dive_web_lines = [
+        (_wd_cx, _wd_cy, _viper_wall_dive_wall_x, _viper_wall_dive_wall_y)
+    ]
+
+    if _wd_t >= 1.0:
+        _viper_wall_dive_phase = 1
+        # ★ 벽 도착: 로프 제거
+        _viper_wall_dive_web_lines = []
+
+
+================================================================================
+ 4. Phase 1: 벽 매달림 (line 72758~72819)
+================================================================================
+
+elif _viper_wall_dive_phase == 1:
+    _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_CLING_MS)  # 250ms 대기
+    PLAYER.centerx = int(_viper_wall_dive_wall_x)
+    PLAYER.centery = int(_viper_wall_dive_wall_y)
+
+    if _wd_t >= 1.0:
+        # 분기 A: 공이 현재 벽에 너무 가까우면 → 반대편 벽으로 (Phase 3)
+        if abs(BALL.centerx - _viper_wall_dive_wall_x) < 120:
+            _viper_wall_dive_phase = 3  # 벽다시타기
+            # 반대편 벽 + 공 높이 기준 Y 계산
+            # ★ 반대편 벽까지 로프 즉시 발사
+            _viper_wall_dive_web_lines = [
+                (현재벽X, 현재벽Y, 반대편벽X, 새Y)
+            ]
+
+        # 분기 B-1: 팬텀 킥이면 → 텍스트 프리즈 (Phase 6)
+        elif _viper_is_double_marshal:
+            _viper_wall_dive_phase = 6
+            _viper_dmk_freeze_active = True
+
+        # 분기 B-2: 마샬 킥이면 → 공으로 돌진 (Phase 2)
+        else:
+            _viper_wall_dive_phase = 2
+            _viper_wall_dive_web_lines = []  # 로프 제거
+
+
+================================================================================
+ 5. Phase 3: 벽다시타기 (line 72821~72862)
+================================================================================
+
+elif _viper_wall_dive_phase == 3:
+    _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_RECLIMB_MS)  # 180ms (매우 빠름)
+    _wd_ease = ease-in-out
+
+    # 직선 이동
+    _wd_cx = reclimb_start_x + (wall_x - reclimb_start_x) * _wd_ease
+    _wd_cy = reclimb_start_y + (wall_y - reclimb_start_y) * _wd_ease
+
+    # ★ 로프: 현재 위치 → 벽 목표점 (끌려가는 동안 유지)
+    _viper_wall_dive_web_lines = [
+        (_wd_cx, _wd_cy, _viper_wall_dive_wall_x, _viper_wall_dive_wall_y)
+    ]
+
+    if _wd_t >= 1.0:
+        _viper_wall_dive_phase = 2  # 돌진으로 전환
+        _viper_wall_dive_web_lines = []
+
+
+================================================================================
+ 6. Phase 6: 팬텀 킥 텍스트 프리즈 (line 72864~72884)
+================================================================================
+
+elif _viper_wall_dive_phase == 6:
+    # 벽 매달린 상태에서 정지 + "팬텀 킥" 텍스트 연출
+    PLAYER.centerx = int(_viper_wall_dive_wall_x)
+    PLAYER.centery = int(_viper_wall_dive_wall_y)
+
+    if not _viper_dmk_freeze_active:  # 프리즈 끝나면
+        _viper_wall_dive_phase = 2    # 돌진으로 전환
+        _viper_wall_dive_web_lines = []
+
+
+================================================================================
+ 7. Phase 2: 공으로 돌진 + 충돌 판정 (line 72886~72995)
+================================================================================
+
+elif _viper_wall_dive_phase == 2:
+    _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_CHARGE_MS)  # 390ms
+    _wd_ease = _wd_t * _wd_t  # ease-in (가속)
+
+    # 실시간 공 위치 추적
+    target_x = float(BALL.centerx)
+    target_y = float(BALL.centery)
+    _wd_cx = charge_start_x + (target_x - charge_start_x) * _wd_ease
+    _wd_cy = charge_start_y + (target_y - charge_start_y) * _wd_ease
+
+    # 공 충돌 판정 (반경 90px)
+    if not _viper_wall_dive_ball_hit:
+        if math.hypot(BALL.centerx - _wd_cx, BALL.centery - _wd_cy) <= 90:
+            _viper_wall_dive_ball_hit = True
+
+            # 공 속도 증폭: 팬텀킥 3.0x / 마샬킥 1.8x
+            # 발사 각도: 벽 위치에 따라 반대편 상단으로 랜덤
+            # 좌측벽 → -40°~-80° / 우측벽 → -100°~-140°
+
+            # ★ 팬텀 킥 넉백: 공이 보스 패들에 맞을 때 발동하도록 플래그만 설정
+            if _viper_is_double_marshal:
+                _viper_phantom_kick_knockback_pending = True
+
+            # 팬텀킥 → Phase 5 (프리즈 대기) → Phase 4
+            # 마샬킥 → Phase 4 (복귀)
+
+
+================================================================================
+ 8. Phase 5 / Phase 4: 복귀 (line 72997~73031)
+================================================================================
+
+# Phase 5: 팬텀 킥 프리즈 중 제자리 대기
+elif _viper_wall_dive_phase == 5:
+    PLAYER = (return_start_x, return_start_y)  # 제자리 고정
+    if not _viper_dmk_freeze_active:
+        → Phase 4
+
+# Phase 4: 바닥으로 부드럽게 복귀
+elif _viper_wall_dive_phase == 4:
+    _wd_t = min(1.0, _wd_elapsed / 350ms)
+    # ease-in-out으로 바닥(패들 Y)까지 하강
+    if _wd_t >= 1.0:
+        _viper_wall_dive_active = False
+        _viper_wall_dive_web_lines = []
+
+
+================================================================================
+ 9. 팬텀 킥 넉백 (보스 패들 충돌 시) (line 148397~148401)
+================================================================================
+
+# 보스 패들 충돌 처리 코드 내부:
+global _viper_phantom_kick_knockback_pending
+if _viper_phantom_kick_knockback_pending:
+    _viper_phantom_kick_knockback_pending = False
+    _dmk_kb_dir = 1 if BALL.centerx > BOSS.centerx else -1
+    boss_fire_knockback_vel = _dmk_kb_dir * 18.0  # 강한 수평 넉백
+
+# 넉백 물리: 매 프레임 boss_fire_knockback_vel *= 0.85 감속
+# 벽 반사 시 0.7 에너지 손실, |vel| <= 0.3 시 정지
+
+
+================================================================================
+ 10. 로프 렌더링 (line 108207~108258)
+================================================================================
+
+if _viper_wall_dive_active or _viper_wall_dive_particles or _viper_wall_dive_web_lines:
+    for (x1, y1, x2, y2) in _viper_wall_dive_web_lines:
+        # 직선 포인트 생성 (sag = 0.0, 처짐 없음)
+        _ch_sag = 0.0
+        _ch_segs = max(6, int(dist / 8))  # 세그먼트 수
+        points = [(x1 + dx*f, y1 + dy*f) for f in linspace(0, 1, segs)]
+
+        # 4층 레이어 렌더링:
+        # Layer 1: 넓은 외부 글로우 (50, 10, 80, 30) width=10 → BLEND_ADD
+        # Layer 2: 중간 글로우 (70, 15, 110, 50) width=6 → BLEND_ADD
+        # Layer 3: 코어 라인 (90, 25, 140) * pulse width=3 → 직접 draw
+        # Layer 4: 하이라이트 (140, 60, 200, 100) * pulse width=1 → 알파 블렌딩
+
+    # Phase 1 벽 매달림: 보라색 원형 글로우 이펙트
+    # Phase 2 돌진: 출발점→현재위치 검보라 라인 + 글로우
+
+
+================================================================================
+ 11. 리셋 위치 (3곳)
+================================================================================
+
+# 바이퍼 스킬 초기화 (line ~57920)
+_viper_wall_dive_active = False
+_viper_wall_dive_phase = 0
+_viper_wall_dive_web_lines = []
+_viper_phantom_kick_knockback_pending = False
+
+# 라운드 전환 초기화 (line ~140198)
+_viper_wall_dive_ball_hit = False
+_viper_wall_dive_web_lines = []
+_viper_phantom_kick_knockback_pending = False
+
+# Phase 4 완료 시 (line ~73027)
+_viper_wall_dive_active = False
+_viper_wall_dive_web_lines = []
+
+
+================================================================================
+ 12. 알려진 이슈 / 리뷰 포인트
+================================================================================
+
+1. 벽 Y 계산의 비례 상승 공식 (line 72697~72704):
+   - 바닥(710)에서 200px, 높은곳(300)에서 ~89px 상승
+   - 클램프: max(200, min(650, ...))
+   - 체공 상태에서 발동 시 자연스러운 높이인지 검증 필요
+
+2. 로프 렌더링 성능:
+   - 직선인데도 세그먼트 분할 + 4층 레이어 렌더링
+   - sag=0이므로 세그먼트 없이 단순 직선 2점으로 최적화 가능
+
+3. 팬텀 킥 넉백 (line 148397~148401):
+   - 공에 플래그를 설정하고 보스 패들 충돌 시 발동
+   - 공이 보스를 빗맞히면 넉백 플래그가 영원히 남을 수 있음
+   - 라운드 전환/스킬 리셋 시 플래그 초기화로 대응 중
+
+4. Phase 전환 시 로프 제거 타이밍:
+   - Phase 0→1: 벽 도착 시 로프 제거
+   - Phase 1→2/6: 돌진 전환 시 로프 제거
+   - Phase 2 중: 로프 없음 (돌진 궤적 라인으로 대체)

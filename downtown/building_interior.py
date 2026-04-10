@@ -3542,9 +3542,23 @@ class BuildingInterior:
         return None
 
     def _start_penalty_kick_game(self):
-        """패널티킥 게임 시작 - FIFA식 독립 미니게임 (네온 아케이드 배경)"""
+        """패널티킥 게임 시작.
+
+        우선순위:
+        1. pingfighter.py의 stage 33 패널티킥 배틀 콜백
+        2. 독립 PenaltyKickGameUI 폴백
+        """
         if self.penalty_kick_playing:
             return False
+
+        if self.penalty_kick_callback:
+            self.penalty_kick_playing = True
+            try:
+                self.penalty_kick_callback()
+            finally:
+                self.penalty_kick_playing = False
+                self.penalty_kick_ui = None
+            return True
 
         try:
             from .penalty_kick_game import PenaltyKickGameUI

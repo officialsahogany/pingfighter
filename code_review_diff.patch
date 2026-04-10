@@ -1,0 +1,1863 @@
+diff --git a/items.py b/items.py
+index 3834981c..0cf9c54b 100755
+--- a/items.py
++++ b/items.py
+@@ -2409,7 +2409,7 @@ def spawn_random_item():
+         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
+         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
+         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
+-        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "lucky_coin",
++        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin",
+         "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
+         "venom_mist_gauntlet", "dowsing_goggles"
+     }
+diff --git a/managers/effects_manager.py b/managers/effects_manager.py
+index 7b014b45..e1ce37d0 100755
+--- a/managers/effects_manager.py
++++ b/managers/effects_manager.py
+@@ -12,10 +12,25 @@ from core.events import EventType, EventManager
+ from entities.entity import get_entity_manager
+ 
+ 
++# 파티클 Surface 캐시 풀 (크기별 재사용으로 매 프레임 할당 방지)
++_particle_surface_cache: Dict[int, pygame.Surface] = {}
++
++def _get_particle_surface(diameter: int) -> pygame.Surface:
++    """지정 크기의 SRCALPHA Surface를 캐시에서 가져온다. 호출자가 fill 후 사용."""
++    d = max(1, int(diameter))
++    surf = _particle_surface_cache.get(d)
++    if surf is None or surf.get_width() != d or surf.get_height() != d:
++        surf = pygame.Surface((d, d), pygame.SRCALPHA)
++        _particle_surface_cache[d] = surf
++    else:
++        surf.fill((0, 0, 0, 0))
++    return surf
++
++
+ class Particle:
+     """파티클 클래스"""
+-    
+-    def __init__(self, x: float, y: float, vel_x: float, vel_y: float, 
++
++    def __init__(self, x: float, y: float, vel_x: float, vel_y: float,
+                  color: Tuple[int, int, int], lifetime: float, size: int = 3,
+                  particle_type: str = 'normal'):
+         self.x = x
+@@ -85,40 +100,38 @@ class Particle:
+                 trail_size = self.size * (i / len(self.trail)) * 0.7
+                 trail_alpha = int(alpha * t_alpha * (i / len(self.trail)))
+                 if trail_alpha > 0 and trail_size > 0:
+-                    s = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+-                    pygame.draw.circle(s, (*self.color, trail_alpha), 
+-                                     (trail_size, trail_size), trail_size)
++                    d = int(trail_size * 2)
++                    s = _get_particle_surface(d)
++                    pygame.draw.circle(s, (*self.color, trail_alpha),
++                                     (d // 2, d // 2), int(trail_size))
+                     screen.blit(s, (tx - trail_size, ty - trail_size))
+-        
++
+         # 글로우 효과
+         if self.glow:
+             glow_size = self.size * 2
+             glow_alpha = alpha // 4
+-            s = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
+-            pygame.draw.circle(s, (*self.color, glow_alpha), 
+-                             (glow_size * 2, glow_size * 2), glow_size * 2)
++            d = int(glow_size * 4)
++            s = _get_particle_surface(d)
++            pygame.draw.circle(s, (*self.color, glow_alpha),
++                             (d // 2, d // 2), int(glow_size * 2))
+             screen.blit(s, (self.x - glow_size * 2, self.y - glow_size * 2))
+-        
++
+         # 메인 파티클 그리기
+-        actual_size = self.size * self.scale
++        actual_size = max(1, int(self.size * self.scale))
+         particle_color = (*self.color, alpha)
+-        
++        d = actual_size * 2
++
+         if self.particle_type == 'square':
+-            s = pygame.Surface((actual_size * 2, actual_size * 2), pygame.SRCALPHA)
+-            pygame.draw.rect(s, particle_color, 
+-                           (0, 0, actual_size * 2, actual_size * 2))
++            s = _get_particle_surface(d)
++            pygame.draw.rect(s, particle_color, (0, 0, d, d))
+             if self.rotation != 0:
+                 s = pygame.transform.rotate(s, self.rotation)
+         elif self.particle_type == 'star':
+-            s = pygame.Surface((actual_size * 2, actual_size * 2), pygame.SRCALPHA)
+-            # 별 모양 그리기
++            s = _get_particle_surface(d)
+             points = []
+             for i in range(10):
+                 angle = (i * math.pi / 5) + self.rotation
+-                if i % 2 == 0:
+-                    r = actual_size
+-                else:
+-                    r = actual_size * 0.5
++                r = actual_size if i % 2 == 0 else actual_size * 0.5
+                 x = actual_size + r * math.cos(angle)
+                 y = actual_size + r * math.sin(angle)
+                 points.append((x, y))
+@@ -126,9 +139,9 @@ class Particle:
+                 pygame.draw.polygon(s, particle_color, points)
+         else:
+             # 기본 원형
+-            s = pygame.Surface((actual_size * 2, actual_size * 2), pygame.SRCALPHA)
++            s = _get_particle_surface(d)
+             pygame.draw.circle(s, particle_color, (actual_size, actual_size), actual_size)
+-            
++
+         screen.blit(s, (self.x - actual_size, self.y - actual_size))
+ 
+ 
+diff --git a/pingfighter.py b/pingfighter.py
+index 5b5603e3..340e8422 100644
+--- a/pingfighter.py
++++ b/pingfighter.py
+@@ -5242,7 +5242,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
+                 cooldown_text = f"{remaining_sec:.1f}"
+ 
+             try:
+-                cd_font = pygame.font.Font(None, 28)  # 14 -> 28 (2배)
++                cd_font = _get_cached_cd_font()  # 14 -> 28 (2배)
+                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
+                 cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
+                 # 그림자 효과
+@@ -5337,7 +5337,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
+             else:
+                 cooldown_text = f"{remaining_sec:.1f}" 
+             try:
+-                cd_font = pygame.font.Font(None, 28)
++                cd_font = _get_cached_cd_font()
+                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
+                 cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
+                 shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
+@@ -5616,7 +5616,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
+             else:
+                 cooldown_text = f"{remaining_sec:.1f}"
+             try:
+-                cd_font = pygame.font.Font(None, 28)
++                cd_font = _get_cached_cd_font()
+                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
+                 cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
+                 shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
+@@ -8646,7 +8646,7 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
+                 cooldown_text = f"{remaining_sec:.1f}"
+ 
+             try:
+-                cd_font = pygame.font.Font(None, 28)
++                cd_font = _get_cached_cd_font()
+                 cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
+                 cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
+                 shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
+@@ -21941,6 +21941,56 @@ def store_bgm_volume(value: float) -> float:
+     return bgm_volume
+ 
+ 
++# === 폰트/Surface 캐시 (매 프레임 생성 방지) ===
++_cached_cd_font = None  # 쿨다운 텍스트용 Font(None, 28)
++_cached_gauge_font = None  # 게이지 텍스트용 freetype Font
++
++def _get_cached_cd_font():
++    """쿨다운 텍스트용 폰트 캐시"""
++    global _cached_cd_font
++    if _cached_cd_font is None:
++        _cached_cd_font = pygame.font.Font(None, 28)
++    return _cached_cd_font
++
++def _get_cached_gauge_font():
++    """게이지 텍스트용 freetype 폰트 캐시"""
++    global _cached_gauge_font
++    if _cached_gauge_font is None:
++        try:
++            _cached_gauge_font = pygame.freetype.Font(
++                resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
++        except Exception:
++            _cached_gauge_font = pygame.freetype.SysFont(None, 16)
++    return _cached_gauge_font
++
++_sound_cache: dict[str, pygame.mixer.Sound | None] = {}
++
++def get_cached_sound(relative_path: str) -> "pygame.mixer.Sound | None":
++    """사운드를 캐시에서 가져오거나, 없으면 로드 후 캐시. 실패 시 None."""
++    if relative_path in _sound_cache:
++        return _sound_cache[relative_path]
++    try:
++        full_path = resource_path(relative_path)
++        if os.path.exists(full_path):
++            snd = pygame.mixer.Sound(full_path)
++            _sound_cache[relative_path] = snd
++            return snd
++        else:
++            _sound_cache[relative_path] = None
++            return None
++    except Exception:
++        _sound_cache[relative_path] = None
++        return None
++
++
++def play_cached_sound(relative_path: str, volume=None):
++    """캐시된 사운드를 볼륨 적용하여 재생. 채널 반환."""
++    snd = get_cached_sound(relative_path)
++    if snd:
++        return play_sound_with_volume(snd, volume)
++    return None
++
++
+ def play_sound_with_volume(sound, volume=None):
+     """효과음을 지정된 볼륨으로 재생"""
+     global sfx_volume
+@@ -22859,7 +22909,7 @@ if not SMOKE_TEST_ENABLED:
+         else:
+             AUDIO_DISABLED = True
+     if mixer_initialized and not AUDIO_DISABLED:
+-        pygame.mixer.set_num_channels(32)  # 동시 재생 가능한 채널 수 증가
++        pygame.mixer.set_num_channels(64)  # 동시 재생 가능한 채널 수 증가
+ else:
+     AUDIO_DISABLED = True
+     # print("[INFO] 오디오 초기화 생략 (스모크 테스트 모드)")
+@@ -31374,9 +31424,15 @@ def _resolve_mecha_phase(step_phase: float | None) -> float:
+     return phase % 1.0
+ 
+ 
++_mecha_paddle_surface: pygame.Surface | None = None
++
+ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pygame.Surface:
+     """고해상도 메카 캐릭터 렌더링 (2배 스케일 - 모든 수치 2배)"""
+-    surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
++    global _mecha_paddle_surface
++    if _mecha_paddle_surface is None:
++        _mecha_paddle_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
++    surface = _mecha_paddle_surface
++    surface.fill((0, 0, 0, 0))
+     cx = MECHA_CENTER_X
+     base_cy = MECHA_CENTER_Y
+ 
+@@ -32889,6 +32945,8 @@ viper_right_kick_timer = 0             # 오른발 킥 타이머
+ viper_swing_intensity = 1.0            # 타격 강도 (1.0=일반)
+ 
+ 
++_viper_paddle_surface: pygame.Surface | None = None
++
+ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0, wall_cling: int = 0, flying_kick: int = 0, flying_kick_intensity: float = 1.0) -> pygame.Surface:
+     """절차적 바이퍼 렌더링 — 고퀄리티 어쌔신 실루엣.
+     다중 레이어 셰이딩, 후드 그림자, 에너지 도관, 블레이드 파티클, 다단계 스카프.
+@@ -32896,7 +32954,11 @@ def create_viper_paddle_surface(step_phase: float = 0.0, kick_direction: int = 0
+     wall_cling: 0=일반, -1=왼쪽벽 매달림, 1=오른쪽벽 매달림 (마샬 킥 벽타기 포즈)
+     flying_kick: 0=일반, -1=왼쪽으로 날라차기, 1=오른쪽으로 날라차기 (마샬 킥 돌진 포즈)
+     flying_kick_intensity: 0.0~1.0 날라차기 강도 (1.0=최대, 낙하 시 서서히 0으로)"""
+-    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
++    global _viper_paddle_surface
++    if _viper_paddle_surface is None:
++        _viper_paddle_surface = pygame.Surface((250, 120), pygame.SRCALPHA)
++    surface = _viper_paddle_surface
++    surface.fill((0, 0, 0, 0))
+     b = 8
+     cx = surface.get_width() // 2
+     base_y = 46
+@@ -33790,8 +33852,11 @@ _skeletal_skeleton = _get_smasher_skeleton(force_recreate=True)
+ _skeletal_skin = _create_smasher_skin()
+ 
+ 
++_skeletal_smasher_surface: pygame.Surface | None = None
++
+ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) -> pygame.Surface:
+     """뼈대 시스템으로 스매셔를 렌더링 (기존 create_smasher_paddle_surface 대체)."""
++    global _skeletal_smasher_surface
+     sk = _skeletal_skeleton
+     skin = _skeletal_skin
+     motion = skin.motion
+@@ -33898,7 +33963,10 @@ def _render_skeletal_smasher(step_phase: float = 0.0, is_idle: bool = False) ->
+     else:
+         sk.update(root_pos=(125.0, 56.0))
+ 
+-    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
++    if _skeletal_smasher_surface is None:
++        _skeletal_smasher_surface = pygame.Surface((250, 120), pygame.SRCALPHA)
++    surface = _skeletal_smasher_surface
++    surface.fill((0, 0, 0, 0))
+ 
+     # ── VFX: 에너지 코어 HP 연동 + 바이저 깜빡임 정보를 스킨에 전달 ──
+     skin._vfx_energy_core = vfx.energy_core
+@@ -33925,8 +33993,12 @@ def _reset_skeletal_skin():
+ 
+ # ========== 아케이드 캐릭터 아이들 애니메이션 시스템 ==========
+ 
++_idle_effect_surface: pygame.Surface | None = None
++_idle_effect_size: tuple[int, int] = (0, 0)
++
+ def _apply_character_idle_effects(base_img: pygame.Surface, character_type: str) -> pygame.Surface:
+     """아케이드 캐릭터 대기 상태 미세 호흡/체중이동 효과 적용"""
++    global _idle_effect_surface, _idle_effect_size
+     t = pygame.time.get_ticks() / 1000.0
+     w, h = base_img.get_size()
+ 
+@@ -33941,9 +34013,13 @@ def _apply_character_idle_effects(base_img: pygame.Surface, character_type: str)
+         breathe_y = int(math.sin(t * 2.2) * 1.3)
+         sway_x = int(math.sin(t * 1.1 + 0.5) * 0.7)
+ 
+-    result = pygame.Surface((w, h), pygame.SRCALPHA)
+-    result.blit(base_img, (sway_x, breathe_y))
+-    return result
++    if _idle_effect_surface is None or _idle_effect_size != (w, h):
++        _idle_effect_surface = pygame.Surface((w, h), pygame.SRCALPHA)
++        _idle_effect_size = (w, h)
++    else:
++        _idle_effect_surface.fill((0, 0, 0, 0))
++    _idle_effect_surface.blit(base_img, (sway_x, breathe_y))
++    return _idle_effect_surface
+ 
+ 
+ # ========== 옵티머스 암 스킬 UI 아이콘 및 핵심 함수들 ==========
+@@ -35197,15 +35273,7 @@ def _draw_optimus_arm_wall_impact_effects(surface: pygame.Surface) -> None:
+ 
+ # UFO 플레이어 이미지 로드 (기본 이미지)
+ try:
+-    # 먼저 절대 경로로 시도
+-    ufo_path = "/Volumes/T7/윈도우용최신/game/bosspong/ufo_player.png"
+-    if os.path.exists(ufo_path):
+-        PLAYER_IMG = pygame.image.load(ufo_path).convert_alpha()
+-        # print(f"[OK] UFO player image loaded: {ufo_path}")
+-    else:
+-        # resource_path로 시도
+-        PLAYER_IMG = pygame.image.load(resource_path("ufo_player.png")).convert_alpha()
+-        # print(f"[OK] UFO player image loaded: resource_path")
++    PLAYER_IMG = pygame.image.load(resource_path("ufo_player.png")).convert_alpha()
+     
+     PLAYER_IMG = pygame.transform.scale(PLAYER_IMG, (250, 100))  # 세로 늘리기
+ except Exception as e:
+@@ -35217,6 +35285,8 @@ except Exception as e:
+ # 코만도 패들 이미지 생성 (고퀄리티 개선 버전)
+ 
+ 
++_soldier_paddle_surface: pygame.Surface | None = None
++
+ def create_soldier_paddle_surface(
+     step_phase: float = 0.0,
+     swing_strength: float = 0.0,
+@@ -35225,7 +35295,11 @@ def create_soldier_paddle_surface(
+     include_right_arm: bool = True,
+     include_left_arm: bool = True,
+ ) -> pygame.Surface:
+-    surface = pygame.Surface((320, 108), pygame.SRCALPHA)
++    global _soldier_paddle_surface
++    if _soldier_paddle_surface is None:
++        _soldier_paddle_surface = pygame.Surface((320, 108), pygame.SRCALPHA)
++    surface = _soldier_paddle_surface
++    surface.fill((0, 0, 0, 0))
+     block = 7
+     center_x = surface.get_width() // 2
+     torso_base_y = 48
+@@ -38774,6 +38848,7 @@ blacksmith_umbrella_knockback_timer: float = 0.0
+ debug_umbrella_hitbox_rect: pygame.Rect | None = None
+ blacksmith_umbrella_anchor_smoothed_x: float = 0.0
+ paddle_scale_ratio: float = 1.0
++_paddle_scale_dest: pygame.Surface | None = None  # transform.scale 대상 Surface 캐시
+ # 스윙 메인 단계에서 토르쉴드 폴리곤 경계를 1:1로 쓰는 엄격 모드
+ BLACKSMITH_UMBRELLA_HITBOX_STRICT = True
+ blacksmith_umbrella_hitbox_extents_strict: tuple[float, float] = (0.0, 0.0)
+@@ -39867,8 +39942,7 @@ def _destroy_stage2_rock_for_blacksmith(rock: dict) -> None:
+             rock_y = rock.get("fall_y", rock.get("y", 0))
+             trade_points.spawn_star(rock_x, rock_y, "golden_rock")
+             try:
+-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+-                play_sound_with_volume(coin_sound)
++                play_cached_sound("sounds/coin.wav")
+             except Exception:
+                 pass
+ 
+@@ -46920,20 +46994,20 @@ TREASURE_RESULT_MIN_DURATION = 180  # 최소 3초 결과 표시
+ 
+ # 채굴 사운드 로드
+ try:
+-    mining_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "mining.wav")))
++    mining_sound = get_cached_sound("sounds/mining.wav")
+     mining_sound.set_volume(0.5)
+ except:
+     mining_sound = None
+ 
+ # 전설 아이템 발견 사운드 로드
+ try:
+-    legend_open_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "legendopen.wav")))
++    legend_open_sound = get_cached_sound("sounds/legendopen.wav")
+ except:
+     legend_open_sound = None
+ 
+ # 꽝 사운드 로드
+ try:
+-    disappointment_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "disappointment.wav")))
++    disappointment_sound = get_cached_sound("sounds/disappointment.wav")
+ except:
+     disappointment_sound = None
+ 
+@@ -52682,9 +52756,7 @@ class SupplyAircraft:
+         
+         # 폭발음 재생 (적당한 볼륨)
+         try:
+-            explosion_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "explosion.wav")))
+-            explosion_sound.set_volume(0.5)  # 0.8 → 0.5로 줄임
+-            explosion_sound.play()
++            play_cached_sound("sounds/explosion.wav", 0.5)
+         except:
+             pass
+         
+@@ -55049,9 +55121,7 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
+ 
+     if play_sound:
+         try:
+-            switch_sound = pygame.mixer.Sound(resource_path("sounds/weapon_switch.wav"))
+-            switch_sound.set_volume(0.3)
+-            switch_sound.play()
++            play_cached_sound("sounds/weapon_switch.wav", 0.3)
+         except Exception:
+             pass
+ 
+@@ -58632,14 +58702,7 @@ def go_to_next_round():
+             screen_shake_intensity = 15  # 강한 흔들림
+ 
+             # 쿠로미 각성 사운드 재생
+-            try:
+-                awake_sound_path = resource_path("sounds/kuromiawake.wav")
+-                if os.path.exists(awake_sound_path):
+-                    awake_sound = pygame.mixer.Sound(awake_sound_path)
+-                    awake_sound.play()
+-            except Exception as e:
+-                if DEBUG_BOSS:
+-                    print(f"쿠로미 각성 사운드 재생 실패: {e}")
++            play_cached_sound("sounds/kuromiawake.wav")
+ 
+             if DEBUG_BOSS:
+                 print("Stage 3: 쿠로미 각성 시작! 화면 지진 효과 활성화")
+@@ -59622,9 +59685,8 @@ def check_tear_collisions():
+ 
+                 # 눈물 맞았을 때 사운드 재생
+                 try:
+-                    tears_sound = pygame.mixer.Sound(resource_path("sounds/tears.wav"))
++                    play_cached_sound("sounds/tears.wav")
+                     tears_sound.set_volume(0.6)
+-                    play_sound_with_volume(tears_sound)
+                 except:
+                     pass  # 사운드 파일이 없으면 무시
+                 
+@@ -62010,8 +62072,7 @@ def activate_meditation():
+     #  명상 사운드
+     try:
+         # Stage4 퐁크 위빠사나 명상 전용 사운드
+-        meditation_sound = pygame.mixer.Sound(resource_path("sounds/ponkmeditation.wav"))
+-        play_sound_with_volume(meditation_sound)
++        play_cached_sound("sounds/ponkmeditation.wav")
+     except:
+         pass
+ def handle_meditation():
+@@ -63360,9 +63421,7 @@ def update_tunnel_raid():
+ 
+             # 돌출 사운드
+             try:
+-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "rocking.wav")))
+-                snd.set_volume(0.6)
+-                snd.play()
++                play_cached_sound("sounds/rocking.wav", 0.6)
+             except Exception:
+                 pass
+ 
+@@ -63634,9 +63693,7 @@ def activate_spinning_claw():
+ 
+     # 사운드
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
+-        snd.set_volume(0.5)
+-        snd.play()
++        play_cached_sound("sounds/clue.wav", 0.5)
+     except Exception:
+         pass
+ 
+@@ -63737,9 +63794,7 @@ def activate_web_trap():
+ 
+     # 사운드
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
+-        snd.set_volume(0.5)
+-        snd.play()
++        play_cached_sound("sounds/net.wav", 0.5)
+     except Exception:
+         pass
+ 
+@@ -63817,9 +63872,7 @@ def update_web_traps():
+                 # 파괴 파티클 생성
+                 _spawn_web_break_effect(trap)
+                 try:
+-                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "spiderbite.wav")))
+-                    snd.set_volume(0.6)
+-                    snd.play()
++                    play_cached_sound("sounds/spiderbite.wav", 0.6)
+                 except Exception:
+                     pass
+                 continue
+@@ -64122,9 +64175,7 @@ def activate_web_rescue():
+ 
+     # 사운드
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
+-        snd.set_volume(0.5)
+-        snd.play()
++        play_cached_sound("sounds/net.wav", 0.5)
+     except Exception:
+         pass
+ 
+@@ -64198,9 +64249,7 @@ def update_web_rescue():
+             web_rescue_timer = 0
+             # 타격 사운드
+             try:
+-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "paddle_hit2.wav")))
+-                snd.set_volume(0.6)
+-                snd.play()
++                play_cached_sound("sounds/paddle_hit2.wav", 0.6)
+             except Exception:
+                 pass
+             # 스프라이트 히트 연출
+@@ -64408,9 +64457,7 @@ def update_spider_rage():
+                 pass
+             # 발구르기 사운드
+             try:
+-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "spiderbite.wav")))
+-                snd.set_volume(0.5)
+-                snd.play()
++                play_cached_sound("sounds/spiderbite.wav", 0.5)
+             except Exception:
+                 pass
+         elif phase_in_stomp == 5:
+@@ -64476,9 +64523,7 @@ def update_spider_rage():
+         })
+         # 발사 사운드
+         try:
+-            snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
+-            snd.set_volume(0.5)
+-            snd.play()
++            play_cached_sound("sounds/net.wav", 0.5)
+         except Exception:
+             pass
+ 
+@@ -64607,9 +64652,7 @@ def update_friend_moles():
+             })
+         # 사운드
+         try:
+-            snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
+-            snd.set_volume(0.35)
+-            snd.play()
++            play_cached_sound("sounds/bonemake.wav", 0.35)
+         except Exception:
+             pass
+ 
+@@ -64682,9 +64725,7 @@ def update_friend_moles():
+                         pass
+                     # 타격 사운드
+                     try:
+-                        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
+-                        snd.set_volume(0.5)
+-                        snd.play()
++                        play_cached_sound("sounds/smallboyhit.wav", 0.5)
+                     except Exception:
+                         pass
+ 
+@@ -66900,9 +66941,7 @@ def fire_soldier_bullet():
+     
+     # 총 장전 사운드 재생 (버튼을 누르자마자)
+     try:
+-        gunroad_sound = pygame.mixer.Sound(resource_path("sounds/gunroad.wav"))
+-        gunroad_sound.set_volume(0.7)
+-        gunroad_sound.play()
++        play_cached_sound("sounds/gunroad.wav", 0.7)
+     except:
+         pass
+ 
+@@ -67099,9 +67138,7 @@ def fire_slingshot_pellet(charge_level: int):
+ 
+         # 새총 발사 효과음
+         try:
+-            sling_sound = pygame.mixer.Sound(resource_path("sounds/shurikenthrow.wav"))
+-            sling_sound.set_volume(0.6)
+-            sling_sound.play()
++            play_cached_sound("sounds/shurikenthrow.wav", 0.6)
+         except:
+             pass
+ 
+@@ -67186,9 +67223,7 @@ def update_soldier_reload():
+     # 새로운 총알이 추가되었을 때 사운드 재생
+     if bullets_to_show > soldier_last_reload_bullets:
+         try:
+-            reload_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "pistolreload.wav")))
+-            reload_sound.set_volume(0.3)  # 볼륨을 30%로 설정
+-            reload_sound.play()
++            play_cached_sound("sounds/pistolreload.wav", 0.3)
+         except:
+             pass  # 사운드 파일이 없거나 재생 실패시 무시
+         soldier_last_reload_bullets = bullets_to_show
+@@ -70119,9 +70154,7 @@ def create_soldier_bullet():
+ 
+         # 총 발사 효과음 재생
+         try:
+-            gun_sound = pygame.mixer.Sound(resource_path("sounds/gunshot.wav"))
+-            gun_sound.set_volume(0.5)
+-            gun_sound.play()
++            play_cached_sound("sounds/gunshot.wav", 0.5)
+         except:
+             pass
+ 
+@@ -70509,12 +70542,10 @@ def update_soldier_bullets():
+                 try:
+                     if _bullet_slingshot_charge > 0:
+                         # 새총 타격음 (금속 구슬 타격)
+-                        hit_sound = pygame.mixer.Sound(resource_path("sounds/rockhit.wav"))
++                        hit_sound = get_cached_sound("sounds/rockhit.wav")
+                         hit_sound.set_volume(0.5 + _bullet_slingshot_charge * 0.1)
+                     else:
+-                        hit_sound = pygame.mixer.Sound(resource_path("sounds/bullethit.wav"))
+-                        hit_sound.set_volume(0.6)
+-                    hit_sound.play()
++                        play_cached_sound("sounds/bullethit.wav", 0.6)
+                 except:
+                     pass
+ 
+@@ -78735,9 +78766,7 @@ def handle_player(keys):
+                                 
+                                 # 바주카포 발사 사운드 (실제 발사)
+                                 try:
+-                                    bazooka_sound = pygame.mixer.Sound(resource_path("sounds/rocket_launch.wav"))
+-                                    bazooka_sound.set_volume(0.5)
+-                                    bazooka_sound.play()
++                                    play_cached_sound("sounds/rocket_launch.wav", 0.5)
+                                 except:
+                                     pass
+                                 
+@@ -81794,7 +81823,7 @@ def store_active_item(item_data):
+         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
+         return
+     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
+-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
++    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+         return
+     allow_overflow = item_data.pop("allow_overflow", False)
+     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
+@@ -81841,7 +81870,7 @@ def store_arena_top_active_item(item_data):
+         return
+ 
+     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
+-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
++    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+         return
+ 
+     # 최대 3개까지만 보관
+@@ -83011,7 +83040,7 @@ def activate_emotional_overdrive():
+     
+     # 사이코볼 사운드 재생 (루프)
+     try:
+-        psycho_sound = pygame.mixer.Sound(resource_path("sounds/psychoball.wav"))
++        psycho_sound = get_cached_sound("sounds/psychoball.wav")
+         channel = psycho_sound.play(-1)  # -1 = 무한 루프
+         channel.set_volume(0.5)
+         # 채널을 저장해서 나중에 중지할 수 있도록
+@@ -83093,9 +83122,8 @@ def handle_emotional_overdrive():
+                     # 시각적/청각적 피드백
+                     try:
+                         # 연막 효과음 재생
+-                        smoke_sound = pygame.mixer.Sound(resource_path("sounds/smoke_neutralize.wav"))
++                        play_cached_sound("sounds/smoke_neutralize.wav")
+                         smoke_sound.set_volume(0.7)
+-                        play_sound_with_volume(smoke_sound)
+                     except:
+                         # 효과음 없으면 기본 사운드
+                         try:
+@@ -83249,8 +83277,7 @@ def destroy_stage2_rocks_in_smoke(smoke_zone):
+         if rock.get("is_golden", False):
+             trade_point_system.spawn_star(rect.centerx, rect.centery, "golden_rock")
+             try:
+-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+-                play_sound_with_volume(coin_sound)
++                play_cached_sound("sounds/coin.wav")
+             except Exception:
+                 pass
+ 
+@@ -85226,9 +85253,7 @@ def activate_curse_chest():
+     curse_chest_target_x = random.uniform(GAME_AREA_OFFSET_X + 60, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 60)
+     curse_chest_target_y = random.uniform(700, 730)
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "dollcurse.wav")))
+-        snd.set_volume(0.3 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/dollcurse.wav", 0.3 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -85272,9 +85297,7 @@ def _trigger_curse_chest_explode():
+         })
+     # 폭발 사운드
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "weakexplosion.wav")))
+-        snd.set_volume(0.3 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/weakexplosion.wav", 0.3 * sfx_volume)
+     except Exception:
+         pass
+     # 폭발 근처 플레이어 넉백
+@@ -85332,9 +85355,7 @@ def update_curse_chest():
+             curse_chest_y = curse_chest_target_y
+             # 착지 사운드
+             try:
+-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
+-                snd.set_volume(0.25 * sfx_volume)
+-                snd.play()
++                play_cached_sound("sounds/bonemake.wav", 0.25 * sfx_volume)
+             except Exception:
+                 pass
+         else:
+@@ -85675,9 +85696,7 @@ def activate_alice_mirror():
+     alice_mirror_fade_timer = 30  # 0.5초 페이드인
+     alice_mirror_bg_timer = 0     # 배경 타이머 초기화
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
+-        snd.set_volume(0.5 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/clue.wav", 0.5 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -85748,9 +85767,7 @@ def activate_alice_size_shift():
+     BALL.centerx = center_x
+     BALL.centery = center_y
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "gravityaccel.wav")))
+-        snd.set_volume(0.35 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/gravityaccel.wav", 0.35 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -85825,9 +85842,7 @@ def _launch_alice_rabbits():
+             "target_y": player_cy,
+         })
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyshoot.wav")))
+-        snd.set_volume(0.35 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/smallboyshoot.wav", 0.35 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -85899,9 +85914,7 @@ def update_alice_rabbit():
+                     "taunt_phase": 0.0,  # 깐족 애니메이션 페이즈
+                 })
+                 try:
+-                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
+-                    snd.set_volume(0.3 * sfx_volume)
+-                    snd.play()
++                    play_cached_sound("sounds/smallboyhit.wav", 0.3 * sfx_volume)
+                 except Exception:
+                     pass
+     for i in sorted(to_remove, reverse=True):
+@@ -85936,9 +85949,7 @@ def update_alice_rabbit():
+                     globals()['neutralize_particles'] = []
+                 neutralize_particles.append(p)
+             try:
+-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
+-                snd.set_volume(0.25 * sfx_volume)
+-                snd.play()
++                play_cached_sound("sounds/smallboyhit.wav", 0.25 * sfx_volume)
+             except Exception:
+                 pass
+             continue
+@@ -86192,9 +86203,7 @@ def _launch_cotton_throw():
+             "size": random.uniform(18, 28),
+         })
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "dollcurse.wav")))
+-        snd.set_volume(0.35 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/dollcurse.wav", 0.35 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -86346,9 +86355,7 @@ def _launch_cotton_bombs():
+             "hit": False,
+         })
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
+-        snd.set_volume(0.3 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/bonemake.wav", 0.3 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -86369,9 +86376,7 @@ def _explode_cotton_bomb(bomb):
+             "wobble_phase": random.uniform(0, math.pi * 2),
+         })
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "weakexplosion.wav")))
+-        snd.set_volume(0.25 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/weakexplosion.wav", 0.25 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -86765,9 +86770,7 @@ def activate_deadly_hug():
+     deadly_hug_active = False
+     deadly_hug_timer = 0
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "grab.wav")))
+-        snd.set_volume(0.4 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/grab.wav", 0.4 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -86791,9 +86794,7 @@ def update_deadly_hug():
+             deadly_hug_timer = DEADLY_HUG_DURATION
+             deadly_hug_zone_y = target_y
+             try:
+-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "boomstart.wav")))
+-                snd.set_volume(0.35 * sfx_volume)
+-                snd.play()
++                play_cached_sound("sounds/boomstart.wav", 0.35 * sfx_volume)
+             except Exception:
+                 pass
+         return
+@@ -86924,9 +86925,7 @@ def activate_button_eye():
+     }
+     heart_beam_trail = []
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "kissing.wav")))
+-        snd.set_volume(0.35 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/kissing.wav", 0.35 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -86953,9 +86952,7 @@ def _trigger_heart_beam_knockback():
+             "applied": False,
+         })
+     try:
+-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bencylove.wav")))
+-        snd.set_volume(0.3 * sfx_volume)
+-        snd.play()
++        play_cached_sound("sounds/bencylove.wav", 0.3 * sfx_volume)
+     except Exception:
+         pass
+ 
+@@ -86986,9 +86983,7 @@ def update_button_eye():
+                     screen_shake_timer = max(screen_shake_timer, 6)
+                     screen_shake_intensity = max(screen_shake_intensity, 5)
+                     try:
+-                        slap_snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "slap2.wav")))
+-                        slap_snd.set_volume(0.4 * sfx_volume)
+-                        slap_snd.play()
++                        play_cached_sound("sounds/slap2.wav", 0.4 * sfx_volume)
+                     except Exception:
+                         pass
+                     # 하트 파편 파티클 생성 (6~10개)
+@@ -99172,64 +99167,6 @@ def _start_stage8_superspeed(now: int) -> None:
+     # 메시지는 draw_objects에서 오버레이로 표시
+ 
+ 
+-def _stage8_superspeed_dash(now: int) -> None:
+-    """극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
+-    global boss_dashing, boss_dash_timer, boss_dash_duration_frames
+-    global boss_dash_speed, boss_dash_target_x, boss_dash_direction
+-    global boss_dash_cooldown_until_ms, boss_dash_cooldown_total_ms
+-    ball_vx = float(ball_vel[0]) if "ball_vel" in globals() else 0.0
+-    ball_vy = float(ball_vel[1]) if "ball_vel" in globals() else 0.0
+-
+-    def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
+-        if abs(vx) < 1e-3 or frames <= 0:
+-            return x
+-        remaining = frames
+-        x_min = 0.0
+-        x_max = float(WIDTH)
+-        for _ in range(4):  # 최대 4번 반사만 고려
+-            if remaining <= 0:
+-                break
+-            t_wall = (x_max - x) / vx if vx > 0 else (x_min - x) / vx if vx < 0 else float("inf")
+-            if t_wall <= 0 or t_wall >= remaining:
+-                x += vx * remaining
+-                remaining = 0
+-                break
+-            x += vx * t_wall
+-            remaining -= t_wall
+-            vx = -vx
+-        return max(x_min, min(x_max, x))
+-
+-    # 보스 라인까지 예상 시간 (프레임) 계산
+-    dy = float(BALL.centery - BOSS.centery)
+-    time_to_boss = abs(dy) / max(1.0, abs(ball_vy)) if abs(ball_vy) > 0 else 0.0
+-    predicted_x = _predict_x_with_walls(float(BALL.centerx), ball_vx, time_to_boss)
+-
+-    direction = 1 if predicted_x > BOSS.centerx else -1
+-    raw_distance = abs(predicted_x - BOSS.centerx)
+-    dash_distance = max(60.0, raw_distance)  # 극정호신: 거리 제한 없음
+-
+-    target_centerx = predicted_x
+-    # 게임 영역 내로 제한 (BOSS.width를 동적으로 사용)
+-    boss_min_cx = BOSS.width // 2
+-    boss_max_cx = WIDTH - BOSS.width // 2
+-    target_centerx = float(max(boss_min_cx, min(boss_max_cx, target_centerx)))
+-    dash_distance = abs(target_centerx - BOSS.centerx)
+-    if dash_distance < 12:
+-        return
+-
+-    boss_dash_direction = direction
+-    boss_dash_target_x = float(target_centerx)
+-
+-    # 플레이어와 동일한 고정 속도 40 픽셀/프레임 사용
+-    estimated_duration = dash_distance / 30.0
+-    boss_dash_duration_frames = int(max(10.0, min(estimated_duration, 40.0)))
+-    boss_dash_timer = boss_dash_duration_frames
+-    boss_dash_speed = 40.0
+-
+-    boss_dashing = True
+-    boss_dash_cooldown_until_ms = 0
+-    boss_dash_cooldown_total_ms = 0
+-    # 대쉬 후 경직은 STAGE8_SUPERSPEED_DASH_STUN_FRAMES로 상단에서 처리
+ def _stage8_superspeed_dash(now: int) -> None:
+     """극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
+     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
+@@ -100771,7 +100708,7 @@ def draw_player_gauge():
+             # === 맨 마지막: 게이지 수치 텍스트 (구슬 중앙) ===
+             gauge_text = f"{int(displayed_gauge)}/{int(current_max_gauge)}"
+             try:
+-                gauge_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
++                gauge_font = _get_cached_gauge_font()
+                 text_surface, text_rect_size = gauge_font.render(gauge_text, (255, 255, 255))
+                 text_rect = text_surface.get_rect(center=(orb_center_x, orb_center_y))
+                 # 텍스트 그림자 (더 진하게)
+@@ -111691,7 +111628,19 @@ def draw_objects():
+     if scale_ratio != 1.0 and scale_ratio > 0:
+         new_width = max(1, int(base_ufo_img.get_width() * scale_ratio))
+         new_height = max(1, int(base_ufo_img.get_height() * scale_ratio))
+-        base_ufo_img = pygame.transform.scale(base_ufo_img, (new_width, new_height))
++        # 대상 Surface 재사용으로 매 프레임 할당 방지
++        global _paddle_scale_dest
++        try:
++            _dest = _paddle_scale_dest
++            if _dest is None or _dest.get_width() != new_width or _dest.get_height() != new_height:
++                _dest = pygame.Surface((new_width, new_height), pygame.SRCALPHA)
++                _paddle_scale_dest = _dest
++            else:
++                _dest.fill((0, 0, 0, 0))
++            pygame.transform.scale(base_ufo_img, (new_width, new_height), _dest)
++            base_ufo_img = _dest
++        except Exception:
++            base_ufo_img = pygame.transform.scale(base_ufo_img, (new_width, new_height))
+         if (
+             selected_character_type == "blacksmith"
+             and blacksmith_hammer_head_surface_point is not None
+@@ -121146,8 +121095,13 @@ def _make_arena_fonts():
+         font = pixel_font_path
+     elif os.path.exists(fallback_font_path):
+         font = fallback_font_path
+-    elif os.path.exists("C:/Windows/Fonts/malgun.ttf"):
+-        font = "C:/Windows/Fonts/malgun.ttf"
++    else:
++        # 시스템 폰트 fallback (크로스플랫폼)
++        for sys_font in ["malgun.ttf", "AppleGothic.ttf", "NanumGothic.ttf"]:
++            sys_path = pygame.font.match_font(sys_font.replace(".ttf", ""))
++            if sys_path and os.path.exists(sys_path):
++                font = sys_path
++                break
+     try:
+         fonts['large'] = pygame.freetype.Font(font, 32)
+         fonts['medium'] = pygame.freetype.Font(font, 24)
+@@ -124576,106 +124530,6 @@ def show_tutorial_power_helper_dialogue():
+     
+     return True
+ 
+-def show_tutorial_power_completion_dialogue():
+-    """튜토리얼 파워스매싱 완료 대화 (3회 성공 시)"""
+-    clock = pygame.time.Clock()
+-    
+-    # 폰트 설정
+-    font_medium = FontStyle.body()     # 24pt 대사용
+-    font_small = FontStyle.small()     # 18pt 안내용
+-    
+-    # 대화 시퀀스
+-    dialogues = [
+-        ("조교", "훌륭하다! 파워스매싱을 마스터했군!"),
+-        ("조교", "파워스매싱은 게이지 소모가 크지만"),
+-        ("조교", "그만큼 강력한 필살기다"),
+-        ("조교", "적절한 타이밍에 사용하면"),
+-        ("조교", "승부를 한 번에 뒤집을 수 있다"),
+-        ("조교", "모든 기초 훈련을 마쳤다!"),
+-        ("조교", "이제 실전에서 활약해보자!"),
+-    ]
+-    
+-    # 하단 바 UI 설정
+-    text_bg_height = 80
+-    text_y_position = HEIGHT - 150
+-    
+-    # 배경 캡처 (현재 게임 화면)
+-    background = SCREEN.copy()
+-    
+-    # 각 대화를 순차적으로 표시
+-    for dialogue_index, (speaker, text) in enumerate(dialogues):
+-        # 화자별 색상 설정
+-        if speaker == "조교":
+-            speaker_color = (255, 100, 100)  # 빨간색
+-        else:
+-            speaker_color = WHITE
+-        
+-        # 타이핑 효과 변수
+-        displayed_text = ""
+-        text_complete = False
+-        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+-        last_char_time = pygame.time.get_ticks()
+-        
+-        running = True
+-        while running:
+-            current_time = pygame.time.get_ticks()
+-            
+-            for event in pygame.event.get():
+-                if event.type == pygame.QUIT:
+-                    pygame.quit()
+-                    return False
+-                elif event.type == pygame.KEYDOWN:
+-                    if event.key == pygame.K_SPACE:
+-                        if text_complete:
+-                            # 현재 대화 완료, 다음 대화로
+-                            running = False
+-                        else:
+-                            # 텍스트 즉시 완성
+-                            displayed_text = text
+-                            text_complete = True
+-            
+-            # 타이핑 효과
+-            if not text_complete and current_time - last_char_time >= typing_speed:
+-                if len(displayed_text) < len(text):
+-                    displayed_text += text[len(displayed_text)]
+-                    last_char_time = current_time
+-                else:
+-                    text_complete = True
+-            
+-            # 배경 그리기 (정지된 게임 화면)
+-            SCREEN.blit(background, (0, 0))
+-            
+-            # 하단 바 UI 그리기
+-            text_bg = get_cached_dialog_bg(WIDTH, text_bg_height, 180)
+-            SCREEN.blit(text_bg, (0, text_y_position))
+-            
+-            # 대화 텍스트
+-            full_text = f"[{speaker}] {displayed_text}"
+-            
+-            # 그림자 효과
+-            shadow_surface = font_medium.render(full_text, True, (50, 50, 50))
+-            shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 2, text_y_position + text_bg_height // 2 + 2))
+-            SCREEN.blit(shadow_surface, shadow_rect)
+-            
+-            # 메인 텍스트
+-            text_surface = font_medium.render(full_text, True, speaker_color)
+-            text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+-            SCREEN.blit(text_surface, text_rect)
+-            
+-            # 계속 안내 (깜빡임 효과)
+-            if text_complete and pygame.time.get_ticks() % 1000 < 700:
+-                if dialogue_index < len(dialogues) - 1:
+-                    continue_text = "SPACE - 계속"
+-                else:
+-                    continue_text = "SPACE - 튜토리얼 완료!"
+-                continue_surface = font_small.render(continue_text, True, (0, 255, 255))
+-                continue_rect = continue_surface.get_rect(bottomright=(WIDTH - 30, text_y_position + text_bg_height - 10))
+-                SCREEN.blit(continue_surface, continue_rect)
+-            
+-            pygame.display.flip()
+-            clock.tick(60)
+-    
+-    return "tutorial_complete"  # 튜토리얼 완료
+ 
+ def draw_tutorial_power_counter():
+     """튜토리얼 파워스매싱 카운터 UI 표시 (3회 파워스매싱 카운트)"""
+@@ -126297,125 +126151,6 @@ def draw_tutorial_dash_counter():
+     hint_rect = hint_surface.get_rect(centerx=ui_x, top=bg_y + bg_height + 5)
+     SCREEN.blit(hint_surface, hint_rect)
+ 
+-def draw_tutorial_drive_counter():
+-    """튜토리얼 드라이브 카운터 UI 표시 - 챕터 2 스타일 (우측 상단, 컴팩트)"""
+-    import math  # 함수 시작시 import
+-    global tutorial_drive_counter_active, tutorial_drive_count, tutorial_displayed_drive_count
+-    global tutorial_left_drive_count, tutorial_right_drive_count
+-    global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
+-    
+-    # 드라이브 카운터가 활성화되었을 때만 표시
+-    if not tutorial_drive_counter_active or current_stage != 50:
+-        return
+-    
+-    # 점진적 애니메이션 업데이트
+-    if tutorial_displayed_left_drive_count < tutorial_left_drive_count:
+-        tutorial_displayed_left_drive_count = min(tutorial_displayed_left_drive_count + 0.05, tutorial_left_drive_count)
+-    if tutorial_displayed_right_drive_count < tutorial_right_drive_count:
+-        tutorial_displayed_right_drive_count = min(tutorial_displayed_right_drive_count + 0.05, tutorial_right_drive_count)
+-    tutorial_displayed_drive_count = tutorial_displayed_left_drive_count + tutorial_displayed_right_drive_count
+-    
+-    # 폰트 설정
+-    font_large = FontStyle.body()      # 24pt
+-    font_medium = FontStyle.small()    # 18pt
+-    
+-    # 화면 우측 상단에 위치 (챕터 2와 동일한 위치)
+-    ui_x = WIDTH - 120
+-    ui_y = 50
+-    
+-    # 컴팩트한 배경 박스 크기 (챕터 2와 유사)
+-    bg_width = 220
+-    bg_height = 90  # 2개 미션이므로 더 작게
+-    bg_x = ui_x - bg_width // 2
+-    bg_y = ui_y - 15
+-    
+-    # 반투명 배경 (은은하게)
+-    bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+-    pygame.draw.rect(bg_surf, (20, 25, 40, 120), (0, 0, bg_width, bg_height), border_radius=8)
+-    pygame.draw.rect(bg_surf, (255, 100, 100, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)
+-    SCREEN.blit(bg_surf, (bg_x, bg_y))
+-    
+-    # 미션 데이터
+-    missions = [
+-        {"name": "왼쪽 드라이브", "count": tutorial_left_drive_count, "max": 2, "color": (255, 150, 100)},
+-        {"name": "오른쪽 드라이브", "count": tutorial_right_drive_count, "max": 2, "color": (100, 200, 255)}
+-    ]
+-    
+-    # 각 미션을 세로로 배치 (컴팩트하게)
+-    mission_y = bg_y + 10
+-    for i, mission in enumerate(missions):
+-        mission_x = bg_x + 15
+-        
+-        # 미션 이름
+-        name_color = (200, 200, 200)
+-        if mission["count"] >= mission["max"]:
+-            name_color = (100, 255, 100)  # 완료시 녹색
+-        
+-        name_surface = font_medium.render(mission["name"], True, name_color)
+-        SCREEN.blit(name_surface, (mission_x, mission_y))
+-        
+-        # 카운터 텍스트 (오른쪽에 배치)
+-        counter_text = f"{mission['count']}/{mission['max']}"
+-        counter_color = (100, 255, 100) if mission["count"] >= mission["max"] else (255, 255, 255)
+-        counter_surface = font_medium.render(counter_text, True, counter_color)
+-        counter_rect = counter_surface.get_rect(right=bg_x + bg_width - 40, centery=mission_y + 10)
+-        SCREEN.blit(counter_surface, counter_rect)
+-        
+-        # 완료 체크마크 (OK 텍스트로 대체)
+-        if mission["count"] >= mission["max"]:
+-            check_surface = font_large.render("OK", True, (0, 255, 0))
+-            check_rect = check_surface.get_rect(right=bg_x + bg_width - 10, centery=mission_y + 10)
+-            SCREEN.blit(check_surface, check_rect)
+-        
+-        # 진행 바 (미션 이름 아래에 작게)
+-        bar_y = mission_y + 22
+-        bar_width = bg_width - 30
+-        bar_height = 6
+-        bar_x = bg_x + 15
+-        
+-        # 진행 바 배경
+-        pygame.draw.rect(SCREEN, (60, 60, 60), (bar_x, bar_y, bar_width, bar_height))
+-        
+-        # 진행 바
+-        if mission["count"] > 0:
+-            progress_width = int((mission["count"] / mission["max"]) * bar_width)
+-            progress_color = (0, 200, 0) if mission["count"] >= mission["max"] else mission["color"]
+-            pygame.draw.rect(SCREEN, progress_color, (bar_x, bar_y, progress_width, bar_height))
+-        
+-        # 진행 바 테두리
+-        pygame.draw.rect(SCREEN, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height), 1)
+-        
+-        mission_y += 40  # 다음 미션 위치 (더 컴팩트하게)
+-    
+-    # 전체 진행 상태 메시지 (박스 아래, 작게) - 챕터 2와 동일한 스타일
+-    total_count = tutorial_left_drive_count + tutorial_right_drive_count
+-    if total_count == 0:
+-        hint_text = "드라이브 연습"
+-        hint_color = (150, 150, 150)
+-    elif total_count == 1:
+-        hint_text = "잘하고 있어요!"
+-        hint_color = (255, 200, 100)
+-    elif total_count == 2:
+-        hint_text = "훌륭해요!"
+-        hint_color = (255, 200, 100)
+-        # 칭찬 메시지에 반짝임 효과
+-        if pygame.time.get_ticks() % 1000 < 500:
+-            hint_color = (255, 230, 150)
+-    elif total_count == 3:
+-        hint_text = "거의 다 왔어요!"
+-        hint_color = (100, 255, 255)
+-    else:
+-        hint_text = "미션 완료!"
+-        hint_color = (0, 255, 200)
+-        # 완료 시 강한 반짝임
+-        if pygame.time.get_ticks() % 600 < 300:
+-            hint_color = (100, 255, 255)
+-    
+-    # 힌트 텍스트 표시
+-    hint_surface = font_medium.render(hint_text, True, hint_color)
+-    hint_rect = hint_surface.get_rect(centerx=ui_x, top=bg_y + bg_height + 5)
+-    SCREEN.blit(hint_surface, hint_rect)
+-
+ def show_chapter_title(chapter_num, title, subtitle=None):
+     """챕터 타이틀 표시 (페이드 효과 포함)"""
+     # print(f"🎬 show_chapter_title 호출: Chapter {chapter_num} - {title}")
+@@ -128290,7 +128025,7 @@ def show_character_selection():
+     clock = pygame.time.Clock()
+     # 카드 선택 사운드 로드
+     try:
+-        _card_select_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "cardselect.wav")))
++        _card_select_sound = get_cached_sound("sounds/cardselect.wav")
+     except Exception:
+         _card_select_sound = None
+     soldier_card_preview: pygame.Surface | None = None
+@@ -137403,8 +137138,7 @@ def update_trade_point_stars():
+         
+         # 획득 효과음
+         try:
+-            coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+-            play_sound_with_volume(coin_sound)
++            play_cached_sound("sounds/coin.wav")
+         except:
+             pass
+     
+@@ -137475,8 +137209,7 @@ def update_trade_point_stars():
+             
+             # 획득 효과음
+             try:
+-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+-                play_sound_with_volume(coin_sound)
++                play_cached_sound("sounds/coin.wav")
+             except:
+                 pass
+             
+@@ -137696,8 +137429,7 @@ def update_stage3_hearts():
+             
+             # 획득 효과음
+             try:
+-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+-                play_sound_with_volume(coin_sound)
++                play_cached_sound("sounds/coin.wav")
+             except:
+                 pass
+             heart['life'] = 0  # 하트 제거
+@@ -141036,8 +140768,7 @@ def show_fade_text(message):
+     #  효과음 재생
+     if is_power_smashing:
+         try:
+-            power_smash_sound = pygame.mixer.Sound(resource_path("sounds/power_smash.wav"))
+-            play_sound_with_volume(power_smash_sound)
++            play_cached_sound("sounds/power_smash.wav")
+         except:
+             pass
+     # 폰트 생성 (깔끔한 폰트)
+@@ -141128,8 +140859,7 @@ def show_fade_text(message):
+     #  파워스매싱 두 번째 효과음
+     if is_power_smashing:
+         try:
+-            power_smash_launch_sound = pygame.mixer.Sound(resource_path("sounds/power_smash_launch.wav"))
+-            power_smash_launch_sound.play()
++            play_cached_sound("sounds/power_smash_launch.wav")
+         except:
+             pass
+ # 물리 관련 함수들은 physics_manager로 이동됨
+@@ -143606,386 +143336,6 @@ def draw_bazooka_explosion_effects():
+         # 폭발 표면을 메인 화면에 블릿
+         SCREEN.blit(explosion_surface, (x - center, y - center))
+ 
+-def handle_ball():
+-    # 게임 상태 변수들
+-    global round_wins, round_losses, boss_speed_boost_timer, boss_fail_timer
+-    global is_waiting_for_serve, deuce_wins, deuce_losses
+-    # 👁 오딘의 눈 부활 애니메이션 상태
+-    global odins_eye_revival_anim_active, odins_eye_revival_anim_pending_reset
+-    global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
+-    global game_state  # GameState 인스턴스 추가
+-    # 튜토리얼 관련 변수들
+-    global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
+-    global tutorial_half_dash_count, tutorial_consecutive_dash_count
+-    global tutorial_dash_counter_active, rolling_active
+-    # 플레이어 & 보스 게이지/스킬 시스템
+-    global special_gauge, special_ready, special_active
+-    global boss_special_gauge, boss_special_ready, boss_red_intensity
+-    global boss_special_gauge_stage4, boss_special_ready_stage4
+-    global boss_current_health  #  체력형 보스 체력 변수
+-    global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
+-    global ragnarok_stun_pending
+-    # 스테이지8 그림자분신 상태
+-    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
+-    # 스테이지8 그림자분신
+-    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
+-    global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
+-    # 스테이지8 표창 추가발사 상태
+-    global stage8_shuriken_pending, stage8_shuriken_from_pending
+-    # 충돌 쿨다운
+-    global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
+-    # 공 물리 & 움직임
+-    global ball_vel, ball_angle, slow_ball_timer, horizontal_bounce_count
+-    global ball_impact_boost, ball_boost_decay_rate, ball_min_boost
+-    global player_last_shot_speed
+-    global soldier_swing_active, soldier_swing_timer
+-    global soldier_right_hook_active, soldier_right_hook_timer
+-    global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+-    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
+-    global blacksmith_umbrella_swing_active
+-    # 스톱워치 보정/락 상태 (스마트폰)
+-    global stopwatch_forced_upward, stopwatch_upward_lock_timer
+-    # 스톱워치 보정/락 상태 (스마트폰)
+-    global stopwatch_forced_upward, stopwatch_upward_lock_timer
+-    # 스톱워치 보정/락 상태 (스마트폰)
+-    global stopwatch_forced_upward, stopwatch_upward_lock_timer
+-    # 스톱워치 보정/락 상태 (스마트폰)
+-    global stopwatch_forced_upward, stopwatch_upward_lock_timer
+-    # 롤링 관련 변수들
+-    global dashholder_obtained, rolling_charges, rolling_charge_timer, rolling_stun_timer
+-    global frame_counter, selected_character_type
+-
+-    if selected_character_type == "blacksmith":
+-        _sync_blacksmith_hammer_projectiles_to_frame(frame_counter)
+-    # 충돌 쿨다운 감소 (player_collision_cooldown은 handle_player에서 처리)
+-    # player_collision_cooldown -= 1  # ⚡ handle_player로 이동됨
+-    if boss_collision_cooldown > 0:
+-        boss_collision_cooldown -= 1
+-    if player_sound_cooldown > 0:
+-        player_sound_cooldown -= 1
+-    # 네메시스 방어막 트리거 쿨다운 감소 (중복 트리거 방지)
+-    global nemesis_barrier_trigger_cooldown
+-    if nemesis_barrier_trigger_cooldown > 0:
+-        nemesis_barrier_trigger_cooldown -= 1
+-    # 프레임 시작 시 충돌 플래그 리셋 (handle_player에서 처리)
+-    # player_collision_handled = False  # ⚡ handle_player로 이동됨
+-    # 바이퍼 스킬 골드 프레임 플래그 리셋 (릴레이 골드 중복 방지)
+-    global _viper_skill_gold_this_frame
+-    _viper_skill_gold_this_frame = False
+-    # 드라이브 & 파워스매싱 시스템
+-    global drive_ball_active, drive_hit_boss, ball_spin_strength, drive_speed_increase
+-    global drive_active, drive_spin_speed
+-    global power_smashing_original_speed, power_smashing_parabola_active
+-    global power_smashing_start_time, power_smashing_arc_strength
+-    global power_smashing_direction, power_smashing_initial_boost, power_smashing_boost_duration
+-    global power_smashing_target_speed, power_smashing_rng, power_smashing_combo_consumed
+-    # 보스별 특수 스킬들
+-    global whip_hit_by_player, whip_active, original_speed, whip_original_ball_speed
+-    global whip_deactivation_active, whip_deactivation_timer, whip_rotation_speed  # 상모돌리기 강제 해제 모션
+-    global boss_stunned_after_whip, boss_stunned_after_whip_timer  # 회전 종료 후 후딜
+-    global meditation_active, meditation_timer, meditation_angle
+-    global stage4_magnetic_active, stage4_magnetic_timer, stage4_magnetic_radius, magnet_curve_angle
+-    global flame_trail_active, flame_trail_timer, flame_trail_phase, flame_trail_rng
+-    global flame_trail_positions, flame_trail_start_time, flame_trail_base_vel
+-    global fireballs, fireball_cooldown, fireball_last_cast, fireball_speed
+-    global boss_throwing, boss_throw_timer
+-    global hongryun_hit_count, hongryun_ready
+-    global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
+-    global ragnarok_stun_pending
+-    # 아이템 & 효과 시스템
+-    global aipill_active, walls, rolling_charges, rolling_active
+-    global rolling_direction, rolling_timer
+-    global danger_sensor_obtained, danger_sensor_auto_dash_cooldown, danger_sensor_last_auto_dash_time
+-    global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel
+-    # 애니메이션 & 이펙트
+-    global hit_animation_active, hit_animation_timer, boss_hit_timer
+-    # 패들 관련
+-    global PADDLE_WIDTH
+-    # 가속화 스킬 관련
+-    global acceleration_active, acceleration_height_bonus
+-    global flame_particles, player_stunned_timer, player_knockback_vel
+-    global boss_fire_hit_timer  #  보스 화염 타격 타이머
+-    # 방어 스킬들
+-    global speed_defense_active, speed_defense_timer, speed_defense_checked
+-    # 타이머들
+-    global last_tears_cast_time, quake_last_used_time
+-    special_gauge_max = get_max_gauge()  #  아카데미 스킬 적용된 최대치
+-    # 위험감지센서용 보스 히트 타이머 감소
+-    if boss_hit_timer > 0:
+-        boss_hit_timer -= 1
+-    #  보스 화염 타격 타이머 감소
+-    if boss_fire_hit_timer > 0:
+-        boss_fire_hit_timer -= 1
+-    # === Stage 4 자기장 처리 ===
+-    # 스탑워치 활성화 시 자기장 효과도 중지
+-    if current_stage == 4 and stage4_magnetic_active and not (stopwatch_active and stopwatch_timer > 0):
+-        stage4_magnetic_timer -= 1
+-        distance = math.hypot(BALL.centerx - BOSS.centerx, BALL.centery - BOSS.centery)
+-        if distance < stage4_magnetic_radius:
+-            magnet_curve_angle += 4.1
+-            direction_to_player = pygame.math.Vector2(
+-                PLAYER.centerx - BALL.centerx,
+-                PLAYER.centery - BALL.centery
+-            )
+-            if direction_to_player.length() != 0:
+-                direction_to_player = direction_to_player.normalize()
+-            curve_vector = direction_to_player.rotate(magnet_curve_angle) * 1.8
+-            ball_vel[0] += curve_vector.x
+-            ball_vel[1] += curve_vector.y
+-            ball_vel[0] *= 1.04
+-            ball_vel[1] *= 1.04
+-            # 속도 상한
+-            current_speed = math.hypot(ball_vel[0], ball_vel[1])
+-            max_speed = BALL_BASE_SPEED * 2.2
+-            if current_speed > max_speed:
+-                scale = max_speed / current_speed
+-                ball_vel[0] *= scale
+-                ball_vel[1] *= scale
+-        if stage4_magnetic_timer <= 0:
+-            stage4_magnetic_active = False
+-            stop_stage4_magnetic_sound()
+-            # 자기장 스킬 종료 시 플레이어에게 발사 (일반/광폭화 공통)
+-            globals()['magnetic_projectile_active'] = True
+-            globals()['magnetic_projectile_x'] = float(BOSS.centerx)
+-            globals()['magnetic_projectile_y'] = float(BOSS.centery)
+-            globals()['magnetic_projectile_radius'] = stage4_magnetic_radius
+-            # print(f"⚡ 자기장 발사! 플레이어를 향해 날아갑니다!")
+-            recover_speed = max(player_last_shot_speed, BALL_BASE_SPEED)
+-            direction = pygame.math.Vector2(ball_vel)
+-            if direction.length() == 0:
+-                direction = pygame.math.Vector2(0, 1)
+-            else:
+-                direction = direction.normalize()
+-            ball_vel = [direction.x * recover_speed, direction.y * recover_speed]
+-            magnet_curve_angle = 0
+-    # === Stage 4 명상타임 처리 ===
+-    # 스탑워치 활성화 시 명상타임 효과도 중지
+-    if current_stage == 4 and meditation_active and not (stopwatch_active and stopwatch_timer > 0):
+-        meditation_timer -= 1
+-        # 8자(무한대) 궤도: 1.8초(108프레임) 동안 2바퀴 회전
+-        meditation_angle += (720.0 / meditation_duration)  # 약 6.67도/프레임
+-        # 공이 보스 주변을 8자 모양으로 공전 (Lemniscate of Bernoulli)
+-        radian_angle = math.radians(meditation_angle)
+-        # 8자 궤도 공식: x = a * cos(t) / (1 + sin(t)^2), y = a * sin(t) * cos(t) / (1 + sin(t)^2)
+-        scale = 80 * 1.5  # 8자 크기 조정
+-        denominator = 1 + math.sin(radian_angle) ** 2
+-        new_x = int(BOSS.centerx + scale * math.cos(radian_angle) / denominator)
+-        new_y = int(BOSS.centery + scale * math.sin(radian_angle) * math.cos(radian_angle) / denominator)
+-        # 명상 중에는 화면 경계 제한 없이 완벽한 8자 궤도 허용
+-        BALL.centerx = new_x
+-        BALL.centery = new_y
+-        meditation_trails.append((BALL.centerx, BALL.centery, 200))
+-        meditation_trails[:] = [(x, y, a-15) for x, y, a in meditation_trails if a > 15][:12]
+-        if meditation_timer <= 0:
+-            meditation_active = False
+-            meditation_trails.clear()  # 잔상 버그 수정
+-            # 플레이어 방향으로 랜덤 각도 발사 (아래쪽으로만)
+-            angle_deg = random.randint(-45, 45)  # 각도 범위 축소
+-            # 명상 후 공 속도를 더 빠르게 (기본 속도의 1.3~1.6배)
+-            speed = BALL_BASE_SPEED * random.uniform(1.3, 1.6)
+-            rad = math.radians(angle_deg)
+-            # 항상 아래 방향(플레이어 쪽)으로 발사
+-            ball_vel = [speed * math.sin(rad), abs(speed * math.cos(rad))]
+-            ball_angle = 0
+-            drive_active = True
+-            drive_spin_speed = random.choice([-0.6, 0.6])
+-            play_sound_with_volume(SOUND_MEDITATION_AFTER)  # 명상 후 드라이브 효과음 재생
+-        return
+-    # === 광폭화 자기장 발사체 처리 ===
+-    if magnetic_projectile_active and current_stage == 4:
+-        # 광폭화 시 플레이어 X축 유도 + 아래로 이동, 일반 시 직선 이동
+-        if enraged_boss_active:
+-            # X축: 플레이어 방향으로 부드럽게 추적
+-            dx = PLAYER.centerx - magnetic_projectile_x
+-            homing_speed = 6  # X축 유도 속도
+-            if abs(dx) > homing_speed:
+-                globals()['magnetic_projectile_x'] = magnetic_projectile_x + (homing_speed if dx > 0 else -homing_speed)
+-            else:
+-                globals()['magnetic_projectile_x'] = PLAYER.centerx
+-            # Y축: 항상 아래로 이동 (기존처럼 통과)
+-            globals()['magnetic_projectile_y'] = magnetic_projectile_y + magnetic_projectile_speed
+-        else:
+-            # 일반: 직선 아래로 이동
+-            globals()['magnetic_projectile_y'] = magnetic_projectile_y + magnetic_projectile_speed
+-        # 플레이어 패들과 충돌 감지
+-        proj_rect = pygame.Rect(
+-            magnetic_projectile_x - magnetic_projectile_radius,
+-            magnetic_projectile_y - magnetic_projectile_radius,
+-            magnetic_projectile_radius * 2,
+-            magnetic_projectile_radius * 2
+-        )
+-        if proj_rect.colliderect(PLAYER):
+-            # 플레이어에게 둔화 적용 (닿는 동안 지속)
+-            # 이미 둔화 중이 아닐 때만 즉시 감속 적용 (중복 감속 방지)
+-            if player_slow_timer <= 0:
+-                globals()['current_speed'] = globals()['current_speed'] * magnetic_projectile_slow_amount
+-            globals()['player_slow_timer'] = 10  # 매 프레임 갱신
+-            globals()['player_slow_timer_max'] = 10
+-            globals()['player_slow_factor'] = magnetic_projectile_slow_amount  # 40% 속도
+-        # 화면 밖으로 나가면 비활성화 (아래로만 이동하므로 하단만 체크)
+-        if magnetic_projectile_y > HEIGHT + magnetic_projectile_radius:
+-            globals()['magnetic_projectile_active'] = False
+-            if enraged_boss_active:
+-                pass  # print(f"🔥⚡ [광폭화] 유도 자기장 발사체 화면 밖으로 사라짐")
+-            else:
+-                pass  # print(f"⚡ 자기장 발사체 화면 밖으로 사라짐")
+-    #  서브 대기
+-    if is_waiting_for_serve:
+-        if is_player_serve:
+-            serve_center_x = PLAYER.centerx
+-            if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+-                scale_applied = paddle_scale_ratio if paddle_scale_ratio > 0 else 1.0
+-                serve_center_x += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
+-            BALL.centerx = serve_center_x
+-            BALL.bottom = PLAYER.top - 5
+-        else:
+-            BALL.centerx = BOSS.centerx
+-            BALL.top = BOSS.bottom + 5
+-        return
+-    # === Stage 5 화염탄 ===
+-    if current_stage == 5:
+-        now = pygame.time.get_ticks()
+-        #  라운드 시작 2.5초 후부터 화염탄 발사 가능
+-        if (now - fireball_last_cast > fireball_cooldown and 
+-            now - round_start_time >= 2500):
+-            fireball_last_cast = now
+-            # 초기 속도 벡터 설정 (2.8~4배 속도)
+-            # explosion_speed, new_speed, speed_multiplier 계산
+-            current_speed = math.hypot(ball_vel[0], ball_vel[1])
+-            new_speed = current_speed
+-            speed_multiplier = random.uniform(2.8, 4.0)
+-            explosion_speed = new_speed * speed_multiplier
+-            ball_vel[0] = math.cos(angle) * explosion_speed
+-            ball_vel[1] = math.sin(angle) * explosion_speed
+-            # print(f"  ! : {new_speed:.1f} → : {explosion_speed:.1f} ({speed_multiplier:.1f}), : {math.degrees(angle):.1f}°")
+-            # ️ 양자역학 효과 발동 - 공이 여러 양자 상태로 분열
+-            # quantum_explosion_active = True  # 미사용 변수 주석 처리
+-            # quantum_explosion_time = current_time  # 미사용 변수 주석 처리
+-            current_time = pygame.time.get_ticks()
+-            quantum_balls.clear()
+-            quantum_wave_function.clear()
+-            quantum_entanglement_pairs.clear()
+-            # quantum_collapse_timer = TWO_SECONDS_FRAMES  # 2초 후 양자 붕괴 - 미사용 변수 주석 처리
+-            # quantum_measurement_made = False  # 미사용 변수 주석 처리
+-            # 양자 중첩 상태 생성 (슈뢰딩거의 공)
+-            for i in range(quantum_superposition_count):
+-                # 각 양자 상태는 서로 다른 확률 진폭을 가짐
+-                phase = (i / quantum_superposition_count) * 2 * math.pi
+-                probability = random.uniform(0.3, 1.0)  # 확률 진폭
+-                # 하이젠베르크 불확정성 원리 적용 - 위치와 운동량의 불확정성
+-                position_uncertainty = random.uniform(-30, 30)
+-                # momentum_uncertainty = random.uniform(-2, 2)  # 미사용 변수 주석 처리
+-                # 양자 터널링 효과를 위한 속도 변화
+-                quantum_angle = angle + random.uniform(-math.pi/4, math.pi/4)
+-                quantum_speed = new_speed * random.uniform(0.7, 1.3)
+-                quantum_ball = {
+-                    'x': BALL.centerx + position_uncertainty * math.cos(phase),
+-                    'y': BALL.centery + position_uncertainty * math.sin(phase),
+-                    'vx': math.cos(quantum_angle) * quantum_speed,
+-                    'vy': math.sin(quantum_angle) * quantum_speed,
+-                    'alpha': probability * 150,  # 투명도
+-                    'phase': phase,
+-                    'probability': probability,
+-                    'collapsed': False,
+-                    'wave_amplitude': random.uniform(0.5, 1.5),
+-                    'entangled_with': None,
+-                    'spin': random.choice(['up', 'down']),  # 양자 스핀
+-                    'tunneling': random.random() < 0.3  # 30% 확률로 터널링 가능
+-                }
+-                quantum_balls.append(quantum_ball)
+-            # 양자 얽힘 쌍 생성 (EPR 패러독스)
+-            if len(quantum_balls) >= 2:
+-                for i in range(0, len(quantum_balls)-1, 2):
+-                    quantum_balls[i]['entangled_with'] = i + 1
+-                    quantum_balls[i+1]['entangled_with'] = i
+-                    quantum_balls[i+1]['spin'] = 'down' if quantum_balls[i]['spin'] == 'up' else 'up'
+-            # print(f"  ! {quantum_superposition_count}")
+-            # 폭발 효과를 위한 추가 파티클 생성
+-            for ghost in mega_smashing_ghosts:
+-                ghost['scatter_vx'] = random.uniform(-20, 20)
+-                ghost['scatter_vy'] = random.uniform(-20, 20)
+-            #  검은 그림자 돌진 효과 시작
+-            shadow_particles = []
+-            # 검은 그림자 파티클 생성
+-            for i in range(20):  # 20개의 검은 그림자
+-                shadow_angle = random.uniform(0, 2 * math.pi)
+-                shadow_particles.append({
+-                        'x': BALL.centerx,
+-                        'y': BALL.centery,
+-                        'vx': math.cos(shadow_angle) * random.uniform(5, 15),
+-                        'vy': math.sin(shadow_angle) * random.uniform(5, 15),
+-                        'size': random.randint(10, 30),
+-                        'life': 60,  # 1초간 지속
+-                        'alpha': 255
+-                    })
+-        # 고스트샷 관련 코드 제거됨
+-            # 시간에 따라 좌우로 휘어지는 효과 (더 부드럽게)
+-            boost_time = 0  # boost_time 초기화
+-            curve_time = boost_time * 3  # 휘어지는 주기
+-            curve_strength = 0.15  # 휘어지는 강도
+-            curve_factor = math.sin(curve_time) * curve_strength
+-            # 현재 속도 방향을 약간만 조정 (벽 충돌 반사 유지)
+-            current_speed = math.hypot(ball_vel[0], ball_vel[1])
+-            if current_speed > 0:
+-                # 현재 각도 계산
+-                current_angle = math.atan2(ball_vel[1], ball_vel[0])
+-                # 약간의 휘어짐만 추가
+-                new_angle = current_angle + curve_factor
+-                # 목표 속도로 설정하면서 방향 조정 (Y속도는 중력 영향 유지)
+-                target_speed = current_speed  # target_speed 정의
+-                ball_vel[0] = math.cos(new_angle) * target_speed
+-                # Y속도는 중력 효과가 이미 적용되어 있으므로 조정하지 않음
+-        return
+-    # 2초 이후에는 8자 패턴 실행하지 않음 (이미 폭발했으므로)
+-    elapsed_time = 0  # elapsed_time 초기화
+-    if elapsed_time >= 2.0:
+-        return
+-    # 뫼비우스의 띠(8자) 움직임 패턴 (2초 동안) - 플레이어 패들 위쪽에서
+-    t = elapsed_time * math.pi * 3  # 0~6π (2초 동안 3회전)
+-    # 기본 속도 (조금 느리게)
+-    # base_speed = 10.0  # 속도를 15.0에서 10.0으로 감소 - 미사용 변수 주석 처리
+-    # 8자 패턴 중심을 원래 위치보다 300픽셀 위로 설정
+-    center_x = PLAYER.centerx
+-    center_y = PLAYER.centery - 500  # 기본값: 패들보다 500픽셀 위
+-    # 뫼비우스의 띠 (8자) 패턴 - 더 작고 컴팩트하게
+-    # 리사주 곡선을 사용하여 8자 움직임 생성
+-    lissajous_a = 2  # X축 주파수
+-    lissajous_b = 1  # Y축 주파수
+-    lissajous_delta = math.pi / 2  # 위상차
+-    # 8자 패턴의 크기 (좌우 움직임 4배 증가)
+-    pattern_size_x = 600  # X축 패턴 크기 (좌우 움직임) - 300에서 600으로 다시 2배 증가
+-    pattern_size_y = 100  # Y축 패턴 크기 (상하 움직임) - 유지
+-    # 뫼비우스 8자 움직임
+-    pattern_x = math.sin(lissajous_a * t + lissajous_delta) * pattern_size_x
+-    pattern_y = math.sin(lissajous_b * t) * pattern_size_y
+-    # 목표 위치 계산 (플레이어 패들 위쪽 영역)
+-    target_x = center_x + pattern_x
+-    target_y = center_y + pattern_y
+-    # 현재 위치에서 목표 위치로의 방향 벡터
+-    dx = target_x - BALL.centerx
+-    dy = target_y - BALL.centery
+-    # 부드러운 이동을 위한 속도 계산
+-    move_speed = 0.15  # 이동 속도 계수
+-    target_vx = dx * move_speed
+-    target_vy = dy * move_speed
+-    # 추가 꿈틀거림 (용의 몸부림) - 작게
+-    wiggle_x = math.sin(t * 7) * 2  # 작은 좌우 진동
+-    wiggle_y = math.cos(t * 6) * 2  # 작은 상하 진동
+-    target_vx += wiggle_x
+-    target_vy += wiggle_y
+-    # 부드러운 전환을 위한 보간
+-    smoothing = 0.25  # 더 빠른 반응
+-    ball_vel[0] = ball_vel[0] * (1 - smoothing) + target_vx * smoothing
+-    ball_vel[1] = ball_vel[1] * (1 - smoothing) + target_vy * smoothing
+-    # 최소 속도 보장 (느리게)
+-    min_speed = 6.0  # 최소 속도를 10.0에서 6.0으로 감소
+-    current_speed = math.hypot(ball_vel[0], ball_vel[1])
+-    if current_speed < min_speed and current_speed > 0:
+-        scale = min_speed / current_speed
+-        ball_vel[0] *= scale
+-        ball_vel[1] *= scale
+-    # 고스트샷 관련 코드 제거됨
+-    # ️ 양자 상태 공들 업데이트는 update_quantum_effects()로 이동됨
+ boss_knockback_distance = 0   # 넉백 거리
+ 
+ def update_quantum_effects():
+@@ -144164,105 +143514,6 @@ def render_mega_smashing_effects():
+             pygame.draw.circle(aura_surface, (50, 0, 70, alpha), (75, 75), 30 + i * 10)
+         SCREEN.blit(aura_surface, (BALL.centerx - 75, BALL.centery - 75))
+     # 고스트샷 관련 코드 제거됨
+-#  화염탄 폭발 이펙트 관련 변수
+-fireball_explosion_particles = []  # [(x, y, vx, vy, life, max_life), ...]
+-def create_fireball_explosion(x, y):
+-    """화염탄 폭발 이펙트 생성"""
+-    global fireball_explosion_particles
+-    #  더 많은 작은 파티클로 진짜 불꽃 효과 (40-60개)
+-    particle_count = random.randint(40, 60)
+-    for _ in range(particle_count):
+-        # 폭발 방향 (360도 전방향)
+-        angle = random.uniform(0, 2 * math.pi)
+-        # 폭발 속도 (더 강력하고 다양한 속도)
+-        speed = random.uniform(2.0, 12.0)
+-        vx = math.cos(angle) * speed
+-        vy = math.sin(angle) * speed
+-        # 파티클 생명 시간 (더 짧고 다양하게)
+-        life = random.randint(15, 35)  # 프레임 단위
+-        fireball_explosion_particles.append([x, y, vx, vy, life, life])
+-def update_fireball_explosion_particles():
+-    """화염탄 폭발 파티클 업데이트"""
+-    global fireball_explosion_particles
+-    new_particles = []
+-    for particle in fireball_explosion_particles:
+-        x, y, vx, vy, life, max_life = particle
+-        # 파티클 이동
+-        x += vx
+-        y += vy
+-        #  불꽃 물리 효과 (더 자연스러운 움직임)
+-        # 중력 효과 (아래쪽으로 가속, 더 강하게)
+-        vy += 0.3
+-        # 공기 저항 (속도 감소, 더 강하게)
+-        vx *= 0.95
+-        vy *= 0.96
+-        #  무작위 바람 효과 (불꽃의 자연스러운 흔들림)
+-        if random.random() < 0.3:
+-            vx += random.uniform(-0.5, 0.5)
+-            vy += random.uniform(-0.3, 0.1)
+-        # 생명력 감소
+-        life -= 1
+-        # 생명력이 남아있으면 계속 유지
+-        if life > 0:
+-            new_particles.append([x, y, vx, vy, life, max_life])
+-    fireball_explosion_particles = new_particles
+-def draw_fireball_explosion_particles():
+-    """화염탄 폭발 파티클 그리기"""
+-    for particle in fireball_explosion_particles:
+-        x, y, vx, vy, life, max_life = particle
+-        # 생명력에 따른 알파값 계산 (더 빠르게 사라짐)
+-        life_ratio = life / max_life
+-        alpha = int(255 * (life_ratio ** 0.7))  # 더 급속한 페이드아웃
+-        #  불꽃 파티클 크기 (더 작고 다양하게)
+-        base_size = random.uniform(1.5, 4.0)  # 기본 크기를 훨씬 작게
+-        size = max(1, int(base_size * life_ratio + 0.5))
+-        #  불꽃 색상 변화 (더 생생한 불꽃 색상)
+-        if life_ratio > 0.8:
+-            color = (255, 80, 20)   # 밝은 빨강-주황
+-        elif life_ratio > 0.6:
+-            color = (255, 120, 30)  # 주황
+-        elif life_ratio > 0.4:
+-            color = (255, 180, 60)  # 노랑-주황
+-        elif life_ratio > 0.2:
+-            color = (255, 220, 100) # 밝은 노랑
+-        else:
+-            color = (255, 240, 150) # 연한 노랑-흰색
+-        #  불꽃 파티클 그리기 (더 작고 정밀하게)
+-        if alpha > 20 and size >= 1:  # 최소 알파값 조건 추가
+-            if size == 1:
+-                # 1픽셀 파티클은 직접 그리기
+-                try:
+-                    SCREEN.set_at((int(x), int(y)), (*color, min(alpha, 255)))
+-                except:
+-                    pass  # 화면 밖이면 무시
+-            else:
+-                # 작은 원형 파티클
+-                particle_surface = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+-                # 중심에 밝은 점
+-                if size >= 2:
+-                    pygame.draw.circle(particle_surface, (*color, min(alpha, 255)), 
+-                                     (size + 1, size + 1), size)
+-                    # 외곽에 약간 더 밝은 글로우 효과
+-                    if size >= 3:
+-                        glow_color = tuple(min(255, c + 50) for c in color)
+-                        pygame.draw.circle(particle_surface, (*glow_color, min(alpha // 3, 80)), 
+-                                         (size + 1, size + 1), size + 1, 1)
+-                else:
+-                    pygame.draw.circle(particle_surface, (*color, min(alpha, 255)), 
+-                                     (size + 1, size + 1), size)
+-                SCREEN.blit(particle_surface, (int(x - size - 1), int(y - size - 1)))
+-    # ️ 양자 상태 공들 렌더링은 draw_objects()로 이동됨
+-        # 간섭 패턴 렌더링
+-        for pattern in quantum_interference_pattern[:]:
+-            pattern['life'] -= 1
+-            if pattern['life'] <= 0:
+-                quantum_interference_pattern.remove(pattern)
+-                continue
+-            # 이중 슬릿 실험의 간섭 무늬
+-            intensity = math.sin(pattern['phase'] + pygame.time.get_ticks() * 0.01) * 0.5 + 0.5
+-            alpha = int(pattern['life'] * 3 * intensity)
+-            draw.circle((DEFAULT_ALPHA, DEFAULT_ALPHA, 255, alpha),
+-                             (int(pattern['x']), int(pattern['y'])), 2)
+ #  보스 패들 충돌 애니메이션 관련 변수
+ boss_hit_animation_active = False
+ boss_hit_animation_timer = 0
+@@ -146302,8 +145553,7 @@ def handle_ball():
+                             # print(f"🌟 황금 바위 관통! Star Point 획득!")  # 디버그 비활성화
+                             trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
+                             try:
+-                                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+-                                play_sound_with_volume(coin_sound)
++                                play_cached_sound("sounds/coin.wav")
+                             except:
+                                 pass
+                         
+@@ -146424,8 +145674,7 @@ def handle_ball():
+                         # print(f"   ! Star Point  !")  # 디버그 비활성화
+                         trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
+                         try:
+-                            coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+-                            play_sound_with_volume(coin_sound)
++                            play_cached_sound("sounds/coin.wav")
+                         except:
+                             pass
+                     
+@@ -146808,9 +146057,7 @@ def handle_ball():
+                         _barrier['alive'] = False
+                         _bone_sk._spawn_death_fragments(_barrier)
+                         try:
+-                            _bb_snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
+-                            _bb_snd.set_volume(0.7)
+-                            _bb_snd.play()
++                            play_cached_sound("sounds/bonebreak.wav", 0.7)
+                         except Exception:
+                             pass
+                         _bone_blocked = True
+@@ -146822,9 +146069,7 @@ def handle_ball():
+                         _barrier['alive'] = False
+                         _bone_sk._spawn_death_fragments(_barrier)
+                         try:
+-                            _bb_snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
+-                            _bb_snd.set_volume(0.7)
+-                            _bb_snd.play()
++                            play_cached_sound("sounds/bonebreak.wav", 0.7)
+                         except Exception:
+                             pass
+                         _bone_blocked = True
+@@ -146866,9 +146111,7 @@ def handle_ball():
+                             _barrier_s['alive'] = False
+                             _bone_sk_s._spawn_death_fragments(_barrier_s)
+                             try:
+-                                _bb_snd_s = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
+-                                _bb_snd_s.set_volume(0.7)
+-                                _bb_snd_s.play()
++                                play_cached_sound("sounds/bonebreak.wav", 0.7)
+                             except Exception:
+                                 pass
+                             _bone_blocked_story = True
+@@ -146880,9 +146123,7 @@ def handle_ball():
+                             _barrier_s['alive'] = False
+                             _bone_sk_s._spawn_death_fragments(_barrier_s)
+                             try:
+-                                _bb_snd_s = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
+-                                _bb_snd_s.set_volume(0.7)
+-                                _bb_snd_s.play()
++                                play_cached_sound("sounds/bonebreak.wav", 0.7)
+                             except Exception:
+                                 pass
+                             _bone_blocked_story = True
+@@ -147753,8 +146994,7 @@ def handle_ball():
+                 trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
+                 # 황금 바위 효과음
+                 try:
+-                    coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+-                    play_sound_with_volume(coin_sound)
++                    play_cached_sound("sounds/coin.wav")
+                 except:
+                     pass
+             
+@@ -152589,24 +151829,6 @@ def record_dash_usage(success=False):
+             player_analyzer.record_dash_usage(ball_distance, ball_speed, success)
+         except:
+             pass  # 조용히 실패
+-def record_dash_life_save():
+-    """대쉬로 생명을 구한 경우 기록"""
+-    global player_analyzer
+-    if player_analyzer:
+-        try:
+-            player_analyzer.stats.dash_life_saves += 1
+-            # print(f"    ! ( {player_analyzer.stats.dash_life_saves})")
+-        except:
+-            pass  # 조용히 실패
+-def record_dash_victory():
+-    """대쉬로 승리에 기여한 경우 기록"""
+-    global player_analyzer
+-    if player_analyzer:
+-        try:
+-            player_analyzer.stats.dash_victories += 1
+-            # print(f"    ! ( {player_analyzer.stats.dash_victories})")
+-        except:
+-            pass  # 조용히 실패
+ def score_to_grade(score):
+     """점수를 등급으로 변환"""
+     if score == 0:
+@@ -162551,8 +161773,7 @@ def main(stage_num, new_boss_mode=False):
+                                     
+                                     # 효과음 재생 (Stage 3 전용 꼬리 채찍 사운드)
+                                     try:
+-                                        tail_sound = pygame.mixer.Sound(resource_path("sounds/stage3tail.wav"))
+-                                        tail_sound.play()
++                                        play_cached_sound("sounds/stage3tail.wav")
+                                     except:
+                                         pass
+                                     

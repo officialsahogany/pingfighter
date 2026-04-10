@@ -260,6 +260,7 @@ def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
     foot_y = paddle_rect.bottom
 
     skill_active = bomb_spin_active
+    head_exposed = helmet_removed or skill_active
     skill_phase = bomb_spin_phase if skill_active else -1
     skill_dir = bomb_spin_direction if bomb_spin_direction != 0 else (_yachaman_move_dir if _yachaman_move_dir != 0 else 1)
 
@@ -433,7 +434,7 @@ def draw_yachaman_character(screen, pygame_module, paddle_rect, phase_timer=0):
             draw.circle(screen, DARK, a_bot, 3)
 
     # ── 머리 / 투구를 벗은 자리 ──
-    if skill_active:
+    if head_exposed:
         neck_rect = pygame_module.Rect(body_cx - 8, head_y - 3, 16, 10)
         draw.ellipse(screen, DARK, neck_rect)
         core_surf = pygame_module.Surface((18, 18), pygame_module.SRCALPHA)
@@ -545,7 +546,7 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
     """
     global bomb_spin_active, bomb_spin_timer, bomb_spin_phase
     global bomb_spin_angle, bomb_spin_cooldown
-    global bomb_spin_helmet_x, bomb_spin_helmet_y
+    global bomb_spin_helmet_x, bomb_spin_helmet_y, helmet_removed
 
     # 쿨다운 감소
     if bomb_spin_cooldown > 0:
@@ -626,18 +627,40 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
     return {"dx": dx, "helmet_rect": helmet, "done": False}
 
 
-def check_bomb_spin_ball_collision(ball_rect) -> bool:
+def check_bomb_spin_ball_collision(ball_rect, ball_velocity=None) -> bool:
     """투구와 공의 충돌 판정. 충돌 시 True + 공에 폭탄 장전."""
     global bomb_loaded_on_ball
     if not bomb_spin_active or bomb_spin_phase not in (0, 1, 2):
         return False
     if bomb_loaded_on_ball:
         return False  # 이미 장전됨
-    bcx = ball_rect.centerx
-    bcy = ball_rect.centery
-    dist = math.hypot(bcx - bomb_spin_helmet_x, bcy - bomb_spin_helmet_y)
-    # 충돌 판정 (투구 반지름 + 공 반지름 + 여유 4px)
-    if dist < BOMB_SPIN_HELMET_R + ball_rect.width // 2 + 4:
+    bcx = float(ball_rect.centerx)
+    bcy = float(ball_rect.centery)
+    hx = float(bomb_spin_helmet_x)
+    hy = float(bomb_spin_helmet_y)
+    ball_radius = max(ball_rect.width, ball_rect.height) * 0.5
+    collision_radius = BOMB_SPIN_HELMET_R + ball_radius + 8.0
+    min_dist = math.hypot(bcx - hx, bcy - hy)
+
+    # handle_ball() 전에 판정하므로, 이번 프레임 공 이동 경로까지 미리 본다.
+    if ball_velocity is not None and len(ball_velocity) >= 2:
+        next_bcx = bcx + float(ball_velocity[0])
+        next_bcy = bcy + float(ball_velocity[1])
+        seg_dx = next_bcx - bcx
+        seg_dy = next_bcy - bcy
+        seg_len_sq = seg_dx * seg_dx + seg_dy * seg_dy
+        if seg_len_sq > 0:
+            t = ((hx - bcx) * seg_dx + (hy - bcy) * seg_dy) / seg_len_sq
+            t = max(0.0, min(1.0, t))
+            closest_x = bcx + seg_dx * t
+            closest_y = bcy + seg_dy * t
+            min_dist = min(
+                min_dist,
+                math.hypot(next_bcx - hx, next_bcy - hy),
+                math.hypot(closest_x - hx, closest_y - hy),
+            )
+
+    if min_dist <= collision_radius:
         bomb_loaded_on_ball = True  # 공에 폭탄 실림!
         return True
     return False
@@ -664,10 +687,16 @@ def trigger_bomb_explosion(boss_cx: int, boss_cy: int):
     helmet_return_x = float(boss_cx)
     helmet_return_y = float(boss_cy)
 
-    # 수류탄 폭발 사운드 재생
+    # 액티브 아이템 수류탄과 같은 폭발 사운드 재생
     try:
-        from pingfighter import play_cached_sound
-        play_cached_sound("sounds/explosion.wav", 0.6)
+        import pingfighter as _pf
+        from pingfighter import SOUND_GRENADE, play_cached_sound, play_sound_with_volume
+
+        if SOUND_GRENADE:
+            play_sound_with_volume(SOUND_GRENADE)
+        else:
+            play_cached_sound("sounds/grenade.wav", 0.6)
+        _pf.grenade_shake_timer = max(getattr(_pf, "grenade_shake_timer", 0), 40)
     except Exception:
         pass
 
@@ -848,6 +877,7 @@ def draw_bomb_spin(screen, pygame_module, player_cx, player_cy, phase_timer=0):
 
     hx, hy = bomb_spin_helmet_x, bomb_spin_helmet_y
     r = BOMB_SPIN_HELMET_R
+    spin_center_y = player_cy - 15
 
     # 회전 중 모션 블러/궤적
     if bomb_spin_phase in (1, 2):
@@ -855,11 +885,16 @@ def draw_bomb_spin(screen, pygame_module, player_cx, player_cy, phase_timer=0):
         trail_alpha = 110
         for i in range(3):
             trail_angle = bomb_spin_angle - (i + 1) * 0.5
-            orbit_r = 22 if bomb_spin_phase == 1 else 24
-            tx = player_cx + int(math.sin(trail_angle) * orbit_r)
-            ty = player_cy - 30 + int(-math.cos(trail_angle) * orbit_r * 0.5)
-            if bomb_spin_phase == 2:
-                tx += int(bomb_spin_direction * 15)
+            if bomb_spin_phase == 1:
+                orbit_rx = 35
+                orbit_ry = 20
+                fwd_offset = 0
+            else:
+                orbit_rx = 40
+                orbit_ry = 22
+                fwd_offset = int(bomb_spin_direction * 22)
+            tx = player_cx + fwd_offset + int(math.sin(trail_angle) * orbit_rx)
+            ty = spin_center_y + int(-math.cos(trail_angle) * orbit_ry)
             a = max(28, trail_alpha - i * 28)
             _draw_bomb_spin_helmet(screen, pygame_module, tx, ty, r, trail_angle, alpha=a, draw_flame=False)
 
@@ -937,6 +972,7 @@ def reset_bomb_spin():
     global bomb_loaded_on_ball, bomb_explosion_active, bomb_explosion_timer
     global bomb_explosion_particles
     global helmet_removed, helmet_returning, helmet_return_timer
+    global helmet_return_x, helmet_return_y
     bomb_spin_active = False
     bomb_spin_timer = 0
     bomb_spin_phase = 0
@@ -952,3 +988,5 @@ def reset_bomb_spin():
     helmet_removed = False
     helmet_returning = False
     helmet_return_timer = 0
+    helmet_return_x = 0.0
+    helmet_return_y = 0.0

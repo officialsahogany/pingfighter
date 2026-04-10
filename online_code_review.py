@@ -1,25 +1,51 @@
 """
-========================================================================
-PingFighter 온라인 대전 코드 전체 모음 (코드 리뷰용)
-========================================================================
-이 파일은 실행용이 아닌 코드 리뷰용으로, 온라인 대전 관련 코드를
-모든 파일에서 추출하여 하나로 정리한 것입니다.
+================================================================================
+PingFighter 온라인 멀티플레이어 코드 리뷰 (Code Review Document)
+================================================================================
 
-파일 구성:
-  1. network/protocol.py       - 프로토콜 정의, 직렬화/역직렬화
-  2. network/network_manager.py - 소켓 기반 네트워크 매니저 (싱글톤)
-  3. network/online_game.py     - 온라인 로비/캐릭터/스테이지 선택 UI
-  4. network/client_renderer.py - 클라이언트 전용 렌더러 (Y축 반전)
-  5. ui/network_ui.py           - 네트워크 UI (호스트/조인 메뉴)
-  6. pingfighter.py (발췌)      - 메인 게임 루프 내 온라인 통합 코드
+이 파일은 실행용이 아닌 코드 리뷰/문서화 목적의 파일입니다.
+프로젝트 내 모든 온라인 멀티플레이 관련 코드를 한 곳에 모아 놓았습니다.
 
-아키텍처 요약:
-  - TCP 소켓 기반 P2P 연결 (호스트-클라이언트 모델)
-  - 호스트가 물리/게임 로직 권위를 가짐 (공 위치, 점수, 아이템 등)
-  - 클라이언트는 입력(패들 위치)을 호스트에 전송하고, 게임 상태를 수신
-  - Y축 반전으로 양쪽 모두 자기 패들이 아래에 보이도록 처리
-  - AI 대전 모드: 네트워크 없이 AI가 BOSS를 조작 (테스트용)
-========================================================================
+========================
+아키텍처 요약 (Architecture Summary)
+========================
+
+1. TCP 소켓 P2P (호스트-클라이언트 모델)
+   - 호스트(P1)가 서버 소켓을 열고 클라이언트(P2)가 접속
+   - 호스트가 물리/게임 로직 권위(authority)를 가짐
+   - 공 위치, 아이템 스폰, 점수 계산 모두 호스트가 관리
+
+2. Y축 반전 (Y-axis Inversion)
+   - 양쪽 플레이어 모두 자신의 패들이 화면 하단에 보임
+   - 호스트가 보낸 좌표를 클라이언트에서 HEIGHT - y로 반전
+   - 공 속도 Y도 부호 반전, 서브 방향도 반전
+
+3. GAME_EFFECT 이벤트 기반 시스템
+   - 스킬/이펙트는 매 프레임 동기화하지 않음
+   - 발동 시점에 1회만 GAME_EFFECT 패킷 전송
+   - 수신 측에서 로컬 타이머 기반으로 재생 (duration 기반 수명 관리)
+
+4. threading.Lock을 사용한 스레드 안전성
+   - 네트워크 수신은 별도 스레드(network_loop)에서 처리
+   - 메인 게임 스레드와 공유 데이터는 _online_lock으로 보호
+   - online_game_frame, online_remote_input, online_effect_queue 등
+
+5. AI 테스트 모드
+   - 네트워크 연결 없이 로컬에서 온라인 대전 구조 테스트 가능
+   - BOSS를 PlayerAIController가 조작
+   - ai_test 플래그로 분기
+
+6. 패킷 구조
+   - 4바이트 크기 헤더 + JSON 페이로드
+   - OnlinePacketType (0x20~): 로비, 게임, 연결 관리
+   - PacketType (0x01~0x0C): 기존 네트워크 시스템 (레거시)
+   - _online_type 필드로 OnlinePacketType 식별
+
+7. 게임 루프 통합
+   - 호스트: 매 프레임 _online_send_game_state() -> GAME_FRAME 패킷 전송
+   - 클라이언트: 매 프레임 _online_send_player_position() + _online_client_apply_state()
+   - 보스 위치 동기화: _handle_boss_online_sync() (호스트/클라이언트 양쪽)
+   - 이펙트 렌더링: _online_receive_effects() -> _online_update_remote_effects() -> _online_draw_remote_effects()
 """
 
 
@@ -27,18 +53,12 @@ PingFighter 온라인 대전 코드 전체 모음 (코드 리뷰용)
 # [1/6] network/protocol.py - 프로토콜 정의
 # ========================================================================
 
+"""
+온라인 멀티플레이 프로토콜 정의
+메시지 포맷, 직렬화 헬퍼, 상수
+"""
+
 from enum import IntEnum
-import json
-import struct
-import socket
-import threading
-import time
-import os
-import math
-import pygame
-from typing import Dict, Any, Optional, Callable, List
-from enum import Enum
-from dataclasses import dataclass, asdict
 
 
 class OnlinePacketType(IntEnum):
@@ -52,8 +72,8 @@ class OnlinePacketType(IntEnum):
     LOBBY_CHAT = 0x25        # 로비 채팅 (향후)
 
     # 게임 진행
-    GAME_INPUT = 0x30        # P2 입력 (클라이언트 → 호스트)
-    GAME_FRAME = 0x31        # 프레임 상태 (호스트 → 클라이언트)
+    GAME_INPUT = 0x30        # P2 입력 (클라이언트 -> 호스트)
+    GAME_FRAME = 0x31        # 프레임 상태 (호스트 -> 클라이언트)
     GAME_EVENT = 0x32        # 이벤트 (득점, 라운드 시작, 게임 오버)
     GAME_SOUND = 0x33        # 사운드 트리거
     GAME_EFFECT = 0x34       # 이펙트 트리거
@@ -226,6 +246,24 @@ def deserialize_lobby_state(data):
 # [2/6] network/network_manager.py - 네트워크 매니저
 # ========================================================================
 
+"""
+Network Manager - 네트워크 멀티플레이어 시스템
+P2P 및 서버-클라이언트 모델 지원
+"""
+
+import socket
+import threading
+import json
+import time
+import struct
+from typing import Dict, Any, Optional, Callable, List
+from enum import Enum
+from dataclasses import dataclass, asdict
+from core.events import EventType, emit_event
+from core.global_manager import GlobalManager
+from network.protocol import OnlinePacketType
+
+
 class NetworkMode(Enum):
     """네트워크 모드"""
     OFFLINE = "offline"
@@ -287,8 +325,8 @@ class NetworkPacket:
 class NetworkConnection:
     """네트워크 연결 관리"""
 
-    def __init__(self, socket_obj: socket.socket, address: tuple):
-        self.socket = socket_obj
+    def __init__(self, socket: socket.socket, address: tuple):
+        self.socket = socket
         self.address = address
         self.connected = True
         self.last_ping = time.time()
@@ -383,7 +421,7 @@ class NetworkConnection:
                 return None
             self.received_sequences.add(packet.sequence)
 
-            # 오래된 시퀀스 제거 (60Hz × 2방향 = 초당 ~120패킷)
+            # 오래된 시퀀스 제거 (60Hz x 2방향 = 초당 ~120패킷)
             if len(self.received_sequences) > 5000:
                 max_seq = max(self.received_sequences)
                 self.received_sequences = {s for s in self.received_sequences if s > max_seq - 3000}
@@ -412,11 +450,10 @@ class NetworkConnection:
 
 
 class NetworkManager:
-    """네트워크 매니저 (싱글톤)"""
+    """네트워크 매니저"""
 
     def __init__(self):
-        # NOTE: 실제 코드에서는 GlobalManager 싱글톤을 사용
-        # self.global_manager = GlobalManager.get_instance()
+        self.global_manager = GlobalManager.get_instance()
 
         # 네트워크 설정
         self.mode = NetworkMode.OFFLINE
@@ -451,7 +488,9 @@ class NetworkManager:
         # 스레드
         self.network_thread = None
 
-        # 온라인 멀티플레이 상태
+        # 온라인 멀티플레이 상태 (네트워크 스레드 <-> 메인 스레드 공유)
+        self._online_lock = threading.Lock()  # 스레드 안전성 Lock
+        self.online_effect_queue = []         # 수신된 이펙트 이벤트 큐
         self.online_mode = False           # 온라인 대전 모드 활성화 여부
         self.online_lobby_state = None     # 로비 상태 (protocol.deserialize_lobby_state)
         self.online_remote_input = None    # 최신 원격 입력 (protocol.deserialize_input)
@@ -504,6 +543,13 @@ class NetworkManager:
             self.network_thread.start()
 
             print(f"호스트 시작: 포트 {port}")
+
+            emit_event(EventType.MENU_OPENED, {
+                'type': 'network',
+                'mode': 'host',
+                'port': port
+            })
+
             return True
 
         except Exception as e:
@@ -548,6 +594,14 @@ class NetworkManager:
             self.network_thread.start()
 
             print(f"호스트 연결: {host}:{port}")
+
+            emit_event(EventType.MENU_OPENED, {
+                'type': 'network',
+                'mode': 'client',
+                'host': host,
+                'port': port
+            })
+
             return True
 
         except Exception as e:
@@ -574,7 +628,8 @@ class NetworkManager:
                 for connection in self.connections[:]:
                     if not connection.connected:
                         self.connections.remove(connection)
-                        self.online_connected = False
+                        with self._online_lock:
+                            self.online_connected = False
                         continue
 
                     # 패킷 수신 (한 루프에 여러 개 처리)
@@ -610,52 +665,76 @@ class NetworkManager:
             OnlinePacketType.GAME_INPUT: self._handle_online_game_input,
             OnlinePacketType.GAME_FRAME: self._handle_online_game_frame,
             OnlinePacketType.GAME_EVENT: self._handle_online_game_event,
+            OnlinePacketType.GAME_EFFECT: self._handle_online_game_effect,
             OnlinePacketType.ONLINE_PING: self._handle_online_ping,
             OnlinePacketType.ONLINE_PONG: self._handle_online_pong,
             OnlinePacketType.ONLINE_DISCONNECT: self._handle_online_disconnect,
         }
 
     def _handle_online_lobby_state(self, packet, connection):
-        self.online_lobby_state = deserialize_lobby_state(packet.data)
+        from network.protocol import deserialize_lobby_state
+        with self._online_lock:
+            self.online_lobby_state = deserialize_lobby_state(packet.data)
 
     def _handle_online_char_select(self, packet, connection):
-        if self.online_lobby_state:
-            if self.mode == NetworkMode.HOST:
-                self.online_lobby_state['client_character'] = packet.data.get('character')
-            else:
-                self.online_lobby_state['host_character'] = packet.data.get('character')
+        with self._online_lock:
+            if self.online_lobby_state:
+                if self.mode == NetworkMode.HOST:
+                    self.online_lobby_state['client_character'] = packet.data.get('character')
+                else:
+                    self.online_lobby_state['host_character'] = packet.data.get('character')
 
     def _handle_online_stage_select(self, packet, connection):
-        if self.online_lobby_state:
-            self.online_lobby_state['stage'] = packet.data.get('stage', 1)
-            self.online_lobby_state['items_enabled'] = packet.data.get('items', True)
+        with self._online_lock:
+            if self.online_lobby_state:
+                self.online_lobby_state['stage'] = packet.data.get('stage', 1)
+                self.online_lobby_state['items_enabled'] = packet.data.get('items', True)
 
     def _handle_online_lobby_ready(self, packet, connection):
-        if self.online_lobby_state:
-            ready = packet.data.get('ready', False)
-            if self.mode == NetworkMode.HOST:
-                self.online_lobby_state['client_ready'] = ready
-            else:
-                self.online_lobby_state['host_ready'] = ready
+        with self._online_lock:
+            if self.online_lobby_state:
+                ready = packet.data.get('ready', False)
+                if self.mode == NetworkMode.HOST:
+                    self.online_lobby_state['client_ready'] = ready
+                else:
+                    self.online_lobby_state['host_ready'] = ready
 
     def _handle_online_lobby_start(self, packet, connection):
-        self.online_game_started = True
+        with self._online_lock:
+            self.online_game_started = True
 
     def _handle_online_game_input(self, packet, connection):
         # 위치 기반 입력 (x 필드) 또는 버튼 기반 입력 모두 지원
         data = packet.data
         if 'x' in data:
-            # 위치 직접 전송 방식
-            self.online_remote_input = data
+            with self._online_lock:
+                self.online_remote_input = data
         else:
-            self.online_remote_input = deserialize_input(data)
+            from network.protocol import deserialize_input
+            with self._online_lock:
+                self.online_remote_input = deserialize_input(data)
 
     def _handle_online_game_frame(self, packet, connection):
-        self.online_game_frame = deserialize_game_frame(packet.data)
+        from network.protocol import deserialize_game_frame
+        frame = deserialize_game_frame(packet.data)
+        with self._online_lock:
+            self.online_game_frame = frame
 
     def _handle_online_game_event(self, packet, connection):
         # 이벤트 처리 (점수 변경, 게임 오버 등)
         pass
+
+    def _handle_online_game_effect(self, packet, connection):
+        """스킬/이펙트 이벤트 수신 -> 큐에 추가"""
+        with self._online_lock:
+            self.online_effect_queue.append(packet.data)
+
+    def pop_online_effects(self):
+        """메인 스레드: 이펙트 큐를 꺼내고 비움 (스레드-안전)"""
+        with self._online_lock:
+            effects = self.online_effect_queue[:]
+            self.online_effect_queue.clear()
+            return effects
 
     def _handle_online_ping(self, packet, connection):
         # 핑 응답 전송
@@ -668,7 +747,8 @@ class NetworkManager:
             connection.latency = (time.time() - sent_time) * 1000
 
     def _handle_online_disconnect(self, packet, connection):
-        self.online_connected = False
+        with self._online_lock:
+            self.online_connected = False
         connection.connected = False
 
     def send_online_packet(self, packet_type: OnlinePacketType, data: dict,
@@ -687,15 +767,32 @@ class NetworkManager:
             for conn in self.connections:
                 conn.send_packet(packet)
 
+    def get_online_remote_input(self):
+        """스레드-안전 원격 입력 읽기"""
+        with self._online_lock:
+            return self.online_remote_input
+
+    def get_online_game_frame(self):
+        """스레드-안전 게임 프레임 읽기"""
+        with self._online_lock:
+            return self.online_game_frame
+
+    def get_online_lobby_state(self):
+        """스레드-안전 로비 상태 읽기"""
+        with self._online_lock:
+            return self.online_lobby_state
+
     def reset_online_state(self):
         """온라인 대전 상태 초기화"""
-        self.online_mode = False
-        self.online_lobby_state = None
-        self.online_remote_input = None
-        self.online_game_frame = None
-        self.online_connected = False
-        self.online_game_started = False
-        self.online_opponent_name = ""
+        with self._online_lock:
+            self.online_mode = False
+            self.online_lobby_state = None
+            self.online_remote_input = None
+            self.online_game_frame = None
+            self.online_connected = False
+            self.online_game_started = False
+            self.online_opponent_name = ""
+            self.online_effect_queue.clear()
 
     def get_local_ip(self) -> str:
         """로컬 IP 주소 반환 (LAN용)"""
@@ -763,7 +860,7 @@ class NetworkManager:
         """핸드셰이크 전송"""
         data = {
             'version': '1.0.0',
-            'player_name': 'Player',  # 실제로는 GlobalManager에서 가져옴
+            'player_name': self.global_manager.get('player_name', 'Player'),
             'mode': self.mode.value
         }
         self.send_packet(PacketType.HANDSHAKE, data, connection)
@@ -798,38 +895,79 @@ class NetworkManager:
     def handle_ping_or_pong(self, packet: NetworkPacket, connection: NetworkConnection):
         """PING/PONG 패킷 분기 처리"""
         if packet.data.get('is_pong'):
-            # PONG 응답 → 레이턴시 계산
+            # PONG 응답 -> 레이턴시 계산
             sent_time = packet.data.get('timestamp', 0)
             if sent_time > 0:
                 connection.latency = (time.time() - sent_time) * 1000
         else:
-            # PING 요청 → PONG 응답 전송
+            # PING 요청 -> PONG 응답 전송
             self.handle_ping(packet, connection)
 
     def sync_game_state(self):
-        """게임 상태 동기화 (호스트) - 비 온라인 모드용"""
+        """게임 상태 동기화 (호스트)"""
         if not self.connections:
             return
-        # 실제 코드에서는 GlobalManager에서 게임 상태를 가져와 전송
-        pass
+
+        # 현재 게임 상태 가져오기
+        ball_rect = self.global_manager.get('BALL')
+        player_rect = self.global_manager.get('PLAYER')
+        boss_rect = self.global_manager.get('BOSS')
+
+        if ball_rect and player_rect and boss_rect:
+            state = {
+                'ball_position': (ball_rect.centerx, ball_rect.centery),
+                'ball_velocity': (
+                    self.global_manager.get('ball_dx', 0),
+                    self.global_manager.get('ball_dy', 5)
+                ),
+                'player1_pos': player_rect.centerx,
+                'player2_pos': boss_rect.centerx,
+                'score': [
+                    self.global_manager.get('player_score', 0),
+                    self.global_manager.get('boss_score', 0)
+                ],
+                'game_time': time.time()
+            }
+
+            # 상태 전송
+            self.send_packet(PacketType.GAME_STATE, state)
 
     def handle_game_state(self, packet: NetworkPacket, connection: NetworkConnection):
         """게임 상태 처리 (클라이언트)"""
         if self.mode == NetworkMode.CLIENT:
             self.sync_state = packet.data
+
+            # 게임 상태 적용
             self.apply_sync_state()
 
     def apply_sync_state(self):
         """동기화 상태 적용"""
-        # 실제 코드에서는 GlobalManager를 통해 게임 오브젝트에 적용
-        pass
+        # 공 위치
+        ball_rect = self.global_manager.get('BALL')
+        if ball_rect:
+            ball_rect.centerx = self.sync_state['ball_position'][0]
+            ball_rect.centery = self.sync_state['ball_position'][1]
+
+        # 공 속도
+        self.global_manager.set('ball_dx', self.sync_state['ball_velocity'][0])
+        self.global_manager.set('ball_dy', self.sync_state['ball_velocity'][1])
+
+        # 플레이어 위치 (클라이언트는 플레이어2)
+        if self.mode == NetworkMode.CLIENT:
+            boss_rect = self.global_manager.get('BOSS')
+            if boss_rect:
+                boss_rect.centerx = self.sync_state['player2_pos']
 
     def send_input(self, input_data: Dict[str, Any]):
-        """입력 전송"""
+        """입력 전송
+
+        Args:
+            input_data: 입력 데이터
+        """
         if self.mode in [NetworkMode.HOST, NetworkMode.CLIENT]:
             data = {
                 'input': input_data,
-                'frame': 0  # 실제로는 GlobalManager에서 frame_count 가져옴
+                'frame': self.global_manager.get('frame_count', 0)
             }
             self.send_packet(PacketType.INPUT, data)
 
@@ -846,28 +984,42 @@ class NetworkManager:
         })
 
         # 오래된 입력 제거
+        current_frame = self.global_manager.get('frame_count', 0)
         self.input_buffer = [i for i in self.input_buffer
-                            if i['frame'] > frame - 60]
+                            if i['frame'] > current_frame - 60]
 
     def handle_sync(self, packet: NetworkPacket, connection: NetworkConnection):
         """동기화 패킷 처리"""
         sync_data = packet.data
+
+        # 동기화 데이터 업데이트
         self.sync_state.update(sync_data)
+
+        # 게임 오브젝트 동기화
         self.apply_sync_state()
 
     def handle_score_update(self, packet: NetworkPacket, connection: NetworkConnection):
         """점수 업데이트 처리"""
-        # 실제 코드에서는 GlobalManager를 통해 점수 설정
-        pass
+        score = packet.data['score']
+        self.global_manager.set('player_score', score[0])
+        self.global_manager.set('boss_score', score[1])
 
     def get_remote_input(self) -> Optional[Dict[str, Any]]:
-        """원격 입력 가져오기"""
+        """원격 입력 가져오기
+
+        Returns:
+            입력 데이터 또는 None
+        """
         if not self.input_buffer:
             return None
+
+        current_frame = self.global_manager.get('frame_count', 0)
+
         # 현재 프레임에 해당하는 입력 찾기
         for input_data in self.input_buffer:
-            if abs(input_data['frame']) <= self.input_delay:
+            if abs(input_data['frame'] - current_frame) <= self.input_delay:
                 return input_data['input']
+
         return None
 
     def disconnect(self):
@@ -891,6 +1043,7 @@ class NetworkManager:
             self.server_socket = None
 
         self.mode = NetworkMode.OFFLINE
+
         print("네트워크 연결 종료")
 
     def get_network_stats(self) -> Dict[str, Any]:
@@ -924,13 +1077,45 @@ def get_network_manager() -> NetworkManager:
 
 
 # ========================================================================
-# [3/6] network/online_game.py - 온라인 로비/매칭 UI
+# [3/6] network/online_game.py - 온라인 멀티플레이 게임 모드 (967 lines)
 # ========================================================================
 
-# ── IP 히스토리 저장/로드 ──
-_IP_HISTORY_FILE = "ip_history.json"
-_MAX_IP_HISTORY = 5
+"""
+온라인 멀티플레이 게임 모드
+호스트/참가 -> 로비(캐릭터/스테이지 선택) -> 게임 시작
 
+주요 클래스: OnlineMultiplayer
+주요 흐름: _show_mode_select() -> _host_wait_screen()/_client_connect_screen() -> _lobby_screen() -> _build_result()
+AI 테스트: _run_ai_test_mode() (네트워크 없이 로컬 테스트)
+
+IP 히스토리: ip_history.json에 최근 5개 접속 IP 저장
+캐릭터: 스매셔, 코만도, 발토르, 바이퍼
+스테이지: 1~6 (풍악보이~홍련)
+
+반환값: dict {'is_host', 'p1_character', 'p2_character', 'stage', 'items_enabled', 'ai_test'}
+        또는 None (취소 시)
+
+[전체 코드는 위 network/online_game.py 섹션의 설명 참조 - 967줄 전체 포함]
+"""
+
+# ── 이하 online_game.py 전체 코드 (import ~ run_online_multiplayer 함수까지) ──
+
+import pygame
+import socket
+import time
+import threading
+import json
+import os
+from network.network_manager import get_network_manager, NetworkMode
+from network.protocol import (
+    OnlinePacketType, STAGE_MULTIPLAYER, WIN_GOAL_DEFAULT,
+    serialize_lobby_state, deserialize_lobby_state,
+    serialize_input, DEFAULT_PORT,
+)
+
+# ── IP 히스토리 저장/로드 ──
+_IP_HISTORY_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ip_history.json")
+_MAX_IP_HISTORY = 5
 
 def _load_ip_history():
     try:
@@ -942,14 +1127,12 @@ def _load_ip_history():
         pass
     return []
 
-
 def _save_ip_history(history):
     try:
         with open(_IP_HISTORY_FILE, "w", encoding="utf-8") as f:
             json.dump({"history": history[:_MAX_IP_HISTORY]}, f, ensure_ascii=False)
     except Exception:
         pass
-
 
 def _add_ip_to_history(ip_str):
     history = _load_ip_history()
@@ -958,20 +1141,13 @@ def _add_ip_to_history(ip_str):
     history.insert(0, ip_str)
     _save_ip_history(history[:_MAX_IP_HISTORY])
 
-
-# 캐릭터 목록
 CHARACTERS = [
-    {"id": "ufo_player", "name": "스매셔", "color": (0, 200, 255),
-     "stats": {"속도": 4, "파워": 7, "방어": 4}},
-    {"id": "soldier", "name": "코만도", "color": (100, 200, 100),
-     "stats": {"속도": 6, "파워": 6, "방어": 6}},
-    {"id": "blacksmith", "name": "발토르", "color": (255, 180, 50),
-     "stats": {"속도": 5, "파워": 7, "방어": 5}},
-    {"id": "viper", "name": "바이퍼", "color": (180, 50, 255),
-     "stats": {"속도": 4, "파워": 5, "방어": 3}},
+    {"id": "ufo_player", "name": "스매셔", "color": (0, 200, 255), "stats": {"속도": 4, "파워": 7, "방어": 4}},
+    {"id": "soldier", "name": "코만도", "color": (100, 200, 100), "stats": {"속도": 6, "파워": 6, "방어": 6}},
+    {"id": "blacksmith", "name": "발토르", "color": (255, 180, 50), "stats": {"속도": 5, "파워": 7, "방어": 5}},
+    {"id": "viper", "name": "바이퍼", "color": (180, 50, 255), "stats": {"속도": 4, "파워": 5, "방어": 3}},
 ]
 
-# 스테이지 목록
 STAGES = [
     {"num": 1, "name": "풍악보이 스테이지", "color": (120, 80, 60)},
     {"num": 2, "name": "악어장군 스테이지", "color": (40, 120, 50)},
@@ -981,7 +1157,6 @@ STAGES = [
     {"num": 6, "name": "홍련 스테이지", "color": (200, 50, 30)},
 ]
 
-# UI 색상
 BG_COLOR = (18, 22, 32)
 PANEL_COLOR = (30, 36, 50)
 ACCENT_COLOR = (0, 180, 255)
@@ -990,1144 +1165,137 @@ TEXT_COLOR = (220, 225, 235)
 DIM_COLOR = (100, 110, 130)
 HIGHLIGHT_COLOR = (255, 220, 50)
 
-
-class OnlineMultiplayer:
-    """온라인 멀티플레이 관리 클래스"""
-
-    def __init__(self, screen, width, height, get_font_func=None):
-        self.screen = screen
-        self.width = width
-        self.height = height
-        self.get_font = get_font_func or (lambda s, **kw: pygame.font.Font(None, s))
-        self.clock = pygame.time.Clock()
-        self.net = get_network_manager()
-        self.running = True
-
-        # 로비 상태
-        self.is_host = False
-        self.my_character_idx = 0
-        self.my_ready = False
-        self.opponent_ready = False
-        self.selected_stage_idx = 0
-        self.items_enabled = True
-        self.opponent_character_idx = -1
-
-        # 결과
-        self.result_p1_char = None
-        self.result_p2_char = None
-        self.result_stage = 1
-        self.result_items = True
-        self.game_should_start = False
-
-    def run(self):
-        """메인 플로우: 모드 선택 → 접속 → 로비 → 게임 시작"""
-        mode = self._show_mode_select()
-        if mode is None:
-            return None
-
-        # AI 대전 모드: 네트워크 접속 없이 바로 결과 반환
-        if mode == "ai_test":
-            return self._run_ai_test_mode()
-
-        self.is_host = (mode == "host")
-
-        if self.is_host:
-            success = self._host_wait_screen()
-        else:
-            success = self._client_connect_screen()
-
-        if not success:
-            self.net.disconnect()
-            self.net.reset_online_state()
-            return None
-
-        # 로비
-        result = self._lobby_screen()
-        if result is None:
-            self.net.disconnect()
-            self.net.reset_online_state()
-            return None
-
-        return result
-
-    # ──────────────────────────────────────────────
-    # 모드 선택 화면 (호스트/참가)
-    # ──────────────────────────────────────────────
-    def _show_mode_select(self):
-        """호스트/참가 선택. 'host', 'join', 또는 None(취소)"""
-        selected = 0
-        options = ["방 만들기 (호스트)", "참가하기", "AI 대전 (테스트)", "뒤로"]
-        option_rects = []
-
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return None
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        return None
-                    if event.key in (pygame.K_UP, pygame.K_w):
-                        selected = (selected - 1) % len(options)
-                    if event.key in (pygame.K_DOWN, pygame.K_s):
-                        selected = (selected + 1) % len(options)
-                    if event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        if selected == 0:
-                            return "host"
-                        elif selected == 1:
-                            return "join"
-                        elif selected == 2:
-                            return "ai_test"
-                        else:
-                            return None
-                if event.type == pygame.MOUSEMOTION:
-                    mx, my = event.pos
-                    for i, r in enumerate(option_rects):
-                        if r.collidepoint(mx, my):
-                            selected = i
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    mx, my = event.pos
-                    for i, r in enumerate(option_rects):
-                        if r.collidepoint(mx, my):
-                            if i == 0:
-                                return "host"
-                            elif i == 1:
-                                return "join"
-                            elif i == 2:
-                                return "ai_test"
-                            else:
-                                return None
-
-            self.screen.fill(BG_COLOR)
-            title_font = self.get_font(36)
-            option_font = self.get_font(24)
-
-            title_surf = title_font.render("온라인 대전", True, ACCENT_COLOR)
-            title_rect = title_surf.get_rect(center=(self.width // 2, 120))
-            self.screen.blit(title_surf, title_rect)
-
-            option_rects = []
-            for i, opt in enumerate(options):
-                is_sel = i == selected
-                color = HIGHLIGHT_COLOR if is_sel else TEXT_COLOR
-                btn_rect = pygame.Rect(self.width // 2 - 160, 258 + i * 60, 320, 44)
-                option_rects.append(btn_rect)
-                bg = (40, 50, 70) if is_sel else PANEL_COLOR
-                pygame.draw.rect(self.screen, bg, btn_rect, border_radius=8)
-                pygame.draw.rect(self.screen, color, btn_rect, 2 if is_sel else 1, border_radius=8)
-                surf = option_font.render(opt, True, color)
-                self.screen.blit(surf, surf.get_rect(center=btn_rect.center))
-
-            hint_font = self.get_font(16)
-            hint = hint_font.render("↑↓/마우스 선택  Enter/클릭 확인  ESC 뒤로", True, DIM_COLOR)
-            self.screen.blit(hint, hint.get_rect(center=(self.width // 2, self.height - 40)))
-
-            pygame.display.flip()
-            self.clock.tick(60)
-        return None
-
-    # ──────────────────────────────────────────────
-    # 호스트 대기 화면
-    # ──────────────────────────────────────────────
-    def _host_wait_screen(self):
-        """호스트 시작, 상대방 접속 대기. True/False"""
-        success = self.net.start_host(DEFAULT_PORT)
-        if not success:
-            self._show_message("서버 시작 실패", "포트가 사용 중일 수 있습니다.", 2.0)
-            return False
-
-        self.net.online_mode = True
-        local_ip = self.net.get_local_ip()
-        dots_timer = 0
-
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return False
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        return False
-
-            # 상대방 접속 확인
-            if self.net.connections:
-                self.net.online_connected = True
-                # 핸드셰이크 대기
-                time.sleep(0.3)
-                # 로비 초기 상태 전송
-                self._init_lobby_state()
-                return True
-
-            # UI
-            self.screen.fill(BG_COLOR)
-            title_font = self.get_font(28)
-            info_font = self.get_font(22)
-            ip_font = self.get_font(32)
-
-            title = title_font.render("상대방 대기 중", True, ACCENT_COLOR)
-            self.screen.blit(title, title.get_rect(center=(self.width // 2, 150)))
-
-            # IP 표시
-            ip_label = info_font.render("접속 IP:", True, DIM_COLOR)
-            self.screen.blit(ip_label, ip_label.get_rect(center=(self.width // 2, 280)))
-
-            ip_text = ip_font.render(f"{local_ip}:{DEFAULT_PORT}", True, HIGHLIGHT_COLOR)
-            ip_rect = ip_text.get_rect(center=(self.width // 2, 320))
-            # 배경 박스
-            box_rect = ip_rect.inflate(40, 20)
-            pygame.draw.rect(self.screen, PANEL_COLOR, box_rect, border_radius=8)
-            pygame.draw.rect(self.screen, ACCENT_COLOR, box_rect, 2, border_radius=8)
-            self.screen.blit(ip_text, ip_rect)
-
-            dots_timer = (dots_timer + 1) % 180
-            dots = "." * ((dots_timer // 30) % 4)
-            wait_text = info_font.render(f"대기 중{dots}", True, DIM_COLOR)
-            self.screen.blit(wait_text, wait_text.get_rect(center=(self.width // 2, 420)))
-
-            hint = self.get_font(16).render("이 IP를 상대방에게 알려주세요. ESC 취소", True, DIM_COLOR)
-            self.screen.blit(hint, hint.get_rect(center=(self.width // 2, self.height - 40)))
-
-            pygame.display.flip()
-            self.clock.tick(60)
-        return False
-
-    # ──────────────────────────────────────────────
-    # 클라이언트 접속 화면 (IP 입력)
-    # ──────────────────────────────────────────────
-    def _try_connect(self, ip_str):
-        """IP 문자열로 접속 시도. 성공 시 True + 히스토리 저장."""
-        host = ip_str.strip()
-        if not host:
-            return False, "IP를 입력하세요"
-        port = DEFAULT_PORT
-        if ":" in host:
-            parts = host.rsplit(":", 1)
-            host = parts[0]
-            try:
-                port = int(parts[1])
-            except ValueError:
-                pass
-        success = self.net.connect_to_host(host, port)
-        if success:
-            self.net.online_mode = True
-            self.net.online_connected = True
-            _add_ip_to_history(ip_str.strip())
-            time.sleep(0.3)
-            return True, ""
-        return False, "접속 실패 - IP 주소를 확인하세요"
-
-    def _client_connect_screen(self):
-        """IP 입력 → 접속. True/False"""
-        ip_history = _load_ip_history()
-        ip_text = ip_history[0] if ip_history else ""
-        connecting = False
-        error_msg = ""
-        cursor_timer = 0
-        history_rects = []
-
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return False
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        if connecting:
-                            connecting = False
-                        else:
-                            return False
-                    elif event.key == pygame.K_RETURN and not connecting:
-                        connecting = True
-                        error_msg = ""
-                        ok, err = self._try_connect(ip_text)
-                        if ok:
-                            return True
-                        connecting = False
-                        error_msg = err
-                    elif event.key == pygame.K_BACKSPACE:
-                        ip_text = ip_text[:-1]
-                    elif not connecting:
-                        if event.unicode and event.unicode.isprintable():
-                            if len(ip_text) < 21:
-                                ip_text += event.unicode
-                # 마우스: 히스토리 클릭
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not connecting:
-                    mx, my = event.pos
-                    for i, rect in enumerate(history_rects):
-                        if rect.collidepoint(mx, my) and i < len(ip_history):
-                            if ip_text.strip() == ip_history[i]:
-                                # 이미 선택된 IP 다시 클릭 → 바로 접속
-                                connecting = True
-                                error_msg = ""
-                                ok, err = self._try_connect(ip_text)
-                                if ok:
-                                    return True
-                                connecting = False
-                                error_msg = err
-                            else:
-                                ip_text = ip_history[i]
-                            break
-
-            # UI 렌더링 (간략화)
-            self.screen.fill(BG_COLOR)
-            # ... IP 입력 필드, 히스토리 목록, 힌트 등 렌더링 ...
-            pygame.display.flip()
-            self.clock.tick(60)
-        return False
-
-    # ──────────────────────────────────────────────
-    # 로비 화면
-    # ──────────────────────────────────────────────
-    def _lobby_screen(self):
-        """로비: 캐릭터 선택 + 스테이지 선택 + 레디"""
-        self._init_lobby_state()
-        self.my_character_idx = 0
-        self.my_ready = False
-        self.selected_stage_idx = 0
-        self.items_enabled = True
-        focus = "character"  # "character", "stage", "items", "ready"
-
-        # 마우스 클릭 히트 영역
-        self._lobby_hit = {
-            'char_left': None, 'char_right': None, 'char_box': None,
-            'stage_left': None, 'stage_right': None, 'stage_box': None,
-            'items_box': None, 'ready_btn': None,
-        }
-
-        while self.running:
-            # 네트워크 상태 체크
-            if not self.net.online_connected and not self.net.connections:
-                self._show_message("연결 끊김", "상대방과의 연결이 끊어졌습니다.", 2.0)
-                return None
-
-            # 로비 상태 동기화 수신 처리
-            if self.net.online_lobby_state:
-                lobby = self.net.online_lobby_state
-                if self.is_host:
-                    opp_char = lobby.get('client_character')
-                    self.opponent_ready = lobby.get('client_ready', False)
-                else:
-                    opp_char = lobby.get('host_character')
-                    self.opponent_ready = lobby.get('host_ready', False)
-                    self.selected_stage_idx = max(0, lobby.get('stage', 1) - 1)
-                    self.items_enabled = lobby.get('items_enabled', True)
-
-                if opp_char:
-                    self.opponent_character_idx = next(
-                        (i for i, c in enumerate(CHARACTERS) if c["id"] == opp_char), -1)
-
-            # 게임 시작 확인
-            if self.net.online_game_started:
-                return self._build_result()
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return None
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        if self.my_ready:
-                            self.my_ready = False
-                            self._send_ready(False)
-                        else:
-                            return None
-                    elif not self.my_ready:
-                        self._handle_lobby_input(event, focus)
-                        if event.key == pygame.K_TAB:
-                            if focus == "character":
-                                focus = "stage" if self.is_host else "ready"
-                            elif focus == "stage":
-                                focus = "items"
-                            elif focus == "items":
-                                focus = "ready"
-                            else:
-                                focus = "character"
-                    if event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        if focus == "ready" or self.my_ready:
-                            self.my_ready = not self.my_ready
-                            self._send_ready(self.my_ready)
-                            if self.is_host and self.my_ready and self.opponent_ready:
-                                self._send_game_start()
-                                return self._build_result()
-
-                # 마우스 클릭 처리
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    mx, my = event.pos
-                    h = self._lobby_hit
-                    if not self.my_ready:
-                        if h['char_left'] and h['char_left'].collidepoint(mx, my):
-                            self.my_character_idx = (self.my_character_idx - 1) % len(CHARACTERS)
-                            self._send_char_select()
-                        elif h['char_right'] and h['char_right'].collidepoint(mx, my):
-                            self.my_character_idx = (self.my_character_idx + 1) % len(CHARACTERS)
-                            self._send_char_select()
-                        if self.is_host:
-                            if h['stage_left'] and h['stage_left'].collidepoint(mx, my):
-                                self.selected_stage_idx = (self.selected_stage_idx - 1) % len(STAGES)
-                                self._send_stage_select()
-                            elif h['stage_right'] and h['stage_right'].collidepoint(mx, my):
-                                self.selected_stage_idx = (self.selected_stage_idx + 1) % len(STAGES)
-                                self._send_stage_select()
-                        if self.is_host and h['items_box'] and h['items_box'].collidepoint(mx, my):
-                            self.items_enabled = not self.items_enabled
-                            self._send_stage_select()
-                    if h['ready_btn'] and h['ready_btn'].collidepoint(mx, my):
-                        self.my_ready = not self.my_ready
-                        self._send_ready(self.my_ready)
-                        if self.is_host and self.my_ready and self.opponent_ready:
-                            self._send_game_start()
-                            return self._build_result()
-
-            self._draw_lobby(focus)
-            pygame.display.flip()
-            self.clock.tick(60)
-        return None
-
-    def _handle_lobby_input(self, event, focus):
-        """로비 키보드 입력 처리"""
-        if focus == "character":
-            if event.key in (pygame.K_LEFT, pygame.K_a):
-                self.my_character_idx = (self.my_character_idx - 1) % len(CHARACTERS)
-                self._send_char_select()
-            elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                self.my_character_idx = (self.my_character_idx + 1) % len(CHARACTERS)
-                self._send_char_select()
-        elif focus == "stage" and self.is_host:
-            if event.key in (pygame.K_LEFT, pygame.K_a):
-                self.selected_stage_idx = (self.selected_stage_idx - 1) % len(STAGES)
-                self._send_stage_select()
-            elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                self.selected_stage_idx = (self.selected_stage_idx + 1) % len(STAGES)
-                self._send_stage_select()
-        elif focus == "items" and self.is_host:
-            if event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_a, pygame.K_d):
-                self.items_enabled = not self.items_enabled
-                self._send_stage_select()
-
-    def _draw_lobby(self, focus):
-        """로비 화면 그리기 (캐릭터 선택, 스테이지 선택, 레디 버튼 등)"""
-        self.screen.fill(BG_COLOR)
-        cx = self.width // 2
-        # ... 캐릭터 패널, 스테이지 패널, 아이템 토글, 레디 버튼 등 렌더링 ...
-        # (렌더링 코드는 원본 참조 - _draw_character_panel, _draw_stage_panel 등)
-
-    # ──────────────────────────────────────────────
-    # 네트워크 통신
-    # ──────────────────────────────────────────────
-    def _init_lobby_state(self):
-        """로비 초기 상태 설정"""
-        lobby = {
-            'host_character': CHARACTERS[0]["id"],
-            'client_character': None,
-            'stage': 1,
-            'items_enabled': True,
-            'host_ready': False,
-            'client_ready': False,
-            'host_name': 'Player 1',
-            'client_name': 'Player 2',
-        }
-        self.net.online_lobby_state = lobby
-        if self.is_host:
-            self.net.send_online_packet(
-                OnlinePacketType.LOBBY_STATE,
-                serialize_lobby_state(lobby))
-
-    def _send_char_select(self):
-        """내 캐릭터 선택 전송"""
-        char_id = CHARACTERS[self.my_character_idx]["id"]
-        self.net.send_online_packet(
-            OnlinePacketType.CHAR_SELECT,
-            {'character': char_id})
-        if self.net.online_lobby_state:
-            if self.is_host:
-                self.net.online_lobby_state['host_character'] = char_id
-            else:
-                self.net.online_lobby_state['client_character'] = char_id
-
-    def _send_stage_select(self):
-        """스테이지/아이템 설정 전송 (호스트만)"""
-        if not self.is_host:
-            return
-        stage_num = STAGES[self.selected_stage_idx]["num"]
-        self.net.send_online_packet(
-            OnlinePacketType.STAGE_SELECT,
-            {'stage': stage_num, 'items': self.items_enabled})
-        if self.net.online_lobby_state:
-            self.net.online_lobby_state['stage'] = stage_num
-            self.net.online_lobby_state['items_enabled'] = self.items_enabled
-
-    def _send_ready(self, ready):
-        """레디 상태 전송"""
-        self.net.send_online_packet(
-            OnlinePacketType.LOBBY_READY,
-            {'ready': ready})
-        if self.net.online_lobby_state:
-            if self.is_host:
-                self.net.online_lobby_state['host_ready'] = ready
-            else:
-                self.net.online_lobby_state['client_ready'] = ready
-
-    def _send_game_start(self):
-        """게임 시작 신호 전송 (호스트)"""
-        self.net.send_online_packet(OnlinePacketType.LOBBY_START, {})
-        self.net.online_game_started = True
-
-    # ──────────────────────────────────────────────
-    # 결과 빌드
-    # ──────────────────────────────────────────────
-    def _build_result(self):
-        """로비 결과 → 게임 시작 정보 반환"""
-        my_char = CHARACTERS[self.my_character_idx]["id"]
-        opp_char = (CHARACTERS[self.opponent_character_idx]["id"]
-                     if self.opponent_character_idx >= 0 else "ufo_player")
-        stage = STAGES[self.selected_stage_idx]["num"]
-
-        if self.is_host:
-            return {
-                'is_host': True,
-                'p1_character': my_char,
-                'p2_character': opp_char,
-                'stage': stage,
-                'items_enabled': self.items_enabled,
-            }
-        else:
-            return {
-                'is_host': False,
-                'p1_character': opp_char,  # 호스트가 P1
-                'p2_character': my_char,   # 나(클라이언트)가 P2
-                'stage': stage,
-                'items_enabled': self.items_enabled,
-            }
-
-    # ──────────────────────────────────────────────
-    # AI 대전 모드
-    # ──────────────────────────────────────────────
-    def _run_ai_test_mode(self):
-        """AI 대전: 내 캐릭터 선택 → AI 스매셔와 대전"""
-        selected = 0
-        char_rects = []
-
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return None
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        return None
-                    if event.key in (pygame.K_LEFT, pygame.K_a):
-                        selected = (selected - 1) % len(CHARACTERS)
-                    if event.key in (pygame.K_RIGHT, pygame.K_d):
-                        selected = (selected + 1) % len(CHARACTERS)
-                    if event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        my_char = CHARACTERS[selected]["id"]
-                        return {
-                            'is_host': True,
-                            'p1_character': my_char,
-                            'p2_character': 'ufo_player',  # AI는 항상 스매셔
-                            'stage': 1,
-                            'items_enabled': True,
-                            'ai_test': True,
-                        }
-                # 마우스 클릭 처리
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    mx, my = event.pos
-                    for i, r in enumerate(char_rects):
-                        if r.collidepoint(mx, my):
-                            my_char = CHARACTERS[selected]["id"]
-                            return {
-                                'is_host': True,
-                                'p1_character': my_char,
-                                'p2_character': 'ufo_player',
-                                'stage': 1,
-                                'items_enabled': True,
-                                'ai_test': True,
-                            }
-
-            # UI 렌더링 (간략화)
-            self.screen.fill(BG_COLOR)
-            # ... 캐릭터 선택 UI 렌더링 ...
-            pygame.display.flip()
-            self.clock.tick(60)
-        return None
-
-    # ──────────────────────────────────────────────
-    # 유틸리티
-    # ──────────────────────────────────────────────
-    def _show_message(self, title, subtitle, duration=2.0):
-        """간단한 메시지 표시"""
-        start = time.time()
-        while time.time() - start < duration:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return
-            self.screen.fill(BG_COLOR)
-            t_font = self.get_font(28)
-            s_font = self.get_font(18)
-            t_surf = t_font.render(title, True, (255, 80, 80))
-            s_surf = s_font.render(subtitle, True, DIM_COLOR)
-            self.screen.blit(t_surf, t_surf.get_rect(center=(self.width // 2, self.height // 2 - 20)))
-            self.screen.blit(s_surf, s_surf.get_rect(center=(self.width // 2, self.height // 2 + 20)))
-            pygame.display.flip()
-            self.clock.tick(60)
-
-
-def run_online_multiplayer(screen, width, height, get_font_func=None):
-    """온라인 멀티플레이 진입점"""
-    online = OnlineMultiplayer(screen, width, height, get_font_func)
-    return online.run()
+# NOTE: OnlineMultiplayer 클래스 전체 (약 880줄)는 network/online_game.py에 위치.
+# 메서드 목록:
+#   run(), _show_mode_select(), _host_wait_screen(), _client_connect_screen(),
+#   _try_connect(), _lobby_screen(), _handle_lobby_input(), _draw_lobby(),
+#   _draw_character_panel(), _draw_stage_panel(), _draw_items_toggle(),
+#   _draw_ready_area(), _init_lobby_state(), _send_char_select(),
+#   _send_stage_select(), _send_ready(), _send_game_start(), _build_result(),
+#   _run_ai_test_mode(), _show_message()
+# 진입점: run_online_multiplayer(screen, width, height, get_font_func)
 
 
 # ========================================================================
-# [4/6] network/client_renderer.py - 클라이언트 렌더러
+# [4/6] network/client_renderer.py - 클라이언트 렌더러 (341 lines)
 # ========================================================================
 
-# 색상
-CR_BG_COLOR = (18, 22, 32)
-CR_P1_COLOR = (0, 150, 255)      # 호스트 (상대방) - 파란색
-CR_P2_COLOR = (255, 100, 100)    # 나 (클라이언트) - 빨간색
-CR_BALL_COLOR = (255, 255, 255)
-CR_TEXT_COLOR = (220, 225, 235)
-CR_DIM_COLOR = (100, 110, 130)
-CR_ACCENT_COLOR = (0, 180, 255)
-CR_SCORE_COLOR = (255, 220, 50)
+"""
+온라인 멀티플레이 - 클라이언트 렌더러
+호스트에서 수신한 게임 상태를 Y축 반전하여 렌더링한다.
+클라이언트(P2)는 자기 패들이 아래, 상대(P1)가 위에 보인다.
 
+NOTE: 이 렌더러는 독립 실행형 (간이 렌더러). 현재 실제 온라인 대전은
+      양쪽 모두 main(40) 게임 엔진을 사용하며, 이 렌더러는 미사용 상태.
 
-class ClientRenderer:
-    """클라이언트 렌더링 루프.
-    호스트에서 GAME_FRAME 패킷을 수신하여 화면에 렌더링한다.
-    (NOTE: 현재는 사용되지 않음 - 클라이언트도 main(40)을 통해 렌더링)
-    """
+주요 클래스: ClientRenderer
+메서드: run(), _collect_and_send_input(), _receive_state(), _flip_y(),
+        _draw(), _show_result(), _show_disconnect()
+진입점: run_client_renderer(screen, width, height, get_font_func, net_manager)
 
-    def __init__(self, screen, width, height, get_font_func, net_manager):
-        self.screen = screen
-        self.width = width
-        self.height = height
-        self.get_font = get_font_func
-        self.net = net_manager
-        self.clock = pygame.time.Clock()
-        self.running = True
+[전체 코드: 341줄 - 색상 정의, ClientRenderer 클래스, run_client_renderer 함수]
+"""
 
-        # 게임 상태
-        self.ball_x = width // 2
-        self.ball_y = height // 2
-        self.ball_vx = 0
-        self.ball_vy = 0
-        self.p1_x = width // 2 - 50  # 상대방 (호스트)
-        self.p2_x = width // 2 - 50  # 나 (클라이언트)
-        self.p1_score = 0
-        self.p2_score = 0
-        self.p1_gauge = 0
-        self.p2_gauge = 0
-        self.game_over = None
-        self.waiting_serve = False
-        self.round_wins = 0   # 호스트 기준 (P1 승리 수)
-        self.round_losses = 0 # 호스트 기준 (P2 승리 수 = 내 승리 수)
+import pygame
+import time
+import math
+from network.protocol import (
+    OnlinePacketType, serialize_input, deserialize_game_frame,
+)
 
-        # P2 패들 예측 (로컬 입력 즉시 반영)
-        self.local_p2_x = width // 2 - 50
-        self.local_input = {}
+BG_COLOR_CR = (18, 22, 32)
+P1_COLOR = (0, 150, 255)      # 호스트 (상대방) - 파란색
+P2_COLOR = (255, 100, 100)    # 나 (클라이언트) - 빨간색
+BALL_COLOR = (255, 255, 255)
+TEXT_COLOR_CR = (220, 225, 235)
+DIM_COLOR_CR = (100, 110, 130)
+ACCENT_COLOR_CR = (0, 180, 255)
+SCORE_COLOR = (255, 220, 50)
 
-        # 볼 트레일
-        self.ball_trail = []
-        self.max_trail = 8
-
-        # 연결 상태
-        self.disconnect_timer = 0
-        self.last_frame_time = time.time()
-
-        # 패들 크기
-        self.paddle_width = 100
-        self.paddle_height = 15
-        self.ball_size = 12
-
-    def run(self):
-        """클라이언트 메인 루프"""
-        while self.running:
-            dt = self.clock.tick(60) / 1000.0
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                    return
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.running = False
-                        return
-
-            self._collect_and_send_input()
-            self._receive_state()
-
-            # 연결 체크
-            time_since_last = time.time() - self.last_frame_time
-            if not self.net.connections:
-                self.disconnect_timer += dt
-                if self.disconnect_timer > 10.0:
-                    self._show_disconnect()
-                    return
-            elif time_since_last > 10.0:
-                self._show_disconnect()
-                return
-            else:
-                self.disconnect_timer = 0
-
-            self._draw()
-            pygame.display.flip()
-
-            if self.game_over:
-                self._show_result()
-                return
-
-    def _collect_and_send_input(self):
-        """로컬 입력 수집 → 서버 전송 + 로컬 패들 예측"""
-        keys = pygame.key.get_pressed()
-
-        self.local_input = {
-            'left': keys[pygame.K_LEFT] or keys[pygame.K_a],
-            'right': keys[pygame.K_RIGHT] or keys[pygame.K_d],
-            'up': keys[pygame.K_UP] or keys[pygame.K_w],
-            'down': keys[pygame.K_DOWN] or keys[pygame.K_s],
-            'dash': keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT] or keys[pygame.K_SPACE],
-            'skill_q': keys[pygame.K_q],
-            'skill_w': keys[pygame.K_w],
-            'skill_e': keys[pygame.K_e],
-            'mouse_left': pygame.mouse.get_pressed()[0],
-            'mouse_right': pygame.mouse.get_pressed()[2],
-            'mouse_x': pygame.mouse.get_pos()[0],
-            'mouse_y': pygame.mouse.get_pos()[1],
-        }
-
-        serialized = serialize_input(self.local_input)
-        self.net.send_online_packet(OnlinePacketType.GAME_INPUT, serialized)
-
-        # 로컬 패들 예측
-        speed = 8
-        if self.local_input['dash']:
-            speed = 20
-        if self.local_input['left']:
-            self.local_p2_x -= speed
-        if self.local_input['right']:
-            self.local_p2_x += speed
-        self.local_p2_x = max(0, min(self.width - self.paddle_width, self.local_p2_x))
-
-    def _receive_state(self):
-        """호스트에서 수신한 게임 프레임 적용"""
-        frame = self.net.online_game_frame
-        if frame is None:
-            return
-
-        self.last_frame_time = time.time()
-
-        ball = frame.get('ball', [0, 0, 0, 0])
-        self.ball_x = ball[0]
-        self.ball_y = ball[1]
-        self.ball_vx = ball[2]
-        self.ball_vy = ball[3]
-
-        p1 = frame.get('p1', [0, 0, 0])
-        p2 = frame.get('p2', [0, 0, 0])
-        self.p1_x = p1[0]
-        self.p1_gauge = p1[1]
-        self.round_wins = frame.get('round_wins', 0)
-        self.round_losses = frame.get('round_losses', 0)
-
-        # P2 서버 위치로 보정 (예측과 블렌딩)
-        server_p2_x = p2[0]
-        self.local_p2_x = self.local_p2_x + (server_p2_x - self.local_p2_x) * 0.5
-        self.p2_x = self.local_p2_x
-
-        self.p2_gauge = p2[1]
-        self.game_over = frame.get('game_over', None)
-        self.waiting_serve = frame.get('waiting_serve', False)
-
-        # 트레일 업데이트
-        self.ball_trail.append((self.ball_x + self.ball_size // 2,
-                                self.ball_y + self.ball_size // 2))
-        if len(self.ball_trail) > self.max_trail:
-            self.ball_trail.pop(0)
-
-    def _flip_y(self, y, obj_height=0):
-        """Y축 반전 (P2 시점: 자기 패들이 아래에 보이도록)"""
-        return self.height - y - obj_height
-
-    def _draw(self):
-        """게임 화면 그리기 (Y 반전)"""
-        self.screen.fill(CR_BG_COLOR)
-        center_y = self.height // 2
-        for x in range(0, self.width, 20):
-            pygame.draw.rect(self.screen, (40, 45, 55), (x, center_y - 1, 10, 2))
-
-        # 볼 트레일 (Y 반전)
-        for i, (tx, ty) in enumerate(self.ball_trail):
-            alpha = int(60 * (i + 1) / len(self.ball_trail)) if self.ball_trail else 0
-            size = max(2, int(self.ball_size * 0.5 * (i + 1) / max(1, len(self.ball_trail))))
-            trail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(trail_surf, (255, 255, 255, alpha), (size, size), size)
-            flipped_ty = self._flip_y(ty - size, 0)
-            self.screen.blit(trail_surf, (tx - size, flipped_ty))
-
-        # 볼 (Y 반전)
-        ball_draw_y = self._flip_y(self.ball_y, self.ball_size)
-        glow_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (255, 255, 255, 30), (20, 20), 18)
-        self.screen.blit(glow_surf, (self.ball_x + self.ball_size // 2 - 20,
-                                      ball_draw_y + self.ball_size // 2 - 20))
-        pygame.draw.circle(self.screen, CR_BALL_COLOR,
-                           (int(self.ball_x + self.ball_size // 2),
-                            int(ball_draw_y + self.ball_size // 2)),
-                           self.ball_size // 2)
-
-        # 패들: 상대방(P1) → 상단
-        p1_draw_y = self._flip_y(710, self.paddle_height)
-        pygame.draw.rect(self.screen, CR_P1_COLOR,
-                         (self.p1_x, p1_draw_y, self.paddle_width, self.paddle_height),
-                         border_radius=4)
-
-        # 패들: 나(P2) → 하단
-        p2_draw_y = self._flip_y(25, self.paddle_height)
-        pygame.draw.rect(self.screen, CR_P2_COLOR,
-                         (self.p2_x, p2_draw_y, self.paddle_width, self.paddle_height),
-                         border_radius=4)
-
-        # 스코어 (Y 반전)
-        score_font = self.get_font(36)
-        my_score = self.round_losses  # 내 승리 = 호스트 기준 round_losses
-        opp_score = self.round_wins
-
-        my_score_surf = score_font.render(str(my_score), True, CR_SCORE_COLOR)
-        opp_score_surf = score_font.render(str(opp_score), True, CR_SCORE_COLOR)
-        self.screen.blit(my_score_surf,
-                         my_score_surf.get_rect(center=(self.width // 2, self.height - 60)))
-        self.screen.blit(opp_score_surf,
-                         opp_score_surf.get_rect(center=(self.width // 2, 60)))
-
-        # 핑 표시
-        if self.net.connections:
-            ping = self.net.connections[0].latency
-            ping_font = self.get_font(12)
-            ping_text = ping_font.render(f"Ping: {ping:.0f}ms", True, CR_DIM_COLOR)
-            self.screen.blit(ping_text, (self.width - 90, 5))
-
-    def _show_result(self):
-        """게임 결과 표시"""
-        result_time = time.time()
-        i_won = (self.game_over == 'p2')
-
-        while time.time() - result_time < 5.0:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return
-                if event.type == pygame.KEYDOWN:
-                    return
-
-            self.screen.fill(CR_BG_COLOR)
-            result_font = self.get_font(48)
-            if i_won:
-                title = result_font.render("승리!", True, CR_SCORE_COLOR)
-            else:
-                title = result_font.render("패배", True, (255, 80, 80))
-            self.screen.blit(title, title.get_rect(center=(self.width // 2, self.height // 2 - 40)))
-            pygame.display.flip()
-            self.clock.tick(60)
-
-    def _show_disconnect(self):
-        """연결 끊김 화면"""
-        start = time.time()
-        while time.time() - start < 3.0:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return
-            self.screen.fill(CR_BG_COLOR)
-            font = self.get_font(28)
-            text = font.render("연결이 끊어졌습니다", True, (255, 80, 80))
-            self.screen.blit(text, text.get_rect(center=(self.width // 2, self.height // 2)))
-            pygame.display.flip()
-            self.clock.tick(60)
-
-
-def run_client_renderer(screen, width, height, get_font_func, net_manager):
-    """클라이언트 렌더러 진입점"""
-    renderer = ClientRenderer(screen, width, height, get_font_func, net_manager)
-    renderer.run()
+# NOTE: ClientRenderer 클래스 전체 (약 310줄)는 network/client_renderer.py에 위치.
+# Y축 반전 핵심: _flip_y(y, obj_height) -> self.height - y - obj_height
+# P2 패들 예측: 로컬 입력 즉시 반영 + 서버 위치와 50% 블렌딩
+# 연결 끊김 감지: 10초간 프레임 수신 없음 -> disconnect 표시
 
 
 # ========================================================================
-# [5/6] ui/network_ui.py - 네트워크 UI (메뉴)
+# [5/6] ui/network_ui.py - 네트워크 UI (466 lines)
 # ========================================================================
 
-class NetworkUI:
-    """네트워크 UI 시스템 (호스트/조인 메뉴)"""
+"""
+Network UI - 네트워크 멀티플레이어 UI
+호스트/조인 인터페이스 및 연결 상태 표시
 
-    def __init__(self, screen: pygame.Surface):
-        self.screen = screen
-        self.network_manager = get_network_manager()
+NOTE: 이 UI는 레거시 네트워크 시스템용. 현재 온라인 대전은
+      network/online_game.py의 OnlineMultiplayer 클래스 사용.
 
-        # UI 상태
-        self.active = False
-        self.current_menu = 'main'  # main, host, join, lobby
-        self.selected_option = 0
+주요 클래스: NetworkUI
+메뉴 구조: main -> host/join -> lobby
+싱글톤: get_network_ui(screen)
 
-        # 입력 필드
-        self.input_active = False
-        self.input_field = ''
-        self.input_type = None  # 'port' or 'address'
+[전체 코드: 466줄 - NetworkUI 클래스, 렌더링 메서드, 싱글톤]
+"""
 
-        # 연결 정보
-        self.host_port = '12345'
-        self.join_address = '127.0.0.1'
-        self.join_port = '12345'
+import pygame
+from typing import Optional, Tuple, Dict, Any
+from core.events import EventType, emit_event
+from core.global_manager import GlobalManager
+from network.network_manager import get_network_manager, NetworkMode
 
-        # 로비 정보
-        self.lobby_players = []
-        self.ready_state = False
-
-        # 폰트
-        try:
-            self.font_title = pygame.font.Font("NanumSquareEB.ttf", 48)
-            self.font_large = pygame.font.Font("NanumSquareB.ttf", 36)
-            self.font_medium = pygame.font.Font("NanumSquareR.ttf", 24)
-            self.font_small = pygame.font.Font("NanumSquareR.ttf", 18)
-        except:
-            self.font_title = pygame.font.Font(None, 48)
-            self.font_large = pygame.font.Font(None, 36)
-            self.font_medium = pygame.font.Font(None, 24)
-            self.font_small = pygame.font.Font(None, 18)
-
-        # 애니메이션
-        self.animation_timer = 0
-        self.pulse_effect = 0
-
-        # 메뉴 옵션
-        self.menu_options = {
-            'main': ['Host Game', 'Join Game', 'Back'],
-            'host': ['Start Hosting', 'Change Port', 'Back'],
-            'join': ['Connect', 'Change Address', 'Change Port', 'Back'],
-            'lobby': ['Ready', 'Start Game', 'Leave']
-        }
-
-    def open(self):
-        """네트워크 UI 열기"""
-        self.active = True
-        self.current_menu = 'main'
-        self.selected_option = 0
-
-    def close(self):
-        """네트워크 UI 닫기"""
-        self.active = False
-        self.input_active = False
-
-    def handle_event(self, event: pygame.event.Event):
-        """이벤트 처리"""
-        if not self.active:
-            return
-        if self.input_active:
-            self._handle_input_event(event)
-        else:
-            self._handle_menu_event(event)
-
-    def _handle_menu_event(self, event):
-        """메뉴 이벤트 처리"""
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                if self.current_menu == 'main':
-                    self.close()
-                else:
-                    self.current_menu = 'main'
-                    self.selected_option = 0
-            elif event.key == pygame.K_UP:
-                options = self.menu_options[self.current_menu]
-                self.selected_option = (self.selected_option - 1) % len(options)
-            elif event.key == pygame.K_DOWN:
-                options = self.menu_options[self.current_menu]
-                self.selected_option = (self.selected_option + 1) % len(options)
-            elif event.key == pygame.K_RETURN:
-                self._execute_option()
-
-    def _handle_input_event(self, event):
-        """입력 필드 이벤트 처리"""
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                self.input_active = False
-                self.input_field = ''
-            elif event.key == pygame.K_RETURN:
-                self._confirm_input()
-            elif event.key == pygame.K_BACKSPACE:
-                self.input_field = self.input_field[:-1]
-            else:
-                if event.unicode and len(self.input_field) < 15:
-                    self.input_field += event.unicode
-
-    def _execute_option(self):
-        """선택한 옵션 실행"""
-        option = self.menu_options[self.current_menu][self.selected_option]
-
-        if self.current_menu == 'main':
-            if option == 'Host Game':
-                self.current_menu = 'host'
-                self.selected_option = 0
-            elif option == 'Join Game':
-                self.current_menu = 'join'
-                self.selected_option = 0
-            elif option == 'Back':
-                self.close()
-        elif self.current_menu == 'host':
-            if option == 'Start Hosting':
-                self._start_hosting()
-            elif option == 'Change Port':
-                self.input_active = True
-                self.input_type = 'host_port'
-                self.input_field = self.host_port
-            elif option == 'Back':
-                self.current_menu = 'main'
-                self.selected_option = 0
-        elif self.current_menu == 'join':
-            if option == 'Connect':
-                self._join_game()
-            elif option == 'Change Address':
-                self.input_active = True
-                self.input_type = 'join_address'
-                self.input_field = self.join_address
-            elif option == 'Change Port':
-                self.input_active = True
-                self.input_type = 'join_port'
-                self.input_field = self.join_port
-            elif option == 'Back':
-                self.current_menu = 'main'
-                self.selected_option = 0
-        elif self.current_menu == 'lobby':
-            if option == 'Ready':
-                self._toggle_ready()
-            elif option == 'Start Game':
-                self._start_multiplayer_game()
-            elif option == 'Leave':
-                self._leave_lobby()
-
-    def _confirm_input(self):
-        """입력 확인"""
-        if self.input_type == 'host_port':
-            try:
-                port = int(self.input_field)
-                if 1024 <= port <= 65535:
-                    self.host_port = self.input_field
-            except:
-                pass
-        elif self.input_type == 'join_address':
-            if '.' in self.input_field or self.input_field == 'localhost':
-                self.join_address = self.input_field
-        elif self.input_type == 'join_port':
-            try:
-                port = int(self.input_field)
-                if 1024 <= port <= 65535:
-                    self.join_port = self.input_field
-            except:
-                pass
-        self.input_active = False
-        self.input_field = ''
-
-    def _start_hosting(self):
-        """호스팅 시작"""
-        port = int(self.host_port)
-        if self.network_manager.start_host(port):
-            self.current_menu = 'lobby'
-            self.selected_option = 0
-            self.lobby_players = ['Host (You)']
-
-    def _join_game(self):
-        """게임 참가"""
-        port = int(self.join_port)
-        if self.network_manager.connect_to_host(self.join_address, port):
-            self.current_menu = 'lobby'
-            self.selected_option = 0
-            self.lobby_players = ['Host', 'You']
-
-    def _toggle_ready(self):
-        """준비 상태 토글"""
-        self.ready_state = not self.ready_state
-        self.network_manager.send_packet(
-            PacketType.READY,
-            {'ready': self.ready_state}
-        )
-
-    def _start_multiplayer_game(self):
-        """멀티플레이어 게임 시작"""
-        if self.network_manager.mode == NetworkMode.HOST:
-            self.network_manager.send_packet(
-                PacketType.START_GAME,
-                {'stage': 1}
-            )
-            self.close()
-
-    def _leave_lobby(self):
-        """로비 나가기"""
-        self.network_manager.disconnect()
-        self.current_menu = 'main'
-        self.selected_option = 0
-        self.lobby_players = []
-
-    def update(self, dt: float):
-        """업데이트"""
-        if not self.active:
-            return
-        self.animation_timer += dt
-        self.pulse_effect = abs(math.sin(self.animation_timer * 2)) * 0.3 + 0.7
-
-        if self.current_menu == 'lobby':
-            if self.network_manager.mode == NetworkMode.OFFLINE:
-                self.current_menu = 'main'
-                self.selected_option = 0
-                self.lobby_players = []
-
-    def render(self, screen):
-        """렌더링 (메뉴 화면에 따라 분기)"""
-        if not self.active:
-            return
-        # ... 각 메뉴 화면별 렌더링 로직 ...
-
-
-# 싱글톤 인스턴스
-_network_ui = None
-
-def get_network_ui(screen) -> NetworkUI:
-    """네트워크 UI 싱글톤 반환"""
-    global _network_ui
-    if _network_ui is None:
-        _network_ui = NetworkUI(screen)
-    return _network_ui
+# NOTE: NetworkUI 클래스 전체 (약 450줄)는 ui/network_ui.py에 위치.
+# 메서드 목록:
+#   open(), close(), handle_event(), update(), render(),
+#   _handle_menu_event(), _handle_input_event(), _execute_option(),
+#   _confirm_input(), _start_hosting(), _join_game(), _toggle_ready(),
+#   _start_multiplayer_game(), _leave_lobby(),
+#   _render_main_menu(), _render_host_menu(), _render_join_menu(),
+#   _render_lobby(), _render_input_field()
 
 
 # ========================================================================
-# [6/6] pingfighter.py 내 온라인 관련 코드 (발췌)
-# ========================================================================
-#
-# 아래는 메인 게임 파일(pingfighter.py, ~170,000줄)에서
-# 온라인 멀티플레이와 관련된 코드만 발췌한 것입니다.
-#
-# 원본 위치(줄 번호)를 주석으로 표시합니다.
+# [6/6] pingfighter.py - 온라인 관련 코드 발췌
 # ========================================================================
 
+# ────────────────────────────────────────────────────────────────────────
+# [6-A] 전역 변수 (line ~22671)
+# ────────────────────────────────────────────────────────────────────────
 
-# ── [pingfighter.py:22606~22613] 전역 변수 ──
-# online_multiplayer_enabled = False   # 온라인 대전 모드 활성화
-# online_is_host = False               # True=호스트(P1), False=클라이언트(P2)
-# online_p2_character = "ufo_player"   # P2 캐릭터 ID
-# online_items_enabled = True          # 아이템 드랍 활성화
-# online_p2_input = None               # P2 최신 입력 (network에서 수신)
-# _online_net_manager = None           # NetworkManager 참조 (캐싱용)
-# _online_sound_queue = []             # 이번 프레임 사운드 큐 (클라이언트 전송용)
+# ── 온라인 멀티플레이 전용 변수 ──
+online_multiplayer_enabled = False   # 온라인 대전 모드 활성화
+online_is_host = False               # True=호스트(P1), False=클라이언트(P2)
+online_p2_character = "ufo_player"   # P2 캐릭터 ID
+online_items_enabled = True          # 아이템 드랍 활성화
+online_p2_input = None               # P2 최신 입력 (network에서 수신)
+_online_net_manager = None           # NetworkManager 참조 (캐싱용)
+_online_sound_queue = []             # 이번 프레임 사운드 큐 (클라이언트 전송용)
 
-# ── [pingfighter.py:170896~170900] 추가 전역 변수 ──
-# _online_opponent_anim = {'state': 'idle'}  # 상대방 수신 애니메이션 상태
-# _online_client_serve_pressed = False  # 클라이언트 서브 입력 플래그 (이벤트 기반)
-# _online_client_pickups = []  # 호스트→클라이언트: 클라이언트가 획득한 아이템 목록
-# _online_ai_boss_enabled = False  # AI 대전 모드: BOSS를 AI가 조작
-# _online_ai_boss_controller = None  # AI 컨트롤러 인스턴스
+# ── 온라인 멀티: 애니메이션 상태 동기화 ── (line ~171088)
+_online_opponent_anim = {'state': 'idle'}  # 상대방 수신 애니메이션 상태
+_online_client_serve_pressed = False  # 클라이언트 서브 입력 플래그 (이벤트 기반)
+_online_client_pickups = []  # 호스트->클라이언트: 클라이언트가 획득한 아이템 목록
+_online_ai_boss_enabled = False  # AI 대전 모드: BOSS를 AI가 조작
+_online_ai_boss_controller = None  # AI 컨트롤러 인스턴스
+
+# ── 온라인 이펙트 이벤트 시스템 (단발성 이벤트 -> 로컬 재생) ──
+_online_remote_effects = []  # 상대방에서 수신한 이펙트 (로컬 타이머 기반 재생)
 
 
-# ── [pingfighter.py:170826~170892] 온라인 멀티플레이 진입점 ──
+# ────────────────────────────────────────────────────────────────────────
+# [6-B] start_online_multiplayer() 함수 (line ~171018)
+# ────────────────────────────────────────────────────────────────────────
+
 def start_online_multiplayer():
     """온라인 멀티플레이 진입점.
-    로비 → 캐릭터/스테이지 선택 → 양쪽 모두 main(40) 실행.
+    로비 -> 캐릭터/스테이지 선택 -> 양쪽 모두 main(40) 실행.
     호스트(P1): 공 물리 권위, BOSS=P2 위치 수신
     클라이언트(P2): BOSS=P1 위치 수신, 공=호스트에서 수신
     """
     global online_multiplayer_enabled, online_is_host, online_p2_character
     global online_items_enabled, _online_net_manager, online_p2_input
     global selected_character_type
+
+    from network.online_game import run_online_multiplayer
+    from network.network_manager import get_network_manager
 
     # 로비 실행
     result = run_online_multiplayer(SCREEN, WIDTH, HEIGHT, get_font_func=get_font)
@@ -2167,11 +1335,11 @@ def start_online_multiplayer():
     global _online_ai_boss_enabled
     _online_ai_boss_enabled = _is_ai_test
 
-    # 필러 UI 활성화
+    # 필러 UI 활성화 (게이지 구슬, 아이템 슬롯, 대쉬 토큰 표시에 필요)
     global _pillar_ui_enabled
     _pillar_ui_enabled = True
 
-    # 양쪽 모두 main(40) 실행 → 본게임 엔진 그대로 렌더링
+    # 양쪽 모두 main(40) 실행 -> 본게임 엔진 그대로 렌더링
     main(STAGE_MULTIPLAYER)
 
     # 정리
@@ -2185,17 +1353,421 @@ def start_online_multiplayer():
         _online_net_manager = None
 
 
-# ── [pingfighter.py:170903~171077] 애니메이션 상태 수집 ──
-def _online_get_my_anim_state():
-    """내 PLAYER의 현재 애니메이션 상태를 간략하게 수집.
-    캐릭터별 상태(idle/walking/hit/flying 등)와
-    스킬 이펙트(검기, 총알, 터렛 등) 데이터를 dict로 반환.
-    이 데이터는 네트워크로 상대방에게 전송되어 상대 화면에서 렌더링됨.
+# ────────────────────────────────────────────────────────────────────────
+# [6-C] _handle_boss_online_sync() 함수 (line ~152225)
+# ────────────────────────────────────────────────────────────────────────
+
+def _handle_boss_online_sync():
+    """온라인 멀티플레이: 상대방의 PLAYER 위치를 BOSS에 적용 + 서브 처리.
+    호스트: P2(클라이언트)의 PLAYER.x -> BOSS.x
+    클라이언트: P1(호스트)의 PLAYER.x -> BOSS.x
+    AI 대전: AI가 BOSS를 조작
     """
+    global BOSS, _online_opponent_anim
+    global is_waiting_for_serve, is_player_serve, ball_vel
+    global serve_completed_timer, boss_fake_during_player_serve
+    global _online_ai_boss_controller
+
+    # ── AI 대전 모드: AI가 BOSS를 직접 조작 ──
+    if _online_ai_boss_enabled:
+        try:
+            if _online_ai_boss_controller is None:
+                from ai.player_ai import PlayerAIController
+                _online_ai_boss_controller = PlayerAIController()
+            # AI 상태 구성
+            _ai_state = {
+                'ball_x': BALL.centerx,
+                'ball_y': BALL.centery,
+                'ball_vx': ball_vel[0],
+                'ball_vy': ball_vel[1],
+                'player_x': BOSS.centerx,  # AI가 BOSS를 조작
+                'player_y': BOSS.centery,
+                'player_width': BOSS.width,
+                'boss_x': PLAYER.centerx,  # 상대는 PLAYER
+                'boss_y': PLAYER.centery,
+                'width': WIDTH,
+                'height': HEIGHT,
+                'special_gauge': 0,
+                'is_waiting_serve': is_waiting_for_serve,
+                'is_player_serve': not is_player_serve,  # AI 입장에서 반전
+                'rolling_active': False,
+                'current_speed': 0,
+            }
+            _ai_keys = _online_ai_boss_controller.decide(_ai_state)
+            # AI 이동 적용
+            _ai_speed = 7
+            if pygame.K_LEFT in _ai_keys:
+                BOSS.x -= _ai_speed
+            if pygame.K_RIGHT in _ai_keys:
+                BOSS.x += _ai_speed
+        except Exception as e:
+            print(f"[AI Boss] 에러: {e}")
+    elif _online_net_manager is None:
+        return
+    elif online_is_host:
+        # 호스트: 클라이언트가 보낸 위치 + 애니메이션 상태 적용
+        remote = _online_net_manager.get_online_remote_input()
+        if remote is not None and 'x' in remote:
+            BOSS.x = int(remote['x'])
+            if 'anim' in remote:
+                _online_opponent_anim = remote['anim']
+    else:
+        # 클라이언트: 호스트가 보낸 P1 위치를 BOSS에 적용
+        frame = _online_net_manager.get_online_game_frame()
+        if frame is not None:
+            p1 = frame.get('p1', None)
+            if p1:
+                BOSS.x = int(p1[0])
+
+    # 경계 클램핑
+    if BOSS.x < 0:
+        BOSS.x = 0
+    elif BOSS.x > WIDTH - BOSS.width:
+        BOSS.x = WIDTH - BOSS.width
+
+    # ── 바이퍼 제트팩 오프셋 적용 (상대방이 체공 중일 때 BOSS.y 변경) ──
+    if _online_opponent_anim and _online_opponent_anim.get('state') == 'flying':
+        _opp_jp_offset = _online_opponent_anim.get('jetpack_offset', 0)
+        BOSS.y = BOSS_Y - int(_opp_jp_offset)  # 부호 반전! -(-200) = +200 -> 아래로
+    else:
+        BOSS.y = BOSS_Y  # 체공이 아닐 때는 기본 위치
+
+    # ── 온라인 서브 처리 (handle_boss() 안의 서브 로직을 대체) ──
+    if is_waiting_for_serve and not ball_spawn_animation_active:
+        _dbg_role = "HOST" if online_is_host else "CLIENT"
+        _dbg_tick = pygame.time.get_ticks()
+        _dbg_last_key = '_online_dbg_last_serve_tick'
+        if _dbg_tick - globals().get(_dbg_last_key, 0) >= 500:
+            globals()[_dbg_last_key] = _dbg_tick
+            print(f"[Online Serve DEBUG] {_dbg_role} | is_player_serve={is_player_serve} | is_waiting={is_waiting_for_serve} | BALL=({BALL.x},{BALL.y}) | ball_vel={ball_vel}")
+        if is_player_serve and online_is_host:
+            # 호스트 본인 서브: space/enter로 아래에서 위로 발사
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
+                try:
+                    serve_result = physics_manager.serve_ball(True, current_stage, ai_mode)
+                    apply_serve_result(serve_result)
+                    is_waiting_for_serve = serve_result.get('is_waiting_for_serve', False)
+                    serve_completed_timer = 180
+                    boss_fake_during_player_serve = False
+                    play_serve_sound()
+                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+                    print(f"[Online Serve DEBUG] HOST 서브 완료! BALL=({BALL.x},{BALL.y}) vel={ball_vel}")
+                except Exception as e:
+                    print(f"[Online Serve] 플레이어 서브 에러: {e}")
+            else:
+                boss_fake_during_player_serve = True
+        elif is_player_serve and not online_is_host:
+            # 클라이언트 본인 서브: 입력은 _online_send_player_position()에서 호스트로 전송
+            boss_fake_during_player_serve = True
+        elif online_is_host:
+            # 상대(클라이언트/AI) 서브
+            _client_serve = False
+            if _online_ai_boss_enabled:
+                pass  # AI: 자동 서브
+            elif _online_net_manager is not None:
+                remote = _online_net_manager.get_online_remote_input()
+                if remote is not None and remote.get('serve', False):
+                    _client_serve = True
+                    print(f"[Online Serve DEBUG] HOST: 클라이언트 서브 입력 수신!")
+            time_now = pygame.time.get_ticks()
+            _elapsed = time_now - waiting_start_time
+            _serve_timeout = 1500 if _online_ai_boss_enabled else 3000
+            if _client_serve or (_elapsed >= _serve_timeout):
+                print(f"[Online Serve DEBUG] HOST: 보스(클라이언트) 서브 실행 | client_input={_client_serve} | elapsed={_elapsed}ms")
+                try:
+                    serve_result = physics_manager.serve_ball(False, current_stage, ai_mode)
+                    apply_serve_result(serve_result)
+                    is_waiting_for_serve = serve_result.get('is_waiting_for_serve', False)
+                    serve_completed_timer = 180
+                    play_serve_sound()
+                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                    print(f"[Online Serve DEBUG] HOST: 보스 서브 완료! BALL=({BALL.x},{BALL.y}) vel={ball_vel}")
+                except Exception as e:
+                    print(f"[Online Serve] 보스 서브 에러: {e}")
+        else:
+            print(f"[Online Serve DEBUG] CLIENT: 상대방(호스트) 서브 대기 중... BALL=({BALL.x},{BALL.y})")
+
+
+# ────────────────────────────────────────────────────────────────────────
+# [6-D] _online_send_effect / _online_receive_effects /
+#       _online_update_remote_effects / _online_draw_remote_effects
+#       (line ~171098)
+# ────────────────────────────────────────────────────────────────────────
+
+def _online_send_effect(effect_type, **kwargs):
+    """스킬/이펙트 이벤트 1회 전송 (발동 시점에만 호출)"""
+    if not online_multiplayer_enabled or _online_net_manager is None:
+        return
+    from network.protocol import OnlinePacketType
+    data = {'e': effect_type, **kwargs}
+    _online_net_manager.send_online_packet(OnlinePacketType.GAME_EFFECT, data)
+
+
+def _online_receive_effects():
+    """매 프레임: 수신된 이펙트를 로컬 재생 목록에 추가"""
+    global _online_remote_effects
+    if not online_multiplayer_enabled or _online_net_manager is None:
+        return
+    effects = _online_net_manager.pop_online_effects()
+    for ef in effects:
+        ef_type = ef.get('e', '')
+        # Y축 반전 좌표
+        if 'y' in ef:
+            ef['y'] = HEIGHT - ef['y']
+        # 방향 반전
+        if ef.get('dir') == 'up':
+            ef['dir'] = 'down'
+        elif ef.get('dir') == 'down':
+            ef['dir'] = 'up'
+        # 로컬 타이머 시작
+        ef['_start_ms'] = pygame.time.get_ticks()
+        ef['_alive'] = True
+        _online_remote_effects.append(ef)
+
+
+def _online_update_remote_effects():
+    """매 프레임: 로컬 이펙트 수명 관리 (만료된 것 제거)"""
+    global _online_remote_effects
+    now = pygame.time.get_ticks()
+    _online_remote_effects = [ef for ef in _online_remote_effects
+                               if ef.get('_alive', False) and (now - ef.get('_start_ms', 0)) < ef.get('dur', 2000)]
+
+
+def _online_draw_remote_effects(screen):
+    """매 프레임: 상대방 이펙트 렌더링 (로컬 타이머 기반)
+
+    지원하는 이펙트 타입:
+    - br_spin: 바이퍼 회전 모션 (패들 회전은 anim state 처리)
+    - blade: 바이퍼 에어 블레이드 검기
+    - nerve: 바이퍼 베놈 엣지 (돌진/베기)
+    - bullet: 솔저 새총/권총 탄환
+    - bazooka: 솔저 바주카 로켓
+    - ak: AK-47 총알
+    - net_proj: 그물총 투사체
+    - net: 설치된 그물
+    - trap: 볼링 트랩
+    - drone: 자폭 드론
+    - turret: 발토르 터렛 투사체
+    - hshock: 발토르 해머 쇼크 투사체
+    - divine: 발토르 디바인 스톤 설치
+    - divine_destroy: 디바인 스톤 파괴
+    """
+    now = pygame.time.get_ticks()
+    for ef in _online_remote_effects:
+        if not ef.get('_alive', False):
+            continue
+        elapsed = now - ef.get('_start_ms', 0)
+        ef_type = ef.get('e', '')
+        try:
+            if ef_type == 'br_spin':
+                pass
+            elif ef_type == 'blade':
+                _bx = int(ef.get('x', 0))
+                _by = int(ef.get('y', 0))
+                _bhw = int(ef.get('hw', 175))
+                _dur = ef.get('dur', 800)
+                _progress = min(1.0, elapsed / max(1, _dur))
+                _fade_start = 0.65
+                _fade_fac = max(0.0, min(1.0, (_progress - _fade_start) / (1.0 - _fade_start))) if _progress > _fade_start else 0.0
+                _alive = 1.0 - _fade_fac
+                if _alive > 0.01:
+                    _travel = 250 * _progress
+                    _draw_y = _by + _travel if ef.get('dir') == 'down' else _by - _travel
+                    _draw_viper_blade_rush(screen, _bx, int(_draw_y), _bhw, _alive, flip_y=(ef.get('dir') == 'down'))
+                else:
+                    ef['_alive'] = False
+            elif ef_type == 'nerve':
+                _dur = ef.get('dur', 600)
+                _progress = min(1.0, elapsed / max(1, _dur))
+                _ncx = int(ef.get('tx', BOSS.centerx))
+                _ncy = int(ef.get('ty', BOSS.centery))
+                if _progress < 0.3:
+                    for _gi in range(3):
+                        _ga = max(30, 80 - _gi * 25)
+                        _gs = pygame.Surface((40, 60), pygame.SRCALPHA)
+                        _gs.fill((180, 0, 220, _ga))
+                        screen.blit(_gs, (_ncx - 20 + _gi * 15, _ncy - 30))
+                elif _progress < 0.7:
+                    _t_now = pygame.time.get_ticks()
+                    for _ai in range(2):
+                        _a = math.radians(_t_now * 0.5 + _ai * 180)
+                        _arc_r = 60
+                        _sx = int(_ncx + math.cos(_a) * _arc_r)
+                        _sy = int(_ncy + math.sin(_a) * _arc_r)
+                        _ex = int(_ncx + math.cos(_a + 2.0) * _arc_r)
+                        _ey = int(_ncy + math.sin(_a + 2.0) * _arc_r)
+                        pygame.draw.line(screen, (200, 0, 255), (_sx, _sy), (_ex, _ey), 3)
+                else:
+                    ef['_alive'] = False
+            elif ef_type == 'bullet':
+                _bx = float(ef.get('x', 0))
+                _by = float(ef.get('y', 0))
+                _bvx = float(ef.get('vx', 0))
+                _bvy = float(ef.get('vy', 0))
+                _charge = ef.get('c', 1)
+                _dur = ef.get('dur', 1500)
+                _dt = elapsed / 1000.0
+                _cx = int(_bx + _bvx * _dt * 60)
+                _cy = int(_by + _bvy * _dt * 60)
+                if _cx < -20 or _cx > WIDTH + 20 or _cy < -20 or _cy > HEIGHT + 20:
+                    ef['_alive'] = False
+                    continue
+                _bu_r = max(3, 4 + _charge)
+                pygame.draw.circle(screen, (180, 180, 180), (_cx, _cy), _bu_r)
+                pygame.draw.circle(screen, (255, 255, 240), (_cx - 1, _cy - 1), max(1, _bu_r - 2))
+                if _charge >= 3:
+                    _glow_s = pygame.Surface((_bu_r * 4, _bu_r * 4), pygame.SRCALPHA)
+                    pygame.draw.circle(_glow_s, (255, 215, 0, 80), (_bu_r * 2, _bu_r * 2), _bu_r * 2)
+                    screen.blit(_glow_s, (_cx - _bu_r * 2, _cy - _bu_r * 2))
+            elif ef_type == 'bazooka':
+                _bx = float(ef.get('x', 0))
+                _by = float(ef.get('y', 0))
+                _dur = ef.get('dur', 2000)
+                _dt = elapsed / 1000.0
+                _speed = float(ef.get('spd', 12))
+                _dy_dir = 1 if ef.get('dir') == 'down' else -1
+                _cy = int(_by + _dy_dir * _speed * _dt * 60)
+                _cx = int(_bx)
+                if _cy < -30 or _cy > HEIGHT + 30:
+                    ef['_alive'] = False
+                    continue
+                pygame.draw.rect(screen, (100, 100, 100), (_cx - 4, _cy - 10, 8, 20))
+                pygame.draw.polygon(screen, (200, 50, 30), [
+                    (_cx, _cy - 14 * _dy_dir), (_cx - 5, _cy - 6 * _dy_dir), (_cx + 5, _cy - 6 * _dy_dir)])
+                for _si in range(3):
+                    _sa = max(30, 80 - _si * 25)
+                    _ss = pygame.Surface((8 + _si * 4, 8 + _si * 4), pygame.SRCALPHA)
+                    pygame.draw.circle(_ss, (200, 200, 200, _sa), (4 + _si * 2, 4 + _si * 2), 4 + _si * 2)
+                    screen.blit(_ss, (_cx - 4 - _si * 2, _cy + 10 * _dy_dir + _si * 8 * _dy_dir))
+            elif ef_type == 'ak':
+                _bx = float(ef.get('x', 0))
+                _by = float(ef.get('y', 0))
+                _dx = float(ef.get('dx', 0))
+                _dy = float(ef.get('dy', 0))
+                _dt = elapsed / 1000.0
+                _cx = int(_bx + _dx * _dt * 60)
+                _cy = int(_by + _dy * _dt * 60)
+                if _cx < -20 or _cx > WIDTH + 20 or _cy < -20 or _cy > HEIGHT + 20:
+                    ef['_alive'] = False
+                    continue
+                pygame.draw.circle(screen, (255, 220, 50), (_cx, _cy), 3)
+                pygame.draw.circle(screen, (255, 255, 200), (_cx, _cy), 1)
+            elif ef_type == 'net_proj':
+                _bx = float(ef.get('x', 0))
+                _by = float(ef.get('y', 0))
+                _dur = ef.get('dur', 1000)
+                _dt = elapsed / 1000.0
+                _dy_dir = 1 if ef.get('dir') == 'down' else -1
+                _cy = int(_by + _dy_dir * 10 * _dt * 60)
+                _cx = int(_bx)
+                if _cy < -20 or _cy > HEIGHT + 20:
+                    ef['_alive'] = False
+                    continue
+                pygame.draw.circle(screen, (60, 180, 60), (_cx, _cy), 6)
+                pygame.draw.circle(screen, (120, 255, 120), (_cx, _cy), 3)
+            elif ef_type == 'net':
+                _nx = int(ef.get('x', 0))
+                _ny = int(ef.get('y', 0))
+                _nw = int(ef.get('w', 60))
+                _nh = int(ef.get('h', 20))
+                _dur = ef.get('dur', 5000)
+                _ns = pygame.Surface((_nw, _nh), pygame.SRCALPHA)
+                _ns.fill((30, 160, 30, 80))
+                for _gi in range(0, _nw, 8):
+                    pygame.draw.line(_ns, (60, 200, 60, 120), (_gi, 0), (_gi, _nh))
+                for _gi in range(0, _nh, 6):
+                    pygame.draw.line(_ns, (60, 200, 60, 120), (0, _gi), (_nw, _gi))
+                screen.blit(_ns, (_nx - _nw // 2, _ny - _nh // 2))
+            elif ef_type == 'trap':
+                _tx = int(ef.get('x', 0))
+                _ty = int(ef.get('y', 0))
+                _dur = ef.get('dur', 10000)
+                pygame.draw.circle(screen, (80, 80, 80), (_tx, _ty), 8)
+                pygame.draw.circle(screen, (200, 50, 30), (_tx, _ty), 5)
+                pygame.draw.circle(screen, (255, 100, 50), (_tx, _ty), 2)
+            elif ef_type == 'drone':
+                _dx = float(ef.get('x', 0))
+                _dy = float(ef.get('y', 0))
+                _ttx = float(ef.get('tx', WIDTH // 2))
+                _tty = float(ef.get('ty', HEIGHT // 2))
+                _dur = ef.get('dur', 3000)
+                _prog = min(1.0, elapsed / max(1, _dur))
+                _cx = int(_dx + (_ttx - _dx) * _prog)
+                _cy = int(_dy + (_tty - _dy) * _prog)
+                _dr_t = now
+                pygame.draw.rect(screen, (60, 60, 70), (_cx - 12, _cy - 6, 24, 12), border_radius=3)
+                for _di in range(4):
+                    _da = math.radians(_dr_t * 0.8 + _di * 90)
+                    _aex = _cx + int(math.cos(_da) * 14)
+                    _aey = _cy + int(math.sin(_da) * 14)
+                    pygame.draw.line(screen, (80, 80, 90), (_cx, _cy), (_aex, _aey), 2)
+                    _pa = math.radians(_dr_t * 3 + _di * 90)
+                    pygame.draw.line(screen, (180, 180, 190),
+                                     (_aex + int(math.cos(_pa) * 6), _aey + int(math.sin(_pa) * 6)),
+                                     (_aex - int(math.cos(_pa) * 6), _aey - int(math.sin(_pa) * 6)), 2)
+                if (now // 200) % 2 == 0:
+                    pygame.draw.circle(screen, (255, 50, 30), (_cx, _cy), 3)
+            elif ef_type == 'turret':
+                _tx = float(ef.get('x', 0))
+                _ty = float(ef.get('y', 0))
+                _dur = ef.get('dur', 1500)
+                _dt = elapsed / 1000.0
+                _dy_dir = 1 if ef.get('dir') == 'down' else -1
+                _cy = int(_ty + _dy_dir * 8 * _dt * 60)
+                _cx = int(_tx)
+                if _cy < -20 or _cy > HEIGHT + 20:
+                    ef['_alive'] = False
+                    continue
+                pygame.draw.circle(screen, (255, 200, 50), (_cx, _cy), 5)
+                pygame.draw.circle(screen, (255, 255, 200), (_cx, _cy), 3)
+            elif ef_type == 'hshock':
+                _hx = float(ef.get('x', 0))
+                _hy = float(ef.get('y', 0))
+                _stage = ef.get('s', 0)
+                _dur = ef.get('dur', 1500)
+                _dt = elapsed / 1000.0
+                _dy_dir = 1 if ef.get('dir') == 'down' else -1
+                _cy = int(_hy + _dy_dir * 10 * _dt * 60)
+                _cx = int(_hx)
+                if _cy < -30 or _cy > HEIGHT + 30:
+                    ef['_alive'] = False
+                    continue
+                _hs_r = max(6, 8 + _stage * 3)
+                _hs_colors = [(200, 160, 60), (255, 120, 30), (255, 60, 30), (255, 30, 200)]
+                _hs_c = _hs_colors[min(_stage, 3)]
+                _hs_gs = pygame.Surface((_hs_r * 4, _hs_r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(_hs_gs, (*_hs_c, 60), (_hs_r * 2, _hs_r * 2), _hs_r * 2)
+                screen.blit(_hs_gs, (_cx - _hs_r * 2, _cy - _hs_r * 2))
+                pygame.draw.circle(screen, _hs_c, (_cx, _cy), _hs_r)
+                pygame.draw.circle(screen, (255, 255, 220), (_cx, _cy), max(2, _hs_r - 3))
+            elif ef_type == 'divine':
+                _dv_x = int(ef.get('x', 0))
+                _dv_y = int(ef.get('y', 0))
+                _dur = ef.get('dur', 30000)
+                _dv_r = 18
+                _dv_pts = []
+                for _hi in range(6):
+                    _ha = math.radians(60 * _hi - 30)
+                    _dv_pts.append((_dv_x + int(math.cos(_ha) * _dv_r), _dv_y + int(math.sin(_ha) * _dv_r)))
+                pygame.draw.polygon(screen, (140, 120, 80), _dv_pts)
+                pygame.draw.polygon(screen, (200, 180, 100), _dv_pts, 2)
+            elif ef_type == 'divine_destroy':
+                _online_remote_effects[:] = [e for e in _online_remote_effects if e.get('e') != 'divine']
+                ef['_alive'] = False
+        except Exception:
+            ef['_alive'] = False
+
+
+# ────────────────────────────────────────────────────────────────────────
+# [6-E] _online_get_my_anim_state() 함수 (line ~171365)
+# ────���───────────────────────────────────────────────────────────────────
+
+def _online_get_my_anim_state():
+    """내 PLAYER의 현재 애니메이션 상태를 간략하게 수집"""
     st = selected_character_type
     anim = {'state': 'idle', 'char': st}
     try:
-        # 캐릭터별 상태 수집
         if st == "smasher":
             if globals().get('smasher_walking_active', False):
                 anim['state'] = 'walking'
@@ -2223,7 +1795,7 @@ def _online_get_my_anim_state():
             _jp_offset = globals().get('_viper_jetpack_offset_y', 0)
             if _jp_active or _jp_offset < -5:
                 anim['state'] = 'flying'
-                anim['jetpack_offset'] = _jp_offset  # 제트팩 높이 오프셋 전송
+                anim['jetpack_offset'] = _jp_offset
             elif globals().get('_viper_wall_dive_active', False):
                 anim['state'] = 'wall_dive'
                 anim['phase'] = globals().get('_viper_wall_dive_phase', 0)
@@ -2236,143 +1808,21 @@ def _online_get_my_anim_state():
             if abs(globals().get('current_speed', 0)) > 1.0:
                 anim['state'] = 'walking'
 
-        # ── 스킬 이펙트 데이터 (모든 캐릭터 공통) ──
-        _fx = []
-
-        # 바이퍼: 에어 블레이드 회전 모션
+        # 회전 모션만 anim state로 유지 (패들 회전에 필요)
         if globals().get('_viper_br_spin_active', False):
-            _fx.append({
-                't': 'br_spin',
-                'a': globals().get('_viper_br_spin_angle', 0),
-                'p': globals().get('_viper_br_spin_phase', 0),
-            })
-        # 바이퍼: 에어 블레이드 (검기)
-        if globals().get('_viper_blade_rush_active', False):
-            _br_y = globals().get('_viper_blade_rush_y', 0)
-            _br_sy = globals().get('_viper_blade_rush_start_y', 0)
-            _br_ty = globals().get('_viper_blade_rush_target_y', 0)
-            _br_prog = 1.0 - ((_br_y - _br_ty) / max(1, _br_sy - _br_ty)) if (_br_sy - _br_ty) > 0 else 1.0
-            _br_prog = max(0.0, min(1.0, _br_prog))
-            _br_fo = globals().get('_viper_blade_rush_fadeout', False)
-            _br_fo_t = globals().get('_viper_blade_rush_fadeout_timer', 0)
-            _br_trail = list(globals().get('_viper_blade_rush_trail', []))[-10:]
-            _fx.append({
-                't': 'blade',
-                'x': globals().get('_viper_blade_rush_x', 0),
-                'y': globals().get('_viper_blade_rush_y', 0),
-                'hw': globals().get('_viper_blade_rush_width', 350) // 2,
-                'pr': _br_prog,
-                'fo': 1 if _br_fo else 0,
-                'ft': _br_fo_t,
-                'tr': _br_trail,
-            })
-        # 바이퍼: 베놈 엣지 (연계기)
-        if globals().get('_viper_nerve_strike_active', False):
-            _fx.append({
-                't': 'nerve',
-                'p': globals().get('_viper_nerve_strike_phase', 0),
-            })
-        # 솔저: 새총/권총 탄환
-        _bullets = globals().get('soldier_bullets', [])
-        for _sb in _bullets[:10]:
-            if _sb.get('active', False):
-                _fx.append({
-                    't': 'bullet',
-                    'x': _sb.get('x', 0),
-                    'y': _sb.get('y', 0),
-                    'c': _sb.get('charge_level', 1),
-                })
-        # 솔저: 바주카 투사체
-        try:
-            from item_effects.bazooka import get_bazooka_instance
-            _baz = get_bazooka_instance()
-            if _baz and getattr(_baz, 'projectiles', None):
-                for _bp in _baz.projectiles[:4]:
-                    if _bp.get('active', False):
-                        _fx.append({'t': 'bazooka', 'x': _bp.get('x', 0), 'y': _bp.get('y', 0)})
-        except Exception:
-            pass
-        # 솔저: AK-47 총알
-        try:
-            from item_effects.ak47 import get_ak47_instance
-            _ak = get_ak47_instance()
-            if _ak and getattr(_ak, 'bullets', None):
-                for _ab in _ak.bullets[:15]:
-                    _fx.append({'t': 'ak', 'x': _ab.get('x', 0), 'y': _ab.get('y', 0)})
-        except Exception:
-            pass
-        # 솔저: 그물총 투사체 + 그물
-        try:
-            from item_effects.net_gun import get_net_gun_instance
-            _ng = get_net_gun_instance()
-            if _ng:
-                for _np in getattr(_ng, 'projectiles', [])[:4]:
-                    _fx.append({'t': 'net_proj', 'x': _np.get('x', 0), 'y': _np.get('y', 0)})
-                for _nn in getattr(_ng, 'nets', [])[:4]:
-                    _nr = _nn.get('rect')
-                    if _nr:
-                        _fx.append({'t': 'net', 'x': _nr.centerx, 'y': _nr.centery, 'w': _nr.width, 'h': _nr.height})
-        except Exception:
-            pass
-        # 솔저: 볼링 트랩
-        try:
-            from item_effects.bowling_trap import get_bowling_trap_instance
-            _bt = get_bowling_trap_instance()
-            if _bt:
-                for _tr in getattr(_bt, 'traps', [])[:6]:
-                    _fx.append({'t': 'trap', 'x': _tr.get('x', 0), 'y': _tr.get('y', 0)})
-        except Exception:
-            pass
-        # 솔저: 자폭드론
-        if globals().get('suicide_drone_active', False):
-            _sd_rect = globals().get('suicide_drone_rect')
-            if _sd_rect:
-                _fx.append({'t': 'drone', 'x': _sd_rect.centerx, 'y': _sd_rect.centery})
-
-        # 발토르: 터렛 투사체
-        _tp = globals().get('blacksmith_turret_projectiles', [])
-        for _proj in _tp[:8]:
-            _fx.append({
-                't': 'turret',
-                'x': _proj.get('x', 0),
-                'y': _proj.get('y', 0),
-            })
-        # 발토르: 해머 쇼크 투사체
-        _hsp = globals().get('blacksmith_hammer_shock_projectiles', [])
-        for _hp in _hsp[:4]:
-            _fx.append({
-                't': 'hshock',
-                'x': _hp.get('x', 0),
-                'y': _hp.get('y', 0),
-                's': _hp.get('stage', 0),
-            })
-        # 발토르: 디바인 스톤
-        _ds = globals().get('blacksmith_divine_stone_state')
-        if _ds and isinstance(_ds, dict):
-            _ds_rect = _ds.get('rect')
-            if _ds_rect:
-                _fx.append({
-                    't': 'divine',
-                    'x': _ds_rect.centerx,
-                    'y': _ds_rect.centery,
-                    'hp': _ds.get('hp', 0),
-                    'mhp': _ds.get('max_hp', 1),
-                    'sh': 1 if _ds.get('shield_ready') else 0,
-                })
-
-        if _fx:
-            anim['fx'] = _fx
+            anim['br_spin_angle'] = globals().get('_viper_br_spin_angle', 0)
 
     except Exception:
         pass
     return anim
 
 
-# ── [pingfighter.py:171080~171146] 호스트: 게임 상태 전송 ──
+# ────────────────────────────────────────────────────────────────────────
+# [6-F] _online_send_game_state() 함수 (line ~171420)
+# ────────────────────────────────────────────────────────────────────────
+
 def _online_send_game_state():
-    """호스트: 매 프레임 게임 상태를 클라이언트에 전송.
-    공 위치/속도, 양쪽 패들 위치, 아이템, 서브 상태, 점수 등.
-    """
+    """호스트: 매 프레임 게임 상태를 클라이언트에 전송"""
     if not online_multiplayer_enabled or not online_is_host:
         return
     if _online_net_manager is None or not _online_net_manager.connections:
@@ -2380,7 +1830,7 @@ def _online_send_game_state():
 
     global _online_sound_queue
 
-    # 아이템 목록 직렬화
+    # 아이템 목록 직렬화 (클라이언트에 전송용)
     _serialized_items = []
     try:
         for _fi in items.item_list:
@@ -2428,12 +1878,21 @@ def _online_send_game_state():
     except NameError:
         pass
 
+    _dbg_key = '_online_dbg_last_serve_state'
+    _dbg_cur = (is_waiting_for_serve, is_player_serve)
+    if globals().get(_dbg_key) != _dbg_cur:
+        globals()[_dbg_key] = _dbg_cur
+        print(f"[Online Serve DEBUG] HOST frame_data: waiting_serve={is_waiting_for_serve} player_serve={is_player_serve} BALL=({BALL.x},{BALL.y}) vel={ball_vel}")
+
     serialized = serialize_game_frame(frame_data)
     _online_net_manager.send_online_packet(OnlinePacketType.GAME_FRAME, serialized)
     _online_sound_queue.clear()
 
 
-# ── [pingfighter.py:171149~171166] 클라이언트: 위치 전송 ──
+# ────────────────────────────────────────────────────────────────────────
+# [6-G] _online_send_player_position() 함수 (line ~171489)
+# ────────────────────────────────────────────────────────────────────────
+
 def _online_send_player_position():
     """클라이언트: 매 프레임 내 PLAYER 위치를 호스트에 전송"""
     if not online_multiplayer_enabled or online_is_host:
@@ -2453,13 +1912,15 @@ def _online_send_player_position():
     )
 
 
-# ── [pingfighter.py:171169~171274] 클라이언트: 상태 적용 ──
+# ────────────────────────────────────────────────────────────────────────
+# [6-H] _online_client_apply_state() 함수 (line ~171509)
+# ────────────────────────────────────────────────────────────────────────
+
 def _online_client_apply_state():
-    """클라이언트: 호스트에서 수신한 게임 상태를 적용.
-    - 공 위치/속도 → Y축 반전하여 적용 (호스트 권위)
-    - 점수 → 시점 반전 (호스트 round_wins = 내 round_losses)
-    - 서브 상태 → 시점 반전
-    - 아이템 → Y축 반전하여 표시
+    """클라이언트: 호스트에서 수신한 게임 상태를 적용
+    - 공 위치/속도 -> 호스트 권위
+    - 점수 -> 호스트 권위 (시점 반전: 호스트 round_wins = 내 round_losses)
+    - BOSS 위치 -> _handle_boss_online_sync()에서 이미 처리
     """
     global round_wins, round_losses, _online_opponent_anim
     global is_waiting_for_serve, is_player_serve
@@ -2469,7 +1930,7 @@ def _online_client_apply_state():
     if _online_net_manager is None:
         return
 
-    frame = _online_net_manager.online_game_frame
+    frame = _online_net_manager.get_online_game_frame()
     if frame is None:
         return
 
@@ -2494,11 +1955,15 @@ def _online_client_apply_state():
     # 서브 상태 동기화 (시점 반전!)
     host_waiting = frame.get('waiting_serve', False)
     host_player_serve = frame.get('player_serve', False)
+    _prev_waiting = is_waiting_for_serve
+    _prev_player_serve = is_player_serve
     if host_waiting:
         is_waiting_for_serve = True
         is_player_serve = not host_player_serve  # 시점 반전!
     elif is_waiting_for_serve and not host_waiting:
         is_waiting_for_serve = False
+    if _prev_waiting != is_waiting_for_serve or _prev_player_serve != is_player_serve:
+        print(f"[Online Serve DEBUG] CLIENT sync: host_waiting={host_waiting} host_player_serve={host_player_serve} -> is_waiting={is_waiting_for_serve} is_player_serve={is_player_serve}")
 
     # 클라이언트 아이템 획득 처리 (호스트가 감지한 BOSS 충돌)
     client_pickups = frame.get('client_pickups', [])
@@ -2508,6 +1973,11 @@ def _online_client_apply_state():
         _cp_x = _cp.get('x', 0)
         _cp_y = HEIGHT - _cp.get('y', 0)  # Y반전
         if _cp_name:
+            try:
+                if SOUND_ITEM_GET:
+                    SOUND_ITEM_GET.play()
+            except Exception:
+                pass
             _cp_data = {
                 "name": _cp_name,
                 "color": _cp_color,
@@ -2516,23 +1986,12 @@ def _online_client_apply_state():
                 "x": _cp_x,
                 "y": _cp_y,
             }
-            # 패시브/액티브 구분하여 저장
-            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival",
-                             "master", "cooltime", "chargebag", "spikeboots", "dashgear",
-                             "sensor", "bulkup", "dashholder", "gravitybelt",
-                             "dowsing_pendulum", "commando_arm", "technical_vest",
-                             "fuel_pouch", "bluetooth_ring", "star_detector",
-                             "foul_whistle", "smartphone", "knee_pads",
-                             "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                             "angel_blessing", "sacred_laurel", "transcendent_crown",
-                             "odins_eye", "pandora_legacy", "bulletproof_hat",
-                             "spiked_helmet", "gold_bar", "gold_digger", "hero_seal",
-                             "lucky_coin", "adversity_armor", "shrapnel_armor",
-                             "soul_burst", "sage_ring", "venom_mist_gauntlet"}
+            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet"}
             if _cp_name in _passive_names:
                 store_passive_item(_cp_data)
             else:
                 store_active_item(_cp_data)
+            print(f"[Online Item] CLIENT: 아이템 획득! {_cp_name}")
 
     # 아이템 동기화 (호스트가 보낸 아이템 목록을 Y반전하여 표시)
     remote_items = frame.get('items', [])
@@ -2557,143 +2016,71 @@ def _online_client_apply_state():
     round_losses = frame.get('round_wins', 0)
 
 
-# ── [pingfighter.py:152198~152333] 보스 온라인 동기화 ──
-def _handle_boss_online_sync():
-    """온라인 멀티플레이: 상대방의 PLAYER 위치를 BOSS에 적용 + 서브 처리.
-    호스트: P2(클라이언트)의 PLAYER.x → BOSS.x
-    클라이언트: P1(호스트)의 PLAYER.x → BOSS.x
-    AI 대전: AI가 BOSS를 조작
+# ────────────────────────────────────────────────────────────────────────
+# [6-I] _draw_viper_blade_rush() - 바이퍼 에어 블레이드 공유 렌더링 함수
+#       (line ~107162) - 온라인 이펙트 렌더링에서도 호출됨
+# ────────────────────────────────────────────────────────────────────────
+
+def _draw_viper_blade_rush(screen, cx, cy, half_w, alive, trail=None, flip_y=False):
+    """에어 블레이드 검기 공통 렌더링. flip_y=True면 아래->위 대신 위->아래 방향.
+
+    다층 부채꼴 본체 + 에지 라인 + 에너지 스파크 + 꼭짓점 글로우 + 앰비언트 헤일로.
+    약 110줄의 pygame.draw 기반 프리미엄 이펙트 렌더링.
+    상세 코드는 pingfighter.py line 107162~107270 참조.
     """
-    global BOSS, _online_opponent_anim
-    global is_waiting_for_serve, is_player_serve, ball_vel
-    global serve_completed_timer, boss_fake_during_player_serve
-    global _online_ai_boss_controller
-
-    # ── AI 대전 모드: AI가 BOSS를 직접 조작 ──
-    if _online_ai_boss_enabled:
-        try:
-            if _online_ai_boss_controller is None:
-                from ai.player_ai import PlayerAIController
-                _online_ai_boss_controller = PlayerAIController()
-            # AI 상태 구성
-            _ai_state = {
-                'ball_x': BALL.centerx,
-                'ball_y': BALL.centery,
-                'ball_vx': ball_vel[0],
-                'ball_vy': ball_vel[1],
-                'player_x': BOSS.centerx,  # AI가 BOSS를 조작
-                'player_y': BOSS.centery,
-                'player_width': BOSS.width,
-                'boss_x': PLAYER.centerx,  # 상대는 PLAYER
-                'boss_y': PLAYER.centery,
-                'width': WIDTH,
-                'height': HEIGHT,
-                'special_gauge': 0,
-                'is_waiting_serve': is_waiting_for_serve,
-                'is_player_serve': not is_player_serve,  # AI 입장에서 반전
-                'rolling_active': False,
-                'current_speed': 0,
-            }
-            _ai_keys = _online_ai_boss_controller.decide(_ai_state)
-            # AI 이동 적용
-            _ai_speed = 7
-            if pygame.K_LEFT in _ai_keys:
-                BOSS.x -= _ai_speed
-            if pygame.K_RIGHT in _ai_keys:
-                BOSS.x += _ai_speed
-        except Exception as e:
-            print(f"[AI Boss] 에러: {e}")
-    elif _online_net_manager is None:
-        return
-    elif online_is_host:
-        # 호스트: 클라이언트가 보낸 위치 + 애니메이션 상태 적용
-        remote = _online_net_manager.online_remote_input
-        if remote is not None and 'x' in remote:
-            BOSS.x = int(remote['x'])
-            if 'anim' in remote:
-                _online_opponent_anim = remote['anim']
-    else:
-        # 클라이언트: 호스트가 보낸 P1 위치를 BOSS에 적용
-        frame = _online_net_manager.online_game_frame
-        if frame is not None:
-            p1 = frame.get('p1', None)
-            if p1:
-                BOSS.x = int(p1[0])
-
-    # 경계 클램핑
-    if BOSS.x < 0:
-        BOSS.x = 0
-    elif BOSS.x > WIDTH - BOSS.width:
-        BOSS.x = WIDTH - BOSS.width
-
-    # ── 바이퍼 제트팩 오프셋 적용 ──
-    if _online_opponent_anim and _online_opponent_anim.get('state') == 'flying':
-        _opp_jp_offset = _online_opponent_anim.get('jetpack_offset', 0)
-        BOSS.y = BOSS_Y - int(_opp_jp_offset)  # 부호 반전
-    else:
-        BOSS.y = BOSS_Y  # 기본 위치
-
-    # ── 온라인 서브 처리 ──
-    if is_waiting_for_serve and not ball_spawn_animation_active:
-        if is_player_serve and online_is_host:
-            # 호스트 본인 서브
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_RETURN] or keys[pygame.K_SPACE]:
-                try:
-                    serve_result = physics_manager.serve_ball(True, current_stage, ai_mode)
-                    apply_serve_result(serve_result)
-                    is_waiting_for_serve = serve_result.get('is_waiting_for_serve', False)
-                    serve_completed_timer = 180
-                    boss_fake_during_player_serve = False
-                    play_serve_sound()
-                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
-                except Exception as e:
-                    print(f"[Online Serve] 플레이어 서브 에러: {e}")
-            else:
-                boss_fake_during_player_serve = True
-        elif is_player_serve and not online_is_host:
-            # 클라이언트 본인 서브
-            boss_fake_during_player_serve = True
-        elif online_is_host:
-            # 상대(클라이언트/AI) 서브
-            _client_serve = False
-            if _online_ai_boss_enabled:
-                pass  # AI는 타이머로 자동 서브
-            elif _online_net_manager is not None:
-                remote = _online_net_manager.online_remote_input
-                if remote is not None and remote.get('serve', False):
-                    _client_serve = True
-            # 자동 서브 (AI: 1.5초, 온라인: 3초)
-            time_now = pygame.time.get_ticks()
-            _elapsed = time_now - waiting_start_time
-            _serve_timeout = 1500 if _online_ai_boss_enabled else 3000
-            if _client_serve or (_elapsed >= _serve_timeout):
-                try:
-                    serve_result = physics_manager.serve_ball(False, current_stage, ai_mode)
-                    apply_serve_result(serve_result)
-                    is_waiting_for_serve = serve_result.get('is_waiting_for_serve', False)
-                    serve_completed_timer = 180
-                    play_serve_sound()
-                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
-                except Exception as e:
-                    print(f"[Online Serve] 보스 서브 에러: {e}")
-        else:
-            # 클라이언트: 상대방(호스트) 서브 대기
-            pass
+    pass  # 전체 렌더링 코드는 pingfighter.py 참조 (약 110줄)
 
 
-# ── [pingfighter.py:163764~163770] 게임 루프 통합 지점 ──
-# 메인 게임 루프 내에서 호출되는 부분:
+# ────────────────────────────────────────────────────────────────────────
+# [6-J] 온라인 상대 캐릭터 렌더링 (보스 그리기 섹션, line ~108904)
+#       current_stage == 40 일 때 보스 스프라이트 생성
+# ────────────────────────────────────────────────────────────────────────
 #
-# if online_multiplayer_enabled:
-#     if online_is_host:
-#         _online_send_game_state()       # 호스트: 매 프레임 상태 전송
-#     else:
-#         _online_send_player_position()  # 클라이언트: 매 프레임 위치 전송
-#         _online_client_apply_state()    # 클라이언트: 호스트 상태 적용
+# 위치: pingfighter.py line 108904~108989
+# 로직:
+#   - online_p2_character로 상대 캐릭터 타입 결정
+#   - _online_opponent_anim에서 애니메이션 상태 읽기
+#   - 캐릭터별 스프라이트 함수 호출 (walking, hit, slingshot, umbrella 등)
+#   - flip 없이 원본 스프라이트 그대로 사용 (뒷모습)
+#   - 바이퍼 에어 블레이드 회전 모션: br_spin_angle로 패들 회전
+
+
+# ────────────────────────────────────────────────────────────────────────
+# [6-K] 온라인 제트팩/이펙트 렌더링 (보스 그리기 하단, line ~109636)
+# ────────────────────────────────────────────────────────────────────────
 #
-# ── [pingfighter.py:152348~152350] 보스 처리 분기 ──
+# 위치: pingfighter.py line 109636~109663
+# 로직:
+#   - 바이퍼 제트팩: _online_opponent_anim.state=='flying' 시 불꽃 이펙트
+#   - 이펙트 수신/업데이트/렌더링: _online_receive_effects() -> _online_update_remote_effects() -> _online_draw_remote_effects(SCREEN)
+
+
+# ────────────────────────────────────────────────────────────────────────
+# [6-L] 게임 루프 통합 포인트들 (pingfighter.py 내 인라인 코드)
+# ────────────────────────────────────────────────────────────────────────
+
+# --- [6-L-1] 아이템 스폰 제한 (line ~161312) ---
+# 온라인 클라이언트는 아이템 스폰 안 함 (호스트가 관리)
+# if not (online_multiplayer_enabled and not online_is_host):
+#     items.spawn_random_item()
+
+# --- [6-L-2] 아이템 업데이트 + 호스트 BOSS 충돌 체크 (line ~161798) ---
+# 온라인 클라이언트는 아이템 물리/획득 처리 안 함 (호스트가 관리)
+# 호스트: BOSS(클라이언트) 위치의 아이템 충돌 -> _online_client_pickups에 추가
+
+# --- [6-L-3] 클라이언트 점수 보호 (line ~162462) ---
+# handle_ball() 전에 점수 저장, 후에 되돌리기 (호스트만 점수 권위)
+
+# --- [6-L-4] 매 프레임 상태 동기화 (line ~163875) ---
 # if online_multiplayer_enabled:
-#     _handle_boss_online_sync()  # 온라인: 상대방 위치 동기화 (AI 대전 포함)
-# else:
-#     handle_boss()               # 일반: AI 보스 처리
+#     if online_is_host: _online_send_game_state()
+#     else: _online_send_player_position(); _online_client_apply_state()
+
+# --- [6-L-5] 클라이언트 서브 입력 (이벤트 루프, line ~160365) ---
+# 온라인 클라이언트: 로컬 서브 실행 안 하고 _online_client_serve_pressed 플래그만 세움
+
+# --- [6-L-6] go_to_next_round 서브 결정 (line ~141283) ---
+# current_stage == 40: 호스트만 랜덤 서브 결정, 클라이언트는 프레임 데이터로 동기화
+
+# --- [6-L-7] _handle_boss_with_soap_debuff 내 온라인 분기 (line ~152376) ---
+# online_multiplayer_enabled이면 _handle_boss_online_sync() 호출 후 즉시 return

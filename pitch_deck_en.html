@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PingFighter — Game Pitch Deck</title>
+<style>
+/* ===== Namuwiki-style Base ===== */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Inter:wght@400;500;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Inter', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    background: #f5f5f5;
+    color: #1a1a1a;
+    line-height: 1.8;
+    font-size: 15px;
+}
+
+/* ===== Wiki Layout ===== */
+.wiki-wrapper {
+    max-width: 920px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    min-height: 100vh;
+}
+
+/* Top Title Bar */
+.wiki-header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+    padding: 40px 30px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.wiki-header::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at center, rgba(88,166,255,0.15) 0%, transparent 70%);
+}
+.wiki-header h1 {
+    font-size: 42px;
+    font-weight: 900;
+    color: #58a6ff;
+    text-shadow: 0 0 30px rgba(88,166,255,0.4);
+    position: relative;
+    letter-spacing: -1px;
+}
+.wiki-header .subtitle {
+    color: #8b949e;
+    font-size: 16px;
+    margin-top: 8px;
+    position: relative;
+}
+.wiki-header .tagline {
+    color: #f0f6fc;
+    font-size: 20px;
+    font-weight: 700;
+    margin-top: 16px;
+    position: relative;
+    background: linear-gradient(90deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Table of Contents */
+.wiki-toc {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    margin: 20px;
+    padding: 16px 20px;
+    border-radius: 0;
+}
+.wiki-toc h3 {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #ddd;
+}
+.wiki-toc ol {
+    padding-left: 24px;
+    font-size: 14px;
+    columns: 2;
+    column-gap: 20px;
+}
+.wiki-toc li {
+    margin: 3px 0;
+    break-inside: avoid;
+}
+.wiki-toc a {
+    color: #0275d8;
+    text-decoration: none;
+}
+.wiki-toc a:hover { text-decoration: underline; }
+
+/* Content Area */
+.wiki-content {
+    padding: 0 20px 40px;
+}
+
+/* Section Headings */
+.wiki-h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a1a;
+    border-bottom: 2px solid #0275d8;
+    padding: 14px 0 8px;
+    margin: 32px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.wiki-h2 .section-num {
+    color: #0275d8;
+    font-weight: 900;
+}
+
+.wiki-h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #333;
+    border-left: 4px solid #0275d8;
+    padding-left: 10px;
+    margin: 20px 0 10px;
+}
+
+.wiki-h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #555;
+    margin: 14px 0 8px;
+}
+
+/* Infobox */
+.infobox {
+    float: right;
+    width: 320px;
+    border: 1px solid #aaa;
+    background: #f9f9f9;
+    margin: 0 0 16px 20px;
+    font-size: 13px;
+}
+.infobox-title {
+    background: #0d1117;
+    color: #58a6ff;
+    text-align: center;
+    font-weight: 700;
+    padding: 10px;
+    font-size: 18px;
+}
+.infobox-image {
+    text-align: center;
+    padding: 8px;
+    background: #1a1a2e;
+}
+.infobox-image img {
+    max-width: 100%;
+    border: 1px solid #333;
+}
+.infobox table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.infobox th {
+    background: #e8e8e8;
+    text-align: left;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    width: 100px;
+    font-weight: 500;
+    color: #333;
+}
+.infobox td {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    background: #fff;
+}
+
+/* Wiki Table */
+.wiki-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 14px;
+}
+.wiki-table th {
+    background: #e8f4fd;
+    border: 1px solid #b8d4e8;
+    padding: 8px 12px;
+    text-align: center;
+    font-weight: 600;
+    color: #1a5276;
+}
+.wiki-table td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    vertical-align: top;
+}
+.wiki-table tr:nth-child(even) td {
+    background: #fafafa;
+}
+
+/* Dark Table Variant (bosses, heroes, etc.) */
+.wiki-table.dark th {
+    background: #1a1a2e;
+    color: #58a6ff;
+    border-color: #333;
+}
+.wiki-table.dark td {
+    background: #0d1117;
+    color: #c9d1d9;
+    border-color: #30363d;
+}
+.wiki-table.dark tr:nth-child(even) td {
+    background: #161b22;
+}
+
+/* Quote Box */
+.wiki-quote {
+    background: #f0f7ff;
+    border-left: 4px solid #0275d8;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-style: italic;
+    color: #333;
+    font-size: 16px;
+}
+
+.wiki-note {
+    background: #fff8e1;
+    border: 1px solid #ffcc02;
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0;
+    font-size: 14px;
+}
+.wiki-note::before {
+    content: '!';
+    display: inline-block;
+    background: #ffcc02;
+    color: #333;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 20px;
+    font-weight: 900;
+    font-size: 13px;
+    margin-right: 8px;
+}
+
+/* Screenshot Gallery */
+.screenshot-gallery {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+}
+.screenshot-gallery.single {
+    grid-template-columns: 1fr;
+}
+.screenshot-gallery.triple {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+.screenshot-item {
+    border: 1px solid #ddd;
+    background: #1a1a2e;
+    overflow: hidden;
+}
+.screenshot-item img {
+    width: 100%;
+    display: block;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.screenshot-item img:hover {
+    transform: scale(1.02);
+}
+.screenshot-item .caption {
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #8b949e;
+    text-align: center;
+    background: #0d1117;
+}
+
+/* Stat Bar */
+.stat-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0;
+}
+.stat-bar-label {
+    width: 50px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+}
+.stat-bar {
+    flex: 1;
+    height: 14px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.stat-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+.stat-bar-value {
+    width: 24px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    color: #333;
+}
+
+/* Tags */
+.tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 2px;
+}
+.tag-legendary { background: #ffd700; color: #333; }
+.tag-active { background: #0275d8; color: #fff; }
+.tag-passive { background: #5cb85c; color: #fff; }
+.tag-mythical { background: #9b59b6; color: #fff; }
+.tag-common { background: #95a5a6; color: #fff; }
+.tag-rare { background: #3498db; color: #fff; }
+.tag-epic { background: #8e44ad; color: #fff; }
+
+/* Game Loop Diagram */
+.game-loop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+.loop-node {
+    background: linear-gradient(135deg, #0d1117, #161b22);
+    color: #58a6ff;
+    padding: 12px 18px;
+    border: 1px solid #30363d;
+    font-weight: 700;
+    font-size: 14px;
+    text-align: center;
+    min-width: 100px;
+}
+.loop-arrow {
+    color: #58a6ff;
+    font-size: 20px;
+    padding: 0 6px;
+    font-weight: 900;
+}
+
+/* Feature Grid */
+.feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+}
+.feature-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    padding: 16px;
+}
+.feature-card h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0275d8;
+    margin-bottom: 6px;
+}
+.feature-card p {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.6;
+}
+.feature-card .feature-icon {
+    font-size: 28px;
+    margin-bottom: 6px;
+}
+
+/* Content Stats Highlight */
+.content-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+}
+.stat-card {
+    background: linear-gradient(135deg, #0d1117, #161b22);
+    border: 1px solid #30363d;
+    padding: 16px;
+    text-align: center;
+}
+.stat-card .stat-number {
+    font-size: 32px;
+    font-weight: 900;
+    background: linear-gradient(90deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.stat-card .stat-label {
+    color: #8b949e;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* Item Icon Grid */
+.item-icon-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 8px 0;
+}
+.item-icon-grid img {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #333;
+    background: #0d1117;
+    image-rendering: pixelated;
+}
+
+/* Legendary Item Card */
+.legendary-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid #ffd700;
+    padding: 12px;
+    margin: 8px 0;
+}
+.legendary-card img {
+    width: 48px;
+    height: 48px;
+    image-rendering: pixelated;
+    border: 2px solid #ffd700;
+    background: #0d1117;
+}
+.legendary-card .legendary-info h5 {
+    color: #ffd700;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+.legendary-card .legendary-info p {
+    color: #8b949e;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.legendary-icon-placeholder {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border: 2px solid #ffd700;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    text-shadow: 0 0 8px rgba(255,215,0,0.6);
+}
+
+/* Clear Float */
+.clearfix::after {
+    content: '';
+    display: table;
+    clear: both;
+}
+
+/* Footer */
+.wiki-footer {
+    background: #0d1117;
+    color: #8b949e;
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    border-top: 1px solid #30363d;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .infobox { float: none; width: 100%; margin: 16px 0; }
+    .screenshot-gallery { grid-template-columns: 1fr; }
+    .screenshot-gallery.triple { grid-template-columns: 1fr; }
+    .content-stats { grid-template-columns: repeat(2, 1fr); }
+    .feature-grid { grid-template-columns: 1fr; }
+    .wiki-toc ol { columns: 1; }
+    .wiki-header h1 { font-size: 28px; }
+}
+
+/* Collapsible */
+.wiki-collapse {
+    border: 1px solid #ddd;
+    margin: 12px 0;
+}
+.wiki-collapse summary {
+    background: #f0f0f0;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    user-select: none;
+}
+.wiki-collapse summary:hover {
+    background: #e4e4e4;
+}
+.wiki-collapse .collapse-content {
+    padding: 12px 14px;
+}
+
+/* Comparison Title */
+.comp-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+}
+.comp-vs {
+    background: #dc3545;
+    color: #fff;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 2px;
+}
+</style>
+</head>
+<body>
+
+<div class="wiki-wrapper">
+
+<!-- ==================== Header ==================== -->
+<div class="wiki-header">
+    <h1>PingFighter</h1>
+    <div class="subtitle">Game Pitch Deck &mdash; 2026</div>
+    <div class="tagline">"Pong &times; Boss Battles &times; RPG Progression &mdash; An arcade action game where you defeat bosses with a single paddle."</div>
+</div>
+
+<!-- ==================== Table of Contents ==================== -->
+<div class="wiki-toc">
+    <h3>Contents</h3>
+    <ol>
+        <li><a href="#s1">Elevator Pitch</a></li>
+        <li><a href="#s2">Game Overview</a></li>
+        <li><a href="#s3">Core Gameplay</a></li>
+        <li><a href="#s4">Boss Characters</a></li>
+        <li><a href="#s5">Key Systems</a></li>
+        <li><a href="#s6">Playable Heroes</a></li>
+        <li><a href="#s7">Visual &amp; Audio</a></li>
+        <li><a href="#s8">Content Scale</a></li>
+        <li><a href="#s9">Market Analysis</a></li>
+        <li><a href="#s10">Localization Plan</a></li>
+        <li><a href="#s11">Business Model</a></li>
+        <li><a href="#s12">Development Status &amp; Roadmap</a></li>
+        <li><a href="#s13">What We're Looking For</a></li>
+        <li><a href="#s14">Origin Story</a></li>
+        <li><a href="#s15">Why PingFighter?</a></li>
+        <li><a href="#s15">Team</a></li>
+        <li><a href="#s16">Contact</a></li>
+    </ol>
+</div>
+
+<!-- ==================== Content ==================== -->
+<div class="wiki-content">
+
+<!-- ===== 1. Elevator Pitch ===== -->
+<h2 class="wiki-h2" id="s1"><span class="section-num">1.</span> Elevator Pitch</h2>
+
+<div class="infobox">
+    <div class="infobox-title">PingFighter</div>
+    <div class="infobox-image">
+        <img src="screenshots/screenshot_20260406_211107.png" alt="PingFighter Gameplay">
+    </div>
+    <table>
+        <tr><th>Title</th><td>PingFighter</td></tr>
+        <tr><th>Genre</th><td>Arcade Action<br>Boss-Battle Pong</td></tr>
+        <tr><th>Platforms</th><td>Windows / macOS<br><small>(Console &amp; Web planned)</small></td></tr>
+        <tr><th>Engine</th><td>Python + Pygame<br>(Custom Engine)</td></tr>
+        <tr><th>Resolution</th><td>1488 &times; 918 (pillar UI overlay)<br><small>Play area 760 &times; 750</small></td></tr>
+        <tr><th>Framerate</th><td>60 FPS (VSync)</td></tr>
+        <tr><th>Languages</th><td>Korean (Complete) &middot; English (In Progress)<br><small>Japanese, Chinese (Planned)</small></td></tr>
+        <tr><th>Controls</th><td>Keyboard + Mouse</td></tr>
+        <tr><th>Developer</th><td>Dongne Games</td></tr>
+        <tr><th>Status</th><td>In Development (UI Refactoring)</td></tr>
+    </table>
+</div>
+
+<div class="clearfix">
+<p>
+<b>PingFighter</b> reinvents the classic <b>Pong</b> formula by adding <b>boss AI combat</b>, <b>perk builds</b>, <b>item collection</b>, <b>an explorable hub world</b>, and <b>online PvP</b> &mdash; creating an entirely new sub-genre of arcade action.
+</p>
+<p>
+Players control a paddle to rally a ball against boss paddles, each with <b>unique AI patterns</b> and <b>special attacks</b>. Strategic depth comes from <b>dashes</b>, <b>active items</b>, and <b>perk builds</b> that make every run feel different.
+</p>
+
+<div class="wiki-quote">
+"Pong + Boss Battles + RPG Progression &mdash; easy to pick up, impossible to master."
+</div>
+</div>
+
+<!-- ===== 2. Game Overview ===== -->
+<h2 class="wiki-h2" id="s2"><span class="section-num">2.</span> Game Overview</h2>
+
+<table class="wiki-table">
+    <tr><th style="width:140px;">Field</th><th>Details</th></tr>
+    <tr><td><b>Title</b></td><td>PingFighter</td></tr>
+    <tr><td><b>Genre</b></td><td>Arcade Action / Boss-Battle Pong</td></tr>
+    <tr><td><b>Platforms</b></td><td>Windows, macOS (Console &amp; Web planned)</td></tr>
+    <tr><td><b>Engine</b></td><td>Python + Pygame (Custom Engine)</td></tr>
+    <tr><td><b>Art Style</b></td><td>Pixel Art + Procedural Backgrounds</td></tr>
+    <tr><td><b>Resolution</b></td><td>1488 &times; 918 (pillar UI overlay, play area 760 &times; 750)</td></tr>
+    <tr><td><b>Target Audience</b></td><td>Casual-to-midcore arcade gamers, ages 15&ndash;35</td></tr>
+    <tr><td><b>Play Time</b></td><td>Campaign 5&ndash;10 hrs &middot; Endgame unlimited</td></tr>
+    <tr><td><b>Languages</b></td><td>Korean (Full) &middot; English (In Progress) &middot; Japanese, Chinese (Planned)</td></tr>
+</table>
+
+<!-- ===== 3. Core Gameplay ===== -->
+<h2 class="wiki-h2" id="s3"><span class="section-num">3.</span> Core Gameplay</h2>
+
+<h3 class="wiki-h3">3.1. The Basics</h3>
+<p>Control a bottom paddle to rally a ball against a <b>boss paddle</b> at the top. There are <b>no HP bars</b> &mdash; matches are pure point-based (first to 5 points wins).</p>
+
+<div class="wiki-note">PingFighter has no health system. Victory is determined by a <b>pure point-based rally</b>, just like real table tennis.</div>
+
+<table class="wiki-table">
+    <tr><th>Rule</th><th>Details</th></tr>
+    <tr><td><b>1 Point</b></td><td>Ball passes the opponent's goal line</td></tr>
+    <tr><td><b>Victory</b></td><td>First to 5 points (win_goal = 5)</td></tr>
+    <tr><td><b>Deuce (1st)</b></td><td>4:4 tie &rarr; target extends to 6 points</td></tr>
+    <tr><td><b>Deuce (2nd)</b></td><td>5:5 tie &rarr; target extends to 7 points (max)</td></tr>
+    <tr><td><b>Match Point</b></td><td>Special cinematic triggers when one side reaches 4 points</td></tr>
+</table>
+
+<h3 class="wiki-h3">3.2. Signature Mechanic: &ldquo;Half-Dash&rdquo; System</h3>
+<p>The dash is PingFighter's core mechanic. It teleports your paddle to evade or reposition aggressively.</p>
+<table class="wiki-table">
+    <tr><th>Type</th><th>Distance</th><th>Cost</th><th>Cooldown</th><th>Details</th></tr>
+    <tr><td><b>Full Dash</b></td><td>150px</td><td>1 Token</td><td>60 frames (1s)</td><td>Standard dash. Direction key + Space</td></tr>
+    <tr><td><b>Half Dash</b></td><td>75px</td><td>0 Tokens</td><td>Shared</td><td>Auto-activates when tokens are depleted. Emergency evasion</td></tr>
+    <tr><td><b>Chain Dash</b></td><td>150px</td><td>1 Token</td><td>200ms delay</td><td>Rapid consecutive dashes when multiple tokens are available</td></tr>
+</table>
+<p>Even when dash tokens are depleted, a <b>50% distance emergency dash</b> is always available. This eliminates complete helplessness &mdash; skilled play is always rewarded, and it creates clutch reversal moments that define high-level play.</p>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260403_083058.png" alt="Stage 1 Gameplay">
+        <div class="caption">Stage 1: Pungak Boy &mdash; Traditional Korean court with taegeuk motif</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260407_164352.png" alt="Mode Select Screen">
+        <div class="caption">Mode Select: Choose your stage, difficulty, and character</div>
+    </div>
+</div>
+
+<h3 class="wiki-h3">3.3. Game Loop</h3>
+<div class="game-loop">
+    <div class="loop-node">Stage<br>Select</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">Boss<br>Battle</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">Item<br>Drops</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">Perk<br>Investment</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">Downtown<br>Hub</div>
+    <div class="loop-arrow">&rarr;</div>
+    <div class="loop-node">Next<br>Stage</div>
+</div>
+
+<!-- ===== 4. Boss Characters ===== -->
+<h2 class="wiki-h2" id="s4"><span class="section-num">4.</span> Boss Characters &mdash; 15 Unique Enemies</h2>
+<p>8 stages featuring <b>15 bosses</b> (8 main + 7 sub-bosses), each with distinct themes, AI behaviors, and special attacks. Boss difficulty scales from speed 6.3 to 9.4.</p>
+
+<table class="wiki-table dark">
+    <tr>
+        <th>Stage</th>
+        <th>Theme</th>
+        <th>Main Boss</th>
+        <th>Sub-Bosses</th>
+        <th>Signature Mechanic</th>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#ffd700;">&#9733; 1</td>
+        <td>Korean Traditional</td>
+        <td><b style="color:#e0e0e0;">Pungak Boy</b></td>
+        <td><b style="color:#8b6a2f;">Grapemaster</b>, <b style="color:#c83232;">Gaksital</b></td>
+        <td>Fan projectiles, rope throws</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#4caf50;">&#9733; 2</td>
+        <td>Jungle / Swamp</td>
+        <td><b style="color:#4caf50;">Gator General</b></td>
+        <td><b style="color:#8b5a2b;">Mole King</b>, <b style="color:#502819;">Arachne</b></td>
+        <td>Tunnel spikes, spider web slow zones</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#e91e8b;">&#9733; 3</td>
+        <td>Menhera / Dolls</td>
+        <td><b style="color:#e91e8b;">Menhera Girl</b></td>
+        <td><b style="color:#b4825a;">Teddy Bear</b>, <b style="color:#8cb4ff;">Alice</b></td>
+        <td>Cotton shotgun, mirror world (screen flip!)</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#ff9800;">&#9733; 4</td>
+        <td>Shaolin Temple</td>
+        <td><b style="color:#ff9800;">Ponk</b></td>
+        <td><b style="color:#b49650;">Inwang</b></td>
+        <td>Counter mechanics, speed debuffs</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#42a5f5;">&#9733; 5</td>
+        <td>Naval Warfare</td>
+        <td><b style="color:#42a5f5;">Nemesis</b></td>
+        <td>&mdash;</td>
+        <td>Laser / shield / spin modes, barrier system</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#f44336;">&#9733; 6</td>
+        <td>Chinese Fire</td>
+        <td><b style="color:#f44336;">Hongren</b></td>
+        <td>&mdash;</td>
+        <td>Fireball attacks, 10-hit set limit, flame events</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#78aaff;">&#9733; 7</td>
+        <td>Tetris Arena</td>
+        <td><b style="color:#78aaff;">Tetriser</b></td>
+        <td>&mdash;</td>
+        <td>Tetris block field hazards</td>
+    </tr>
+    <tr>
+        <td style="text-align:center; color:#3c5078;">&#9733; 8</td>
+        <td>Shadow Dojo</td>
+        <td><b style="color:#8090b0;">Akamu Rigo</b></td>
+        <td>&mdash;</td>
+        <td>Max stats (speed 9.4), ninja mansion</td>
+    </tr>
+</table>
+
+<div class="wiki-note">Each sub-boss shares its main boss's base stats but has a unique special_skill and stat modifiers (e.g., Arachne: speed &minus;30%, Inwang: speed &minus;20% / sudden stop +20%).</div>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260402_104022.png" alt="Stage 3: Menhera Girl">
+        <div class="caption">Stage 3: Menhera Girl &mdash; Pink doll-themed arena</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260405_200559.png" alt="Stage 5: Nemesis">
+        <div class="caption">Stage 5: Nemesis &mdash; Naval cyberpunk arena</div>
+    </div>
+</div>
+
+<!-- ===== 5. Key Systems ===== -->
+<h2 class="wiki-h2" id="s5"><span class="section-num">5.</span> Key Systems</h2>
+
+<h3 class="wiki-h3">5.A. Perk System (In-Battle Builds) &mdash; 49 Perks</h3>
+<p>Earn <b>Star Points</b> during battle to choose from 3 random perks. <b>21 universal</b> + <b>23 character-exclusive</b> + <b>5 instant</b> perks ensure every run produces a different build.</p>
+
+<h3 class="wiki-h3">5.B. Item System &mdash; 78 Items Total</h3>
+<table class="wiki-table">
+    <tr><th>Category</th><th>Count</th><th>Examples</th></tr>
+    <tr><td><span class="tag tag-active">Active</span></td><td>31</td><td>Grenade, Molotov, Holy Barrier, AI Pill, Stopwatch, Weather Capsule</td></tr>
+    <tr><td><span class="tag tag-passive">Passive</span></td><td>32</td><td>Persistent stat boosts with random roll options</td></tr>
+    <tr><td><span class="tag tag-legendary">Mythic</span></td><td>11</td><td>Ragnarok Hammer, Poseidon's Trident, Hermes' Shoes, Odin's Eye, Pandora's Legacy, Valhalla Warplate</td></tr>
+</table>
+<p>Mythic items feature <b>random stat rolls</b> + a <b>polishing</b> (enhancement) system for deep endgame farming.</p>
+
+<details class="wiki-collapse">
+    <summary>Behind the Story: The Horned Strawberry</summary>
+    <div class="collapse-content">
+        <p>While eating strawberries, the developer discovered one with <b>two tiny horn-like protrusions</b> on top &mdash; a bizarre, almost demonic shape. Thinking "this should be PingFighter's mascot," the strawberry was <b>freeze-dried and preserved in resin</b> as a 1/1 edition art piece. This real-life horned strawberry directly inspired the in-game mythic item <b>"Horned Strawberry Mask"</b> &mdash; a transformation item with 3 unique skills.</p>
+        <div class="screenshot-gallery">
+            <div class="screenshot-item">
+                <img src="screenshots/strawberry2.jpg" alt="Original horned strawberry" style="max-height:320px; object-fit:contain; background:#111;">
+                <div class="caption">The original horned strawberry</div>
+            </div>
+            <div class="screenshot-item">
+                <img src="screenshots/strawberry.jpg" alt="Resin-preserved strawberry" style="max-height:320px; object-fit:contain; background:#111;">
+                <div class="caption">Freeze-dried + resin preserved (1/1 Edition)</div>
+            </div>
+        </div>
+        <div class="screenshot-gallery single">
+            <div class="screenshot-item">
+                <img src="screenshots/screenshot_20260407_221629.png" alt="In-game strawberry transformation">
+                <div class="caption">In-game Horned Strawberry transformation &mdash; Strawberry Field skill active</div>
+            </div>
+        </div>
+    </div>
+</details>
+
+<h3 class="wiki-h3">5.C. Gacha System</h3>
+<p>3-tier distribution: Mythic (5%&ndash;30%) / Active (50%) / Passive (45%). Full capsule machine animation (coin insert &rarr; spin &rarr; capsule drop &rarr; reveal). 500 Gold per pull, 40 capsules per session.</p>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260406_184456.png" alt="Gacha Results">
+        <div class="caption">Gacha System: Capsule machine with tier-based item reveals</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260405_094743.png" alt="Character Info">
+        <div class="caption">Character Info: Detailed stat sheets and equipped items</div>
+    </div>
+</div>
+
+<h3 class="wiki-h3">5.D. Downtown (Hub World)</h3>
+<p><b>13 building types</b> (7 active) &mdash; an explorable pixel-art town with gacha shop, item store, bank, colosseum, minigames, forge, and tavern. NPC dialogue, merchants, and tile-based free movement. The <b>Bodyguard system</b> lets captured arena heroes follow you as companions.</p>
+
+<h3 class="wiki-h3">5.E. Online PvP</h3>
+<p>P2P socket-based multiplayer with host/guest matchmaking, character &amp; stage selection lobby, and recent IP auto-save for quick reconnection.</p>
+
+<h3 class="wiki-h3">5.F. Replay System</h3>
+<p>60fps full-screen capture with async compression (zero frame drops). Sound event auto-recording &amp; playback. Up to 10-minute recordings.</p>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260407_175638.png" alt="Replay Viewer">
+        <div class="caption">Replay Viewer: Watch and review past matches with full audio</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260403_205314.png" alt="Stage 2: Jungle">
+        <div class="caption">Stage 2: Gator General &mdash; Jungle / Swamp arena</div>
+    </div>
+</div>
+
+<h3 class="wiki-h3">5.G. Quest System &mdash; 8 Quests</h3>
+<p>Accept quests at the Downtown <b>Tavern</b>. Combat missions include: Perfect Victory, Speed Run (3 min), No Dash, 15-Rally Streak, and more. Rewards range from 800&ndash;2,500 Gold.</p>
+
+<h3 class="wiki-h3">5.H. Dynamic Weather &mdash; 7 Types</h3>
+<p>10% chance per round: Breeze, Gale, Fire, Ice, Rain, Hail, Sandstorm. Each weather type changes physics (slippery ice, fire acceleration, rain speed debuff) with full particle systems.</p>
+
+<h3 class="wiki-h3">5.I. Colosseum Arena Meta-Loop</h3>
+<p><b>Capture &rarr; Servant &rarr; Bodyguard</b> promotion loop with 15 arena heroes. 3 tiers of seals: Beginner (Quarterfinals), Intermediate (Semifinals), Bodyguard (Finals, permanent). Up to 2 bodyguards equipped, visible as Downtown followers.</p>
+
+<h3 class="wiki-h3">5.J. Tutorial</h3>
+<p>6-chapter progressive tutorial (sub, dash, drive, power smash) + 5 arena-specific tutorials.</p>
+
+<h3 class="wiki-h3">5.K. Opening &amp; Stage Intros</h3>
+<p>Story cutscene with protagonist &ldquo;Yuian&rdquo;. 8 unique stage intro videos (OpenCV playback + boss text overlay). 5-scene cinematic: paddle-ball meeting &rarr; boss reveal &rarr; battle &rarr; power-up &rarr; final showdown.</p>
+
+<!-- ===== 6. Playable Heroes ===== -->
+<h2 class="wiki-h2" id="s6"><span class="section-num">6.</span> Playable Heroes &mdash; 6 Characters</h2>
+
+<table class="wiki-table dark">
+    <tr>
+        <th>Hero</th>
+        <th>Specialty</th>
+        <th>Exclusive Skills</th>
+    </tr>
+    <tr>
+        <td><b style="color:#58a6ff;">Smasher</b></td>
+        <td>All-rounder, chain power smash</td>
+        <td>Dash Spirit, Plasma, Recovery, Cleanse</td>
+    </tr>
+    <tr>
+        <td><b style="color:#f44336;">Commando</b></td>
+        <td>Firepower specialist, arm cannon</td>
+        <td>Magazine Mod, Fire Support, Net Gun, Bowling Trap, Suicide Drone</td>
+    </tr>
+    <tr>
+        <td><b style="color:#4caf50;">Baltor</b></td>
+        <td>Defense / construction</td>
+        <td>Thor Shield, build system</td>
+    </tr>
+    <tr>
+        <td><b style="color:#9c27b0;">Viper</b></td>
+        <td>Aerial mobility, jetpack</td>
+        <td>Jetpack, Marshal Kick, Phantom Kick (4-hit combo), EMP Strike</td>
+    </tr>
+    <tr>
+        <td><b style="color:#ff9800;">Optimus</b></td>
+        <td>Mechanic, expanded hitbox</td>
+        <td>Optimus Arm, Emergency Charge, Elec Pad, Star Change</td>
+    </tr>
+    <tr>
+        <td><b style="color:#8b949e;">Normal</b></td>
+        <td>Basic paddle</td>
+        <td>&mdash;</td>
+    </tr>
+</table>
+
+<div class="wiki-note">Additional heroes (Guardian, Mystic, etc.) are shown on character cards &mdash; combat integration is planned for future updates.</div>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260407_193832.png" alt="Hero Collection">
+        <div class="caption">Hero Collection (15/15) &mdash; Full arena hero roster</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260407_225236.png" alt="Colosseum Battle">
+        <div class="caption">Colosseum Battle &mdash; Crowd, torches, skill effects in action</div>
+    </div>
+</div>
+
+<!-- ===== 7. Visual & Audio ===== -->
+<h2 class="wiki-h2" id="s7"><span class="section-num">7.</span> Visual &amp; Audio</h2>
+
+<h3 class="wiki-h3">7.1. Art Style</h3>
+<p>Pixel art characters combined with <b>procedurally generated animated backgrounds</b>. 8 unique stage themes with parallax scrolling, particles, and dynamic effects. Cyberpunk-inspired UI with glow effects. Mythic item legendary glow animations.</p>
+
+<h3 class="wiki-h3">7.2. Sound Design</h3>
+<p><b>40+ sound effects</b> (hits, explosions, level-ups, UI feedback). Per-stage BGM with dynamic music transitions. Full sound event system for replays.</p>
+
+<div class="screenshot-gallery">
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260405_200559.png" alt="Stage 5 Ocean">
+        <div class="caption">Stage 5: Nemesis &mdash; Ocean battleship arena with dynamic waves</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260403_083058.png" alt="Stage 1 Traditional">
+        <div class="caption">Stage 1: Traditional Korean taegeuk court with pillar UI overlay</div>
+    </div>
+</div>
+
+<!-- ===== 8. Content Scale ===== -->
+<h2 class="wiki-h2" id="s8"><span class="section-num">8.</span> Content Scale</h2>
+
+<div class="content-stats">
+    <div class="stat-card">
+        <div class="stat-number">15</div>
+        <div class="stat-label">Boss Characters</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">6</div>
+        <div class="stat-label">Playable Heroes</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">78</div>
+        <div class="stat-label">Total Items</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">49</div>
+        <div class="stat-label">Perks</div>
+    </div>
+</div>
+
+<table class="wiki-table">
+    <tr><th>Content</th><th>Count</th></tr>
+    <tr><td>Boss Characters</td><td>15 (8 main + 7 sub)</td></tr>
+    <tr><td>Playable Heroes</td><td>6 (5 with perk builds + 1 basic)</td></tr>
+    <tr><td>Stages</td><td>8 + 1 Arena</td></tr>
+    <tr><td>Total Items</td><td>78 (31 active + 32 passive + 11 mythic + 4 special)</td></tr>
+    <tr><td>Perks</td><td>49 (21 universal + 23 exclusive + 5 instant)</td></tr>
+    <tr><td>Downtown Buildings</td><td>7 active (of 13 total)</td></tr>
+    <tr><td>Quests</td><td>8</td></tr>
+    <tr><td>Weather Types</td><td>7</td></tr>
+    <tr><td>Tutorials</td><td>6 chapters + 5 arena</td></tr>
+    <tr><td>Sound Effects</td><td>40+</td></tr>
+    <tr><td>Animated Backgrounds</td><td>8</td></tr>
+</table>
+
+<div class="content-stats">
+    <div class="stat-card">
+        <div class="stat-number">8</div>
+        <div class="stat-label">Stages</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">7</div>
+        <div class="stat-label">Weather Types</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">8</div>
+        <div class="stat-label">Quests</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">40+</div>
+        <div class="stat-label">Sound Effects</div>
+    </div>
+</div>
+
+<!-- ===== 9. Market Analysis ===== -->
+<h2 class="wiki-h2" id="s9"><span class="section-num">9.</span> Market Analysis</h2>
+
+<h3 class="wiki-h3">9.1. Comparable Titles</h3>
+<table class="wiki-table">
+    <tr><th>Game</th><th>Similarity</th><th>PingFighter's Edge</th></tr>
+    <tr>
+        <td><b>Windjammers 2</b></td>
+        <td>Arcade 1v1 sports</td>
+        <td>+ RPG progression, boss AI, item system</td>
+    </tr>
+    <tr>
+        <td><b>Lethal League Blaze</b></td>
+        <td>Ball-based fighting</td>
+        <td>+ PvE campaign, hub world, collection</td>
+    </tr>
+    <tr>
+        <td><b>Pong Quest</b></td>
+        <td>Pong + RPG</td>
+        <td>+ Online PvP, perk builds, gacha, arena</td>
+    </tr>
+    <tr>
+        <td><b>Nidhogg 2</b></td>
+        <td>1v1 arcade</td>
+        <td>+ 15 bosses, 78 items, deep endgame</td>
+    </tr>
+</table>
+
+<h3 class="wiki-h3">9.2. Target Audience</h3>
+<table class="wiki-table">
+    <tr><th>Tier</th><th>Audience</th></tr>
+    <tr><td><b>Primary</b></td><td>Retro arcade fans &amp; indie game enthusiasts (20&ndash;35)</td></tr>
+    <tr><td><b>Secondary</b></td><td>Collection/progression-driven casual gamers</td></tr>
+    <tr><td><b>Tertiary</b></td><td>Competitive players seeking local/online PvP</td></tr>
+</table>
+
+<!-- ===== 10. Localization Plan ===== -->
+<h2 class="wiki-h2" id="s10"><span class="section-num">10.</span> Localization Plan</h2>
+
+<table class="wiki-table">
+    <tr><th>Language</th><th>Status</th><th>Timeline</th></tr>
+    <tr><td><b>Korean</b></td><td>&#x2705; Complete</td><td>Shipped</td></tr>
+    <tr><td><b>English</b></td><td>&#x1F504; In Progress</td><td>Q3 2026</td></tr>
+    <tr><td><b>Japanese</b></td><td>&#x1F4CB; Planned</td><td>Q4 2026</td></tr>
+    <tr><td><b>Chinese (Simplified)</b></td><td>&#x1F4CB; Planned</td><td>Q4 2026</td></tr>
+</table>
+<p>Pixel font system supports CJK character sets. UI layout designed for variable text lengths.</p>
+
+<!-- ===== 11. Business Model ===== -->
+<h2 class="wiki-h2" id="s11"><span class="section-num">11.</span> Business Model</h2>
+
+<h3 class="wiki-h3">11.1. Monetization Strategy</h3>
+<table class="wiki-table">
+    <tr><th>Model</th><th>Description</th></tr>
+    <tr><td><b>Premium (Buy-to-Play)</b></td><td>One-time purchase on Steam / itch.io</td></tr>
+    <tr><td><b>DLC Expansion Packs</b></td><td>Additional bosses, stages, characters</td></tr>
+    <tr><td><b>Cosmetics</b></td><td>Paddle skins, visual effect changes</td></tr>
+</table>
+
+<h3 class="wiki-h3">11.2. Price Points</h3>
+<table class="wiki-table">
+    <tr><th>Product</th><th>Price</th></tr>
+    <tr><td>Base Game</td><td>$9.99&ndash;$14.99</td></tr>
+    <tr><td>Stage DLC Pack</td><td>$4.99</td></tr>
+    <tr><td>Cosmetic Bundle</td><td>$2.99&ndash;$4.99</td></tr>
+</table>
+
+<!-- ===== 12. Development Status & Roadmap ===== -->
+<h2 class="wiki-h2" id="s12"><span class="section-num">12.</span> Development Status &amp; Roadmap</h2>
+
+<h3 class="wiki-h3">12.1. Current State</h3>
+<table class="wiki-table">
+    <tr><th>Metric</th><th>Details</th></tr>
+    <tr><td><b>Codebase</b></td><td>173,000+ lines (main file) + 99 modules</td></tr>
+    <tr><td><b>Feature Completion</b></td><td>Core gameplay complete, UI refactoring in progress</td></tr>
+    <tr><td><b>Playable Build</b></td><td>Available for demo</td></tr>
+</table>
+
+<h3 class="wiki-h3">12.2. Roadmap</h3>
+<table class="wiki-table dark">
+    <tr>
+        <th>Phase</th>
+        <th>Target</th>
+        <th>Details</th>
+    </tr>
+    <tr>
+        <td style="color:#58a6ff;"><b>Now</b></td>
+        <td>UI Polish &amp; Stabilization</td>
+        <td>Modular refactoring, bug fixes</td>
+    </tr>
+    <tr>
+        <td style="color:#58a6ff;"><b>Q3 2026</b></td>
+        <td>English Localization + Steam Page</td>
+        <td>Store page, trailer, wishlists</td>
+    </tr>
+    <tr>
+        <td style="color:#58a6ff;"><b>Q4 2026</b></td>
+        <td>Steam Early Access Launch</td>
+        <td>Full campaign + online PvP</td>
+    </tr>
+    <tr>
+        <td style="color:#bc8cff;"><b>2027 H1</b></td>
+        <td>Full Release + Console Port</td>
+        <td>Nintendo Switch / Xbox planned</td>
+    </tr>
+    <tr>
+        <td style="color:#bc8cff;"><b>2027 H2</b></td>
+        <td>DLC &amp; Community Content</td>
+        <td>New bosses, stages, modding support</td>
+    </tr>
+</table>
+
+<!-- ===== 13. What We're Looking For ===== -->
+<h2 class="wiki-h2" id="s13"><span class="section-num">13.</span> What We're Looking For</h2>
+
+<p>PingFighter is seeking strategic partners to accelerate its global launch:</p>
+
+<table class="wiki-table">
+    <tr><th>Need</th><th>Details</th></tr>
+    <tr><td><b>Publishing Partner</b></td><td>Global distribution, marketing, store page optimization</td></tr>
+    <tr><td><b>Investment</b></td><td>Localization, QA, console porting, marketing budget</td></tr>
+    <tr><td><b>Marketing Support</b></td><td>Trailer production, influencer outreach, event showcases</td></tr>
+    <tr><td><b>Platform Partnerships</b></td><td>Steam featuring, console dev kits, cloud gaming</td></tr>
+</table>
+
+<div class="wiki-quote">
+We are open to revenue-share, advance-against-royalties, or hybrid deal structures.
+</div>
+
+<!-- ===== 14. Origin Story ===== -->
+<h2 class="wiki-h2" id="s14"><span class="section-num">14.</span> Origin Story</h2>
+
+<div class="wiki-quote" style="font-style:normal;">
+    I used to love playing the <b>Atari Pong table</b> at the arcade.<br>
+    Then one day, the machines started disappearing &mdash; one by one.<br><br>
+    "If I can't play it anymore, I'll build it myself."<br><br>
+    That's how PingFighter was born.<br>
+    Not just a Pong remake, but the <b>"most fun version of Pong I'd want to play"</b> &mdash;<br>
+    combining boss battles, RPG progression, and competitive depth.
+</div>
+
+<div class="screenshot-gallery triple">
+    <div class="screenshot-item">
+        <img src="screenshots/atari.jpg" alt="Atari Pong" style="max-height:280px; object-fit:contain; background:#222;">
+        <div class="caption">The Inspiration &mdash; Atari Pong</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/original ping.png" alt="Early Prototype" style="max-height:280px; object-fit:contain; background:#222;">
+        <div class="caption">Early Prototype (Pong Boss Battle)</div>
+    </div>
+    <div class="screenshot-item">
+        <img src="screenshots/screenshot_20260407_220929.png" alt="PingFighter Today" style="max-height:280px; object-fit:contain; background:#222;">
+        <div class="caption">PingFighter Today</div>
+    </div>
+</div>
+
+<!-- ===== 15. Why PingFighter? ===== -->
+<h2 class="wiki-h2" id="s15"><span class="section-num">15.</span> Why PingFighter?</h2>
+
+<div class="feature-grid">
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F3AE;</div>
+        <h4>Simple yet Deep</h4>
+        <p>Pong's intuitive controls + 15 bosses' strategic depth. Anyone can start in seconds; mastery takes hours.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F4C8;</div>
+        <h4>Endless Progression</h4>
+        <p>49 perks, mythic items, random roll farming. The endgame loop keeps players coming back.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F3AC;</div>
+        <h4>Visual Spectacle</h4>
+        <p>Per-stage intro videos, 8 animated themes, gacha animations. Every moment feels cinematic.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#x2694;&#xFE0F;</div>
+        <h4>Competitive Fun</h4>
+        <p>Online PvP, 6 differentiated heroes, arena meta-loop. Competitive players have endless depth.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F3D9;&#xFE0F;</div>
+        <h4>Exploration</h4>
+        <p>Downtown hub with 7 buildings, 8 quests, bodyguard system. A world beyond the paddle.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#x1F393;</div>
+        <h4>Accessibility</h4>
+        <p><b>All skills &amp; controls work with arrow keys + mouse only.</b> 6-chapter tutorial. Zero barrier to entry.</p>
+    </div>
+</div>
+
+<!-- ===== 15. Team ===== -->
+<h2 class="wiki-h2" id="s16"><span class="section-num">16.</span> Team</h2>
+
+<table class="wiki-table">
+    <tr><th>Role</th><th>Details</th></tr>
+    <tr><td><b>Studio</b></td><td>Dongne Games</td></tr>
+    <tr><td><b>Development &amp; Design</b></td><td>Solo developer &mdash; programming, game design, art, sound</td></tr>
+    <tr><td><b>Engine</b></td><td>Custom Python/Pygame engine</td></tr>
+    <tr><td><b>AI Assistance</b></td><td>Claude Code (development acceleration)</td></tr>
+</table>
+
+<!-- ===== 16. Contact ===== -->
+<h2 class="wiki-h2" id="s17"><span class="section-num">17.</span> Contact</h2>
+
+<table class="wiki-table">
+    <tr><th style="width:120px;">Field</th><th>Details</th></tr>
+    <tr><td><b>Studio</b></td><td>Dongne Games</td></tr>
+    <tr><td><b>GitHub</b></td><td><a href="https://github.com/officialsahogany/pingfighter" style="color:#0275d8;">github.com/officialsahogany/pingfighter</a></td></tr>
+    <tr><td><b>Email</b></td><td><em>(to be added)</em></td></tr>
+</table>
+
+<div class="wiki-quote" style="text-align:center; font-style:normal;">
+    <b style="font-size:20px;">PingFighter</b><br>
+    <span style="font-size:15px;">Boss-hunting arcade action, one paddle at a time.</span><br><br>
+    <span style="font-size:13px; color:#666;">
+        "To live is to choose." &mdash; PingFighter, 2026
+    </span>
+</div>
+
+</div><!-- /wiki-content -->
+
+<!-- ==================== Footer ==================== -->
+<div class="wiki-footer">
+    PingFighter Pitch Deck &copy; 2026 Dongne Games<br>
+    Built with Python + Pygame | 173,000+ lines of code<br>
+    <a href="https://github.com/officialsahogany/pingfighter" style="color:#58a6ff;">github.com/officialsahogany/pingfighter</a>
+</div>
+
+</div><!-- /wiki-wrapper -->
+
+</body>
+</html>

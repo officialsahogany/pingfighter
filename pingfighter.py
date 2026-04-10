@@ -9897,8 +9897,8 @@ def _fullscreen_flip():
         if pillar_renderer is not None:
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
-        # 패널티킥 HUD (라운드 마커, 스코어보드)
-        if penalty_kick_mode_enabled and current_stage == 33:
+        # 패널티킥 HUD (레거시 핑퐁 모드 전용)
+        if penalty_kick_mode_enabled and current_stage == 33 and penalty_kick_ui is None:
             _draw_penalty_kick_hud(REAL_SCREEN)
 
         # 🎯 통합 쿨타임 큐 UI (왼쪽 필러, 영웅+호위무사)
@@ -25461,6 +25461,7 @@ penalty_kick_round_transition = False       # 라운드 전환 중 여부
 penalty_kick_round_transition_timer = 0     # 라운드 전환 타이머 (프레임)
 penalty_kick_game_over = False              # 게임 종료 여부
 penalty_kick_game_over_timer = 0            # 게임 종료 연출 타이머
+penalty_kick_ui = None                      # stage33 FIFA 패널티킥 UI 인스턴스
 PENALTY_KICK_ROUND_TRANSITION_FRAMES = 120  # 라운드 전환 연출 시간 (2초)
 PENALTY_KICK_GAME_OVER_FRAMES = 240         # 게임 종료 연출 시간 (4초)
 
@@ -117876,7 +117877,8 @@ def draw_objects():
                 try:
                     from item_effects import yachaman_soul as _ys_bb
                     if _ys_bb.bomb_loaded_on_ball:
-                        _bomb_ball_drawn = _ys_bb.draw_bomb_ball(SCREEN, pygame, BALL)
+                        _bomb_ball_rect = ball_rect.move(screen_shake_offset_x, screen_shake_offset_y)
+                        _bomb_ball_drawn = _ys_bb.draw_bomb_ball(SCREEN, pygame, _bomb_ball_rect)
                 except Exception:
                     pass
                 if not _bomb_ball_drawn:
@@ -120081,7 +120083,12 @@ def run_downtown_hub(next_stage_display: int) -> bool:
         }
         # print(f"[DEBUG run_downtown_hub] 전역 downtown_map_seed = {downtown_map_seed}")
         # print(f"[DEBUG run_downtown_hub] player_data['downtown_map_seed'] = {player_data.get('downtown_map_seed')}")
-        manager = DowntownManager(screen, academy=academy, arena_battle_callback=start_arena_battle)
+        manager = DowntownManager(
+            screen,
+            academy=academy,
+            arena_battle_callback=start_arena_battle,
+            penalty_kick_callback=start_penalty_kick_battle,
+        )
         manager.initialize(stage_number=next_stage_display, player_data=player_data)
 
         # === 광장 초기화 후 시드 동기화 및 자동저장 ===
@@ -124227,11 +124234,10 @@ def _penalty_kick_on_round_end(player_won: bool):
 # 패널티킥 핑퐁 배틀 시작 함수 (오락실 아케이드 캐비닛에서 호출)
 # ============================================================================
 def start_penalty_kick_battle():
-    """패널티킥 핑퐁 모드 시작 - 기존 게임 엔진 활용 (투기장 패턴)
+    """패널티킥 모드 시작 - stage 33 경로에서 FIFA식 미니게임 실행.
 
-    5:5 교대 서브 승부차기. 각 라운드 1점 선취로 승패 결정.
-    10라운드 후 동점이면 서든데스.
-    상대: 오락실 마스터 (고정 NPC AI)
+    메인 게임 루프는 pingfighter.py의 stage 33 경로를 사용하고,
+    실제 패널티킥 입력/판정/렌더는 PenaltyKickGameUI에 위임한다.
 
     Returns:
         True=플레이어 승, False=보스 승, None=ESC 퇴장
@@ -124242,15 +124248,20 @@ def start_penalty_kick_battle():
     global penalty_kick_is_sudden_death, penalty_kick_round_results
     global penalty_kick_round_transition, penalty_kick_round_transition_timer
     global penalty_kick_game_over, penalty_kick_game_over_timer
+    global penalty_kick_ui
     global player_ai_enabled, ai_mode, win_goal, is_player_serve
     global _pillar_ui_enabled
 
     _saved_ai_mode = ai_mode
     _saved_win_goal = win_goal
     _saved_is_player_serve = is_player_serve
+    _saved_player_ai_enabled = player_ai_enabled
+    _saved_pillar_ui_enabled = _pillar_ui_enabled
 
     result = None
     try:
+        from downtown.penalty_kick_game import PenaltyKickGameUI
+
         # 패널티킥 모드 활성화
         penalty_kick_mode_enabled = True
         penalty_kick_battle_result = None
@@ -124272,14 +124283,12 @@ def start_penalty_kick_battle():
         # 플레이어 직접 조작
         player_ai_enabled = False
 
-        # 라운드당 1점 선취
-        win_goal = 1
+        # 일반 인게임 HUD 대신 패널티킥 전용 UI만 사용
+        _pillar_ui_enabled = False
 
-        # 첫 서브: 플레이어
-        is_player_serve = True
-
-        # 필러 UI 활성화
-        _pillar_ui_enabled = True
+        penalty_kick_ui = PenaltyKickGameUI(WIDTH, HEIGHT, fonts=_make_arena_fonts())
+        penalty_kick_ui.start_game()
+        penalty_kick_ui.arcade_background = animated_bg_stage33
 
         result = main(33)  # 스테이지 33 = 패널티킥 네온 아케이드
     finally:
@@ -124290,12 +124299,14 @@ def start_penalty_kick_battle():
         penalty_kick_round_results = []
         penalty_kick_round_transition = False
         penalty_kick_game_over = False
+        penalty_kick_ui = None
 
         # 상태 복원
         ai_mode = _saved_ai_mode
         win_goal = _saved_win_goal
         is_player_serve = _saved_is_player_serve
-        player_ai_enabled = False
+        player_ai_enabled = _saved_player_ai_enabled
+        _pillar_ui_enabled = _saved_pillar_ui_enabled
 
     # 결과 정규화
     if result is not True and result is not False:
@@ -126127,7 +126138,12 @@ def show_start_screen():
             # 맵 시드 (개발자 모드: None으로 랜덤 생성)
             "downtown_map_seed": None,
         }
-        manager = DowntownManager(SCREEN, academy=academy, arena_battle_callback=start_arena_battle)
+        manager = DowntownManager(
+            SCREEN,
+            academy=academy,
+            arena_battle_callback=start_arena_battle,
+            penalty_kick_callback=start_penalty_kick_battle,
+        )
         manager.initialize(stage_number=1, player_data=player_data)
         try:
             bgm_manager.play_downtown_bgm()
@@ -160696,6 +160712,9 @@ def main(stage_num, new_boss_mode=False):
     global FIELD_GREEN, CURRENT_BG, BOSS_COLOR, SCREEN
     global game_should_exit  #  게임 종료 플래그
     global player_score, boss_score  # 점수 변수 (스테이지 시작 시 초기화)
+    global penalty_kick_ui, penalty_kick_battle_result
+    global penalty_kick_player_score, penalty_kick_boss_score
+    global penalty_kick_round, penalty_kick_is_sudden_death, penalty_kick_round_results
     global game_session_active  #  게임 세션 활성화 여부
     global cleared_planets  # 🌌 우주 행성 맵 클리어 상태
     global rolling_charges, rolling_charge_timer, acceleration_skill_level, acceleration_height_bonus  #  대쉬 & 스킬 관련
@@ -162774,6 +162793,42 @@ def main(stage_num, new_boss_mode=False):
                 continue  # 게임 로직 스킵
 
         # === 공 생성 애니메이션 업데이트 ===
+        if penalty_kick_mode_enabled and current_stage == 33 and penalty_kick_ui is not None:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    penalty_kick_battle_result = None
+                    return None
+
+                pk_event_result = penalty_kick_ui.handle_event(event)
+                if pk_event_result == 'exit':
+                    if penalty_kick_ui.player_score > penalty_kick_ui.boss_score:
+                        penalty_kick_battle_result = True
+                        return True
+                    if penalty_kick_ui.player_score < penalty_kick_ui.boss_score:
+                        penalty_kick_battle_result = False
+                        return False
+                    penalty_kick_battle_result = None
+                    return None
+
+            penalty_kick_ui.update(dt_ms / 1000.0)
+            penalty_kick_player_score = penalty_kick_ui.player_score
+            penalty_kick_boss_score = penalty_kick_ui.boss_score
+            penalty_kick_round = penalty_kick_ui.current_kick
+            penalty_kick_is_sudden_death = penalty_kick_ui.is_sudden_death
+            penalty_kick_round_results = [
+                (attacker, "goal" if is_goal else "save")
+                for attacker, is_goal in penalty_kick_ui.kick_results
+            ]
+
+            SCREEN.fill(BLACK)
+            penalty_kick_ui.draw(SCREEN)
+            pygame.display.flip()
+            continue
+
         if ball_spawn_animation_active and is_ball_spawn_animation_active():
             _debug_frame_count += 1
             dt_sec = dt_ms / 1000.0  # 초 단위로 변환
@@ -166974,7 +167029,7 @@ def main(stage_num, new_boss_mode=False):
                                     PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
                                 # 투구-공 충돌 판정
                                 if bs_result["helmet_rect"] and BALL is not None:
-                                    if _ys_bs.check_bomb_spin_ball_collision(BALL):
+                                    if _ys_bs.check_bomb_spin_ball_collision(BALL, ball_vel):
                                         # 공을 위쪽으로 튕김 (보스 방향)
                                         _bs_speed = max(10.0, math.hypot(ball_vel[0], ball_vel[1]) * 1.2)
                                         ball_vel[1] = -abs(_bs_speed)
