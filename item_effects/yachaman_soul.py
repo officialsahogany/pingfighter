@@ -486,6 +486,17 @@ bomb_spin_helmet_x = 0
 bomb_spin_helmet_y = 0
 BOMB_SPIN_HELMET_R = 14    # 투구 반지름
 
+# ── 폭탄 장전 상태 (공에 폭탄 실림) ──
+bomb_loaded_on_ball = False           # 공에 폭탄이 실린 상태
+bomb_explosion_active = False         # 폭발 애니메이션 진행 중
+bomb_explosion_timer = 0
+bomb_explosion_x = 0
+bomb_explosion_y = 0
+BOMB_EXPLOSION_FRAMES = 30           # 폭발 애니메이션 0.5초
+BOMB_STUN_DURATION = 60              # 1초 스턴 (60프레임)
+BOMB_KNOCKBACK_POWER = 15.0          # 넉백 강도
+bomb_explosion_particles = []
+
 # 타이밍 (프레임 @ 60fps)
 BOMB_SPIN_WINDUP = 8       # 준비 (팔 내밈)
 BOMB_SPIN_SPIN1 = 20       # 1바퀴 회전
@@ -597,14 +608,124 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
 
 
 def check_bomb_spin_ball_collision(ball_rect) -> bool:
-    """투구와 공의 충돌 판정. 충돌 시 True."""
+    """투구와 공의 충돌 판정. 충돌 시 True + 공에 폭탄 장전."""
+    global bomb_loaded_on_ball
     if not bomb_spin_active or bomb_spin_phase not in (1, 2):
         return False
-    # 원형 충돌 (투구 원 vs 공 rect 중심)
     bcx = ball_rect.centerx
     bcy = ball_rect.centery
     dist = math.hypot(bcx - bomb_spin_helmet_x, bcy - bomb_spin_helmet_y)
-    return dist < BOMB_SPIN_HELMET_R + ball_rect.width // 2
+    if dist < BOMB_SPIN_HELMET_R + ball_rect.width // 2:
+        bomb_loaded_on_ball = True  # 공에 폭탄 실림!
+        return True
+    return False
+
+
+def trigger_bomb_explosion(boss_cx: int, boss_cy: int):
+    """보스가 폭탄 공을 반격 시 폭발 발동. 넉백+스턴 적용을 위한 데이터 반환."""
+    global bomb_loaded_on_ball, bomb_explosion_active, bomb_explosion_timer
+    global bomb_explosion_x, bomb_explosion_y, bomb_explosion_particles
+
+    if not bomb_loaded_on_ball:
+        return None
+
+    bomb_loaded_on_ball = False
+    bomb_explosion_active = True
+    bomb_explosion_timer = 0
+    bomb_explosion_x = boss_cx
+    bomb_explosion_y = boss_cy
+
+    # 폭발 파티클
+    bomb_explosion_particles = []
+    for _ in range(30):
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(2, 10)
+        bomb_explosion_particles.append({
+            "x": float(boss_cx), "y": float(boss_cy),
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed,
+            "life": random.randint(15, 30),
+            "max_life": 30,
+            "size": random.randint(3, 7),
+            "color": random.choice([
+                (255, 200, 50), (255, 140, 0), (255, 80, 0),
+                (40, 40, 40), (60, 60, 60)
+            ])
+        })
+
+    return {
+        "stun_frames": BOMB_STUN_DURATION,
+        "knockback": BOMB_KNOCKBACK_POWER,
+    }
+
+
+def update_bomb_explosion():
+    """폭발 애니메이션 업데이트."""
+    global bomb_explosion_active, bomb_explosion_timer, bomb_explosion_particles
+
+    if not bomb_explosion_active:
+        return
+
+    bomb_explosion_timer += 1
+    if bomb_explosion_timer >= BOMB_EXPLOSION_FRAMES:
+        bomb_explosion_active = False
+        bomb_explosion_particles = []
+        return
+
+    for p in bomb_explosion_particles:
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["vy"] += 0.3
+        p["vx"] *= 0.95
+        p["life"] -= 1
+    bomb_explosion_particles = [p for p in bomb_explosion_particles if p["life"] > 0]
+
+
+def draw_bomb_explosion(screen, pygame_module):
+    """폭발 이펙트 그리기."""
+    if not bomb_explosion_active:
+        return
+
+    draw = pygame_module.draw
+    progress = bomb_explosion_timer / BOMB_EXPLOSION_FRAMES
+
+    # 폭발 링
+    ring_r = int(15 + progress * 60)
+    ring_alpha = int(255 * (1 - progress))
+    ring_surf = pygame_module.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame_module.SRCALPHA)
+    pygame_module.draw.circle(ring_surf, (255, 160, 0, ring_alpha),
+                              (ring_r + 2, ring_r + 2), ring_r, 3)
+    screen.blit(ring_surf, (bomb_explosion_x - ring_r - 2, bomb_explosion_y - ring_r - 2))
+
+    # 내부 플래시
+    if progress < 0.3:
+        flash_r = int(25 * (1 - progress / 0.3))
+        flash_alpha = int(200 * (1 - progress / 0.3))
+        flash = pygame_module.Surface((flash_r * 2, flash_r * 2), pygame_module.SRCALPHA)
+        pygame_module.draw.circle(flash, (255, 255, 200, flash_alpha),
+                                  (flash_r, flash_r), flash_r)
+        screen.blit(flash, (bomb_explosion_x - flash_r, bomb_explosion_y - flash_r))
+
+    # 파티클
+    for p in bomb_explosion_particles:
+        alpha = int(255 * (p["life"] / p["max_life"]))
+        s = pygame_module.Surface((p["size"], p["size"]), pygame_module.SRCALPHA)
+        c = p["color"]
+        pygame_module.draw.circle(s, (c[0], c[1], c[2], alpha),
+                                  (p["size"] // 2, p["size"] // 2), p["size"] // 2)
+        screen.blit(s, (int(p["x"]) - p["size"] // 2, int(p["y"]) - p["size"] // 2))
+
+
+def draw_bomb_indicator_on_ball(screen, pygame_module, ball_rect):
+    """공에 폭탄이 실린 상태 표시 (공 위에 작은 폭탄 아이콘)."""
+    if not bomb_loaded_on_ball:
+        return
+    bcx, bcy = ball_rect.centerx, ball_rect.top - 6
+    # 작은 검은 원 + 불꽃
+    pygame_module.draw.circle(screen, (25, 25, 30), (bcx, bcy), 5)
+    pygame_module.draw.circle(screen, (255, 200, 50), (bcx + 1, bcy - 6), 3)
+    pygame_module.draw.circle(screen, (255, 120, 0), (bcx + 1, bcy - 7), 2)
+    pygame_module.draw.line(screen, (80, 80, 80), (bcx, bcy - 5), (bcx + 1, bcy - 4), 1)
 
 
 def draw_bomb_spin(screen, pygame_module, player_cx, player_cy, phase_timer=0):
@@ -700,11 +821,17 @@ def reset_bomb_spin():
     global bomb_spin_active, bomb_spin_timer, bomb_spin_phase
     global bomb_spin_angle, bomb_spin_cooldown
     global bomb_spin_direction, bomb_spin_helmet_x, bomb_spin_helmet_y
+    global bomb_loaded_on_ball, bomb_explosion_active, bomb_explosion_timer
+    global bomb_explosion_particles
     bomb_spin_active = False
     bomb_spin_timer = 0
     bomb_spin_phase = 0
     bomb_spin_angle = 0.0
     bomb_spin_cooldown = 0
     bomb_spin_direction = 0
+    bomb_loaded_on_ball = False
+    bomb_explosion_active = False
+    bomb_explosion_timer = 0
+    bomb_explosion_particles = []
     bomb_spin_helmet_x = 0
     bomb_spin_helmet_y = 0

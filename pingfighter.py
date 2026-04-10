@@ -18922,6 +18922,12 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
                     # 💣 폭탄돌리기 이펙트
                     if _ys_mod.bomb_spin_active:
                         _ys_mod.draw_bomb_spin(SCREEN, pygame, PLAYER.centerx, PLAYER.centery, globals()['yachaman_phase_timer'])
+                    # 💣 폭발 이펙트
+                    if _ys_mod.bomb_explosion_active:
+                        _ys_mod.draw_bomb_explosion(SCREEN, pygame)
+                    # 💣 공 위 폭탄 표시
+                    if _ys_mod.bomb_loaded_on_ball and BALL is not None:
+                        _ys_mod.draw_bomb_indicator_on_ball(SCREEN, pygame, BALL)
                     _ys_draw_override = True
             except Exception:
                 pass
@@ -80835,6 +80841,17 @@ def handle_player(keys):
                     if mouse_state['right_pressed']:
                         right_pressed = True
                 else:
+                    try:
+                        from item_effects import yachaman_soul as _ys_move_mod
+                        if _ys_move_mod.yachaman_active and _ys_move_mod.bomb_spin_active:
+                            left_pressed = False
+                            right_pressed = False
+                            MOVE_EVENT_LEFT = False
+                            MOVE_EVENT_RIGHT = False
+                            current_speed = 0.0
+                    except Exception:
+                        pass
+
                     # 키보드 조작 (감전 상태가 아닐 때만)
                     if not player_stunned and not is_horn_strawberry_control_locked():
                         input_direction = -1 if left_pressed else (1 if right_pressed else 0)
@@ -115880,6 +115897,14 @@ def draw_objects():
             globals()['yachaman_phase_timer'] = globals().get('yachaman_phase_timer', 0) + 1
             _ys_draw_mod.draw_yachaman_paddle(SCREEN, pygame, _yachaman_draw_rect, globals()['yachaman_phase_timer'])
             _ys_draw_mod.draw_yachaman_character(SCREEN, pygame, _yachaman_draw_rect, globals()['yachaman_phase_timer'])
+            if _ys_draw_mod.bomb_spin_active:
+                _ys_draw_mod.draw_bomb_spin(
+                    SCREEN,
+                    pygame,
+                    _yachaman_draw_rect.centerx,
+                    _yachaman_draw_rect.centery,
+                    globals()['yachaman_phase_timer'],
+                )
             if recovery_effect_active and selected_character_type == "smasher":
                 draw_recovery_paddle_overlay(SCREEN, _yachaman_draw_rect)
             _yachaman_drawn = True
@@ -120047,7 +120072,7 @@ def run_downtown_hub(next_stage_display: int) -> bool:
         }
         # print(f"[DEBUG run_downtown_hub] 전역 downtown_map_seed = {downtown_map_seed}")
         # print(f"[DEBUG run_downtown_hub] player_data['downtown_map_seed'] = {player_data.get('downtown_map_seed')}")
-        manager = DowntownManager(screen, academy=academy, arena_battle_callback=start_arena_battle, penalty_kick_callback=start_penalty_kick_battle)
+        manager = DowntownManager(screen, academy=academy, arena_battle_callback=start_arena_battle)
         manager.initialize(stage_number=next_stage_display, player_data=player_data)
 
         # === 광장 초기화 후 시드 동기화 및 자동저장 ===
@@ -126093,7 +126118,7 @@ def show_start_screen():
             # 맵 시드 (개발자 모드: None으로 랜덤 생성)
             "downtown_map_seed": None,
         }
-        manager = DowntownManager(SCREEN, academy=academy, arena_battle_callback=start_arena_battle, penalty_kick_callback=start_penalty_kick_battle)
+        manager = DowntownManager(SCREEN, academy=academy, arena_battle_callback=start_arena_battle)
         manager.initialize(stage_number=1, player_data=player_data)
         try:
             bgm_manager.play_downtown_bgm()
@@ -153326,6 +153351,21 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
+        # 💣 야차맨 폭탄돌리기: 보스 반격 시 폭탄 폭발
+        try:
+            from item_effects import yachaman_soul as _ys_bomb
+            if _ys_bomb.bomb_loaded_on_ball:
+                _bomb_result = _ys_bomb.trigger_bomb_explosion(BOSS.centerx, BOSS.centery)
+                if _bomb_result:
+                    boss_stunned_timer = max(boss_stunned_timer, _bomb_result["stun_frames"])
+                    _bomb_kb = _bomb_result["knockback"]
+                    # 넉백 방향: 공이 온 방향의 반대
+                    _bomb_kb_dir = 1 if ball_vel[0] > 0 else -1
+                    boss_knockback_vel = _apply_boss_knockback_velocity(_bomb_kb_dir * _bomb_kb)
+                    screen_shake_timer = 15
+                    screen_shake_intensity = 8
+        except Exception:
+            pass
         # 바이퍼 팬텀 스트라이크 커브 해제 (보스가 받아치면 커브 종료)
         _viper_ps_curve_active = False
         # 바이퍼 스킬 공속 부스트 해제 → 원래 속도로 복귀
@@ -166917,7 +166957,7 @@ def main(stage_num, new_boss_mode=False):
                         # 💣 야차맨 폭탄돌리기 스킬 업데이트 + 공 충돌
                         try:
                             from item_effects import yachaman_soul as _ys_bs
-                            if _ys_bs.bomb_spin_active and PLAYER is not None:
+                            if PLAYER is not None and (_ys_bs.bomb_spin_active or _ys_bs.bomb_spin_cooldown > 0):
                                 bs_result = _ys_bs.update_bomb_spin(PLAYER.centerx, PLAYER.centery)
                                 # 대시 이동 적용
                                 if bs_result["dx"] != 0:
@@ -166933,6 +166973,12 @@ def main(stage_num, new_boss_mode=False):
                                         BALL.bottom = min(BALL.bottom, _ys_bs.bomb_spin_helmet_y - _ys_bs.BOMB_SPIN_HELMET_R - 2)
                                         globals()['last_hit_by'] = "player"
                                         game_vars.ball.last_hit_by = "player"
+                        except Exception:
+                            pass
+                        # 💣 야차맨 폭탄 폭발 애니메이션 업데이트
+                        try:
+                            from item_effects import yachaman_soul as _ys_exp
+                            _ys_exp.update_bomb_explosion()
                         except Exception:
                             pass
 
