@@ -56,7 +56,7 @@ if sys.platform == 'darwin':
 # 실행 파일로 직접 구동할 때도 items 등에서 import pingfighter가 동일 모듈을 참조하도록 별칭을 등록
 sys.modules.setdefault("pingfighter", sys.modules[__name__])
  
-# 스플래시 화면 비활성화
+# 시작 직후 표시할 스플래시 화면 핸들
 _splash_screen = None
 
 # ============================================================
@@ -109,10 +109,17 @@ _last_cursor_visible_state = None
 _pillar_active_item_slot_rects = None
 nemesis_shake_x = 0
 nemesis_shake_y = 0
-# if __name__ == "__main__":
-#     from splash_screen import show_splash, update_splash
-#     _splash_screen = show_splash()
-#     update_splash(0.05, "초기화 중...")
+penalty_kick_mode_enabled = False
+penalty_kick_ui = None
+penalty_kick_battle_result = None
+if __name__ == "__main__":
+    try:
+        from splash_screen import show_splash, update_splash
+        _splash_screen = show_splash()
+        update_splash(0.05, "초기화 중...")
+    except Exception as splash_error:
+        _splash_screen = None
+        print(f"[스플래시] 초기화 실패: {splash_error}", flush=True)
 
 # ============================================================
 # 1. 표준 라이브러리 Import
@@ -9916,7 +9923,11 @@ def _fullscreen_flip():
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 패널티킥 HUD (레거시 핑퐁 모드 전용)
-        if penalty_kick_mode_enabled and current_stage == 33 and penalty_kick_ui is None:
+        if (
+            globals().get('penalty_kick_mode_enabled', False)
+            and globals().get('current_stage') == 33
+            and globals().get('penalty_kick_ui') is None
+        ):
             _draw_penalty_kick_hud(REAL_SCREEN)
 
         # 🎯 통합 쿨타임 큐 UI (왼쪽 필러, 영웅+호위무사)
@@ -126274,7 +126285,8 @@ def _play_replay(filepath: str):
                 rp.seek_relative(int(event.y * -(capture_fps * 2)))
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                mx, my = event.pos
+                # REAL_SCREEN 좌표계 사용 (래핑된 get_pos가 아닌 원본 좌표)
+                mx, my = _original_mouse_get_pos()
                 if bar_click_area.collidepoint(mx, my):
                     dragging_timeline = True
                     ratio = max(0.0, min(1.0, (mx - bar_x) / bar_w))
@@ -126287,11 +126299,11 @@ def _play_replay(filepath: str):
                     rp.seek_relative(-seek_amount)
                 elif btn_fwd5.collidepoint(mx, my):
                     rp.seek_relative(seek_amount)
-                elif 0 < mx < WIDTH and 0 < my < btn_y_pos - 10:
+                elif 0 < mx < _dw and 0 < my < btn_y_pos - 10:
                     rp.toggle_pause()
 
             if event.type == pygame.MOUSEMOTION and dragging_timeline:
-                mx, _ = event.pos
+                mx, _ = _original_mouse_get_pos()
                 ratio = max(0.0, min(1.0, (mx - bar_x) / bar_w))
                 rp.current_index = max(0, min(rp.total_frames - 1, int(ratio * rp.total_frames)))
 
@@ -126331,7 +126343,8 @@ def _play_replay(filepath: str):
         _draw_screen.blit(surf, (0, 0))
 
         # ── 하단 컨트롤 오버레이 (마우스 하단 호버 또는 일시정지 시에만 표시) ──
-        mouse_pos = pygame.mouse.get_pos()
+        # REAL_SCREEN 좌표계 사용 (버튼 Rect와 동일한 좌표계)
+        mouse_pos = _original_mouse_get_pos()
         show_controls = rp.paused or mouse_pos[1] > _dh - 100 or dragging_timeline
 
         if show_controls:
