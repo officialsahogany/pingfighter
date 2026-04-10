@@ -123958,6 +123958,29 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         result = main(30)  # 스테이지 30 = 투기장
     finally:
         # 투기장 모드 종료 시 초기화
+
+        # pending 전역 정리 (셋업 중 예외 시 다음 경기로 오염 방지)
+        for _pending_key in [
+            '_arena_pending_top_guards', '_arena_pending_bottom_guards',
+            '_arena_pending_perk_data', '_arena_pending_skill_selections',
+            '_arena_pending_both_skills', '_arena_pending_henchman_list',
+            '_arena_pending_ai_henchman_list', '_arena_pending_captured_guard',
+            '_arena_pending_captured_guard_used', '_arena_pending_do_capture',
+        ]:
+            globals().pop(_pending_key, None)
+
+        # one-shot 입력 플래그 리셋 (이전 경기 눌림 상태 잔류 방지)
+        for _edge_attr in [
+            '_arena_mouse_pressed', '_arena_space_pressed',
+            '_arena_hench_key1_pressed', '_arena_hench_key2_pressed', '_arena_hench_key3_pressed',
+            '_arena_key_period_pressed', '_arena_key_comma_pressed',
+            '_arena_key_slash_pressed', '_arena_key_e_pressed',
+        ]:
+            try:
+                setattr(main, _edge_attr, False)
+            except Exception:
+                pass
+
         # 🔇 스킬 사운드 즉시 중지 + 캐시 삭제 (ghostwalk 등이 다음 화면에서 들리는 버그 방지)
         arena_stop_all_skill_sounds()
         _arena_skill_sound_cache.clear()  # 🔥 pingfighter 사운드 캐시도 완전 삭제
@@ -159868,22 +159891,27 @@ def show_result(won):
     global speedboots_obtained, speedgear_obtained  #  패시브 아이템 효과 초기화용
     global game_session_active  #  게임 세션 상태
 
-    # 🎬 리플레이 녹화 종료 (모든 경기 종료 경로가 여기를 거침)
-    try:
-        _rec = get_replay_recorder()
-        if _rec.recording:
-            # 보스 이름을 최종 확정값으로 업데이트 (녹화 시작 시점에는 이전 값일 수 있음)
-            _rec.metadata['boss_name'] = get_boss_name(current_stage)
-            _rec.metadata['stage'] = current_stage
-            _rec.stop(result='win' if won else 'lose')
-    except Exception as _re:
-        print(f"[Replay] show_result 내 녹화 저장 실패: {_re}")
-
-    # 🎬 결과 화면 전환 페이드아웃
-    try:
-        play_fade_out(12)
-    except Exception:
+    # 투기장 모드에서는 페이드아웃/공통 리플레이 종료를 건너뛰고 자체 처리
+    # (포획 페이즈 전환 시 불필요한 검은 화면 방지 + 영웅명 메타데이터 보정)
+    if arena_mode_enabled:
+        # 아래 arena 전용 분기로 바로 점프
         pass
+    else:
+        # 🎬 리플레이 녹화 종료 (일반 모드)
+        try:
+            _rec = get_replay_recorder()
+            if _rec.recording:
+                _rec.metadata['boss_name'] = get_boss_name(current_stage)
+                _rec.metadata['stage'] = current_stage
+                _rec.stop(result='win' if won else 'lose')
+        except Exception as _re:
+            print(f"[Replay] show_result 내 녹화 저장 실패: {_re}")
+
+        # 🎬 결과 화면 전환 페이드아웃 (일반 모드만)
+        try:
+            play_fade_out(12)
+        except Exception:
+            pass
     global aipill_active  #  AI 필 변수 추가
     global final_round_wins, final_round_losses, round_wins, round_losses  #  최종 점수 저장
     global battery_obtained  #  배터리 변수 추가
