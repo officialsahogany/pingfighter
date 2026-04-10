@@ -1613,83 +1613,67 @@ func _draw_pillar_liquid_fill(center: Vector2, radius: float, fill_ratio: float,
 	var inner_radius: float = max(4.0, radius)
 	var fill_height: float = inner_radius * 2.0 * clamped_ratio
 	var fill_top: float = center.y + inner_radius - fill_height
-	var wave_amp: float = max(2.2, inner_radius * 0.05)
+	var wave_amp: float = max(3.5, inner_radius * 0.10)
 	var wave_offset: float = sin(t * 2.3) * wave_amp * 0.5
-	var wave_points: PackedVector2Array = PackedVector2Array()
-	var prev_point: Vector2 = Vector2.ZERO
-	var has_prev_point: bool = false
+	var prev_wave_point: Vector2 = Vector2.ZERO
+	var has_prev: bool = false
 
-	for ix in range(int(-inner_radius), int(inner_radius) + 1):
+	# --- liquid column fill (2px stride for performance) ---
+	var step: int = 2
+	for ix in range(int(-inner_radius), int(inner_radius) + 1, step):
 		var local_x: float = float(ix)
 		var y_limit: float = sqrt(max(0.0, inner_radius * inner_radius - local_x * local_x))
-		var primary_wave: float = sin(local_x * 0.12 + t * 3.8) * wave_amp
-		var secondary_wave: float = cos(local_x * 0.07 - t * 4.6) * wave_amp * 0.55
+		var primary_wave: float = sin(local_x * 0.08 + t * 3.8) * wave_amp
+		var secondary_wave: float = cos(local_x * 0.05 - t * 4.6) * wave_amp * 0.55
 		var wave_y: float = fill_top + primary_wave + secondary_wave + wave_offset
 		var line_top: float = clamp(max(center.y - y_limit, wave_y), center.y - y_limit, center.y + y_limit)
 		var line_bottom: float = center.y + y_limit
 		if line_top >= line_bottom:
-			has_prev_point = false
+			has_prev = false
 			continue
 		var gradient_t: float = clamp((line_top - (center.y - inner_radius)) / max(1.0, inner_radius * 2.0), 0.0, 1.0)
 		var fill_color: Color = top_color.lerp(bottom_color, gradient_t)
-		draw_line(Vector2(center.x + local_x, line_top), Vector2(center.x + local_x, line_bottom), fill_color, 1.0)
-		if abs(local_x) < inner_radius - 4.0:
-			var core_mix: float = 1.0 - abs(local_x) / max(1.0, inner_radius - 4.0)
-			var core_alpha: float = 0.05 + 0.07 * core_mix * clamped_ratio
-			draw_line(
-				Vector2(center.x + local_x, line_top + 3.0),
-				Vector2(center.x + local_x, line_bottom - 2.0),
-				Color(wave_glow.r, wave_glow.g, wave_glow.b, core_alpha),
-				1.0
-			)
+		draw_line(Vector2(center.x + local_x, line_top), Vector2(center.x + local_x, line_bottom), fill_color, float(step))
+		# wave surface line
 		var wave_point := Vector2(center.x + local_x, line_top)
-		wave_points.append(wave_point)
-		if has_prev_point:
-			draw_line(prev_point, wave_point, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.34), 2.2)
-			draw_line(prev_point, wave_point, Color(1.0, 1.0, 1.0, 0.18), 1.0)
-		prev_point = wave_point
-		has_prev_point = true
+		if has_prev:
+			draw_line(prev_wave_point, wave_point, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.50), 2.0)
+		prev_wave_point = wave_point
+		has_prev = true
 
-	if wave_points.size() > 2:
-		for i in range(0, wave_points.size(), 6):
-			var crest_pos: Vector2 = wave_points[i]
-			draw_circle(crest_pos, 1.8, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.18))
-			draw_circle(crest_pos + Vector2(0.0, -1.0), 0.9, Color(1.0, 1.0, 1.0, 0.12))
-
+	# --- refraction bands (2 bands, sparse) ---
 	for band_idx in range(2):
-		var band_ratio: float = 0.26 + float(band_idx) * 0.24
-		var band_center_y: float = center.y + inner_radius - fill_height * band_ratio + sin(t * (2.6 + float(band_idx) * 0.7) + float(band_idx)) * (wave_amp * 0.9)
-		for ix in range(int(-inner_radius) + 2, int(inner_radius) - 1, 2):
+		var band_ratio: float = 0.28 + float(band_idx) * 0.28
+		var band_center_y: float = center.y + inner_radius - fill_height * band_ratio + sin(t * (2.6 + float(band_idx) * 0.8) + float(band_idx)) * (wave_amp * 1.0)
+		for ix in range(int(-inner_radius) + 4, int(inner_radius) - 3, 4):
 			var local_x: float = float(ix)
 			var y_limit: float = sqrt(max(0.0, inner_radius * inner_radius - local_x * local_x))
 			var band_dx_ratio: float = abs(local_x) / max(1.0, inner_radius)
 			var band_width: float = (1.0 - band_dx_ratio) * (10.0 + inner_radius * 0.08)
-			var line_y: float = clamp(band_center_y + sin(local_x * 0.09 + t * 2.0 + float(band_idx) * 0.6) * 1.1, center.y - y_limit, center.y + y_limit)
-			var band_alpha: float = 0.03 + (1.0 - band_dx_ratio) * 0.05 * clamped_ratio
+			var line_y: float = clamp(band_center_y + sin(local_x * 0.09 + t * 2.0 + float(band_idx) * 0.6) * 1.4, center.y - y_limit, center.y + y_limit)
+			var band_alpha: float = 0.06 + (1.0 - band_dx_ratio) * 0.08 * clamped_ratio
 			if line_y > fill_top + 3.0 and line_y < center.y + y_limit - 2.0:
 				draw_line(
 					Vector2(center.x + local_x - band_width * 0.5, line_y),
 					Vector2(center.x + local_x + band_width * 0.5, line_y),
 					Color(wave_glow.r, wave_glow.g, wave_glow.b, band_alpha),
-					1.0
+					1.5
 				)
 
-	var bubble_count: int = max(6, int(round(6.0 + clamped_ratio * 4.0)))
+	# --- bubbles (max 5) ---
+	var bubble_count: int = mini(5, int(round(3.0 + clamped_ratio * 3.0)))
 	for i in range(bubble_count):
-		var phase: float = t * 1.2 + float(i) * 1.26
-		var bubble_x: float = center.x + sin(phase * 0.6 + float(i) * 2.1) * (inner_radius * (0.22 + float(i % 3) * 0.08))
-		var bubble_offset_y: float = fmod(phase * (14.0 + float(i % 3) * 3.0) + float(i) * 24.0, max(1.0, fill_height))
+		var phase: float = t * 1.4 + float(i) * 1.26
+		var bubble_x: float = center.x + sin(phase * 0.6 + float(i) * 2.1) * (inner_radius * (0.25 + float(i % 3) * 0.10))
+		var bubble_offset_y: float = fmod(phase * (16.0 + float(i % 3) * 4.0) + float(i) * 24.0, max(1.0, fill_height))
 		var bubble_y: float = center.y + inner_radius - bubble_offset_y
-		var bubble_local_x: float = bubble_x - center.x
-		var local_wave_y: float = fill_top + sin(bubble_local_x * 0.12 + t * 3.8) * wave_amp + cos(bubble_local_x * 0.07 - t * 4.6) * wave_amp * 0.55 + wave_offset
 		var dx: float = bubble_x - center.x
 		var dy: float = bubble_y - center.y
-		if dx * dx + dy * dy < (inner_radius - 4.0) * (inner_radius - 4.0) and bubble_y > local_wave_y + 4.0:
-			var bubble_alpha: float = 0.20 + 0.14 * abs(sin(phase * 0.9))
-			var bubble_radius: float = 1.3 + float(i % 3) * 0.65
-			draw_circle(Vector2(bubble_x, bubble_y), bubble_radius + 1.2, Color(wave_glow.r, wave_glow.g, wave_glow.b, bubble_alpha * 0.16))
+		if dx * dx + dy * dy < (inner_radius - 4.0) * (inner_radius - 4.0):
+			var bubble_alpha: float = 0.35 + 0.18 * abs(sin(phase * 0.9))
+			var bubble_radius: float = 2.0 + float(i % 3) * 0.8
 			draw_circle(Vector2(bubble_x, bubble_y), bubble_radius, Color(0.86, 0.94, 1.0, bubble_alpha))
-			draw_circle(Vector2(bubble_x, bubble_y - bubble_radius * 0.45), max(0.8, bubble_radius * 0.42), Color(1.0, 1.0, 1.0, bubble_alpha * 0.58))
+			draw_circle(Vector2(bubble_x - bubble_radius * 0.3, bubble_y - bubble_radius * 0.4), max(0.8, bubble_radius * 0.4), Color(1.0, 1.0, 1.0, bubble_alpha * 0.55))
 
 
 func _draw_stage1_pillar_ui(game_offset: Vector2, game_size: Vector2, t: float) -> void:
@@ -1712,35 +1696,60 @@ func _draw_stage1_gauge_orb(center: Vector2, orb_radius: float, t: float, scale_
 	var frame_width: float = max(4.0, PILLAR_ORB_FRAME_WIDTH_BASE * scale_factor)
 	var full_ratio: float = clamp(special_gauge / GAUGE_MAX, 0.0, 1.0)
 	var pulse: float = 0.5 + 0.5 * sin(t * 4.0)
-	var glow_strength: float = 0.05 + 0.04 * pulse
+	var glow_strength: float = 0.08 + 0.06 * pulse
 	if full_ratio >= 0.999:
-		glow_strength += 0.10 + 0.08 * pulse
+		glow_strength += 0.14 + 0.10 * pulse
 	if special_gauge_flash_timer > 0.0:
-		glow_strength += 0.22 * (special_gauge_flash_timer / PILLAR_GAUGE_GAIN_FLASH_DURATION)
+		glow_strength += 0.28 * (special_gauge_flash_timer / PILLAR_GAUGE_GAIN_FLASH_DURATION)
 
+	# --- outer glow ---
 	for layer in range(4):
-		var glow_radius: float = radius + frame_width + 12.0 - float(layer) * 3.0
-		var alpha: float = glow_strength * (1.0 - float(layer) * 0.20)
+		var glow_radius: float = radius + frame_width + 14.0 - float(layer) * 3.0
+		var alpha: float = glow_strength * (1.0 - float(layer) * 0.18)
 		draw_circle(center, glow_radius, Color(0.36, 0.58, 1.0, alpha))
 
-	for r in range(int(radius), 0, -2):
+	# --- frame FIRST (its filled circle is the base layer) ---
+	_draw_pillar_orb_frame(
+		center,
+		radius,
+		frame_width,
+		Color(0.18, 0.14, 0.08, 1.0),
+		Color(0.58, 0.48, 0.24, 1.0),
+		Color(0.85, 0.73, 0.42, 1.0),
+		Color(0.18, 0.46, 0.88, 1.0),
+		Color(0.72, 0.88, 1.0, 1.0)
+	)
+
+	# --- dark glass background (overwrites interior of frame circle) ---
+	for r in range(int(radius), 0, -4):
 		var ratio: float = float(r) / radius
 		var bg_color := Color(
-			0.02 + 0.05 * (1.0 - ratio),
-			0.05 + 0.07 * (1.0 - ratio),
-			0.10 + 0.12 * (1.0 - ratio),
+			0.02 + 0.06 * (1.0 - ratio),
+			0.05 + 0.08 * (1.0 - ratio),
+			0.12 + 0.14 * (1.0 - ratio),
 			1.0
 		)
 		draw_circle(center, float(r), bg_color)
 
-	for i in range(10):
-		var sparkle_phase: float = t * 1.2 + float(i) * 0.63
-		var sparkle_dist: float = (radius - 8.0) * (0.3 + 0.5 * abs(sin(sparkle_phase * 0.6 + float(i))))
-		var sparkle_pos := center + Vector2(cos(sparkle_phase), sin(sparkle_phase * 0.7)) * sparkle_dist
-		var sparkle_alpha: float = 0.12 + 0.09 * abs(sin(sparkle_phase * 1.2))
-		if sparkle_pos.distance_to(center) < radius - 4.0:
-			draw_circle(sparkle_pos, 1.5, Color(0.70, 0.86, 1.0, sparkle_alpha))
+	# --- ambient energy particles (always visible) ---
+	for i in range(6):
+		var pa: float = t * 0.8 + float(i) * 1.05
+		var orbit_r: float = (radius - 10.0) * (0.25 + 0.45 * abs(sin(pa * 0.5 + float(i) * 0.7)))
+		var orbit_angle: float = pa * (0.6 + float(i % 3) * 0.15)
+		var particle_pos := center + Vector2(cos(orbit_angle), sin(orbit_angle * 0.8 + float(i))) * orbit_r
+		if particle_pos.distance_to(center) < radius - 5.0:
+			var pa_alpha: float = 0.30 + 0.20 * abs(sin(pa * 1.3))
+			var pa_size: float = 1.8 + float(i % 3) * 0.6
+			draw_circle(particle_pos, pa_size, Color(0.55, 0.78, 1.0, pa_alpha))
+			draw_circle(particle_pos, pa_size * 0.4, Color(1.0, 1.0, 1.0, pa_alpha * 0.5))
 
+	# --- pulsing core glow ---
+	var core_pulse: float = 0.5 + 0.5 * sin(t * 3.0)
+	var core_alpha: float = 0.06 + 0.05 * core_pulse + full_ratio * 0.08
+	draw_circle(center, radius * 0.55, Color(0.30, 0.55, 1.0, core_alpha))
+	draw_circle(center, radius * 0.30, Color(0.50, 0.75, 1.0, core_alpha * 0.7))
+
+	# --- liquid fill ---
 	var fill_top_color := Color(0.36, 0.70, 1.0, 1.0)
 	var fill_bottom_color := Color(0.10, 0.26, 0.72, 1.0)
 	var wave_glow := Color(0.82, 0.94, 1.0, 1.0)
@@ -1756,30 +1765,32 @@ func _draw_stage1_gauge_orb(center: Vector2, orb_radius: float, t: float, scale_
 		fill_bottom_color = Color(0.07, 0.17, 0.48, 1.0)
 
 	_draw_pillar_liquid_fill(center, radius - 5.0 * scale_factor, full_ratio, t, fill_top_color, fill_bottom_color, wave_glow)
+
+	# --- center glow that grows with fill ---
 	if full_ratio > 0.0:
-		draw_circle(center, radius * (0.16 + full_ratio * 0.20), Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.10 + full_ratio * 0.12))
-		draw_circle(center + Vector2(0.0, radius * 0.12), radius * (0.08 + full_ratio * 0.10), Color(1.0, 1.0, 1.0, 0.04 + full_ratio * 0.05))
-	_draw_pillar_orb_frame(
-		center,
-		radius,
-		frame_width,
-		Color(0.18, 0.14, 0.08, 1.0),
-		Color(0.58, 0.48, 0.24, 1.0),
-		Color(0.85, 0.73, 0.42, 1.0),
-		Color(0.18, 0.46, 0.88, 1.0),
-		Color(0.72, 0.88, 1.0, 1.0)
-	)
+		draw_circle(center, radius * (0.20 + full_ratio * 0.24), Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.12 + full_ratio * 0.16))
+		draw_circle(center + Vector2(0.0, radius * 0.10), radius * (0.10 + full_ratio * 0.12), Color(1.0, 1.0, 1.0, 0.06 + full_ratio * 0.07))
+
+	# --- glass on top ---
 	_draw_pillar_orb_glass(center, radius, Color(0.50, 0.74, 1.0, 1.0))
 
+	# --- gauge gain flash ---
 	if special_gauge_flash_timer > 0.0:
 		var flash_progress: float = special_gauge_flash_timer / PILLAR_GAUGE_GAIN_FLASH_DURATION
 		for layer in range(3):
 			var flash_radius: float = radius + 10.0 * scale_factor + float(layer) * 12.0 * scale_factor
-			var flash_alpha: float = (0.34 - float(layer) * 0.09) * flash_progress
+			var flash_alpha: float = (0.38 - float(layer) * 0.10) * flash_progress
 			draw_circle(center, flash_radius, Color(1.0, 0.82, 0.46, flash_alpha))
-		draw_arc(center, radius + 26.0 * scale_factor * (1.0 - flash_progress), 0.0, TAU, 32, Color(1.0, 0.86, 0.50, 0.45 * flash_progress), 3.0)
+		draw_arc(center, radius + 26.0 * scale_factor * (1.0 - flash_progress), 0.0, TAU, 32, Color(1.0, 0.86, 0.50, 0.50 * flash_progress), 3.0)
 
-	draw_circle(center, radius * 0.40, Color(0.78, 0.90, 1.0, 0.10 + full_ratio * 0.16))
+	# --- expanding pulse ring ---
+	var ring_phase: float = fmod(t * 0.8, 1.0)
+	var ring_r: float = radius * (0.5 + ring_phase * 0.5)
+	var ring_alpha: float = 0.12 * (1.0 - ring_phase)
+	if ring_alpha > 0.01:
+		draw_arc(center, ring_r, 0.0, TAU, 32, Color(0.50, 0.74, 1.0, ring_alpha), 1.5)
+
+	draw_circle(center, radius * 0.40, Color(0.78, 0.90, 1.0, 0.12 + full_ratio * 0.18))
 	_draw_pillar_text_centered(center, "%d/%d" % [int(round(special_gauge)), int(round(GAUGE_MAX))], int(round(16.0 * scale_factor)), Color.WHITE)
 
 
@@ -1793,57 +1804,91 @@ func _draw_stage1_dash_orb(center: Vector2, orb_radius: float, t: float, scale_f
 		charge_progress = clamp(1.0 - (dash_charge_timer / DASH_TOKEN_RECHARGE_FRAMES), 0.0, 1.0)
 
 	var pulse: float = 0.5 + 0.5 * sin(t * 4.0)
-	var outer_glow: float = 0.05 + 0.04 * pulse
+	var outer_glow: float = 0.08 + 0.06 * pulse
 	if available_tokens > 0:
-		outer_glow += 0.06 + 0.04 * pulse
+		outer_glow += 0.08 + 0.06 * pulse
 	if dash_orb_flash_timer > 0.0:
-		outer_glow += 0.24 * (dash_orb_flash_timer / PILLAR_DASH_FLASH_DURATION)
+		outer_glow += 0.28 * (dash_orb_flash_timer / PILLAR_DASH_FLASH_DURATION)
 
+	# --- outer glow ---
 	for layer in range(4):
-		var glow_radius: float = radius + frame_width + 12.0 - float(layer) * 3.0
-		var alpha: float = outer_glow * (1.0 - float(layer) * 0.20)
+		var glow_radius: float = radius + frame_width + 14.0 - float(layer) * 3.0
+		var alpha: float = outer_glow * (1.0 - float(layer) * 0.18)
 		draw_circle(center, glow_radius, Color(0.92, 0.28, 0.28, alpha))
 
-	for r in range(int(radius), 0, -2):
+	# --- frame FIRST (base layer) ---
+	_draw_pillar_orb_frame(
+		center,
+		radius,
+		frame_width,
+		Color(0.16, 0.10, 0.09, 1.0),
+		Color(0.46, 0.34, 0.32, 1.0),
+		Color(0.70, 0.54, 0.50, 1.0),
+		Color(0.84, 0.20, 0.20, 1.0),
+		Color(1.0, 0.72, 0.72, 1.0)
+	)
+
+	# --- dark background (overwrites interior) ---
+	for r in range(int(radius), 0, -4):
 		var ratio: float = float(r) / radius
 		var bg_color := Color(
-			0.05 + 0.10 * (1.0 - ratio),
-			0.02 + 0.03 * (1.0 - ratio),
-			0.03 + 0.05 * (1.0 - ratio),
+			0.06 + 0.12 * (1.0 - ratio),
+			0.02 + 0.04 * (1.0 - ratio),
+			0.03 + 0.06 * (1.0 - ratio),
 			1.0
 		)
 		draw_circle(center, float(r), bg_color)
 
-	for i in range(10):
-		var sparkle_phase: float = t * 1.2 + float(i) * 0.63
-		var sparkle_dist: float = (radius - 8.0) * (0.3 + 0.5 * abs(sin(sparkle_phase * 0.6 + float(i))))
-		var sparkle_pos := center + Vector2(cos(sparkle_phase), sin(sparkle_phase * 0.7)) * sparkle_dist
-		var sparkle_alpha: float = 0.12 + 0.08 * abs(sin(sparkle_phase * 1.2))
-		if sparkle_pos.distance_to(center) < radius - 4.0:
-			draw_circle(sparkle_pos, 1.5, Color(1.0, 0.54, 0.42, sparkle_alpha))
+	# --- ambient energy particles (5 particles) ---
+	for i in range(5):
+		var pa: float = t * 0.9 + float(i) * 1.26
+		var orbit_r: float = (radius - 10.0) * (0.25 + 0.45 * abs(sin(pa * 0.5 + float(i) * 0.8)))
+		var orbit_angle: float = pa * (0.7 + float(i % 3) * 0.12)
+		var particle_pos := center + Vector2(cos(orbit_angle), sin(orbit_angle * 0.8 + float(i))) * orbit_r
+		if particle_pos.distance_to(center) < radius - 5.0:
+			var pa_alpha: float = 0.28 + 0.18 * abs(sin(pa * 1.2))
+			var pa_size: float = 1.6 + float(i % 3) * 0.5
+			draw_circle(particle_pos, pa_size, Color(1.0, 0.55, 0.42, pa_alpha))
+			draw_circle(particle_pos, pa_size * 0.4, Color(1.0, 1.0, 0.9, pa_alpha * 0.5))
 
+	# --- pulsing core glow ---
+	var core_pulse: float = 0.5 + 0.5 * sin(t * 3.2)
+	var core_a: float = 0.06 + 0.05 * core_pulse + float(available_tokens) / float(max_tokens) * 0.08
+	draw_circle(center, radius * 0.50, Color(0.80, 0.20, 0.18, core_a))
+	draw_circle(center, radius * 0.28, Color(1.0, 0.45, 0.35, core_a * 0.7))
+
+	# --- token fill ---
 	var inner_radius: float = radius - 5.0 * scale_factor
 	var start_angle_offset: float = -PI * 0.5
 	var sector_angle: float = TAU / float(max_tokens)
 
-	for i in range(max_tokens):
-		var start_rad: float = start_angle_offset + sector_angle * float(i)
-		var end_rad: float = start_rad + sector_angle
-		if i < available_tokens:
-			draw_colored_polygon(_build_sector_points(center, inner_radius, start_rad, end_rad, 28), Color(0.78, 0.16, 0.20, 0.96))
-			draw_colored_polygon(_build_sector_points(center, inner_radius * 0.72, start_rad, end_rad, 20), Color(1.0, 0.52, 0.48, 0.18))
-		elif charge_progress > 0.0 and i == available_tokens:
-			if max_tokens == 1:
-				_draw_pillar_liquid_fill(center, inner_radius, charge_progress, t, Color(0.98, 0.46, 0.36, 1.0), Color(0.42, 0.10, 0.12, 1.0), Color(1.0, 0.78, 0.70, 1.0))
-				draw_circle(center, inner_radius * (0.16 + charge_progress * 0.22), Color(1.0, 0.46, 0.36, 0.10 + charge_progress * 0.14))
-				draw_circle(center + Vector2(0.0, inner_radius * 0.12), inner_radius * (0.08 + charge_progress * 0.10), Color(1.0, 0.92, 0.88, 0.05 + charge_progress * 0.07))
-			else:
-				var charge_radius: float = inner_radius * charge_progress
-				draw_colored_polygon(_build_sector_points(center, charge_radius, start_rad, end_rad, 24), Color(0.76, 0.26, 0.22, 0.92))
-				if charge_progress > 0.10:
-					draw_colored_polygon(_build_sector_points(center, charge_radius, start_rad, end_rad, 24, charge_radius * 0.82), Color(1.0, 0.58, 0.44, 0.18))
+	if max_tokens == 1:
+		# single token: use liquid fill for all states
+		var fill_ratio_total: float = 0.0
+		if available_tokens >= 1:
+			fill_ratio_total = 1.0
+		elif charge_progress > 0.0:
+			fill_ratio_total = charge_progress
+		if fill_ratio_total > 0.0:
+			_draw_pillar_liquid_fill(center, inner_radius, fill_ratio_total, t, Color(0.98, 0.46, 0.36, 1.0), Color(0.42, 0.10, 0.12, 1.0), Color(1.0, 0.78, 0.70, 1.0))
+			draw_circle(center, inner_radius * (0.18 + fill_ratio_total * 0.24), Color(1.0, 0.46, 0.36, 0.12 + fill_ratio_total * 0.16))
+			draw_circle(center + Vector2(0.0, inner_radius * 0.10), inner_radius * (0.10 + fill_ratio_total * 0.12), Color(1.0, 0.92, 0.88, 0.06 + fill_ratio_total * 0.08))
+	else:
+		# multiple tokens: each sector gets liquid-style fill
+		for i in range(max_tokens):
+			var start_rad: float = start_angle_offset + sector_angle * float(i)
+			var end_rad: float = start_rad + sector_angle
+			if i < available_tokens:
+				# filled token: pulsing sector with inner glow
+				var token_pulse: float = 0.5 + 0.5 * sin(t * 3.5 + float(i) * 1.2)
+				var base_alpha: float = 0.88 + 0.10 * token_pulse
+				draw_colored_polygon(_build_sector_points(center, inner_radius, start_rad, end_rad, 24), Color(0.78, 0.16, 0.20, base_alpha))
+				draw_colored_polygon(_build_sector_points(center, inner_radius * 0.72, start_rad, end_rad, 16), Color(1.0, 0.52, 0.42, 0.12 + 0.10 * token_pulse))
+			elif charge_progress > 0.0 and i == available_tokens:
+				# charging token: liquid-like fill rising
+				_draw_dash_sector_liquid(center, inner_radius, start_rad, end_rad, charge_progress, t, scale_factor)
 
-	if max_tokens > 1:
+		# --- divider lines ---
 		var divider_progress: float = _ease_out_cubic(dash_divider_anim_progress)
 		for i in range(max_tokens):
 			var divider_angle: float = start_angle_offset + sector_angle * float(i)
@@ -1855,38 +1900,55 @@ func _draw_stage1_dash_orb(center: Vector2, orb_radius: float, t: float, scale_f
 				var seg_end := center + Vector2(cos(divider_angle), sin(divider_angle)) * current_length * end_ratio
 				var thickness: float = max(1.0, 4.0 - float(seg) * 0.25)
 				var gold_mix: float = 1.0 - float(seg) / 12.0
-				draw_line(seg_start, seg_end, Color(0.62 + gold_mix * 0.18, 0.46 + gold_mix * 0.14, 0.20 + gold_mix * 0.10, 0.75), thickness)
+				draw_line(seg_start, seg_end, Color(0.62 + gold_mix * 0.18, 0.46 + gold_mix * 0.14, 0.20 + gold_mix * 0.10, 0.80), thickness)
 			var tip_pos := center + Vector2(cos(divider_angle), sin(divider_angle)) * current_length
-			draw_circle(tip_pos, 3.0 * scale_factor, Color(0.82, 0.66, 0.34, 0.72))
-			draw_circle(tip_pos, 2.0 * scale_factor, Color(1.0, 0.86, 0.54, 0.60))
-		draw_circle(center, 6.0 * scale_factor, Color(0.70, 0.54, 0.24, 0.90))
-		draw_circle(center, 4.0 * scale_factor, Color(0.90, 0.74, 0.40, 0.90))
-		draw_circle(center, 2.0 * scale_factor, Color(1.0, 0.90, 0.66, 0.92))
+			draw_circle(tip_pos, 3.0 * scale_factor, Color(0.82, 0.66, 0.34, 0.76))
+			draw_circle(tip_pos, 2.0 * scale_factor, Color(1.0, 0.86, 0.54, 0.64))
+		draw_circle(center, 6.0 * scale_factor, Color(0.70, 0.54, 0.24, 0.92))
+		draw_circle(center, 4.0 * scale_factor, Color(0.90, 0.74, 0.40, 0.92))
+		draw_circle(center, 2.0 * scale_factor, Color(1.0, 0.90, 0.66, 0.94))
 
-	_draw_pillar_orb_frame(
-		center,
-		radius,
-		frame_width,
-		Color(0.16, 0.10, 0.09, 1.0),
-		Color(0.46, 0.34, 0.32, 1.0),
-		Color(0.70, 0.54, 0.50, 1.0),
-		Color(0.84, 0.20, 0.20, 1.0),
-		Color(1.0, 0.72, 0.72, 1.0)
-	)
+	# --- glass on top ---
 	_draw_pillar_orb_glass(center, radius, Color(1.0, 0.56, 0.50, 1.0))
 
+	# --- charge completion flash ---
 	if dash_orb_flash_timer > 0.0:
 		var flash_progress: float = dash_orb_flash_timer / PILLAR_DASH_FLASH_DURATION
 		for layer in range(3):
 			var flash_radius: float = radius + 10.0 * scale_factor + float(layer) * 12.0 * scale_factor
-			var flash_alpha: float = (0.34 - float(layer) * 0.09) * flash_progress
+			var flash_alpha: float = (0.38 - float(layer) * 0.10) * flash_progress
 			draw_circle(center, flash_radius, Color(1.0, 0.82, 0.46, flash_alpha))
-		draw_arc(center, radius + 26.0 * scale_factor * (1.0 - flash_progress), 0.0, TAU, 32, Color(1.0, 0.86, 0.54, 0.45 * flash_progress), 3.0)
+		draw_arc(center, radius + 26.0 * scale_factor * (1.0 - flash_progress), 0.0, TAU, 32, Color(1.0, 0.86, 0.54, 0.50 * flash_progress), 3.0)
+		# burst particles
+		for burst_i in range(8):
+			var burst_angle: float = float(burst_i) * TAU / 8.0
+			var burst_dist: float = (radius + 14.0 * scale_factor) * (1.0 + (1.0 - flash_progress) * 0.6)
+			var burst_pos := center + Vector2(cos(burst_angle), sin(burst_angle)) * burst_dist
+			draw_circle(burst_pos, 3.0 * scale_factor * flash_progress, Color(1.0, 0.90, 0.60, 0.50 * flash_progress))
+
+	# --- expanding pulse ring ---
+	var ring_phase: float = fmod(t * 0.9, 1.0)
+	var ring_r: float = radius * (0.5 + ring_phase * 0.5)
+	var ring_alpha: float = 0.10 * (1.0 - ring_phase)
+	if ring_alpha > 0.01:
+		draw_arc(center, ring_r, 0.0, TAU, 32, Color(1.0, 0.50, 0.40, ring_alpha), 1.5)
 
 	_draw_pillar_text_centered(center, "%d/%d" % [available_tokens, max_tokens], int(round(16.0 * scale_factor)), Color.WHITE)
 	if available_tokens <= 0 and dash_available_timer <= 0.0 and not dash_active:
-		var half_alpha: float = 0.45 + 0.25 * sin(t * 8.0)
+		var half_alpha: float = 0.50 + 0.30 * sin(t * 8.0)
 		_draw_pillar_text_centered(center + Vector2(0.0, radius + 20.0 * scale_factor), "HALF", int(round(10.0 * scale_factor)), Color(0.72, 0.76, 1.0, half_alpha))
+
+
+func _draw_dash_sector_liquid(center: Vector2, inner_radius: float, start_rad: float, end_rad: float, progress: float, t: float, scale_factor: float) -> void:
+	var charge_radius: float = inner_radius * progress
+	# base fill
+	draw_colored_polygon(_build_sector_points(center, charge_radius, start_rad, end_rad, 20), Color(0.76, 0.26, 0.22, 0.92))
+	# inner glow
+	if progress > 0.15:
+		draw_colored_polygon(_build_sector_points(center, charge_radius * 0.72, start_rad, end_rad, 14), Color(1.0, 0.58, 0.44, 0.16 + 0.12 * progress))
+	# pulsing edge
+	var pulse_r: float = charge_radius * (0.85 + 0.15 * sin(t * 5.0))
+	draw_arc(center, pulse_r, start_rad, end_rad, 12, Color(1.0, 0.72, 0.56, 0.28 + 0.18 * sin(t * 4.0)), 2.0)
 
 
 func _draw_energy_ball_trail(pos: Vector2, ratio: float) -> void:
