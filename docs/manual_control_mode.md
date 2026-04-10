@@ -1,8 +1,8 @@
 # 투기장 수동 조작 모드 (Manual Control Mode)
 
-**커밋**: `30f31f25` (feature/refactor-ui)  
-**수정 파일**: `downtown/colosseum_arena.py` (+216줄, -14줄)  
-**작성일**: 2026-04-10
+**커밋**: `30f31f25` → 버그 수정 커밋 반영 (feature/refactor-ui)  
+**수정 파일**: `downtown/colosseum_arena.py`, `downtown/hero_skills.py`  
+**작성일**: 2026-04-10 (코드 리뷰 피드백 반영 수정)
 
 ---
 
@@ -20,9 +20,11 @@
 | 전환 | - | 배틀 중 토글 버튼 클릭 |
 
 ### 스킬 발동 규칙
+- 좌클릭은 **ON_COOLDOWN 스킬만** 발동한다. ON_BALL_HIT 스킬은 수동/자동 무관하게 공 타격 시에만 자동 발동된다.
 - 영웅당 스킬은 보통 1개 (게임 시작 전 2개 중 1개 랜덤 선택)
-- 추가스킬 퍽으로 2개가 되는 경우: **먼저 쿨타임이 충전된 스킬**을 발동
-- 둘 다 충전된 상태에서도 먼저 충전된 것이 우선
+- 추가스킬 퍽으로 ON_COOLDOWN 스킬이 2개가 되는 경우: **먼저 쿨타임이 충전된 스킬**을 우선 발동
+- 충전 순서 추적은 **0.5초 폴링 기반 근사치**임. 같은 0.5초 창 내에 동시 충전되면 `active_skills` 리스트 순서로 폴백.
+- 스킬 발동은 `try_use_skill_by_id()`로 skill_id를 직접 지정하여, trigger 기준 순회로 인한 스킬 혼동을 방지한다.
 
 ---
 
@@ -88,25 +90,26 @@ def _update_manual_paddle(self, dt: float):
 ### 2.4 ON_COOLDOWN 스킬 자동 발동 제어 (`_try_use_cooldown_skills`, L9017)
 
 ```python
-# 하단 영웅 스킬 (수동 모드에서는 자동 발동 안함)
+# 하단 영웅 스킬 (수동 모드에서는 자동 발동 안함 — 플레이어가 좌클릭으로 발동)
 if self.selected_match and not self.manual_control_active:
     # 기존 AI 자동 발동 로직 (스타일별 확률 차등)
     ...
 ```
 
-**추가: 충전 순서 추적** (L9033-9039)
+**추가: ON_COOLDOWN 스킬 충전 순서 추적** (L9033-9039)
 ```python
-# 수동 모드: 스킬 충전 완료 순서 추적
+# 수동 모드: ON_COOLDOWN 스킬 충전 완료 순서 추적
+# 주의: 0.5초 폴링 기반 근사치. 같은 창 내 동시 충전 시 active_skills 순서로 폴백.
 if self.manual_control_active and self.selected_match and self.skill_manager:
     hero_id = self.selected_match.hero2["id"]
     skills = self.skill_manager.active_skills.get(hero_id, [])
     for s in skills:
-        if s.can_use() and s.trigger != SkillTrigger.PASSIVE:
+        if s.can_use() and s.trigger == SkillTrigger.ON_COOLDOWN:  # ON_COOLDOWN만
             if s.skill_id not in self.manual_skill_cooldown_order:
                 self.manual_skill_cooldown_order.append(s.skill_id)
 ```
 
-`_try_use_cooldown_skills()`는 0.5초 간격으로 호출되므로, 스킬이 사용 가능해지는 시점을 자연스럽게 추적한다.
+**한계**: `_try_use_cooldown_skills()`는 0.5초 간격(`skill_check_interval`)으로 호출된다. 따라서 충전 순서 추적은 정확한 타임스탬프가 아니라 폴링 시점 근사치다. 두 스킬이 같은 0.5초 창 내에 동시에 충전되면 `active_skills` 리스트의 순회 순서가 우선순위가 된다.
 
 ---
 
@@ -114,16 +117,27 @@ if self.manual_control_active and self.selected_match and self.skill_manager:
 
 ```python
 def _manual_try_use_skill(self):
+    """좌클릭 시 ON_COOLDOWN 스킬만 발동 (ON_BALL_HIT는 타격 시 자동)"""
 ```
+
+**핵심 변경 (코드 리뷰 피드백 반영)**:
+- `trigger != PASSIVE` → `trigger == ON_COOLDOWN`으로 필터 변경 (ON_BALL_HIT 오발동 방지)
+- `try_use_skill(hero_id, trigger, ...)` → `try_use_skill_by_id(hero_id, skill_id, ...)` 변경 (같은 trigger 스킬 혼동 방지)
 
 **발동 우선순위**:
 1. `manual_skill_cooldown_order` 리스트 순회 (먼저 충전된 순서)
-2. `usable` 목록(쿨타임 완료 + 비패시브)과 교차 매칭
-3. 매칭되면 해당 스킬 발동
+2. `usable` 목록(ON_COOLDOWN + `can_use()`)과 교차 매칭
+3. 매칭되면 `try_use_skill_by_id()`로 해당 skill_id **직접 지정** 발동
 4. 매칭 없으면 `usable[0]` 폴백
 5. 발동 후 해당 skill_id를 `manual_skill_cooldown_order`에서 제거
 
 **호출 시점**: `handle_event()` 내 MOUSEBUTTONDOWN → 배틀 중 + 수동 모드 + 토글/배속 버튼 영역이 아닌 좌클릭
+
+### 2.5.1 `try_use_skill_by_id()` 신규 메서드 (`hero_skills.py`)
+
+기존 `try_use_skill()`은 trigger 기준으로 순회하여 첫 번째 `can_use()` 스킬을 발동한다. 같은 trigger의 스킬이 2개인 영웅(예: 오니마루의 HellFire + HornCharge, 둘 다 ON_COOLDOWN)에서는 충전 순서 리스트가 무시되는 문제가 있었다.
+
+`try_use_skill_by_id(hero_id, skill_id, ...)`는 `skill.skill_id == skill_id` 조건으로 정확히 원하는 스킬을 지정 발동한다. 나머지 로직(글로벌 쿨다운, 마법결계, 상태 효과 적용, 화면 효과)은 `try_use_skill()`과 동일.
 
 ---
 
@@ -242,8 +256,9 @@ self.manual_skill_cooldown_order = []
     │
     ▼
 [_manual_try_use_skill()]
+    ├── ON_COOLDOWN 스킬만 필터 (ON_BALL_HIT 제외)
     ├── manual_skill_cooldown_order 순서대로 매칭
-    ├── 매칭된 스킬 발동 (try_use_skill)
+    ├── try_use_skill_by_id()로 skill_id 직접 지정 발동
     └── 발동 후 순서 리스트에서 제거
 
 [배틀 종료]
@@ -258,7 +273,7 @@ self.manual_skill_cooldown_order = []
 | 시스템 | 영향 | 비고 |
 |--------|------|------|
 | AI 패들 (`AIPaddleController`) | 변경 없음 | 상단은 항상 AI, 하단만 분기 |
-| 스킬 매니저 (`HeroSkillManager`) | 변경 없음 | 동일한 `try_use_skill()` API 사용 |
+| 스킬 매니저 (`HeroSkillManager`) | 메서드 추가 | `try_use_skill_by_id()` 신규. 기존 `try_use_skill()`은 변경 없음 |
 | 폭탄 넉백 / 모래감옥 | 정상 작동 | `update_battle()`에서 수동 패들 후에도 동일 적용 |
 | 하이라이트 녹화 | 정상 작동 | 화면 캡처 로직 변경 없음 |
 | 퍽 시스템 | 정상 작동 | 퍽 효과는 패들 속성에 반영되므로 수동에서도 적용 |

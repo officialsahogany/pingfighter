@@ -18421,6 +18421,65 @@ class HeroSkillManager:
         for effect in self.screen_effects:
             effect['duration'] -= dt
 
+    def try_use_skill_by_id(self, hero_id: str, skill_id: str,
+                           caster_paddle, target_paddle, ball) -> Optional[Dict]:
+        """특정 skill_id의 스킬 직접 사용 시도 (수동 조작 모드용)"""
+        skills = self.active_skills.get(hero_id, [])
+
+        # 영웅별 글로벌 쿨다운 체크
+        if self.hero_global_cooldowns.get(hero_id, 0) > 0:
+            return None
+
+        for skill in skills:
+            if skill.skill_id == skill_id and skill.can_use():
+                # 마법결계 체크
+                _target_side = 'top' if target_paddle.is_top else 'bottom'
+                if self.game_state.get(f'magic_immunity_{_target_side}', False):
+                    self.hero_global_cooldowns[hero_id] = self.HERO_SKILL_INTERVAL
+                    skill.current_cooldown = skill.cooldown
+                    return {
+                        'blocked_by_immunity': True,
+                        'skill_korean_name': skill.korean_name,
+                        'caster_is_top': caster_paddle.is_top
+                    }
+
+                self.game_state['target_is_top'] = target_paddle.is_top
+                result = skill.use(caster_paddle, target_paddle, ball, self.game_state)
+                if result:
+                    self.hero_global_cooldowns[hero_id] = self.HERO_SKILL_INTERVAL
+                    target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+
+                    if result.get('target_status'):
+                        status = result['target_status']
+                        if status == StatusEffect.STUN:
+                            self.game_state[f'{target_prefix}_stunned'] = True
+                        elif status == StatusEffect.SLOW:
+                            self.game_state[f'{target_prefix}_slowed'] = True
+                            self.game_state[f'{target_prefix}_slow_amount'] = result.get('slow_amount', 0.5)
+                        elif status == StatusEffect.CONFUSION:
+                            self.game_state[f'{target_prefix}_confused'] = True
+                        elif status == StatusEffect.SHRINK:
+                            self.game_state[f'{target_prefix}_shrink'] = True
+                            self.game_state[f'{target_prefix}_shrink_scale'] = result.get('shrink_amount', 0.5)
+                        elif status == StatusEffect.BLIND:
+                            self.game_state['blind_target_is_top'] = target_paddle.is_top
+
+                    if 'screen_effect' in result:
+                        self.screen_effects.append({
+                            'type': result['screen_effect'],
+                            'duration': result.get('flash_duration', 0.3),
+                            'color': result.get('flash_color', (255, 255, 255)),
+                            'intensity': result.get('shake_intensity', 0)
+                        })
+
+                    if 'possession_skill_name' in result:
+                        result['skill_korean_name'] = result['possession_skill_name']
+                    else:
+                        result['skill_korean_name'] = skill.korean_name
+                    result['caster_is_top'] = caster_paddle.is_top
+                    return result
+        return None
+
     def try_use_skill(self, hero_id: str, trigger: SkillTrigger,
                      caster_paddle, target_paddle, ball) -> Optional[Dict]:
         """스킬 사용 시도"""

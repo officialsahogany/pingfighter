@@ -9029,12 +9029,13 @@ class ColosseumsArena:
                     self._play_skill_sound(result)
                     self.show_speech_bubble(False, result['skill_korean_name'])
 
-        # 수동 모드: 스킬 충전 완료 순서 추적 (먼저 찬 스킬 우선 발동용)
+        # 수동 모드: ON_COOLDOWN 스킬 충전 완료 순서 추적 (먼저 찬 스킬 우선 발동용)
+        # 주의: 0.5초 폴링 기반 근사치. 같은 창 내 동시 충전 시 active_skills 순서로 폴백.
         if self.manual_control_active and self.selected_match and self.skill_manager:
             hero_id = self.selected_match.hero2["id"]
             skills = self.skill_manager.active_skills.get(hero_id, [])
             for s in skills:
-                if s.can_use() and s.trigger != SkillTrigger.PASSIVE:
+                if s.can_use() and s.trigger == SkillTrigger.ON_COOLDOWN:
                     if s.skill_id not in self.manual_skill_cooldown_order:
                         self.manual_skill_cooldown_order.append(s.skill_id)
 
@@ -9095,7 +9096,12 @@ class ColosseumsArena:
         paddle.x = max(GAME_AREA_X, min(paddle.x, GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH))
 
     def _manual_try_use_skill(self):
-        """수동 모드: 좌클릭 시 먼저 쿨타임이 찬 스킬 발동"""
+        """수동 모드: 좌클릭 시 ON_COOLDOWN 스킬만 발동 (ON_BALL_HIT는 타격 시 자동)
+
+        스킬 2개가 모두 ON_COOLDOWN이고 둘 다 충전된 경우,
+        manual_skill_cooldown_order에 먼저 기록된 스킬을 우선 발동한다.
+        (0.5초 폴링 기반 근사치 — 같은 창 내 동시 충전 시 active_skills 순서로 폴백)
+        """
         if not self.skill_manager or not self.selected_match:
             return
 
@@ -9104,13 +9110,12 @@ class ColosseumsArena:
         if not skills:
             return
 
-        # 사용 가능한 스킬 필터 (쿨타임 충전 완료 + 비활성 상태)
-        usable = [s for s in skills if s.can_use() and s.trigger != SkillTrigger.PASSIVE]
+        # ON_COOLDOWN 스킬만 필터 (ON_BALL_HIT, PASSIVE 제외)
+        usable = [s for s in skills if s.can_use() and s.trigger == SkillTrigger.ON_COOLDOWN]
         if not usable:
             return
 
         # 먼저 쿨타임이 충전된 스킬 우선 (충전 순서 추적)
-        # manual_skill_cooldown_order에 기록된 순서대로 우선 발동
         chosen = None
         for skill_id in self.manual_skill_cooldown_order:
             for s in usable:
@@ -9120,14 +9125,14 @@ class ColosseumsArena:
             if chosen:
                 break
 
-        # 순서 추적에 없으면 첫 번째 사용 가능한 스킬
+        # 순서 추적에 없으면 첫 번째 사용 가능한 스킬 (폴백)
         if not chosen:
             chosen = usable[0]
 
-        # 스킬 발동
-        result = self.skill_manager.try_use_skill(
+        # skill_id 지정 발동 (trigger 기준 순회 문제 회피)
+        result = self.skill_manager.try_use_skill_by_id(
             hero_id,
-            chosen.trigger,
+            chosen.skill_id,
             self.bottom_paddle,
             self.top_paddle,
             self.ball
