@@ -549,44 +549,49 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
 
     t = bomb_spin_timer
 
+    # 회전 중심 = 몸통 중앙 (팔을 앞으로 나란히 내린 높이)
+    spin_center_y = player_cy - 15  # 어깨~몸통 중간
+
     if t <= BOMB_SPIN_WINDUP:
-        # 준비: 팔을 앞으로 내밈 (투구를 잡는 모션)
+        # 준비: 투구를 머리에서 앞으로 나란히 자세로 내림
         bomb_spin_phase = 0
         progress = t / BOMB_SPIN_WINDUP
-        arm_extend = int(progress * 20)
-        bomb_spin_helmet_x = player_cx
-        bomb_spin_helmet_y = player_cy - 40 - arm_extend
+        # 머리 위(-50) → 앞으로 나란히 높이(0)로 이동
+        start_y = player_cy - 50
+        end_y = spin_center_y
+        bomb_spin_helmet_x = player_cx + int(bomb_spin_direction * progress * 30)
+        bomb_spin_helmet_y = int(start_y + (end_y - start_y) * progress)
         helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
 
     elif t <= BOMB_SPIN_WINDUP + BOMB_SPIN_SPIN1:
-        # 1바퀴: 회전 + 이동방향으로 전진
+        # 1바퀴: 큰 원 회전 (좌우로 넓게) + 전진
         bomb_spin_phase = 1
         spin_t = t - BOMB_SPIN_WINDUP
         bomb_spin_angle = (spin_t / BOMB_SPIN_SPIN1) * math.pi * 2
-        # 1바퀴 이동 (가속 → 등속)
         progress = spin_t / BOMB_SPIN_SPIN1
         speed = BOMB_SPIN_SPIN1_SPEED * min(1.0, progress * 2)
         dx = int(bomb_spin_direction * speed)
-        # 투구가 캐릭터 주위를 원형으로 회전
-        orbit_r = 22
-        bomb_spin_helmet_x = player_cx + int(math.sin(bomb_spin_angle) * orbit_r)
-        bomb_spin_helmet_y = player_cy - 30 + int(-math.cos(bomb_spin_angle) * orbit_r * 0.5)
+        # 큰 궤도: X축 넓게(35px), Y축도 적당히(20px)
+        orbit_rx = 35
+        orbit_ry = 20
+        bomb_spin_helmet_x = player_cx + int(math.sin(bomb_spin_angle) * orbit_rx)
+        bomb_spin_helmet_y = spin_center_y + int(-math.cos(bomb_spin_angle) * orbit_ry)
         helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
 
     elif t <= BOMB_SPIN_WINDUP + BOMB_SPIN_SPIN1 + BOMB_SPIN_SPIN2:
-        # 2바퀴: 회전 + 고속 대시 전진
+        # 2바퀴: 더 큰 원 회전 + 고속 대시
         bomb_spin_phase = 2
         spin_t = t - BOMB_SPIN_WINDUP - BOMB_SPIN_SPIN1
         bomb_spin_angle = (spin_t / BOMB_SPIN_SPIN2) * math.pi * 2
-        # 대시 이동 (초반 최고속 → 후반 감속)
         progress = spin_t / BOMB_SPIN_SPIN2
         speed = BOMB_SPIN_DASH_SPEED * (1.0 - progress * 0.4)
         dx = int(bomb_spin_direction * speed)
-        # 투구 회전 + 전방 오프셋
-        orbit_r = 26
-        fwd_offset = int(bomb_spin_direction * 20)
-        bomb_spin_helmet_x = player_cx + fwd_offset + int(math.sin(bomb_spin_angle) * orbit_r)
-        bomb_spin_helmet_y = player_cy - 30 + int(-math.cos(bomb_spin_angle) * orbit_r * 0.5)
+        # 더 큰 궤도 + 전방 오프셋
+        orbit_rx = 40
+        orbit_ry = 22
+        fwd_offset = int(bomb_spin_direction * 22)
+        bomb_spin_helmet_x = player_cx + fwd_offset + int(math.sin(bomb_spin_angle) * orbit_rx)
+        bomb_spin_helmet_y = spin_center_y + int(-math.cos(bomb_spin_angle) * orbit_ry)
         helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
 
     else:
@@ -598,10 +603,10 @@ def update_bomb_spin(player_cx: int, player_cy: int) -> dict:
             bomb_spin_cooldown = BOMB_SPIN_COOLDOWN
             bomb_spin_phase = 0
             return {"dx": 0, "helmet_rect": None, "done": True}
-        # 투구가 머리로 돌아감
+        # 투구가 앞으로나란히 → 머리로 돌아감
         progress = rec_t / BOMB_SPIN_RECOVERY
         bomb_spin_helmet_x = player_cx
-        bomb_spin_helmet_y = player_cy - 30 - int((1 - progress) * 20)
+        bomb_spin_helmet_y = int(spin_center_y + (player_cy - 50 - spin_center_y) * progress)
         helmet = (bomb_spin_helmet_x, bomb_spin_helmet_y, BOMB_SPIN_HELMET_R)
 
     return {"dx": dx, "helmet_rect": helmet, "done": False}
