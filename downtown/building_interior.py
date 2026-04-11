@@ -2877,6 +2877,8 @@ class BuildingInterior:
         self.codex_scrollbar_dragging = False  # 스크롤바 드래그 중 여부
         self.codex_scrollbar_rect = None  # 스크롤바 트랙 영역 (draw에서 설정)
         self.codex_thumb_rect = None  # 스크롤바 썸 영역 (draw에서 설정)
+        self._codex_perk_icon_cache = {}  # {skill_id: Surface}
+        self._codex_boss_icon_cache = {}  # {stage_num: Surface}
 
         # 선술집 메뉴 상태 (TAVERN 전용)
         self.tavern_menu_open = False  # 선술집 메뉴창
@@ -2954,8 +2956,8 @@ class BuildingInterior:
             {
                 "id": "bare_hands",
                 "name": "빈손의 전사",
-                "description": "패시브 아이템을 하나도 장착하지\n않은 상태로 승리하세요!\n(장비 탭에서 모두 해제 후 도전)",
-                "condition_desc": "패시브 미장착으로 승리",
+                "description": "패시브 효과가 모두 봉인된\n상태로 승리하세요!\n(진행 중 새 패시브도 적용되지 않음)",
+                "condition_desc": "패시브 봉인 상태로 승리",
                 "reward_gold": 1800,
                 "reward_items": [],
                 "active": False,
@@ -6756,11 +6758,13 @@ class BuildingInterior:
 
     def _handle_quest_list_click(self, pos):
         """퀘스트 목록 클릭 처리"""
-        menu_w, menu_h = 350, 320
+        item_h = 50
+        quest_count = len(self.quest_list)
+        menu_w = 350
+        menu_h = 65 + quest_count * item_h + 40
         menu_x = (SCREEN_WIDTH - menu_w) // 2
         menu_y = (SCREEN_HEIGHT - menu_h) // 2
 
-        item_h = 50
         item_start_y = menu_y + 65
 
         for i, quest in enumerate(self.quest_list):
@@ -9151,10 +9155,56 @@ class BuildingInterior:
                     if icon:
                         return icon
             elif self.codex_type == "perks":
-                # 퍽 아이콘은 draw_skill_icon_mini로 직접 그림 (Surface 반환 불가, 별도 처리)
-                pass
+                skill_id = entry.get("name")
+                if not skill_id:
+                    return None
+                cached = self._codex_perk_icon_cache.get(skill_id)
+                if cached is not None:
+                    return cached
+                runtime = self._get_runtime_progress_source()
+                skill_info = None
+                for pool_name in ('RUNTIME_SKILL_POOL', 'SMASHER_EXCLUSIVE_SKILLS',
+                                  'OPTIMUS_EXCLUSIVE_SKILLS', 'SOLDIER_EXCLUSIVE_SKILLS',
+                                  'VIPER_EXCLUSIVE_SKILLS'):
+                    pool = getattr(runtime, pool_name, None) if runtime else None
+                    if pool and skill_id in pool:
+                        skill_info = dict(pool[skill_id])
+                        break
+                if not skill_info:
+                    return None
+                skill_info.setdefault("id", skill_id)
+                skill_info.setdefault("icon_color", (150, 150, 150))
+                draw_mini = getattr(runtime, 'draw_skill_icon_mini', None) if runtime else None
+                if draw_mini is None:
+                    return None
+                icon_size = 96
+                surf = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+                try:
+                    draw_mini(surf, skill_info, 0, 0, icon_size, scale_multiplier=1.0, center_in_box=True)
+                except Exception as e:
+                    print(f"[도감] 퍽 아이콘 렌더링 실패 ({skill_id}): {e}")
+                    return None
+                self._codex_perk_icon_cache[skill_id] = surf
+                return surf
             elif self.codex_type == "bosses":
-                pass
+                name = entry.get("name", "")
+                if not name.startswith("stage_"):
+                    return None
+                try:
+                    stage_num = int(name.split("_", 1)[1])
+                except (ValueError, IndexError):
+                    return None
+                cached = self._codex_boss_icon_cache.get(stage_num)
+                if cached is not None:
+                    return cached
+                try:
+                    img_path = resource_path(f"boss_stage{stage_num}.png")
+                    surf = pygame.image.load(img_path).convert_alpha()
+                    self._codex_boss_icon_cache[stage_num] = surf
+                    return surf
+                except Exception as e:
+                    print(f"[도감] 보스 아이콘 로드 실패 (stage {stage_num}): {e}")
+                    return None
         except Exception:
             pass
         return None
@@ -10861,8 +10911,11 @@ class BuildingInterior:
         """퀘스트 목록 그리기"""
         import math
 
-        # 메뉴 크기 및 위치
-        menu_w, menu_h = 350, 320
+        # 메뉴 크기 및 위치 (퀘스트 개수에 맞춰 동적 높이)
+        item_h = 50
+        quest_count = len(self.quest_list)
+        menu_w = 350
+        menu_h = 65 + quest_count * item_h + 40
         menu_x = (SCREEN_WIDTH - menu_w) // 2
         menu_y = (SCREEN_HEIGHT - menu_h) // 2
 
@@ -10896,7 +10949,6 @@ class BuildingInterior:
             screen.blit(title_surf, (menu_x + 60, menu_y + 15))
 
         # 퀘스트 목록
-        item_h = 50
         item_start_y = menu_y + 65
 
         for i, quest in enumerate(self.quest_list):
