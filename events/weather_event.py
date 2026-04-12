@@ -931,14 +931,18 @@ def draw_fire_explosion_particles(screen):
 
         x, y = int(p["x"]), int(p["y"])
 
-        # 글로우 효과 - gfxdraw 직접 렌더링
+        # 글로우 효과 - Surface 풀 사용
+        s4 = size * 4
+        surf = _get_weather_pooled_surface(s4, s4)
+        center = size * 2
         glow_alpha = min(255, alpha // 3)
         if glow_alpha > 0:
-            pygame.gfxdraw.filled_circle(screen, x, y, size * 2, (r, g, b, glow_alpha))
-        pygame.gfxdraw.filled_circle(screen, x, y, size, (r, g, b, alpha))
+            pygame.draw.circle(surf, (r, g, b, glow_alpha), (center, center), size * 2)
+        pygame.draw.circle(surf, (r, g, b, alpha), (center, center), size)
         if size > 2:
             inner_alpha = min(255, int(alpha * 1.2))
-            pygame.gfxdraw.filled_circle(screen, x, y, max(1, size // 2), (255, 255, 200, inner_alpha))
+            pygame.draw.circle(surf, (255, 255, 200, inner_alpha), (center, center), max(1, size // 2))
+        screen.blit(surf, (x - center, y - center))
 
 
 def get_fire_knockback_distance():
@@ -2355,13 +2359,15 @@ def draw_fire_particles(screen):
         else:
             return (255, 80, 30, alpha)    # 빨강
 
-    # 공 궤적 그리기 - gfxdraw 직접 렌더링
+    # 공 궤적 그리기 - Surface 풀 사용
     for p in fire_ball_trail:
         lifetime_ratio = p["lifetime"] / p["max_lifetime"]
         color = get_fire_color_for_trail(p["color_phase"], lifetime_ratio)
         size = int(p["size"])
         if size > 0 and len(color) == 4 and color[3] > 0:
-            pygame.gfxdraw.filled_circle(screen, int(p["x"]), int(p["y"]), size, color)
+            surf = _get_weather_pooled_surface(size * 2, size * 2)
+            pygame.draw.circle(surf, color, (size, size), size)
+            screen.blit(surf, (int(p["x"]) - size, int(p["y"]) - size))
 
     # 바닥 불 그리기 - 레이어별 (glow -> main -> ember)
     for particles in [fire_floor_particles_player, fire_floor_particles_boss]:
@@ -2377,15 +2383,18 @@ def draw_fire_particles(screen):
             alpha = p.get("alpha", 0.2)
             flicker = 1.0 + 0.1 * math.sin(p.get("flicker", 0))
 
-            # 글로우 - gfxdraw 직접 렌더링
+            # 글로우 - Surface 풀 사용
             base_alpha = int(255 * alpha * flicker)
             px, py = int(p["x"]), int(p["y"])
             outer_alpha = min(255, base_alpha // 3)
             inner_alpha = min(255, base_alpha // 2)
-            if outer_alpha > 0:
-                pygame.gfxdraw.filled_circle(screen, px, py, size, (255, 80, 20, outer_alpha))
-            if inner_alpha > 0:
-                pygame.gfxdraw.filled_circle(screen, px, py, size * 2 // 3, (255, 120, 40, inner_alpha))
+            if outer_alpha > 0 or inner_alpha > 0:
+                surf = _get_weather_pooled_surface(size * 2, size * 2)
+                if outer_alpha > 0:
+                    pygame.draw.circle(surf, (255, 80, 20, outer_alpha), (size, size), size)
+                if inner_alpha > 0:
+                    pygame.draw.circle(surf, (255, 120, 40, inner_alpha), (size, size), size * 2 // 3)
+                screen.blit(surf, (px - size, py - size))
 
         # 2. 메인 불꽃 레이어 - 작은 불꽃
         for p in particles:
@@ -2409,13 +2418,16 @@ def draw_fire_particles(screen):
 
             base_alpha = int(255 * alpha * flicker * (1 - lifetime_ratio * 0.5))
 
-            # 불꽃 - gfxdraw 직접 렌더링
+            # 불꽃 - Surface 풀 사용
             px, py = int(p["x"]), int(p["y"])
             if base_alpha > 0:
-                pygame.gfxdraw.filled_circle(screen, px, py, size, (r, g, b, min(255, base_alpha)))
-            core_alpha = min(255, int(base_alpha * 1.2))
-            if core_alpha > 0:
-                pygame.gfxdraw.filled_circle(screen, px, py, max(1, size // 2), (255, 255, 200, core_alpha))
+                s2 = size * 2 + 2
+                surf = _get_weather_pooled_surface(s2, s2)
+                pygame.draw.circle(surf, (r, g, b, min(255, base_alpha)), (size + 1, size + 1), size)
+                core_alpha = min(255, int(base_alpha * 1.2))
+                if core_alpha > 0:
+                    pygame.draw.circle(surf, (255, 255, 200, core_alpha), (size + 1, size + 1), max(1, size // 2))
+                screen.blit(surf, (px - size - 1, py - size - 1))
 
         # 3. 불씨 레이어 - 작은 스파크
         for p in particles:
@@ -2430,10 +2442,12 @@ def draw_fire_particles(screen):
 
             base_alpha = int(255 * alpha * flicker)
 
-            # 불씨 - gfxdraw 직접 렌더링
+            # 불씨 - Surface 풀 사용
             if base_alpha > 0:
-                pygame.gfxdraw.filled_circle(screen, int(p["x"]), int(p["y"]),
-                                             size, (255, 200, 80, min(255, base_alpha)))
+                s2 = size * 2 + 2
+                surf = _get_weather_pooled_surface(s2, s2)
+                pygame.draw.circle(surf, (255, 200, 80, min(255, base_alpha)), (size + 1, size + 1), size)
+                screen.blit(surf, (int(p["x"]) - size - 1, int(p["y"]) - size - 1))
 
 
 def update_weather_particles(screen_width, screen_height):
