@@ -53,6 +53,7 @@ class SettingsManager:
     
     def __init__(self):
         self.global_manager = GlobalManager.get_instance()
+        self._initializing = True
         
         # 설정 파일 경로
         self.settings_file = "settings.json"
@@ -71,6 +72,7 @@ class SettingsManager:
         
         # 초기 설정 적용
         self.apply_all_settings()
+        self._initializing = False
         
     def get_default_settings(self) -> Dict[str, Any]:
         """기본 설정 반환"""
@@ -81,6 +83,7 @@ class SettingsManager:
                 'fullscreen': False,
                 'vsync': True,
                 'fps_limit': 60,
+                'adaptive_performance': True,
                 'quality': GraphicsQuality.HIGH.name,
                 'particles': True,
                 'screen_shake': True,
@@ -118,8 +121,9 @@ class SettingsManager:
                 'screen_edge_scroll': False,
                 'camera_shake_intensity': 1.0,
                 'slow_motion_effect': True,
-                'damage_numbers': True,
-                'auto_pause_on_focus_loss': True
+                'impact_feedback': True,
+                'auto_pause_on_focus_loss': True,
+                'replay_auto_save': False
             },
 
             # 컨트롤 설정
@@ -429,6 +433,15 @@ class SettingsManager:
         except ImportError:
             is_fullscreen_mode = False
 
+        try:
+            from display_manager import is_managed_display_active
+            managed_display_active = is_managed_display_active()
+        except Exception:
+            managed_display_active = False
+
+        if key in ('resolution', 'fullscreen') and (self._initializing or managed_display_active):
+            return
+
         if key == 'resolution':
             # 전체화면 모드에서는 해상도 변경 무시 (게임 영역 크기 고정)
             if is_fullscreen_mode:
@@ -455,7 +468,10 @@ class SettingsManager:
         elif key == 'fps_limit':
             # FPS 제한
             self.global_manager.set('fps', value)
-            
+
+        elif key == 'adaptive_performance':
+            self.global_manager.set('adaptive_performance_enabled', bool(value))
+
         elif key == 'quality':
             # 그래픽 품질
             quality = GraphicsQuality[value]
@@ -464,15 +480,30 @@ class SettingsManager:
         elif key == 'particles':
             # 파티클 효과
             self.global_manager.set('particles_enabled', value)
+        
+        elif key == 'screen_shake':
+            self.global_manager.set('screen_shake_enabled', value)
+        
+        elif key == 'shadows':
+            self.global_manager.set('shadows_enabled', bool(value))
+        
+        elif key == 'show_fps':
+            self.global_manager.set('show_fps', bool(value))
             
         elif key == 'screen_shake':
+            pass
             # 화면 흔들림
             self.global_manager.set('screen_shake_enabled', value)
             
     def _apply_audio_setting(self, key: str, value: Any):
         """오디오 설정 적용"""
-        from managers.sound_manager import get_sound_manager
-        sound_manager = get_sound_manager()
+        try:
+            from managers.sound_manager import get_sound_manager
+            sound_manager = get_sound_manager()
+        except Exception:
+            if self._initializing:
+                return
+            raise
         
         if key == 'master_volume':
             sound_manager.set_master_volume(value)

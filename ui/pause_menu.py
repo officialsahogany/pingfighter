@@ -214,7 +214,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     control_scheme = settings.get_setting('controls', 'control_scheme', 'keyboard')
     paddle_hit_sound = int(settings.get_setting('audio', 'paddle_hit_sound', 1))
     ball_type = settings.get_setting('gameplay', 'ball_type', 'energy')
-    replay_auto_save = bool(settings.get_setting('gameplay', 'replay_auto_save', True))
+    replay_auto_save = bool(settings.get_setting('gameplay', 'replay_auto_save', False))
     modern_loop_enabled = ctx.get_modern_loop_enabled()
     # 언어 설정
     current_language = settings.get_setting('language', 'language', 'ko')

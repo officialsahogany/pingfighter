@@ -2472,7 +2472,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     control_scheme = settings.get_setting("controls", "control_scheme", "keyboard")
     paddle_hit_sound = int(settings.get_setting("audio", "paddle_hit_sound", 1))
     ball_type = settings.get_setting("gameplay", "ball_type", "energy")
-    replay_auto_save = bool(settings.get_setting("gameplay", "replay_auto_save", True))
+    replay_auto_save = bool(settings.get_setting("gameplay", "replay_auto_save", False))
     current_language = settings.get_setting("language", "language", "ko")
     _loc.set_language(current_language)  # 폰트 언어 동기화 (ja/zh → CJK 폰트)
 
@@ -3195,7 +3195,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type, current_language, replay_auto_save)
 
 
-def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound=1, ball_type="energy", language=None, replay_auto_save=True):
+def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound=1, ball_type="energy", language=None, replay_auto_save=False):
     """설정 값 저장"""
     from game_state.audio import set_bgm_volume, set_sfx_volume, set_bgm_muted, set_sfx_muted
     try:

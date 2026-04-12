@@ -163389,7 +163389,7 @@ def main(stage_num, new_boss_mode=False):
     bgm_manager.stop_bgm()
 
     # 🎬 리플레이 자동 녹화 시작 (설정에서 활성화된 경우만)
-    _replay_auto_save_enabled = bool(get_settings_manager().get_setting("gameplay", "replay_auto_save", True))
+    _replay_auto_save_enabled = bool(get_settings_manager().get_setting("gameplay", "replay_auto_save", False))
     _replay_rec = get_replay_recorder()
     if _replay_auto_save_enabled:
         try:
