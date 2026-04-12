@@ -77875,7 +77875,7 @@ def handle_player(keys):
                         try:
                             _pk_show_snd = sound_effects.get('VIPER_SHOW')
                             if _pk_show_snd:
-                                _pk_show_ch = play_sound_with_volume(_pk_show_snd, sfx_volume * 0.7)
+                                _pk_show_ch = play_sound_with_volume(_pk_show_snd, sfx_volume * 1.0)
                                 if _pk_show_ch is not None:
                                     _viper_dmk_show_sound_played = True
                         except Exception:
@@ -77924,7 +77924,7 @@ def handle_player(keys):
                     try:
                         _pk_show_snd = sound_effects.get('VIPER_SHOW')
                         if _pk_show_snd:
-                            _pk_show_ch = play_sound_with_volume(_pk_show_snd, sfx_volume * 0.7)
+                            _pk_show_ch = play_sound_with_volume(_pk_show_snd, sfx_volume * 1.0)
                             if _pk_show_ch is not None:
                                 _viper_dmk_show_sound_played = True
                     except Exception:
@@ -112455,7 +112455,7 @@ def draw_objects():
                                 _vs_snd = sound_effects.get('VIPER_SHOW')
                                 if _vs_snd:
                                     # 채널이 없는 프레임에는 다음 프레임에 다시 시도한다.
-                                    _vs_channel = play_sound_with_volume(_vs_snd, sfx_volume * 0.7)
+                                    _vs_channel = play_sound_with_volume(_vs_snd, sfx_volume * 1.0)
                                     if _vs_channel is not None:
                                         _viper_nerve_strike_show_sound_played = True
                             except Exception:
@@ -121629,7 +121629,7 @@ def draw_objects():
                         _vs_snd = sound_effects.get('VIPER_SHOW')
                         if _vs_snd:
                             # 채널이 없는 프레임에는 다음 프레임에 다시 시도한다.
-                            _vs_channel = play_sound_with_volume(_vs_snd, sfx_volume * 0.7)
+                            _vs_channel = play_sound_with_volume(_vs_snd, sfx_volume * 1.0)
                             if _vs_channel is not None:
                                 _viper_dmk_show_sound_played = True
                     except Exception:
