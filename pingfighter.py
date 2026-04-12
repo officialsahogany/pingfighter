@@ -9755,6 +9755,52 @@ def _draw_diablo_hud_frame(screen):
 # 실제 초기화는 아래 투기장 모드 변수 블록에서 수행됨
 arena_mode_enabled = False
 
+
+def _get_active_arena_instance():
+    """현재 활성 투기장 인스턴스를 안전하게 반환."""
+    if not globals().get('arena_mode_enabled', False):
+        return None
+    try:
+        from downtown.colosseum_arena import ColosseumsArena as _CArena_active
+    except Exception:
+        return None
+    return getattr(_CArena_active, '_active_instance', None)
+
+
+def _is_arena_manual_control_active() -> bool:
+    """메인 루프가 참조할 투기장 수동 조작 상태."""
+    _arena_inst = _get_active_arena_instance()
+    return bool(_arena_inst and getattr(_arena_inst, 'manual_control_active', False))
+
+
+def _set_arena_manual_control_enabled(enabled: bool) -> bool:
+    """투기장 자동/수동 토글 상태를 메인 루프와 함께 동기화."""
+    _arena_inst = _get_active_arena_instance()
+    if not _arena_inst or not hasattr(_arena_inst, 'manual_control_active'):
+        return False
+
+    enabled = bool(enabled)
+    _arena_inst.manual_control_active = enabled
+    _arena_inst.manual_move_left = False
+    _arena_inst.manual_move_right = False
+    if hasattr(_arena_inst, 'manual_skill_cooldown_order'):
+        _arena_inst.manual_skill_cooldown_order = []
+
+    _g = globals()
+    _g['player_ai_enabled'] = not enabled
+    _g['current_speed'] = 0
+
+    if enabled:
+        _arena_inst.speed_multiplier = 1
+        _g['arena_bottom_dashing'] = False
+        _g['arena_bottom_dash_timer'] = 0
+        _g['arena_bottom_dash_direction'] = 0
+        _g['arena_bottom_dash_stun_timer'] = 0
+        _g['arena_bottom_dash_afterimages'] = []
+
+    return True
+
+
 def _draw_pillar_ui(screen, renderer):
     """필러 UI 박스 그리기 헬퍼 함수
 
@@ -46891,6 +46937,136 @@ def update_blacksmith_turret():
     valthor_perf_end("update_turret")
 
 
+def _check_blacksmith_turret_ball_collision():
+    """handle_ball() 이후 포탑-공 충돌을 재검사한다.
+
+    update_blacksmith_turret()는 handle_ball() 이전에 실행되므로
+    이전 프레임의 공 이동만 확인한다.  handle_ball()의 서브스텝에서
+    공이 포탑을 관통할 수 있기 때문에, handle_ball() 이후 현재 프레임의
+    ball_prev → BALL 경로를 추가로 검사하여 관통을 방지한다.
+    """
+    global player_collision_handled, last_hit_by, ball_vel, game_vars
+
+    if selected_character_type != "blacksmith":
+        return
+    if not blacksmith_turret_active or not blacksmith_turret_state:
+        return
+
+    turret_state = blacksmith_turret_state
+    turret_rect = turret_state.get("rect")
+    if turret_rect is None or turret_state.get("hp", 0) <= 0:
+        return
+
+    # 이미 이번 프레임에서 포탑이 공을 반사했으면 중복 처리 방지
+    if player_collision_handled:
+        return
+
+    # 스탑워치 활성 중에는 공이 멈춰 있으므로 검사 불필요
+    time_frozen = stopwatch_active and stopwatch_timer > 0
+    if time_frozen:
+        return
+
+    # 포탑 히트박스 계산 (머리/포신 포함 — update_blacksmith_turret 동일 로직)
+    turret_hit_rect = turret_rect
+    if BLACKSMITH_TURRET_DESIGN_HEIGHT:
+        scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+    else:
+        scale_y = 1.0
+    extra_top = int(BLACKSMITH_TURRET_COLLISION_EXTRA_TOP * scale_y)
+    if extra_top > 0:
+        turret_hit_rect = turret_rect.copy()
+        turret_hit_rect.height += extra_top
+        turret_hit_rect.top -= extra_top
+
+    # 보스가 친 공만 반사 (플레이어 공은 통과)
+    try:
+        ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
+    except Exception:
+        ball_owner = last_hit_by
+    if ball_owner == "player":
+        return
+
+    # 관통 검사: ball_prev → BALL 경로가 포탑 히트박스를 관통하는지
+    prev_x = ball_prev_x
+    prev_y = ball_prev_y
+    half_w = BALL.width // 2
+    half_h = BALL.height // 2
+
+    collision = turret_hit_rect.colliderect(BALL)
+    if not collision:
+        # 선분-사각형 교차 검사 (Liang-Barsky, 공 반지름 고려)
+        r = half_w
+        left = turret_hit_rect.left - r
+        right = turret_hit_rect.right + r
+        top = turret_hit_rect.top - r
+        bottom = turret_hit_rect.bottom + r
+        x1, y1 = prev_x + half_w, prev_y + half_h
+        x2, y2 = BALL.centerx, BALL.centery
+        dx = x2 - x1
+        dy = y2 - y1
+        t_min, t_max = 0.0, 1.0
+        if dx != 0:
+            t1 = (left - x1) / dx
+            t2 = (right - x1) / dx
+            if dx < 0:
+                t1, t2 = t2, t1
+            t_min = max(t_min, t1)
+            t_max = min(t_max, t2)
+        elif x1 < left or x1 > right:
+            return
+        if dy != 0:
+            t1 = (top - y1) / dy
+            t2 = (bottom - y1) / dy
+            if dy < 0:
+                t1, t2 = t2, t1
+            t_min = max(t_min, t1)
+            t_max = min(t_max, t2)
+        elif y1 < top or y1 > bottom:
+            return
+        collision = (t_min <= t_max)
+
+    if not collision:
+        return
+
+    # 벽돌이 포탑 앞에서 공을 이미 막고 있는지 확인
+    try:
+        for wall in walls:
+            if ball_owner == "player" and wall.get("group_id") is not None:
+                continue
+            if BALL.colliderect(wall["rect"]):
+                return  # 벽돌이 먼저 처리하므로 포탑 충돌 건너뜀
+    except Exception:
+        pass
+
+    # === 포탑 공 반사 ===
+    # 연막/디바인쉴드 체크
+    smoke_protected = is_rect_in_smoke(turret_hit_rect)
+    shield_active = False
+    try:
+        divine_state = blacksmith_divine_stone_state
+        shield_active = bool(divine_state and divine_state.get("shield_active", False))
+    except Exception:
+        shield_active = False
+    if not smoke_protected and not shield_active:
+        turret_state["hp"] -= 1
+        _cancel_repair_job("turret", state=turret_state)
+        damage_manager = get_damage_manager()
+        damage_manager.update_building_hp("turret", turret_state["hp"])
+
+    BALL.bottom = min(BALL.bottom, turret_hit_rect.top - 4)
+    speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
+    ball_vel[1] = -abs(speed_mag)
+    ball_vel[0] *= 0.6
+    last_hit_by = "player"
+    game_vars.ball.last_hit_by = "player"
+    player_collision_handled = True
+    effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=6)
+    try:
+        play_paddle_sound()
+    except Exception:
+        pass
+
+
 def trigger_blacksmith_turret_overdrive() -> bool:
     """포탑 오버드라이브(게이지 해방) 발동."""
 
@@ -76891,8 +77067,10 @@ def handle_player(keys):
         PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
         return
 
+    _arena_manual_control = _is_arena_manual_control_active()
+
     # 플레이어 자동조종 AI: 키 입력을 가로채어 AI가 만든 입력으로 대체
-    if player_ai_enabled:
+    if player_ai_enabled and not _arena_manual_control:
         # 전설 아이템 획득 애니메이션이 활성화되어 있으면 자동으로 진행(스페이스/클릭 대체)
         try:
             if is_legendary_effect_active():
@@ -77498,7 +77676,7 @@ def handle_player(keys):
     left_pressed_raw = is_move_left_pressed(keys)
     right_pressed_raw = is_move_right_pressed(keys)
     # 🛡️ 투기장 모드: 좌우 이동도 실제 키보드 입력 차단 (AI 스냅샷만 사용)
-    if arena_mode_enabled and not player_ai_enabled:
+    if arena_mode_enabled and not player_ai_enabled and not _arena_manual_control:
         # player_ai_enabled가 True면 keys가 이미 AI wrapper이므로 OK
         # 그렇지 않은 비정상 상태에서도 입력 차단
         left_pressed_raw = False
@@ -144884,10 +145062,10 @@ def draw_stage3_hearts():
 _stage2_leaf_cache: dict = {}  # 나뭇잎 회전 캐시 (type, size, rotation_quantized, color)
 
 def draw_stage2_leaves():
-    """떨어지는 잎사귀 그리기 - 회전 캐시 사용 (Surface+rotate 매 프레임 제거)"""
+    """떨어지는 잎사귀 그리기 - 회전+알파 캐시 사용 (Surface+rotate 매 프레임 제거)"""
     global _stage2_leaf_cache
     # 캐시 크기 제한
-    if len(_stage2_leaf_cache) > 200:
+    if len(_stage2_leaf_cache) > 300:
         _stage2_leaf_cache.clear()
 
     for leaf in stage2_leaves:
@@ -144897,9 +145075,12 @@ def draw_stage2_leaves():
 
         leaf_type = leaf.get('type', 'tropical')
         size = leaf['size']
-        # 회전을 10도 단위로 양자화 → 캐시 히트율 향상
+        # 회전 10도, 알파 50단위 양자화 → 캐시 히트율 확보
         rot_q = int(leaf['rotation'] / 10) * 10
-        cache_key = (leaf_type, size, rot_q, leaf['color'])
+        alpha_q = (alpha // 50) * 50
+        if alpha_q <= 0:
+            continue
+        cache_key = (leaf_type, size, rot_q, leaf['color'], alpha_q)
 
         if cache_key not in _stage2_leaf_cache:
             surf_size = size * 3
@@ -144914,11 +145095,11 @@ def draw_stage2_leaves():
                     length = size if i % 2 == 0 else size * 0.5
                     points.append((center + math.cos(rad) * length,
                                  center + math.sin(rad) * length))
-                pygame.draw.polygon(leaf_surface, (*leaf['color'], 255), points)
+                pygame.draw.polygon(leaf_surface, (*leaf['color'], alpha_q), points)
             elif leaf_type == 'oak':
                 for i in range(3):
                     offset = i * 2
-                    pygame.draw.ellipse(leaf_surface, (*leaf['color'], max(0, 255 - i * 50)),
+                    pygame.draw.ellipse(leaf_surface, (*leaf['color'], max(0, alpha_q - i * 50)),
                                       (center - size//2 + offset,
                                        center - size + offset,
                                        size - offset * 2,
@@ -144930,9 +145111,9 @@ def draw_stage2_leaves():
                     (center, center + size * 1.2),
                     (center - size * 0.4, center)
                 ]
-                pygame.draw.polygon(leaf_surface, (*leaf['color'], 255), points)
+                pygame.draw.polygon(leaf_surface, (*leaf['color'], alpha_q), points)
 
-            vein_color = tuple(max(0, c - 40) for c in leaf['color']) + (128,)
+            vein_color = tuple(max(0, c - 40) for c in leaf['color']) + (alpha_q // 2,)
             pygame.draw.line(leaf_surface, vein_color,
                             (center, center - size), (center, center + size), 1)
 
@@ -144940,13 +145121,8 @@ def draw_stage2_leaves():
             _stage2_leaf_cache[cache_key] = rotated
 
         cached_surf = _stage2_leaf_cache[cache_key]
-        # 알파 적용
-        if alpha < 250:
-            cached_surf.set_alpha(alpha)
         leaf_rect = cached_surf.get_rect(center=(int(leaf['x']), int(leaf['y'])))
         SCREEN.blit(cached_surf, leaf_rect)
-        if alpha < 250:
-            cached_surf.set_alpha(255)  # 복원
 def draw_tutorial_practice_room():
     """튜토리얼 연습장 배경 그리기 - Stage 2 스타일 + 사이버펑크"""
     # 중심점 먼저 정의
@@ -160099,7 +160275,7 @@ def handle_boss():
             arena_trigger_top_hero_dash(target_x)
 
     # 🏟️ 투기장 하단 영웅 대쉬 처리 (AI)
-    if arena_mode_enabled and arena_bottom_hero:
+    if arena_mode_enabled and arena_bottom_hero and not _is_arena_manual_control_active():
         # 대쉬 업데이트
         if update_arena_bottom_hero_dash():
             pass  # 대쉬/후딜 중에는 처리 완료
@@ -165818,15 +165994,8 @@ def main(stage_num, new_boss_mode=False):
             _k_r = keys[pygame.K_r]
             if _k_r and not getattr(main, '_arena_key_r_pressed', False):
                 try:
-                    from downtown.colosseum_arena import ColosseumsArena as _CArena_r
-                    _arena_r = getattr(_CArena_r, '_active_instance', None)
-                    if _arena_r and hasattr(_arena_r, 'manual_control_active'):
-                        _arena_r.manual_control_active = not _arena_r.manual_control_active
-                        if _arena_r.manual_control_active:
-                            _arena_r.speed_multiplier = 1
-                            _arena_r.manual_move_left = False
-                            _arena_r.manual_move_right = False
-                            _arena_r.manual_skill_cooldown_order = []
+                    _manual_enabled = not _is_arena_manual_control_active()
+                    if _set_arena_manual_control_enabled(_manual_enabled):
                         try:
                             play_button_click_sound()
                         except Exception:
@@ -168395,15 +168564,8 @@ def main(stage_num, new_boss_mode=False):
                     _real_mp_mt = _original_mouse_get_pos()
                     if _mt_click_rect.collidepoint(_real_mp_mt):
                         try:
-                            from downtown.colosseum_arena import ColosseumsArena as _CArena_click
-                            _arena_click = getattr(_CArena_click, '_active_instance', None)
-                            if _arena_click and hasattr(_arena_click, 'manual_control_active'):
-                                _arena_click.manual_control_active = not _arena_click.manual_control_active
-                                if _arena_click.manual_control_active:
-                                    _arena_click.speed_multiplier = 1
-                                    _arena_click.manual_move_left = False
-                                    _arena_click.manual_move_right = False
-                                    _arena_click.manual_skill_cooldown_order = []
+                            _manual_enabled = not _is_arena_manual_control_active()
+                            if _set_arena_manual_control_enabled(_manual_enabled):
                                 try:
                                     play_button_click_sound()
                                 except Exception:
@@ -170469,6 +170631,9 @@ def main(stage_num, new_boss_mode=False):
 
                 _handle_ball_result = handle_ball()
 
+                # handle_ball() 서브스텝에서 포탑을 관통한 공을 잡아냄
+                _check_blacksmith_turret_ball_collision()
+
                 # 온라인 클라이언트: handle_ball()이 변경한 점수 되돌리기
                 if _online_save_wins is not None:
                     round_wins = _online_save_wins
@@ -171337,6 +171502,7 @@ def main(stage_num, new_boss_mode=False):
                     arena_skill_check_timer += dt
                     if arena_skill_check_timer >= 0.5:
                         arena_skill_check_timer = 0.0
+                        _arena_manual_control = _is_arena_manual_control_active()
                         # 상단 영웅 ON_COOLDOWN 스킬
                         if arena_top_hero:
                             hero_id = arena_top_hero["id"]
@@ -171366,7 +171532,7 @@ def main(stage_num, new_boss_mode=False):
                                     if 'skill_korean_name' in result:
                                         arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
                         # 하단 영웅 ON_COOLDOWN 스킬
-                        if arena_bottom_hero:
+                        if arena_bottom_hero and not _arena_manual_control:
                             hero_id = arena_bottom_hero["id"]
                             result = arena_skill_manager.try_use_skill(
                                 hero_id, SkillTrigger.ON_COOLDOWN,
