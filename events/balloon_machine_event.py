@@ -527,14 +527,21 @@ class BalloonMachineEvent:
         beam_width = int(30 * self.machine_scale)
         beam_length = int(100 * self.machine_scale)
 
-        # 수직 빔 (캐시된 Surface를 스케일링)
+        # 수직 빔 (캐시된 스케일링)
         if beam_width > 0 and beam_length > 0:
-            scaled_v = pygame.transform.scale(self._cached_vertical_beam, (beam_width, beam_length))
+            scale_key = (beam_width, beam_length)
+            if not hasattr(self, '_beam_scale_cache'):
+                self._beam_scale_cache = {}
+            if scale_key not in self._beam_scale_cache:
+                sv = pygame.transform.scale(self._cached_vertical_beam, (beam_width, beam_length))
+                sh = pygame.transform.scale(self._cached_horizontal_beam, (beam_length, beam_width))
+                self._beam_scale_cache[scale_key] = (sv, sh)
+                if len(self._beam_scale_cache) > 20:
+                    self._beam_scale_cache.clear()
+                    self._beam_scale_cache[scale_key] = (sv, sh)
+            scaled_v, scaled_h = self._beam_scale_cache[scale_key]
             scaled_v.set_alpha(alpha)
             screen.blit(scaled_v, (center_x - beam_width // 2, center_y - beam_length // 2))
-
-            # 수평 빔
-            scaled_h = pygame.transform.scale(self._cached_horizontal_beam, (beam_length, beam_width))
             scaled_h.set_alpha(alpha)
             screen.blit(scaled_h, (center_x - beam_length // 2, center_y - beam_width // 2))
         

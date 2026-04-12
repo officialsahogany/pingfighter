@@ -4,6 +4,20 @@
 import random
 import math
 import pygame
+import pygame.gfxdraw
+
+# --- Surface Pool ---
+_weather_surface_pool: dict = {}
+
+def _get_weather_pooled_surface(w: int, h: int) -> pygame.Surface:
+    key = (w, h)
+    surf = _weather_surface_pool.get(key)
+    if surf is None:
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        _weather_surface_pool[key] = surf
+    else:
+        surf.fill((0, 0, 0, 0))
+    return surf
 
 from localization.manager import get_localization_manager
 def _t(key, fallback=None):
@@ -59,10 +73,16 @@ HAIL_HIT_COOLDOWN = 45  # 같은 우박에 연속 피격 방지 쿨다운 (프�
 
 # 날씨 지속 라운드 가중치: 1라운드 50%, 2라운드 30%, 3라운드 20%
 WEATHER_DURATION_WEIGHTS = [1, 1, 1, 1, 1, 2, 2, 2, 3, 3]  # 5:3:2 비율
+WIND_PARTICLE_WEATHER_TYPES = {"breeze", "gust"}
 
 def _weighted_weather_duration():
     """가중치 기반 날씨 지속 라운드 (1: 50%, 2: 30%, 3: 20%)"""
     return random.choice(WEATHER_DURATION_WEIGHTS)
+
+
+def _uses_wind_particles():
+    """Return whether the current weather should render wind-only particles."""
+    return weather_event_active and weather_event_type in WIND_PARTICLE_WEATHER_TYPES
 
 # ============== Global State ==============
 weather_event_active = False
@@ -911,23 +931,14 @@ def draw_fire_explosion_particles(screen):
 
         x, y = int(p["x"]), int(p["y"])
 
-        # 글로우 효과
-        surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
-        center = size * 2
-
-        # 외부 글로우
-        glow_alpha = alpha // 3
-        pygame.draw.circle(surf, (r, g, b, glow_alpha), (center, center), size * 2)
-
-        # 코어
-        pygame.draw.circle(surf, (r, g, b, alpha), (center, center), size)
-
-        # 밝은 중심
+        # 글로우 효과 - gfxdraw 직접 렌더링
+        glow_alpha = min(255, alpha // 3)
+        if glow_alpha > 0:
+            pygame.gfxdraw.filled_circle(screen, x, y, size * 2, (r, g, b, glow_alpha))
+        pygame.gfxdraw.filled_circle(screen, x, y, size, (r, g, b, alpha))
         if size > 2:
             inner_alpha = min(255, int(alpha * 1.2))
-            pygame.draw.circle(surf, (255, 255, 200, inner_alpha), (center, center), max(1, size // 2))
-
-        screen.blit(surf, (x - center, y - center))
+            pygame.gfxdraw.filled_circle(screen, x, y, max(1, size // 2), (255, 255, 200, inner_alpha))
 
 
 def get_fire_knockback_distance():
@@ -1108,56 +1119,30 @@ def draw_ice_dash_particles(screen):
         x, y = int(p["x"]), int(p["y"])
 
         if p["type"] == "chunk":
-            # 큰 얼음 조각 - 다각형 모양
-            surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
-            center = size * 3 // 2
-
-            # 외부 글로우
-            glow_alpha = alpha // 4
-            pygame.draw.circle(surf, (200, 230, 255, glow_alpha), (center, center), size + 2)
-
-            # 메인 얼음 조각 (불규칙한 다각형처럼 보이게)
-            ice_color = (220, 245, 255, alpha)
-            pygame.draw.circle(surf, ice_color, (center, center), size)
-
-            # 밝은 하이라이트
+            # 얼음 조각 - gfxdraw 직접 렌더링
+            glow_alpha = min(255, alpha // 4)
+            if glow_alpha > 0:
+                pygame.gfxdraw.filled_circle(screen, x, y, size + 2, (200, 230, 255, glow_alpha))
+            pygame.gfxdraw.filled_circle(screen, x, y, size, (220, 245, 255, alpha))
             highlight_alpha = min(255, int(alpha * 1.2))
-            pygame.draw.circle(surf, (255, 255, 255, highlight_alpha),
-                             (center - size//3, center - size//3), max(1, size//3))
-
-            screen.blit(surf, (x - center, y - center))
+            pygame.gfxdraw.filled_circle(screen, x - size // 3, y - size // 3,
+                                         max(1, size // 3), (255, 255, 255, highlight_alpha))
 
         elif p["type"] == "dust":
-            # 작은 얼음 가루
-            surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
-            center = size + 1
-
-            # 반투명 하늘색
-            dust_color = (200, 240, 255, alpha)
-            pygame.draw.circle(surf, dust_color, (center, center), size)
-
-            screen.blit(surf, (x - center, y - center))
+            # 얼음 가루 - gfxdraw 직접 렌더링
+            pygame.gfxdraw.filled_circle(screen, x, y, size, (200, 240, 255, alpha))
 
         else:  # sparkle
-            # 반짝이는 빛
             sparkle = (math.sin(p.get("sparkle_phase", 0)) + 1) / 2
             sparkle_alpha = int(alpha * sparkle)
-
             if sparkle_alpha > 10:
-                surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
-                center = size * 2
-
-                # 밝은 흰색 점
-                pygame.draw.circle(surf, (255, 255, 255, sparkle_alpha), (center, center), size)
-
+                pygame.gfxdraw.filled_circle(screen, x, y, size, (255, 255, 255, sparkle_alpha))
                 # 십자형 빛
-                line_alpha = sparkle_alpha // 2
-                pygame.draw.line(surf, (255, 255, 255, line_alpha),
-                               (center - size * 2, center), (center + size * 2, center), 1)
-                pygame.draw.line(surf, (255, 255, 255, line_alpha),
-                               (center, center - size * 2), (center, center + size * 2), 1)
-
-                screen.blit(surf, (x - center, y - center))
+                line_alpha = min(255, sparkle_alpha // 2)
+                pygame.draw.line(screen, (255, 255, 255, line_alpha),
+                               (x - size * 2, y), (x + size * 2, y), 1)
+                pygame.draw.line(screen, (255, 255, 255, line_alpha),
+                               (x, y - size * 2), (x, y + size * 2), 1)
 
 
 def _build_ice_rink_surface(screen_width, screen_height):
@@ -1379,11 +1364,11 @@ def draw_ice_particles(screen):
     screen_h = screen.get_height()
     RINK_HEIGHT = 50
 
-    # 2. 동적 쉬머 라인 (빙판 위를 스치는 빛 줄기)
+    # 2. 동적 쉬머 라인 - Surface 풀 사용
     shimmer_x = int((math.sin(ice_shimmer_phase) * 0.5 + 0.5) * screen_w)
     shimmer_w = 60
     for zone_y, zone_h in [(0, RINK_HEIGHT), (screen_h - RINK_HEIGHT, RINK_HEIGHT)]:
-        shimmer_surf = pygame.Surface((shimmer_w, zone_h), pygame.SRCALPHA)
+        shimmer_surf = _get_weather_pooled_surface(shimmer_w, zone_h)
         for col in range(shimmer_w):
             col_ratio = 1.0 - abs(col - shimmer_w / 2) / (shimmer_w / 2)
             col_alpha = int(18 * col_ratio * col_ratio)
@@ -1392,10 +1377,10 @@ def draw_ice_particles(screen):
                                (col, 0), (col, zone_h))
         screen.blit(shimmer_surf, (shimmer_x - shimmer_w // 2, zone_y))
 
-    # 보조 쉬머 (반대 방향, 느린 속도)
+    # 보조 쉬머 - Surface 풀 사용
     shimmer_x2 = int((math.sin(ice_shimmer_phase * 0.6 + 2.0) * 0.5 + 0.5) * screen_w)
     for zone_y, zone_h in [(0, RINK_HEIGHT), (screen_h - RINK_HEIGHT, RINK_HEIGHT)]:
-        shimmer_surf2 = pygame.Surface((40, zone_h), pygame.SRCALPHA)
+        shimmer_surf2 = _get_weather_pooled_surface(40, zone_h)
         for col in range(40):
             col_ratio = 1.0 - abs(col - 20) / 20
             col_alpha = int(12 * col_ratio * col_ratio)
@@ -1423,9 +1408,9 @@ def draw_ice_particles(screen):
         p_type = p.get("type", "star")
 
         if p_type == "diamond":
-            # 다이아몬드 모양 반짝임
+            # 다이아몬드 모양 반짝임 - Surface 풀 사용
             d_size = size * 3
-            surf = pygame.Surface((d_size * 2 + 2, d_size * 2 + 2), pygame.SRCALPHA)
+            surf = _get_weather_pooled_surface(d_size * 2 + 2, d_size * 2 + 2)
             dc = d_size + 1
 
             # 외부 글로우
@@ -1454,9 +1439,9 @@ def draw_ice_particles(screen):
             screen.blit(surf, (x - dc, y - dc))
 
         else:
-            # 별 모양 반짝임 (향상된 버전)
+            # 별 모양 반짝임 - Surface 풀 사용
             s_size = size * 3
-            surf = pygame.Surface((s_size * 2 + 2, s_size * 2 + 2), pygame.SRCALPHA)
+            surf = _get_weather_pooled_surface(s_size * 2 + 2, s_size * 2 + 2)
             sc = s_size + 1
 
             # 외부 글로우 (부드러운 원)
@@ -2370,15 +2355,13 @@ def draw_fire_particles(screen):
         else:
             return (255, 80, 30, alpha)    # 빨강
 
-    # 공 궤적 그리기
+    # 공 궤적 그리기 - gfxdraw 직접 렌더링
     for p in fire_ball_trail:
         lifetime_ratio = p["lifetime"] / p["max_lifetime"]
         color = get_fire_color_for_trail(p["color_phase"], lifetime_ratio)
         size = int(p["size"])
-        if size > 0:
-            surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(surf, color, (size, size), size)
-            screen.blit(surf, (int(p["x"]) - size, int(p["y"]) - size))
+        if size > 0 and len(color) == 4 and color[3] > 0:
+            pygame.gfxdraw.filled_circle(screen, int(p["x"]), int(p["y"]), size, color)
 
     # 바닥 불 그리기 - 레이어별 (glow -> main -> ember)
     for particles in [fire_floor_particles_player, fire_floor_particles_boss]:
@@ -2394,17 +2377,15 @@ def draw_fire_particles(screen):
             alpha = p.get("alpha", 0.2)
             flicker = 1.0 + 0.1 * math.sin(p.get("flicker", 0))
 
-            # 부드러운 주황/빨강 빛
+            # 글로우 - gfxdraw 직접 렌더링
             base_alpha = int(255 * alpha * flicker)
-            surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-
-            # 그라데이션 효과 - 바깥쪽 더 투명
-            outer_alpha = base_alpha // 3
-            inner_alpha = base_alpha // 2
-            pygame.draw.circle(surf, (255, 80, 20, outer_alpha), (size, size), size)
-            pygame.draw.circle(surf, (255, 120, 40, inner_alpha), (size, size), size * 2 // 3)
-
-            screen.blit(surf, (int(p["x"]) - size, int(p["y"]) - size))
+            px, py = int(p["x"]), int(p["y"])
+            outer_alpha = min(255, base_alpha // 3)
+            inner_alpha = min(255, base_alpha // 2)
+            if outer_alpha > 0:
+                pygame.gfxdraw.filled_circle(screen, px, py, size, (255, 80, 20, outer_alpha))
+            if inner_alpha > 0:
+                pygame.gfxdraw.filled_circle(screen, px, py, size * 2 // 3, (255, 120, 40, inner_alpha))
 
         # 2. 메인 불꽃 레이어 - 작은 불꽃
         for p in particles:
@@ -2428,14 +2409,13 @@ def draw_fire_particles(screen):
 
             base_alpha = int(255 * alpha * flicker * (1 - lifetime_ratio * 0.5))
 
-            # 작은 원형 불꽃
-            surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(surf, (r, g, b, base_alpha), (size + 1, size + 1), size)
-            # 밝은 코어
+            # 불꽃 - gfxdraw 직접 렌더링
+            px, py = int(p["x"]), int(p["y"])
+            if base_alpha > 0:
+                pygame.gfxdraw.filled_circle(screen, px, py, size, (r, g, b, min(255, base_alpha)))
             core_alpha = min(255, int(base_alpha * 1.2))
-            pygame.draw.circle(surf, (255, 255, 200, core_alpha), (size + 1, size + 1), max(1, size // 2))
-
-            screen.blit(surf, (int(p["x"]) - size - 1, int(p["y"]) - size - 1))
+            if core_alpha > 0:
+                pygame.gfxdraw.filled_circle(screen, px, py, max(1, size // 2), (255, 255, 200, core_alpha))
 
         # 3. 불씨 레이어 - 작은 스파크
         for p in particles:
@@ -2450,24 +2430,21 @@ def draw_fire_particles(screen):
 
             base_alpha = int(255 * alpha * flicker)
 
-            # 밝은 노랑/주황 점
-            surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(surf, (255, 200, 80, base_alpha), (size + 1, size + 1), size)
-
-            screen.blit(surf, (int(p["x"]) - size - 1, int(p["y"]) - size - 1))
+            # 불씨 - gfxdraw 직접 렌더링
+            if base_alpha > 0:
+                pygame.gfxdraw.filled_circle(screen, int(p["x"]), int(p["y"]),
+                                             size, (255, 200, 80, min(255, base_alpha)))
 
 
 def update_weather_particles(screen_width, screen_height):
     """Update wind particle effects"""
     global weather_particles, weather_particle_timer
 
-    # 불/얼음 이벤트는 별도 처리
-    if weather_event_type in ("fire", "ice"):
+    # 바람 파티클은 breeze/gust에서만 사용한다.
+    # 기존에는 rain/hail/sand에서도 불필요하게 생성되어 렌더링 비용이 누적됐다.
+    if not _uses_wind_particles():
         weather_particles = []
-        return
-
-    if not weather_event_active:
-        weather_particles = []
+        weather_particle_timer = 0
         return
 
     spawn_interval = 3 if weather_event_type == "breeze" else 2
@@ -2504,7 +2481,7 @@ def update_weather_particles(screen_width, screen_height):
 
 def draw_weather_particles(screen):
     """Draw wind particle effects - OPTIMIZED: 직접 그리기"""
-    if not weather_event_active or weather_event_type in ("fire", "ice"):
+    if not _uses_wind_particles():
         return
 
     # OPTIMIZATION: 직접 그리기 (Surface 생성 제거)
@@ -2566,7 +2543,7 @@ def draw_weather_warning(screen, screen_width, screen_height, font=None):
         rect = txt.get_rect(center=(screen_width // 2, screen_height // 3))
 
         bg = rect.inflate(40, 20)
-        bgs = pygame.Surface((bg.width, bg.height), pygame.SRCALPHA)
+        bgs = _get_weather_pooled_surface(bg.width, bg.height)
         bgs.fill((0, 0, 0, min(180, alpha)))
         screen.blit(bgs, bg.topleft)
         pygame.draw.rect(screen, border_color, bg, 3)
@@ -2586,7 +2563,7 @@ def draw_weather_warning(screen, screen_width, screen_height, font=None):
         rect = txt.get_rect(center=(screen_width // 2, screen_height // 3))
 
         bg = rect.inflate(40, 20)
-        bgs = pygame.Surface((bg.width, bg.height), pygame.SRCALPHA)
+        bgs = _get_weather_pooled_surface(bg.width, bg.height)
         bgs.fill((0, 0, 50, min(180, alpha)))
         screen.blit(bgs, bg.topleft)
         pygame.draw.rect(screen, (100, 200, 100), bg, 3)
@@ -2640,7 +2617,7 @@ def draw_weather_indicator(screen, x, y, font=None):
     rect = txt.get_rect(topleft=(x, y))
 
     bg = rect.inflate(10, 6)
-    bgs = pygame.Surface((bg.width, bg.height), pygame.SRCALPHA)
+    bgs = _get_weather_pooled_surface(bg.width, bg.height)
     bgs.fill(bg_color)
     screen.blit(bgs, bg.topleft)
     screen.blit(txt, rect)
