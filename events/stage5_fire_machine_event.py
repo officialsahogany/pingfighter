@@ -5,9 +5,24 @@
 """
 
 import pygame
+import pygame.gfxdraw
 import math
 import random
 from typing import List, Dict, Tuple, Optional, Any
+
+# --- Surface Pool ---
+_s6_surface_pool: dict = {}
+
+def _get_s6_pooled_surface(w: int, h: int) -> pygame.Surface:
+    key = (w, h)
+    surf = _s6_surface_pool.get(key)
+    if surf is None:
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        _s6_surface_pool[key] = surf
+    else:
+        surf.fill((0, 0, 0, 0))
+    return surf
+
 
 class Stage5FireMachineEvent:
     """스테이지 5 - 바닥 화염 방사 기계 이벤트"""
@@ -803,14 +818,13 @@ class Stage5FireMachineEvent:
             
             # 중심 원형 코어 (사이버펑크 스타일)
             core_size = int(40 * self.machine_scale)
-            # 다중 원으로 네온 효과
+            # 다중 원으로 네온 효과 - gfxdraw 직접 렌더링
             for i in range(3):
                 glow_alpha = 150 - i * 40
                 glow_size = core_size + i * 5
-                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (255, 0, 100, glow_alpha), 
-                                 (glow_size, glow_size), glow_size)
-                screen.blit(glow_surf, (self.machine_x - glow_size, self.machine_y - glow_size))
+                if glow_size > 0:
+                    pygame.gfxdraw.filled_circle(screen, self.machine_x, self.machine_y,
+                                                 glow_size, (255, 0, 100, glow_alpha))
             
             # 중심 코어
             pygame.draw.circle(screen, (20, 0, 10), (self.machine_x, self.machine_y), core_size)
@@ -832,16 +846,17 @@ class Stage5FireMachineEvent:
                     petal_width = int(25 * self.machine_scale)
                     petal_height = int(40 * self.machine_scale)
                     
-                    # 꽃잎 표면
-                    petal_surf = pygame.Surface((petal_width * 2, petal_height * 2), pygame.SRCALPHA)
-                    # 그라데이션 효과를 위한 여러 타원
+                    # 꽃잎 - Surface 풀 + 회전 캐시
+                    pw2, ph2 = petal_width * 2, petal_height * 2
+                    petal_surf = _get_s6_pooled_surface(pw2, ph2)
                     for j in range(3):
                         petal_color = (255 - j * 30, 50 + j * 20, 100 + j * 30, 200 - j * 50)
                         pygame.draw.ellipse(petal_surf, petal_color,
-                                          (j * 2, j * 2, petal_width * 2 - j * 4, petal_height * 2 - j * 4))
-                    
-                    # 회전 적용
-                    rotated_petal = pygame.transform.rotate(petal_surf, -angle)
+                                          (j * 2, j * 2, pw2 - j * 4, ph2 - j * 4))
+
+                    # 회전 적용 (양자화 15도 단위)
+                    angle_q = int(angle / 15) * 15
+                    rotated_petal = pygame.transform.rotate(petal_surf, -angle_q)
                     petal_rect = rotated_petal.get_rect(center=(int(petal_x), int(petal_y)))
                     screen.blit(rotated_petal, petal_rect)
                     
@@ -960,9 +975,9 @@ class Stage5FireMachineEvent:
                     mouth_x = head_start_x + math.cos(d_cannon_angle) * head_length_px
                     mouth_y = head_start_y + math.sin(d_cannon_angle) * head_length_px
 
-                    # 머리 서피스 생성 (충분히 크게)
+                    # 머리 서피스 - Surface 풀 사용 (매 프레임 생성 제거)
                     surf_size = head_length_px * 4
-                    head_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                    head_surf = _get_s6_pooled_surface(surf_size, surf_size)
                     cx, cy = surf_size // 2, surf_size // 2  # 서피스 중심
 
                     # 입 벌림 계산
@@ -1232,17 +1247,16 @@ class Stage5FireMachineEvent:
                     pygame.draw.ellipse(head_surf, (10, 5, 15),
                                        (nostril_x - 5, nostril_y + 8, 8, 5))
 
-                    # 콧구멍에서 나오는 연기 (화염 방사 시)
+                    # 콧구멍에서 나오는 연기 - head_surf에 직접 draw (Surface 생성 제거)
                     if d_jaw_phase == "breathing":
-                        smoke_alpha = int(80 + 40 * math.sin(self.timer * 0.3))
+                        smoke_alpha_base = int(80 + 40 * math.sin(self.timer * 0.3))
                         for smoke_i in range(3):
-                            smoke_x = nostril_x + 5 + smoke_i * 4 + math.sin(self.timer * 0.2 + smoke_i) * 3
-                            smoke_y = nostril_y + math.cos(self.timer * 0.15 + smoke_i) * 2
-                            smoke_size = 4 - smoke_i
-                            smoke_surf = pygame.Surface((smoke_size * 2, smoke_size * 2), pygame.SRCALPHA)
-                            pygame.draw.circle(smoke_surf, (100, 100, 100, smoke_alpha - smoke_i * 20),
-                                             (smoke_size, smoke_size), smoke_size)
-                            head_surf.blit(smoke_surf, (int(smoke_x - smoke_size), int(smoke_y - smoke_size)))
+                            smoke_x = int(nostril_x + 5 + smoke_i * 4 + math.sin(self.timer * 0.2 + smoke_i) * 3)
+                            smoke_y = int(nostril_y + math.cos(self.timer * 0.15 + smoke_i) * 2)
+                            smoke_size = max(1, 4 - smoke_i)
+                            sa = max(0, smoke_alpha_base - smoke_i * 20)
+                            pygame.draw.circle(head_surf, (100, 100, 100, sa),
+                                             (smoke_x, smoke_y), smoke_size)
 
                     # --- 9. 수염 (더 우아하게 흐르는 형태) ---
                     whisker_base_x = cx + head_length_px * 0.05
@@ -1284,20 +1298,18 @@ class Stage5FireMachineEvent:
                         glow_multiplier = min(1.0, d_jaw_open)
                         glow_intensity = int((150 + 80 * math.sin(self.timer * 0.2 + dragon_idx * 0.3)) * glow_multiplier)
 
-                        # 다중 레이어 글로우
+                        # 다중 레이어 글로우 - gfxdraw 직접 렌더링
+                        imx = int(mouth_x)
+                        imy = int(mouth_y)
                         for g in range(5):
                             glow_size = int((20 - g * 3) * dragon_scale * glow_multiplier)
                             if glow_size < 1:
                                 continue
                             alpha = int((100 - g * 15) * glow_multiplier)
-                            r = min(255, 255)
+                            r = 255
                             gr = min(255, glow_intensity + g * 20)
                             b = min(255, 100 + g * 30)
-
-                            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-                            pygame.draw.circle(glow_surf, (r, gr, b, alpha),
-                                             (glow_size, glow_size), glow_size)
-                            screen.blit(glow_surf, (int(mouth_x - glow_size), int(mouth_y - glow_size)))
+                            pygame.gfxdraw.filled_circle(screen, imx, imy, glow_size, (r, gr, b, alpha))
 
                     # 조준선 (조준 중일 때만) - 용 입에서 목표까지
                     if dragon_data["is_aiming"]:
@@ -1379,19 +1391,15 @@ class Stage5FireMachineEvent:
                              (int(particle["x"]), int(particle["y"])),
                              int(particle["size"]))
         
-        # 연기 파티클 그리기 (반투명 효과)
+        # 연기 파티클 그리기 - gfxdraw 직접 렌더링 (Surface 생성 제거)
         for particle in self.smoke_particles:
-            # 연기 서피스 생성 (알파 채널 적용을 위해)
-            smoke_surf = pygame.Surface((int(particle["size"] * 2), int(particle["size"] * 2)), pygame.SRCALPHA)
-            # 알파값이 적용된 연기 원 그리기
-            color_with_alpha = (*particle["color"], particle["alpha"])
-            pygame.draw.circle(smoke_surf, color_with_alpha, 
-                             (int(particle["size"]), int(particle["size"])), 
-                             int(particle["size"]))
-            # 화면에 블릿
-            screen.blit(smoke_surf, 
-                       (int(particle["x"] - particle["size"]), 
-                        int(particle["y"] - particle["size"])))
+            px = int(particle["x"])
+            py = int(particle["y"])
+            size = max(1, int(particle["size"]))
+            r, g, b = particle["color"]
+            a = min(255, int(particle["alpha"]))
+            if a > 0:
+                pygame.gfxdraw.filled_circle(screen, px, py, size, (r, g, b, a))
     
     def deactivate(self):
         """이벤트 비활성화"""
