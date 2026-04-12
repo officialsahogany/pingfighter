@@ -9422,6 +9422,48 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
     except Exception:
         pass
 
+def _draw_pillar_btn_tooltip(target_screen, btn_rect, title, lines, color=(200, 200, 200)):
+    """필러 영역 버튼 호버 툴팁 (스탠스/자동수동 버튼용)"""
+    try:
+        _t_font = get_font(13, style="bold")
+        _s_font = get_font(11, style="regular")
+
+        _n_surf = _t_font.render(title, True, color)
+        _line_surfs = []
+        for ln in lines:
+            _ls = _s_font.render(ln, True, (200, 195, 180))
+            _line_surfs.append(_ls)
+
+        _tw = max(_n_surf.get_width() + 20, 140)
+        for _ls in _line_surfs:
+            _tw = max(_tw, _ls.get_width() + 20)
+        _th = _n_surf.get_height() + 6 + len(_line_surfs) * 17 + 8
+
+        # 버튼 위에 표시 (위쪽으로, 공간 없으면 아래쪽)
+        _tx = btn_rect.centerx - _tw // 2
+        _ty = btn_rect.top - _th - 8
+        sw, sh = target_screen.get_size()
+        if _ty < 5:
+            _ty = btn_rect.bottom + 8
+        _tx = max(5, min(_tx, sw - _tw - 5))
+        _ty = max(5, min(_ty, sh - _th - 5))
+
+        _tip_surf = pygame.Surface((_tw, _th), pygame.SRCALPHA)
+        pygame.draw.rect(_tip_surf, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=6)
+        pygame.draw.rect(_tip_surf, (*color[:3], 180), (0, 0, _tw, _th), 2, border_radius=6)
+
+        _cy = 5
+        _tip_surf.blit(_n_surf, (10, _cy))
+        _cy += _n_surf.get_height() + 4
+        for _ls in _line_surfs:
+            _tip_surf.blit(_ls, (10, _cy))
+            _cy += 17
+
+        _blit_scaled_tooltip(target_screen, _tip_surf, _tx, _ty, _tw, _th)
+    except Exception:
+        pass
+
+
 def _draw_perk_hover_tooltip(target_screen, hover_info):
     """퍽 아이콘 호버 시 이름 + 설명 툴팁 표시 (REAL_SCREEN에 직접 그리기)"""
     if not hover_info or hover_info.get("type") != "perk":
@@ -10790,6 +10832,47 @@ def _fullscreen_flip():
             _draw_guard_hover_tooltip(REAL_SCREEN, _queue_hover)
         elif _guard_hover and _guard_hover.get("side") != "top":
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover)
+
+        # 🎮 스탠스/자동수동 버튼 호버 툴팁
+        if arena_mode_enabled:
+            _real_mpos_tip = _original_mouse_get_pos()
+            _tip_drawn = False
+            # 자동/수동 토글 버튼 툴팁
+            _mt_rect_tip = globals().get('_arena_manual_toggle_rect')
+            if _mt_rect_tip and _mt_rect_tip.collidepoint(_real_mpos_tip):
+                try:
+                    from downtown.colosseum_arena import ColosseumsArena as _CArena_tip
+                    _arena_tip = getattr(_CArena_tip, '_active_instance', None)
+                    _is_manual_tip = _arena_tip.manual_control_active if _arena_tip else False
+                    _tip_title = "수동 조작 모드" if _is_manual_tip else "자동 관전 모드"
+                    _tip_color = (100, 220, 150) if _is_manual_tip else (150, 160, 200)
+                    _tip_lines = []
+                    if _is_manual_tip:
+                        _tip_lines = ["←→ 키로 직접 패들 조작", "스페이스바로 스킬 발동", "배속 변경 불가 (1x 고정)"]
+                    else:
+                        _tip_lines = ["AI가 자동으로 패들 조작", "배속 변경 가능 (F1~F4)"]
+                    _tip_lines.append("[R] 키로 전환")
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _mt_rect_tip, _tip_title, _tip_lines, _tip_color)
+                    _tip_drawn = True
+                except Exception:
+                    pass
+            # 공격/방어 스탠스 버튼 툴팁
+            if not _tip_drawn:
+                _st_rect_tip = globals().get('_guard_stance_toggle_rect')
+                if _st_rect_tip and _st_rect_tip.collidepoint(_real_mpos_tip):
+                    try:
+                        _cur_stance_tip = globals().get('arena_guard_stance_mode', 'attack')
+                        _is_def = (_cur_stance_tip == "defense")
+                        _tip_title = "수비 모드" if _is_def else "공격 모드"
+                        _tip_color = (80, 150, 230) if _is_def else (230, 160, 80)
+                        if _is_def:
+                            _tip_lines = ["호위무사가 방어 위주로 행동", "대쉬로 공을 요격", "스킬 쿨타임 증가"]
+                        else:
+                            _tip_lines = ["호위무사가 공격 위주로 행동", "적극적으로 스킬 사용", "스킬 쿨타임 기본"]
+                        _tip_lines.append("[E] 키로 전환")
+                        _draw_pillar_btn_tooltip(REAL_SCREEN, _st_rect_tip, _tip_title, _tip_lines, _tip_color)
+                    except Exception:
+                        pass
 
         # 🛡️ 인게임 호위무사 초상화 UI (일반 스테이지, 투기장 쿨타임 큐와 동일 스타일)
         _story_stance_btn_rect = None
