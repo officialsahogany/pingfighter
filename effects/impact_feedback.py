@@ -403,8 +403,8 @@ def fire(
         # Ball-speed-aware shake: weak at base speed, ramps up as the ball accelerates.
         # Call site passes intensity in [0.8, 2.0] based on current ball speed ratio.
         speed_factor = max(0.0, min(1.0, (intensity - 0.8) / 1.2))
-        shake_strength = 1.6 + speed_factor * 4.4
-        shake_frames = 3 + int(speed_factor * 5)
+        shake_strength = 0.8 + speed_factor * 2.2
+        shake_frames = 2 + int(speed_factor * 3)
         _apply_shake(shake_frames, shake_strength)
         return
 
