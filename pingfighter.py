@@ -28255,6 +28255,18 @@ def _get_arena_dark_slash_visual_offset(is_top: bool) -> tuple[float, float]:
         0.0,
     )
 
+def _get_arena_dark_slash_render_center_y(is_top: bool, fallback_center_y: float) -> float:
+    """달빛 베기 중에는 현재 rect 대신 전용 공중 Y를 렌더 기준으로 사용한다."""
+    if not arena_mode_enabled or not arena_skill_manager:
+        return float(fallback_center_y)
+    game_state = getattr(arena_skill_manager, 'game_state', {})
+    if game_state.get('dark_slash_caster_is_top') != is_top:
+        return float(fallback_center_y)
+    base_center_y = game_state.get('dark_slash_caster_base_center_y')
+    if base_center_y is None:
+        return float(fallback_center_y)
+    return float(base_center_y) + float(game_state.get('dark_slash_caster_offset_y', 0.0))
+
 # 투기장 스킬 사운드 캐시 및 재생
 _arena_skill_sound_cache = {}
 _arena_skill_sound_this_frame = False  # 이번 프레임에서 스킬 사운드 재생 여부 (패들 사운드 중복 방지)
@@ -28334,16 +28346,17 @@ def arena_draw_speech_bubbles():
     # 상단 영웅 말풍선 (보스 위치)
     if arena_top_speech_timer > 0 and arena_top_speech_text:
         _top_dx, _top_dy = _get_arena_dark_slash_visual_offset(True)
+        _top_center_y = _get_arena_dark_slash_render_center_y(True, BOSS.centery)
         if arena_top_speech_is_skill:
             _draw_shout_bubble(
-                BOSS.centerx + _top_dx, BOSS.bottom + 15 + _top_dy,
+                BOSS.centerx + _top_dx, _top_center_y + BOSS.height / 2 + 15 + _top_dy,
                 arena_top_speech_text,
                 arena_top_speech_timer, ARENA_SPEECH_DURATION,
                 arena_top_speech_color
             )
         else:
             _draw_arena_speech_bubble(
-                BOSS.centerx + _top_dx, BOSS.bottom + 15 + _top_dy,
+                BOSS.centerx + _top_dx, _top_center_y + BOSS.height / 2 + 15 + _top_dy,
                 arena_top_speech_text, is_top=True
             )
         arena_top_speech_timer -= arena_speed_multiplier
@@ -28351,16 +28364,17 @@ def arena_draw_speech_bubbles():
     # 하단 영웅 말풍선 (플레이어 위치 - 패들 위에 표시)
     if arena_bottom_speech_timer > 0 and arena_bottom_speech_text:
         _bottom_dx, _bottom_dy = _get_arena_dark_slash_visual_offset(False)
+        _bottom_center_y = _get_arena_dark_slash_render_center_y(False, PLAYER.centery)
         if arena_bottom_speech_is_skill:
             _draw_shout_bubble(
-                PLAYER.centerx + _bottom_dx, PLAYER.top - 105 + _bottom_dy,
+                PLAYER.centerx + _bottom_dx, _bottom_center_y - PLAYER.height / 2 - 105 + _bottom_dy,
                 arena_bottom_speech_text,
                 arena_bottom_speech_timer, ARENA_SPEECH_DURATION,
                 arena_bottom_speech_color
             )
         else:
             _draw_arena_speech_bubble(
-                PLAYER.centerx + _bottom_dx, PLAYER.top - 70 + _bottom_dy,
+                PLAYER.centerx + _bottom_dx, _bottom_center_y - PLAYER.height / 2 - 70 + _bottom_dy,
                 arena_bottom_speech_text, is_top=False
             )
         arena_bottom_speech_timer -= arena_speed_multiplier
@@ -66553,19 +66567,12 @@ def draw_water_cannon_charging(screen):
         # 물방울 투명도 (가까워질수록 진해짐)
         alpha = int(150 + 105 * (1 - current_dist / max_dist))
 
-        # 물방울 그리기 (파란색 계열)
-        drop_surface = pygame.Surface((size * 2 + 6, size * 2 + 6), pygame.SRCALPHA)
-        # 외곽 글로우
-        pygame.draw.circle(drop_surface, (50, 150, 255, alpha // 2),
-                          (size + 3, size + 3), size + 2)
-        # 메인 물방울
-        pygame.draw.circle(drop_surface, (100, 180, 255, alpha),
-                          (size + 3, size + 3), size)
-        # 하이라이트
-        pygame.draw.circle(drop_surface, (200, 230, 255, alpha),
-                          (size + 1, size + 1), max(1, size // 2))
-
-        screen.blit(drop_surface, (int(drop_x - size - 3), int(drop_y - size - 3)))
+        # 물방울 그리기 - gfxdraw 직접 렌더링 (Surface 생성 제거)
+        idx = int(drop_x)
+        idy = int(drop_y)
+        pygame.gfxdraw.filled_circle(screen, idx, idy, size + 2, (50, 150, 255, alpha // 2))
+        pygame.gfxdraw.filled_circle(screen, idx, idy, size, (100, 180, 255, alpha))
+        pygame.gfxdraw.filled_circle(screen, idx, idy, max(1, size // 2), (200, 230, 255, alpha))
 
     random.seed()  # 시드 리셋
 
@@ -66580,8 +66587,8 @@ def draw_water_cannon_charging(screen):
     ball_x = mouth_x
     ball_y = mouth_y + 5
 
-    # 여러 겹으로 물 덩어리 그리기
-    ball_surface = pygame.Surface((water_ball_size * 2 + 20, water_ball_size * 2 + 20), pygame.SRCALPHA)
+    # 여러 겹으로 물 덩어리 그리기 - Surface 풀 사용
+    ball_surface = _get_mole_pooled_surface(water_ball_size * 2 + 20, water_ball_size * 2 + 20)
     center = water_ball_size + 10
 
     # 외곽 글로우 (어두운 파란)
@@ -66621,11 +66628,9 @@ def draw_water_cannon_charging(screen):
         particle_y = ball_y + math.sin(swirl_angle) * swirl_dist
         particle_size = random.randint(2, 5)
 
-        particle_surface = pygame.Surface((particle_size * 2 + 4, particle_size * 2 + 4), pygame.SRCALPHA)
-        pygame.draw.circle(particle_surface, (120, 200, 255, 180),
-                          (particle_size + 2, particle_size + 2), particle_size)
-        screen.blit(particle_surface, (int(particle_x - particle_size - 2),
-                                        int(particle_y - particle_size - 2)))
+        # 회오리 파티클 - gfxdraw 직접 렌더링
+        pygame.gfxdraw.filled_circle(screen, int(particle_x), int(particle_y),
+                                     particle_size, (120, 200, 255, 180))
 
     # === 4. 차징 완료 직전 경고 효과 (마지막 20%) ===
     if charge_progress > 0.8:
@@ -66636,10 +66641,9 @@ def draw_water_cannon_charging(screen):
         ring_size = water_ball_size + 15 + int(warning_pulse * 10)
         ring_alpha = int(150 * warning_pulse)
 
-        ring_surface = pygame.Surface((ring_size * 2 + 10, ring_size * 2 + 10), pygame.SRCALPHA)
-        pygame.draw.circle(ring_surface, (200, 230, 255, ring_alpha),
-                          (ring_size + 5, ring_size + 5), ring_size, 3)
-        screen.blit(ring_surface, (int(ball_x - ring_size - 5), int(ball_y - ring_size - 5)))
+        # 경고 링 - gfxdraw 직접 렌더링
+        pygame.gfxdraw.aacircle(screen, int(ball_x), int(ball_y), ring_size,
+                                (200, 230, 255, ring_alpha))
 
 
 def draw_water_cannon(screen):
@@ -66743,30 +66747,23 @@ def draw_water_cannon_fragments(screen):
         frag_type = fragment.get('type', 'rock')
 
         if frag_type == 'water':
-            # 물 튀김 - 원형, 투명하게
+            # 물 튀김 - gfxdraw 직접 렌더링 (Surface 생성 제거)
             alpha = int(255 * min(1.0, fragment['life'] / 40))
-            water_surface = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
-
-            # 물방울 (반투명 원)
-            pygame.draw.circle(water_surface, (*color, alpha),
-                              (size + 2, size + 2), size)
-            # 하이라이트
+            fx_int = int(fragment['x'])
+            fy_int = int(fragment['y'])
+            pygame.gfxdraw.filled_circle(screen, fx_int, fy_int, size, (*color, alpha))
             highlight_size = max(2, size // 3)
-            pygame.draw.circle(water_surface, (200, 230, 255, min(alpha, 180)),
-                              (size + 2 - size//4, size + 2 - size//4), highlight_size)
-
-            screen.blit(water_surface, (int(fragment['x'] - size - 2),
-                                         int(fragment['y'] - size - 2)))
+            pygame.gfxdraw.filled_circle(screen, fx_int - size // 4, fy_int - size // 4,
+                                         highlight_size, (200, 230, 255, min(alpha, 180)))
         else:
-            # 바위 파편 - 불규칙한 다각형
+            # 바위 파편 - Surface 풀 사용
             alpha = int(255 * min(1.0, fragment['life'] / 50))
-            fragment_surface = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+            surf_size = size * 2 + 4
+            fragment_surface = _get_mole_pooled_surface(surf_size, surf_size)
 
-            # 파편마다 고정된 모양 (시드 기반)
             seed = hash((fragment['x'], fragment['y'], size)) % 1000
             rng = random.Random(seed)
 
-            # 불규칙한 다각형으로 파편 표현
             points = []
             num_points = rng.randint(5, 8)
             for j in range(num_points):
@@ -66777,16 +66774,12 @@ def draw_water_cannon_fragments(screen):
                 points.append((px, py))
 
             if len(points) >= 3:
-                # 파편 본체
                 pygame.draw.polygon(fragment_surface, (*color, alpha), points)
-                # 어두운 테두리
                 border_color = (max(0, color[0] - 40), max(0, color[1] - 40), max(0, color[2] - 40))
                 pygame.draw.polygon(fragment_surface, (*border_color, alpha), points, 2)
-                # 하이라이트 (밝은 부분)
-                if len(points) >= 3:
-                    highlight_color = (min(255, color[0] + 30), min(255, color[1] + 30), min(255, color[2] + 30))
-                    pygame.draw.line(fragment_surface, (*highlight_color, alpha // 2),
-                                    points[0], points[1], 1)
+                highlight_color = (min(255, color[0] + 30), min(255, color[1] + 30), min(255, color[2] + 30))
+                pygame.draw.line(fragment_surface, (*highlight_color, alpha // 2),
+                                points[0], points[1], 1)
 
             screen.blit(fragment_surface, (int(fragment['x'] - size - 2),
                                             int(fragment['y'] - size - 2)))
@@ -66960,36 +66953,42 @@ def update_fragment_hit_effect():
         water_cannon_fragment_hit_shake -= 1
 
 
+# --- Stage 2 공용 전체화면 재사용 Surface (매 프레임 new 방지) ---
+_s2_fx_surface = None  # 이펙트용 공유 Surface
+
+def _get_s2_fx_surface():
+    """스테이지 2 이펙트용 전체화면 SRCALPHA Surface 재사용"""
+    global _s2_fx_surface
+    if _s2_fx_surface is None or _s2_fx_surface.get_width() != WIDTH or _s2_fx_surface.get_height() != HEIGHT:
+        _s2_fx_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    else:
+        _s2_fx_surface.fill((0, 0, 0, 0))
+    return _s2_fx_surface
+
 def draw_fragment_hit_effect(screen):
-    """파편 피격 시 화면 빨간 플래시 효과"""
+    """파편 피격 시 화면 빨간 플래시 효과 - 재사용 Surface"""
     if water_cannon_fragment_hit_timer <= 0:
         return
 
-    # 빨간 플래시 강도 (시간에 따라 감소)
     intensity = water_cannon_fragment_hit_timer / 15.0
     flash_alpha = int(80 * intensity)
 
-    # 화면 전체에 빨간 오버레이
-    flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    flash_surface.fill((255, 50, 50, flash_alpha))
-    screen.blit(flash_surface, (0, 0))
+    fx = _get_s2_fx_surface()
+    fx.fill((255, 50, 50, flash_alpha))
+    screen.blit(fx, (0, 0))
 
-    # 화면 가장자리에 빨간 비네팅 효과
+    # 비네팅 - 같은 Surface 재사용
     vignette_alpha = int(120 * intensity)
-    vignette_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    fx.fill((0, 0, 0, 0))
 
-    # 상단 비네팅
     for i in range(30):
         alpha = int(vignette_alpha * (1 - i / 30))
-        pygame.draw.line(vignette_surface, (255, 30, 30, alpha),
-                        (0, i), (WIDTH, i), 1)
-    # 하단 비네팅
+        pygame.draw.line(fx, (255, 30, 30, alpha), (0, i), (WIDTH, i), 1)
     for i in range(30):
         alpha = int(vignette_alpha * (1 - i / 30))
-        pygame.draw.line(vignette_surface, (255, 30, 30, alpha),
-                        (0, HEIGHT - 1 - i), (WIDTH, HEIGHT - 1 - i), 1)
+        pygame.draw.line(fx, (255, 30, 30, alpha), (0, HEIGHT - 1 - i), (WIDTH, HEIGHT - 1 - i), 1)
 
-    screen.blit(vignette_surface, (0, 0))
+    screen.blit(fx, (0, 0))
 
 
 def get_fragment_hit_shake():
@@ -67345,11 +67344,11 @@ def update_tunnel_raid():
 
 
 def draw_tunnel_raid_effects(screen):
-    """땅굴 습격 이펙트 — 럴커 스타일 흙 가시 + 경고"""
+    """땅굴 습격 이펙트 — 재사용 Surface"""
     if not tunnel_raid_active:
         return
 
-    fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    fx = _get_s2_fx_surface()
 
     # --- 1. 경고 Phase ---
     if tunnel_raid_phase == "warn":
@@ -67812,11 +67811,11 @@ def get_web_trap_player_slow():
 
 
 def draw_web_traps(screen):
-    """거미줄 투사체 + 장판 렌더링."""
+    """거미줄 투사체 + 장판 렌더링 — 재사용 Surface"""
     if not web_traps and web_trap_projectile is None and not web_trap_break_effects:
         return
 
-    fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    fx = _get_s2_fx_surface()
 
     # ─── 투사체 렌더링 (보스 입에서 타겟으로 날아가는 거미줄) ───
     if web_trap_projectile is not None:
@@ -68105,11 +68104,11 @@ def update_web_rescue():
 
 
 def draw_web_rescue(screen):
-    """거미줄 구출 스킬 시각 연출."""
+    """거미줄 구출 스킬 시각 연출 — 재사용 Surface"""
     if not web_rescue_active:
         return
 
-    fx = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+    fx = _get_s2_fx_surface()
     boss_cx = BOSS.centerx if BOSS else 380
     boss_cy = (BOSS.y + BOSS.height) if BOSS else 65
     ball_cx = int(BALL.centerx)
@@ -68390,11 +68389,11 @@ def update_spider_rage():
 
 
 def draw_spider_rage_projectiles(screen):
-    """분노 거미줄 투사체 렌더링 (붉은색)."""
+    """분노 거미줄 투사체 렌더링 — 재사용 Surface"""
     if not spider_rage_projectiles:
         return
 
-    fx = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+    fx = _get_s2_fx_surface()
     for proj in spider_rage_projectiles:
         raw_t = min(proj["timer"] / max(1, proj["duration"]), 1.0)
         t = 1.0 - (1.0 - raw_t) * (1.0 - raw_t)  # easeOutQuad
@@ -68577,12 +68576,25 @@ def update_friend_moles():
         friend_moles_dirt_particles.pop(i)
 
 
+_mole_surf_pool: dict = {}  # 두더지 clip/highlight/bandana Surface 풀
+
+def _get_mole_pooled_surface(w: int, h: int) -> pygame.Surface:
+    """두더지 렌더링용 작은 Surface 풀"""
+    key = (w, h)
+    surf = _mole_surf_pool.get(key)
+    if surf is None:
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        _mole_surf_pool[key] = surf
+    else:
+        surf.fill((0, 0, 0, 0))
+    return surf
+
 def draw_friend_moles(screen):
-    """친구두더지 + 흙먼지 파티클 렌더링 (두더지왕 보스 스프라이트 디자인 기반)."""
+    """친구두더지 + 흙먼지 파티클 렌더링 — 재사용 Surface"""
     if not friend_moles_list and not friend_moles_dirt_particles:
         return
 
-    fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    fx = _get_s2_fx_surface()
     R = FRIEND_MOLE_RADIUS
 
     # 두더지왕 팔레트 (molewang_boss_sprite.py 기반)
@@ -68634,7 +68646,7 @@ def draw_friend_moles(screen):
         clip_h = visible_h + 4
         if clip_h < 2:
             continue
-        clip = pygame.Surface((clip_w, clip_h), pygame.SRCALPHA)
+        clip = _get_mole_pooled_surface(clip_w, clip_h)
         ccx = clip_w // 2 + wobble_x
 
         # === 몸통 (둥근 돔형 — 두더지왕 스타일) ===
@@ -68657,7 +68669,7 @@ def draw_friend_moles(screen):
         # 하이라이트
         hl_w = int(dome_w * 0.35)
         hl_h = int(dome_h * 0.5)
-        hl_s = pygame.Surface((hl_w, hl_h), pygame.SRCALPHA)
+        hl_s = _get_mole_pooled_surface(hl_w, hl_h)
         pygame.draw.ellipse(hl_s, (*BODY_LIGHT, 90), (0, 0, hl_w, hl_h))
         clip.blit(hl_s, (ccx - dome_w // 4 - 1, 2))
 
@@ -68665,7 +68677,7 @@ def draw_friend_moles(screen):
         bandana_h = max(3, int(b * 0.5))
         bandana_rect = pygame.Rect(ccx - dome_w // 2 + 1, int(dome_h * 0.02),
                                     dome_w - 2, bandana_h)
-        bandana_s = pygame.Surface((bandana_rect.w, bandana_rect.h), pygame.SRCALPHA)
+        bandana_s = _get_mole_pooled_surface(bandana_rect.w, bandana_rect.h)
         pygame.draw.ellipse(bandana_s, (*accent, 180),
                             (0, 0, bandana_rect.w, bandana_rect.h))
         clip.blit(bandana_s, bandana_rect.topleft)
@@ -115633,7 +115645,8 @@ def draw_objects():
                 _top_draw_height += arena_storm_rush_height_bonus_top
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             _top_final_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top + _dark_slash_x_offset_top
-            _top_final_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
+            _top_render_center_y = _get_arena_dark_slash_render_center_y(True, BOSS.centery)
+            _top_final_y = _top_render_center_y + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
             if _boss_hologram_should_draw:
                 if _boss_hologram_active:
                     # 홀로그램 물질화 효과: 임시 서피스에 그린 후 효과 적용
@@ -117787,7 +117800,8 @@ def draw_objects():
             # 하단 영웅 패들 그리기 (PLAYER 고정 좌표 + 떨림 오프셋 + 뿔박치기 오프셋)
             # player_rect 대신 PLAYER 사용: player_rect는 일반 스프라이트 바운딩 보정으로 Y가 흔들림
             _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom + _dark_slash_x_offset_bottom
-            _final_y = PLAYER.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
+            _bottom_render_center_y = _get_arena_dark_slash_render_center_y(False, PLAYER.centery)
+            _final_y = _bottom_render_center_y + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
             if _player_hologram_should_draw:
                 if _player_hologram_active:
                     # 홀로그램 물질화 효과: 임시 서피스에 그린 후 효과 적용
@@ -144840,56 +144854,72 @@ def draw_stage3_hearts():
         # 화면에 그리기
         SCREEN.blit(heart_surface, (heart['x'] - center_x, heart['y'] - center_y))
 
+_stage2_leaf_cache: dict = {}  # 나뭇잎 회전 캐시 (type, size, rotation_quantized, color)
+
 def draw_stage2_leaves():
-    """떨어지는 잎사귀 그리기 (디테일한 버전)"""
+    """떨어지는 잎사귀 그리기 - 회전 캐시 사용 (Surface+rotate 매 프레임 제거)"""
+    global _stage2_leaf_cache
+    # 캐시 크기 제한
+    if len(_stage2_leaf_cache) > 200:
+        _stage2_leaf_cache.clear()
+
     for leaf in stage2_leaves:
-        # 투명도 계산 (페이드 아웃 효과)
         alpha = min(255, leaf['life'] * 2)
-        # 잎사귀 그리기 (회전 적용)
-        leaf_surface = pygame.Surface((leaf['size'] * 3, leaf['size'] * 3), pygame.SRCALPHA)
-        center = leaf['size'] * 1.5
-        # 잎사귀 종류별로 다른 모양 그리기 (항상 디테일한 버전만 사용)
-        leaf_type = leaf.get('type', 'tropical')  # 기본값을 tropical로 설정
-        if leaf_type == 'maple':
-            # 단풍잎 모양 (5개 끝)
-            points = []
-            for i in range(10):
-                angle = leaf['rotation'] + i * 36
-                rad = math.radians(angle)
-                if i % 2 == 0:
-                    length = leaf['size']
-                else:
-                    length = leaf['size'] * 0.5
-                points.append((center + math.cos(rad) * length,
-                             center + math.sin(rad) * length))
-            pygame.draw.polygon(leaf_surface, (*leaf['color'], alpha), points)
-        elif leaf_type == 'oak':
-            # 물결 모양 타원 (참나무잎)
-            for i in range(3):
-                offset = i * 2
-                pygame.draw.ellipse(leaf_surface, (*leaf['color'], max(0, alpha - i * 50)),
-                                  (center - leaf['size']//2 + offset, 
-                                   center - leaf['size'] + offset,
-                                   leaf['size'] - offset * 2, 
-                                   leaf['size'] * 2 - offset * 2))
-        else:  # tropical 또는 기타
-            # 열대 잎 (뾰족한 타원)
-            points = [
-                (center, center - leaf['size'] * 1.2),
-                (center + leaf['size'] * 0.4, center),
-                (center, center + leaf['size'] * 1.2),
-                (center - leaf['size'] * 0.4, center)
-            ]
-            pygame.draw.polygon(leaf_surface, (*leaf['color'], alpha), points)
-        # 잎맥 추가
-        vein_color = tuple(max(0, c - 40) for c in leaf['color']) + (alpha//2,)
-        pygame.draw.line(leaf_surface, vein_color,
-                        (center, center - leaf['size']), 
-                        (center, center + leaf['size']), 1)
-        # 회전 적용
-        rotated_leaf = pygame.transform.rotate(leaf_surface, leaf['rotation'])
-        leaf_rect = rotated_leaf.get_rect(center=(int(leaf['x']), int(leaf['y'])))
-        SCREEN.blit(rotated_leaf, leaf_rect)
+        if alpha <= 0:
+            continue
+
+        leaf_type = leaf.get('type', 'tropical')
+        size = leaf['size']
+        # 회전을 10도 단위로 양자화 → 캐시 히트율 향상
+        rot_q = int(leaf['rotation'] / 10) * 10
+        cache_key = (leaf_type, size, rot_q, leaf['color'])
+
+        if cache_key not in _stage2_leaf_cache:
+            surf_size = size * 3
+            leaf_surface = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+            center = size * 1.5
+
+            if leaf_type == 'maple':
+                points = []
+                for i in range(10):
+                    angle = i * 36
+                    rad = math.radians(angle)
+                    length = size if i % 2 == 0 else size * 0.5
+                    points.append((center + math.cos(rad) * length,
+                                 center + math.sin(rad) * length))
+                pygame.draw.polygon(leaf_surface, (*leaf['color'], 255), points)
+            elif leaf_type == 'oak':
+                for i in range(3):
+                    offset = i * 2
+                    pygame.draw.ellipse(leaf_surface, (*leaf['color'], max(0, 255 - i * 50)),
+                                      (center - size//2 + offset,
+                                       center - size + offset,
+                                       size - offset * 2,
+                                       size * 2 - offset * 2))
+            else:
+                points = [
+                    (center, center - size * 1.2),
+                    (center + size * 0.4, center),
+                    (center, center + size * 1.2),
+                    (center - size * 0.4, center)
+                ]
+                pygame.draw.polygon(leaf_surface, (*leaf['color'], 255), points)
+
+            vein_color = tuple(max(0, c - 40) for c in leaf['color']) + (128,)
+            pygame.draw.line(leaf_surface, vein_color,
+                            (center, center - size), (center, center + size), 1)
+
+            rotated = pygame.transform.rotate(leaf_surface, rot_q)
+            _stage2_leaf_cache[cache_key] = rotated
+
+        cached_surf = _stage2_leaf_cache[cache_key]
+        # 알파 적용
+        if alpha < 250:
+            cached_surf.set_alpha(alpha)
+        leaf_rect = cached_surf.get_rect(center=(int(leaf['x']), int(leaf['y'])))
+        SCREEN.blit(cached_surf, leaf_rect)
+        if alpha < 250:
+            cached_surf.set_alpha(255)  # 복원
 def draw_tutorial_practice_room():
     """튜토리얼 연습장 배경 그리기 - Stage 2 스타일 + 사이버펑크"""
     # 중심점 먼저 정의
@@ -170491,15 +170521,6 @@ def main(stage_num, new_boss_mode=False):
                                 hero_id=_announce.get('hero_id', '')
                             )
                     arena_skill_manager.game_state['pending_skill_announcements'] = []
-
-                _ds_gs = arena_skill_manager.game_state
-                _ds_base_cy = _ds_gs.get('dark_slash_caster_base_center_y')
-                if _ds_base_cy is not None:
-                    _ds_offset_y = float(_ds_gs.get('dark_slash_caster_offset_y', 0.0))
-                    _ds_target_rect = BOSS if _ds_gs.get('dark_slash_caster_is_top', False) else PLAYER
-                    _ds_target_rect.centery = int(round(float(_ds_base_cy) + _ds_offset_y))
-                    if _ds_gs.get('dark_slash_phase') == 4 and abs(_ds_offset_y) <= 0.01:
-                        _ds_gs['dark_slash_caster_base_center_y'] = None
 
                 try:
                     # 🏜️ 모래감옥: 실제 패들에 이동 범위 제한 적용
