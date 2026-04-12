@@ -85483,6 +85483,24 @@ def check_and_complete_quests():
     quest_bare_hands_stage_active = False
     return completed_quests
 
+
+def fail_remaining_quests():
+    """스테이지 종료 후 미완료 퀘스트를 실패 처리하고 active_quests에서 제거."""
+    global active_quests
+    if not active_quests:
+        return []
+    failed_quests = []
+    for quest_id in active_quests[:]:
+        quest_data = QUEST_DATA.get(quest_id)
+        if quest_data:
+            failed_quests.append({
+                "id": quest_id,
+                "name": quest_data["name"],
+            })
+    active_quests.clear()
+    return failed_quests
+
+
 # 승리 화면 가챠 연속 사용 보너스 추적
 GACHA_REROLL_LIMIT_PER_STAGE = 5  # 스테이지당 허용되는 최대 추가 가챠 횟수
 gacha_reroll_stage = None  # 최근 가챠 보너스를 적용한 스테이지 번호
@@ -115646,6 +115664,10 @@ def draw_objects():
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             _top_final_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top + _dark_slash_x_offset_top
             _top_render_center_y = _get_arena_dark_slash_render_center_y(True, BOSS.centery)
+            if arena_skill_manager:
+                _top_ds_gs = arena_skill_manager.game_state
+                if _top_ds_gs.get('dark_slash_caster_is_top') and _top_ds_gs.get('dark_slash_caster_base_center_y') is not None:
+                    BOSS.centery = int(_top_render_center_y)
             _top_final_y = _top_render_center_y + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
             if _boss_hologram_should_draw:
                 if _boss_hologram_active:
@@ -117801,6 +117823,11 @@ def draw_objects():
             # player_rect 대신 PLAYER 사용: player_rect는 일반 스프라이트 바운딩 보정으로 Y가 흔들림
             _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom + _dark_slash_x_offset_bottom
             _bottom_render_center_y = _get_arena_dark_slash_render_center_y(False, PLAYER.centery)
+            if arena_skill_manager:
+                _bottom_ds_gs = arena_skill_manager.game_state
+                if (not _bottom_ds_gs.get('dark_slash_caster_is_top', True)
+                        and _bottom_ds_gs.get('dark_slash_caster_base_center_y') is not None):
+                    PLAYER.centery = int(_bottom_render_center_y)
             _final_y = _bottom_render_center_y + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
             if _player_hologram_should_draw:
                 if _player_hologram_active:
@@ -162324,6 +162351,11 @@ def show_result(won):
             # 퀘스트 완료 빛 효과 활성화
             quest_completion_glow_active = True
             quest_completion_glow_timer = 0.0
+        # 📜 미완료 퀘스트 실패 처리 (스테이지 클리어 후 남은 퀘스트 제거)
+        failed_quests = fail_remaining_quests()
+        if failed_quests:
+            for fq in failed_quests:
+                show_fade_text(f"퀘스트를 실패하였습니다! ({fq['name']})")
         # 검은 화면 채우기 제거 - 승리 이펙트와 스킬 선택이 현재 스테이지 배경을 사용하도록
         pygame.display.flip()
         pygame.time.delay(100)  # 딜레이도 짧게
@@ -162829,6 +162861,8 @@ def show_result(won):
         quest_small_paddle_active = False
         quest_speedrun_active = False
         quest_speedrun_start_ticks = 0
+        # 📜 게임 오버 시 미완료 퀘스트 실패 처리
+        fail_remaining_quests()
         PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
         PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
         PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
@@ -165130,6 +165164,8 @@ def main(stage_num, new_boss_mode=False):
         if game_should_exit:
             release_bare_hands_quest_lock()
             quest_bare_hands_stage_active = False
+            # 📜 중도 퇴장 시 미완료 퀘스트 실패 처리
+            fail_remaining_quests()
             reset_screen_shake_state()
             log_restart_debug(
                 "main_exit_branch",

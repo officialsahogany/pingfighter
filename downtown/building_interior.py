@@ -5248,6 +5248,7 @@ class BuildingInterior:
                 # 선술집 퀘스트 NPC(의뢰인 마르코)인 경우 퀘스트 메뉴 바로 열기
                 elif self.building_type == BuildingType.TAVERN and npc.role == "quest":
                     # 대사 없이 바로 퀘스트 메뉴 열기
+                    self._sync_quest_state_from_pingfighter()
                     self.quest_menu_open = True
                     self.quest_menu_selection = 0
                     self.quest_detail_open = False
