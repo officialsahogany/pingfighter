@@ -9832,6 +9832,116 @@ def _draw_pillar_ui(screen, renderer):
                 pass
     globals()['_guard_stance_toggle_rect'] = _stance_btn_rect
 
+    # 자동/수동 조작 토글 버튼 (스탠스 버튼 왼쪽, 투기장 전용)
+    _manual_toggle_rect = None
+    if arena_mode_enabled and _stance_btn_rect is not None:
+        try:
+            from downtown.colosseum_arena import ColosseumsArena as _CArena_mt
+            _arena_mt = getattr(_CArena_mt, '_active_instance', None)
+            if _arena_mt and hasattr(_arena_mt, 'manual_control_active'):
+                _mt_draw_target = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else screen
+                _mt_scale = GAME_SCALE_FACTOR if 'GAME_SCALE_FACTOR' in globals() else 1.0
+                _mt_is_manual = _arena_mt.manual_control_active
+                _mt_w = max(20, int(54 * _mt_scale))
+                _mt_h = max(20, int(54 * _mt_scale))
+                _mt_gap = max(4, int(8 * _mt_scale))
+                _mt_x = _stance_btn_rect.x - _mt_w - _mt_gap
+                _mt_y = _stance_btn_rect.y + (_stance_btn_rect.h - _mt_h) // 2
+
+                # 아이콘 서피스
+                _mt_surf = pygame.Surface((_mt_w, _mt_h), pygame.SRCALPHA)
+                _mt_cx = _mt_w // 2
+                _mt_cy = _mt_h // 2
+
+                if _mt_is_manual:
+                    # 수동: 초록 배경 + 손 아이콘
+                    for _gi in range(_mt_h):
+                        _gr = int(20 + 20 * (_gi / _mt_h))
+                        _gg = int(55 + 40 * (_gi / _mt_h))
+                        _gb = int(30 + 20 * (_gi / _mt_h))
+                        pygame.draw.line(_mt_surf, (_gr, _gg, _gb, 255), (0, _gi), (_mt_w, _gi))
+                    # 손 모양 (간단한 형태)
+                    _hs = max(5, int(14 * _mt_scale))
+                    # 손바닥
+                    pygame.draw.circle(_mt_surf, (220, 230, 210, 255), (_mt_cx, _mt_cy + _hs // 4), _hs)
+                    # 손가락 5개
+                    _fw = max(2, int(3 * _mt_scale))
+                    _fl = max(4, int(8 * _mt_scale))
+                    for _fi, _fx_off in enumerate([-_hs + _fw, -_hs // 2, 0, _hs // 2, _hs - _fw]):
+                        _fy_off = -_fl if _fi != 0 else -_fl - 2
+                        if _fi == 4:  # 엄지
+                            pygame.draw.line(_mt_surf, (200, 210, 190, 255),
+                                           (_mt_cx + _fx_off, _mt_cy), (_mt_cx + _fx_off + _fw * 2, _mt_cy - _fl + 2), _fw)
+                        else:
+                            pygame.draw.line(_mt_surf, (200, 210, 190, 255),
+                                           (_mt_cx + _fx_off, _mt_cy - _hs // 3), (_mt_cx + _fx_off, _mt_cy + _fy_off - _hs // 3), _fw)
+                    _glow_c = [(60, 200, 120, 60), (80, 230, 140, 35)]
+                    _border_c = (100, 220, 150, 255)
+                    _inner_c = (80, 190, 120, 255)
+                else:
+                    # 자동: 회색 배경 + 톱니바퀴 아이콘
+                    for _gi in range(_mt_h):
+                        _gr = int(40 + 15 * (_gi / _mt_h))
+                        _gg = int(42 + 15 * (_gi / _mt_h))
+                        _gb = int(50 + 15 * (_gi / _mt_h))
+                        pygame.draw.line(_mt_surf, (_gr, _gg, _gb, 255), (0, _gi), (_mt_w, _gi))
+                    # 톱니바퀴
+                    import math as _mt_math
+                    _gr_r = max(6, int(12 * _mt_scale))  # 외경
+                    _gr_ir = max(4, int(8 * _mt_scale))   # 내경
+                    _teeth = 8
+                    _gear_pts = []
+                    for _ti in range(_teeth * 2):
+                        _angle = _mt_math.pi * 2 * _ti / (_teeth * 2)
+                        _r = _gr_r if _ti % 2 == 0 else _gr_ir
+                        _gear_pts.append((_mt_cx + int(_r * _mt_math.cos(_angle)),
+                                         _mt_cy + int(_r * _mt_math.sin(_angle))))
+                    pygame.draw.polygon(_mt_surf, (160, 165, 180, 255), _gear_pts)
+                    pygame.draw.polygon(_mt_surf, (200, 205, 220, 255), _gear_pts, max(1, int(1 * _mt_scale)))
+                    pygame.draw.circle(_mt_surf, (50, 52, 60, 255), (_mt_cx, _mt_cy), max(3, int(4 * _mt_scale)))
+                    pygame.draw.circle(_mt_surf, (130, 135, 150, 255), (_mt_cx, _mt_cy), max(3, int(4 * _mt_scale)), 1)
+                    _glow_c = [(120, 120, 140, 50), (140, 140, 160, 30)]
+                    _border_c = (140, 145, 165, 255)
+                    _inner_c = (110, 115, 135, 255)
+
+                # 글로우
+                _mt_glow_pad = max(3, int(4 * _mt_scale))
+                _mt_glow_s = pygame.Surface((_mt_w + _mt_glow_pad * 2, _mt_h + _mt_glow_pad * 2), pygame.SRCALPHA)
+                for _gi, _gc in enumerate(_glow_c):
+                    _pad = _gi * 2
+                    pygame.draw.rect(_mt_glow_s, _gc,
+                                     (_pad, _pad, _mt_glow_s.get_width() - _pad * 2, _mt_glow_s.get_height() - _pad * 2),
+                                     max(2, int(3 * _mt_scale)) - _gi, border_radius=max(5, int(7 * _mt_scale)) - _gi)
+                _mt_draw_target.blit(_mt_glow_s, (_mt_x - _mt_glow_pad, _mt_y - _mt_glow_pad))
+
+                # 외곽 테두리
+                _bw = max(2, int(3 * _mt_scale))
+                pygame.draw.rect(_mt_surf, _border_c, (0, 0, _mt_w, _mt_h), _bw, border_radius=max(4, int(5 * _mt_scale)))
+                _ip = _bw + 1
+                pygame.draw.rect(_mt_surf, _inner_c, (_ip, _ip, _mt_w - _ip * 2, _mt_h - _ip * 2), 1, border_radius=max(2, int(3 * _mt_scale)))
+
+                _mt_draw_target.blit(_mt_surf, (_mt_x, _mt_y))
+
+                # 모드 텍스트
+                try:
+                    _mt_font_sz = max(9, int(11 * _mt_scale))
+                    _mt_font = renderer._get_font(_mt_font_sz)
+                    _mt_label = "수동" if _mt_is_manual else "자동"
+                    _mt_tc = (120, 230, 160) if _mt_is_manual else (180, 185, 200)
+                    _mt_ts = _mt_font.render(_mt_label, True, _mt_tc)
+                    _mt_tr = _mt_ts.get_rect(centerx=_mt_x + _mt_w // 2, top=_mt_y + _mt_h + max(2, int(3 * _mt_scale)))
+                    _mt_draw_target.blit(_mt_ts, _mt_tr)
+                except Exception:
+                    pass
+
+                _manual_toggle_rect = pygame.Rect(_mt_x - _mt_glow_pad, _mt_y - _mt_glow_pad,
+                                                   _mt_w + _mt_glow_pad * 2, _mt_h + _mt_glow_pad * 2)
+                # rect를 arena 인스턴스에 전달 (내부 좌표로 변환하여 클릭 처리용)
+                _arena_mt.manual_control_btn_rect_real = _manual_toggle_rect
+        except Exception:
+            pass
+    globals()['_arena_manual_toggle_rect'] = _manual_toggle_rect
+
     # 왼쪽 필러 상단 - 인게임 골드 HUD 표시 (2배 크기)
     # 전체화면 모드에서만 필러 영역에 표시
     try:
@@ -115297,6 +115407,8 @@ def draw_objects():
             # 🐂 뿔 박치기 돌진 X/Y 오프셋 (상단 영웅이 시전자일 때)
             _horn_charge_y_offset_top = 0
             _horn_charge_x_offset_top = 0  # 시전자의 X 이동 오프셋
+            _dark_slash_x_offset_top = 0
+            _dark_slash_y_offset_top = 0
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
                 if _horn_gs.get('horn_charge_active'):
@@ -115304,6 +115416,9 @@ def draw_objects():
                     if _horn_gs.get('horn_charge_caster_is_top'):
                         _horn_charge_y_offset_top = _horn_gs.get('horn_charge_y_offset', 0)
                         _horn_charge_x_offset_top = _horn_gs.get('horn_charge_x_offset', 0)
+                if _horn_gs.get('dark_slash_caster_is_top'):
+                    _dark_slash_x_offset_top = _horn_gs.get('dark_slash_caster_offset_x', 0)
+                    _dark_slash_y_offset_top = _horn_gs.get('dark_slash_caster_offset_y', 0)
                     # 넉백은 boss_knockback_vel로 BOSS.x에 직접 적용됨 (시각적 오프셋 불필요)
             # 👁️ 귀신발걸음 패들 사이즈 부스트 적용 (상단)
             _top_size_boost = 1.0
@@ -115322,8 +115437,8 @@ def draw_objects():
             if arena_storm_rush_burst_top and arena_storm_rush_height_bonus_top > 0:
                 _top_draw_height += arena_storm_rush_height_bonus_top
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
-            _top_final_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top
-            _top_final_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
+            _top_final_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top + _dark_slash_x_offset_top
+            _top_final_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top + _dark_slash_y_offset_top
             if _boss_hologram_should_draw:
                 if _boss_hologram_active:
                     # 홀로그램 물질화 효과: 임시 서피스에 그린 후 효과 적용
@@ -117445,6 +117560,8 @@ def draw_objects():
             # 🐂 뿔 박치기 돌진 Y 오프셋 (하단 영웅이 시전자일 때)
             _horn_charge_y_offset_bottom = 0
             _horn_charge_x_offset_bottom = 0
+            _dark_slash_x_offset_bottom = 0
+            _dark_slash_y_offset_bottom = 0
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
                 if _horn_gs.get('horn_charge_active'):
@@ -117452,6 +117569,9 @@ def draw_objects():
                     if not _horn_gs.get('horn_charge_caster_is_top'):
                         _horn_charge_y_offset_bottom = _horn_gs.get('horn_charge_y_offset', 0)
                         _horn_charge_x_offset_bottom = _horn_gs.get('horn_charge_x_offset', 0)
+                if not _horn_gs.get('dark_slash_caster_is_top', True):
+                    _dark_slash_x_offset_bottom = _horn_gs.get('dark_slash_caster_offset_x', 0)
+                    _dark_slash_y_offset_bottom = _horn_gs.get('dark_slash_caster_offset_y', 0)
                     # 넉백은 player_knockback_vel로 PLAYER.x에 직접 적용됨 (시각적 오프셋 불필요)
             # 👁️ 귀신발걸음 패들 사이즈 부스트 적용 (하단)
             _bottom_size_boost = 1.0
@@ -117471,8 +117591,8 @@ def draw_objects():
                 _bottom_draw_height += arena_storm_rush_height_bonus_bottom
             # 하단 영웅 패들 그리기 (PLAYER 고정 좌표 + 떨림 오프셋 + 뿔박치기 오프셋)
             # player_rect 대신 PLAYER 사용: player_rect는 일반 스프라이트 바운딩 보정으로 Y가 흔들림
-            _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
-            _final_y = PLAYER.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
+            _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom + _dark_slash_x_offset_bottom
+            _final_y = PLAYER.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom + _dark_slash_y_offset_bottom
             if _player_hologram_should_draw:
                 if _player_hologram_active:
                     # 홀로그램 물질화 효과: 임시 서피스에 그린 후 효과 적용
@@ -167967,6 +168087,33 @@ def main(stage_num, new_boss_mode=False):
                         _guard_cd_remain = getattr(_gs, '_guard_dash_cooldown', 0) if _gs else 0
                         # print(f"[Guard] 호위무사 스탠스 전환: {_mode_label}모드 (대쉬CD={_guard_cd_remain:.1f}s 유지)")
 
+            # 🎮 투기장 자동/수동 토글 클릭 처리
+            if (
+                event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+                and globals().get('arena_mode_enabled', False)
+            ):
+                _mt_click_rect = globals().get('_arena_manual_toggle_rect')
+                if _mt_click_rect:
+                    _real_mp_mt = _original_mouse_get_pos()
+                    if _mt_click_rect.collidepoint(_real_mp_mt):
+                        try:
+                            from downtown.colosseum_arena import ColosseumsArena as _CArena_click
+                            _arena_click = getattr(_CArena_click, '_active_instance', None)
+                            if _arena_click and hasattr(_arena_click, 'manual_control_active'):
+                                _arena_click.manual_control_active = not _arena_click.manual_control_active
+                                if _arena_click.manual_control_active:
+                                    _arena_click.speed_multiplier = 1
+                                    _arena_click.manual_move_left = False
+                                    _arena_click.manual_move_right = False
+                                    _arena_click.manual_skill_cooldown_order = []
+                                try:
+                                    play_button_click_sound()
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+
             # ⚔️ 스토리모드 호위무사 스탠스 토글 클릭 처리
             if (
                 event.type == pygame.MOUSEBUTTONDOWN
@@ -169797,9 +169944,11 @@ def main(stage_num, new_boss_mode=False):
             freeze_arena_capture_tutorial = is_arena_capture_tutorial_paused()  # 투기장 포획 튜토리얼
             # 달빛 베기 / 도깨비불 화면 정지 (투기장 모드 + 인게임 호위무사)
             freeze_dark_slash = False
+            freeze_dark_slash_prep = False
             freeze_hell_fire = False
             if arena_mode_enabled and arena_skill_manager:
                 freeze_dark_slash = arena_skill_manager.game_state.get('dark_slash_freeze', False)
+                freeze_dark_slash_prep = arena_skill_manager.game_state.get('dark_slash_hold_ball', False)
                 freeze_hell_fire = arena_skill_manager.game_state.get('hell_fire_freeze', False)
             # 인게임 호위무사의 도깨비불/달빛베기 화면 정지도 포함 (최대 2명)
             if not arena_mode_enabled:
@@ -169812,6 +169961,8 @@ def main(stage_num, new_boss_mode=False):
                                 freeze_hell_fire = True
                             if _bg_gs.get('dark_slash_freeze', False):
                                 freeze_dark_slash = True
+                            if _bg_gs.get('dark_slash_hold_ball', False):
+                                freeze_dark_slash_prep = True
                 except Exception:
                     pass
             freeze_capture = (arena_mode_enabled and arena_capture_phase is not None)
@@ -169824,7 +169975,7 @@ def main(stage_num, new_boss_mode=False):
                 pass
             # 뿔딸기 변신가면 변신/해제 이벤트 프리즈
             freeze_horn_strawberry = is_horn_strawberry_event_playing()
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture or freeze_valhalla or freeze_horn_strawberry
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_dark_slash_prep or freeze_hell_fire or freeze_capture or freeze_valhalla or freeze_horn_strawberry
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
@@ -170032,7 +170183,7 @@ def main(stage_num, new_boss_mode=False):
 
             # 투기장 영웅 스킬 시스템 업데이트
             # 달빛 베기/도깨비불 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
-            if (not freeze_now or freeze_dark_slash or freeze_hell_fire) and arena_mode_enabled and arena_skill_manager:
+            if (not freeze_now or freeze_dark_slash or freeze_dark_slash_prep or freeze_hell_fire) and arena_mode_enabled and arena_skill_manager:
                 dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
 
                 # 🔥 기사회생 퍽: 매 프레임 perk_skill_cd_mult 동기화 (라운드 전환 시 유실 방지)
@@ -171001,7 +171152,7 @@ def main(stage_num, new_boss_mode=False):
                             if not _bodyguard.active:
                                 continue
                         _bg_fx = _bodyguard.update(
-                            1.0 / 60.0 if (not freeze_now or freeze_dark_slash or freeze_hell_fire) else 0.0,
+                            1.0 / 60.0 if (not freeze_now or freeze_dark_slash or freeze_dark_slash_prep or freeze_hell_fire) else 0.0,
                             boss_rect=BOSS,
                             player_rect=PLAYER,
                             ball_rect=BALL,

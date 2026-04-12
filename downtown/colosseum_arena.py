@@ -8722,7 +8722,11 @@ class ColosseumsArena:
         # === 달빛 베기 화면 정지 체크 (스킬 업데이트 전에 체크!) ===
         is_frozen = False
         if self.skill_manager:
-            is_frozen = self.skill_manager.game_state.get('dark_slash_freeze', False)
+            _dark_slash_state = self.skill_manager.game_state
+            is_frozen = (
+                _dark_slash_state.get('dark_slash_freeze', False)
+                or _dark_slash_state.get('dark_slash_hold_ball', False)
+            )
 
         # 스킬 시스템 업데이트 (화면 정지 중에도 스킬 이펙트는 업데이트)
         if self.skill_manager and self.top_paddle and self.bottom_paddle and self.ball:
@@ -12788,8 +12792,7 @@ class ColosseumsArena:
         _ds_offset_x = _ds_game_state.get('dark_slash_caster_offset_x', 0)
         _ds_offset_y = _ds_game_state.get('dark_slash_caster_offset_y', 0)
         _ds_caster_is_top = _ds_game_state.get('dark_slash_caster_is_top', False)
-        _ds_phase = _ds_game_state.get('dark_slash_phase', 0)
-        _ds_active = _ds_phase in (5, 6)  # PHASE_DASH=5, PHASE_DESCEND=6
+        _ds_active = abs(_ds_offset_x) > 0.01 or abs(_ds_offset_y) > 0.01
 
         if self.top_paddle and self.selected_match:
             paddle_rect = self.top_paddle.get_rect()
@@ -13080,34 +13083,9 @@ class ColosseumsArena:
                                         start_y + btn_h // 2 - surf.get_height() // 2))
 
     def _draw_manual_control_button(self):
-        """자동/수동 조작 토글 버튼 그리기 (오른쪽 필러 상단)"""
-        btn_w, btn_h = 50, 24
-        # 오른쪽 필러 영역 (680~760) 중앙에 배치
-        pillar_right_x = GAME_AREA_X + GAME_AREA_WIDTH  # 680
-        x = pillar_right_x + (SCREEN_WIDTH - pillar_right_x) // 2 - btn_w // 2
-        y = 18
-
-        rect = pygame.Rect(x, y, btn_w, btn_h)
-        self.manual_control_btn_rect = rect
-
-        if self.manual_control_active:
-            bg = (60, 170, 110)  # 수동: 초록색
-            border_color = (100, 220, 150)
-            text_color = (255, 255, 255)
-            label = "수동"
-        else:
-            bg = (70, 75, 90)  # 자동: 밝은 회색
-            border_color = (110, 115, 130)
-            text_color = (200, 200, 210)
-            label = "자동"
-
-        pygame.draw.rect(self.screen, bg, rect, border_radius=4)
-        pygame.draw.rect(self.screen, border_color, rect, 1, border_radius=4)
-
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render(label, text_color)
-            self.screen.blit(surf, (x + btn_w // 2 - surf.get_width() // 2,
-                                    y + btn_h // 2 - surf.get_height() // 2))
+        """자동/수동 조작 토글 버튼 - REAL_SCREEN에서 그려짐 (pingfighter.py)
+        이 메서드는 독립 실행 모드 호환용으로 유지"""
+        pass
 
     def _draw_scoreboard(self):
         """점수판 그리기"""
