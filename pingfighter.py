@@ -9798,6 +9798,19 @@ def _set_arena_manual_control_enabled(enabled: bool) -> bool:
         _g['arena_bottom_dash_stun_timer'] = 0
         _g['arena_bottom_dash_afterimages'] = []
 
+    _main_ref = _g.get('main')
+    if _main_ref is not None:
+        for _edge_attr in (
+            '_arena_manual_space_pressed',
+            '_arena_manual_dash_modifier_pressed',
+            '_arena_manual_dash_left_pressed',
+            '_arena_manual_dash_right_pressed',
+        ):
+            try:
+                setattr(_main_ref, _edge_attr, False)
+            except Exception:
+                pass
+
     return True
 
 
@@ -101062,23 +101075,21 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
                 alpha = int(255 * (1.0 - cell_melt * 0.8))
 
                 if draw_size > 2 and alpha > 10:
-                    cell_surf = pygame.Surface((draw_size, draw_size), pygame.SRCALPHA)
+                    cell_surf = _stage7_get_temp_surface(_stage7_cache_cell, (draw_size, draw_size))
                     cell_surf.fill((*melt_color, alpha))
                     surface.blit(cell_surf, (int(cell_x), int(cell_y)))
 
-                    # 물방울 효과 (아래로 떨어지는 작은 방울들)
+                    # 물방울 효과 - gfxdraw 직접 렌더링
                     if cell_melt > 0.2:
                         num_drops = int(3 * cell_melt)
                         for di in range(num_drops):
-                            drop_y = cell_y + draw_size + di * 8 + int(cell_melt * 30)
+                            drop_y_pos = int(cell_y + draw_size + di * 8 + cell_melt * 30)
                             drop_size = max(2, int(4 * (1.0 - cell_melt)))
                             drop_alpha = max(0, int(150 * (1.0 - cell_melt)))
                             if drop_alpha > 0:
-                                drop_surf = pygame.Surface((drop_size * 2, drop_size * 2), pygame.SRCALPHA)
-                                pygame.draw.circle(drop_surf, (*melt_color, drop_alpha),
-                                                 (drop_size, drop_size), drop_size)
-                                surface.blit(drop_surf, (int(cell_x + draw_size // 2 - drop_size),
-                                                        int(drop_y)))
+                                pygame.gfxdraw.filled_circle(surface,
+                                    int(cell_x + draw_size // 2), drop_y_pos,
+                                    drop_size, (*melt_color, drop_alpha))
         return  # 녹는 중에는 일반 큐브 렌더링 스킵
 
     # 큐브(정면 3x3) 렌더: 활성 상태에서는 전체, 재조립 상태에서는 진행도에 따라 일부 채움
@@ -101274,8 +101285,8 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
             x = int(cx + dx * cell_size)
             y = int(cy + dy * cell_size)
             rect = pygame.Rect(x - cell_size // 2, y - cell_size // 2, cell_size, cell_size)
-            # 블럭 본체
-            block_surf = pygame.Surface((cell_size, cell_size), pygame.SRCALPHA)
+            # 블럭 본체 - Surface 풀 사용
+            block_surf = _stage7_get_temp_surface(_stage7_cache_cell, (cell_size, cell_size))
             block_surf.fill((*color, alpha))
             surface.blit(block_surf, rect.topleft)
             # 하이라이트 테두리
@@ -101302,12 +101313,12 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
             rotation = int(now * 0.005 + i) % 4
             draw_tetromino_at(px, py, tetro_type, cell_size, alpha, rotation)
 
-        # 충전 글로우
+        # 충전 글로우 - gfxdraw 직접 렌더링
         glow_size = int(25 + 35 * charge_progress)
         glow_alpha = int(80 + 100 * charge_progress)
-        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (180, 100, 220, glow_alpha), (glow_size, glow_size), glow_size)
-        surface.blit(glow_surf, (boss_cx - glow_size, boss_cy - glow_size))
+        if glow_size > 0:
+            pygame.gfxdraw.filled_circle(surface, int(boss_cx), int(boss_cy),
+                                         glow_size, (180, 100, 220, glow_alpha))
 
         # 예고 라인 (테트로미노 점선)
         if charge_progress > 0.4:
@@ -101317,9 +101328,8 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
                 t = (di + 0.5) / num_dots
                 dx = boss_cx + (cube_cx - boss_cx) * t
                 dy = boss_cy + (cube_cy - boss_cy) * t
-                dot_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
-                pygame.draw.rect(dot_surf, (180, 80, 220, line_alpha), (0, 0, 8, 8))
-                surface.blit(dot_surf, (int(dx - 4), int(dy - 4)))
+                pygame.gfxdraw.filled_circle(surface, int(dx), int(dy), 3,
+                                             (180, 80, 220, line_alpha))
 
     # 광선 발사 이펙트 - 테트로미노 스트림
     if stage7_tetro_laser_active:
@@ -101334,8 +101344,8 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
 
         beam_alpha = int(255 * fade)
 
-        # 외곽 글로우 라인
-        glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        # 외곽 글로우 라인 - 재사용 Surface
+        glow_surf = _get_s2_fx_surface()
         for gi in range(4):
             glow_width = 30 - gi * 6
             glow_a = max(0, int(50 * fade) - gi * 12)
@@ -101397,13 +101407,11 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
             ialpha = int(180 * fade * (0.6 + 0.4 * impact_pulse))
             draw_tetromino_at(ix, iy, itype, int(7 * fade), ialpha, int(now * 0.006 + ii) % 4)
 
-        # 중앙 임팩트 글로우
+        # 중앙 임팩트 글로우 - gfxdraw 직접 렌더링
         impact_size = int(35 * fade * impact_pulse)
         if impact_size > 0:
-            impact_surf = pygame.Surface((impact_size * 2, impact_size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(impact_surf, (255, 180, 255, int(120 * fade)),
-                             (impact_size, impact_size), impact_size)
-            surface.blit(impact_surf, (cube_cx - impact_size, cube_cy - impact_size))
+            pygame.gfxdraw.filled_circle(surface, int(cube_cx), int(cube_cy),
+                                         impact_size, (255, 180, 255, int(120 * fade)))
 
 
 def reset_stage7_tetro_laser_state() -> None:
@@ -102221,14 +102229,12 @@ def draw_stage7_tetro_debris(surface: pygame.Surface) -> None:
         x, y = int(p["x"]), int(p["y"])
 
         if p["shape_type"] == "circle":
-            # 섬광용 원
-            if alpha > 0:
-                s = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(s, (*color, alpha), (size, size), size)
-                surface.blit(s, (x - size, y - size))
+            # 섬광용 원 - gfxdraw 직접 렌더링
+            if alpha > 0 and size > 0:
+                pygame.gfxdraw.filled_circle(surface, x, y, size, (*color, alpha))
         elif p["shape_type"] == "triangle":
-            # 삼각형 파편
-            s = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            # 삼각형 파편 - Surface 풀 사용
+            s = _stage7_get_temp_surface(_stage7_cache_cell, (size * 2, size * 2))
             rot = math.radians(p["rotation"])
             pts = []
             for i in range(3):
@@ -102239,8 +102245,8 @@ def draw_stage7_tetro_debris(surface: pygame.Surface) -> None:
             pygame.draw.polygon(s, (*color, alpha), pts)
             surface.blit(s, (x - size, y - size))
         else:
-            # 사각형 파편 (회전)
-            s = pygame.Surface((size, size), pygame.SRCALPHA)
+            # 사각형 파편 - Surface 풀 + 회전
+            s = _stage7_get_temp_surface(_stage7_cache_cell, (size, size))
             s.fill((*color, alpha))
             rotated = pygame.transform.rotate(s, p["rotation"])
             rect = rotated.get_rect(center=(x, y))
@@ -126169,6 +126175,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             '_arena_key_period_pressed', '_arena_key_comma_pressed',
             '_arena_key_slash_pressed', '_arena_key_e_pressed', '_arena_key_r_pressed',
             '_arena_manual_space_pressed',
+            '_arena_manual_dash_modifier_pressed',
+            '_arena_manual_dash_left_pressed',
+            '_arena_manual_dash_right_pressed',
             '_arena_q_pressed',
             '_arena_keyF1_pressed', '_arena_keyF2_pressed',
             '_arena_keyF3_pressed', '_arena_keyF4_pressed',
@@ -152783,6 +152792,67 @@ def handle_ball():
                     wall_hit = True
                     break  # 한 번에 하나의 벽돌만 처리
 
+            # --- 발토르 포탑 충돌 체크 (서브스텝마다) ---
+            # update_blacksmith_turret()는 handle_ball() 이전에 실행되므로
+            # 현재 프레임의 공 이동은 감지하지 못한다. 서브스텝 내에서 직접
+            # 포탑 충돌을 검사하여 공이 포탑을 관통하는 것을 방지한다.
+            if (
+                not wall_hit
+                and selected_character_type == "blacksmith"
+                and blacksmith_turret_active
+                and blacksmith_turret_state
+            ):
+                _ts = blacksmith_turret_state
+                _t_rect = _ts.get("rect")
+                if _t_rect is not None and _ts.get("hp", 0) > 0:
+                    # 포탑 히트박스 (머리/포신 포함)
+                    _t_hit = _t_rect
+                    if BLACKSMITH_TURRET_DESIGN_HEIGHT:
+                        _t_sy = _t_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+                    else:
+                        _t_sy = 1.0
+                    _t_et = int(BLACKSMITH_TURRET_COLLISION_EXTRA_TOP * _t_sy)
+                    if _t_et > 0:
+                        _t_hit = _t_rect.copy()
+                        _t_hit.height += _t_et
+                        _t_hit.top -= _t_et
+                    # 이전 서브스텝에서는 접촉 안 하고 현재 접촉 → 새로운 충돌
+                    _t_prev = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
+                    if not _t_prev.colliderect(_t_hit) and BALL.colliderect(_t_hit):
+                        try:
+                            _t_owner = getattr(game_vars.ball, "last_hit_by", "player")
+                        except Exception:
+                            _t_owner = last_hit_by
+                        if _t_owner != "player":
+                            # 연막/디바인쉴드 체크
+                            _t_smoke = is_rect_in_smoke(_t_hit)
+                            _t_shield = False
+                            try:
+                                _t_ds = blacksmith_divine_stone_state
+                                _t_shield = bool(_t_ds and _t_ds.get("shield_active", False))
+                            except Exception:
+                                pass
+                            if not _t_smoke and not _t_shield:
+                                _ts["hp"] -= 1
+                                _cancel_repair_job("turret", state=_ts)
+                                _t_dm = get_damage_manager()
+                                _t_dm.update_building_hp("turret", _ts["hp"])
+                            BALL.bottom = min(BALL.bottom, _t_hit.top - 4)
+                            speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
+                            ball_vel[1] = -abs(speed_mag)
+                            ball_vel[0] *= 0.6
+                            # 서브스텝 속도도 갱신
+                            step_vel_x = ball_vel[0] * ball_impact_boost / num_steps
+                            step_vel_y = ball_vel[1] * ball_impact_boost / num_steps
+                            last_hit_by = "player"
+                            game_vars.ball.last_hit_by = "player"
+                            player_collision_handled = True
+                            effects_manager.spawn_star_particles(_t_rect.centerx, _t_rect.top, count=6)
+                            try:
+                                play_paddle_sound()
+                            except Exception:
+                                pass
+
             stage7_guard_hit = False
             # 보스 서브 직후, 플레이어가 아직 반격하지 않은 상태에서는 가드 블록도 관통
             # 수정: ball_rally_count를 확인하여 플레이어가 한 번이라도 공을 쳤으면 관통하지 않음
@@ -166003,19 +166073,39 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             main._arena_key_r_pressed = _k_r
-            # 수동 모드: ←→ / A/D 키로 패들 이동, Space로 스킬 발동
+            # 수동 모드: ←→ / A/D 이동, ↓+←→ 또는 우클릭+←→ 대쉬, Space 스킬
             try:
                 from downtown.colosseum_arena import ColosseumsArena as _CArena_mc
                 _arena_mc = getattr(_CArena_mc, '_active_instance', None)
                 if _arena_mc and getattr(_arena_mc, 'manual_control_active', False):
-                    _arena_mc.manual_move_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
-                    _arena_mc.manual_move_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
+                    _manual_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
+                    _manual_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
+                    _arena_mc.manual_move_left = _manual_left
+                    _arena_mc.manual_move_right = _manual_right
+
+                    _manual_dash_modifier = (
+                        keys[pygame.K_DOWN]
+                        or keys[pygame.K_s]
+                        or pygame.mouse.get_pressed()[2]
+                    )
+                    _dash_mod_just = _manual_dash_modifier and not getattr(main, '_arena_manual_dash_modifier_pressed', False)
+                    _dash_left_just = _manual_left and not getattr(main, '_arena_manual_dash_left_pressed', False)
+                    _dash_right_just = _manual_right and not getattr(main, '_arena_manual_dash_right_pressed', False)
+                    if _manual_dash_modifier and not (_manual_left and _manual_right):
+                        if (_dash_mod_just and _manual_left) or (_dash_left_just and _manual_dash_modifier):
+                            arena_trigger_bottom_hero_dash(-1)
+                        elif (_dash_mod_just and _manual_right) or (_dash_right_just and _manual_dash_modifier):
+                            arena_trigger_bottom_hero_dash(1)
+
                     # 스페이스바 → 스킬 발동
                     _k_space = keys[pygame.K_SPACE]
                     if _k_space and not getattr(main, '_arena_manual_space_pressed', False):
                         if hasattr(_arena_mc, '_manual_try_use_skill'):
                             _arena_mc._manual_try_use_skill()
                     main._arena_manual_space_pressed = _k_space
+                    main._arena_manual_dash_modifier_pressed = _manual_dash_modifier
+                    main._arena_manual_dash_left_pressed = _manual_left
+                    main._arena_manual_dash_right_pressed = _manual_right
             except Exception:
                 pass
             # 마우스 클릭으로 배속 버튼 변경 (REAL_SCREEN 좌표 사용)

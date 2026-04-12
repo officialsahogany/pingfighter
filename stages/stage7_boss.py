@@ -4,8 +4,33 @@ Stage 7: 암흑 대마왕 (Dark Overlord)
 """
 
 import pygame
+import pygame.gfxdraw
 import random
 import math
+
+# --- Surface 재사용 ---
+_s7boss_fx_surface = None
+
+def _get_s7boss_fx(w, h):
+    global _s7boss_fx_surface
+    if _s7boss_fx_surface is None or _s7boss_fx_surface.get_width() != w or _s7boss_fx_surface.get_height() != h:
+        _s7boss_fx_surface = pygame.Surface((w, h), pygame.SRCALPHA)
+    else:
+        _s7boss_fx_surface.fill((0, 0, 0, 0))
+    return _s7boss_fx_surface
+
+_s7boss_pool: dict = {}
+
+def _get_s7boss_pooled(w, h):
+    key = (w, h)
+    surf = _s7boss_pool.get(key)
+    if surf is None:
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        _s7boss_pool[key] = surf
+    else:
+        surf.fill((0, 0, 0, 0))
+    return surf
+
 
 class Stage7Boss:
     """Stage 7 - 암흑 대마왕"""
@@ -221,15 +246,15 @@ class Stage7Boss:
         
     def draw(self, screen):
         """보스 그리기"""
-        # 어둠 효과 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+        # 어둠 효과 - 재사용 Surface
         if self.darkness_level > 0:
-            dark_surface = pygame.Surface((600, 750), pygame.SRCALPHA)
+            dark_surface = _get_s7boss_fx(600, 750)
             dark_surface.fill((0, 0, 0, self.darkness_level))
             screen.blit(dark_surface, (0, 0))
 
-        # 그림자 분신들
+        # 그림자 분신들 - Surface 풀 사용
         for clone in self.shadow_clones:
-            clone_surface = pygame.Surface((clone['width'], clone['height']), pygame.SRCALPHA)
+            clone_surface = _get_s7boss_pooled(clone['width'], clone['height'])
             clone_surface.fill((50, 0, 50, clone['alpha']))
             screen.blit(clone_surface, (clone['x'] - clone['width']//2, clone['y'] - clone['height']//2))
             
@@ -300,9 +325,9 @@ class Stage7Boss:
         name_rect = name_text.get_rect(center=(300, 60))
         screen.blit(name_text, name_rect)
         
-        # 시간 정지 효과 - convert()로 Windows 전체화면 알파 블렌딩 문제 해결
+        # 시간 정지 효과 - 재사용 Surface
         if self.time_stopped:
-            time_surface = pygame.Surface((600, 750), pygame.SRCALPHA)
+            time_surface = _get_s7boss_fx(600, 750)
             time_surface.fill((0, 100, 200, 100))
             screen.blit(time_surface, (0, 0))
             
