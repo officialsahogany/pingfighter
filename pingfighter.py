@@ -28243,6 +28243,18 @@ def arena_show_speech_bubble(is_top: bool, skill_name: str, raw: bool = False, h
         arena_bottom_speech_is_skill = is_skill
         arena_bottom_speech_color = color
 
+def _get_arena_dark_slash_visual_offset(is_top: bool) -> tuple[float, float]:
+    """달빛 베기 점프/하강 중 말풍선과 보조 이펙트를 영웅 위치에 맞춘다."""
+    if not arena_mode_enabled or not arena_skill_manager:
+        return 0.0, 0.0
+    game_state = getattr(arena_skill_manager, 'game_state', {})
+    if game_state.get('dark_slash_caster_is_top') != is_top:
+        return 0.0, 0.0
+    return (
+        float(game_state.get('dark_slash_caster_offset_x', 0.0)),
+        0.0,
+    )
+
 # 투기장 스킬 사운드 캐시 및 재생
 _arena_skill_sound_cache = {}
 _arena_skill_sound_this_frame = False  # 이번 프레임에서 스킬 사운드 재생 여부 (패들 사운드 중복 방지)
@@ -28321,32 +28333,34 @@ def arena_draw_speech_bubbles():
 
     # 상단 영웅 말풍선 (보스 위치)
     if arena_top_speech_timer > 0 and arena_top_speech_text:
+        _top_dx, _top_dy = _get_arena_dark_slash_visual_offset(True)
         if arena_top_speech_is_skill:
             _draw_shout_bubble(
-                BOSS.centerx, BOSS.bottom + 15,
+                BOSS.centerx + _top_dx, BOSS.bottom + 15 + _top_dy,
                 arena_top_speech_text,
                 arena_top_speech_timer, ARENA_SPEECH_DURATION,
                 arena_top_speech_color
             )
         else:
             _draw_arena_speech_bubble(
-                BOSS.centerx, BOSS.bottom + 15,
+                BOSS.centerx + _top_dx, BOSS.bottom + 15 + _top_dy,
                 arena_top_speech_text, is_top=True
             )
         arena_top_speech_timer -= arena_speed_multiplier
 
     # 하단 영웅 말풍선 (플레이어 위치 - 패들 위에 표시)
     if arena_bottom_speech_timer > 0 and arena_bottom_speech_text:
+        _bottom_dx, _bottom_dy = _get_arena_dark_slash_visual_offset(False)
         if arena_bottom_speech_is_skill:
             _draw_shout_bubble(
-                PLAYER.centerx, PLAYER.top - 105,
+                PLAYER.centerx + _bottom_dx, PLAYER.top - 105 + _bottom_dy,
                 arena_bottom_speech_text,
                 arena_bottom_speech_timer, ARENA_SPEECH_DURATION,
                 arena_bottom_speech_color
             )
         else:
             _draw_arena_speech_bubble(
-                PLAYER.centerx, PLAYER.top - 70,
+                PLAYER.centerx + _bottom_dx, PLAYER.top - 70 + _bottom_dy,
                 arena_bottom_speech_text, is_top=False
             )
         arena_bottom_speech_timer -= arena_speed_multiplier
@@ -115619,7 +115633,7 @@ def draw_objects():
                 _top_draw_height += arena_storm_rush_height_bonus_top
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             _top_final_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top + _dark_slash_x_offset_top
-            _top_final_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top + _dark_slash_y_offset_top
+            _top_final_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
             if _boss_hologram_should_draw:
                 if _boss_hologram_active:
                     # 홀로그램 물질화 효과: 임시 서피스에 그린 후 효과 적용
@@ -117773,7 +117787,7 @@ def draw_objects():
             # 하단 영웅 패들 그리기 (PLAYER 고정 좌표 + 떨림 오프셋 + 뿔박치기 오프셋)
             # player_rect 대신 PLAYER 사용: player_rect는 일반 스프라이트 바운딩 보정으로 Y가 흔들림
             _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom + _dark_slash_x_offset_bottom
-            _final_y = PLAYER.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom + _dark_slash_y_offset_bottom
+            _final_y = PLAYER.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
             if _player_hologram_should_draw:
                 if _player_hologram_active:
                     # 홀로그램 물질화 효과: 임시 서피스에 그린 후 효과 적용
@@ -125935,6 +125949,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             '_arena_hench_key1_pressed', '_arena_hench_key2_pressed', '_arena_hench_key3_pressed',
             '_arena_key_period_pressed', '_arena_key_comma_pressed',
             '_arena_key_slash_pressed', '_arena_key_e_pressed', '_arena_key_r_pressed',
+            '_arena_manual_space_pressed',
             '_arena_q_pressed',
             '_arena_keyF1_pressed', '_arena_keyF2_pressed',
             '_arena_keyF3_pressed', '_arena_keyF4_pressed',
@@ -165753,6 +165768,21 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             main._arena_key_r_pressed = _k_r
+            # 수동 모드: ←→ / A/D 키로 패들 이동, Space로 스킬 발동
+            try:
+                from downtown.colosseum_arena import ColosseumsArena as _CArena_mc
+                _arena_mc = getattr(_CArena_mc, '_active_instance', None)
+                if _arena_mc and getattr(_arena_mc, 'manual_control_active', False):
+                    _arena_mc.manual_move_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
+                    _arena_mc.manual_move_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
+                    # 스페이스바 → 스킬 발동
+                    _k_space = keys[pygame.K_SPACE]
+                    if _k_space and not getattr(main, '_arena_manual_space_pressed', False):
+                        if hasattr(_arena_mc, '_manual_try_use_skill'):
+                            _arena_mc._manual_try_use_skill()
+                    main._arena_manual_space_pressed = _k_space
+            except Exception:
+                pass
             # 마우스 클릭으로 배속 버튼 변경 (REAL_SCREEN 좌표 사용)
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
@@ -170461,6 +170491,15 @@ def main(stage_num, new_boss_mode=False):
                                 hero_id=_announce.get('hero_id', '')
                             )
                     arena_skill_manager.game_state['pending_skill_announcements'] = []
+
+                _ds_gs = arena_skill_manager.game_state
+                _ds_base_cy = _ds_gs.get('dark_slash_caster_base_center_y')
+                if _ds_base_cy is not None:
+                    _ds_offset_y = float(_ds_gs.get('dark_slash_caster_offset_y', 0.0))
+                    _ds_target_rect = BOSS if _ds_gs.get('dark_slash_caster_is_top', False) else PLAYER
+                    _ds_target_rect.centery = int(round(float(_ds_base_cy) + _ds_offset_y))
+                    if _ds_gs.get('dark_slash_phase') == 4 and abs(_ds_offset_y) <= 0.01:
+                        _ds_gs['dark_slash_caster_base_center_y'] = None
 
                 try:
                     # 🏜️ 모래감옥: 실제 패들에 이동 범위 제한 적용
