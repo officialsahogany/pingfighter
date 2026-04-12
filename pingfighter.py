@@ -9922,6 +9922,23 @@ def _draw_pillar_ui(screen, renderer):
 
                 _mt_draw_target.blit(_mt_surf, (_mt_x, _mt_y))
 
+                # "R" 키 힌트 라벨 (좌상단)
+                try:
+                    _r_font_sz = max(7, int(9 * _mt_scale))
+                    _r_font = renderer._get_font(_r_font_sz)
+                    if _r_font:
+                        _r_r = max(6, int(7 * _mt_scale))
+                        _r_cx = _mt_x + max(7, int(8 * _mt_scale))
+                        _r_cy = _mt_y + max(7, int(8 * _mt_scale))
+                        _r_bg = pygame.Surface((_r_r * 2 + 2, _r_r * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(_r_bg, (15, 12, 10, 210), (_r_r + 1, _r_r + 1), _r_r)
+                        _mt_draw_target.blit(_r_bg, (_r_cx - _r_r - 1, _r_cy - _r_r - 1))
+                        _r_surf, _r_rect = _r_font.render("R", (230, 220, 180))
+                        _mt_draw_target.blit(_r_surf, (_r_cx - _r_surf.get_width() // 2,
+                                                       _r_cy - _r_surf.get_height() // 2))
+                except Exception:
+                    pass
+
                 # 모드 텍스트
                 try:
                     _mt_font_sz = max(9, int(11 * _mt_scale))
@@ -13118,9 +13135,11 @@ def draw_recovery_paddle_overlay(screen: pygame.Surface, player_rect):
     pass
 
 
+_boost_charging_surf = None  # 부스트차징 이펙트용 재사용 Surface
+
 def draw_boost_charging_effect(screen: pygame.Surface):
     """부스트차징 발동 이펙트 - 주황-붉은빛 빠른 확산 효과 (0.2초)"""
-    global boost_charging_effect_timer
+    global boost_charging_effect_timer, _boost_charging_surf
 
     if boost_charging_effect_timer <= 0:
         return
@@ -13140,9 +13159,13 @@ def draw_boost_charging_effect(screen: pygame.Surface):
     # 페이드아웃 (처음엔 밝고 점점 투명해짐)
     base_alpha = int(200 * (1.0 - progress * progress))  # 가속 페이드아웃
 
-    # 이펙트 서피스 생성
+    # 이펙트 서피스 - 재사용 (매 프레임 생성 제거)
     effect_size = int(max_radius * 2 + 40)
-    effect_surf = pygame.Surface((effect_size, effect_size), pygame.SRCALPHA)
+    if _boost_charging_surf is None or _boost_charging_surf.get_width() != effect_size:
+        _boost_charging_surf = pygame.Surface((effect_size, effect_size), pygame.SRCALPHA)
+    else:
+        _boost_charging_surf.fill((0, 0, 0, 0))
+    effect_surf = _boost_charging_surf
     center = effect_size // 2
 
     # 1. 외곽 주황-붉은빛 링 (다중 레이어)
@@ -13218,21 +13241,20 @@ def draw_recovery_effects(screen: pygame.Surface):
 
     import math
 
-    # 1. 얇은 파동 링 (다중 레이어, 섬세한 선)
+    # 1. 얇은 파동 링 (다중 레이어, 섬세한 선) - gfxdraw 직접 렌더링 (Surface 생성 제거)
+    icx = int(cx)
+    icy = int(cy)
     for ring in recovery_wave_rings:
         if not ring['started'] or ring['alpha'] <= 0:
             continue
 
-        ring_surf_size = int(ring['max_radius'] * 2 + 30)
-        ring_surf = pygame.Surface((ring_surf_size, ring_surf_size), pygame.SRCALPHA)
-        center = ring_surf_size // 2
         ring_progress = ring['radius'] / ring['max_radius']
 
         # 외곽 소프트 글로우 (얇고 부드럽게)
         outer_glow_alpha = max(0, ring['alpha'] // 4)
         if outer_glow_alpha > 3 and int(ring['radius']) > 2:
-            pygame.draw.circle(ring_surf, (40, 180, 160, outer_glow_alpha),
-                             (center, center), int(ring['radius']) + 4, 1)
+            pygame.gfxdraw.aacircle(screen, icx, icy, int(ring['radius']) + 4,
+                                    (40, 180, 160, outer_glow_alpha))
 
         # 메인 링 - 그라데이션 효과 (3개의 얇은 동심원)
         if int(ring['radius']) > 0:
@@ -13244,18 +13266,15 @@ def draw_recovery_effects(screen: pygame.Surface):
                     g = int(190 + 50 * ring_progress + 20 * layer_bright)
                     b = int(170 + 40 * ring_progress + 30 * layer_bright)
                     layer_alpha = max(0, int(ring['alpha'] * (0.4 + layer_bright * 0.6)))
-                    pygame.draw.circle(ring_surf, (r, g, b, layer_alpha),
-                                     (center, center), sub_radius, 1)
+                    pygame.gfxdraw.aacircle(screen, icx, icy, sub_radius,
+                                            (r, g, b, layer_alpha))
 
         # 내부 하이라이트 링
         inner_radius = int(ring['radius']) - 6
         if inner_radius > 0:
             highlight_alpha = max(0, ring['alpha'] // 2)
-            pygame.draw.circle(ring_surf, (150, 250, 230, highlight_alpha),
-                             (center, center), inner_radius, 1)
-
-        screen.blit(ring_surf, (int(cx - center), int(cy - center)),
-                   special_flags=pygame.BLEND_ADD)
+            pygame.gfxdraw.aacircle(screen, icx, icy, inner_radius,
+                                    (150, 250, 230, highlight_alpha))
 
     # 3. 섬세한 에너지 파티클 - 캐시된 glow 사용 (3겹 Surface 생성 제거)
     for p in recovery_particles:
@@ -13294,17 +13313,13 @@ def draw_recovery_effects(screen: pygame.Surface):
             half = core_surf.get_width() // 2
             screen.blit(core_surf, (px - half, py - half), special_flags=pygame.BLEND_ADD)
 
-    # 4. 중앙 코어 - 다중 레이어 광채
+    # 4. 중앙 코어 - 다중 레이어 광채 (gfxdraw 직접 렌더링, Surface 생성 제거)
     if recovery_effect_timer > recovery_effect_duration - 10:
         core_progress = (recovery_effect_duration - recovery_effect_timer) / 10
         base_alpha = int(220 * (1 - core_progress * 0.4))
         core_size = int(8 + core_progress * 10)
 
         if base_alpha > 15:
-            core_surf_size = (core_size + 20) * 2
-            core_surf = pygame.Surface((core_surf_size, core_surf_size), pygame.SRCALPHA)
-            core_center = core_surf_size // 2
-
             for i in range(4):
                 glow_radius = core_size + 12 - i * 3
                 if glow_radius > 0:
@@ -13312,52 +13327,43 @@ def draw_recovery_effects(screen: pygame.Surface):
                     r = int(50 + i * 25)
                     g = int(180 + i * 20)
                     b = int(170 + i * 20)
-                    pygame.draw.circle(core_surf, (r, g, b, glow_alpha),
-                                     (core_center, core_center), glow_radius, 1)
+                    pygame.gfxdraw.aacircle(screen, icx, icy, glow_radius,
+                                            (r, g, b, glow_alpha))
 
-            pygame.draw.circle(core_surf, (140, 250, 220, min(255, base_alpha)),
-                             (core_center, core_center), max(2, core_size // 3))
+            core_r1 = max(2, core_size // 3)
+            pygame.gfxdraw.filled_circle(screen, icx, icy, core_r1,
+                                         (140, 250, 220, min(255, base_alpha)))
 
-            pygame.draw.circle(core_surf, (200, 255, 245, min(255, base_alpha)),
-                             (core_center, core_center), max(1, core_size // 5))
+            core_r2 = max(1, core_size // 5)
+            pygame.gfxdraw.filled_circle(screen, icx, icy, core_r2,
+                                         (200, 255, 245, min(255, base_alpha)))
 
-            screen.blit(core_surf, (int(cx) - core_center, int(cy) - core_center),
-                       special_flags=pygame.BLEND_ADD)
-
-    # 5. 방사형 광선 (섬세한 라인)
+    # 5. 방사형 광선 (섬세한 라인) - gfxdraw 직접 렌더링 (Surface 생성 제거)
     if recovery_effect_timer > recovery_effect_duration - 15:
         ray_progress = (recovery_effect_duration - recovery_effect_timer) / 15
         ray_alpha = int(100 * (1 - ray_progress * 0.7))
 
         if ray_alpha > 10:
-            ray_surf_size = 160
-            ray_surf = pygame.Surface((ray_surf_size, ray_surf_size), pygame.SRCALPHA)
-            ray_center = ray_surf_size // 2
-
             num_rays = 8
             for i in range(num_rays):
                 angle = (i / num_rays) * 2 * math.pi + ray_progress * 0.5
                 ray_length = 40 + ray_progress * 30
                 start_dist = 8
-                start_x = ray_center + math.cos(angle) * start_dist
-                start_y = ray_center + math.sin(angle) * start_dist
-                end_x = ray_center + math.cos(angle) * ray_length
-                end_y = ray_center + math.sin(angle) * ray_length
+                start_x = cx + math.cos(angle) * start_dist
+                start_y = cy + math.sin(angle) * start_dist
+                end_x = cx + math.cos(angle) * ray_length
+                end_y = cy + math.sin(angle) * ray_length
 
                 for t in range(10):
                     t_ratio = t / 10
-                    px = start_x + (end_x - start_x) * t_ratio
-                    py = start_y + (end_y - start_y) * t_ratio
+                    rpx = int(start_x + (end_x - start_x) * t_ratio)
+                    rpy = int(start_y + (end_y - start_y) * t_ratio)
                     point_alpha = int(ray_alpha * (1 - t_ratio * 0.8))
                     if point_alpha > 5:
                         r = int(100 + 50 * (1 - t_ratio))
                         g = int(230 - 30 * t_ratio)
                         b = int(210 - 20 * t_ratio)
-                        pygame.draw.circle(ray_surf, (r, g, b, point_alpha),
-                                         (int(px), int(py)), 1)
-
-            screen.blit(ray_surf, (int(cx) - ray_center, int(cy) - ray_center),
-                       special_flags=pygame.BLEND_ADD)
+                        pygame.gfxdraw.pixel(screen, rpx, rpy, (r, g, b, point_alpha))
 
 # ========== RUNTIME SKILL SYSTEM (All Characters) ==========
 # Starpoint-based skill selection system for all characters
@@ -125753,7 +125759,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             '_arena_mouse_pressed', '_arena_space_pressed',
             '_arena_hench_key1_pressed', '_arena_hench_key2_pressed', '_arena_hench_key3_pressed',
             '_arena_key_period_pressed', '_arena_key_comma_pressed',
-            '_arena_key_slash_pressed', '_arena_key_e_pressed',
+            '_arena_key_slash_pressed', '_arena_key_e_pressed', '_arena_key_r_pressed',
             '_arena_q_pressed',
             '_arena_keyF1_pressed', '_arena_keyF2_pressed',
             '_arena_keyF3_pressed', '_arena_keyF4_pressed',
@@ -165552,6 +165558,26 @@ def main(stage_num, new_boss_mode=False):
             main._arena_key_comma_pressed = _k_comma
             main._arena_key_slash_pressed = _k_slash
             main._arena_key_e_pressed = _k_e
+            # R 키 → 자동/수동 조작 토글
+            _k_r = keys[pygame.K_r]
+            if _k_r and not getattr(main, '_arena_key_r_pressed', False):
+                try:
+                    from downtown.colosseum_arena import ColosseumsArena as _CArena_r
+                    _arena_r = getattr(_CArena_r, '_active_instance', None)
+                    if _arena_r and hasattr(_arena_r, 'manual_control_active'):
+                        _arena_r.manual_control_active = not _arena_r.manual_control_active
+                        if _arena_r.manual_control_active:
+                            _arena_r.speed_multiplier = 1
+                            _arena_r.manual_move_left = False
+                            _arena_r.manual_move_right = False
+                            _arena_r.manual_skill_cooldown_order = []
+                        try:
+                            play_button_click_sound()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            main._arena_key_r_pressed = _k_r
             # 마우스 클릭으로 배속 버튼 변경 (REAL_SCREEN 좌표 사용)
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
@@ -170247,6 +170273,19 @@ def main(stage_num, new_boss_mode=False):
                     arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
                 except Exception as _skill_update_err:
                     print(f"[Arena] skill_manager.update error: {_skill_update_err}")
+
+                _pending_skill_announcements = arena_skill_manager.game_state.get('pending_skill_announcements', [])
+                if _pending_skill_announcements:
+                    for _announce in _pending_skill_announcements:
+                        arena_play_skill_sound(_announce)
+                        _announce_name = _announce.get('skill_name')
+                        if _announce_name:
+                            arena_show_speech_bubble(
+                                _announce.get('caster_is_top', True),
+                                _announce_name,
+                                hero_id=_announce.get('hero_id', '')
+                            )
+                    arena_skill_manager.game_state['pending_skill_announcements'] = []
 
                 try:
                     # 🏜️ 모래감옥: 실제 패들에 이동 범위 제한 적용
