@@ -6,6 +6,7 @@ Stage 2의 테두리 구조를 유지하면서 멘헤라 컨셉으로 변경
 """
 
 import pygame
+import pygame.gfxdraw
 import math
 import random
 import os
@@ -23,6 +24,20 @@ except ImportError:
     HEIGHT = 750
     PILLAR_OFFSET = 80
     GAME_WIDTH = 600
+
+# --- Surface Pool: 크기별 재사용 가능한 SRCALPHA Surface 캐시 ---
+_s3_surface_pool: dict = {}
+
+def _get_s3_pooled_surface(w: int, h: int) -> pygame.Surface:
+    """크기별 Surface를 캐시에서 가져오거나 새로 생성 (매 프레임 new 방지)"""
+    key = (w, h)
+    surf = _s3_surface_pool.get(key)
+    if surf is None:
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        _s3_surface_pool[key] = surf
+    else:
+        surf.fill((0, 0, 0, 0))
+    return surf
 
 # 색상 정의 - 멘헤라 파스텔 색상 팔레트
 PASTEL_PINK = (255, 182, 193)      # 파스텔 핑크
@@ -155,9 +170,9 @@ class Stage3MenheraWorld:
         # 쿠로미 각성 애니메이션 업데이트
         if self.kuromi_awakening and self.kuromi_awakening_timer > 0:
             self.kuromi_awakening_timer -= 1
-            
-            # 정확히 3초 후에 폭발적인 돌 파편 생성 (각성 완료 순간)
-            if self.kuromi_awakening_timer == 1:  # 3초 후 (마지막 프레임)
+
+            # kuromiawake.wav 사운드의 폭발 클라이맥스에 맞춰 파편 생성 (~2.3초)
+            if self.kuromi_awakening_timer == 40:  # 약 2.3초 후 (사운드 싱크)
                 # 화면을 향해 날아가는 큰 돌 파편들 생성
                 center_x = self.width // 2
                 center_y = self.height // 2
@@ -243,7 +258,7 @@ class Stage3MenheraWorld:
                     import pygame
                     import os
                     import sys
-                    
+
                     def resource_path(relative_path):
                         try:
                             base_path = sys._MEIPASS
@@ -252,7 +267,7 @@ class Stage3MenheraWorld:
                             base_path = os.path.dirname(base_path)  # ui 폴더에서 상위로
                         relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
                         return os.path.join(base_path, relative_path)
-                    
+
                     # 돌 깨지는 사운드 재생
                     sound_path = resource_path("sounds/stonebreak_large.wav")
                     if os.path.exists(sound_path):
@@ -260,9 +275,9 @@ class Stage3MenheraWorld:
                         sound.play()
                 except:
                     pass
-                
+
                 print("Stage 3: 쿠로미 각성 - 돌 파편 폭발 효과 생성!")
-            
+
             # 각성 완료
             if self.kuromi_awakening_timer <= 0:
                 self.kuromi_awakening = False
@@ -632,8 +647,8 @@ class Stage3MenheraWorld:
         self._eye_squint = eye_squint
         self._food_position = slow_cycle if self.eating_active and self.chewing_phase > 0 else 0
         
-        # 🌸 부드러운 그림자 효과 (깊이감)
-        shadow_surface = pygame.Surface((head_size * 3, head_size * 3), pygame.SRCALPHA)
+        # 🌸 부드러운 그림자 효과 (깊이감) - Surface 풀 사용
+        shadow_surface = _get_s3_pooled_surface(head_size * 3, head_size * 3)
         shadow_center = head_size * 1.5
         for i in range(10, 0, -1):
             alpha = 3 * i
@@ -1573,11 +1588,10 @@ class Stage3MenheraWorld:
                     impact_radius = int(20 * (self.tail_whip_progress - 0.4) / 0.2)
                     for r in range(3):
                         alpha = 100 - r * 30
-                        impact_surf = pygame.Surface((impact_radius * 2, impact_radius * 2), pygame.SRCALPHA)
-                        pygame.draw.circle(impact_surf, (*LAVENDER, alpha), 
-                                         (impact_radius, impact_radius), impact_radius - r * 3, 2)
-                        screen.blit(impact_surf, (impact_point[0] - impact_radius, 
-                                                 impact_point[1] - impact_radius))
+                        ring_r = max(1, impact_radius - r * 3)
+                        # gfxdraw 직접 렌더링 (Surface 생성 제거)
+                        pygame.gfxdraw.aacircle(screen, int(impact_point[0]), int(impact_point[1]),
+                                               ring_r, (*LAVENDER, alpha))
         
         # 💝 꼬리 끝 장식 (울트라 카와이 하트)
         if tail_points:
@@ -1730,15 +1744,15 @@ class Stage3MenheraWorld:
                     life_ratio = p['life'] / p['max_life']
                     alpha = life_ratio
 
-                    # 글로우 효과
+                    # 글로우 효과 - gfxdraw 직접 렌더링 (Surface 생성 제거)
+                    px_i = int(p['x'])
+                    py_i = int(p['y'])
                     for i in range(3):
                         glow_size = int(p['size'] * (1 + i * 0.5))
                         glow_alpha = alpha * (0.3 - i * 0.1)
                         if glow_alpha > 0 and glow_size > 0:
-                            glow_surface = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-                            pygame.draw.circle(glow_surface, (*p['color'], int(255 * glow_alpha)),
-                                             (glow_size, glow_size), glow_size)
-                            screen.blit(glow_surface, (int(p['x']) - glow_size, int(p['y']) - glow_size))
+                            pygame.gfxdraw.filled_circle(screen, px_i, py_i, glow_size,
+                                                         (*p['color'], int(255 * glow_alpha)))
 
                     # 중심 파티클
                     pygame.draw.circle(screen, p['color'],
@@ -1761,7 +1775,7 @@ class Stage3MenheraWorld:
         STONE_CRACK = (60, 60, 60)    # 균열 색상
         
         # 그림자 효과 (더 어둡게)
-        shadow_surface = pygame.Surface((head_size * 3, head_size * 3), pygame.SRCALPHA)
+        shadow_surface = _get_s3_pooled_surface(head_size * 3, head_size * 3)
         shadow_center = head_size * 1.5
         for i in range(10, 0, -1):
             alpha = 5 * i
@@ -2015,34 +2029,39 @@ class Stage3MenheraWorld:
                     self.draw_heart(screen, int(heart['x']), int(heart['y']), 
                                   heart['size'], (*faded_color, int(alpha * 150)))
     
+    _checkerboard_cache = None  # (emotional_phase, screen_w, screen_h) → Surface
+    _checkerboard_cache_key = None
+
     def draw_background_pattern(self, screen):
-        """배경 패턴 - Stage 5 스타일로 깔끔하게"""
+        """배경 패턴 - 캐싱 적용 (감정 변화 시에만 재생성)"""
         tile_size = 50
-
-        # 화면 크기 가져오기 (동적으로 대응)
         screen_w, screen_h = screen.get_size()
+        cache_key = (self.emotional_phase, screen_w, screen_h)
 
-        # 기본 배경 색상 (감정에 따라 변화)
-        if self.emotional_phase == 0:  # 평온
-            base_color = (55, 45, 65)  # 보라빛 어둠
-        elif self.emotional_phase == 1:  # 행복
-            base_color = (65, 40, 55)  # 핑크빛 어둠
-        else:  # 슬픔
-            base_color = (40, 50, 70)  # 블루빛 어둠
+        if Stage3MenheraWorld._checkerboard_cache_key != cache_key:
+            # 기본 배경 색상 (감정에 따라 변화)
+            if self.emotional_phase == 0:
+                base_color = (55, 45, 65)
+            elif self.emotional_phase == 1:
+                base_color = (65, 40, 55)
+            else:
+                base_color = (40, 50, 70)
 
-        # 체크무늬 패턴 (화면 전체, 은은하게)
-        for x in range(0, screen_w, tile_size):
-            for y in range(0, screen_h, tile_size):
-                if (x // tile_size + y // tile_size) % 2 == 0:
-                    color = base_color
-                else:
-                    color = (base_color[0] + 10, base_color[1] + 8, base_color[2] + 10)
+            cached = pygame.Surface((screen_w, screen_h))
+            for x in range(0, screen_w, tile_size):
+                for y in range(0, screen_h, tile_size):
+                    if (x // tile_size + y // tile_size) % 2 == 0:
+                        color = base_color
+                    else:
+                        color = (base_color[0] + 10, base_color[1] + 8, base_color[2] + 10)
+                    pygame.draw.rect(cached, color, (x, y, tile_size, tile_size))
+                    border_color = (base_color[0] - 5, base_color[1] - 5, base_color[2] - 5)
+                    pygame.draw.rect(cached, border_color, (x, y, tile_size, tile_size), 1)
 
-                pygame.draw.rect(screen, color, (x, y, tile_size, tile_size))
+            Stage3MenheraWorld._checkerboard_cache = cached
+            Stage3MenheraWorld._checkerboard_cache_key = cache_key
 
-                # 타일 테두리 (매우 은은하게)
-                border_color = (base_color[0] - 5, base_color[1] - 5, base_color[2] - 5)
-                pygame.draw.rect(screen, border_color, (x, y, tile_size, tile_size), 1)
+        screen.blit(Stage3MenheraWorld._checkerboard_cache, (0, 0))
     
     def draw_medical_cross(self, screen, x, y, size, color):
         """의료 십자가 심볼"""
@@ -2120,9 +2139,9 @@ class Stage3MenheraWorld:
                         points.append((px, py))
                     
                     if len(points) >= 3:  # 최소 3개 점이 있어야 폴리곤 그리기 가능
-                        # 알파 블렌딩을 위한 서페이스 생성
+                        # 알파 블렌딩을 위한 서페이스 - Surface 풀 사용
                         surface_size = int(size * 4)
-                        particle_surface = pygame.Surface((surface_size, surface_size), pygame.SRCALPHA)
+                        particle_surface = _get_s3_pooled_surface(surface_size, surface_size)
                         adjusted_points = [(p[0] - particle['x'] + surface_size//2, 
                                           p[1] - particle['y'] + surface_size//2) for p in points]
                         
@@ -2967,24 +2986,25 @@ class Stage3MenheraWorld:
             })
     
     def _draw_alpha_circle(self, screen, color_with_alpha, center, radius, width=0):
-        """알파값을 지원하는 원 그리기 헬퍼 함수"""
+        """알파값을 지원하는 원 그리기 - gfxdraw 직접 렌더링 (Surface 생성 제거)"""
         if len(color_with_alpha) == 4:
             r, g, b, a = color_with_alpha
             if a <= 0:
                 return
-            if a >= 255:
-                pygame.draw.circle(screen, (r, g, b), center, radius, width)
-                return
-            # 알파 서피스 생성
-            size = max(1, int(radius * 2 + 4))
-            surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            pygame.draw.circle(surf, (r, g, b, a), (size//2, size//2), radius, width)
-            screen.blit(surf, (center[0] - size//2, center[1] - size//2))
+            a = min(255, int(a))
+            radius = max(1, int(radius))
+            cx, cy = int(center[0]), int(center[1])
+            if width == 0:
+                # 채워진 원
+                pygame.gfxdraw.filled_circle(screen, cx, cy, radius, (r, g, b, a))
+            else:
+                # 테두리 원
+                pygame.gfxdraw.aacircle(screen, cx, cy, radius, (r, g, b, a))
         else:
             pygame.draw.circle(screen, color_with_alpha[:3], center, radius, width)
 
     def _draw_alpha_ellipse(self, screen, color_with_alpha, rect):
-        """알파값을 지원하는 타원 그리기 헬퍼 함수"""
+        """알파값을 지원하는 타원 그리기 - Surface 풀 사용"""
         if len(color_with_alpha) == 4:
             r, g, b, a = color_with_alpha
             if a <= 0:
@@ -2992,16 +3012,15 @@ class Stage3MenheraWorld:
             if a >= 255:
                 pygame.draw.ellipse(screen, (r, g, b), rect)
                 return
-            # 알파 서피스 생성
             w, h = int(rect[2]) + 4, int(rect[3]) + 4
-            surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            surf = _get_s3_pooled_surface(w, h)
             pygame.draw.ellipse(surf, (r, g, b, a), (2, 2, rect[2], rect[3]))
             screen.blit(surf, (rect[0] - 2, rect[1] - 2))
         else:
             pygame.draw.ellipse(screen, color_with_alpha[:3], rect)
 
     def _draw_alpha_line(self, screen, color_with_alpha, start, end, width=1):
-        """알파값을 지원하는 선 그리기 헬퍼 함수"""
+        """알파값을 지원하는 선 그리기 - Surface 풀 사용"""
         if len(color_with_alpha) == 4:
             r, g, b, a = color_with_alpha
             if a <= 0:
@@ -3009,13 +3028,12 @@ class Stage3MenheraWorld:
             if a >= 255:
                 pygame.draw.line(screen, (r, g, b), start, end, width)
                 return
-            # 알파 서피스 생성
             min_x = min(start[0], end[0]) - width
             min_y = min(start[1], end[1]) - width
             max_x = max(start[0], end[0]) + width
             max_y = max(start[1], end[1]) + width
             w, h = int(max_x - min_x) + 4, int(max_y - min_y) + 4
-            surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            surf = _get_s3_pooled_surface(w, h)
             offset_start = (start[0] - min_x + 2, start[1] - min_y + 2)
             offset_end = (end[0] - min_x + 2, end[1] - min_y + 2)
             pygame.draw.line(surf, (r, g, b, a), offset_start, offset_end, width)
@@ -3024,7 +3042,7 @@ class Stage3MenheraWorld:
             pygame.draw.line(screen, color_with_alpha[:3], start, end, width)
 
     def _draw_alpha_polygon(self, screen, color_with_alpha, points):
-        """알파값을 지원하는 다각형 그리기 헬퍼 함수"""
+        """알파값을 지원하는 다각형 그리기 - Surface 풀 사용"""
         if len(color_with_alpha) == 4 and len(points) >= 3:
             r, g, b, a = color_with_alpha
             if a <= 0:
@@ -3032,13 +3050,12 @@ class Stage3MenheraWorld:
             if a >= 255:
                 pygame.draw.polygon(screen, (r, g, b), points)
                 return
-            # 바운딩 박스 계산
             xs = [p[0] for p in points]
             ys = [p[1] for p in points]
             min_x, max_x = min(xs), max(xs)
             min_y, max_y = min(ys), max(ys)
             w, h = int(max_x - min_x) + 4, int(max_y - min_y) + 4
-            surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            surf = _get_s3_pooled_surface(w, h)
             offset_points = [(p[0] - min_x + 2, p[1] - min_y + 2) for p in points]
             pygame.draw.polygon(surf, (r, g, b, a), offset_points)
             screen.blit(surf, (min_x - 2, min_y - 2))
