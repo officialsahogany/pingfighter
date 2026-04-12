@@ -103385,26 +103385,20 @@ def draw_stage8_wind_burst(surface: pygame.Surface) -> None:
         if size < 1:
             continue
 
-        # 바람 파티클 (회전하는 마름모/별 형태)
-        particle_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
-        cx, cy = size * 1.5, size * 1.5
-
-        # 마름모 형태의 바람 입자
+        # 바람 파티클 - 화면에 직접 폴리곤 그리기 (Surface 생성 제거)
+        px, py = int(p["x"]), int(p["y"])
         r, g, b = p["color"]
-        alpha = min(255, p["alpha"])
+        alpha = min(255, int(p["alpha"]))
 
-        # 회전된 마름모
         angle_rad = math.radians(p["rotation"])
         points = []
         for i in range(4):
             a = angle_rad + i * math.pi / 2
             dist = size if i % 2 == 0 else size * 0.4
-            points.append((cx + math.cos(a) * dist, cy + math.sin(a) * dist))
+            points.append((px + int(math.cos(a) * dist), py + int(math.sin(a) * dist)))
 
-        pygame.draw.polygon(particle_surf, (r, g, b, alpha), points)
-        pygame.draw.polygon(particle_surf, (255, 255, 255, alpha // 2), points, 1)
-
-        surface.blit(particle_surf, (int(p["x"] - cx), int(p["y"] - cy)))
+        pygame.draw.polygon(surface, (r, g, b, alpha), points)
+        pygame.draw.polygon(surface, (255, 255, 255, alpha // 2), points, 1)
 
 
 def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
@@ -104597,8 +104591,8 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         glitch_offset_x = int(math.sin(now * 0.05 + death_progress * 20) * glitch_intensity)
         glitch_offset_y = int(math.cos(now * 0.07 + death_progress * 15) * glitch_intensity * 0.5)
 
-        # 홀로그램 증발 서피스 생성
-        dying_surface = pygame.Surface((img_w + 20, img_h), pygame.SRCALPHA)
+        # 홀로그램 증발 서피스 - Surface 풀 사용
+        dying_surface = _stage7_get_temp_surface(_stage7_cache_cell, (img_w + 20, img_h))
 
         # 기본 그림자 이미지 복사
         shadow_base = pose_surface.copy()
@@ -104664,10 +104658,11 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
     if stage8_shadow_casting:
         pulse = 0.6 + 0.4 * math.sin(now * 0.02)
         radius = int(26 * pulse)
-        aura = pygame.Surface((radius * 2 + 2, radius * 2 + 2), pygame.SRCALPHA)
-        pygame.draw.circle(aura, (120, 180, 220, 90), (radius + 1, radius + 1), radius)
-        pygame.draw.circle(aura, (70, 120, 200, 140), (radius + 1, radius + 1), max(1, radius - 4), 2)
-        surface.blit(aura, (BOSS.centerx - radius - 1, BOSS.centery - radius - 60))
+        # 주문 오라 - gfxdraw 직접 렌더링
+        cast_cx = BOSS.centerx
+        cast_cy = BOSS.centery
+        pygame.gfxdraw.filled_circle(surface, cast_cx, cast_cy, radius, (120, 180, 220, 90))
+        pygame.gfxdraw.aacircle(surface, cast_cx, cast_cy, max(1, radius - 4), (70, 120, 200, 140))
 
 
 def draw_stage8_shurikens(surface: pygame.Surface) -> None:
@@ -104688,7 +104683,7 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
         rotation_speed = 15  # 초당 회전 횟수
         angle = (elapsed / 1000.0) * rotation_speed * 360  # 도(degrees)
 
-        blade = pygame.Surface((size, size), pygame.SRCALPHA)
+        blade = _stage7_get_temp_surface(_stage7_cache_cell, (size, size))
 
         # 4방향 수리검 날 그리기 (전통적인 십자형 수리검)
         num_blades = 4
@@ -104763,16 +104758,17 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     if stage8_cloud_dash_active and stage8_cloud_dash_phase in ("pre", "down", "up"):
         pulse = 0.6 + 0.4 * math.sin(now * 0.025)
         radius = int(35 * pulse)
-        aura = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
-        pygame.draw.circle(aura, (100, 60, 180, 50), (radius + 2, radius + 2), radius + 2)
-        pygame.draw.circle(aura, (140, 100, 200, 80), (radius + 2, radius + 2), radius)
-        pygame.draw.circle(aura, (180, 150, 255, 120), (radius + 2, radius + 2), max(1, radius - 8))
+        # 구름대시 오라 - gfxdraw 직접 렌더링 (Surface 생성 제거)
+        aura_cx = BOSS.centerx
+        aura_cy = BOSS.centery - 50
+        pygame.gfxdraw.filled_circle(surface, aura_cx, aura_cy, radius + 2, (100, 60, 180, 50))
+        pygame.gfxdraw.filled_circle(surface, aura_cx, aura_cy, radius, (140, 100, 200, 80))
+        pygame.gfxdraw.filled_circle(surface, aura_cx, aura_cy, max(1, radius - 8), (180, 150, 255, 120))
         for i in range(3):
             angle = now * 0.005 + i * math.pi * 2 / 3
-            sx = radius + 2 + math.cos(angle) * (radius - 5)
-            sy = radius + 2 + math.sin(angle) * (radius - 5)
-            pygame.draw.circle(aura, (255, 255, 255, 150), (int(sx), int(sy)), 3)
-        surface.blit(aura, (BOSS.centerx - radius - 2, BOSS.centery - radius - 50))
+            sx = aura_cx + int(math.cos(angle) * (radius - 5))
+            sy = aura_cy + int(math.sin(angle) * (radius - 5))
+            pygame.gfxdraw.filled_circle(surface, sx, sy, 3, (255, 255, 255, 150))
 
     if not stage8_cloud_active or stage8_cloud_rect is None:
         return
@@ -104815,9 +104811,9 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     time_offset = now * 0.001
 
-    # 퍼짐 애니메이션 (최적화: 파티클 수 감소)
+    # 퍼짐 애니메이션 - Surface 풀 사용
     if expand_progress < 1.0:
-        cloud_surface = pygame.Surface((full_cloud_w, full_cloud_h), pygame.SRCALPHA)
+        cloud_surface = _stage7_get_temp_surface(_stage7_cache_cell, (full_cloud_w, full_cloud_h))
         center_x, center_y = full_cloud_w // 2, (full_cloud_h + expand_top) // 2
         spawn_x_in_surface = center_x + spawn_relative_x
 
@@ -166109,10 +166105,11 @@ def main(stage_num, new_boss_mode=False):
                         elif (_dash_mod_just and _manual_right) or (_dash_right_just and _manual_dash_modifier):
                             arena_trigger_bottom_hero_dash(1)
 
-                    _manual_mouse_left = pygame.mouse.get_pressed()[0]
                     _k_space = keys[pygame.K_SPACE]
+                    _manual_skill_enabled = arena_capture_phase != "active"
+                    _manual_mouse_left = pygame.mouse.get_pressed()[0]
                     _manual_skill_mouse_allowed = False
-                    if _manual_mouse_left and arena_capture_phase != "active":
+                    if _manual_skill_enabled and _manual_mouse_left:
                         if not arena_speed_btn_rects:
                             _update_arena_speed_btn_rects()
                         _manual_mouse_pos = _original_mouse_get_pos()
@@ -166128,12 +166125,16 @@ def main(stage_num, new_boss_mode=False):
                                     _manual_skill_mouse_allowed = False
                                     break
 
-                    _manual_skill_input_active = _k_space or (_manual_mouse_left and _manual_skill_mouse_allowed)
+                    _manual_skill_input_active = _manual_skill_enabled and (
+                        _k_space or (_manual_mouse_left and _manual_skill_mouse_allowed)
+                    )
                     _arena_mc.manual_skill_input_active = _manual_skill_input_active
 
                     _manual_skill_press = (
-                        (_k_space and not getattr(main, '_arena_manual_space_pressed', False))
-                        or (_manual_mouse_left and _manual_skill_mouse_allowed and not getattr(main, '_arena_mouse_pressed', False))
+                        _manual_skill_enabled and (
+                            (_k_space and not getattr(main, '_arena_manual_space_pressed', False))
+                            or (_manual_mouse_left and _manual_skill_mouse_allowed and not getattr(main, '_arena_mouse_pressed', False))
+                        )
                     )
                     if _manual_skill_press:
                         if hasattr(_arena_mc, '_manual_try_use_skill'):
