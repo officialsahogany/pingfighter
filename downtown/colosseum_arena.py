@@ -13064,11 +13064,12 @@ class ColosseumsArena:
                                         start_y + btn_h // 2 - surf.get_height() // 2))
 
     def _draw_manual_control_button(self):
-        """자동/수동 조작 토글 버튼 그리기 (점수판 왼쪽)"""
+        """자동/수동 조작 토글 버튼 그리기 (오른쪽 필러 상단)"""
         btn_w, btn_h = 50, 24
-        # 점수판(중앙 x=320~440) 왼쪽에 배치
-        x = SCREEN_WIDTH // 2 - 60 - btn_w - 8  # 점수판 왼쪽 여백
-        y = 18  # 배속 버튼과 같은 높이
+        # 오른쪽 필러 영역 (680~760) 중앙에 배치
+        pillar_right_x = GAME_AREA_X + GAME_AREA_WIDTH  # 680
+        x = pillar_right_x + (SCREEN_WIDTH - pillar_right_x) // 2 - btn_w // 2
+        y = 18
 
         rect = pygame.Rect(x, y, btn_w, btn_h)
         self.manual_control_btn_rect = rect
