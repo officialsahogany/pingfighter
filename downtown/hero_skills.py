@@ -21,6 +21,30 @@ try:
 except ImportError:
     WEATHER_EVENT_AVAILABLE = False
 
+# 사운드 캐시 (첫 발동 스터터 방지)
+_sound_cache: Dict[str, pygame.mixer.Sound] = {}
+
+
+def _play_cached_sound(filename: str) -> None:
+    """sounds/<filename> 을 1회만 로드하고 이후엔 캐시에서 재생.
+
+    기존: pygame.mixer.Sound(path).play() → 첫 발동 시 디스크 I/O + 디코딩이 게임 루프에 들어옴
+    현재: 첫 호출 시 한 번만 로드, 이후엔 캐시된 Sound 객체로 play()
+    """
+    try:
+        snd = _sound_cache.get(filename)
+        if snd is None:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", filename)
+            if not os.path.exists(sound_path):
+                return
+            snd = pygame.mixer.Sound(sound_path)
+            _sound_cache[filename] = snd
+        snd.play()
+    except Exception:
+        pass
+
+
 # 영웅 패들 렌더러 임포트 (그림자분신용)
 try:
     from downtown.hero_paddles import HeroPaddleRenderer
@@ -237,6 +261,8 @@ class DarkSlash(HeroSkill):
     PHASE_FREEZE = 2      # 화면 정지 (1초)
     PHASE_RELEASE = 3     # 정지 해제 + 가속 적용
     PHASE_ACTIVE = 4      # 가속 상태 유지
+    PHASE_DASH = 5        # 도움닫기 - 공을 향해 점프 (프리즈 전)
+    PHASE_DESCEND = 6     # 하강 - 스킬 발동 후 천천히 원위치로 복귀
 
     def __init__(self):
         super().__init__(
@@ -274,6 +300,21 @@ class DarkSlash(HeroSkill):
         self.dark_slash_active = False
         self.caster_is_top = False
 
+        # 도움닫기 (PHASE_DASH) 상태
+        self.dash_start_x = 0
+        self.dash_start_y = 0
+        self.dash_target_x = 0
+        self.dash_target_y = 0
+        self.dash_duration = 0.18       # 매우 빠르게 점프
+        self.dash_trail = []            # 잔상 트레일
+
+        # 하강 (PHASE_DESCEND) 상태
+        self.descend_start_x = 0
+        self.descend_start_y = 0
+        self.descend_target_x = 0
+        self.descend_target_y = 0
+        self.descend_duration = 0.5     # 천천히 하강
+
     def use(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         """서브 전에는 달빛베기 시전 불가 (공이 정지 상태이면 아직 서브 전)"""
         if ball and (abs(ball.vx) < 0.5 and abs(ball.vy) < 0.5):
@@ -294,15 +335,36 @@ class DarkSlash(HeroSkill):
         # 베기 각도 (대각선 - 우상향에서 좌하향으로)
         self.slash_angle = math.radians(-45)
 
-        # === 페이즈 1: 베기 이펙트 시작 ===
-        self.phase = self.PHASE_SLASH
+        # === 페이즈 0: 도움닫기 (공을 향해 점프) ===
+        self.phase = self.PHASE_DASH
         self.phase_timer = 0.0
         self.slash_progress = 0.0
 
-        # 스파크 파티클 (베인 자리에서 튀는 불꽃)
+        # 도움닫기 시작/목표 위치 계산
+        paddle_rect = caster_paddle.get_rect()
+        self.dash_start_x = paddle_rect.centerx
+        self.dash_start_y = paddle_rect.centery
+        # 목표: 공 근처 (공 바로 옆까지 도달)
+        offset_y = 30 if self.caster_is_top else -30
+        self.dash_target_x = ball.x
+        self.dash_target_y = ball.y + offset_y
+        self.dash_trail = []
+
+        # 화면 정지는 아직 안 함 - 도움닫기 후에 프리즈
+        game_state['dark_slash_freeze'] = True  # 공은 정지시키되
+        game_state['dark_slash_phase'] = self.PHASE_DASH
+        # 캐릭터 오프셋 (렌더링용)
+        game_state['dark_slash_caster_offset_x'] = 0
+        game_state['dark_slash_caster_offset_y'] = 0
+        game_state['dark_slash_caster_is_top'] = self.caster_is_top
+        return {
+            'sound': 'mooncut'
+        }
+
+    def _init_slash_sparks(self):
+        """베기 스파크 파티클 초기화 (PHASE_DASH 완료 후 호출)"""
         self.slash_sparks = []
         for _ in range(40):
-            # 베기 라인을 따라 퍼지는 스파크
             spread_angle = self.slash_angle + random.uniform(-0.5, 0.5)
             speed = random.uniform(150, 500)
             offset = random.uniform(-30, 30)
@@ -319,27 +381,50 @@ class DarkSlash(HeroSkill):
                     (255, 255, 200), (255, 150, 100)
                 ])
             })
-
-        # 공이 갈라지는 조각 효과
         self.slash_fragments = [
-            {'offset_x': -8, 'offset_y': -8, 'target_x': -15, 'target_y': -12},  # 좌상단 조각
-            {'offset_x': 8, 'offset_y': 8, 'target_x': 15, 'target_y': 12},      # 우하단 조각
+            {'offset_x': -8, 'offset_y': -8, 'target_x': -15, 'target_y': -12},
+            {'offset_x': 8, 'offset_y': 8, 'target_x': 15, 'target_y': 12},
         ]
-
-        # 화면 정지 플래그 설정
-        game_state['dark_slash_freeze'] = True
-        game_state['dark_slash_phase'] = self.PHASE_SLASH
-        return {
-            'screen_effect': ScreenEffect.FLASH,
-            'flash_color': (200, 100, 255),
-            'flash_duration': 0.08,
-            'sound': 'mooncut'
-        }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.phase_timer += dt
 
-        if self.phase == self.PHASE_SLASH:
+        if self.phase == self.PHASE_DASH:
+            # 도움닫기 - 공을 향해 빠르게 점프
+            t = min(1.0, self.phase_timer / self.dash_duration)
+            # ease-out 커브 (빠르게 출발, 도착 시 감속)
+            eased = 1.0 - (1.0 - t) ** 3
+
+            # 현재 위치 계산
+            cur_x = self.dash_start_x + (self.dash_target_x - self.dash_start_x) * eased
+            cur_y = self.dash_start_y + (self.dash_target_y - self.dash_start_y) * eased
+
+            # 렌더링 오프셋 업데이트
+            game_state['dark_slash_caster_offset_x'] = cur_x - self.dash_start_x
+            game_state['dark_slash_caster_offset_y'] = cur_y - self.dash_start_y
+
+            # 잔상 트레일 추가
+            if len(self.dash_trail) == 0 or self.phase_timer > len(self.dash_trail) * 0.03:
+                self.dash_trail.append({
+                    'x': cur_x, 'y': cur_y,
+                    'alpha': 200, 'life': 0.3
+                })
+
+            # 잔상 페이드아웃
+            for trail in self.dash_trail:
+                trail['life'] -= dt
+                trail['alpha'] = max(0, int(200 * (trail['life'] / 0.3)))
+            self.dash_trail = [tr for tr in self.dash_trail if tr['life'] > 0]
+
+            # 도움닫기 완료 → 베기 이펙트 + 플래시
+            if self.phase_timer >= self.dash_duration:
+                self.phase = self.PHASE_SLASH
+                self.phase_timer = 0.0
+                game_state['dark_slash_phase'] = self.PHASE_SLASH
+                # 이제 스파크/조각 이펙트 생성
+                self._init_slash_sparks()
+
+        elif self.phase == self.PHASE_SLASH:
             # 베기 이펙트 진행 (0.1초)
             self.slash_progress = min(1.0, self.phase_timer / 0.1)
 
@@ -394,10 +479,45 @@ class DarkSlash(HeroSkill):
             game_state['dark_slash_active'] = True
             game_state['dark_slash_caster_is_top'] = self.caster_is_top
             game_state['dark_slash_original_speed'] = self.original_ball_speed
-            game_state['dark_slash_phase'] = self.PHASE_ACTIVE
 
-            self.phase = self.PHASE_ACTIVE
+            # → 하강 페이즈로 전환 (원위치로 천천히 복귀)
+            self.phase = self.PHASE_DESCEND
             self.phase_timer = 0.0
+            game_state['dark_slash_phase'] = self.PHASE_DESCEND
+
+            # 하강 시작/목표 위치 설정 (현재 대시 목표 → 원래 패들 위치)
+            self.descend_start_x = self.dash_target_x
+            self.descend_start_y = self.dash_target_y
+            self.descend_target_x = self.dash_start_x
+            self.descend_target_y = self.dash_start_y
+
+        elif self.phase == self.PHASE_DESCEND:
+            # 하강 - 천천히 원위치로 복귀
+            t = min(1.0, self.phase_timer / self.descend_duration)
+            # ease-in 커브 (느리게 시작, 가속하며 착지)
+            eased = t * t
+
+            cur_x = self.descend_start_x + (self.descend_target_x - self.descend_start_x) * eased
+            cur_y = self.descend_start_y + (self.descend_target_y - self.descend_start_y) * eased
+
+            # 렌더링 오프셋 업데이트
+            game_state['dark_slash_caster_offset_x'] = cur_x - self.dash_start_x
+            game_state['dark_slash_caster_offset_y'] = cur_y - self.dash_start_y
+
+            # 스파크 정상 속도 업데이트
+            for spark in self.slash_sparks:
+                spark['x'] += spark['vx'] * dt
+                spark['y'] += spark['vy'] * dt
+                spark['life'] -= dt
+            self.slash_sparks = [s for s in self.slash_sparks if s['life'] > 0]
+
+            # 하강 완료 → ACTIVE
+            if self.phase_timer >= self.descend_duration:
+                self.phase = self.PHASE_ACTIVE
+                self.phase_timer = 0.0
+                game_state['dark_slash_phase'] = self.PHASE_ACTIVE
+                game_state['dark_slash_caster_offset_x'] = 0
+                game_state['dark_slash_caster_offset_y'] = 0
 
         elif self.phase == self.PHASE_ACTIVE:
             # 스파크 정상 속도 업데이트
@@ -428,6 +548,7 @@ class DarkSlash(HeroSkill):
         self.phase_timer = 0.0
         self.slash_sparks = []
         self.slash_fragments = []
+        self.dash_trail = []
         self.original_ball_speed = None
         self.dark_slash_active = False
         self.caster_is_top = False
@@ -439,6 +560,7 @@ class DarkSlash(HeroSkill):
         self.phase_timer = 0.0
         self.slash_sparks = []
         self.slash_fragments = []
+        self.dash_trail = []
         self.original_ball_speed = None
         self.dark_slash_active = False
         self.freeze_flash_timer = 0.0
@@ -446,14 +568,61 @@ class DarkSlash(HeroSkill):
         game_state['dark_slash_freeze'] = False
         game_state['dark_slash_active'] = False
         game_state['dark_slash_phase'] = self.PHASE_NONE
+        game_state['dark_slash_caster_offset_x'] = 0
+        game_state['dark_slash_caster_offset_y'] = 0
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['dark_slash_freeze'] = False
         game_state['dark_slash_phase'] = self.PHASE_NONE
+        game_state['dark_slash_caster_offset_x'] = 0
+        game_state['dark_slash_caster_offset_y'] = 0
         self.phase = self.PHASE_NONE
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         bx, by = int(self.ball_x), int(self.ball_y)
+
+        # === 도움닫기 잔상 이펙트 ===
+        if self.phase == self.PHASE_DASH:
+            # 보라색 잔상 트레일
+            for trail in self.dash_trail:
+                if trail['alpha'] > 0:
+                    trail_surf = _psurf((40, 60), pygame.SRCALPHA)
+                    pygame.draw.ellipse(trail_surf, (150, 80, 255, trail['alpha']),
+                                       (5, 5, 30, 50))
+                    screen.blit(trail_surf,
+                               (int(trail['x']) - 20, int(trail['y']) - 30),
+                               special_flags=pygame.BLEND_ADD)
+
+            # 대시 방향으로 스피드 라인
+            t = min(1.0, self.phase_timer / self.dash_duration)
+            if t > 0.1:
+                cur_x = self.dash_start_x + (self.dash_target_x - self.dash_start_x) * t
+                cur_y = self.dash_start_y + (self.dash_target_y - self.dash_start_y) * t
+                for i in range(5):
+                    line_alpha = int(120 * (1.0 - t))
+                    offset_x = random.randint(-20, 20)
+                    line_len = random.randint(15, 35)
+                    dy = -line_len if self.caster_is_top else line_len
+                    line_surf = _get_fullscreen_surface()
+                    pygame.draw.line(line_surf, (180, 120, 255, line_alpha),
+                                   (int(cur_x) + offset_x, int(cur_y)),
+                                   (int(cur_x) + offset_x, int(cur_y) + dy), 2)
+                    screen.blit(line_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+
+        # === 하강 중 잔광 이펙트 ===
+        if self.phase == self.PHASE_DESCEND:
+            t = min(1.0, self.phase_timer / self.descend_duration)
+            cur_x = self.descend_start_x + (self.descend_target_x - self.descend_start_x) * t
+            cur_y = self.descend_start_y + (self.descend_target_y - self.descend_start_y) * t
+            glow_alpha = int(100 * (1.0 - t))
+            if glow_alpha > 0:
+                glow_size = 50
+                glow_surf = _psurf((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (150, 80, 255, glow_alpha),
+                                  (glow_size, glow_size), glow_size)
+                screen.blit(glow_surf,
+                           (int(cur_x) - glow_size, int(cur_y) - glow_size),
+                           special_flags=pygame.BLEND_ADD)
 
         # === 베기 & 정지 중 이펙트 ===
         if self.phase in [self.PHASE_SLASH, self.PHASE_FREEZE, self.PHASE_RELEASE]:
@@ -941,15 +1110,8 @@ class TentacleWrap(HeroSkill):
 
                 self.phase = 'wrap'
                 self.wrap_timer = 0
-                # 붙잡기 사운드 재생
-                try:
-                    import os
-                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    grab_path = os.path.join(project_root, "sounds", "grab.wav")
-                    if os.path.exists(grab_path):
-                        pygame.mixer.Sound(grab_path).play()
-                except Exception:
-                    pass
+                # 붙잡기 사운드 재생 (캐시 경유)
+                _play_cached_sound("grab.wav")
                 # 이제 둔화 적용 (60% 감소)
                 if not self.slow_applied:
                     self.slow_applied = True
@@ -2046,15 +2208,8 @@ class AbyssInk(HeroSkill):
                 self._trail_particles = []
                 self._ribbon_trail = []
                 self._proj_tendrils = []
-                # 먹물 펼침 사운드 재생
-                try:
-                    import os
-                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    ink_path = os.path.join(project_root, "sounds", "abyssink.wav")
-                    if os.path.exists(ink_path):
-                        pygame.mixer.Sound(ink_path).play()
-                except Exception:
-                    pass
+                # 먹물 펼침 사운드 재생 (캐시)
+                _play_cached_sound("abyssink.wav")
 
         elif self.phase == 'splash':
             self.splash_timer += dt
@@ -3845,15 +4000,8 @@ class HellFire(HeroSkill):
                 self.phase_timer = 0.0
                 game_state['hell_fire_freeze'] = False
                 game_state['hell_fire_phase'] = self.PHASE_RELEASE
-                # 도깨비불 메인 사운드 재생
-                try:
-                    import os
-                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    hfm_path = os.path.join(project_root, "sounds", "hellfiremain.wav")
-                    if os.path.exists(hfm_path):
-                        pygame.mixer.Sound(hfm_path).play()
-                except Exception:
-                    pass
+                # 도깨비불 메인 사운드 재생 (캐시)
+                _play_cached_sound("hellfiremain.wav")
 
         elif self.phase == self.PHASE_RELEASE:
             # === 정지 해제 - 도깨비불 상태 적용 (Y축 완만하게) ===
@@ -4657,15 +4805,8 @@ class PuppetControl(HeroSkill):
                 self.phase = self.PHASE_PULLING
                 self.phase_timer = 0
                 game_state['target_puppeted'] = True
-                # 붙잡기 사운드 재생
-                try:
-                    import os
-                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    grab_path = os.path.join(project_root, "sounds", "grab.wav")
-                    if os.path.exists(grab_path):
-                        pygame.mixer.Sound(grab_path).play()
-                except Exception:
-                    pass
+                # 붙잡기 사운드 재생 (캐시)
+                _play_cached_sound("grab.wav")
 
         # Phase 2: 상대 끌어당기기 (1.083초, 기존 1.3초에서 20% 빠르게)
         elif self.phase == self.PHASE_PULLING:
@@ -4689,15 +4830,8 @@ class PuppetControl(HeroSkill):
             if pull_progress >= 1.0:
                 self.phase = self.PHASE_KISSING
                 self.phase_timer = 0
-                # 뽀뽀 사운드 재생
-                try:
-                    import os
-                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    kiss_path = os.path.join(project_root, "sounds", "kissing.wav")
-                    if os.path.exists(kiss_path):
-                        pygame.mixer.Sound(kiss_path).play()
-                except Exception:
-                    pass
+                # 뽀뽀 사운드 재생 (캐시)
+                _play_cached_sound("kissing.wav")
 
         # Phase 3: 뽀뽀 (1초)
         elif self.phase == self.PHASE_KISSING:
@@ -7333,9 +7467,11 @@ class SteamBarrier(HeroSkill):
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             hit_path = os.path.join(project_root, "sounds", "steambarriorhit.wav")
             if os.path.exists(hit_path):
-                pygame.mixer.Sound(hit_path).play()
+                pass  # deprecated direct load path
         except Exception:
             pass
+        # 배리어 충돌 사운드 (캐시 경유 - 프레임마다 호출될 수 있어 필수)
+        _play_cached_sound("steambarriorhit.wav")
         self.barrier_hit_flash_timer = self.barrier_hit_flash_duration
         self.barrier_hit_x = ball_x
         # 충돌 지점에서 스파클 파티클 생성 (12~18개)
@@ -7375,15 +7511,8 @@ class SteamBarrier(HeroSkill):
         self.break_barrier_y = self.barrier_y
         self.break_flash_timer = self.break_flash_duration
 
-        # 파괴 사운드 재생
-        try:
-            import os
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            break_path = os.path.join(project_root, "sounds", "steambarriorbreak.wav")
-            if os.path.exists(break_path):
-                pygame.mixer.Sound(break_path).play()
-        except Exception:
-            pass
+        # 파괴 사운드 재생 (캐시)
+        _play_cached_sound("steambarriorbreak.wav")
 
         # === 1) 배리어 파편 (직사각형 조각들이 사방으로 튕겨나감) ===
         num_shards = random.randint(28, 36)
@@ -8265,14 +8394,7 @@ class OilSpill(HeroSkill):
             if proj['progress'] >= 1.0:
                 projectiles_to_remove.append(proj)
                 # 기름 착지 사운드 재생
-                try:
-                    import os
-                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    oil_path = os.path.join(project_root, "sounds", "oil.wav")
-                    if os.path.exists(oil_path):
-                        pygame.mixer.Sound(oil_path).play()
-                except Exception:
-                    pass
+                _play_cached_sound("oil.wav")
                 # 웅덩이 생성
                 puddle_w = random.uniform(72, 108)
                 self.oil_puddles.append({
@@ -8735,15 +8857,8 @@ class ShadowClone(HeroSkill):
 
         game_state['has_shadow_clones'] = True
 
-        # 그림자분신 발동 사운드 재생
-        try:
-            import os
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            sound_path = os.path.join(project_root, "sounds", "kurokake.wav")
-            if os.path.exists(sound_path):
-                pygame.mixer.Sound(sound_path).play()
-        except Exception:
-            pass
+        # 그림자분신 발동 사운드 재생 (캐시)
+        _play_cached_sound("kurokake.wav")
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -8862,15 +8977,8 @@ class ShadowClone(HeroSkill):
                     self.dying_clones.append(dying_clone)
                     clone['active'] = False
 
-                    # 분신 소멸 사운드 재생
-                    try:
-                        import os
-                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        sound_path = os.path.join(project_root, "sounds", "kurokakeout.wav")
-                        if os.path.exists(sound_path):
-                            pygame.mixer.Sound(sound_path).play()
-                    except Exception:
-                        pass
+                    # 분신 소멸 사운드 재생 (캐시)
+                    _play_cached_sound("kurokakeout.wav")
 
                     continue
 
@@ -8894,16 +9002,9 @@ class ShadowClone(HeroSkill):
                 had_active = True
         self.clones = []
 
-        # 분신 소멸 사운드 재생 (활성 분신이 있었을 때만)
+        # 분신 소멸 사운드 재생 (활성 분신이 있었을 때만, 캐시)
         if had_active:
-            try:
-                import os
-                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                sound_path = os.path.join(project_root, "sounds", "kurokakeout.wav")
-                if os.path.exists(sound_path):
-                    pygame.mixer.Sound(sound_path).play()
-            except Exception:
-                pass
+            _play_cached_sound("kurokakeout.wav")
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 그림자분신 강제 초기화"""
@@ -9178,15 +9279,8 @@ class IllusionShuriken(HeroSkill):
         })
         self.shurikens_spawned += 1
 
-        # 수리검 투척 사운드 재생
-        try:
-            import os
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            throw_path = os.path.join(project_root, "sounds", "shurikenthrow.wav")
-            if os.path.exists(throw_path):
-                pygame.mixer.Sound(throw_path).play()
-        except Exception:
-            pass
+        # 수리검 투척 사운드 재생 (캐시)
+        _play_cached_sound("shurikenthrow.wav")
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 순차 발사 (0.4초 간격)
@@ -9275,15 +9369,8 @@ class IllusionShuriken(HeroSkill):
                     })
                     continue
 
-                # 수리검 히트 사운드 재생
-                try:
-                    import os
-                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    hit_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
-                    if os.path.exists(hit_path):
-                        pygame.mixer.Sound(hit_path).play()
-                except Exception:
-                    pass
+                # 수리검 히트 사운드 재생 (캐시)
+                _play_cached_sound("shurikenhit.wav")
 
                 # 넉백 방향 결정 (수리검 X 속도 방향, 0이면 랜덤)
                 if abs(shuriken['vx']) < 10:

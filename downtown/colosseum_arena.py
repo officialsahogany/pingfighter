@@ -12783,6 +12783,14 @@ class ColosseumsArena:
             self.bottom_paddle.draw_dash_effects(self.screen)
 
         # 패들 그리기 (영웅 패들 렌더러 사용)
+        # 달빛 베기 도움닫기/하강 오프셋
+        _ds_game_state = self.skill_manager.game_state if self.skill_manager else {}
+        _ds_offset_x = _ds_game_state.get('dark_slash_caster_offset_x', 0)
+        _ds_offset_y = _ds_game_state.get('dark_slash_caster_offset_y', 0)
+        _ds_caster_is_top = _ds_game_state.get('dark_slash_caster_is_top', False)
+        _ds_phase = _ds_game_state.get('dark_slash_phase', 0)
+        _ds_active = _ds_phase in (5, 6)  # PHASE_DASH=5, PHASE_DESCEND=6
+
         if self.top_paddle and self.selected_match:
             paddle_rect = self.top_paddle.get_rect()
             # 패들 크기 스케일 적용
@@ -12792,13 +12800,17 @@ class ColosseumsArena:
             if self.top_paddle.paddle_scale != 1.0:
                 print(f"[DEBUG Draw] top_paddle scale={self.top_paddle.paddle_scale}, scaled_width={scaled_width}")
 
+            # 달빛 베기 오프셋 (상단 캐스터일 때만)
+            ds_ox = int(_ds_offset_x) if (_ds_active and _ds_caster_is_top) else 0
+            ds_oy = int(_ds_offset_y) if (_ds_active and _ds_caster_is_top) else 0
+
             if self.hero_paddle_renderer:
                 # 영웅 패들 렌더러로 그리기 (상단 영웅은 아래를 바라봄)
                 self.hero_paddle_renderer.draw_hero_paddle(
                     self.screen,
                     hero1["id"],
-                    paddle_rect.centerx + shake_x,
-                    paddle_rect.centery + shake_y,
+                    paddle_rect.centerx + shake_x + ds_ox,
+                    paddle_rect.centery + shake_y + ds_oy,
                     scaled_width,
                     PADDLE_HEIGHT,
                     facing="down",
@@ -12807,8 +12819,8 @@ class ColosseumsArena:
             else:
                 # 폴백: 기본 패들
                 scaled_rect = pygame.Rect(
-                    paddle_rect.centerx - scaled_width // 2 + shake_x,
-                    paddle_rect.y + shake_y,
+                    paddle_rect.centerx - scaled_width // 2 + shake_x + ds_ox,
+                    paddle_rect.y + shake_y + ds_oy,
                     scaled_width,
                     PADDLE_HEIGHT
                 )
@@ -12828,13 +12840,17 @@ class ColosseumsArena:
             scaled_width = int(PADDLE_WIDTH * self.bottom_paddle.paddle_scale)
             hero2 = self.selected_match.hero2
 
+            # 달빛 베기 오프셋 (하단 캐스터일 때만)
+            ds_ox = int(_ds_offset_x) if (_ds_active and not _ds_caster_is_top) else 0
+            ds_oy = int(_ds_offset_y) if (_ds_active and not _ds_caster_is_top) else 0
+
             if self.hero_paddle_renderer:
                 # 영웅 패들 렌더러로 그리기 (하단 영웅은 위를 바라봄)
                 self.hero_paddle_renderer.draw_hero_paddle(
                     self.screen,
                     hero2["id"],
-                    paddle_rect.centerx + shake_x,
-                    paddle_rect.centery + shake_y,
+                    paddle_rect.centerx + shake_x + ds_ox,
+                    paddle_rect.centery + shake_y + ds_oy,
                     scaled_width,
                     PADDLE_HEIGHT,
                     facing="up",
