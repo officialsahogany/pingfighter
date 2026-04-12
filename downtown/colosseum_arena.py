@@ -11,6 +11,7 @@ import os
 import time
 from enum import Enum
 from typing import List, Dict, Optional, Tuple
+from effects import impact_feedback
 
 try:
     from localization.manager import get_localization_manager as _get_loc
@@ -19,6 +20,26 @@ try:
 except ImportError:
     def _t(key, fallback=""):
         return fallback
+
+
+# 사운드 캐시 (첫 발동 스터터 방지)
+_arena_sound_cache: Dict[str, pygame.mixer.Sound] = {}
+
+
+def _play_cached_arena_sound(filename: str) -> None:
+    """arena 연출 사운드 캐시 경유 재생."""
+    try:
+        snd = _arena_sound_cache.get(filename)
+        if snd is None:
+            _base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            path = os.path.join(_base, "sounds", filename)
+            if not os.path.exists(path):
+                return
+            snd = pygame.mixer.Sound(path)
+            _arena_sound_cache[filename] = snd
+        snd.play()
+    except Exception:
+        pass
 
 # 영웅 스킬 시스템 임포트
 try:
@@ -4021,6 +4042,20 @@ class GuardWarriorSystem:
                 skill.is_active = True
 
             if result:
+                try:
+                    impact_feedback.fire(
+                        impact_feedback.ImpactEvent.SKILL_CAST,
+                        pos=(guard_paddle.centerx, guard_paddle.centery),
+                        intensity=1.0,
+                        color=guard.get("color") if isinstance(guard, dict) else None,
+                        meta={
+                            "skill_name": getattr(skill, "skill_id", ""),
+                            "character": "arena_guard",
+                            "is_player": not is_top,
+                        },
+                    )
+                except Exception:
+                    pass
                 self._play_skill_sound(result)
                 self._apply_status_effects(result, target_paddle)
                 # 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
@@ -9110,6 +9145,10 @@ class ColosseumsArena:
         if not skills:
             return
 
+        # 영웅 글로벌 쿨다운 중에는 우선순위 큐를 소비하지 않는다.
+        if self.skill_manager.hero_global_cooldowns.get(hero_id, 0) > 0:
+            return
+
         # ON_COOLDOWN 스킬만 필터 (ON_BALL_HIT, PASSIVE 제외)
         usable = [s for s in skills if s.can_use() and s.trigger == SkillTrigger.ON_COOLDOWN]
         if not usable:
@@ -9142,7 +9181,7 @@ class ColosseumsArena:
             self.show_speech_bubble(False, result['skill_korean_name'])
 
         # 발동된 스킬은 충전 순서에서 제거
-        if chosen.skill_id in self.manual_skill_cooldown_order:
+        if result and chosen.skill_id in self.manual_skill_cooldown_order:
             self.manual_skill_cooldown_order.remove(chosen.skill_id)
 
     def show_speech_bubble(self, is_top: bool, skill_name: str):
@@ -11363,14 +11402,8 @@ class ColosseumsArena:
                             paddle_pos=None
                         )
                         self._seal_phase = "chest"
-                        # legendopen.wav 사운드 재생
-                        try:
-                            _base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                            _snd_path = os.path.join(_base, "sounds", "legendopen.wav")
-                            if os.path.exists(_snd_path):
-                                pygame.mixer.Sound(_snd_path).play()
-                        except Exception:
-                            pass
+                        # legendopen.wav 사운드 재생 (캐시)
+                        _play_cached_arena_sound("legendopen.wav")
                     except Exception as _eff_err:
                         print(f"[Arena] 보물상자 연출 생성 실패, 결과화면 직행: {_eff_err}")
                         self._seal_phase = "result"
@@ -13031,26 +13064,28 @@ class ColosseumsArena:
                                         start_y + btn_h // 2 - surf.get_height() // 2))
 
     def _draw_manual_control_button(self):
-        """자동/수동 조작 토글 버튼 그리기 (배속 버튼 아래)"""
-        btn_w, btn_h = 50, 22
-        # 배속 버튼 영역의 오른쪽 끝에 맞춤 (점수판 오른쪽)
-        x = SCREEN_WIDTH // 2 + 65
-        y = 44  # 배속 버튼(y=18, h=22) 아래
+        """자동/수동 조작 토글 버튼 그리기 (점수판 왼쪽)"""
+        btn_w, btn_h = 50, 24
+        # 점수판(중앙 x=320~440) 왼쪽에 배치
+        x = SCREEN_WIDTH // 2 - 60 - btn_w - 8  # 점수판 왼쪽 여백
+        y = 18  # 배속 버튼과 같은 높이
 
         rect = pygame.Rect(x, y, btn_w, btn_h)
         self.manual_control_btn_rect = rect
 
         if self.manual_control_active:
-            bg = (80, 180, 120)  # 수동: 초록색
-            text_color = (20, 40, 25)
+            bg = (60, 170, 110)  # 수동: 초록색
+            border_color = (100, 220, 150)
+            text_color = (255, 255, 255)
             label = "수동"
         else:
-            bg = (50, 55, 65)  # 자동: 회색
-            text_color = (140, 140, 140)
+            bg = (70, 75, 90)  # 자동: 밝은 회색
+            border_color = (110, 115, 130)
+            text_color = (200, 200, 210)
             label = "자동"
 
-        pygame.draw.rect(self.screen, bg, rect, border_radius=3)
-        pygame.draw.rect(self.screen, (80, 85, 95), rect, 1, border_radius=3)
+        pygame.draw.rect(self.screen, bg, rect, border_radius=4)
+        pygame.draw.rect(self.screen, border_color, rect, 1, border_radius=4)
 
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render(label, text_color)
