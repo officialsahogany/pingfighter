@@ -5,6 +5,7 @@ Oriental temple theme with traditional Chinese architecture and martial arts atm
 """
 
 import pygame
+import pygame.gfxdraw
 from pixel_font_manager import get_pixel_font_path
 import math
 import random
@@ -3884,7 +3885,7 @@ class ShaolinTempleBackground:
                 self.destruction_wave_charging = False
                 self.moon_pulse_active = False
                 self.moon_pulse_scale = 1.0
-            
+
             if self.destruction_timer >= 120:  # 2 seconds total
                 pass  # print(phase 4)
                 self.destruction_phase = 4
@@ -4177,66 +4178,42 @@ class ShaolinTempleBackground:
                            (int(ring['x'] - ring['radius']), 
                             int(ring['y'] - ring['radius'])))
         
-        # Draw beam particles for laser effect
+        # Draw beam particles for laser effect - gfxdraw 직접 렌더링 (Surface+rotate 제거)
         for beam in wave['beam_particles']:
             if beam['life'] > 0:
-                beam_surf = _get_pooled_surface(beam['length'] * 2, beam['width'] * 4)
-                
-                # Calculate beam opacity based on life
                 opacity = int(255 * (beam['life'] / 40))
-                
-                # Draw multiple layers for glow effect
+                bx, by = beam['x'], beam['y']
+                angle = beam['angle']
+                length = beam['length']
+                cos_a = math.cos(angle)
+                sin_a = math.sin(angle)
+                end_x = int(bx + cos_a * length)
+                end_y = int(by + sin_a * length)
+                ibx, iby = int(bx), int(by)
+
+                # 3 레이어를 직접 line으로 그리기 (rotate 불필요)
                 for layer in range(3):
                     layer_width = beam['width'] * (3 - layer)
-                    layer_opacity = opacity // (layer + 1)
-                    layer_color = (*beam['color'][:3], layer_opacity)
-                    
-                    # Draw beam line
-                    start_x = 0
-                    end_x = beam['length']
-                    center_y = beam_surf.get_height() // 2
-                    
-                    pygame.draw.line(beam_surf, layer_color,
-                                   (start_x, center_y),
-                                   (end_x, center_y),
-                                   layer_width)
-                
-                # Rotate and position beam
-                angle_degrees = math.degrees(beam['angle'])
-                rotated_beam = pygame.transform.rotate(beam_surf, -angle_degrees)
-                beam_rect = rotated_beam.get_rect(center=(beam['x'], beam['y']))
-                surface.blit(rotated_beam, beam_rect)
+                    layer_opacity = min(255, opacity // (layer + 1))
+                    r, g, b = beam['color'][:3]
+                    pygame.draw.line(surface, (r, g, b, layer_opacity),
+                                   (ibx, iby), (end_x, end_y), max(1, layer_width))
         
-        # Draw trail particles with enhanced effects
+        # Draw trail particles - gfxdraw 직접 렌더링 (Surface생성 + 3중루프 제거)
         for particle in wave['trail']:
             alpha = int(255 * (particle['life'] / 30))
             if alpha > 0 and particle['size'] > 0:
-                # Create glowing particle
-                particle_surf = _get_pooled_surface(particle['size'] * 4, particle['size'] * 4)
-                center = particle['size'] * 2
-                
-                # Draw multiple layers for glow
+                px = int(particle['x'])
+                py = int(particle['y'])
+                r, g, b = particle['color']
+
+                # 3레이어를 gfxdraw filled_circle로 대체 (8각형 폴리곤 → 원)
                 for layer in range(3):
-                    layer_size = particle['size'] * (3 - layer) / 2
-                    layer_alpha = alpha // (layer + 1)
-                    
-                    # Create irregular shape with more detail
-                    points = []
-                    num_points = 8
-                    for i in range(num_points):
-                        angle = (i * 2 * math.pi / num_points) + random.uniform(-0.3, 0.3)
-                        radius = layer_size * random.uniform(0.6, 1.2)
-                        x = center + radius * math.cos(angle)
-                        y = center + radius * math.sin(angle)
-                        points.append((x, y))
-                    
-                    if len(points) >= 3:
-                        color = (*particle['color'], layer_alpha)
-                        pygame.draw.polygon(particle_surf, color, points)
-                
-                surface.blit(particle_surf, 
-                           (int(particle['x'] - center), 
-                            int(particle['y'] - center)))
+                    layer_radius = max(1, int(particle['size'] * (3 - layer) / 2))
+                    layer_alpha = min(255, alpha // (layer + 1))
+                    if layer_alpha > 0:
+                        pygame.gfxdraw.filled_circle(surface, px, py, layer_radius,
+                                                     (r, g, b, layer_alpha))
         
         # Draw main wave core with enhanced destruction effect
         wave_size = int(wave['radius'] * 3)  # Larger surface for effects
@@ -5140,63 +5117,32 @@ class ShaolinTempleBackground:
                             int(lantern['y'] - surf_size // 2)))
     
     def _draw_ground_fires(self, surface: pygame.Surface):
-        """Draw fire effects on the ground"""
+        """Draw fire effects on the ground - gfxdraw 직접 렌더링 (Surface+중첩루프 제거)"""
         for fire in self.ground_fires:
             for particle in fire['particles']:
                 # Fire color gradient (yellow -> orange -> red)
                 if particle['color_phase'] < 0.3:
-                    color = (255, 255, 100)  # Yellow
+                    r, g, b = 255, 255, 100  # Yellow
                 elif particle['color_phase'] < 0.6:
-                    color = (255, 150, 50)   # Orange
+                    r, g, b = 255, 150, 50   # Orange
                 else:
-                    color = (255, 50, 50)     # Red
-                
-                # Add transparency based on life
-                alpha = int(200 * (particle['life'] / 40))
-                
-                # Create particle surface for flame shape
-                particle_surf = _get_pooled_surface(particle['size'] * 2, particle['size'] * 2)
+                    r, g, b = 255, 50, 50    # Red
 
-                # Create flame-like shape (teardrop pointing up)
-                center = particle['size']
-                flame_points = []
-                
-                # Create flame shape with pointed top and wider base
-                for i in range(8):
-                    angle = (i * 2 * math.pi / 8)
-                    if i == 0:  # Top point (flame tip)
-                        radius = particle['size'] * 1.3
-                        x = center + radius * math.cos(angle - math.pi/2)
-                        y = center + radius * math.sin(angle - math.pi/2)
-                    elif i <= 2 or i >= 6:  # Upper sides
-                        radius = particle['size'] * 0.7
-                        x = center + radius * math.cos(angle - math.pi/2)
-                        y = center + radius * math.sin(angle - math.pi/2)
-                    else:  # Base of flame (wider)
-                        radius = particle['size'] * 0.9
-                        x = center + radius * math.cos(angle - math.pi/2)
-                        y = center + radius * math.sin(angle - math.pi/2)
-                    flame_points.append((x, y))
-                
-                if len(flame_points) >= 3:
-                    pygame.draw.polygon(particle_surf, (*color, alpha), flame_points)
-                    # Add bright core
-                    core_color = tuple(min(255, c + 50) for c in color)
-                    core_size = max(1, particle['size'] // 3)
-                    if core_size > 0:
-                        core_points = []
-                        for i in range(4):
-                            angle = (i * 2 * math.pi / 4)
-                            radius = core_size
-                            x = center + radius * math.cos(angle - math.pi/2)
-                            y = center + radius * math.sin(angle - math.pi/2)
-                            core_points.append((x, y))
-                        if len(core_points) >= 3:
-                            pygame.draw.polygon(particle_surf, (*core_color, alpha), core_points)
-                
-                surface.blit(particle_surf,
-                           (int(particle['x'] - particle['size']),
-                            int(particle['y'] - particle['size'])))
+                alpha = int(200 * (particle['life'] / 40))
+                if alpha <= 0:
+                    continue
+
+                px = int(particle['x'])
+                py = int(particle['y'])
+                size = max(1, int(particle['size']))
+
+                # 화염 형상: 외곽 원 + 밝은 코어 원 (폴리곤 대신)
+                pygame.gfxdraw.filled_circle(surface, px, py, size, (r, g, b, alpha))
+                core_size = max(1, size // 3)
+                core_r = min(255, r + 50)
+                core_g = min(255, g + 50)
+                core_b = min(255, b + 50)
+                pygame.gfxdraw.filled_circle(surface, px, py, core_size, (core_r, core_g, core_b, alpha))
     
     def _draw_ruins(self, surface: pygame.Surface):
         """Draw the ruined temple after destruction"""
@@ -5723,10 +5669,13 @@ class ShaolinTempleBackground:
                         self._trail_surf_cache.clear()
 
                     if cache_key not in self._trail_surf_cache:
-                        trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                        trail_surf = _get_pooled_surface(trail_size * 2, trail_size * 2)
                         color = (*self.colors['fragment_trail'][:3], min(alpha, 150))
                         pygame.draw.circle(trail_surf, color, (trail_size, trail_size), trail_size)
-                        self._trail_surf_cache[cache_key] = trail_surf
+                        # 캐시에는 복사본 저장 (풀 Surface는 재사용되므로)
+                        cached = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                        cached.blit(trail_surf, (0, 0))
+                        self._trail_surf_cache[cache_key] = cached
 
                     surface.blit(self._trail_surf_cache[cache_key],
                                (int(trail_point[0] - trail_size),
