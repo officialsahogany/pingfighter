@@ -9773,6 +9773,12 @@ def _is_arena_manual_control_active() -> bool:
     return bool(_arena_inst and getattr(_arena_inst, 'manual_control_active', False))
 
 
+def _is_arena_manual_skill_input_active() -> bool:
+    """수동 모드에서 ON_BALL_HIT 스킬을 허용하는 입력 홀드 상태."""
+    _arena_inst = _get_active_arena_instance()
+    return bool(_arena_inst and getattr(_arena_inst, 'manual_skill_input_active', False))
+
+
 def _set_arena_manual_control_enabled(enabled: bool) -> bool:
     """투기장 자동/수동 토글 상태를 메인 루프와 함께 동기화."""
     _arena_inst = _get_active_arena_instance()
@@ -9783,6 +9789,8 @@ def _set_arena_manual_control_enabled(enabled: bool) -> bool:
     _arena_inst.manual_control_active = enabled
     _arena_inst.manual_move_left = False
     _arena_inst.manual_move_right = False
+    if hasattr(_arena_inst, 'manual_skill_input_active'):
+        _arena_inst.manual_skill_input_active = False
     if hasattr(_arena_inst, 'manual_skill_cooldown_order'):
         _arena_inst.manual_skill_cooldown_order = []
 
@@ -155364,7 +155372,10 @@ def handle_ball():
             pass
 
         # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
-        if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
+        _arena_manual_hit_skill_ready = (
+            not _is_arena_manual_control_active() or _is_arena_manual_skill_input_active()
+        )
+        if arena_mode_enabled and arena_skill_manager and arena_bottom_hero and _arena_manual_hit_skill_ready:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
                 class PaddleWrapper:
@@ -166073,7 +166084,8 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             main._arena_key_r_pressed = _k_r
-            # 수동 모드: ←→ / A/D 이동, ↓+←→ 또는 우클릭+←→ 대쉬, Space 스킬
+            # 수동 모드: ←→ / A/D 이동, ↓+←→ 또는 우클릭+←→ 대쉬,
+            # Space/좌클릭 탭 = ON_COOLDOWN, 홀드 = ON_BALL_HIT 대기
             try:
                 from downtown.colosseum_arena import ColosseumsArena as _CArena_mc
                 _arena_mc = getattr(_CArena_mc, '_active_instance', None)
@@ -166097,9 +166109,33 @@ def main(stage_num, new_boss_mode=False):
                         elif (_dash_mod_just and _manual_right) or (_dash_right_just and _manual_dash_modifier):
                             arena_trigger_bottom_hero_dash(1)
 
-                    # 스페이스바 → 스킬 발동
+                    _manual_mouse_left = pygame.mouse.get_pressed()[0]
                     _k_space = keys[pygame.K_SPACE]
-                    if _k_space and not getattr(main, '_arena_manual_space_pressed', False):
+                    _manual_skill_mouse_allowed = False
+                    if _manual_mouse_left and arena_capture_phase != "active":
+                        if not arena_speed_btn_rects:
+                            _update_arena_speed_btn_rects()
+                        _manual_mouse_pos = _original_mouse_get_pos()
+                        _manual_skill_mouse_allowed = True
+                        _mt_rect_skill = globals().get('_arena_manual_toggle_rect')
+                        if _mt_rect_skill and _mt_rect_skill.collidepoint(_manual_mouse_pos):
+                            _manual_skill_mouse_allowed = False
+                        if _manual_skill_mouse_allowed and _captured_guard_btn_rect and _captured_guard_btn_rect.collidepoint(_manual_mouse_pos):
+                            _manual_skill_mouse_allowed = False
+                        if _manual_skill_mouse_allowed:
+                            for _skill_ui_rect in arena_speed_btn_rects.values():
+                                if _skill_ui_rect.collidepoint(_manual_mouse_pos):
+                                    _manual_skill_mouse_allowed = False
+                                    break
+
+                    _manual_skill_input_active = _k_space or (_manual_mouse_left and _manual_skill_mouse_allowed)
+                    _arena_mc.manual_skill_input_active = _manual_skill_input_active
+
+                    _manual_skill_press = (
+                        (_k_space and not getattr(main, '_arena_manual_space_pressed', False))
+                        or (_manual_mouse_left and _manual_skill_mouse_allowed and not getattr(main, '_arena_mouse_pressed', False))
+                    )
+                    if _manual_skill_press:
                         if hasattr(_arena_mc, '_manual_try_use_skill'):
                             _arena_mc._manual_try_use_skill()
                     main._arena_manual_space_pressed = _k_space
