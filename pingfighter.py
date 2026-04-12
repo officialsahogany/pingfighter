@@ -78904,6 +78904,15 @@ def handle_player(keys):
                     _viper_nerve_strike_start_ms = _ns_now
                     _viper_ns_hit_confirmed = True
                     _viper_ns_freeze_active = True
+                    # 베놈 엣지 텍스트 사운드를 프리즈 진입 즉시 재생 (렌더링 의존 제거)
+                    try:
+                        _ve_show_snd = sound_effects.get('VIPER_SHOW')
+                        if _ve_show_snd:
+                            _ve_show_ch = play_sound_with_volume(_ve_show_snd, sfx_volume * 1.0)
+                            if _ve_show_ch is not None:
+                                _viper_nerve_strike_show_sound_played = True
+                    except Exception:
+                        pass
                     # 🪙 베놈 엣지 보스 명중 골드 보너스 (60골드)
                     try:
                         add_ingame_gold(60, BOSS.centerx, BOSS.centery - 20, source="skill")
@@ -112448,7 +112457,7 @@ def draw_objects():
                     _text_fade = max(0.0, 1.0 - max(0.0, _ns_st - 0.45) * 5.0)  # 0.45 이후 페이드아웃
                     _text_alpha = int(255 * min(_text_appear, _text_fade))
                     if _text_alpha > 10:
-                        # 텍스트 첫 출현 시 쇼 사운드 1회 재생
+                        # 사운드 fallback: 프리즈 진입 시 재생 실패한 경우 여기서 재시도
                         global _viper_nerve_strike_show_sound_played
                         if not _viper_nerve_strike_show_sound_played:
                             try:
