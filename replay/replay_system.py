@@ -5,7 +5,6 @@ Replay System v4 — 화면 캡처 기반 리플레이 (비동기 압축)
 """
 
 import pygame
-import pygame.surfarray
 import zlib
 import struct
 import pickle
@@ -22,13 +21,8 @@ _VERSION = 4
 _APP_NAME = "PingFighter"
 
 # 캡처 설정
-# NOTE: readback (pygame.image.tostring) 은 메인 스레드에서 동기 실행된다.
-#       따라서 캡처 소스는 display surface보다 내부 SCREEN surface가 훨씬 안전하다.
-#       기본값은 60fps를 유지하되 display backbuffer readback을 피하는 쪽에 맞춘다.
-#       - 캡처 빈도: 매 프레임 (60fps)
-#       - 캡처 소스: 내부 SCREEN surface
-CAPTURE_INTERVAL = 2    # 2프레임마다 1번 (30fps 캡처) — 퀄리티 거의 동일, 오버헤드 50% 감소
-SCALE_FACTOR = 1.0      # 캡처 surface 원본 해상도 유지
+CAPTURE_INTERVAL = 1    # 매 프레임 캡처 (60fps) — 비동기 압축으로 부담 없음
+SCALE_FACTOR = 1.0      # 원본 해상도 (100%) — 압축은 백그라운드에서 처리
 COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름)
 MAX_DURATION = 600      # 최대 10분
 MAX_REPLAYS = 10        # 최대 리플레이 파일 수 (초과 시 가장 오래된 파일 자동 삭제)
@@ -182,13 +176,12 @@ class ReplayRecorder:
             return
 
         try:
-            # 게임 루프에서 하는 일: surfarray로 픽셀 데이터 추출 (tostring보다 빠름)
+            # 게임 루프에서 하는 일: scale(필요시) + tostring만
             if SCALE_FACTOR < 1.0:
                 small = pygame.transform.scale(screen, (self.scaled_w, self.scaled_h))
-                # surfarray.pixels3d → transpose로 RGB 바이트 순서 맞춤 → tobytes
-                raw = pygame.surfarray.pixels3d(small).transpose(1, 0, 2).tobytes()
+                raw = pygame.image.tostring(small, 'RGB')
             else:
-                raw = pygame.surfarray.pixels3d(screen).transpose(1, 0, 2).tobytes()
+                raw = pygame.image.tostring(screen, 'RGB')
             # 큐에 넣기 (백그라운드 스레드가 압축+쓰기)
             self._queue.append(raw)
             self.captured_frames += 1

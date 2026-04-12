@@ -9141,8 +9141,6 @@ _REPLAY_CAPTURE_BOTTOM_PAD = 96
 _replay_capture_surface = None
 _replay_capture_surface_size = None
 _replay_capture_icon_cache = {}
-_replay_capture_last_result = None  # 합성 캐시: 마지막 결과 Surface
-_replay_capture_dirty = True  # 게이지/아이템 변경 시 True
 
 def _init_ui_overlay():
     """UI 오버레이 Surface 초기화"""
@@ -9655,17 +9653,13 @@ def _draw_replay_capture_active_item_slots(target_screen: pygame.Surface, layout
 
 
 def _compose_replay_capture_surface() -> pygame.Surface | None:
-    global _replay_capture_dirty, _replay_capture_last_result
     if SCREEN is None:
         return None
 
     capture_surface, layout = _get_replay_capture_surface()
-
-    # 게임 화면은 항상 변하므로 blit 필수
     capture_surface.fill((0, 0, 0))
     capture_surface.blit(SCREEN, (layout["game_x"], layout["game_y"]))
 
-    # 게이지/아이템 슬롯은 변경 시에만 업데이트 (매 프레임 blit 방지)
     if _is_ingame_active:
         if not arena_mode_enabled and _player_gauge_surface_left is not None:
             left_x = layout["game_x"] - _player_gauge_surface_left.get_width() - 25
