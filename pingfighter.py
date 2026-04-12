@@ -9853,56 +9853,148 @@ def _draw_pillar_ui(screen, renderer):
                 _mt_cx = _mt_w // 2
                 _mt_cy = _mt_h // 2
 
+                import math as _mt_math
+                _icon_s = max(5, int(18 * _mt_scale))
+
                 if _mt_is_manual:
-                    # 수동: 초록 배경 + 손 아이콘
+                    # ──── 고퀄리티 게임패드 아이콘 (수동 모드) ────
+                    # 배경 그라데이션 (진한 에메랄드)
                     for _gi in range(_mt_h):
-                        _gr = int(20 + 20 * (_gi / _mt_h))
-                        _gg = int(55 + 40 * (_gi / _mt_h))
-                        _gb = int(30 + 20 * (_gi / _mt_h))
+                        _gr = int(15 + 20 * (_gi / _mt_h))
+                        _gg = int(50 + 35 * (_gi / _mt_h))
+                        _gb = int(35 + 25 * (_gi / _mt_h))
                         pygame.draw.line(_mt_surf, (_gr, _gg, _gb, 255), (0, _gi), (_mt_w, _gi))
-                    # 손 모양 (간단한 형태)
-                    _hs = max(5, int(14 * _mt_scale))
-                    # 손바닥
-                    pygame.draw.circle(_mt_surf, (220, 230, 210, 255), (_mt_cx, _mt_cy + _hs // 4), _hs)
-                    # 손가락 5개
-                    _fw = max(2, int(3 * _mt_scale))
-                    _fl = max(4, int(8 * _mt_scale))
-                    for _fi, _fx_off in enumerate([-_hs + _fw, -_hs // 2, 0, _hs // 2, _hs - _fw]):
-                        _fy_off = -_fl if _fi != 0 else -_fl - 2
-                        if _fi == 4:  # 엄지
-                            pygame.draw.line(_mt_surf, (200, 210, 190, 255),
-                                           (_mt_cx + _fx_off, _mt_cy), (_mt_cx + _fx_off + _fw * 2, _mt_cy - _fl + 2), _fw)
-                        else:
-                            pygame.draw.line(_mt_surf, (200, 210, 190, 255),
-                                           (_mt_cx + _fx_off, _mt_cy - _hs // 3), (_mt_cx + _fx_off, _mt_cy + _fy_off - _hs // 3), _fw)
+
+                    # 게임패드 본체 (둥근 직사각형)
+                    _pw = int(_icon_s * 1.4)   # 패드 반너비
+                    _ph = int(_icon_s * 0.75)  # 패드 반높이
+                    _pad_body = [
+                        (_mt_cx - _pw, _mt_cy - _ph + int(_ph * 0.3)),
+                        (_mt_cx - int(_pw * 0.7), _mt_cy - _ph),
+                        (_mt_cx + int(_pw * 0.7), _mt_cy - _ph),
+                        (_mt_cx + _pw, _mt_cy - _ph + int(_ph * 0.3)),
+                        (_mt_cx + _pw, _mt_cy + int(_ph * 0.4)),
+                        (_mt_cx + int(_pw * 0.65), _mt_cy + _ph),
+                        (_mt_cx + int(_pw * 0.25), _mt_cy + int(_ph * 0.6)),
+                        (_mt_cx - int(_pw * 0.25), _mt_cy + int(_ph * 0.6)),
+                        (_mt_cx - int(_pw * 0.65), _mt_cy + _ph),
+                        (_mt_cx - _pw, _mt_cy + int(_ph * 0.4)),
+                    ]
+                    # 그림자
+                    _pad_shadow = [(px + 1, py + 1) for px, py in _pad_body]
+                    pygame.draw.polygon(_mt_surf, (5, 20, 10, 255), _pad_shadow)
+                    # 본체 (진한 회색-녹색)
+                    pygame.draw.polygon(_mt_surf, (55, 75, 65, 255), _pad_body)
+                    # 상단 하이라이트
+                    _pad_top = _pad_body[:4] + [(_mt_cx + _pw, _mt_cy - int(_ph * 0.2)),
+                                                (_mt_cx - _pw, _mt_cy - int(_ph * 0.2))]
+                    pygame.draw.polygon(_mt_surf, (75, 100, 85, 255), _pad_top)
+                    # 테두리
+                    pygame.draw.polygon(_mt_surf, (100, 180, 130, 255), _pad_body, max(1, int(1.5 * _mt_scale)))
+
+                    # 십자키 (좌측)
+                    _dx = _mt_cx - int(_pw * 0.45)
+                    _dy = _mt_cy - int(_ph * 0.15)
+                    _ds = max(2, int(3 * _mt_scale))
+                    _dl = max(3, int(5 * _mt_scale))
+                    pygame.draw.line(_mt_surf, (160, 220, 180, 255), (_dx - _dl, _dy), (_dx + _dl, _dy), _ds)
+                    pygame.draw.line(_mt_surf, (160, 220, 180, 255), (_dx, _dy - _dl), (_dx, _dy + _dl), _ds)
+                    # 십자키 중앙 점
+                    pygame.draw.circle(_mt_surf, (200, 255, 220, 255), (_dx, _dy), max(1, int(1 * _mt_scale)))
+
+                    # 버튼 4개 (우측, 다이아몬드 배치)
+                    _bx = _mt_cx + int(_pw * 0.45)
+                    _by = _mt_cy - int(_ph * 0.15)
+                    _br = max(2, int(2.5 * _mt_scale))
+                    _bd = max(3, int(4 * _mt_scale))
+                    _btn_colors = [(80, 200, 120, 255), (200, 80, 80, 255),
+                                   (80, 120, 200, 255), (200, 180, 60, 255)]
+                    _btn_offsets = [(0, -_bd), (_bd, 0), (0, _bd), (-_bd, 0)]
+                    for _bi, (_box, _boy) in enumerate(_btn_offsets):
+                        pygame.draw.circle(_mt_surf, _btn_colors[_bi], (_bx + _box, _by + _boy), _br)
+                        pygame.draw.circle(_mt_surf, (255, 255, 255, 120), (_bx + _box - 1, _by + _boy - 1), max(1, _br - 1))
+
+                    # 아날로그 스틱 (하단 양쪽)
+                    for _sx in [_mt_cx - int(_pw * 0.2), _mt_cx + int(_pw * 0.2)]:
+                        _sy = _mt_cy + int(_ph * 0.35)
+                        _sr = max(2, int(2.5 * _mt_scale))
+                        pygame.draw.circle(_mt_surf, (40, 55, 45, 255), (_sx, _sy), _sr + 1)
+                        pygame.draw.circle(_mt_surf, (90, 130, 105, 255), (_sx, _sy), _sr)
+                        pygame.draw.circle(_mt_surf, (130, 180, 150, 255), (_sx - 1, _sy - 1), max(1, _sr - 1))
+
                     _glow_c = [(60, 200, 120, 60), (80, 230, 140, 35)]
                     _border_c = (100, 220, 150, 255)
                     _inner_c = (80, 190, 120, 255)
                 else:
-                    # 자동: 회색 배경 + 톱니바퀴 아이콘
+                    # ──── 고퀄리티 톱니바퀴 아이콘 (자동 모드) ────
+                    # 배경 그라데이션 (진한 회청색)
                     for _gi in range(_mt_h):
-                        _gr = int(40 + 15 * (_gi / _mt_h))
-                        _gg = int(42 + 15 * (_gi / _mt_h))
-                        _gb = int(50 + 15 * (_gi / _mt_h))
+                        _gr = int(30 + 18 * (_gi / _mt_h))
+                        _gg = int(32 + 18 * (_gi / _mt_h))
+                        _gb = int(45 + 22 * (_gi / _mt_h))
                         pygame.draw.line(_mt_surf, (_gr, _gg, _gb, 255), (0, _gi), (_mt_w, _gi))
-                    # 톱니바퀴
-                    import math as _mt_math
-                    _gr_r = max(6, int(12 * _mt_scale))  # 외경
-                    _gr_ir = max(4, int(8 * _mt_scale))   # 내경
+
+                    # 대형 톱니바퀴 (메인)
+                    _gr_r = int(_icon_s * 1.0)   # 외경
+                    _gr_ir = int(_icon_s * 0.7)  # 내경
                     _teeth = 8
                     _gear_pts = []
                     for _ti in range(_teeth * 2):
-                        _angle = _mt_math.pi * 2 * _ti / (_teeth * 2)
+                        _angle = _mt_math.pi * 2 * _ti / (_teeth * 2) - _mt_math.pi / 16
                         _r = _gr_r if _ti % 2 == 0 else _gr_ir
                         _gear_pts.append((_mt_cx + int(_r * _mt_math.cos(_angle)),
                                          _mt_cy + int(_r * _mt_math.sin(_angle))))
-                    pygame.draw.polygon(_mt_surf, (160, 165, 180, 255), _gear_pts)
-                    pygame.draw.polygon(_mt_surf, (200, 205, 220, 255), _gear_pts, max(1, int(1 * _mt_scale)))
-                    pygame.draw.circle(_mt_surf, (50, 52, 60, 255), (_mt_cx, _mt_cy), max(3, int(4 * _mt_scale)))
-                    pygame.draw.circle(_mt_surf, (130, 135, 150, 255), (_mt_cx, _mt_cy), max(3, int(4 * _mt_scale)), 1)
-                    _glow_c = [(120, 120, 140, 50), (140, 140, 160, 30)]
-                    _border_c = (140, 145, 165, 255)
-                    _inner_c = (110, 115, 135, 255)
+                    # 그림자
+                    _gear_shadow = [(px + 1, py + 1) for px, py in _gear_pts]
+                    pygame.draw.polygon(_mt_surf, (15, 15, 25, 255), _gear_shadow)
+                    # 본체 (실버 그라데이션 효과)
+                    pygame.draw.polygon(_mt_surf, (140, 148, 165, 255), _gear_pts)
+                    # 상단 밝은면 (상반부만)
+                    _gear_top = [p for p in _gear_pts if p[1] <= _mt_cy]
+                    if len(_gear_top) >= 3:
+                        pygame.draw.polygon(_mt_surf, (170, 178, 195, 255), _gear_top)
+                    # 테두리 (밝은 메탈릭)
+                    pygame.draw.polygon(_mt_surf, (190, 200, 220, 255), _gear_pts, max(1, int(1.5 * _mt_scale)))
+
+                    # 내부 원형 홈
+                    _hole_r = int(_icon_s * 0.45)
+                    pygame.draw.circle(_mt_surf, (35, 38, 50, 255), (_mt_cx, _mt_cy), _hole_r)
+                    pygame.draw.circle(_mt_surf, (100, 108, 130, 255), (_mt_cx, _mt_cy), _hole_r, max(1, int(1 * _mt_scale)))
+                    # 내부 하이라이트 호
+                    pygame.draw.arc(_mt_surf, (150, 160, 185, 200),
+                                    (_mt_cx - _hole_r + 2, _mt_cy - _hole_r + 2, (_hole_r - 2) * 2, (_hole_r - 2) * 2),
+                                    _mt_math.pi * 0.8, _mt_math.pi * 1.6, max(1, int(1 * _mt_scale)))
+
+                    # 소형 톱니바퀴 (우하단, 맞물림)
+                    _sm_cx = _mt_cx + int(_icon_s * 0.75)
+                    _sm_cy = _mt_cy + int(_icon_s * 0.65)
+                    _sm_r = int(_icon_s * 0.5)
+                    _sm_ir = int(_icon_s * 0.35)
+                    _sm_teeth = 6
+                    _sm_pts = []
+                    for _ti in range(_sm_teeth * 2):
+                        _angle = _mt_math.pi * 2 * _ti / (_sm_teeth * 2) + _mt_math.pi / 12
+                        _r = _sm_r if _ti % 2 == 0 else _sm_ir
+                        _sm_pts.append((_sm_cx + int(_r * _mt_math.cos(_angle)),
+                                        _sm_cy + int(_r * _mt_math.sin(_angle))))
+                    _sm_shadow = [(px + 1, py + 1) for px, py in _sm_pts]
+                    pygame.draw.polygon(_mt_surf, (15, 15, 25, 255), _sm_shadow)
+                    pygame.draw.polygon(_mt_surf, (120, 128, 145, 255), _sm_pts)
+                    pygame.draw.polygon(_mt_surf, (175, 185, 205, 255), _sm_pts, max(1, int(1 * _mt_scale)))
+                    # 소형 내부 홈
+                    _sm_hole = max(2, int(_icon_s * 0.18))
+                    pygame.draw.circle(_mt_surf, (35, 38, 50, 255), (_sm_cx, _sm_cy), _sm_hole)
+                    pygame.draw.circle(_mt_surf, (90, 98, 120, 255), (_sm_cx, _sm_cy), _sm_hole, 1)
+
+                    # 중앙 볼트 (메인 기어)
+                    _bolt_r = max(2, int(2.5 * _mt_scale))
+                    pygame.draw.circle(_mt_surf, (80, 85, 100, 255), (_mt_cx, _mt_cy), _bolt_r)
+                    pygame.draw.circle(_mt_surf, (200, 210, 230, 255), (_mt_cx, _mt_cy), _bolt_r, 1)
+                    pygame.draw.circle(_mt_surf, (220, 230, 250, 255), (_mt_cx - 1, _mt_cy - 1), max(1, _bolt_r - 1))
+
+                    _glow_c = [(120, 130, 170, 50), (150, 160, 200, 30)]
+                    _border_c = (140, 150, 180, 255)
+                    _inner_c = (110, 120, 155, 255)
 
                 # 글로우
                 _mt_glow_pad = max(3, int(4 * _mt_scale))

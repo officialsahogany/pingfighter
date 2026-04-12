@@ -142,9 +142,22 @@ def draw_gradient_circle(surface, center, radius, color1, color2):
         color = blend_colors(color1, color2, ratio)
         pygame.draw.circle(surface, color, center, r)
 
+_glow_surface_pool: dict = {}
+
+def _get_glow_pooled_surface(w: int, h: int) -> pygame.Surface:
+    """글로우 이펙트용 Surface 풀"""
+    key = (w, h)
+    surf = _glow_surface_pool.get(key)
+    if surf is None:
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        _glow_surface_pool[key] = surf
+    else:
+        surf.fill((0, 0, 0, 0))
+    return surf
+
 def draw_glow_effect(surface, pos, radius, color, intensity=3):
-    """광채/글로우 효과 그리기
-    
+    """광채/글로우 효과 그리기 - Surface 풀 사용 (매 프레임 생성 제거)
+
     Args:
         surface: pygame.Surface 객체
         pos: 중심 좌표 (x, y)
@@ -153,25 +166,26 @@ def draw_glow_effect(surface, pos, radius, color, intensity=3):
         intensity: 광채 강도 (레이어 수)
     """
     glow_color = get_neon_color(color)
-    
+
     for i in range(intensity, 0, -1):
         # 반지름이 커질수록 투명도 증가
         alpha = 50 // i
         current_radius = radius + (i * 5)
-        
-        # 임시 서페이스에 그리기
-        temp_surface = pygame.Surface((current_radius * 2 + 10, current_radius * 2 + 10), pygame.SRCALPHA)
-        
+
+        # Surface 풀에서 가져오기
+        size = current_radius * 2 + 10
+        temp_surface = _get_glow_pooled_surface(size, size)
+
         # 알파값 적용된 색상
         color_with_alpha = (*glow_color[:3], alpha)
-        pygame.draw.circle(temp_surface, color_with_alpha, 
+        pygame.draw.circle(temp_surface, color_with_alpha,
                          (current_radius + 5, current_radius + 5), current_radius)
-        
+
         # 메인 서페이스에 블리팅
-        surface.blit(temp_surface, 
-                    (pos[0] - current_radius - 5, pos[1] - current_radius - 5), 
+        surface.blit(temp_surface,
+                    (pos[0] - current_radius - 5, pos[1] - current_radius - 5),
                     special_flags=pygame.BLEND_ADD)
-    
+
     # 중심 원 그리기
     pygame.draw.circle(surface, color, pos, radius)
 
