@@ -2893,8 +2893,8 @@ class PillarBackgroundRenderer:
             icon_w = self._quest_emblem_w
             icon_h = self._quest_emblem_h
 
-            # X: 우측 필러 중앙 정렬
-            base_x = right_x + (self.right_pillar_width - icon_w) // 2
+            # X: 보스 대쉬 구슬 아래 왼쪽 정렬 (필러 왼쪽 가장자리 쪽)
+            base_x = right_x + 4
             # Y: 보스 구슬 하단(~game_offset_y+140) 아래 + 광폭화 아이콘(68px) 여유
             base_y = self.game_offset_y + 230
 
