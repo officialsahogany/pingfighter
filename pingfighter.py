@@ -15842,13 +15842,17 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
     last_rally_gold = amount
 
     # HUD 이펙트: 축적량 추적
+    global _gold_hud_cooldown
     if _gold_hud_accum_timer <= 0:
         _gold_hud_accumulator = 0
     _gold_hud_accumulator += amount
     _gold_hud_accum_timer = _gold_hud_accum_window  # 윈도우 리셋
 
+    # 쿨다운 중이면 이펙트 트리거 스킵
+    if _gold_hud_cooldown > 0:
+        pass
     # 축적량 임계치 도달 시 이펙트 트리거 (트리거 후 accumulator 리셋)
-    if _gold_hud_accumulator >= 50 and _gold_hud_effect_tier != "epic":
+    elif _gold_hud_accumulator >= 50 and _gold_hud_effect_tier != "epic":
         _gold_hud_effect_tier = "epic"
         _gold_hud_effect_timer = 90  # 1.5초
         _gold_hud_accumulator = 0   # 리셋하여 연속 재트리거 방지
@@ -15908,11 +15912,13 @@ def update_ingame_gold_animations():
             ingame_gold_animations.remove(anim)
 
     # HUD 이펙트 타이머 업데이트
-    global _gold_hud_accum_timer, _gold_hud_effect_timer, _gold_hud_effect_tier, _gold_hud_accumulator, _gold_hud_effect_particles
+    global _gold_hud_accum_timer, _gold_hud_effect_timer, _gold_hud_effect_tier, _gold_hud_accumulator, _gold_hud_effect_particles, _gold_hud_cooldown
     if _gold_hud_accum_timer > 0:
         _gold_hud_accum_timer -= 1
         if _gold_hud_accum_timer <= 0:
             _gold_hud_accumulator = 0
+    if _gold_hud_cooldown > 0:
+        _gold_hud_cooldown -= 1
     if _gold_hud_effect_timer > 0:
         _gold_hud_effect_timer -= 1
         # 파티클 업데이트
@@ -15923,6 +15929,8 @@ def update_ingame_gold_animations():
         if _gold_hud_effect_timer <= 0:
             _gold_hud_effect_tier = "none"
             _gold_hud_effect_particles = []
+            _gold_hud_accumulator = 0
+            _gold_hud_cooldown = 180  # 이펙트 종료 후 3초 쿨다운 (재트리거 방지)
 
 
 def draw_ingame_gold_animations(screen):
@@ -16197,11 +16205,13 @@ def reset_ingame_gold():
     perk_gold_earned = 0
     quest_gold_earned = 0
     # HUD 이펙트 초기화
+    global _gold_hud_cooldown
     _gold_hud_accumulator = 0
     _gold_hud_accum_timer = 0
     _gold_hud_effect_timer = 0
     _gold_hud_effect_tier = "none"
     _gold_hud_effect_particles = []
+    _gold_hud_cooldown = 0
 
 
 def transfer_ingame_gold_to_downtown():
@@ -85245,6 +85255,7 @@ _gold_hud_accum_window = 90     # 1.5초 윈도우 (60fps)
 _gold_hud_effect_timer = 0      # HUD 이펙트 지속 타이머
 _gold_hud_effect_tier = "none"  # "none", "rare", "epic"
 _gold_hud_effect_particles = [] # HUD 주변 파티클
+_gold_hud_cooldown = 0          # 이펙트 종료 후 재트리거 방지 쿨다운
 
 # === 항목별 골드 추적 (정산 화면용) ===
 rally_gold_earned = 0  # 스테이지 동안 릴레이(공 주고받기)로 획득한 골드
