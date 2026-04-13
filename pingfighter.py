@@ -32727,12 +32727,12 @@ def sync_equipped_passive_effects():
                     mask_legendary = legendary_manager.get_item("horn_strawberry_mask")
                     if mask_legendary:
                         mask_legendary.enhancement_bonus_pct = 0
-                    # 뿔딸기 변신 상태 비활성화
+                    # 뿔딸기 변신 상태 비활성화 (_used_this_stage는 유지)
                     try:
                         from item_effects.horn_strawberry_mask import get_transform_state
                         ts = get_transform_state()
                         ts.active = False
-                        ts.reset()
+                        ts.deactivate()
                     except Exception:
                         pass
 

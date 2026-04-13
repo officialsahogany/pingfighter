@@ -291,13 +291,13 @@ class HornStrawberryTransformState:
             self._gauge_cost = TRANSFORM_GAUGE_COST  # 고정 500
             self._paddle_size_bonus = 0.0  # 없음
 
-    def reset(self):
-        """게임 종료/메뉴 복귀 시 완전 초기화"""
+    def deactivate(self):
+        """장착 해제 시 변신 상태만 해제 (_used_this_stage는 유지)"""
+        used = self._used_this_stage
         self.state = self.IDLE
         self.transform_timer = 0.0
         self.event_timer = 0.0
         self._eat_paddle_growth_bonus = 0.0
-        self._used_this_stage = False
         self.command_buffer.clear()
         self.command_timer = 0.0
         self.prev_keys.clear()
@@ -317,6 +317,12 @@ class HornStrawberryTransformState:
         self._tf_light_rays = []
         self._tf_flash_triggered = False
         self._tf_paddle_snapshot = None
+        self._used_this_stage = used  # 스테이지당 1회 제한 유지
+
+    def reset(self):
+        """게임 종료/메뉴 복귀 시 완전 초기화"""
+        self.deactivate()
+        self._used_this_stage = False
 
     @property
     def is_transformed(self):
