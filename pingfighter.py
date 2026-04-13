@@ -149861,6 +149861,10 @@ def reset_round(is_stage_start=False):
     nemesis_barrier_rainbow_cooldown = random.randint(NEMESIS_BARRIER_RAINBOW_COOLDOWN_MIN, NEMESIS_BARRIER_RAINBOW_COOLDOWN_MAX)
     nemesis_barrier_rainbow_hit = False
 
+    # 네메시스 보물상자 리셋
+    global nemesis_chest_active
+    nemesis_chest_active = False
+
     # 스테이지 6 (네메시스) 보조 보스 초기화
     global nemesis_sub_boss_x, nemesis_sub_boss_target_x, nemesis_sub_boss_move_timer
     global nemesis_sub_boss_skill_active, nemesis_sub_boss_skill_timer
@@ -163872,25 +163876,363 @@ def draw_nemesis_death_animation(screen):
             flash_surface.fill((255, 255, 255, flash_alpha))
             screen.blit(flash_surface, (0, 0))
 
-    # Phase 2: VICTORY 텍스트 (5초 정지 중에 표시)
-    if nemesis_death_phase == 2:
-        post_elapsed = elapsed - NEMESIS_DEATH_DURATION
-        if post_elapsed > 500:
-            try:
-                victory_alpha = min(255, int((post_elapsed - 500) / 500 * 255))
-                victory_font = pygame.font.Font(None, 90)
-                victory_text = victory_font.render("VICTORY", True, (255, 215, 0))
-                victory_text.set_alpha(victory_alpha)
-                text_rect = victory_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+    # Phase 2는 보물상자 드랍 페이즈로 전환됨 (VICTORY 텍스트 제거)
 
-                # 그림자 효과
-                shadow_text = victory_font.render("VICTORY", True, (100, 80, 0))
-                shadow_text.set_alpha(int(victory_alpha * 0.5))
-                shadow_rect = shadow_text.get_rect(center=(WIDTH // 2 + 3, HEIGHT // 2 + 3))
-                screen.blit(shadow_text, shadow_rect)
-                screen.blit(victory_text, text_rect)
+
+def spawn_nemesis_treasure_chest(boss_cx, boss_cy):
+    """네메시스 보스 폭발 후 보물상자 드랍"""
+    global nemesis_chest_active, nemesis_chest_x, nemesis_chest_y
+    global nemesis_chest_vy, nemesis_chest_landed, nemesis_chest_opened
+    global nemesis_chest_open_timer, nemesis_chest_glow_timer
+    global nemesis_chest_bounce_count, nemesis_chest_item_given
+    global nemesis_chest_result_delay, nemesis_chest_particles
+    global nemesis_chest_lid_angle
+
+    nemesis_chest_active = True
+    nemesis_chest_x = float(boss_cx)
+    nemesis_chest_y = float(boss_cy)
+    nemesis_chest_vy = -3.0  # 약간 위로 튀었다가 낙하
+    nemesis_chest_landed = False
+    nemesis_chest_opened = False
+    nemesis_chest_open_timer = 0
+    nemesis_chest_glow_timer = 0.0
+    nemesis_chest_bounce_count = 0
+    nemesis_chest_item_given = False
+    nemesis_chest_result_delay = 0
+    nemesis_chest_particles = []
+    nemesis_chest_lid_angle = 0.0
+
+    # 드랍 사운드
+    try:
+        play_sound_with_volume(SOUND_STAGE6_BEAM, sfx_volume * 0.3)
+    except Exception:
+        pass
+
+
+def update_nemesis_treasure_chest():
+    """네메시스 보물상자 업데이트 (매 프레임 호출)"""
+    global nemesis_chest_active, nemesis_chest_y, nemesis_chest_vy
+    global nemesis_chest_landed, nemesis_chest_opened, nemesis_chest_open_timer
+    global nemesis_chest_glow_timer, nemesis_chest_bounce_count
+    global nemesis_chest_item_given, nemesis_chest_result_delay
+    global nemesis_chest_particles, nemesis_chest_lid_angle
+
+    if not nemesis_chest_active:
+        return None  # 비활성
+
+    # === 낙하 물리 ===
+    if not nemesis_chest_landed:
+        nemesis_chest_vy += 0.25  # 중력
+        nemesis_chest_y += nemesis_chest_vy
+
+        # 착지 판정
+        if nemesis_chest_y >= NEMESIS_CHEST_LAND_Y:
+            nemesis_chest_y = NEMESIS_CHEST_LAND_Y
+            if nemesis_chest_bounce_count < 3:
+                nemesis_chest_vy = -nemesis_chest_vy * 0.4  # 바운스
+                nemesis_chest_bounce_count += 1
+                # 바운스 시 파티클
+                for _ in range(5):
+                    angle = random.uniform(0, math.pi)
+                    speed = random.uniform(1, 3)
+                    nemesis_chest_particles.append({
+                        'x': nemesis_chest_x, 'y': nemesis_chest_y + NEMESIS_CHEST_SIZE // 2,
+                        'vx': math.cos(angle) * speed * random.choice([-1, 1]),
+                        'vy': -math.sin(angle) * speed,
+                        'life': random.randint(15, 30),
+                        'size': random.randint(2, 4),
+                        'color': random.choice([(255, 215, 0), (200, 170, 50), (255, 180, 0)])
+                    })
+            else:
+                nemesis_chest_vy = 0
+                nemesis_chest_landed = True
+                # 착지 시 임팩트 이펙트
+                for _ in range(12):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(2, 5)
+                    nemesis_chest_particles.append({
+                        'x': nemesis_chest_x, 'y': nemesis_chest_y + NEMESIS_CHEST_SIZE // 2,
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - 2,
+                        'life': random.randint(20, 45),
+                        'size': random.randint(2, 5),
+                        'color': random.choice([(255, 215, 0), (255, 180, 0), (200, 150, 50), (255, 255, 200)])
+                    })
+
+    # === 글로우 타이머 업데이트 (착지 후) ===
+    if nemesis_chest_landed and not nemesis_chest_opened:
+        nemesis_chest_glow_timer += 0.05
+        # 착지 후 대기 중 반짝이는 파티클
+        if random.random() < 0.15:
+            offset_x = random.randint(-NEMESIS_CHEST_SIZE // 2, NEMESIS_CHEST_SIZE // 2)
+            offset_y = random.randint(-NEMESIS_CHEST_SIZE // 2, NEMESIS_CHEST_SIZE // 2)
+            nemesis_chest_particles.append({
+                'x': nemesis_chest_x + offset_x, 'y': nemesis_chest_y + offset_y,
+                'vx': random.uniform(-0.5, 0.5), 'vy': random.uniform(-1.5, -0.5),
+                'life': random.randint(20, 40),
+                'size': random.randint(1, 3),
+                'color': random.choice([(255, 215, 0), (255, 255, 150), (200, 180, 100)])
+            })
+
+    # === 대쉬 충돌 판정 (착지 후 & 아직 안 열렸을 때) ===
+    if nemesis_chest_landed and not nemesis_chest_opened:
+        if rolling_active and PLAYER:
+            chest_rect = pygame.Rect(
+                int(nemesis_chest_x - NEMESIS_CHEST_SIZE // 2),
+                int(nemesis_chest_y - NEMESIS_CHEST_SIZE // 2),
+                NEMESIS_CHEST_SIZE, NEMESIS_CHEST_SIZE
+            )
+            if PLAYER.colliderect(chest_rect):
+                nemesis_chest_opened = True
+                nemesis_chest_open_timer = 0
+                # 열림 사운드
+                try:
+                    play_sound_with_volume(SOUND_STAGE6_BEAM, sfx_volume * 0.7)
+                except Exception:
+                    pass
+                # 열림 시 대량 파티클
+                for _ in range(30):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(3, 8)
+                    nemesis_chest_particles.append({
+                        'x': nemesis_chest_x, 'y': nemesis_chest_y,
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - 2,
+                        'life': random.randint(30, 70),
+                        'size': random.randint(3, 7),
+                        'color': random.choice([
+                            (255, 215, 0), (255, 180, 0), (255, 255, 100),
+                            (200, 100, 255), (100, 200, 255), (255, 255, 255)
+                        ])
+                    })
+
+    # === 열림 애니메이션 + 아이템 지급 ===
+    if nemesis_chest_opened:
+        nemesis_chest_open_timer += 1
+        # 뚜껑 열림 애니메이션 (0~23프레임)
+        if nemesis_chest_lid_angle < 90:
+            nemesis_chest_lid_angle = min(90, nemesis_chest_lid_angle + 4)
+
+        # 아이템 지급 (열림 40프레임 후)
+        if nemesis_chest_open_timer == 40 and not nemesis_chest_item_given:
+            nemesis_chest_item_given = True
+            _give_nemesis_chest_reward()
+
+        # 아이템 지급 후 딜레이 → show_result
+        if nemesis_chest_item_given:
+            nemesis_chest_result_delay += 1
+            if nemesis_chest_result_delay >= 120:  # 2초 대기
+                nemesis_chest_active = False
+                return "show_result"  # show_result 호출 신호
+
+    # === 파티클 업데이트 ===
+    new_particles = []
+    for p in nemesis_chest_particles:
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+        p['vy'] += 0.08  # 약한 중력
+        p['life'] -= 1
+        if p['life'] > 0:
+            new_particles.append(p)
+    nemesis_chest_particles = new_particles
+
+    return None  # 진행 중
+
+
+def _give_nemesis_chest_reward():
+    """네메시스 보물상자에서 무작위 신화/전설 아이템 1개 지급"""
+    # 신화 + 전설 아이템 풀
+    mythical_legendary_pool = [
+        "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
+        "angel_blessing", "sacred_laurel", "transcendent_crown",
+        "odins_eye", "pandora_legacy", "megingjord",
+        "valhalla_warplate", "horn_strawberry_mask",
+        "elixir_of_mastery"  # 액티브 아이템 (엘릭서)
+    ]
+
+    selected_name = random.choice(mythical_legendary_pool)
+
+    # items.ITEM_TYPES에서 아이템 정보 찾기
+    item_info = None
+    for item_type in items.ITEM_TYPES:
+        if item_type["name"] == selected_name:
+            item_info = item_type
+            break
+
+    if not item_info:
+        return
+
+    # 아이템 데이터 구성
+    item_data = {
+        "name": selected_name,
+        "color": item_info.get("color", (255, 215, 0)),
+        "effect": item_info.get("effect", selected_name),
+        "icon": item_info.get("icon"),
+        "duration": item_info.get("duration", 600),
+        "x": int(nemesis_chest_x),
+        "y": int(nemesis_chest_y),
+    }
+
+    # 엘릭서 오브 마스터리는 액티브 아이템으로 처리
+    if selected_name == "elixir_of_mastery":
+        store_active_item(item_data)
+    else:
+        # 전설 아이템은 패시브로 처리
+        store_passive_item(item_data)
+
+    # 전설급 획득 애니메이션 트리거
+    try:
+        from effects.legendary_integration import trigger_legendary_acquisition
+        item_icon = get_item_icon(selected_name)
+        korean_names = {
+            "ragnarok_hammer": "라그나로크 해머",
+            "hermes_shoes": "헤르메스의 신발",
+            "poseidon_trident": "포세이돈의 삼지창",
+            "angel_blessing": "천사의 가호",
+            "sacred_laurel": "신성 월계수",
+            "transcendent_crown": "초월자의 관",
+            "odins_eye": "오딘의 눈",
+            "pandora_legacy": "판도라의 유산",
+            "megingjord": "메긴요르드",
+            "valhalla_warplate": "발할라 전투갑옷",
+            "horn_strawberry_mask": "뿔딸기 가면",
+            "elixir_of_mastery": "엘릭서 오브 마스터리",
+        }
+        korean_name = korean_names.get(selected_name, selected_name)
+        trigger_legendary_acquisition(
+            selected_name, korean_name, item_icon,
+            (int(nemesis_chest_x), int(nemesis_chest_y))
+        )
+    except Exception:
+        pass
+
+
+def draw_nemesis_treasure_chest(screen):
+    """네메시스 보물상자 그리기"""
+    if not nemesis_chest_active:
+        return
+
+    cx = int(nemesis_chest_x)
+    cy = int(nemesis_chest_y)
+    sz = NEMESIS_CHEST_SIZE
+    half = sz // 2
+
+    # === 착지 전/후 글로우 이펙트 ===
+    if nemesis_chest_landed and not nemesis_chest_opened:
+        glow_alpha = int(80 + 40 * math.sin(nemesis_chest_glow_timer * 3))
+        glow_radius = half + 10 + int(5 * math.sin(nemesis_chest_glow_timer * 2))
+        try:
+            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (255, 215, 0, glow_alpha),
+                             (glow_radius, glow_radius), glow_radius)
+            screen.blit(glow_surf, (cx - glow_radius, cy - glow_radius))
+        except Exception:
+            pass
+
+    if not nemesis_chest_opened:
+        # === 닫힌 보물상자 그리기 ===
+        # 본체 (갈색 나무 상자)
+        body_rect = pygame.Rect(cx - half, cy - half + 8, sz, sz - 8)
+        pygame.draw.rect(screen, (139, 90, 43), body_rect)  # 어두운 나무색
+        pygame.draw.rect(screen, (101, 67, 33), body_rect, 2)  # 테두리
+
+        # 나무 무늬 라인
+        for i in range(3):
+            line_y = body_rect.top + (i + 1) * (body_rect.height // 4)
+            pygame.draw.line(screen, (120, 75, 35), (body_rect.left + 3, line_y),
+                           (body_rect.right - 3, line_y), 1)
+
+        # 뚜껑 (위쪽)
+        lid_rect = pygame.Rect(cx - half, cy - half, sz, 16)
+        pygame.draw.rect(screen, (160, 105, 50), lid_rect)  # 밝은 나무색
+        pygame.draw.rect(screen, (101, 67, 33), lid_rect, 2)
+        # 뚜껑 아치 효과
+        pygame.draw.arc(screen, (180, 120, 60),
+                       (cx - half, cy - half - 4, sz, 20),
+                       0, math.pi, 3)
+
+        # 금속 장식 (가운데 잠금장치)
+        lock_rect = pygame.Rect(cx - 6, cy - half + 10, 12, 14)
+        pygame.draw.rect(screen, (255, 215, 0), lock_rect)  # 금색
+        pygame.draw.rect(screen, (200, 170, 0), lock_rect, 1)
+        # 열쇠 구멍
+        pygame.draw.circle(screen, (50, 30, 10), (cx, cy - half + 15), 3)
+        pygame.draw.line(screen, (50, 30, 10), (cx, cy - half + 17), (cx, cy - half + 22), 2)
+
+        # 금속 모서리 장식
+        corner_size = 6
+        for corner_x in [body_rect.left, body_rect.right - corner_size]:
+            for corner_y in [body_rect.top, body_rect.bottom - corner_size]:
+                pygame.draw.rect(screen, (200, 170, 50),
+                               (corner_x, corner_y, corner_size, corner_size))
+
+        # "DASH!" 텍스트 (착지 후)
+        if nemesis_chest_landed:
+            try:
+                hint_font = pygame.font.Font(None, 22)
+                hint_text = hint_font.render("DASH!", True, (255, 255, 200))
+                hint_alpha = int(150 + 100 * math.sin(nemesis_chest_glow_timer * 4))
+                hint_text.set_alpha(hint_alpha)
+                screen.blit(hint_text, (cx - hint_text.get_width() // 2,
+                                       cy + half + 8))
             except Exception:
                 pass
+
+    else:
+        # === 열린 보물상자 그리기 ===
+        # 본체 (그대로)
+        body_rect = pygame.Rect(cx - half, cy - half + 8, sz, sz - 8)
+        pygame.draw.rect(screen, (139, 90, 43), body_rect)
+        pygame.draw.rect(screen, (101, 67, 33), body_rect, 2)
+
+        # 내부 빛 (상자 안에서 빛이 나옴)
+        inner_glow_alpha = min(200, nemesis_chest_open_timer * 5)
+        try:
+            inner_surf = pygame.Surface((sz - 8, body_rect.height - 8), pygame.SRCALPHA)
+            inner_surf.fill((255, 235, 150, inner_glow_alpha))
+            screen.blit(inner_surf, (cx - half + 4, body_rect.top + 4))
+        except Exception:
+            pass
+
+        # 뚜껑 (열린 각도에 따라 위로)
+        lid_open_y = int(nemesis_chest_lid_angle / 90 * 20)  # 최대 20px 위로
+        lid_rect = pygame.Rect(cx - half, cy - half - lid_open_y, sz, 16)
+        pygame.draw.rect(screen, (160, 105, 50), lid_rect)
+        pygame.draw.rect(screen, (101, 67, 33), lid_rect, 2)
+
+        # 빛줄기 이펙트 (열린 후)
+        if nemesis_chest_open_timer > 10:
+            num_beams = 5
+            for i in range(num_beams):
+                beam_angle = -math.pi / 2 + (i - num_beams // 2) * 0.3
+                beam_len = 60 + nemesis_chest_open_timer * 0.5
+                end_x = cx + math.cos(beam_angle) * beam_len
+                end_y = cy - half + math.sin(beam_angle) * beam_len
+                try:
+                    beam_color = random.choice([(255, 215, 0), (255, 200, 100), (255, 255, 200)])
+                    pygame.draw.line(screen, beam_color, (cx, cy - half), (int(end_x), int(end_y)), 2)
+                except Exception:
+                    pass
+
+        # 금속 모서리 장식
+        corner_size = 6
+        for corner_x in [body_rect.left, body_rect.right - corner_size]:
+            for corner_y in [body_rect.top, body_rect.bottom - corner_size]:
+                pygame.draw.rect(screen, (200, 170, 50),
+                               (corner_x, corner_y, corner_size, corner_size))
+
+    # === 파티클 그리기 ===
+    for p in nemesis_chest_particles:
+        if p['life'] > 0:
+            alpha = min(255, p['life'] * 8)
+            try:
+                pygame.gfxdraw.filled_circle(screen, int(p['x']), int(p['y']),
+                                            p['size'], (*p['color'], alpha))
+            except Exception:
+                try:
+                    pygame.draw.circle(screen, p['color'], (int(p['x']), int(p['y'])), p['size'])
+                except Exception:
+                    pass
 
 
 def show_result(won):
@@ -167339,14 +167681,10 @@ def main(stage_num, new_boss_mode=False):
 
         # === 네메시스 패배 폭발 애니메이션 업데이트 (스테이지 6) ===
         if current_stage == 6 and nemesis_death_active:
-            animation_complete = update_nemesis_death_animation()
-            if animation_complete:
-                # 애니메이션 완료 → show_result 호출
-                show_result(True)
-                continue  # 이 프레임은 스킵
-            else:
-                # 애니메이션 진행 중 → 게임 로직 스킵, 그리기만 수행
-                # 이벤트 처리 (ESC 종료 등)
+            update_nemesis_death_animation()
+            # 폭발 애니메이션 진행 중 또는 보물상자 스폰 완료 → 그리기만 수행
+            if nemesis_death_active:
+                # 아직 폭발 중
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         pygame.quit()
@@ -167376,6 +167714,104 @@ def main(stage_num, new_boss_mode=False):
                 pygame.display.flip()
                 clock.tick(FPS)
                 continue  # 게임 로직 스킵
+            # else: 폭발 끝 + 보물상자 스폰됨 → 아래 chest 핸들링으로 진행
+
+        # === 네메시스 보물상자 페이즈 (스테이지 6) ===
+        if current_stage == 6 and nemesis_chest_active:
+            # 이벤트 처리 (플레이어 이동 + 대쉬)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+                # 대쉬 입력 (Space 또는 Z)
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_SPACE, pygame.K_z) and not rolling_active and rolling_stun_timer <= 0:
+                        keys_now = pygame.key.get_pressed()
+                        if keys_now[pygame.K_LEFT]:
+                            rolling_direction = -1
+                        elif keys_now[pygame.K_RIGHT]:
+                            rolling_direction = 1
+                        else:
+                            rolling_direction = 1  # 기본 오른쪽
+                        rolling_active = True
+                        rolling_timer = 10  # 대쉬 지속 프레임
+                        rolling_speed = 12  # 대쉬 속도
+                        try:
+                            play_dash_sound()
+                        except Exception:
+                            pass
+
+            # 플레이어 이동 (좌우 화살표)
+            if PLAYER and not rolling_active:
+                keys = pygame.key.get_pressed()
+                move_speed = 5
+                if keys[pygame.K_LEFT]:
+                    PLAYER.x = max(0, PLAYER.x - move_speed)
+                if keys[pygame.K_RIGHT]:
+                    PLAYER.x = min(WIDTH - PLAYER.width, PLAYER.x + move_speed)
+
+            # 대쉬(롤링) 물리 업데이트
+            if rolling_active:
+                if PLAYER:
+                    PLAYER.x += rolling_direction * rolling_speed
+                    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                rolling_timer -= 1
+                if rolling_timer <= 0:
+                    rolling_active = False
+                    rolling_stun_timer = 8  # 짧은 경직
+
+            if rolling_stun_timer > 0:
+                rolling_stun_timer -= 1
+
+            # 보물상자 업데이트
+            chest_result = update_nemesis_treasure_chest()
+            if chest_result == "show_result":
+                show_result(True)
+                continue
+
+            # === 그리기 ===
+            # 배경
+            if animated_bg_stage6 is not None:
+                animated_bg_stage6.update()
+                animated_bg_stage6.draw(SCREEN)
+            elif CURRENT_BG:
+                SCREEN.blit(CURRENT_BG, (0, 0))
+
+            # 필러 그리기
+            try:
+                _pillar_renderer = get_pillar_renderer()
+                if _pillar_renderer:
+                    _pillar_renderer.draw(SCREEN)
+            except Exception:
+                pass
+
+            # 플레이어 그리기
+            if PLAYER:
+                SCREEN.blit(PLAYER_IMG, PLAYER)
+
+            # 보물상자 그리기
+            draw_nemesis_treasure_chest(SCREEN)
+
+            # 점수판 그리기
+            draw_score()
+
+            # 전설 아이템 획득 이펙트 그리기
+            try:
+                from effects.legendary_integration import get_legendary_effect
+                _leg_effect = get_legendary_effect()
+                if _leg_effect and _leg_effect.active:
+                    _leg_effect.update(1/60)
+                    _leg_effect.draw(SCREEN)
+            except Exception:
+                pass
+
+            # 화면 업데이트
+            pygame.display.flip()
+            clock.tick(FPS)
+            continue  # 게임 로직 스킵
 
         # === 공 생성 애니메이션 업데이트 ===
         if penalty_kick_mode_enabled and current_stage == 33:
