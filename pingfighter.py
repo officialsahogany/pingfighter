@@ -35,11 +35,10 @@ if sys.platform == 'win32':
     except Exception as e:
         print(f"[Windows] DPI 설정 실패: {e}", flush=True)
 
-# Windows: 창모드 프레임드랍 방지 (노트북 내장/외장 GPU 전환 + VSync)
+# Windows: GPU 힌트 (VSync는 디스플레이 모드 확정 후 설정)
 if sys.platform == 'win32':
-    # SDL2 렌더러 힌트: Direct3D 사용 + VSync 활성화ㅂ
+    # SDL2 렌더러 힌트: Direct3D 사용
     os.environ.setdefault('SDL_RENDER_DRIVER', 'direct3d')
-    os.environ.setdefault('SDL_RENDER_VSYNC', '1')
     # NVIDIA Optimus: 고성능 GPU 선택 유도
     os.environ.setdefault('SHIM_MCCOMPAT', '0x800000001')
 
@@ -3466,6 +3465,8 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
         # Windows/Linux: 기본 FULLSCREEN
         _fullscreen_flags = pygame.FULLSCREEN
 
+    # 전체화면: SDL VSync 활성화 (exclusive fullscreen이므로 DWM 우회)
+    os.environ['SDL_RENDER_VSYNC'] = '1'
     # 전체화면 모드로 화면 생성
     REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), _fullscreen_flags)
 
@@ -3582,6 +3583,8 @@ else:
     _scaled_ok = False
     try:
         print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 시작... 합성={_comp_w}x{_comp_h} → 목표 {_init_target_w}x{_init_target_h}", flush=True)
+        # 창모드: SDL VSync 비활성화 (DWM이 이미 VSync 처리, 이중 대기 방지)
+        os.environ['SDL_RENDER_VSYNC'] = '0'
         pygame.display.quit()
         pygame.display.init()
         if _init_win_pos:
@@ -5577,14 +5580,14 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     # 해금된 메인 스킬 수에 따라 각도 배치 동적 조정
     num_unlocked = len(unlocked_main_skills)
 
-    # 최대 스킬 슬롯 수: 왼쪽 5개 + 오른쪽 1개 = 6개
-    MAX_LEFT_SLOTS = 5
+    # 최대 스킬 슬롯 수: 왼쪽 6개 + 오른쪽 1개 = 7개
+    MAX_LEFT_SLOTS = 6
     MAX_RIGHT_SLOTS = 1
 
     # 메인 스킬 각도 배치: 165도(왼쪽 아래)에서 시작하여 위로 차곡차곡 쌓임
-    # 30도 간격으로 위로 올라감: 165 -> 195 -> 225 -> 255 -> 285
+    # 25도 간격으로 위로 올라감: 165 -> 190 -> 215 -> 240 -> 265 -> 290
     base_angle = 165  # 시작 각도 (왼쪽 아래)
-    angle_step = 30   # 각도 간격
+    angle_step = 25   # 각도 간격 (6슬롯 수용을 위해 30 → 25)
     # 항상 MAX_LEFT_SLOTS개의 슬롯 위치 계산 (왼쪽)
     all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
 
@@ -11934,6 +11937,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
         _sw_scaled_ok = False
         try:
+            # 창모드: SDL VSync 비활성화 (DWM이 이미 VSync 처리, 이중 대기 방지)
+            os.environ['SDL_RENDER_VSYNC'] = '0'
             pygame.display.quit()
             pygame.display.init()
             if _win_pos:
@@ -12089,6 +12094,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
+        # 전체화면: SDL VSync 활성화 (exclusive fullscreen이므로 DWM 우회)
+        os.environ['SDL_RENDER_VSYNC'] = '1'
         # display 리셋 (SCALED 또는 다른 모드에서 전환 시 필요)
         pygame.display.quit()
         pygame.display.init()
@@ -12290,6 +12297,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             FULLSCREEN_WIDTH = display_info.current_w
             FULLSCREEN_HEIGHT = display_info.current_h
 
+        # 전체화면: SDL VSync 활성화 (exclusive fullscreen이므로 DWM 우회)
+        os.environ['SDL_RENDER_VSYNC'] = '1'
         # SCALED 모드에서 전환 시 display 리셋 필요
         if _use_scaled_mode:
             pygame.display.quit()
@@ -12377,6 +12386,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
+        # 보더리스 윈도우: SDL VSync 비활성화 (DWM이 이미 VSync 처리)
+        os.environ['SDL_RENDER_VSYNC'] = '0'
         # SCALED 모드에서 전환 시 display 리셋 필요 (플래그 해제 전에 체크)
         _was_scaled = _use_scaled_mode
         _use_scaled_mode = False
@@ -16478,9 +16489,14 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
 
     # 스매셔 전용 스킬 추가
     if character_type == "smasher":
+        _smasher_unlock_full = is_smasher_unlock_perks_full()
         for skill_id, skill_data in SMASHER_EXCLUSIVE_SKILLS.items():
             current_level = runtime_skill_levels.get(skill_id, 0)
             max_level = skill_data["max_level"]
+
+            # 해금 퍽 5개 제한: smasher_unlock 트리 퍽이 이미 최대치면 제외
+            if _smasher_unlock_full and skill_data.get("tree") == "smasher_unlock" and current_level < max_level:
+                continue
 
             if current_level < max_level:
                 next_level = current_level + 1
@@ -16756,6 +16772,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         return True
 
     if choice_id == "unlock_ghost_shot":
+        unlock_smasher_skill("ghost_shot")
         runtime_skill_levels["unlock_ghost_shot"] = 1
         # print("[RuntimeSkill] 고스트샷 스킬 해금!")
         return True
@@ -16921,6 +16938,11 @@ def recalculate_skill_effects(skill_id: str):
     elif skill_id == "unlock_cleanse":
         level = runtime_skill_levels.get("unlock_cleanse", 0)
         _smasher_skill_unlocked["cleanse"] = level >= 1
+
+    # 고스트샷 해금: 스매셔 스킬 해금 상태 동기화
+    elif skill_id == "unlock_ghost_shot":
+        level = runtime_skill_levels.get("unlock_ghost_shot", 0)
+        _smasher_skill_unlocked["ghost_shot"] = level >= 1
 
     # 바이퍼 스킬 해금 상태 동기화
     elif skill_id == "unlock_nerve_strike":
