@@ -17008,20 +17008,25 @@ def recalculate_skill_effects(skill_id: str):
         multiplier = get_effective_polish_multiplier()
         # print(f"[RuntimeSkill] 연마 레벨 변경 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")  # 디버그 비활성화
 
-    # 스매셔 스킬 해금 상태 동기화 (5구슬 슬롯 시스템)
-    elif skill_id == "unlock_plasma":
-        _smasher_skill_unlocked["plasma"] = runtime_skill_levels.get("unlock_plasma", 0) >= 1
-
-    elif skill_id == "unlock_recovery_skill":
-        _smasher_skill_unlocked["recovery"] = runtime_skill_levels.get("unlock_recovery_skill", 0) >= 1
-
-    elif skill_id == "unlock_cleanse":
-        _smasher_skill_unlocked["cleanse"] = runtime_skill_levels.get("unlock_cleanse", 0) >= 1
-
-    # 고스트샷 해금: 스매셔 스킬 해금 상태 동기화
-    elif skill_id == "unlock_ghost_shot":
-        level = runtime_skill_levels.get("unlock_ghost_shot", 0)
-        _smasher_skill_unlocked["ghost_shot"] = level >= 1
+    # 스매셔 스킬 해금 + 장착 동기화 (5구슬 슬롯 시스템)
+    elif skill_id in ("unlock_plasma", "unlock_recovery_skill", "unlock_cleanse", "unlock_ghost_shot"):
+        _recalc_unlock_map = {
+            "unlock_plasma": "plasma",
+            "unlock_recovery_skill": "recovery",
+            "unlock_cleanse": "cleanse",
+            "unlock_ghost_shot": "ghost_shot",
+        }
+        _skill_name = _recalc_unlock_map[skill_id]
+        _is_unlocked = runtime_skill_levels.get(skill_id, 0) >= 1
+        _smasher_skill_unlocked[_skill_name] = _is_unlocked
+        # 해금 시 장착도 시도 (F7 디버그 등 recalculate 경로 대응)
+        if _is_unlocked:
+            equip_smasher_skill(_skill_name)
+        else:
+            # 레벨 0으로 내려가면 장착 해제
+            global _smasher_equipped_skills
+            if _skill_name in _smasher_equipped_skills:
+                _smasher_equipped_skills.remove(_skill_name)
 
     # 바이퍼 스킬 해금 상태 동기화
     elif skill_id == "unlock_nerve_strike":
