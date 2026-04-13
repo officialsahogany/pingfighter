@@ -35,10 +35,11 @@ if sys.platform == 'win32':
     except Exception as e:
         print(f"[Windows] DPI 설정 실패: {e}", flush=True)
 
-# Windows: GPU 힌트 (VSync는 디스플레이 모드 확정 후 설정)
+# Windows: 창모드 프레임드랍 방지 (노트북 내장/외장 GPU 전환 + VSync)
 if sys.platform == 'win32':
-    # SDL2 렌더러 힌트: Direct3D 사용
+    # SDL2 렌더러 힌트: Direct3D 사용 + VSync 활성화
     os.environ.setdefault('SDL_RENDER_DRIVER', 'direct3d')
+    os.environ.setdefault('SDL_RENDER_VSYNC', '1')
     # NVIDIA Optimus: 고성능 GPU 선택 유도
     os.environ.setdefault('SHIM_MCCOMPAT', '0x800000001')
 
@@ -3485,8 +3486,6 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
         # Windows/Linux: 기본 FULLSCREEN
         _fullscreen_flags = pygame.FULLSCREEN
 
-    # 전체화면: SDL VSync 활성화 (exclusive fullscreen이므로 DWM 우회)
-    os.environ['SDL_RENDER_VSYNC'] = '1'
     # 전체화면 모드로 화면 생성
     REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), _fullscreen_flags)
 
@@ -3604,8 +3603,6 @@ else:
     _scaled_ok = False
     try:
         print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 시작... 합성={_comp_w}x{_comp_h} → 목표 {_init_target_w}x{_init_target_h}", flush=True)
-        # 창모드: SDL VSync 비활성화 (DWM이 이미 VSync 처리, 이중 대기 방지)
-        os.environ['SDL_RENDER_VSYNC'] = '0'
         pygame.display.quit()
         pygame.display.init()
         if _init_win_pos:
@@ -11997,8 +11994,6 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
         _sw_scaled_ok = False
         try:
-            # 창모드: SDL VSync 비활성화 (DWM이 이미 VSync 처리, 이중 대기 방지)
-            os.environ['SDL_RENDER_VSYNC'] = '0'
             pygame.display.quit()
             pygame.display.init()
             if _win_pos:
@@ -12154,8 +12149,6 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
-        # 전체화면: SDL VSync 활성화 (exclusive fullscreen이므로 DWM 우회)
-        os.environ['SDL_RENDER_VSYNC'] = '1'
         # display 리셋 (SCALED 또는 다른 모드에서 전환 시 필요)
         pygame.display.quit()
         pygame.display.init()
@@ -12357,8 +12350,6 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             FULLSCREEN_WIDTH = display_info.current_w
             FULLSCREEN_HEIGHT = display_info.current_h
 
-        # 전체화면: SDL VSync 활성화 (exclusive fullscreen이므로 DWM 우회)
-        os.environ['SDL_RENDER_VSYNC'] = '1'
         # SCALED 모드에서 전환 시 display 리셋 필요
         if _use_scaled_mode:
             pygame.display.quit()
@@ -12446,8 +12437,6 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
-        # 보더리스 윈도우: SDL VSync 비활성화 (DWM이 이미 VSync 처리)
-        os.environ['SDL_RENDER_VSYNC'] = '0'
         # SCALED 모드에서 전환 시 display 리셋 필요 (플래그 해제 전에 체크)
         _was_scaled = _use_scaled_mode
         _use_scaled_mode = False
