@@ -55246,14 +55246,10 @@ COTTON_BOMB_SLOW_MULTIPLIER = 0.5   # 이동속도 50%로 감소
 # === 유령 커브 (솜뭉치 폭탄 공 충돌 시 발동) ===
 cotton_bomb_ghost_curve_active = False
 cotton_bomb_ghost_curve_timer = 0
-COTTON_BOMB_GHOST_CURVE_DURATION = 90  # 1.5초간 유령 커브
+COTTON_BOMB_GHOST_CURVE_DURATION = 60  # 1초간 유령 커브 (너프: 1.5초→1초)
 cotton_bomb_ghost_curve_phase = 0.0     # 커브 위상
 cotton_bomb_ghost_curve_seed = 0.0      # 랜덤 시드 (패턴 다양화)
 cotton_bomb_ghost_curve_intensity = 1.0  # 커브 강도
-_ghost_curve_freeze_timer = 0            # 마이크로 프리즈 타이머
-_ghost_curve_saved_vel = None            # 프리즈 직전 속도 저장
-_ghost_curve_next_hard_turn = 0          # 다음 하드턴까지 프레임
-_ghost_curve_next_freeze = 0             # 다음 프리즈까지 프레임
 # 유령 커브 공 이펙트 (잔상 트레일)
 _ghost_curve_trail = []                  # [{x, y, alpha, size, offset_x, offset_y, phase}]
 _ghost_curve_flicker_timer = 0           # 깜빡임 타이머
@@ -91509,29 +91505,23 @@ def _explode_cotton_bomb(bomb):
 
 
 def _activate_ghost_curve():
-    """유령 커브 발동 — 폴터가이스트 물리법칙 무시 궤적 저주"""
+    """유령 커브 발동 — 부드러운 곡선 궤적 (너프: 프리즈/하드턴/반전 제거)"""
     global cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer
     global cotton_bomb_ghost_curve_phase, cotton_bomb_ghost_curve_seed
     global cotton_bomb_ghost_curve_intensity
-    global _ghost_curve_freeze_timer, _ghost_curve_saved_vel
-    global _ghost_curve_next_hard_turn, _ghost_curve_next_freeze
     global _ghost_curve_trail, _ghost_curve_flicker_timer
     _ghost_curve_trail.clear()
     _ghost_curve_flicker_timer = 0
     cotton_bomb_ghost_curve_active = True
     cotton_bomb_ghost_curve_timer = COTTON_BOMB_GHOST_CURVE_DURATION
     cotton_bomb_ghost_curve_phase = random.uniform(0, math.pi * 2)
-    cotton_bomb_ghost_curve_seed = random.uniform(0.7, 2.5)
+    cotton_bomb_ghost_curve_seed = random.uniform(0.8, 1.5)
     cotton_bomb_ghost_curve_intensity = 1.0
-    _ghost_curve_freeze_timer = 0
-    _ghost_curve_saved_vel = None
-    _ghost_curve_next_hard_turn = random.randint(20, 45)
-    _ghost_curve_next_freeze = random.randint(40, 70)
 
-    # ★ 발동 순간 즉시 큰 초기 꺾임 (드라마틱한 첫 충격)
+    # 발동 순간 가벼운 초기 꺾임 (너프: 0.8~1.5 → 0.25~0.45 라디안)
     speed = math.hypot(ball_vel[0], ball_vel[1])
     if speed > 0.5:
-        kick_angle = random.uniform(0.8, 1.5) * random.choice([-1, 1])
+        kick_angle = random.uniform(0.25, 0.45) * random.choice([-1, 1])
         cur_angle = math.atan2(ball_vel[1], ball_vel[0])
         new_angle = cur_angle + kick_angle
         ball_vel[0] = math.cos(new_angle) * speed
@@ -91539,11 +91529,9 @@ def _activate_ghost_curve():
 
 
 def update_ghost_curve():
-    """유령 커브 — 폴터가이스트: 하드턴 + 마이크로프리즈 + 속도펄스 + 방향반전"""
+    """유령 커브 — 부드러운 사인파 커브만 적용 (너프: 프리즈/하드턴/반전 전부 제거)"""
     global cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer
     global cotton_bomb_ghost_curve_phase, cotton_bomb_ghost_curve_intensity
-    global _ghost_curve_freeze_timer, _ghost_curve_saved_vel
-    global _ghost_curve_next_hard_turn, _ghost_curve_next_freeze
 
     if not cotton_bomb_ghost_curve_active:
         return
@@ -91558,87 +91546,38 @@ def update_ghost_curve():
     if speed < 0.5:
         return
 
-    # === 마이크로 프리즈: 허공에서 멈칫 → 랜덤 방향 급발진 ===
-    if _ghost_curve_freeze_timer > 0:
-        _ghost_curve_freeze_timer -= 1
-        if _ghost_curve_freeze_timer > 3:
-            # 정지 구간 (공 거의 멈춤, 에너지 축적 느낌)
-            ball_vel[0] *= 0.12
-            ball_vel[1] *= 0.12
-        elif _ghost_curve_freeze_timer == 3:
-            # 급발진! 저장 속도의 1.6배로 랜덤 방향 사출
-            if _ghost_curve_saved_vel:
-                burst_speed = math.hypot(*_ghost_curve_saved_vel) * 1.6
-                burst_angle = math.atan2(_ghost_curve_saved_vel[1], _ghost_curve_saved_vel[0])
-                burst_angle += random.uniform(-1.3, 1.3)
-                ball_vel[0] = math.cos(burst_angle) * burst_speed
-                ball_vel[1] = math.sin(burst_angle) * burst_speed
-                _ghost_curve_saved_vel = None
-        return
-
-    # 프리즈 스케줄 체크
-    _ghost_curve_next_freeze -= 1
-    if _ghost_curve_next_freeze <= 0 and t_ratio > 0.2:
-        _ghost_curve_freeze_timer = random.randint(6, 11)  # 0.1~0.18초 정지
-        _ghost_curve_saved_vel = [ball_vel[0], ball_vel[1]]
-        _ghost_curve_next_freeze = random.randint(35, 65)
-
-    cotton_bomb_ghost_curve_phase += 0.22 + cotton_bomb_ghost_curve_seed * 0.12
+    # 부드러운 위상 증가 (느린 속도로 자연스러운 커브)
+    cotton_bomb_ghost_curve_phase += 0.08 + cotton_bomb_ghost_curve_seed * 0.04
     phase = cotton_bomb_ghost_curve_phase
     seed = cotton_bomb_ghost_curve_seed
     cur_angle = math.atan2(ball_vel[1], ball_vel[0])
 
-    # === 하드 턴: 갑자기 예각(60~120도)으로 팍! 꺾임 ===
-    _ghost_curve_next_hard_turn -= 1
-    if _ghost_curve_next_hard_turn <= 0 and t_ratio > 0.15:
-        turn_angle = random.uniform(math.pi / 3, math.pi * 2 / 3) * random.choice([-1, 1])
-        new_angle = cur_angle + turn_angle
-        speed_mult = random.uniform(0.7, 1.4)  # 속도 불규칙 변동
-        ball_vel[0] = math.cos(new_angle) * speed * speed_mult
-        ball_vel[1] = math.sin(new_angle) * speed * speed_mult
-        _ghost_curve_next_hard_turn = random.randint(15, 40)
-        cur_angle = new_angle
+    # === 단일 저주파 사인파 — 부드럽고 유연한 커브 ===
+    wave = math.sin(phase * 0.5 * seed) * 1.2
 
-    # === 3중 사인파 합성 (기존 유지) ===
-    wave1 = math.sin(phase * 0.7 * seed) * 3.5
-    wave2 = math.sin(phase * 2.3 + seed * 5.0) * 2.5
-    wave3 = math.sin(phase * 4.1 + seed * 11.0) * 1.2
-
-    # 수직 힘 (커브)
-    perp_force = (wave1 + wave2 + wave3) * t_ratio * 0.35
-    # 접선 힘 (가감속) + 큐빅 이징 속도 펄스 (울컥거림)
-    tangent_wave = math.sin(phase * 1.1 + seed * 3.0) * 0.8
-    cubic_pulse = math.sin(phase * 3.7 + seed * 7.3) ** 3  # 급격한 속도 스파이크
-    tangent_force = (tangent_wave + cubic_pulse * 1.5) * t_ratio
+    # 수직 힘만 적용 (접선 힘/큐빅 펄스 제거 → 속도 변동 없음)
+    # fade-out 이징: t_ratio² 로 끝부분에서 자연스럽게 소멸
+    ease = t_ratio * t_ratio
+    perp_force = wave * ease * 0.18
 
     ball_vel[0] += math.cos(cur_angle + math.pi / 2) * perp_force
     ball_vel[1] += math.sin(cur_angle + math.pi / 2) * perp_force
-    ball_vel[0] += math.cos(cur_angle) * tangent_force
-    ball_vel[1] += math.sin(cur_angle) * tangent_force
-
-    # === 5% 확률 속도 컴포넌트 반전 (기이한 떨림/되튀김) ===
-    if random.random() < 0.05 * t_ratio:
-        if random.random() < 0.5:
-            ball_vel[0] = -ball_vel[0] * random.uniform(0.6, 1.0)
-        else:
-            ball_vel[1] = -ball_vel[1] * random.uniform(0.6, 1.0)
 
     # === 유령 잔상 트레일 업데이트 ===
     global _ghost_curve_trail, _ghost_curve_flicker_timer
     _ghost_curve_flicker_timer += 1
     if BALL:
-        # 매 프레임 잔상 파티클 생성 (2~3개씩)
-        for _ in range(random.randint(2, 3)):
-            _ghost_curve_trail.append({
-                "x": float(BALL.centerx) + random.uniform(-4, 4),
-                "y": float(BALL.centery) + random.uniform(-4, 4),
-                "alpha": 200,
-                "size": BALL_RADIUS + random.uniform(-2, 3),
-                "offset_x": random.uniform(-1.5, 1.5),
-                "offset_y": random.uniform(-1.5, 1.5),
-                "phase": random.uniform(0, math.pi * 2),
-                "distort": random.uniform(0.6, 1.4),
-            })
+        # 잔상 파티클 (너프: 2~3개 → 1개)
+        _ghost_curve_trail.append({
+            "x": float(BALL.centerx) + random.uniform(-3, 3),
+            "y": float(BALL.centery) + random.uniform(-3, 3),
+            "alpha": 150,
+            "size": BALL_RADIUS + random.uniform(-1, 2),
+            "offset_x": random.uniform(-0.8, 0.8),
+            "offset_y": random.uniform(-0.8, 0.8),
+            "phase": random.uniform(0, math.pi * 2),
+            "distort": random.uniform(0.8, 1.2),
+        })
     # 잔상 업데이트 및 제거
     for p in _ghost_curve_trail:
         p["x"] += p["offset_x"]
