@@ -14350,6 +14350,17 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "tree": "smasher_unlock",
         "character_restriction": "smasher"
     },
+    "unlock_ghost_shot": {
+        "name": "고스트샷 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "고스트샷 스킬 해금",
+        },
+        "detail": "파워스매싱 발동 시 '고스트샷' 모드로 전환됩니다. 공이 뱀처럼 구불거리는 예측불가 궤적으로 이동하며, 원한의 귀신들이 공을 따라다닙니다. 보스가 1회 방어하면 고스트샷이 종료됩니다.",
+        "icon_color": (120, 50, 180),
+        "tree": "smasher_unlock",
+        "character_restriction": "smasher"
+    },
 }
 
 # Optimus exclusive skills (dictionary format for runtime system)
@@ -16717,6 +16728,11 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         unlock_smasher_skill("cleanse")
         runtime_skill_levels["unlock_cleanse"] = 1
         # print("[RuntimeSkill] 클렌즈 스킬 해금!")
+        return True
+
+    if choice_id == "unlock_ghost_shot":
+        runtime_skill_levels["unlock_ghost_shot"] = 1
+        # print("[RuntimeSkill] 고스트샷 스킬 해금!")
         return True
 
     # 바이퍼 게이지 스킬 해금 처리
@@ -20009,6 +20025,42 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         wing = max(2, int(3 * scale))
         pygame.draw.line(surface, (255, 255, 255), (icon_cx - wing, atop + wing), (icon_cx, atop), lw_a)
         pygame.draw.line(surface, (255, 255, 255), (icon_cx + wing, atop + wing), (icon_cx, atop), lw_a)
+
+    elif skill_id == "unlock_ghost_shot":
+        # 귀신 얼굴 아이콘 — 둥근 머리 + 꼬리 + 눈
+        color = icon_color
+        lt = lighter
+        dk = darker
+        # 귀신 몸체 (반투명 보라색 타원)
+        ghost_w = max(6, int(12 * scale))
+        ghost_h = max(8, int(16 * scale))
+        ghost_surf = pygame.Surface((ghost_w * 2, ghost_h * 2), pygame.SRCALPHA)
+        # 머리 (둥근 상단)
+        pygame.draw.ellipse(ghost_surf, (*color, 200),
+                           (ghost_w // 2, 0, ghost_w, int(ghost_h * 1.2)))
+        # 꼬리 (물결 하단)
+        tail_y = int(ghost_h * 0.9)
+        for i in range(3):
+            tx = ghost_w // 2 + int(i * ghost_w / 3)
+            ty = tail_y + (int(3 * scale) if i % 2 == 0 else 0)
+            tw = max(2, int(ghost_w / 3))
+            pygame.draw.ellipse(ghost_surf, (*color, 180),
+                               (tx, ty, tw, max(3, int(5 * scale))))
+        # 눈 (빨간 점 두 개)
+        eye_y = int(ghost_h * 0.4)
+        eye_r = max(1, int(2 * scale))
+        pygame.draw.circle(ghost_surf, (255, 50, 50), (ghost_w - int(2 * scale), eye_y), eye_r)
+        pygame.draw.circle(ghost_surf, (255, 50, 50), (ghost_w + int(2 * scale), eye_y), eye_r)
+        # 눈 하이라이트
+        hl_r = max(1, int(1 * scale))
+        pygame.draw.circle(ghost_surf, (255, 200, 200), (ghost_w - int(2 * scale) - hl_r, eye_y - hl_r), hl_r)
+        pygame.draw.circle(ghost_surf, (255, 200, 200), (ghost_w + int(2 * scale) - hl_r, eye_y - hl_r), hl_r)
+        surface.blit(ghost_surf, (icon_cx - ghost_w, icon_cy - ghost_h))
+        # 오오라 (외곽 글로우)
+        aura_r = max(8, int(14 * scale))
+        aura_surf = pygame.Surface((aura_r * 2, aura_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(aura_surf, (*dk(color, 30), 40), (aura_r, aura_r), aura_r)
+        surface.blit(aura_surf, (icon_cx - aura_r, icon_cy - aura_r))
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
@@ -25801,9 +25853,9 @@ power_smashing_freeze_active = False    # 정지 상태 활성화 여부
 # 파워스매싱 이펙트
 power_smashing_trails = []  # 파워스매싱 잔상 [(x, y, alpha, size)]
 power_smashing_particles = []  # 파워스매싱 파티클 효과
-# 고스트샷 기능 제거됨 (사용하지 않음)
-mega_smashing_active = False  # 항상 False
-mega_smashing_bonus_applied = False  # 항상 False
+# 고스트샷 (unlock_ghost_shot 퍽 해금 시 파워스매싱과 연동)
+mega_smashing_active = False
+mega_smashing_bonus_applied = False
 mega_smashing_meteor_trail = []  # 사용하지 않음
 mega_smashing_start_time = 0  # 사용하지 않음
 mega_smashing_original_speed = 0.0  # 사용하지 않음
@@ -77475,8 +77527,8 @@ def handle_player(keys):
         # 대시 골드 보너스 활성화 (다음 랠리 2배)
         dash_gold_multiplier_active = True
         set_roll("rolling_direction", direction)
-        # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성
-        if is_ice_active():
+        # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (스매셔는 공중 부양이라 빙판 면역)
+        if is_ice_active() and selected_character_type != "smasher":
             create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, direction, is_player=True)
         # 🧊 얼음 이벤트: 대쉬 시작 시 기존 미끄러짐 상태 초기화
         global ice_dash_sliding, ice_dash_slide_speed
@@ -80505,8 +80557,8 @@ def handle_player(keys):
             PLAYER.x = new_x
 
         # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
-        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94)
-        if is_ice_active():
+        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94, 스매셔 면역)
+        if is_ice_active() and selected_character_type != "smasher":
             ice_decay = 0.94  # 빙판에서는 6%만 감속 → 더 길게 미끄러짐
         else:
             ice_decay = 0.85  # 일반: 15% 감속
@@ -80947,8 +80999,8 @@ def handle_player(keys):
                                     play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
                             poseidon_dash_pending = False  # 플래그 리셋
 
-                # 🧊 얼음 이벤트: 대쉬 종료 시 미끄러짐 시작 (끝까지 미끄러짐)
-                if is_ice_active() and not ice_dash_sliding:
+                # 🧊 얼음 이벤트: 대쉬 종료 시 미끄러짐 시작 (끝까지 미끄러짐, 스매셔 면역)
+                if is_ice_active() and not ice_dash_sliding and selected_character_type != "smasher":
                     # 이미 미끄러지는 중이 아닐 때만 새로 발동
                     dash_direction = _rolling_get("rolling_direction")
                     ice_dash_sliding = True
@@ -80989,8 +81041,8 @@ def handle_player(keys):
                 # 🧊 얼음 미끄러짐 중이면 대쉬 속도를 적용하지 않음
                 if ice_dash_sliding:
                     current_speed = 0
-                # 🧊 얼음 위에서 대쉬 중이고 감속 구간에 들어가면 즉시 미끄러짐으로 전환
-                elif is_ice_active() and rolling_timer_value <= 20:
+                # 🧊 얼음 위에서 대쉬 중이고 감속 구간에 들어가면 즉시 미끄러짐으로 전환 (스매셔 면역)
+                elif is_ice_active() and rolling_timer_value <= 20 and selected_character_type != "smasher":
                     # 감속 구간에 진입하면 바로 미끄러짐 시작 (감속 없이 미끄러짐으로 연결)
                     dash_direction = _rolling_get("rolling_direction")
                     ice_dash_sliding = True
@@ -82016,9 +82068,7 @@ def handle_player(keys):
                 if _charging_state["timer"] != 0 or _charging_state["index"] != -1:
                     _charging_state["timer"] = 0
                     _charging_state["index"] = -1
-            #  구르기 충전 - 대쉬 매니저에게 위임 (비활성화 - 고스트샷 버그 때문에)
-            # 대쉬 매니저와의 동기화를 일시적으로 비활성화
-            # TODO: 대쉬 매니저와 고스트샷 시스템 통합 필요
+            #  구르기 충전 - 대쉬 매니저에게 위임 (비활성화 - 대쉬 매니저 동기화 이슈)
             if False and dash is not None:
                 # 대쉬 매니저의 상태를 가져와서 레거시 시스템과 동기화
                 dash_tokens, dash_timer, dash_consecutive, dash_max = dash.get_legacy_sync_data()
@@ -82149,11 +82199,10 @@ def handle_player(keys):
                             half_dash_timer = 0
                             half_dash_token_cost = 0
                         else:
-                            # 저주 보물상자: 조작 반전 디버프 시 하프대쉬 방향도 반전
-                            _hd_left_alt = bool(keys[pygame.K_a]) or MOVE_EVENT_LEFT or is_move_left_pressed(keys)
-                            _hd_right_alt = bool(keys[pygame.K_d]) or MOVE_EVENT_RIGHT or is_move_right_pressed(keys)
-                            if curse_chest_reverse_timer > 0 and current_stage == 3:
-                                _hd_left_alt, _hd_right_alt = _hd_right_alt, _hd_left_alt
+                            # 저주 보물상자: left_pressed_raw/right_pressed_raw는
+                            # 이미 78131에서 올바르게 스왑됨 → 추가 반전 불필요
+                            _hd_left_alt = left_pressed_raw
+                            _hd_right_alt = right_pressed_raw
                             half_dash_state = {
                                 'special_gauge': special_gauge,
                                 'required_gauge': required_gauge,
@@ -82171,9 +82220,6 @@ def handle_player(keys):
                             }
 
                             half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(half_dash_state)
-                            # 저주 보물상자: 조작 반전 디버프 시 하프대쉬 방향 반전
-                            if curse_chest_reverse_timer > 0 and current_stage == 3 and half_dash_direction != 0:
-                                half_dash_direction = -half_dash_direction
 
                         if half_dash_activated:
                         # 하프 대쉬 발동
@@ -82474,8 +82520,8 @@ def handle_player(keys):
                                 _ld_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
                     except Exception:
                         pass
-                    # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성
-                    if is_ice_active():
+                    # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (스매셔 면역)
+                    if is_ice_active() and selected_character_type != "smasher":
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, -1, is_player=True)
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -82767,8 +82813,8 @@ def handle_player(keys):
                                 _rd_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
                     except Exception:
                         pass
-                    # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성
-                    if is_ice_active():
+                    # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (스매셔 면역)
+                    if is_ice_active() and selected_character_type != "smasher":
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, 1, is_player=True)
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -83286,8 +83332,8 @@ def handle_player(keys):
                             adjusted_acceleration = ACCELERATION * combined_speed_multiplier
                             adjusted_deceleration = DECELERATION * combined_speed_multiplier
 
-                            # 🧊 얼음 이벤트: 가속도 75% 감소 (미끄러워서 출발이 느림)
-                            if is_ice_active():
+                            # 🧊 얼음 이벤트: 가속도 75% 감소 (미끄러워서 출발이 느림, 스매셔 면역)
+                            if is_ice_active() and selected_character_type != "smasher":
                                 adjusted_acceleration *= get_ice_acceleration_multiplier()
                             if selected_character_type == "optimus" and not _hs_speed_active:
                                 adjusted_deceleration *= OPTIMUS_DECELERATION_MULT  # 감속을 2배 느리게
@@ -83358,9 +83404,9 @@ def handle_player(keys):
                             else:
                                 # 키를 떼었을 때 감속 적용 (무중력벨트가 없을 때만)
                                 if not gravitybelt_obtained:
-                                    # 🧊 얼음 이벤트: 미끄러워서 멈추기 어려움 (감속 95% 감소)
+                                    # 🧊 얼음 이벤트: 미끄러워서 멈추기 어려움 (감속 95% 감소, 스매셔 면역)
                                     ice_decel_multiplier = 1.0
-                                    if is_ice_active():
+                                    if is_ice_active() and selected_character_type != "smasher":
                                         ice_decel_multiplier = 0.05  # 5%만 감속 (95% 감소)
                                     if current_speed > 0:
                                         current_speed -= adjusted_deceleration * ice_decel_multiplier
@@ -83391,8 +83437,8 @@ def handle_player(keys):
             adjusted_instant_decel *= OPTIMUS_TURN_DECEL_MULT  # 전환속도 60% 감소
         if umbrella_guarding:
             adjusted_instant_decel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
-        # 🧊 얼음 이벤트: 방향전환 80% 감소 (미끄러워서 방향 바꾸기 어려움)
-        if is_ice_active():
+        # 🧊 얼음 이벤트: 방향전환 80% 감소 (미끄러워서 방향 바꾸기 어려움, 스매셔 면역)
+        if is_ice_active() and selected_character_type != "smasher":
             adjusted_instant_decel *= get_ice_direction_change_multiplier()
         # 좌/우 입력은 화살표와 A/D 모두 동일하게 인정해야 하므로
         # 위에서 병합해둔 left_pressed/right_pressed 상태를 사용한다.
@@ -149994,7 +150040,6 @@ def reset_round(is_stage_start=False):
     quantum_wave_function.clear()
     quantum_entanglement_pairs.clear()
     quantum_collapse_timer = 0
-    # 고스트샷 관련 코드 제거됨
     #  강화된 연타 방지 시스템 리셋
     drive_global_cooldown = 0
     last_space_press_time = 0
@@ -150217,7 +150262,6 @@ def choose_server(show_text=True):
     power_smashing_freeze_active = False
     power_smashing_freeze_start_time = 0
     smasher_pending_contact_offset = None
-    # 고스트샷 관련 코드 제거됨
     # 스테이지 6과 튜토리얼(스테이지 50)에서는 항상 플레이어가 먼저 서브
     # 단, 튜토리얼 대쉬 연습 모드에서는 보스가 서브
     if current_stage == 50:
@@ -151879,7 +151923,6 @@ def render_mega_smashing_effects():
             alpha = 30 - i * 5
             pygame.draw.circle(aura_surface, (50, 0, 70, alpha), (75, 75), 30 + i * 10)
         SCREEN.blit(aura_surface, (BALL.centerx - 75, BALL.centery - 75))
-    # 고스트샷 관련 코드 제거됨
 #  보스 패들 충돌 애니메이션 관련 변수
 boss_hit_animation_active = False
 boss_hit_animation_timer = 0
@@ -152581,8 +152624,6 @@ def handle_ball():
             flash_surface.set_alpha(100)
             SCREEN.blit(flash_surface, (0, 0))
             return
-    # 고스트샷 관련 코드 제거됨
-    
     # --- 양자 이펙트 업데이트 (고스트샷과 독립적으로 실행) ---
     update_quantum_effects()
     # --- 파워스매싱 포물선 궤적 이동 ---
@@ -152617,8 +152658,8 @@ def handle_ball():
                     power_smashing_initial_boost = False
                     # print(f"🎯 파워스매싱 부스트 종료! 최종속도: {interpolated_speed:.1f}")
         
-        # 파워스매싱만 처리 (고스트샷은 위에서 별도 처리)
-        if False:  # 고스트샷 로직 제거
+        # 고스트샷 퍽 해금 시 고스트샷 궤적 처리
+        if mega_smashing_active:
             #  고스트샷: 뱀처럼 구불거리고 예측불가능한 궤적
             # 패턴 선택 (시간에 따라 변화)
             pattern_phase = int(elapsed_time * 2) % 4  # 0.5초마다 패턴 변경
@@ -168012,7 +168053,7 @@ def main(stage_num, new_boss_mode=False):
                     and not is_yachaman_transformed()  # 💀 야차맨 변신 상태에서는 차단
                     and not is_horn_strawberry_skills_locked()  # 🍓 뿔딸기 변신 중 차단
                 ):  # 파워스매싱은 스매셔 전용
-                    # 파워스매싱 발동 (고스트샷 제거됨)
+                    # 파워스매싱 발동 (고스트샷 퍽 해금 시 고스트샷 모드)
                     global power_smashing_parabola_active
                     # 파워스매싱 방향 설정
                     global power_smashing_direction, power_smashing_start_time, power_smashing_arc_strength
@@ -168076,6 +168117,13 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_freeze_duration = 300  # 스매셔: 짧은 연출 프리즈 (문구 표시 후 스윙+발사)
                     else:
                         power_smashing_freeze_duration = 1000
+                    # 고스트샷 퍽 해금 시 고스트샷 모드 활성화
+                    if get_runtime_skill_level("unlock_ghost_shot") >= 1:
+                        mega_smashing_active = True
+                        mega_smashing_start_time = pygame.time.get_ticks()
+                        mega_smashing_boss_defense_count = 0
+                        mega_smashing_ghosts.clear()
+                        mega_smashing_ghost_scatter = False
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
                     if not mega_smashing_active:
                         special_active = True
