@@ -85084,6 +85084,9 @@ stage7_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 # 스테이지 8 닌자(황동/어둠) 테두리 효과
 stage8_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
 stage8_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
+# 스테이지 30 투기장(콜로세움) 테두리 효과
+stage30_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
+stage30_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 # 스테이지 2 정글 테두리 효과
 stage2_border_active = False  # 스테이지 2 테두리 활성화 상태
 stage2_border_timer = 0  # 테두리 애니메이션 타이머
@@ -144877,6 +144880,63 @@ def draw_stage8_border():
             SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
             stage8_border_flash_timer -= 1
 
+def draw_stage30_border():
+    """스테이지 30 투기장(콜로세움) 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
+    global stage30_border_flash_timer
+    if current_stage == 30:
+        border_thickness = 10
+        x_off = 0
+        game_w = WIDTH
+        # 콜로세움 테마 색상 (로마 석조/금 계열)
+        base_color = (100, 85, 65)  # 어두운 석조색 (베이스)
+        mid_color = (140, 120, 95)  # 중간 석조색
+        light_color = (180, 160, 130)  # 밝은 석조색
+        accent_color = (200, 160, 80)  # 금색 악센트
+
+        # 메인 테두리
+        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
+        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
+
+        # 내부 테두리 (석조 깊이감)
+        inner_thickness = 2
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
+                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
+
+        # 코너 장식 (석조 기둥 느낌)
+        corner_radius = 4
+        draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_radius)
+        draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
+        draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+        draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+
+        # 벽 충돌 시 깜빡임 효과 (석조 금빛 은은하게)
+        if stage30_border_flash_timer > 0:
+            flash_ratio = stage30_border_flash_timer / stage30_border_flash_duration
+            base_alpha = int(13 * flash_ratio)
+            bt = border_thickness
+            flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
+            grad_steps = max(2, bt)
+            for i in range(grad_steps):
+                t = 1.0 - (i / grad_steps)
+                a = int(base_alpha * t * t)
+                if a <= 0:
+                    break
+                c = (180, 140, 60, a)  # 석조 금빛 플래시
+                pygame.draw.rect(flash_surf, c, (0, i, game_w, 1))
+                pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
+                pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
+                pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
+            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            stage30_border_flash_timer -= 1
+
 def draw_stage2_jungle_border():
     """스테이지 2 정글 테두리 그리기"""
     global stage2_border_timer, stage2_border_flash_timer
@@ -148808,6 +148868,7 @@ def reset_round(is_stage_start=False):
     global stage6_border_flash_timer  # 스테이지 6 홍련(화염) 효과
     global stage7_border_flash_timer  # 스테이지 7 테트리서 효과
     global stage8_border_flash_timer  # 스테이지 8 닌자 효과
+    global stage30_border_flash_timer  # 스테이지 30 투기장 효과
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global smasher_pending_contact_offset
     global boss_special_gauge, displayed_boss_gauge, stage7_persistent_boss_gauge, current_stage  #  스테이지 보스 게이지 관리
@@ -149207,6 +149268,8 @@ def reset_round(is_stage_start=False):
     stage7_border_flash_timer = 0
     # 스테이지 8(닌자) 효과 초기화
     stage8_border_flash_timer = 0
+    # 스테이지 30(투기장) 효과 초기화
+    stage30_border_flash_timer = 0
     # 스테이지 2 효과 초기화
     stage2_border_flash_timer = 0
     stage2_leaves = []
@@ -151502,7 +151565,7 @@ def _process_wall_bounce(side: str) -> bool:
         True이면 무승부 판정으로 라운드 리셋됨 (호출자가 즉시 return 해야 함)
     """
     global ball_vel, wall_bounce_count, last_wall_hit, last_wall_collision_time
-    global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer, stage5_border_flash_timer, stage6_border_flash_timer, stage7_border_flash_timer, stage8_border_flash_timer
+    global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer, stage5_border_flash_timer, stage6_border_flash_timer, stage7_border_flash_timer, stage8_border_flash_timer, stage30_border_flash_timer
     global stage2_border_flash_timer, special_gauge
 
     # --- 반사 + 감속 ---
@@ -151586,6 +151649,10 @@ def _process_wall_bounce(side: str) -> bool:
     # --- 스테이지 8(닌자): 테두리 깜빡임 ---
     if current_stage == 8:
         stage8_border_flash_timer = stage8_border_flash_duration
+
+    # --- 스테이지 30(투기장): 테두리 깜빡임 ---
+    if current_stage == 30:
+        stage30_border_flash_timer = stage30_border_flash_duration
 
     # --- 스테이지 2: 정글 테두리 + 잎사귀 파티클 ---
     if current_stage == 2:
@@ -160807,16 +160874,17 @@ def handle_boss():
         if should_dash:
             arena_trigger_top_hero_dash(target_x)
 
-    # 🏟️ 투기장 하단 영웅 대쉬 처리 (AI)
-    if arena_mode_enabled and arena_bottom_hero and not _is_arena_manual_control_active():
-        # 대쉬 업데이트
+    # 🏟️ 투기장 하단 영웅 대쉬 처리
+    if arena_mode_enabled and arena_bottom_hero:
+        # 수동 모드에서도 충전/쿨다운/후딜/잔상 갱신은 계속 필요하다.
         if update_arena_bottom_hero_dash():
-            pass  # 대쉬/후딜 중에는 처리 완료
+            pass  # 대쉬/후딜 중에는 상태만 갱신
 
-        # 대쉬 발동 조건 체크 (보스와 동일한 조건: 공이 가까이 + 막지 못할 것 같을 때만)
-        should_dash, target_x = arena_should_bottom_hero_dash()
-        if should_dash:
-            arena_trigger_bottom_hero_dash_ai(target_x)
+        # 자동 대쉬 발동은 AI 조작일 때만 허용
+        if not _is_arena_manual_control_active():
+            should_dash, target_x = arena_should_bottom_hero_dash()
+            if should_dash:
+                arena_trigger_bottom_hero_dash_ai(target_x)
 
     # 라운드 시작 시 극정호신 텍스트는 1회만; 다음 라운드엔 숨김
     if is_waiting_for_serve:
@@ -164186,7 +164254,7 @@ def main(stage_num, new_boss_mode=False):
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
     global quest_small_paddle_active, quest_speedrun_active, quest_speedrun_start_ticks
     # 스테이지 2 정글 테두리 효과
-    global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer, stage5_border_flash_timer, stage6_border_flash_timer, stage7_border_flash_timer, stage8_border_flash_timer
+    global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer, stage5_border_flash_timer, stage6_border_flash_timer, stage7_border_flash_timer, stage8_border_flash_timer, stage30_border_flash_timer
     global stage2_border_active, stage2_border_timer, stage2_border_flash_timer
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
     
@@ -172721,6 +172789,8 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage7_border()
             elif current_stage == 8:
                 draw_stage8_border()
+            elif current_stage == 30:
+                draw_stage30_border()
             draw_objects()
             # 네메시스 패배 폭발 애니메이션 그리기 (스테이지 6)
             if current_stage == 6 and nemesis_death_active:
@@ -172846,6 +172916,8 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage7_border()
             elif current_stage == 8:
                 draw_stage8_border()
+            elif current_stage == 30:
+                draw_stage30_border()
             draw_objects()
             # 네메시스 패배 폭발 애니메이션 그리기 (스테이지 6)
             if current_stage == 6 and nemesis_death_active:
