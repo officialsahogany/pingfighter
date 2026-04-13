@@ -26129,6 +26129,8 @@ mega_smashing_ghost_scatter = False  # 사용하지 않음
 mega_smashing_ghost_scatter_time = 0  # 사용하지 않음
 mega_smashing_perf_tp_times = None  # 퍼포먼스 순간이동 타이밍 리스트
 mega_smashing_perf_tp_done = set()  # 이미 실행된 순간이동 인덱스
+# 블랙홀 순간이동 이펙트 리스트 [{x, y, start_time, type('in'/'out'), duration}]
+ghost_shot_blackhole_effects = []
 # ️ 양자역학 효과 변수
 quantum_balls = []  # 양자 상태 공들 [{x, y, vx, vy, alpha, phase, probability, collapsed}]
 quantum_explosion_active = False  # 양자 폭발 활성화 여부
@@ -120283,6 +120285,8 @@ def draw_objects():
     # 고스트샷 귀신 이펙트 렌더링
     if mega_smashing_active:
         render_mega_smashing_effects()
+    # 블랙홀 순간이동 이펙트 (고스트샷 종료 후에도 잔여 이펙트 렌더링)
+    render_ghost_shot_blackhole_effects()
 
     #  Stage 5 이벤트 배경 그리기 (공 아래에 그려질 문과 기계) - 공보다 먼저 그려야 함!
     if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == 5:
@@ -152111,6 +152115,109 @@ def update_quantum_effects():
         quantum_balls.clear()
         # print("-")
 
+def spawn_ghost_shot_blackhole(from_x, from_y, to_x, to_y):
+    """블랙홀 순간이동 이펙트 생성 (출발지: 빨려들어감, 도착지: 튀어나옴)"""
+    global ghost_shot_blackhole_effects
+    now = pygame.time.get_ticks()
+    ghost_shot_blackhole_effects.append({
+        'x': from_x, 'y': from_y, 'start_time': now,
+        'type': 'in', 'duration': 400  # 빨려들어감: 400ms
+    })
+    ghost_shot_blackhole_effects.append({
+        'x': to_x, 'y': to_y, 'start_time': now + 50,  # 살짝 딜레이
+        'type': 'out', 'duration': 500  # 튀어나옴: 500ms
+    })
+
+
+def render_ghost_shot_blackhole_effects():
+    """블랙홀 순간이동 이펙트 렌더링"""
+    global ghost_shot_blackhole_effects
+    if not ghost_shot_blackhole_effects:
+        return
+    current_time = pygame.time.get_ticks()
+    alive = []
+    for fx in ghost_shot_blackhole_effects:
+        elapsed = current_time - fx['start_time']
+        if elapsed < 0 or elapsed > fx['duration']:
+            continue
+        alive.append(fx)
+        progress = elapsed / fx['duration']  # 0.0 ~ 1.0
+        cx, cy = int(fx['x']), int(fx['y'])
+
+        if fx['type'] == 'in':
+            # === 빨려들어가는 블랙홀 ===
+            # 블랙홀 코어 (커졌다가 줄어듦)
+            core_r = int(25 * (1.0 - progress))
+            if core_r > 0:
+                # 외곽 왜곡 링 (보라색)
+                for ring_i in range(3):
+                    ring_r = core_r + int((15 - ring_i * 4) * (1.0 - progress))
+                    ring_alpha = int(80 * (1.0 - progress))
+                    ring_surf = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+                    pygame.draw.circle(ring_surf, (100, 30, 150, ring_alpha),
+                                     (ring_r + 2, ring_r + 2), ring_r, max(1, 2 - ring_i))
+                    SCREEN.blit(ring_surf, (cx - ring_r - 2, cy - ring_r - 2))
+                # 블랙홀 코어 (검은색)
+                core_surf = pygame.Surface((core_r * 2 + 4, core_r * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(core_surf, (10, 0, 20, int(220 * (1.0 - progress))),
+                                 (core_r + 2, core_r + 2), core_r)
+                SCREEN.blit(core_surf, (cx - core_r - 2, cy - core_r - 2))
+            # 빨려들어가는 파티클 (나선형으로 중심을 향해)
+            for pi in range(6):
+                p_angle = progress * math.pi * 4 + pi * (math.pi * 2 / 6)
+                p_dist = int(40 * (1.0 - progress))
+                px = cx + int(math.cos(p_angle) * p_dist)
+                py = cy + int(math.sin(p_angle) * p_dist)
+                p_alpha = int(200 * (1.0 - progress))
+                p_r = max(1, int(3 * (1.0 - progress)))
+                p_surf = pygame.Surface((p_r * 2 + 2, p_r * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(p_surf, (180, 100, 255, p_alpha), (p_r + 1, p_r + 1), p_r)
+                SCREEN.blit(p_surf, (px - p_r - 1, py - p_r - 1))
+
+        else:
+            # === 튀어나오는 블랙홀 ===
+            # 블랙홀 코어 (작았다가 커졌다가 사라짐)
+            if progress < 0.3:
+                # 열리는 단계
+                core_r = int(25 * (progress / 0.3))
+                core_alpha = int(220 * (progress / 0.3))
+            else:
+                # 사라지는 단계
+                fade = (progress - 0.3) / 0.7
+                core_r = int(25 * (1.0 - fade * 0.6))
+                core_alpha = int(220 * (1.0 - fade))
+            if core_r > 0 and core_alpha > 0:
+                # 외곽 충격파 링 (확장)
+                shock_r = int(15 + 35 * progress)
+                shock_alpha = int(120 * (1.0 - progress))
+                if shock_alpha > 0:
+                    shock_surf = pygame.Surface((shock_r * 2 + 4, shock_r * 2 + 4), pygame.SRCALPHA)
+                    pygame.draw.circle(shock_surf, (150, 80, 255, shock_alpha),
+                                     (shock_r + 2, shock_r + 2), shock_r, max(1, int(3 * (1.0 - progress))))
+                    SCREEN.blit(shock_surf, (cx - shock_r - 2, cy - shock_r - 2))
+                # 코어
+                core_surf = pygame.Surface((core_r * 2 + 4, core_r * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(core_surf, (10, 0, 20, core_alpha),
+                                 (core_r + 2, core_r + 2), core_r)
+                SCREEN.blit(core_surf, (cx - core_r - 2, cy - core_r - 2))
+            # 튀어나오는 파티클 (중심에서 바깥으로 퍼짐)
+            if progress > 0.1:
+                burst_progress = (progress - 0.1) / 0.9
+                for pi in range(8):
+                    p_angle = pi * (math.pi * 2 / 8) + progress * 1.5
+                    p_dist = int(50 * burst_progress)
+                    px = cx + int(math.cos(p_angle) * p_dist)
+                    py = cy + int(math.sin(p_angle) * p_dist)
+                    p_alpha = int(200 * (1.0 - burst_progress))
+                    p_r = max(1, int(3 * (1.0 - burst_progress * 0.5)))
+                    if p_alpha > 0:
+                        p_surf = pygame.Surface((p_r * 2 + 2, p_r * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(p_surf, (200, 130, 255, p_alpha), (p_r + 1, p_r + 1), p_r)
+                        SCREEN.blit(p_surf, (px - p_r - 1, py - p_r - 1))
+
+    ghost_shot_blackhole_effects = alive
+
+
 def render_mega_smashing_effects():
     """고스트샷 전용 이펙트 렌더링 - 원한의 귀신들"""
     global mega_smashing_ghosts, mega_smashing_ghost_scatter, mega_smashing_ghost_scatter_time
@@ -152967,10 +153074,14 @@ def handle_ball():
                 for tp_idx, tp_time in enumerate(mega_smashing_perf_tp_times):
                     if tp_idx not in mega_smashing_perf_tp_done and phase2_time >= tp_time:
                         mega_smashing_perf_tp_done.add(tp_idx)
+                        # 출발 좌표 기억
+                        from_x, from_y = BALL.centerx, BALL.centery
                         # 랜덤 위치로 순간이동 (공은 계속 이동)
                         tp_rng = random.Random(mega_smashing_start_time + tp_idx * 3571)
                         BALL.centerx = tp_rng.randint(30, WIDTH - 30)
                         BALL.centery = tp_rng.randint(180, HEIGHT // 2 + 80)
+                        # 블랙홀 이펙트 생성
+                        spawn_ghost_shot_blackhole(from_x, from_y, BALL.centerx, BALL.centery)
 
                 # 시드 기반 목표 좌표 생성
                 seed_rng = random.Random(mega_smashing_start_time + interval_index * 7919)
@@ -153014,12 +153125,16 @@ def handle_ball():
                 # === Phase 3: 순간이동 + 보스 반대편으로 발사 (각도 보정으로 막을 여지 있음) ===
                 boss_cx = BOSS.centerx if 'BOSS' in dir() else WIDTH // 2
                 rng = power_smashing_rng or random
+                # 출발 좌표 기억
+                from_x, from_y = BALL.centerx, BALL.centery
                 # 순간이동: 보스에서 250~400px 떨어진 곳 (충분히 멀리)
                 offset_x = rng.choice([-1, 1]) * rng.randint(250, 400)
                 teleport_x = max(BALL_RADIUS, min(WIDTH - BALL_RADIUS, boss_cx + offset_x))
                 teleport_y = 200 + rng.randint(0, 60)  # 보스에서 충분히 떨어진 Y (200~260)
                 BALL.centerx = teleport_x
                 BALL.centery = teleport_y
+                # 블랙홀 이펙트 생성
+                spawn_ghost_shot_blackhole(from_x, from_y, teleport_x, teleport_y)
                 # 기본 방향: 위쪽 직선(-90도)에서 ±40도 보정
                 # 0도 = 보스가 없는 쪽, ±40도 = 보스 쪽으로 갈 수도 있음
                 base_angle = -math.pi / 2  # 위쪽 직선 (= -90도)
