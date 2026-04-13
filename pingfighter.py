@@ -9850,49 +9850,54 @@ def _try_arena_manual_bottom_skill_use() -> bool:
         return False
 
     _skills = _skill_mgr.active_skills.get(_hero_id, [])
-    _usable = [s for s in _skills if s.can_use() and getattr(s, 'trigger', None) == SkillTrigger.ON_COOLDOWN]
-    if not _usable:
-        return False
-
-    _ordered_skill_ids = []
-    _manual_order = getattr(_arena_inst, 'manual_skill_cooldown_order', []) if _arena_inst else []
-    for _skill_id in _manual_order:
-        if any(s.skill_id == _skill_id for s in _usable):
-            _ordered_skill_ids.append(_skill_id)
-    for _skill in _usable:
-        if _skill.skill_id not in _ordered_skill_ids:
-            _ordered_skill_ids.append(_skill.skill_id)
-
-    class PaddleWrapper:
-        def __init__(self, rect, is_top):
-            self.x = rect.x
-            self.y = rect.y
-            self.width = rect.width
-            self.height = rect.height
-            self.centerx = rect.centerx
-            self.centery = rect.centery
-            self.is_top = is_top
-
-    class BallWrapper:
-        def __init__(self, rect, vel):
-            self.x = rect.x
-            self.y = rect.y
-            self.width = rect.width
-            self.height = rect.height
-            self.centerx = rect.centerx
-            self.centery = rect.centery
-            self.vx = vel[0]
-            self.vy = vel[1]
-
-    _bottom_wrapper = PaddleWrapper(_player, False)
-    _top_wrapper = PaddleWrapper(_boss, True)
-    _ball_wrapper = BallWrapper(_ball, _ball_vel)
+    _manual_override_states = {}
+    for _skill in _skills:
+        _manual_override_states[id(_skill)] = getattr(_skill, '_manual_override', False)
+        setattr(_skill, '_manual_override', True)
 
     _result = None
     _used_skill_id = None
-    _prev_manual_override = _skill_mgr.game_state.get('manual_skill_override', False)
-    _skill_mgr.game_state['manual_skill_override'] = True
     try:
+        _usable = [s for s in _skills if s.can_use() and getattr(s, 'trigger', None) == SkillTrigger.ON_COOLDOWN]
+        if not _usable:
+            return False
+
+        _ordered_skill_ids = []
+        _manual_order = getattr(_arena_inst, 'manual_skill_cooldown_order', []) if _arena_inst else []
+        for _skill_id in _manual_order:
+            if any(s.skill_id == _skill_id for s in _usable):
+                _ordered_skill_ids.append(_skill_id)
+        for _skill in _usable:
+            if _skill.skill_id not in _ordered_skill_ids:
+                _ordered_skill_ids.append(_skill.skill_id)
+
+        class PaddleWrapper:
+            def __init__(self, rect, is_top):
+                self.x = rect.x
+                self.y = rect.y
+                self.width = rect.width
+                self.height = rect.height
+                self.centerx = rect.centerx
+                self.centery = rect.centery
+                self.is_top = is_top
+
+        class BallWrapper:
+            def __init__(self, rect, vel):
+                self.x = rect.x
+                self.y = rect.y
+                self.width = rect.width
+                self.height = rect.height
+                self.centerx = rect.centerx
+                self.centery = rect.centery
+                self.vx = vel[0]
+                self.vy = vel[1]
+
+        _bottom_wrapper = PaddleWrapper(_player, False)
+        _top_wrapper = PaddleWrapper(_boss, True)
+        _ball_wrapper = BallWrapper(_ball, _ball_vel)
+
+        _prev_manual_override = _skill_mgr.game_state.get('manual_skill_override', False)
+        _skill_mgr.game_state['manual_skill_override'] = True
         for _skill_id in _ordered_skill_ids:
             _result = _skill_mgr.try_use_skill_by_id(
                 _hero_id,
@@ -9905,7 +9910,15 @@ def _try_arena_manual_bottom_skill_use() -> bool:
                 _used_skill_id = _skill_id
                 break
     finally:
-        _skill_mgr.game_state['manual_skill_override'] = _prev_manual_override
+        try:
+            _skill_mgr.game_state['manual_skill_override'] = _prev_manual_override
+        except Exception:
+            pass
+        for _skill in _skills:
+            try:
+                setattr(_skill, '_manual_override', _manual_override_states.get(id(_skill), False))
+            except Exception:
+                pass
 
     if not _result:
         return False
@@ -144592,70 +144605,121 @@ def show_stage8_boss_dialogue():
 _stage1_border_cache = None  # 스테이지 1 한국 전통 테두리 캐시
 
 def _generate_stage1_border_cache():
-    """스테이지 1 한국 전통(단청) 테두리를 캐시 Surface에 프리렌더링"""
+    """스테이지 1 한국 전통(단청) 테두리를 캐시 Surface에 프리렌더링 — 고급 버전"""
     surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     bt = 10  # border_thickness
     gw = WIDTH
+    gh = HEIGHT
 
-    # 단청 색상
-    WOOD_DARK = (51, 25, 15)        # 어두운 나무색 (베이스)
-    DANCHEONG_RED = (160, 50, 40)   # 단청 빨강
-    DANCHEONG_GREEN = (40, 110, 70) # 단청 초록
-    DANCHEONG_BLUE = (45, 70, 140)  # 단청 파랑
-    GOLD = (180, 140, 50)           # 금색
-    GOLD_DIM = (120, 90, 30)        # 어두운 금색
+    # ── 단청 색상 팔레트 (전통 오방색 기반) ──
+    WOOD_DEEP = (35, 18, 8)         # 깊은 옻칠색
+    WOOD_DARK = (55, 28, 14)        # 어두운 나무색
+    WOOD_MID = (75, 42, 22)         # 중간 나무색
+    DC_RED = (175, 45, 35)          # 단청 적색 (주작)
+    DC_RED_DK = (120, 30, 25)       # 어두운 적색
+    DC_GREEN = (35, 115, 65)        # 단청 녹색 (청룡)
+    DC_GREEN_DK = (25, 80, 45)      # 어두운 녹색
+    DC_BLUE = (40, 65, 145)         # 단청 청색
+    DC_BLUE_DK = (30, 45, 100)      # 어두운 청색
+    DC_YELLOW = (200, 165, 55)      # 단청 황색 (중앙)
+    GOLD = (190, 150, 55)           # 금박색
+    GOLD_DIM = (130, 100, 35)       # 어두운 금색
+    GOLD_BRIGHT = (220, 185, 80)    # 밝은 금색 (하이라이트)
+    WHITE_SOFT = (230, 220, 200)    # 부드러운 백색 (백호)
 
-    # 메인 테두리 (나무색 베이스)
-    pygame.draw.rect(surf, WOOD_DARK, (0, 0, gw, bt))
-    pygame.draw.rect(surf, WOOD_DARK, (0, HEIGHT - bt, gw, bt))
-    pygame.draw.rect(surf, WOOD_DARK, (0, 0, bt, HEIGHT))
-    pygame.draw.rect(surf, WOOD_DARK, (gw - bt, 0, bt, HEIGHT))
+    # ── 1. 베이스 테두리 (3단 레이어 — 옻칠 깊이감) ──
+    # 바깥 어두운 레이어
+    pygame.draw.rect(surf, WOOD_DEEP, (0, 0, gw, bt))
+    pygame.draw.rect(surf, WOOD_DEEP, (0, gh - bt, gw, bt))
+    pygame.draw.rect(surf, WOOD_DEEP, (0, 0, bt, gh))
+    pygame.draw.rect(surf, WOOD_DEEP, (gw - bt, 0, bt, gh))
+    # 중간 레이어 (1px 안쪽)
+    pygame.draw.rect(surf, WOOD_DARK, (1, 1, gw - 2, bt - 2))
+    pygame.draw.rect(surf, WOOD_DARK, (1, gh - bt + 1, gw - 2, bt - 2))
+    pygame.draw.rect(surf, WOOD_DARK, (1, 1, bt - 2, gh - 2))
+    pygame.draw.rect(surf, WOOD_DARK, (gw - bt + 1, 1, bt - 2, gh - 2))
+    # 안쪽 밝은 레이어 (2px 안쪽)
+    pygame.draw.rect(surf, WOOD_MID, (2, 2, gw - 4, bt - 4))
+    pygame.draw.rect(surf, WOOD_MID, (2, gh - bt + 2, gw - 4, bt - 4))
+    pygame.draw.rect(surf, WOOD_MID, (2, 2, bt - 4, gh - 4))
+    pygame.draw.rect(surf, WOOD_MID, (gw - bt + 2, 2, bt - 4, gh - 4))
 
-    # 내부 금색 테두리선
-    inner = 2
-    pygame.draw.rect(surf, GOLD_DIM, (bt - inner, bt - inner, gw - 2*(bt - inner), inner))
-    pygame.draw.rect(surf, GOLD_DIM, (bt - inner, HEIGHT - bt, gw - 2*(bt - inner), inner))
-    pygame.draw.rect(surf, GOLD_DIM, (bt - inner, bt - inner, inner, HEIGHT - 2*(bt - inner)))
-    pygame.draw.rect(surf, GOLD_DIM, (gw - bt, bt - inner, inner, HEIGHT - 2*(bt - inner)))
+    # ── 2. 외곽 금박 테두리선 (바깥쪽 1px) ──
+    pygame.draw.rect(surf, GOLD_DIM, (0, 0, gw, 1))
+    pygame.draw.rect(surf, GOLD_DIM, (0, gh - 1, gw, 1))
+    pygame.draw.rect(surf, GOLD_DIM, (0, 0, 1, gh))
+    pygame.draw.rect(surf, GOLD_DIM, (gw - 1, 0, 1, gh))
 
-    # 단청 뇌문(雷紋) 패턴 — 상하좌우 테두리에 반복
-    pattern_spacing = 24
-    dancheong_colors = [DANCHEONG_RED, DANCHEONG_GREEN, DANCHEONG_BLUE]
-    # 상단/하단 뇌문
-    for i in range(pattern_spacing // 2, gw - pattern_spacing // 2, pattern_spacing):
-        color = dancheong_colors[(i // pattern_spacing) % 3]
-        cx, cy = i, bt // 2
+    # ── 3. 내부 금박 테두리선 (안쪽 경계) ──
+    pygame.draw.rect(surf, GOLD, (bt - 1, bt - 1, gw - 2*(bt - 1), 1))
+    pygame.draw.rect(surf, GOLD, (bt - 1, gh - bt, gw - 2*(bt - 1), 1))
+    pygame.draw.rect(surf, GOLD, (bt - 1, bt - 1, 1, gh - 2*(bt - 1)))
+    pygame.draw.rect(surf, GOLD, (gw - bt, bt - 1, 1, gh - 2*(bt - 1)))
+
+    # ── 4. 연속 뇌문(雷紋) 띠 — 이중 ㄱ자 패턴 (상하좌우) ──
+    sp = 16  # 뇌문 간격 (촘촘하게)
+    mid_y_top = bt // 2
+    mid_y_bot = gh - bt // 2
+    mid_x_left = bt // 2
+    mid_x_right = gw - bt // 2
+
+    def draw_double_thunder(sx, sy, color, color_dk, horizontal=True):
+        """이중 뇌문 — 밝은 색 위에 어두운 색으로 입체감"""
         s = 3
-        # ㄱ자 뇌문 패턴
-        pygame.draw.line(surf, color, (cx - s, cy - s), (cx + s, cy - s), 1)
-        pygame.draw.line(surf, color, (cx + s, cy - s), (cx + s, cy), 1)
-        pygame.draw.line(surf, color, (cx + s, cy), (cx - s, cy), 1)
-        pygame.draw.line(surf, color, (cx - s, cy), (cx - s, cy + s), 1)
-        # 하단
-        cy2 = HEIGHT - bt // 2
-        pygame.draw.line(surf, color, (cx - s, cy2 - s), (cx + s, cy2 - s), 1)
-        pygame.draw.line(surf, color, (cx + s, cy2 - s), (cx + s, cy2), 1)
-        pygame.draw.line(surf, color, (cx + s, cy2), (cx - s, cy2), 1)
-        pygame.draw.line(surf, color, (cx - s, cy2), (cx - s, cy2 + s), 1)
+        if horizontal:
+            # 메인 뇌문 (밝은색)
+            pygame.draw.line(surf, color, (sx - s, sy - s), (sx + s, sy - s), 1)
+            pygame.draw.line(surf, color, (sx + s, sy - s), (sx + s, sy + 1), 1)
+            pygame.draw.line(surf, color, (sx + s, sy), (sx - s + 1, sy), 1)
+            pygame.draw.line(surf, color, (sx - s + 1, sy), (sx - s + 1, sy + s), 1)
+            # 그림자 (어두운색, 1px 오프셋)
+            pygame.draw.line(surf, color_dk, (sx - s + 1, sy - s + 1), (sx + s - 1, sy - s + 1), 1)
+        else:
+            pygame.draw.line(surf, color, (sx - s, sy - s), (sx - s, sy + s), 1)
+            pygame.draw.line(surf, color, (sx - s, sy + s), (sx + 1, sy + s), 1)
+            pygame.draw.line(surf, color, (sx, sy + s), (sx, sy - s + 1), 1)
+            pygame.draw.line(surf, color, (sx, sy - s + 1), (sx + s, sy - s + 1), 1)
+            pygame.draw.line(surf, color_dk, (sx - s + 1, sy - s + 1), (sx - s + 1, sy + s - 1), 1)
 
-    # 좌측/우측 뇌문
-    for i in range(pattern_spacing // 2, HEIGHT - pattern_spacing // 2, pattern_spacing):
-        color = dancheong_colors[(i // pattern_spacing) % 3]
-        cx_l, cx_r, cy = bt // 2, gw - bt // 2, i
-        s = 3
-        for cx in [cx_l, cx_r]:
-            pygame.draw.line(surf, color, (cx - s, cy - s), (cx + s, cy - s), 1)
-            pygame.draw.line(surf, color, (cx + s, cy - s), (cx + s, cy), 1)
-            pygame.draw.line(surf, color, (cx + s, cy), (cx - s, cy), 1)
-            pygame.draw.line(surf, color, (cx - s, cy), (cx - s, cy + s), 1)
+    color_pairs = [(DC_RED, DC_RED_DK), (DC_GREEN, DC_GREEN_DK), (DC_BLUE, DC_BLUE_DK)]
 
-    # 코너 장식 — 태극 동전 (빨강+파랑 원 + 금색 테두리)
+    # 상단/하단
+    idx = 0
+    for x in range(sp // 2, gw - sp // 2, sp):
+        c, cd = color_pairs[idx % 3]
+        draw_double_thunder(x, mid_y_top, c, cd, horizontal=True)
+        draw_double_thunder(x, mid_y_bot, c, cd, horizontal=True)
+        # 뇌문 사이 금색 점 장식
+        if idx % 3 == 2 and x + sp < gw:
+            pygame.draw.rect(surf, GOLD_BRIGHT, (x + sp // 2 - 1, mid_y_top - 1, 2, 2))
+            pygame.draw.rect(surf, GOLD_BRIGHT, (x + sp // 2 - 1, mid_y_bot - 1, 2, 2))
+        idx += 1
+
+    # 좌측/우측
+    idx = 0
+    for y in range(sp // 2, gh - sp // 2, sp):
+        c, cd = color_pairs[idx % 3]
+        draw_double_thunder(mid_x_left, y, c, cd, horizontal=False)
+        draw_double_thunder(mid_x_right, y, c, cd, horizontal=False)
+        if idx % 3 == 2 and y + sp < gh:
+            pygame.draw.rect(surf, GOLD_BRIGHT, (mid_x_left - 1, y + sp // 2 - 1, 2, 2))
+            pygame.draw.rect(surf, GOLD_BRIGHT, (mid_x_right - 1, y + sp // 2 - 1, 2, 2))
+        idx += 1
+
+    # ── 5. 코너 꽃문양 (연꽃/모란 스타일 8방 대칭) ──
     corner_pts = [(bt // 2, bt // 2), (gw - bt // 2, bt // 2),
-                  (bt // 2, HEIGHT - bt // 2), (gw - bt // 2, HEIGHT - bt // 2)]
+                  (bt // 2, gh - bt // 2), (gw - bt // 2, gh - bt // 2)]
     for cx, cy in corner_pts:
-        pygame.draw.circle(surf, GOLD, (cx, cy), 5, 1)
-        pygame.draw.circle(surf, DANCHEONG_RED, (cx, cy - 1), 2)
-        pygame.draw.circle(surf, DANCHEONG_BLUE, (cx, cy + 1), 2)
+        # 금색 외곽 원
+        pygame.draw.circle(surf, GOLD_BRIGHT, (cx, cy), 5, 1)
+        # 내부 적황 꽃잎 (4방)
+        for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+            pygame.draw.rect(surf, DC_RED, (cx + dx, cy + dy, 1, 1))
+        # 대각 꽃잎 (4방)
+        for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            pygame.draw.rect(surf, DC_YELLOW, (cx + dx, cy + dy, 1, 1))
+        # 중심점 금색
+        pygame.draw.rect(surf, GOLD_BRIGHT, (cx, cy, 1, 1))
 
     return surf
 
