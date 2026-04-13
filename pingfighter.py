@@ -276,8 +276,11 @@ def _detect_largest_monitor():
             info.cbSize = ctypes.sizeof(MONITORINFOEX)
             user32.GetMonitorInfoW(hMonitor, ctypes.byref(info))
             r = info.rcMonitor
+            wr = info.rcWork
             virt_w = r.right - r.left
             virt_h = r.bottom - r.top
+            work_virt_w = wr.right - wr.left
+            work_virt_h = wr.bottom - wr.top
 
             # EnumDisplaySettingsW로 물리적(실제) 해상도 가져오기
             devmode = DEVMODE()
@@ -293,6 +296,8 @@ def _detect_largest_monitor():
                 'x': r.left, 'y': r.top,       # 가상 좌표 (창 배치용)
                 'w': phys_w, 'h': phys_h,       # 물리적 해상도 (크기 계산용)
                 'vw': virt_w, 'vh': virt_h,     # 가상 크기 (DPI 스케일됨)
+                'work_x': wr.left, 'work_y': wr.top,
+                'work_vw': work_virt_w, 'work_vh': work_virt_h,
                 'device': info.szDevice,
             })
             return 1
@@ -326,15 +331,30 @@ def _get_largest_monitor_pos(win_w, win_h):
     if _largest_monitor_info is None:
         return None
     m = _largest_monitor_info
-    # 가상 크기 기준으로 중앙 계산 (SDL은 가상 좌표 사용)
-    cx = m['x'] + (m['vw'] - win_w) // 2
-    cy = m['y'] + (m['vh'] - win_h) // 2
+    # 창모드는 작업 영역 기준으로 중앙 계산해 작업 표시줄과의 충돌을 줄인다.
+    base_x = m.get('work_x', m['x'])
+    base_y = m.get('work_y', m['y'])
+    base_w = m.get('work_vw', m['vw'])
+    base_h = m.get('work_vh', m['vh'])
+    cx = base_x + max(0, (base_w - win_w) // 2)
+    cy = base_y + max(0, (base_h - win_h) // 2)
     return (cx, cy)
 
 def _get_largest_monitor_resolution():
     """가장 큰 모니터의 물리적 해상도 반환. Returns: (w, h) or None"""
     if _largest_monitor_info is None:
         return None
+    return (_largest_monitor_info['w'], _largest_monitor_info['h'])
+
+def _get_largest_monitor_window_resolution():
+    """창모드용 작업 영역 크기 반환. DPI/작업 표시줄 기준으로 과도한 창 크기를 방지한다."""
+    if _largest_monitor_info is None:
+        return None
+    m = _largest_monitor_info
+    width = int(m.get('work_vw') or m.get('vw') or m.get('w') or 0)
+    height = int(m.get('work_vh') or m.get('vh') or m.get('h') or 0)
+    if width > 0 and height > 0:
+        return (width, height)
     return (_largest_monitor_info['w'], _largest_monitor_info['h'])
 
 def _change_windows_resolution(width, height):
@@ -3536,15 +3556,15 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     set_fullscreen_mode(True, SCREEN)
     # print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
 else:
-    # === 창모드: SCALED 정수배 합성 (구 공식 창 사이즈 + SDL GPU 업스케일링) ===
-    # 1단계: 구 공식으로 목표 창 사이즈 계산 (더블 모니터 시 가장 큰 모니터 사용)
-    _init_largest = _get_largest_monitor_resolution()
+    # === 창모드: 정수배 SCALED 우선, x1은 직접 합성 ===
+    # 1단계: 작업 영역 기준으로 목표 창 사이즈 계산 (더블 모니터 시 가장 큰 모니터 사용)
+    _init_largest = _get_largest_monitor_window_resolution()
     if _init_largest:
         _init_monitor_w, _init_monitor_h = _init_largest
     elif sys.platform == 'win32':
-        _win_native = _get_native_resolution() or _get_current_resolution()
-        if _win_native:
-            _init_monitor_w, _init_monitor_h = _win_native
+        _win_current = _get_current_resolution()
+        if _win_current:
+            _init_monitor_w, _init_monitor_h = _win_current
         else:
             _init_monitor_w, _init_monitor_h = 1920, 1080
     else:
@@ -3577,50 +3597,53 @@ else:
     _comp_pad_x = (_comp_w - WIDTH) // 2
     _comp_pad_y = (_comp_h - HEIGHT) // 2
 
-    # 3단계: SCALED 모드 시도 (SDL이 자동 정수배 업스케일링)
+    # 3단계: 정수배일 때만 SCALED 모드 시도 (x1에서는 SDL_Renderer 오버헤드만 남음)
     # 더블 모니터: 가장 큰 모니터 중앙에 창 배치
     _init_win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
     _scaled_ok = False
-    try:
-        print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 시작... 합성={_comp_w}x{_comp_h} → 목표 {_init_target_w}x{_init_target_h}", flush=True)
-        # 창모드: SDL VSync 비활성화 (DWM이 이미 VSync 처리, 이중 대기 방지)
-        os.environ['SDL_RENDER_VSYNC'] = '0'
-        pygame.display.quit()
-        pygame.display.init()
-        if _init_win_pos:
-            os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_init_win_pos[0]},{_init_win_pos[1]}'
-        else:
-            os.environ['SDL_VIDEO_CENTERED'] = '1'
-        REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
-        os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
-        os.environ.pop('SDL_VIDEO_CENTERED', None)
+    if _scale_n >= 2:
+        try:
+            print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 시작... 합성={_comp_w}x{_comp_h} → 목표 {_init_target_w}x{_init_target_h}", flush=True)
+            # 창모드: SDL VSync 비활성화 (DWM이 이미 VSync 처리, 이중 대기 방지)
+            os.environ['SDL_RENDER_VSYNC'] = '0'
+            pygame.display.quit()
+            pygame.display.init()
+            if _init_win_pos:
+                os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_init_win_pos[0]},{_init_win_pos[1]}'
+            else:
+                os.environ['SDL_VIDEO_CENTERED'] = '1'
+            REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
+            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+            os.environ.pop('SDL_VIDEO_CENTERED', None)
 
-        # SDL SCALED가 잘못된 디스플레이 기준으로 스케일 결정할 수 있음
-        # ctypes로 윈도우 크기를 목표 크기로 강제 지정 + 정확한 위치 배치
-        if _scale_n >= 2 and sys.platform == 'win32':
-            try:
-                import ctypes as _ct
-                _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
-                _sdl2_lib = _ct.CDLL(_sdl2_p)
-                _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
-                _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
-                if _sdl_win:
-                    _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
-                    _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
-                    # 큰 모니터 중앙에 재배치
-                    _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
-                    if _repos:
-                        _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
-                        _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
-                    # print(f"[디스플레이] SDL 윈도우 크기 강제: {_init_target_w}x{_init_target_h}", flush=True)
-            except Exception as _resize_err:
-                print(f"[디스플레이] SDL 윈도우 리사이즈 실패: {_resize_err}", flush=True)
+            # SDL SCALED가 잘못된 디스플레이 기준으로 스케일 결정할 수 있음
+            # ctypes로 윈도우 크기를 목표 크기로 강제 지정 + 정확한 위치 배치
+            if sys.platform == 'win32':
+                try:
+                    import ctypes as _ct
+                    _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
+                    _sdl2_lib = _ct.CDLL(_sdl2_p)
+                    _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
+                    _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
+                    if _sdl_win:
+                        _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                        _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
+                        # 큰 모니터 중앙에 재배치
+                        _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
+                        if _repos:
+                            _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                            _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
+                        # print(f"[디스플레이] SDL 윈도우 크기 강제: {_init_target_w}x{_init_target_h}", flush=True)
+                except Exception as _resize_err:
+                    print(f"[디스플레이] SDL 윈도우 리사이즈 실패: {_resize_err}", flush=True)
 
-        _scaled_ok = True
-    except pygame.error as _scaled_err:
-        print(f"[디스플레이] pygame.SCALED 실패({_scaled_err}), 소프트웨어 스케일링으로 폴백", flush=True)
-        os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
-        os.environ.pop('SDL_VIDEO_CENTERED', None)
+            _scaled_ok = True
+        except pygame.error as _scaled_err:
+            print(f"[디스플레이] pygame.SCALED 실패({_scaled_err}), 소프트웨어 스케일링으로 폴백", flush=True)
+            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+            os.environ.pop('SDL_VIDEO_CENTERED', None)
+    else:
+        print("[디스플레이] 창모드(SCALED x1) 생략: 직접 소프트웨어 합성 사용", flush=True)
 
     if _scaled_ok:
         # --- SCALED 합성 모드: 게임 1:1 + 필러 배경, GPU N배 업스케일링 ---
@@ -3672,13 +3695,13 @@ else:
         # print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 완료: 합성 {_comp_w}x{_comp_h}, 게임 1:1, SDL GPU 스케일링", flush=True)
     else:
         # --- 폴백: 기존 소프트웨어 스케일링 (필러 포함) ---
-        _fb_largest = _get_largest_monitor_resolution()
+        _fb_largest = _get_largest_monitor_window_resolution()
         if _fb_largest:
             _init_monitor_w, _init_monitor_h = _fb_largest
         elif sys.platform == 'win32':
-            _win_native = _get_native_resolution() or _get_current_resolution()
-            if _win_native:
-                _init_monitor_w, _init_monitor_h = _win_native
+            _win_current = _get_current_resolution()
+            if _win_current:
+                _init_monitor_w, _init_monitor_h = _win_current
             else:
                 _init_monitor_w, _init_monitor_h = 1920, 1080
         else:
@@ -11927,14 +11950,14 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             import time
             time.sleep(0.3)  # 해상도 복원 대기
 
-        # 네이티브 모니터 해상도 가져오기 (더블 모니터: 가장 큰 모니터 사용)
-        _win_largest = _get_largest_monitor_resolution()
+        # 창모드는 작업 영역 기준으로 목표 창 크기 계산
+        _win_largest = _get_largest_monitor_window_resolution()
         if _win_largest:
             monitor_w, monitor_h = _win_largest
         elif sys.platform == 'win32':
-            native = _get_native_resolution() or _get_current_resolution()
-            if native:
-                monitor_w, monitor_h = native
+            current_res = _get_current_resolution()
+            if current_res:
+                monitor_w, monitor_h = current_res
             else:
                 monitor_w, monitor_h = 1920, 1080
         else:
@@ -11971,45 +11994,48 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _comp_pad_x = (_comp_w - WIDTH) // 2
         _comp_pad_y = (_comp_h - HEIGHT) // 2
 
-        # SCALED 합성 모드 시도 → 실패 시 소프트웨어 스케일링 폴백
+        # 정수배일 때만 SCALED 합성 모드 시도 → x1은 직접 소프트웨어 스케일링 사용
         # 더블 모니터: 가장 큰 모니터 중앙에 창 배치
         _win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
         _sw_scaled_ok = False
-        try:
-            # 창모드: SDL VSync 비활성화 (DWM이 이미 VSync 처리, 이중 대기 방지)
-            os.environ['SDL_RENDER_VSYNC'] = '0'
-            pygame.display.quit()
-            pygame.display.init()
-            if _win_pos:
-                os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_win_pos[0]},{_win_pos[1]}'
-            else:
-                os.environ['SDL_VIDEO_CENTERED'] = '1'
-            REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
-            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
-            os.environ.pop('SDL_VIDEO_CENTERED', None)
+        if _scale_n >= 2:
+            try:
+                # 창모드: SDL VSync 비활성화 (DWM이 이미 VSync 처리, 이중 대기 방지)
+                os.environ['SDL_RENDER_VSYNC'] = '0'
+                pygame.display.quit()
+                pygame.display.init()
+                if _win_pos:
+                    os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_win_pos[0]},{_win_pos[1]}'
+                else:
+                    os.environ['SDL_VIDEO_CENTERED'] = '1'
+                REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
+                os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+                os.environ.pop('SDL_VIDEO_CENTERED', None)
 
-            # SDL SCALED 윈도우 크기 강제 (더블 모니터 대응)
-            if _scale_n >= 2 and sys.platform == 'win32':
-                try:
-                    import ctypes as _ct
-                    _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
-                    _sdl2_lib = _ct.CDLL(_sdl2_p)
-                    _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
-                    _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
-                    if _sdl_win:
-                        _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
-                        _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
-                        _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
-                        if _repos:
-                            _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
-                            _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
-                except Exception:
-                    pass
+                # SDL SCALED 윈도우 크기 강제 (더블 모니터 대응)
+                if sys.platform == 'win32':
+                    try:
+                        import ctypes as _ct
+                        _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
+                        _sdl2_lib = _ct.CDLL(_sdl2_p)
+                        _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
+                        _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
+                        if _sdl_win:
+                            _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                            _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
+                            _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
+                            if _repos:
+                                _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                                _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
+                    except Exception:
+                        pass
 
-            _sw_scaled_ok = True
-        except pygame.error:
-            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
-            os.environ.pop('SDL_VIDEO_CENTERED', None)
+                _sw_scaled_ok = True
+            except pygame.error:
+                os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+                os.environ.pop('SDL_VIDEO_CENTERED', None)
+        else:
+            print("[디스플레이] 창모드(SCALED x1) 생략: 직접 소프트웨어 합성 사용", flush=True)
 
         if _sw_scaled_ok:
             _use_scaled_mode = True
@@ -20263,6 +20289,7 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
     elif current_stage == 30 and animated_bg_stage30 is not None:
         # 투기장 (콜로세움) 배경 - 배속 연동
         dt = (elapsed_ms / 1000.0) * arena_speed_multiplier
+        _sync_arena_stage30_visual_phase()
         animated_bg_stage30.update(dt)
         animated_bg_stage30.draw(SCREEN, offset_x=shake_x, offset_y=shake_y)
     elif current_stage == 33 and animated_bg_stage33 is not None:
@@ -28731,11 +28758,6 @@ def arena_play_skill_sound(result):
 
     snd = _arena_skill_sound_cache.get(sound_key)
     if snd:
-        # 🔍 DEBUG: ghostwalk 사운드 재생 추적
-        if sound_key == 'ghostwalk':
-            import traceback
-            # print(f"[DEBUG GHOSTWALK] arena_play_skill_sound 호출! arena_mode={arena_mode_enabled}")
-            traceback.print_stack(limit=10)
         snd.play()
         _arena_skill_sound_this_frame = True  # 이번 프레임에서 패들 사운드 스킵
         return True
@@ -126146,6 +126168,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
         arena_top_hero = top_hero
         arena_bottom_hero = bottom_hero
+        _sync_arena_stage30_visual_phase()
 
         # 투기장 관중 반응 상태 초기화
         _arena_crowd_reset()
@@ -129029,10 +129052,7 @@ def show_start_screen():
 
     # 디버깅: 게임 세션이 활성 상태에서 메인메뉴가 호출되면 호출 스택 출력 (비정상 상황)
     if game_session_active:
-        import traceback
-        # print(f"[DEBUG] show_start_screen() 비정상 호출! - 현재 스테이지: {current_stage}, 세션 활성: {game_session_active}")
-        # print(f"[DEBUG] 호출 스택:")
-        traceback.print_stack(limit=10)
+        pass  # 비정상 호출 감지 (디버그 로그 제거됨)
 
     log_restart_debug(
         "show_start_screen",
@@ -146493,6 +146513,7 @@ def draw_field():
         # 스테이지30: 투기장 (콜로세움) 애니메이션 배경 - 배속 연동
         elapsed_ms = clock.get_time() if 'clock' in globals() else 16
         dt = (elapsed_ms / 1000.0) * arena_speed_multiplier
+        _sync_arena_stage30_visual_phase()
         # 라운드 전환(공 서브 애니메이션) 또는 포획 페이즈 중에는 신의심판 타이머 동결
         animated_bg_stage30.judgment_logic_paused = (
             is_ball_spawn_animation_paused()
@@ -181223,7 +181244,7 @@ def _online_send_player_position():
     )
 
 
-def _online_client_apply_state():
+def _online_client_apply_sctate():
     """클라이언트: 호스트에서 수신한 게임 상태를 적용
     - 공 위치/속도 → 호스트 권위
     - 점수 → 호스트 권위 (시점 반전: 호스트 round_wins = 내 round_losses)
