@@ -62941,9 +62941,9 @@ def go_to_next_round():
         global animated_bg_stage3, screen_shake_timer, screen_shake_intensity
         if round_wins >= 2 and animated_bg_stage3 and animated_bg_stage3.kuromi_petrified and not animated_bg_stage3.kuromi_awakened:
             animated_bg_stage3.kuromi_awakening = True
-            animated_bg_stage3.kuromi_awakening_timer = 180  # 3초간 각성 애니메이션
+            animated_bg_stage3.kuromi_awakening_timer = 240  # 4초간 각성 애니메이션
             # 화면 지진 효과 시작
-            screen_shake_timer = 180  # 3초간 화면 흔들림
+            screen_shake_timer = 240  # 4초간 화면 흔들림
             screen_shake_intensity = 15  # 강한 흔들림
 
             # 쿠로미 각성 사운드 재생
@@ -91518,10 +91518,10 @@ def _activate_ghost_curve():
     cotton_bomb_ghost_curve_seed = random.uniform(0.8, 1.5)
     cotton_bomb_ghost_curve_intensity = 1.0
 
-    # 발동 순간 가벼운 초기 꺾임 (너프: 0.8~1.5 → 0.25~0.45 라디안)
+    # 발동 순간 초기 꺾임 (중간: 0.4~0.7 라디안 ≈ 23~40도)
     speed = math.hypot(ball_vel[0], ball_vel[1])
     if speed > 0.5:
-        kick_angle = random.uniform(0.25, 0.45) * random.choice([-1, 1])
+        kick_angle = random.uniform(0.4, 0.7) * random.choice([-1, 1])
         cur_angle = math.atan2(ball_vel[1], ball_vel[0])
         new_angle = cur_angle + kick_angle
         ball_vel[0] = math.cos(new_angle) * speed
@@ -91546,19 +91546,20 @@ def update_ghost_curve():
     if speed < 0.5:
         return
 
-    # 부드러운 위상 증가 (느린 속도로 자연스러운 커브)
-    cotton_bomb_ghost_curve_phase += 0.08 + cotton_bomb_ghost_curve_seed * 0.04
+    # 위상 증가 — 느린 속도로 포물선처럼 부드럽게 휘어짐
+    cotton_bomb_ghost_curve_phase += 0.12 + cotton_bomb_ghost_curve_seed * 0.06
     phase = cotton_bomb_ghost_curve_phase
     seed = cotton_bomb_ghost_curve_seed
     cur_angle = math.atan2(ball_vel[1], ball_vel[0])
 
-    # === 단일 저주파 사인파 — 부드럽고 유연한 커브 ===
-    wave = math.sin(phase * 0.5 * seed) * 1.2
+    # === 2중 사인파 — 포물선 곡선 느낌 (저주파 기본 + 중주파 변주) ===
+    wave1 = math.sin(phase * 0.4 * seed) * 2.2   # 저주파: 크고 느린 곡선
+    wave2 = math.sin(phase * 1.1 + seed * 3.0) * 0.8  # 중주파: 살짝 흔들림 디테일
 
-    # 수직 힘만 적용 (접선 힘/큐빅 펄스 제거 → 속도 변동 없음)
-    # fade-out 이징: t_ratio² 로 끝부분에서 자연스럽게 소멸
-    ease = t_ratio * t_ratio
-    perp_force = wave * ease * 0.18
+    # 수직 힘만 적용 (속도 변동 없음, 방향만 부드럽게 변화)
+    # fade-in/out 이징: sin 커브로 시작과 끝 모두 자연스럽게
+    ease = math.sin(t_ratio * math.pi)  # 0→1→0 포물선 이징
+    perp_force = (wave1 + wave2) * ease * 0.2
 
     ball_vel[0] += math.cos(cur_angle + math.pi / 2) * perp_force
     ball_vel[1] += math.sin(cur_angle + math.pi / 2) * perp_force
