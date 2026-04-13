@@ -120276,6 +120276,10 @@ def draw_objects():
                     'type': 'spark'
                 })
     
+    # 고스트샷 귀신 이펙트 렌더링
+    if mega_smashing_active:
+        render_mega_smashing_effects()
+
     #  Stage 5 이벤트 배경 그리기 (공 아래에 그려질 문과 기계) - 공보다 먼저 그려야 함!
     if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == 5:
         stage5_events.draw_background(SCREEN)
@@ -168435,10 +168439,13 @@ def main(stage_num, new_boss_mode=False):
                         # print(f"  - 상모돌리기 활성 상태: {whip_active}")
                         # print(f"  - 현재 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
                     else:
-                        # 고스트샷은 정지 없이 바로 시작
+                        # 고스트샷은 프리즈 없이 바로 궤적 시작
                         power_smashing_freeze_active = False
-                        power_smashing_parabola_active = False  # 고스트샷은 파워스매싱 포물선 사용 안함
-                        power_smashing_start_time = pygame.time.get_ticks()  # 고스트샷 시작 시간 설정
+                        power_smashing_parabola_active = True  # 궤적 처리 블록 진입 필요
+                        power_smashing_start_time = pygame.time.get_ticks()
+                        # 초기 공 속도 설정 (위로 발사)
+                        ball_vel[0] = power_smashing_arc_strength * 2.0
+                        ball_vel[1] = -4.0  # 위쪽으로
                         # print(f"     !")
                     #  파워스매싱 발동 시 강제 충돌 처리 (범위 차이 문제 해결)
                     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
