@@ -62318,8 +62318,8 @@ BOTTLE_DROP_LIFETIME = 300  # 5초 (60fps) - 금화보다 오래 유지
 BOTTLE_DROP_BLINK_START = 90  # 마지막 1.5초부터 깜빡임
 BOTTLE_DROP_SIZE = 10  # 병 반지름
 BOTTLE_DROP_BOUNCE = -0.45  # 바닥 반사 계수
-BOTTLE_DROP_CHANCE_BERSERK = 0.20  # 광폭물약 드랍 확률 20%
-BOTTLE_DROP_CHANCE_REPAIR = 0.25  # 수리키트 드랍 확률 25%
+BOTTLE_DROP_CHANCE_BERSERK = 0.30  # 광폭물약 드랍 확률 30%
+BOTTLE_DROP_CHANCE_REPAIR = 0.45  # 수리키트 드랍 확률 45%
 # 병 색상 (유리병 느낌)
 BOTTLE_COLOR_BERSERK = (230, 90, 80)  # 붉은색 (광폭물약)
 BOTTLE_COLOR_REPAIR = (220, 210, 140)  # 황동색 (수리키트)
