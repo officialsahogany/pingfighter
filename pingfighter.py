@@ -5374,6 +5374,91 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             pygame.draw.line(surface, pull_color,
                              (cx + offset, line_y_top), (cx + offset + 2, line_y_top + 3), 2)
 
+    elif skill_name == "ghost_shot":
+        # 👻 고스트샷: 귀신 + 구불거리는 궤적 + 미니 귀신들
+        # --- 오오라 글로우 (배경) ---
+        for i in range(3):
+            glow_r = s + 2 - i * 2
+            if glow_r > 0:
+                pygame.draw.circle(surface, (*shadow_color[:3],), (cx, cy), glow_r, 1)
+
+        # --- 구불거리는 뱀 궤적 (하단) ---
+        trail_pts = []
+        for ti in range(10):
+            t_norm = ti / 9.0
+            tx = cx - s * 2 // 3 + int(t_norm * s * 4 // 3)
+            ty = cy + s // 2 + int(math.sin(ti * 1.4) * s // 4)
+            trail_pts.append((tx, ty))
+        if len(trail_pts) >= 2:
+            for ti in range(len(trail_pts) - 1):
+                t_alpha_ratio = ti / max(1, len(trail_pts) - 1)
+                tw = max(1, 3 - ti // 4)
+                pygame.draw.line(surface, highlight_color, trail_pts[ti], trail_pts[ti + 1], tw)
+            # 궤적 끝 작은 공
+            bx, by = trail_pts[-1]
+            pygame.draw.circle(surface, main_color, (bx, by), max(2, s // 6))
+            pygame.draw.circle(surface, accent_color, (bx, by), max(1, s // 8))
+
+        # --- 귀신 본체 (중앙 상단) ---
+        ghost_y = cy - s // 5
+        # 그림자
+        ghost_w = s * 2 // 3
+        ghost_h = s * 3 // 4
+        pygame.draw.ellipse(surface, shadow_color,
+                           (cx - ghost_w // 2 + 1, ghost_y - ghost_h // 2 + 1, ghost_w, ghost_h))
+        # 본체
+        pygame.draw.ellipse(surface, accent_color,
+                           (cx - ghost_w // 2, ghost_y - ghost_h // 2, ghost_w, ghost_h))
+        # 하이라이트 (입체감)
+        inner_w = ghost_w * 2 // 3
+        inner_h = ghost_h * 2 // 3
+        pygame.draw.ellipse(surface, highlight_color,
+                           (cx - inner_w // 2 - 1, ghost_y - inner_h // 2 - 1, inner_w, inner_h))
+
+        # 꼬리 (물결 3갈래)
+        tail_y = ghost_y + ghost_h // 2 - 2
+        for i in range(3):
+            tx = cx - ghost_w // 2 + int(i * ghost_w / 2.5) + 2
+            tw_t = max(3, ghost_w // 3)
+            th_t = max(3, s // 4)
+            t_off = 2 if i % 2 == 0 else 0
+            pygame.draw.ellipse(surface, accent_color, (tx, tail_y + t_off, tw_t, th_t))
+
+        # --- 눈 (빨간 빛나는 눈) ---
+        eye_y = ghost_y - s // 8
+        eye_gap = max(2, s // 4)
+        eye_r = max(2, s // 6)
+        # 글로우
+        pygame.draw.circle(surface, (180, 0, 0) if is_active else (80, 0, 0), (cx - eye_gap, eye_y), eye_r + 2, 1)
+        pygame.draw.circle(surface, (180, 0, 0) if is_active else (80, 0, 0), (cx + eye_gap, eye_y), eye_r + 2, 1)
+        # 눈 본체
+        eye_color = (255, 30, 30) if is_active else (120, 30, 30)
+        pygame.draw.circle(surface, eye_color, (cx - eye_gap, eye_y), eye_r)
+        pygame.draw.circle(surface, eye_color, (cx + eye_gap, eye_y), eye_r)
+        # 하이라이트
+        pygame.draw.circle(surface, main_color, (cx - eye_gap - 1, eye_y - 1), max(1, eye_r // 2))
+        pygame.draw.circle(surface, main_color, (cx + eye_gap - 1, eye_y - 1), max(1, eye_r // 2))
+
+        # --- 입 (삼각 이빨) ---
+        mouth_y = ghost_y + s // 8
+        mouth_w = max(2, s // 4)
+        mouth_color = (200, 0, 50) if is_active else (80, 0, 20)
+        pygame.draw.polygon(surface, mouth_color, [
+            (cx - mouth_w, mouth_y), (cx, mouth_y + max(2, s // 5)), (cx + mouth_w, mouth_y)
+        ])
+
+        # --- 미니 귀신 (좌우) ---
+        for side in [-1, 1]:
+            mx = cx + side * (s * 3 // 4)
+            my = cy
+            mr = max(2, s // 5)
+            mini_color = accent_color if is_active else shadow_color
+            pygame.draw.circle(surface, mini_color, (mx, my), mr)
+            mini_eye_r = max(1, mr // 3)
+            mini_eye_color = (255, 60, 60) if is_active else (80, 30, 30)
+            pygame.draw.circle(surface, mini_eye_color, (mx - mini_eye_r, my - mini_eye_r), mini_eye_r)
+            pygame.draw.circle(surface, mini_eye_color, (mx + mini_eye_r, my - mini_eye_r), mini_eye_r)
+
     # =================== 바이퍼 전용 스킬 심볼 ===================
     elif skill_name == "shadow_step":
         # ⟐ 쉐도우 백스텝: 잔상 분신 + 순간이동
