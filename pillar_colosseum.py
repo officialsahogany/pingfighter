@@ -125,6 +125,16 @@ class CircularStadiumFrame:
         # 애니메이션
         self.time = 0.0
 
+        # 시간대 (라운드별 분위기)
+        self._time_of_day = 'day'
+        self._pillar_tint_surface = None
+        self._pillar_tint_transitioning = False
+        self._pillar_tint_timer = 0.0
+        self._pillar_tint_duration = 2.0
+        self._pillar_tint_old = None
+        self._pillar_tint_target = None
+        self._pillar_torch_boost = 1.0
+
         # 응원 이벤트 상태
         self.excitement_level = 0.0
         self.excitement_timer = 0.0
@@ -170,6 +180,53 @@ class CircularStadiumFrame:
         # Wave 애니메이션
         self._wave_angle = 0.0
         self._wave_active = False
+
+    # ============================================================
+    # 시간대 (Time of Day) 시스템
+    # ============================================================
+    def set_time_of_day(self, phase: str):
+        """시간대 변경 (day/sunset/night) — 필러에 틴트 오버레이 적용"""
+        if phase == self._time_of_day:
+            return
+        self._time_of_day = phase
+
+        tint_map = {
+            'day': (None, 1.0),
+            'sunset': ((255, 110, 35, 32), 1.5),
+            'night': ((12, 8, 40, 65), 2.5),
+        }
+        tint_color, torch_boost = tint_map.get(phase, (None, 1.0))
+        self._pillar_torch_boost = torch_boost
+
+        new_tint = None
+        if tint_color:
+            new_tint = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+            new_tint.fill(tint_color)
+            # 밤에는 횃불 주변 밝게 (필러 영역 횃불)
+            if phase == 'night':
+                for torch in self.torches:
+                    tx, ty = int(torch['x']), int(torch['y'])
+                    # 횃불 주변 원형 영역 투명화
+                    for r in range(60, 0, -3):
+                        pygame.draw.circle(new_tint, (0, 0, 0, 0), (tx, ty - 10), r)
+                    # 따뜻한 글로우 추가
+                    glow = pygame.Surface((120, 120), pygame.SRCALPHA)
+                    for r in range(60, 0, -3):
+                        frac = r / 60
+                        a = int(12 * (1 - frac))
+                        pygame.draw.circle(glow, (255, 170, 50, a), (60, 60), r)
+                    new_tint.blit(glow, (tx - 60, ty - 70),
+                                  special_flags=pygame.BLEND_RGBA_ADD)
+
+        # 전환 애니메이션
+        self._pillar_tint_old = self._pillar_tint_surface
+        self._pillar_tint_target = new_tint
+        self._pillar_tint_timer = 0.0
+        self._pillar_tint_transitioning = True
+
+        # 비네트 캐시 초기화
+        self._vignette_surface = None
+        self._prerender_vignette()
 
     def _generate_crowd(self):
         """관중 생성 (4~5줄만, 경기장 가까이에만 배치)"""
@@ -1114,6 +1171,15 @@ class CircularStadiumFrame:
         """업데이트"""
         self.time += dt
 
+        # 틴트 전환 애니메이션
+        if self._pillar_tint_transitioning:
+            self._pillar_tint_timer += dt
+            if self._pillar_tint_timer >= self._pillar_tint_duration:
+                self._pillar_tint_surface = self._pillar_tint_target
+                self._pillar_tint_old = None
+                self._pillar_tint_target = None
+                self._pillar_tint_transitioning = False
+
         # 흥분 상태 감소
         if self.excitement_timer > 0:
             self.excitement_timer -= dt
@@ -1232,12 +1298,27 @@ class CircularStadiumFrame:
             screen.blit(surf, (int(draw_x) - cache['offset_x'],
                                int(draw_y) - cache['offset_y']))
 
+        # 시간대 틴트 오버레이 (필러 영역)
+        if self._pillar_tint_transitioning:
+            progress = min(1.0, self._pillar_tint_timer / self._pillar_tint_duration)
+            progress = progress * progress * (3 - 2 * progress)  # ease-in-out
+            if self._pillar_tint_old:
+                old_copy = self._pillar_tint_old.copy()
+                old_copy.set_alpha(int(255 * (1 - progress)))
+                screen.blit(old_copy, (0, 0))
+            if self._pillar_tint_target:
+                new_copy = self._pillar_tint_target.copy()
+                new_copy.set_alpha(int(255 * progress))
+                screen.blit(new_copy, (0, 0))
+        elif self._pillar_tint_surface:
+            screen.blit(self._pillar_tint_surface, (0, 0))
+
         # 횃불 그리기 (모멘텀 높으면 불꽃이 더 밝게)
         self._draw_torches(screen)
 
     def _draw_torches(self, screen):
         """횃불 그리기 (고퀄리티 - 다층 불꽃 + 금속 거치대 + 엠버)"""
-        momentum_boost = 1.0 + self._momentum_level * 0.6
+        momentum_boost = (1.0 + self._momentum_level * 0.6) * self._pillar_torch_boost
 
         for torch in self.torches:
             tx, ty = torch['x'], torch['y']
@@ -1276,9 +1357,14 @@ class CircularStadiumFrame:
             screen.blit(self._torch_glow_surface,
                         (tx + sway - 20, ty - flame_h // 2 - 10),
                         special_flags=pygame.BLEND_ADD)
-            if self._momentum_level > 0.5:
+            if self._momentum_level > 0.5 or self._pillar_torch_boost > 1.5:
                 screen.blit(self._torch_glow_surface,
                             (tx + sway - 20, ty - flame_h // 2 - 15),
+                            special_flags=pygame.BLEND_ADD)
+            # 밤에는 추가 글로우 (횃불이 주 광원)
+            if self._pillar_torch_boost > 2.0:
+                screen.blit(self._torch_glow_surface,
+                            (tx + sway - 20, ty - flame_h // 2 - 5),
                             special_flags=pygame.BLEND_ADD)
 
             # ── 외곽 불꽃 (앰버) ──

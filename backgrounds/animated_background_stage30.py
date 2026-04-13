@@ -45,10 +45,45 @@ class AnimatedBackgroundStage30:
     GAME_AREA_WIDTH = 600  # 게임 영역 너비
     GAME_AREA_END_X = 680  # 게임 영역 끝 X (80 + 600)
 
+    # 시간대별 틴트 설정 (라운드 진행에 따른 분위기 변화)
+    TIME_OF_DAY_PRESETS = {
+        'day': {           # 8강 - 기본 낮
+            'tint': None,
+            'torch_boost': 1.0,
+            'dust_alpha_mult': 1.0,
+            'golden_dust_mult': 1.0,
+        },
+        'sunset': {        # 4강 - 노을
+            'tint': (255, 120, 40, 38),       # 따뜻한 주황빛
+            'torch_boost': 1.4,
+            'dust_alpha_mult': 1.3,
+            'golden_dust_mult': 1.8,
+        },
+        'night': {         # 결승 - 밤
+            'tint': (15, 10, 45, 72),         # 진한 남색
+            'torch_boost': 2.2,
+            'dust_alpha_mult': 0.5,
+            'golden_dust_mult': 0.3,
+        },
+    }
+
     def __init__(self, width=760, height=750):
         self.width = width
         self.height = height
         self.time = 0
+
+        # 시간대 (라운드별 분위기)
+        self._time_of_day = 'day'
+        self._tint_surface = None          # 틴트 오버레이 캐시
+        self._torch_boost = 1.0            # 횃불 밝기 배율
+        self._dust_alpha_mult = 1.0        # 먼지 투명도 배율
+        self._golden_dust_mult = 1.0       # 금빛 먼지 배율
+        # 전환 애니메이션
+        self._tint_transition_timer = 0.0
+        self._tint_transition_duration = 2.0  # 2초 페이드
+        self._tint_old_surface = None
+        self._tint_target_surface = None
+        self._transitioning = False
 
         # 배경 레이어 서피스
         self.floor_surface = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -235,6 +270,86 @@ class AnimatedBackgroundStage30:
         self._prerender_floor()
         self._prerender_arena()
         self._prerender_border()
+
+    # ============================================================
+    # 시간대 (Time of Day) 시스템
+    # ============================================================
+    def set_time_of_day(self, phase: str):
+        """시간대 변경 (day/sunset/night) — 부드러운 전환 애니메이션"""
+        if phase == self._time_of_day:
+            return
+        preset = self.TIME_OF_DAY_PRESETS.get(phase)
+        if not preset:
+            return
+
+        self._time_of_day = phase
+        self._torch_boost = preset['torch_boost']
+        self._dust_alpha_mult = preset['dust_alpha_mult']
+        self._golden_dust_mult = preset['golden_dust_mult']
+
+        # 틴트 서피스 생성
+        new_tint = None
+        if preset['tint']:
+            new_tint = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            new_tint.fill(preset['tint'])
+            # 밤에는 횃불 주변을 밝게 (원형 감산 마스크)
+            if phase == 'night':
+                for torch in self.torches:
+                    cx, cy = int(torch['x']), int(torch['y'])
+                    # 횃불 주변 80px 반경을 밝게 (틴트를 약화)
+                    for r in range(80, 0, -2):
+                        frac = r / 80
+                        # 중심일수록 틴트를 더 많이 지움
+                        clear_alpha = int(55 * (1 - frac * frac))
+                        pygame.draw.circle(new_tint, (0, 0, 0, 0), (cx, cy - 15), r)
+                    # 따뜻한 빛 추가 (횃불 글로우)
+                    glow_surf = pygame.Surface((160, 160), pygame.SRCALPHA)
+                    for r in range(80, 0, -3):
+                        frac = r / 80
+                        a = int(18 * (1 - frac))
+                        pygame.draw.circle(glow_surf, (255, 180, 60, a), (80, 80), r)
+                    new_tint.blit(glow_surf, (cx - 80, cy - 95),
+                                  special_flags=pygame.BLEND_RGBA_ADD)
+
+        # 전환 애니메이션 시작
+        self._tint_old_surface = self._tint_surface
+        self._tint_target_surface = new_tint
+        self._tint_transition_timer = 0.0
+        self._transitioning = True
+
+        # foreground 비네트 캐시 초기화 (밤에는 더 진한 비네트)
+        for attr in list(vars(self)):
+            if attr.startswith('_fg_vignette_'):
+                delattr(self, attr)
+
+    def _update_tint_transition(self, dt):
+        """틴트 전환 애니메이션 업데이트"""
+        if not self._transitioning:
+            return
+        self._tint_transition_timer += dt
+        if self._tint_transition_timer >= self._tint_transition_duration:
+            self._tint_surface = self._tint_target_surface
+            self._tint_old_surface = None
+            self._tint_target_surface = None
+            self._transitioning = False
+
+    def _draw_tint_overlay(self, screen, offset_x, offset_y):
+        """틴트 오버레이 그리기 (전환 애니메이션 포함)"""
+        if self._transitioning:
+            progress = min(1.0, self._tint_transition_timer / self._tint_transition_duration)
+            # ease-in-out
+            progress = progress * progress * (3 - 2 * progress)
+
+            if self._tint_old_surface:
+                old_copy = self._tint_old_surface.copy()
+                old_copy.set_alpha(int(255 * (1 - progress)))
+                screen.blit(old_copy, (offset_x, offset_y))
+            if self._tint_target_surface:
+                new_copy = self._tint_target_surface.copy()
+                new_copy.set_alpha(int(255 * progress))
+                screen.blit(new_copy, (offset_x, offset_y))
+        elif self._tint_surface:
+            screen.blit(self._tint_surface, (offset_x, offset_y))
 
     def _init_torches(self):
         """횃불 위치 초기화 - 게임 영역 내 양쪽 가장자리에 대칭 배치 (고퀄리티)"""
@@ -1287,6 +1402,9 @@ class AnimatedBackgroundStage30:
     def update(self, dt, ball_x=None, ball_y=None):
         """업데이트"""
         self.time += dt
+
+        # 틴트 전환 애니메이션
+        self._update_tint_transition(dt)
 
         # 관중 웨이브 타이머
         self.crowd_wave_timer += dt * 2
@@ -4954,21 +5072,29 @@ class AnimatedBackgroundStage30:
         else:
             screen.blit(self.floor_surface, (offset_x, offset_y))
 
-        # 2. 먼지 파티클 (바닥 위)
+        # 2. 먼지 파티클 (바닥 위) — 시간대별 투명도 조절
+        dust_mult = self._dust_alpha_mult
         for particle in self.dust_particles:
             px = int(particle['x'] * scale_x + offset_x)
             py = int(particle['y'] * scale_y + offset_y)
             size = max(1, int(particle['size'] * scale_x))
-            color = (200, 175, 140)
+            if dust_mult < 1.0:
+                c = int(200 * dust_mult)
+                color = (c, int(175 * dust_mult), int(140 * dust_mult))
+            else:
+                color = (200, 175, 140)
             pygame.draw.circle(screen, color, (px, py), size)
 
-        # 3. 금빛 먼지 (프리미엄 분위기) - 캐시된 서피스 사용
+        # 3. 금빛 먼지 (프리미엄 분위기) - 시간대별 밝기 조절
+        gd_mult = self._golden_dust_mult
         for gd in self.golden_dust:
             gx = int(gd['x'] * scale_x + offset_x)
             gy = int(gd['y'] * scale_y + offset_y)
             gsize = max(1, int(gd['size'] * scale_x))
             pulse = 0.6 + 0.4 * math.sin(self.time * 1.5 + gd['phase'])
-            galpha = int(gd['alpha'] * pulse)
+            galpha = min(255, int(gd['alpha'] * pulse * gd_mult))
+            if galpha <= 0:
+                continue
             surf_sz = gsize * 2 + 2
             gd_surf = _get_cached_surface(surf_sz, surf_sz)
             pygame.draw.circle(gd_surf, (210, 180, 80, galpha),
@@ -5016,11 +5142,14 @@ class AnimatedBackgroundStage30:
         else:
             screen.blit(self.border_surface, (offset_x, offset_y))
 
+        # 5.5 시간대 틴트 오버레이 (노을/밤 분위기)
+        self._draw_tint_overlay(screen, offset_x, offset_y)
+
         # 6. 신의심판 이벤트 오버레이 (동적 석상)
         if self.judgment_phase != self.JUDGMENT_IDLE:
             self._draw_judgment_overlay(screen, offset_x, offset_y)
 
-        # 8. 횃불
+        # 8. 횃불 (시간대별 밝기 증폭)
         self._draw_torches(screen, scale_x, scale_y, offset_x, offset_y)
 
     def _draw_zeus_bolt_glow(self, screen, scale_x, scale_y, offset_x, offset_y):
@@ -5081,12 +5210,13 @@ class AnimatedBackgroundStage30:
 
     def _draw_torches(self, screen, scale_x, scale_y, offset_x, offset_y):
         """횃불 그리기 (고퀄리티 - 다층 불꽃 + 엠버 + 금속 거치대)"""
+        torch_boost = self._torch_boost
         for torch in self.torches:
             tx = int(torch['x'] * scale_x + offset_x)
             ty = int(torch['y'] * scale_y + offset_y)
-            intensity = torch['intensity']
+            intensity = min(1.0, torch['intensity'] * torch_boost)
             sway = torch['sway'] * scale_x
-            flame_h = int(torch['flame_height'] * scale_y)
+            flame_h = int(torch['flame_height'] * scale_y * min(1.5, torch_boost))
             sway_i = int(sway)
 
             # ── 1. 금속 거치대 (입체감 있는 브래킷) ──
@@ -5144,8 +5274,8 @@ class AnimatedBackgroundStage30:
             pygame.draw.circle(screen, (150, 135, 110),
                                (tx - sx(1), ty + sy(13)), max(1, sx(1)))
 
-            # ── 3. 메인 글로우 (불꽃 상단에만 은은한 발광) ──
-            glow_radius = int(18 * intensity * scale_x)
+            # ── 3. 메인 글로우 (불꽃 상단에만 은은한 발광) — torch_boost 적용 ──
+            glow_radius = int(18 * intensity * scale_x * min(2.0, torch_boost))
             if glow_radius > 2:
                 glow_key = glow_radius
                 if glow_key not in self._torch_glow_cache:
@@ -5279,20 +5409,32 @@ class AnimatedBackgroundStage30:
 
     def draw_foreground(self, screen, scale_x=1.0, scale_y=1.0, offset_x=0, offset_y=0):
         """전경 효과 (패들/공 위에 그려짐) - 알파 비네트 (프리렌더 캐시)"""
-        vignette_size = 50
+        # 밤에는 비네트가 더 강하고 진한 남색, 노을에는 약간 주황빛
+        if self._time_of_day == 'night':
+            vignette_size = 70
+            base_alpha = 60
+            vig_color = (10, 8, 30)
+        elif self._time_of_day == 'sunset':
+            vignette_size = 55
+            base_alpha = 40
+            vig_color = (40, 20, 10)
+        else:
+            vignette_size = 50
+            base_alpha = 35
+            vig_color = (20, 15, 10)
         sw = int(self.width * scale_x)
 
-        # 프리렌더 캐시 (최초 1회만 생성)
-        cache_key = f"_fg_vignette_{sw}"
+        # 프리렌더 캐시 (시간대별 키 분리)
+        cache_key = f"_fg_vignette_{sw}_{self._time_of_day}"
         if not hasattr(self, cache_key):
             v_top = pygame.Surface((sw, vignette_size), pygame.SRCALPHA)
             for i in range(vignette_size):
-                alpha = int(35 * (1 - i / vignette_size))
-                pygame.draw.line(v_top, (20, 15, 10, alpha), (0, i), (sw, i))
+                alpha = int(base_alpha * (1 - i / vignette_size))
+                pygame.draw.line(v_top, (*vig_color, alpha), (0, i), (sw, i))
             v_bot = pygame.Surface((sw, vignette_size), pygame.SRCALPHA)
             for i in range(vignette_size):
-                alpha = int(35 * (i / vignette_size))
-                pygame.draw.line(v_bot, (20, 15, 10, alpha), (0, i), (sw, i))
+                alpha = int(base_alpha * (i / vignette_size))
+                pygame.draw.line(v_bot, (*vig_color, alpha), (0, i), (sw, i))
             setattr(self, cache_key, (v_top, v_bot))
 
         v_top, v_bot = getattr(self, cache_key)

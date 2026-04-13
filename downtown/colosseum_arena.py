@@ -8210,6 +8210,8 @@ class ColosseumsArena:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
                     self._assign_ai_henchmen(w, losers_qf, self.matches[TournamentRound.SEMI_FINAL], round_type="semi")
             self.current_round = TournamentRound.SEMI_FINAL
+            # 4강: 노을 분위기로 전환
+            self._apply_time_of_day('sunset')
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
             winners = [m.winner for m in self.matches[TournamentRound.SEMI_FINAL]]
@@ -8261,6 +8263,21 @@ class ColosseumsArena:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
                     self._assign_ai_henchmen(w, losers_sf, self.matches[TournamentRound.FINAL], round_type="final")
             self.current_round = TournamentRound.FINAL
+            # 결승: 밤 분위기로 전환
+            self._apply_time_of_day('night')
+
+    def _apply_time_of_day(self, phase: str):
+        """배경 + 필러에 시간대 분위기 적용"""
+        if self.arena_background:
+            try:
+                self.arena_background.set_time_of_day(phase)
+            except Exception as e:
+                print(f"[Arena] Background time-of-day error: {e}")
+        if self.arena_pillar:
+            try:
+                self.arena_pillar.set_time_of_day(phase)
+            except Exception as e:
+                print(f"[Arena] Pillar time-of-day error: {e}")
 
     def _init_guard_warriors_for_battle(self, match: Match):
         """배틀 시작 시 호위무사 시스템 초기화"""
@@ -9037,8 +9054,17 @@ class ColosseumsArena:
         """공을 칠 때 ON_BALL_HIT 스킬 발동"""
         if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
             return
+        _manual_hold_skills = []
         if self.manual_control_active and not getattr(caster_paddle, 'is_top', True):
             if not self.manual_skill_input_active:
+                return
+            _manual_hold_skills = [
+                s for s in self.skill_manager.active_skills.get(hero_id, [])
+                if s.can_use()
+                and getattr(s, 'trigger', None) == SkillTrigger.ON_BALL_HIT
+                and getattr(s, 'skill_id', '') == 'bomb_surprise'
+            ]
+            if not _manual_hold_skills:
                 return
 
         # === 달빛 베기 반격 처리 ===
@@ -9055,13 +9081,22 @@ class ColosseumsArena:
                         skill.on_opponent_hit(self.ball, game_state)
                         break
 
-        result = self.skill_manager.try_use_skill(
-            hero_id,
-            SkillTrigger.ON_BALL_HIT,
-            caster_paddle,
-            target_paddle,
-            self.ball
-        )
+        if self.manual_control_active and not getattr(caster_paddle, 'is_top', True):
+            result = self.skill_manager.try_use_skill_by_id(
+                hero_id,
+                _manual_hold_skills[0].skill_id,
+                caster_paddle,
+                target_paddle,
+                self.ball
+            )
+        else:
+            result = self.skill_manager.try_use_skill(
+                hero_id,
+                SkillTrigger.ON_BALL_HIT,
+                caster_paddle,
+                target_paddle,
+                self.ball
+            )
         # 스킬이 성공적으로 발동되면 사운드 재생 + 말풍선 표시
         if result and 'skill_korean_name' in result:
             self._play_skill_sound(result)
@@ -9117,13 +9152,19 @@ class ColosseumsArena:
                     self._play_skill_sound(result)
                     self.show_speech_bubble(False, result['skill_korean_name'])
 
-        # 수동 모드: ON_COOLDOWN 스킬 충전 완료 순서 추적 (먼저 찬 스킬 우선 발동용)
+        # 수동 모드: 즉발형 스킬 충전 완료 순서 추적 (먼저 찬 스킬 우선 발동용)
         # 주의: 0.5초 폴링 기반 근사치. 같은 창 내 동시 충전 시 active_skills 순서로 폴백.
         if self.manual_control_active and self.selected_match and self.skill_manager:
             hero_id = self.selected_match.hero2["id"]
             skills = self.skill_manager.active_skills.get(hero_id, [])
             for s in skills:
-                if s.can_use() and s.trigger == SkillTrigger.ON_COOLDOWN:
+                if s.can_use() and (
+                    s.trigger == SkillTrigger.ON_COOLDOWN
+                    or (
+                        s.trigger == SkillTrigger.ON_BALL_HIT
+                        and getattr(s, 'skill_id', '') != 'bomb_surprise'
+                    )
+                ):
                     if s.skill_id not in self.manual_skill_cooldown_order:
                         self.manual_skill_cooldown_order.append(s.skill_id)
 
@@ -9238,7 +9279,7 @@ class ColosseumsArena:
             self.manual_skill_cooldown_order.remove(chosen.skill_id)
 
     def _manual_try_use_skill(self):
-        """수동 모드에서 준비된 ON_COOLDOWN 스킬을 직접 발동."""
+        """수동 모드에서 준비된 즉발형 스킬을 직접 발동."""
         if not self.skill_manager or not self.selected_match:
             return
 
@@ -9250,7 +9291,16 @@ class ColosseumsArena:
         if self.skill_manager.hero_global_cooldowns.get(hero_id, 0) > 0:
             return
 
-        usable = [s for s in skills if s.can_use() and s.trigger == SkillTrigger.ON_COOLDOWN]
+        usable = [
+            s for s in skills
+            if s.can_use() and (
+                s.trigger == SkillTrigger.ON_COOLDOWN
+                or (
+                    s.trigger == SkillTrigger.ON_BALL_HIT
+                    and getattr(s, 'skill_id', '') != 'bomb_surprise'
+                )
+            )
+        ]
         if not usable:
             return
 
