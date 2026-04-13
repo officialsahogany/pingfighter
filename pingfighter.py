@@ -145012,49 +145012,17 @@ def draw_stage6_border():
             stage6_border_flash_timer -= 1
 
 def draw_stage7_border():
-    """스테이지 7 테트리서(블루 메탈릭) 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
+    """스테이지 7 테트리서 벽 충돌 깜빡임 효과만 (기존 청보라 테두리는 animated_bg_stage7가 그림)"""
     global stage7_border_flash_timer
     if current_stage == 7:
-        border_thickness = 10
-        x_off = 0
         game_w = WIDTH
-        # 테트리서 테마 색상 (시원한 블루 메탈릭 계열)
-        base_color = (15, 25, 45)  # 깊은 다크 블루 (베이스)
-        mid_color = (30, 55, 90)  # 중간 메탈릭 블루
-        light_color = (50, 85, 140)  # 밝은 메탈릭 블루
-        accent_color = (80, 150, 220)  # 시안 악센트
-
-        # 메인 테두리
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
-
-        # 내부 테두리 (메탈릭 깊이감)
-        inner_thickness = 2
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-
-        # 코너 장식 (블록 느낌)
-        corner_radius = 4
-        draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-
+        border_thickness = 10  # animated_bg_stage7의 테두리 두께
         # 벽 충돌 시 깜빡임 효과 (시원한 블루 메탈릭)
         if stage7_border_flash_timer > 0:
             flash_ratio = stage7_border_flash_timer / stage7_border_flash_duration
             base_alpha = int(13 * flash_ratio)
-            bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
-            grad_steps = max(2, bt)
+            grad_steps = max(2, border_thickness)
             for i in range(grad_steps):
                 t = 1.0 - (i / grad_steps)
                 a = int(base_alpha * t * t)
@@ -145065,7 +145033,7 @@ def draw_stage7_border():
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
                 pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
-            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage7_border_flash_timer -= 1
 
 def draw_stage8_border():
