@@ -85050,6 +85050,9 @@ game_state.special_ready = special_ready
 game_state.deuce_mode = deuce_mode
 game_state.deuce_wins = deuce_wins
 game_state.deuce_losses = deuce_losses
+# 스테이지 1 한국 전통 테두리 효과
+stage1_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
+stage1_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 # 스테이지 2 정글 테두리 효과
 stage2_border_active = False  # 스테이지 2 테두리 활성화 상태
 stage2_border_timer = 0  # 테두리 애니메이션 타이머
@@ -144437,6 +144440,63 @@ def show_stage8_boss_dialogue():
     return True
 
 
+def draw_stage1_border():
+    """스테이지 1 한국 전통 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
+    global stage1_border_flash_timer
+    if current_stage == 1:
+        border_thickness = 10
+        x_off = 0
+        game_w = WIDTH
+        # 한국 전통 색상 (금색/단청 계열)
+        base_color = (51, 25, 15)  # 어두운 단색 (나무색)
+        gold_color = (120, 90, 30)  # 금색
+        bright_gold = (180, 140, 50)  # 밝은 금색
+        accent_red = (160, 50, 40)  # 단청 빨강
+
+        # 메인 테두리
+        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
+        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
+
+        # 내부 테두리 (깊이감 추가)
+        inner_thickness = 2
+        pygame.draw.rect(SCREEN, gold_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, gold_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, gold_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(SCREEN, gold_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
+                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
+
+        # 코너 장식 (단청 매듭)
+        corner_radius = 4
+        draw.circle(accent_red, (x_off + border_thickness//2, border_thickness//2), corner_radius)
+        draw.circle(accent_red, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
+        draw.circle(accent_red, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+        draw.circle(accent_red, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+
+        # 벽 충돌 시 깜빡임 효과 (금색 은은하게)
+        if stage1_border_flash_timer > 0:
+            flash_ratio = stage1_border_flash_timer / stage1_border_flash_duration
+            base_alpha = int(13 * flash_ratio)
+            bt = border_thickness
+            flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
+            grad_steps = max(2, bt)
+            for i in range(grad_steps):
+                t = 1.0 - (i / grad_steps)
+                a = int(base_alpha * t * t)
+                if a <= 0:
+                    break
+                c = (140, 100, 30, a)  # 금색 플래시
+                pygame.draw.rect(flash_surf, c, (0, i, game_w, 1))
+                pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
+                pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
+                pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
+            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            stage1_border_flash_timer -= 1
+
 def draw_stage3_border():
     """스테이지 3 멘헤라 테두리 그리기"""
     if current_stage == 3:
@@ -148402,6 +148462,7 @@ def reset_round(is_stage_start=False):
     global fire_zones, molotovs  #  화염병 관련 변수 추가
     global sand_obstacles  # 🏖 모래 지형 관련 변수
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
+    global stage1_border_flash_timer  # 스테이지 1 한국 전통 효과
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global smasher_pending_contact_offset
     global boss_special_gauge, displayed_boss_gauge, stage7_persistent_boss_gauge, current_stage  #  스테이지 보스 게이지 관리
@@ -148787,6 +148848,8 @@ def reset_round(is_stage_start=False):
     global ragnarok_first_shot_speed, ragnarok_impact_sparks
     global boss_knockback_timer, boss_knockback_vel  #  라그나로크 넉백 관련
     global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
+    # 스테이지 1 효과 초기화
+    stage1_border_flash_timer = 0
     # 스테이지 2 효과 초기화
     stage2_border_flash_timer = 0
     stage2_leaves = []
@@ -151082,6 +151145,7 @@ def _process_wall_bounce(side: str) -> bool:
         True이면 무승부 판정으로 라운드 리셋됨 (호출자가 즉시 return 해야 함)
     """
     global ball_vel, wall_bounce_count, last_wall_hit, last_wall_collision_time
+    global stage1_border_flash_timer
     global stage2_border_flash_timer, special_gauge
 
     # --- 반사 + 감속 ---
@@ -151137,6 +151201,10 @@ def _process_wall_bounce(side: str) -> bool:
             chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
             current_max = get_max_gauge()
             special_gauge = min(current_max, special_gauge + chargebag_gain)
+
+    # --- 스테이지 1: 한국 전통 테두리 깜빡임 ---
+    if current_stage == 1:
+        stage1_border_flash_timer = stage1_border_flash_duration
 
     # --- 스테이지 2: 정글 테두리 + 잎사귀 파티클 ---
     if current_stage == 2:
@@ -163730,6 +163798,7 @@ def main(stage_num, new_boss_mode=False):
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
     global quest_small_paddle_active, quest_speedrun_active, quest_speedrun_start_ticks
     # 스테이지 2 정글 테두리 효과
+    global stage1_border_flash_timer
     global stage2_border_active, stage2_border_timer, stage2_border_flash_timer
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
     
@@ -172248,7 +172317,9 @@ def main(stage_num, new_boss_mode=False):
             temp_screen = SCREEN
             SCREEN = temp_surface
             draw_field()
-            if current_stage == 2:
+            if current_stage == 1:
+                draw_stage1_border()
+            elif current_stage == 2:
                 draw_stage2_jungle_border()
             elif current_stage == 3:
                 draw_stage3_border()
@@ -172361,7 +172432,9 @@ def main(stage_num, new_boss_mode=False):
         else:
             # 흔들림이 없을 때는 직접 그리기
             draw_field()
-            if current_stage == 2:
+            if current_stage == 1:
+                draw_stage1_border()
+            elif current_stage == 2:
                 draw_stage2_jungle_border()
             elif current_stage == 3:
                 draw_stage3_border()
