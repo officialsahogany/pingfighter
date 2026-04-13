@@ -4326,7 +4326,14 @@ _viper_skill_unlocked = {
     "nerve_strike": False,    # 런타임 스킬로 해금 필요
     "marshal_kick": True,   # 쉐도우 백스텝 해금 시 자동 해금 (연계기)
     "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
+    "phantom_kick": False,    # 런타임 스킬(double_marshal_kick)로 해금 필요
 }
+
+# 바이퍼 스킬 구슬 장착 시스템 (최대 5개, 스매셔와 동일)
+VIPER_MAX_SKILL_SLOTS = 5
+
+# 현재 장착된 스킬 목록 (순서 = 슬롯 위치)
+_viper_equipped_skills = ["shadow_step", "blade_rush", "marshal_kick"]
 
 # 툴팁 일시정지로 인한 쿨타임 정지 시간 추적
 _viper_tooltip_pause_start = 0
@@ -4358,15 +4365,17 @@ def _thaw_skill_cooldowns() -> None:
 
 
 def reset_viper_skill_unlocks():
-    """바이퍼 스킬 해금 상태 초기화 (새 게임 시작 시)"""
-    global _viper_skill_unlocked
+    """바이퍼 스킬 해금 상태 및 장착 초기화 (새 게임 시작 시)"""
+    global _viper_skill_unlocked, _viper_equipped_skills
     _viper_skill_unlocked = {
         "shadow_step": True,
         "blade_rush": True,
         "nerve_strike": False,
         "marshal_kick": True,
         "dive_strike": False,
+        "phantom_kick": False,
     }
+    _viper_equipped_skills = ["shadow_step", "blade_rush", "marshal_kick"]
 
 
 def unlock_viper_skill(skill_name: str) -> bool:
@@ -4379,8 +4388,168 @@ def unlock_viper_skill(skill_name: str) -> bool:
 
 
 def is_viper_skill_unlocked(skill_name: str) -> bool:
-    """바이퍼 스킬이 해금되었는지 확인"""
-    return _viper_skill_unlocked.get(skill_name, False)
+    """바이퍼 스킬이 해금되어 있고 장착 중인지 확인 (5구슬 슬롯 시스템)"""
+    if not _viper_skill_unlocked.get(skill_name, False):
+        return False
+    return skill_name in _viper_equipped_skills
+
+
+def is_viper_skill_slots_full() -> bool:
+    """바이퍼 스킬 슬롯이 최대치(5개)에 도달했는지 확인"""
+    return len(_viper_equipped_skills) >= VIPER_MAX_SKILL_SLOTS
+
+
+def get_viper_equipped_skills():
+    """현재 장착된 바이퍼 스킬 목록 반환"""
+    return list(_viper_equipped_skills)
+
+
+def equip_viper_skill(skill_name: str) -> bool:
+    """바이퍼 스킬을 구슬 슬롯에 장착. 슬롯이 비어있으면 장착, 꽉 차면 False 반환."""
+    global _viper_equipped_skills
+    if skill_name in _viper_equipped_skills:
+        return True
+    if len(_viper_equipped_skills) < VIPER_MAX_SKILL_SLOTS:
+        _viper_equipped_skills.append(skill_name)
+        return True
+    return False
+
+
+def swap_viper_skill(old_skill: str, new_skill: str) -> bool:
+    """기존 바이퍼 스킬을 새 스킬로 교체 (같은 슬롯 위치 유지)"""
+    global _viper_equipped_skills
+    if old_skill in _viper_equipped_skills:
+        idx = _viper_equipped_skills.index(old_skill)
+        _viper_equipped_skills[idx] = new_skill
+        return True
+    return False
+
+
+def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
+    """바이퍼 스킬 구슬이 꽉 찼을 때 교체할 스킬을 선택하는 블로킹 다이얼로그.
+
+    Args:
+        new_skill_name: 새로 장착할 스킬 이름
+
+    Returns:
+        교체할 기존 스킬 이름 (반드시 선택해야 함)
+    """
+    clock = pygame.time.Clock()
+    equipped = get_viper_equipped_skills()
+
+    # 스킬 데이터 매칭
+    skill_data_map = {}
+    for sd in VIPER_SKILL_ICONS_DATA:
+        skill_data_map[sd["name"]] = sd
+
+    new_skill_data = skill_data_map.get(new_skill_name, {})
+    new_korean = new_skill_data.get("korean", new_skill_name)
+    new_color = new_skill_data.get("color", (180, 0, 220))
+
+    # 폰트 준비
+    try:
+        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 18)
+        desc_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+        small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 11)
+    except Exception:
+        title_font = None
+        desc_font = None
+        small_font = None
+
+    # 카드 레이아웃 설정
+    card_width = 120
+    card_height = 100
+    card_spacing = 10
+    total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
+    start_x = (WIDTH - total_width) // 2
+    cards_y = HEIGHT // 2 + 10
+
+    selected = None
+    hover_idx = -1
+
+    while selected is None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                selected = equipped[0]
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if 0 <= hover_idx < len(equipped):
+                    selected = equipped[hover_idx]
+
+        mouse_pos = pygame.mouse.get_pos()
+        mx, my = mouse_pos
+        if GAME_SCALE_FACTOR != 1.0:
+            mx = int(mx / GAME_SCALE_FACTOR)
+            my = int(my / GAME_SCALE_FACTOR)
+
+        # 호버 감지
+        hover_idx = -1
+        for i in range(len(equipped)):
+            cx = start_x + i * (card_width + card_spacing)
+            card_rect = pygame.Rect(cx, cards_y, card_width, card_height)
+            if card_rect.collidepoint(mx, my):
+                hover_idx = i
+
+        # === 렌더링 ===
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 패널 배경 (바이퍼 보라색 테마)
+        panel_rect = pygame.Rect(WIDTH // 2 - 200, HEIGHT // 2 - 130, 400, 260)
+        panel_surf = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
+        panel_surf.fill((15, 5, 25, 230))
+        pygame.draw.rect(panel_surf, new_color, panel_surf.get_rect(), 2, border_radius=8)
+        SCREEN.blit(panel_surf, panel_rect)
+
+        # 타이틀
+        if title_font:
+            t_surf, _ = title_font.render("스킬 구슬이 가득 찼습니다!", (220, 180, 255))
+            SCREEN.blit(t_surf, (WIDTH // 2 - t_surf.get_width() // 2, panel_rect.y + 12))
+
+            new_label = f"새 스킬: {new_korean}"
+            n_surf, _ = title_font.render(new_label, new_color)
+            SCREEN.blit(n_surf, (WIDTH // 2 - n_surf.get_width() // 2, panel_rect.y + 38))
+
+            d_surf, _ = desc_font.render("교체할 스킬을 클릭하세요", (200, 200, 200))
+            SCREEN.blit(d_surf, (WIDTH // 2 - d_surf.get_width() // 2, panel_rect.y + 62))
+
+        # 장착 중인 스킬 카드들
+        for i, eq_name in enumerate(equipped):
+            cx = start_x + i * (card_width + card_spacing)
+            eq_data = skill_data_map.get(eq_name, {})
+            eq_color = eq_data.get("color", (150, 150, 150))
+            eq_korean = eq_data.get("korean", eq_name)
+
+            is_hovered = (i == hover_idx)
+            card_surf = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
+            if is_hovered:
+                card_surf.fill((eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2, 220))
+                border_c = (255, 100, 100)
+            else:
+                card_surf.fill((20, 10, 30, 200))
+                border_c = eq_color
+            pygame.draw.rect(card_surf, border_c, card_surf.get_rect(), 2, border_radius=6)
+            SCREEN.blit(card_surf, (cx, cards_y))
+
+            orb_cx = cx + card_width // 2
+            orb_cy = cards_y + 35
+            pygame.draw.circle(SCREEN, eq_color, (orb_cx, orb_cy), 20)
+            pygame.draw.circle(SCREEN, (255, 255, 255), (orb_cx, orb_cy), 20, 2)
+
+            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, True, eq_color)
+
+            if small_font:
+                name_surf, _ = small_font.render(eq_korean, (255, 255, 255))
+                SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
+
+            if is_hovered and desc_font:
+                del_surf, _ = desc_font.render("✕ 교체", (255, 80, 80))
+                SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    return selected
 
 
 def trigger_viper_skill_cooldown(skill_name: str):
@@ -6033,25 +6202,21 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     time_now = pygame.time.get_ticks()
     activation_effect_duration = 400
 
-    # 해금된 스킬 필터링
-    unlocked_main_skills = []
+    # 장착된 스킬만 표시 (최대 5개 구슬 슬롯, 스매셔와 동일)
+    equipped_skills = get_viper_equipped_skills()
+    equipped_skill_data_list = []
 
-    # 메인 스킬 순서
-    main_skill_order = ["shadow_step", "blade_rush", "nerve_strike", "marshal_kick", "dive_strike"]
-
-    for skill_name in main_skill_order:
+    for eq_name in equipped_skills:
         for skill_data in VIPER_SKILL_ICONS_DATA:
-            if skill_data["name"] == skill_name:
-                if is_viper_skill_unlocked(skill_name):
-                    unlocked_main_skills.append(skill_data)
+            if skill_data["name"] == eq_name:
+                equipped_skill_data_list.append(skill_data)
                 break
 
-    num_unlocked = len(unlocked_main_skills)
+    num_equipped = len(equipped_skill_data_list)
 
-    MAX_LEFT_SLOTS = 5
     base_angle = 155
     angle_step = 28  # 5슬롯 균등 간격
-    all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
+    all_slot_angles = [base_angle + i * angle_step for i in range(VIPER_MAX_SKILL_SLOTS)]
 
     # === 빈 슬롯 그리기 ===
     def draw_empty_slot(slot_x: int, slot_y: int):
@@ -6060,133 +6225,36 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         pygame.draw.circle(surface, empty_bg_color, (slot_x, slot_y), icon_radius)
         pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
 
-    # === 왼쪽 5슬롯 (빈 슬롯 먼저) ===
-    for slot_idx in range(MAX_LEFT_SLOTS):
-        angle_deg = all_left_angles[slot_idx]
+    # === 모든 슬롯 그리기 (장착된 스킬 + 빈 슬롯) ===
+    for slot_idx in range(VIPER_MAX_SKILL_SLOTS):
+        angle_deg = all_slot_angles[slot_idx]
         angle_rad = math.radians(angle_deg)
         slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
         slot_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
 
-        if slot_idx < num_unlocked:
+        if slot_idx < num_equipped:
             continue
         else:
             draw_empty_slot(slot_x, slot_y)
 
-    # === 우측 슬롯 (팬텀 킥, 1시 방향) ===
-    _dmk_angle = 330
-    _dmk_rad = math.radians(_dmk_angle)
-    _dmk_slot_x = orb_center_x + int(math.cos(_dmk_rad) * orbit_radius)
-    _dmk_slot_y = orb_center_y + int(math.sin(_dmk_rad) * orbit_radius)
-    if not _viper_double_marshal_kick_unlocked:
-        draw_empty_slot(_dmk_slot_x, _dmk_slot_y)
-    else:
-        # 팬텀 킥 해금 시 직접 렌더링 (패시브 스킬)
-        _dmk_name = "double_marshal_kick"
-        _dmk_color = (180, 0, 255)
-        _dmk_cost = 60
-        _dmk_cd_ratio = get_viper_skill_cooldown_remaining("phantom_kick")
-        _dmk_on_cd = _dmk_cd_ratio > 0
-        _dmk_is_ready = _viper_double_marshal_ready and not _dmk_on_cd
-        _dmk_is_active = current_gauge >= _dmk_cost and _dmk_is_ready
-
-        _dmk_was = _viper_skill_was_active.get(_dmk_name, False)
-        if _dmk_is_active and not _dmk_was:
-            _viper_skill_activation_times[_dmk_name] = time_now
-        _viper_skill_was_active[_dmk_name] = _dmk_is_active
-
-        _viper_skill_icon_rects[_dmk_name] = pygame.Rect(
-            _dmk_slot_x - icon_radius, _dmk_slot_y - icon_radius,
-            icon_diameter, icon_diameter
-        )
-
-        if _dmk_is_active:
-            _dmk_bg = (*_dmk_color[:3], 220)
-            _dmk_border = (255, 255, 255, 255)
-        else:
-            _dmk_dark = tuple(max(0, c // 3) for c in _dmk_color[:3])
-            _dmk_bg = (*_dmk_dark, 150)
-            _dmk_border = (80, 80, 80, 180)
-
-        _dmk_act_time = _viper_skill_activation_times.get(_dmk_name, 0)
-        _dmk_act_elapsed = time_now - _dmk_act_time
-        if _dmk_is_active and _dmk_act_elapsed < activation_effect_duration:
-            _dmk_progress = _dmk_act_elapsed / activation_effect_duration
-            _dmk_glow_a = int(180 * (1 - _dmk_progress))
-            _dmk_glow_r = icon_radius + int(8 * (1 - _dmk_progress))
-            _dmk_glow_s = pygame.Surface((_dmk_glow_r * 2 + 4, _dmk_glow_r * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(_dmk_glow_s, (*_dmk_color[:3], _dmk_glow_a),
-                             (_dmk_glow_r + 2, _dmk_glow_r + 2), _dmk_glow_r)
-            surface.blit(_dmk_glow_s, (_dmk_slot_x - _dmk_glow_r - 2, _dmk_slot_y - _dmk_glow_r - 2))
-
-        pygame.draw.circle(surface, _dmk_bg, (_dmk_slot_x, _dmk_slot_y), icon_radius)
-        pygame.draw.circle(surface, _dmk_border, (_dmk_slot_x, _dmk_slot_y), icon_radius, 2)
-
-        if _dmk_is_active:
-            _dmk_pulse = (math.sin(time_now * 0.005) + 1) / 2
-            if _dmk_pulse > 0.4:
-                _dmk_pa = int((_dmk_pulse - 0.4) * 100)
-                pygame.draw.circle(surface, (*_dmk_color[:3], _dmk_pa),
-                                 (_dmk_slot_x, _dmk_slot_y), icon_radius + 3, 2)
-
-        # 🔴 팬텀 킥 연계 가능 시 붉은 맥동 글로우
-        if _viper_double_marshal_ready and current_gauge >= _dmk_cost:
-            _dmk_gt = time_now * 0.006
-            _dmk_gp = 0.5 + 0.5 * math.sin(_dmk_gt)
-            _dmk_ga = int(80 + 120 * _dmk_gp)
-            _dmk_gr = icon_radius + int(4 + 4 * _dmk_gp)
-            _dmk_ggs = pygame.Surface((_dmk_gr * 2 + 4, _dmk_gr * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(_dmk_ggs, (255, 50, 50, _dmk_ga),
-                             (_dmk_gr + 2, _dmk_gr + 2), _dmk_gr)
-            surface.blit(_dmk_ggs, (_dmk_slot_x - _dmk_gr - 2, _dmk_slot_y - _dmk_gr - 2),
-                        special_flags=pygame.BLEND_ADD)
-            pygame.draw.circle(surface, (255, 80, 80, int(160 * _dmk_gp)),
-                             (_dmk_slot_x, _dmk_slot_y), icon_radius + 2, 2)
-
-        icon_size = icon_radius * 2 - 4
-        _draw_skill_icon_symbol(surface, _dmk_name, _dmk_slot_x, _dmk_slot_y,
-                               icon_size, _dmk_is_active, _dmk_color)
-
-        # 팬텀 킥 쿨타임 오버레이
-        if _dmk_on_cd:
-            _dmk_cd_surf = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
-            _dmk_cd_c = icon_radius + 2
-            _dmk_sa = -math.pi / 2
-            _dmk_ea = _dmk_sa + (2 * math.pi * _dmk_cd_ratio)
-            if _dmk_cd_ratio > 0.01:
-                _dmk_pts = [(_dmk_cd_c, _dmk_cd_c)]
-                _dmk_ns = max(3, int(36 * _dmk_cd_ratio))
-                for _dj in range(_dmk_ns + 1):
-                    _da = _dmk_sa + (_dmk_ea - _dmk_sa) * _dj / _dmk_ns
-                    _dmk_pts.append((_dmk_cd_c + int(math.cos(_da) * icon_radius),
-                                     _dmk_cd_c + int(math.sin(_da) * icon_radius)))
-                if len(_dmk_pts) >= 3:
-                    pygame.draw.polygon(_dmk_cd_surf, (0, 0, 0, 180), _dmk_pts)
-            surface.blit(_dmk_cd_surf, (_dmk_slot_x - icon_radius - 2, _dmk_slot_y - icon_radius - 2))
-            _dmk_cd_sec = 40.0 * _dmk_cd_ratio
-            _dmk_cd_txt = f"{int(_dmk_cd_sec)}" if _dmk_cd_sec >= 1 else f"{_dmk_cd_sec:.1f}"
-            try:
-                _dmk_cd_f = pygame.font.Font(None, 28)
-                _dmk_ts = _dmk_cd_f.render(_dmk_cd_txt, True, (255, 255, 255))
-                _dmk_tr = _dmk_ts.get_rect(center=(_dmk_slot_x, _dmk_slot_y))
-                _dmk_ss = _dmk_cd_f.render(_dmk_cd_txt, True, (0, 0, 0))
-                _dmk_sr = _dmk_ss.get_rect(center=(_dmk_slot_x + 1, _dmk_slot_y + 1))
-                surface.blit(_dmk_ss, _dmk_sr)
-                surface.blit(_dmk_ts, _dmk_tr)
-            except:
-                pass
-
-    # === 해금된 메인 스킬 아이콘 그리기 ===
-    for i, skill_data in enumerate(unlocked_main_skills):
+    # === 장착된 스킬 아이콘 그리기 ===
+    for i, skill_data in enumerate(equipped_skill_data_list):
         skill_name = skill_data["name"]
-        angle_deg = all_left_angles[i]
+        angle_deg = all_slot_angles[i]
         angle_rad = math.radians(angle_deg)
 
         icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
         icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
 
-        cooldown_ratio = get_viper_skill_cooldown_remaining(skill_name)
+        # 팬텀 킥은 "phantom_kick" 쿨타임 키 사용
+        _cd_key = "phantom_kick" if skill_name == "phantom_kick" else skill_name
+        cooldown_ratio = get_viper_skill_cooldown_remaining(_cd_key)
         is_on_cooldown = cooldown_ratio > 0
         is_active = current_gauge >= skill_data["cost"] and not is_on_cooldown
+
+        # 팬텀 킥: 마샬 킥 적중 후 연계 준비 상태일 때만 활성화
+        if skill_name == "phantom_kick":
+            is_active = is_active and _viper_double_marshal_ready
 
         # 활성화 순간 감지
         was_active = _viper_skill_was_active.get(skill_name, False)
@@ -6232,6 +6300,20 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                 pulse_alpha = int((pulse - 0.4) * 100)
                 pygame.draw.circle(surface, (*skill_data["color"][:3], pulse_alpha),
                                  (icon_x, icon_y), icon_radius + 3, 2)
+
+        # 🔴 팬텀 킥 연계 가능 시 붉은 맥동 글로우
+        if skill_name == "phantom_kick" and _viper_double_marshal_ready and current_gauge >= skill_data["cost"]:
+            _pk_glow_t = time_now * 0.006
+            _pk_glow_pulse = 0.5 + 0.5 * math.sin(_pk_glow_t)
+            _pk_glow_a = int(80 + 120 * _pk_glow_pulse)
+            _pk_glow_r = icon_radius + int(4 + 4 * _pk_glow_pulse)
+            _pk_gs = pygame.Surface((_pk_glow_r * 2 + 4, _pk_glow_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(_pk_gs, (255, 50, 50, _pk_glow_a),
+                             (_pk_glow_r + 2, _pk_glow_r + 2), _pk_glow_r)
+            surface.blit(_pk_gs, (icon_x - _pk_glow_r - 2, icon_y - _pk_glow_r - 2),
+                        special_flags=pygame.BLEND_ADD)
+            pygame.draw.circle(surface, (255, 80, 80, int(160 * _pk_glow_pulse)),
+                             (icon_x, icon_y), icon_radius + 2, 2)
 
         # 🔴 마샬 킥 연계 가능 시 붉은 맥동 글로우
         if skill_name == "marshal_kick" and _viper_wall_dive_ready and current_gauge >= skill_data["cost"]:
@@ -6296,18 +6378,11 @@ _viper_perk_icon_rects = {}
 
 def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                            orb_radius: int, current_gauge: float, max_gauge: float):
-    """게이지 구슬 오른쪽에 바이퍼 퍽 아이콘 배치 (팬텀 킥 등)"""
+    """게이지 구슬 오른쪽에 바이퍼 퍽 아이콘 배치 (레벨업 퍽만 - 팬텀 킥은 5구슬 슬롯으로 이동)"""
     global _viper_perk_activation_times, _viper_perk_was_active, _viper_perk_icon_rects
 
-    # 해금된 퍽 목록 수집
+    # 해금된 퍽 목록 수집 (레벨업 퍽만, 팬텀 킥은 5구슬 슬롯 시스템으로 이동)
     viper_perks = []
-    if _viper_double_marshal_kick_unlocked:
-        viper_perks.append({
-            "name": "double_marshal_kick",
-            "color": (180, 0, 255),
-            "cost": 60,
-            "symbol": "x2",
-        })
     _jetpack_enhance_lv = get_runtime_skill_level("jetpack_enhance")
     if _jetpack_enhance_lv > 0:
         viper_perks.append({
@@ -6315,6 +6390,15 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
             "color": (0, 200, 255),
             "cost": 0,
             "symbol": f"J{_jetpack_enhance_lv}",
+            "always_active": True,
+        })
+    _kick_enhance_lv = get_runtime_skill_level("kick_enhance")
+    if _kick_enhance_lv > 0:
+        viper_perks.append({
+            "name": "kick_enhance",
+            "color": (255, 80, 40),
+            "cost": 0,
+            "symbol": f"K{_kick_enhance_lv}",
             "always_active": True,
         })
 
@@ -6338,13 +6422,13 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
         icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
         icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
 
-        # 팬텀 킥은 _viper_double_marshal_ready일 때 활성 표시, 제트팩 강화는 항상 활성
+        # 레벨업 퍽은 항상 활성 표시
         if perk.get("always_active"):
             is_ready = True
             is_active = True
         else:
-            is_ready = _viper_double_marshal_ready if perk_name == "double_marshal_kick" else False
-            is_active = current_gauge >= perk["cost"] and is_ready
+            is_ready = False
+            is_active = False
 
         # 활성화 순간 감지
         was_active = _viper_perk_was_active.get(perk_name, False)
@@ -7282,13 +7366,17 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
             if rect.collidepoint(local_x, local_y):
                 return skill_data
 
-    # 팬텀 킥 퍽 툴팁 체크
-    if _viper_double_marshal_kick_unlocked and "double_marshal_kick" in _viper_skill_icon_rects:
-        rect = _viper_skill_icon_rects["double_marshal_kick"]
+    # 팬텀 킥 툴팁 체크 (5구슬 슬롯에 통합됨)
+    if "phantom_kick" in _viper_equipped_skills and "phantom_kick" in _viper_skill_icon_rects:
+        rect = _viper_skill_icon_rects["phantom_kick"]
         if rect.collidepoint(local_x, local_y):
+            # VIPER_SKILL_ICONS_DATA에서 phantom_kick 데이터 반환
+            for _pk_data in VIPER_SKILL_ICONS_DATA:
+                if _pk_data["name"] == "phantom_kick":
+                    return _pk_data
             return {
-                "name": "double_marshal_kick", "korean": "팬텀 킥", "cost": 60, "color": (180, 0, 255),
-                "symbol": "x2", "cooldown": 0.0, "key": "S/↓(연계)",
+                "name": "phantom_kick", "korean": "팬텀 킥", "cost": 60, "color": (180, 0, 255),
+                "symbol": "x2", "cooldown": 40.0, "key": "S/↓(연계)",
                 "description": "마샬 킥 적중 후\n1.5초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 60 소모, 공속 증가율 180%.",
                 "how_to_use": "마샬 킥 적중 후 1.5초 안에 S/↓키",
                 "effect_type": "wall_dive_purple"
@@ -16945,21 +17033,27 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         runtime_skill_levels[choice_id] = 1
         return True
 
-    # 바이퍼 게이지 스킬 해금 처리
-    if choice_id == "unlock_nerve_strike":
-        unlock_viper_skill("nerve_strike")
-        runtime_skill_levels["unlock_nerve_strike"] = 1
-        return True
-
-    if choice_id == "unlock_dive_strike":
-        unlock_viper_skill("dive_strike")
-        runtime_skill_levels["unlock_dive_strike"] = 1
-        return True
-
-    if choice_id == "double_marshal_kick":
-        global _viper_double_marshal_kick_unlocked
-        _viper_double_marshal_kick_unlocked = True
-        runtime_skill_levels["double_marshal_kick"] = 1
+    # 바이퍼 게이지 스킬 해금 처리 (5구슬 슬롯 시스템)
+    _viper_unlock_map = {
+        "unlock_nerve_strike": "nerve_strike",
+        "unlock_dive_strike": "dive_strike",
+        "double_marshal_kick": "phantom_kick",
+    }
+    if choice_id in _viper_unlock_map:
+        skill_name = _viper_unlock_map[choice_id]
+        unlock_viper_skill(skill_name)
+        # double_marshal_kick 레거시 플래그 동기화
+        if choice_id == "double_marshal_kick":
+            global _viper_double_marshal_kick_unlocked
+            _viper_double_marshal_kick_unlocked = True
+        # 슬롯에 장착 시도 → 꽉 차면 교체 다이얼로그
+        equip_result = equip_viper_skill(skill_name)
+        print(f"[바이퍼 5구슬] 해금: {skill_name}, 장착결과: {equip_result}, 현재슬롯: {_viper_equipped_skills}", flush=True)
+        if not equip_result:
+            removed = _show_viper_skill_swap_dialog(skill_name)
+            swap_viper_skill(removed, skill_name)
+            print(f"[바이퍼 5구슬] 교체완료: {removed} → {skill_name}, 현재슬롯: {_viper_equipped_skills}", flush=True)
+        runtime_skill_levels[choice_id] = 1
         return True
 
     if choice_id == "jetpack_enhance":
@@ -17112,18 +17206,27 @@ def recalculate_skill_effects(skill_id: str):
             if _skill_name in _smasher_equipped_skills:
                 _smasher_equipped_skills.remove(_skill_name)
 
-    # 바이퍼 스킬 해금 상태 동기화
+    # 바이퍼 스킬 해금 상태 동기화 (5구슬 슬롯 시스템)
     elif skill_id == "unlock_nerve_strike":
         level = runtime_skill_levels.get("unlock_nerve_strike", 0)
         _viper_skill_unlocked["nerve_strike"] = level >= 1
+        # 레벨 0으로 내려가면 장착 해제
+        global _viper_equipped_skills
+        if level < 1 and "nerve_strike" in _viper_equipped_skills:
+            _viper_equipped_skills.remove("nerve_strike")
 
     elif skill_id == "unlock_dive_strike":
         level = runtime_skill_levels.get("unlock_dive_strike", 0)
         _viper_skill_unlocked["dive_strike"] = level >= 1
+        if level < 1 and "dive_strike" in _viper_equipped_skills:
+            _viper_equipped_skills.remove("dive_strike")
 
     elif skill_id == "double_marshal_kick":
         global _viper_double_marshal_kick_unlocked
         _viper_double_marshal_kick_unlocked = runtime_skill_levels.get("double_marshal_kick", 0) >= 1
+        _viper_skill_unlocked["phantom_kick"] = _viper_double_marshal_kick_unlocked
+        if not _viper_double_marshal_kick_unlocked and "phantom_kick" in _viper_equipped_skills:
+            _viper_equipped_skills.remove("phantom_kick")
 
     # 퍽 월계수잎: 잎 개수 재계산 (신성월계수 보너스 포함)
     elif skill_id == "perk_laurel_shield":
@@ -78763,7 +78866,7 @@ def handle_player(keys):
     # 팬텀 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화 (퍽 해금 + 쿨타임 체크)
     if _viper_marshal_kick_hit_ball and _viper_ss_was_airborne and not _viper_double_marshal_ready:
         if pygame.time.get_ticks() - _viper_marshal_kick_hit_ms >= _VIPER_MARSHAL_KICK_2ND_DELAY_MS:
-            if _viper_double_marshal_kick_unlocked and get_viper_skill_cooldown_remaining("phantom_kick") <= 0 and special_gauge >= 60:
+            if _viper_double_marshal_kick_unlocked and "phantom_kick" in _viper_equipped_skills and get_viper_skill_cooldown_remaining("phantom_kick") <= 0 and special_gauge >= 60:
                 _viper_double_marshal_ready = True
                 _viper_double_marshal_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
             _viper_marshal_kick_hit_ball = False  # 1회 소모
@@ -86406,17 +86509,19 @@ def save_game_progress(stage_number: int) -> bool:
         except Exception as runtime_err:
             print(f"[저장] 런타임 스킬 저장 실패: {runtime_err}")
 
-        # 스매셔 스킬 해금 상태 저장 (플라즈마, 리커버리, 클렌즈 등)
+        # 스매셔 스킬 해금 상태 + 장착 목록 저장
         try:
             save_data["smasher_skill_unlocked"] = dict(_smasher_skill_unlocked)
+            save_data["smasher_equipped_skills"] = list(_smasher_equipped_skills)
             unlocked_skills = [k for k, v in _smasher_skill_unlocked.items() if v]
             # print(f"[저장] 스매셔 스킬 해금 상태 저장 완료 - 해금된 스킬: {unlocked_skills}")
         except Exception as smasher_err:
             print(f"[저장] 스매셔 스킬 해금 상태 저장 실패: {smasher_err}")
 
-        # 바이퍼 스킬 해금 상태 저장 (nerve_strike, dive_strike 등)
+        # 바이퍼 스킬 해금 상태 + 장착 목록 저장
         try:
             save_data["viper_skill_unlocked"] = dict(_viper_skill_unlocked)
+            save_data["viper_equipped_skills"] = list(_viper_equipped_skills)
         except Exception as viper_err:
             print(f"[저장] 바이퍼 스킬 해금 상태 저장 실패: {viper_err}")
 
@@ -86736,22 +86841,23 @@ def apply_loaded_progress(save_data: dict) -> bool:
         except Exception as runtime_err:
             print(f"[로드] 런타임 스킬 복원 실패: {runtime_err}")
 
-        # 스매셔 스킬 해금 상태 복원 (플라즈마, 리커버리, 클렌즈 등)
-        global _smasher_skill_unlocked
+        # 스매셔 스킬 해금 상태 + 장착 목록 복원
+        global _smasher_skill_unlocked, _smasher_equipped_skills
         try:
             smasher_unlocked_data = save_data.get("smasher_skill_unlocked")
             if smasher_unlocked_data:
-                # 기존 해금 상태에 저장된 값 병합 (기본 해금 스킬 유지)
                 for skill_name, is_unlocked in smasher_unlocked_data.items():
                     if skill_name in _smasher_skill_unlocked:
                         _smasher_skill_unlocked[skill_name] = is_unlocked
-                unlocked_skills = [k for k, v in _smasher_skill_unlocked.items() if v]
-                # print(f"[로드] 스매셔 스킬 해금 상태 복원 완료 - 해금된 스킬: {unlocked_skills}")
+            # 장착 목록 복원
+            smasher_equipped_data = save_data.get("smasher_equipped_skills")
+            if smasher_equipped_data:
+                _smasher_equipped_skills = list(smasher_equipped_data)
         except Exception as smasher_err:
             print(f"[로드] 스매셔 스킬 해금 상태 복원 실패: {smasher_err}")
 
-        # 바이퍼 스킬 해금 상태 복원 (nerve_strike, dive_strike 등)
-        global _viper_skill_unlocked, _viper_double_marshal_kick_unlocked
+        # 바이퍼 스킬 해금 상태 + 장착 목록 복원
+        global _viper_skill_unlocked, _viper_double_marshal_kick_unlocked, _viper_equipped_skills
         try:
             viper_unlocked_data = save_data.get("viper_skill_unlocked")
             if viper_unlocked_data:
@@ -86767,6 +86873,11 @@ def apply_loaded_progress(save_data: dict) -> bool:
             # double_marshal_kick 복원
             if runtime_skill_levels.get("double_marshal_kick", 0) > 0:
                 _viper_double_marshal_kick_unlocked = True
+                _viper_skill_unlocked["phantom_kick"] = True
+            # 장착 목록 복원
+            viper_equipped_data = save_data.get("viper_equipped_skills")
+            if viper_equipped_data:
+                _viper_equipped_skills = list(viper_equipped_data)
         except Exception as viper_err:
             print(f"[로드] 바이퍼 스킬 해금 상태 복원 실패: {viper_err}")
 
@@ -100107,6 +100218,9 @@ def draw_overlay_ui():
     draw_trade_point_stars()
     update_trade_point_texts()
     draw_trade_point_texts()
+    # 인게임 골드 애니메이션 업데이트 및 그리기
+    update_ingame_gold_animations()
+    draw_ingame_gold_animations(SCREEN)
 
     if not new_boss_mode_active:
         update_alchemy_notices()
