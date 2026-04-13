@@ -4580,6 +4580,10 @@ def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
+    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    _training_bonus = get_runtime_skill_bonus("common_training")
+    if _training_bonus > 0:
+        cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
     cooldown_data = _viper_skill_cooldowns.get(skill_name)
 
     if cooldown_data is None:
@@ -4846,6 +4850,10 @@ def get_smasher_skill_cooldown_remaining(skill_name: str) -> float:
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
+    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    _training_bonus = get_runtime_skill_bonus("common_training")
+    if _training_bonus > 0:
+        cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
     cooldown_data = _smasher_skill_cooldowns.get(skill_name)
 
     # 쿨타임 데이터가 없으면 쿨타임 완료 상태
@@ -7143,15 +7151,28 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
     tooltip_surface.blit(cost_surface, (padding, y_offset))
 
-    # 쿨타임 표시
+    # 쿨타임 표시 (단련 퍽 + 천사주사위 감소 반영)
+    _base_cd = skill_data["cooldown"]
+    _angel_cd_mult = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+    _training_cd_bonus = get_runtime_skill_bonus("common_training")
+    _effective_cd = _base_cd
+    if _angel_cd_mult != 1.0:
+        _effective_cd = _effective_cd * _angel_cd_mult
+    if _training_cd_bonus > 0:
+        _effective_cd = _effective_cd * (1.0 - _training_cd_bonus)
+    _effective_cd = max(0, _effective_cd)
     cooldown_ratio = get_smasher_skill_cooldown_remaining(skill_data["name"])
     if cooldown_ratio > 0:
-        remaining = skill_data["cooldown"] * cooldown_ratio
+        remaining = _effective_cd * cooldown_ratio
         cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{remaining:.1f}")
         cd_color = (255, 180, 80)
     else:
-        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(skill_data['cooldown'])
-        cd_color = (180, 180, 180)
+        if _effective_cd < _base_cd:
+            cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{_effective_cd:.1f}")
+            cd_color = (100, 200, 255)
+        else:
+            cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(skill_data['cooldown'])
+            cd_color = (180, 180, 180)
     cd_surface, cd_rect = small_font.render(cd_text, cd_color)
     cd_x = tooltip_width - padding - cd_rect.width
     tooltip_surface.blit(cd_surface, (cd_x, y_offset + 2))
@@ -7461,15 +7482,28 @@ def _draw_viper_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
     tooltip_surface.blit(cost_surface, (padding, y_offset))
 
-    # 쿨타임 표시
+    # 쿨타임 표시 (단련 퍽 + 천사주사위 감소 반영)
+    _base_cd = skill_data["cooldown"]
+    _angel_cd_mult = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+    _training_cd_bonus = get_runtime_skill_bonus("common_training")
+    _effective_cd = _base_cd
+    if _angel_cd_mult != 1.0:
+        _effective_cd = _effective_cd * _angel_cd_mult
+    if _training_cd_bonus > 0:
+        _effective_cd = _effective_cd * (1.0 - _training_cd_bonus)
+    _effective_cd = max(0, _effective_cd)
     cooldown_ratio = get_viper_skill_cooldown_remaining(skill_data["name"])
     if cooldown_ratio > 0:
-        remaining = skill_data["cooldown"] * cooldown_ratio
+        remaining = _effective_cd * cooldown_ratio
         cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{remaining:.1f}")
         cd_color = (255, 180, 80)
     else:
-        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(skill_data['cooldown'])
-        cd_color = (180, 180, 180)
+        if _effective_cd < _base_cd:
+            cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{_effective_cd:.1f}")
+            cd_color = (100, 200, 255)
+        else:
+            cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(skill_data['cooldown'])
+            cd_color = (180, 180, 180)
     cd_surface, cd_rect = small_font.render(cd_text, cd_color)
     cd_x = tooltip_width - padding - cd_rect.width
     tooltip_surface.blit(cd_surface, (cd_x, y_offset + 2))
@@ -9064,6 +9098,10 @@ def get_soldier_skill_cooldown_remaining(skill_name: str) -> float:
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
+    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    _training_bonus = get_runtime_skill_bonus("common_training")
+    if _training_bonus > 0:
+        cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
     start_time = _soldier_skill_cooldowns.get(skill_name, 0)
     elapsed = pygame.time.get_ticks() - start_time
 
@@ -9091,6 +9129,10 @@ def get_soldier_skill_cooldown_seconds(skill_name: str) -> float:
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
+    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    _training_bonus = get_runtime_skill_bonus("common_training")
+    if _training_bonus > 0:
+        cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
     start_time = _soldier_skill_cooldowns.get(skill_name, 0)
     elapsed = pygame.time.get_ticks() - start_time
 
@@ -14585,6 +14627,20 @@ RUNTIME_SKILL_POOL = {
         "icon_color": (80, 160, 255),
         "tree": "common"
     },
+    "common_training": {
+        "name": "단련",
+        "max_level": 5,
+        "descriptions": {
+            1: "모든 스킬 쿨타임 6% 감소",
+            2: "모든 스킬 쿨타임 12% 감소",
+            3: "모든 스킬 쿨타임 18% 감소",
+            4: "모든 스킬 쿨타임 24% 감소",
+            5: "모든 스킬 쿨타임 30% 감소",
+        },
+        "detail": "끊임없는 단련으로 스킬을 더 빠르게 사용할 수 있게 됩니다.",
+        "icon_color": (255, 160, 80),
+        "tree": "common"
+    },
     "dash_acceleration": {
         "name": "버스트업",
         "max_level": 5,
@@ -18147,6 +18203,7 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
 
             # 공통 트리
             "common_bulk_up": level * 0.05,         # 패들 크기 5%/레벨 증가
+            "common_training": level * 0.06,        # 스킬 쿨타임 6%/레벨 감소
 
             # 스매셔 전용
             "dash_acceleration": level * 0.70,      # 패들 크기 70%/레벨 증가
@@ -20424,6 +20481,50 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
             pygame.draw.circle(surface, (*color, 120), (mx, my), mr)
             pygame.draw.circle(surface, (255, 50, 50, 180), (mx - max(1, int(1 * scale)), my - max(1, int(1 * scale))), max(1, int(1 * scale)))
             pygame.draw.circle(surface, (255, 50, 50, 180), (mx + max(1, int(1 * scale)), my - max(1, int(1 * scale))), max(1, int(1 * scale)))
+
+    elif skill_id == "common_training":
+        # 단련: 주먹 + 스피드 라인 (훈련/수련 느낌)
+        color = icon_color if icon_color else (255, 160, 80)
+        lt = lighter
+        dk = darker
+
+        # 주먹 본체 (세로 직사각형)
+        fist_w = max(3, int(7 * scale))
+        fist_h = max(4, int(10 * scale))
+        fist_x = icon_cx - fist_w // 2 + int(1 * scale)
+        fist_y = icon_cy - fist_h // 2
+        pygame.draw.rect(surface, color, (fist_x, fist_y, fist_w, fist_h), border_radius=max(1, int(2 * scale)))
+        # 주먹 하이라이트
+        pygame.draw.rect(surface, lt, (fist_x + max(1, int(1 * scale)), fist_y + max(1, int(1 * scale)), fist_w - max(2, int(3 * scale)), max(2, int(3 * scale))), border_radius=max(1, int(1 * scale)))
+        # 엄지
+        thumb_w = max(2, int(3 * scale))
+        thumb_h = max(2, int(4 * scale))
+        pygame.draw.rect(surface, dk, (fist_x - thumb_w + max(1, int(1 * scale)), fist_y + fist_h // 2 - thumb_h // 2, thumb_w, thumb_h), border_radius=max(1, int(1 * scale)))
+        # 손가락 줄 (가로 2줄)
+        for i in range(2):
+            ly = fist_y + int((3 + i * 3) * scale)
+            pygame.draw.line(surface, dk, (fist_x + max(1, int(1 * scale)), ly), (fist_x + fist_w - max(1, int(2 * scale)), ly), 1)
+
+        # 스피드 라인 (좌측 — 빠른 펀치 느낌)
+        for i, offset_y in enumerate([-3, 0, 3]):
+            lx = icon_cx - int(11 * scale)
+            ly = icon_cy + int(offset_y * scale)
+            length = max(2, int((4 - i % 2) * scale))
+            pygame.draw.line(surface, (255, 220, 150), (lx, ly), (lx + length, ly), max(1, int(1.5 * scale)))
+
+        # 불꽃 이펙트 (우상단 — 단련의 열기)
+        flame_x = icon_cx + int(5 * scale)
+        flame_y = icon_cy - int(6 * scale)
+        pygame.draw.polygon(surface, (255, 100, 30), [
+            (flame_x, flame_y),
+            (flame_x - max(2, int(2 * scale)), flame_y + max(3, int(4 * scale))),
+            (flame_x + max(2, int(2 * scale)), flame_y + max(3, int(4 * scale)))
+        ])
+        pygame.draw.polygon(surface, (255, 200, 50), [
+            (flame_x, flame_y + max(1, int(1 * scale))),
+            (flame_x - max(1, int(1 * scale)), flame_y + max(2, int(3 * scale))),
+            (flame_x + max(1, int(1 * scale)), flame_y + max(2, int(3 * scale)))
+        ])
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
@@ -43371,6 +43472,10 @@ def release_blacksmith_hammer_shock():
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_frames = max(0, int(cooldown_frames * _angel_skill_cd))
+    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    _training_bonus = get_runtime_skill_bonus("common_training")
+    if _training_bonus > 0:
+        cooldown_frames = max(0, int(cooldown_frames * (1.0 - _training_bonus)))
     blacksmith_hammer_shock_cooldown_timer = cooldown_frames
     blacksmith_hammer_shock_last_stage = stage
     blacksmith_hammer_shock_cooldown_total = cooldown_frames
