@@ -30037,7 +30037,7 @@ nemesis_death_boss_opacity = 255  # 보스 투명도 (분해되면서 감소)
 nemesis_death_star_dropped = False  # 별 드랍 여부 (1회만)
 NEMESIS_DEATH_DURATION = 5000  # 분해 애니메이션 시간 (5초)
 NEMESIS_FINAL_EXPLOSION_TIME = 4500  # 대폭발 시작 시간 (4.5초)
-NEMESIS_POST_DELAY = 2000  # 대폭발 후 잠시 대기 (2초) → 보물상자 드랍
+NEMESIS_POST_DELAY = 3500  # 대폭발 후 파편 소멸 대기 (3.5초) → 보물상자 드랍
 
 # 네메시스 보물상자 시스템 (스테이지 5 클리어 보상)
 nemesis_chest_active = False  # 보물상자 존재 여부
@@ -163773,8 +163773,8 @@ def update_nemesis_death_animation():
                     'size': random.randint(4, 14),
                     'angle': random.uniform(0, 360),
                     'angular_vel': random.uniform(-12, 12),
-                    'life': random.randint(80, 180),
-                    'max_life': 180,
+                    'life': random.randint(80, 160),
+                    'max_life': 160,
                     'trail': [],  # 불꽃 트레일 좌표
                 })
 
@@ -163846,6 +163846,26 @@ def update_nemesis_death_animation():
                 frag['vy'] += 0.1
                 frag['angle'] += frag['angular_vel'] * 0.5
                 frag['opacity'] = max(0, frag['opacity'] - 8)  # 빠르게 소멸
+
+        # 잔여 이차 폭발 (파편이 날아가면서 간헐적 폭발)
+        if post_elapsed < 1500 and random.random() < 0.08:
+            _sx = random.randint(50, WIDTH - 50)
+            _sy = random.randint(30, HEIGHT - 100)
+            nemesis_death_explosions.append({
+                'x': _sx, 'y': _sy,
+                'radius': 5, 'max_radius': random.randint(30, 70),
+                'alpha': 200, 'color': random.choice([(255, 150, 0), (255, 100, 50)])
+            })
+            for _ in range(random.randint(2, 5)):
+                _a = random.uniform(0, math.pi * 2)
+                _s = random.uniform(1, 4)
+                nemesis_death_particles.append({
+                    'x': _sx, 'y': _sy,
+                    'vx': math.cos(_a) * _s, 'vy': math.sin(_a) * _s,
+                    'size': random.randint(2, 4),
+                    'color': random.choice([(255, 150, 0), (255, 200, 50), (200, 200, 200)]),
+                    'life': random.randint(15, 35), 'gravity': 0.1
+                })
 
         if post_elapsed >= NEMESIS_POST_DELAY:
             # 폭발 애니메이션 종료 → 보물상자 드랍 페이즈로 전환
