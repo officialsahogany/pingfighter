@@ -25909,6 +25909,19 @@ try:
     SOUND_TETRISWALL = pygame.mixer.Sound(resource_path("sounds/tetriswall.wav"))
 except Exception:
     SOUND_TETRISWALL = None
+
+# Stage 7 폭발형 테트로미노 공 충돌 사운드
+try:
+    SOUND_BIGTETROMINO = pygame.mixer.Sound(resource_path("sounds/bigtetromino.wav"))
+except Exception:
+    SOUND_BIGTETROMINO = None
+
+# Stage 7 테트로미노 쉴드 공 충돌 사운드
+try:
+    SOUND_TETROMINOSHIELD = pygame.mixer.Sound(resource_path("sounds/tetrominoshield.wav"))
+except Exception:
+    SOUND_TETROMINOSHIELD = None
+
 # 메뉴 사운드 (자동 생성된 파일들)
 SOUND_BUTTON_CLICK = sound_effects['BUTTON_CLICK'] or SOUND_ACTIVE_ITEM
 SOUND_BUTTON_HOVER = sound_effects['BUTTON_HOVER'] or SOUND_ACTIVE_ITEM
@@ -153306,6 +153319,10 @@ def handle_ball():
                             # 공만 튕겨내고 테트로미노는 그대로 진행
                             if not mino.get("super", False):
                                 destroy_stage7_tetromino(mino, by_player=(last_hit_by == "player"), by_ball=True, ball_pos=(BALL.centerx, BALL.centery))
+                            else:
+                                # 폭발형 테트로미노 공 충돌 사운드
+                                if SOUND_BIGTETROMINO:
+                                    play_sound_with_volume(SOUND_BIGTETROMINO)
                             create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
                             stage7_tetro_hit = True
                             break
@@ -153432,6 +153449,9 @@ def handle_ball():
                         handle_ball._crystal_shield_cooldown = 8
 
                         create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=is_player_ball)
+                        # 테트로미노 쉴드 공 충돌 사운드
+                        if SOUND_TETROMINOSHIELD:
+                            play_sound_with_volume(SOUND_TETROMINOSHIELD)
                         # print(f"[Stage7] 크리스탈 실드 블록 파괴! 남은 블록: {pillar_renderer.get_crystal_shield_count()}")
                         break  # 한 번에 하나만 처리
 
