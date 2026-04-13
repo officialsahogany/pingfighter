@@ -58389,7 +58389,7 @@ def draw_plasma_field_charging(screen):
 
 def update_plasma_wave():
     """플라즈마 구체 업데이트 (이동 및 충돌 검사) - magnetic_projectile 방식"""
-    global plasma_wave_active, plasma_wave_y, plasma_wave_duration
+    global plasma_wave_active, plasma_wave_x, plasma_wave_y, plasma_wave_duration
     global plasma_wave_trail, plasma_wave_particles
     global boss_plasma_slowed, boss_plasma_slow_amount, boss_plasma_slow_timer
     global plasma_shock_playing, plasma_gauge_drain_accumulator
