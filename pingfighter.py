@@ -3596,52 +3596,50 @@ else:
     _comp_pad_x = (_comp_w - WIDTH) // 2
     _comp_pad_y = (_comp_h - HEIGHT) // 2
 
-    # 3단계: SCALED 모드 시도 (SDL이 자동 정수배 업스케일링)
-    # x1에서도 SCALED 사용 — SDL_Renderer GPU 스케일링이 CPU transform.scale보다 빠름
+    # 3단계: x2 이상이면 SCALED (GPU 업스케일), x1이면 DOUBLEBUF (SDL_Renderer 오버헤드 제거)
     # 더블 모니터: 가장 큰 모니터 중앙에 창 배치
     _init_win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
     _scaled_ok = False
-    try:
-        print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 시작... 합성={_comp_w}x{_comp_h} → 목표 {_init_target_w}x{_init_target_h}", flush=True)
-        pygame.display.quit()
-        pygame.display.init()
-        if _init_win_pos:
-            os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_init_win_pos[0]},{_init_win_pos[1]}'
-        else:
-            os.environ['SDL_VIDEO_CENTERED'] = '1'
-        REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
-        os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
-        os.environ.pop('SDL_VIDEO_CENTERED', None)
+    if _scale_n >= 2:
+        # x2 이상: SCALED 모드로 GPU 정수배 업스케일링
+        try:
+            print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 시작... 합성={_comp_w}x{_comp_h} → 목표 {_init_target_w}x{_init_target_h}", flush=True)
+            pygame.display.quit()
+            pygame.display.init()
+            if _init_win_pos:
+                os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_init_win_pos[0]},{_init_win_pos[1]}'
+            else:
+                os.environ['SDL_VIDEO_CENTERED'] = '1'
+            REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
+            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+            os.environ.pop('SDL_VIDEO_CENTERED', None)
 
-        # SDL SCALED가 잘못된 디스플레이 기준으로 스케일 결정할 수 있음
-        # ctypes로 윈도우 크기를 목표 크기로 강제 지정 + 정확한 위치 배치
-        if _scale_n >= 2 and sys.platform == 'win32':
-            try:
-                import ctypes as _ct
-                _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
-                _sdl2_lib = _ct.CDLL(_sdl2_p)
-                _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
-                _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
-                if _sdl_win:
-                    _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
-                    _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
-                    # 큰 모니터 중앙에 재배치
-                    _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
-                    if _repos:
-                        _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
-                        _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
-                    # print(f"[디스플레이] SDL 윈도우 크기 강제: {_init_target_w}x{_init_target_h}", flush=True)
-            except Exception as _resize_err:
-                print(f"[디스플레이] SDL 윈도우 리사이즈 실패: {_resize_err}", flush=True)
+            # ctypes로 윈도우 크기를 목표 크기로 강제 지정 + 정확한 위치 배치
+            if sys.platform == 'win32':
+                try:
+                    import ctypes as _ct
+                    _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
+                    _sdl2_lib = _ct.CDLL(_sdl2_p)
+                    _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
+                    _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
+                    if _sdl_win:
+                        _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                        _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
+                        _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
+                        if _repos:
+                            _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                            _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
+                except Exception as _resize_err:
+                    print(f"[디스플레이] SDL 윈도우 리사이즈 실패: {_resize_err}", flush=True)
 
-        _scaled_ok = True
-    except pygame.error as _scaled_err:
-        print(f"[디스플레이] pygame.SCALED 실패({_scaled_err}), 소프트웨어 스케일링으로 폴백", flush=True)
-        os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
-        os.environ.pop('SDL_VIDEO_CENTERED', None)
+            _scaled_ok = True
+        except pygame.error as _scaled_err:
+            print(f"[디스플레이] pygame.SCALED 실패({_scaled_err}), 소프트웨어 스케일링으로 폴백", flush=True)
+            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+            os.environ.pop('SDL_VIDEO_CENTERED', None)
 
     if _scaled_ok:
-        # --- SCALED 합성 모드: 게임 1:1 + 필러 배경, GPU N배 업스케일링 ---
+        # --- SCALED 합성 모드 (x2): 게임 1:1 + 필러 배경, GPU 2배 업스케일링 ---
         _use_scaled_mode = True
 
         if _custom_cursor_enabled:
@@ -3649,27 +3647,11 @@ else:
 
         FULLSCREEN_WIDTH = _comp_w
         FULLSCREEN_HEIGHT = _comp_h
-        if _scale_n >= 2:
-            # GPU 2배 업스케일링: 게임은 1:1로 렌더링, SDL이 2x 업스케일
-            GAME_SCALE_FACTOR = 1.0
-            GAME_SCALED_WIDTH = WIDTH
-            GAME_SCALED_HEIGHT = HEIGHT
-            GAME_OFFSET_X = _comp_pad_x
-            GAME_OFFSET_Y = _comp_pad_y
-        else:
-            # _scale_n == 1: GPU 업스케일링 불가 → 소프트웨어 스케일링 적용
-            _sw_margin = _init_pillar_pad_y
-            _sw_scale_y = (_comp_h - _sw_margin * 2) / HEIGHT
-            _sw_scaled_w_check = int(WIDTH * _sw_scale_y)
-            if _sw_scaled_w_check > _comp_w:
-                GAME_SCALE_FACTOR = _comp_w / WIDTH
-            else:
-                GAME_SCALE_FACTOR = _sw_scale_y
-            GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
-            GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
-            GAME_OFFSET_X = (_comp_w - GAME_SCALED_WIDTH) // 2
-            GAME_OFFSET_Y = (_comp_h - GAME_SCALED_HEIGHT) // 2
-            print(f"[디스플레이] 창모드(SCALED x1) 소프트웨어 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} → {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
+        GAME_SCALE_FACTOR = 1.0
+        GAME_SCALED_WIDTH = WIDTH
+        GAME_SCALED_HEIGHT = HEIGHT
+        GAME_OFFSET_X = _comp_pad_x
+        GAME_OFFSET_Y = _comp_pad_y
 
         from pixel_font_manager import set_fullscreen_font_scale
         set_fullscreen_font_scale(GAME_SCALE_FACTOR)
@@ -3687,7 +3669,54 @@ else:
         from display_manager import set_fullscreen_mode
         set_fullscreen_mode(True, SCREEN)
 
-        # print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 완료: 합성 {_comp_w}x{_comp_h}, 게임 1:1, SDL GPU 스케일링", flush=True)
+        print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 완료: GPU 스케일링", flush=True)
+    elif _scale_n < 2:
+        # --- x1: DOUBLEBUF 직접 렌더링 (SDL_Renderer 오버헤드 없음, 노트북 최적화) ---
+        print(f"[디스플레이] 창모드(DOUBLEBUF x1) 시작... 목표 {_init_target_w}x{_init_target_h}", flush=True)
+        if _init_win_pos:
+            os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_init_win_pos[0]},{_init_win_pos[1]}'
+        else:
+            os.environ['SDL_VIDEO_CENTERED'] = '1'
+        REAL_SCREEN = pygame.display.set_mode((_init_target_w, _init_target_h), pygame.DOUBLEBUF)
+        os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+        os.environ.pop('SDL_VIDEO_CENTERED', None)
+
+        if _custom_cursor_enabled:
+            pygame.mouse.set_visible(False)
+
+        _init_actual_w, _init_actual_h = REAL_SCREEN.get_size()
+        FULLSCREEN_WIDTH = _init_actual_w
+        FULLSCREEN_HEIGHT = _init_actual_h
+
+        _sw_margin = _init_pillar_pad_y
+        _sw_scale_y = (_init_actual_h - _sw_margin * 2) / HEIGHT
+        _sw_scaled_w_check = int(WIDTH * _sw_scale_y)
+        if _sw_scaled_w_check > _init_actual_w:
+            GAME_SCALE_FACTOR = _init_actual_w / WIDTH
+        else:
+            GAME_SCALE_FACTOR = _sw_scale_y
+        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+        GAME_OFFSET_X = (_init_actual_w - GAME_SCALED_WIDTH) // 2
+        GAME_OFFSET_Y = (_init_actual_h - GAME_SCALED_HEIGHT) // 2
+
+        from pixel_font_manager import set_fullscreen_font_scale
+        set_fullscreen_font_scale(GAME_SCALE_FACTOR)
+
+        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
+
+        from pillar_background import init_pillar_background, get_pillar_renderer
+        pillar_renderer = init_pillar_background(
+            _init_actual_w, _init_actual_h,
+            GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+            offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
+            original_game_width=WIDTH, original_game_height=HEIGHT
+        )
+
+        from display_manager import set_fullscreen_mode
+        set_fullscreen_mode(True, SCREEN)
+
+        print(f"[디스플레이] 창모드(DOUBLEBUF x1) 완료: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} → {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
     else:
         # --- 폴백: 기존 소프트웨어 스케일링 (필러 포함) ---
         _fb_largest = _get_largest_monitor_window_resolution()
@@ -4000,13 +4029,16 @@ _smasher_skill_unlocked = {
     "magnum_grip": True,  # 기본 해금
 }
 
-# 스매셔 해금 퍽 최대 개수 (5개가 다 차면 더 이상 해금 퍽 획득 불가)
-SMASHER_UNLOCK_PERK_MAX = 5
+# 스매셔 스킬 구슬 장착 시스템 (최대 5개)
+SMASHER_MAX_SKILL_SLOTS = 5
+
+# 현재 장착된 스킬 목록 (순서 = 슬롯 위치)
+_smasher_equipped_skills = ["drive", "power_smashing", "magnum_grip"]
 
 
 def reset_smasher_skill_unlocks():
-    """스매셔 스킬 해금 상태 초기화 (새 게임 시작 시)"""
-    global _smasher_skill_unlocked
+    """스매셔 스킬 해금 상태 및 장착 초기화 (새 게임 시작 시)"""
+    global _smasher_skill_unlocked, _smasher_equipped_skills
     _smasher_skill_unlocked = {
         "plasma": False,
         "recovery": False,
@@ -4016,6 +4048,7 @@ def reset_smasher_skill_unlocks():
         "power_smashing": True,
         "magnum_grip": True,
     }
+    _smasher_equipped_skills = ["drive", "power_smashing", "magnum_grip"]
 
 
 def get_smasher_unlock_perk_count() -> int:
@@ -4024,9 +4057,35 @@ def get_smasher_unlock_perk_count() -> int:
     return sum(1 for s in unlock_perk_skills if _smasher_skill_unlocked.get(s, False))
 
 
-def is_smasher_unlock_perks_full() -> bool:
-    """스매셔 해금 퍽이 최대치(5개)에 도달했는지 확인"""
-    return get_smasher_unlock_perk_count() >= SMASHER_UNLOCK_PERK_MAX
+def is_smasher_skill_slots_full() -> bool:
+    """스매셔 스킬 슬롯이 최대치(5개)에 도달했는지 확인"""
+    return len(_smasher_equipped_skills) >= SMASHER_MAX_SKILL_SLOTS
+
+
+def get_smasher_equipped_skills():
+    """현재 장착된 스킬 목록 반환"""
+    return list(_smasher_equipped_skills)
+
+
+def equip_smasher_skill(skill_name: str) -> bool:
+    """스킬을 구슬 슬롯에 장착. 슬롯이 비어있으면 장착, 꽉 차면 False 반환."""
+    global _smasher_equipped_skills
+    if skill_name in _smasher_equipped_skills:
+        return True
+    if len(_smasher_equipped_skills) < SMASHER_MAX_SKILL_SLOTS:
+        _smasher_equipped_skills.append(skill_name)
+        return True
+    return False
+
+
+def swap_smasher_skill(old_skill: str, new_skill: str) -> bool:
+    """기존 스킬을 새 스킬로 교체 (같은 슬롯 위치 유지)"""
+    global _smasher_equipped_skills
+    if old_skill in _smasher_equipped_skills:
+        idx = _smasher_equipped_skills.index(old_skill)
+        _smasher_equipped_skills[idx] = new_skill
+        return True
+    return False
 
 
 def unlock_smasher_skill(skill_name: str) -> bool:
@@ -4039,8 +4098,137 @@ def unlock_smasher_skill(skill_name: str) -> bool:
 
 
 def is_smasher_skill_unlocked(skill_name: str) -> bool:
-    """스매셔 스킬이 해금되었는지 확인"""
-    return _smasher_skill_unlocked.get(skill_name, True)
+    """스매셔 스킬이 해금되어 있고 장착 중인지 확인"""
+    if not _smasher_skill_unlocked.get(skill_name, True):
+        return False
+    return skill_name in _smasher_equipped_skills
+
+
+def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
+    """스매셔 스킬 구슬이 꽉 찼을 때 교체할 스킬을 선택하는 블로킹 다이얼로그.
+
+    Args:
+        new_skill_name: 새로 장착할 스킬 이름
+
+    Returns:
+        교체할 기존 스킬 이름 (반드시 선택해야 함)
+    """
+    clock = pygame.time.Clock()
+    equipped = get_smasher_equipped_skills()
+
+    # 스킬 데이터 매칭
+    skill_data_map = {}
+    for sd in SMASHER_SKILL_ICONS_DATA:
+        skill_data_map[sd["name"]] = sd
+
+    new_skill_data = skill_data_map.get(new_skill_name, {})
+    new_korean = new_skill_data.get("korean", new_skill_name)
+    new_color = new_skill_data.get("color", (200, 200, 200))
+
+    # 폰트 준비
+    try:
+        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 18)
+        desc_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+        small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 11)
+    except Exception:
+        title_font = None
+        desc_font = None
+        small_font = None
+
+    # 카드 레이아웃 설정
+    card_width = 120
+    card_height = 100
+    card_spacing = 10
+    total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
+    start_x = (WIDTH - total_width) // 2
+    cards_y = HEIGHT // 2 + 10
+
+    selected = None
+    hover_idx = -1
+
+    while selected is None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                selected = equipped[0]
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if 0 <= hover_idx < len(equipped):
+                    selected = equipped[hover_idx]
+
+        mouse_pos = pygame.mouse.get_pos()
+        mx, my = mouse_pos
+        if GAME_SCALE_FACTOR != 1.0:
+            mx = int(mx / GAME_SCALE_FACTOR)
+            my = int(my / GAME_SCALE_FACTOR)
+
+        # 호버 감지
+        hover_idx = -1
+        for i in range(len(equipped)):
+            cx = start_x + i * (card_width + card_spacing)
+            card_rect = pygame.Rect(cx, cards_y, card_width, card_height)
+            if card_rect.collidepoint(mx, my):
+                hover_idx = i
+
+        # === 렌더링 ===
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 패널 배경
+        panel_rect = pygame.Rect(WIDTH // 2 - 200, HEIGHT // 2 - 130, 400, 260)
+        panel_surf = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
+        panel_surf.fill((20, 20, 30, 230))
+        pygame.draw.rect(panel_surf, new_color, panel_surf.get_rect(), 2, border_radius=8)
+        SCREEN.blit(panel_surf, panel_rect)
+
+        # 타이틀
+        if title_font:
+            t_surf, _ = title_font.render("스킬 구슬이 가득 찼습니다!", (255, 220, 100))
+            SCREEN.blit(t_surf, (WIDTH // 2 - t_surf.get_width() // 2, panel_rect.y + 12))
+
+            new_label = f"새 스킬: {new_korean}"
+            n_surf, _ = title_font.render(new_label, new_color)
+            SCREEN.blit(n_surf, (WIDTH // 2 - n_surf.get_width() // 2, panel_rect.y + 38))
+
+            d_surf, _ = desc_font.render("교체할 스킬을 클릭하세요", (200, 200, 200))
+            SCREEN.blit(d_surf, (WIDTH // 2 - d_surf.get_width() // 2, panel_rect.y + 62))
+
+        # 장착 중인 스킬 카드들
+        for i, eq_name in enumerate(equipped):
+            cx = start_x + i * (card_width + card_spacing)
+            eq_data = skill_data_map.get(eq_name, {})
+            eq_color = eq_data.get("color", (150, 150, 150))
+            eq_korean = eq_data.get("korean", eq_name)
+
+            is_hovered = (i == hover_idx)
+            card_surf = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
+            if is_hovered:
+                card_surf.fill((eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2, 220))
+                border_c = (255, 100, 100)
+            else:
+                card_surf.fill((30, 30, 40, 200))
+                border_c = eq_color
+            pygame.draw.rect(card_surf, border_c, card_surf.get_rect(), 2, border_radius=6)
+            SCREEN.blit(card_surf, (cx, cards_y))
+
+            orb_cx = cx + card_width // 2
+            orb_cy = cards_y + 35
+            pygame.draw.circle(SCREEN, eq_color, (orb_cx, orb_cy), 20)
+            pygame.draw.circle(SCREEN, (255, 255, 255), (orb_cx, orb_cy), 20, 2)
+
+            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, True, eq_color)
+
+            if small_font:
+                name_surf, _ = small_font.render(eq_korean, (255, 255, 255))
+                SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
+
+            if is_hovered and desc_font:
+                del_surf, _ = desc_font.render("✕ 교체", (255, 80, 80))
+                SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    return selected
 
 
 # ============================================================================
@@ -5571,45 +5759,22 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     time_now = pygame.time.get_ticks()
     activation_effect_duration = 400
 
-    # 해금된 스킬만 필터링 (클렌즈 제외)
-    # 스킬 표시 순서: 왼쪽 하단부터 시계방향으로 배치
-    # 기본 스킬 순서 (해금 순서대로 추가됨): drive, power_smashing이 기본
-    # 해금되면: recovery, drive, power_smashing
-    unlocked_main_skills = []
-    cleanse_skill_data = None
+    # 장착된 스킬만 표시 (최대 5개 구슬 슬롯)
+    equipped_skills = get_smasher_equipped_skills()
+    equipped_skill_data_list = []
 
-    # 메인 스킬 순서 정의 (표시 순서)
-    main_skill_order = ["plasma", "recovery", "drive", "power_smashing", "magnum_grip", "ghost_shot"]
-
-    for skill_name in main_skill_order:
+    for eq_name in equipped_skills:
         for skill_data in SMASHER_SKILL_ICONS_DATA:
-            if skill_data["name"] == skill_name:
-                if is_smasher_skill_unlocked(skill_name):
-                    unlocked_main_skills.append(skill_data)
+            if skill_data["name"] == eq_name:
+                equipped_skill_data_list.append(skill_data)
                 break
 
-    # 클렌즈는 별도 처리
-    for skill_data in SMASHER_SKILL_ICONS_DATA:
-        if skill_data["name"] == "cleanse":
-            if is_smasher_skill_unlocked("cleanse"):
-                cleanse_skill_data = skill_data
-            break
+    num_equipped = len(equipped_skill_data_list)
 
-    # 해금된 메인 스킬 수에 따라 각도 배치 동적 조정
-    num_unlocked = len(unlocked_main_skills)
-
-    # 최대 스킬 슬롯 수: 왼쪽 6개 + 오른쪽 1개 = 7개
-    MAX_LEFT_SLOTS = 6
-    MAX_RIGHT_SLOTS = 1
-
-    # 메인 스킬 각도 배치: 165도(왼쪽 아래)에서 시작하여 위로 차곡차곡 쌓임
-    # 25도 간격으로 위로 올라감: 165 -> 190 -> 215 -> 240 -> 265 -> 290
-    base_angle = 165  # 시작 각도 (왼쪽 아래)
-    angle_step = 25   # 각도 간격 (6슬롯 수용을 위해 30 → 25)
-    # 항상 MAX_LEFT_SLOTS개의 슬롯 위치 계산 (왼쪽)
-    all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
-
-    cleanse_angle = 330  # 클렌즈: 구슬 우측 상단 (약 11시 방향)
+    # 5개 슬롯 반원 배치: 165도(왼쪽 아래)에서 30도 간격
+    base_angle = 165
+    angle_step = 30
+    all_slot_angles = [base_angle + i * angle_step for i in range(SMASHER_MAX_SKILL_SLOTS)]
 
     # === 빈 슬롯 그리기 함수 ===
     def draw_empty_slot(slot_x: int, slot_y: int):
@@ -5619,36 +5784,23 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
         pygame.draw.circle(surface, empty_bg_color, (slot_x, slot_y), icon_radius)
         pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
 
-    # === 왼쪽 슬롯 모두 그리기 (해금된 스킬 + 빈 슬롯) ===
-    for slot_idx in range(MAX_LEFT_SLOTS):
-        angle_deg = all_left_angles[slot_idx]
+    # === 모든 슬롯 그리기 (장착된 스킬 + 빈 슬롯) ===
+    for slot_idx in range(SMASHER_MAX_SKILL_SLOTS):
+        angle_deg = all_slot_angles[slot_idx]
         angle_rad = math.radians(angle_deg)
 
-        # 슬롯 위치 계산
         slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
         slot_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
 
-        # 해당 슬롯에 스킬이 있는지 확인
-        if slot_idx < num_unlocked:
-            # 해금된 스킬이 있음 - 아래에서 별도 처리
+        if slot_idx < num_equipped:
             continue
         else:
-            # 빈 슬롯 그리기
             draw_empty_slot(slot_x, slot_y)
 
-    # === 오른쪽 슬롯 (클렌즈 위치) ===
-    right_angle_rad = math.radians(cleanse_angle)
-    right_slot_x = orb_center_x + int(math.cos(right_angle_rad) * orbit_radius)
-    right_slot_y = orb_center_y + int(math.sin(right_angle_rad) * orbit_radius)
-
-    if not cleanse_skill_data:
-        # 클렌즈가 해금되지 않음 - 빈 슬롯 그리기
-        draw_empty_slot(right_slot_x, right_slot_y)
-
-    # 메인 스킬 아이콘 그리기 
-    for i, skill_data in enumerate(unlocked_main_skills):
+    # 장착된 스킬 아이콘 그리기
+    for i, skill_data in enumerate(equipped_skill_data_list):
         skill_name = skill_data["name"]
-        angle_deg = all_left_angles[i]
+        angle_deg = all_slot_angles[i]
         angle_rad = math.radians(angle_deg)
 
         # 아이콘 위치 계산 (구슬 중심 기준) - 항상 동일한 위치
@@ -5764,97 +5916,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
             except:
                 pass
 
-    # === 클렌즈 스킬 별도 처리 (우측 상단) ===
-    if cleanse_skill_data:
-        skill_data = cleanse_skill_data
-        skill_name = "cleanse"
-        angle_deg = cleanse_angle
-        angle_rad = math.radians(angle_deg)
-
-        icon_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
-        icon_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
-
-        cooldown_ratio = get_smasher_skill_cooldown_remaining(skill_name)
-        is_on_cooldown = cooldown_ratio > 0
-        has_debuff = _check_player_has_debuff()
-        is_active = current_gauge >= skill_data["cost"] and not is_on_cooldown and has_debuff
-
-        was_active = _smasher_skill_was_active.get(skill_name, False)
-        if is_active and not was_active:
-            _smasher_skill_activation_times[skill_name] = time_now
-        _smasher_skill_was_active[skill_name] = is_active
-
-        _smasher_skill_icon_rects[skill_name] = pygame.Rect(
-            icon_x - icon_radius, icon_y - icon_radius,
-            icon_diameter, icon_diameter
-        )
-
-        if is_active:
-            bg_color = (*skill_data["color"][:3], 200)
-            border_color = (255, 255, 255, 255)
-        else:
-            dark_color = tuple(max(0, c // 3) for c in skill_data["color"][:3])
-            bg_color = (*dark_color, 150)
-            border_color = (80, 80, 80, 180)
-
-        activation_time = _smasher_skill_activation_times.get(skill_name, 0)
-        activation_elapsed = time_now - activation_time
-
-        if is_active and activation_elapsed < activation_effect_duration:
-            progress = activation_elapsed / activation_effect_duration
-            skill_color = skill_data["color"]
-            glow_alpha = int(180 * (1 - progress))
-            glow_radius = icon_radius + int(8 * (1 - progress))
-            glow_surface = get_predrawn_glow_circle(glow_radius * 2 + 4, skill_color[:3], glow_alpha)
-            surface.blit(glow_surface, (icon_x - glow_radius - 2, icon_y - glow_radius - 2))
-
-        pygame.draw.circle(surface, bg_color, (icon_x, icon_y), icon_radius)
-        pygame.draw.circle(surface, border_color, (icon_x, icon_y), icon_radius, 2)
-
-        if is_active and not is_on_cooldown:
-            pulse = (math.sin(time_now * 0.005) + 1) / 2
-            if pulse > 0.4:
-                pulse_alpha = int((pulse - 0.4) * 100)
-                pygame.draw.circle(surface, (*skill_data["color"][:3], pulse_alpha),
-                                 (icon_x, icon_y), icon_radius + 3, 2)
-
-        icon_size = icon_radius * 2 - 4
-        _draw_skill_icon_symbol(surface, skill_name, icon_x, icon_y,
-                               icon_size, is_active, skill_data["color"])
-
-        if is_on_cooldown:
-            cd_surface = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
-            cd_center = icon_radius + 2
-            start_angle = -math.pi / 2
-            end_angle = start_angle + (2 * math.pi * cooldown_ratio)
-            if cooldown_ratio > 0.01:
-                points = [(cd_center, cd_center)]
-                num_segments = max(3, int(36 * cooldown_ratio))
-                for j in range(num_segments + 1):
-                    angle = start_angle + (end_angle - start_angle) * j / num_segments
-                    x = cd_center + int(math.cos(angle) * icon_radius)
-                    y = cd_center + int(math.sin(angle) * icon_radius)
-                    points.append((x, y))
-                if len(points) >= 3:
-                    pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
-            surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
-
-            cooldown_sec = skill_data["cooldown"]
-            remaining_sec = cooldown_sec * cooldown_ratio
-            if remaining_sec >= 1:
-                cooldown_text = f"{int(remaining_sec)}"
-            else:
-                cooldown_text = f"{remaining_sec:.1f}" 
-            try:
-                cd_font = _get_cached_cd_font()
-                cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
-                cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
-                shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
-                shadow_rect = shadow_surface.get_rect(center=(icon_x + 1, icon_y + 1))
-                surface.blit(shadow_surface, shadow_rect)
-                surface.blit(cd_text_surface, cd_rect)
-            except:
-                pass
+    # (클렌즈는 더 이상 별도 슬롯이 아님 - 5구슬 통합 시스템으로 장착 시 일반 슬롯에 표시)
 
 
 def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
@@ -16536,16 +16598,11 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
             }
             available.append(choice)
 
-    # 스매셔 전용 스킬 추가
+    # 스매셔 전용 스킬 추가 (5구슬 슬롯 시스템 - 교체 가능하므로 해금 제한 없음)
     if character_type == "smasher":
-        _smasher_unlock_full = is_smasher_unlock_perks_full()
         for skill_id, skill_data in SMASHER_EXCLUSIVE_SKILLS.items():
             current_level = runtime_skill_levels.get(skill_id, 0)
             max_level = skill_data["max_level"]
-
-            # 해금 퍽 5개 제한: smasher_unlock 트리 퍽이 이미 최대치면 제외
-            if _smasher_unlock_full and skill_data.get("tree") == "smasher_unlock" and current_level < max_level:
-                continue
 
             if current_level < max_level:
                 next_level = current_level + 1
@@ -16801,29 +16858,21 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         # print(f"[RuntimeSkill] 새로고침! 스킬 선택창 추가 (pending: {pending_skill_choices})")  # 디버그 비활성화
         return True
 
-    # 스매셔 게이지 스킬 해금 처리
-    if choice_id == "unlock_plasma":
-        unlock_smasher_skill("plasma")
-        runtime_skill_levels["unlock_plasma"] = 1
-        # print("[RuntimeSkill] 플라즈마 스킬 해금!")
-        return True
-
-    if choice_id == "unlock_recovery_skill":
-        unlock_smasher_skill("recovery")
-        runtime_skill_levels["unlock_recovery_skill"] = 1
-        # print("[RuntimeSkill] 리커버리 스킬 해금!")
-        return True
-
-    if choice_id == "unlock_cleanse":
-        unlock_smasher_skill("cleanse")
-        runtime_skill_levels["unlock_cleanse"] = 1
-        # print("[RuntimeSkill] 클렌즈 스킬 해금!")
-        return True
-
-    if choice_id == "unlock_ghost_shot":
-        unlock_smasher_skill("ghost_shot")
-        runtime_skill_levels["unlock_ghost_shot"] = 1
-        # print("[RuntimeSkill] 고스트샷 스킬 해금!")
+    # 스매셔 게이지 스킬 해금 처리 (5구슬 슬롯 시스템)
+    _smasher_unlock_map = {
+        "unlock_plasma": "plasma",
+        "unlock_recovery_skill": "recovery",
+        "unlock_cleanse": "cleanse",
+        "unlock_ghost_shot": "ghost_shot",
+    }
+    if choice_id in _smasher_unlock_map:
+        skill_name = _smasher_unlock_map[choice_id]
+        unlock_smasher_skill(skill_name)
+        # 슬롯에 장착 시도 → 꽉 차면 교체 다이얼로그
+        if not equip_smasher_skill(skill_name):
+            removed = _show_smasher_skill_swap_dialog(skill_name)
+            swap_smasher_skill(removed, skill_name)
+        runtime_skill_levels[choice_id] = 1
         return True
 
     # 바이퍼 게이지 스킬 해금 처리
@@ -16973,20 +17022,15 @@ def recalculate_skill_effects(skill_id: str):
         multiplier = get_effective_polish_multiplier()
         # print(f"[RuntimeSkill] 연마 레벨 변경 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")  # 디버그 비활성화
 
-    # 플라즈마 해금: 스매셔 스킬 해금 상태 동기화
+    # 스매셔 스킬 해금 상태 동기화 (5구슬 슬롯 시스템)
     elif skill_id == "unlock_plasma":
-        level = runtime_skill_levels.get("unlock_plasma", 0)
-        _smasher_skill_unlocked["plasma"] = level >= 1
+        _smasher_skill_unlocked["plasma"] = runtime_skill_levels.get("unlock_plasma", 0) >= 1
 
-    # 리커버리 해금: 스매셔 스킬 해금 상태 동기화
     elif skill_id == "unlock_recovery_skill":
-        level = runtime_skill_levels.get("unlock_recovery_skill", 0)
-        _smasher_skill_unlocked["recovery"] = level >= 1
+        _smasher_skill_unlocked["recovery"] = runtime_skill_levels.get("unlock_recovery_skill", 0) >= 1
 
-    # 클렌즈 해금: 스매셔 스킬 해금 상태 동기화
     elif skill_id == "unlock_cleanse":
-        level = runtime_skill_levels.get("unlock_cleanse", 0)
-        _smasher_skill_unlocked["cleanse"] = level >= 1
+        _smasher_skill_unlocked["cleanse"] = runtime_skill_levels.get("unlock_cleanse", 0) >= 1
 
     # 고스트샷 해금: 스매셔 스킬 해금 상태 동기화
     elif skill_id == "unlock_ghost_shot":
