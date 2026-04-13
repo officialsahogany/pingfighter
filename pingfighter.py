@@ -152994,29 +152994,30 @@ def handle_ball():
                     ball_vel[1] = -abs(ball_vel[1])
 
             else:
-                # === Phase 3: 순간이동 + 보스가 없는 곳으로 발사 ===
+                # === Phase 3: 순간이동 + 보스 반대편으로 발사 (각도 보정으로 막을 여지 있음) ===
                 boss_cx = BOSS.centerx if 'BOSS' in dir() else WIDTH // 2
                 rng = power_smashing_rng or random
-                # 순간이동: 보스에서 150~300px 떨어진 곳
-                offset_x = rng.choice([-1, 1]) * rng.randint(150, 300)
+                # 순간이동: 보스에서 250~400px 떨어진 곳 (충분히 멀리)
+                offset_x = rng.choice([-1, 1]) * rng.randint(250, 400)
                 teleport_x = max(BALL_RADIUS, min(WIDTH - BALL_RADIUS, boss_cx + offset_x))
-                teleport_y = 120 + rng.randint(0, 40)  # 보스 진영 약간 아래
+                teleport_y = 200 + rng.randint(0, 60)  # 보스에서 충분히 떨어진 Y (200~260)
                 BALL.centerx = teleport_x
                 BALL.centery = teleport_y
-                # 보스가 없는 곳을 목표로 발사 (보스 반대편)
+                # 보스가 없는 곳을 기본 목표로 (보스 반대편)
                 if boss_cx < WIDTH // 2:
-                    # 보스가 왼쪽 → 오른쪽 빈 공간으로
                     empty_x = rng.randint(WIDTH * 2 // 3, WIDTH - 30)
                 else:
-                    # 보스가 오른쪽 → 왼쪽 빈 공간으로
                     empty_x = rng.randint(30, WIDTH // 3)
                 fire_target_y = BOSS_Y + 20 if 'BOSS_Y' in dir() else 40
                 fire_dx = empty_x - teleport_x
                 fire_dy = fire_target_y - teleport_y
-                fire_dist = max(1, math.sqrt(fire_dx * fire_dx + fire_dy * fire_dy))
-                fire_speed = 20.0
-                ball_vel[0] = (fire_dx / fire_dist) * fire_speed
-                ball_vel[1] = (fire_dy / fire_dist) * fire_speed
+                # 각도 보정: -40도~+40도 랜덤 (보스 쪽으로 갈 수도 있음)
+                base_angle = math.atan2(fire_dy, fire_dx)
+                angle_offset = math.radians(rng.uniform(-40, 40))
+                final_angle = base_angle + angle_offset
+                fire_speed = 18.0
+                ball_vel[0] = math.cos(final_angle) * fire_speed
+                ball_vel[1] = math.sin(final_angle) * fire_speed
                 # 고스트샷 종료 → 일반 공 물리로 복귀
                 mega_smashing_active = False
                 mega_smashing_bonus_applied = False
