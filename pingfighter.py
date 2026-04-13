@@ -4018,43 +4018,43 @@ _magnum_grip_both_held_start_ms = 0
 MAGNUM_GRIP_HOLD_DURATION_MS = 300  # 양쪽 키를 이 시간 이상 함께 홀딩해야 발동
 
 # 스매셔 스킬 해금 상태 (런타임 스킬로 해금)
-# 처음에는 드라이브, 파워스매싱만 해금됨
-# 플라즈마, 리커버리, 클렌즈는 런타임 스킬로 해금 필요
+# 처음에는 드라이브, 파워스매싱만 해금됨 (기본 2개)
+# 매그넘 그립, 플라즈마, 리커버리, 클렌즈, 고스트샷은 퍽으로 해금 필요 (5개)
 _smasher_skill_unlocked = {
+    "magnum_grip": False, # 런타임 스킬로 해금 필요
     "plasma": False,      # 런타임 스킬로 해금 필요
     "recovery": False,    # 런타임 스킬로 해금 필요 (리커버리 스킬과 별개)
     "cleanse": False,     # 런타임 스킬로 해금 필요
     "ghost_shot": False,  # 런타임 스킬로 해금 필요 (파워스매싱 연동)
     "drive": True,        # 기본 해금
     "power_smashing": True,  # 기본 해금
-    "magnum_grip": True,  # 기본 해금
 }
 
 # 스매셔 스킬 구슬 장착 시스템 (최대 5개)
 SMASHER_MAX_SKILL_SLOTS = 5
 
-# 현재 장착된 스킬 목록 (순서 = 슬롯 위치)
-_smasher_equipped_skills = ["drive", "power_smashing", "magnum_grip"]
+# 현재 장착된 스킬 목록 (순서 = 슬롯 위치, 기본 2개)
+_smasher_equipped_skills = ["drive", "power_smashing"]
 
 
 def reset_smasher_skill_unlocks():
     """스매셔 스킬 해금 상태 및 장착 초기화 (새 게임 시작 시)"""
     global _smasher_skill_unlocked, _smasher_equipped_skills
     _smasher_skill_unlocked = {
+        "magnum_grip": False,
         "plasma": False,
         "recovery": False,
         "cleanse": False,
         "ghost_shot": False,
         "drive": True,
         "power_smashing": True,
-        "magnum_grip": True,
     }
-    _smasher_equipped_skills = ["drive", "power_smashing", "magnum_grip"]
+    _smasher_equipped_skills = ["drive", "power_smashing"]
 
 
 def get_smasher_unlock_perk_count() -> int:
     """현재 해금된 스매셔 해금 퍽 수 반환 (기본 해금 제외)"""
-    unlock_perk_skills = ["plasma", "recovery", "cleanse", "ghost_shot"]
+    unlock_perk_skills = ["magnum_grip", "plasma", "recovery", "cleanse", "ghost_shot"]
     return sum(1 for s in unlock_perk_skills if _smasher_skill_unlocked.get(s, False))
 
 
@@ -4117,6 +4117,9 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
     clock = pygame.time.Clock()
     equipped = get_smasher_equipped_skills()
 
+    # 기본 스킬은 교체 불가 (캐릭터 정체성)
+    _locked_skills = {"drive", "power_smashing"}
+
     # 스킬 데이터 매칭
     skill_data_map = {}
     for sd in SMASHER_SKILL_ICONS_DATA:
@@ -4171,17 +4174,20 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
     while selected is None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                selected = equipped[0]
+                # 교체 가능한 스킬 중 첫 번째 자동 선택
+                selected = next((s for s in equipped if s not in _locked_skills), equipped[0])
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if 0 <= hover_idx < len(equipped):
+                if 0 <= hover_idx < len(equipped) and equipped[hover_idx] not in _locked_skills:
                     selected = equipped[hover_idx]
 
         mouse_pos = pygame.mouse.get_pos()
         mx, my = mouse_pos
 
-        # 호버 감지
+        # 호버 감지 (잠금 스킬은 호버 제외)
         hover_idx = -1
         for i in range(len(equipped)):
+            if equipped[i] in _locked_skills:
+                continue
             cx = start_x + i * (card_width + card_spacing)
             _cr = pygame.Rect(cx, cards_y, card_width, card_height)
             if _cr.collidepoint(mx, my):
@@ -4215,10 +4221,14 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
             eq_data = skill_data_map.get(eq_name, {})
             eq_color = eq_data.get("color", (150, 150, 150))
             eq_korean = eq_data.get("korean", eq_name)
+            is_locked = eq_name in _locked_skills
 
-            is_hovered = (i == hover_idx)
+            is_hovered = (i == hover_idx) and not is_locked
             _card_r = pygame.Rect(cx, cards_y, card_width, card_height)
-            if is_hovered:
+            if is_locked:
+                card_bg = (15, 15, 20)
+                border_c = (50, 50, 55)
+            elif is_hovered:
                 card_bg = (eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2)
                 border_c = (255, 100, 100)
             else:
@@ -4229,16 +4239,22 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
 
             orb_cx = cx + card_width // 2
             orb_cy = cards_y + 35
-            pygame.draw.circle(SCREEN, eq_color, (orb_cx, orb_cy), 20)
-            pygame.draw.circle(SCREEN, (255, 255, 255), (orb_cx, orb_cy), 20, 2)
+            _orb_color = tuple(max(0, c // 3) for c in eq_color) if is_locked else eq_color
+            pygame.draw.circle(SCREEN, _orb_color, (orb_cx, orb_cy), 20)
+            pygame.draw.circle(SCREEN, (80, 80, 80) if is_locked else (255, 255, 255), (orb_cx, orb_cy), 20, 2)
 
-            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, True, eq_color)
+            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, not is_locked, eq_color)
 
-            name_surf = _swap_render(small_font, eq_korean, (255, 255, 255))
+            _name_color = (100, 100, 100) if is_locked else (255, 255, 255)
+            name_surf = _swap_render(small_font, eq_korean, _name_color)
             if name_surf:
                 SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
 
-            if is_hovered:
+            if is_locked:
+                lock_surf = _swap_render(small_font, "🔒 기본", (80, 80, 90))
+                if lock_surf:
+                    SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + 80))
+            elif is_hovered:
                 del_surf = _swap_render(desc_font, "✕ 교체", (255, 80, 80))
                 if del_surf:
                     SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
@@ -4454,6 +4470,9 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
     clock = pygame.time.Clock()
     equipped = get_viper_equipped_skills()
 
+    # 기본 스킬은 교체 불가 (캐릭터 정체성)
+    _locked_skills = {"shadow_step", "blade_rush", "marshal_kick"}
+
     # 스킬 데이터 매칭
     skill_data_map = {}
     for sd in VIPER_SKILL_ICONS_DATA:
@@ -4508,17 +4527,19 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
     while selected is None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                selected = equipped[0]
+                selected = next((s for s in equipped if s not in _locked_skills), equipped[0])
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if 0 <= hover_idx < len(equipped):
+                if 0 <= hover_idx < len(equipped) and equipped[hover_idx] not in _locked_skills:
                     selected = equipped[hover_idx]
 
         mouse_pos = pygame.mouse.get_pos()
         mx, my = mouse_pos
 
-        # 호버 감지
+        # 호버 감지 (잠금 스킬은 호버 제외)
         hover_idx = -1
         for i in range(len(equipped)):
+            if equipped[i] in _locked_skills:
+                continue
             cx = start_x + i * (card_width + card_spacing)
             _cr = pygame.Rect(cx, cards_y, card_width, card_height)
             if _cr.collidepoint(mx, my):
@@ -4552,10 +4573,14 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
             eq_data = skill_data_map.get(eq_name, {})
             eq_color = eq_data.get("color", (150, 150, 150))
             eq_korean = eq_data.get("korean", eq_name)
+            is_locked = eq_name in _locked_skills
 
-            is_hovered = (i == hover_idx)
+            is_hovered = (i == hover_idx) and not is_locked
             _card_r = pygame.Rect(cx, cards_y, card_width, card_height)
-            if is_hovered:
+            if is_locked:
+                card_bg = (10, 5, 15)
+                border_c = (40, 20, 50)
+            elif is_hovered:
                 card_bg = (eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2)
                 border_c = (255, 100, 100)
             else:
@@ -4566,16 +4591,22 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
 
             orb_cx = cx + card_width // 2
             orb_cy = cards_y + 35
-            pygame.draw.circle(SCREEN, eq_color, (orb_cx, orb_cy), 20)
-            pygame.draw.circle(SCREEN, (255, 255, 255), (orb_cx, orb_cy), 20, 2)
+            _orb_color = tuple(max(0, c // 3) for c in eq_color) if is_locked else eq_color
+            pygame.draw.circle(SCREEN, _orb_color, (orb_cx, orb_cy), 20)
+            pygame.draw.circle(SCREEN, (80, 80, 80) if is_locked else (255, 255, 255), (orb_cx, orb_cy), 20, 2)
 
-            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, True, eq_color)
+            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, not is_locked, eq_color)
 
-            name_surf = _vswap_render(small_font, eq_korean, (255, 255, 255))
+            _name_color = (100, 100, 100) if is_locked else (255, 255, 255)
+            name_surf = _vswap_render(small_font, eq_korean, _name_color)
             if name_surf:
                 SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
 
-            if is_hovered:
+            if is_locked:
+                lock_surf = _vswap_render(small_font, "🔒 기본", (60, 30, 70))
+                if lock_surf:
+                    SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + 80))
+            elif is_hovered:
                 del_surf = _vswap_render(desc_font, "✕ 교체", (255, 80, 80))
                 if del_surf:
                     SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
@@ -14709,6 +14740,17 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "character_restriction": "smasher"
     },
     # 게이지 스킬 해금 (런타임 스킬로 해금)
+    "unlock_magnum_grip": {
+        "name": "매그넘 그립 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "매그넘 그립 스킬 해금",
+        },
+        "detail": "게이지 스킬 '매그넘 그립'을 해금합니다. 좌+우 동시 입력으로 자기장을 형성해 공을 끌어당깁니다.",
+        "icon_color": (200, 140, 255),
+        "tree": "smasher_unlock",
+        "character_restriction": "smasher"
+    },
     "unlock_plasma": {
         "name": "플라즈마 해금",
         "max_level": 1,
@@ -17105,6 +17147,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
 
     # 스매셔 게이지 스킬 해금 처리 (5구슬 슬롯 시스템)
     _smasher_unlock_map = {
+        "unlock_magnum_grip": "magnum_grip",
         "unlock_plasma": "plasma",
         "unlock_recovery_skill": "recovery",
         "unlock_cleanse": "cleanse",
@@ -17277,8 +17320,9 @@ def recalculate_skill_effects(skill_id: str):
         # print(f"[RuntimeSkill] 연마 레벨 변경 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")  # 디버그 비활성화
 
     # 스매셔 스킬 해금 + 장착 동기화 (5구슬 슬롯 시스템)
-    elif skill_id in ("unlock_plasma", "unlock_recovery_skill", "unlock_cleanse", "unlock_ghost_shot"):
+    elif skill_id in ("unlock_magnum_grip", "unlock_plasma", "unlock_recovery_skill", "unlock_cleanse", "unlock_ghost_shot"):
         _recalc_unlock_map = {
+            "unlock_magnum_grip": "magnum_grip",
             "unlock_plasma": "plasma",
             "unlock_recovery_skill": "recovery",
             "unlock_cleanse": "cleanse",
