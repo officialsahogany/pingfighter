@@ -85059,6 +85059,9 @@ stage3_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 # 스테이지 4 사원 테두리 효과
 stage4_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
 stage4_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
+# 스테이지 5 네메시스(해상) 테두리 효과 (코드상 stage6)
+stage5_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
+stage5_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 # 스테이지 2 정글 테두리 효과
 stage2_border_active = False  # 스테이지 2 테두리 활성화 상태
 stage2_border_timer = 0  # 테두리 애니메이션 타이머
@@ -144622,6 +144625,64 @@ def draw_stage4_border():
             SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
             stage4_border_flash_timer -= 1
 
+def draw_stage5_border():
+    """스테이지 5 네메시스(해상전투) 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
+    global stage5_border_flash_timer
+    # 실제 스테이지 5 = 코드상 current_stage == 6 (네메시스/해상)
+    if current_stage == 6:
+        border_thickness = 10
+        x_off = 0
+        game_w = WIDTH
+        # 해상전투 테마 색상 (짙은 남색/파랑 계열)
+        base_color = (10, 20, 40)  # 깊은 남색 (베이스)
+        mid_color = (20, 45, 80)  # 중간 남색
+        light_color = (40, 70, 120)  # 밝은 파랑
+        accent_color = (60, 100, 160)  # 하이라이트 파랑
+
+        # 메인 테두리
+        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
+        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
+
+        # 내부 테두리 (깊이감 추가)
+        inner_thickness = 2
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
+                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
+
+        # 코너 장식 (닻 느낌)
+        corner_radius = 4
+        draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_radius)
+        draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
+        draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+        draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+
+        # 벽 충돌 시 깜빡임 효과 (바다 파란색 은은하게)
+        if stage5_border_flash_timer > 0:
+            flash_ratio = stage5_border_flash_timer / stage5_border_flash_duration
+            base_alpha = int(13 * flash_ratio)
+            bt = border_thickness
+            flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
+            grad_steps = max(2, bt)
+            for i in range(grad_steps):
+                t = 1.0 - (i / grad_steps)
+                a = int(base_alpha * t * t)
+                if a <= 0:
+                    break
+                c = (30, 80, 160, a)  # 바다 파랑 플래시
+                pygame.draw.rect(flash_surf, c, (0, i, game_w, 1))
+                pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
+                pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
+                pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
+            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            stage5_border_flash_timer -= 1
+
 def draw_stage2_jungle_border():
     """스테이지 2 정글 테두리 그리기"""
     global stage2_border_timer, stage2_border_flash_timer
@@ -148549,6 +148610,7 @@ def reset_round(is_stage_start=False):
     global stage1_border_flash_timer  # 스테이지 1 한국 전통 효과
     global stage3_border_flash_timer  # 스테이지 3 멘헤라 효과
     global stage4_border_flash_timer  # 스테이지 4 사원 효과
+    global stage5_border_flash_timer  # 스테이지 5 네메시스(해상) 효과
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global smasher_pending_contact_offset
     global boss_special_gauge, displayed_boss_gauge, stage7_persistent_boss_gauge, current_stage  #  스테이지 보스 게이지 관리
@@ -148940,6 +149002,8 @@ def reset_round(is_stage_start=False):
     stage3_border_flash_timer = 0
     # 스테이지 4 효과 초기화
     stage4_border_flash_timer = 0
+    # 스테이지 5(네메시스/해상) 효과 초기화
+    stage5_border_flash_timer = 0
     # 스테이지 2 효과 초기화
     stage2_border_flash_timer = 0
     stage2_leaves = []
@@ -151235,7 +151299,7 @@ def _process_wall_bounce(side: str) -> bool:
         True이면 무승부 판정으로 라운드 리셋됨 (호출자가 즉시 return 해야 함)
     """
     global ball_vel, wall_bounce_count, last_wall_hit, last_wall_collision_time
-    global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer
+    global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer, stage5_border_flash_timer
     global stage2_border_flash_timer, special_gauge
 
     # --- 반사 + 감속 ---
@@ -151303,6 +151367,10 @@ def _process_wall_bounce(side: str) -> bool:
     # --- 스테이지 4: 사원 테두리 깜빡임 ---
     if current_stage == 4:
         stage4_border_flash_timer = stage4_border_flash_duration
+
+    # --- 스테이지 5(네메시스/해상, 코드상 stage6): 테두리 깜빡임 ---
+    if current_stage == 6:
+        stage5_border_flash_timer = stage5_border_flash_duration
 
     # --- 스테이지 2: 정글 테두리 + 잎사귀 파티클 ---
     if current_stage == 2:
@@ -163896,7 +163964,7 @@ def main(stage_num, new_boss_mode=False):
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
     global quest_small_paddle_active, quest_speedrun_active, quest_speedrun_start_ticks
     # 스테이지 2 정글 테두리 효과
-    global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer
+    global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer, stage5_border_flash_timer
     global stage2_border_active, stage2_border_timer, stage2_border_flash_timer
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
     
@@ -172423,6 +172491,8 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage3_border()
             elif current_stage == 4:
                 draw_stage4_border()
+            elif current_stage == 6:
+                draw_stage5_border()
             draw_objects()
             # 네메시스 패배 폭발 애니메이션 그리기 (스테이지 6)
             if current_stage == 6 and nemesis_death_active:
@@ -172540,6 +172610,8 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage3_border()
             elif current_stage == 4:
                 draw_stage4_border()
+            elif current_stage == 6:
+                draw_stage5_border()
             draw_objects()
             # 네메시스 패배 폭발 애니메이션 그리기 (스테이지 6)
             if current_stage == 6 and nemesis_death_active:
