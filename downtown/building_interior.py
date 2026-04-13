@@ -2900,6 +2900,9 @@ class BuildingInterior:
         self.quest_detail_selection = 0  # 0: 임무수행, 1: 취소
         self.quest_npc_dialogue_shown = False  # NPC 대사 표시 여부
         self.quest_npc_dialogue_timer = 0  # NPC 대사 타이머
+        self.quest_offered_list = []  # 랜덤으로 제시된 퀘스트 (2~3개)
+        self.quest_card_rects = []  # 양피지 카드 히트 영역
+        self.quest_hover_index = -1  # 마우스 호버 중인 카드 인덱스
 
         # 퀘스트 목록 정의
         self.quest_list = [
@@ -4390,6 +4393,24 @@ class BuildingInterior:
         except Exception as e:
             print(f"퀘스트 상태 동기화 실패: {e}")
 
+    def _roll_quest_offers(self):
+        """전체 퀘스트에서 랜덤으로 2~3개를 선별하여 제시"""
+        import random
+        # 이미 진행 중인 퀘스트는 반드시 포함
+        active = [q for q in self.quest_list if q["active"] and not q["completed"]]
+        # 수락 가능한 퀘스트 풀
+        available = [q for q in self.quest_list if not q["active"] and not q["completed"]]
+        # 목표 개수: 3개 (활성 퀘스트가 있으면 나머지를 랜덤으로 채움)
+        offer_count = 3
+        needed = offer_count - len(active)
+        if needed > 0 and available:
+            picked = random.sample(available, min(needed, len(available)))
+        else:
+            picked = []
+        self.quest_offered_list = active + picked
+        # 셔플해서 순서 랜덤화
+        random.shuffle(self.quest_offered_list)
+
     def _set_gold(self, new_gold):
         """골드 설정 및 필러 HUD 동기화"""
         self.player_data['gold'] = new_gold
@@ -5249,9 +5270,11 @@ class BuildingInterior:
                 elif self.building_type == BuildingType.TAVERN and npc.role == "quest":
                     # 대사 없이 바로 퀘스트 메뉴 열기
                     self._sync_quest_state_from_pingfighter()
+                    self._roll_quest_offers()
                     self.quest_menu_open = True
                     self.quest_menu_selection = 0
                     self.quest_detail_open = False
+                    self.quest_hover_index = -1
                     return ("quest_menu", npc)
                 else:
                     dialogue = npc.start_dialogue()
@@ -6151,9 +6174,9 @@ class BuildingInterior:
         # 퀘스트 메뉴가 열려있을 때
         if self.quest_menu_open:
             if self.quest_detail_open:
-                # 퀘스트 상세 보기 모드
+                # 퀘스트 상세 보기 모드 (확인 다이얼로그)
                 if event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                    self.quest_detail_selection = 0  # 임무수행
+                    self.quest_detail_selection = 0  # 수락
                     return ("quest_detail_move", None)
                 elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
                     self.quest_detail_selection = 1  # 취소
@@ -6164,19 +6187,24 @@ class BuildingInterior:
                     self.quest_detail_open = False
                     return ("quest_detail_close", None)
             else:
-                # 퀘스트 목록 모드
-                if event.key == pygame.K_UP or event.key == pygame.K_w:
-                    self.quest_menu_selection = (self.quest_menu_selection - 1) % len(self.quest_list)
-                    return ("quest_menu_move", None)
-                elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                    self.quest_menu_selection = (self.quest_menu_selection + 1) % len(self.quest_list)
-                    return ("quest_menu_move", None)
-                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
-                    # 상세 보기 열기
-                    self.quest_detail_open = True
-                    self.quest_detail_selection = 0
-                    return ("quest_detail_open", None)
-                elif event.key == pygame.K_ESCAPE:
+                # 양피지 카드 모드
+                card_count = len(self.quest_offered_list)
+                if card_count > 0:
+                    if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                        self.quest_menu_selection = (self.quest_menu_selection - 1) % card_count
+                        return ("quest_menu_move", None)
+                    elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                        self.quest_menu_selection = (self.quest_menu_selection + 1) % card_count
+                        return ("quest_menu_move", None)
+                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                        # 선택한 카드의 퀘스트 수락 확인
+                        quest = self.quest_offered_list[self.quest_menu_selection]
+                        if not quest["active"] and not quest["completed"]:
+                            self.quest_detail_open = True
+                            self.quest_detail_selection = 0
+                            return ("quest_detail_open", None)
+                        return None
+                if event.key == pygame.K_ESCAPE:
                     self.quest_menu_open = False
                     return ("quest_menu_close", None)
             return None
@@ -6708,7 +6736,10 @@ class BuildingInterior:
 
     def _select_quest_detail_button(self):
         """퀘스트 상세 보기에서 버튼 선택"""
-        quest = self.quest_list[self.quest_menu_selection]
+        if self.quest_offered_list and 0 <= self.quest_menu_selection < len(self.quest_offered_list):
+            quest = self.quest_offered_list[self.quest_menu_selection]
+        else:
+            quest = self.quest_list[self.quest_menu_selection]
 
         if self.quest_detail_selection == 0:
             # 임무수행 버튼
@@ -6751,53 +6782,41 @@ class BuildingInterior:
     def _handle_quest_menu_click(self, pos):
         """퀘스트 메뉴 마우스 클릭 처리"""
         if self.quest_detail_open:
-            # 상세 보기 모드에서 버튼 클릭
             return self._handle_quest_detail_click(pos)
         else:
-            # 목록 모드에서 아이템 클릭
-            return self._handle_quest_list_click(pos)
+            return self._handle_quest_card_click(pos)
 
-    def _handle_quest_list_click(self, pos):
-        """퀘스트 목록 클릭 처리"""
-        item_h = 50
-        quest_count = len(self.quest_list)
-        menu_w = 350
-        menu_h = 65 + quest_count * item_h + 40
-        menu_x = (SCREEN_WIDTH - menu_w) // 2
-        menu_y = (SCREEN_HEIGHT - menu_h) // 2
-
-        item_start_y = menu_y + 65
-
-        for i, quest in enumerate(self.quest_list):
-            item_y = item_start_y + i * item_h
-            item_rect = pygame.Rect(menu_x + 15, item_y, menu_w - 30, item_h - 4)
-
-            if item_rect.collidepoint(pos):
+    def _handle_quest_card_click(self, pos):
+        """양피지 카드 클릭 처리"""
+        for i, rect in enumerate(self.quest_card_rects):
+            if rect and rect.collidepoint(pos):
                 self.quest_menu_selection = i
-                # 더블클릭 효과: 상세 보기 열기
-                self.quest_detail_open = True
-                self.quest_detail_selection = 0
-                return ("quest_detail_open", None)
-
+                quest = self.quest_offered_list[i]
+                if quest["active"]:
+                    self.quest_message = "이 퀘스트는 이미 진행 중입니다."
+                    self.quest_message_timer = 2.0
+                    return ("quest_already_active", None)
+                elif quest["completed"]:
+                    return None
+                else:
+                    # 수락 확인 다이얼로그 열기
+                    self.quest_detail_open = True
+                    self.quest_detail_selection = 0
+                    return ("quest_detail_open", None)
         return None
 
     def _handle_quest_detail_click(self, pos):
-        """퀘스트 상세 보기 버튼 클릭 처리"""
-        quest = self.quest_list[self.quest_menu_selection]
-
-        menu_w, menu_h = 380, 350
+        """퀘스트 수락 확인 다이얼로그 클릭 처리"""
+        menu_w, menu_h = 340, 200
         menu_x = (SCREEN_WIDTH - menu_w) // 2
         menu_y = (SCREEN_HEIGHT - menu_h) // 2
 
         btn_w, btn_h = 100, 36
-        btn_y = menu_y + menu_h - 60
+        btn_y = menu_y + menu_h - 55
         btn_gap = 30
 
-        # 임무수행 버튼
         accept_btn_x = menu_x + menu_w // 2 - btn_w - btn_gap // 2
         accept_btn_rect = pygame.Rect(accept_btn_x, btn_y, btn_w, btn_h)
-
-        # 취소 버튼
         cancel_btn_x = menu_x + menu_w // 2 + btn_gap // 2
         cancel_btn_rect = pygame.Rect(cancel_btn_x, btn_y, btn_w, btn_h)
 
@@ -10860,292 +10879,351 @@ class BuildingInterior:
                 screen.blit(msg_surf, (msg_x + (msg_w - msg_rect.width) // 2, msg_y + 10))
 
     def _draw_quest_menu(self, screen):
-        """퀘스트 메뉴 그리기 - 의뢰 목록 및 상세 보기"""
+        """퀘스트 메뉴 그리기 - 양피지 카드 UI"""
         import math
         _bi_update_hover()
 
-        # 색상 (따뜻한 선술집 테마 + 퀘스트 강조색)
-        BG_WOOD = (55, 40, 28)
-        BG_WOOD_LIGHT = (75, 55, 38)
-        BORDER_GOLD = (200, 160, 80)
-        BORDER_DARK = (120, 90, 50)
-        HIGHLIGHT = (90, 65, 45)
-        HOVER_BG = (70, 50, 35)
         TEXT_WHITE = (255, 245, 230)
         TEXT_GOLD = (255, 210, 100)
-        TEXT_GREEN = (100, 220, 100)
         TEXT_DIM = (180, 160, 140)
-        QUEST_ACTIVE = (100, 180, 255)  # 진행 중인 퀘스트 색상
-        QUEST_COMPLETED = (100, 200, 100)  # 완료된 퀘스트 색상
-        BTN_ACCEPT = (80, 150, 80)
-        BTN_ACCEPT_HOVER = (100, 180, 100)
-        BTN_CANCEL = (150, 80, 80)
-        BTN_CANCEL_HOVER = (180, 100, 100)
+        BORDER_GOLD = (200, 160, 80)
 
         mouse_pos = pygame.mouse.get_pos()
 
         # 배경 어둡게
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 150))
+        overlay.fill((0, 0, 0, 160))
         screen.blit(overlay, (0, 0))
 
         font_small = self.fonts.get('small')
         font_medium = self.fonts.get('medium')
 
-        if self.quest_detail_open:
-            # === 퀘스트 상세 보기 모드 ===
-            self._draw_quest_detail(screen, mouse_pos, font_small, font_medium,
-                                   BG_WOOD, BG_WOOD_LIGHT, BORDER_GOLD, BORDER_DARK,
-                                   HIGHLIGHT, TEXT_WHITE, TEXT_GOLD, TEXT_GREEN, TEXT_DIM,
-                                   BTN_ACCEPT, BTN_ACCEPT_HOVER, BTN_CANCEL, BTN_CANCEL_HOVER)
-        else:
-            # === 퀘스트 목록 모드 ===
-            self._draw_quest_list(screen, mouse_pos, font_small, font_medium,
-                                 BG_WOOD, BG_WOOD_LIGHT, BORDER_GOLD, BORDER_DARK,
-                                 HIGHLIGHT, HOVER_BG, TEXT_WHITE, TEXT_GOLD, TEXT_DIM,
-                                 QUEST_ACTIVE, QUEST_COMPLETED)
+        # 수락 확인 다이얼로그가 열려있으면 카드 위에 오버레이
+        self._draw_quest_cards(screen, mouse_pos, font_small, font_medium)
 
-    def _draw_quest_list(self, screen, mouse_pos, font_small, font_medium,
-                         BG_WOOD, BG_WOOD_LIGHT, BORDER_GOLD, BORDER_DARK,
-                         HIGHLIGHT, HOVER_BG, TEXT_WHITE, TEXT_GOLD, TEXT_DIM,
-                         QUEST_ACTIVE, QUEST_COMPLETED):
-        """퀘스트 목록 그리기"""
+        if self.quest_detail_open:
+            self._draw_quest_accept_dialog(screen, mouse_pos, font_small, font_medium)
+
+    def _draw_quest_cards(self, screen, mouse_pos, font_small, font_medium):
+        """양피지 카드 형태로 퀘스트 표시"""
         import math
 
-        # 메뉴 크기 및 위치 (퀘스트 개수에 맞춰 동적 높이)
-        item_h = 50
-        quest_count = len(self.quest_list)
-        menu_w = 350
-        menu_h = 65 + quest_count * item_h + 40
-        menu_x = (SCREEN_WIDTH - menu_w) // 2
-        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+        TEXT_WHITE = (255, 245, 230)
+        TEXT_GOLD = (255, 210, 100)
+        TEXT_DIM = (180, 160, 140)
+        BORDER_GOLD = (200, 160, 80)
 
-        # 글로우 효과
-        glow_intensity = int(30 + 15 * math.sin(self.animation_timer * 2))
-        glow_surf = pygame.Surface((menu_w + 30, menu_h + 30), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (255, 180, 80, glow_intensity), (0, 0, menu_w + 30, menu_h + 30), border_radius=15)
-        screen.blit(glow_surf, (menu_x - 15, menu_y - 15))
+        quests = self.quest_offered_list
+        card_count = len(quests)
+        if card_count == 0:
+            return
 
-        # 메뉴 배경
-        pygame.draw.rect(screen, BG_WOOD, (menu_x, menu_y, menu_w, menu_h), border_radius=10)
-        pygame.draw.rect(screen, BORDER_GOLD, (menu_x, menu_y, menu_w, menu_h), 3, border_radius=10)
-        pygame.draw.rect(screen, BORDER_DARK, (menu_x + 3, menu_y + 3, menu_w - 6, menu_h - 6), 1, border_radius=8)
-
-        # 상단 바
-        pygame.draw.rect(screen, BG_WOOD_LIGHT, (menu_x + 5, menu_y + 5, menu_w - 10, 45), border_radius=6)
-        pygame.draw.line(screen, BORDER_GOLD, (menu_x + 15, menu_y + 52), (menu_x + menu_w - 15, menu_y + 52), 2)
+        # --- 카드 레이아웃 ---
+        card_w, card_h = 130, 170
+        card_gap = 20
+        total_w = card_count * card_w + (card_count - 1) * card_gap
+        start_x = (SCREEN_WIDTH - total_w) // 2
+        base_y = (SCREEN_HEIGHT - card_h) // 2 - 15
 
         # 타이틀
         if font_medium:
-            # 두루마리 아이콘
-            scroll_x = menu_x + 25
-            scroll_y = menu_y + 18
-            pygame.draw.rect(screen, TEXT_GOLD, (scroll_x, scroll_y, 20, 24), border_radius=3)
-            pygame.draw.rect(screen, (200, 160, 60), (scroll_x + 3, scroll_y + 4, 14, 16))
-            pygame.draw.line(screen, (180, 140, 50), (scroll_x + 5, scroll_y + 8), (scroll_x + 15, scroll_y + 8), 1)
-            pygame.draw.line(screen, (180, 140, 50), (scroll_x + 5, scroll_y + 12), (scroll_x + 15, scroll_y + 12), 1)
-            pygame.draw.line(screen, (180, 140, 50), (scroll_x + 5, scroll_y + 16), (scroll_x + 12, scroll_y + 16), 1)
+            title_surf, _ = font_medium.render("오늘의 의뢰", TEXT_GOLD)
+            screen.blit(title_surf, ((SCREEN_WIDTH - title_surf.get_width()) // 2, base_y - 45))
 
-            title_surf, _ = font_medium.render(_t("interior.quest_list", "의뢰 목록"), TEXT_WHITE)
-            screen.blit(title_surf, (menu_x + 60, menu_y + 15))
+        self.quest_card_rects = []
+        self.quest_hover_index = -1
 
-        # 퀘스트 목록
-        item_start_y = menu_y + 65
+        for i, quest in enumerate(quests):
+            cx = start_x + i * (card_w + card_gap)
 
-        for i, quest in enumerate(self.quest_list):
-            item_y = item_start_y + i * item_h
-            item_rect = pygame.Rect(menu_x + 15, item_y, menu_w - 30, item_h - 4)
-
-            is_hovered = item_rect.collidepoint(mouse_pos)
+            # 호버 감지
+            card_rect = pygame.Rect(cx, base_y, card_w, card_h)
+            is_hovered = card_rect.collidepoint(mouse_pos)
             is_selected = (i == self.quest_menu_selection)
-
             if is_hovered:
+                self.quest_hover_index = i
                 self.quest_menu_selection = i
 
-            # 퀘스트 상태에 따른 색상
-            if quest["completed"]:
-                status_color = QUEST_COMPLETED
-                status_text = "[완료]"
-            elif quest["active"]:
-                status_color = QUEST_ACTIVE
-                status_text = "[진행중]"
-            else:
-                status_color = TEXT_DIM
-                status_text = ""
+            # 떠오르는 애니메이션
+            float_off = int(3.0 * math.sin(self.animation_timer * 1.8 + i * 1.2))
+            cy = base_y + float_off
+            card_rect = pygame.Rect(cx, cy, card_w, card_h)
+            self.quest_card_rects.append(card_rect)
 
-            # 배경 그리기
-            if is_selected:
-                pygame.draw.rect(screen, HIGHLIGHT, item_rect, border_radius=5)
-                pygame.draw.rect(screen, BORDER_GOLD, item_rect, 2, border_radius=5)
-                text_color = TEXT_GOLD
-            elif is_hovered:
-                pygame.draw.rect(screen, HOVER_BG, item_rect, border_radius=5)
-                pygame.draw.rect(screen, BORDER_DARK, item_rect, 1, border_radius=5)
-                text_color = TEXT_WHITE
-            else:
-                text_color = TEXT_WHITE
+            # === 양피지 배경 ===
+            # 기본 색상
+            parch_base = (210, 185, 140)
+            parch_light = (230, 210, 170)
+            parch_dark = (170, 145, 100)
+            parch_edge = (150, 125, 80)
 
+            if quest["active"]:
+                # 진행 중: 푸른 빛
+                parch_base = (170, 190, 210)
+                parch_light = (195, 215, 235)
+                parch_dark = (130, 155, 180)
+                parch_edge = (100, 130, 160)
+
+            # 호버/선택 시 밝아짐
+            if is_hovered or is_selected:
+                parch_base = tuple(min(c + 20, 255) for c in parch_base)
+                parch_light = tuple(min(c + 15, 255) for c in parch_light)
+
+            # 호버 시 글로우
+            if is_hovered:
+                glow_a = int(50 + 20 * math.sin(self.animation_timer * 3))
+                glow_s = pygame.Surface((card_w + 16, card_h + 16), pygame.SRCALPHA)
+                pygame.draw.rect(glow_s, (255, 200, 100, glow_a),
+                                 (0, 0, card_w + 16, card_h + 16), border_radius=10)
+                screen.blit(glow_s, (cx - 8, cy - 8))
+
+            # 양피지 본체
+            pygame.draw.rect(screen, parch_base, (cx, cy, card_w, card_h), border_radius=6)
+            # 상단 밝은 그라데이션 느낌
+            pygame.draw.rect(screen, parch_light, (cx + 3, cy + 3, card_w - 6, 30), border_radius=4)
+            # 테두리
+            pygame.draw.rect(screen, parch_edge, (cx, cy, card_w, card_h), 2, border_radius=6)
+            # 안쪽 장식선
+            pygame.draw.rect(screen, parch_dark, (cx + 6, cy + 6, card_w - 12, card_h - 12), 1, border_radius=4)
+
+            # === 상단: 봉인 원형 장식 ===
+            seal_cx = cx + card_w // 2
+            seal_cy = cy + 28
+            seal_r = 16
+            seal_color = (180, 60, 50) if not quest["active"] else (60, 120, 180)
+            pygame.draw.circle(screen, seal_color, (seal_cx, seal_cy), seal_r)
+            pygame.draw.circle(screen, tuple(min(c + 40, 255) for c in seal_color),
+                               (seal_cx, seal_cy), seal_r - 3)
+            pygame.draw.circle(screen, seal_color, (seal_cx, seal_cy), seal_r, 2)
+            # 봉인 안 텍스트 (퀘스트 이름 첫 글자)
             if font_small:
-                # 선택 화살표
-                if is_selected:
-                    arrow_surf, _ = font_small.render("▶", TEXT_GOLD)
-                    screen.blit(arrow_surf, (item_rect.x + 8, item_rect.y + 15))
+                initial = quest["name"][0]
+                ini_surf, ini_rect = font_small.render(initial, (255, 240, 220))
+                screen.blit(ini_surf, (seal_cx - ini_rect.width // 2, seal_cy - ini_rect.height // 2))
 
-                # 퀘스트 이름
-                name_surf, _ = font_small.render(quest["name"], text_color)
-                screen.blit(name_surf, (item_rect.x + 30, item_rect.y + 8))
+            # === 중앙: 퀘스트 이름 (2줄까지) ===
+            if font_small:
+                name = quest["name"]
+                name_color = (60, 40, 25) if not quest["active"] else (30, 60, 100)
+                # 짧은 이름은 1줄, 긴 이름은 2줄로 분할
+                if len(name) <= 5:
+                    n_surf, n_rect = font_small.render(name, name_color)
+                    screen.blit(n_surf, (cx + (card_w - n_rect.width) // 2, cy + 55))
+                else:
+                    mid = len(name) // 2
+                    # 가능하면 공백에서 분할
+                    sp = name.find(' ')
+                    if 0 < sp < len(name) - 1:
+                        mid = sp
+                    line1, line2 = name[:mid].strip(), name[mid:].strip()
+                    s1, r1 = font_small.render(line1, name_color)
+                    s2, r2 = font_small.render(line2, name_color)
+                    screen.blit(s1, (cx + (card_w - r1.width) // 2, cy + 50))
+                    screen.blit(s2, (cx + (card_w - r2.width) // 2, cy + 68))
 
-                # 상태 표시
-                if status_text:
-                    status_surf, _ = font_small.render(status_text, status_color)
-                    screen.blit(status_surf, (item_rect.right - 70, item_rect.y + 8))
+            # === 하단: 장식 구분선 + 골드 보상 ===
+            line_y = cy + card_h - 55
+            pygame.draw.line(screen, parch_dark, (cx + 15, line_y), (cx + card_w - 15, line_y), 1)
 
-                # 보상 표시
-                reward_text = _t("ui.reward_gold_fmt", "보상: {}G").format(quest['reward_gold'])
-                reward_surf, _ = font_small.render(reward_text, TEXT_GOLD)
-                screen.blit(reward_surf, (item_rect.x + 30, item_rect.y + 28))
+            # 골드 아이콘
+            gold_cx = cx + card_w // 2 - 20
+            gold_cy = cy + card_h - 40
+            pygame.draw.circle(screen, TEXT_GOLD, (gold_cx + 7, gold_cy + 7), 7)
+            pygame.draw.circle(screen, (200, 160, 60), (gold_cx + 7, gold_cy + 7), 5)
+            if font_small:
+                g_surf, _ = font_small.render(f"{quest['reward_gold']}G", (120, 90, 40))
+                screen.blit(g_surf, (gold_cx + 18, gold_cy))
 
-            # 호버 보더 이펙트
-            if is_hovered and _bi_check_hover(f"quest_{i}", item_rect, mouse_pos):
-                _bi_draw_hover_border(screen, item_rect.x, item_rect.y, item_rect.w, item_rect.h, (255, 210, 100))
+            # 진행 중 뱃지
+            if quest["active"]:
+                if font_small:
+                    badge_surf, badge_rect = font_small.render("진행중", (255, 255, 255))
+                    bx = cx + card_w - badge_rect.width - 12
+                    by = cy + card_h - 22
+                    pygame.draw.rect(screen, (60, 120, 180), (bx - 4, by - 2, badge_rect.width + 8, badge_rect.height + 4), border_radius=3)
+                    screen.blit(badge_surf, (bx, by))
 
-        # 하단 안내 텍스트
+        # === 호버 툴팁 ===
+        if self.quest_hover_index >= 0 and not self.quest_detail_open:
+            quest = quests[self.quest_hover_index]
+            self._draw_quest_hover_tooltip(screen, mouse_pos, quest, font_small)
+
+        # 하단 안내
         if font_small:
-            help_text = "Enter: 상세보기 / ESC: 닫기"
-            help_surf, _ = font_small.render(help_text, TEXT_DIM)
-            screen.blit(help_surf, (menu_x + (menu_w - help_surf.get_width()) // 2, menu_y + menu_h - 30))
+            help_surf, _ = font_small.render("클릭: 수락 / ESC: 닫기", TEXT_DIM)
+            screen.blit(help_surf, ((SCREEN_WIDTH - help_surf.get_width()) // 2, base_y + card_h + 25))
 
-    def _draw_quest_detail(self, screen, mouse_pos, font_small, font_medium,
-                           BG_WOOD, BG_WOOD_LIGHT, BORDER_GOLD, BORDER_DARK,
-                           HIGHLIGHT, TEXT_WHITE, TEXT_GOLD, TEXT_GREEN, TEXT_DIM,
-                           BTN_ACCEPT, BTN_ACCEPT_HOVER, BTN_CANCEL, BTN_CANCEL_HOVER):
-        """퀘스트 상세 보기 그리기"""
+    def _draw_quest_hover_tooltip(self, screen, mouse_pos, quest, font_small):
+        """퀘스트 카드 호버 시 상세 툴팁"""
+        if not font_small:
+            return
+
+        TEXT_WHITE = (255, 245, 230)
+        TEXT_GOLD = (255, 210, 100)
+        TEXT_DIM = (180, 160, 140)
+        BG = (40, 30, 22, 230)
+
+        # 툴팁 내용 구성
+        lines = []
+        lines.append(("name", quest["name"]))
+        lines.append(("sep", ""))
+        for dl in quest["description"].split("\n"):
+            lines.append(("desc", dl))
+        lines.append(("sep", ""))
+        lines.append(("cond", f"조건: {quest['condition_desc']}"))
+        lines.append(("reward", f"보상: {quest['reward_gold']}G"))
+        if quest["active"]:
+            lines.append(("status", "현재 진행 중"))
+
+        # 크기 계산
+        line_h = 20
+        sep_h = 8
+        pad = 12
+        max_w = 0
+        total_h = pad * 2
+        for tag, text in lines:
+            if tag == "sep":
+                total_h += sep_h
+            else:
+                surf, rect = font_small.render(text, TEXT_WHITE)
+                max_w = max(max_w, rect.width)
+                total_h += line_h
+        tip_w = max_w + pad * 2
+        tip_h = total_h
+
+        # 위치 (카드 아래, 화면 밖 방지)
+        tx = mouse_pos[0] - tip_w // 2
+        ty = mouse_pos[1] + 20
+        tx = max(5, min(tx, SCREEN_WIDTH - tip_w - 5))
+        ty = max(5, min(ty, SCREEN_HEIGHT - tip_h - 5))
+
+        # 배경
+        tip_surf = pygame.Surface((tip_w, tip_h), pygame.SRCALPHA)
+        pygame.draw.rect(tip_surf, BG, (0, 0, tip_w, tip_h), border_radius=6)
+        pygame.draw.rect(tip_surf, (200, 160, 80, 180), (0, 0, tip_w, tip_h), 1, border_radius=6)
+        screen.blit(tip_surf, (tx, ty))
+
+        # 텍스트
+        dy = ty + pad
+        for tag, text in lines:
+            if tag == "sep":
+                pygame.draw.line(screen, (120, 100, 70, 100), (tx + 8, dy + sep_h // 2), (tx + tip_w - 8, dy + sep_h // 2), 1)
+                dy += sep_h
+            elif tag == "name":
+                s, _ = font_small.render(text, TEXT_GOLD)
+                screen.blit(s, (tx + pad, dy))
+                dy += line_h
+            elif tag == "reward":
+                s, _ = font_small.render(text, TEXT_GOLD)
+                screen.blit(s, (tx + pad, dy))
+                dy += line_h
+            elif tag == "cond":
+                s, _ = font_small.render(text, (180, 210, 255))
+                screen.blit(s, (tx + pad, dy))
+                dy += line_h
+            elif tag == "status":
+                s, _ = font_small.render(text, (100, 180, 255))
+                screen.blit(s, (tx + pad, dy))
+                dy += line_h
+            else:
+                s, _ = font_small.render(text, TEXT_WHITE)
+                screen.blit(s, (tx + pad, dy))
+                dy += line_h
+
+    def _draw_quest_accept_dialog(self, screen, mouse_pos, font_small, font_medium):
+        """퀘스트 수락 확인 다이얼로그"""
         import math
 
-        quest = self.quest_list[self.quest_menu_selection]
+        TEXT_WHITE = (255, 245, 230)
+        TEXT_GOLD = (255, 210, 100)
+        BG_WOOD = (55, 40, 28)
+        BORDER_GOLD = (200, 160, 80)
+        BORDER_DARK = (120, 90, 50)
+        BTN_ACCEPT = (80, 150, 80)
+        BTN_ACCEPT_HOVER = (100, 180, 100)
+        BTN_CANCEL = (150, 80, 80)
+        BTN_CANCEL_HOVER = (180, 100, 100)
 
-        # 메뉴 크기 및 위치
-        menu_w, menu_h = 380, 350
+        if not self.quest_offered_list or self.quest_menu_selection >= len(self.quest_offered_list):
+            return
+        quest = self.quest_offered_list[self.quest_menu_selection]
+
+        # 반투명 오버레이
+        ov = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        ov.fill((0, 0, 0, 100))
+        screen.blit(ov, (0, 0))
+
+        menu_w, menu_h = 340, 200
         menu_x = (SCREEN_WIDTH - menu_w) // 2
         menu_y = (SCREEN_HEIGHT - menu_h) // 2
 
-        # 글로우 효과
-        glow_intensity = int(30 + 15 * math.sin(self.animation_timer * 2))
-        glow_surf = pygame.Surface((menu_w + 30, menu_h + 30), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (255, 180, 80, glow_intensity), (0, 0, menu_w + 30, menu_h + 30), border_radius=15)
-        screen.blit(glow_surf, (menu_x - 15, menu_y - 15))
+        # 글로우
+        glow_a = int(25 + 12 * math.sin(self.animation_timer * 2))
+        glow_s = pygame.Surface((menu_w + 20, menu_h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_s, (255, 180, 80, glow_a), (0, 0, menu_w + 20, menu_h + 20), border_radius=12)
+        screen.blit(glow_s, (menu_x - 10, menu_y - 10))
 
-        # 메뉴 배경
-        pygame.draw.rect(screen, BG_WOOD, (menu_x, menu_y, menu_w, menu_h), border_radius=10)
-        pygame.draw.rect(screen, BORDER_GOLD, (menu_x, menu_y, menu_w, menu_h), 3, border_radius=10)
-        pygame.draw.rect(screen, BORDER_DARK, (menu_x + 3, menu_y + 3, menu_w - 6, menu_h - 6), 1, border_radius=8)
+        # 배경
+        pygame.draw.rect(screen, BG_WOOD, (menu_x, menu_y, menu_w, menu_h), border_radius=8)
+        pygame.draw.rect(screen, BORDER_GOLD, (menu_x, menu_y, menu_w, menu_h), 2, border_radius=8)
+        pygame.draw.rect(screen, BORDER_DARK, (menu_x + 3, menu_y + 3, menu_w - 6, menu_h - 6), 1, border_radius=6)
 
-        # 상단 바
-        pygame.draw.rect(screen, BG_WOOD_LIGHT, (menu_x + 5, menu_y + 5, menu_w - 10, 45), border_radius=6)
-        pygame.draw.line(screen, BORDER_GOLD, (menu_x + 15, menu_y + 52), (menu_x + menu_w - 15, menu_y + 52), 2)
-
-        # 타이틀 (퀘스트 이름)
+        # 제목
         if font_medium:
-            title_surf, _ = font_medium.render(quest["name"], TEXT_GOLD)
-            screen.blit(title_surf, (menu_x + 20, menu_y + 15))
-
-        # 퀘스트 설명
+            t_surf, _ = font_medium.render(f"'{quest['name']}'", TEXT_GOLD)
+            screen.blit(t_surf, (menu_x + (menu_w - t_surf.get_width()) // 2, menu_y + 20))
         if font_small:
-            desc_y = menu_y + 70
-            desc_lines = quest["description"].split("\n")
-            for line in desc_lines:
-                desc_surf, _ = font_small.render(line, TEXT_WHITE)
-                screen.blit(desc_surf, (menu_x + 25, desc_y))
-                desc_y += 22
-
-            # 조건 표시
-            cond_y = desc_y + 20
-            pygame.draw.line(screen, BORDER_DARK, (menu_x + 20, cond_y - 5), (menu_x + menu_w - 20, cond_y - 5), 1)
-            cond_label, _ = font_small.render(_t("ui.achievement_condition", "달성 조건:"), TEXT_DIM)
-            screen.blit(cond_label, (menu_x + 25, cond_y))
-            cond_surf, _ = font_small.render(quest["condition_desc"], TEXT_WHITE)
-            screen.blit(cond_surf, (menu_x + 100, cond_y))
+            sub_surf, _ = font_small.render("이 의뢰를 수락하시겠습니까?", TEXT_WHITE)
+            screen.blit(sub_surf, (menu_x + (menu_w - sub_surf.get_width()) // 2, menu_y + 55))
 
             # 보상 표시
-            reward_y = cond_y + 40
-            pygame.draw.line(screen, BORDER_DARK, (menu_x + 20, reward_y - 5), (menu_x + menu_w - 20, reward_y - 5), 1)
-            reward_label, _ = font_small.render(_t("ui.reward_label", "보상:"), TEXT_DIM)
-            screen.blit(reward_label, (menu_x + 25, reward_y))
+            reward_text = f"보상: {quest['reward_gold']}G"
+            r_surf, _ = font_small.render(reward_text, TEXT_GOLD)
+            screen.blit(r_surf, (menu_x + (menu_w - r_surf.get_width()) // 2, menu_y + 85))
 
-            # 골드 아이콘
-            gold_icon_x = menu_x + 75
-            gold_icon_y = reward_y + 2
-            pygame.draw.circle(screen, TEXT_GOLD, (gold_icon_x + 8, gold_icon_y + 8), 8)
-            pygame.draw.circle(screen, (200, 160, 60), (gold_icon_x + 8, gold_icon_y + 8), 6)
-
-            gold_surf, _ = font_small.render(f"{quest['reward_gold']}G", TEXT_GOLD)
-            screen.blit(gold_surf, (gold_icon_x + 22, reward_y))
+            # 조건
+            cond_text = quest["condition_desc"]
+            c_surf, _ = font_small.render(cond_text, (180, 210, 255))
+            screen.blit(c_surf, (menu_x + (menu_w - c_surf.get_width()) // 2, menu_y + 110))
 
         # 버튼들
         btn_w, btn_h = 100, 36
-        btn_y = menu_y + menu_h - 60
+        btn_y = menu_y + menu_h - 55
         btn_gap = 30
 
-        # 임무수행 버튼
-        accept_btn_x = menu_x + menu_w // 2 - btn_w - btn_gap // 2
-        accept_btn_rect = pygame.Rect(accept_btn_x, btn_y, btn_w, btn_h)
-        is_accept_hover = accept_btn_rect.collidepoint(mouse_pos)
-        is_accept_selected = (self.quest_detail_selection == 0)
+        # 수락 버튼
+        accept_x = menu_x + menu_w // 2 - btn_w - btn_gap // 2
+        accept_rect = pygame.Rect(accept_x, btn_y, btn_w, btn_h)
+        is_accept_hover = accept_rect.collidepoint(mouse_pos)
+        is_accept_sel = (self.quest_detail_selection == 0)
 
-        # 이미 진행 중이거나 완료된 퀘스트는 버튼 비활성화
-        can_accept = not quest["active"] and not quest["completed"]
-
-        if can_accept:
-            if is_accept_selected or is_accept_hover:
-                pygame.draw.rect(screen, BTN_ACCEPT_HOVER, accept_btn_rect, border_radius=5)
-                if is_accept_hover:
-                    self.quest_detail_selection = 0
-            else:
-                pygame.draw.rect(screen, BTN_ACCEPT, accept_btn_rect, border_radius=5)
-            pygame.draw.rect(screen, (120, 200, 120), accept_btn_rect, 2, border_radius=5)
+        if is_accept_sel or is_accept_hover:
+            pygame.draw.rect(screen, BTN_ACCEPT_HOVER, accept_rect, border_radius=5)
+            if is_accept_hover:
+                self.quest_detail_selection = 0
         else:
-            pygame.draw.rect(screen, (80, 80, 80), accept_btn_rect, border_radius=5)
-            pygame.draw.rect(screen, (100, 100, 100), accept_btn_rect, 2, border_radius=5)
-
+            pygame.draw.rect(screen, BTN_ACCEPT, accept_rect, border_radius=5)
+        pygame.draw.rect(screen, (120, 200, 120), accept_rect, 2, border_radius=5)
         if font_small:
-            btn_text = "임무수행" if can_accept else ("진행중" if quest["active"] else "완료")
-            btn_color = TEXT_WHITE if can_accept else TEXT_DIM
-            btn_surf, btn_rect = font_small.render(btn_text, btn_color)
-            screen.blit(btn_surf, (accept_btn_x + (btn_w - btn_rect.width) // 2, btn_y + 8))
-        if can_accept and _bi_check_hover("quest_accept", accept_btn_rect, mouse_pos):
-            _bi_draw_hover_border(screen, accept_btn_rect.x, accept_btn_rect.y, accept_btn_rect.w, accept_btn_rect.h, (100, 255, 100))
+            a_surf, a_rect = font_small.render("수락", TEXT_WHITE)
+            screen.blit(a_surf, (accept_x + (btn_w - a_rect.width) // 2, btn_y + 8))
 
         # 취소 버튼
-        cancel_btn_x = menu_x + menu_w // 2 + btn_gap // 2
-        cancel_btn_rect = pygame.Rect(cancel_btn_x, btn_y, btn_w, btn_h)
-        is_cancel_hover = cancel_btn_rect.collidepoint(mouse_pos)
-        is_cancel_selected = (self.quest_detail_selection == 1)
+        cancel_x = menu_x + menu_w // 2 + btn_gap // 2
+        cancel_rect = pygame.Rect(cancel_x, btn_y, btn_w, btn_h)
+        is_cancel_hover = cancel_rect.collidepoint(mouse_pos)
+        is_cancel_sel = (self.quest_detail_selection == 1)
 
-        if is_cancel_selected or is_cancel_hover:
-            pygame.draw.rect(screen, BTN_CANCEL_HOVER, cancel_btn_rect, border_radius=5)
+        if is_cancel_sel or is_cancel_hover:
+            pygame.draw.rect(screen, BTN_CANCEL_HOVER, cancel_rect, border_radius=5)
             if is_cancel_hover:
                 self.quest_detail_selection = 1
         else:
-            pygame.draw.rect(screen, BTN_CANCEL, cancel_btn_rect, border_radius=5)
-        pygame.draw.rect(screen, (200, 120, 120), cancel_btn_rect, 2, border_radius=5)
-
+            pygame.draw.rect(screen, BTN_CANCEL, cancel_rect, border_radius=5)
+        pygame.draw.rect(screen, (200, 120, 120), cancel_rect, 2, border_radius=5)
         if font_small:
-            cancel_surf, cancel_rect = font_small.render(_t("downtown.cancel", "취소"), TEXT_WHITE)
-            screen.blit(cancel_surf, (cancel_btn_x + (btn_w - cancel_rect.width) // 2, btn_y + 8))
-        if _bi_check_hover("quest_cancel", cancel_btn_rect, mouse_pos):
-            _bi_draw_hover_border(screen, cancel_btn_rect.x, cancel_btn_rect.y, cancel_btn_rect.w, cancel_btn_rect.h, (255, 100, 100))
-
-        # 퀘스트 상태 메시지
-        if quest["active"]:
-            if font_small:
-                status_text = "이 퀘스트는 현재 진행 중입니다."
-                status_surf, _ = font_small.render(status_text, (100, 180, 255))
-                screen.blit(status_surf, (menu_x + 25, btn_y - 30))
-        elif quest["completed"]:
-            if font_small:
-                status_text = "이 퀘스트는 이미 완료되었습니다."
-                status_surf, _ = font_small.render(status_text, (100, 200, 100))
-                screen.blit(status_surf, (menu_x + 25, btn_y - 30))
+            c_surf, c_rect = font_small.render("취소", TEXT_WHITE)
+            screen.blit(c_surf, (cancel_x + (btn_w - c_rect.width) // 2, btn_y + 8))
 
     def _draw_headmaster_interact_hint(self, screen):
         """아카데미 학장 근처일 때 상호작용 힌트 표시 (마우스 클릭 전용)"""
