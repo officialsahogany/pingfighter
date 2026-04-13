@@ -3853,6 +3853,14 @@ SMASHER_SKILL_ICONS_DATA = [
         "how_to_use": "magnum_grip",  # 특수 렌더링 (방향키 아이콘 포함)
         "effect_type": "magnetic_pull_blue"
     },
+    {
+        "name": "ghost_shot", "korean": "고스트샷", "cost": 0, "color": (120, 50, 180),
+        "symbol": "👻", "cooldown": 0.0, "key": "파워스매싱 연동",
+        "description": "파워스매싱 시 고스트샷 모드로 전환. 공이 뱀처럼 구불거리며 귀신이 따라다닙니다.",
+        "how_to_use": "파워스매싱 발동 시 자동 전환",
+        "effect_type": "ghost_purple",
+        "is_passive_modifier": True  # 별도 발동 불가, 파워스매싱에 연동
+    },
 ]
 
 # 스킬 툴팁 관련 변수
@@ -3889,6 +3897,7 @@ _smasher_skill_cooldowns = {
     "plasma": 0,
     "recovery": 0,
     "cleanse": 0,
+    "ghost_shot": 0,
     "drive": 0,
     "power_smashing": 0,
     "magnum_grip": 0,
@@ -3964,10 +3973,14 @@ _smasher_skill_unlocked = {
     "plasma": False,      # 런타임 스킬로 해금 필요
     "recovery": False,    # 런타임 스킬로 해금 필요 (리커버리 스킬과 별개)
     "cleanse": False,     # 런타임 스킬로 해금 필요
+    "ghost_shot": False,  # 런타임 스킬로 해금 필요 (파워스매싱 연동)
     "drive": True,        # 기본 해금
     "power_smashing": True,  # 기본 해금
     "magnum_grip": True,  # 기본 해금
 }
+
+# 스매셔 해금 퍽 최대 개수 (5개가 다 차면 더 이상 해금 퍽 획득 불가)
+SMASHER_UNLOCK_PERK_MAX = 5
 
 
 def reset_smasher_skill_unlocks():
@@ -3977,10 +3990,22 @@ def reset_smasher_skill_unlocks():
         "plasma": False,
         "recovery": False,
         "cleanse": False,
+        "ghost_shot": False,
         "drive": True,
         "power_smashing": True,
         "magnum_grip": True,
     }
+
+
+def get_smasher_unlock_perk_count() -> int:
+    """현재 해금된 스매셔 해금 퍽 수 반환 (기본 해금 제외)"""
+    unlock_perk_skills = ["plasma", "recovery", "cleanse", "ghost_shot"]
+    return sum(1 for s in unlock_perk_skills if _smasher_skill_unlocked.get(s, False))
+
+
+def is_smasher_unlock_perks_full() -> bool:
+    """스매셔 해금 퍽이 최대치(5개)에 도달했는지 확인"""
+    return get_smasher_unlock_perk_count() >= SMASHER_UNLOCK_PERK_MAX
 
 
 def unlock_smasher_skill(skill_name: str) -> bool:
@@ -5533,7 +5558,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     cleanse_skill_data = None
 
     # 메인 스킬 순서 정의 (표시 순서)
-    main_skill_order = ["plasma", "recovery", "drive", "power_smashing", "magnum_grip"]
+    main_skill_order = ["plasma", "recovery", "drive", "power_smashing", "magnum_grip", "ghost_shot"]
 
     for skill_name in main_skill_order:
         for skill_data in SMASHER_SKILL_ICONS_DATA:
@@ -77527,8 +77552,9 @@ def handle_player(keys):
         # 대시 골드 보너스 활성화 (다음 랠리 2배)
         dash_gold_multiplier_active = True
         set_roll("rolling_direction", direction)
-        # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (스매셔는 공중 부양이라 빙판 면역)
-        if is_ice_active() and selected_character_type != "smasher":
+        # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (공중 캐릭터 면역: 스매셔, 바이퍼 체공)
+        _ice_immune = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+        if is_ice_active() and not _ice_immune:
             create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, direction, is_player=True)
         # 🧊 얼음 이벤트: 대쉬 시작 시 기존 미끄러짐 상태 초기화
         global ice_dash_sliding, ice_dash_slide_speed
@@ -80557,8 +80583,9 @@ def handle_player(keys):
             PLAYER.x = new_x
 
         # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
-        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94, 스매셔 면역)
-        if is_ice_active() and selected_character_type != "smasher":
+        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94, 공중 캐릭터 면역)
+        _ice_immune_kb = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+        if is_ice_active() and not _ice_immune_kb:
             ice_decay = 0.94  # 빙판에서는 6%만 감속 → 더 길게 미끄러짐
         else:
             ice_decay = 0.85  # 일반: 15% 감속
@@ -80999,8 +81026,9 @@ def handle_player(keys):
                                     play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
                             poseidon_dash_pending = False  # 플래그 리셋
 
-                # 🧊 얼음 이벤트: 대쉬 종료 시 미끄러짐 시작 (끝까지 미끄러짐, 스매셔 면역)
-                if is_ice_active() and not ice_dash_sliding and selected_character_type != "smasher":
+                # 🧊 얼음 이벤트: 대쉬 종료 시 미끄러짐 시작 (끝까지 미끄러짐, 공중 캐릭터 면역)
+                _ice_immune_slide = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                if is_ice_active() and not ice_dash_sliding and not _ice_immune_slide:
                     # 이미 미끄러지는 중이 아닐 때만 새로 발동
                     dash_direction = _rolling_get("rolling_direction")
                     ice_dash_sliding = True
@@ -81041,8 +81069,8 @@ def handle_player(keys):
                 # 🧊 얼음 미끄러짐 중이면 대쉬 속도를 적용하지 않음
                 if ice_dash_sliding:
                     current_speed = 0
-                # 🧊 얼음 위에서 대쉬 중이고 감속 구간에 들어가면 즉시 미끄러짐으로 전환 (스매셔 면역)
-                elif is_ice_active() and rolling_timer_value <= 20 and selected_character_type != "smasher":
+                # 🧊 얼음 위에서 대쉬 중이고 감속 구간에 들어가면 즉시 미끄러짐으로 전환 (공중 캐릭터 면역)
+                elif is_ice_active() and rolling_timer_value <= 20 and not (selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)):
                     # 감속 구간에 진입하면 바로 미끄러짐 시작 (감속 없이 미끄러짐으로 연결)
                     dash_direction = _rolling_get("rolling_direction")
                     ice_dash_sliding = True
@@ -82520,8 +82548,9 @@ def handle_player(keys):
                                 _ld_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
                     except Exception:
                         pass
-                    # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (스매셔 면역)
-                    if is_ice_active() and selected_character_type != "smasher":
+                    # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (공중 캐릭터 면역)
+                    _ice_immune_l = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                    if is_ice_active() and not _ice_immune_l:
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, -1, is_player=True)
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -82813,8 +82842,9 @@ def handle_player(keys):
                                 _rd_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
                     except Exception:
                         pass
-                    # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (스매셔 면역)
-                    if is_ice_active() and selected_character_type != "smasher":
+                    # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (공중 캐릭터 면역)
+                    _ice_immune_r = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                    if is_ice_active() and not _ice_immune_r:
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, 1, is_player=True)
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -83332,8 +83362,9 @@ def handle_player(keys):
                             adjusted_acceleration = ACCELERATION * combined_speed_multiplier
                             adjusted_deceleration = DECELERATION * combined_speed_multiplier
 
-                            # 🧊 얼음 이벤트: 가속도 75% 감소 (미끄러워서 출발이 느림, 스매셔 면역)
-                            if is_ice_active() and selected_character_type != "smasher":
+                            # 🧊 얼음 이벤트: 가속도 75% 감소 (미끄러워서 출발이 느림, 공중 캐릭터 면역)
+                            _ice_immune_accel = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                            if is_ice_active() and not _ice_immune_accel:
                                 adjusted_acceleration *= get_ice_acceleration_multiplier()
                             if selected_character_type == "optimus" and not _hs_speed_active:
                                 adjusted_deceleration *= OPTIMUS_DECELERATION_MULT  # 감속을 2배 느리게
@@ -83404,9 +83435,10 @@ def handle_player(keys):
                             else:
                                 # 키를 떼었을 때 감속 적용 (무중력벨트가 없을 때만)
                                 if not gravitybelt_obtained:
-                                    # 🧊 얼음 이벤트: 미끄러워서 멈추기 어려움 (감속 95% 감소, 스매셔 면역)
+                                    # 🧊 얼음 이벤트: 미끄러워서 멈추기 어려움 (감속 95% 감소, 공중 캐릭터 면역)
                                     ice_decel_multiplier = 1.0
-                                    if is_ice_active() and selected_character_type != "smasher":
+                                    _ice_immune_decel = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                                    if is_ice_active() and not _ice_immune_decel:
                                         ice_decel_multiplier = 0.05  # 5%만 감속 (95% 감소)
                                     if current_speed > 0:
                                         current_speed -= adjusted_deceleration * ice_decel_multiplier
@@ -83437,8 +83469,9 @@ def handle_player(keys):
             adjusted_instant_decel *= OPTIMUS_TURN_DECEL_MULT  # 전환속도 60% 감소
         if umbrella_guarding:
             adjusted_instant_decel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
-        # 🧊 얼음 이벤트: 방향전환 80% 감소 (미끄러워서 방향 바꾸기 어려움, 스매셔 면역)
-        if is_ice_active() and selected_character_type != "smasher":
+        # 🧊 얼음 이벤트: 방향전환 80% 감소 (미끄러워서 방향 바꾸기 어려움, 공중 캐릭터 면역)
+        _ice_immune_turn = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+        if is_ice_active() and not _ice_immune_turn:
             adjusted_instant_decel *= get_ice_direction_change_multiplier()
         # 좌/우 입력은 화살표와 A/D 모두 동일하게 인정해야 하므로
         # 위에서 병합해둔 left_pressed/right_pressed 상태를 사용한다.
