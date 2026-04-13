@@ -145063,18 +145063,135 @@ def draw_stage6_border():
             SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage6_border_flash_timer -= 1
 
+_stage7_border_cache = None  # 스테이지 7 테트리서 테두리 캐시
+
+def _generate_stage7_border_cache():
+    """스테이지 7 테트리서(블루 메탈릭) 테두리를 캐시 Surface에 프리렌더링"""
+    surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    bt = 10
+    gw = WIDTH
+    gh = HEIGHT
+
+    # ── 블루 메탈릭 색상 팔레트 ──
+    METAL_DEEP = (12, 18, 35)       # 깊은 다크 블루
+    METAL_DARK = (25, 35, 60)       # 어두운 메탈릭
+    METAL_MID = (40, 55, 85)        # 중간 메탈릭
+    CYAN = (80, 180, 240)           # 시안 악센트
+    CYAN_DIM = (50, 110, 170)       # 어두운 시안
+    CYAN_BRIGHT = (120, 210, 255)   # 밝은 시안
+    BLUE_GLOW = (60, 140, 220)      # 블루 글로우
+    WHITE_COLD = (200, 220, 240)    # 차가운 백색
+
+    # ── 1. 베이스 테두리 (3단 메탈릭 레이어) ──
+    pygame.draw.rect(surf, METAL_DEEP, (0, 0, gw, bt))
+    pygame.draw.rect(surf, METAL_DEEP, (0, gh - bt, gw, bt))
+    pygame.draw.rect(surf, METAL_DEEP, (0, 0, bt, gh))
+    pygame.draw.rect(surf, METAL_DEEP, (gw - bt, 0, bt, gh))
+    pygame.draw.rect(surf, METAL_DARK, (1, 1, gw - 2, bt - 2))
+    pygame.draw.rect(surf, METAL_DARK, (1, gh - bt + 1, gw - 2, bt - 2))
+    pygame.draw.rect(surf, METAL_DARK, (1, 1, bt - 2, gh - 2))
+    pygame.draw.rect(surf, METAL_DARK, (gw - bt + 1, 1, bt - 2, gh - 2))
+    pygame.draw.rect(surf, METAL_MID, (2, 2, gw - 4, bt - 4))
+    pygame.draw.rect(surf, METAL_MID, (2, gh - bt + 2, gw - 4, bt - 4))
+    pygame.draw.rect(surf, METAL_MID, (2, 2, bt - 4, gh - 4))
+    pygame.draw.rect(surf, METAL_MID, (gw - bt + 2, 2, bt - 4, gh - 4))
+
+    # ── 2. 시안 테두리선 (외곽 + 내부) ──
+    pygame.draw.rect(surf, CYAN_DIM, (0, 0, gw, gh), 2)
+    pygame.draw.rect(surf, CYAN, (bt - 2, bt - 2, gw - 2*(bt - 2), gh - 2*(bt - 2)), 2)
+
+    # ── 3. 테트리스 블록 패턴 — 상하좌우 ──
+    sp = 16
+    mid_y_top = bt // 2
+    mid_y_bot = gh - bt // 2
+    mid_x_left = bt // 2
+    mid_x_right = gw - bt // 2
+
+    # 테트리스 미노 색상 (I/O/T/S 피스)
+    tetris_colors = [CYAN_BRIGHT, BLUE_GLOW, CYAN, WHITE_COLD]
+
+    def draw_mini_block(sx, sy, color):
+        """2x2 미니 테트리스 블록"""
+        pygame.draw.rect(surf, color, (sx - 1, sy - 1, 3, 3))
+        # 하이라이트 (좌상단 1px)
+        pygame.draw.rect(surf, WHITE_COLD, (sx - 1, sy - 1, 1, 1))
+
+    # 상단/하단 — L자/T자 미노 조각 반복
+    idx = 0
+    for x in range(sp, gw - sp, sp):
+        tc = tetris_colors[idx % 4]
+        if idx % 4 == 0:
+            # I피스 (가로 3칸)
+            for dx in [-3, 0, 3]:
+                draw_mini_block(x + dx, mid_y_top, tc)
+                draw_mini_block(x + dx, mid_y_bot, tc)
+        elif idx % 4 == 1:
+            # T피스
+            draw_mini_block(x, mid_y_top - 2, tc)
+            for dx in [-3, 0, 3]:
+                draw_mini_block(x + dx, mid_y_top + 1, tc)
+            draw_mini_block(x, mid_y_bot - 2, tc)
+            for dx in [-3, 0, 3]:
+                draw_mini_block(x + dx, mid_y_bot + 1, tc)
+        elif idx % 4 == 2:
+            # 단일 블록 + 시안 점
+            draw_mini_block(x, mid_y_top, tc)
+            draw_mini_block(x, mid_y_bot, tc)
+        else:
+            # 시안 대시
+            pygame.draw.rect(surf, CYAN_DIM, (x - 3, mid_y_top, 6, 2))
+            pygame.draw.rect(surf, CYAN_DIM, (x - 3, mid_y_bot, 6, 2))
+        idx += 1
+
+    # 좌측/우측
+    idx = 0
+    for y in range(sp, gh - sp, sp):
+        tc = tetris_colors[idx % 4]
+        if idx % 4 == 0:
+            for dy in [-3, 0, 3]:
+                draw_mini_block(mid_x_left, y + dy, tc)
+                draw_mini_block(mid_x_right, y + dy, tc)
+        elif idx % 4 == 1:
+            draw_mini_block(mid_x_left - 2, y, tc)
+            for dy in [-3, 0, 3]:
+                draw_mini_block(mid_x_left + 1, y + dy, tc)
+            draw_mini_block(mid_x_right - 2, y, tc)
+            for dy in [-3, 0, 3]:
+                draw_mini_block(mid_x_right + 1, y + dy, tc)
+        elif idx % 4 == 2:
+            draw_mini_block(mid_x_left, y, tc)
+            draw_mini_block(mid_x_right, y, tc)
+        else:
+            pygame.draw.rect(surf, CYAN_DIM, (mid_x_left, y - 3, 2, 6))
+            pygame.draw.rect(surf, CYAN_DIM, (mid_x_right, y - 3, 2, 6))
+        idx += 1
+
+    # ── 4. 코너 장식 (글로우 블록) ──
+    corner_pts = [(bt // 2, bt // 2), (gw - bt // 2, bt // 2),
+                  (bt // 2, gh - bt // 2), (gw - bt // 2, gh - bt // 2)]
+    for cx, cy in corner_pts:
+        pygame.draw.circle(surf, CYAN_BRIGHT, (cx, cy), 5, 2)
+        pygame.draw.rect(surf, WHITE_COLD, (cx - 1, cy - 1, 3, 3))
+        for dx, dy in [(-3, -3), (3, -3), (-3, 3), (3, 3)]:
+            pygame.draw.rect(surf, BLUE_GLOW, (cx + dx, cy + dy, 2, 2))
+
+    return surf
+
 def draw_stage7_border():
-    """스테이지 7 테트리서 벽 충돌 깜빡임 효과만 (기존 청보라 테두리는 animated_bg_stage7가 그림)"""
-    global stage7_border_flash_timer
+    """스테이지 7 테트리서(블루 메탈릭) 테두리 + 벽 충돌 깜빡임 효과"""
+    global stage7_border_flash_timer, _stage7_border_cache
     if current_stage == 7:
-        game_w = WIDTH
-        border_thickness = 10  # animated_bg_stage7의 테두리 두께
+        if _stage7_border_cache is None:
+            _stage7_border_cache = _generate_stage7_border_cache()
+        SCREEN.blit(_stage7_border_cache, (0, 0))
+
         # 벽 충돌 시 깜빡임 효과 (시원한 블루 메탈릭)
         if stage7_border_flash_timer > 0:
+            game_w = WIDTH
             flash_ratio = stage7_border_flash_timer / stage7_border_flash_duration
             base_alpha = int(13 * flash_ratio)
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
-            grad_steps = max(2, border_thickness)
+            grad_steps = max(2, 10)
             for i in range(grad_steps):
                 t = 1.0 - (i / grad_steps)
                 a = int(base_alpha * t * t)
