@@ -564,6 +564,10 @@ _gauge_gradient_cache = {}  # 게이지바 그라데이션 캐시 (스테이지/
 _gold_hud_cache = None  # 골드 HUD 캐시
 _gold_hud_cached_value = -1  # 캐시된 골드 값
 _gold_hud_scaled_cache = {}  # 스케일된 골드 HUD 캐시 (스케일 팩터별)
+_tooltip_skill_icon_cache = {}  # 툴팁 스킬 아이콘 캐시
+_tooltip_wrap_cache = {}  # 툴팁 줄바꿈 결과 캐시
+_tooltip_text_surface_cache = {}  # 툴팁 정적 텍스트 Surface 캐시
+_tooltip_tag_bg_cache = {}  # 툴팁 태그 배경 Surface 캐시
 _CACHE_MAX_SIZE = 500  # 캐시 최대 크기 (메모리 관리)
 
 # Glow 최적화용 버킷 (메모리 절약을 위해 유사한 값들을 그룹화)
@@ -687,12 +691,89 @@ def get_cached_static_text(text: str, font_key: tuple, color: tuple, antialias: 
 def clear_surface_caches():
     """모든 Surface 캐시 클리어 (스테이지 전환 시 호출)"""
     global _surface_cache, _scale_cache, _glow_surface_cache, _predrawn_glow_cache, _water_trail_cache
+    global _tooltip_skill_icon_cache, _tooltip_wrap_cache, _tooltip_text_surface_cache, _tooltip_tag_bg_cache
     _surface_cache.clear()
     _scale_cache.clear()
     _glow_surface_cache.clear()
     _predrawn_glow_cache.clear()
     _water_trail_cache.clear()
+    _tooltip_skill_icon_cache.clear()
+    _tooltip_wrap_cache.clear()
+    _tooltip_text_surface_cache.clear()
+    _tooltip_tag_bg_cache.clear()
     # 폰트와 텍스트 캐시는 스테이지 전환 시에도 유지 (재사용 가능)
+
+
+def _trim_cache(cache: dict, max_size: int = _CACHE_MAX_SIZE) -> None:
+    """간단한 반쪽 제거 방식으로 캐시 크기 제한."""
+    if len(cache) > max_size:
+        keys_to_remove = list(cache.keys())[: max_size // 2]
+        for key in keys_to_remove:
+            del cache[key]
+
+
+def _get_tooltip_text_surface(font, text: str, color) -> pygame.Surface:
+    """툴팁에서 반복되는 정적 텍스트 Surface를 캐시한다."""
+    color_key = tuple(color) if isinstance(color, (list, tuple)) else color
+    cache_key = (id(font), text, color_key)
+    if cache_key not in _tooltip_text_surface_cache:
+        _trim_cache(_tooltip_text_surface_cache, 800)
+        _tooltip_text_surface_cache[cache_key] = font.render(text, True, color)
+    return _tooltip_text_surface_cache[cache_key]
+
+
+def _get_tooltip_skill_icon(skill_id: str, size: int):
+    """스킬 아이콘 조회 결과를 캐시한다."""
+    if not skill_id:
+        return None
+    cache_key = (skill_id, size)
+    if cache_key not in _tooltip_skill_icon_cache:
+        _trim_cache(_tooltip_skill_icon_cache, 300)
+        try:
+            from downtown.hero_skill_icons import get_skill_icon as _get_skill_icon
+            _tooltip_skill_icon_cache[cache_key] = _get_skill_icon(skill_id, size)
+        except Exception:
+            _tooltip_skill_icon_cache[cache_key] = None
+    return _tooltip_skill_icon_cache[cache_key]
+
+
+def _get_wrapped_tooltip_lines(text: str, font, max_width: int, max_lines: int = 3) -> tuple[str, ...]:
+    """툴팁 설명용 문자 단위 줄바꿈 결과를 캐시한다."""
+    if not text:
+        return tuple()
+    cache_key = (id(font), text, max_width, max_lines)
+    if cache_key not in _tooltip_wrap_cache:
+        _trim_cache(_tooltip_wrap_cache, 500)
+        lines = []
+        current = ""
+        for ch in text:
+            test = current + ch
+            if font.size(test)[0] <= max_width:
+                current = test
+                continue
+            if current:
+                lines.append(current)
+                if len(lines) >= max_lines:
+                    current = ""
+                    break
+            current = ch
+        if current and len(lines) < max_lines:
+            lines.append(current)
+        _tooltip_wrap_cache[cache_key] = tuple(lines[:max_lines])
+    return _tooltip_wrap_cache[cache_key]
+
+
+def _get_tooltip_tag_bg(width: int, height: int, color) -> pygame.Surface:
+    """발동 방식 태그용 배경 Surface 캐시."""
+    color_key = tuple(color[:3]) if isinstance(color, (list, tuple)) else color
+    cache_key = (width, height, color_key)
+    if cache_key not in _tooltip_tag_bg_cache:
+        _trim_cache(_tooltip_tag_bg_cache, 200)
+        surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        pygame.draw.rect(surf, (*color_key, 35), (0, 0, width, height), border_radius=3)
+        pygame.draw.rect(surf, (*color_key, 100), (0, 0, width, height), 1, border_radius=3)
+        _tooltip_tag_bg_cache[cache_key] = surf
+    return _tooltip_tag_bg_cache[cache_key]
 
 # ============================================================================
 # 스크린 셰이크용 재사용 버퍼 (프레임 루프에서 매번 Surface 할당 방지)
@@ -9269,12 +9350,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
                 continue
             _sk_name = getattr(_sk, 'korean_name', '') or getattr(_sk, 'name', '')
             _sk_desc = getattr(_sk, 'description', '') or ''
-            _sk_icon = None
-            try:
-                from downtown.hero_skill_icons import get_skill_icon
-                _sk_icon = get_skill_icon(getattr(_sk, 'skill_id', ''), 27)
-            except Exception:
-                pass
+            _sk_icon = _get_tooltip_skill_icon(getattr(_sk, 'skill_id', ''), 27)
             # 발동 방식 텍스트
             _sk_trigger_text = "자동발동"
             _sk_trigger_color = (255, 180, 80)
@@ -9291,44 +9367,31 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
                 pass
             # 설명 줄바꿈 (최대 너비 기반)
             _max_desc_w = 255
-            _desc_lines = []
-            _cur_line = ""
-            for ch in _sk_desc:
-                _test = _cur_line + ch
-                _test_s = _gh_tiny.render(_test, True, (200, 200, 200))
-                if _test_s.get_width() <= _max_desc_w:
-                    _cur_line = _test
-                else:
-                    if _cur_line:
-                        _desc_lines.append(_cur_line)
-                    _cur_line = ch
-            if _cur_line:
-                _desc_lines.append(_cur_line)
-            _desc_lines = _desc_lines[:3]
+            _desc_lines = _get_wrapped_tooltip_lines(_sk_desc, _gh_tiny, _max_desc_w, max_lines=3)
             _skill_entries.append({"name": _sk_name, "icon": _sk_icon, "desc_lines": _desc_lines,
                                   "trigger_text": _sk_trigger_text, "trigger_color": _sk_trigger_color})
 
         # 레이아웃 계산
-        _n_surf = _gh_font.render(_gh_display_name, True, _gh_color)
-        _tag_surf = _gh_tiny.render(f" {_gh_title_tag}", True, _gh_title_color)
+        _n_surf = _get_tooltip_text_surface(_gh_font, _gh_display_name, _gh_color)
+        _tag_surf = _get_tooltip_text_surface(_gh_tiny, f" {_gh_title_tag}", _gh_title_color)
         _name_row_w = _n_surf.get_width() + _tag_surf.get_width()
         _s_surf = _gh_small.render(_status, True, _status_color)
         _lines = [_s_surf]
         if _gh_next:
-            _nx_surf = _gh_small.render(_t("ui.next_sortie", "▶ 다음 출격"), True, (255, 200, 50))
+            _nx_surf = _get_tooltip_text_surface(_gh_small, _t("ui.next_sortie", "▶ 다음 출격"), (255, 200, 50))
             _lines.append(_nx_surf)
 
         _tw = max(_name_row_w, max(s.get_width() for s in _lines)) + 20
         # 스킬이 있으면 너비 확보
         for _se in _skill_entries:
-            _sn_surf = _gh_small.render(_se["name"], True, (255, 255, 255))
+            _sn_surf = _get_tooltip_text_surface(_gh_small, _se["name"], (255, 255, 255))
             _trig_w = 0
             if _se["trigger_text"]:
-                _trig_surf = _gh_tiny.render(_se["trigger_text"], True, _se["trigger_color"])
+                _trig_surf = _get_tooltip_text_surface(_gh_tiny, _se["trigger_text"], _se["trigger_color"])
                 _trig_w = _trig_surf.get_width() + 10  # 태그 너비 + 여백
             _tw = max(_tw, _sn_surf.get_width() + 51 + _trig_w + 20)
             for dl in _se["desc_lines"]:
-                _dl_surf = _gh_tiny.render(dl, True, (200, 200, 200))
+                _dl_surf = _get_tooltip_text_surface(_gh_tiny, dl, (200, 200, 200))
                 _tw = max(_tw, _dl_surf.get_width() + 20)
         _tw = max(_tw, 210)
 
@@ -9383,7 +9446,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
             _cy += 6
             # 다중 스킬 헤더
             if len(_gh_skills) > 1:
-                _hdr_surf = _gh_tiny.render(_t("ui.owned_skills", "보유 스킬"), True, (180, 180, 220))
+                _hdr_surf = _get_tooltip_text_surface(_gh_tiny, _t("ui.owned_skills", "보유 스킬"), (180, 180, 220))
                 _tip_surf.blit(_hdr_surf, (12, _cy))
                 _cy += 27
             # 각 스킬 표시
@@ -9393,29 +9456,27 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
                 # 스킬 아이콘 + 이름 + 발동 방식 태그
                 if _se["icon"]:
                     _tip_surf.blit(_se["icon"], (10, _cy))
-                    _sn_surf = _gh_small.render(_se["name"], True, (255, 230, 150))
+                    _sn_surf = _get_tooltip_text_surface(_gh_small, _se["name"], (255, 230, 150))
                     _tip_surf.blit(_sn_surf, (42, _cy + 2))
                     _name_end_x = 42 + _sn_surf.get_width() + 6
                 else:
-                    _sn_surf = _gh_small.render(_se["name"], True, (255, 230, 150))
+                    _sn_surf = _get_tooltip_text_surface(_gh_small, _se["name"], (255, 230, 150))
                     _tip_surf.blit(_sn_surf, (12, _cy + 2))
                     _name_end_x = 12 + _sn_surf.get_width() + 6
                 # 발동 방식 태그 (스킬 이름 우측)
                 if _se["trigger_text"]:
-                    _trig_s = _gh_tiny.render(_se["trigger_text"], True, _se["trigger_color"])
+                    _trig_s = _get_tooltip_text_surface(_gh_tiny, _se["trigger_text"], _se["trigger_color"])
                     _tag_w = _trig_s.get_width() + 8
                     _tag_h = _trig_s.get_height() + 4
                     _tag_x = _name_end_x
                     _tag_y = _cy + 3
-                    _tag_bg = pygame.Surface((_tag_w, _tag_h), pygame.SRCALPHA)
-                    pygame.draw.rect(_tag_bg, (*_se["trigger_color"][:3], 35), (0, 0, _tag_w, _tag_h), border_radius=3)
-                    pygame.draw.rect(_tag_bg, (*_se["trigger_color"][:3], 100), (0, 0, _tag_w, _tag_h), 1, border_radius=3)
+                    _tag_bg = _get_tooltip_tag_bg(_tag_w, _tag_h, _se["trigger_color"])
                     _tip_surf.blit(_tag_bg, (_tag_x, _tag_y))
                     _tip_surf.blit(_trig_s, (_tag_x + 4, _tag_y + 2))
                 _cy += 30
                 # 설명 텍스트
                 for dl in _se["desc_lines"]:
-                    _dl_surf = _gh_tiny.render(dl, True, (200, 195, 180))
+                    _dl_surf = _get_tooltip_text_surface(_gh_tiny, dl, (200, 195, 180))
                     _tip_surf.blit(_dl_surf, (12, _cy))
                     _cy += 21
         _blit_scaled_tooltip(target_screen, _tip_surf, _tx, _ty, _tw, _th)
@@ -9428,10 +9489,10 @@ def _draw_pillar_btn_tooltip(target_screen, btn_rect, title, lines, color=(200, 
         _t_font = get_font(13, style="bold")
         _s_font = get_font(11, style="regular")
 
-        _n_surf = _t_font.render(title, True, color)
+        _n_surf = _get_tooltip_text_surface(_t_font, title, color)
         _line_surfs = []
         for ln in lines:
-            _ls = _s_font.render(ln, True, (200, 195, 180))
+            _ls = _get_tooltip_text_surface(_s_font, ln, (200, 195, 180))
             _line_surfs.append(_ls)
 
         _tw = max(_n_surf.get_width() + 20, 140)
@@ -9475,27 +9536,14 @@ def _draw_perk_hover_tooltip(target_screen, hover_info):
         _p_font = get_font(13, style="bold")
         _p_small = get_font(11, style="regular")
 
-        _n_surf = _p_font.render(_p_name, True, _p_color)
+        _n_surf = _get_tooltip_text_surface(_p_font, _p_name, _p_color)
         # 설명 줄바꿈
-        _desc_lines = []
         _max_w = 160
-        _cur = ""
-        for ch in _p_desc:
-            _test = _cur + ch
-            _ts = _p_small.render(_test, True, (200, 200, 200))
-            if _ts.get_width() <= _max_w:
-                _cur = _test
-            else:
-                if _cur:
-                    _desc_lines.append(_cur)
-                _cur = ch
-        if _cur:
-            _desc_lines.append(_cur)
-        _desc_lines = _desc_lines[:3]
+        _desc_lines = _get_wrapped_tooltip_lines(_p_desc, _p_small, _max_w, max_lines=3)
 
         _tw = max(_n_surf.get_width() + 20, 100)
         for dl in _desc_lines:
-            _ds = _p_small.render(dl, True, (200, 200, 200))
+            _ds = _get_tooltip_text_surface(_p_small, dl, (200, 200, 200))
             _tw = max(_tw, _ds.get_width() + 20)
         _th = _n_surf.get_height() + 8 + len(_desc_lines) * 16 + 8
 
@@ -9515,7 +9563,7 @@ def _draw_perk_hover_tooltip(target_screen, hover_info):
         _tip_surf.blit(_n_surf, (10, _cy))
         _cy += _n_surf.get_height() + 4
         for dl in _desc_lines:
-            _ds = _p_small.render(dl, True, (200, 195, 180))
+            _ds = _get_tooltip_text_surface(_p_small, dl, (200, 195, 180))
             _tip_surf.blit(_ds, (10, _cy))
             _cy += 16
         _blit_scaled_tooltip(target_screen, _tip_surf, _tx, _ty, _tw, _th)
@@ -24270,7 +24318,7 @@ def _draw_yachaman_bomb_spin_orb(surface, orb_cx, orb_cy, orb_radius, current_ga
 
     is_cd = _ys.bomb_spin_cooldown > 0
     is_active = _ys.bomb_spin_active
-    time_now = pygame.time.get_ticks()
+    time_now = get_frame_ticks()
     skill_color = (255, 120, 0)
 
     # 배경색
@@ -24487,7 +24535,7 @@ def _draw_horn_strawberry_pillar_skills(surface, orb_cx, orb_cy, orb_radius,
          "angle": 285},
     ]
 
-    time_now = pygame.time.get_ticks()
+    time_now = get_frame_ticks()
 
     for i, skill in enumerate(skills):
         angle_rad = math.radians(skill["angle"])
@@ -24720,7 +24768,7 @@ def _draw_strawberry_bomb_icon(screen, cx, cy, radius):
     # 도화선
     pygame.draw.line(screen, (80, 60, 40), (cx - 2, cy - 4), (cx + 2, cy - 8), 2)
     # 불꽃 (폭발 스파크)
-    t = pygame.time.get_ticks() * 0.01
+    t = get_frame_ticks() * 0.01
     spark_r = max(1, int(2 + math.sin(t) * 1))
     pygame.draw.circle(screen, (255, 200, 50), (cx + 2, cy - 9), spark_r)
     pygame.draw.circle(screen, (255, 255, 200), (cx + 2, cy - 9), max(1, spark_r - 1))
@@ -24771,6 +24819,7 @@ def _draw_transform_timer(screen, remaining, total):
         pygame.draw.rect(inner_shadow, (0, 0, 0, alpha), (0, i, inner_rect.width, 1))
     screen.blit(inner_shadow, (inner_rect.x, inner_rect.y))
 
+    visual_ticks = get_frame_ticks()
     fill_w = max(1, int((v_width - 4) * remaining_ratio))
     if fill_w > 0:
         # 색상 단계 (핑크 → 오렌지 → 레드 펄스)
@@ -24781,7 +24830,7 @@ def _draw_transform_timer(screen, remaining, total):
             base_c = (255, 120, 60)
             hi_c = (255, 180, 100)
         else:
-            p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+            p = abs(math.sin(visual_ticks * 0.015))
             base_c = (255, int(50 + 70 * p), int(50 + 30 * p))
             hi_c = (255, int(100 + 60 * p), int(80 + 40 * p))
 
@@ -24803,7 +24852,7 @@ def _draw_transform_timer(screen, remaining, total):
         screen.blit(grad, (fill_rect.x, fill_rect.y))
 
         # 상단 하이라이트 글로우
-        pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+        pulse = abs(math.sin(visual_ticks * 0.02))
         glow = (
             int(hi_c[0] * (0.6 + 0.4 * pulse)),
             int(hi_c[1] * (0.6 + 0.4 * pulse)),
@@ -24826,7 +24875,7 @@ def _draw_transform_timer(screen, remaining, total):
 
     # 엠블럼(왼쪽): 딸기 아이콘 (펄스 애니메이션)
     emb_base = int(v_height * 1.5)
-    pulse = 1.0 + 0.15 * math.sin(pygame.time.get_ticks() * 0.02)
+    pulse = 1.0 + 0.15 * math.sin(visual_ticks * 0.02)
     emb_size = max(10, int(emb_base * pulse))
     emb_x = hs_x - emb_size - 6
     emb_y = hs_y + (v_height - emb_size) // 2
@@ -49753,11 +49802,12 @@ def draw_blacksmith_blocking_toast(surface: pygame.Surface) -> None:
 
     font = FontStyle.subtitle()
     blocking_text = "blocking!"
+    visual_ticks = get_frame_ticks()
 
     if blacksmith_blocking_skill_timer > 0:
         ratio = max(0.0, min(1.0, blacksmith_blocking_skill_timer / BLACKSMITH_BLOCKING_SKILL_FRAMES))
         alpha = int(255 * ratio)
-        bounce = int(4 * math.sin(pygame.time.get_ticks() * 0.045))
+        bounce = int(4 * math.sin(visual_ticks * 0.045))
 
         text_surface = font.render(blocking_text, True, (255, 232, 120))
         shadow_surface = font.render(blocking_text, True, (30, 30, 30))
@@ -49781,7 +49831,7 @@ def draw_blacksmith_blocking_toast(surface: pygame.Surface) -> None:
 
     ratio = max(0.0, min(1.0, blacksmith_blocking_toast_timer / BLACKSMITH_BLOCKING_TOAST_FRAMES))
     alpha = int(255 * ratio)
-    bounce = int(6 * math.sin(pygame.time.get_ticks() * 0.035))
+    bounce = int(6 * math.sin(visual_ticks * 0.035))
 
     text_surface = font.render(blocking_text, True, (255, 232, 120))
     shadow_surface = font.render(blocking_text, True, (30, 30, 30))
@@ -53670,9 +53720,10 @@ def draw_divine_shield_dark_aura(screen):
     # 공 주변 어둠의 오오라 그리기 (캐시된 Surface 사용)
     ball_cx, ball_cy = BALL.center
     ball_radius = BALL.width // 2
+    visual_ticks = get_frame_ticks()
 
     # 맥동 효과 - 프레임당 1회만 계산
-    pulse = math.sin(pygame.time.get_ticks() * 0.01) * 0.3 + 0.7
+    pulse = math.sin(visual_ticks * 0.01) * 0.3 + 0.7
     aura_size = int(ball_radius * 2.5 * pulse)
     aura_surf = _get_divine_aura_ball_surface(aura_size)
     screen.blit(aura_surf, (ball_cx - aura_size, ball_cy - aura_size))
@@ -71549,6 +71600,7 @@ def draw_soldier_weapon_ui(screen):
     
     # 권총 아이콘 배경 (사각형)
     weapon_rect = pygame.Rect(weapon_x, weapon_y, weapon_size, weapon_size)
+    visual_ticks = get_frame_ticks()
     
     # 강조 효과 처리
     highlight_active = soldier_controller.ui_highlight_timer > 0
@@ -71586,7 +71638,7 @@ def draw_soldier_weapon_ui(screen):
     if soldier_emergency_supply_toast_timer > 0:
         toast_ratio = soldier_emergency_supply_toast_timer / 90
         toast_alpha = max(0, min(255, int(255 * toast_ratio)))
-        bounce_offset = int(4 * math.sin(pygame.time.get_ticks() * 0.03))
+        bounce_offset = int(4 * math.sin(visual_ticks * 0.03))
         text_x = weapon_rect.right + 16
         text_y = weapon_rect.centery + bounce_offset
         glow_surface = render_weapon_label("비상보급!", (255, 195, 90), 26)
@@ -71613,7 +71665,7 @@ def draw_soldier_weapon_ui(screen):
     if current_weapon == "bazooka" and bazooka.equipped:
         # 바주카포 무기 정보 표시 (고퀄리티 3D 스타일 + 애니메이션)
         import math
-        current_time = pygame.time.get_ticks()
+        current_time = visual_ticks
 
         base_x, base_y = weapon_rect.x, weapon_rect.y
         w, h = weapon_rect.width, weapon_rect.height
@@ -145036,18 +145088,104 @@ def draw_stage7_border():
             SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage7_border_flash_timer -= 1
 
+_stage8_border_cache = None  # 스테이지 8 닌자 테두리 캐시
+
+def _generate_stage8_border_cache():
+    """스테이지 8 닌자 저택 테두리를 캐시 Surface에 프리렌더링"""
+    surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    bt = 10
+    gw = WIDTH
+    gh = HEIGHT
+
+    # ── 닌자 저택 색상 팔레트 (pillar_ninja 참고) ──
+    WOOD_DEEP = (22, 16, 10)        # 깊은 옻칠 어둠
+    WOOD_DARK = (35, 25, 18)        # 어두운 나무
+    WOOD_MID = (55, 40, 28)         # 중간 나무
+    BRASS = (120, 95, 48)           # 녹슨 황동
+    BRASS_BRIGHT = (155, 125, 65)   # 밝은 황동
+    BRASS_DIM = (85, 65, 32)        # 어두운 황동
+    RED_ACCENT = (140, 50, 50)      # 붉은색 악센트
+    LANTERN = (180, 120, 60)        # 등불빛
+
+    # ── 1. 베이스 테두리 (3단 나무 레이어) ──
+    pygame.draw.rect(surf, WOOD_DEEP, (0, 0, gw, bt))
+    pygame.draw.rect(surf, WOOD_DEEP, (0, gh - bt, gw, bt))
+    pygame.draw.rect(surf, WOOD_DEEP, (0, 0, bt, gh))
+    pygame.draw.rect(surf, WOOD_DEEP, (gw - bt, 0, bt, gh))
+    pygame.draw.rect(surf, WOOD_DARK, (1, 1, gw - 2, bt - 2))
+    pygame.draw.rect(surf, WOOD_DARK, (1, gh - bt + 1, gw - 2, bt - 2))
+    pygame.draw.rect(surf, WOOD_DARK, (1, 1, bt - 2, gh - 2))
+    pygame.draw.rect(surf, WOOD_DARK, (gw - bt + 1, 1, bt - 2, gh - 2))
+    pygame.draw.rect(surf, WOOD_MID, (2, 2, gw - 4, bt - 4))
+    pygame.draw.rect(surf, WOOD_MID, (2, gh - bt + 2, gw - 4, bt - 4))
+    pygame.draw.rect(surf, WOOD_MID, (2, 2, bt - 4, gh - 4))
+    pygame.draw.rect(surf, WOOD_MID, (gw - bt + 2, 2, bt - 4, gh - 4))
+
+    # ── 2. 황동 테두리선 (외곽 + 내부) ──
+    pygame.draw.rect(surf, BRASS_DIM, (0, 0, gw, gh), 2)
+    pygame.draw.rect(surf, BRASS, (bt - 2, bt - 2, gw - 2*(bt - 2), gh - 2*(bt - 2)), 2)
+
+    # ── 3. 수리검(手裏剣) 패턴 — 상하좌우 ──
+    sp = 20
+    mid_y_top = bt // 2
+    mid_y_bot = gh - bt // 2
+    mid_x_left = bt // 2
+    mid_x_right = gw - bt // 2
+
+    def draw_shuriken(sx, sy, color, color_dk):
+        """미니 수리검 — X자 + 중심점"""
+        pygame.draw.line(surf, color, (sx - 3, sy - 3), (sx + 3, sy + 3), 2)
+        pygame.draw.line(surf, color, (sx + 3, sy - 3), (sx - 3, sy + 3), 2)
+        pygame.draw.rect(surf, color_dk, (sx - 1, sy - 1, 2, 2))
+
+    # 상단/하단
+    idx = 0
+    for x in range(sp, gw - sp, sp):
+        if idx % 3 == 0:
+            draw_shuriken(x, mid_y_top, BRASS_BRIGHT, RED_ACCENT)
+            draw_shuriken(x, mid_y_bot, BRASS_BRIGHT, RED_ACCENT)
+        else:
+            pygame.draw.rect(surf, BRASS_DIM, (x - 2, mid_y_top, 4, 2))
+            pygame.draw.rect(surf, BRASS_DIM, (x - 2, mid_y_bot, 4, 2))
+        idx += 1
+
+    # 좌측/우측
+    idx = 0
+    for y in range(sp, gh - sp, sp):
+        if idx % 3 == 0:
+            draw_shuriken(mid_x_left, y, BRASS_BRIGHT, RED_ACCENT)
+            draw_shuriken(mid_x_right, y, BRASS_BRIGHT, RED_ACCENT)
+        else:
+            pygame.draw.rect(surf, BRASS_DIM, (mid_x_left, y - 2, 2, 4))
+            pygame.draw.rect(surf, BRASS_DIM, (mid_x_right, y - 2, 2, 4))
+        idx += 1
+
+    # ── 4. 코너 장식 (등불 + 수리검) ──
+    corner_pts = [(bt // 2, bt // 2), (gw - bt // 2, bt // 2),
+                  (bt // 2, gh - bt // 2), (gw - bt // 2, gh - bt // 2)]
+    for cx, cy in corner_pts:
+        pygame.draw.circle(surf, LANTERN, (cx, cy), 5, 2)
+        pygame.draw.rect(surf, RED_ACCENT, (cx - 1, cy - 1, 3, 3))
+        for dx, dy in [(-3, -3), (3, -3), (-3, 3), (3, 3)]:
+            pygame.draw.rect(surf, BRASS_BRIGHT, (cx + dx, cy + dy, 2, 2))
+
+    return surf
+
 def draw_stage8_border():
-    """스테이지 8 닌자 벽 충돌 깜빡임 효과만 (기존 닌자 저택 테두리는 animated_bg_stage8가 그림)"""
-    global stage8_border_flash_timer
+    """스테이지 8 닌자 저택 테두리 + 벽 충돌 깜빡임 효과"""
+    global stage8_border_flash_timer, _stage8_border_cache
     if current_stage == 8:
-        game_w = WIDTH
-        border_thickness = 10  # animated_bg_stage8의 테두리 두께
+        if _stage8_border_cache is None:
+            _stage8_border_cache = _generate_stage8_border_cache()
+        SCREEN.blit(_stage8_border_cache, (0, 0))
+
         # 벽 충돌 시 깜빡임 효과 (황동/등불빛 은은하게)
         if stage8_border_flash_timer > 0:
+            game_w = WIDTH
             flash_ratio = stage8_border_flash_timer / stage8_border_flash_duration
             base_alpha = int(13 * flash_ratio)
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
-            grad_steps = max(2, border_thickness)
+            grad_steps = max(2, 10)
             for i in range(grad_steps):
                 t = 1.0 - (i / grad_steps)
                 a = int(base_alpha * t * t)
@@ -175477,9 +175615,21 @@ def show_character_info(background_surface=None):
                     legendary_item.update(0.016, ui_mode=True)  # 60fps 기준 16ms
                     legendary_item.draw_icon(SCREEN, cell_rect.x + 4, cell_rect.y + 4, cell_size - 8)
                 elif icon:
-                    SCREEN.blit(pygame.transform.scale(icon, (cell_size - 8, cell_size - 8)), (cell_rect.x + 4, cell_rect.y + 4))
+                    scaled_icon = get_cached_scale(
+                        icon,
+                        cell_size - 8,
+                        cell_size - 8,
+                        cache_key=("bag_grid_icon", item.get("type"), item.get("name")),
+                    )
+                    SCREEN.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
             elif icon:
-                SCREEN.blit(pygame.transform.scale(icon, (cell_size - 8, cell_size - 8)), (cell_rect.x + 4, cell_rect.y + 4))
+                scaled_icon = get_cached_scale(
+                    icon,
+                    cell_size - 8,
+                    cell_size - 8,
+                    cache_key=("bag_grid_icon", item.get("type"), item.get("name")),
+                )
+                SCREEN.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
             if item.get("_equipped_slot"):
                 badge_rect = pygame.Rect(cell_rect.right - 18, cell_rect.bottom - 14, 16, 12)
                 pygame.draw.rect(SCREEN, (70, 160, 255), badge_rect, border_radius=3)
@@ -175619,9 +175769,21 @@ def show_character_info(background_surface=None):
                     legendary_item.update(0.016, ui_mode=True)  # 60fps 기준 16ms
                     legendary_item.draw_icon(SCREEN, icon_rect.x, icon_rect.y, icon_size)
                 elif icon:
-                    SCREEN.blit(pygame.transform.scale(icon, (icon_size, icon_size)), icon_rect.topleft)
+                    scaled_icon = get_cached_scale(
+                        icon,
+                        icon_size,
+                        icon_size,
+                        cache_key=("active_row_icon", item.get("type"), item.get("name")),
+                    )
+                    SCREEN.blit(scaled_icon, icon_rect.topleft)
             elif icon:
-                    SCREEN.blit(pygame.transform.scale(icon, (icon_size, icon_size)), icon_rect.topleft)
+                    scaled_icon = get_cached_scale(
+                        icon,
+                        icon_size,
+                        icon_size,
+                        cache_key=("active_row_icon", item.get("type"), item.get("name")),
+                    )
+                    SCREEN.blit(scaled_icon, icon_rect.topleft)
 
             if mouse_pos and icon_rect.collidepoint(mouse_pos):
                 hover_info = {
@@ -175763,9 +175925,21 @@ def show_character_info(background_surface=None):
                             legendary_item.update(0.016, ui_mode=True)  # 60fps 기준 16ms
                             legendary_item.draw_icon(SCREEN, cell_rect.x + 6, cell_rect.y + 6, slot_size - 12)
                         elif icon:
-                            SCREEN.blit(pygame.transform.scale(icon, (slot_size - 12, slot_size - 12)), (cell_rect.x + 6, cell_rect.y + 6))
+                            scaled_icon = get_cached_scale(
+                                icon,
+                                slot_size - 12,
+                                slot_size - 12,
+                                cache_key=("equipment_slot_icon", key, item.get("type"), item.get("name")),
+                            )
+                            SCREEN.blit(scaled_icon, (cell_rect.x + 6, cell_rect.y + 6))
                     elif icon:
-                        SCREEN.blit(pygame.transform.scale(icon, (slot_size - 12, slot_size - 12)), (cell_rect.x + 6, cell_rect.y + 6))
+                        scaled_icon = get_cached_scale(
+                            icon,
+                            slot_size - 12,
+                            slot_size - 12,
+                            cache_key=("equipment_slot_icon", key, item.get("type"), item.get("name")),
+                        )
+                        SCREEN.blit(scaled_icon, (cell_rect.x + 6, cell_rect.y + 6))
                 else:
                     pygame.draw.circle(SCREEN, (70, 80, 110), cell_rect.center, slot_size // 2 - 6, 1)
 
@@ -178070,7 +178244,12 @@ def show_game_info():
                                 legendary_item.draw_icon(SCREEN, icon_x, icon_y, icon_size)
                             elif item.get("icon"):
                                 # 폴백: 일반 아이콘 사용
-                                icon = pygame.transform.scale(item["icon"], (icon_size, icon_size))
+                                icon = get_cached_scale(
+                                    item["icon"],
+                                    icon_size,
+                                    icon_size,
+                                    cache_key=("dev_mode_active_icon", item.get("type"), item.get("name")),
+                                )
                                 SCREEN.blit(icon, (icon_x, icon_y))
                         else:
                             # 아이콘 가져오기 (캐시된 아이콘 또는 새로 로드)
@@ -178081,7 +178260,12 @@ def show_game_info():
                                 item["icon"] = icon  # 캐시에 저장
                             
                             if icon:
-                                icon = pygame.transform.scale(icon, (icon_size, icon_size))
+                                icon = get_cached_scale(
+                                    icon,
+                                    icon_size,
+                                    icon_size,
+                                    cache_key=("dev_mode_active_icon", item.get("type"), item.get("name")),
+                                )
                                 SCREEN.blit(icon, (icon_x, icon_y))
                             else:
                                 # 기본 아이콘 (원형)
@@ -178119,7 +178303,12 @@ def show_game_info():
                                 legendary_item.draw_icon(SCREEN, icon_x, icon_y, icon_size)
                             elif item.get("icon"):
                                 # 폴백: 일반 아이콘 사용
-                                icon = pygame.transform.scale(item["icon"], (icon_size, icon_size))
+                                icon = get_cached_scale(
+                                    item["icon"],
+                                    icon_size,
+                                    icon_size,
+                                    cache_key=("dev_mode_passive_icon", item.get("type"), item.get("name")),
+                                )
                                 SCREEN.blit(icon, (icon_x, icon_y))
                         else:
                             # 아이콘 가져오기 (캐시된 아이콘 또는 새로 로드)
@@ -178130,7 +178319,12 @@ def show_game_info():
                                 item["icon"] = icon  # 캐시에 저장
                             
                             if icon:
-                                icon = pygame.transform.scale(icon, (icon_size, icon_size))
+                                icon = get_cached_scale(
+                                    icon,
+                                    icon_size,
+                                    icon_size,
+                                    cache_key=("dev_mode_passive_icon", item.get("type"), item.get("name")),
+                                )
                                 SCREEN.blit(icon, (icon_x, icon_y))
                             else:
                                 # 기본 아이콘 (원형)
