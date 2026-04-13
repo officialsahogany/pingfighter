@@ -145073,42 +145073,11 @@ def draw_stage8_border():
             stage8_border_flash_timer -= 1
 
 def draw_stage30_border():
-    """스테이지 30 투기장(콜로세움) 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
+    """스테이지 30 투기장 벽 충돌 깜빡임 효과만 (기존 이집트 프리미엄 테두리는 animated_bg_stage30가 그림)"""
     global stage30_border_flash_timer
     if current_stage == 30:
-        border_thickness = 10
-        x_off = 0
         game_w = WIDTH
-        # 콜로세움 테마 색상 (로마 석조/금 계열)
-        base_color = (100, 85, 65)  # 어두운 석조색 (베이스)
-        mid_color = (140, 120, 95)  # 중간 석조색
-        light_color = (180, 160, 130)  # 밝은 석조색
-        accent_color = (200, 160, 80)  # 금색 악센트
-
-        # 메인 테두리
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
-
-        # 내부 테두리 (석조 깊이감)
-        inner_thickness = 2
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-
-        # 코너 장식 (석조 기둥 느낌)
-        corner_radius = 4
-        draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-
+        border_thickness = 18  # animated_bg_stage30의 테두리 두께에 맞춤
         # 벽 충돌 시 깜빡임 효과 (석조 금빛 은은하게)
         if stage30_border_flash_timer > 0:
             flash_ratio = stage30_border_flash_timer / stage30_border_flash_duration
@@ -145126,7 +145095,7 @@ def draw_stage30_border():
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
                 pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
-            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage30_border_flash_timer -= 1
 
 def draw_stage2_jungle_border():
