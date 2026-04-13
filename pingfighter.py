@@ -20157,40 +20157,85 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.line(surface, (255, 255, 255), (icon_cx + wing, atop + wing), (icon_cx, atop), lw_a)
 
     elif skill_id == "unlock_ghost_shot":
-        # 귀신 얼굴 아이콘 — 둥근 머리 + 꼬리 + 눈
+        # 고스트샷 아이콘 — 3D 귀신 + 구불거리는 궤적
         color = icon_color
         lt = lighter
         dk = darker
-        # 귀신 몸체 (반투명 보라색 타원)
-        ghost_w = max(6, int(12 * scale))
-        ghost_h = max(8, int(16 * scale))
-        ghost_surf = pygame.Surface((ghost_w * 2, ghost_h * 2), pygame.SRCALPHA)
-        # 머리 (둥근 상단)
-        pygame.draw.ellipse(ghost_surf, (*color, 200),
-                           (ghost_w // 2, 0, ghost_w, int(ghost_h * 1.2)))
-        # 꼬리 (물결 하단)
-        tail_y = int(ghost_h * 0.9)
-        for i in range(3):
-            tx = ghost_w // 2 + int(i * ghost_w / 3)
-            ty = tail_y + (int(3 * scale) if i % 2 == 0 else 0)
-            tw = max(2, int(ghost_w / 3))
-            pygame.draw.ellipse(ghost_surf, (*color, 180),
-                               (tx, ty, tw, max(3, int(5 * scale))))
-        # 눈 (빨간 점 두 개)
-        eye_y = int(ghost_h * 0.4)
-        eye_r = max(1, int(2 * scale))
-        pygame.draw.circle(ghost_surf, (255, 50, 50), (ghost_w - int(2 * scale), eye_y), eye_r)
-        pygame.draw.circle(ghost_surf, (255, 50, 50), (ghost_w + int(2 * scale), eye_y), eye_r)
-        # 눈 하이라이트
-        hl_r = max(1, int(1 * scale))
-        pygame.draw.circle(ghost_surf, (255, 200, 200), (ghost_w - int(2 * scale) - hl_r, eye_y - hl_r), hl_r)
-        pygame.draw.circle(ghost_surf, (255, 200, 200), (ghost_w + int(2 * scale) - hl_r, eye_y - hl_r), hl_r)
-        surface.blit(ghost_surf, (icon_cx - ghost_w, icon_cy - ghost_h))
-        # 오오라 (외곽 글로우)
-        aura_r = max(8, int(14 * scale))
+        # 오오라 글로우 (배경)
+        aura_r = max(10, int(13 * scale))
         aura_surf = pygame.Surface((aura_r * 2, aura_r * 2), pygame.SRCALPHA)
-        pygame.draw.circle(aura_surf, (*dk(color, 30), 40), (aura_r, aura_r), aura_r)
+        for gi in range(3):
+            ga = max(10, 35 - gi * 10)
+            gr = aura_r - gi * max(1, int(2 * scale))
+            pygame.draw.circle(aura_surf, (*dk(color, 20), ga), (aura_r, aura_r), gr)
         surface.blit(aura_surf, (icon_cx - aura_r, icon_cy - aura_r))
+        # 구불거리는 궤적 (뱀 궤적 표현)
+        trail_pts = []
+        for ti in range(8):
+            tx = icon_cx - int(7 * scale) + int(ti * 2 * scale)
+            ty = icon_cy + int(5 * scale) + int(math.sin(ti * 1.3) * 2.5 * scale)
+            trail_pts.append((tx, ty))
+        if len(trail_pts) >= 2:
+            for ti in range(len(trail_pts) - 1):
+                ta = max(40, 160 - ti * 18)
+                tw = max(1, int((2.5 - ti * 0.2) * scale))
+                pygame.draw.line(surface, (*lt(color, 50), ta), trail_pts[ti], trail_pts[ti + 1], tw)
+        # 궤적 끝 공 (작은 원)
+        if trail_pts:
+            bx, by = trail_pts[-1]
+            pygame.draw.circle(surface, (255, 255, 255), (bx, by), max(2, int(2.5 * scale)))
+            pygame.draw.circle(surface, lt(color, 80), (bx, by), max(1, int(1.5 * scale)))
+        # 귀신 본체 (그림자)
+        gw = max(7, int(10 * scale))
+        gh = max(9, int(12 * scale))
+        pygame.draw.ellipse(surface, dk(color, 40),
+                           (icon_cx - gw // 2 + 1, icon_cy - gh // 2 - int(2 * scale) + 1, gw, gh))
+        # 귀신 본체 (메인)
+        pygame.draw.ellipse(surface, color,
+                           (icon_cx - gw // 2, icon_cy - gh // 2 - int(2 * scale), gw, gh))
+        # 귀신 내부 밝은 부분 (입체감)
+        igw = max(4, int(6 * scale))
+        igh = max(6, int(8 * scale))
+        pygame.draw.ellipse(surface, lt(color, 30),
+                           (icon_cx - igw // 2 - max(1, int(1 * scale)), icon_cy - igh // 2 - int(3 * scale), igw, igh))
+        # 꼬리 (물결 3개)
+        tail_base_y = icon_cy + gh // 2 - int(3 * scale)
+        for i in range(3):
+            tx = icon_cx - gw // 2 + int(i * gw / 2.5) + max(1, int(1 * scale))
+            tw_t = max(3, int(gw / 2.8))
+            th_t = max(3, int(4 * scale))
+            t_offset = int(2 * scale) if i % 2 == 0 else 0
+            pygame.draw.ellipse(surface, color, (tx, tail_base_y + t_offset, tw_t, th_t))
+        # 눈 (빨간 빛나는 눈)
+        eye_y = icon_cy - int(3 * scale)
+        eye_gap = max(2, int(3 * scale))
+        eye_r = max(2, int(2.5 * scale))
+        # 눈 글로우
+        eye_glow_surf = pygame.Surface((eye_r * 4, eye_r * 4), pygame.SRCALPHA)
+        pygame.draw.circle(eye_glow_surf, (255, 0, 0, 60), (eye_r * 2, eye_r * 2), eye_r * 2)
+        surface.blit(eye_glow_surf, (icon_cx - eye_gap - eye_r * 2, eye_y - eye_r * 2))
+        surface.blit(eye_glow_surf, (icon_cx + eye_gap - eye_r * 2, eye_y - eye_r * 2))
+        # 눈 본체
+        pygame.draw.circle(surface, (255, 30, 30), (icon_cx - eye_gap, eye_y), eye_r)
+        pygame.draw.circle(surface, (255, 30, 30), (icon_cx + eye_gap, eye_y), eye_r)
+        # 눈 하이라이트
+        hl = max(1, int(1 * scale))
+        pygame.draw.circle(surface, (255, 180, 180), (icon_cx - eye_gap - hl, eye_y - hl), hl)
+        pygame.draw.circle(surface, (255, 180, 180), (icon_cx + eye_gap - hl, eye_y - hl), hl)
+        # 입 (삼각형 이빨)
+        mouth_y = icon_cy - int(0.5 * scale)
+        mouth_w = max(2, int(3 * scale))
+        pygame.draw.polygon(surface, (200, 0, 50), [
+            (icon_cx - mouth_w, mouth_y), (icon_cx, mouth_y + max(2, int(2.5 * scale))), (icon_cx + mouth_w, mouth_y)
+        ])
+        # 미니 귀신들 (좌우에 작은 귀신 2개)
+        for side in [-1, 1]:
+            mx = icon_cx + side * int(9 * scale)
+            my = icon_cy - int(1 * scale)
+            mr = max(2, int(3 * scale))
+            pygame.draw.circle(surface, (*color, 120), (mx, my), mr)
+            pygame.draw.circle(surface, (255, 50, 50, 180), (mx - max(1, int(1 * scale)), my - max(1, int(1 * scale))), max(1, int(1 * scale)))
+            pygame.draw.circle(surface, (255, 50, 50, 180), (mx + max(1, int(1 * scale)), my - max(1, int(1 * scale))), max(1, int(1 * scale)))
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
