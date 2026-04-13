@@ -168440,14 +168440,10 @@ def main(stage_num, new_boss_mode=False):
                         # print(f"  - 상모돌리기 활성 상태: {whip_active}")
                         # print(f"  - 현재 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
                     else:
-                        # 고스트샷은 프리즈 없이 바로 궤적 시작
-                        power_smashing_freeze_active = False
-                        power_smashing_parabola_active = True  # 궤적 처리 블록 진입 필요
-                        power_smashing_start_time = pygame.time.get_ticks()
-                        # 초기 공 속도 설정 (강하게 위로 발사)
-                        ball_vel[0] = power_smashing_arc_strength * 8.0
-                        ball_vel[1] = -15.0  # 강하게 위쪽으로
-                        # print(f"     !")
+                        # 고스트샷도 짧은 프리즈 연출 후 발사
+                        power_smashing_freeze_duration = 300  # 300ms 프리즈
+                        power_smashing_freeze_start_time = pygame.time.get_ticks()
+                        power_smashing_freeze_active = True
                     #  파워스매싱 발동 시 강제 충돌 처리 (범위 차이 문제 해결)
                     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
                     power_player_rect = PLAYER.copy()
@@ -168613,8 +168609,10 @@ def main(stage_num, new_boss_mode=False):
                             # 모든 미션 완료 체크
                             check_tutorial_special_missions_complete()
                     
-                    # 고스트샷이 아닐 때만 POWER SMASHING 표시
-                    if not mega_smashing_active:
+                    # 스킬명 표시
+                    if mega_smashing_active:
+                        show_fade_text("GHOST SHOT")
+                    else:
                         show_fade_text("POWER SMASHING")
                     #  이펙트 초기화 - 고스트샷일 때는 아무 이펙트도 생성하지 않음
                     if not mega_smashing_active:
@@ -170728,12 +170726,13 @@ def main(stage_num, new_boss_mode=False):
                         whip_angle = 0
                         # print("[DEBUG] 파워스매싱 발사 시 상모돌리기 강제 종료!")
                     
-                    # 고스트샷이 아닐 때만 파워스매싱 포물선 활성화
-                    if not mega_smashing_active:
-                        power_smashing_parabola_active = True
-                        power_smashing_rng = random.Random(random.randrange(1 << 30))
-                    else:
-                        pass  # print(f"    ! mega_smashing_active={mega_smashing_active}")
+                    # 프리즈 종료 → 궤적 활성화
+                    power_smashing_parabola_active = True
+                    power_smashing_rng = random.Random(random.randrange(1 << 30))
+                    if mega_smashing_active:
+                        # 고스트샷: 강한 초기 발사 속도
+                        ball_vel[0] = power_smashing_arc_strength * 8.0
+                        ball_vel[1] = -15.0
                     power_smashing_start_time = current_time
                     # 파워스매시 발사 후 special_active를 False로 설정하여 게이지 충전 허용
                     special_active = False
