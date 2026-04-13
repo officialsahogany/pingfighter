@@ -58407,7 +58407,9 @@ def update_plasma_wave():
         return
 
     # 구체 위로 이동 (보스 방향) + X축 유도
-    plasma_wave_y -= plasma_wave_speed
+    # 보스와 접촉 중이면 Y축 이동속도 50% 감소 (효과 발동 중 체류 시간 증가)
+    current_speed = plasma_wave_speed * 0.5 if boss_plasma_slowed else plasma_wave_speed
+    plasma_wave_y -= current_speed
 
     # X축 유도: 보스 중심을 향해 부드럽게 추적
     boss_cx = BOSS.x + BOSS.width // 2
