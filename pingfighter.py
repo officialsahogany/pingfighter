@@ -152953,12 +152953,12 @@ def handle_ball():
                 interval_progress = (phase2_time % direction_change_interval) / direction_change_interval
                 # 시드 기반 목표 좌표 생성 (같은 인터벌이면 같은 목표)
                 seed_rng = random.Random(mega_smashing_start_time + interval_index * 7919)
-                target_x = seed_rng.randint(40, WIDTH - 40)
-                target_y = seed_rng.randint(80, HEIGHT // 2 + 50)
+                target_x = seed_rng.randint(10, WIDTH - 10)  # X: 거의 전체 화면 사용
+                target_y = seed_rng.randint(180, HEIGHT // 2 + 100)  # Y: 보스에서 100px 아래(180~475)
                 # 다음 목표도 미리 계산 (부드러운 보간용)
                 next_rng = random.Random(mega_smashing_start_time + (interval_index + 1) * 7919)
-                next_x = next_rng.randint(40, WIDTH - 40)
-                next_y = next_rng.randint(80, HEIGHT // 2 + 50)
+                next_x = next_rng.randint(10, WIDTH - 10)
+                next_y = next_rng.randint(180, HEIGHT // 2 + 100)
                 # 현재→다음 보간
                 lerp_x = target_x + (next_x - target_x) * interval_progress
                 lerp_y = target_y + (next_y - target_y) * interval_progress
@@ -152966,7 +152966,7 @@ def handle_ball():
                 dx = lerp_x - BALL.centerx
                 dy = lerp_y - BALL.centery
                 dist = max(1, math.sqrt(dx * dx + dy * dy))
-                speed = 18.0 + seed_rng.random() * 8.0  # 18~26 속도
+                speed = 24.0 + seed_rng.random() * 12.0  # 24~36 속도 (더 빠르고 왕성하게)
                 ball_vel[0] = (dx / dist) * speed
                 ball_vel[1] = (dy / dist) * speed
                 # 추가 기괴한 꺾임 (20% 확률로 순간 각도 비틀기)
