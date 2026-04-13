@@ -9822,6 +9822,121 @@ def _set_arena_manual_control_enabled(enabled: bool) -> bool:
     return True
 
 
+def _try_arena_manual_bottom_skill_use() -> bool:
+    """메인 경기 객체 기준으로 투기장 하단 영웅 수동 스킬을 직접 발동."""
+    _arena_inst = _get_active_arena_instance()
+    _g = globals()
+    _skill_mgr = _g.get('arena_skill_manager')
+    _bottom_hero = _g.get('arena_bottom_hero')
+    _top_hero = _g.get('arena_top_hero')
+    _player = _g.get('PLAYER')
+    _boss = _g.get('BOSS')
+    _ball = _g.get('BALL')
+    _ball_vel = _g.get('ball_vel')
+
+    if not (_skill_mgr and _bottom_hero and _player and _boss and _ball and _ball_vel):
+        return False
+
+    try:
+        from downtown.hero_skills import SkillTrigger
+    except Exception:
+        return False
+
+    _hero_id = _bottom_hero.get('id')
+    if not _hero_id:
+        return False
+
+    if _skill_mgr.hero_global_cooldowns.get(_hero_id, 0) > 0:
+        return False
+
+    _skills = _skill_mgr.active_skills.get(_hero_id, [])
+    _usable = [s for s in _skills if s.can_use() and getattr(s, 'trigger', None) == SkillTrigger.ON_COOLDOWN]
+    if not _usable:
+        return False
+
+    _ordered_skill_ids = []
+    _manual_order = getattr(_arena_inst, 'manual_skill_cooldown_order', []) if _arena_inst else []
+    for _skill_id in _manual_order:
+        if any(s.skill_id == _skill_id for s in _usable):
+            _ordered_skill_ids.append(_skill_id)
+    for _skill in _usable:
+        if _skill.skill_id not in _ordered_skill_ids:
+            _ordered_skill_ids.append(_skill.skill_id)
+
+    class PaddleWrapper:
+        def __init__(self, rect, is_top):
+            self.x = rect.x
+            self.y = rect.y
+            self.width = rect.width
+            self.height = rect.height
+            self.centerx = rect.centerx
+            self.centery = rect.centery
+            self.is_top = is_top
+
+    class BallWrapper:
+        def __init__(self, rect, vel):
+            self.x = rect.x
+            self.y = rect.y
+            self.width = rect.width
+            self.height = rect.height
+            self.centerx = rect.centerx
+            self.centery = rect.centery
+            self.vx = vel[0]
+            self.vy = vel[1]
+
+    _bottom_wrapper = PaddleWrapper(_player, False)
+    _top_wrapper = PaddleWrapper(_boss, True)
+    _ball_wrapper = BallWrapper(_ball, _ball_vel)
+
+    _result = None
+    _used_skill_id = None
+    _prev_manual_override = _skill_mgr.game_state.get('manual_skill_override', False)
+    _skill_mgr.game_state['manual_skill_override'] = True
+    try:
+        for _skill_id in _ordered_skill_ids:
+            _result = _skill_mgr.try_use_skill_by_id(
+                _hero_id,
+                _skill_id,
+                _bottom_wrapper,
+                _top_wrapper,
+                _ball_wrapper
+            )
+            if _result:
+                _used_skill_id = _skill_id
+                break
+    finally:
+        _skill_mgr.game_state['manual_skill_override'] = _prev_manual_override
+
+    if not _result:
+        return False
+
+    if _result.get('blocked_by_immunity'):
+        _blocked_skill_name = _result.get('skill_korean_name', '')
+        arena_show_speech_bubble(False, _blocked_skill_name, hero_id=_hero_id)
+        arena_show_speech_bubble(True, '패링', hero_id=_top_hero["id"] if _top_hero else None)
+        _block_hero_color = _bottom_hero.get("color", (180, 80, 220))
+        _spawn_barrier_block_effect(
+            caster_x=float(_player.centerx),
+            caster_y=float(_player.centery),
+            target_x=float(_boss.centerx),
+            target_y=float(_boss.centery),
+            skill_name=_blocked_skill_name,
+            caster_is_top=False,
+            hero_color=_block_hero_color
+        )
+    else:
+        _ball_vel[0] = _ball_wrapper.vx
+        _ball_vel[1] = _ball_wrapper.vy
+        arena_play_skill_sound(_result)
+        if 'skill_korean_name' in _result:
+            arena_show_speech_bubble(False, _result['skill_korean_name'], hero_id=_hero_id)
+
+    if _arena_inst and _used_skill_id in getattr(_arena_inst, 'manual_skill_cooldown_order', []):
+        _arena_inst.manual_skill_cooldown_order.remove(_used_skill_id)
+
+    return True
+
+
 def _draw_pillar_ui(screen, renderer):
     """필러 UI 박스 그리기 헬퍼 함수
 
@@ -144474,50 +144589,92 @@ def show_stage8_boss_dialogue():
     return True
 
 
+_stage1_border_cache = None  # 스테이지 1 한국 전통 테두리 캐시
+
+def _generate_stage1_border_cache():
+    """스테이지 1 한국 전통(단청) 테두리를 캐시 Surface에 프리렌더링"""
+    surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    bt = 10  # border_thickness
+    gw = WIDTH
+
+    # 단청 색상
+    WOOD_DARK = (51, 25, 15)        # 어두운 나무색 (베이스)
+    DANCHEONG_RED = (160, 50, 40)   # 단청 빨강
+    DANCHEONG_GREEN = (40, 110, 70) # 단청 초록
+    DANCHEONG_BLUE = (45, 70, 140)  # 단청 파랑
+    GOLD = (180, 140, 50)           # 금색
+    GOLD_DIM = (120, 90, 30)        # 어두운 금색
+
+    # 메인 테두리 (나무색 베이스)
+    pygame.draw.rect(surf, WOOD_DARK, (0, 0, gw, bt))
+    pygame.draw.rect(surf, WOOD_DARK, (0, HEIGHT - bt, gw, bt))
+    pygame.draw.rect(surf, WOOD_DARK, (0, 0, bt, HEIGHT))
+    pygame.draw.rect(surf, WOOD_DARK, (gw - bt, 0, bt, HEIGHT))
+
+    # 내부 금색 테두리선
+    inner = 2
+    pygame.draw.rect(surf, GOLD_DIM, (bt - inner, bt - inner, gw - 2*(bt - inner), inner))
+    pygame.draw.rect(surf, GOLD_DIM, (bt - inner, HEIGHT - bt, gw - 2*(bt - inner), inner))
+    pygame.draw.rect(surf, GOLD_DIM, (bt - inner, bt - inner, inner, HEIGHT - 2*(bt - inner)))
+    pygame.draw.rect(surf, GOLD_DIM, (gw - bt, bt - inner, inner, HEIGHT - 2*(bt - inner)))
+
+    # 단청 뇌문(雷紋) 패턴 — 상하좌우 테두리에 반복
+    pattern_spacing = 24
+    dancheong_colors = [DANCHEONG_RED, DANCHEONG_GREEN, DANCHEONG_BLUE]
+    # 상단/하단 뇌문
+    for i in range(pattern_spacing // 2, gw - pattern_spacing // 2, pattern_spacing):
+        color = dancheong_colors[(i // pattern_spacing) % 3]
+        cx, cy = i, bt // 2
+        s = 3
+        # ㄱ자 뇌문 패턴
+        pygame.draw.line(surf, color, (cx - s, cy - s), (cx + s, cy - s), 1)
+        pygame.draw.line(surf, color, (cx + s, cy - s), (cx + s, cy), 1)
+        pygame.draw.line(surf, color, (cx + s, cy), (cx - s, cy), 1)
+        pygame.draw.line(surf, color, (cx - s, cy), (cx - s, cy + s), 1)
+        # 하단
+        cy2 = HEIGHT - bt // 2
+        pygame.draw.line(surf, color, (cx - s, cy2 - s), (cx + s, cy2 - s), 1)
+        pygame.draw.line(surf, color, (cx + s, cy2 - s), (cx + s, cy2), 1)
+        pygame.draw.line(surf, color, (cx + s, cy2), (cx - s, cy2), 1)
+        pygame.draw.line(surf, color, (cx - s, cy2), (cx - s, cy2 + s), 1)
+
+    # 좌측/우측 뇌문
+    for i in range(pattern_spacing // 2, HEIGHT - pattern_spacing // 2, pattern_spacing):
+        color = dancheong_colors[(i // pattern_spacing) % 3]
+        cx_l, cx_r, cy = bt // 2, gw - bt // 2, i
+        s = 3
+        for cx in [cx_l, cx_r]:
+            pygame.draw.line(surf, color, (cx - s, cy - s), (cx + s, cy - s), 1)
+            pygame.draw.line(surf, color, (cx + s, cy - s), (cx + s, cy), 1)
+            pygame.draw.line(surf, color, (cx + s, cy), (cx - s, cy), 1)
+            pygame.draw.line(surf, color, (cx - s, cy), (cx - s, cy + s), 1)
+
+    # 코너 장식 — 태극 동전 (빨강+파랑 원 + 금색 테두리)
+    corner_pts = [(bt // 2, bt // 2), (gw - bt // 2, bt // 2),
+                  (bt // 2, HEIGHT - bt // 2), (gw - bt // 2, HEIGHT - bt // 2)]
+    for cx, cy in corner_pts:
+        pygame.draw.circle(surf, GOLD, (cx, cy), 5, 1)
+        pygame.draw.circle(surf, DANCHEONG_RED, (cx, cy - 1), 2)
+        pygame.draw.circle(surf, DANCHEONG_BLUE, (cx, cy + 1), 2)
+
+    return surf
+
 def draw_stage1_border():
-    """스테이지 1 한국 전통 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
-    global stage1_border_flash_timer
+    """스테이지 1 한국 전통(단청) 테두리 + 벽 충돌 깜빡임 효과"""
+    global stage1_border_flash_timer, _stage1_border_cache
     if current_stage == 1:
-        border_thickness = 10
-        x_off = 0
-        game_w = WIDTH
-        # 한국 전통 색상 (금색/단청 계열)
-        base_color = (51, 25, 15)  # 어두운 단색 (나무색)
-        gold_color = (120, 90, 30)  # 금색
-        bright_gold = (180, 140, 50)  # 밝은 금색
-        accent_red = (160, 50, 40)  # 단청 빨강
-
-        # 메인 테두리
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
-
-        # 내부 테두리 (깊이감 추가)
-        inner_thickness = 2
-        pygame.draw.rect(SCREEN, gold_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, gold_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, gold_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(SCREEN, gold_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-
-        # 코너 장식 (단청 매듭)
-        corner_radius = 4
-        draw.circle(accent_red, (x_off + border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_red, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_red, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-        draw.circle(accent_red, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+        # 캐시된 단청 문양 테두리 (1회 생성 후 재사용)
+        if _stage1_border_cache is None:
+            _stage1_border_cache = _generate_stage1_border_cache()
+        SCREEN.blit(_stage1_border_cache, (0, 0))
 
         # 벽 충돌 시 깜빡임 효과 (금색 은은하게)
         if stage1_border_flash_timer > 0:
+            game_w = WIDTH
             flash_ratio = stage1_border_flash_timer / stage1_border_flash_duration
             base_alpha = int(13 * flash_ratio)
-            bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
-            grad_steps = max(2, bt)
+            grad_steps = max(2, 10)
             for i in range(grad_steps):
                 t = 1.0 - (i / grad_steps)
                 a = int(base_alpha * t * t)
@@ -144528,7 +144685,7 @@ def draw_stage1_border():
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
                 pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
-            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage1_border_flash_timer -= 1
 
 def draw_stage3_border():
@@ -166631,8 +166788,7 @@ def main(stage_num, new_boss_mode=False):
                         )
                     )
                     if _manual_skill_press:
-                        if hasattr(_arena_mc, '_manual_try_use_skill'):
-                            _arena_mc._manual_try_use_skill()
+                        _try_arena_manual_bottom_skill_use()
                     main._arena_manual_space_pressed = _k_space
                     main._arena_manual_dash_modifier_pressed = _manual_dash_modifier
                     main._arena_manual_dash_left_pressed = _manual_left
