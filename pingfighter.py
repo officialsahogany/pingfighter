@@ -144644,82 +144644,84 @@ def _generate_stage1_border_cache():
     pygame.draw.rect(surf, WOOD_MID, (2, 2, bt - 4, gh - 4))
     pygame.draw.rect(surf, WOOD_MID, (gw - bt + 2, 2, bt - 4, gh - 4))
 
-    # ── 2. 외곽 금박 테두리선 (바깥쪽 1px) ──
-    pygame.draw.rect(surf, GOLD_DIM, (0, 0, gw, 1))
-    pygame.draw.rect(surf, GOLD_DIM, (0, gh - 1, gw, 1))
-    pygame.draw.rect(surf, GOLD_DIM, (0, 0, 1, gh))
-    pygame.draw.rect(surf, GOLD_DIM, (gw - 1, 0, 1, gh))
+    # ── 2. 외곽 금박 테두리선 (바깥쪽 — rect 테두리로 선명하게) ──
+    pygame.draw.rect(surf, GOLD_DIM, (0, 0, gw, gh), 2)
 
-    # ── 3. 내부 금박 테두리선 (안쪽 경계) ──
-    pygame.draw.rect(surf, GOLD, (bt - 1, bt - 1, gw - 2*(bt - 1), 1))
-    pygame.draw.rect(surf, GOLD, (bt - 1, gh - bt, gw - 2*(bt - 1), 1))
-    pygame.draw.rect(surf, GOLD, (bt - 1, bt - 1, 1, gh - 2*(bt - 1)))
-    pygame.draw.rect(surf, GOLD, (gw - bt, bt - 1, 1, gh - 2*(bt - 1)))
+    # ── 3. 내부 금박 테두리선 (안쪽 경계 — 2px 두께) ──
+    pygame.draw.rect(surf, GOLD, (bt - 2, bt - 2, gw - 2*(bt - 2), gh - 2*(bt - 2)), 2)
 
-    # ── 4. 연속 뇌문(雷紋) 띠 — 이중 ㄱ자 패턴 (상하좌우) ──
-    sp = 16  # 뇌문 간격 (촘촘하게)
+    # ── 4. 연속 뇌문(雷紋) 띠 — 굵은 ㄱ자 블록 패턴 (상하좌우) ──
+    sp = 14  # 뇌문 간격
     mid_y_top = bt // 2
     mid_y_bot = gh - bt // 2
     mid_x_left = bt // 2
     mid_x_right = gw - bt // 2
 
-    def draw_double_thunder(sx, sy, color, color_dk, horizontal=True):
-        """이중 뇌문 — 밝은 색 위에 어두운 색으로 입체감"""
+    def draw_thick_thunder(sx, sy, color, color_dk, horizontal=True):
+        """굵은 뇌문 — 2px 두께 rect 기반으로 선명하게"""
         s = 3
+        w = 2  # 선 두께
         if horizontal:
-            # 메인 뇌문 (밝은색)
-            pygame.draw.line(surf, color, (sx - s, sy - s), (sx + s, sy - s), 1)
-            pygame.draw.line(surf, color, (sx + s, sy - s), (sx + s, sy + 1), 1)
-            pygame.draw.line(surf, color, (sx + s, sy), (sx - s + 1, sy), 1)
-            pygame.draw.line(surf, color, (sx - s + 1, sy), (sx - s + 1, sy + s), 1)
-            # 그림자 (어두운색, 1px 오프셋)
-            pygame.draw.line(surf, color_dk, (sx - s + 1, sy - s + 1), (sx + s - 1, sy - s + 1), 1)
+            # ㄱ자 뇌문 (굵은 rect)
+            pygame.draw.rect(surf, color, (sx - s, sy - s, s * 2 + 1, w))        # 상단 가로
+            pygame.draw.rect(surf, color, (sx + s - 1, sy - s, w, s + w))        # 우측 세로
+            pygame.draw.rect(surf, color, (sx - s, sy, s * 2, w))                # 중앙 가로
+            pygame.draw.rect(surf, color, (sx - s, sy, w, s + 1))                # 좌측 세로
+            # 그림자
+            pygame.draw.rect(surf, color_dk, (sx - s, sy + s - 1, s * 2 + 1, 1))
         else:
-            pygame.draw.line(surf, color, (sx - s, sy - s), (sx - s, sy + s), 1)
-            pygame.draw.line(surf, color, (sx - s, sy + s), (sx + 1, sy + s), 1)
-            pygame.draw.line(surf, color, (sx, sy + s), (sx, sy - s + 1), 1)
-            pygame.draw.line(surf, color, (sx, sy - s + 1), (sx + s, sy - s + 1), 1)
-            pygame.draw.line(surf, color_dk, (sx - s + 1, sy - s + 1), (sx - s + 1, sy + s - 1), 1)
+            pygame.draw.rect(surf, color, (sx - s, sy - s, w, s * 2 + 1))        # 좌측 세로
+            pygame.draw.rect(surf, color, (sx - s, sy + s - 1, s + w, w))        # 하단 가로
+            pygame.draw.rect(surf, color, (sx, sy - s, w, s * 2))                # 중앙 세로
+            pygame.draw.rect(surf, color, (sx, sy - s, s + 1, w))                # 상단 가로
+            # 그림자
+            pygame.draw.rect(surf, color_dk, (sx + s - 1, sy - s, 1, s * 2 + 1))
 
     color_pairs = [(DC_RED, DC_RED_DK), (DC_GREEN, DC_GREEN_DK), (DC_BLUE, DC_BLUE_DK)]
 
     # 상단/하단
     idx = 0
-    for x in range(sp // 2, gw - sp // 2, sp):
+    for x in range(sp, gw - sp, sp):
         c, cd = color_pairs[idx % 3]
-        draw_double_thunder(x, mid_y_top, c, cd, horizontal=True)
-        draw_double_thunder(x, mid_y_bot, c, cd, horizontal=True)
-        # 뇌문 사이 금색 점 장식
+        draw_thick_thunder(x, mid_y_top, c, cd, horizontal=True)
+        draw_thick_thunder(x, mid_y_bot, c, cd, horizontal=True)
+        # 뇌문 사이 금색 마름모 장식
         if idx % 3 == 2 and x + sp < gw:
-            pygame.draw.rect(surf, GOLD_BRIGHT, (x + sp // 2 - 1, mid_y_top - 1, 2, 2))
-            pygame.draw.rect(surf, GOLD_BRIGHT, (x + sp // 2 - 1, mid_y_bot - 1, 2, 2))
+            dx = x + sp // 2
+            for pt in [(dx, mid_y_top - 2), (dx - 1, mid_y_top), (dx + 1, mid_y_top), (dx, mid_y_top + 2)]:
+                pygame.draw.rect(surf, GOLD_BRIGHT, (pt[0], pt[1], 2, 1))
+            for pt in [(dx, mid_y_bot - 2), (dx - 1, mid_y_bot), (dx + 1, mid_y_bot), (dx, mid_y_bot + 2)]:
+                pygame.draw.rect(surf, GOLD_BRIGHT, (pt[0], pt[1], 2, 1))
         idx += 1
 
     # 좌측/우측
     idx = 0
-    for y in range(sp // 2, gh - sp // 2, sp):
+    for y in range(sp, gh - sp, sp):
         c, cd = color_pairs[idx % 3]
-        draw_double_thunder(mid_x_left, y, c, cd, horizontal=False)
-        draw_double_thunder(mid_x_right, y, c, cd, horizontal=False)
+        draw_thick_thunder(mid_x_left, y, c, cd, horizontal=False)
+        draw_thick_thunder(mid_x_right, y, c, cd, horizontal=False)
         if idx % 3 == 2 and y + sp < gh:
-            pygame.draw.rect(surf, GOLD_BRIGHT, (mid_x_left - 1, y + sp // 2 - 1, 2, 2))
-            pygame.draw.rect(surf, GOLD_BRIGHT, (mid_x_right - 1, y + sp // 2 - 1, 2, 2))
+            dy = y + sp // 2
+            for pt in [(mid_x_left - 2, dy), (mid_x_left, dy - 1), (mid_x_left, dy + 1), (mid_x_left + 2, dy)]:
+                pygame.draw.rect(surf, GOLD_BRIGHT, (pt[0], pt[1], 1, 2))
+            for pt in [(mid_x_right - 2, dy), (mid_x_right, dy - 1), (mid_x_right, dy + 1), (mid_x_right + 2, dy)]:
+                pygame.draw.rect(surf, GOLD_BRIGHT, (pt[0], pt[1], 1, 2))
         idx += 1
 
-    # ── 5. 코너 꽃문양 (연꽃/모란 스타일 8방 대칭) ──
+    # ── 5. 코너 꽃문양 (모란 스타일 — 굵은 버전) ──
     corner_pts = [(bt // 2, bt // 2), (gw - bt // 2, bt // 2),
                   (bt // 2, gh - bt // 2), (gw - bt // 2, gh - bt // 2)]
     for cx, cy in corner_pts:
-        # 금색 외곽 원
-        pygame.draw.circle(surf, GOLD_BRIGHT, (cx, cy), 5, 1)
-        # 내부 적황 꽃잎 (4방)
-        for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
-            pygame.draw.rect(surf, DC_RED, (cx + dx, cy + dy, 1, 1))
-        # 대각 꽃잎 (4방)
-        for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
-            pygame.draw.rect(surf, DC_YELLOW, (cx + dx, cy + dy, 1, 1))
-        # 중심점 금색
-        pygame.draw.rect(surf, GOLD_BRIGHT, (cx, cy, 1, 1))
+        # 금색 외곽 원 (두껍게)
+        pygame.draw.circle(surf, GOLD_BRIGHT, (cx, cy), 5, 2)
+        # 적색 꽃잎 4방 (2px 크기)
+        for dx, dy in [(-3, -1), (3, -1), (-1, -3), (-1, 3)]:
+            pygame.draw.rect(surf, DC_RED, (cx + dx, cy + dy, 2, 2))
+        # 황색 대각 꽃잎 (2px 크기)
+        for dx, dy in [(-2, -2), (2, -2), (-2, 2), (2, 2)]:
+            pygame.draw.rect(surf, DC_YELLOW, (cx + dx, cy + dy, 2, 2))
+        # 중심 금색 (2x2)
+        pygame.draw.rect(surf, GOLD_BRIGHT, (cx - 1, cy - 1, 2, 2))
 
     return surf
 
