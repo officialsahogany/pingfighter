@@ -85404,7 +85404,7 @@ QUEST_DATA = {
         "name": "대시 금지령",
         "description": "대시를 한 번도 사용하지 않고 승리하세요!\n(회피 불가 — 순수 포지셔닝만으로 도전!)",
         "condition_desc": "대시 미사용으로 승리",
-        "reward_gold": 2500,
+        "reward_gold": 2000,
     },
     "rally_streak": {
         "name": "연속 히트",
@@ -85875,7 +85875,7 @@ def check_and_complete_quests():
                 completed_quests.append({
                     "id": quest_id,
                     "name": "대시 금지령",
-                    "reward_gold": 2500
+                    "reward_gold": 2000
                 })
 
         elif quest_id == "rally_streak":
