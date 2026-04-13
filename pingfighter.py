@@ -153003,16 +153003,9 @@ def handle_ball():
                 teleport_y = 200 + rng.randint(0, 60)  # 보스에서 충분히 떨어진 Y (200~260)
                 BALL.centerx = teleport_x
                 BALL.centery = teleport_y
-                # 보스가 없는 곳을 기본 목표로 (보스 반대편)
-                if boss_cx < WIDTH // 2:
-                    empty_x = rng.randint(WIDTH * 2 // 3, WIDTH - 30)
-                else:
-                    empty_x = rng.randint(30, WIDTH // 3)
-                fire_target_y = BOSS_Y + 20 if 'BOSS_Y' in dir() else 40
-                fire_dx = empty_x - teleport_x
-                fire_dy = fire_target_y - teleport_y
-                # 각도 보정: -40도~+40도 랜덤 (보스 쪽으로 갈 수도 있음)
-                base_angle = math.atan2(fire_dy, fire_dx)
+                # 기본 방향: 위쪽 직선(-90도)에서 ±40도 보정
+                # 0도 = 보스가 없는 쪽, ±40도 = 보스 쪽으로 갈 수도 있음
+                base_angle = -math.pi / 2  # 위쪽 직선 (= -90도)
                 angle_offset = math.radians(rng.uniform(-40, 40))
                 final_angle = base_angle + angle_offset
                 fire_speed = 18.0
