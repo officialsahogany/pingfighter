@@ -58376,8 +58376,15 @@ def update_plasma_wave():
             plasma_shock_playing = False
         return
 
-    # 구체 위로 이동 (보스 방향)
+    # 구체 위로 이동 (보스 방향) + X축 유도
     plasma_wave_y -= plasma_wave_speed
+
+    # X축 유도: 보스 중심을 향해 부드럽게 추적
+    boss_cx = BOSS.x + BOSS.width // 2
+    dx = boss_cx - plasma_wave_x
+    homing_strength = 1.2  # X축 유도 강도 (픽셀/프레임)
+    if abs(dx) > 2:
+        plasma_wave_x += homing_strength if dx > 0 else -homing_strength
 
     # 잔상 추가 (3프레임마다)
     if len(plasma_wave_trail) == 0 or plasma_wave_duration % 3 == 0:
