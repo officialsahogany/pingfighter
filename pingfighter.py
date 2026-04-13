@@ -144709,43 +144709,12 @@ def draw_stage5_border():
             stage5_border_flash_timer -= 1
 
 def draw_stage6_border():
-    """스테이지 6 홍련(중국/화염) 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
+    """스테이지 6 홍련(중국/화염) 벽 충돌 깜빡임 효과만 (기존 중국 문양 테두리는 animated_bg_stage5가 그림)"""
     global stage6_border_flash_timer
     # 실제 스테이지 6 = 코드상 current_stage == 5 (홍련/화염)
     if current_stage == 5:
         border_thickness = 10
-        x_off = 0
         game_w = WIDTH
-        # 중국/화염 테마 색상 (붉은색/금색 계열)
-        base_color = (40, 10, 10)  # 깊은 붉은색 (베이스)
-        mid_color = (80, 20, 15)  # 중간 붉은색
-        light_color = (120, 40, 25)  # 밝은 붉은색
-        accent_color = (180, 80, 30)  # 금빛 악센트
-
-        # 메인 테두리
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
-
-        # 내부 테두리 (깊이감 추가)
-        inner_thickness = 2
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-
-        # 코너 장식 (등롱 느낌)
-        corner_radius = 4
-        draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-
         # 벽 충돌 시 깜빡임 효과 (화염 붉은색 은은하게)
         if stage6_border_flash_timer > 0:
             flash_ratio = stage6_border_flash_timer / stage6_border_flash_duration
