@@ -3906,12 +3906,11 @@ SMASHER_SKILL_ICONS_DATA = [
         "effect_type": "magnetic_pull_blue"
     },
     {
-        "name": "ghost_shot", "korean": "고스트샷", "cost": 0, "color": (120, 50, 180),
-        "symbol": "👻", "cooldown": 0.0, "key": "파워스매싱 연동",
-        "description": "파워스매싱 시 고스트샷 모드로 전환. 공이 뱀처럼 구불거리며 귀신이 따라다닙니다.",
-        "how_to_use": "파워스매싱 발동 시 자동 전환",
-        "effect_type": "ghost_purple",
-        "is_passive_modifier": True  # 별도 발동 불가, 파워스매싱에 연동
+        "name": "ghost_shot", "korean": "고스트샷", "cost": 500, "color": (120, 50, 180),
+        "symbol": "👻", "cooldown": 50.0, "key": "🖱️L홀드(게이지500↑)",
+        "description": "게이지 500 이상일 때 파워스매싱 대신 고스트샷 발동. 공이 뱀처럼 구불거리며 귀신이 따라다닙니다.",
+        "how_to_use": "power_smashing",  # 파워스매싱과 동일 입력
+        "effect_type": "ghost_purple"
     },
 ]
 
@@ -168254,8 +168253,13 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_freeze_duration = 300  # 스매셔: 짧은 연출 프리즈 (문구 표시 후 스윙+발사)
                     else:
                         power_smashing_freeze_duration = 1000
-                    # 고스트샷 퍽 해금 시 고스트샷 모드 활성화
-                    if get_runtime_skill_level("unlock_ghost_shot") >= 1:
+                    # 고스트샷 발동 조건: 퍽 해금 + 게이지 500 이상 + 쿨타임 완료
+                    _ghost_shot_ready = (
+                        get_runtime_skill_level("unlock_ghost_shot") >= 1
+                        and special_gauge >= 500
+                        and get_smasher_skill_cooldown_remaining("ghost_shot") <= 0
+                    )
+                    if _ghost_shot_ready:
                         mega_smashing_active = True
                         mega_smashing_start_time = pygame.time.get_ticks()
                         mega_smashing_boss_defense_count = 0
@@ -168275,17 +168279,12 @@ def main(stage_num, new_boss_mode=False):
                     else:
                         power_smashing_combo_consumed = 0
                     special_ready = False
-                    special_gauge = max(0, special_gauge - 350)
-                    # 고스트샷 보너스: +50 게이지
+                    # 고스트샷: 500 소모 + 쿨타임 / 파워스매싱: 350 소모
                     if mega_smashing_active:
-                        ghost_bonus = _apply_blacksmith_berserk_gauge_bonus(50)
-                        # ⛏️ 골드디거 게이지 충전량 증가 적용
-                        if is_gold_digger_equipped():
-                            ghost_bonus = apply_gold_digger_gauge_bonus(ghost_bonus)
-                        special_gauge += ghost_bonus
-                        current_max = get_max_gauge()
-                        if special_gauge > current_max:
-                            special_gauge = current_max  # 파워스매시 게이지 소모: 350
+                        special_gauge = max(0, special_gauge - 500)
+                        trigger_smasher_skill_cooldown("ghost_shot")
+                    else:
+                        special_gauge = max(0, special_gauge - 350)
                     #  파워스매싱 발동 효과음 재생
                     play_sound_with_volume(SOUND_POWER_SMASH)
                     # print("!")
