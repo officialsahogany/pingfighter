@@ -30032,6 +30032,7 @@ nemesis_death_particles = []  # 파편 파티클 리스트
 nemesis_death_explosions = []  # 폭발 이펙트 리스트
 nemesis_death_phase = 0  # 0: 분해, 1: 대폭발, 2: 화면정지/대기
 nemesis_death_boss_fragments = []  # 보스 파편 리스트 (분해 효과)
+nemesis_death_mech_debris = []  # 기계 파편 (볼트, 기어, 회로판 등) - 대폭발 시 화면 전체로 산산조각
 nemesis_death_boss_opacity = 255  # 보스 투명도 (분해되면서 감소)
 nemesis_death_star_dropped = False  # 별 드랍 여부 (1회만)
 NEMESIS_DEATH_DURATION = 5000  # 분해 애니메이션 시간 (5초)
@@ -163556,11 +163557,13 @@ def start_nemesis_death_animation():
     global nemesis_death_active, nemesis_death_start_time, nemesis_death_particles
     global nemesis_death_explosions, nemesis_death_phase
     global nemesis_death_boss_fragments, nemesis_death_boss_opacity, nemesis_death_star_dropped
+    global nemesis_death_mech_debris
 
     nemesis_death_active = True
     nemesis_death_start_time = pygame.time.get_ticks()
     nemesis_death_particles = []
     nemesis_death_explosions = []
+    nemesis_death_mech_debris = []
     nemesis_death_phase = 0
     nemesis_death_boss_fragments = []
     nemesis_death_boss_opacity = 255
@@ -163619,6 +163622,7 @@ def update_nemesis_death_animation():
     global nemesis_death_active, nemesis_death_particles, nemesis_death_explosions
     global nemesis_death_phase, nemesis_death_start_time
     global nemesis_death_boss_fragments, nemesis_death_boss_opacity, nemesis_death_star_dropped
+    global nemesis_death_mech_debris
 
     if not nemesis_death_active:
         return False  # 애니메이션 비활성
@@ -163698,6 +163702,27 @@ def update_nemesis_death_animation():
                 'color': random.choice([(255, 150, 0), (255, 200, 50), (255, 100, 50)])
             })
 
+            # 소형 기계 파편 (Phase 0에서도 소량 생성)
+            if random.random() < 0.5:
+                _p0_types = ['bolt', 'screw', 'wire', 'circuit']
+                _p0_colors = {'bolt': (160, 170, 180), 'screw': (190, 195, 200),
+                              'wire': random.choice([(200, 50, 50), (50, 120, 200)]),
+                              'circuit': (40, 180, 80)}
+                _p0_t = random.choice(_p0_types)
+                _p0_angle = random.uniform(0, math.pi * 2)
+                _p0_speed = random.uniform(2, 6)
+                nemesis_death_mech_debris.append({
+                    'x': spawn_x, 'y': spawn_y,
+                    'vx': math.cos(_p0_angle) * _p0_speed,
+                    'vy': math.sin(_p0_angle) * _p0_speed - 1,
+                    'type': _p0_t, 'color': _p0_colors[_p0_t],
+                    'size': random.randint(3, 7),
+                    'angle': random.uniform(0, 360),
+                    'angular_vel': random.uniform(-8, 8),
+                    'life': random.randint(40, 90), 'max_life': 90,
+                    'trail': [],
+                })
+
             # 폭발 사운드
             if random.random() < 0.2:
                 try:
@@ -163705,51 +163730,86 @@ def update_nemesis_death_animation():
                 except Exception:
                     pass
 
-    # === Phase 1: 대폭발 + 보스 완전 산산조각 (3.5초~4초) ===
+    # === Phase 1: 대폭발 + 보스 완전 산산조각 — 기계 파편 화면 전체로 폭발 ===
     elif elapsed < NEMESIS_DEATH_DURATION:
         if nemesis_death_phase == 0:
             nemesis_death_phase = 1
             nemesis_death_boss_opacity = 0  # 보스 완전히 사라짐
 
-            # 모든 남은 파편 폭발시키기
+            # 모든 남은 보스 그리드 파편을 화면 전체로 폭발시키기
             for frag in nemesis_death_boss_fragments:
-                if not frag['detached'] or frag['opacity'] > 0:
-                    # 강제로 바깥으로 튕겨나감
-                    dir_x = frag['x'] - boss_center_x
-                    dir_y = frag['y'] - boss_center_y
-                    dist = math.sqrt(dir_x**2 + dir_y**2) + 0.1
-                    frag['vx'] = (dir_x / dist) * random.uniform(8, 15)
-                    frag['vy'] = (dir_y / dist) * random.uniform(8, 15)
-                    frag['angular_vel'] = random.uniform(-15, 15)
-                    frag['detached'] = True
+                dir_x = frag['x'] - boss_center_x
+                dir_y = frag['y'] - boss_center_y
+                dist = math.sqrt(dir_x**2 + dir_y**2) + 0.1
+                frag['vx'] = (dir_x / dist) * random.uniform(12, 25)
+                frag['vy'] = (dir_y / dist) * random.uniform(12, 25)
+                frag['angular_vel'] = random.uniform(-20, 20)
+                frag['detached'] = True
+                frag['opacity'] = 255  # 선명하게 보이도록 리셋
 
-            # 대폭발 파티클 대량 생성
-            for _ in range(150):
+            # ★ 기계/로봇 파편 대량 생성 — 볼트, 기어, 회로판, 금속판, 나사, 파이프 등
+            _mech_types = ['bolt', 'gear', 'plate', 'pipe', 'circuit', 'screw', 'armor', 'wire']
+            _mech_colors = {
+                'bolt':    [(160, 170, 180), (130, 140, 155)],
+                'gear':    [(180, 160, 100), (200, 180, 120)],
+                'plate':   [(80, 90, 105), (100, 110, 125), (60, 70, 85)],
+                'pipe':    [(140, 145, 155), (110, 115, 125)],
+                'circuit': [(40, 180, 80), (30, 220, 100), (50, 150, 70)],
+                'screw':   [(190, 195, 200), (170, 175, 180)],
+                'armor':   [(70, 80, 95), (90, 100, 115), (55, 65, 80)],
+                'wire':    [(200, 50, 50), (50, 120, 200), (200, 180, 30)],
+            }
+            for _ in range(60):
                 angle = random.uniform(0, math.pi * 2)
-                speed = random.uniform(5, 18)
-                nemesis_death_particles.append({
-                    'x': boss_center_x, 'y': boss_center_y,
-                    'vx': math.cos(angle) * speed,
-                    'vy': math.sin(angle) * speed,
-                    'size': random.randint(3, 10),
-                    'color': random.choice([(255, 255, 255), (255, 200, 0), (255, 100, 0), (100, 200, 255), (200, 200, 200)]),
-                    'life': random.randint(50, 120),
-                    'gravity': 0.02
+                speed = random.uniform(6, 22)
+                mtype = random.choice(_mech_types)
+                nemesis_death_mech_debris.append({
+                    'x': boss_center_x + random.randint(-20, 20),
+                    'y': boss_center_y + random.randint(-15, 15),
+                    'vx': math.cos(angle) * speed + random.uniform(-2, 2),
+                    'vy': math.sin(angle) * speed + random.uniform(-3, 0),
+                    'type': mtype,
+                    'color': random.choice(_mech_colors[mtype]),
+                    'size': random.randint(4, 14),
+                    'angle': random.uniform(0, 360),
+                    'angular_vel': random.uniform(-12, 12),
+                    'life': random.randint(80, 180),
+                    'max_life': 180,
+                    'trail': [],  # 불꽃 트레일 좌표
                 })
 
-            # 대폭발 이펙트 (여러 개)
+            # 화염/스파크 파티클 대량 생성 (화면 전체로)
+            for _ in range(250):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(4, 22)
+                nemesis_death_particles.append({
+                    'x': boss_center_x + random.randint(-30, 30),
+                    'y': boss_center_y + random.randint(-20, 20),
+                    'vx': math.cos(angle) * speed,
+                    'vy': math.sin(angle) * speed,
+                    'size': random.randint(2, 8),
+                    'color': random.choice([
+                        (255, 255, 255), (255, 200, 0), (255, 100, 0),
+                        (255, 150, 50), (100, 200, 255), (200, 200, 200),
+                        (255, 80, 0), (255, 220, 100)
+                    ]),
+                    'life': random.randint(40, 140),
+                    'gravity': random.uniform(0.01, 0.08)
+                })
+
+            # 대폭발 이펙트 — 화면 전체 커버하는 다중 폭발 링
             nemesis_death_explosions.append({
                 'x': boss_center_x, 'y': boss_center_y,
-                'radius': 10, 'max_radius': 250,
+                'radius': 10, 'max_radius': 350,
                 'alpha': 255, 'color': (255, 255, 255)
             })
-            for _ in range(5):
-                offset_x = random.randint(-50, 50)
-                offset_y = random.randint(-30, 30)
+            for _ in range(8):
+                offset_x = random.randint(-70, 70)
+                offset_y = random.randint(-50, 50)
                 nemesis_death_explosions.append({
                     'x': boss_center_x + offset_x, 'y': boss_center_y + offset_y,
-                    'radius': 5, 'max_radius': 100,
-                    'alpha': 255, 'color': random.choice([(255, 200, 0), (255, 150, 50)])
+                    'radius': 5, 'max_radius': random.randint(80, 180),
+                    'alpha': 255, 'color': random.choice([(255, 200, 0), (255, 150, 50), (255, 100, 0)])
                 })
 
             # 대폭발 사운드
@@ -163778,13 +163838,14 @@ def update_nemesis_death_animation():
             nemesis_death_phase = 2
         post_elapsed = elapsed - NEMESIS_DEATH_DURATION
 
-        # 파편들 계속 업데이트 (서서히 사라짐)
+        # 그리드 파편들 빠르게 소멸 (형체 남지 않음)
         for frag in nemesis_death_boss_fragments:
             if frag['detached']:
-                frag['x'] += frag['vx'] * 0.3  # 속도 감소
-                frag['y'] += frag['vy'] * 0.3
-                frag['vy'] += 0.05
-                frag['opacity'] = max(0, frag['opacity'] - 3)
+                frag['x'] += frag['vx'] * 0.5
+                frag['y'] += frag['vy'] * 0.5
+                frag['vy'] += 0.1
+                frag['angle'] += frag['angular_vel'] * 0.5
+                frag['opacity'] = max(0, frag['opacity'] - 8)  # 빠르게 소멸
 
         if post_elapsed >= NEMESIS_POST_DELAY:
             # 폭발 애니메이션 종료 → 보물상자 드랍 페이즈로 전환
@@ -163792,6 +163853,7 @@ def update_nemesis_death_animation():
             nemesis_death_particles.clear()
             nemesis_death_explosions.clear()
             nemesis_death_boss_fragments.clear()
+            nemesis_death_mech_debris.clear()
             # 보물상자 스폰
             spawn_nemesis_treasure_chest(boss_center_x, boss_center_y)
             return False  # show_result 아직 호출 안 함 (보물상자 페이즈로)
@@ -163806,6 +163868,24 @@ def update_nemesis_death_animation():
         if p['life'] > 0:
             new_particles.append(p)
     nemesis_death_particles = new_particles
+
+    # 기계 파편 업데이트 (물리 + 불꽃 트레일)
+    new_debris = []
+    for d in nemesis_death_mech_debris:
+        d['x'] += d['vx']
+        d['y'] += d['vy']
+        d['vy'] += 0.12  # 중력
+        d['vx'] *= 0.995  # 공기저항
+        d['angle'] += d['angular_vel']
+        d['angular_vel'] *= 0.99
+        d['life'] -= 1
+        # 불꽃 트레일 기록 (최근 6개 위치)
+        d['trail'].append((d['x'], d['y']))
+        if len(d['trail']) > 6:
+            d['trail'].pop(0)
+        if d['life'] > 0:
+            new_debris.append(d)
+    nemesis_death_mech_debris = new_debris
 
     # 폭발 이펙트 업데이트
     new_explosions = []
@@ -163911,6 +163991,119 @@ def draw_nemesis_death_animation(screen):
             except Exception:
                 pass
 
+    # === 기계/로봇 파편 그리기 (볼트, 기어, 회로판 등) ===
+    for d in nemesis_death_mech_debris:
+        if d['life'] <= 0:
+            continue
+        try:
+            fade = min(255, d['life'] * 4)
+            dx = int(d['x'])
+            dy = int(d['y'])
+            sz = d['size']
+            col = d['color']
+            mtype = d['type']
+
+            # 불꽃 트레일 그리기 (파편 뒤에 주황색 잔상)
+            trail = d['trail']
+            if len(trail) >= 2 and d['life'] > 20:
+                for ti in range(len(trail) - 1):
+                    t_alpha = int(fade * (ti + 1) / len(trail) * 0.4)
+                    t_col = (255, 150 + ti * 15, 0)
+                    try:
+                        pygame.draw.line(screen, t_col,
+                                        (int(trail[ti][0]), int(trail[ti][1])),
+                                        (int(trail[ti+1][0]), int(trail[ti+1][1])), 2)
+                    except Exception:
+                        pass
+
+            # 파편 형태별 그리기 (gfxdraw 직접 렌더링 — Surface 할당 없음)
+            if mtype == 'bolt':
+                # 볼트 — 작은 원 + 선
+                pygame.draw.circle(screen, col, (dx, dy), max(2, sz // 3))
+                pygame.draw.line(screen, (col[0]//2, col[1]//2, col[2]//2),
+                               (dx, dy - sz//2), (dx, dy + sz//2), 2)
+            elif mtype == 'gear':
+                # 기어 — 톱니바퀴 형태 (원 + 방사형 선)
+                pygame.draw.circle(screen, col, (dx, dy), max(2, sz // 2), 2)
+                teeth = 6
+                for t in range(teeth):
+                    t_angle = d['angle'] * math.pi / 180 + t * math.pi * 2 / teeth
+                    tx = dx + int(math.cos(t_angle) * sz * 0.6)
+                    ty = dy + int(math.sin(t_angle) * sz * 0.6)
+                    pygame.draw.line(screen, col, (dx, dy), (tx, ty), 2)
+                pygame.draw.circle(screen, (col[0]//2, col[1]//2, col[2]//2),
+                                 (dx, dy), max(1, sz // 4))
+            elif mtype == 'plate':
+                # 금속판 — 회전된 사각형
+                half = sz // 2
+                a = d['angle'] * math.pi / 180
+                cos_a = math.cos(a)
+                sin_a = math.sin(a)
+                corners = []
+                for cx, cy in [(-half, -half//2), (half, -half//2), (half, half//2), (-half, half//2)]:
+                    rx = dx + int(cx * cos_a - cy * sin_a)
+                    ry = dy + int(cx * sin_a + cy * cos_a)
+                    corners.append((rx, ry))
+                pygame.draw.polygon(screen, col, corners)
+                pygame.draw.polygon(screen, (min(255, col[0]+40), min(255, col[1]+40), min(255, col[2]+40)),
+                                  corners, 1)
+            elif mtype == 'pipe':
+                # 파이프 — 회전된 두꺼운 선
+                a = d['angle'] * math.pi / 180
+                x1 = dx + int(math.cos(a) * sz * 0.7)
+                y1 = dy + int(math.sin(a) * sz * 0.7)
+                x2 = dx - int(math.cos(a) * sz * 0.7)
+                y2 = dy - int(math.sin(a) * sz * 0.7)
+                pygame.draw.line(screen, col, (x1, y1), (x2, y2), max(2, sz // 3))
+                pygame.draw.circle(screen, (min(255, col[0]+30), min(255, col[1]+30), min(255, col[2]+30)),
+                                 (x1, y1), max(1, sz // 5))
+            elif mtype == 'circuit':
+                # 회로판 — 녹색 사각형 + 내부 라인
+                half = sz // 2
+                pygame.draw.rect(screen, col, (dx - half, dy - half, sz, sz))
+                # 내부 회로 패턴
+                line_col = (min(255, col[0]+60), min(255, col[1]+60), min(255, col[2]+60))
+                pygame.draw.line(screen, line_col, (dx - half + 2, dy), (dx + half - 2, dy), 1)
+                pygame.draw.line(screen, line_col, (dx, dy - half + 2), (dx, dy + half - 2), 1)
+            elif mtype == 'screw':
+                # 나사 — 작은 원 + 십자
+                r = max(2, sz // 3)
+                pygame.draw.circle(screen, col, (dx, dy), r)
+                pygame.draw.line(screen, (50, 50, 50), (dx - r + 1, dy), (dx + r - 1, dy), 1)
+                pygame.draw.line(screen, (50, 50, 50), (dx, dy - r + 1), (dx, dy + r - 1), 1)
+            elif mtype == 'armor':
+                # 장갑 — 큰 회전 삼각형
+                a = d['angle'] * math.pi / 180
+                pts = []
+                for i in range(3):
+                    pa = a + i * math.pi * 2 / 3
+                    pts.append((dx + int(math.cos(pa) * sz * 0.6),
+                               dy + int(math.sin(pa) * sz * 0.6)))
+                pygame.draw.polygon(screen, col, pts)
+                pygame.draw.polygon(screen, (min(255, col[0]+30), min(255, col[1]+30), min(255, col[2]+30)),
+                                  pts, 1)
+            elif mtype == 'wire':
+                # 전선 — 구불구불한 선
+                a = d['angle'] * math.pi / 180
+                points = []
+                segs = 5
+                for i in range(segs):
+                    t = (i / (segs - 1)) - 0.5
+                    wx = dx + int(t * sz * 1.5 * math.cos(a) - math.sin(a) * math.sin(t * 8) * 3)
+                    wy = dy + int(t * sz * 1.5 * math.sin(a) + math.cos(a) * math.sin(t * 8) * 3)
+                    points.append((wx, wy))
+                if len(points) >= 2:
+                    pygame.draw.lines(screen, col, False, points, 2)
+
+            # 파편에서 튀는 스파크 (확률적)
+            if d['life'] > 30 and random.random() < 0.2:
+                spark_col = random.choice([(255, 200, 50), (255, 150, 0), (255, 100, 0)])
+                pygame.draw.circle(screen, spark_col,
+                                 (dx + random.randint(-3, 3), dy + random.randint(-3, 3)),
+                                 random.randint(1, 3))
+        except Exception:
+            pass
+
     # Phase 1: 화면 플래시
     if nemesis_death_phase == 1:
         flash_elapsed = elapsed - NEMESIS_FINAL_EXPLOSION_TIME
@@ -163920,7 +164113,7 @@ def draw_nemesis_death_animation(screen):
             flash_surface.fill((255, 255, 255, flash_alpha))
             screen.blit(flash_surface, (0, 0))
 
-    # Phase 2는 보물상자 드랍 페이즈로 전환됨 (VICTORY 텍스트 제거)
+    # Phase 2: 잔여 파편 흩날림 (보물상자 드랍 전환)
 
 
 def spawn_nemesis_treasure_chest(boss_cx, boss_cy):
