@@ -26127,6 +26127,8 @@ mega_smashing_particles = []  # 사용하지 않음
 mega_smashing_ghosts = []  # 사용하지 않음
 mega_smashing_ghost_scatter = False  # 사용하지 않음
 mega_smashing_ghost_scatter_time = 0  # 사용하지 않음
+mega_smashing_perf_tp_times = None  # 퍼포먼스 순간이동 타이밍 리스트
+mega_smashing_perf_tp_done = set()  # 이미 실행된 순간이동 인덱스
 # ️ 양자역학 효과 변수
 quantum_balls = []  # 양자 상태 공들 [{x, y, vx, vy, alpha, phase, probability, collapsed}]
 quantum_explosion_active = False  # 양자 폭발 활성화 여부
@@ -152945,33 +152947,48 @@ def handle_ball():
                     ball_vel[0] = -(abs(ball_vel[0]) + 2)
 
             elif elapsed_time < GHOST_SHOT_PHASE2_END:
-                # === Phase 2: 화면 전체를 기괴하게 돌아다님 (난무) ===
+                # === Phase 2: 화면 전체를 기괴하게 돌아다님 (난무) + 퍼포먼스 순간이동 ===
                 rng = power_smashing_rng or random
-                # 0.15초마다 랜덤 목표 지점으로 급격하게 방향 전환
                 phase2_time = elapsed_time - GHOST_SHOT_PHASE1_END
                 direction_change_interval = 0.15  # 0.15초마다 꺾임
-                # 매 인터벌마다 새 방향 설정 (프레임 독립적으로 시드 기반)
                 interval_index = int(phase2_time / direction_change_interval)
                 interval_progress = (phase2_time % direction_change_interval) / direction_change_interval
-                # 시드 기반 목표 좌표 생성 (같은 인터벌이면 같은 목표)
+
+                # 퍼포먼스 순간이동: 난무 중 1~2회 랜덤 순간이동 (공은 계속 움직임)
+                global mega_smashing_perf_tp_times, mega_smashing_perf_tp_done
+                if mega_smashing_perf_tp_times is None:
+                    # 첫 진입: 순간이동 타이밍 1~2개 생성
+                    _tp_seed = random.Random(mega_smashing_start_time + 12345)
+                    _tp_count = _tp_seed.randint(1, 2)
+                    phase2_duration = GHOST_SHOT_PHASE2_END - GHOST_SHOT_PHASE1_END  # 2.2초
+                    mega_smashing_perf_tp_times = sorted([_tp_seed.uniform(0.3, phase2_duration - 0.3) for _ in range(_tp_count)])
+                    mega_smashing_perf_tp_done = set()
+                # 순간이동 타이밍 체크
+                for tp_idx, tp_time in enumerate(mega_smashing_perf_tp_times):
+                    if tp_idx not in mega_smashing_perf_tp_done and phase2_time >= tp_time:
+                        mega_smashing_perf_tp_done.add(tp_idx)
+                        # 랜덤 위치로 순간이동 (공은 계속 이동)
+                        tp_rng = random.Random(mega_smashing_start_time + tp_idx * 3571)
+                        BALL.centerx = tp_rng.randint(30, WIDTH - 30)
+                        BALL.centery = tp_rng.randint(180, HEIGHT // 2 + 80)
+
+                # 시드 기반 목표 좌표 생성
                 seed_rng = random.Random(mega_smashing_start_time + interval_index * 7919)
-                target_x = seed_rng.randint(10, WIDTH - 10)  # X: 거의 전체 화면 사용
-                target_y = seed_rng.randint(180, HEIGHT // 2 + 100)  # Y: 보스에서 100px 아래(180~475)
-                # 다음 목표도 미리 계산 (부드러운 보간용)
+                target_x = seed_rng.randint(10, WIDTH - 10)
+                target_y = seed_rng.randint(180, HEIGHT // 2 + 100)
                 next_rng = random.Random(mega_smashing_start_time + (interval_index + 1) * 7919)
                 next_x = next_rng.randint(10, WIDTH - 10)
                 next_y = next_rng.randint(180, HEIGHT // 2 + 100)
-                # 현재→다음 보간
                 lerp_x = target_x + (next_x - target_x) * interval_progress
                 lerp_y = target_y + (next_y - target_y) * interval_progress
                 # 목표를 향해 강하게 조향
                 dx = lerp_x - BALL.centerx
                 dy = lerp_y - BALL.centery
                 dist = max(1, math.sqrt(dx * dx + dy * dy))
-                speed = 24.0 + seed_rng.random() * 12.0  # 24~36 속도 (더 빠르고 왕성하게)
+                speed = 24.0 + seed_rng.random() * 12.0
                 ball_vel[0] = (dx / dist) * speed
                 ball_vel[1] = (dy / dist) * speed
-                # 추가 기괴한 꺾임 (20% 확률로 순간 각도 비틀기)
+                # 추가 기괴한 꺾임 (20% 확률)
                 if rng.random() < 0.20:
                     twist_angle = rng.uniform(-1.2, 1.2)
                     cos_a = math.cos(twist_angle)
@@ -152979,7 +152996,7 @@ def handle_ball():
                     vx, vy = ball_vel[0], ball_vel[1]
                     ball_vel[0] = vx * cos_a - vy * sin_a
                     ball_vel[1] = vx * sin_a + vy * cos_a
-                # 화면 밖 방지 (벽에서 반사)
+                # 화면 밖 방지
                 if BALL.left < 5:
                     BALL.left = 5
                     ball_vel[0] = abs(ball_vel[0])
@@ -168420,6 +168437,8 @@ def main(stage_num, new_boss_mode=False):
                         mega_smashing_boss_defense_count = 0
                         mega_smashing_ghosts.clear()
                         mega_smashing_ghost_scatter = False
+                        mega_smashing_perf_tp_times = None  # 퍼포먼스 순간이동 초기화
+                        mega_smashing_perf_tp_done = set()
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
                     if not mega_smashing_active:
                         special_active = True
