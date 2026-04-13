@@ -12051,71 +12051,53 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _comp_pad_x = (_comp_w - WIDTH) // 2
         _comp_pad_y = (_comp_h - HEIGHT) // 2
 
-        # SCALED 합성 모드 시도 → 실패 시 소프트웨어 스케일링 폴백
-        # 더블 모니터: 가장 큰 모니터 중앙에 창 배치
+        # x2 이상: SCALED (GPU 업스케일), x1: DOUBLEBUF (SDL_Renderer 오버헤드 제거)
         _win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
         _sw_scaled_ok = False
-        try:
-            pygame.display.quit()
-            pygame.display.init()
-            if _win_pos:
-                os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_win_pos[0]},{_win_pos[1]}'
-            else:
-                os.environ['SDL_VIDEO_CENTERED'] = '1'
-            REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
-            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
-            os.environ.pop('SDL_VIDEO_CENTERED', None)
-
-            # SDL SCALED 윈도우 크기 강제 (더블 모니터 대응)
-            if _scale_n >= 2 and sys.platform == 'win32':
-                try:
-                    import ctypes as _ct
-                    _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
-                    _sdl2_lib = _ct.CDLL(_sdl2_p)
-                    _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
-                    _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
-                    if _sdl_win:
-                        _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
-                        _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
-                        _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
-                        if _repos:
-                            _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
-                            _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
-                except Exception:
-                    pass
-
-            _sw_scaled_ok = True
-        except pygame.error:
-            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
-            os.environ.pop('SDL_VIDEO_CENTERED', None)
+        if _scale_n >= 2:
+            try:
+                pygame.display.quit()
+                pygame.display.init()
+                if _win_pos:
+                    os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_win_pos[0]},{_win_pos[1]}'
+                else:
+                    os.environ['SDL_VIDEO_CENTERED'] = '1'
+                REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
+                os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+                os.environ.pop('SDL_VIDEO_CENTERED', None)
+                if sys.platform == 'win32':
+                    try:
+                        import ctypes as _ct
+                        _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
+                        _sdl2_lib = _ct.CDLL(_sdl2_p)
+                        _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
+                        _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
+                        if _sdl_win:
+                            _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                            _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
+                            _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
+                            if _repos:
+                                _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                                _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
+                    except Exception:
+                        pass
+                _sw_scaled_ok = True
+            except pygame.error:
+                os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+                os.environ.pop('SDL_VIDEO_CENTERED', None)
 
         if _sw_scaled_ok:
+            # --- SCALED x2: GPU 업스케일링 ---
             _use_scaled_mode = True
             if _custom_cursor_enabled:
                 pygame.mouse.set_visible(False)
             FULLSCREEN_WIDTH = _comp_w
             FULLSCREEN_HEIGHT = _comp_h
-            if _scale_n >= 2:
-                # GPU 2배 업스케일링: 게임은 1:1
-                GAME_SCALE_FACTOR = 1.0
-                GAME_SCALED_WIDTH = WIDTH
-                GAME_SCALED_HEIGHT = HEIGHT
-                GAME_OFFSET_X = _comp_pad_x
-                GAME_OFFSET_Y = _comp_pad_y
-            else:
-                # _scale_n == 1: GPU 업스케일링 불가 → 소프트웨어 스케일링 적용
-                _sw_margin = _init_pillar_pad_y
-                _sw_scale_y = (_comp_h - _sw_margin * 2) / HEIGHT
-                _sw_scaled_w = int(WIDTH * _sw_scale_y)
-                if _sw_scaled_w > _comp_w:
-                    GAME_SCALE_FACTOR = _comp_w / WIDTH
-                else:
-                    GAME_SCALE_FACTOR = _sw_scale_y
-                GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
-                GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
-                GAME_OFFSET_X = (_comp_w - GAME_SCALED_WIDTH) // 2
-                GAME_OFFSET_Y = (_comp_h - GAME_SCALED_HEIGHT) // 2
-                print(f"[디스플레이] 창모드(SCALED x1) 소프트웨어 스케일링: {GAME_SCALE_FACTOR:.2f}x", flush=True)
+            GAME_SCALE_FACTOR = 1.0
+            GAME_SCALED_WIDTH = WIDTH
+            GAME_SCALED_HEIGHT = HEIGHT
+            GAME_OFFSET_X = _comp_pad_x
+            GAME_OFFSET_Y = _comp_pad_y
             _set_font_scale(GAME_SCALE_FACTOR)
             SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
             pillar_renderer = init_pillar_background(
@@ -12124,22 +12106,15 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
                 original_game_width=WIDTH, original_game_height=HEIGHT
             )
         else:
+            # --- x1 또는 SCALED 실패: DOUBLEBUF 직접 렌더링 (노트북 최적화) ---
             _use_scaled_mode = False
-            _init_base_h = int(monitor_h * 0.85)
-            _init_win_scale = _init_base_h / HEIGHT
-            _init_game_w = int(WIDTH * _init_win_scale)
-            _init_pillar_pad_x = int(_init_game_w * 0.30)
-            _init_pillar_pad_y = max(int(_init_base_h * 0.065), 30)
-            _t_w = _init_game_w + _init_pillar_pad_x * 2
-            _t_h = _init_base_h + _init_pillar_pad_y * 2
-            if _t_w > int(monitor_w * 0.90):
-                _t_w = int(monitor_w * 0.90)
-            if _t_h > int(monitor_h * 0.85):
-                _t_h = int(monitor_h * 0.85)
-            os.environ['SDL_VIDEO_CENTERED'] = '1'
-            REAL_SCREEN = pygame.display.set_mode((_t_w, _t_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
-            if 'SDL_VIDEO_CENTERED' in os.environ:
-                del os.environ['SDL_VIDEO_CENTERED']
+            if _win_pos:
+                os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_win_pos[0]},{_win_pos[1]}'
+            else:
+                os.environ['SDL_VIDEO_CENTERED'] = '1'
+            REAL_SCREEN = pygame.display.set_mode((_init_target_w, _init_target_h), pygame.DOUBLEBUF)
+            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+            os.environ.pop('SDL_VIDEO_CENTERED', None)
             if _custom_cursor_enabled:
                 pygame.mouse.set_visible(False)
             _a_w, _a_h = REAL_SCREEN.get_size()
