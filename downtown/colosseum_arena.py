@@ -4679,16 +4679,8 @@ class GuardWarriorSystem:
                             game_state[f'{stun_prefix}_stunned'] = False
                     # 빙의 스킬 언래핑 (수수께끼 묘기 → 실제 스킬)
                     _eff_id3, _eff_sk3 = self._unwrap_possessed_skill(skill)
-                    # 뿔 박치기: 시전자 스턴 복원 (_restore_caster_state가 해제한 것 복구)
-                    if _eff_id3 == 'horn_charge' and _eff_sk3:
-                        _hc_caster_prefix = 'top_paddle' if getattr(_eff_sk3, 'caster_is_top', True) else 'bottom_paddle'
-                        if (hasattr(_eff_sk3, 'phase') and _eff_sk3.phase == _eff_sk3.PHASE_STUN
-                                and _eff_sk3.phase_timer < 1.0):
-                            game_state[f'{_hc_caster_prefix}_stunned'] = True
-                        elif (hasattr(_eff_sk3, 'phase') and _eff_sk3.phase == _eff_sk3.PHASE_STUN
-                                and _eff_sk3.phase_timer >= 1.0):
-                            # 스턴 해제 후: _restore_caster_state가 복원한 잔여 시전자 스턴 강제 제거
-                            game_state[f'{_hc_caster_prefix}_stunned'] = False
+                    # 뿔 박치기: 시전자 스턴은 호위무사에만 해당 — 메인 영웅에 적용하지 않음
+                    # (_restore_caster_state가 이미 메인 영웅의 스턴 상태를 보호함)
                     # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
                     if _eff_id3 == 'horn_charge':
                         game_state['horn_charge_active'] = False
@@ -6495,6 +6487,10 @@ class GuardWarriorSystem:
             else:
                 bx = self.x_top + shake_x
                 by = self.y_top + shake_y + 50
+                if self.active_top:
+                    ds_ox, ds_oy = self._get_dark_slash_guard_offset(self.active_top, True)
+                    bx += ds_ox
+                    by += ds_oy
             timer = self._bubble_top['timer']
             theme = self._bubble_top.get('color', (200, 100, 60))
             if self._bubble_top.get('is_entrance'):
@@ -6514,6 +6510,10 @@ class GuardWarriorSystem:
             else:
                 bx = self.x_bottom + shake_x
                 by = self.y_bottom + shake_y - 85
+                if self.active_bottom:
+                    ds_ox, ds_oy = self._get_dark_slash_guard_offset(self.active_bottom, False)
+                    bx += ds_ox
+                    by += ds_oy
             timer = self._bubble_bottom['timer']
             theme = self._bubble_bottom.get('color', (200, 100, 60))
             # 등장 대사는 둥근 말풍선으로 표시
@@ -6718,9 +6718,41 @@ class GuardWarriorSystem:
     # 인게임 영웅 렌더링 기준 너비 130의 90% (호위무사는 영웅보다 10% 작게)
     _GUARD_RENDER_WIDTH = 117
 
+    def _get_dark_slash_side_offset(self, is_top: bool) -> Tuple[float, float]:
+        """달빛 베기 점프/하강 중인 시전자 쪽 오프셋."""
+        if not self.skill_manager:
+            return 0.0, 0.0
+        game_state = self.skill_manager.game_state
+        caster_is_top = game_state.get('dark_slash_caster_is_top')
+        if caster_is_top != is_top:
+            return 0.0, 0.0
+        return (
+            float(game_state.get('dark_slash_caster_offset_x', 0.0)),
+            float(game_state.get('dark_slash_caster_offset_y', 0.0)),
+        )
+
+    def _get_dark_slash_side_center_y(self, is_top: bool, default_center_y: float) -> float:
+        """달빛 베기 중에는 현재 패들 rect 대신 전용 공중 Y를 렌더 기준으로 사용."""
+        if not self.skill_manager:
+            return float(default_center_y)
+        game_state = self.skill_manager.game_state
+        if game_state.get('dark_slash_caster_is_top') != is_top:
+            return float(default_center_y)
+        base_center_y = game_state.get('dark_slash_caster_base_center_y')
+        if base_center_y is None:
+            return float(default_center_y)
+        return float(base_center_y) + float(game_state.get('dark_slash_caster_offset_y', 0.0))
+
+    def _get_dark_slash_guard_offset(self, guard_hero, is_top: bool) -> Tuple[float, float]:
+        """달빛베기 시전자 호위무사에게만 렌더 오프셋 적용"""
+        if not guard_hero or guard_hero.get("id") != "mugen":
+            return 0.0, 0.0
+        return self._get_dark_slash_side_offset(is_top)
+
     def _draw_guard(self, screen, guard_hero, x, y, is_top):
         """단일 호위무사 캐릭터 렌더링 (영웅보다 10% 작은 크기)"""
-        ix, iy = int(x), int(y)
+        ds_ox, ds_oy = self._get_dark_slash_guard_offset(guard_hero, is_top)
+        ix, iy = int(x + ds_ox), int(y + ds_oy)
         color = guard_hero.get("color", (200, 200, 200))
 
         # 글로우 효과 (반투명 원, 영웅보다 10% 작게)
@@ -7635,6 +7667,7 @@ class ColosseumsArena:
         self.manual_control_btn_rect = None  # 토글 버튼 영역
         self.manual_move_left = False  # A/← 키 누름 상태
         self.manual_move_right = False  # D/→ 키 누름 상태
+        self.manual_skill_input_active = False  # Space/좌클릭 홀드 중인지
         self.manual_skill_cooldown_order = []  # 스킬 충전 완료 순서 추적
 
         # 말풍선 시스템 (스킬 발동 시 외침)
@@ -8942,6 +8975,19 @@ class ColosseumsArena:
         # 상태 효과 적용 (패들별)
         game_state = self.skill_manager.game_state
 
+        # 스킬이 실제로 터지는 타이밍에 외침/사운드 표시
+        pending_announcements = game_state.get('pending_skill_announcements', [])
+        if pending_announcements:
+            for announcement in pending_announcements:
+                self._play_skill_sound(announcement)
+                skill_name = announcement.get('skill_name')
+                if skill_name:
+                    self.show_speech_bubble(
+                        announcement.get('caster_is_top', True),
+                        skill_name
+                    )
+            game_state['pending_skill_announcements'] = []
+
         # 상단 패들 상태 효과
         self.top_paddle.is_stunned = game_state.get('top_paddle_stunned', False)
         self.top_paddle.slow_multiplier = game_state.get('top_paddle_slow_amount', 1.0) if game_state.get('top_paddle_slowed', False) else 1.0
@@ -8991,6 +9037,9 @@ class ColosseumsArena:
         """공을 칠 때 ON_BALL_HIT 스킬 발동"""
         if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
             return
+        if self.manual_control_active and not getattr(caster_paddle, 'is_top', True):
+            if not self.manual_skill_input_active:
+                return
 
         # === 달빛 베기 반격 처리 ===
         # 상대가 공을 반격하면 달빛 베기로 인한 공 가속을 원래 속도로 복귀
@@ -9188,6 +9237,54 @@ class ColosseumsArena:
         if result and chosen.skill_id in self.manual_skill_cooldown_order:
             self.manual_skill_cooldown_order.remove(chosen.skill_id)
 
+    def _manual_try_use_skill(self):
+        """수동 모드에서 준비된 ON_COOLDOWN 스킬을 직접 발동."""
+        if not self.skill_manager or not self.selected_match:
+            return
+
+        hero_id = self.selected_match.hero2["id"]
+        skills = self.skill_manager.active_skills.get(hero_id, [])
+        if not skills:
+            return
+
+        if self.skill_manager.hero_global_cooldowns.get(hero_id, 0) > 0:
+            return
+
+        usable = [s for s in skills if s.can_use() and s.trigger == SkillTrigger.ON_COOLDOWN]
+        if not usable:
+            return
+
+        ordered_skill_ids = []
+        for skill_id in self.manual_skill_cooldown_order:
+            if any(s.skill_id == skill_id for s in usable):
+                ordered_skill_ids.append(skill_id)
+        for skill in usable:
+            if skill.skill_id not in ordered_skill_ids:
+                ordered_skill_ids.append(skill.skill_id)
+
+        # 일부 스킬은 준비 완료 상태여도 공 위치 같은 추가 조건 때문에
+        # 실제 use() 단계에서 실패할 수 있으므로 다음 준비 스킬까지 이어서 시도한다.
+        result = None
+        used_skill_id = None
+        for skill_id in ordered_skill_ids:
+            result = self.skill_manager.try_use_skill_by_id(
+                hero_id,
+                skill_id,
+                self.bottom_paddle,
+                self.top_paddle,
+                self.ball
+            )
+            if result:
+                used_skill_id = skill_id
+                break
+
+        if result and 'skill_korean_name' in result:
+            self._play_skill_sound(result)
+            self.show_speech_bubble(False, result['skill_korean_name'])
+
+        if result and used_skill_id in self.manual_skill_cooldown_order:
+            self.manual_skill_cooldown_order.remove(used_skill_id)
+
     def show_speech_bubble(self, is_top: bool, skill_name: str):
         """영웅 말풍선 표시"""
         if is_top:
@@ -9201,9 +9298,11 @@ class ColosseumsArena:
         """영웅 말풍선 그리기"""
         # 상단 영웅 말풍선
         if self.top_speech_timer > 0 and self.top_paddle and self.top_speech_text:
+            _top_dx, _top_dy = self._get_dark_slash_side_offset(True)
+            _top_center_y = self._get_dark_slash_side_center_y(True, self.top_paddle.y + PADDLE_HEIGHT / 2)
             self._draw_single_speech_bubble(
-                self.top_paddle.x + PADDLE_WIDTH // 2,
-                self.top_paddle.y + PADDLE_HEIGHT + 10,
+                self.top_paddle.x + PADDLE_WIDTH // 2 + _top_dx,
+                _top_center_y + PADDLE_HEIGHT / 2 + 10,
                 self.top_speech_text,
                 is_top=True
             )
@@ -9211,9 +9310,11 @@ class ColosseumsArena:
 
         # 하단 영웅 말풍선
         if self.bottom_speech_timer > 0 and self.bottom_paddle and self.bottom_speech_text:
+            _bottom_dx, _bottom_dy = self._get_dark_slash_side_offset(False)
+            _bottom_center_y = self._get_dark_slash_side_center_y(False, self.bottom_paddle.y + PADDLE_HEIGHT / 2)
             self._draw_single_speech_bubble(
-                self.bottom_paddle.x + PADDLE_WIDTH // 2,
-                self.bottom_paddle.y - 50,
+                self.bottom_paddle.x + PADDLE_WIDTH // 2 + _bottom_dx,
+                _bottom_center_y - PADDLE_HEIGHT / 2 - 50,
                 self.bottom_speech_text,
                 is_top=False
             )
@@ -9647,6 +9748,7 @@ class ColosseumsArena:
         # 수동 모드 키 입력 상태 초기화
         self.manual_move_left = False
         self.manual_move_right = False
+        self.manual_skill_input_active = False
         self.manual_skill_cooldown_order = []
 
         # 하이라이트 녹화 중단 (클립은 유지)
@@ -10409,12 +10511,19 @@ class ColosseumsArena:
                 elif event.key in (pygame.K_d, pygame.K_RIGHT):
                     self.manual_move_right = True
                     return False
+                elif event.key == pygame.K_SPACE:
+                    self.manual_skill_input_active = True
+                    self._manual_try_use_skill()
+                    return False
             elif event.type == pygame.KEYUP:
                 if event.key in (pygame.K_a, pygame.K_LEFT):
                     self.manual_move_left = False
                     return False
                 elif event.key in (pygame.K_d, pygame.K_RIGHT):
                     self.manual_move_right = False
+                    return False
+                elif event.key == pygame.K_SPACE:
+                    self.manual_skill_input_active = False
                     return False
 
         if event.type == pygame.KEYDOWN:
@@ -10866,6 +10975,10 @@ class ColosseumsArena:
                     return False
                 self._handle_click(event.pos)
 
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1 and self.state == TournamentState.BATTLE and self.manual_control_active:
+                self.manual_skill_input_active = False
+
         return self.exit_requested
 
     def _handle_animation_skip(self) -> bool:
@@ -11039,6 +11152,7 @@ class ColosseumsArena:
         if self.state == TournamentState.BATTLE:
             if self.manual_control_btn_rect and self.manual_control_btn_rect.collidepoint(mx, my):
                 self.manual_control_active = not self.manual_control_active
+                self.manual_skill_input_active = False
                 if self.manual_control_active:
                     # 수동 모드 진입: 배속 1x 강제, 키 상태 초기화
                     self.speed_multiplier = 1
@@ -11059,6 +11173,7 @@ class ColosseumsArena:
 
         # 수동 모드: 좌클릭 스킬 발동 (토글 버튼/배속 버튼 영역이 아닌 경우)
         if self.state == TournamentState.BATTLE and self.manual_control_active:
+            self.manual_skill_input_active = True
             if self.skill_manager and self.selected_match and self.bottom_paddle and self.top_paddle and self.ball:
                 self._manual_try_use_skill()
             return
@@ -12799,13 +12914,14 @@ class ColosseumsArena:
             # 패들 크기 스케일 적용
             scaled_width = int(PADDLE_WIDTH * self.top_paddle.paddle_scale)
             hero1 = self.selected_match.hero1
+            render_center_y = self._get_dark_slash_side_center_y(True, paddle_rect.centery)
             # DEBUG
             if self.top_paddle.paddle_scale != 1.0:
                 print(f"[DEBUG Draw] top_paddle scale={self.top_paddle.paddle_scale}, scaled_width={scaled_width}")
 
             # 달빛 베기 오프셋 (상단 캐스터일 때만)
             ds_ox = int(_ds_offset_x) if (_ds_active and _ds_caster_is_top) else 0
-            ds_oy = int(_ds_offset_y) if (_ds_active and _ds_caster_is_top) else 0
+            ds_oy = 0
 
             if self.hero_paddle_renderer:
                 # 영웅 패들 렌더러로 그리기 (상단 영웅은 아래를 바라봄)
@@ -12813,7 +12929,7 @@ class ColosseumsArena:
                     self.screen,
                     hero1["id"],
                     paddle_rect.centerx + shake_x + ds_ox,
-                    paddle_rect.centery + shake_y + ds_oy,
+                    render_center_y + shake_y + ds_oy,
                     scaled_width,
                     PADDLE_HEIGHT,
                     facing="down",
@@ -12823,7 +12939,7 @@ class ColosseumsArena:
                 # 폴백: 기본 패들
                 scaled_rect = pygame.Rect(
                     paddle_rect.centerx - scaled_width // 2 + shake_x + ds_ox,
-                    paddle_rect.y + shake_y + ds_oy,
+                    int(render_center_y - PADDLE_HEIGHT / 2) + shake_y + ds_oy,
                     scaled_width,
                     PADDLE_HEIGHT
                 )
@@ -12842,10 +12958,11 @@ class ColosseumsArena:
             paddle_rect = self.bottom_paddle.get_rect()
             scaled_width = int(PADDLE_WIDTH * self.bottom_paddle.paddle_scale)
             hero2 = self.selected_match.hero2
+            render_center_y = self._get_dark_slash_side_center_y(False, paddle_rect.centery)
 
             # 달빛 베기 오프셋 (하단 캐스터일 때만)
             ds_ox = int(_ds_offset_x) if (_ds_active and not _ds_caster_is_top) else 0
-            ds_oy = int(_ds_offset_y) if (_ds_active and not _ds_caster_is_top) else 0
+            ds_oy = 0
 
             if self.hero_paddle_renderer:
                 # 영웅 패들 렌더러로 그리기 (하단 영웅은 위를 바라봄)
@@ -12853,7 +12970,7 @@ class ColosseumsArena:
                     self.screen,
                     hero2["id"],
                     paddle_rect.centerx + shake_x + ds_ox,
-                    paddle_rect.centery + shake_y + ds_oy,
+                    render_center_y + shake_y + ds_oy,
                     scaled_width,
                     PADDLE_HEIGHT,
                     facing="up",
@@ -12863,7 +12980,7 @@ class ColosseumsArena:
                 # 폴백: 기본 패들
                 scaled_rect = pygame.Rect(
                     paddle_rect.centerx - scaled_width // 2 + shake_x,
-                    paddle_rect.y + shake_y,
+                    int(render_center_y - PADDLE_HEIGHT / 2) + shake_y,
                     scaled_width,
                     PADDLE_HEIGHT
                 )
