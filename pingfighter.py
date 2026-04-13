@@ -144732,7 +144732,7 @@ def draw_stage6_border():
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
                 pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
-            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage6_border_flash_timer -= 1
 
 def draw_stage7_border():
