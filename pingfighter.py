@@ -4126,15 +4126,33 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
     new_korean = new_skill_data.get("korean", new_skill_name)
     new_color = new_skill_data.get("color", (200, 200, 200))
 
-    # 폰트 준비
+    # 폰트 준비 (freetype 우선, 실패 시 pygame.font 폴백)
+    _swap_use_freetype = False
+    title_font = None
+    desc_font = None
+    small_font = None
     try:
-        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 18)
-        desc_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
-        small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 11)
-    except Exception:
-        title_font = None
-        desc_font = None
-        small_font = None
+        _font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+        title_font = pygame.freetype.Font(_font_path, 18)
+        desc_font = pygame.freetype.Font(_font_path, 14)
+        small_font = pygame.freetype.Font(_font_path, 11)
+        _swap_use_freetype = True
+    except Exception as _fe:
+        print(f"[스킬교체UI] freetype 폰트 로드 실패: {_fe}", flush=True)
+        try:
+            title_font = pygame.font.Font(_font_path, 18)
+            desc_font = pygame.font.Font(_font_path, 14)
+            small_font = pygame.font.Font(_font_path, 11)
+        except Exception:
+            pass
+
+    def _swap_render(font, text, color):
+        if font is None:
+            return None
+        if _swap_use_freetype:
+            s, _ = font.render(text, color)
+            return s
+        return font.render(text, True, color)
 
     # 카드 레이아웃 설정
     card_width = 120
@@ -4143,6 +4161,9 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
     total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
     start_x = (WIDTH - total_width) // 2
     cards_y = HEIGHT // 2 + 10
+
+    # 배경 스냅샷 (매 프레임 복원용)
+    _swap_bg = SCREEN.copy()
 
     selected = None
     hover_idx = -1
@@ -4157,40 +4178,35 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
 
         mouse_pos = pygame.mouse.get_pos()
         mx, my = mouse_pos
-        if GAME_SCALE_FACTOR != 1.0:
-            mx = int(mx / GAME_SCALE_FACTOR)
-            my = int(my / GAME_SCALE_FACTOR)
 
         # 호버 감지
         hover_idx = -1
         for i in range(len(equipped)):
             cx = start_x + i * (card_width + card_spacing)
-            card_rect = pygame.Rect(cx, cards_y, card_width, card_height)
-            if card_rect.collidepoint(mx, my):
+            _cr = pygame.Rect(cx, cards_y, card_width, card_height)
+            if _cr.collidepoint(mx, my):
                 hover_idx = i
 
         # === 렌더링 ===
+        SCREEN.blit(_swap_bg, (0, 0))
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         SCREEN.blit(overlay, (0, 0))
 
-        # 패널 배경
+        # 패널 배경 (불투명)
         panel_rect = pygame.Rect(WIDTH // 2 - 200, HEIGHT // 2 - 130, 400, 260)
-        panel_surf = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
-        panel_surf.fill((20, 20, 30, 230))
-        pygame.draw.rect(panel_surf, new_color, panel_surf.get_rect(), 2, border_radius=8)
-        SCREEN.blit(panel_surf, panel_rect)
+        pygame.draw.rect(SCREEN, (20, 20, 30), panel_rect, border_radius=8)
+        pygame.draw.rect(SCREEN, new_color, panel_rect, 2, border_radius=8)
 
-        # 타이틀
-        if title_font:
-            t_surf, _ = title_font.render("스킬 구슬이 가득 찼습니다!", (255, 220, 100))
+        # 타이틀 텍스트
+        t_surf = _swap_render(title_font, "스킬 구슬이 가득 찼습니다!", (255, 220, 100))
+        if t_surf:
             SCREEN.blit(t_surf, (WIDTH // 2 - t_surf.get_width() // 2, panel_rect.y + 12))
-
-            new_label = f"새 스킬: {new_korean}"
-            n_surf, _ = title_font.render(new_label, new_color)
+        n_surf = _swap_render(title_font, f"새 스킬: {new_korean}", new_color)
+        if n_surf:
             SCREEN.blit(n_surf, (WIDTH // 2 - n_surf.get_width() // 2, panel_rect.y + 38))
-
-            d_surf, _ = desc_font.render("교체할 스킬을 클릭하세요", (200, 200, 200))
+        d_surf = _swap_render(desc_font, "교체할 스킬을 클릭하세요", (200, 200, 200))
+        if d_surf:
             SCREEN.blit(d_surf, (WIDTH // 2 - d_surf.get_width() // 2, panel_rect.y + 62))
 
         # 장착 중인 스킬 카드들
@@ -4201,15 +4217,15 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
             eq_korean = eq_data.get("korean", eq_name)
 
             is_hovered = (i == hover_idx)
-            card_surf = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
+            _card_r = pygame.Rect(cx, cards_y, card_width, card_height)
             if is_hovered:
-                card_surf.fill((eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2, 220))
+                card_bg = (eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2)
                 border_c = (255, 100, 100)
             else:
-                card_surf.fill((30, 30, 40, 200))
+                card_bg = (30, 30, 40)
                 border_c = eq_color
-            pygame.draw.rect(card_surf, border_c, card_surf.get_rect(), 2, border_radius=6)
-            SCREEN.blit(card_surf, (cx, cards_y))
+            pygame.draw.rect(SCREEN, card_bg, _card_r, border_radius=6)
+            pygame.draw.rect(SCREEN, border_c, _card_r, 2, border_radius=6)
 
             orb_cx = cx + card_width // 2
             orb_cy = cards_y + 35
@@ -4218,13 +4234,14 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
 
             _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, True, eq_color)
 
-            if small_font:
-                name_surf, _ = small_font.render(eq_korean, (255, 255, 255))
+            name_surf = _swap_render(small_font, eq_korean, (255, 255, 255))
+            if name_surf:
                 SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
 
-            if is_hovered and desc_font:
-                del_surf, _ = desc_font.render("✕ 교체", (255, 80, 80))
-                SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
+            if is_hovered:
+                del_surf = _swap_render(desc_font, "✕ 교체", (255, 80, 80))
+                if del_surf:
+                    SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
 
         pygame.display.flip()
         clock.tick(60)
@@ -4446,15 +4463,33 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
     new_korean = new_skill_data.get("korean", new_skill_name)
     new_color = new_skill_data.get("color", (180, 0, 220))
 
-    # 폰트 준비
+    # 폰트 준비 (freetype 우선, 실패 시 pygame.font 폴백)
+    _vswap_use_freetype = False
+    title_font = None
+    desc_font = None
+    small_font = None
     try:
-        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 18)
-        desc_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
-        small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 11)
-    except Exception:
-        title_font = None
-        desc_font = None
-        small_font = None
+        _font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+        title_font = pygame.freetype.Font(_font_path, 18)
+        desc_font = pygame.freetype.Font(_font_path, 14)
+        small_font = pygame.freetype.Font(_font_path, 11)
+        _vswap_use_freetype = True
+    except Exception as _fe:
+        print(f"[바이퍼교체UI] freetype 폰트 로드 실패: {_fe}", flush=True)
+        try:
+            title_font = pygame.font.Font(_font_path, 18)
+            desc_font = pygame.font.Font(_font_path, 14)
+            small_font = pygame.font.Font(_font_path, 11)
+        except Exception:
+            pass
+
+    def _vswap_render(font, text, color):
+        if font is None:
+            return None
+        if _vswap_use_freetype:
+            s, _ = font.render(text, color)
+            return s
+        return font.render(text, True, color)
 
     # 카드 레이아웃 설정
     card_width = 120
@@ -4463,6 +4498,9 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
     total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
     start_x = (WIDTH - total_width) // 2
     cards_y = HEIGHT // 2 + 10
+
+    # 배경 스냅샷 (매 프레임 복원용)
+    _vswap_bg = SCREEN.copy()
 
     selected = None
     hover_idx = -1
@@ -4477,40 +4515,35 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
 
         mouse_pos = pygame.mouse.get_pos()
         mx, my = mouse_pos
-        if GAME_SCALE_FACTOR != 1.0:
-            mx = int(mx / GAME_SCALE_FACTOR)
-            my = int(my / GAME_SCALE_FACTOR)
 
         # 호버 감지
         hover_idx = -1
         for i in range(len(equipped)):
             cx = start_x + i * (card_width + card_spacing)
-            card_rect = pygame.Rect(cx, cards_y, card_width, card_height)
-            if card_rect.collidepoint(mx, my):
+            _cr = pygame.Rect(cx, cards_y, card_width, card_height)
+            if _cr.collidepoint(mx, my):
                 hover_idx = i
 
         # === 렌더링 ===
+        SCREEN.blit(_vswap_bg, (0, 0))
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         SCREEN.blit(overlay, (0, 0))
 
-        # 패널 배경 (바이퍼 보라색 테마)
+        # 패널 배경 (바이퍼 보라색 테마, 불투명)
         panel_rect = pygame.Rect(WIDTH // 2 - 200, HEIGHT // 2 - 130, 400, 260)
-        panel_surf = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
-        panel_surf.fill((15, 5, 25, 230))
-        pygame.draw.rect(panel_surf, new_color, panel_surf.get_rect(), 2, border_radius=8)
-        SCREEN.blit(panel_surf, panel_rect)
+        pygame.draw.rect(SCREEN, (15, 5, 25), panel_rect, border_radius=8)
+        pygame.draw.rect(SCREEN, new_color, panel_rect, 2, border_radius=8)
 
-        # 타이틀
-        if title_font:
-            t_surf, _ = title_font.render("스킬 구슬이 가득 찼습니다!", (220, 180, 255))
+        # 타이틀 텍스트
+        t_surf = _vswap_render(title_font, "스킬 구슬이 가득 찼습니다!", (220, 180, 255))
+        if t_surf:
             SCREEN.blit(t_surf, (WIDTH // 2 - t_surf.get_width() // 2, panel_rect.y + 12))
-
-            new_label = f"새 스킬: {new_korean}"
-            n_surf, _ = title_font.render(new_label, new_color)
+        n_surf = _vswap_render(title_font, f"새 스킬: {new_korean}", new_color)
+        if n_surf:
             SCREEN.blit(n_surf, (WIDTH // 2 - n_surf.get_width() // 2, panel_rect.y + 38))
-
-            d_surf, _ = desc_font.render("교체할 스킬을 클릭하세요", (200, 200, 200))
+        d_surf = _vswap_render(desc_font, "교체할 스킬을 클릭하세요", (200, 200, 200))
+        if d_surf:
             SCREEN.blit(d_surf, (WIDTH // 2 - d_surf.get_width() // 2, panel_rect.y + 62))
 
         # 장착 중인 스킬 카드들
@@ -4521,15 +4554,15 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
             eq_korean = eq_data.get("korean", eq_name)
 
             is_hovered = (i == hover_idx)
-            card_surf = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
+            _card_r = pygame.Rect(cx, cards_y, card_width, card_height)
             if is_hovered:
-                card_surf.fill((eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2, 220))
+                card_bg = (eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2)
                 border_c = (255, 100, 100)
             else:
-                card_surf.fill((20, 10, 30, 200))
+                card_bg = (20, 10, 30)
                 border_c = eq_color
-            pygame.draw.rect(card_surf, border_c, card_surf.get_rect(), 2, border_radius=6)
-            SCREEN.blit(card_surf, (cx, cards_y))
+            pygame.draw.rect(SCREEN, card_bg, _card_r, border_radius=6)
+            pygame.draw.rect(SCREEN, border_c, _card_r, 2, border_radius=6)
 
             orb_cx = cx + card_width // 2
             orb_cy = cards_y + 35
@@ -4538,13 +4571,14 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
 
             _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, True, eq_color)
 
-            if small_font:
-                name_surf, _ = small_font.render(eq_korean, (255, 255, 255))
+            name_surf = _vswap_render(small_font, eq_korean, (255, 255, 255))
+            if name_surf:
                 SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
 
-            if is_hovered and desc_font:
-                del_surf, _ = desc_font.render("✕ 교체", (255, 80, 80))
-                SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
+            if is_hovered:
+                del_surf = _vswap_render(desc_font, "✕ 교체", (255, 80, 80))
+                if del_surf:
+                    SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
 
         pygame.display.flip()
         clock.tick(60)
@@ -29956,9 +29990,26 @@ nemesis_death_phase = 0  # 0: 분해, 1: 대폭발, 2: 화면정지/대기
 nemesis_death_boss_fragments = []  # 보스 파편 리스트 (분해 효과)
 nemesis_death_boss_opacity = 255  # 보스 투명도 (분해되면서 감소)
 nemesis_death_star_dropped = False  # 별 드랍 여부 (1회만)
-NEMESIS_DEATH_DURATION = 4000  # 분해 애니메이션 시간 (4초)
-NEMESIS_FINAL_EXPLOSION_TIME = 3500  # 대폭발 시작 시간 (3.5초)
-NEMESIS_POST_DELAY = 5000  # 대폭발 후 화면 정지 시간 (5초)
+NEMESIS_DEATH_DURATION = 5000  # 분해 애니메이션 시간 (5초)
+NEMESIS_FINAL_EXPLOSION_TIME = 4500  # 대폭발 시작 시간 (4.5초)
+NEMESIS_POST_DELAY = 2000  # 대폭발 후 잠시 대기 (2초) → 보물상자 드랍
+
+# 네메시스 보물상자 시스템 (스테이지 5 클리어 보상)
+nemesis_chest_active = False  # 보물상자 존재 여부
+nemesis_chest_x = 0.0  # 보물상자 X 위치
+nemesis_chest_y = 0.0  # 보물상자 Y 위치
+nemesis_chest_vy = 0.0  # 보물상자 낙하 속도
+nemesis_chest_landed = False  # 착지 여부
+nemesis_chest_opened = False  # 열림 여부
+nemesis_chest_open_timer = 0  # 열림 애니메이션 타이머
+nemesis_chest_glow_timer = 0.0  # 빛나는 이펙트 타이머
+nemesis_chest_bounce_count = 0  # 바운스 횟수
+nemesis_chest_item_given = False  # 아이템 지급 완료 여부
+nemesis_chest_result_delay = 0  # 아이템 지급 후 show_result 대기 타이머
+nemesis_chest_particles = []  # 보물상자 파티클
+nemesis_chest_lid_angle = 0.0  # 뚜껑 열림 각도
+NEMESIS_CHEST_SIZE = 44  # 보물상자 크기
+NEMESIS_CHEST_LAND_Y = 500.0  # 착지 Y 좌표 (플레이어가 대쉬로 닿을 수 있는 위치)
 # 스테이지 6 장막 충돌 효과
 stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
 
@@ -151431,7 +151482,7 @@ def calculate_bounce(paddle):
     ):
         #  드라이브 발동을 위한 게이지 확인 (150 게이지 필요) + 쿨타임 체크
         # 👁 오딘의 눈 변신 상태에서는 드라이브 사용 불가
-        if special_gauge >= 150 and get_smasher_skill_cooldown_remaining("drive") <= 0 and not is_odins_eye_transformed() and not is_yachaman_transformed() and not is_horn_strawberry_skills_locked():
+        if special_gauge >= 150 and is_smasher_skill_unlocked("drive") and get_smasher_skill_cooldown_remaining("drive") <= 0 and not is_odins_eye_transformed() and not is_yachaman_transformed() and not is_horn_strawberry_skills_locked():
             perfect_shot = True
             drive_activated = True  #  드라이브 발동 표시
             trigger_smasher_contact_animation(BALL.centerx - paddle.centerx, intensity=1.5)
@@ -163673,11 +163724,10 @@ def update_nemesis_death_animation():
                         pass
                 # print(f"[Nemesis] 패배! 스타포인트 {num_stars}개 드랍!")
 
-    # === Phase 2: 화면 정지 + 대기 후 종료 (4초~9초, 5초간 정지) ===
+    # === Phase 2: 대폭발 후 잠시 대기 → 보물상자 드랍 ===
     else:
         if nemesis_death_phase != 2:
             nemesis_death_phase = 2
-            # print(f"[Nemesis] Phase 2 시작! 5초간 화면 정지...")
         post_elapsed = elapsed - NEMESIS_DEATH_DURATION
 
         # 파편들 계속 업데이트 (서서히 사라짐)
@@ -163689,13 +163739,14 @@ def update_nemesis_death_animation():
                 frag['opacity'] = max(0, frag['opacity'] - 3)
 
         if post_elapsed >= NEMESIS_POST_DELAY:
-            # 애니메이션 종료 → show_result 호출
+            # 폭발 애니메이션 종료 → 보물상자 드랍 페이즈로 전환
             nemesis_death_active = False
             nemesis_death_particles.clear()
             nemesis_death_explosions.clear()
             nemesis_death_boss_fragments.clear()
-            # print("[Nemesis] 패배 애니메이션 완료! → show_result(True) 호출 예정")
-            return True  # 애니메이션 완료, show_result 호출 필요
+            # 보물상자 스폰
+            spawn_nemesis_treasure_chest(boss_center_x, boss_center_y)
+            return False  # show_result 아직 호출 안 함 (보물상자 페이즈로)
 
     # 파티클 업데이트
     new_particles = []
@@ -168690,6 +168741,7 @@ def main(stage_num, new_boss_mode=False):
                     special_gauge >= 350
                     and current_space_state
                     and selected_character_type == "smasher"
+                    and is_smasher_skill_unlocked("power_smashing")  # 5구슬 슬롯에 장착 중인지 확인
                     and serve_power_smash_lockout <= 0  # 서브 직후 파워스매싱 금지
                     and not is_waiting_for_serve  # 서브 대기 상태에서는 파워스매싱 금지
                     and (_power_cooldown_ok or _ghost_shot_available)  # 둘 중 하나만 쿨타임 OK면 진입
