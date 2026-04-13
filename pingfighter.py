@@ -9774,9 +9774,36 @@ def _is_arena_manual_control_active() -> bool:
 
 
 def _is_arena_manual_skill_input_active() -> bool:
-    """수동 모드에서 ON_BALL_HIT 스킬을 허용하는 입력 홀드 상태."""
+    """수동 모드에서 홀드형 ON_BALL_HIT 스킬을 허용하는 입력 홀드 상태."""
     _arena_inst = _get_active_arena_instance()
     return bool(_arena_inst and getattr(_arena_inst, 'manual_skill_input_active', False))
+
+
+def _is_arena_manual_instant_skill(_skill) -> bool:
+    """수동 모드에서 즉시 발동할 스킬인지 판별."""
+    try:
+        from downtown.hero_skills import SkillTrigger
+    except Exception:
+        return False
+
+    _trigger = getattr(_skill, 'trigger', None)
+    _skill_id = getattr(_skill, 'skill_id', '')
+    return _trigger == SkillTrigger.ON_COOLDOWN or (
+        _trigger == SkillTrigger.ON_BALL_HIT and _skill_id != 'bomb_surprise'
+    )
+
+
+def _is_arena_manual_hold_hit_skill(_skill) -> bool:
+    """수동 모드에서 여전히 타격 시점이 필요한 예외형 스킬인지 판별."""
+    try:
+        from downtown.hero_skills import SkillTrigger
+    except Exception:
+        return False
+
+    return (
+        getattr(_skill, 'trigger', None) == SkillTrigger.ON_BALL_HIT
+        and getattr(_skill, 'skill_id', '') == 'bomb_surprise'
+    )
 
 
 def _set_arena_manual_control_enabled(enabled: bool) -> bool:
@@ -9823,7 +9850,7 @@ def _set_arena_manual_control_enabled(enabled: bool) -> bool:
     return True
 
 
-def _try_arena_manual_bottom_skill_use() -> bool:
+def _try_arena_manual_bottom_skill_use(use_hold_hit_skill: bool = False) -> bool:
     """메인 경기 객체 기준으로 투기장 하단 영웅 수동 스킬을 직접 발동."""
     _arena_inst = _get_active_arena_instance()
     _g = globals()
@@ -9859,7 +9886,10 @@ def _try_arena_manual_bottom_skill_use() -> bool:
     _result = None
     _used_skill_id = None
     try:
-        _usable = [s for s in _skills if s.can_use() and getattr(s, 'trigger', None) == SkillTrigger.ON_COOLDOWN]
+        if use_hold_hit_skill:
+            _usable = [s for s in _skills if s.can_use() and _is_arena_manual_hold_hit_skill(s)]
+        else:
+            _usable = [s for s in _skills if s.can_use() and _is_arena_manual_instant_skill(s)]
         if not _usable:
             return False
 
@@ -144798,50 +144828,121 @@ def draw_stage3_border():
             SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage3_border_flash_timer -= 1
 
+_stage4_border_cache = None  # 스테이지 4 사원 테두리 캐시
+
+def _generate_stage4_border_cache():
+    """스테이지 4 사원(만다라) 테두리를 캐시 Surface에 프리렌더링"""
+    surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    bt = 10
+    gw = WIDTH
+    gh = HEIGHT
+
+    # ── 사원 색상 팔레트 (필러 temple 참고) ──
+    STONE_DEEP = (15, 12, 18)       # 깊은 흑요석
+    STONE_DARK = (28, 25, 35)       # 어두운 돌
+    STONE_MID = (45, 40, 55)        # 중간 돌
+    ENGRAVE = (48, 36, 72)          # 음각 보라
+    RELIEF = (96, 84, 120)          # 양각 보라
+    RELIEF_HI = (120, 108, 144)     # 양각 하이라이트
+    GOLD = (138, 120, 60)           # 금색
+    GOLD_BRIGHT = (153, 141, 84)    # 밝은 금색
+    GOLD_DIM = (108, 90, 48)        # 어두운 금색
+
+    # ── 1. 베이스 테두리 (3단 석조 레이어) ──
+    pygame.draw.rect(surf, STONE_DEEP, (0, 0, gw, bt))
+    pygame.draw.rect(surf, STONE_DEEP, (0, gh - bt, gw, bt))
+    pygame.draw.rect(surf, STONE_DEEP, (0, 0, bt, gh))
+    pygame.draw.rect(surf, STONE_DEEP, (gw - bt, 0, bt, gh))
+    # 중간 레이어
+    pygame.draw.rect(surf, STONE_DARK, (1, 1, gw - 2, bt - 2))
+    pygame.draw.rect(surf, STONE_DARK, (1, gh - bt + 1, gw - 2, bt - 2))
+    pygame.draw.rect(surf, STONE_DARK, (1, 1, bt - 2, gh - 2))
+    pygame.draw.rect(surf, STONE_DARK, (gw - bt + 1, 1, bt - 2, gh - 2))
+    # 안쪽 레이어
+    pygame.draw.rect(surf, STONE_MID, (2, 2, gw - 4, bt - 4))
+    pygame.draw.rect(surf, STONE_MID, (2, gh - bt + 2, gw - 4, bt - 4))
+    pygame.draw.rect(surf, STONE_MID, (2, 2, bt - 4, gh - 4))
+    pygame.draw.rect(surf, STONE_MID, (gw - bt + 2, 2, bt - 4, gh - 4))
+
+    # ── 2. 금색 테두리선 (외곽 + 내부) ──
+    pygame.draw.rect(surf, GOLD_DIM, (0, 0, gw, gh), 2)
+    pygame.draw.rect(surf, GOLD, (bt - 2, bt - 2, gw - 2*(bt - 2), gh - 2*(bt - 2)), 2)
+
+    # ── 3. 만다라 연꽃 패턴 (상하좌우) ──
+    sp = 18  # 패턴 간격
+    mid_y_top = bt // 2
+    mid_y_bot = gh - bt // 2
+    mid_x_left = bt // 2
+    mid_x_right = gw - bt // 2
+
+    def draw_lotus_dot(sx, sy, color1, color2):
+        """연꽃 점 문양 — 중앙 다이아몬드 + 4방 점"""
+        # 중앙 다이아몬드 (2x2)
+        pygame.draw.rect(surf, color1, (sx - 1, sy - 1, 3, 3))
+        # 4방 꽃잎 점
+        for dx, dy in [(-3, 0), (3, 0), (0, -3), (0, 3)]:
+            pygame.draw.rect(surf, color2, (sx + dx, sy + dy, 2, 2))
+
+    color_sets = [(RELIEF, GOLD_BRIGHT), (ENGRAVE, GOLD), (RELIEF_HI, GOLD_BRIGHT)]
+
+    # 상단/하단
+    idx = 0
+    for x in range(sp, gw - sp, sp):
+        c1, c2 = color_sets[idx % 3]
+        draw_lotus_dot(x, mid_y_top, c1, c2)
+        draw_lotus_dot(x, mid_y_bot, c1, c2)
+        # 연결 금색 선 (연꽃 사이)
+        if idx % 2 == 0:
+            nx = x + sp
+            if nx < gw - sp:
+                pygame.draw.line(surf, GOLD_DIM, (x + 4, mid_y_top), (nx - 4, mid_y_top), 1)
+                pygame.draw.line(surf, GOLD_DIM, (x + 4, mid_y_bot), (nx - 4, mid_y_bot), 1)
+        idx += 1
+
+    # 좌측/우측
+    idx = 0
+    for y in range(sp, gh - sp, sp):
+        c1, c2 = color_sets[idx % 3]
+        draw_lotus_dot(mid_x_left, y, c1, c2)
+        draw_lotus_dot(mid_x_right, y, c1, c2)
+        if idx % 2 == 0:
+            ny = y + sp
+            if ny < gh - sp:
+                pygame.draw.line(surf, GOLD_DIM, (mid_x_left, y + 4), (mid_x_left, ny - 4), 1)
+                pygame.draw.line(surf, GOLD_DIM, (mid_x_right, y + 4), (mid_x_right, ny - 4), 1)
+        idx += 1
+
+    # ── 4. 코너 만다라 장식 (동심원 + 꽃잎) ──
+    corner_pts = [(bt // 2, bt // 2), (gw - bt // 2, bt // 2),
+                  (bt // 2, gh - bt // 2), (gw - bt // 2, gh - bt // 2)]
+    for cx, cy in corner_pts:
+        # 동심원 (금색)
+        pygame.draw.circle(surf, GOLD_BRIGHT, (cx, cy), 5, 2)
+        pygame.draw.circle(surf, RELIEF_HI, (cx, cy), 3, 1)
+        # 중심점
+        pygame.draw.rect(surf, GOLD_BRIGHT, (cx - 1, cy - 1, 2, 2))
+        # 대각 꽃잎
+        for dx, dy in [(-2, -2), (2, -2), (-2, 2), (2, 2)]:
+            pygame.draw.rect(surf, RELIEF, (cx + dx, cy + dy, 2, 2))
+
+    return surf
+
 def draw_stage4_border():
-    """스테이지 4 사원 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
-    global stage4_border_flash_timer
+    """스테이지 4 사원(만다라) 테두리 + 벽 충돌 깜빡임 효과"""
+    global stage4_border_flash_timer, _stage4_border_cache
     if current_stage == 4:
-        border_thickness = 10
-        x_off = 0
-        game_w = WIDTH
-        # 사원 테마 색상 (어두운 보라/금색 계열)
-        base_color = (20, 15, 35)  # 깊은 보라 (베이스)
-        mid_color = (48, 36, 72)  # 음각 보라
-        light_color = (84, 72, 108)  # 밝은 보라
-        accent_color = (120, 108, 144)  # 양각 하이라이트
-
-        # 메인 테두리
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
-
-        # 내부 테두리 (깊이감 추가)
-        inner_thickness = 2
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-
-        # 코너 장식 (만다라 느낌)
-        corner_radius = 4
-        draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+        # 캐시된 만다라 문양 테두리
+        if _stage4_border_cache is None:
+            _stage4_border_cache = _generate_stage4_border_cache()
+        SCREEN.blit(_stage4_border_cache, (0, 0))
 
         # 벽 충돌 시 깜빡임 효과 (보라/금 은은하게)
         if stage4_border_flash_timer > 0:
+            game_w = WIDTH
             flash_ratio = stage4_border_flash_timer / stage4_border_flash_duration
             base_alpha = int(13 * flash_ratio)
-            bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
-            grad_steps = max(2, bt)
+            grad_steps = max(2, 10)
             for i in range(grad_steps):
                 t = 1.0 - (i / grad_steps)
                 a = int(base_alpha * t * t)
@@ -144852,7 +144953,7 @@ def draw_stage4_border():
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
                 pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
-            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage4_border_flash_timer -= 1
 
 def draw_stage5_border():
@@ -156033,63 +156134,64 @@ def handle_ball():
         except Exception:
             pass
 
-        # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
-        _arena_manual_hit_skill_ready = (
-            not _is_arena_manual_control_active() or _is_arena_manual_skill_input_active()
-        )
-        if arena_mode_enabled and arena_skill_manager and arena_bottom_hero and _arena_manual_hit_skill_ready:
+        # 투기장 모드: 하단 영웅(플레이어 위치) 스킬 발동
+        if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
             try:
-                # 래퍼 객체 생성 (스킬 시스템용)
-                class PaddleWrapper:
-                    def __init__(self, rect, is_top):
-                        self.x = rect.x
-                        self.y = rect.y
-                        self.width = rect.width
-                        self.height = rect.height
-                        self.centerx = rect.centerx
-                        self.centery = rect.centery
-                        self.is_top = is_top
-                class BallWrapper:
-                    def __init__(self, rect, vel):
-                        self.x = rect.x
-                        self.y = rect.y
-                        self.width = rect.width
-                        self.height = rect.height
-                        self.vx = vel[0]
-                        self.vy = vel[1]
-                bottom_wrapper = PaddleWrapper(PLAYER, False)
-                top_wrapper = PaddleWrapper(BOSS, True)
-                ball_wrapper = BallWrapper(BALL, ball_vel)
                 hero_id = arena_bottom_hero["id"]
-                result = arena_skill_manager.try_use_skill(
-                    hero_id, SkillTrigger.ON_BALL_HIT,
-                    bottom_wrapper, top_wrapper, ball_wrapper
-                )
-                if result:
-                    if result.get('blocked_by_immunity'):
-                        # 마법결계에 의해 스킬 차단됨
-                        # 1. 시전자(하단)가 스킬명 말풍선 표시
-                        _blocked_skill_name = result.get('skill_korean_name', '')
-                        arena_show_speech_bubble(False, _blocked_skill_name, hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
-                        # 2. 방어자(상단)가 "패링!" 말풍선 표시
-                        arena_show_speech_bubble(True, '패링', hero_id=arena_top_hero["id"] if arena_top_hero else None)
-                        # 3. 녹아 사라지는 이펙트 + 등대빔
-                        _block_hero_color = arena_bottom_hero.get("color", (180, 80, 220)) if arena_bottom_hero else (180, 80, 220)
-                        _spawn_barrier_block_effect(
-                            caster_x=float(PLAYER.centerx), caster_y=float(PLAYER.centery),
-                            target_x=float(BOSS.centerx), target_y=float(BOSS.centery),
-                            skill_name=_blocked_skill_name,
-                            caster_is_top=False,
-                            hero_color=_block_hero_color
-                        )
-                    else:
-                        # 공 속도 변경 반영
-                        ball_vel[0] = ball_wrapper.vx
-                        ball_vel[1] = ball_wrapper.vy
-                        # 스킬 사운드 재생 + 말풍선 표시
-                        arena_play_skill_sound(result)
-                        if 'skill_korean_name' in result:
-                            arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
+                if _is_arena_manual_control_active():
+                    if _is_arena_manual_skill_input_active():
+                        _try_arena_manual_bottom_skill_use(use_hold_hit_skill=True)
+                else:
+                    # 래퍼 객체 생성 (스킬 시스템용)
+                    class PaddleWrapper:
+                        def __init__(self, rect, is_top):
+                            self.x = rect.x
+                            self.y = rect.y
+                            self.width = rect.width
+                            self.height = rect.height
+                            self.centerx = rect.centerx
+                            self.centery = rect.centery
+                            self.is_top = is_top
+                    class BallWrapper:
+                        def __init__(self, rect, vel):
+                            self.x = rect.x
+                            self.y = rect.y
+                            self.width = rect.width
+                            self.height = rect.height
+                            self.vx = vel[0]
+                            self.vy = vel[1]
+                    bottom_wrapper = PaddleWrapper(PLAYER, False)
+                    top_wrapper = PaddleWrapper(BOSS, True)
+                    ball_wrapper = BallWrapper(BALL, ball_vel)
+                    result = arena_skill_manager.try_use_skill(
+                        hero_id, SkillTrigger.ON_BALL_HIT,
+                        bottom_wrapper, top_wrapper, ball_wrapper
+                    )
+                    if result:
+                        if result.get('blocked_by_immunity'):
+                            # 마법결계에 의해 스킬 차단됨
+                            # 1. 시전자(하단)가 스킬명 말풍선 표시
+                            _blocked_skill_name = result.get('skill_korean_name', '')
+                            arena_show_speech_bubble(False, _blocked_skill_name, hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                            # 2. 방어자(상단)가 "패링!" 말풍선 표시
+                            arena_show_speech_bubble(True, '패링', hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                            # 3. 녹아 사라지는 이펙트 + 등대빔
+                            _block_hero_color = arena_bottom_hero.get("color", (180, 80, 220)) if arena_bottom_hero else (180, 80, 220)
+                            _spawn_barrier_block_effect(
+                                caster_x=float(PLAYER.centerx), caster_y=float(PLAYER.centery),
+                                target_x=float(BOSS.centerx), target_y=float(BOSS.centery),
+                                skill_name=_blocked_skill_name,
+                                caster_is_top=False,
+                                hero_color=_block_hero_color
+                            )
+                        else:
+                            # 공 속도 변경 반영
+                            ball_vel[0] = ball_wrapper.vx
+                            ball_vel[1] = ball_wrapper.vy
+                            # 스킬 사운드 재생 + 말풍선 표시
+                            arena_play_skill_sound(result)
+                            if 'skill_korean_name' in result:
+                                arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
 
                 # 마법결계: 하단 영웅이 공을 쳤을 때 면역 트리거 판정
                 _imm_chance = arena_skill_manager.game_state.get('magic_immunity_chance_bottom', 0.0)
@@ -166750,7 +166852,7 @@ def main(stage_num, new_boss_mode=False):
                     pass
             main._arena_key_r_pressed = _k_r
             # 수동 모드: ←→ / A/D 이동, ↓+←→ 또는 우클릭+←→ 대쉬,
-            # Space/좌클릭 탭 = ON_COOLDOWN, 홀드 = ON_BALL_HIT 대기
+            # Space/좌클릭 탭 = 즉발 스킬, 홀드 = 폭탄 서프라이즈 같은 예외형 ON_BALL_HIT 대기
             try:
                 from downtown.colosseum_arena import ColosseumsArena as _CArena_mc
                 _arena_mc = getattr(_CArena_mc, '_active_instance', None)
