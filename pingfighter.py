@@ -20485,8 +20485,8 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
     elif skill_id == "common_training":
         # 단련: 주먹 + 스피드 라인 (훈련/수련 느낌)
         color = icon_color if icon_color else (255, 160, 80)
-        lt = lighter
-        dk = darker
+        lt = lighter(color)
+        dk = darker(color)
 
         # 주먹 본체 (세로 직사각형)
         fist_w = max(3, int(7 * scale))
