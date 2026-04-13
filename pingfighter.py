@@ -152996,7 +152996,7 @@ def handle_ball():
                 # 보스 패들 X 위치에서 약간 떨어진 곳으로 순간이동
                 boss_cx = BOSS.centerx if 'BOSS' in dir() else WIDTH // 2
                 rng = power_smashing_rng or random
-                offset_x = rng.choice([-1, 1]) * rng.randint(60, 150)
+                offset_x = rng.choice([-1, 1]) * rng.randint(150, 300)
                 teleport_x = max(BALL_RADIUS, min(WIDTH - BALL_RADIUS, boss_cx + offset_x))
                 teleport_y = 120 + rng.randint(0, 40)  # 보스 진영 약간 아래
                 BALL.centerx = teleport_x
