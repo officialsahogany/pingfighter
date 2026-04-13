@@ -87054,6 +87054,10 @@ def apply_loaded_progress(save_data: dict) -> bool:
             smasher_equipped_data = save_data.get("smasher_equipped_skills")
             if smasher_equipped_data:
                 _smasher_equipped_skills = list(smasher_equipped_data)
+            # 해금된 스킬이 장착 목록에 없으면 자동 장착 (구버전 세이브 호환)
+            for _ssk, _ssu in _smasher_skill_unlocked.items():
+                if _ssu and _ssk not in _smasher_equipped_skills:
+                    equip_smasher_skill(_ssk)
         except Exception as smasher_err:
             print(f"[로드] 스매셔 스킬 해금 상태 복원 실패: {smasher_err}")
 
@@ -87079,6 +87083,10 @@ def apply_loaded_progress(save_data: dict) -> bool:
             viper_equipped_data = save_data.get("viper_equipped_skills")
             if viper_equipped_data:
                 _viper_equipped_skills = list(viper_equipped_data)
+            # 해금된 스킬이 장착 목록에 없으면 자동 장착 (구버전 세이브 호환)
+            for _vsk, _vsu in _viper_skill_unlocked.items():
+                if _vsu and _vsk not in _viper_equipped_skills:
+                    equip_viper_skill(_vsk)
         except Exception as viper_err:
             print(f"[로드] 바이퍼 스킬 해금 상태 복원 실패: {viper_err}")
 
