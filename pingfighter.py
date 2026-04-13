@@ -85078,7 +85078,7 @@ stage5_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 # 스테이지 6 홍련(중국/화염) 테두리 효과 (코드상 stage5)
 stage6_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
 stage6_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
-# 스테이지 7 콜로세움(로마 석조) 테두리 효과
+# 스테이지 7 테트리서(블루 메탈릭) 테두리 효과
 stage7_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
 stage7_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 # 스테이지 2 정글 테두리 효과
@@ -144761,17 +144761,17 @@ def draw_stage6_border():
             stage6_border_flash_timer -= 1
 
 def draw_stage7_border():
-    """스테이지 7 콜로세움(로마 석조) 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
+    """스테이지 7 테트리서(블루 메탈릭) 테두리 그리기 (벽 충돌 시 깜빡임 효과)"""
     global stage7_border_flash_timer
     if current_stage == 7:
         border_thickness = 10
         x_off = 0
         game_w = WIDTH
-        # 콜로세움 테마 색상 (석조/금 계열)
-        base_color = (100, 85, 65)  # 어두운 석조색 (베이스)
-        mid_color = (140, 120, 95)  # 중간 석조색
-        light_color = (180, 160, 130)  # 밝은 석조색
-        accent_color = (200, 160, 80)  # 금색 악센트
+        # 테트리서 테마 색상 (시원한 블루 메탈릭 계열)
+        base_color = (15, 25, 45)  # 깊은 다크 블루 (베이스)
+        mid_color = (30, 55, 90)  # 중간 메탈릭 블루
+        light_color = (50, 85, 140)  # 밝은 메탈릭 블루
+        accent_color = (80, 150, 220)  # 시안 악센트
 
         # 메인 테두리
         pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
@@ -144779,7 +144779,7 @@ def draw_stage7_border():
         pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
         pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
 
-        # 내부 테두리 (깊이감 추가)
+        # 내부 테두리 (메탈릭 깊이감)
         inner_thickness = 2
         pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
                                               game_w - 2*(border_thickness - inner_thickness), inner_thickness))
@@ -144790,14 +144790,14 @@ def draw_stage7_border():
         pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
                                               inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
 
-        # 코너 장식 (석조 기둥 느낌)
+        # 코너 장식 (블록 느낌)
         corner_radius = 4
         draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_radius)
         draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
         draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
         draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
 
-        # 벽 충돌 시 깜빡임 효과 (석조 금빛 은은하게)
+        # 벽 충돌 시 깜빡임 효과 (시원한 블루 메탈릭)
         if stage7_border_flash_timer > 0:
             flash_ratio = stage7_border_flash_timer / stage7_border_flash_duration
             base_alpha = int(13 * flash_ratio)
@@ -144809,7 +144809,7 @@ def draw_stage7_border():
                 a = int(base_alpha * t * t)
                 if a <= 0:
                     break
-                c = (180, 140, 60, a)  # 석조 금빛 플래시
+                c = (60, 140, 220, a)  # 블루 메탈릭 플래시
                 pygame.draw.rect(flash_surf, c, (0, i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
@@ -148746,7 +148746,7 @@ def reset_round(is_stage_start=False):
     global stage4_border_flash_timer  # 스테이지 4 사원 효과
     global stage5_border_flash_timer  # 스테이지 5 네메시스(해상) 효과
     global stage6_border_flash_timer  # 스테이지 6 홍련(화염) 효과
-    global stage7_border_flash_timer  # 스테이지 7 콜로세움 효과
+    global stage7_border_flash_timer  # 스테이지 7 테트리서 효과
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global smasher_pending_contact_offset
     global boss_special_gauge, displayed_boss_gauge, stage7_persistent_boss_gauge, current_stage  #  스테이지 보스 게이지 관리
@@ -149142,7 +149142,7 @@ def reset_round(is_stage_start=False):
     stage5_border_flash_timer = 0
     # 스테이지 6(홍련/화염) 효과 초기화
     stage6_border_flash_timer = 0
-    # 스테이지 7(콜로세움) 효과 초기화
+    # 스테이지 7(테트리서) 효과 초기화
     stage7_border_flash_timer = 0
     # 스테이지 2 효과 초기화
     stage2_border_flash_timer = 0
@@ -151516,7 +151516,7 @@ def _process_wall_bounce(side: str) -> bool:
     if current_stage == 5:
         stage6_border_flash_timer = stage6_border_flash_duration
 
-    # --- 스테이지 7(콜로세움): 테두리 깜빡임 ---
+    # --- 스테이지 7(테트리서): 테두리 깜빡임 ---
     if current_stage == 7:
         stage7_border_flash_timer = stage7_border_flash_duration
 
