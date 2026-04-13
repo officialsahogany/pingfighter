@@ -168327,17 +168327,25 @@ def main(stage_num, new_boss_mode=False):
                 max_input_age = 16  # 최대 16프레임(약 0.27초) 전까지의 입력만 유효
                                     #  파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
                 # 👁 오딘의 눈 변신 상태에서는 파워스매싱 사용 불가
+                # 고스트샷 발동 가능 여부 (자체 쿨타임만 체크)
+                _ghost_shot_available = (
+                    get_runtime_skill_level("unlock_ghost_shot") >= 1
+                    and special_gauge >= 500
+                    and get_smasher_skill_cooldown_remaining("ghost_shot") <= 0
+                )
+                # 파워스매싱 쿨타임 체크: 고스트샷 가능하면 파워스매싱 쿨타임 무시
+                _power_cooldown_ok = get_smasher_skill_cooldown_remaining("power_smashing") <= 0
                 if (
                     special_gauge >= 350
                     and current_space_state
                     and selected_character_type == "smasher"
                     and serve_power_smash_lockout <= 0  # 서브 직후 파워스매싱 금지
                     and not is_waiting_for_serve  # 서브 대기 상태에서는 파워스매싱 금지
-                    and get_smasher_skill_cooldown_remaining("power_smashing") <= 0  # 쿨타임 체크
+                    and (_power_cooldown_ok or _ghost_shot_available)  # 둘 중 하나만 쿨타임 OK면 진입
                     and not is_odins_eye_transformed()  # 👁 변신 상태에서는 차단
                     and not is_yachaman_transformed()  # 💀 야차맨 변신 상태에서는 차단
                     and not is_horn_strawberry_skills_locked()  # 🍓 뿔딸기 변신 중 차단
-                ):  # 파워스매싱은 스매셔 전용
+                ):  # 파워스매싱/고스트샷 스매셔 전용
                     # 파워스매싱 발동 (고스트샷 퍽 해금 시 고스트샷 모드)
                     global power_smashing_parabola_active
                     # 파워스매싱 방향 설정
@@ -168405,13 +168413,8 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_freeze_duration = 300  # 스매셔: 짧은 연출 프리즈 (문구 표시 후 스윙+발사)
                     else:
                         power_smashing_freeze_duration = 1000
-                    # 고스트샷 발동 조건: 퍽 해금 + 게이지 500 이상 + 쿨타임 완료
-                    _ghost_shot_ready = (
-                        get_runtime_skill_level("unlock_ghost_shot") >= 1
-                        and special_gauge >= 500
-                        and get_smasher_skill_cooldown_remaining("ghost_shot") <= 0
-                    )
-                    if _ghost_shot_ready:
+                    # 고스트샷 발동 (위에서 미리 계산한 _ghost_shot_available 사용)
+                    if _ghost_shot_available:
                         mega_smashing_active = True
                         mega_smashing_start_time = pygame.time.get_ticks()
                         mega_smashing_boss_defense_count = 0
