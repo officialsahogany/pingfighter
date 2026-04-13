@@ -584,6 +584,61 @@ The project is currently undergoing UI refactoring with extensive changes to:
 - Collision detection uses optimized rect-based checks
 - Consider modular architecture refactoring for maintainability
 
+## ⚠️ CRITICAL: 그래픽/디자인 작업 가이드라인 (Graphics & Effects Performance)
+
+### 현재 렌더링 파이프라인
+- **창모드**: `pygame.SCALED` + GPU 텍스처 2배 업스케일 (1488×918 → 2976×1836)
+  - CPU 스케일링(`pygame.transform.scale()`) 완전 제거됨
+  - GPU가 최종 화면 업스케일링 처리 → 내장 그래픽으로도 충분
+- **전체모드**: 여전히 CPU 소프트웨어 스케일링 사용
+  - DWM 우회로 충분히 빠름, 필요시 나중에 SCALED 적용 가능
+
+### ✅ 자유롭게 해도 되는 것 (성능 영향 없음)
+| 작업 | 이유 |
+|------|------|
+| 파티클/이펙트 수 늘리기 | gfxdraw 직접 렌더링이라 추가 비용 매우 작음 |
+| 색상/알파 다양하게 사용 | gfxdraw는 색상 변경에 추가 비용 없음 |
+| 배경 디테일 추가 | 캐싱된 배경 위에 그리는 것이므로 자유로움 |
+| 새 이펙트 추가 | gfxdraw 또는 Surface 풀 패턴을 따르면 문제 없음 |
+| 스킬 이펙트 고퀄리티 업그레이드 | 병목이 스케일링 파이프라인이었으므로 컨텐츠 퀄리티는 자유 |
+
+### ❌ 여전히 주의해야 할 것 (CPU + pygame이 처리하는 영역)
+| 패턴 | 왜 문제? | 해결책 |
+|------|----------|--------|
+| `pygame.Surface((...), SRCALPHA)` 루프 안에서 생성 | 매 프레임 메모리 할당 → 가장 큰 성능 킬러 | Surface 풀 사용 또는 gfxdraw 직접 렌더링 |
+| `pygame.transform.rotate/scale` 매 프레임 호출 | CPU 연산 무거움 | 결과를 캐시하여 재사용 |
+| `pygame.draw` 호출 수천 번 | draw 자체는 가벼워도 양이 많으면 느려짐 | 적절한 수로 제한 또는 배치 처리 |
+| 전체화면 크기 `Surface.fill()` 남발 | 760×750 × 4바이트 = 2.3MB 매번 클리어 | 필요한 영역만 부분 클리어 |
+| 투명 블렌딩(SRCALPHA) 남발 | 알파 블렌딩은 CPU 부담 큼 | 불필요한 투명 Surface 최소화 |
+
+### 이펙트 작업 시 올바른 패턴
+```python
+# ❌ 잘못된 예 - 매 프레임 Surface 생성 + 회전
+def update_particle(self):
+    surf = pygame.Surface((20, 20), pygame.SRCALPHA)  # ❌ 매 프레임 새 Surface
+    surf = pygame.transform.rotate(surf, self.angle)   # ❌ 매 프레임 회전
+    screen.blit(surf, self.pos)
+
+# ✅ 올바른 예 - gfxdraw 직접 렌더링
+def update_particle(self):
+    pygame.gfxdraw.filled_circle(screen, int(self.x), int(self.y), 
+                                  self.radius, self.color)  # ✅ 직접 렌더링
+
+# ✅ 올바른 예 - Surface 풀 + 캐싱된 회전
+class ParticlePool:
+    def __init__(self):
+        self.cached_surfaces = {}  # 각도별 캐시
+    
+    def get_rotated(self, base_surf, angle):
+        key = int(angle) % 360
+        if key not in self.cached_surfaces:
+            self.cached_surfaces[key] = pygame.transform.rotate(base_surf, key)
+        return self.cached_surfaces[key]
+```
+
+### 한줄 요약
+> **새 이펙트를 만들 때 `pygame.Surface()` 대신 gfxdraw로 직접 그리거나 Surface 풀을 쓰면 퀄리티를 올려도 프레임드랍 없음. 파티클마다 new Surface + transform.rotate만 안 하면 됨.**
+
 ## Legendary Item System (전설 아이템)
 
 ### Legendary Item Passive Classification (전설 아이템 패시브 분류)
