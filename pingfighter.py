@@ -3907,7 +3907,7 @@ SMASHER_SKILL_ICONS_DATA = [
     },
     {
         "name": "ghost_shot", "korean": "고스트샷", "cost": 500, "color": (120, 50, 180),
-        "symbol": "👻", "cooldown": 50.0, "key": "🖱️L홀드(게이지500↑)",
+        "symbol": "👻", "cooldown": 70.0, "key": "🖱️L홀드(게이지500↑)",
         "description": "게이지 500 이상일 때 파워스매싱 대신 고스트샷 발동. 공이 뱀처럼 구불거리며 귀신이 따라다닙니다.",
         "how_to_use": "power_smashing",  # 파워스매싱과 동일 입력
         "effect_type": "ghost_purple"
