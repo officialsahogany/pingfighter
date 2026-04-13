@@ -9882,6 +9882,45 @@ def _is_arena_manual_hold_hit_skill(_skill) -> bool:
     )
 
 
+def _get_arena_round_visual_phase() -> str:
+    """활성 투기장 라운드를 전투용 배경 phase(day/sunset/night)로 변환."""
+    _arena_inst = _get_active_arena_instance()
+    _current_round = getattr(_arena_inst, 'current_round', None)
+    _round_name = getattr(_current_round, 'name', '')
+
+    if _round_name == 'SEMI_FINAL':
+        return 'sunset'
+    if _round_name == 'FINAL':
+        return 'night'
+    return 'day'
+
+
+def _sync_arena_stage30_visual_phase() -> None:
+    """투기장 UI의 현재 라운드를 실제 전투 배경/필러 렌더러에 동기화."""
+    if not globals().get('arena_mode_enabled', False):
+        return
+    if globals().get('current_stage') != 30:
+        return
+
+    _phase = _get_arena_round_visual_phase()
+
+    try:
+        if animated_bg_stage30 is not None and hasattr(animated_bg_stage30, 'set_time_of_day'):
+            if getattr(animated_bg_stage30, '_time_of_day', None) != _phase:
+                animated_bg_stage30.set_time_of_day(_phase)
+    except Exception as e:
+        print(f"[Arena] stage30 background phase sync error: {e}")
+
+    try:
+        if pillar_renderer is not None and hasattr(pillar_renderer, 'get_colosseum_bg'):
+            _colosseum_bg = pillar_renderer.get_colosseum_bg()
+            if _colosseum_bg is not None and hasattr(_colosseum_bg, 'set_time_of_day'):
+                if getattr(_colosseum_bg, '_time_of_day', None) != _phase:
+                    _colosseum_bg.set_time_of_day(_phase)
+    except Exception as e:
+        print(f"[Arena] stage30 pillar phase sync error: {e}")
+
+
 def _set_arena_manual_control_enabled(enabled: bool) -> bool:
     """투기장 자동/수동 토글 상태를 메인 루프와 함께 동기화."""
     _arena_inst = _get_active_arena_instance()
