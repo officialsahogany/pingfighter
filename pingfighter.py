@@ -22561,6 +22561,8 @@ def show_all_runtime_skills_menu() -> str | None:
                 desc_text = get_runtime_skill_description(skill_id, tooltip_skill, display_lvl)
 
             # 설명 줄바꿈
+            if not desc_text:
+                desc_text = " "
             desc_lines = []
             words = desc_text
             max_chars = 25
