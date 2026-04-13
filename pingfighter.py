@@ -168422,8 +168422,9 @@ def main(stage_num, new_boss_mode=False):
                     #  파워스매싱 발동 효과음 재생
                     play_sound_with_volume(SOUND_POWER_SMASH)
                     # print("!")
-                    # 스매셔 스킬 쿨타임 적용
-                    trigger_smasher_skill_cooldown("power_smashing")
+                    # 스매셔 스킬 쿨타임 적용 (고스트샷일 때는 파워스매싱 쿨타임 안 걸림)
+                    if not mega_smashing_active:
+                        trigger_smasher_skill_cooldown("power_smashing")
                     #  파워스매싱 성공 기록
                     record_skill_usage(success=True)
                     # 튜토리얼: 파워스매싱 사용 체크
