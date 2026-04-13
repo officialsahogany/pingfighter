@@ -85053,6 +85053,9 @@ game_state.deuce_losses = deuce_losses
 # 스테이지 1 한국 전통 테두리 효과
 stage1_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
 stage1_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
+# 스테이지 3 멘헤라 테두리 효과
+stage3_border_flash_timer = 0  # 벽 충돌 시 깜빡임 타이머
+stage3_border_flash_duration = 15  # 깜빡임 지속 시간 (은은하게)
 # 스테이지 2 정글 테두리 효과
 stage2_border_active = False  # 스테이지 2 테두리 활성화 상태
 stage2_border_timer = 0  # 테두리 애니메이션 타이머
@@ -144499,6 +144502,7 @@ def draw_stage1_border():
 
 def draw_stage3_border():
     """스테이지 3 멘헤라 테두리 그리기"""
+    global stage3_border_flash_timer
     if current_stage == 3:
         border_thickness = 10  # 스테이지 2와 동일한 두께
         # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
@@ -144537,6 +144541,26 @@ def draw_stage3_border():
         draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_size)
         # 우하단
         draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_size)
+
+        # 벽 충돌 시 깜빡임 효과 (핑크/보라 은은하게)
+        if stage3_border_flash_timer > 0:
+            flash_ratio = stage3_border_flash_timer / stage3_border_flash_duration
+            base_alpha = int(13 * flash_ratio)
+            bt = border_thickness
+            flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
+            grad_steps = max(2, bt)
+            for i in range(grad_steps):
+                t = 1.0 - (i / grad_steps)
+                a = int(base_alpha * t * t)
+                if a <= 0:
+                    break
+                c = (140, 50, 120, a)  # 핑크/보라 플래시
+                pygame.draw.rect(flash_surf, c, (0, i, game_w, 1))
+                pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
+                pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
+                pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
+            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            stage3_border_flash_timer -= 1
 
 def draw_stage2_jungle_border():
     """스테이지 2 정글 테두리 그리기"""
@@ -148463,6 +148487,7 @@ def reset_round(is_stage_start=False):
     global sand_obstacles  # 🏖 모래 지형 관련 변수
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage1_border_flash_timer  # 스테이지 1 한국 전통 효과
+    global stage3_border_flash_timer  # 스테이지 3 멘헤라 효과
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global smasher_pending_contact_offset
     global boss_special_gauge, displayed_boss_gauge, stage7_persistent_boss_gauge, current_stage  #  스테이지 보스 게이지 관리
@@ -148850,6 +148875,8 @@ def reset_round(is_stage_start=False):
     global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
     # 스테이지 1 효과 초기화
     stage1_border_flash_timer = 0
+    # 스테이지 3 효과 초기화
+    stage3_border_flash_timer = 0
     # 스테이지 2 효과 초기화
     stage2_border_flash_timer = 0
     stage2_leaves = []
@@ -151145,7 +151172,7 @@ def _process_wall_bounce(side: str) -> bool:
         True이면 무승부 판정으로 라운드 리셋됨 (호출자가 즉시 return 해야 함)
     """
     global ball_vel, wall_bounce_count, last_wall_hit, last_wall_collision_time
-    global stage1_border_flash_timer
+    global stage1_border_flash_timer, stage3_border_flash_timer
     global stage2_border_flash_timer, special_gauge
 
     # --- 반사 + 감속 ---
@@ -151205,6 +151232,10 @@ def _process_wall_bounce(side: str) -> bool:
     # --- 스테이지 1: 한국 전통 테두리 깜빡임 ---
     if current_stage == 1:
         stage1_border_flash_timer = stage1_border_flash_duration
+
+    # --- 스테이지 3: 멘헤라 테두리 깜빡임 ---
+    if current_stage == 3:
+        stage3_border_flash_timer = stage3_border_flash_duration
 
     # --- 스테이지 2: 정글 테두리 + 잎사귀 파티클 ---
     if current_stage == 2:
@@ -163798,7 +163829,7 @@ def main(stage_num, new_boss_mode=False):
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
     global quest_small_paddle_active, quest_speedrun_active, quest_speedrun_start_ticks
     # 스테이지 2 정글 테두리 효과
-    global stage1_border_flash_timer
+    global stage1_border_flash_timer, stage3_border_flash_timer
     global stage2_border_active, stage2_border_timer, stage2_border_flash_timer
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
     
