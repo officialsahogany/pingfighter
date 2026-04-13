@@ -17344,22 +17344,27 @@ def recalculate_skill_effects(skill_id: str):
     elif skill_id == "unlock_nerve_strike":
         level = runtime_skill_levels.get("unlock_nerve_strike", 0)
         _viper_skill_unlocked["nerve_strike"] = level >= 1
-        # 레벨 0으로 내려가면 장착 해제
         global _viper_equipped_skills
-        if level < 1 and "nerve_strike" in _viper_equipped_skills:
+        if level >= 1:
+            equip_viper_skill("nerve_strike")
+        elif "nerve_strike" in _viper_equipped_skills:
             _viper_equipped_skills.remove("nerve_strike")
 
     elif skill_id == "unlock_dive_strike":
         level = runtime_skill_levels.get("unlock_dive_strike", 0)
         _viper_skill_unlocked["dive_strike"] = level >= 1
-        if level < 1 and "dive_strike" in _viper_equipped_skills:
+        if level >= 1:
+            equip_viper_skill("dive_strike")
+        elif "dive_strike" in _viper_equipped_skills:
             _viper_equipped_skills.remove("dive_strike")
 
     elif skill_id == "double_marshal_kick":
         global _viper_double_marshal_kick_unlocked
         _viper_double_marshal_kick_unlocked = runtime_skill_levels.get("double_marshal_kick", 0) >= 1
         _viper_skill_unlocked["phantom_kick"] = _viper_double_marshal_kick_unlocked
-        if not _viper_double_marshal_kick_unlocked and "phantom_kick" in _viper_equipped_skills:
+        if _viper_double_marshal_kick_unlocked:
+            equip_viper_skill("phantom_kick")
+        elif "phantom_kick" in _viper_equipped_skills:
             _viper_equipped_skills.remove("phantom_kick")
 
     # 퍽 월계수잎: 잎 개수 재계산 (신성월계수 보너스 포함)
@@ -45078,10 +45083,8 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
 
                     if previous_health > 0 and boss_current_health <= 0:
                         try:
-                            # 네메시스(스테이지 6) 패배 시 폭발 애니메이션 시작
-                            if current_stage == 6:
-                                start_nemesis_death_animation()
-                                return  # show_result는 애니메이션 완료 후 호출
+                            if _defer_nemesis_stage_clear_sequence():
+                                return  # show_result는 애니메이션/보물상자 완료 후 호출
                             show_result(True)
                         except Exception:
                             pass
@@ -87436,10 +87439,8 @@ def apply_health_boss_damage(amount: int, *, source: str = "unknown", trigger_fl
 
     if previous_health > 0 and boss_current_health <= 0:
         try:
-            # 네메시스(스테이지 6) 패배 시 폭발 애니메이션 시작
-            if current_stage == 6:
-                start_nemesis_death_animation()
-                return  # show_result는 애니메이션 완료 후 호출
+            if _defer_nemesis_stage_clear_sequence():
+                return  # show_result는 애니메이션/보물상자 완료 후 호출
             show_result(True)
         except Exception:
             pass
@@ -156153,6 +156154,10 @@ def handle_ball():
             # 스테이지 2에서 플레이어 승리 시 악어 울상
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('sad')
+            if _defer_nemesis_stage_clear_sequence():
+                if arena_mode_enabled:
+                    return arena_battle_result
+                return
             show_result(True)
             if arena_mode_enabled:
                 return arena_battle_result
@@ -156910,6 +156915,10 @@ def handle_ball():
             # 스테이지 2에서 플레이어 승리 시 악어 울상
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('sad')
+            if _defer_nemesis_stage_clear_sequence():
+                if arena_mode_enabled:
+                    return arena_battle_result
+                return
             show_result(True)
             if arena_mode_enabled:
                 return arena_battle_result
@@ -158413,10 +158422,8 @@ def handle_ball():
             #  보스 체력이 0이 되면 즉시 승리
             if boss_current_health <= 0:
                 # print("보스 체력 0! 플레이어 승리!")
-                # 네메시스(스테이지 6) 패배 시 폭발 애니메이션 시작 (게임 루프에서 진행)
-                if current_stage == 6:
-                    start_nemesis_death_animation()
-                    return  # show_result는 애니메이션 완료 후 호출
+                if _defer_nemesis_stage_clear_sequence():
+                    return  # show_result는 애니메이션/보물상자 완료 후 호출
                 show_result(True)
                 if arena_mode_enabled:
                     return arena_battle_result
@@ -164500,6 +164507,18 @@ def draw_nemesis_treasure_chest(screen):
                     pass
 
 
+def _defer_nemesis_stage_clear_sequence():
+    """실제 스테이지 5(코드상 stage 6) 승리 시 즉시 결과 화면 대신 전용 연출을 실행한다."""
+    if current_stage != 6:
+        return False
+    if nemesis_death_active or nemesis_chest_active:
+        return True
+    if BOSS is None:
+        return False
+    start_nemesis_death_animation()
+    return True
+
+
 def show_result(won):
     global current_stage
     global special_gauge, special_ready, special_active
@@ -168790,6 +168809,8 @@ def main(stage_num, new_boss_mode=False):
             boss_score = 0
             player_score = 3
             # 승리 화면으로 이동
+            if _defer_nemesis_stage_clear_sequence():
+                continue
             show_result(True)
             if arena_mode_enabled:
                 if arena_battle_result is not None:
@@ -171147,7 +171168,7 @@ def main(stage_num, new_boss_mode=False):
                     use_item = True
                     target_index = selected_item_index
                 # 숫자키로 직접 아이템 사용
-                elif direct_item_index >= 0:
+                elif direct_item_index >= 0 and direct_item_index < len(active_item_slot):
                     use_item = True
                     target_index = direct_item_index
                 if use_item:
@@ -172508,6 +172529,8 @@ def main(stage_num, new_boss_mode=False):
                                     # 👁 듀스 모드: 듀스 시스템 체크 및 라운드 리셋
                                     result = check_deuce_system()
                                     if result == "player_win":
+                                        if _defer_nemesis_stage_clear_sequence():
+                                            continue
                                         show_result(True)
                                         if arena_mode_enabled:
                                             if arena_battle_result is not None:
@@ -172546,6 +172569,8 @@ def main(stage_num, new_boss_mode=False):
                                     # 👁 일반 모드: 듀스 시스템 체크 및 라운드 리셋
                                     result = check_deuce_system()
                                     if result == "player_win":
+                                        if _defer_nemesis_stage_clear_sequence():
+                                            continue
                                         show_result(True)
                                         if arena_mode_enabled:
                                             if arena_battle_result is not None:
@@ -175715,6 +175740,8 @@ def main(stage_num, new_boss_mode=False):
             deactivate_whip()  # 통합된 비활성화 함수 사용
             if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
                 BOSS.whip_sound.stop()
+            if _defer_nemesis_stage_clear_sequence():
+                continue
             # === 패널티킥 모드: 라운드 진행 ===
             if penalty_kick_mode_enabled:
                 _pk_result = _penalty_kick_on_round_end(player_won=True)
