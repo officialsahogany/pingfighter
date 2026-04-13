@@ -152925,78 +152925,93 @@ def handle_ball():
                     power_smashing_initial_boost = False
                     # print(f"🎯 파워스매싱 부스트 종료! 최종속도: {interpolated_speed:.1f}")
         
-        # 고스트샷 퍽 해금 시 고스트샷 궤적 처리
+        # 고스트샷 궤적 처리 (3단계: 상승 → 난무 → 순간이동+발사)
         if mega_smashing_active:
-            #  고스트샷: 뱀처럼 구불거리고 예측불가능한 궤적
-            # 패턴 선택 (시간에 따라 변화)
-            pattern_phase = int(elapsed_time * 2) % 4  # 0.5초마다 패턴 변경
-            if pattern_phase == 0:  #  뱀처럼 구불거리는 패턴
-                snake_freq = 8.0 + math.sin(elapsed_time * 3) * 2  # 주파수 변화
-                snake_amp = 6.0 + math.cos(elapsed_time * 2) * 3   # 진폭 변화
-                # S자 움직임
-                snake_x = math.sin(elapsed_time * snake_freq) * snake_amp
-                # 진행 방향에 따른 추가 움직임
-                progressive_x = math.sin(elapsed_time * 1.5) * 3.0
-                horizontal_force = snake_x + progressive_x
-                # 간혹 급격한 방향 전환 (15% 확률)
-                if random.random() < 0.15:
-                    horizontal_force *= -2.0
-            elif pattern_phase == 1:  #  나선형 한바퀴 도는 패턴
-                # 원형 궤도
-                orbit_radius = 8.0 + elapsed_time * 2
-                orbit_speed = 12.0  # 회전 속도
-                circular_x = math.cos(elapsed_time * orbit_speed) * orbit_radius
-                circular_y_component = math.sin(elapsed_time * orbit_speed) * 3  # Y축에도 영향
-                horizontal_force = circular_x
-                # 스파이럴 효과 추가
-                spiral_factor = math.sin(elapsed_time * 20) * 2
-                horizontal_force += spiral_factor
-            elif pattern_phase == 2:  #  지그재그 번개 패턴
-                # 톱니파 움직임
-                zigzag_period = 0.1  # 지그재그 주기
-                zigzag_phase = (elapsed_time % zigzag_period) / zigzag_period
-                if zigzag_phase < 0.5:
-                    horizontal_force = 15.0  # 오른쪽으로 급격히
-                else:
-                    horizontal_force = -15.0  # 왼쪽으로 급격히
-                # 진폭 변화
-                amplitude_mod = math.sin(elapsed_time * 3) * 0.5 + 1.0
-                horizontal_force *= amplitude_mod
-            else:  #  불규칙한 텔레포트 패턴
-                # 순간이동처럼 보이는 효과
-                if random.random() < 0.3:  # 30% 확률로 순간이동
-                    teleport_distance = random.uniform(-12, 12)
-                    horizontal_force = teleport_distance * 3  # 강한 수평 이동
-                else:
-                    # 일반적인 리사주 곡선
-                    freq1 = 3.7 + random.uniform(-0.5, 0.5)
-                    horizontal_force = math.sin(freq1 * elapsed_time) * 5
-            # 고스트샷 방향성 적용
-            direction_factor = power_smashing_arc_strength / abs(power_smashing_arc_strength) if power_smashing_arc_strength != 0 else 1
-            horizontal_force *= direction_factor
-            ball_vel[0] += horizontal_force
-            #  수직 움직임 - 위로 진행하되 약간의 변화 추가
-            base_upward_force = -3.5  # 기본 위쪽 힘
-            # 패턴에 따른 수직 변화
-            if pattern_phase == 1:  # 나선형일 때 Y축 변화
-                vertical_variation = math.sin(elapsed_time * 12) * 1.5
-            elif pattern_phase == 2:  # 지그재그일 때 미세한 상하 움직임
-                vertical_variation = math.cos(elapsed_time * 15) * 0.8
+            GHOST_SHOT_DURATION = 3.0  # 총 3초
+            GHOST_SHOT_PHASE1_END = 0.4  # 0~0.4초: 상승
+            GHOST_SHOT_PHASE2_END = 2.6  # 0.4~2.6초: 난무
+            # PHASE 3: 2.6~3.0초: 순간이동 + 보스 쪽 발사
+
+            if elapsed_time < GHOST_SHOT_PHASE1_END:
+                # === Phase 1: 플레이어 위로 빠르게 상승 ===
+                ball_vel[0] *= 0.9  # X 감속
+                ball_vel[1] = -12.0  # 일정한 상승 속도
+                # 화면 밖 방지
+                if BALL.left < 0:
+                    ball_vel[0] = abs(ball_vel[0]) + 2
+                elif BALL.right > WIDTH:
+                    ball_vel[0] = -(abs(ball_vel[0]) + 2)
+
+            elif elapsed_time < GHOST_SHOT_PHASE2_END:
+                # === Phase 2: 화면 전체를 기괴하게 돌아다님 (난무) ===
+                rng = power_smashing_rng or random
+                # 0.15초마다 랜덤 목표 지점으로 급격하게 방향 전환
+                phase2_time = elapsed_time - GHOST_SHOT_PHASE1_END
+                direction_change_interval = 0.15  # 0.15초마다 꺾임
+                # 매 인터벌마다 새 방향 설정 (프레임 독립적으로 시드 기반)
+                interval_index = int(phase2_time / direction_change_interval)
+                interval_progress = (phase2_time % direction_change_interval) / direction_change_interval
+                # 시드 기반 목표 좌표 생성 (같은 인터벌이면 같은 목표)
+                seed_rng = random.Random(mega_smashing_start_time + interval_index * 7919)
+                target_x = seed_rng.randint(40, WIDTH - 40)
+                target_y = seed_rng.randint(80, HEIGHT // 2 + 50)
+                # 다음 목표도 미리 계산 (부드러운 보간용)
+                next_rng = random.Random(mega_smashing_start_time + (interval_index + 1) * 7919)
+                next_x = next_rng.randint(40, WIDTH - 40)
+                next_y = next_rng.randint(80, HEIGHT // 2 + 50)
+                # 현재→다음 보간
+                lerp_x = target_x + (next_x - target_x) * interval_progress
+                lerp_y = target_y + (next_y - target_y) * interval_progress
+                # 목표를 향해 강하게 조향
+                dx = lerp_x - BALL.centerx
+                dy = lerp_y - BALL.centery
+                dist = max(1, math.sqrt(dx * dx + dy * dy))
+                speed = 18.0 + seed_rng.random() * 8.0  # 18~26 속도
+                ball_vel[0] = (dx / dist) * speed
+                ball_vel[1] = (dy / dist) * speed
+                # 추가 기괴한 꺾임 (20% 확률로 순간 각도 비틀기)
+                if rng.random() < 0.20:
+                    twist_angle = rng.uniform(-1.2, 1.2)
+                    cos_a = math.cos(twist_angle)
+                    sin_a = math.sin(twist_angle)
+                    vx, vy = ball_vel[0], ball_vel[1]
+                    ball_vel[0] = vx * cos_a - vy * sin_a
+                    ball_vel[1] = vx * sin_a + vy * cos_a
+                # 화면 밖 방지 (벽에서 반사)
+                if BALL.left < 5:
+                    BALL.left = 5
+                    ball_vel[0] = abs(ball_vel[0])
+                elif BALL.right > WIDTH - 5:
+                    BALL.right = WIDTH - 5
+                    ball_vel[0] = -abs(ball_vel[0])
+                if BALL.top < 5:
+                    BALL.top = 5
+                    ball_vel[1] = abs(ball_vel[1])
+                elif BALL.bottom > HEIGHT - 100:
+                    BALL.bottom = HEIGHT - 100
+                    ball_vel[1] = -abs(ball_vel[1])
+
             else:
-                vertical_variation = math.sin(elapsed_time * 5) * 1.0
-            vertical_force = base_upward_force + vertical_variation
-            # 가끔 부스트 (10% 확률)
-            rng = power_smashing_rng or random
-            if rng.random() < 0.1:
-                vertical_force -= rng.uniform(2.0, 5.0)  # 더 빠르게 위로 부스트
-            ball_vel[1] += vertical_force
-            # 속도 리미터
-            max_speed = 25.0  # 활발한 움직임을 위한 적절한 속도 제한
-            current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-            if current_speed > max_speed:
-                speed_ratio = max_speed / current_speed
-                ball_vel[0] *= speed_ratio
-                ball_vel[1] *= speed_ratio
+                # === Phase 3: 순간이동 + 보스 쪽으로 발사 ===
+                # 보스 패들 X 위치에서 약간 떨어진 곳으로 순간이동
+                boss_cx = BOSS.centerx if 'BOSS' in dir() else WIDTH // 2
+                rng = power_smashing_rng or random
+                offset_x = rng.choice([-1, 1]) * rng.randint(60, 150)
+                teleport_x = max(BALL_RADIUS, min(WIDTH - BALL_RADIUS, boss_cx + offset_x))
+                teleport_y = 120 + rng.randint(0, 40)  # 보스 진영 약간 아래
+                BALL.centerx = teleport_x
+                BALL.centery = teleport_y
+                # 보스를 향해 발사
+                fire_dx = boss_cx - teleport_x
+                fire_dy = BOSS_Y + 20 - teleport_y if 'BOSS_Y' in dir() else -teleport_y + 40
+                fire_dist = max(1, math.sqrt(fire_dx * fire_dx + fire_dy * fire_dy))
+                fire_speed = 20.0
+                ball_vel[0] = (fire_dx / fire_dist) * fire_speed
+                ball_vel[1] = (fire_dy / fire_dist) * fire_speed
+                # 고스트샷 종료 → 일반 공 물리로 복귀
+                mega_smashing_active = False
+                mega_smashing_bonus_applied = False
+                power_smashing_parabola_active = False
         else:
             # 일반 파워스매싱: 수직에 가까운 포물선 궤적
             # 수평 이동: 최소한의 방향성 + 매우 작은 랜덤 변화
