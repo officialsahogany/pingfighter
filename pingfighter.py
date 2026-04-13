@@ -152936,11 +152936,11 @@ def handle_ball():
                 # S자 움직임
                 snake_x = math.sin(elapsed_time * snake_freq) * snake_amp
                 # 진행 방향에 따른 추가 움직임
-                progressive_x = math.sin(elapsed_time * 1.5) * 0.3  # 90% 감소
+                progressive_x = math.sin(elapsed_time * 1.5) * 3.0
                 horizontal_force = snake_x + progressive_x
                 # 간혹 급격한 방향 전환 (15% 확률)
                 if random.random() < 0.15:
-                    horizontal_force *= -0.2  # 90% 감소
+                    horizontal_force *= -2.0
             elif pattern_phase == 1:  #  나선형 한바퀴 도는 패턴
                 # 원형 궤도
                 orbit_radius = 8.0 + elapsed_time * 2
@@ -152988,10 +152988,10 @@ def handle_ball():
             # 가끔 부스트 (10% 확률)
             rng = power_smashing_rng or random
             if rng.random() < 0.1:
-                vertical_force -= rng.uniform(0.2, 0.5)  # 더 빠르게 위로 (90% 감소)
+                vertical_force -= rng.uniform(2.0, 5.0)  # 더 빠르게 위로 부스트
             ball_vel[1] += vertical_force
-            # 속도 리미터 (너무 빨라지는 것 방지하되 여전히 빠름)
-            max_speed = 4.5  # 고스트샷 속도 90% 감소 (45 -> 4.5)
+            # 속도 리미터
+            max_speed = 25.0  # 활발한 움직임을 위한 적절한 속도 제한
             current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
             if current_speed > max_speed:
                 speed_ratio = max_speed / current_speed
@@ -168444,9 +168444,9 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_freeze_active = False
                         power_smashing_parabola_active = True  # 궤적 처리 블록 진입 필요
                         power_smashing_start_time = pygame.time.get_ticks()
-                        # 초기 공 속도 설정 (위로 발사)
-                        ball_vel[0] = power_smashing_arc_strength * 2.0
-                        ball_vel[1] = -4.0  # 위쪽으로
+                        # 초기 공 속도 설정 (강하게 위로 발사)
+                        ball_vel[0] = power_smashing_arc_strength * 8.0
+                        ball_vel[1] = -15.0  # 강하게 위쪽으로
                         # print(f"     !")
                     #  파워스매싱 발동 시 강제 충돌 처리 (범위 차이 문제 해결)
                     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
