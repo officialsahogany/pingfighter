@@ -37,9 +37,11 @@ if sys.platform == 'win32':
 
 # Windows: 창모드 프레임드랍 방지 (노트북 내장/외장 GPU 전환 + VSync)
 if sys.platform == 'win32':
-    # SDL2 렌더러 힌트: Direct3D 사용 + VSync 활성화
+    # SDL2 렌더러 힌트: Direct3D 사용
+    # VSync 비활성화: 창모드에서 DWM이 이미 VSync하므로 SDL VSync는 이중 대기만 유발
+    # 전체화면은 SDL_Renderer 미사용이라 이 설정에 영향 없음
     os.environ.setdefault('SDL_RENDER_DRIVER', 'direct3d')
-    os.environ.setdefault('SDL_RENDER_VSYNC', '1')
+    os.environ.setdefault('SDL_RENDER_VSYNC', '0')
     # NVIDIA Optimus: 고성능 GPU 선택 유도
     os.environ.setdefault('SHIM_MCCOMPAT', '0x800000001')
 
@@ -5769,6 +5771,12 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
                 equipped_skill_data_list.append(skill_data)
                 break
 
+    # 디버그: 1초에 1번만 출력
+    global _gauge_debug_count
+    _gauge_debug_count += 1
+    if _gauge_debug_count % 60 == 1:
+        print(f"[스매셔구슬DRAW] equipped={equipped_skills}, matched={len(equipped_skill_data_list)}", flush=True)
+
     num_equipped = len(equipped_skill_data_list)
 
     # 5개 슬롯 반원 배치: 165도(왼쪽 아래)에서 30도 간격
@@ -9271,7 +9279,7 @@ def invalidate_scale_cache():
 _pillar_bg_cache = None           # 캐시 서피스 (REAL_SCREEN 크기, .convert())
 _pillar_bg_cache_size = None      # (w, h) 크기 검증용
 _pillar_bg_cache_dirty = True     # 다음 기회에 재렌더링 필요
-_pillar_bg_render_interval = 2    # N프레임마다 필러 배경 재렌더링 (2 = 30FPS, 부드러움과 성능 균형)
+_pillar_bg_render_interval = 4 if not FULLSCREEN_MODE else 2  # 창모드: 4프레임(15FPS), 전체화면: 2프레임(30FPS)
 _pillar_bg_frame_counter = 0      # 프레임 카운터
 _pillar_bg_cache_stage = -1       # 캐시된 스테이지 번호 (변경 감지용)
 
@@ -16844,9 +16852,12 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         skill_name = _smasher_unlock_map[choice_id]
         unlock_smasher_skill(skill_name)
         # 슬롯에 장착 시도 → 꽉 차면 교체 다이얼로그
-        if not equip_smasher_skill(skill_name):
+        equip_result = equip_smasher_skill(skill_name)
+        print(f"[스매셔 5구슬] 해금: {skill_name}, 장착결과: {equip_result}, 현재슬롯: {_smasher_equipped_skills}", flush=True)
+        if not equip_result:
             removed = _show_smasher_skill_swap_dialog(skill_name)
             swap_smasher_skill(removed, skill_name)
+            print(f"[스매셔 5구슬] 교체완료: {removed} → {skill_name}, 현재슬롯: {_smasher_equipped_skills}", flush=True)
         runtime_skill_levels[choice_id] = 1
         return True
 
