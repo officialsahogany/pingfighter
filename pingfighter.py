@@ -9800,6 +9800,7 @@ def _set_arena_manual_control_enabled(enabled: bool) -> bool:
 
     if enabled:
         _arena_inst.speed_multiplier = 1
+        _g['arena_speed_multiplier'] = 1
         _g['arena_bottom_dashing'] = False
         _g['arena_bottom_dash_timer'] = 0
         _g['arena_bottom_dash_direction'] = 0
@@ -144755,54 +144756,17 @@ def draw_stage1_border():
             stage1_border_flash_timer -= 1
 
 def draw_stage3_border():
-    """스테이지 3 멘헤라 테두리 그리기"""
+    """스테이지 3 멘헤라 벽 충돌 깜빡임 효과만 (기존 하트/별 패턴 테두리는 Stage3MenheraWorld가 그림)"""
     global stage3_border_flash_timer
     if current_stage == 3:
-        border_thickness = 10  # 스테이지 2와 동일한 두께
-        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
-        x_off = 0
         game_w = WIDTH
-        # 스테이지 3 색상 (멘헤라 테마 - 핑크/보라색 계열)
-        base_color = (60, 20, 60)  # 어두운 보라색 (베이스)
-        mid_color = (100, 40, 100)  # 중간 보라색
-        light_color = (140, 60, 140)  # 밝은 보라색
-        accent_color = (200, 100, 150)  # 핑크 악센트
-
-        # 메인 테두리
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
-
-        # 내부 테두리 (깊이감 추가)
-        inner_thickness = 2
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
-                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
-                                              inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-
-        # 코너에 하트 장식 (멘헤라 느낌)
-        corner_size = 4
-        # 좌상단
-        draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_size)
-        # 우상단
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_size)
-        # 좌하단
-        draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_size)
-        # 우하단
-        draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_size)
-
+        border_thickness = 10
         # 벽 충돌 시 깜빡임 효과 (핑크/보라 은은하게)
         if stage3_border_flash_timer > 0:
             flash_ratio = stage3_border_flash_timer / stage3_border_flash_duration
             base_alpha = int(13 * flash_ratio)
-            bt = border_thickness
             flash_surf = pygame.Surface((game_w, HEIGHT), pygame.SRCALPHA)
-            grad_steps = max(2, bt)
+            grad_steps = max(2, border_thickness)
             for i in range(grad_steps):
                 t = 1.0 - (i / grad_steps)
                 a = int(base_alpha * t * t)
@@ -144813,7 +144777,7 @@ def draw_stage3_border():
                 pygame.draw.rect(flash_surf, c, (0, HEIGHT - 1 - i, game_w, 1))
                 pygame.draw.rect(flash_surf, c, (i, 0, 1, HEIGHT))
                 pygame.draw.rect(flash_surf, c, (game_w - 1 - i, 0, 1, HEIGHT))
-            SCREEN.blit(flash_surf, (x_off, 0), special_flags=pygame.BLEND_ADD)
+            SCREEN.blit(flash_surf, (0, 0), special_flags=pygame.BLEND_ADD)
             stage3_border_flash_timer -= 1
 
 def draw_stage4_border():
@@ -166657,14 +166621,15 @@ def main(stage_num, new_boss_mode=False):
         # 투기장 배속 변경 (F1~F4=직접배속, .키=빨라짐, ,키=느려짐, /키=기본배속 + 마우스 클릭)
         if arena_mode_enabled:
             _speed_list = [opt[0] for opt in _ARENA_SPEED_OPTIONS]  # [1, 1.5, 2, 3]
+            _arena_manual_control = _is_arena_manual_control_active()
             # F1~F4 키 → 배속 직접 선택
-            if keys[pygame.K_F1] and not getattr(main, '_arena_keyF1_pressed', False):
+            if (not _arena_manual_control) and keys[pygame.K_F1] and not getattr(main, '_arena_keyF1_pressed', False):
                 arena_speed_multiplier = 1      # x1
-            elif keys[pygame.K_F2] and not getattr(main, '_arena_keyF2_pressed', False):
+            elif (not _arena_manual_control) and keys[pygame.K_F2] and not getattr(main, '_arena_keyF2_pressed', False):
                 arena_speed_multiplier = 1.5    # x1.5
-            elif keys[pygame.K_F3] and not getattr(main, '_arena_keyF3_pressed', False):
+            elif (not _arena_manual_control) and keys[pygame.K_F3] and not getattr(main, '_arena_keyF3_pressed', False):
                 arena_speed_multiplier = 2      # x2
-            elif keys[pygame.K_F4] and not getattr(main, '_arena_keyF4_pressed', False):
+            elif (not _arena_manual_control) and keys[pygame.K_F4] and not getattr(main, '_arena_keyF4_pressed', False):
                 arena_speed_multiplier = 3      # x3
             main._arena_keyF1_pressed = keys[pygame.K_F1]
             main._arena_keyF2_pressed = keys[pygame.K_F2]
