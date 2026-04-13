@@ -152992,18 +152992,25 @@ def handle_ball():
                     ball_vel[1] = -abs(ball_vel[1])
 
             else:
-                # === Phase 3: 순간이동 + 보스 쪽으로 발사 ===
-                # 보스 패들 X 위치에서 약간 떨어진 곳으로 순간이동
+                # === Phase 3: 순간이동 + 보스가 없는 곳으로 발사 ===
                 boss_cx = BOSS.centerx if 'BOSS' in dir() else WIDTH // 2
                 rng = power_smashing_rng or random
+                # 순간이동: 보스에서 150~300px 떨어진 곳
                 offset_x = rng.choice([-1, 1]) * rng.randint(150, 300)
                 teleport_x = max(BALL_RADIUS, min(WIDTH - BALL_RADIUS, boss_cx + offset_x))
                 teleport_y = 120 + rng.randint(0, 40)  # 보스 진영 약간 아래
                 BALL.centerx = teleport_x
                 BALL.centery = teleport_y
-                # 보스를 향해 발사
-                fire_dx = boss_cx - teleport_x
-                fire_dy = BOSS_Y + 20 - teleport_y if 'BOSS_Y' in dir() else -teleport_y + 40
+                # 보스가 없는 곳을 목표로 발사 (보스 반대편)
+                if boss_cx < WIDTH // 2:
+                    # 보스가 왼쪽 → 오른쪽 빈 공간으로
+                    empty_x = rng.randint(WIDTH * 2 // 3, WIDTH - 30)
+                else:
+                    # 보스가 오른쪽 → 왼쪽 빈 공간으로
+                    empty_x = rng.randint(30, WIDTH // 3)
+                fire_target_y = BOSS_Y + 20 if 'BOSS_Y' in dir() else 40
+                fire_dx = empty_x - teleport_x
+                fire_dy = fire_target_y - teleport_y
                 fire_dist = max(1, math.sqrt(fire_dx * fire_dx + fire_dy * fire_dy))
                 fire_speed = 20.0
                 ball_vel[0] = (fire_dx / fire_dist) * fire_speed
