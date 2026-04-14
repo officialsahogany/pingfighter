@@ -559,143 +559,142 @@ class Dynamite:
             screen.blit(dynamite_surface, (x - 20, y - 20))
 
     def _draw_explosions(self, screen: pygame.Surface) -> None:
-        """고퀄리티 폭발 이펙트 그리기."""
+        """고퀄리티 폭발 이펙트 그리기 (캐싱 오버레이 + gfxdraw)."""
+        if not self.explosions:
+            return
+        import pygame.gfxdraw
+        w, h = screen.get_size()
+        # 캐싱된 SRCALPHA 오버레이 (프레임당 fill만)
+        if not hasattr(self, '_exp_overlay') or self._exp_overlay.get_size() != (w, h):
+            self._exp_overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+        self._exp_overlay.fill((0, 0, 0, 0))
+        _has = False
         for explosion in self.explosions:
             ex, ey = int(explosion["x"]), int(explosion["y"])
             progress = explosion["progress"]
-            shockwave_radius = int(explosion["shockwave_radius"])
+            sw_r = int(explosion["shockwave_radius"])
 
-            # 연기 구름 (먼저 그려서 뒤에 배치)
+            # ── 연기 구름 (gfxdraw 직접) ──
             for cloud in explosion.get("smoke_clouds", []):
-                life_ratio = cloud["life"] / cloud["max_life"]
-                size = int(cloud["size"])
-                alpha = int(120 * life_ratio)
-
-                if size > 0 and alpha > 0:
-                    cloud_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    # 그라데이션 연기 (바깥 어둡고 안쪽 밝게)
+                lr = cloud["life"] / cloud["max_life"]
+                sz = int(cloud["size"])
+                a = int(120 * lr)
+                if sz > 1 and a > 3:
+                    cx, cy = int(cloud["x"]), int(cloud["y"])
+                    # 3층 그라데이션 (바깥→안쪽)
                     for i in range(3):
-                        r = size - i * size // 3
-                        if r > 0:
-                            gray = 60 + i * 25
-                            a = alpha // (i + 1)
-                            pygame.draw.circle(cloud_surface, (gray, gray, gray, a), (size, size), r)
-                    screen.blit(cloud_surface, (int(cloud["x"]) - size, int(cloud["y"]) - size))
+                        r = max(1, sz - i * sz // 3)
+                        gray = 60 + i * 25
+                        _a = max(0, a // (i + 1))
+                        if _a > 2:
+                            try:
+                                pygame.gfxdraw.filled_circle(self._exp_overlay, cx, cy, r, (gray, gray, gray, _a))
+                            except Exception:
+                                pass
+                    _has = True
 
-            # 2차 쇼크웨이브들
+            # ── 다층 충격파 (3겹 링, Surface 할당 0) ──
+            if sw_r > 5 and progress < 0.6:
+                _sw_life = max(0.0, 1.0 - progress / 0.6)
+                _sw_width = max(2, int(20 * (1 - progress)))
+                # 외곽 글로우
+                _a1 = int(60 * _sw_life)
+                if _a1 > 2:
+                    pygame.draw.circle(self._exp_overlay, (255, 100, 30, _a1),
+                        (ex, ey), sw_r + 8, _sw_width + 8)
+                # 메인 링 (주황)
+                _a2 = int(180 * _sw_life)
+                if _a2 > 2:
+                    pygame.draw.circle(self._exp_overlay, (255, 150, 50, _a2),
+                        (ex, ey), sw_r, _sw_width)
+                # 내부 링 (노란)
+                _a3 = int(140 * _sw_life)
+                _inner = max(3, sw_r - 30)
+                if _a3 > 2:
+                    pygame.draw.circle(self._exp_overlay, (255, 230, 120, _a3),
+                        (ex, ey), _inner, max(2, _sw_width - 5))
+                _has = True
+
+            # ── 2차 충격파 (gfxdraw 링) ──
             for wave in explosion.get("secondary_waves", []):
-                if wave["radius"] > 0 and wave["radius"] < self.EXPLOSION_RADIUS:
-                    wave_alpha = int(150 * (1 - wave["radius"] / self.EXPLOSION_RADIUS))
-                    if wave_alpha > 0:
-                        r = int(wave["radius"])
-                        wave_surface = pygame.Surface((r * 2 + 10, r * 2 + 10), pygame.SRCALPHA)
-                        pygame.draw.circle(wave_surface, (255, 180, 80, wave_alpha),
-                                         (r + 5, r + 5), r, max(2, 8 - int(wave["radius"] / 40)))
-                        screen.blit(wave_surface, (ex - r - 5, ey - r - 5))
+                wr = int(wave["radius"])
+                if 0 < wr < self.EXPLOSION_RADIUS:
+                    _wa = int(150 * (1 - wr / self.EXPLOSION_RADIUS))
+                    _ww = max(1, 8 - wr // 40)
+                    if _wa > 2:
+                        pygame.draw.circle(self._exp_overlay, (255, 180, 80, _wa),
+                            (ex, ey), wr, _ww)
+                        _has = True
 
-            # 메인 쇼크웨이브 (더 굵고 화려하게)
-            if shockwave_radius > 0 and progress < 0.6:
-                wave_alpha = int(220 * (1 - progress / 0.6))
-                wave_width = max(4, int(20 * (1 - progress)))
-
-                wave_surface = pygame.Surface((shockwave_radius * 2 + 30, shockwave_radius * 2 + 30), pygame.SRCALPHA)
-                center = shockwave_radius + 15
-
-                # 외부 글로우
-                pygame.draw.circle(wave_surface, (255, 100, 30, wave_alpha // 3),
-                                 (center, center), shockwave_radius + 8, wave_width + 8)
-                # 메인 쇼크웨이브 (주황)
-                pygame.draw.circle(wave_surface, (255, 150, 50, wave_alpha),
-                                 (center, center), shockwave_radius, wave_width)
-                # 내부 링 (노란-흰)
-                inner_radius = max(1, shockwave_radius - 30)
-                pygame.draw.circle(wave_surface, (255, 230, 120, wave_alpha),
-                                 (center, center), inner_radius, max(2, wave_width - 5))
-
-                screen.blit(wave_surface, (ex - shockwave_radius - 15, ey - shockwave_radius - 15))
-
-            # 중심 플래시 (더 밝고 빠르게)
+            # ── 중심 플래시 ──
             if progress < 0.25:
-                flash_progress = progress / 0.25
-                flash_radius = int(150 * (1 - flash_progress * 0.7))
-                flash_alpha = int(255 * (1 - flash_progress))
+                fp = progress / 0.25
+                fr = int(150 * (1 - fp * 0.7))
+                fa = int(255 * (1 - fp))
+                if fr > 3 and fa > 5:
+                    pygame.draw.circle(self._exp_overlay, (255, 150, 50, fa // 2), (ex, ey), fr)
+                    pygame.draw.circle(self._exp_overlay, (255, 220, 100, fa), (ex, ey), int(fr * 0.7))
+                    pygame.draw.circle(self._exp_overlay, (255, 255, 240, min(255, fa + 30)), (ex, ey), int(fr * 0.35))
+                    _has = True
 
-                flash_surface = pygame.Surface((flash_radius * 2 + 30, flash_radius * 2 + 30), pygame.SRCALPHA)
-                center = flash_radius + 15
-
-                # 외부 글로우 (주황)
-                pygame.draw.circle(flash_surface, (255, 150, 50, flash_alpha // 2),
-                                 (center, center), flash_radius)
-                # 중간층 (노란)
-                pygame.draw.circle(flash_surface, (255, 220, 100, flash_alpha),
-                                 (center, center), int(flash_radius * 0.7))
-                # 중심 (흰색)
-                pygame.draw.circle(flash_surface, (255, 255, 240, min(255, flash_alpha + 30)),
-                                 (center, center), int(flash_radius * 0.35))
-
-                screen.blit(flash_surface, (ex - flash_radius - 15, ey - flash_radius - 15))
-
-            # 스파크 (빠르게 튀는 작은 불꽃)
+            # ── 스파크 (잔상 트레일 + 글로우) ──
             for spark in explosion.get("sparks", []):
-                life_ratio = spark["life"] / spark["max_life"]
-                # 스파크는 밝은 노란-흰색으로 깜빡임
+                lr = spark["life"] / spark["max_life"]
+                _sa = int(255 * lr)
+                if _sa < 5:
+                    continue
+                sx, sy = int(spark["x"]), int(spark["y"])
                 intensity = 0.7 + 0.3 * math.sin(spark["life"] * 0.8)
-                r = int(255 * intensity)
-                g = int(220 * intensity)
-                b = int(150 * intensity)
-                alpha = int(255 * life_ratio)
+                _sr = int(255 * intensity)
+                _sg = int(220 * intensity)
+                _sb = int(150 * intensity)
+                # 잔상 트레일
+                tx = sx - int(spark["vx"] * 0.3)
+                ty = sy - int(spark["vy"] * 0.3)
+                pygame.draw.line(self._exp_overlay, (_sr, _sg, _sb, _sa // 2),
+                    (sx, sy), (tx, ty), 1)
+                # 글로우
+                try:
+                    pygame.gfxdraw.filled_circle(self._exp_overlay, sx, sy, 4, (_sr, _sg, _sb, _sa // 3))
+                    pygame.gfxdraw.filled_circle(self._exp_overlay, sx, sy, 2, (_sr, _sg, _sb, _sa))
+                except Exception:
+                    pass
+                _has = True
 
-                if alpha > 0:
-                    # 스파크는 선으로 그림 (속도 방향)
-                    sx, sy = int(spark["x"]), int(spark["y"])
-                    tail_x = sx - int(spark["vx"] * 0.3)
-                    tail_y = sy - int(spark["vy"] * 0.3)
-
-                    spark_surface = pygame.Surface((abs(spark["vx"]) + 10, abs(spark["vy"]) + 10), pygame.SRCALPHA)
-                    # 간단한 점으로 표현
-                    pygame.draw.circle(spark_surface, (r, g, b, alpha), (5, 5), 2)
-                    screen.blit(spark_surface, (sx - 5, sy - 5))
-
-            # 메인 파티클 (불꽃)
+            # ── 메인 파티클 (불꽃 + 글로우) ──
             for particle in explosion["particles"]:
-                max_life = particle.get("max_life", 30)
-                life_ratio = particle["life"] / max_life
-                size = max(1, int(particle["size"]))
-                color_type = particle["color_type"]
-
-                # 색상 결정 (더 화려하게)
-                if color_type == "fire":
-                    # 주황-빨강 불꽃
-                    r = 255
-                    g = int(120 + 100 * life_ratio)
-                    b = int(30 * life_ratio)
-                elif color_type == "spark":
-                    # 밝은 노란-흰색
-                    r = 255
-                    g = int(230 + 25 * life_ratio)
-                    b = int(180 + 75 * life_ratio)
-                elif color_type == "ember":
-                    # 빨간 잔불
-                    r = int(200 + 55 * life_ratio)
-                    g = int(60 + 60 * life_ratio)
-                    b = int(20 * life_ratio)
+                ml = particle.get("max_life", 30)
+                lr = particle["life"] / ml
+                sz = max(1, int(particle["size"]))
+                ct = particle["color_type"]
+                if ct == "fire":
+                    _r, _g, _b = 255, int(120 + 100 * lr), int(30 * lr)
+                elif ct == "spark":
+                    _r, _g, _b = 255, int(230 + 25 * lr), int(180 + 75 * lr)
+                elif ct == "ember":
+                    _r, _g, _b = int(200 + 55 * lr), int(60 + 60 * lr), int(20 * lr)
                 else:
-                    # 기본 불꽃
-                    r = 255
-                    g = int(150 * life_ratio)
-                    b = int(50 * life_ratio)
+                    _r, _g, _b = 255, int(150 * lr), int(50 * lr)
+                _pa = int(255 * lr * lr)
+                if sz > 0 and _pa > 3:
+                    px, py = int(particle["x"]), int(particle["y"])
+                    # 글로우
+                    if sz > 2:
+                        try:
+                            pygame.gfxdraw.filled_circle(self._exp_overlay, px, py,
+                                sz + 2, (_r, _g // 2, _b // 2, _pa // 3))
+                        except Exception:
+                            pass
+                    # 메인
+                    try:
+                        pygame.gfxdraw.filled_circle(self._exp_overlay, px, py,
+                            sz, (_r, _g, _b, _pa))
+                    except Exception:
+                        pass
+                    _has = True
 
-                alpha = int(255 * life_ratio * life_ratio)  # 페이드아웃 가속
-
-                if size > 0 and alpha > 0:
-                    particle_surface = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
-                    center = size + 2
-                    # 글로우 효과
-                    if size > 2:
-                        pygame.draw.circle(particle_surface, (r, g // 2, b // 2, alpha // 3),
-                                         (center, center), size + 2)
-                    pygame.draw.circle(particle_surface, (r, g, b, alpha), (center, center), size)
-                    screen.blit(particle_surface, (int(particle["x"]) - size - 2, int(particle["y"]) - size - 2))
+        if _has:
+            screen.blit(self._exp_overlay, (0, 0))
 
     # -------------------------------------------------------------------------
     # 사운드
