@@ -21595,9 +21595,12 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             # Level display - 선택 시 적용될 레벨만 표시 (단발성은 "즉시" 표시)
             is_unique_display = choice.get("is_unique", False)
             rarity_display = choice.get("rarity", "common")
+            _is_char_exclusive = bool(char_restriction)  # 캐릭터 고유 퍽 여부
 
             if is_unique_display or rarity_display == "legendary":
                 level_text = "★전설"  # 유니크/전설 스킬 특별 표시
+            elif _is_char_exclusive and max_level <= 1:
+                level_text = None  # 캐릭터 고유 해금형 퍽은 Lv 표시 안함 (우측하단 뱃지로 대체)
             elif is_instant:
                 level_text = "즉시"
             elif max_level == -1:
@@ -21619,18 +21622,42 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             name_surface.set_alpha(card_alpha)
             card_surface.blit(name_surface, (text_x, 25))
 
-            # Level
-            if is_unique_display or rarity_display == "legendary":
-                level_color = (255, 200, 50)  # 황금색 (유니크/전설)
-            elif is_instant:
-                level_color = (100, 255, 200)  # 단발성은 청록색
-            elif next_level <= max_level or max_level == -1:
-                level_color = (255, 200, 100)
-            else:
-                level_color = (150, 150, 150)
-            level_surface = level_font.render(level_text, True, level_color)
-            level_surface.set_alpha(card_alpha)
-            card_surface.blit(level_surface, (text_x, 50))
+            # Level / 캐릭터 고유 퍽 뱃지
+            if _is_char_exclusive and max_level <= 1 and not (is_unique_display or rarity_display == "legendary"):
+                # 캐릭터 고유 해금형 퍽: 우측 하단에 테마색 "A" 뱃지 표시
+                _badge_colors = {
+                    "smasher": ((0, 200, 255), (20, 40, 60)),      # 시안
+                    "viper": ((200, 80, 255), (40, 15, 55)),       # 보라
+                    "optimus": ((255, 160, 30), (50, 35, 10)),     # 오렌지
+                    "soldier": ((120, 220, 80), (20, 45, 15)),     # 그린
+                }
+                _b_fg, _b_bg = _badge_colors.get(char_restriction, ((180, 180, 255), (30, 30, 50)))
+                _badge_w, _badge_h = 18, 14
+                _badge_x = scaled_width - _badge_w - 5
+                _badge_y = scaled_height - _badge_h - 5
+                _b_a = int(min(card_alpha, 200 + 40 * (0.5 + 0.5 * math.sin(frame_count * 0.1))))
+                # 뱃지 배경
+                _badge_rect = pygame.Rect(_badge_x, _badge_y, _badge_w, _badge_h)
+                pygame.draw.rect(card_surface, (*_b_bg, min(255, _b_a)), _badge_rect, border_radius=3)
+                pygame.draw.rect(card_surface, (*_b_fg, min(255, _b_a)), _badge_rect, 1, border_radius=3)
+                # "A" 텍스트
+                _badge_font = level_font
+                _badge_surf = _badge_font.render("A", True, _b_fg)
+                _badge_surf.set_alpha(min(255, _b_a))
+                _bs_w, _bs_h = _badge_surf.get_size()
+                card_surface.blit(_badge_surf, (_badge_x + (_badge_w - _bs_w) // 2, _badge_y + (_badge_h - _bs_h) // 2))
+            elif level_text:
+                if is_unique_display or rarity_display == "legendary":
+                    level_color = (255, 200, 50)  # 황금색 (유니크/전설)
+                elif is_instant:
+                    level_color = (100, 255, 200)  # 단발성은 청록색
+                elif next_level <= max_level or max_level == -1:
+                    level_color = (255, 200, 100)
+                else:
+                    level_color = (150, 150, 150)
+                level_surface = level_font.render(level_text, True, level_color)
+                level_surface.set_alpha(card_alpha)
+                card_surface.blit(level_surface, (text_x, 50))
 
             # Blit card
             card_surface.set_alpha(card_alpha)
@@ -63886,9 +63913,9 @@ def go_to_next_round():
         global animated_bg_stage3, screen_shake_timer, screen_shake_intensity
         if round_wins >= 2 and animated_bg_stage3 and animated_bg_stage3.kuromi_petrified and not animated_bg_stage3.kuromi_awakened:
             animated_bg_stage3.kuromi_awakening = True
-            animated_bg_stage3.kuromi_awakening_timer = 240  # 4초간 각성 애니메이션
+            animated_bg_stage3.kuromi_awakening_timer = 480  # 8초간 각성 애니메이션 (사운드 10.78초)
             # 화면 지진 효과 시작
-            screen_shake_timer = 240  # 4초간 화면 흔들림
+            screen_shake_timer = 480  # 8초간 화면 흔들림
             screen_shake_intensity = 15  # 강한 흔들림
 
             # 쿠로미 각성 사운드 재생
