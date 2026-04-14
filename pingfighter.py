@@ -11601,8 +11601,19 @@ def _fullscreen_flip():
                 _pillar_bg_cache_stage = _cur_stage
                 _pillar_bg_cache_dirty = True
 
+            # 스테이지 2: 원숭이/바나나 애니메이션 활성 시 매 프레임 갱신 (끊김 방지)
+            _force_pillar_refresh = False
+            if _cur_stage == 2:
+                try:
+                    from pillar_jungle import get_monkey_event_manager
+                    _mm = get_monkey_event_manager()
+                    if _mm and (_mm.active_monkeys or _mm.landed_bananas):
+                        _force_pillar_refresh = True
+                except Exception:
+                    pass
+
             # N프레임마다 또는 dirty시 필러 배경 재렌더링
-            if _pillar_bg_cache_dirty or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
+            if _pillar_bg_cache_dirty or _force_pillar_refresh or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
                 pillar_renderer.draw(_pillar_bg_cache)
                 _pillar_bg_cache_dirty = False
 
@@ -11985,7 +11996,18 @@ def _fullscreen_update(*args, **kwargs):
                 _pillar_bg_cache_stage = _cur_stage
                 _pillar_bg_cache_dirty = True
 
-            if _pillar_bg_cache_dirty or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
+            # 스테이지 2: 원숭이/바나나 애니메이션 활성 시 매 프레임 갱신 (끊김 방지)
+            _force_pillar_refresh = False
+            if _cur_stage == 2:
+                try:
+                    from pillar_jungle import get_monkey_event_manager
+                    _mm = get_monkey_event_manager()
+                    if _mm and (_mm.active_monkeys or _mm.landed_bananas):
+                        _force_pillar_refresh = True
+                except Exception:
+                    pass
+
+            if _pillar_bg_cache_dirty or _force_pillar_refresh or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
                 pillar_renderer.draw(_pillar_bg_cache)
                 _pillar_bg_cache_dirty = False
 
@@ -84617,6 +84639,9 @@ def handle_player(keys):
                             if selected_character_type == "viper" and _viper_jetpack_offset_y < 0 and not _hs_speed_active:
                                 _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
                                 _gb_mult *= 1.0 + _jet_height_ratio * 2.15
+                            # ⚔️ 다크 블레이드 구르기 중 좌우 이동속도 3배
+                            if _viper_dark_blade_active and _viper_br_spin_active:
+                                _gb_mult *= 3.0
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_mult
                                 current_speed = target_speed  # 즉시 목표 속도로 전환
@@ -84689,6 +84714,10 @@ def handle_player(keys):
                                 _jet_speed_bonus = 1.0 + _jet_height_ratio * 2.15  # 최대 3.15배 (4 × 3.15 ≈ 12.6)
                                 adjusted_acceleration *= _jet_speed_bonus
                                 adjusted_max_speed *= _jet_speed_bonus
+                            # ⚔️ 다크 블레이드 구르기 중 좌우 이동속도 3배
+                            if _viper_dark_blade_active and _viper_br_spin_active:
+                                adjusted_acceleration *= 3.0
+                                adjusted_max_speed *= 3.0
                             if _hs_speed_active:
                                 if current_speed > adjusted_max_speed:
                                     current_speed = adjusted_max_speed
