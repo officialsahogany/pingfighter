@@ -10940,7 +10940,7 @@ class BuildingInterior:
             card_rect = pygame.Rect(cx, base_y, card_w, card_h)
             is_hovered = card_rect.collidepoint(mouse_pos)
             is_selected = (i == self.quest_menu_selection)
-            if is_hovered:
+            if is_hovered and not self.quest_detail_open:
                 self.quest_hover_index = i
                 self.quest_menu_selection = i
 
