@@ -4314,13 +4314,6 @@ VIPER_SKILL_ICONS_DATA = [
         "how_to_use": "마샬 킥 적중 후 1.5초 안에 S/↓키 (팬텀 킥 퍽 필요)",
         "effect_type": "wall_dive_purple"
     },
-    {
-        "name": "dark_blade", "korean": "다크 블레이드", "cost": 200, "color": (120, 0, 30),
-        "symbol": "⚔", "cooldown": 60.0, "key": "W/↑(연계)",
-        "description": "공중 쉐도우 백스텝 직후 에어 블레이드 발동 시 변환.\n구르는 시간 50% 단축, 검기 크기 50% 증가.\n검붉은 검기 발사. 쿨타임 60초.",
-        "how_to_use": "공중 쉐도우 백스텝 후 W/↑키 (다크 블레이드 퍽 필요)",
-        "effect_type": "slash_dark"
-    },
 ]
 
 # 바이퍼 스킬 툴팁 관련 변수
@@ -63915,9 +63908,9 @@ def go_to_next_round():
         global animated_bg_stage3, screen_shake_timer, screen_shake_intensity
         if round_wins >= 2 and animated_bg_stage3 and animated_bg_stage3.kuromi_petrified and not animated_bg_stage3.kuromi_awakened:
             animated_bg_stage3.kuromi_awakening = True
-            animated_bg_stage3.kuromi_awakening_timer = 480  # 8초간 각성 애니메이션 (사운드 10.78초)
+            animated_bg_stage3.kuromi_awakening_timer = 180  # 3초간 각성 애니메이션
             # 화면 지진 효과 시작
-            screen_shake_timer = 480  # 8초간 화면 흔들림
+            screen_shake_timer = 180  # 3초간 화면 흔들림
             screen_shake_intensity = 15  # 강한 흔들림
 
             # 쿠로미 각성 사운드 재생
@@ -79397,7 +79390,8 @@ def handle_player(keys):
                     if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                         _viper_w_key_released = False
                         special_gauge -= 200
-                        trigger_viper_skill_cooldown("dark_blade")  # 다크 블레이드 60초 쿨타임
+                        _viper_skill_cooldown_override["dark_blade"] = 60  # 다크 블레이드 60초 쿨타임
+                        trigger_viper_skill_cooldown("dark_blade")
                         _viper_nerve_strike_combo_used = False
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
                         _viper_dark_blade_window = False   # 콤보 윈도우 소모
