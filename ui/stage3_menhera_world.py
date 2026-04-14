@@ -171,8 +171,8 @@ class Stage3MenheraWorld:
         if self.kuromi_awakening and self.kuromi_awakening_timer > 0:
             self.kuromi_awakening_timer -= 1
 
-            # kuromiawake.wav 사운드의 폭발 클라이맥스에 맞춰 파편 생성 (~3.4초)
-            if self.kuromi_awakening_timer == 36:  # 약 3.4초 후 (사운드 싱크)
+            # kuromiawake.wav 사운드의 폭발 클라이맥스에 맞춰 파편 생성 (~6.9초)
+            if self.kuromi_awakening_timer == 66:  # 약 6.9초 후 (사운드 최대 피크 싱크)
                 # 화면을 향해 날아가는 큰 돌 파편들 생성
                 center_x = self.width // 2
                 center_y = self.height // 2
@@ -1969,7 +1969,7 @@ class Stage3MenheraWorld:
                 end_y = crack_y + crack_length * math.sin(crack_angle)
                 
                 # 빛나는 균열
-                glow_intensity = int(255 * crack_intensity)
+                glow_intensity = max(0, min(255, int(255 * crack_intensity)))
                 glow_color = (glow_intensity, glow_intensity, glow_intensity)
                 pygame.draw.line(screen, glow_color, 
                                (crack_x, crack_y), (end_x, end_y), 2)
