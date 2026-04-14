@@ -119709,6 +119709,8 @@ def draw_objects():
                 draw.circle((150, 150, 150), 
                                  (int(smoke_grenade["x"]), int(smoke_grenade["y"])), 10)
     # 연막 지역 그리기 (gfxdraw 기반 고퀄리티 렌더링)
+    _smoke_sx = screen_shake_offset_x
+    _smoke_sy = screen_shake_offset_y
     for smoke_zone in smoke_zones:
         if smoke_zone["opacity"] > 0:
             _sz_opacity = smoke_zone["opacity"]
@@ -119717,8 +119719,8 @@ def draw_objects():
                 _p_life_ratio = max(0.0, min(1.0, particle["lifetime"] / _p_max_lt))
                 _p_type = particle.get("type", "smoke_cloud")
                 _p_sz = max(1, int(particle["size"]))
-                _p_x = int(particle["x"])
-                _p_y = int(particle["y"])
+                _p_x = int(particle["x"]) + _smoke_sx
+                _p_y = int(particle["y"]) + _smoke_sy
                 _p_aspect = particle.get("aspect", 1.5)
 
                 if _p_type == "smoke_cloud":
