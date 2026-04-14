@@ -92,7 +92,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "skill_bonus", "label": "모든 퍽 레벨 증가", "min": 1, "max": 2, "unit": "+", "default": 2},
     ],
     "odins_eye": [
-        {"key": "revival_chance", "label": "부활 확률", "min": 25, "max": 40, "unit": "%", "default": 30},
+        {"key": "revival_chance", "label": "부활 확률", "min": 40, "max": 60, "unit": "%", "default": 50},
     ],
     "pandora_legacy": [
         {"key": "selection_quality", "label": "매직찬스", "min": 10, "max": 30, "unit": "%", "default": 20},
@@ -6573,7 +6573,7 @@ class TranscendentCrown(LegendaryItem):
 class OdinsEye(LegendaryItem):
     """오딘의 눈 - 벨트 부위 전설 아이템
 
-    롤 옵션: 부활 확률 30% ~ 50%
+    롤 옵션: 부활 확률 40% ~ 60%
     플레이어가 라운드를 잃을 때(공을 막지 못했을 때), 일정 확률로 패배하지 않고 부활합니다.
     부활 시 3초 동안 어둠의 기운 애니메이션 후 페널티가 적용됩니다:
     - 이동 속도 -50%
@@ -6587,11 +6587,11 @@ class OdinsEye(LegendaryItem):
         super().__init__(
             name="odins_eye",
             korean_name="오딘의 눈",
-            description="라운드 패배 시 부활 (롤 옵션: 확률 30%~50%)",
+            description="라운드 패배 시 부활 (롤 옵션: 확률 40%~60%)",
             unlock_condition="신화 아이템 획득",
             icon_path=None  # 고유 애니메이션만 사용
         )
-        self._base_revival_chance = 40  # 기본 부활 확률 (롤 옵션으로 덮어씀)
+        self._base_revival_chance = 50  # 기본 부활 확률 (롤 옵션으로 덮어씀)
         self.enhancement_bonus_pct = 0  # 강화 보너스 퍼센트
 
         # 부활 상태 관리
@@ -6744,7 +6744,7 @@ class OdinsEye(LegendaryItem):
 
     @property
     def revival_chance(self) -> float:
-        """부활 확률 (롤 옵션 + 연마 스킬 + 강화 보너스 적용, 30%~50%)"""
+        """부활 확률 (롤 옵션 + 연마 스킬 + 강화 보너스 적용, 40%~60%)"""
         return get_legendary_roll_value("odins_eye", "revival_chance", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
 
     def activate(self, game_state: Dict = None):
