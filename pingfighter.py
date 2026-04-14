@@ -80659,7 +80659,7 @@ def handle_player(keys):
 
             # 올라갔다 내려오기: 전반 30% 올라감, 후반 70% 내려옴
             _jump_up_ms = int(300 * _db_time_mult)
-            _jump_peak = 80.0  # 최대 80px 상승
+            _jump_peak = 240.0 if _viper_dark_blade_active else 80.0  # 다크 블레이드: 3배 높이(240px)
             if _br_elapsed < _jump_up_ms:
                 # 올라가기 (이징: 빠르게 올라감)
                 _jt = _br_elapsed / _jump_up_ms
