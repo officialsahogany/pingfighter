@@ -24030,14 +24030,17 @@ def show_runtime_skill_status():
             pygame.draw.circle(surface, (200, 200, 200), (icon_cx, icon_cy), 10, 2)
             pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), 4)
 
-    def draw_level_gauge(surface, x, y, width, current_level, max_level, color, skill_id=None):
+    def draw_level_gauge(surface, x, y, width, current_level, max_level, color, skill_id=None, character_restriction=None):
         """레벨 표시 (최대 레벨 비공개, 초월자의 관 보너스 포함)"""
         # 초월자의 관 보너스 확인
         effective_level = current_level
         if skill_id and current_level > 0:
             effective_level = get_runtime_skill_level(skill_id)
 
-        if max_level == -1:
+        # 캐릭터 고유 해금형 퍽 (max_level=1): "ACTIVE" 표시
+        if character_restriction and max_level == 1:
+            level_text = font_skill.render("ACTIVE", True, color)
+        elif max_level == -1:
             # 무제한 스킬 (숫자로 표시)
             level_text = font_skill.render(f"x{effective_level}", True, color)
         else:
@@ -24061,7 +24064,9 @@ def show_runtime_skill_status():
         # 스킬 이름 + 레벨 (최대 레벨은 비공개, 초월자의 관 보너스 포함 - 합산 표시)
         base_level = skill["level"]
         effective_level = get_runtime_skill_level(skill["id"]) if base_level > 0 else base_level
-        if skill["max_level"] == -1:
+        if skill.get("character_restriction") and skill["max_level"] == 1:
+            name_line = f"{skill['name']}"
+        elif skill["max_level"] == -1:
             name_line = f"{skill['name']} (x{effective_level})"
         else:
             name_line = f"{skill['name']} Lv.{effective_level}"
@@ -24069,7 +24074,11 @@ def show_runtime_skill_status():
 
         # 캐릭터 전용 표시
         if skill.get("character_restriction"):
-            restriction = {"smasher": "[스매셔 전용]", "optimus": "[옵티머스 전용]"}.get(skill["character_restriction"], "")
+            _cr_labels = {
+                "smasher": "[스매셔 전용]", "optimus": "[옵티머스 전용]",
+                "viper": "[바이퍼 전용]", "soldier": "[코만도 전용]"
+            }
+            restriction = _cr_labels.get(skill["character_restriction"], "")
             if restriction:
                 lines.append(("restriction", restriction))
 
@@ -24241,7 +24250,7 @@ def show_runtime_skill_status():
 
                 # 레벨 게이지 (하단) - 초월자의 관 보너스 포함
                 gauge_y = box_y + box_size - 18
-                draw_level_gauge(SCREEN, box_x, gauge_y, box_size, skill["level"], skill["max_level"], skill["icon_color"], skill["id"])
+                draw_level_gauge(SCREEN, box_x, gauge_y, box_size, skill["level"], skill["max_level"], skill["icon_color"], skill["id"], skill.get("character_restriction"))
 
             # 클리핑 해제
             SCREEN.set_clip(None)
@@ -152713,7 +152722,7 @@ def calculate_bounce(paddle):
             drive_text_timer = HALF_SECOND_FRAMES * (2 if _drive_combo_used >= 2 else 1)  # 콤보 소모 시 텍스트 2배 길게
             # 드라이브 성공 시 속도 증가 (콤보 소모 시 추가 보너스)
             original_speed = speed
-            speed *= _drive_combo_speed_mult
+            speed *= _apply_dampened_multiplier(speed, _drive_combo_speed_mult)
             #  드라이브로 증가한 속도량 추적 (보스 충돌 시 90% 감소용)
             drive_speed_increase = speed - original_speed
             # print(f"   : {original_speed:.2f} → {speed:.2f} (: {drive_speed_increase:.2f})")  # 디버그 비활성화
@@ -152745,7 +152754,7 @@ def calculate_bounce(paddle):
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.02 * junior_mult * arena_accel_mult)
         base_max = 1.0 + (0.07 * junior_mult * arena_accel_mult)
-        base_multiplier = random.uniform(base_min, base_max)  # 기본 가속
+        base_multiplier = _apply_dampened_multiplier(speed, random.uniform(base_min, base_max))  # 감쇠 적용
         _debug_speed_after_base = speed * base_multiplier
         speed *= base_multiplier
         #  임팩트 부스트 적용 (이제 최소 1.5배 보장)
@@ -152761,7 +152770,7 @@ def calculate_bounce(paddle):
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.024 * junior_mult * arena_accel_mult)
         base_max = 1.0 + (0.084 * junior_mult * arena_accel_mult)
-        base_multiplier = random.uniform(base_min, base_max)  # 기본 가속
+        base_multiplier = _apply_dampened_multiplier(speed, random.uniform(base_min, base_max))  # 감쇠 적용
         speed *= base_multiplier
         #  임팩트 부스트 적용
         ball_impact_boost = dynamic_boost
@@ -152775,7 +152784,7 @@ def calculate_bounce(paddle):
         junior_mult = get_junior_speed_increase_multiplier()
         boss_min = 1.0 + (0.012 * junior_mult * arena_accel_mult)
         boss_max = 1.0 + (0.054 * junior_mult * arena_accel_mult)
-        boss_multiplier = random.uniform(boss_min, boss_max)  # 보스 추가 가속
+        boss_multiplier = _apply_dampened_multiplier(speed, random.uniform(boss_min, boss_max))  # 감쇠 적용
         speed *= boss_multiplier
         # 🔍 [SPEED DEBUG] 보스 추가 가속
         # print(f"🔍 [SPEED DEBUG] 보스 추가가속 | 리그:{ai_mode} | 배율:{junior_mult:.2f} | 보스가속:{boss_min:.3f}~{boss_max:.3f} | 적용:{boss_multiplier:.3f}x | 속도:{_debug_speed_before_boss:.2f}→{speed:.2f}")  # 디버그 비활성화
@@ -152801,8 +152810,9 @@ def calculate_bounce(paddle):
         junior_mult = get_junior_speed_increase_multiplier()
         if abs(rel_x) < 0.05:  # 극중앙 맞춤
             drive_center_rate = 0.03 * junior_mult * arena_accel_mult
-            additional_speed = speed * drive_center_rate
-            speed *= (1.0 + drive_center_rate)
+            _dampened_center = _apply_dampened_multiplier(speed, 1.0 + drive_center_rate)
+            additional_speed = speed * (_dampened_center - 1.0)
+            speed *= _dampened_center
             drive_speed_increase += additional_speed
             # ️ 속도 증가에 따른 커브량 재계산
             base_spin = 0.25  # 기본 커브량 재선언
@@ -152815,8 +152825,9 @@ def calculate_bounce(paddle):
             smash_min = 0.015 * junior_mult * arena_accel_mult
             smash_max = 0.05 * junior_mult * arena_accel_mult
             additional_rate = random.uniform(smash_min, smash_max)
-            additional_speed = speed * additional_rate
-            speed *= (1.0 + additional_rate)
+            _dampened_smash = _apply_dampened_multiplier(speed, 1.0 + additional_rate)
+            additional_speed = speed * (_dampened_smash - 1.0)
+            speed *= _dampened_smash
             drive_speed_increase += additional_speed
             # ️ 속도 증가에 따른 커브량 재계산
             base_spin = 0.25  # 기본 커브량 재선언
@@ -152833,8 +152844,8 @@ def calculate_bounce(paddle):
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         if abs(rel_x) < 0.05:  # 극중앙 맞춤
-            center_boost = 1.0 + (0.03 * junior_mult * arena_accel_mult)
-            speed *= center_boost  # 살짝 가속 보정
+            center_boost = _apply_dampened_multiplier(speed, 1.0 + (0.03 * junior_mult * arena_accel_mult))
+            speed *= center_boost  # 감쇠 적용 가속 보정
         elif abs(rel_x) < 0.15:  # 중앙 zone
             curve = random.uniform(-35, 35)
             vector = vector.rotate(curve)
@@ -152843,7 +152854,7 @@ def calculate_bounce(paddle):
         elif abs(rel_x) > 0.75:  # 스매시 zone
             smash_min = 1.0 + (0.015 * junior_mult * arena_accel_mult)
             smash_max = 1.0 + (0.05 * junior_mult * arena_accel_mult)
-            speed *= random.uniform(smash_min, smash_max)  # 스매시존 가속
+            speed *= _apply_dampened_multiplier(speed, random.uniform(smash_min, smash_max))  # 감쇠 적용
             curve = random.uniform(-5, 5)
             vector = vector.rotate(curve)
             ball_angle += random.uniform(3, 7) * (-1 if rel_x < 0 else 1)
@@ -170908,9 +170919,10 @@ def main(stage_num, new_boss_mode=False):
                         mega_smashing_original_speed = ball_current_speed  # 원래 속도 저장
                         actual_boost = new_speed - ball_current_speed  # 고스트샷도 actual_boost 계산
                     else:
-                        # 파워스매싱은 기존대로 빠르게
+                        # 파워스매싱은 기존대로 빠르게 (공속 감쇠 적용)
                         min_boost = BALL_BASE_SPEED * 0.675  # 최소 증가량 67.5% (기존 75% → 10% 하향)
-                        actual_boost = max(ball_current_speed * 0.576, min_boost)  # 57.6% 증가(기존 64% → 10% 하향)
+                        _ps_dampen = _get_speed_dampen_factor(ball_current_speed)
+                        actual_boost = max(ball_current_speed * 0.576 * _ps_dampen, min_boost)  # 감쇠 적용
                         # ⚡ 스매셔 콤보 소모형 파워스매싱 속도 조정
                         if selected_character_type == "smasher":
                             if power_smashing_combo_consumed >= 2:
@@ -179790,7 +179802,10 @@ def show_character_info(background_surface=None):
             # 레벨 텍스트용 작은 폰트 - 픽셀 폰트 사용
             level_tiny_font = get_font(9, style="bold")
 
-            if max_level == -1:
+            if skill.get("character_restriction") and max_level == 1:
+                # 캐릭터 고유 해금형 퍽: "ACTIVE" 표시
+                level_text = level_tiny_font.render("ACTIVE", True, icon_color)
+            elif max_level == -1:
                 # 무제한 스킬
                 level_text = level_tiny_font.render(f"x{effective_level}", True, icon_color)
             else:
@@ -179837,7 +179852,9 @@ def show_character_info(background_surface=None):
             effective_level = base_level
         else:
             effective_level = get_runtime_skill_level(skill["id"]) if base_level > 0 else base_level
-        if skill["max_level"] == -1:
+        if skill.get("character_restriction") and skill["max_level"] == 1:
+            name_line = f"{skill['name']}"
+        elif skill["max_level"] == -1:
             name_line = f"{skill['name']} (x{effective_level})"
         else:
             name_line = f"{skill['name']} Lv.{effective_level}"
