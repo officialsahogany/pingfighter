@@ -474,6 +474,53 @@ elif item_data["name"] == "legendary_item":
 2. `item_data["type"]`, `ensure_passive_rolls`, `apply_roll_bonuses_from_item`은 **매번 실행**
 3. `skip_append = True` **절대 사용 금지** (인벤토리 추가는 함수 끝에서 자동 처리)
 
+## ⚠️ CRITICAL: 퍽/스킬 UI 텍스트 변경 시 필수 체크리스트 (모든 렌더링 경로 확인!)
+
+**pingfighter.py에서 퍽 레벨 표시, 이름, 툴팁 등 UI 텍스트를 변경할 때 반드시 아래 모든 경로를 함께 수정해야 합니다.**
+**한 곳만 고치면 다른 화면에서 이전 표시가 그대로 남는 버그가 발생합니다!**
+
+### 퍽 레벨/텍스트가 표시되는 모든 UI 경로 (7곳)
+
+| # | 화면 | 함수/위치 | 설명 |
+|---|------|----------|------|
+| 1 | **퍽 선택 카드** (인게임) | `show_runtime_skill_choices()` | 스타포인트 획득 시 3장 카드 선택 |
+| 2 | **스테이지 클리어 선택** | `show_stage_clear_choices()` | 스테이지 클리어 보상 퍽 선택 |
+| 3 | **스테이지 클리어 오버레이** | `draw_stage_choice_overlay()` | 클리어 보상 퍽 카드 렌더링 |
+| 4 | **퍽 현황 화면** (전체) | `show_perk_status()` 내 `draw_level_gauge()` | ESC→퍽 현황 메뉴 |
+| 5 | **TAB 캐릭터정보 퍽 탭** | `draw_character_info_panel()` 내 퍽 그리드 | TAB 키 정보창 |
+| 6 | **퍽 현황 툴팁** | `draw_tooltip()` / `draw_skill_tooltip_mini()` | 퍽 아이콘 호버 시 |
+| 7 | **승리 화면 퍽 툴팁** | `show_victory_screen()` 내 `hovered_tooltip` | 승리 후 획득 퍽 목록 |
+
+### 수정 작업 시 반드시 확인할 것
+
+```bash
+# 1. 레벨 텍스트 렌더링 위치 전수 검색
+grep -n 'Lv\.' pingfighter.py | grep -i 'render\|text\|line'
+
+# 2. 툴팁 이름 조합 위치 검색  
+grep -n 'name_line\|tooltip_name\|perk_name.*Lv' pingfighter.py
+
+# 3. character_restriction 분기가 있는지 확인
+grep -n 'character_restriction' pingfighter.py | grep -v '#\|print\|CLAUDE'
+```
+
+### 왜 이런 문제가 발생하는가?
+- **같은 데이터(퍽 정보)를 여러 UI 함수가 독립적으로 렌더링**
+- 공용 렌더 함수가 아닌 각 화면별로 `f"Lv.{level}"` 등을 직접 조합
+- 한 곳을 수정하면 나머지 6곳에서 이전 표시가 그대로 남음
+- `get_acquired_skills()` 등 데이터 전달 함수에서 필요한 필드를 누락하면 분기가 동작하지 않음
+
+### 실수 방지 패턴
+```python
+# ❌ 잘못된 예 - 한 곳만 수정
+# show_runtime_skill_choices()만 고치고 끝냄 → 다른 6곳에서 버그
+
+# ✅ 올바른 예 - grep으로 모든 위치를 찾아서 수정
+# 1. grep -n '변경할_텍스트' pingfighter.py 로 전수 검색
+# 2. 위 7곳 체크리스트 대조
+# 3. 데이터 전달 함수(get_acquired_skills 등)에서 필요한 필드가 포함되는지 확인
+```
+
 ## Common Issues & Solutions
 
 ### Icons Show as Empty Circles
