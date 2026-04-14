@@ -80615,7 +80615,8 @@ def handle_player(keys):
                 _viper_blade_rush_x = float(PLAYER.centerx)
                 _viper_blade_rush_start_y = float(PLAYER.centery - 20)
                 _viper_blade_rush_y = _viper_blade_rush_start_y
-                _viper_blade_rush_target_y = _viper_blade_rush_start_y - int(250 * _db_size_mult)
+                _db_range_mult = 2.0 if _viper_dark_blade_active else 1.0  # 다크 블레이드: 사거리 500px
+                _viper_blade_rush_target_y = _viper_blade_rush_start_y - int(250 * _db_range_mult)
                 _viper_blade_rush_width = int(350 * _db_size_mult)  # X축 폭 (일반 350 / 다크 525)
                 _viper_blade_rush_hit_ball = False
                 _viper_blade_rush_particles.clear()
