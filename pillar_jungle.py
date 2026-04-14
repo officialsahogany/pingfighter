@@ -2700,7 +2700,7 @@ class ThrownBanana:
         self.flight_progress = 0.0
         self.flight_duration = 1.0  # 1초 동안 날아감
         self.rotation = 0
-        self.rotation_speed = 360 * 3  # 초당 3바퀴
+        self.rotation_speed = 360 * 1.5  # 초당 1.5바퀴 (스트로보 방지)
 
         # 착지 후
         self.land_timer = 0
@@ -2728,6 +2728,8 @@ class ThrownBanana:
                            (0, 0, self.size * 2, 10))
         # 파티클 재사용 서피스 (최대 크기로 미리 생성)
         self._particle_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+        # 회전 바나나 서피스 캐시 (5도 단위 양자화, 최대 72개)
+        self._rotated_banana_cache = {}
 
     def update(self, dt):
         """바나나 업데이트"""
@@ -2999,6 +3001,15 @@ class ThrownBanana:
             return surf
         return self._banana_surf_cache
 
+    def _get_rotated_banana(self, rotation):
+        """캐시된 회전 바나나 서피스 반환 (5도 단위 양자화)"""
+        q_rot = int(rotation / 5) * 5 % 360
+        cached = self._rotated_banana_cache.get(q_rot)
+        if cached is None:
+            cached = pygame.transform.rotate(self._banana_surf_cache, q_rot)
+            self._rotated_banana_cache[q_rot] = cached
+        return cached
+
     def is_in_game_area(self):
         """바나나가 인게임 영역 안에 있는지 (플레이어 영역 포함)"""
         # 플레이어가 game_height 밖에 있을 수 있으므로 여유 공간 추가
@@ -3020,14 +3031,13 @@ class ThrownBanana:
             self._draw_burst_particles(screen, 0, 0)
             return
 
-        banana_surf = self._get_banana_surface()
-
-        # 회전 적용 (날아갈 때만)
+        # 회전 적용 (날아갈 때만) - 캐시된 회전 서피스 사용
         if self.state == 'flying':
-            rotated = pygame.transform.rotate(banana_surf, self.rotation)
+            rotated = self._get_rotated_banana(self.rotation)
             rect = rotated.get_rect(center=(x, y))
             screen.blit(rotated, rect)
         else:
+            banana_surf = self._get_banana_surface()
             rect = banana_surf.get_rect(center=(x, y))
             screen.blit(banana_surf, rect)
 
@@ -3053,14 +3063,13 @@ class ThrownBanana:
         ingame_x = int(self.x - self.game_x)
         ingame_y = int(self.y - self.game_y)
 
-        banana_surf = self._get_banana_surface()
-
-        # 회전 적용 (날아갈 때만)
+        # 회전 적용 (날아갈 때만) - 캐시된 회전 서피스 사용
         if self.state == 'flying':
-            rotated = pygame.transform.rotate(banana_surf, self.rotation)
+            rotated = self._get_rotated_banana(self.rotation)
             rect = rotated.get_rect(center=(ingame_x, ingame_y))
             screen.blit(rotated, rect)
         else:
+            banana_surf = self._get_banana_surface()
             rect = banana_surf.get_rect(center=(ingame_x, ingame_y))
             screen.blit(banana_surf, rect)
 

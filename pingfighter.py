@@ -80278,7 +80278,12 @@ def handle_player(keys):
             pass
 
         # 하강 (제트팩 비활성 또는 과열 시 서서히 내려옴)
-        if not _viper_jetpack_active and _viper_jetpack_offset_y < 0:
+        # 다크 블레이드 구르기(phase 0/1) 중에는 공중에서 도는 느낌을 위해 하강 정지
+        _db_freeze_fall = (
+            _viper_dark_blade_active and _viper_br_spin_active
+            and _viper_br_spin_phase < 2
+        )
+        if not _viper_jetpack_active and _viper_jetpack_offset_y < 0 and not _db_freeze_fall:
             # EMP 차징 중이면 하강 속도 서서히 감소 (진행도 비례: 100% → 10%)
             _jp_fall = _VIPER_JETPACK_FALL_SPEED
             if _viper_dive_hold_start_ms > 0:
