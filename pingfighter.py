@@ -21364,10 +21364,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                     # 모서리 독연기 파티클 (테두리를 따라 떠다님)
                     _poison_count = 8
                     for _pi in range(_poison_count):
-                        _t = (frame_count * 0.02 + _pi * (2 * math.pi / _poison_count)) % (2 * math.pi)
+                        _vt = (frame_count * 0.02 + _pi * (2 * math.pi / _poison_count)) % (2 * math.pi)
                         # 테두리를 따라 이동하는 경로 (사각형 둘레)
                         _perim = 2 * (scaled_width + scaled_height - 8)
-                        _pos_on_perim = (_t / (2 * math.pi)) * _perim
+                        _pos_on_perim = (_vt / (2 * math.pi)) * _perim
                         if _pos_on_perim < scaled_width - 8:
                             _px = int(4 + _pos_on_perim)
                             _py = 3
