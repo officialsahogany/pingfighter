@@ -152457,7 +152457,7 @@ def update_impact_particles():
             if particle[7] <= 0 or particle[5] <= 0:
                 impact_particles.remove(particle)
 def draw_impact_particles():
-    """타격 이펙트 파티클 그리기 - 격투게임 스타일"""
+    """타격 이펙트 파티클 그리기 - 격투게임 스타일 (글로우 + 트레일)"""
     for particle in impact_particles:
         # 딕셔너리 형식과 리스트 형식 모두 지원
         if isinstance(particle, dict):
@@ -152470,24 +152470,53 @@ def draw_impact_particles():
             color = particle.get("color", (255, 255, 255))
             life = particle.get("life", 1)
         else:
-            # 리스트 형식
             x, y, vx, vy, size, alpha, color, life = particle
-        
-        # 알파값이 있는 경우에만 그리기
-        if alpha > 0:
-            # 격투게임 스타일 - 스파크 라인 그리기
-            color_with_alpha = (*color, alpha)
-            # 속도 벡터를 이용한 라인 그리기 (스파크 효과)
-            line_length = math.sqrt(vx*vx + vy*vy) * 0.8  # 속도에 비례한 라인 길이
-            if line_length > 1:
-                end_x = x + (vx / line_length) * min(line_length, 8)  # 최대 8픽셀 라인
-                end_y = y + (vy / line_length) * min(line_length, 8)
-                # 얇은 스파크 라인
-                if size > 1:
-                    draw.line(color, (int(x), int(y)), (int(end_x), int(end_y)), int(size))
-                else:
-                    # 1픽셀 점만 그리기
-                    draw.circle(color, (int(x), int(y)), 1)
+
+        if alpha <= 0:
+            continue
+        _ix = int(x)
+        _iy = int(y)
+        _isz = max(1, int(size))
+        _spd = math.sqrt(vx * vx + vy * vy)
+
+        if _spd > 1:
+            _line_len = min(_spd * 0.8, 12)  # 최대 12px
+            _ex = int(x + (vx / _spd) * _line_len)
+            _ey = int(y + (vy / _spd) * _line_len)
+            # 잔상 트레일 (반대 방향, 투명)
+            _tx = int(x - (vx / _spd) * _line_len * 0.5)
+            _ty = int(y - (vy / _spd) * _line_len * 0.5)
+            _trail_a = min(255, alpha // 3)
+            if _trail_a > 5:
+                try:
+                    pygame.draw.line(SCREEN, (*color, _trail_a),
+                        (_ix, _iy), (_tx, _ty), max(1, _isz - 1))
+                except Exception:
+                    pass
+            # 메인 스파크 라인
+            pygame.draw.line(SCREEN, color, (_ix, _iy), (_ex, _ey), max(1, _isz))
+            # 끝점 글로우
+            try:
+                pygame.gfxdraw.filled_circle(SCREEN, _ex, _ey, _isz + 1,
+                    (*color, min(255, alpha // 2)))
+            except Exception:
+                pass
+            # 밝은 코어 (시작점)
+            if _isz > 1:
+                try:
+                    pygame.gfxdraw.filled_circle(SCREEN, _ix, _iy, max(1, _isz),
+                        (min(255, color[0] + 30), min(255, color[1] + 30), min(255, color[2] + 30), min(255, alpha)))
+                except Exception:
+                    pass
+        else:
+            # 저속 파티클: 글로우 원
+            try:
+                pygame.gfxdraw.filled_circle(SCREEN, _ix, _iy, _isz + 1,
+                    (*color, min(255, alpha // 3)))
+                pygame.gfxdraw.filled_circle(SCREEN, _ix, _iy, _isz,
+                    (*color, min(255, alpha)))
+            except Exception:
+                pass
 def calculate_bounce(paddle):
     global vertical_bounce_count, ball_angle, ball_impact_boost
     global perfect_timing_active, perfect_direction, perfect_timing_indicator_active
