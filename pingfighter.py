@@ -6555,6 +6555,15 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
             "symbol": f"K{_kick_enhance_lv}",
             "always_active": True,
         })
+    _dark_blade_lv = get_runtime_skill_level("dark_blade")
+    if _dark_blade_lv > 0:
+        viper_perks.append({
+            "name": "dark_blade",
+            "color": (120, 0, 30),
+            "cost": 0,
+            "symbol": "DB",
+            "always_active": True,
+        })
 
     if not viper_perks:
         return
