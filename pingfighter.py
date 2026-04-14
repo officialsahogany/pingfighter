@@ -10826,12 +10826,11 @@ def _draw_pillar_ui(screen, renderer):
             # 현재 골드 값 계산
             current_gold = downtown_gold + ingame_gold
 
-            # 캐시 히트 체크 (골드 값 변경 또는 HUD 이펙트 활성 시 매 프레임 재생성)
-            _hud_fx_on = _gold_hud_effect_timer > 0
-            if _gold_hud_cache is None or _gold_hud_cached_value != current_gold or _hud_fx_on:
+            # 캐시 히트 체크 (골드 값 변경 시에만 재생성)
+            if _gold_hud_cache is None or _gold_hud_cached_value != current_gold:
                 _gold_hud_cache = pygame.Surface((100, 40), pygame.SRCALPHA)
                 _draw_ingame_gold_hud_internal(_gold_hud_cache)
-                _gold_hud_cached_value = current_gold if not _hud_fx_on else -1
+                _gold_hud_cached_value = current_gold
                 _gold_hud_scaled_cache.clear()
 
             # 화면에 배치
@@ -16380,35 +16379,6 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
     ingame_gold += amount
     last_rally_gold = amount
 
-    # HUD 이펙트: 축적량 추적
-    global _gold_hud_cooldown
-    if _gold_hud_accum_timer <= 0:
-        _gold_hud_accumulator = 0
-    _gold_hud_accumulator += amount
-    _gold_hud_accum_timer = _gold_hud_accum_window  # 윈도우 리셋
-
-    # 쿨다운 중이면 이펙트 트리거 스킵
-    if _gold_hud_cooldown > 0:
-        pass
-    # 축적량 임계치 도달 시 이펙트 트리거 (트리거 후 accumulator 리셋)
-    elif _gold_hud_accumulator >= 50 and _gold_hud_effect_tier != "epic":
-        _gold_hud_effect_tier = "epic"
-        _gold_hud_effect_timer = 90  # 1.5초
-        _gold_hud_accumulator = 0   # 리셋하여 연속 재트리거 방지
-        _gold_hud_accum_timer = 0
-        import random as _rng
-        _gold_hud_effect_particles = []
-        for _ in range(12):
-            _gold_hud_effect_particles.append({
-                "dx": _rng.uniform(-2.5, 2.5), "dy": _rng.uniform(-3, -0.5),
-                "life": _rng.randint(20, 40), "max_life": _rng.randint(20, 40),
-                "size": _rng.randint(2, 4),
-            })
-    elif _gold_hud_accumulator >= 30 and _gold_hud_effect_tier == "none":
-        _gold_hud_effect_tier = "rare"
-        _gold_hud_effect_timer = 60  # 1초
-        _gold_hud_accumulator = 0   # 리셋
-        _gold_hud_accum_timer = 0
 
     # 항목별 골드 추적
     if source == "rally":
@@ -16450,26 +16420,6 @@ def update_ingame_gold_animations():
         if anim["timer"] <= 0:
             ingame_gold_animations.remove(anim)
 
-    # HUD 이펙트 타이머 업데이트
-    global _gold_hud_accum_timer, _gold_hud_effect_timer, _gold_hud_effect_tier, _gold_hud_accumulator, _gold_hud_effect_particles, _gold_hud_cooldown
-    if _gold_hud_accum_timer > 0:
-        _gold_hud_accum_timer -= 1
-        if _gold_hud_accum_timer <= 0:
-            _gold_hud_accumulator = 0
-    if _gold_hud_cooldown > 0:
-        _gold_hud_cooldown -= 1
-    if _gold_hud_effect_timer > 0:
-        _gold_hud_effect_timer -= 1
-        # 파티클 업데이트
-        for p in _gold_hud_effect_particles:
-            if p["life"] > 0:
-                p["life"] -= 1
-                p["dy"] += 0.08
-        if _gold_hud_effect_timer <= 0:
-            _gold_hud_effect_tier = "none"
-            _gold_hud_effect_particles = []
-            _gold_hud_accumulator = 0
-            _gold_hud_cooldown = 180  # 이펙트 종료 후 3초 쿨다운 (재트리거 방지)
 
 
 def draw_ingame_gold_animations(screen):
@@ -16615,60 +16565,15 @@ def _draw_ingame_gold_hud_internal(surface):
     total_gold = downtown_gold + ingame_gold
     gold_text = f"{total_gold:,}"  # 천 단위 콤마 추가
 
-    # HUD 이펙트에 따른 색상/크기 결정
-    tier = _gold_hud_effect_tier
-    effect_t = _gold_hud_effect_timer
-
-    if tier == "epic":
-        # 빨간-금색 펄스 + 스케일
-        import math as _m
-        pulse = 0.5 + 0.5 * _m.sin(effect_t * 0.3)
-        r = int(255 * pulse + 255 * (1 - pulse))
-        g = int(80 * pulse + 215 * (1 - pulse))
-        b = int(50 * pulse + 0 * (1 - pulse))
-        text_color = (min(255, r), min(255, g), min(255, b))
-        font_size = 28
-        text_y_offset = 10
-    elif tier == "rare":
-        # 밝은 오렌지 펄스
-        import math as _m
-        pulse = 0.5 + 0.5 * _m.sin(effect_t * 0.25)
-        r = int(255)
-        g = int(175 * pulse + 215 * (1 - pulse))
-        b = int(30 * pulse + 0 * (1 - pulse))
-        text_color = (r, min(255, g), min(255, b))
-        font_size = 27
-        text_y_offset = 11
-    else:
-        text_color = (255, 215, 0)
-        font_size = 26
-        text_y_offset = 12
+    text_color = (255, 215, 0)
+    font_size = 26
+    text_y_offset = 12
 
     try:
         gold_font = pygame.font.Font(None, font_size)
         text_x = coin_x + coin_size // 2 + 8
-
-        # epic/rare: 글로우 효과 (텍스트 뒤 밝은 레이어)
-        if tier == "epic":
-            glow_render = gold_font.render(gold_text, True, (255, 200, 50))
-            for ox, oy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                surface.blit(glow_render, (text_x + ox, text_y_offset + oy))
-
         text_render = gold_font.render(gold_text, True, text_color)
         surface.blit(text_render, (text_x, text_y_offset))
-
-        # epic: 스파크 파티클 그리기 (HUD 주변)
-        if tier == "epic" and _gold_hud_effect_particles:
-            for p in _gold_hud_effect_particles:
-                if p["life"] > 0:
-                    p_alpha = int(255 * (p["life"] / p["max_life"]))
-                    elapsed_p = p["max_life"] - p["life"]
-                    px = int(text_x + 20 + p["dx"] * elapsed_p)
-                    py = int(text_y_offset + 8 + p["dy"] * elapsed_p)
-                    if 0 <= px < surface.get_width() and 0 <= py < surface.get_height():
-                        spark_surf = pygame.Surface((p["size"] * 2, p["size"] * 2), pygame.SRCALPHA)
-                        pygame.draw.circle(spark_surf, (255, 220, 80, p_alpha), (p["size"], p["size"]), p["size"])
-                        surface.blit(spark_surf, (px - p["size"], py - p["size"]))
     except Exception as e:
         pass
 
