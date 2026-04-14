@@ -3483,7 +3483,18 @@ def _draw_custom_cursor(screen, mouse_x, mouse_y):
     pygame.draw.circle(tip_surf, (*cyan, tip_alpha), (4, 4), 3)
     screen.blit(tip_surf, (mouse_x - 3, mouse_y - 3))
 
-if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
+if SMOKE_TEST_ENABLED:
+    # 테스트 import에서는 실제 창/필러 초기화를 건너뛰고 최소 display만 연다.
+    REAL_SCREEN = pygame.display.set_mode((1, 1))
+    FULLSCREEN_WIDTH = WIDTH
+    FULLSCREEN_HEIGHT = HEIGHT
+    GAME_SCALE_FACTOR = 1.0
+    GAME_SCALED_WIDTH = WIDTH
+    GAME_SCALED_HEIGHT = HEIGHT
+    GAME_OFFSET_X = 0
+    GAME_OFFSET_Y = 0
+    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
+elif FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     # 플랫폼별 전체화면 플래그 설정
     if _current_platform == 'Darwin':
         # macOS: FULLSCREEN_DESKTOP으로 데스크탑 해상도 유지 (Retina 대응)
@@ -3800,6 +3811,12 @@ else:
         print(f"[디스플레이] 창모드(폴백) 시작 완료: {_init_actual_w}x{_init_actual_h}", flush=True)
 
 pygame.display.set_caption("PINGFIGHTER")
+
+if SMOKE_TEST_ENABLED:
+    def _smoke_test_image_load(*_args, **_kwargs):
+        return pygame.Surface((8, 8), pygame.SRCALPHA)
+
+    pygame.image.load = _smoke_test_image_load  # type: ignore[assignment]
 
 # 전체화면 모드에서 pygame.display.set_mode 호출 추적
 _original_set_mode = pygame.display.set_mode
@@ -114581,15 +114598,23 @@ def draw_objects():
         """에어 블레이드 검기 공통 렌더링. flip_y=True면 아래→위 대신 위→아래 방향. dark_mode=True면 검붉은 다크 블레이드."""
         _fan_w = half_w * 2
         _fan_h = 83 if dark_mode else 55  # 다크 블레이드: Y축 50% 증가
-        _fan_surf_w = _fan_w + 40
-        _fan_surf_h = _fan_h + 30
+        # 다크 모드: 위스프/드립이 밖으로 튀므로 여유 확보
+        _margin_x = 60 if dark_mode else 40
+        _margin_y = 55 if dark_mode else 30
+        _fan_surf_w = _fan_w + _margin_x
+        _fan_surf_h = _fan_h + _margin_y
         _fan_surf = pygame.Surface((_fan_surf_w, _fan_surf_h), pygame.SRCALPHA)
         _fcx = _fan_surf_w // 2
         _fcy = _fan_surf_h - 8  # 꼭짓점
 
-        # 0. 트레일
+        # 다크 모드 전용: 시간 기반 펄스/떨림
+        _t_now_ms = pygame.time.get_ticks()
+        _pulse = 0.5 + 0.5 * math.sin(_t_now_ms * 0.012)
+        _shimmer = 0.5 + 0.5 * math.sin(_t_now_ms * 0.038)
+
+        # 0. 트레일 (다크: 블러드 스트릭 2겹)
         if trail and len(trail) > 1:
-            _trail_draw = min(10, len(trail))
+            _trail_draw = min(12 if dark_mode else 10, len(trail))
             for _ti in range(1, _trail_draw):
                 _t_idx = len(trail) - _trail_draw + _ti
                 _tx, _ty = trail[_t_idx]
@@ -114598,30 +114623,41 @@ def draw_objects():
                     _ty = HEIGHT - _ty
                     _py = HEIGHT - _py
                 _t_p = _ti / max(1, _trail_draw - 1)
-                _t_alpha = int((15 + 45 * _t_p) * alive)
-                _t_w = max(1, int(1 + 3 * _t_p))
-                if _t_alpha > 2:
-                    if dark_mode:
-                        _tcr = int(120 + 80 * _t_p)
-                        _tcg = int(10 + 20 * _t_p)
-                        _tcb = int(20 + 30 * _t_p)
-                    else:
+                if dark_mode:
+                    # 외곽: 어두운 핏빛 넓은 띠
+                    _t_alpha = int((25 + 65 * _t_p) * alive)
+                    _t_w = max(2, int(2 + 5 * _t_p))
+                    if _t_alpha > 2:
+                        pygame.draw.line(screen, (60 + int(40 * _t_p), 0, 5, _t_alpha),
+                                         (int(_px), int(_py)), (int(_tx), int(_ty)), _t_w)
+                    # 내곽: 밝은 크림슨 선명한 선
+                    _t_alpha2 = int((40 + 90 * _t_p) * alive)
+                    _t_w2 = max(1, int(1 + 2 * _t_p))
+                    if _t_alpha2 > 2:
+                        pygame.draw.line(screen, (170 + int(60 * _t_p), 10, 15, _t_alpha2),
+                                         (int(_px), int(_py)), (int(_tx), int(_ty)), _t_w2)
+                else:
+                    _t_alpha = int((15 + 45 * _t_p) * alive)
+                    _t_w = max(1, int(1 + 3 * _t_p))
+                    if _t_alpha > 2:
                         _tcr = int(85 + 55 * _t_p)
                         _tcg = int(70 + 60 * _t_p)
                         _tcb = int(110 + 50 * _t_p)
-                    pygame.draw.line(screen, (_tcr, _tcg, _tcb, _t_alpha),
-                                     (int(_px), int(_py)), (int(_tx), int(_ty)), _t_w)
+                        pygame.draw.line(screen, (_tcr, _tcg, _tcb, _t_alpha),
+                                         (int(_px), int(_py)), (int(_tx), int(_ty)), _t_w)
 
         # 1. 다층 부채꼴 본체
         if dark_mode:
-            # 다크 블레이드: 검붉은 색상
+            # 다크 블레이드: 블랙→크림슨→블러드 오렌지 (8레이어)
             _fan_layers = [
-                (1.00, (60, 5, 10),     30),
-                (0.85, (90, 10, 20),    50),
-                (0.70, (120, 15, 30),   75),
-                (0.55, (160, 25, 40),   105),
-                (0.38, (200, 40, 55),   140),
-                (0.18, (230, 70, 80),   180),
+                (1.08, (15, 0, 3),      45),
+                (0.95, (45, 2, 8),      75),
+                (0.82, (80, 5, 12),     105),
+                (0.68, (120, 10, 20),   135),
+                (0.54, (170, 20, 30),   160),
+                (0.40, (210, 40, 45),   185),
+                (0.26, (240, 70, 60),   205),
+                (0.14, (255, 140, 110), 220),
             ]
         else:
             _fan_layers = [
@@ -114638,27 +114674,45 @@ def draw_objects():
                 continue
             _fw = int(_fan_w * _f_scale * 0.5)
             _fh = int(_fan_h * _f_scale)
+            _seg = 20 if dark_mode else 13
             _fan_pts = [(_fcx, _fcy)]
-            for _as in range(13):
-                _a_t = _as / 12.0
+            for _as in range(_seg):
+                _a_t = _as / float(_seg - 1)
                 _a_angle = math.pi + (math.pi * 0.15) + _a_t * (math.pi * 0.70)
-                _fan_pts.append((_fcx + int(math.cos(_a_angle) * _fw * 1.15),
-                                 _fcy + int(math.sin(_a_angle) * _fh * 1.1)))
+                _jitter = 1.0
+                if dark_mode:
+                    _jitter = 1.0 + (1.0 - _fi / max(1, len(_fan_layers) - 1)) * 0.06 * math.sin(_t_now_ms * 0.015 + _as * 0.6)
+                _fan_pts.append((_fcx + int(math.cos(_a_angle) * _fw * 1.15 * _jitter),
+                                 _fcy + int(math.sin(_a_angle) * _fh * 1.1 * _jitter)))
             if len(_fan_pts) >= 3:
                 pygame.draw.polygon(_fan_surf, (*_f_rgb, _f_alpha), _fan_pts)
 
-        # 2. 에지 라인
-        _edge_color = (220, 60, 70) if dark_mode else (190, 160, 230)
-        _inner_color = (200, 40, 55) if dark_mode else (170, 140, 210)
+        # 2. 에지 라인 (다크: 그림자 + 메인 + 광택 3겹)
+        if dark_mode:
+            _edge_shadow = (30, 0, 2)
+            _edge_color = (240, 55, 60)
+            _edge_glow = (255, 180, 140)
+            _inner_color = (200, 25, 35)
+        else:
+            _edge_color = (190, 160, 230)
+            _inner_color = (170, 140, 210)
+        _edge_segs = 21 if dark_mode else 17
         _edge_pts = []
-        for _es in range(17):
-            _e_t = _es / 16.0
+        for _es in range(_edge_segs):
+            _e_t = _es / float(_edge_segs - 1)
             _e_angle = math.pi + (math.pi * 0.15) + _e_t * (math.pi * 0.70)
             _edge_pts.append((_fcx + int(math.cos(_e_angle) * int(_fan_w * 0.5) * 1.15),
                               _fcy + int(math.sin(_e_angle) * _fan_h * 1.1)))
         _edge_alpha = int(160 * alive)
         if len(_edge_pts) > 1 and _edge_alpha > 3:
-            pygame.draw.lines(_fan_surf, (*_edge_color, _edge_alpha), False, _edge_pts, 2)
+            if dark_mode:
+                pygame.draw.lines(_fan_surf, (*_edge_shadow, int(200 * alive)), False, _edge_pts, 5)
+                pygame.draw.lines(_fan_surf, (*_edge_color, _edge_alpha), False, _edge_pts, 3)
+                _glow_a = int((100 + 80 * _shimmer) * alive)
+                if _glow_a > 5:
+                    pygame.draw.lines(_fan_surf, (*_edge_glow, _glow_a), False, _edge_pts, 1)
+            else:
+                pygame.draw.lines(_fan_surf, (*_edge_color, _edge_alpha), False, _edge_pts, 2)
             _inner_pts = []
             _inner_hw = int(_fan_w * 0.42)
             for _is2 in range(17):
@@ -114670,26 +114724,112 @@ def draw_objects():
             if _inner_alpha > 2:
                 pygame.draw.lines(_fan_surf, (*_inner_color, _inner_alpha), False, _inner_pts, 1)
 
-        # 3. 에너지 스파크
-        _spark_color = (230, 50, 60) if dark_mode else (185, 150, 230)
-        for _si in range(8):
-            _s_t = _si / 7.0
+        # 2.5 다크 모드 전용: 블러드 드립 (에지에서 아래로 떨어지는 핏방울)
+        if dark_mode:
+            for _di in range(7):
+                _dt = _di / 6.0
+                _d_angle = math.pi + (math.pi * 0.17) + _dt * (math.pi * 0.66)
+                _d_base_x = _fcx + int(math.cos(_d_angle) * _fan_w * 0.5 * 1.15)
+                _d_base_y = _fcy + int(math.sin(_d_angle) * _fan_h * 1.1)
+                _d_len = int(6 + 10 * (0.5 + 0.5 * math.sin(_t_now_ms * 0.006 + _di * 1.7)))
+                _d_alpha = int(160 * alive)
+                if _d_alpha > 3:
+                    pygame.draw.line(_fan_surf, (130, 5, 10, _d_alpha),
+                                     (_d_base_x, _d_base_y),
+                                     (_d_base_x, min(_fan_surf_h - 2, _d_base_y + _d_len)), 2)
+                    _drop_y = min(_fan_surf_h - 3, _d_base_y + _d_len)
+                    try:
+                        gfxdraw.filled_circle(_fan_surf, _d_base_x, _drop_y, 2, (200, 20, 25, int(200 * alive)))
+                        gfxdraw.aacircle(_fan_surf, _d_base_x, _drop_y, 2, (255, 80, 60, int(200 * alive)))
+                    except Exception:
+                        pygame.draw.circle(_fan_surf, (200, 20, 25, int(200 * alive)), (_d_base_x, _drop_y), 2)
+
+        # 3. 에너지 스파크 (다크: 2배 + 3색 팔레트)
+        if dark_mode:
+            _spark_count = 18
+            _spark_palette = [(60, 0, 5), (200, 30, 40), (255, 100, 60)]
+        else:
+            _spark_count = 8
+            _spark_palette = [(185, 150, 230)]
+        for _si in range(_spark_count):
+            _s_t = _si / float(_spark_count - 1)
             _s_angle = math.pi + (math.pi * 0.15) + _s_t * (math.pi * 0.70)
-            _s_hw = int(_fan_w * 0.5) + random.randint(-8, 8)
-            _s_alpha = int(random.randint(100, 200) * alive)
+            _s_hw = int(_fan_w * 0.5) + random.randint(-10, 10)
+            _s_alpha = int(random.randint(120, 230) * alive)
+            _s_color = _spark_palette[_si % len(_spark_palette)]
+            _s_r = random.randint(1, 3) if dark_mode else random.randint(1, 2)
+            _s_x = _fcx + int(math.cos(_s_angle) * _s_hw * 1.15)
+            _s_y = _fcy + int(math.sin(_s_angle) * _fan_h * 1.1) + random.randint(-4, 4)
             if _s_alpha > 5:
-                pygame.draw.circle(_fan_surf, (*_spark_color, _s_alpha),
-                                   (_fcx + int(math.cos(_s_angle) * _s_hw * 1.15),
-                                    _fcy + int(math.sin(_s_angle) * _fan_h * 1.1) + random.randint(-3, 3)),
-                                   random.randint(1, 2))
+                try:
+                    gfxdraw.filled_circle(_fan_surf, _s_x, _s_y, _s_r, (*_s_color, _s_alpha))
+                except Exception:
+                    pygame.draw.circle(_fan_surf, (*_s_color, _s_alpha), (_s_x, _s_y), _s_r)
+
+        # 3.5 다크 모드 전용: 불꽃 위스프 (검기 위로 피어오르는 불꽃 3줄)
+        if dark_mode:
+            _wisp_cols = [(90, 5, 10), (160, 20, 25), (230, 60, 50)]
+            for _wi in range(3):
+                _w_base_t = 0.25 + 0.25 * _wi
+                _w_angle = math.pi + (math.pi * 0.15) + _w_base_t * (math.pi * 0.70)
+                _w_x = _fcx + int(math.cos(_w_angle) * _fan_w * 0.4 * 1.15)
+                _w_y = _fcy + int(math.sin(_w_angle) * _fan_h * 0.6 * 1.1)
+                for _ws in range(8):
+                    _ws_t = _ws / 7.0
+                    _sway = int(5 * math.sin(_t_now_ms * 0.008 + _wi * 1.5 + _ws * 0.4))
+                    _wy = _w_y - int(_ws_t * 28)
+                    _wx = _w_x + _sway
+                    _wr = max(1, int(4 * (1.0 - _ws_t)))
+                    _w_alpha = int((160 - _ws * 18) * alive * (0.6 + 0.4 * _shimmer))
+                    if 0 < _wy < _fan_surf_h and _w_alpha > 3:
+                        _wc = _wisp_cols[min(2, _ws // 3)]
+                        try:
+                            gfxdraw.filled_circle(_fan_surf, _wx, _wy, _wr, (*_wc, _w_alpha))
+                        except Exception:
+                            pygame.draw.circle(_fan_surf, (*_wc, _w_alpha), (_wx, _wy), _wr)
+
+        # 3.6 다크 모드 전용: 룬 심볼 (중앙에 희미하게 맥동)
+        if dark_mode:
+            _rune_alpha = int((80 + 60 * _pulse) * alive)
+            if _rune_alpha > 5:
+                _rune_cx = _fcx
+                _rune_cy = _fcy - int(_fan_h * 0.5)
+                _rune_size = max(4, int(_fan_h * 0.18))
+                _rune_pts = [
+                    (_rune_cx - _rune_size, _rune_cy - _rune_size),
+                    (_rune_cx + _rune_size, _rune_cy - _rune_size),
+                    (_rune_cx, _rune_cy + _rune_size),
+                ]
+                pygame.draw.polygon(_fan_surf, (255, 60, 50, _rune_alpha), _rune_pts, 1)
+                pygame.draw.line(_fan_surf, (255, 80, 60, _rune_alpha),
+                                 (_rune_cx, _rune_cy - _rune_size - 2),
+                                 (_rune_cx, _rune_cy + _rune_size + 3), 1)
 
         # 4. 꼭짓점 글로우
-        _glow_color = (180, 20, 30) if dark_mode else (130, 80, 180)
-        for _gl in range(3):
-            _gl_r = 10 - _gl * 3
-            _gl_a = int((20 - _gl * 5) * alive)
-            if _gl_r > 0 and _gl_a > 1:
-                pygame.draw.circle(_fan_surf, (*_glow_color, _gl_a), (_fcx, _fcy), _gl_r)
+        if dark_mode:
+            _glow_color = (255, 50, 40)
+            _max_r = 16 + int(5 * _pulse)
+            for _gl in range(5):
+                _gl_r = _max_r - _gl * 3
+                _gl_a = int((50 - _gl * 9) * alive * (0.7 + 0.3 * _shimmer))
+                if _gl_r > 0 and _gl_a > 1:
+                    try:
+                        gfxdraw.filled_circle(_fan_surf, _fcx, _fcy, _gl_r, (*_glow_color, _gl_a))
+                    except Exception:
+                        pygame.draw.circle(_fan_surf, (*_glow_color, _gl_a), (_fcx, _fcy), _gl_r)
+            _core_a = int((180 + 50 * _shimmer) * alive)
+            if _core_a > 3:
+                try:
+                    gfxdraw.filled_circle(_fan_surf, _fcx, _fcy, 3, (255, 220, 180, _core_a))
+                except Exception:
+                    pygame.draw.circle(_fan_surf, (255, 220, 180, _core_a), (_fcx, _fcy), 3)
+        else:
+            _glow_color = (130, 80, 180)
+            for _gl in range(3):
+                _gl_r = 10 - _gl * 3
+                _gl_a = int((20 - _gl * 5) * alive)
+                if _gl_r > 0 and _gl_a > 1:
+                    pygame.draw.circle(_fan_surf, (*_glow_color, _gl_a), (_fcx, _fcy), _gl_r)
 
         # flip_y이면 서피스를 상하 반전
         if flip_y:
@@ -114699,13 +114839,48 @@ def draw_objects():
                     special_flags=pygame.BLEND_ADD)
 
         # 5. 앰비언트 헤일로
-        _amb_color = (130, 20, 30) if dark_mode else (80, 50, 130)
-        _amb_r = int(_fan_h * 1.2)
-        _amb_a = int(15 * alive)
-        if _amb_r > 0 and _amb_a > 1:
-            _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(_amb_s, (*_amb_color, _amb_a), (_amb_r, _amb_r), _amb_r)
-            screen.blit(_amb_s, (cx - _amb_r, cy - _amb_r), special_flags=pygame.BLEND_ADD)
+        if dark_mode:
+            # 다크: void halo(어두운 오라) + crimson halo(맥동 가산) 2겹
+            _void_r = int(_fan_h * 1.6)
+            _void_a = int(40 * alive)
+            if _void_r > 0 and _void_a > 2:
+                _void_s = pygame.Surface((_void_r * 2, _void_r * 2), pygame.SRCALPHA)
+                try:
+                    gfxdraw.filled_circle(_void_s, _void_r, _void_r, _void_r, (30, 0, 5, _void_a))
+                except Exception:
+                    pygame.draw.circle(_void_s, (30, 0, 5, _void_a), (_void_r, _void_r), _void_r)
+                screen.blit(_void_s, (cx - _void_r, cy - _void_r))
+            _amb_r = int(_fan_h * 1.3)
+            _amb_a = int((35 + 20 * _pulse) * alive)
+            if _amb_r > 0 and _amb_a > 2:
+                _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
+                try:
+                    gfxdraw.filled_circle(_amb_s, _amb_r, _amb_r, _amb_r, (150, 15, 20, _amb_a))
+                except Exception:
+                    pygame.draw.circle(_amb_s, (150, 15, 20, _amb_a), (_amb_r, _amb_r), _amb_r)
+                screen.blit(_amb_s, (cx - _amb_r, cy - _amb_r), special_flags=pygame.BLEND_ADD)
+        else:
+            _amb_color = (80, 50, 130)
+            _amb_r = int(_fan_h * 1.2)
+            _amb_a = int(15 * alive)
+            if _amb_r > 0 and _amb_a > 1:
+                _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_amb_s, (*_amb_color, _amb_a), (_amb_r, _amb_r), _amb_r)
+                screen.blit(_amb_s, (cx - _amb_r, cy - _amb_r), special_flags=pygame.BLEND_ADD)
+
+        # 6. 다크 모드 전용: 바닥 충격파 링 (확장하며 사라지는 2겹 링)
+        if dark_mode:
+            _ring_phase = (_t_now_ms * 0.003) % 1.0
+            for _ri in range(2):
+                _r_p = (_ring_phase + _ri * 0.5) % 1.0
+                _r_r = int(_fan_h * 0.4 + _fan_h * 1.0 * _r_p)
+                _r_a = int((120 - 110 * _r_p) * alive)
+                if _r_a > 3 and _r_r > 2:
+                    try:
+                        gfxdraw.aacircle(screen, cx, cy, _r_r, (220, 30, 35, _r_a))
+                        gfxdraw.aacircle(screen, cx, cy, max(1, _r_r - 1), (150, 10, 15, _r_a))
+                    except Exception:
+                        pygame.draw.circle(screen, (220, 30, 35, _r_a), (cx, cy), _r_r, 1)
 
     if _viper_blade_rush_active:
         try:
