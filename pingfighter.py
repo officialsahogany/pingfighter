@@ -6135,6 +6135,26 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         pygame.draw.line(surface, main_color, (cx - wing, arr_top + wing), (cx, arr_top), max(1, s // 8))
         pygame.draw.line(surface, main_color, (cx + wing, arr_top + wing), (cx, arr_top), max(1, s // 8))
 
+    else:
+        # 신규 스킬이 추가돼도 HUD 구슬이 빈 원으로 남지 않도록
+        # 미니 아이콘 렌더러로 안전하게 폴백한다.
+        try:
+            fallback_skill = {
+                "id": skill_name,
+                "icon_color": color,
+                "name": skill_name,
+            }
+            draw_skill_icon_mini(
+                surface,
+                fallback_skill,
+                cx - size // 2,
+                cy - size // 2,
+                size,
+                center_in_box=True,
+            )
+        except Exception:
+            pygame.draw.circle(surface, main_color, (cx, cy), max(2, s // 3), 1)
+
 
 def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                               orb_radius: int, current_gauge: float, max_gauge: float):
@@ -6349,6 +6369,8 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
     """
     global _viper_skill_icons_cache, _viper_skill_activation_times, _viper_skill_was_active
     global _viper_skill_icon_rects
+
+    _viper_skill_icon_rects = {}
 
     icon_radius = 21
     icon_diameter = icon_radius * 2
@@ -17360,31 +17382,25 @@ def recalculate_skill_effects(skill_id: str):
                 _smasher_equipped_skills.remove(_skill_name)
 
     # 바이퍼 스킬 해금 상태 동기화 (5구슬 슬롯 시스템)
-    elif skill_id == "unlock_nerve_strike":
-        level = runtime_skill_levels.get("unlock_nerve_strike", 0)
-        _viper_skill_unlocked["nerve_strike"] = level >= 1
-        global _viper_equipped_skills
-        if level >= 1:
-            equip_viper_skill("nerve_strike")
-        elif "nerve_strike" in _viper_equipped_skills:
-            _viper_equipped_skills.remove("nerve_strike")
+    elif skill_id in ("unlock_nerve_strike", "unlock_dive_strike", "double_marshal_kick", "dark_blade"):
+        global _viper_equipped_skills, _viper_double_marshal_kick_unlocked
+        _viper_recalc_unlock_map = {
+            "unlock_nerve_strike": "nerve_strike",
+            "unlock_dive_strike": "dive_strike",
+            "double_marshal_kick": "phantom_kick",
+            "dark_blade": "dark_blade",
+        }
+        _viper_skill_name = _viper_recalc_unlock_map[skill_id]
+        _is_unlocked = runtime_skill_levels.get(skill_id, 0) >= 1
 
-    elif skill_id == "unlock_dive_strike":
-        level = runtime_skill_levels.get("unlock_dive_strike", 0)
-        _viper_skill_unlocked["dive_strike"] = level >= 1
-        if level >= 1:
-            equip_viper_skill("dive_strike")
-        elif "dive_strike" in _viper_equipped_skills:
-            _viper_equipped_skills.remove("dive_strike")
+        if skill_id == "double_marshal_kick":
+            _viper_double_marshal_kick_unlocked = _is_unlocked
 
-    elif skill_id == "double_marshal_kick":
-        global _viper_double_marshal_kick_unlocked
-        _viper_double_marshal_kick_unlocked = runtime_skill_levels.get("double_marshal_kick", 0) >= 1
-        _viper_skill_unlocked["phantom_kick"] = _viper_double_marshal_kick_unlocked
-        if _viper_double_marshal_kick_unlocked:
-            equip_viper_skill("phantom_kick")
-        elif "phantom_kick" in _viper_equipped_skills:
-            _viper_equipped_skills.remove("phantom_kick")
+        _viper_skill_unlocked[_viper_skill_name] = _is_unlocked
+        if _is_unlocked:
+            equip_viper_skill(_viper_skill_name)
+        elif _viper_skill_name in _viper_equipped_skills:
+            _viper_equipped_skills.remove(_viper_skill_name)
 
     # 퍽 월계수잎: 잎 개수 재계산 (신성월계수 보너스 포함)
     elif skill_id == "perk_laurel_shield":
@@ -124762,8 +124778,13 @@ def draw_stage_choice_overlay(screen: pygame.Surface, background: pygame.Surface
         max_level = choice.get("max_level", 1)
         name_text = choice["name"]
 
+        char_restriction = choice.get("character_restriction")
+        is_char_unlock = bool(char_restriction) and max_level <= 1 and not choice.get("id", "").startswith("empty_")
+
         # 선택 시 적용될 레벨만 표시
-        if max_level == -1:
+        if is_char_unlock:
+            level_text = "ACTIVE"
+        elif max_level == -1:
             level_text = ""
         else:
             level_text = f"Lv.{next_level}"
@@ -125025,8 +125046,13 @@ def show_stage_clear_choices() -> str | None:
             max_level = choice.get("max_level", 1)
             name_text = choice["name"]
 
+            char_restriction = choice.get("character_restriction")
+            is_char_unlock = bool(char_restriction) and max_level <= 1 and not choice.get("id", "").startswith("empty_")
+
             # 선택 시 적용될 레벨만 표시
-            if max_level == -1:
+            if is_char_unlock:
+                level_text = "ACTIVE"
+            elif max_level == -1:
                 level_text = ""
             else:
                 level_text = f"Lv.{next_level}"
@@ -126908,6 +126934,7 @@ def show_victory_screen(stage_cleared, reward):
                             "name": skill_data.get("name", skill_id),
                             "icon_color": skill_data.get("icon_color", (150, 150, 150)),
                             "level": level_gained_this_stage,  # 이번 스테이지에서 획득한 레벨 수
+                            "current_level": level,
                             "skill_data": skill_data  # 툴팁용 전체 데이터
                         })
 
@@ -127441,14 +127468,22 @@ def show_victory_screen(stage_cleared, reward):
                 if rect.collidepoint(mouse_pos):
                     perk_name = perk_data.get("name", "")
                     perk_level = perk_data.get("level", 1)
+                    perk_display_level = perk_data.get("current_level", perk_level)
                     perk_color = perk_data.get("icon_color", (150, 150, 150))
                     skill_data = perk_data.get("skill_data", {})
                     # 퍽 설명 가져오기
                     descriptions = skill_data.get("descriptions", {})
-                    perk_desc = descriptions.get(perk_level, skill_data.get("description", ""))
+                    perk_desc = descriptions.get(perk_display_level, skill_data.get("description", ""))
                     if not perk_desc:
                         perk_desc = skill_data.get("detail", "")
-                    hovered_tooltip = ("perk", f"{perk_name} Lv.{perk_level}", perk_desc, rect, perk_color)
+                    perk_max_level = skill_data.get("max_level", 1)
+                    if skill_data.get("character_restriction") and perk_max_level == 1:
+                        tooltip_name = perk_name
+                    elif perk_max_level == -1:
+                        tooltip_name = f"{perk_name} (x{perk_display_level})"
+                    else:
+                        tooltip_name = f"{perk_name} Lv.{perk_display_level}"
+                    hovered_tooltip = ("perk", tooltip_name, perk_desc, rect, perk_color)
                     break
 
         # 툴팁 그리기
@@ -179962,6 +179997,7 @@ def show_character_info(background_surface=None):
                         "description": description,
                         "detail": skill_data.get("detail", ""),
                         "icon_color": skill_data["icon_color"],
+                        "character_restriction": skill_data.get("character_restriction"),
                     })
 
         # 아카데미 퍽 추가 (발토르 전용 등)
