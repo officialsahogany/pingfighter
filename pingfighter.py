@@ -79710,6 +79710,46 @@ def handle_player(keys):
                                     play_cached_sound("sounds/coin.wav")
                                 except Exception:
                                     pass
+                    # ✈️ 마샬킥/팬텀킥 충격파로 반경 150px 내 인터셉터 파괴 (스테이지 5 = 코드상 stage6 네메시스)
+                    if current_stage == 6 and interceptors:
+                        _mk_impact_x = float(BALL.centerx)
+                        _mk_impact_y = float(BALL.centery)
+                        _mk_destroy_radius = 150.0
+                        _mk_intc_to_destroy = []
+                        for _mk_intc in interceptors:
+                            _mk_idx = _mk_intc['x'] - _mk_impact_x
+                            _mk_idy = _mk_intc['y'] - _mk_impact_y
+                            if math.hypot(_mk_idx, _mk_idy) <= _mk_destroy_radius:
+                                _mk_intc_to_destroy.append(_mk_intc)
+                        for _mk_intc in _mk_intc_to_destroy:
+                            _mk_intc_golden = _mk_intc.get('golden', False)
+                            try:
+                                interceptors.remove(_mk_intc)
+                            except ValueError:
+                                pass
+                            # 파괴 효과음
+                            try:
+                                play_sound_with_volume(SOUND_STAGE6_INTERCEPTOR_HIT)
+                            except Exception:
+                                pass
+                            # 폭발 스파크 이펙트
+                            try:
+                                for _mk_si in range(18):
+                                    _mk_sa = random.uniform(0, math.pi * 2)
+                                    _mk_sd = random.uniform(0, 25)
+                                    _mk_sx = _mk_intc['x'] + math.cos(_mk_sa) * _mk_sd
+                                    _mk_sy = _mk_intc['y'] + math.sin(_mk_sa) * _mk_sd
+                                    _mk_sc = (255, 215, 120) if _mk_intc_golden else (255, 200, 100)
+                                    draw.circle(_mk_sc, (int(_mk_sx), int(_mk_sy)), random.randint(2, 4))
+                            except Exception:
+                                pass
+                            # 황금 인터셉터 보상
+                            if _mk_intc_golden:
+                                try:
+                                    if trade_point_system:
+                                        trade_point_system.spawn_star(_mk_intc['x'], _mk_intc['y'], "gold_interceptor")
+                                except Exception:
+                                    pass
                     # 공 타격 후 복귀 전환
                     if _viper_is_double_marshal:
                         # 팬텀 킥: Phase 5 (프리즈 중 제자리 대기) → 프리즈 끝나면 Phase 4
