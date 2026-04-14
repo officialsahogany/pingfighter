@@ -80586,7 +80586,13 @@ def handle_player(keys):
         _db_spin_turns = 4.0 if _viper_dark_blade_active else 2.0  # 다크: 4바퀴, 일반: 2바퀴
         _br_spin_dur = int(_VIPER_BR_SPIN_DURATION * _db_spin_mult)
         _br_decel_dur = int(_VIPER_BR_DECEL_DURATION * _db_time_mult)
-        _br_rest_dur = int(_VIPER_BR_REST_DURATION * _db_time_mult)
+        # 다크 블레이드: 착지(내려오는) 구간을 일반 대비 2x 길게 → 하강 속도 50% 감소
+        if _viper_dark_blade_active:
+            _db_jump_up_ms = int(300 * _db_time_mult)
+            _db_descent_dur = int((_VIPER_BR_REST_DURATION - 300) * 2.0)
+            _br_rest_dur = _db_jump_up_ms + _db_descent_dur
+        else:
+            _br_rest_dur = int(_VIPER_BR_REST_DURATION * _db_time_mult)
         _br_spin_total_angle = 360.0 * _db_spin_turns
 
         if _viper_br_spin_phase == 0:
