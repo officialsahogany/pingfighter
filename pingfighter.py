@@ -15293,7 +15293,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "쉐도우 백스텝·마샬 킥·팬텀 킥으로 공 타격 후 공중 에어 블레이드 시 발동",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 4바퀴(연장 모션) → 점프 400px 솟구침,\n검기 크기 50% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 60초.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 4바퀴(연장 모션) → 점프 320px 솟구침,\n검기 크기 50% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 60초.",
         "icon_color": (120, 0, 30),
         "tree": "viper",
         "character_restriction": "viper"
@@ -80788,7 +80788,7 @@ def handle_player(keys):
 
             # 올라갔다 내려오기: 다크는 더 높이 솟고 착지도 부드럽게
             _jump_up_ms = int(300 * _db_time_mult)
-            _jump_peak = 400.0 if _viper_dark_blade_active else 80.0  # 다크 블레이드: 400px
+            _jump_peak = 320.0 if _viper_dark_blade_active else 80.0  # 다크 블레이드: 320px
             if _br_elapsed < _jump_up_ms:
                 # 올라가기 (이징: 빠르게 올라감)
                 _jt = _br_elapsed / _jump_up_ms
