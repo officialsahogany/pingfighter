@@ -183,3 +183,8 @@ auto_save.pid
 background_remover/dist/
 background_remover/dist2/
 background_remover/build/
+
+# Replay files (too large for GitHub)
+replays/*.tmp
+replays/*.rpl
+replays/_recording_*
