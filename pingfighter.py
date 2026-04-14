@@ -154859,6 +154859,7 @@ def handle_ball():
 
             # 순간이동 대기 중: 도착 시간 체크
             global ghost_shot_pending_teleport
+            _skip_ghost_trajectory = False
             if ghost_shot_pending_teleport is not None:
                 now_ms = pygame.time.get_ticks()
                 if now_ms >= ghost_shot_pending_teleport['arrive_time']:
@@ -154877,9 +154878,6 @@ def handle_ball():
                     BALL.centerx = -1000  # 화면 밖
                     BALL.centery = -1000
                     _skip_ghost_trajectory = True
-                    # 인접 else 처리는 블록 외부 변수로
-            if ghost_shot_pending_teleport is None and '_skip_ghost_trajectory' not in dir():
-                _skip_ghost_trajectory = False
 
             if _skip_ghost_trajectory:
                 pass  # 순간이동 대기 중, 아무 처리 안 함
@@ -154910,8 +154908,7 @@ def handle_ball():
                     phase2_duration = GHOST_SHOT_PHASE2_END - GHOST_SHOT_PHASE1_END  # 2.2초
                     mega_smashing_perf_tp_times = sorted([_tp_seed.uniform(0.3, phase2_duration - 0.3) for _ in range(_tp_count)])
                     mega_smashing_perf_tp_done = set()
-                # 순간이동 타이밍 체크
-                global ghost_shot_pending_teleport
+                # 순간이동 타이밍 체크 (global 선언은 함수 상단에서 이미 처리됨)
                 for tp_idx, tp_time in enumerate(mega_smashing_perf_tp_times):
                     if tp_idx not in mega_smashing_perf_tp_done and phase2_time >= tp_time:
                         mega_smashing_perf_tp_done.add(tp_idx)
@@ -171303,6 +171300,7 @@ def main(stage_num, new_boss_mode=False):
                     # 고스트샷 상태 변수
                     global mega_smashing_active, mega_smashing_start_time, mega_smashing_boss_defense_count
                     global mega_smashing_ghosts, mega_smashing_ghost_scatter, mega_smashing_bonus_applied
+                    global mega_smashing_perf_tp_times, mega_smashing_perf_tp_done, ghost_shot_pending_teleport
                     # 방향 입력: 스킴이 마우스+키보드면 A/D도 인정
                     _dir_left = keys[pygame.K_LEFT]
                     _dir_right = keys[pygame.K_RIGHT]
@@ -171371,6 +171369,7 @@ def main(stage_num, new_boss_mode=False):
                         mega_smashing_ghost_scatter = False
                         mega_smashing_perf_tp_times = None  # 퍼포먼스 순간이동 초기화
                         mega_smashing_perf_tp_done = set()
+                        ghost_shot_pending_teleport = None  # 순간이동 대기 초기화
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
                     if not mega_smashing_active:
                         special_active = True
