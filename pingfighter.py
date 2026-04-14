@@ -120053,7 +120053,7 @@ def draw_objects():
 
                     if _p_type == "smoke_cloud":
                         # 넓은 타원형 연기 구름 (EMP 더스트클라우드 스타일)
-                        _sc_alpha = int(min(_sz_opacity, 50 * _p_life_ratio))
+                        _sc_alpha = int(min(_sz_opacity, 130 * _p_life_ratio))
                         if _sc_alpha <= 0:
                             continue
                         _sc_w = max(2, int(_p_sz * _p_aspect))
@@ -120065,7 +120065,7 @@ def draw_objects():
                         # 외곽 레이어 (부드러운 외곽선)
                         _out_w = _sc_w + 3
                         _out_h = _sc_h + 2
-                        _out_alpha = max(0, _sc_alpha // 3)
+                        _out_alpha = max(0, _sc_alpha // 2)
                         if _out_w > 2 and _out_h > 2 and _out_alpha > 0:
                             try:
                                 pygame.gfxdraw.filled_ellipse(_smoke_overlay_surf, _p_x, _p_y,
@@ -120083,7 +120083,7 @@ def draw_objects():
                         # 내부 밝은 코어 (연기 중심부)
                         _core_w = max(1, _sc_w // 2)
                         _core_h = max(1, _sc_h // 2)
-                        _core_alpha = max(0, _sc_alpha // 2)
+                        _core_alpha = max(0, _sc_alpha * 2 // 3)
                         if _core_w > 1 and _core_h > 1 and _core_alpha > 0:
                             try:
                                 pygame.gfxdraw.filled_ellipse(_smoke_overlay_surf, _p_x, _p_y,
@@ -120094,7 +120094,7 @@ def draw_objects():
                         _smoke_has_particles = True
 
                     elif _p_type == "smoke_pillar":
-                        _sp_alpha = int(min(_sz_opacity, 60 * _p_life_ratio))
+                        _sp_alpha = int(min(_sz_opacity, 110 * _p_life_ratio))
                         if _sp_alpha <= 0:
                             continue
                         _sp_w = max(2, int(_p_sz * _p_aspect))
@@ -120112,7 +120112,7 @@ def draw_objects():
                         _smoke_has_particles = True
 
                     elif _p_type == "smoke_wisp":
-                        _sw_alpha = int(min(_sz_opacity, 120 * _p_life_ratio))
+                        _sw_alpha = int(min(_sz_opacity, 180 * _p_life_ratio))
                         if _sw_alpha <= 0 or _p_sz < 1:
                             continue
                         _sw_gray = int(170 + 50 * (1.0 - _p_life_ratio))
