@@ -89901,13 +89901,16 @@ def handle_wall():
                     "particles": [],  # 연막 파티클들
                     "opacity": 0,  # 초기 투명도
                     "expansion_rate": 5,  # 세로 확장 속도
-                    "expansion_rate_x": 6.7  # 가로 확장 속도 (240/36 프레임)
+                    "expansion_rate_x": 6.7,  # 가로 확장 속도 (240/36 프레임)
+                    "burst_timer": 12,  # 초기 분출 이펙트 타이머 (12프레임)
+                    "burst_ring_radius": 0,  # 분출 링 반경
                 }
                 # 화로 연막탄인 경우 플래그 전달
                 if 'is_brazier_smoke' in smoke_grenade:
                     smoke_zone['is_brazier_smoke'] = True
-                # 초기 연막 파티클 생성 (다층 연기 시스템)
-                # 1) 메인 연기 구름 - 좌우로 퍼지는 넓은 타원 (EMP 더스트클라우드 스타일)
+                # 초기 연막 파티클 생성 (다층 연기 시스템 + 6가지 업그레이드)
+                # color_tone: 0=중성회색, 1=따뜻한갈색, 2=차가운청회색
+                # 1) 메인 연기 구름
                 for i in range(35):
                     side = random.choice([-1, 1])
                     particle = {
@@ -89921,9 +89924,11 @@ def handle_wall():
                         "type": "smoke_cloud",
                         "aspect": random.uniform(1.3, 2.0),
                         "variant": random.randint(0, 3),
+                        "color_tone": random.randint(0, 2),
+                        "depth": random.uniform(0, 1),  # 깊이감 (0=뒤, 1=앞)
                     }
                     smoke_zone["particles"].append(particle)
-                # 2) 상승 연기 기둥 - 위로 피어오르는 세로 연기
+                # 2) 상승 연기 기둥
                 for i in range(20):
                     particle = {
                         "x": smoke_zone["x"] + random.uniform(-40, 40),
@@ -89936,9 +89941,11 @@ def handle_wall():
                         "type": "smoke_pillar",
                         "aspect": random.uniform(0.5, 0.8),
                         "variant": random.randint(0, 3),
+                        "color_tone": random.randint(0, 2),
+                        "depth": random.uniform(0.3, 1),
                     }
                     smoke_zone["particles"].append(particle)
-                # 3) 미세 입자 - 연기 질감을 더하는 작은 점
+                # 3) 미세 입자
                 for i in range(25):
                     angle = random.uniform(0, 2 * math.pi)
                     spd = random.uniform(1.0, 5.0)
@@ -89953,6 +89960,26 @@ def handle_wall():
                         "type": "smoke_wisp",
                         "aspect": 1.0,
                         "variant": random.randint(0, 3),
+                        "color_tone": random.randint(0, 2),
+                        "depth": random.uniform(0.5, 1),
+                    }
+                    smoke_zone["particles"].append(particle)
+                # 4) 가장자리 실타래 (tendril) — 연기 외곽에서 흘러나오는 가느다란 가닥
+                for i in range(12):
+                    angle = random.uniform(0, 2 * math.pi)
+                    particle = {
+                        "x": smoke_zone["x"] + math.cos(angle) * random.uniform(5, 15),
+                        "y": smoke_zone["y"] + math.sin(angle) * random.uniform(3, 8),
+                        "size": random.uniform(3, 7),
+                        "vel_x": math.cos(angle) * random.uniform(2.0, 5.0),
+                        "vel_y": math.sin(angle) * random.uniform(0.5, 2.0) - 0.8,
+                        "lifetime": random.uniform(40, 80),
+                        "max_lifetime": 80,
+                        "type": "smoke_tendril",
+                        "aspect": random.uniform(1.5, 3.0),  # 길쭉한 형태
+                        "variant": random.randint(0, 3),
+                        "color_tone": random.randint(0, 2),
+                        "depth": random.uniform(0.7, 1),
                     }
                     smoke_zone["particles"].append(particle)
                 smoke_zones.append(smoke_zone)
@@ -90003,8 +90030,13 @@ def handle_wall():
         destroy_stage2_rocks_in_smoke(smoke_zone)
         # 스테이지 7 테트로미노를 연막에 닿으면 분해 처리
         destroy_stage7_tetrominoes_in_smoke(smoke_zone)
+        # 초기 분출 이펙트 업데이트
+        _burst_t = smoke_zone.get("burst_timer", 0)
+        if _burst_t > 0:
+            smoke_zone["burst_timer"] = _burst_t - 1
+            smoke_zone["burst_ring_radius"] = smoke_zone.get("burst_ring_radius", 0) + 12
         # 파티클 추가 생성 (다층 연기 효과)
-        if smoke_zone["duration"] > 60 and len(smoke_zone["particles"]) < 100:
+        if smoke_zone["duration"] > 60 and len(smoke_zone["particles"]) < 120:
             radius_x = smoke_zone.get("radius_x", smoke_zone["radius"])
             radius_y = smoke_zone["radius"]
             # 메인 연기 구름 보충 (60% 확률)
@@ -90024,6 +90056,8 @@ def handle_wall():
                     "type": "smoke_cloud",
                     "aspect": random.uniform(1.3, 2.0),
                     "variant": random.randint(0, 3),
+                    "color_tone": random.randint(0, 2),
+                    "depth": random.uniform(0, 1),
                 })
             # 상승 기둥 보충 (30% 확률)
             if random.random() < 0.3:
@@ -90038,6 +90072,8 @@ def handle_wall():
                     "type": "smoke_pillar",
                     "aspect": random.uniform(0.5, 0.8),
                     "variant": random.randint(0, 3),
+                    "color_tone": random.randint(0, 2),
+                    "depth": random.uniform(0.3, 1),
                 })
             # 미세 입자 보충 (40% 확률)
             if random.random() < 0.4:
@@ -90053,31 +90089,64 @@ def handle_wall():
                     "type": "smoke_wisp",
                     "aspect": 1.0,
                     "variant": random.randint(0, 3),
+                    "color_tone": random.randint(0, 2),
+                    "depth": random.uniform(0.5, 1),
                 })
-        # 파티클 업데이트
+            # 가장자리 실타래 보충 (20% 확률)
+            if random.random() < 0.2 and radius_x > 30:
+                angle = random.uniform(0, 2 * math.pi)
+                _edge_x = smoke_zone["x"] + math.cos(angle) * radius_x * 0.7
+                _edge_y = smoke_zone["y"] + math.sin(angle) * radius_y * 0.5
+                smoke_zone["particles"].append({
+                    "x": _edge_x,
+                    "y": _edge_y,
+                    "size": random.uniform(3, 7),
+                    "vel_x": math.cos(angle) * random.uniform(1.0, 3.0),
+                    "vel_y": math.sin(angle) * random.uniform(0.3, 1.0) - 0.5,
+                    "lifetime": random.uniform(30, 60),
+                    "max_lifetime": 60,
+                    "type": "smoke_tendril",
+                    "aspect": random.uniform(1.5, 3.0),
+                    "variant": random.randint(0, 3),
+                    "color_tone": random.randint(0, 2),
+                    "depth": random.uniform(0.7, 1),
+                })
+        # 파티클 업데이트 (난류 + 바닥 확산 포함)
+        _zone_bottom = smoke_zone["y"] + smoke_zone["radius"] * 0.8  # 바닥 확산 기준선
         for particle in smoke_zone["particles"][:]:
             _pt = particle.get("type", "smoke_cloud")
+            # 난류(turbulence): 매 프레임 미세 랜덤 흔들림
+            if _pt in ("smoke_cloud", "smoke_pillar", "smoke_tendril"):
+                particle["vel_x"] += random.uniform(-0.15, 0.15)
+                particle["vel_y"] += random.uniform(-0.08, 0.08)
             particle["x"] += particle["vel_x"]
             particle["y"] += particle["vel_y"]
             particle["lifetime"] -= 1
             if _pt == "smoke_cloud":
-                # 연기 구름: 천천히 팽창하면서 감속
-                particle["size"] *= 1.003  # 미세 팽창
-                particle["vel_x"] *= 0.97  # 감속
-                particle["vel_y"] -= 0.01  # 약간 상승 가속
+                particle["size"] *= 1.003
+                particle["vel_x"] *= 0.97
+                particle["vel_y"] -= 0.01
+                # 바닥 확산: 바닥에 닿으면 옆으로 깔림
+                if particle["y"] > _zone_bottom:
+                    particle["vel_y"] *= -0.2  # 살짝 반발
+                    particle["vel_x"] *= 1.3   # 옆으로 퍼짐
+                    particle["y"] = _zone_bottom
             elif _pt == "smoke_pillar":
-                # 상승 기둥: 위로 올라가면서 약간 퍼짐
                 particle["size"] *= 1.005
                 particle["vel_x"] *= 0.95
                 particle["vel_y"] *= 0.98
+            elif _pt == "smoke_tendril":
+                # 실타래: 빠르게 축소하면서 길쭉하게 유지
+                particle["size"] *= 0.985
+                particle["vel_x"] *= 0.96
+                particle["vel_y"] *= 0.95
             elif _pt == "smoke_wisp":
-                # 미세 입자: 빠르게 축소
                 particle["size"] *= 0.97
                 particle["vel_x"] *= 0.94
                 particle["vel_y"] *= 0.96
             else:
                 particle["size"] *= 0.99
-            _min_sz = 2 if _pt == "smoke_wisp" else 4
+            _min_sz = 2 if _pt in ("smoke_wisp", "smoke_tendril") else 4
             if particle["lifetime"] <= 0 or particle["size"] < _min_sz:
                 smoke_zone["particles"].remove(particle)
         # 공이 연막 안에 있는지 체크 (타원형)
@@ -120464,24 +120533,32 @@ def draw_objects():
                 # 기본 원형 그리기
                 draw.circle((150, 150, 150), 
                                  (int(smoke_grenade["x"]), int(smoke_grenade["y"])), 10)
-    # 연막 지역 그리기 (불규칙 퍼프 캐시 + SRCALPHA 오버레이)
+    # 연막 지역 그리기 (불규칙 퍼프 + 깊이 레이어링 + 색상 변화 + 분출 이펙트)
     if smoke_zones:
         global _smoke_overlay_surf, _smoke_puff_rng
         if _smoke_puff_rng is None:
             import random as _r
             _smoke_puff_rng = _r.Random(42)
-        # 캐싱된 오버레이 서피스
         if (_smoke_overlay_surf is None
                 or _smoke_overlay_surf.get_width() != WIDTH
                 or _smoke_overlay_surf.get_height() != HEIGHT):
             _smoke_overlay_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         _smoke_overlay_surf.fill((0, 0, 0, 0))
         _smoke_has_particles = False
-        _spr = _smoke_puff_rng  # 짧은 별칭
+        _spr = _smoke_puff_rng
+        # 색상 톤 테이블: (외곽RGB, 메인RGB, 코어RGB)
+        _tone_table = {
+            0: ((130, 128, 122), (155, 152, 145), (180, 178, 172)),  # 중성 회색
+            1: ((140, 125, 110), (165, 148, 130), (190, 175, 155)),  # 따뜻한 갈색
+            2: ((120, 128, 135), (145, 152, 160), (170, 178, 185)),  # 차가운 청회색
+        }
         for smoke_zone in smoke_zones:
             if smoke_zone["opacity"] > 0:
                 _sz_opacity = smoke_zone["opacity"]
-                for particle in smoke_zone["particles"]:
+                # ★ 깊이감 레이어링: depth 오름차순 정렬 (뒤→앞)
+                _sorted_particles = sorted(smoke_zone["particles"],
+                    key=lambda p: p.get("depth", 0.5))
+                for particle in _sorted_particles:
                     _p_max_lt = particle.get("max_lifetime", 80)
                     _p_life_ratio = max(0.0, min(1.0, particle["lifetime"] / _p_max_lt))
                     _p_type = particle.get("type", "smoke_cloud")
@@ -120490,46 +120567,49 @@ def draw_objects():
                     _p_y = int(particle["y"])
                     _p_aspect = particle.get("aspect", 1.5)
                     _p_var = particle.get("variant", 0)
+                    _p_tone = particle.get("color_tone", 0)
+                    _p_depth = particle.get("depth", 0.5)
+                    # 깊이에 따른 알파/밝기 조절 (뒤쪽=어둡고 투명, 앞쪽=밝고 불투명)
+                    _depth_alpha_mult = 0.6 + 0.4 * _p_depth
+                    _depth_bright_off = int(-15 + 30 * _p_depth)
+                    _tones = _tone_table.get(_p_tone, _tone_table[0])
 
                     if _p_type == "smoke_cloud":
-                        _sc_alpha = int(min(_sz_opacity, 140 * _p_life_ratio))
+                        _sc_alpha = int(min(_sz_opacity, 140 * _p_life_ratio * _depth_alpha_mult))
                         if _sc_alpha <= 0:
                             continue
                         _sc_w = max(4, int(_p_sz * _p_aspect))
                         _sc_h = max(4, _p_sz)
                         _bk_w = (_sc_w // 4) * 4
                         _bk_h = (_sc_h // 4) * 4
-                        _bk_key = (_bk_w, _bk_h, 0, _p_var)
+                        _bk_key = (_bk_w, _bk_h, 0, _p_var, _p_tone)
                         _puff = _smoke_puff_cache.get(_bk_key)
                         if _puff is None:
-                            # 불규칙 연기 퍼프: 여러 원을 랜덤 오프셋으로 겹쳐 그림
                             _margin = 8
                             _pw = _bk_w * 2 + _margin * 2
                             _ph = _bk_h * 2 + _margin * 2
                             _puff = pygame.Surface((_pw, _ph), pygame.SRCALPHA)
                             _pcx, _pcy = _pw // 2, _ph // 2
-                            # 외곽 레이어: 6~8개 큰 원을 불규칙 배치
+                            _t_out, _t_main, _t_core = _tones
                             _n_outer = _spr.randint(6, 8)
                             for _io in range(_n_outer):
                                 _ox = _pcx + _spr.randint(-_bk_w // 2, _bk_w // 2)
                                 _oy = _pcy + _spr.randint(-_bk_h // 2, _bk_h // 2)
                                 _or = max(3, _spr.randint(_bk_h // 2, _bk_h))
-                                pygame.draw.circle(_puff, (130, 128, 122, 45), (_ox, _oy), _or)
-                            # 메인 레이어: 5~7개 중간 원
+                                pygame.draw.circle(_puff, (*_t_out, 45), (_ox, _oy), _or)
                             _n_main = _spr.randint(5, 7)
                             for _im in range(_n_main):
                                 _mx = _pcx + _spr.randint(-_bk_w // 3, _bk_w // 3)
                                 _my = _pcy + _spr.randint(-_bk_h // 3, _bk_h // 3)
                                 _mr = max(3, _spr.randint(_bk_h * 2 // 5, _bk_h * 4 // 5))
-                                pygame.draw.circle(_puff, (155, 152, 145, 90), (_mx, _my), _mr)
-                            # 코어 레이어: 3~4개 작은 밝은 원
+                                pygame.draw.circle(_puff, (*_t_main, 90), (_mx, _my), _mr)
                             _n_core = _spr.randint(3, 4)
                             for _ic in range(_n_core):
                                 _cx = _pcx + _spr.randint(-_bk_w // 5, _bk_w // 5)
                                 _cy = _pcy + _spr.randint(-_bk_h // 5, _bk_h // 5)
                                 _cr = max(2, _spr.randint(_bk_h // 4, _bk_h // 2))
-                                pygame.draw.circle(_puff, (180, 178, 172, 65), (_cx, _cy), _cr)
-                            if len(_smoke_puff_cache) > 256:
+                                pygame.draw.circle(_puff, (*_t_core, 65), (_cx, _cy), _cr)
+                            if len(_smoke_puff_cache) > 512:
                                 _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
                             _smoke_puff_cache[_bk_key] = _puff
                         _puff.set_alpha(_sc_alpha)
@@ -120538,14 +120618,14 @@ def draw_objects():
                         _smoke_has_particles = True
 
                     elif _p_type == "smoke_pillar":
-                        _sp_alpha = int(min(_sz_opacity, 120 * _p_life_ratio))
+                        _sp_alpha = int(min(_sz_opacity, 120 * _p_life_ratio * _depth_alpha_mult))
                         if _sp_alpha <= 0:
                             continue
                         _sp_w = max(3, int(_p_sz * _p_aspect))
                         _sp_h = max(3, int(_p_sz * 1.3))
                         _bk_w = (_sp_w // 4) * 4
                         _bk_h = (_sp_h // 4) * 4
-                        _bk_key = (_bk_w, _bk_h, 1, _p_var)
+                        _bk_key = (_bk_w, _bk_h, 1, _p_var, _p_tone)
                         _puff = _smoke_puff_cache.get(_bk_key)
                         if _puff is None:
                             _margin = 4
@@ -120553,21 +120633,20 @@ def draw_objects():
                             _ph = _bk_h * 2 + _margin * 2
                             _puff = pygame.Surface((_pw, _ph), pygame.SRCALPHA)
                             _pcx, _pcy = _pw // 2, _ph // 2
-                            # 세로로 길쭉한 불규칙 원 3~5개
+                            _t_out, _t_main, _t_core = _tones
                             _n_pil = _spr.randint(3, 5)
                             for _ip in range(_n_pil):
                                 _px_off = _pcx + _spr.randint(-_bk_w // 3, _bk_w // 3)
                                 _py_off = _pcy + _spr.randint(-_bk_h // 2, _bk_h // 3)
                                 _pr = max(2, _spr.randint(_bk_w // 2, max(_bk_w // 2 + 1, _bk_w)))
-                                pygame.draw.circle(_puff, (172, 165, 158, 70), (_px_off, _py_off), _pr)
-                            # 중앙 밝은 코어
+                                pygame.draw.circle(_puff, (*_t_main, 70), (_px_off, _py_off), _pr)
                             _n_pc = _spr.randint(2, 3)
                             for _ipc in range(_n_pc):
                                 _pcx2 = _pcx + _spr.randint(-_bk_w // 4, _bk_w // 4)
                                 _pcy2 = _pcy + _spr.randint(-_bk_h // 4, _bk_h // 4)
                                 _pcr = max(2, _spr.randint(_bk_w // 3, max(_bk_w // 3 + 1, _bk_w * 2 // 3)))
-                                pygame.draw.circle(_puff, (195, 188, 182, 50), (_pcx2, _pcy2), _pcr)
-                            if len(_smoke_puff_cache) > 256:
+                                pygame.draw.circle(_puff, (*_t_core, 50), (_pcx2, _pcy2), _pcr)
+                            if len(_smoke_puff_cache) > 512:
                                 _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
                             _smoke_puff_cache[_bk_key] = _puff
                         _puff.set_alpha(_sp_alpha)
@@ -120575,24 +120654,56 @@ def draw_objects():
                             (_p_x - _puff.get_width() // 2, _p_y - _puff.get_height() // 2))
                         _smoke_has_particles = True
 
+                    elif _p_type == "smoke_tendril":
+                        # 가장자리 실타래: 길쭉한 불규칙 퍼프
+                        _st_alpha = int(min(_sz_opacity, 100 * _p_life_ratio * _depth_alpha_mult))
+                        if _st_alpha <= 0:
+                            continue
+                        _st_w = max(3, int(_p_sz * _p_aspect))
+                        _st_h = max(2, _p_sz)
+                        _bk_w = (_st_w // 3) * 3
+                        _bk_h = (_st_h // 3) * 3
+                        _bk_key = (_bk_w, _bk_h, 4, _p_var, _p_tone)
+                        _puff = _smoke_puff_cache.get(_bk_key)
+                        if _puff is None:
+                            _margin = 4
+                            _pw = _bk_w * 2 + _margin * 2
+                            _ph = _bk_h * 2 + _margin * 2
+                            _puff = pygame.Surface((_pw, _ph), pygame.SRCALPHA)
+                            _pcx, _pcy = _pw // 2, _ph // 2
+                            _t_out, _t_main, _ = _tones
+                            # 가로로 길쭉한 2~3개 원
+                            for _it in range(_spr.randint(2, 3)):
+                                _tx = _pcx + _spr.randint(-_bk_w // 2, _bk_w // 2)
+                                _ty = _pcy + _spr.randint(-_bk_h // 3, _bk_h // 3)
+                                _tr = max(2, _spr.randint(max(2, _bk_h // 2), max(3, _bk_h)))
+                                pygame.draw.circle(_puff, (*_t_main, 60), (_tx, _ty), _tr)
+                            if len(_smoke_puff_cache) > 512:
+                                _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
+                            _smoke_puff_cache[_bk_key] = _puff
+                        _puff.set_alpha(_st_alpha)
+                        _smoke_overlay_surf.blit(_puff,
+                            (_p_x - _puff.get_width() // 2, _p_y - _puff.get_height() // 2))
+                        _smoke_has_particles = True
+
                     elif _p_type == "smoke_wisp":
-                        _sw_alpha = int(min(_sz_opacity, 160 * _p_life_ratio))
+                        _sw_alpha = int(min(_sz_opacity, 160 * _p_life_ratio * _depth_alpha_mult))
                         if _sw_alpha <= 0 or _p_sz < 1:
                             continue
                         _bk_r = max(2, (_p_sz // 2) * 2)
-                        _bk_key = (_bk_r, _bk_r, 2, _p_var)
+                        _bk_key = (_bk_r, _bk_r, 2, _p_var, _p_tone)
                         _puff = _smoke_puff_cache.get(_bk_key)
                         if _puff is None:
                             _pd = _bk_r * 2 + 4
                             _puff = pygame.Surface((_pd, _pd), pygame.SRCALPHA)
                             _pc = _pd // 2
-                            # 2~3개 작은 원을 약간 어긋나게 겹침
+                            _t_main = _tones[1]
                             for _iw in range(_spr.randint(2, 3)):
                                 _wx = _pc + _spr.randint(-_bk_r // 3, _bk_r // 3)
                                 _wy = _pc + _spr.randint(-_bk_r // 3, _bk_r // 3)
                                 _wr = max(1, _bk_r - _spr.randint(0, max(1, _bk_r // 3)))
-                                pygame.draw.circle(_puff, (188, 184, 178, 110), (_wx, _wy), _wr)
-                            if len(_smoke_puff_cache) > 256:
+                                pygame.draw.circle(_puff, (*_t_main, 110), (_wx, _wy), _wr)
+                            if len(_smoke_puff_cache) > 512:
                                 _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
                             _smoke_puff_cache[_bk_key] = _puff
                         _puff.set_alpha(_sw_alpha)
@@ -120604,20 +120715,39 @@ def draw_objects():
                         _leg_alpha = int(min(_sz_opacity, _sz_opacity * _p_life_ratio))
                         if _leg_alpha > 0 and _p_sz > 1:
                             _bk_r = max(2, (_p_sz // 2) * 2)
-                            _bk_key = (_bk_r, _bk_r, 3, 0)
+                            _bk_key = (_bk_r, _bk_r, 3, 0, 0)
                             _puff = _smoke_puff_cache.get(_bk_key)
                             if _puff is None:
                                 _pd = _bk_r * 2 + 2
                                 _puff = pygame.Surface((_pd, _pd), pygame.SRCALPHA)
                                 _pc = _pd // 2
                                 pygame.draw.circle(_puff, (150, 150, 145, 120), (_pc, _pc), _bk_r)
-                                if len(_smoke_puff_cache) > 256:
+                                if len(_smoke_puff_cache) > 512:
                                     _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
                                 _smoke_puff_cache[_bk_key] = _puff
                             _puff.set_alpha(_leg_alpha)
                             _smoke_overlay_surf.blit(_puff,
                                 (_p_x - _puff.get_width() // 2, _p_y - _puff.get_height() // 2))
                             _smoke_has_particles = True
+                # ★ 초기 분출 이펙트: 링 + 섬광
+                _burst_t = smoke_zone.get("burst_timer", 0)
+                if _burst_t > 0:
+                    _burst_r = int(smoke_zone.get("burst_ring_radius", 0))
+                    _burst_cx = int(smoke_zone["x"])
+                    _burst_cy = int(smoke_zone["y"])
+                    _burst_alpha = int(200 * (_burst_t / 12.0))
+                    # 확산 링
+                    if _burst_r > 2:
+                        pygame.draw.circle(_smoke_overlay_surf,
+                            (220, 215, 200, min(255, _burst_alpha)),
+                            (_burst_cx, _burst_cy), _burst_r, max(1, 3 - _burst_t // 5))
+                    # 중앙 섬광
+                    _flash_r = max(2, 15 - (12 - _burst_t))
+                    _flash_a = min(255, int(255 * (_burst_t / 12.0)))
+                    pygame.draw.circle(_smoke_overlay_surf,
+                        (255, 250, 230, _flash_a),
+                        (_burst_cx, _burst_cy), _flash_r)
+                    _smoke_has_particles = True
         # 오버레이를 SCREEN에 한 번만 blit (화면 흔들림 오프셋 적용)
         if _smoke_has_particles:
             SCREEN.blit(_smoke_overlay_surf, (screen_shake_offset_x, screen_shake_offset_y))
