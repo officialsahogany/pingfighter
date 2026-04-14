@@ -171799,7 +171799,7 @@ def main(stage_num, new_boss_mode=False):
                         actual_boost = new_speed - ball_current_speed  # 고스트샷도 actual_boost 계산
                     else:
                         # 파워스매싱은 기존대로 빠르게 (공속 감쇠 적용)
-                        min_boost = BALL_BASE_SPEED * 0.675  # 최소 증가량 67.5% (기존 75% → 10% 하향)
+                        min_boost = BALL_BASE_SPEED * 0.75  # 최소 증가량 75%
                         _ps_dampen = _get_speed_dampen_factor(ball_current_speed)
                         actual_boost = max(ball_current_speed * 0.576 * _ps_dampen, min_boost)  # 감쇠 적용
                         # ⚡ 스매셔 콤보 소모형 파워스매싱 속도 조정
@@ -171875,9 +171875,9 @@ def main(stage_num, new_boss_mode=False):
 
                     # 방향에 따른 초기 부스트 차별화
                     if power_smashing_direction == 0:  # 직선(중앙) 파워스매싱
-                        initial_boost_multiplier = 1.72  # 기존 1.8 → 10% 하향(72% 추가)
+                        initial_boost_multiplier = 1.8  # 80% 추가
                     else:  # 좌/우 파워스매싱
-                        initial_boost_multiplier = 1.90  # 기존 2.0 → 10% 하향(90% 추가)
+                        initial_boost_multiplier = 2.0  # 100% 추가
                     # ⚡ 스매셔 콤보 없으면 초기 부스트도 하향
                     if selected_character_type == "smasher" and power_smashing_combo_consumed < 2:
                         initial_boost_multiplier *= 0.78  # 22% 감소 (직선 1.34, 좌우 1.48)
