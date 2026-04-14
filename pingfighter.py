@@ -80840,10 +80840,10 @@ def handle_player(keys):
         _db_spin_turns = 3.0 if _viper_dark_blade_active else 2.0  # 다크: 3바퀴, 일반: 2바퀴
         _br_spin_dur = int(_VIPER_BR_SPIN_DURATION * _db_spin_mult)
         _br_decel_dur = int(_VIPER_BR_DECEL_DURATION * _db_time_mult)
-        # 다크 블레이드: 착지(내려오는) 구간을 일반 대비 2x 길게 → 하강 속도 50% 감소
+        # 다크 블레이드: 착지(내려오는) 구간을 일반 대비 길게 → 가속 낙하(ease-in)로 자연스럽게 착지
         if _viper_dark_blade_active:
             _db_jump_up_ms = int(300 * _db_time_mult)
-            _db_descent_dur = int((_VIPER_BR_REST_DURATION - 300) * 2.0)
+            _db_descent_dur = int((_VIPER_BR_REST_DURATION - 300) * 1.5)
             _br_rest_dur = _db_jump_up_ms + _db_descent_dur
         else:
             _br_rest_dur = int(_VIPER_BR_REST_DURATION * _db_time_mult)
@@ -80926,10 +80926,10 @@ def handle_player(keys):
                 _viper_br_jump_offset_y = -_jump_peak * math.sin(_jt * math.pi * 0.5)
                 _viper_br_arm_raise = min(1.0, _jt * 1.5)  # 팔 올리기
             else:
-                # 내려오기: smootherstep(6t^5-15t^4+10t^3) → 착지 속도 0으로 부드럽게 수렴
+                # 내려오기: ease-in-cubic(t^3) → 중력처럼 가속 낙하, 끝에서 땅에 붙어 스냅감 제거
                 _jt = (_br_elapsed - _jump_up_ms) / max(1, _br_rest_dur - _jump_up_ms)
                 _jt = min(1.0, _jt)
-                _smoother = _jt * _jt * _jt * (_jt * (_jt * 6.0 - 15.0) + 10.0)
+                _smoother = _jt * _jt * _jt
                 _viper_br_jump_offset_y = -_jump_peak * (1.0 - _smoother)
                 _viper_br_arm_raise = max(0.0, 1.0 - (_jt * 1.5))  # 팔 내리기
 
