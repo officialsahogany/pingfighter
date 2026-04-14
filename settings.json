@@ -8,6 +8,7 @@
       "fullscreen": false,
       "vsync": true,
       "fps_limit": 60,
+      "adaptive_performance": true,
       "quality": "HIGH",
       "particles": true,
       "screen_shake": true,
@@ -41,8 +42,9 @@
       "screen_edge_scroll": false,
       "camera_shake_intensity": 1.0,
       "slow_motion_effect": true,
-      "damage_numbers": true,
-      "auto_pause_on_focus_loss": true
+      "impact_feedback": true,
+      "auto_pause_on_focus_loss": true,
+      "replay_auto_save": false
     },
     "controls": {
       "control_scheme": "mouse_keyboard",

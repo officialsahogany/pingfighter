@@ -15376,7 +15376,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "쉐도우 백스텝·마샬 킥·팬텀 킥으로 공 타격 후 공중 에어 블레이드 시 발동",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 4바퀴(연장 모션) → 점프 320px 솟구침,\n검기 크기 50% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 60초.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 3바퀴(연장 모션) → 점프 320px 솟구침,\n검기 크기 50% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 60초.",
         "icon_color": (120, 0, 30),
         "tree": "viper",
         "character_restriction": "viper"
@@ -80837,7 +80837,7 @@ def handle_player(keys):
         # 다크 블레이드: 구르는 모션 대폭 연장 (회전 지속 시간 2.5x, 회전 수 2배)
         _db_time_mult = 1.5 if _viper_dark_blade_active else 1.0
         _db_spin_mult = 2.5 if _viper_dark_blade_active else 1.0  # phase 0만 더 길게
-        _db_spin_turns = 4.0 if _viper_dark_blade_active else 2.0  # 다크: 4바퀴, 일반: 2바퀴
+        _db_spin_turns = 3.0 if _viper_dark_blade_active else 2.0  # 다크: 3바퀴, 일반: 2바퀴
         _br_spin_dur = int(_VIPER_BR_SPIN_DURATION * _db_spin_mult)
         _br_decel_dur = int(_VIPER_BR_DECEL_DURATION * _db_time_mult)
         # 다크 블레이드: 착지(내려오는) 구간을 일반 대비 2x 길게 → 하강 속도 50% 감소
@@ -84714,9 +84714,9 @@ def handle_player(keys):
                             if selected_character_type == "viper" and _viper_jetpack_offset_y < 0 and not _hs_speed_active:
                                 _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
                                 _gb_mult *= 1.0 + _jet_height_ratio * 2.15
-                            # ⚔️ 다크 블레이드 구르기 중 좌우 이동속도 3배
+                            # ⚔️ 다크 블레이드 구르기 중 좌우 이동속도 2배
                             if _viper_dark_blade_active and _viper_br_spin_active:
-                                _gb_mult *= 3.0
+                                _gb_mult *= 2.0
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_mult
                                 current_speed = target_speed  # 즉시 목표 속도로 전환

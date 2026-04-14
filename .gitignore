@@ -192,6 +192,7 @@ replays/_recording_*
 # Runtime-generated local files
 error_log.txt
 startup_log.txt
+screenshot_log.txt
 sounds/*.asd
 screenshots/screenshot_*.png
 screenshots/pingfighter_*.png

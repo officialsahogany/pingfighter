@@ -163,11 +163,11 @@ def _clamp_color(color: tuple[int, int, int] | None, fallback: tuple[int, int, i
 def _default_color(event: str, meta: dict[str, Any] | None) -> tuple[int, int, int]:
     meta = meta or {}
     if event == ImpactEvent.BALL_HITS_BOSS:
-        return _clamp_color(meta.get("color"), (255, 180, 90))
+        return _clamp_color(meta.get("color"), (245, 248, 255))
     if event == ImpactEvent.BALL_HITS_PLAYER:
-        return (180, 230, 255)
+        return (245, 248, 255)
     if event == ImpactEvent.BALL_HITS_PLAYER_STRONG:
-        return (255, 205, 120)
+        return (255, 220, 120)
     if event == ImpactEvent.SCORE_PLAYER:
         return (255, 220, 80)
     if event == ImpactEvent.SCORE_BOSS:
@@ -246,6 +246,36 @@ def _add_pulse(**kwargs: Any) -> None:
     _pulses.append(_Pulse(**kwargs))
 
 
+def _add_ring_pulse(
+    pos: tuple[float, float],
+    color: tuple[int, int, int],
+    *,
+    life: float,
+    intensity: float,
+    start_radius: float,
+    end_radius: float,
+    alpha: int,
+    start_width: float = 3.0,
+    end_width: float = 1.0,
+) -> None:
+    _add_pulse(
+        kind="ring",
+        life=life,
+        max_life=life,
+        color=color,
+        intensity=intensity,
+        pos=pos,
+        radius=end_radius,
+        meta={
+            "start_radius": float(start_radius),
+            "end_radius": float(end_radius),
+            "start_width": float(start_width),
+            "end_width": float(end_width),
+            "alpha": max(0, min(255, int(alpha))),
+        },
+    )
+
+
 def _apply_shake(frames: int, intensity: float) -> None:
     if frames <= 0 or intensity <= 0 or _reduce_motion() or not _screen_shake_enabled():
         return
@@ -310,6 +340,48 @@ def _draw_ring(screen: pygame.Surface, pulse: _Pulse) -> None:
     cy = int(pulse.pos[1] + offset_y)
     r, g, b = pulse.color
     pygame.gfxdraw.aacircle(screen, cx, cy, radius, (r, g, b, alpha))
+
+
+def _draw_shock_ring(screen: pygame.Surface, pulse: _Pulse) -> None:
+    """Render a lightweight expanding ring with tapering line width."""
+    if pulse.pos is None:
+        return
+    meta = pulse.meta or {}
+    progress = 1.0 - (pulse.life / max(0.001, pulse.max_life))
+    start_radius = float(meta.get("start_radius", max(4.0, pulse.radius * 0.4)))
+    end_radius = float(meta.get("end_radius", max(start_radius + 1.0, pulse.radius)))
+    radius = max(2, int(round(start_radius + (end_radius - start_radius) * progress)))
+    start_width = float(meta.get("start_width", 2.0))
+    end_width = float(meta.get("end_width", 1.0))
+    ring_width = max(1, int(round(start_width + (end_width - start_width) * progress)))
+    alpha = int((1.0 - progress) * float(meta.get("alpha", 160)))
+    if alpha <= 0 or radius <= 0:
+        return
+
+    offset_x, offset_y = _get_game_offset()
+    cx = int(pulse.pos[0] + offset_x)
+    cy = int(pulse.pos[1] + offset_y)
+    overlay_pad = ring_width + 6
+    overlay_size = radius * 2 + overlay_pad * 2 + 2
+    overlay = _get_pooled_surface(overlay_size, overlay_size)
+    center = overlay_size // 2
+    glow_alpha = max(0, alpha // 3)
+    if glow_alpha > 0:
+        pygame.draw.circle(
+            overlay,
+            (*pulse.color, glow_alpha),
+            (center, center),
+            radius + 1,
+            min(radius, ring_width + 2),
+        )
+    pygame.draw.circle(
+        overlay,
+        (*pulse.color, alpha),
+        (center, center),
+        radius,
+        min(radius, ring_width),
+    )
+    screen.blit(overlay, (cx - center, cy - center))
 
 
 def _draw_paddle_pulse(screen: pygame.Surface, pulse: _Pulse) -> None:
@@ -387,57 +459,77 @@ def fire(
     motion_scale = 0.33 if _reduce_motion() else 1.0
 
     if event == ImpactEvent.BALL_HITS_BOSS and pos is not None:
-        burst_count = max(2, int((6 + intensity * 2) * motion_scale))
+        burst_count = max(2, int((6 + intensity * 2.4) * motion_scale))
         _spawn_burst(
             pos,
             event_color,
             count=burst_count,
-            speed_min=75.0,
-            speed_max=185.0,
+            speed_min=80.0,
+            speed_max=180.0,
             size_min=1.6,
             size_max=2.8,
             life_min=0.10,
-            life_max=0.22,
+            life_max=0.20,
         )
-        _add_pulse(kind="ring", life=0.16, max_life=0.16, color=event_color, intensity=intensity, pos=pos, radius=18 + intensity * 8)
+        _add_ring_pulse(
+            pos,
+            event_color,
+            life=0.24,
+            intensity=intensity,
+            start_radius=7.0,
+            end_radius=28.0 + intensity * 6.0,
+            alpha=140,
+        )
         return
 
     if event == ImpactEvent.BALL_HITS_PLAYER:
         if pos is not None:
-            _add_pulse(
-                kind="ring",
-                life=0.14,
-                max_life=0.14,
-                color=event_color,
-                intensity=0.8,
-                pos=pos,
-                radius=12.0,
+            _spawn_burst(
+                pos,
+                event_color,
+                count=max(2, int(5 * motion_scale)),
+                speed_min=70.0,
+                speed_max=150.0,
+                size_min=1.4,
+                size_max=2.4,
+                life_min=0.10,
+                life_max=0.18,
+            )
+            _add_ring_pulse(
+                pos,
+                event_color,
+                life=0.24,
+                intensity=1.2,
+                start_radius=7.0,
+                end_radius=28.0,
+                alpha=140,
             )
         return
 
     if event == ImpactEvent.BALL_HITS_PLAYER_STRONG:
         if pos is not None:
-            _add_pulse(
-                kind="ring",
-                life=0.20,
-                max_life=0.20,
-                color=event_color,
-                intensity=1.3,
-                pos=pos,
-                radius=18.0,
+            _add_ring_pulse(
+                pos,
+                event_color,
+                life=0.32,
+                intensity=1.6,
+                start_radius=8.0,
+                end_radius=60.0,
+                alpha=200,
+                start_width=4.0,
             )
             _spawn_burst(
                 pos,
                 event_color,
-                count=max(2, int(5 * motion_scale)),
-                speed_min=60.0,
-                speed_max=145.0,
-                size_min=1.8,
-                size_max=2.8,
-                life_min=0.10,
-                life_max=0.20,
+                count=max(4, int(14 * motion_scale)),
+                speed_min=110.0,
+                speed_max=240.0,
+                size_min=2.0,
+                size_max=3.6,
+                life_min=0.14,
+                life_max=0.28,
             )
-        _apply_shake(max(3, int(3 + intensity * 2)), 3.0 + intensity * 2.0)
+        _apply_shake(max(4, int(6 + intensity * 3)), 5.0 + intensity * 3.0)
         return
 
     if event == ImpactEvent.SCORE_PLAYER:
@@ -514,7 +606,7 @@ def draw(screen: pygame.Surface) -> None:
         if pulse.kind == "band":
             _draw_band(screen, pulse)
         elif pulse.kind == "ring":
-            _draw_ring(screen, pulse)
+            _draw_shock_ring(screen, pulse)
         elif pulse.kind == "paddle":
             _draw_paddle_pulse(screen, pulse)
         elif pulse.kind == "slash":
