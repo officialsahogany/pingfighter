@@ -553,6 +553,34 @@ else:
 | 7 | **`draw_skill_icon_mini()` 함수** | **elif 분기 추가 [필수! 없으면 아이콘 깨짐]** |
 | 8 | `global` 선언 | 관련 전역 변수를 사용하는 모든 함수에 `global` 선언 추가 |
 
+### ⚠️ CRITICAL: HUD 5구슬 아이콘 렌더링은 두 함수를 거친다!
+**HUD 구슬 아이콘이 비어 보이는 버그의 가장 흔한 원인입니다.**
+
+5구슬 HUD 렌더링 파이프라인:
+```
+장착 목록 (_viper_equipped_skills)
+  → VIPER_SKILL_ICONS_DATA에서 매칭
+    → _draw_skill_icon_symbol()로 심볼 렌더링   ← 여기가 두 번째 관문!
+      → (폴백) draw_skill_icon_mini()
+```
+
+| 함수 | 역할 | 위치 |
+|------|------|------|
+| `draw_skill_icon_mini()` | 퍽 선택 UI, TAB 정보창 등 범용 아이콘 | `def draw_skill_icon_mini` 검색 |
+| `_draw_skill_icon_symbol()` | **HUD 5구슬 전용** 고퀄리티 심볼 | `def _draw_skill_icon_symbol` 검색 |
+
+**draw_skill_icon_mini()에만 분기를 추가하면 HUD 구슬은 여전히 빈 원!**
+`_draw_skill_icon_symbol()`에도 elif 분기를 추가하거나, 현재 else 폴백(`draw_skill_icon_mini()` 호출)이 동작하는지 반드시 확인해야 합니다.
+
+현재 `_draw_skill_icon_symbol()`의 else 블록에는 `draw_skill_icon_mini()`로 폴백하는 안전장치가 있습니다.
+따라서 `draw_skill_icon_mini()`에 분기만 추가하면 HUD에서도 최소한 아이콘이 표시됩니다.
+더 고퀄리티를 원하면 `_draw_skill_icon_symbol()`에도 전용 분기를 추가하면 됩니다.
+
+**툴팁이 안 뜨는 경우 체크포인트:**
+- `VIPER_SKILL_ICONS_DATA`에 스킬 데이터가 있는지 (name, korean, cost, description 등)
+- `_viper_skill_icon_rects`에 해당 스킬의 rect가 매 프레임 갱신되는지
+- `is_viper_skill_unlocked()`가 True를 반환하는지 (hover 판정 시 사용)
+
 ```python
 # apply_runtime_skill_effect() 내부 - 스킬형 퍽 해금+장착 패턴
 if choice_id == "new_skill_perk":
