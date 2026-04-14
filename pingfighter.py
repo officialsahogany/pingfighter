@@ -80938,6 +80938,7 @@ def handle_player(keys):
                 _viper_br_spin_angle = 0.0
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
+                align_player_to_floor()
 
         # PLAYER rect Y 위치 적용 (물리 판정에 반영) — 공중에서도 공이 패들에 맞도록
         if _viper_br_spin_active and _viper_br_jump_offset_y < 0:
