@@ -804,6 +804,7 @@ _shake_buffer = None
 _shake_buffer_stage2 = None
 _smoke_overlay_surf = None  # 연막탄 SRCALPHA 오버레이 (재사용)
 _explosion_overlay_surf = None  # 폭발 이펙트 SRCALPHA 오버레이 (재사용)
+_fire_puff_cache = {}  # 화염병 불꽃 퍼프 캐시 {key: Surface}
 _smoke_puff_cache = {}  # 사이즈별 불규칙 연기 퍼프 캐시 {(w, h, type, variant): Surface}
 _smoke_puff_rng = None  # 퍼프 생성 전용 RNG (재현성)
 
@@ -121291,10 +121292,8 @@ def draw_objects():
             # 기본 원형 그리기
             draw.circle((255, 100, 0), (int(molotov["x"]), int(molotov["y"])), 10)
     # 화염 지대 그리기 - 고퀄리티 드래곤 브레스 화염 이펙트
-    # 화염 지대 불꽃 퍼프 캐시 {(size_bucket, layer): Surface}
-    if not hasattr(SCREEN, '_fire_puff_cache'):
-        SCREEN._fire_puff_cache = {}
-    _fpc = SCREEN._fire_puff_cache
+    # 화염 지대 불꽃 퍼프 캐시 (모듈 전역)
+    _fpc = _fire_puff_cache
     for fire_zone in fire_zones:
         fz_x = fire_zone["x"]
         fz_y = fire_zone["y"]
