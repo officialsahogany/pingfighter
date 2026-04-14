@@ -192,7 +192,7 @@ class CircularStadiumFrame:
 
         tint_map = {
             'day': (None, 1.0),
-            'sunset': ((255, 110, 35, 32), 1.5),
+            'sunset': ((255, 108, 30, 46), 1.6),
             'night': ((12, 8, 40, 65), 2.5),
         }
         tint_color, torch_boost = tint_map.get(phase, (None, 1.0))
@@ -469,14 +469,21 @@ class CircularStadiumFrame:
     def _prerender_vignette(self):
         """foreground 비네트 프리렌더"""
         self._vignette_surface = pygame.Surface((self.game_width, self.game_height), pygame.SRCALPHA)
-        vignette_size = 25
+        if self._time_of_day == 'sunset':
+            vignette_size = 30
+            alpha_scale = 28
+            color = (72, 28, 8)
+        else:
+            vignette_size = 25
+            alpha_scale = 20
+            color = (0, 0, 0)
         for i in range(vignette_size):
-            alpha = int(20 * (1 - i / vignette_size))
+            alpha = int(alpha_scale * (1 - i / vignette_size))
             # 상단
-            pygame.draw.line(self._vignette_surface, (0, 0, 0, alpha),
+            pygame.draw.line(self._vignette_surface, (*color, alpha),
                            (0, i), (self.game_width - 1, i))
             # 하단
-            pygame.draw.line(self._vignette_surface, (0, 0, 0, alpha),
+            pygame.draw.line(self._vignette_surface, (*color, alpha),
                            (0, self.game_height - i - 1), (self.game_width - 1, self.game_height - i - 1))
 
     def _generate_torches(self):

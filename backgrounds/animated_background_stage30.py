@@ -54,10 +54,10 @@ class AnimatedBackgroundStage30:
             'golden_dust_mult': 1.0,
         },
         'sunset': {        # 4강 - 노을
-            'tint': (255, 120, 40, 38),       # 따뜻한 주황빛
-            'torch_boost': 1.4,
-            'dust_alpha_mult': 1.3,
-            'golden_dust_mult': 1.8,
+            'tint': (255, 108, 30, 56),       # 전체적으로 짙은 주황빛
+            'torch_boost': 1.5,
+            'dust_alpha_mult': 1.25,
+            'golden_dust_mult': 0.65,
         },
         'night': {         # 결승 - 밤
             'tint': (15, 10, 45, 72),         # 진한 남색
@@ -5072,13 +5072,18 @@ class AnimatedBackgroundStage30:
         else:
             screen.blit(self.floor_surface, (offset_x, offset_y))
 
-        # 2. 먼지 파티클 (바닥 위) — 시간대별 투명도 조절
+        # 2. 먼지 파티클 (바닥 위) - 시간대별 투명도 조절
         dust_mult = self._dust_alpha_mult
         for particle in self.dust_particles:
             px = int(particle['x'] * scale_x + offset_x)
             py = int(particle['y'] * scale_y + offset_y)
             size = max(1, int(particle['size'] * scale_x))
-            if dust_mult < 1.0:
+            if self._time_of_day == 'sunset':
+                if dust_mult < 1.0:
+                    color = (int(205 * dust_mult), int(135 * dust_mult), int(88 * dust_mult))
+                else:
+                    color = (205, 135, 88)
+            elif dust_mult < 1.0:
                 c = int(200 * dust_mult)
                 color = (c, int(175 * dust_mult), int(140 * dust_mult))
             else:
@@ -5097,8 +5102,11 @@ class AnimatedBackgroundStage30:
                 continue
             surf_sz = gsize * 2 + 2
             gd_surf = _get_cached_surface(surf_sz, surf_sz)
-            pygame.draw.circle(gd_surf, (210, 180, 80, galpha),
-                             (gsize + 1, gsize + 1), gsize)
+            if self._time_of_day == 'sunset':
+                gd_color = (235, 132, 48, galpha)
+            else:
+                gd_color = (210, 180, 80, galpha)
+            pygame.draw.circle(gd_surf, gd_color, (gsize + 1, gsize + 1), gsize)
             screen.blit(gd_surf, (gx - gsize - 1, gy - gsize - 1))
 
         # 3.5 열기류 파티클 (횃불 근처 아지랑이)
@@ -5415,9 +5423,9 @@ class AnimatedBackgroundStage30:
             base_alpha = 60
             vig_color = (10, 8, 30)
         elif self._time_of_day == 'sunset':
-            vignette_size = 55
-            base_alpha = 40
-            vig_color = (40, 20, 10)
+            vignette_size = 62
+            base_alpha = 52
+            vig_color = (78, 28, 8)
         else:
             vignette_size = 50
             base_alpha = 35

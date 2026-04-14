@@ -4336,7 +4336,7 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "dark_blade", "korean": "다크 블레이드", "cost": 200, "color": (120, 0, 30),
         "symbol": "⚔", "cooldown": 60.0, "key": "W/↑(연계)",
-        "description": "공중 쉐도우 백스텝 직후 에어 블레이드 발동 시 변환.\n구르는 시간 50% 단축, 검기 크기 50% 증가.\n검붉은 검기 발사. 쿨타임 60초.",
+        "description": "공중 쉐도우 백스텝 직후 에어 블레이드 발동 시 변환.\n구르는 시간 150%로 증가, 검기 크기 50% 증가.\n검붉은 검기 발사. 쿨타임 60초.",
         "how_to_use": "공중 쉐도우 백스텝 후 W/↑키 (다크 블레이드 퍽 필요)",
         "effect_type": "slash_dark"
     },
@@ -15202,7 +15202,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "공중 쉐도우 백스텝 → 에어 블레이드 시 다크 블레이드 발동",
         },
-        "detail": "공중에서 쉐도우 백스텝 발동 후 에어 블레이드를 사용하면\n다크 블레이드로 변환됩니다.\n구르는 시간 50% 단축, 검기 크기 50% 증가,\n검붉은 색상의 강화 검기 발사.\n게이지 200, 쿨타임 60초.",
+        "detail": "공중에서 쉐도우 백스텝 발동 후 에어 블레이드를 사용하면\n다크 블레이드로 변환됩니다.\n구르는 시간 150%로 증가, 검기 크기 50% 증가,\n검붉은 색상의 강화 검기 발사.\n게이지 200, 쿨타임 60초.",
         "icon_color": (120, 0, 30),
         "tree": "viper",
         "character_restriction": "viper"
@@ -79486,7 +79486,7 @@ def handle_player(keys):
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
                         _viper_dark_blade_window = False   # 콤보 윈도우 소모
 
-                        # 회전 연출 시작 (다크 블레이드: 50% 단축)
+                        # 회전 연출 시작 (다크 블레이드: 150%로 증가)
                         _viper_br_spin_active = True
                         _viper_br_spin_start_ms = pygame.time.get_ticks()
                         _viper_br_spin_phase = 0
@@ -80573,14 +80573,14 @@ def handle_player(keys):
     if _viper_br_spin_active:
         _br_now = pygame.time.get_ticks()
         _br_elapsed = _br_now - _viper_br_spin_start_ms
-        # 다크 블레이드: 구르는 시간 50% 단축
-        _db_time_mult = 0.5 if _viper_dark_blade_active else 1.0
+        # 다크 블레이드: 구르는 시간 150%로 증가
+        _db_time_mult = 1.5 if _viper_dark_blade_active else 1.0
         _br_spin_dur = int(_VIPER_BR_SPIN_DURATION * _db_time_mult)
         _br_decel_dur = int(_VIPER_BR_DECEL_DURATION * _db_time_mult)
         _br_rest_dur = int(_VIPER_BR_REST_DURATION * _db_time_mult)
 
         if _viper_br_spin_phase == 0:
-            # 단계 0: 빠른 2바퀴 회전 (일반 400ms / 다크 200ms)
+            # 단계 0: 빠른 2바퀴 회전 (일반 400ms / 다크 600ms)
             if _br_elapsed < _br_spin_dur:
                 _br_t = _br_elapsed / _br_spin_dur
                 _viper_br_spin_angle = _br_t * 720.0  # 2바퀴 = 720도

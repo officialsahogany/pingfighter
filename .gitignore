@@ -188,3 +188,11 @@ background_remover/build/
 replays/*.tmp
 replays/*.rpl
 replays/_recording_*
+
+# Runtime-generated local files
+error_log.txt
+startup_log.txt
+sounds/*.asd
+screenshots/screenshot_*.png
+screenshots/pingfighter_*.png
+screenshots/arena_test_*.png
