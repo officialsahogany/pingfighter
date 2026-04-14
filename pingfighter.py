@@ -6535,6 +6535,8 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
     """게이지 구슬 오른쪽에 바이퍼 퍽 아이콘 배치 (레벨업 퍽만 - 팬텀 킥은 5구슬 슬롯으로 이동)"""
     global _viper_perk_activation_times, _viper_perk_was_active, _viper_perk_icon_rects
 
+    _viper_perk_icon_rects = {}
+
     # 해금된 퍽 목록 수집 (레벨업 퍽만, 팬텀 킥은 5구슬 슬롯 시스템으로 이동)
     viper_perks = []
     _jetpack_enhance_lv = get_runtime_skill_level("jetpack_enhance")
@@ -107081,7 +107083,14 @@ def draw_player_gauge():
                     displayed_gauge,
                     current_max_gauge
                 )
-                # 바이퍼 퍽 구슬은 _draw_viper_skill_icons 내부에서 우측 슬롯으로 통합 렌더링
+                _draw_viper_perk_icons(
+                    _player_gauge_surface_left,
+                    orb_center_x,
+                    orb_center_y,
+                    orb_radius,
+                    displayed_gauge,
+                    current_max_gauge
+                )
 
             # === 코만도 화기류 인벤토리 표시 (게이지 구슬 위에 쌓아서 표시) ===
             # 변신 중에는 무기 인벤토리도 숨김
@@ -120484,18 +120493,21 @@ def draw_objects():
                 alpha = max(0, min(255, int((200 * zone["duration"] / 15) * ratio)))
                 color = (r, g, b, alpha)
                 pygame.draw.circle(explosion_surface, color, (int(center), int(center)), i)
-            # 3. 연기 효과 (회색 구름)
+            # 3. 연기 효과 (다양한 색조 + 약간 더 풍성)
             smoke_radius = zone["radius"] * 0.8 + (15 - zone["duration"]) * 4
             smoke_alpha = max(0, 100 - (15 - zone["duration"]) * 6)
-            for j in range(3):  # 여러 개의 연기 구름
-                offset_x = random.randint(-20, 20)
-                offset_y = random.randint(-20, 20)
-                pygame.draw.circle(explosion_surface, (80, 80, 80, smoke_alpha),
+            _smoke_tones = [(80, 80, 80), (70, 60, 50), (90, 75, 65)]
+            for j in range(5):
+                offset_x = random.randint(-25, 25)
+                offset_y = random.randint(-25, 25)
+                _st = _smoke_tones[j % 3]
+                _sr = int(smoke_radius + random.randint(-10, 10))
+                pygame.draw.circle(explosion_surface, (*_st, smoke_alpha),
                                  (int(center + offset_x), int(center + offset_y - (15 - zone["duration"]) * 2)),
-                                 int(smoke_radius + random.randint(-10, 10)), 0)
-            # 4. 섬광 효과 (랜덤 방향으로 퍼지는 빛)
+                                 _sr, 0)
+            # 4. 섬광 효과 (글로우 끝점 + 빛줄기)
             if zone["duration"] > 10:
-                num_sparks = 8
+                num_sparks = 10
                 for k in range(num_sparks):
                     angle = (k * FULL_ROTATION / num_sparks) + random.randint(-20, 20)
                     spark_length = zone["radius"] * 0.7 + random.randint(-10, 10)
@@ -120504,6 +120516,14 @@ def draw_objects():
                     pygame.draw.line(explosion_surface, (255, 255, 200, 150),
                                    (int(center), int(center)),
                                    (int(spark_end_x), int(spark_end_y)), 2)
+                    # 끝점 글로우
+                    pygame.draw.circle(explosion_surface, (255, 255, 220, 100),
+                                     (int(spark_end_x), int(spark_end_y)), 4)
+            # 5. 초기 번쩍 (처음 2프레임만)
+            if zone["duration"] >= 13:
+                _flash_a = int(180 * ((zone["duration"] - 12) / 3.0))
+                pygame.draw.circle(explosion_surface, (255, 250, 230, _flash_a),
+                                 (int(center), int(center)), int(zone["radius"] * 0.35))
             SCREEN.blit(explosion_surface, (zone["x"] - center, zone["y"] - center))
     # Stage7 EMP 파문 그리기(폭발 효과 위에)
     draw_stage7_emp_pulses(SCREEN)
