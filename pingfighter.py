@@ -20624,6 +20624,47 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
             (flame_x + max(1, int(1 * scale)), flame_y + max(2, int(3 * scale)))
         ])
 
+    elif skill_id == "unlock_magnum_grip":
+        # 매그넘 그립 해금 - 자석(U자형) + 자기장 라인 + 해금 마크
+        color = icon_color
+        lt = lighter
+        dk = darker
+        # U자형 자석 본체
+        magnet_w = max(3, int(5 * scale))
+        magnet_h = max(6, int(10 * scale))
+        magnet_gap = max(2, int(4 * scale))
+        # 왼쪽 다리 (빨강)
+        left_x = icon_cx - magnet_gap // 2 - magnet_w
+        top_y = icon_cy - magnet_h // 2
+        pygame.draw.rect(surface, (220, 60, 60), (left_x, top_y, magnet_w, magnet_h), border_radius=max(1, int(1 * scale)))
+        # 오른쪽 다리 (파랑)
+        right_x = icon_cx + magnet_gap // 2
+        pygame.draw.rect(surface, (60, 120, 220), (right_x, top_y, magnet_w, magnet_h), border_radius=max(1, int(1 * scale)))
+        # 상단 연결부 (보라)
+        bar_y = top_y
+        bar_h = max(2, int(3 * scale))
+        pygame.draw.rect(surface, color, (left_x, bar_y, magnet_w * 2 + magnet_gap, bar_h), border_radius=max(1, int(1 * scale)))
+        # 하이라이트
+        pygame.draw.rect(surface, lt(color), (left_x + max(1, int(1 * scale)), bar_y, magnet_w * 2 + magnet_gap - max(2, int(2 * scale)), max(1, int(1 * scale))))
+        # 자기장 라인 (U자 아래쪽 곡선)
+        for i in range(3):
+            arc_r = max(3, int((4 + i * 3) * scale))
+            arc_color = (*color[:3], max(50, 180 - i * 50)) if len(color) >= 3 else color
+            arc_color_rgb = color[:3]
+            arc_y = top_y + magnet_h - max(1, int(2 * scale))
+            # 반원 호를 점으로 그리기
+            for angle_deg in range(0, 181, 15):
+                rad = math.radians(angle_deg)
+                px = icon_cx + int(math.cos(rad) * arc_r)
+                py = arc_y + int(math.sin(rad) * arc_r * 0.6)
+                fade = max(80, 200 - i * 50)
+                c = tuple(min(255, max(0, int(v * fade / 200))) for v in arc_color_rgb)
+                if 0 <= px < surface.get_width() and 0 <= py < surface.get_height():
+                    surface.set_at((px, py), c)
+        # + 마크 (해금 표시)
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(4 * scale), int(2 * scale)))
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(6 * scale), icon_cy - int(8 * scale), int(2 * scale), int(4 * scale)))
+
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
         symbol = skill.get("name", "?")[0] if skill.get("name") else "?"
