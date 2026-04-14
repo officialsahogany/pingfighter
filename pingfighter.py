@@ -153272,13 +153272,13 @@ def calculate_bounce(paddle):
             ball_angle += random.uniform(-2, 2)
     # 패들 충돌 후 공 방향 강제 보정 (보스는 아래로, 플레이어는 위로)
     # 패들 끝 급각도 + 랜덤 회전 누적에 의해 공이 패들 뒤로 날아가는 버그 방지
-    if direction == 1 and vector.y < 0.15:
-        # 보스 패들: y 성분이 너무 작거나 음수면 최소 아래쪽 방향 보장
-        vector.y = 0.15
+    if direction == 1 and vector.y < 0.25:
+        # 보스 패들: y 성분이 너무 작거나 음수면 최소 아래쪽 방향 보장 (약 14도)
+        vector.y = 0.25
         vector = vector.normalize()
-    elif direction == -1 and vector.y > -0.15:
-        # 플레이어 패들: y 성분이 너무 작거나 양수면 최소 위쪽 방향 보장
-        vector.y = -0.15
+    elif direction == -1 and vector.y > -0.25:
+        # 플레이어 패들: y 성분이 너무 작거나 양수면 최소 위쪽 방향 보장 (약 14도)
+        vector.y = -0.25
         vector = vector.normalize()
     # 최종 속도 반영
     ball_vel[0] = speed * vector.x
@@ -159628,9 +159628,13 @@ def handle_ball():
         # 방향 안전장치: 보스 반사 후 공이 반드시 아래로 향하도록 강제
         if ball_vel[1] < 0:
             ball_vel[1] = abs(ball_vel[1])
-        # 위치 보정: 공이 보스 패들 위(상단 경계)에 남아있으면 아래로 밀어냄
-        if BALL.top < BOSS.bottom + 1:
-            BALL.top = BOSS.bottom + 1
+        # 최소 수직 속도 보장: 공이 보스 근처에서 수평으로만 이동하다 끼이는 것 방지
+        _min_down_speed = max(2.0, math.hypot(ball_vel[0], ball_vel[1]) * 0.3)
+        if ball_vel[1] < _min_down_speed:
+            ball_vel[1] = _min_down_speed
+        # 위치 보정: 공이 보스 패들 아래로 충분히 밀어냄 (구석 끼임 방지)
+        if BALL.top < BOSS.bottom + 3:
+            BALL.top = BOSS.bottom + 3
         _boss_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [보스 패들 충돌] calculate_bounce 후 속도: {_boss_speed_before:.2f} → {_boss_speed_after:.2f}, 쿨다운 설정: boss={boss_collision_cooldown}")  # 디버그 비활성화
 
