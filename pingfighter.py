@@ -4172,39 +4172,56 @@ def is_smasher_skill_unlocked(skill_name: str) -> bool:
     return skill_name in _smasher_equipped_skills
 
 
-def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str | None:
-    """스매셔 스킬 구슬이 꽉 찼을 때 교체할 스킬을 선택하는 블로킹 다이얼로그.
-
-    Args:
-        new_skill_name: 새로 장착할 스킬 이름
-
-    Returns:
-        교체할 기존 스킬 이름. 취소 시 None.
-    """
+def _show_themed_skill_swap_dialog(
+    new_skill_name: str,
+    equipped: list[str],
+    locked_skills: set[str],
+    skill_icons_data: list[dict],
+    theme: dict,
+) -> str | None:
+    """캐릭터 테마를 반영한 스킬 교체 팝업을 표시한다."""
     clock = pygame.time.Clock()
-    equipped = get_smasher_equipped_skills()
-
-    # 기본 스킬은 교체 불가 (캐릭터 정체성)
-    _locked_skills = {"drive", "power_smashing"}
-    _replaceable_skills = [skill for skill in equipped if skill not in _locked_skills]
-
-    # 스킬 데이터 매칭
-    skill_data_map = {}
-    for sd in SMASHER_SKILL_ICONS_DATA:
-        skill_data_map[sd["name"]] = sd
-
+    replaceable_skills = [skill for skill in equipped if skill not in locked_skills]
+    skill_data_map = {sd["name"]: sd for sd in skill_icons_data}
     new_skill_data = skill_data_map.get(new_skill_name, {})
     new_korean = new_skill_data.get("korean", new_skill_name)
-    new_color = new_skill_data.get("color", (200, 200, 200))
+    new_color = new_skill_data.get("color", theme["accent"])
 
-    title_font = _load_runtime_popup_font(18, bold=True)
+    title_font = _load_runtime_popup_font(19, bold=True)
     desc_font = _load_runtime_popup_font(14)
     small_font = _load_runtime_popup_font(11)
+    chip_font = _load_runtime_popup_font(13, bold=True)
+    hint_font = _load_runtime_popup_font(12)
 
-    def _swap_render(font, text, color):
-        if font is None:
-            return None
-        return font.render(text, True, color)
+    def _render(font, text, color):
+        return font.render(text, True, color) if font else None
+
+    def _safe_set_cursor(cursor_id):
+        try:
+            pygame.mouse.set_cursor(cursor_id)
+        except Exception:
+            pass
+
+    def _finish(result):
+        _safe_set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+        return result
+
+    def _clamp01(value: float) -> float:
+        return max(0.0, min(1.0, value))
+
+    def _ease_out_cubic(t: float) -> float:
+        t = _clamp01(t)
+        return 1.0 - (1.0 - t) ** 3
+
+    def _ease_out_back(t: float) -> float:
+        t = _clamp01(t)
+        c1 = 1.70158
+        c3 = c1 + 1.0
+        return 1.0 + c3 * (t - 1.0) ** 3 + c1 * (t - 1.0) ** 2
+
+    def _blend(c1: tuple[int, int, int], c2: tuple[int, int, int], t: float) -> tuple[int, int, int]:
+        t = _clamp01(t)
+        return tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
 
     def _split_name_lines(text: str) -> list[str]:
         parts = text.split()
@@ -4214,145 +4231,294 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str | None:
             return parts
         return [" ".join(parts[:-1]), parts[-1]]
 
-    # 카드 레이아웃 설정
-    card_width = 120
-    card_height = 100
-    card_spacing = 10
-    panel_padding_x = 28
-    screen_margin = 40
+    def _draw_soft_shadow(target: pygame.Surface, rect: pygame.Rect, alpha: int = 70):
+        shadow = pygame.Surface((rect.width + 30, rect.height + 26), pygame.SRCALPHA)
+        for idx in range(5):
+            expand = 14 - idx * 3
+            shade = max(0, alpha - idx * 12)
+            shadow_rect = pygame.Rect(
+                15 - expand // 2,
+                8 + idx,
+                rect.width + expand,
+                rect.height + expand // 2,
+            )
+            pygame.draw.rect(shadow, (0, 0, 0, shade), shadow_rect, border_radius=16 + expand // 2)
+        target.blit(shadow, (rect.x - 15, rect.y - 6))
+
+    # 카드 레이아웃
+    card_width = 124
+    card_height = 112
+    card_spacing = 12
+    panel_padding_x = 34
+    screen_margin = 36
     total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
     max_content_width = max(320, WIDTH - screen_margin * 2 - panel_padding_x * 2)
     if total_width > max_content_width and len(equipped) > 0:
         scale = max_content_width / total_width
-        card_width = max(92, int(card_width * scale))
-        card_height = max(92, int(card_height * scale))
+        card_width = max(94, int(card_width * scale))
+        card_height = max(98, int(card_height * scale))
         card_spacing = max(6, int(card_spacing * scale))
         total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
 
-    panel_width = min(max(440, total_width + panel_padding_x * 2), WIDTH - screen_margin * 2)
-    panel_height = 292
-    panel_rect = pygame.Rect(WIDTH // 2 - panel_width // 2, HEIGHT // 2 - panel_height // 2, panel_width, panel_height)
-    start_x = panel_rect.x + (panel_rect.width - total_width) // 2
-    cards_y = panel_rect.y + 106
-    back_button_rect = pygame.Rect(panel_rect.centerx - 76, panel_rect.bottom - 44, 152, 30)
+    panel_width = min(max(486, total_width + panel_padding_x * 2), WIDTH - screen_margin * 2)
+    panel_height = 324
+    panel_base_rect = pygame.Rect(WIDTH // 2 - panel_width // 2, HEIGHT // 2 - panel_height // 2, panel_width, panel_height)
+    start_x = panel_base_rect.x + (panel_base_rect.width - total_width) // 2
+    back_button_base = pygame.Rect(panel_base_rect.centerx - 86, panel_base_rect.bottom - 48, 172, 32)
 
-    # 배경 스냅샷 (매 프레임 복원용)
-    _swap_bg = SCREEN.copy()
-
+    background_snapshot = SCREEN.copy()
     selected = None
-    hover_idx = -1
+    frame_count = 0
+    particles = []
+    for _ in range(18):
+        particles.append({
+            "x": random.uniform(panel_base_rect.x - 20, panel_base_rect.right + 20),
+            "y": random.uniform(panel_base_rect.y + 20, panel_base_rect.bottom + 20),
+            "vx": random.uniform(-0.15, 0.15),
+            "vy": random.uniform(-0.45, -0.15),
+            "radius": random.uniform(1.2, 3.0),
+            "alpha": random.randint(35, 95),
+            "phase": random.uniform(0.0, math.tau),
+            "color": random.choice([new_color, theme["spark_color"], (255, 255, 255)]),
+        })
 
     while selected is None:
+        frame_count += 1
+        time_now = pygame.time.get_ticks() * 0.001
+        intro_t = _ease_out_back(frame_count / 18.0)
+        panel_offset_y = int((1.0 - _ease_out_cubic(frame_count / 16.0)) * 24)
+        panel_rect = panel_base_rect.move(0, panel_offset_y)
+        cards_y = panel_rect.y + 126
+        back_button_rect = back_button_base.move(0, panel_offset_y)
         mouse_pos = pygame.mouse.get_pos()
         mx, my = mouse_pos
+
+        card_rects = []
+        hover_idx = -1
+        for i, eq_name in enumerate(equipped):
+            card_t = _ease_out_back((frame_count - 3 - i * 3) / 16.0)
+            side_dir = -1 if i <= (len(equipped) - 1) / 2 else 1
+            intro_dx = int((1.0 - card_t) * (44 + abs(i - (len(equipped) - 1) / 2) * 16) * side_dir)
+            intro_dy = int((1.0 - card_t) ** 2 * 34)
+            base_rect = pygame.Rect(start_x + i * (card_width + card_spacing) + intro_dx, cards_y + intro_dy, card_width, card_height)
+            card_rects.append(base_rect)
+            if eq_name not in locked_skills and base_rect.collidepoint(mx, my):
+                hover_idx = i
+
         back_hovered = back_button_rect.collidepoint(mouse_pos)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                # 교체 가능한 스킬 중 첫 번째 자동 선택
-                selected = _replaceable_skills[0] if _replaceable_skills else equipped[0]
+                selected = replaceable_skills[0] if replaceable_skills else equipped[0]
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                return None
+                return _finish(None)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if back_button_rect.collidepoint(event.pos):
-                    return None
-                if 0 <= hover_idx < len(equipped) and equipped[hover_idx] not in _locked_skills:
+                    return _finish(None)
+                if 0 <= hover_idx < len(equipped) and equipped[hover_idx] not in locked_skills:
                     selected = equipped[hover_idx]
 
-        # 호버 감지 (잠금 스킬은 호버 제외)
-        hover_idx = -1
-        for i in range(len(equipped)):
-            if equipped[i] in _locked_skills:
-                continue
-            cx = start_x + i * (card_width + card_spacing)
-            _cr = pygame.Rect(cx, cards_y, card_width, card_height)
-            if _cr.collidepoint(mx, my):
-                hover_idx = i
+        _safe_set_cursor(pygame.SYSTEM_CURSOR_HAND if back_hovered or hover_idx >= 0 else pygame.SYSTEM_CURSOR_ARROW)
 
-        # === 렌더링 ===
-        SCREEN.blit(_swap_bg, (0, 0))
+        SCREEN.blit(background_snapshot, (0, 0))
+
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        overlay.fill((*theme["overlay_color"], int(110 + 70 * _clamp01(frame_count / 16.0))))
         SCREEN.blit(overlay, (0, 0))
 
-        # 패널 배경 (불투명)
-        pygame.draw.rect(SCREEN, (20, 20, 30), panel_rect, border_radius=8)
-        pygame.draw.rect(SCREEN, new_color, panel_rect, 2, border_radius=8)
+        fx_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        panel_glow = get_predrawn_glow_circle(max(panel_rect.width, panel_rect.height) + 96, new_color, int(30 + 12 * math.sin(time_now * 2.6)))
+        fx_surface.blit(panel_glow, (panel_rect.centerx - panel_glow.get_width() // 2, panel_rect.centery - panel_glow.get_height() // 2))
 
-        # 타이틀 텍스트
-        t_surf = _swap_render(title_font, "스킬 구슬이 가득 찼습니다!", (255, 220, 100))
-        if t_surf:
-            SCREEN.blit(t_surf, (WIDTH // 2 - t_surf.get_width() // 2, panel_rect.y + 12))
-        n_surf = _swap_render(title_font, f"새 스킬: {new_korean}", new_color)
-        if n_surf:
-            SCREEN.blit(n_surf, (WIDTH // 2 - n_surf.get_width() // 2, panel_rect.y + 38))
-        d_surf = _swap_render(desc_font, "교체할 스킬을 클릭하세요", (200, 200, 200))
-        if d_surf:
-            SCREEN.blit(d_surf, (WIDTH // 2 - d_surf.get_width() // 2, panel_rect.y + 62))
+        for particle in particles:
+            particle["x"] += particle["vx"] + math.sin(time_now * 1.7 + particle["phase"]) * 0.08
+            particle["y"] += particle["vy"]
+            if particle["y"] < panel_rect.y - 16:
+                particle["y"] = panel_rect.bottom + random.uniform(8, 30)
+                particle["x"] = random.uniform(panel_rect.x + 12, panel_rect.right - 12)
+            pygame.draw.circle(
+                fx_surface,
+                (*particle["color"], particle["alpha"]),
+                (int(particle["x"]), int(particle["y"])),
+                int(particle["radius"]),
+            )
+        SCREEN.blit(fx_surface, (0, 0))
 
-        # 장착 중인 스킬 카드들
+        _draw_soft_shadow(SCREEN, panel_rect, 88)
+        panel_surface = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(panel_surface, (*theme["panel_bg"], 238), panel_surface.get_rect(), border_radius=18)
+        header_rect = pygame.Rect(16, 14, panel_rect.width - 32, 92)
+        pygame.draw.rect(panel_surface, (*theme["header_bg"], 180), header_rect, border_radius=14)
+        pygame.draw.rect(panel_surface, (*new_color, 38), header_rect, 2, border_radius=14)
+        for i in range(-40, panel_rect.width, 54):
+            sheen = pygame.Surface((46, 92), pygame.SRCALPHA)
+            pygame.draw.polygon(sheen, (255, 255, 255, 12), [(0, 0), (20, 0), (46, 92), (26, 92)])
+            panel_surface.blit(sheen, (i + int((time_now * 80) % 54), 14))
+        pygame.draw.rect(panel_surface, (*theme["panel_edge"], 255), panel_surface.get_rect(), 2, border_radius=18)
+        inner_rect = panel_surface.get_rect().inflate(-18, -18)
+        pygame.draw.rect(panel_surface, (*theme["panel_inner"], 70), inner_rect, 1, border_radius=14)
+        pygame.draw.line(panel_surface, (*new_color, 70), (26, 108), (panel_rect.width - 26, 108), 2)
+        SCREEN.blit(panel_surface, panel_rect.topleft)
+
+        title_surf = _render(title_font, "스킬 구슬이 가득 찼습니다!", theme["title_color"])
+        if title_surf:
+            title_surf.set_alpha(int(255 * _clamp01(frame_count / 12.0)))
+            SCREEN.blit(title_surf, (panel_rect.centerx - title_surf.get_width() // 2, panel_rect.y + 22))
+
+        chip_text = f"NEW SKILL  {new_korean}"
+        chip_surf = _render(chip_font, chip_text, (245, 245, 250))
+        if chip_surf:
+            chip_width = min(panel_rect.width - 84, max(220, chip_surf.get_width() + 54))
+            chip_rect = pygame.Rect(panel_rect.centerx - chip_width // 2, panel_rect.y + 52, chip_width, 30)
+            chip_surface = pygame.Surface((chip_rect.width, chip_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(chip_surface, (*theme["chip_bg"], 205), chip_surface.get_rect(), border_radius=15)
+            pygame.draw.rect(chip_surface, (*new_color, 95), chip_surface.get_rect(), 2, border_radius=15)
+            chip_glow = get_predrawn_glow_circle(26, new_color, 90)
+            chip_surface.blit(chip_glow, (12 - chip_glow.get_width() // 2 + 6, chip_rect.height // 2 - chip_glow.get_height() // 2))
+            pygame.draw.circle(chip_surface, new_color, (18, chip_rect.height // 2), 6)
+            shimmer_x = int((time_now * 140) % (chip_rect.width + 70)) - 70
+            pygame.draw.polygon(
+                chip_surface,
+                (255, 255, 255, 26),
+                [(shimmer_x, 0), (shimmer_x + 18, 0), (shimmer_x + 52, chip_rect.height), (shimmer_x + 34, chip_rect.height)],
+            )
+            chip_surface.blit(chip_surf, (34, chip_rect.height // 2 - chip_surf.get_height() // 2))
+            SCREEN.blit(chip_surface, chip_rect.topleft)
+
+        desc_surf = _render(desc_font, "교체할 스킬을 클릭하세요", theme["desc_color"])
+        if desc_surf:
+            desc_surf.set_alpha(int(180 + 55 * math.sin(time_now * 3.1)))
+            SCREEN.blit(desc_surf, (panel_rect.centerx - desc_surf.get_width() // 2, panel_rect.y + 88))
+
         for i, eq_name in enumerate(equipped):
-            cx = start_x + i * (card_width + card_spacing)
             eq_data = skill_data_map.get(eq_name, {})
             eq_color = eq_data.get("color", (150, 150, 150))
             eq_korean = eq_data.get("korean", eq_name)
-            is_locked = eq_name in _locked_skills
-
+            is_locked = eq_name in locked_skills
             is_hovered = (i == hover_idx) and not is_locked
-            _card_r = pygame.Rect(cx, cards_y, card_width, card_height)
-            if is_locked:
-                card_bg = (15, 15, 20)
-                border_c = (50, 50, 55)
-            elif is_hovered:
-                card_bg = (eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2)
-                border_c = (255, 100, 100)
-            else:
-                card_bg = (30, 30, 40)
-                border_c = eq_color
-            pygame.draw.rect(SCREEN, card_bg, _card_r, border_radius=6)
-            pygame.draw.rect(SCREEN, border_c, _card_r, 2, border_radius=6)
+            base_rect = card_rects[i]
+            hover_boost = 0.035 + 0.012 * math.sin(time_now * 7.0 + i) if is_hovered else 0.0
+            card_scale = 1.0 + hover_boost
+            draw_width = int(base_rect.width * card_scale)
+            draw_height = int(base_rect.height * card_scale)
+            draw_rect = pygame.Rect(0, 0, draw_width, draw_height)
+            draw_rect.centerx = base_rect.centerx
+            draw_rect.centery = base_rect.centery - (8 if is_hovered else 0)
 
-            orb_cx = cx + card_width // 2
-            orb_cy = cards_y + 32
-            orb_radius = max(18, min(20, card_width // 5))
-            _orb_color = tuple(max(0, c // 3) for c in eq_color) if is_locked else eq_color
-            pygame.draw.circle(SCREEN, _orb_color, (orb_cx, orb_cy), orb_radius)
-            pygame.draw.circle(SCREEN, (80, 80, 80) if is_locked else (255, 255, 255), (orb_cx, orb_cy), orb_radius, 2)
+            _draw_soft_shadow(SCREEN, draw_rect, 56 if is_locked else 74)
 
-            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, max(26, int(32 * min(1.0, card_width / 120))), not is_locked, eq_color)
+            card_surface = pygame.Surface((draw_rect.width, draw_rect.height), pygame.SRCALPHA)
+            state_fill = theme["locked_card_bg"] if is_locked else theme["card_bg"]
+            border_color = theme["locked_border"] if is_locked else eq_color
+            hover_fill = _blend(state_fill, eq_color, 0.24) if not is_locked else state_fill
+            card_fill = hover_fill if is_hovered else state_fill
+            pygame.draw.rect(card_surface, (*card_fill, 236), card_surface.get_rect(), border_radius=14)
+            top_strip = pygame.Rect(8, 8, draw_rect.width - 16, 28)
+            pygame.draw.rect(card_surface, (*_blend(card_fill, eq_color, 0.35), 110), top_strip, border_radius=10)
+            pygame.draw.rect(card_surface, (*border_color, 255), card_surface.get_rect(), 2 if not is_hovered else 3, border_radius=14)
+            pygame.draw.rect(card_surface, (255, 255, 255, 22 if is_hovered else 12), top_strip, 1, border_radius=10)
 
-            _name_color = (100, 100, 100) if is_locked else (255, 255, 255)
+            orb_cx = draw_rect.width // 2
+            orb_cy = 40
+            orb_radius = max(18, min(22, draw_rect.width // 5))
+            orb_glow = get_predrawn_glow_circle(orb_radius * 4, eq_color, 70 if not is_locked else 18)
+            card_surface.blit(orb_glow, (orb_cx - orb_glow.get_width() // 2, orb_cy - orb_glow.get_height() // 2))
+            orb_fill = tuple(max(18, c // 3) for c in eq_color) if is_locked else _blend(eq_color, (255, 255, 255), 0.08)
+            pygame.draw.circle(card_surface, orb_fill, (orb_cx, orb_cy), orb_radius)
+            pygame.draw.circle(card_surface, (255, 255, 255) if not is_locked else (120, 120, 120), (orb_cx, orb_cy), orb_radius, 2)
+            pygame.draw.circle(card_surface, (255, 255, 255, 22), (orb_cx, orb_cy - 5), max(4, orb_radius // 2))
+            _draw_skill_icon_symbol(card_surface, eq_name, orb_cx, orb_cy, max(28, int(34 * min(1.0, draw_rect.width / 124))), not is_locked, eq_color)
+
             name_lines = _split_name_lines(eq_korean)[:2]
-            name_y = cards_y + 58
+            name_y = 67
             if len(name_lines) == 1:
                 name_y += 7
             for line in name_lines:
-                name_surf = _swap_render(small_font, line, _name_color)
+                name_surf = _render(small_font, line, theme["locked_text"] if is_locked else (245, 245, 250))
                 if name_surf:
-                    SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, name_y))
+                    card_surface.blit(name_surf, (orb_cx - name_surf.get_width() // 2, name_y))
                     name_y += 13
 
+            badge_rect = pygame.Rect(12, draw_rect.height - 26, draw_rect.width - 24, 16)
             if is_locked:
-                lock_surf = _swap_render(small_font, "기본 스킬", (80, 80, 90))
-                if lock_surf:
-                    SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + card_height - 18))
+                pygame.draw.rect(card_surface, (*theme["locked_badge"], 120), badge_rect, border_radius=8)
+                badge_surf = _render(hint_font, "기본 스킬", theme["locked_text"])
             elif is_hovered:
-                del_surf = _swap_render(desc_font, "교체", (255, 80, 80))
-                if del_surf:
-                    SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + card_height - 18))
+                glow_badge = _blend(eq_color, (255, 255, 255), 0.18)
+                pygame.draw.rect(card_surface, (*glow_badge, 165), badge_rect, border_radius=8)
+                pygame.draw.rect(card_surface, (255, 255, 255, 35), badge_rect, 1, border_radius=8)
+                badge_surf = _render(hint_font, "클릭하여 교체", (255, 245, 245))
+            else:
+                pygame.draw.rect(card_surface, (*theme["replace_badge"], 90), badge_rect, border_radius=8)
+                badge_surf = _render(hint_font, "교체 가능", theme["desc_color"])
 
-        button_bg = (52, 52, 72) if back_hovered else (30, 30, 42)
-        button_border = (210, 210, 235) if back_hovered else (130, 130, 165)
-        pygame.draw.rect(SCREEN, button_bg, back_button_rect, border_radius=6)
-        pygame.draw.rect(SCREEN, button_border, back_button_rect, 2, border_radius=6)
-        back_surf = _swap_render(desc_font, "돌아가기", (235, 235, 245))
+            if badge_surf:
+                card_surface.blit(badge_surf, (badge_rect.centerx - badge_surf.get_width() // 2, badge_rect.centery - badge_surf.get_height() // 2))
+
+            if is_hovered:
+                hover_glow = get_predrawn_glow_circle(max(draw_rect.width, draw_rect.height) + 34, eq_color, int(20 + 8 * math.sin(time_now * 8.0)))
+                SCREEN.blit(hover_glow, (draw_rect.centerx - hover_glow.get_width() // 2, draw_rect.centery - hover_glow.get_height() // 2))
+
+            SCREEN.blit(card_surface, draw_rect.topleft)
+
+        button_scale = 1.04 if back_hovered else 1.0
+        button_rect = pygame.Rect(0, 0, int(back_button_rect.width * button_scale), int(back_button_rect.height * button_scale))
+        button_rect.center = back_button_rect.center
+        _draw_soft_shadow(SCREEN, button_rect, 52)
+        button_surface = pygame.Surface((button_rect.width, button_rect.height), pygame.SRCALPHA)
+        button_fill = theme["button_hover_bg"] if back_hovered else theme["button_bg"]
+        button_border = _blend(theme["button_border"], (255, 255, 255), 0.2 if back_hovered else 0.0)
+        pygame.draw.rect(button_surface, (*button_fill, 220), button_surface.get_rect(), border_radius=12)
+        pygame.draw.rect(button_surface, (*button_border, 255), button_surface.get_rect(), 2, border_radius=12)
+        back_surf = _render(desc_font, "돌아가기", theme["button_text"])
         if back_surf:
-            SCREEN.blit(back_surf, (back_button_rect.centerx - back_surf.get_width() // 2, back_button_rect.centery - back_surf.get_height() // 2))
+            button_surface.blit(back_surf, (button_rect.width // 2 - back_surf.get_width() // 2, button_rect.height // 2 - back_surf.get_height() // 2))
+        SCREEN.blit(button_surface, button_rect.topleft)
+
+        hint_surf = _render(hint_font, "ESC로 이전 퍽 선택으로 복귀", theme["hint_color"])
+        if hint_surf:
+            SCREEN.blit(hint_surf, (panel_rect.centerx - hint_surf.get_width() // 2, panel_rect.bottom - 72))
 
         pygame.display.flip()
         clock.tick(60)
 
-    return selected
+    return _finish(selected)
+
+
+_SMASHER_SWAP_THEME = {
+    "overlay_color": (8, 5, 10),
+    "panel_bg": (20, 14, 12),
+    "panel_inner": (120, 74, 42),
+    "panel_edge": (255, 180, 100),
+    "header_bg": (55, 28, 18),
+    "accent": (255, 135, 60),
+    "title_color": (255, 228, 150),
+    "desc_color": (216, 206, 190),
+    "card_bg": (34, 22, 18),
+    "locked_card_bg": (20, 17, 16),
+    "locked_border": (82, 68, 58),
+    "locked_badge": (70, 56, 50),
+    "replace_badge": (90, 62, 40),
+    "locked_text": (135, 126, 118),
+    "button_bg": (46, 28, 22),
+    "button_hover_bg": (74, 40, 28),
+    "button_border": (205, 150, 110),
+    "button_text": (245, 235, 225),
+    "hint_color": (190, 175, 165),
+    "chip_bg": (52, 26, 18),
+    "spark_color": (255, 205, 120),
+}
+
+
+def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str | None:
+    """스매셔 스킬 구슬이 꽉 찼을 때 교체할 스킬을 선택하는 블로킹 다이얼로그."""
+    return _show_themed_skill_swap_dialog(
+        new_skill_name=new_skill_name,
+        equipped=get_smasher_equipped_skills(),
+        locked_skills={"drive", "power_smashing"},
+        skill_icons_data=SMASHER_SKILL_ICONS_DATA,
+        theme=_SMASHER_SWAP_THEME,
+    )
 
 
 # ============================================================================
@@ -4560,186 +4726,40 @@ def swap_viper_skill(old_skill: str, new_skill: str) -> bool:
     return False
 
 
+_VIPER_SWAP_THEME = {
+    "overlay_color": (6, 2, 12),
+    "panel_bg": (17, 8, 28),
+    "panel_inner": (122, 64, 186),
+    "panel_edge": (220, 125, 255),
+    "header_bg": (44, 18, 68),
+    "accent": (185, 110, 255),
+    "title_color": (236, 210, 255),
+    "desc_color": (208, 192, 228),
+    "card_bg": (27, 12, 42),
+    "locked_card_bg": (18, 10, 28),
+    "locked_border": (76, 48, 100),
+    "locked_badge": (70, 44, 92),
+    "replace_badge": (98, 55, 128),
+    "locked_text": (144, 122, 166),
+    "button_bg": (44, 20, 62),
+    "button_hover_bg": (76, 28, 106),
+    "button_border": (188, 132, 240),
+    "button_text": (247, 238, 255),
+    "hint_color": (186, 170, 204),
+    "chip_bg": (56, 20, 86),
+    "spark_color": (250, 182, 255),
+}
+
+
 def _show_viper_skill_swap_dialog(new_skill_name: str) -> str | None:
-    """바이퍼 스킬 구슬이 꽉 찼을 때 교체할 스킬을 선택하는 블로킹 다이얼로그.
-
-    Args:
-        new_skill_name: 새로 장착할 스킬 이름
-
-    Returns:
-        교체할 기존 스킬 이름. 취소 시 None.
-    """
-    clock = pygame.time.Clock()
-    equipped = get_viper_equipped_skills()
-
-    # 기본 스킬은 교체 불가 (캐릭터 정체성)
-    _locked_skills = {"shadow_step", "blade_rush", "marshal_kick"}
-    _replaceable_skills = [skill for skill in equipped if skill not in _locked_skills]
-
-    # 스킬 데이터 매칭
-    skill_data_map = {}
-    for sd in VIPER_SKILL_ICONS_DATA:
-        skill_data_map[sd["name"]] = sd
-
-    new_skill_data = skill_data_map.get(new_skill_name, {})
-    new_korean = new_skill_data.get("korean", new_skill_name)
-    new_color = new_skill_data.get("color", (180, 0, 220))
-
-    title_font = _load_runtime_popup_font(18, bold=True)
-    desc_font = _load_runtime_popup_font(14)
-    small_font = _load_runtime_popup_font(11)
-
-    def _vswap_render(font, text, color):
-        if font is None:
-            return None
-        return font.render(text, True, color)
-
-    def _split_name_lines(text: str) -> list[str]:
-        parts = text.split()
-        if len(parts) <= 1:
-            return [text]
-        if len(parts) == 2:
-            return parts
-        return [" ".join(parts[:-1]), parts[-1]]
-
-    # 카드 레이아웃 설정
-    card_width = 120
-    card_height = 100
-    card_spacing = 10
-    panel_padding_x = 28
-    screen_margin = 40
-    total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
-    max_content_width = max(320, WIDTH - screen_margin * 2 - panel_padding_x * 2)
-    if total_width > max_content_width and len(equipped) > 0:
-        scale = max_content_width / total_width
-        card_width = max(92, int(card_width * scale))
-        card_height = max(92, int(card_height * scale))
-        card_spacing = max(6, int(card_spacing * scale))
-        total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
-
-    panel_width = min(max(440, total_width + panel_padding_x * 2), WIDTH - screen_margin * 2)
-    panel_height = 292
-    panel_rect = pygame.Rect(WIDTH // 2 - panel_width // 2, HEIGHT // 2 - panel_height // 2, panel_width, panel_height)
-    start_x = panel_rect.x + (panel_rect.width - total_width) // 2
-    cards_y = panel_rect.y + 106
-    back_button_rect = pygame.Rect(panel_rect.centerx - 76, panel_rect.bottom - 44, 152, 30)
-
-    # 배경 스냅샷 (매 프레임 복원용)
-    _vswap_bg = SCREEN.copy()
-
-    selected = None
-    hover_idx = -1
-
-    while selected is None:
-        mouse_pos = pygame.mouse.get_pos()
-        mx, my = mouse_pos
-        back_hovered = back_button_rect.collidepoint(mouse_pos)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                selected = _replaceable_skills[0] if _replaceable_skills else equipped[0]
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                return None
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if back_button_rect.collidepoint(event.pos):
-                    return None
-                if 0 <= hover_idx < len(equipped) and equipped[hover_idx] not in _locked_skills:
-                    selected = equipped[hover_idx]
-
-        # 호버 감지 (잠금 스킬은 호버 제외)
-        hover_idx = -1
-        for i in range(len(equipped)):
-            if equipped[i] in _locked_skills:
-                continue
-            cx = start_x + i * (card_width + card_spacing)
-            _cr = pygame.Rect(cx, cards_y, card_width, card_height)
-            if _cr.collidepoint(mx, my):
-                hover_idx = i
-
-        # === 렌더링 ===
-        SCREEN.blit(_vswap_bg, (0, 0))
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
-        SCREEN.blit(overlay, (0, 0))
-
-        # 패널 배경 (바이퍼 보라색 테마, 불투명)
-        pygame.draw.rect(SCREEN, (15, 5, 25), panel_rect, border_radius=8)
-        pygame.draw.rect(SCREEN, new_color, panel_rect, 2, border_radius=8)
-
-        # 타이틀 텍스트
-        t_surf = _vswap_render(title_font, "스킬 구슬이 가득 찼습니다!", (220, 180, 255))
-        if t_surf:
-            SCREEN.blit(t_surf, (WIDTH // 2 - t_surf.get_width() // 2, panel_rect.y + 12))
-        n_surf = _vswap_render(title_font, f"새 스킬: {new_korean}", new_color)
-        if n_surf:
-            SCREEN.blit(n_surf, (WIDTH // 2 - n_surf.get_width() // 2, panel_rect.y + 38))
-        d_surf = _vswap_render(desc_font, "교체할 스킬을 클릭하세요", (200, 200, 200))
-        if d_surf:
-            SCREEN.blit(d_surf, (WIDTH // 2 - d_surf.get_width() // 2, panel_rect.y + 62))
-
-        # 장착 중인 스킬 카드들
-        for i, eq_name in enumerate(equipped):
-            cx = start_x + i * (card_width + card_spacing)
-            eq_data = skill_data_map.get(eq_name, {})
-            eq_color = eq_data.get("color", (150, 150, 150))
-            eq_korean = eq_data.get("korean", eq_name)
-            is_locked = eq_name in _locked_skills
-
-            is_hovered = (i == hover_idx) and not is_locked
-            _card_r = pygame.Rect(cx, cards_y, card_width, card_height)
-            if is_locked:
-                card_bg = (10, 5, 15)
-                border_c = (40, 20, 50)
-            elif is_hovered:
-                card_bg = (eq_color[0] // 2, eq_color[1] // 2, eq_color[2] // 2)
-                border_c = (255, 100, 100)
-            else:
-                card_bg = (20, 10, 30)
-                border_c = eq_color
-            pygame.draw.rect(SCREEN, card_bg, _card_r, border_radius=6)
-            pygame.draw.rect(SCREEN, border_c, _card_r, 2, border_radius=6)
-
-            orb_cx = cx + card_width // 2
-            orb_cy = cards_y + 32
-            orb_radius = max(18, min(20, card_width // 5))
-            _orb_color = tuple(max(0, c // 3) for c in eq_color) if is_locked else eq_color
-            pygame.draw.circle(SCREEN, _orb_color, (orb_cx, orb_cy), orb_radius)
-            pygame.draw.circle(SCREEN, (80, 80, 80) if is_locked else (255, 255, 255), (orb_cx, orb_cy), orb_radius, 2)
-
-            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, max(26, int(32 * min(1.0, card_width / 120))), not is_locked, eq_color)
-
-            _name_color = (100, 100, 100) if is_locked else (255, 255, 255)
-            name_lines = _split_name_lines(eq_korean)[:2]
-            name_y = cards_y + 58
-            if len(name_lines) == 1:
-                name_y += 7
-            for line in name_lines:
-                name_surf = _vswap_render(small_font, line, _name_color)
-                if name_surf:
-                    SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, name_y))
-                    name_y += 13
-
-            if is_locked:
-                lock_surf = _vswap_render(small_font, "기본 스킬", (60, 30, 70))
-                if lock_surf:
-                    SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + card_height - 18))
-            elif is_hovered:
-                del_surf = _vswap_render(desc_font, "교체", (255, 80, 80))
-                if del_surf:
-                    SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + card_height - 18))
-
-        button_bg = (58, 26, 74) if back_hovered else (34, 16, 44)
-        button_border = (220, 180, 255) if back_hovered else (145, 110, 185)
-        pygame.draw.rect(SCREEN, button_bg, back_button_rect, border_radius=6)
-        pygame.draw.rect(SCREEN, button_border, back_button_rect, 2, border_radius=6)
-        back_surf = _vswap_render(desc_font, "돌아가기", (245, 235, 255))
-        if back_surf:
-            SCREEN.blit(back_surf, (back_button_rect.centerx - back_surf.get_width() // 2, back_button_rect.centery - back_surf.get_height() // 2))
-
-        pygame.display.flip()
-        clock.tick(60)
-
-    return selected
+    """바이퍼 스킬 구슬이 꽉 찼을 때 교체할 스킬을 선택하는 블로킹 다이얼로그."""
+    return _show_themed_skill_swap_dialog(
+        new_skill_name=new_skill_name,
+        equipped=get_viper_equipped_skills(),
+        locked_skills={"shadow_step", "blade_rush", "marshal_kick"},
+        skill_icons_data=VIPER_SKILL_ICONS_DATA,
+        theme=_VIPER_SWAP_THEME,
+    )
 
 
 def trigger_viper_skill_cooldown(skill_name: str):
@@ -79594,8 +79614,8 @@ def handle_player(keys):
                     except Exception:
                         pass
 
-                # 다크 블레이드 발동 (공중 쉐도우 백스텝 → 에어 블레이드, 퍽 해금 + 콤보 윈도우 활성)
-                elif (is_viper_skill_unlocked("blade_rush") and _viper_jetpack_offset_y < 0
+                # 다크 블레이드 발동 (콤보 윈도우 활성 시 — 공중/지상 무관하게 발동, 자체 점프 모션 포함)
+                elif (is_viper_skill_unlocked("blade_rush")
                       and _viper_dark_blade_window
                       and get_viper_skill_cooldown_remaining("dark_blade") <= 0):
                     if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
@@ -79605,6 +79625,9 @@ def handle_player(keys):
                         _viper_nerve_strike_combo_used = False
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
                         _viper_dark_blade_window = False   # 콤보 윈도우 소모
+                        # 지상에서 발동 시 공중에서 구르는 느낌 유지를 위해 제트팩 오프셋 부여
+                        if _viper_jetpack_offset_y >= 0:
+                            _viper_jetpack_offset_y = -120.0
 
                         # 회전 연출 시작 (다크 블레이드: 150%로 증가)
                         _viper_br_spin_active = True
