@@ -118774,7 +118774,12 @@ def draw_objects():
                 if _viper_br_spin_phase == 2:
                     # 정지 단계: 숨내쉬기 + 팔 서서히 내림
                     _rest_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms
-                    _breath_t = _rest_elapsed / max(1, _VIPER_BR_REST_DURATION)
+                    # 다크 블레이드일 때 phase 2 길이(450 + (1000-300)*1.5 = 1500ms)에 맞춰 호흡 파형 시간축 정규화
+                    if _viper_dark_blade_active:
+                        _breath_total = int(300 * 1.5) + int((_VIPER_BR_REST_DURATION - 300) * 1.5)
+                    else:
+                        _breath_total = _VIPER_BR_REST_DURATION
+                    _breath_t = _rest_elapsed / max(1, _breath_total)
                     _breath_wave = math.sin(_breath_t * math.pi * 3) * 0.03
                     base_ufo_img = create_viper_paddle_surface(0.0)
                     _bw, _bh = base_ufo_img.get_size()
@@ -119066,8 +119071,9 @@ def draw_objects():
             pivot_point.y += delta_y
 
     else:
-        # 바이퍼 에어 블레이드 승룡권 점프 Y오프셋 적용
-        _viper_jump_y = _viper_br_jump_offset_y if (selected_character_type == "viper" and _viper_br_spin_active) else 0.0
+        # 바이퍼 에어 블레이드 승룡권 점프 Y오프셋:
+        # PLAYER.bottom이 이미 점프 오프셋만큼 올라가 있으므로 렌더에서는 추가 적용하지 않음 (이중 오프셋 방지)
+        _viper_jump_y = 0.0
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y + _viper_jump_y))
         # 패들 크기가 커졌을 때 하반신이 화면 아래로 잘리는 것을 방지
