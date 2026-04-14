@@ -122,6 +122,13 @@ def reset_all():
     reset_bomb_spin()
 
 
+def on_unequip():
+    """장착 해제 시 발동 확률/강화 보너스만 초기화. 변신 상태는 유지."""
+    global _activation_chance, _enhancement_bonus_pct
+    _activation_chance = 65
+    _enhancement_bonus_pct = 0
+
+
 def update_animation() -> bool:
     """Advance the transformation animation. Returns True on completion."""
     global yachaman_anim_timer, yachaman_anim_phase, yachaman_particles

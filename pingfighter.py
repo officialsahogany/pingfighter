@@ -32574,7 +32574,7 @@ def sync_equipped_passive_effects():
 
     # 야차맨의 투구: 장착 시 발동확률 동기화 / 해제 시 초기화
     try:
-        from item_effects.yachaman_soul import set_activation_chance, set_enhancement_bonus, reset_all as _ys_reset
+        from item_effects.yachaman_soul import set_activation_chance, set_enhancement_bonus, on_unequip as _ys_unequip
         if "yachaman_soul" in equipped_names:
             ys_item = next((i for i in equipped_items if i.get("name") == "yachaman_soul"), None)
             if ys_item:
@@ -32585,7 +32585,7 @@ def sync_equipped_passive_effects():
                         set_activation_chance(opt["value"])
                         break
         else:
-            _ys_reset()
+            _ys_unequip()
     except Exception:
         pass
 
