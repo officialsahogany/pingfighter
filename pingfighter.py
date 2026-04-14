@@ -121291,132 +121291,148 @@ def draw_objects():
             # 기본 원형 그리기
             draw.circle((255, 100, 0), (int(molotov["x"]), int(molotov["y"])), 10)
     # 화염 지대 그리기 - 고퀄리티 드래곤 브레스 화염 이펙트
+    # 화염 지대 불꽃 퍼프 캐시 {(size_bucket, layer): Surface}
+    if not hasattr(SCREEN, '_fire_puff_cache'):
+        SCREEN._fire_puff_cache = {}
+    _fpc = SCREEN._fire_puff_cache
     for fire_zone in fire_zones:
         fz_x = fire_zone["x"]
         fz_y = fire_zone["y"]
         fz_w = fire_zone["width"]
         fz_h = fire_zone["height"]
         fz_dur = fire_zone.get("duration", 150)
-        fz_max_dur = 150  # 최대 지속시간 (2.5초) - 화염병과 동일
+        fz_max_dur = 150
         fz_life_ratio = min(1.0, fz_dur / fz_max_dur)
 
-        # 1. 바닥 화염 번짐 - 다층 그라데이션
-        base_surf = pygame.Surface((int(fz_w + 40), int(fz_h + 30)), pygame.SRCALPHA)
-        # 외곽 검은 연기/그을음
-        for i in range(3):
-            smoke_alpha = int(30 + i * 15)
-            smoke_size = 1.0 - i * 0.15
-            pygame.draw.ellipse(base_surf, (20, 10, 5, smoke_alpha),
-                              (int(20 - i * 5), int(15 - i * 3),
-                               int(fz_w * smoke_size), int(fz_h * smoke_size)))
-        # 붉은 열기 (중간층)
-        heat_alpha = int(60 * fz_life_ratio)
-        pygame.draw.ellipse(base_surf, (150, 40, 10, heat_alpha),
-                          (int(20 + 5), int(15 + 3), int(fz_w * 0.85), int(fz_h * 0.85)))
-        # 주황 빛나는 중심
-        glow_alpha = int(80 * fz_life_ratio)
-        pygame.draw.ellipse(base_surf, (255, 100, 20, glow_alpha),
-                          (int(20 + 15), int(15 + 8), int(fz_w * 0.6), int(fz_h * 0.6)))
-        SCREEN.blit(base_surf, (fz_x - fz_w/2 - 20, fz_y - fz_h/2 - 15))
+        # 1. 바닥 화염 — 캐싱된 base surface (크기별 1회 생성)
+        _bk_w = (int(fz_w) // 10) * 10
+        _bk_h = (int(fz_h) // 10) * 10
+        _base_key = ("fire_base", _bk_w, _bk_h)
+        _base_surf = _fpc.get(_base_key)
+        if _base_surf is None:
+            _bsw = _bk_w + 40
+            _bsh = _bk_h + 30
+            _base_surf = pygame.Surface((_bsw, _bsh), pygame.SRCALPHA)
+            # 외곽 그을음 3층
+            for i in range(3):
+                _sa = 30 + i * 15
+                _ss = 1.0 - i * 0.15
+                pygame.draw.ellipse(_base_surf, (20, 10, 5, _sa),
+                    (int(20 - i * 5), int(15 - i * 3), int(_bk_w * _ss), int(_bk_h * _ss)))
+            # 붉은 열기
+            pygame.draw.ellipse(_base_surf, (150, 40, 10, 60),
+                (25, 18, int(_bk_w * 0.85), int(_bk_h * 0.85)))
+            # 주황 코어
+            pygame.draw.ellipse(_base_surf, (255, 100, 20, 80),
+                (35, 23, int(_bk_w * 0.6), int(_bk_h * 0.6)))
+            # 밝은 중심 글로우 추가
+            pygame.draw.ellipse(_base_surf, (255, 180, 60, 50),
+                (int(20 + _bk_w * 0.25), int(15 + _bk_h * 0.25),
+                 int(_bk_w * 0.35), int(_bk_h * 0.35)))
+            if len(_fpc) > 64:
+                _fpc.pop(next(iter(_fpc)))
+            _fpc[_base_key] = _base_surf
+        _base_surf.set_alpha(int(255 * min(1.0, fz_life_ratio * 1.2)))
+        SCREEN.blit(_base_surf, (fz_x - fz_w / 2 - 20, fz_y - fz_h / 2 - 15))
 
-        # 2. 열기 웨이브 효과 (아지랑이)
-        time_phase = (pygame.time.get_ticks() / 100) % (2 * math.pi)
+        # 2. 열기 웨이브 — gfxdraw 직접 렌더링 (Surface 할당 0)
+        _tp = (pygame.time.get_ticks() / 100) % (2 * math.pi)
         for hw in range(5):
-            wave_y_off = math.sin(time_phase + hw * 0.8) * 3
-            wave_alpha = int(40 * fz_life_ratio * (1 - hw * 0.15))
-            wave_w = int(fz_w * (0.9 - hw * 0.1))
-            wave_h = int(8 - hw)
-            if wave_alpha > 5 and wave_w > 10:
-                wave_surf = pygame.Surface((wave_w, wave_h + 10), pygame.SRCALPHA)
-                pygame.draw.ellipse(wave_surf, (255, 200, 100, wave_alpha),
-                                  (0, 0, wave_w, wave_h))
-                SCREEN.blit(wave_surf, (fz_x - wave_w/2, fz_y - fz_h/2 - 15 - hw * 8 + wave_y_off))
+            _wy_off = math.sin(_tp + hw * 0.8) * 3
+            _wa = int(40 * fz_life_ratio * (1 - hw * 0.15))
+            _ww = int(fz_w * (0.9 - hw * 0.1)) // 2
+            _wh = max(2, int((8 - hw) // 2))
+            _wcx = int(fz_x)
+            _wcy = int(fz_y - fz_h / 2 - 15 - hw * 8 + _wy_off)
+            if _wa > 5 and _ww > 5:
+                try:
+                    pygame.gfxdraw.filled_ellipse(SCREEN, _wcx, _wcy, _ww, _wh,
+                        (255, 200, 100, min(255, _wa)))
+                except Exception:
+                    pass
 
-        # 3. 개별 불꽃 파티클 그리기 (고퀄리티)
+        # 3. 불꽃 파티클 — 캐싱된 퍼프 + BLEND_ADD
         for flame in fire_zone["flames"]:
-            color_phase = flame["color_phase"]
-            fl_size = flame["size"]
-            fl_lifetime = flame["lifetime"]
-            fl_life_ratio = fl_lifetime / 30.0
-
-            if fl_size < 2:
+            _cp = flame["color_phase"]
+            _fsz = flame["size"]
+            _flt = flame["lifetime"]
+            _flr = _flt / 30.0
+            if _fsz < 2:
                 continue
+            _fx = int(flame["x"])
+            _fy = int(flame["y"])
 
-            # 다층 불꽃 렌더링 (4개 레이어)
-            for layer in range(4):
-                layer_ratio = layer / 3.0
-                layer_size = max(2, int(fl_size * (1.0 - layer_ratio * 0.5)))
+            # 사이즈 버킷 (4px 단위)
+            _fbk = max(4, (int(_fsz) // 4) * 4)
+            # 4레이어를 1장의 캐싱된 퍼프로 통합
+            _flame_key = ("flame_puff", _fbk)
+            _fpuff = _fpc.get(_flame_key)
+            if _fpuff is None:
+                _fpd = _fbk * 2 + 8
+                _fpuff = pygame.Surface((_fpd, _fpd), pygame.SRCALPHA)
+                _fpc_c = _fpd // 2
+                # 레이어 0: 외곽 어두운 빨강
+                for _gr in range(_fbk, 0, -3):
+                    _ga = int(60 * (_gr / _fbk) * 0.8)
+                    pygame.draw.circle(_fpuff, (140, 30, 10, _ga), (_fpc_c, _fpc_c), _gr)
+                # 레이어 1: 빨강/주황
+                _l1r = max(2, _fbk * 3 // 4)
+                for _gr in range(_l1r, 0, -3):
+                    _ga = int(100 * (_gr / _l1r) * 0.8)
+                    pygame.draw.circle(_fpuff, (230, 70, 10, _ga), (_fpc_c, _fpc_c), _gr)
+                # 레이어 2: 주황/노랑
+                _l2r = max(2, _fbk // 2)
+                for _gr in range(_l2r, 0, -2):
+                    _ga = int(140 * (_gr / _l2r) * 0.8)
+                    pygame.draw.circle(_fpuff, (255, 170, 40, _ga), (_fpc_c, _fpc_c), _gr)
+                # 레이어 3: 밝은 코어
+                _l3r = max(2, _fbk // 3)
+                for _gr in range(_l3r, 0, -2):
+                    _ga = int(160 * (_gr / _l3r) * 0.8)
+                    pygame.draw.circle(_fpuff, (255, 240, 170, _ga), (_fpc_c, _fpc_c), _gr)
+                if len(_fpc) > 64:
+                    _fpc.pop(next(iter(_fpc)))
+                _fpc[_flame_key] = _fpuff
 
-                # 레이어별 색상 (외부: 빨강 → 내부: 흰색/노랑)
-                if layer == 0:  # 외부 - 어두운 빨강/연기
-                    r, g, b = int(120 + 40 * math.sin(color_phase * 3)), 30, 10
-                    alpha = int(80 * fl_life_ratio)
-                elif layer == 1:  # 중외부 - 빨강/주황
-                    r = int(220 + 35 * math.sin(color_phase * 4))
-                    g = int(60 + 40 * math.sin(color_phase * 5))
-                    b = 10
-                    alpha = int(140 * fl_life_ratio)
-                elif layer == 2:  # 중내부 - 주황/노랑
-                    r = 255
-                    g = int(150 + 60 * math.sin(color_phase * 4))
-                    b = int(30 + 30 * math.sin(color_phase * 6))
-                    alpha = int(180 * fl_life_ratio)
-                else:  # 핵심 - 밝은 노랑/흰색
-                    r = 255
-                    g = int(230 + 25 * math.sin(color_phase * 3))
-                    b = int(150 + 80 * math.sin(color_phase * 5))
-                    alpha = int(200 * fl_life_ratio)
+            # 흔들림 + 알파 적용
+            _wb_x = math.sin(_cp * 8) * 2.0
+            _wb_y = math.cos(_cp * 6) * 1.5 - 3
+            _f_alpha = int(255 * min(1.0, _flr * 1.3))
+            if _f_alpha > 5:
+                _fpuff.set_alpha(_f_alpha)
+                _half = _fpuff.get_width() // 2
+                SCREEN.blit(_fpuff,
+                    (int(_fx - _half + _wb_x), int(_fy - _half + _wb_y)),
+                    special_flags=pygame.BLEND_ADD)
 
-                # 클램핑
-                r = max(0, min(255, r))
-                g = max(0, min(255, g))
-                b = max(0, min(255, b))
-                alpha = max(0, min(255, alpha))
+            # 상승 트레일 — gfxdraw (Surface 0)
+            if _flr > 0.4 and _fsz > 8:
+                for _t in range(2):
+                    _tr = max(2, int(_fsz * 0.25 * (1 - _t * 0.3)))
+                    _ta = int(50 * _flr * (1 - _t * 0.4))
+                    _ty = int(_fy - _fsz - _t * 6)
+                    _tx = int(_fx + random.uniform(-1.5, 1.5))
+                    if _ta > 3:
+                        try:
+                            pygame.gfxdraw.filled_circle(SCREEN, _tx, _ty, _tr,
+                                (255, 180, 80, min(255, _ta)))
+                        except Exception:
+                            pass
 
-                if layer_size > 1 and alpha > 5:
-                    surf_size = layer_size * 2 + 4
-                    flame_surface = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
-                    center = surf_size // 2
-
-                    # 그라데이션 원
-                    for gr in range(layer_size, 0, -2):
-                        grad_alpha = int(alpha * (gr / layer_size) * 0.8)
-                        grad_alpha = max(0, min(255, grad_alpha))
-                        pygame.draw.circle(flame_surface, (r, g, b, grad_alpha), (center, center), gr)
-
-                    # 흔들림 효과
-                    wobble_x = math.sin(color_phase * 8 + layer) * (1.5 + layer * 0.5)
-                    wobble_y = math.cos(color_phase * 6 + layer * 0.5) * (1 + layer * 0.3) - layer * 2
-
-                    SCREEN.blit(flame_surface,
-                              (int(flame["x"] - center + wobble_x),
-                               int(flame["y"] - center + wobble_y)),
-                              special_flags=pygame.BLEND_ADD)
-
-            # 불꽃 상승 트레일
-            if fl_life_ratio > 0.4 and fl_size > 8:
-                for t in range(2):
-                    trail_size = max(2, int(fl_size * 0.25 * (1 - t * 0.3)))
-                    trail_alpha = int(50 * fl_life_ratio * (1 - t * 0.4))
-                    trail_y = flame["y"] - fl_size - t * 6
-                    trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(trail_surf, (255, 180, 80, max(0, min(255, trail_alpha))),
-                                     (trail_size, trail_size), trail_size)
-                    SCREEN.blit(trail_surf,
-                              (int(flame["x"] - trail_size + random.uniform(-1.5, 1.5)),
-                               int(trail_y - trail_size)),
-                              special_flags=pygame.BLEND_ADD)
-
-            # 스파크 효과
-            if random.random() < 0.1 * fl_life_ratio:
-                spark_size = random.randint(1, 2)
-                spark_x = flame["x"] + random.uniform(-fl_size, fl_size)
-                spark_y = flame["y"] + random.uniform(-fl_size * 1.5, fl_size * 0.5)
-                spark_surf = pygame.Surface((spark_size * 2 + 2, spark_size * 2 + 2), pygame.SRCALPHA)
-                pygame.draw.circle(spark_surf, (255, 255, 220, 255),
-                                 (spark_size + 1, spark_size + 1), spark_size)
-                SCREEN.blit(spark_surf, (int(spark_x - spark_size - 1), int(spark_y - spark_size - 1)),
-                          special_flags=pygame.BLEND_ADD)
+            # 스파크 — gfxdraw (Surface 0)
+            if random.random() < 0.15 * _flr:
+                _spsz = random.randint(1, 3)
+                _spx = int(_fx + random.uniform(-_fsz, _fsz))
+                _spy = int(_fy + random.uniform(-_fsz * 1.5, _fsz * 0.5))
+                try:
+                    pygame.gfxdraw.filled_circle(SCREEN, _spx, _spy, _spsz,
+                        (255, 255, 220, 255))
+                    # 스파크 글로우
+                    if _spsz > 1:
+                        pygame.gfxdraw.filled_circle(SCREEN, _spx, _spy, _spsz + 2,
+                            (255, 200, 100, 80))
+                except Exception:
+                    pass
     #  벽돌 그리기
     for wall in walls:
         wall_rect = wall["rect"].copy()  # 원본 rect 복사
