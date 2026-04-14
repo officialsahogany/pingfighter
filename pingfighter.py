@@ -79616,6 +79616,10 @@ def handle_player(keys):
             _viper_wall_dive_active = True
             _viper_wall_dive_phase = 0  # 벽으로 점프
             _viper_wall_dive_start_ms = pygame.time.get_ticks()
+            # 다크 블레이드 콤보 윈도우: 마샬 킥 / 팬텀 킥 발동 시에도 3초 윈도우 오픈
+            if is_viper_skill_unlocked("dark_blade"):
+                _viper_dark_blade_window = True
+                _viper_dark_blade_window_ms = pygame.time.get_ticks()
             _viper_wall_dive_start_x = float(PLAYER.centerx)
             _viper_wall_dive_start_y = float(PLAYER.centery)
             _viper_wall_dive_ball_hit = False
