@@ -692,6 +692,51 @@ def get_cached_font(font_name: str, size: int, bold: bool = False, italic: bool 
     return _font_cache[cache_key]
 
 
+def _load_runtime_popup_font(size: int, bold: bool = False) -> pygame.font.Font:
+    """런타임 팝업용 한글 폰트를 로드한다.
+
+    개발 환경과 패키징 환경의 폰트 위치가 달라도 텍스트가 사라지지 않도록
+    번들 경로, 루트 경로, 시스템 폰트 순서로 안전하게 폴백한다.
+    """
+    font_candidates = [
+        os.path.join("fonts", "NanumSquareB.ttf" if bold else "NanumSquareR.ttf"),
+        "NanumSquareB.ttf" if bold else "NanumSquareR.ttf",
+        os.path.join(
+            "fonts",
+            "프리텐다드",
+            "public",
+            "static",
+            "alternative",
+            "Pretendard-Bold.ttf" if bold else "Pretendard-Regular.ttf",
+        ),
+        "Pretendard-Bold.ttf" if bold else "Pretendard-Regular.ttf",
+    ]
+
+    for rel_path in font_candidates:
+        try:
+            font_path = resource_path(rel_path)
+            if os.path.exists(font_path):
+                return pygame.font.Font(font_path, size)
+        except Exception:
+            continue
+
+    system_font_candidates = []
+    if sys.platform == "win32":
+        system_font_candidates = ["malgungothic", "malgun gothic", "맑은 고딕"]
+    elif sys.platform == "darwin":
+        system_font_candidates = ["applegothic", "AppleGothic"]
+    else:
+        system_font_candidates = ["NanumGothic", "Noto Sans CJK KR", "Noto Sans KR"]
+
+    for font_name in system_font_candidates:
+        try:
+            return pygame.font.SysFont(font_name, size, bold=bold)
+        except Exception:
+            continue
+
+    return pygame.font.Font(None, size)
+
+
 def get_cached_static_text(text: str, font_key: tuple, color: tuple, antialias: bool = True) -> pygame.Surface:
     """정적 텍스트 Surface 캐싱 (변하지 않는 라벨용)
 
@@ -4151,32 +4196,13 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
     new_korean = new_skill_data.get("korean", new_skill_name)
     new_color = new_skill_data.get("color", (200, 200, 200))
 
-    # 폰트 준비 (freetype 우선, 실패 시 pygame.font 폴백)
-    _swap_use_freetype = False
-    title_font = None
-    desc_font = None
-    small_font = None
-    try:
-        _font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-        title_font = pygame.freetype.Font(_font_path, 18)
-        desc_font = pygame.freetype.Font(_font_path, 14)
-        small_font = pygame.freetype.Font(_font_path, 11)
-        _swap_use_freetype = True
-    except Exception as _fe:
-        print(f"[스킬교체UI] freetype 폰트 로드 실패: {_fe}", flush=True)
-        try:
-            title_font = pygame.font.Font(_font_path, 18)
-            desc_font = pygame.font.Font(_font_path, 14)
-            small_font = pygame.font.Font(_font_path, 11)
-        except Exception:
-            pass
+    title_font = _load_runtime_popup_font(18, bold=True)
+    desc_font = _load_runtime_popup_font(14)
+    small_font = _load_runtime_popup_font(11)
 
     def _swap_render(font, text, color):
         if font is None:
             return None
-        if _swap_use_freetype:
-            s, _ = font.render(text, color)
-            return s
         return font.render(text, True, color)
 
     # 카드 레이아웃 설정
@@ -4273,11 +4299,11 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
                 SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
 
             if is_locked:
-                lock_surf = _swap_render(small_font, "🔒 기본", (80, 80, 90))
+                lock_surf = _swap_render(small_font, "기본 스킬", (80, 80, 90))
                 if lock_surf:
                     SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + 80))
             elif is_hovered:
-                del_surf = _swap_render(desc_font, "✕ 교체", (255, 80, 80))
+                del_surf = _swap_render(desc_font, "교체", (255, 80, 80))
                 if del_surf:
                     SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
 
@@ -4516,32 +4542,13 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
     new_korean = new_skill_data.get("korean", new_skill_name)
     new_color = new_skill_data.get("color", (180, 0, 220))
 
-    # 폰트 준비 (freetype 우선, 실패 시 pygame.font 폴백)
-    _vswap_use_freetype = False
-    title_font = None
-    desc_font = None
-    small_font = None
-    try:
-        _font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-        title_font = pygame.freetype.Font(_font_path, 18)
-        desc_font = pygame.freetype.Font(_font_path, 14)
-        small_font = pygame.freetype.Font(_font_path, 11)
-        _vswap_use_freetype = True
-    except Exception as _fe:
-        print(f"[바이퍼교체UI] freetype 폰트 로드 실패: {_fe}", flush=True)
-        try:
-            title_font = pygame.font.Font(_font_path, 18)
-            desc_font = pygame.font.Font(_font_path, 14)
-            small_font = pygame.font.Font(_font_path, 11)
-        except Exception:
-            pass
+    title_font = _load_runtime_popup_font(18, bold=True)
+    desc_font = _load_runtime_popup_font(14)
+    small_font = _load_runtime_popup_font(11)
 
     def _vswap_render(font, text, color):
         if font is None:
             return None
-        if _vswap_use_freetype:
-            s, _ = font.render(text, color)
-            return s
         return font.render(text, True, color)
 
     # 카드 레이아웃 설정
@@ -4637,11 +4644,11 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
                 SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
 
             if is_locked:
-                lock_surf = _vswap_render(small_font, "🔒 기본", (60, 30, 70))
+                lock_surf = _vswap_render(small_font, "기본 스킬", (60, 30, 70))
                 if lock_surf:
                     SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + 80))
             elif is_hovered:
-                del_surf = _vswap_render(desc_font, "✕ 교체", (255, 80, 80))
+                del_surf = _vswap_render(desc_font, "교체", (255, 80, 80))
                 if del_surf:
                     SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
 
@@ -80573,30 +80580,33 @@ def handle_player(keys):
     if _viper_br_spin_active:
         _br_now = pygame.time.get_ticks()
         _br_elapsed = _br_now - _viper_br_spin_start_ms
-        # 다크 블레이드: 구르는 시간 150%로 증가
+        # 다크 블레이드: 구르는 모션 대폭 연장 (회전 지속 시간 2.5x, 회전 수 2배)
         _db_time_mult = 1.5 if _viper_dark_blade_active else 1.0
-        _br_spin_dur = int(_VIPER_BR_SPIN_DURATION * _db_time_mult)
+        _db_spin_mult = 2.5 if _viper_dark_blade_active else 1.0  # phase 0만 더 길게
+        _db_spin_turns = 4.0 if _viper_dark_blade_active else 2.0  # 다크: 4바퀴, 일반: 2바퀴
+        _br_spin_dur = int(_VIPER_BR_SPIN_DURATION * _db_spin_mult)
         _br_decel_dur = int(_VIPER_BR_DECEL_DURATION * _db_time_mult)
         _br_rest_dur = int(_VIPER_BR_REST_DURATION * _db_time_mult)
+        _br_spin_total_angle = 360.0 * _db_spin_turns
 
         if _viper_br_spin_phase == 0:
-            # 단계 0: 빠른 2바퀴 회전 (일반 400ms / 다크 600ms)
+            # 단계 0: 빠른 회전 (일반 2바퀴 400ms / 다크 4바퀴 1000ms)
             if _br_elapsed < _br_spin_dur:
                 _br_t = _br_elapsed / _br_spin_dur
-                _viper_br_spin_angle = _br_t * 720.0  # 2바퀴 = 720도
+                _viper_br_spin_angle = _br_t * _br_spin_total_angle
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
             else:
                 _viper_br_spin_phase = 1
                 _viper_br_spin_start_ms = _br_now
-                _viper_br_spin_angle = 720.0
+                _viper_br_spin_angle = _br_spin_total_angle
 
         elif _viper_br_spin_phase == 1:
             # 단계 1: 감속하며 멈춤 (일반 200ms / 다크 100ms)
             if _br_elapsed < _br_decel_dur:
                 _br_t = _br_elapsed / _br_decel_dur
                 _br_decel = 1.0 - _br_t
-                _viper_br_spin_angle = 720.0 + _br_decel * 90.0 * (1.0 - _br_t)
+                _viper_br_spin_angle = _br_spin_total_angle + _br_decel * 90.0 * (1.0 - _br_t)
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
             else:
