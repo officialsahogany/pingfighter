@@ -4312,6 +4312,13 @@ VIPER_SKILL_ICONS_DATA = [
         "how_to_use": "마샬 킥 적중 후 1.5초 안에 S/↓키 (팬텀 킥 퍽 필요)",
         "effect_type": "wall_dive_purple"
     },
+    {
+        "name": "dark_blade", "korean": "다크 블레이드", "cost": 200, "color": (120, 0, 30),
+        "symbol": "⚔", "cooldown": 60.0, "key": "W/↑(연계)",
+        "description": "공중 쉐도우 백스텝 직후 에어 블레이드 발동 시 변환.\n구르는 시간 50% 단축, 검기 크기 50% 증가.\n검붉은 검기 발사. 쿨타임 60초.",
+        "how_to_use": "공중 쉐도우 백스텝 후 W/↑키 (다크 블레이드 퍽 필요)",
+        "effect_type": "slash_dark"
+    },
 ]
 
 # 바이퍼 스킬 툴팁 관련 변수
@@ -4331,6 +4338,7 @@ _viper_skill_cooldowns = {
     "marshal_kick": 0,
     "phantom_kick": 0,
     "dive_strike": 0,
+    "dark_blade": 0,
 }
 
 # 바이퍼 스킬 활성화 순간 추적
@@ -4341,6 +4349,7 @@ _viper_skill_activation_times = {
     "marshal_kick": 0,
     "phantom_kick": 0,
     "dive_strike": 0,
+    "dark_blade": 0,
 }
 _viper_skill_was_active = {
     "shadow_step": False,
@@ -4349,6 +4358,7 @@ _viper_skill_was_active = {
     "marshal_kick": False,
     "phantom_kick": False,
     "dive_strike": False,
+    "dark_blade": False,
 }
 
 # 바이퍼 스킬 해금 상태
@@ -4691,6 +4701,7 @@ def reset_viper_skill_cooldowns():
         "marshal_kick": 0,
         "phantom_kick": 0,
         "dive_strike": 0,
+        "dark_blade": 0,
     }
 
 
@@ -15088,6 +15099,17 @@ VIPER_EXCLUSIVE_SKILLS = {
         "tree": "viper",
         "character_restriction": "viper"
     },
+    "dark_blade": {
+        "name": "다크 블레이드",
+        "max_level": 1,
+        "descriptions": {
+            1: "공중 쉐도우 백스텝 → 에어 블레이드 시 다크 블레이드 발동",
+        },
+        "detail": "공중에서 쉐도우 백스텝 발동 후 에어 블레이드를 사용하면\n다크 블레이드로 변환됩니다.\n구르는 시간 50% 단축, 검기 크기 50% 증가,\n검붉은 색상의 강화 검기 발사.\n게이지 200, 쿨타임 60초.",
+        "icon_color": (120, 0, 30),
+        "tree": "viper",
+        "character_restriction": "viper"
+    },
 }
 
 # 코만도 화기류 해금 플래그 (런타임 스킬로 해금됨)
@@ -17118,6 +17140,10 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     if choice_id == "kick_enhance":
         old_lv = runtime_skill_levels.get("kick_enhance", 0)
         runtime_skill_levels["kick_enhance"] = old_lv + 1
+        return True
+
+    if choice_id == "dark_blade":
+        runtime_skill_levels["dark_blade"] = 1
         return True
 
     # 일반 스킬 레벨업
@@ -20570,6 +20596,38 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         # + 마크 (해금 표시)
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(4 * scale), int(2 * scale)))
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(6 * scale), icon_cy - int(8 * scale), int(2 * scale), int(4 * scale)))
+
+    elif skill_id == "dark_blade":
+        # 다크 블레이드: 검붉은 검기 아이콘
+        color = icon_color
+        lt = lighter
+        dk = darker
+        # 검기 본체 (부채꼴 형태, 검붉은색)
+        blade_w = max(4, int(8 * scale))
+        blade_h = max(8, int(14 * scale))
+        blade_pts = [
+            (icon_cx, icon_cy - blade_h),  # 꼭짓점
+            (icon_cx - blade_w, icon_cy + max(2, int(3 * scale))),  # 좌하
+            (icon_cx + blade_w, icon_cy + max(2, int(3 * scale))),  # 우하
+        ]
+        pygame.draw.polygon(surface, (120, 0, 30), blade_pts)
+        pygame.draw.polygon(surface, (180, 20, 50), blade_pts, max(1, int(1 * scale)))
+        # 내부 광택 (검붉은 하이라이트)
+        inner_pts = [
+            (icon_cx, icon_cy - blade_h + max(2, int(3 * scale))),
+            (icon_cx - blade_w // 2, icon_cy),
+            (icon_cx + blade_w // 2, icon_cy),
+        ]
+        pygame.draw.polygon(surface, (200, 40, 60, 120), inner_pts)
+        # 어두운 오라 (검기 주변)
+        for i in range(3):
+            _oa = max(30, 80 - i * 25)
+            _or = max(2, int((3 + i * 2) * scale))
+            pygame.draw.circle(surface, (60, 0, 15, _oa), (icon_cx, icon_cy - blade_h // 2), _or)
+        # 중앙 선 (칼날 중심선)
+        pygame.draw.line(surface, (220, 60, 70),
+                         (icon_cx, icon_cy - blade_h + max(1, int(2 * scale))),
+                         (icon_cx, icon_cy + max(1, int(2 * scale))), max(1, int(1 * scale)))
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
@@ -53516,6 +53574,12 @@ _viper_phantom_strike_timer = 0       # 버프 남은 시간 (프레임)
 _VIPER_PHANTOM_STRIKE_DURATION = 18   # 0.3초 (60fps 기준)
 _viper_phantom_strike_curve_dir = 0   # 커브 방향 (-1:왼, 1:오른, 텔레포트 방향)
 
+# === 바이퍼 다크 블레이드 콤보 시스템 ===
+_viper_dark_blade_window = False      # 다크 블레이드 콤보 윈도우 활성 (쉐도우 백스텝 공중 발동 후)
+_viper_dark_blade_window_ms = 0       # 콤보 윈도우 시작 시각 (ms)
+_VIPER_DARK_BLADE_WINDOW_DURATION = 3000  # 콤보 윈도우 지속 시간 (3초)
+_viper_dark_blade_active = False      # 현재 발사된 검기가 다크 블레이드인지
+
 # 팬텀 스트라이크 커브 (비행 중 매 프레임 적용)
 _viper_ps_curve_active = False        # 커브 비행 중
 _viper_ps_curve_timer = 0             # 커브 남은 프레임
@@ -63853,6 +63917,9 @@ def go_to_next_round():
     _viper_dive_hold_start_ms = 0
     _viper_dive_charge_particles = []
     _viper_blade_rush_active = False
+    _viper_dark_blade_active = False
+    _viper_dark_blade_window = False
+    _viper_blade_rush_width = 350
     _viper_br_spin_active = False
     _viper_br_spin_phase = 0
     _reset_viper_jetpack_state()
@@ -79074,6 +79141,10 @@ def handle_player(keys):
                         _viper_ss_hologram_kick_hit = False  # 킥 히트 초기화
                         _viper_ss_hit_consumed = False  # 그라데이션 타격 중복 방지 초기화
                         _viper_ss_was_airborne = (_viper_jetpack_offset_y < -10)  # 체공 중 발동 여부 기록
+                        # 다크 블레이드 콤보 윈도우: 공중 쉐도우 백스텝 + 퍽 해금 시 활성화
+                        if _viper_ss_was_airborne and runtime_skill_levels.get("dark_blade", 0) >= 1:
+                            _viper_dark_blade_window = True
+                            _viper_dark_blade_window_ms = pygame.time.get_ticks()
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
                         _viper_ss_ball_touched = False  # 공 히트 추적 초기화 (카운터 연계 조건)
 
@@ -79152,6 +79223,31 @@ def handle_player(keys):
                     except Exception:
                         pass
 
+                # 다크 블레이드 발동 (공중 쉐도우 백스텝 → 에어 블레이드, 퍽 해금 + 콤보 윈도우 활성)
+                elif (is_viper_skill_unlocked("blade_rush") and _viper_jetpack_offset_y < 0
+                      and _viper_dark_blade_window
+                      and get_viper_skill_cooldown_remaining("dark_blade") <= 0):
+                    if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
+                        _viper_w_key_released = False
+                        special_gauge -= 200
+                        trigger_viper_skill_cooldown("dark_blade")  # 다크 블레이드 60초 쿨타임
+                        _viper_nerve_strike_combo_used = False
+                        _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
+                        _viper_dark_blade_window = False   # 콤보 윈도우 소모
+
+                        # 회전 연출 시작 (다크 블레이드: 50% 단축)
+                        _viper_br_spin_active = True
+                        _viper_br_spin_start_ms = pygame.time.get_ticks()
+                        _viper_br_spin_phase = 0
+                        _viper_br_spin_angle = 0.0
+                        _online_send_effect('br_spin', x=PLAYER.centerx, y=PLAYER.centery, dur=350)
+                        try:
+                            _spin_snd = sound_effects.get('VIPER_BLADE_SPIN')
+                            if _spin_snd:
+                                play_sound_with_volume(_spin_snd, sfx_volume * 0.8)
+                        except Exception:
+                            pass
+
                 # 일반 에어 블레이드 발동 (체공 중에만 발동 가능)
                 elif is_viper_skill_unlocked("blade_rush") and _viper_jetpack_offset_y < 0:
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
@@ -79160,6 +79256,7 @@ def handle_player(keys):
                             special_gauge -= 200
                             trigger_viper_skill_cooldown("blade_rush")
                             _viper_nerve_strike_combo_used = False  # 새 에어 블레이드에서 연계기 초기화
+                            _viper_dark_blade_active = False  # 일반 에어 블레이드
 
                             # 회전 연출 시작 (회전 → 감속 → 정지 후 검기 발사)
                             _viper_br_spin_active = True
@@ -79175,6 +79272,11 @@ def handle_player(keys):
                                     play_sound_with_volume(_spin_snd, sfx_volume * 0.8)
                             except Exception:
                                 pass
+
+    # === 바이퍼 다크 블레이드 콤보 윈도우 타임아웃 ===
+    if _viper_dark_blade_window:
+        if pygame.time.get_ticks() - _viper_dark_blade_window_ms >= _VIPER_DARK_BLADE_WINDOW_DURATION:
+            _viper_dark_blade_window = False  # 3초 경과 → 윈도우 만료
 
     # === 바이퍼 마샬 킥 연계기 (쉐도우 백스텝 → 0.5초 후 → S/↓키) ===
     # 쉐도우 백스텝 공 타격 후 0.5초 경과 시 마샬 킥 윈도우 자동 활성화 (쿨타임 체크)
@@ -80180,11 +80282,16 @@ def handle_player(keys):
     if _viper_br_spin_active:
         _br_now = pygame.time.get_ticks()
         _br_elapsed = _br_now - _viper_br_spin_start_ms
+        # 다크 블레이드: 구르는 시간 50% 단축
+        _db_time_mult = 0.5 if _viper_dark_blade_active else 1.0
+        _br_spin_dur = int(_VIPER_BR_SPIN_DURATION * _db_time_mult)
+        _br_decel_dur = int(_VIPER_BR_DECEL_DURATION * _db_time_mult)
+        _br_rest_dur = int(_VIPER_BR_REST_DURATION * _db_time_mult)
 
         if _viper_br_spin_phase == 0:
-            # 단계 0: 빠른 2바퀴 회전 (400ms) — 제자리
-            if _br_elapsed < _VIPER_BR_SPIN_DURATION:
-                _br_t = _br_elapsed / _VIPER_BR_SPIN_DURATION
+            # 단계 0: 빠른 2바퀴 회전 (일반 400ms / 다크 200ms)
+            if _br_elapsed < _br_spin_dur:
+                _br_t = _br_elapsed / _br_spin_dur
                 _viper_br_spin_angle = _br_t * 720.0  # 2바퀴 = 720도
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
@@ -80194,9 +80301,9 @@ def handle_player(keys):
                 _viper_br_spin_angle = 720.0
 
         elif _viper_br_spin_phase == 1:
-            # 단계 1: 감속하며 멈춤 (200ms) — 제자리
-            if _br_elapsed < _VIPER_BR_DECEL_DURATION:
-                _br_t = _br_elapsed / _VIPER_BR_DECEL_DURATION
+            # 단계 1: 감속하며 멈춤 (일반 200ms / 다크 100ms)
+            if _br_elapsed < _br_decel_dur:
+                _br_t = _br_elapsed / _br_decel_dur
                 _br_decel = 1.0 - _br_t
                 _viper_br_spin_angle = 720.0 + _br_decel * 90.0 * (1.0 - _br_t)
                 _viper_br_jump_offset_y = 0.0
@@ -80219,33 +80326,37 @@ def handle_player(keys):
                         play_sound_with_volume(_blade_snd, sfx_volume * 0.5)
                 except Exception:
                     pass
+                # 다크 블레이드: 검기 크기 50% 증가
+                _db_size_mult = 1.5 if _viper_dark_blade_active else 1.0
                 _viper_blade_rush_active = True
                 _viper_blade_rush_fadeout = False
                 _viper_blade_rush_fadeout_timer = 0
                 _viper_blade_rush_x = float(PLAYER.centerx)
                 _viper_blade_rush_start_y = float(PLAYER.centery - 20)
                 _viper_blade_rush_y = _viper_blade_rush_start_y
-                _viper_blade_rush_target_y = _viper_blade_rush_start_y - 250
+                _viper_blade_rush_target_y = _viper_blade_rush_start_y - int(250 * _db_size_mult)
+                _viper_blade_rush_width = int(350 * _db_size_mult)  # X축 폭 (일반 350 / 다크 525)
                 _viper_blade_rush_hit_ball = False
                 _viper_blade_rush_particles.clear()
                 _viper_blade_rush_trail.clear()
                 # 온라인: 검기 발사 이벤트 전송
                 _online_send_effect('blade', x=PLAYER.centerx, y=PLAYER.centery - 20,
                                     hw=_viper_blade_rush_width // 2, dir='up', dur=800)
+                _db_launch_color = (200, 30, 50) if _viper_dark_blade_active else (200, 50, 255)
                 try:
                     effects_manager.spawn_shockwave(
                         PLAYER.centerx, PLAYER.centery - 20,
-                        force=6, color=(200, 50, 255),
+                        force=6, color=_db_launch_color,
                     )
                 except Exception:
                     pass
 
         elif _viper_br_spin_phase == 2:
-            # 단계 2: 검기 발사 + 승룡권 점프 + 숨내쉬기 (1000ms)
-            _br_rest_t = min(1.0, _br_elapsed / _VIPER_BR_REST_DURATION)
+            # 단계 2: 검기 발사 + 승룡권 점프 + 숨내쉬기 (일반 1000ms / 다크 500ms)
+            _br_rest_t = min(1.0, _br_elapsed / _br_rest_dur)
 
-            # 올라갔다 내려오기: 전반 300ms 올라감, 후반 700ms 내려옴
-            _jump_up_ms = 300
+            # 올라갔다 내려오기: 전반 30% 올라감, 후반 70% 내려옴
+            _jump_up_ms = int(300 * _db_time_mult)
             _jump_peak = 80.0  # 최대 80px 상승
             if _br_elapsed < _jump_up_ms:
                 # 올라가기 (이징: 빠르게 올라감)
@@ -80254,12 +80365,12 @@ def handle_player(keys):
                 _viper_br_arm_raise = min(1.0, _jt * 1.5)  # 팔 올리기
             else:
                 # 내려오기 (이징: 천천히 착지)
-                _jt = (_br_elapsed - _jump_up_ms) / max(1, _VIPER_BR_REST_DURATION - _jump_up_ms)
+                _jt = (_br_elapsed - _jump_up_ms) / max(1, _br_rest_dur - _jump_up_ms)
                 _jt = min(1.0, _jt)
                 _viper_br_jump_offset_y = -_jump_peak * (1.0 - _jt * _jt)  # 제곱감속 착지
                 _viper_br_arm_raise = max(0.0, 1.0 - (_jt * 1.5))  # 팔 내리기
 
-            if _br_elapsed >= _VIPER_BR_REST_DURATION:
+            if _br_elapsed >= _br_rest_dur:
                 _viper_br_spin_active = False
                 _viper_br_spin_angle = 0.0
                 _viper_br_jump_offset_y = 0.0
@@ -80279,11 +80390,12 @@ def handle_player(keys):
         if not _viper_blade_rush_hit_ball and not _viper_blade_rush_fadeout:
             try:
                 _br_half_w = _viper_blade_rush_width // 2
+                _br_hitbox_h = 83 if _viper_dark_blade_active else 55  # 다크 블레이드: Y축 50% 증가
                 _br_blade_rect = pygame.Rect(
                     int(_viper_blade_rush_x - _br_half_w),
-                    int(_viper_blade_rush_y - 55),
+                    int(_viper_blade_rush_y - _br_hitbox_h),
                     _viper_blade_rush_width,
-                    55  # 검기 세로 히트박스 (부채꼴 비주얼 높이에 맞춤)
+                    _br_hitbox_h  # 검기 세로 히트박스 (부채꼴 비주얼 높이에 맞춤)
                 )
                 if _br_blade_rect.colliderect(BALL):
                     _viper_blade_rush_hit_ball = True
@@ -80305,10 +80417,11 @@ def handle_player(keys):
                     else:
                         ball_vel[1] = -10.0  # 정지 상태면 위로 발사
                     # 히트 이펙트
+                    _br_hit_color = (255, 40, 60) if _viper_dark_blade_active else (255, 100, 255)
                     try:
                         effects_manager.spawn_shockwave(
                             BALL.centerx, BALL.centery,
-                            force=10, color=(255, 100, 255),
+                            force=10, color=_br_hit_color,
                         )
                     except Exception:
                         pass
@@ -80408,6 +80521,8 @@ def handle_player(keys):
             _viper_blade_rush_active = False
             _viper_blade_rush_fadeout = False
             _viper_blade_rush_trail.clear()
+            _viper_dark_blade_active = False  # 다크 블레이드 모드 해제
+            _viper_blade_rush_width = 350     # 검기 폭 원래 값으로 복원
 
     # === 바이퍼 신경 타격 연계기 애니메이션 업데이트 ===
     if _viper_nerve_strike_active:
@@ -113869,10 +113984,10 @@ def draw_objects():
         pass
 
     # ⚔ 바이퍼 에어 블레이드 검기 렌더링 (Ultra Premium Crescent Blade Wave)
-    def _draw_viper_blade_rush(screen, cx, cy, half_w, alive, trail=None, flip_y=False):
-        """에어 블레이드 검기 공통 렌더링. flip_y=True면 아래→위 대신 위→아래 방향."""
+    def _draw_viper_blade_rush(screen, cx, cy, half_w, alive, trail=None, flip_y=False, dark_mode=False):
+        """에어 블레이드 검기 공통 렌더링. flip_y=True면 아래→위 대신 위→아래 방향. dark_mode=True면 검붉은 다크 블레이드."""
         _fan_w = half_w * 2
-        _fan_h = 55
+        _fan_h = 83 if dark_mode else 55  # 다크 블레이드: Y축 50% 증가
         _fan_surf_w = _fan_w + 40
         _fan_surf_h = _fan_h + 30
         _fan_surf = pygame.Surface((_fan_surf_w, _fan_surf_h), pygame.SRCALPHA)
@@ -113893,21 +114008,37 @@ def draw_objects():
                 _t_alpha = int((15 + 45 * _t_p) * alive)
                 _t_w = max(1, int(1 + 3 * _t_p))
                 if _t_alpha > 2:
-                    _tcr = int(85 + 55 * _t_p)
-                    _tcg = int(70 + 60 * _t_p)
-                    _tcb = int(110 + 50 * _t_p)
+                    if dark_mode:
+                        _tcr = int(120 + 80 * _t_p)
+                        _tcg = int(10 + 20 * _t_p)
+                        _tcb = int(20 + 30 * _t_p)
+                    else:
+                        _tcr = int(85 + 55 * _t_p)
+                        _tcg = int(70 + 60 * _t_p)
+                        _tcb = int(110 + 50 * _t_p)
                     pygame.draw.line(screen, (_tcr, _tcg, _tcb, _t_alpha),
                                      (int(_px), int(_py)), (int(_tx), int(_ty)), _t_w)
 
         # 1. 다층 부채꼴 본체
-        _fan_layers = [
-            (1.00, (55, 30, 90),    30),
-            (0.85, (80, 45, 130),   50),
-            (0.70, (110, 65, 160),  75),
-            (0.55, (140, 90, 185),  105),
-            (0.38, (170, 130, 210), 140),
-            (0.18, (200, 180, 230), 180),
-        ]
+        if dark_mode:
+            # 다크 블레이드: 검붉은 색상
+            _fan_layers = [
+                (1.00, (60, 5, 10),     30),
+                (0.85, (90, 10, 20),    50),
+                (0.70, (120, 15, 30),   75),
+                (0.55, (160, 25, 40),   105),
+                (0.38, (200, 40, 55),   140),
+                (0.18, (230, 70, 80),   180),
+            ]
+        else:
+            _fan_layers = [
+                (1.00, (55, 30, 90),    30),
+                (0.85, (80, 45, 130),   50),
+                (0.70, (110, 65, 160),  75),
+                (0.55, (140, 90, 185),  105),
+                (0.38, (170, 130, 210), 140),
+                (0.18, (200, 180, 230), 180),
+            ]
         for _fi, (_f_scale, _f_rgb, _f_base_a) in enumerate(_fan_layers):
             _f_alpha = int(_f_base_a * alive)
             if _f_alpha < 2:
@@ -113924,6 +114055,8 @@ def draw_objects():
                 pygame.draw.polygon(_fan_surf, (*_f_rgb, _f_alpha), _fan_pts)
 
         # 2. 에지 라인
+        _edge_color = (220, 60, 70) if dark_mode else (190, 160, 230)
+        _inner_color = (200, 40, 55) if dark_mode else (170, 140, 210)
         _edge_pts = []
         for _es in range(17):
             _e_t = _es / 16.0
@@ -113932,7 +114065,7 @@ def draw_objects():
                               _fcy + int(math.sin(_e_angle) * _fan_h * 1.1)))
         _edge_alpha = int(160 * alive)
         if len(_edge_pts) > 1 and _edge_alpha > 3:
-            pygame.draw.lines(_fan_surf, (190, 160, 230, _edge_alpha), False, _edge_pts, 2)
+            pygame.draw.lines(_fan_surf, (*_edge_color, _edge_alpha), False, _edge_pts, 2)
             _inner_pts = []
             _inner_hw = int(_fan_w * 0.42)
             for _is2 in range(17):
@@ -113942,26 +114075,28 @@ def draw_objects():
                                    _fcy + int(math.sin(_i_angle) * _fan_h * 0.65 * 1.1)))
             _inner_alpha = int(80 * alive)
             if _inner_alpha > 2:
-                pygame.draw.lines(_fan_surf, (170, 140, 210, _inner_alpha), False, _inner_pts, 1)
+                pygame.draw.lines(_fan_surf, (*_inner_color, _inner_alpha), False, _inner_pts, 1)
 
         # 3. 에너지 스파크
+        _spark_color = (230, 50, 60) if dark_mode else (185, 150, 230)
         for _si in range(8):
             _s_t = _si / 7.0
             _s_angle = math.pi + (math.pi * 0.15) + _s_t * (math.pi * 0.70)
             _s_hw = int(_fan_w * 0.5) + random.randint(-8, 8)
             _s_alpha = int(random.randint(100, 200) * alive)
             if _s_alpha > 5:
-                pygame.draw.circle(_fan_surf, (185, 150, 230, _s_alpha),
+                pygame.draw.circle(_fan_surf, (*_spark_color, _s_alpha),
                                    (_fcx + int(math.cos(_s_angle) * _s_hw * 1.15),
                                     _fcy + int(math.sin(_s_angle) * _fan_h * 1.1) + random.randint(-3, 3)),
                                    random.randint(1, 2))
 
         # 4. 꼭짓점 글로우
+        _glow_color = (180, 20, 30) if dark_mode else (130, 80, 180)
         for _gl in range(3):
             _gl_r = 10 - _gl * 3
             _gl_a = int((20 - _gl * 5) * alive)
             if _gl_r > 0 and _gl_a > 1:
-                pygame.draw.circle(_fan_surf, (130, 80, 180, _gl_a), (_fcx, _fcy), _gl_r)
+                pygame.draw.circle(_fan_surf, (*_glow_color, _gl_a), (_fcx, _fcy), _gl_r)
 
         # flip_y이면 서피스를 상하 반전
         if flip_y:
@@ -113971,11 +114106,12 @@ def draw_objects():
                     special_flags=pygame.BLEND_ADD)
 
         # 5. 앰비언트 헤일로
+        _amb_color = (130, 20, 30) if dark_mode else (80, 50, 130)
         _amb_r = int(_fan_h * 1.2)
         _amb_a = int(15 * alive)
         if _amb_r > 0 and _amb_a > 1:
             _amb_s = pygame.Surface((_amb_r * 2, _amb_r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(_amb_s, (80, 50, 130, _amb_a), (_amb_r, _amb_r), _amb_r)
+            pygame.draw.circle(_amb_s, (*_amb_color, _amb_a), (_amb_r, _amb_r), _amb_r)
             screen.blit(_amb_s, (cx - _amb_r, cy - _amb_r), special_flags=pygame.BLEND_ADD)
 
     if _viper_blade_rush_active:
@@ -113995,7 +114131,7 @@ def draw_objects():
                 _fade_factor = max(_fade_factor, 1.0 - _fo_ratio)
             _alive = 1.0 - _fade_factor
 
-            _draw_viper_blade_rush(SCREEN, _br_cx, _br_cy, _br_hw, _alive, _viper_blade_rush_trail, flip_y=False)
+            _draw_viper_blade_rush(SCREEN, _br_cx, _br_cy, _br_hw, _alive, _viper_blade_rush_trail, flip_y=False, dark_mode=_viper_dark_blade_active)
         except Exception:
             pass
 
