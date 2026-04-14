@@ -2890,6 +2890,12 @@ from ui.pause_menu import PauseOptionsContext, show_pause_options as show_pause_
 from core.profiler import init_profiler
 from core.global_manager import GlobalManager
 from core.adaptive_performance import AdaptivePerformanceController
+from rendering.postprocess_manager import (
+    apply_postprocess,
+    get_postprocess_manager,
+    trigger_hit_flash,
+    toggle_postprocess_bypass,
+)
 from item_effects.dowsing_pendulum import dowsing_pendulum_effect
 from item_effects.devil_dice import (
     activate_devil_dice,
@@ -3367,6 +3373,7 @@ def change_resolution(direction=1):
     dialog_system = result.dialog_system
     menu_system = result.menu_system
     trade_point_system = result.trade_point_system
+    _sync_postprocess_manager(SCREEN)
 
     print(f"해상도 변경: {WIDTH}x{HEIGHT} (스케일: {WIDTH / INTERNAL_WIDTH:.1f}x)")
 
@@ -9806,11 +9813,12 @@ def invalidate_pillar_bg_cache():
 _ss_2x_cache = None  # 슈퍼샘플링용 2x 중간 서피스
 _ss_2x_size = None
 
-def _get_scaled_screen():
+def _get_scaled_screen(source_surface: pygame.Surface | None = None):
     """최적화된 스케일링: 2-pass 슈퍼샘플링 (정수배 업→다운샘플) 또는 직접 스케일"""
     global SCREEN, GAME_SCALE_FACTOR, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
     global _scaled_surface_cache, _scaled_surface_size
     global _ss_2x_cache, _ss_2x_size
+    src_surface = source_surface if source_surface is not None else SCREEN
 
     # 성능 측정
     if VALTHOR_PERF_DEBUG:
@@ -9818,7 +9826,7 @@ def _get_scaled_screen():
 
     # 스케일 비율이 1.0이면 스케일링 건너뛰기
     if GAME_SCALE_FACTOR == 1.0:
-        result = SCREEN
+        result = src_surface
     else:
         target_size = (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT)
         # 프리얼로케이트된 서피스가 없거나 크기 불일치 시 생성
@@ -9827,7 +9835,7 @@ def _get_scaled_screen():
             _scaled_surface_size = target_size
 
         # nearest-neighbor scale (smoothscale 대비 3~4배 빠름, 픽셀아트에 적합)
-        pygame.transform.scale(SCREEN, target_size, _scaled_surface_cache)
+        pygame.transform.scale(src_surface, target_size, _scaled_surface_cache)
         result = _scaled_surface_cache
 
     if VALTHOR_PERF_DEBUG:
@@ -11630,16 +11638,20 @@ def _fullscreen_flip():
         pygame.draw.rect(REAL_SCREEN, (0, 0, 0),
                         (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
 
+        display_surface = _apply_postprocess_to_game_frame(SCREEN)
+        if display_surface is None:
+            display_surface = SCREEN
+
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:
-            scaled_surface = _get_scaled_screen()
+            scaled_surface = _get_scaled_screen(display_surface)
             sw, sh = scaled_surface.get_size()
             offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
             offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
             REAL_SCREEN.blit(scaled_surface, (offset_x, offset_y))
         else:
             # 스케일링 불필요 시 원본 그대로 blit
-            REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+            REAL_SCREEN.blit(display_surface, (GAME_OFFSET_X, GAME_OFFSET_Y))
 
         # 디버그용: 게임 영역 경계 표시
         if show_debug_border:
@@ -12018,14 +12030,18 @@ def _fullscreen_update(*args, **kwargs):
         pygame.draw.rect(REAL_SCREEN, (0, 0, 0),
                         (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
 
+        display_surface = _apply_postprocess_to_game_frame(SCREEN)
+        if display_surface is None:
+            display_surface = SCREEN
+
         if GAME_SCALE_FACTOR != 1.0:
-            scaled_surface = _get_scaled_screen()
+            scaled_surface = _get_scaled_screen(display_surface)
             sw, sh = scaled_surface.get_size()
             offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
             offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
             REAL_SCREEN.blit(scaled_surface, (offset_x, offset_y))
         else:
-            REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+            REAL_SCREEN.blit(display_surface, (GAME_OFFSET_X, GAME_OFFSET_Y))
 
         # UI 오버레이 렌더링 (선명한 텍스트)
         _render_ui_overlay(REAL_SCREEN)
@@ -12292,6 +12308,9 @@ else:
                         _rec_err_w.stop(result='win')
                 except Exception:
                     pass
+        _postprocessed_screen = _apply_postprocess_to_game_frame(SCREEN)
+        if _postprocessed_screen is not None and _postprocessed_screen is not SCREEN:
+            SCREEN.blit(_postprocessed_screen, (0, 0))
         # 투기장 배속 버튼 (윈도우 모드)
         if globals().get('arena_mode_enabled', False):
             try:
@@ -12347,6 +12366,9 @@ else:
 
     def _windowed_update(*args, **kwargs):
         """윈도우 모드에서 튜토리얼 오버레이 및 커스텀 커서 그리기 후 update"""
+        _postprocessed_screen = _apply_postprocess_to_game_frame(SCREEN)
+        if _postprocessed_screen is not None and _postprocessed_screen is not SCREEN:
+            SCREEN.blit(_postprocessed_screen, (0, 0))
         # 실전 튜토리얼 오버레이 (윈도우 모드)
         try:
             _draw_ingame_tutorial()
@@ -13084,6 +13106,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _current_display_mode = "borderless"
         print(f"[디스플레이] 전체창모드 전환 완료: {actual_w}x{actual_h}", flush=True)
 
+    _sync_postprocess_manager(SCREEN)
+
 
 def is_windowed_mode() -> bool:
     """현재 창모드인지 반환 (하위호환)"""
@@ -13143,6 +13167,7 @@ def change_internal_resolution(new_width, new_height):
     dialog_system = result.dialog_system
     menu_system = result.menu_system
     trade_point_system = result.trade_point_system
+    _sync_postprocess_manager(SCREEN)
 
     if PLAYER is not None:
         PLAYER.x = int(PLAYER.x * scale_x)
@@ -13679,6 +13704,22 @@ def _effective_render_budget_level() -> str:
     manual_level = _manual_render_budget_level()
     auto_level = ADAPTIVE_PERFORMANCE.level if _adaptive_performance_enabled() else "normal"
     return manual_level if levels[manual_level] >= levels[auto_level] else auto_level
+
+
+def _sync_postprocess_manager(surface: pygame.Surface | None = None) -> None:
+    manager = get_postprocess_manager()
+    manager.set_budget_getter(_effective_render_budget_level)
+
+    target_surface = surface if surface is not None else SCREEN
+    if target_surface is not None:
+        manager.resize(target_surface.get_width(), target_surface.get_height())
+
+
+def _apply_postprocess_to_game_frame(surface: pygame.Surface | None) -> pygame.Surface | None:
+    if surface is None:
+        return None
+    _sync_postprocess_manager(surface)
+    return apply_postprocess(surface)
 
 
 def _is_render_tier_allowed(tier: str = "medium") -> bool:
@@ -26509,6 +26550,9 @@ def apply_serve_result(serve_result):
 
 def play_wall_sound():
     """벽 충돌 사운드 재생 (탁구공 모드일 때 pong_wall_hit.wav 사용)"""
+    # 고스트샷 난무/순간이동 중에는 벽 사운드 억제 (공이 화면 경계에서 빠르게 반사되며 드르륵 소리나는 버그 방지)
+    if globals().get('mega_smashing_active', False) or globals().get('ghost_shot_pending_teleport', None) is not None:
+        return
     if _get_ball_type() == "pingpong" and SOUND_PONG_WALL:
         play_sound_with_volume(SOUND_PONG_WALL)
     else:
@@ -35083,6 +35127,10 @@ FRIEND_MOLE_COLORS = [
     ("yellow", (230, 200, 40)),
     ("blue", (50, 80, 220)),
 ]
+# 황금 두더지 (25% 확률로 친구두더지 이벤트 중 1마리 등장, 공으로 맞추면 스타포인트 드랍)
+GOLDEN_MOLE_CHANCE = 0.25
+friend_moles_golden_spawn_at = -1   # 이벤트 내 몇 번째 스폰이 황금 두더지인지 (-1 = 없음)
+friend_moles_spawn_total_count = 0  # 이벤트 시작 이후 총 스폰 수
 
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
@@ -64073,7 +64121,7 @@ def go_to_next_round():
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
     global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint
-    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count, friend_moles_golden_spawn_at, friend_moles_spawn_total_count
 
     preserved_doping_state = None
     impact_feedback.clear()
@@ -70093,6 +70141,7 @@ def update_friend_moles():
     """친구두더지 스폰 + 생명주기 + 공 충돌 처리."""
     global friend_moles_active, friend_moles_timer, friend_moles_spawn_timer
     global friend_moles_list, friend_moles_dirt_particles, ball_vel
+    global friend_moles_spawn_total_count, friend_moles_golden_spawn_at
 
     if not friend_moles_active:
         return
@@ -70107,7 +70156,15 @@ def update_friend_moles():
         mx = float(random.randint(GAME_AREA_OFFSET_X + 30,
                                    GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30))
         my = float(random.randint(150, 600))
-        color_name, color_rgb = random.choice(FRIEND_MOLE_COLORS)
+        # 황금 두더지 판정 (이벤트 전체에서 1마리 등장)
+        is_golden = (friend_moles_golden_spawn_at >= 0 and
+                     friend_moles_spawn_total_count == friend_moles_golden_spawn_at)
+        if is_golden:
+            color_name, color_rgb = "gold", (255, 215, 60)
+            friend_moles_golden_spawn_at = -1  # 소비 (중복 방지)
+        else:
+            color_name, color_rgb = random.choice(FRIEND_MOLE_COLORS)
+        friend_moles_spawn_total_count += 1
         friend_moles_list.append({
             "x": mx, "y": my,
             "color_name": color_name,
@@ -70120,6 +70177,7 @@ def update_friend_moles():
             "emerge_amount": 0.0,
             "hit": False,
             "wobble_phase": random.uniform(0, math.pi * 2),
+            "is_golden": is_golden,
         })
         # 솟아오름 흙먼지 파티클
         for _ in range(8):
@@ -70211,6 +70269,13 @@ def update_friend_moles():
                         play_cached_sound("sounds/smallboyhit.wav", 0.5)
                     except Exception:
                         pass
+                    # 황금 두더지 → 스타포인트 드랍
+                    if mole.get("is_golden"):
+                        try:
+                            if trade_point_system is not None and hasattr(trade_point_system, "spawn_star"):
+                                trade_point_system.spawn_star(int(mole["x"]), int(mole["y"]), "golden_mole")
+                        except Exception:
+                            pass
 
         elif mole["phase"] == "falling":
             mole["emerge_amount"] = max(0.0, 1.0 - mole["phase_timer"] / mole["fall_time"])
@@ -70281,6 +70346,16 @@ def draw_friend_moles(screen):
         my = int(mole["y"])
         accent = mole["color_rgb"]
 
+        # 황금 두더지 팔레트 오버라이드
+        if mole.get("is_golden"):
+            body_col = (240, 200, 70)
+            body_light = (255, 235, 140)
+            body_dark = (185, 140, 30)
+        else:
+            body_col = BODY_COL
+            body_light = BODY_LIGHT
+            body_dark = BODY_DARK
+
         # 좌우 흔들림 (hold 상태)
         wobble_x = 0
         if mole["phase"] == "hold" and not mole["hit"]:
@@ -70318,21 +70393,21 @@ def draw_friend_moles(screen):
         lower_rect = pygame.Rect(ccx - dome_w // 2, int(dome_h * 0.45),
                                   dome_w, max(1, visible_h - int(dome_h * 0.45)))
         # 그림자
-        pygame.draw.ellipse(clip, (*BODY_DARK, 255), dome_rect.move(2, 2))
-        pygame.draw.rect(clip, (*BODY_DARK, 255), lower_rect.move(2, 2))
+        pygame.draw.ellipse(clip, (*body_dark, 255), dome_rect.move(2, 2))
+        pygame.draw.rect(clip, (*body_dark, 255), lower_rect.move(2, 2))
         # 본체
-        pygame.draw.ellipse(clip, (*BODY_COL, 255), dome_rect)
-        pygame.draw.rect(clip, (*BODY_COL, 255), lower_rect)
+        pygame.draw.ellipse(clip, (*body_col, 255), dome_rect)
+        pygame.draw.rect(clip, (*body_col, 255), lower_rect)
         # 이음새 부분 매끄럽게
         seam_rect = pygame.Rect(ccx - dome_w // 2, int(dome_h * 0.35),
                                  dome_w, int(dome_h * 0.25))
-        pygame.draw.rect(clip, (*BODY_COL, 255), seam_rect)
+        pygame.draw.rect(clip, (*body_col, 255), seam_rect)
 
         # 하이라이트
         hl_w = int(dome_w * 0.35)
         hl_h = int(dome_h * 0.5)
         hl_s = _get_mole_pooled_surface(hl_w, hl_h)
-        pygame.draw.ellipse(hl_s, (*BODY_LIGHT, 90), (0, 0, hl_w, hl_h))
+        pygame.draw.ellipse(hl_s, (*body_light, 90), (0, 0, hl_w, hl_h))
         clip.blit(hl_s, (ccx - dome_w // 4 - 1, 2))
 
         # === 색상 두건 (빨강/노랑/파랑 — 구분용) ===
@@ -151527,7 +151602,7 @@ def reset_round(is_stage_start=False):
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint  # 아라크네 분노
-    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count  # 두더지왕 친구두더지
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count, friend_moles_golden_spawn_at, friend_moles_spawn_total_count  # 두더지왕 친구두더지
 
     # ⚡ 스매셔 콤보 리셋 (라운드 시작 시)
     smasher_combo_count = 0
@@ -152019,6 +152094,12 @@ def reset_round(is_stage_start=False):
             friend_moles_pending = False
             friend_moles_triggered = True
             friend_moles_round_count = 0
+            # 황금 두더지 25% 확률 — 이벤트 전체(최대 2라운드)에서 1마리
+            friend_moles_spawn_total_count = 0
+            if random.random() < GOLDEN_MOLE_CHANCE:
+                friend_moles_golden_spawn_at = random.randint(0, 5)
+            else:
+                friend_moles_golden_spawn_at = -1
         if friend_moles_round_count < 2:
             friend_moles_active = True
             friend_moles_timer = 0
@@ -155053,6 +155134,33 @@ def handle_ball():
                     power_smashing_initial_boost = False
                     # print(f"🎯 파워스매싱 부스트 종료! 최종속도: {interpolated_speed:.1f}")
         
+        # 고스트샷 순간이동 대기 처리 (mega_smashing_active 상태와 무관하게 항상 실행)
+        # Phase 3에서 mega_smashing_active=False 처리 후에도 공이 화면 밖에 박제되는 것을 방지
+        global ghost_shot_pending_teleport
+        _ghost_pending_active = False
+        if ghost_shot_pending_teleport is not None:
+            now_ms = pygame.time.get_ticks()
+            if now_ms >= ghost_shot_pending_teleport['arrive_time']:
+                # 도착: 공 복귀
+                BALL.centerx = ghost_shot_pending_teleport['target_x']
+                BALL.centery = ghost_shot_pending_teleport['target_y']
+                _was_fire_on_arrive = ghost_shot_pending_teleport.get('fire_on_arrive', False)
+                _fire_vx = ghost_shot_pending_teleport.get('fire_vx', 0)
+                _fire_vy = ghost_shot_pending_teleport.get('fire_vy', 0)
+                ghost_shot_pending_teleport = None
+                if _was_fire_on_arrive:
+                    # Phase 3 최종 순간이동 도착 → 발사 속도 재설정 후 일반 공 물리로 복귀
+                    ball_vel[0] = _fire_vx
+                    ball_vel[1] = _fire_vy
+                    power_smashing_parabola_active = False
+            else:
+                # 아직 도착 전: 공 숨김 상태 유지 (물리 스킵)
+                ball_vel[0] = 0
+                ball_vel[1] = 0
+                BALL.centerx = -1000
+                BALL.centery = -1000
+                _ghost_pending_active = True
+
         # 고스트샷 궤적 처리 (3단계: 상승 → 난무 → 순간이동+발사)
         if mega_smashing_active:
             GHOST_SHOT_DURATION = 3.0  # 총 3초
@@ -155060,29 +155168,7 @@ def handle_ball():
             GHOST_SHOT_PHASE2_END = 2.6  # 0.4~2.6초: 난무
             # PHASE 3: 2.6~3.0초: 순간이동 + 보스 쪽 발사
 
-            # 순간이동 대기 중: 도착 시간 체크
-            global ghost_shot_pending_teleport
-            _skip_ghost_trajectory = False
-            if ghost_shot_pending_teleport is not None:
-                now_ms = pygame.time.get_ticks()
-                if now_ms >= ghost_shot_pending_teleport['arrive_time']:
-                    # 도착: 공 이동
-                    BALL.centerx = ghost_shot_pending_teleport['target_x']
-                    BALL.centery = ghost_shot_pending_teleport['target_y']
-                    # Phase 3 최종 순간이동: 속도를 0으로 초기화 (발사 코드에서 다시 설정)
-                    if ghost_shot_pending_teleport.get('fire_on_arrive'):
-                        ball_vel[0] = 0
-                        ball_vel[1] = 0
-                    ghost_shot_pending_teleport = None
-                else:
-                    # 아직 도착 전: 공 숨김 상태 유지 (물리 스킵)
-                    ball_vel[0] = 0
-                    ball_vel[1] = 0
-                    BALL.centerx = -1000  # 화면 밖
-                    BALL.centery = -1000
-                    _skip_ghost_trajectory = True
-
-            if _skip_ghost_trajectory:
+            if _ghost_pending_active:
                 pass  # 순간이동 대기 중, 아무 처리 안 함
             elif elapsed_time < GHOST_SHOT_PHASE1_END:
                 # === Phase 1: 플레이어 위로 빠르게 상승 ===
@@ -155182,27 +155268,35 @@ def handle_ball():
                 # 단, 화면 밖 멀리 보내서 잠깐 안 보이게 함
                 BALL.centerx = -1000
                 BALL.centery = -1000
-                # 도착 딜레이 180ms + 발사
-                ghost_shot_pending_teleport = {
-                    'target_x': teleport_x, 'target_y': teleport_y,
-                    'arrive_time': pygame.time.get_ticks() + 180,
-                    'from_x': from_x, 'from_y': from_y,
-                    'fire_on_arrive': True  # 도착 시 속도도 설정
-                }
-                # 블랙홀 이펙트 생성
-                spawn_ghost_shot_blackhole(from_x, from_y, teleport_x, teleport_y)
-                # 기본 방향: 위쪽 직선(-90도)에서 ±40도 보정
-                # 0도 = 보스가 없는 쪽, ±40도 = 보스 쪽으로 갈 수도 있음
+                # 기본 방향: 위쪽 직선(-90도)에서 ±40도 보정 (보스 쪽으로 발사)
                 base_angle = -math.pi / 2  # 위쪽 직선 (= -90도)
                 angle_offset = math.radians(rng.uniform(-40, 40))
                 final_angle = base_angle + angle_offset
                 fire_speed = 18.0
-                ball_vel[0] = math.cos(final_angle) * fire_speed
-                ball_vel[1] = math.sin(final_angle) * fire_speed
-                # 고스트샷 종료 → 일반 공 물리로 복귀
+                _fire_vx = math.cos(final_angle) * fire_speed
+                _fire_vy = math.sin(final_angle) * fire_speed
+                # 도착 딜레이 180ms + 발사 (속도는 도착 시점에 재설정 — 대기 중 0으로 덮어쓰므로)
+                ghost_shot_pending_teleport = {
+                    'target_x': teleport_x, 'target_y': teleport_y,
+                    'arrive_time': pygame.time.get_ticks() + 180,
+                    'from_x': from_x, 'from_y': from_y,
+                    'fire_on_arrive': True,
+                    'fire_vx': _fire_vx,
+                    'fire_vy': _fire_vy,
+                }
+                # 블랙홀 이펙트 생성
+                spawn_ghost_shot_blackhole(from_x, from_y, teleport_x, teleport_y)
+                # 미리 한 번 적용 (시각적 연속성을 위해 — 실제 반영은 도착 시점)
+                ball_vel[0] = _fire_vx
+                ball_vel[1] = _fire_vy
+                # 고스트샷 페이즈 종료 (단, pending teleport 도착 전까지는 파라볼라 루프 유지 →
+                # 대기 처리 블록이 계속 실행되어야 공이 화면 밖에 박제되지 않음)
                 mega_smashing_active = False
                 mega_smashing_bonus_applied = False
-                power_smashing_parabola_active = False
+                # power_smashing_parabola_active는 도착 시점에 해제 (아래 도착 처리부 참조)
+        elif _ghost_pending_active:
+            # 고스트샷 Phase 3 도착 대기 중: 일반 파라볼라 물리도 적용하지 않음
+            pass
         else:
             # 일반 파워스매싱: 수직에 가까운 포물선 궤적
             # 수평 이동: 최소한의 방향성 + 매우 작은 랜덤 변화
@@ -166560,6 +166654,9 @@ def show_result(won):
         **_get_ball_debug_snapshot(),
     )
 
+    if won and not arena_mode_enabled:
+        trigger_hit_flash(color=(255, 220, 100), alpha=162, duration_ms=300)
+
     # 투기장 모드에서는 페이드아웃/공통 리플레이 종료를 건너뛰고 자체 처리
     # (포획 페이즈 전환 시 불필요한 검은 화면 방지 + 영웅명 메타데이터 보정)
     if arena_mode_enabled:
@@ -167218,6 +167315,7 @@ def show_result(won):
         stop_all_stage_sounds()
         # 인게임 상태 비활성화 (구슬 숨김 - 게임 오버)
         set_ingame_active(False)
+        trigger_hit_flash(color=(255, 0, 0), alpha=180, duration_ms=400)
         show_fade_text("game over")
         SCREEN.fill(BLACK)
         pygame.display.flip()
@@ -168290,6 +168388,7 @@ def main(stage_num, new_boss_mode=False):
     global spider_rage_stomp_offset_y, spider_rage_red_tint
     global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_round_count
     global friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles
+    global friend_moles_golden_spawn_at, friend_moles_spawn_total_count
     global player_burn_timer, player_burn_effect, player_knockback_y
     
     # 플레이어 위치 가운데로 고정
@@ -170231,15 +170330,43 @@ def main(stage_num, new_boss_mode=False):
         pygame.event.pump()
         keys = pygame.key.get_pressed()
         
+        _ctrl_pressed = keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]
+
         # Ctrl 키로 인게임 튜토리얼 챕터 스킵 (주니어리그)
-        if (keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]) and not getattr(main, 'keyCtrl_pressed', False):
+        if _ctrl_pressed and not getattr(main, 'keyCtrl_pressed', False):
             if _ingame_tutorial_active:
                 skip_tutorial_chapter()
-        main.keyCtrl_pressed = keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]
+        main.keyCtrl_pressed = _ctrl_pressed
+
+        # Ctrl+F2로 후처리 디버그 우회 토글
+        if _ctrl_pressed and keys[pygame.K_F2] and not getattr(main, 'keyCtrlF2_pressed', False):
+            _pp_bypass_enabled = toggle_postprocess_bypass()
+            try:
+                show_speech(
+                    "후처리 우회 ON" if _pp_bypass_enabled else "후처리 우회 OFF",
+                    duration=75,
+                )
+            except Exception:
+                pass
+            print(
+                f"[PostProcess] Debug bypass {'enabled' if _pp_bypass_enabled else 'disabled'}",
+                flush=True,
+            )
+        main.keyCtrlF2_pressed = _ctrl_pressed and keys[pygame.K_F2]
+
+        # Ctrl+F3로 히트 플래시 테스트
+        if _ctrl_pressed and keys[pygame.K_F3] and not getattr(main, 'keyCtrlF3_pressed', False):
+            trigger_hit_flash(alpha=120, duration_ms=100)
+            try:
+                show_speech("히트 플래시 테스트", duration=60)
+            except Exception:
+                pass
+            print("[PostProcess] Debug hit flash triggered", flush=True)
+        main.keyCtrlF3_pressed = _ctrl_pressed and keys[pygame.K_F3]
 
         # F3키로 디버그 호위무사 선택 패널 (투기장 모드에서는 배속 키로 사용)
         if not arena_mode_enabled:
-            if keys[pygame.K_F3] and not getattr(main, 'keyF3_pressed', False):
+            if (not _ctrl_pressed) and keys[pygame.K_F3] and not getattr(main, 'keyF3_pressed', False):
                 _debug_bodyguard_result = _show_debug_bodyguard_panel(SCREEN)
                 if _debug_bodyguard_result:
                     _dbg_hero, _dbg_skill_idx = _debug_bodyguard_result
@@ -170318,9 +170445,9 @@ def main(stage_num, new_boss_mode=False):
             # F1~F4 키 → 배속 직접 선택
             if (not _arena_manual_control) and keys[pygame.K_F1] and not getattr(main, '_arena_keyF1_pressed', False):
                 arena_speed_multiplier = 1      # x1
-            elif (not _arena_manual_control) and keys[pygame.K_F2] and not getattr(main, '_arena_keyF2_pressed', False):
+            elif (not _arena_manual_control) and (not _ctrl_pressed) and keys[pygame.K_F2] and not getattr(main, '_arena_keyF2_pressed', False):
                 arena_speed_multiplier = 1.5    # x1.5
-            elif (not _arena_manual_control) and keys[pygame.K_F3] and not getattr(main, '_arena_keyF3_pressed', False):
+            elif (not _arena_manual_control) and (not _ctrl_pressed) and keys[pygame.K_F3] and not getattr(main, '_arena_keyF3_pressed', False):
                 arena_speed_multiplier = 2      # x2
             elif (not _arena_manual_control) and keys[pygame.K_F4] and not getattr(main, '_arena_keyF4_pressed', False):
                 arena_speed_multiplier = 3      # x3
@@ -184766,7 +184893,7 @@ if __name__ == "__main__":
         # 파일에 저장
         try:
             with open(log_file, "w", encoding="utf-8") as f:
-                f.write(error_msg)
+                f.write(error_msg) 
             # print(f"\n로그 파일이 저장되었습니다: {log_file}")
             # print("\n이 파일을 열어서 내용을 복사해주세요.")
         except Exception as log_error:
