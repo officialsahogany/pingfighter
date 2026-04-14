@@ -803,7 +803,8 @@ def _get_tooltip_tag_bg(width: int, height: int, color) -> pygame.Surface:
 _shake_buffer = None
 _shake_buffer_stage2 = None
 _smoke_overlay_surf = None  # 연막탄 SRCALPHA 오버레이 (재사용)
-_smoke_puff_cache = {}  # 사이즈별 그라데이션 퍼프 캐시 {(w, h, type): Surface}
+_smoke_puff_cache = {}  # 사이즈별 불규칙 연기 퍼프 캐시 {(w, h, type, variant): Surface}
+_smoke_puff_rng = None  # 퍼프 생성 전용 RNG (재현성)
 
 # 전투 중 사운드 레이지 로딩 캐시 (첫 발동 시 디스크 I/O 스터터 방지)
 _kuro_spawn_sound = None
@@ -89879,7 +89880,8 @@ def handle_wall():
                         "lifetime": random.uniform(90, 160),
                         "max_lifetime": 160,
                         "type": "smoke_cloud",
-                        "aspect": random.uniform(1.3, 2.0),  # 가로 비율
+                        "aspect": random.uniform(1.3, 2.0),
+                        "variant": random.randint(0, 3),
                     }
                     smoke_zone["particles"].append(particle)
                 # 2) 상승 연기 기둥 - 위로 피어오르는 세로 연기
@@ -89893,7 +89895,8 @@ def handle_wall():
                         "lifetime": random.uniform(50, 100),
                         "max_lifetime": 100,
                         "type": "smoke_pillar",
-                        "aspect": random.uniform(0.5, 0.8),  # 세로 비율
+                        "aspect": random.uniform(0.5, 0.8),
+                        "variant": random.randint(0, 3),
                     }
                     smoke_zone["particles"].append(particle)
                 # 3) 미세 입자 - 연기 질감을 더하는 작은 점
@@ -89910,6 +89913,7 @@ def handle_wall():
                         "max_lifetime": 50,
                         "type": "smoke_wisp",
                         "aspect": 1.0,
+                        "variant": random.randint(0, 3),
                     }
                     smoke_zone["particles"].append(particle)
                 smoke_zones.append(smoke_zone)
@@ -89980,6 +89984,7 @@ def handle_wall():
                     "max_lifetime": 110,
                     "type": "smoke_cloud",
                     "aspect": random.uniform(1.3, 2.0),
+                    "variant": random.randint(0, 3),
                 })
             # 상승 기둥 보충 (30% 확률)
             if random.random() < 0.3:
@@ -89993,6 +89998,7 @@ def handle_wall():
                     "max_lifetime": 70,
                     "type": "smoke_pillar",
                     "aspect": random.uniform(0.5, 0.8),
+                    "variant": random.randint(0, 3),
                 })
             # 미세 입자 보충 (40% 확률)
             if random.random() < 0.4:
@@ -90007,6 +90013,7 @@ def handle_wall():
                     "max_lifetime": 40,
                     "type": "smoke_wisp",
                     "aspect": 1.0,
+                    "variant": random.randint(0, 3),
                 })
         # 파티클 업데이트
         for particle in smoke_zone["particles"][:]:
@@ -120418,16 +120425,20 @@ def draw_objects():
                 # 기본 원형 그리기
                 draw.circle((150, 150, 150), 
                                  (int(smoke_grenade["x"]), int(smoke_grenade["y"])), 10)
-    # 연막 지역 그리기 (캐싱된 퍼프 서피스 + SRCALPHA 오버레이)
+    # 연막 지역 그리기 (불규칙 퍼프 캐시 + SRCALPHA 오버레이)
     if smoke_zones:
-        global _smoke_overlay_surf
-        # 캐싱된 오버레이 서피스 (프레임당 1회 fill, Surface 재할당 없음)
+        global _smoke_overlay_surf, _smoke_puff_rng
+        if _smoke_puff_rng is None:
+            import random as _r
+            _smoke_puff_rng = _r.Random(42)
+        # 캐싱된 오버레이 서피스
         if (_smoke_overlay_surf is None
                 or _smoke_overlay_surf.get_width() != WIDTH
                 or _smoke_overlay_surf.get_height() != HEIGHT):
             _smoke_overlay_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         _smoke_overlay_surf.fill((0, 0, 0, 0))
         _smoke_has_particles = False
+        _spr = _smoke_puff_rng  # 짧은 별칭
         for smoke_zone in smoke_zones:
             if smoke_zone["opacity"] > 0:
                 _sz_opacity = smoke_zone["opacity"]
@@ -120439,68 +120450,85 @@ def draw_objects():
                     _p_x = int(particle["x"])
                     _p_y = int(particle["y"])
                     _p_aspect = particle.get("aspect", 1.5)
+                    _p_var = particle.get("variant", 0)
 
                     if _p_type == "smoke_cloud":
-                        # 넓은 타원형 연기 구름 — 캐싱된 그라데이션 퍼프 blit
                         _sc_alpha = int(min(_sz_opacity, 140 * _p_life_ratio))
                         if _sc_alpha <= 0:
                             continue
                         _sc_w = max(4, int(_p_sz * _p_aspect))
                         _sc_h = max(4, _p_sz)
-                        # 사이즈 버킷 (2px 단위로 양자화 → 캐시 히트율 상승)
-                        _bk_w = (_sc_w // 2) * 2
-                        _bk_h = (_sc_h // 2) * 2
-                        _bk_key = (_bk_w, _bk_h, 0)  # type 0 = cloud
+                        _bk_w = (_sc_w // 4) * 4
+                        _bk_h = (_sc_h // 4) * 4
+                        _bk_key = (_bk_w, _bk_h, 0, _p_var)
                         _puff = _smoke_puff_cache.get(_bk_key)
                         if _puff is None:
-                            # 퍼프 생성: 3레이어 동심 타원 그라데이션 (1회만 생성)
-                            _pw = _bk_w * 2 + 6
-                            _ph = _bk_h * 2 + 4
+                            # 불규칙 연기 퍼프: 여러 원을 랜덤 오프셋으로 겹쳐 그림
+                            _margin = 8
+                            _pw = _bk_w * 2 + _margin * 2
+                            _ph = _bk_h * 2 + _margin * 2
                             _puff = pygame.Surface((_pw, _ph), pygame.SRCALPHA)
                             _pcx, _pcy = _pw // 2, _ph // 2
-                            # 외곽 (어두운, 넓은)
-                            pygame.draw.ellipse(_puff, (130, 125, 120, 60),
-                                (_pcx - _bk_w - 2, _pcy - _bk_h - 1, (_bk_w + 2) * 2, (_bk_h + 1) * 2))
-                            # 메인
-                            pygame.draw.ellipse(_puff, (155, 150, 145, 120),
-                                (_pcx - _bk_w, _pcy - _bk_h, _bk_w * 2, _bk_h * 2))
-                            # 코어 (밝은, 좁은)
-                            _ckw = max(2, _bk_w // 2)
-                            _ckh = max(2, _bk_h // 2)
-                            pygame.draw.ellipse(_puff, (180, 175, 170, 80),
-                                (_pcx - _ckw, _pcy - _ckh, _ckw * 2, _ckh * 2))
-                            if len(_smoke_puff_cache) > 128:
+                            # 외곽 레이어: 6~8개 큰 원을 불규칙 배치
+                            _n_outer = _spr.randint(6, 8)
+                            for _io in range(_n_outer):
+                                _ox = _pcx + _spr.randint(-_bk_w // 2, _bk_w // 2)
+                                _oy = _pcy + _spr.randint(-_bk_h // 2, _bk_h // 2)
+                                _or = max(3, _spr.randint(_bk_h // 2, _bk_h))
+                                pygame.draw.circle(_puff, (130, 128, 122, 45), (_ox, _oy), _or)
+                            # 메인 레이어: 5~7개 중간 원
+                            _n_main = _spr.randint(5, 7)
+                            for _im in range(_n_main):
+                                _mx = _pcx + _spr.randint(-_bk_w // 3, _bk_w // 3)
+                                _my = _pcy + _spr.randint(-_bk_h // 3, _bk_h // 3)
+                                _mr = max(3, _spr.randint(_bk_h * 2 // 5, _bk_h * 4 // 5))
+                                pygame.draw.circle(_puff, (155, 152, 145, 90), (_mx, _my), _mr)
+                            # 코어 레이어: 3~4개 작은 밝은 원
+                            _n_core = _spr.randint(3, 4)
+                            for _ic in range(_n_core):
+                                _cx = _pcx + _spr.randint(-_bk_w // 5, _bk_w // 5)
+                                _cy = _pcy + _spr.randint(-_bk_h // 5, _bk_h // 5)
+                                _cr = max(2, _spr.randint(_bk_h // 4, _bk_h // 2))
+                                pygame.draw.circle(_puff, (180, 178, 172, 65), (_cx, _cy), _cr)
+                            if len(_smoke_puff_cache) > 256:
                                 _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
                             _smoke_puff_cache[_bk_key] = _puff
-                        # 알파 조절 후 오버레이에 blit
                         _puff.set_alpha(_sc_alpha)
                         _smoke_overlay_surf.blit(_puff,
                             (_p_x - _puff.get_width() // 2, _p_y - _puff.get_height() // 2))
                         _smoke_has_particles = True
 
                     elif _p_type == "smoke_pillar":
-                        # 세로로 긴 상승 연기 기둥 — 캐싱된 퍼프
                         _sp_alpha = int(min(_sz_opacity, 120 * _p_life_ratio))
                         if _sp_alpha <= 0:
                             continue
                         _sp_w = max(3, int(_p_sz * _p_aspect))
                         _sp_h = max(3, int(_p_sz * 1.3))
-                        _bk_w = (_sp_w // 2) * 2
-                        _bk_h = (_sp_h // 2) * 2
-                        _bk_key = (_bk_w, _bk_h, 1)  # type 1 = pillar
+                        _bk_w = (_sp_w // 4) * 4
+                        _bk_h = (_sp_h // 4) * 4
+                        _bk_key = (_bk_w, _bk_h, 1, _p_var)
                         _puff = _smoke_puff_cache.get(_bk_key)
                         if _puff is None:
-                            _pw = _bk_w * 2 + 2
-                            _ph = _bk_h * 2 + 2
+                            _margin = 4
+                            _pw = _bk_w * 2 + _margin * 2
+                            _ph = _bk_h * 2 + _margin * 2
                             _puff = pygame.Surface((_pw, _ph), pygame.SRCALPHA)
                             _pcx, _pcy = _pw // 2, _ph // 2
-                            pygame.draw.ellipse(_puff, (175, 165, 160, 90),
-                                (_pcx - _bk_w, _pcy - _bk_h, _bk_w * 2, _bk_h * 2))
-                            _ckw = max(2, _bk_w * 2 // 3)
-                            _ckh = max(2, _bk_h * 2 // 3)
-                            pygame.draw.ellipse(_puff, (195, 185, 180, 60),
-                                (_pcx - _ckw, _pcy - _ckh, _ckw * 2, _ckh * 2))
-                            if len(_smoke_puff_cache) > 128:
+                            # 세로로 길쭉한 불규칙 원 3~5개
+                            _n_pil = _spr.randint(3, 5)
+                            for _ip in range(_n_pil):
+                                _px_off = _pcx + _spr.randint(-_bk_w // 3, _bk_w // 3)
+                                _py_off = _pcy + _spr.randint(-_bk_h // 2, _bk_h // 3)
+                                _pr = max(2, _spr.randint(_bk_w // 2, max(_bk_w // 2 + 1, _bk_w)))
+                                pygame.draw.circle(_puff, (172, 165, 158, 70), (_px_off, _py_off), _pr)
+                            # 중앙 밝은 코어
+                            _n_pc = _spr.randint(2, 3)
+                            for _ipc in range(_n_pc):
+                                _pcx2 = _pcx + _spr.randint(-_bk_w // 4, _bk_w // 4)
+                                _pcy2 = _pcy + _spr.randint(-_bk_h // 4, _bk_h // 4)
+                                _pcr = max(2, _spr.randint(_bk_w // 3, max(_bk_w // 3 + 1, _bk_w * 2 // 3)))
+                                pygame.draw.circle(_puff, (195, 188, 182, 50), (_pcx2, _pcy2), _pcr)
+                            if len(_smoke_puff_cache) > 256:
                                 _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
                             _smoke_puff_cache[_bk_key] = _puff
                         _puff.set_alpha(_sp_alpha)
@@ -120509,19 +120537,23 @@ def draw_objects():
                         _smoke_has_particles = True
 
                     elif _p_type == "smoke_wisp":
-                        # 미세 연기 입자 — 캐싱된 원형 퍼프
                         _sw_alpha = int(min(_sz_opacity, 160 * _p_life_ratio))
                         if _sw_alpha <= 0 or _p_sz < 1:
                             continue
                         _bk_r = max(2, (_p_sz // 2) * 2)
-                        _bk_key = (_bk_r, _bk_r, 2)  # type 2 = wisp
+                        _bk_key = (_bk_r, _bk_r, 2, _p_var)
                         _puff = _smoke_puff_cache.get(_bk_key)
                         if _puff is None:
-                            _pd = _bk_r * 2 + 2
+                            _pd = _bk_r * 2 + 4
                             _puff = pygame.Surface((_pd, _pd), pygame.SRCALPHA)
                             _pc = _pd // 2
-                            pygame.draw.circle(_puff, (190, 185, 180, 140), (_pc, _pc), _bk_r)
-                            if len(_smoke_puff_cache) > 128:
+                            # 2~3개 작은 원을 약간 어긋나게 겹침
+                            for _iw in range(_spr.randint(2, 3)):
+                                _wx = _pc + _spr.randint(-_bk_r // 3, _bk_r // 3)
+                                _wy = _pc + _spr.randint(-_bk_r // 3, _bk_r // 3)
+                                _wr = max(1, _bk_r - _spr.randint(0, max(1, _bk_r // 3)))
+                                pygame.draw.circle(_puff, (188, 184, 178, 110), (_wx, _wy), _wr)
+                            if len(_smoke_puff_cache) > 256:
                                 _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
                             _smoke_puff_cache[_bk_key] = _puff
                         _puff.set_alpha(_sw_alpha)
@@ -120530,18 +120562,17 @@ def draw_objects():
                         _smoke_has_particles = True
 
                     else:
-                        # 레거시 호환
                         _leg_alpha = int(min(_sz_opacity, _sz_opacity * _p_life_ratio))
                         if _leg_alpha > 0 and _p_sz > 1:
                             _bk_r = max(2, (_p_sz // 2) * 2)
-                            _bk_key = (_bk_r, _bk_r, 3)
+                            _bk_key = (_bk_r, _bk_r, 3, 0)
                             _puff = _smoke_puff_cache.get(_bk_key)
                             if _puff is None:
                                 _pd = _bk_r * 2 + 2
                                 _puff = pygame.Surface((_pd, _pd), pygame.SRCALPHA)
                                 _pc = _pd // 2
                                 pygame.draw.circle(_puff, (150, 150, 145, 120), (_pc, _pc), _bk_r)
-                                if len(_smoke_puff_cache) > 128:
+                                if len(_smoke_puff_cache) > 256:
                                     _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
                                 _smoke_puff_cache[_bk_key] = _puff
                             _puff.set_alpha(_leg_alpha)
