@@ -89402,17 +89402,50 @@ def handle_wall():
                 # 화로 연막탄인 경우 플래그 전달
                 if 'is_brazier_smoke' in smoke_grenade:
                     smoke_zone['is_brazier_smoke'] = True
-                # 초기 연막 파티클 생성 (중앙에서 시작, 가로로 더 넓게)
-                for i in range(40):  # 파티클 수 증가
-                    angle = random.uniform(0, 2 * math.pi)
-                    dist = random.uniform(0, 10)
+                # 초기 연막 파티클 생성 (다층 연기 시스템)
+                # 1) 메인 연기 구름 - 좌우로 퍼지는 넓은 타원 (EMP 더스트클라우드 스타일)
+                for i in range(35):
+                    side = random.choice([-1, 1])
                     particle = {
-                        "x": smoke_zone["x"] + math.cos(angle) * dist * 2,  # 가로로 2배
-                        "y": smoke_zone["y"] + math.sin(angle) * dist,
-                        "size": random.uniform(20, 40),  # 더 큰 파티클
-                        "vel_x": math.cos(angle) * random.uniform(1.0, 3.0),  # 가로로 더 빠르게 퍼짐
-                        "vel_y": random.uniform(-0.5, -0.2),
-                        "lifetime": random.uniform(80, 150)
+                        "x": smoke_zone["x"] + random.uniform(-20, 20),
+                        "y": smoke_zone["y"] + random.uniform(-5, 5),
+                        "size": random.uniform(18, 35),
+                        "vel_x": side * random.uniform(1.5, 4.5),
+                        "vel_y": random.uniform(-0.8, -0.1),
+                        "lifetime": random.uniform(90, 160),
+                        "max_lifetime": 160,
+                        "type": "smoke_cloud",
+                        "aspect": random.uniform(1.3, 2.0),  # 가로 비율
+                    }
+                    smoke_zone["particles"].append(particle)
+                # 2) 상승 연기 기둥 - 위로 피어오르는 세로 연기
+                for i in range(20):
+                    particle = {
+                        "x": smoke_zone["x"] + random.uniform(-40, 40),
+                        "y": smoke_zone["y"] + random.uniform(-3, 3),
+                        "size": random.uniform(8, 18),
+                        "vel_x": random.uniform(-0.5, 0.5),
+                        "vel_y": random.uniform(-1.8, -0.4),
+                        "lifetime": random.uniform(50, 100),
+                        "max_lifetime": 100,
+                        "type": "smoke_pillar",
+                        "aspect": random.uniform(0.5, 0.8),  # 세로 비율
+                    }
+                    smoke_zone["particles"].append(particle)
+                # 3) 미세 입자 - 연기 질감을 더하는 작은 점
+                for i in range(25):
+                    angle = random.uniform(0, 2 * math.pi)
+                    spd = random.uniform(1.0, 5.0)
+                    particle = {
+                        "x": smoke_zone["x"] + random.uniform(-15, 15),
+                        "y": smoke_zone["y"] + random.uniform(-5, 5),
+                        "size": random.uniform(2, 6),
+                        "vel_x": math.cos(angle) * spd,
+                        "vel_y": math.sin(angle) * spd * 0.5 - 0.5,
+                        "lifetime": random.uniform(20, 50),
+                        "max_lifetime": 50,
+                        "type": "smoke_wisp",
+                        "aspect": 1.0,
                     }
                     smoke_zone["particles"].append(particle)
                 smoke_zones.append(smoke_zone)
@@ -89463,31 +89496,79 @@ def handle_wall():
         destroy_stage2_rocks_in_smoke(smoke_zone)
         # 스테이지 7 테트로미노를 연막에 닿으면 분해 처리
         destroy_stage7_tetrominoes_in_smoke(smoke_zone)
-        # 파티클 추가 생성 (지속적인 연기 효과, 타원형)
-        if smoke_zone["duration"] > 60 and len(smoke_zone["particles"]) < 60:  # 파티클 수 증가
-            if random.random() < 0.5:  # 50% 확률로 새 파티클
+        # 파티클 추가 생성 (다층 연기 효과)
+        if smoke_zone["duration"] > 60 and len(smoke_zone["particles"]) < 100:
+            radius_x = smoke_zone.get("radius_x", smoke_zone["radius"])
+            radius_y = smoke_zone["radius"]
+            # 메인 연기 구름 보충 (60% 확률)
+            if random.random() < 0.6:
+                side = random.choice([-1, 1])
+                dist_x = random.uniform(0, radius_x * 0.6)
+                dist_y = random.uniform(0, radius_y * 0.5)
                 angle = random.uniform(0, 2 * math.pi)
-                # 타원형 분포
-                radius_x = smoke_zone.get("radius_x", smoke_zone["radius"])
-                radius_y = smoke_zone["radius"]
-                dist_x = random.uniform(0, radius_x * 0.7)
-                dist_y = random.uniform(0, radius_y * 0.7)
-                particle = {
+                smoke_zone["particles"].append({
                     "x": smoke_zone["x"] + math.cos(angle) * dist_x,
                     "y": smoke_zone["y"] + math.sin(angle) * dist_y,
-                    "size": random.uniform(30, 50),  # 더 큰 파티클
-                    "vel_x": math.cos(angle) * random.uniform(0.3, 1.2),  # 가로로 더 활발한 움직임
-                    "vel_y": random.uniform(-0.2, -0.05),
-                    "lifetime": random.uniform(40, 80)
-                }
-                smoke_zone["particles"].append(particle)
+                    "size": random.uniform(20, 42),
+                    "vel_x": side * random.uniform(0.3, 1.5),
+                    "vel_y": random.uniform(-0.5, -0.05),
+                    "lifetime": random.uniform(50, 110),
+                    "max_lifetime": 110,
+                    "type": "smoke_cloud",
+                    "aspect": random.uniform(1.3, 2.0),
+                })
+            # 상승 기둥 보충 (30% 확률)
+            if random.random() < 0.3:
+                smoke_zone["particles"].append({
+                    "x": smoke_zone["x"] + random.uniform(-radius_x * 0.4, radius_x * 0.4),
+                    "y": smoke_zone["y"] + random.uniform(-radius_y * 0.2, radius_y * 0.2),
+                    "size": random.uniform(6, 15),
+                    "vel_x": random.uniform(-0.4, 0.4),
+                    "vel_y": random.uniform(-1.5, -0.3),
+                    "lifetime": random.uniform(35, 70),
+                    "max_lifetime": 70,
+                    "type": "smoke_pillar",
+                    "aspect": random.uniform(0.5, 0.8),
+                })
+            # 미세 입자 보충 (40% 확률)
+            if random.random() < 0.4:
+                angle = random.uniform(0, 2 * math.pi)
+                smoke_zone["particles"].append({
+                    "x": smoke_zone["x"] + random.uniform(-radius_x * 0.5, radius_x * 0.5),
+                    "y": smoke_zone["y"] + random.uniform(-radius_y * 0.3, radius_y * 0.3),
+                    "size": random.uniform(2, 5),
+                    "vel_x": math.cos(angle) * random.uniform(0.5, 2.0),
+                    "vel_y": random.uniform(-0.8, -0.1),
+                    "lifetime": random.uniform(15, 40),
+                    "max_lifetime": 40,
+                    "type": "smoke_wisp",
+                    "aspect": 1.0,
+                })
         # 파티클 업데이트
         for particle in smoke_zone["particles"][:]:
+            _pt = particle.get("type", "smoke_cloud")
             particle["x"] += particle["vel_x"]
             particle["y"] += particle["vel_y"]
             particle["lifetime"] -= 1
-            particle["size"] *= 0.99  # 서서히 작아짐
-            if particle["lifetime"] <= 0 or particle["size"] < 5:
+            if _pt == "smoke_cloud":
+                # 연기 구름: 천천히 팽창하면서 감속
+                particle["size"] *= 1.003  # 미세 팽창
+                particle["vel_x"] *= 0.97  # 감속
+                particle["vel_y"] -= 0.01  # 약간 상승 가속
+            elif _pt == "smoke_pillar":
+                # 상승 기둥: 위로 올라가면서 약간 퍼짐
+                particle["size"] *= 1.005
+                particle["vel_x"] *= 0.95
+                particle["vel_y"] *= 0.98
+            elif _pt == "smoke_wisp":
+                # 미세 입자: 빠르게 축소
+                particle["size"] *= 0.97
+                particle["vel_x"] *= 0.94
+                particle["vel_y"] *= 0.96
+            else:
+                particle["size"] *= 0.99
+            _min_sz = 2 if _pt == "smoke_wisp" else 4
+            if particle["lifetime"] <= 0 or particle["size"] < _min_sz:
                 smoke_zone["particles"].remove(particle)
         # 공이 연막 안에 있는지 체크 (타원형)
         dx = BALL.centerx - smoke_zone["x"]
@@ -119627,28 +119708,100 @@ def draw_objects():
                 # 기본 원형 그리기
                 draw.circle((150, 150, 150), 
                                  (int(smoke_grenade["x"]), int(smoke_grenade["y"])), 10)
-    # 연막 지역 그리기
+    # 연막 지역 그리기 (gfxdraw 기반 고퀄리티 렌더링)
     for smoke_zone in smoke_zones:
         if smoke_zone["opacity"] > 0:
-            # 연막 파티클 그리기
+            _sz_opacity = smoke_zone["opacity"]
             for particle in smoke_zone["particles"]:
-                # 파티클 투명도 계산
-                particle_alpha = min(smoke_zone["opacity"], 
-                                   int(smoke_zone["opacity"] * (particle["lifetime"] / 80)))
-                # 연막 파티클 그리기 (회색 연기)
-                smoke_surface = pygame.Surface((int(particle["size"] * 2), int(particle["size"] * 2)), 
-                                              pygame.SRCALPHA)
-                # 그라데이션 효과를 위한 여러 레이어
-                for i in range(3):
-                    layer_size = particle["size"] - i * (particle["size"] / 4)
-                    if layer_size > 0:
-                        layer_alpha = particle_alpha // (i + 1)
-                        color = (120 + i * 20, 120 + i * 20, 120 + i * 20, layer_alpha)
-                        pygame.draw.circle(smoke_surface, color,
-                                         (int(particle["size"]), int(particle["size"])),
-                                         int(layer_size))
-                SCREEN.blit(smoke_surface, 
-                           (particle["x"] - particle["size"], particle["y"] - particle["size"]))
+                _p_max_lt = particle.get("max_lifetime", 80)
+                _p_life_ratio = max(0.0, min(1.0, particle["lifetime"] / _p_max_lt))
+                _p_type = particle.get("type", "smoke_cloud")
+                _p_sz = max(1, int(particle["size"]))
+                _p_x = int(particle["x"])
+                _p_y = int(particle["y"])
+                _p_aspect = particle.get("aspect", 1.5)
+
+                if _p_type == "smoke_cloud":
+                    # 넓은 타원형 연기 구름 (EMP 더스트클라우드 스타일)
+                    _sc_alpha = int(min(_sz_opacity, 50 * _p_life_ratio))
+                    if _sc_alpha <= 0:
+                        continue
+                    _sc_w = max(2, int(_p_sz * _p_aspect))
+                    _sc_h = max(2, _p_sz)
+                    # 자연스러운 연기 색상 (연한 회갈색, 수명에 따라 밝아짐)
+                    _sc_gray = int(140 + 40 * (1.0 - _p_life_ratio))
+                    _sc_r = min(255, _sc_gray + 10)
+                    _sc_g = min(255, _sc_gray)
+                    _sc_b = min(255, _sc_gray - 5)
+                    # 외곽 레이어 (부드러운 외곽선)
+                    _out_w = _sc_w + 3
+                    _out_h = _sc_h + 2
+                    _out_alpha = max(0, _sc_alpha // 3)
+                    if _out_w > 2 and _out_h > 2 and _out_alpha > 0:
+                        try:
+                            pygame.gfxdraw.filled_ellipse(SCREEN, _p_x, _p_y,
+                                _out_w, _out_h,
+                                (_sc_r - 20, _sc_g - 20, _sc_b - 15, _out_alpha))
+                        except Exception:
+                            pass
+                    # 메인 레이어
+                    try:
+                        pygame.gfxdraw.filled_ellipse(SCREEN, _p_x, _p_y,
+                            _sc_w, _sc_h,
+                            (_sc_r, _sc_g, _sc_b, _sc_alpha))
+                    except Exception:
+                        pass
+                    # 내부 밝은 코어 (연기 중심부)
+                    _core_w = max(1, _sc_w // 2)
+                    _core_h = max(1, _sc_h // 2)
+                    _core_alpha = max(0, _sc_alpha // 2)
+                    if _core_w > 1 and _core_h > 1 and _core_alpha > 0:
+                        try:
+                            pygame.gfxdraw.filled_ellipse(SCREEN, _p_x, _p_y,
+                                _core_w, _core_h,
+                                (min(255, _sc_r + 25), min(255, _sc_g + 20), min(255, _sc_b + 15), _core_alpha))
+                        except Exception:
+                            pass
+
+                elif _p_type == "smoke_pillar":
+                    # 세로로 긴 상승 연기 기둥
+                    _sp_alpha = int(min(_sz_opacity, 60 * _p_life_ratio))
+                    if _sp_alpha <= 0:
+                        continue
+                    _sp_w = max(2, int(_p_sz * _p_aspect))  # aspect < 1이므로 좁음
+                    _sp_h = max(2, int(_p_sz * 1.3))
+                    _sp_gray = int(160 + 50 * (1.0 - _p_life_ratio))
+                    _sp_r = min(255, _sp_gray)
+                    _sp_g = min(255, _sp_gray - 10)
+                    _sp_b = min(255, _sp_gray - 5)
+                    try:
+                        pygame.gfxdraw.filled_ellipse(SCREEN, _p_x, _p_y,
+                            _sp_w, _sp_h,
+                            (_sp_r, _sp_g, _sp_b, _sp_alpha))
+                    except Exception:
+                        pass
+
+                elif _p_type == "smoke_wisp":
+                    # 미세 연기 입자 (작은 원)
+                    _sw_alpha = int(min(_sz_opacity, 120 * _p_life_ratio))
+                    if _sw_alpha <= 0 or _p_sz < 1:
+                        continue
+                    _sw_gray = int(170 + 50 * (1.0 - _p_life_ratio))
+                    try:
+                        pygame.gfxdraw.filled_circle(SCREEN, _p_x, _p_y, _p_sz,
+                            (min(255, _sw_gray), min(255, _sw_gray - 5), min(255, _sw_gray - 10), _sw_alpha))
+                    except Exception:
+                        pass
+
+                else:
+                    # 레거시 호환 (타입 없는 파티클)
+                    _leg_alpha = int(min(_sz_opacity, _sz_opacity * _p_life_ratio))
+                    if _leg_alpha > 0 and _p_sz > 1:
+                        try:
+                            pygame.gfxdraw.filled_circle(SCREEN, _p_x, _p_y, _p_sz,
+                                (140, 140, 140, _leg_alpha))
+                        except Exception:
+                            pass
             # 연막 영역 표시 제거 (원형 경계선 삭제)
     # 조명탄 그리기
     for flare in flares:
