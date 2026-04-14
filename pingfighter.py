@@ -54059,6 +54059,7 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     global _viper_starburst_frame, _viper_starburst_timer
     global _viper_ss_kick_ready, _viper_phantom_strike_active, _viper_phantom_strike_timer
     global _viper_ss_hit_consumed, _viper_ss_hologram_kick_hit, _viper_ss_wave_hit_ball
+    global _viper_dark_blade_window, _viper_dark_blade_window_ms
 
     # 중복 방지
     if _viper_ss_hit_consumed:
@@ -54086,6 +54087,11 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     # 마샬 킥 연계 조건 충족
     _viper_ss_ball_touched = True
     _viper_ss_ball_touched_ms = pygame.time.get_ticks()
+
+    # 다크 블레이드 콤보 윈도우: 공중 쉐도우 백스텝으로 공 타격 시 3초 윈도우 오픈
+    if _viper_ss_was_airborne and is_viper_skill_unlocked("dark_blade"):
+        _viper_dark_blade_window = True
+        _viper_dark_blade_window_ms = pygame.time.get_ticks()
 
     # 공속 증가 (킥 강화 퍽 공속 보너스 적용: +5%/LV, 초월자의 관/현자의 반지 보너스 포함)
     _ss_aim_lv, _ss_speed_lv = _get_viper_kick_enhance_levels()
@@ -79509,10 +79515,7 @@ def handle_player(keys):
                         _viper_ss_hologram_kick_hit = False  # 킥 히트 초기화
                         _viper_ss_hit_consumed = False  # 그라데이션 타격 중복 방지 초기화
                         _viper_ss_was_airborne = (_viper_jetpack_offset_y < -10)  # 체공 중 발동 여부 기록
-                        # 다크 블레이드 콤보 윈도우: 공중 쉐도우 백스텝 + 스킬 해금+장착 시 활성화
-                        if _viper_ss_was_airborne and is_viper_skill_unlocked("dark_blade"):
-                            _viper_dark_blade_window = True
-                            _viper_dark_blade_window_ms = pygame.time.get_ticks()
+                        # (다크 블레이드 콤보 윈도우는 공 타격 성공 시 _viper_ss_apply_ball_hit에서 오픈)
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
                         _viper_ss_ball_touched = False  # 공 히트 추적 초기화 (카운터 연계 조건)
 
@@ -79726,10 +79729,7 @@ def handle_player(keys):
             _viper_wall_dive_active = True
             _viper_wall_dive_phase = 0  # 벽으로 점프
             _viper_wall_dive_start_ms = pygame.time.get_ticks()
-            # 다크 블레이드 콤보 윈도우: 마샬 킥 / 팬텀 킥 발동 시에도 3초 윈도우 오픈
-            if is_viper_skill_unlocked("dark_blade"):
-                _viper_dark_blade_window = True
-                _viper_dark_blade_window_ms = pygame.time.get_ticks()
+            # (다크 블레이드 콤보 윈도우는 마샬 킥/팬텀 킥이 공을 맞출 때 오픈)
             _viper_wall_dive_start_x = float(PLAYER.centerx)
             _viper_wall_dive_start_y = float(PLAYER.centery)
             _viper_wall_dive_ball_hit = False
@@ -79946,6 +79946,10 @@ def handle_player(keys):
                     if _viper_ss_was_airborne and not _viper_is_double_marshal:
                         _viper_marshal_kick_hit_ball = True
                         _viper_marshal_kick_hit_ms = pygame.time.get_ticks()
+                    # 다크 블레이드 콤보 윈도우: 마샬 킥/팬텀 킥이 공을 맞췄을 때 3초 윈도우 오픈
+                    if is_viper_skill_unlocked("dark_blade"):
+                        _viper_dark_blade_window = True
+                        _viper_dark_blade_window_ms = pygame.time.get_ticks()
                     # 공을 위로 강하게 반사 + 속도 증가 (킥 강화 퍽 공속 보너스: +5%/LV, 초월자의 관/현자의 반지 보너스 포함)
                     _mk_aim_lv, _mk_speed_lv = _get_viper_kick_enhance_levels()
                     _mk_speed_bonus = 1.0 + _mk_speed_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
