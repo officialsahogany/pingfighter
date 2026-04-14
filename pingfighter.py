@@ -72037,6 +72037,11 @@ boss_dash_direction = 0  # -1: 왼쪽, 1: 오른쪽
 boss_dash_afterimages: list[dict] = []
 boss_dash_stun_timer = 0  # 대쉬 후 후딜 시간(프레임)
 
+# 🧊 보스 얼음 대쉬 미끄러짐 상태 (플레이어의 ice_dash_sliding과 대칭)
+boss_ice_dash_sliding = False
+boss_ice_dash_slide_direction = 0
+boss_ice_dash_slide_speed = 0.0
+
 # 빠칭코 관련 변수
 pachinko_active = False  # 빠칭코 활성화 상태
 pachinko_phase = 0  # 0: 대기, 1: 슬롯 돌아감, 2: 슬로우다운, 3: 완료
@@ -163746,6 +163751,7 @@ def handle_boss():
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction, boss_dash_afterimages
     global head_shot_active, head_shot_timer  # 헤드샷 스턴 관련 변수
     global boss_dash_stun_timer
+    global boss_ice_dash_sliding, boss_ice_dash_slide_direction, boss_ice_dash_slide_speed
     global stage8_shadow_casting, stage8_shadow_cast_start_ms, stage8_shadow_clones, stage8_shadow_next_ready_ms
     global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     global stage8_shuriken_casting, stage8_shuriken_cast_start_ms, stage8_shuriken_next_ready_ms
@@ -164124,6 +164130,15 @@ def handle_boss():
                     stage8_boss_sprite.stop_dash()
             except Exception:
                 pass
+            # 🧊 얼음 이벤트: 보스 대쉬 종료 시 미끄러짐 시작 (플레이어와 동일)
+            if is_ice_active():
+                boss_ice_dash_sliding = True
+                boss_ice_dash_slide_direction = boss_dash_direction
+                boss_ice_dash_slide_speed = 25.0
+                try:
+                    create_ice_dash_particles(BOSS.centerx, BOSS.bottom, boss_dash_direction, is_player=False)
+                except Exception:
+                    pass
             # 대쉬 종료 후 후딜 시간 설정 (스테이지별 설정 기반)
             try:
                 stage_cfg = BOSS_CONFIGS.get(current_stage, {})
@@ -164145,6 +164160,18 @@ def handle_boss():
         _process_bazooka_collisions()
         # 대쉬 중에는 다른 AI 처리 건너뜀
         return
+
+    # 🧊 보스 얼음 대쉬 미끄러짐 처리 (플레이어의 ice_dash_sliding과 동일 로직)
+    if boss_ice_dash_sliding:
+        BOSS.x += int(boss_ice_dash_slide_speed * boss_ice_dash_slide_direction)
+        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+        boss_ice_dash_slide_speed *= 0.96
+        if BOSS.x <= 0 or BOSS.x >= WIDTH - BOSS.width:
+            boss_ice_dash_sliding = False
+            boss_ice_dash_slide_speed = 0.0
+        elif boss_ice_dash_slide_speed < 1.0:
+            boss_ice_dash_sliding = False
+            boss_ice_dash_slide_speed = 0.0
 
     # 대쉬 후 후딜 시간 처리
     if boss_dash_stun_timer > 0:
