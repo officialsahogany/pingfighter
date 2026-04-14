@@ -802,6 +802,7 @@ def _get_tooltip_tag_bg(width: int, height: int, color) -> pygame.Surface:
 # ============================================================================
 _shake_buffer = None
 _shake_buffer_stage2 = None
+_smoke_overlay_surf = None  # 연막탄 gfxdraw용 SRCALPHA 오버레이 (재사용)
 
 # 전투 중 사운드 레이지 로딩 캐시 (첫 발동 시 디스크 I/O 스터터 방지)
 _kuro_spawn_sound = None
@@ -21301,6 +21302,164 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             card_rect = pygame.Rect(0, 0, scaled_width, scaled_height)
             pygame.draw.rect(card_surface, bg_color, card_rect, border_radius=12)
             pygame.draw.rect(card_surface, border_color, card_rect, border_width, border_radius=12)
+
+            # === 캐릭터 고유 퍽 테마 테두리 ===
+            char_restriction = choice.get("character_restriction")
+            if char_restriction:
+                _excl_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.1)
+                _excl_fast_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.18)
+
+                if char_restriction == "smasher":
+                    # 스매셔: 시안 전기 에너지 테두리
+                    _ec1 = (0, 200, 255)  # 시안
+                    _ec2 = (100, 240, 255)  # 밝은 시안
+                    _ea = int(80 + 60 * _excl_pulse)
+                    # 외곽 에너지 글로우 (2레이어)
+                    for _go in range(4, 0, -1):
+                        _gr = pygame.Rect(_go, _go, scaled_width - _go * 2, scaled_height - _go * 2)
+                        _ga = int(min(card_alpha, _ea - _go * 15))
+                        if _ga > 0:
+                            pygame.draw.rect(card_surface, (*_ec1, _ga), _gr, 1, border_radius=12)
+                    # 내부 밝은 테두리선
+                    _inner_a = int(min(card_alpha, 60 + 40 * _excl_pulse))
+                    pygame.draw.rect(card_surface, (*_ec2, _inner_a),
+                                    pygame.Rect(2, 2, scaled_width - 4, scaled_height - 4), 1, border_radius=11)
+                    # 코너 번개 스파크 (4개 코너)
+                    _corners = [(6, 6), (scaled_width - 7, 6), (6, scaled_height - 7), (scaled_width - 7, scaled_height - 7)]
+                    for _ci_c, (_cx, _cy) in enumerate(_corners):
+                        _sp_phase = (frame_count + _ci_c * 7) % 20
+                        if _sp_phase < 8:
+                            _sp_a = int(min(card_alpha, 180 - _sp_phase * 20))
+                            if _sp_a > 0:
+                                _sp_r = 3 if _sp_phase < 3 else 2
+                                pygame.gfxdraw.filled_circle(card_surface, _cx, _cy, _sp_r, (*_ec2, _sp_a))
+                    # 상하단 에너지 라인 (번개처럼 지직거림)
+                    _line_y_top = 3
+                    _line_y_bot = scaled_height - 4
+                    _seg_count = 6
+                    for _si in range(_seg_count):
+                        _sx1 = int(12 + (scaled_width - 24) * _si / _seg_count)
+                        _sx2 = int(12 + (scaled_width - 24) * (_si + 1) / _seg_count)
+                        _jitter = int(math.sin(frame_count * 0.3 + _si * 1.5) * 2)
+                        _la = int(min(card_alpha, 50 + 30 * _excl_fast_pulse))
+                        if _la > 0:
+                            pygame.draw.line(card_surface, (*_ec1, _la), (_sx1, _line_y_top + _jitter), (_sx2, _line_y_top - _jitter), 1)
+                            pygame.draw.line(card_surface, (*_ec1, _la), (_sx1, _line_y_bot - _jitter), (_sx2, _line_y_bot + _jitter), 1)
+
+                elif char_restriction == "viper":
+                    # 바이퍼: 보라색 독기 테두리
+                    _ec1 = (160, 0, 220)   # 진한 보라
+                    _ec2 = (200, 80, 255)  # 밝은 보라
+                    _ea = int(80 + 60 * _excl_pulse)
+                    # 외곽 독기 글로우
+                    for _go in range(5, 0, -1):
+                        _gr = pygame.Rect(_go, _go, scaled_width - _go * 2, scaled_height - _go * 2)
+                        _ga = int(min(card_alpha, _ea - _go * 12))
+                        if _ga > 0:
+                            pygame.draw.rect(card_surface, (*_ec1, _ga), _gr, 1, border_radius=12)
+                    # 내부 밝은 테두리
+                    _inner_a = int(min(card_alpha, 50 + 40 * _excl_pulse))
+                    pygame.draw.rect(card_surface, (*_ec2, _inner_a),
+                                    pygame.Rect(2, 2, scaled_width - 4, scaled_height - 4), 1, border_radius=11)
+                    # 모서리 독연기 파티클 (테두리를 따라 떠다님)
+                    _poison_count = 8
+                    for _pi in range(_poison_count):
+                        _t = (frame_count * 0.02 + _pi * (2 * math.pi / _poison_count)) % (2 * math.pi)
+                        # 테두리를 따라 이동하는 경로 (사각형 둘레)
+                        _perim = 2 * (scaled_width + scaled_height - 8)
+                        _pos_on_perim = (_t / (2 * math.pi)) * _perim
+                        if _pos_on_perim < scaled_width - 8:
+                            _px = int(4 + _pos_on_perim)
+                            _py = 3
+                        elif _pos_on_perim < scaled_width - 8 + scaled_height - 8:
+                            _px = scaled_width - 4
+                            _py = int(4 + (_pos_on_perim - (scaled_width - 8)))
+                        elif _pos_on_perim < 2 * (scaled_width - 8) + scaled_height - 8:
+                            _px = int(scaled_width - 4 - (_pos_on_perim - (scaled_width - 8) - (scaled_height - 8)))
+                            _py = scaled_height - 4
+                        else:
+                            _px = 3
+                            _py = int(scaled_height - 4 - (_pos_on_perim - 2 * (scaled_width - 8) - (scaled_height - 8)))
+                        _pa = int(min(card_alpha, 100 + 60 * math.sin(frame_count * 0.15 + _pi)))
+                        if _pa > 0 and 0 <= _px < scaled_width and 0 <= _py < scaled_height:
+                            _pr = 2 if _pi % 3 == 0 else 1
+                            pygame.gfxdraw.filled_circle(card_surface, _px, _py, _pr, (*_ec2, min(255, _pa)))
+
+                elif char_restriction == "optimus":
+                    # 옵티머스: 오렌지 메카닉 테두리
+                    _ec1 = (255, 140, 0)   # 오렌지
+                    _ec2 = (255, 200, 80)  # 밝은 옐로우
+                    _ea = int(70 + 50 * _excl_pulse)
+                    # 외곽 메카 글로우
+                    for _go in range(4, 0, -1):
+                        _gr = pygame.Rect(_go, _go, scaled_width - _go * 2, scaled_height - _go * 2)
+                        _ga = int(min(card_alpha, _ea - _go * 14))
+                        if _ga > 0:
+                            pygame.draw.rect(card_surface, (*_ec1, _ga), _gr, 1, border_radius=12)
+                    # 내부 테두리
+                    _inner_a = int(min(card_alpha, 50 + 35 * _excl_pulse))
+                    pygame.draw.rect(card_surface, (*_ec2, _inner_a),
+                                    pygame.Rect(2, 2, scaled_width - 4, scaled_height - 4), 1, border_radius=11)
+                    # 코너 기어/회로 장식 (L자 형태)
+                    _corner_len = 10
+                    _ca = int(min(card_alpha, 120 + 60 * _excl_pulse))
+                    if _ca > 0:
+                        # 좌상단
+                        pygame.draw.line(card_surface, (*_ec1, _ca), (3, 8), (3, 8 + _corner_len), 2)
+                        pygame.draw.line(card_surface, (*_ec1, _ca), (3, 8), (3 + _corner_len, 8), 2)
+                        # 우상단
+                        pygame.draw.line(card_surface, (*_ec1, _ca), (scaled_width - 4, 8), (scaled_width - 4, 8 + _corner_len), 2)
+                        pygame.draw.line(card_surface, (*_ec1, _ca), (scaled_width - 4, 8), (scaled_width - 4 - _corner_len, 8), 2)
+                        # 좌하단
+                        pygame.draw.line(card_surface, (*_ec1, _ca), (3, scaled_height - 9), (3, scaled_height - 9 - _corner_len), 2)
+                        pygame.draw.line(card_surface, (*_ec1, _ca), (3, scaled_height - 9), (3 + _corner_len, scaled_height - 9), 2)
+                        # 우하단
+                        pygame.draw.line(card_surface, (*_ec1, _ca), (scaled_width - 4, scaled_height - 9), (scaled_width - 4, scaled_height - 9 - _corner_len), 2)
+                        pygame.draw.line(card_surface, (*_ec1, _ca), (scaled_width - 4, scaled_height - 9), (scaled_width - 4 - _corner_len, scaled_height - 9), 2)
+                    # 상하 중앙 회로 도트
+                    _dot_count = 4
+                    for _di in range(_dot_count):
+                        _dx = int(scaled_width * (_di + 1) / (_dot_count + 1))
+                        _da = int(min(card_alpha, 80 + 50 * math.sin(frame_count * 0.12 + _di * 1.2)))
+                        if _da > 0:
+                            pygame.gfxdraw.filled_circle(card_surface, _dx, 4, 1, (*_ec2, _da))
+                            pygame.gfxdraw.filled_circle(card_surface, _dx, scaled_height - 5, 1, (*_ec2, _da))
+
+                elif char_restriction == "soldier":
+                    # 솔저(코만도): 밀리터리 그린 전술 테두리
+                    _ec1 = (80, 180, 60)   # 밀리터리 그린
+                    _ec2 = (140, 220, 100) # 밝은 그린
+                    _ea = int(70 + 50 * _excl_pulse)
+                    # 외곽 전술 글로우
+                    for _go in range(4, 0, -1):
+                        _gr = pygame.Rect(_go, _go, scaled_width - _go * 2, scaled_height - _go * 2)
+                        _ga = int(min(card_alpha, _ea - _go * 14))
+                        if _ga > 0:
+                            pygame.draw.rect(card_surface, (*_ec1, _ga), _gr, 1, border_radius=12)
+                    # 내부 테두리
+                    _inner_a = int(min(card_alpha, 50 + 35 * _excl_pulse))
+                    pygame.draw.rect(card_surface, (*_ec2, _inner_a),
+                                    pygame.Rect(2, 2, scaled_width - 4, scaled_height - 4), 1, border_radius=11)
+                    # 코너 전술 마커 (십자 형태)
+                    _marker_corners = [(8, 8), (scaled_width - 9, 8), (8, scaled_height - 9), (scaled_width - 9, scaled_height - 9)]
+                    _ma = int(min(card_alpha, 130 + 50 * _excl_fast_pulse))
+                    if _ma > 0:
+                        for _mx, _my in _marker_corners:
+                            pygame.draw.line(card_surface, (*_ec2, _ma), (_mx - 3, _my), (_mx + 3, _my), 1)
+                            pygame.draw.line(card_surface, (*_ec2, _ma), (_mx, _my - 3), (_mx, _my + 3), 1)
+                    # 좌우 대시 라인 (점선 스타일)
+                    _dash_len = 4
+                    _dash_gap = 6
+                    _dy_start = 14
+                    _dy_end = scaled_height - 14
+                    _dly = _dy_start
+                    _dl_a = int(min(card_alpha, 60 + 30 * _excl_pulse))
+                    if _dl_a > 0:
+                        while _dly < _dy_end:
+                            _dly_end = min(_dly + _dash_len, _dy_end)
+                            pygame.draw.line(card_surface, (*_ec1, _dl_a), (3, _dly), (3, _dly_end), 1)
+                            pygame.draw.line(card_surface, (*_ec1, _dl_a), (scaled_width - 4, _dly), (scaled_width - 4, _dly_end), 1)
+                            _dly += _dash_len + _dash_gap
 
             # 유니크 스킬 반짝이는 파티클 효과
             if is_unique_skill or skill_rarity == "legendary":
@@ -119749,102 +119908,112 @@ def draw_objects():
                 # 기본 원형 그리기
                 draw.circle((150, 150, 150), 
                                  (int(smoke_grenade["x"]), int(smoke_grenade["y"])), 10)
-    # 연막 지역 그리기 (gfxdraw 기반 고퀄리티 렌더링)
-    _smoke_sx = screen_shake_offset_x
-    _smoke_sy = screen_shake_offset_y
-    for smoke_zone in smoke_zones:
-        if smoke_zone["opacity"] > 0:
-            _sz_opacity = smoke_zone["opacity"]
-            for particle in smoke_zone["particles"]:
-                _p_max_lt = particle.get("max_lifetime", 80)
-                _p_life_ratio = max(0.0, min(1.0, particle["lifetime"] / _p_max_lt))
-                _p_type = particle.get("type", "smoke_cloud")
-                _p_sz = max(1, int(particle["size"]))
-                _p_x = int(particle["x"]) + _smoke_sx
-                _p_y = int(particle["y"]) + _smoke_sy
-                _p_aspect = particle.get("aspect", 1.5)
+    # 연막 지역 그리기 (SRCALPHA 오버레이 + gfxdraw → 정상 알파 블렌딩)
+    if smoke_zones:
+        global _smoke_overlay_surf
+        # 캐싱된 오버레이 서피스 (프레임당 1회 fill, Surface 할당 없음)
+        if (_smoke_overlay_surf is None
+                or _smoke_overlay_surf.get_width() != WIDTH
+                or _smoke_overlay_surf.get_height() != HEIGHT):
+            _smoke_overlay_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        _smoke_overlay_surf.fill((0, 0, 0, 0))
+        _smoke_has_particles = False
+        for smoke_zone in smoke_zones:
+            if smoke_zone["opacity"] > 0:
+                _sz_opacity = smoke_zone["opacity"]
+                for particle in smoke_zone["particles"]:
+                    _p_max_lt = particle.get("max_lifetime", 80)
+                    _p_life_ratio = max(0.0, min(1.0, particle["lifetime"] / _p_max_lt))
+                    _p_type = particle.get("type", "smoke_cloud")
+                    _p_sz = max(1, int(particle["size"]))
+                    _p_x = int(particle["x"])
+                    _p_y = int(particle["y"])
+                    _p_aspect = particle.get("aspect", 1.5)
 
-                if _p_type == "smoke_cloud":
-                    # 넓은 타원형 연기 구름 (EMP 더스트클라우드 스타일)
-                    _sc_alpha = int(min(_sz_opacity, 50 * _p_life_ratio))
-                    if _sc_alpha <= 0:
-                        continue
-                    _sc_w = max(2, int(_p_sz * _p_aspect))
-                    _sc_h = max(2, _p_sz)
-                    # 자연스러운 연기 색상 (연한 회갈색, 수명에 따라 밝아짐)
-                    _sc_gray = int(140 + 40 * (1.0 - _p_life_ratio))
-                    _sc_r = min(255, _sc_gray + 10)
-                    _sc_g = min(255, _sc_gray)
-                    _sc_b = min(255, _sc_gray - 5)
-                    # 외곽 레이어 (부드러운 외곽선)
-                    _out_w = _sc_w + 3
-                    _out_h = _sc_h + 2
-                    _out_alpha = max(0, _sc_alpha // 3)
-                    if _out_w > 2 and _out_h > 2 and _out_alpha > 0:
+                    if _p_type == "smoke_cloud":
+                        # 넓은 타원형 연기 구름 (EMP 더스트클라우드 스타일)
+                        _sc_alpha = int(min(_sz_opacity, 50 * _p_life_ratio))
+                        if _sc_alpha <= 0:
+                            continue
+                        _sc_w = max(2, int(_p_sz * _p_aspect))
+                        _sc_h = max(2, _p_sz)
+                        _sc_gray = int(140 + 40 * (1.0 - _p_life_ratio))
+                        _sc_r = min(255, _sc_gray + 10)
+                        _sc_g = min(255, _sc_gray)
+                        _sc_b = min(255, _sc_gray - 5)
+                        # 외곽 레이어 (부드러운 외곽선)
+                        _out_w = _sc_w + 3
+                        _out_h = _sc_h + 2
+                        _out_alpha = max(0, _sc_alpha // 3)
+                        if _out_w > 2 and _out_h > 2 and _out_alpha > 0:
+                            try:
+                                pygame.gfxdraw.filled_ellipse(_smoke_overlay_surf, _p_x, _p_y,
+                                    _out_w, _out_h,
+                                    (_sc_r - 20, _sc_g - 20, _sc_b - 15, _out_alpha))
+                            except Exception:
+                                pass
+                        # 메인 레이어
                         try:
-                            pygame.gfxdraw.filled_ellipse(SCREEN, _p_x, _p_y,
-                                _out_w, _out_h,
-                                (_sc_r - 20, _sc_g - 20, _sc_b - 15, _out_alpha))
+                            pygame.gfxdraw.filled_ellipse(_smoke_overlay_surf, _p_x, _p_y,
+                                _sc_w, _sc_h,
+                                (_sc_r, _sc_g, _sc_b, _sc_alpha))
                         except Exception:
                             pass
-                    # 메인 레이어
-                    try:
-                        pygame.gfxdraw.filled_ellipse(SCREEN, _p_x, _p_y,
-                            _sc_w, _sc_h,
-                            (_sc_r, _sc_g, _sc_b, _sc_alpha))
-                    except Exception:
-                        pass
-                    # 내부 밝은 코어 (연기 중심부)
-                    _core_w = max(1, _sc_w // 2)
-                    _core_h = max(1, _sc_h // 2)
-                    _core_alpha = max(0, _sc_alpha // 2)
-                    if _core_w > 1 and _core_h > 1 and _core_alpha > 0:
+                        # 내부 밝은 코어 (연기 중심부)
+                        _core_w = max(1, _sc_w // 2)
+                        _core_h = max(1, _sc_h // 2)
+                        _core_alpha = max(0, _sc_alpha // 2)
+                        if _core_w > 1 and _core_h > 1 and _core_alpha > 0:
+                            try:
+                                pygame.gfxdraw.filled_ellipse(_smoke_overlay_surf, _p_x, _p_y,
+                                    _core_w, _core_h,
+                                    (min(255, _sc_r + 25), min(255, _sc_g + 20), min(255, _sc_b + 15), _core_alpha))
+                            except Exception:
+                                pass
+                        _smoke_has_particles = True
+
+                    elif _p_type == "smoke_pillar":
+                        _sp_alpha = int(min(_sz_opacity, 60 * _p_life_ratio))
+                        if _sp_alpha <= 0:
+                            continue
+                        _sp_w = max(2, int(_p_sz * _p_aspect))
+                        _sp_h = max(2, int(_p_sz * 1.3))
+                        _sp_gray = int(160 + 50 * (1.0 - _p_life_ratio))
+                        _sp_r = min(255, _sp_gray)
+                        _sp_g = min(255, _sp_gray - 10)
+                        _sp_b = min(255, _sp_gray - 5)
                         try:
-                            pygame.gfxdraw.filled_ellipse(SCREEN, _p_x, _p_y,
-                                _core_w, _core_h,
-                                (min(255, _sc_r + 25), min(255, _sc_g + 20), min(255, _sc_b + 15), _core_alpha))
+                            pygame.gfxdraw.filled_ellipse(_smoke_overlay_surf, _p_x, _p_y,
+                                _sp_w, _sp_h,
+                                (_sp_r, _sp_g, _sp_b, _sp_alpha))
                         except Exception:
                             pass
+                        _smoke_has_particles = True
 
-                elif _p_type == "smoke_pillar":
-                    # 세로로 긴 상승 연기 기둥
-                    _sp_alpha = int(min(_sz_opacity, 60 * _p_life_ratio))
-                    if _sp_alpha <= 0:
-                        continue
-                    _sp_w = max(2, int(_p_sz * _p_aspect))  # aspect < 1이므로 좁음
-                    _sp_h = max(2, int(_p_sz * 1.3))
-                    _sp_gray = int(160 + 50 * (1.0 - _p_life_ratio))
-                    _sp_r = min(255, _sp_gray)
-                    _sp_g = min(255, _sp_gray - 10)
-                    _sp_b = min(255, _sp_gray - 5)
-                    try:
-                        pygame.gfxdraw.filled_ellipse(SCREEN, _p_x, _p_y,
-                            _sp_w, _sp_h,
-                            (_sp_r, _sp_g, _sp_b, _sp_alpha))
-                    except Exception:
-                        pass
-
-                elif _p_type == "smoke_wisp":
-                    # 미세 연기 입자 (작은 원)
-                    _sw_alpha = int(min(_sz_opacity, 120 * _p_life_ratio))
-                    if _sw_alpha <= 0 or _p_sz < 1:
-                        continue
-                    _sw_gray = int(170 + 50 * (1.0 - _p_life_ratio))
-                    try:
-                        pygame.gfxdraw.filled_circle(SCREEN, _p_x, _p_y, _p_sz,
-                            (min(255, _sw_gray), min(255, _sw_gray - 5), min(255, _sw_gray - 10), _sw_alpha))
-                    except Exception:
-                        pass
-
-                else:
-                    # 레거시 호환 (타입 없는 파티클)
-                    _leg_alpha = int(min(_sz_opacity, _sz_opacity * _p_life_ratio))
-                    if _leg_alpha > 0 and _p_sz > 1:
+                    elif _p_type == "smoke_wisp":
+                        _sw_alpha = int(min(_sz_opacity, 120 * _p_life_ratio))
+                        if _sw_alpha <= 0 or _p_sz < 1:
+                            continue
+                        _sw_gray = int(170 + 50 * (1.0 - _p_life_ratio))
                         try:
-                            pygame.gfxdraw.filled_circle(SCREEN, _p_x, _p_y, _p_sz,
-                                (140, 140, 140, _leg_alpha))
+                            pygame.gfxdraw.filled_circle(_smoke_overlay_surf, _p_x, _p_y, _p_sz,
+                                (min(255, _sw_gray), min(255, _sw_gray - 5), min(255, _sw_gray - 10), _sw_alpha))
                         except Exception:
                             pass
+                        _smoke_has_particles = True
+
+                    else:
+                        _leg_alpha = int(min(_sz_opacity, _sz_opacity * _p_life_ratio))
+                        if _leg_alpha > 0 and _p_sz > 1:
+                            try:
+                                pygame.gfxdraw.filled_circle(_smoke_overlay_surf, _p_x, _p_y, _p_sz,
+                                    (140, 140, 140, _leg_alpha))
+                            except Exception:
+                                pass
+                            _smoke_has_particles = True
+        # 오버레이를 SCREEN에 한 번만 blit (화면 흔들림 오프셋 적용)
+        if _smoke_has_particles:
+            SCREEN.blit(_smoke_overlay_surf, (screen_shake_offset_x, screen_shake_offset_y))
             # 연막 영역 표시 제거 (원형 경계선 삭제)
     # 조명탄 그리기
     for flare in flares:
