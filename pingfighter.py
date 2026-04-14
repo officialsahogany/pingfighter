@@ -63883,6 +63883,7 @@ def go_to_next_round():
             _viper_skill_cooldowns["marshal_kick"] = 0
     global _viper_dive_active, _viper_dive_phase, _viper_dive_hold_start_ms
     global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase
+    global _viper_dark_blade_active, _viper_dark_blade_window, _viper_blade_rush_width
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_particles
     global _viper_speed_boost_active
     global _viper_phantom_strike_active, _viper_phantom_strike_timer
@@ -78973,6 +78974,7 @@ def handle_player(keys):
         global _viper_ss_wave_active, _viper_ss_wave_x, _viper_ss_wave_y, _viper_ss_wave_target_x
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
         global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
+        global _viper_dark_blade_window, _viper_dark_blade_window_ms, _viper_dark_blade_active
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
         global _viper_speed_boost_active, _viper_speed_boost_original
