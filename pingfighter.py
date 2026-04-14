@@ -4316,6 +4316,13 @@ VIPER_SKILL_ICONS_DATA = [
         "how_to_use": "마샬 킥 적중 후 1.5초 안에 S/↓키 (팬텀 킥 퍽 필요)",
         "effect_type": "wall_dive_purple"
     },
+    {
+        "name": "dark_blade", "korean": "다크 블레이드", "cost": 200, "color": (120, 0, 30),
+        "symbol": "⚔", "cooldown": 60.0, "key": "W/↑(연계)",
+        "description": "공중 쉐도우 백스텝 직후 에어 블레이드 발동 시 변환.\n구르는 시간 50% 단축, 검기 크기 50% 증가.\n검붉은 검기 발사. 쿨타임 60초.",
+        "how_to_use": "공중 쉐도우 백스텝 후 W/↑키 (다크 블레이드 퍽 필요)",
+        "effect_type": "slash_dark"
+    },
 ]
 
 # 바이퍼 스킬 툴팁 관련 변수
@@ -4368,6 +4375,7 @@ _viper_skill_unlocked = {
     "marshal_kick": True,   # 쉐도우 백스텝 해금 시 자동 해금 (연계기)
     "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
     "phantom_kick": False,    # 런타임 스킬(double_marshal_kick)로 해금 필요
+    "dark_blade": False,      # 런타임 스킬(dark_blade 퍽)로 해금 필요
 }
 
 # 바이퍼 스킬 구슬 장착 시스템 (최대 5개, 스매셔와 동일)
@@ -4415,6 +4423,7 @@ def reset_viper_skill_unlocks():
         "marshal_kick": True,
         "dive_strike": False,
         "phantom_kick": False,
+        "dark_blade": False,
     }
     _viper_equipped_skills = ["shadow_step", "blade_rush", "marshal_kick"]
 
@@ -6557,16 +6566,6 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
             "symbol": f"K{_kick_enhance_lv}",
             "always_active": True,
         })
-    _dark_blade_lv = get_runtime_skill_level("dark_blade")
-    if _dark_blade_lv > 0:
-        viper_perks.append({
-            "name": "dark_blade",
-            "color": (120, 0, 30),
-            "cost": 0,
-            "symbol": "DB",
-            "always_active": True,
-        })
-
     if not viper_perks:
         return
 
@@ -17208,6 +17207,14 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         return True
 
     if choice_id == "dark_blade":
+        # 다크 블레이드: 5구슬 슬롯 시스템으로 해금+장착
+        unlock_viper_skill("dark_blade")
+        equip_result = equip_viper_skill("dark_blade")
+        print(f"[바이퍼 5구슬] 해금: dark_blade, 장착결과: {equip_result}, 현재슬롯: {_viper_equipped_skills}", flush=True)
+        if not equip_result:
+            removed = _show_viper_skill_swap_dialog("dark_blade")
+            swap_viper_skill(removed, "dark_blade")
+            print(f"[바이퍼 5구슬] 교체완료: {removed} → dark_blade, 현재슬롯: {_viper_equipped_skills}", flush=True)
         runtime_skill_levels["dark_blade"] = 1
         return True
 
@@ -26754,6 +26761,7 @@ power_smashing_rng = None               # 파워스매싱 전용 난수 발생�
 power_smashing_initial_boost = False    # 초기 부스트 활성화 상태
 power_smashing_boost_duration = 500     # 부스트 지속 시간 (밀리초, 0.5초)
 power_smashing_target_speed = 0.0       # 목표 속도 (부스트 후 복귀할 속도)
+power_smashing_boosted_speed = 0.0      # 실제 부스트된 속도 (감쇠+콤보 너프 적용 후)
 # 파워스매싱 정지 시간 관리
 power_smashing_freeze_start_time = 0    # 파워스매싱 정지 시작 시간
 power_smashing_freeze_duration = 1000   # 정지 시간 (밀리초, 1초)
@@ -79358,8 +79366,8 @@ def handle_player(keys):
                         _viper_ss_hologram_kick_hit = False  # 킥 히트 초기화
                         _viper_ss_hit_consumed = False  # 그라데이션 타격 중복 방지 초기화
                         _viper_ss_was_airborne = (_viper_jetpack_offset_y < -10)  # 체공 중 발동 여부 기록
-                        # 다크 블레이드 콤보 윈도우: 공중 쉐도우 백스텝 + 퍽 해금 시 활성화
-                        if _viper_ss_was_airborne and runtime_skill_levels.get("dark_blade", 0) >= 1:
+                        # 다크 블레이드 콤보 윈도우: 공중 쉐도우 백스텝 + 스킬 해금+장착 시 활성화
+                        if _viper_ss_was_airborne and is_viper_skill_unlocked("dark_blade"):
                             _viper_dark_blade_window = True
                             _viper_dark_blade_window_ms = pygame.time.get_ticks()
                         _viper_ss_kick_ready = True  # 다음 패들 히트 시 shadowkick.wav 재생 대기
@@ -79447,8 +79455,7 @@ def handle_player(keys):
                     if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                         _viper_w_key_released = False
                         special_gauge -= 200
-                        _viper_skill_cooldown_override["dark_blade"] = 60  # 다크 블레이드 60초 쿨타임
-                        trigger_viper_skill_cooldown("dark_blade")
+                        trigger_viper_skill_cooldown("dark_blade")  # 다크 블레이드 60초 쿨타임 (VIPER_SKILL_ICONS_DATA 참조)
                         _viper_nerve_strike_combo_used = False
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
                         _viper_dark_blade_window = False   # 콤보 윈도우 소모
@@ -151831,9 +151838,10 @@ def reset_round(is_stage_start=False):
     global plasma_contact_distortion
     plasma_contact_distortion = 0.0
     # 초기 부스트 관련 변수 리셋
-    global power_smashing_initial_boost, power_smashing_target_speed
+    global power_smashing_initial_boost, power_smashing_target_speed, power_smashing_boosted_speed
     power_smashing_initial_boost = False
     power_smashing_target_speed = 0.0
+    power_smashing_boosted_speed = 0.0
     # 파워스매싱 정지 시간 관련 변수 리셋
     global power_smashing_freeze_start_time, power_smashing_freeze_active
     power_smashing_freeze_start_time = 0
@@ -154580,7 +154588,8 @@ def handle_ball():
         elapsed_time = (time_now - power_smashing_start_time) / 1000.0  # 초 단위
         
         # 초기 부스트 감속 처리 (0.5초 동안)
-        global power_smashing_initial_boost, power_smashing_boost_duration, power_smashing_target_speed
+        global power_smashing_initial_boost, power_smashing_boost_duration
+        global power_smashing_target_speed, power_smashing_boosted_speed
         if power_smashing_initial_boost and elapsed_time < (power_smashing_boost_duration / 1000.0):
             # 현재 속도 계산
             current_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -154588,12 +154597,8 @@ def handle_ball():
             # 부스트 진행도 (0~1)
             boost_progress = elapsed_time / (power_smashing_boost_duration / 1000.0)
             
-            # 초기 부스트 속도에서 목표 속도로 부드럽게 감속 (선형 보간)
-            # 방향에 따라 초기 부스트 속도 계산 (증가율 10% 하향)
-            if power_smashing_direction == 0:  # 직선
-                initial_boosted_speed = power_smashing_target_speed * 1.72  # 기존 1.8 → 1.72
-            else:  # 좌/우
-                initial_boosted_speed = power_smashing_target_speed * 1.90  # 기존 2.0 → 1.90
+            # 발동 시점에 실제 적용된 부스트 속도에서 목표 속도로 부드럽게 감속한다.
+            initial_boosted_speed = power_smashing_boosted_speed if power_smashing_boosted_speed > 0 else power_smashing_target_speed
             interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
             
             # 속도 조정
@@ -159909,6 +159914,7 @@ def handle_ball():
             # 초기 부스트 리셋
             power_smashing_initial_boost = False
             power_smashing_target_speed = 0.0
+            power_smashing_boosted_speed = 0.0
             mega_smashing_meteor_trail.clear()
             mega_smashing_active = False
             # 양자 이펙트 정리
@@ -171254,9 +171260,9 @@ def main(stage_num, new_boss_mode=False):
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
                     
                     # 파워스매싱 초기 부스트 적용 (방향에 따라 차별화)
-                    global power_smashing_initial_boost, power_smashing_target_speed
+                    global power_smashing_initial_boost, power_smashing_target_speed, power_smashing_boosted_speed
                     power_smashing_target_speed = final_speed  # 현재 속도를 목표 속도로 저장
-                    
+
                     # 방향에 따른 초기 부스트 차별화
                     if power_smashing_direction == 0:  # 직선(중앙) 파워스매싱
                         initial_boost_multiplier = 1.72  # 기존 1.8 → 10% 하향(72% 추가)
@@ -171265,16 +171271,16 @@ def main(stage_num, new_boss_mode=False):
                     # ⚡ 스매셔 콤보 없으면 초기 부스트도 하향
                     if selected_character_type == "smasher" and power_smashing_combo_consumed < 2:
                         initial_boost_multiplier *= 0.78  # 22% 감소 (직선 1.34, 좌우 1.48)
-                    
+
                     # 초기 부스트 속도 적용 (공속 감쇠 적용)
                     if final_speed > 0:
                         boost_ratio = _apply_dampened_multiplier(final_speed, initial_boost_multiplier)
                         ball_vel[0] *= boost_ratio
                         ball_vel[1] *= boost_ratio
                         power_smashing_initial_boost = True
-                        boost_percent = int((initial_boost_multiplier - 1) * 100 + 100)
-                        pass  # print(f"🚀 파워스매싱 초기 부스트 적용! 방향: {'직선' if power_smashing_direction == 0 else '좌/우'}, 부스트: {boost_percent}%, 목표속도: {power_smashing_target_speed:.1f}, 부스트속도: {final_speed * initial_boost_multiplier:.1f}")  # 디버그 비활성화
-                        final_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        # 실제 부스트된 속도 저장 (포물선 업데이트에서 감쇠+콤보 너프 우회 방지)
+                        power_smashing_boosted_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        final_speed = power_smashing_boosted_speed
                     # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
                     if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_power_counter_active:
                         
