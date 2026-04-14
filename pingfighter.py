@@ -80939,6 +80939,13 @@ def handle_player(keys):
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
 
+        # PLAYER rect Y 위치 적용 (물리 판정에 반영) — 공중에서도 공이 패들에 맞도록
+        if _viper_br_spin_active and _viper_br_jump_offset_y < 0:
+            _br_baseline = _compute_player_floor_bottom(
+                CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+            )
+            PLAYER.bottom = int(_br_baseline + _viper_br_jump_offset_y)
+
     # 바이퍼 에어 블레이드 검기 업데이트 (매 프레임)
     if _viper_blade_rush_active:
         _br_speed_per_frame = 12.0  # 검기 이동 속도 (px/frame)
