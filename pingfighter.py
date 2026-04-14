@@ -34578,7 +34578,7 @@ web_trap_projectile = None      # {"sx","sy","tx","ty","timer","duration"} 또�
 web_trap_break_effects = []     # 거미줄 파괴 파티클 리스트
 
 # 거미줄 구출 스킬 (Web Rescue)
-WEB_RESCUE_COOLDOWN = 15000       # 15초 쿨다운
+WEB_RESCUE_COOLDOWN = 25000       # 25초 쿨다운
 WEB_RESCUE_GAUGE_COST = 50        # 게이지 50 소모
 WEB_RESCUE_TRIGGER_Y = 25         # 공 Y위치 이 이하일 때 트리거
 WEB_RESCUE_SHOOT_FRAMES = 15     # 실 발사 연출
