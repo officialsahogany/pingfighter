@@ -79614,9 +79614,10 @@ def handle_player(keys):
                     except Exception:
                         pass
 
-                # 다크 블레이드 발동 (콤보 윈도우 활성 시 — 공중/지상 무관하게 발동, 자체 점프 모션 포함)
+                # 다크 블레이드 발동 (콤보 윈도우 활성 + 공중 또는 마샬/팬텀 킥 진행 중에만)
                 elif (is_viper_skill_unlocked("blade_rush")
                       and _viper_dark_blade_window
+                      and (_viper_jetpack_offset_y < 0 or _viper_wall_dive_active)
                       and get_viper_skill_cooldown_remaining("dark_blade") <= 0):
                     if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                         _viper_w_key_released = False
@@ -79625,7 +79626,11 @@ def handle_player(keys):
                         _viper_nerve_strike_combo_used = False
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
                         _viper_dark_blade_window = False   # 콤보 윈도우 소모
-                        # 지상에서 발동 시 공중에서 구르는 느낌 유지를 위해 제트팩 오프셋 부여
+                        # 마샬/팬텀 킥 중 발동 시 벽타기 애니메이션 종료하고 공중 전환
+                        if _viper_wall_dive_active:
+                            _viper_wall_dive_active = False
+                            _viper_wall_dive_phase = 0
+                            _viper_wall_dive_web_lines = []
                         if _viper_jetpack_offset_y >= 0:
                             _viper_jetpack_offset_y = -120.0
 
@@ -79669,8 +79674,12 @@ def handle_player(keys):
 
     # === 바이퍼 다크 블레이드 콤보 윈도우 타임아웃 ===
     if _viper_dark_blade_window:
+        # 시간 경과(3초) 만료
         if pygame.time.get_ticks() - _viper_dark_blade_window_ms >= _VIPER_DARK_BLADE_WINDOW_DURATION:
-            _viper_dark_blade_window = False  # 3초 경과 → 윈도우 만료
+            _viper_dark_blade_window = False
+        # 바닥에 착지하면 즉시 만료 (공중/벽타기 중이 아닐 때)
+        elif _viper_jetpack_offset_y >= 0 and not _viper_wall_dive_active:
+            _viper_dark_blade_window = False
 
     # === 바이퍼 마샬 킥 연계기 (쉐도우 백스텝 → 0.5초 후 → S/↓키) ===
     # 쉐도우 백스텝 공 타격 후 0.5초 경과 시 마샬 킥 윈도우 자동 활성화 (쿨타임 체크)
@@ -79752,6 +79761,9 @@ def handle_player(keys):
             _viper_wall_dive_active = True
             _viper_wall_dive_phase = 0  # 벽으로 점프
             _viper_wall_dive_start_ms = pygame.time.get_ticks()
+            # 새 마샬/팬텀 킥 시작 → 기존 다크 블레이드 윈도우 초기화 (이번 킥으로 공을 맞춰야만 오픈)
+            _viper_dark_blade_window = False
+            _viper_dark_blade_window_ms = 0
             # (다크 블레이드 콤보 윈도우는 마샬 킥/팬텀 킥이 공을 맞출 때 오픈)
             _viper_wall_dive_start_x = float(PLAYER.centerx)
             _viper_wall_dive_start_y = float(PLAYER.centery)
