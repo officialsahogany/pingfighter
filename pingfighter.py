@@ -120555,28 +120555,52 @@ def draw_objects():
                     pygame.draw.circle(_explosion_overlay_surf,
                         (255, 240, 160, _sw_a3), (_ez_x, _ez_y), _sw_inner, max(1, 2))
                 _exp_has_draw = True
-            # ── 3. 화염 코어 (빠르게 팽창 → 서서히 축소, 타격감) ──
+            # ── 3. 화염 구체 (기존 타격감 + 새 퀄리티 하이브리드) ──
             if _ez_dur > 0:
-                # 처음 3프레임: 빠르게 팽창 (0→100%), 이후: 서서히 축소
                 _elapsed = 15 - _ez_dur  # 경과 프레임 (0~14)
+                # 빠르게 팽창 → 서서히 축소 (반경 100% 사용)
                 if _elapsed < 3:
-                    _core_scale = min(1.0, (_elapsed + 1) / 2.5)  # 빠른 팽창
+                    _core_scale = min(1.0, (_elapsed + 1) / 2.0)
                 else:
-                    _core_scale = max(0.0, 1.0 - (_elapsed - 3) / 12.0)  # 느린 축소
-                _core_max_r = int(_ez_rad * 0.7 * _core_scale)
-                if _core_max_r > 3:
-                    _core_alpha_mult = min(1.0, _ez_pct * 1.5)  # 알파도 수명 비례
-                    _core_colors = [
-                        (180, 40, 20, int(120 * _core_alpha_mult)),
-                        (230, 80, 20, int(150 * _core_alpha_mult)),
-                        (255, 150, 40, int(170 * _core_alpha_mult)),
-                        (255, 220, 100, int(190 * _core_alpha_mult)),
-                        (255, 255, 220, int(220 * _core_alpha_mult)),
-                    ]
-                    for _ci, _cc in enumerate(_core_colors):
-                        _cr = max(2, int(_core_max_r * (1.0 - _ci * 0.18)))
-                        if _cc[3] > 2:
-                            pygame.draw.circle(_explosion_overlay_surf, _cc, (_ez_x, _ez_y), _cr)
+                    _core_scale = max(0.0, 1.0 - (_elapsed - 3) / 13.0)
+                _core_max_r = int(_ez_rad * _core_scale)
+                if _core_max_r > 5:
+                    # 기존 스타일: 동심원으로 반경 전체를 채우는 화염구 (타격감)
+                    # step -8로 최적화 (기존 -3 대비 원 수 60% 감소, 시각 차이 없음)
+                    _alpha_base = int(200 * _ez_pct)
+                    for _fi in range(_core_max_r, 0, -8):
+                        _ratio = _fi / max(_core_max_r, 1)
+                        if _ez_dur > 10:
+                            _fr = 255
+                            _fg = min(255, int(255 - (1 - _ratio) * 100))
+                            _fb = min(255, int(200 - (1 - _ratio) * 150))
+                        elif _ez_dur > 5:
+                            _fr = 255
+                            _fg = max(0, int(150 - (1 - _ratio) * 100))
+                            _fb = max(0, int(50 - (1 - _ratio) * 40))
+                        else:
+                            _fr = max(0, int(200 - (1 - _ratio) * 100))
+                            _fg = max(0, int(50 - (1 - _ratio) * 40))
+                            _fb = 30
+                        _fa = max(0, min(255, int(_alpha_base * _ratio)))
+                        if _fa > 2:
+                            pygame.draw.circle(_explosion_overlay_surf,
+                                (_fr, _fg, _fb, _fa), (_ez_x, _ez_y), _fi)
+                    # 새 퀄리티: 중앙에 밝은 5단계 코어 (위에 덮어 입체감)
+                    _inner_r = int(_core_max_r * 0.5)
+                    if _inner_r > 3:
+                        _ca_mult = min(1.0, _ez_pct * 1.5)
+                        _inner_colors = [
+                            (255, 150, 40, int(140 * _ca_mult)),
+                            (255, 200, 80, int(160 * _ca_mult)),
+                            (255, 235, 150, int(180 * _ca_mult)),
+                            (255, 250, 210, int(200 * _ca_mult)),
+                            (255, 255, 240, int(230 * _ca_mult)),
+                        ]
+                        for _ci, _cc in enumerate(_inner_colors):
+                            _cr = max(2, int(_inner_r * (1.0 - _ci * 0.18)))
+                            if _cc[3] > 2:
+                                pygame.draw.circle(_explosion_overlay_surf, _cc, (_ez_x, _ez_y), _cr)
                     _exp_has_draw = True
             # ── 4. 파티클 렌더링 (연기 → 불씨 → 불꽃 순서) ──
             _type_order = {"smoke": 0, "ember": 1, "fire": 2}
