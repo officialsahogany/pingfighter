@@ -5574,59 +5574,116 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             pygame.draw.line(surface, main_color, (mx + 3, my - 3), (mx - 3, my + 3), 2)
 
     elif skill_name == "magnum_grip":
-        # 🧲 매그넘 그립: U자 자석 + 끌어당김 라인
-        # 자석 본체 비율
-        mag_w = int(s * 1.4)
-        mag_h = int(s * 1.4)
+        # 🧲 매그넘 그립: U자 자석 + 자기장 아크 + 에너지 파티클 (퍽 아이콘 연동 디자인)
+        mag_w = int(s * 1.2)
+        mag_h = int(s * 1.2)
         thickness = max(3, s // 3)
-        top_y = cy - mag_h // 2 + 2
+        top_y = cy - mag_h // 2
         left_x = cx - mag_w // 2
         right_x = cx + mag_w // 2
+        leg_bottom = cy + mag_h // 4 + 2
 
-        # 자석 다리 (메탈릭 실버 + 전기 블루 — 스매셔 테마)
+        # 색상 (퍽 아이콘과 동일한 빨강/파랑 테마)
         if is_active:
-            left_color = (150, 175, 200)    # 메탈릭 실버
-            right_color = (150, 175, 200)
-            tip_left = (120, 200, 255)      # 전기 블루 팁
-            tip_right = (120, 200, 255)
+            left_color = (220, 60, 60)       # 빨강 다리
+            right_color = (60, 120, 220)     # 파랑 다리
+            left_tip = (255, 120, 120)       # 밝은 빨강 팁
+            right_tip = (120, 180, 255)      # 밝은 파랑 팁
+            bar_color = color                # 상단 연결부 (스킬 색상)
+            bar_highlight = highlight_color
+            field_color = color[:3]
         else:
-            left_color = (80, 90, 105)
-            right_color = (80, 90, 105)
-            tip_left = (50, 80, 110)
-            tip_right = (50, 80, 110)
+            left_color = (110, 35, 35)
+            right_color = (35, 65, 110)
+            left_tip = (140, 60, 60)
+            right_tip = (60, 90, 140)
+            bar_color = accent_color
+            bar_highlight = shadow_color
+            field_color = shadow_color[:3]
 
-        # 왼쪽 다리
+        # 자기장 글로우 배경 (활성화 시)
+        if is_active:
+            for i in range(3, 0, -1):
+                glow_r = mag_w // 2 + s // 3 + i * 3
+                pygame.draw.circle(surface, (*field_color, 25), (cx, cy + 2), glow_r, 1)
+
+        # 왼쪽 다리 (빨강 - 둥근 모서리)
         pygame.draw.rect(surface, left_color,
-                         (left_x, cy - 2, thickness, mag_h // 2))
-        # 오른쪽 다리
+                         (left_x, cy - 2, thickness, leg_bottom - cy + 2),
+                         border_radius=max(1, thickness // 4))
+        # 왼쪽 다리 하이라이트 (입체감)
+        pygame.draw.line(surface, tuple(min(255, c + 40) for c in left_color),
+                         (left_x + 1, cy), (left_x + 1, leg_bottom - 2), 1)
+
+        # 오른쪽 다리 (파랑 - 둥근 모서리)
         pygame.draw.rect(surface, right_color,
-                         (right_x - thickness, cy - 2, thickness, mag_h // 2))
-        # 윗부분 호 (반원형 연결부) — 두꺼운 아크
+                         (right_x - thickness, cy - 2, thickness, leg_bottom - cy + 2),
+                         border_radius=max(1, thickness // 4))
+        # 오른쪽 다리 하이라이트 (입체감)
+        pygame.draw.line(surface, tuple(min(255, c + 40) for c in right_color),
+                         (right_x - thickness + 1, cy), (right_x - thickness + 1, leg_bottom - 2), 1)
+
+        # 상단 연결부 호 (반원형 - 퍽 아이콘의 보라색 바 대응)
         arc_rect = pygame.Rect(left_x, top_y, mag_w, mag_h)
-        pygame.draw.arc(surface, left_color, arc_rect, math.radians(90), math.radians(180), thickness)
-        pygame.draw.arc(surface, right_color, arc_rect, math.radians(0), math.radians(90), thickness)
+        # 두꺼운 아크 (왼쪽=빨강, 오른쪽=파랑)
+        pygame.draw.arc(surface, left_color, arc_rect,
+                        math.radians(90), math.radians(135), thickness)
+        pygame.draw.arc(surface, bar_color, arc_rect,
+                        math.radians(135), math.radians(180) - 0.01, thickness)
+        pygame.draw.arc(surface, bar_color, arc_rect,
+                        math.radians(0) + 0.01, math.radians(45), thickness)
+        pygame.draw.arc(surface, right_color, arc_rect,
+                        math.radians(45), math.radians(90), thickness)
+        # 상단 하이라이트 라인 (금속 광택)
+        hl_rect = pygame.Rect(left_x + 1, top_y + 1, mag_w - 2, mag_h - 2)
+        pygame.draw.arc(surface, bar_highlight, hl_rect,
+                        math.radians(100), math.radians(170), max(1, thickness // 3))
 
-        # 다리 끝 팁(밝은 색)
-        tip_h = max(2, s // 4)
-        pygame.draw.rect(surface, tip_left, (left_x, cy + mag_h // 2 - tip_h - 2, thickness, tip_h))
-        pygame.draw.rect(surface, tip_right, (right_x - thickness, cy + mag_h // 2 - tip_h - 2, thickness, tip_h))
-
-        # 자기장 라인 (다리 아래쪽으로 끌림 표시)
+        # 다리 끝 팁 (밝은 색 - 자기 극)
+        tip_h = max(3, s // 3)
+        pygame.draw.rect(surface, left_tip,
+                         (left_x, leg_bottom - tip_h, thickness, tip_h),
+                         border_radius=max(1, thickness // 4))
+        pygame.draw.rect(surface, right_tip,
+                         (right_x - thickness, leg_bottom - tip_h, thickness, tip_h),
+                         border_radius=max(1, thickness // 4))
+        # 팁 글로우 (작은 원)
         if is_active:
-            pull_color = highlight_color
-        else:
-            pull_color = shadow_color
-        for i in range(3):
-            offset = (i - 1) * (s // 3)
-            line_y_top = cy + mag_h // 2 + 2
-            line_y_bot = line_y_top + s // 2
-            pygame.draw.line(surface, pull_color,
-                             (cx + offset, line_y_top), (cx + offset, line_y_bot), 2)
-            # 화살촉
-            pygame.draw.line(surface, pull_color,
-                             (cx + offset, line_y_top), (cx + offset - 2, line_y_top + 3), 2)
-            pygame.draw.line(surface, pull_color,
-                             (cx + offset, line_y_top), (cx + offset + 2, line_y_top + 3), 2)
+            pygame.draw.circle(surface, left_tip,
+                               (left_x + thickness // 2, leg_bottom), max(2, thickness // 2))
+            pygame.draw.circle(surface, right_tip,
+                               (right_x - thickness // 2, leg_bottom), max(2, thickness // 2))
+
+        # 자기장 아크 라인 (퍽 아이콘과 동일한 반원 호 패턴)
+        arc_base_y = leg_bottom + 1
+        for i in range(4):
+            arc_r = max(4, s // 4 + i * (s // 4))
+            fade = max(60, 220 - i * 45) if is_active else max(40, 120 - i * 25)
+            arc_c = tuple(min(255, max(0, int(v * fade / 220))) for v in field_color[:3])
+            # 반원 호를 부드러운 점들로 그리기
+            prev_pt = None
+            for angle_deg in range(0, 181, 8):
+                rad = math.radians(angle_deg)
+                px = cx + int(math.cos(rad) * arc_r)
+                py = arc_base_y + int(math.sin(rad) * arc_r * 0.55)
+                pt = (px, py)
+                if prev_pt is not None:
+                    pygame.draw.line(surface, arc_c, prev_pt, pt, max(1, 2 - i // 2))
+                prev_pt = pt
+
+        # 에너지 파티클 (자기장 내 떠다니는 점 - 활성화 시)
+        if is_active:
+            particle_positions = [
+                (cx - s // 3, leg_bottom + s // 3),
+                (cx + s // 3, leg_bottom + s // 4),
+                (cx, leg_bottom + s // 2),
+                (cx - s // 5, leg_bottom + s // 5 + 2),
+                (cx + s // 5, leg_bottom + s // 2 - 2),
+            ]
+            for j, (px, py) in enumerate(particle_positions):
+                p_size = max(1, 2 - j // 3)
+                p_color = left_tip if j % 2 == 0 else right_tip
+                pygame.draw.circle(surface, p_color, (px, py), p_size)
 
     elif skill_name == "ghost_shot":
         # 👻 고스트샷: 귀신 + 구불거리는 궤적 + 미니 귀신들
