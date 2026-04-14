@@ -2946,7 +2946,7 @@ from item_effects.ak47 import get_ak47_instance
 from item_effects.net_gun import get_net_gun_instance
 from item_effects.fire_support import get_fire_support_instance
 from item_effects.bowling_trap import get_bowling_trap_instance
-from item_effects.cleanse_skill import get_cleanse_skill, check_player_has_status_effect, reset_cleanse_skill, is_cleanse_immune
+from item_effects.cleanse_skill import get_cleanse_skill, check_player_has_status_effect, reset_cleanse_skill, is_cleanse_immune, CLEANSE_IMMUNITY_DURATION
 from supply_drop import (
     SupplyDropRuntime,
     SupplyDropState,
@@ -109358,6 +109358,231 @@ def draw_player_gauge():
             SCREEN.blit(sv_icon_scaled, (sv_emblem_x, sv_emblem_y))
     elif _hg_index('strange_vial') != -1:
         _hg_on_deactivate('strange_vial')
+
+    #  클렌즈 면역 지속시간 게이지바 (가로형, 시안/퍼플 테마)
+    try:
+        _cleanse_sk = get_cleanse_skill()
+        _cleanse_imm_active = _cleanse_sk.immunity_timer > 0
+    except Exception:
+        _cleanse_sk = None
+        _cleanse_imm_active = False
+    if _cleanse_imm_active:
+        cl_v_width = 150
+        cl_v_height = 12
+        cl_base_x = WIDTH - cl_v_width - 16
+        cl_base_y = HEIGHT - 28
+        cl_idx = _hg_index('cleanse_immunity')
+        if cl_idx < 0:
+            _hg_on_activate('cleanse_immunity')
+            cl_idx = _hg_index('cleanse_immunity')
+        cl_spacing = 18
+        cl_x = cl_base_x
+        cl_y = cl_base_y - max(0, cl_idx) * cl_spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, cl_y)
+
+        cl_ratio = _cleanse_sk.immunity_timer / max(1, CLEANSE_IMMUNITY_DURATION)
+        cl_remaining = _cleanse_sk.immunity_timer / 60.0
+
+        cl_outer = pygame.Rect(cl_x - 5, cl_y - 6, cl_v_width + 10, cl_v_height + 12)
+        cl_mid   = pygame.Rect(cl_x - 3, cl_y - 4, cl_v_width + 6,  cl_v_height + 8)
+        cl_frame = pygame.Rect(cl_x - 2, cl_y - 2, cl_v_width + 4,  cl_v_height + 4)
+        cl_inner = pygame.Rect(cl_x,     cl_y,     cl_v_width,      cl_v_height)
+
+        cl_shadow = pygame.Surface((cl_outer.width, cl_outer.height), pygame.SRCALPHA)
+        pygame.draw.rect(cl_shadow, (0, 0, 0, 70), cl_shadow.get_rect(), border_radius=8)
+        SCREEN.blit(cl_shadow, (cl_outer.x, cl_outer.y))
+
+        draw.rect((16, 18, 32), cl_outer, border_radius=8)
+        draw.rect((40, 80, 130), cl_mid, border_radius=7)
+        draw.rect((80, 140, 200), cl_mid, 2, border_radius=7)
+        draw.rect((20, 24, 36), cl_frame, border_radius=6)
+        cl_inner_shd = pygame.Surface((cl_inner.width, cl_inner.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(cl_inner_shd, (0, 0, 0, alpha), (0, i, cl_inner.width, 1))
+        SCREEN.blit(cl_inner_shd, (cl_inner.x, cl_inner.y))
+
+        cl_fill_w = max(1, int((cl_v_width - 4) * cl_ratio))
+        if cl_fill_w > 0:
+            # 색상 단계 (시안/퍼플 → 오렌지 → 레드 펄스)
+            if cl_remaining > 3.0:
+                cl_base_c = (60, 180, 220)
+                cl_hi_c = (140, 220, 255)
+            elif cl_remaining > 1.5:
+                cl_base_c = (120, 160, 220)
+                cl_hi_c = (180, 200, 255)
+            else:
+                cl_p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                cl_base_c = (220, int(100 + 80 * cl_p), 60)
+                cl_hi_c = (255, int(150 + 60 * cl_p), 100)
+
+            cl_fill_rect = pygame.Rect(cl_x + 2, cl_y + 2, cl_fill_w, cl_v_height - 4)
+            cl_grad = pygame.Surface((cl_fill_rect.width, cl_fill_rect.height), pygame.SRCALPHA)
+            for cx in range(cl_fill_rect.width):
+                t = cx / max(1, cl_fill_rect.width - 1)
+                col = (
+                    int(cl_base_c[0] + (cl_hi_c[0] - cl_base_c[0]) * t),
+                    int(cl_base_c[1] + (cl_hi_c[1] - cl_base_c[1]) * t),
+                    int(cl_base_c[2] + (cl_hi_c[2] - cl_base_c[2]) * t),
+                    255,
+                )
+                pygame.draw.line(cl_grad, col, (cx, 0), (cx, cl_fill_rect.height - 1))
+            cl_mask = pygame.Surface((cl_fill_rect.width, cl_fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(cl_mask, (255, 255, 255, 255), cl_mask.get_rect(), border_radius=3)
+            cl_grad.blit(cl_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(cl_grad, (cl_fill_rect.x, cl_fill_rect.y))
+
+            # 상단 하이라이트 글로우
+            cl_pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            cl_glow = (
+                int(cl_hi_c[0] * (0.6 + 0.4 * cl_pulse)),
+                int(cl_hi_c[1] * (0.6 + 0.4 * cl_pulse)),
+                int(cl_hi_c[2] * (0.6 + 0.4 * cl_pulse)),
+            )
+            draw.rect(cl_glow, (cl_x + 2, cl_y + 2, cl_fill_w, 2), border_radius=2)
+
+            # 티크 마크(10분할)
+            cl_tick = (160, 200, 230)
+            for i in range(1, 10):
+                tx = cl_x + 2 + int((cl_v_width - 4) * (i / 10))
+                pygame.draw.line(SCREEN, cl_tick, (tx, cl_y + cl_v_height - 4), (tx, cl_y + cl_v_height - 1), 1)
+
+            # 채움 끝점 글랜트
+            cl_end_x = cl_x + 2 + cl_fill_w
+            if 2 < cl_fill_w < (cl_v_width - 4):
+                cl_glint = pygame.Surface((8, cl_v_height), pygame.SRCALPHA)
+                pygame.draw.line(cl_glint, (255, 255, 255, 120), (0, 0), (0, cl_v_height - 3), 2)
+                SCREEN.blit(cl_glint, (cl_end_x - 1, cl_y + 2))
+
+        # 엠블럼(왼쪽): 클렌즈 방패 아이콘
+        cl_emb_sz = int(cl_v_height * 1.5)
+        cl_pulse_e = 1.0 + 0.15 * math.sin(pygame.time.get_ticks() * 0.02)
+        cl_emb_sz = max(8, int(cl_emb_sz * cl_pulse_e))
+        cl_emb_x = cl_x - cl_emb_sz - 6
+        cl_emb_y = cl_y + (cl_v_height - cl_emb_sz) // 2
+        cl_emb_surf = pygame.Surface((cl_emb_sz, cl_emb_sz), pygame.SRCALPHA)
+        cl_emb_cx = cl_emb_sz // 2
+        cl_emb_cy = cl_emb_sz // 2
+        cl_emb_r = cl_emb_sz // 2 - 1
+        gfxdraw.filled_circle(cl_emb_surf, cl_emb_cx, cl_emb_cy, cl_emb_r, (40, 160, 210, 200))
+        gfxdraw.aacircle(cl_emb_surf, cl_emb_cx, cl_emb_cy, cl_emb_r, (100, 220, 255, 255))
+        # 방패 십자 표시
+        pygame.draw.line(cl_emb_surf, (255, 255, 255, 220), (cl_emb_cx, cl_emb_cy - cl_emb_r // 2), (cl_emb_cx, cl_emb_cy + cl_emb_r // 2), 2)
+        pygame.draw.line(cl_emb_surf, (255, 255, 255, 220), (cl_emb_cx - cl_emb_r // 2, cl_emb_cy), (cl_emb_cx + cl_emb_r // 2, cl_emb_cy), 2)
+        SCREEN.blit(cl_emb_surf, (cl_emb_x, cl_emb_y))
+    elif _hg_index('cleanse_immunity') != -1:
+        _hg_on_deactivate('cleanse_immunity')
+
+    #  리커버리 이동속도 보너스 지속시간 게이지바 (가로형, 에메랄드/골드 테마)
+    if recovery_speed_boost_active and recovery_speed_boost_timer > 0:
+        rc_v_width = 150
+        rc_v_height = 12
+        rc_base_x = WIDTH - rc_v_width - 16
+        rc_base_y = HEIGHT - 28
+        rc_idx = _hg_index('recovery_boost')
+        if rc_idx < 0:
+            _hg_on_activate('recovery_boost')
+            rc_idx = _hg_index('recovery_boost')
+        rc_spacing = 18
+        rc_x = rc_base_x
+        rc_y = rc_base_y - max(0, rc_idx) * rc_spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, rc_y)
+
+        rc_ratio = recovery_speed_boost_timer / max(1, RECOVERY_SPEED_BOOST_DURATION)
+        rc_remaining = recovery_speed_boost_timer / 60.0
+
+        rc_outer = pygame.Rect(rc_x - 5, rc_y - 6, rc_v_width + 10, rc_v_height + 12)
+        rc_mid   = pygame.Rect(rc_x - 3, rc_y - 4, rc_v_width + 6,  rc_v_height + 8)
+        rc_frame = pygame.Rect(rc_x - 2, rc_y - 2, rc_v_width + 4,  rc_v_height + 4)
+        rc_inner = pygame.Rect(rc_x,     rc_y,     rc_v_width,      rc_v_height)
+
+        rc_shadow = pygame.Surface((rc_outer.width, rc_outer.height), pygame.SRCALPHA)
+        pygame.draw.rect(rc_shadow, (0, 0, 0, 70), rc_shadow.get_rect(), border_radius=8)
+        SCREEN.blit(rc_shadow, (rc_outer.x, rc_outer.y))
+
+        draw.rect((16, 28, 20), rc_outer, border_radius=8)
+        draw.rect((40, 120, 60), rc_mid, border_radius=7)
+        draw.rect((80, 190, 100), rc_mid, 2, border_radius=7)
+        draw.rect((20, 30, 22), rc_frame, border_radius=6)
+        rc_inner_shd = pygame.Surface((rc_inner.width, rc_inner.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(rc_inner_shd, (0, 0, 0, alpha), (0, i, rc_inner.width, 1))
+        SCREEN.blit(rc_inner_shd, (rc_inner.x, rc_inner.y))
+
+        rc_fill_w = max(1, int((rc_v_width - 4) * rc_ratio))
+        if rc_fill_w > 0:
+            # 색상 단계 (에메랄드 → 골드 → 레드 펄스)
+            if rc_remaining > 3.0:
+                rc_base_c = (40, 200, 120)
+                rc_hi_c = (120, 240, 180)
+            elif rc_remaining > 1.5:
+                rc_base_c = (180, 200, 60)
+                rc_hi_c = (220, 235, 120)
+            else:
+                rc_p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                rc_base_c = (220, int(100 + 80 * rc_p), 40)
+                rc_hi_c = (255, int(150 + 60 * rc_p), 80)
+
+            rc_fill_rect = pygame.Rect(rc_x + 2, rc_y + 2, rc_fill_w, rc_v_height - 4)
+            rc_grad = pygame.Surface((rc_fill_rect.width, rc_fill_rect.height), pygame.SRCALPHA)
+            for rx in range(rc_fill_rect.width):
+                t = rx / max(1, rc_fill_rect.width - 1)
+                col = (
+                    int(rc_base_c[0] + (rc_hi_c[0] - rc_base_c[0]) * t),
+                    int(rc_base_c[1] + (rc_hi_c[1] - rc_base_c[1]) * t),
+                    int(rc_base_c[2] + (rc_hi_c[2] - rc_base_c[2]) * t),
+                    255,
+                )
+                pygame.draw.line(rc_grad, col, (rx, 0), (rx, rc_fill_rect.height - 1))
+            rc_mask = pygame.Surface((rc_fill_rect.width, rc_fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(rc_mask, (255, 255, 255, 255), rc_mask.get_rect(), border_radius=3)
+            rc_grad.blit(rc_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(rc_grad, (rc_fill_rect.x, rc_fill_rect.y))
+
+            # 상단 하이라이트 글로우
+            rc_pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            rc_glow = (
+                int(rc_hi_c[0] * (0.6 + 0.4 * rc_pulse)),
+                int(rc_hi_c[1] * (0.6 + 0.4 * rc_pulse)),
+                int(rc_hi_c[2] * (0.6 + 0.4 * rc_pulse)),
+            )
+            draw.rect(rc_glow, (rc_x + 2, rc_y + 2, rc_fill_w, 2), border_radius=2)
+
+            # 티크 마크(10분할)
+            rc_tick = (160, 210, 180)
+            for i in range(1, 10):
+                tx = rc_x + 2 + int((rc_v_width - 4) * (i / 10))
+                pygame.draw.line(SCREEN, rc_tick, (tx, rc_y + rc_v_height - 4), (tx, rc_y + rc_v_height - 1), 1)
+
+            # 채움 끝점 글랜트
+            rc_end_x = rc_x + 2 + rc_fill_w
+            if 2 < rc_fill_w < (rc_v_width - 4):
+                rc_glint = pygame.Surface((8, rc_v_height), pygame.SRCALPHA)
+                pygame.draw.line(rc_glint, (255, 255, 255, 120), (0, 0), (0, rc_v_height - 3), 2)
+                SCREEN.blit(rc_glint, (rc_end_x - 1, rc_y + 2))
+
+        # 엠블럼(왼쪽): 리커버리 하트+화살표 아이콘
+        rc_emb_sz = int(rc_v_height * 1.5)
+        rc_pulse_e = 1.0 + 0.15 * math.sin(pygame.time.get_ticks() * 0.02)
+        rc_emb_sz = max(8, int(rc_emb_sz * rc_pulse_e))
+        rc_emb_x = rc_x - rc_emb_sz - 6
+        rc_emb_y = rc_y + (rc_v_height - rc_emb_sz) // 2
+        rc_emb_surf = pygame.Surface((rc_emb_sz, rc_emb_sz), pygame.SRCALPHA)
+        rc_ecx = rc_emb_sz // 2
+        rc_ecy = rc_emb_sz // 2
+        rc_er = rc_emb_sz // 2 - 1
+        gfxdraw.filled_circle(rc_emb_surf, rc_ecx, rc_ecy, rc_er, (30, 180, 100, 200))
+        gfxdraw.aacircle(rc_emb_surf, rc_ecx, rc_ecy, rc_er, (80, 230, 150, 255))
+        # 위쪽 화살표 (속도 부스트 표시)
+        pygame.draw.line(rc_emb_surf, (255, 255, 255, 220), (rc_ecx, rc_ecy + rc_er // 2), (rc_ecx, rc_ecy - rc_er // 2), 2)
+        pygame.draw.line(rc_emb_surf, (255, 255, 255, 220), (rc_ecx - rc_er // 3, rc_ecy - rc_er // 4), (rc_ecx, rc_ecy - rc_er // 2), 2)
+        pygame.draw.line(rc_emb_surf, (255, 255, 255, 220), (rc_ecx + rc_er // 3, rc_ecy - rc_er // 4), (rc_ecx, rc_ecy - rc_er // 2), 2)
+        SCREEN.blit(rc_emb_surf, (rc_emb_x, rc_emb_y))
+    elif _hg_index('recovery_boost') != -1:
+        _hg_on_deactivate('recovery_boost')
 
     # 전체화면 모드에서도 벽돌 설치 게이지는 게임 영역에 표시되므로 메인 SCREEN 유지
     # (액티브 아이템 게이지와 벽돌 설치 게이지 모두 게임 영역 기준 좌표 사용)
