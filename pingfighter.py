@@ -34321,38 +34321,6 @@ def trigger_grenade_style_explosion(
     else:
         explosion_radius = base_radius
 
-    # 폭발 파티클 생성 (파편 + 불씨 + 연기)
-    _exp_particles = []
-    for _ei in range(30):  # 불꽃 파편 (빠르게 퍼짐)
-        _ea = random.uniform(0, 2 * math.pi)
-        _espd = random.uniform(8.0, 22.0)
-        _exp_particles.append({
-            "x": x + random.uniform(-8, 8), "y": y + random.uniform(-8, 8),
-            "vx": math.cos(_ea) * _espd, "vy": math.sin(_ea) * _espd - 3.0,
-            "life": random.randint(10, 25), "max_life": 25,
-            "size": random.uniform(2.5, 6.0), "type": "fire",
-            "color_var": random.randint(0, 2),
-        })
-    for _ei in range(20):  # 불씨/잔불
-        _ea = random.uniform(0, 2 * math.pi)
-        _espd = random.uniform(4.0, 12.0)
-        _exp_particles.append({
-            "x": x + random.uniform(-5, 5), "y": y + random.uniform(-5, 5),
-            "vx": math.cos(_ea) * _espd, "vy": math.sin(_ea) * _espd * 0.7 - 1.5,
-            "life": random.randint(15, 35), "max_life": 35,
-            "size": random.uniform(1.0, 3.0), "type": "ember",
-            "color_var": random.randint(0, 2),
-        })
-    for _ei in range(15):  # 연기 구름
-        _ea = random.uniform(0, 2 * math.pi)
-        _espd = random.uniform(1.0, 4.0)
-        _exp_particles.append({
-            "x": x + random.uniform(-15, 15), "y": y + random.uniform(-10, 5),
-            "vx": math.cos(_ea) * _espd, "vy": -random.uniform(0.5, 2.5),
-            "life": random.randint(20, 45), "max_life": 45,
-            "size": random.uniform(8.0, 18.0), "type": "smoke",
-            "color_var": random.randint(0, 2),
-        })
     explosion_zone = {
         "x": x,
         "y": y,
@@ -34360,9 +34328,6 @@ def trigger_grenade_style_explosion(
         "duration": 15,
         "active": True,
         "source": source,
-        "particles": _exp_particles,
-        "shockwave_r": 0,
-        "flash_alpha": 255,
     }
     # 폭발 즉시 보스 판정 및 1회 적용(스턴 126프레임=2.1초, 넉백 40)
     try:
@@ -89772,38 +89737,10 @@ def handle_wall():
         if grenade["x"] < -100 or grenade["x"] > WIDTH + 100 or grenade["y"] > HEIGHT + 100:
             grenades.remove(grenade)
             continue
-    # 폭발 지역 업데이트 (지속시간 감소 + 파티클 물리 + 테트로 증발 처리)
-    # 파티클이 살아있으면 zone도 유지 (duration <= 0이어도 파티클 잔존 가능)
-    explosion_zones = [zone for zone in explosion_zones
-                       if zone["duration"] > 0 or len(zone.get("particles", [])) > 0]
+    # 폭발 지역 업데이트 (지속시간 감소 + 테트로 증발 처리)
+    explosion_zones = [zone for zone in explosion_zones if zone["duration"] > 0]
     for zone in explosion_zones:
         zone["duration"] -= 1
-        # 충격파 확장 (빠르게 퍼짐 → 타격감)
-        zone["shockwave_r"] = zone.get("shockwave_r", 0) + 28
-        # 섬광 감쇠 (빠르게 번쩍)
-        zone["flash_alpha"] = max(0, zone.get("flash_alpha", 0) - 45)
-        # 파티클 물리 업데이트
-        for _ep in zone.get("particles", [])[:]:
-            _ep["x"] += _ep["vx"]
-            _ep["y"] += _ep["vy"]
-            _ep["life"] -= 1
-            _ept = _ep["type"]
-            if _ept == "fire":
-                _ep["vx"] *= 0.92
-                _ep["vy"] *= 0.92
-                _ep["vy"] += 0.15  # 중력
-                _ep["size"] *= 0.96
-            elif _ept == "ember":
-                _ep["vx"] *= 0.95
-                _ep["vy"] += 0.1
-                _ep["size"] *= 0.98
-            elif _ept == "smoke":
-                _ep["vx"] *= 0.94
-                _ep["vy"] *= 0.97
-                _ep["size"] *= 1.01  # 연기 팽창
-                _ep["vx"] += random.uniform(-0.1, 0.1)  # 난류
-            if _ep["life"] <= 0 or _ep["size"] < 0.5:
-                zone["particles"].remove(_ep)
         # 보스 넉백+스턴 적용 (수류탄/화력지원 폭발만 1회 적용)
         try:
             if (
@@ -120503,171 +120440,62 @@ def draw_objects():
             draw.circle((80, 100, 80), (int(grenade["x"]), int(grenade["y"])), 12)
     # 스파이더지뢰 그리기
     draw_spider_mines(SCREEN)
-    # 수류탄 폭발 효과 그리기 (파티클 + 다층 충격파 + 화염 코어)
-    if explosion_zones:
-        global _explosion_overlay_surf
-        if (_explosion_overlay_surf is None
-                or _explosion_overlay_surf.get_width() != WIDTH
-                or _explosion_overlay_surf.get_height() != HEIGHT):
-            _explosion_overlay_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        _explosion_overlay_surf.fill((0, 0, 0, 0))
-        _exp_has_draw = False
-        _exp_sx = screen_shake_offset_x
-        _exp_sy = screen_shake_offset_y
-        for zone in explosion_zones:
-            _ez_x = int(zone["x"])
-            _ez_y = int(zone["y"])
-            _ez_dur = zone["duration"]
-            _ez_rad = zone["radius"]
-            _ez_pct = max(0.0, _ez_dur / 15.0)  # 1.0→0.0 (수명 비율)
-            # ── 1. 화면 섬광 (초기 2~3프레임) ──
-            _flash_a = zone.get("flash_alpha", 0)
-            if _flash_a > 10:
-                _flash_r = max(5, int(_ez_rad * 0.4 * _ez_pct))
-                pygame.draw.circle(_explosion_overlay_surf,
-                    (255, 250, 220, min(255, _flash_a)),
-                    (_ez_x, _ez_y), _flash_r)
-                # 더 넓은 은은한 글로우
-                _glow_r = int(_flash_r * 2.5)
-                _glow_a = min(255, _flash_a // 3)
-                if _glow_r > 3 and _glow_a > 3:
-                    pygame.draw.circle(_explosion_overlay_surf,
-                        (255, 200, 120, _glow_a),
-                        (_ez_x, _ez_y), _glow_r)
-                _exp_has_draw = True
-            # ── 2. 다층 충격파 링 (3겹) ──
-            _sw_r = zone.get("shockwave_r", 0)
-            if _sw_r > 5 and _sw_r < _ez_rad * 3:
-                _sw_life = max(0.0, 1.0 - _sw_r / (_ez_rad * 3))
-                # 외곽 글로우 (넓고 투명)
-                _sw_a1 = int(40 * _sw_life)
-                if _sw_a1 > 2:
-                    pygame.draw.circle(_explosion_overlay_surf,
-                        (255, 150, 50, _sw_a1), (_ez_x, _ez_y), int(_sw_r + 6), max(1, 6))
-                # 메인 링 (주황)
-                _sw_a2 = int(120 * _sw_life)
-                if _sw_a2 > 2:
-                    pygame.draw.circle(_explosion_overlay_surf,
-                        (255, 180, 80, _sw_a2), (_ez_x, _ez_y), int(_sw_r), max(1, 3))
-                # 내부 링 (밝은 노란)
-                _sw_a3 = int(80 * _sw_life)
-                _sw_inner = max(3, int(_sw_r * 0.85))
-                if _sw_a3 > 2 and _sw_inner > 3:
-                    pygame.draw.circle(_explosion_overlay_surf,
-                        (255, 240, 160, _sw_a3), (_ez_x, _ez_y), _sw_inner, max(1, 2))
-                _exp_has_draw = True
-            # ── 3. 화염 구체 (기존 타격감 + 새 퀄리티 하이브리드) ──
-            if _ez_dur > 0:
-                _elapsed = 15 - _ez_dur  # 경과 프레임 (0~14)
-                # 빠르게 팽창 → 서서히 축소 (반경 100% 사용)
-                if _elapsed < 3:
-                    _core_scale = min(1.0, (_elapsed + 1) / 2.0)
-                else:
-                    _core_scale = max(0.0, 1.0 - (_elapsed - 3) / 13.0)
-                _core_max_r = int(_ez_rad * _core_scale)
-                if _core_max_r > 5:
-                    # 기존 스타일: 동심원으로 반경 전체를 채우는 화염구 (타격감)
-                    # step -8로 최적화 (기존 -3 대비 원 수 60% 감소, 시각 차이 없음)
-                    _alpha_base = int(200 * _ez_pct)
-                    for _fi in range(_core_max_r, 0, -8):
-                        _ratio = _fi / max(_core_max_r, 1)
-                        if _ez_dur > 10:
-                            _fr = 255
-                            _fg = min(255, int(255 - (1 - _ratio) * 100))
-                            _fb = min(255, int(200 - (1 - _ratio) * 150))
-                        elif _ez_dur > 5:
-                            _fr = 255
-                            _fg = max(0, int(150 - (1 - _ratio) * 100))
-                            _fb = max(0, int(50 - (1 - _ratio) * 40))
-                        else:
-                            _fr = max(0, int(200 - (1 - _ratio) * 100))
-                            _fg = max(0, int(50 - (1 - _ratio) * 40))
-                            _fb = 30
-                        _fa = max(0, min(255, int(_alpha_base * _ratio)))
-                        if _fa > 2:
-                            pygame.draw.circle(_explosion_overlay_surf,
-                                (_fr, _fg, _fb, _fa), (_ez_x, _ez_y), _fi)
-                    # 새 퀄리티: 중앙에 밝은 5단계 코어 (위에 덮어 입체감)
-                    _inner_r = int(_core_max_r * 0.5)
-                    if _inner_r > 3:
-                        _ca_mult = min(1.0, _ez_pct * 1.5)
-                        _inner_colors = [
-                            (255, 150, 40, int(140 * _ca_mult)),
-                            (255, 200, 80, int(160 * _ca_mult)),
-                            (255, 235, 150, int(180 * _ca_mult)),
-                            (255, 250, 210, int(200 * _ca_mult)),
-                            (255, 255, 240, int(230 * _ca_mult)),
-                        ]
-                        for _ci, _cc in enumerate(_inner_colors):
-                            _cr = max(2, int(_inner_r * (1.0 - _ci * 0.18)))
-                            if _cc[3] > 2:
-                                pygame.draw.circle(_explosion_overlay_surf, _cc, (_ez_x, _ez_y), _cr)
-                    _exp_has_draw = True
-            # ── 4. 파티클 렌더링 (연기 → 불씨 → 불꽃 순서) ──
-            _type_order = {"smoke": 0, "ember": 1, "fire": 2}
-            _sorted_ep = sorted(zone.get("particles", []),
-                key=lambda p: _type_order.get(p["type"], 1))
-            for _ep in _sorted_ep:
-                _ep_lr = max(0.0, _ep["life"] / _ep["max_life"])
-                _ep_sz = max(1, int(_ep["size"]))
-                _ep_x = int(_ep["x"])
-                _ep_y = int(_ep["y"])
-                _ept = _ep["type"]
-                _ep_cv = _ep.get("color_var", 0)
-                if _ept == "fire":
-                    # 불꽃 파편: 밝은 주황~노랑, 글로우
-                    _fa = int(220 * _ep_lr)
-                    if _fa < 3:
-                        continue
-                    _fr = min(255, 255)
-                    _fg = min(255, 120 + _ep_cv * 40 + int(60 * (1 - _ep_lr)))
-                    _fb = min(255, 20 + _ep_cv * 15)
-                    pygame.draw.circle(_explosion_overlay_surf,
-                        (_fr, _fg, _fb, _fa), (_ep_x, _ep_y), _ep_sz)
-                    # 글로우
-                    if _ep_sz > 1:
-                        _ga = max(0, _fa // 3)
-                        pygame.draw.circle(_explosion_overlay_surf,
-                            (_fr, min(255, _fg + 40), min(255, _fb + 30), _ga),
-                            (_ep_x, _ep_y), _ep_sz + 2)
-                    _exp_has_draw = True
-                elif _ept == "ember":
-                    # 불씨: 빨간~주황 작은 점
-                    _ea = int(200 * _ep_lr)
-                    if _ea < 3:
-                        continue
-                    _er = min(255, 200 + _ep_cv * 25)
-                    _eg = min(255, 60 + _ep_cv * 30 + int(40 * (1 - _ep_lr)))
-                    _eb = 20
-                    pygame.draw.circle(_explosion_overlay_surf,
-                        (_er, _eg, _eb, _ea), (_ep_x, _ep_y), _ep_sz)
-                    _exp_has_draw = True
-                elif _ept == "smoke":
-                    # 폭발 연기: 불규칙 퍼프 (연막탄 캐시 재사용)
-                    _sa = int(min(120, 100 * _ep_lr))
-                    if _sa < 3 or _ep_sz < 2:
-                        continue
-                    _bk_r = max(2, (_ep_sz // 4) * 4)
-                    _bk_key = (_bk_r, _bk_r, 5, _ep_cv, 0)  # type 5 = explosion smoke
-                    _puff = _smoke_puff_cache.get(_bk_key)
-                    if _puff is None:
-                        _pd = _bk_r * 2 + 8
-                        _puff = pygame.Surface((_pd, _pd), pygame.SRCALPHA)
-                        _pc = _pd // 2
-                        for _is in range(random.randint(3, 5)):
-                            _sx = _pc + random.randint(-_bk_r // 2, _bk_r // 2)
-                            _sy = _pc + random.randint(-_bk_r // 2, _bk_r // 2)
-                            _sr = max(2, random.randint(_bk_r // 2, _bk_r))
-                            pygame.draw.circle(_puff, (70, 65, 60, 80), (_sx, _sy), _sr)
-                        if len(_smoke_puff_cache) > 512:
-                            _smoke_puff_cache.pop(next(iter(_smoke_puff_cache)))
-                        _smoke_puff_cache[_bk_key] = _puff
-                    _puff.set_alpha(_sa)
-                    _explosion_overlay_surf.blit(_puff,
-                        (_ep_x - _puff.get_width() // 2, _ep_y - _puff.get_height() // 2))
-                    _exp_has_draw = True
-        if _exp_has_draw:
-            SCREEN.blit(_explosion_overlay_surf, (_exp_sx, _exp_sy))
+    # 현실감 있는 수류탄 폭발 효과 그리기
+    for zone in explosion_zones:
+        if zone["active"]:
+            # 폭발 사이즈 계산 (시간에 따라 포다짐)
+            explosion_surface = pygame.Surface((zone["radius"]*3, zone["radius"]*3), pygame.SRCALPHA)
+            center = zone["radius"] * 1.5
+            # 1. 충격파 효과 (가장 바깥쪽)
+            shockwave_radius = zone["radius"] + (15 - zone["duration"]) * 8
+            if shockwave_radius < zone["radius"] * 2.5:
+                pygame.draw.circle(explosion_surface, (255, 255, 255, 30),
+                                 (int(center), int(center)), int(shockwave_radius), 4)
+            # 2. 폭발 화염 구체 (주황색-빨간색 그라데이션)
+            for i in range(zone["radius"], 0, -3):
+                progress = (15 - zone["duration"]) / 15.0
+                # 시간에 따라 색상 변화
+                ratio = i / max(zone["radius"], 1)
+                if zone["duration"] > 10:  # 초기: 흰색-노란색
+                    r = 255
+                    g = int(255 - (1 - ratio) * 100)
+                    b = int(200 - (1 - ratio) * 150)
+                elif zone["duration"] > 5:  # 중반: 주황색-빨간색
+                    r = 255
+                    g = int(150 - (1 - ratio) * 100)
+                    b = int(50 - (1 - ratio) * 40)
+                else:  # 후반: 빨간색-검은색
+                    r = int(200 - (1 - ratio) * 100)
+                    g = int(50 - (1 - ratio) * 40)
+                    b = 30
+                # 색상 값이 유효한 범위에 있도록 보장
+                r = max(0, min(255, r))
+                g = max(0, min(255, g))
+                b = max(0, min(255, b))
+                alpha = max(0, min(255, int((200 * zone["duration"] / 15) * ratio)))
+                color = (r, g, b, alpha)
+                pygame.draw.circle(explosion_surface, color, (int(center), int(center)), i)
+            # 3. 연기 효과 (회색 구름)
+            smoke_radius = zone["radius"] * 0.8 + (15 - zone["duration"]) * 4
+            smoke_alpha = max(0, 100 - (15 - zone["duration"]) * 6)
+            for j in range(3):  # 여러 개의 연기 구름
+                offset_x = random.randint(-20, 20)
+                offset_y = random.randint(-20, 20)
+                pygame.draw.circle(explosion_surface, (80, 80, 80, smoke_alpha),
+                                 (int(center + offset_x), int(center + offset_y - (15 - zone["duration"]) * 2)),
+                                 int(smoke_radius + random.randint(-10, 10)), 0)
+            # 4. 섬광 효과 (랜덤 방향으로 퍼지는 빛)
+            if zone["duration"] > 10:
+                num_sparks = 8
+                for k in range(num_sparks):
+                    angle = (k * FULL_ROTATION / num_sparks) + random.randint(-20, 20)
+                    spark_length = zone["radius"] * 0.7 + random.randint(-10, 10)
+                    spark_end_x = center + spark_length * math.cos(math.radians(angle))
+                    spark_end_y = center + spark_length * math.sin(math.radians(angle))
+                    pygame.draw.line(explosion_surface, (255, 255, 200, 150),
+                                   (int(center), int(center)),
+                                   (int(spark_end_x), int(spark_end_y)), 2)
+            SCREEN.blit(explosion_surface, (zone["x"] - center, zone["y"] - center))
     # Stage7 EMP 파문 그리기(폭발 효과 위에)
     draw_stage7_emp_pulses(SCREEN)
     # 연막탄 그리기
