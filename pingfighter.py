@@ -53927,7 +53927,8 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     _ss_aim_lv, _ss_speed_lv = _get_viper_kick_enhance_levels()
     _ss_speed_bonus = 1.0 + _ss_speed_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
     cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-    new_speed = max(cur_speed * speed_mult * _ss_speed_bonus, 10.0)
+    _dampened_ss_mult = _apply_dampened_multiplier(cur_speed, speed_mult * _ss_speed_bonus)
+    new_speed = max(cur_speed * _dampened_ss_mult, 10.0)
     _viper_speed_boost_active = True
     _viper_speed_boost_original = cur_speed
     _ss_base_bias = 0.2  # 쉐도우 백스텝 기본 유도 편향
@@ -86002,8 +86003,9 @@ def handle_player(keys):
         # 🔥 불 이벤트: 패들 타격 시 속도 15%~20% 추가 증가
         if is_fire_active():
             fire_boost = get_fire_hit_speed_multiplier()
-            ball_vel[0] *= fire_boost
-            ball_vel[1] *= fire_boost
+            _fire_dampened = _apply_dampened_multiplier(math.hypot(ball_vel[0], ball_vel[1]), fire_boost)
+            ball_vel[0] *= _fire_dampened
+            ball_vel[1] *= _fire_dampened
             # print(f"🔥 [불 이벤트] 플레이어 타격 - 속도 {(fire_boost-1)*100:.0f}% 증가")
 
         # ️ 스탑워치 회복 중 충돌 시 원래 속도 벡터 업데이트
@@ -152925,8 +152927,9 @@ def calculate_bounce(paddle):
                     speed_boost_multiplier = 1.0 + (_hammer.speed_boost / 100.0)
         except Exception:
             pass
-        ball_vel[0] *= speed_boost_multiplier
-        ball_vel[1] *= speed_boost_multiplier
+        _ragnarok_dampened = _apply_dampened_multiplier(math.hypot(ball_vel[0], ball_vel[1]), speed_boost_multiplier)
+        ball_vel[0] *= _ragnarok_dampened
+        ball_vel[1] *= _ragnarok_dampened
         new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
         # 사운드 효과 재생
         try:
@@ -159229,8 +159232,9 @@ def handle_ball():
         if is_fire_active():
             global boss_fire_knockback_vel
             fire_boost = get_fire_hit_speed_multiplier()
-            ball_vel[0] *= fire_boost
-            ball_vel[1] *= fire_boost
+            _fire_dampened = _apply_dampened_multiplier(math.hypot(ball_vel[0], ball_vel[1]), fire_boost)
+            ball_vel[0] *= _fire_dampened
+            ball_vel[1] *= _fire_dampened
             # 🔥 화염 폭발 이펙트 생성
             create_fire_explosion(BALL.centerx, BALL.centery)
             # 🔥 보스 넉백 (좌우 방향 - 강한 초기 속도로 점진적 감속)
@@ -170946,7 +170950,8 @@ def main(stage_num, new_boss_mode=False):
                     # 1.576배(초기 가속) 이후 약 25.2% 추가 부스트로 총 ~1.98배 효과
                     if power_smashing_direction in (-1, 1):  # 좌/우 파워스매싱
                         dir_sign = -1 if power_smashing_direction == -1 else 1
-                        ball_vel[0] = dir_sign * abs(ball_vel[0]) * 1.25245  # 좌우 방향 고정 (25.245% 부스트)
+                        _ps_dir_mult = _apply_dampened_multiplier(math.hypot(ball_vel[0], ball_vel[1]), 1.25245)
+                        ball_vel[0] = dir_sign * abs(ball_vel[0]) * _ps_dir_mult  # 감쇠 적용 좌우 부스트
 
                         # 패들 중앙에 가까워도 최소 각도 이상으로 꺾이도록 보정
                         y_abs = abs(ball_vel[1])
@@ -170984,8 +170989,9 @@ def main(stage_num, new_boss_mode=False):
                                 # 정말 중앙에 가까운 경우에만 수직으로
                                 ball_vel[0] *= 0.3  # X축 속도를 크게 줄임
                         
-                        ball_vel[0] *= 1.25245  # X축 25.245% 부스트 (10% 하향)
-                        ball_vel[1] *= 1.25245  # Y축 25.245% 부스트 (10% 하향)
+                        _ps_straight_mult = _apply_dampened_multiplier(math.hypot(ball_vel[0], ball_vel[1]), 1.25245)
+                        ball_vel[0] *= _ps_straight_mult  # 감쇠 적용 X축 부스트
+                        ball_vel[1] *= _ps_straight_mult  # 감쇠 적용 Y축 부스트
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
                     
                     # 파워스매싱 초기 부스트 적용 (방향에 따라 차별화)
@@ -171001,9 +171007,9 @@ def main(stage_num, new_boss_mode=False):
                     if selected_character_type == "smasher" and power_smashing_combo_consumed < 2:
                         initial_boost_multiplier *= 0.78  # 22% 감소 (직선 1.34, 좌우 1.48)
                     
-                    # 초기 부스트 속도 적용
+                    # 초기 부스트 속도 적용 (공속 감쇠 적용)
                     if final_speed > 0:
-                        boost_ratio = initial_boost_multiplier
+                        boost_ratio = _apply_dampened_multiplier(final_speed, initial_boost_multiplier)
                         ball_vel[0] *= boost_ratio
                         ball_vel[1] *= boost_ratio
                         power_smashing_initial_boost = True
