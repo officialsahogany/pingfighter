@@ -6209,12 +6209,6 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
                 equipped_skill_data_list.append(skill_data)
                 break
 
-    # 디버그: 1초에 1번만 출력
-    global _gauge_debug_count
-    _gauge_debug_count += 1
-    if _gauge_debug_count % 60 == 1:
-        print(f"[스매셔구슬DRAW] equipped={equipped_skills}, matched={len(equipped_skill_data_list)}", flush=True)
-
     num_equipped = len(equipped_skill_data_list)
 
     # 5개 슬롯 반원 배치: 165도(왼쪽 아래)에서 30도 간격
@@ -17203,12 +17197,9 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         skill_name = _smasher_unlock_map[choice_id]
         unlock_smasher_skill(skill_name)
         # 슬롯에 장착 시도 → 꽉 차면 교체 다이얼로그
-        equip_result = equip_smasher_skill(skill_name)
-        print(f"[스매셔 5구슬] 해금: {skill_name}, 장착결과: {equip_result}, 현재슬롯: {_smasher_equipped_skills}", flush=True)
-        if not equip_result:
+        if not equip_smasher_skill(skill_name):
             removed = _show_smasher_skill_swap_dialog(skill_name)
             swap_smasher_skill(removed, skill_name)
-            print(f"[스매셔 5구슬] 교체완료: {removed} → {skill_name}, 현재슬롯: {_smasher_equipped_skills}", flush=True)
         runtime_skill_levels[choice_id] = 1
         return True
 
@@ -26817,6 +26808,8 @@ mega_smashing_perf_tp_times = None  # 퍼포먼스 순간이동 타이밍 리스
 mega_smashing_perf_tp_done = set()  # 이미 실행된 순간이동 인덱스
 # 블랙홀 순간이동 이펙트 리스트 [{x, y, start_time, type('in'/'out'), duration}]
 ghost_shot_blackhole_effects = []
+# 순간이동 대기 상태 {target_x, target_y, arrive_time, saved_vel} — arrive_time까지 공 숨김
+ghost_shot_pending_teleport = None
 # ️ 양자역학 효과 변수
 quantum_balls = []  # 양자 상태 공들 [{x, y, vx, vy, alpha, phase, probability, collapsed}]
 quantum_explosion_active = False  # 양자 폭발 활성화 여부
@@ -154864,7 +154857,33 @@ def handle_ball():
             GHOST_SHOT_PHASE2_END = 2.6  # 0.4~2.6초: 난무
             # PHASE 3: 2.6~3.0초: 순간이동 + 보스 쪽 발사
 
-            if elapsed_time < GHOST_SHOT_PHASE1_END:
+            # 순간이동 대기 중: 도착 시간 체크
+            global ghost_shot_pending_teleport
+            if ghost_shot_pending_teleport is not None:
+                now_ms = pygame.time.get_ticks()
+                if now_ms >= ghost_shot_pending_teleport['arrive_time']:
+                    # 도착: 공 이동
+                    BALL.centerx = ghost_shot_pending_teleport['target_x']
+                    BALL.centery = ghost_shot_pending_teleport['target_y']
+                    # Phase 3 최종 순간이동: 속도를 0으로 초기화 (발사 코드에서 다시 설정)
+                    if ghost_shot_pending_teleport.get('fire_on_arrive'):
+                        ball_vel[0] = 0
+                        ball_vel[1] = 0
+                    ghost_shot_pending_teleport = None
+                else:
+                    # 아직 도착 전: 공 숨김 상태 유지 (물리 스킵)
+                    ball_vel[0] = 0
+                    ball_vel[1] = 0
+                    BALL.centerx = -1000  # 화면 밖
+                    BALL.centery = -1000
+                    _skip_ghost_trajectory = True
+                    # 인접 else 처리는 블록 외부 변수로
+            if ghost_shot_pending_teleport is None and '_skip_ghost_trajectory' not in dir():
+                _skip_ghost_trajectory = False
+
+            if _skip_ghost_trajectory:
+                pass  # 순간이동 대기 중, 아무 처리 안 함
+            elif elapsed_time < GHOST_SHOT_PHASE1_END:
                 # === Phase 1: 플레이어 위로 빠르게 상승 ===
                 ball_vel[0] *= 0.9  # X 감속
                 ball_vel[1] = -12.0  # 일정한 상승 속도
@@ -154892,17 +154911,24 @@ def handle_ball():
                     mega_smashing_perf_tp_times = sorted([_tp_seed.uniform(0.3, phase2_duration - 0.3) for _ in range(_tp_count)])
                     mega_smashing_perf_tp_done = set()
                 # 순간이동 타이밍 체크
+                global ghost_shot_pending_teleport
                 for tp_idx, tp_time in enumerate(mega_smashing_perf_tp_times):
                     if tp_idx not in mega_smashing_perf_tp_done and phase2_time >= tp_time:
                         mega_smashing_perf_tp_done.add(tp_idx)
                         # 출발 좌표 기억
                         from_x, from_y = BALL.centerx, BALL.centery
-                        # 랜덤 위치로 순간이동 (공은 계속 이동)
+                        # 도착 좌표 결정 (아직 이동은 안 함)
                         tp_rng = random.Random(mega_smashing_start_time + tp_idx * 3571)
-                        BALL.centerx = tp_rng.randint(30, WIDTH - 30)
-                        BALL.centery = tp_rng.randint(180, HEIGHT // 2 + 80)
-                        # 블랙홀 이펙트 생성
-                        spawn_ghost_shot_blackhole(from_x, from_y, BALL.centerx, BALL.centery)
+                        dest_x = tp_rng.randint(30, WIDTH - 30)
+                        dest_y = tp_rng.randint(180, HEIGHT // 2 + 80)
+                        # 180ms 딜레이 후 도착
+                        ghost_shot_pending_teleport = {
+                            'target_x': dest_x, 'target_y': dest_y,
+                            'arrive_time': pygame.time.get_ticks() + 180,
+                            'from_x': from_x, 'from_y': from_y
+                        }
+                        # 블랙홀 이펙트 생성 (출발지 흡입)
+                        spawn_ghost_shot_blackhole(from_x, from_y, dest_x, dest_y)
 
                 # 시드 기반 목표 좌표 생성
                 seed_rng = random.Random(mega_smashing_start_time + interval_index * 7919)
@@ -154952,8 +154978,17 @@ def handle_ball():
                 offset_x = rng.choice([-1, 1]) * rng.randint(250, 400)
                 teleport_x = max(BALL_RADIUS, min(WIDTH - BALL_RADIUS, boss_cx + offset_x))
                 teleport_y = 200 + rng.randint(0, 60)  # 보스에서 충분히 떨어진 Y (200~260)
-                BALL.centerx = teleport_x
-                BALL.centery = teleport_y
+                # 딜레이 없이 즉시 이동 (Phase 3은 발사 연출이 바로 이어짐)
+                # 단, 화면 밖 멀리 보내서 잠깐 안 보이게 함
+                BALL.centerx = -1000
+                BALL.centery = -1000
+                # 도착 딜레이 180ms + 발사
+                ghost_shot_pending_teleport = {
+                    'target_x': teleport_x, 'target_y': teleport_y,
+                    'arrive_time': pygame.time.get_ticks() + 180,
+                    'from_x': from_x, 'from_y': from_y,
+                    'fire_on_arrive': True  # 도착 시 속도도 설정
+                }
                 # 블랙홀 이펙트 생성
                 spawn_ghost_shot_blackhole(from_x, from_y, teleport_x, teleport_y)
                 # 기본 방향: 위쪽 직선(-90도)에서 ±40도 보정
