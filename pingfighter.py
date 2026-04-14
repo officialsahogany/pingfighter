@@ -6230,9 +6230,16 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
 
             surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
 
-            # 남은 쿨타임 시간 표시 (2배 크기)
-            cooldown_sec = skill_data["cooldown"]
-            remaining_sec = cooldown_sec * cooldown_ratio
+            # 남은 쿨타임 시간 표시 (2배 크기) — 단련 퍽 + 천사주사위 감소 반영
+            _orb_base_cd = skill_data["cooldown"]
+            _orb_angel_mult = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+            _orb_training = get_runtime_skill_bonus("common_training")
+            _orb_eff_cd = _orb_base_cd
+            if _orb_angel_mult != 1.0:
+                _orb_eff_cd = _orb_eff_cd * _orb_angel_mult
+            if _orb_training > 0:
+                _orb_eff_cd = _orb_eff_cd * (1.0 - _orb_training)
+            remaining_sec = max(0, _orb_eff_cd * cooldown_ratio)
             if remaining_sec >= 1:
                 cooldown_text = f"{int(remaining_sec)}"
             else:
@@ -6425,8 +6432,16 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                     pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
             surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
 
-            cooldown_sec = skill_data["cooldown"]
-            remaining_sec = cooldown_sec * cooldown_ratio
+            # 단련 퍽 + 천사주사위 감소 반영
+            _orb_base_cd_v = skill_data["cooldown"]
+            _orb_angel_mult_v = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
+            _orb_training_v = get_runtime_skill_bonus("common_training")
+            _orb_eff_cd_v = _orb_base_cd_v
+            if _orb_angel_mult_v != 1.0:
+                _orb_eff_cd_v = _orb_eff_cd_v * _orb_angel_mult_v
+            if _orb_training_v > 0:
+                _orb_eff_cd_v = _orb_eff_cd_v * (1.0 - _orb_training_v)
+            remaining_sec = max(0, _orb_eff_cd_v * cooldown_ratio)
             if remaining_sec >= 1:
                 cooldown_text = f"{int(remaining_sec)}"
             else:
@@ -19970,7 +19985,7 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
 
-    elif skill_id == "double_marshal_kick":
+    elif skill_id in ("double_marshal_kick", "phantom_kick"):
         # 팬텀 킥 미니 — 풋프린트 실루엣 + 분리 잔상 (내부선 없음)
         color = icon_color
         lt = lighter(icon_color)
@@ -30058,8 +30073,12 @@ nemesis_chest_item_given = False  # 아이템 지급 완료 여부
 nemesis_chest_result_delay = 0  # 아이템 지급 후 show_result 대기 타이머
 nemesis_chest_particles = []  # 보물상자 파티클
 nemesis_chest_lid_angle = 0.0  # 뚜껑 열림 각도
+nemesis_chest_move_left = False
+nemesis_chest_move_right = False
+nemesis_chest_move_down = False
 NEMESIS_CHEST_SIZE = 44  # 보물상자 크기
 NEMESIS_CHEST_LAND_Y = 500.0  # 착지 Y 좌표 (플레이어가 대쉬로 닿을 수 있는 위치)
+NEMESIS_CHEST_RESULT_MIN_DELAY = 210  # 최소 보상 확인 시간 (전설 연출이 없더라도 3.5초 보장)
 # 스테이지 6 장막 충돌 효과
 stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
 
@@ -116080,10 +116099,9 @@ def draw_objects():
                 # 빠른 호흡 느낌을 위해 2회 상하 진동 후 점차 감쇠
                 bob_offset = math.sin(breath_progress * math.pi * 4) * 6 * (1.0 - 0.4 * breath_progress)
 
-            # === 네메시스(스테이지 6) 죽음 애니메이션 중 보스 숨기기 ===
-            # Phase 1 이상이면 보스를 완전히 숨김 (파편으로 대체됨)
-            if current_stage == 6 and nemesis_death_active:
-                if nemesis_death_phase >= 1:
+            # === 네메시스(스테이지 6) 붕괴/보물상자 연출 중 보스 숨기기 ===
+            if current_stage == 6 and (nemesis_death_active or nemesis_chest_active):
+                if nemesis_chest_active or nemesis_death_phase >= 1:
                     pass  # Phase 1 이상: 보스 그리지 않음 (완전히 산산조각남)
                 else:
                     # Phase 0: 보스가 점점 투명해지면서 분해
@@ -149906,6 +149924,7 @@ def reset_round(is_stage_start=False):
     global nemesis_barrier_trigger_cooldown
     global nemesis_barrier_rainbow_active, nemesis_barrier_rainbow_start_time
     global nemesis_barrier_rainbow_cooldown, nemesis_barrier_rainbow_hit
+    global nemesis_chest_move_down
     nemesis_barrier_active = True
     nemesis_barrier_disabled_time = 0
     nemesis_barrier_warning_shown = False
@@ -149918,6 +149937,7 @@ def reset_round(is_stage_start=False):
     # 네메시스 보물상자 리셋
     global nemesis_chest_active
     nemesis_chest_active = False
+    nemesis_chest_move_down = False
 
     # 스테이지 6 (네메시스) 보조 보스 초기화
     global nemesis_sub_boss_x, nemesis_sub_boss_target_x, nemesis_sub_boss_move_timer
@@ -155506,6 +155526,18 @@ def handle_ball():
             except Exception:
                 pass
             # print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
+            if current_stage == 6 and deuce_wins >= deuce_goal:
+                stop_dash_delay_sound()
+                arena_stop_all_skill_sounds()
+                record_victory_result(deuce_wins, deuce_losses)
+                if _defer_nemesis_stage_clear_sequence():
+                    if arena_mode_enabled:
+                        return arena_battle_result
+                    return
+                show_result(True)
+                if arena_mode_enabled:
+                    return arena_battle_result
+                return
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
             arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
             # 투기장 모드: 영웅 이름 사용
@@ -155724,6 +155756,19 @@ def handle_ball():
             if current_stage == 6 and round_wins == 3 and nemesis_sub_boss_alive:
                 nemesis_sub_boss_skill_triggered = True
                 # print("[Stage5 네메시스] 보조 보스 전기 스킬 다음 라운드 발동 예약!")
+
+            if current_stage == 6 and round_wins >= win_goal:
+                stop_dash_delay_sound()
+                arena_stop_all_skill_sounds()
+                record_victory_result(round_wins, round_losses)
+                if _defer_nemesis_stage_clear_sequence():
+                    if arena_mode_enabled:
+                        return arena_battle_result
+                    return
+                show_result(True)
+                if arena_mode_enabled:
+                    return arena_battle_result
+                return
 
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
             arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
@@ -161444,11 +161489,20 @@ def record_speed_adaptation(ball_speed):
             pass  # 조용히 실패
 def record_victory_result(player_wins, boss_wins):
     """승부 결과 기록 (3-0, 3-1, 3-2 등)"""
-    global player_analyzer, trade_point_system
+    global player_analyzer, trade_point_system, current_stage
 
     # 투기장 포획 이벤트 시 스타포인트 드랍 방지
     # (포획 페이즈에서 별이 여러개 드랍되는 버그 수정)
     if arena_mode_enabled and arena_capture_do_capture:
+        if player_analyzer:
+            try:
+                player_analyzer.record_victory_result(player_wins, boss_wins)
+            except:
+                pass
+        return
+
+    # 네메시스 스테이지 클리어 연출 중에는 추가 스타포인트/보너스 텍스트를 띄우지 않는다.
+    if current_stage == 6 and player_wins >= win_goal:
         if player_analyzer:
             try:
                 player_analyzer.record_victory_result(player_wins, boss_wins)
@@ -163583,6 +163637,7 @@ def start_nemesis_death_animation():
     nemesis_death_boss_fragments = []
     nemesis_death_boss_opacity = 255
     nemesis_death_star_dropped = False  # 별 드랍 플래그 초기화
+    reset_stage6_laser_cannon_state()
 
     # 보스 파편 초기화 (보스를 여러 조각으로 나눔)
     boss_center_x = BOSS.centerx
@@ -163833,19 +163888,7 @@ def update_nemesis_death_animation():
             except Exception:
                 pass
 
-            # 스타포인트 드랍 (3~6개 랜덤) - 1회만!
-            if trade_point_system and not nemesis_death_star_dropped:
-                nemesis_death_star_dropped = True  # 플래그 설정
-                num_stars = random.randint(3, 6)
-                for i in range(num_stars):
-                    star_angle = (i / num_stars) * math.pi * 2
-                    star_x = boss_center_x + math.cos(star_angle) * 60
-                    star_y = boss_center_y + math.sin(star_angle) * 60
-                    try:
-                        trade_point_system.spawn_star(star_x, star_y, "nemesis_defeat")
-                    except Exception:
-                        pass
-                # print(f"[Nemesis] 패배! 스타포인트 {num_stars}개 드랍!")
+            nemesis_death_star_dropped = True
 
     # === Phase 2: 대폭발 후 잠시 대기 → 보물상자 드랍 ===
     else:
@@ -163854,13 +163897,21 @@ def update_nemesis_death_animation():
         post_elapsed = elapsed - NEMESIS_DEATH_DURATION
 
         # 그리드 파편들 빠르게 소멸 (형체 남지 않음)
+        remaining_fragments = []
         for frag in nemesis_death_boss_fragments:
             if frag['detached']:
                 frag['x'] += frag['vx'] * 0.5
                 frag['y'] += frag['vy'] * 0.5
-                frag['vy'] += 0.1
+                frag['vy'] += 0.22
                 frag['angle'] += frag['angular_vel'] * 0.5
                 frag['opacity'] = max(0, frag['opacity'] - 8)  # 빠르게 소멸
+            if (
+                frag['opacity'] > 0
+                and -120 <= frag['x'] <= WIDTH + 120
+                and -120 <= frag['y'] <= HEIGHT + 160
+            ):
+                remaining_fragments.append(frag)
+        nemesis_death_boss_fragments = remaining_fragments
 
         # 잔여 이차 폭발 (파편이 날아가면서 간헐적 폭발)
         if post_elapsed < 1500 and random.random() < 0.08:
@@ -163909,8 +163960,8 @@ def update_nemesis_death_animation():
     for d in nemesis_death_mech_debris:
         d['x'] += d['vx']
         d['y'] += d['vy']
-        d['vy'] += 0.12  # 중력
-        d['vx'] *= 0.995  # 공기저항
+        d['vy'] += 0.18 if nemesis_death_phase >= 2 else 0.12  # Phase 2에서는 더 빨리 낙하
+        d['vx'] *= 0.985 if nemesis_death_phase >= 2 else 0.995  # Phase 2에서는 더 빨리 감쇠
         d['angle'] += d['angular_vel']
         d['angular_vel'] *= 0.99
         d['life'] -= 1
@@ -163918,7 +163969,11 @@ def update_nemesis_death_animation():
         d['trail'].append((d['x'], d['y']))
         if len(d['trail']) > 6:
             d['trail'].pop(0)
-        if d['life'] > 0:
+        if (
+            d['life'] > 0
+            and -160 <= d['x'] <= WIDTH + 160
+            and -160 <= d['y'] <= HEIGHT + 220
+        ):
             new_debris.append(d)
     nemesis_death_mech_debris = new_debris
 
@@ -163942,18 +163997,23 @@ def draw_nemesis_death_animation(screen):
     elapsed = pygame.time.get_ticks() - nemesis_death_start_time
 
     # Phase 0: 보스 깜빡임 + 화면 흔들림
-    if nemesis_death_phase == 0:
+    shake_x = 0
+    shake_y = 0
+    if elapsed >= NEMESIS_FINAL_EXPLOSION_TIME:
+        explosion_elapsed = elapsed - NEMESIS_FINAL_EXPLOSION_TIME
+        if explosion_elapsed < 1000:
+            shake_fade = 1.0 - (explosion_elapsed / 1000.0)
+            shake_intensity = max(6, int(26 * shake_fade))
+            shake_x = random.randint(-shake_intensity, shake_intensity)
+            shake_y = random.randint(-shake_intensity, shake_intensity)
+    elif nemesis_death_phase == 0:
         progress = min(1.0, elapsed / NEMESIS_FINAL_EXPLOSION_TIME)
         shake_intensity = int(progress * 12)
         shake_x = random.randint(-shake_intensity, shake_intensity)
         shake_y = random.randint(-shake_intensity, shake_intensity)
 
-        # 흔들림 효과를 위한 오프셋 반환 (호출자가 적용)
-        globals()['nemesis_shake_x'] = shake_x
-        globals()['nemesis_shake_y'] = shake_y
-    else:
-        globals()['nemesis_shake_x'] = 0
-        globals()['nemesis_shake_y'] = 0
+    globals()['nemesis_shake_x'] = shake_x
+    globals()['nemesis_shake_y'] = shake_y
 
     # === 보스 파편 그리기 (분해 효과) ===
     for frag in nemesis_death_boss_fragments:
@@ -164158,7 +164218,11 @@ def spawn_nemesis_treasure_chest(boss_cx, boss_cy):
     global nemesis_chest_open_timer, nemesis_chest_glow_timer
     global nemesis_chest_bounce_count, nemesis_chest_item_given
     global nemesis_chest_result_delay, nemesis_chest_particles
-    global nemesis_chest_lid_angle
+    global nemesis_chest_lid_angle, nemesis_chest_move_left, nemesis_chest_move_right
+    global nemesis_chest_move_down
+    global rolling_active, rolling_timer, rolling_direction, rolling_speed, rolling_stun_timer
+    global player_stunned, player_stunned_timer, player_knockback_vel, player_missile_stunned_timer
+    global is_waiting_for_serve, current_speed, MOVE_EVENT_LEFT, MOVE_EVENT_RIGHT, MOVE_EVENT_DOWN
 
     nemesis_chest_active = True
     nemesis_chest_x = float(boss_cx)
@@ -164173,12 +164237,61 @@ def spawn_nemesis_treasure_chest(boss_cx, boss_cy):
     nemesis_chest_result_delay = 0
     nemesis_chest_particles = []
     nemesis_chest_lid_angle = 0.0
+    nemesis_chest_move_left = False
+    nemesis_chest_move_right = False
+    nemesis_chest_move_down = False
+
+    # 전투 종료 직후 남아 있는 입력/경직 상태를 제거해 상자 페이즈에서 바로 움직일 수 있게 한다.
+    rolling_active = False
+    rolling_timer = 0
+    rolling_direction = 0
+    rolling_speed = 0
+    rolling_stun_timer = 0
+    player_stunned = False
+    player_stunned_timer = 0
+    player_missile_stunned_timer = 0
+    player_knockback_vel = 0
+    is_waiting_for_serve = False
+    current_speed = 0
+    MOVE_EVENT_LEFT = False
+    MOVE_EVENT_RIGHT = False
+    MOVE_EVENT_DOWN = False
 
     # 드랍 사운드
     try:
         play_sound_with_volume(SOUND_STAGE6_BEAM, sfx_volume * 0.3)
     except Exception:
         pass
+
+
+def _start_nemesis_chest_dash():
+    """보물상자 페이즈에서 실제 대쉬 조합(좌/우 + 아래)만 허용."""
+    global rolling_active, rolling_timer, rolling_direction, rolling_speed
+    global dash_key_released_since_last
+
+    if rolling_active or rolling_stun_timer > 0 or PLAYER is None:
+        return False
+
+    keys_now = pygame.key.get_pressed()
+    dash_left = nemesis_chest_move_left or is_move_left_pressed(keys_now) or MOVE_EVENT_LEFT
+    dash_right = nemesis_chest_move_right or is_move_right_pressed(keys_now) or MOVE_EVENT_RIGHT
+    dash_down = nemesis_chest_move_down or is_move_down_pressed(keys_now) or MOVE_EVENT_DOWN
+
+    if not dash_down or dash_left == dash_right:
+        return False
+
+    rolling_direction = -1 if dash_left else 1
+    rolling_active = True
+    rolling_timer = 10
+    rolling_speed = 12
+    dash_key_released_since_last = False
+
+    try:
+        play_dash_sound()
+    except Exception:
+        pass
+
+    return True
 
 
 def update_nemesis_treasure_chest():
@@ -164194,12 +164307,18 @@ def update_nemesis_treasure_chest():
 
     # === 낙하 물리 ===
     if not nemesis_chest_landed:
+        target_land_y = NEMESIS_CHEST_LAND_Y
+        if PLAYER:
+            target_land_y = max(
+                170.0,
+                min(float(HEIGHT - 80), float(PLAYER.top - NEMESIS_CHEST_SIZE * 0.15))
+            )
         nemesis_chest_vy += 0.25  # 중력
         nemesis_chest_y += nemesis_chest_vy
 
         # 착지 판정
-        if nemesis_chest_y >= NEMESIS_CHEST_LAND_Y:
-            nemesis_chest_y = NEMESIS_CHEST_LAND_Y
+        if nemesis_chest_y >= target_land_y:
+            nemesis_chest_y = target_land_y
             if nemesis_chest_bounce_count < 3:
                 nemesis_chest_vy = -nemesis_chest_vy * 0.4  # 바운스
                 nemesis_chest_bounce_count += 1
@@ -164254,7 +164373,8 @@ def update_nemesis_treasure_chest():
                 int(nemesis_chest_y - NEMESIS_CHEST_SIZE // 2),
                 NEMESIS_CHEST_SIZE, NEMESIS_CHEST_SIZE
             )
-            if PLAYER.colliderect(chest_rect):
+            dash_hit_rect = chest_rect.inflate(18, 36)
+            if PLAYER.colliderect(dash_hit_rect):
                 nemesis_chest_opened = True
                 nemesis_chest_open_timer = 0
                 # 열림 사운드
@@ -164293,7 +164413,10 @@ def update_nemesis_treasure_chest():
         # 아이템 지급 후 딜레이 → show_result
         if nemesis_chest_item_given:
             nemesis_chest_result_delay += 1
-            if nemesis_chest_result_delay >= 120:  # 2초 대기
+            if (
+                nemesis_chest_result_delay >= NEMESIS_CHEST_RESULT_MIN_DELAY
+                and not should_pause_for_legendary()
+            ):
                 nemesis_chest_active = False
                 return "show_result"  # show_result 호출 신호
 
@@ -164389,109 +164512,189 @@ def draw_nemesis_treasure_chest(screen):
     sz = NEMESIS_CHEST_SIZE
     half = sz // 2
 
+    # 바닥 그림자
+    shadow_w = sz + 18
+    shadow_h = max(10, sz // 3)
+    shadow_alpha = 75 if not nemesis_chest_opened else 100
+    shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow_surf, (18, 10, 4, shadow_alpha), (0, 0, shadow_w, shadow_h))
+    screen.blit(shadow_surf, (cx - shadow_w // 2, cy + half - shadow_h // 3))
+
     # === 착지 전/후 글로우 이펙트 ===
     if nemesis_chest_landed and not nemesis_chest_opened:
-        glow_alpha = int(80 + 40 * math.sin(nemesis_chest_glow_timer * 3))
-        glow_radius = half + 10 + int(5 * math.sin(nemesis_chest_glow_timer * 2))
+        glow_alpha = int(90 + 55 * math.sin(nemesis_chest_glow_timer * 3))
+        glow_radius = half + 12 + int(6 * math.sin(nemesis_chest_glow_timer * 2))
         try:
             glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (255, 215, 0, glow_alpha),
+            pygame.draw.circle(glow_surf, (255, 208, 88, glow_alpha),
                              (glow_radius, glow_radius), glow_radius)
+            pygame.draw.circle(glow_surf, (255, 246, 184, max(20, glow_alpha // 3)),
+                             (glow_radius, glow_radius), max(8, glow_radius - 8))
             screen.blit(glow_surf, (cx - glow_radius, cy - glow_radius))
         except Exception:
             pass
 
+        # 은은한 광원 파티클
+        for idx in range(4):
+            orbit = nemesis_chest_glow_timer * (1.2 + idx * 0.2) + idx * math.pi * 0.5
+            sparkle_x = cx + int(math.cos(orbit) * (half + 10 + idx * 2))
+            sparkle_y = cy - int(abs(math.sin(orbit * 1.2)) * (half + 8)) + idx * 2 - 10
+            sparkle_r = 2 + (idx % 2)
+            sparkle_alpha = 120 + int(80 * abs(math.sin(orbit * 1.7)))
+            sparkle_surf = pygame.Surface((sparkle_r * 6, sparkle_r * 6), pygame.SRCALPHA)
+            center = sparkle_r * 3
+            pygame.draw.circle(sparkle_surf, (255, 245, 190, sparkle_alpha), (center, center), sparkle_r + 1)
+            pygame.draw.circle(sparkle_surf, (255, 255, 255, min(255, sparkle_alpha + 30)), (center, center), sparkle_r)
+            screen.blit(sparkle_surf, (sparkle_x - center, sparkle_y - center))
+
     if not nemesis_chest_opened:
         # === 닫힌 보물상자 그리기 ===
-        # 본체 (갈색 나무 상자)
-        body_rect = pygame.Rect(cx - half, cy - half + 8, sz, sz - 8)
-        pygame.draw.rect(screen, (139, 90, 43), body_rect)  # 어두운 나무색
-        pygame.draw.rect(screen, (101, 67, 33), body_rect, 2)  # 테두리
+        chest_surf = pygame.Surface((sz + 20, sz + 18), pygame.SRCALPHA)
+        ox, oy = 10, 4
+        body_rect = pygame.Rect(ox, oy + 8, sz, sz - 8)
+        lid_rect = pygame.Rect(ox, oy, sz, 16)
 
-        # 나무 무늬 라인
+        pygame.draw.rect(chest_surf, (81, 41, 18), body_rect, border_radius=5)
+        pygame.draw.rect(chest_surf, (148, 92, 46), body_rect.inflate(-4, -6), border_radius=4)
+        pygame.draw.rect(chest_surf, (255, 220, 120), body_rect, 2, border_radius=5)
+
+        # 금속 프레임과 띠
+        band_color = (228, 180, 64)
+        dark_band = (132, 94, 24)
+        mid_band = pygame.Rect(body_rect.centerx - 7, body_rect.top + 2, 14, body_rect.height - 2)
+        pygame.draw.rect(chest_surf, band_color, mid_band, border_radius=3)
+        pygame.draw.rect(chest_surf, dark_band, mid_band, 1, border_radius=3)
+        for edge_x in (body_rect.left + 4, body_rect.right - 8):
+            pygame.draw.rect(chest_surf, band_color, (edge_x, body_rect.top + 3, 4, body_rect.height - 6), border_radius=2)
+
+        # 나무 결
         for i in range(3):
-            line_y = body_rect.top + (i + 1) * (body_rect.height // 4)
-            pygame.draw.line(screen, (120, 75, 35), (body_rect.left + 3, line_y),
-                           (body_rect.right - 3, line_y), 1)
+            line_y = body_rect.top + 6 + i * 7
+            pygame.draw.line(chest_surf, (176, 120, 60), (body_rect.left + 6, line_y),
+                             (body_rect.right - 6, line_y), 1)
 
-        # 뚜껑 (위쪽)
-        lid_rect = pygame.Rect(cx - half, cy - half, sz, 16)
-        pygame.draw.rect(screen, (160, 105, 50), lid_rect)  # 밝은 나무색
-        pygame.draw.rect(screen, (101, 67, 33), lid_rect, 2)
-        # 뚜껑 아치 효과
-        pygame.draw.arc(screen, (180, 120, 60),
-                       (cx - half, cy - half - 4, sz, 20),
-                       0, math.pi, 3)
+        # 뚜껑
+        pygame.draw.rect(chest_surf, (92, 48, 22), lid_rect, border_radius=7)
+        pygame.draw.rect(chest_surf, (166, 108, 52), lid_rect.inflate(-4, -4), border_radius=6)
+        pygame.draw.rect(chest_surf, (255, 220, 130), lid_rect, 2, border_radius=7)
+        pygame.draw.arc(chest_surf, (255, 238, 170), (ox + 3, oy - 4, sz - 6, 22), 0.1, math.pi - 0.1, 2)
 
-        # 금속 장식 (가운데 잠금장치)
-        lock_rect = pygame.Rect(cx - 6, cy - half + 10, 12, 14)
-        pygame.draw.rect(screen, (255, 215, 0), lock_rect)  # 금색
-        pygame.draw.rect(screen, (200, 170, 0), lock_rect, 1)
-        # 열쇠 구멍
-        pygame.draw.circle(screen, (50, 30, 10), (cx, cy - half + 15), 3)
-        pygame.draw.line(screen, (50, 30, 10), (cx, cy - half + 17), (cx, cy - half + 22), 2)
+        # 고급 장식 리벳
+        rivet_color = (255, 228, 140)
+        for rx, ry in [
+            (body_rect.left + 6, body_rect.top + 6),
+            (body_rect.right - 6, body_rect.top + 6),
+            (body_rect.left + 6, body_rect.bottom - 6),
+            (body_rect.right - 6, body_rect.bottom - 6),
+            (lid_rect.left + 7, lid_rect.centery),
+            (lid_rect.right - 7, lid_rect.centery),
+        ]:
+            pygame.draw.circle(chest_surf, rivet_color, (rx, ry), 2)
+            pygame.draw.circle(chest_surf, (120, 80, 20), (rx, ry), 2, 1)
 
-        # 금속 모서리 장식
-        corner_size = 6
-        for corner_x in [body_rect.left, body_rect.right - corner_size]:
-            for corner_y in [body_rect.top, body_rect.bottom - corner_size]:
-                pygame.draw.rect(screen, (200, 170, 50),
-                               (corner_x, corner_y, corner_size, corner_size))
+        # 중앙 보석 잠금장치
+        lock_rect = pygame.Rect(body_rect.centerx - 8, body_rect.top - 1, 16, 18)
+        pygame.draw.rect(chest_surf, (255, 215, 82), lock_rect, border_radius=3)
+        pygame.draw.rect(chest_surf, (140, 90, 18), lock_rect, 1, border_radius=3)
+        gem_pts = [
+            (lock_rect.centerx, lock_rect.top + 3),
+            (lock_rect.right - 3, lock_rect.centery - 1),
+            (lock_rect.centerx, lock_rect.bottom - 3),
+            (lock_rect.left + 3, lock_rect.centery - 1),
+        ]
+        pygame.draw.polygon(chest_surf, (120, 255, 255), gem_pts)
+        pygame.draw.polygon(chest_surf, (210, 255, 255), gem_pts, 1)
+        pygame.draw.circle(chest_surf, (48, 28, 10), (lock_rect.centerx, lock_rect.bottom - 4), 2)
+
+        # 뚜껑 하이라이트
+        shine = pygame.Surface((sz - 10, 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(shine, (255, 255, 255, 65), (0, 0, sz - 10, 10))
+        chest_surf.blit(shine, (ox + 5, oy + 2))
+        screen.blit(chest_surf, (cx - chest_surf.get_width() // 2, cy - half - 4))
 
         # "DASH!" 텍스트 (착지 후)
         if nemesis_chest_landed:
             try:
-                hint_font = pygame.font.Font(None, 22)
+                hint_font = pygame.font.Font(None, 20)
                 hint_text = hint_font.render("DASH!", True, (255, 255, 200))
                 hint_alpha = int(150 + 100 * math.sin(nemesis_chest_glow_timer * 4))
                 hint_text.set_alpha(hint_alpha)
                 screen.blit(hint_text, (cx - hint_text.get_width() // 2,
-                                       cy + half + 8))
+                                       cy - half - hint_text.get_height() - 8))
             except Exception:
                 pass
 
     else:
         # === 열린 보물상자 그리기 ===
-        # 본체 (그대로)
-        body_rect = pygame.Rect(cx - half, cy - half + 8, sz, sz - 8)
-        pygame.draw.rect(screen, (139, 90, 43), body_rect)
-        pygame.draw.rect(screen, (101, 67, 33), body_rect, 2)
+        chest_surf = pygame.Surface((sz + 40, sz + 44), pygame.SRCALPHA)
+        ox, oy = 20, 14
+        body_rect = pygame.Rect(ox, oy + 8, sz, sz - 8)
+        pygame.draw.rect(chest_surf, (84, 44, 20), body_rect, border_radius=5)
+        pygame.draw.rect(chest_surf, (150, 95, 48), body_rect.inflate(-4, -6), border_radius=4)
+        pygame.draw.rect(chest_surf, (255, 225, 135), body_rect, 2, border_radius=5)
 
         # 내부 빛 (상자 안에서 빛이 나옴)
-        inner_glow_alpha = min(200, nemesis_chest_open_timer * 5)
-        try:
-            inner_surf = pygame.Surface((sz - 8, body_rect.height - 8), pygame.SRCALPHA)
-            inner_surf.fill((255, 235, 150, inner_glow_alpha))
-            screen.blit(inner_surf, (cx - half + 4, body_rect.top + 4))
-        except Exception:
-            pass
+        inner_glow_alpha = min(230, nemesis_chest_open_timer * 6)
+        glow_rect = pygame.Rect(ox + 4, body_rect.top + 4, sz - 8, body_rect.height - 8)
+        for radius, alpha in ((28, inner_glow_alpha // 3), (20, inner_glow_alpha // 2), (14, inner_glow_alpha)):
+            glow_surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (255, 242, 176, alpha), (radius, radius), radius)
+            chest_surf.blit(glow_surf, (glow_rect.centerx - radius, glow_rect.centery - radius))
+        pygame.draw.rect(chest_surf, (255, 240, 180, min(170, inner_glow_alpha)), glow_rect, border_radius=4)
+
+        # 금속 밴드
+        band_color = (232, 184, 70)
+        dark_band = (126, 86, 18)
+        mid_band = pygame.Rect(body_rect.centerx - 7, body_rect.top + 2, 14, body_rect.height - 2)
+        pygame.draw.rect(chest_surf, band_color, mid_band, border_radius=3)
+        pygame.draw.rect(chest_surf, dark_band, mid_band, 1, border_radius=3)
+        for edge_x in (body_rect.left + 4, body_rect.right - 8):
+            pygame.draw.rect(chest_surf, band_color, (edge_x, body_rect.top + 3, 4, body_rect.height - 6), border_radius=2)
 
         # 뚜껑 (열린 각도에 따라 위로)
         lid_open_y = int(nemesis_chest_lid_angle / 90 * 20)  # 최대 20px 위로
-        lid_rect = pygame.Rect(cx - half, cy - half - lid_open_y, sz, 16)
-        pygame.draw.rect(screen, (160, 105, 50), lid_rect)
-        pygame.draw.rect(screen, (101, 67, 33), lid_rect, 2)
+        lid_rect = pygame.Rect(ox, oy - lid_open_y, sz, 16)
+        pygame.draw.rect(chest_surf, (96, 50, 24), lid_rect, border_radius=7)
+        pygame.draw.rect(chest_surf, (174, 112, 56), lid_rect.inflate(-4, -4), border_radius=6)
+        pygame.draw.rect(chest_surf, (255, 229, 148), lid_rect, 2, border_radius=7)
+        pygame.draw.arc(chest_surf, (255, 245, 186), (lid_rect.left + 3, lid_rect.top - 4, sz - 6, 20), 0.12, math.pi - 0.12, 2)
 
         # 빛줄기 이펙트 (열린 후)
         if nemesis_chest_open_timer > 10:
-            num_beams = 5
+            num_beams = 6
             for i in range(num_beams):
-                beam_angle = -math.pi / 2 + (i - num_beams // 2) * 0.3
-                beam_len = 60 + nemesis_chest_open_timer * 0.5
+                beam_angle = -math.pi / 2 + (i - (num_beams - 1) / 2) * 0.26
+                beam_len = 74 + nemesis_chest_open_timer * 0.65
                 end_x = cx + math.cos(beam_angle) * beam_len
                 end_y = cy - half + math.sin(beam_angle) * beam_len
                 try:
-                    beam_color = random.choice([(255, 215, 0), (255, 200, 100), (255, 255, 200)])
-                    pygame.draw.line(screen, beam_color, (cx, cy - half), (int(end_x), int(end_y)), 2)
+                    beam_color = random.choice([(255, 222, 110), (255, 236, 170), (255, 255, 220)])
+                    pygame.draw.line(screen, beam_color, (cx, cy - half + 2), (int(end_x), int(end_y)), 3 if i == num_beams // 2 else 2)
                 except Exception:
                     pass
 
-        # 금속 모서리 장식
-        corner_size = 6
-        for corner_x in [body_rect.left, body_rect.right - corner_size]:
-            for corner_y in [body_rect.top, body_rect.bottom - corner_size]:
-                pygame.draw.rect(screen, (200, 170, 50),
-                               (corner_x, corner_y, corner_size, corner_size))
+        # 추가 광휘
+        halo_r = half + 20 + int(4 * math.sin(nemesis_chest_glow_timer * 2.5))
+        halo_surf = pygame.Surface((halo_r * 2, halo_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(halo_surf, (255, 225, 120, 55), (halo_r, halo_r), halo_r)
+        pygame.draw.circle(halo_surf, (255, 255, 220, 25), (halo_r, halo_r), max(8, halo_r - 10))
+        screen.blit(halo_surf, (cx - halo_r, cy - half - halo_r // 2))
+
+        # 떠오르는 미세 빛 입자
+        for idx in range(5):
+            t = nemesis_chest_glow_timer * (1.3 + idx * 0.15) + idx * 0.8
+            rise = (t * 24) % 58
+            sparkle_x = cx + int(math.sin(t * 1.7) * (8 + idx * 3))
+            sparkle_y = cy - half - int(rise) - 6
+            sparkle_r = 1 + (idx % 3)
+            sparkle_surf = pygame.Surface((sparkle_r * 6, sparkle_r * 6), pygame.SRCALPHA)
+            center = sparkle_r * 3
+            alpha = 90 + int(100 * abs(math.sin(t * 2.2)))
+            pygame.draw.circle(sparkle_surf, (255, 240, 185, alpha), (center, center), sparkle_r + 1)
+            pygame.draw.circle(sparkle_surf, (255, 255, 255, min(255, alpha + 20)), (center, center), sparkle_r)
+            screen.blit(sparkle_surf, (sparkle_x - center, sparkle_y - center))
+
+        screen.blit(chest_surf, (cx - chest_surf.get_width() // 2, cy - half - 14))
 
     # === 파티클 그리기 ===
     for p in nemesis_chest_particles:
@@ -164509,14 +164712,114 @@ def draw_nemesis_treasure_chest(screen):
 
 def _defer_nemesis_stage_clear_sequence():
     """실제 스테이지 5(코드상 stage 6) 승리 시 즉시 결과 화면 대신 전용 연출을 실행한다."""
+    global perfect_victory_bonus_timer, victory_bonus_type
     if current_stage != 6:
         return False
     if nemesis_death_active or nemesis_chest_active:
         return True
     if BOSS is None:
         return False
+    # 네메시스 전용 연출 중에는 별도 승리 보너스 텍스트를 띄우지 않는다.
+    perfect_victory_bonus_timer = 0
+    victory_bonus_type = ""
     start_nemesis_death_animation()
     return True
+
+
+def reset_stage6_laser_cannon_state(*, preserve_cooldown: bool = True) -> None:
+    """네메시스 레이저 캐논 상태/사운드를 즉시 정리한다."""
+    global laser_cannon_active, last_laser_time, laser_charging, laser_charge_start
+    global laser_cannon_angle, laser_target_angle, laser_display_angle
+    global laser_rotating_mode, laser_rotation_direction
+    global laser_pre_aiming, laser_pre_aim_start
+
+    laser_cannon_active = False
+    laser_charging = False
+    laser_charge_start = 0
+    laser_pre_aiming = False
+    laser_pre_aim_start = 0
+    laser_rotating_mode = False
+    laser_rotation_direction = 1
+    laser_cannon_angle = QUARTER_ROTATION
+    laser_target_angle = QUARTER_ROTATION
+    laser_display_angle = QUARTER_ROTATION
+    last_laser_time = pygame.time.get_ticks() if preserve_cooldown else 0
+
+    try:
+        if 'SOUND_STAGE6_BEAM' in globals() and SOUND_STAGE6_BEAM:
+            SOUND_STAGE6_BEAM.stop()
+    except Exception:
+        pass
+    try:
+        if 'SOUND_STAGE6_BEAM_CHARGE' in globals() and SOUND_STAGE6_BEAM_CHARGE:
+            SOUND_STAGE6_BEAM_CHARGE.stop()
+    except Exception:
+        pass
+
+
+def _draw_nemesis_sequence_scene():
+    """네메시스 붕괴/보물상자 연출용 현재 전장 화면 렌더."""
+    global screen_shake_offset_x, screen_shake_offset_y
+
+    original_shake_x = screen_shake_offset_x
+    original_shake_y = screen_shake_offset_y
+    screen_shake_offset_x += int(globals().get("nemesis_shake_x", 0))
+    screen_shake_offset_y += int(globals().get("nemesis_shake_y", 0))
+    try:
+        draw_field()
+
+        if current_stage == 1:
+            draw_stage1_border()
+        elif current_stage == 2:
+            draw_stage2_jungle_border()
+        elif current_stage == 3:
+            draw_stage3_border()
+        elif current_stage == 4:
+            draw_stage4_border()
+        elif current_stage == 5:
+            draw_stage6_border()
+        elif current_stage == 6:
+            draw_stage5_border()
+        elif current_stage == 7:
+            draw_stage7_border()
+        elif current_stage == 8:
+            draw_stage8_border()
+        elif current_stage == 30:
+            draw_stage30_border()
+
+        draw_objects()
+
+        if not new_boss_mode_active:
+            try:
+                update_alchemy_notices()
+            except Exception:
+                pass
+            try:
+                items.draw_items(SCREEN)
+                draw_quest_tablets(SCREEN)
+            except Exception:
+                pass
+
+        try:
+            draw_player_gauge()
+            draw_stage1_boss_gauge_bar()
+            draw_stage2_boss_gauge_bar()
+            draw_stage7_boss_gauge_bar()
+            draw_stage8_boss_gauge_bar()
+            if current_stage != 6:
+                draw_boss_health_bar()
+                draw_laser_cannon_gauge()
+        except Exception:
+            pass
+
+        try:
+            if selected_character_type == "soldier":
+                draw_soldier_weapon_ui(SCREEN)
+        except Exception:
+            pass
+    finally:
+        screen_shake_offset_x = original_shake_x
+        screen_shake_offset_y = original_shake_y
 
 
 def show_result(won):
@@ -167977,31 +168280,19 @@ def main(stage_num, new_boss_mode=False):
                         pygame.quit()
                         sys.exit()
 
-                # 스테이지 6 애니메이션 배경 그리기 (현재 배경 유지)
-                if animated_bg_stage6 is not None:
-                    animated_bg_stage6.update()
-                    animated_bg_stage6.draw(SCREEN)
-                elif CURRENT_BG:
-                    SCREEN.blit(CURRENT_BG, (0, 0))
-
-                # 플레이어만 그리기 (보스, 공 제외 - 화면 정지 효과)
-                if PLAYER:
-                    SCREEN.blit(PLAYER_IMG, PLAYER)
+                _draw_nemesis_sequence_scene()
 
                 # 네메시스 폭발 애니메이션 그리기
                 draw_nemesis_death_animation(SCREEN)
 
-                # 점수판 그리기
-                draw_score()
-
                 # 화면 업데이트
                 pygame.display.flip()
-                clock.tick(FPS)
                 continue  # 게임 로직 스킵
             # else: 폭발 끝 + 보물상자 스폰됨 → 아래 chest 핸들링으로 진행
 
         # === 네메시스 보물상자 페이즈 (스테이지 6) ===
         if current_stage == 6 and nemesis_chest_active:
+            global nemesis_chest_move_left, nemesis_chest_move_right, nemesis_chest_move_down
             # 이벤트 처리 (플레이어 이동 + 대쉬)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -168010,31 +168301,51 @@ def main(stage_num, new_boss_mode=False):
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
-                # 대쉬 입력 (Space 또는 Z)
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    if handle_legendary_space_press():
+                        continue
+                    try:
+                        from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+                        if get_elixir_of_mastery_instance().handle_input(event):
+                            continue
+                    except Exception:
+                        pass
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if handle_legendary_space_press():
+                        continue
+                    try:
+                        from item_effects.elixir_of_mastery import get_elixir_of_mastery_instance
+                        if get_elixir_of_mastery_instance().handle_input(event):
+                            continue
+                    except Exception:
+                        pass
                 if event.type == pygame.KEYDOWN:
-                    if event.key in (pygame.K_SPACE, pygame.K_z) and not rolling_active and rolling_stun_timer <= 0:
-                        keys_now = pygame.key.get_pressed()
-                        if keys_now[pygame.K_LEFT]:
-                            rolling_direction = -1
-                        elif keys_now[pygame.K_RIGHT]:
-                            rolling_direction = 1
-                        else:
-                            rolling_direction = 1  # 기본 오른쪽
-                        rolling_active = True
-                        rolling_timer = 10  # 대쉬 지속 프레임
-                        rolling_speed = 12  # 대쉬 속도
-                        try:
-                            play_dash_sound()
-                        except Exception:
-                            pass
+                    if is_move_left_event(event):
+                        nemesis_chest_move_left = True
+                        _start_nemesis_chest_dash()
+                    elif is_move_right_event(event):
+                        nemesis_chest_move_right = True
+                        _start_nemesis_chest_dash()
+                    elif is_move_down_event(event):
+                        nemesis_chest_move_down = True
+                        _start_nemesis_chest_dash()
+                elif event.type == pygame.KEYUP:
+                    if is_move_left_event(event):
+                        nemesis_chest_move_left = False
+                    elif is_move_right_event(event):
+                        nemesis_chest_move_right = False
+                    elif is_move_down_event(event):
+                        nemesis_chest_move_down = False
 
             # 플레이어 이동 (좌우 화살표)
             if PLAYER and not rolling_active:
                 keys = pygame.key.get_pressed()
-                move_speed = 5
-                if keys[pygame.K_LEFT]:
+                move_speed = 7
+                move_left = nemesis_chest_move_left or is_move_left_pressed(keys) or MOVE_EVENT_LEFT
+                move_right = nemesis_chest_move_right or is_move_right_pressed(keys) or MOVE_EVENT_RIGHT
+                if move_left and not move_right:
                     PLAYER.x = max(0, PLAYER.x - move_speed)
-                if keys[pygame.K_RIGHT]:
+                elif move_right and not move_left:
                     PLAYER.x = min(WIDTH - PLAYER.width, PLAYER.x + move_speed)
 
             # 대쉬(롤링) 물리 업데이트
@@ -168057,44 +168368,38 @@ def main(stage_num, new_boss_mode=False):
                 continue
 
             # === 그리기 ===
-            # 배경
-            if animated_bg_stage6 is not None:
-                animated_bg_stage6.update()
-                animated_bg_stage6.draw(SCREEN)
-            elif CURRENT_BG:
-                SCREEN.blit(CURRENT_BG, (0, 0))
-
-            # 필러 그리기
-            try:
-                _pillar_renderer = get_pillar_renderer()
-                if _pillar_renderer:
-                    _pillar_renderer.draw(SCREEN)
-            except Exception:
-                pass
-
-            # 플레이어 그리기
-            if PLAYER:
-                SCREEN.blit(PLAYER_IMG, PLAYER)
+            _draw_nemesis_sequence_scene()
 
             # 보물상자 그리기
             draw_nemesis_treasure_chest(SCREEN)
 
-            # 점수판 그리기
-            draw_score()
-
             # 전설 아이템 획득 이펙트 그리기
+            legendary_animation_dt = dt_ms
+            update_legendary_effect(
+                legendary_animation_dt,
+                (PLAYER.centerx, PLAYER.centery) if PLAYER else None,
+            )
+            if should_pause_for_legendary():
+                update_angel_blessing_animation(legendary_animation_dt)
+            if is_legendary_effect_active():
+                font_large = FontStyle.large() if 'FontStyle' in globals() else pygame.font.Font(None, 48)
+                font_huge = FontStyle.huge() if 'FontStyle' in globals() and hasattr(FontStyle, 'huge') else pygame.font.Font(None, 72)
+                draw_legendary_effect(SCREEN, font_large, font_huge)
             try:
-                from effects.legendary_integration import get_legendary_effect
-                _leg_effect = get_legendary_effect()
-                if _leg_effect and _leg_effect.active:
-                    _leg_effect.update(1/60)
-                    _leg_effect.draw(SCREEN)
+                legendary_manager = get_legendary_manager()
+                if legendary_manager and "angel_blessing" in getattr(legendary_manager, "active_items", []):
+                    angel_blessing = legendary_manager.get_item("angel_blessing")
+                    if angel_blessing:
+                        if getattr(angel_blessing, "roll_anim_active", False):
+                            angel_blessing.draw_roll_animation(SCREEN)
+                        if getattr(angel_blessing, "has_absorb_particles", False):
+                            angel_blessing.update_absorb_particles(legendary_animation_dt / 1000.0)
+                            angel_blessing.draw_absorb_particles(SCREEN)
             except Exception:
                 pass
 
             # 화면 업데이트
             pygame.display.flip()
-            clock.tick(FPS)
             continue  # 게임 로직 스킵
 
         # === 공 생성 애니메이션 업데이트 ===
