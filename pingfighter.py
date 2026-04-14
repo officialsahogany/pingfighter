@@ -125343,28 +125343,37 @@ def show_perfect_victory_effect():
         if use_live_bg:
             _render_stage_background_for_overlay(draw_entities=False)
 
-        # 반투명 오버레이 (골드 톤)
+        # 반투명 오버레이 (골드 톤) — 캐싱
         overlay_alpha = min(180, frame_count * 8)
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((20, 15, 5, overlay_alpha))
-        SCREEN.blit(overlay, (0, 0))
+        if not hasattr(show_perfect_victory_effect, '_overlay_surf'):
+            show_perfect_victory_effect._overlay_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        show_perfect_victory_effect._overlay_surf.fill((20, 15, 5, overlay_alpha))
+        SCREEN.blit(show_perfect_victory_effect._overlay_surf, (0, 0))
 
         # ========== 화면 플래시 (초반 - 더 강렬하게) ==========
         if frame_count < 10:
-            flash_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             flash_alpha = max(0, 255 - frame_count * 28)
-            flash_surf.fill((255, 230, 150, flash_alpha))
-            SCREEN.blit(flash_surf, (0, 0))
+            show_perfect_victory_effect._overlay_surf.fill((255, 230, 150, flash_alpha))
+            SCREEN.blit(show_perfect_victory_effect._overlay_surf, (0, 0))
 
-        # ========== 임팩트 링 생성 (더 많이) ==========
+        # ========== 임팩트 링 생성 (2단 충격파) ==========
         if frame_count == 5:
             for i in range(5):
                 impact_rings.append({
                     'radius': 20,
                     'alpha': 255,
                     'width': 5 - i,
-                    'speed': 10 + i * 4,
+                    'speed': 12 + i * 5,
                     'color': (255, 215, 0)
+                })
+        if frame_count == 12:  # 2차 충격파
+            for i in range(3):
+                impact_rings.append({
+                    'radius': 15,
+                    'alpha': 200,
+                    'width': 3 - i,
+                    'speed': 8 + i * 3,
+                    'color': (255, 180, 50)
                 })
 
         # ========== 스피드 라인 (집중선) 렌더링 - 골드 ==========
@@ -125386,7 +125395,7 @@ def show_perfect_victory_effect():
                 line_color = (255, 200, 80)
                 pygame.draw.line(SCREEN, line_color, (start_x, start_y), (end_x, end_y), line['width'])
 
-        # ========== 임팩트 링 렌더링 ==========
+        # ========== 임팩트 링 렌더링 (다층 글로우) ==========
         new_rings = []
         for ring in impact_rings:
             ring['radius'] += ring['speed']
@@ -125394,10 +125403,33 @@ def show_perfect_victory_effect():
 
             if ring['alpha'] > 0 and ring['radius'] < 450:
                 new_rings.append(ring)
-                ring_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                pygame.draw.circle(ring_surf, (*ring['color'], int(ring['alpha'])),
-                                 (center_x, center_y), int(ring['radius']), ring['width'])
-                SCREEN.blit(ring_surf, (0, 0))
+                _ri_r = int(ring['radius'])
+                _ri_a = int(ring['alpha'])
+                _ri_w = max(1, ring['width'])
+                # 외곽 글로우 (넓고 투명)
+                _glow_a = min(255, _ri_a // 3)
+                if _glow_a > 2 and _ri_r > 3:
+                    try:
+                        pygame.gfxdraw.circle(SCREEN, center_x, center_y,
+                            min(_ri_r + 4, 449), (255, 200, 50, _glow_a))
+                        pygame.gfxdraw.circle(SCREEN, center_x, center_y,
+                            min(_ri_r + 6, 449), (255, 180, 30, _glow_a // 2))
+                    except Exception:
+                        pass
+                # 메인 링
+                try:
+                    pygame.draw.circle(SCREEN, (*ring['color'], _ri_a),
+                        (center_x, center_y), _ri_r, _ri_w)
+                except Exception:
+                    pass
+                # 내부 밝은 링
+                _inner_a = min(255, _ri_a // 2)
+                if _inner_a > 2 and _ri_r > 6:
+                    try:
+                        pygame.draw.circle(SCREEN, (255, 255, 200, _inner_a),
+                            (center_x, center_y), max(3, _ri_r - 3), max(1, _ri_w - 1))
+                    except Exception:
+                        pass
 
         impact_rings = new_rings
 
@@ -125423,9 +125455,26 @@ def show_perfect_victory_effect():
 
             if p['life'] > 0:
                 new_gold.append(p)
-                alpha = int(255 * p['life'] / 60)
+                _gp_a = int(255 * p['life'] / 60)
+                _gp_x = int(p['x'])
+                _gp_y = int(p['y'])
+                _gp_sz = p['size']
+                # 글로우 (넓고 투명)
+                try:
+                    pygame.gfxdraw.filled_circle(SCREEN, _gp_x, _gp_y,
+                        _gp_sz + 3, (255, 200, 50, min(255, _gp_a // 4)))
+                except Exception:
+                    pass
+                # 메인
                 pygame.draw.circle(SCREEN, (255, 215, 0),
-                                 (int(p['x']), int(p['y'])), p['size'])
+                                 (_gp_x, _gp_y), _gp_sz)
+                # 밝은 코어
+                if _gp_sz > 2:
+                    try:
+                        pygame.gfxdraw.filled_circle(SCREEN, _gp_x, _gp_y,
+                            max(1, _gp_sz - 2), (255, 255, 200, min(255, _gp_a)))
+                    except Exception:
+                        pass
         gold_particles = new_gold
 
         # ========== 에너지 스파크 생성 ==========
@@ -125452,9 +125501,33 @@ def show_perfect_victory_effect():
 
             if spark['life'] > 0:
                 new_sparks.append(spark)
-                alpha = int(255 * spark['life'] / 25)
-                pygame.draw.circle(SCREEN, (255, 230, 100),
-                                 (int(spark['x']), int(spark['y'])), spark['size'])
+                _sp_a = int(255 * spark['life'] / 25)
+                _sp_x = int(spark['x'])
+                _sp_y = int(spark['y'])
+                _sp_sz = spark['size']
+                # 잔상 (이동 방향 반대로 짧은 선)
+                _trail_a = min(255, _sp_a // 2)
+                if _trail_a > 5:
+                    _tx = int(spark['x'] - spark['vx'] * 2)
+                    _ty = int(spark['y'] - spark['vy'] * 2)
+                    pygame.draw.line(SCREEN, (255, 220, 80, _trail_a),
+                        (_sp_x, _sp_y), (_tx, _ty), max(1, _sp_sz - 1))
+                # 글로우
+                try:
+                    pygame.gfxdraw.filled_circle(SCREEN, _sp_x, _sp_y,
+                        _sp_sz + 2, (255, 200, 50, min(255, _sp_a // 3)))
+                except Exception:
+                    pass
+                # 메인 (밝은 노랑)
+                pygame.draw.circle(SCREEN, (255, 245, 160),
+                                 (_sp_x, _sp_y), _sp_sz)
+                # 코어 (흰색)
+                if _sp_sz > 1:
+                    try:
+                        pygame.gfxdraw.filled_circle(SCREEN, _sp_x, _sp_y,
+                            max(1, _sp_sz - 1), (255, 255, 240, min(255, _sp_a)))
+                    except Exception:
+                        pass
         sparks = new_sparks
 
         # ========== 메인 텍스트 "완벽한 승리!" ==========
