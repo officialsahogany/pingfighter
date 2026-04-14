@@ -521,6 +521,47 @@ else:
 | 2 | `apply_runtime_skill_effect()` 함수 | 레벨업 처리 코드 추가 |
 | 3 | **`draw_skill_icon_mini()` 함수** | **elif 분기 추가 [필수! 없으면 아이콘 깨짐]** |
 | 4 | 실제 효과 적용 코드 | 게임 로직에 `runtime_skill_levels.get("perk_id", 0)` 반영 |
+| 5 | **HUD 퍽 아이콘 목록 (게이지 구슬 옆)** | **캐릭터별 `draw_*_perk_icons()` 함수에 퍽 항목 추가 [필수!]** |
+| 6 | `global` 선언 | 퍽 관련 전역 변수를 사용하는 모든 함수에 `global` 선언 추가 |
+
+### ⚠️ CRITICAL: 퍽은 게이지 스킬이 아님 — `VIPER_SKILL_ICONS_DATA`에 넣지 말 것!
+**퍽(Perk)과 게이지 스킬(Gauge Skill)은 완전히 다른 시스템입니다.**
+
+| 구분 | 퍽 (Perk) | 게이지 스킬 (Gauge Skill) |
+|------|-----------|--------------------------|
+| 정의 위치 | `VIPER_EXCLUSIVE_SKILLS` 등 | `VIPER_SKILL_ICONS_DATA` |
+| 선택 풀 | `get_runtime_skill_choices()` 자동 수집 | 5구슬 슬롯 시스템 |
+| HUD 표시 | `draw_viper_perk_icons()` (구슬 **옆** 작은 아이콘) | `draw_viper_skill_icons()` (5구슬 **슬롯**) |
+| 해금 체크 | `runtime_skill_levels.get(id, 0) > 0` | `is_viper_skill_unlocked()` + `_viper_equipped_skills` |
+| 쿨타임 | `_viper_skill_cooldown_override`로 직접 설정 | `VIPER_SKILL_ICONS_DATA`의 `cooldown` 필드 |
+
+**절대 하면 안 되는 것:**
+- 퍽을 `VIPER_SKILL_ICONS_DATA`에 추가 → HUD 5구슬 슬롯과 충돌, `_viper_skill_unlocked` 딕셔너리에 없어서 에러
+- 퍽을 `_viper_skill_unlocked` 딕셔너리에 추가 → 5구슬 장착 시스템과 혼동
+
+**퍽에 쿨타임이 필요한 경우:**
+```python
+# ✅ 올바른 방법: 쿨타임 오버라이드 사용
+_viper_skill_cooldown_override["dark_blade"] = 60  # 60초
+trigger_viper_skill_cooldown("dark_blade")
+
+# ❌ 잘못된 방법: VIPER_SKILL_ICONS_DATA에 추가
+# → HUD 5구슬 슬롯 시스템과 충돌!
+```
+
+**퍽 HUD 아이콘 표시 (게이지 구슬 옆):**
+```python
+# draw_viper_perk_icons() 내부에 추가 (하드코딩 방식)
+_new_perk_lv = get_runtime_skill_level("new_perk_id")
+if _new_perk_lv > 0:
+    viper_perks.append({
+        "name": "new_perk_id",
+        "color": (R, G, B),
+        "cost": 0,
+        "symbol": "XX",
+        "always_active": True,
+    })
+```
 
 ### ⚠️ 스킬 해금 퍽(unlock_*) 추가 시 추가 체크리스트
 | # | 작업 | 설명 |
