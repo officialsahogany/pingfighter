@@ -4172,20 +4172,21 @@ def is_smasher_skill_unlocked(skill_name: str) -> bool:
     return skill_name in _smasher_equipped_skills
 
 
-def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
+def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str | None:
     """스매셔 스킬 구슬이 꽉 찼을 때 교체할 스킬을 선택하는 블로킹 다이얼로그.
 
     Args:
         new_skill_name: 새로 장착할 스킬 이름
 
     Returns:
-        교체할 기존 스킬 이름 (반드시 선택해야 함)
+        교체할 기존 스킬 이름. 취소 시 None.
     """
     clock = pygame.time.Clock()
     equipped = get_smasher_equipped_skills()
 
     # 기본 스킬은 교체 불가 (캐릭터 정체성)
     _locked_skills = {"drive", "power_smashing"}
+    _replaceable_skills = [skill for skill in equipped if skill not in _locked_skills]
 
     # 스킬 데이터 매칭
     skill_data_map = {}
@@ -4205,13 +4206,35 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
             return None
         return font.render(text, True, color)
 
+    def _split_name_lines(text: str) -> list[str]:
+        parts = text.split()
+        if len(parts) <= 1:
+            return [text]
+        if len(parts) == 2:
+            return parts
+        return [" ".join(parts[:-1]), parts[-1]]
+
     # 카드 레이아웃 설정
     card_width = 120
     card_height = 100
     card_spacing = 10
+    panel_padding_x = 28
+    screen_margin = 40
     total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
-    start_x = (WIDTH - total_width) // 2
-    cards_y = HEIGHT // 2 + 10
+    max_content_width = max(320, WIDTH - screen_margin * 2 - panel_padding_x * 2)
+    if total_width > max_content_width and len(equipped) > 0:
+        scale = max_content_width / total_width
+        card_width = max(92, int(card_width * scale))
+        card_height = max(92, int(card_height * scale))
+        card_spacing = max(6, int(card_spacing * scale))
+        total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
+
+    panel_width = min(max(440, total_width + panel_padding_x * 2), WIDTH - screen_margin * 2)
+    panel_height = 292
+    panel_rect = pygame.Rect(WIDTH // 2 - panel_width // 2, HEIGHT // 2 - panel_height // 2, panel_width, panel_height)
+    start_x = panel_rect.x + (panel_rect.width - total_width) // 2
+    cards_y = panel_rect.y + 106
+    back_button_rect = pygame.Rect(panel_rect.centerx - 76, panel_rect.bottom - 44, 152, 30)
 
     # 배경 스냅샷 (매 프레임 복원용)
     _swap_bg = SCREEN.copy()
@@ -4220,16 +4243,21 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
     hover_idx = -1
 
     while selected is None:
+        mouse_pos = pygame.mouse.get_pos()
+        mx, my = mouse_pos
+        back_hovered = back_button_rect.collidepoint(mouse_pos)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 # 교체 가능한 스킬 중 첫 번째 자동 선택
-                selected = next((s for s in equipped if s not in _locked_skills), equipped[0])
+                selected = _replaceable_skills[0] if _replaceable_skills else equipped[0]
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return None
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if back_button_rect.collidepoint(event.pos):
+                    return None
                 if 0 <= hover_idx < len(equipped) and equipped[hover_idx] not in _locked_skills:
                     selected = equipped[hover_idx]
-
-        mouse_pos = pygame.mouse.get_pos()
-        mx, my = mouse_pos
 
         # 호버 감지 (잠금 스킬은 호버 제외)
         hover_idx = -1
@@ -4248,7 +4276,6 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
         SCREEN.blit(overlay, (0, 0))
 
         # 패널 배경 (불투명)
-        panel_rect = pygame.Rect(WIDTH // 2 - 200, HEIGHT // 2 - 130, 400, 260)
         pygame.draw.rect(SCREEN, (20, 20, 30), panel_rect, border_radius=8)
         pygame.draw.rect(SCREEN, new_color, panel_rect, 2, border_radius=8)
 
@@ -4286,26 +4313,41 @@ def _show_smasher_skill_swap_dialog(new_skill_name: str) -> str:
             pygame.draw.rect(SCREEN, border_c, _card_r, 2, border_radius=6)
 
             orb_cx = cx + card_width // 2
-            orb_cy = cards_y + 35
+            orb_cy = cards_y + 32
+            orb_radius = max(18, min(20, card_width // 5))
             _orb_color = tuple(max(0, c // 3) for c in eq_color) if is_locked else eq_color
-            pygame.draw.circle(SCREEN, _orb_color, (orb_cx, orb_cy), 20)
-            pygame.draw.circle(SCREEN, (80, 80, 80) if is_locked else (255, 255, 255), (orb_cx, orb_cy), 20, 2)
+            pygame.draw.circle(SCREEN, _orb_color, (orb_cx, orb_cy), orb_radius)
+            pygame.draw.circle(SCREEN, (80, 80, 80) if is_locked else (255, 255, 255), (orb_cx, orb_cy), orb_radius, 2)
 
-            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, not is_locked, eq_color)
+            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, max(26, int(32 * min(1.0, card_width / 120))), not is_locked, eq_color)
 
             _name_color = (100, 100, 100) if is_locked else (255, 255, 255)
-            name_surf = _swap_render(small_font, eq_korean, _name_color)
-            if name_surf:
-                SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
+            name_lines = _split_name_lines(eq_korean)[:2]
+            name_y = cards_y + 58
+            if len(name_lines) == 1:
+                name_y += 7
+            for line in name_lines:
+                name_surf = _swap_render(small_font, line, _name_color)
+                if name_surf:
+                    SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, name_y))
+                    name_y += 13
 
             if is_locked:
                 lock_surf = _swap_render(small_font, "기본 스킬", (80, 80, 90))
                 if lock_surf:
-                    SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + 80))
+                    SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + card_height - 18))
             elif is_hovered:
                 del_surf = _swap_render(desc_font, "교체", (255, 80, 80))
                 if del_surf:
-                    SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
+                    SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + card_height - 18))
+
+        button_bg = (52, 52, 72) if back_hovered else (30, 30, 42)
+        button_border = (210, 210, 235) if back_hovered else (130, 130, 165)
+        pygame.draw.rect(SCREEN, button_bg, back_button_rect, border_radius=6)
+        pygame.draw.rect(SCREEN, button_border, back_button_rect, 2, border_radius=6)
+        back_surf = _swap_render(desc_font, "돌아가기", (235, 235, 245))
+        if back_surf:
+            SCREEN.blit(back_surf, (back_button_rect.centerx - back_surf.get_width() // 2, back_button_rect.centery - back_surf.get_height() // 2))
 
         pygame.display.flip()
         clock.tick(60)
@@ -4362,8 +4404,8 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "dark_blade", "korean": "다크 블레이드", "cost": 200, "color": (120, 0, 30),
         "symbol": "⚔", "cooldown": 60.0, "key": "W/↑(연계)",
-        "description": "공중 쉐도우 백스텝 직후 에어 블레이드 발동 시 변환.\n구르는 시간 150%로 증가, 검기 크기 50% 증가.\n검붉은 검기 발사. 쿨타임 60초.",
-        "how_to_use": "공중 쉐도우 백스텝 후 W/↑키 (다크 블레이드 퍽 필요)",
+        "description": "쉐도우 백스텝/마샬 킥/팬텀 킥 발동 후\n3초 안에 공중 에어 블레이드 시 변환.\n검기 크기 50% 증가, 사거리 2배, 점프 솟구침.\n검붉은 강화 검기 발사. 쿨타임 60초.",
+        "how_to_use": "쉐도우 백스텝·마샬 킥·팬텀 킥 후 3초 내 공중 W/↑키",
         "effect_type": "slash_dark"
     },
 ]
@@ -4518,20 +4560,21 @@ def swap_viper_skill(old_skill: str, new_skill: str) -> bool:
     return False
 
 
-def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
+def _show_viper_skill_swap_dialog(new_skill_name: str) -> str | None:
     """바이퍼 스킬 구슬이 꽉 찼을 때 교체할 스킬을 선택하는 블로킹 다이얼로그.
 
     Args:
         new_skill_name: 새로 장착할 스킬 이름
 
     Returns:
-        교체할 기존 스킬 이름 (반드시 선택해야 함)
+        교체할 기존 스킬 이름. 취소 시 None.
     """
     clock = pygame.time.Clock()
     equipped = get_viper_equipped_skills()
 
     # 기본 스킬은 교체 불가 (캐릭터 정체성)
     _locked_skills = {"shadow_step", "blade_rush", "marshal_kick"}
+    _replaceable_skills = [skill for skill in equipped if skill not in _locked_skills]
 
     # 스킬 데이터 매칭
     skill_data_map = {}
@@ -4551,13 +4594,35 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
             return None
         return font.render(text, True, color)
 
+    def _split_name_lines(text: str) -> list[str]:
+        parts = text.split()
+        if len(parts) <= 1:
+            return [text]
+        if len(parts) == 2:
+            return parts
+        return [" ".join(parts[:-1]), parts[-1]]
+
     # 카드 레이아웃 설정
     card_width = 120
     card_height = 100
     card_spacing = 10
+    panel_padding_x = 28
+    screen_margin = 40
     total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
-    start_x = (WIDTH - total_width) // 2
-    cards_y = HEIGHT // 2 + 10
+    max_content_width = max(320, WIDTH - screen_margin * 2 - panel_padding_x * 2)
+    if total_width > max_content_width and len(equipped) > 0:
+        scale = max_content_width / total_width
+        card_width = max(92, int(card_width * scale))
+        card_height = max(92, int(card_height * scale))
+        card_spacing = max(6, int(card_spacing * scale))
+        total_width = len(equipped) * card_width + (len(equipped) - 1) * card_spacing
+
+    panel_width = min(max(440, total_width + panel_padding_x * 2), WIDTH - screen_margin * 2)
+    panel_height = 292
+    panel_rect = pygame.Rect(WIDTH // 2 - panel_width // 2, HEIGHT // 2 - panel_height // 2, panel_width, panel_height)
+    start_x = panel_rect.x + (panel_rect.width - total_width) // 2
+    cards_y = panel_rect.y + 106
+    back_button_rect = pygame.Rect(panel_rect.centerx - 76, panel_rect.bottom - 44, 152, 30)
 
     # 배경 스냅샷 (매 프레임 복원용)
     _vswap_bg = SCREEN.copy()
@@ -4566,15 +4631,20 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
     hover_idx = -1
 
     while selected is None:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                selected = next((s for s in equipped if s not in _locked_skills), equipped[0])
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if 0 <= hover_idx < len(equipped) and equipped[hover_idx] not in _locked_skills:
-                    selected = equipped[hover_idx]
-
         mouse_pos = pygame.mouse.get_pos()
         mx, my = mouse_pos
+        back_hovered = back_button_rect.collidepoint(mouse_pos)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                selected = _replaceable_skills[0] if _replaceable_skills else equipped[0]
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return None
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if back_button_rect.collidepoint(event.pos):
+                    return None
+                if 0 <= hover_idx < len(equipped) and equipped[hover_idx] not in _locked_skills:
+                    selected = equipped[hover_idx]
 
         # 호버 감지 (잠금 스킬은 호버 제외)
         hover_idx = -1
@@ -4593,7 +4663,6 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
         SCREEN.blit(overlay, (0, 0))
 
         # 패널 배경 (바이퍼 보라색 테마, 불투명)
-        panel_rect = pygame.Rect(WIDTH // 2 - 200, HEIGHT // 2 - 130, 400, 260)
         pygame.draw.rect(SCREEN, (15, 5, 25), panel_rect, border_radius=8)
         pygame.draw.rect(SCREEN, new_color, panel_rect, 2, border_radius=8)
 
@@ -4631,26 +4700,41 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str:
             pygame.draw.rect(SCREEN, border_c, _card_r, 2, border_radius=6)
 
             orb_cx = cx + card_width // 2
-            orb_cy = cards_y + 35
+            orb_cy = cards_y + 32
+            orb_radius = max(18, min(20, card_width // 5))
             _orb_color = tuple(max(0, c // 3) for c in eq_color) if is_locked else eq_color
-            pygame.draw.circle(SCREEN, _orb_color, (orb_cx, orb_cy), 20)
-            pygame.draw.circle(SCREEN, (80, 80, 80) if is_locked else (255, 255, 255), (orb_cx, orb_cy), 20, 2)
+            pygame.draw.circle(SCREEN, _orb_color, (orb_cx, orb_cy), orb_radius)
+            pygame.draw.circle(SCREEN, (80, 80, 80) if is_locked else (255, 255, 255), (orb_cx, orb_cy), orb_radius, 2)
 
-            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, 32, not is_locked, eq_color)
+            _draw_skill_icon_symbol(SCREEN, eq_name, orb_cx, orb_cy, max(26, int(32 * min(1.0, card_width / 120))), not is_locked, eq_color)
 
             _name_color = (100, 100, 100) if is_locked else (255, 255, 255)
-            name_surf = _vswap_render(small_font, eq_korean, _name_color)
-            if name_surf:
-                SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, cards_y + 62))
+            name_lines = _split_name_lines(eq_korean)[:2]
+            name_y = cards_y + 58
+            if len(name_lines) == 1:
+                name_y += 7
+            for line in name_lines:
+                name_surf = _vswap_render(small_font, line, _name_color)
+                if name_surf:
+                    SCREEN.blit(name_surf, (orb_cx - name_surf.get_width() // 2, name_y))
+                    name_y += 13
 
             if is_locked:
                 lock_surf = _vswap_render(small_font, "기본 스킬", (60, 30, 70))
                 if lock_surf:
-                    SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + 80))
+                    SCREEN.blit(lock_surf, (orb_cx - lock_surf.get_width() // 2, cards_y + card_height - 18))
             elif is_hovered:
                 del_surf = _vswap_render(desc_font, "교체", (255, 80, 80))
                 if del_surf:
-                    SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + 80))
+                    SCREEN.blit(del_surf, (orb_cx - del_surf.get_width() // 2, cards_y + card_height - 18))
+
+        button_bg = (58, 26, 74) if back_hovered else (34, 16, 44)
+        button_border = (220, 180, 255) if back_hovered else (145, 110, 185)
+        pygame.draw.rect(SCREEN, button_bg, back_button_rect, border_radius=6)
+        pygame.draw.rect(SCREEN, button_border, back_button_rect, 2, border_radius=6)
+        back_surf = _vswap_render(desc_font, "돌아가기", (245, 235, 255))
+        if back_surf:
+            SCREEN.blit(back_surf, (back_button_rect.centerx - back_surf.get_width() // 2, back_button_rect.centery - back_surf.get_height() // 2))
 
         pygame.display.flip()
         clock.tick(60)
@@ -15207,9 +15291,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "다크 블레이드",
         "max_level": 1,
         "descriptions": {
-            1: "공중 쉐도우 백스텝 → 에어 블레이드 시 다크 블레이드 발동",
+            1: "쉐도우 백스텝·마샬 킥·팬텀 킥 후 공중 에어 블레이드 시 발동",
         },
-        "detail": "공중에서 쉐도우 백스텝 발동 후 에어 블레이드를 사용하면\n다크 블레이드로 변환됩니다.\n구르는 시간 150%로 증가, 검기 크기 50% 증가,\n검붉은 색상의 강화 검기 발사.\n게이지 200, 쿨타임 60초.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나라도 발동하면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 4바퀴(연장 모션) → 점프 400px 솟구침,\n검기 크기 50% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 60초.",
         "icon_color": (120, 0, 30),
         "tree": "viper",
         "character_restriction": "viper"
@@ -17202,11 +17286,13 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     }
     if choice_id in _smasher_unlock_map:
         skill_name = _smasher_unlock_map[choice_id]
-        unlock_smasher_skill(skill_name)
         # 슬롯에 장착 시도 → 꽉 차면 교체 다이얼로그
         if not equip_smasher_skill(skill_name):
             removed = _show_smasher_skill_swap_dialog(skill_name)
+            if not removed:
+                return False
             swap_smasher_skill(removed, skill_name)
+        unlock_smasher_skill(skill_name)
         runtime_skill_levels[choice_id] = 1
         return True
 
@@ -17218,18 +17304,20 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     }
     if choice_id in _viper_unlock_map:
         skill_name = _viper_unlock_map[choice_id]
-        unlock_viper_skill(skill_name)
-        # double_marshal_kick 레거시 플래그 동기화
-        if choice_id == "double_marshal_kick":
-            global _viper_double_marshal_kick_unlocked
-            _viper_double_marshal_kick_unlocked = True
         # 슬롯에 장착 시도 → 꽉 차면 교체 다이얼로그
         equip_result = equip_viper_skill(skill_name)
         print(f"[바이퍼 5구슬] 해금: {skill_name}, 장착결과: {equip_result}, 현재슬롯: {_viper_equipped_skills}", flush=True)
         if not equip_result:
             removed = _show_viper_skill_swap_dialog(skill_name)
+            if not removed:
+                return False
             swap_viper_skill(removed, skill_name)
             print(f"[바이퍼 5구슬] 교체완료: {removed} → {skill_name}, 현재슬롯: {_viper_equipped_skills}", flush=True)
+        unlock_viper_skill(skill_name)
+        # double_marshal_kick 레거시 플래그 동기화
+        if choice_id == "double_marshal_kick":
+            global _viper_double_marshal_kick_unlocked
+            _viper_double_marshal_kick_unlocked = True
         runtime_skill_levels[choice_id] = 1
         return True
 
@@ -17245,13 +17333,15 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
 
     if choice_id == "dark_blade":
         # 다크 블레이드: 5구슬 슬롯 시스템으로 해금+장착
-        unlock_viper_skill("dark_blade")
         equip_result = equip_viper_skill("dark_blade")
         print(f"[바이퍼 5구슬] 해금: dark_blade, 장착결과: {equip_result}, 현재슬롯: {_viper_equipped_skills}", flush=True)
         if not equip_result:
             removed = _show_viper_skill_swap_dialog("dark_blade")
+            if not removed:
+                return False
             swap_viper_skill(removed, "dark_blade")
             print(f"[바이퍼 5구슬] 교체완료: {removed} → dark_blade, 현재슬롯: {_viper_equipped_skills}", flush=True)
+        unlock_viper_skill("dark_blade")
         runtime_skill_levels["dark_blade"] = 1
         return True
 
@@ -20906,7 +20996,12 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
             pass
 
 
-def show_runtime_skill_choices(exclude_instant: bool = False, live_background: bool = True) -> str | None:
+def show_runtime_skill_choices(
+    exclude_instant: bool = False,
+    live_background: bool = True,
+    _preset_choices: list[dict] | None = None,
+    _preset_bonus_state: tuple[bool, int] | None = None,
+) -> str | None:
     """
     Runtime skill choice UI - shows 3 skill options when starpoints trigger a choice.
     Similar to show_stage_clear_choices() but for all characters.
@@ -20922,7 +21017,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     character_type = selected_character_type
 
     # Get available choices
-    choices = get_runtime_skill_choices(character_type, exclude_instant=exclude_instant)
+    if _preset_choices is None:
+        choices = get_runtime_skill_choices(character_type, exclude_instant=exclude_instant)
+    else:
+        choices = list(_preset_choices)
 
     if not choices:
         pending_skill_choices = max(0, pending_skill_choices - 1)
@@ -20958,15 +21056,18 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     # 다우징 고글 보너스 퍽 발동 여부 확인
     _dg_bonus_triggered = False
     _dg_bonus_card_index = -1  # 보너스 퍽 카드 인덱스 (골드변환 바로 앞)
-    try:
-        from item_effects.dowsing_goggles import was_bonus_perk_triggered, clear_bonus_trigger
-        _dg_bonus_triggered = was_bonus_perk_triggered()
-        if _dg_bonus_triggered:
-            # 보너스 카드 = 골드변환(마지막) 바로 앞 카드
-            _dg_bonus_card_index = len(choices) - 2
-            clear_bonus_trigger()
-    except Exception:
-        pass
+    if _preset_bonus_state is not None:
+        _dg_bonus_triggered, _dg_bonus_card_index = _preset_bonus_state
+    else:
+        try:
+            from item_effects.dowsing_goggles import was_bonus_perk_triggered, clear_bonus_trigger
+            _dg_bonus_triggered = was_bonus_perk_triggered()
+            if _dg_bonus_triggered:
+                # 보너스 카드 = 골드변환(마지막) 바로 앞 카드
+                _dg_bonus_card_index = len(choices) - 2
+                clear_bonus_trigger()
+        except Exception:
+            pass
 
     # Animation variables
     frame_count = 0
@@ -22149,7 +22250,14 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 
     # Apply selected skill
     if selected_result:
-        apply_runtime_skill_effect(selected_result)
+        if not apply_runtime_skill_effect(selected_result):
+            pygame.event.clear()
+            return show_runtime_skill_choices(
+                exclude_instant=exclude_instant,
+                live_background=live_background,
+                _preset_choices=choices,
+                _preset_bonus_state=(_dg_bonus_triggered, _dg_bonus_card_index),
+            )
         pending_skill_choices = max(0, pending_skill_choices - 1)
         runtime_skill_choice_pending = pending_skill_choices > 0
 
@@ -23296,7 +23404,9 @@ def show_all_runtime_skills_menu() -> str | None:
             apply_instant_skill_effect(skill_id)
         else:
             # 일반 스킬은 레벨업
-            apply_runtime_skill_effect(skill_id)
+            if not apply_runtime_skill_effect(skill_id):
+                pygame.event.clear()
+                return None
         return skill_id
 
     pygame.event.clear()
