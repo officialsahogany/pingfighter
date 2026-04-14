@@ -80659,7 +80659,7 @@ def handle_player(keys):
 
             # 올라갔다 내려오기: 다크는 더 높이 솟고 착지도 부드럽게
             _jump_up_ms = int(300 * _db_time_mult)
-            _jump_peak = 480.0 if _viper_dark_blade_active else 80.0  # 다크 블레이드: 480px
+            _jump_peak = 400.0 if _viper_dark_blade_active else 80.0  # 다크 블레이드: 400px
             if _br_elapsed < _jump_up_ms:
                 # 올라가기 (이징: 빠르게 올라감)
                 _jt = _br_elapsed / _jump_up_ms
