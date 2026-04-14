@@ -80657,19 +80657,20 @@ def handle_player(keys):
             # 단계 2: 검기 발사 + 승룡권 점프 + 숨내쉬기 (일반 1000ms / 다크 500ms)
             _br_rest_t = min(1.0, _br_elapsed / _br_rest_dur)
 
-            # 올라갔다 내려오기: 전반 30% 올라감, 후반 70% 내려옴
+            # 올라갔다 내려오기: 다크는 더 높이 솟고 착지도 부드럽게
             _jump_up_ms = int(300 * _db_time_mult)
-            _jump_peak = 240.0 if _viper_dark_blade_active else 80.0  # 다크 블레이드: 3배 높이(240px)
+            _jump_peak = 360.0 if _viper_dark_blade_active else 80.0  # 다크 블레이드: 360px
             if _br_elapsed < _jump_up_ms:
                 # 올라가기 (이징: 빠르게 올라감)
                 _jt = _br_elapsed / _jump_up_ms
                 _viper_br_jump_offset_y = -_jump_peak * math.sin(_jt * math.pi * 0.5)
                 _viper_br_arm_raise = min(1.0, _jt * 1.5)  # 팔 올리기
             else:
-                # 내려오기 (이징: 천천히 착지)
+                # 내려오기: smootherstep(6t^5-15t^4+10t^3) → 착지 속도 0으로 부드럽게 수렴
                 _jt = (_br_elapsed - _jump_up_ms) / max(1, _br_rest_dur - _jump_up_ms)
                 _jt = min(1.0, _jt)
-                _viper_br_jump_offset_y = -_jump_peak * (1.0 - _jt * _jt)  # 제곱감속 착지
+                _smoother = _jt * _jt * _jt * (_jt * (_jt * 6.0 - 15.0) + 10.0)
+                _viper_br_jump_offset_y = -_jump_peak * (1.0 - _smoother)
                 _viper_br_arm_raise = max(0.0, 1.0 - (_jt * 1.5))  # 팔 내리기
 
             if _br_elapsed >= _br_rest_dur:
