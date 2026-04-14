@@ -171,8 +171,8 @@ class Stage3MenheraWorld:
         if self.kuromi_awakening and self.kuromi_awakening_timer > 0:
             self.kuromi_awakening_timer -= 1
 
-            # kuromiawake.wav 사운드의 폭발 클라이맥스에 맞춰 파편 생성 (~6.9초)
-            if self.kuromi_awakening_timer == 66:  # 약 6.9초 후 (사운드 최대 피크 싱크)
+            # 정확히 3초 후에 폭발적인 돌 파편 생성 (각성 완료 순간)
+            if self.kuromi_awakening_timer == 1:  # 3초 후 (마지막 프레임)
                 # 화면을 향해 날아가는 큰 돌 파편들 생성
                 center_x = self.width // 2
                 center_y = self.height // 2
@@ -269,7 +269,7 @@ class Stage3MenheraWorld:
                         return os.path.join(base_path, relative_path)
 
                     # 돌 깨지는 사운드 재생
-                    sound_path = resource_path("sounds/stonebreak3.wav")
+                    sound_path = resource_path("sounds/stonebreak_large.wav")
                     if os.path.exists(sound_path):
                         sound = pygame.mixer.Sound(sound_path)
                         sound.play()

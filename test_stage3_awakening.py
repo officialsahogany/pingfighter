@@ -58,8 +58,8 @@ while running:
             if event.key == pygame.K_SPACE and not awakening_triggered:
                 # 스페이스바로 각성 시작
                 stage3_bg.kuromi_awakening = True
-                stage3_bg.kuromi_awakening_timer = 480
-                screen_shake_timer = 480
+                stage3_bg.kuromi_awakening_timer = 180
+                screen_shake_timer = 180
                 screen_shake_intensity = 15
                 awakening_triggered = True
                 print("각성 시작! 화면 지진 효과 활성화")
@@ -108,7 +108,7 @@ while running:
         screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - 100))
     else:
         if stage3_bg.kuromi_awakening:
-            elapsed_time = (480 - stage3_bg.kuromi_awakening_timer) / 60.0  # 경과 시간 (초)
+            elapsed_time = (180 - stage3_bg.kuromi_awakening_timer) / 60.0  # 경과 시간 (초)
             status_text = f"Awakening... Timer: {stage3_bg.kuromi_awakening_timer} ({elapsed_time:.1f}s elapsed)"
             if stage3_bg.kuromi_awakening_timer == 1:
                 status_text += " - EXPLOSION NOW!"

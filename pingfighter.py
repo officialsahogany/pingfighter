@@ -30219,6 +30219,40 @@ def get_junior_speed_increase_multiplier():
     """주니어리그일 때 속도 증가율 배율 반환 (0.6 = -40% 감소, 초반 랠리 속도 안정화)"""
     global ai_mode
     return 0.6 if ai_mode == "junior" else 1.0
+
+# ── 공속 감쇠 시스템 (Diminishing Returns) ──────────────────────
+# 공이 빠를수록 추가 가속률이 줄어드는 감쇠 계수를 반환한다.
+# 기본속도(9) 근처에서는 감쇠 없음(1.0), 속도가 올라갈수록 0에 수렴.
+_SPEED_DAMPEN_K = 0.6  # 감쇠 강도 (높을수록 빨리 감쇠)
+
+def _get_speed_dampen_factor(current_speed: float) -> float:
+    """현재 공속에 따른 가속률 감쇠 계수 반환 (0.0 ~ 1.0).
+
+    공식: 1 / (1 + (speed/base - 1) * k)
+    - speed = base  → 1.0 (감쇠 없음)
+    - speed = 2×base → ~0.63
+    - speed = 3×base → ~0.45
+    - speed = 5×base → ~0.29
+    """
+    base = BALL_BASE_SPEED if BALL_BASE_SPEED > 0 else 9.0
+    ratio = current_speed / base
+    if ratio <= 1.0:
+        return 1.0
+    return 1.0 / (1.0 + (ratio - 1.0) * _SPEED_DAMPEN_K)
+
+def _apply_dampened_multiplier(current_speed: float, raw_multiplier: float) -> float:
+    """곱연산 가속 배율에 감쇠를 적용하여 반환.
+
+    raw_multiplier가 1.07이면 '7% 증가'이므로,
+    감쇠는 초과분(0.07)에만 적용: 1.0 + 0.07 * dampen
+    """
+    if raw_multiplier <= 1.0:
+        return raw_multiplier  # 감속이면 감쇠 안 함
+    dampen = _get_speed_dampen_factor(current_speed)
+    excess = raw_multiplier - 1.0
+    return 1.0 + excess * dampen
+# ── 공속 감쇠 시스템 끝 ─────────────────────────────────────────
+
 def apply_league_boss_config(base_config, league_mode):
     """리그별 보스 설정에 능력치 보정 적용"""
     multiplier = get_league_boss_multiplier(league_mode)
