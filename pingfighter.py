@@ -34322,19 +34322,19 @@ def trigger_grenade_style_explosion(
 
     # 폭발 파티클 생성 (파편 + 불씨 + 연기)
     _exp_particles = []
-    for _ei in range(30):  # 불꽃 파편
+    for _ei in range(30):  # 불꽃 파편 (빠르게 퍼짐)
         _ea = random.uniform(0, 2 * math.pi)
-        _espd = random.uniform(4.0, 14.0)
+        _espd = random.uniform(8.0, 22.0)
         _exp_particles.append({
             "x": x + random.uniform(-8, 8), "y": y + random.uniform(-8, 8),
-            "vx": math.cos(_ea) * _espd, "vy": math.sin(_ea) * _espd - 2.0,
+            "vx": math.cos(_ea) * _espd, "vy": math.sin(_ea) * _espd - 3.0,
             "life": random.randint(10, 25), "max_life": 25,
-            "size": random.uniform(2.0, 5.0), "type": "fire",
+            "size": random.uniform(2.5, 6.0), "type": "fire",
             "color_var": random.randint(0, 2),
         })
     for _ei in range(20):  # 불씨/잔불
         _ea = random.uniform(0, 2 * math.pi)
-        _espd = random.uniform(2.0, 8.0)
+        _espd = random.uniform(4.0, 12.0)
         _exp_particles.append({
             "x": x + random.uniform(-5, 5), "y": y + random.uniform(-5, 5),
             "vx": math.cos(_ea) * _espd, "vy": math.sin(_ea) * _espd * 0.7 - 1.5,
@@ -89777,10 +89777,10 @@ def handle_wall():
                        if zone["duration"] > 0 or len(zone.get("particles", [])) > 0]
     for zone in explosion_zones:
         zone["duration"] -= 1
-        # 충격파 확장
-        zone["shockwave_r"] = zone.get("shockwave_r", 0) + 15
-        # 섬광 감쇠
-        zone["flash_alpha"] = max(0, zone.get("flash_alpha", 0) - 20)
+        # 충격파 확장 (빠르게 퍼짐 → 타격감)
+        zone["shockwave_r"] = zone.get("shockwave_r", 0) + 28
+        # 섬광 감쇠 (빠르게 번쩍)
+        zone["flash_alpha"] = max(0, zone.get("flash_alpha", 0) - 45)
         # 파티클 물리 업데이트
         for _ep in zone.get("particles", [])[:]:
             _ep["x"] += _ep["vx"]
@@ -120555,17 +120555,23 @@ def draw_objects():
                     pygame.draw.circle(_explosion_overlay_surf,
                         (255, 240, 160, _sw_a3), (_ez_x, _ez_y), _sw_inner, max(1, 2))
                 _exp_has_draw = True
-            # ── 3. 화염 코어 (축소형, 원 5개로 그라데이션) ──
+            # ── 3. 화염 코어 (빠르게 팽창 → 서서히 축소, 타격감) ──
             if _ez_dur > 0:
-                _core_max_r = int(_ez_rad * 0.6 * _ez_pct)
+                # 처음 3프레임: 빠르게 팽창 (0→100%), 이후: 서서히 축소
+                _elapsed = 15 - _ez_dur  # 경과 프레임 (0~14)
+                if _elapsed < 3:
+                    _core_scale = min(1.0, (_elapsed + 1) / 2.5)  # 빠른 팽창
+                else:
+                    _core_scale = max(0.0, 1.0 - (_elapsed - 3) / 12.0)  # 느린 축소
+                _core_max_r = int(_ez_rad * 0.7 * _core_scale)
                 if _core_max_r > 3:
-                    # 5단계 그라데이션 (바깥→안쪽: 어두운빨강→주황→노랑→흰색)
+                    _core_alpha_mult = min(1.0, _ez_pct * 1.5)  # 알파도 수명 비례
                     _core_colors = [
-                        (180, 40, 20, int(100 * _ez_pct)),
-                        (230, 80, 20, int(130 * _ez_pct)),
-                        (255, 150, 40, int(150 * _ez_pct)),
-                        (255, 220, 100, int(170 * _ez_pct)),
-                        (255, 255, 220, int(200 * _ez_pct)),
+                        (180, 40, 20, int(120 * _core_alpha_mult)),
+                        (230, 80, 20, int(150 * _core_alpha_mult)),
+                        (255, 150, 40, int(170 * _core_alpha_mult)),
+                        (255, 220, 100, int(190 * _core_alpha_mult)),
+                        (255, 255, 220, int(220 * _core_alpha_mult)),
                     ]
                     for _ci, _cc in enumerate(_core_colors):
                         _cr = max(2, int(_core_max_r * (1.0 - _ci * 0.18)))
