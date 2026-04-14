@@ -4576,8 +4576,8 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "dark_blade", "korean": "다크 블레이드", "cost": 200, "color": (120, 0, 30),
-        "symbol": "⚔", "cooldown": 60.0, "key": "W/↑(연계)",
-        "description": "쉐도우 백스텝/마샬 킥/팬텀 킥으로\n공을 타격한 후 3초 안에 공중 에어 블레이드 시 변환.\n검기 크기 50% 증가, 사거리 2배, 점프 솟구침.\n검붉은 강화 검기 발사. 쿨타임 60초.",
+        "symbol": "⚔", "cooldown": 35.0, "key": "W/↑(연계)",
+        "description": "쉐도우 백스텝/마샬 킥/팬텀 킥으로\n공을 타격한 후 3초 안에 공중 에어 블레이드 시 변환.\n검기 크기 50% 증가, 사거리 2배, 점프 솟구침.\n검붉은 강화 검기 발사. 쿨타임 35초.",
         "how_to_use": "공을 맞춘 쉐도우 백스텝·마샬 킥·팬텀 킥 후 3초 내 공중 W/↑키",
         "effect_type": "slash_dark"
     },
@@ -15376,7 +15376,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "쉐도우 백스텝·마샬 킥·팬텀 킥으로 공 타격 후 공중 에어 블레이드 시 발동",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 3바퀴(연장 모션) → 점프 320px 솟구침,\n검기 크기 50% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 60초.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 3바퀴(연장 모션) → 점프 320px 솟구침,\n검기 크기 50% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 35초.",
         "icon_color": (120, 0, 30),
         "tree": "viper",
         "character_restriction": "viper"
@@ -53987,6 +53987,7 @@ _viper_br_spin_active = False        # 회전 연출 활성
 _viper_br_spin_start_ms = 0          # 회전 시작 시각 (ms)
 _viper_br_spin_phase = 0             # 현재 연출 단계: 0=회전, 1=감속, 2=정지(숨내쉬기)
 _viper_br_spin_angle = 0.0           # 현재 회전 각도 (도)
+_viper_br_dark_mode = False          # 현재 에어 블레이드 모션이 다크 블레이드 버전인지
 _VIPER_BR_SPIN_DURATION = 400        # 2바퀴 회전 시간 (ms)
 _VIPER_BR_DECEL_DURATION = 200       # 감속 시간 (ms)
 _VIPER_BR_REST_DURATION = 1000       # 정지(숨내쉬기) 시간 (ms)
@@ -64344,7 +64345,7 @@ def go_to_next_round():
         else:
             _viper_skill_cooldowns["marshal_kick"] = 0
     global _viper_dive_active, _viper_dive_phase, _viper_dive_hold_start_ms
-    global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase
+    global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase, _viper_br_dark_mode
     global _viper_dark_blade_active, _viper_dark_blade_window, _viper_blade_rush_width
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_particles
     global _viper_speed_boost_active
@@ -64385,6 +64386,7 @@ def go_to_next_round():
     _viper_blade_rush_width = 350
     _viper_br_spin_active = False
     _viper_br_spin_phase = 0
+    _viper_br_dark_mode = False
     _reset_viper_jetpack_state()
     _viper_speed_boost_active = False
     _viper_phantom_strike_active = False
@@ -79460,7 +79462,7 @@ def handle_player(keys):
         global _viper_blade_rush_active, _viper_blade_rush_x, _viper_blade_rush_y, _viper_blade_rush_fadeout, _viper_blade_rush_fadeout_timer
         global _viper_blade_rush_start_y, _viper_blade_rush_target_y, _viper_blade_rush_hit_ball
         global _viper_blade_rush_particles, _viper_blade_rush_trail, _viper_blade_rush_width
-        global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle
+        global _viper_br_spin_active, _viper_br_spin_start_ms, _viper_br_spin_phase, _viper_br_spin_angle, _viper_br_dark_mode
         global _viper_br_jump_offset_y, _viper_br_arm_raise
         global _viper_ss_hologram_active, _viper_ss_hologram_start_ms, _viper_ss_hologram_target_x, _viper_ss_kick_ready
         global _viper_ss_hologram_origin_x, _viper_ss_hologram_origin_y, _viper_dash_origin_x, _viper_dash_was_airborne, _viper_ss_hologram_kick_dir, _viper_ss_hologram_kick_hit
@@ -79704,6 +79706,7 @@ def handle_player(keys):
 
                     # 에어 블레이드 스핀 종료 (연계기로 전환)
                     _viper_br_spin_active = False
+                    _viper_br_dark_mode = False
                     _viper_br_spin_angle = 0.0
                     _viper_br_jump_offset_y = 0.0
                     _viper_br_arm_raise = 0.0
@@ -79724,9 +79727,10 @@ def handle_player(keys):
                     if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                         _viper_w_key_released = False
                         special_gauge -= 200
-                        trigger_viper_skill_cooldown("dark_blade")  # 다크 블레이드 60초 쿨타임 (VIPER_SKILL_ICONS_DATA 참조)
+                        trigger_viper_skill_cooldown("dark_blade")  # 다크 블레이드 35초 쿨타임 (VIPER_SKILL_ICONS_DATA 참조)
                         _viper_nerve_strike_combo_used = False
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
+                        _viper_br_dark_mode = True        # 모션은 검기 페이드아웃과 무관하게 끝까지 다크 버전 유지
                         _viper_dark_blade_window = False   # 콤보 윈도우 소모
                         # 마샬/팬텀 킥 중 발동 시 벽타기 애니메이션 종료하고 공중 전환
                         if _viper_wall_dive_active:
@@ -79758,6 +79762,7 @@ def handle_player(keys):
                             trigger_viper_skill_cooldown("blade_rush")
                             _viper_nerve_strike_combo_used = False  # 새 에어 블레이드에서 연계기 초기화
                             _viper_dark_blade_active = False  # 일반 에어 블레이드
+                            _viper_br_dark_mode = False
 
                             # 회전 연출 시작 (회전 → 감속 → 정지 후 검기 발사)
                             _viper_br_spin_active = True
@@ -79857,6 +79862,7 @@ def handle_player(keys):
             # 에어 블레이드 체공 중이면 스핀 즉시 종료
             if _viper_br_spin_active:
                 _viper_br_spin_active = False
+                _viper_br_dark_mode = False
                 _viper_br_spin_angle = 0.0
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
@@ -80422,7 +80428,7 @@ def handle_player(keys):
                 _jp_hold_p = min(1.0, (pygame.time.get_ticks() - _viper_dive_hold_start_ms) / _VIPER_DIVE_HOLD_REQUIRED_MS)
                 _jp_fall = _VIPER_JETPACK_FALL_SPEED * (1.0 - _jp_hold_p * 0.9)
             # 다크 블레이드 구르기(phase 0/1) 중에는 일반 에어 블레이드보다 천천히 하강
-            if (_viper_dark_blade_active and _viper_br_spin_active
+            if (_viper_br_dark_mode and _viper_br_spin_active
                     and _viper_br_spin_phase < 2):
                 _jp_fall *= 0.3  # 30% 속도로 천천히 내려옴
             _viper_jetpack_offset_y = min(0, _viper_jetpack_offset_y + _jp_fall)
@@ -80840,13 +80846,13 @@ def handle_player(keys):
         _br_now = pygame.time.get_ticks()
         _br_elapsed = _br_now - _viper_br_spin_start_ms
         # 다크 블레이드: 구르는 모션 대폭 연장 (회전 지속 시간 2.5x, 회전 수 2배)
-        _db_time_mult = 1.5 if _viper_dark_blade_active else 1.0
-        _db_spin_mult = 2.5 if _viper_dark_blade_active else 1.0  # phase 0만 더 길게
-        _db_spin_turns = 3.0 if _viper_dark_blade_active else 2.0  # 다크: 3바퀴, 일반: 2바퀴
+        _db_time_mult = 1.5 if _viper_br_dark_mode else 1.0
+        _db_spin_mult = 2.5 if _viper_br_dark_mode else 1.0  # phase 0만 더 길게
+        _db_spin_turns = 3.0 if _viper_br_dark_mode else 2.0  # 다크: 3바퀴, 일반: 2바퀴
         _br_spin_dur = int(_VIPER_BR_SPIN_DURATION * _db_spin_mult)
         _br_decel_dur = int(_VIPER_BR_DECEL_DURATION * _db_time_mult)
         # 다크 블레이드: 착지(내려오는) 구간을 일반 대비 길게 → 가속 낙하(ease-in)로 자연스럽게 착지
-        if _viper_dark_blade_active:
+        if _viper_br_dark_mode:
             _db_jump_up_ms = int(300 * _db_time_mult)
             _db_descent_dur = int((_VIPER_BR_REST_DURATION - 300) * 1.5)
             _br_rest_dur = _db_jump_up_ms + _db_descent_dur
@@ -80893,14 +80899,14 @@ def handle_player(keys):
                 except Exception:
                     pass
                 # 다크 블레이드: 검기 크기 50% 증가
-                _db_size_mult = 1.5 if _viper_dark_blade_active else 1.0
+                _db_size_mult = 1.5 if _viper_br_dark_mode else 1.0
                 _viper_blade_rush_active = True
                 _viper_blade_rush_fadeout = False
                 _viper_blade_rush_fadeout_timer = 0
                 _viper_blade_rush_x = float(PLAYER.centerx)
                 _viper_blade_rush_start_y = float(PLAYER.centery - 20)
                 _viper_blade_rush_y = _viper_blade_rush_start_y
-                _db_range_mult = 2.0 if _viper_dark_blade_active else 1.0  # 다크 블레이드: 사거리 500px
+                _db_range_mult = 2.0 if _viper_br_dark_mode else 1.0  # 다크 블레이드: 사거리 500px
                 _viper_blade_rush_target_y = _viper_blade_rush_start_y - int(250 * _db_range_mult)
                 _viper_blade_rush_width = int(350 * _db_size_mult)  # X축 폭 (일반 350 / 다크 525)
                 _viper_blade_rush_hit_ball = False
@@ -80909,7 +80915,7 @@ def handle_player(keys):
                 # 온라인: 검기 발사 이벤트 전송
                 _online_send_effect('blade', x=PLAYER.centerx, y=PLAYER.centery - 20,
                                     hw=_viper_blade_rush_width // 2, dir='up', dur=800)
-                _db_launch_color = (200, 30, 50) if _viper_dark_blade_active else (200, 50, 255)
+                _db_launch_color = (200, 30, 50) if _viper_br_dark_mode else (200, 50, 255)
                 try:
                     effects_manager.spawn_shockwave(
                         PLAYER.centerx, PLAYER.centery - 20,
@@ -80921,36 +80927,35 @@ def handle_player(keys):
         elif _viper_br_spin_phase == 2:
             # 단계 2: 검기 발사 + 승룡권 점프 + 숨내쉬기 (일반 1000ms / 다크 500ms)
             _br_rest_t = min(1.0, _br_elapsed / _br_rest_dur)
+            _br_floor_bottom = _compute_player_floor_bottom(
+                CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+            )
 
             # 올라갔다 내려오기: 다크는 더 높이 솟고 착지도 부드럽게
             _jump_up_ms = int(300 * _db_time_mult)
-            _jump_peak = 320.0 if _viper_dark_blade_active else 80.0  # 다크 블레이드: 320px
+            _jump_peak = 320.0 if _viper_br_dark_mode else 80.0  # 다크 블레이드: 320px
             if _br_elapsed < _jump_up_ms:
                 # 올라가기 (이징: 빠르게 올라감)
                 _jt = _br_elapsed / _jump_up_ms
                 _viper_br_jump_offset_y = -_jump_peak * math.sin(_jt * math.pi * 0.5)
                 _viper_br_arm_raise = min(1.0, _jt * 1.5)  # 팔 올리기
             else:
-                # 내려오기: ease-in-cubic(t^3) → 중력처럼 가속 낙하, 끝에서 땅에 붙어 스냅감 제거
+                # 내려오기: ease-in-sine → 가속 낙하를 유지하면서 끝부분 점프 폭을 줄여 착지 스냅 완화
                 _jt = (_br_elapsed - _jump_up_ms) / max(1, _br_rest_dur - _jump_up_ms)
                 _jt = min(1.0, _jt)
-                _smoother = _jt * _jt * _jt
-                _viper_br_jump_offset_y = -_jump_peak * (1.0 - _smoother)
+                _fall_progress = 1.0 - math.cos(_jt * math.pi * 0.5)
+                _viper_br_jump_offset_y = -_jump_peak * (1.0 - _fall_progress)
                 _viper_br_arm_raise = max(0.0, 1.0 - (_jt * 1.5))  # 팔 내리기
+
+            PLAYER.bottom = int(_br_floor_bottom + _viper_br_jump_offset_y)
 
             if _br_elapsed >= _br_rest_dur:
                 _viper_br_spin_active = False
+                _viper_br_dark_mode = False
                 _viper_br_spin_angle = 0.0
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
-                align_player_to_floor()
-
-        # PLAYER rect Y 위치 적용 (물리 판정에 반영) — 공중에서도 공이 패들에 맞도록
-        if _viper_br_spin_active and _viper_br_jump_offset_y < 0:
-            _br_baseline = _compute_player_floor_bottom(
-                CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
-            )
-            PLAYER.bottom = int(_br_baseline + _viper_br_jump_offset_y)
+                PLAYER.bottom = int(_br_floor_bottom)
 
     # 바이퍼 에어 블레이드 검기 업데이트 (매 프레임)
     if _viper_blade_rush_active:
@@ -84728,7 +84733,7 @@ def handle_player(keys):
                                 _jet_height_ratio = min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
                                 _gb_mult *= 1.0 + _jet_height_ratio * 2.15
                             # ⚔️ 다크 블레이드 구르기 중 좌우 이동속도 2배
-                            if _viper_dark_blade_active and _viper_br_spin_active:
+                            if _viper_br_dark_mode and _viper_br_spin_active:
                                 _gb_mult *= 2.0
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_mult
@@ -84803,7 +84808,7 @@ def handle_player(keys):
                                 adjusted_acceleration *= _jet_speed_bonus
                                 adjusted_max_speed *= _jet_speed_bonus
                             # ⚔️ 다크 블레이드 구르기 중 좌우 이동속도 3배
-                            if _viper_dark_blade_active and _viper_br_spin_active:
+                            if _viper_br_dark_mode and _viper_br_spin_active:
                                 adjusted_acceleration *= 3.0
                                 adjusted_max_speed *= 3.0
                             if _hs_speed_active:
@@ -118781,7 +118786,7 @@ def draw_objects():
                     # 정지 단계: 숨내쉬기 + 팔 서서히 내림
                     _rest_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms
                     # 다크 블레이드일 때 phase 2 길이(450 + (1000-300)*1.5 = 1500ms)에 맞춰 호흡 파형 시간축 정규화
-                    if _viper_dark_blade_active:
+                    if _viper_br_dark_mode:
                         _breath_total = int(300 * 1.5) + int((_VIPER_BR_REST_DURATION - 300) * 1.5)
                     else:
                         _breath_total = _VIPER_BR_REST_DURATION
