@@ -21268,6 +21268,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 
             # === 캐릭터 고유 퍽 테마 테두리 ===
             char_restriction = choice.get("character_restriction")
+            _excl_outer_glow_color = None  # 카드 외부 글로우용 (SCREEN 레벨)
             if char_restriction:
                 _excl_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.1)
                 _excl_fast_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.18)
@@ -21275,60 +21276,79 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                 if char_restriction == "smasher":
                     # 스매셔: 시안 전기 에너지 테두리
                     _ec1 = (0, 200, 255)  # 시안
-                    _ec2 = (100, 240, 255)  # 밝은 시안
-                    _ea = int(80 + 60 * _excl_pulse)
-                    # 외곽 에너지 글로우 (2레이어)
-                    for _go in range(4, 0, -1):
+                    _ec2 = (120, 240, 255)  # 밝은 시안
+                    _ec3 = (200, 255, 255)  # 하이라이트 (거의 흰색)
+                    _excl_outer_glow_color = _ec1
+                    # 외곽 에너지 글로우 (넓은 범위)
+                    for _go in range(7, 0, -1):
                         _gr = pygame.Rect(_go, _go, scaled_width - _go * 2, scaled_height - _go * 2)
-                        _ga = int(min(card_alpha, _ea - _go * 15))
+                        _ga = int(min(card_alpha, 100 + 50 * _excl_pulse - _go * 12))
                         if _ga > 0:
                             pygame.draw.rect(card_surface, (*_ec1, _ga), _gr, 1, border_radius=12)
-                    # 내부 밝은 테두리선
-                    _inner_a = int(min(card_alpha, 60 + 40 * _excl_pulse))
-                    pygame.draw.rect(card_surface, (*_ec2, _inner_a),
-                                    pygame.Rect(2, 2, scaled_width - 4, scaled_height - 4), 1, border_radius=11)
-                    # 코너 번개 스파크 (4개 코너)
-                    _corners = [(6, 6), (scaled_width - 7, 6), (6, scaled_height - 7), (scaled_width - 7, scaled_height - 7)]
+                    # 메인 테두리 (두꺼운 시안)
+                    pygame.draw.rect(card_surface, (*_ec1, int(min(card_alpha, 160 + 60 * _excl_pulse))),
+                                    pygame.Rect(1, 1, scaled_width - 2, scaled_height - 2), 2, border_radius=12)
+                    # 내부 밝은 하이라이트 선
+                    _inner_a = int(min(card_alpha, 80 + 60 * _excl_pulse))
+                    pygame.draw.rect(card_surface, (*_ec3, _inner_a),
+                                    pygame.Rect(3, 3, scaled_width - 6, scaled_height - 6), 1, border_radius=10)
+                    # 코너 번개 스파크 (4개 코너, 더 크고 밝게)
+                    _corners = [(7, 7), (scaled_width - 8, 7), (7, scaled_height - 8), (scaled_width - 8, scaled_height - 8)]
                     for _ci_c, (_cx, _cy) in enumerate(_corners):
-                        _sp_phase = (frame_count + _ci_c * 7) % 20
-                        if _sp_phase < 8:
-                            _sp_a = int(min(card_alpha, 180 - _sp_phase * 20))
+                        _sp_phase = (frame_count + _ci_c * 5) % 15
+                        if _sp_phase < 10:
+                            _sp_a = int(min(card_alpha, 220 - _sp_phase * 18))
                             if _sp_a > 0:
-                                _sp_r = 3 if _sp_phase < 3 else 2
-                                pygame.gfxdraw.filled_circle(card_surface, _cx, _cy, _sp_r, (*_ec2, _sp_a))
-                    # 상하단 에너지 라인 (번개처럼 지직거림)
-                    _line_y_top = 3
-                    _line_y_bot = scaled_height - 4
-                    _seg_count = 6
+                                _sp_r = 4 if _sp_phase < 3 else (3 if _sp_phase < 6 else 2)
+                                pygame.gfxdraw.filled_circle(card_surface, _cx, _cy, _sp_r, (*_ec3, min(255, _sp_a)))
+                                if _sp_phase < 3:
+                                    pygame.gfxdraw.filled_circle(card_surface, _cx, _cy, _sp_r + 1, (*_ec1, min(255, _sp_a // 2)))
+                    # 상하단 에너지 라인 (번개처럼 지직거림, 더 굵고 밝게)
+                    _line_y_top = 2
+                    _line_y_bot = scaled_height - 3
+                    _seg_count = 8
                     for _si in range(_seg_count):
-                        _sx1 = int(12 + (scaled_width - 24) * _si / _seg_count)
-                        _sx2 = int(12 + (scaled_width - 24) * (_si + 1) / _seg_count)
-                        _jitter = int(math.sin(frame_count * 0.3 + _si * 1.5) * 2)
-                        _la = int(min(card_alpha, 50 + 30 * _excl_fast_pulse))
+                        _sx1 = int(10 + (scaled_width - 20) * _si / _seg_count)
+                        _sx2 = int(10 + (scaled_width - 20) * (_si + 1) / _seg_count)
+                        _jitter = int(math.sin(frame_count * 0.4 + _si * 1.2) * 3)
+                        _la = int(min(card_alpha, 90 + 50 * _excl_fast_pulse))
                         if _la > 0:
-                            pygame.draw.line(card_surface, (*_ec1, _la), (_sx1, _line_y_top + _jitter), (_sx2, _line_y_top - _jitter), 1)
-                            pygame.draw.line(card_surface, (*_ec1, _la), (_sx1, _line_y_bot - _jitter), (_sx2, _line_y_bot + _jitter), 1)
+                            pygame.draw.line(card_surface, (*_ec2, _la), (_sx1, _line_y_top + _jitter), (_sx2, _line_y_top - _jitter), 1)
+                            pygame.draw.line(card_surface, (*_ec2, _la), (_sx1, _line_y_bot - _jitter), (_sx2, _line_y_bot + _jitter), 1)
+                    # 좌우에도 전기 라인 추가
+                    _seg_v = 5
+                    for _si in range(_seg_v):
+                        _sy1 = int(10 + (scaled_height - 20) * _si / _seg_v)
+                        _sy2 = int(10 + (scaled_height - 20) * (_si + 1) / _seg_v)
+                        _jitter = int(math.sin(frame_count * 0.35 + _si * 1.8) * 2)
+                        _la = int(min(card_alpha, 70 + 40 * _excl_fast_pulse))
+                        if _la > 0:
+                            pygame.draw.line(card_surface, (*_ec1, _la), (2 + _jitter, _sy1), (2 - _jitter, _sy2), 1)
+                            pygame.draw.line(card_surface, (*_ec1, _la), (scaled_width - 3 - _jitter, _sy1), (scaled_width - 3 + _jitter, _sy2), 1)
 
                 elif char_restriction == "viper":
                     # 바이퍼: 보라색 독기 테두리
                     _ec1 = (160, 0, 220)   # 진한 보라
                     _ec2 = (200, 80, 255)  # 밝은 보라
-                    _ea = int(80 + 60 * _excl_pulse)
-                    # 외곽 독기 글로우
-                    for _go in range(5, 0, -1):
+                    _ec3 = (240, 160, 255) # 하이라이트
+                    _excl_outer_glow_color = _ec1
+                    # 외곽 독기 글로우 (넓은 범위)
+                    for _go in range(7, 0, -1):
                         _gr = pygame.Rect(_go, _go, scaled_width - _go * 2, scaled_height - _go * 2)
-                        _ga = int(min(card_alpha, _ea - _go * 12))
+                        _ga = int(min(card_alpha, 100 + 50 * _excl_pulse - _go * 10))
                         if _ga > 0:
                             pygame.draw.rect(card_surface, (*_ec1, _ga), _gr, 1, border_radius=12)
-                    # 내부 밝은 테두리
-                    _inner_a = int(min(card_alpha, 50 + 40 * _excl_pulse))
-                    pygame.draw.rect(card_surface, (*_ec2, _inner_a),
-                                    pygame.Rect(2, 2, scaled_width - 4, scaled_height - 4), 1, border_radius=11)
-                    # 모서리 독연기 파티클 (테두리를 따라 떠다님)
-                    _poison_count = 8
+                    # 메인 테두리 (두꺼운 보라)
+                    pygame.draw.rect(card_surface, (*_ec2, int(min(card_alpha, 150 + 60 * _excl_pulse))),
+                                    pygame.Rect(1, 1, scaled_width - 2, scaled_height - 2), 2, border_radius=12)
+                    # 내부 밝은 하이라이트
+                    _inner_a = int(min(card_alpha, 70 + 50 * _excl_pulse))
+                    pygame.draw.rect(card_surface, (*_ec3, _inner_a),
+                                    pygame.Rect(3, 3, scaled_width - 6, scaled_height - 6), 1, border_radius=10)
+                    # 독연기 파티클 (테두리를 따라 떠다님, 더 많고 크게)
+                    _poison_count = 12
                     for _pi in range(_poison_count):
-                        _vt = (frame_count * 0.02 + _pi * (2 * math.pi / _poison_count)) % (2 * math.pi)
-                        # 테두리를 따라 이동하는 경로 (사각형 둘레)
+                        _vt = (frame_count * 0.025 + _pi * (2 * math.pi / _poison_count)) % (2 * math.pi)
                         _perim = 2 * (scaled_width + scaled_height - 8)
                         _pos_on_perim = (_vt / (2 * math.pi)) * _perim
                         if _pos_on_perim < scaled_width - 8:
@@ -21343,86 +21363,132 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                         else:
                             _px = 3
                             _py = int(scaled_height - 4 - (_pos_on_perim - 2 * (scaled_width - 8) - (scaled_height - 8)))
-                        _pa = int(min(card_alpha, 100 + 60 * math.sin(frame_count * 0.15 + _pi)))
+                        _pa = int(min(card_alpha, 160 + 70 * math.sin(frame_count * 0.15 + _pi)))
                         if _pa > 0 and 0 <= _px < scaled_width and 0 <= _py < scaled_height:
-                            _pr = 2 if _pi % 3 == 0 else 1
-                            pygame.gfxdraw.filled_circle(card_surface, _px, _py, _pr, (*_ec2, min(255, _pa)))
+                            _pr = 3 if _pi % 4 == 0 else 2
+                            _pc = _ec3 if _pi % 3 == 0 else _ec2
+                            pygame.gfxdraw.filled_circle(card_surface, _px, _py, _pr, (*_pc, min(255, _pa)))
+                            # 파티클 주변 희미한 글로우
+                            if _pr >= 3:
+                                pygame.gfxdraw.filled_circle(card_surface, _px, _py, _pr + 2, (*_ec1, min(255, _pa // 3)))
+                    # 코너에 독기 웅덩이 효과
+                    _vcorners = [(6, 6), (scaled_width - 7, 6), (6, scaled_height - 7), (scaled_width - 7, scaled_height - 7)]
+                    for _vi, (_vx, _vy) in enumerate(_vcorners):
+                        _va = int(min(card_alpha, 100 + 60 * math.sin(frame_count * 0.08 + _vi * 1.5)))
+                        if _va > 0:
+                            pygame.gfxdraw.filled_circle(card_surface, _vx, _vy, 4, (*_ec1, min(255, _va // 2)))
+                            pygame.gfxdraw.filled_circle(card_surface, _vx, _vy, 2, (*_ec2, min(255, _va)))
 
                 elif char_restriction == "optimus":
                     # 옵티머스: 오렌지 메카닉 테두리
                     _ec1 = (255, 140, 0)   # 오렌지
                     _ec2 = (255, 200, 80)  # 밝은 옐로우
-                    _ea = int(70 + 50 * _excl_pulse)
-                    # 외곽 메카 글로우
-                    for _go in range(4, 0, -1):
+                    _ec3 = (255, 230, 150) # 하이라이트
+                    _excl_outer_glow_color = _ec1
+                    # 외곽 메카 글로우 (넓은 범위)
+                    for _go in range(7, 0, -1):
                         _gr = pygame.Rect(_go, _go, scaled_width - _go * 2, scaled_height - _go * 2)
-                        _ga = int(min(card_alpha, _ea - _go * 14))
+                        _ga = int(min(card_alpha, 90 + 50 * _excl_pulse - _go * 10))
                         if _ga > 0:
                             pygame.draw.rect(card_surface, (*_ec1, _ga), _gr, 1, border_radius=12)
-                    # 내부 테두리
-                    _inner_a = int(min(card_alpha, 50 + 35 * _excl_pulse))
-                    pygame.draw.rect(card_surface, (*_ec2, _inner_a),
-                                    pygame.Rect(2, 2, scaled_width - 4, scaled_height - 4), 1, border_radius=11)
-                    # 코너 기어/회로 장식 (L자 형태)
-                    _corner_len = 10
-                    _ca = int(min(card_alpha, 120 + 60 * _excl_pulse))
+                    # 메인 테두리 (두꺼운 오렌지)
+                    pygame.draw.rect(card_surface, (*_ec1, int(min(card_alpha, 150 + 60 * _excl_pulse))),
+                                    pygame.Rect(1, 1, scaled_width - 2, scaled_height - 2), 2, border_radius=12)
+                    # 내부 하이라이트
+                    _inner_a = int(min(card_alpha, 60 + 50 * _excl_pulse))
+                    pygame.draw.rect(card_surface, (*_ec3, _inner_a),
+                                    pygame.Rect(3, 3, scaled_width - 6, scaled_height - 6), 1, border_radius=10)
+                    # 코너 기어/회로 장식 (L자 형태, 더 두껍고 밝게)
+                    _corner_len = 14
+                    _ca = int(min(card_alpha, 180 + 60 * _excl_pulse))
                     if _ca > 0:
                         # 좌상단
-                        pygame.draw.line(card_surface, (*_ec1, _ca), (3, 8), (3, 8 + _corner_len), 2)
-                        pygame.draw.line(card_surface, (*_ec1, _ca), (3, 8), (3 + _corner_len, 8), 2)
+                        pygame.draw.line(card_surface, (*_ec2, _ca), (3, 6), (3, 6 + _corner_len), 2)
+                        pygame.draw.line(card_surface, (*_ec2, _ca), (3, 6), (3 + _corner_len, 6), 2)
+                        pygame.draw.line(card_surface, (*_ec3, _ca // 2), (5, 8), (5, 8 + _corner_len - 4), 1)
+                        pygame.draw.line(card_surface, (*_ec3, _ca // 2), (5, 8), (5 + _corner_len - 4, 8), 1)
                         # 우상단
-                        pygame.draw.line(card_surface, (*_ec1, _ca), (scaled_width - 4, 8), (scaled_width - 4, 8 + _corner_len), 2)
-                        pygame.draw.line(card_surface, (*_ec1, _ca), (scaled_width - 4, 8), (scaled_width - 4 - _corner_len, 8), 2)
+                        pygame.draw.line(card_surface, (*_ec2, _ca), (scaled_width - 4, 6), (scaled_width - 4, 6 + _corner_len), 2)
+                        pygame.draw.line(card_surface, (*_ec2, _ca), (scaled_width - 4, 6), (scaled_width - 4 - _corner_len, 6), 2)
+                        pygame.draw.line(card_surface, (*_ec3, _ca // 2), (scaled_width - 6, 8), (scaled_width - 6, 8 + _corner_len - 4), 1)
+                        pygame.draw.line(card_surface, (*_ec3, _ca // 2), (scaled_width - 6, 8), (scaled_width - 6 - _corner_len + 4, 8), 1)
                         # 좌하단
-                        pygame.draw.line(card_surface, (*_ec1, _ca), (3, scaled_height - 9), (3, scaled_height - 9 - _corner_len), 2)
-                        pygame.draw.line(card_surface, (*_ec1, _ca), (3, scaled_height - 9), (3 + _corner_len, scaled_height - 9), 2)
+                        pygame.draw.line(card_surface, (*_ec2, _ca), (3, scaled_height - 7), (3, scaled_height - 7 - _corner_len), 2)
+                        pygame.draw.line(card_surface, (*_ec2, _ca), (3, scaled_height - 7), (3 + _corner_len, scaled_height - 7), 2)
+                        pygame.draw.line(card_surface, (*_ec3, _ca // 2), (5, scaled_height - 9), (5, scaled_height - 9 - _corner_len + 4), 1)
+                        pygame.draw.line(card_surface, (*_ec3, _ca // 2), (5, scaled_height - 9), (5 + _corner_len - 4, scaled_height - 9), 1)
                         # 우하단
-                        pygame.draw.line(card_surface, (*_ec1, _ca), (scaled_width - 4, scaled_height - 9), (scaled_width - 4, scaled_height - 9 - _corner_len), 2)
-                        pygame.draw.line(card_surface, (*_ec1, _ca), (scaled_width - 4, scaled_height - 9), (scaled_width - 4 - _corner_len, scaled_height - 9), 2)
-                    # 상하 중앙 회로 도트
-                    _dot_count = 4
+                        pygame.draw.line(card_surface, (*_ec2, _ca), (scaled_width - 4, scaled_height - 7), (scaled_width - 4, scaled_height - 7 - _corner_len), 2)
+                        pygame.draw.line(card_surface, (*_ec2, _ca), (scaled_width - 4, scaled_height - 7), (scaled_width - 4 - _corner_len, scaled_height - 7), 2)
+                        pygame.draw.line(card_surface, (*_ec3, _ca // 2), (scaled_width - 6, scaled_height - 9), (scaled_width - 6, scaled_height - 9 - _corner_len + 4), 1)
+                        pygame.draw.line(card_surface, (*_ec3, _ca // 2), (scaled_width - 6, scaled_height - 9), (scaled_width - 6 - _corner_len + 4, scaled_height - 9), 1)
+                    # 상하 중앙 회로 도트 (더 많고 밝게)
+                    _dot_count = 6
                     for _di in range(_dot_count):
                         _dx = int(scaled_width * (_di + 1) / (_dot_count + 1))
-                        _da = int(min(card_alpha, 80 + 50 * math.sin(frame_count * 0.12 + _di * 1.2)))
+                        _dp = math.sin(frame_count * 0.15 + _di * 0.9)
+                        _da = int(min(card_alpha, 130 + 70 * _dp))
                         if _da > 0:
-                            pygame.gfxdraw.filled_circle(card_surface, _dx, 4, 1, (*_ec2, _da))
-                            pygame.gfxdraw.filled_circle(card_surface, _dx, scaled_height - 5, 1, (*_ec2, _da))
+                            _dr = 2 if _dp > 0.5 else 1
+                            pygame.gfxdraw.filled_circle(card_surface, _dx, 4, _dr, (*_ec2, min(255, _da)))
+                            pygame.gfxdraw.filled_circle(card_surface, _dx, scaled_height - 5, _dr, (*_ec2, min(255, _da)))
+                    # 중앙 상하 스캔라인 효과
+                    _scan_y = int(6 + (scaled_height - 12) * (0.5 + 0.5 * math.sin(frame_count * 0.06)))
+                    _scan_a = int(min(card_alpha, 40 + 25 * _excl_pulse))
+                    if _scan_a > 0:
+                        pygame.draw.line(card_surface, (*_ec1, _scan_a), (4, _scan_y), (scaled_width - 5, _scan_y), 1)
 
                 elif char_restriction == "soldier":
                     # 솔저(코만도): 밀리터리 그린 전술 테두리
-                    _ec1 = (80, 180, 60)   # 밀리터리 그린
-                    _ec2 = (140, 220, 100) # 밝은 그린
-                    _ea = int(70 + 50 * _excl_pulse)
-                    # 외곽 전술 글로우
-                    for _go in range(4, 0, -1):
+                    _ec1 = (80, 200, 60)   # 밀리터리 그린 (더 밝게)
+                    _ec2 = (150, 240, 110) # 밝은 그린
+                    _ec3 = (200, 255, 180) # 하이라이트
+                    _excl_outer_glow_color = _ec1
+                    # 외곽 전술 글로우 (넓은 범위)
+                    for _go in range(7, 0, -1):
                         _gr = pygame.Rect(_go, _go, scaled_width - _go * 2, scaled_height - _go * 2)
-                        _ga = int(min(card_alpha, _ea - _go * 14))
+                        _ga = int(min(card_alpha, 90 + 50 * _excl_pulse - _go * 10))
                         if _ga > 0:
                             pygame.draw.rect(card_surface, (*_ec1, _ga), _gr, 1, border_radius=12)
-                    # 내부 테두리
-                    _inner_a = int(min(card_alpha, 50 + 35 * _excl_pulse))
-                    pygame.draw.rect(card_surface, (*_ec2, _inner_a),
-                                    pygame.Rect(2, 2, scaled_width - 4, scaled_height - 4), 1, border_radius=11)
-                    # 코너 전술 마커 (십자 형태)
-                    _marker_corners = [(8, 8), (scaled_width - 9, 8), (8, scaled_height - 9), (scaled_width - 9, scaled_height - 9)]
-                    _ma = int(min(card_alpha, 130 + 50 * _excl_fast_pulse))
+                    # 메인 테두리 (두꺼운 그린)
+                    pygame.draw.rect(card_surface, (*_ec1, int(min(card_alpha, 150 + 60 * _excl_pulse))),
+                                    pygame.Rect(1, 1, scaled_width - 2, scaled_height - 2), 2, border_radius=12)
+                    # 내부 하이라이트
+                    _inner_a = int(min(card_alpha, 50 + 45 * _excl_pulse))
+                    pygame.draw.rect(card_surface, (*_ec3, _inner_a),
+                                    pygame.Rect(3, 3, scaled_width - 6, scaled_height - 6), 1, border_radius=10)
+                    # 코너 전술 마커 (십자 형태, 더 크고 밝게)
+                    _marker_corners = [(9, 9), (scaled_width - 10, 9), (9, scaled_height - 10), (scaled_width - 10, scaled_height - 10)]
+                    _ma = int(min(card_alpha, 180 + 60 * _excl_fast_pulse))
                     if _ma > 0:
                         for _mx, _my in _marker_corners:
-                            pygame.draw.line(card_surface, (*_ec2, _ma), (_mx - 3, _my), (_mx + 3, _my), 1)
-                            pygame.draw.line(card_surface, (*_ec2, _ma), (_mx, _my - 3), (_mx, _my + 3), 1)
-                    # 좌우 대시 라인 (점선 스타일)
-                    _dash_len = 4
-                    _dash_gap = 6
-                    _dy_start = 14
-                    _dy_end = scaled_height - 14
+                            pygame.draw.line(card_surface, (*_ec2, min(255, _ma)), (_mx - 4, _my), (_mx + 4, _my), 2)
+                            pygame.draw.line(card_surface, (*_ec2, min(255, _ma)), (_mx, _my - 4), (_mx, _my + 4), 2)
+                            # 십자 중심 밝은 점
+                            pygame.gfxdraw.filled_circle(card_surface, _mx, _my, 1, (*_ec3, min(255, _ma)))
+                    # 좌우 대시 라인 (점선 스타일, 더 두껍게)
+                    _dash_len = 5
+                    _dash_gap = 5
+                    _dy_start = 16
+                    _dy_end = scaled_height - 16
                     _dly = _dy_start
-                    _dl_a = int(min(card_alpha, 60 + 30 * _excl_pulse))
+                    _dl_a = int(min(card_alpha, 100 + 50 * _excl_pulse))
                     if _dl_a > 0:
                         while _dly < _dy_end:
                             _dly_end = min(_dly + _dash_len, _dy_end)
-                            pygame.draw.line(card_surface, (*_ec1, _dl_a), (3, _dly), (3, _dly_end), 1)
-                            pygame.draw.line(card_surface, (*_ec1, _dl_a), (scaled_width - 4, _dly), (scaled_width - 4, _dly_end), 1)
+                            pygame.draw.line(card_surface, (*_ec1, _dl_a), (2, _dly), (2, _dly_end), 2)
+                            pygame.draw.line(card_surface, (*_ec1, _dl_a), (scaled_width - 3, _dly), (scaled_width - 3, _dly_end), 2)
                             _dly += _dash_len + _dash_gap
+                    # 상하 대시 라인도 추가
+                    _dx_start = 16
+                    _dx_end = scaled_width - 16
+                    _dlx = _dx_start
+                    if _dl_a > 0:
+                        while _dlx < _dx_end:
+                            _dlx_end = min(_dlx + _dash_len, _dx_end)
+                            pygame.draw.line(card_surface, (*_ec1, _dl_a), (_dlx, 2), (_dlx_end, 2), 1)
+                            pygame.draw.line(card_surface, (*_ec1, _dl_a), (_dlx, scaled_height - 3), (_dlx_end, scaled_height - 3), 1)
+                            _dlx += _dash_len + _dash_gap
 
             # 유니크 스킬 반짝이는 파티클 효과
             if is_unique_skill or skill_rarity == "legendary":
@@ -21525,6 +21591,19 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                     pygame.draw.rect(glow_s, (60, 220, 200, max(0, glow_a)),
                                    (0, 0, glow_rect.width, glow_rect.height), border_radius=14)
                     SCREEN.blit(glow_s, glow_rect.topleft)
+
+            # 캐릭터 고유 퍽 카드 외부 글로우 (SCREEN 레벨, 카드 밖으로 빛 번짐)
+            if _excl_outer_glow_color and card_alpha > 30:
+                _og_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.1)
+                for _og_off in range(8, 0, -2):
+                    _og_a = int(min(card_alpha, (50 - _og_off * 5) + _og_pulse * 25))
+                    if _og_a > 0:
+                        _og_r = pygame.Rect(final_x - _og_off, final_y - _og_off,
+                                           scaled_width + _og_off * 2, scaled_height + _og_off * 2)
+                        _og_s = pygame.Surface((_og_r.width, _og_r.height), pygame.SRCALPHA)
+                        pygame.draw.rect(_og_s, (*_excl_outer_glow_color, max(0, _og_a)),
+                                       (0, 0, _og_r.width, _og_r.height), border_radius=14)
+                        SCREEN.blit(_og_s, _og_r.topleft)
 
             SCREEN.blit(card_surface, (final_x, final_y))
 
