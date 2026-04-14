@@ -79570,6 +79570,44 @@ def handle_player(keys):
                         _viper_skill_gold_this_frame = True
                     except Exception:
                         pass
+                    # 🪨 마샬킥/팬텀킥 충격파로 반경 150px 내 바위 파괴 (스테이지 2)
+                    if current_stage == 2 and animated_bg_stage2 is not None:
+                        _mk_impact_x = float(BALL.centerx)
+                        _mk_impact_y = float(BALL.centery)
+                        _mk_destroy_radius = 150.0
+                        _mk_rocks_to_destroy = []
+                        for _mk_rock in animated_bg_stage2.crisis_rocks:
+                            if _mk_rock['falling']:
+                                continue
+                            _mk_rdx = _mk_rock['x'] - _mk_impact_x
+                            _mk_rdy = _mk_rock['y'] - _mk_impact_y
+                            if math.hypot(_mk_rdx, _mk_rdy) <= _mk_destroy_radius:
+                                _mk_rocks_to_destroy.append(_mk_rock)
+                        for _mk_rock in _mk_rocks_to_destroy:
+                            _mk_rock_size = _mk_rock['size']
+                            _mk_rock_golden = _mk_rock.get('is_golden', False)
+                            animated_bg_stage2.destroy_rock(_mk_rock)
+                            try:
+                                animated_bg_stage2.crisis_rocks.remove(_mk_rock)
+                            except ValueError:
+                                pass
+                            # 파괴 효과음
+                            try:
+                                if _mk_rock_size <= 45:
+                                    play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+                                elif _mk_rock_size <= 65:
+                                    play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
+                                else:
+                                    play_sound_with_volume(SOUND_STONEBREAK_LARGE)
+                            except Exception:
+                                pass
+                            # 황금 바위 보상
+                            if _mk_rock_golden:
+                                try:
+                                    trade_point_system.spawn_star(_mk_rock['x'], _mk_rock['y'], "golden_rock")
+                                    play_cached_sound("sounds/coin.wav")
+                                except Exception:
+                                    pass
                     # 공 타격 후 복귀 전환
                     if _viper_is_double_marshal:
                         # 팬텀 킥: Phase 5 (프리즈 중 제자리 대기) → 프리즈 끝나면 Phase 4
