@@ -59870,7 +59870,7 @@ def draw_smasher_combo_hud(screen, anchor_rect=None):
         bar_w = max(72, int(anchor_rect.w * 0.82))
         bar_h = max(8, int(anchor_rect.h * 0.22))
         bar_x = anchor_rect.centerx - bar_w // 2
-        bar_y = anchor_rect.bottom + max(6, int(8 * ui_scale))
+        bar_y = anchor_rect.bottom + max(12, int(18 * ui_scale))
         hover_space = "real"
     else:
         ui_scale = 1.0
@@ -59881,38 +59881,227 @@ def draw_smasher_combo_hud(screen, anchor_rect=None):
         bar_y = 78
         hover_space = "screen"
 
+    # 세로 사이즈를 조금 키워 액체 바 느낌을 살림
+    bar_h = max(bar_h, max(14, int(20 * ui_scale)))
+
     hover_rect = pygame.Rect(bar_x - 2, bar_y - 26, bar_w + 4, bar_h + 32)
     globals()['_smasher_combo_hud_display_count'] = display_combo
     globals()['_smasher_combo_hud_in_grace'] = in_grace
     globals()['_smasher_combo_hud_hover_space'] = hover_space
 
-    # 진행률: 유예 중엔 남은 유예 시간, 일반엔 항상 가득
-    if in_grace and SMASHER_DASH_COMBO_GRACE_FRAMES > 0:
-        progress = max(0.0, smasher_dash_combo_grace_timer / SMASHER_DASH_COMBO_GRACE_FRAMES)
+    # 콤보 진행률: 6콤보에서 최대 (100% 보너스 구간)
+    MAX_COMBO_FOR_GAUGE = 6
+    combo_progress_target = min(1.0, display_combo / float(MAX_COMBO_FOR_GAUGE))
+
+    # 스무딩: 목표값에 지수 이즈로 수렴 (프레임마다 부드럽게 차오름)
+    _prev_smooth = globals().get('_smasher_combo_gauge_smooth', 0.0)
+    # 차는 속도는 빠르게, 빠지는 속도는 조금 느리게 (드라마틱)
+    if combo_progress_target >= _prev_smooth:
+        ease = 0.18
     else:
-        progress = 1.0
+        ease = 0.10
+    combo_progress = _prev_smooth + (combo_progress_target - _prev_smooth) * ease
+    # 바닥/천장 스냅 (부동소수 잔차 제거)
+    if abs(combo_progress - combo_progress_target) < 0.001:
+        combo_progress = combo_progress_target
+    globals()['_smasher_combo_gauge_smooth'] = combo_progress
 
-    # 배경 (반투명 검정)
-    bg_surf = pygame.Surface((bar_w + 4, bar_h + 4), pygame.SRCALPHA)
-    pygame.draw.rect(bg_surf, (0, 0, 0, 160), (0, 0, bar_w + 4, bar_h + 4), border_radius=4)
-    screen.blit(bg_surf, (bar_x - 2, bar_y - 2))
+    # 유예 중엔 남은 유예 시간만큼 액체 감소 페이드
+    if in_grace and SMASHER_DASH_COMBO_GRACE_FRAMES > 0:
+        grace_ratio = max(0.0, smasher_dash_combo_grace_timer / SMASHER_DASH_COMBO_GRACE_FRAMES)
+        fill_alpha_mult = 0.35 + 0.65 * grace_ratio
+    else:
+        fill_alpha_mult = 1.0
 
-    # 채움
-    fill_w = max(0, int(bar_w * progress))
+    tick_ms = pygame.time.get_ticks()
+    radius = max(3, bar_h // 2)
+
+    # 1) 외곽 섀도우 (그라데이션 느낌 — 살짝 아래로 드리움)
+    shadow_surf = pygame.Surface((bar_w + 8, bar_h + 8), pygame.SRCALPHA)
+    pygame.draw.rect(shadow_surf, (0, 0, 0, 120), (0, 2, bar_w + 8, bar_h + 6),
+                     border_radius=radius + 2)
+    screen.blit(shadow_surf, (bar_x - 4, bar_y - 2))
+
+    # 2) 베이스 트랙 (어두운 금속 톤 + 내부 음영)
+    track_surf = pygame.Surface((bar_w + 4, bar_h + 4), pygame.SRCALPHA)
+    pygame.draw.rect(track_surf, (18, 18, 26, 220), (0, 0, bar_w + 4, bar_h + 4),
+                     border_radius=radius + 1)
+    pygame.draw.rect(track_surf, (45, 45, 58, 255), (1, 1, bar_w + 2, bar_h + 2),
+                     border_radius=radius)
+    # 내부 안쪽 그림자
+    inner_shadow = pygame.Surface((bar_w, bar_h), pygame.SRCALPHA)
+    pygame.draw.rect(inner_shadow, (0, 0, 0, 140), (0, 0, bar_w, max(3, bar_h // 3)),
+                     border_radius=radius)
+    track_surf.blit(inner_shadow, (2, 2))
+    screen.blit(track_surf, (bar_x - 2, bar_y - 2))
+
+    # 3) 액체 채움 — 세로 그라데이션 + 폴리곤 웨이브 표면
+    fill_w = max(0, int(bar_w * combo_progress))
     if fill_w > 0:
-        fill_surf = pygame.Surface((fill_w, bar_h), pygame.SRCALPHA)
-        pygame.draw.rect(fill_surf, (*combo_color, 230), (0, 0, fill_w, bar_h), border_radius=3)
+        # 전체 바 폭의 그라데이션 Surface를 한 번 그리고 마스크로 잘라낸다.
+        fill_surf = pygame.Surface((bar_w, bar_h), pygame.SRCALPHA)
+
+        # 좌→우 색상 그라데이션 + 세로 톤 쉐이딩
+        start_col = glow_color
+        end_col = combo_color
+        for px in range(bar_w):
+            t = px / max(1, bar_w - 1)
+            base_r = start_col[0] + (end_col[0] - start_col[0]) * t
+            base_g = start_col[1] + (end_col[1] - start_col[1]) * t
+            base_b = start_col[2] + (end_col[2] - start_col[2]) * t
+            for y in range(bar_h):
+                vt = y / max(1, bar_h - 1)
+                # 위쪽은 밝게(하이라이트), 아래쪽은 짙게(깊이감)
+                shade = 1.15 - vt * 0.45
+                r = max(0, min(255, int(base_r * shade)))
+                g = max(0, min(255, int(base_g * shade)))
+                b = max(0, min(255, int(base_b * shade)))
+                a = int(235 * fill_alpha_mult)
+                fill_surf.set_at((px, y), (r, g, b, a))
+
+        # 웨이브 파라미터 (이중파로 더 자연스럽게)
+        wave_amp = 0.8 + combo_progress * 2.6
+        wave_speed_a = 0.006 + 0.004 * combo_progress
+        wave_speed_b = 0.011 + 0.005 * combo_progress
+        wave_len_a = max(10.0, bar_w * 0.22)
+        wave_len_b = max(6.0, bar_w * 0.11)
+
+        # 액체 마스크: 채움 영역 폴리곤 (상단이 웨이브)
+        liquid_mask = pygame.Surface((bar_w, bar_h), pygame.SRCALPHA)
+        # 표면 샘플링 스텝 (성능)
+        step = 2
+        pts = []
+        surface_ys = []
+        for px in range(0, fill_w + step, step):
+            pxc = min(px, fill_w)
+            phase_a = pxc / wave_len_a + tick_ms * wave_speed_a
+            phase_b = pxc / wave_len_b + tick_ms * wave_speed_b
+            y_off = math.sin(phase_a) * wave_amp + math.sin(phase_b) * (wave_amp * 0.4)
+            # 표면 기준선: 채움이 진행될수록 상단에 가까움
+            surface_y = (1.0 - 1.0) * bar_h + y_off + wave_amp  # 항상 최상단 기준
+            surface_y = max(0.0, min(bar_h - 1.0, wave_amp + y_off))
+            pts.append((pxc, surface_y))
+            surface_ys.append((pxc, surface_y))
+        if pts:
+            poly = [(pts[0][0], bar_h)] + [(x, y) for (x, y) in pts] + [(pts[-1][0], bar_h)]
+            pygame.draw.polygon(liquid_mask, (255, 255, 255, 255), poly)
+
+        # 채움에 액체 마스크 적용 → 웨이브 형태의 액체 완성
+        fill_surf.blit(liquid_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+
+        # 라운드 클립 (바 외형 곡선 유지)
+        rmask = pygame.Surface((bar_w, bar_h), pygame.SRCALPHA)
+        pygame.draw.rect(rmask, (255, 255, 255, 255), (0, 0, bar_w, bar_h),
+                         border_radius=radius)
+        fill_surf.blit(rmask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
         screen.blit(fill_surf, (bar_x, bar_y))
 
-    # 테두리 (유예 중엔 점멸)
+        # 4) 표면 크레스트 하이라이트 라인 (액체 윗면 반사)
+        if len(surface_ys) >= 2:
+            crest = pygame.Surface((bar_w, bar_h), pygame.SRCALPHA)
+            crest_pts = [(x, max(0, int(y))) for (x, y) in surface_ys]
+            if len(crest_pts) >= 2:
+                hl_alpha = int(210 * fill_alpha_mult)
+                pygame.draw.lines(crest, (255, 255, 255, hl_alpha), False,
+                                  crest_pts, 1)
+                # 하부 살짝 엷은 언더글로우
+                under_pts = [(x, min(bar_h - 1, int(y) + 1)) for (x, y) in surface_ys]
+                pygame.draw.lines(crest, (255, 255, 255, int(80 * fill_alpha_mult)),
+                                  False, under_pts, 1)
+            crest.blit(rmask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+            screen.blit(crest, (bar_x, bar_y))
+
+        # 5) 상단 글로스 (불투명 반사 띠 — 액체 표면 위에만)
+        gloss_h = max(2, bar_h // 3)
+        gloss = pygame.Surface((bar_w, gloss_h), pygame.SRCALPHA)
+        for gy in range(gloss_h):
+            gt = gy / max(1, gloss_h - 1)
+            ga = int((90 * (1.0 - gt)) * fill_alpha_mult)
+            pygame.draw.line(gloss, (255, 255, 255, ga), (0, gy), (bar_w, gy))
+        # 채움 영역에만 표시되도록 클리핑
+        clip = pygame.Surface((bar_w, gloss_h), pygame.SRCALPHA)
+        pygame.draw.rect(clip, (255, 255, 255, 255), (0, 0, fill_w, gloss_h),
+                         border_radius=radius)
+        gloss.blit(clip, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        screen.blit(gloss, (bar_x, bar_y + 1))
+
+        # 6) 버블 — 콤보 2+ 부터 떠오름 (고콤보일수록 많음)
+        if display_combo >= 2:
+            bubble_count = min(8, 1 + int(combo_progress * 7))
+            for i in range(bubble_count):
+                seed = i * 131 + 7
+                sx_ratio = ((seed * 2246822519) & 0xFFFFFFFF) / 0xFFFFFFFF
+                bx = int(sx_ratio * fill_w)
+                if bx <= 0 or bx >= fill_w:
+                    continue
+                cycle = 1200 + (i * 173) % 900
+                t = ((tick_ms + i * 200) % cycle) / cycle  # 0..1 상승
+                by = int(bar_h - t * (bar_h - 2)) - 1
+                if by < 1 or by > bar_h - 2:
+                    continue
+                b_alpha = int(180 * (1.0 - t) * fill_alpha_mult)
+                if b_alpha <= 0:
+                    continue
+                b_surf = pygame.Surface((4, 4), pygame.SRCALPHA)
+                pygame.draw.circle(b_surf, (255, 255, 255, b_alpha), (2, 2), 1)
+                screen.blit(b_surf, (bar_x + bx - 2, bar_y + by - 2))
+
+    # 4) 세그먼트 틱 (2,3,4,5,6 콤보 경계선)
+    for seg in range(1, MAX_COMBO_FOR_GAUGE):
+        tx = bar_x + int(bar_w * (seg / MAX_COMBO_FOR_GAUGE))
+        reached = display_combo > seg + 1  # 2콤보부터 보너스 시작
+        tick_color = (255, 240, 200, 180) if reached else (255, 255, 255, 70)
+        pygame.draw.line(screen, tick_color, (tx, bar_y + 2), (tx, bar_y + bar_h - 2), 1)
+
+    # 5) 테두리 (글로우 + 유예 시 점멸)
     border_alpha = 255
     if in_grace:
-        pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.02)
+        pulse = 0.5 + 0.5 * math.sin(tick_ms * 0.02)
         border_alpha = int(120 + 135 * pulse)
     border_surf = pygame.Surface((bar_w + 4, bar_h + 4), pygame.SRCALPHA)
     pygame.draw.rect(border_surf, (*glow_color, border_alpha),
-                     (0, 0, bar_w + 4, bar_h + 4), 2, border_radius=4)
+                     (0, 0, bar_w + 4, bar_h + 4), 2, border_radius=radius + 1)
     screen.blit(border_surf, (bar_x - 2, bar_y - 2))
+
+    # 6) 고콤보 전용 이펙트 — 외곽 글로우 + 스파클 파티클
+    if combo_progress > 0 and fill_alpha_mult > 0.1:
+        # 레벨에 따라 글로우 강도 증가
+        glow_layers = 1 + int(combo_progress * 3)  # 1~4
+        for i in range(glow_layers):
+            pad = 3 + i * 2
+            alpha = int((60 - i * 12) * fill_alpha_mult * combo_progress)
+            if alpha <= 0:
+                continue
+            gsurf = pygame.Surface((bar_w + pad * 2 + 4, bar_h + pad * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.rect(gsurf, (*glow_color, alpha),
+                             (0, 0, bar_w + pad * 2 + 4, bar_h + pad * 2 + 4),
+                             border_radius=radius + pad)
+            screen.blit(gsurf, (bar_x - pad - 2, bar_y - pad - 2))
+
+        # 스파클 — 콤보 3 이상부터 등장, 6콤보에서 폭발적
+        if display_combo >= 3 and fill_w > 0:
+            sparkle_count = min(14, int(2 + combo_progress * 12))
+            for i in range(sparkle_count):
+                seed = (tick_ms // 80 + i * 37) & 0xFFFF
+                sx_ratio = ((seed * 2654435761) & 0xFFFFFFFF) / 0xFFFFFFFF
+                sy_ratio = (((seed + 13) * 40503) & 0xFFFF) / 0xFFFF
+                sx = bar_x + int(sx_ratio * fill_w)
+                sy = bar_y + 1 + int(sy_ratio * (bar_h - 2))
+                life = ((tick_ms + i * 53) % 600) / 600.0
+                s_alpha = int(220 * (1.0 - life) * fill_alpha_mult)
+                if s_alpha <= 0:
+                    continue
+                size = 1 + (1 if life < 0.5 else 0)
+                pygame.draw.circle(screen, (255, 255, 230, s_alpha) if False else
+                                   (255, 255, 230), (sx, sy - int(life * 4)), size)
+
+        # 맥시멈(6콤보) 도달 시 강한 펄스 오버레이
+        if display_combo >= MAX_COMBO_FOR_GAUGE:
+            pulse = 0.5 + 0.5 * math.sin(tick_ms * 0.012)
+            overlay = pygame.Surface((bar_w + 2, bar_h + 2), pygame.SRCALPHA)
+            pygame.draw.rect(overlay, (255, 240, 200, int(60 * pulse)),
+                             (0, 0, bar_w + 2, bar_h + 2), border_radius=radius)
+            screen.blit(overlay, (bar_x - 1, bar_y - 1))
 
     # 콤보 숫자 + 라벨 (바 위쪽, 좌측 필러 폭에 맞춤)
     try:
@@ -68705,6 +68894,17 @@ def _finish_water_cannon():
 
         # 바위 파괴 및 파편 생성
         _create_water_cannon_fragments(water_cannon_target_rock)
+
+        # 황금바위면 스타포인트 드랍
+        if water_cannon_target_rock.get("is_golden", False):
+            if trade_point_system is not None:
+                rock_x = water_cannon_target_rock.get("x", 0)
+                rock_y = water_cannon_target_rock.get("fall_y", water_cannon_target_rock.get("y", 0))
+                trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
+                try:
+                    play_cached_sound("sounds/coin.wav")
+                except Exception:
+                    pass
 
         # 바위 리스트에서 제거
         try:
@@ -117398,20 +117598,24 @@ def draw_objects():
             boss_img = BOSS_IMG_ALICE
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
         elif current_boss_name == "멘헤라걸" and MENHERA_BOSS_ANIMATION_AVAILABLE and menhera_boss_sprite is not None:
-            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
             boss_img_prescaled = True
             boss_center_x = float(BOSS.centerx) if BOSS is not None else WIDTH * 0.5
             if stage3_menhera_prev_x is None:
                 stage3_menhera_prev_x = boss_center_x
             dx = boss_center_x - stage3_menhera_prev_x
-            if abs(dx) > 0.35:
+            moving_now = abs(dx) > 0.35
+            if moving_now:
                 stage3_menhera_facing = "right" if dx > 0 else "left"
             stage3_menhera_prev_x = boss_center_x
-            menhera_boss_sprite.update(1 / 60, moving=abs(dx) > 0.35, facing=stage3_menhera_facing)
-            boss_img = menhera_boss_sprite.get_current_frame((boss_w, boss_h))
+            menhera_boss_sprite.update(1 / 60, moving=moving_now, facing=stage3_menhera_facing)
+            # 멘헤라 시트는 세로 비중이 큰 편이라 160x80으로 다시 늘리면 체급이 과하게 커지고 찌그러진다.
+            boss_img = menhera_boss_sprite.get_current_frame()
             if boss_img is None:
                 boss_img = BOSS_IMG_STAGE3
+                boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
                 boss_img_prescaled = False
+            else:
+                boss_w, boss_h = boss_img.get_size()
         else:
             boss_img = BOSS_IMG_STAGE3
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
@@ -160831,6 +161035,21 @@ def handle_ball():
         # ⚠️ 중요: calculate_bounce 호출 전에 쿨다운 설정하여 중복 충돌 방지
         boss_collision_cooldown = BOSS_COLLISION_COOLDOWN_FRAMES
         calculate_bounce(BOSS)
+        if current_stage == 9 and TAUREN_BOSS_ANIMATION_AVAILABLE and tauren_boss_sprite is not None:
+            try:
+                tauren_boss_sprite.trigger_attack()
+            except Exception:
+                pass
+        if (
+            current_stage == 3
+            and current_boss_name == "멘헤라걸"
+            and MENHERA_BOSS_ANIMATION_AVAILABLE
+            and menhera_boss_sprite is not None
+        ):
+            try:
+                menhera_boss_sprite.trigger_attack()
+            except Exception:
+                pass
         # 방향 안전장치: 보스 반사 후 공이 반드시 아래로 향하도록 강제
         if ball_vel[1] < 0:
             ball_vel[1] = abs(ball_vel[1])
