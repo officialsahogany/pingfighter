@@ -344,7 +344,8 @@ class CleanseSkill:
             # 전체 5초 동안 선형적으로 투명해짐
             # immunity_ratio: 1.0(시작) → 0.0(끝)
             # alpha_multiplier도 동일하게 1.0 → 0.0
-            alpha_multiplier = immunity_ratio
+            # 연장기어 퍽으로 immunity_timer가 기본 지속시간을 초과할 수 있으므로 1.0으로 클램프
+            alpha_multiplier = min(1.0, immunity_ratio)
 
             # 디버그: 매 60프레임(1초)마다 출력
             if self.immunity_timer % 60 == 0:
@@ -355,7 +356,7 @@ class CleanseSkill:
 
         # 펄스 효과 (빠르게 깜박임)
         pulse = 0.85 + 0.15 * math.sin(current_time * 0.012)
-        base_alpha = int(220 * alpha_multiplier * pulse)
+        base_alpha = max(0, min(255, int(220 * alpha_multiplier * pulse)))
 
         # 디버그: base_alpha 확인
         if self.immunity_timer % 60 == 0 and not self.shield_transition_timer > 0:
