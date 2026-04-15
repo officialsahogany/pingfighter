@@ -35481,7 +35481,7 @@ FRIEND_MOLE_COLORS = [
     ("blue", (50, 80, 220)),
 ]
 # 황금 두더지 (25% 확률로 친구두더지 이벤트 중 1마리 등장, 공으로 맞추면 스타포인트 드랍)
-GOLDEN_MOLE_CHANCE = 0.25
+GOLDEN_MOLE_CHANCE = 0.30
 friend_moles_golden_spawn_at = -1   # 이벤트 내 몇 번째 스폰이 황금 두더지인지 (-1 = 없음)
 friend_moles_spawn_total_count = 0  # 이벤트 시작 이후 총 스폰 수
 
