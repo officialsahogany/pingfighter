@@ -244,15 +244,6 @@ class ParthenonFrame:
             alpha = int(180 + flicker * 60)  # 180 ~ 240
             y_jitter = int(math.sin(phase * 1.6) * 2.0)
 
-            # 헤일로 (가산 블렌딩, 알파 변조)
-            glow_pulse = 0.5 + 0.5 * math.sin(self.time * st['glow_speed'] + st['glow_phase'])
-            glow_alpha = int(60 + glow_pulse * 80)
-            self._flame_glow.set_alpha(glow_alpha)
-            gw, gh = self._flame_glow.get_size()
-            screen.blit(self._flame_glow,
-                        (tx - gw // 2, flame_y - int(gh * 0.55) + y_jitter),
-                        special_flags=pygame.BLEND_ADD)
-
             # 불꽃 본체 — BLEND_ADD로 검정 배경 자동 투명 + 기존 박힌 불꽃과 가산 합성
             frame.set_alpha(alpha)
             screen.blit(frame, (tx - fw // 2, flame_y - int(fh * 0.85) + y_jitter),
