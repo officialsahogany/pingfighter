@@ -11854,6 +11854,26 @@ def _fullscreen_flip():
                     except Exception:
                         pass
 
+        # 🛰️ 위험감지벨트 전용 대쉬토큰구슬 호버 툴팁 (전체화면 / 창모드 공통)
+        try:
+            _sensor_orb_info = globals().get('_sensor_orb_hover_rect')
+            if _sensor_orb_info:
+                _sox, _soy, _sor = _sensor_orb_info
+                _sf_sensor = GAME_SCALE_FACTOR if _is_fullscreen_active else 1.0
+                _gox_sensor = GAME_OFFSET_X if _is_fullscreen_active else 0
+                _goy_sensor = GAME_OFFSET_Y if _is_fullscreen_active else 0
+                _real_cx_s = int(_sox * _sf_sensor + _gox_sensor)
+                _real_cy_s = int(_soy * _sf_sensor + _goy_sensor)
+                _real_r_s = max(1, int(_sor * _sf_sensor))
+                _imx, _imy = _original_mouse_get_pos()
+                if (_imx - _real_cx_s) * (_imx - _real_cx_s) + (_imy - _real_cy_s) * (_imy - _real_cy_s) <= _real_r_s * _real_r_s:
+                    _sensor_btn_rect = pygame.Rect(_real_cx_s - _real_r_s, _real_cy_s - _real_r_s,
+                                                   _real_r_s * 2, _real_r_s * 2)
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _sensor_btn_rect,
+                                              "위험감지벨트 대쉬", [], color=(220, 180, 255))
+        except Exception:
+            pass
+
         # 🛡️ 인게임 호위무사 초상화 UI (일반 스테이지, 투기장 쿨타임 큐와 동일 스타일)
         _story_stance_btn_rect = None
         _story_guard_hover = None
@@ -15142,13 +15162,13 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "name": "콤보증폭칩",
         "max_level": 5,
         "descriptions": {
-            1: "콤보 효과 증폭: 드라이브 공속+45%, 커브+5%, 파워스매시 공속+45%",
-            2: "콤보 효과 증폭: 드라이브 공속+90%, 커브+10%, 파워스매시 공속+90%",
-            3: "콤보 효과 증폭: 드라이브 공속+135%, 커브+15%, 파워스매시 공속+135%",
-            4: "콤보 효과 증폭: 드라이브 공속+180%, 커브+15%(캡), 파워스매시 공속+180%",
-            5: "콤보 효과 증폭: 드라이브 공속+225%, 커브+15%(캡), 파워스매시 공속+225%",
+            1: "콤보 효과 증폭: 드라이브 공속+90%, 커브+5%, 파워스매시 공속+45%, 초기부스트 감쇄 -10%",
+            2: "콤보 효과 증폭: 드라이브 공속+180%, 커브+10%, 파워스매시 공속+90%, 초기부스트 감쇄 -20%",
+            3: "콤보 효과 증폭: 드라이브 공속+270%, 커브+15%, 파워스매시 공속+135%, 초기부스트 감쇄 -30%",
+            4: "콤보 효과 증폭: 드라이브 공속+360%, 커브+15%(캡), 파워스매시 공속+180%, 초기부스트 감쇄 -40%",
+            5: "콤보 효과 증폭: 드라이브 공속+450%, 커브+15%(캡), 파워스매시 공속+225%, 초기부스트 감쇄 -50%(캡)",
         },
-        "detail": "콤보 소모형 드라이브/파워스매싱의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 레벨에 따라 계속 증가하지만, 드라이브 커브 증폭은 Lv3에서 캡됩니다(밸런스 보호).",
+        "detail": "콤보 소모형 드라이브/파워스매싱의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 레벨에 따라 계속 증가하지만, 드라이브 커브 증폭은 Lv3에서 캡됩니다(밸런스 보호). 또한 파워스매싱의 초기 부스트 감쇄가 완만해져 폭발력이 더 오래 유지됩니다.",
         "icon_color": (255, 100, 200),
         "tree": "smasher",
         "character_restriction": "smasher"
@@ -18568,7 +18588,8 @@ def get_combo_amplifier_chip_bonus():
         return (0.0, 0.0, 0.0)
 
     # 공속: 보너스 레벨 그대로 (전설 아이템 보상 유지)
-    drive_speed_amp = raw_level * 0.45
+    # 드라이브 공속은 2배 증폭 (0.45 → 0.90)
+    drive_speed_amp = raw_level * 0.90
     smash_speed_amp = raw_level * 0.45
 
     # 커브/커브캡: 미세 증폭 (옆으로 너무 빠지지 않도록), Lv3에서 clamp
@@ -111539,6 +111560,11 @@ def draw_player_gauge():
             border_color = (220, 180, 255) if sensor_charge_progress >= 1.0 else (100, 60, 140)
             pygame.draw.circle(SCREEN, border_color, (sensor_orb_x, sensor_orb_y), sensor_orb_radius, 2)
 
+            # 위험감지벨트 전용 대쉬토큰구슬 호버 영역 저장 (내부 좌표, 툴팁 패스에서 사용)
+            globals()['_sensor_orb_hover_rect'] = (sensor_orb_x, sensor_orb_y, sensor_orb_radius)
+        else:
+            globals()['_sensor_orb_hover_rect'] = None
+
         # === 투기장 모드: 상단 영웅 대쉬 토큰 구슬 → 별도 Surface에 그림 (우측 맨 상단 배치용) ===
         global _player_gauge_surface_top
         global _top_orb_static_base, _top_orb_static_top, _top_orb_cached_radius, _top_orb_cached_surf_size
@@ -155396,16 +155422,22 @@ def handle_ball():
         # 초기 부스트 감속 처리 (0.5초 동안)
         global power_smashing_initial_boost, power_smashing_boost_duration
         global power_smashing_target_speed, power_smashing_boosted_speed
+        if power_smashing_initial_boost and elapsed_time >= (power_smashing_boost_duration / 1000.0):
+            # 지속시간 초과 시 부스트 종료 분기 보장
+            power_smashing_initial_boost = False
         if power_smashing_initial_boost and elapsed_time < (power_smashing_boost_duration / 1000.0):
             # 현재 속도 계산
             current_speed = math.hypot(ball_vel[0], ball_vel[1])
-            
+
             # 부스트 진행도 (0~1)
             boost_progress = elapsed_time / (power_smashing_boost_duration / 1000.0)
             
             # 발동 시점에 실제 적용된 부스트 속도에서 목표 속도로 부드럽게 감속한다.
             initial_boosted_speed = power_smashing_boosted_speed if power_smashing_boosted_speed > 0 else power_smashing_target_speed
-            interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
+            # 콤보증폭칩 레벨에 따라 감쇄율 약화 (Lv당 -10%, Lv5에서 감쇄 50% 유지)
+            _chip_level = get_runtime_skill_level("combo_amplifier_chip") if selected_character_type == "smasher" else 0
+            _decay_factor = max(0.5, 1.0 - _chip_level * 0.10)
+            interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress * _decay_factor
             
             # 속도 조정
             if current_speed > 0:
@@ -155683,9 +155715,8 @@ def handle_ball():
                     if selected_character_type == "viper":
                         _viper_dash_origin_x = float(PLAYER.centerx)
                     rolling_active = True
-                    # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period, 센서 대쉬 포함)
-                    if selected_character_type == "smasher" or ai_mode == "junior":
-                        _start_smasher_dash_combo_grace("dash_sensor")
+                    # ⚡ 위험감지벨트 자동 대쉬는 플레이어가 의도한 대쉬가 아니므로 콤보를 보존한다.
+                    # (스매셔/주니어 모두 콤보 유예/초기화 없이 그대로 유지)
                     # 포승줄 포박 중 대쉬 → 즉시 끊어짐 (인라인)
                     if arrest_rope_phase == "bound":
                         arrest_rope_phase = "releasing"
