@@ -87488,7 +87488,7 @@ def handle_player(keys):
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 elif selected_character_type == "smasher":
-                    base_gauge_gain = 60  # 스매셔: 게이지 충전 60 (콤보 보너스로 보완)
+                    base_gauge_gain = 50  # 스매셔: 게이지 충전 50 (콤보 보너스로 보완)
                 else:
                     base_gauge_gain = 80  # 기타 캐릭터 기본 충전량
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -157231,7 +157231,7 @@ def handle_ball():
                             else:
                                 base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                         else:
-                            base_gauge_gain = 60  # 스매셔: 게이지 충전 60 (콤보 보너스로 보완)
+                            base_gauge_gain = 50  # 스매셔: 게이지 충전 50 (콤보 보너스로 보완)
                         if base_gauge_gain > 0:
                             # 충전가방: 현재 게이지 획득량(블루투스링 등 적용)을 기반으로 추가 충전
                             bonus_pct = chargebag_bonus_pct
@@ -160339,7 +160339,7 @@ def handle_ball():
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
-                    base_gauge_gain = 60  # 스매셔: 게이지 충전 60 (콤보 보너스로 보완)
+                    base_gauge_gain = 50  # 스매셔: 게이지 충전 50 (콤보 보너스로 보완)
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
