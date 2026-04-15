@@ -15,6 +15,15 @@ import os
 import sys
 import time
 
+import signal, traceback, sys
+def _sigint_debugger(signum, frame):
+    print(f"[SIGINT] signal={signum} received. Stack:", flush=True)
+    traceback.print_stack(frame, file=sys.stdout)
+    sys.stdout.flush()
+    # 그래도 원래처럼 KeyboardInterrupt 발생시키려면 아래 주석 해제
+    # raise KeyboardInterrupt
+signal.signal(signal.SIGINT, _sigint_debugger)
+
 # imageio 메타데이터 누락 시 importlib.metadata 오류를 피하기 위해 비활성화
 os.environ.setdefault("IMAGEIO_NO_IMPORTLIB_METADATA", "1")
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
@@ -2481,15 +2490,32 @@ try:
     if ffmpeg_path is None:
         try:
             import threading
+            import signal as _sig_mod
             _ffmpeg_result = [None]
             def _probe_ffmpeg():
                 try:
                     _ffmpeg_result[0] = imageio_ffmpeg.get_ffmpeg_exe()
                 except Exception:
                     pass
-            _ffmpeg_thread = threading.Thread(target=_probe_ffmpeg, daemon=True)
-            _ffmpeg_thread.start()
-            _ffmpeg_thread.join(timeout=5)  # 5초 안에 응답 없으면 포기
+            # Windows에서 imageio_ffmpeg가 내부 subprocess를 스폰할 때 메인 스레드로
+            # SIGINT가 유발되는 경우가 있어, 프로브 구간에만 일시적으로 무시 핸들러 장착.
+            _prev_sigint_handler = None
+            try:
+                _prev_sigint_handler = _sig_mod.getsignal(_sig_mod.SIGINT)
+                _sig_mod.signal(_sig_mod.SIGINT, _sig_mod.SIG_IGN)
+            except Exception:
+                _prev_sigint_handler = None
+            try:
+                _ffmpeg_thread = threading.Thread(target=_probe_ffmpeg, daemon=True)
+                _ffmpeg_thread.start()
+                _ffmpeg_thread.join(timeout=5)  # 5초 안에 응답 없으면 포기
+            finally:
+                # 원래 SIGINT 핸들러 복원 (사용자 Ctrl+C는 정상 동작해야 함)
+                if _prev_sigint_handler is not None:
+                    try:
+                        _sig_mod.signal(_sig_mod.SIGINT, _prev_sigint_handler)
+                    except Exception:
+                        pass
             ffmpeg_candidate = _ffmpeg_result[0]
             if ffmpeg_candidate and os.path.isfile(ffmpeg_candidate):
                 ffmpeg_path = ffmpeg_candidate
@@ -2896,6 +2922,14 @@ from rendering.postprocess_manager import (
     trigger_hit_flash,
     toggle_postprocess_bypass,
 )
+
+
+# 로딩 단계에서도 안전하게 호출 가능하도록 조기 스텁 정의.
+# 본 정의는 후반부(약 14000줄)에서 덮어써진다 — 로딩 중에는 포스트프로세스 생략.
+def _apply_postprocess_to_game_frame(surface):
+    return surface
+
+
 from item_effects.dowsing_pendulum import dowsing_pendulum_effect
 from item_effects.devil_dice import (
     activate_devil_dice,
@@ -3991,6 +4025,7 @@ SMASHER_SKILL_ICONS_DATA = [
 # 스킬 툴팁 관련 변수
 _smasher_skill_tooltip_data = None  # 현재 표시할 툴팁 데이터
 _smasher_skill_icon_rects = {}  # 각 스킬 아이콘의 화면 좌표 (충돌 검사용)
+_smasher_empty_slot_rects = {}  # 빈 스킬 슬롯 rect (Surface-local, 호버 툴팁용)
 _smasher_skill_tooltip_effect_timer = 0  # 이펙트 애니메이션 타이머
 _smasher_skill_icons_cache = {}  # 스킬 아이콘 캐시 (활성화/비활성화 버전)
 _smasher_skill_tooltip_fonts = None  # 툴팁 폰트 캐시 (title, normal, small)
@@ -4586,6 +4621,7 @@ VIPER_SKILL_ICONS_DATA = [
 # 바이퍼 스킬 툴팁 관련 변수
 _viper_skill_tooltip_data = None
 _viper_skill_icon_rects = {}
+_viper_empty_slot_rects = {}  # 빈 스킬 슬롯 rect (Surface-local, 호버 툴팁용)
 _viper_skill_icons_cache = {}
 _viper_skill_tooltip_active = False
 
@@ -6304,7 +6340,9 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
         max_gauge: 최대 게이지
     """
     global _smasher_skill_icons_cache, _smasher_skill_activation_times, _smasher_skill_was_active
-    global _smasher_skill_icon_rects
+    global _smasher_skill_icon_rects, _smasher_empty_slot_rects
+
+    _smasher_empty_slot_rects = {}
 
     # 원형 아이콘 설정 (50% 크게)
     icon_radius = 21  # 각 스킬 아이콘 원의 반지름 (14 -> 21)
@@ -6354,6 +6392,10 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
             continue
         else:
             draw_empty_slot(slot_x, slot_y)
+            _smasher_empty_slot_rects[slot_idx] = pygame.Rect(
+                slot_x - icon_radius, slot_y - icon_radius,
+                icon_diameter, icon_diameter
+            )
 
     # 장착된 스킬 아이콘 그리기
     for i, skill_data in enumerate(equipped_skill_data_list):
@@ -6497,9 +6539,10 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         max_gauge: 최대 게이지
     """
     global _viper_skill_icons_cache, _viper_skill_activation_times, _viper_skill_was_active
-    global _viper_skill_icon_rects
+    global _viper_skill_icon_rects, _viper_empty_slot_rects
 
     _viper_skill_icon_rects = {}
+    _viper_empty_slot_rects = {}
 
     icon_radius = 21
     icon_diameter = icon_radius * 2
@@ -6542,6 +6585,10 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             continue
         else:
             draw_empty_slot(slot_x, slot_y)
+            _viper_empty_slot_rects[slot_idx] = pygame.Rect(
+                slot_x - icon_radius, slot_y - icon_radius,
+                icon_diameter, icon_diameter
+            )
 
     # === 장착된 스킬 아이콘 그리기 ===
     for i, skill_data in enumerate(equipped_skill_data_list):
@@ -11099,6 +11146,9 @@ def _draw_pillar_ui(screen, renderer):
                 screen.blit(_gold_hud_scaled_cache[scale_key], (gold_hud_x, gold_hud_y))
             else:
                 screen.blit(_gold_hud_cache, (gold_hud_x, gold_hud_y))
+
+            # 골드 HUD 호버 영역 저장 (REAL_SCREEN 좌표)
+            globals()['_gold_hud_hover_rect'] = pygame.Rect(gold_hud_x, gold_hud_y, scaled_hud_w, scaled_hud_h)
     except Exception as e:
         pass
 
@@ -11116,6 +11166,9 @@ def _draw_pillar_ui(screen, renderer):
             else:
                 scaled_gauge_h = gauge_h
             pillar_y = GAME_OFFSET_Y + GAME_SCALED_HEIGHT - scaled_gauge_h - 10  # 하단에서 10px 위
+
+            # 우측 필러 Surface의 REAL_SCREEN 위치 저장 (툴팁용)
+            globals()['_player_gauge_surface_right_screen_pos'] = (pillar_x, pillar_y)
 
             # 스케일링 적용 (캐시된 dest Surface 재사용으로 매프레임 Surface 할당 방지)
             if GAME_SCALE_FACTOR != 1.0:
@@ -11195,12 +11248,6 @@ def _draw_pillar_ui(screen, renderer):
 
     # 디아블로 스타일 HUD 프레임 그리기 (UI 요소들 위에 테두리만)
     _draw_diablo_hud_frame(screen)
-
-    # 액티브 아이템 툴팁 그리기 (REAL_SCREEN에 그림)
-    try:
-        _draw_active_item_hover_tooltip_on_screen(screen)
-    except Exception:
-        pass
 
     # 액티브 아이템 버리기 메뉴 그리기 (REAL_SCREEN에 그림)
     try:
@@ -11325,6 +11372,53 @@ def _draw_pillar_ui(screen, renderer):
         if _viper_tooltip_pause_start > 0:
             _viper_tooltip_pause_accumulated += pygame.time.get_ticks() - _viper_tooltip_pause_start
             _viper_tooltip_pause_start = 0
+
+    # 🔒 5구슬 스킬 슬롯 빈 슬롯 해금 조건 툴팁 (스매셔/바이퍼 공용)
+    if _is_ingame and not is_horn_strawberry_transformed():
+      try:
+        if selected_character_type in ("smasher", "viper"):
+            if selected_character_type == "smasher":
+                _empty_rects = globals().get('_smasher_empty_slot_rects') or {}
+                _equipped_count = len(get_smasher_equipped_skills())
+                _max_slots = SMASHER_MAX_SKILL_SLOTS
+                _theme_color = (255, 180, 80)
+            else:
+                _empty_rects = globals().get('_viper_empty_slot_rects') or {}
+                _equipped_count = len(get_viper_equipped_skills())
+                _max_slots = VIPER_MAX_SKILL_SLOTS
+                _theme_color = (200, 130, 255)
+
+            if _empty_rects and _player_gauge_surface_left_screen_pos:
+                _raw_mx, _raw_my = _original_mouse_get_pos()
+                _surf_ox, _surf_oy = _player_gauge_surface_left_screen_pos
+                _sf_es = GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else 1.0
+                _loc_mx = (_raw_mx - _surf_ox) / _sf_es if _sf_es != 1.0 else (_raw_mx - _surf_ox)
+                _loc_my = (_raw_my - _surf_oy) / _sf_es if _sf_es != 1.0 else (_raw_my - _surf_oy)
+
+                _hit_slot = None
+                for _sidx, _erect in _empty_rects.items():
+                    if _erect.collidepoint(_loc_mx, _loc_my):
+                        _hit_slot = (_sidx, _erect)
+                        break
+
+                if _hit_slot is not None:
+                    _sidx, _erect = _hit_slot
+                    _real_x = int(_surf_ox + _erect.x * _sf_es)
+                    _real_y = int(_surf_oy + _erect.y * _sf_es)
+                    _real_w = max(1, int(_erect.w * _sf_es))
+                    _real_h = max(1, int(_erect.h * _sf_es))
+                    _slot_btn_rect = pygame.Rect(_real_x, _real_y, _real_w, _real_h)
+
+                    _tip_lines = [
+                        f"장착 슬롯 {_equipped_count} / {_max_slots}",
+                        "스킬 해금 퍽을 획득하면",
+                        "이 슬롯에 자동 장착됩니다.",
+                        "(스테이지 클리어 보상 / 퍽 선택)",
+                    ]
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _slot_btn_rect,
+                                              "잠긴 스킬 슬롯", _tip_lines, color=_theme_color)
+      except Exception:
+        pass
 
     # 🍓 뿔딸기 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
     if _is_ingame and is_horn_strawberry_transformed():
@@ -11854,23 +11948,190 @@ def _fullscreen_flip():
                     except Exception:
                         pass
 
-        # 🛰️ 위험감지벨트 전용 대쉬토큰구슬 호버 툴팁 (전체화면 / 창모드 공통)
+        # 🔮 필러 구슬 호버 툴팁 (필살기 게이지 / 대쉬 토큰 / 위험감지벨트)
         try:
-            _sensor_orb_info = globals().get('_sensor_orb_hover_rect')
-            if _sensor_orb_info:
-                _sox, _soy, _sor = _sensor_orb_info
-                _sf_sensor = GAME_SCALE_FACTOR if _is_fullscreen_active else 1.0
-                _gox_sensor = GAME_OFFSET_X if _is_fullscreen_active else 0
-                _goy_sensor = GAME_OFFSET_Y if _is_fullscreen_active else 0
-                _real_cx_s = int(_sox * _sf_sensor + _gox_sensor)
-                _real_cy_s = int(_soy * _sf_sensor + _goy_sensor)
-                _real_r_s = max(1, int(_sor * _sf_sensor))
-                _imx, _imy = _original_mouse_get_pos()
-                if (_imx - _real_cx_s) * (_imx - _real_cx_s) + (_imy - _real_cy_s) * (_imy - _real_cy_s) <= _real_r_s * _real_r_s:
-                    _sensor_btn_rect = pygame.Rect(_real_cx_s - _real_r_s, _real_cy_s - _real_r_s,
-                                                   _real_r_s * 2, _real_r_s * 2)
-                    _draw_pillar_btn_tooltip(REAL_SCREEN, _sensor_btn_rect,
-                                              "위험감지벨트 대쉬", [], color=(220, 180, 255))
+            _real_mpos_orb = _original_mouse_get_pos()
+            _sf_orb = GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else 1.0
+
+            def _orb_real_rect(surf_pos, local_xyr):
+                if not surf_pos or not local_xyr:
+                    return None
+                _px, _py = surf_pos
+                _lx, _ly, _lr = local_xyr
+                _rcx = int(_px + _lx * _sf_orb)
+                _rcy = int(_py + _ly * _sf_orb)
+                _rr = max(1, int(_lr * _sf_orb))
+                return pygame.Rect(_rcx - _rr, _rcy - _rr, _rr * 2, _rr * 2)
+
+            _orb_tip_drawn = False
+            _right_pos = globals().get('_player_gauge_surface_right_screen_pos')
+            _left_pos = globals().get('_player_gauge_surface_left_screen_pos')
+
+            # 1) 위험감지벨트 전용 구슬 (우측 Surface, 대쉬 토큰 구슬 위)
+            _sensor_info = globals().get('_sensor_orb_hover_rect')
+            if not _orb_tip_drawn and _sensor_info and _right_pos:
+                _r_rect = _orb_real_rect(_right_pos, _sensor_info)
+                if _r_rect and _r_rect.collidepoint(_real_mpos_orb):
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _r_rect,
+                                              "위험감지벨트 대쉬",
+                                              ["위험한 공 예측 시 자동 대쉬 발동",
+                                               "게이지/토큰 소모 없음"],
+                                              color=(220, 180, 255))
+                    _orb_tip_drawn = True
+
+            # 2) 우측 기본 대쉬 토큰 구슬
+            _dash_info = globals().get('_dash_orb_hover_rect')
+            if not _orb_tip_drawn and _dash_info and _right_pos:
+                _r_rect = _orb_real_rect(_right_pos, _dash_info)
+                if _r_rect and _r_rect.collidepoint(_real_mpos_orb):
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _r_rect,
+                                              "대쉬토큰", [],
+                                              color=(255, 140, 120))
+                    _orb_tip_drawn = True
+
+            # 3) 좌측 필살기 게이지 구슬
+            _gauge_info = globals().get('_gauge_orb_hover_rect')
+            if not _orb_tip_drawn and _gauge_info and _left_pos:
+                _r_rect = _orb_real_rect(_left_pos, _gauge_info)
+                if _r_rect and _r_rect.collidepoint(_real_mpos_orb):
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _r_rect,
+                                              "게이지", [],
+                                              color=(120, 200, 255))
+                    _orb_tip_drawn = True
+
+            # 4) 발토르 토르쉴드 게이지 패널 (블랙스미스 전용)
+            _thor_rect = globals().get('_thor_shield_hover_rect')
+            _thor_on_right = globals().get('_thor_shield_hover_on_right_surface', False)
+            if not _orb_tip_drawn and _thor_rect and selected_character_type == "blacksmith":
+                if _thor_on_right and _right_pos:
+                    # 우측 Surface-local → REAL_SCREEN 변환
+                    _real_thor = pygame.Rect(
+                        int(_right_pos[0] + _thor_rect.x * _sf_orb),
+                        int(_right_pos[1] + _thor_rect.y * _sf_orb),
+                        max(1, int(_thor_rect.w * _sf_orb)),
+                        max(1, int(_thor_rect.h * _sf_orb))
+                    )
+                else:
+                    # 일반 모드: SCREEN 내부 좌표 → REAL_SCREEN 변환
+                    _real_thor = pygame.Rect(
+                        int(GAME_OFFSET_X + _thor_rect.x * _sf_orb),
+                        int(GAME_OFFSET_Y + _thor_rect.y * _sf_orb),
+                        max(1, int(_thor_rect.w * _sf_orb)),
+                        max(1, int(_thor_rect.h * _sf_orb))
+                    )
+                if _real_thor.collidepoint(_real_mpos_orb):
+                    _t_val = globals().get('_thor_shield_gauge_value', 0)
+                    _t_max = globals().get('_thor_shield_gauge_max', 0)
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _real_thor,
+                                              "토르쉴드 게이지",
+                                              [f"현재 내구도: {_t_val} / {_t_max}",
+                                               "공을 막을 때마다 1 소모",
+                                               "시간 경과로 자동 회복",
+                                               "0이 되면 일시적으로 가드 불가"],
+                                              color=(180, 210, 255))
+                    _orb_tip_drawn = True
+
+            # 5) 스매셔 콤보 카운터 HUD (패들 하단 가로 바)
+            _combo_rect = globals().get('_smasher_combo_hud_hover_rect')
+            if not _orb_tip_drawn and _combo_rect and selected_character_type == "smasher":
+                # SCREEN 내부 좌표 → REAL_SCREEN 변환
+                _real_combo = pygame.Rect(
+                    int(GAME_OFFSET_X + _combo_rect.x * _sf_orb),
+                    int(GAME_OFFSET_Y + _combo_rect.y * _sf_orb),
+                    max(1, int(_combo_rect.w * _sf_orb)),
+                    max(1, int(_combo_rect.h * _sf_orb))
+                )
+                if _real_combo.collidepoint(_real_mpos_orb):
+                    _c_count = globals().get('_smasher_combo_hud_display_count', 0)
+                    _c_grace = globals().get('_smasher_combo_hud_in_grace', False)
+                    _combo_lines = [f"현재 콤보: {_c_count}"]
+                    if _c_grace:
+                        _combo_lines.append("대쉬 유예 중 — 빠르게 연계 스킬 사용")
+                    else:
+                        _combo_lines.append("공을 연속 타격하여 콤보 누적")
+                    _combo_lines.append("콤보에 비례해 스킬 위력/보상 상승")
+                    _combo_lines.append("실점·대쉬 후 유예 만료 시 초기화")
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _real_combo,
+                                              "스매셔 콤보",
+                                              _combo_lines, color=(255, 200, 120))
+                    _orb_tip_drawn = True
+
+            # 6) 골드 HUD (좌측 필러 상단)
+            _gold_rect = globals().get('_gold_hud_hover_rect')
+            if not _orb_tip_drawn and _gold_rect:
+                if _gold_rect.collidepoint(_real_mpos_orb):
+                    _total_gold = downtown_gold + ingame_gold
+                    _gold_lines = [
+                        f"보유 골드: {_total_gold} G",
+                        f"(광장 {downtown_gold} / 이번 스테이지 +{ingame_gold})",
+                        "스테이지 클리어 시 획득 골드 지급",
+                        "광장 상점에서 장비·소모품 구매",
+                    ]
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _gold_rect,
+                                              "골드", _gold_lines, color=(255, 215, 80))
+                    _orb_tip_drawn = True
+
+            # 7) 액티브 아이템 슬롯 (쿨다운 남은 초 표시)
+            if not _orb_tip_drawn and not arena_mode_enabled:
+                _slot_rects = globals().get('_pillar_active_item_slot_rects') or []
+                _items = active_item_slot
+                _now_ms = pygame.time.get_ticks()
+                _global_cd_ok = (_now_ms - last_item_use_time) >= active_item_cooldown_ms
+                _global_remain_ms = max(0, active_item_cooldown_ms - (_now_ms - last_item_use_time))
+
+                for _slot_idx, _rect_data in enumerate(_slot_rects):
+                    _ar = _rect_data if isinstance(_rect_data, pygame.Rect) else pygame.Rect(*_rect_data)
+                    if not _ar.collidepoint(_real_mpos_orb):
+                        continue
+
+                    _item = _items[_slot_idx] if _slot_idx < len(_items) else None
+                    if not _item:
+                        _draw_pillar_btn_tooltip(REAL_SCREEN, _ar,
+                                                  "빈 슬롯",
+                                                  ["획득한 액티브 아이템이",
+                                                   "이 슬롯에 자동 보관됩니다."],
+                                                  color=(160, 160, 170))
+                        _orb_tip_drawn = True
+                        break
+
+                    _name_kr = _item.get("korean_name")
+                    if not _name_kr:
+                        try:
+                            _name_kr = get_item_name_korean(_item.get("name", ""))
+                        except Exception:
+                            _name_kr = _item.get("name", "아이템")
+                    try:
+                        _desc = get_item_description(_item.get("name", ""))
+                    except Exception:
+                        _desc = ""
+
+                    _last_use = _item.get("last_use")
+                    _indiv_remain_ms = 0
+                    if _last_use is not None:
+                        _indiv_remain_ms = max(0, active_item_cooldown_ms - (_now_ms - _last_use))
+                    _remain_ms = max(_indiv_remain_ms, _global_remain_ms)
+
+                    _cd_lines = []
+                    if _remain_ms > 0:
+                        _remain_sec = _remain_ms / 1000.0
+                        _cd_lines.append(f"쿨다운: {_remain_sec:.1f}초 남음")
+                    else:
+                        _cd_lines.append("쿨다운: 사용 가능")
+
+                    if _desc:
+                        _desc_short = _desc.strip()
+                        if len(_desc_short) > 40:
+                            _desc_short = _desc_short[:40] + "…"
+                        _cd_lines.append(_desc_short)
+
+                    _cd_lines.append(f"슬롯 {_slot_idx + 1} — 클릭/단축키로 사용")
+
+                    _theme = tuple(_item.get("color", (220, 200, 120))[:3])
+                    _draw_pillar_btn_tooltip(REAL_SCREEN, _ar,
+                                              _name_kr or "액티브 아이템",
+                                              _cd_lines, color=_theme)
+                    _orb_tip_drawn = True
+                    break
         except Exception:
             pass
 
@@ -14169,9 +14430,11 @@ def trigger_recovery_effect(paddle_x: float, paddle_y: float):
     recovery_effect_center_y = paddle_y
     recovery_flash_alpha = 255
 
-    # 이동속도 보너스 활성화 (5초)
+    # 이동속도 보너스 활성화 (5초, 연장기어 퍽으로 지속시간 증가 가능)
     recovery_speed_boost_active = True
-    recovery_speed_boost_timer = RECOVERY_SPEED_BOOST_DURATION
+    _ext_gear_lv = runtime_skill_levels.get("extension_gear", 0)
+    _ext_gear_mult = 1.0 + 0.25 * _ext_gear_lv
+    recovery_speed_boost_timer = int(RECOVERY_SPEED_BOOST_DURATION * _ext_gear_mult)
     recovery_light_particles = []  # 빛가루 파티클 초기화
 
     # 파동 링 생성 (3개) - 빠른 속도
@@ -15158,6 +15421,21 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "tree": "smasher_unlock",
         "character_restriction": "smasher"
     },
+    "extension_gear": {
+        "name": "연장기어",
+        "max_level": 5,
+        "descriptions": {
+            1: "리커버리/클렌즈 지속시간 +25%",
+            2: "리커버리/클렌즈 지속시간 +50%",
+            3: "리커버리/클렌즈 지속시간 +75%",
+            4: "리커버리/클렌즈 지속시간 +100%",
+            5: "리커버리/클렌즈 지속시간 +125%",
+        },
+        "detail": "리커버리, 클렌즈 스킬 발동 후 효과 지속시간이 레벨당 25% 증가합니다. (최대 Lv.5 / +125%)",
+        "icon_color": (120, 230, 180),
+        "tree": "smasher",
+        "character_restriction": "smasher"
+    },
     "combo_amplifier_chip": {
         "name": "콤보증폭칩",
         "max_level": 5,
@@ -15472,7 +15750,7 @@ VIPER_EXCLUSIVE_SKILLS = {
             4: "검기 사거리/가로폭 +40%, 타격 공속 +40%, 게이지 비용 -40",
             5: "검기 사거리/가로폭 +50%, 타격 공속 +50%, 게이지 비용 -50",
         },
-        "detail": "에어 블레이드와 다크 블레이드를 강화합니다.\n- 검기 사거리와 X축 가로폭이 레벨당 10%씩 증가\n- 검기가 공을 타격할 때 공속 보너스 +10%/LV\n- 발동 게이지 비용이 레벨당 10 감소 (최대 LV5에서 200 → 150)\n다크 블레이드 기본 배율(사거리 2배, 가로폭 1.3배)에 합산 적용됩니다.",
+        "detail": "에어 블레이드와 다크 블레이드를 강화합니다.\n- 검기 사거리와 X축 가로폭이 레벨당 10%씩 증가 (최대 Lv.5)\n- 검기가 공을 타격할 때 공속 보너스 +10%/LV\n- 발동 게이지 비용이 레벨당 10 감소 (최대 Lv.5에서 200 → 150)\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 타격 공속에만 반영됩니다.\n다크 블레이드 기본 배율(사거리 2배, 가로폭 1.3배)에 합산 적용됩니다.",
         "icon_color": (180, 60, 220),
         "tree": "viper",
         "character_restriction": "viper"
@@ -21109,6 +21387,36 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         ay_bot = icon_cy + max(2, int(3 * scale))
         pygame.draw.line(surface, arrow_color, (ax, ay_bot), (ax, ay_top), max(1, int(2 * scale)))
         # 화살촉
+        head_w = max(2, int(3 * scale))
+        pygame.draw.line(surface, arrow_color, (ax, ay_top), (ax - head_w, ay_top + head_w), max(1, int(2 * scale)))
+        pygame.draw.line(surface, arrow_color, (ax, ay_top), (ax + head_w, ay_top + head_w), max(1, int(2 * scale)))
+
+    elif skill_id == "extension_gear":
+        # 연장기어 - 톱니바퀴 + 위쪽 화살표 (지속시간 연장)
+        color = icon_color
+        # 톱니바퀴 본체
+        gear_r = max(5, int(7 * scale))
+        # 톱니 (8개)
+        for i in range(8):
+            ang = i * (math.pi / 4)
+            tx = icon_cx + int(math.cos(ang) * (gear_r + int(2 * scale)))
+            ty = icon_cy + int(math.sin(ang) * (gear_r + int(2 * scale)))
+            pygame.draw.circle(surface, darker(color, 40), (tx + 1, ty + 1), max(1, int(2 * scale)))
+            pygame.draw.circle(surface, color, (tx, ty), max(1, int(2 * scale)))
+        # 기어 바디 그림자
+        pygame.draw.circle(surface, darker(color, 60), (icon_cx + 1, icon_cy + 1), gear_r)
+        # 기어 바디
+        pygame.draw.circle(surface, color, (icon_cx, icon_cy), gear_r)
+        # 기어 하이라이트
+        pygame.draw.circle(surface, lighter(color, 60), (icon_cx - max(1, int(2 * scale)), icon_cy - max(1, int(2 * scale))), max(1, int(2 * scale)))
+        # 중앙 구멍
+        pygame.draw.circle(surface, (40, 60, 50), (icon_cx, icon_cy), max(1, int(2 * scale)))
+        # 위쪽 상승 화살표 (지속시간 연장 강조)
+        arrow_color = (255, 255, 255)
+        ax = icon_cx
+        ay_top = icon_cy - gear_r - max(3, int(6 * scale))
+        ay_bot = icon_cy - gear_r - max(1, int(1 * scale))
+        pygame.draw.line(surface, arrow_color, (ax, ay_bot), (ax, ay_top), max(1, int(2 * scale)))
         head_w = max(2, int(3 * scale))
         pygame.draw.line(surface, arrow_color, (ax, ay_top), (ax - head_w, ay_top + head_w), max(1, int(2 * scale)))
         pygame.draw.line(surface, arrow_color, (ax, ay_top), (ax + head_w, ay_top + head_w), max(1, int(2 * scale)))
@@ -31008,14 +31316,7 @@ def _get_active_item_slot_rects():
     return [
     ]
 
-# --- 액티브 아이템 툴팁/호버 일시정지 상태 -------------------------------
-ACTIVE_ITEM_TOOLTIP_DELAY_MS = 400  # 0.4초 이상 호버 시 툴팁/일시정지
-_active_item_hover_index: int | None = None
-_active_item_hover_start_ms: int | None = None
-_active_item_hover_rect: pygame.Rect | None = None
-_active_item_tooltip_ready: bool = False
-_active_item_tooltip_title: str = ""
-_active_item_tooltip_body: str = ""
+# --- 툴팁 일시정지 상태 -------------------------------------------------
 game_paused_by_tooltip: bool = False
 _tooltip_prev_game_paused: bool = False
 _tooltip_forced_pause: bool = False
@@ -31027,32 +31328,6 @@ _discard_menu_rect: pygame.Rect | None = None
 _discard_button_rect: pygame.Rect | None = None
 _discard_prev_game_paused: bool = False
 _discard_forced_pause: bool = False
-
-
-def _reset_active_item_hover_state() -> None:
-    """호버 상태와 툴팁·일시정지 플래그를 모두 초기화.
-
-    Note: 스매셔 스킬 툴팁이 활성화 중이면 game_paused_by_tooltip은 리셋하지 않음.
-    """
-    global _active_item_hover_index, _active_item_hover_start_ms, _active_item_hover_rect
-    global _active_item_tooltip_ready, _active_item_tooltip_title, _active_item_tooltip_body
-    global game_paused_by_tooltip, _tooltip_prev_game_paused, _tooltip_forced_pause, game_paused
-
-    _active_item_hover_index = None
-    _active_item_hover_start_ms = None
-    _active_item_hover_rect = None
-    _active_item_tooltip_ready = False
-    _active_item_tooltip_title = ""
-    _active_item_tooltip_body = ""
-
-    # 다른 툴팁이 활성화 중이면 일시정지 상태를 건드리지 않음
-    if _smasher_skill_tooltip_active or _viper_skill_tooltip_active or _odin_swamp_tooltip_active or _rage_indicator_tooltip_active:
-        return
-
-    if game_paused_by_tooltip and _tooltip_forced_pause and game_paused:
-        game_paused = _tooltip_prev_game_paused
-    game_paused_by_tooltip = False
-    _tooltip_forced_pause = False
 
 
 # ============================================================
@@ -31145,244 +31420,6 @@ def _draw_coordinate_debug(screen):
         print(f"[COORDINATE_DEBUG ERROR] {e}", flush=True)
 
 
-def _update_active_item_hover_state(now_ms: int) -> None:
-    """마우스 호버 상태를 갱신하고 0.4초 이상 유지 시 게임을 일시정지한다."""
-    global _active_item_hover_index, _active_item_hover_start_ms, _active_item_hover_rect
-    global _active_item_tooltip_ready, _active_item_tooltip_title, _active_item_tooltip_body
-    global game_paused_by_tooltip, _tooltip_prev_game_paused, _tooltip_forced_pause, game_paused
-
-    # 버리기 메뉴가 활성화된 동안에는 툴팁 업데이트 안 함
-    if _discard_menu_active:
-        return
-
-    if not active_item_slot:
-        _reset_active_item_hover_state()
-        return
-
-    # 슬롯이 필러 영역(REAL_SCREEN 좌표)에 있으므로 원본 마우스 좌표 사용
-    mouse_pos = _original_mouse_get_pos()
-    slot_rects = _get_active_item_slot_rects()
-
-    hovered = None
-    for idx, rect_data in enumerate(slot_rects):
-        # rect_data가 튜플이면 pygame.Rect로 변환
-        if isinstance(rect_data, tuple):
-            rect = pygame.Rect(rect_data[0], rect_data[1], rect_data[2], rect_data[3])
-        else:
-            rect = rect_data
-        if rect.collidepoint(mouse_pos):
-            hovered = (idx, rect)
-            break
-
-    if hovered is None:
-        _reset_active_item_hover_state()
-        return
-
-    idx, rect = hovered
-    if idx != _active_item_hover_index:
-        _active_item_hover_index = idx
-        _active_item_hover_rect = rect
-        _active_item_hover_start_ms = now_ms
-        _active_item_tooltip_ready = False
-        # 기존 툴팁 일시정지를 해제하고 새로운 타이머 시작
-        # (오딘의 늪/스매셔 스킬 툴팁 활성 시에는 건드리지 않음)
-        if game_paused_by_tooltip and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
-            game_paused = _tooltip_prev_game_paused
-            game_paused_by_tooltip = False
-            _tooltip_forced_pause = False
-        return
-
-    if _active_item_hover_start_ms is None:
-        _active_item_hover_start_ms = now_ms
-        return
-
-    if not _active_item_tooltip_ready and now_ms - _active_item_hover_start_ms >= ACTIVE_ITEM_TOOLTIP_DELAY_MS:
-        # 툴팁 정보 준비
-        item = active_item_slot[idx] if idx < len(active_item_slot) else None
-        if item:
-            item_name = item.get("name") or item.get("effect")
-            _active_item_tooltip_title = get_item_display_name(item) if 'get_item_display_name' in globals() else (item_name or "")
-            _active_item_tooltip_body = get_item_description(item_name) if item_name else ""
-            _active_item_tooltip_ready = True
-            if not game_paused_by_tooltip:
-                _tooltip_prev_game_paused = game_paused
-                _tooltip_forced_pause = not _tooltip_prev_game_paused
-                game_paused = True
-                game_paused_by_tooltip = True
-
-
-def _wrap_text_lines(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
-    """폰트 폭 기준으로 텍스트를 적절히 줄바꿈한다."""
-    if not text:
-        return []
-    lines: list[str] = []
-    for paragraph in text.split("\n"):
-        words = paragraph.split(" ")
-        current = ""
-        for word in words:
-            candidate = word if not current else current + " " + word
-            if font.size(candidate)[0] <= max_width:
-                current = candidate
-            else:
-                if current:
-                    lines.append(current)
-                current = word
-        if current:
-            lines.append(current)
-    return lines
-
-
-def _draw_active_item_hover_tooltip() -> None:
-    """호버 중인 액티브 아이템의 설명 툴팁을 그린다."""
-    if not _active_item_tooltip_ready:
-        return
-
-    # 슬롯 위치 복원(창 리사이즈에 대응)
-    rect = _active_item_hover_rect
-    slot_rects = _get_active_item_slot_rects()
-    if rect is None and _active_item_hover_index is not None and _active_item_hover_index < len(slot_rects):
-        rect_data = slot_rects[_active_item_hover_index]
-        # rect_data가 튜플이면 pygame.Rect로 변환
-        if isinstance(rect_data, tuple):
-            rect = pygame.Rect(rect_data[0], rect_data[1], rect_data[2], rect_data[3])
-        else:
-            rect = rect_data
-    # rect가 튜플이면 pygame.Rect로 변환
-    if rect is not None and isinstance(rect, tuple):
-        rect = pygame.Rect(rect[0], rect[1], rect[2], rect[3])
-    if rect is None:
-        return
-
-    try:
-        title_font = FontStyle.menu()
-        body_font = FontStyle.body()
-    except Exception:
-        title_font = pygame.font.Font(None, 20)
-        body_font = pygame.font.Font(None, 16)
-
-    max_body_width = 280
-    title_surface = title_font.render(_active_item_tooltip_title or "", True, (255, 255, 255))
-    body_lines = _wrap_text_lines(_active_item_tooltip_body, body_font, max_body_width)
-    body_surfaces = [body_font.render(line, True, (220, 225, 240)) for line in body_lines]
-
-    padding = 10
-    line_spacing = 4
-    content_width = max([title_surface.get_width(), *[s.get_width() for s in body_surfaces]] or [0])
-    content_height = title_surface.get_height() + (len(body_surfaces) * (body_font.get_height() + line_spacing))
-    box_width = min(max_body_width + padding * 2, content_width + padding * 2)
-    box_height = content_height + padding * 2 + (4 if body_surfaces else 0)
-
-    # 기본 위치: 슬롯 오른쪽, 화면 밖으로 나가면 위쪽/왼쪽으로 보정
-    screen_w = SCREEN.get_width() if 'SCREEN' in globals() and SCREEN else 600
-    screen_h = SCREEN.get_height() if 'SCREEN' in globals() and SCREEN else 750
-    box_x = rect.right + 12
-    box_y = rect.top - 6
-    if box_x + box_width > screen_w - 8:
-        box_x = max(8, rect.left - box_width - 12)
-    if box_y + box_height > screen_h - 8:
-        box_y = max(8, screen_h - box_height - 8)
-
-    box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-    box_surface.fill((16, 18, 28, 230))
-    pygame.draw.rect(box_surface, (90, 130, 200), box_surface.get_rect(), 1, border_radius=6)
-
-    y = padding
-    box_surface.blit(title_surface, (padding, y))
-    y += title_surface.get_height() + 6
-    for surface in body_surfaces:
-        box_surface.blit(surface, (padding, y))
-        y += surface.get_height() + line_spacing
-
-    # 가볍게 그림자 드롭
-    shadow = pygame.Surface((box_width + 4, box_height + 4), pygame.SRCALPHA)
-    pygame.draw.rect(shadow, (0, 0, 0, 120), shadow.get_rect(), border_radius=8)
-    SCREEN.blit(shadow, (box_x + 2, box_y + 2))
-    SCREEN.blit(box_surface, (box_x, box_y))
-
-
-def _draw_active_item_hover_tooltip_on_screen(target_screen) -> None:
-    """호버 중인 액티브 아이템의 설명 툴팁을 지정된 screen에 그린다.
-
-    Args:
-        target_screen: 그릴 대상 surface (REAL_SCREEN)
-    """
-    if not _active_item_tooltip_ready:
-        return
-
-    # 슬롯 위치 복원(창 리사이즈에 대응)
-    rect = _active_item_hover_rect
-    slot_rects = _get_active_item_slot_rects()
-    if rect is None and _active_item_hover_index is not None and _active_item_hover_index < len(slot_rects):
-        rect_data = slot_rects[_active_item_hover_index]
-        # rect_data가 튜플이면 pygame.Rect로 변환
-        if isinstance(rect_data, tuple):
-            rect = pygame.Rect(rect_data[0], rect_data[1], rect_data[2], rect_data[3])
-        else:
-            rect = rect_data
-    # rect가 튜플이면 pygame.Rect로 변환
-    if rect is not None and isinstance(rect, tuple):
-        rect = pygame.Rect(rect[0], rect[1], rect[2], rect[3])
-    if rect is None:
-        return
-
-    try:
-        title_font = FontStyle.menu()
-        body_font = FontStyle.body()
-    except Exception:
-        title_font = pygame.font.Font(None, 20)
-        body_font = pygame.font.Font(None, 16)
-
-    max_body_width = 280
-    title_surface = title_font.render(_active_item_tooltip_title or "", True, (255, 255, 255))
-    body_lines = _wrap_text_lines(_active_item_tooltip_body, body_font, max_body_width)
-    body_surfaces = [body_font.render(line, True, (220, 225, 240)) for line in body_lines]
-
-    padding = 10
-    line_spacing = 4
-    content_width = max([title_surface.get_width(), *[s.get_width() for s in body_surfaces]] or [0])
-    content_height = title_surface.get_height() + (len(body_surfaces) * (body_font.get_height() + line_spacing))
-    box_width = min(max_body_width + padding * 2, content_width + padding * 2)
-    box_height = content_height + padding * 2 + (4 if body_surfaces else 0)
-
-    # target_screen 기준으로 화면 크기 사용
-    screen_w = target_screen.get_width() if target_screen else 760
-    screen_h = target_screen.get_height() if target_screen else 750
-
-    # 기본 위치: 슬롯 위쪽 (하단에 있으므로)
-    box_x = rect.centerx - box_width // 2
-    box_y = rect.top - box_height - 8
-
-    # 화면 경계 보정
-    if box_x < 8:
-        box_x = 8
-    if box_x + box_width > screen_w - 8:
-        box_x = screen_w - box_width - 8
-    if box_y < 8:
-        box_y = rect.bottom + 8  # 위로 못 가면 아래로
-
-    # 그림자 포함 전체를 중간 서피스에 그린 뒤 스케일링
-    _total_w = box_width + 4
-    _total_h = box_height + 4
-    _tip_surf = pygame.Surface((_total_w, _total_h), pygame.SRCALPHA)
-
-    # 그림자
-    pygame.draw.rect(_tip_surf, (0, 0, 0, 120), (2, 2, box_width + 4, box_height + 4), border_radius=8)
-    # 본체
-    _box_inner = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-    _box_inner.fill((16, 18, 28, 230))
-    pygame.draw.rect(_box_inner, (90, 130, 200), _box_inner.get_rect(), 1, border_radius=6)
-
-    y = padding
-    _box_inner.blit(title_surface, (padding, y))
-    y += title_surface.get_height() + 6
-    for surface in body_surfaces:
-        _box_inner.blit(surface, (padding, y))
-        y += surface.get_height() + line_spacing
-    _tip_surf.blit(_box_inner, (0, 0))
-
-    _blit_scaled_tooltip(target_screen, _tip_surf, box_x, box_y, _total_w, _total_h)
-
-
 # --- 액티브 아이템 버리기 메뉴 함수 ---
 def _open_discard_menu(slot_index: int, slot_rect: pygame.Rect) -> None:
     """우클릭으로 버리기 메뉴를 연다."""
@@ -31393,9 +31430,6 @@ def _open_discard_menu(slot_index: int, slot_rect: pygame.Rect) -> None:
         return
     if active_item_slot[slot_index] is None:
         return
-
-    # 툴팁이 열려있으면 먼저 닫기
-    _reset_active_item_hover_state()
 
     _discard_menu_item_index = slot_index
     _discard_menu_rect = slot_rect
@@ -59621,6 +59655,183 @@ def update_smasher_combo_effect():
             smasher_combo_particles.remove(particle)
 
 
+# 대쉬 완충 순간 이펙트 상태
+_dash_full_burst_timer = 0          # 남은 프레임 (0이면 비활성)
+_DASH_FULL_BURST_FRAMES = 26        # 약 0.43초
+_dash_full_prev_was_full = False    # 직전 프레임 완충 여부 (상승 엣지 감지용)
+
+
+def draw_dash_full_aura(screen):
+    """대쉬 토큰이 완충된 순간에만 짧게 발산하는 붉은 이펙트.
+
+    - 상승 엣지(미완충 → 완충 전환) 감지 시 한 번만 타이머 셋
+    - 짧은 시간(~0.4초) 동안 확장형 링 + 은은한 글로우 페이드아웃
+    - 유지 상태에선 아무것도 렌더하지 않음
+    """
+    global _dash_full_burst_timer, _dash_full_prev_was_full
+    try:
+        if arena_mode_enabled:
+            _max_t = globals().get('arena_bottom_max_dash_charges', 0) or 0
+            _cur_t = globals().get('arena_bottom_dash_charges', 0) or 0
+        else:
+            _max_t = last_max_dash_tokens
+            _cur_t = rolling_charges
+
+        is_full = (_max_t > 0 and _cur_t >= _max_t)
+
+        # 상승 엣지: 직전 프레임 미완충 → 이번 프레임 완충
+        if is_full and not _dash_full_prev_was_full:
+            _dash_full_burst_timer = _DASH_FULL_BURST_FRAMES
+        _dash_full_prev_was_full = is_full
+
+        if _dash_full_burst_timer <= 0:
+            return
+
+        # 진행률 0.0(시작) → 1.0(끝)
+        progress = 1.0 - (_dash_full_burst_timer / float(_DASH_FULL_BURST_FRAMES))
+        fade = 1.0 - progress  # 후반으로 갈수록 희미
+        _dash_full_burst_timer -= 1
+
+        cx = PLAYER.centerx
+        cy = PLAYER.centery
+
+        # 확장형 링: progress에 따라 반경 확대
+        base_w = int(PADDLE_WIDTH * (0.9 + progress * 0.9))  # 90% → 180%
+        base_h = int(38 + progress * 34)                     # 38 → 72
+
+        # 1) 확장 링 (외곽)
+        ring_alpha = int(150 * fade)
+        if ring_alpha > 0:
+            ring_surf = pygame.Surface((base_w + 8, base_h + 8), pygame.SRCALPHA)
+            pygame.draw.ellipse(ring_surf, (255, 70, 70, ring_alpha),
+                                (0, 0, base_w + 8, base_h + 8), 3)
+            screen.blit(ring_surf, (cx - (base_w + 8) // 2, cy - (base_h + 8) // 2))
+
+        # 2) 내부 글로우 (안쪽 타원 2겹, 빠르게 페이드)
+        for layer in range(2):
+            scale = 0.75 - layer * 0.18
+            w = max(8, int(base_w * scale))
+            h = max(6, int(base_h * scale))
+            alpha = int((80 - layer * 20) * fade * fade)  # 제곱 페이드 — 빠르게 사라짐
+            if alpha <= 0:
+                continue
+            surf = pygame.Surface((w + 4, h + 4), pygame.SRCALPHA)
+            pygame.draw.ellipse(surf, (230, 60, 60, alpha), (0, 0, w + 4, h + 4))
+            screen.blit(surf, (cx - (w + 4) // 2, cy - (h + 4) // 2))
+    except Exception:
+        pass
+
+
+def draw_smasher_combo_hud(screen):
+    """스매셔 상시 콤보 카운터 HUD (플레이어 패들 하단 가로 바)
+
+    - 콤보가 0이고 유예 콤보도 없으면 비표시
+    - 콤보 수치(숫자) + 진행 바 (유예 중엔 유예 타이머 기반 게이지)
+    - 콤보 레벨에 따라 색상 변화 (흰→노랑→주황→빨강)
+    """
+    global smasher_combo_count, smasher_dash_combo_grace_count, smasher_dash_combo_grace_timer
+
+    display_combo = smasher_combo_count if smasher_combo_count > 0 else smasher_dash_combo_grace_count
+    if display_combo <= 0:
+        globals()['_smasher_combo_hud_hover_rect'] = None
+        return
+
+    in_grace = smasher_combo_count == 0 and smasher_dash_combo_grace_count > 0
+
+    # 색상 단계 (콤보 레벨)
+    if display_combo >= 8:
+        combo_color = (255, 70, 70)       # 빨강
+        glow_color = (255, 130, 90)
+    elif display_combo >= 5:
+        combo_color = (255, 150, 60)      # 주황
+        glow_color = (255, 200, 100)
+    elif display_combo >= 3:
+        combo_color = (255, 230, 100)     # 노랑
+        glow_color = (255, 245, 170)
+    else:
+        combo_color = (240, 240, 240)     # 흰색
+        glow_color = (255, 255, 255)
+
+    # 바 크기/위치 (좌측 필러 배경, 골드 HUD 하단)
+    # 골드 HUD: (x=2, y=5, w=76, h=40) → 하단 y=45
+    bar_w = 72
+    bar_h = 8
+    bar_x = 4
+    bar_y = 78  # 골드 HUD 아래 여백 포함
+
+    # 스매셔 콤보 HUD 호버 영역 저장 (SCREEN 내부 좌표, 숫자 영역 포함)
+    globals()['_smasher_combo_hud_hover_rect'] = pygame.Rect(bar_x - 2, bar_y - 26, bar_w + 4, bar_h + 32)
+    globals()['_smasher_combo_hud_display_count'] = display_combo
+    globals()['_smasher_combo_hud_in_grace'] = in_grace
+
+    # 진행률: 유예 중엔 남은 유예 시간, 일반엔 항상 가득
+    if in_grace and SMASHER_DASH_COMBO_GRACE_FRAMES > 0:
+        progress = max(0.0, smasher_dash_combo_grace_timer / SMASHER_DASH_COMBO_GRACE_FRAMES)
+    else:
+        progress = 1.0
+
+    # 배경 (반투명 검정)
+    bg_surf = pygame.Surface((bar_w + 4, bar_h + 4), pygame.SRCALPHA)
+    pygame.draw.rect(bg_surf, (0, 0, 0, 160), (0, 0, bar_w + 4, bar_h + 4), border_radius=4)
+    screen.blit(bg_surf, (bar_x - 2, bar_y - 2))
+
+    # 채움
+    fill_w = max(0, int(bar_w * progress))
+    if fill_w > 0:
+        fill_surf = pygame.Surface((fill_w, bar_h), pygame.SRCALPHA)
+        pygame.draw.rect(fill_surf, (*combo_color, 230), (0, 0, fill_w, bar_h), border_radius=3)
+        screen.blit(fill_surf, (bar_x, bar_y))
+
+    # 테두리 (유예 중엔 점멸)
+    border_alpha = 255
+    if in_grace:
+        pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.02)
+        border_alpha = int(120 + 135 * pulse)
+    border_surf = pygame.Surface((bar_w + 4, bar_h + 4), pygame.SRCALPHA)
+    pygame.draw.rect(border_surf, (*glow_color, border_alpha),
+                     (0, 0, bar_w + 4, bar_h + 4), 2, border_radius=4)
+    screen.blit(border_surf, (bar_x - 2, bar_y - 2))
+
+    # 콤보 숫자 + 라벨 (바 위쪽, 좌측 필러 폭에 맞춤)
+    try:
+        combo_font = get_font(18, style="bold")
+        label_font = get_font(9, style="bold")
+
+        num_text = f"{display_combo}"
+        label_text = "COMBO"
+        num_surf = combo_font.render(num_text, True, combo_color)
+        lbl_surf = label_font.render(label_text, True, glow_color)
+
+        bar_center_x = bar_x + bar_w // 2
+        num_x = bar_center_x - num_surf.get_width() // 2
+        num_y = bar_y - num_surf.get_height() - 1
+
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            shadow = combo_font.render(num_text, True, (0, 0, 0))
+            screen.blit(shadow, (num_x + dx, num_y + dy))
+        screen.blit(num_surf, (num_x, num_y))
+
+        lbl_x = bar_center_x - lbl_surf.get_width() // 2
+        lbl_y = bar_y + bar_h + 1
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            shadow = label_font.render(label_text, True, (0, 0, 0))
+            screen.blit(shadow, (lbl_x + dx, lbl_y + dy))
+        screen.blit(lbl_surf, (lbl_x, lbl_y))
+
+        # 유예 중 점멸 인디케이터 (공간이 좁으므로 축약 "!" 표기)
+        if in_grace:
+            hint_font = get_font(9, style="bold")
+            hint_surf = hint_font.render("GRACE", True, (255, 220, 120))
+            hint_x = bar_center_x - hint_surf.get_width() // 2
+            hint_y = lbl_y + lbl_surf.get_height() + 1
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                shadow = hint_font.render("GRACE", True, (0, 0, 0))
+                screen.blit(shadow, (hint_x + dx, hint_y + dy))
+            screen.blit(hint_surf, (hint_x, hint_y))
+    except Exception:
+        pass
+
+
 def draw_smasher_combo_effect(screen):
     """스매셔 콤보 이펙트 그리기 (WHAM 스타일)"""
     if not smasher_combo_effect_active:
@@ -81239,8 +81450,9 @@ def handle_player(keys):
                     _br_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _br_cur_speed
-                    # 검기 증폭 퍽: 공 타격 시 공속 +10%/LV (최대 LV5 = +50%)
-                    _br_hit_amp_lv = min(get_runtime_skill_level("blade_amp"), 5)
+                    # 검기 증폭 퍽: 공 타격 시 공속 +10%/LV
+                    # 초월자의 관/현자의 반지 효과로 LV5 초과 시에도 공속은 계속 증가 (킥 강화 공속과 동일)
+                    _br_hit_amp_lv = get_runtime_skill_level("blade_amp")
                     _br_hit_mult = 2.8 * (1.0 + 0.1 * _br_hit_amp_lv)
                     if _br_cur_speed > 0.1:
                         _br_new_speed = _br_cur_speed * _br_hit_mult  # 기본 2.8x + 검기 증폭 보너스
@@ -107216,6 +107428,9 @@ def draw_player_gauge():
         orb_center_x = _player_gauge_surface_left.get_width() // 2
         orb_center_y = _player_gauge_surface_left.get_height() - orb_radius_base - 15  # 하단 정렬
 
+        # 좌측 게이지 구슬 호버 영역 저장 (Surface-local 좌표, 툴팁용)
+        globals()['_gauge_orb_hover_rect'] = (orb_center_x, orb_center_y, orb_radius_base)
+
         # === 구슬 생성/접기 애니메이션 적용 ===
         orb_anim = get_orb_spawn_animation_state()
         # 접기 완료 상태면 구슬 숨김
@@ -110527,6 +110742,9 @@ def draw_player_gauge():
         orb_center_x = 80  # 게임 영역과의 간격을 왼쪽 게이지와 동일하게
         orb_center_y = surface_height - orb_radius_base - 15  # 하단 정렬 (왼쪽 게이지와 동일)
 
+        # 우측 대쉬 토큰 구슬 호버 영역 저장 (Surface-local 좌표, 툴팁용)
+        globals()['_dash_orb_hover_rect'] = (orb_center_x, orb_center_y, orb_radius_base)
+
         # 애니메이션이 시작되지 않았으면 대쉬 토큰 구슬 그리지 않음
         _skip_right_orb_drawing = orb_radius <= 0
 
@@ -111560,7 +111778,7 @@ def draw_player_gauge():
             border_color = (220, 180, 255) if sensor_charge_progress >= 1.0 else (100, 60, 140)
             pygame.draw.circle(SCREEN, border_color, (sensor_orb_x, sensor_orb_y), sensor_orb_radius, 2)
 
-            # 위험감지벨트 전용 대쉬토큰구슬 호버 영역 저장 (내부 좌표, 툴팁 패스에서 사용)
+            # 위험감지벨트 전용 대쉬토큰구슬 호버 영역 저장 (우측 Surface-local 좌표, 툴팁용)
             globals()['_sensor_orb_hover_rect'] = (sensor_orb_x, sensor_orb_y, sensor_orb_radius)
         else:
             globals()['_sensor_orb_hover_rect'] = None
@@ -112768,6 +112986,13 @@ def draw_player_gauge():
             panel_x = int(center_x - panel_width / 2)
             panel_y = int(tokens_bottom + 8)
         panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+
+        # 토르쉴드 게이지 호버 영역 저장 (툴팁용)
+        # _gauge_using_separate_surface이면 우측 Surface-local 좌표, 아니면 SCREEN 내부 좌표
+        globals()['_thor_shield_hover_rect'] = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        globals()['_thor_shield_hover_on_right_surface'] = bool(_gauge_using_separate_surface)
+        globals()['_thor_shield_gauge_value'] = gauge_value
+        globals()['_thor_shield_gauge_max'] = gauge_max
 
         def _clamp_component(value: float) -> int:
             return max(0, min(255, int(round(value))))
@@ -115014,10 +115239,14 @@ def draw_objects():
         except Exception as _sv_e:
             print(f"[STRANGE_VIAL_EFFECT_ERROR] {_sv_e}")
 
+    # ⚡ 대쉬 토큰 완충 시 패들 주변 붉은 기운 (은은하게)
+    draw_dash_full_aura(SCREEN)
+
     # ⚡ 스매셔 콤보 이펙트 업데이트 및 그리기
     if selected_character_type == "smasher":
         update_smasher_combo_effect()
-        draw_smasher_combo_effect(SCREEN)
+        draw_smasher_combo_hud(SCREEN)      # 상시 콤보 카운터 HUD (패들 하단 가로 바)
+        draw_smasher_combo_effect(SCREEN)   # 콤보 성공 순간 팝업 이펙트
 
     # 실전 튜토리얼 딜레이 업데이트 (주니어리그)
     if ai_mode == "junior":
@@ -125924,7 +126153,7 @@ def show_stage_clear_choices() -> str | None:
     return None
 
 
-def show_perfect_victory_effect():
+def show_perfect_victory_effect(perk_count=4):
     """
     완벽한 승리 (5:0) 시 핑파이터 게이밍 스타일 이펙트
     라이브 스테이지 배경 위에 오버레이로 표시
@@ -126242,7 +126471,7 @@ def show_perfect_victory_effect():
         if frame_count > 30:
             bonus_alpha = min(255, (frame_count - 30) * 12)
 
-            bonus_text = "퍽 3회 선택!"
+            bonus_text = f"퍽 {perk_count}회 선택!"
             bonus_surface = bonus_font.render(bonus_text, True, (255, 255, 255))
             bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 65))
 
@@ -126293,7 +126522,7 @@ def show_perfect_victory_effect():
         clock.tick(60)
 
 
-def show_excellent_victory_effect():
+def show_excellent_victory_effect(perk_count=3):
     """
     우수한 승리 (5:1) 시 핑파이터 게이밍 스타일 이펙트
     라이브 스테이지 배경 위에 오버레이로 표시
@@ -126503,7 +126732,7 @@ def show_excellent_victory_effect():
         if frame_count > 30:
             bonus_alpha = min(255, (frame_count - 30) * 12)
 
-            bonus_text = "퍽 2회 선택!"
+            bonus_text = f"퍽 {perk_count}회 선택!"
             bonus_surface = bonus_font.render(bonus_text, True, (255, 255, 255))
             bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 65))
 
@@ -126548,7 +126777,7 @@ def show_excellent_victory_effect():
         clock.tick(60)
 
 
-def show_normal_victory_effect():
+def show_normal_victory_effect(perk_count=2):
     """
     일반 승리 (5:2) 시 핑파이터 게이밍 스타일 이펙트
     녹색 테마 - 5:1, 5:0보다 간소화된 버전
@@ -126748,7 +126977,7 @@ def show_normal_victory_effect():
         if frame_count > 35:
             bonus_alpha = min(255, (frame_count - 35) * 10)
 
-            bonus_text = "퍽 1회 선택!"
+            bonus_text = f"퍽 {perk_count}회 선택!"
             bonus_surface = bonus_font.render(bonus_text, True, (255, 255, 255))
             bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60))
 
@@ -167303,29 +167532,36 @@ def show_result(won):
         # 스킬 선택 횟수 결정 (점수에 따라)
         skill_selection_count = 0
         if final_round_wins == 5 and final_round_losses == 0:
-            # 완벽한 승리 (5:0) - 4회 선택
             skill_selection_count = 4
-            show_perfect_victory_effect()
         elif final_round_wins == 5 and final_round_losses == 1:
-            # 우수한 승리 (5:1) - 3회 선택
             skill_selection_count = 3
-            show_excellent_victory_effect()
         elif final_round_wins == 5 and final_round_losses == 2:
-            # 일반 승리 (5:2) - 2회 선택
             skill_selection_count = 2
-            show_normal_victory_effect()
         elif final_round_wins == 5 and final_round_losses == 3:
-            # 5:3 승리 - 2회 선택
             skill_selection_count = 2
-            show_normal_victory_effect()
         elif final_round_wins == 5 and final_round_losses == 4:
-            # 5:4 승리 - 1회 선택
             skill_selection_count = 1
-            show_normal_victory_effect()
         else:
-            # 그 외 (듀스 등) - 1회 선택
             skill_selection_count = 1
-            # print(f"[Victory] 승리! 런타임 스킬 {skill_selection_count}회 선택")
+
+        # 광폭화 보너스 선택지 미리 계산 (이펙트에 합산 표시)
+        enraged_bonus_choices = 0
+        if enraged_boss_active:
+            if final_round_wins == 5 and final_round_losses == 0:
+                enraged_bonus_choices = 3
+            elif final_round_wins == 5 and final_round_losses == 1:
+                enraged_bonus_choices = 2
+            else:
+                enraged_bonus_choices = 1
+
+        total_perk_count = skill_selection_count + enraged_bonus_choices
+
+        if final_round_wins == 5 and final_round_losses == 0:
+            show_perfect_victory_effect(perk_count=total_perk_count)
+        elif final_round_wins == 5 and final_round_losses == 1:
+            show_excellent_victory_effect(perk_count=total_perk_count)
+        else:
+            show_normal_victory_effect(perk_count=total_perk_count)
 
         # 런타임 스킬 선택 화면 호출 (횟수만큼 반복)
         # exclude_instant=True: 스테이지 클리어 보상이므로 즉시형 스킬(풀게이징, 차원개방) 제외
@@ -167337,19 +167573,9 @@ def show_result(won):
                 pass  # print(f"[Victory] 스킬 선택됨: {selected_skill}")
 
         # === 광폭화 보스 승리 시 추가 런타임 스킬 선택 (일반 스킬 선택 후) ===
-        # 광폭화 보너스 스킬 선택 횟수를 여기서 직접 계산 (show_victory_screen 호출 전)
+        # 광폭화 보너스 횟수는 위에서 미리 계산된 enraged_bonus_choices 사용
         if enraged_boss_active:
-            # 광폭화 보스: 5:0 → 3개, 5:1 → 2개, 5:2~ → 1개
-            enraged_skill_choices = 0
-            if final_round_wins == 5 and final_round_losses == 0:
-                enraged_skill_choices = 3  # 광폭화 5:0 완승 시 런타임 선택지 3개
-                # print(f"🔥 [광폭화 보스] 완승! 런타임 스킬 선택지 +3 (점수: {final_round_wins}:{final_round_losses})")
-            elif final_round_wins == 5 and final_round_losses == 1:
-                enraged_skill_choices = 2  # 광폭화 5:1 승리 시 런타임 선택지 2개
-                # print(f"🔥 [광폭화 보스] 승리! 런타임 스킬 선택지 +2 (점수: {final_round_wins}:{final_round_losses})")
-            else:
-                enraged_skill_choices = 1  # 광폭화 5:2~ 승리 시 런타임 선택지 1개
-                # print(f"🔥 [광폭화 보스] 승리! 런타임 스킬 선택지 +1 (점수: {final_round_wins}:{final_round_losses})")
+            enraged_skill_choices = enraged_bonus_choices
 
             if enraged_skill_choices > 0:
                 # print(f"🔥 [광폭화 보너스] 런타임 스킬 {enraged_skill_choices}회 추가 선택 시작!")
@@ -168192,7 +168418,6 @@ def main(stage_num, new_boss_mode=False):
     global screen_transition_active, screen_transition_progress, screen_transition_phase
     global screen_transition_speed, _screen_transition_surface
     bgm_manager.set_bgm_volume(bgm_volume)
-    _reset_active_item_hover_state()
     _close_discard_menu()  # 버리기 메뉴 리셋
 
     # 파워 스매싱 빛의 파편 이벤트 리스너 등록
@@ -173797,6 +174022,10 @@ def main(stage_num, new_boss_mode=False):
                 elif cleanse_poll.can_activate(special_gauge, has_status):
                     # 클렌즈 발동!
                     cleanse_poll.activate(PLAYER.centerx, PLAYER.centery)
+                    # 연장기어 퍽: 면역 지속시간 증가
+                    _ext_gear_lv_cl = runtime_skill_levels.get("extension_gear", 0)
+                    if _ext_gear_lv_cl > 0:
+                        cleanse_poll.immunity_timer = int(cleanse_poll.immunity_timer * (1.0 + 0.25 * _ext_gear_lv_cl))
                     special_gauge -= 100  # 게이지 소모
                     # 클렌즈 사운드 재생
                     if SOUND_CLEANSE:
@@ -174130,9 +174359,6 @@ def main(stage_num, new_boss_mode=False):
             new_x = math.copysign(math.sqrt(rem_sq), vx)
             ball_vel[0], ball_vel[1] = new_x, new_y
 
-        # 액티브 아이템 슬롯 호버 → 툴팁 & 일시정지 처리
-        _update_active_item_hover_state(now_ms)
-        
         if profiler:
             profiler.end_section("Events")
             profiler.start_section("GameLogic")
@@ -181594,10 +181820,10 @@ def show_character_info(background_surface=None):
         # 툴팁
         hover_info = slot_hover or active_hover or bag_hover
         if hover_info:
-            tooltip_width = 320
-            # 이름/부위는 기존 크기 유지, 설명/롤옵션은 한 단계 크게
-            local_font_small = font_small
-            tooltip_body_font = get_font(16, style="regular")
+            tooltip_width = 360
+            # Tab 정보창 호버 툴팁은 별도 큰 폰트를 사용해 가독성을 높인다.
+            local_font_small = get_font(18, style="bold")
+            tooltip_body_font = get_font(18, style="regular")
             local_font_tiny = tooltip_body_font
             name_color = hover_info.get("color") or WHITE
             options_entries = hover_info.get("options") or []
