@@ -183,58 +183,39 @@ class ParthenonFrame:
             self._god_ray_alpha_steps.append(step_surf)
 
     # ------------------------------------------------------------
+    FLAME_SHEET_IMAGE = os.path.join("backgrounds", "stage9_flame_sheet.jpeg")
+    FLAME_FRAME_COUNT = 6
+
     def _build_flame_sprites(self):
-        """불꽃 프레임(8장) + 헤일로 사전 렌더. 불꽃 크기는 필러 너비에 비례."""
+        """일러스트 불꽃 스프라이트시트(6프레임) 로드 + 프레임별 리사이즈.
+        검정 배경은 BLEND_ADD로 자연스럽게 투명화되어 필러 위에 가산 발광."""
+        sheet = _load_image(self.FLAME_SHEET_IMAGE)
+        if sheet is None:
+            return
+
+        sheet_w, sheet_h = sheet.get_size()
+        frame_src_w = sheet_w // self.FLAME_FRAME_COUNT
+        frame_src_h = sheet_h
+
+        # 불꽃 크기는 필러 너비에 비례
         base_w = max(self.left_pillar_w, self.right_pillar_w, 40)
-        # 불꽃 스프라이트 크기
-        fw = max(24, int(base_w * 0.36))
-        fh = int(fw * 1.7)
+        fw = max(32, int(base_w * 0.55))
+        fh = int(fw * frame_src_h / max(1, frame_src_w))
         self._flame_w, self._flame_h = fw, fh
 
-        frame_count = 8
-        rng = random.Random(9109)  # 재현 가능한 흔들림
-        for fi in range(frame_count):
-            surf = pygame.Surface((fw, fh), pygame.SRCALPHA)
-            # 불꽃 레이어(외곽→내부) — 타원 겹쳐 올리기
-            # 바닥 중심을 하단 중앙으로, 위로 길쭉하게
-            bx = fw // 2
-            by = int(fh * 0.90)
-            # 각 프레임마다 흔들림 파라미터
-            sway = rng.uniform(-0.08, 0.08)      # 좌우 기울기
-            stretch = 1.0 + rng.uniform(-0.12, 0.15)  # 세로 스트레치
-            wobble = rng.uniform(-0.10, 0.10)    # 상단 좌우 이탈
+        for i in range(self.FLAME_FRAME_COUNT):
+            src = sheet.subsurface(pygame.Rect(i * frame_src_w, 0,
+                                               frame_src_w, frame_src_h)).copy()
+            scaled = pygame.transform.smoothscale(src, (fw, fh))
+            self._flame_frames.append(scaled)
 
-            layers = [
-                # (색, 알파, 너비 배율, 높이 배율)
-                ((255, 100, 30), 110, 0.95, 1.00),  # 외곽 오렌지
-                ((255, 150, 40), 160, 0.78, 0.88),  # 중간 오렌지
-                ((255, 200, 70), 200, 0.58, 0.72),  # 밝은 노랑
-                ((255, 240, 170), 230, 0.38, 0.55), # 코어 크림
-                ((255, 255, 230), 250, 0.20, 0.35), # 하이라이트
-            ]
-            for color, alpha, wr, hr in layers:
-                lw = max(2, int(fw * wr))
-                lh = max(4, int(fh * hr * stretch))
-                # 상단이 옆으로 살짝 휘도록 다중 타원으로 그림
-                segments = 6
-                for s in range(segments):
-                    t = s / (segments - 1)
-                    cx = int(bx + sway * lh * t + wobble * lh * (t ** 2) * (1 - t) * 4)
-                    cy = int(by - lh * (0.15 + 0.85 * t))
-                    seg_w = int(lw * (1.0 - t * 0.75))
-                    seg_h = max(3, int(lh * 0.35 * (1.0 - t * 0.55)))
-                    rect = pygame.Rect(cx - seg_w // 2, cy - seg_h // 2, seg_w, seg_h)
-                    col = (*color, alpha)
-                    pygame.draw.ellipse(surf, col, rect)
-            self._flame_frames.append(surf)
-
-        # 헤일로(발광) — 불꽃 주변 따뜻한 빛
+        # 하단 발광 헤일로(따뜻한 빛) — 필러에 빛 반사
         gw, gh = fw * 2, fh * 2
         glow = pygame.Surface((gw, gh), pygame.SRCALPHA)
         gcx, gcy = gw // 2, int(gh * 0.55)
         for r, a in ((int(fw * 1.05), 12), (int(fw * 0.85), 20),
-                     (int(fw * 0.65), 32), (int(fw * 0.45), 50),
-                     (int(fw * 0.28), 70)):
+                     (int(fw * 0.65), 30), (int(fw * 0.45), 46),
+                     (int(fw * 0.28), 64)):
             pygame.draw.circle(glow, (255, 170, 90, a), (gcx, gcy), r)
         self._flame_glow = glow
 
@@ -253,30 +234,29 @@ class ParthenonFrame:
 
         for idx, tx in enumerate((left_torch_x, right_torch_x)):
             st = self._torch_states[idx]
-            # 플리커: 빠른 랜덤한 프레임 전환 + 부드러운 알파 펄스
+            # 플리커: 시간 기반 프레임 전환(약 12fps 기본 + 미세 지터)
             phase = self.time * st['speed'] + st['phase']
-            # 8프레임을 비선형적으로 넘김(두 사인 합성으로 자연스러운 떨림)
-            fidx = int((math.sin(phase) * 0.5 + math.sin(phase * 1.73 + 1.1) * 0.5 + 1.0)
-                       * 0.5 * len(self._flame_frames)) % len(self._flame_frames)
+            fidx = int(self.time * 10.0 + st['phase'] * 2.0) % len(self._flame_frames)
             frame = self._flame_frames[fidx]
 
             # 알파/수직 오프셋 흔들림
-            flicker = 0.5 + 0.5 * math.sin(phase * 0.8 + 0.3)
-            alpha = int(210 + flicker * 45)
-            y_jitter = int(math.sin(phase * 1.9) * 1.5)
+            flicker = 0.5 + 0.5 * math.sin(phase * 0.7 + 0.3)
+            alpha = int(180 + flicker * 60)  # 180 ~ 240
+            y_jitter = int(math.sin(phase * 1.6) * 2.0)
 
-            # 헤일로 먼저 (가산 블렌딩)
+            # 헤일로 (가산 블렌딩, 알파 변조)
             glow_pulse = 0.5 + 0.5 * math.sin(self.time * st['glow_speed'] + st['glow_phase'])
-            glow_alpha = int(70 + glow_pulse * 85)
+            glow_alpha = int(60 + glow_pulse * 80)
             self._flame_glow.set_alpha(glow_alpha)
             gw, gh = self._flame_glow.get_size()
             screen.blit(self._flame_glow,
                         (tx - gw // 2, flame_y - int(gh * 0.55) + y_jitter),
                         special_flags=pygame.BLEND_ADD)
 
-            # 불꽃 본체
+            # 불꽃 본체 — BLEND_ADD로 검정 배경 자동 투명 + 기존 박힌 불꽃과 가산 합성
             frame.set_alpha(alpha)
-            screen.blit(frame, (tx - fw // 2, flame_y - int(fh * 0.90) + y_jitter))
+            screen.blit(frame, (tx - fw // 2, flame_y - int(fh * 0.85) + y_jitter),
+                        special_flags=pygame.BLEND_ADD)
 
     def update(self, dt):
         self.time += dt
