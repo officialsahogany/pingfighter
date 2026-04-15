@@ -110,6 +110,8 @@ stage8_awaken_intro_done = False
 stage8_awaken_intro_pending = False
 stage8_awakened = False
 stage8_boss_dialogue_shown = False
+stage9_tauren_prev_x = None
+stage9_tauren_facing = "right"
 suicide_drone_player_lock = None
 suicide_drone_rect = None
 _arena_prev_boss_x = 0
@@ -11106,6 +11108,8 @@ def _draw_pillar_ui(screen, renderer):
             pass
     globals()['_arena_manual_toggle_rect'] = _manual_toggle_rect
 
+    _gold_hud_rect = None
+
     # 왼쪽 필러 상단 - 인게임 골드 HUD 표시 (2배 크기)
     # 전체화면 모드에서만 필러 영역에 표시
     try:
@@ -11148,8 +11152,21 @@ def _draw_pillar_ui(screen, renderer):
                 screen.blit(_gold_hud_cache, (gold_hud_x, gold_hud_y))
 
             # 골드 HUD 호버 영역 저장 (REAL_SCREEN 좌표)
-            globals()['_gold_hud_hover_rect'] = pygame.Rect(gold_hud_x, gold_hud_y, scaled_hud_w, scaled_hud_h)
+            _gold_hud_rect = pygame.Rect(gold_hud_x, gold_hud_y, scaled_hud_w, scaled_hud_h)
+            globals()['_gold_hud_hover_rect'] = _gold_hud_rect
     except Exception as e:
+        pass
+
+    # 스매셔 콤보 HUD는 필러 골드 HUD 하단에 그린다.
+    # 게임 SCREEN에 직접 그리면 좌측 상단으로 붙기 때문에 필러 렌더링 단계에서 처리한다.
+    try:
+        if _is_fullscreen_active and _gold_hud_rect is not None and _is_ingame and not arena_mode_enabled:
+            if selected_character_type == "smasher":
+                draw_smasher_combo_hud(screen, anchor_rect=_gold_hud_rect)
+            else:
+                globals()['_smasher_combo_hud_hover_rect'] = None
+                globals()['_smasher_combo_hud_hover_space'] = None
+    except Exception:
         pass
 
     # 오른쪽 필러 - 대쉬 토큰 표시 (인게임에서만, 투기장 모드 포함)
@@ -12033,14 +12050,18 @@ def _fullscreen_flip():
 
             # 5) 스매셔 콤보 카운터 HUD (패들 하단 가로 바)
             _combo_rect = globals().get('_smasher_combo_hud_hover_rect')
+            _combo_space = globals().get('_smasher_combo_hud_hover_space', "screen")
             if not _orb_tip_drawn and _combo_rect and selected_character_type == "smasher":
-                # SCREEN 내부 좌표 → REAL_SCREEN 변환
-                _real_combo = pygame.Rect(
-                    int(GAME_OFFSET_X + _combo_rect.x * _sf_orb),
-                    int(GAME_OFFSET_Y + _combo_rect.y * _sf_orb),
-                    max(1, int(_combo_rect.w * _sf_orb)),
-                    max(1, int(_combo_rect.h * _sf_orb))
-                )
+                if _combo_space == "real":
+                    _real_combo = _combo_rect
+                else:
+                    # SCREEN 내부 좌표 → REAL_SCREEN 변환
+                    _real_combo = pygame.Rect(
+                        int(GAME_OFFSET_X + _combo_rect.x * _sf_orb),
+                        int(GAME_OFFSET_Y + _combo_rect.y * _sf_orb),
+                        max(1, int(_combo_rect.w * _sf_orb)),
+                        max(1, int(_combo_rect.h * _sf_orb))
+                    )
                 if _real_combo.collidepoint(_real_mpos_orb):
                     _c_count = globals().get('_smasher_combo_hud_display_count', 0)
                     _c_grace = globals().get('_smasher_combo_hud_in_grace', False)
@@ -13710,6 +13731,37 @@ STAGE6_BG = stage_backgrounds.stage6
 STAGE7_BG = stage_backgrounds.stage7
 STAGE8_BG = stage_backgrounds.stage8  # 닌자 저택 배경
 
+
+def _create_stage9_background(width: int, height: int) -> pygame.Surface:
+    """Stage 9 Greek/Parthenon themed court floor with center stadium line + circle."""
+    field_path = resource_path(os.path.join("backgrounds", "stage9_field.png"))
+    if os.path.exists(field_path):
+        try:
+            img = pygame.image.load(field_path).convert()
+            return pygame.transform.smoothscale(img, (width, height))
+        except Exception as e:
+            print(f"[Stage9BG] stage9_field.png load failed: {e}")
+
+    surf = pygame.Surface((width, height))
+    top = (162, 210, 236)
+    bottom = (244, 223, 184)
+    for y in range(height):
+        t = y / max(1, height - 1)
+        color = (
+            int(top[0] + (bottom[0] - top[0]) * t),
+            int(top[1] + (bottom[1] - top[1]) * t),
+            int(top[2] + (bottom[2] - top[2]) * t),
+        )
+        pygame.draw.line(surf, color, (0, y), (width, y))
+
+    glow = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.circle(glow, (255, 247, 214, 58), (width // 2, height // 4), max(width, height) // 6)
+    surf.blit(glow, (0, 0))
+    return surf
+
+
+STAGE9_BG = _create_stage9_background(WIDTH, HEIGHT)
+
 STAGE1_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage1.mov")
 STAGE2_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage2.mov")
 STAGE3_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage3.mov")
@@ -13964,6 +14016,7 @@ def _build_boss_names():
         6: _t("boss.6", "홍련"),
         7: _t("boss.7", "테트리서"),
         8: _t("boss.8", "아카무 리고"),
+        9: _t("boss.9", "미노타우로스"),
     }
 boss_names = _build_boss_names()
 
@@ -22889,6 +22942,12 @@ def _play_megingjord_activation_effect(screen):
     """메긴교르드 발동 연출 — 번개 + 파티클 + 충격파 + 텍스트"""
     import math as _m
     import random as _r
+
+    try:
+        _megin_sound = pygame.mixer.Sound(resource_path("sounds/megin.wav"))
+        _megin_sound.play()
+    except Exception:
+        pass
 
     _clock = pygame.time.Clock()
     _duration = 75  # 1.25초
@@ -52005,6 +52064,8 @@ BOSS_IMG_STAGE7_WIDTH = 95
 BOSS_IMG_STAGE7_HEIGHT = 76
 BOSS_IMG_STAGE8_WIDTH = 110
 BOSS_IMG_STAGE8_HEIGHT = 96
+BOSS_IMG_STAGE9_WIDTH = 72
+BOSS_IMG_STAGE9_HEIGHT = 80
 STAGE8_WALK_BOB_PX = 6
 STAGE8_WALK_SWAY_DEG = 4.5
 STAGE8_WALK_CANVAS_PAD = 10
@@ -59722,7 +59783,7 @@ def draw_dash_full_aura(screen):
         pass
 
 
-def draw_smasher_combo_hud(screen):
+def draw_smasher_combo_hud(screen, anchor_rect=None):
     """스매셔 상시 콤보 카운터 HUD (플레이어 패들 하단 가로 바)
 
     - 콤보가 0이고 유예 콤보도 없으면 비표시
@@ -59734,6 +59795,7 @@ def draw_smasher_combo_hud(screen):
     display_combo = smasher_combo_count if smasher_combo_count > 0 else smasher_dash_combo_grace_count
     if display_combo <= 0:
         globals()['_smasher_combo_hud_hover_rect'] = None
+        globals()['_smasher_combo_hud_hover_space'] = None
         return
 
     in_grace = smasher_combo_count == 0 and smasher_dash_combo_grace_count > 0
@@ -59752,17 +59814,26 @@ def draw_smasher_combo_hud(screen):
         combo_color = (240, 240, 240)     # 흰색
         glow_color = (255, 255, 255)
 
-    # 바 크기/위치 (좌측 필러 배경, 골드 HUD 하단)
-    # 골드 HUD: (x=2, y=5, w=76, h=40) → 하단 y=45
-    bar_w = 72
-    bar_h = 8
-    bar_x = 4
-    bar_y = 78  # 골드 HUD 아래 여백 포함
+    if anchor_rect is not None:
+        ui_scale = GAME_SCALE_FACTOR if 'GAME_SCALE_FACTOR' in globals() and GAME_SCALE_FACTOR > 0 else 1.0
+        bar_w = max(72, int(anchor_rect.w * 0.82))
+        bar_h = max(8, int(anchor_rect.h * 0.22))
+        bar_x = anchor_rect.centerx - bar_w // 2
+        bar_y = anchor_rect.bottom + max(6, int(8 * ui_scale))
+        hover_space = "real"
+    else:
+        ui_scale = 1.0
+        # 기본 인게임 HUD 위치 (게임 화면 좌측 상단)
+        bar_w = 72
+        bar_h = 8
+        bar_x = 4
+        bar_y = 78
+        hover_space = "screen"
 
-    # 스매셔 콤보 HUD 호버 영역 저장 (SCREEN 내부 좌표, 숫자 영역 포함)
-    globals()['_smasher_combo_hud_hover_rect'] = pygame.Rect(bar_x - 2, bar_y - 26, bar_w + 4, bar_h + 32)
+    hover_rect = pygame.Rect(bar_x - 2, bar_y - 26, bar_w + 4, bar_h + 32)
     globals()['_smasher_combo_hud_display_count'] = display_combo
     globals()['_smasher_combo_hud_in_grace'] = in_grace
+    globals()['_smasher_combo_hud_hover_space'] = hover_space
 
     # 진행률: 유예 중엔 남은 유예 시간, 일반엔 항상 가득
     if in_grace and SMASHER_DASH_COMBO_GRACE_FRAMES > 0:
@@ -59794,8 +59865,8 @@ def draw_smasher_combo_hud(screen):
 
     # 콤보 숫자 + 라벨 (바 위쪽, 좌측 필러 폭에 맞춤)
     try:
-        combo_font = get_font(18, style="bold")
-        label_font = get_font(9, style="bold")
+        combo_font = get_font(max(18, int(18 * ui_scale)), style="bold")
+        label_font = get_font(max(9, int(9 * ui_scale)), style="bold")
 
         num_text = f"{display_combo}"
         label_text = "COMBO"
@@ -59820,7 +59891,7 @@ def draw_smasher_combo_hud(screen):
 
         # 유예 중 점멸 인디케이터 (공간이 좁으므로 축약 "!" 표기)
         if in_grace:
-            hint_font = get_font(9, style="bold")
+            hint_font = get_font(max(9, int(9 * ui_scale)), style="bold")
             hint_surf = hint_font.render("GRACE", True, (255, 220, 120))
             hint_x = bar_center_x - hint_surf.get_width() // 2
             hint_y = lbl_y + lbl_surf.get_height() + 1
@@ -59828,8 +59899,31 @@ def draw_smasher_combo_hud(screen):
                 shadow = hint_font.render("GRACE", True, (0, 0, 0))
                 screen.blit(shadow, (hint_x + dx, hint_y + dy))
             screen.blit(hint_surf, (hint_x, hint_y))
+
+            hover_rect = pygame.Rect(
+                min(bar_x - 2, num_x - 3, lbl_x - 3, hint_x - 3),
+                min(bar_y - 2, num_y - 3),
+                max(bar_x + bar_w + 2, num_x + num_surf.get_width() + 3,
+                    lbl_x + lbl_surf.get_width() + 3, hint_x + hint_surf.get_width() + 3)
+                - min(bar_x - 2, num_x - 3, lbl_x - 3, hint_x - 3),
+                max(bar_y + bar_h + 2, lbl_y + lbl_surf.get_height() + 3,
+                    hint_y + hint_surf.get_height() + 3)
+                - min(bar_y - 2, num_y - 3)
+            )
+        else:
+            hover_rect = pygame.Rect(
+                min(bar_x - 2, num_x - 3, lbl_x - 3),
+                min(bar_y - 2, num_y - 3),
+                max(bar_x + bar_w + 2, num_x + num_surf.get_width() + 3,
+                    lbl_x + lbl_surf.get_width() + 3)
+                - min(bar_x - 2, num_x - 3, lbl_x - 3),
+                max(bar_y + bar_h + 2, lbl_y + lbl_surf.get_height() + 3)
+                - min(bar_y - 2, num_y - 3)
+            )
     except Exception:
         pass
+
+    globals()['_smasher_combo_hud_hover_rect'] = hover_rect
 
 
 def draw_smasher_combo_effect(screen):
@@ -63153,6 +63247,24 @@ except Exception as e:
     print(f"[WARN] Stage 8 boss animation load failed: {e}")
     stage8_boss_sprite = None
     STAGE8_BOSS_ANIMATION_AVAILABLE = False
+
+# Stage 9 보스 (미노타우로스) 걷기 애니메이션 초기화
+try:
+    from entities.tauren_boss_sprite import (
+        get_tauren_boss_sprite,
+        init_tauren_boss_sprite,
+        reset_tauren_boss_sprite,
+        TaurenBossSprite
+    )
+    tauren_boss_sprite = init_tauren_boss_sprite(
+        width=BOSS_IMG_STAGE9_WIDTH,
+        height=BOSS_IMG_STAGE9_HEIGHT,
+    )
+    TAUREN_BOSS_ANIMATION_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Stage 9 boss animation load failed: {e}")
+    tauren_boss_sprite = None
+    TAUREN_BOSS_ANIMATION_AVAILABLE = False
 
 # Stage 3 테디베어 보스 고퀄리티 프로시저럴 스프라이트 초기화
 try:
@@ -115245,7 +115357,11 @@ def draw_objects():
     # ⚡ 스매셔 콤보 이펙트 업데이트 및 그리기
     if selected_character_type == "smasher":
         update_smasher_combo_effect()
-        draw_smasher_combo_hud(SCREEN)      # 상시 콤보 카운터 HUD (패들 하단 가로 바)
+        if _is_fullscreen_active and GAME_OFFSET_X > 0:
+            globals()['_smasher_combo_hud_hover_rect'] = None
+            globals()['_smasher_combo_hud_hover_space'] = None
+        else:
+            draw_smasher_combo_hud(SCREEN)  # 필러가 없을 때만 게임 화면에 직접 표시
         draw_smasher_combo_effect(SCREEN)   # 콤보 성공 순간 팝업 이펙트
 
     # 실전 튜토리얼 딜레이 업데이트 (주니어리그)
@@ -117090,6 +117206,7 @@ def draw_objects():
 
     # === 보스 이미지 선택 + 스테이지별 전용 사이즈 적용 ===
     boss_img_prescaled = False
+    global stage9_tauren_prev_x, stage9_tauren_facing
     if new_boss_mode_active:
         #  새로운 보스 모드에서는 상단 보스 선택
         if selected_top_boss == 1:
@@ -117280,6 +117397,26 @@ def draw_objects():
         img_scale = max(1.0, float(globals().get('stage7_super_scale', 1.0)))
         boss_w = max(1, int(boss_w * img_scale))
         boss_h = max(1, int(boss_h * img_scale))
+    elif current_stage == 9:
+        boss_w, boss_h = BOSS_IMG_STAGE9_WIDTH, BOSS_IMG_STAGE9_HEIGHT
+        if TAUREN_BOSS_ANIMATION_AVAILABLE and tauren_boss_sprite is not None:
+            boss_img_prescaled = True
+            boss_center_x = float(BOSS.centerx) if BOSS is not None else WIDTH * 0.5
+            if stage9_tauren_prev_x is None:
+                stage9_tauren_prev_x = boss_center_x
+            dx = boss_center_x - stage9_tauren_prev_x
+            if abs(dx) > 0.35:
+                stage9_tauren_facing = "right" if dx > 0 else "left"
+            stage9_tauren_prev_x = boss_center_x
+            tauren_boss_sprite.update(1 / 60, moving=abs(dx) > 0.35, facing=stage9_tauren_facing)
+            boss_img = tauren_boss_sprite.get_current_frame((boss_w, boss_h))
+            if boss_img is None:
+                boss_img_prescaled = False
+                boss_img = pygame.Surface((boss_w, boss_h), pygame.SRCALPHA)
+                pygame.draw.rect(boss_img, BOSS_COLOR, (18, 14, boss_w - 36, boss_h - 24), border_radius=16)
+        else:
+            boss_img = pygame.Surface((boss_w, boss_h), pygame.SRCALPHA)
+            pygame.draw.rect(boss_img, BOSS_COLOR, (18, 14, boss_w - 36, boss_h - 24), border_radius=16)
     elif current_stage == 33:
         boss_img = BOSS_IMG_TUTORIAL
         boss_w, boss_h = BOSS_IMG_TUTORIAL_WIDTH, BOSS_IMG_TUTORIAL_HEIGHT
@@ -117445,6 +117582,9 @@ def draw_objects():
         stage7_lean_value *= 0.85
     if current_stage != 8:
         stage8_prev_x = None
+    if current_stage != 9:
+        stage9_tauren_prev_x = None
+        stage9_tauren_facing = "right"
     #  풍악보이 상모돌리기 회전 효과
     whip_rotation_angle = 0
     if current_stage == 1 and whip_active:
@@ -117560,6 +117700,9 @@ def draw_objects():
             # 세로 160px 스프라이트 → 중심을 아래로 25px 내림 (정수 좌표로 떨림 방지)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
                                                       int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 25)))
+        elif current_stage == 9:
+            boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
+                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 10)))
         else:
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x + tunnel_raid_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
@@ -117575,6 +117718,9 @@ def draw_objects():
             # 세로 160px 스프라이트 → 중심을 아래로 25px 내림 (정수 좌표로 떨림 방지)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
                                                       int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 25)))
+        elif current_stage == 9:
+            boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
+                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 10)))
         elif current_stage == 2 and current_boss_name == "아라크네":
             # 아라크네 스프라이트 약간 아래로 내림 (패들 위치 보정)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
@@ -168650,6 +168796,7 @@ def main(stage_num, new_boss_mode=False):
     global stage1_border_flash_timer, stage3_border_flash_timer, stage4_border_flash_timer, stage5_border_flash_timer, stage6_border_flash_timer, stage7_border_flash_timer, stage8_border_flash_timer, stage30_border_flash_timer
     global stage2_border_active, stage2_border_timer, stage2_border_flash_timer
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
+    global stage9_tauren_prev_x, stage9_tauren_facing
     
     # 스테이지 3 멘헤라걸 꼬리 채찍 효과
     global stage3_tail_whip_active, stage3_tail_whip_timer, stage3_tail_whip_cooldown
@@ -169447,9 +169594,13 @@ def main(stage_num, new_boss_mode=False):
         BOSS_COLOR = (70, 90, 140)
         # Stage 8 전용 BGM 재생
         bgm_manager.play_stage_bgm(8)
-    elif stage_num == 8:
-        CURRENT_BG = STAGE8_BG
-        BOSS_COLOR = (70, 90, 140)
+    elif stage_num == 9:
+        CURRENT_BG = STAGE9_BG
+        BOSS_COLOR = (130, 92, 52)
+        stage9_tauren_prev_x = None
+        stage9_tauren_facing = "right"
+        # 임시로 Stage 4 BGM을 재사용
+        bgm_manager.play_stage_bgm(4)
     elif stage_num == 30:  # Stage 30 (투기장)
         # 투기장 배경은 animated_bg_stage30에서 처리
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
@@ -184127,6 +184278,7 @@ def show_stage_selection(show_character_hint=True):
         {"num": 6, "name": "스테이지 6", "desc": "홍련폭염", "color": (255, 50, 50)},
         {"num": 7, "name": "스테이지 7", "desc": "테트리서", "color": (120, 170, 255)},
         {"num": 8, "name": "스테이지 8", "desc": "아카무 리고", "color": (70, 90, 140)},
+        {"num": 9, "name": "스테이지 9", "desc": "미노타우로스 (파르테논)", "color": (90, 170, 210)},
         {"num": 50, "name": "튜토리얼", "desc": "게임 방법 익히기", "color": (100, 255, 100)},
     ]
     
