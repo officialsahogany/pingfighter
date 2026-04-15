@@ -4576,8 +4576,8 @@ VIPER_SKILL_ICONS_DATA = [
     },
     {
         "name": "dark_blade", "korean": "다크 블레이드", "cost": 200, "color": (120, 0, 30),
-        "symbol": "⚔", "cooldown": 35.0, "key": "W/↑(연계)",
-        "description": "쉐도우 백스텝/마샬 킥/팬텀 킥으로\n공을 타격한 후 3초 안에 공중 에어 블레이드 시 변환.\n검기 크기 50% 증가, 사거리 2배, 점프 솟구침.\n검붉은 강화 검기 발사. 쿨타임 35초.",
+        "symbol": "⚔", "cooldown": 45.0, "key": "W/↑(연계)",
+        "description": "쉐도우 백스텝/마샬 킥/팬텀 킥으로\n공을 타격한 후 3초 안에 공중 에어 블레이드 시 변환.\n검기 가로폭 30% 증가, 사거리 2배, 점프 솟구침.\n검붉은 강화 검기 발사. 쿨타임 45초.",
         "how_to_use": "공을 맞춘 쉐도우 백스텝·마샬 킥·팬텀 킥 후 3초 내 공중 W/↑키",
         "effect_type": "slash_dark"
     },
@@ -6715,6 +6715,15 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
             "color": (255, 80, 40),
             "cost": 0,
             "symbol": f"K{_kick_enhance_lv}",
+            "always_active": True,
+        })
+    _blade_amp_lv = get_runtime_skill_level("blade_amp")
+    if _blade_amp_lv > 0:
+        viper_perks.append({
+            "name": "blade_amp",
+            "color": (180, 60, 220),
+            "cost": 0,
+            "symbol": f"B{_blade_amp_lv}",
             "always_active": True,
         })
     if not viper_perks:
@@ -15101,13 +15110,15 @@ SMASHER_EXCLUSIVE_SKILLS = {
     },
     "combo_amplifier_chip": {
         "name": "콤보증폭칩",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "콤보 효과 증폭: 드라이브 공속+15%, 커브+10%, 파워스매시 공속+15%",
             2: "콤보 효과 증폭: 드라이브 공속+30%, 커브+20%, 파워스매시 공속+30%",
             3: "콤보 효과 증폭: 드라이브 공속+45%, 커브+30%, 파워스매시 공속+45%",
+            4: "콤보 효과 증폭: 드라이브 공속+60%, 커브+30%(캡), 파워스매시 공속+60%",
+            5: "콤보 효과 증폭: 드라이브 공속+75%, 커브+30%(캡), 파워스매시 공속+75%",
         },
-        "detail": "콤보 소모형 드라이브/파워스매싱의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 보너스 레벨까지 적용되며, 드라이브 커브 증폭은 Lv3에서 캡됩니다.",
+        "detail": "콤보 소모형 드라이브/파워스매싱의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 레벨에 따라 계속 증가하지만, 드라이브 커브 증폭은 Lv3에서 캡됩니다(밸런스 보호).",
         "icon_color": (255, 100, 200),
         "tree": "smasher",
         "character_restriction": "smasher"
@@ -15396,8 +15407,23 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "쉐도우 백스텝·마샬 킥·팬텀 킥으로 공 타격 후 공중 에어 블레이드 시 발동",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 3바퀴(연장 모션) → 점프 320px 솟구침,\n검기 크기 50% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 35초.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 3바퀴(연장 모션) → 점프 320px 솟구침,\n검기 가로폭 30% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 45초.",
         "icon_color": (120, 0, 30),
+        "tree": "viper",
+        "character_restriction": "viper"
+    },
+    "blade_amp": {
+        "name": "검기 증폭",
+        "max_level": 5,
+        "descriptions": {
+            1: "에어·다크 블레이드 검기 사거리/가로폭 +10%",
+            2: "에어·다크 블레이드 검기 사거리/가로폭 +20%",
+            3: "에어·다크 블레이드 검기 사거리/가로폭 +30%",
+            4: "에어·다크 블레이드 검기 사거리/가로폭 +40%",
+            5: "에어·다크 블레이드 검기 사거리/가로폭 +50%",
+        },
+        "detail": "에어 블레이드와 다크 블레이드의 검기 사거리와 X축 가로폭이\n레벨당 10%씩 증가합니다.\n다크 블레이드 기본 배율(사거리 2배, 가로폭 1.3배)에 합산 적용됩니다.",
+        "icon_color": (180, 60, 220),
         "tree": "viper",
         "character_restriction": "viper"
     },
@@ -17432,6 +17458,11 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     if choice_id == "kick_enhance":
         old_lv = runtime_skill_levels.get("kick_enhance", 0)
         runtime_skill_levels["kick_enhance"] = old_lv + 1
+        return True
+
+    if choice_id == "blade_amp":
+        old_lv = runtime_skill_levels.get("blade_amp", 0)
+        runtime_skill_levels["blade_amp"] = old_lv + 1
         return True
 
     if choice_id == "dark_blade":
@@ -20946,6 +20977,52 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.line(surface, (220, 60, 70),
                          (icon_cx, icon_cy - blade_h + max(1, int(2 * scale))),
                          (icon_cx, icon_cy + max(1, int(2 * scale))), max(1, int(1 * scale)))
+
+    elif skill_id == "blade_amp":
+        # 검기 증폭: 길게 뻗어나가는 보라 검기 + 확장 화살표
+        color = icon_color
+        lt = lighter
+        dk = darker
+        # 길쭉한 검기 본체 (사거리 연장 표현)
+        blade_w = max(3, int(5 * scale))
+        blade_h = max(10, int(17 * scale))
+        blade_pts = [
+            (icon_cx, icon_cy - blade_h),
+            (icon_cx - blade_w, icon_cy + max(2, int(3 * scale))),
+            (icon_cx + blade_w, icon_cy + max(2, int(3 * scale))),
+        ]
+        pygame.draw.polygon(surface, color, blade_pts)
+        pygame.draw.polygon(surface, lt(color, 60), blade_pts, max(1, int(1 * scale)))
+        # 검기 중심 하이라이트
+        pygame.draw.line(surface, lt(color, 90),
+                         (icon_cx, icon_cy - blade_h + max(1, int(2 * scale))),
+                         (icon_cx, icon_cy + max(1, int(2 * scale))), max(1, int(1 * scale)))
+        # 사거리 연장 화살표 (위쪽 꼭짓점 바깥쪽으로 뻗는 잔상)
+        for i in range(3):
+            _ext_y = icon_cy - blade_h - int((2 + i * 3) * scale)
+            _ext_a = max(30, 160 - i * 50)
+            _ext_len = max(2, int((3 - i * 0.8) * scale))
+            pygame.draw.line(surface, (*lt(color, 80), _ext_a) if len(lt(color, 80)) == 3 else lt(color, 80),
+                             (icon_cx, _ext_y),
+                             (icon_cx, _ext_y - _ext_len), max(1, int(1 * scale)))
+        # 위쪽 화살촉 (연장 방향 강조)
+        _ah_size = max(2, int(3 * scale))
+        _ah_tip_y = icon_cy - blade_h - int(10 * scale)
+        _ah_pts = [
+            (icon_cx, _ah_tip_y),
+            (icon_cx - _ah_size, _ah_tip_y + _ah_size),
+            (icon_cx + _ah_size, _ah_tip_y + _ah_size),
+        ]
+        pygame.draw.polygon(surface, lt(color, 70), _ah_pts)
+        # 외곽 오라 (증폭 효과)
+        for i in range(2):
+            _aa = max(40, 90 - i * 40)
+            _ar = max(3, int((4 + i * 2) * scale))
+            _aura = pygame.Surface((_ar * 2, _ar * 2), pygame.SRCALPHA)
+            pygame.draw.circle(_aura, (color[0], color[1], color[2], _aa),
+                               (_ar, _ar), _ar)
+            surface.blit(_aura, (icon_cx - _ar, icon_cy - blade_h // 2 - _ar),
+                         special_flags=pygame.BLEND_ADD)
 
     elif skill_id == "combo_amplifier_chip":
         # 콤보증폭칩 - 회로 칩 + 상승 화살표
@@ -54141,10 +54218,11 @@ def _get_viper_kick_enhance_levels() -> tuple[int, int]:
     return min(effective_level, 5), effective_level
 
 
-def _get_viper_wall_dive_prep_speed_mult() -> float:
-    """마샬 킥/팬텀 킥 준비동작(벽으로 이동 → 매달림 → 공으로 돌진) 가속 배율.
+def _get_viper_wall_dive_prep_duration_mult() -> float:
+    """마샬 킥/팬텀 킥 준비동작(벽으로 이동 → 매달림 → 벽다시타기 → 프리즈 → 돌진) duration 배율.
 
     킥 강화 퍽 LV당 20%씩 빠르게 (duration = base / (1 + 0.2 * lv)). 최대 LV5에서 클램프.
+    반환값은 duration에 곱해야 하는 배율 (1.0 미만).
     """
     lv = min(get_runtime_skill_level("kick_enhance"), 5)
     return 1.0 / (1.0 + 0.2 * lv)
@@ -79816,7 +79894,7 @@ def handle_player(keys):
                     if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                         _viper_w_key_released = False
                         special_gauge -= 200
-                        trigger_viper_skill_cooldown("dark_blade")  # 다크 블레이드 35초 쿨타임 (VIPER_SKILL_ICONS_DATA 참조)
+                        trigger_viper_skill_cooldown("dark_blade")  # 다크 블레이드 45초 쿨타임 (VIPER_SKILL_ICONS_DATA 참조)
                         _viper_nerve_strike_combo_used = False
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
                         _viper_br_dark_mode = True        # 모션은 검기 페이드아웃과 무관하게 끝까지 다크 버전 유지
@@ -80005,7 +80083,7 @@ def handle_player(keys):
             # 팬텀 킥(2차)은 로프 이동 30% 빠르게
             _wd_jump_ms = _VIPER_WALL_DIVE_JUMP_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_JUMP_MS
             # 킥 강화 퍽: 준비동작 LV당 20% 빠르게
-            _wd_jump_ms *= _get_viper_wall_dive_prep_speed_mult()
+            _wd_jump_ms *= _get_viper_wall_dive_prep_duration_mult()
             _wd_t = min(1.0, _wd_elapsed / _wd_jump_ms)
             _wd_ease = 1.0 - (1.0 - _wd_t) ** 2  # ease-out quadratic (자연스러운 당김 → 벽 근처 감속)
             # 플레이어가 로프에 끌려감
@@ -80040,7 +80118,7 @@ def handle_player(keys):
         elif _viper_wall_dive_phase == 1:
             # Phase 1: 벽 매달림 (스파이더맨 포즈, 공 위치 스냅샷)
             # 킥 강화 퍽: 준비동작 LV당 20% 빠르게
-            _wd_cling_ms = _VIPER_WALL_DIVE_CLING_MS * _get_viper_wall_dive_prep_speed_mult()
+            _wd_cling_ms = _VIPER_WALL_DIVE_CLING_MS * _get_viper_wall_dive_prep_duration_mult()
             _wd_t = min(1.0, _wd_elapsed / _wd_cling_ms)
             PLAYER.centerx = int(_viper_wall_dive_wall_x)
             PLAYER.centery = int(_viper_wall_dive_wall_y)
@@ -80096,7 +80174,9 @@ def handle_player(keys):
 
         elif _viper_wall_dive_phase == 3:
             # Phase 3: 벽다시타기 - 반대편 벽으로 매우 빠르게 이동
-            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_RECLIMB_MS)
+            # 킥 강화 퍽: 준비동작 LV당 20% 빠르게
+            _wd_reclimb_ms = _VIPER_WALL_DIVE_RECLIMB_MS * _get_viper_wall_dive_prep_duration_mult()
+            _wd_t = min(1.0, _wd_elapsed / _wd_reclimb_ms)
             _wd_ease = _wd_t * _wd_t * (3.0 - 2.0 * _wd_t)  # ease-in-out
             _wd_cx = _viper_wall_dive_reclimb_start_x + (_viper_wall_dive_wall_x - _viper_wall_dive_reclimb_start_x) * _wd_ease
             _wd_cy = _viper_wall_dive_reclimb_start_y + (_viper_wall_dive_wall_y - _viper_wall_dive_reclimb_start_y) * _wd_ease
@@ -80156,7 +80236,7 @@ def handle_player(keys):
             # 팬텀 킥(2차)은 돌진 30% 빠르게
             _wd_charge_ms = _VIPER_WALL_DIVE_CHARGE_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_CHARGE_MS
             # 킥 강화 퍽: 준비동작 LV당 20% 빠르게
-            _wd_charge_ms *= _get_viper_wall_dive_prep_speed_mult()
+            _wd_charge_ms *= _get_viper_wall_dive_prep_duration_mult()
             _wd_t = min(1.0, _wd_elapsed / _wd_charge_ms)
             _wd_ease = _wd_t * _wd_t  # ease-in (가속)
             # 매 프레임 공의 실시간 위치로 목표 갱신
@@ -80419,9 +80499,9 @@ def handle_player(keys):
                 if _viper_is_double_marshal:
                     _viper_phantom_aura_active = False
 
-    # 팬텀 킥 프리즈 타이머 감소
+    # 팬텀 킥 프리즈 타이머 감소 (킥 강화 퍽: 준비동작 LV당 20% 빠르게)
     if _viper_dmk_freeze_active:
-        _viper_dmk_freeze_timer -= 1
+        _viper_dmk_freeze_timer -= 1.0 / _get_viper_wall_dive_prep_duration_mult()
         if _viper_dmk_freeze_timer <= 0:
             _viper_dmk_freeze_active = False
 
@@ -80993,8 +81073,11 @@ def handle_player(keys):
                         play_sound_with_volume(_blade_snd, sfx_volume * 0.5)
                 except Exception:
                     pass
-                # 다크 블레이드: 검기 크기 50% 증가
-                _db_size_mult = 1.5 if _viper_br_dark_mode else 1.0
+                # 다크 블레이드: 검기 크기 30% 증가 (기존 50% → 30%로 하향)
+                _db_size_mult = 1.3 if _viper_br_dark_mode else 1.0
+                # 검기 증폭 퍽: 에어/다크 블레이드 검기 X축 폭 +10%/LV (최대 LV5 = +50%)
+                _ba_width_lv = min(get_runtime_skill_level("blade_amp"), 5)
+                _db_size_mult *= 1.0 + 0.1 * _ba_width_lv
                 _viper_blade_rush_active = True
                 _viper_blade_rush_fadeout = False
                 _viper_blade_rush_fadeout_timer = 0
@@ -81002,6 +81085,9 @@ def handle_player(keys):
                 _viper_blade_rush_start_y = float(PLAYER.centery - 20)
                 _viper_blade_rush_y = _viper_blade_rush_start_y
                 _db_range_mult = 2.0 if _viper_br_dark_mode else 1.0  # 다크 블레이드: 사거리 500px
+                # 검기 증폭 퍽: 에어/다크 블레이드 사거리 +10%/LV (최대 LV5 = +50%)
+                _ba_lv = min(get_runtime_skill_level("blade_amp"), 5)
+                _db_range_mult *= 1.0 + 0.1 * _ba_lv
                 _viper_blade_rush_target_y = _viper_blade_rush_start_y - int(250 * _db_range_mult)
                 _viper_blade_rush_width = int(350 * _db_size_mult)  # X축 폭 (일반 350 / 다크 525)
                 _viper_blade_rush_hit_ball = False
@@ -116262,7 +116348,7 @@ def draw_objects():
             if _viper_wall_dive_active and _viper_wall_dive_phase == 2:
                 _ch_elapsed = _wd_ticks - _viper_wall_dive_start_ms
                 _ch_charge_ms = _VIPER_WALL_DIVE_CHARGE_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_CHARGE_MS
-                _ch_charge_ms *= _get_viper_wall_dive_prep_speed_mult()
+                _ch_charge_ms *= _get_viper_wall_dive_prep_duration_mult()
                 _ch_t = min(1.0, _ch_elapsed / _ch_charge_ms)
                 _ch_cx = PLAYER.centerx
                 _ch_cy = PLAYER.centery
