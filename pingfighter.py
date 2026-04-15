@@ -112,6 +112,8 @@ stage8_awakened = False
 stage8_boss_dialogue_shown = False
 stage9_tauren_prev_x = None
 stage9_tauren_facing = "right"
+stage3_menhera_prev_x = None
+stage3_menhera_facing = "right"
 suicide_drone_player_lock = None
 suicide_drone_rect = None
 _arena_prev_boss_x = 0
@@ -63315,6 +63317,24 @@ except Exception as e:
     tauren_boss_sprite = None
     TAUREN_BOSS_ANIMATION_AVAILABLE = False
 
+# Stage 3 멘헤라걸 워킹 스프라이트시트 초기화
+try:
+    from entities.menhera_boss_sprite import (
+        get_menhera_boss_sprite,
+        init_menhera_boss_sprite,
+        reset_menhera_boss_sprite,
+        MenheraBossSprite,
+    )
+    menhera_boss_sprite = init_menhera_boss_sprite(
+        width=BOSS_IMG_WIDTH,
+        height=BOSS_IMG_HEIGHT,
+    )
+    MENHERA_BOSS_ANIMATION_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Stage 3 menhera boss animation load failed: {e}")
+    menhera_boss_sprite = None
+    MENHERA_BOSS_ANIMATION_AVAILABLE = False
+
 # Stage 3 테디베어 보스 고퀄리티 프로시저럴 스프라이트 초기화
 try:
     from entities.teddy_bear_boss_sprite import get_teddy_bear_sprite, TeddyBearBossSprite
@@ -117376,6 +117396,21 @@ def draw_objects():
         elif current_boss_name == "앨리스":
             boss_img = BOSS_IMG_ALICE
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+        elif current_boss_name == "멘헤라걸" and MENHERA_BOSS_ANIMATION_AVAILABLE and menhera_boss_sprite is not None:
+            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+            boss_img_prescaled = True
+            boss_center_x = float(BOSS.centerx) if BOSS is not None else WIDTH * 0.5
+            if stage3_menhera_prev_x is None:
+                stage3_menhera_prev_x = boss_center_x
+            dx = boss_center_x - stage3_menhera_prev_x
+            if abs(dx) > 0.35:
+                stage3_menhera_facing = "right" if dx > 0 else "left"
+            stage3_menhera_prev_x = boss_center_x
+            menhera_boss_sprite.update(1 / 60, moving=abs(dx) > 0.35, facing=stage3_menhera_facing)
+            boss_img = menhera_boss_sprite.get_current_frame((boss_w, boss_h))
+            if boss_img is None:
+                boss_img = BOSS_IMG_STAGE3
+                boss_img_prescaled = False
         else:
             boss_img = BOSS_IMG_STAGE3
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
@@ -117634,6 +117669,9 @@ def draw_objects():
     if current_stage != 9:
         stage9_tauren_prev_x = None
         stage9_tauren_facing = "right"
+    if current_stage != 3:
+        stage3_menhera_prev_x = None
+        stage3_menhera_facing = "right"
     #  풍악보이 상모돌리기 회전 효과
     whip_rotation_angle = 0
     if current_stage == 1 and whip_active:
@@ -168852,7 +168890,8 @@ def main(stage_num, new_boss_mode=False):
     global stage2_border_active, stage2_border_timer, stage2_border_flash_timer
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
     global stage9_tauren_prev_x, stage9_tauren_facing
-    
+    global stage3_menhera_prev_x, stage3_menhera_facing
+
     # 스테이지 3 멘헤라걸 꼬리 채찍 효과
     global stage3_tail_whip_active, stage3_tail_whip_timer, stage3_tail_whip_cooldown
     global stage3_tail_whip_animation_timer, stage3_tail_curve_active, stage3_tail_curve_timer
