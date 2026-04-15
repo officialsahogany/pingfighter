@@ -101,8 +101,7 @@ class ParthenonFrame:
         ]
         # 필러 이미지 기준 횃불 잔받침 꼭대기 위치(정규화)
         # (x_ratio_in_pillar, y_ratio_of_screen_height) — 애니메이션 스프라이트의 불꽃 밑변이 여기 옴
-        # 좌필러 기준 x: 작을수록 화면 바깥쪽(벽 반대), 우필러는 (1-x)로 자동 미러
-        self._torch_anchor_ratio = (0.15, 0.52)
+        self._torch_anchor_ratio = (0.48, 0.52)
 
         # 필러 이미지에 박혀있는 정적 불꽃을 깨끗한 패치로 덮어 지움
         self._erase_baked_flames()
@@ -193,7 +192,7 @@ class ParthenonFrame:
     # 박힌 불꽃 영역(필러 스케일 기준 정규화 박스): 덮어 지울 사각형
     # (x_ratio, y_ratio, w_ratio, h_ratio) — 실제 이미지에서 불꽃 tip~base 영역
     # 횃불이 벽 쪽(바깥)에 있으므로 x는 필러 바깥쪽을 덮음
-    BAKED_FLAME_BOX = (0.04, 0.33, 0.26, 0.20)
+    BAKED_FLAME_BOX = (0.36, 0.33, 0.26, 0.20)
     # 클린 패치 샘플링 y(필러 높이 기준) — 횃불 아래 기둥 샤프트 영역
     CLEAN_PATCH_SOURCE_Y_RATIO = 0.70
 
