@@ -101,7 +101,8 @@ class ParthenonFrame:
         ]
         # 필러 이미지 기준 횃불 잔받침 꼭대기 위치(정규화)
         # (x_ratio_in_pillar, y_ratio_of_screen_height) — 애니메이션 스프라이트의 불꽃 밑변이 여기 옴
-        self._torch_anchor_ratio = (0.28, 0.47)
+        # 실제 이미지에서 횃불 컵 꼭대기 = x~0.32, y~0.50
+        self._torch_anchor_ratio = (0.32, 0.50)
 
         # 필러 이미지에 박혀있는 정적 불꽃을 깨끗한 패치로 덮어 지움
         self._erase_baked_flames()
@@ -190,10 +191,11 @@ class ParthenonFrame:
     FLAME_FRAME_COUNT = 6
 
     # 박힌 불꽃 영역(필러 스케일 기준 정규화 박스): 덮어 지울 사각형
-    # (x_ratio, y_ratio, w_ratio, h_ratio) — 필러 좌표 (좌필러 기준, 우필러는 x만 대칭)
-    BAKED_FLAME_BOX = (0.18, 0.30, 0.26, 0.17)
-    # 클린 패치 샘플링 y(필러 높이 기준) — 횃불 없는 아래쪽 영역에서 텍스처 가져옴
-    CLEAN_PATCH_SOURCE_Y_RATIO = 0.62
+    # (x_ratio, y_ratio, w_ratio, h_ratio) — 실제 이미지에서 불꽃 tip~base 영역
+    # 여유를 두어 넉넉히 덮음 (tip 0.33 ~ base 0.50, x 0.20~0.45)
+    BAKED_FLAME_BOX = (0.20, 0.33, 0.25, 0.18)
+    # 클린 패치 샘플링 y(필러 높이 기준) — 횃불 아래 기둥 샤프트 영역
+    CLEAN_PATCH_SOURCE_Y_RATIO = 0.70
 
     def _erase_baked_flames(self):
         """스케일된 좌/우 필러 이미지에서 박혀있는 횃불 정적 불꽃 영역을
