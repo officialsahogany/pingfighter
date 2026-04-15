@@ -2,6 +2,214 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ CRITICAL: Gemini MCP 캐릭터 스프라이트 시트 제작 가이드 (Character Sprite Sheet Creation)
+
+**Gemini MCP(`mcp__gemini__gemini-generate-image`)로 보스/캐릭터 스프라이트를 만들 때 반드시 이 규칙을 따를 것. 스테이지9 타우렌 보스 제작 과정에서 확립된 모범 사례임.**
+
+### ⚠️ 작업 분담 (Claude vs Codex)
+
+| 단계 | 담당 | 이유 |
+|------|------|------|
+| **스프라이트/이미지 제작** | **Claude** | Gemini MCP 프롬프트 설계, 컨셉 반복, 누끼 알고리즘 같은 **창작/생성** 작업이 Claude 강점 |
+| **게임 코드에 삽입/연동** | **Codex** | `pingfighter.py`의 보스 렌더 루프, 스킬 분기, 물리 후킹 등 **코드–기존 구조 정합성** 작업은 Codex 강점 |
+
+전형적인 플로우:
+1. Claude가 Gemini MCP로 스프라이트 시트/배경 이미지 생성 → `items/`, `backgrounds/`에 누끼 PNG 저장
+2. Claude가 `entities/[name]_sprite.py` 같은 **독립 스프라이트 클래스**까지 작성 (렌더/애니메이션 로직)
+3. **이후 pingfighter.py 내부에 연동(import + 보스 렌더 교체 + 공격 트리거 연결 등)은 Codex에게 맡김**
+
+이 원칙은 Claude Code의 auto-memory(`~/.claude/projects/d--main-bosspong/memory/feedback_claude_vs_codex.md`, repo 밖)에 저장된 피드백과 일치 — 기획/아이디어/창작은 Claude, 코드–기존 구조 정합성은 Codex. (repo에서 grep 해도 안 나오므로 혼동 주의)
+
+### 1. 스타일 통일 — 기존 보스와 맞추기 (⚠️ 가장 중요)
+
+기존 보스 스프라이트(boss_stage1~8.png)는 모두 **16-bit 레트로 픽셀아트 + 치비 비율**이다. Warcraft 페인터리, 일러스트 스타일, 포토리얼 절대 금지.
+
+| 항목 | 필수 조건 |
+|------|----------|
+| 아트 스타일 | 16-bit 픽셀아트, SNES/Stardew Valley/Pokemon 느낌 |
+| 비율 | 치비/슈퍼데포르메 — 머리 ≈ 전체 키의 40~50% |
+| 외곽선 | 두꺼운 검정 픽셀 아웃라인 (thick black pixel outline) |
+| 색상 | 플랫한 저채도 팔레트, hard-edged 픽셀 |
+| 렌더링 금지 사항 | painterly shading, soft gradient, photorealism, anti-aliased blur |
+
+프롬프트 영문에 반드시 포함: `"16-bit retro pixel art, chibi proportions, thick black pixel outlines, flat limited-saturation palette, clean hard-edged pixels, NO painterly rendering, NO soft shading, NO photorealism"`
+
+### 2. 캐릭터 크기/스케일 — 셀 내 45~55%만 채우기
+
+치비 캐릭터가 셀 전체를 꽉 채우면 게임 내에서 다른 보스 대비 너무 커 보인다.
+
+프롬프트에 반드시 명시 (무기/아이덴티티 문구는 보스별로 교체):
+```
+Each character fills only about 45-55% of each cell's height.
+Keep the character SMALL and COMPACT — do NOT fill the cell.
+Leave generous empty white/transparent margin around each sprite.
+This is a small chibi boss sprite, NOT a full-body portrait.
+```
+
+> ⚠️ 위 블록에 "paddle-wielding" 같은 무기 한정어를 넣지 말 것. 무기는 섹션 4에서 보스별로 명시하고, 이 블록은 크기 규칙만 담당.
+
+기본 타겟 크기 예시 (`TaurenBossSprite`): `width=72, height=80` — 다른 보스와 균형 맞음.
+
+### 3. 얼굴 표정 — "귀엽게" 나오지 않도록
+
+기본 프롬프트로는 **너무 귀여운 얼굴**이 생성되기 쉽다. 다음 키워드로 강제:
+
+- `fierce and cool, NOT cute`
+- `serious/determined/intense expression`
+- `narrow focused eyes with glowing white pupils`
+- `furrowed brow`
+- `slight frown showing tusks/fangs`
+- `tribal markings or battle scars on face`
+
+단, 명시적으로 폭력/유혈을 연상시키는 단어(`angry`, `scarred`, `blood`, `gore`, `intimidating` 등)는 Gemini content filter에 걸려 **400 INVALID_ARGUMENT** 에러가 남. 대신 `fierce / serious / determined / focused / heroic champion` 같은 우회 표현을 사용 (섹션 9 매핑 표 참조).
+
+> ⚠️ `fierce`와 `warrior`는 단독으로는 필터에 걸리지 않아 **허용 단어**로 취급. 섹션 9에서 이 단어들이 "금지→우회" 표에 잘못 들어가 있었는데, 실제로는 `fierce and cool, NOT cute` / `warrior` 조합이 프로덕션 프롬프트에서 정상 통과했음.
+
+### 4. 무기/아이덴티티 — 명확하게 지정
+
+게임 장르에 맞춰 무기를 **구체적으로** 지정. 기본 프롬프트는 제너릭 무기를 생성함.
+
+예시:
+- 핑퐁 게임 보스: `"holding a red ping-pong paddle in his right hand"` (필요시)
+- 거대 토템 보스: `"holds a MASSIVE tribal totem pole diagonally across body in both hands — giant wooden staff taller than himself, carved with ancestral faces and runes, decorated with red and yellow feathers and bone charms, leather wraps around grip"`
+- 무기 제거 시: `"NO ping-pong paddle anywhere"`, `"NO [unwanted item]"` 명시
+
+무기가 프레임마다 위치가 바뀌면 애니메이션이 어색해짐 → `"weapon stays in same hand position across all frames"` 지시.
+
+### 5. 스프라이트 시트 구성 — 8프레임 4×2 그리드 (걷기) / 8프레임 4×2 (공격)
+
+| 용도 | 그리드 | 비율(aspectRatio) | 프레임 수 | 구성 |
+|------|--------|-------------------|-----------|------|
+| **걷기 사이클** | 4×2 | `16:9` | 8 | row1: (1)좌발 contact (2)좌발 high/우발 rising (3)passing (4)우발 contact / row2: (5)우발 high (6)passing (7)좌발 variant (8)loop transition |
+| **공격 애니메이션** | 4×2 | `16:9` | 8 | row1: (1)ready (2)wind-up (3)backswing (4)max charge / row2: (5)swing start (6)impact+motion line (7)follow-through (8)recovery |
+| **아이템 아이콘** | 단일 | `1:1` | 1 | 중앙 정렬, 32px/64px 기준 |
+
+프롬프트에서 반드시 지시:
+```
+- Pure flat white background (#FFFFFF) in every cell
+- NO grid lines, NO borders, NO dividers, NO labels between cells
+- Each cell exactly equal size, character centered
+- Character view is exactly front-facing in every frame
+- Identical character design/palette/scale across all frames
+- Keep foot/baseline position consistent across frames
+```
+
+### 6. 해상도/비율 설정
+
+| 파라미터 | 권장값 | 비고 |
+|----------|--------|------|
+| `aspectRatio` | `16:9` (4×2 그리드용), `1:1` (2×2 또는 단일) | `4:1` 직접 지원 안 함 |
+| `imageSize` | `2K` | 4K는 누끼 처리 느림, 1K는 세부 손실 |
+| `style` | `"16-bit retro pixel art, chibi, flat colors, thick outlines"` | 필수 |
+
+### 7. 누끼(배경 제거) 처리 — 2단계 hard-edge 알고리즘 (오프라인 전처리)
+
+**이 섹션은 "오프라인 PNG 생성"용 필수 절차다.** Gemini가 생성한 `items/[name]_sheet.jpeg`를 깨끗한 `items/[name]_sheet.png`로 변환할 때 사용. 런타임 로더(섹션 8)는 이 PNG를 우선 읽고, PNG가 없을 때만 JPEG + 간이 colorkey로 폴백한다. 두 단계를 섞어 쓰지 말 것 — 오프라인에서 halo 깔끔하게 제거한 PNG를 commit하는 게 원칙이다.
+
+**JPEG으로 생성되면 테두리에 압축 아티팩트로 halo 픽셀이 남는다. 단순 colorkey로는 해결 안 됨.** 다음 알고리즘 필수:
+
+```python
+# d:\main\bosspong\items\[name].jpeg → [name].png 변환
+from PIL import Image
+import numpy as np
+from collections import deque
+
+def remove_sprite_bg(src_jpeg, dst_png):
+    img = Image.open(src_jpeg).convert('RGBA')
+    arr = np.array(img)
+    h, w, _ = arr.shape
+    r = arr[:,:,0].astype(np.int16); g = arr[:,:,1].astype(np.int16); b = arr[:,:,2].astype(np.int16)
+    lum = (r+g+b)/3.0
+    sat = np.maximum(np.maximum(r,g),b) - np.minimum(np.minimum(r,g),b)
+
+    # 1단계: 모든 테두리 픽셀을 시드로 flood fill
+    #         (lum >= 200 & sat <= 30 인 픽셀만 배경으로 간주)
+    whitish = (lum >= 200) & (sat <= 30)
+    visited = np.zeros((h, w), dtype=bool); q = deque()
+    for x in range(w):
+        for y in (0, h-1):
+            if whitish[y, x]: visited[y, x]=True; q.append((y,x))
+    for y in range(h):
+        for x in (0, w-1):
+            if whitish[y, x] and not visited[y, x]: visited[y, x]=True; q.append((y,x))
+    while q:
+        y, x = q.popleft()
+        for dy, dx in ((-1,0),(1,0),(0,-1),(0,1)):
+            ny, nx = y+dy, x+dx
+            if 0<=ny<h and 0<=nx<w and not visited[ny,nx] and whitish[ny,nx]:
+                visited[ny,nx]=True; q.append((ny,nx))
+    bg_mask = visited
+    arr[bg_mask, 3] = 0
+
+    # 2단계: 2-ring hard halo kill
+    #         (bg 인접 1~2픽셀 중 lum >= 150 & sat <= 40 픽셀 완전 투명화)
+    def dilate(m, times=1):
+        d = m.copy()
+        for _ in range(times):
+            n = d.copy()
+            n[1:,:] |= d[:-1,:]; n[:-1,:] |= d[1:,:]
+            n[:,1:] |= d[:,:-1]; n[:,:-1] |= d[:,1:]
+            d = n
+        return d
+    for ring in range(1, 3):
+        dil = dilate(bg_mask, ring)
+        halo = dil & ~bg_mask & (lum >= 150) & (sat <= 40)
+        if halo.any():
+            arr[halo, 3] = 0
+            bg_mask = bg_mask | halo
+
+    # 3단계: mild halo (약간 유채색 섞인 것) 제거
+    edge2 = dilate(bg_mask, 1) & ~bg_mask
+    mild = edge2 & (lum >= 180) & (sat <= 60)
+    if mild.any(): arr[mild, 3] = 0
+
+    Image.fromarray(arr).save(dst_png, 'PNG', optimize=True)
+```
+
+**핵심 원칙:**
+- 단순 `colorkey=(255,255,255)` 또는 tolerance만으로는 **외곽선 지저분함** (JPEG halo 남음)
+- **flood fill 시작 시드를 테두리 전체 픽셀**로 (간헐적 샘플링 X)
+- **hard-kill** 방식이 픽셀아트에 맞음 (알파 페더링은 블러 유발)
+- 캐릭터 내부의 밝은 색(뿔, 금장식)은 flood fill로 접근 불가 → 자동 보존됨
+
+### 8. 스프라이트 클래스 통합 — `TaurenBossSprite` 패턴 참조
+
+[entities/tauren_boss_sprite.py](entities/tauren_boss_sprite.py) 구조를 템플릿으로 사용. 이 클래스 내부의 배경 제거 로직은 **런타임 폴백용 간이 처리**(밝은 배경 제거 + halo cleanup)이며, 섹션 7의 오프라인 알고리즘을 대체하는 게 아니라 PNG 미존재 시 JPEG을 겨우 쓸 수 있게 해 주는 안전망일 뿐이다.
+- PNG 우선 로드, JPEG는 폴백 (폴백 시 품질 저하 감수)
+- `FRAME_INSET` 으로 그리드 선/여백 제외 (값 14 권장)
+- `_trim_to_visible_bounds()` 바운딩 박스로 여백 제거
+- `_scale_to_target()` target 크기에 비율 유지 스케일
+- 걷기 + 공격 분리 관리 (`_frames_right`, `_attack_frames_right`)
+- `trigger_attack()` — 공격 1회 재생 후 idle 복귀
+
+### 9. Gemini content filter 회피 전략
+
+400 INVALID_ARGUMENT 에러가 나면 다음 키워드 교체 (실제 필터 경험 기반):
+| 금지 (걸린 적 있음) | 우회 |
+|---------------------|------|
+| battle, weapon | champion, guardian, wielding [구체 도구명] |
+| angry, scarred | serious, determined, focused, fierce |
+| skull, blood, gore | stylized animal head, ceremonial, tribal |
+| intimidating, threatening | imposing, heroic, cool |
+
+> 참고: `fierce`와 `warrior`는 단독 사용 시 필터를 통과함 (프로덕션 검증됨) — 금지어로 취급하지 말 것. 조합에서 문제가 될 때만 `serious`/`champion`으로 교체.
+
+이유를 알 수 없는 에러는 프롬프트를 짧게 축약하거나 분리 생성 후 수동 병합.
+
+### 10. 파일 배치 규약
+
+| 파일 | 경로 | 예시 |
+|------|------|------|
+| 스프라이트 시트 (원본) | `items/[name]_sheet.jpeg` | `items/tauren_boss_sheet.jpeg` |
+| 스프라이트 시트 (누끼) | `items/[name]_sheet.png` | `items/tauren_boss_sheet.png` |
+| 공격 애니메이션 | `items/[name]_attack.{jpeg,png}` | `items/tauren_boss_attack.png` |
+| 배경 이미지 | `backgrounds/stage[N]_*.jpeg` | `backgrounds/stage9_pillar_left.jpeg` |
+| 스프라이트 클래스 | `entities/[name]_sprite.py` | `entities/tauren_boss_sprite.py` |
+
+두 버전(JPEG 원본 + PNG 누끼) 모두 보관 → 배경 제거 알고리즘 재실행 가능하도록.
+
+---
+
 ## Project Overview
 PingFighter (핑파이터) is a Python-based arcade-style table tennis game with boss battles, power-ups, and special abilities. Built with Pygame framework and runs on both Windows and macOS.
 
@@ -16,6 +224,8 @@ PingFighter (핑파이터) is a Python-based arcade-style table tennis game with
 | 4 | 퐁크 | 사원 | pillar_temple | stage4 |
 | **5** | **네메시스** | **해상전투 (Ocean/Battleship)** | pillar_nemesis_ocean | **animated_bg_stage6** (주의!) |
 | **6** | **홍련** | **중국/화염 (Chinese Fire)** | (추가 예정) | **animated_bg_stage5** (주의!) |
+| 7 | 테트리서 | 테트리스 아레나 (Tetris Arena) | - | stage7 / `game_logic/stage7_tetriser.py`, `stages/stage7_boss.py` |
+| 8 | 아카무 리고 | 닌자 도조 (Shadow Dojo, 임시로 stage7_field 재사용) | - | stage8 / `entities/stage8_boss_sprite.py` |
 
 ### ⚠️ 매우 중요: 코드 변수명 vs 실제 스테이지
 - 코드에서 `stage5`, `animated_bg_stage5`, `Stage5ChineseMarket` = **실제 스테이지 6 홍련**
