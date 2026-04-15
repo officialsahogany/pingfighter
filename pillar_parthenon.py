@@ -325,22 +325,5 @@ class ParthenonFrame:
             screen.blit(self._bottom_frieze_img,
                         (self.game_x, self.game_y + self.game_height))
 
-        # 4) 별 트윙클 오버레이
-        for s in self._stars:
-            br = s['base'] + int(55 * math.sin(self.time * s['speed'] + s['phase']))
-            br = max(60, min(255, br))
-            if s.get('warm'):
-                color = (br, int(br * 0.88), int(br * 0.60))
-            else:
-                color = (br, br, min(255, br + 25))
-            pygame.draw.circle(screen, color, (s['x'], s['y']), s['r'])
-
-        # 5) 신성광 (아쿠아마린 쿨톤)
-        if self._god_ray_alpha_steps:
-            pulse = 0.5 + 0.5 * math.sin(self.time * 0.5)
-            idx = int(pulse * (self._god_ray_step_count - 1))
-            screen.blit(self._god_ray_alpha_steps[idx], (0, 0),
-                        special_flags=pygame.BLEND_ADD)
-
-        # 6) 횃불 플리커 (좌/우 필러의 박혀있는 횃불 위에 덮어씀)
+        # 4) 횃불 플리커 (좌/우 필러의 박혀있는 횃불 위에 덮어씀)
         self._draw_torch_flames(screen)
