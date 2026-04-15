@@ -7461,6 +7461,9 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
 
     # === 게이지 비용 ===
     cost = skill_data["cost"]
+    # 검기 증폭 퍽: 에어/다크 블레이드 게이지 비용 LV당 -10 반영
+    if skill_data.get("name") in ("blade_rush", "dark_blade"):
+        cost = _get_viper_blade_rush_gauge_cost()
     can_use = current_gauge >= cost
     cost_color = (100, 255, 150) if can_use else (255, 100, 100)
     cost_text = _t("ui.gauge_cost_fmt", "게이지 비용: {0}").format(cost)
@@ -7792,6 +7795,9 @@ def _draw_viper_skill_tooltip(surface: pygame.Surface, skill_data: dict,
 
     # === 게이지 비용 ===
     cost = skill_data["cost"]
+    # 검기 증폭 퍽: 에어/다크 블레이드 게이지 비용 LV당 -10 반영
+    if skill_data.get("name") in ("blade_rush", "dark_blade"):
+        cost = _get_viper_blade_rush_gauge_cost()
     can_use = current_gauge >= cost
     cost_color = (100, 255, 150) if can_use else (255, 100, 100)
     cost_text = _t("ui.gauge_cost_fmt", "게이지 비용: {0}").format(cost)
@@ -15390,13 +15396,13 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "킥 강화",
         "max_level": 5,
         "descriptions": {
-            1: "킥 발사 정밀도 +20%, 공속 보너스 +5%, 준비동작 속도 +20%",
-            2: "킥 발사 정밀도 +40%, 공속 보너스 +10%, 준비동작 속도 +40%",
-            3: "킥 발사 정밀도 +60%, 공속 보너스 +15%, 준비동작 속도 +60%",
-            4: "킥 발사 정밀도 +80%, 공속 보너스 +20%, 준비동작 속도 +80%",
-            5: "킥 발사 정밀도 +100%, 공속 보너스 +25%, 준비동작 속도 +100%",
+            1: "킥 발사 정밀도 +15%, 공속 보너스 +5%, 준비동작 속도 +20%",
+            2: "킥 발사 정밀도 +30%, 공속 보너스 +10%, 준비동작 속도 +40%",
+            3: "킥 발사 정밀도 +45%, 공속 보너스 +15%, 준비동작 속도 +60%",
+            4: "킥 발사 정밀도 +60%, 공속 보너스 +20%, 준비동작 속도 +80%",
+            5: "킥 발사 정밀도 +75%, 공속 보너스 +25%, 준비동작 속도 +100%",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 20% 증가(최대 Lv.5: 100%) + 공속 5% 증가.\n또한 마샬 킥/팬텀 킥의 준비동작(벽으로 이동 → 매달림 → 공으로 돌진)이 레벨당 20% 빨라집니다.\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 15% 증가(최대 Lv.5: 75%) + 공속 5% 증가.\n또한 마샬 킥/팬텀 킥의 준비동작(벽으로 이동 → 매달림 → 공으로 돌진)이 레벨당 20% 빨라집니다.\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
         "icon_color": (255, 80, 40),
         "tree": "viper",
         "character_restriction": "viper"
@@ -15416,13 +15422,13 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "검기 증폭",
         "max_level": 5,
         "descriptions": {
-            1: "에어·다크 블레이드 검기 사거리/가로폭 +10%",
-            2: "에어·다크 블레이드 검기 사거리/가로폭 +20%",
-            3: "에어·다크 블레이드 검기 사거리/가로폭 +30%",
-            4: "에어·다크 블레이드 검기 사거리/가로폭 +40%",
-            5: "에어·다크 블레이드 검기 사거리/가로폭 +50%",
+            1: "검기 사거리/가로폭 +10%, 타격 공속 +10%, 게이지 비용 -10",
+            2: "검기 사거리/가로폭 +20%, 타격 공속 +20%, 게이지 비용 -20",
+            3: "검기 사거리/가로폭 +30%, 타격 공속 +30%, 게이지 비용 -30",
+            4: "검기 사거리/가로폭 +40%, 타격 공속 +40%, 게이지 비용 -40",
+            5: "검기 사거리/가로폭 +50%, 타격 공속 +50%, 게이지 비용 -50",
         },
-        "detail": "에어 블레이드와 다크 블레이드의 검기 사거리와 X축 가로폭이\n레벨당 10%씩 증가합니다.\n다크 블레이드 기본 배율(사거리 2배, 가로폭 1.3배)에 합산 적용됩니다.",
+        "detail": "에어 블레이드와 다크 블레이드를 강화합니다.\n- 검기 사거리와 X축 가로폭이 레벨당 10%씩 증가\n- 검기가 공을 타격할 때 공속 보너스 +10%/LV\n- 발동 게이지 비용이 레벨당 10 감소 (최대 LV5에서 200 → 150)\n다크 블레이드 기본 배율(사거리 2배, 가로폭 1.3배)에 합산 적용됩니다.",
         "icon_color": (180, 60, 220),
         "tree": "viper",
         "character_restriction": "viper"
@@ -25565,6 +25571,9 @@ def _draw_horn_strawberry_skill_tooltip(surface, skill_data, mouse_pos, current_
 
     # 게이지 비용
     cost = skill_data["cost"]
+    # 검기 증폭 퍽: 에어/다크 블레이드 게이지 비용 LV당 -10 반영
+    if skill_data.get("name") in ("blade_rush", "dark_blade"):
+        cost = _get_viper_blade_rush_gauge_cost()
     if cost > 0:
         can_afford = current_gauge >= cost
         cost_color = (100, 255, 100) if can_afford else (255, 80, 80)
@@ -54218,6 +54227,12 @@ def _get_viper_kick_enhance_levels() -> tuple[int, int]:
     return min(effective_level, 5), effective_level
 
 
+def _get_viper_blade_rush_gauge_cost() -> int:
+    """에어/다크 블레이드 발동 게이지 비용 (검기 증폭 퍽 LV당 -10, 최소 100 보장)."""
+    lv = min(get_runtime_skill_level("blade_amp"), 5)
+    return max(100, 200 - 10 * lv)
+
+
 def _get_viper_wall_dive_prep_duration_mult() -> float:
     """마샬 킥/팬텀 킥 준비동작(벽으로 이동 → 매달림 → 벽다시타기 → 프리즈 → 돌진) duration 배율.
 
@@ -54229,7 +54244,8 @@ def _get_viper_wall_dive_prep_duration_mult() -> float:
 
 
 def _get_viper_kick_bias(base_bias: float, aim_level: int) -> float:
-    return base_bias + (1.0 - base_bias) * min(aim_level / 5.0, 1.0)
+    # 킥 강화 정밀도 +15%/LV (최대 LV5에서 +75%). LV5 시 base_bias에서 75% 지점까지 보정.
+    return base_bias + (1.0 - base_bias) * min(aim_level * 0.15, 0.75)
 
 
 def _compute_viper_kick_launch_angle(
@@ -79891,9 +79907,10 @@ def handle_player(keys):
                       and _viper_dark_blade_window
                       and (_viper_jetpack_offset_y < 0 or _viper_wall_dive_active)
                       and get_viper_skill_cooldown_remaining("dark_blade") <= 0):
-                    if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
+                    _db_gauge_cost = _get_viper_blade_rush_gauge_cost()
+                    if special_gauge >= _db_gauge_cost and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                         _viper_w_key_released = False
-                        special_gauge -= 200
+                        special_gauge -= _db_gauge_cost
                         trigger_viper_skill_cooldown("dark_blade")  # 다크 블레이드 45초 쿨타임 (VIPER_SKILL_ICONS_DATA 참조)
                         _viper_nerve_strike_combo_used = False
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
@@ -79923,9 +79940,10 @@ def handle_player(keys):
                 # 일반 에어 블레이드 발동 (체공 중에만 발동 가능)
                 elif is_viper_skill_unlocked("blade_rush") and _viper_jetpack_offset_y < 0:
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
-                        if special_gauge >= 200 and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
+                        _br_gauge_cost = _get_viper_blade_rush_gauge_cost()
+                        if special_gauge >= _br_gauge_cost and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
                             _viper_w_key_released = False
-                            special_gauge -= 200
+                            special_gauge -= _br_gauge_cost
                             trigger_viper_skill_cooldown("blade_rush")
                             _viper_nerve_strike_combo_used = False  # 새 에어 블레이드에서 연계기 초기화
                             _viper_dark_blade_active = False  # 일반 에어 블레이드
@@ -81142,6 +81160,10 @@ def handle_player(keys):
     # 바이퍼 에어 블레이드 검기 업데이트 (매 프레임)
     if _viper_blade_rush_active:
         _br_speed_per_frame = 12.0  # 검기 이동 속도 (px/frame)
+        # 검기 증폭 퍽: 사거리가 +10%/LV 늘어난 만큼 속도도 같은 비율로 증가시켜
+        # 검기 지속시간(발사 → 소멸까지 프레임 수)을 기본값과 동일하게 유지
+        _br_amp_lv = min(get_runtime_skill_level("blade_amp"), 5)
+        _br_speed_per_frame *= 1.0 + 0.1 * _br_amp_lv
         _viper_blade_rush_y -= _br_speed_per_frame  # 위로 이동
 
         # 궤적 저장 (잔상용)
@@ -81172,8 +81194,11 @@ def handle_player(keys):
                     _br_cur_speed = math.hypot(ball_vel[0], ball_vel[1])
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _br_cur_speed
+                    # 검기 증폭 퍽: 공 타격 시 공속 +10%/LV (최대 LV5 = +50%)
+                    _br_hit_amp_lv = min(get_runtime_skill_level("blade_amp"), 5)
+                    _br_hit_mult = 2.8 * (1.0 + 0.1 * _br_hit_amp_lv)
                     if _br_cur_speed > 0.1:
-                        _br_new_speed = _br_cur_speed * 2.8  # 2.8x (180% 증가)
+                        _br_new_speed = _br_cur_speed * _br_hit_mult  # 기본 2.8x + 검기 증폭 보너스
                         _br_ratio = _br_new_speed / _br_cur_speed
                         ball_vel[0] *= _br_ratio
                         ball_vel[1] = -abs(ball_vel[1] * _br_ratio)  # 위로 보정
@@ -172039,19 +172064,10 @@ def main(stage_num, new_boss_mode=False):
                         min_boost = BALL_BASE_SPEED * 0.75  # 최소 증가량 75%
                         _ps_dampen = _get_speed_dampen_factor(ball_current_speed)
                         actual_boost = max(ball_current_speed * 0.576 * _ps_dampen, min_boost)  # 감쇠 적용
-                        # ⚡ 스매셔 콤보 소모형 파워스매싱 속도 조정
-                        if selected_character_type == "smasher":
-                            if power_smashing_combo_consumed >= 2:
-                                # 콤보 소모: 콤보당 +4% 추가 속도, 최대 +20%
-                                # 콤보증폭칩 효과 적용 (공속은 보너스 레벨 그대로)
-                                _, _, _amp_smash_speed = get_combo_amplifier_chip_bonus()
-                                _per_combo = 0.04 * (1.0 + _amp_smash_speed)
-                                _cap = 0.20 * (1.0 + _amp_smash_speed)
-                                combo_speed_bonus = min(power_smashing_combo_consumed * _per_combo, _cap)
-                                actual_boost *= (1.0 + combo_speed_bonus)
-                            else:
-                                # 콤보 없음: 속도 부스트 25% 감소 (콤보 쌓아야 본래 성능 도달)
-                                actual_boost *= 0.75
+                        # ⚡ 스매셔 콤보 없음 페널티만 여기서 적용 (콤보 보너스는 감쇠 우회 위해 초기 부스트 후 적용)
+                        if selected_character_type == "smasher" and power_smashing_combo_consumed < 2:
+                            # 콤보 없음: 속도 부스트 25% 감소 (콤보 쌓아야 본래 성능 도달)
+                            actual_boost *= 0.75
                         new_speed = ball_current_speed + actual_boost
                     # 속도 비율 적용으로 방향 유지하면서 속도 증가
                     if ball_current_speed > 0:
@@ -172128,6 +172144,15 @@ def main(stage_num, new_boss_mode=False):
                         boost_ratio = _apply_dampened_multiplier(final_speed, initial_boost_multiplier)
                         ball_vel[0] *= boost_ratio
                         ball_vel[1] *= boost_ratio
+                        # ⚡ 콤보 소모형 파워스매싱 속도 보너스 (감쇠 우회 위해 초기 부스트 직후 적용)
+                        # 콤보당 +4% × (1 + 콤보증폭칩 보너스), 캡도 동일 비율 증폭
+                        if selected_character_type == "smasher" and power_smashing_combo_consumed >= 2:
+                            _, _, _amp_smash_speed = get_combo_amplifier_chip_bonus()
+                            _per_combo = 0.04 * (1.0 + _amp_smash_speed)
+                            _cap = 0.20 * (1.0 + _amp_smash_speed)
+                            _combo_final_bonus = min(power_smashing_combo_consumed * _per_combo, _cap)
+                            ball_vel[0] *= (1.0 + _combo_final_bonus)
+                            ball_vel[1] *= (1.0 + _combo_final_bonus)
                         power_smashing_initial_boost = True
                         # 실제 부스트된 속도 저장 (포물선 업데이트에서 감쇠+콤보 너프 우회 방지)
                         power_smashing_boosted_speed = math.hypot(ball_vel[0], ball_vel[1])
