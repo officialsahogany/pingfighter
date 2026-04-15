@@ -153677,7 +153677,8 @@ def calculate_bounce(paddle):
             # ⚡ 콤보 소모형 드라이브 강화: 콤보 2+ 시 소모하여 스핀/속도 보너스
             _drive_combo_used = 0
             _drive_combo_spin_bonus = 0.0
-            _drive_combo_speed_mult = 1.015  # 기본 속도 배율 (비스매셔)
+            _drive_combo_speed_mult = 1.015  # 기본 속도 배율 (비스매셔, 감쇠 적용 대상)
+            _drive_combo_speed_bypass_bonus = 0.0  # 콤보 추가 공속 보너스 (감쇠 우회 적용)
             _drive_particle_count = 8
             _drive_combo_spin_cap_bonus = 0.0  # 콤보에 의한 커브 상한 증가
             _drive_base_spin = 0.25  # 기본 커브량 (비스매셔)
@@ -153699,7 +153700,10 @@ def calculate_bounce(paddle):
                     _spin_cap_per_combo = 0.06 * (1.0 + _amp_drive_curve)
                     _spin_cap_max = 0.36 * (1.0 + _amp_drive_curve)
                     _drive_combo_spin_bonus = min(_drive_combo_used * _spin_per_combo, _spin_cap)
-                    _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * _speed_per_combo, _speed_cap)
+                    # A안 적용: 기본 배율(1.015)과 콤보 보너스 분리
+                    # 기본 배율은 감쇠 받고, 콤보 보너스는 감쇠 우회로 마지막에 적용
+                    _drive_combo_speed_mult = 1.015
+                    _drive_combo_speed_bypass_bonus = min(_drive_combo_used * _speed_per_combo, _speed_cap)
                     _drive_particle_count = 8 + _drive_combo_used * 4
                     _drive_combo_spin_cap_bonus = min(_drive_combo_used * _spin_cap_per_combo, _spin_cap_max)
                     _reset_smasher_combo("consumed_by_drive")
@@ -153733,6 +153737,10 @@ def calculate_bounce(paddle):
             # 드라이브 성공 시 속도 증가 (콤보 소모 시 추가 보너스)
             original_speed = speed
             speed *= _apply_dampened_multiplier(speed, _drive_combo_speed_mult)
+            # A안 적용: 콤보 추가 공속 보너스는 감쇠 우회로 직접 곱
+            # 콤보증폭칩 효과 포함된 의도값(예: Lv5+7콤보 → +12.6%)이 그대로 반영됨
+            if _drive_combo_speed_bypass_bonus > 0:
+                speed *= (1.0 + _drive_combo_speed_bypass_bonus)
             #  드라이브로 증가한 속도량 추적 (보스 충돌 시 90% 감소용)
             drive_speed_increase = speed - original_speed
             # print(f"   : {original_speed:.2f} → {speed:.2f} (: {drive_speed_increase:.2f})")  # 디버그 비활성화
