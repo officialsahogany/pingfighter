@@ -153746,10 +153746,13 @@ def calculate_bounce(paddle):
             # print(f"   : {original_speed:.2f} → {speed:.2f} (: {drive_speed_increase:.2f})")  # 디버그 비활성화
             #  패들 위치에 따른 드라이브 각도 조정 (균형잡힌 각도)
             # (0, -1)에서 반시계 방향(+) 회전 → 좌측, 시계 방향(-) 회전 → 우측
-            # ⚡ 콤보 발동 시: 발사 각도 절반(±11.25도)로 직진성 강화 → spin이 시간차로 꺾음
+            # ⚡ 콤보 발동 시: 콤보 수에 비례해 각도 점진 감소 (콤보가 클수록 더 직진)
+            #    - 콤보 2: ±11.25도 → 콤보 6+: ±4도로 부드럽게 보간
+            #    - 발사는 직진, spin이 시간차로 꺾음 → "곡선 궤적" 시각화
             if _drive_combo_used >= 2:
-                _drive_base_angle_mag = math.pi / 16.0  # 11.25도 (콤보: 직진성 강화)
-                _drive_position_factor_scale = 0.15      # 위치 보정도 절반으로 (직진 유지)
+                _combo_steepness = max(0.0, min(1.0, (_drive_combo_used - 2) / 4.0))  # 콤보 2→0.0, 6+→1.0
+                _drive_base_angle_mag = math.pi / 16.0 - (math.pi / 16.0 - math.pi / 45.0) * _combo_steepness
+                _drive_position_factor_scale = 0.15 - 0.10 * _combo_steepness  # 0.15 → 0.05
             else:
                 _drive_base_angle_mag = math.pi / 8.0    # 22.5도 (기본)
                 _drive_position_factor_scale = 0.3
