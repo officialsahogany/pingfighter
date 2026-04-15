@@ -13762,6 +13762,50 @@ def _create_stage9_background(width: int, height: int) -> pygame.Surface:
 
 STAGE9_BG = _create_stage9_background(WIDTH, HEIGHT)
 
+
+def _build_stage9_center_marker_layers(width: int, height: int):
+    """Pre-render center line + ring + dot onto two SRCALPHA surfaces (core + halo).
+    Core stays crisp; halo alpha is pulsed at runtime for the breathing effect."""
+    cx, cy = width // 2, height // 2
+    ring_r = 58
+    dot_r = 4
+
+    core = pygame.Surface((width, height), pygame.SRCALPHA)
+    halo = pygame.Surface((width, height), pygame.SRCALPHA)
+
+    # Halo: wide soft glow (line band + ring band)
+    for i, a in ((12, 14), (9, 24), (6, 40), (3, 70)):
+        pygame.draw.line(halo, (140, 255, 240, a), (0, cy), (width, cy), i * 2 + 1)
+    for i, a in ((14, 18), (10, 34), (6, 60), (3, 100)):
+        pygame.draw.circle(halo, (140, 255, 240, a), (cx, cy), ring_r, i)
+
+    # Core: crisp line + ring + dot
+    pygame.draw.line(core, (210, 255, 248, 230), (0, cy), (width, cy), 2)
+    pygame.draw.circle(core, (220, 255, 250, 240), (cx, cy), ring_r, 2)
+    pygame.draw.circle(core, (255, 255, 255, 255), (cx, cy), dot_r)
+
+    return core, halo
+
+
+STAGE9_MARKER_CORE, STAGE9_MARKER_HALO = _build_stage9_center_marker_layers(WIDTH, HEIGHT)
+_stage9_marker_phase = 0.0
+
+
+def draw_stage9_center_marker(screen, offset_x: int = 0, offset_y: int = 0, dt_ms: int = 16):
+    """Animated aquamarine stadium line+ring+dot overlay for Stage 9 floor.
+    Uses pre-rendered surfaces with set_alpha for pulsing (no per-frame allocation)."""
+    global _stage9_marker_phase
+    _stage9_marker_phase = (_stage9_marker_phase + dt_ms * 0.0022) % (math.pi * 2)
+
+    pulse = (math.sin(_stage9_marker_phase) + 1.0) * 0.5  # 0.0 ~ 1.0
+    halo_alpha = int(90 + pulse * 120)   # 90 ~ 210
+    core_alpha = int(210 + pulse * 45)   # 210 ~ 255
+
+    STAGE9_MARKER_HALO.set_alpha(halo_alpha)
+    STAGE9_MARKER_CORE.set_alpha(core_alpha)
+    screen.blit(STAGE9_MARKER_HALO, (offset_x, offset_y))
+    screen.blit(STAGE9_MARKER_CORE, (offset_x, offset_y))
+
 STAGE1_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage1.mov")
 STAGE2_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage2.mov")
 STAGE3_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage3.mov")
@@ -21602,6 +21646,11 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
             SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
         except:
             SCREEN.fill((20, 25, 40))
+        if current_stage == 9:
+            try:
+                draw_stage9_center_marker(SCREEN, shake_x, shake_y, elapsed_ms)
+            except Exception:
+                pass
 
     # 게임 엔티티 렌더링 (패들, 공)
     if draw_entities:
@@ -149402,6 +149451,12 @@ def draw_field():
     else:
         # 기본 배경 (화면 흔들림 오프셋 적용)
         SCREEN.blit(CURRENT_BG, (screen_shake_offset_x, screen_shake_offset_y))
+        if current_stage == 9:
+            try:
+                _s9_dt = clock.get_time() if 'clock' in globals() else 16
+                draw_stage9_center_marker(SCREEN, screen_shake_offset_x, screen_shake_offset_y, _s9_dt)
+            except Exception:
+                pass
     #  체력형 보스전 바리케이트 그리기 (스테이지 11, 16, 21)
     if current_stage in boss_health_stages:
         global stage6_barrier_flash_timer
