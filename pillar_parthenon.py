@@ -101,8 +101,7 @@ class ParthenonFrame:
         ]
         # 필러 이미지 기준 횃불 잔받침 꼭대기 위치(정규화)
         # (x_ratio_in_pillar, y_ratio_of_screen_height) — 애니메이션 스프라이트의 불꽃 밑변이 여기 옴
-        # 실제 이미지에서 횃불 컵 꼭대기 = x~0.32, y~0.50
-        self._torch_anchor_ratio = (0.32, 0.50)
+        self._torch_anchor_ratio = (0.30, 0.52)
 
         # 필러 이미지에 박혀있는 정적 불꽃을 깨끗한 패치로 덮어 지움
         self._erase_baked_flames()
@@ -256,7 +255,7 @@ class ParthenonFrame:
 
         # 불꽃 크기는 필러 너비에 비례
         base_w = max(self.left_pillar_w, self.right_pillar_w, 40)
-        fw = max(32, int(base_w * 0.55))
+        fw = max(28, int(base_w * 0.46))
         fh = int(fw * frame_src_h / max(1, frame_src_w))
         self._flame_w, self._flame_h = fw, fh
 
