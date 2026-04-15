@@ -13387,12 +13387,36 @@ def _loading_task_4_final_optimization():
 # - 완전몰입가상현실 접속중: 아이콘 로드 + 폰트 프리로드
 # - 뉴럴링크 동기화중: 배경 로드 + 게임 이미지 프리로드
 # - 양자얽힘 최적화중: 가비지 컬렉션 + 메모리 최적화
-run_loading_with_tasks([
-    (0.20, "평행우주 생성중..", _loading_task_1_init_systems),
-    (0.30, "완전몰입가상현실 접속중..", _loading_task_2_load_icons),
-    (0.35, "뉴럴링크 동기화중..", _loading_task_3_load_backgrounds),
-    (0.15, "양자얽힘 최적화중..", _loading_task_4_final_optimization),
-])
+if SMOKE_TEST_ENABLED:
+    # 테스트 import에서는 탑레벨 프리로드/로딩 루프를 생략하고 최소 배경만 준비한다.
+    class _SmokeStageBackgrounds:
+        pass
+
+    _stage_backgrounds_result = _SmokeStageBackgrounds()
+    _stage_backgrounds_result.stage1 = SCREEN.copy()
+    _stage_backgrounds_result.stage2 = SCREEN.copy()
+    _stage_backgrounds_result.stage3 = SCREEN.copy()
+    _stage_backgrounds_result.stage4 = SCREEN.copy()
+    _stage_backgrounds_result.stage5 = SCREEN.copy()
+    _stage_backgrounds_result.stage6 = SCREEN.copy()
+    _stage_backgrounds_result.stage7 = SCREEN.copy()
+    _stage_backgrounds_result.stage8 = SCREEN.copy()
+    _stage_backgrounds_result.animated_bg = None
+    _stage_backgrounds_result.animated_bg_stage2 = None
+    _stage_backgrounds_result.animated_bg_stage3 = None
+    _stage_backgrounds_result.animated_bg_stage4 = None
+    _stage_backgrounds_result.animated_bg_stage5 = None
+    _stage_backgrounds_result.animated_bg_stage6 = None
+    _stage_backgrounds_result.animated_bg_stage7 = None
+    _stage_backgrounds_result.animated_bg_stage8 = None
+    _preload_complete = True
+else:
+    run_loading_with_tasks([
+        (0.20, "평행우주 생성중..", _loading_task_1_init_systems),
+        (0.30, "완전몰입가상현실 접속중..", _loading_task_2_load_icons),
+        (0.35, "뉴럴링크 동기화중..", _loading_task_3_load_backgrounds),
+        (0.15, "양자얽힘 최적화중..", _loading_task_4_final_optimization),
+    ])
 
 # 로딩 결과 적용
 stage_backgrounds = _stage_backgrounds_result
@@ -57551,7 +57575,7 @@ class SupplyAircraft:
         *,
         screen_width: int | None = None,
         screen_height: int | None = None,
-        engine_sound: pygame.mixer.Sound | None = None,
+        engine_sound: "pygame.mixer.Sound | None" = None,
     ):
         """
         군용 비행기 초기화
