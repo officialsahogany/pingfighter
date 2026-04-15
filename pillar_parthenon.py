@@ -106,6 +106,10 @@ class ParthenonFrame:
         # 필러 이미지에 박혀있는 정적 불꽃을 깨끗한 패치로 덮어 지움
         self._erase_baked_flames()
 
+        # 인게임 맵 테두리(액자형) 프레임 오버레이
+        self._field_frame_img = None
+        self._build_field_frame()
+
     # ------------------------------------------------------------
     def _prepare_images(self):
         # 기둥
@@ -188,6 +192,7 @@ class ParthenonFrame:
     # ------------------------------------------------------------
     FLAME_SHEET_IMAGE = os.path.join("backgrounds", "stage9_flame_sheet.jpeg")
     FLAME_FRAME_COUNT = 6
+    FIELD_FRAME_IMAGE = os.path.join("backgrounds", "stage9_frame.jpeg")
 
     # 박힌 불꽃 영역(필러 스케일 기준 정규화 박스): 덮어 지울 사각형
     # (x_ratio, y_ratio, w_ratio, h_ratio) — 실제 이미지에서 불꽃 tip~base 영역
@@ -275,6 +280,32 @@ class ParthenonFrame:
             pygame.draw.circle(glow, (255, 170, 90, a), (gcx, gcy), r)
         self._flame_glow = glow
 
+    def _build_field_frame(self):
+        """게임 영역 위에 덮을 액자형 프레임 오버레이를 로드/스케일하고,
+        검정 배경을 휘도 기반 알파로 변환해 매끄럽게 투명화한다."""
+        raw = _load_image(self.FIELD_FRAME_IMAGE)
+        if raw is None or self.game_width <= 0 or self.game_height <= 0:
+            return
+        scaled = pygame.transform.smoothscale(raw, (self.game_width, self.game_height))
+
+        # 휘도 기반 알파: 어두운 픽셀일수록 투명 (JPEG 압축 헤일로도 자연스럽게 페이드)
+        try:
+            import pygame.surfarray as sa
+            import numpy as np
+            alpha_surf = scaled.convert_alpha()
+            rgb = sa.pixels3d(alpha_surf)  # (W, H, 3)
+            # 프레임 아트는 골드/아쿠아마린 → 밝은 픽셀을 보존, 검정은 알파 0
+            lum = np.max(rgb, axis=2).astype(np.uint8)
+            # 낮은 휘도는 과감히 0으로 컷 (가장자리 회색 잔상 제거)
+            lum = np.where(lum < 18, 0, lum)
+            sa.pixels_alpha(alpha_surf)[:] = lum
+            del rgb
+            self._field_frame_img = alpha_surf
+        except Exception:
+            # numpy 없으면 colorkey 폴백
+            scaled.set_colorkey((0, 0, 0))
+            self._field_frame_img = scaled
+
     def _draw_torch_flames(self, screen):
         if not self._flame_frames:
             return
@@ -327,3 +358,7 @@ class ParthenonFrame:
 
         # 4) 횃불 플리커 (좌/우 필러의 박혀있는 횃불 위에 덮어씀)
         self._draw_torch_flames(screen)
+
+        # 5) 인게임 맵 액자 프레임 (게임 영역 위에 덮음)
+        if self._field_frame_img is not None:
+            screen.blit(self._field_frame_img, (self.game_x, self.game_y))
