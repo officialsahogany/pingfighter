@@ -117276,6 +117276,7 @@ def draw_objects():
     # === 보스 이미지 선택 + 스테이지별 전용 사이즈 적용 ===
     boss_img_prescaled = False
     global stage9_tauren_prev_x, stage9_tauren_facing
+    global stage3_menhera_prev_x, stage3_menhera_facing
     if new_boss_mode_active:
         #  새로운 보스 모드에서는 상단 보스 선택
         if selected_top_boss == 1:
