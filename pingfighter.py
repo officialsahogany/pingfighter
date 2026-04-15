@@ -4797,7 +4797,7 @@ def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
     _training_bonus = get_runtime_skill_bonus("common_training")
     if _training_bonus > 0:
         cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
@@ -5068,7 +5068,7 @@ def get_smasher_skill_cooldown_remaining(skill_name: str) -> float:
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
     _training_bonus = get_runtime_skill_bonus("common_training")
     if _training_bonus > 0:
         cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
@@ -9405,7 +9405,7 @@ def get_soldier_skill_cooldown_remaining(skill_name: str) -> float:
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
     _training_bonus = get_runtime_skill_bonus("common_training")
     if _training_bonus > 0:
         cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
@@ -9436,7 +9436,7 @@ def get_soldier_skill_cooldown_seconds(skill_name: str) -> float:
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
     _training_bonus = get_runtime_skill_bonus("common_training")
     if _training_bonus > 0:
         cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
@@ -14609,6 +14609,7 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         # Smasher Exclusive
         "dash_acceleration": ("대쉬시 패들 크기 ", 70, "% 증가"),
         "dash_spirit": ("대쉬시 ", 7, "% 확률로 레이저 잔상"),
+        # combo_amplifier_chip은 항목별 clamp가 달라 별도 처리 (아래)
         # Optimus Exclusive
         "mecha_chain": ("게이지 감소율 ", 10, "% 감소"),
         "mecha_charge": ("충전량 +", 10, "%"),
@@ -14629,6 +14630,12 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         prefix, per_level, suffix = skill_patterns[skill_id]
         value = level * per_level
         return f"{prefix}{value}{suffix}"
+
+    # combo_amplifier_chip: 공속은 무제한, 커브는 Lv3 캡
+    if skill_id == "combo_amplifier_chip":
+        speed_amp = level * 15
+        curve_amp = min(level, 3) * 10
+        return f"콤보 증폭: 공속+{speed_amp}%, 커브+{curve_amp}% (Lv{level})"
 
     # kick_enhance: 정밀도는 100%에서 캡, 공속은 계속 증가
     if skill_id == "kick_enhance":
@@ -14993,11 +15000,11 @@ RUNTIME_SKILL_POOL = {
         "name": "단련",
         "max_level": 5,
         "descriptions": {
-            1: "모든 스킬 쿨타임 6% 감소",
-            2: "모든 스킬 쿨타임 12% 감소",
-            3: "모든 스킬 쿨타임 18% 감소",
-            4: "모든 스킬 쿨타임 24% 감소",
-            5: "모든 스킬 쿨타임 30% 감소",
+            1: "모든 스킬 쿨타임 8% 감소",
+            2: "모든 스킬 쿨타임 16% 감소",
+            3: "모든 스킬 쿨타임 24% 감소",
+            4: "모든 스킬 쿨타임 32% 감소",
+            5: "모든 스킬 쿨타임 40% 감소",
         },
         "detail": "끊임없는 단련으로 스킬을 더 빠르게 사용할 수 있게 됩니다.",
         "icon_color": (255, 160, 80),
@@ -15090,6 +15097,19 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "detail": "파워스매싱 발동 시 '고스트샷' 모드로 전환됩니다. 공이 뱀처럼 구불거리는 예측불가 궤적으로 이동하며, 원한의 귀신들이 공을 따라다닙니다. 보스가 1회 방어하면 고스트샷이 종료됩니다.",
         "icon_color": (120, 50, 180),
         "tree": "smasher_unlock",
+        "character_restriction": "smasher"
+    },
+    "combo_amplifier_chip": {
+        "name": "콤보증폭칩",
+        "max_level": 3,
+        "descriptions": {
+            1: "콤보 효과 증폭: 드라이브 공속+15%, 커브+10%, 파워스매시 공속+15%",
+            2: "콤보 효과 증폭: 드라이브 공속+30%, 커브+20%, 파워스매시 공속+30%",
+            3: "콤보 효과 증폭: 드라이브 공속+45%, 커브+30%, 파워스매시 공속+45%",
+        },
+        "detail": "콤보 소모형 드라이브/파워스매싱의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 보너스 레벨까지 적용되며, 드라이브 커브 증폭은 Lv3에서 캡됩니다.",
+        "icon_color": (255, 100, 200),
+        "tree": "smasher",
         "character_restriction": "smasher"
     },
 }
@@ -15359,13 +15379,13 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "킥 강화",
         "max_level": 5,
         "descriptions": {
-            1: "킥 발사 정밀도 +20%, 공속 보너스 +5%",
-            2: "킥 발사 정밀도 +40%, 공속 보너스 +10%",
-            3: "킥 발사 정밀도 +60%, 공속 보너스 +15%",
-            4: "킥 발사 정밀도 +80%, 공속 보너스 +20%",
-            5: "킥 발사 정밀도 +100%, 공속 보너스 +25%",
+            1: "킥 발사 정밀도 +20%, 공속 보너스 +5%, 준비동작 속도 +20%",
+            2: "킥 발사 정밀도 +40%, 공속 보너스 +10%, 준비동작 속도 +40%",
+            3: "킥 발사 정밀도 +60%, 공속 보너스 +15%, 준비동작 속도 +60%",
+            4: "킥 발사 정밀도 +80%, 공속 보너스 +20%, 준비동작 속도 +80%",
+            5: "킥 발사 정밀도 +100%, 공속 보너스 +25%, 준비동작 속도 +100%",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 20% 증가(최대 Lv.5: 100%) + 공속 5% 증가.\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 20% 증가(최대 Lv.5: 100%) + 공속 5% 증가.\n또한 마샬 킥/팬텀 킥의 준비동작(벽으로 이동 → 매달림 → 공으로 돌진)이 레벨당 20% 빨라집니다.\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
         "icon_color": (255, 80, 40),
         "tree": "viper",
         "character_restriction": "viper"
@@ -18475,6 +18495,28 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
     return False
 
 
+def get_combo_amplifier_chip_bonus():
+    """콤보증폭칩 효과 반환 (D안: 공속은 보너스 레벨 그대로, 커브는 Lv3 clamp)
+
+    Returns:
+        (drive_speed_amp, drive_curve_amp, smash_speed_amp) 튜플
+        - 각 값은 콤보 효과에 곱해질 추가 증폭 비율 (예: 0.15 = +15%)
+    """
+    raw_level = get_runtime_skill_level("combo_amplifier_chip")
+    if raw_level <= 0:
+        return (0.0, 0.0, 0.0)
+
+    # 공속: 보너스 레벨 그대로 (전설 아이템 보상 유지)
+    drive_speed_amp = raw_level * 0.15
+    smash_speed_amp = raw_level * 0.15
+
+    # 커브/커브캡: Lv3에서 clamp (곱연산 폭주 방지)
+    curve_level = min(raw_level, 3)
+    drive_curve_amp = curve_level * 0.10
+
+    return (drive_speed_amp, drive_curve_amp, smash_speed_amp)
+
+
 def get_runtime_skill_bonus(skill_id: str) -> float:
     """런타임 스킬 레벨에 따른 효과값 반환 (아카데미 보너스와 합산, 초월자의 관 보너스 포함)"""
     global runtime_skill_levels
@@ -18509,7 +18551,7 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
 
             # 공통 트리
             "common_bulk_up": level * 0.05,         # 패들 크기 5%/레벨 증가
-            "common_training": level * 0.06,        # 스킬 쿨타임 6%/레벨 감소
+            "common_training": level * 0.08,        # 스킬 쿨타임 8%/레벨 감소
 
             # 스매셔 전용
             "dash_acceleration": level * 0.70,      # 패들 크기 70%/레벨 증가
@@ -20904,6 +20946,44 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.line(surface, (220, 60, 70),
                          (icon_cx, icon_cy - blade_h + max(1, int(2 * scale))),
                          (icon_cx, icon_cy + max(1, int(2 * scale))), max(1, int(1 * scale)))
+
+    elif skill_id == "combo_amplifier_chip":
+        # 콤보증폭칩 - 회로 칩 + 상승 화살표
+        chip_w = max(8, int(14 * scale))
+        chip_h = max(8, int(14 * scale))
+        # 칩 본체 그림자
+        pygame.draw.rect(surface, darker(icon_color, 60),
+                         (icon_cx - chip_w // 2 + 1, icon_cy - chip_h // 2 + 1, chip_w, chip_h),
+                         border_radius=max(1, int(2 * scale)))
+        # 칩 본체
+        pygame.draw.rect(surface, icon_color,
+                         (icon_cx - chip_w // 2, icon_cy - chip_h // 2, chip_w, chip_h),
+                         border_radius=max(1, int(2 * scale)))
+        # 칩 하이라이트
+        pygame.draw.rect(surface, lighter(icon_color, 50),
+                         (icon_cx - chip_w // 2 + 1, icon_cy - chip_h // 2 + 1,
+                          chip_w - 2, max(2, int(3 * scale))),
+                         border_radius=max(1, int(1 * scale)))
+        # 회로 핀 (좌우)
+        pin_len = max(2, int(3 * scale))
+        for i in range(3):
+            py = icon_cy - chip_h // 2 + int((i + 1) * chip_h / 4)
+            pygame.draw.line(surface, (200, 200, 220),
+                             (icon_cx - chip_w // 2 - pin_len, py),
+                             (icon_cx - chip_w // 2, py), max(1, int(1 * scale)))
+            pygame.draw.line(surface, (200, 200, 220),
+                             (icon_cx + chip_w // 2, py),
+                             (icon_cx + chip_w // 2 + pin_len, py), max(1, int(1 * scale)))
+        # 중앙 상승 화살표 (증폭 표시)
+        arrow_color = (255, 255, 255)
+        ax = icon_cx
+        ay_top = icon_cy - max(2, int(4 * scale))
+        ay_bot = icon_cy + max(2, int(3 * scale))
+        pygame.draw.line(surface, arrow_color, (ax, ay_bot), (ax, ay_top), max(1, int(2 * scale)))
+        # 화살촉
+        head_w = max(2, int(3 * scale))
+        pygame.draw.line(surface, arrow_color, (ax, ay_top), (ax - head_w, ay_top + head_w), max(1, int(2 * scale)))
+        pygame.draw.line(surface, arrow_color, (ax, ay_top), (ax + head_w, ay_top + head_w), max(1, int(2 * scale)))
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
@@ -44210,7 +44290,7 @@ def release_blacksmith_hammer_shock():
     _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
     if _angel_skill_cd != 1.0:
         cooldown_frames = max(0, int(cooldown_frames * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (6%/레벨, 곱연산)
+    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
     _training_bonus = get_runtime_skill_bonus("common_training")
     if _training_bonus > 0:
         cooldown_frames = max(0, int(cooldown_frames * (1.0 - _training_bonus)))
@@ -54059,6 +54139,15 @@ def _get_viper_kick_enhance_levels() -> tuple[int, int]:
     """Return (aim_level, speed_level) for Viper kick skills."""
     effective_level = get_runtime_skill_level("kick_enhance")
     return min(effective_level, 5), effective_level
+
+
+def _get_viper_wall_dive_prep_speed_mult() -> float:
+    """마샬 킥/팬텀 킥 준비동작(벽으로 이동 → 매달림 → 공으로 돌진) 가속 배율.
+
+    킥 강화 퍽 LV당 20%씩 빠르게 (duration = base / (1 + 0.2 * lv)). 최대 LV5에서 클램프.
+    """
+    lv = min(get_runtime_skill_level("kick_enhance"), 5)
+    return 1.0 / (1.0 + 0.2 * lv)
 
 
 def _get_viper_kick_bias(base_bias: float, aim_level: int) -> float:
@@ -79915,6 +80004,8 @@ def handle_player(keys):
             # Phase 0: 로프를 벽에 쏘고 끌려가며 이동 (스파이더맨/산나비 스타일)
             # 팬텀 킥(2차)은 로프 이동 30% 빠르게
             _wd_jump_ms = _VIPER_WALL_DIVE_JUMP_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_JUMP_MS
+            # 킥 강화 퍽: 준비동작 LV당 20% 빠르게
+            _wd_jump_ms *= _get_viper_wall_dive_prep_speed_mult()
             _wd_t = min(1.0, _wd_elapsed / _wd_jump_ms)
             _wd_ease = 1.0 - (1.0 - _wd_t) ** 2  # ease-out quadratic (자연스러운 당김 → 벽 근처 감속)
             # 플레이어가 로프에 끌려감
@@ -79948,7 +80039,9 @@ def handle_player(keys):
 
         elif _viper_wall_dive_phase == 1:
             # Phase 1: 벽 매달림 (스파이더맨 포즈, 공 위치 스냅샷)
-            _wd_t = min(1.0, _wd_elapsed / _VIPER_WALL_DIVE_CLING_MS)
+            # 킥 강화 퍽: 준비동작 LV당 20% 빠르게
+            _wd_cling_ms = _VIPER_WALL_DIVE_CLING_MS * _get_viper_wall_dive_prep_speed_mult()
+            _wd_t = min(1.0, _wd_elapsed / _wd_cling_ms)
             PLAYER.centerx = int(_viper_wall_dive_wall_x)
             PLAYER.centery = int(_viper_wall_dive_wall_y)
             if _wd_t >= 1.0:
@@ -80062,6 +80155,8 @@ def handle_player(keys):
             # Phase 2: 공을 향해 돌진 (실시간 추적)
             # 팬텀 킥(2차)은 돌진 30% 빠르게
             _wd_charge_ms = _VIPER_WALL_DIVE_CHARGE_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_CHARGE_MS
+            # 킥 강화 퍽: 준비동작 LV당 20% 빠르게
+            _wd_charge_ms *= _get_viper_wall_dive_prep_speed_mult()
             _wd_t = min(1.0, _wd_elapsed / _wd_charge_ms)
             _wd_ease = _wd_t * _wd_t  # ease-in (가속)
             # 매 프레임 공의 실시간 위치로 목표 갱신
@@ -80955,6 +81050,7 @@ def handle_player(keys):
                 _viper_br_spin_angle = 0.0
                 _viper_br_jump_offset_y = 0.0
                 _viper_br_arm_raise = 0.0
+                _viper_jetpack_offset_y = 0.0
                 PLAYER.bottom = int(_br_floor_bottom)
 
     # 바이퍼 에어 블레이드 검기 업데이트 (매 프레임)
@@ -116166,6 +116262,7 @@ def draw_objects():
             if _viper_wall_dive_active and _viper_wall_dive_phase == 2:
                 _ch_elapsed = _wd_ticks - _viper_wall_dive_start_ms
                 _ch_charge_ms = _VIPER_WALL_DIVE_CHARGE_MS / 1.3 if _viper_is_double_marshal else _VIPER_WALL_DIVE_CHARGE_MS
+                _ch_charge_ms *= _get_viper_wall_dive_prep_speed_mult()
                 _ch_t = min(1.0, _ch_elapsed / _ch_charge_ms)
                 _ch_cx = PLAYER.centerx
                 _ch_cy = PLAYER.centery
@@ -153482,10 +153579,18 @@ def calculate_bounce(paddle):
                     _effective_combo = smasher_dash_combo_grace_count
                 if _effective_combo >= 2:
                     _drive_combo_used = _effective_combo
-                    _drive_combo_spin_bonus = min(_drive_combo_used * 0.08, 0.48)  # 콤보당 +0.08, 최대 +0.48
-                    _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * 0.012, 0.072)  # 콤보당 +1.2%, 최대 +7.2%
+                    # 콤보증폭칩 효과 (D안: 커브는 Lv3 clamp)
+                    _amp_drive_speed, _amp_drive_curve, _ = get_combo_amplifier_chip_bonus()
+                    _spin_per_combo = 0.08 * (1.0 + _amp_drive_curve)
+                    _spin_cap = 0.48 * (1.0 + _amp_drive_curve)
+                    _speed_per_combo = 0.012 * (1.0 + _amp_drive_speed)
+                    _speed_cap = 0.072 * (1.0 + _amp_drive_speed)
+                    _spin_cap_per_combo = 0.06 * (1.0 + _amp_drive_curve)
+                    _spin_cap_max = 0.36 * (1.0 + _amp_drive_curve)
+                    _drive_combo_spin_bonus = min(_drive_combo_used * _spin_per_combo, _spin_cap)
+                    _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * _speed_per_combo, _speed_cap)
                     _drive_particle_count = 8 + _drive_combo_used * 4
-                    _drive_combo_spin_cap_bonus = min(_drive_combo_used * 0.06, 0.36)  # 콤보당 커브캡 +0.06, 최대 +0.36
+                    _drive_combo_spin_cap_bonus = min(_drive_combo_used * _spin_cap_per_combo, _spin_cap_max)
                     _reset_smasher_combo("consumed_by_drive")
                 else:
                     # 콤보 0~1: 스매셔 기본 드라이브 하향 (콤보 쌓아야 본래 성능 도달)
@@ -171852,7 +171957,11 @@ def main(stage_num, new_boss_mode=False):
                         if selected_character_type == "smasher":
                             if power_smashing_combo_consumed >= 2:
                                 # 콤보 소모: 콤보당 +4% 추가 속도, 최대 +20%
-                                combo_speed_bonus = min(power_smashing_combo_consumed * 0.04, 0.20)
+                                # 콤보증폭칩 효과 적용 (공속은 보너스 레벨 그대로)
+                                _, _, _amp_smash_speed = get_combo_amplifier_chip_bonus()
+                                _per_combo = 0.04 * (1.0 + _amp_smash_speed)
+                                _cap = 0.20 * (1.0 + _amp_smash_speed)
+                                combo_speed_bonus = min(power_smashing_combo_consumed * _per_combo, _cap)
                                 actual_boost *= (1.0 + combo_speed_bonus)
                             else:
                                 # 콤보 없음: 속도 부스트 25% 감소 (콤보 쌓아야 본래 성능 도달)
