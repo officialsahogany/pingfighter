@@ -153749,13 +153749,20 @@ def calculate_bounce(paddle):
             # print(f"   : {original_speed:.2f} → {speed:.2f} (: {drive_speed_increase:.2f})")  # 디버그 비활성화
             #  패들 위치에 따른 드라이브 각도 조정 (균형잡힌 각도)
             # (0, -1)에서 반시계 방향(+) 회전 → 좌측, 시계 방향(-) 회전 → 우측
+            # ⚡ 콤보 발동 시: 발사 각도 절반(±11.25도)로 직진성 강화 → spin이 시간차로 꺾음
+            if _drive_combo_used >= 2:
+                _drive_base_angle_mag = math.pi / 16.0  # 11.25도 (콤보: 직진성 강화)
+                _drive_position_factor_scale = 0.15      # 위치 보정도 절반으로 (직진 유지)
+            else:
+                _drive_base_angle_mag = math.pi / 8.0    # 22.5도 (기본)
+                _drive_position_factor_scale = 0.3
             if perfect_direction == -1:  # 왼쪽 드라이브
-                base_angle = math.pi / 8.0   # +22.5도: 좌측(-X)으로 꺾음
-                position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
+                base_angle = _drive_base_angle_mag       # 좌측(-X)으로 꺾음
+                position_factor = rel_x * _drive_position_factor_scale
                 angle = base_angle + position_factor
             else:  # 오른쪽 드라이브
-                base_angle = -math.pi / 8.0  # -22.5도: 우측(+X)으로 꺾음
-                position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
+                base_angle = -_drive_base_angle_mag      # 우측(+X)으로 꺾음
+                position_factor = rel_x * _drive_position_factor_scale
                 angle = base_angle + position_factor
             _drive_dbg(f"drive vector dir={perfect_direction} angle={angle:.3f} base={base_angle:.3f} "
                        f"rel_x={rel_x:.3f} vx={ball_vel[0]:.3f} vy={ball_vel[1]:.3f} speed={speed:.3f}")
