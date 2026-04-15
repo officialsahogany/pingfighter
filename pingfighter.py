@@ -18543,13 +18543,16 @@ def get_combo_amplifier_chip_bonus():
     if raw_level <= 0:
         return (0.0, 0.0, 0.0)
 
+    # ⚠️ 테스트용: 성능 2배 부스트 (배포 시 1.0으로 되돌릴 것)
+    _TEST_BOOST = 2.0
+
     # 공속: 보너스 레벨 그대로 (전설 아이템 보상 유지)
-    drive_speed_amp = raw_level * 0.15
-    smash_speed_amp = raw_level * 0.15
+    drive_speed_amp = raw_level * 0.15 * _TEST_BOOST
+    smash_speed_amp = raw_level * 0.15 * _TEST_BOOST
 
     # 커브/커브캡: Lv3에서 clamp (곱연산 폭주 방지)
     curve_level = min(raw_level, 3)
-    drive_curve_amp = curve_level * 0.10
+    drive_curve_amp = curve_level * 0.10 * _TEST_BOOST
 
     return (drive_speed_amp, drive_curve_amp, smash_speed_amp)
 
