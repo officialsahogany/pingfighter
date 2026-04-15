@@ -14649,7 +14649,7 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
     # combo_amplifier_chip: 공속은 무제한, 커브는 Lv3 캡
     if skill_id == "combo_amplifier_chip":
         speed_amp = level * 45
-        curve_amp = min(level, 3) * 30
+        curve_amp = min(level, 3) * 5
         return f"콤보 증폭: 공속+{speed_amp}%, 커브+{curve_amp}% (Lv{level})"
 
     # kick_enhance: 정밀도는 100%에서 캡, 공속은 계속 증가
@@ -15118,11 +15118,11 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "name": "콤보증폭칩",
         "max_level": 5,
         "descriptions": {
-            1: "콤보 효과 증폭: 드라이브 공속+45%, 커브+30%, 파워스매시 공속+45%",
-            2: "콤보 효과 증폭: 드라이브 공속+90%, 커브+60%, 파워스매시 공속+90%",
-            3: "콤보 효과 증폭: 드라이브 공속+135%, 커브+90%, 파워스매시 공속+135%",
-            4: "콤보 효과 증폭: 드라이브 공속+180%, 커브+90%(캡), 파워스매시 공속+180%",
-            5: "콤보 효과 증폭: 드라이브 공속+225%, 커브+90%(캡), 파워스매시 공속+225%",
+            1: "콤보 효과 증폭: 드라이브 공속+45%, 커브+5%, 파워스매시 공속+45%",
+            2: "콤보 효과 증폭: 드라이브 공속+90%, 커브+10%, 파워스매시 공속+90%",
+            3: "콤보 효과 증폭: 드라이브 공속+135%, 커브+15%, 파워스매시 공속+135%",
+            4: "콤보 효과 증폭: 드라이브 공속+180%, 커브+15%(캡), 파워스매시 공속+180%",
+            5: "콤보 효과 증폭: 드라이브 공속+225%, 커브+15%(캡), 파워스매시 공속+225%",
         },
         "detail": "콤보 소모형 드라이브/파워스매싱의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 레벨에 따라 계속 증가하지만, 드라이브 커브 증폭은 Lv3에서 캡됩니다(밸런스 보호).",
         "icon_color": (255, 100, 200),
@@ -18547,9 +18547,9 @@ def get_combo_amplifier_chip_bonus():
     drive_speed_amp = raw_level * 0.45
     smash_speed_amp = raw_level * 0.45
 
-    # 커브/커브캡: Lv3에서 clamp (곱연산 폭주 방지)
+    # 커브/커브캡: 미세 증폭 (옆으로 너무 빠지지 않도록), Lv3에서 clamp
     curve_level = min(raw_level, 3)
-    drive_curve_amp = curve_level * 0.30
+    drive_curve_amp = curve_level * 0.05
 
     return (drive_speed_amp, drive_curve_amp, smash_speed_amp)
 
@@ -153751,8 +153751,9 @@ def calculate_bounce(paddle):
             #    - 발사는 직진, spin이 시간차로 꺾음 → "곡선 궤적" 시각화
             if _drive_combo_used >= 2:
                 _combo_steepness = max(0.0, min(1.0, (_drive_combo_used - 2) / 4.0))  # 콤보 2→0.0, 6+→1.0
-                _drive_base_angle_mag = math.pi / 16.0 - (math.pi / 16.0 - math.pi / 45.0) * _combo_steepness
-                _drive_position_factor_scale = 0.15 - 0.10 * _combo_steepness  # 0.15 → 0.05
+                # 콤보 2: ±11.25도, 콤보 6+: ±1도(거의 직진) → spin이 시간차로 꺾음
+                _drive_base_angle_mag = math.pi / 16.0 - (math.pi / 16.0 - math.pi / 180.0) * _combo_steepness
+                _drive_position_factor_scale = 0.15 - 0.14 * _combo_steepness  # 0.15 → 0.01
             else:
                 _drive_base_angle_mag = math.pi / 8.0    # 22.5도 (기본)
                 _drive_position_factor_scale = 0.3
