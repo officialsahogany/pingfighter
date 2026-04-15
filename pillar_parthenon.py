@@ -99,9 +99,12 @@ class ParthenonFrame:
             {'phase': random.uniform(0, math.tau), 'speed': random.uniform(11.0, 14.5),
              'glow_phase': random.uniform(0, math.tau), 'glow_speed': random.uniform(3.2, 4.8)},
         ]
-        # 필러 이미지 기준 횃불 위치(정규화): (x_ratio_in_pillar_content, y_ratio_of_screen_height)
-        # 이미지에서 불꽃 팁 중심이 대략 x=15%, y=38% 위치
-        self._torch_anchor_ratio = (0.15, 0.38)
+        # 필러 이미지 기준 횃불 잔받침 꼭대기 위치(정규화)
+        # (x_ratio_in_pillar, y_ratio_of_screen_height) — 애니메이션 스프라이트의 불꽃 밑변이 여기 옴
+        self._torch_anchor_ratio = (0.28, 0.47)
+
+        # 필러 이미지에 박혀있는 정적 불꽃을 깨끗한 패치로 덮어 지움
+        self._erase_baked_flames()
 
     # ------------------------------------------------------------
     def _prepare_images(self):
@@ -185,6 +188,58 @@ class ParthenonFrame:
     # ------------------------------------------------------------
     FLAME_SHEET_IMAGE = os.path.join("backgrounds", "stage9_flame_sheet.jpeg")
     FLAME_FRAME_COUNT = 6
+
+    # 박힌 불꽃 영역(필러 스케일 기준 정규화 박스): 덮어 지울 사각형
+    # (x_ratio, y_ratio, w_ratio, h_ratio) — 필러 좌표 (좌필러 기준, 우필러는 x만 대칭)
+    BAKED_FLAME_BOX = (0.18, 0.30, 0.26, 0.17)
+    # 클린 패치 샘플링 y(필러 높이 기준) — 횃불 없는 아래쪽 영역에서 텍스처 가져옴
+    CLEAN_PATCH_SOURCE_Y_RATIO = 0.62
+
+    def _erase_baked_flames(self):
+        """스케일된 좌/우 필러 이미지에서 박혀있는 횃불 정적 불꽃 영역을
+        근처 클린 영역 텍스처로 덮어써서 지움. 한 번만 수행."""
+        for is_right, img in ((False, self._left_pillar_img), (True, self._right_pillar_img)):
+            if img is None:
+                continue
+            pw, ph = img.get_size()
+            fx, fy, fw_r, fh_r = self.BAKED_FLAME_BOX
+            rw = max(4, int(pw * fw_r))
+            rh = max(4, int(ph * fh_r))
+            # 좌/우 대칭 처리: 우측은 flip된 필러 이미지라 원본 x가 반대에 옴 → 같은 좌표로 OK
+            # (flip 후 좌표계 기준 동일 비율 위치가 횃불 자리)
+            rx = int(pw * fx)
+            ry = int(ph * fy)
+            # 경계 클리핑
+            dst_rect = pygame.Rect(rx, ry, rw, rh).clip(img.get_rect())
+            if dst_rect.width <= 0 or dst_rect.height <= 0:
+                continue
+            # 소스 패치: 같은 x, 더 아래쪽 y
+            sy = int(ph * self.CLEAN_PATCH_SOURCE_Y_RATIO)
+            src_rect = pygame.Rect(rx, sy, dst_rect.width, dst_rect.height).clip(img.get_rect())
+            if src_rect.width <= 0 or src_rect.height <= 0:
+                continue
+            patch = img.subsurface(src_rect).copy()
+            # 패치 크기가 dst와 다를 수 있으니 맞춤
+            if patch.get_size() != dst_rect.size:
+                patch = pygame.transform.smoothscale(patch, dst_rect.size)
+            # 깃털 마스크: 가장자리 페이드로 자연스럽게 합성
+            mask = pygame.Surface(dst_rect.size, pygame.SRCALPHA)
+            feather = 6
+            inner = pygame.Rect(feather, feather,
+                                max(1, dst_rect.width - feather * 2),
+                                max(1, dst_rect.height - feather * 2))
+            # 중앙부 불투명
+            pygame.draw.rect(mask, (255, 255, 255, 255), inner)
+            # 바깥 테두리 단계적 알파
+            for i in range(feather):
+                a = int(255 * (1 - (i + 1) / (feather + 1)))
+                r = pygame.Rect(feather - i - 1, feather - i - 1,
+                                dst_rect.width - 2 * (feather - i - 1),
+                                dst_rect.height - 2 * (feather - i - 1))
+                pygame.draw.rect(mask, (255, 255, 255, a), r, 1)
+            # mask를 알파 채널로 사용하여 patch에 곱하기
+            patch.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            img.blit(patch, dst_rect.topleft)
 
     def _build_flame_sprites(self):
         """일러스트 불꽃 스프라이트시트(6프레임) 로드 + 프레임별 리사이즈.
