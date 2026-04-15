@@ -18543,8 +18543,8 @@ def get_combo_amplifier_chip_bonus():
     if raw_level <= 0:
         return (0.0, 0.0, 0.0)
 
-    # ⚠️ 테스트용: 성능 2배 부스트 (배포 시 1.0으로 되돌릴 것)
-    _TEST_BOOST = 2.0
+    # ⚠️ 테스트용: 성능 3배 부스트 (배포 시 1.0으로 되돌릴 것)
+    _TEST_BOOST = 3.0
 
     # 공속: 보너스 레벨 그대로 (전설 아이템 보상 유지)
     drive_speed_amp = raw_level * 0.15 * _TEST_BOOST
@@ -164362,13 +164362,20 @@ def handle_boss():
                     stage8_boss_sprite.stop_dash()
             except Exception:
                 pass
-            # 🧊 얼음 이벤트: 보스 대쉬 종료 시 미끄러짐 시작 (플레이어와 동일)
-            if is_ice_active():
+            # 🧊 얼음 이벤트 / 🧼 비누 디버프: 보스 대쉬 종료 시 미끄러짐 시작
+            _boss_soap_slip = False
+            try:
+                from item_effects.soap import get_soap_instance
+                _boss_soap_slip = get_soap_instance().is_boss_soaped()
+            except Exception:
+                _boss_soap_slip = False
+            if is_ice_active() or _boss_soap_slip:
                 boss_ice_dash_sliding = True
                 boss_ice_dash_slide_direction = boss_dash_direction
                 boss_ice_dash_slide_speed = 25.0
                 try:
-                    create_ice_dash_particles(BOSS.centerx, BOSS.bottom, boss_dash_direction, is_player=False)
+                    if is_ice_active():
+                        create_ice_dash_particles(BOSS.centerx, BOSS.bottom, boss_dash_direction, is_player=False)
                 except Exception:
                     pass
             # 대쉬 종료 후 후딜 시간 설정 (스테이지별 설정 기반)
@@ -167233,20 +167240,25 @@ def show_result(won):
         # 스킬 선택 횟수 결정 (점수에 따라)
         skill_selection_count = 0
         if final_round_wins == 5 and final_round_losses == 0:
-            # 완벽한 승리 (5:0) - 3회 선택
-            skill_selection_count = 3
+            # 완벽한 승리 (5:0) - 4회 선택
+            skill_selection_count = 4
             show_perfect_victory_effect()
-            # print(f"[Victory] 완벽한 승리! 런타임 스킬 {skill_selection_count}회 선택")
         elif final_round_wins == 5 and final_round_losses == 1:
-            # 우수한 승리 (5:1) - 2회 선택
-            skill_selection_count = 2
+            # 우수한 승리 (5:1) - 3회 선택
+            skill_selection_count = 3
             show_excellent_victory_effect()
-            # print(f"[Victory] 우수한 승리! 런타임 스킬 {skill_selection_count}회 선택")
         elif final_round_wins == 5 and final_round_losses == 2:
-            # 일반 승리 (5:2) - 1회 선택
+            # 일반 승리 (5:2) - 2회 선택
+            skill_selection_count = 2
+            show_normal_victory_effect()
+        elif final_round_wins == 5 and final_round_losses == 3:
+            # 5:3 승리 - 2회 선택
+            skill_selection_count = 2
+            show_normal_victory_effect()
+        elif final_round_wins == 5 and final_round_losses == 4:
+            # 5:4 승리 - 1회 선택
             skill_selection_count = 1
             show_normal_victory_effect()
-            # print(f"[Victory] 일반 승리! 런타임 스킬 {skill_selection_count}회 선택")
         else:
             # 그 외 (듀스 등) - 1회 선택
             skill_selection_count = 1
