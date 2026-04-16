@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 0. Implementation Boundary with `AGENTS.md`
+
+`CLAUDE.md` is the asset-generation and offline-preparation guide.
+`AGENTS.md` is the runtime-integration, performance, and implementation source of truth for Codex/agent work.
+
+When both documents touch the same topic, use this split:
+- `CLAUDE.md`: image generation prompts, sheet layout rules, background removal, output paths, naming
+- `AGENTS.md`: `pingfighter.py` integration, sprite loader behavior, runtime scaling, caching, lazy-load, hot-path performance
+
+Important:
+- Do not assume a large 2K source sheet can be pushed into the hot runtime path without extra review.
+- If a sprite class or `pingfighter.py` integration is involved, hand off the final runtime decision to Codex following `AGENTS.md`.
+- If there is any conflict about runtime behavior or performance, `AGENTS.md` wins.
+
 ## ⚠️ CRITICAL: Gemini MCP 캐릭터 스프라이트 시트 제작 가이드 (Character Sprite Sheet Creation)
 
 **Gemini MCP(`mcp__gemini__gemini-generate-image`)로 보스/캐릭터 스프라이트를 만들 때 반드시 이 규칙을 따를 것. 스테이지9 타우렌 보스 제작 과정에서 확립된 모범 사례임.**
@@ -247,6 +261,169 @@ def remove_sprite_bg(src_jpeg, dst_png):
 | 스프라이트 클래스 | `entities/[name]_sprite.py` | `entities/tauren_boss_sprite.py` |
 
 두 버전(JPEG 원본 + PNG 누끼) 모두 보관 → 배경 제거 알고리즘 재실행 가능하도록.
+
+### 11. 스프라이트 시트 제작 프롬프트 템플릿 (Copy-Paste Ready)
+
+**사용법**: `[name]`, `[보스명]`, `[실제 스테이지 번호]` 등 대괄호 부분만 교체하면 즉시 사용 가능.
+공통 주의: 실제 스테이지 번호와 코드상 `current_stage`가 다를 수 있으면 둘 다 명기할 것 (섹션 "Stage Order Reference" 참조).
+
+#### 11-1. 걷기 시트 (Walking Sheet)
+
+```
+d:\main\bosspong\CLAUDE.md 기준으로 실제 스테이지 [실제 스테이지 번호] [보스명]
+(코드상 current_stage == [코드 스테이지 번호]) 걷기 스프라이트 시트를 생성해줘.
+
+목표:
+- [캐릭터 설명]
+- [손에 든 요소 / 분위기 / 표정]
+- 귀여움보다 [원하는 인상] 중심
+- 기존 items/[name]_boss_sheet.png가 있으면 디자인 연속성 유지
+
+디자인 고정 요소:
+- [의상]
+- [헤어]
+- [눈색]
+- [소품/이펙트]
+- thick black pixel outline 유지
+
+사이즈/구성 규칙:
+- 8-frame walking sheet, 4x2 grid, aspectRatio 16:9, imageSize 2K
+- Pure flat white background (#FFFFFF) in every cell
+- NO grid lines, NO borders, NO dividers, NO labels
+- Character view is exactly front-facing in every frame
+- Keep foot/baseline position consistent across frames
+- Identical character design/palette/scale across all frames
+- Use the walking sheet as the body-scale reference for this boss
+- Body silhouette size must stay consistent across all future attack/dash sheets (±5%)
+- Leave generous empty margin around each sprite
+
+걷기 모션 요구:
+- 보폭 차이, 체중 이동, 어깨/골반 counter-swing 강조
+- 머리카락 / 리본 / 옷자락 / 소품 흔들림을 프레임마다 분명히
+- 작은 체형이어도 존재감 있는 보스처럼 보이게
+
+스타일 규칙:
+- 16-bit retro pixel art, chibi proportions, thick black pixel outlines
+- flat limited-saturation palette, clean hard-edged pixels
+- NO painterly rendering, NO soft shading, NO photorealism
+
+출력:
+- 먼저 items/[name]_boss_sheet.jpeg로 생성
+- 그 다음 CLAUDE.md 섹션 7의 오프라인 누끼 절차로 items/[name]_boss_sheet.png 생성
+- 코드 수정은 하지 말고 스프라이트 시트만 생성해줘
+```
+
+#### 11-2. 공격 시트 (Attack Sheet)
+
+```
+d:\main\bosspong\CLAUDE.md 기준으로 실제 스테이지 [실제 스테이지 번호] [보스명]
+(코드상 current_stage == [코드 스테이지 번호]) 공격 스프라이트 시트를 생성해줘.
+
+목표:
+- [캐릭터 설명]
+- [공격 콘셉트]
+- 표정은 fierce / cool / dominant / serious 계열
+- 귀여움보다 위압감과 카리스마 중심
+
+디자인 고정 요소:
+- [의상]
+- [헤어]
+- [눈색]
+- [무기/불꽃/오라]
+- walking sheet와 동일한 body scale 유지
+
+공격 시트 구성 규칙:
+- 8-frame attack sheet, 4x2 grid, aspectRatio 16:9, imageSize 2K
+- row1: ready, wind-up, backswing, max charge
+- row2: swing start, impact with motion line, follow-through, recovery
+- Pure flat white background (#FFFFFF) in every cell
+- NO grid lines, NO borders, NO dividers, NO labels
+- Character view is exactly front-facing in every frame
+- Keep foot/baseline position consistent across frames
+- Character body scale must match the walking sheet (±5%)
+- Effects may grow larger, but the body itself must not become larger or smaller
+- Leave generous empty margin around each sprite
+
+공격 모션 요구:
+- 준비 → 차징 → 비틀기 → 발사/타격 → 후딜 흐름이 명확해야 함
+- 팔 궤적, 상체 회전, 체중 이동, 머리카락/의상 흔들림을 크게 살릴 것
+- impact frame은 전진 에너지와 압력이 느껴지게
+
+스타일 규칙:
+- 16-bit retro pixel art, chibi proportions, thick black pixel outlines
+- flat limited-saturation palette, clean hard-edged pixels
+- NO painterly rendering, NO soft shading, NO photorealism
+
+출력:
+- 먼저 items/[name]_boss_attack.jpeg로 생성
+- 그 다음 CLAUDE.md 섹션 7의 오프라인 누끼 절차로 items/[name]_boss_attack.png 생성
+- 코드 수정은 하지 말고 공격 스프라이트 시트만 생성해줘
+```
+
+#### 11-3. 대쉬 시트 (Dash Sheet)
+
+```
+d:\main\bosspong\CLAUDE.md 기준으로 실제 스테이지 [실제 스테이지 번호] [보스명]
+(코드상 current_stage == [코드 스테이지 번호]) 대쉬 스프라이트 시트를 생성해줘.
+
+목표:
+- [캐릭터 설명]
+- [대쉬 성격: 돌진형 / 슬라이딩형 / 순간이동풍 / 저공 활주형]
+- 빠르고 위협적이지만 캐릭터 body scale은 걷기 시트와 동일하게 유지
+
+디자인 고정 요소:
+- [의상]
+- [헤어]
+- [눈색]
+- [대쉬 시 파티클/트레일]
+- walking sheet와 동일한 head/torso/pelvis scale 유지
+
+대쉬 시트 구성 규칙:
+- 8-frame dash sheet, 4x2 grid, aspectRatio 16:9, imageSize 2K
+- row1: crouch prep, push-off, low slide, full extension + trail
+- row2: sustained slide + particles, deceleration, recovery rise, standing return
+- Pure flat white background (#FFFFFF) in every cell
+- NO grid lines, NO borders, NO dividers, NO labels
+- Character view is exactly front-facing in every frame
+- Keep foot/baseline position consistent where possible
+- Character body scale must match the walking sheet (±5%)
+- Dash should feel faster through pose, lean, trail, motion lines, cloth/hair drag
+- Do NOT make the body smaller or larger just to make the dash feel faster
+- Leave generous empty margin around each sprite
+
+스타일 규칙:
+- 16-bit retro pixel art, chibi proportions, thick black pixel outlines
+- flat limited-saturation palette, clean hard-edged pixels
+- NO painterly rendering, NO soft shading, NO photorealism
+
+출력:
+- 먼저 items/[name]_boss_dash.jpeg로 생성
+- 그 다음 CLAUDE.md 섹션 7의 오프라인 누끼 절차로 items/[name]_boss_dash.png 생성
+- 코드 수정은 하지 말고 대쉬 스프라이트 시트만 생성해줘
+```
+
+#### 11-4. Codex 연동 요청 (Runtime Integration Hand-off)
+
+```
+새 에셋 생성 완료.
+
+생성된 파일:
+- items/[name]_boss_sheet.png
+- items/[name]_boss_attack.png
+- items/[name]_boss_dash.png
+
+이제 AGENTS.md 기준으로 Codex가 런타임 연동을 진행해줘.
+
+요청:
+- pingfighter.py에 [보스명] 스프라이트 로더/렌더/트리거 연동
+- walk / attack / dash 모두 걷기 시트 기준 body scale 공유
+- per-sheet trim-and-rescale 때문에 체감 크기가 달라지지 않게 처리
+- 런타임 반복 전처리 최소화
+- 필요한 경우 캐시 / lazy-load / 재사용 가능한 frame data 적용
+- 공격 모션은 공 타격 타이밍에 맞게
+- 대쉬 모션은 실제 대쉬 발동 시점에만 재생
+- 적용 후 py -3 -m py_compile로 확인
+```
 
 ---
 
@@ -984,6 +1161,17 @@ The project is currently undergoing UI refactoring with extensive changes to:
 - Use SRCALPHA for transparent surfaces
 - Collision detection uses optimized rect-based checks
 - Consider modular architecture refactoring for maintainability
+
+### Boss Sprite Runtime Hand-off
+
+For boss sprite work, treat large sprite sheets as source assets, not automatic runtime-ready assets.
+
+- Claude owns prompt quality, sheet layout, naming, output paths, and offline asset preparation.
+- Codex owns `pingfighter.py` integration, sprite loader behavior, runtime scaling, caching, lazy-load, and hot-path performance.
+- Use the walking sheet as the shared body-scale reference for walk / attack / dash.
+- Do not rely on per-sheet trim-and-rescale behavior if it changes apparent body size.
+- Effects, trails, flames, and transparent margins may extend outward, but the body itself should keep the same scale.
+- Avoid repeated runtime preprocessing when cached frame data or offline preparation can solve the problem.
 
 ## ⚠️ CRITICAL: 그래픽/디자인 작업 가이드라인 (Graphics & Effects Performance)
 
