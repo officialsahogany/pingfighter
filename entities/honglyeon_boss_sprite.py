@@ -26,6 +26,8 @@ class HonglyeonBossSprite:
     SHEET_PATH_JPEG = os.path.join("items", "honglyeon_boss_sheet.jpeg")
     ATTACK_SHEET_PATH_PNG = os.path.join("items", "honglyeon_boss_attack.png")
     ATTACK_SHEET_PATH_JPEG = os.path.join("items", "honglyeon_boss_attack.jpeg")
+    DASH_SHEET_PATH_PNG = os.path.join("items", "honglyeon_boss_dash.png")
+    DASH_SHEET_PATH_JPEG = os.path.join("items", "honglyeon_boss_dash.jpeg")
     GRID_COLS = 4
     GRID_ROWS = 2
     FRAME_ORDER = (
@@ -34,6 +36,7 @@ class HonglyeonBossSprite:
     )
     FRAME_DURATION = 0.10
     ATTACK_FRAME_DURATION = 0.055
+    DASH_FRAME_DURATION = 0.07
     LIGHT_BG_TOLERANCE = 18
     FRAME_INSET = 14
     OUTLINE_MARGIN = 2
@@ -42,6 +45,8 @@ class HonglyeonBossSprite:
     EDGE_HALO_SATURATION = 42
     EDGE_HALO_MIN_ALPHA = 1
     EDGE_HALO_SOFT_ALPHA = 160
+    TURN_HOLD_DURATION = 0.08
+    MOVE_RELEASE_DURATION = 0.12
 
     def __init__(self, width: int = 95, height: int = 86):
         self.target_w = width
@@ -50,18 +55,28 @@ class HonglyeonBossSprite:
         self._frames_left: list[pygame.Surface] = []
         self._attack_frames_right: list[pygame.Surface] = []
         self._attack_frames_left: list[pygame.Surface] = []
+        self._dash_frames_right: list[pygame.Surface] = []
+        self._dash_frames_left: list[pygame.Surface] = []
 
         self.anim_time = 0.0
         self.frame_index = 0
         self.facing = "right"
         self.is_moving = False
+        self._pending_facing: str | None = None
+        self._facing_turn_timer = 0.0
+        self._move_release_timer = 0.0
 
         self.is_attacking = False
         self.attack_time = 0.0
         self.attack_frame_index = 0
 
+        self.is_dashing = False
+        self.dash_time = 0.0
+        self.dash_frame_index = 0
+
         self._load_frames()
         self._load_attack_frames()
+        self._load_dash_frames()
 
     def _load_frames(self) -> None:
         png_path = resource_path(self.SHEET_PATH_PNG)
@@ -145,6 +160,47 @@ class HonglyeonBossSprite:
             frame = self._scale_to_target(frame)
             self._attack_frames_right.append(frame)
             self._attack_frames_left.append(pygame.transform.flip(frame, True, False))
+
+    def _load_dash_frames(self) -> None:
+        png_path = resource_path(self.DASH_SHEET_PATH_PNG)
+        jpeg_path = resource_path(self.DASH_SHEET_PATH_JPEG)
+        if os.path.exists(png_path):
+            path = png_path
+            use_png = True
+        elif os.path.exists(jpeg_path):
+            path = jpeg_path
+            use_png = False
+        else:
+            return
+
+        try:
+            sheet = pygame.image.load(path).convert_alpha()
+        except Exception as exc:
+            print(f"[HonglyeonBossSprite] Dash load failed: {exc}")
+            return
+
+        if not use_png:
+            sheet = self._remove_light_background(sheet)
+
+        sheet_w, sheet_h = sheet.get_size()
+        cell_w = sheet_w // self.GRID_COLS
+        cell_h = sheet_h // self.GRID_ROWS
+        inset_x = min(self.FRAME_INSET, max(2, cell_w // 32))
+        inset_y = min(self.FRAME_INSET, max(2, cell_h // 32))
+
+        for col, row in self.FRAME_ORDER:
+            rect = pygame.Rect(
+                col * cell_w + inset_x,
+                row * cell_h + inset_y,
+                max(1, cell_w - inset_x * 2),
+                max(1, cell_h - inset_y * 2),
+            )
+            frame = sheet.subsurface(rect).copy()
+            frame = self._cleanup_edge_halo(frame)
+            frame = self._trim_to_visible_bounds(frame)
+            frame = self._scale_to_target(frame)
+            self._dash_frames_right.append(frame)
+            self._dash_frames_left.append(pygame.transform.flip(frame, True, False))
 
     def _remove_light_background(self, surface: pygame.Surface) -> pygame.Surface:
         cleaned = surface.copy().convert_alpha()
@@ -248,13 +304,65 @@ class HonglyeonBossSprite:
         del rgb, alpha
         return result
 
+    def _update_requested_facing(self, dt: float, facing: str | None, moving: bool) -> None:
+        if facing not in ("left", "right"):
+            return
+
+        if facing == self.facing:
+            self._pending_facing = None
+            self._facing_turn_timer = 0.0
+            return
+
+        if not moving:
+            self._pending_facing = None
+            self._facing_turn_timer = 0.0
+            return
+
+        if self._pending_facing != facing:
+            self._pending_facing = facing
+            self._facing_turn_timer = 0.0
+
+        self._facing_turn_timer += dt
+        if self._facing_turn_timer < self.TURN_HOLD_DURATION:
+            return
+
+        self.facing = facing
+        self._pending_facing = None
+        self._facing_turn_timer = 0.0
+
+    def _update_requested_motion(self, dt: float, moving: bool) -> None:
+        if moving:
+            self.is_moving = True
+            self._move_release_timer = self.MOVE_RELEASE_DURATION
+            return
+
+        if self._move_release_timer > 0.0:
+            self._move_release_timer = max(0.0, self._move_release_timer - dt)
+            self.is_moving = self._move_release_timer > 0.0
+            return
+
+        self.is_moving = False
+
     def update(self, dt: float, moving: bool = True, facing: str | None = None) -> None:
-        if facing in ("left", "right"):
-            self.facing = facing
-        self.is_moving = moving
+        dt = max(0.0, dt)
+        self._update_requested_facing(dt, facing, moving)
+        self._update_requested_motion(dt, moving)
+
+        if self.is_dashing and self._dash_frames_right:
+            self.dash_time += dt
+            total_frames = len(self._dash_frames_right)
+            while self.dash_time >= self.DASH_FRAME_DURATION:
+                self.dash_time -= self.DASH_FRAME_DURATION
+                self.dash_frame_index += 1
+                if self.dash_frame_index >= total_frames:
+                    self.is_dashing = False
+                    self.dash_frame_index = 0
+                    self.dash_time = 0.0
+                    break
+            return
 
         if self.is_attacking and self._attack_frames_right:
-            self.attack_time += max(0.0, dt)
+            self.attack_time += dt
             total_frames = len(self._attack_frames_right)
             while self.attack_time >= self.ATTACK_FRAME_DURATION:
                 self.attack_time -= self.ATTACK_FRAME_DURATION
@@ -269,8 +377,8 @@ class HonglyeonBossSprite:
         if not self._frames_right:
             return
 
-        if moving:
-            self.anim_time += max(0.0, dt)
+        if self.is_moving:
+            self.anim_time += dt
             while self.anim_time >= self.FRAME_DURATION:
                 self.anim_time -= self.FRAME_DURATION
                 self.frame_index = (self.frame_index + 1) % len(self._frames_right)
@@ -286,8 +394,20 @@ class HonglyeonBossSprite:
         self.attack_frame_index = max(0, min(start_frame, max_index))
         self.attack_time = 0.0
 
+    def trigger_dash(self, start_frame: int = 0) -> None:
+        if self.is_dashing or not self._dash_frames_right:
+            return
+        self.is_dashing = True
+        self.is_attacking = False
+        max_index = len(self._dash_frames_right) - 1
+        self.dash_frame_index = max(0, min(start_frame, max_index))
+        self.dash_time = 0.0
+
     def get_current_frame(self, size: tuple[int, int] | None = None) -> pygame.Surface | None:
-        if self.is_attacking and self._attack_frames_right:
+        if self.is_dashing and self._dash_frames_right:
+            frames = self._dash_frames_left if self.facing == "left" else self._dash_frames_right
+            frame = frames[min(self.dash_frame_index, len(frames) - 1)]
+        elif self.is_attacking and self._attack_frames_right:
             frames = self._attack_frames_left if self.facing == "left" else self._attack_frames_right
             frame = frames[min(self.attack_frame_index, len(frames) - 1)]
         else:
