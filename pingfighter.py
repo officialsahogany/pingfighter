@@ -108511,14 +108511,15 @@ def draw_player_gauge():
                     displayed_gauge,
                     current_max_gauge
                 )
-                _draw_viper_perk_icons(
-                    _player_gauge_surface_left,
-                    orb_center_x,
-                    orb_center_y,
-                    orb_radius,
-                    displayed_gauge,
-                    current_max_gauge
-                )
+                # 패시브 퍽 구슬 아이콘 비활성화 (패시브 퍽은 HUD 구슬로 표시하지 않음)
+                # _draw_viper_perk_icons(
+                #     _player_gauge_surface_left,
+                #     orb_center_x,
+                #     orb_center_y,
+                #     orb_radius,
+                #     displayed_gauge,
+                #     current_max_gauge
+                # )
 
             # === 코만도 화기류 인벤토리 표시 (게이지 구슬 위에 쌓아서 표시) ===
             # 변신 중에는 무기 인벤토리도 숨김
