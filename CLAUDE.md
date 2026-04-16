@@ -218,6 +218,85 @@ If the result looks like a different character, it must be rejected and regenera
 
 > **If the dash sheet looks like a different character, reject and regenerate.**
 
+### 5-3. 방향 전환(Turn / Facing Transition) 보조 시트 규칙
+
+**This is a turn / facing transition sheet, not a replacement for the main walking sheet.**
+
+turn 시트는 **선택적(optional) 보조 시트**다. walk/attack/dash 같은 필수 시트가 아니라, 캐릭터가 좌↔우 방향을 바꾸는 짧은 순간에만 잠깐 보여주기 위한 런타임 보조 자산이다.
+
+#### 목적 (Purpose)
+
+| 용도 | 설명 |
+|------|------|
+| 좌 → 우 방향 전환 | 왼쪽으로 이동하다 오른쪽으로 바꿀 때 |
+| 우 → 좌 방향 전환 | 오른쪽으로 이동하다 왼쪽으로 바꿀 때 |
+| idle/정면 복귀 | 정지 상태에서 정면으로 자연스럽게 돌아올 때 |
+
+**이 시트는 평소 걷기 애니메이션을 대체하지 않는다.**
+평상시 이동은 기존 걷기 시트로 처리하고, 방향이 바뀌는 **짧은 순간에만** turn 시트로 잠깐 전환한 뒤 다시 걷기 시트로 복귀하는 게 기본 사용법이다.
+
+#### Canonical Reference = Walking Sheet
+
+- **Use the walking sheet as the canonical identity and body-scale reference.**
+- turn 시트도 `items/[name]_boss_sheet.png`를 정체성 기준으로 사용한다.
+- **Do not redesign the character between turn frames.**
+- **If the turn sheet looks like a different character, reject and regenerate.**
+- 섹션 5-2의 고정 요소 8항목(머리색, 헤어스타일, 얼굴, 눈, 피부톤, 비율, 의상, 액세서리)을 모두 그대로 유지해야 한다.
+
+#### 바뀌어도 되는 것 (오직 이것만)
+
+- 몸 방향 (body orientation)
+- 시선 방향 (gaze direction)
+- 어깨선 / 골반 각도
+- 팔/다리/꼬리/리본/옷자락의 앞뒤 겹침
+
+#### 바뀌면 안 되는 것
+
+- 머리색 / 헤어스타일 / 얼굴형
+- 비율 / 아트 스타일
+- 의상 디자인 / 액세서리 구성
+- **단순 이미지 회전 필터로 돌린 것처럼 보이면 안 됨** — 실제로 각 각도에서 다시 그린 재드로잉이어야 함
+
+#### 권장 포맷
+
+| 항목 | 값 |
+|------|----|
+| 프레임 수 | 13프레임 (7×2 그리드, 마지막 셀은 공백) |
+| row1 | `+90°, +75°, +60°, +45°, +30°, +15°, 0°` |
+| row2 | `-15°, -30°, -45°, -60°, -75°, -90°`, (빈칸) |
+| sign convention | `+90°` = 완전 우측 프로필, `0°` = 정면, `-90°` = 완전 좌측 프로필 |
+| aspectRatio | `16:9` |
+| imageSize | `2K` |
+| 배경 | 순백 `#FFFFFF`, grid/border/divider/label 없음 |
+| 바디 스케일 | 걷기 시트와 ±5% 이내 (섹션 5-1 준수) |
+
+#### 인접 프레임 보간성 (Runtime 사용성)
+
+- **Neighboring frames must interpolate cleanly from one body orientation to the next.**
+- turn 시트는 런타임에서 **짧은 전환용**으로 재생되기 때문에, 인접 각도 프레임끼리 튀지 않고 부드럽게 이어져야 한다.
+- 15도 간격의 부드러운 변화가 기본. 각도가 튀면 전환 순간에 깜빡거리는 느낌이 난다.
+- `This sheet is intended for brief runtime direction changes, not for the full walking cycle.`
+
+#### 파일 배치
+
+| 파일 | 경로 |
+|------|------|
+| turn 시트 (원본) | `items/[name]_boss_turn.jpeg` |
+| turn 시트 (누끼) | `items/[name]_boss_turn.png` |
+
+#### 검증 체크리스트
+
+| # | 확인 항목 | 합격 기준 |
+|---|----------|-----------|
+| 1 | 걷기 시트와 동일 캐릭터로 보이는가 | ✅ |
+| 2 | 고정 요소(머리색/헤어/얼굴/의상/액세서리) 모두 유지 | ✅ |
+| 3 | 인접 각도 프레임이 부드럽게 이어지는가 | ✅ |
+| 4 | 몸 방향/겹침/시선만 변하고 캐릭터는 유지되는가 | ✅ |
+| 5 | 단순 회전 필터처럼 보이지 않고 재드로잉으로 읽히는가 | ✅ |
+| 6 | 바디 스케일 걷기 시트 ±5% 이내 | ✅ |
+
+> **If the turn sheet looks like a different character, reject and regenerate.**
+
 ### 6. 해상도/비율 설정
 
 | 파라미터 | 권장값 | 비고 |
