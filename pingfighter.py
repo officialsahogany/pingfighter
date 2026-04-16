@@ -35714,12 +35714,9 @@ FRIEND_MOLE_COLORS = [
     ("yellow", (230, 200, 40)),
     ("blue", (50, 80, 220)),
 ]
-# 황금 두더지 (100% 확률, 첫 친구두더지 스폰에서 바로 등장)
-# 친구두더지 이벤트는 4승 이후 최종 라운드 구간에 주로 열리므로,
-# 뒤쪽 스폰 슬롯에 배정하면 매치가 먼저 끝나 체감상 "안 나오는" 상태가 되기 쉽다.
+# 황금 두더지 (100% 확률, 친구두더지 이벤트 2라운드 내내 모든 두더지에 적용)
 GOLDEN_MOLE_CHANCE = 1.0
-GOLDEN_MOLE_SPAWN_INDEX = 0
-friend_moles_golden_spawn_at = -1   # 이벤트 내 몇 번째 스폰이 황금 두더지인지 (-1 = 없음)
+friend_moles_all_golden = False     # 이벤트 진행 중 모든 친구두더지가 황금인지 여부
 friend_moles_spawn_total_count = 0  # 이벤트 시작 이후 총 스폰 수
 
 horizontal_bounce_count = 0
@@ -54628,6 +54625,11 @@ _viper_dark_blade_window_ms = 0       # 콤보 윈도우 시작 시각 (ms)
 _VIPER_DARK_BLADE_WINDOW_DURATION = 3000  # 콤보 윈도우 지속 시간 (3초)
 _viper_dark_blade_active = False      # 현재 발사된 검기가 다크 블레이드인지
 
+# === 바이퍼 다크 블레이드 → 에어 블레이드 콤보 ===
+_viper_dark_blade_combo_window = False   # 다크 블레이드 검기 발사 후 에어 블레이드 콤보 가능 여부
+_viper_dark_blade_fire_ms = 0            # 다크 블레이드 검기 발사 시각 (ms)
+_VIPER_DARK_BLADE_COMBO_DELAY_MS = 500   # 콤보 활성까지 딜레이 (0.5초)
+
 # 팬텀 스트라이크 커브 (비행 중 매 프레임 적용)
 _viper_ps_curve_active = False        # 커브 비행 중
 _viper_ps_curve_timer = 0             # 커브 남은 프레임
@@ -54760,6 +54762,7 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     global _viper_ss_kick_ready, _viper_phantom_strike_active, _viper_phantom_strike_timer
     global _viper_ss_hit_consumed, _viper_ss_hologram_kick_hit, _viper_ss_wave_hit_ball
     global _viper_dark_blade_window, _viper_dark_blade_window_ms
+    global _viper_dark_blade_combo_window, _viper_dark_blade_fire_ms
 
     # 중복 방지
     if _viper_ss_hit_consumed:
@@ -65184,7 +65187,7 @@ def go_to_next_round():
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
     global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint
-    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count, friend_moles_golden_spawn_at, friend_moles_spawn_total_count
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count, friend_moles_all_golden, friend_moles_spawn_total_count
 
     preserved_doping_state = None
     impact_feedback.clear()
@@ -65409,6 +65412,7 @@ def go_to_next_round():
     global _viper_dive_active, _viper_dive_phase, _viper_dive_hold_start_ms
     global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase, _viper_br_dark_mode
     global _viper_dark_blade_active, _viper_dark_blade_window, _viper_blade_rush_width
+    global _viper_dark_blade_combo_window, _viper_dark_blade_fire_ms
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_particles
     global _viper_speed_boost_active
     global _viper_phantom_strike_active, _viper_phantom_strike_timer
@@ -65445,6 +65449,8 @@ def go_to_next_round():
     _viper_blade_rush_active = False
     _viper_dark_blade_active = False
     _viper_dark_blade_window = False
+    _viper_dark_blade_combo_window = False
+    _viper_dark_blade_fire_ms = 0
     _viper_blade_rush_width = 350
     _viper_br_spin_active = False
     _viper_br_spin_phase = 0
@@ -71216,7 +71222,7 @@ def update_friend_moles():
     """친구두더지 스폰 + 생명주기 + 공 충돌 처리."""
     global friend_moles_active, friend_moles_timer, friend_moles_spawn_timer
     global friend_moles_list, friend_moles_dirt_particles, ball_vel
-    global friend_moles_spawn_total_count, friend_moles_golden_spawn_at
+    global friend_moles_spawn_total_count, friend_moles_all_golden
 
     if not friend_moles_active:
         return
@@ -71231,12 +71237,10 @@ def update_friend_moles():
         mx = float(random.randint(GAME_AREA_OFFSET_X + 30,
                                    GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30))
         my = float(random.randint(150, 600))
-        # 황금 두더지 판정 (이벤트 전체에서 1마리 등장)
-        is_golden = (friend_moles_golden_spawn_at >= 0 and
-                     friend_moles_spawn_total_count == friend_moles_golden_spawn_at)
+        # 황금 두더지 판정 (이벤트 활성 2라운드 동안 모든 친구두더지에 적용)
+        is_golden = friend_moles_all_golden
         if is_golden:
             color_name, color_rgb = "gold", (255, 215, 60)
-            friend_moles_golden_spawn_at = -1  # 소비 (중복 방지)
         else:
             color_name, color_rgb = random.choice(FRIEND_MOLE_COLORS)
         friend_moles_spawn_total_count += 1
@@ -80544,6 +80548,7 @@ def handle_player(keys):
         global _viper_ss_wave_origin_x, _viper_ss_wave_dir, _viper_ss_wave_hit_ball, _viper_ss_wave_trail
         global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
         global _viper_dark_blade_window, _viper_dark_blade_window_ms, _viper_dark_blade_active
+        global _viper_dark_blade_combo_window, _viper_dark_blade_fire_ms
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
         global _viper_speed_boost_active, _viper_speed_boost_original
@@ -80792,6 +80797,77 @@ def handle_player(keys):
                     except Exception:
                         pass
 
+                # 다크 블레이드 → 에어 블레이드 콤보 (검기 발사 0.5초 후 ~ 착지 전)
+                elif (_viper_dark_blade_combo_window
+                      and is_viper_skill_unlocked("blade_rush")
+                      and _viper_br_spin_active and _viper_br_spin_phase == 2
+                      and _viper_br_dark_mode):
+                    _combo_gauge_cost = _get_viper_blade_rush_gauge_cost()
+                    if special_gauge >= _combo_gauge_cost and not _viper_nerve_strike_active:
+                        _viper_w_key_released = False
+                        special_gauge -= _combo_gauge_cost
+                        _viper_dark_blade_combo_window = False
+                        _viper_dark_blade_fire_ms = 0
+
+                        # 현재 공중 위치를 제트팩 오프셋으로 변환
+                        _combo_floor = _compute_player_floor_bottom(
+                            CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+                        )
+                        _viper_jetpack_offset_y = float(PLAYER.bottom - _combo_floor)
+
+                        # 다크 블레이드 spin phase 2 종료
+                        _viper_br_spin_active = False
+                        _viper_br_dark_mode = False
+                        _viper_br_spin_phase = 0
+                        _viper_br_spin_angle = 0.0
+                        _viper_br_jump_offset_y = 0.0
+                        _viper_br_arm_raise = 0.0
+
+                        # 기존 다크 블레이드 검기 제거
+                        _viper_blade_rush_active = False
+                        _viper_blade_rush_fadeout = False
+                        _viper_blade_rush_trail.clear()
+                        _viper_dark_blade_active = False
+                        _viper_blade_rush_width = 350
+
+                        # 위로 약간 솟구침 (현재 위치에서 -80px 추가)
+                        _viper_jetpack_offset_y = min(_viper_jetpack_offset_y, -40.0) - 80.0
+
+                        # 콤보 에어 블레이드: 회전 없이 검기 즉시 발사
+                        _viper_nerve_strike_combo_used = False
+                        _ba_width_lv = min(get_runtime_skill_level("blade_amp"), 5)
+                        _combo_size_mult = 1.0 + 0.1 * _ba_width_lv
+                        _viper_blade_rush_active = True
+                        _viper_blade_rush_fadeout = False
+                        _viper_blade_rush_fadeout_timer = 0
+                        _viper_blade_rush_x = float(PLAYER.centerx)
+                        _viper_blade_rush_start_y = float(PLAYER.centery - 20)
+                        _viper_blade_rush_y = _viper_blade_rush_start_y
+                        _ba_lv = min(get_runtime_skill_level("blade_amp"), 5)
+                        _combo_range_mult = 1.0 + 0.1 * _ba_lv
+                        _viper_blade_rush_target_y = _viper_blade_rush_start_y - int(250 * _combo_range_mult)
+                        _viper_blade_rush_width = int(350 * _combo_size_mult)
+                        _viper_blade_rush_hit_ball = False
+                        _viper_blade_rush_particles.clear()
+                        _viper_blade_rush_trail.clear()
+
+                        # 검기 발사 이펙트/사운드
+                        _online_send_effect('blade', x=PLAYER.centerx, y=PLAYER.centery - 20,
+                                            hw=_viper_blade_rush_width // 2, dir='up', dur=800)
+                        try:
+                            _blade_snd = sound_effects.get('VIPER_BLADE')
+                            if _blade_snd:
+                                play_sound_with_volume(_blade_snd, sfx_volume * 0.5)
+                        except Exception:
+                            pass
+                        try:
+                            effects_manager.spawn_shockwave(
+                                PLAYER.centerx, PLAYER.centery - 20,
+                                force=6, color=(200, 50, 255),
+                            )
+                        except Exception:
+                            pass
+
                 # 다크 블레이드 발동 (콤보 윈도우 활성 + 공중 또는 마샬/팬텀 킥 진행 중에만)
                 elif (is_viper_skill_unlocked("blade_rush")
                       and _viper_dark_blade_window
@@ -80947,6 +81023,8 @@ def handle_player(keys):
             # 새 마샬/팬텀 킥 시작 → 기존 다크 블레이드 윈도우 초기화 (이번 킥으로 공을 맞춰야만 오픈)
             _viper_dark_blade_window = False
             _viper_dark_blade_window_ms = 0
+            _viper_dark_blade_combo_window = False
+            _viper_dark_blade_fire_ms = 0
             # (다크 블레이드 콤보 윈도우는 마샬 킥/팬텀 킥이 공을 맞출 때 오픈)
             _viper_wall_dive_start_x = float(PLAYER.centerx)
             _viper_wall_dive_start_y = float(PLAYER.centery)
@@ -81968,6 +82046,10 @@ def handle_player(keys):
                 _viper_br_spin_start_ms = _br_now
                 _viper_br_spin_angle = 0.0  # 정면으로 리셋
 
+                # 다크 블레이드 → 에어 블레이드 콤보 타이머 시작
+                if _viper_br_dark_mode:
+                    _viper_dark_blade_fire_ms = _br_now
+
                 # 회전 사운드 정지 + 검기 발사 (회전 끝난 직후)
                 try:
                     _spin_snd_stop = sound_effects.get('VIPER_BLADE_SPIN')
@@ -82014,6 +82096,12 @@ def handle_player(keys):
                     pass
 
         elif _viper_br_spin_phase == 2:
+            # 다크 블레이드 → 에어 블레이드 콤보 윈도우 활성화 (검기 발사 0.5초 후)
+            if (_viper_br_dark_mode and _viper_dark_blade_fire_ms > 0
+                    and not _viper_dark_blade_combo_window
+                    and _br_now - _viper_dark_blade_fire_ms >= _VIPER_DARK_BLADE_COMBO_DELAY_MS):
+                _viper_dark_blade_combo_window = True
+
             # 단계 2: 검기 발사 + 승룡권 점프 + 숨내쉬기 (일반 1000ms / 다크 500ms)
             _br_rest_t = min(1.0, _br_elapsed / _br_rest_dur)
             _br_floor_bottom = _compute_player_floor_bottom(
@@ -82046,6 +82134,9 @@ def handle_player(keys):
                 _viper_br_arm_raise = 0.0
                 _viper_jetpack_offset_y = 0.0
                 PLAYER.bottom = int(_br_floor_bottom)
+                # 다크 블레이드 콤보 윈도우 만료 (착지)
+                _viper_dark_blade_combo_window = False
+                _viper_dark_blade_fire_ms = 0
 
     # 바이퍼 에어 블레이드 검기 업데이트 (매 프레임)
     if _viper_blade_rush_active:
@@ -110952,7 +111043,7 @@ def draw_player_gauge():
         hg_stack_any = True
         hg_top_y = min(hg_top_y, cl_y)
 
-        cl_ratio = _cleanse_sk.immunity_timer / max(1, CLEANSE_IMMUNITY_DURATION)
+        cl_ratio = min(1.0, _cleanse_sk.immunity_timer / max(1, CLEANSE_IMMUNITY_DURATION))
         cl_remaining = _cleanse_sk.immunity_timer / 60.0
 
         cl_outer = pygame.Rect(cl_x - 5, cl_y - 6, cl_v_width + 10, cl_v_height + 12)
@@ -111061,7 +111152,7 @@ def draw_player_gauge():
         hg_stack_any = True
         hg_top_y = min(hg_top_y, rc_y)
 
-        rc_ratio = recovery_speed_boost_timer / max(1, RECOVERY_SPEED_BOOST_DURATION)
+        rc_ratio = min(1.0, recovery_speed_boost_timer / max(1, RECOVERY_SPEED_BOOST_DURATION))
         rc_remaining = recovery_speed_boost_timer / 60.0
 
         rc_outer = pygame.Rect(rc_x - 5, rc_y - 6, rc_v_width + 10, rc_v_height + 12)
@@ -152830,7 +152921,7 @@ def reset_round(is_stage_start=False):
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint  # 아라크네 분노
-    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count, friend_moles_golden_spawn_at, friend_moles_spawn_total_count  # 두더지왕 친구두더지
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count, friend_moles_all_golden, friend_moles_spawn_total_count  # 두더지왕 친구두더지
 
     # ⚡ 스매셔 콤보 리셋 (라운드 시작 시)
     smasher_combo_count = 0
@@ -153322,12 +153413,12 @@ def reset_round(is_stage_start=False):
             friend_moles_pending = False
             friend_moles_triggered = True
             friend_moles_round_count = 0
-            # 황금 두더지 100% 확률 — 첫 친구두더지 스폰에서 바로 등장
+            # 황금 두더지 100% 확률 — 친구두더지 이벤트 2라운드 내내 전체 적용
             friend_moles_spawn_total_count = 0
             if random.random() < GOLDEN_MOLE_CHANCE:
-                friend_moles_golden_spawn_at = GOLDEN_MOLE_SPAWN_INDEX
+                friend_moles_all_golden = True
             else:
-                friend_moles_golden_spawn_at = -1
+                friend_moles_all_golden = False
         if friend_moles_round_count < 2:
             friend_moles_active = True
             friend_moles_timer = 0
@@ -156122,12 +156213,6 @@ def handle_ball():
                 # Stage 5 나선 폭발 효과 트리거
                 if animated_bg_stage5 is not None and hasattr(animated_bg_stage5, 'trigger_spiral_burst'):
                     animated_bg_stage5.trigger_spiral_burst(inferno=flame_trail_active)
-
-                if HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
-                    try:
-                        honglyeon_boss_sprite.trigger_attack()
-                    except Exception:
-                        pass
 
                 boss_throwing = True
                 boss_throw_timer = 25      
@@ -161316,7 +161401,7 @@ def handle_ball():
         calculate_bounce(BOSS)
         if current_stage == 9 and TAUREN_BOSS_ANIMATION_AVAILABLE and tauren_boss_sprite is not None:
             try:
-                tauren_boss_sprite.trigger_attack()
+                tauren_boss_sprite.trigger_attack(start_frame=4)
             except Exception:
                 pass
         if (
@@ -161326,12 +161411,12 @@ def handle_ball():
             and menhera_boss_sprite is not None
         ):
             try:
-                menhera_boss_sprite.trigger_attack()
+                menhera_boss_sprite.trigger_attack(start_frame=4)
             except Exception:
                 pass
         if current_stage == 5 and HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
             try:
-                honglyeon_boss_sprite.trigger_attack()
+                honglyeon_boss_sprite.trigger_attack(start_frame=4)
             except Exception:
                 pass
         # 방향 안전장치: 보스 반사 후 공이 반드시 아래로 향하도록 강제
@@ -169707,7 +169792,7 @@ def main(stage_num, new_boss_mode=False):
     global spider_rage_stomp_offset_y, spider_rage_red_tint
     global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_round_count
     global friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles
-    global friend_moles_golden_spawn_at, friend_moles_spawn_total_count
+    global friend_moles_all_golden, friend_moles_spawn_total_count
     global player_burn_timer, player_burn_effect, player_knockback_y
     
     # 플레이어 위치 가운데로 고정
@@ -169986,7 +170071,7 @@ def main(stage_num, new_boss_mode=False):
         friend_moles_timer = 0
         friend_moles_triggered = False
         friend_moles_round_count = 0
-        friend_moles_golden_spawn_at = -1
+        friend_moles_all_golden = False
         friend_moles_spawn_total_count = 0
         friend_moles_list.clear()
         friend_moles_spawn_timer = 0
