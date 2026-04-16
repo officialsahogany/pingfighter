@@ -15556,11 +15556,11 @@ RUNTIME_SKILL_POOL = {
         "name": "보물지도",
         "max_level": 5,
         "descriptions": {
-            1: "신화 확률 +150%, 패시브 드랍 +3%",
-            2: "신화 확률 +300%, 패시브 드랍 +6%",
-            3: "신화 확률 +450%, 패시브 드랍 +9%",
-            4: "신화 확률 +600%, 패시브 드랍 +12%",
-            5: "신화 확률 +750%, 패시브 드랍 +15%",
+            1: "신화 확률 +200%, 패시브 드랍 +3%",
+            2: "신화 확률 +400%, 패시브 드랍 +6%",
+            3: "신화 확률 +600%, 패시브 드랍 +9%",
+            4: "신화 확률 +800%, 패시브 드랍 +12%",
+            5: "신화 확률 +1000%, 패시브 드랍 +15%",
         },
         "detail": "신화 아이템의 획득할 확률이 증가합니다. 패시브 아이템 드랍 비율도 증가합니다.",
         "icon_color": (255, 223, 0),
@@ -35714,10 +35714,10 @@ FRIEND_MOLE_COLORS = [
     ("yellow", (230, 200, 40)),
     ("blue", (50, 80, 220)),
 ]
-# 황금 두더지 (30% 확률, 선택되면 첫 친구두더지 스폰에서 바로 등장)
+# 황금 두더지 (100% 확률, 첫 친구두더지 스폰에서 바로 등장)
 # 친구두더지 이벤트는 4승 이후 최종 라운드 구간에 주로 열리므로,
 # 뒤쪽 스폰 슬롯에 배정하면 매치가 먼저 끝나 체감상 "안 나오는" 상태가 되기 쉽다.
-GOLDEN_MOLE_CHANCE = 0.30
+GOLDEN_MOLE_CHANCE = 1.0
 GOLDEN_MOLE_SPAWN_INDEX = 0
 friend_moles_golden_spawn_at = -1   # 이벤트 내 몇 번째 스폰이 황금 두더지인지 (-1 = 없음)
 friend_moles_spawn_total_count = 0  # 이벤트 시작 이후 총 스폰 수
@@ -153322,7 +153322,7 @@ def reset_round(is_stage_start=False):
             friend_moles_pending = False
             friend_moles_triggered = True
             friend_moles_round_count = 0
-            # 황금 두더지 30% 확률 — 선택되면 첫 친구두더지 스폰에서 바로 등장
+            # 황금 두더지 100% 확률 — 첫 친구두더지 스폰에서 바로 등장
             friend_moles_spawn_total_count = 0
             if random.random() < GOLDEN_MOLE_CHANCE:
                 friend_moles_golden_spawn_at = GOLDEN_MOLE_SPAWN_INDEX
