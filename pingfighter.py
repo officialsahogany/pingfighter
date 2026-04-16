@@ -15060,11 +15060,12 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         curve_amp = min(level, 3) * 5
         return f"콤보 증폭: 공속+{speed_amp}%, 커브+{curve_amp}% (Lv{level})"
 
-    # kick_enhance: 정밀도는 100%에서 캡, 공속은 계속 증가
+    # kick_enhance: 정밀도는 50%에서 캡, 공속은 계속 증가
     if skill_id == "kick_enhance":
-        precision = min(level * 20, 100)
+        precision = min(level * 10, 50)
         speed = level * 5
-        return f"킥 발사 정밀도 +{precision}%, 공속 보너스 +{speed}%"
+        prep_speed = level * 12
+        return f"킥 발사 정밀도 +{precision}%, 공속 보너스 +{speed}%, 준비동작 속도 +{prep_speed}%"
 
     # elec_pad: 확률+2%/레벨, 충전+10/레벨
     if skill_id == "elec_pad":
@@ -15819,13 +15820,13 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "킥 강화",
         "max_level": 5,
         "descriptions": {
-            1: "킥 발사 정밀도 +15%, 공속 보너스 +5%, 준비동작 속도 +20%",
-            2: "킥 발사 정밀도 +30%, 공속 보너스 +10%, 준비동작 속도 +40%",
-            3: "킥 발사 정밀도 +45%, 공속 보너스 +15%, 준비동작 속도 +60%",
-            4: "킥 발사 정밀도 +60%, 공속 보너스 +20%, 준비동작 속도 +80%",
-            5: "킥 발사 정밀도 +75%, 공속 보너스 +25%, 준비동작 속도 +100%",
+            1: "킥 발사 정밀도 +10%, 공속 보너스 +5%, 준비동작 속도 +12%",
+            2: "킥 발사 정밀도 +20%, 공속 보너스 +10%, 준비동작 속도 +24%",
+            3: "킥 발사 정밀도 +30%, 공속 보너스 +15%, 준비동작 속도 +36%",
+            4: "킥 발사 정밀도 +40%, 공속 보너스 +20%, 준비동작 속도 +48%",
+            5: "킥 발사 정밀도 +50%, 공속 보너스 +25%, 준비동작 속도 +60%",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 15% 증가(최대 Lv.5: 75%) + 공속 5% 증가.\n또한 마샬 킥/팬텀 킥의 준비동작(벽으로 이동 → 매달림 → 공으로 돌진)이 레벨당 20% 빨라집니다.\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 10% 증가(최대 Lv.5: 50%) + 공속 5% 증가.\n또한 마샬 킥/팬텀 킥의 준비동작(벽으로 이동 → 매달림 → 공으로 돌진)이 레벨당 12% 빨라집니다.\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
         "icon_color": (255, 80, 40),
         "tree": "viper",
         "character_restriction": "viper"
@@ -54429,16 +54430,16 @@ def _get_viper_blade_rush_gauge_cost() -> int:
 def _get_viper_wall_dive_prep_duration_mult() -> float:
     """마샬 킥/팬텀 킥 준비동작(벽으로 이동 → 매달림 → 벽다시타기 → 프리즈 → 돌진) duration 배율.
 
-    킥 강화 퍽 LV당 20%씩 빠르게 (duration = base / (1 + 0.2 * lv)). 최대 LV5에서 클램프.
+    킥 강화 퍽 LV당 12%씩 빠르게 (duration = base / (1 + 0.12 * lv)). 최대 LV5에서 클램프.
     반환값은 duration에 곱해야 하는 배율 (1.0 미만).
     """
     lv = min(get_runtime_skill_level("kick_enhance"), 5)
-    return 1.0 / (1.0 + 0.2 * lv)
+    return 1.0 / (1.0 + 0.12 * lv)
 
 
 def _get_viper_kick_bias(base_bias: float, aim_level: int) -> float:
-    # 킥 강화 정밀도 +15%/LV (최대 LV5에서 +75%). LV5 시 base_bias에서 75% 지점까지 보정.
-    return base_bias + (1.0 - base_bias) * min(aim_level * 0.15, 0.75)
+    # 킥 강화 정밀도 +10%/LV (최대 LV5에서 +50%). LV5 시 base_bias에서 50% 지점까지 보정.
+    return base_bias + (1.0 - base_bias) * min(aim_level * 0.10, 0.50)
 
 
 def _compute_viper_kick_launch_angle(
@@ -155888,7 +155889,13 @@ def handle_ball():
                 # Stage 5 나선 폭발 효과 트리거
                 if animated_bg_stage5 is not None and hasattr(animated_bg_stage5, 'trigger_spiral_burst'):
                     animated_bg_stage5.trigger_spiral_burst(inferno=flame_trail_active)
-                
+
+                if HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
+                    try:
+                        honglyeon_boss_sprite.trigger_attack()
+                    except Exception:
+                        pass
+
                 boss_throwing = True
                 boss_throw_timer = 25      
             if boss_throwing:
@@ -161087,6 +161094,11 @@ def handle_ball():
         ):
             try:
                 menhera_boss_sprite.trigger_attack()
+            except Exception:
+                pass
+        if current_stage == 5 and HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
+            try:
+                honglyeon_boss_sprite.trigger_attack()
             except Exception:
                 pass
         # 방향 안전장치: 보스 반사 후 공이 반드시 아래로 향하도록 강제
