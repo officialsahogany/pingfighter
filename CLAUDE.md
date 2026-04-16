@@ -76,12 +76,13 @@ This is a small chibi boss sprite, NOT a full-body portrait.
 
 무기가 프레임마다 위치가 바뀌면 애니메이션이 어색해짐 → `"weapon stays in same hand position across all frames"` 지시.
 
-### 5. 스프라이트 시트 구성 — 8프레임 4×2 그리드 (걷기) / 8프레임 4×2 (공격)
+### 5. 스프라이트 시트 구성 — 8프레임 4×2 그리드 (걷기/공격/대쉬)
 
 | 용도 | 그리드 | 비율(aspectRatio) | 프레임 수 | 구성 |
 |------|--------|-------------------|-----------|------|
 | **걷기 사이클** | 4×2 | `16:9` | 8 | row1: (1)좌발 contact (2)좌발 high/우발 rising (3)passing (4)우발 contact / row2: (5)우발 high (6)passing (7)좌발 variant (8)loop transition |
 | **공격 애니메이션** | 4×2 | `16:9` | 8 | row1: (1)ready (2)wind-up (3)backswing (4)max charge / row2: (5)swing start (6)impact+motion line (7)follow-through (8)recovery |
+| **대쉬/슬라이딩** | 4×2 | `16:9` | 8 | row1: (1)웅크림 준비 (2)발진 푸시오프 (3)풀 슬라이딩 (4)최대 확장+트레일 / row2: (5)슬라이딩 지속+파티클 (6)감속 (7)회복 상승 (8)스탠딩 복귀 |
 | **아이템 아이콘** | 단일 | `1:1` | 1 | 중앙 정렬, 32px/64px 기준 |
 
 프롬프트에서 반드시 지시:
@@ -93,6 +94,44 @@ This is a small chibi boss sprite, NOT a full-body portrait.
 - Identical character design/palette/scale across all frames
 - Keep foot/baseline position consistent across frames
 ```
+
+### 5-1. ⚠️ 시트 간 바디 스케일 일관성 (Cross-Sheet Body Scale Lock)
+
+**같은 보스의 걷기/공격/대쉬 시트는 반드시 동일한 바디 스케일을 공유해야 한다.**
+이 규칙을 어기면 대쉬/공격 시 캐릭터가 갑자기 커지거나 작아지는 버그가 발생한다.
+
+#### 에셋 생성 규칙 (Gemini MCP 프롬프트)
+
+| 규칙 | 설명 |
+|------|------|
+| 바디 크기 기준 = 걷기 시트 | 공격/대쉬 시트의 머리·몸통·골반 크기는 걷기 시트와 ±5% 이내 |
+| 역동성 표현 방법 | 포즈, 기울기, 팔다리 압축, 머리카락/옷 흔들림, 불꽃/트레일/모션 라인 사용 |
+| 금지 | 캐릭터 몸체 자체를 축소/확대하여 속도감 표현 금지 |
+| 이펙트 영역 | 이펙트(먼지, 불꽃, 파티클)는 셀 밖으로 확장 가능하되 바디 스케일은 유지 |
+
+프롬프트에 반드시 포함:
+```
+The character's HEAD, TORSO, and PELVIS must be the SAME SIZE as the walking sheet.
+Do NOT shrink the body to show speed — use pose, lean, and motion lines instead.
+Effects (dust, flames, trails) may extend outward, but the body itself stays the same scale.
+```
+
+#### 스프라이트 클래스 구현 규칙 (entities/[name]_sprite.py)
+
+```python
+# ❌ 잘못된 예 - 프레임별 독립 trim + 재스케일 (대쉬가 커짐)
+frame = self._trim_to_visible_bounds(frame)  # 대쉬는 세로가 낮아짐
+frame = self._scale_to_target(frame)          # → 더 크게 확대됨!
+
+# ✅ 올바른 예 - 걷기 시트 기준 공유 스케일 적용
+# 1. 걷기 시트 로드 시 기준 스케일 팩터 계산 후 저장
+# 2. 공격/대쉬 시트에 동일한 스케일 팩터 적용
+# 3. 이펙트/트레일 영역은 투명 여백으로 남기되 바디는 같은 크기
+```
+
+**핵심**: `_trim_to_visible_bounds()` + `_scale_to_target()`을 시트별로 독립 실행하면,
+세로가 낮은 대쉬 프레임이 목표 높이까지 더 크게 확대된다.
+걷기 시트에서 계산한 스케일 팩터를 공격/대쉬에 그대로 적용해야 한다.
 
 ### 6. 해상도/비율 설정
 
@@ -203,6 +242,7 @@ def remove_sprite_bg(src_jpeg, dst_png):
 | 스프라이트 시트 (원본) | `items/[name]_sheet.jpeg` | `items/tauren_boss_sheet.jpeg` |
 | 스프라이트 시트 (누끼) | `items/[name]_sheet.png` | `items/tauren_boss_sheet.png` |
 | 공격 애니메이션 | `items/[name]_attack.{jpeg,png}` | `items/tauren_boss_attack.png` |
+| 대쉬 애니메이션 | `items/[name]_dash.{jpeg,png}` | `items/honglyeon_boss_dash.png` |
 | 배경 이미지 | `backgrounds/stage[N]_*.jpeg` | `backgrounds/stage9_pillar_left.jpeg` |
 | 스프라이트 클래스 | `entities/[name]_sprite.py` | `entities/tauren_boss_sprite.py` |
 
