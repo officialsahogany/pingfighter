@@ -35714,8 +35714,11 @@ FRIEND_MOLE_COLORS = [
     ("yellow", (230, 200, 40)),
     ("blue", (50, 80, 220)),
 ]
-# 황금 두더지 (25% 확률로 친구두더지 이벤트 중 1마리 등장, 공으로 맞추면 스타포인트 드랍)
+# 황금 두더지 (30% 확률, 선택되면 첫 친구두더지 스폰에서 바로 등장)
+# 친구두더지 이벤트는 4승 이후 최종 라운드 구간에 주로 열리므로,
+# 뒤쪽 스폰 슬롯에 배정하면 매치가 먼저 끝나 체감상 "안 나오는" 상태가 되기 쉽다.
 GOLDEN_MOLE_CHANCE = 0.30
+GOLDEN_MOLE_SPAWN_INDEX = 0
 friend_moles_golden_spawn_at = -1   # 이벤트 내 몇 번째 스폰이 황금 두더지인지 (-1 = 없음)
 friend_moles_spawn_total_count = 0  # 이벤트 시작 이후 총 스폰 수
 
@@ -153319,10 +153322,10 @@ def reset_round(is_stage_start=False):
             friend_moles_pending = False
             friend_moles_triggered = True
             friend_moles_round_count = 0
-            # 황금 두더지 25% 확률 — 이벤트 전체(최대 2라운드)에서 1마리
+            # 황금 두더지 30% 확률 — 선택되면 첫 친구두더지 스폰에서 바로 등장
             friend_moles_spawn_total_count = 0
             if random.random() < GOLDEN_MOLE_CHANCE:
-                friend_moles_golden_spawn_at = random.randint(0, 5)
+                friend_moles_golden_spawn_at = GOLDEN_MOLE_SPAWN_INDEX
             else:
                 friend_moles_golden_spawn_at = -1
         if friend_moles_round_count < 2:
@@ -169983,6 +169986,8 @@ def main(stage_num, new_boss_mode=False):
         friend_moles_timer = 0
         friend_moles_triggered = False
         friend_moles_round_count = 0
+        friend_moles_golden_spawn_at = -1
+        friend_moles_spawn_total_count = 0
         friend_moles_list.clear()
         friend_moles_spawn_timer = 0
         friend_moles_dirt_particles.clear()
