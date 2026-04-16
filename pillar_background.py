@@ -29,6 +29,7 @@ from pillar_hongryeon import HongryeonFrame  # 홍련 중국 전통 배경 (스�
 from pillar_baroque import BaroqueFrame  # 바로크 액자 (메인 메뉴용, 스테이지 0)
 from pillar_tetriser import TetriserPillarBackground  # 테트리서 테트리스 배경 (스테이지 7)
 from pillar_ninja import NinjaPillarBackground  # 닌자 저택 배경 (스테이지 8)
+from pillar_parthenon import ParthenonFrame  # 파르테논 신전 배경 (스테이지 9)
 from pillar_colosseum import ColosseumFrame  # 투기장 배경 (스테이지 30)
 
 # 플랫폼 감지
@@ -119,6 +120,7 @@ class PillarBackgroundRenderer:
         self._hongryeon_bg = None  # 홍련 중국 전통 배경 (실제 스테이지 6 = 코드 stage 5)
         self._tetriser_bg = None  # 테트리서 테트리스 배경 (스테이지 7)
         self._ninja_bg = None  # 닌자 저택 배경 (스테이지 8)
+        self._parthenon_bg = None  # 파르테논 신전 배경 (스테이지 9)
         self._colosseum_bg = None  # 투기장 배경 (스테이지 30)
 
         # 플레이어/보스 위치 (원숭이-바나나 이벤트용)
@@ -449,6 +451,16 @@ class PillarBackgroundRenderer:
             )
             print(f"[PillarBG] 스테이지 8 닌자 저택 배경 초기화 완료")
 
+        # 스테이지 9: 파르테논 신전 배경 초기화
+        if stage == 9 and self._parthenon_bg is None:
+            self._parthenon_bg = ParthenonFrame(
+                self.screen_width, self.screen_height,
+                self.game_width, self.game_height,
+                self.game_offset_x, self.game_offset_y,
+                self.original_game_width, self.original_game_height
+            )
+            print(f"[PillarBG] 스테이지 9 파르테논 신전 배경 초기화 완료")
+
         # 스테이지 30: 투기장 배경 초기화
         if stage == 30 and self._colosseum_bg is None:
             self._colosseum_bg = ColosseumFrame(
@@ -518,6 +530,10 @@ class PillarBackgroundRenderer:
         if self.current_stage == 8 and self._ninja_bg is not None:
             self._ninja_bg.update(dt)
 
+        # 스테이지 9: 파르테논 신전 배경 업데이트
+        if self.current_stage == 9 and self._parthenon_bg is not None:
+            self._parthenon_bg.update(dt)
+
         # 스테이지 30: 투기장 배경 업데이트
         if self.current_stage == 30 and self._colosseum_bg is not None:
             self._colosseum_bg.update(dt)
@@ -574,6 +590,11 @@ class PillarBackgroundRenderer:
         # 스테이지 8: 닌자 저택 배경 사용
         if self.current_stage == 8 and self._ninja_bg is not None:
             self._ninja_bg.draw(screen)
+            return
+
+        # 스테이지 9: 파르테논 신전 배경 사용
+        if self.current_stage == 9 and self._parthenon_bg is not None:
+            self._parthenon_bg.draw(screen)
             return
 
         # 스테이지 30: 투기장 배경 사용

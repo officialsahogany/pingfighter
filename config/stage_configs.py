@@ -4,7 +4,7 @@
 """
 
 # ============= 스테이지 정보 =============
-TOTAL_STAGES = 8
+TOTAL_STAGES = 9
 BOSS_HEALTH_STAGES = [6, 11, 16, 21]  # 체력형 보스가 등장하는 스테이지
 
 # ============= 스테이지별 보스 설정 =============
@@ -140,6 +140,20 @@ BOSS_CONFIGS = {
         "special_skill": None,  # 스킬은 추후 구현 예정
         "dash_cooldown_range": (26.0, 38.0),
         "dash_max_distance": 372,  # 20% 증가 (310 → 372)
+    },
+    9: {
+        "name": "미노타우로스",
+        "color": (160, 100, 40),
+        "accel": 1.20,
+        "decel": 1.20,
+        "max_speed": 10.0,
+        "instant_stop": 1.2,
+        "predict_distance": 110,
+        "skill_power": 0.4,
+        "fail_error": 170,
+        "special_skill": None,
+        "dash_cooldown_range": (24.0, 36.0),
+        "dash_max_distance": 384,
     },
 }
 
