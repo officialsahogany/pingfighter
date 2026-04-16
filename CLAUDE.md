@@ -147,6 +147,77 @@ frame = self._scale_to_target(frame)          # → 더 크게 확대됨!
 세로가 낮은 대쉬 프레임이 목표 높이까지 더 크게 확대된다.
 걷기 시트에서 계산한 스케일 팩터를 공격/대쉬에 그대로 적용해야 한다.
 
+### 5-2. ⚠️ 시트 간 캐릭터 정체성 일관성 (Character Identity Lock Across Sheets)
+
+**Same boss, same character, same identity across all sheets.**
+
+걷기/공격/대쉬 시트는 같은 보스의 **같은 캐릭터**여야 한다. 크기(5-1)만 맞춰도 머리색, 얼굴, 분위기가 달라지면 게임 내에서 다른 캐릭터로 보인다. 스테이지 3 멘헤라걸에서 걷기 시트와 대쉬 시트가 서로 다른 캐릭터처럼 생성된 사례로부터 확립된 규칙이다.
+
+#### Canonical Reference = Walking Sheet
+
+이미 `items/[name]_boss_sheet.png`가 존재하면 그것이 **정체성 기준(canonical reference)**이 된다. 공격/대쉬 시트를 만들 때는 반드시 이 파일을 기준으로 다음 요소를 **그대로 유지**해야 한다:
+
+| 고정 요소 (절대 변경 금지) | 예시 |
+|---------------------------|------|
+| 머리색 (hair color) | pink → pink (magenta로 드리프트 금지) |
+| 헤어 스타일 / 실루엣 | 곱슬 웨이브 → 곱슬 웨이브 (직모로 변경 금지) |
+| 얼굴 형태 / 인상 | 치비 둥근 얼굴 → 동일 (성숙한 날카로운 얼굴로 변경 금지) |
+| 눈 색상 / 형태 / 표정 계열 | 올리브 큰 눈 → 동일 |
+| 피부톤 | 밝은 톤 → 동일 |
+| 신체 비율 (치비/등신) | 2등신 치비 → 동일 (3등신으로 변경 금지) |
+| 의상 디자인 / 실루엣 / 장식 배치 | 핑크 간호사복 + 검정 트림 → 동일 |
+| 종족 특성 / 액세서리 / 시그니처 모티프 | 고양이 꼬리, 고양이 발 장갑, 간호사 모자+리본 → 동일 |
+
+#### 바뀌어도 되는 것 (역동성 표현용)
+
+포즈, 기울기, 모션 라인, 이펙트(불꽃/먼지/파티클), 옷/머리카락 흔들림, 트레일 — **이것만** 바뀔 수 있다.
+
+**Do not redesign the boss between walk / attack / dash sheets.**
+**Effects may change, pose may change, but the character identity must remain unmistakably the same.**
+
+#### Color Palette Drift 금지
+
+같은 캐릭터인데 시트마다 색감이 달라지는 것을 금지한다:
+
+| ❌ 금지되는 드리프트 | 설명 |
+|---------------------|------|
+| pink hair → magenta hair | 채도/색상 시프트 |
+| pastel tone → saturated tone | 톤 시프트 |
+| cute round face → sharp mature face | 인상 시프트 |
+| chibi 2-head → semi-realistic 3-head | 등신 시프트 |
+| thick outlines → thin outlines | 스타일 시프트 |
+
+#### 작업 절차 (공격/대쉬 시트 생성 전 필수)
+
+1. **기존 걷기 시트 확인**: `items/[name]_boss_sheet.png`를 열어 캐릭터의 고정 요소를 확인
+2. **고정 요소 요약 작성**: 프롬프트에 넣을 캐릭터 설명을 걷기 시트 기준으로 정리
+3. **프롬프트에 canonical reference 명시**: 아래 블록을 프롬프트에 포함
+4. **결과물 검증**: 생성된 시트가 걷기 시트와 같은 캐릭터로 보이는지 확인
+5. **불합격 시 재생성**: 다른 캐릭터처럼 보이면 채택하지 말고 재생성
+
+프롬프트에 반드시 포함:
+```
+Use items/[name]_boss_sheet.png as the canonical visual reference for identity, palette, and design continuity.
+This character MUST look like the EXACT SAME person as in the walking sheet.
+Do NOT redesign, reinterpret, or modernize the character.
+Keep the SAME hair color, hairstyle, face shape, eye color, skin tone, outfit design, and all signature accessories.
+If the result looks like a different character, it must be rejected and regenerated.
+```
+
+#### 검증 체크리스트 (시트 생성 후)
+
+| # | 확인 항목 | 합격 기준 |
+|---|----------|-----------|
+| 1 | 머리색 | 걷기 시트와 동일 (채도/색상 드리프트 없음) |
+| 2 | 헤어 스타일 | 같은 실루엣 (흔들림은 OK, 형태 변경은 NG) |
+| 3 | 얼굴 인상 | 같은 캐릭터로 즉시 인식 가능 |
+| 4 | 의상 | 같은 옷, 같은 장식 배치 |
+| 5 | 액세서리/모티프 | 모두 존재 (누락 금지) |
+| 6 | 전체 분위기 | "같은 사람이 다른 동작을 하고 있다"로 읽힘 |
+| 7 | 아트 스타일 | 걷기 시트와 동일한 렌더링 스타일 |
+
+> **If the dash sheet looks like a different character, reject and regenerate.**
+
 ### 6. 해상도/비율 설정
 
 | 파라미터 | 권장값 | 비고 |
