@@ -4631,6 +4631,16 @@ _viper_empty_slot_rects = {}  # 빈 스킬 슬롯 rect (Surface-local, 호버 �
 _viper_skill_icons_cache = {}
 _viper_skill_tooltip_active = False
 
+# 바이퍼 스킬 구슬 드래그 앤 드롭 관련 변수
+_viper_orb_dragging = False
+_viper_orb_drag_skill = None
+_viper_orb_drag_index = -1
+_viper_orb_drag_start_pos = (0, 0)
+_viper_orb_drag_mouse_pos = (0, 0)
+_viper_orb_drag_threshold = 5
+_viper_orb_drag_started = False
+_viper_orb_drag_prev_mouse_down = False  # 이전 프레임 마우스 상태
+
 # 바이퍼 스킬 쿨타임 오버라이드 (동적 쿨타임용)
 _viper_skill_cooldown_override = {}  # skill_name → 쿨타임(초)
 
@@ -4726,6 +4736,14 @@ def reset_viper_skill_unlocks():
         "dark_blade": False,
     }
     _viper_equipped_skills = ["shadow_step", "blade_rush", "marshal_kick"]
+    # 드래그 상태 초기화
+    global _viper_orb_dragging, _viper_orb_drag_skill, _viper_orb_drag_index
+    global _viper_orb_drag_started, _viper_orb_drag_prev_mouse_down
+    _viper_orb_dragging = False
+    _viper_orb_drag_skill = None
+    _viper_orb_drag_index = -1
+    _viper_orb_drag_started = False
+    _viper_orb_drag_prev_mouse_down = False
 
 
 def unlock_viper_skill(skill_name: str) -> bool:
@@ -4773,6 +4791,59 @@ def swap_viper_skill(old_skill: str, new_skill: str) -> bool:
         _viper_equipped_skills[idx] = new_skill
         return True
     return False
+
+
+def _viper_orb_drag_begin(skill_name: str, slot_index: int, local_x: float, local_y: float):
+    """바이퍼 구슬 드래그 시작 (마우스다운 시 호출)"""
+    global _viper_orb_dragging, _viper_orb_drag_skill, _viper_orb_drag_index
+    global _viper_orb_drag_start_pos, _viper_orb_drag_mouse_pos, _viper_orb_drag_started
+    _viper_orb_dragging = True
+    _viper_orb_drag_skill = skill_name
+    _viper_orb_drag_index = slot_index
+    _viper_orb_drag_start_pos = (local_x, local_y)
+    _viper_orb_drag_mouse_pos = (local_x, local_y)
+    _viper_orb_drag_started = False  # threshold 넘기 전까지는 실제 드래그 아님
+
+
+def _viper_orb_drag_update(local_x: float, local_y: float):
+    """드래그 중 마우스 위치 갱신"""
+    global _viper_orb_drag_mouse_pos, _viper_orb_drag_started
+    _viper_orb_drag_mouse_pos = (local_x, local_y)
+    if not _viper_orb_drag_started:
+        dx = local_x - _viper_orb_drag_start_pos[0]
+        dy = local_y - _viper_orb_drag_start_pos[1]
+        if (dx * dx + dy * dy) >= _viper_orb_drag_threshold ** 2:
+            _viper_orb_drag_started = True
+
+
+def _viper_orb_drag_end(local_x: float, local_y: float) -> bool:
+    """드래그 종료 — 다른 구슬 위에 놓으면 슬롯 swap, 아니면 원위치.
+    Returns True if swap happened."""
+    global _viper_orb_dragging, _viper_orb_drag_skill, _viper_orb_drag_index
+    global _viper_orb_drag_started, _viper_equipped_skills
+    swapped = False
+    if _viper_orb_drag_started and _viper_orb_drag_skill:
+        # 드롭 위치에서 다른 구슬과 겹치는지 확인
+        for skill_name, rect in _viper_skill_icon_rects.items():
+            if skill_name == _viper_orb_drag_skill:
+                continue
+            if rect.collidepoint(local_x, local_y):
+                # 두 스킬의 인덱스를 찾아서 swap
+                try:
+                    idx_a = _viper_equipped_skills.index(_viper_orb_drag_skill)
+                    idx_b = _viper_equipped_skills.index(skill_name)
+                    _viper_equipped_skills[idx_a], _viper_equipped_skills[idx_b] = \
+                        _viper_equipped_skills[idx_b], _viper_equipped_skills[idx_a]
+                    swapped = True
+                except ValueError:
+                    pass
+                break
+    # 상태 초기화
+    _viper_orb_dragging = False
+    _viper_orb_drag_skill = None
+    _viper_orb_drag_index = -1
+    _viper_orb_drag_started = False
+    return swapped
 
 
 _VIPER_SWAP_THEME = {
@@ -6596,7 +6667,29 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                 icon_diameter, icon_diameter
             )
 
+    # === 드래그 상태 확인 ===
+    _is_dragging = _viper_orb_dragging and _viper_orb_drag_started
+    _drag_skill = _viper_orb_drag_skill if _is_dragging else None
+    _drag_hover_target = None  # 드롭 대상 스킬 이름
+
+    # 드래그 중이면 마우스 위치에 가장 가까운 다른 구슬을 드롭 대상으로 감지
+    if _is_dragging:
+        drag_mx, drag_my = _viper_orb_drag_mouse_pos
+        _slot_positions = {}
+        for _si, _sd in enumerate(equipped_skill_data_list):
+            _sa = math.radians(all_slot_angles[_si])
+            _sx = orb_center_x + int(math.cos(_sa) * orbit_radius)
+            _sy = orb_center_y + int(math.sin(_sa) * orbit_radius)
+            _slot_positions[_sd["name"]] = (_sx, _sy)
+        for _sn, (_sx, _sy) in _slot_positions.items():
+            if _sn != _drag_skill:
+                _dist_sq = (drag_mx - _sx) ** 2 + (drag_my - _sy) ** 2
+                if _dist_sq <= (icon_radius + 4) ** 2:
+                    _drag_hover_target = _sn
+                    break
+
     # === 장착된 스킬 아이콘 그리기 ===
+    _drag_render_data = None  # 드래그 중인 구슬은 나중에 최상위에 그림
     for i, skill_data in enumerate(equipped_skill_data_list):
         skill_name = skill_data["name"]
         angle_deg = all_slot_angles[i]
@@ -6627,6 +6720,19 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             icon_diameter, icon_diameter
         )
 
+        # 드래그 중인 구슬 → 원래 위치에 고스트 표시, 실제 렌더는 나중에
+        if _is_dragging and skill_name == _drag_skill:
+            ghost_color = tuple(max(0, c // 4) for c in skill_data["color"][:3])
+            pygame.draw.circle(surface, (*ghost_color, 80), (icon_x, icon_y), icon_radius)
+            pygame.draw.circle(surface, (100, 100, 100, 100), (icon_x, icon_y), icon_radius, 2)
+            _drag_render_data = {
+                "skill_data": skill_data, "is_active": is_active,
+                "is_on_cooldown": is_on_cooldown, "cooldown_ratio": cooldown_ratio,
+                "icon_radius": icon_radius, "icon_diameter": icon_diameter,
+                "i": i,
+            }
+            continue
+
         # 배경색 결정
         if is_active:
             bg_color = (*skill_data["color"][:3], 200)
@@ -6635,6 +6741,11 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             dark_color = tuple(max(0, c // 3) for c in skill_data["color"][:3])
             bg_color = (*dark_color, 150)
             border_color = (80, 80, 80, 180)
+
+        # 드롭 대상 하이라이트
+        if _is_dragging and skill_name == _drag_hover_target:
+            border_color = (255, 255, 100, 255)
+            pygame.draw.circle(surface, (255, 255, 100, 60), (icon_x, icon_y), icon_radius + 5)
 
         # 활성화 글로우 효과
         activation_time = _viper_skill_activation_times.get(skill_name, 0)
@@ -6735,6 +6846,51 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                 surface.blit(cd_text_surface, cd_rect)
             except:
                 pass
+
+    # === 드래그 중인 구슬을 마우스 위치에 최상위로 그리기 ===
+    if _is_dragging and _drag_render_data:
+        _drd = _drag_render_data
+        _d_sd = _drd["skill_data"]
+        _d_mx, _d_my = int(_viper_orb_drag_mouse_pos[0]), int(_viper_orb_drag_mouse_pos[1])
+        _d_ir = _drd["icon_radius"]
+        _d_active = _drd["is_active"]
+
+        # 글로우 (드래그 중 시각적 강조)
+        _d_glow_r = _d_ir + 6
+        pygame.draw.circle(surface, (*_d_sd["color"][:3], 80), (_d_mx, _d_my), _d_glow_r)
+
+        # 배경
+        if _d_active:
+            _d_bg = (*_d_sd["color"][:3], 220)
+            _d_border = (255, 255, 255, 255)
+        else:
+            _d_dark = tuple(max(0, c // 3) for c in _d_sd["color"][:3])
+            _d_bg = (*_d_dark, 180)
+            _d_border = (120, 120, 120, 200)
+        pygame.draw.circle(surface, _d_bg, (_d_mx, _d_my), _d_ir)
+        pygame.draw.circle(surface, _d_border, (_d_mx, _d_my), _d_ir, 2)
+
+        # 심볼
+        _d_icon_size = _d_ir * 2 - 4
+        _draw_skill_icon_symbol(surface, _d_sd["name"], _d_mx, _d_my,
+                                _d_icon_size, _d_active, _d_sd["color"])
+
+        # 쿨타임 오버레이
+        if _drd["is_on_cooldown"] and _drd["cooldown_ratio"] > 0.01:
+            _d_id = _drd["icon_diameter"]
+            _d_cd_s = pygame.Surface((_d_id + 4, _d_id + 4), pygame.SRCALPHA)
+            _d_cd_c = _d_ir + 2
+            _d_sa = -math.pi / 2
+            _d_ea = _d_sa + (2 * math.pi * _drd["cooldown_ratio"])
+            _d_pts = [(_d_cd_c, _d_cd_c)]
+            _d_ns = max(3, int(36 * _drd["cooldown_ratio"]))
+            for _d_j in range(_d_ns + 1):
+                _d_a = _d_sa + (_d_ea - _d_sa) * _d_j / _d_ns
+                _d_pts.append((_d_cd_c + int(math.cos(_d_a) * _d_ir),
+                              _d_cd_c + int(math.sin(_d_a) * _d_ir)))
+            if len(_d_pts) >= 3:
+                pygame.draw.polygon(_d_cd_s, (0, 0, 0, 180), _d_pts)
+            surface.blit(_d_cd_s, (_d_mx - _d_ir - 2, _d_my - _d_ir - 2))
 
 
 # 바이퍼 퍽 구슬 활성화 상태 추적
@@ -9878,6 +10034,57 @@ def invalidate_pillar_bg_cache():
     _pillar_bg_cache = None
     _pillar_bg_cache_dirty = True
 
+def _check_pillar_dynamic_active(stage, renderer):
+    """필러 배경에 동적 애니메이션이 활성화되어 매 프레임 갱신이 필요한지 확인
+    (캐시 프레임-스킵 시 끊겨 보이는 동적 요소가 있을 때 True 반환)
+    """
+    try:
+        # 스테이지 1: 나비 비행/흡수 애니메이션
+        if stage == 1:
+            _sb = getattr(renderer, '_stadium_bg', None)
+            if _sb and (_sb._butterfly_flying_to_player is not None or _sb._absorbing_butterfly is not None):
+                return True
+        # 스테이지 2: 원숭이/바나나
+        elif stage == 2:
+            from pillar_jungle import get_monkey_event_manager
+            _mm = get_monkey_event_manager()
+            if _mm and (_mm.active_monkeys or _mm.landed_bananas):
+                return True
+        # 스테이지 3: 멘헤라 네온/스파클/하트 연출
+        elif stage == 3:
+            if getattr(renderer, '_menhera_bg', None) is not None:
+                return True
+        # 스테이지 5(코드): 홍련 필러 불꽃/엠버/뱀 연출
+        elif stage == 5:
+            if getattr(renderer, '_hongryeon_bg', None) is not None:
+                return True
+        # 스테이지 6(코드): 네메시스 해상 — 파도/구름/거품
+        elif stage == 6:
+            _nb = getattr(renderer, '_nemesis_ocean_bg', None)
+            if _nb and (getattr(_nb, 'foam_particles', None) or getattr(_nb, 'clouds', None)):
+                return True
+        # 스테이지 8: 닌자 — 낙엽/벚꽃잎
+        elif stage == 8:
+            _nb = getattr(renderer, '_ninja_bg', None)
+            if _nb and (getattr(_nb, 'sakura_petals', None) or getattr(_nb, 'falling_bamboo_leaves', None)):
+                return True
+        # 스테이지 9: 파르테논 횃불 플리커
+        elif stage == 9:
+            if getattr(renderer, '_parthenon_bg', None) is not None:
+                return True
+        # 스테이지 30: 투기장 — 관중 상시 애니메이션
+        elif stage == 30:
+            _cb = getattr(renderer, '_colosseum_bg', None)
+            if _cb and getattr(_cb, 'crowd_list', None):
+                return True
+        # 불타는 태양 효과 (스테이지 무관, 오버레이)
+        _bsb = getattr(renderer, '_blazing_sun_bg', None)
+        if _bsb and getattr(_bsb, 'intensity', 0) > 0.1:
+            return True
+    except Exception:
+        pass
+    return False
+
 _ss_2x_cache = None  # 슈퍼샘플링용 2x 중간 서피스
 _ss_2x_size = None
 
@@ -11347,13 +11554,51 @@ def _draw_pillar_ui(screen, renderer):
         if SMASHER_SKILL_DEBUG:
             print(f"[SMASHER_TOOLTIP ERROR] {e}", flush=True)
 
+    # 바이퍼 스킬 구슬 드래그 앤 드롭 처리 (REAL_SCREEN에서 처리)
+    global _viper_orb_dragging, _viper_orb_drag_skill, _viper_orb_drag_index
+    global _viper_orb_drag_started, _viper_orb_drag_mouse_pos, _viper_orb_drag_prev_mouse_down
+    if _is_ingame and selected_character_type == "viper" and not is_horn_strawberry_transformed():
+      try:
+        _drag_raw_mx, _drag_raw_my = _original_mouse_get_pos()
+        _drag_surf_ox, _drag_surf_oy = _player_gauge_surface_left_screen_pos
+        _drag_local_x = (_drag_raw_mx - _drag_surf_ox) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 1.0 else (_drag_raw_mx - _drag_surf_ox)
+        _drag_local_y = (_drag_raw_my - _drag_surf_oy) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 1.0 else (_drag_raw_my - _drag_surf_oy)
+        _drag_mouse_down = pygame.mouse.get_pressed()[0]
+        _drag_just_pressed = _drag_mouse_down and not _viper_orb_drag_prev_mouse_down
+
+        if _viper_orb_dragging:
+            if _drag_mouse_down:
+                _viper_orb_drag_update(_drag_local_x, _drag_local_y)
+            else:
+                _viper_orb_drag_end(_drag_local_x, _drag_local_y)
+        elif _drag_just_pressed:
+            _equipped = get_viper_equipped_skills()
+            for _dsk_name, _dsk_rect in _viper_skill_icon_rects.items():
+                if _dsk_rect.collidepoint(_drag_local_x, _drag_local_y):
+                    if _dsk_name in _equipped:
+                        _dsk_idx = _equipped.index(_dsk_name)
+                        _viper_orb_drag_begin(_dsk_name, _dsk_idx, _drag_local_x, _drag_local_y)
+                    break
+
+        _viper_orb_drag_prev_mouse_down = _drag_mouse_down
+      except Exception:
+        _viper_orb_dragging = False
+        _viper_orb_drag_skill = None
+        _viper_orb_drag_index = -1
+        _viper_orb_drag_started = False
+        _viper_orb_drag_prev_mouse_down = False
+
     # 바이퍼 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
+    # 드래그 중에는 툴팁을 억제
     global _viper_skill_tooltip_active, _viper_tooltip_pause_start, _viper_tooltip_pause_accumulated
     if _is_ingame:
       try:
         if selected_character_type == "viper" and not is_horn_strawberry_transformed():
             mouse_pos = pygame.mouse.get_pos()
-            hovered_skill = _check_viper_skill_tooltip(mouse_pos, GAME_SCALE_FACTOR)
+            if _viper_orb_dragging and _viper_orb_drag_started:
+                hovered_skill = None  # 드래그 중 툴팁 억제
+            else:
+                hovered_skill = _check_viper_skill_tooltip(mouse_pos, GAME_SCALE_FACTOR)
             if hovered_skill:
                 if not _viper_skill_tooltip_active:
                     _viper_skill_tooltip_active = True
@@ -11739,16 +11984,8 @@ def _fullscreen_flip():
                 _pillar_bg_cache_stage = _cur_stage
                 _pillar_bg_cache_dirty = True
 
-            # 스테이지 2: 원숭이/바나나 애니메이션 활성 시 매 프레임 갱신 (끊김 방지)
-            _force_pillar_refresh = False
-            if _cur_stage == 2:
-                try:
-                    from pillar_jungle import get_monkey_event_manager
-                    _mm = get_monkey_event_manager()
-                    if _mm and (_mm.active_monkeys or _mm.landed_bananas):
-                        _force_pillar_refresh = True
-                except Exception:
-                    pass
+            # 필러 동적 이벤트 활성 시 매 프레임 강제 갱신 (끊김 방지)
+            _force_pillar_refresh = _check_pillar_dynamic_active(_cur_stage, pillar_renderer)
 
             # N프레임마다 또는 dirty시 필러 배경 재렌더링
             if _pillar_bg_cache_dirty or _force_pillar_refresh or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
@@ -12329,16 +12566,8 @@ def _fullscreen_update(*args, **kwargs):
                 _pillar_bg_cache_stage = _cur_stage
                 _pillar_bg_cache_dirty = True
 
-            # 스테이지 2: 원숭이/바나나 애니메이션 활성 시 매 프레임 갱신 (끊김 방지)
-            _force_pillar_refresh = False
-            if _cur_stage == 2:
-                try:
-                    from pillar_jungle import get_monkey_event_manager
-                    _mm = get_monkey_event_manager()
-                    if _mm and (_mm.active_monkeys or _mm.landed_bananas):
-                        _force_pillar_refresh = True
-                except Exception:
-                    pass
+            # 필러 동적 이벤트 활성 시 매 프레임 강제 갱신 (끊김 방지)
+            _force_pillar_refresh = _check_pillar_dynamic_active(_cur_stage, pillar_renderer)
 
             if _pillar_bg_cache_dirty or _force_pillar_refresh or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
                 pillar_renderer.draw(_pillar_bg_cache)
