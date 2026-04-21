@@ -22853,10 +22853,14 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
         _extra_perk = 0
     base_perk_count = 3 + _extra_perk  # 기본 3개 + 발동 시 1개 (+ 골드변환)
 
-    # 액티브 스킬 퍽은 확장 슬롯이 찰수록 선형 감쇠, 5/5 포화 시에도 0.15 가중치로 가끔 노출된다.
-    # (5/5 포화 상태에서 액티브 퍽이 뽑히면 스왑 다이얼로그 경로로 이어져 플레이어가 교체 선택 가능)
+    # 액티브 스킬 퍽은 확장 슬롯이 찰수록 선형 감쇠, 포화 시에도 0.15 가중치로 가끔 노출된다.
+    # (포화 상태에서 액티브 퍽이 뽑히면 스왑 다이얼로그 경로로 이어져 플레이어가 교체 선택 가능)
     if len(available) > base_perk_count:
         available = _weighted_perk_sample(available, character_type, base_perk_count)
+
+    # 포화 상태에서 선택지에 나오는 액티브 스킬 퍽을 1장으로 제한. filler 이전에 제한해야
+    # 초과분이 제거된 뒤 instant filler 가 빈 자리를 채워 최종 카드 수가 줄지 않는다.
+    available = enforce_full_slot_perk_cap(available, character_type, ACTIVE_PERK_MAX_PER_CHOICE_WHEN_FULL)
 
     # 부족하면 즉시 사용형 스킬로 채움 (exclude_instant 여부와 관계없이)
     if len(available) < base_perk_count:
@@ -22931,10 +22935,6 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
     }
     result.append(gold_conversion_choice)
 
-    # 5/5 포화 상태에서 최종 선택지에 나오는 액티브 스킬 퍽을 최대 1장으로 제한.
-    # 3장 전부가 스왑 제안으로 바뀌면 패시브 성장 루트가 막히므로.
-    result = enforce_full_slot_perk_cap(result, character_type, ACTIVE_PERK_MAX_PER_CHOICE_WHEN_FULL)
-
     return result
 
 
@@ -23002,6 +23002,18 @@ def _are_character_skill_slots_full(character_type: str) -> bool:
     if character_type == "soldier":
         return is_soldier_skill_slots_full()
     return False
+
+
+def _get_character_max_skill_slots(character_type: str):
+    """캐릭터별 런타임 최대 오브 슬롯 수. 천상의 망토 보너스를 반영한다.
+    5구슬 시스템이 없는 캐릭터는 None 반환."""
+    if character_type == "smasher":
+        return get_smasher_max_skill_slots()
+    if character_type == "viper":
+        return get_viper_max_skill_slots()
+    if character_type == "soldier":
+        return SOLDIER_MAX_SKILL_SLOTS
+    return None
 
 
 def _is_character_skill_owned(character_type: str, skill_name: str) -> bool:
@@ -23090,8 +23102,11 @@ def _count_owned_active_perks(character_type: str) -> int:
 def _active_perk_weight(character_type: str) -> float:
     """퍽 풀에서 액티브 스킬 퍽 1개가 가져야 할 샘플링 가중치.
 
-    - 5/5 포화 시 ACTIVE_PERK_FULL_SLOT_WEIGHT (0.15) — 스왑 제안용으로 가끔 노출.
+    - 포화 시 ACTIVE_PERK_FULL_SLOT_WEIGHT (0.15) — 스왑 제안용으로 가끔 노출.
     - 그 외에는 ACTIVE_PERK_BASE_WEIGHT * (remaining / expandable) 로 선형 감쇠.
+    - expandable 계산은 런타임 max slots(천상의 망토 보너스 포함)에서
+      기본 장착 스킬 수를 뺀 값을 사용해야 한다. 하드코딩된 5를 쓰면 망토로
+      +1 된 슬롯이 가중치 0.0 구간에 갇혀 자연 획득이 막힌다.
     - 5구슬 시스템이 없는 캐릭터는 BASE_WEIGHT 유지(기본 랜덤과 동일 효과).
     """
     base_orb = _CHARACTER_BASE_ORB_COUNT.get(character_type)
@@ -23099,7 +23114,10 @@ def _active_perk_weight(character_type: str) -> float:
         return ACTIVE_PERK_BASE_WEIGHT
     if _are_character_skill_slots_full(character_type):
         return ACTIVE_PERK_FULL_SLOT_WEIGHT
-    expandable = 5 - base_orb
+    max_slots = _get_character_max_skill_slots(character_type)
+    if max_slots is None:
+        return ACTIVE_PERK_BASE_WEIGHT
+    expandable = max_slots - base_orb
     if expandable <= 0:
         return ACTIVE_PERK_BASE_WEIGHT
     owned = _count_owned_active_perks(character_type)
