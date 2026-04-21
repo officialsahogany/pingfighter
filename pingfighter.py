@@ -22679,7 +22679,7 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
         })
 
         # 5/5 가득 찬 캐릭터면 해금 퍽은 제거 (아카데미 전용)
-        tutorial_choices = filter_full_slot_unlock_perks(tutorial_choices, character_type)
+        tutorial_choices = filter_full_slot_unlock_perks_strict(tutorial_choices, character_type)
         print(f"[Tutorial] 고정 스킬 선택지 제공: {[c['name'] for c in tutorial_choices]}")
         return tutorial_choices
 
@@ -22853,13 +22853,10 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
         _extra_perk = 0
     base_perk_count = 3 + _extra_perk  # 기본 3개 + 발동 시 1개 (+ 골드변환)
 
-    # 5/5 가득 찬 캐릭터면 액티브 해금 퍽을 풀에서 먼저 제거 후 샘플링
-    # (샘플링 후 제거하면 unlock 퍽만 뽑혀 최종 선택지가 골드변환만 남는 경우 발생)
-    available = filter_full_slot_unlock_perks(available, character_type)
-
-    # 퍽 선택지 수만큼 랜덤 선택
+    # 액티브 스킬 퍽은 확장 슬롯이 찰수록 선형 감쇠, 5/5 포화 시에도 0.15 가중치로 가끔 노출된다.
+    # (5/5 포화 상태에서 액티브 퍽이 뽑히면 스왑 다이얼로그 경로로 이어져 플레이어가 교체 선택 가능)
     if len(available) > base_perk_count:
-        available = random.sample(available, base_perk_count)
+        available = _weighted_perk_sample(available, character_type, base_perk_count)
 
     # 부족하면 즉시 사용형 스킬로 채움 (exclude_instant 여부와 관계없이)
     if len(available) < base_perk_count:
@@ -22934,9 +22931,9 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
     }
     result.append(gold_conversion_choice)
 
-    # 5/5 가득 찬 상태에서는 액티브 스킬 해금 퍽을 선택지에서 제거한다.
-    # (해당 스킬은 아카데미 NPC를 통해서만 교환 가능)
-    result = filter_full_slot_unlock_perks(result, character_type)
+    # 5/5 포화 상태에서 최종 선택지에 나오는 액티브 스킬 퍽을 최대 1장으로 제한.
+    # 3장 전부가 스왑 제안으로 바뀌면 패시브 성장 루트가 막히므로.
+    result = enforce_full_slot_perk_cap(result, character_type, ACTIVE_PERK_MAX_PER_CHOICE_WHEN_FULL)
 
     return result
 
@@ -22975,6 +22972,21 @@ _CHARACTER_UNLOCK_PERKS = {
         "soldier_pistol_perk": SOLDIER_PISTOL_ORB_SKILL,
     },
 }
+
+# 캐릭터별 "기본 장착 스킬 수" (5구슬 슬롯 기준). 확장 가능 액티브 스킬 슬롯 =
+# 5 - 이 값. 나머지 캐릭터(Optimus 등)는 5구슬 시스템을 쓰지 않음.
+_CHARACTER_BASE_ORB_COUNT = {
+    "smasher": 2,
+    "viper": 3,
+    "soldier": 2,
+}
+
+# 액티브 스킬 퍽 확률 가중치.
+# owned=0 일 때 1.0, 확장 슬롯이 찰수록 선형 감쇠, 5/5 포화 시 0.15.
+ACTIVE_PERK_BASE_WEIGHT = 1.0
+ACTIVE_PERK_FULL_SLOT_WEIGHT = 0.15
+# 5/5 포화 상태에서 한 세트의 퍽 선택지에 나올 수 있는 액티브 스킬 퍽 최대 개수.
+ACTIVE_PERK_MAX_PER_CHOICE_WHEN_FULL = 1
 
 
 def _get_character_unlock_perks(character_type: str) -> dict:
@@ -23046,15 +23058,104 @@ def _perform_skill_swap_cleanup(character_type: str, old_skill_name: str) -> Non
         _sync_soldier_weapon_inventory()
 
 
-def filter_full_slot_unlock_perks(choices: list, character_type: str) -> list:
-    """퍽 선택지 리스트에서 5/5 시 숨겨야 할 unlock_* 퍽을 제거한다.
-    튜토리얼 고정 선택지와 일반 랜덤 선택지 양쪽에 적용 가능."""
+def filter_full_slot_unlock_perks_strict(choices: list, character_type: str) -> list:
+    """5/5 포화 시 unlock_* 퍽을 완전히 제거. 튜토리얼 고정 선택지 전용.
+    일반 랜덤 선택지는 _weighted_perk_sample + enforce_full_slot_perk_cap 경로를
+    사용하므로 이 함수로 들어오면 안 됨."""
     if not _are_character_skill_slots_full(character_type):
         return choices
     hidden_ids = _get_character_unlock_perks(character_type)
     if not hidden_ids:
         return choices
     return [c for c in choices if c.get("id") not in hidden_ids]
+
+
+def _count_owned_active_perks(character_type: str) -> int:
+    """현재 5구슬 슬롯에 장착된 unlock_* 퍽 유래 스킬 수."""
+    perk_map = _get_character_unlock_perks(character_type)
+    if not perk_map:
+        return 0
+    skill_names = set(perk_map.values())
+    if character_type == "smasher":
+        equipped = _smasher_equipped_skills
+    elif character_type == "viper":
+        equipped = _viper_equipped_skills
+    elif character_type == "soldier":
+        equipped = _soldier_equipped_skills
+    else:
+        return 0
+    return sum(1 for s in equipped if s in skill_names)
+
+
+def _active_perk_weight(character_type: str) -> float:
+    """퍽 풀에서 액티브 스킬 퍽 1개가 가져야 할 샘플링 가중치.
+
+    - 5/5 포화 시 ACTIVE_PERK_FULL_SLOT_WEIGHT (0.15) — 스왑 제안용으로 가끔 노출.
+    - 그 외에는 ACTIVE_PERK_BASE_WEIGHT * (remaining / expandable) 로 선형 감쇠.
+    - 5구슬 시스템이 없는 캐릭터는 BASE_WEIGHT 유지(기본 랜덤과 동일 효과).
+    """
+    base_orb = _CHARACTER_BASE_ORB_COUNT.get(character_type)
+    if base_orb is None:
+        return ACTIVE_PERK_BASE_WEIGHT
+    if _are_character_skill_slots_full(character_type):
+        return ACTIVE_PERK_FULL_SLOT_WEIGHT
+    expandable = 5 - base_orb
+    if expandable <= 0:
+        return ACTIVE_PERK_BASE_WEIGHT
+    owned = _count_owned_active_perks(character_type)
+    remaining = max(expandable - owned, 0)
+    return ACTIVE_PERK_BASE_WEIGHT * (remaining / expandable)
+
+
+def _weighted_perk_sample(available: list, character_type: str, k: int) -> list:
+    """available 리스트에서 k개를 비복원 가중치 샘플링.
+    unlock_* 액티브 퍽에만 _active_perk_weight() 를 적용하고 나머지는 1.0."""
+    if len(available) <= k:
+        return list(available)
+    unlock_ids = _get_character_unlock_perks(character_type)
+    active_weight = _active_perk_weight(character_type)
+    pool = []
+    for c in available:
+        w = active_weight if c.get("id") in unlock_ids else ACTIVE_PERK_BASE_WEIGHT
+        pool.append([c, w])
+    result = []
+    for _ in range(k):
+        if not pool:
+            break
+        total = sum(w for _, w in pool)
+        if total <= 0:
+            idx = random.randrange(len(pool))
+        else:
+            r = random.uniform(0, total)
+            cum = 0.0
+            idx = len(pool) - 1
+            for i, (_, w) in enumerate(pool):
+                cum += w
+                if cum >= r:
+                    idx = i
+                    break
+        chosen, _w = pool.pop(idx)
+        result.append(chosen)
+    return result
+
+
+def enforce_full_slot_perk_cap(choices: list, character_type: str, max_active: int) -> list:
+    """5/5 포화 상태에서 최종 선택지에 포함되는 액티브 스킬 퍽을 max_active 장 이하로 제한.
+    포화 상태가 아니면 no-op. 골드변환 등 일반 퍽은 영향 없음."""
+    if not _are_character_skill_slots_full(character_type):
+        return choices
+    unlock_ids = _get_character_unlock_perks(character_type)
+    if not unlock_ids:
+        return choices
+    active_count = 0
+    result = []
+    for c in choices:
+        if c.get("id") in unlock_ids:
+            if active_count >= max_active:
+                continue
+            active_count += 1
+        result.append(c)
+    return result
 
 
 def get_academy_unowned_active_perks(character_type: str) -> list:
