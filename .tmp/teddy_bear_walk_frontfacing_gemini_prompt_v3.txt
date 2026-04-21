@@ -1,0 +1,78 @@
+Create one 8-frame 4x2 sprite sheet of the SAME teddy bear doing a PURE front-facing lateral walk for a retro pixel-art boss game.
+
+The torso stays front-facing, but the LEGS, ARMS, and BODY HEIGHT must visibly animate across the 8 frames. This is NOT an idle gallery.
+
+SQUARED-TORSO RULE (keep):
+- Shoulders stay level and horizontal.
+- Chest / belly / heart patch face the viewer dead-on.
+- Face stays centered, both ears visible and symmetric.
+- Head does NOT tilt sideways, does NOT yaw left or right.
+- Torso does NOT rotate toward either side.
+- NO 3/4 angle. NO profile angle. NO side-view.
+
+MOTION RULES (must be visible between frames):
+- Legs visibly ALTERNATE: on contact frames one leg is clearly forward / planted while the other is back / lifted. Swap sides across the cycle.
+- Body height visibly BOBS up and down across the 8 frames. Between the lowest-bob frame and the highest-bob frame the entire bear should move roughly 6-10 pixels vertically at source-size.
+- Arms swing IN FRONT of the body, alternating: when the left leg is forward, the right paw swings slightly forward; when the right leg is forward, the left paw swings slightly forward. Swing is small and plush, but clearly different between frames.
+- Ears bounce vertically with the body bob.
+- Pink bow bounces vertically with the body bob.
+- Dangling right eye thread swings slightly.
+- Plush belly wobbles softly.
+- Pelvis may slide horizontally left/right slightly (translation, NOT rotation) to show weight transfer.
+
+This is PURE front-facing plush waddling walk:
+- Front-view paper-doll teddy, actively waddling in place.
+- Lateral travel across the screen comes from leg cycling and weight shift, not from torso rotation.
+
+Per-frame pose plan (frames MUST differ visibly):
+- f1 LEFT-contact: left foot forward and planted, right foot back, body at mid height, right paw swings slightly forward in front of belly, left paw slightly back.
+- f2 LEFT-pass / bob-up: left leg pushing off, right leg lifting, body at HIGH bob (visibly higher than f1), arms passing near neutral.
+- f3 PASSING: both legs near center under the bear, body at LOW bob (visibly lower than f1), arms passing neutral.
+- f4 RIGHT-contact: right foot forward and planted, left foot back, body at mid height, left paw swings slightly forward in front of belly, right paw slightly back (mirror of f1).
+- f5 RIGHT-pass / bob-up: right leg pushing off, left leg lifting, body at HIGH bob (visibly higher than f4), arms passing near neutral.
+- f6 PASSING: both legs near center under the bear, body at LOW bob, arms passing neutral (mirror of f3).
+- f7 returning LEFT-contact with slight variation (small arm / ear offset vs f1).
+- f8 loop-back close to f1 but with the dangling eye thread and bow in a slightly different swing phase.
+
+Character design to preserve in every frame:
+- plush cocoa-brown teddy bear, chibi stuffed-toy proportions
+- left button eye with red X stitch
+- right damaged dangling eye on a thread
+- large pink gingham bow on the head
+- cream neck ribbon
+- stitched heart belly patch
+- safety pin charm on chest
+- small black bow accent on one paw
+- bandage patches and plush patchwork logic
+- cute but slightly uncanny menhera-plush mood
+
+Hard reject:
+- 8 frames looking almost identical (idle gallery)
+- no visible vertical bob across the cycle
+- legs not alternating
+- arms not swinging
+- torso tilt, torso lean, shoulder tilt, or pelvis rotation
+- side-facing walk, 3/4 walk, angled walk, rotation chart
+- humanized runway gait
+- dance loop
+
+Style:
+- 16-bit retro pixel art
+- chibi proportions
+- thick black pixel outlines
+- flat limited-saturation palette
+- clean hard-edged pixels
+- NO painterly rendering
+- NO soft anime illustration
+- NO photorealism
+- pure flat white background (#FFFFFF)
+- no grid lines, no borders, no dividers, no labels between cells
+- each cell exactly equal size, character centered
+- full body visible in every frame
+- generous empty margin around each sprite
+- character fills about 45-55% of each cell's height
+
+Gameplay-scale readability is mandatory from the first generation.
+Face, button eye, dangling eye thread, bow, ribbon, heart patch, and paws must all stay readable at small in-game size.
+
+Deliver one strongest candidate first.

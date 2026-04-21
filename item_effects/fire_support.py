@@ -638,6 +638,20 @@ class FireSupport:
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.ammo_count = max(0, self.ammo_count - 1)
+        for module_name in ("__main__", "pingfighter"):
+            module = sys.modules.get(module_name)
+            controller = getattr(module, "soldier_controller", None) if module else None
+            releaser = getattr(controller, "release_rental_if_depleted", None) if controller else None
+            if callable(releaser):
+                try:
+                    removed = releaser("fire_support", current_ammo=self.ammo_count)
+                    if removed:
+                        switcher = getattr(module, "soldier_switch_weapon", None)
+                        if callable(switcher):
+                            switcher(getattr(controller, "current_index", 0), play_sound=False)
+                except Exception:  # noqa: BLE001
+                    pass
+                break
         self.radio_active = True
         self.reuse_locked = True
         self.radio_sound_played = False

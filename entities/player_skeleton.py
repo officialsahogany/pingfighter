@@ -372,6 +372,7 @@ def int_point(point: tuple[float, float]) -> tuple[int, int]:
 SLOT_HEAD = "head"
 SLOT_FACE = "face"
 SLOT_TORSO = "torso"
+SLOT_BELT = "belt"          # 허리 벨트 계열 (megingjord, timer_belt 등) — top과 독립
 SLOT_L_ARM = "l_arm"
 SLOT_R_ARM = "r_arm"
 SLOT_WEAPON = "weapon"
@@ -385,6 +386,7 @@ ORDER_BACK = 0
 ORDER_BOARD = 5
 ORDER_LEGS = 10
 ORDER_TORSO = 20
+ORDER_BELT = 22              # 벨트는 몸통 위, 팔 아래
 ORDER_R_ARM = 25             # 방패 팔 (몸통 뒤)
 ORDER_SHIELD = 27
 ORDER_HEAD = 30

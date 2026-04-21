@@ -12,6 +12,11 @@ from typing import List, Dict, Tuple, Optional, Any
 
 # --- Surface Pool ---
 _s6_surface_pool: dict = {}
+_s6_smoke_surface_cache: dict = {}
+_s6_core_surface_cache: dict = {}
+_s6_petal_surface_cache: dict = {}
+_s6_petal_rotation_cache: dict = {}
+_s6_dragon_head_surface_cache: dict = {}
 
 def _get_s6_pooled_surface(w: int, h: int) -> pygame.Surface:
     key = (w, h)
@@ -21,6 +26,119 @@ def _get_s6_pooled_surface(w: int, h: int) -> pygame.Surface:
         _s6_surface_pool[key] = surf
     else:
         surf.fill((0, 0, 0, 0))
+    return surf
+
+
+def _trim_s6_cache(cache: dict, max_size: int) -> None:
+    if len(cache) <= max_size:
+        return
+    remove_count = max(1, max_size // 4)
+    for _ in range(remove_count):
+        try:
+            cache.pop(next(iter(cache)))
+        except StopIteration:
+            break
+
+
+def _bucket_positive(value: float, step: int = 4, minimum: int = 1) -> int:
+    return max(minimum, int(round(value / step) * step))
+
+
+def _quantize_channel(value: int, step: int = 16) -> int:
+    return max(0, min(255, int(round(value / step) * step)))
+
+
+def _get_s6_smoke_surface(size: int, color: tuple[int, int, int], alpha: int) -> pygame.Surface:
+    """Cache smoke blobs so runtime only blits prebuilt sprites instead of redrawing circles."""
+    size_bucket = max(2, int(round(size / 2) * 2))
+    alpha_bucket = max(8, min(255, int(round(alpha / 24) * 24)))
+    color_bucket = tuple(_quantize_channel(channel) for channel in color)
+    key = (size_bucket, alpha_bucket, color_bucket)
+    surf = _s6_smoke_surface_cache.get(key)
+    if surf is not None:
+        return surf
+
+    halo_size = max(1, int(size_bucket * 1.55))
+    mid_size = max(1, int(size_bucket * 1.1))
+    core_size = max(1, int(size_bucket * 0.65))
+    radius = halo_size + 2
+    diameter = radius * 2 + 1
+    surf = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
+    cx = cy = radius
+
+    r, g, b = color_bucket
+    halo_a = int(alpha_bucket * 0.28)
+    mid_a = int(alpha_bucket * 0.55)
+    if halo_a > 0:
+        pygame.gfxdraw.filled_circle(surf, cx, cy, halo_size, (r, g, b, halo_a))
+    if mid_a > 0:
+        pygame.gfxdraw.filled_circle(surf, cx, cy, mid_size, (r, g, b, mid_a))
+    pygame.gfxdraw.filled_circle(surf, cx, cy, core_size, (r, g, b, alpha_bucket))
+    _s6_smoke_surface_cache[key] = surf
+    return surf
+
+
+def _get_s6_core_surface(core_size: int) -> pygame.Surface:
+    core_size = _bucket_positive(core_size, step=2, minimum=8)
+    surf = _s6_core_surface_cache.get(core_size)
+    if surf is not None:
+        return surf
+
+    radius = core_size + 12
+    diameter = radius * 2 + 1
+    surf = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
+    center = radius
+    for glow_index in range(3):
+        glow_alpha = 150 - glow_index * 40
+        glow_radius = core_size + glow_index * 5
+        pygame.gfxdraw.filled_circle(
+            surf,
+            center,
+            center,
+            glow_radius,
+            (255, 0, 100, glow_alpha),
+        )
+    pygame.draw.circle(surf, (20, 0, 10), (center, center), core_size)
+    pygame.draw.circle(surf, (255, 50, 150), (center, center), core_size, 3)
+    _trim_s6_cache(_s6_core_surface_cache, 96)
+    _s6_core_surface_cache[core_size] = surf
+    return surf
+
+
+def _get_s6_petal_surface(width: int, height: int) -> pygame.Surface:
+    width = _bucket_positive(width, step=2, minimum=6)
+    height = _bucket_positive(height, step=2, minimum=8)
+    key = (width, height)
+    surf = _s6_petal_surface_cache.get(key)
+    if surf is not None:
+        return surf
+
+    pw2, ph2 = width * 2, height * 2
+    surf = pygame.Surface((pw2, ph2), pygame.SRCALPHA)
+    for layer in range(3):
+        petal_color = (255 - layer * 30, 50 + layer * 20, 100 + layer * 30, 200 - layer * 50)
+        pygame.draw.ellipse(
+            surf,
+            petal_color,
+            (layer * 2, layer * 2, pw2 - layer * 4, ph2 - layer * 4),
+        )
+    _trim_s6_cache(_s6_petal_surface_cache, 96)
+    _s6_petal_surface_cache[key] = surf
+    return surf
+
+
+def _get_s6_rotated_petal_surface(width: int, height: int, angle_deg: float) -> pygame.Surface:
+    width = _bucket_positive(width, step=2, minimum=6)
+    height = _bucket_positive(height, step=2, minimum=8)
+    angle_bucket = int(round(angle_deg / 15.0) * 15)
+    key = (width, height, angle_bucket)
+    surf = _s6_petal_rotation_cache.get(key)
+    if surf is not None:
+        return surf
+
+    surf = pygame.transform.rotate(_get_s6_petal_surface(width, height), -angle_bucket)
+    _trim_s6_cache(_s6_petal_rotation_cache, 256)
+    _s6_petal_rotation_cache[key] = surf
     return surf
 
 
@@ -511,49 +629,104 @@ class Stage5FireMachineEvent:
                 self.spray_particles.remove(particle)
     
     def _create_smoke_effect(self, center_x, center_y, width, height):
-        """화염 소멸 시 연기 효과 생성"""
-        # 연기 파티클 생성 (30~50개)
-        for _ in range(random.randint(30, 50)):
-            # 화염 지대 영역 내에서 랜덤 위치
-            x = center_x + random.uniform(-width/2, width/2)
-            y = center_y + random.uniform(-height/2, height/2)
-            
-            # 연기는 위로 올라가면서 퍼짐
-            vel_x = random.uniform(-2, 2)
-            vel_y = random.uniform(-4, -1)  # 위쪽으로
-            
-            # 회색 계열 색상 (연기)
-            gray_value = random.randint(80, 150)
-            color = (gray_value, gray_value, gray_value)
-            
+        """화염 소멸 시 연막탄 스타일 연기 효과 생성"""
+        # 메인 파티클: 중심에서 살짝 조밀하게 흩뿌림
+        for _ in range(random.randint(45, 65)):
+            r = random.uniform(0.0, 1.0) ** 0.5
+            theta = random.uniform(0.0, math.tau)
+            x = center_x + math.cos(theta) * (width * 0.5) * r
+            y = center_y + math.sin(theta) * (height * 0.5) * r
+
+            # 초기 속도는 느리게 - 연막탄은 천천히 피어오름
+            vel_x = random.uniform(-0.8, 0.8)
+            vel_y = random.uniform(-2.2, -0.6)
+
+            # 살짝 쿨톤 기울인 회색 (연막탄 특유 질감)
+            gray = random.randint(150, 200)
+            color = (
+                max(0, gray - random.randint(0, 12)),
+                max(0, gray - random.randint(0, 6)),
+                min(255, gray + random.randint(0, 8)),
+            )
+
+            life = random.randint(80, 140)  # 1.3~2.3초
             particle = {
                 "x": x,
                 "y": y,
                 "vel_x": vel_x,
                 "vel_y": vel_y,
-                "size": random.uniform(10, 20),
-                "lifetime": random.randint(30, 60),  # 0.5~1초
+                "size": random.uniform(8, 14),
+                "max_size": random.uniform(28, 46),
+                "lifetime": life,
+                "max_lifetime": life,
                 "color": color,
-                "alpha": 200  # 초기 투명도
+                # 초기 잔열 주황빛 (화염이 막 꺼졌을 때만 살짝 비침)
+                "warmth": random.uniform(0.3, 0.9),
+                "wobble_phase": random.uniform(0.0, math.tau),
+                "wobble_freq": random.uniform(0.04, 0.09),
+                "wobble_amp": random.uniform(0.4, 1.0),
+                "alpha": 0,  # fade-in 으로 시작
             }
             self.smoke_particles.append(particle)
-    
+
+        # 초기 폭발 퍼프: 크고 느린 뭉게구름으로 초반 부피감을 만듦
+        for _ in range(random.randint(5, 8)):
+            x = center_x + random.uniform(-width * 0.3, width * 0.3)
+            y = center_y + random.uniform(-height * 0.2, height * 0.2)
+            life = random.randint(110, 170)
+            particle = {
+                "x": x,
+                "y": y,
+                "vel_x": random.uniform(-0.4, 0.4),
+                "vel_y": random.uniform(-1.4, -0.3),
+                "size": random.uniform(22, 34),
+                "max_size": random.uniform(55, 78),
+                "lifetime": life,
+                "max_lifetime": life,
+                "color": (180, 175, 175),
+                "warmth": random.uniform(0.5, 1.0),
+                "wobble_phase": random.uniform(0.0, math.tau),
+                "wobble_freq": random.uniform(0.03, 0.06),
+                "wobble_amp": random.uniform(0.6, 1.3),
+                "alpha": 0,
+            }
+            self.smoke_particles.append(particle)
+
     def _update_smoke_particles(self):
-        """연기 파티클 업데이트"""
+        """연기 파티클 업데이트 (연막탄 스타일)"""
         for particle in self.smoke_particles[:]:
             particle["lifetime"] -= 1
-            particle["x"] += particle["vel_x"]
+            max_life = particle.get("max_lifetime", 60) or 60
+            # 정규화된 수명 진행도 0(생성) -> 1(소멸)
+            t = 1.0 - max(0.0, particle["lifetime"] / max_life)
+
+            # 좌우 흔들림: 컬링(curling) 부피감
+            particle["wobble_phase"] += particle["wobble_freq"]
+            wobble = math.sin(particle["wobble_phase"]) * particle["wobble_amp"]
+
+            particle["x"] += particle["vel_x"] + wobble * 0.4
             particle["y"] += particle["vel_y"]
-            
-            # 연기는 위로 올라가면서 느려짐
-            particle["vel_y"] *= 0.98
-            particle["vel_x"] *= 0.95
-            
-            # 크기는 점점 커지면서 투명해짐
-            particle["size"] *= 1.02
-            particle["alpha"] = int(200 * (particle["lifetime"] / 60))  # 점점 투명해짐
-            
-            if particle["lifetime"] <= 0 or particle["alpha"] <= 10:
+
+            # 부력 감쇠 - 상승할수록 느려지고 옆으로 벌어짐
+            particle["vel_y"] *= 0.985
+            particle["vel_x"] *= 0.97
+
+            # 크기: 초반 빠른 팽창 후 완만한 ease-out
+            target = particle.get("max_size", particle["size"] * 2)
+            particle["size"] += (target - particle["size"]) * 0.045
+
+            # 알파: 급격히 등장 → 길게 유지 → 말미에 부드럽게 소멸
+            base_alpha = 180
+            if t < 0.12:
+                particle["alpha"] = int(base_alpha * (t / 0.12))
+            else:
+                fade_t = (t - 0.12) / 0.88
+                particle["alpha"] = int(base_alpha * max(0.0, 1.0 - fade_t) ** 1.6)
+
+            # 잔열 주황톤이 빠르게 식어서 회색으로 수렴
+            particle["warmth"] *= 0.965
+
+            if particle["lifetime"] <= 0 or particle["alpha"] <= 5:
                 self.smoke_particles.remove(particle)
     
     def _update_fire_streams(self):
@@ -663,6 +836,297 @@ class Stage5FireMachineEvent:
                 self.fire_zones.remove(fire_zone)
                 if self.DEBUG_ENABLED: print(f"🔥 화염 지대 소멸")
     
+    def _get_dragon_palette(self) -> dict[str, tuple[int, int, int]]:
+        return {
+            "deep": (40, 10, 20),
+            "dark": (80, 20, 30),
+            "mid": (120, 30, 50),
+            "light": (180, 50, 80),
+            "highlight": (255, 100, 150),
+            "pink": (255, 150, 180),
+        }
+
+    def _draw_dragon_neck(self, screen: pygame.Surface, angle: float, scale: float, neck_length: float) -> None:
+        palette = self._get_dragon_palette()
+        deep = palette["deep"]
+        dark = palette["dark"]
+        mid = palette["mid"]
+        light = palette["light"]
+        highlight = palette["highlight"]
+
+        dir_x = math.cos(angle)
+        dir_y = math.sin(angle)
+        perp_x = math.cos(angle + math.pi / 2.0)
+        perp_y = math.sin(angle + math.pi / 2.0)
+
+        base_half = max(6, int(15 * scale))
+        mid_half = max(5, int(12 * scale))
+        tip_half = max(4, int(8 * scale))
+
+        base_x = self.machine_x
+        base_y = self.machine_y
+        mid_x = base_x + dir_x * neck_length * 0.48
+        mid_y = base_y + dir_y * neck_length * 0.48
+        tip_x = base_x + dir_x * neck_length
+        tip_y = base_y + dir_y * neck_length
+
+        outer_points = [
+            (base_x + perp_x * base_half, base_y + perp_y * base_half),
+            (mid_x + perp_x * mid_half, mid_y + perp_y * mid_half),
+            (tip_x + perp_x * tip_half, tip_y + perp_y * tip_half),
+            (tip_x - perp_x * tip_half, tip_y - perp_y * tip_half),
+            (mid_x - perp_x * mid_half, mid_y - perp_y * mid_half),
+            (base_x - perp_x * base_half, base_y - perp_y * base_half),
+        ]
+        inner_points = [
+            (base_x + perp_x * (base_half * 0.58), base_y + perp_y * (base_half * 0.58)),
+            (mid_x + perp_x * (mid_half * 0.55), mid_y + perp_y * (mid_half * 0.55)),
+            (tip_x + perp_x * (tip_half * 0.52), tip_y + perp_y * (tip_half * 0.52)),
+            (tip_x - perp_x * (tip_half * 0.52), tip_y - perp_y * (tip_half * 0.52)),
+            (mid_x - perp_x * (mid_half * 0.55), mid_y - perp_y * (mid_half * 0.55)),
+            (base_x - perp_x * (base_half * 0.58), base_y - perp_y * (base_half * 0.58)),
+        ]
+
+        pygame.draw.polygon(screen, deep, outer_points)
+        pygame.draw.polygon(screen, mid, inner_points)
+        pygame.draw.polygon(screen, highlight, outer_points, 2)
+        pygame.draw.line(
+            screen,
+            light,
+            (int(base_x + perp_x * (base_half * 0.4)), int(base_y + perp_y * (base_half * 0.4))),
+            (int(tip_x + perp_x * (tip_half * 0.35)), int(tip_y + perp_y * (tip_half * 0.35))),
+            max(1, int(2 * scale)),
+        )
+
+        for scale_idx in range(4):
+            t = 0.2 + scale_idx * 0.18
+            seg_x = base_x + dir_x * neck_length * t
+            seg_y = base_y + dir_y * neck_length * t
+            scale_len = max(5, int((10 - scale_idx) * scale))
+            scale_points = [
+                (seg_x, seg_y - scale_len * 0.15),
+                (
+                    seg_x - perp_x * scale_len * 0.45 - dir_x * scale_len * 0.08,
+                    seg_y - perp_y * scale_len * 0.45 - dir_y * scale_len * 0.08,
+                ),
+                (seg_x + dir_x * scale_len * 0.35, seg_y + dir_y * scale_len * 0.35),
+                (
+                    seg_x + perp_x * scale_len * 0.45 - dir_x * scale_len * 0.08,
+                    seg_y + perp_y * scale_len * 0.45 - dir_y * scale_len * 0.08,
+                ),
+            ]
+            pygame.draw.polygon(screen, light, scale_points)
+            pygame.draw.polygon(screen, dark, scale_points, 1)
+
+    def _get_rotated_dragon_head_surface(
+        self,
+        head_length_px: int,
+        head_size: int,
+        jaw_open_amount: float,
+        jaw_phase: str,
+        angle_deg: float,
+    ) -> pygame.Surface:
+        length_bucket = _bucket_positive(head_length_px, step=4, minimum=20)
+        size_bucket = _bucket_positive(head_size, step=4, minimum=16)
+        jaw_bucket = max(0, int(round(jaw_open_amount / 2.0) * 2))
+        angle_bucket = int(round(angle_deg / 5.0) * 5)
+        phase_bucket = "breathing" if jaw_phase == "breathing" else ("open" if jaw_bucket > 6 else "closed")
+        cache_key = (length_bucket, size_bucket, jaw_bucket, phase_bucket, angle_bucket)
+        cached = _s6_dragon_head_surface_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        palette = self._get_dragon_palette()
+        deep = palette["deep"]
+        dark = palette["dark"]
+        mid = palette["mid"]
+        light = palette["light"]
+        highlight = palette["highlight"]
+        pink = palette["pink"]
+
+        surf_size = max(96, length_bucket * 4)
+        head_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+        cx = surf_size // 2
+        cy = surf_size // 2
+        snout_length = int(length_bucket * 0.72)
+
+        mane_base_x = cx - int(length_bucket * 0.34)
+        for mane_idx, y_offset in enumerate((-18, -8, 2, 12, 22)):
+            tip_x = mane_base_x - int(size_bucket * (0.42 + mane_idx * 0.08))
+            tip_y = cy + int(y_offset)
+            mane_points = [
+                (mane_base_x - int(size_bucket * 0.08), cy - int(size_bucket * 0.18) + mane_idx * 4),
+                (tip_x, tip_y),
+                (mane_base_x + int(size_bucket * 0.05), cy - int(size_bucket * 0.04) + mane_idx * 5),
+            ]
+            pygame.draw.polygon(head_surf, deep if mane_idx < 2 else dark, mane_points)
+            pygame.draw.polygon(head_surf, highlight, mane_points, 1)
+
+        for horn_side in (-1, 1):
+            horn_base_x = cx - int(length_bucket * 0.18)
+            horn_base_y = cy + horn_side * int(size_bucket * 0.28)
+            horn_points = [
+                (horn_base_x, horn_base_y),
+                (horn_base_x - int(size_bucket * 0.30), horn_base_y + horn_side * int(size_bucket * 0.18)),
+                (horn_base_x - int(size_bucket * 0.55), horn_base_y + horn_side * int(size_bucket * 0.48)),
+                (horn_base_x - int(size_bucket * 0.24), horn_base_y + horn_side * int(size_bucket * 0.12)),
+            ]
+            pygame.draw.polygon(head_surf, dark, horn_points)
+            pygame.draw.lines(head_surf, light, False, horn_points, 2)
+
+        pygame.draw.ellipse(
+            head_surf,
+            deep,
+            (cx - int(length_bucket * 0.50), cy - int(size_bucket * 0.50), int(length_bucket * 0.64), int(size_bucket * 1.02)),
+        )
+        pygame.draw.ellipse(
+            head_surf,
+            dark,
+            (cx - int(length_bucket * 0.44), cy - int(size_bucket * 0.44), int(length_bucket * 0.58), int(size_bucket * 0.92)),
+        )
+        pygame.draw.ellipse(
+            head_surf,
+            mid,
+            (cx - int(length_bucket * 0.40), cy - int(size_bucket * 0.36), int(length_bucket * 0.52), int(size_bucket * 0.78)),
+        )
+
+        brow_points = [
+            (cx - int(length_bucket * 0.20), cy - int(size_bucket * 0.34)),
+            (cx + int(length_bucket * 0.10), cy - int(size_bucket * 0.46)),
+            (cx + int(length_bucket * 0.24), cy - int(size_bucket * 0.38)),
+            (cx + int(length_bucket * 0.02), cy - int(size_bucket * 0.22)),
+            (cx - int(length_bucket * 0.12), cy - int(size_bucket * 0.20)),
+        ]
+        pygame.draw.polygon(head_surf, light, brow_points)
+        pygame.draw.polygon(head_surf, highlight, brow_points, 1)
+
+        upper_jaw = [
+            (cx - int(length_bucket * 0.02), cy - int(size_bucket * 0.18)),
+            (cx + int(length_bucket * 0.18), cy - int(size_bucket * 0.34)),
+            (cx + int(length_bucket * 0.40), cy - int(size_bucket * 0.30)),
+            (cx + int(length_bucket * 0.58), cy - int(size_bucket * 0.22)),
+            (cx + snout_length, cy - int(size_bucket * 0.08)),
+            (cx + snout_length + 6, cy - 2),
+            (cx + snout_length, cy + 3),
+            (cx + int(length_bucket * 0.40), cy + 2),
+            (cx + int(length_bucket * 0.05), cy - 2),
+        ]
+        pygame.draw.polygon(head_surf, mid, upper_jaw)
+        pygame.draw.polygon(head_surf, highlight, upper_jaw, 2)
+
+        lower_jaw = [
+            (cx - int(length_bucket * 0.02), cy + int(size_bucket * 0.10)),
+            (cx + int(length_bucket * 0.16), cy + int(size_bucket * 0.20) + int(jaw_bucket * 0.45)),
+            (cx + int(length_bucket * 0.36), cy + int(size_bucket * 0.18) + int(jaw_bucket * 0.75)),
+            (cx + int(length_bucket * 0.58), cy + int(size_bucket * 0.10) + jaw_bucket),
+            (cx + int(snout_length * 0.92), cy + int(size_bucket * 0.02) + jaw_bucket),
+            (cx + int(snout_length * 0.85), cy + int(size_bucket * 0.04)),
+            (cx + int(length_bucket * 0.40), cy + int(size_bucket * 0.04)),
+            (cx + int(length_bucket * 0.08), cy + int(size_bucket * 0.06)),
+        ]
+        pygame.draw.polygon(head_surf, dark, lower_jaw)
+        pygame.draw.polygon(head_surf, deep, lower_jaw, 2)
+
+        if jaw_bucket > 2:
+            mouth_points = [
+                (cx + int(length_bucket * 0.08), cy),
+                (cx + int(snout_length * 0.72), cy + int(size_bucket * 0.02)),
+                (cx + int(length_bucket * 0.16), cy + int(jaw_bucket * 0.38)),
+            ]
+            pygame.draw.polygon(head_surf, (25, 10, 18), mouth_points)
+            inner_mouth_points = [
+                (cx + int(length_bucket * 0.12), cy),
+                (cx + int(snout_length * 0.62), cy + int(size_bucket * 0.02)),
+                (cx + int(length_bucket * 0.18), cy + int(jaw_bucket * 0.32)),
+            ]
+            pygame.draw.polygon(head_surf, pink, inner_mouth_points)
+            if jaw_bucket > 8:
+                tongue_points = [
+                    (cx + int(length_bucket * 0.18), cy + int(jaw_bucket * 0.10)),
+                    (cx + int(length_bucket * 0.34), cy + int(jaw_bucket * 0.24)),
+                    (cx + int(length_bucket * 0.52), cy + int(jaw_bucket * 0.26)),
+                    (cx + int(length_bucket * 0.72), cy + int(jaw_bucket * 0.30)),
+                    (cx + int(length_bucket * 0.62), cy + int(jaw_bucket * 0.18)),
+                    (cx + int(length_bucket * 0.40), cy + int(jaw_bucket * 0.20)),
+                ]
+                pygame.draw.polygon(head_surf, (220, 80, 100), tongue_points)
+                pygame.draw.line(
+                    head_surf,
+                    (180, 60, 80),
+                    (cx + int(length_bucket * 0.22), cy + int(jaw_bucket * 0.12)),
+                    (cx + int(length_bucket * 0.64), cy + int(jaw_bucket * 0.24)),
+                    2,
+                )
+
+        tooth_color = (255, 255, 245)
+        for tooth_idx in range(5):
+            tooth_x = cx + int(length_bucket * 0.16) + tooth_idx * int(length_bucket * 0.11)
+            tooth_points = [
+                (tooth_x - 3, cy - int(size_bucket * 0.01)),
+                (tooth_x, cy + int(size_bucket * (0.10 if tooth_idx in (1, 3) else 0.16))),
+                (tooth_x + 3, cy - int(size_bucket * 0.01)),
+            ]
+            pygame.draw.polygon(head_surf, tooth_color, tooth_points)
+        if jaw_bucket > 6:
+            for tooth_idx in range(4):
+                tooth_x = cx + int(length_bucket * 0.22) + tooth_idx * int(length_bucket * 0.12)
+                base_y = cy + int(size_bucket * 0.06) + int(jaw_bucket * 0.34)
+                tooth_points = [(tooth_x - 2, base_y), (tooth_x, base_y - int(size_bucket * 0.14)), (tooth_x + 2, base_y)]
+                pygame.draw.polygon(head_surf, tooth_color, tooth_points)
+
+        eye_rect = pygame.Rect(
+            int(cx - int(length_bucket * 0.11)),
+            int(cy - int(size_bucket * 0.28)),
+            int(size_bucket * 0.48),
+            int(size_bucket * 0.24),
+        )
+        pygame.draw.ellipse(head_surf, deep, eye_rect.inflate(6, 6))
+        pygame.draw.ellipse(head_surf, (15, 5, 8), eye_rect)
+        pygame.draw.ellipse(head_surf, (255, 185 if phase_bucket == "breathing" else 160, 30), eye_rect.inflate(-6, -6))
+        pupil_width = 3 if phase_bucket == "breathing" else 5
+        pygame.draw.ellipse(
+            head_surf,
+            (20, 5, 5),
+            pygame.Rect(eye_rect.centerx - pupil_width // 2, eye_rect.top + 4, pupil_width, max(4, eye_rect.height - 8)),
+        )
+        pygame.draw.circle(head_surf, (255, 255, 220), (eye_rect.left + 7, eye_rect.top + 5), 3)
+
+        nostril_x = cx + snout_length - int(size_bucket * 0.08)
+        nostril_y = cy - int(size_bucket * 0.08)
+        pygame.draw.ellipse(head_surf, deep, (nostril_x - 8, nostril_y - 5, 12, 8))
+        pygame.draw.ellipse(head_surf, (10, 5, 15), (nostril_x - 5, nostril_y - 3, 8, 5))
+        pygame.draw.ellipse(head_surf, deep, (nostril_x - 8, nostril_y + 7, 12, 8))
+        pygame.draw.ellipse(head_surf, (10, 5, 15), (nostril_x - 5, nostril_y + 9, 8, 5))
+        if phase_bucket == "breathing":
+            for smoke_idx in range(3):
+                smoke_r = max(1, 4 - smoke_idx)
+                smoke_x = nostril_x + 6 + smoke_idx * 4
+                smoke_y = nostril_y - 2 - smoke_idx * 2
+                pygame.draw.circle(head_surf, (110, 110, 110, 70 - smoke_idx * 16), (smoke_x, smoke_y), smoke_r)
+
+        whisker_base_x = cx + int(length_bucket * 0.04)
+        whisker_base_y = cy + int(size_bucket * 0.16) + int(jaw_bucket * 0.22)
+        for whisker_idx in range(3):
+            whisker_len = int(length_bucket * (0.42 - whisker_idx * 0.06))
+            whisker_y = whisker_base_y + whisker_idx * 5
+            start = (whisker_base_x - whisker_idx * 6, whisker_y)
+            mid_point = (start[0] - int(whisker_len * 0.45), whisker_y + int(whisker_len * 0.28))
+            end = (start[0] - whisker_len, whisker_y + int(whisker_len * 0.48))
+            pygame.draw.lines(head_surf, highlight, False, (start, mid_point, end), max(1, 3 - whisker_idx))
+
+        cheek_rect = pygame.Rect(
+            int(cx - int(length_bucket * 0.22)),
+            int(cy + int(size_bucket * 0.02)),
+            int(size_bucket * 0.28),
+            int(size_bucket * 0.16),
+        )
+        pygame.draw.ellipse(head_surf, light, cheek_rect)
+
+        rotated = pygame.transform.rotate(head_surf, -angle_bucket)
+        _trim_s6_cache(_s6_dragon_head_surface_cache, 384)
+        _s6_dragon_head_surface_cache[cache_key] = rotated
+        return rotated
+
     def check_fire_zone_collision(self, player_rect, is_rolling=False, in_smoke_grenade=False):
         """
         화염 지대와 플레이어 충돌 체크
@@ -841,6 +1305,13 @@ class Stage5FireMachineEvent:
                     petal_dist = 50 * self.machine_scale
                     petal_x = self.machine_x + math.cos(rad) * petal_dist
                     petal_y = self.machine_y + math.sin(rad) * petal_dist
+                    petal_width = int(25 * self.machine_scale)
+                    petal_height = int(40 * self.machine_scale)
+                    rotated_petal = _get_s6_rotated_petal_surface(petal_width, petal_height, angle)
+                    petal_rect = rotated_petal.get_rect(center=(int(petal_x), int(petal_y)))
+                    screen.blit(rotated_petal, petal_rect)
+                    pygame.draw.circle(screen, (255, 100, 200), (int(petal_x), int(petal_y)), int(12 * self.machine_scale), 2)
+                    continue
                     
                     # 꽃잎 모양 (타원형으로 그리기)
                     petal_width = int(25 * self.machine_scale)
@@ -898,6 +1369,81 @@ class Stage5FireMachineEvent:
                 d_jaw_phase = dragon_data["jaw_phase"]
 
                 if dragon_total_length > 5:
+                    neck_length = dragon_total_length * 0.7
+                    self._draw_dragon_neck(screen, d_cannon_angle, dragon_scale, neck_length)
+
+                    head_start_x = self.machine_x + math.cos(d_cannon_angle) * neck_length
+                    head_start_y = self.machine_y + math.sin(d_cannon_angle) * neck_length
+                    head_size = max(16, int(55 * dragon_scale))
+                    head_length_px = max(20, int(80 * dragon_scale))
+
+                    mouth_x = head_start_x + math.cos(d_cannon_angle) * head_length_px
+                    mouth_y = head_start_y + math.sin(d_cannon_angle) * head_length_px
+
+                    base_jaw_open = 25 * d_jaw_open
+                    if d_jaw_phase == "breathing":
+                        jaw_open_amount = base_jaw_open + 4 * math.sin(self.timer * 0.3 + dragon_idx * 0.5)
+                    else:
+                        jaw_open_amount = base_jaw_open
+
+                    rotated_head = self._get_rotated_dragon_head_surface(
+                        head_length_px,
+                        head_size,
+                        jaw_open_amount,
+                        d_jaw_phase,
+                        math.degrees(d_cannon_angle),
+                    )
+                    head_rect = rotated_head.get_rect(
+                        center=(
+                            int(head_start_x + math.cos(d_cannon_angle) * head_length_px * 0.3),
+                            int(head_start_y + math.sin(d_cannon_angle) * head_length_px * 0.3),
+                        )
+                    )
+                    screen.blit(rotated_head, head_rect)
+
+                    if dragon_data["cannon_emergence"] >= 0.8 and d_jaw_open > 0.3:
+                        glow_multiplier = min(1.0, d_jaw_open)
+                        glow_intensity = int((150 + 80 * math.sin(self.timer * 0.2 + dragon_idx * 0.3)) * glow_multiplier)
+                        imx = int(mouth_x)
+                        imy = int(mouth_y)
+                        for g in range(5):
+                            glow_size = int((20 - g * 3) * dragon_scale * glow_multiplier)
+                            if glow_size < 1:
+                                continue
+                            alpha = int((100 - g * 15) * glow_multiplier)
+                            r = 255
+                            gr = min(255, glow_intensity + g * 20)
+                            b = min(255, 100 + g * 30)
+                            pygame.gfxdraw.filled_circle(screen, imx, imy, glow_size, (r, gr, b, alpha))
+
+                    if dragon_data["is_aiming"]:
+                        line_length = math.hypot(
+                            dragon_data["aim_target_x"] - mouth_x,
+                            dragon_data["aim_target_y"] - mouth_y
+                        )
+                        segments = int(line_length / 20) if line_length > 0 else 1
+
+                        for i in range(0, segments, 2):
+                            start_ratio = i / segments
+                            end_ratio = min((i + 1) / segments, 1)
+
+                            start_x = mouth_x + (dragon_data["aim_target_x"] - mouth_x) * start_ratio
+                            start_y = mouth_y + (dragon_data["aim_target_y"] - mouth_y) * start_ratio
+                            end_x = mouth_x + (dragon_data["aim_target_x"] - mouth_x) * end_ratio
+                            end_y = mouth_y + (dragon_data["aim_target_y"] - mouth_y) * end_ratio
+
+                            pygame.draw.line(
+                                screen,
+                                (255, 0, 0, 100),
+                                (int(start_x), int(start_y)),
+                                (int(end_x), int(end_y)),
+                                1,
+                            )
+
+                        pygame.draw.circle(screen, (255, 0, 0), (int(dragon_data["aim_target_x"]), int(dragon_data["aim_target_y"])), 8, 2)
+                        pygame.draw.circle(screen, (255, 100, 100), (int(dragon_data["aim_target_x"]), int(dragon_data["aim_target_y"])), 4, 2)
+
+                    continue
                     # 용 색상 팔레트 (홍련 기계와 동일한 붉은색/분홍색 계열)
                     dragon_deep = (40, 10, 20)        # 깊은 붉은색
                     dragon_dark = (80, 20, 30)        # 어두운 붉은색
@@ -1391,15 +1937,25 @@ class Stage5FireMachineEvent:
                              (int(particle["x"]), int(particle["y"])),
                              int(particle["size"]))
         
-        # 연기 파티클 그리기 - gfxdraw 직접 렌더링 (Surface 생성 제거)
+        # 연기 파티클 그리기 - cached blob blits keep the same look without per-particle circle redraws.
         for particle in self.smoke_particles:
+            a = min(255, max(0, int(particle["alpha"])))
+            if a <= 0:
+                continue
             px = int(particle["x"])
             py = int(particle["y"])
             size = max(1, int(particle["size"]))
-            r, g, b = particle["color"]
-            a = min(255, int(particle["alpha"]))
-            if a > 0:
-                pygame.gfxdraw.filled_circle(screen, px, py, size, (r, g, b, a))
+
+            base_r, base_g, base_b = particle["color"]
+            w = particle.get("warmth", 0.0)
+            # 잔열 주황 혼합 (w 가 0 에 수렴하면 순수 회색)
+            r = max(0, min(255, int(base_r + w * 45)))
+            g = max(0, min(255, int(base_g + w * 20)))
+            b = max(0, min(255, int(base_b - w * 10)))
+
+            # 외곽 헤일로: 매우 옅게, 크게 - 볼륨감 생성
+            smoke_surf = _get_s6_smoke_surface(size, (r, g, b), a)
+            screen.blit(smoke_surf, smoke_surf.get_rect(center=(px, py)))
     
     def deactivate(self):
         """이벤트 비활성화"""

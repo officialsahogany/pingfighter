@@ -23,6 +23,15 @@ If a conflict arises inside this skill about runtime behavior, `AGENTS.md`
 wins and the skill should be updated to point at `AGENTS.md` for that item
 rather than restating it.
 
+Critical cross-document guardrail:
+
+- A regenerated walk sheet does NOT become canonical automatically.
+- If the candidate walk is more side-biased than the previous accepted
+  walk, reject / regenerate / rollback asset-side instead of handing it
+  to Codex for runtime rescue.
+- Front-biased walk means stable left and right travel still read as
+  forward-facing in gameplay.
+
 ---
 
 ## Stage mapping (critical, often mis-remembered)

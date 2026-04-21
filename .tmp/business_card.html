@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PingFighter 명함 — 최종 시안</title>
+<style>
+  @font-face {
+    font-family: 'DungGeunMo';
+    src: url('../fonts/pixel/DungGeunMo.woff') format('woff');
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 50px 20px;
+    font-family: 'DungGeunMo', 'Press Start 2P', monospace;
+    color: #e0e0e0;
+    min-height: 100vh;
+  }
+
+  h1 {
+    color: #00ff88;
+    font-size: 22px;
+    margin-bottom: 6px;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+  }
+
+  .subtitle {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 50px;
+  }
+
+  .card-container {
+    display: flex;
+    gap: 70px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 50px;
+  }
+
+  .card-wrapper { text-align: center; }
+
+  .card-label {
+    color: #555;
+    font-size: 13px;
+    margin-bottom: 14px;
+    letter-spacing: 3px;
+  }
+
+  /* ===== 명함 공통 (90×50mm 비율) ===== */
+  .card {
+    width: 540px;
+    height: 300px;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.6),
+      0 0 60px rgba(0, 255, 136, 0.08);
+    image-rendering: pixelated;
+  }
+
+  /* ===== 앞면 — 미니멀 회사 중심 ===== */
+  .card-front {
+    background: #0a0a14;
+    border: 2px solid #1a1a30;
+  }
+
+  /* CRT 스캔라인 */
+  .card-front::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent, transparent 2px,
+      rgba(0, 255, 136, 0.010) 2px,
+      rgba(0, 255, 136, 0.010) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* 상단 회사 로고 영역 */
+  .front-header {
+    position: absolute;
+    top: 32px; left: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 5;
+  }
+  .front-header .emblem-wrap {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .front-header .emblem {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 52% 50%;
+    transform: scale(1.35);
+    display: block;
+  }
+  .front-header .logo-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .front-header .logo-ko {
+    font-size: 10px;
+    color: #888;
+    letter-spacing: 4px;
+  }
+  .front-header .logo-en {
+    font-size: 16px;
+    color: #fff;
+    letter-spacing: 3px;
+  }
+
+  /* 네온 구분선 */
+  .front-divider {
+    position: absolute;
+    top: 92px;
+    left: 32px;
+    right: 32px;
+    height: 1px;
+    background: linear-gradient(90deg, #00ff88 0%, rgba(0, 255, 136, 0.3) 60%, transparent 100%);
+    z-index: 5;
+  }
+
+  /* 뒷면 회사 라인 + 엠블럼 */
+  .back-company-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .back-emblem {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  /* 좌측 연락처 블록 (세로 중앙) */
+  .front-contact {
+    position: absolute;
+    top: 165px;
+    left: 32px;
+    z-index: 5;
+  }
+  .front-contact .label {
+    font-size: 8px;
+    color: #00ccff;
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+    opacity: 0.6;
+  }
+  .front-contact .contact-line {
+    font-size: 11px;
+    color: #aaa;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .front-contact .icon {
+    display: inline-block;
+    width: 14px;
+    color: #00ff88;
+    text-align: center;
+    margin-right: 6px;
+    font-size: 10px;
+  }
+
+  /* 우측 이름 블록 */
+  .front-name-block {
+    position: absolute;
+    top: 155px;
+    right: 32px;
+    text-align: right;
+    z-index: 5;
+  }
+  .front-name-block .label {
+    font-size: 8px;
+    color: #ff6b9d;
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+    opacity: 0.6;
+  }
+  .front-name-block .ko-name {
+    font-size: 22px;
+    color: #fff;
+    letter-spacing: 6px;
+    margin-bottom: 4px;
+  }
+  .front-name-block .en-name {
+    font-size: 10px;
+    color: #666;
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+  }
+  .front-name-block .title {
+    font-size: 9px;
+    color: #555;
+    letter-spacing: 3px;
+  }
+
+  /* ===== 뒷면 — 로고 히어로 레이아웃 ===== */
+  .card-back {
+    background: #0a0a14;
+    border: 2px solid #1a1a30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 뒷면 글로우 원형 배경 */
+  .back-glow {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 50, 50, 0.25) 0%, rgba(0, 255, 136, 0.08) 40%, transparent 70%);
+    z-index: 1;
+  }
+
+  /* 뒷면 히어로 (중앙 정렬) */
+  .back-hero {
+    position: relative;
+    z-index: 3;
+    text-align: center;
+  }
+
+  /* 펭귄 로고를 감싸는 원형 마스크 */
+  .hero-emblem-wrap {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    margin: 0 auto 18px;
+    box-shadow: 0 0 40px rgba(255, 80, 80, 0.35);
+  }
+  .hero-emblem {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 52% 50%;
+    transform: scale(1.35);
+    display: block;
+  }
+
+  .hero-ko {
+    font-size: 28px;
+    color: #fff;
+    letter-spacing: 6px;
+    margin-bottom: 6px;
+  }
+
+  .hero-en {
+    font-size: 12px;
+    color: #00ff88;
+    letter-spacing: 5px;
+    margin-bottom: 8px;
+    opacity: 0.8;
+  }
+
+  .hero-tagline {
+    font-size: 10px;
+    color: #666;
+    letter-spacing: 4px;
+  }
+
+  /* 뒷면 하단 EST. 표시 */
+  .back-est {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8px;
+    color: #333;
+    letter-spacing: 4px;
+    z-index: 5;
+  }
+
+  /* 뒷면 QR (우측 하단 코너) */
+  .back-qr {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 46px;
+    height: 46px;
+    border-radius: 3px;
+    background: #fff;
+    padding: 3px;
+    z-index: 5;
+  }
+  .back-qr canvas, .back-qr img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .back-qr-label {
+    position: absolute;
+    bottom: 8px;
+    right: 20px;
+    width: 46px;
+    text-align: center;
+    font-size: 7px;
+    color: #555;
+    letter-spacing: 2px;
+    z-index: 5;
+  }
+
+  .card-back::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent, transparent 2px,
+      rgba(0, 255, 136, 0.012) 2px,
+      rgba(0, 255, 136, 0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* 코너 장식 */
+  .corner { position: absolute; width: 18px; height: 18px; border-color: #1a3a2a; border-style: solid; z-index: 5; }
+  .corner.tl { top: 14px; left: 14px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: 14px; right: 14px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: 14px; left: 14px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: 14px; right: 14px; border-width: 0 2px 2px 0; }
+
+  .back-content {
+    text-align: center;
+    z-index: 5;
+    position: relative;
+  }
+
+  .back-logo {
+    font-size: 44px;
+    letter-spacing: 4px;
+    margin-bottom: 6px;
+  }
+  .back-logo .ping { color: #00ff88; text-shadow: 2px 2px 0 #004d22, 0 0 18px rgba(0,255,136,0.35); }
+  .back-logo .fighter { color: #ff6b9d; text-shadow: 2px 2px 0 #551133, 0 0 18px rgba(255,107,157,0.35); }
+
+  .back-tagline {
+    font-size: 12px;
+    color: #00ccff;
+    letter-spacing: 8px;
+    margin-bottom: 18px;
+    opacity: 0.7;
+  }
+
+  .back-company {
+    font-size: 13px;
+    color: #666;
+    letter-spacing: 6px;
+    margin-bottom: 22px;
+  }
+
+  .back-desc {
+    font-size: 13px;
+    color: #999;
+    letter-spacing: 2px;
+    margin-bottom: 22px;
+  }
+
+  /* QR */
+  .qr-area {
+    width: 82px; height: 82px;
+    border: 2px solid #333;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    margin: 0 auto;
+  }
+  .qr-placeholder {
+    font-family: sans-serif;
+    font-size: 9px;
+    color: #aaa;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .qr-label {
+    font-size: 9px;
+    color: #444;
+    margin-top: 8px;
+    letter-spacing: 3px;
+  }
+
+  /* ===== 인쇄 가이드 ===== */
+  .print-guide {
+    background: #0d0d18;
+    border: 1px solid #1a1a30;
+    border-radius: 8px;
+    padding: 24px 32px;
+    max-width: 580px;
+    margin-top: 20px;
+    font-size: 13px;
+    line-height: 2.2;
+    color: #777;
+  }
+  .print-guide h3 {
+    color: #00ccff;
+    font-size: 14px;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+  }
+  .print-guide .hl { color: #00ff88; }
+
+  /* 다크 배경 인쇄 주의 */
+  .print-warning {
+    background: #1a1122;
+    border: 1px solid #332244;
+    border-radius: 6px;
+    padding: 16px 24px;
+    max-width: 580px;
+    margin-top: 16px;
+    font-size: 12px;
+    line-height: 2;
+    color: #aa88cc;
+  }
+  .print-warning strong { color: #ff6b9d; }
+</style>
+</head>
+<body>
+
+<h1>DONGNE GAMES BUSINESS CARDS</h1>
+<p class="subtitle">게임아이콘 서울 2026 — DARK NEON 최종 시안</p>
+
+<!-- ========== 01. 우재엽 ========== -->
+<p class="section-title" style="color:#00ff88; font-size:16px; letter-spacing:3px; margin:20px 0 8px;">&#9658; 01 &#9642; 우재엽 / WOO JAE YEOB</p>
+
+<div class="card-container">
+  <div class="card-wrapper">
+    <p class="card-label">FRONT</p>
+    <div class="card card-front">
+      <div class="front-header">
+        <div class="emblem-wrap">
+          <img src="../dongne.jpg" alt="Dongne Games" class="emblem">
+        </div>
+        <div class="logo-text">
+          <div class="logo-ko">동네게임즈</div>
+          <div class="logo-en">DONGNE GAMES</div>
+        </div>
+      </div>
+
+      <div class="front-divider"></div>
+
+      <div class="front-contact">
+        <div class="label">CONTACT</div>
+        <div class="contact-line"><span class="icon">T</span>010-8201-8924</div>
+        <div class="contact-line"><span class="icon">@</span>officialsahogany@gmail.com</div>
+        <div class="contact-line"><span class="icon">Y</span>youtube.com/@동네게임즈</div>
+      </div>
+
+      <div class="front-name-block">
+        <div class="label">DEVELOPER</div>
+        <div class="ko-name">우 재 엽</div>
+        <div class="en-name">WOO JAE YEOB</div>
+        <div class="title">GAME DEVELOPER</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-wrapper">
+    <p class="card-label">BACK</p>
+    <div class="card card-back">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+
+      <div class="back-glow"></div>
+
+      <div class="back-hero">
+        <div class="hero-emblem-wrap">
+          <img src="../dongne.jpg" alt="Dongne Games" class="hero-emblem">
+        </div>
+        <div class="hero-ko">동네게임즈</div>
+        <div class="hero-en">DONGNE GAMES</div>
+        <div class="hero-tagline">INDIE GAME STUDIO</div>
+      </div>
+
+      <div class="back-est">EST. 2026 &#9642; SEOUL</div>
+
+      <div class="back-qr" id="qrcode-back"></div>
+    </div>
+  </div>
+</div>
+
+<hr style="border:0; border-top:1px dashed #333; margin:60px auto; max-width:700px;">
+
+<!-- ========== 02. 표현준 ========== -->
+<p class="section-title" style="color:#ff6b9d; font-size:16px; letter-spacing:3px; margin:20px 0 8px;">&#9658; 02 &#9642; 표현준 / PYO HYUN JUN</p>
+
+<div class="card-container">
+  <div class="card-wrapper">
+    <p class="card-label">FRONT</p>
+    <div class="card card-front">
+      <div class="front-header">
+        <div class="emblem-wrap">
+          <img src="../dongne.jpg" alt="Dongne Games" class="emblem">
+        </div>
+        <div class="logo-text">
+          <div class="logo-ko">동네게임즈</div>
+          <div class="logo-en">DONGNE GAMES</div>
+        </div>
+      </div>
+
+      <div class="front-divider"></div>
+
+      <div class="front-contact">
+        <div class="label">CONTACT</div>
+        <div class="contact-line"><span class="icon">T</span>010-2273-0184</div>
+        <div class="contact-line"><span class="icon">@</span>vyguswns7@naver.com</div>
+        <div class="contact-line"><span class="icon">Y</span>youtube.com/@동네게임즈</div>
+      </div>
+
+      <div class="front-name-block">
+        <div class="label">CONSULTANT</div>
+        <div class="ko-name">표 현 준</div>
+        <div class="en-name">PYO HYUN JUN</div>
+        <div class="title">DESIGN CONSULTANT</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-wrapper">
+    <p class="card-label">BACK</p>
+    <div class="card card-back">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+
+      <div class="back-glow"></div>
+
+      <div class="back-hero">
+        <div class="hero-emblem-wrap">
+          <img src="../dongne.jpg" alt="Dongne Games" class="hero-emblem">
+        </div>
+        <div class="hero-ko">동네게임즈</div>
+        <div class="hero-en">DONGNE GAMES</div>
+        <div class="hero-tagline">INDIE GAME STUDIO</div>
+      </div>
+
+      <div class="back-est">EST. 2026 &#9642; SEOUL</div>
+
+      <div class="back-qr" id="qrcode-back-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- QR 테스트 -->
+<div class="print-guide" style="text-align:center;">
+  <h3 style="color:#ff6b9d;">QR 코드 테스트</h3>
+  <p style="color:#888; font-size:11px; margin-bottom:16px; letter-spacing:1px;">
+    아래 큰 QR을 폰으로 스캔해서 동네게임즈 유튜브가 열리는지 확인하세요
+  </p>
+  <div id="qrcode-test" style="display:inline-block; padding:12px; background:#fff; border-radius:6px;"></div>
+  <p style="color:#555; font-size:10px; margin-top:12px; font-family:sans-serif;">
+    연결 URL: <a href="https://www.youtube.com/@%EB%8F%99%EB%84%A4%EA%B2%8C%EC%9E%84%EC%A6%88" target="_blank" style="color:#00ccff;">youtube.com/@동네게임즈</a>
+  </p>
+</div>
+
+<!-- 인쇄 가이드 -->
+<div class="print-guide">
+  <h3>PRINT GUIDE</h3>
+  &#9642; 크기: <span class="hl">90 x 50mm</span> (한국 표준)<br>
+  &#9642; 용지: <span class="hl">모조지 300g + 무광 코팅</span> 또는 <span class="hl">블랙 레자크지</span><br>
+  &#9642; 수량: 200~300장 (전시회용)<br>
+  &#9642; 비용: 약 2~3만원 (다크 배경은 양면 컬러 인쇄)<br>
+  &#9642; 납기: 2~3 영업일<br>
+  &#9642; 폰트: <span class="hl">둥근모꼴 (DungGeunMo)</span> — 무료 상업용 라이선스
+</div>
+
+<div class="print-warning">
+  <strong>&#9888; 다크 배경 인쇄 팁:</strong><br>
+  &#9642; "양면 컬러 인쇄" 옵션 선택 (일반 명함보다 약간 비쌈)<br>
+  &#9642; 검정 배경은 <strong>리치 블랙 (C40 M30 Y30 K100)</strong>으로 변환 권장<br>
+  &#9642; 네온 컬러(#00ff88)는 인쇄 시 약간 탁해짐 → 형광 잉크 옵션 문의<br>
+  &#9642; 무광 코팅이 네온+다크 조합에 가장 잘 어울림
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+  // URL-encoded Korean handle for QR scanner compatibility
+  var YT_URL = "https://www.youtube.com/@%EB%8F%99%EB%84%A4%EA%B2%8C%EC%9E%84%EC%A6%88";
+
+  new QRCode(document.getElementById("qrcode-back"), {
+    text: YT_URL,
+    width: 40,
+    height: 40,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  new QRCode(document.getElementById("qrcode-back-2"), {
+    text: YT_URL,
+    width: 40,
+    height: 40,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  // QR 테스트용 큰 버전
+  var testDiv = document.getElementById("qrcode-test");
+  if (testDiv) {
+    new QRCode(testDiv, {
+      text: YT_URL,
+      width: 180,
+      height: 180,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  }
+</script>
+</body>
+</html>

@@ -3119,6 +3119,7 @@ class BuildingInterior:
 
         # ===== 강화 시스템 (BLACKSMITH 전용) =====
         self.enhancement_menu_open = False  # 강화 메뉴 열림 여부
+        self.enhancement_menu_selection = 0  # 0: 강화하기, 1: 나가기
         self.enhancement_item_select_open = False  # 아이템 선택창 열림
         self.enhancement_confirm_open = False  # 강화 확인창 열림
         self.enhancement_confirm_selection = 0  # 0: 예, 1: 아니오
@@ -3130,6 +3131,7 @@ class BuildingInterior:
         self.enhancement_animation_timer = 0.0  # 애니메이션 타이머
         self.enhancement_hover_item = None  # 호버 중인 아이템
         self.enhancement_item_rects = {}  # 아이템 클릭 영역
+        self.enhancement_focus_index = 0  # 키보드 선택 중인 강화 대상 인덱스
         self.enhancement_scroll = 0  # 스크롤 오프셋
         self._enhancement_max_scroll = 0
         self.enhancement_last_swing = -1  # 마지막 스윙 사이클 번호 (사운드 중복 방지)
@@ -3182,8 +3184,9 @@ class BuildingInterior:
             {"name": "adversity_armor", "base_price": 1100, "korean": "역경의 갑옷"},
             {"name": "shrapnel_armor", "base_price": 900, "korean": "파편갑옷"},
             {"name": "soul_burst", "base_price": 750, "korean": "소울버스트"},
-            {"name": "sage_ring", "base_price": 900, "korean": "현자의 반지"},
+            {"name": "sage_ring", "base_price": 1800, "korean": "현자의 반지"},
             {"name": "venom_mist_gauntlet", "base_price": 700, "korean": "독안개장갑"},
+            {"name": "fake_arm", "base_price": 800, "korean": "훼이크암"},
         ]
 
         # 전설 아이템 목록 (5% 확률)
@@ -3199,6 +3202,7 @@ class BuildingInterior:
             {"name": "megingjord", "base_price": 3900, "korean": "메긴교르드", "type": "legendary"},
             {"name": "valhalla_warplate", "base_price": 4080, "korean": "발할라의 전갑", "type": "legendary"},
             {"name": "horn_strawberry_mask", "base_price": 4200, "korean": "뿔딸기 변신가면", "type": "legendary"},
+            {"name": "heavenly_cape", "base_price": 4350, "korean": "천상의 망토", "type": "legendary"},
         ]
 
         # 랜덤 아이템 개수 (5~12개)
@@ -3266,6 +3270,21 @@ class BuildingInterior:
             # 랜덤 변동 제거 - 일관된 가격 유지 (사고팔아도 가격 변동 없음)
             final_price = int(base_price + quality_roll_bonus)
             shop_item["price"] = final_price
+
+            # [DEBUG sage_ring] 가격 계산 로그 - 원인 파악 후 제거 예정
+            if selected["name"] == "sage_ring":
+                _rolls = shop_item.get("rolled_options")
+                _rolls_summary = (
+                    [(r.get("key"), r.get("value")) for r in _rolls]
+                    if isinstance(_rolls, list) else _rolls
+                )
+                print(
+                    f"[SHOP DEBUG sage_ring] rolls={_rolls_summary} "
+                    f"tier={shop_item.get('quality_tier')} "
+                    f"base={base_price} bonus={quality_roll_bonus} final={final_price} "
+                    f"roll_fn={'OK' if roll_passive_options else 'NONE'} "
+                    f"prefix_fn={'OK' if assign_item_prefix else 'NONE'}"
+                )
 
             self.shop_inventory.append(shop_item)
 
@@ -3841,6 +3860,7 @@ class BuildingInterior:
             {"name": "holy_barrier", "korean": "홀리베리어", "rarity": "common", "type": "active"},
             {"name": "dash_boost", "korean": "대쉬부스트", "rarity": "common", "type": "active"},
             {"name": "weather_capsule", "korean": "기상조절캡슐", "rarity": "common", "type": "active"},
+            {"name": "gods_stone", "korean": "신의 돌", "rarity": "common", "type": "active"},
             {"name": "dynamite", "korean": "다이너마이트", "rarity": "common", "type": "active"},
             {"name": "banana", "korean": "바나나", "rarity": "common", "type": "active"},
             {"name": "soap", "korean": "비누", "rarity": "common", "type": "active"},
@@ -3886,9 +3906,11 @@ class BuildingInterior:
             {"name": "lucky_coin", "korean": "럭키코인", "rarity": "epic", "type": "passive"},
             {"name": "soul_burst", "korean": "소울버스트", "rarity": "epic", "type": "passive"},
             {"name": "venom_mist_gauntlet", "korean": "독안개장갑", "rarity": "rare", "type": "passive"},
+            {"name": "fake_arm", "korean": "훼이크암", "rarity": "rare", "type": "passive"},
             # 에픽 패시브 (3개만)
             {"name": "sensor", "korean": "위험감지센서", "rarity": "epic", "type": "passive"},
             {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic", "type": "passive"},
+            {"name": "timer_belt", "korean": "타이머벨트", "rarity": "rare", "type": "passive"},
             {"name": "revival", "korean": "부활", "rarity": "epic", "type": "passive"},
             # 전설 패시브 - 완성된 6개 전설 아이템
             {"name": "ragnarok_hammer", "korean": "라그나로크해머", "rarity": "legendary", "type": "passive"},
@@ -3900,6 +3922,7 @@ class BuildingInterior:
             {"name": "pandora_legacy", "korean": "판도라의유산", "rarity": "legendary", "type": "passive"},
             {"name": "megingjord", "korean": "메긴교르드", "rarity": "legendary", "type": "passive"},
             {"name": "horn_strawberry_mask", "korean": "뿔딸기 변신가면", "rarity": "legendary", "type": "passive"},
+            {"name": "heavenly_cape", "korean": "천상의 망토", "rarity": "legendary", "type": "passive"},
         ]
 
         # 캡슐 색상 (레어리티별)
@@ -5500,9 +5523,12 @@ class BuildingInterior:
             except Exception:
                 pass
 
+            # 흥정 퍽: 판매 시 +12%/레벨 보너스
+            bargain_bonus = getattr(pingfighter, 'get_bargain_discount', lambda: 0.0)()
+
             if fixed_sell_price is not None:
-                sell_price = fixed_sell_price
-                shop_price = sell_price
+                sell_price = int(fixed_sell_price * (1.0 + bargain_bonus))
+                shop_price = fixed_sell_price
             else:
                 # 판매가 계산 (품질 + 롤옵션 수치 + 강화 보너스 반영 가격의 30%)
                 base_price = self._get_item_base_price(item_name)
@@ -5510,7 +5536,8 @@ class BuildingInterior:
                 # 강화 보너스 적용 (강화 레벨당 +20% 추가 가치)
                 enhancement_level = item.get("enhancement_level", 0)
                 enhancement_price_bonus = int((base_price + quality_roll_bonus) * enhancement_level * 0.2)
-                sell_price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
+                base_sell = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
+                sell_price = int(base_sell * (1.0 + bargain_bonus))
                 shop_price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 1.0)
 
             # 장착 중이면 판매 확인 팝업 띄우기
@@ -6050,14 +6077,55 @@ class BuildingInterior:
 
         # 강화 아이템 선택창
         if self.enhancement_item_select_open:
-            if event.key == pygame.K_ESCAPE:
+            items = self._get_enhanceable_items()
+            if items:
+                self._ensure_enhancement_focus_visible(len(items))
+
+            if event.key in (pygame.K_LEFT, pygame.K_a):
+                if items:
+                    self.enhancement_focus_index = max(0, self.enhancement_focus_index - 1)
+                    self._ensure_enhancement_focus_visible(len(items))
+                    return ("enhancement_item_move", self.enhancement_focus_index)
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                if items:
+                    self.enhancement_focus_index = min(len(items) - 1, self.enhancement_focus_index + 1)
+                    self._ensure_enhancement_focus_visible(len(items))
+                    return ("enhancement_item_move", self.enhancement_focus_index)
+            elif event.key in (pygame.K_UP, pygame.K_w):
+                if items:
+                    layout = self._get_enhancement_item_select_layout()
+                    self.enhancement_focus_index = max(0, self.enhancement_focus_index - layout["cols"])
+                    self._ensure_enhancement_focus_visible(len(items))
+                    return ("enhancement_item_move", self.enhancement_focus_index)
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
+                if items:
+                    layout = self._get_enhancement_item_select_layout()
+                    self.enhancement_focus_index = min(len(items) - 1, self.enhancement_focus_index + layout["cols"])
+                    self._ensure_enhancement_focus_visible(len(items))
+                    return ("enhancement_item_move", self.enhancement_focus_index)
+            elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                return self._select_enhancement_item_by_display_index(self.enhancement_focus_index, items)
+            elif event.key == pygame.K_ESCAPE:
                 self.enhancement_item_select_open = False
+                self.enhancement_hover_item = None
                 return ("enhancement_close", None)
             return None
 
         # 강화 메뉴
         if self.enhancement_menu_open:
-            if event.key == pygame.K_ESCAPE:
+            if event.key in (pygame.K_LEFT, pygame.K_a, pygame.K_UP, pygame.K_w):
+                self.enhancement_menu_selection = 0
+                return ("enhancement_menu_move", self.enhancement_menu_selection)
+            elif event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_DOWN, pygame.K_s):
+                self.enhancement_menu_selection = 1
+                return ("enhancement_menu_move", self.enhancement_menu_selection)
+            elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                if self.enhancement_menu_selection == 0:
+                    self._open_enhancement_item_select()
+                    return ("enhancement_item_select", None)
+                self.enhancement_menu_open = False
+                return ("enhancement_close", None)
+            elif event.key == pygame.K_ESCAPE:
                 self.enhancement_menu_open = False
                 return ("enhancement_close", None)
             return None
@@ -6070,6 +6138,9 @@ class BuildingInterior:
         if self.academy_dialog_open:
             if self._handle_academy_dialog_key(event.key):
                 if self.open_skill_menu_requested:
+                    # 플래그는 1회성 시그널 — 소비 즉시 리셋.
+                    # 리셋하지 않으면 이후 "아니오"/ESC에서도 스킬 메뉴가 재오픈됨.
+                    self.open_skill_menu_requested = False
                     return ("academy_skill_menu", None)
                 return ("academy_dialog_close", None)
             return None
@@ -6574,11 +6645,11 @@ class BuildingInterior:
                     self.bank_menu_open = True
                     self.bank_menu_selection = 0
                     return ("bank_menu", npc)
-                # 아카데미 메인 NPC (학장 아르카나)인 경우 - 마우스 클릭으로만 상호작용
-                # 스페이스바로는 상호작용 불가 (마우스 클릭 필요)
+                # 아카데미 메인 NPC (학장 아르카나) - 키보드/마우스 모두 대화창 오픈
                 elif self.building_type == BuildingType.ACADEMY and npc.role == "main":
-                    # 스페이스바 대신 마우스 클릭 안내 (상호작용 불가)
-                    return None
+                    self.academy_dialog_open = True
+                    self.academy_dialog_selection = 0
+                    return ("academy_dialog", npc)
                 # 상점 인간 상인 (점주 그린)인 경우 거래창 열기
                 elif self.building_type == BuildingType.ITEM_SHOP and getattr(npc, 'is_shop_human', False):
                     self.shop_trade_open = True
@@ -6847,17 +6918,19 @@ class BuildingInterior:
         if yes_btn.collidepoint(pos):
             # 예 선택 - 스킬 메뉴 열기 요청
             self.academy_dialog_open = False
-            self.open_skill_menu_requested = True
+            self.open_skill_menu_requested = False
             return ("academy_skill_menu", None)
         elif no_btn.collidepoint(pos):
             # 아니오 선택 - 대화창 닫기
             self.academy_dialog_open = False
+            self.open_skill_menu_requested = False
             return ("academy_dialog_close", None)
 
         # 대화창 바깥 클릭시 닫기
         dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_w, dialog_h)
         if not dialog_rect.collidepoint(pos):
             self.academy_dialog_open = False
+            self.open_skill_menu_requested = False
             return ("academy_dialog_close", None)
 
         return None
@@ -6877,11 +6950,13 @@ class BuildingInterior:
                 self.open_skill_menu_requested = True
                 return True
             else:
-                # 아니오 선택
+                # 아니오 선택 — 스킬 메뉴 플래그 명시적 리셋
                 self.academy_dialog_open = False
+                self.open_skill_menu_requested = False
                 return True
         elif key == pygame.K_ESCAPE:
             self.academy_dialog_open = False
+            self.open_skill_menu_requested = False
             return True
         return False
 
@@ -8228,7 +8303,7 @@ class BuildingInterior:
                 item_name = item.get("name", "")
                 is_legendary_item = item.get("type") == "legendary" or item_name in [
                     "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "horn_strawberry_mask"
+                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "horn_strawberry_mask", "heavenly_cape"
                 ]
 
                 # 전설 아이템은 애니메이션으로 직접 그리기
@@ -8351,7 +8426,7 @@ class BuildingInterior:
                 item_name = item.get("name", "")
                 is_legendary_item = item.get("type") == "legendary" or item_name in [
                     "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "horn_strawberry_mask"
+                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "horn_strawberry_mask", "heavenly_cape"
                 ]
 
                 # 전설 아이템은 애니메이션으로 직접 그리기
@@ -8543,7 +8618,7 @@ class BuildingInterior:
                 pass
 
             if fixed_sell_price is not None:
-                price = fixed_sell_price
+                base_sell = fixed_sell_price
             else:
                 base_price = self._get_item_base_price(item_name)
                 # 품질 + 롤옵션 수치 보너스 계산 (실제 판매가와 동일하게)
@@ -8551,8 +8626,14 @@ class BuildingInterior:
                 # 강화 보너스 적용 (강화 레벨당 +20% 추가 가치)
                 enhancement_level = item.get("enhancement_level", 0)
                 enhancement_price_bonus = int((base_price + quality_roll_bonus) * enhancement_level * 0.2)
-                price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
-            price_text = f"{price:,}G"
+                base_sell = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
+            # 흥정 퍽: 판매가 +12%/레벨 보너스
+            if bargain_discount > 0:
+                price = int(base_sell * (1.0 + bargain_discount))
+                price_text = f"{price:,}G (기본 {base_sell:,}G)"
+            else:
+                price = base_sell
+                price_text = f"{price:,}G"
         else:
             original_price = item.get("price", 0)
             if bargain_discount > 0:
@@ -8873,7 +8954,9 @@ class BuildingInterior:
             "sacred_laurel": "신화",
             "odins_eye": "허리",
             "venom_mist_gauntlet": "팔",
+            "fake_arm": "팔",
             "horn_strawberry_mask": "신화",
+            "heavenly_cape": "신화",
         }
         return slot_map.get(item_name, "패시브")
 
@@ -8909,6 +8992,7 @@ class BuildingInterior:
             "pandora_legacy": "판도라의 유산",
             "megingjord": "메긴교르드",
             "horn_strawberry_mask": "뿔딸기 변신가면",
+            "heavenly_cape": "천상의 망토",
             "foul_whistle": "반칙호루라기",
             "spiked_helmet": "가시투구",
             "star_detector": "별탐지기",
@@ -8924,10 +9008,12 @@ class BuildingInterior:
             "magnet_field": "자기장발생기",
             "boomerang": "부메랑",
             "soap": "비누",
+            "gods_stone": "신의 돌",
             "soul_burst": "소울버스트",
             "strange_vial": "기묘한 약병",
             "sage_ring": "현자의 반지",
             "venom_mist_gauntlet": "독안개장갑",
+            "fake_arm": "훼이크암",
             "valhalla_warplate": "발할라의 전갑",
             "elixir_of_mastery": "엘릭서 오브 마스터리",
         }
@@ -8982,6 +9068,11 @@ class BuildingInterior:
             "lucky_coin": 800,
             "venom_mist_gauntlet": 700,
             "yachaman_soul": 850,
+            "fake_arm": 800,
+            "adversity_armor": 1100,
+            "shrapnel_armor": 900,
+            "soul_burst": 750,
+            "sage_ring": 1800,
         }
         return price_map.get(item_name, 500)
 
@@ -9609,7 +9700,7 @@ class BuildingInterior:
         # 제목 텍스트
         title_text = "핑파이터 견습생이시어"
         title2_text = "새로운 기술을 배우러 오셨습니까?"
-        subtitle_text = "- 기술을 배우려면 스타포인트가 필요합니다 -"
+        subtitle_text = "- 새 비기는 1000G, 슬롯이 가득이면 교환 -"
 
         # freetype 폰트 사용 (self.fonts - 클래스에서 초기화됨)
         font_medium = self.fonts.get('medium')
@@ -17748,6 +17839,72 @@ class BuildingInterior:
     # 강화 시스템 메서드들 (BLACKSMITH 전용)
     # =========================================================================
 
+    def _get_enhancement_item_select_layout(self):
+        """강화 아이템 선택창 레이아웃 값 반환"""
+        total_w, total_h = 400, 380
+        cell_w, cell_h = 48, 48
+        cell_gap = 8
+        cols = 6
+        grid_h = total_h - 100
+        visible_rows = max(1, (grid_h + cell_gap) // (cell_h + cell_gap))
+        return {
+            "total_w": total_w,
+            "total_h": total_h,
+            "cell_w": cell_w,
+            "cell_h": cell_h,
+            "cell_gap": cell_gap,
+            "cols": cols,
+            "grid_h": grid_h,
+            "visible_rows": visible_rows,
+        }
+
+    def _open_enhancement_item_select(self):
+        """강화 아이템 선택창 열기"""
+        items = self._get_enhanceable_items()
+        self.enhancement_menu_open = False
+        self.enhancement_item_select_open = True
+        self.enhancement_scroll = 0
+        self.enhancement_hover_item = None
+        self.enhancement_focus_index = 0 if items else -1
+
+    def _ensure_enhancement_focus_visible(self, item_count):
+        """키보드로 선택한 아이템이 현재 스크롤 범위 안에 보이도록 조정"""
+        if item_count <= 0:
+            self.enhancement_focus_index = -1
+            self.enhancement_scroll = 0
+            self._enhancement_max_scroll = 0
+            return
+
+        layout = self._get_enhancement_item_select_layout()
+        self.enhancement_focus_index = max(0, min(self.enhancement_focus_index, item_count - 1))
+
+        total_rows = max(1, math.ceil(item_count / layout["cols"]))
+        self._enhancement_max_scroll = max(0, total_rows - layout["visible_rows"])
+
+        focus_row = self.enhancement_focus_index // layout["cols"]
+        if focus_row < self.enhancement_scroll:
+            self.enhancement_scroll = focus_row
+        elif focus_row >= self.enhancement_scroll + layout["visible_rows"]:
+            self.enhancement_scroll = focus_row - layout["visible_rows"] + 1
+
+        self.enhancement_scroll = max(0, min(self.enhancement_scroll, self._enhancement_max_scroll))
+
+    def _select_enhancement_item_by_display_index(self, display_idx, items=None):
+        """표시 순서 기준 인덱스로 강화 대상 아이템 선택"""
+        if items is None:
+            items = self._get_enhanceable_items()
+        if not items or display_idx < 0 or display_idx >= len(items):
+            return None
+
+        orig_idx, item = items[display_idx]
+        self.enhancement_focus_index = display_idx
+        self.enhancement_selected_item = item
+        self.enhancement_selected_idx = orig_idx
+        self.enhancement_item_select_open = False
+        self.enhancement_confirm_selection = 0  # 기본값: 예
+        self.enhancement_confirm_open = True
+        return ("enhancement_confirm", item)
+
     def _get_enhanceable_items(self):
         """강화 가능한 아이템 목록 반환 (롤옵션 있는 패시브 아이템 + 전설 아이템)"""
         from .constants import LEGENDARY_ITEM_NAMES, MAX_ENHANCEMENT_LEVEL
@@ -17885,15 +18042,14 @@ class BuildingInterior:
         # 강화하기 버튼
         enhance_btn = pygame.Rect(menu_x + 20, menu_y + 50, menu_w - 40, 35)
         if enhance_btn.collidepoint(pos):
-            self.enhancement_menu_open = False
-            self.enhancement_item_select_open = True
-            self.enhancement_scroll = 0
-            self.enhancement_hover_item = None
+            self.enhancement_menu_selection = 0
+            self._open_enhancement_item_select()
             return ("enhancement_item_select", None)
 
         # 나가기 버튼
         exit_btn = pygame.Rect(menu_x + 20, menu_y + 95, menu_w - 40, 30)
         if exit_btn.collidepoint(pos):
+            self.enhancement_menu_selection = 1
             self.enhancement_menu_open = False
             return ("enhancement_close", None)
 
@@ -17908,7 +18064,8 @@ class BuildingInterior:
     def _handle_enhancement_item_select_click(self, pos):
         """강화 아이템 선택창 클릭 처리"""
         # UI 크기 및 위치
-        total_w, total_h = 400, 380
+        layout = self._get_enhancement_item_select_layout()
+        total_w, total_h = layout["total_w"], layout["total_h"]
         ui_x = (SCREEN_WIDTH - total_w) // 2
         ui_y = (SCREEN_HEIGHT - total_h) // 2
 
@@ -17921,15 +18078,8 @@ class BuildingInterior:
         # 아이템 클릭 체크
         for idx, rect in self.enhancement_item_rects.items():
             if rect.collidepoint(pos):
-                items = self._get_enhanceable_items()
-                if idx < len(items):
-                    orig_idx, item = items[idx]
-                    self.enhancement_selected_item = item
-                    self.enhancement_selected_idx = orig_idx
-                    self.enhancement_item_select_open = False
-                    self.enhancement_confirm_selection = 0  # 기본값: 예
-                    self.enhancement_confirm_open = True
-                    return ("enhancement_confirm", item)
+                self.enhancement_focus_index = idx
+                return self._select_enhancement_item_by_display_index(idx)
 
         # 바깥 클릭
         ui_rect = pygame.Rect(ui_x, ui_y, total_w, total_h)
@@ -18051,9 +18201,10 @@ class BuildingInterior:
 
         # 강화하기 버튼
         enhance_btn = pygame.Rect(menu_x + 20, menu_y + 50, menu_w - 40, 35)
-        btn_color = BTN_HOVER if enhance_btn.collidepoint(mouse_pos) else BTN_BG
+        enhance_selected = self.enhancement_menu_selection == 0
+        btn_color = BTN_HOVER if (enhance_btn.collidepoint(mouse_pos) or enhance_selected) else BTN_BG
         pygame.draw.rect(screen, btn_color, enhance_btn, border_radius=6)
-        pygame.draw.rect(screen, BORDER_GOLD, enhance_btn, 2, border_radius=6)
+        pygame.draw.rect(screen, BORDER_GOLD, enhance_btn, 3 if enhance_selected else 2, border_radius=6)
         if font_small:
             btn_surf, _ = font_small.render(_t("interior.enhance_btn", "강화하기"), TEXT_WHITE)
             screen.blit(btn_surf, (enhance_btn.centerx - btn_surf.get_width() // 2,
@@ -18063,9 +18214,10 @@ class BuildingInterior:
 
         # 나가기 버튼
         exit_btn = pygame.Rect(menu_x + 20, menu_y + 95, menu_w - 40, 30)
-        btn_color = BTN_HOVER if exit_btn.collidepoint(mouse_pos) else BTN_BG
+        exit_selected = self.enhancement_menu_selection == 1
+        btn_color = BTN_HOVER if (exit_btn.collidepoint(mouse_pos) or exit_selected) else BTN_BG
         pygame.draw.rect(screen, btn_color, exit_btn, border_radius=6)
-        pygame.draw.rect(screen, (150, 130, 100), exit_btn, 1, border_radius=6)
+        pygame.draw.rect(screen, (200, 160, 80) if exit_selected else (150, 130, 100), exit_btn, 2 if exit_selected else 1, border_radius=6)
         if font_small:
             btn_surf, _ = font_small.render(_t("downtown.exit", "나가기"), (180, 170, 150))
             screen.blit(btn_surf, (exit_btn.centerx - btn_surf.get_width() // 2,
@@ -18089,7 +18241,8 @@ class BuildingInterior:
         CELL_BORDER = (100, 130, 170)
         CELL_HOVER = (180, 150, 100)
 
-        total_w, total_h = 400, 380
+        layout = self._get_enhancement_item_select_layout()
+        total_w, total_h = layout["total_w"], layout["total_h"]
         ui_x = (SCREEN_WIDTH - total_w) // 2
         ui_y = (SCREEN_HEIGHT - total_h) // 2
 
@@ -18134,18 +18287,20 @@ class BuildingInterior:
             return
 
         # 그리드 설정 (아이콘만 표시, 정사각형 셀)
-        cell_w, cell_h = 48, 48
-        cell_gap = 8
-        cols = 6
+        cell_w, cell_h = layout["cell_w"], layout["cell_h"]
+        cell_gap = layout["cell_gap"]
+        cols = layout["cols"]
         grid_x = ui_x + 25
         grid_y = ui_y + 55
-        grid_h = total_h - 100
+        grid_h = layout["grid_h"]
 
-        visible_rows = max(1, (grid_h + cell_gap) // (cell_h + cell_gap))
+        visible_rows = layout["visible_rows"]
         total_rows = max(1, math.ceil(len(items) / cols))
         self._enhancement_max_scroll = max(0, total_rows - visible_rows)
+        self._ensure_enhancement_focus_visible(len(items))
         self.enhancement_scroll = max(0, min(self.enhancement_scroll, self._enhancement_max_scroll))
         start_idx = self.enhancement_scroll * cols
+        selected_idx = self.enhancement_focus_index if items else -1
 
         self.enhancement_item_rects = {}
         self.enhancement_hover_item = None
@@ -18177,11 +18332,24 @@ class BuildingInterior:
                 is_hover = cell_rect.collidepoint(mouse_pos)
                 if is_hover:
                     self.enhancement_hover_item = (idx, item, cell_rect)
+                is_selected = idx == selected_idx
 
                 # 셀 배경
                 pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=6)
-                border_color = CELL_HOVER if is_hover else CELL_BORDER
-                pygame.draw.rect(screen, border_color, cell_rect, 2 if is_hover else 1, border_radius=6)
+                if is_selected:
+                    glow_rect = cell_rect.inflate(6, 6)
+                    glow_surf = pygame.Surface((glow_rect.w, glow_rect.h), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (255, 210, 100, 40), (0, 0, glow_rect.w, glow_rect.h), border_radius=8)
+                    screen.blit(glow_surf, glow_rect.topleft)
+
+                if is_hover and is_selected:
+                    pygame.draw.rect(screen, CELL_HOVER, cell_rect, 2, border_radius=6)
+                    pygame.draw.rect(screen, BORDER_GOLD, cell_rect, 2, border_radius=6)
+                elif is_selected:
+                    pygame.draw.rect(screen, BORDER_GOLD, cell_rect, 2, border_radius=6)
+                else:
+                    border_color = CELL_HOVER if is_hover else CELL_BORDER
+                    pygame.draw.rect(screen, border_color, cell_rect, 2 if is_hover else 1, border_radius=6)
 
                 # 아이콘
                 item_name = item.get("name", "")
@@ -18204,21 +18372,32 @@ class BuildingInterior:
                         level_surf, _ = font_tiny.render(level_text, (100, 255, 100))
                         screen.blit(level_surf, (cell_rect.right - level_surf.get_width() - 2, cell_rect.y + 2))
 
-        # 툴팁 (호버 아이템 정보)
-        if self.enhancement_hover_item:
-            self._draw_enhancement_item_tooltip(screen, mouse_pos)
+        # 툴팁 (마우스 호버 우선, 없으면 키보드 선택 아이템 정보)
+        tooltip_item = self.enhancement_hover_item
+        tooltip_anchor = mouse_pos
+        if not tooltip_item and selected_idx in self.enhancement_item_rects:
+            _, item = items[selected_idx]
+            selected_rect = self.enhancement_item_rects[selected_idx]
+            tooltip_item = (selected_idx, item, selected_rect)
+            tooltip_anchor = (selected_rect.centerx, selected_rect.bottom)
+        if tooltip_item:
+            self._draw_enhancement_item_tooltip(screen, tooltip_anchor, tooltip_item)
 
         # 하단 안내
         if font_small:
-            hint_surf, _ = font_small.render(_t("building.click_to_enhance", "클릭하여 강화할 아이템 선택"), TEXT_GRAY)
+            hint_surf, _ = font_small.render(
+                _t("building.select_enhance_item_hint", "클릭 또는 화살표/엔터로 강화할 아이템 선택"),
+                TEXT_GRAY,
+            )
             screen.blit(hint_surf, (ui_x + (total_w - hint_surf.get_width()) // 2, ui_y + total_h - 35))
 
-    def _draw_enhancement_item_tooltip(self, screen, mouse_pos):
+    def _draw_enhancement_item_tooltip(self, screen, mouse_pos, tooltip_item=None):
         """강화 아이템 툴팁 그리기 - 캐릭터 정보창 패시브 탭과 동일한 스타일"""
-        if not self.enhancement_hover_item:
+        tooltip_item = tooltip_item or self.enhancement_hover_item
+        if not tooltip_item:
             return
 
-        idx, item, cell_rect = self.enhancement_hover_item
+        idx, item, cell_rect = tooltip_item
         from .constants import MAX_ENHANCEMENT_LEVEL
 
         # 색상 (캐릭터 정보창과 동일)

@@ -213,12 +213,30 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     settings = get_settings_manager()
     control_scheme = settings.get_setting('controls', 'control_scheme', 'keyboard')
     paddle_hit_sound = int(settings.get_setting('audio', 'paddle_hit_sound', 1))
+    arena_sound_pack = settings.get_setting('audio', 'arena_sound_pack', 'bk22')
+    if arena_sound_pack not in ('bk22', 'anderson'):
+        arena_sound_pack = 'bk22'
     ball_type = settings.get_setting('gameplay', 'ball_type', 'energy')
     replay_auto_save = bool(settings.get_setting('gameplay', 'replay_auto_save', False))
     modern_loop_enabled = ctx.get_modern_loop_enabled()
     # 언어 설정
     current_language = settings.get_setting('language', 'language', 'ko')
     _loc.set_language(current_language)  # 폰트 언어 동기화 (ja/zh → CJK 폰트)
+
+    def _persist_settings() -> None:
+        nonlocal current_bgm_volume, current_sfx_volume
+
+        current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
+        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+        settings.set_setting('audio', 'music_volume', current_bgm_volume)
+        settings.set_setting('audio', 'sfx_volume', current_sfx_volume)
+        settings.set_setting('controls', 'control_scheme', control_scheme)
+        settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
+        settings.set_setting('audio', 'arena_sound_pack', arena_sound_pack)
+        settings.set_setting('gameplay', 'ball_type', ball_type)
+        settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
+        settings.set_setting('language', 'language', current_language)
+        settings.save_settings()
 
     # 패들 타격 사운드 프리로드
     _paddle_sounds = {}
@@ -272,6 +290,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     selected_slider: str | None = None  # 드래그 중인 슬라이더 식별자
     focus: str = "bgm"  # 키보드 포커스: bgm / sfx / hitsound / back
     dragging = False
+    arena_pack_pills = []
     hit_pills = []
     ball_pills = []
     lang_pills = []
@@ -603,6 +622,38 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             sfx_mute_label = font_small.render("OFF", True, (255, 80, 80) if sfx_muted else (120, 120, 120))
             ctx.screen.blit(sfx_mute_label, (sfx_checkbox_x + checkbox_size + 5, sfx_checkbox_y + 2))
 
+            arena_pack_y = sfx_slider_y + 46
+            arena_label = font_medium.render("투기장 사운드팩", True, const.WHITE)
+            arena_label_rect = arena_label.get_rect(left=panel_x + margin_x, centery=arena_pack_y + 16)
+            ctx.screen.blit(arena_label, arena_label_rect)
+
+            arena_pack_labels = {'bk22': 'BK22팩', 'anderson': 'Anderson팩'}
+            arena_pack_gap = 10
+            arena_pack_h = 32
+            arena_pack_w = max(
+                110,
+                max(font_small.size(label)[0] for label in arena_pack_labels.values()) + 26,
+            )
+            arena_pack_pills = []
+            for i, pack_key in enumerate(('bk22', 'anderson')):
+                pack_rect = pygame.Rect(
+                    bgm_slider_x + i * (arena_pack_w + arena_pack_gap),
+                    arena_pack_y,
+                    arena_pack_w,
+                    arena_pack_h,
+                )
+                arena_pack_pills.append((pack_rect, pack_key))
+                is_selected = arena_sound_pack == pack_key
+                fill_color = (60, 90, 130) if is_selected else (45, 55, 70)
+                if is_selected:
+                    border_color = (0, 255, 255)
+                else:
+                    border_color = (180, 220, 255) if focus == "arena_pack" else (150, 150, 150)
+                pygame.draw.rect(ctx.screen, fill_color, pack_rect, border_radius=16)
+                pygame.draw.rect(ctx.screen, border_color, pack_rect, 2, border_radius=16)
+                pack_text = font_small.render(arena_pack_labels[pack_key], True, const.WHITE)
+                ctx.screen.blit(pack_text, pack_text.get_rect(center=pack_rect.center))
+
         # (미니멀 구성: UI/환경 슬라이더 제거)
 
         button_hover = back_button_rect.collidepoint(pygame.mouse.get_pos()) or (focus == "back")
@@ -625,15 +676,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 raise SystemExit
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
-                    current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
-                    # 컨트롤 스킴 및 타격 사운드 저장
-                    settings.set_setting('controls','control_scheme', control_scheme)
-                    settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
-                    settings.set_setting('gameplay', 'ball_type', ball_type)
-                    settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
-                    settings.set_setting('language', 'language', current_language)
-                    settings.save_settings()
+                    _persist_settings()
                     # 디스플레이 모드 변경 적용
                     try:
                         from pingfighter import switch_display_mode, get_display_mode
@@ -672,6 +715,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if not sfx_muted:
                             current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
+                    elif current_tab == 'sound' and focus == 'arena_pack':
+                        arena_sound_pack = 'bk22'
+                        settings.set_setting('audio', 'arena_sound_pack', arena_sound_pack)
                     elif current_tab == 'play' and focus == 'hitsound' and ball_type != 'pingpong':
                         paddle_hit_sound = max(1, paddle_hit_sound - 1)
                         _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
@@ -708,6 +754,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if not sfx_muted:
                             current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
+                    elif current_tab == 'sound' and focus == 'arena_pack':
+                        arena_sound_pack = 'anderson'
+                        settings.set_setting('audio', 'arena_sound_pack', arena_sound_pack)
                     elif current_tab == 'play' and focus == 'hitsound' and ball_type != 'pingpong':
                         paddle_hit_sound = min(3, paddle_hit_sound + 1)
                         _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
@@ -729,7 +778,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     elif current_tab == 'play':
                         order = ["balltype", "hitsound", "replay_autosave", "back"] if ball_type != "pingpong" else ["balltype", "replay_autosave", "back"]
                     else:
-                        order = ["bgm", "sfx", "back"]
+                        order = ["bgm", "sfx", "arena_pack", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
                 elif event.key == pygame.K_DOWN:
                     if current_tab == 'language':
@@ -741,7 +790,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     elif current_tab == 'play':
                         order = ["balltype", "hitsound", "replay_autosave", "back"] if ball_type != "pingpong" else ["balltype", "replay_autosave", "back"]
                     else:
-                        order = ["bgm", "sfx", "back"]
+                        order = ["bgm", "sfx", "arena_pack", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if current_tab == 'language' and focus == 'lang':
@@ -757,6 +806,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         display_mode = _dm_order[(_dm_idx + 1) % len(_dm_order)]
                     elif current_tab == 'controls' and focus == 'scheme':
                         control_scheme = 'mouse_keyboard' if control_scheme == 'keyboard' else 'keyboard'
+                    elif current_tab == 'sound' and focus == 'arena_pack':
+                        arena_sound_pack = 'anderson' if arena_sound_pack == 'bk22' else 'bk22'
+                        settings.set_setting('audio', 'arena_sound_pack', arena_sound_pack)
                     elif current_tab == 'play' and focus == 'hitsound' and ball_type != 'pingpong':
                         paddle_hit_sound = (paddle_hit_sound % 3) + 1
                         _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
@@ -770,13 +822,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         replay_auto_save = not replay_auto_save
                     elif focus == "back":
                         ctx.play_button_click_sound()
-                        current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
-                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
-                        settings.set_setting('controls', 'control_scheme', control_scheme)
-                        settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
-                        settings.set_setting('gameplay', 'ball_type', ball_type)
-                        settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
-                        settings.save_settings()
+                        _persist_settings()
                         # 디스플레이 모드 변경 적용
                         try:
                             from pingfighter import switch_display_mode, get_display_mode
@@ -815,13 +861,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
                     if back_button_rect.collidepoint(mouse_pos):
                         ctx.play_button_click_sound()
-                        current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
-                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
-                        settings.set_setting('controls', 'control_scheme', control_scheme)
-                        settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
-                        settings.set_setting('gameplay', 'ball_type', ball_type)
-                        settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
-                        settings.save_settings()
+                        _persist_settings()
                         # 디스플레이 모드 변경 적용
                         try:
                             from pingfighter import switch_display_mode, get_display_mode
@@ -862,6 +902,15 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                             continue
 
                     # BGM 체크박스 클릭 처리
+                    if current_tab == 'sound':
+                        for pack_rect, pack_key in arena_pack_pills:
+                            if pack_rect.collidepoint(mouse_pos):
+                                arena_sound_pack = pack_key
+                                focus = "arena_pack"
+                                settings.set_setting('audio', 'arena_sound_pack', arena_sound_pack)
+                                ctx.play_button_click_sound()
+                                break
+
                     if current_tab == 'sound' and 'bgm_checkbox_rect' in dir() and bgm_checkbox_rect.collidepoint(mouse_pos):
                         bgm_muted = not bgm_muted
                         set_bgm_muted(bgm_muted)
@@ -965,10 +1014,4 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     selected_slider = "sfx"
                 # (미니멀 구성: UI/ENV 휠 조정 제거)
 
-    ctx.store_bgm_volume(current_bgm_volume)
-    ctx.set_sfx_volume(current_sfx_volume)
-    settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
-    settings.set_setting('gameplay', 'ball_type', ball_type)
-    settings.set_setting('gameplay', 'replay_auto_save', replay_auto_save)
-    settings.set_setting('language', 'language', current_language)
-    settings.save_settings()
+    _persist_settings()

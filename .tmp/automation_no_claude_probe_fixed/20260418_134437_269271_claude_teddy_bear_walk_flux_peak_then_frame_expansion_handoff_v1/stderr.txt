@@ -1,0 +1,1 @@
+FileNotFoundError('Could not find Claude CLI on PATH.')

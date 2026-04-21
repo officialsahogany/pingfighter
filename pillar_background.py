@@ -609,6 +609,17 @@ class PillarBackgroundRenderer:
         else:
             self._draw_solid(screen)
 
+    def draw_field_frame_overlay(self, screen: pygame.Surface):
+        """게임 영역이 렌더된 뒤 그 위에 덮는 스테이지별 액자 프레임 오버레이.
+
+        현재는 스테이지 9(파르테논)만 지원.
+        """
+        if self.current_stage == 9 and self._parthenon_bg is not None:
+            try:
+                self._parthenon_bg.draw_field_frame_overlay(screen)
+            except AttributeError:
+                pass
+
     def _draw_artwork(self, screen: pygame.Surface):
         """아트워크 배경 그리기"""
         # 캐시된 서피스가 없으면 생성

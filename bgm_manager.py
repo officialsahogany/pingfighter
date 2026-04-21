@@ -55,6 +55,11 @@ class BGMManager:
                 os.path.join("bgm", "stage2bgm.ogg"),
                 os.path.join("bgm", "stage2bgm.mp3"),
             ],
+            'stage2_alt': [
+                os.path.join("bgm", "stage2bgm2.wav"),
+                os.path.join("bgm", "stage2bgm2.ogg"),
+                os.path.join("bgm", "stage2bgm2.mp3"),
+            ],
             'stage3': [
                 os.path.join("bgm", "stage3bgm.ogg"),
                 os.path.join("bgm", "stage3bgm.mp3"),
@@ -128,7 +133,7 @@ class BGMManager:
             'colosseum_room': [
                 os.path.join("bgm", "coloseumroom.mp3"),
             ],
-            # 투기장(콜로세움) 전투 BGM - 4곡 중 랜덤 선택
+            # 투기장(콜로세움) 전투 BGM - Anderson 팩 (4곡)
             'colosseum1': [
                 os.path.join("bgm", "coloseum1.wav"),
             ],
@@ -140,6 +145,16 @@ class BGMManager:
             ],
             'colosseum4': [
                 os.path.join("bgm", "coloseum4.wav"),
+            ],
+            # 투기장(콜로세움) 전투 BGM - BK22 팩 (3곡)
+            'colosseum_bk22_1': [
+                os.path.join("bgm", "coloseum1(bK).mp3"),
+            ],
+            'colosseum_bk22_2': [
+                os.path.join("bgm", "coloseum2(bk).mp3"),
+            ],
+            'colosseum_bk22_3': [
+                os.path.join("bgm", "coloseum3(bk).mp3"),
             ],
         }
         self.is_initialized = False
@@ -388,7 +403,15 @@ class BGMManager:
         if stage_num == 1:
             self.play_bgm('stage1')
         elif stage_num == 2:
-            self.play_bgm('stage2')
+            candidates = []
+            for track_name in ('stage2', 'stage2_alt'):
+                if self._resolve_bgm_path(track_name):
+                    candidates.append(track_name)
+            if not candidates:
+                candidates = ['stage2']
+            selected = random.choice(candidates)
+            print(f"[스테이지2 BGM] {len(candidates)}개 중 '{selected}' 선택됨")
+            self.play_bgm(selected)
         elif stage_num == 3:
             self.play_bgm('stage3')
         elif stage_num == 4:
@@ -402,9 +425,20 @@ class BGMManager:
             self.play_bgm('stage7')
         elif stage_num == 8:
             self.play_bgm('stage8')
-        elif stage_num == 30:  # 투기장 (콜로세움) - 2곡 중 랜덤
-            colosseum_bgm = random.choice(['colosseum1', 'colosseum2', 'colosseum3', 'colosseum4'])
-            self.play_bgm(colosseum_bgm)
+        elif stage_num == 30:  # 투기장 (콜로세움) - 사운드팩 설정에 따라 랜덤
+            pack = 'bk22'
+            try:
+                from config.settings_system import get_settings_manager
+                pack = get_settings_manager().get_setting(
+                    'audio', 'arena_sound_pack', 'bk22'
+                )
+            except Exception:
+                pass
+            if pack == 'anderson':
+                candidates = ['colosseum1', 'colosseum2', 'colosseum3', 'colosseum4']
+            else:
+                candidates = ['colosseum_bk22_1', 'colosseum_bk22_2', 'colosseum_bk22_3']
+            self.play_bgm(random.choice(candidates))
         elif stage_num == 50:  # 튜토리얼
             self.play_bgm('tutorial')
         # 다른 스테이지 BGM은 추후 추가

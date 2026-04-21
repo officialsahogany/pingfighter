@@ -276,3 +276,116 @@ class VenomMistGauntletRightPart(_VenomMistGauntletBase):
     def __init__(self, block: int = 9):
         super().__init__(SLOT_R_ARM, ORDER_R_ARM,
                          "r_shoulder", "r_wrist", "r_elbow", block)
+
+
+# ─────────────────────────────────────────────
+#  훼이크암 (Fake Arm)
+# ─────────────────────────────────────────────
+
+class _FakeArmBase(BodyPart):
+    """훼이크암 공통 렌더링.
+    상대를 속이는 교란형 의수 - 어두운 강철 + 마젠타 글리치 잔상.
+    """
+
+    def __init__(self, slot: str, draw_order: int,
+                 joint_a: str, joint_b: str, elbow_name: str,
+                 block: int = 9):
+        super().__init__(slot=slot, draw_order=draw_order,
+                         joint_a=joint_a, joint_b=joint_b)
+        self.block = block
+        self._elbow_name = elbow_name
+
+    def _render(self, surface: pygame.Surface,
+                joint_a: Joint, joint_b: Optional[Joint],
+                palette: dict, phase: float):
+        b = self.block
+        shoulder = joint_a.world_int()
+
+        elbow_joint = None
+        for child in joint_a.children:
+            if child.name == self._elbow_name:
+                elbow_joint = child
+                break
+        if elbow_joint is None:
+            return
+
+        elbow = elbow_joint.world_int()
+        wrist = joint_b.world_int() if joint_b else elbow
+
+        # ── 글리치 잔상 (마젠타) ──
+        # 손목 위치를 기준으로 작은 좌우 오프셋의 잔상 라인.
+        glitch_pulse = math.sin(phase * math.tau * 4)
+        if glitch_pulse > 0.4:
+            offset_x = int(2 * math.copysign(1, glitch_pulse))
+            ghost_color = (180, 60, 200)
+            pygame.draw.line(
+                surface, ghost_color,
+                (shoulder[0] + offset_x, shoulder[1]),
+                (elbow[0] + offset_x, elbow[1]), 1,
+            )
+            pygame.draw.line(
+                surface, ghost_color,
+                (elbow[0] + offset_x, elbow[1]),
+                (wrist[0] + offset_x, wrist[1]), 1,
+            )
+
+        # ── 상완 (어두운 건메탈) ──
+        pygame.draw.line(surface, (35, 38, 48), shoulder, elbow, b + 2)
+        pygame.draw.line(surface, (60, 65, 78), shoulder, elbow, b)
+        pygame.draw.line(surface, (85, 92, 108), shoulder, elbow, b - 3)
+
+        # ── 전완 ──
+        pygame.draw.line(surface, (40, 44, 55), elbow, wrist, b)
+        pygame.draw.line(surface, (75, 82, 100), elbow, wrist, b - 2)
+
+        # 사이드 패널 라인 (회로 느낌)
+        dx = wrist[0] - elbow[0]
+        dy = wrist[1] - elbow[1]
+        length = max(1, math.sqrt(dx * dx + dy * dy))
+        nx = -dy / length * 2
+        ny = dx / length * 2
+        pygame.draw.line(
+            surface, (130, 60, 160),
+            (int(elbow[0] + nx), int(elbow[1] + ny)),
+            (int(wrist[0] + nx), int(wrist[1] + ny)), 1,
+        )
+
+        # ── 팔꿈치 관절 ──
+        pygame.draw.circle(surface, (90, 95, 110), elbow, max(3, b // 2))
+        pygame.draw.circle(surface, (50, 55, 65), elbow, max(2, b // 3))
+
+        # ── 손목 / 의수 손 ──
+        fist_r = max(3, b // 2 + 2)
+        pygame.draw.circle(surface, (50, 55, 65), wrist, fist_r)
+        pygame.draw.circle(surface, (75, 82, 100), wrist, fist_r - 1)
+
+        # 마젠타 글리치 코어 (손바닥 발광)
+        core_pulse = int(80 + 80 * (math.sin(phase * math.tau * 3) + 1) / 2)
+        core_surf = pygame.Surface((b * 4, b * 4), pygame.SRCALPHA)
+        ccx, ccy = b * 2, b * 2
+        pygame.draw.circle(
+            core_surf, (200, 60, 220, core_pulse),
+            (ccx, ccy), max(2, fist_r - 1),
+        )
+        pygame.draw.circle(
+            core_surf, (255, 200, 255, min(255, core_pulse + 60)),
+            (ccx, ccy), max(1, fist_r // 2),
+        )
+        surface.blit(
+            core_surf, (wrist[0] - ccx, wrist[1] - ccy),
+            special_flags=pygame.BLEND_RGBA_ADD,
+        )
+
+
+class FakeArmPart(_FakeArmBase):
+    """훼이크암 — 왼팔 (l_arm)."""
+    def __init__(self, block: int = 9):
+        super().__init__(SLOT_L_ARM, ORDER_L_ARM,
+                         "l_shoulder", "l_wrist", "l_elbow", block)
+
+
+class FakeArmRightPart(_FakeArmBase):
+    """훼이크암 — 오른팔 (r_arm)."""
+    def __init__(self, block: int = 9):
+        super().__init__(SLOT_R_ARM, ORDER_R_ARM,
+                         "r_shoulder", "r_wrist", "r_elbow", block)

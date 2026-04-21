@@ -16,6 +16,9 @@ Teddy Bear Boss Sprite v8 — Dark Realistic Plush Teddy Bear
 import pygame
 import math
 import random
+import os
+import sys
+from collections import deque
 
 _sin = math.sin
 _cos = math.cos
@@ -30,7 +33,84 @@ _SSAA = 3
 _LIGHT_DIR = (-0.577, -0.577, 0.577)  # normalize(-1, -1, 1)
 
 
+def resource_path(relative_path: str) -> str:
+    """Resolve resources for both dev runs and PyInstaller builds."""
+    try:
+        base_path = sys._MEIPASS  # type: ignore[attr-defined]
+    except Exception:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    normalized = relative_path.replace("/", os.sep).replace("\\", os.sep)
+    return os.path.join(base_path, normalized)
+
+
 class TeddyBearBossSprite:
+    TMP_WALK_OVERRIDE_ENABLED = True
+    TMP_WALK_OVERRIDE_PATHS_PNG = (
+        os.path.join(".tmp", "teddy_bear_walk_gemini_plush_locomotion_v1_nukki_gapclean2.png"),
+        os.path.join(".tmp", "teddy_bear_walk_gemini_plush_locomotion_v1_nukki_gapclean.png"),
+        os.path.join(".tmp", "teddy_bear_walk_gemini_plush_locomotion_v1_nukki_hardclean.png"),
+        os.path.join(".tmp", "teddy_bear_walk_gemini_plush_locomotion_v1_nukki_clean2.png"),
+        os.path.join(".tmp", "teddy_bear_walk_gemini_plush_locomotion_v1_nukki_clean.png"),
+        os.path.join(".tmp", "teddy_bear_walk_gemini_plush_locomotion_v1_nukki.png"),
+        os.path.join(".tmp", "teddy_bear_walk_gemini_frontwalk_v4_nukki.png"),
+        os.path.join(".tmp", "teddy_bear_walk_stitched_v3_nukki_clean_preview.png"),
+        os.path.join(".tmp", "teddy_bear_walk_stitched_v3_nukki_preview.png"),
+        os.path.join(".tmp", "teddy_bear_walk_stitched_v3_preview.png"),
+        os.path.join(".tmp", "teddy_bear_walk_stitched_v2_preview.png"),
+    )
+    TMP_WALK_OVERRIDE_GRID_COLS = 4
+    TMP_WALK_OVERRIDE_GRID_ROWS = 2
+    TMP_WALK_OVERRIDE_FRAME_COUNT = 8
+    TMP_WALK_OVERRIDE_BG_TOLERANCE = 44
+    TMP_WALK_OVERRIDE_MOVE_THRESHOLD = 0.05
+    # Keep teddy locomotion plush and weighty rather than twitchy.
+    TMP_WALK_OVERRIDE_BASE_FPS = 5.5
+    TMP_WALK_OVERRIDE_SPEED_FPS_GAIN = 3.5
+    TMP_ATTACK_OVERRIDE_ENABLED = True
+    TMP_ATTACK_OVERRIDE_PATHS_PNG = (
+        os.path.join(".tmp", "teddy_bear_attack_gemini_v2.png"),
+    )
+    TMP_ATTACK_OVERRIDE_GRID_COLS = 4
+    TMP_ATTACK_OVERRIDE_GRID_ROWS = 2
+    TMP_ATTACK_OVERRIDE_FRAME_COUNT = 8
+    TMP_ATTACK_OVERRIDE_BG_TOLERANCE = 44
+    # Keep the compact anticipatory strike short enough that frame 6 can
+    # land near contact when runtime starts a little early.
+    TMP_ATTACK_OVERRIDE_FPS = 30.0
+    TMP_DASH_OVERRIDE_ENABLED = True
+    TMP_DASH_OVERRIDE_PATHS_PNG = (
+        os.path.join(".tmp", "teddy_bear_dash_gemini_v1.png"),
+    )
+    TMP_DASH_OVERRIDE_GRID_COLS = 4
+    TMP_DASH_OVERRIDE_GRID_ROWS = 2
+    TMP_DASH_OVERRIDE_FRAME_COUNT = 8
+    TMP_DASH_OVERRIDE_BG_TOLERANCE = 44
+    # Keep dash on the same baseline scale as walk. The earlier extra downscale
+    # made Teddy read noticeably smaller in motion.
+    TMP_DASH_OVERRIDE_SCALE_MULT = 1.0
+    # Guard against short/wide dash poses collapsing too far below the walk
+    # body class at gameplay scale.
+    TMP_DASH_OVERRIDE_MIN_VISIBLE_HEIGHT_RATIO = 0.85
+    TMP_DASH_OVERRIDE_FPS = 22.0
+    # Match the feel of Menhera/Honglyeon dash playback: the visual motion
+    # stays on screen for roughly 0.56s even if the gameplay dash itself ends
+    # sooner.
+    TMP_DASH_OVERRIDE_MIN_VISIBLE_SECONDS = 0.56
+    # Keep the sideways slide readable for almost the whole dash, then allow a
+    # very short late release into follow-through frames near the finish.
+    TMP_DASH_OVERRIDE_HOLD_RATIO = 0.86
+    TMP_DASH_OVERRIDE_RELEASE_STEPS = 4
+    TMP_TURN_OVERRIDE_ENABLED = False
+    TMP_TURN_OVERRIDE_PATHS_PNG = (
+        os.path.join(".tmp", "teddy_bear_turn_gemini_v3.png"),
+    )
+    TMP_TURN_OVERRIDE_GRID_COLS = 4
+    TMP_TURN_OVERRIDE_GRID_ROWS = 2
+    TMP_TURN_OVERRIDE_FRAME_COUNT = 8
+    TMP_TURN_OVERRIDE_BG_TOLERANCE = 44
+    # Runtime-only auxiliary turn accent. Keep it brief and readable.
+    TMP_TURN_OVERRIDE_FPS = 12.0
     """리얼리스틱 봉제 곰인형 보스 스프라이트 v8 (3x SSAA + 호러 디테일)"""
 
     def __init__(self):
@@ -49,6 +129,7 @@ class TeddyBearBossSprite:
         self.ear_bounce = 0.0
         self.ribbon_flutter = 0.0
         self.move_dir = 0
+        self._last_move_dir = 0
         self.face_dir = 1.0
         self.face_dir_target = 0.0
 
@@ -78,6 +159,34 @@ class TeddyBearBossSprite:
         self._fuzz_cache = {}   # key: (rx, ry, seed) → Surface
         self._noise_seed = random.randint(0, 99999)
 
+        # Temporary walk-sheet override for in-game candidate QA.
+        self._walk_override_frames = []
+        self._walk_override_scaled_cache = {}
+        self._walk_override_frame_index = 0
+        self._walk_override_anim_clock = 0.0
+        self._attack_override_frames = []
+        self._attack_override_scaled_cache = {}
+        self._attack_override_active = False
+        self._attack_override_frame_index = 0
+        self._attack_override_anim_clock = 0.0
+        self._dash_override_frames = []
+        self._dash_override_scaled_cache = {}
+        self._dash_override_active = False
+        self._dash_override_frame_index = 0
+        self._dash_override_anim_clock = 0.0
+        self._dash_override_start_frame = 0
+        self._dash_override_duration_frames = 0.0
+        self._dash_override_elapsed_frames = 0.0
+        self._turn_override_frames = []
+        self._turn_override_scaled_cache = {}
+        self._turn_override_active = False
+        self._turn_override_frame_index = 0
+        self._turn_override_anim_clock = 0.0
+        self._load_walk_override_frames()
+        self._load_attack_override_frames()
+        self._load_dash_override_frames()
+        self._load_turn_override_frames()
+
     def _get_surface(self, w, h):
         w = max(4, ((w + 3) // 4) * 4)
         h = max(4, ((h + 3) // 4) * 4)
@@ -87,6 +196,593 @@ class TeddyBearBossSprite:
         else:
             self._surface_cache[key].fill((0, 0, 0, 0))
         return self._surface_cache[key]
+
+    @staticmethod
+    def _has_transparent_border(
+        surface: pygame.Surface,
+        *,
+        alpha_threshold: int = 12,
+        min_ratio: float = 0.9,
+    ) -> bool:
+        """Fast-path already-nukki PNG cells to avoid redundant per-pixel cleanup."""
+        width, height = surface.get_size()
+        if width <= 2 or height <= 2:
+            return False
+
+        step = max(1, min(width, height) // 96)
+        samples = 0
+        transparent_samples = 0
+
+        for x in range(0, width, step):
+            if surface.get_at((x, 0))[3] <= alpha_threshold:
+                transparent_samples += 1
+            samples += 1
+            if surface.get_at((x, height - 1))[3] <= alpha_threshold:
+                transparent_samples += 1
+            samples += 1
+
+        for y in range(step, max(step, height - 1), step):
+            if surface.get_at((0, y))[3] <= alpha_threshold:
+                transparent_samples += 1
+            samples += 1
+            if surface.get_at((width - 1, y))[3] <= alpha_threshold:
+                transparent_samples += 1
+            samples += 1
+
+        if samples <= 0:
+            return False
+        return (transparent_samples / samples) >= min_ratio
+
+    def _prepare_override_frame(
+        self,
+        frame: pygame.Surface,
+        *,
+        tolerance: int,
+    ) -> pygame.Surface:
+        if not self._has_transparent_border(frame):
+            frame = self._remove_light_background(frame, tolerance=tolerance)
+        return self._trim_to_visible_bounds(frame, pad=1)
+
+    def _load_walk_override_frames(self):
+        """Load the temporary stitched walk candidate from .tmp for runtime QA."""
+        self._walk_override_frames = []
+        self._walk_override_scaled_cache = {}
+
+        if not self.TMP_WALK_OVERRIDE_ENABLED:
+            return
+
+        sheet_path = None
+        for candidate in self.TMP_WALK_OVERRIDE_PATHS_PNG:
+            resolved = resource_path(candidate)
+            if os.path.exists(resolved):
+                sheet_path = resolved
+                break
+
+        if sheet_path is None:
+            return
+
+        try:
+            loaded = pygame.image.load(sheet_path)
+            sheet = loaded.convert_alpha() if pygame.display.get_surface() else loaded.copy()
+        except Exception as exc:
+            print(f"[TeddyBearBossSprite] Walk override load failed: {exc}")
+            return
+
+        sheet_w, sheet_h = sheet.get_size()
+        cell_w = sheet_w // self.TMP_WALK_OVERRIDE_GRID_COLS
+        cell_h = sheet_h // self.TMP_WALK_OVERRIDE_GRID_ROWS
+
+        for row in range(self.TMP_WALK_OVERRIDE_GRID_ROWS):
+            for col in range(self.TMP_WALK_OVERRIDE_GRID_COLS):
+                if len(self._walk_override_frames) >= self.TMP_WALK_OVERRIDE_FRAME_COUNT:
+                    break
+                rect = pygame.Rect(col * cell_w, row * cell_h, cell_w, cell_h)
+                frame = sheet.subsurface(rect).copy()
+                frame = self._prepare_override_frame(
+                    frame,
+                    tolerance=self.TMP_WALK_OVERRIDE_BG_TOLERANCE,
+                )
+                if frame.get_width() > 1 and frame.get_height() > 1:
+                    self._walk_override_frames.append(frame)
+
+    def _load_attack_override_frames(self):
+        """Load the temporary attack-sheet candidate from .tmp for runtime QA."""
+        self._attack_override_frames = []
+        self._attack_override_scaled_cache = {}
+
+        if not self.TMP_ATTACK_OVERRIDE_ENABLED:
+            return
+
+        sheet_path = None
+        for candidate in self.TMP_ATTACK_OVERRIDE_PATHS_PNG:
+            resolved = resource_path(candidate)
+            if os.path.exists(resolved):
+                sheet_path = resolved
+                break
+
+        if sheet_path is None:
+            return
+
+        try:
+            loaded = pygame.image.load(sheet_path)
+            sheet = loaded.convert_alpha() if pygame.display.get_surface() else loaded.copy()
+        except Exception as exc:
+            print(f"[TeddyBearBossSprite] Attack override load failed: {exc}")
+            return
+
+        sheet_w, sheet_h = sheet.get_size()
+        cell_w = sheet_w // self.TMP_ATTACK_OVERRIDE_GRID_COLS
+        cell_h = sheet_h // self.TMP_ATTACK_OVERRIDE_GRID_ROWS
+
+        for row in range(self.TMP_ATTACK_OVERRIDE_GRID_ROWS):
+            for col in range(self.TMP_ATTACK_OVERRIDE_GRID_COLS):
+                if len(self._attack_override_frames) >= self.TMP_ATTACK_OVERRIDE_FRAME_COUNT:
+                    break
+                rect = pygame.Rect(col * cell_w, row * cell_h, cell_w, cell_h)
+                frame = sheet.subsurface(rect).copy()
+                frame = self._prepare_override_frame(
+                    frame,
+                    tolerance=self.TMP_ATTACK_OVERRIDE_BG_TOLERANCE,
+                )
+                if frame.get_width() > 1 and frame.get_height() > 1:
+                    self._attack_override_frames.append(frame)
+
+    def _load_dash_override_frames(self):
+        """Load the temporary dash-sheet candidate from .tmp for runtime QA."""
+        self._dash_override_frames = []
+        self._dash_override_scaled_cache = {}
+
+        if not self.TMP_DASH_OVERRIDE_ENABLED:
+            return
+
+        sheet_path = None
+        for candidate in self.TMP_DASH_OVERRIDE_PATHS_PNG:
+            resolved = resource_path(candidate)
+            if os.path.exists(resolved):
+                sheet_path = resolved
+                break
+
+        if sheet_path is None:
+            return
+
+        try:
+            loaded = pygame.image.load(sheet_path)
+            sheet = loaded.convert_alpha() if pygame.display.get_surface() else loaded.copy()
+        except Exception as exc:
+            print(f"[TeddyBearBossSprite] Dash override load failed: {exc}")
+            return
+
+        sheet_w, sheet_h = sheet.get_size()
+        cell_w = sheet_w // self.TMP_DASH_OVERRIDE_GRID_COLS
+        cell_h = sheet_h // self.TMP_DASH_OVERRIDE_GRID_ROWS
+
+        for row in range(self.TMP_DASH_OVERRIDE_GRID_ROWS):
+            for col in range(self.TMP_DASH_OVERRIDE_GRID_COLS):
+                if len(self._dash_override_frames) >= self.TMP_DASH_OVERRIDE_FRAME_COUNT:
+                    break
+                rect = pygame.Rect(col * cell_w, row * cell_h, cell_w, cell_h)
+                frame = sheet.subsurface(rect).copy()
+                frame = self._prepare_override_frame(
+                    frame,
+                    tolerance=self.TMP_DASH_OVERRIDE_BG_TOLERANCE,
+                )
+                if frame.get_width() > 1 and frame.get_height() > 1:
+                    self._dash_override_frames.append(frame)
+
+    def _load_turn_override_frames(self):
+        """Load the temporary runtime-only auxiliary turn candidate from .tmp."""
+        self._turn_override_frames = []
+        self._turn_override_scaled_cache = {}
+
+        if not self.TMP_TURN_OVERRIDE_ENABLED:
+            return
+
+        sheet_path = None
+        for candidate in self.TMP_TURN_OVERRIDE_PATHS_PNG:
+            resolved = resource_path(candidate)
+            if os.path.exists(resolved):
+                sheet_path = resolved
+                break
+
+        if sheet_path is None:
+            return
+
+        try:
+            loaded = pygame.image.load(sheet_path)
+            sheet = loaded.convert_alpha() if pygame.display.get_surface() else loaded.copy()
+        except Exception as exc:
+            print(f"[TeddyBearBossSprite] Turn override load failed: {exc}")
+            return
+
+        sheet_w, sheet_h = sheet.get_size()
+        cell_w = sheet_w // self.TMP_TURN_OVERRIDE_GRID_COLS
+        cell_h = sheet_h // self.TMP_TURN_OVERRIDE_GRID_ROWS
+
+        for row in range(self.TMP_TURN_OVERRIDE_GRID_ROWS):
+            for col in range(self.TMP_TURN_OVERRIDE_GRID_COLS):
+                if len(self._turn_override_frames) >= self.TMP_TURN_OVERRIDE_FRAME_COUNT:
+                    break
+                rect = pygame.Rect(col * cell_w, row * cell_h, cell_w, cell_h)
+                frame = sheet.subsurface(rect).copy()
+                frame = self._prepare_override_frame(
+                    frame,
+                    tolerance=self.TMP_TURN_OVERRIDE_BG_TOLERANCE,
+                )
+                if frame.get_width() > 1 and frame.get_height() > 1:
+                    self._turn_override_frames.append(frame)
+
+    @staticmethod
+    def _remove_light_background(surface: pygame.Surface, tolerance: int = 20) -> pygame.Surface:
+        result = surface.copy()
+        width, height = result.get_size()
+        if width <= 0 or height <= 0:
+            return result
+
+        def is_light_bg(color):
+            r, g, b, a = color
+            if a == 0:
+                return True
+            if min(r, g, b) < 255 - tolerance:
+                return False
+            return max(r, g, b) - min(r, g, b) <= tolerance
+
+        visited = bytearray(width * height)
+        queue = deque()
+
+        def push(px, py):
+            idx = py * width + px
+            if visited[idx]:
+                return
+            visited[idx] = 1
+            if is_light_bg(result.get_at((px, py))):
+                queue.append((px, py))
+
+        for x in range(width):
+            push(x, 0)
+            push(x, height - 1)
+        for y in range(height):
+            push(0, y)
+            push(width - 1, y)
+
+        while queue:
+            px, py = queue.popleft()
+            result.set_at((px, py), (255, 255, 255, 0))
+            if px > 0:
+                push(px - 1, py)
+            if px + 1 < width:
+                push(px + 1, py)
+            if py > 0:
+                push(px, py - 1)
+            if py + 1 < height:
+                push(px, py + 1)
+
+        # Remove any remaining off-white halo touching transparency.
+        to_clear = []
+        for y in range(1, height - 1):
+            for x in range(1, width - 1):
+                r, g, b, a = result.get_at((x, y))
+                if a == 0:
+                    continue
+                if min(r, g, b) < 220 or max(r, g, b) - min(r, g, b) > 24:
+                    continue
+                if any(
+                    result.get_at((x + ox, y + oy))[3] == 0
+                    for oy in (-1, 0, 1)
+                    for ox in (-1, 0, 1)
+                    if not (ox == 0 and oy == 0)
+                ):
+                    to_clear.append((x, y))
+
+        for x, y in to_clear:
+            result.set_at((x, y), (255, 255, 255, 0))
+
+        return result
+
+    @staticmethod
+    def _trim_to_visible_bounds(surface: pygame.Surface, pad: int = 2) -> pygame.Surface:
+        bounds = surface.get_bounding_rect()
+        if bounds.width <= 0 or bounds.height <= 0:
+            return surface
+
+        left = max(0, bounds.left - pad)
+        top = max(0, bounds.top - pad)
+        right = min(surface.get_width(), bounds.right + pad)
+        bottom = min(surface.get_height(), bounds.bottom + pad)
+        return surface.subsurface(pygame.Rect(left, top, right - left, bottom - top)).copy()
+
+    def _get_scaled_walk_override_frames(self, w: int, h: int):
+        cache_key = (w, h)
+        cached = self._walk_override_scaled_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        scaled_frames = []
+        target_w = max(1, int(w * 0.96))
+        target_h = max(1, int(h * 0.96))
+        for frame in self._walk_override_frames:
+            fw, fh = frame.get_size()
+            scale = min(target_w / fw, target_h / fh)
+            new_w = max(1, int(fw * scale))
+            new_h = max(1, int(fh * scale))
+            scaled = pygame.transform.scale(frame, (new_w, new_h))
+            canvas = pygame.Surface((w, h), pygame.SRCALPHA)
+            canvas.blit(scaled, ((w - new_w) // 2, (h - new_h) // 2))
+            scaled_frames.append(canvas)
+
+        self._walk_override_scaled_cache[cache_key] = scaled_frames
+        return scaled_frames
+
+    def _get_walk_reference_scale(self, w: int, h: int) -> float:
+        target_w = max(1, int(w * 0.96))
+        target_h = max(1, int(h * 0.96))
+
+        ref_frame = None
+        if self._walk_override_frames:
+            ref_frame = self._walk_override_frames[0]
+        elif self._attack_override_frames:
+            ref_frame = self._attack_override_frames[0]
+
+        if ref_frame is None:
+            return 1.0
+
+        ref_w, ref_h = ref_frame.get_size()
+        if ref_w <= 0 or ref_h <= 0:
+            return 1.0
+        return min(target_w / ref_w, target_h / ref_h)
+
+    def _get_scaled_attack_override_frames(self, w: int, h: int):
+        cache_key = (w, h)
+        cached = self._attack_override_scaled_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        scaled_frames = []
+        scale = self._get_walk_reference_scale(w, h)
+        for frame in self._attack_override_frames:
+            fw, fh = frame.get_size()
+            new_w = max(1, int(fw * scale))
+            new_h = max(1, int(fh * scale))
+            scaled = pygame.transform.scale(frame, (new_w, new_h))
+            canvas = pygame.Surface((w, h), pygame.SRCALPHA)
+            canvas.blit(scaled, ((w - new_w) // 2, (h - new_h) // 2))
+            scaled_frames.append(canvas)
+
+        self._attack_override_scaled_cache[cache_key] = scaled_frames
+        return scaled_frames
+
+    def _get_scaled_dash_override_frames(self, w: int, h: int):
+        cache_key = (w, h)
+        cached = self._dash_override_scaled_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        scaled_frames = []
+        walk_visible_height = 0
+        if self._walk_override_frames:
+            for walk_frame in self._get_scaled_walk_override_frames(w, h):
+                walk_rect = walk_frame.get_bounding_rect(min_alpha=1)
+                walk_visible_height = max(walk_visible_height, walk_rect.height)
+
+        scale = self._get_walk_reference_scale(w, h) * self.TMP_DASH_OVERRIDE_SCALE_MULT
+        for frame in self._dash_override_frames:
+            fw, fh = frame.get_size()
+            new_w = max(1, int(fw * scale))
+            new_h = max(1, int(fh * scale))
+            scaled = pygame.transform.scale(frame, (new_w, new_h))
+            canvas = pygame.Surface((w, h), pygame.SRCALPHA)
+            canvas.blit(scaled, ((w - new_w) // 2, (h - new_h) // 2))
+            if walk_visible_height > 0:
+                min_visible_height = int(
+                    round(walk_visible_height * self.TMP_DASH_OVERRIDE_MIN_VISIBLE_HEIGHT_RATIO)
+                )
+                dash_rect = canvas.get_bounding_rect(min_alpha=1)
+                if 0 < dash_rect.height < min_visible_height:
+                    visible = canvas.subsurface(dash_rect).copy()
+                    upscale = min_visible_height / dash_rect.height
+                    up_w = max(1, int(round(visible.get_width() * upscale)))
+                    up_h = max(1, int(round(visible.get_height() * upscale)))
+                    enlarged = pygame.transform.scale(visible, (up_w, up_h))
+                    reboxed = pygame.Surface((w, h), pygame.SRCALPHA)
+                    reboxed.blit(enlarged, enlarged.get_rect(midbottom=dash_rect.midbottom))
+                    canvas = reboxed
+            scaled_frames.append(canvas)
+
+        self._dash_override_scaled_cache[cache_key] = scaled_frames
+        return scaled_frames
+
+    def _get_scaled_turn_override_frames(self, w: int, h: int):
+        cache_key = (w, h)
+        cached = self._turn_override_scaled_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        scaled_frames = []
+        scale = self._get_walk_reference_scale(w, h)
+        for frame in self._turn_override_frames:
+            fw, fh = frame.get_size()
+            new_w = max(1, int(fw * scale))
+            new_h = max(1, int(fh * scale))
+            scaled = pygame.transform.scale(frame, (new_w, new_h))
+            canvas = pygame.Surface((w, h), pygame.SRCALPHA)
+            canvas.blit(scaled, ((w - new_w) // 2, (h - new_h) // 2))
+            scaled_frames.append(canvas)
+
+        self._turn_override_scaled_cache[cache_key] = scaled_frames
+        return scaled_frames
+
+    def _get_walk_override_frame(self, w: int, h: int):
+        if not self._walk_override_frames:
+            return None
+
+        frames = self._get_scaled_walk_override_frames(w, h)
+        if not frames:
+            return None
+
+        frame_index = min(len(frames) - 1, self._walk_override_frame_index)
+        return frames[frame_index]
+
+    def _get_attack_override_frame(self, w: int, h: int):
+        if not self._attack_override_frames:
+            return None
+
+        frames = self._get_scaled_attack_override_frames(w, h)
+        if not frames:
+            return None
+
+        frame_index = min(len(frames) - 1, self._attack_override_frame_index)
+        return frames[frame_index]
+
+    def _get_dash_override_frame(self, w: int, h: int):
+        if not self._dash_override_frames:
+            return None
+
+        frames = self._get_scaled_dash_override_frames(w, h)
+        if not frames:
+            return None
+
+        frame_index = min(len(frames) - 1, self._dash_override_frame_index)
+        return frames[frame_index]
+
+    def _update_dash_override_progress_frame(self):
+        if not self._dash_override_frames:
+            return
+
+        total_frames = len(self._dash_override_frames)
+        start_frame = max(0, min(self._dash_override_start_frame, total_frames - 1))
+        remaining_frames = total_frames - start_frame
+        if remaining_frames <= 1:
+            self._dash_override_frame_index = start_frame
+            return
+
+        progress = 0.0
+        if self._dash_override_duration_frames > 0.0:
+            progress = self._dash_override_elapsed_frames / self._dash_override_duration_frames
+        progress = max(0.0, min(1.0, progress))
+        hold_ratio = max(0.0, min(0.98, self.TMP_DASH_OVERRIDE_HOLD_RATIO))
+        if progress <= hold_ratio:
+            step_index = 0
+        else:
+            release_capacity = min(
+                remaining_frames - 1,
+                max(1, int(self.TMP_DASH_OVERRIDE_RELEASE_STEPS)),
+            )
+            release_progress = (progress - hold_ratio) / max(0.001, 1.0 - hold_ratio)
+            step_index = min(
+                release_capacity,
+                max(1, int(release_progress * release_capacity)),
+            )
+        self._dash_override_frame_index = start_frame + step_index
+
+    def _get_turn_override_frame(self, w: int, h: int):
+        if not self._turn_override_frames:
+            return None
+
+        frames = self._get_scaled_turn_override_frames(w, h)
+        if not frames:
+            return None
+
+        frame_index = min(len(frames) - 1, self._turn_override_frame_index)
+        return frames[frame_index]
+
+    def _update_walk_override_cycle(self, dx: float, dt: float):
+        if not self._walk_override_frames:
+            return
+
+        move_metric = max(abs(dx), abs(self.velocity))
+        if move_metric <= self.TMP_WALK_OVERRIDE_MOVE_THRESHOLD:
+            self._walk_override_anim_clock = 0.0
+            self._walk_override_frame_index = 0
+            return
+
+        cadence = self.TMP_WALK_OVERRIDE_BASE_FPS + min(
+            self.TMP_WALK_OVERRIDE_SPEED_FPS_GAIN,
+            move_metric * 24.0,
+        )
+        self._walk_override_anim_clock += dt * cadence
+        while self._walk_override_anim_clock >= 1.0:
+            self._walk_override_anim_clock -= 1.0
+            self._walk_override_frame_index = (
+                self._walk_override_frame_index + 1
+            ) % len(self._walk_override_frames)
+
+    @property
+    def is_attacking(self) -> bool:
+        return self._attack_override_active or self.hit_swing_active
+
+    @property
+    def is_dashing(self) -> bool:
+        return self._dash_override_active
+
+    @property
+    def is_turning(self) -> bool:
+        return self._turn_override_active
+
+    def trigger_attack(self, start_frame: int = 0):
+        """Start the temporary attack-sheet candidate, if available."""
+        if not self._attack_override_frames:
+            return False
+
+        self._turn_override_active = False
+        self._turn_override_frame_index = 0
+        self._turn_override_anim_clock = 0.0
+        self._dash_override_active = False
+        self._dash_override_frame_index = 0
+        self._dash_override_anim_clock = 0.0
+        self._dash_override_start_frame = 0
+        self._dash_override_duration_frames = 0.0
+        self._dash_override_elapsed_frames = 0.0
+        self._attack_override_active = True
+        self._attack_override_anim_clock = 0.0
+        self._attack_override_frame_index = max(
+            0,
+            min(start_frame, len(self._attack_override_frames) - 1),
+        )
+        self.hit_swing_active = False
+        self.hit_swing_timer = 0.0
+        self.hit_swing_phase = 0.0
+        return True
+
+    def trigger_dash(self, start_frame: int = 2, duration_frames: float | None = None):
+        """Start the temporary dash-sheet candidate, if available."""
+        if not self._dash_override_frames:
+            return False
+
+        self._turn_override_active = False
+        self._turn_override_frame_index = 0
+        self._turn_override_anim_clock = 0.0
+        self._attack_override_active = False
+        self._attack_override_frame_index = 0
+        self._attack_override_anim_clock = 0.0
+        self.hit_swing_active = False
+        self.hit_swing_timer = 0.0
+        self.hit_swing_phase = 0.0
+        self._dash_override_active = True
+        self._dash_override_anim_clock = 0.0
+        self._dash_override_start_frame = max(
+            0,
+            min(start_frame, len(self._dash_override_frames) - 1),
+        )
+        self._dash_override_frame_index = self._dash_override_start_frame
+        min_visible_frames = self.TMP_DASH_OVERRIDE_MIN_VISIBLE_SECONDS * 60.0
+        if duration_frames is not None:
+            self._dash_override_duration_frames = max(
+                min_visible_frames,
+                float(duration_frames),
+            )
+        else:
+            self._dash_override_duration_frames = min_visible_frames
+        self._dash_override_elapsed_frames = 0.0
+        return True
+
+    def trigger_turn(self):
+        """Start the short runtime-only auxiliary turn accent."""
+        if not self._turn_override_frames or self._attack_override_active or self._dash_override_active:
+            return False
+
+        self._turn_override_active = True
+        self._turn_override_anim_clock = 0.0
+        self._turn_override_frame_index = 0
+        return True
 
     # ═══════════════════════ v8: 노이즈 텍스처 생성 (캐시) ═══════════════════════
 
@@ -234,14 +930,17 @@ class TeddyBearBossSprite:
         """보스 위치 기반 애니메이션 업데이트"""
         self.time += dt
 
+        dx = 0.0
         if self.prev_x is not None:
             dx = boss_x - self.prev_x
             self.velocity = self.velocity * 0.75 + dx * 0.25
         self.prev_x = boss_x
+        self._update_walk_override_cycle(dx, dt)
 
         speed = abs(self.velocity)
         moving = speed > 0.3
         speed_ratio = min(1.0, speed / 10.0)
+        prev_move_dir = self.move_dir
 
         if moving:
             self.move_dir = 1 if self.velocity > 0 else -1
@@ -282,6 +981,16 @@ class TeddyBearBossSprite:
         if moving:
             self.face_dir_target = float(self.move_dir)
         self.face_dir += (self.face_dir_target - self.face_dir) * 0.08
+        if (
+            moving
+            and prev_move_dir != 0
+            and self.move_dir != prev_move_dir
+            and not self._attack_override_active
+            and not self._turn_override_active
+        ):
+            self.trigger_turn()
+        if moving:
+            self._last_move_dir = self.move_dir
 
         # v8: 호러 떨림 (이동 시 기괴한 파르르 떨림)
         if moving:
@@ -325,8 +1034,64 @@ class TeddyBearBossSprite:
                     # 0.3~1.0: 천천히 원위치로 복귀 (1→0)
                     self.hit_swing_phase = 1.0 - ((t - 0.3) / 0.7)
 
+        if self._attack_override_active and self._attack_override_frames:
+            self._attack_override_anim_clock += dt * self.TMP_ATTACK_OVERRIDE_FPS
+            while self._attack_override_anim_clock >= 1.0:
+                self._attack_override_anim_clock -= 1.0
+                self._attack_override_frame_index += 1
+                if self._attack_override_frame_index >= len(self._attack_override_frames):
+                    self._attack_override_active = False
+                    self._attack_override_frame_index = 0
+                    self._attack_override_anim_clock = 0.0
+                    break
+
+        if self._dash_override_active and self._dash_override_frames:
+            if self._dash_override_duration_frames > 0.0:
+                self._dash_override_elapsed_frames = min(
+                    self._dash_override_duration_frames,
+                    self._dash_override_elapsed_frames + dt * 60.0,
+                )
+                self._update_dash_override_progress_frame()
+                if self._dash_override_elapsed_frames >= self._dash_override_duration_frames:
+                    self._dash_override_active = False
+                    self._dash_override_frame_index = 0
+                    self._dash_override_anim_clock = 0.0
+                    self._dash_override_start_frame = 0
+                    self._dash_override_duration_frames = 0.0
+                    self._dash_override_elapsed_frames = 0.0
+            else:
+                self._dash_override_anim_clock += dt * self.TMP_DASH_OVERRIDE_FPS
+                while self._dash_override_anim_clock >= 1.0:
+                    self._dash_override_anim_clock -= 1.0
+                    self._dash_override_frame_index += 1
+                    if self._dash_override_frame_index >= len(self._dash_override_frames):
+                        self._dash_override_active = False
+                        self._dash_override_frame_index = 0
+                        self._dash_override_anim_clock = 0.0
+                        self._dash_override_start_frame = 0
+                        self._dash_override_duration_frames = 0.0
+                        self._dash_override_elapsed_frames = 0.0
+                        break
+
+        if self._turn_override_active and self._turn_override_frames:
+            self._turn_override_anim_clock += dt * self.TMP_TURN_OVERRIDE_FPS
+            while self._turn_override_anim_clock >= 1.0:
+                self._turn_override_anim_clock -= 1.0
+                self._turn_override_frame_index += 1
+                if self._turn_override_frame_index >= len(self._turn_override_frames):
+                    self._turn_override_active = False
+                    self._turn_override_frame_index = 0
+                    self._turn_override_anim_clock = 0.0
+                    break
+
     def trigger_hit(self, ball_x, boss_x):
         """공을 칠 때 팔 휘두르기 애니메이션 시작"""
+        if self._attack_override_frames:
+            if self._attack_override_active:
+                return
+            self.trigger_attack(start_frame=4)
+            return
+
         self.hit_swing_active = True
         self.hit_swing_timer = 0.0
         self.hit_swing_phase = 0.0
@@ -338,6 +1103,30 @@ class TeddyBearBossSprite:
 
     def draw(self, screen, x, y, w, h):
         """3x SSAA 렌더링"""
+        if self._attack_override_active and self._attack_override_frames:
+            override_frame = self._get_attack_override_frame(w, h)
+            if override_frame is not None:
+                screen.blit(override_frame, (x, y))
+                return
+
+        if self._dash_override_active and self._dash_override_frames:
+            override_frame = self._get_dash_override_frame(w, h)
+            if override_frame is not None:
+                screen.blit(override_frame, (x, y))
+                return
+
+        if self._turn_override_active and self._turn_override_frames:
+            override_frame = self._get_turn_override_frame(w, h)
+            if override_frame is not None:
+                screen.blit(override_frame, (x, y))
+                return
+
+        if self._walk_override_frames and not self.hit_swing_active:
+            override_frame = self._get_walk_override_frame(w, h)
+            if override_frame is not None:
+                screen.blit(override_frame, (x, y))
+                return
+
         sw = w * _SSAA
         sh = h * _SSAA
 

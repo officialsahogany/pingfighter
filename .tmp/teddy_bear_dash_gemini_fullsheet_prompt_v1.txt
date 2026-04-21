@@ -1,0 +1,88 @@
+Generate an 8-frame 4x2 pixel-art dash sprite sheet for the front-facing
+Stage 3 menhera-themed teddy bear boss.
+
+This is a DASH / BURST-MOVE sheet, not a walk sheet and not an attack sheet.
+
+Core dash concept:
+- front-facing plush burst-slide
+- quick low forward / lateral relocation feel
+- compact stuffed-toy pounce energy
+- body stays facing the viewer
+- speed comes from crouch, squash, extension, glide, rebound, and prop drag
+
+This is NOT:
+- a side-profile run
+- a 3/4 dash
+- a spin
+- a human sprint
+- a teleport blink
+- a repeated walk loop
+
+Identity to preserve exactly:
+- same plush cocoa-brown chibi teddy bear
+- LEFT eye = attached dark button with red X stitch
+- RIGHT eye = empty dark socket with detached black button hanging below on a thin white thread
+- large pink gingham bow on the head
+- cream neck ribbon under the head
+- heart belly patch centered on the belly
+- small silver safety pin on upper chest
+- small black bow on the left paw
+- same accessory positions, same body scale, same teddy in every frame
+
+Front-facing lock:
+- face stays aimed at the viewer in every frame
+- muzzle centered
+- head yaw = 0
+- torso yaw = 0
+- shoulders remain front-facing
+- no side-facing drift
+
+Dash sequence target:
+- frame 1 ready stance
+- frame 2 crouch prep, body lowers slightly
+- frame 3 push-off / compression release
+- frame 4 strongest burst-extension frame, low and fast
+- frame 5 sustained slide / glide with strongest speed read
+- frame 6 deceleration with plush rebound
+- frame 7 rise back upward
+- frame 8 neutral recovery ready to return to walk
+
+Motion language:
+- fast intimidating relocation
+- low body line during the burst
+- paws and feet compressed / extended for speed
+- ears and head bow dragged by momentum
+- dangling button eye swings with velocity
+- neck ribbon and safety pin react slightly
+- heart patch remains readable
+- body scale must stay consistent with walk
+
+Important:
+- this dash should feel faster than walk through pose and drag, not by shrinking the teddy
+- do not make the bear visibly smaller during the burst
+- do not hide the face
+- do not lose the dangling eye thread
+- keep generous white margin around each frame
+
+Style:
+- 16-bit retro pixel art
+- thick black pixel outlines
+- flat limited palette
+- clean hard-edged pixels
+- pure white background
+- no grid lines
+- no labels
+- no borders
+- no cell dividers
+
+Hard reject:
+- same pose repeated 8 times
+- dash reads like a walk loop
+- any side-facing or 3/4 running read
+- painterly / soft style drift
+- dangling eye becomes a flat face button
+- pink head bow moves off the head
+- safety pin leaves the upper chest
+- black paw bow disappears
+- body scale shrinks or grows noticeably versus walk
+- any printed border or divider appears

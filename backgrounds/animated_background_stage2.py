@@ -203,7 +203,7 @@ class AnimatedBackgroundStage2:
         self.crisis_rocks = []  # 위기 상황 바위들
         self.earthquake_active = False  # 지진 효과 활성화
         self.earthquake_timer = 0  # 지진 타이머
-        self.earthquake_duration = 48  # 정글지진 지속시간을 48프레임으로 추가 단축
+        self.earthquake_duration = 80  # 정글지진 체감 길이는 유지하되 게임 로직과 동기화
         self.rock_spawn_triggered = False  # 바위 생성 트리거 여부
         self.crisis_triggered = False  # 위기 상황 발동 여부 (한 번만)
         
@@ -429,8 +429,10 @@ class AnimatedBackgroundStage2:
             return True
         return False
     
-    def trigger_earthquake(self):
+    def trigger_earthquake(self, duration_frames=None):
         """정글 지진 효과 시작"""
+        if duration_frames is not None:
+            self.earthquake_duration = max(1, int(duration_frames))
         self.earthquake_active = True
         self.earthquake_timer = 0
         self.rock_spawn_triggered = False
@@ -551,7 +553,10 @@ class AnimatedBackgroundStage2:
                 'delay_timer': 0,  # 딜레이 타이머
                 'shadow_scale': 0.2,  # 그림자 초기 크기 (작게 시작)
                 'rock_seed': rock_seed,  # 바위 고유 시드 추가
-                'is_golden': is_golden  # 황금 바위 여부
+                'is_golden': is_golden,  # 황금 바위 여부
+                'quake_offset_x': 0.0,
+                'quake_offset_y': 0.0,
+                'quake_phase': (rock_seed % 628) / 100.0,
             }
             self.crisis_rocks.append(rock)
         
@@ -656,7 +661,10 @@ class AnimatedBackgroundStage2:
                 'delay_timer': 0,  # 딜레이 타이머
                 'shadow_scale': 0.2,  # 그림자 초기 크기 (작게 시작)
                 'rotation': random.uniform(0, 360),  # 회전 각도
-                'is_golden': is_golden  # 황금 바위 여부
+                'is_golden': is_golden,  # 황금 바위 여부
+                'quake_offset_x': 0.0,
+                'quake_offset_y': 0.0,
+                'quake_phase': (rock_seed % 628) / 100.0,
             }
             
             self.crisis_rocks.append(rock)
@@ -669,14 +677,15 @@ class AnimatedBackgroundStage2:
         """바위 파괴 및 파편 생성 애니메이션"""
         # 파편 생성 (8-12개)
         num_fragments = random.randint(8, 12)
+        rock_x, rock_y = self._get_rock_center(rock)
         
         for i in range(num_fragments):
             angle = (i / num_fragments) * 2 * math.pi + random.uniform(-0.3, 0.3)
             speed = random.uniform(3, 8)
             
             fragment = {
-                'x': rock['x'],
-                'y': rock['fall_y'] if rock['falling'] else rock['y'],
+                'x': rock_x,
+                'y': rock_y,
                 'vx': math.cos(angle) * speed,
                 'vy': math.sin(angle) * speed - random.uniform(2, 5),  # 위로 튕김
                 'size': random.randint(5, rock['size'] // 3),
@@ -705,21 +714,22 @@ class AnimatedBackgroundStage2:
                     self.crisis_rocks.pop(i)
                     
                     # 바위 중심 좌표 반환 (황금 바위 여부와 관계없이)
-                    return True, rock_size, is_golden, rock['x'], rock['y']
+                    return True, rock_size, is_golden, rock['collision_rect'].centerx, rock['collision_rect'].centery
         return False, 0, False, 0, 0
     
     def destroy_rock(self, rock):
         """바위 파괴 및 파편 생성 애니메이션"""
         # 파편 생성 (8-12개)
         num_fragments = random.randint(8, 12)
+        rock_x, rock_y = self._get_rock_center(rock)
         
         for i in range(num_fragments):
             angle = (i / num_fragments) * 2 * math.pi + random.uniform(-0.3, 0.3)
             speed = random.uniform(3, 8)
             
             fragment = {
-                'x': rock['x'],
-                'y': rock['fall_y'] if rock['falling'] else rock['y'],
+                'x': rock_x,
+                'y': rock_y,
                 'vx': math.cos(angle) * speed,
                 'vy': math.sin(angle) * speed - random.uniform(2, 5),  # 위로 튕김
                 'size': random.randint(5, rock['size'] // 3),
@@ -872,6 +882,10 @@ class AnimatedBackgroundStage2:
             # 🌠 정글지진 바위의 순차적 떨어짐 처리
             if 'spawn_delay' in rock and rock['delay_timer'] < rock['spawn_delay']:
                 rock['delay_timer'] += 1
+                self._update_rock_quake_offset(rock)
+                current_x, current_y = self._get_rock_center(rock)
+                rock['collision_rect'].x = int(current_x - rock['size'] // 2)
+                rock['collision_rect'].y = int(current_y - rock['size'] // 2)
                 continue  # 아직 떨어질 시간이 아님
             
             if rock['falling']:
@@ -898,10 +912,11 @@ class AnimatedBackgroundStage2:
                         rock['falling'] = False
                         rock['fall_speed'] = 0
                         rock['shadow_scale'] = 1.0  # 착지 후 그림자 최대 크기
-                
-                # 충돌 박스 업데이트
-                rock['collision_rect'].x = rock['x'] - rock['size']//2
-                rock['collision_rect'].y = rock['fall_y'] - rock['size']//2
+
+            self._update_rock_quake_offset(rock)
+            current_x, current_y = self._get_rock_center(rock)
+            rock['collision_rect'].x = int(current_x - rock['size'] // 2)
+            rock['collision_rect'].y = int(current_y - rock['size'] // 2)
         
         # 🧨 파편 업데이트
         fragments_to_remove = []
@@ -942,20 +957,88 @@ class AnimatedBackgroundStage2:
             self.expression_timer -= 1
             if self.expression_timer <= 0:
                 self.expression = 'neutral'
+
+    def _get_rock_center(self, rock, include_quake=True):
+        """바위의 현재 화면 중심 좌표를 반환한다."""
+        x = rock.get('x', 0.0)
+        y = rock['fall_y'] if rock.get('falling', False) else rock.get('y', rock.get('target_y', 0.0))
+        if include_quake:
+            x += rock.get('quake_offset_x', 0.0)
+            y += rock.get('quake_offset_y', 0.0)
+        return float(x), float(y)
+
+    def _update_rock_quake_offset(self, rock):
+        """정글지진 중 바위가 함께 흔들리도록 개별 오프셋을 계산한다."""
+        rock.setdefault('quake_offset_x', 0.0)
+        rock.setdefault('quake_offset_y', 0.0)
+        if 'quake_phase' not in rock:
+            rock['quake_phase'] = (rock.get('rock_seed', 0) % 628) / 100.0
+
+        if not self.earthquake_active:
+            rock['quake_offset_x'] *= 0.55
+            rock['quake_offset_y'] *= 0.55
+            if abs(rock['quake_offset_x']) < 0.15:
+                rock['quake_offset_x'] = 0.0
+            if abs(rock['quake_offset_y']) < 0.15:
+                rock['quake_offset_y'] = 0.0
+            return
+
+        duration = max(1, self.earthquake_duration)
+        progress = min(1.0, self.earthquake_timer / duration)
+        if progress < 0.16:
+            base_intensity = 6.8
+        elif progress < 0.72:
+            mid_p = (progress - 0.16) / 0.56
+            base_intensity = 6.8 - mid_p * 2.4
+        else:
+            fade_p = (progress - 0.72) / 0.28
+            base_intensity = 4.4 * (1.0 - fade_p)
+
+        size_scale = max(0.78, min(1.35, rock.get('size', 45) / 55.0))
+        if rock.get('falling', False):
+            size_scale *= 0.72
+        base_intensity *= size_scale
+
+        phase = rock['quake_phase']
+        t = float(self.earthquake_timer)
+        offset_x = math.sin(t * 1.95 + phase) * base_intensity * 0.95
+        offset_x += math.sin(t * 4.7 + phase * 1.7) * base_intensity * 0.35
+        offset_y = math.cos(t * 2.55 + phase * 1.3) * base_intensity * 0.70
+        offset_y += math.sin(t * 5.3 + phase * 0.9) * base_intensity * 0.22
+        if not rock.get('falling', False):
+            offset_y += math.sin(t * 1.4 + phase * 0.5) * base_intensity * 0.18
+
+        rock['quake_offset_x'] = offset_x
+        rock['quake_offset_y'] = offset_y
     
     def get_earthquake_offset(self):
         """지진 효과를 위한 화면 흔들림 오프셋 반환"""
         if not self.earthquake_active:
             return (0, 0)
-        
-        # 지진 강도 (시간에 따라 감소)
-        progress = self.earthquake_timer / self.earthquake_duration
-        intensity = 8 * (1 - progress)  # 8픽셀에서 시작해서 점차 감소
-        
-        # 랜덤한 방향으로 흔들림
-        offset_x = (random.random() - 0.5) * intensity * 2
-        offset_y = (random.random() - 0.5) * intensity * 2
-        
+
+        duration = max(1, self.earthquake_duration)
+        progress = min(1.0, self.earthquake_timer / duration)
+
+        # 정글지진은 신의 심판보다 짧고 살짝 약하게 유지한다.
+        # 대신 초반 충격과 잔진동을 넣어 무게감만 보강한다.
+        if progress < 0.14:
+            impact_p = progress / 0.14
+            base_intensity = 13.2 + math.sin(impact_p * math.pi) * 1.5
+        elif progress < 0.65:
+            mid_p = (progress - 0.14) / 0.51
+            base_intensity = 12.0 - mid_p * 4.1
+        else:
+            fade_p = (progress - 0.65) / 0.35
+            base_intensity = 7.9 * (1.0 - fade_p)
+
+        pulse = 1.0 + math.sin(self.earthquake_timer * 1.7) * 0.22
+        wave_x = math.sin(self.earthquake_timer * 2.2) * base_intensity * 0.52
+        wave_y = math.cos(self.earthquake_timer * 2.8) * base_intensity * 0.66
+        noise_x = random.uniform(-base_intensity * 0.45, base_intensity * 0.45)
+        noise_y = random.uniform(-base_intensity * 0.38, base_intensity * 0.38)
+        offset_x = (wave_x + noise_x) * pulse
+        offset_y = (wave_y + noise_y) * pulse
+
         return (int(offset_x), int(offset_y))
     
     def get_stomp_shake_offset(self):
@@ -1801,8 +1884,7 @@ class AnimatedBackgroundStage2:
 
     def draw_crisis_rock(self, surface, rock):
         """실제 바위 참고 울퉁불퉁한 위기 상황 바위 렌더링"""
-        x = rock['x']
-        y = rock['fall_y'] if rock['falling'] else rock['y']
+        x, y = self._get_rock_center(rock)
         size = rock['size']
         style = rock['style']
         colors = style['colors']
@@ -1813,8 +1895,8 @@ class AnimatedBackgroundStage2:
         shadow_scale = rock.get('shadow_scale', 1.0)  # 기본값 1.0
         
         # 그림자는 항상 목표 위치에 그려짐 (바닥)
-        shadow_x = rock['x']
-        shadow_y = rock.get('target_y', rock['y'])  # 목표 위치에 그림자
+        shadow_x = rock['x'] + rock.get('quake_offset_x', 0.0) * 0.65
+        shadow_y = rock.get('target_y', rock['y']) + rock.get('quake_offset_y', 0.0) * 0.35  # 목표 위치에 그림자
         
         shadow_width = size * 2.2 * shadow_scale
         shadow_height = size * 0.8 * shadow_scale

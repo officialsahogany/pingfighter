@@ -1,7 +1,7 @@
 """
 소울버스트 (Soul Burst) - 무릎 부위 패시브 아이템
 대쉬 토큰이 없을 때 (게이지 < 1) 대쉬 사용 시 스페셜 게이지를 대신 소모하여 풀 대쉬 발동.
-스페셜 게이지 소모량은 롤 옵션으로 130~200 범위에서 결정됨.
+스페셜 게이지 소모량은 롤 옵션으로 110~160 범위에서 결정됨.
 """
 
 import math
@@ -22,7 +22,7 @@ class SoulBurst:
     def __init__(self):
         self.active = False
         self.obtained = False
-        self.gauge_cost = 165  # 기본값 (롤옵션으로 130~200 사이 결정)
+        self.gauge_cost = 160  # 기본값 (롤옵션으로 110~160 사이 결정)
 
     def activate(self):
         """아이템 획득 시 활성화"""
@@ -35,7 +35,7 @@ class SoulBurst:
         """게임 종료/리셋 시 비활성화"""
         self.active = False
         self.obtained = False
-        self.gauge_cost = 165
+        self.gauge_cost = 160
 
     def set_gauge_cost(self, cost):
         """롤 옵션에서 결정된 게이지 소모량 설정"""

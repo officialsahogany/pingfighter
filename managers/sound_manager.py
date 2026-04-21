@@ -20,6 +20,10 @@ from core.global_manager import GlobalManager
 from core.events import EventType, EventManager
 
 
+def _unwrap_sound(sound):
+    return getattr(sound, "_raw_sound", sound)
+
+
 class SoundManager:
     """사운드 관리 시스템"""
     
@@ -31,7 +35,7 @@ class SoundManager:
         # (pingfighter.py에서 이미 64채널로 초기화하므로 덮어쓰지 않는다)
         if not pygame.mixer.get_init():
             pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
-            pygame.mixer.set_num_channels(64)
+            pygame.mixer.set_num_channels(96)
         
         # 사운드 캐시
         self.sounds = {}
@@ -337,18 +341,19 @@ class SoundManager:
             
         # 사운드 복사본 생성 (볼륨 독립 설정용)
         temp_sound = sound
+        playable_sound = _unwrap_sound(temp_sound)
         final_vol = max(0.0, min(1.0, volume * self.sound_volume * cat_vol * self.master_volume * limiter_gain))
-        temp_sound.set_volume(final_vol)
+        playable_sound.set_volume(final_vol)
         
         if channel and channel in self.channels:
             ch = self.channels[channel]
-            ch.play(temp_sound)
+            ch.play(playable_sound)
             if self.enable_3d_audio and position:
                 ch.set_volume(volume, 1.0 - volume)  # 좌우 패닝
         else:
             # 풀 채널 사용
             ch = self.pool_channels[self.next_pool_channel]
-            ch.play(temp_sound)
+            ch.play(playable_sound)
             if self.enable_3d_audio and position:
                 ch.set_volume(volume * (1.0 - pan), volume * (1.0 + pan))
             self.next_pool_channel = (self.next_pool_channel + 1) % len(self.pool_channels)

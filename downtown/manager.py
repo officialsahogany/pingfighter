@@ -1063,6 +1063,14 @@ class DowntownManager:
         # 이번 세션에 방문한 건물로 기록
         self.visited_buildings_this_session.add(building_type)
 
+        # 아카데미 입장 시 제안 스킬 캐시 리셋 (새 추첨 허용).
+        # 같은 방문 안에서는 학장 재클릭해도 같은 스킬이 유지된다.
+        if building_type == BuildingType.ACADEMY and self.academy:
+            try:
+                self.academy.reset_visit_cache()
+            except Exception:
+                pass
+
         # 건물 방문 직후 플래그 설정 (AP 소진 체크 스킵용)
         self.just_visited_building = True
 
@@ -2655,12 +2663,23 @@ class DowntownManager:
                             if isinstance(menu_result, tuple) and menu_result[0] == "academy_skill_menu":
                                 # 아카데미 스킬 메뉴 열기
                                 if self.academy:
+                                    try:
+                                        interior.draw(self.screen)
+                                    except Exception:
+                                        pass
                                     self.academy.show_academy_menu(
                                         self.screen,
                                         SCREEN_WIDTH,
                                         SCREEN_HEIGHT,
                                         self.player_data.get('character_type', 'smasher')
                                     )
+                                    # 아카데미에서 pingfighter.downtown_gold가 변경됐을 수 있으니
+                                    # player_data['gold']로 역싱크 (구매 1000G 반영).
+                                    try:
+                                        import pingfighter
+                                        self.player_data['gold'] = pingfighter.downtown_gold
+                                    except Exception:
+                                        pass
                             elif isinstance(menu_result, tuple) and menu_result[0] == "gacha_interact":
                                 # 가챠 머신 상호작용 - 가챠 실행
                                 self._run_gacha_from_interior(interior)
@@ -2701,12 +2720,22 @@ class DowntownManager:
                             elif result[0] == "academy_skill_menu":
                                 # 아카데미 스킬 메뉴 열기
                                 if self.academy:
+                                    try:
+                                        interior.draw(self.screen)
+                                    except Exception:
+                                        pass
                                     self.academy.show_academy_menu(
                                         self.screen,
                                         SCREEN_WIDTH,
                                         SCREEN_HEIGHT,
                                         self.player_data.get('character_type', 'smasher')
                                     )
+                                    # 구매로 pingfighter.downtown_gold가 줄었을 수 있으니 역싱크.
+                                    try:
+                                        import pingfighter
+                                        self.player_data['gold'] = pingfighter.downtown_gold
+                                    except Exception:
+                                        pass
                             elif result[0] == "gacha_interact":
                                 # 가챠 머신 클릭 - 가챠 실행
                                 self._run_gacha_from_interior(interior)
@@ -3047,8 +3076,15 @@ class DowntownManager:
             if not available_items:
                 available_items = list(items.ITEM_TYPES)
 
+            # 도박 퍽: 신화 아이템 확률 +3%/레벨
+            try:
+                import pingfighter as _pf_gamble
+                gamble_mythic_bonus = _pf_gamble.get_gamble_mythic_bonus()
+            except Exception:
+                gamble_mythic_bonus = 0.0
+
             # 가챠 초기화
-            gacha.init_gacha(available_items, legendary_bonus=0.0)
+            gacha.init_gacha(available_items, legendary_bonus=gamble_mythic_bonus)
 
             print(f"[가챠] 연속 뽑기 {gacha_count}회 실행 - 총 비용: {total_cost}G")
 
@@ -3275,8 +3311,15 @@ class DowntownManager:
             if not available_items:
                 available_items = list(items.ITEM_TYPES)
 
+            # 도박 퍽: 신화 아이템 확률 +3%/레벨
+            try:
+                import pingfighter as _pf_gamble
+                gamble_mythic_bonus = _pf_gamble.get_gamble_mythic_bonus()
+            except Exception:
+                gamble_mythic_bonus = 0.0
+
             # 가챠 초기화 (반드시 run_gacha 전에 호출!)
-            gacha.init_gacha(available_items, legendary_bonus=0.0)
+            gacha.init_gacha(available_items, legendary_bonus=gamble_mythic_bonus)
 
             # 가챠 실행 전 인벤토리 상태 저장
             before_passive_count = len(pingfighter.passive_item_list) if hasattr(pingfighter, 'passive_item_list') else 0

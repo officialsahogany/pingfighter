@@ -33,6 +33,9 @@ WHITE = (255, 255, 255)             # 흰색
 FIRE_GRADIENT = [(255, 0, 0), (255, 100, 0), (255, 200, 0), (255, 255, 100)]
 
 class Stage5ChineseMarket:
+    ACTIVE_DYNAMIC_REFRESH_INTERVAL_MS = 33.0
+    IDLE_DYNAMIC_REFRESH_INTERVAL_MS = 100.0
+
     def __init__(self, width: int = None, height: int = None):
         self.width = width if width is not None else WIDTH
         self.height = height if height is not None else HEIGHT
@@ -69,6 +72,16 @@ class Stage5ChineseMarket:
         # 화염 glow 서피스 캐시 (매프레임 Surface 생성 방지)
         self._glow_cache = {}  # key: (size, color_idx, alpha_q) → Surface
         
+        self._background_cache = None
+        self._background_cache_size = None
+        self._dynamic_overlay_cache = None
+        self._dynamic_overlay_cache_size = None
+        self._scene_cache = None
+        self._scene_cache_size = None
+        self._dynamic_refresh_timer = self.IDLE_DYNAMIC_REFRESH_INTERVAL_MS
+        self._dynamic_overlay_dirty = True
+        self._scene_cache_dirty = True
+
     def init_decorations(self):
         """중국 등롱 위치 초기화"""
         # 등롱 제거 - 빈 리스트로 초기화
@@ -77,7 +90,25 @@ class Stage5ChineseMarket:
     def update(self, dt):
         """애니메이션 업데이트"""
         self.time += dt
-        self.fire_glow_phase += 0.05  # 불꽃 맥동 애니메이션
+        _dynamic_active = self._is_dynamic_animation_active()
+        _dynamic_interval = (
+            self.ACTIVE_DYNAMIC_REFRESH_INTERVAL_MS
+            if _dynamic_active
+            else self.IDLE_DYNAMIC_REFRESH_INTERVAL_MS
+        )
+        self._dynamic_refresh_timer += dt
+        _visual_step_dt = dt if _dynamic_active else 0.0
+        if self._dynamic_refresh_timer >= _dynamic_interval:
+            if not _dynamic_active:
+                _visual_step_dt = self._dynamic_refresh_timer
+            self._dynamic_refresh_timer %= _dynamic_interval
+            self._dynamic_overlay_dirty = True
+            self._scene_cache_dirty = True
+        if _visual_step_dt <= 0:
+            return
+
+        _frame_scale = max(0.0, float(_visual_step_dt) / 16.0)
+        self.fire_glow_phase += 0.05 * _frame_scale  # 불꽃 맥동 애니메이션
         
         # 홀로그램 맥동 효과 업데이트 - 화염탄 발사시 속도 변화
         if self.spiral_burst_timer > 0 and hasattr(self, 'spiral_burst_max_timer'):
@@ -85,10 +116,13 @@ class Stage5ChineseMarket:
             progress = 1.0 - (self.spiral_burst_timer / self.spiral_burst_max_timer)  # 0에서 1로 증가
             # easing 함수를 통한 속도 변조
             speed_multiplier = self._get_rotation_speed_multiplier(progress)
-            self.lotus_fade_phase += 0.02 * speed_multiplier  # 속도 변화 적용 (0.05 -> 0.02로 감소)
+            self.lotus_fade_phase += 0.02 * speed_multiplier * _frame_scale  # 속도 변화 적용 (0.05 -> 0.02로 감소)
         else:
             # 평소: 일정한 속도 (천천히)
-            self.lotus_fade_phase += 0.02  # 0.05 -> 0.02로 감소 (60% 느리게)
+            self.lotus_fade_phase += 0.02 * _frame_scale  # 0.05 -> 0.02로 감소 (60% 느리게)
+
+        if not _dynamic_active:
+            return
         
         # 나선 폭발 효과 업데이트 (부드러운 감소)
         if self.spiral_burst_timer > 0:
@@ -136,10 +170,11 @@ class Stage5ChineseMarket:
         
         # 등롱 흔들림 업데이트
         for lantern in self.lanterns:
-            lantern['swing'] += lantern['speed']
+            lantern['swing'] += lantern['speed'] * _frame_scale
         
         # 충돌 지점 불꽃 애니메이션 업데이트
-        for zone in self.impact_fire_zones[:]:
+        active_zones = []
+        for zone in self.impact_fire_zones:
             zone['duration'] -= dt
             
             # 이 지점에서 불꽃 파티클 생성 (바닥에서 시작)
@@ -155,8 +190,9 @@ class Stage5ChineseMarket:
                     })
             
             # 지속시간이 끝난 zone 제거
-            if zone['duration'] <= 0:
-                self.impact_fire_zones.remove(zone)
+            if zone['duration'] > 0:
+                active_zones.append(zone)
+        self.impact_fire_zones = active_zones
         
         # 화염 파티클 업데이트
         self.fire_particles = [
@@ -391,6 +427,8 @@ class Stage5ChineseMarket:
             'y': y,
             'duration': 700  # 0.7초 (밀리초 단위)
         })
+        self._dynamic_overlay_dirty = True
+        self._scene_cache_dirty = True
         pass  # print(f"💥 불꽃 충돌 지점 추가: ({x}, {y}), 현재 총 {len(self.impact_fire_zones)}개")  # 디버그 비활성화
     
     def trigger_spiral_burst(self, inferno=False):
@@ -408,6 +446,8 @@ class Stage5ChineseMarket:
             self.spiral_burst_max_timer = 1300  # 최대값 저장
             self.is_inferno_mode = False
         self.spiral_burst_intensity = 1.0  # 최대 강도로 시작
+        self._dynamic_overlay_dirty = True
+        self._scene_cache_dirty = True
     
     def set_inferno_mode(self, active):
         """홍련폭염 모드 설정"""
@@ -419,6 +459,8 @@ class Stage5ChineseMarket:
             self.third_eye_opening = 0
             self.third_eye_glow = 0
             self.spiritual_rings = []
+        self._dynamic_overlay_dirty = True
+        self._scene_cache_dirty = True
     
     def _update_fire_lines(self):
         """불타는 라인 애니메이션 업데이트"""
@@ -447,14 +489,16 @@ class Stage5ChineseMarket:
                 self._create_fire_particle(x, center_y)
         
         # 파티클 업데이트
-        for particle in self.fire_line_particles[:]:
+        active_particles = []
+        for particle in self.fire_line_particles:
             particle['y'] -= particle['vy']  # 위로 올라감
             particle['x'] += particle['vx']  # 약간 좌우로 흔들림
             particle['life'] -= 1
             particle['size'] *= 0.95  # 점점 작아짐
             
-            if particle['life'] <= 0 or particle['size'] < 0.5:
-                self.fire_line_particles.remove(particle)
+            if particle['life'] > 0 and particle['size'] >= 0.5:
+                active_particles.append(particle)
+        self.fire_line_particles = active_particles
     
     def _create_fire_particle(self, x, y):
         """불꽃 파티클 생성"""
@@ -745,25 +789,63 @@ class Stage5ChineseMarket:
                                  (int(particle['x']), int(particle['y'])),
                                  int(particle['size']))
 
+    def _is_dynamic_animation_active(self):
+        return (
+            self.is_inferno_mode
+            or self.spiral_burst_timer > 0
+            or self.fire_particles
+            or self.fire_line_particles
+            or self.impact_fire_zones
+        )
+
+    def _get_dynamic_refresh_interval_ms(self):
+        if self._is_dynamic_animation_active():
+            return self.ACTIVE_DYNAMIC_REFRESH_INTERVAL_MS
+        return self.IDLE_DYNAMIC_REFRESH_INTERVAL_MS
+
+    def _ensure_cached_background(self, target_size):
+        if self._background_cache is None or self._background_cache_size != target_size:
+            self._background_cache = pygame.Surface(target_size).convert()
+            self._background_cache_size = target_size
+            self.draw_background_pattern(self._background_cache)
+            self._scene_cache_dirty = True
+
+    def _ensure_cached_dynamic_overlay(self, target_size):
+        if self._dynamic_overlay_cache is None or self._dynamic_overlay_cache_size != target_size:
+            self._dynamic_overlay_cache = pygame.Surface(target_size, pygame.SRCALPHA)
+            self._dynamic_overlay_cache_size = target_size
+            self._dynamic_overlay_dirty = True
+            self._scene_cache_dirty = True
+
+        if self._dynamic_overlay_dirty:
+            self._dynamic_overlay_cache.fill((0, 0, 0, 0))
+            self.draw_fire_effects(self._dynamic_overlay_cache)
+            self.draw_lotus_hologram(self._dynamic_overlay_cache)
+            self.draw_stadium_line(self._dynamic_overlay_cache)
+            self._dynamic_overlay_dirty = False
+            self._scene_cache_dirty = True
+
+    def _draw_cached_scene(self, screen):
+        target_size = screen.get_size()
+        self._ensure_cached_background(target_size)
+        self._ensure_cached_dynamic_overlay(target_size)
+
+        if self._scene_cache is None or self._scene_cache_size != target_size:
+            self._scene_cache = pygame.Surface(target_size).convert()
+            self._scene_cache_size = target_size
+            self._scene_cache_dirty = True
+
+        if self._scene_cache_dirty:
+            self._scene_cache.blit(self._background_cache, (0, 0))
+            self._scene_cache.blit(self._dynamic_overlay_cache, (0, 0))
+            self.draw_border(self._scene_cache)
+            self._scene_cache_dirty = False
+
+        screen.blit(self._scene_cache, (0, 0))
+
     def draw(self, screen):
         """전체 스테이지 5 맵 그리기"""
-        # 배경 패턴
-        self.draw_background_pattern(screen)
-        
-        # 화염 효과 (배경)
-        self.draw_fire_effects(screen)
-        
-        # 홍련꽃 홀로그램 엠블럼 (중앙 원 안에)
-        self.draw_lotus_hologram(screen)
-        
-        # 중앙 스타디움 라인 (원래대로 복구)
-        self.draw_stadium_line(screen)
-        
-        # 등롱 장식 제거
-        # self.draw_lanterns(screen)
-        
-        # 테두리 (마지막에 그려서 위에 표시)
-        self.draw_border(screen)
+        self._draw_cached_scene(screen)
 
 
 # 테스트 코드

@@ -21,8 +21,11 @@ _VERSION = 4
 _APP_NAME = "PingFighter"
 
 # 캡처 설정
-CAPTURE_INTERVAL = 1    # 매 프레임 캡처 (60fps) — 비동기 압축으로 부담 없음
-SCALE_FACTOR = 1.0      # 원본 해상도 (100%) — 압축은 백그라운드에서 처리
+# 1300x846 HUD 합성 프레임을 60fps 원본으로 저장하면 파일 크기와 디스크 I/O가
+# 지나치게 커져 실제 플레이 성능을 끌어내릴 수 있다. 30fps / 50% 스케일로
+# 낮춰 녹화 중 부하와 저장 용량을 함께 줄인다.
+CAPTURE_INTERVAL = 2    # 격프레임 캡처 (30fps)
+SCALE_FACTOR = 0.5      # 절반 해상도 (50%)
 COMPRESS_LEVEL = 1      # zlib 압축 (1=빠름)
 MAX_DURATION = 600      # 최대 10분
 MAX_REPLAYS = 10        # 최대 리플레이 파일 수 (초과 시 가장 오래된 파일 자동 삭제)
@@ -87,8 +90,8 @@ class ReplayRecorder:
         if self.recording:
             self.stop()
 
-        self.scaled_w = int(screen_w * SCALE_FACTOR)
-        self.scaled_h = int(screen_h * SCALE_FACTOR)
+        self.scaled_w = max(1, int(round(screen_w * SCALE_FACTOR)))
+        self.scaled_h = max(1, int(round(screen_h * SCALE_FACTOR)))
         self.game_frame = 0
         self.captured_frames = 0
         self.start_time = time.time()
@@ -111,6 +114,7 @@ class ReplayRecorder:
             'scaled_w': self.scaled_w,
             'scaled_h': self.scaled_h,
             'capture_fps': 60 // CAPTURE_INTERVAL,
+            'capture_scale': SCALE_FACTOR,
             'capture_mode': capture_mode,
         }
 
@@ -150,13 +154,17 @@ class ReplayRecorder:
             self._thread.start()
 
             self.recording = True
-            print(f"[Replay] 녹화 시작 - Stage {stage}, {self.scaled_w}x{self.scaled_h} @{60//CAPTURE_INTERVAL}fps (비동기)")
+            print(
+                f"[Replay] 녹화 시작 - Stage {stage}, "
+                f"{self.scaled_w}x{self.scaled_h} "
+                f"(scale={SCALE_FACTOR:.2f}) @{60//CAPTURE_INTERVAL}fps (비동기)"
+            )
         except Exception as e:
             print(f"[Replay] 녹화 파일 생성 실패: {e}")
             self.recording = False
 
     def capture(self, screen: pygame.Surface):
-        """매 게임 프레임 호출 — copy + tostring만 수행 (빠름)"""
+        """매 게임 프레임 호출 — 필요 시 축소 후 RGB 바이트만 큐에 적재"""
         if not self.recording:
             return
         self.game_frame += 1
@@ -176,7 +184,7 @@ class ReplayRecorder:
             return
 
         try:
-            # 게임 루프에서 하는 일: scale(필요시) + tostring만
+            # 게임 루프에서는 scale(필요 시) + tostring까지만 수행한다.
             if SCALE_FACTOR < 1.0:
                 small = pygame.transform.scale(screen, (self.scaled_w, self.scaled_h))
                 raw = pygame.image.tostring(small, 'RGB')

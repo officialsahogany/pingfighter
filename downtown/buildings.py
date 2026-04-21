@@ -137,6 +137,8 @@ class BuildingManager:
     def load_from_map(self, downtown_map):
         """맵에서 건물 로드"""
         self.buildings.clear()
+        if hasattr(self.designer, "reset_runtime_state"):
+            self.designer.reset_runtime_state()
 
         for btype, x, y, w, h in downtown_map.buildings:
             building = Building(btype, x, y, w, h)

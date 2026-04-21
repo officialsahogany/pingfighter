@@ -1,0 +1,34 @@
+Create an 8-frame 4x2 walk sheet for a retro pixel-art boss teddy bear. Use the accepted redesign anchor as the exact identity master: plush teddy silhouette, warm cocoa-brown fur, left button eye with X-thread, right dangling damaged eye, large pink gingham head bow, cream neck ribbon, safety pin chest charm, stitched cream belly oval with pink heart motif, bandage patches, mismatched pink paw patch, and small black bow accent.
+
+The teddy must stay unmistakably a stuffed bear, not a human girl, not a costume mascot, not a side-profile walker. Stable movement should remain front-biased and gameplay-readable.
+
+Motion feel:
+- soft plush body bob
+- slight body roll
+- compact plush arm swing
+- ear bounce
+- bow flutter
+- dangling-eye sway
+- tiny unstable plush wobble
+- no human hip swing
+- no elegant long-leg gait
+
+Style:
+- 16-bit retro pixel art
+- chibi plush proportions
+- thick readable outlines
+- flat limited-saturation palette
+- clean hard-edged pixels
+- pure white background
+- full body visible in every frame
+- generous margin
+
+Preserve gameplay readability of:
+- button eye / dangling eye
+- big gingham bow
+- belly heart
+- safety pin
+- patches
+- plush paws
+
+Reject if it becomes humanized, side-facing, muddy, or loses the dangling-eye / heart / bow identity.

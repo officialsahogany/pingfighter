@@ -6,12 +6,29 @@ import zlib
 import struct
 import os
 
+_REPLAY_SCREENSAVER_MAX_BYTES = 384 * 1024 * 1024
+
+
+def _filter_idle_replay_candidates(replays):
+    eligible = []
+    for replay in replays:
+        filepath = replay.get('filepath')
+        if not filepath:
+            continue
+        try:
+            if os.path.getsize(filepath) > _REPLAY_SCREENSAVER_MAX_BYTES:
+                continue
+        except OSError:
+            continue
+        eligible.append(replay)
+    return eligible
+
 
 def show_cinematic_scenes(SCREEN, WIDTH, HEIGHT):
     """리플레이가 있으면 리플레이 클립 화면보호기, 없으면 기존 시네마틱"""
     try:
-        from replay.replay_system import list_replays, _MAGIC, _read_metadata_fast
-        replays = list_replays()
+        from replay.replay_system import list_replays
+        replays = _filter_idle_replay_candidates(list_replays())
         if replays:
             _show_replay_screensaver(SCREEN, WIDTH, HEIGHT, replays)
             return

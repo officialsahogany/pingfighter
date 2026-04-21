@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Stage 3 menhera-girl boss sprite support."""
 
+import math
 import os
 import sys
 
@@ -19,8 +20,13 @@ def resource_path(relative_path: str) -> str:
 
 
 class MenheraBossSprite:
-    """4x2 sprite-sheet walker with left/right facing for stage 3 menhera girl."""
+    """4x2 walker with an 8-frame frontal turn gesture for stage 3 Menhera."""
 
+    ENABLE_TURN_TRANSITIONS = True
+    # Menhera's accepted R1 turn sheet is a runtime-only auxiliary sheet.
+    # Keep the main walk as the sole identity anchor, but allow visible turn
+    # playback now that the 4x2 runtime sheet has passed local asset QA.
+    RENDER_TURN_FRAMES = True
     SHEET_PATH_PNG = os.path.join("items", "menhera_boss_sheet.png")
     SHEET_PATH_JPEG = os.path.join("items", "menhera_boss_sheet.jpeg")
     ATTACK_SHEET_PATH_PNG = os.path.join("items", "menhera_boss_attack.png")
@@ -29,29 +35,39 @@ class MenheraBossSprite:
     DASH_SHEET_PATH_JPEG = os.path.join("items", "menhera_boss_dash.jpeg")
     TURN_SHEET_PATH_PNG = os.path.join("items", "menhera_boss_turn.png")
     TURN_SHEET_PATH_JPEG = os.path.join("items", "menhera_boss_turn.jpeg")
+    VICTORY_SHEET_PATH_PNG = os.path.join("items", "menhera_boss_victory.png")
+    VICTORY_SHEET_PATH_JPEG = os.path.join("items", "menhera_boss_victory.jpeg")
+    DEFEAT_SHEET_PATH_PNG = os.path.join("items", "menhera_boss_defeat.png")
+    DEFEAT_SHEET_PATH_JPEG = os.path.join("items", "menhera_boss_defeat.jpeg")
     GRID_COLS = 4
     GRID_ROWS = 2
     FRAME_ORDER = (
         (0, 0), (1, 0), (2, 0), (3, 0),
         (0, 1), (1, 1), (2, 1), (3, 1),
     )
-    TURN_GRID_COLS = 7
+    TURN_GRID_COLS = 4
     TURN_GRID_ROWS = 2
     TURN_FRAME_ORDER = (
-        (0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0),
-        (0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1),
+        (0, 0), (1, 0), (2, 0), (3, 0),
+        (0, 1), (1, 1), (2, 1), (3, 1),
     )
-    TURN_ANGLE_STEPS = (90, 75, 60, 45, 30, 15, 0, -15, -30, -45, -60, -75, -90)
-    FRAME_DURATION = 0.10
+    TURN_PLAYBACK_FRAME_COUNT = 7
+    FRAME_DURATION = 0.08
     ATTACK_FRAME_DURATION = 0.055
+    ATTACK_IMPACT_FRAME = 5
+    ATTACK_IMPACT_HOLD_DURATION = 0.12
     DASH_FRAME_DURATION = 0.07
+    VICTORY_FRAME_DURATION = 0.09
+    DEFEAT_FRAME_DURATION = 0.10
     LIGHT_BG_TOLERANCE = 22
     FRAME_INSET = 14
     TURN_HOLD_DURATION = 0.08
+    TURN_FRAME_DURATION = 0.055
     MOVE_RELEASE_DURATION = 0.12
-    TURN_DEGREES_PER_SECOND = 900.0
+    TURN_HOP_HEIGHT_RATIO = 0.018
+    TURN_BBOX_PAD = 1
 
-    def __init__(self, width: int = 72, height: int = 80):
+    def __init__(self, width: int = 79, height: int = 88):
         self.target_w = width
         self.target_h = height
         self._frames_right: list[pygame.Surface] = []
@@ -61,7 +77,12 @@ class MenheraBossSprite:
         self._attack_frames_left: list[pygame.Surface] = []
         self._dash_frames_right: list[pygame.Surface] = []
         self._dash_frames_left: list[pygame.Surface] = []
+        self._victory_frames_right: list[pygame.Surface] = []
+        self._victory_frames_left: list[pygame.Surface] = []
+        self._defeat_frames_right: list[pygame.Surface] = []
+        self._defeat_frames_left: list[pygame.Surface] = []
         self._walk_scale_reference: tuple[int, int] | None = None
+        self._walk_bbox_reference: tuple[int, int] | None = None
         self.anim_time = 0.0
         self.frame_index = 0
         self.facing = "right"
@@ -75,14 +96,23 @@ class MenheraBossSprite:
         self.is_dashing = False
         self.dash_time = 0.0
         self.dash_frame_index = 0
+        self.is_victorious = False
+        self.victory_time = 0.0
+        self.victory_frame_index = 0
+        self.victory_finished = False
+        self.is_defeated = False
+        self.defeat_time = 0.0
+        self.defeat_frame_index = 0
+        self.defeat_finished = False
         self.is_turning = False
-        self.turn_angle = 0.0
-        self.turn_target_angle = 0.0
+        self.turn_time = 0.0
         self.turn_target_facing: str | None = None
         self._load_frames()
         self._load_turn_frames()
         self._load_attack_frames()
         self._load_dash_frames()
+        self._load_victory_frames()
+        self._load_defeat_frames()
 
     def _load_frames(self) -> None:
         png_path = resource_path(self.SHEET_PATH_PNG)
@@ -125,9 +155,12 @@ class MenheraBossSprite:
 
         self._walk_scale_reference = self._compute_reference_size(trimmed_frames)
         for frame in trimmed_frames:
-            frame = self._scale_to_target(frame)
+            frame = self._scale_to_target(frame, use_canvas=True)
             self._frames_right.append(frame)
-            self._frames_left.append(pygame.transform.flip(frame, True, False))
+            # Menhera's walk sheet is authored as a front-biased cycle,
+            # so stable left/right travel should keep the same frontal read.
+            self._frames_left.append(frame.copy())
+        self._walk_bbox_reference = self._compute_canvas_bbox_reference(self._frames_right)
 
     def _load_attack_frames(self) -> None:
         png_path = resource_path(self.ATTACK_SHEET_PATH_PNG)
@@ -166,7 +199,9 @@ class MenheraBossSprite:
             frame = self._trim_to_visible_bounds(frame)
             frame = self._scale_to_target(frame)
             self._attack_frames_right.append(frame)
-            self._attack_frames_left.append(pygame.transform.flip(frame, True, False))
+            # Menhera's attack sheet is authored as a front-facing strike,
+            # so both directions should use the same unflipped frames.
+            self._attack_frames_left.append(frame.copy())
 
     def _load_turn_frames(self) -> None:
         png_path = resource_path(self.TURN_SHEET_PATH_PNG)
@@ -206,10 +241,18 @@ class MenheraBossSprite:
             frame = self._trim_to_visible_bounds(frame)
             trimmed_frames.append(frame)
 
-        scale_reference = self._walk_scale_reference or self._compute_reference_size(trimmed_frames)
+        # Menhera's accepted turn sheet was exported at a much larger raw
+        # source resolution than the walk sheet. Reusing the walk sheet's raw
+        # reference size here can over-scale the turn frames so they exceed the
+        # 79x88 canvas and clip the head before draw-time. Keep turn playback
+        # internally consistent against its own sheet first, then clamp the
+        # final visible body read against the walk bbox below.
+        scale_reference = self._compute_reference_size(trimmed_frames)
+        self._turn_frames.clear()
         for frame in trimmed_frames:
-            frame = self._scale_to_target(frame, source_size=scale_reference, use_canvas=True)
-            self._turn_frames.append(frame)
+            scaled_frame = self._scale_to_target(frame, source_size=scale_reference, use_canvas=True)
+            scaled_frame = self._fit_turn_frame_to_walk_bbox(scaled_frame)
+            self._turn_frames.append(scaled_frame)
 
     def _load_dash_frames(self) -> None:
         png_path = resource_path(self.DASH_SHEET_PATH_PNG)
@@ -255,6 +298,96 @@ class MenheraBossSprite:
             self._dash_frames_right.append(frame)
             self._dash_frames_left.append(pygame.transform.flip(frame, True, False))
 
+    def _load_victory_frames(self) -> None:
+        png_path = resource_path(self.VICTORY_SHEET_PATH_PNG)
+        jpeg_path = resource_path(self.VICTORY_SHEET_PATH_JPEG)
+        if os.path.exists(png_path):
+            path = png_path
+            use_png = True
+        elif os.path.exists(jpeg_path):
+            path = jpeg_path
+            use_png = False
+        else:
+            return
+
+        try:
+            sheet = pygame.image.load(path).convert_alpha()
+        except Exception as exc:
+            print(f"[MenheraBossSprite] Victory load failed: {exc}")
+            return
+
+        if not use_png:
+            sheet = self._remove_light_background(sheet)
+        sheet_w, sheet_h = sheet.get_size()
+        cell_w = sheet_w // self.GRID_COLS
+        cell_h = sheet_h // self.GRID_ROWS
+        inset_x = min(self.FRAME_INSET, max(2, cell_w // 32))
+        inset_y = min(self.FRAME_INSET, max(2, cell_h // 32))
+
+        trimmed_frames: list[pygame.Surface] = []
+        for col, row in self.FRAME_ORDER:
+            rect = pygame.Rect(
+                col * cell_w + inset_x,
+                row * cell_h + inset_y,
+                max(1, cell_w - inset_x * 2),
+                max(1, cell_h - inset_y * 2),
+            )
+            frame = sheet.subsurface(rect).copy()
+            frame = self._trim_to_visible_bounds(frame)
+            trimmed_frames.append(frame)
+
+        scale_reference = self._walk_scale_reference or self._compute_reference_size(trimmed_frames)
+        for frame in trimmed_frames:
+            frame = self._scale_to_target(frame, source_size=scale_reference, use_canvas=True)
+            self._victory_frames_right.append(frame)
+            # Victory sheet is authored as a front-facing celebration pose.
+            self._victory_frames_left.append(frame.copy())
+
+    def _load_defeat_frames(self) -> None:
+        png_path = resource_path(self.DEFEAT_SHEET_PATH_PNG)
+        jpeg_path = resource_path(self.DEFEAT_SHEET_PATH_JPEG)
+        if os.path.exists(png_path):
+            path = png_path
+            use_png = True
+        elif os.path.exists(jpeg_path):
+            path = jpeg_path
+            use_png = False
+        else:
+            return
+
+        try:
+            sheet = pygame.image.load(path).convert_alpha()
+        except Exception as exc:
+            print(f"[MenheraBossSprite] Defeat load failed: {exc}")
+            return
+
+        if not use_png:
+            sheet = self._remove_light_background(sheet)
+        sheet_w, sheet_h = sheet.get_size()
+        cell_w = sheet_w // self.GRID_COLS
+        cell_h = sheet_h // self.GRID_ROWS
+        inset_x = min(self.FRAME_INSET, max(2, cell_w // 32))
+        inset_y = min(self.FRAME_INSET, max(2, cell_h // 32))
+
+        trimmed_frames: list[pygame.Surface] = []
+        for col, row in self.FRAME_ORDER:
+            rect = pygame.Rect(
+                col * cell_w + inset_x,
+                row * cell_h + inset_y,
+                max(1, cell_w - inset_x * 2),
+                max(1, cell_h - inset_y * 2),
+            )
+            frame = sheet.subsurface(rect).copy()
+            frame = self._trim_to_visible_bounds(frame)
+            trimmed_frames.append(frame)
+
+        scale_reference = self._walk_scale_reference or self._compute_reference_size(trimmed_frames)
+        for frame in trimmed_frames:
+            frame = self._scale_to_target(frame, source_size=scale_reference, use_canvas=True)
+            self._defeat_frames_right.append(frame)
+            # Defeat sheet is authored as a front-facing collapse sequence.
+            self._defeat_frames_left.append(frame.copy())
+
     def _remove_light_background(self, surface: pygame.Surface) -> pygame.Surface:
         cleaned = surface.copy().convert_alpha()
         rgb = pygame.surfarray.pixels3d(cleaned)
@@ -291,6 +424,48 @@ class MenheraBossSprite:
             max_h = max(max_h, src_h)
         return (max_w, max_h)
 
+    def _compute_canvas_bbox_reference(self, frames: list[pygame.Surface]) -> tuple[int, int]:
+        if not frames:
+            return (self.target_w, self.target_h)
+
+        max_w = 1
+        max_h = 1
+        for frame in frames:
+            bounds = frame.get_bounding_rect(min_alpha=1)
+            if bounds.w <= 0 or bounds.h <= 0:
+                continue
+            max_w = max(max_w, bounds.w)
+            max_h = max(max_h, bounds.h)
+        return (max_w, max_h)
+
+    def _fit_turn_frame_to_walk_bbox(
+        self,
+        frame: pygame.Surface,
+    ) -> pygame.Surface:
+        walk_bbox = self._walk_bbox_reference
+        if walk_bbox is None:
+            return frame
+
+        bounds = frame.get_bounding_rect(min_alpha=1)
+        if bounds.w <= 0 or bounds.h <= 0:
+            return frame
+
+        limit_w = max(1, walk_bbox[0] + self.TURN_BBOX_PAD)
+        limit_h = max(1, walk_bbox[1] + self.TURN_BBOX_PAD)
+        scale = min(limit_w / bounds.w, limit_h / bounds.h, 1.0)
+        if scale >= 0.999:
+            return frame
+
+        scaled_w = max(1, int(round(frame.get_width() * scale)))
+        scaled_h = max(1, int(round(frame.get_height() * scale)))
+        scaled = pygame.transform.scale(frame, (scaled_w, scaled_h))
+        canvas = pygame.Surface((self.target_w, self.target_h), pygame.SRCALPHA)
+        canvas.blit(
+            scaled,
+            scaled.get_rect(midbottom=(self.target_w // 2, self.target_h)),
+        )
+        return canvas
+
     def _scale_to_target(
         self,
         frame: pygame.Surface,
@@ -317,14 +492,59 @@ class MenheraBossSprite:
         )
         return canvas
 
+    def _cancel_turn_transition(self) -> None:
+        self.is_turning = False
+        self.turn_target_facing = None
+        self.turn_time = 0.0
+
+    def _start_turn_transition(self, facing: str) -> None:
+        self.is_turning = True
+        self.turn_target_facing = facing
+        self.turn_time = 0.0
+
+    def _get_turn_progress(self) -> float:
+        if not self.is_turning:
+            return 0.0
+
+        playback_count = max(1, min(self.TURN_PLAYBACK_FRAME_COUNT, len(self._turn_frames)))
+        total_duration = max(0.001, self.TURN_FRAME_DURATION * playback_count)
+        return max(0.0, min(1.0, self.turn_time / total_duration))
+
+    def _current_turn_hop_offset(self, rendered_height: int | None = None) -> int:
+        if (
+            not self.is_turning
+            or self.is_attacking
+            or self.is_dashing
+            or self.is_victorious
+            or self.is_defeated
+        ):
+            return 0
+
+        progress = self._get_turn_progress()
+        if progress <= 0.0 or progress >= 1.0:
+            return 0
+
+        body_height = max(1, rendered_height or self.target_h)
+        peak = max(1, int(round(body_height * self.TURN_HOP_HEIGHT_RATIO)))
+        return -int(round(peak * math.sin(math.pi * progress)))
+
+    def current_y_offset(self, rendered_height: int | None = None) -> int:
+        return self._current_turn_hop_offset(rendered_height=rendered_height)
+
     def _update_requested_facing(self, dt: float, facing: str | None, moving: bool) -> None:
         if facing not in ("left", "right"):
+            return
+
+        if not self.ENABLE_TURN_TRANSITIONS:
+            self.facing = facing
+            self._cancel_turn_transition()
+            self._pending_facing = None
+            self._facing_turn_timer = 0.0
             return
 
         if self.is_turning:
             if moving and facing != self.turn_target_facing:
                 self.turn_target_facing = facing
-                self.turn_target_angle = 90.0 if facing == "right" else -90.0
             return
 
         if facing == self.facing:
@@ -345,10 +565,7 @@ class MenheraBossSprite:
         if self._facing_turn_timer < self.TURN_HOLD_DURATION:
             return
 
-        self.is_turning = True
-        self.turn_angle = 90.0 if self.facing == "right" else -90.0
-        self.turn_target_angle = 90.0 if facing == "right" else -90.0
-        self.turn_target_facing = facing
+        self._start_turn_transition(facing)
         self._pending_facing = None
         self._facing_turn_timer = 0.0
 
@@ -365,35 +582,58 @@ class MenheraBossSprite:
 
         self.is_moving = False
 
-    def _update_turn_angle(self, dt: float) -> None:
+    def _update_turn_transition(self, dt: float) -> None:
         if not self.is_turning:
             return
-        max_step = self.TURN_DEGREES_PER_SECOND * dt
-        delta = self.turn_target_angle - self.turn_angle
-        if abs(delta) <= max_step:
-            self.turn_angle = self.turn_target_angle
-            if self.turn_target_facing in ("left", "right"):
-                self.facing = self.turn_target_facing
-            self.is_turning = False
-            self.turn_target_facing = None
+
+        playback_count = max(1, min(self.TURN_PLAYBACK_FRAME_COUNT, len(self._turn_frames) or self.TURN_PLAYBACK_FRAME_COUNT))
+        total_duration = self.TURN_FRAME_DURATION * playback_count
+        self.turn_time += dt
+        if self.turn_time < total_duration:
             return
-        self.turn_angle += max_step if delta > 0 else -max_step
+
+        if self.turn_target_facing in ("left", "right"):
+            self.facing = self.turn_target_facing
+        self._cancel_turn_transition()
 
     def _get_turn_frame(self) -> pygame.Surface | None:
         if not self._turn_frames:
             return None
-
-        best_index = min(
-            range(len(self._turn_frames)),
-            key=lambda idx: abs(self.TURN_ANGLE_STEPS[idx] - self.turn_angle),
-        )
-        return self._turn_frames[best_index]
+        playback_count = max(1, min(self.TURN_PLAYBACK_FRAME_COUNT, len(self._turn_frames)))
+        frame_index = min(int(self.turn_time / self.TURN_FRAME_DURATION), playback_count - 1)
+        return self._turn_frames[frame_index]
 
     def update(self, dt: float, moving: bool = True, facing: str | None = None) -> None:
         dt = max(0.0, dt)
+        if self.is_defeated and self._defeat_frames_right:
+            if not self.defeat_finished:
+                self.defeat_time += dt
+                total_frames = len(self._defeat_frames_right)
+                while self.defeat_time >= self.DEFEAT_FRAME_DURATION:
+                    self.defeat_time -= self.DEFEAT_FRAME_DURATION
+                    self.defeat_frame_index += 1
+                    if self.defeat_frame_index >= total_frames:
+                        self.defeat_frame_index = total_frames - 1
+                        self.defeat_finished = True
+                        break
+            return
+
+        if self.is_victorious and self._victory_frames_right:
+            if not self.victory_finished:
+                self.victory_time += dt
+                total_frames = len(self._victory_frames_right)
+                while self.victory_time >= self.VICTORY_FRAME_DURATION:
+                    self.victory_time -= self.VICTORY_FRAME_DURATION
+                    self.victory_frame_index += 1
+                    if self.victory_frame_index >= total_frames:
+                        self.victory_frame_index = total_frames - 1
+                        self.victory_finished = True
+                        break
+            return
+
         self._update_requested_facing(dt, facing, moving)
         self._update_requested_motion(dt, moving)
-        self._update_turn_angle(dt)
+        self._update_turn_transition(dt)
 
         if self.is_dashing and self._dash_frames_right:
             self.dash_time += dt
@@ -411,8 +651,15 @@ class MenheraBossSprite:
         if self.is_attacking and self._attack_frames_right:
             self.attack_time += dt
             total_frames = len(self._attack_frames_right)
-            while self.attack_time >= self.ATTACK_FRAME_DURATION:
-                self.attack_time -= self.ATTACK_FRAME_DURATION
+            while True:
+                frame_duration = (
+                    self.ATTACK_IMPACT_HOLD_DURATION
+                    if self.attack_frame_index == self.ATTACK_IMPACT_FRAME
+                    else self.ATTACK_FRAME_DURATION
+                )
+                if self.attack_time < frame_duration:
+                    break
+                self.attack_time -= frame_duration
                 self.attack_frame_index += 1
                 if self.attack_frame_index >= total_frames:
                     self.is_attacking = False
@@ -433,7 +680,7 @@ class MenheraBossSprite:
             self.frame_index = 0
 
     def trigger_attack(self, start_frame: int = 0) -> None:
-        if self.is_attacking or not self._attack_frames_right:
+        if self.is_defeated or self.is_victorious or self.is_attacking or not self._attack_frames_right:
             return
         self.is_attacking = True
         max_index = len(self._attack_frames_right) - 1
@@ -441,7 +688,7 @@ class MenheraBossSprite:
         self.attack_time = 0.0
 
     def trigger_dash(self, start_frame: int = 0) -> None:
-        if self.is_dashing or not self._dash_frames_right:
+        if self.is_defeated or self.is_victorious or self.is_dashing or not self._dash_frames_right:
             return
         self.is_dashing = True
         self.is_attacking = False
@@ -449,14 +696,76 @@ class MenheraBossSprite:
         self.dash_frame_index = max(0, min(start_frame, max_index))
         self.dash_time = 0.0
 
+    def trigger_victory(self, start_frame: int = 0) -> None:
+        if self.is_defeated or not self._victory_frames_right:
+            return
+        self.is_victorious = True
+        max_index = len(self._victory_frames_right) - 1
+        self.victory_frame_index = max(0, min(start_frame, max_index))
+        self.victory_time = 0.0
+        self.victory_finished = False
+        self.is_attacking = False
+        self.attack_time = 0.0
+        self.attack_frame_index = 0
+        self.is_dashing = False
+        self.dash_time = 0.0
+        self.dash_frame_index = 0
+        self._cancel_turn_transition()
+        self._pending_facing = None
+        self._facing_turn_timer = 0.0
+        self._move_release_timer = 0.0
+        self.is_moving = False
+
+    def trigger_defeat(self, start_frame: int = 0) -> None:
+        if not self._defeat_frames_right:
+            return
+        self.is_defeated = True
+        max_index = len(self._defeat_frames_right) - 1
+        self.defeat_frame_index = max(0, min(start_frame, max_index))
+        self.defeat_time = 0.0
+        self.defeat_finished = False
+        self.is_victorious = False
+        self.victory_time = 0.0
+        self.victory_frame_index = 0
+        self.victory_finished = False
+        self.is_attacking = False
+        self.attack_time = 0.0
+        self.attack_frame_index = 0
+        self.is_dashing = False
+        self.dash_time = 0.0
+        self.dash_frame_index = 0
+        self._cancel_turn_transition()
+        self._pending_facing = None
+        self._facing_turn_timer = 0.0
+        self._move_release_timer = 0.0
+        self.is_moving = False
+
+    def clear_victory(self) -> None:
+        self.is_victorious = False
+        self.victory_time = 0.0
+        self.victory_frame_index = 0
+        self.victory_finished = False
+
+    def clear_defeat(self) -> None:
+        self.is_defeated = False
+        self.defeat_time = 0.0
+        self.defeat_frame_index = 0
+        self.defeat_finished = False
+
     def get_current_frame(self, size: tuple[int, int] | None = None) -> pygame.Surface | None:
-        if self.is_dashing and self._dash_frames_right:
+        if self.is_defeated and self._defeat_frames_right:
+            frames = self._defeat_frames_left if self.facing == "left" else self._defeat_frames_right
+            frame = frames[min(self.defeat_frame_index, len(frames) - 1)]
+        elif self.is_victorious and self._victory_frames_right:
+            frames = self._victory_frames_left if self.facing == "left" else self._victory_frames_right
+            frame = frames[min(self.victory_frame_index, len(frames) - 1)]
+        elif self.is_dashing and self._dash_frames_right:
             frames = self._dash_frames_left if self.facing == "left" else self._dash_frames_right
             frame = frames[min(self.dash_frame_index, len(frames) - 1)]
         elif self.is_attacking and self._attack_frames_right:
             frames = self._attack_frames_left if self.facing == "left" else self._attack_frames_right
             frame = frames[min(self.attack_frame_index, len(frames) - 1)]
-        elif self.is_turning and self._turn_frames:
+        elif self.is_turning and self.RENDER_TURN_FRAMES and self._turn_frames:
             frame = self._get_turn_frame()
             if frame is None:
                 return None
@@ -493,7 +802,7 @@ def get_menhera_boss_sprite() -> MenheraBossSprite:
     return _menhera_boss_sprite_instance
 
 
-def init_menhera_boss_sprite(width: int = 72, height: int = 80) -> MenheraBossSprite:
+def init_menhera_boss_sprite(width: int = 79, height: int = 88) -> MenheraBossSprite:
     global _menhera_boss_sprite_instance
     _menhera_boss_sprite_instance = MenheraBossSprite(width=width, height=height)
     return _menhera_boss_sprite_instance

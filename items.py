@@ -129,7 +129,7 @@ ITEM_ICONS = {}
 # 전설 아이콘 애니메이션 프레임 캐시
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
-_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "odins_eye", "megingjord", "valhalla_warplate", "horn_strawberry_mask"}
+_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "odins_eye", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape"}
 _MYTHICAL_ICON_NAMES = {"elixir_of_mastery"}  # 신화급 아이템 (자체 애니메이션 프레임 생성)
 
 
@@ -538,6 +538,85 @@ def _draw_weather_capsule_icon(size: int = 32) -> pygame.Surface:
     return s
 
 
+def _draw_gods_stone_icon(size: int = 32) -> pygame.Surface:
+    """신의 돌 아이콘 생성."""
+    surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    k = size / 32.0
+
+    aura = pygame.Surface((size, size), pygame.SRCALPHA)
+    for radius, alpha in ((int(13 * k), 35), (int(10 * k), 55), (int(7 * k), 80)):
+        pygame.draw.circle(aura, (255, 224, 130, alpha), (cx, cy), radius)
+    surface.blit(aura, (0, 0), special_flags=pygame.BLEND_ADD)
+
+    stone_points = [
+        (cx, int(3 * k)),
+        (int(25 * k), int(9 * k)),
+        (int(28 * k), cy),
+        (int(23 * k), int(24 * k)),
+        (cx, int(29 * k)),
+        (int(8 * k), int(24 * k)),
+        (int(4 * k), cy),
+        (int(7 * k), int(9 * k)),
+    ]
+    pygame.draw.polygon(surface, (104, 92, 128), stone_points)
+    pygame.draw.polygon(surface, (188, 172, 214), stone_points, max(1, int(round(2 * k))))
+
+    upper_facet = [
+        (cx, int(6 * k)),
+        (int(21 * k), int(11 * k)),
+        (int(18 * k), int(18 * k)),
+        (int(11 * k), int(16 * k)),
+    ]
+    lower_facet = [
+        (int(11 * k), int(18 * k)),
+        (int(18 * k), int(18 * k)),
+        (cx, int(26 * k)),
+        (int(12 * k), int(22 * k)),
+    ]
+    pygame.draw.polygon(surface, (224, 214, 246), upper_facet)
+    pygame.draw.polygon(surface, (80, 66, 110), lower_facet)
+
+    sigil = (255, 236, 170)
+    pygame.draw.circle(surface, sigil, (cx, cy), max(1, int(2 * k)))
+    pygame.draw.line(surface, sigil, (cx, int(8 * k)), (cx, int(24 * k)), max(1, int(round(2 * k))))
+    pygame.draw.line(surface, sigil, (int(10 * k), cy), (int(22 * k), cy), max(1, int(round(2 * k))))
+
+    lightning_points = [
+        (int(20 * k), int(8 * k)),
+        (int(16 * k), int(15 * k)),
+        (int(19 * k), int(15 * k)),
+        (int(14 * k), int(24 * k)),
+        (int(15 * k), int(17 * k)),
+        (int(12 * k), int(17 * k)),
+    ]
+    pygame.draw.polygon(surface, (255, 214, 90), lightning_points)
+    pygame.draw.polygon(surface, (120, 88, 30), lightning_points, 1)
+
+    pygame.draw.arc(
+        surface,
+        (130, 205, 132),
+        pygame.Rect(int(6 * k), int(17 * k), int(20 * k), int(10 * k)),
+        math.pi * 0.1,
+        math.pi * 0.9,
+        max(1, int(round(2 * k))),
+    )
+    pygame.draw.lines(
+        surface,
+        (145, 220, 255),
+        False,
+        [
+            (int(9 * k), int(11 * k)),
+            (int(13 * k), int(9 * k)),
+            (int(17 * k), int(10 * k)),
+            (int(21 * k), int(13 * k)),
+        ],
+        max(1, int(round(2 * k))),
+    )
+
+    return surface
+
+
 def _draw_banana_icon(size: int = 32) -> pygame.Surface:
     """바나나 아이콘 그리기 - 노란색 초승달 모양"""
     import math
@@ -906,6 +985,7 @@ def load_item_icons():
         "wall": "wall.png",
         "revival": "revival.png",
         "commando_arm": "commando_arm.png",
+        "fake_arm": "fake_arm.png",  # 훼이크암 아이콘 (교란형 의수)
         "bulkup": "bulkup.png",
         "sensor": "sensor.png",
         "stopwatch": "stopwatch_icon.png",
@@ -922,6 +1002,7 @@ def load_item_icons():
         "fireball": "fireball.png",
         "coolingball": "coolingball.png",
         "gravitybelt": "gravitybelt.png",
+        "timer_belt": "timer_belt.png",  # 타이머벨트 아이콘 (스킬 쿨타임 감소)
         "grenade": "grenade.png",
         "molotov": "molotov.png",
         "smoke_grenade": "smoke_grenade.png",
@@ -948,6 +1029,7 @@ def load_item_icons():
         "holy_barrier": "holy_barrier.png",  # 홀리베리어 아이콘
         "dash_boost": "dash_boost.png",  # 대쉬부스트 아이콘
         "weather_capsule": "weather_capsule.png",  # 기상조절캡슐 아이콘
+        "gods_stone": "gods_stone.png",  # 신의 돌 아이콘
         "dynamite": "dynamite.png",  # 다이너마이트 아이콘
         "banana": "banana.png",  # 바나나 아이콘
         # "knee_pads": "knee_pads.png",  # 킥차져 - pingfighter.py의 create_knee_pads_icon() 사용
@@ -1180,6 +1262,16 @@ def load_item_icons():
                     pygame.draw.circle(icon, (200, 220, 240), (14, 20), 3)
                     pygame.draw.circle(icon, (200, 220, 240), (18, 20), 3)
                     ITEM_ICONS[item_name] = icon
+            elif item_name == "gods_stone":
+                try:
+                    ITEM_ICONS[item_name] = _draw_gods_stone_icon(32)
+                except Exception:
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    pygame.draw.polygon(icon, (120, 110, 150), [(16, 4), (26, 10), (28, 16), (24, 25), (16, 29), (7, 24), (4, 16), (7, 10)])
+                    pygame.draw.polygon(icon, (215, 205, 240), [(16, 4), (26, 10), (28, 16), (24, 25), (16, 29), (7, 24), (4, 16), (7, 10)], 2)
+                    pygame.draw.line(icon, (255, 235, 170), (16, 8), (16, 24), 2)
+                    pygame.draw.line(icon, (255, 235, 170), (10, 16), (22, 16), 2)
+                    ITEM_ICONS[item_name] = icon
             elif item_name == "gold_bar":
                 # 금괴 아이콘 프로시저럴 생성
                 try:
@@ -1385,6 +1477,15 @@ ITEM_TYPES = [
         "effect": "gravitybelt",
         "icon": None,
         "chance": 0.002,  # 중간 확률
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
+        "name": "timer_belt",  # 🆕 타이머벨트 아이템 (패시브, 스킬 쿨타임 감소)
+        "color": (90, 220, 230),  # 시안/민트색 (크로노 테마)
+        "effect": "timer_belt",
+        "icon": None,
+        "chance": 0.005,  # cooltime 과 동급의 드랍 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -1613,7 +1714,7 @@ ITEM_TYPES = [
         "color": (255, 50, 50),  # 붉은색 (전설 색상)
         "effect": "ragnarok_hammer",
         "icon": None,
-        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None
     },
@@ -1622,7 +1723,7 @@ ITEM_TYPES = [
         "color": (100, 200, 255),  # 하늘색 (전설 색상)
         "effect": "hermes_shoes",
         "icon": None,
-        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None
     },
@@ -1631,7 +1732,7 @@ ITEM_TYPES = [
         "color": (50, 150, 255),  # 바다색 (전설 색상)
         "effect": "poseidon_trident",
         "icon": None,
-        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None
     },
@@ -1640,7 +1741,7 @@ ITEM_TYPES = [
         "color": (220, 240, 255),  # 옅은 하늘색
         "effect": "angel_blessing",
         "icon": None,
-        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.08% 확률 (다른 전설과 동일)
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None
     },
@@ -1649,7 +1750,7 @@ ITEM_TYPES = [
         "color": (100, 200, 100),  # 연두색
         "effect": "sacred_laurel",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None
     },
@@ -1658,7 +1759,7 @@ ITEM_TYPES = [
         "color": (255, 215, 100),  # 금색 (왕관)
         "effect": "transcendent_crown",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None
     },
@@ -1667,7 +1768,7 @@ ITEM_TYPES = [
         "color": (150, 50, 100),  # 붉은 보라색
         "effect": "odins_eye",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None,
         "body_part": "belt"  # 벨트 부위
@@ -1677,7 +1778,7 @@ ITEM_TYPES = [
         "color": (150, 50, 200),  # 보라색 (판도라 상자)
         "effect": "pandora_legacy",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None,
         "body_part": "등"  # 등 부위
@@ -1687,7 +1788,7 @@ ITEM_TYPES = [
         "color": (200, 170, 50),  # 금갈색 (토르의 벨트)
         "effect": "megingjord",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None,
         "body_part": "belt"  # 벨트 부위
@@ -1697,7 +1798,7 @@ ITEM_TYPES = [
         "color": (180, 190, 210),  # 은빛 강철 (발할라 갑옷)
         "effect": "valhalla_warplate",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None,
         "body_part": "torso"  # 상의(갑옷) 부위
@@ -1707,10 +1808,20 @@ ITEM_TYPES = [
         "color": (220, 40, 50),  # 딸기 레드
         "effect": "horn_strawberry_mask",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None,
         "body_part": "head"  # 머리 부위
+    },
+    {
+        "name": "heavenly_cape",  # 천상의 망토 신화 아이템 (등 부위)
+        "color": (230, 235, 250),  # 천상의 백색 / 은은한 푸른 빛
+        "effect": "heavenly_cape",
+        "icon": None,
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "back"  # 등 부위
     },
     {
         "name": "knee_pads",  # 킥차져 패시브 아이템
@@ -1800,6 +1911,15 @@ ITEM_TYPES = [
         "icon": None,
         "chance": 0.004,  # 확률 0.4%
         "duration": 0,  # 즉발형 (지속시간 없음)
+        "unlock_condition": None
+    },
+    {
+        "name": "gods_stone",  # 신의 돌 액티브 아이템
+        "color": (235, 205, 120),
+        "effect": "gods_stone",
+        "icon": None,
+        "chance": 0.004,
+        "duration": 0,
         "unlock_condition": None
     },
     {
@@ -1966,11 +2086,21 @@ ITEM_TYPES = [
         "body_part": "arm"  # 팔 부위
     },
     {
+        "name": "fake_arm",  # 훼이크암 패시브 아이템 (교란형 의수, 팔 부위)
+        "color": (180, 60, 200),  # 마젠타 글리치 색상
+        "effect": "fake_arm",
+        "icon": None,
+        "chance": 0.005,  # 0.5% 스폰 확률
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "arm"  # 팔 부위
+    },
+    {
         "name": "elixir_of_mastery",  # 엘릭서 오브 마스터리 (신화급 액티브 아이템)
         "color": (180, 100, 255),  # 신비로운 보라색
         "effect": "elixir_of_mastery",
         "icon": None,
-        "chance": 0.0008,  # 0.08% (신화급 극히 희귀)
+        "chance": 0.00008,  # 신화 아이템 필드 드랍 0.008% 확률 (전 신화 공통)
         "duration": 600,
         "unlock_condition": None
     }
@@ -2027,6 +2157,7 @@ pandora_legacy_obtained = False  # 판도라의 유산 획득 여부
 megingjord_obtained = False  # 메긴교르드 획득 여부
 valhalla_warplate_obtained = False  # 발할라의 전갑 획득 여부
 horn_strawberry_mask_obtained = False  # 뿔딸기 변신가면 획득 여부
+heavenly_cape_obtained = False  # 천상의 망토 신화 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 gold_bar_obtained = False  # 금괴 아이템 획득 여부
@@ -2038,8 +2169,10 @@ shrapnel_armor_obtained = False  # 파편갑옷 아이템 획득 여부
 soul_burst_obtained = False  # 소울버스트 아이템 획득 여부
 sage_ring_obtained = False  # 현자의 반지 아이템 획득 여부
 venom_mist_gauntlet_obtained = False  # 독안개장갑 아이템 획득 여부
+fake_arm_obtained = False  # 훼이크암 아이템 획득 여부
 dowsing_goggles_obtained = False  # 다우징고글 아이템 획득 여부
 yachaman_soul_obtained = False  # 야차맨의 투구 아이템 획득 여부
+timer_belt_obtained = False  # 타이머벨트 아이템 획득 여부 (스킬 쿨타임 감소)
 
 
 active_item_slot = None
@@ -2065,6 +2198,7 @@ unlocked_items = {
     "bulkup": True,
     "sensor": True,
     "gravitybelt": True,
+    "timer_belt": True,
     "dashholder": True,
     "dowsing_pendulum": True,
     "molotov": True,
@@ -2096,6 +2230,7 @@ unlocked_items = {
     "holy_barrier": True,
     "dash_boost": True,
     "weather_capsule": True,
+    "gods_stone": True,
     "dynamite": True,
     "banana": True,
 
@@ -2111,6 +2246,7 @@ unlocked_items = {
     "megingjord": True,
     "valhalla_warplate": True,
     "horn_strawberry_mask": True,
+    "heavenly_cape": True,
 
     # 패시브 아이템
     "knee_pads": True,
@@ -2131,6 +2267,7 @@ unlocked_items = {
     "strange_vial": True,  # 기묘한 약병
     "sage_ring": True,  # 현자의 반지
     "venom_mist_gauntlet": True,  # 독안개장갑 (바이퍼 전용)
+    "fake_arm": True,  # 훼이크암 (교란형 의수, 팔 부위)
     "dowsing_goggles": True,  # 다우징고글
     "yachaman_soul": True,  # 야차맨의 투구
     "elixir_of_mastery": True  # 엘릭서 오브 마스터리 (신화급 액티브)
@@ -2143,12 +2280,12 @@ item_list = []
 PASSIVE_DUPLICATE_ALLOWED = {
     "slot_add", "speedboots", "speedgear", "battery", "revival", "master", "cooltime",
     "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
-    "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest",
+    "gravitybelt", "timer_belt", "dowsing_pendulum", "commando_arm", "technical_vest",
     "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle",
     "smartphone", "knee_pads", "gold_digger", "lucky_coin",
     "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
     "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate",
-    "horn_strawberry_mask",
+    "horn_strawberry_mask", "heavenly_cape",
     "hero_seal",
     "adversity_armor",
     "shrapnel_armor",
@@ -2208,10 +2345,12 @@ def reset_items():
     dashgear_obtained = False  # dashgear 획득 상태 초기화
     
     global bulkup_obtained, gravitybelt_obtained, dashholder_obtained, sensor_obtained
+    global timer_belt_obtained
     bulkup_obtained = False  # bulkup 획득 상태 초기화
     gravitybelt_obtained = False  # gravitybelt 획득 상태 초기화
     dashholder_obtained = False  # dashholder 획득 상태 초기화
     sensor_obtained = False  # sensor 획득 상태 초기화
+    timer_belt_obtained = False  # timer_belt 획득 상태 초기화
     
     global dowsing_pendulum_obtained, commando_arm_obtained, commando_arm_count, technical_vest_obtained
     global gold_digger_obtained, lucky_coin_obtained, adversity_armor_obtained, sage_ring_obtained
@@ -2229,6 +2368,9 @@ def reset_items():
 
     global venom_mist_gauntlet_obtained
     venom_mist_gauntlet_obtained = False  # venom_mist_gauntlet 획득 상태 초기화
+
+    global fake_arm_obtained
+    fake_arm_obtained = False  # fake_arm 획득 상태 초기화
 
     global dowsing_goggles_obtained
     dowsing_goggles_obtained = False  # dowsing_goggles 획득 상태 초기화
@@ -2254,6 +2396,13 @@ def reset_items():
     try:
         from item_effects.venom_mist_gauntlet import reset_all as _vmg_reset
         _vmg_reset()
+    except Exception:
+        pass
+
+    # 훼이크암 효과 리셋
+    try:
+        from item_effects.fake_arm import reset_all as _fa_reset
+        _fa_reset()
     except Exception:
         pass
 
@@ -2404,6 +2553,9 @@ def spawn_random_item():
         if item["name"] == "gravitybelt" and gravitybelt_obtained and not _allow_duplicate_passive("gravitybelt"):
             continue
 
+        if item["name"] == "timer_belt" and timer_belt_obtained and not _allow_duplicate_passive("timer_belt"):
+            continue
+
         if item["name"] == "sensor" and sensor_obtained and not _allow_duplicate_passive("sensor"):
             continue
 
@@ -2461,6 +2613,9 @@ def spawn_random_item():
         if item["name"] == "venom_mist_gauntlet" and venom_mist_gauntlet_obtained and not _allow_duplicate_passive("venom_mist_gauntlet"):
             continue
 
+        if item["name"] == "fake_arm" and fake_arm_obtained and not _allow_duplicate_passive("fake_arm"):
+            continue
+
         # gold_bar 중복 스폰 방지
         if item["name"] == "gold_bar" and gold_bar_obtained:
             continue
@@ -2490,7 +2645,7 @@ def spawn_random_item():
     # 스킬 효과 적용: 아이템 스폰 확률 증가
     import skill
     skill_spawn_boost = skill.apply_item_spawn_boost(1.0)  # 기본 확률 1.0에 스킬 효과 적용
-    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask"}
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
     except Exception:
@@ -2510,13 +2665,14 @@ def spawn_random_item():
     passive_names = {
         "speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime",
         "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
+        "timer_belt",
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
         "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
-        "valhalla_warplate", "horn_strawberry_mask",
+        "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape",
         "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin",
         "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
-        "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul"
+        "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul", "fake_arm"
     }
 
     for item in available_items:
@@ -2594,7 +2750,13 @@ def spawn_random_item():
             "angle": 0  # 회전각도
         }
         item_list.append(new_item)
-        
+        if selected_item["name"] == "gods_stone":
+            try:
+                import pingfighter
+                pingfighter._prewarm_gods_stone_judgment_bg(force=True)
+            except Exception:
+                pass
+
         # 라그나로크 해머가 스폰되면 애니메이션을 위해 인스턴스만 준비 (효과는 적용하지 않음)
         if selected_item["name"] == "ragnarok_hammer":
             from legendary_items import get_legendary_manager
@@ -2728,6 +2890,12 @@ def _spawn_bonus_item(scaled_weights):
         "lucky_glow_timer": 0,  # 글로우 애니메이션 타이머
     }
     item_list.append(new_item)
+    if bonus_item["name"] == "gods_stone":
+        try:
+            import pingfighter
+            pingfighter._prewarm_gods_stone_judgment_bg(force=True)
+        except Exception:
+            pass
 
     # 보너스 스폰 효과음 재생
     lucky_sound = get_sound_lucky_spawn()
@@ -2787,7 +2955,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
 
             # 패시브 아이템과 엑티브 아이템 구분
             stored = False
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul", "fake_arm"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {

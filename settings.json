@@ -31,7 +31,8 @@
       "mute_all": false,
       "spatial_audio": true,
       "dynamic_music": true,
-      "paddle_hit_sound": 1
+      "paddle_hit_sound": 1,
+      "arena_sound_pack": "bk22"
     },
     "gameplay": {
       "ball_type": "energy",

@@ -26,7 +26,7 @@ def show_credits_screen():
         {"role": "BGM Sound Director", "name": "BK22", "color": (100, 200, 255)},
         {"role": "Character Art", "name": "흑쌍쌍바", "color": (255, 100, 150)},
         {"role": "Story Scenario", "name": "흑쌍쌍바", "color": (200, 150, 255)},
-        {"role": "Feedback & QA Support", "name": "Pyo hyun jun", "color": (150, 255, 150)},
+        {"role": "Design Consultant", "name": "Pyo hyun jun", "color": (150, 255, 150)},
         {"role": "Special Thanks", "name": "All Players", "color": (255, 150, 200)},
     ]
 

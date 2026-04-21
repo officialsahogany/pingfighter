@@ -108,7 +108,9 @@ class SettingsManager:
                 'mute_all': False,
                 'spatial_audio': True,
                 'dynamic_music': True,
-                'paddle_hit_sound': 1
+                'paddle_hit_sound': 1,
+                # 투기장(콜로세움) 스테이지 30 BGM 사운드팩: 'bk22' or 'anderson'
+                'arena_sound_pack': 'bk22'
             },
             
             # 게임플레이 설정
@@ -497,6 +499,27 @@ class SettingsManager:
             
     def _apply_audio_setting(self, key: str, value: Any):
         """오디오 설정 적용"""
+        if key == 'music_volume':
+            volume = max(0.0, min(1.0, float(value)))
+            try:
+                from game_state.audio import set_bgm_volume as _set_runtime_bgm_volume
+                _set_runtime_bgm_volume(volume)
+            except Exception:
+                pass
+            if not self._initializing:
+                try:
+                    import bgm_manager
+                    bgm_manager.set_bgm_volume(volume)
+                except Exception:
+                    pass
+        elif key == 'sfx_volume':
+            volume = max(0.0, min(1.0, float(value)))
+            try:
+                from game_state.audio import set_sfx_volume as _set_runtime_sfx_volume
+                _set_runtime_sfx_volume(volume)
+            except Exception:
+                pass
+
         try:
             from managers.sound_manager import get_sound_manager
             sound_manager = get_sound_manager()
@@ -542,6 +565,27 @@ class SettingsManager:
         elif key == 'paddle_hit_sound':
             # 패들 타격 사운드 변경 (1, 2, 3)
             self.global_manager.set('paddle_hit_sound', int(value))
+        elif key == 'arena_sound_pack':
+            pack = value if value in ('bk22', 'anderson') else 'bk22'
+            self.settings.setdefault('audio', {})['arena_sound_pack'] = pack
+            if self._initializing:
+                return
+            try:
+                import bgm_manager as bgm_module
+                manager = getattr(bgm_module, 'bgm_manager', None)
+                arena_bgms = {
+                    'colosseum1',
+                    'colosseum2',
+                    'colosseum3',
+                    'colosseum4',
+                    'colosseum_bk22_1',
+                    'colosseum_bk22_2',
+                    'colosseum_bk22_3',
+                }
+                if manager is not None and getattr(manager, 'current_bgm', None) in arena_bgms:
+                    manager.play_stage_bgm(30)
+            except Exception as e:
+                print(f"투기장 사운드팩 적용 실패: {e}")
         elif key == 'mute_all':
             if value:
                 sound_manager.mute()
@@ -564,6 +608,17 @@ class SettingsManager:
             self.global_manager.set_setting('auto_save', value)
         elif key == 'camera_shake_intensity':
             self.global_manager.set('shake_intensity', value)
+        elif key == 'replay_auto_save':
+            enabled = bool(value)
+            self.global_manager.set('replay_auto_save', enabled)
+            if not enabled and not self._initializing:
+                try:
+                    from replay.replay_system import get_recorder
+                    recorder = get_recorder()
+                    if recorder.recording:
+                        recorder.stop()
+                except Exception:
+                    pass
             
     def _apply_network_setting(self, key: str, value: Any):
         """네트워크 설정 적용"""

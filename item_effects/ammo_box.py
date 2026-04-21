@@ -42,10 +42,10 @@ class AmmoBox:
                 current_weapon_name = soldier_controller.weapons[soldier_controller.current_index]
             except (AttributeError, IndexError):
                 current_weapon_name = None
-        degraded_weapons = set(getattr(soldier_controller, 'degraded', ())) if soldier_controller else set()
+        rental_weapons = set(getattr(soldier_controller, 'degraded', ())) if soldier_controller else set()
 
-        def is_degraded(weapon_name: str) -> bool:
-            return weapon_name != "pistol" and weapon_name in degraded_weapons
+        def is_rental(weapon_name: str) -> bool:
+            return weapon_name != "pistol" and weapon_name in rental_weapons
 
         print(f"📦 탄약상자 사용! 소지 화기류: {soldier_weapons}")
 
@@ -77,8 +77,8 @@ class AmmoBox:
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
             if bazooka:
-                if is_degraded("bazooka"):
-                    print("   🚫 바주카포는 노후화되어 재장전되지 않습니다.")
+                if is_rental("bazooka"):
+                    print("   🚫 바주카포는 대여 상태라 재장전되지 않습니다.")
                 else:
                     prev_ammo = bazooka.ammo_count
                     was_inactive = not getattr(bazooka, "active", False)
@@ -101,8 +101,8 @@ class AmmoBox:
             from item_effects.net_gun import get_net_gun_instance
             net_gun = get_net_gun_instance()
             if net_gun:
-                if is_degraded("net_gun"):
-                    print("   🚫 그물덫총은 노후화되어 재장전되지 않습니다.")
+                if is_rental("net_gun"):
+                    print("   🚫 그물덫총은 대여 상태라 재장전되지 않습니다.")
                 elif net_gun.ammo_count < net_gun.MAX_AMMO:
                     prev_ammo = net_gun.ammo_count
                     net_gun.reload(track_reload=True)
@@ -117,8 +117,8 @@ class AmmoBox:
             from item_effects.ak47 import get_ak47_instance
             ak47 = get_ak47_instance()
             if ak47:
-                if is_degraded("ak47"):
-                    print("   🚫 AK-47은 노후화되어 재장전되지 않습니다.")
+                if is_rental("ak47"):
+                    print("   🚫 AK-47은 대여 상태라 재장전되지 않습니다.")
                 else:
                     was_inactive = not ak47.active
                     prev_ammo = ak47.current_ammo
@@ -155,8 +155,8 @@ class AmmoBox:
             fire_support = None
 
         if fire_support:
-            if is_degraded("fire_support"):
-                print("   🚫 화력지원 장비는 노후화되어 재장전되지 않습니다.")
+            if is_rental("fire_support"):
+                print("   🚫 화력지원 장비는 대여 상태라 재장전되지 않습니다.")
             elif fire_support.is_calling() or fire_support.is_active():
                 print("   🚫 화력지원 호출 중에는 탄약상자로 재장전할 수 없습니다.")
             else:
@@ -184,8 +184,8 @@ class AmmoBox:
             bowling_trap = None
 
         if bowling_trap:
-            if is_degraded("bowling_trap"):
-                print("   🚫 볼링트랩은 노후화되어 재장전되지 않습니다.")
+            if is_rental("bowling_trap"):
+                print("   🚫 볼링트랩은 대여 상태라 재장전되지 않습니다.")
             elif bowling_trap.installing:
                 print("   🚫 볼링트랩 설치 중에는 탄약상자로 재장전할 수 없습니다.")
             else:

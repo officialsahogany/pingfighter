@@ -561,6 +561,7 @@ LEGENDARY_ITEM_NAMES = {
     "megingjord",
     "valhalla_warplate",
     "horn_strawberry_mask",
+    "heavenly_cape",
 }
 
 # 강화 애니메이션 시간 (초)

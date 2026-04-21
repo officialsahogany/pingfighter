@@ -19,10 +19,16 @@ This sheet is intended for brief runtime direction changes (left <-> right
 facing, idle return to front), not for the full walking cycle.
 
 Goal:
-- Redraw the same character at 13 angles of body orientation
-- Row 1: +90, +75, +60, +45, +30, +15, 0 degrees
-- Row 2: -15, -30, -45, -60, -75, -90, (blank last cell)
-- Sign convention: +90 = full right profile, 0 = front, -90 = full left profile
+- Create a BRIEF direction-change transition sheet for the same frontal
+  walk character
+- This is NOT a side-view rotation chart and NOT a +90 -> 0 -> -90 angle sheet
+- The character should stay visually connected to the front-facing walk
+  while showing a short signature "kuse" during the direction change
+- Use the turn to express personality: for example a head lift, chin tilt,
+  shoulder hitch, arm pose swap, one-knee lift, tiny hop / pivot, ribbon /
+  hem rebound, or another boss-specific habit that suits the concept
+- The result should read as "the same boss briefly changing direction
+  with style," not as "the camera rotates around the boss"
 
 Canonical reference:
 - Use items/[name]_boss_sheet.png as the canonical visual reference
@@ -31,28 +37,48 @@ Canonical reference:
 - Keep the SAME hair color, hairstyle, face shape, eye color, skin tone,
   outfit design, and all signature accessories
 - If the turn sheet looks like a different character, reject and regenerate
-- Do NOT produce a simple image-rotation output; each angle must be a
-  fresh redraw at that angle
+- Do NOT produce a simple image-rotation output
+- Do NOT turn the character into a profile showcase or angle chart
+- Keep the same frontal combat readability as the walk
 
 Allowed to change (only these):
-- body orientation
-- gaze direction
-- shoulder / pelvis angle
-- limb / tail / ribbon / cloth front-back overlap at each angle
+- temporary asymmetry in pose
+- head / chin lift or tilt
+- shoulder / torso hitch
+- arm pose change
+- one-leg / knee lift
+- small hop / pivot accent
+- hair / ribbon / tail / cloth rebound and overlap changes that support
+  the transition gesture
 
 Must stay identical:
 - hair color / hairstyle / face shape
 - proportions / art style
 - outfit design / accessories
 
+Shared walk+turn motion language (buoyant Menhera rule, always on):
+- Walk and turn MUST feel like the same animation language: front-
+  biased, softly bouncy, cute, and lively
+- Use light body bob, soft weight shift, subtle chibi rebound, and
+  small follow-through in hair, ribbon, tail, and hem so the facing
+  transition feels natural and springy, not stiff or mechanical
+- Do NOT keep the torso frozen while only the head or limbs twitch --
+  the whole body should breathe and rebound together through the short
+  transition sequence
+- Walk and turn are judged as one continuous motion style, not two
+  separate cycles
+
 Sheet composition:
-- 13 frames total in a 7x2 grid (last cell blank)
+- 8 frames total in a 4x2 grid
 - aspectRatio 16:9, imageSize 2K
 - Pure flat white background (#FFFFFF) in every cell
 - NO grid lines, NO borders, NO dividers, NO labels
 - Body scale stays within +/-5% of the walking sheet (SKILL.md Section 8.1)
-- Neighboring frames must interpolate cleanly from one body orientation
-  to the next; a smooth 15-degree step between adjacent cells
+- Frame plan:
+  - Row 1: walk-compatible carry-in, compress / plant, accent wind-up, peak transition pose
+  - Row 2: rebound, recovery, settle, walk-compatible return
+- Neighboring frames must read as one short continuous gesture sequence
+  that can enter from walk and return to walk cleanly
 
 Style rules:
 - 16-bit retro pixel art, chibi proportions, thick black pixel outlines

@@ -1,6 +1,6 @@
 """
 골드디거 아이템 효과
-골드 획득량이 30%~70% 증가하는 패시브 아이템
+골드 획득량이 25%~50% 증가하는 패시브 아이템
 팔 부위 장착 (최대 2개까지 장착 가능, 보너스 누적)
 """
 
@@ -11,8 +11,8 @@ import random
 DEBUG_GOLD_DIGGER = os.environ.get("DEBUG_GOLD_DIGGER", "0") == "1"
 
 # 상수
-GOLD_DIGGER_MIN_BONUS = 0.30  # 최소 30% 증가
-GOLD_DIGGER_MAX_BONUS = 0.70  # 최대 70% 증가
+GOLD_DIGGER_MIN_BONUS = 0.25  # 최소 25% 증가
+GOLD_DIGGER_MAX_BONUS = 0.50  # 최대 50% 증가
 
 
 class GoldDigger:
@@ -23,7 +23,7 @@ class GoldDigger:
 
     def activate(self, game_state=None, current_stage=None, width=600, height=750):
         """골드디거 획득 및 활성화 (스택 추가)"""
-        # 새로운 골드디거의 보너스 결정 (30%~70%)
+        # 새로운 골드디거의 보너스 결정 (25%~50%)
         new_bonus = random.uniform(GOLD_DIGGER_MIN_BONUS, GOLD_DIGGER_MAX_BONUS)
         self.bonuses.append(new_bonus)
 

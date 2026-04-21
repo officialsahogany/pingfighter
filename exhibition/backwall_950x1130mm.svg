@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GAME AiCON Seoul 2026 — PingFighter Back Wall
+     Actual exhibition size: 950mm x 1130mm (portrait)
+     Open in Adobe Illustrator, then File > Save As > Adobe Illustrator (.ai)
+     Fonts used are common system fonts; convert to outlines before printing
+     (Illustrator: Select All > Type > Create Outlines) for safe output.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="950mm" height="1130mm"
+     viewBox="0 0 950 1130"
+     preserveAspectRatio="xMidYMid meet">
+
+  <defs>
+    <!-- Background : starfield navy to black -->
+    <radialGradient id="bg" cx="50%" cy="40%" r="85%">
+      <stop offset="0%"   stop-color="#1a0a3d"/>
+      <stop offset="55%"  stop-color="#070016"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+
+    <!-- Neon divider gradient : pink to cyan (splash screen palette) -->
+    <linearGradient id="neon" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#ff0096"/>
+      <stop offset="50%"  stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#00ffff"/>
+    </linearGradient>
+
+    <!-- Title pink glow -->
+    <filter id="pinkGlow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Cyan glow -->
+    <filter id="cyanGlow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Paddle + ball reusable group -->
+    <g id="paddleBall">
+      <!-- motion trail -->
+      <ellipse cx="-90" cy="0" rx="120" ry="10" fill="#ff0096" opacity="0.35"/>
+      <ellipse cx="-60" cy="0" rx="70"  ry="7"  fill="#ff0096" opacity="0.55"/>
+      <!-- ball -->
+      <circle cx="0" cy="0" r="14" fill="#ffffff"/>
+      <circle cx="0" cy="0" r="20" fill="none" stroke="#00ffff" stroke-width="2" opacity="0.7"/>
+      <!-- paddle -->
+      <g transform="translate(60,0) rotate(18)">
+        <rect x="-10" y="-38" width="20" height="70" rx="4" fill="#222" stroke="#ff0096" stroke-width="2"/>
+        <rect x="-26" y="-22" width="52" height="16" rx="6" fill="#ff0096"/>
+        <rect x="-26" y="6"   width="52" height="16" rx="6" fill="#00ffff"/>
+      </g>
+    </g>
+  </defs>
+
+  <!-- ===== Background ===== -->
+  <rect width="950" height="1130" fill="url(#bg)"/>
+
+  <!-- ===== Starfield (hand-placed to avoid runtime randomness) ===== -->
+  <g fill="#ffffff">
+    <circle cx="42"  cy="88"   r="1.4" opacity="0.7"/>
+    <circle cx="110" cy="165"  r="1.0" opacity="0.5"/>
+    <circle cx="210" cy="55"   r="1.8" opacity="0.9"/>
+    <circle cx="320" cy="200"  r="1.2" opacity="0.6"/>
+    <circle cx="420" cy="120"  r="0.9" opacity="0.5"/>
+    <circle cx="520" cy="70"   r="1.6" opacity="0.8"/>
+    <circle cx="620" cy="175"  r="1.1" opacity="0.6"/>
+    <circle cx="720" cy="95"   r="1.5" opacity="0.75"/>
+    <circle cx="830" cy="155"  r="1.0" opacity="0.5"/>
+    <circle cx="900" cy="225"  r="1.3" opacity="0.7"/>
+    <circle cx="70"  cy="320"  r="1.2" opacity="0.6"/>
+    <circle cx="180" cy="410"  r="0.9" opacity="0.5"/>
+    <circle cx="880" cy="365"  r="1.6" opacity="0.8"/>
+    <circle cx="790" cy="485"  r="1.1" opacity="0.6"/>
+    <circle cx="55"  cy="560"  r="1.3" opacity="0.7"/>
+    <circle cx="920" cy="615"  r="1.4" opacity="0.7"/>
+    <circle cx="120" cy="720"  r="1.0" opacity="0.5"/>
+    <circle cx="860" cy="810"  r="1.2" opacity="0.6"/>
+    <circle cx="40"  cy="890"  r="1.5" opacity="0.75"/>
+    <circle cx="905" cy="960"  r="1.0" opacity="0.55"/>
+    <circle cx="240" cy="1040" r="1.2" opacity="0.6"/>
+    <circle cx="720" cy="1070" r="0.9" opacity="0.5"/>
+  </g>
+
+  <!-- ===== Main Title ===== -->
+  <!-- Cyan glow layer (back) -->
+  <g transform="translate(475,300)" text-anchor="middle"
+     font-family="Impact, 'Arial Black', sans-serif"
+     font-size="150" font-weight="900" letter-spacing="6">
+    <text fill="#00ffff" opacity="0.55" filter="url(#cyanGlow)" transform="translate(6,6)">PING FIGHTER</text>
+    <text fill="#ff0096" opacity="0.65" filter="url(#pinkGlow)" transform="translate(-6,-6)">PING FIGHTER</text>
+    <text fill="#ffffff">PING FIGHTER</text>
+  </g>
+
+  <!-- Neon divider -->
+  <g transform="translate(475,345)">
+    <rect x="-340" y="0" width="680" height="4" fill="url(#neon)"/>
+    <circle cx="-340" cy="2" r="6" fill="#ff0096"/>
+    <circle cx="340"  cy="2" r="6" fill="#00ffff"/>
+  </g>
+
+  <!-- Korean / English tagline -->
+  <g text-anchor="middle" font-family="'Noto Sans KR','Malgun Gothic',sans-serif">
+    <text x="475" y="400" font-size="36" font-weight="700" fill="#ffffff">픽셀 로그라이트 보스 핑퐁</text>
+    <text x="475" y="445" font-size="22" font-weight="500" fill="#c8c8ff" letter-spacing="4">
+      A PIXEL ROGUE-LITE BOSS BRAWLER
+    </text>
+  </g>
+
+  <!-- ===== Key Visual : paddle-ball trail on horizontal court ===== -->
+  <g transform="translate(475,620)">
+    <!-- Court baseline -->
+    <line x1="-380" y1="0" x2="380" y2="0" stroke="#2a1b4a" stroke-width="2" stroke-dasharray="8 6"/>
+    <!-- Boss side silhouette (top) -->
+    <rect x="-50" y="-120" width="100" height="24" rx="6" fill="#ff0096" opacity="0.9"/>
+    <circle cx="0" cy="-150" r="30" fill="#2a1b4a" stroke="#ff0096" stroke-width="3"/>
+    <text x="0" y="-145" text-anchor="middle"
+          font-family="'Noto Sans KR','Malgun Gothic',sans-serif"
+          font-size="14" fill="#ff0096" font-weight="800">BOSS</text>
+    <!-- Paddle + ball -->
+    <use href="#paddleBall" transform="translate(0,0)"/>
+    <!-- Player side paddle (bottom) -->
+    <rect x="-50" y="110" width="100" height="24" rx="6" fill="#00ffff" opacity="0.9"/>
+    <text x="0" y="162" text-anchor="middle"
+          font-family="'Noto Sans KR','Malgun Gothic',sans-serif"
+          font-size="14" fill="#00ffff" font-weight="800">YOU</text>
+  </g>
+
+  <!-- ===== Feature callouts ===== -->
+  <g font-family="'Noto Sans KR','Malgun Gothic',sans-serif" fill="#ffffff">
+    <g transform="translate(155,830)">
+      <circle cx="0" cy="0" r="28" fill="#ff0096" opacity="0.2" stroke="#ff0096" stroke-width="2"/>
+      <text x="0" y="6" text-anchor="middle" font-size="20" font-weight="800" fill="#ff0096">8</text>
+      <text x="0" y="60" text-anchor="middle" font-size="16" font-weight="700">스테이지 보스</text>
+      <text x="0" y="82" text-anchor="middle" font-size="12" fill="#b9b9d6">8 Unique Bosses</text>
+    </g>
+    <g transform="translate(475,830)">
+      <circle cx="0" cy="0" r="28" fill="#00ffff" opacity="0.2" stroke="#00ffff" stroke-width="2"/>
+      <text x="0" y="6" text-anchor="middle" font-size="20" font-weight="800" fill="#00ffff">5</text>
+      <text x="0" y="60" text-anchor="middle" font-size="16" font-weight="700">플레이어블 캐릭터</text>
+      <text x="0" y="82" text-anchor="middle" font-size="12" fill="#b9b9d6">5 Playable Fighters</text>
+    </g>
+    <g transform="translate(795,830)">
+      <circle cx="0" cy="0" r="28" fill="#ffd400" opacity="0.2" stroke="#ffd400" stroke-width="2"/>
+      <text x="0" y="6" text-anchor="middle" font-size="20" font-weight="800" fill="#ffd400">∞</text>
+      <text x="0" y="60" text-anchor="middle" font-size="16" font-weight="700">로그라이트 빌드</text>
+      <text x="0" y="82" text-anchor="middle" font-size="12" fill="#b9b9d6">Roguelite Build</text>
+    </g>
+  </g>
+
+  <!-- ===== Bottom neon strip ===== -->
+  <rect x="0" y="970" width="950" height="2" fill="url(#neon)" opacity="0.8"/>
+
+  <!-- ===== QR + Booth info ===== -->
+  <g transform="translate(80,1000)">
+    <!-- QR placeholder : replace with real QR in Illustrator -->
+    <rect x="0" y="0" width="90" height="90" fill="#ffffff" stroke="#00ffff" stroke-width="2"/>
+    <g fill="#000000">
+      <rect x="6"  y="6"  width="22" height="22"/>
+      <rect x="62" y="6"  width="22" height="22"/>
+      <rect x="6"  y="62" width="22" height="22"/>
+      <rect x="36" y="36" width="10" height="10"/>
+      <rect x="48" y="50" width="10" height="10"/>
+      <rect x="52" y="18" width="8"  height="8"/>
+      <rect x="30" y="56" width="6"  height="6"/>
+    </g>
+    <text x="0" y="108" font-family="'Noto Sans KR','Malgun Gothic',sans-serif"
+          font-size="10" fill="#b9b9d6">(QR placeholder — Steam / demo link)</text>
+  </g>
+
+  <g transform="translate(195,1010)" font-family="'Noto Sans KR','Malgun Gothic',sans-serif">
+    <text x="0" y="16" font-size="16" font-weight="800" fill="#ffffff">BOOTH / Developer</text>
+    <text x="0" y="42" font-size="22" font-weight="800" fill="#ff0096">[회사명 국문]</text>
+    <text x="0" y="66" font-size="16" font-weight="600" fill="#00ffff">[COMPANY NAME (EN)]</text>
+    <text x="0" y="90" font-size="12" fill="#c8c8ff">Contact :  officialsahogany@gmail.com</text>
+  </g>
+
+  <!-- ===== Event tag (top-right corner) ===== -->
+  <g transform="translate(820,60)" text-anchor="end"
+     font-family="'Noto Sans KR','Malgun Gothic',sans-serif">
+    <text x="0" y="0"  font-size="14" font-weight="700" fill="#00ffff" letter-spacing="2">GAME AiCON SEOUL 2026</text>
+    <text x="0" y="22" font-size="11" fill="#b9b9d6" letter-spacing="1">GAME SHOWCASE · 2026.05.27 – 05.28</text>
+    <text x="0" y="40" font-size="11" fill="#b9b9d6" letter-spacing="1">Tex+Fa Hall, Samseong, Seoul</text>
+  </g>
+
+</svg>

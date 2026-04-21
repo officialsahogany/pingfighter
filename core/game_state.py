@@ -103,8 +103,8 @@ class GameState:
         # 홍련폭염 시스템
         self.hongryun_hit_count = 0
         self.hongryun_ready = False
-        # 홍련폭염 게이지 최대치 (화염탄 4회 피격 시 발동)
-        self.HONGRYUN_MAX_HITS = 4
+        # 홍련폭염 게이지 최대치 (화염탄 5회 피격 시 발동)
+        self.HONGRYUN_MAX_HITS = 5
         
         # ========== 대시 시스템 ==========
         self.dash_charges = 3

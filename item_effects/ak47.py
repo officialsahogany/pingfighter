@@ -128,6 +128,20 @@ class AK47:
             print("AK-47 탄약 소진! 추가 발사가 불가합니다.")
             self.is_firing = False
             self.burst_shots_fired = 0
+        for module_name in ("__main__", "pingfighter"):
+            module = sys.modules.get(module_name)
+            controller = getattr(module, "soldier_controller", None) if module else None
+            releaser = getattr(controller, "release_rental_if_depleted", None) if controller else None
+            if callable(releaser):
+                try:
+                    removed = releaser("ak47", current_ammo=self.current_ammo)
+                    if removed:
+                        switcher = getattr(module, "soldier_switch_weapon", None)
+                        if callable(switcher):
+                            switcher(getattr(controller, "current_index", 0), play_sound=False)
+                except Exception:
+                    pass
+                break
         return True
     
     def should_fire(self) -> bool:

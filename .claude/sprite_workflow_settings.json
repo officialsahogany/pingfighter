@@ -1,0 +1,26 @@
+﻿{
+    "spriteWorkflowMode":  "fast",
+    "allowedModes":  [
+                         "fast",
+                         "precise"
+                     ],
+    "modeGuidance":  {
+                         "fast":  {
+                                      "summary":  "Default exploration mode for new sprite branches. Favor speed, visual taste checks, and early rejection over deep QA.",
+                                      "rules":  [
+                                                    "Generate 1-2 quick candidates first.",
+                                                    "Judge visual appeal and motion read early.",
+                                                    "Reject weak branches quickly instead of deepening them.",
+                                                    "Do not start pair-expansion, publish-pack, nukki restitch, or runtime wire-up until a candidate already looks promising."
+                                                ]
+                                  },
+                         "precise":  {
+                                         "summary":  "Promotion mode for candidates that already look good and are likely to ship.",
+                                         "rules":  [
+                                                       "Use full QA, frame expansion, publish-pack, nukki, and runtime handoff when needed.",
+                                                       "Prefer strip QA, gameplay-scale comparison, and explicit promotion gates.",
+                                                       "Use only after the user asks for depth or when a candidate is already near runtime acceptance."
+                                                   ]
+                                     }
+                     }
+}

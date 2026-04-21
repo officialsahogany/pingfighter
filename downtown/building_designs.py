@@ -43,6 +43,11 @@ class BuildingDesigner:
         # blit 시 이 오프셋만큼 빼줘야 정확한 위치에 그려진다.
         self._baked_offsets = {}
 
+    def reset_runtime_state(self):
+        """새 광장 맵을 로드할 때 이전 방문의 파티클 상태를 비운다."""
+        self.particles.clear()
+        self._particle_base.clear()
+
     # =========================================================================
     # 고품질 렌더링 헬퍼 메서드
     # =========================================================================
@@ -3522,6 +3527,7 @@ class BuildingDesigner:
                 'y': particle_y,
                 'color': (r, g, b),
                 'life': 1.0,
+                'type': 'gacha_star',
                 'vx': random.uniform(-1, 1),
                 'vy': random.uniform(-2, -0.5)
             })
@@ -3645,36 +3651,42 @@ class BuildingDesigner:
             px = p['x']
             py = p['y']
             alpha = min(255, max(0, int(255 * (p['life'] / 2.0))))
+            particle_type = p.get('type')
 
-            if p['type'] == 'sparkle':
+            if not particle_type:
+                fallback_color = p.get('color', (255, 255, 255))
+                pygame.draw.circle(screen, fallback_color, (int(px), int(py)), 2)
+                continue
+
+            if particle_type == 'sparkle':
                 size = 3 + int(3 * p['life'])
                 surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
                 sparkle_color = p.get('color', (255, 255, 255))
                 pygame.draw.circle(surf, (*sparkle_color, alpha), (size, size), size)
                 screen.blit(surf, (px - size, py - size))
 
-            elif p['type'] == 'ember':
+            elif particle_type == 'ember':
                 ember_color = p.get('color', (255, 150, 50))
                 pygame.draw.circle(screen, ember_color, (int(px), int(py)), 2)
 
-            elif p['type'] == 'smoke':
+            elif particle_type == 'smoke':
                 size = p.get('size', 10) + int((2.0 - p['life']) * 5)
                 surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(surf, (100, 100, 100, min(alpha, 100)), (size, size), size)
                 screen.blit(surf, (px - size, py - size))
 
-            elif p['type'] == 'spark':
+            elif particle_type == 'spark':
                 spark_color = p.get('color', (255, 200, 100))
                 pygame.draw.circle(screen, spark_color, (int(px), int(py)), 2)
 
-            elif p['type'] == 'magic':
+            elif particle_type == 'magic':
                 size = int(4 * p['life'])
                 surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
                 magic_color = p.get('color', (150, 150, 255))
                 pygame.draw.circle(surf, (*magic_color, alpha), (size, size), size)
                 screen.blit(surf, (px - size, py - size))
 
-            elif p['type'] == 'leaf':
+            elif particle_type == 'leaf':
                 surf = pygame.Surface((10, 6), pygame.SRCALPHA)
                 leaf_color = p.get('color', (100, 180, 80))  # 기본 색상 추가
                 pygame.draw.ellipse(surf, (*leaf_color, alpha), (0, 0, 10, 6))
@@ -3682,7 +3694,7 @@ class BuildingDesigner:
                 screen.blit(rotated, (px - 5, py - 3))
                 p['rotation'] = p.get('rotation', 0) + 180 * 0.016
 
-            elif p['type'] == 'ancient_magic':
+            elif particle_type == 'ancient_magic':
                 size = int(5 * p['life'])
                 ancient_color = p.get('color', (255, 215, 0))
                 # 별 모양
@@ -3697,23 +3709,23 @@ class BuildingDesigner:
                     pygame.draw.polygon(surf, (*ancient_color, alpha), offset_points)
                     screen.blit(surf, (px - size * 1.5, py - size * 1.5))
 
-            elif p['type'] == 'pixel':
+            elif particle_type == 'pixel':
                 pixel_color = p.get('color', (0, 255, 0))
                 pygame.draw.rect(screen, pixel_color, (int(px), int(py), 4, 4))
 
-            elif p['type'] == 'gold_sparkle':
+            elif particle_type == 'gold_sparkle':
                 size = int(4 * p['life'])
                 gold_color = p.get('color', (255, 215, 0))
                 pygame.draw.circle(screen, gold_color, (int(px), int(py)), size)
 
-            elif p['type'] == 'void':
+            elif particle_type == 'void':
                 size = int(6 * p['life'])
                 surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
                 void_color = p.get('color', (100, 0, 150))
                 pygame.draw.circle(surf, (*void_color, alpha), (size, size), size)
                 screen.blit(surf, (px - size, py - size))
 
-            elif p['type'] == 'gacha_star':
+            elif particle_type == 'gacha_star':
                 size = int(8 * p['life'])
                 gacha_color = p.get('color', (255, 200, 50))
                 # 별 모양 파티클

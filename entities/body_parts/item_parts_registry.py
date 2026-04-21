@@ -118,9 +118,20 @@ def get_item_part(item_name: str, block: int = 9,
         from entities.body_parts.item_arm_parts import VenomMistGauntletPart
         return VenomMistGauntletPart(block)
 
+    elif item_name == "fake_arm":
+        if side == "right":
+            from entities.body_parts.item_arm_parts import FakeArmRightPart
+            return FakeArmRightPart(block)
+        from entities.body_parts.item_arm_parts import FakeArmPart
+        return FakeArmPart(block)
+
     elif item_name == "megingjord":
         from entities.body_parts.item_belt_parts import MegingjordBeltPart
         return MegingjordBeltPart(block)
+
+    elif item_name == "timer_belt":
+        from entities.body_parts.item_belt_parts import TimerBeltPart
+        return TimerBeltPart(block)
 
     elif item_name == "sage_ring":
         # 현자의 반지는 장신구 - 시각적 파츠 없음 (아이콘만 표시)
@@ -130,7 +141,7 @@ def get_item_part(item_name: str, block: int = 9,
 
 
 # 양팔 착용 가능한 아이템 목록
-DUAL_ARM_ITEMS = {"commando_arm", "gold_digger", "venom_mist_gauntlet"}
+DUAL_ARM_ITEMS = {"commando_arm", "gold_digger", "venom_mist_gauntlet", "fake_arm"}
 
 # 전설 양손 무기 (weapon + shield 슬롯 동시 사용)
 LEGENDARY_WEAPON_ITEMS = {"ragnarok_hammer", "poseidon_trident"}
@@ -237,6 +248,10 @@ def _is_same_item_type(part: BodyPart, item_name: str) -> bool:
         return "commando" in cls_name
     elif item_name == "gold_digger":
         return "golddigger" in cls_name
+    elif item_name == "venom_mist_gauntlet":
+        return "venommistgauntlet" in cls_name
+    elif item_name == "fake_arm":
+        return "fakearm" in cls_name
     return False
 
 
@@ -260,6 +275,7 @@ def remove_item_from_skin(skin: CharacterSkin, item_name: str, block: int = 9) -
         "head": SmasherHeadPart,
         "face": None,           # 오딘의눈 해제 시 제거만 (기본 face 파츠 없음)
         "torso": SmasherTorsoPart,
+        "belt": None,           # 벨트 해제 시 제거만 (기본 벨트 파츠 없음)
         "l_arm": SmasherLeftArmPart,
         "r_arm": SmasherRightArmPart,
         "weapon": SmasherWeaponPart,
@@ -317,6 +333,9 @@ VISUAL_ITEM_NAMES = {
     "megingjord",
     "chargebag",
     "soul_burst",
+    "timer_belt",
+    "venom_mist_gauntlet",
+    "fake_arm",
 }
 
 # ── 아이템 → 슬롯 매핑 (UI 표시용) ──
@@ -331,11 +350,13 @@ ITEM_SLOT_MAP = {
     "commando_arm": "l_arm",    # 첫 번째는 l_arm, 두 번째는 r_arm
     "gold_digger": "l_arm",     # 첫 번째는 l_arm, 두 번째는 r_arm
     "venom_mist_gauntlet": "l_arm",  # 독안개장갑: 첫 번째 l_arm, 두 번째 r_arm
+    "fake_arm": "l_arm",             # 훼이크암: 첫 번째 l_arm, 두 번째 r_arm
     "ragnarok_hammer": "weapon",
     "poseidon_trident": "weapon",
     "transcendent_crown": "head",
     "odins_eye": "face",
-    "megingjord": "torso",
+    "megingjord": "belt",
+    "timer_belt": "belt",   # 벨트 계열은 전용 벨트 시각 슬롯에 그림 — torso(상의)와 독립 레이어
     "valhalla_warplate": "torso",
     "horn_strawberry_mask": "head",
     "yachaman_soul": "head",

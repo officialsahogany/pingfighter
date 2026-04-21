@@ -7,12 +7,37 @@
       "Bash(taskkill //F //IM py.exe)",
       "Read(//^def main/\\(stage_num/**)",
       "Bash(taskkill //PID 3836 //F)",
-      "Bash(taskkill //PID 23472 //F)"
+      "Bash(taskkill //PID 23472 //F)",
+      "Edit(/.claude/skills/sprite-generation/**)",
+      "Edit(/.claude/skills/item-generation/**)",
+      "Bash(powershell.exe -Command \"Get-ChildItem 'C:\\\\Users\\\\woduq\\\\AppData\\\\Roaming\\\\gemini-mcp\\\\output' -Recurse -File -Filter '*.jpeg' | Sort-Object LastWriteTime -Descending | Select-Object FullName, LastWriteTime | Format-Table -AutoSize\")",
+      "Bash(powershell.exe -Command \"vssadmin list shadows /for=d: 2>&1 | Select-Object -First 20\")",
+      "Bash(mkdir -p d:/main/bosspong/.tmp/menhera_backup_2026-04-18)",
+      "Bash(cp d:/main/bosspong/items/menhera_boss_sheet.jpeg d:/main/bosspong/items/menhera_boss_sheet.png d:/main/bosspong/items/menhera_boss_turn.jpeg d:/main/bosspong/items/menhera_boss_turn.png d:/main/bosspong/.tmp/menhera_backup_2026-04-18/)",
+      "Bash(mkdir -p d:/main/bosspong/.tmp)",
+      "Bash(cp \"C:/Users/woduq/AppData/Roaming/gemini-mcp/output/6dfd1a58ab9954b9/image-1776457471392.jpeg\" \"d:/main/bosspong/.tmp/menhera_original_identity_walk_cute_lively_v4.jpeg\")",
+      "Read(//d/백업/0403/main/bosspong/.claude/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\woduq\\Documents\\pingfighter",
       "d:\\main\\bosspong\\assets",
-      "D:\\main\\bosspong\\.git"
+      "D:\\main\\bosspong\\.git",
+      "C:\\Users\\woduq\\AppData\\Roaming\\gemini-mcp\\output\\6dfd1a58ab9954b9",
+      "d:\\main\\bosspong\\items",
+      "d:\\main\\bosspong\\.tmp"
     ]
+  },
+  "mcpServers": {
+    "gemini": {
+      "command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "d:\\main\\bosspong\\.claude\\start_gemini_mcp.ps1"
+      ]
+    }
   }
 }

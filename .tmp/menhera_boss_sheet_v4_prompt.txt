@@ -1,0 +1,115 @@
+Use the attached original menhera girl image as the PRIMARY character reference.
+If the current menhera sprite sheet is also attached, use it only as a layout reference for 4 columns x 2 rows, not as a pose reference.
+
+Create a polished 2D side-view boss walk sprite sheet for a game.
+Output format: 4 columns x 2 rows, total 8 frames.
+All 8 frames must show the same character facing RIGHT only.
+Each frame must be a clearly different pose in a smooth looping walk cycle.
+Full body visible in every frame.
+Consistent scale, proportions, and character identity across all 8 frames.
+Do not crop the nurse cap, hair buns, paw glove, scissors, ribbons, stockings, or feet.
+
+Character identity to preserve exactly:
+chibi menhera-style anime girl,
+very pale pink fluffy short hair with curled side buns,
+large glossy gray-pink eyes,
+small cat-like mouth,
+pink heart cheek mark,
+white-and-pink nurse cap with plaid pattern, pink bow, and syringe decoration,
+pink outfit with black ribbon bows down the front,
+black choker,
+gray cat paw mitten with pink pads,
+pink medical scissors as a signature weapon/tool,
+white thigh-high stockings,
+black trailing ribbon ornaments.
+
+Important gameplay conversion:
+Convert the original front-facing portrait character into a full-body RIGHT-facing upright walk cycle for a stage boss in a side-view arcade game.
+She must feel like she is actually striding forward, not just wiggling her feet.
+Do not make her kneeling, sitting, floating, or portrait-style.
+
+Motion priority:
+Make the walk cycle much more dynamic and readable than before.
+The main problem to fix is that the previous version looked too passive, with almost only the soles moving.
+This new version must show strong whole-body movement:
+clear leg extension,
+clear alternating steps,
+noticeable arm swing,
+noticeable torso bounce,
+slight forward lean,
+hair and trailing ribbons reacting to motion,
+scissors hand and paw glove hand changing position clearly from frame to frame.
+
+Frame-by-frame pose guidance:
+Frame 1: right leg forward contact pose, left leg back, body leaning slightly forward, scissors arm slightly back, paw glove arm slightly forward.
+Frame 2: down pose after contact, body lower, knees bent more, shoulders dipped, hair and ribbons following through.
+Frame 3: passing pose, rear leg passing under body, arms crossing natural midpoint, torso centered but still moving.
+Frame 4: up pose, body lifted, rear foot pushing off, front arm lifted higher, ribbons trailing behind.
+Frame 5: left leg forward contact pose, mirrored step logic while still facing right, clear stride difference from frame 1.
+Frame 6: down pose after second contact, visible weight drop, stronger whole-body compression.
+Frame 7: passing pose for the opposite step, clear leg crossover and arm counter-swing.
+Frame 8: up pose for the opposite step, body rising again, foot pushing off, hair and ribbons swinging with momentum.
+
+Very important:
+All 8 frames must be visibly distinct when viewed small.
+Do not make tiny pose variations only in the feet.
+Do not repeat near-identical frames.
+Do not keep the torso, head, and arms frozen.
+Each frame should read immediately as part of a strong looping walk cycle.
+
+Boss vibe:
+cute but unsettling,
+menhera aesthetic,
+slightly stronger contrast than the original illustration,
+readable silhouette at small in-game size,
+clean bold outline,
+arcade boss presence,
+not a soft sticker sheet,
+not a plush mascot sheet,
+not a static character turnaround.
+
+Scale guidance:
+Keep the character footprint modest inside each cell.
+Leave comfortable empty margin around the character.
+Do not let the head or hair fill almost the whole cell.
+The overall in-cell scale should feel similar to other arcade boss sprite sheets, not oversized.
+
+Background requirement:
+Use a fully transparent background if possible.
+If transparency is not possible, use ONLY a perfectly flat chroma green background (#00FF00).
+No white background.
+No pink background.
+No gradients.
+No grid lines.
+No borders.
+No floor shadow.
+No environment.
+No text.
+No watermark.
+
+Do not change:
+the character identity,
+the nurse cap,
+the pink bow,
+the syringe decoration,
+the cheek heart,
+the paw mitten,
+the pink scissors,
+the stockings,
+the black ribbon details,
+or the overall menhera look.
+
+Do not make:
+front-facing portrait sheet,
+kneeling pose sheet,
+idle pose sheet,
+tiny foot-only motion,
+duplicated frames,
+generic mascot art,
+realistic proportions,
+or a different hairstyle/outfit.
+
+The final result must feel like the exact same menhera girl character from the reference, transformed into a polished, dynamic, clearly readable 8-frame right-facing boss walk sprite sheet with strong whole-body motion.
+
+Negative prompt:
+front-facing portrait, kneeling pose, sitting pose, floating pose, idle sheet, duplicated frames, near-identical frames, feet-only animation, frozen torso, frozen arms, white background, pink background, grid lines, border lines, floor shadow, background scene, text, watermark, cropped feet, cropped head, different hairstyle, different outfit, different character, plush mascot, sticker sheet only, blurry details

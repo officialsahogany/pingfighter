@@ -52,6 +52,74 @@ PLACEHOLDER_LEGENDARY_NAMES = (
 )
 
 # 천사의 가호 옵션 키
+PANDORA_MYTHIC_RATIO = 0.5  # mythic slot chance = selection_quality * this ratio
+
+PANDORA_PASSIVE_ITEM_NAMES = {
+    "speedboots", "speedgear", "battery", "slot_add", "revival", "master",
+    "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor",
+    "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum",
+    "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring",
+    "foul_whistle", "star_detector", "smartphone", "knee_pads",
+    "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat",
+    "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar",
+    "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy",
+    "megingjord", "valhalla_warplate", "horn_strawberry_mask", "hero_seal",
+    "minor_hero_seal", "intermediate_hero_seal", "lucky_coin",
+    "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
+    "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul", "fake_arm",
+    "heavenly_cape",
+}
+
+PANDORA_MYTHIC_ITEM_NAMES = {
+    "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
+    "sacred_laurel", "transcendent_crown", "odins_eye", "megingjord",
+    "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape",
+}
+
+PANDORA_EXCLUDED_ACTIVE_ITEM_NAMES = {"ammo_box", "fire_support", "doping_potion"}
+PANDORA_BLACKSMITH_ONLY_ACTIVE_NAMES = {"repair_kit", "berserk_potion"}
+
+
+def _pandora_choice_weight(item: Dict, quality_bonus: float, *, mythic: bool = False) -> float:
+    if mythic:
+        return 1.0
+
+    chance = max(item.get("chance", 0.01), 0.00001)
+    base_weight = math.sqrt(chance)
+    if chance < 0.005:
+        return base_weight * (1.0 + quality_bonus * 3.0)
+    if chance < 0.01:
+        return base_weight * (1.0 + quality_bonus * 2.0)
+    return base_weight
+
+
+def _pandora_pick_unique(
+    pool: List[Dict],
+    used_names: set,
+    quality_bonus: float,
+    *,
+    mythic: bool = False,
+) -> Optional[Dict]:
+    remaining = [
+        (item, _pandora_choice_weight(item, quality_bonus, mythic=mythic))
+        for item in pool
+        if item.get("name") not in used_names
+    ]
+    if not remaining:
+        return None
+
+    total_weight = sum(weight for _, weight in remaining)
+    if total_weight <= 0:
+        return None
+
+    roll = random.random() * total_weight
+    cumulative = 0.0
+    for item, weight in remaining:
+        cumulative += weight
+        if roll <= cumulative:
+            return item.copy()
+    return remaining[-1][0].copy()
+
 ANGEL_BLESSING_OPTIONS = (
     "paddle_size",
     "gauge_max",
@@ -107,6 +175,9 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
     ],
     "horn_strawberry_mask": [
         {"key": "transform_duration", "label": "변신 지속시간", "min": 50, "max": 70, "unit": "초", "default": 60, "step": 5},
+    ],
+    "heavenly_cape": [
+        {"key": "skill_cooldown_reduction", "label": "스킬 쿨타임 감소", "min": 10, "max": 20, "unit": "%", "default": 15},
     ],
 }
 
@@ -11612,6 +11683,7 @@ class PandoraLegacy(LegendaryItem):
         self.selection_items = []
 
     def generate_selection_choices(self):
+        return self._generate_selection_choices_v2()
         """라운드 승리 시 3개 액티브 아이템 선택지 생성"""
         import items as items_module
         import random
@@ -11623,6 +11695,7 @@ class PandoraLegacy(LegendaryItem):
         passive_names = {
             "speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime",
             "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
+            "timer_belt",
             "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
             "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
             "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel",
@@ -11691,6 +11764,115 @@ class PandoraLegacy(LegendaryItem):
                     selected.append(item.copy())
                     remaining.pop(idx)
                     break
+
+        self.selection_items = selected
+        self.selection_active = True
+        self.selected_index = -1
+        self.selection_animation_timer = 0
+        self.selection_fade_alpha = 0
+        return selected
+
+    def _generate_selection_choices_v2(self):
+        import items as items_module
+
+        quality_bonus = self.selection_quality / 100.0
+        passive_names = set(PANDORA_PASSIVE_ITEM_NAMES)
+        mythic_names = set(PANDORA_MYTHIC_ITEM_NAMES)
+        active_pool = []
+        passive_pool = []
+        mythic_pool = []
+        try:
+            from pingfighter import selected_character_type as _cur_char
+        except Exception:
+            _cur_char = ""
+
+        for item_type in items_module.ITEM_TYPES:
+            name = item_type.get("name", "")
+            if not name or item_type.get("chance", 0) <= 0:
+                continue
+
+            if name in mythic_names:
+                mythic_pool.append(item_type)
+                continue
+
+            if name in passive_names:
+                if name == "pandora_legacy":
+                    continue
+                if not items_module.unlocked_items.get(name, False):
+                    continue
+                passive_pool.append(item_type)
+                continue
+
+            if name in PANDORA_EXCLUDED_ACTIVE_ITEM_NAMES:
+                continue
+            if name in PANDORA_BLACKSMITH_ONLY_ACTIVE_NAMES and _cur_char != "blacksmith":
+                continue
+            if not items_module.unlocked_items.get(name, False):
+                continue
+            active_pool.append(item_type)
+
+        all_candidate_names = {
+            item.get("name")
+            for item in active_pool + passive_pool + mythic_pool
+            if item.get("name")
+        }
+        if len(all_candidate_names) < 3:
+            return []
+
+        selected = []
+        used_names = set()
+        for _ in range(3):
+            if random.random() < quality_bonus:
+                if random.random() < quality_bonus * PANDORA_MYTHIC_RATIO:
+                    picked = _pandora_pick_unique(
+                        mythic_pool,
+                        used_names,
+                        quality_bonus,
+                        mythic=True,
+                    )
+                    if picked:
+                        picked["type"] = "legendary"
+                        picked["pandora_source"] = "mythic"
+                        used_names.add(picked["name"])
+                        selected.append(picked)
+                        continue
+
+                picked = _pandora_pick_unique(passive_pool, used_names, quality_bonus)
+                if picked:
+                    picked["type"] = "passive"
+                    picked["pandora_source"] = "passive"
+                    used_names.add(picked["name"])
+                    selected.append(picked)
+                    continue
+
+            picked = _pandora_pick_unique(active_pool, used_names, quality_bonus)
+            if picked:
+                picked["type"] = "active"
+                picked["pandora_source"] = "active"
+                used_names.add(picked["name"])
+                selected.append(picked)
+                continue
+
+            picked = _pandora_pick_unique(passive_pool, used_names, quality_bonus)
+            if picked:
+                picked["type"] = "passive"
+                picked["pandora_source"] = "passive"
+                used_names.add(picked["name"])
+                selected.append(picked)
+                continue
+
+            picked = _pandora_pick_unique(
+                mythic_pool,
+                used_names,
+                quality_bonus,
+                mythic=True,
+            )
+            if picked:
+                picked["type"] = "legendary"
+                picked["pandora_source"] = "mythic"
+                used_names.add(picked["name"])
+                selected.append(picked)
+                continue
 
         self.selection_items = selected
         self.selection_active = True
@@ -12557,7 +12739,7 @@ class ValhallaWarplate(LegendaryItem):
 class HornStrawberryMask(LegendaryItem):
     """뿔딸기 변신가면 - 머리 부위 전설 아이템
 
-    커맨드 입력(A→W→D, 1.5초 이내)으로 게이지 소모 후 60초간 뿔딸기로 변신.
+    커맨드 입력(A→D→A→D→A→D, 2초 이내)으로 게이지 소모 후 60초간 뿔딸기로 변신.
     변신 중: 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30
     전용 스킬 3종: 뿔박치기(W), 딸기장판(S홀드), 딸기먹기(Space/마우스)
 
@@ -12933,6 +13115,391 @@ class HornStrawberryMask(LegendaryItem):
             pygame.draw.polygon(screen, green, pts)
 
 
+class HeavenlyCape(LegendaryItem):
+    """천상의 망토 - 등 부위 신화 아이템
+
+    고정 효과: 스킬 구슬 +1 (Smasher/Viper/Soldier HUD 5→6 슬롯 확장;
+    Baltor/Optimus는 5슬롯 리팩터 이후 자동 흡수).
+    롤 옵션: 스킬 쿨타임 감소 10~20% (플레이어 공통 쿨타임 배율).
+
+    아이콘: TranscendentCrown 과 동일 패턴 — 라그나로크 프레임에서 4꼭지점만
+    보존하고 중앙에 pygame 프리미티브로 망토 실루엣을 그린다. 외부 PNG 의존
+    없음, 런타임에 전설 공통 프레임(_draw_common_legendary_frame) 위에 오버레이.
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="heavenly_cape",
+            korean_name="천상의 망토",
+            description="스킬 구슬 +1 | 플레이어 스킬 쿨타임 감소 (롤 옵션: 10~20%)",
+            unlock_condition="신화 아이템 획득",
+            icon_path=None
+        )
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+
+        # 애니메이션 프레임 설정 (TranscendentCrown 패턴)
+        self.animation_frames = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8
+        self._load_animation_frames()
+
+    @property
+    def skill_cooldown_reduction(self) -> float:
+        """스킬 쿨타임 감소율 % (롤 옵션 + 연마 + 강화)"""
+        return get_legendary_roll_value(
+            "heavenly_cape",
+            "skill_cooldown_reduction",
+            apply_polish=True,
+            enhancement_bonus_pct=self.enhancement_bonus_pct,
+        )
+
+    @property
+    def skill_slot_bonus(self) -> int:
+        """스킬 슬롯 추가 개수 (고정 +1)"""
+        return 1
+
+    def activate(self, game_state: Dict):
+        """장착 시 플레이어 쿨타임 배율 / 슬롯 보너스 전역 공유"""
+        super().activate(game_state)
+        import items
+        items.heavenly_cape_obtained = True
+
+        try:
+            import pingfighter
+            pingfighter.heavenly_cape_cooldown_reduction_pct = float(self.skill_cooldown_reduction)
+            pingfighter.heavenly_cape_slot_bonus = int(self.skill_slot_bonus)
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"천상의 망토 활성화! 쿨감 {self.skill_cooldown_reduction:.1f}% / 슬롯 +{self.skill_slot_bonus}")
+        except ImportError:
+            pass
+
+    def deactivate(self):
+        """해제 시 보너스 제거"""
+        super().deactivate()
+        try:
+            import pingfighter
+            pingfighter.heavenly_cape_cooldown_reduction_pct = 0
+            pingfighter.heavenly_cape_slot_bonus = 0
+        except ImportError:
+            pass
+
+    def _load_animation_frames(self):
+        """라그나로크 해머 프레임 기반 8프레임 생성 — 4꼭지점만 보존 + 망토 드로잉."""
+        self.animation_frames.clear()
+
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                if os.path.exists(frame_path):
+                    original = pygame.image.load(frame_path).convert_alpha()
+                    frame = self._create_cape_frame(original, i)
+                    self.animation_frames.append(frame)
+            except Exception:
+                pass
+
+        # 프레임 로드 실패 시 기본 프레임 생성
+        if not self.animation_frames:
+            for i in range(8):
+                self.animation_frames.append(self._create_default_cape_frame(i))
+
+    def _create_cape_frame(self, base_frame, frame_idx):
+        """라그나로크 프레임에서 4꼭지점만 보존하고 중앙에 망토 그리기."""
+        w, h = base_frame.get_size()
+        frame = pygame.Surface((w, h), pygame.SRCALPHA)
+        cs = 4
+        for rect in [
+            pygame.Rect(0, 0, cs, cs),
+            pygame.Rect(w - cs, 0, cs, cs),
+            pygame.Rect(0, h - cs, cs, cs),
+            pygame.Rect(w - cs, h - cs, cs, cs),
+        ]:
+            frame.blit(base_frame, rect.topleft, rect)
+
+        cx, cy = w // 2, h // 2
+        self._draw_cape_on_surface(frame, cx, cy, frame_idx)
+        return frame
+
+    def _create_default_cape_frame(self, frame_idx):
+        """라그나로크 프레임 로드 실패 시 폴백 프레임."""
+        frame = pygame.Surface((32, 32), pygame.SRCALPHA)
+        border_colors = [
+            (150, 0, 0), (224, 0, 0), (255, 0, 0), (224, 0, 0),
+            (150, 0, 0), (75, 0, 0), (45, 0, 0), (75, 0, 0),
+        ]
+        pygame.draw.circle(frame, border_colors[frame_idx], (16, 16), 15, 2)
+        self._draw_cape_on_surface(frame, 16, 16, frame_idx)
+        return frame
+
+    def _draw_cape_on_surface(self, surface, cx, cy, frame_idx):
+        """천상의 망토를 surface 중앙에 pixel-art 로 그리기 (32×32 기준 좌표).
+
+        8프레임 펄럭이는 애니메이션:
+        - sway_bot: 아래쪽 hem 이 ±2px 좌우로 크게 흔들림
+        - sway_mid: 중간 허리 부분 ±1px 완충 스웨이
+        - 어깨(top)는 고정, hem 으로 갈수록 바람에 휘날리는 느낌
+        - hem 라인 자체가 프레임별 위상 변화로 물결 치듯 움직임
+        - 금 스파클/섬광 위치도 프레임마다 이동
+        """
+        # 프레임별 색상 팔레트 (밝기 펄싱 - 2번이 피크, 6번이 최저)
+        body_palette = [
+            (240, 240, 255), (246, 246, 255), (252, 252, 255), (249, 249, 255),
+            (240, 240, 255), (228, 228, 246), (218, 218, 238), (234, 234, 250),
+        ]
+        shade_palette = [
+            (195, 200, 230), (205, 210, 235), (215, 220, 240), (208, 213, 238),
+            (195, 200, 230), (180, 185, 220), (165, 170, 210), (190, 195, 225),
+        ]
+        deep_palette = [
+            (140, 150, 190), (150, 160, 200), (160, 170, 210), (155, 165, 205),
+            (140, 150, 190), (125, 135, 180), (110, 120, 170), (135, 145, 185),
+        ]
+        gold_base_palette = [
+            (255, 215, 80), (255, 222, 95), (255, 232, 115), (255, 225, 100),
+            (255, 215, 80), (240, 200, 70), (225, 185, 60), (245, 210, 78),
+        ]
+        gold_dark_palette = [
+            (195, 150, 30), (205, 160, 40), (215, 170, 52), (207, 162, 42),
+            (195, 150, 30), (180, 135, 20), (165, 120, 12), (190, 145, 26),
+        ]
+        gold_light_palette = [
+            (255, 255, 180), (255, 255, 200), (255, 255, 220), (255, 255, 205),
+            (255, 255, 180), (255, 250, 165), (255, 245, 150), (255, 252, 178),
+        ]
+
+        body = body_palette[frame_idx % 8]
+        shade = shade_palette[frame_idx % 8]
+        deep = deep_palette[frame_idx % 8]
+        gb = gold_base_palette[frame_idx % 8]
+        gd = gold_dark_palette[frame_idx % 8]
+        gh = gold_light_palette[frame_idx % 8]
+        outline = (25, 20, 40)
+
+        # ── 펄럭임 sway LUT (8프레임 좌우 왕복) ──
+        # 위상: 0 +1 +2 +1 0 -1 -2 -1 — 상하 대칭 사인 근사
+        sway_lut = [0, 1, 2, 1, 0, -1, -2, -1]
+        sb = sway_lut[frame_idx % 8]        # 하단 hem (최대 흔들림)
+        sm = sb // 2                         # 중간 허리 (절반 흔들림)
+
+        # ── 실루엣 앵커 (어깨 → 허리 → 발단) ──
+        # 상단 collar: cx-4~+4, 어깨 고정
+        # 허리:       cx-8±sm ~ cx+8+sm
+        # 하단 hem:   cx-11+sb ~ cx+11+sb (사이드에 wind bulge)
+        top_l = (cx - 4, cy - 10)
+        top_r = (cx + 4, cy - 10)
+        mid_l = (cx - 8 + sm, cy)
+        mid_r = (cx + 8 + sm, cy)
+        bot_l = (cx - 11 + sb, cy + 10)
+        bot_r = (cx + 11 + sb, cy + 10)
+
+        cape_outline_pts = [top_l, top_r, mid_r, bot_r, bot_l, mid_l]
+
+        # 1) 본체 fill (흰 실크)
+        pygame.draw.polygon(surface, body, cape_outline_pts)
+
+        # 2) 중간 그림자 밴드 (좌측 30% 영역, 흐름 방향 반영)
+        shade_band_mid = [
+            top_l,
+            (cx - 1, cy - 10),
+            (cx - 2 + sm, cy),
+            (cx - 4 + sb, cy + 10),
+            bot_l, mid_l
+        ]
+        pygame.draw.polygon(surface, shade, shade_band_mid)
+
+        # 3) 깊은 그림자 밴드 (좌측 최외곽 15% — 최고 대비)
+        shade_band_deep = [
+            top_l,
+            (cx - 3, cy - 10),
+            (cx - 6 + sm, cy),
+            (cx - 9 + sb, cy + 10),
+            bot_l, mid_l
+        ]
+        pygame.draw.polygon(surface, deep, shade_band_deep)
+
+        # 4) 우측 좁은 하이라이트 스트라이프 (빛 받는 면 - 과도하지 않게)
+        hi_x_top = cx + 3
+        hi_x_bot = cx + 8 + sb
+        for i in range(20):
+            t = i / 19
+            hx = int(hi_x_top + (hi_x_bot - hi_x_top) * t) - 1
+            hy = cy - 10 + i
+            if 0 <= hx < 32 and 0 <= hy < 32:
+                surface.set_at((hx, hy), (255, 255, 255))
+
+        # 5) 세로 주름 라인 3개 — 진한 그림자로 선명하게, 펄럭일 때 위치 이동
+        fold_tops = [cx - 4, cx, cx + 4]
+        for fold_top_x in fold_tops:
+            for i in range(13):
+                t = i / 13
+                # 상단(좁음)에서 하단(펄럭임)으로 제곱 가중 이동
+                fx = int(fold_top_x + sm * t + (sb - sm) * (t * t))
+                fy = cy - 6 + i
+                if 0 <= fx < 32 and 0 <= fy < 32:
+                    # 중심 주름은 깊은 그림자, 좌우 주름은 중간 그림자
+                    col = deep if fold_top_x == cx else shade
+                    surface.set_at((fx, fy), col)
+
+        # 5-1) 가로 천 결 라인 (2개, 자연스런 fabric 질감)
+        crease_ys = [cy - 2, cy + 3]
+        for ci, cry in enumerate(crease_ys):
+            # crease 위치도 프레임별로 sway 반영
+            cry_adj = cry + (sb // 2 if ci % 2 == 0 else -sb // 2) * 0
+            # 좌측(shade 영역 제외)에서 우측까지 점점이 crease
+            for dx in range(-6 + sm, 7 + sm, 2):
+                cx_c = cx + dx
+                if 0 <= cx_c < 32 and 0 <= cry_adj < 32:
+                    surface.set_at((cx_c, cry_adj), shade)
+
+        # 6) 금 collar 스트라이프 (어깨 상단, 2px 두께)
+        for x in range(cx - 4, cx + 5):
+            if 0 <= x < 32:
+                surface.set_at((x, cy - 10), gd)
+                surface.set_at((x, cy - 9), gb)
+
+        # 7) 어깨 파운드론 (양끝 금 장식)
+        for dy in range(0, 3):
+            if 0 <= cx - 4 < 32:
+                surface.set_at((cx - 4, cy - 10 + dy), gd)
+            if 0 <= cx + 4 < 32:
+                surface.set_at((cx + 4, cy - 10 + dy), gd)
+        surface.set_at((cx - 4, cy - 9), gh)
+        surface.set_at((cx + 4, cy - 9), gh)
+
+        # 8) 금 필리그리 hem (파도치는 금장 — 진폭 증가, 프레임별 위상 이동)
+        for dx in range(-11, 12):
+            hem_x = cx + dx + sb
+            if 0 <= hem_x < 32:
+                # 진폭 ±1px 의 파도 + 프레임별 위상 이동
+                wave = 1 if math.sin((dx + frame_idx * 0.9) * 0.85) > 0.2 else (
+                    -1 if math.sin((dx + frame_idx * 0.9) * 0.85) < -0.2 else 0
+                )
+                hy1 = cy + 10 + wave
+                hy2 = cy + 9 + wave
+                if 0 <= hy1 < 32:
+                    surface.set_at((hem_x, hy1), gd)
+                if 0 <= hy2 < 32:
+                    surface.set_at((hem_x, hy2), gb)
+                # 파도의 꼭대기에 밝은 금 하이라이트
+                if wave == 1 and dx % 3 == 0:
+                    if 0 <= cy + 8 + wave < 32:
+                        surface.set_at((hem_x, cy + 8 + wave), gh)
+
+        # 9) 금 사이드 트림 (좌우 외곽, 1px)
+        pygame.draw.lines(surface, gd, False, [top_l, mid_l, bot_l], 1)
+        pygame.draw.lines(surface, gd, False, [top_r, mid_r, bot_r], 1)
+
+        # 10) 중앙 divider (천 앞면 갈라진 선, sway 반영)
+        for i in range(15):
+            t = i / 15
+            div_x = cx + int(sm * t + (sb - sm) * t * t)
+            div_y = cy - 5 + i
+            if 0 <= div_x < 32 and 0 <= div_y < 32:
+                surface.set_at((div_x, div_y), shade)
+
+        # 11) 오르네이트 클래스프 — 필리그리 크로스 + 원
+        clasp_cx, clasp_cy = cx, cy - 7
+        pygame.draw.circle(surface, gb, (clasp_cx, clasp_cy), 2)
+        pygame.draw.circle(surface, gd, (clasp_cx, clasp_cy), 2, 1)
+        # 크로스 4방향 돌기
+        surface.set_at((clasp_cx, clasp_cy - 2), gd)
+        surface.set_at((clasp_cx, clasp_cy + 2), gd)
+        surface.set_at((clasp_cx - 2, clasp_cy), gd)
+        surface.set_at((clasp_cx + 2, clasp_cy), gd)
+        # 중앙 하이라이트
+        surface.set_at((clasp_cx - 1, clasp_cy - 1), gh)
+        # 클래스프 아래 매듭 장식
+        surface.set_at((clasp_cx, clasp_cy + 3), gd)
+
+        # 12) 외곽선 (최종 선명 엣지 1px)
+        pygame.draw.polygon(surface, outline, cape_outline_pts, 1)
+
+        # 13) 신성 스파클 + halo (프레임별 다른 위치 — 빛나는 섬광)
+        sparkle_positions = [
+            [(cx - 3, cy - 2), (cx + 4, cy + 3)],
+            [(cx + 2, cy - 4), (cx - 5, cy + 1)],
+            [(cx - 2, cy + 5), (cx + 5, cy - 1)],
+            [(cx + 3, cy + 2), (cx - 4, cy - 3)],
+            [(cx - 1, cy + 4), (cx + 4, cy - 5)],
+            [(cx - 4, cy + 2), (cx + 2, cy + 5)],
+            [(cx + 4, cy - 2), (cx - 2, cy + 3)],
+            [(cx - 3, cy + 1), (cx + 3, cy - 4)],
+        ]
+        for sx, sy in sparkle_positions[frame_idx % 8]:
+            if 0 <= sx < 32 and 0 <= sy < 32:
+                # 중심 코어 (가장 밝은 금빛)
+                surface.set_at((sx, sy), gh)
+                # 4방향 halo (한 단계 어두운 금)
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    hx, hy = sx + dx, sy + dy
+                    if 0 <= hx < 32 and 0 <= hy < 32:
+                        # 기존 픽셀이 너무 어두우면 halo 스킵 (윤곽선 보존)
+                        existing = surface.get_at((hx, hy))
+                        if existing[0] + existing[1] + existing[2] > 300:
+                            surface.set_at((hx, hy), gb)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """애니메이션 아이콘 그리기 — TranscendentCrown 과 동일한 공통 프레임 패턴."""
+        # 공통 전설 배경 프레임 (파란 펄싱 + 붉은 테두리 + 은색 모서리)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+
+        if self.animation_frames and len(self.animation_frames) > 0:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
+
+        # ── 천상/신성 테마 파티클 ──
+        frame_y = y + frame_offset
+        t = self.animation_time
+        ps = pygame.Surface((size + 16, size + 16), pygame.SRCALPHA)
+        pc = size // 2 + 8
+
+        # 1) 망토 위로 뻗는 금빛 광선 4개 (상단 방사)
+        for ri in range(4):
+            ray_angle = (ri * 45 + t * 18) % 180
+            ray_rad = math.radians(180 + ray_angle)
+            ray_len = int(size * 0.28 + math.sin(t * 2.2 + ri) * 3)
+            inner_r = int(size * 0.14)
+            rx1 = pc + int(math.cos(ray_rad) * inner_r)
+            ry1 = pc - int(size * 0.08) + int(math.sin(ray_rad) * inner_r)
+            rx2 = pc + int(math.cos(ray_rad) * ray_len)
+            ry2 = pc - int(size * 0.08) + int(math.sin(ray_rad) * ray_len)
+            ra = int(70 + 50 * math.sin(t * 2.5 + ri * 1.1))
+            pygame.draw.line(ps, (255, 230, 140, ra), (rx1, ry1), (rx2, ry2), 1)
+
+        # 2) 떠다니는 금빛 스파클 4각 별 2개
+        for si in range(2):
+            sp = (t * 0.9 + si * 2.5) % 3.0
+            sb = math.sin(sp * math.pi / 1.5)
+            if sb > 0.25:
+                sa = int(sb * 200)
+                angle_orbit = t * 0.6 + si * math.pi
+                sr = int(size * 0.32)
+                sx = pc + int(math.cos(angle_orbit) * sr)
+                sy = pc - 2 + int(math.sin(angle_orbit) * sr * 0.5)
+                # 4각 별
+                pygame.draw.line(ps, (255, 240, 180, sa), (sx - 2, sy), (sx + 2, sy), 1)
+                pygame.draw.line(ps, (255, 240, 180, sa), (sx, sy - 2), (sx, sy + 2), 1)
+                pygame.draw.circle(ps, (255, 255, 220, sa), (sx, sy), 1)
+
+        # 3) 은은한 금빛 하단 홀로 (후광)
+        halo_alpha = int(40 + 20 * math.sin(t * 1.8))
+        pygame.draw.circle(
+            ps,
+            (255, 220, 140, halo_alpha),
+            (pc, int(size * 0.85)),
+            int(size * 0.3),
+        )
+
+        screen.blit(ps, (x - 8, frame_y - 8))
+
+
 # 전설 아이템 관리자
 class LegendaryItemManager:
     """전설 아이템 시스템 관리"""
@@ -12961,6 +13528,7 @@ class LegendaryItemManager:
         self.items["megingjord"] = Megingjord()
         self.items["valhalla_warplate"] = ValhallaWarplate()
         self.items["horn_strawberry_mask"] = HornStrawberryMask()
+        self.items["heavenly_cape"] = HeavenlyCape()
 
         placeholder_defs = [
             ("empty_legendary", "빈전설"),
@@ -13021,6 +13589,10 @@ class LegendaryItemManager:
         if "horn_strawberry_mask" not in self.unlocked_items:
             self.unlocked_items.append("horn_strawberry_mask")
 
+        self.items["heavenly_cape"].unlocked = True
+        if "heavenly_cape" not in self.unlocked_items:
+            self.unlocked_items.append("heavenly_cape")
+
         for name, _ in placeholder_defs:
             if name not in self.unlocked_items:
                 self.unlocked_items.append(name)
@@ -13066,6 +13638,9 @@ class LegendaryItemManager:
         # 뿔딸기 변신가면 초기화
         if "horn_strawberry_mask" not in self.items:
             self.items["horn_strawberry_mask"] = HornStrawberryMask()
+        # 천상의 망토 초기화
+        if "heavenly_cape" not in self.items:
+            self.items["heavenly_cape"] = HeavenlyCape()
         # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):

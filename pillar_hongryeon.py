@@ -538,6 +538,9 @@ class HongryeonFrame:
     """홍련 스타일 중국 전통 필러 배경 - 고퀄리티"""
 
     # 인게임과 일치하는 색상 팔레트 (어두운 마룬/크림슨)
+    ACTIVE_DECOR_REFRESH_INTERVAL = 1.0 / 30.0
+    IDLE_DECOR_REFRESH_INTERVAL = 1.0 / 10.0
+
     COLORS = {
         # 배경 그라데이션 (인게임 매칭)
         'bg_darkest': (25, 8, 12),            # 가장 어두운 마룬
@@ -641,6 +644,13 @@ class HongryeonFrame:
 
         # 프레임 서피스 생성
         self._static_surface = None
+        self._decor_surface = None
+        self._decor_surface_size = None
+        self._scene_surface = None
+        self._scene_surface_size = None
+        self._scene_surface_dirty = True
+        self._decor_refresh_timer = self.IDLE_DECOR_REFRESH_INTERVAL
+        self._decor_surface_dirty = True
         self._create_static_surface()
 
     def _init_lanterns(self):
@@ -966,24 +976,33 @@ class HongryeonFrame:
             is_waiting_for_serve: 서브 대기 중인지 여부 (True면 새 뱀 공격 트리거 안함)
         """
         self.time += dt
+        _decor_interval = self._get_decor_refresh_interval()
+        self._decor_refresh_timer += dt
+        _decor_active = _decor_interval <= self.ACTIVE_DECOR_REFRESH_INTERVAL
+        _decor_step_dt = dt if _decor_active else 0.0
+        if self._decor_refresh_timer >= _decor_interval:
+            if not _decor_active:
+                _decor_step_dt = self._decor_refresh_timer
+            self._decor_refresh_timer %= _decor_interval
+            self._decor_surface_dirty = True
+        if _decor_step_dt > 0:
+            # 흥분도 감쇠
+            self.excitement = max(1.0, self.excitement - _decor_step_dt * 0.5)
 
-        # 흥분도 감쇠
-        self.excitement = max(1.0, self.excitement - dt * 0.5)
+            # 불씨 업데이트
+            for ember in self.embers:
+                ember['y'] -= ember['speed'] * _decor_step_dt
+                ember['wobble_phase'] += ember['wobble_speed'] * _decor_step_dt
+                ember['x'] = ember['base_x'] + math.sin(ember['wobble_phase']) * ember['wobble_amount']
 
-        # 불씨 업데이트
-        for ember in self.embers:
-            ember['y'] -= ember['speed'] * dt
-            ember['wobble_phase'] += ember['wobble_speed'] * dt
-            ember['x'] = ember['base_x'] + math.sin(ember['wobble_phase']) * ember['wobble_amount']
-
-            # 화면 위로 나가면 다시 아래로
-            if ember['y'] < -20:
-                ember['y'] = self.screen_height + random.randint(10, 50)
-                if ember['side'] == 'left' and self.left_width > 20:
-                    ember['base_x'] = random.randint(10, self.left_width - 10)
-                elif ember['side'] == 'right' and self.right_width > 20:
-                    ember['base_x'] = self.game_x + self.game_width + random.randint(10, self.right_width - 10)
-                ember['x'] = ember['base_x']
+                # 화면 위로 나가면 다시 아래로
+                if ember['y'] < -20:
+                    ember['y'] = self.screen_height + random.randint(10, 50)
+                    if ember['side'] == 'left' and self.left_width > 20:
+                        ember['base_x'] = random.randint(10, self.left_width - 10)
+                    elif ember['side'] == 'right' and self.right_width > 20:
+                        ember['base_x'] = self.game_x + self.game_width + random.randint(10, self.right_width - 10)
+                    ember['x'] = ember['base_x']
 
         # === 광폭화 모드: 항아리 뱀 업데이트 ===
         if self.enraged_mode:
@@ -1023,15 +1042,9 @@ class HongryeonFrame:
 
     def draw(self, screen: pygame.Surface):
         """필러 배경 그리기"""
-        # 정적 배경
-        if self._static_surface:
-            screen.blit(self._static_surface, (0, 0))
-
-        # 호리병 등불
-        self._draw_lanterns(screen)
+        self._draw_cached_scene(screen)
 
         # 떠다니는 불씨
-        self._draw_embers(screen)
 
         # === 광폭화 모드: 항아리 뱀 그리기 ===
         for pot in self.snake_pots:
@@ -1042,7 +1055,55 @@ class HongryeonFrame:
             fb.draw(screen)  # 이미 REAL_SCREEN 좌표이므로 스케일 불필요
 
         # 테두리 글로우 효과 (애니메이션)
-        self._draw_animated_border_glow(screen)
+    def _get_decor_refresh_interval(self) -> float:
+        if self.pillar_fireballs:
+            return self.ACTIVE_DECOR_REFRESH_INTERVAL
+        for pot in self.snake_pots:
+            try:
+                if pot.is_active():
+                    return self.ACTIVE_DECOR_REFRESH_INTERVAL
+            except Exception:
+                pass
+        return self.IDLE_DECOR_REFRESH_INTERVAL
+
+    def _ensure_cached_decor(self):
+        if (
+            self._decor_surface is None
+            or self._decor_surface_size != (self.screen_width, self.screen_height)
+        ):
+            self._decor_surface = pygame.Surface(
+                (self.screen_width, self.screen_height), pygame.SRCALPHA
+            )
+            self._decor_surface_size = (self.screen_width, self.screen_height)
+            self._decor_surface_dirty = True
+            self._scene_surface_dirty = True
+
+        if self._decor_surface_dirty:
+            self._decor_surface.fill((0, 0, 0, 0))
+            self._draw_lanterns(self._decor_surface)
+            self._draw_embers(self._decor_surface)
+            self._draw_animated_border_glow(self._decor_surface)
+            self._decor_surface_dirty = False
+            self._scene_surface_dirty = True
+
+    def _draw_cached_scene(self, screen: pygame.Surface):
+        if self._static_surface is None:
+            return
+
+        self._ensure_cached_decor()
+        target_size = (self.screen_width, self.screen_height)
+        if self._scene_surface is None or self._scene_surface_size != target_size:
+            self._scene_surface = pygame.Surface(target_size).convert()
+            self._scene_surface_size = target_size
+            self._scene_surface_dirty = True
+
+        if self._scene_surface_dirty:
+            self._scene_surface.blit(self._static_surface, (0, 0))
+            if self._decor_surface is not None:
+                self._scene_surface.blit(self._decor_surface, (0, 0))
+            self._scene_surface_dirty = False
+
+        screen.blit(self._scene_surface, (0, 0))
 
     def _lerp_color(self, color1: tuple, color2: tuple, t: float) -> tuple:
         """두 색상 사이를 선형 보간"""
@@ -1399,6 +1460,8 @@ class HongryeonFrame:
     def trigger_excitement(self, level: float = 1.5):
         """흥분도 트리거"""
         self.excitement = min(3.0, self.excitement + level)
+        self._decor_surface_dirty = True
+        self._scene_surface_dirty = True
 
     def resize(self, screen_width: int, screen_height: int,
                game_width: int, game_height: int):

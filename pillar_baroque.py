@@ -65,7 +65,7 @@ class BaroqueFrame:
 
         # 애니메이션 상태
         self.time = 0.0
-        self.spawn_duration = 1.0
+        self.spawn_duration = 1.5
         self.is_spawning = True
         self.spawn_progress = 0.0
 
@@ -200,11 +200,18 @@ class BaroqueFrame:
         c3 = c1 + 1
         return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2)
 
+    def _ease_out_cubic(self, t: float) -> float:
+        """큐빅 이징 (오버슈트 없음, 부드러움)"""
+        return 1 - pow(1 - t, 3)
+
+    def _get_spawn_progress(self, delay: float, duration_factor: float = 0.5) -> float:
+        """딜레이 적용된 0~1 진행도 (이징 미적용 raw 값)"""
+        adjusted_time = max(0.0, self.time - delay)
+        return min(1.0, adjusted_time / (self.spawn_duration * duration_factor))
+
     def _get_spawn_scale(self, delay: float) -> float:
-        """스폰 스케일"""
-        adjusted_time = max(0, self.time - delay)
-        adjusted_progress = min(1.0, adjusted_time / (self.spawn_duration * 0.5))
-        return self._ease_out_back(adjusted_progress)
+        """스폰 스케일 (백 이징, 액센트 요소용)"""
+        return self._ease_out_back(self._get_spawn_progress(delay))
 
     def draw(self, surface: pygame.Surface):
         """액자 렌더링"""
@@ -231,11 +238,12 @@ class BaroqueFrame:
 
     def _draw_metal_frame(self, surface: pygame.Surface):
         """메탈 프레임 그리기"""
-        scale = self._ease_out_back(min(1.0, self.spawn_progress * 1.1))
-        if scale < 0.1:
+        # 큐빅 이징으로 오버슈트/바운스 제거 -> 부드러운 펼침
+        scale = self._ease_out_cubic(self.spawn_progress)
+        if scale < 0.02:
             return
 
-        thickness = max(5, int(self.frame_thickness * scale))
+        thickness = max(2, int(round(self.frame_thickness * scale)))
 
         # === 외부 그림자/베벨 ===
         shadow_offset = 3
@@ -318,11 +326,11 @@ class BaroqueFrame:
         """모서리 브라켓"""
         for bracket in self.corner_brackets:
             scale = self._get_spawn_scale(bracket['spawn_delay'])
-            if scale < 0.1:
+            if scale < 0.02:
                 continue
 
             x, y = bracket['x'], bracket['y']
-            size = int(bracket['size'] * scale)
+            size = max(1, int(bracket['size'] * scale))
             name = bracket['name']
 
             flip_x = 1 if 'right' in name else -1
@@ -420,11 +428,14 @@ class BaroqueFrame:
     def _draw_bolts(self, surface: pygame.Surface):
         """볼트 그리기"""
         for bolt in self.bolts:
-            scale = self._get_spawn_scale(bolt['spawn_delay'])
-            if scale < 0.3:
+            # 부드러운 큐빅으로 0->1 진행도 산출 (오버슈트 없음)
+            progress = self._get_spawn_progress(bolt['spawn_delay'])
+            grow = self._ease_out_cubic(progress)
+            if grow < 0.05:
                 continue
 
-            self._draw_single_bolt(surface, int(bolt['x']), int(bolt['y']), 5)
+            radius = max(1, int(round(5 * grow)))
+            self._draw_single_bolt(surface, int(bolt['x']), int(bolt['y']), radius)
 
     def _draw_single_bolt(self, surface: pygame.Surface, x: int, y: int, radius: int):
         """단일 볼트"""
@@ -447,42 +458,49 @@ class BaroqueFrame:
     def _draw_led_strips(self, surface: pygame.Surface):
         """LED 스트립"""
         for strip in self.led_strips:
-            scale = self._get_spawn_scale(strip['spawn_delay'])
-            if scale < 0.5:
+            # 큐빅 이징으로 폭이 좌우로 부드럽게 확장
+            progress = self._get_spawn_progress(strip['spawn_delay'])
+            grow = self._ease_out_cubic(progress)
+            if grow < 0.05:
                 continue
 
+            # 알파 페이드인 (확장 초반 흐릿 -> 후반 또렷)
+            fade = min(1.0, grow * 1.4)
+
             x1, x2, y = strip['x1'], strip['x2'], strip['y']
-            width = int((x2 - x1) * scale)
+            full_width = x2 - x1
+            width = max(2, int(full_width * grow))
             center_x = (x1 + x2) // 2
 
-            # LED 스트립 배경 (어두운 채널)
-            pygame.draw.line(surface, self.COLORS['groove'],
-                           (center_x - width // 2, y),
-                           (center_x + width // 2, y), 4)
+            # LED 스트립 배경 (어두운 채널) - 알파로 페이드인
+            channel_surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+            channel_surf.fill((*self.COLORS['groove'], int(255 * fade)))
+            surface.blit(channel_surf, (center_x - width // 2, y - 2))
 
             # LED 글로우
             pulse = 0.6 + 0.4 * math.sin(self.time * 3)
             led_color = self._lerp_color(self.COLORS['led_cyan_dim'],
                                         self.COLORS['led_cyan'], pulse)
 
-            # 글로우 라인
+            # 글로우 라인 - fade를 알파에 곱해 부드럽게 등장
             glow_surf = pygame.Surface((width, 12), pygame.SRCALPHA)
-            pygame.draw.line(glow_surf, (*led_color, int(60 * pulse)),
+            pygame.draw.line(glow_surf, (*led_color, int(60 * pulse * fade)),
                            (0, 6), (width, 6), 8)
-            pygame.draw.line(glow_surf, (*self.COLORS['led_cyan'], int(180 * pulse)),
+            pygame.draw.line(glow_surf, (*self.COLORS['led_cyan'], int(180 * pulse * fade)),
                            (0, 6), (width, 6), 3)
-            pygame.draw.line(glow_surf, self.COLORS['chrome_bright'],
+            pygame.draw.line(glow_surf, (*self.COLORS['chrome_bright'], int(255 * fade)),
                            (0, 6), (width, 6), 1)
             surface.blit(glow_surf, (center_x - width // 2, y - 6))
 
-            # LED 세그먼트 표시
-            segment_spacing = 20
-            num_segments = width // segment_spacing
-            for i in range(num_segments):
-                seg_x = center_x - width // 2 + i * segment_spacing + segment_spacing // 2
-                seg_pulse = 0.5 + 0.5 * math.sin(self.time * 5 + i * 0.5)
-                pygame.draw.circle(surface, self.COLORS['chrome_bright'],
-                                 (seg_x, y), 2 if seg_pulse > 0.7 else 1)
+            # LED 세그먼트 표시 (페이드인이 거의 끝난 뒤 등장)
+            if fade > 0.6:
+                segment_spacing = 20
+                num_segments = width // segment_spacing
+                for i in range(num_segments):
+                    seg_x = center_x - width // 2 + i * segment_spacing + segment_spacing // 2
+                    seg_pulse = 0.5 + 0.5 * math.sin(self.time * 5 + i * 0.5)
+                    pygame.draw.circle(surface, self.COLORS['chrome_bright'],
+                                     (seg_x, y), 2 if seg_pulse > 0.7 else 1)
 
     def _draw_sparks(self, surface: pygame.Surface):
         """스파크 파티클"""

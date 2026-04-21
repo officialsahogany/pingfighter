@@ -197,3 +197,8 @@ sounds/*.asd
 screenshots/screenshot_*.png
 screenshots/pingfighter_*.png
 screenshots/arena_test_*.png
+.tmp/automation/latest/
+.tmp/automation/*/prompt.md
+.tmp/automation/*/response.txt
+.tmp/automation/*/stderr.txt
+.tmp/automation/*/job.json

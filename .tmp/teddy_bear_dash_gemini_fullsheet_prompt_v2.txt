@@ -1,0 +1,114 @@
+Generate an 8-frame 4x2 pixel-art dash sprite sheet for the front-facing
+Stage 3 menhera-themed teddy bear boss.
+
+This is a targeted retake of Gemini dash v1.
+Dash v1 already succeeded on motion arc, speed read, eye identity, and
+dangling-button swing.
+
+Do NOT throw those strengths away.
+This retake must keep the same strong dash arc while fixing scale and
+detail-class drift.
+
+Core dash concept:
+- front-facing plush burst-slide
+- quick low relocation
+- compact stuffed-toy pounce energy
+- body stays facing the viewer
+- speed comes from crouch, squash, extension, glide, rebound, and prop drag
+
+This is NOT:
+- a side-profile run
+- a 3/4 dash
+- a spin
+- a human sprint
+- a teleport blink
+- a repeated walk loop
+
+Absolute identity and side locks:
+- same plush cocoa-brown chibi teddy bear
+- viewer-LEFT eye is ALWAYS the attached dark button with red X stitch
+- viewer-RIGHT eye is ALWAYS the empty dark socket with the detached black
+  button hanging below on a thin white thread
+- large pink gingham bow stays on the head
+- cream neck ribbon stays the same modest scarf size as the walk sheet
+- heart belly patch stays centered and fully visible
+- silver safety pin is ALWAYS on the teddy's upper right chest = viewer-LEFT
+- small black bow is ALWAYS on the teddy's left paw = viewer-RIGHT
+- same accessory positions, same body scale, same teddy in every frame
+
+Critical body-scale clamp:
+- the teddy must fill the SAME percentage of each cell as the accepted walk sheet
+- if the walk teddy fills about 45-50% of cell height, this dash teddy must also
+  fill about 45-50% of cell height
+- do NOT draw a larger or more heroic bear for the dash
+- do NOT let the head, torso, or pelvis read larger than the walk teddy
+
+Critical style-class clamp:
+- match the exact pixel-art class of the accepted walk sheet
+- same outline thickness
+- same palette saturation
+- same flatness of shading
+- do NOT use heavier outlines
+- do NOT use more volumetric or rendered plush shading
+- this is the same teddy as the walk sheet, only in dash motion
+
+Front-facing lock:
+- face stays aimed at the viewer in every frame
+- muzzle centered
+- head yaw = 0
+- torso yaw = 0
+- shoulders remain front-facing
+- no side-facing drift
+
+Dash sequence target:
+- frame 1 ready stance
+- frame 2 crouch prep, body lowers slightly
+- frame 3 push-off / compression release
+- frame 4 strongest burst-extension frame, low and fast
+- frame 5 sustained slide / glide with strongest speed read
+- frame 6 deceleration with plush rebound
+- frame 7 rise back upward
+- frame 8 neutral recovery ready to return to walk
+
+Motion language to preserve from v1:
+- strong burst arc
+- clear f4/f5 speed peak
+- distinct frames
+- dangling button swings with velocity
+- no idle gallery collapse
+
+Important:
+- this dash should feel faster than walk through pose and drag, not by changing
+  the visible body class
+- do not hide the face
+- do not lose the dangling eye thread
+- heart patch must remain fully visible in every frame
+- safety pin and paw bow must not switch viewer-side
+- keep generous white margin around each frame
+
+Composition:
+- pure white background
+- no grid lines
+- no labels
+- no borders
+- no cell dividers
+
+Style:
+- 16-bit retro pixel art
+- thick black pixel outlines
+- flat limited palette
+- clean hard-edged pixels
+
+Hard reject:
+- same pose repeated 8 times
+- dash reads like a walk loop
+- any side-facing or 3/4 running read
+- painterly / soft style drift
+- dangling eye becomes a flat face button
+- pink head bow moves off the head
+- safety pin leaves the upper chest or swaps viewer-side
+- black paw bow disappears or swaps viewer-side
+- heart belly patch gets partly hidden
+- body scale reads larger or smaller than the walk
+- outline weight / palette / shading read heavier than the walk
+- any printed border or divider appears

@@ -182,6 +182,20 @@ class BowlingTrap:
         }
         self.traps.append(trap)
         self.ammo_count -= 1
+        for module_name in ("__main__", "pingfighter"):
+            module = sys.modules.get(module_name)
+            controller = getattr(module, "soldier_controller", None) if module else None
+            releaser = getattr(controller, "release_rental_if_depleted", None) if controller else None
+            if callable(releaser):
+                try:
+                    removed = releaser("bowling_trap", current_ammo=self.ammo_count)
+                    if removed:
+                        switcher = getattr(module, "soldier_switch_weapon", None)
+                        if callable(switcher):
+                            switcher(getattr(controller, "current_index", 0), play_sound=False)
+                except Exception:
+                    pass
+                break
         self.cooldown_timer = self.COOLDOWN_FRAMES
         self.installing = False
 

@@ -2,7 +2,7 @@
 뿔딸기 변신가면 (Horn Strawberry Mask) - 전설 아이템 효과 모듈
 
 머리 부위 전설 아이템.
-커맨드 입력(A→W→D, 1.5초 이내)으로 게이지 소모 후 60초간 뿔딸기로 변신.
+커맨드 입력(A→D→A→D→A→D, 2초 이내)으로 게이지 소모 후 60초간 뿔딸기로 변신.
 변신 중: 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30
 전용 스킬 3종: 뿔박치기(W), 딸기장판(S홀드), 딸기먹기(Space/클릭)
 """
@@ -64,8 +64,8 @@ def _play_transform_sound():
             pass
 
 # ── 상수 ──────────────────────────────────────────────────
-COMMAND_SEQUENCE = [pygame.K_a, pygame.K_w, pygame.K_d]  # A→W→D
-COMMAND_TIMEOUT = 1.5  # 커맨드 입력 허용 시간 (초)
+COMMAND_SEQUENCE = [pygame.K_a, pygame.K_d, pygame.K_a, pygame.K_d, pygame.K_a, pygame.K_d]  # A→D→A→D→A→D
+COMMAND_TIMEOUT = 2.0  # 커맨드 입력 허용 시간 (초)
 TRANSFORM_GAUGE_COST = 500  # 게이지 소모 (고정)
 TRANSFORM_DURATION = 60.0  # 기본 변신 지속시간 (초, 롤옵션으로 변동)
 TRANSFORM_START_EVENT_DURATION = 4.5  # 변신 시작 이벤트 시간 (초) — 화려한 4단계 연출
@@ -333,7 +333,7 @@ class HornStrawberryTransformState:
         return self.state in (self.TRANSFORM_EVENT, self.DETRANSFORM_EVENT)
 
     def update_command_input(self, keys, dt):
-        """커맨드 입력 감지 (A→W→D)"""
+        """커맨드 입력 감지 (A→D→A→D→A→D)"""
         if self.state != self.IDLE or not self.active or self._used_this_stage:
             return False
 

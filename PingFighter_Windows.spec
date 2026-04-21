@@ -100,6 +100,8 @@ a = Analysis(
         ('*.png', '.'),
         ('*.jpg', '.'),
         ('*.jpeg', '.'),
+        ('intro/*.png', 'intro'),
+        ('intro/*.jpg', 'intro'),
         ('items/*.png', 'items'),
         ('items/legendary/*.png', 'items/legendary'),
         ('backgrounds/*.png', 'backgrounds'),
@@ -154,7 +156,7 @@ a = Analysis(
         'numpy', 'numpy.core', 'numpy.core._multiarray_umath',
 
         # --- 루트 게임 모듈 ---
-        'splash_screen', 'items', 'option', 'gacha', 'opening', 'skill',
+        'splash_screen', 'logo_intro', 'items', 'option', 'gacha', 'opening', 'skill',
         'academy', 'cinematic', 'ui_manager', 'effects_manager',
         'physics_manager', 'dash_manager', 'trade_point_system',
         'legendary_items', 'pixel_font_manager', 'start_menu',

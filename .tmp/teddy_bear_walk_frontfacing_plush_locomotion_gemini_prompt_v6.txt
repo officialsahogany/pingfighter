@@ -1,0 +1,76 @@
+Create one 8-frame 4x2 sprite sheet of the SAME teddy bear doing a FRONT-FACING plush locomotion cycle for a retro pixel-art boss game.
+
+This is a design pivot away from a literal side-step walk.
+The teddy still moves laterally in gameplay, but the animation language is:
+- front-facing plush locomotion
+- hop-step / bounce-step / waddling bob
+- toy-like sideways travel while the bear keeps facing the viewer
+
+This is NOT:
+- a side-profile walk
+- a 3/4 walk
+- a rotation chart
+- a human gait
+- a backward-walking read
+
+Core body rule:
+- face looks straight at the viewer in all 8 frames
+- eyes centered forward
+- muzzle centered forward
+- head yaw = 0
+- torso yaw = 0
+- shoulders horizontal
+- chest and heart patch face the viewer dead-on
+
+Character identity to preserve:
+- plush cocoa-brown teddy bear, chibi stuffed-toy proportions
+- LEFT eye = attached black button with red X stitch
+- RIGHT eye = empty socket with a small detached black button hanging below it on a short white thread
+- large pink gingham bow on the head
+- cream neck ribbon under the chin
+- stitched heart belly patch
+- safety pin on upper chest above the heart
+- small black bow accent on one paw
+- bandage patches and plush stitching
+- cute but slightly uncanny menhera-plush mood
+
+Locomotion brief:
+- think plush hop-step, bounce-step, waddling bob
+- clear up/down body bob
+- side-to-side plush weight shift
+- feet / legs change position clearly between frames, but not like a realistic human march
+- some frames can have both feet closer together during the bounce
+- paws can lift slightly in alternating rhythm
+- ears and head bow bounce with the body
+- dangling eye thread swings subtly
+- belly plush mass wobbles softly
+
+Sequence idea:
+- compress
+- little rise
+- soft landing on one side
+- rebound
+- opposite-side repeat
+- loop cleanly
+
+Hard reject:
+- any side-facing or 3/4 read
+- any stable rightward or leftward gaze bias
+- a literal backward-walking impression during left travel
+- same pose repeated 8 times
+- static idle gallery
+- human runway gait
+- dance loop
+
+Style:
+- 16-bit retro pixel art
+- thick black pixel outlines
+- flat limited-saturation palette
+- clean hard-edged pixels
+- no painterly rendering
+- no soft anime illustration
+- pure white background
+- no cell borders or dividers
+- full body visible in every frame
+
+Deliver one strongest candidate first.

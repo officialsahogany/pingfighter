@@ -46,10 +46,10 @@ def get_gold_digger_bonus_pct() -> int:
     try:
         if 'pingfighter' in sys.modules:
             pf = sys.modules['pingfighter']
-            return getattr(pf, 'gold_digger_bonus_pct', 50)
+            return getattr(pf, 'gold_digger_bonus_pct', 37)
     except Exception:
         pass
-    return 50  # 기본값
+    return 37  # 기본값
 
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):

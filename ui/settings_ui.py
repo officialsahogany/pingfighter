@@ -256,6 +256,13 @@ class SettingsUI:
                 'type': 'toggle',
                 'key': 'ducking_enabled',
                 'label': '특정 효과음이 날 때 BGM 자동 낮춤'
+            },
+            {
+                'type': 'radio',
+                'key': 'arena_sound_pack',
+                'label': '투기장 사운드팩',
+                'options': ['bk22', 'anderson'],
+                'format': lambda x: {'bk22': 'BK22팩', 'anderson': 'Anderson팩'}.get(x, x)
             }
         ]
         
@@ -481,7 +488,7 @@ class SettingsUI:
                 new_value = max(item['min'], min(item['max'], new_value))
                 self._set_setting_value(key, new_value)
                 
-            elif item['type'] == 'dropdown':
+            elif item['type'] in ('dropdown', 'radio'):
                 key = item['key']
                 options = item['options']
                 default_option = options[0] if options else None
@@ -677,6 +684,8 @@ class SettingsUI:
                 self._render_slider(screen, item, y)
             elif item['type'] == 'dropdown':
                 self._render_dropdown(screen, item, y)
+            elif item['type'] == 'radio':
+                self._render_radio(screen, item, y)
             elif item['type'] == 'text':
                 self._render_text(screen, item, y)
                 
@@ -763,6 +772,34 @@ class SettingsUI:
         value_surface = self.font_option.render(display_text, True, (255, 255, 100))
         screen.blit(value_surface, (self.panel_x + 300, y))
         
+    def _render_radio(self, screen: pygame.Surface, item: Dict, y: int):
+        """라디오(체크박스) 렌더링 - 옵션마다 체크박스 + 라벨 가로 배치"""
+        # 라벨
+        label_text = self.font_option.render(item['label'], True, (200, 200, 200))
+        screen.blit(label_text, (self.panel_x + 20, y))
+
+        options = item.get('options', [])
+        default_option = options[0] if options else None
+        value = self._get_setting_value(item['key'], default_option)
+        if options and value not in options:
+            value = options[0]
+        formatter = item.get('format', str)
+
+        box_x = self.panel_x + 200
+        for opt in options:
+            display = formatter(opt)
+            box_rect = pygame.Rect(box_x, y, 16, 16)
+            pygame.draw.rect(screen, (100, 100, 100), box_rect, 2)
+            if opt == value:
+                pygame.draw.rect(
+                    screen, (100, 255, 100),
+                    (box_x + 3, y + 3, 10, 10)
+                )
+            text_color = (255, 255, 100) if opt == value else (200, 200, 200)
+            opt_surface = self.font_option.render(display, True, text_color)
+            screen.blit(opt_surface, (box_x + 24, y))
+            box_x += 24 + opt_surface.get_width() + 20
+
     def _render_text(self, screen: pygame.Surface, item: Dict, y: int):
         """텍스트 입력 렌더링"""
         # 라벨

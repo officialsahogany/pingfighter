@@ -1,0 +1,64 @@
+Generate an 8-frame 4x2 pixel-art turn / facing-transition sprite sheet for
+the Stage 3 menhera-themed teddy bear boss.
+
+This is NOT a side-profile turn chart.
+This is NOT a multi-angle rotation sheet.
+
+The teddy must remain front-facing in every frame and express the direction
+change through a short characterful accent:
+- head sways left and right
+- ears flap / bounce softly with the motion
+- bow and dangling eye react slightly
+- one knee or paw may shift, but the body must still read as facing the viewer
+
+Core turn concept:
+- front-facing plush pivot accent
+- head shake left-right-left
+- ears flutter / flap with the head motion
+- compact plush wobble, not human footwork
+- a brief transition that bridges left-travel walk back into right-travel walk
+
+Required read:
+- stable movement still uses the walk sheet
+- this turn sheet is only a short auxiliary transition gesture
+- the teddy should feel like it gives a quick "no-no" head wobble while
+  changing lateral travel direction
+
+Identity:
+- plush cocoa-brown chibi teddy bear
+- LEFT eye is a dark button with a red X stitch
+- RIGHT eye is an empty dark socket with a small detached black button
+  hanging below on a thin white thread
+- large pink gingham bow on the head
+- cream neck ribbon under the head
+- heart belly patch
+- small silver safety pin on upper chest
+- small black bow on the left paw
+- same teddy in every frame, same accessory positions, same body scale
+
+Turn sequence suggestion:
+- frame 1 neutral walk-adjacent entry
+- frame 2 head starts swaying one side
+- frame 3 head farther to one side, ears lag behind
+- frame 4 rebound through center
+- frame 5 sway to the opposite side
+- frame 6 opposite-side peak with ear flap
+- frame 7 settle back through center
+- frame 8 neutral recovery ready to return to walk
+
+Style:
+- 16-bit retro pixel art
+- thick black outlines
+- flat limited palette
+- hard-edged pixels
+- pure white background
+- no grid lines, no labels, no borders, no cell dividers
+
+Hard reject:
+- side profile or 3/4 turn chart
+- same pose repeated 8 times
+- turn reads like walk loop or idle gallery
+- head motion missing
+- ears stay rigid with no flap / bounce
+- dangling eye becomes a flat face button
+- bow moves off the head

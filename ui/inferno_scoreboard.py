@@ -21,6 +21,10 @@ FIRE_COLORS = [
 
 # 애니메이션 프레임 카운터
 _animation_frame = 0
+_INFERNO_SCOREBOARD_CACHE_FRAME_DIVISOR = 2
+_inferno_scoreboard_cache_surface = None
+_inferno_scoreboard_cache_key = None
+_inferno_scoreboard_cache_size = None
 
 
 def get_animation_frame():
@@ -177,7 +181,16 @@ def draw_dot_matrix_fire(surface, x, y, digit, color, size=140, animation_frame=
                 pygame.draw.circle(surface, (30, 12, 8), (dot_x, dot_y), dot_radius - 1)
 
 
-def draw_inferno_deuce_scoreboard(surface, player_score, boss_score, deuce_goal, screen_width, screen_height):
+def draw_inferno_deuce_scoreboard(
+    surface,
+    player_score,
+    boss_score,
+    deuce_goal,
+    screen_width,
+    screen_height,
+    _from_cache=False,
+    _animation_frame_override=None,
+):
     """
     듀스 모드용 인페르노 전광판 그리기
 
@@ -189,7 +202,48 @@ def draw_inferno_deuce_scoreboard(surface, player_score, boss_score, deuce_goal,
         screen_width: 화면 너비
         screen_height: 화면 높이
     """
-    animation_frame = get_animation_frame()
+    global _inferno_scoreboard_cache_surface, _inferno_scoreboard_cache_key
+    global _inferno_scoreboard_cache_size
+
+    if not _from_cache:
+        animation_frame = get_animation_frame()
+        frame_bucket = animation_frame // _INFERNO_SCOREBOARD_CACHE_FRAME_DIVISOR
+        cache_key = (
+            player_score,
+            boss_score,
+            deuce_goal,
+            screen_width,
+            screen_height,
+            frame_bucket,
+        )
+        if (
+            _inferno_scoreboard_cache_surface is None
+            or _inferno_scoreboard_cache_size != (screen_width, screen_height)
+            or _inferno_scoreboard_cache_key != cache_key
+        ):
+            _inferno_scoreboard_cache_surface = pygame.Surface(
+                (screen_width, screen_height), pygame.SRCALPHA
+            )
+            _inferno_scoreboard_cache_size = (screen_width, screen_height)
+            draw_inferno_deuce_scoreboard(
+                _inferno_scoreboard_cache_surface,
+                player_score,
+                boss_score,
+                deuce_goal,
+                screen_width,
+                screen_height,
+                _from_cache=True,
+                _animation_frame_override=frame_bucket * _INFERNO_SCOREBOARD_CACHE_FRAME_DIVISOR,
+            )
+            _inferno_scoreboard_cache_key = cache_key
+        surface.blit(_inferno_scoreboard_cache_surface, (0, 0))
+        return
+
+    animation_frame = (
+        _animation_frame_override
+        if _animation_frame_override is not None
+        else get_animation_frame()
+    )
 
     # 전광판 크기 및 위치 (상단 중앙, 작게)
     board_width = 400

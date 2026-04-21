@@ -9,7 +9,7 @@ Windows와 macOS 모두 지원.
 """
 
 # ============================================================
-# 0. 즉시 스플래시 화면 표시 (무거운 import 전에 실행)
+# 0. 초기 실행 환경 설정
 # ============================================================ 
 import os
 import sys
@@ -67,9 +67,6 @@ if sys.platform == 'darwin':
 # 실행 파일로 직접 구동할 때도 items 등에서 import pingfighter가 동일 모듈을 참조하도록 별칭을 등록
 sys.modules.setdefault("pingfighter", sys.modules[__name__])
  
-# 시작 직후 표시할 스플래시 화면 핸들
-_splash_screen = None
-
 # ============================================================
 # 0.1 globals()['var'] 로만 생성되던 변수 – 모듈 레벨 기본값 선언
 #     (globals().get → 직접 참조 최적화 후 NameError 방지)
@@ -114,6 +111,8 @@ stage9_tauren_prev_x = None
 stage9_tauren_facing = "right"
 stage3_menhera_prev_x = None
 stage3_menhera_facing = "right"
+stage3_menhera_attack_anticipation_latched = False
+stage3_teddy_attack_anticipation_latched = False
 stage5_honglyeon_prev_x = None
 stage5_honglyeon_facing = "right"
 suicide_drone_player_lock = None
@@ -121,6 +120,7 @@ suicide_drone_rect = None
 _arena_prev_boss_x = 0
 _arena_prev_player_x = 0
 _equipment_slots_state = None
+_equipment_pinned_slots = set()
 _item_slot_debug_count = 0
 _last_cursor_visible_state = None
 _pillar_active_item_slot_rects = None
@@ -129,14 +129,6 @@ nemesis_shake_y = 0
 penalty_kick_mode_enabled = False
 penalty_kick_ui = None
 penalty_kick_battle_result = None
-if __name__ == "__main__":
-    try:
-        from splash_screen import show_splash, update_splash
-        _splash_screen = show_splash()
-        update_splash(0.05, "초기화 중...")
-    except Exception as splash_error:
-        _splash_screen = None
-        print(f"[스플래시] 초기화 실패: {splash_error}", flush=True)
 
 # ============================================================
 # 1. 표준 라이브러리 Import
@@ -569,9 +561,6 @@ def _setup_fullscreen_mode():
             FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = 1920, 1080
 
 _setup_fullscreen_mode()
-
-if _splash_screen:
-    update_splash(0.10, "라이브러리 로딩 중...")
 
 # ============================================================
 # 2. 외부 라이브러리 Import
@@ -1346,12 +1335,9 @@ def preload_all_optimizations():
     run_garbage_collection()
 
     _preload_complete = True
-    # print("=" * 50, flush=True)
-    # print("[PRELOAD] 게임 최적화 완료!", flush=True)
-    # print("=" * 50, flush=True)
-
-if _splash_screen:
-    update_splash(0.15, "설정 로딩 중...")
+# print("=" * 50, flush=True)
+# print("[PRELOAD] 게임 최적화 완료!", flush=True)
+# print("=" * 50, flush=True)
 
 from config.settings_system import get_settings_manager
 from localization.manager import get_localization_manager as _get_loc
@@ -1370,9 +1356,6 @@ try:
 except Exception as _e:
     print(f"[PRELOAD] SettingsManager 초기화 실패: {_e}")
 
-if _splash_screen:
-    update_splash(0.20, "게임 모듈 로딩 중...")
-
 # ============================================================
 # 3. 게임 핵심 모듈 Import
 # ============================================================
@@ -1388,9 +1371,6 @@ from network.protocol import (
     OnlinePacketType, STAGE_MULTIPLAYER, serialize_game_frame, serialize_input,
     deserialize_input,
 )
-
-if _splash_screen:
-    update_splash(0.30, "UI 시스템 로딩 중...")
 
 from show_credits import show_credits_screen
 import ui_manager
@@ -1418,9 +1398,6 @@ try:
 except ImportError:
     def get_boss_dialogue_manager():
         return None
-
-if _splash_screen:
-    update_splash(0.40, "게임 로직 로딩 중...")
 
 from game_logic.characters.blacksmith import BlacksmithController, blacksmith_state
 from game_logic.characters.blacksmith.state import BlacksmithTurretRuntime
@@ -1504,9 +1481,6 @@ from game_logic.sand_obstacles import (
     erode_sand_area, erode_sand_by_paddle, erode_sand_by_dash,
 )
 
-if _splash_screen:
-    update_splash(0.50, "리소스 관리자 로딩 중...")
-
 from resource_path import resource_path
 from utils.game_helpers import (
     get_stage_color,
@@ -1530,9 +1504,6 @@ from effects.ball_spawn_animation import (
     get_ball_spawn_animation_total_duration,
 )
 
-if _splash_screen:
-    update_splash(0.60, "디스플레이 설정 중...")
-
 from display_manager import (
     DisplayFactories,
     change_resolution as dm_change_resolution,
@@ -1543,14 +1514,8 @@ from background_manager import (
     load_stage_backgrounds,
 )
 
-if _splash_screen:
-    update_splash(0.70, "사운드 시스템 로딩 중...")
-
 from sound_effects import load_sound_effects, SOUND_PATHS
 from item_state_manager import reset_runtime_items
-
-if _splash_screen:
-    update_splash(0.80, "메뉴 시스템 로딩 중...")
 
 from start_menu import MenuContext, show_start_menu, is_admin_mode_enabled
 from start_menu_config import ENABLE_NEON_PARTICLES, ENABLE_SCAN_LINES
@@ -1582,6 +1547,10 @@ _loading_message = ""  # 현재 로딩 메시지
 _loading_complete = False  # 로딩 완료 플래그
 _loading_lock = None  # 스레드 동기화용 락
 _LOADING_SMOOTH_SPEED = 0.8  # 진행률 보간 속도 (초당) - 낮을수록 부드럽게
+_loading_meter_progress = 0.0  # 실제 게이지/퍼센트에 표시되는 진행률 (1% 단위)
+_loading_meter_percent = 0  # 표시 퍼센트 (정수 단위)
+_loading_meter_step_accumulator = 0.0  # 퍼센트 단계 보간 누적값
+_LOADING_PERCENT_STEP_RATE = 54.0  # 퍼센트 상승 속도 (초당 최대 54칸)
 
 
 def _update_loading_progress(progress: float, message: str = "") -> None:
@@ -1596,6 +1565,101 @@ def _update_loading_progress(progress: float, message: str = "") -> None:
         _loading_progress = progress
         if message:
             _loading_message = message
+
+
+def _step_loading_meter(target_progress: float, dt: float) -> tuple[float, int]:
+    """게이지/퍼센트를 1% 단위로 자연스럽게 증가시킨다."""
+    global _loading_meter_progress, _loading_meter_percent, _loading_meter_step_accumulator
+
+    clamped_target = max(0.0, min(1.0, target_progress))
+    target_percent = 100 if clamped_target >= 0.999 else int(clamped_target * 100)
+
+    if target_percent < _loading_meter_percent:
+        _loading_meter_percent = target_percent
+        _loading_meter_step_accumulator = 0.0
+    elif target_percent > _loading_meter_percent:
+        step_budget = max(0.0, dt) * _LOADING_PERCENT_STEP_RATE
+        if step_budget <= 0.0:
+            step_budget = 1.0
+        _loading_meter_step_accumulator += step_budget
+        while (
+            _loading_meter_step_accumulator >= 1.0
+            and _loading_meter_percent < target_percent
+        ):
+            _loading_meter_percent += 1
+            _loading_meter_step_accumulator -= 1.0
+
+    _loading_meter_progress = _loading_meter_percent / 100.0
+    return _loading_meter_progress, _loading_meter_percent
+
+
+def _draw_loading_progress_bar(
+    surface: pygame.Surface,
+    *,
+    bar_x: int,
+    bar_y: int,
+    bar_width: int,
+    bar_height: int,
+    meter_progress: float,
+    meter_percent: int,
+    phase: float,
+    pulse: float,
+    percent_font,
+) -> None:
+    """초기/후반 로딩이 동일한 게이지 스타일을 사용하도록 공용화한다."""
+    global _loading_progress_bar_cache, _loading_progress_bar_width
+
+    frame_rect = pygame.Rect(bar_x - 4, bar_y - 4, bar_width + 8, bar_height + 8)
+    pygame.draw.rect(surface, (0, 80, 100), frame_rect, border_radius=4)
+    pygame.draw.rect(surface, (0, 200, 255), frame_rect, 2, border_radius=4)
+
+    bg_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
+    pygame.draw.rect(surface, (20, 30, 50), bg_rect, border_radius=3)
+
+    fill_width = int(bar_width * meter_progress)
+    if fill_width > 0:
+        if _loading_progress_bar_cache is None or _loading_progress_bar_width != bar_width:
+            _loading_progress_bar_cache = pygame.Surface((bar_width, bar_height - 2), pygame.SRCALPHA)
+            _loading_progress_bar_width = bar_width
+            for x in range(bar_width):
+                ratio = x / max(1, bar_width)
+                r = int(ratio * 255)
+                g = int(255 - ratio * 100)
+                b = int(255 - ratio * 55)
+                pygame.draw.line(
+                    _loading_progress_bar_cache,
+                    (r, g, b),
+                    (x, 0),
+                    (x, bar_height - 2),
+                )
+
+        surface.blit(
+            _loading_progress_bar_cache,
+            (bar_x, bar_y + 1),
+            (0, 0, fill_width, bar_height - 2),
+        )
+
+        highlight_height = max(1, bar_height // 3)
+        highlight_surf = pygame.Surface((fill_width, highlight_height), pygame.SRCALPHA)
+        highlight_surf.fill((255, 255, 255, 60))
+        surface.blit(highlight_surf, (bar_x, bar_y))
+
+        scan_x = bar_x + int((bar_width * 1.2) * phase) - int(bar_width * 0.1)
+        if bar_x <= scan_x <= bar_x + fill_width:
+            scan_surf = pygame.Surface((40, bar_height), pygame.SRCALPHA)
+            for sx in range(40):
+                alpha = int(150 * (1 - abs(sx - 20) / 20))
+                pygame.draw.line(scan_surf, (255, 255, 255, alpha), (sx, 0), (sx, bar_height))
+            surface.blit(scan_surf, (scan_x - 20, bar_y))
+
+    percent_text = f"{meter_percent}%"
+    percent_surface = percent_font.render(percent_text, True, (0, 255, 255))
+    percent_rect = percent_surface.get_rect(center=(bar_x + bar_width // 2, bar_y + 35))
+
+    glow_surf = percent_font.render(percent_text, True, (0, 150, 200))
+    glow_surf.set_alpha(int(100 + pulse * 50))
+    surface.blit(glow_surf, (percent_rect.x + 2, percent_rect.y + 2))
+    surface.blit(percent_surface, percent_rect)
 
 
 def _draw_loading_frame() -> None:
@@ -1634,8 +1698,10 @@ def _draw_loading_frame() -> None:
                 _loading_display_progress = target_progress
 
         # 실제 표시에 사용할 진행률
-        progress = _loading_display_progress
+        visual_progress = _loading_display_progress
+        meter_progress, meter_percent = _step_loading_meter(visual_progress, dt)
 
+        phase = (now * 0.8) % 1.0
         pulse = (math.sin(now * 3) + 1) / 2
 
         bar_width = min(500, int(WIDTH * 0.55))
@@ -1645,7 +1711,7 @@ def _draw_loading_frame() -> None:
 
         # 불타는 태양 애니메이션
         if _loading_blazing_sun is not None:
-            _loading_blazing_sun.set_intensity(progress)
+            _loading_blazing_sun.set_intensity(visual_progress)
             _loading_blazing_sun.update(dt)
             _loading_blazing_sun.draw(SCREEN, clear_game_area=False, draw_artwork=True, artwork_opacity=0.35)
 
@@ -1654,12 +1720,12 @@ def _draw_loading_frame() -> None:
             _loading_menu_background.update(dt)
             menu_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             _loading_menu_background.draw(menu_surf)
-            bg_alpha = int(50 + progress * 180)
+            bg_alpha = int(50 + visual_progress * 180)
             menu_surf.set_alpha(bg_alpha)
             SCREEN.blit(menu_surf, (0, 0))
 
         # 별 필드
-        star_alpha = int(30 + progress * 200)
+        star_alpha = int(30 + visual_progress * 200)
         star_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         _loading_star_field = draw_star_field(
             star_surf, WIDTH, HEIGHT, _loading_animation_time, _loading_star_field
@@ -1675,22 +1741,20 @@ def _draw_loading_frame() -> None:
         # 폰트 로드
         title_font = load_font(48, "bold")
         font = load_font(28, "regular")
-        sub_font = load_font(18, "regular")
         small_font = load_font(14, "regular")
 
-        # 게임 타이틀
+        # 게임 타이틀 (show_loading_screen 과 위치 일치 - 전환 시 타이틀이 위로 튀는 버그 방지)
         title_text = "PING FIGHTER"
         title_surface = title_font.render(title_text, True, (255, 255, 255))
-        title_x = (WIDTH - title_surface.get_width()) // 2
-        title_y = HEIGHT // 2 - 80
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 3 - 20))
 
         glow_intensity = int(100 + pulse * 80)
         glow_color = (glow_intensity, glow_intensity // 2, 0)
         for offset in [(2, 2), (-2, -2), (2, -2), (-2, 2)]:
             glow_surf = title_font.render(title_text, True, glow_color)
             glow_surf.set_alpha(60)
-            SCREEN.blit(glow_surf, (title_x + offset[0], title_y + offset[1]))
-        SCREEN.blit(title_surface, (title_x, title_y))
+            SCREEN.blit(glow_surf, (title_rect.x + offset[0], title_rect.y + offset[1]))
+        SCREEN.blit(title_surface, title_rect)
 
         # 로딩 메시지
         if message:
@@ -1699,31 +1763,18 @@ def _draw_loading_frame() -> None:
             msg_y = HEIGHT // 2 + 20
             SCREEN.blit(msg_surface, (msg_x, msg_y))
 
-        # 프로그레스 바 배경
-        pygame.draw.rect(SCREEN, (30, 30, 40), (bar_x - 2, bar_y - 2, bar_width + 4, bar_height + 4), border_radius=4)
-        pygame.draw.rect(SCREEN, (20, 20, 30), (bar_x, bar_y, bar_width, bar_height), border_radius=3)
-
-        # 프로그레스 바 진행
-        fill_width = int(bar_width * progress)
-        if fill_width > 0:
-            global _loading_progress_bar_cache, _loading_progress_bar_width
-            if _loading_progress_bar_cache is None or _loading_progress_bar_width != bar_width:
-                _loading_progress_bar_cache = pygame.Surface((bar_width, bar_height - 2), pygame.SRCALPHA)
-                _loading_progress_bar_width = bar_width
-                for x in range(bar_width):
-                    t = x / bar_width
-                    r = int(255 * (1 - t) + 100 * t)
-                    g = int(100 * (1 - t) + 200 * t)
-                    b = int(50 * (1 - t) + 255 * t)
-                    pygame.draw.line(_loading_progress_bar_cache, (r, g, b), (x, 0), (x, bar_height - 2))
-            SCREEN.blit(_loading_progress_bar_cache, (bar_x, bar_y + 1), (0, 0, fill_width, bar_height - 2))
-
-        # 퍼센트 표시
-        percent_text = f"{int(progress * 100)}%"
-        percent_surface = sub_font.render(percent_text, True, (150, 200, 255))
-        percent_x = (WIDTH - percent_surface.get_width()) // 2
-        percent_y = bar_y + bar_height + 15
-        SCREEN.blit(percent_surface, (percent_x, percent_y))
+        _draw_loading_progress_bar(
+            SCREEN,
+            bar_x=bar_x,
+            bar_y=bar_y,
+            bar_width=bar_width,
+            bar_height=bar_height,
+            meter_progress=meter_progress,
+            meter_percent=meter_percent,
+            phase=phase,
+            pulse=pulse,
+            percent_font=font,
+        )
 
         # 모서리 장식
         corner_len = 30
@@ -1758,7 +1809,13 @@ def _draw_loading_frame() -> None:
             print(f"[로딩 화면 그리기 오류] {e}", flush=True)
 
 
-def run_loading_with_tasks(tasks: list) -> None:
+def run_loading_with_tasks(
+    tasks: list,
+    *,
+    progress_start: float = 0.0,
+    progress_end: float = 1.0,
+    finalize: bool = True,
+) -> None:
     """
     백그라운드에서 작업을 실행하면서 로딩 화면 표시
 
@@ -1771,17 +1828,21 @@ def run_loading_with_tasks(tasks: list) -> None:
     global _loading_menu_background, _loading_star_field, _loading_blazing_sun
     global _loading_last_frame_time, _loading_animation_time
     global _loading_display_progress
+    global _loading_meter_progress, _loading_meter_percent, _loading_meter_step_accumulator
 
     import threading
 
     frame_delay = 1 / 60
     min_task_display_time = 0.12
-    completion_settle_timeout = 0.18
+    completion_settle_timeout = 0.45
     final_hold_frames = 4
     completion_boost_step = 0.12
     task_count = len(tasks)
     loading_start_perf = time.perf_counter()
     task_timings = []
+    progress_start = max(0.0, min(1.0, progress_start))
+    progress_end = max(progress_start, min(1.0, progress_end))
+    progress_span = progress_end - progress_start
 
     if not pygame.display.get_init():
         # pygame 미초기화 시 그냥 작업만 실행
@@ -1793,8 +1854,11 @@ def run_loading_with_tasks(tasks: list) -> None:
         return
 
     # 로딩 화면 초기화
-    _loading_progress = 0.0
-    _loading_display_progress = 0.0  # 표시 진행률도 초기화
+    _loading_progress = progress_start
+    _loading_display_progress = progress_start  # 표시 진행률도 초기화
+    _loading_meter_progress = progress_start
+    _loading_meter_percent = int(progress_start * 100)
+    _loading_meter_step_accumulator = 0.0
     _loading_message = ""
     _loading_complete = False
     _loading_lock = threading.Lock()
@@ -1813,10 +1877,11 @@ def run_loading_with_tasks(tasks: list) -> None:
             cumulative_progress = 0.0
             for index, (weight, message, task) in enumerate(tasks, start=1):
                 task_start = time.perf_counter()
-                _update_loading_progress(cumulative_progress, message)
+                stage_progress = progress_start + min(cumulative_progress, 1.0) * progress_span
+                _update_loading_progress(stage_progress, message)
                 print(
                     f"[로딩] {index}/{task_count} {message} 시작 "
-                    f"({int(cumulative_progress * 100)}%)",
+                    f"({int(stage_progress * 100)}%)",
                     flush=True,
                 )
                 try:
@@ -1829,7 +1894,8 @@ def run_loading_with_tasks(tasks: list) -> None:
                     hold_elapsed = min_task_display_time - actual_elapsed
                     time.sleep(hold_elapsed)
                 cumulative_progress += weight
-                _update_loading_progress(min(cumulative_progress, 1.0))
+                stage_progress = progress_start + min(cumulative_progress, 1.0) * progress_span
+                _update_loading_progress(stage_progress)
                 actual_ms = actual_elapsed * 1000.0
                 hold_ms = hold_elapsed * 1000.0
                 visible_ms = (actual_elapsed + hold_elapsed) * 1000.0
@@ -1842,11 +1908,10 @@ def run_loading_with_tasks(tasks: list) -> None:
                 print(
                     f"[로딩] {message} 완료 "
                     f"(실행 {actual_ms:.1f}ms / 표시 {visible_ms:.1f}ms, "
-                    f"{int(min(cumulative_progress, 1.0) * 100)}%)",
+                    f"{int(stage_progress * 100)}%)",
                     flush=True,
                 )
-            # 마지막 메시지 유지하면서 100% 설정
-            _update_loading_progress(1.0)
+            _update_loading_progress(progress_end)
         finally:
             with _loading_lock:
                 _loading_complete = True
@@ -1866,20 +1931,35 @@ def run_loading_with_tasks(tasks: list) -> None:
 
     worker_thread.join(timeout=1.0)
 
-    # 완료 후 표시 진행률이 100%에 도달할 때까지 계속 그리기 (마지막 메시지 유지)
     completion_start_perf = time.perf_counter()
-    _update_loading_progress(1.0)
-    settle_deadline = completion_start_perf + completion_settle_timeout
-    while _loading_display_progress < 0.99 and time.perf_counter() < settle_deadline:
-        _loading_display_progress = min(1.0, _loading_display_progress + completion_boost_step)
-        _draw_loading_frame()
-        time.sleep(frame_delay)
+    if finalize:
+        # 완료 후 표시 진행률이 100%에 도달할 때까지 계속 그리기 (마지막 메시지 유지)
+        _update_loading_progress(1.0)
+        settle_deadline = completion_start_perf + completion_settle_timeout
+        while (
+            _loading_display_progress < 0.99 or _loading_meter_progress < 0.99
+        ) and time.perf_counter() < settle_deadline:
+            _loading_display_progress = min(1.0, _loading_display_progress + completion_boost_step)
+            _draw_loading_frame()
+            time.sleep(frame_delay)
 
-    # 100% 도달 후 잠시 유지
-    _loading_display_progress = 1.0
-    for _ in range(final_hold_frames):
-        _draw_loading_frame()
-        time.sleep(frame_delay)
+        # 100% 도달 후 잠시 유지
+        _loading_display_progress = 1.0
+        _loading_meter_progress = 1.0
+        _loading_meter_percent = 100
+        for _ in range(final_hold_frames):
+            _draw_loading_frame()
+            time.sleep(frame_delay)
+    else:
+        target_progress = progress_end
+        settle_deadline = completion_start_perf + 0.22
+        while (
+            _loading_display_progress + 0.005 < target_progress
+            or _loading_meter_progress + 0.005 < target_progress
+        ) and time.perf_counter() < settle_deadline:
+            _loading_display_progress = min(target_progress, _loading_display_progress + completion_boost_step)
+            _draw_loading_frame()
+            time.sleep(frame_delay)
 
     _loading_lock = None
     total_elapsed_ms = (time.perf_counter() - loading_start_perf) * 1000.0
@@ -1899,12 +1979,17 @@ def run_loading_with_tasks(tasks: list) -> None:
             f"표시 {timing['visible_ms']:.1f}ms",
             flush=True,
         )
-    print("[로딩] 모든 작업 완료", flush=True)
+    if finalize:
+        print("[로딩] 모든 작업 완료", flush=True)
 
 
-def show_loading_screen(message: str, target_progress: float | None = None) -> None:
+def show_loading_screen(
+    message: str,
+    target_progress: float | None = None,
+    animation_duration: float | None = None,
+) -> None:
     """초기 로딩 구간에서 인트로와 동일한 배경을 사용하는 로딩 화면을 그린다."""
-    global _loading_progress, _loading_start_time
+    global _loading_progress, _loading_display_progress, _loading_start_time
     global _loading_menu_background, _loading_star_field, _loading_neon_particles
     global _loading_scan_lines, _loading_last_frame_time, _loading_animation_time
     global _loading_blazing_sun
@@ -1935,17 +2020,19 @@ def show_loading_screen(message: str, target_progress: float | None = None) -> N
         from font_config import load_font
 
         target = 0.99 if target_progress is None else max(_loading_progress, min(1.0, target_progress))
-        anim_duration = 1.5  # 각 단계별 최소 표시 시간 (1.5초)
+        delta = max(0.0, target - _loading_progress)
+        anim_duration = animation_duration
+        if anim_duration is None:
+            anim_duration = min(0.38, max(0.16, delta * 1.35))
         start_anim = time.time()
 
         # 폰트 설정 (픽셀 폰트 적용)
         title_font = load_font(48, "bold")
         font = load_font(28, "regular")
-        sub_font = load_font(18, "regular")
         small_font = load_font(14, "regular")
 
         def draw_frame(progress: float) -> None:
-            global _loading_last_frame_time, _loading_animation_time
+            global _loading_last_frame_time, _loading_animation_time, _loading_display_progress
             global _loading_star_field, _loading_neon_particles, _loading_scan_lines
             global _loading_blazing_sun
 
@@ -1955,6 +2042,8 @@ def show_loading_screen(message: str, target_progress: float | None = None) -> N
             _loading_last_frame_time = now
             dt = 0.0 if prev_time is None else now - prev_time
             _loading_animation_time += dt
+            _loading_display_progress = max(_loading_display_progress, progress)
+            meter_progress, meter_percent = _step_loading_meter(progress, dt)
 
             phase = (now * 0.8) % 1.0
             pulse = (math.sin(now * 3) + 1) / 2  # 0~1 펄스
@@ -2055,65 +2144,18 @@ def show_loading_screen(message: str, target_progress: float | None = None) -> N
             msg_rect = msg_surface.get_rect(center=(WIDTH // 2, bar_y - 50))
             SCREEN.blit(msg_surface, msg_rect)
 
-            # === 프로그레스 바 ===
-            # 외곽 프레임 (네온 글로우)
-            frame_rect = pygame.Rect(bar_x - 4, bar_y - 4, bar_width + 8, bar_height + 8)
-            pygame.draw.rect(SCREEN, (0, 80, 100), frame_rect, border_radius=4)
-            pygame.draw.rect(SCREEN, (0, 200, 255, 100), frame_rect, 2, border_radius=4)
-
-            # 배경 바
-            bg_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
-            pygame.draw.rect(SCREEN, (20, 30, 50), bg_rect, border_radius=3)
-
-            # 진행 바 (그라데이션 효과) - 캐시 사용으로 성능 향상
-            fill_width = int(bar_width * max(0.0, min(1.0, progress)))
-            if fill_width > 0:
-                global _loading_progress_bar_cache, _loading_progress_bar_width
-
-                # 그라데이션 바 캐시 생성 (한 번만)
-                if _loading_progress_bar_cache is None or _loading_progress_bar_width != bar_width:
-                    _loading_progress_bar_cache = pygame.Surface((bar_width, bar_height - 2), pygame.SRCALPHA)
-                    _loading_progress_bar_width = bar_width
-                    # 그라데이션 색상 (시안 -> 마젠타) 미리 렌더링
-                    for x in range(bar_width):
-                        ratio = x / max(1, bar_width)
-                        r = int(0 + ratio * 255)
-                        g = int(255 - ratio * 100)
-                        b = int(255 - ratio * 55)
-                        pygame.draw.line(_loading_progress_bar_cache, (r, g, b),
-                                       (x, 0), (x, bar_height - 2))
-
-                # 캐시된 그라데이션에서 필요한 부분만 blit
-                SCREEN.blit(_loading_progress_bar_cache, (bar_x, bar_y + 1),
-                           (0, 0, fill_width, bar_height - 2))
-
-                # 상단 하이라이트
-                highlight_surf = pygame.Surface((fill_width, bar_height // 3), pygame.SRCALPHA)
-                highlight_surf.fill((255, 255, 255, 60))
-                SCREEN.blit(highlight_surf, (bar_x, bar_y))
-
-                # 스캔라인 효과
-                scan_x = bar_x + int((bar_width * 1.2) * phase) - int(bar_width * 0.1)
-                if bar_x <= scan_x <= bar_x + fill_width:
-                    scan_surf = pygame.Surface((40, bar_height), pygame.SRCALPHA)
-                    for sx in range(40):
-                        alpha = int(150 * (1 - abs(sx - 20) / 20))
-                        pygame.draw.line(scan_surf, (255, 255, 255, alpha), (sx, 0), (sx, bar_height))
-                    SCREEN.blit(scan_surf, (scan_x - 20, bar_y))
-
-            # === 퍼센트 표시 ===
-            percent_value = int(progress * 100)
-            percent_text = f"{percent_value:02d}%"
-
-            # 디지털 스타일 퍼센트
-            percent_surface = font.render(percent_text, True, (0, 255, 255))
-            percent_rect = percent_surface.get_rect(center=(WIDTH // 2, bar_y + 35))
-
-            # 글로우 효과
-            glow_surf = font.render(percent_text, True, (0, 150, 200))
-            glow_surf.set_alpha(int(100 + pulse * 50))
-            SCREEN.blit(glow_surf, (percent_rect.x + 2, percent_rect.y + 2))
-            SCREEN.blit(percent_surface, percent_rect)
+            _draw_loading_progress_bar(
+                SCREEN,
+                bar_x=bar_x,
+                bar_y=bar_y,
+                bar_width=bar_width,
+                bar_height=bar_height,
+                meter_progress=meter_progress,
+                meter_percent=meter_percent,
+                phase=phase,
+                pulse=pulse,
+                percent_font=font,
+            )
 
             # === 하단 정보 ===
             # 힌트 텍스트
@@ -2170,12 +2212,30 @@ def show_loading_screen(message: str, target_progress: float | None = None) -> N
             time.sleep(1 / 60)
 
         _loading_progress = max(_loading_progress, target)
+        _loading_display_progress = max(_loading_display_progress, target)
         # print(f"[show_loading_screen] 종료: progress={_loading_progress}", flush=True)
     except Exception as e:
         # 로딩 화면 실패는 게임 진행을 막지 않도록 무시
         import traceback
         print(f"[로딩 화면 오류] {e}")
         traceback.print_exc()
+
+
+def advance_bootstrap_loading(
+    message: str,
+    target_progress: float,
+    *,
+    animation_duration: float | None = None,
+) -> None:
+    """메인 로딩 이후 남은 초기화 구간도 동일한 로딩 화면 progress에 포함한다."""
+    if not pygame.display.get_init():
+        return
+
+    show_loading_screen(
+        message,
+        target_progress=target_progress,
+        animation_duration=animation_duration,
+    )
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
@@ -2860,7 +2920,7 @@ def load_stage_intro_audio(video_path: str | os.PathLike[str] | None) -> pygame.
     sound_array = np.ascontiguousarray((sound_array * 32767).astype(np.int16))
 
     try:
-        sound = pygame.sndarray.make_sound(sound_array)
+        sound = _wrap_managed_sound(pygame.sndarray.make_sound(sound_array))
     except Exception as exc:  # pylint: disable=broad-except
         print(f"[StageIntro] 사운드 변환 실패 - {exc}")
         return None
@@ -3089,6 +3149,7 @@ from rendering.unified_renderer import UnifiedRenderer
 from managers.unified_effects import UnifiedEffectsManager
 from managers.unified_sound import UnifiedSoundManager
 from core.constants import Colors, Sizes, Speeds, Timings, Balance, Physics
+from core.boss_dash_token_display import get_boss_dash_token_display_state
 # ️ 새로운 아키텍처 시스템
 from core.game_state import GameState
 from core.events import EventManager, EventType, emit_event
@@ -3430,17 +3491,11 @@ if not pygame.display.get_init():
     pygame.init()
     pygame.font.init()
 else:
-    # pygame은 이미 초기화됨 (스플래시에서)
+    # pygame은 이미 초기화됨
     pygame.font.init()
-# freetype은 별도 초기화 필요 (스플래시가 pygame.display.init()만 호출한 경우)
+# freetype은 별도 초기화 필요
 if not pygame.freetype.get_init():
     pygame.freetype.init()
-
-# 스플래시 화면 닫기 및 메인 화면으로 전환
-if _splash_screen:
-    from splash_screen import close_splash
-    update_splash(0.95, "게임 시작 준비 중...")
-    close_splash()
 
 # 화면 생성 (전체화면 모드)
 # pygame 초기화 후 모니터 해상도 다시 확인
@@ -3930,6 +3985,9 @@ _original_update = pygame.display.update
 _is_fullscreen_active = (FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0) or (pillar_renderer is not None) or _use_scaled_mode
 _current_display_mode = "fullscreen" if FULLSCREEN_MODE else "windowed"
 
+# 로고 인트로 재생 중에는 필러 영역까지 전부 검정으로 채워서 로고만 뜨도록 한다.
+_logo_intro_black_background = False
+
 # 플레이어 게이지를 필러에 렌더링하기 위한 전역 변수
 _player_gauge_surface = None  # 게이지가 그려진 Surface (우측 - 대쉬 토큰용)
 _player_gauge_surface_left = None  # 좌측 필러 Surface (게이지바 + 수치)
@@ -3974,7 +4032,7 @@ _boss_orb_div_max = -1             # 분할선 캐시 유효성 검사용
 # 스매셔 스킬 아이콘 시스템 (왼쪽 필러에 표시)
 # ============================================================
 # 스킬 정보: (스킬명, 게이지 비용, 아이콘 색상, 쿨타임(초))
-# 하단부터 상단으로 비용 순서: 플라즈마(40) → 리커버리(80) → 클렌즈(100) → 드라이브(150) → 파워스매싱(350)
+# 하단부터 상단으로 비용 순서: 플라즈마(40) → 리커버리(80) → 클렌즈(100) → 드라이브(150) → 파워스매싱(300)
 SMASHER_SKILL_ICONS_DATA = [
     {
         "name": "plasma", "korean": "플라즈마", "cost": 40, "color": (0, 200, 255),
@@ -4006,7 +4064,7 @@ SMASHER_SKILL_ICONS_DATA = [
         "effect_type": "drive_curve"
     },
     {
-        "name": "power_smashing", "korean": "파워스매싱", "cost": 350, "color": (255, 100, 50),
+        "name": "power_smashing", "korean": "파워스매싱", "cost": 300, "color": (255, 100, 50),
         "symbol": "💥", "cooldown": 35.0, "key": "🖱️L홀드",
         "description": "강력한 스매시로 공을 발사! 방향 지정 가능!",
         "how_to_use": "power_smashing",  # 특수 렌더링 (마우스 아이콘 포함)
@@ -4020,11 +4078,18 @@ SMASHER_SKILL_ICONS_DATA = [
         "effect_type": "magnetic_pull_blue"
     },
     {
-        "name": "ghost_shot", "korean": "고스트샷", "cost": 500, "color": (120, 50, 180),
-        "symbol": "👻", "cooldown": 70.0, "key": "🖱️L홀드(게이지500↑)",
-        "description": "게이지 500 이상일 때 파워스매싱 대신 고스트샷 발동. 공이 뱀처럼 구불거리며 귀신이 따라다닙니다.",
+        "name": "ghost_shot", "korean": "고스트샷", "cost": 450, "color": (120, 50, 180),
+        "symbol": "👻", "cooldown": 70.0, "key": "🖱️L홀드(게이지450↑)",
+        "description": "게이지 450 이상일 때 파워스매싱 대신 고스트샷 발동. 공이 뱀처럼 구불거리며 귀신이 따라다닙니다.",
         "how_to_use": "power_smashing",  # 파워스매싱과 동일 입력
         "effect_type": "ghost_purple"
+    },
+    {
+        "name": "warp_gate", "korean": "워프게이트", "cost": 100, "color": (200, 110, 255),
+        "symbol": "⊙", "cooldown": 80.0, "key": "A→W→D",
+        "description": "20초 동안 차원 포털을 전개한다. 좌/우 벽을 타넘어 반대편으로 순간이동할 수 있으며, 벽을 넘을 때마다 게이지 50이 소모된다.",
+        "how_to_use": "warp_gate",  # 특수 렌더링 (A→W→D 키 박스)
+        "effect_type": "portal_purple"
     },
 ]
 
@@ -4067,6 +4132,7 @@ _smasher_skill_cooldowns = {
     "drive": 0,
     "power_smashing": 0,
     "magnum_grip": 0,
+    "warp_gate": 0,
 }
 
 # 스킬 활성화 순간 추적 (활성화될 때 시간 기록, 빛나는 효과용)
@@ -4077,6 +4143,7 @@ _smasher_skill_activation_times = {
     "drive": 0,
     "power_smashing": 0,
     "magnum_grip": 0,
+    "warp_gate": 0,
 }
 # 이전 프레임 활성화 상태 추적
 _smasher_skill_was_active = {
@@ -4086,6 +4153,7 @@ _smasher_skill_was_active = {
     "drive": False,
     "power_smashing": False,
     "magnum_grip": False,
+    "warp_gate": False,
 }
 
 # ============================================================
@@ -4102,14 +4170,23 @@ _magnum_grip_keys_released = True   # 양쪽 키 모두 해제된 적 있는지 
 
 
 def _start_magnum_grip_sound():
-    """매그넘 그립 사운드 루프 재생 시작."""
+    """매그넘 그립 사운드 루프 재생 시작.
+
+    주의: 게임 전역에서 pygame.mixer.Sound 는 _managed_sound_factory 로 몽키패치되어
+    있어, SOUND_MAGNUM_GRIP 은 _ManagedSound 래퍼 객체다. pygame 의 C레벨
+    Channel.play() 는 래퍼를 받지 못하므로 반드시 _unwrap_sound() 로 원본 Sound 를
+    꺼낸 뒤 넘겨야 한다. (과거 래퍼를 그대로 넘겨 사운드가 조용히 실패하던 버그 수정)
+    """
     try:
         if SOUND_MAGNUM_GRIP and MAGNUM_GRIP_CHANNEL:
+            raw_sound = _unwrap_sound(SOUND_MAGNUM_GRIP)
+            if raw_sound is None:
+                return
             try:
-                SOUND_MAGNUM_GRIP.set_volume(sfx_volume)
+                raw_sound.set_volume(sfx_volume)
             except Exception:
                 pass
-            MAGNUM_GRIP_CHANNEL.play(SOUND_MAGNUM_GRIP, loops=-1)
+            MAGNUM_GRIP_CHANNEL.play(raw_sound, loops=-1)
     except Exception:
         pass
 
@@ -4132,6 +4209,202 @@ _magnum_grip_activated_this_frame = False  # 발동 순간 플래그 (한 프레
 _magnum_grip_both_held_start_ms = 0
 MAGNUM_GRIP_HOLD_DURATION_MS = 300  # 양쪽 키를 이 시간 이상 함께 홀딩해야 발동
 
+# ============================================================
+# 워프게이트 (차원 포털) - 스매셔 해금 스킬
+# A → W → D 순서 입력으로 발동. 20초간 좌/우 벽을 타넘을 수 있음.
+# 플레이어 X 좌표의 '최종 확정'은 오직 _clamp_or_wrap_player_x() 에서만 이루어진다.
+# 새로 추가되는 모든 패들 X 클램프도 이 헬퍼를 호출해야 한다.
+# ============================================================
+WARP_GATE_GAUGE_COST = 100
+WARP_GATE_WRAP_GAUGE_COST = 50  # 좌/우 벽을 완전히 타넘을 때마다 소모
+WARP_GATE_DURATION_MS = 20000           # 20초 지속
+WARP_GATE_COOLDOWN_S = 80.0             # 쿨타임 80초
+WARP_GATE_CMD_WINDOW_MS = 600           # A→W→D 사이 최대 허용 간격
+WARP_GATE_CMD_BUFFER_MAX = 6            # 커맨드 버퍼 크기
+
+warp_gate_active = False
+warp_gate_start_ms = 0
+warp_gate_end_ms = 0
+# 이번 활성에서 실제로 사용된 총 지속시간 (ms). 연장기어 퍽 보너스가 여기 반영된다.
+# 게이지바 ratio 계산(remaining / total)의 분모도 이 값을 쓴다.
+_warp_gate_current_duration_ms = 0
+_warp_gate_activated_this_frame = False
+# 라운드 사이 일시정지용: 라운드 종료 시 남은 ms 를 여기에 저장, 다음 라운드에서 복원.
+# 라운드 전환 (celebration + 서브 대기) 동안 타이머가 깎이지 않아 체감 손실 방지.
+_warp_gate_paused_remaining_ms = 0
+
+# A/W/D 커맨드 버퍼 [(key_code, ms)], 엣지-라이즈(이전 프레임에 눌리지 않음→이 프레임에 눌림) 에만 push
+_smasher_cmd_buffer = []
+_smasher_cmd_prev_keys = {"a": False, "w": False, "d": False}
+
+# 포털 반짝임 이펙트: 각 항목 {"x", "y", "start_ms", "life_ms", "hue"}
+_warp_gate_portals = []
+# 포털 회전 위상 (게이지바/아이콘 공용)
+_warp_gate_phase = 0.0
+# 게이지바 라벨 폰트 캐시 (활성 동안 매 프레임 SysFont 생성 방지)
+_warp_gate_label_font = None
+
+
+def _clamp_or_wrap_player_x(x):
+    """플레이어 패들 X 좌표의 유일한 최종 결정 지점.
+
+    - warp_gate_active = False: 기본 클램프 (max(0, min(WIDTH - pw, x))) 와 동일.
+    - warp_gate_active = True : **심리스 랩어라운드**.
+        - 패들이 벽을 '걸쳐' 있을 수 있게 x 를 [-pw, WIDTH] 범위로 허용한다.
+          (즉, 반만 들어가면 반은 왼쪽 반은 오른쪽으로 렌더 + 충돌된다.)
+        - x + pw < 0  → 완전히 좌측을 벗어남 → x += WIDTH 로 최종 텔레포트.
+        - x > WIDTH   → 완전히 우측을 벗어남 → x -= WIDTH 로 최종 텔레포트.
+        - 포털 스폰은 '완전 통과' 순간에만 터지고, 걸친 상태에서는 자연스럽게
+          양쪽 벽에 패들이 반반 걸친 모양이 유지된다.
+    """
+    global _warp_gate_portals, special_gauge
+    try:
+        pw = PLAYER.width
+    except Exception:
+        pw = 130
+    if warp_gate_active:
+        if x + pw < 0:
+            # 완전히 좌측 벽을 벗어남 → 우측에서 등장
+            try:
+                cy = PLAYER.centery
+            except Exception:
+                cy = 710
+            _spawn_warp_gate_portal(0, cy, "exit_left")
+            _spawn_warp_gate_portal(WIDTH, cy, "enter_right")
+            special_gauge = max(0, special_gauge - WARP_GATE_WRAP_GAUGE_COST)
+            return x + WIDTH
+        if x > WIDTH:
+            # 완전히 우측 벽을 벗어남 → 좌측에서 등장
+            try:
+                cy = PLAYER.centery
+            except Exception:
+                cy = 710
+            _spawn_warp_gate_portal(WIDTH, cy, "exit_right")
+            _spawn_warp_gate_portal(0, cy, "enter_left")
+            special_gauge = max(0, special_gauge - WARP_GATE_WRAP_GAUGE_COST)
+            return x - WIDTH
+        # [-pw, WIDTH] 사이는 걸친 상태로 자유 이동
+        return x
+    return max(0, min(WIDTH - pw, x))
+
+
+def _get_warp_gate_mirror_offset_x():
+    """패들이 벽을 '절반 이상' 넘어갔을 때만 거울(미러) 위치로의 X 오프셋 반환.
+
+    하프 임계치 규칙: 패들 중심이 벽을 넘어선 순간에 거울이 활성화된다.
+    - 좌측 벽: PLAYER.centerx < 0  (즉 px < -pw/2)
+    - 우측 벽: PLAYER.centerx > WIDTH (즉 px > WIDTH - pw/2)
+
+    Returns:
+        +WIDTH  : 패들 중심이 좌측 벽 바깥 → 거울은 우측에 생김.
+        -WIDTH  : 패들 중심이 우측 벽 바깥 → 거울은 좌측에 생김.
+        None    : 아직 절반도 안 넘어감 → 거울 비활성.
+    """
+    if not warp_gate_active:
+        return None
+    try:
+        px = PLAYER.x
+        pw = PLAYER.width
+    except Exception:
+        return None
+    half = pw / 2
+    if px + half < 0:
+        return WIDTH
+    if px + half > WIDTH:
+        return -WIDTH
+    return None
+
+
+def _apply_warp_gate_mirror_to_collision_rect(rect):
+    """워프게이트 걸침 상태에서 공이 더 가까운 쪽(원본 or 거울)으로 충돌 렉트를 시프트.
+
+    공이 거울 위치에 더 가까우면 rect.centerx 를 그 위치로 이동시킨다.
+    일반(비걸침) 상태에서는 아무 변경 없음. 반환값 없음(in-place).
+    """
+    offset = _get_warp_gate_mirror_offset_x()
+    if offset is None:
+        return
+    try:
+        ball_cx = BALL.centerx
+    except Exception:
+        return
+    original_cx = rect.centerx
+    mirror_cx = original_cx + offset
+    # 공 중심과 더 가까운 쪽을 선택
+    if abs(ball_cx - mirror_cx) < abs(ball_cx - original_cx):
+        rect.centerx = mirror_cx
+
+
+def _spawn_warp_gate_portal(x, y, kind):
+    """랩어라운드 순간 포털 반짝임을 큐에 추가."""
+    global _warp_gate_portals
+    try:
+        now_ms = pygame.time.get_ticks()
+    except Exception:
+        now_ms = 0
+    _warp_gate_portals.append({
+        "x": int(x),
+        "y": int(y),
+        "kind": kind,
+        "start_ms": now_ms,
+        "life_ms": 520,
+    })
+
+
+def _reset_warp_gate_state():
+    """워프게이트 런타임 상태 완전 초기화.
+
+    사용처: 새 게임 / 메인 메뉴 복귀 / 캐릭터 변경 / 게임오버 / 스테이지 전환 등
+    '세션을 끊어야 하는' 큰 상태 전이. 라운드 사이에는 이 함수 대신
+    _pause_warp_gate_between_rounds() 를 쓴다.
+    """
+    global warp_gate_active, warp_gate_start_ms, warp_gate_end_ms
+    global _warp_gate_activated_this_frame, _smasher_cmd_buffer
+    global _smasher_cmd_prev_keys, _warp_gate_portals, _warp_gate_phase
+    global _warp_gate_paused_remaining_ms, _warp_gate_current_duration_ms
+    warp_gate_active = False
+    warp_gate_start_ms = 0
+    warp_gate_end_ms = 0
+    _warp_gate_current_duration_ms = 0
+    _warp_gate_activated_this_frame = False
+    _smasher_cmd_buffer = []
+    _smasher_cmd_prev_keys = {"a": False, "w": False, "d": False}
+    _warp_gate_portals = []
+    _warp_gate_phase = 0.0
+    _warp_gate_paused_remaining_ms = 0
+
+
+def _pause_warp_gate_between_rounds():
+    """라운드 종료 시 호출: 타이머 일시정지 + transient 클리어.
+
+    - 활성 중이었으면 남은 지속시간을 _warp_gate_paused_remaining_ms 에 저장하고
+      warp_gate_active 를 False 로 내려 둔다. 다음 라운드에서 공이 움직이는 순간
+      자동 복원된다 (update_warp_gate 상단 재개 로직 참고).
+    - 커맨드 버퍼/prev_keys/포털 파티클은 라운드를 넘겨봐야 의미 없으므로 전부 정리.
+    - _warp_gate_paused_remaining_ms 는 건드리지 않는다 (복원 키 보존).
+    """
+    global warp_gate_active, warp_gate_start_ms, warp_gate_end_ms
+    global _warp_gate_paused_remaining_ms, _warp_gate_portals
+    global _smasher_cmd_buffer, _smasher_cmd_prev_keys
+    global _warp_gate_activated_this_frame
+    try:
+        now_ms = pygame.time.get_ticks()
+    except Exception:
+        now_ms = 0
+    if warp_gate_active:
+        remaining = max(0, warp_gate_end_ms - now_ms)
+        # 이미 저장된 값이 있고 더 크다면 유지 (라운드 연속 중첩 호출 방어)
+        if remaining > 0 and remaining > _warp_gate_paused_remaining_ms:
+            _warp_gate_paused_remaining_ms = remaining
+        warp_gate_active = False
+    warp_gate_start_ms = 0
+    warp_gate_end_ms = 0
+    _warp_gate_activated_this_frame = False
+    _warp_gate_portals = []
+    _smasher_cmd_buffer = []
+    _smasher_cmd_prev_keys = {"a": False, "w": False, "d": False}
+
+
 # 스매셔 스킬 해금 상태 (런타임 스킬로 해금)
 # 처음에는 드라이브, 파워스매싱만 해금됨 (기본 2개)
 # 매그넘 그립, 플라즈마, 리커버리, 클렌즈, 고스트샷은 퍽으로 해금 필요 (5개)
@@ -4141,19 +4414,28 @@ _smasher_skill_unlocked = {
     "recovery": False,    # 런타임 스킬로 해금 필요 (리커버리 스킬과 별개)
     "cleanse": False,     # 런타임 스킬로 해금 필요
     "ghost_shot": False,  # 런타임 스킬로 해금 필요 (파워스매싱 연동)
+    "warp_gate": False,   # 런타임 스킬로 해금 필요 (A→W→D 커맨드)
     "drive": True,        # 기본 해금
     "power_smashing": True,  # 기본 해금
 }
 
-# 스매셔 스킬 구슬 장착 시스템 (최대 5개)
-SMASHER_MAX_SKILL_SLOTS = 5
+# 스매셔 스킬 구슬 장착 시스템 (최대 5개, 천상의 망토 장착 시 런타임으로 +1)
+SMASHER_BASE_MAX_SKILL_SLOTS = 5
+
+
+def get_smasher_max_skill_slots() -> int:
+    """천상의 망토 슬롯 보너스 반영한 런타임 스매셔 스킬 슬롯 수."""
+    return SMASHER_BASE_MAX_SKILL_SLOTS + int(globals().get("heavenly_cape_slot_bonus", 0))
 
 # 현재 장착된 스킬 목록 (순서 = 슬롯 위치, 기본 2개)
 _smasher_equipped_skills = ["drive", "power_smashing"]
 
 
 def reset_smasher_skill_unlocks():
-    """스매셔 스킬 해금 상태 및 장착 초기화 (새 게임 시작 시)"""
+    """스매셔 스킬 해금 상태 및 장착 초기화 (새 게임 시작 / 캐릭터 변경 / 게임오버 등 세션 종료 경로).
+
+    세션을 끊는 자리이므로 워프게이트도 완전 초기화한다 (라운드 일시정지 보존 키까지 지움).
+    """
     global _smasher_skill_unlocked, _smasher_equipped_skills
     _smasher_skill_unlocked = {
         "magnum_grip": False,
@@ -4161,21 +4443,27 @@ def reset_smasher_skill_unlocks():
         "recovery": False,
         "cleanse": False,
         "ghost_shot": False,
+        "warp_gate": False,
         "drive": True,
         "power_smashing": True,
     }
     _smasher_equipped_skills = ["drive", "power_smashing"]
+    # 세션 종료 경로: 워프게이트 런타임 상태 완전 초기화
+    try:
+        _reset_warp_gate_state()
+    except Exception:
+        pass
 
 
 def get_smasher_unlock_perk_count() -> int:
     """현재 해금된 스매셔 해금 퍽 수 반환 (기본 해금 제외)"""
-    unlock_perk_skills = ["magnum_grip", "plasma", "recovery", "cleanse", "ghost_shot"]
+    unlock_perk_skills = ["magnum_grip", "plasma", "recovery", "cleanse", "ghost_shot", "warp_gate"]
     return sum(1 for s in unlock_perk_skills if _smasher_skill_unlocked.get(s, False))
 
 
 def is_smasher_skill_slots_full() -> bool:
     """스매셔 스킬 슬롯이 최대치(5개)에 도달했는지 확인"""
-    return len(_smasher_equipped_skills) >= SMASHER_MAX_SKILL_SLOTS
+    return len(_smasher_equipped_skills) >= get_smasher_max_skill_slots()
 
 
 def get_smasher_equipped_skills():
@@ -4188,7 +4476,7 @@ def equip_smasher_skill(skill_name: str) -> bool:
     global _smasher_equipped_skills
     if skill_name in _smasher_equipped_skills:
         return True
-    if len(_smasher_equipped_skills) < SMASHER_MAX_SKILL_SLOTS:
+    if len(_smasher_equipped_skills) < get_smasher_max_skill_slots():
         _smasher_equipped_skills.append(skill_name)
         return True
     return False
@@ -4576,51 +4864,72 @@ VIPER_SKILL_ICONS_DATA = [
     {
         "name": "shadow_step", "korean": "쉐도우 백스텝", "cost": 100, "color": (100, 0, 180),
         "symbol": "⟐", "cooldown": 15.0, "key": "대쉬+S",
-        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.\n공 타격 시 속도가 40~80% 증가합니다.",
+        "description": "대쉬 중 또는 대쉬 직후 S키로 발동.\n잔상을 남기고 대쉬 시작 위치로 되돌아갑니다.\n공 타격 시 속도가 48~96% 증가합니다.",
         "how_to_use": "대쉬 중/직후 S키를 눌러 발동",
         "effect_type": "shadow_teleport"
     },
     {
         "name": "blade_rush", "korean": "에어 블레이드", "cost": 200, "color": (200, 50, 255),
         "symbol": "⚔", "cooldown": 20.0, "key": "W/↑",
-        "description": "체공 중 전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 180% 증가합니다.",
+        "description": "체공 중 전방으로 거대한 검기를 발사합니다.\n검기에 공이 닿으면 속도가 110% 증가합니다.",
         "how_to_use": "체공 중 W키 또는 ↑키로 발동",
         "effect_type": "slash_purple"
     },
     {
-        "name": "nerve_strike", "korean": "베놈 엣지", "cost": 80, "color": (180, 0, 220),
+        "name": "nerve_strike", "korean": "베놈 엣지", "cost": 120, "color": (180, 0, 220),
         "symbol": "◈", "cooldown": 50.0, "key": "W/↑(연계)",
-        "description": "에어 블레이드 착지 전 W/↑키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n5초간 보스 혼란 상태.",
+        "description": "에어 블레이드 착지 전 W/↑키로 연계 발동.\n보스에게 돌진해 등 뒤에서 베고 복귀.\n4초간 보스 혼란 상태.",
         "how_to_use": "에어 블레이드 사용 후 착지 전 W/↑키",
         "effect_type": "stun_purple"
     },
     {
         "name": "dive_strike", "korean": "EMP 스트라이크", "cost": 180, "color": (255, 120, 50),
-        "symbol": "⇓", "cooldown": 60.0, "key": "체공+S/↓ 꾹",
-        "description": "체공 중 S/↓키를 0.3초 꾹 눌러 급강하.\n착지 연기 장판 생성, 공 반사 + 공속 증가.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
+        "symbol": "⇓", "cooldown": 70.0, "key": "체공+S/↓ 꾹",
+        "description": "체공 중 S/↓키를 0.3초 꾹 눌러 급강하.\n착지 연기 장판 생성, 공 반사.\n보스 슬립 0.9~1.5초 (체공 높이 비례).",
         "how_to_use": "체공 중 S키 또는 ↓키 0.3초 꾹 누르기",
         "effect_type": "dive_impact"
     },
     {
         "name": "marshal_kick", "korean": "마샬 킥", "cost": 80, "color": (130, 0, 200),
         "symbol": "🕷", "cooldown": 25.0, "key": "S/↓(연계)",
-        "description": "쉐도우 백스텝 적중 후 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 100% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 25초.",
+        "description": "쉐도우 백스텝 적중 후 또는 에어 블레이드 후 체공 중 발동.\n벽으로 점프 후 공을 향해 돌진, 공속 120% 증가.\n공이 있는 쪽 벽(좌/우)으로 이동합니다.\n쿨타임 25초.",
         "how_to_use": "쉐도우 백스텝 적중 후 또는 에어 블레이드 후 S/↓키",
         "effect_type": "wall_dive_purple"
     },
     {
         "name": "phantom_kick", "korean": "팬텀 킥", "cost": 60, "color": (180, 0, 255),
-        "symbol": "x2", "cooldown": 40.0, "key": "S/↓(연계)",
-        "description": "마샬 킥 적중 후 1.5초간 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n공속 180% 증가, 1초간 프리즈.\n쿨타임 40초.",
+        "symbol": "x2", "cooldown": 65.0, "key": "S/↓(연계)",
+        "description": "마샬 킥 적중 후 1.5초간 2차 마샬 킥 발동.\n팬텀 킥 퍽 해금 필요.\n공속 180% 증가, 1초간 프리즈.\n쿨타임 65초.",
         "how_to_use": "마샬 킥 적중 후 1.5초 안에 S/↓키 (팬텀 킥 퍽 필요)",
         "effect_type": "wall_dive_purple"
     },
     {
         "name": "dark_blade", "korean": "다크 블레이드", "cost": 200, "color": (120, 0, 30),
         "symbol": "⚔", "cooldown": 45.0, "key": "W/↑(연계)",
-        "description": "쉐도우 백스텝/마샬 킥/팬텀 킥으로\n공을 타격한 후 3초 안에 공중 에어 블레이드 시 변환.\n검기 가로폭 30% 증가, 사거리 2배, 점프 솟구침.\n검붉은 강화 검기 발사. 쿨타임 45초.",
-        "how_to_use": "공을 맞춘 쉐도우 백스텝·마샬 킥·팬텀 킥 후 3초 내 공중 W/↑키",
+        "description": "쉐도우 백스텝/마샬 킥/팬텀 킥/화랑 킥으로\n공을 타격한 후 3초 안에 공중 W/↑로 발동.\n다크 블레이드 검기 적중 시 마샬 킥 윈도우가 열립니다.\n검붉은 강화 검기 발사. 쿨타임 45초.",
+        "how_to_use": "공 타격 후 3초 내 공중 W/↑키",
         "effect_type": "slash_dark"
+    },
+    {
+        "name": "chaos_spear", "korean": "카오스 스피어", "cost": 150, "color": (135, 70, 255),
+        "symbol": "🜂", "cooldown": 20.0, "key": "A→W→D",
+        "description": "A→W→D 커맨드로 혼돈의 창을 투척합니다.\n0.5초 후 맵 중앙에 블랙홀이 생성되어 3초간 공을 묶고\n필드의 일반 투사체/설치물을 빨아들입니다.",
+        "how_to_use": "A→W→D / ←↑→",
+        "effect_type": "chaos_vortex"
+    },
+    {
+        "name": "core_flip", "korean": "화랑 킥", "cost": 120, "color": (255, 110, 200),
+        "symbol": "⤺", "cooldown": 25.0, "key": "대쉬+A+D",
+        "description": "대쉬로 공을 맞춘 뒤 0.7초 이내 A+D 동시 입력으로 화랑 킥을 발동합니다.\n벽을 타고 반사각으로 공을 차며, 적중 시 마샬 킥(→팬텀 킥) 연계가 열립니다.\n게이지 120, 쿨타임 25초.",
+        "how_to_use": "대쉬로 공 타격 후 0.7초 이내 A+D / ←+→ 동시 누르기",
+        "effect_type": "wall_dive_purple"
+    },
+    {
+        "name": "ignition_aura", "korean": "이그니션오라", "cost": 250, "color": (255, 130, 40),
+        "symbol": "◎", "cooldown": 80.0, "key": "W 0.5초 홀드",
+        "description": "지상에서 W/↑를 0.5초 이상 꾹 누르면 화염 오라가 폭발합니다.\n20초간 모든 퍽 레벨이 +2 증가하고 모든 골드 보너스가 +50 증가합니다.\n게이지 250, 쿨타임 80초.",
+        "how_to_use": "지상에서 W 또는 ↑키를 0.5초 이상 꾹 누르기",
+        "effect_type": "ignition_burst"
     },
 ]
 
@@ -4653,6 +4962,9 @@ _viper_skill_cooldowns = {
     "phantom_kick": 0,
     "dive_strike": 0,
     "dark_blade": 0,
+    "chaos_spear": 0,
+    "core_flip": 0,
+    "ignition_aura": 0,
 }
 
 # 바이퍼 스킬 활성화 순간 추적
@@ -4664,6 +4976,9 @@ _viper_skill_activation_times = {
     "phantom_kick": 0,
     "dive_strike": 0,
     "dark_blade": 0,
+    "chaos_spear": 0,
+    "core_flip": 0,
+    "ignition_aura": 0,
 }
 _viper_skill_was_active = {
     "shadow_step": False,
@@ -4673,6 +4988,9 @@ _viper_skill_was_active = {
     "phantom_kick": False,
     "dive_strike": False,
     "dark_blade": False,
+    "chaos_spear": False,
+    "core_flip": False,
+    "ignition_aura": False,
 }
 
 # 바이퍼 스킬 해금 상태
@@ -4686,10 +5004,18 @@ _viper_skill_unlocked = {
     "dive_strike": False,     # 런타임 스킬로 해금 필요 (퍽)
     "phantom_kick": False,    # 런타임 스킬(double_marshal_kick)로 해금 필요
     "dark_blade": False,      # 런타임 스킬(dark_blade 퍽)로 해금 필요
+    "chaos_spear": False,     # 런타임 스킬(unlock_chaos_spear)로 해금 필요
+    "core_flip": False,       # 런타임 스킬(core_flip 퍽)로 해금 필요
+    "ignition_aura": False,   # 런타임 스킬(unlock_ignition_aura)로 해금 필요
 }
 
-# 바이퍼 스킬 구슬 장착 시스템 (최대 5개, 스매셔와 동일)
-VIPER_MAX_SKILL_SLOTS = 5
+# 바이퍼 스킬 구슬 장착 시스템 (최대 5개, 천상의 망토 장착 시 런타임으로 +1)
+VIPER_BASE_MAX_SKILL_SLOTS = 5
+
+
+def get_viper_max_skill_slots() -> int:
+    """천상의 망토 슬롯 보너스 반영한 런타임 바이퍼 스킬 슬롯 수."""
+    return VIPER_BASE_MAX_SKILL_SLOTS + int(globals().get("heavenly_cape_slot_bonus", 0))
 
 # 현재 장착된 스킬 목록 (순서 = 슬롯 위치)
 _viper_equipped_skills = ["shadow_step", "blade_rush", "marshal_kick"]
@@ -4702,25 +5028,138 @@ _viper_tooltip_pause_accumulated = 0
 _skill_cooldown_general_pause_start = 0
 _skill_cooldown_general_pause_depth = 0  # 중첩 호출 보호용 카운터
 
+# 바이퍼 카오스 스피어 런타임 상태
+VIPER_CHAOS_SPEAR_CMD_WINDOW_MS = 600
+VIPER_CHAOS_SPEAR_CMD_BUFFER_MAX = 6
+VIPER_CHAOS_SPEAR_STARTUP_MS = 750   # 수류탄 투척 모션 윈드업 + 입력 잠금
+VIPER_CHAOS_SPEAR_TRAVEL_MS = 280
+VIPER_CHAOS_SPEAR_IMPACT_MS = 360    # 박힘(0~45%) + 폭발/블랙홀생성(45~100%) 3페이즈
+VIPER_CHAOS_SPEAR_BLACKHOLE_MS = 3000
+VIPER_CHAOS_SPEAR_FADE_MS = 420
+VIPER_CHAOS_SPEAR_PULL_RADIUS = 175
+VIPER_CHAOS_SPEAR_SPEAR_HIT_RADIUS = 22
+VIPER_CHAOS_SPEAR_INGRESS_MS = 520
+VIPER_CHAOS_SPEAR_VISUAL_LENGTH = 78  # 스피어 시각 길이(px)
+VIPER_CHAOS_SPEAR_GOLD_TICK_MS = 100
+VIPER_CHAOS_SPEAR_GOLD_PER_TICK = 1
+VIPER_CHAOS_SPEAR_OBJECT_GOLD = 5
+_viper_chaos_spear_cmd_buffer = []
+_viper_chaos_spear_prev_keys = {"a": False, "w": False, "d": False}
+_viper_chaos_spear_state = "idle"
+_viper_chaos_spear_state_start_ms = 0
+_viper_chaos_spear_origin_x = 0.0
+_viper_chaos_spear_origin_y = 0.0
+_viper_chaos_spear_target_x = 0.0
+_viper_chaos_spear_target_y = 0.0
+_viper_chaos_spear_current_x = 0.0
+_viper_chaos_spear_current_y = 0.0
+_viper_chaos_spear_prev_ball_center = None
+_viper_chaos_spear_blackhole_ball_origin = None
+_viper_chaos_spear_orbit_seed = 0.0
+_viper_chaos_spear_base_radius = 52.0
+_viper_chaos_spear_absorb_pulses = []
+_viper_chaos_spear_cancel_flash = 0
+_viper_chaos_spear_last_absorb_ms = 0
+_viper_chaos_spear_flight_angle = 0.0  # flying 시작 시 캐시된 각도(rad)
+_viper_chaos_spear_impact_seed = 0.0   # 균열 패턴 시드
+_viper_chaos_spear_locked_player_x = None  # startup 동안 패들 고정 좌표
+_viper_chaos_spear_quantum_ghosts = []  # blackhole 양자중첩 고스트 목록
+_viper_chaos_spear_explosion_shaken = False  # 임팩트 폭발 모멘트 2차 셰이크 트리거 여부
+_viper_chaos_spear_pause_start_ms = 0
+_viper_chaos_spear_ui_pause_depth = 0
+_viper_chaos_spear_runtime_freeze_paused = False
+_viper_chaos_spear_gold_ticks_paid = 0
+
+
+def _is_viper_chaos_spear_time_frozen() -> bool:
+    return bool(
+        _viper_chaos_spear_ui_pause_depth > 0
+        or _viper_chaos_spear_runtime_freeze_paused
+    )
+
+
+def _get_viper_chaos_spear_effective_now_ms(now_ms: int | None = None) -> int:
+    if now_ms is None:
+        now_ms = pygame.time.get_ticks()
+    if _is_viper_chaos_spear_time_frozen() and _viper_chaos_spear_pause_start_ms > 0:
+        return _viper_chaos_spear_pause_start_ms
+    return now_ms
+
+
+def _sync_viper_chaos_spear_pause_timers(now_ms: int | None = None) -> None:
+    global _viper_chaos_spear_state_start_ms, _viper_chaos_spear_last_absorb_ms
+    global _viper_chaos_spear_pause_start_ms, _viper_chaos_spear_prev_ball_center
+
+    if now_ms is None:
+        now_ms = pygame.time.get_ticks()
+
+    if _is_viper_chaos_spear_time_frozen():
+        if _viper_chaos_spear_pause_start_ms <= 0:
+            _viper_chaos_spear_pause_start_ms = now_ms
+        return
+
+    if _viper_chaos_spear_pause_start_ms <= 0:
+        return
+
+    paused_duration = max(0, now_ms - _viper_chaos_spear_pause_start_ms)
+    _viper_chaos_spear_pause_start_ms = 0
+    if paused_duration <= 0:
+        return
+
+    if _viper_chaos_spear_state_start_ms > 0:
+        _viper_chaos_spear_state_start_ms += paused_duration
+    if _viper_chaos_spear_last_absorb_ms > 0:
+        _viper_chaos_spear_last_absorb_ms += paused_duration
+
+    # 블랙홀 해제 직후 첫 프레임에 큰 속도 튐이 생기지 않도록 기준점을 현재 공 위치로 맞춘다.
+    if _viper_chaos_spear_state == "blackhole" and BALL is not None:
+        _viper_chaos_spear_prev_ball_center = (float(BALL.centerx), float(BALL.centery))
+
+
+def _freeze_viper_chaos_spear_ui_time(now_ms: int | None = None) -> None:
+    global _viper_chaos_spear_ui_pause_depth
+    _viper_chaos_spear_ui_pause_depth += 1
+    _sync_viper_chaos_spear_pause_timers(now_ms)
+
+
+def _thaw_viper_chaos_spear_ui_time(now_ms: int | None = None) -> None:
+    global _viper_chaos_spear_ui_pause_depth
+    _viper_chaos_spear_ui_pause_depth = max(0, _viper_chaos_spear_ui_pause_depth - 1)
+    _sync_viper_chaos_spear_pause_timers(now_ms)
+
+
+def _set_viper_chaos_spear_runtime_freeze(paused: bool, now_ms: int | None = None) -> None:
+    global _viper_chaos_spear_runtime_freeze_paused
+    if _viper_chaos_spear_runtime_freeze_paused == paused:
+        return
+    _viper_chaos_spear_runtime_freeze_paused = paused
+    _sync_viper_chaos_spear_pause_timers(now_ms)
+
 
 def _freeze_skill_cooldowns() -> None:
     """TAB/ESC/P키 등 일시정지 진입 시 바이퍼/스매셔 스킬 쿨타임을 정지한다."""
     global _skill_cooldown_general_pause_start, _skill_cooldown_general_pause_depth
+    now_ms = pygame.time.get_ticks()
     _skill_cooldown_general_pause_depth += 1
     if _skill_cooldown_general_pause_start == 0:
-        _skill_cooldown_general_pause_start = pygame.time.get_ticks()
+        _skill_cooldown_general_pause_start = now_ms
+    _freeze_viper_chaos_spear_ui_time(now_ms)
 
 
 def _thaw_skill_cooldowns() -> None:
     """일시정지 해제 시 정지된 시간을 쿨타임 누적값에 반영한다."""
     global _skill_cooldown_general_pause_start, _skill_cooldown_general_pause_depth
     global _viper_tooltip_pause_accumulated, _smasher_tooltip_pause_accumulated
+    global _soldier_tooltip_pause_accumulated
+    now_ms = pygame.time.get_ticks()
     _skill_cooldown_general_pause_depth = max(0, _skill_cooldown_general_pause_depth - 1)
     if _skill_cooldown_general_pause_depth == 0 and _skill_cooldown_general_pause_start > 0:
-        paused_duration = pygame.time.get_ticks() - _skill_cooldown_general_pause_start
+        paused_duration = now_ms - _skill_cooldown_general_pause_start
         _viper_tooltip_pause_accumulated += paused_duration
         _smasher_tooltip_pause_accumulated += paused_duration
+        _soldier_tooltip_pause_accumulated += paused_duration
         _skill_cooldown_general_pause_start = 0
+    _thaw_viper_chaos_spear_ui_time(now_ms)
 
 
 def reset_viper_skill_unlocks():
@@ -4734,6 +5173,9 @@ def reset_viper_skill_unlocks():
         "dive_strike": False,
         "phantom_kick": False,
         "dark_blade": False,
+        "chaos_spear": False,
+        "core_flip": False,
+        "ignition_aura": False,
     }
     _viper_equipped_skills = ["shadow_step", "blade_rush", "marshal_kick"]
     # 드래그 상태 초기화
@@ -4744,6 +5186,13 @@ def reset_viper_skill_unlocks():
     _viper_orb_drag_index = -1
     _viper_orb_drag_started = False
     _viper_orb_drag_prev_mouse_down = False
+    _reset_viper_chaos_spear_state(clear_command=True)
+    # 새 런 시작 시 이그니션오라 활성 상태 / 파티클 / hg_stack 모두 정리
+    try:
+        _reset_viper_ignition_aura_state(reset_cooldown=True)
+        _hg_on_deactivate('ignition_aura')
+    except Exception:
+        pass
 
 
 def unlock_viper_skill(skill_name: str) -> bool:
@@ -4764,7 +5213,7 @@ def is_viper_skill_unlocked(skill_name: str) -> bool:
 
 def is_viper_skill_slots_full() -> bool:
     """바이퍼 스킬 슬롯이 최대치(5개)에 도달했는지 확인"""
-    return len(_viper_equipped_skills) >= VIPER_MAX_SKILL_SLOTS
+    return len(_viper_equipped_skills) >= get_viper_max_skill_slots()
 
 
 def get_viper_equipped_skills():
@@ -4777,7 +5226,7 @@ def equip_viper_skill(skill_name: str) -> bool:
     global _viper_equipped_skills
     if skill_name in _viper_equipped_skills:
         return True
-    if len(_viper_equipped_skills) < VIPER_MAX_SKILL_SLOTS:
+    if len(_viper_equipped_skills) < get_viper_max_skill_slots():
         _viper_equipped_skills.append(skill_name)
         return True
     return False
@@ -4882,6 +5331,213 @@ def _show_viper_skill_swap_dialog(new_skill_name: str) -> str | None:
     )
 
 
+_SOLDIER_SWAP_THEME = {
+    "bg_top": (26, 30, 40),
+    "bg_bottom": (10, 12, 18),
+    "frame_outer": (120, 150, 190),
+    "frame_inner": (65, 84, 112),
+    "title": (230, 240, 255),
+    "subtitle": (165, 188, 214),
+    "card_bg": (18, 24, 34),
+    "card_border": (90, 114, 148),
+    "card_hover_bg": (30, 38, 52),
+    "card_hover_border": (150, 190, 240),
+    "button_bg": (22, 28, 38),
+    "button_hover_bg": (36, 46, 62),
+    "button_border": (130, 160, 205),
+    "button_text": (236, 244, 255),
+    "hint_color": (172, 188, 205),
+    "chip_bg": (26, 34, 48),
+    "spark_color": (255, 210, 120),
+}
+
+
+def _show_soldier_skill_swap_dialog(new_skill_name: str) -> str | None:
+    """코만도 영구 화기 슬롯이 가득 찼을 때 교체할 화기류를 선택하는 다이얼로그."""
+    return _show_themed_skill_swap_dialog(
+        new_skill_name=new_skill_name,
+        equipped=get_soldier_equipped_skills(),
+        locked_skills=set(SOLDIER_LOCKED_ORB_SKILLS),
+        skill_icons_data=SOLDIER_SKILL_ICONS_DATA,
+        theme=_SOLDIER_SWAP_THEME,
+    )
+
+
+# ──────────────────────────────────────────────────────────────
+# 천상의 망토 해제 시 6번째 슬롯 스킬 처리 (C안: 사용자 의도적 해제만 다이얼로그)
+#
+# 해제 시 정책:
+#   - 6번째 슬롯에 장착된 마지막 스킬 제거 + 해당 runtime_skill_level 삭제
+#   - 재장착 시 6번째 슬롯은 비어서 복귀 (스킬은 풀에 남아 재획득 가능)
+#
+# 다이얼로그:
+#   - 사용자 의도적 해제 (인벤토리 우클릭, 같은 슬롯 교체) 시만
+#   - 사망/메인메뉴/강제 리셋은 조용히 _cleanup_heavenly_cape_overflow_skills()
+#     로 자동 정리 (sync_equipped_passive_effects 가 매 프레임 안전망으로 호출)
+# ──────────────────────────────────────────────────────────────
+def _heavenly_cape_would_delete_skill() -> bool:
+    """망토 해제 시 실제로 제거될 6번째 스킬이 있는지 사전 확인 (다이얼로그 게이트용)."""
+    return (
+        len(_smasher_equipped_skills) > SMASHER_BASE_MAX_SKILL_SLOTS
+        or len(_viper_equipped_skills) > VIPER_BASE_MAX_SKILL_SLOTS
+        or len(_soldier_equipped_skills) > 5
+    )
+
+
+def _cleanup_heavenly_cape_overflow_skills() -> list:
+    """천상의 망토 해제 시 6번째 슬롯 스킬 자동 제거 — 모든 경로에서 안전하게 호출.
+
+    각 캐릭터의 equipped_skills 가 base_max(5)를 초과한 경우 마지막 (가장
+    나중에 장착한) 스킬을 제거하고 runtime_skill_levels 에서도 삭제한다.
+    idempotent — 첫 호출에서 overflow 제거, 이후는 no-op.
+
+    Returns:
+        list[tuple[str, str]]: 제거된 (character, skill_id) 목록.
+    """
+    global runtime_skill_levels
+    global _smasher_equipped_skills, _viper_equipped_skills, _soldier_equipped_skills
+
+    removed = []
+    if len(_smasher_equipped_skills) > SMASHER_BASE_MAX_SKILL_SLOTS:
+        victim = _smasher_equipped_skills.pop()
+        runtime_skill_levels.pop(victim, None)
+        removed.append(("smasher", victim))
+    if len(_viper_equipped_skills) > VIPER_BASE_MAX_SKILL_SLOTS:
+        victim = _viper_equipped_skills.pop()
+        runtime_skill_levels.pop(victim, None)
+        removed.append(("viper", victim))
+    if len(_soldier_equipped_skills) > 5:  # 왼쪽 4 + 오른쪽 1 = 5 기본
+        victim = _soldier_equipped_skills.pop()
+        runtime_skill_levels.pop(victim, None)
+        removed.append(("soldier", victim))
+    return removed
+
+
+def show_heavenly_cape_unequip_confirm() -> bool:
+    """천상의 망토 해제 확인 모달 다이얼로그. True=해제 진행, False=취소.
+
+    show_discard_confirm_dialog 패턴 재활용, 금빛 테마로 차별화.
+    기본 포커스 '아니오' — 실수 방지.
+    """
+    dialog_font = get_font(20, style="regular")
+    dialog_font_small = get_font(15, style="regular")
+    dialog_width, dialog_height = 400, 190
+    dialog_x = (WIDTH - dialog_width) // 2
+    dialog_y = (HEIGHT - dialog_height) // 2
+    dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_width, dialog_height)
+
+    btn_width, btn_height = 100, 36
+    btn_gap = 30
+    btn_y = dialog_rect.bottom - btn_height - 20
+    yes_btn = pygame.Rect(dialog_rect.centerx - btn_width - btn_gap // 2, btn_y, btn_width, btn_height)
+    no_btn = pygame.Rect(dialog_rect.centerx + btn_gap // 2, btn_y, btn_width, btn_height)
+
+    selected_btn = 1  # 기본값: 아니오 (실수 방지)
+    dialog_clock = pygame.time.Clock()
+
+    while True:
+        dialog_clock.tick(60)
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 어두운 오버레이
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
+        SCREEN.blit(overlay, (0, 0))
+
+        # 다이얼로그 박스 (금빛 테마 - 천상의 망토 테마)
+        pygame.draw.rect(SCREEN, (30, 34, 50), dialog_rect, border_radius=12)
+        pygame.draw.rect(SCREEN, (240, 210, 120), dialog_rect, 3, border_radius=12)
+
+        # 제목
+        title_text = dialog_font.render("천상의 망토 해제", True, (240, 210, 120))
+        title_rect = title_text.get_rect(centerx=dialog_rect.centerx, top=dialog_rect.y + 14)
+        SCREEN.blit(title_text, title_rect)
+
+        # 본문 (2줄)
+        msg1 = dialog_font_small.render("6번째 슬롯의 스킬과 해당 액티브 스킬 퍽이", True, WHITE)
+        msg1_rect = msg1.get_rect(centerx=dialog_rect.centerx, top=title_rect.bottom + 16)
+        SCREEN.blit(msg1, msg1_rect)
+
+        msg2 = dialog_font_small.render("삭제됩니다. 계속하시겠습니까?", True, WHITE)
+        msg2_rect = msg2.get_rect(centerx=dialog_rect.centerx, top=msg1_rect.bottom + 4)
+        SCREEN.blit(msg2, msg2_rect)
+
+        # 예 버튼 (붉은 계열 - 위험 강조)
+        yes_hover = yes_btn.collidepoint(mouse_pos)
+        yes_selected = selected_btn == 0
+        yes_color = (200, 80, 80) if yes_selected or yes_hover else (100, 60, 60)
+        yes_border = (255, 150, 150) if yes_selected else (180, 100, 100)
+        pygame.draw.rect(SCREEN, yes_color, yes_btn, border_radius=8)
+        pygame.draw.rect(SCREEN, yes_border, yes_btn, 2, border_radius=8)
+        yes_text = dialog_font.render("예", True, WHITE)
+        SCREEN.blit(yes_text, yes_text.get_rect(center=yes_btn.center))
+
+        # 아니오 버튼 (안전 색상)
+        no_hover = no_btn.collidepoint(mouse_pos)
+        no_selected = selected_btn == 1
+        no_color = (60, 80, 120) if no_selected or no_hover else (50, 60, 80)
+        no_border = (150, 180, 255) if no_selected else (100, 130, 180)
+        pygame.draw.rect(SCREEN, no_color, no_btn, border_radius=8)
+        pygame.draw.rect(SCREEN, no_border, no_btn, 2, border_radius=8)
+        no_text = dialog_font.render("아니오", True, WHITE)
+        SCREEN.blit(no_text, no_text.get_rect(center=no_btn.center))
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return False
+                if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                    selected_btn = 1 - selected_btn
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    return selected_btn == 0
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if yes_btn.collidepoint(event.pos):
+                    return True
+                if no_btn.collidepoint(event.pos):
+                    return False
+
+
+def _get_player_skill_cooldown_multiplier() -> float:
+    """플레이어 스킬 공통 쿨타임 배율 (천사/단련/타이머벨트)."""
+    multiplier = float(globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0))
+
+    training_bonus = get_runtime_skill_bonus("common_training")
+    if training_bonus > 0:
+        multiplier *= max(0.0, 1.0 - float(training_bonus))
+
+    timer_belt_pct = float(globals().get("timer_belt_reduction_pct", 0))
+    timer_belt_pct = max(0.0, min(95.0, timer_belt_pct))
+    if timer_belt_pct > 0:
+        multiplier *= max(0.0, 1.0 - (timer_belt_pct / 100.0))
+
+    # 천상의 망토 (신화) - 장착 시 플레이어 스킬 쿨타임 감소 (롤 옵션 10~20%)
+    heavenly_cape_pct = float(globals().get("heavenly_cape_cooldown_reduction_pct", 0))
+    heavenly_cape_pct = max(0.0, min(95.0, heavenly_cape_pct))
+    if heavenly_cape_pct > 0:
+        multiplier *= max(0.0, 1.0 - (heavenly_cape_pct / 100.0))
+
+    return max(0.0, multiplier)
+
+
+def _get_effective_player_skill_cooldown_seconds(base_cooldown_sec: float) -> float:
+    """플레이어 스킬 최종 쿨타임(초)."""
+    return max(0.0, float(base_cooldown_sec) * _get_player_skill_cooldown_multiplier())
+
+
+def _get_effective_player_skill_cooldown_ms(base_cooldown_sec: float) -> int:
+    """플레이어 스킬 최종 쿨타임(ms)."""
+    return max(0, int(_get_effective_player_skill_cooldown_seconds(base_cooldown_sec) * 1000))
+
+
+def _apply_player_skill_cooldown_multiplier_int(base_value: int | float) -> int:
+    """프레임/밀리초 등 정수형 쿨타임 값에 공통 배율 적용."""
+    return max(0, int(float(base_value) * _get_player_skill_cooldown_multiplier()))
+
+
 def trigger_viper_skill_cooldown(skill_name: str):
     """바이퍼 스킬 쿨타임 시작 (골드는 타격 성공 시에만 지급)"""
     global _viper_skill_cooldowns, _viper_tooltip_pause_accumulated
@@ -4905,15 +5561,7 @@ def get_viper_skill_cooldown_remaining(skill_name: str) -> float:
     if cooldown_sec <= 0:
         return 0.0
 
-    cooldown_ms = cooldown_sec * 1000
-    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
-    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-    if _angel_skill_cd != 1.0:
-        cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
-    _training_bonus = get_runtime_skill_bonus("common_training")
-    if _training_bonus > 0:
-        cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
+    cooldown_ms = _get_effective_player_skill_cooldown_ms(cooldown_sec)
     cooldown_data = _viper_skill_cooldowns.get(skill_name)
 
     if cooldown_data is None:
@@ -4956,7 +5604,1900 @@ def reset_viper_skill_cooldowns():
         "phantom_kick": 0,
         "dive_strike": 0,
         "dark_blade": 0,
+        "chaos_spear": 0,
+        "core_flip": 0,
+        "ignition_aura": 0,
     }
+    _reset_viper_chaos_spear_state(clear_command=True)
+    # 라운드 전환 / 새 게임 시 활성 오라도 함께 종료 (CLAUDE.md §7 기본 정책)
+    try:
+        _reset_viper_ignition_aura_state(reset_cooldown=True)
+    except Exception:
+        pass
+
+
+def _get_viper_chaos_spear_center() -> tuple[float, float]:
+    """카오스 스피어가 명중하는 중앙 좌표.
+    바이퍼 쉐도우 백스탭 사정거리를 고려해 중앙선보다 60px 아래로 설정."""
+    try:
+        return (
+            float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2),
+            float(INTERNAL_HEIGHT // 2 + 60),
+        )
+    except Exception:
+        return float(WIDTH // 2), float(HEIGHT // 2 + 60)
+
+
+def _grant_viper_chaos_spear_gold(
+    amount: int,
+    x: float | None = None,
+    y: float | None = None,
+) -> None:
+    """카오스 스피어 전용 골드 보상 헬퍼."""
+    global _viper_skill_gold_this_frame
+    if amount <= 0:
+        return
+    if x is None or y is None:
+        x, y = _get_viper_chaos_spear_center()
+    try:
+        add_ingame_gold(int(amount), float(x), float(y) - 22.0, source="skill")
+        _viper_skill_gold_this_frame = True
+    except Exception:
+        pass
+
+
+def _reset_viper_chaos_spear_state(clear_command: bool = False) -> None:
+    """카오스 스피어 런타임 상태 초기화."""
+    global _viper_chaos_spear_state, _viper_chaos_spear_state_start_ms
+    global _viper_chaos_spear_origin_x, _viper_chaos_spear_origin_y
+    global _viper_chaos_spear_target_x, _viper_chaos_spear_target_y
+    global _viper_chaos_spear_current_x, _viper_chaos_spear_current_y
+    global _viper_chaos_spear_prev_ball_center, _viper_chaos_spear_orbit_seed
+    global _viper_chaos_spear_base_radius, _viper_chaos_spear_absorb_pulses
+    global _viper_chaos_spear_cancel_flash, _viper_chaos_spear_last_absorb_ms
+    global _viper_chaos_spear_cmd_buffer, _viper_chaos_spear_prev_keys
+    global _viper_chaos_spear_blackhole_ball_origin
+    global _viper_chaos_spear_flight_angle, _viper_chaos_spear_impact_seed
+    global _viper_chaos_spear_locked_player_x, _viper_chaos_spear_quantum_ghosts
+    global _viper_chaos_spear_pause_start_ms, _viper_chaos_spear_gold_ticks_paid
+
+    _viper_chaos_spear_state = "idle"
+    _viper_chaos_spear_state_start_ms = 0
+    _viper_chaos_spear_origin_x = 0.0
+    _viper_chaos_spear_origin_y = 0.0
+    _viper_chaos_spear_target_x = 0.0
+    _viper_chaos_spear_target_y = 0.0
+    _viper_chaos_spear_current_x = 0.0
+    _viper_chaos_spear_current_y = 0.0
+    _viper_chaos_spear_prev_ball_center = None
+    _viper_chaos_spear_blackhole_ball_origin = None
+    _viper_chaos_spear_orbit_seed = 0.0
+    _viper_chaos_spear_base_radius = 52.0
+    _viper_chaos_spear_absorb_pulses = []
+    _viper_chaos_spear_cancel_flash = 0
+    _viper_chaos_spear_last_absorb_ms = 0
+    _viper_chaos_spear_flight_angle = 0.0
+    _viper_chaos_spear_impact_seed = 0.0
+    _viper_chaos_spear_locked_player_x = None
+    _viper_chaos_spear_quantum_ghosts = []
+    _viper_chaos_spear_explosion_shaken = False
+    _viper_chaos_spear_pause_start_ms = 0
+    _viper_chaos_spear_gold_ticks_paid = 0
+    if clear_command:
+        _viper_chaos_spear_cmd_buffer = []
+        _viper_chaos_spear_prev_keys = {"a": False, "w": False, "d": False}
+
+
+def _viper_chaos_spear_cmd_push(key_char: str, now_ms: int) -> None:
+    global _viper_chaos_spear_cmd_buffer
+    _viper_chaos_spear_cmd_buffer.append((key_char, now_ms))
+    if len(_viper_chaos_spear_cmd_buffer) > VIPER_CHAOS_SPEAR_CMD_BUFFER_MAX:
+        _viper_chaos_spear_cmd_buffer = _viper_chaos_spear_cmd_buffer[-VIPER_CHAOS_SPEAR_CMD_BUFFER_MAX:]
+
+
+def _viper_chaos_spear_cmd_check_awd(now_ms: int) -> bool:
+    global _viper_chaos_spear_cmd_buffer
+    if len(_viper_chaos_spear_cmd_buffer) < 3:
+        return False
+    k1, t1 = _viper_chaos_spear_cmd_buffer[-3]
+    k2, t2 = _viper_chaos_spear_cmd_buffer[-2]
+    k3, t3 = _viper_chaos_spear_cmd_buffer[-1]
+    if (k1, k2, k3) != ("a", "w", "d"):
+        return False
+    if (t2 - t1) > VIPER_CHAOS_SPEAR_CMD_WINDOW_MS:
+        return False
+    if (t3 - t2) > VIPER_CHAOS_SPEAR_CMD_WINDOW_MS:
+        return False
+    if (now_ms - t3) > VIPER_CHAOS_SPEAR_CMD_WINDOW_MS:
+        return False
+    _viper_chaos_spear_cmd_buffer = []
+    return True
+
+
+def _viper_chaos_spear_spawn_absorb_pulse(x: float, y: float, strength: float = 1.0,
+                                            color: tuple = None) -> None:
+    """흡수된 오브젝트를 중심으로 끌려가는 카오스 파편으로 등록.
+    파편은 중력 가속을 받으며 중심점까지 끌려가다 도달 시 파괴된다."""
+    global _viper_chaos_spear_absorb_pulses
+    s = float(strength)
+    # 중심으로 향하는 초기 속도 (가벼운 푸시) + 작은 접선 회전
+    cx, cy = _get_viper_chaos_spear_center()
+    dx0 = cx - x
+    dy0 = cy - y
+    dist0 = max(1.0, math.hypot(dx0, dy0))
+    inward = 0.8 + s * 0.4
+    tang = random.uniform(-1.0, 1.0) * 1.4
+    vx0 = (dx0 / dist0) * inward + (-dy0 / dist0) * tang
+    vy0 = (dy0 / dist0) * inward + (dx0 / dist0) * tang
+    _viper_chaos_spear_absorb_pulses.append({
+        "x": float(x),
+        "y": float(y),
+        "vx": float(vx0),
+        "vy": float(vy0),
+        "size": max(6.0, 12.0 * s),
+        "base_size": max(6.0, 12.0 * s),
+        "life": 60,           # 최대 1초간 끌려갈 수 있음 (충분한 시간)
+        "max_life": 60,
+        "trail": [(float(x), float(y))],
+        "color": color or (200, 130, 255),  # 기본 보라, 오브젝트 컬러 힌트 가능
+        "consumed": False,    # 중심 도달 여부 플래그
+    })
+    if len(_viper_chaos_spear_absorb_pulses) > 96:
+        _viper_chaos_spear_absorb_pulses = _viper_chaos_spear_absorb_pulses[-96:]
+
+
+def _viper_chaos_spear_target_pos(target) -> tuple[float, float]:
+    if isinstance(target, pygame.Rect):
+        return float(target.centerx), float(target.centery)
+    if isinstance(target, dict):
+        if "rect" in target and isinstance(target["rect"], pygame.Rect):
+            return float(target["rect"].centerx), float(target["rect"].centery)
+        if "cells" in target:
+            cells = target.get("cells", [])
+            rects = [c.get("rect") for c in cells if isinstance(c, dict) and isinstance(c.get("rect"), pygame.Rect)]
+            if rects:
+                return (
+                    float(sum(r.centerx for r in rects) / len(rects)),
+                    float(sum(r.centery for r in rects) / len(rects)),
+                )
+        if "x" in target and "y" in target:
+            return float(target.get("x", 0.0)), float(target.get("y", 0.0))
+        if "pos" in target and isinstance(target["pos"], (list, tuple)) and len(target["pos"]) >= 2:
+            return float(target["pos"][0]), float(target["pos"][1])
+    if isinstance(target, (list, tuple)):
+        if len(target) >= 2 and isinstance(target[0], (int, float)) and isinstance(target[1], (int, float)):
+            return float(target[0]), float(target[1])
+        if len(target) >= 1 and isinstance(target[0], (list, tuple)) and len(target[0]) >= 2:
+            return float(target[0][0]), float(target[0][1])
+    return _get_viper_chaos_spear_center()
+
+
+_VIPER_CHAOS_SPEAR_COLOR_HINTS = {
+    "fireballs": (255, 140, 60),
+    "turret_missiles": (255, 180, 80),
+    "stage5_fireballs": (255, 100, 50),
+    "falling_tears": (140, 220, 255),
+    "water_cannon_fragments": (120, 200, 255),
+    "alice_rabbit_projectiles": (255, 180, 230),
+    "cotton_throw_projectiles": (255, 240, 240),
+    "cotton_bomb_projectiles": (255, 220, 220),
+    "cotton_bomb_fragments": (240, 200, 200),
+    "spider_rage_projectiles": (180, 120, 60),
+    "fan_throw_extra_projectiles": (200, 240, 255),
+    "stage8_shurikens": (220, 220, 230),
+    "moon_fragments": (255, 80, 60),  # 스테이지 4 붉은달 파편
+}
+
+# 매 프레임 물리적으로 끌어당길 투사체 리스트
+# (실제 오브젝트가 자기 모습 그대로 중심으로 빨려들어감)
+_VIPER_CHAOS_SPEAR_PULL_LISTS = (
+    "fireballs",
+    "turret_missiles",
+    "falling_tears",
+    "water_cannon_fragments",
+    "alice_rabbit_projectiles",
+    "cotton_throw_projectiles",
+    "cotton_bomb_projectiles",
+    "cotton_bomb_fragments",
+    "spider_rage_projectiles",
+    "fan_throw_extra_projectiles",
+    "stage8_shurikens",
+    # 상태 기반 설치물도 물리 끌기 대상으로 확장
+    "web_traps",
+    "tunnel_raid_spikes",
+    "interceptors",
+    "stage7_tetrominoes",
+)
+
+
+def _viper_chaos_spear_obj_get_xy(obj):
+    """오브젝트의 (x, y)를 추출. 다양한 구조 지원."""
+    if isinstance(obj, dict):
+        if "x" in obj and "y" in obj:
+            try:
+                return float(obj["x"]), float(obj["y"])
+            except (TypeError, ValueError):
+                pass
+        cells = obj.get("cells") if obj else None
+        if isinstance(cells, list):
+            rects = [
+                cell.get("rect") for cell in cells
+                if isinstance(cell, dict) and isinstance(cell.get("rect"), pygame.Rect)
+            ]
+            if rects:
+                avg_x = sum(rect.centerx for rect in rects) / len(rects)
+                avg_y = sum(rect.centery for rect in rects) / len(rects)
+                return float(avg_x), float(avg_y)
+        rect = obj.get("rect") if obj else None
+        if isinstance(rect, pygame.Rect):
+            return float(rect.centerx), float(rect.centery)
+    elif isinstance(obj, list) and len(obj) >= 2:
+        first = obj[0]
+        if isinstance(first, (int, float)):
+            try:
+                return float(obj[0]), float(obj[1])
+            except (TypeError, ValueError):
+                return None
+        if isinstance(first, list) and len(first) >= 2:
+            try:
+                return float(first[0]), float(first[1])
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _viper_chaos_spear_obj_set_xy(obj, new_x: float, new_y: float,
+                                  move_dx: float = 0.0, move_dy: float = 0.0,
+                                  list_name: str | None = None) -> bool:
+    """오브젝트의 위치를 in-place로 갱신하고 자체 속도/페이즈를 동결한다."""
+    if isinstance(obj, dict):
+        if "x" in obj and "y" in obj:
+            obj["x"] = new_x
+            obj["y"] = new_y
+            if "vx" in obj and isinstance(obj["vx"], (int, float)):
+                obj["vx"] = move_dx
+            if "vy" in obj and isinstance(obj["vy"], (int, float)):
+                obj["vy"] = move_dy
+            if "speed_x" in obj and isinstance(obj["speed_x"], (int, float)):
+                obj["speed_x"] = move_dx
+            if "speed_y" in obj and isinstance(obj["speed_y"], (int, float)):
+                obj["speed_y"] = move_dy
+            if "dx" in obj and isinstance(obj["dx"], (int, float)):
+                obj["dx"] = move_dx
+            if "dy" in obj and isinstance(obj["dy"], (int, float)):
+                obj["dy"] = move_dy
+            if "speed" in obj and isinstance(obj["speed"], (int, float)):
+                obj["speed"] = math.hypot(move_dx, move_dy)
+            for vk in ("fall_speed", "gravity", "rotation_speed"):
+                if vk in obj and isinstance(obj[vk], (int, float)):
+                    obj[vk] = 0
+            # 페이즈 진행 동결 (tunnel_raid_spikes, web_traps 등의 자체 애니 정지)
+            if "phase" in obj and isinstance(obj["phase"], str):
+                obj["phase"] = "hold"
+            if "phase_timer" in obj and isinstance(obj["phase_timer"], (int, float)):
+                obj["phase_timer"] = 0
+            if "timer" in obj and list_name == "tunnel_raid_spikes" and isinstance(obj["timer"], (int, float)):
+                obj["timer"] = 0
+            if list_name == "interceptors":
+                obj["state"] = "chaos_pull"
+                obj["chaos_pull_angle"] = math.atan2(move_dy, move_dx) if (move_dx or move_dy) else float(obj.get("chaos_pull_angle", 0.0))
+                if "target_x" in obj:
+                    obj["target_x"] = new_x
+                if "target_y" in obj:
+                    obj["target_y"] = new_y
+            # 타이머가 있으면 빠르게 소진되지 않게 살짝 늘려둠 (시각적 연속성)
+            rect = obj.get("rect")
+            if isinstance(rect, pygame.Rect):
+                rect.centerx = int(new_x)
+                rect.centery = int(new_y)
+            collision_rect = obj.get("collision_rect")
+            if isinstance(collision_rect, pygame.Rect):
+                collision_rect.centerx = int(new_x)
+                collision_rect.centery = int(new_y)
+            return True
+        cells = obj.get("cells")
+        if isinstance(cells, list):
+            rects = [
+                cell.get("rect") for cell in cells
+                if isinstance(cell, dict) and isinstance(cell.get("rect"), pygame.Rect)
+            ]
+            if rects:
+                cur_cx = sum(rect.centerx for rect in rects) / len(rects)
+                cur_cy = sum(rect.centery for rect in rects) / len(rects)
+                shift_x = new_x - cur_cx
+                shift_y = new_y - cur_cy
+                for cell in cells:
+                    rect = cell.get("rect") if isinstance(cell, dict) else None
+                    if not isinstance(rect, pygame.Rect):
+                        continue
+                    rect.centerx = int(round(rect.centerx + shift_x))
+                    rect.centery = int(round(rect.centery + shift_y))
+                if list_name == "stage7_tetrominoes":
+                    obj["state"] = "chaos_pull"
+                    obj["step_accum"] = 0.0
+                    obj["drift_cells_remaining"] = 0
+                    obj["rotate_times_remaining"] = 0
+                    obj["visible_cells"] = len(rects)
+                    obj["chaos_pull_angle"] = math.atan2(move_dy, move_dx) if (move_dx or move_dy) else float(obj.get("chaos_pull_angle", 0.0))
+                return True
+        rect = obj.get("rect")
+        if isinstance(rect, pygame.Rect):
+            rect.centerx = int(new_x)
+            rect.centery = int(new_y)
+            if "vx" in obj and isinstance(obj["vx"], (int, float)):
+                obj["vx"] = move_dx
+            if "vy" in obj and isinstance(obj["vy"], (int, float)):
+                obj["vy"] = move_dy
+            if "angle" in obj and isinstance(obj["angle"], (int, float)) and (move_dx or move_dy):
+                obj["angle"] = math.atan2(move_dy, move_dx)
+            return True
+    elif isinstance(obj, list) and len(obj) >= 2:
+        first = obj[0]
+        if isinstance(first, (int, float)):
+            obj[0] = new_x
+            obj[1] = new_y
+            # 3번째가 speed로 추정되면 0으로
+            if len(obj) > 2 and isinstance(obj[2], (int, float)):
+                obj[2] = 0
+            # 4번째가 prev_y로 추정되면 동기화
+            if len(obj) > 3 and isinstance(obj[3], (int, float)):
+                obj[3] = new_y
+            return True
+        if isinstance(first, list) and len(first) >= 2:
+            first[0] = new_x
+            first[1] = new_y
+            # [pos, vel] 패턴이면 vel 제로화
+            if len(obj) > 1 and isinstance(obj[1], list) and len(obj[1]) >= 2:
+                if isinstance(obj[1][0], (int, float)):
+                    obj[1][0] = move_dx
+                if isinstance(obj[1][1], (int, float)):
+                    obj[1][1] = move_dy
+            return True
+    return False
+
+
+# 자체 'rotation' 속성을 시각적 회전 용도로 안전하게 업데이트할 수 있는 리스트
+# (crisis_rocks는 회전값이 시각 전용이고, stage7_tetrominoes는 셀 묶음을 직접 회전시킨다.)
+_VIPER_CHAOS_SPEAR_ROTATABLE_LISTS = frozenset({"crisis_rocks", "stage7_tetrominoes", "moon_fragments"})
+
+
+def _viper_chaos_spear_apply_spin(obj, list_name: str, ang_v_deg: float) -> None:
+    """리스트가 화이트리스트에 있고 오브젝트에 'rotation'이 있으면 시각적 회전 누적."""
+    if list_name not in _VIPER_CHAOS_SPEAR_ROTATABLE_LISTS:
+        return
+    if list_name == "stage7_tetrominoes":
+        if not isinstance(obj, dict):
+            return
+        cells = obj.get("cells")
+        if not isinstance(cells, list):
+            return
+        rects = [
+            cell.get("rect") for cell in cells
+            if isinstance(cell, dict) and isinstance(cell.get("rect"), pygame.Rect)
+        ]
+        if not rects:
+            return
+        cx = sum(rect.centerx for rect in rects) / len(rects)
+        cy = sum(rect.centery for rect in rects) / len(rects)
+        angle_rad = math.radians(ang_v_deg)
+        cos_r = math.cos(angle_rad)
+        sin_r = math.sin(angle_rad)
+        for rect in rects:
+            ox = rect.centerx - cx
+            oy = rect.centery - cy
+            rect.centerx = int(round(cx + ox * cos_r - oy * sin_r))
+            rect.centery = int(round(cy + ox * sin_r + oy * cos_r))
+        if "rotation" in obj and isinstance(obj["rotation"], (int, float)):
+            obj["rotation"] = (obj["rotation"] + ang_v_deg) % 360
+        return
+    if not isinstance(obj, dict):
+        return
+    rot = obj.get("rotation")
+    if isinstance(rot, (int, float)):
+        obj["rotation"] = (rot + ang_v_deg) % 360
+
+
+def _viper_chaos_spear_should_pull(list_name: str, obj) -> bool:
+    """특정 오브젝트는 끌기 대상에서 제외."""
+    if not isinstance(obj, dict):
+        return True
+    if list_name == "stage7_tetrominoes":
+        if obj.get("super") or obj.get("wall_generated"):
+            return False
+    if list_name == "crisis_rocks":
+        if obj.get("falling"):
+            return False
+    if list_name == "moon_fragments":
+        # 이미 충돌해서 충격파 단계인 파편은 제외 (자체 연출 살림)
+        if obj.get("impact"):
+            return False
+    return True
+
+
+def _viper_chaos_spear_destroy_object(list_name: str, obj) -> bool:
+    """오브젝트가 중심에 도달했을 때 특수 destroy 함수 호출.
+    True를 반환하면 호출 측은 리스트에서 직접 제거하지 않는다."""
+    if list_name == "stage7_tetrominoes":
+        try:
+            destroy_stage7_tetromino(obj, now=pygame.time.get_ticks(), by_smoke=True)
+        except Exception:
+            pass
+        return True
+    if list_name == "crisis_rocks":
+        try:
+            if animated_bg_stage2 is not None:
+                animated_bg_stage2.destroy_rock(obj)
+                if obj in animated_bg_stage2.crisis_rocks:
+                    animated_bg_stage2.crisis_rocks.remove(obj)
+        except Exception:
+            pass
+        return True
+    if list_name == "moon_fragments":
+        try:
+            if animated_bg_stage4 is not None:
+                if obj in animated_bg_stage4.moon_fragments:
+                    animated_bg_stage4.moon_fragments.remove(obj)
+                # 다단히트 쿨다운 정리 (메모리 누수 방지)
+                fragment_id = obj.get("fragment_id")
+                cooldowns = getattr(animated_bg_stage4, "fragment_hit_cooldowns", None)
+                if fragment_id is not None and isinstance(cooldowns, dict):
+                    cooldowns.pop(fragment_id, None)
+        except Exception:
+            pass
+        return True
+    return False
+
+
+def _viper_chaos_spear_pull_one_list(lst, list_name: str,
+                                       cx: float, cy: float, now_t: float) -> None:
+    """단일 리스트의 모든 오브젝트를 나선 궤적으로 끌어당기고 도달 시 파괴.
+    중력 + 각운동량 보존 스타일: 가까울수록 각속도가 빨라져 자연스럽게 회오리 형성."""
+    color = _VIPER_CHAOS_SPEAR_COLOR_HINTS.get(list_name)
+    for obj in list(lst):
+        if not _viper_chaos_spear_should_pull(list_name, obj):
+            continue
+        pos = _viper_chaos_spear_obj_get_xy(obj)
+        if pos is None:
+            continue
+        ox, oy = pos
+        # 중심에서 오브젝트로 향하는 벡터
+        dx_o = ox - cx
+        dy_o = oy - cy
+        dist = math.hypot(dx_o, dy_o)
+
+        if dist < 14.0:
+            handled = _viper_chaos_spear_destroy_object(list_name, obj)
+            if not handled:
+                try:
+                    lst.remove(obj)
+                except ValueError:
+                    pass
+            _grant_viper_chaos_spear_gold(
+                VIPER_CHAOS_SPEAR_OBJECT_GOLD,
+                ox,
+                oy,
+            )
+            _viper_chaos_spear_spawn_destroy_flash(cx, cy, color)
+            continue
+        dist = max(4.0, dist)
+
+        # 현재 각도 (중심 기준)
+        angle = math.atan2(dy_o, dx_o)
+
+        # 회전 방향: 오브젝트 id로 결정 (CW/CCW 혼재 → 카오스 회오리)
+        spin_dir = 1.0 if (id(obj) & 1) else -1.0
+
+        # 각속도: 가까울수록 빠름 (각운동량 보존)
+        # 멀리(200px): ~0.04 rad/frame, 가까이(20px): ~0.20 rad/frame
+        ang_v = min(0.22, 8.0 / dist) * spin_dir
+
+        # 새 각도
+        new_angle = angle + ang_v
+
+        # 방사 속도: 거리에 비례 (가까울수록 빠르게 빨려듦)
+        radial_speed = max(4.0, min(22.0, 460.0 / dist))
+        new_dist = max(0.0, dist - radial_speed)
+
+        # 새 위치 (나선 궤적)
+        new_x = cx + new_dist * math.cos(new_angle)
+        new_y = cy + new_dist * math.sin(new_angle)
+        move_dx = new_x - ox
+        move_dy = new_y - oy
+        _viper_chaos_spear_obj_set_xy(obj, new_x, new_y, move_dx, move_dy, list_name)
+
+        # 회전 가능한 오브젝트는 시각적 회전도 적용
+        # 각속도(rad/frame) → 도(deg/frame)로 변환, 자연스러운 시각감을 위해 1.8배
+        _viper_chaos_spear_apply_spin(obj, list_name, math.degrees(ang_v) * 1.8)
+
+
+def _viper_chaos_spear_pull_named_lists() -> None:
+    """블랙홀 동안 매 프레임 호출. 등록된 리스트의 모든 오브젝트를
+    실제 위치를 변경해 중심으로 끌어당기고, 도달 시 파괴한다."""
+    cx = float(_viper_chaos_spear_target_x)
+    cy = float(_viper_chaos_spear_target_y)
+    now_t = pygame.time.get_ticks() * 0.001
+    # 일반 globals 리스트
+    for list_name in _VIPER_CHAOS_SPEAR_PULL_LISTS:
+        lst = globals().get(list_name)
+        if not isinstance(lst, list) or not lst:
+            continue
+        _viper_chaos_spear_pull_one_list(lst, list_name, cx, cy, now_t)
+    # 특수: stage 2 crisis_rocks (animated_bg_stage2.crisis_rocks)
+    try:
+        if current_stage == 2 and animated_bg_stage2 is not None:
+            rocks = animated_bg_stage2.crisis_rocks
+            if isinstance(rocks, list) and rocks:
+                _viper_chaos_spear_pull_one_list(rocks, "crisis_rocks", cx, cy, now_t)
+    except Exception:
+        pass
+    # 특수: stage 4 붉은달 파편 (animated_bg_stage4.moon_fragments)
+    try:
+        if current_stage == 4 and animated_bg_stage4 is not None:
+            moon_frags = animated_bg_stage4.moon_fragments
+            if isinstance(moon_frags, list) and moon_frags:
+                _viper_chaos_spear_pull_one_list(moon_frags, "moon_fragments", cx, cy, now_t)
+    except Exception:
+        pass
+
+
+def _viper_chaos_spear_spawn_destroy_flash(x: float, y: float,
+                                              color: tuple = None) -> None:
+    """오브젝트가 중심에서 파괴되는 순간의 짧은 플래시."""
+    global _viper_chaos_spear_absorb_pulses
+    _viper_chaos_spear_absorb_pulses.append({
+        "x": float(x),
+        "y": float(y),
+        "vx": 0.0,
+        "vy": 0.0,
+        "size": 14.0,
+        "base_size": 14.0,
+        "life": 8,
+        "max_life": 8,
+        "trail": [],
+        "color": color or (220, 170, 255),
+        "consumed": True,    # 즉시 파괴 플래시 모드
+    })
+    if len(_viper_chaos_spear_absorb_pulses) > 96:
+        _viper_chaos_spear_absorb_pulses = _viper_chaos_spear_absorb_pulses[-96:]
+
+
+def _viper_chaos_spear_clear_named_list(list_name: str) -> int:
+    """[레거시] 일반 투사체/설치물 리스트를 즉시 비운다.
+    이제 _viper_chaos_spear_pull_named_lists()가 매 프레임 끌어당기므로
+    이 함수는 비-pull 리스트(상태 기반 이벤트의 잔여물 등)에서만 사용."""
+    target_list = globals().get(list_name)
+    if not isinstance(target_list, list) or not target_list:
+        return 0
+    color = _VIPER_CHAOS_SPEAR_COLOR_HINTS.get(list_name)
+    removed = 0
+    for obj in list(target_list):
+        px, py = _viper_chaos_spear_target_pos(obj)
+        _viper_chaos_spear_spawn_absorb_pulse(px, py, 0.85, color=color)
+        removed += 1
+    target_list.clear()
+    return removed
+
+
+def _absorb_viper_chaos_spear_field_objects(now_ms: int) -> int:
+    """카오스 스피어가 일반 보스 설치물/투사체를 빨아들인다."""
+    global flame_trail_rng, stage7_tetrominoes
+    global web_trap_projectile, web_traps
+    global web_rescue_active, web_rescue_phase, web_rescue_timer
+    global web_rescue_ball_x, web_rescue_ball_y
+    global tunnel_raid_active, tunnel_raid_phase, tunnel_raid_timer
+    global tunnel_raid_spikes, tunnel_raid_spike_count, tunnel_raid_spike_timer, tunnel_raid_trail
+    global fan_throw_active, fan_throw_timer, fan_throw_hit
+    global fan_wind_active, fan_wind_timer, fan_wind_captured, fan_wind_capture_timer
+    global fan_wind_charging, fan_wind_charge_timer, fan_wind_growth_scale
+    global arrest_rope_phase, arrest_rope_timer, arrest_rope_visual_timer
+    global arrest_rope_throw_progress, arrest_rope_start_x, arrest_rope_start_y
+    global arrest_rope_target_x, arrest_rope_target_y
+    global curse_chest_active, curse_chest_throwing, curse_chest_windup_active
+    global curse_chest_throw_x, curse_chest_throw_y, curse_chest_x, curse_chest_y
+    global curse_chest_windup_timer, curse_chest_throw_progress, curse_chest_lifetime_timer
+    removed = 0
+
+    # stage 2 crisis_rocks는 _viper_chaos_spear_pull_named_lists()가 매 프레임 끌어당김.
+
+    # 일반 투사체 리스트는 _viper_chaos_spear_pull_named_lists()가 매 프레임
+    # 실제 위치를 끌어당긴다. 여기서는 즉시 제거하지 않는다.
+
+    # interceptors는 _viper_chaos_spear_pull_named_lists()가 매 프레임 끌어당김.
+    # 큐에 대기 중이거나 발사 직전 상태만 정리.
+    interceptor_queue = globals().get("interceptor_launch_queue")
+    if isinstance(interceptor_queue, list) and interceptor_queue:
+        removed += len(interceptor_queue)
+        interceptor_queue.clear()
+    if "interceptor_launching" in globals():
+        globals()["interceptor_launching"] = False
+    stage8_pending = globals().get("stage8_shuriken_pending")
+    if isinstance(stage8_pending, list) and stage8_pending:
+        removed += len(stage8_pending)
+        stage8_pending.clear()
+
+    if web_trap_projectile is not None:
+        proj_t = min(
+            float(web_trap_projectile.get("timer", 0)) / max(1.0, float(web_trap_projectile.get("duration", 1))),
+            1.0,
+        )
+        proj_x = float(web_trap_projectile.get("sx", 0.0)) + (
+            float(web_trap_projectile.get("tx", 0.0)) - float(web_trap_projectile.get("sx", 0.0))
+        ) * proj_t
+        proj_y = float(web_trap_projectile.get("sy", 0.0)) + (
+            float(web_trap_projectile.get("ty", 0.0)) - float(web_trap_projectile.get("sy", 0.0))
+        ) * proj_t
+        _viper_chaos_spear_spawn_absorb_pulse(proj_x, proj_y, 0.95)
+        _grant_viper_chaos_spear_gold(VIPER_CHAOS_SPEAR_OBJECT_GOLD, proj_x, proj_y)
+        web_trap_projectile = None
+        removed += 1
+    # web_traps는 _viper_chaos_spear_pull_named_lists()가 매 프레임 끌어당김.
+    if web_rescue_active:
+        rescue_x = float(BALL.centerx if BALL else web_rescue_ball_x)
+        rescue_y = float(BALL.centery if BALL else web_rescue_ball_y)
+        _viper_chaos_spear_spawn_absorb_pulse(rescue_x, rescue_y, 1.1)
+        _grant_viper_chaos_spear_gold(VIPER_CHAOS_SPEAR_OBJECT_GOLD, rescue_x, rescue_y)
+        web_rescue_active = False
+        web_rescue_phase = ""
+        web_rescue_timer = 0
+        removed += 1
+
+    # tunnel_raid_spikes는 _viper_chaos_spear_pull_named_lists()가 매 프레임 끌어당김.
+    if tunnel_raid_active:
+        tunnel_raid_active = False
+        tunnel_raid_phase = "idle"
+        tunnel_raid_timer = 0
+        tunnel_raid_spike_count = 0
+        tunnel_raid_spike_timer = 0
+        tunnel_raid_trail.clear()
+
+    if fan_throw_active:
+        _viper_chaos_spear_spawn_absorb_pulse(fan_throw_x, fan_throw_y, 0.95)
+        _grant_viper_chaos_spear_gold(VIPER_CHAOS_SPEAR_OBJECT_GOLD, fan_throw_x, fan_throw_y)
+        fan_throw_active = False
+        fan_throw_timer = 0
+        fan_throw_hit = True
+        removed += 1
+    if fan_wind_charging or fan_wind_active:
+        _viper_chaos_spear_spawn_absorb_pulse(fan_wind_zone_x, fan_wind_zone_y, 1.15)
+        _grant_viper_chaos_spear_gold(VIPER_CHAOS_SPEAR_OBJECT_GOLD, fan_wind_zone_x, fan_wind_zone_y)
+        fan_wind_active = False
+        fan_wind_timer = 0
+        fan_wind_captured = False
+        fan_wind_capture_timer = 0
+        fan_wind_charging = False
+        fan_wind_charge_timer = 0
+        fan_wind_growth_scale = 0.0
+        removed += 1
+
+    if arrest_rope_phase == "throwing":
+        rope_t = max(0.0, min(1.0, float(arrest_rope_throw_progress)))
+        rope_x = arrest_rope_start_x + (arrest_rope_target_x - arrest_rope_start_x) * rope_t
+        rope_y = arrest_rope_start_y + (arrest_rope_target_y - arrest_rope_start_y) * rope_t
+        _viper_chaos_spear_spawn_absorb_pulse(rope_x, rope_y, 0.9)
+        _grant_viper_chaos_spear_gold(VIPER_CHAOS_SPEAR_OBJECT_GOLD, rope_x, rope_y)
+        arrest_rope_phase = "idle"
+        arrest_rope_timer = 0
+        arrest_rope_visual_timer = 0
+        arrest_rope_throw_progress = 0.0
+        removed += 1
+
+    if curse_chest_throwing:
+        _viper_chaos_spear_spawn_absorb_pulse(curse_chest_throw_x, curse_chest_throw_y, 1.0)
+        _grant_viper_chaos_spear_gold(
+            VIPER_CHAOS_SPEAR_OBJECT_GOLD,
+            curse_chest_throw_x,
+            curse_chest_throw_y,
+        )
+        curse_chest_throwing = False
+        curse_chest_throw_progress = 0.0
+        removed += 1
+    if curse_chest_active:
+        _viper_chaos_spear_spawn_absorb_pulse(curse_chest_x, curse_chest_y, 1.1)
+        _grant_viper_chaos_spear_gold(VIPER_CHAOS_SPEAR_OBJECT_GOLD, curse_chest_x, curse_chest_y)
+        curse_chest_active = False
+        curse_chest_lifetime_timer = 0
+        removed += 1
+    if curse_chest_windup_active:
+        curse_chest_windup_active = False
+        curse_chest_windup_timer = 0
+
+    # stage7_tetrominoes는 _viper_chaos_spear_pull_named_lists()가 매 프레임 끌어당김.
+
+    return removed
+
+
+def _start_viper_chaos_spear(now_ms: int) -> bool:
+    global special_gauge
+    global _viper_chaos_spear_state, _viper_chaos_spear_state_start_ms
+    global _viper_chaos_spear_origin_x, _viper_chaos_spear_origin_y
+    global _viper_chaos_spear_target_x, _viper_chaos_spear_target_y
+    global _viper_chaos_spear_current_x, _viper_chaos_spear_current_y
+    global _viper_chaos_spear_prev_ball_center, _viper_chaos_spear_base_radius
+    global _viper_chaos_spear_orbit_seed, _viper_chaos_spear_cancel_flash
+    global _viper_chaos_spear_locked_player_x
+
+    if _viper_chaos_spear_state != "idle":
+        return False
+    if selected_character_type != "viper":
+        return False
+    if not is_viper_skill_unlocked("chaos_spear"):
+        return False
+    if get_viper_skill_cooldown_remaining("chaos_spear") > 0:
+        return False
+    if special_gauge < 150:
+        return False
+    if player_stunned or is_waiting_for_serve or is_player_serve or ball_spawn_animation_active:
+        return False
+    # 제트팩 체공 중에는 발동 불가 (지상에서만 가능)
+    try:
+        if _viper_jetpack_active or _viper_jetpack_offset_y < -2:
+            return False
+    except NameError:
+        pass
+
+    special_gauge -= 150
+    trigger_viper_skill_cooldown("chaos_spear")
+    _viper_chaos_spear_target_x, _viper_chaos_spear_target_y = _get_viper_chaos_spear_center()
+    _viper_chaos_spear_origin_x = float(PLAYER.centerx if PLAYER else WIDTH // 2)
+    _viper_chaos_spear_origin_y = float((PLAYER.centery if PLAYER else HEIGHT - 70) - max(20, PLAYER.height // 3 if PLAYER else 24))
+    _viper_chaos_spear_current_x = _viper_chaos_spear_origin_x
+    _viper_chaos_spear_current_y = _viper_chaos_spear_origin_y
+    _viper_chaos_spear_prev_ball_center = None
+    _viper_chaos_spear_base_radius = max(
+        84.0,
+        min(
+            264.0,
+            math.hypot(BALL.centerx - _viper_chaos_spear_target_x, BALL.centery - _viper_chaos_spear_target_y),
+        ),
+    )
+    _viper_chaos_spear_orbit_seed = random.uniform(0.0, math.tau)
+    _viper_chaos_spear_state = "startup"
+    _viper_chaos_spear_state_start_ms = now_ms
+    _viper_chaos_spear_cancel_flash = 0
+    _viper_chaos_spear_locked_player_x = float(PLAYER.x) if PLAYER is not None else None
+    try:
+        play_cached_sound("sounds/gravityaccel.wav", 0.35 * sfx_volume)
+    except Exception:
+        pass
+    return True
+
+
+def _cancel_viper_chaos_spear(now_ms: int, flash: bool = True) -> None:
+    global _viper_chaos_spear_state, _viper_chaos_spear_state_start_ms
+    global _viper_chaos_spear_cancel_flash, _viper_chaos_spear_prev_ball_center
+
+    if _viper_chaos_spear_state == "idle":
+        return
+    _viper_chaos_spear_state = "fade"
+    _viper_chaos_spear_state_start_ms = now_ms
+    _viper_chaos_spear_prev_ball_center = None
+    if flash:
+        _viper_chaos_spear_cancel_flash = 16
+
+
+def _activate_viper_chaos_blackhole(now_ms: int) -> None:
+    global _viper_chaos_spear_state, _viper_chaos_spear_state_start_ms
+    global _viper_chaos_spear_current_x, _viper_chaos_spear_current_y
+    global _viper_chaos_spear_prev_ball_center, _viper_chaos_spear_last_absorb_ms
+    global _viper_chaos_spear_blackhole_ball_origin, _viper_chaos_spear_gold_ticks_paid
+
+    _viper_chaos_spear_state = "blackhole"
+    _viper_chaos_spear_state_start_ms = now_ms
+    _viper_chaos_spear_current_x = _viper_chaos_spear_target_x
+    _viper_chaos_spear_current_y = _viper_chaos_spear_target_y
+    _viper_chaos_spear_prev_ball_center = (float(BALL.centerx), float(BALL.centery))
+    _viper_chaos_spear_blackhole_ball_origin = (float(BALL.centerx), float(BALL.centery))
+    _viper_chaos_spear_last_absorb_ms = 0
+    _viper_chaos_spear_gold_ticks_paid = 0
+    _absorb_viper_chaos_spear_field_objects(now_ms)
+    try:
+        play_cached_sound("sounds/blackhole.wav", 0.4 * sfx_volume)
+    except Exception:
+        pass
+
+
+def _release_viper_chaos_blackhole(early_hit: bool = False) -> None:
+    global ball_vel
+    global _viper_chaos_spear_state, _viper_chaos_spear_state_start_ms
+    global _viper_chaos_spear_prev_ball_center
+
+    if _viper_chaos_spear_state != "blackhole":
+        return
+
+    if not early_hit and not flame_trail_active:
+        # 일정한 강력 사출 속도 (랜덤 변동 제거)
+        base_speed = BALL_BASE_SPEED if "BALL_BASE_SPEED" in globals() else 8.0
+        current_speed = math.hypot(ball_vel[0], ball_vel[1])
+        # 기준속도의 2배 또는 현재속도의 1.6배 중 큰 값, 최소 16.0 보장
+        release_speed = max(16.0, base_speed * 2.0, current_speed * 1.6)
+        release_angle = random.uniform(0.0, math.tau)
+        ball_vel[0] = math.cos(release_angle) * release_speed
+        ball_vel[1] = math.sin(release_angle) * release_speed
+
+    _viper_chaos_spear_prev_ball_center = None
+    _viper_chaos_spear_state = "fade"
+    _viper_chaos_spear_state_start_ms = pygame.time.get_ticks()
+
+
+def _handle_viper_chaos_spear_ball_contact() -> None:
+    """공-패들 접촉 시 호출. 윈드업 중이면 즉시 해제, 비행 중에는 영향 없음."""
+    if _viper_chaos_spear_state == "startup":
+        # 준비 동작 중 피격: 스피어를 발사하지 않고 즉시 윈드업 해제
+        _reset_viper_chaos_spear_state(clear_command=False)
+    elif _viper_chaos_spear_state == "blackhole":
+        _release_viper_chaos_blackhole(early_hit=True)
+    # flying / impact / fade 상태에서는 무시 (스피어가 공에 맞아도 해제되지 않음)
+
+
+def _update_viper_chaos_spear_runtime() -> None:
+    global ball_vel
+    global screen_shake_timer, screen_shake_intensity
+    global _viper_chaos_spear_state, _viper_chaos_spear_state_start_ms
+    global _viper_chaos_spear_origin_x, _viper_chaos_spear_origin_y
+    global _viper_chaos_spear_current_x, _viper_chaos_spear_current_y
+    global _viper_chaos_spear_prev_ball_center, _viper_chaos_spear_absorb_pulses
+    global _viper_chaos_spear_cancel_flash, _viper_chaos_spear_last_absorb_ms
+    global _viper_chaos_spear_flight_angle, _viper_chaos_spear_impact_seed
+    global _viper_chaos_spear_locked_player_x, _viper_chaos_spear_quantum_ghosts
+    global _viper_chaos_spear_explosion_shaken, _viper_chaos_spear_gold_ticks_paid
+
+    now_ms = pygame.time.get_ticks()
+    _sync_viper_chaos_spear_pause_timers(now_ms)
+    if _is_viper_chaos_spear_time_frozen():
+        return
+
+    if _viper_chaos_spear_cancel_flash > 0:
+        _viper_chaos_spear_cancel_flash -= 1
+
+    if _viper_chaos_spear_state == "idle":
+        if is_waiting_for_serve or is_player_serve or ball_spawn_animation_active:
+            _viper_chaos_spear_cmd_buffer.clear()
+        return
+
+    if selected_character_type != "viper" or PLAYER is None or BALL is None:
+        _reset_viper_chaos_spear_state(clear_command=True)
+        return
+    if is_waiting_for_serve or ball_spawn_animation_active:
+        _reset_viper_chaos_spear_state(clear_command=True)
+        return
+
+    center_x, center_y = _viper_chaos_spear_target_x, _viper_chaos_spear_target_y
+
+    updated_pulses = []
+    for pulse in _viper_chaos_spear_absorb_pulses:
+        pulse["life"] -= 1
+        if pulse["life"] <= 0:
+            continue
+
+        # 소비 단계 (중심 도달 후 짧은 파괴 플래시)
+        if pulse.get("consumed"):
+            pulse["size"] = max(0.0, pulse["size"] - 1.6)
+            if pulse["size"] <= 0.5:
+                continue
+            updated_pulses.append(pulse)
+            continue
+
+        # 중심까지의 벡터
+        dx = center_x - pulse["x"]
+        dy = center_y - pulse["y"]
+        dist = max(6.0, math.hypot(dx, dy))
+
+        # 중력 가속도: 거리가 가까울수록 강함 (1/r 스케일, 캡)
+        accel = min(2.4, 110.0 / dist)
+        pulse["vx"] += (dx / dist) * accel
+        pulse["vy"] += (dy / dist) * accel
+        # 접선 회전 성분 (소용돌이 효과, 가까울수록 약화)
+        tan_factor = max(0.0, 0.6 - dist / 200.0)
+        pulse["vx"] += (-dy / dist) * tan_factor
+        pulse["vy"] += (dx / dist) * tan_factor
+        # 감쇠 (속도 폭주 방지)
+        pulse["vx"] *= 0.93
+        pulse["vy"] *= 0.93
+
+        # 위치 갱신
+        pulse["x"] += pulse["vx"]
+        pulse["y"] += pulse["vy"]
+
+        # 중심 근접 시 파괴 단계 진입
+        new_dist = math.hypot(center_x - pulse["x"], center_y - pulse["y"])
+        if new_dist < 14:
+            pulse["consumed"] = True
+            pulse["size"] = pulse["base_size"] * 1.6  # 파괴 순간 살짝 부풀어 터짐
+            pulse["life"] = min(pulse["life"], 8)
+
+        updated_pulses.append(pulse)
+    _viper_chaos_spear_absorb_pulses = updated_pulses
+
+    if _viper_chaos_spear_state == "startup":
+        # 윈드업: 패들 위쪽 머리 위로 스피어를 들어올리는 자세 위치 갱신
+        _viper_chaos_spear_current_x = float(PLAYER.centerx)
+        _viper_chaos_spear_current_y = float(PLAYER.centery - max(20, PLAYER.height // 3))
+        if (now_ms - _viper_chaos_spear_state_start_ms) >= VIPER_CHAOS_SPEAR_STARTUP_MS:
+            _viper_chaos_spear_state = "flying"
+            _viper_chaos_spear_state_start_ms = now_ms
+            # 던지는 위치는 머리 위 살짝 뒤
+            _viper_chaos_spear_origin_x = float(PLAYER.centerx)
+            _viper_chaos_spear_origin_y = float(PLAYER.top - 6)
+            # 비행 각도를 한 번만 캐시 (렌더 회전용)
+            dx = center_x - _viper_chaos_spear_origin_x
+            dy = center_y - _viper_chaos_spear_origin_y
+            _viper_chaos_spear_flight_angle = math.atan2(dy, dx)
+            _viper_chaos_spear_locked_player_x = None  # 윈드업 종료 시 패들 잠금 해제
+        return
+
+    if _viper_chaos_spear_state == "flying":
+        elapsed_ms = now_ms - _viper_chaos_spear_state_start_ms
+        travel_t = max(0.0, min(1.0, elapsed_ms / float(VIPER_CHAOS_SPEAR_TRAVEL_MS)))
+        ease_t = 1.0 - ((1.0 - travel_t) ** 3)
+        _viper_chaos_spear_current_x = _viper_chaos_spear_origin_x + (center_x - _viper_chaos_spear_origin_x) * ease_t
+        _viper_chaos_spear_current_y = _viper_chaos_spear_origin_y + (center_y - _viper_chaos_spear_origin_y) * ease_t
+        # 비행 중 공 충돌은 무시 (스피어가 공에 맞아도 해제되지 않음)
+        if travel_t >= 1.0:
+            # 충돌 연출(impact) 시작: 박힘 즉시 셰이크 + 균열/폭발 시퀀스 진입
+            _viper_chaos_spear_state = "impact"
+            _viper_chaos_spear_state_start_ms = now_ms
+            _viper_chaos_spear_current_x = center_x
+            _viper_chaos_spear_current_y = center_y
+            _viper_chaos_spear_impact_seed = random.uniform(0.0, math.tau)
+            _viper_chaos_spear_explosion_shaken = False
+            # 1차 셰이크: 스피어가 박히는 즉시
+            try:
+                if _screen_shake_enabled():
+                    screen_shake_timer = max(screen_shake_timer, 14)
+                    screen_shake_intensity = max(screen_shake_intensity, 18)
+            except Exception:
+                pass
+            try:
+                play_cached_sound("sounds/gravityaccel.wav", 0.55 * sfx_volume)
+            except Exception:
+                pass
+        return
+
+    if _viper_chaos_spear_state == "impact":
+        elapsed_imp = now_ms - _viper_chaos_spear_state_start_ms
+        # 폭발 모멘트(45% 진행) 진입 시 2차 강한 셰이크 + 폭발 사운드
+        explosion_threshold_ms = int(VIPER_CHAOS_SPEAR_IMPACT_MS * 0.45)
+        if elapsed_imp >= explosion_threshold_ms and not _viper_chaos_spear_explosion_shaken:
+            _viper_chaos_spear_explosion_shaken = True
+            try:
+                if _screen_shake_enabled():
+                    screen_shake_timer = max(screen_shake_timer, 24)
+                    screen_shake_intensity = max(screen_shake_intensity, 30)
+            except Exception:
+                pass
+            try:
+                play_cached_sound("sounds/blackhole.wav", 0.45 * sfx_volume)
+            except Exception:
+                pass
+        if elapsed_imp >= VIPER_CHAOS_SPEAR_IMPACT_MS:
+            _activate_viper_chaos_blackhole(now_ms)
+        return
+
+    if _viper_chaos_spear_state == "blackhole":
+        elapsed_ms = now_ms - _viper_chaos_spear_state_start_ms
+        target_gold_ticks = int(elapsed_ms // VIPER_CHAOS_SPEAR_GOLD_TICK_MS)
+        if target_gold_ticks > _viper_chaos_spear_gold_ticks_paid:
+            _grant_viper_chaos_spear_gold(
+                (target_gold_ticks - _viper_chaos_spear_gold_ticks_paid) * VIPER_CHAOS_SPEAR_GOLD_PER_TICK,
+                center_x,
+                center_y,
+            )
+            _viper_chaos_spear_gold_ticks_paid = target_gold_ticks
+        # 매 프레임 실제 투사체를 중심으로 끌어당김 (오브젝트가 그 모습 그대로 빨려들어감)
+        _viper_chaos_spear_pull_named_lists()
+        # 상태 기반 보스 이벤트(rocks/web_traps/fan/curse 등)는 90ms 주기로 일괄 흡수
+        if now_ms - _viper_chaos_spear_last_absorb_ms >= 90:
+            _absorb_viper_chaos_spear_field_objects(now_ms)
+            _viper_chaos_spear_last_absorb_ms = now_ms
+
+        if not flame_trail_active:
+            progress = max(0.0, min(1.0, elapsed_ms / float(VIPER_CHAOS_SPEAR_BLACKHOLE_MS)))
+            angle = _viper_chaos_spear_orbit_seed + elapsed_ms * 0.011
+            radius_ratio = 0.42 + 0.28 * (0.5 + 0.5 * math.sin(elapsed_ms / 110.0))
+            radius = max(36.0, _viper_chaos_spear_base_radius * radius_ratio * (1.0 - 0.35 * progress))
+            orbit_cx = center_x + math.cos(angle) * radius
+            orbit_cy = center_y + math.sin(angle * 1.35 + _viper_chaos_spear_orbit_seed * 0.7) * radius * 0.75
+            # Ingress: 공이 발동 시점 위치에서 궤도 위치로 부드럽게 흡입 (ease-out cubic)
+            ingress_t = max(0.0, min(1.0, elapsed_ms / float(VIPER_CHAOS_SPEAR_INGRESS_MS)))
+            ingress_t = 1.0 - ((1.0 - ingress_t) ** 3)
+            ball_origin = _viper_chaos_spear_blackhole_ball_origin or (orbit_cx, orbit_cy)
+            new_cx = ball_origin[0] + (orbit_cx - ball_origin[0]) * ingress_t
+            new_cy = ball_origin[1] + (orbit_cy - ball_origin[1]) * ingress_t
+            prev_center = _viper_chaos_spear_prev_ball_center or (float(BALL.centerx), float(BALL.centery))
+            BALL.centerx = int(round(new_cx))
+            BALL.centery = int(round(new_cy))
+            ball_vel[0] = float(new_cx - prev_center[0])
+            ball_vel[1] = float(new_cy - prev_center[1])
+            _viper_chaos_spear_prev_ball_center = (new_cx, new_cy)
+
+        if (now_ms - _viper_chaos_spear_state_start_ms) >= VIPER_CHAOS_SPEAR_BLACKHOLE_MS:
+            _release_viper_chaos_blackhole(early_hit=False)
+        return
+
+    if _viper_chaos_spear_state == "fade":
+        if (now_ms - _viper_chaos_spear_state_start_ms) >= VIPER_CHAOS_SPEAR_FADE_MS:
+            _reset_viper_chaos_spear_state(clear_command=False)
+
+
+def _draw_chaos_spear_shape(surface: pygame.Surface, anchor_x: float, anchor_y: float,
+                             angle: float, alpha: int = 255, glow: bool = True,
+                             scale: float = 1.0) -> None:
+    """장식적 카오스 스피어 렌더링. (anchor_x, anchor_y)는 창 끝(tip), angle은 진행방향(rad)."""
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+
+    def proj(lx: float, ly: float) -> tuple[int, int]:
+        # lx: tip 기준 길이축(음수 = 손잡이 방향), ly: 수직축
+        x = anchor_x + (lx * scale) * cos_a - (ly * scale) * sin_a
+        y = anchor_y + (lx * scale) * sin_a + (ly * scale) * cos_a
+        return (int(round(x)), int(round(y)))
+
+    L = VIPER_CHAOS_SPEAR_VISUAL_LENGTH  # 78
+    blade_back_lx = -22
+    crossguard_lx = -22
+    shaft_end_lx = -L
+
+    # === 거대한 보라 글로우 오라 (장축 방향) ===
+    if glow and alpha > 0:
+        glow_w = int((L + 32) * scale)
+        glow_h = int(30 * scale)
+        if glow_w > 4 and glow_h > 4:
+            glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            for i in range(4):
+                r_w = max(4, glow_w - i * 8)
+                r_h = max(2, glow_h - i * 4)
+                ax = (glow_w - r_w) // 2
+                ay = (glow_h - r_h) // 2
+                a = min(alpha, int(28 + i * 22))
+                pygame.draw.ellipse(glow_surf, (170, 90, 255, a), (ax, ay, r_w, r_h))
+            rotated = pygame.transform.rotate(glow_surf, -math.degrees(angle))
+            mid_lx = -L // 2
+            mid_x = anchor_x + (mid_lx * scale) * cos_a
+            mid_y = anchor_y + (mid_lx * scale) * sin_a
+            rect = rotated.get_rect(center=(int(round(mid_x)), int(round(mid_y))))
+            surface.blit(rotated, rect.topleft)
+
+    # === 샤프트 (다크 크롬) ===
+    sh_thick = max(1, int(round(6 * scale)))
+    sh_pts = [
+        proj(blade_back_lx, -sh_thick / 2),
+        proj(blade_back_lx, sh_thick / 2),
+        proj(shaft_end_lx + 5, sh_thick / 2),
+        proj(shaft_end_lx + 5, -sh_thick / 2),
+    ]
+    pygame.draw.polygon(surface, (38, 36, 56), sh_pts)
+    pygame.draw.polygon(surface, (90, 80, 120), sh_pts, 1)
+    # 위쪽 메탈 하이라이트
+    pygame.draw.line(surface, (200, 195, 230),
+                     proj(blade_back_lx, -sh_thick / 2 + 1),
+                     proj(shaft_end_lx + 5, -sh_thick / 2 + 1), 1)
+    # 룬 데코(짧은 발광 라인 3개)
+    for i in range(3):
+        rl = blade_back_lx - 12 - i * 16
+        pygame.draw.line(surface, (220, 150, 255),
+                         proj(rl, -sh_thick / 2 - 1), proj(rl, sh_thick / 2 + 1), 1)
+
+    # === 크로스가드 ===
+    cg_pts = [
+        proj(crossguard_lx + 2, -16),
+        proj(crossguard_lx + 7, -16),
+        proj(crossguard_lx + 7, 16),
+        proj(crossguard_lx + 2, 16),
+    ]
+    pygame.draw.polygon(surface, (140, 140, 168), cg_pts)
+    pygame.draw.polygon(surface, (235, 235, 255), cg_pts, 1)
+    # 가드 끝부분 장식
+    for ly_end in (-16, 16):
+        end_pts = [
+            proj(crossguard_lx + 2, ly_end + (-3 if ly_end < 0 else 3)),
+            proj(crossguard_lx + 7, ly_end + (-3 if ly_end < 0 else 3)),
+            proj(crossguard_lx + 4, ly_end + (-7 if ly_end < 0 else 7)),
+        ]
+        pygame.draw.polygon(surface, (180, 100, 230), end_pts)
+
+    # === 에너지 코어 (다이아몬드) ===
+    core_pts = [
+        proj(crossguard_lx + 4, -8),
+        proj(crossguard_lx + 14, 0),
+        proj(crossguard_lx + 4, 8),
+        proj(crossguard_lx - 6, 0),
+    ]
+    pygame.draw.polygon(surface, (180, 80, 245), core_pts)
+    pygame.draw.polygon(surface, (255, 240, 255), core_pts, 1)
+    # 코어 내부 백색 하이라이트
+    inner_core = [
+        proj(crossguard_lx + 4, -3),
+        proj(crossguard_lx + 9, 0),
+        proj(crossguard_lx + 4, 3),
+        proj(crossguard_lx - 1, 0),
+    ]
+    pygame.draw.polygon(surface, (255, 255, 255), inner_core)
+
+    # === 블레이드 (정교한 마름모형) ===
+    blade_outer = [
+        proj(0, 0),
+        proj(-7, -10),
+        proj(blade_back_lx + 3, -7),
+        proj(blade_back_lx, 0),
+        proj(blade_back_lx + 3, 7),
+        proj(-7, 10),
+    ]
+    pygame.draw.polygon(surface, (245, 240, 255), blade_outer)
+    pygame.draw.polygon(surface, (130, 130, 175), blade_outer, 1)
+    # 미드립 하이라이트(중심선)
+    pygame.draw.line(surface, (255, 255, 255),
+                     proj(blade_back_lx + 1, 0), proj(0, 0), 1)
+    # 칼끝 발광 점
+    tip_pt = proj(0, 0)
+    pygame.draw.circle(surface, (255, 255, 255), tip_pt, max(1, int(2 * scale)))
+
+    # === 폼멜 (보라색 보석) ===
+    pommel_center = proj(shaft_end_lx, 0)
+    pr = max(2, int(round(7 * scale)))
+    pygame.draw.circle(surface, (180, 80, 240), pommel_center, pr)
+    pygame.draw.circle(surface, (255, 255, 255), pommel_center, max(1, pr // 2))
+    pygame.draw.circle(surface, (240, 200, 255), pommel_center, pr, 1)
+
+
+def _draw_chaos_spear_charging_sparks(surface: pygame.Surface,
+                                        anchor_x: float, anchor_y: float,
+                                        angle: float, intensity: float,
+                                        time_seed_ms: int) -> None:
+    """윈드업 동안 창에 누적되는 보라 전기 스파크 차징 이펙트.
+    intensity 0.0~1.0, time_seed_ms는 ~50ms마다 패턴 재생성용."""
+    if intensity < 0.05:
+        return
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+
+    def proj(lx: float, ly: float) -> tuple[int, int]:
+        x = anchor_x + lx * cos_a - ly * sin_a
+        y = anchor_y + lx * sin_a + ly * cos_a
+        return (int(round(x)), int(round(y)))
+
+    L = VIPER_CHAOS_SPEAR_VISUAL_LENGTH
+    # 50ms 주기로 시드 변경 → 크래클링 효과
+    seed = (int(time_seed_ms) // 50) * 17
+
+    # 아크 개수 (intensity 비례, 2~10개)
+    num_arcs = int(2 + intensity * 8)
+
+    for arc_i in range(num_arcs):
+        rng1 = ((seed * 31 + arc_i * 113) & 0xFFFFFF) / 16777215.0
+        rng2 = ((seed * 17 + arc_i * 73) & 0xFFFFFF) / 16777215.0
+        rng3 = ((seed * 53 + arc_i * 41) & 0xFFFFFF) / 16777215.0
+
+        # 시작점: intensity 낮을 땐 코어(크로스가드) 주변 집중, 높으면 전체 분포
+        if intensity < 0.5:
+            start_lx = -22 + (rng1 - 0.5) * 32 * intensity * 2
+        else:
+            start_lx = -L * rng1
+        start_ly = (rng2 - 0.5) * 12
+
+        # 아크 길이/방향
+        arc_len = 3 + rng3 * (5 + intensity * 14)
+        arc_dir = rng2 * math.tau + seed * 0.001
+        end_lx = start_lx + math.cos(arc_dir) * arc_len * 0.5
+        end_ly = start_ly + math.sin(arc_dir) * arc_len
+        end_ly = max(-14, min(14, end_ly))
+
+        # 3세그먼트 지그재그
+        seg_points = [proj(start_lx, start_ly)]
+        for seg in range(1, 4):
+            seg_t = seg / 3.0
+            seg_jitter = (((rng3 + seg * 0.31) % 1.0) - 0.5) * 3
+            seg_perp_lx = math.cos(arc_dir + 1.57) * seg_jitter
+            seg_perp_ly = math.sin(arc_dir + 1.57) * seg_jitter
+            cur_lx = start_lx + (end_lx - start_lx) * seg_t + seg_perp_lx
+            cur_ly = start_ly + (end_ly - start_ly) * seg_t + seg_perp_ly
+            seg_points.append(proj(cur_lx, cur_ly))
+
+        # 외곽 보라 글로우 → 중간 보라 → 백색 코어 (3겹 두께)
+        for i in range(len(seg_points) - 1):
+            pygame.draw.line(surface, (170, 90, 245), seg_points[i], seg_points[i + 1], 3)
+        for i in range(len(seg_points) - 1):
+            pygame.draw.line(surface, (220, 170, 255), seg_points[i], seg_points[i + 1], 2)
+        for i in range(len(seg_points) - 1):
+            pygame.draw.line(surface, (255, 255, 255), seg_points[i], seg_points[i + 1], 1)
+
+        # 끝점 스파크 (intensity > 0.4)
+        if intensity > 0.4:
+            tip = seg_points[-1]
+            pygame.draw.circle(surface, (255, 255, 255), tip, 2)
+            glow_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (200, 130, 255, 200), (5, 5), 5, 2)
+            surface.blit(glow_surf, (tip[0] - 5, tip[1] - 5))
+
+    # 코어 주변 추가 글로우 (intensity > 0.3, 크로스가드 위치 lx=-22)
+    if intensity > 0.3:
+        core_pos = proj(-22, 0)
+        cgr = int(8 + intensity * 14)
+        cga = int(140 * intensity)
+        cg_surf = pygame.Surface((cgr * 2 + 4, cgr * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(cg_surf, (180, 100, 255, cga),
+                           (cgr + 2, cgr + 2), cgr)
+        pygame.draw.circle(cg_surf, (255, 255, 255, min(255, cga + 80)),
+                           (cgr + 2, cgr + 2), max(2, cgr // 2))
+        surface.blit(cg_surf, (core_pos[0] - cgr - 2, core_pos[1] - cgr - 2))
+
+
+def _draw_viper_chaos_spear_hold_overlay(surface: pygame.Surface,
+                                         shoulder_x: float, shoulder_y: float,
+                                         grip_x: float, grip_y: float,
+                                         spear_angle: float,
+                                         tension: float,
+                                         alpha: int = 255) -> None:
+    """스타트업 때 창을 실제로 쥔 것처럼 보이도록 팔/손 오버레이를 그린다."""
+    dx = grip_x - shoulder_x
+    dy = grip_y - shoulder_y
+    arm_len = math.hypot(dx, dy)
+    if arm_len < 1.0 or alpha <= 0:
+        return
+
+    overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    ndy = dy / arm_len
+    perp_x = -ndy
+    perp_y = dx / arm_len
+    bend = 8.0 + tension * 8.0
+    elbow_x = shoulder_x + dx * 0.46 + perp_x * bend
+    elbow_y = shoulder_y + dy * 0.46 + perp_y * bend * 0.65
+
+    arm_layers = [
+        ((16, 6, 28), 10),
+        ((38, 16, 58), 7),
+        ((72, 30, 108), 4),
+    ]
+    for color, width in arm_layers:
+        pygame.draw.line(overlay, (*color, alpha),
+                         (int(round(shoulder_x)), int(round(shoulder_y))),
+                         (int(round(elbow_x)), int(round(elbow_y))), width)
+        pygame.draw.line(overlay, (*color, alpha),
+                         (int(round(elbow_x)), int(round(elbow_y))),
+                         (int(round(grip_x)), int(round(grip_y))), max(1, width - 1))
+
+    joint_r = max(2, int(3 + tension * 1.5))
+    pygame.draw.circle(overlay, (90, 32, 135, alpha),
+                       (int(round(shoulder_x)), int(round(shoulder_y))), joint_r + 2)
+    pygame.draw.circle(overlay, (0, 190, 150, min(255, alpha)),
+                       (int(round(elbow_x)), int(round(elbow_y))), joint_r, 1)
+    pygame.draw.circle(overlay, (28, 12, 42, alpha),
+                       (int(round(grip_x)), int(round(grip_y))), joint_r + 3)
+    pygame.draw.circle(overlay, (52, 22, 78, alpha),
+                       (int(round(grip_x)), int(round(grip_y))), joint_r + 2)
+
+    band_x = elbow_x + (grip_x - elbow_x) * 0.78
+    band_y = elbow_y + (grip_y - elbow_y) * 0.78
+    pygame.draw.circle(overlay, (0, 220, 170, min(255, alpha)),
+                       (int(round(band_x)), int(round(band_y))), joint_r, 1)
+    pygame.draw.circle(overlay, (140, 255, 220, min(255, alpha)),
+                       (int(round(grip_x)), int(round(grip_y))), max(1, joint_r - 1), 1)
+
+    grip_perp_x = -math.sin(spear_angle)
+    grip_perp_y = math.cos(spear_angle)
+    strap_half = 5.0
+    strap_a = (
+        int(round(grip_x + grip_perp_x * strap_half)),
+        int(round(grip_y + grip_perp_y * strap_half)),
+    )
+    strap_b = (
+        int(round(grip_x - grip_perp_x * strap_half)),
+        int(round(grip_y - grip_perp_y * strap_half)),
+    )
+    pygame.draw.line(overlay, (18, 10, 28, alpha), strap_a, strap_b, 5)
+    pygame.draw.line(overlay, (0, 220, 170, min(255, alpha)), strap_a, strap_b, 1)
+    surface.blit(overlay, (0, 0))
+
+
+def _draw_chaos_spear_cracks(surface: pygame.Surface, anchor_x: float, anchor_y: float,
+                               angle: float, intensity: float, seed: float) -> None:
+    """스피어 표면에 자라는 거미줄 균열. intensity 0.0~1.0."""
+    if intensity < 0.05:
+        return
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+
+    def proj(lx: float, ly: float) -> tuple[int, int]:
+        x = anchor_x + lx * cos_a - ly * sin_a
+        y = anchor_y + lx * sin_a + ly * cos_a
+        return (int(round(x)), int(round(y)))
+
+    # 균열 발생점 (스피어의 척추를 따라 분포)
+    crack_origins = (
+        (-3, 0),    # 칼끝 근처
+        (-12, 0),   # 블레이드 중간
+        (-22, 0),   # 크로스가드 (가장 큰 충격)
+        (-38, 0),   # 샤프트 중간
+        (-58, 0),   # 샤프트 후방
+    )
+
+    for ci, (cx_l, cy_l) in enumerate(crack_origins):
+        # 각 발생점은 intensity가 커질수록 늦게 활성화 (전파 효과)
+        local_t = max(0.0, min(1.0, intensity * 1.6 - ci * 0.12))
+        if local_t < 0.08:
+            continue
+        # 각 발생점에서 4방향 톱니 균열 발사
+        for dir_i in range(4):
+            base_a = (seed * 13.7 + ci * 2.3 + dir_i * 1.57)
+            sub_a = math.sin(base_a * 1.7) * 0.5
+            crack_len = (4 + local_t * 9) * (0.55 + 0.45 * abs(math.cos(base_a)))
+            mid_lx = cx_l + math.cos(base_a) * crack_len * 0.5
+            mid_ly = cy_l + math.sin(base_a + sub_a) * crack_len * 0.5
+            end_lx = cx_l + math.cos(base_a + sub_a * 0.7) * crack_len
+            end_ly = cy_l + math.sin(base_a) * crack_len
+            # 스피어 폭(±10)을 약간 벗어나도 OK (파편 느낌)
+            mid_ly = max(-12, min(12, mid_ly))
+            end_ly = max(-13, min(13, end_ly))
+            p_start = proj(cx_l, cy_l)
+            p_mid = proj(mid_lx, mid_ly)
+            p_end = proj(end_lx, end_ly)
+            # 외곽 따뜻한 글로우 (균열에서 새어나오는 빛)
+            glow_alpha = int(220 * local_t)
+            for pa, pb in ((p_start, p_mid), (p_mid, p_end)):
+                pygame.draw.line(surface, (255, 220, 180), pa, pb, 3)
+                pygame.draw.line(surface, (40, 0, 60), pa, pb, 1)
+            # 균열 끝점에 작은 글로우 점
+            if local_t > 0.5:
+                pygame.draw.circle(surface, (255, 240, 200), p_end, 2)
+
+
+def _draw_chaos_impact_effect(surface: pygame.Surface, cx: int, cy: int,
+                                progress: float, seed: float, angle: float) -> None:
+    """3페이즈 임팩트:
+       A) 0~45%   : 스피어 박힘 + 진동 + 균열 형성 + 에너지 응축
+       B) 45~85%  : 폭발 (섬광/방사 균열/링/파편/스피어 분쇄)
+       C) 85~100% : 잉태된 블랙홀 등장 (다음 상태로 부드럽게 연결)
+    """
+    scr_w, scr_h = surface.get_size()
+
+    # ============ 페이즈 A: 박힘 + 균열 + 응축 (0~45%) ============
+    if progress < 0.45:
+        a_t = progress / 0.45  # 0~1
+        # 진동: 빠르게 부르르 떨림 (후반으로 갈수록 격렬)
+        vib = math.sin(progress * 90) * (1.0 + a_t * 5) * 1.6
+        spear_x = cx + vib
+        spear_y = cy + math.sin(progress * 73) * 0.8
+
+        # 응축 코어 (스피어 안쪽으로 모이는 에너지)
+        core_r = int(6 + a_t * 18)
+        core_alpha = int(180 * a_t)
+        core_surf = pygame.Surface((core_r * 2 + 12, core_r * 2 + 12), pygame.SRCALPHA)
+        # 외곽 보라 응축
+        pygame.draw.circle(core_surf, (180, 100, 255, core_alpha // 2),
+                           (core_r + 6, core_r + 6), core_r + 4)
+        # 내부 백색 코어
+        pygame.draw.circle(core_surf, (255, 240, 255, core_alpha),
+                           (core_r + 6, core_r + 6), core_r)
+        pygame.draw.circle(core_surf, (255, 255, 255, min(255, core_alpha + 60)),
+                           (core_r + 6, core_r + 6), max(1, core_r // 2))
+        surface.blit(core_surf, (cx - core_r - 6, cy - core_r - 6))
+
+        # 박힌 스피어 (진동 적용, 글로우 강화)
+        _draw_chaos_spear_shape(surface, spear_x, spear_y, angle,
+                                 alpha=255, glow=True, scale=1.0)
+        # 스피어 표면에 자라는 균열
+        _draw_chaos_spear_cracks(surface, spear_x, spear_y, angle, a_t, seed)
+
+        # 임팩트 직후 작은 충격 링 (1회만, 빠르게 페이드)
+        if a_t < 0.5:
+            r1_t = a_t / 0.5
+            r1 = int(20 + r1_t * 40)
+            r1_alpha = int(200 * (1.0 - r1_t))
+            if r1_alpha > 8:
+                rs = pygame.Surface((r1 * 2 + 8, r1 * 2 + 8), pygame.SRCALPHA)
+                pygame.draw.circle(rs, (220, 180, 255, r1_alpha),
+                                   (r1 + 4, r1 + 4), r1, 3)
+                surface.blit(rs, (cx - r1 - 4, cy - r1 - 4))
+        return
+
+    # ============ 페이즈 B: 폭발 (45~85%) ============
+    if progress < 0.85:
+        b_t = (progress - 0.45) / 0.4  # 0~1
+
+        # 풀스크린 백색 섬광 (폭발 초반 짧고 강하게)
+        if b_t < 0.45:
+            flash_alpha = int(240 * (1.0 - b_t / 0.45))
+            flash = pygame.Surface((scr_w, scr_h), pygame.SRCALPHA)
+            flash.fill((255, 240, 255, flash_alpha))
+            surface.blit(flash, (0, 0))
+
+        # 방사형 균열 8가닥 (확장)
+        num_cracks = 8
+        crack_max_len = 260
+        crack_len = int(crack_max_len * min(1.0, b_t * 1.4))
+        for i in range(num_cracks):
+            base_a = seed + i * (math.tau / num_cracks)
+            prev_x, prev_y = cx, cy
+            for seg_i, seg_pct in enumerate((0.35, 0.7, 1.0)):
+                seg_jitter = math.sin(seed * 11 + i * 2.3 + seg_i) * 0.18
+                seg_a = base_a + seg_jitter
+                seg_r = crack_len * seg_pct
+                x = int(cx + math.cos(seg_a) * seg_r)
+                y = int(cy + math.sin(seg_a) * seg_r)
+                w = max(1, 5 - seg_i)
+                pygame.draw.line(surface, (230, 215, 255), (prev_x, prev_y), (x, y), w + 2)
+                pygame.draw.line(surface, (50, 10, 80), (prev_x, prev_y), (x, y), w)
+                prev_x, prev_y = x, y
+            if b_t > 0.25:
+                branch_a = base_a + 0.6
+                br_x = int(cx + math.cos(base_a) * crack_len * 0.5)
+                br_y = int(cy + math.sin(base_a) * crack_len * 0.5)
+                br_end_x = int(br_x + math.cos(branch_a) * crack_len * 0.3)
+                br_end_y = int(br_y + math.sin(branch_a) * crack_len * 0.3)
+                pygame.draw.line(surface, (200, 180, 240), (br_x, br_y), (br_end_x, br_end_y), 2)
+
+        # 폭발 링 (확장 + 페이드)
+        ring_r = int(40 + b_t * 130)
+        ring_alpha = int(220 * (1.0 - b_t))
+        if ring_alpha > 0:
+            rs = pygame.Surface((ring_r * 2 + 8, ring_r * 2 + 8), pygame.SRCALPHA)
+            pygame.draw.circle(rs, (210, 140, 255, ring_alpha),
+                               (ring_r + 4, ring_r + 4), ring_r, 5)
+            pygame.draw.circle(rs, (255, 255, 255, min(255, ring_alpha + 40)),
+                               (ring_r + 4, ring_r + 4), ring_r, 2)
+            surface.blit(rs, (cx - ring_r - 4, cy - ring_r - 4))
+
+        # 분쇄되는 스피어 (빠르게 페이드 + 균열 절정)
+        spear_alpha = int(255 * max(0.0, 1.0 - b_t * 1.6))
+        if spear_alpha > 25:
+            wobble = math.sin(b_t * 50) * (1.0 + b_t * 4) * 3
+            _draw_chaos_spear_shape(surface, cx + wobble, cy, angle,
+                                     alpha=spear_alpha, glow=False, scale=1.0)
+            _draw_chaos_spear_cracks(surface, cx + wobble, cy, angle, 1.0, seed)
+
+        # 폭발 코어 (시작은 크고 빠르게 줄어듦)
+        core_r = int(28 * (1.0 - b_t * 0.5))
+        if core_r > 0:
+            pygame.draw.circle(surface, (255, 255, 255), (cx, cy), core_r)
+            pygame.draw.circle(surface, (200, 130, 255, 220), (cx, cy), core_r + 5, 3)
+
+        # 사방으로 튀는 파편
+        num_shards = 9
+        shard_dist = int(35 + b_t * 165)
+        for i in range(num_shards):
+            a = seed * 1.7 + i * (math.tau / num_shards) + 0.2
+            sx = int(cx + math.cos(a) * shard_dist)
+            sy = int(cy + math.sin(a) * shard_dist)
+            s_alpha = int(255 * max(0.0, 1.0 - b_t * 1.05))
+            if s_alpha > 30:
+                sh_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+                pygame.draw.polygon(sh_surf, (240, 225, 255, s_alpha),
+                                    [(5, 0), (10, 5), (5, 10), (0, 5)])
+                pygame.draw.polygon(sh_surf, (180, 100, 255, s_alpha),
+                                    [(5, 0), (10, 5), (5, 10), (0, 5)], 1)
+                surface.blit(sh_surf, (sx - 5, sy - 5))
+        return
+
+    # ============ 페이즈 C: 잉태된 블랙홀 등장 (85~100%) ============
+    c_t = (progress - 0.85) / 0.15  # 0~1
+    # 폭발 잔여 글로우 (빠르게 사라짐)
+    aft_alpha = int(160 * (1.0 - c_t))
+    if aft_alpha > 12:
+        aft_r = int(50 + c_t * 20)
+        aft_surf = pygame.Surface((aft_r * 2 + 4, aft_r * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(aft_surf, (180, 110, 255, aft_alpha),
+                           (aft_r + 2, aft_r + 2), aft_r)
+        surface.blit(aft_surf, (cx - aft_r - 2, cy - aft_r - 2))
+    # 잉태된 블랙홀 코어 (점점 커지며 다음 상태로 자연스럽게 이어짐)
+    nb_r = int(c_t * 22)
+    if nb_r > 0:
+        pygame.draw.circle(surface, (24, 0, 42), (cx, cy), nb_r)
+        pygame.draw.circle(surface, (220, 160, 255), (cx, cy), nb_r, 2)
+        # 특이점
+        pygame.draw.circle(surface, (255, 255, 255), (cx, cy), max(1, nb_r // 4))
+        # 첫 어크리션 호 (회전 시작 암시)
+        if nb_r > 8:
+            for arc_i in range(3):
+                arc_start = c_t * 8 + arc_i * (math.tau / 3)
+                pygame.draw.arc(surface, (235, 175, 255),
+                                (cx - nb_r, cy - nb_r, nb_r * 2, nb_r * 2),
+                                arc_start, arc_start + 0.7, 2)
+
+
+def _draw_chaos_blackhole_effect(surface: pygame.Surface, cx: int, cy: int,
+                                   elapsed_ms: int, fade_ratio: float) -> None:
+    """카오스 중력 소용돌이: 다층 보라 플라즈마 + 전기 아크 + 중력파 + 양자중첩.
+    상태 진입 후 첫 200ms 동안 grow 인자로 부드럽게 등장."""
+    # 등장 성장: 0~200ms 동안 0→1
+    growth = min(1.0, elapsed_ms / 200.0)
+    # 시각 인자 = 페이드 × 성장 (등장과 소멸 모두 자연스럽게)
+    vis = fade_ratio * growth
+    if vis < 0.02:
+        return
+    pulse = 0.5 + 0.5 * math.sin(elapsed_ms * 0.012)
+    swirl_t = elapsed_ms * 0.003
+    chaos_t = elapsed_ms * 0.001  # 무작위 시드용 시간 변수
+    # 이하 모든 곳에서 fade_ratio 대신 vis 사용
+    fade_ratio = vis
+
+    # === 중력파(시공간 왜곡 링): 바깥쪽으로 퍼져나가는 큰 링 4개 ===
+    # 각 링은 1.2초 주기로 cx에서 솟아나와 바깥으로 확장하며 페이드아웃
+    for wave_i in range(4):
+        wave_phase = (elapsed_ms / 1200.0 + wave_i * 0.25) % 1.0
+        wave_r = int((20 + wave_phase * 160) * fade_ratio)
+        wave_alpha = int(110 * (1.0 - wave_phase) * fade_ratio)
+        if wave_r > 4 and wave_alpha > 10:
+            wave_surf = pygame.Surface((wave_r * 2 + 8, wave_r * 2 + 8), pygame.SRCALPHA)
+            # 왜곡된 링 (불규칙 두께)
+            for arc_seg in range(0, 360, 18):
+                wobble = int(math.sin(arc_seg * 0.04 + chaos_t * 5 + wave_i) * 4)
+                pygame.draw.arc(
+                    wave_surf, (180, 100, 255, wave_alpha),
+                    (4 - wobble // 2, 4 - wobble // 2,
+                     wave_r * 2 + wobble, wave_r * 2 + wobble),
+                    math.radians(arc_seg), math.radians(arc_seg + 16), 2)
+            surface.blit(wave_surf, (cx - wave_r - 4, cy - wave_r - 4))
+
+    # === 외곽 거대 헤일로 (소프트 보라, 카오스 맥동) ===
+    halo_r = int((104 + pulse * 28) * fade_ratio)
+    if halo_r > 4:
+        halo_surf = pygame.Surface((halo_r * 2, halo_r * 2), pygame.SRCALPHA)
+        for i in range(5):
+            r = halo_r - i * 16
+            if r <= 0:
+                continue
+            a = int((18 + i * 24) * fade_ratio)
+            pygame.draw.circle(halo_surf, (130, 60, 220, a), (halo_r, halo_r), r)
+        surface.blit(halo_surf, (cx - halo_r, cy - halo_r))
+
+    # === 회전 플라즈마 링 (3겹, 더 빠른 회전 + 진폭 키움) ===
+    for ring_i in range(3):
+        ring_phase = swirl_t * 1.4 + ring_i * 0.7
+        ring_r = int(((62 - ring_i * 13) + math.sin(ring_phase) * 11) * fade_ratio)
+        ring_alpha = int((160 - ring_i * 30) * fade_ratio)
+        if ring_r > 2 and ring_alpha > 8:
+            ring_surf = pygame.Surface((ring_r * 2 + 6, ring_r * 2 + 6), pygame.SRCALPHA)
+            pygame.draw.circle(ring_surf, (170, 80, 245, ring_alpha),
+                               (ring_r + 3, ring_r + 3), ring_r, 3)
+            surface.blit(ring_surf, (cx - ring_r - 3, cy - ring_r - 3))
+
+    # === 전기 아크/번개 (코어에서 무작위 방향으로 짧게 번쩍) ===
+    # 매 프레임 1~3개의 짧은 번개를 무작위 각도로 그림
+    arc_count = 2 + int((math.sin(elapsed_ms * 0.04) + 1) * 1.5)
+    for arc_i in range(arc_count):
+        # 무작위 시드: elapsed_ms를 작은 단위로 나눠 100ms 정도 유지되는 번개
+        seed = (elapsed_ms // 80) * 7 + arc_i * 31
+        rng_a = ((seed * 1103515245 + 12345) & 0x7FFFFFFF) / 0x7FFFFFFF
+        rng_l = (((seed + 17) * 1103515245 + 12345) & 0x7FFFFFFF) / 0x7FFFFFFF
+        rng_b = (((seed + 41) * 1103515245 + 12345) & 0x7FFFFFFF) / 0x7FFFFFFF
+        arc_angle = rng_a * math.tau
+        arc_len = int((50 + rng_l * 70) * fade_ratio)
+        # 지그재그 5세그먼트
+        prev_x, prev_y = cx, cy
+        for seg in range(1, 5):
+            seg_t = seg / 4.0
+            jitter = (((rng_b * (seg + 1)) % 1.0) - 0.5) * 18
+            jitter_a = arc_angle + jitter * 0.025
+            sx = int(cx + math.cos(jitter_a) * arc_len * seg_t)
+            sy = int(cy + math.sin(jitter_a) * arc_len * seg_t)
+            # 백색 코어 + 보라 글로우
+            pygame.draw.line(surface, (220, 170, 255), (prev_x, prev_y), (sx, sy), 3)
+            pygame.draw.line(surface, (255, 255, 255), (prev_x, prev_y), (sx, sy), 1)
+            prev_x, prev_y = sx, sy
+        # 끝에 작은 백색 스파크
+        pygame.draw.circle(surface, (255, 255, 255), (prev_x, prev_y), 2)
+
+    # === 이벤트 호라이즌 코어 (어둠 + 어크리션 디스크) ===
+    core_r = int((32 + pulse * 6) * fade_ratio)
+    if core_r > 0:
+        # 짙은 코어 (검은 보라)
+        pygame.draw.circle(surface, (18, 0, 36), (cx, cy), core_r)
+        # 어크리션 회전 디스크 (불규칙 호 4개)
+        for disk_i in range(4):
+            disk_a_start = swirl_t * 6 + disk_i * (math.tau / 4)
+            disk_a_end = disk_a_start + 0.9
+            pygame.draw.arc(
+                surface, (235, 175, 255),
+                (cx - core_r, cy - core_r, core_r * 2, core_r * 2),
+                disk_a_start, disk_a_end, 3)
+        # 특이점 (백색 점, 깜빡임)
+        sing_r = max(2, core_r // 5)
+        pygame.draw.circle(surface, (255, 255, 255), (cx, cy),
+                           sing_r + (1 if pulse > 0.7 else 0))
+        # 보조 글로우
+        pygame.draw.circle(surface, (210, 140, 255, int(190 * fade_ratio)),
+                           (cx, cy), max(3, core_r // 3))
+
+    # === 양자중첩 고스트 볼 (BALL의 확률적 위치 5개) ===
+    if BALL is not None and fade_ratio > 0.4:
+        bx = BALL.centerx
+        by = BALL.centery
+        br = max(BALL.width, BALL.height) // 2
+        if br > 0:
+            ghost_size = br * 4
+            for ghost_i in range(5):
+                ghost_phase = swirl_t * 1.6 + ghost_i * 1.27
+                offset_x = math.cos(ghost_phase * 2.1) * 24
+                offset_y = math.sin(ghost_phase * 1.3 + 1.1) * 20
+                ghost_alpha = int(125 * fade_ratio *
+                                  (0.45 + 0.55 * math.sin(ghost_phase * 3.1 + ghost_i)))
+                if ghost_alpha < 25:
+                    continue
+                gh_surf = pygame.Surface((ghost_size, ghost_size), pygame.SRCALPHA)
+                pygame.draw.circle(gh_surf, (175, 95, 255, ghost_alpha),
+                                   (ghost_size // 2, ghost_size // 2), br + 2)
+                pygame.draw.circle(gh_surf,
+                                   (230, 190, 255, min(255, ghost_alpha + 70)),
+                                   (ghost_size // 2, ghost_size // 2), max(1, br - 1), 1)
+                surface.blit(gh_surf,
+                             (int(bx - ghost_size // 2 + offset_x),
+                              int(by - ghost_size // 2 + offset_y)))
+
+    # === 나선형 흡수 입자 (12개, 카오스 궤적) ===
+    for p_i in range(12):
+        p_phase = swirl_t * 2.4 + p_i * 0.55
+        p_radius_max = (50 + (p_i % 4) * 18) * fade_ratio
+        decay = (math.sin(p_phase) + 1.0) * 0.5
+        p_r = p_radius_max * (0.28 + 0.72 * decay)
+        # 카오스 궤적: 두 개의 진동 합성으로 비원형
+        p_a = p_phase * 1.7 + p_i + math.sin(p_phase * 0.7) * 0.4
+        p_x = int(cx + math.cos(p_a) * p_r)
+        p_y = int(cy + math.sin(p_a + 0.7) * p_r * 0.85)
+        p_size = max(1, int(3 * (1.0 - decay * 0.5)))
+        pygame.draw.circle(surface, (220, 170, 255), (p_x, p_y), p_size)
+        pygame.draw.circle(surface, (255, 255, 255), (p_x, p_y), max(1, p_size - 1))
+
+    # === 무작위 폭발 섬광 (불규칙적으로 코어 근처에서 번쩍) ===
+    burst_seed = elapsed_ms // 180
+    for burst_i in range(2):
+        bs = (burst_seed + burst_i * 13) & 0xFF
+        if (bs * 7 + burst_i * 3) % 5 == 0:  # 약 1/5 확률로 번쩍
+            ba = (bs / 255.0) * math.tau
+            br_dist = 28 + (bs % 32)
+            bx2 = int(cx + math.cos(ba) * br_dist)
+            by2 = int(cy + math.sin(ba) * br_dist)
+            burst_alpha = int(180 * fade_ratio)
+            burst_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+            pygame.draw.circle(burst_surf, (255, 220, 255, burst_alpha), (10, 10), 8)
+            pygame.draw.circle(burst_surf, (255, 255, 255, burst_alpha), (10, 10), 4)
+            surface.blit(burst_surf, (bx2 - 10, by2 - 10))
+
+
+def draw_viper_chaos_spear_effect(surface: pygame.Surface) -> None:
+    """카오스 스피어 윈드업/투척/충돌/블랙홀/잔광 이펙트 렌더링."""
+    if (_viper_chaos_spear_state == "idle"
+            and not _viper_chaos_spear_absorb_pulses
+            and _viper_chaos_spear_cancel_flash <= 0):
+        return
+
+    cx = int(round(_viper_chaos_spear_current_x or _viper_chaos_spear_target_x))
+    cy = int(round(_viper_chaos_spear_current_y or _viper_chaos_spear_target_y))
+    center_x = int(round(_viper_chaos_spear_target_x))
+    center_y = int(round(_viper_chaos_spear_target_y))
+    now_ms = _get_viper_chaos_spear_effective_now_ms()
+    local_elapsed = max(0, now_ms - _viper_chaos_spear_state_start_ms)
+
+    # 흡수 파편: 트레일 없이 단순 글로우. 주로 파괴 플래시(consumed)와
+    # 상태 기반 이벤트의 잔여 표시용.
+    for pulse in _viper_chaos_spear_absorb_pulses:
+        px = int(pulse["x"])
+        py = int(pulse["y"])
+        col = pulse.get("color", (200, 130, 255))
+        radius = max(2, int(pulse["size"]))
+
+        if pulse.get("consumed"):
+            # 중심 도달 파괴 플래시
+            burst_r = max(2, radius)
+            burst_surf = pygame.Surface((burst_r * 2 + 6, burst_r * 2 + 6), pygame.SRCALPHA)
+            pygame.draw.circle(burst_surf, (*col, 220),
+                               (burst_r + 3, burst_r + 3), burst_r)
+            pygame.draw.circle(burst_surf, (255, 255, 255, 240),
+                               (burst_r + 3, burst_r + 3), max(1, burst_r // 2))
+            surface.blit(burst_surf, (px - burst_r - 3, py - burst_r - 3))
+            continue
+
+        # 상태 기반 이벤트 잔여물 (단순 글로우, 트레일 없음)
+        glow_r = radius + 3
+        glow_surf = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (170, 100, 240, 110),
+                           (glow_r + 2, glow_r + 2), glow_r)
+        pygame.draw.circle(glow_surf, (*col, 230),
+                           (glow_r + 2, glow_r + 2), radius)
+        pygame.draw.circle(glow_surf, (255, 255, 255, 200),
+                           (glow_r + 2, glow_r + 2), max(1, radius // 3))
+        surface.blit(glow_surf, (px - glow_r - 2, py - glow_r - 2))
+
+    if _viper_chaos_spear_state == "startup":
+        # === 윈드업 자세: 머리 위로 들어올리는 차징 모션 ===
+        if PLAYER is None:
+            return
+        t = max(0.0, min(1.0, local_elapsed / float(VIPER_CHAOS_SPEAR_STARTUP_MS)))
+        px = PLAYER.centerx
+        py_top = PLAYER.top
+
+        # 페이즈: rise(0~0.55) -> charge(0.55~0.95) -> snap(0.95~1.0)
+        shoulder_x = float(px + 8)
+        shoulder_y = float(py_top + 8)
+        if t < 0.55:
+            rise = t / 0.55
+            ease = 1.0 - (1.0 - rise) ** 2
+            grip_x = shoulder_x + 13 + (1.0 - ease) * 9
+            grip_y = shoulder_y + 12 - ease * 54
+            prep_angle = -math.pi * 0.60
+        else:
+            charge_t = min(1.0, (t - 0.55) / 0.45)
+            settle = 1.0 - (1.0 - charge_t) ** 2
+            grip_x = shoulder_x + 12 + math.sin(local_elapsed * 0.018) * (2.5 - settle)
+            grip_y = shoulder_y - 42 + math.sin(local_elapsed * 0.024) * (2.5 - settle)
+            prep_angle = -math.pi * 0.44
+
+        # 손잡이 기준으로 조준한 뒤 tip 위치를 계산한다.
+        # 이렇게 해야 창이 바이퍼의 손에서 회전하는 느낌이 난다.
+        target_angle = math.atan2(
+            _viper_chaos_spear_target_y - grip_y,
+            _viper_chaos_spear_target_x - grip_x,
+        )
+        if t < 0.55:
+            rise = t / 0.55
+            aim_t = rise * rise  # 후반부에 타겟 정렬
+            spear_angle = prep_angle * (1.0 - aim_t) + target_angle * aim_t
+        else:
+            tremor = math.sin(local_elapsed * 0.022) * 0.025
+            spear_angle = target_angle + tremor
+        grip_to_tip = 46.0
+        anchor_x = grip_x + math.cos(spear_angle) * grip_to_tip
+        anchor_y = grip_y + math.sin(spear_angle) * grip_to_tip
+
+        # 차지 오라 (패들 주변)
+        aura_r = int(34 + t * 26)
+        aura_surf = pygame.Surface((aura_r * 2, aura_r * 2), pygame.SRCALPHA)
+        for i in range(3):
+            r = max(3, aura_r - i * 10)
+            a = int((50 + t * 80) // (i + 1))
+            pygame.draw.circle(aura_surf, (140, 80, 240, a), (aura_r, aura_r), r)
+        surface.blit(aura_surf, (px - aura_r, PLAYER.centery - aura_r))
+
+        # 발 아래 솟아오르는 에너지 라인
+        for i in range(5):
+            line_phase = (local_elapsed * 0.012 + i * 0.45) % 1.0
+            line_y = int(py_top + 20 - line_phase * 60)
+            line_x = int(px + math.sin(local_elapsed * 0.01 + i) * 14)
+            line_alpha = int(140 * t * (1.0 - line_phase))
+            if line_alpha > 20:
+                line_surf = pygame.Surface((4, 14), pygame.SRCALPHA)
+                pygame.draw.line(line_surf, (200, 130, 255, line_alpha),
+                                 (2, 0), (2, 14), 2)
+                surface.blit(line_surf, (line_x - 2, line_y))
+
+        # 차지 스파크 (스피어 끝 근처)
+        if t > 0.35:
+            spark_count = 5
+            for sp in range(spark_count):
+                sp_a = local_elapsed * 0.014 + sp * (math.tau / spark_count)
+                sp_r = 16 + math.sin(local_elapsed * 0.022 + sp) * 5
+                sp_x = int(anchor_x + math.cos(sp_a) * sp_r)
+                sp_y = int(anchor_y + math.sin(sp_a) * sp_r)
+                pygame.draw.circle(surface, (255, 255, 255), (sp_x, sp_y), 2)
+                spark_glow = pygame.Surface((10, 10), pygame.SRCALPHA)
+                pygame.draw.circle(spark_glow, (200, 130, 255, 200), (5, 5), 5, 1)
+                surface.blit(spark_glow, (sp_x - 5, sp_y - 5))
+
+        # 잡는 팔은 스피어 아래에 먼저 깔고,
+        # 장갑/스트랩은 스피어 후에 다시 올려 쥐고 있는 인상을 만든다.
+        hold_tension = 0.35 + t * 0.65
+        _draw_viper_chaos_spear_hold_overlay(
+            surface,
+            shoulder_x,
+            shoulder_y,
+            grip_x,
+            grip_y,
+            spear_angle,
+            hold_tension,
+            alpha=150,
+        )
+
+        # 스피어 본체
+        _draw_chaos_spear_shape(surface, anchor_x, anchor_y, spear_angle,
+                                 alpha=255, glow=True, scale=1.0)
+        _draw_viper_chaos_spear_hold_overlay(
+            surface,
+            shoulder_x,
+            shoulder_y,
+            grip_x,
+            grip_y,
+            spear_angle,
+            hold_tension,
+            alpha=235,
+        )
+
+        # 윈드업 마지막 0.5초 동안 보라 전기 스파크 차징 (창 위에 누적)
+        # t=0.33(약 250ms)부터 t=1.0(750ms)까지 0→1 램프 (총 500ms)
+        charge_intensity = max(0.0, min(1.0, (t - 0.33) / 0.67))
+        _draw_chaos_spear_charging_sparks(surface, anchor_x, anchor_y, spear_angle,
+                                            charge_intensity, local_elapsed)
+
+    elif _viper_chaos_spear_state == "flying":
+        # === 비행: 단일 투사체 + 모션블러 스트릭 ===
+        angle = _viper_chaos_spear_flight_angle
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
+        spear_x = _viper_chaos_spear_current_x
+        spear_y = _viper_chaos_spear_current_y
+
+        # 1. 후방 모션블러 스트릭 (창 꼬리에서 뒤로 길게 페이드되는 광선)
+        # 폼멜 위치(창 끝의 반대쪽)에서 시작해 origin 방향으로 광선
+        L = VIPER_CHAOS_SPEAR_VISUAL_LENGTH
+        streak_start_x = spear_x - cos_a * L  # 창 폼멜 위치
+        streak_start_y = spear_y - sin_a * L
+        # 추가로 더 뒤까지 끌리는 스트릭
+        streak_extra = 90  # 뒤로 90px 더 끌리는 광선
+        streak_end_x = streak_start_x - cos_a * streak_extra
+        streak_end_y = streak_start_y - sin_a * streak_extra
+
+        # 광선을 여러 두께로 겹쳐 그라데이션 (외곽 두꺼운 흐림 + 내부 밝은 코어)
+        for layer_i, (thickness, alpha) in enumerate([(14, 50), (8, 110), (4, 200), (2, 255)]):
+            # 광선 길이를 따라 끝쪽으로 갈수록 알파가 줄어드는 효과를 위해
+            # 6세그먼트로 나눠 그림 (각 세그먼트가 더 흐려짐)
+            segs = 6
+            for s in range(segs):
+                s_t0 = s / segs
+                s_t1 = (s + 1) / segs
+                seg_alpha = int(alpha * (1.0 - s_t1) ** 1.5)
+                if seg_alpha < 8:
+                    continue
+                sx0 = streak_start_x + (streak_end_x - streak_start_x) * s_t0
+                sy0 = streak_start_y + (streak_end_y - streak_start_y) * s_t0
+                sx1 = streak_start_x + (streak_end_x - streak_start_x) * s_t1
+                sy1 = streak_start_y + (streak_end_y - streak_start_y) * s_t1
+                # 세그먼트별로 작은 surface에 그려 알파 적용
+                # bbox 계산
+                seg_min_x = int(min(sx0, sx1)) - thickness - 2
+                seg_min_y = int(min(sy0, sy1)) - thickness - 2
+                seg_w = int(abs(sx1 - sx0)) + thickness * 2 + 4
+                seg_h = int(abs(sy1 - sy0)) + thickness * 2 + 4
+                if seg_w <= 0 or seg_h <= 0:
+                    continue
+                seg_surf = pygame.Surface((seg_w, seg_h), pygame.SRCALPHA)
+                if layer_i < 2:
+                    color = (170, 100, 240, seg_alpha)
+                elif layer_i == 2:
+                    color = (220, 170, 255, seg_alpha)
+                else:
+                    color = (255, 255, 255, seg_alpha)
+                pygame.draw.line(
+                    seg_surf, color,
+                    (int(sx0 - seg_min_x), int(sy0 - seg_min_y)),
+                    (int(sx1 - seg_min_x), int(sy1 - seg_min_y)),
+                    thickness)
+                surface.blit(seg_surf, (seg_min_x, seg_min_y))
+
+        # 2. 후방 흩날리는 스파크 입자 (공기 가르는 느낌)
+        # 시드 기반 무작위 위치, 광선을 따라 분포
+        spark_seed = int(_viper_chaos_spear_state_start_ms) & 0xFFFF
+        for sp_i in range(8):
+            rng = ((spark_seed * 31 + sp_i * 1103515245) & 0x7FFFFFFF) / 0x7FFFFFFF
+            sp_t = rng  # 0~1: 광선상의 위치
+            sp_lx = -L - sp_t * streak_extra
+            # 수직 방향 약간 흩어짐
+            sp_ly = (((sp_i * 17 + spark_seed) & 0x1F) - 16) * 0.3
+            sp_x = int(spear_x + cos_a * sp_lx - sin_a * sp_ly)
+            sp_y = int(spear_y + sin_a * sp_lx + cos_a * sp_ly)
+            sp_alpha = int(220 * (1.0 - sp_t))
+            sp_size = max(1, int(2 + (1.0 - sp_t) * 2))
+            sp_surf = pygame.Surface((sp_size * 2 + 4, sp_size * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(sp_surf, (255, 230, 255, sp_alpha),
+                               (sp_size + 2, sp_size + 2), sp_size)
+            surface.blit(sp_surf, (sp_x - sp_size - 2, sp_y - sp_size - 2))
+
+        # 3. 단일 본체 스피어 (선명, 회전 매칭)
+        _draw_chaos_spear_shape(surface, spear_x, spear_y, angle,
+                                 alpha=255, glow=True, scale=1.0)
+
+    elif _viper_chaos_spear_state == "impact":
+        progress = max(0.0, min(1.0, local_elapsed / float(VIPER_CHAOS_SPEAR_IMPACT_MS)))
+        _draw_chaos_impact_effect(surface, center_x, center_y,
+                                   progress, _viper_chaos_spear_impact_seed,
+                                   _viper_chaos_spear_flight_angle)
+
+    elif _viper_chaos_spear_state in ("blackhole", "fade"):
+        fade_ratio = 1.0
+        if _viper_chaos_spear_state == "fade":
+            fade_ratio = max(0.0, 1.0 - (local_elapsed / float(VIPER_CHAOS_SPEAR_FADE_MS)))
+        _draw_chaos_blackhole_effect(surface, center_x, center_y,
+                                       local_elapsed, fade_ratio)
+        if _viper_chaos_spear_cancel_flash > 0:
+            flash_alpha = min(220, _viper_chaos_spear_cancel_flash * 12)
+            pygame.draw.circle(surface, (255, 160, 220, flash_alpha),
+                               (center_x, center_y), 32, 3)
 
 
 # ============================================================================
@@ -5082,6 +7623,7 @@ _IMPACT_ITEM_COLORS = {
     "magnet_field": (130, 220, 255),
     "dash_boost": (120, 255, 210),
     "boomerang": (255, 190, 80),
+    "gods_stone": (255, 220, 120),
 }
 
 
@@ -5176,15 +7718,7 @@ def get_smasher_skill_cooldown_remaining(skill_name: str) -> float:
     if cooldown_sec <= 0:
         return 0.0
 
-    cooldown_ms = cooldown_sec * 1000
-    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
-    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-    if _angel_skill_cd != 1.0:
-        cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
-    _training_bonus = get_runtime_skill_bonus("common_training")
-    if _training_bonus > 0:
-        cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
+    cooldown_ms = _get_effective_player_skill_cooldown_ms(cooldown_sec)
     cooldown_data = _smasher_skill_cooldowns.get(skill_name)
 
     # 쿨타임 데이터가 없으면 쿨타임 완료 상태
@@ -5227,14 +7761,23 @@ def get_smasher_skill_cooldown_remaining(skill_name: str) -> float:
 
 
 def reset_smasher_skill_cooldowns():
-    """모든 스매셔 스킬 쿨타임 초기화"""
+    """모든 스매셔 스킬 쿨타임 초기화.
+
+    주의: 이 함수는 풀게이징 / 재생물약 등 '쿨다운만' 초기화하는 경로에서도
+    호출된다. 따라서 워프게이트처럼 지속시간이 있는 활성 버프는 여기서 끊지 않는다.
+    워프게이트 런타임 상태(_reset_warp_gate_state) 초기화는 죽음/메뉴복귀 등
+    상태 전이 경로에서 별도로 호출한다.
+    """
     global _smasher_skill_cooldowns
     _smasher_skill_cooldowns = {
         "plasma": 0,
         "recovery": 0,
         "cleanse": 0,
+        "ghost_shot": 0,
         "drive": 0,
         "power_smashing": 0,
+        "magnum_grip": 0,
+        "warp_gate": 0,
     }
 
 
@@ -5582,7 +8125,8 @@ def _create_smasher_skill_icon(skill_data: dict, size: int = 28, active: bool = 
 
 
 def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, cy: int,
-                            size: int, is_active: bool, color: tuple):
+                            size: int, is_active: bool, color: tuple,
+                            animate_ready: bool = False):
     """스킬별 고퀄리티 아이콘 심볼 그리기
 
     Args:
@@ -5592,6 +8136,7 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         size: 아이콘 크기
         is_active: 활성화 여부
         color: 스킬 색상
+        animate_ready: 사용 가능 전환 직후의 짧은 심볼 애니메이션 여부
     """
     # 활성화 시 밝은 색, 비활성화 시 어두운 색
     if is_active:
@@ -5607,13 +8152,37 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
 
     s = size // 2  # 반지름 기준
 
+    # === 공용 아이콘 idle 애니메이션 페이즈 ===
+    # HUD 가용 상태에서 계속 돌리면 임시 Surface 생성이 누적돼 프레임 드랍이 생기므로
+    # "지금 막 사용 가능해진 짧은 구간"에만 심볼 애니메이션을 허용한다.
+    animate = bool(animate_ready)
+    icon_phase = 0.0
+    icon_pulse = 0.0
+    icon_bob = 0.0
+    if animate:
+        try:
+            _now_ticks = pygame.time.get_ticks()
+            # 회전/오빗용 페이즈 (라디안)
+            icon_phase = (_now_ticks / 1000.0) * 2.2
+            # 0~1 사이를 반복하는 펄스값 (sin 기반, 1.4초 주기)
+            icon_pulse = 0.5 + 0.5 * math.sin(_now_ticks / 1400.0 * math.pi * 2)
+            # -1~1 사이를 반복하는 보빙값 (2초 주기)
+            icon_bob = math.sin(_now_ticks / 2000.0 * math.pi * 2)
+        except Exception:
+            icon_phase = 0.0
+            icon_pulse = 0.0
+            icon_bob = 0.0
+
     if skill_name == "plasma":
         # ⚡ 플라즈마 번개 - 고퀄리티
-        # 배경 전기 파동 효과
+        # 배경 전기 파동 효과 (준비 완료 시 펄스 확장)
+        wave_boost = int(icon_pulse * 3) if animate else 0
         for i in range(3):
-            wave_r = s - i * 3
+            wave_r = s - i * 3 + wave_boost
             if wave_r > 0:
-                pygame.draw.circle(surface, (*shadow_color[:3], 60), (cx, cy), wave_r, 1)
+                wave_alpha = 60 + int((icon_pulse * 60) if animate else 0) - i * 12
+                wave_alpha = max(20, wave_alpha)
+                pygame.draw.circle(surface, (*shadow_color[:3], wave_alpha), (cx, cy), wave_r, 1)
 
         # 메인 번개 볼트 (두꺼운 버전)
         bolt_points = [
@@ -5642,23 +8211,27 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         ]
         pygame.draw.lines(surface, main_color, False, inner_bolt, 2)
 
-        # 전기 스파크 효과
-        for angle in [30, 150, 210, 330]:
-            rad = math.radians(angle)
-            spark_x = cx + int(math.cos(rad) * s * 0.7)
-            spark_y = cy + int(math.sin(rad) * s * 0.7)
+        # 전기 스파크 효과 (준비 완료 시 볼트 주위를 궤도 운동)
+        spark_radius = s * 0.7 + (icon_pulse * 2 if animate else 0)
+        spark_rot = icon_phase if animate else 0.0
+        for i, base_angle in enumerate((30, 150, 210, 330)):
+            rad = math.radians(base_angle) + spark_rot
+            spark_x = cx + int(math.cos(rad) * spark_radius)
+            spark_y = cy + int(math.sin(rad) * spark_radius)
             pygame.draw.circle(surface, highlight_color, (spark_x, spark_y), 2)
 
     elif skill_name == "recovery":
         # ♥ 하트 + 십자가 조합 (회복) - 고퀄리티
-        # 외곽 글로우 효과
+        # 외곽 글로우 효과 (준비 완료 시 펄스)
+        glow_pulse = icon_pulse if animate else 0.0
         for i in range(3, 0, -1):
             glow_alpha = 40 * i
             glow_color = (*accent_color[:3], glow_alpha) if len(accent_color) == 3 else accent_color
-            pygame.draw.circle(surface, shadow_color, (cx, cy), s + i, 1)
+            pygame.draw.circle(surface, shadow_color, (cx, cy), s + i + int(glow_pulse * 2), 1)
 
-        # 하트 모양 그리기
-        heart_scale = s * 0.8
+        # 하트 모양 그리기 (준비 완료 시 호흡 스케일 ±8%)
+        breath = (1.0 + 0.08 * icon_bob) if animate else 1.0
+        heart_scale = s * 0.8 * breath
         heart_points = []
         for t in range(0, 360, 10):
             rad = math.radians(t)
@@ -5684,22 +8257,35 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         pygame.draw.rect(surface, main_color,
                         (cx - cross_size//2, cy - cross_size//4, cross_size, cross_size//2))
 
+        # 오빗 스파클 (준비 완료 시 하트 주위를 3개 입자가 천천히 회전)
+        if animate:
+            orbit_r = s + 3
+            for k in range(3):
+                ang = icon_phase * 0.8 + k * (2 * math.pi / 3)
+                sx = cx + int(math.cos(ang) * orbit_r)
+                sy = cy + int(math.sin(ang) * orbit_r)
+                pygame.draw.circle(surface, highlight_color, (sx, sy), 2)
+                pygame.draw.circle(surface, main_color, (sx, sy), 1)
+
     elif skill_name == "cleanse":
         # ✧ 정화의 빛/성스러운 광선 - 고퀄리티
         # 외곽 오라 효과
         for i in range(4, 0, -1):
             pygame.draw.circle(surface, (*shadow_color[:3],), (cx, cy), s - i + 4, 1)
 
-        # 중앙 빛나는 원
-        pygame.draw.circle(surface, accent_color, (cx, cy), s // 2)
-        pygame.draw.circle(surface, highlight_color, (cx, cy), s // 3)
-        pygame.draw.circle(surface, main_color, (cx, cy), s // 5)
+        # 중앙 빛나는 원 (준비 완료 시 코어 펄스)
+        core_boost = int(icon_pulse * 2) if animate else 0
+        pygame.draw.circle(surface, accent_color, (cx, cy), s // 2 + core_boost)
+        pygame.draw.circle(surface, highlight_color, (cx, cy), s // 3 + core_boost)
+        pygame.draw.circle(surface, main_color, (cx, cy), s // 5 + max(0, core_boost // 2))
 
-        # 8방향 광선 (두께와 길이 변화)
-        for i, angle in enumerate(range(0, 360, 45)):
+        # 8방향 광선 (준비 완료 시 전체가 회전)
+        rays_rot_deg = math.degrees(icon_phase * 0.6) if animate else 0
+        for i in range(8):
+            angle = (i * 45 + rays_rot_deg) % 360
             rad = math.radians(angle)
-            # 메인 방향(상하좌우)은 더 길고 두껍게
-            is_main = angle % 90 == 0
+            # 메인 방향(상하좌우 기준)은 더 길고 두껍게
+            is_main = (i % 2 == 0)
             outer_r = s if is_main else s * 3 // 4
             thickness = 3 if is_main else 2
 
@@ -5713,10 +8299,11 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
                 line_color = highlight_color if j == 0 else main_color
                 pygame.draw.line(surface, line_color, (x1, y1), (x2, y2), thickness - j)
 
-        # 작은 반짝임 효과
-        sparkle_angles = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
-        for angle in sparkle_angles:
-            rad = math.radians(angle)
+        # 작은 반짝임 효과 (준비 완료 시 반대방향으로 카운터-로테이션)
+        sparkle_rot = -icon_phase * 0.9 if animate else 0.0
+        sparkle_base = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
+        for base_angle in sparkle_base:
+            rad = math.radians(base_angle) + sparkle_rot
             sx = cx + int(math.cos(rad) * s * 0.8)
             sy = cy + int(math.sin(rad) * s * 0.8)
             pygame.draw.circle(surface, main_color, (sx, sy), 1)
@@ -5745,18 +8332,20 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
                 thickness = max(1, 2 - i // 4)
                 pygame.draw.line(surface, highlight_color, curve_points[i], curve_points[i+1], thickness)
 
-        # 공 (시작 위치)
+        # 공 (시작 위치, 준비 완료 시 반지름 ±1 호흡)
         ball_start_x = cx - s*2//3
         ball_start_y = cy + s//3
         ball_r = s//4
-        pygame.draw.circle(surface, shadow_color, (ball_start_x + 1, ball_start_y + 1), ball_r)
-        pygame.draw.circle(surface, accent_color, (ball_start_x, ball_start_y), ball_r)
-        pygame.draw.circle(surface, main_color, (ball_start_x - ball_r//3, ball_start_y - ball_r//3), ball_r//3)
+        ball_r_anim = ball_r + (1 if animate and icon_pulse > 0.5 else 0)
+        pygame.draw.circle(surface, shadow_color, (ball_start_x + 1, ball_start_y + 1), ball_r_anim)
+        pygame.draw.circle(surface, accent_color, (ball_start_x, ball_start_y), ball_r_anim)
+        pygame.draw.circle(surface, main_color, (ball_start_x - ball_r_anim//3, ball_start_y - ball_r_anim//3), ball_r_anim//3)
 
-        # 스핀 효과 (공 주변 회전선)
+        # 스핀 효과 (공 주변 회전선 - 준비 완료 시 실제로 회전)
         spin_r = ball_r + 3
-        for angle in [45, 135, 225, 315]:
-            rad = math.radians(angle)
+        spin_rot = icon_phase * 1.4 if animate else 0.0
+        for angle in (45, 135, 225, 315):
+            rad = math.radians(angle) + spin_rot
             sx = ball_start_x + int(math.cos(rad) * spin_r)
             sy = ball_start_y + int(math.sin(rad) * spin_r)
             ex = ball_start_x + int(math.cos(rad + 0.5) * (spin_r + 4))
@@ -5782,9 +8371,10 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         ball_y = cy
         ball_r = s//3
 
-        # 충격파 링 (공 중심에서 퍼져나감)
+        # 충격파 링 (공 중심에서 퍼져나감 - 준비 완료 시 확장 펄스)
+        ring_expand = int(icon_pulse * 3) if animate else 0
         for i in range(4):
-            ring_r = ball_r + s//5 + i * s//4
+            ring_r = ball_r + s//5 + i * s//4 + ring_expand
             ring_alpha = max(60, 180 - i * 40)
             pygame.draw.circle(surface, shadow_color, (ball_x, ball_y), ring_r, 2)
 
@@ -5810,13 +8400,15 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         # 공 하이라이트
         pygame.draw.circle(surface, main_color, (ball_x - ball_r//3, ball_y - ball_r//3), ball_r//3)
 
-        # 💥 폭발 스파크 (대각선 방향)
-        spark_angles = [30, 60, 120, 150, 210, 240, 300, 330]
+        # 💥 폭발 스파크 (대각선 방향 - 준비 완료 시 궤도 회전 + 거리 펄스)
+        spark_rot = icon_phase * 0.7 if animate else 0.0
+        spark_dist_base = ball_r + s//3
+        spark_dist_anim = spark_dist_base + (int(icon_pulse * 2) if animate else 0)
+        spark_angles = (30, 60, 120, 150, 210, 240, 300, 330)
         for angle_deg in spark_angles:
-            angle = math.radians(angle_deg)
-            spark_dist = ball_r + s//3
-            spark_x = ball_x + int(math.cos(angle) * spark_dist)
-            spark_y = ball_y + int(math.sin(angle) * spark_dist)
+            angle = math.radians(angle_deg) + spark_rot
+            spark_x = ball_x + int(math.cos(angle) * spark_dist_anim)
+            spark_y = ball_y + int(math.sin(angle) * spark_dist_anim)
             # 작은 별 모양 스파크
             pygame.draw.circle(surface, main_color, (spark_x, spark_y), 2)
 
@@ -5855,11 +8447,13 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             bar_highlight = shadow_color
             field_color = shadow_color[:3]
 
-        # 자기장 글로우 배경 (활성화 시)
+        # 자기장 글로우 배경 (활성화 시 - 준비 완료 시 펄스 확장)
         if is_active:
+            glow_boost = int(icon_pulse * 3) if animate else 0
             for i in range(3, 0, -1):
-                glow_r = mag_w // 2 + s // 3 + i * 3
-                pygame.draw.circle(surface, (*field_color, 25), (cx, cy + 2), glow_r, 1)
+                glow_r = mag_w // 2 + s // 3 + i * 3 + glow_boost
+                glow_alpha = 25 + int(icon_pulse * 20) if animate else 25
+                pygame.draw.circle(surface, (*field_color, glow_alpha), (cx, cy + 2), glow_r, 1)
 
         # 왼쪽 다리 (빨강 - 둥근 모서리)
         pygame.draw.rect(surface, left_color,
@@ -5925,19 +8519,94 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
                     pygame.draw.line(surface, arc_c, prev_pt, pt, max(1, 2 - i // 2))
                 prev_pt = pt
 
-        # 에너지 파티클 (자기장 내 떠다니는 점 - 활성화 시)
+        # 에너지 파티클 (준비 완료 시 자기장 아래서 궤도 운동)
         if is_active:
-            particle_positions = [
-                (cx - s // 3, leg_bottom + s // 3),
-                (cx + s // 3, leg_bottom + s // 4),
-                (cx, leg_bottom + s // 2),
-                (cx - s // 5, leg_bottom + s // 5 + 2),
-                (cx + s // 5, leg_bottom + s // 2 - 2),
-            ]
-            for j, (px, py) in enumerate(particle_positions):
+            orbit_cy = leg_bottom + s // 3
+            orbit_rx = s // 2
+            orbit_ry = s // 4
+            particle_rot = icon_phase * 1.1 if animate else 0.0
+            for j in range(5):
+                base_ang = j * (2 * math.pi / 5)
+                ang = base_ang + particle_rot
+                px = cx + int(math.cos(ang) * orbit_rx)
+                py = orbit_cy + int(math.sin(ang) * orbit_ry)
                 p_size = max(1, 2 - j // 3)
                 p_color = left_tip if j % 2 == 0 else right_tip
                 pygame.draw.circle(surface, p_color, (px, py), p_size)
+
+    elif skill_name == "warp_gate":
+        # ⊙ 워프게이트: 차원 포털 소용돌이 + 회전 글리프 + 에너지 링
+        # --- 외곽 아우라 (3겹 글로우) ---
+        for i in range(3, 0, -1):
+            aura_r = s + i
+            aura_alpha = max(30, 110 - i * 25)
+            aura_surf = pygame.Surface((aura_r * 2 + 4, aura_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(aura_surf, (*accent_color[:3], aura_alpha),
+                               (aura_r + 2, aura_r + 2), aura_r)
+            surface.blit(aura_surf, (cx - aura_r - 2, cy - aura_r - 2))
+
+        # --- 포털 본체 (메인 디스크) ---
+        portal_r = max(6, int(s * 0.9))
+        # 어두운 보라 배경 (깊이감)
+        pygame.draw.circle(surface, shadow_color, (cx, cy), portal_r)
+        # 중간 메인 컬러
+        pygame.draw.circle(surface, accent_color, (cx, cy), max(3, portal_r - 2))
+        # 안쪽 밝은 하이라이트
+        pygame.draw.circle(surface, highlight_color, (cx, cy), max(2, portal_r - 5))
+        # 중심 순백 코어
+        pygame.draw.circle(surface, main_color, (cx, cy), max(1, portal_r // 4))
+
+        # --- 회전 애니메이션 게이트 ---
+        # 스킬 준비 완료 시(is_active) 또는 현재 발동 중(warp_gate_active)에만 회전.
+        # 쿨타임/게이지 부족 상태에서는 phase=0 고정(정지 상태).
+        is_running = False
+        try:
+            is_running = warp_gate_active
+        except Exception:
+            is_running = False
+        animate = bool(animate_ready) or is_running
+        phase = 0.0
+        if animate:
+            try:
+                # 발동 중에는 살짝 더 빠르게 돌려 "지금 활성" 감을 준다.
+                phase_mult = 2.6 if is_running else 2.0
+                phase = _warp_gate_phase * phase_mult
+            except Exception:
+                phase = 0.0
+
+        # --- 회전 소용돌이 (3개 암) ---
+        for arm in range(3):
+            arm_angle0 = phase + arm * (2 * math.pi / 3)
+            # 소용돌이 곡선: 6개 점을 잇는 스파이럴
+            pts = []
+            for j in range(6):
+                t_arm = j / 5.0
+                r_arm = portal_r * (1.0 - t_arm * 0.85)
+                ang = arm_angle0 + t_arm * 2.2
+                pts.append((
+                    cx + int(math.cos(ang) * r_arm),
+                    cy + int(math.sin(ang) * r_arm),
+                ))
+            if len(pts) >= 2:
+                for j in range(len(pts) - 1):
+                    tw = max(1, 3 - j // 2)
+                    pygame.draw.line(surface, highlight_color, pts[j], pts[j + 1], tw)
+
+        # --- 외곽 회전 링 (점선 느낌) ---
+        ring_r = portal_r + 2
+        for a_deg in range(0, 360, 30):
+            rad = math.radians(a_deg + phase * 20)
+            rx = cx + int(math.cos(rad) * ring_r)
+            ry = cy + int(math.sin(rad) * ring_r)
+            pygame.draw.circle(surface, accent_color, (rx, ry), 1)
+
+        # --- 반짝이는 스파크 4개 (준비/발동 중일 때만) ---
+        if animate:
+            for a_deg in (0, 90, 180, 270):
+                rad = math.radians(a_deg + phase * 35)
+                sx = cx + int(math.cos(rad) * (s - 1))
+                sy = cy + int(math.sin(rad) * (s - 1))
+                pygame.draw.circle(surface, main_color, (sx, sy), 2)
 
     elif skill_name == "ghost_shot":
         # 👻 고스트샷: 귀신 + 구불거리는 궤적 + 미니 귀신들
@@ -5964,8 +8633,9 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             pygame.draw.circle(surface, main_color, (bx, by), max(2, s // 6))
             pygame.draw.circle(surface, accent_color, (bx, by), max(1, s // 8))
 
-        # --- 귀신 본체 (중앙 상단) ---
-        ghost_y = cy - s // 5
+        # --- 귀신 본체 (중앙 상단 - 준비 완료 시 위아래 보빙) ---
+        ghost_bob_offset = int(icon_bob * 2) if animate else 0
+        ghost_y = cy - s // 5 + ghost_bob_offset
         # 그림자
         ghost_w = s * 2 // 3
         ghost_h = s * 3 // 4
@@ -6012,10 +8682,13 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             (cx - mouth_w, mouth_y), (cx, mouth_y + max(2, s // 5)), (cx + mouth_w, mouth_y)
         ])
 
-        # --- 미니 귀신 (좌우) ---
+        # --- 미니 귀신 (준비 완료 시 본체 주위를 좌우 반대방향으로 부유) ---
         for side in [-1, 1]:
-            mx = cx + side * (s * 3 // 4)
-            my = cy
+            # 좌우 미니 귀신이 서로 반대 위상으로 위아래 보빙
+            mini_bob = int(math.sin(icon_phase * 1.3 + (0 if side < 0 else math.pi)) * 3) if animate else 0
+            mini_drift = int(math.cos(icon_phase * 1.1 + (0 if side < 0 else math.pi)) * 2) if animate else 0
+            mx = cx + side * (s * 3 // 4) + mini_drift * side
+            my = cy + mini_bob
             mr = max(2, s // 5)
             mini_color = accent_color if is_active else shadow_color
             pygame.draw.circle(surface, mini_color, (mx, my), mr)
@@ -6165,92 +8838,51 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
         pygame.draw.circle(surface, shadow_color, (skull_x + 1, skull_y - 1), 1)
 
     elif skill_name == "marshal_kick":
-        # 🦶 마샬 킥: 풋프린트(발자국) 실루엣 + 킥 속도선
-        # 시점: 아래에서 올려다 본 발바닥 (3/4뷰, 발가락 위)
-        # 실루엣 기준: 검정 채우기만으로 발로 읽히는 형태
-
+        # 🦶 마샬 킥 (워프게이트 수준 고퀄):
+        # 3겹 외곽 아우라 → 뒤꿈치 임팩트 웨이브 → 발바닥 4중 셰이딩 →
+        # 발가락 스페큘러 하이라이트 → 5줄 속도선 → 외곽 회전 점선 링 + 오빗 스파크
         r = s * 3 // 5  # 구슬 내부 여유
 
-        # === 발 몸통 (볼 + 아치컷 + 뒤꿈치, 하나의 폴리곤) ===
-        sole = [
-            # 앞꿈치 볼 (상단, 가장 넓음)
-            (cx - r * 3 // 5,  cy - r // 5),       # 볼 왼쪽 끝
-            (cx - r * 2 // 5,  cy - r * 3 // 5),   # 볼 왼쪽 위
-            (cx + r // 6,      cy - r * 2 // 3),   # 볼 상단 중앙
-            (cx + r // 2,      cy - r * 3 // 5),   # 볼 오른쪽 위
-            (cx + r * 3 // 5,  cy - r // 5),       # 볼 오른쪽 끝
-            # 아치 (오른쪽 오목 컷 — 핵심!)
-            (cx + r // 3,      cy + r // 10),       # 아치 시작
-            (cx + r // 5,      cy + r // 4),        # 아치 가장 오목한 점
-            (cx + r // 4,      cy + r * 2 // 5),    # 아치 끝
-            # 뒤꿈치 (하단, 좁고 둥글게)
-            (cx + r // 3,      cy + r * 3 // 5),    # 뒤꿈치 오른쪽
-            (cx,               cy + r * 3 // 4),    # 뒤꿈치 바닥
-            (cx - r // 3,      cy + r * 3 // 5),    # 뒤꿈치 왼쪽
-            # 왼쪽 바깥 (볼록, 매끈하게 올라감)
-            (cx - r * 2 // 5,  cy + r // 4),        # 왼쪽 하단
-            (cx - r // 2,      cy),                  # 왼쪽 중간
-        ]
-        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in sole])
-        pygame.draw.polygon(surface, accent_color, sole)
-        pygame.draw.polygon(surface, highlight_color, sole, max(1, s // 10))
+        # 런타임 상태: 최근 0.5초 내 마샬 킥 적중 시 애니메이션 부스트
+        is_recent_hit = False
+        try:
+            if _viper_marshal_kick_hit_ball and _viper_marshal_kick_hit_ms:
+                is_recent_hit = (pygame.time.get_ticks() - _viper_marshal_kick_hit_ms) < 500
+        except Exception:
+            is_recent_hit = False
+        boost_mult = 2.4 if is_recent_hit else 1.0
 
-        # === 발가락 (외곽 돌출 원 3개, 크기 차이로 엄지 방향 표현) ===
-        toe_data = [
-            # (x, y, 반지름) — 엄지가 크고 왼쪽, 새끼가 작고 오른쪽
-            (cx - r * 2 // 5,  cy - r * 4 // 5,   max(3, r // 3)),    # 엄지 (크게)
-            (cx + r // 10,     cy - r,             max(2, r * 2 // 7)),  # 검지+중지 (중간)
-            (cx + r * 2 // 5,  cy - r * 4 // 5,   max(2, r // 4)),    # 약지+새끼 (작게)
-        ]
-        for tx, ty, tr in toe_data:
-            pygame.draw.circle(surface, shadow_color, (tx + 1, ty + 1), tr)
-            pygame.draw.circle(surface, accent_color, (tx, ty), tr)
-            pygame.draw.circle(surface, highlight_color, (tx, ty), tr, max(1, s // 12))
+        # --- 외곽 아우라 (3겹 글로우, warp_gate 패턴) ---
+        for _ai in range(3, 0, -1):
+            aura_r = s + _ai
+            aura_alpha = max(30, 110 - _ai * 25)
+            aura_surf = pygame.Surface((aura_r * 2 + 4, aura_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(aura_surf, (*accent_color[:3], aura_alpha),
+                               (aura_r + 2, aura_r + 2), aura_r)
+            surface.blit(aura_surf, (cx - aura_r - 2, cy - aura_r - 2))
 
-        # === 속도선 (뒤꿈치 아래, 킥 방향=위, 수평선 3줄) ===
-        for i in range(3):
-            ly = cy + r * 4 // 5 + max(3, r // 4) + i * max(3, r // 3)
-            hw = r // 2 - i * (r // 5)  # 점점 짧아짐
-            lc = tuple(min(255, c + 50 - i * 25) for c in highlight_color[:3])
-            pygame.draw.line(surface, lc,
-                           (cx - hw, ly), (cx + hw, ly),
-                           max(1, 2 - i // 2))
+        # --- 임팩트 웨이브 (뒤꿈치 아래 반원 3겹, 준비/적중 시 확장 펄스) ---
+        wave_anchor_y = cy + r * 3 // 4 + max(2, r // 5)
+        wave_boost = int(icon_pulse * 4 * boost_mult) if animate else 0
+        for wi in range(3):
+            wave_r = r // 2 + wi * max(2, r // 4) + wave_boost
+            if wave_r <= 0:
+                continue
+            wave_alpha = max(40, 170 - wi * 50)
+            wave_box = wave_r * 2 + 4
+            wave_surf = pygame.Surface((wave_box, wave_box), pygame.SRCALPHA)
+            arc_pts = []
+            for t_step in range(9):
+                ang = (t_step / 8.0) * math.pi  # 0 → pi: 아래로 볼록한 반원
+                ax = wave_r + 2 + int(math.cos(ang) * wave_r)
+                ay = 2 + int(math.sin(ang) * wave_r)
+                arc_pts.append((ax, ay))
+            if len(arc_pts) >= 2:
+                pygame.draw.lines(wave_surf, (*highlight_color[:3], wave_alpha),
+                                  False, arc_pts, max(1, 3 - wi))
+            surface.blit(wave_surf, (cx - wave_r - 2, wave_anchor_y - 2))
 
-    elif skill_name == "double_marshal_kick":
-        # 👊🦶 팬텀 킥: 풋프린트 실루엣 × 2 (본체 + 분리된 잔상)
-        # 잔상이 본체와 3~4px 간격으로 분리되어 팬텀 느낌
-
-        r = s * 3 // 5
-        go = max(3, s // 4)  # 잔상 오프셋 (본체와 분리 간격)
-
-        # --- 잔상 풋프린트 (오프셋, 어두운 색) ---
-        ghost_color = tuple(max(0, c // 3) for c in accent_color[:3])
-        ghost_sole = [
-            (cx - r * 3 // 5 + go,  cy - r // 5 + go),
-            (cx - r * 2 // 5 + go,  cy - r * 3 // 5 + go),
-            (cx + r // 6 + go,      cy - r * 2 // 3 + go),
-            (cx + r // 2 + go,      cy - r * 3 // 5 + go),
-            (cx + r * 3 // 5 + go,  cy - r // 5 + go),
-            (cx + r // 3 + go,      cy + r // 10 + go),
-            (cx + r // 5 + go,      cy + r // 4 + go),
-            (cx + r // 4 + go,      cy + r * 2 // 5 + go),
-            (cx + r // 3 + go,      cy + r * 3 // 5 + go),
-            (cx + go,               cy + r * 3 // 4 + go),
-            (cx - r // 3 + go,      cy + r * 3 // 5 + go),
-            (cx - r * 2 // 5 + go,  cy + r // 4 + go),
-            (cx - r // 2 + go,      cy + go),
-        ]
-        pygame.draw.polygon(surface, ghost_color, ghost_sole)
-        # 잔상 발가락
-        ghost_toes = [
-            (cx - r * 2 // 5 + go,  cy - r * 4 // 5 + go, max(2, r // 3)),
-            (cx + r // 10 + go,     cy - r + go,           max(2, r * 2 // 7)),
-            (cx + r * 2 // 5 + go,  cy - r * 4 // 5 + go, max(2, r // 4)),
-        ]
-        for tx, ty, tr in ghost_toes:
-            pygame.draw.circle(surface, ghost_color, (tx, ty), tr)
-
-        # --- 메인 풋프린트 (마샬 킥과 동일 실루엣) ---
+        # --- 발바닥 폴리곤 (기존 13점 실루엣 유지) ---
         sole = [
             (cx - r * 3 // 5,  cy - r // 5),
             (cx - r * 2 // 5,  cy - r * 3 // 5),
@@ -6266,20 +8898,381 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             (cx - r * 2 // 5,  cy + r // 4),
             (cx - r // 2,      cy),
         ]
-        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in sole])
+        # 1) 드롭 섀도우 (+2,+2, 가장 어두움)
+        pygame.draw.polygon(surface, shadow_color, [(px + 2, py + 2) for px, py in sole])
+        # 2) 어두운 베이스 (+1,+1, 입체감)
+        dark_accent = tuple(max(0, c - 35) for c in accent_color[:3])
+        pygame.draw.polygon(surface, dark_accent, [(px + 1, py + 1) for px, py in sole])
+        # 3) 메인 accent 채움
         pygame.draw.polygon(surface, accent_color, sole)
-        pygame.draw.polygon(surface, main_color, sole, max(2, s // 6))
+        # 4) 좌상단 반사광 인셋 (centroid 기준 62% 축소 + 좌상 1px 오프셋)
+        cx_poly = sum(p[0] for p in sole) / len(sole)
+        cy_poly = sum(p[1] for p in sole) / len(sole)
+        inset_sole = [
+            (int(cx_poly + (p[0] - cx_poly) * 0.62) - 1,
+             int(cy_poly + (p[1] - cy_poly) * 0.62) - 1)
+            for p in sole
+        ]
+        pygame.draw.polygon(surface, highlight_color, inset_sole)
+        # 5) 외곽 스트로크 (main_color 가볍게)
+        pygame.draw.polygon(surface, main_color, sole, max(1, s // 12))
 
-        # 메인 발가락
+        # --- 발가락 (5중 깊이, 스페큘러 포함) ---
         toe_data = [
-            (cx - r * 2 // 5,  cy - r * 4 // 5,   max(3, r // 3)),
-            (cx + r // 10,     cy - r,             max(2, r * 2 // 7)),
-            (cx + r * 2 // 5,  cy - r * 4 // 5,   max(2, r // 4)),
+            (cx - r * 2 // 5,  cy - r * 4 // 5,   max(3, r // 3)),     # 엄지 (크게)
+            (cx + r // 10,     cy - r,             max(2, r * 2 // 7)),  # 검지+중지
+            (cx + r * 2 // 5,  cy - r * 4 // 5,   max(2, r // 4)),     # 약지+새끼
         ]
         for tx, ty, tr in toe_data:
             pygame.draw.circle(surface, shadow_color, (tx + 1, ty + 1), tr)
-            pygame.draw.circle(surface, accent_color, (tx, ty), tr)
-            pygame.draw.circle(surface, main_color, (tx, ty), tr, max(1, s // 10))
+            pygame.draw.circle(surface, dark_accent, (tx, ty), tr)
+            pygame.draw.circle(surface, accent_color, (tx, ty), max(1, tr - 1))
+            # 좌상단 반사광
+            hl_offset = max(1, tr // 3)
+            pygame.draw.circle(surface, highlight_color,
+                               (tx - hl_offset, ty - hl_offset),
+                               max(1, tr * 2 // 3))
+            # 스페큘러 코어
+            pygame.draw.circle(surface, main_color,
+                               (tx - hl_offset, ty - hl_offset),
+                               max(1, tr // 3))
+
+        # --- 속도선 (5줄, 알파 감쇠) ---
+        for i in range(5):
+            ly = cy + r * 4 // 5 + max(3, r // 4) + i * max(2, r // 4)
+            hw = r // 2 - i * (r // 6)
+            if hw <= 0:
+                break
+            lc = tuple(min(255, max(0, c + 50 - i * 20)) for c in highlight_color[:3])
+            pygame.draw.line(surface, lc,
+                             (cx - hw, ly), (cx + hw, ly),
+                             max(1, 2 - i // 2))
+
+        # --- 외곽 회전 점선 링 (warp_gate 스타일 12점) ---
+        if animate:
+            ring_r = s + 1
+            ring_phase = icon_phase * (0.6 * boost_mult)
+            for a_deg in range(0, 360, 30):
+                rad = math.radians(a_deg) + ring_phase
+                rx = cx + int(math.cos(rad) * ring_r)
+                ry = cy + int(math.sin(rad) * ring_r)
+                pygame.draw.circle(surface, accent_color, (rx, ry), 1)
+
+        # --- 오빗 스파크 4개 (준비 완료 / 적중 직후 회전) ---
+        if animate:
+            spark_r = s - 1
+            sp_phase = icon_phase * (0.9 * boost_mult)
+            for a_deg in (45, 135, 225, 315):
+                rad = math.radians(a_deg) + sp_phase
+                sx = cx + int(math.cos(rad) * spark_r)
+                sy = cy + int(math.sin(rad) * spark_r)
+                pygame.draw.circle(surface, main_color, (sx, sy), 2)
+
+    elif skill_name in ("double_marshal_kick", "phantom_kick"):
+        # 👊🦶 팬텀 킥 (마샬 킥과 완전히 다른 컴포지션):
+        # 두 발 병렬 미러 배치 (좌=실제 solid, 우=팬텀 반투명) → 중앙 에너지 지그재그 번개 →
+        # 양쪽 뒤꿈치 임팩트 웨이브 → 외곽 영혼 불꽃 8개 (각 독립 깜빡임, 점선 링 대체)
+        fr = max(4, s * 2 // 5)  # 한 발 반지름 — 마샬 킥(3/5)보다 작음 (두 발 공간 확보)
+        foot_gap = max(3, s * 3 // 8)
+        left_cx = cx - foot_gap
+        right_cx = cx + foot_gap
+        foot_y = cy + max(1, s // 10)
+
+        # 런타임 상태: 2차 마샬 윈도우 열림 / 실행 중 / 최근 적중 감지
+        any_active_state = False
+        try:
+            if _viper_double_marshal_ready or _viper_is_double_marshal:
+                any_active_state = True
+            elif _viper_marshal_kick_hit_ball and _viper_marshal_kick_hit_ms:
+                any_active_state = (pygame.time.get_ticks() - _viper_marshal_kick_hit_ms) < 800
+        except Exception:
+            pass
+        boost_mult = 2.6 if any_active_state else 1.0
+
+        # --- 외곽 아우라 (2겹 가벼운 글로우 — 불꽃이 주역이므로 더 부드럽게) ---
+        for _ai in range(2, 0, -1):
+            aura_r = s + _ai
+            aura_alpha = max(30, 90 - _ai * 25)
+            aura_surf = pygame.Surface((aura_r * 2 + 4, aura_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(aura_surf, (*accent_color[:3], aura_alpha),
+                               (aura_r + 2, aura_r + 2), aura_r)
+            surface.blit(aura_surf, (cx - aura_r - 2, cy - aura_r - 2))
+
+        # --- 발 폴리곤 헬퍼 (mirror 지원으로 좌우 해부학적 구분) ---
+        def _footprint_polys(fx_cx, fx_cy, _fr, mirror=False):
+            sgn = -1 if mirror else 1
+            _sole = [
+                (fx_cx + sgn * (-_fr * 3 // 5), fx_cy - _fr // 5),
+                (fx_cx + sgn * (-_fr * 2 // 5), fx_cy - _fr * 3 // 5),
+                (fx_cx + sgn * (_fr // 6),      fx_cy - _fr * 2 // 3),
+                (fx_cx + sgn * (_fr // 2),      fx_cy - _fr * 3 // 5),
+                (fx_cx + sgn * (_fr * 3 // 5),  fx_cy - _fr // 5),
+                (fx_cx + sgn * (_fr // 3),      fx_cy + _fr // 10),
+                (fx_cx + sgn * (_fr // 5),      fx_cy + _fr // 4),
+                (fx_cx + sgn * (_fr // 4),      fx_cy + _fr * 2 // 5),
+                (fx_cx + sgn * (_fr // 3),      fx_cy + _fr * 3 // 5),
+                (fx_cx,                          fx_cy + _fr * 3 // 4),
+                (fx_cx + sgn * (-_fr // 3),     fx_cy + _fr * 3 // 5),
+                (fx_cx + sgn * (-_fr * 2 // 5), fx_cy + _fr // 4),
+                (fx_cx + sgn * (-_fr // 2),     fx_cy),
+            ]
+            _toes = [
+                (fx_cx + sgn * (-_fr * 2 // 5), fx_cy - _fr * 4 // 5, max(2, _fr // 3)),
+                (fx_cx + sgn * (_fr // 10),     fx_cy - _fr,           max(2, _fr * 2 // 7)),
+                (fx_cx + sgn * (_fr * 2 // 5),  fx_cy - _fr * 4 // 5, max(2, _fr // 4)),
+            ]
+            return _sole, _toes
+
+        dark_accent = tuple(max(0, c - 35) for c in accent_color[:3])
+
+        # --- 양쪽 발 아래 임팩트 웨이브 2겹씩 ---
+        wave_boost = int(icon_pulse * 3 * boost_mult) if animate else 0
+        for side_cx in (left_cx, right_cx):
+            wave_anchor_y = foot_y + fr * 3 // 4 + max(2, fr // 5)
+            for wi in range(2):
+                wave_r = fr // 2 + wi * max(2, fr // 4) + wave_boost
+                if wave_r <= 0:
+                    continue
+                wave_alpha = max(50, 160 - wi * 55)
+                wave_box = wave_r * 2 + 4
+                wave_surf = pygame.Surface((wave_box, wave_box), pygame.SRCALPHA)
+                arc_pts = []
+                for t_step in range(9):
+                    ang = (t_step / 8.0) * math.pi
+                    ax = wave_r + 2 + int(math.cos(ang) * wave_r)
+                    ay = 2 + int(math.sin(ang) * wave_r)
+                    arc_pts.append((ax, ay))
+                if len(arc_pts) >= 2:
+                    pygame.draw.lines(wave_surf, (*highlight_color[:3], wave_alpha),
+                                      False, arc_pts, max(1, 3 - wi))
+                surface.blit(wave_surf, (side_cx - wave_r - 2, wave_anchor_y - 2))
+
+        # --- LEFT FOOT: 실제 발 (solid 4중 셰이딩) ---
+        l_sole, l_toes = _footprint_polys(left_cx, foot_y, fr, mirror=False)
+        pygame.draw.polygon(surface, shadow_color, [(px + 1, py + 1) for px, py in l_sole])
+        pygame.draw.polygon(surface, dark_accent, l_sole)
+        pygame.draw.polygon(surface, accent_color, [(p[0], p[1] - 1) for p in l_sole])
+        l_cxp = sum(p[0] for p in l_sole) / len(l_sole)
+        l_cyp = sum(p[1] for p in l_sole) / len(l_sole)
+        l_inset = [
+            (int(l_cxp + (p[0] - l_cxp) * 0.58),
+             int(l_cyp + (p[1] - l_cyp) * 0.58) - 1)
+            for p in l_sole
+        ]
+        pygame.draw.polygon(surface, highlight_color, l_inset)
+        pygame.draw.polygon(surface, main_color, l_sole, max(1, s // 14))
+        for tx, ty, tr_t in l_toes:
+            pygame.draw.circle(surface, shadow_color, (tx + 1, ty + 1), tr_t)
+            pygame.draw.circle(surface, accent_color, (tx, ty), tr_t)
+            pygame.draw.circle(surface, highlight_color, (tx - 1, ty - 1), max(1, tr_t * 2 // 3))
+            pygame.draw.circle(surface, main_color, (tx - 1, ty - 1), max(1, tr_t // 3))
+
+        # --- RIGHT FOOT: 팬텀 (mirrored, 반투명, 스펙트럴 엣지, icon_pulse 깜빡임) ---
+        p_sole, p_toes = _footprint_polys(right_cx, foot_y, fr, mirror=True)
+        phantom_alpha = int(150 + icon_pulse * 90 * boost_mult) if animate else 180
+        phantom_alpha = max(110, min(240, phantom_alpha))
+        p_pad = fr + max(3, s // 4)
+        p_box = p_pad * 2 + 4
+        p_surf = pygame.Surface((p_box, p_box), pygame.SRCALPHA)
+        p_off_x = p_pad + 2 - right_cx
+        p_off_y = p_pad + 2 - foot_y
+        local_p_sole = [(p[0] + p_off_x, p[1] + p_off_y) for p in p_sole]
+        phantom_fill = (*accent_color[:3], phantom_alpha)
+        phantom_edge = (*main_color[:3], min(255, phantom_alpha + 40))
+        pygame.draw.polygon(p_surf, phantom_fill, local_p_sole)
+        pygame.draw.polygon(p_surf, phantom_edge, local_p_sole, max(1, s // 12))
+        for tx, ty, tr_t in p_toes:
+            lx = tx + p_off_x
+            ly = ty + p_off_y
+            pygame.draw.circle(p_surf, phantom_fill, (lx, ly), tr_t)
+            pygame.draw.circle(p_surf, phantom_edge, (lx, ly), tr_t, 1)
+        surface.blit(p_surf, (right_cx - p_pad - 2, foot_y - p_pad - 2))
+
+        # --- 중앙 에너지 지그재그 번개 (좌→우 발 연결) ---
+        bolt_wobble = math.sin(icon_phase * 2.2 * boost_mult) if animate else 0
+        bolt_pts = [
+            (left_cx + fr // 2, foot_y - fr // 5),
+            (cx - max(1, s // 10), foot_y - fr // 3 + int(bolt_wobble)),
+            (cx + max(1, s // 10), foot_y + fr // 4 - int(bolt_wobble)),
+            (right_cx - fr // 2, foot_y - fr // 5),
+        ]
+        bolt_surf_size = s * 3
+        bolt_surf = pygame.Surface((bolt_surf_size, bolt_surf_size), pygame.SRCALPHA)
+        bx_off = bolt_surf_size // 2 - cx
+        by_off = bolt_surf_size // 2 - cy
+        local_bolt = [(p[0] + bx_off, p[1] + by_off) for p in bolt_pts]
+        pygame.draw.lines(bolt_surf, (*highlight_color[:3], 90), False, local_bolt, 3)
+        pygame.draw.lines(bolt_surf, (*main_color[:3], 230), False, local_bolt, 1)
+        surface.blit(bolt_surf, (cx - bolt_surf_size // 2, cy - bolt_surf_size // 2))
+        # 중앙 코어 빛 (펄스)
+        core_r = max(2, 1 + int(icon_pulse * 2)) if animate else 2
+        pygame.draw.circle(surface, main_color, (cx, foot_y - fr // 4), core_r)
+
+        # --- 외곽 영혼 불꽃 8개 (점선 링 대체, 각자 독립 페이즈로 깜빡임) ---
+        flame_surf_size = s * 3
+        flame_surf = pygame.Surface((flame_surf_size, flame_surf_size), pygame.SRCALPHA)
+        fs_off_x = flame_surf_size // 2 - cx
+        fs_off_y = flame_surf_size // 2 - cy
+        flame_r_base = s + 1
+        for fi in range(8):
+            rad = math.radians(fi * 45)
+            flick = (0.5 + 0.5 * math.sin(icon_phase * 1.6 * boost_mult + fi * 0.85)) if animate else 0.65
+            flame_len = int(3 + flick * (4 if animate else 1))
+            perp = rad + math.pi / 2
+            half_w = 2
+            bx = cx + int(math.cos(rad) * flame_r_base)
+            by = cy + int(math.sin(rad) * flame_r_base)
+            tipx = cx + int(math.cos(rad) * (flame_r_base + flame_len))
+            tipy = cy + int(math.sin(rad) * (flame_r_base + flame_len))
+            b1x = bx + int(math.cos(perp) * half_w)
+            b1y = by + int(math.sin(perp) * half_w)
+            b2x = bx - int(math.cos(perp) * half_w)
+            b2y = by - int(math.sin(perp) * half_w)
+            flame_alpha = max(70, int(120 + flick * 135)) if animate else 190
+            flame_col = (*accent_color[:3], min(255, flame_alpha))
+            pygame.draw.polygon(flame_surf, flame_col, [
+                (b1x + fs_off_x, b1y + fs_off_y),
+                (b2x + fs_off_x, b2y + fs_off_y),
+                (tipx + fs_off_x, tipy + fs_off_y),
+            ])
+            # 밝은 코어 (불꽃 중간, 깜빡임 강할 때만)
+            if flick > 0.55:
+                core_x = cx + int(math.cos(rad) * (flame_r_base + flame_len // 2))
+                core_y = cy + int(math.sin(rad) * (flame_r_base + flame_len // 2))
+                pygame.draw.circle(flame_surf, (*highlight_color[:3], 220),
+                                   (core_x + fs_off_x, core_y + fs_off_y), 1)
+        surface.blit(flame_surf, (cx - flame_surf_size // 2, cy - flame_surf_size // 2))
+
+    elif skill_name == "core_flip":
+        # 🔄 코어 플립: 좌우 화살표가 중앙 발자국으로 수렴 + 회전 플립 호 + 외곽 자기 링
+        # 런타임 상태: 화랑 킥 윈도우(대쉬로 공 타격 후 0.7s)가 열려 있는지
+        cf_active_state = False
+        try:
+            cf_now = pygame.time.get_ticks()
+            if (not _viper_core_flip_consumed
+                    and _viper_core_flip_ready_ms > 0
+                    and _viper_last_dash_start_ms > 0
+                    and _viper_core_flip_ready_ms >= _viper_last_dash_start_ms
+                    and (cf_now - _viper_core_flip_ready_ms) <= 700):
+                cf_active_state = True
+        except Exception:
+            cf_active_state = False
+        boost_mult = 2.4 if cf_active_state else 1.0
+
+        # --- 외곽 자기력 링 (3겹 페이딩 글로우) ---
+        for _ai in range(3, 0, -1):
+            aura_r = s + _ai
+            aura_alpha = max(35, 110 - _ai * 25)
+            aura_surf = pygame.Surface((aura_r * 2 + 4, aura_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(aura_surf, (*accent_color[:3], aura_alpha),
+                               (aura_r + 2, aura_r + 2), aura_r, 1)
+            surface.blit(aura_surf, (cx - aura_r - 2, cy - aura_r - 2))
+
+        # --- 회전 플립 호 (270° arc, 윈도우 열렸을 때 회전) ---
+        arc_r = s - 1
+        arc_phase = icon_phase * (1.2 * boost_mult) if animate else 0.0
+        arc_start = math.radians(40) + arc_phase
+        arc_end = math.radians(310) + arc_phase
+        arc_rect = (cx - arc_r, cy - arc_r, arc_r * 2, arc_r * 2)
+        pygame.draw.arc(surface, accent_color, arc_rect, arc_start, arc_end, max(2, s // 8))
+        pygame.draw.arc(surface, highlight_color, arc_rect,
+                        arc_start, arc_start + math.radians(60), max(1, s // 12))
+        # 호 끝 화살촉 (회전과 함께 이동)
+        ah_ang = -arc_start
+        ah_x = cx + int(math.cos(ah_ang) * arc_r)
+        ah_y = cy - int(math.sin(ah_ang) * arc_r)
+        ah_perp = ah_ang + math.pi / 2
+        ah_size = max(2, s // 5)
+        ah_pts = [
+            (ah_x + int(math.cos(ah_ang) * ah_size), ah_y - int(math.sin(ah_ang) * ah_size)),
+            (ah_x + int(math.cos(ah_perp) * ah_size), ah_y - int(math.sin(ah_perp) * ah_size)),
+            (ah_x - int(math.cos(ah_perp) * ah_size), ah_y + int(math.sin(ah_perp) * ah_size)),
+        ]
+        pygame.draw.polygon(surface, highlight_color, ah_pts)
+        pygame.draw.polygon(surface, main_color, ah_pts, 1)
+
+        # --- 좌우 마주보는 화살표 (A+D 키 동시 입력 표현) ---
+        arr_y = cy + max(1, s // 8)
+        center_gap = max(3, s // 4)
+        arr_left_tail_x = cx - max(5, s * 5 // 8)
+        arr_left_tip_x = cx - center_gap
+        arr_right_tail_x = cx + max(5, s * 5 // 8)
+        arr_right_tip_x = cx + center_gap
+        arr_thick = max(2, s // 7)
+        arr_head = max(3, s // 5)
+
+        # 좌측 → 중앙 (A 방향)
+        pygame.draw.line(surface, highlight_color,
+                         (arr_left_tail_x, arr_y), (arr_left_tip_x, arr_y), arr_thick)
+        l_head = [
+            (arr_left_tip_x, arr_y),
+            (arr_left_tip_x - arr_head, arr_y - arr_head),
+            (arr_left_tip_x - arr_head, arr_y + arr_head),
+        ]
+        pygame.draw.polygon(surface, main_color, l_head)
+        pygame.draw.polygon(surface, accent_color, l_head, 1)
+
+        # 우측 → 중앙 (D 방향)
+        pygame.draw.line(surface, highlight_color,
+                         (arr_right_tail_x, arr_y), (arr_right_tip_x, arr_y), arr_thick)
+        r_head = [
+            (arr_right_tip_x, arr_y),
+            (arr_right_tip_x + arr_head, arr_y - arr_head),
+            (arr_right_tip_x + arr_head, arr_y + arr_head),
+        ]
+        pygame.draw.polygon(surface, main_color, r_head)
+        pygame.draw.polygon(surface, accent_color, r_head, 1)
+
+        # --- 중앙 발자국 (마샬 킥 발동을 의미) ---
+        ft_r = max(3, s * 2 // 5)
+        ft_cy = cy - max(1, s // 6)
+        sole = [
+            (cx,                      ft_cy - ft_r),
+            (cx + ft_r * 2 // 3,      ft_cy - ft_r // 2),
+            (cx + ft_r // 2,          ft_cy + ft_r // 2),
+            (cx + ft_r // 3,          ft_cy + ft_r),
+            (cx,                      ft_cy + ft_r * 5 // 4),
+            (cx - ft_r // 3,          ft_cy + ft_r),
+            (cx - ft_r // 2,          ft_cy + ft_r // 2),
+            (cx - ft_r * 2 // 3,      ft_cy - ft_r // 2),
+        ]
+        # 그림자 + 베이스 + 메인 + 인셋 하이라이트 + 외곽 스트로크
+        pygame.draw.polygon(surface, shadow_color, [(p[0] + 1, p[1] + 1) for p in sole])
+        dark_accent = tuple(max(0, c - 35) for c in accent_color[:3])
+        pygame.draw.polygon(surface, dark_accent, sole)
+        pygame.draw.polygon(surface, accent_color, [(p[0], p[1] - 1) for p in sole])
+        sole_cx = sum(p[0] for p in sole) / len(sole)
+        sole_cy = sum(p[1] for p in sole) / len(sole)
+        inset = [
+            (int(sole_cx + (p[0] - sole_cx) * 0.6),
+             int(sole_cy + (p[1] - sole_cy) * 0.6) - 1)
+            for p in sole
+        ]
+        pygame.draw.polygon(surface, highlight_color, inset)
+        pygame.draw.polygon(surface, main_color, sole, max(1, s // 14))
+
+        # 발가락 3개 (발 위쪽)
+        toe_data = [
+            (cx - ft_r * 2 // 5,  ft_cy - ft_r * 5 // 4,  max(2, ft_r // 3)),
+            (cx,                   ft_cy - ft_r * 4 // 3,  max(2, ft_r * 2 // 7)),
+            (cx + ft_r * 2 // 5,  ft_cy - ft_r * 5 // 4,  max(1, ft_r // 4)),
+        ]
+        for tx, ty, tr_t in toe_data:
+            pygame.draw.circle(surface, shadow_color, (tx + 1, ty + 1), tr_t)
+            pygame.draw.circle(surface, accent_color, (tx, ty), tr_t)
+            pygame.draw.circle(surface, highlight_color, (tx - 1, ty - 1), max(1, tr_t * 2 // 3))
+            pygame.draw.circle(surface, main_color, (tx - 1, ty - 1), max(1, tr_t // 3))
+
+        # --- 윈도우 열림 펄스 스파크 (대쉬 히트 후 0.7s 동안만) ---
+        if animate and cf_active_state:
+            spark_r = s + 1
+            sp_phase = icon_phase * 1.5
+            for sp_i, sp_a in enumerate((30, 150, 210, 330)):
+                rad = math.radians(sp_a) + sp_phase
+                spx = cx + int(math.cos(rad) * spark_r)
+                spy = cy + int(math.sin(rad) * spark_r)
+                pygame.draw.circle(surface, main_color, (spx, spy), 2)
+                pygame.draw.circle(surface, highlight_color, (spx, spy), 1)
 
     elif skill_name == "dive_strike":
         # ⇓ EMP 스트라이크: 급강하 + 착지 연기 장판
@@ -6328,6 +9321,66 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             sc = tuple(min(255, c + 20) for c in shadow_color[:3])
             pygame.draw.circle(surface, sc, (smx, smy), smr)
             pygame.draw.circle(surface, highlight_color, (smx, smy), smr, 1)
+
+    elif skill_name == "chaos_spear":
+        # 🜂 카오스 스피어: 중앙 블랙홀 + 투척 창 + 궤도 구체
+        ring_boost = int(icon_pulse * 4) if animate else 0
+        outer_r = s - 2 + ring_boost
+        inner_r = max(4, s // 3 + ring_boost // 2)
+        pygame.draw.circle(surface, shadow_color, (cx, cy), outer_r)
+        pygame.draw.circle(surface, accent_color, (cx, cy), outer_r, 2)
+        pygame.draw.circle(surface, (28, 6, 48), (cx, cy), inner_r)
+        pygame.draw.circle(surface, main_color, (cx, cy), max(2, inner_r // 3))
+
+        spear_tip = (cx, cy - s + 1)
+        spear_left = (cx - max(3, s // 5), cy - s // 4)
+        spear_right = (cx + max(3, s // 5), cy - s // 4)
+        pygame.draw.polygon(surface, main_color, [spear_tip, spear_left, spear_right])
+        pygame.draw.line(surface, (235, 210, 120), (cx, cy - s // 4), (cx, cy + s // 3), max(2, s // 8))
+        pygame.draw.line(surface, shadow_color, (cx - s // 3, cy + s // 10), (cx + s // 3, cy + s // 10), max(2, s // 9))
+
+        orbit_phase = icon_phase if animate else 0.0
+        for i in range(3):
+            ang = orbit_phase + i * (math.tau / 3)
+            orb_x = cx + int(math.cos(ang) * (s * 0.75))
+            orb_y = cy + int(math.sin(ang * 1.35) * (s * 0.55))
+            orb_color = highlight_color if i == 0 else accent_color
+            pygame.draw.circle(surface, orb_color, (orb_x, orb_y), max(2, s // 8))
+            pygame.draw.circle(surface, main_color, (orb_x, orb_y), 1)
+
+    elif skill_name == "ignition_aura":
+        # ◎ 이그니션오라: 화염 환형 오라 + 회전 화염 혀 + 밝은 코어
+        # ready 상태일 때만 살짝 맥동 (CLAUDE.md §4.2: cooldown/unusable=정지)
+        _aura_pulse = 1.0 + (icon_pulse * 0.18 if animate else 0.0)
+        _ring_outer = max(4, int((s - 1) * _aura_pulse))
+        _ring_mid   = max(3, int((s - 4) * _aura_pulse))
+        _ring_core  = max(2, int(s // 3))
+        # 다층 환 (어두운 적 → 밝은 주황)
+        pygame.draw.circle(surface, shadow_color, (cx, cy), _ring_outer)
+        pygame.draw.circle(surface, accent_color, (cx, cy), _ring_outer, 2)
+        pygame.draw.circle(surface, (90, 30, 10), (cx, cy), _ring_mid)
+        pygame.draw.circle(surface, accent_color, (cx, cy), _ring_mid, 1)
+        # 코어 (밝은 노란-흰 펄스)
+        pygame.draw.circle(surface, highlight_color, (cx, cy), _ring_core)
+        pygame.draw.circle(surface, main_color, (cx, cy), max(1, _ring_core // 2))
+        # 회전하는 4개 화염 혀 (active 시 회전, 그 외 고정 위상)
+        _flame_phase = icon_phase if animate else 0.0
+        for _fi in range(4):
+            _ang = _flame_phase * 0.6 + _fi * (math.pi / 2) + math.pi / 4
+            _bx = cx + int(math.cos(_ang) * (s * 0.55))
+            _by = cy + int(math.sin(_ang) * (s * 0.55))
+            _tx = cx + int(math.cos(_ang) * (s * 0.95))
+            _ty = cy + int(math.sin(_ang) * (s * 0.95))
+            _perp = _ang + math.pi / 2
+            _w = max(2, s // 6)
+            _bx_l = _bx + int(math.cos(_perp) * _w)
+            _by_l = _by + int(math.sin(_perp) * _w)
+            _bx_r = _bx - int(math.cos(_perp) * _w)
+            _by_r = _by - int(math.sin(_perp) * _w)
+            pygame.draw.polygon(surface, accent_color,
+                                [(_tx, _ty), (_bx_l, _by_l), (_bx_r, _by_r)])
+            pygame.draw.polygon(surface, highlight_color,
+                                [(_tx, _ty), (_bx_l, _by_l), (_bx_r, _by_r)], 1)
 
     elif skill_name == "jetpack_enhance":
         # 🚀 제트팩 강화: 로켓/화염 + 위쪽 화살표
@@ -6447,7 +9500,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     # 5개 슬롯 반원 배치: 165도(왼쪽 아래)에서 30도 간격
     base_angle = 165
     angle_step = 30
-    all_slot_angles = [base_angle + i * angle_step for i in range(SMASHER_MAX_SKILL_SLOTS)]
+    all_slot_angles = [base_angle + i * angle_step for i in range(get_smasher_max_skill_slots())]
 
     # === 빈 슬롯 그리기 함수 ===
     def draw_empty_slot(slot_x: int, slot_y: int):
@@ -6458,7 +9511,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
         pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
 
     # === 모든 슬롯 그리기 (장착된 스킬 + 빈 슬롯) ===
-    for slot_idx in range(SMASHER_MAX_SKILL_SLOTS):
+    for slot_idx in range(get_smasher_max_skill_slots()):
         angle_deg = all_slot_angles[slot_idx]
         angle_rad = math.radians(angle_deg)
 
@@ -6520,6 +9573,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
         # === 활성화 효과 (글로우) ===
         activation_time = _smasher_skill_activation_times.get(skill_name, 0)
         activation_elapsed = time_now - activation_time
+        symbol_animate = is_active and activation_elapsed < activation_effect_duration
 
         if is_active and activation_elapsed < activation_effect_duration:
             progress = activation_elapsed / activation_effect_duration
@@ -6547,7 +9601,8 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
         # === 스킬 아이콘 심볼 그리기 ===
         icon_size = icon_radius * 2 - 4  # 원에 꽉 차도록 (반지름*2 - 여백)
         _draw_skill_icon_symbol(surface, skill_name, icon_x, icon_y,
-                               icon_size, is_active, skill_data["color"])
+                               icon_size, is_active, skill_data["color"],
+                               animate_ready=symbol_animate)
 
         # === 쿨타임 오버레이 ===
         if is_on_cooldown:
@@ -6573,15 +9628,8 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
 
             surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
 
-            # 남은 쿨타임 시간 표시 (2배 크기) — 단련 퍽 + 천사주사위 감소 반영
-            _orb_base_cd = skill_data["cooldown"]
-            _orb_angel_mult = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-            _orb_training = get_runtime_skill_bonus("common_training")
-            _orb_eff_cd = _orb_base_cd
-            if _orb_angel_mult != 1.0:
-                _orb_eff_cd = _orb_eff_cd * _orb_angel_mult
-            if _orb_training > 0:
-                _orb_eff_cd = _orb_eff_cd * (1.0 - _orb_training)
+            # 남은 쿨타임 시간 표시 (최종 쿨타임 반영)
+            _orb_eff_cd = _get_effective_player_skill_cooldown_seconds(skill_data["cooldown"])
             remaining_sec = max(0, _orb_eff_cd * cooldown_ratio)
             if remaining_sec >= 1:
                 cooldown_text = f"{int(remaining_sec)}"
@@ -6642,7 +9690,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
 
     base_angle = 155
     angle_step = 28  # 5슬롯 균등 간격
-    all_slot_angles = [base_angle + i * angle_step for i in range(VIPER_MAX_SKILL_SLOTS)]
+    all_slot_angles = [base_angle + i * angle_step for i in range(get_viper_max_skill_slots())]
 
     # === 빈 슬롯 그리기 ===
     def draw_empty_slot(slot_x: int, slot_y: int):
@@ -6652,7 +9700,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
 
     # === 모든 슬롯 그리기 (장착된 스킬 + 빈 슬롯) ===
-    for slot_idx in range(VIPER_MAX_SKILL_SLOTS):
+    for slot_idx in range(get_viper_max_skill_slots()):
         angle_deg = all_slot_angles[slot_idx]
         angle_rad = math.radians(angle_deg)
         slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
@@ -6703,6 +9751,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         cooldown_ratio = get_viper_skill_cooldown_remaining(_cd_key)
         is_on_cooldown = cooldown_ratio > 0
         is_active = current_gauge >= skill_data["cost"] and not is_on_cooldown
+        is_chaos_running = (skill_name == "chaos_spear" and _viper_chaos_spear_state != "idle")
 
         # 팬텀 킥: 마샬 킥 적중 후 연계 준비 상태일 때만 활성화
         if skill_name == "phantom_kick":
@@ -6734,7 +9783,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             continue
 
         # 배경색 결정
-        if is_active:
+        if is_active or is_chaos_running:
             bg_color = (*skill_data["color"][:3], 200)
             border_color = (255, 255, 255, 255)
         else:
@@ -6750,9 +9799,12 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         # 활성화 글로우 효과
         activation_time = _viper_skill_activation_times.get(skill_name, 0)
         activation_elapsed = time_now - activation_time
+        symbol_animate = (is_active and activation_elapsed < activation_effect_duration) or is_chaos_running
 
-        if is_active and activation_elapsed < activation_effect_duration:
+        if (is_active and activation_elapsed < activation_effect_duration) or is_chaos_running:
             progress = activation_elapsed / activation_effect_duration
+            if is_chaos_running:
+                progress = 0.2
             skill_color = skill_data["color"]
             glow_alpha = int(180 * (1 - progress))
             glow_radius = icon_radius + int(8 * (1 - progress))
@@ -6764,7 +9816,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         pygame.draw.circle(surface, border_color, (icon_x, icon_y), icon_radius, 2)
 
         # 활성화 펄스 글로우
-        if is_active and not is_on_cooldown:
+        if (is_active and not is_on_cooldown) or is_chaos_running:
             pulse = (math.sin(time_now * 0.005 + i * 0.5) + 1) / 2
             if pulse > 0.4:
                 pulse_alpha = int((pulse - 0.4) * 100)
@@ -6777,9 +9829,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             _pk_glow_pulse = 0.5 + 0.5 * math.sin(_pk_glow_t)
             _pk_glow_a = int(80 + 120 * _pk_glow_pulse)
             _pk_glow_r = icon_radius + int(4 + 4 * _pk_glow_pulse)
-            _pk_gs = pygame.Surface((_pk_glow_r * 2 + 4, _pk_glow_r * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(_pk_gs, (255, 50, 50, _pk_glow_a),
-                             (_pk_glow_r + 2, _pk_glow_r + 2), _pk_glow_r)
+            _pk_gs = get_predrawn_glow_circle(_pk_glow_r * 2 + 4, (255, 50, 50), _pk_glow_a)
             surface.blit(_pk_gs, (icon_x - _pk_glow_r - 2, icon_y - _pk_glow_r - 2),
                         special_flags=pygame.BLEND_ADD)
             pygame.draw.circle(surface, (255, 80, 80, int(160 * _pk_glow_pulse)),
@@ -6791,9 +9841,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             _mk_glow_pulse = 0.5 + 0.5 * math.sin(_mk_glow_t)
             _mk_glow_a = int(80 + 120 * _mk_glow_pulse)
             _mk_glow_r = icon_radius + int(4 + 4 * _mk_glow_pulse)
-            _mk_gs = pygame.Surface((_mk_glow_r * 2 + 4, _mk_glow_r * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(_mk_gs, (255, 50, 50, _mk_glow_a),
-                             (_mk_glow_r + 2, _mk_glow_r + 2), _mk_glow_r)
+            _mk_gs = get_predrawn_glow_circle(_mk_glow_r * 2 + 4, (255, 50, 50), _mk_glow_a)
             surface.blit(_mk_gs, (icon_x - _mk_glow_r - 2, icon_y - _mk_glow_r - 2),
                         special_flags=pygame.BLEND_ADD)
             pygame.draw.circle(surface, (255, 80, 80, int(160 * _mk_glow_pulse)),
@@ -6802,7 +9850,8 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
         # 스킬 심볼
         icon_size = icon_radius * 2 - 4
         _draw_skill_icon_symbol(surface, skill_name, icon_x, icon_y,
-                               icon_size, is_active, skill_data["color"])
+                               icon_size, is_active, skill_data["color"],
+                               animate_ready=symbol_animate)
 
         # 쿨타임 오버레이
         if is_on_cooldown:
@@ -6822,15 +9871,8 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                     pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
             surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
 
-            # 단련 퍽 + 천사주사위 감소 반영
-            _orb_base_cd_v = skill_data["cooldown"]
-            _orb_angel_mult_v = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-            _orb_training_v = get_runtime_skill_bonus("common_training")
-            _orb_eff_cd_v = _orb_base_cd_v
-            if _orb_angel_mult_v != 1.0:
-                _orb_eff_cd_v = _orb_eff_cd_v * _orb_angel_mult_v
-            if _orb_training_v > 0:
-                _orb_eff_cd_v = _orb_eff_cd_v * (1.0 - _orb_training_v)
+            # 남은 쿨타임 시간 표시 (최종 쿨타임 반영)
+            _orb_eff_cd_v = _get_effective_player_skill_cooldown_seconds(skill_data["cooldown"])
             remaining_sec = max(0, _orb_eff_cd_v * cooldown_ratio)
             if remaining_sec >= 1:
                 cooldown_text = f"{int(remaining_sec)}"
@@ -6987,13 +10029,12 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
         # 활성화 글로우
         act_time = _viper_perk_activation_times.get(perk_name, 0)
         act_elapsed = time_now - act_time
+        symbol_animate = is_active and act_elapsed < activation_effect_duration
         if is_active and act_elapsed < activation_effect_duration:
             progress = act_elapsed / activation_effect_duration
             glow_alpha = int(180 * (1 - progress))
             glow_r = icon_radius + int(8 * (1 - progress))
-            glow_surf = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*perk["color"][:3], glow_alpha),
-                             (glow_r + 2, glow_r + 2), glow_r)
+            glow_surf = get_predrawn_glow_circle(glow_r * 2 + 4, perk["color"][:3], glow_alpha)
             surface.blit(glow_surf, (icon_x - glow_r - 2, icon_y - glow_r - 2))
 
         # 원형 배경
@@ -7010,7 +10051,8 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
 
         # 아이콘 심볼 (팬텀 킥: 두 발 + x2)
         _draw_skill_icon_symbol(surface, perk_name, icon_x, icon_y,
-                               icon_radius * 2 - 4, is_active, perk["color"])
+                               icon_radius * 2 - 4, is_active, perk["color"],
+                               animate_ready=symbol_animate)
 
 
 def _draw_smasher_skill_debug(screen: pygame.Surface, scale_factor: float = 1.0):
@@ -7603,10 +10645,11 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
 
     # 툴팁 크기 및 위치 계산
     tooltip_width = 300
-    # 파워스매싱은 조작법이 2줄이라 더 높게
+    # 파워스매싱/매그넘그립/워프게이트는 조작법이 2줄이라 더 높게
     is_power_smashing = skill_data.get("how_to_use") == "power_smashing"
     is_magnum_grip = skill_data.get("how_to_use") == "magnum_grip"
-    tooltip_height = 300 if (is_power_smashing or is_magnum_grip) else 280
+    is_warp_gate = skill_data.get("how_to_use") == "warp_gate"
+    tooltip_height = 300 if (is_power_smashing or is_magnum_grip or is_warp_gate) else 280
     effect_preview_height = 100  # 이펙트 프리뷰 영역 확대
     padding = 12
 
@@ -7679,16 +10722,9 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
     tooltip_surface.blit(cost_surface, (padding, y_offset))
 
-    # 쿨타임 표시 (단련 퍽 + 천사주사위 감소 반영)
+    # 쿨타임 표시 (최종 쿨타임 반영)
     _base_cd = skill_data["cooldown"]
-    _angel_cd_mult = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-    _training_cd_bonus = get_runtime_skill_bonus("common_training")
-    _effective_cd = _base_cd
-    if _angel_cd_mult != 1.0:
-        _effective_cd = _effective_cd * _angel_cd_mult
-    if _training_cd_bonus > 0:
-        _effective_cd = _effective_cd * (1.0 - _training_cd_bonus)
-    _effective_cd = max(0, _effective_cd)
+    _effective_cd = _get_effective_player_skill_cooldown_seconds(_base_cd)
     cooldown_ratio = get_smasher_skill_cooldown_remaining(skill_data["name"])
     if cooldown_ratio > 0:
         remaining = _effective_cd * cooldown_ratio
@@ -7736,8 +10772,8 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     # === 조작법 표시 (how_to_use) ===
     how_to_use = skill_data.get("how_to_use", "")
     if how_to_use:
-        # 조작법 배경 박스 (드라이브, 파워스매싱, 매그넘 그립은 2줄이라 더 높게)
-        how_to_box_height = 52 if how_to_use in ["power_smashing", "drive", "magnum_grip"] else 32
+        # 조작법 배경 박스 (드라이브, 파워스매싱, 매그넘 그립, 워프게이트는 2줄이라 더 높게)
+        how_to_box_height = 52 if how_to_use in ["power_smashing", "drive", "magnum_grip", "warp_gate"] else 32
         how_to_box = pygame.Rect(padding, y_offset, tooltip_width - padding * 2, how_to_box_height)
         pygame.draw.rect(tooltip_surface, (40, 45, 60, 200), how_to_box, border_radius=4)
         pygame.draw.rect(tooltip_surface, (*skill_data["color"][:3], 80), how_to_box, 1, border_radius=4)
@@ -7842,6 +10878,45 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
             tip_surface, _ = small_font.render(_t("ui.magnum_grip_release", "※ 공이 패들에 닿으면 자동 해제"), (180, 180, 180))
             tooltip_surface.blit(tip_surface, (render_x2, render_y2 + 2))
 
+        elif how_to_use == "warp_gate":
+            # 워프게이트: A(←) → W(↑) → D(→) 커맨드 — 방향키/WASD 모두 지원
+            # 1줄: A → W → D  → 차원 포털 개방
+            _draw_key_box(tooltip_surface, render_x, render_y - 1, "A", small_font)
+            render_x += 22
+            arrow1, _ = small_font.render("→", (180, 180, 180))
+            tooltip_surface.blit(arrow1, (render_x, render_y + 2))
+            render_x += 14
+            _draw_key_box(tooltip_surface, render_x, render_y - 1, "W", small_font)
+            render_x += 22
+            arrow2, _ = small_font.render("→", (180, 180, 180))
+            tooltip_surface.blit(arrow2, (render_x, render_y + 2))
+            render_x += 14
+            _draw_key_box(tooltip_surface, render_x, render_y - 1, "D", small_font)
+            render_x += 22
+            desc_surface, _ = small_font.render(_t("ui.warp_gate_desc", "→ 좌/우 벽 타넘기 20초"), (200, 110, 255))
+            tooltip_surface.blit(desc_surface, (render_x, render_y + 2))
+
+            # 2줄: 방향키 동일 지원 + 각 키 0.6초 이내 입력
+            render_x2 = padding + 8
+            render_y2 = render_y + 20
+            alt_prefix, _ = small_font.render(_t("ui.warp_gate_alt_keys_prefix", "또는 "), (180, 180, 180))
+            tooltip_surface.blit(alt_prefix, (render_x2, render_y2 + 2))
+            render_x2 += alt_prefix.get_width() + 2
+            _draw_key_box(tooltip_surface, render_x2, render_y2 - 1, "←", small_font)
+            render_x2 += 20
+            sep1, _ = small_font.render("→", (180, 180, 180))
+            tooltip_surface.blit(sep1, (render_x2, render_y2 + 2))
+            render_x2 += 12
+            _draw_key_box(tooltip_surface, render_x2, render_y2 - 1, "↑", small_font)
+            render_x2 += 20
+            sep2, _ = small_font.render("→", (180, 180, 180))
+            tooltip_surface.blit(sep2, (render_x2, render_y2 + 2))
+            render_x2 += 12
+            _draw_key_box(tooltip_surface, render_x2, render_y2 - 1, "→", small_font)
+            render_x2 += 22
+            timing_surface, _ = small_font.render(_t("ui.warp_gate_timing_short", "※ 각 키 0.6초 이내"), (180, 180, 180))
+            tooltip_surface.blit(timing_surface, (render_x2, render_y2 + 2))
+
         else:
             # 일반 텍스트 조작법
             how_to_surface, how_to_rect = small_font.render(f"▶ {how_to_use}", skill_data["color"])
@@ -7925,7 +11000,7 @@ def _check_viper_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> d
                     return _pk_data
             return {
                 "name": "phantom_kick", "korean": "팬텀 킥", "cost": 60, "color": (180, 0, 255),
-                "symbol": "x2", "cooldown": 40.0, "key": "S/↓(연계)",
+                "symbol": "x2", "cooldown": 65.0, "key": "S/↓(연계)",
                 "description": "마샬 킥 적중 후\n1.5초간 S/↓키로 2차 마샬 킥 발동 가능.\n게이지 60 소모, 공속 증가율 180%.",
                 "how_to_use": "마샬 킥 적중 후 1.5초 안에 S/↓키",
                 "effect_type": "wall_dive_purple"
@@ -8013,16 +11088,9 @@ def _draw_viper_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
     tooltip_surface.blit(cost_surface, (padding, y_offset))
 
-    # 쿨타임 표시 (단련 퍽 + 천사주사위 감소 반영)
+    # 쿨타임 표시 (최종 쿨타임 반영)
     _base_cd = skill_data["cooldown"]
-    _angel_cd_mult = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-    _training_cd_bonus = get_runtime_skill_bonus("common_training")
-    _effective_cd = _base_cd
-    if _angel_cd_mult != 1.0:
-        _effective_cd = _effective_cd * _angel_cd_mult
-    if _training_cd_bonus > 0:
-        _effective_cd = _effective_cd * (1.0 - _training_cd_bonus)
-    _effective_cd = max(0, _effective_cd)
+    _effective_cd = _get_effective_player_skill_cooldown_seconds(_base_cd)
     cooldown_ratio = get_viper_skill_cooldown_remaining(skill_data["name"])
     if cooldown_ratio > 0:
         remaining = _effective_cd * cooldown_ratio
@@ -8102,6 +11170,196 @@ def _draw_viper_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
 
     # 툴팁 그리기 (스케일링 적용)
+    _blit_scaled_tooltip(surface, tooltip_surface, tooltip_x, tooltip_y, tooltip_width, tooltip_height)
+
+
+def _check_soldier_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> dict | None:
+    """마우스 위치에 해당하는 코만도 스킬 툴팁 데이터 반환."""
+    global _soldier_skill_icon_rects, _player_gauge_surface_left_screen_pos
+
+    if not _soldier_skill_icon_rects:
+        return None
+
+    if is_horn_strawberry_transformed():
+        return None
+    try:
+        from legendary_items import get_legendary_manager
+        _odins_mgr = get_legendary_manager()
+        if _odins_mgr:
+            _odins_eye = _odins_mgr.get_item("odins_eye")
+            if _odins_eye and _odins_eye.active and _odins_eye.is_transformed():
+                return None
+    except Exception:
+        pass
+
+    raw_mouse_x, raw_mouse_y = _original_mouse_get_pos()
+    surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
+    local_x = (raw_mouse_x - surf_offset_x) / scale_factor if scale_factor != 1.0 else (raw_mouse_x - surf_offset_x)
+    local_y = (raw_mouse_y - surf_offset_y) / scale_factor if scale_factor != 1.0 else (raw_mouse_y - surf_offset_y)
+
+    for skill_name in get_soldier_equipped_skills():
+        rect = _soldier_skill_icon_rects.get(skill_name)
+        if rect and rect.collidepoint(local_x, local_y):
+            return SOLDIER_SKILL_DATA_BY_NAME.get(skill_name)
+
+    return None
+
+
+def _draw_soldier_skill_tooltip(surface: pygame.Surface, skill_data: dict,
+                                mouse_pos: tuple, current_gauge: float):
+    """코만도 스킬 툴팁 그리기."""
+    global _soldier_skill_tooltip_fonts
+
+    time_now = pygame.time.get_ticks()
+    tooltip_width = 300
+    tooltip_height = 300
+    effect_preview_height = 100
+    padding = 12
+
+    surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
+    pillar_width = int(250 * GAME_SCALE_FACTOR)
+    tooltip_x = surf_offset_x + pillar_width + 10
+    tooltip_y = mouse_pos[1] - tooltip_height // 2
+
+    screen_width, screen_height = surface.get_size()
+    if tooltip_y < 10:
+        tooltip_y = 10
+    if tooltip_y + tooltip_height > screen_height - 10:
+        tooltip_y = screen_height - tooltip_height - 10
+
+    tooltip_surface = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+    tooltip_surface.fill((20, 25, 35, 230))
+    pygame.draw.rect(tooltip_surface, skill_data["color"], (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
+
+    header_height = 36
+    header_color = (*skill_data["color"][:3], 60)
+    pygame.draw.rect(tooltip_surface, header_color, (2, 2, tooltip_width - 4, header_height), border_radius=6)
+
+    if _soldier_skill_tooltip_fonts is None:
+        import pygame.freetype as freetype_module
+        try:
+            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
+            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 12)
+            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
+        except Exception:
+            title_font = freetype_module.SysFont("malgun gothic", 16)
+            normal_font = freetype_module.SysFont("malgun gothic", 12)
+            small_font = freetype_module.SysFont("malgun gothic", 10)
+        _soldier_skill_tooltip_fonts = (title_font, normal_font, small_font)
+
+    title_font, normal_font, small_font = _soldier_skill_tooltip_fonts
+    skill_name = skill_data.get("name", "")
+    current_weapon = soldier_controller.current_weapon() if soldier_controller else "pistol"
+
+    state_text = "ACTIVE"
+    state_color = (255, 120, 80)
+    if skill_name == SOLDIER_PISTOL_ORB_SKILL:
+        state_text = "PASSIVE"
+        state_color = (210, 210, 220)
+    elif skill_name == current_weapon and skill_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
+        state_text = "SELECTED"
+        state_color = (255, 215, 120)
+    elif soldier_controller and soldier_controller.is_rental_weapon(skill_name):
+        state_text = "RENTAL"
+        state_color = (255, 210, 120)
+
+    y_offset = padding
+    name_surface, name_rect = title_font.render(skill_data["korean"], (255, 255, 255))
+    tooltip_surface.blit(name_surface, (padding, y_offset))
+    state_surface, state_rect = title_font.render(state_text, state_color)
+    state_x = tooltip_width - padding - state_rect.width
+    tooltip_surface.blit(state_surface, (state_x, y_offset))
+    y_offset += header_height + 6
+
+    cost = skill_data.get("cost", 0)
+    can_use = current_gauge >= cost
+    cost_color = (100, 255, 150) if can_use else (255, 100, 100)
+    cost_text = _t("ui.gauge_cost_fmt", "게이지 비용: {0}").format(cost)
+    cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
+    tooltip_surface.blit(cost_surface, (padding, y_offset))
+
+    base_cd = float(skill_data.get("cooldown", 0.0))
+    effective_cd = _get_effective_player_skill_cooldown_seconds(base_cd)
+    cooldown_ratio = get_soldier_skill_cooldown_remaining(skill_name)
+    if cooldown_ratio > 0:
+        remaining = effective_cd * cooldown_ratio
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{remaining:.1f}")
+        cd_color = (255, 180, 80)
+    else:
+        if effective_cd < base_cd:
+            cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{effective_cd:.1f}")
+            cd_color = (100, 200, 255)
+        else:
+            cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{base_cd:.1f}" if base_cd > 0 else "0")
+            cd_color = (180, 180, 180)
+    cd_surface, cd_rect = small_font.render(cd_text, cd_color)
+    cd_x = tooltip_width - padding - cd_rect.width
+    tooltip_surface.blit(cd_surface, (cd_x, y_offset + 2))
+    y_offset += 22
+
+    ammo_text = None
+    ammo_color = (180, 180, 180)
+    if skill_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
+        current_ammo, max_ammo = get_weapon_ammo_info(skill_name)
+        ammo_text = f"탄환: {current_ammo}/{max_ammo}"
+        if skill_name == SOLDIER_PISTOL_ORB_SKILL:
+            ammo_text = (
+                f"탄환: {current_ammo}/{max_ammo} · "
+                f"탄창: {soldier_pistol_magazines}/{SOLDIER_PISTOL_MAGAZINE_MAX}"
+            )
+        ammo_color = (100, 255, 150) if current_ammo > 0 else (255, 100, 100)
+    # (SOLDIER_PISTOL_ORB_SKILL 은 이제 SOLDIER_PERMANENT_FIREARM_SKILLS 에 포함되어 위 분기에서 처리됨)
+
+    if ammo_text:
+        ammo_surface, ammo_rect = small_font.render(ammo_text, ammo_color)
+        tooltip_surface.blit(ammo_surface, (padding, y_offset))
+        y_offset += 18
+
+    description = skill_data.get("description", "")
+    max_text_width = tooltip_width - padding * 2
+    lines = []
+    current_line = ""
+    for char in description:
+        test_line = current_line + char
+        test_surface, test_rect = normal_font.render(test_line, (255, 255, 255))
+        if test_rect.width <= max_text_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = char
+    if current_line:
+        lines.append(current_line)
+
+    for line in lines[:4]:
+        line_surface, line_rect = normal_font.render(line, (220, 220, 220))
+        tooltip_surface.blit(line_surface, (padding, y_offset))
+        y_offset += 18
+
+    y_offset += 6
+    how_to_use = skill_data.get("how_to_use", "")
+    if how_to_use:
+        how_to_box_height = 32
+        how_to_box = pygame.Rect(padding, y_offset, tooltip_width - padding * 2, how_to_box_height)
+        pygame.draw.rect(tooltip_surface, (40, 45, 60, 200), how_to_box, border_radius=4)
+        pygame.draw.rect(tooltip_surface, (*skill_data["color"][:3], 80), how_to_box, 1, border_radius=4)
+        how_to_surface, how_to_rect = small_font.render(f"▶ {how_to_use}", skill_data["color"])
+        tooltip_surface.blit(how_to_surface, (padding + 8, y_offset + 10))
+        y_offset += how_to_box_height + 8
+
+    effect_y = tooltip_height - effect_preview_height - padding
+    effect_rect = pygame.Rect(padding, effect_y, tooltip_width - padding * 2, effect_preview_height)
+    pygame.draw.rect(tooltip_surface, (10, 15, 25, 200), effect_rect, border_radius=6)
+    pygame.draw.rect(tooltip_surface, (*skill_data["color"][:3], 100), effect_rect, 1, border_radius=6)
+
+    effect_center_x = effect_rect.centerx
+    effect_center_y = effect_rect.centery
+    effect_type = skill_data.get("effect_type", "")
+    anim_progress = (time_now % 2000) / 2000.0
+    _draw_skill_effect_preview(tooltip_surface, effect_type, skill_data["color"], effect_center_x, effect_center_y, anim_progress)
+
+    effect_label_surface, effect_label_rect = small_font.render(_t("ui.effect_preview", "이펙트 미리보기"), (150, 150, 150))
+    tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
     _blit_scaled_tooltip(surface, tooltip_surface, tooltip_x, tooltip_y, tooltip_width, tooltip_height)
 
 
@@ -8804,6 +12062,29 @@ def _draw_skill_effect_preview(surface: pygame.Surface, effect_type: str, color:
             end_x = center_x + int(math.cos(angle) * length)
             end_y = center_y + int(math.sin(angle) * length)
             pygame.draw.line(surface, (255, 255, 255), (center_x, center_y), (end_x, end_y), 2)
+
+    elif effect_type == "chaos_vortex":
+        # 카오스 스피어: 중앙 블랙홀 + 궤도 구체
+        outer_r = int(16 + progress * 18)
+        inner_r = max(6, int(8 + math.sin(progress * math.pi * 4) * 4))
+        pygame.draw.circle(surface, (*color[:3], 90), (center_x, center_y), outer_r)
+        pygame.draw.circle(surface, (35, 10, 55), (center_x, center_y), inner_r)
+        pygame.draw.circle(surface, (255, 255, 255), (center_x, center_y), max(2, inner_r // 3))
+
+        for i in range(4):
+            orb_prog = (progress + i * 0.25) % 1.0
+            angle = orb_prog * math.tau
+            orbit_r = 20 + math.sin(progress * math.pi * 2 + i) * 6
+            orb_x = center_x + int(math.cos(angle) * orbit_r)
+            orb_y = center_y + int(math.sin(angle * 1.4) * orbit_r * 0.7)
+            pygame.draw.circle(surface, color, (orb_x, orb_y), 4)
+            pygame.draw.circle(surface, (255, 255, 255), (orb_x, orb_y), 2)
+
+        spear_tip = (center_x, center_y - 30)
+        spear_left = (center_x - 6, center_y - 12)
+        spear_right = (center_x + 6, center_y - 12)
+        pygame.draw.polygon(surface, (240, 230, 255), [spear_tip, spear_left, spear_right])
+        pygame.draw.line(surface, (235, 210, 120), (center_x, center_y - 12), (center_x, center_y + 10), 3)
 
     elif effect_type == "speed_yellow":
         # 드라이브: 속도 효과
@@ -9556,48 +12837,221 @@ def _draw_mini_star(surface: pygame.Surface, cx: int, cy: int, size: int, color:
 # ============================================================
 # 코만도(Soldier) 스킬 아이콘 시스템 (왼쪽 필러에 표시)
 # ============================================================
+SOLDIER_BASE_SKILLS = ("supply_drop", "emergency_supply")
+SOLDIER_PISTOL_ORB_SKILL = "commando_pistol"
+SOLDIER_PERMANENT_FIREARM_SKILLS = (
+    "net_gun",
+    "fire_support",
+    "bowling_trap",
+    "suicide_drone",
+    "commando_pistol",
+)
+SOLDIER_SHARED_SLOT_SKILLS = SOLDIER_PERMANENT_FIREARM_SKILLS
+SOLDIER_LOCKED_ORB_SKILLS = tuple(SOLDIER_BASE_SKILLS)
+SOLDIER_MAX_SKILL_SLOTS = 5
+SOLDIER_SHARED_SLOT_CAPACITY = SOLDIER_MAX_SKILL_SLOTS - len(SOLDIER_BASE_SKILLS)
+EMERGENCY_SUPPLY_COOLDOWN = 120.0
+PERMANENT_FIREARM_COOLDOWNS = {
+    "net_gun": 2.0,
+    "fire_support": 3.5,
+    "bowling_trap": 2.5,
+    "suicide_drone": 4.0,
+    "commando_pistol": 0.0,
+}
+
 # 스킬 정보: (스킬명, 게이지 비용, 아이콘 색상, 쿨타임(초))
 SOLDIER_SKILL_ICONS_DATA = [
     {
         "name": "supply_drop", "korean": "물자보급", "cost": 350, "color": (100, 200, 100),
         "symbol": "📻", "cooldown": 40.0, "key": "↓/우클릭 홀드",
-        "description": "무전기로 보급기를 호출하여 랜덤 아이템이나 화기류를 투하합니다.",
+        "description": "무전기로 보급기를 호출하여 랜덤 아이템이나 대여 화기류를 투하합니다.",
+        "how_to_use": "↓ 또는 우클릭을 홀드해 발동",
         "effect_type": "supply_green"
     },
     {
         "name": "emergency_supply", "korean": "긴급재보급", "cost": 300, "color": (255, 100, 100),
-        "symbol": "🚨", "cooldown": 70.0, "key": "↓↓ 더블탭",
-        "description": "게이지를 소모하여 즉시 긴급 물자를 투하합니다.",
+        "symbol": "🚨", "cooldown": EMERGENCY_SUPPLY_COOLDOWN, "key": "↓↓ 더블탭",
+        "description": "현재 선택한 영구 화기류 1개의 탄창을 즉시 전부 보충합니다. 스테이지 내에서도 쿨타임 후 재사용 가능합니다.",
+        "how_to_use": "제자리에서 ↓를 두 번 눌러 발동",
         "effect_type": "emergency_red"
     },
+    {
+        "name": SOLDIER_PISTOL_ORB_SKILL, "korean": "권총", "cost": 0, "color": (200, 180, 120),
+        "symbol": "🔫", "cooldown": 0.0, "key": "좌클릭/SPACE",
+        "description": "새총과 별개의 영구 화기류로 권총을 추가합니다. 탄창 3개로 재장전 제한이 있으며 스테이지 전환 또는 비상보급 시 탄창이 완전 충전됩니다.",
+        "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
+        "effect_type": "firearm_pistol"
+    },
+    {
+        "name": "net_gun", "korean": "그물덫총", "cost": 0, "color": (100, 180, 100),
+        "symbol": "🕸", "cooldown": PERMANENT_FIREARM_COOLDOWNS["net_gun"], "key": "좌클릭/SPACE",
+        "description": "현재 선택 중일 때 발사 후 짧은 오브 쿨타임이 돌며, 스테이지가 바뀌면 탄환이 전부 보충됩니다.",
+        "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
+        "effect_type": "firearm_net"
+    },
+    {
+        "name": "fire_support", "korean": "화력지원", "cost": 0, "color": (255, 100, 50),
+        "symbol": "✈", "cooldown": PERMANENT_FIREARM_COOLDOWNS["fire_support"], "key": "좌클릭/SPACE",
+        "description": "현재 선택 중일 때 호출 후 짧은 오브 쿨타임이 돌며, 스테이지가 바뀌면 탄환이 전부 보충됩니다.",
+        "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
+        "effect_type": "firearm_support"
+    },
+    {
+        "name": "bowling_trap", "korean": "볼링트랩", "cost": 0, "color": (200, 80, 80),
+        "symbol": "🎳", "cooldown": PERMANENT_FIREARM_COOLDOWNS["bowling_trap"], "key": "좌클릭/SPACE",
+        "description": "현재 선택 중일 때 설치 후 짧은 오브 쿨타임이 돌며, 스테이지가 바뀌면 탄환이 전부 보충됩니다.",
+        "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
+        "effect_type": "firearm_trap"
+    },
+    {
+        "name": "suicide_drone", "korean": "자폭드론", "cost": 0, "color": (255, 100, 50),
+        "symbol": "💥", "cooldown": PERMANENT_FIREARM_COOLDOWNS["suicide_drone"], "key": "좌클릭/SPACE",
+        "description": "현재 선택 중일 때 발진 후 짧은 오브 쿨타임이 돌며, 스테이지가 바뀌면 탄환이 전부 보충됩니다.",
+        "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
+        "effect_type": "firearm_drone"
+    },
 ]
+SOLDIER_SKILL_DATA_BY_NAME = {skill["name"]: skill for skill in SOLDIER_SKILL_ICONS_DATA}
+
+_soldier_skill_unlocked = {
+    "supply_drop": True,
+    "emergency_supply": True,
+    "net_gun": False,
+    "fire_support": False,
+    "bowling_trap": False,
+    "suicide_drone": False,
+    SOLDIER_PISTOL_ORB_SKILL: False,
+}
+_soldier_equipped_skills = ["supply_drop", "emergency_supply"]
+
+
+def reset_soldier_skill_unlocks() -> None:
+    """코만도 5구슬 해금 상태 및 장착 목록 초기화."""
+    global _soldier_skill_unlocked, _soldier_equipped_skills
+    _soldier_skill_unlocked = {
+        "supply_drop": True,
+        "emergency_supply": True,
+        "net_gun": False,
+        "fire_support": False,
+        "bowling_trap": False,
+        "suicide_drone": False,
+        SOLDIER_PISTOL_ORB_SKILL: False,
+    }
+    _soldier_equipped_skills = ["supply_drop", "emergency_supply"]
+
+
+def get_soldier_equipped_skills() -> list[str]:
+    return list(_soldier_equipped_skills)
+
+
+def get_soldier_equipped_slot_skills() -> list[str]:
+    return [skill for skill in _soldier_equipped_skills if skill in SOLDIER_SHARED_SLOT_SKILLS]
+
+
+def get_soldier_equipped_firearm_skills() -> list[str]:
+    return [skill for skill in _soldier_equipped_skills if skill in SOLDIER_PERMANENT_FIREARM_SKILLS]
+
+
+def _normalize_soldier_shared_slot_skills(shared_skills: list[str] | None = None) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for skill_name in list(shared_skills or []):
+        if skill_name in seen or skill_name not in SOLDIER_SHARED_SLOT_SKILLS:
+            continue
+        skill_unlocked = bool(_soldier_skill_unlocked.get(skill_name, False))
+        if skill_name == SOLDIER_PISTOL_ORB_SKILL:
+            skill_unlocked = skill_unlocked or soldier_pistol_perk_unlocked
+        if not skill_unlocked:
+            continue
+        normalized.append(skill_name)
+        seen.add(skill_name)
+        if len(normalized) >= SOLDIER_SHARED_SLOT_CAPACITY:
+            return normalized[:SOLDIER_SHARED_SLOT_CAPACITY]
+
+    return normalized[:SOLDIER_SHARED_SLOT_CAPACITY]
+
+
+def set_soldier_equipped_shared_skills(shared_skills: list[str] | None = None) -> list[str]:
+    global _soldier_equipped_skills
+    normalized = _normalize_soldier_shared_slot_skills(shared_skills)
+    _soldier_equipped_skills = list(SOLDIER_BASE_SKILLS) + normalized
+    return list(_soldier_equipped_skills)
+
+
+def is_soldier_skill_slots_full() -> bool:
+    return len(get_soldier_equipped_slot_skills()) >= SOLDIER_SHARED_SLOT_CAPACITY
+
+
+def equip_soldier_skill(skill_name: str) -> bool:
+    global _soldier_equipped_skills
+    if skill_name in _soldier_equipped_skills:
+        return True
+    if skill_name not in SOLDIER_SHARED_SLOT_SKILLS:
+        return False
+    if len(get_soldier_equipped_slot_skills()) >= SOLDIER_SHARED_SLOT_CAPACITY:
+        return False
+    _soldier_equipped_skills.append(skill_name)
+    return True
+
+
+def swap_soldier_skill(old_skill: str, new_skill: str) -> bool:
+    global _soldier_equipped_skills
+    if old_skill in SOLDIER_LOCKED_ORB_SKILLS:
+        return False
+    if old_skill not in _soldier_equipped_skills:
+        return False
+    if new_skill not in SOLDIER_SHARED_SLOT_SKILLS:
+        return False
+    if new_skill in _soldier_equipped_skills and new_skill != old_skill:
+        return False
+    idx = _soldier_equipped_skills.index(old_skill)
+    _soldier_equipped_skills[idx] = new_skill
+    return True
+
+
+def unlock_soldier_skill(skill_name: str) -> bool:
+    global _soldier_skill_unlocked
+    if skill_name not in _soldier_skill_unlocked:
+        return False
+    _soldier_skill_unlocked[skill_name] = True
+    return True
+
+
+def is_soldier_skill_unlocked(skill_name: str) -> bool:
+    if not _soldier_skill_unlocked.get(skill_name, False):
+        return False
+    if skill_name in SOLDIER_LOCKED_ORB_SKILLS:
+        return True
+    return skill_name in _soldier_equipped_skills
 
 # 코만도 스킬 쿨타임 추적 (스킬 사용 시 시작 시간 기록, ms 단위)
 _soldier_skill_cooldowns = {
-    "supply_drop": 0,
-    "emergency_supply": 0,
+    skill_name: 0 for skill_name in SOLDIER_SKILL_DATA_BY_NAME
 }
 
 # 스킬 활성화 순간 추적 (활성화될 때 시간 기록, 빛나는 효과용)
 _soldier_skill_activation_times = {
-    "supply_drop": 0,
-    "emergency_supply": 0,
+    skill_name: 0 for skill_name in SOLDIER_SKILL_DATA_BY_NAME
 }
 
 # 이전 프레임 활성화 상태 추적
 _soldier_skill_was_active = {
-    "supply_drop": False,
-    "emergency_supply": False,
+    skill_name: False for skill_name in SOLDIER_SKILL_DATA_BY_NAME
 }
 
 # 코만도 스킬 아이콘 화면 좌표
 _soldier_skill_icon_rects = {}
+_soldier_skill_tooltip_fonts = None
+_soldier_skill_tooltip_active = False
+_soldier_tooltip_pause_start = 0
+_soldier_tooltip_pause_accumulated = 0
 
 
 def trigger_soldier_skill_cooldown(skill_name: str):
     """코만도 스킬 쿨타임 시작"""
-    global _soldier_skill_cooldowns
-    _soldier_skill_cooldowns[skill_name] = pygame.time.get_ticks()
+    global _soldier_skill_cooldowns, _soldier_tooltip_pause_accumulated
+    _soldier_skill_cooldowns[skill_name] = (pygame.time.get_ticks(), _soldier_tooltip_pause_accumulated)
 
     # 코만도 스킬 사용 시 골드 보너스 (쿨타임 기반 계산)
     skill_gold = calculate_soldier_skill_gold_reward(skill_name)
@@ -9612,29 +13066,38 @@ def trigger_soldier_skill_cooldown(skill_name: str):
 
 def get_soldier_skill_cooldown_remaining(skill_name: str) -> float:
     """스킬 남은 쿨타임 비율 반환 (0.0 = 쿨타임 완료, 1.0 = 쿨타임 시작)"""
-    global _soldier_skill_cooldowns
+    global _soldier_skill_cooldowns, _soldier_tooltip_pause_accumulated
+    global _soldier_tooltip_pause_start, _soldier_skill_tooltip_active
 
-    # 스킬 데이터에서 쿨타임 찾기
-    cooldown_sec = 0
-    for skill in SOLDIER_SKILL_ICONS_DATA:
-        if skill["name"] == skill_name:
-            cooldown_sec = skill["cooldown"]
-            break
+    skill_data = SOLDIER_SKILL_DATA_BY_NAME.get(skill_name, {})
+    cooldown_sec = float(skill_data.get("cooldown", 0.0))
 
     if cooldown_sec <= 0:
         return 0.0
 
-    cooldown_ms = cooldown_sec * 1000
-    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
-    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-    if _angel_skill_cd != 1.0:
-        cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
-    _training_bonus = get_runtime_skill_bonus("common_training")
-    if _training_bonus > 0:
-        cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
-    start_time = _soldier_skill_cooldowns.get(skill_name, 0)
-    elapsed = pygame.time.get_ticks() - start_time
+    cooldown_ms = _get_effective_player_skill_cooldown_ms(cooldown_sec)
+    cooldown_data = _soldier_skill_cooldowns.get(skill_name)
+
+    if cooldown_data is None:
+        return 0.0
+
+    if isinstance(cooldown_data, tuple):
+        start_time, start_pause_accumulated = cooldown_data
+    else:
+        start_time = cooldown_data
+        start_pause_accumulated = 0
+
+    current_time = pygame.time.get_ticks()
+    current_pause_time = 0
+    if _soldier_skill_tooltip_active and _soldier_tooltip_pause_start > 0:
+        current_pause_time = current_time - _soldier_tooltip_pause_start
+    elif _skill_cooldown_general_pause_start > 0:
+        current_pause_time = current_time - _skill_cooldown_general_pause_start
+
+    pause_since_cooldown_start = (_soldier_tooltip_pause_accumulated + current_pause_time) - start_pause_accumulated
+    elapsed = current_time - start_time - pause_since_cooldown_start
+    if elapsed < 0:
+        elapsed = 0
 
     if elapsed >= cooldown_ms:
         return 0.0
@@ -9644,41 +13107,73 @@ def get_soldier_skill_cooldown_remaining(skill_name: str) -> float:
 
 def get_soldier_skill_cooldown_seconds(skill_name: str) -> float:
     """스킬 남은 쿨타임 초 반환"""
-    global _soldier_skill_cooldowns
-
-    cooldown_sec = 0
-    for skill in SOLDIER_SKILL_ICONS_DATA:
-        if skill["name"] == skill_name:
-            cooldown_sec = skill["cooldown"]
-            break
+    skill_data = SOLDIER_SKILL_DATA_BY_NAME.get(skill_name, {})
+    cooldown_sec = float(skill_data.get("cooldown", 0.0))
 
     if cooldown_sec <= 0:
         return 0.0
 
-    cooldown_ms = cooldown_sec * 1000
-    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
-    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-    if _angel_skill_cd != 1.0:
-        cooldown_ms = max(0, int(cooldown_ms * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
-    _training_bonus = get_runtime_skill_bonus("common_training")
-    if _training_bonus > 0:
-        cooldown_ms = max(0, int(cooldown_ms * (1.0 - _training_bonus)))
-    start_time = _soldier_skill_cooldowns.get(skill_name, 0)
-    elapsed = pygame.time.get_ticks() - start_time
-
-    if elapsed >= cooldown_ms:
+    cooldown_ratio = get_soldier_skill_cooldown_remaining(skill_name)
+    if cooldown_ratio <= 0:
         return 0.0
 
-    return (cooldown_ms - elapsed) / 1000.0
+    return _get_effective_player_skill_cooldown_seconds(cooldown_sec) * cooldown_ratio
+
+
+def get_soldier_skill_cooldown_save_payload() -> dict[str, float]:
+    cooldown_payload: dict[str, float] = {}
+    for skill_name in SOLDIER_SKILL_DATA_BY_NAME:
+        remaining_seconds = get_soldier_skill_cooldown_seconds(skill_name)
+        if remaining_seconds > 0.01:
+            cooldown_payload[skill_name] = round(remaining_seconds, 3)
+    return cooldown_payload
+
+
+def restore_soldier_skill_cooldowns_from_save(saved_payload: dict | None) -> None:
+    global _soldier_skill_cooldowns, _soldier_tooltip_pause_accumulated
+
+    _soldier_skill_cooldowns = {
+        skill_name: 0 for skill_name in SOLDIER_SKILL_DATA_BY_NAME
+    }
+    if not isinstance(saved_payload, dict):
+        return
+
+    current_time = pygame.time.get_ticks()
+    current_pause_accumulated = _soldier_tooltip_pause_accumulated
+    for skill_name, remaining_value in saved_payload.items():
+        if skill_name not in SOLDIER_SKILL_DATA_BY_NAME:
+            continue
+        try:
+            remaining_seconds = max(0.0, float(remaining_value))
+        except (TypeError, ValueError):
+            continue
+
+        base_cooldown_sec = float(
+            SOLDIER_SKILL_DATA_BY_NAME.get(skill_name, {}).get("cooldown", 0.0)
+        )
+        if base_cooldown_sec <= 0 or remaining_seconds <= 0:
+            continue
+
+        cooldown_ms = _get_effective_player_skill_cooldown_ms(base_cooldown_sec)
+        remaining_ms = min(int(remaining_seconds * 1000), cooldown_ms)
+        elapsed_ms = max(0, cooldown_ms - remaining_ms)
+        _soldier_skill_cooldowns[skill_name] = (
+            current_time - elapsed_ms,
+            current_pause_accumulated,
+        )
 
 
 def reset_soldier_skill_cooldowns():
     """모든 코만도 스킬 쿨타임 초기화"""
-    global _soldier_skill_cooldowns
+    global _soldier_skill_cooldowns, _soldier_skill_activation_times, _soldier_skill_was_active
     _soldier_skill_cooldowns = {
-        "supply_drop": 0,
-        "emergency_supply": 0,
+        skill_name: 0 for skill_name in SOLDIER_SKILL_DATA_BY_NAME
+    }
+    _soldier_skill_activation_times = {
+        skill_name: 0 for skill_name in SOLDIER_SKILL_DATA_BY_NAME
+    }
+    _soldier_skill_was_active = {
+        skill_name: False for skill_name in SOLDIER_SKILL_DATA_BY_NAME
     }
 
 
@@ -9818,6 +13313,79 @@ def _draw_soldier_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx
         pygame.draw.line(surface, exclaim_color, (box_x + 5, box_y + 5), (box_x + 5, box_y + 10), 2)
         pygame.draw.circle(surface, exclaim_color, (box_x + 5, box_y + 13), 1)
 
+    elif skill_name == SOLDIER_PISTOL_ORB_SKILL:
+        body_color = color
+        slide_color = (210, 210, 220) if active else (110, 110, 120)
+        grip_color = (75, 55, 40) if active else (55, 45, 40)
+        detail_color = (255, 235, 180) if active else (130, 120, 105)
+
+        slide_rect = pygame.Rect(cx - half + 6, cy - quarter - 2, size - 12, 7)
+        pygame.draw.rect(surface, slide_color, slide_rect, border_radius=2)
+        pygame.draw.rect(surface, body_color, (slide_rect.x + 3, slide_rect.y + 2, slide_rect.width - 6, 4), border_radius=2)
+        pygame.draw.rect(surface, (50, 50, 58), (slide_rect.right - 3, slide_rect.y + 2, 3, 3))
+
+        grip_rect = pygame.Rect(cx - 2, cy - 1, 8, quarter + 6)
+        pygame.draw.rect(surface, grip_color, grip_rect, border_radius=2)
+        pygame.draw.line(surface, detail_color, (grip_rect.left + 1, grip_rect.top + 2), (grip_rect.left + 1, grip_rect.bottom - 3), 1)
+
+        trigger_guard = [(cx - 1, cy + 1), (cx + 5, cy + 1), (cx + 3, cy + 7), (cx - 2, cy + 6)]
+        pygame.draw.polygon(surface, body_color, trigger_guard, 1)
+        pygame.draw.line(surface, detail_color, (slide_rect.left + 3, slide_rect.y + 1), (slide_rect.left + 8, slide_rect.y + 1), 1)
+
+    elif skill_name == "net_gun":
+        frame_color = (180, 220, 180) if active else (90, 110, 90)
+        gun_color = color
+        net_color = (235, 245, 235) if active else (120, 130, 120)
+
+        pygame.draw.rect(surface, gun_color, (cx - half + 5, cy + 2, size - 12, 6), border_radius=3)
+        pygame.draw.rect(surface, frame_color, (cx - half + 5, cy + 1, size - 12, 7), 1, border_radius=3)
+        pygame.draw.rect(surface, gun_color, (cx + quarter - 2, cy - quarter, 6, quarter + 2), border_radius=2)
+        pygame.draw.circle(surface, net_color, (cx - quarter, cy - quarter), quarter)
+        for offset in (-quarter // 2, 0, quarter // 2):
+            pygame.draw.line(surface, frame_color, (cx - quarter + offset, cy - quarter - quarter + 2), (cx - quarter + offset, cy - quarter + quarter - 2), 1)
+            pygame.draw.line(surface, frame_color, (cx - quarter - quarter + 2, cy - quarter + offset), (cx - quarter + quarter - 2, cy - quarter + offset), 1)
+
+    elif skill_name == "fire_support":
+        plane_color = (220, 225, 235) if active else (120, 125, 135)
+        bomb_color = color
+
+        pygame.draw.ellipse(surface, plane_color, (cx - half + 6, cy - 3, size - 12, 8))
+        pygame.draw.polygon(surface, plane_color, [
+            (cx - 4, cy - 1), (cx + 8, cy - 1), (cx + 14, cy + 8), (cx - 12, cy + 8)
+        ])
+        pygame.draw.polygon(surface, plane_color, [
+            (cx - half + 9, cy - 1), (cx - half + 15, cy - 1), (cx - half + 12, cy - 8)
+        ])
+        pygame.draw.ellipse(surface, bomb_color, (cx - 2, cy + quarter - 2, 5, 8))
+        pygame.draw.polygon(surface, bomb_color, [(cx - 2, cy + half - 2), (cx + 3, cy + half - 2), (cx, cy + half + 4)])
+
+    elif skill_name == "bowling_trap":
+        ball_color = (38, 38, 48) if active else (70, 70, 80)
+        pin_color = (240, 240, 240) if active else (140, 140, 140)
+
+        pygame.draw.circle(surface, ball_color, (cx - quarter + 1, cy + 2), quarter + 1)
+        pygame.draw.circle(surface, (65, 65, 82) if active else (95, 95, 105), (cx - quarter + 1, cy + 2), quarter + 1, 1)
+        pygame.draw.circle(surface, (15, 15, 20), (cx - quarter - 3, cy - 2), 2)
+        pygame.draw.circle(surface, (15, 15, 20), (cx - quarter + 1, cy - 4), 2)
+        pygame.draw.circle(surface, (15, 15, 20), (cx - quarter + 4, cy + 1), 2)
+        pygame.draw.ellipse(surface, pin_color, (cx + 4, cy - quarter, 8, size - 12))
+        pygame.draw.circle(surface, pin_color, (cx + 8, cy - quarter - 2), 5)
+        pygame.draw.line(surface, (210, 70, 70), (cx + 4, cy - 2), (cx + 12, cy - 2), 2)
+        pygame.draw.line(surface, (210, 70, 70), (cx + 4, cy + 4), (cx + 12, cy + 4), 2)
+
+    elif skill_name == "suicide_drone":
+        arm_color = color
+        rotor_color = (245, 225, 180) if active else (140, 130, 110)
+        body_color = (70, 70, 82) if active else (55, 55, 65)
+
+        for dx, dy in ((-quarter, -quarter), (quarter, -quarter), (-quarter, quarter), (quarter, quarter)):
+            pygame.draw.line(surface, arm_color, (cx, cy), (cx + dx, cy + dy), 2)
+            pygame.draw.circle(surface, rotor_color, (cx + dx, cy + dy), 4, 1)
+        pygame.draw.circle(surface, body_color, (cx, cy), quarter)
+        pygame.draw.circle(surface, (255, 70, 70) if active else (130, 60, 60), (cx, cy), 2)
+        pygame.draw.circle(surface, (255, 210, 70, 180), (cx, cy + quarter + 4), quarter - 1)
+        pygame.draw.circle(surface, (255, 120, 40, 200), (cx, cy + quarter + 4), max(2, quarter - 4))
+
 
 def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                                orb_radius: int, current_gauge: float, max_gauge: float):
@@ -9833,6 +13401,7 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     """
     global _soldier_skill_activation_times, _soldier_skill_was_active
     global _soldier_skill_icon_rects
+    _soldier_skill_icon_rects = {}
 
     # 원형 아이콘 설정
     icon_radius = 21
@@ -9844,19 +13413,10 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     time_now = pygame.time.get_ticks()
     activation_effect_duration = 400
 
-    # 최대 스킬 슬롯 수: 왼쪽 4개 + 오른쪽 1개 = 5개
-    MAX_LEFT_SLOTS = 4
-    MAX_RIGHT_SLOTS = 1
-
-    # 스킬 각도 배치: 왼쪽 하단부터 위로
-    # 165도 -> 195도 -> 225도 -> 255도 (왼쪽 4개)
-    base_angle = 165
-    angle_step = 30
-    all_left_angles = [base_angle + i * angle_step for i in range(MAX_LEFT_SLOTS)]
-    right_angle = 330  # 오른쪽 슬롯 (클렌즈 위치와 동일)
-
-    # 현재 해금된 스킬 수 (코만도는 현재 2개 스킬만 있음)
-    num_soldier_skills = len(SOLDIER_SKILL_ICONS_DATA)
+    max_slots = SOLDIER_MAX_SKILL_SLOTS
+    slot_angles = [165 + i * 30 for i in range(max_slots)]
+    visible_skills = get_soldier_equipped_skills()
+    current_weapon = soldier_controller.current_weapon() if soldier_controller else "pistol"
 
     # === 빈 슬롯 그리기 함수 ===
     def draw_empty_slot(slot_x: int, slot_y: int):
@@ -9866,25 +13426,21 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
         pygame.draw.circle(surface, empty_bg_color, (slot_x, slot_y), icon_radius)
         pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
 
-    # === 왼쪽 빈 슬롯 먼저 그리기 (스킬이 없는 위치) ===
-    for slot_idx in range(MAX_LEFT_SLOTS):
-        if slot_idx >= num_soldier_skills:
-            # 빈 슬롯
-            angle_rad = math.radians(all_left_angles[slot_idx])
-            slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
-            slot_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
-            draw_empty_slot(slot_x, slot_y)
-
-    # === 오른쪽 빈 슬롯 그리기 (코만도는 오른쪽 스킬 없음) ===
-    right_angle_rad = math.radians(right_angle)
-    right_slot_x = orb_center_x + int(math.cos(right_angle_rad) * orbit_radius)
-    right_slot_y = orb_center_y + int(math.sin(right_angle_rad) * orbit_radius)
-    draw_empty_slot(right_slot_x, right_slot_y)
+    for slot_idx in range(max_slots):
+        if slot_idx < len(visible_skills):
+            continue
+        angle_rad = math.radians(slot_angles[slot_idx])
+        slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
+        slot_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
+        draw_empty_slot(slot_x, slot_y)
 
     # === 실제 스킬 아이콘 그리기 ===
-    for idx, skill_data in enumerate(SOLDIER_SKILL_ICONS_DATA):
-        skill_name = skill_data["name"]
-        angle_deg = all_left_angles[idx] if idx < MAX_LEFT_SLOTS else right_angle
+    for idx, skill_name in enumerate(visible_skills[:max_slots]):
+        skill_data = SOLDIER_SKILL_DATA_BY_NAME.get(skill_name)
+        if not skill_data:
+            continue
+
+        angle_deg = slot_angles[idx]
         angle_rad = math.radians(angle_deg)
 
         # 아이콘 위치 계산
@@ -9897,15 +13453,27 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
 
         # 활성화 조건 확인
         is_active = False
+        is_selected_weapon = current_weapon == skill_name
 
         if skill_name == "supply_drop":
-            # 물자보급: 게이지 350 이상 + 쿨타임
             has_gauge = current_gauge >= skill_data["cost"]
             is_active = has_gauge and not is_on_cooldown
         elif skill_name == "emergency_supply":
-            # 긴급재보급: 게이지 300 이상 + 쿨타임
             has_gauge = current_gauge >= skill_data["cost"]
-            is_active = has_gauge and not is_on_cooldown
+            has_target = False
+            if current_weapon in SOLDIER_PERMANENT_FIREARM_SKILLS and soldier_controller.is_permanent_weapon(current_weapon):
+                current_ammo, max_ammo = get_weapon_ammo_info(current_weapon)
+                has_target = max_ammo > 0 and current_ammo < max_ammo
+                if current_weapon == SOLDIER_PISTOL_ORB_SKILL:
+                    has_target = has_target or soldier_pistol_magazines < SOLDIER_PISTOL_MAGAZINE_MAX
+            is_active = has_gauge and has_target and not is_on_cooldown
+        elif skill_name == SOLDIER_PISTOL_ORB_SKILL:
+            # 권총: 소유 + 발사 가능(탄환 있거나 재장전 가능)일 때만 활성
+            can_shoot = soldier_ammo_count > 0 or (soldier_ammo_count <= 0 and soldier_pistol_magazines > 0)
+            is_active = bool(soldier_pistol_perk_unlocked) and can_shoot and not is_on_cooldown
+        elif skill_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
+            current_ammo, max_ammo = get_weapon_ammo_info(skill_name)
+            is_active = max_ammo > 0 and current_ammo > 0 and not is_on_cooldown
 
         # === 활성화 순간 감지 ===
         was_active = _soldier_skill_was_active.get(skill_name, False)
@@ -9922,11 +13490,11 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
         # 배경색 결정
         if is_active:
             bg_color = (*skill_data["color"][:3], 200)
-            border_color = (255, 255, 255, 255)
+            border_color = (255, 255, 255, 255) if not is_selected_weapon else (255, 235, 150, 255)
         else:
             dark_color = tuple(max(0, c // 3) for c in skill_data["color"][:3])
             bg_color = (*dark_color, 150)
-            border_color = (80, 80, 80, 180)
+            border_color = (80, 80, 80, 180) if not is_selected_weapon else (180, 155, 90, 220)
 
         # === 활성화 효과 (글로우) ===
         activation_time = _soldier_skill_activation_times.get(skill_name, 0)
@@ -9952,6 +13520,8 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
                 pulse_alpha = int((pulse - 0.4) * 100)
                 pygame.draw.circle(surface, (*skill_data["color"][:3], pulse_alpha),
                                  (icon_x, icon_y), icon_radius + 3, 2)
+        if is_selected_weapon and skill_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
+            pygame.draw.circle(surface, (255, 220, 120, 120), (icon_x, icon_y), icon_radius + 5, 2)
 
         # === 스킬 아이콘 심볼 ===
         icon_size = icon_radius * 2 - 8
@@ -10037,6 +13607,11 @@ def invalidate_pillar_bg_cache():
 def _check_pillar_dynamic_active(stage, renderer):
     """필러 배경에 동적 애니메이션이 활성화되어 매 프레임 갱신이 필요한지 확인
     (캐시 프레임-스킵 시 끊겨 보이는 동적 요소가 있을 때 True 반환)
+
+    중요한 점:
+    - 짧고 게임플레이와 직접 연결된 전환/이벤트만 여기서 강제 갱신한다.
+    - 상시 앰비언트 루프(구름, 꽃잎, 스파클, 횃불, 관중 idle 등)는
+      주기적 캐시 갱신 경로로 두어 매 프레임 전체 필러를 다시 그리지 않는다.
     """
     try:
         # 스테이지 1: 나비 비행/흡수 애니메이션
@@ -10050,32 +13625,30 @@ def _check_pillar_dynamic_active(stage, renderer):
             _mm = get_monkey_event_manager()
             if _mm and (_mm.active_monkeys or _mm.landed_bananas):
                 return True
-        # 스테이지 3: 멘헤라 네온/스파클/하트 연출
-        elif stage == 3:
-            if getattr(renderer, '_menhera_bg', None) is not None:
-                return True
         # 스테이지 5(코드): 홍련 필러 불꽃/엠버/뱀 연출
         elif stage == 5:
-            if getattr(renderer, '_hongryeon_bg', None) is not None:
-                return True
-        # 스테이지 6(코드): 네메시스 해상 — 파도/구름/거품
-        elif stage == 6:
-            _nb = getattr(renderer, '_nemesis_ocean_bg', None)
-            if _nb and (getattr(_nb, 'foam_particles', None) or getattr(_nb, 'clouds', None)):
-                return True
-        # 스테이지 8: 닌자 — 낙엽/벚꽃잎
-        elif stage == 8:
-            _nb = getattr(renderer, '_ninja_bg', None)
-            if _nb and (getattr(_nb, 'sakura_petals', None) or getattr(_nb, 'falling_bamboo_leaves', None)):
-                return True
-        # 스테이지 9: 파르테논 횃불 플리커
-        elif stage == 9:
-            if getattr(renderer, '_parthenon_bg', None) is not None:
-                return True
-        # 스테이지 30: 투기장 — 관중 상시 애니메이션
+            _hb = getattr(renderer, '_hongryeon_bg', None)
+            if _hb:
+                if getattr(_hb, '_decor_surface_dirty', False):
+                    return True
+                if getattr(_hb, 'pillar_fireballs', None):
+                    return True
+                for _pot in getattr(_hb, 'snake_pots', []):
+                    try:
+                        if _pot.is_active():
+                            return True
+                    except Exception:
+                        pass
+        # 스테이지 30: 투기장 — 짧은 반응/연출만 강제 갱신
         elif stage == 30:
             _cb = getattr(renderer, '_colosseum_bg', None)
-            if _cb and getattr(_cb, 'crowd_list', None):
+            if _cb and (
+                getattr(_cb, '_wave_active', False)
+                or getattr(_cb, '_boo_active', False)
+                or getattr(_cb, '_gasp_active', False)
+                or getattr(_cb, '_standing_ovation_active', False)
+                or getattr(_cb, '_pillar_tint_transitioning', False)
+            ):
                 return True
         # 불타는 태양 효과 (스테이지 무관, 오버레이)
         _bsb = getattr(renderer, '_blazing_sun_bg', None)
@@ -10084,6 +13657,39 @@ def _check_pillar_dynamic_active(stage, renderer):
     except Exception:
         pass
     return False
+
+
+def _get_pillar_render_interval(stage, renderer):
+    interval = _pillar_bg_render_interval
+    try:
+        if stage == 5:
+            _hb = getattr(renderer, '_hongryeon_bg', None)
+            if _hb:
+                if getattr(_hb, '_decor_surface_dirty', False):
+                    return 2
+                if getattr(_hb, 'pillar_fireballs', None):
+                    return 2
+                for _pot in getattr(_hb, 'snake_pots', []):
+                    try:
+                        if _pot.is_active():
+                            return 2
+                    except Exception:
+                        pass
+                return max(interval, 8)
+    except Exception:
+        pass
+    return interval
+
+
+def _should_use_periodic_pillar_refresh(stage, renderer):
+    try:
+        if stage == 5:
+            _hb = getattr(renderer, '_hongryeon_bg', None)
+            if _hb is not None:
+                return False
+    except Exception:
+        pass
+    return True
 
 _ss_2x_cache = None  # 슈퍼샘플링용 2x 중간 서피스
 _ss_2x_size = None
@@ -11486,6 +15092,7 @@ def _draw_pillar_ui(screen, renderer):
     # 스매셔 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
     global _smasher_skill_tooltip_active, game_paused, game_paused_by_tooltip, _tooltip_prev_game_paused, _tooltip_forced_pause
     global _smasher_tooltip_pause_start, _smasher_tooltip_pause_accumulated, _odin_swamp_tooltip_active
+    global _soldier_skill_tooltip_active, _soldier_tooltip_pause_start, _soldier_tooltip_pause_accumulated
     global _rage_indicator_tooltip_active, _rage_tooltip_prev_game_paused, _rage_tooltip_forced_pause
     global _quest_emblem_tooltip_active, _quest_tooltip_prev_game_paused, _quest_tooltip_forced_pause
     global quest_completion_glow_active, quest_completion_glow_timer, quest_completion_glow_duration
@@ -11522,7 +15129,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _smasher_tooltip_pause_start > 0:
                         _smasher_tooltip_pause_accumulated += pygame.time.get_ticks() - _smasher_tooltip_pause_start
                         _smasher_tooltip_pause_start = 0
-                    if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                    if game_paused_by_tooltip and _tooltip_forced_pause and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                         game_paused = _tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _tooltip_forced_pause = False
@@ -11541,7 +15148,7 @@ def _draw_pillar_ui(screen, renderer):
                 if _smasher_tooltip_pause_start > 0:
                     _smasher_tooltip_pause_accumulated += pygame.time.get_ticks() - _smasher_tooltip_pause_start
                     _smasher_tooltip_pause_start = 0
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -11619,7 +15226,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _viper_tooltip_pause_start > 0:
                         _viper_tooltip_pause_accumulated += pygame.time.get_ticks() - _viper_tooltip_pause_start
                         _viper_tooltip_pause_start = 0
-                    if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                    if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                         game_paused = _tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _tooltip_forced_pause = False
@@ -11629,7 +15236,7 @@ def _draw_pillar_ui(screen, renderer):
                 if _viper_tooltip_pause_start > 0:
                     _viper_tooltip_pause_accumulated += pygame.time.get_ticks() - _viper_tooltip_pause_start
                     _viper_tooltip_pause_start = 0
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -11639,6 +15246,52 @@ def _draw_pillar_ui(screen, renderer):
             _viper_tooltip_pause_accumulated += pygame.time.get_ticks() - _viper_tooltip_pause_start
             _viper_tooltip_pause_start = 0
 
+    # 코만도 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
+    if _is_ingame:
+      try:
+        if selected_character_type == "soldier" and not is_horn_strawberry_transformed():
+            mouse_pos = pygame.mouse.get_pos()
+            hovered_skill = _check_soldier_skill_tooltip(mouse_pos, GAME_SCALE_FACTOR)
+            if hovered_skill:
+                if not _soldier_skill_tooltip_active:
+                    _soldier_skill_tooltip_active = True
+                    _soldier_tooltip_pause_start = pygame.time.get_ticks()
+                    if not game_paused_by_tooltip:
+                        _tooltip_prev_game_paused = game_paused
+                        _tooltip_forced_pause = not _tooltip_prev_game_paused
+                        game_paused = True
+                        game_paused_by_tooltip = True
+                try:
+                    current_gauge = player_gauge
+                except Exception:
+                    current_gauge = 0
+                _draw_soldier_skill_tooltip(screen, hovered_skill, mouse_pos, current_gauge)
+            else:
+                if _soldier_skill_tooltip_active:
+                    _soldier_skill_tooltip_active = False
+                    if _soldier_tooltip_pause_start > 0:
+                        _soldier_tooltip_pause_accumulated += pygame.time.get_ticks() - _soldier_tooltip_pause_start
+                        _soldier_tooltip_pause_start = 0
+                    if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                        game_paused = _tooltip_prev_game_paused
+                        game_paused_by_tooltip = False
+                        _tooltip_forced_pause = False
+        else:
+            if _soldier_skill_tooltip_active:
+                _soldier_skill_tooltip_active = False
+                if _soldier_tooltip_pause_start > 0:
+                    _soldier_tooltip_pause_accumulated += pygame.time.get_ticks() - _soldier_tooltip_pause_start
+                    _soldier_tooltip_pause_start = 0
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                    game_paused = _tooltip_prev_game_paused
+                    game_paused_by_tooltip = False
+                    _tooltip_forced_pause = False
+      except Exception:
+        _soldier_skill_tooltip_active = False
+        if _soldier_tooltip_pause_start > 0:
+            _soldier_tooltip_pause_accumulated += pygame.time.get_ticks() - _soldier_tooltip_pause_start
+            _soldier_tooltip_pause_start = 0
+
     # 🔒 5구슬 스킬 슬롯 빈 슬롯 해금 조건 툴팁 (스매셔/바이퍼 공용)
     if _is_ingame and not is_horn_strawberry_transformed():
       try:
@@ -11646,12 +15299,12 @@ def _draw_pillar_ui(screen, renderer):
             if selected_character_type == "smasher":
                 _empty_rects = globals().get('_smasher_empty_slot_rects') or {}
                 _equipped_count = len(get_smasher_equipped_skills())
-                _max_slots = SMASHER_MAX_SKILL_SLOTS
+                _max_slots = get_smasher_max_skill_slots()
                 _theme_color = (255, 180, 80)
             else:
                 _empty_rects = globals().get('_viper_empty_slot_rects') or {}
                 _equipped_count = len(get_viper_equipped_skills())
-                _max_slots = VIPER_MAX_SKILL_SLOTS
+                _max_slots = get_viper_max_skill_slots()
                 _theme_color = (200, 130, 255)
 
             if _empty_rects and _player_gauge_surface_left_screen_pos:
@@ -11707,7 +15360,7 @@ def _draw_pillar_ui(screen, renderer):
         else:
             if _horn_strawberry_tooltip_active:
                 _horn_strawberry_tooltip_active = False
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -11736,7 +15389,7 @@ def _draw_pillar_ui(screen, renderer):
         else:
             if _yachaman_tooltip_active:
                 globals()['_yachaman_tooltip_active'] = False
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _horn_strawberry_tooltip_active and not _odin_swamp_tooltip_active and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _horn_strawberry_tooltip_active and not _odin_swamp_tooltip_active and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -11764,7 +15417,7 @@ def _draw_pillar_ui(screen, renderer):
         else:
             if _odin_swamp_tooltip_active:
                 _odin_swamp_tooltip_active = False
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -11805,7 +15458,7 @@ def _draw_pillar_ui(screen, renderer):
                     # 툴팁 비활성화 - 게임 재개
                     if _rage_indicator_tooltip_active:
                         _rage_indicator_tooltip_active = False
-                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
                             game_paused = _rage_tooltip_prev_game_paused
                             game_paused_by_tooltip = False
                             _rage_tooltip_forced_pause = False
@@ -11813,7 +15466,7 @@ def _draw_pillar_ui(screen, renderer):
                 # 광폭화 비활성 시 툴팁 상태 초기화
                 if _rage_indicator_tooltip_active:
                     _rage_indicator_tooltip_active = False
-                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
                         game_paused = _rage_tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _rage_tooltip_forced_pause = False
@@ -11883,7 +15536,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _quest_emblem_tooltip_active:
                         _quest_emblem_tooltip_active = False
                         # 다른 툴팁이 활성 중이 아니면 즉시 게임 재개
-                        if not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
+                        if not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
                             if _quest_tooltip_forced_pause:
                                 game_paused = _quest_tooltip_prev_game_paused
                             game_paused_by_tooltip = False
@@ -11892,7 +15545,7 @@ def _draw_pillar_ui(screen, renderer):
                 # 퀘스트 없을 때 툴팁 상태 초기화
                 if _quest_emblem_tooltip_active:
                     _quest_emblem_tooltip_active = False
-                    if not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
+                    if not _smasher_skill_tooltip_active and not _viper_skill_tooltip_active and not _soldier_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
                         if _quest_tooltip_forced_pause:
                             game_paused = _quest_tooltip_prev_game_paused
                         game_paused_by_tooltip = False
@@ -11966,7 +15619,7 @@ def _fullscreen_flip():
                     pass
 
         # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
-        if pillar_renderer is not None:
+        if pillar_renderer is not None and not _logo_intro_black_background:
             # 성능 측정
             if VALTHOR_PERF_DEBUG:
                 valthor_perf_start("pillar_draw")
@@ -11987,8 +15640,18 @@ def _fullscreen_flip():
             # 필러 동적 이벤트 활성 시 매 프레임 강제 갱신 (끊김 방지)
             _force_pillar_refresh = _check_pillar_dynamic_active(_cur_stage, pillar_renderer)
 
+            _pillar_interval = _get_pillar_render_interval(_cur_stage, pillar_renderer)
+            _use_periodic_pillar_refresh = _should_use_periodic_pillar_refresh(_cur_stage, pillar_renderer)
+
             # N프레임마다 또는 dirty시 필러 배경 재렌더링
-            if _pillar_bg_cache_dirty or _force_pillar_refresh or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
+            if (
+                _pillar_bg_cache_dirty
+                or _force_pillar_refresh
+                or (
+                    _use_periodic_pillar_refresh
+                    and _pillar_bg_frame_counter % _pillar_interval == 0
+                )
+            ):
                 pillar_renderer.draw(_pillar_bg_cache)
                 _pillar_bg_cache_dirty = False
 
@@ -11997,6 +15660,10 @@ def _fullscreen_flip():
 
             if VALTHOR_PERF_DEBUG:
                 valthor_perf_end("pillar_draw")
+        elif _logo_intro_black_background:
+            # 로고 인트로 중: 필러 영역도 전부 검정으로 덮고, 다음 프레임에서는 필러 캐시를 재생성
+            REAL_SCREEN.fill((0, 0, 0))
+            _pillar_bg_cache_dirty = True
         else:
             # 필러 렌더러 없을 때만 전체 화면 단색 채우기
             REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
@@ -12032,15 +15699,21 @@ def _fullscreen_flip():
                                (0, GAME_OFFSET_Y + GAME_SCALED_HEIGHT),
                                (FULLSCREEN_WIDTH, GAME_OFFSET_Y + GAME_SCALED_HEIGHT), 2)
 
+        # 스테이지별 게임 영역 액자 프레임 오버레이 (stage 9 파르테논 등)
+        # 게임 blit을 덮어야 보이므로 여기서 REAL_SCREEN 위에 그린다.
+        if pillar_renderer is not None and not _logo_intro_black_background:
+            pillar_renderer.draw_field_frame_overlay(REAL_SCREEN)
+
         # UI 오버레이 렌더링 (선명한 텍스트)
-        _render_ui_overlay(REAL_SCREEN)
+        if not _logo_intro_black_background:
+            _render_ui_overlay(REAL_SCREEN)
 
         # 크리스탈 실드 그리기 (게임 화면 위에)
-        if pillar_renderer is not None:
+        if pillar_renderer is not None and not _logo_intro_black_background:
             pillar_renderer.draw_crystal_shield(REAL_SCREEN)
 
         # 필러 UI (액티브 아이템 슬롯) - 가장 마지막에 그려서 항상 위에 표시
-        if pillar_renderer is not None:
+        if pillar_renderer is not None and not _logo_intro_black_background:
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 패널티킥 HUD (레거시 핑퐁 모드 전용)
@@ -12554,7 +16227,7 @@ def _fullscreen_update(*args, **kwargs):
     _pillar_bg_frame_counter += 1
     if _is_fullscreen_active and REAL_SCREEN is not None:
         # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
-        if pillar_renderer is not None:
+        if pillar_renderer is not None and not _logo_intro_black_background:
             real_w, real_h = REAL_SCREEN.get_size()
             if _pillar_bg_cache is None or _pillar_bg_cache_size != (real_w, real_h):
                 _pillar_bg_cache = pygame.Surface((real_w, real_h)).convert()
@@ -12569,11 +16242,25 @@ def _fullscreen_update(*args, **kwargs):
             # 필러 동적 이벤트 활성 시 매 프레임 강제 갱신 (끊김 방지)
             _force_pillar_refresh = _check_pillar_dynamic_active(_cur_stage, pillar_renderer)
 
-            if _pillar_bg_cache_dirty or _force_pillar_refresh or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
+            _pillar_interval = _get_pillar_render_interval(_cur_stage, pillar_renderer)
+            _use_periodic_pillar_refresh = _should_use_periodic_pillar_refresh(_cur_stage, pillar_renderer)
+
+            if (
+                _pillar_bg_cache_dirty
+                or _force_pillar_refresh
+                or (
+                    _use_periodic_pillar_refresh
+                    and _pillar_bg_frame_counter % _pillar_interval == 0
+                )
+            ):
                 pillar_renderer.draw(_pillar_bg_cache)
                 _pillar_bg_cache_dirty = False
 
             REAL_SCREEN.blit(_pillar_bg_cache, (0, 0))
+        elif _logo_intro_black_background:
+            # 로고 인트로 중: 필러 영역도 전부 검정으로 덮고, 다음 프레임에서는 필러 캐시를 재생성
+            REAL_SCREEN.fill((0, 0, 0))
+            _pillar_bg_cache_dirty = True
         else:
             REAL_SCREEN.fill((15, 15, 25))
 
@@ -12593,15 +16280,21 @@ def _fullscreen_update(*args, **kwargs):
         else:
             REAL_SCREEN.blit(display_surface, (GAME_OFFSET_X, GAME_OFFSET_Y))
 
+        # 스테이지별 게임 영역 액자 프레임 오버레이 (stage 9 파르테논 등)
+        # 게임 blit을 덮어야 보이므로 여기서 REAL_SCREEN 위에 그린다.
+        if pillar_renderer is not None and not _logo_intro_black_background:
+            pillar_renderer.draw_field_frame_overlay(REAL_SCREEN)
+
         # UI 오버레이 렌더링 (선명한 텍스트)
-        _render_ui_overlay(REAL_SCREEN)
+        if not _logo_intro_black_background:
+            _render_ui_overlay(REAL_SCREEN)
 
         # 크리스탈 실드 그리기 (게임 화면 위에)
-        if pillar_renderer is not None:
+        if pillar_renderer is not None and not _logo_intro_black_background:
             pillar_renderer.draw_crystal_shield(REAL_SCREEN)
 
         # 필러 UI (액티브 아이템 슬롯) - 가장 마지막에 그려서 항상 위에 표시
-        if pillar_renderer is not None:
+        if pillar_renderer is not None and not _logo_intro_black_background:
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🎯 통합 쿨타임 큐 UI (왼쪽 필러, 영웅+호위무사) - fullscreen
@@ -13766,6 +17459,890 @@ _thor_shield_deploy_active = False
 _thor_shield_deploy_start_time = 0.0
 _thor_shield_cache_stats = {"hits": 0, "misses": 0}
 
+# ============================================================
+# 스테이지6(홍련) 공 끊김 디버그 (` 키로 토글)
+# ============================================================
+STAGE6_BALL_DEBUG = os.environ.get("PINGF_STAGE6_BALL_DEBUG", "0").lower() in ("1", "true", "yes", "on")
+_stage6_ball_perf_times: dict[str, list[float]] = {}
+_stage6_ball_perf_start_times: dict[str, float] = {}
+_stage6_ball_motion_samples: list[float] = []
+_stage6_ball_stall_samples: list[int] = []
+_stage6_ball_total_samples: list[float] = []
+_stage6_ball_max_samples = 120
+_stage6_ball_last_center: tuple[int, int] | None = None
+_stage6_ball_last_after_handle_center: tuple[int, int] | None = None
+_stage6_ball_last_draw_center: tuple[int, int] | None = None
+_stage6_ball_last_move_px = 0.0
+_stage6_ball_last_observed_move_px = 0.0
+_stage6_ball_last_handle_move_px = 0.0
+_stage6_ball_last_post_handle_move_px = 0.0
+_stage6_ball_last_post_handle_source = "-"
+_stage6_ball_last_draw_tail_move_px = 0.0
+_stage6_ball_last_draw_tail_source = "-"
+_stage6_ball_last_speed = 0.0
+_stage6_ball_last_effective_speed = 0.0
+_stage6_ball_last_impact_boost = 1.0
+_stage6_ball_last_total_ms = 0.0
+_stage6_ball_last_ball_type = "energy"
+_stage6_ball_last_log_ms = 0
+_stage6_ball_log_interval_ms = 700
+_stage6_ball_last_hold_reasons: list[str] = []
+_stage6_ball_handle_ball_ran = False
+_stage6_ball_motion_notes_this_frame = 0
+_stage6_ball_last_motion_note_count = 0
+_stage6_ball_last_internal_source = "-"
+_stage6_ball_last_internal_move_px = 0.0
+_stage6_ball_last_handle_before_center = None
+_stage6_ball_last_handle_phase = "-"
+_stage6_ball_last_handle_before_exists: bool | None = None
+_stage6_ball_last_handle_after_exists: bool | None = None
+_stage6_ball_last_frame_state_snapshot: dict | None = None
+_stage6_ball_tracked_handle_depth = 0
+_stage6_ball_last_untracked_handle_log_ms = 0
+
+
+def _stage6_ball_debug_is_active() -> bool:
+    return bool(STAGE6_BALL_DEBUG and current_stage == 5)
+
+
+def _stage6_ball_note_untracked_handle_call() -> None:
+    global _stage6_ball_last_untracked_handle_log_ms
+
+    if not _stage6_ball_debug_is_active():
+        return
+    if _stage6_ball_tracked_handle_depth > 0:
+        return
+
+    now_ms = 0
+    try:
+        now_ms = pygame.time.get_ticks()
+    except Exception:
+        now_ms = int(time.time() * 1000)
+
+    if now_ms - _stage6_ball_last_untracked_handle_log_ms < 500:
+        return
+
+    _stage6_ball_last_untracked_handle_log_ms = now_ms
+    print("[STAGE6 BALL DEBUG] UNTRACKED handle_ball() call detected", flush=True)
+    traceback.print_stack(limit=6, file=sys.stdout)
+    sys.stdout.flush()
+
+
+def _stage6_ball_capture_frame_state_snapshot() -> None:
+    global _stage6_ball_last_frame_state_snapshot
+
+    if not _stage6_ball_debug_is_active():
+        _stage6_ball_last_frame_state_snapshot = None
+        return
+
+    try:
+        _stage6_ball_last_frame_state_snapshot = _get_ball_debug_snapshot()
+    except Exception:
+        _stage6_ball_last_frame_state_snapshot = None
+
+
+def _stage6_ball_is_velocity_only_bounce(observed_move_px: float) -> bool:
+    """좌표는 그대로지만 속도 벡터가 크게 뒤집힌 프레임은 stall로 보지 않는다."""
+    if not _stage6_ball_debug_is_active() or observed_move_px >= 1.0:
+        return False
+
+    snapshot = _stage6_ball_last_frame_state_snapshot
+    if not snapshot:
+        return False
+
+    prev_vx = snapshot.get("ball_vx")
+    prev_vy = snapshot.get("ball_vy")
+    if prev_vx is None or prev_vy is None:
+        return False
+
+    try:
+        cur_vx = float(ball_vel[0])
+        cur_vy = float(ball_vel[1])
+    except Exception:
+        return False
+
+    prev_speed = math.hypot(prev_vx, prev_vy)
+    cur_speed = math.hypot(cur_vx, cur_vy)
+    if prev_speed < 6.0 or cur_speed < 6.0:
+        return False
+
+    dot = (prev_vx * cur_vx) + (prev_vy * cur_vy)
+    denom = prev_speed * cur_speed
+    cosine = dot / denom if denom > 0.0 else 1.0
+
+    return (
+        cosine <= -0.15
+        or (prev_vy * cur_vy < 0 and abs(prev_vy - cur_vy) >= 6.0)
+        or (prev_vx * cur_vx < 0 and abs(prev_vx - cur_vx) >= 6.0)
+    )
+
+
+def _stage6_ball_set_hold_reasons(*reasons: str) -> None:
+    global _stage6_ball_last_hold_reasons
+    if not STAGE6_BALL_DEBUG:
+        return
+    _stage6_ball_last_hold_reasons = [reason for reason in reasons if reason]
+
+
+def _stage6_ball_append_hold_reason(reason: str) -> None:
+    global _stage6_ball_last_hold_reasons
+    if not STAGE6_BALL_DEBUG or not reason:
+        return
+    if reason not in _stage6_ball_last_hold_reasons:
+        _stage6_ball_last_hold_reasons.append(reason)
+
+
+def _stage6_ball_set_handle_ball_ran(ran: bool) -> None:
+    global _stage6_ball_handle_ball_ran, _stage6_ball_last_after_handle_center
+    global _stage6_ball_last_handle_move_px, _stage6_ball_last_post_handle_move_px
+    global _stage6_ball_last_post_handle_source
+    global _stage6_ball_last_internal_source, _stage6_ball_last_internal_move_px
+    global _stage6_ball_last_handle_before_center
+    global _stage6_ball_last_handle_phase
+    global _stage6_ball_last_handle_before_exists, _stage6_ball_last_handle_after_exists
+    if not STAGE6_BALL_DEBUG:
+        return
+    _stage6_ball_handle_ball_ran = ran
+    _stage6_ball_last_after_handle_center = None
+    _stage6_ball_last_handle_move_px = 0.0
+    _stage6_ball_last_post_handle_move_px = 0.0
+    _stage6_ball_last_post_handle_source = "-"
+    _stage6_ball_last_internal_source = "-"
+    _stage6_ball_last_internal_move_px = 0.0
+    _stage6_ball_last_handle_before_center = None
+    _stage6_ball_last_handle_before_exists = None
+    _stage6_ball_last_handle_after_exists = None
+    _stage6_ball_last_handle_phase = "-" if not ran else "armed"
+
+
+def _stage6_ball_trim_samples(samples: list, max_samples: int = None) -> None:
+    max_len = _stage6_ball_max_samples if max_samples is None else max_samples
+    if len(samples) > max_len:
+        del samples[:-max_len]
+
+
+def _reset_stage6_ball_debug_samples() -> None:
+    global _stage6_ball_perf_times, _stage6_ball_perf_start_times
+    global _stage6_ball_motion_samples, _stage6_ball_stall_samples, _stage6_ball_total_samples
+    global _stage6_ball_last_center, _stage6_ball_last_move_px, _stage6_ball_last_speed
+    global _stage6_ball_last_after_handle_center
+    global _stage6_ball_last_draw_center
+    global _stage6_ball_last_frame_end_center
+    global _stage6_ball_last_handle_move_px, _stage6_ball_last_post_handle_move_px
+    global _stage6_ball_last_post_handle_source
+    global _stage6_ball_last_draw_tail_move_px, _stage6_ball_last_draw_tail_source
+    global _stage6_ball_last_pre_handle_source, _stage6_ball_last_pre_handle_move_px
+    global _stage6_ball_last_effective_speed, _stage6_ball_last_impact_boost
+    global _stage6_ball_last_total_ms, _stage6_ball_last_ball_type, _stage6_ball_last_log_ms
+    global _stage6_ball_last_hold_reasons, _stage6_ball_handle_ball_ran
+    global _stage6_ball_motion_notes_this_frame, _stage6_ball_last_motion_note_count
+    global _stage6_ball_last_internal_source, _stage6_ball_last_internal_move_px
+    global _stage6_ball_last_handle_before_center
+    global _stage6_ball_last_handle_phase
+    global _stage6_ball_last_handle_before_exists, _stage6_ball_last_handle_after_exists
+    global _stage6_ball_last_frame_state_snapshot
+
+    _stage6_ball_perf_times = {}
+    _stage6_ball_perf_start_times = {}
+    _stage6_ball_motion_samples = []
+    _stage6_ball_stall_samples = []
+    _stage6_ball_total_samples = []
+    _stage6_ball_last_center = None
+    _stage6_ball_last_after_handle_center = None
+    _stage6_ball_last_draw_center = None
+    _stage6_ball_last_frame_end_center = None
+    _stage6_ball_last_move_px = 0.0
+    _stage6_ball_last_handle_move_px = 0.0
+    _stage6_ball_last_post_handle_move_px = 0.0
+    _stage6_ball_last_post_handle_source = "-"
+    _stage6_ball_last_draw_tail_move_px = 0.0
+    _stage6_ball_last_draw_tail_source = "-"
+    _stage6_ball_last_pre_handle_source = "-"
+    _stage6_ball_last_pre_handle_move_px = 0.0
+    _stage6_ball_last_speed = 0.0
+    _stage6_ball_last_effective_speed = 0.0
+    _stage6_ball_last_impact_boost = 1.0
+    _stage6_ball_last_total_ms = 0.0
+    _stage6_ball_last_ball_type = "energy"
+    _stage6_ball_last_log_ms = 0
+    _stage6_ball_last_hold_reasons = []
+    _stage6_ball_handle_ball_ran = False
+    _stage6_ball_motion_notes_this_frame = 0
+    _stage6_ball_last_motion_note_count = 0
+    _stage6_ball_last_internal_source = "-"
+    _stage6_ball_last_internal_move_px = 0.0
+    _stage6_ball_last_handle_before_center = None
+    _stage6_ball_last_handle_phase = "-"
+    _stage6_ball_last_handle_before_exists = None
+    _stage6_ball_last_handle_after_exists = None
+    _stage6_ball_last_frame_state_snapshot = None
+
+
+def _stage6_ball_perf_start(name: str) -> None:
+    if _stage6_ball_debug_is_active():
+        _stage6_ball_perf_start_times[name] = time.perf_counter()
+
+
+def _stage6_ball_perf_end(name: str) -> None:
+    if not _stage6_ball_debug_is_active():
+        return
+    start_time = _stage6_ball_perf_start_times.get(name)
+    if start_time is None:
+        return
+    elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+    _stage6_ball_perf_times.setdefault(name, []).append(elapsed_ms)
+    _stage6_ball_trim_samples(_stage6_ball_perf_times[name])
+
+
+def _stage6_ball_note_handle_motion(
+    before_center: tuple[int, int] | None,
+    after_center: tuple[int, int] | None,
+) -> None:
+    global _stage6_ball_last_after_handle_center, _stage6_ball_last_handle_move_px
+    global _stage6_ball_last_post_handle_source
+    global _stage6_ball_last_handle_before_center
+
+    if not _stage6_ball_debug_is_active():
+        _stage6_ball_last_after_handle_center = None
+        _stage6_ball_last_handle_move_px = 0.0
+        _stage6_ball_last_post_handle_source = "-"
+        _stage6_ball_last_handle_before_center = None
+        return
+    if before_center is None or after_center is None:
+        _stage6_ball_last_after_handle_center = None
+        _stage6_ball_last_handle_move_px = 0.0
+        _stage6_ball_last_post_handle_source = "-"
+        _stage6_ball_last_handle_before_center = None
+        return
+
+    _stage6_ball_last_handle_before_center = before_center
+    _stage6_ball_last_after_handle_center = after_center
+    _stage6_ball_last_handle_move_px = math.hypot(
+        after_center[0] - before_center[0],
+        after_center[1] - before_center[1],
+    )
+    _stage6_ball_last_post_handle_source = "-"
+
+
+def _stage6_ball_run_handle_ball(source: str):
+    global _stage6_ball_last_handle_phase, _stage6_ball_tracked_handle_depth
+    global _stage6_ball_last_handle_before_exists, _stage6_ball_last_handle_after_exists
+
+    before_center = None
+    if STAGE6_BALL_DEBUG:
+        _stage6_ball_last_handle_before_exists = BALL is not None
+        if BALL is not None:
+            before_center = (BALL.centerx, BALL.centery)
+
+    _stage6_ball_set_handle_ball_ran(True)
+    if STAGE6_BALL_DEBUG:
+        _stage6_ball_last_handle_before_exists = BALL is not None
+        entered_phase = f"entered:{source}"
+        _stage6_ball_last_handle_phase = entered_phase
+        _stage6_ball_tracked_handle_depth += 1
+    else:
+        entered_phase = ""
+
+    try:
+        result = handle_ball()
+    except Exception as exc:
+        if STAGE6_BALL_DEBUG:
+            _stage6_ball_last_handle_phase = f"error:{source}:{type(exc).__name__}"
+        raise
+    finally:
+        if STAGE6_BALL_DEBUG and _stage6_ball_tracked_handle_depth > 0:
+            _stage6_ball_tracked_handle_depth -= 1
+
+    if STAGE6_BALL_DEBUG:
+        preserve_phase = _stage6_ball_last_handle_phase != entered_phase
+        after_center = None
+        _stage6_ball_last_handle_after_exists = BALL is not None
+        if BALL is not None:
+            after_center = (BALL.centerx, BALL.centery)
+        _stage6_ball_note_handle_motion(before_center, after_center)
+        if not preserve_phase:
+            if before_center is None or after_center is None:
+                _stage6_ball_last_handle_phase = f"missing:{source}"
+            else:
+                _stage6_ball_last_handle_phase = f"noted:{source}"
+
+    return result
+
+
+def _stage6_ball_mark_phase(phase: str) -> None:
+    global _stage6_ball_last_handle_phase
+
+    if _stage6_ball_debug_is_active() and phase:
+        _stage6_ball_last_handle_phase = phase
+
+
+def _ball_is_intentionally_hidden_offscreen() -> bool:
+    try:
+        if BALL is None:
+            return False
+        if BALL.centerx >= -50 and BALL.centery >= -50:
+            return False
+    except Exception:
+        return False
+
+    try:
+        if ball_in_kuromi:
+            return True
+    except Exception:
+        pass
+    try:
+        if ghost_shot_pending_teleport is not None:
+            return True
+    except Exception:
+        pass
+    try:
+        if arena_capture_phase is not None:
+            return True
+    except Exception:
+        pass
+    try:
+        if (
+            odins_eye_death_anim_active
+            or odins_eye_revival_anim_active
+            or yachaman_revival_anim_active
+        ):
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+def _stage6_ball_phase_is_expected_pause() -> bool:
+    if not _stage6_ball_debug_is_active():
+        return False
+    if _ball_is_intentionally_hidden_offscreen():
+        return True
+    try:
+        if is_waiting_for_serve:
+            return True
+    except Exception:
+        pass
+    if "serve_wait" in _stage6_ball_last_hold_reasons:
+        return True
+    if "hongryun_inferno" in _stage6_ball_last_hold_reasons:
+        return True
+    phase = _stage6_ball_last_handle_phase or ""
+    return phase.startswith(
+        (
+            "scoreboard:",
+            "modal:",
+            "result:",
+            "round_reset:",
+            "skill:",
+            "deuce_check:",
+        )
+    )
+
+
+def _stage6_ball_note_internal_handle_change(
+    source: str,
+    before_center: tuple[int, int] | None,
+    after_center: tuple[int, int] | None,
+    overwrite: bool = False,
+) -> None:
+    global _stage6_ball_last_internal_source, _stage6_ball_last_internal_move_px
+
+    if not _stage6_ball_debug_is_active():
+        return
+    if before_center is None or after_center is None:
+        return
+
+    delta_px = math.hypot(
+        after_center[0] - before_center[0],
+        after_center[1] - before_center[1],
+    )
+    if delta_px < 0.5:
+        return
+    if overwrite or _stage6_ball_last_internal_source in ("", "-"):
+        _stage6_ball_last_internal_source = source
+        _stage6_ball_last_internal_move_px = delta_px
+
+
+def _stage6_ball_reset_pre_handle_debug() -> None:
+    global _stage6_ball_last_pre_handle_source, _stage6_ball_last_pre_handle_move_px
+
+    if not _stage6_ball_debug_is_active():
+        _stage6_ball_last_pre_handle_source = "-"
+        _stage6_ball_last_pre_handle_move_px = 0.0
+        return
+
+    _stage6_ball_last_pre_handle_source = "-"
+    _stage6_ball_last_pre_handle_move_px = 0.0
+
+
+def _stage6_ball_note_pre_handle_change(
+    source: str,
+    before_center: tuple[int, int] | None,
+    after_center: tuple[int, int] | None,
+    overwrite: bool = False,
+) -> None:
+    global _stage6_ball_last_pre_handle_source, _stage6_ball_last_pre_handle_move_px
+
+    if not _stage6_ball_debug_is_active():
+        return
+    if before_center is None or after_center is None:
+        return
+
+    delta_px = math.hypot(
+        after_center[0] - before_center[0],
+        after_center[1] - before_center[1],
+    )
+    if delta_px < 0.5:
+        return
+    if overwrite or _stage6_ball_last_pre_handle_source in ("", "-"):
+        _stage6_ball_last_pre_handle_source = source
+        _stage6_ball_last_pre_handle_move_px = delta_px
+
+
+def _stage6_ball_note_post_handle_change(
+    source: str,
+    before_center: tuple[int, int] | None,
+    after_center: tuple[int, int] | None,
+    overwrite: bool = True,
+) -> None:
+    global _stage6_ball_last_post_handle_source
+
+    if not _stage6_ball_debug_is_active():
+        return
+    if before_center is None or after_center is None:
+        return
+
+    delta_px = math.hypot(
+        after_center[0] - before_center[0],
+        after_center[1] - before_center[1],
+    )
+    if delta_px < 0.5:
+        return
+    if overwrite or _stage6_ball_last_post_handle_source in ("", "-"):
+        _stage6_ball_last_post_handle_source = source
+
+
+def _stage6_ball_infer_post_handle_source(draw_move_px: float) -> str | None:
+    """메인 루프 후처리에서 반복되는 알려진 보정 패턴을 이름 붙인다."""
+    if (
+        _stage6_ball_last_pre_handle_source == "power_smash_forced_overlap"
+        and _stage6_ball_last_pre_handle_move_px >= 0.5
+        and _stage6_ball_last_post_handle_move_px >= 0.5
+        and abs(
+            _stage6_ball_last_post_handle_move_px - _stage6_ball_last_pre_handle_move_px
+        )
+        <= 1.5
+        and draw_move_px < 0.5
+    ):
+        return "power_smash_post_realign"
+    return None
+
+
+def _stage6_ball_normalize_post_handle_source(draw_move_px: float) -> None:
+    global _stage6_ball_last_post_handle_source
+
+    if _stage6_ball_last_post_handle_move_px < 0.5:
+        return
+    if _stage6_ball_last_post_handle_source not in ("", "-", "unknown_post_path"):
+        return
+
+    inferred = _stage6_ball_infer_post_handle_source(draw_move_px)
+    if inferred is not None:
+        _stage6_ball_last_post_handle_source = inferred
+
+
+def _stage6_ball_note_frame_end(ball_x: int, ball_y: int) -> None:
+    global _stage6_ball_last_frame_end_center
+    global _stage6_ball_last_draw_tail_move_px, _stage6_ball_last_draw_tail_source
+    global _stage6_ball_motion_notes_this_frame, _stage6_ball_last_motion_note_count
+
+    if not _stage6_ball_debug_is_active():
+        _stage6_ball_last_frame_end_center = None
+        _stage6_ball_last_draw_tail_move_px = 0.0
+        _stage6_ball_last_draw_tail_source = "-"
+        _stage6_ball_last_motion_note_count = 0
+        _stage6_ball_motion_notes_this_frame = 0
+        return
+
+    if _stage6_ball_last_draw_center is None:
+        _stage6_ball_last_draw_tail_move_px = 0.0
+        _stage6_ball_last_draw_tail_source = "-"
+    else:
+        _stage6_ball_last_draw_tail_move_px = math.hypot(
+            ball_x - _stage6_ball_last_draw_center[0],
+            ball_y - _stage6_ball_last_draw_center[1],
+        )
+        _stage6_ball_last_draw_tail_source = (
+            "after_draw" if _stage6_ball_last_draw_tail_move_px >= 0.5 else "-"
+        )
+
+    _stage6_ball_last_frame_end_center = (ball_x, ball_y)
+    _stage6_ball_last_motion_note_count = _stage6_ball_motion_notes_this_frame
+    _stage6_ball_motion_notes_this_frame = 0
+
+
+def _stage6_ball_note_draw_snapshot(ball_x: int, ball_y: int) -> None:
+    global _stage6_ball_last_draw_center
+
+    if not _stage6_ball_debug_is_active():
+        _stage6_ball_last_draw_center = None
+        return
+
+    _stage6_ball_last_draw_center = (ball_x, ball_y)
+
+
+def _stage6_ball_note_motion(ball_x: int, ball_y: int, ball_type: str) -> None:
+    global _stage6_ball_last_center, _stage6_ball_last_move_px, _stage6_ball_last_speed
+    global _stage6_ball_last_after_handle_center
+    global _stage6_ball_last_ball_type, _stage6_ball_last_effective_speed
+    global _stage6_ball_last_impact_boost, _stage6_ball_last_post_handle_move_px
+    global _stage6_ball_last_post_handle_source
+    global _stage6_ball_motion_notes_this_frame
+    global _stage6_ball_last_observed_move_px
+
+    if not _stage6_ball_debug_is_active():
+        _stage6_ball_last_center = None
+        _stage6_ball_last_after_handle_center = None
+        _stage6_ball_last_post_handle_move_px = 0.0
+        _stage6_ball_last_observed_move_px = 0.0
+        return
+
+    track_samples = not _stage6_ball_phase_is_expected_pause()
+    if track_samples:
+        _stage6_ball_motion_notes_this_frame += 1
+    _stage6_ball_last_ball_type = ball_type
+    _stage6_ball_last_speed = math.hypot(ball_vel[0], ball_vel[1])
+    _stage6_ball_last_impact_boost = float(ball_impact_boost)
+    _stage6_ball_last_effective_speed = _stage6_ball_last_speed * _stage6_ball_last_impact_boost
+
+    if _ball_is_intentionally_hidden_offscreen():
+        _stage6_ball_last_center = None
+        _stage6_ball_last_after_handle_center = None
+        _stage6_ball_last_move_px = 0.0
+        _stage6_ball_last_post_handle_move_px = 0.0
+        _stage6_ball_last_observed_move_px = 0.0
+        if _stage6_ball_last_post_handle_source in ("", "-"):
+            _stage6_ball_last_post_handle_source = "hidden_offscreen"
+        return
+
+    if _stage6_ball_last_center is None:
+        _stage6_ball_last_center = (ball_x, ball_y)
+        _stage6_ball_last_move_px = 0.0
+        _stage6_ball_last_observed_move_px = 0.0
+        return
+
+    move_px = math.hypot(ball_x - _stage6_ball_last_center[0], ball_y - _stage6_ball_last_center[1])
+    _stage6_ball_last_center = (ball_x, ball_y)
+    _stage6_ball_last_move_px = move_px
+    if _stage6_ball_last_after_handle_center is None:
+        _stage6_ball_last_post_handle_move_px = 0.0
+    else:
+        _stage6_ball_last_post_handle_move_px = math.hypot(
+            ball_x - _stage6_ball_last_after_handle_center[0],
+            ball_y - _stage6_ball_last_after_handle_center[1],
+        )
+        _stage6_ball_normalize_post_handle_source(move_px)
+        if (
+            _stage6_ball_last_post_handle_move_px >= 0.5
+            and _stage6_ball_last_post_handle_source in ("", "-")
+        ):
+            _stage6_ball_last_post_handle_source = "unknown_post_path"
+
+    observed_move_px = max(
+        move_px,
+        _stage6_ball_last_handle_move_px,
+        _stage6_ball_last_internal_move_px,
+        _stage6_ball_last_pre_handle_move_px,
+        _stage6_ball_last_post_handle_move_px,
+        _stage6_ball_last_draw_tail_move_px,
+    )
+    _stage6_ball_last_observed_move_px = observed_move_px
+    velocity_only_bounce = _stage6_ball_is_velocity_only_bounce(observed_move_px)
+
+    if not track_samples:
+        return
+
+    _stage6_ball_motion_samples.append(observed_move_px)
+    _stage6_ball_stall_samples.append(
+        1
+        if (
+            _stage6_ball_last_speed >= 6.0
+            and observed_move_px < 1.0
+            and not velocity_only_bounce
+        )
+        else 0
+    )
+    _stage6_ball_trim_samples(_stage6_ball_motion_samples)
+    _stage6_ball_trim_samples(_stage6_ball_stall_samples)
+
+
+def _stage6_ball_note_total(total_ms: float) -> None:
+    global _stage6_ball_last_total_ms
+
+    if not _stage6_ball_debug_is_active():
+        return
+
+    _stage6_ball_last_total_ms = total_ms
+    _stage6_ball_total_samples.append(total_ms)
+    _stage6_ball_trim_samples(_stage6_ball_total_samples)
+    _stage6_ball_normalize_post_handle_source(_stage6_ball_last_move_px)
+
+    is_perf_spike = total_ms >= 3.5
+    observed_move_px = max(
+        _stage6_ball_last_move_px,
+        _stage6_ball_last_handle_move_px,
+        _stage6_ball_last_internal_move_px,
+        _stage6_ball_last_pre_handle_move_px,
+        _stage6_ball_last_post_handle_move_px,
+        _stage6_ball_last_draw_tail_move_px,
+    )
+    enough_motion_history = len(_stage6_ball_motion_samples) >= 3
+    is_motion_stall = (
+        enough_motion_history
+        and
+        bool(_stage6_ball_motion_samples)
+        and
+        _stage6_ball_last_speed >= 8.0
+        and observed_move_px < 1.0
+        and not _stage6_ball_is_velocity_only_bounce(observed_move_px)
+        and not _stage6_ball_phase_is_expected_pause()
+    )
+    if is_perf_spike:
+        _stage6_ball_log_terminal_summary("spike", force=True)
+    elif is_motion_stall:
+        _stage6_ball_log_terminal_summary("stall", force=True)
+    else:
+        _stage6_ball_log_terminal_summary()
+
+
+def _stage6_ball_stat_triplet(samples: list[float]) -> tuple[float, float, float]:
+    if not samples:
+        return 0.0, 0.0, 0.0
+    return (sum(samples) / len(samples), min(samples), max(samples))
+
+
+def _stage6_ball_perf_summary(name: str) -> tuple[float, float]:
+    samples = _stage6_ball_perf_times.get(name)
+    if not samples:
+        return 0.0, 0.0
+    avg_ms, _, max_ms = _stage6_ball_stat_triplet(samples)
+    return avg_ms, max_ms
+
+
+def _stage6_ball_format_snapshot(snapshot: dict | None) -> str:
+    if not snapshot:
+        return "ball=- vel=- serve=-/- spawn=-"
+
+    cx = snapshot.get("ball_cx")
+    cy = snapshot.get("ball_cy")
+    vx = snapshot.get("ball_vx")
+    vy = snapshot.get("ball_vy")
+    ball_text = "-" if cx is None or cy is None else f"{cx},{cy}"
+    vel_text = "-" if vx is None or vy is None else f"{vx:.2f},{vy:.2f}"
+    serve_text = "1" if snapshot.get("serve_wait") else "0"
+    player_serve_text = "1" if snapshot.get("player_serve") else "0"
+    spawn_text = "1" if snapshot.get("ball_spawn_active") else "0"
+    return f"ball={ball_text} vel={vel_text} serve={serve_text}/{player_serve_text} spawn={spawn_text}"
+
+
+def _stage6_ball_build_terminal_summary(reason: str | None = None) -> str:
+    move_avg, _, move_max = _stage6_ball_stat_triplet(_stage6_ball_motion_samples)
+    total_avg, _, total_max = _stage6_ball_stat_triplet(_stage6_ball_total_samples)
+    stall_ratio = (
+        (sum(_stage6_ball_stall_samples) / len(_stage6_ball_stall_samples)) * 100.0
+        if _stage6_ball_stall_samples
+        else 0.0
+    )
+    fps_now = 0.0
+    try:
+        fps_now = clock.get_fps()
+    except Exception:
+        pass
+
+    ghost_draw_avg, ghost_draw_max = _stage6_ball_perf_summary("ghost_draw")
+    intensity_draw_avg, intensity_draw_max = _stage6_ball_perf_summary("intensity_draw")
+    energy_draw_avg, energy_draw_max = _stage6_ball_perf_summary("energy_draw")
+    pingpong_draw_avg, pingpong_draw_max = _stage6_ball_perf_summary("pingpong_draw")
+    prism_draw_avg, prism_draw_max = _stage6_ball_perf_summary("prism_draw")
+    hold_text = ",".join(_stage6_ball_last_hold_reasons) if _stage6_ball_last_hold_reasons else "-"
+    handle_text = "Y" if _stage6_ball_handle_ball_ran else "N"
+    handle_xy_text = "-"
+    handle_obj_text = "-"
+    if _stage6_ball_last_handle_before_center is not None and _stage6_ball_last_after_handle_center is not None:
+        handle_xy_text = (
+            f"{_stage6_ball_last_handle_before_center[0]},{_stage6_ball_last_handle_before_center[1]}"
+            f">{_stage6_ball_last_after_handle_center[0]},{_stage6_ball_last_after_handle_center[1]}"
+        )
+    if (
+        _stage6_ball_last_handle_before_exists is not None
+        or _stage6_ball_last_handle_after_exists is not None
+    ):
+        before_obj = "Y" if _stage6_ball_last_handle_before_exists else "N"
+        after_obj = "Y" if _stage6_ball_last_handle_after_exists else "N"
+        handle_obj_text = f"{before_obj}>{after_obj}"
+    overlap_text = "N"
+    try:
+        if BALL is not None and PLAYER is not None and BALL.colliderect(PLAYER):
+            overlap_text = "Y"
+    except Exception:
+        pass
+
+    reason_text = f" reason={reason}" if reason else ""
+    snapshot_text = ""
+    if reason:
+        frame_snapshot = _stage6_ball_format_snapshot(_stage6_ball_last_frame_state_snapshot)
+        live_snapshot = _stage6_ball_format_snapshot(_get_ball_debug_snapshot())
+        snapshot_text = f" frame[{frame_snapshot}] live[{live_snapshot}]"
+    return (
+        f"[STAGE6 BALL DEBUG]{reason_text} "
+        f"fps={fps_now:4.1f} type={_stage6_ball_last_ball_type} handle={handle_text} hold={hold_text} "
+        f"move_last={_stage6_ball_last_observed_move_px:.2f}px move_avg={move_avg:.2f}px move_max={move_max:.2f}px "
+        f"draw_last={_stage6_ball_last_move_px:.2f}px "
+        f"handle_move={_stage6_ball_last_handle_move_px:.2f}px hobj={handle_obj_text} hxy={handle_xy_text} "
+        f"hphase={_stage6_ball_last_handle_phase} "
+        f"internal={_stage6_ball_last_internal_move_px:.2f}px@{_stage6_ball_last_internal_source} "
+        f"post={_stage6_ball_last_post_handle_move_px:.2f}px@{_stage6_ball_last_post_handle_source} "
+        f"tail={_stage6_ball_last_draw_tail_move_px:.2f}px@{_stage6_ball_last_draw_tail_source} "
+        f"pre={_stage6_ball_last_pre_handle_move_px:.2f}px@{_stage6_ball_last_pre_handle_source} "
+        f"draws={_stage6_ball_last_motion_note_count} "
+        f"speed={_stage6_ball_last_speed:.2f} eff={_stage6_ball_last_effective_speed:.2f} "
+        f"boost={_stage6_ball_last_impact_boost:.2f} overlap={overlap_text} stall={stall_ratio:.1f}% "
+        f"ball_fx_last={_stage6_ball_last_total_ms:.2f}ms ball_fx_avg={total_avg:.2f}ms ball_fx_max={total_max:.2f}ms "
+        f"ghost={ghost_draw_avg:.2f}/{ghost_draw_max:.2f}ms "
+        f"intensity={intensity_draw_avg:.2f}/{intensity_draw_max:.2f}ms "
+        f"energy={energy_draw_avg:.2f}/{energy_draw_max:.2f}ms "
+        f"pingpong={pingpong_draw_avg:.2f}/{pingpong_draw_max:.2f}ms "
+        f"prism={prism_draw_avg:.2f}/{prism_draw_max:.2f}ms"
+        f"{snapshot_text}"
+    )
+
+
+def _resolve_player_ball_overlap(player_rect: pygame.Rect | None, reason: str | None = None) -> bool:
+    """플레이어 타격 직후 공을 히트박스 밖으로 분리해 붙잡힘 현상을 방지한다."""
+    if BALL is None or player_rect is None:
+        return False
+    if not BALL.colliderect(player_rect):
+        return False
+
+    before_center = None
+    if STAGE6_BALL_DEBUG:
+        before_center = (BALL.centerx, BALL.centery)
+
+    BALL.bottom = player_rect.top - 1
+
+    if STAGE6_BALL_DEBUG:
+        after_center = (BALL.centerx, BALL.centery)
+        debug_source = (
+            f"resolve_overlap:{reason}" if reason else "resolve_overlap:player_ball"
+        )
+        if not _stage6_ball_handle_ball_ran:
+            _stage6_ball_note_pre_handle_change(
+                debug_source,
+                before_center,
+                after_center,
+                overwrite=False,
+            )
+        else:
+            _stage6_ball_note_post_handle_change(
+                debug_source,
+                before_center,
+                after_center,
+                overwrite=False,
+            )
+
+    if reason:
+        _stage6_ball_append_hold_reason(reason)
+    return True
+
+
+def _stage6_ball_log_terminal_summary(reason: str | None = None, force: bool = False) -> None:
+    global _stage6_ball_last_log_ms
+
+    if not _stage6_ball_debug_is_active():
+        return
+    if _stage6_ball_phase_is_expected_pause() and reason in (None, "stall"):
+        return
+
+    now_ms = pygame.time.get_ticks()
+    if not force and reason is None and now_ms - _stage6_ball_last_log_ms < _stage6_ball_log_interval_ms:
+        return
+
+    print(_stage6_ball_build_terminal_summary(reason), flush=True)
+    _stage6_ball_last_log_ms = now_ms
+
+
+def draw_stage6_ball_debug_overlay(surface: pygame.Surface) -> None:
+    global _stage6_ball_last_center
+
+    if not STAGE6_BALL_DEBUG:
+        return
+
+    overlay_lines: list[tuple[str, tuple[int, int, int]]] = []
+    if current_stage != 5:
+        _stage6_ball_last_center = None
+        overlay_lines.append(("HONGRYEON BALL DEBUG armed - enter Stage 6", (160, 220, 255)))
+    else:
+        fps_now = 0.0
+        try:
+            fps_now = clock.get_fps()
+        except Exception:
+            pass
+
+        move_avg, move_min, move_max = _stage6_ball_stat_triplet(_stage6_ball_motion_samples)
+        total_avg, total_min, total_max = _stage6_ball_stat_triplet(_stage6_ball_total_samples)
+        stall_ratio = (
+            (sum(_stage6_ball_stall_samples) / len(_stage6_ball_stall_samples)) * 100.0
+            if _stage6_ball_stall_samples
+            else 0.0
+        )
+        move_color = (255, 120, 120) if stall_ratio >= 20.0 else (255, 230, 120) if stall_ratio >= 8.0 else (120, 255, 160)
+        total_color = (255, 120, 120) if total_avg >= 3.5 else (255, 230, 120) if total_avg >= 2.0 else (120, 255, 160)
+
+        overlay_lines.extend([
+            ("=== HONGRYEON BALL DEBUG (`) ===", (120, 240, 255)),
+            (f"FPS {fps_now:4.1f}  type={_stage6_ball_last_ball_type}", (220, 220, 220)),
+            (f"handle={'Y' if _stage6_ball_handle_ball_ran else 'N'} hold={','.join(_stage6_ball_last_hold_reasons) if _stage6_ball_last_hold_reasons else '-'}", (180, 220, 255)),
+            (f"ball fx avg={total_avg:.2f}ms last={_stage6_ball_last_total_ms:.2f} max={total_max:.2f}", total_color),
+            (f"move avg={move_avg:.2f}px min={move_min:.2f} max={move_max:.2f} last={_stage6_ball_last_move_px:.2f}", move_color),
+            (f"handle_move={_stage6_ball_last_handle_move_px:.2f}px post={_stage6_ball_last_post_handle_move_px:.2f}px", move_color),
+            (f"speed={_stage6_ball_last_speed:.2f}  stall<1px={stall_ratio:.1f}%", move_color),
+        ])
+
+        perf_order = [
+            ("ghost_update", "ghost upd"),
+            ("ghost_draw", "ghost draw"),
+            ("intensity_update", "intensity upd"),
+            ("intensity_draw", "intensity draw"),
+            ("energy_draw", "energy draw"),
+            ("pingpong_draw", "pingpong draw"),
+            ("prism_draw", "prism draw"),
+        ]
+        for key, label in perf_order:
+            samples = _stage6_ball_perf_times.get(key)
+            if not samples:
+                continue
+            avg_ms, _, max_ms = _stage6_ball_stat_triplet(samples)
+            color = (255, 120, 120) if avg_ms >= 1.5 else (255, 230, 120) if avg_ms >= 0.6 else (120, 255, 160)
+            overlay_lines.append((f"{label}: avg={avg_ms:.2f}ms max={max_ms:.2f}", color))
+
+    if not overlay_lines:
+        return
+
+    overlay_width = 360
+    overlay_height = 14 + len(overlay_lines) * 20
+    overlay = pygame.Surface((overlay_width, overlay_height), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 190))
+    surface.blit(overlay, (10, 260))
+
+    try:
+        font = pygame.font.Font(None, 18)
+        for i, (text, color) in enumerate(overlay_lines):
+            text_surface = font.render(text, True, color)
+            surface.blit(text_surface, (16, 268 + i * 20))
+    except Exception:
+        pass
+
 def valthor_perf_start(name: str) -> None:
     """발토르 관련 함수 성능 측정 시작"""
     if VALTHOR_PERF_DEBUG:
@@ -13946,12 +18523,31 @@ if SMOKE_TEST_ENABLED:
     _stage_backgrounds_result.animated_bg_stage8 = None
     _preload_complete = True
 else:
+    try:
+        from logo_intro import play_logo_intro
+
+        _logo_intro_prev_custom_cursor = _custom_cursor_enabled
+        _logo_intro_prev_mouse_visible = pygame.mouse.get_visible()
+        _custom_cursor_enabled = False
+        pygame.mouse.set_visible(False)
+        _logo_intro_black_background = True
+        try:
+            # F9/F10로 재생 중 모드가 바뀌면 모듈-레벨 SCREEN이 재생성되므로
+            # play_logo_intro가 매 프레임 현재 SCREEN을 다시 읽도록 provider를 넘긴다.
+            play_logo_intro(SCREEN, surface_provider=lambda: SCREEN)
+        finally:
+            _logo_intro_black_background = False
+            _custom_cursor_enabled = _logo_intro_prev_custom_cursor
+            pygame.mouse.set_visible(_logo_intro_prev_mouse_visible)
+    except Exception as logo_intro_error:
+        print(f"[로고 인트로] 재생 실패: {logo_intro_error}", flush=True)
+
     run_loading_with_tasks([
         (0.20, "평행우주 생성중..", _loading_task_1_init_systems),
         (0.30, "완전몰입가상현실 접속중..", _loading_task_2_load_icons),
         (0.35, "뉴럴링크 동기화중..", _loading_task_3_load_backgrounds),
         (0.15, "양자얽힘 최적화중..", _loading_task_4_final_optimization),
-    ])
+    ], progress_end=0.64, finalize=False)
 
 # 로딩 결과 적용
 stage_backgrounds = _stage_backgrounds_result
@@ -14429,6 +19025,7 @@ def _draw_performance_overlay(screen: pygame.Surface) -> None:
 ui_manager.init_ui_manager(SCREEN, FONT, WIDTH, HEIGHT)
 # 이펙트 매니저 초기화
 effects_manager.init_effects_manager(SCREEN, WIDTH, HEIGHT)
+advance_bootstrap_loading("전장 비주얼 동기화 중..", 0.74, animation_duration=0.24)
 # 입력 매니저 초기화 (비활성화됨)
 # input_manager.init_input_manager(SCREEN, WIDTH, HEIGHT)
 # 물리 매니저 초기화 (BALL, PLAYER, BOSS 객체 생성 후에 호출해야 함)
@@ -14942,6 +19539,105 @@ def draw_recovery_paddle_overlay(screen: pygame.Surface, player_rect):
     pass
 
 
+def _apply_electric_stun_tint(surface: pygame.Surface, *, strength: float = 1.0) -> None:
+    """감전 중인 스프라이트에 청백색 틴트를 입혀 전기 충격감을 강화."""
+    pulse = 0.72 + 0.28 * math.sin(pygame.time.get_ticks() * 0.03)
+    tint = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    tint.fill((
+        min(255, int(150 * pulse * strength)),
+        min(255, int(185 * pulse * strength)),
+        min(255, int(255 * pulse)),
+        255,
+    ))
+    surface.blit(tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+
+
+def _draw_electric_stun_overlay(
+    surface: pygame.Surface,
+    target_rect: pygame.Rect,
+    *,
+    is_top: bool,
+    intensity: float = 1.0,
+) -> None:
+    """패들 주변에 찌릿한 전류 아크/스파크를 그린다."""
+    cx, cy = target_rect.centerx, target_rect.centery
+    cy += int((20 if is_top else -20) * intensity)
+    hw = max(10, int((target_rect.width // 2 + 5) * intensity))
+    hh = max(18, int(28 * intensity))
+
+    glow_w = hw * 2 + 28
+    glow_h = hh * 2 + 24
+    glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+    for ring in range(3, 0, -1):
+        alpha = int((24 + ring * 10) * intensity)
+        pygame.draw.ellipse(
+            glow_surf,
+            (160, 210, 255, alpha),
+            (ring * 3, ring * 2, glow_w - ring * 6, glow_h - ring * 4),
+            max(1, int(2 * intensity)),
+        )
+    surface.blit(glow_surf, (cx - glow_w // 2, cy - glow_h // 2), special_flags=pygame.BLEND_ADD)
+
+    arc_colors_core = [
+        (255, 255, 255),
+        (255, 255, 230),
+        (255, 250, 200),
+    ]
+    arc_colors_outer = [
+        (120, 180, 255),
+        (80, 140, 255),
+        (160, 200, 255),
+        (255, 240, 120),
+        (255, 220, 80),
+    ]
+
+    main_arc_count = max(1, int(round(1 * intensity)))
+    for _ in range(main_arc_count):
+        sx = cx + random.randint(-hw // 3, hw // 3)
+        sy = cy + random.randint(-hh // 2, hh // 2)
+        arc_len = random.randint(int(12 * intensity), int(24 * intensity))
+        angle = random.uniform(0, math.tau)
+        ex = sx + int(math.cos(angle) * arc_len)
+        ey = sy + int(math.sin(angle) * arc_len)
+
+        segs = random.randint(3, 4)
+        pts = [(int(sx), int(sy))]
+        for j in range(1, segs):
+            frac = j / segs
+            mx = sx + (ex - sx) * frac + random.uniform(-2.5, 2.5) * intensity
+            my = sy + (ey - sy) * frac + random.uniform(-2.0, 2.0) * intensity
+            pts.append((int(mx), int(my)))
+        pts.append((int(ex), int(ey)))
+
+        if len(pts) >= 2:
+            pygame.draw.lines(surface, random.choice(arc_colors_outer), False, pts, max(1, int(2 * intensity)))
+            pygame.draw.lines(surface, random.choice(arc_colors_core), False, pts, 1)
+
+    branch_count = max(4, int(round(random.randint(4, 7) * intensity)))
+    for _ in range(branch_count):
+        bx = cx + random.randint(-hw, hw)
+        by = cy + random.randint(-hh, hh)
+        b_angle = random.uniform(0, math.tau)
+        b_len = random.uniform(8, 18) * intensity
+        pts = [(int(bx), int(by))]
+        segs = random.randint(2, 4)
+        for j in range(1, segs + 1):
+            frac = j / segs
+            nx = bx + math.cos(b_angle) * b_len * frac + random.uniform(-4, 4) * intensity
+            ny = by + math.sin(b_angle) * b_len * frac + random.uniform(-4, 4) * intensity
+            pts.append((int(nx), int(ny)))
+        if len(pts) >= 2:
+            pygame.draw.lines(surface, random.choice(arc_colors_outer + arc_colors_core), False, pts, 1)
+
+    spark_count = max(2, int(round(random.randint(2, 4) * intensity)))
+    for _ in range(spark_count):
+        sp_x = cx + random.randint(-hw, hw)
+        sp_y = cy + random.randint(-hh, hh)
+        sp_size = random.randint(1, max(2, int(2 * intensity)))
+        sp_col = random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)])
+        pygame.draw.circle(surface, sp_col, (sp_x, sp_y), sp_size)
+
+
 _boost_charging_surf = None  # 부스트차징 이펙트용 재사용 Surface
 
 def draw_boost_charging_effect(screen: pygame.Surface):
@@ -15192,9 +19888,10 @@ transcendent_crown_skill_bonus = 0  # 모든 투자된 스킬 레벨 +1~+3
 sage_ring_perk_bonus = 0  # 장착 시 모든 투자된 퍽 레벨 +1
 
 def get_runtime_skill_level(skill_id: str) -> int:
-    """런타임 스킬 레벨 조회 (초월자의 관 보너스 포함)
+    """런타임 스킬 레벨 조회 (초월자의 관 + 현자의 반지 + 이그니션오라 보너스 포함)
 
     초월자의 관 착용 시: 이미 투자된 스킬(레벨 1 이상)에만 보너스 적용
+    이그니션오라 활성 20초 동안: 모든 투자된 퍽 +2 (transcendent_crown과 동일 규칙)
     보너스는 max_level을 초과할 수 있음 (예: 연마 Lv.5 + 초월자의 관 +1 = Lv.6)
     """
     base_level = runtime_skill_levels.get(skill_id, 0)
@@ -15205,6 +19902,8 @@ def get_runtime_skill_level(skill_id: str) -> int:
         total_bonus += transcendent_crown_skill_bonus
     if sage_ring_perk_bonus > 0:
         total_bonus += sage_ring_perk_bonus
+    if _viper_ignition_aura_active:
+        total_bonus += _VIPER_IGNITION_PERK_LEVEL_BONUS
 
     if base_level > 0 and total_bonus > 0:
         return base_level + total_bonus
@@ -15238,26 +19937,26 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
     # 스킬별 패턴에 따라 설명 생성
     skill_patterns = {
         # Dash Tree
-        "dash_lightweight": ("대쉬 쿨타임 ", 10, "% 감소"),
-        "dash_module_control": ("대쉬 후딜 ", 15, "% 감소"),
+        "dash_lightweight": ("대쉬 쿨타임 ", 12, "% 감소"),
+        "dash_module_control": ("대쉬 후딜 ", 18, "% 감소"),
         "dash_jump": ("대쉬 거리 ", 7, "% 증가"),
         "dash_amplification": ("대쉬 토큰 +", 1, ""),
         # Item Tree
-        "item_luck": ("아이템 스폰 대기 ", 10, "% 감소"),
-        "item_cooldown_mastery": ("액티브 아이템 쿨타임 ", 12, "% 감소"),
-        "item_gauge_mastery": ("액티브 사용시 게이지 +", 12, ""),
+        "item_luck": ("아이템 스폰 대기 ", 12, "% 감소"),
+        "item_cooldown_mastery": ("액티브 아이템 쿨타임 ", 13, "% 감소"),
+        "item_gauge_mastery": ("액티브 사용시 게이지 +", 15, ""),
         "item_bag_expansion": ("액티브 슬롯 +", 1, ""),
-        "item_caffeine": ("타이머형 아이템 지속 ", 20, "% 증가"),
-        "item_polish": ("패시브 롤옵션 효율 ", 10, "% 증가"),
+        "item_caffeine": ("타이머형 아이템 지속 ", 30, "% 증가"),
+        "item_polish": ("패시브 롤옵션 효율 ", 12, "% 증가"),
         "item_recycle": ("아이템 유지 확률 ", 7, "%"),
         # Downtown Tree
-        "downtown_gamble": ("가챠 추가 1회 확률 ", 10, "%"),
+        # downtown_gamble은 두 효과(추가뽑기/신화확률)가 모두 레벨 스케일이라 별도 처리 (아래)
         "downtown_treasure_map": ("신화 확률 +", 200, "%"),
-        "downtown_bargain": ("상점 아이템 가격 ", 10, "% 할인"),
+        # downtown_bargain은 구매/판매 양쪽이 레벨별 스케일이라 별도 처리 (아래)
         # Common Tree
-        "common_swiftness": ("이동속도 ", 5, "% 증가"),
+        "common_swiftness": ("이동속도 ", 6, "% 증가"),
         "common_expansion": ("장신구 슬롯 +", 1, ""),
-        "common_bulk_up": ("패들 크기 ", 5, "% 증가"),
+        "common_bulk_up": ("패들 크기 ", 6, "% 증가"),
         # Smasher Exclusive
         "dash_acceleration": ("대쉬시 패들 크기 ", 70, "% 증가"),
         "dash_spirit": ("대쉬시 ", 7, "% 확률로 레이저 잔상"),
@@ -15275,8 +19974,14 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         "jetpack_enhance": ("제트팩 최대 게이지 +", 20, "%"),
         # Common
         "perk_laurel_shield": ("월계수 잎 ", 1, "개 보호"),
-        "perk_boost_charge": ("부스트차징 발동확률 +", 5, "%"),
+        "perk_boost_charge": ("부스트차징 발동확률 +", 7, "%"),
     }
+
+    if skill_id == "item_luck":
+        reduction_pct = min(level * 12, 70)
+        if reduction_pct >= 70:
+            return "아이템 스폰 대기 70% 감소 (최대)"
+        return f"아이템 스폰 대기 {reduction_pct}% 감소"
 
     if skill_id in skill_patterns:
         prefix, per_level, suffix = skill_patterns[skill_id]
@@ -15289,12 +19994,23 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         curve_amp = min(level, 3) * 5
         return f"콤보 증폭: 공속+{speed_amp}%, 커브+{curve_amp}% (Lv{level})"
 
-    # kick_enhance: 정밀도는 50%에서 캡, 공속은 계속 증가
+    # kick_enhance: 정밀도는 45%에서 캡, 공속은 계속 증가, 준비동작은 단축
     if skill_id == "kick_enhance":
-        precision = min(level * 10, 50)
-        speed = level * 5
-        prep_speed = level * 12
-        return f"킥 발사 정밀도 +{precision}%, 공속 보너스 +{speed}%, 준비동작 속도 +{prep_speed}%"
+        precision = min(level * 9, 45)
+        speed = level * 4
+        prep_cut = min(level * 10, 50)
+        return f"킥 발사 정밀도 +{precision}%, 공속 보너스 +{speed}%, 준비동작 -{prep_cut}%"
+
+    # downtown_bargain: 구매가 -12%/레벨, 판매가 +12%/레벨
+    if skill_id == "downtown_bargain":
+        pct = level * 12
+        return f"상점 구매 -{pct}% / 판매 +{pct}%"
+
+    # downtown_gamble: 추가뽑기 15%/레벨, 신화 아이템 확률 +3%/레벨
+    if skill_id == "downtown_gamble":
+        draw_pct = level * 15
+        mythic_pct = level * 3
+        return f"가챠 추가 1회 확률 {draw_pct}% / 신화 아이템 확률 +{mythic_pct}%"
 
     # elec_pad: 확률+2%/레벨, 충전+10/레벨
     if skill_id == "elec_pad":
@@ -15338,7 +20054,7 @@ def recalculate_transcendent_crown_effects():
     # 신속 스킬 효과 재계산
     if runtime_skill_levels.get("common_swiftness", 0) > 0:
         effective_level = get_runtime_skill_level("common_swiftness")
-        runtime_swiftness_bonus = effective_level * 0.05
+        runtime_swiftness_bonus = effective_level * 0.06
 
     # 확장 스킬 효과 재계산
     if runtime_skill_levels.get("common_expansion", 0) > 0:
@@ -15385,11 +20101,11 @@ RUNTIME_SKILL_POOL = {
         "name": "경량화",
         "max_level": 5,
         "descriptions": {
-            1: "대쉬 쿨타임 10% 감소",
-            2: "대쉬 쿨타임 20% 감소",
-            3: "대쉬 쿨타임 30% 감소",
-            4: "대쉬 쿨타임 40% 감소",
-            5: "대쉬 쿨타임 50% 감소",
+            1: "대쉬 쿨타임 12% 감소",
+            2: "대쉬 쿨타임 24% 감소",
+            3: "대쉬 쿨타임 36% 감소",
+            4: "대쉬 쿨타임 48% 감소",
+            5: "대쉬 쿨타임 60% 감소",
         },
         "detail": "빨간구슬 대쉬토큰이 충전되는 속도가 빨라집니다.",
         "icon_color": (100, 200, 255),
@@ -15399,11 +20115,11 @@ RUNTIME_SKILL_POOL = {
         "name": "모듈제어",
         "max_level": 5,
         "descriptions": {
-            1: "대쉬 후딜 15% 감소",
-            2: "대쉬 후딜 30% 감소",
-            3: "대쉬 후딜 45% 감소",
-            4: "대쉬 후딜 60% 감소",
-            5: "대쉬 후딜 75% 감소",
+            1: "대쉬 후딜 18% 감소",
+            2: "대쉬 후딜 36% 감소",
+            3: "대쉬 후딜 54% 감소",
+            4: "대쉬 후딜 72% 감소",
+            5: "대쉬 후딜 90% 감소",
         },
         "detail": "대쉬 후 경직 시간을 줄여 더 빠르게 다음 행동을 할 수 있습니다.",
         "icon_color": (150, 100, 255),
@@ -15442,11 +20158,11 @@ RUNTIME_SKILL_POOL = {
         "name": "행운",
         "max_level": 5,
         "descriptions": {
-            1: "아이템 스폰 대기 10% 감소",
-            2: "아이템 스폰 대기 20% 감소",
-            3: "아이템 스폰 대기 30% 감소",
-            4: "아이템 스폰 대기 40% 감소",
-            5: "아이템 스폰 대기 50% 감소",
+            1: "아이템 스폰 대기 12% 감소",
+            2: "아이템 스폰 대기 24% 감소",
+            3: "아이템 스폰 대기 36% 감소",
+            4: "아이템 스폰 대기 48% 감소",
+            5: "아이템 스폰 대기 60% 감소",
         },
         "detail": "행운의 기운으로 아이템이 더 자주 나타납니다.",
         "icon_color": (255, 215, 0),
@@ -15456,11 +20172,11 @@ RUNTIME_SKILL_POOL = {
         "name": "숙련",
         "max_level": 5,
         "descriptions": {
-            1: "액티브 아이템 쿨타임 12% 감소",
-            2: "액티브 아이템 쿨타임 24% 감소",
-            3: "액티브 아이템 쿨타임 36% 감소",
-            4: "액티브 아이템 쿨타임 48% 감소",
-            5: "액티브 아이템 쿨타임 60% 감소",
+            1: "액티브 아이템 쿨타임 13% 감소",
+            2: "액티브 아이템 쿨타임 26% 감소",
+            3: "액티브 아이템 쿨타임 39% 감소",
+            4: "액티브 아이템 쿨타임 52% 감소",
+            5: "액티브 아이템 쿨타임 65% 감소",
         },
         "detail": "아이템 사용에 숙련되어 쿨타임이 줄어듭니다.",
         "icon_color": (100, 150, 255),
@@ -15470,11 +20186,11 @@ RUNTIME_SKILL_POOL = {
         "name": "숙달",
         "max_level": 5,
         "descriptions": {
-            1: "액티브 사용시 게이지 +12",
-            2: "액티브 사용시 게이지 +24",
-            3: "액티브 사용시 게이지 +36",
-            4: "액티브 사용시 게이지 +48",
-            5: "액티브 사용시 게이지 +60",
+            1: "액티브 사용시 게이지 +15",
+            2: "액티브 사용시 게이지 +30",
+            3: "액티브 사용시 게이지 +45",
+            4: "액티브 사용시 게이지 +60",
+            5: "액티브 사용시 게이지 +75",
         },
         "detail": "엑티브아이템 사용 시 보너스 게이지를 획득합니다.",
         "icon_color": (150, 255, 100),
@@ -15498,11 +20214,11 @@ RUNTIME_SKILL_POOL = {
         "name": "카페인",
         "max_level": 5,
         "descriptions": {
-            1: "타이머형 아이템 지속 20% 증가",
-            2: "타이머형 아이템 지속 40% 증가",
-            3: "타이머형 아이템 지속 60% 증가",
-            4: "타이머형 아이템 지속 80% 증가",
-            5: "타이머형 아이템 지속 100% 증가",
+            1: "타이머형 아이템 지속 30% 증가",
+            2: "타이머형 아이템 지속 60% 증가",
+            3: "타이머형 아이템 지속 90% 증가",
+            4: "타이머형 아이템 지속 120% 증가",
+            5: "타이머형 아이템 지속 150% 증가",
         },
         "detail": "카페인 부스트로 지속시간형 엑티브 아이템 효과가 더 오래 지속됩니다.",
         "icon_color": (139, 69, 19),
@@ -15512,11 +20228,11 @@ RUNTIME_SKILL_POOL = {
         "name": "연마",
         "max_level": 5,
         "descriptions": {
-            1: "패시브 롤옵션 효율 10% 증가",
-            2: "패시브 롤옵션 효율 20% 증가",
-            3: "패시브 롤옵션 효율 30% 증가",
-            4: "패시브 롤옵션 효율 40% 증가",
-            5: "패시브 롤옵션 효율 50% 증가",
+            1: "패시브 롤옵션 효율 12% 증가",
+            2: "패시브 롤옵션 효율 24% 증가",
+            3: "패시브 롤옵션 효율 36% 증가",
+            4: "패시브 롤옵션 효율 48% 증가",
+            5: "패시브 롤옵션 효율 60% 증가",
         },
         "detail": "아이템을 연마하여 패시브 효과가 강화됩니다.",
         "icon_color": (200, 200, 200),
@@ -15542,13 +20258,13 @@ RUNTIME_SKILL_POOL = {
         "name": "도박",
         "max_level": 5,
         "descriptions": {
-            1: "가챠 추가 1회 확률 10%",
-            2: "가챠 추가 1회 확률 20%",
-            3: "가챠 추가 1회 확률 30%",
-            4: "가챠 추가 1회 확률 40%",
-            5: "가챠 추가 1회 확률 50%",
+            1: "가챠 추가 1회 확률 15% / 신화 아이템 확률 +3%",
+            2: "가챠 추가 1회 확률 30% / 신화 아이템 확률 +6%",
+            3: "가챠 추가 1회 확률 45% / 신화 아이템 확률 +9%",
+            4: "가챠 추가 1회 확률 60% / 신화 아이템 확률 +12%",
+            5: "가챠 추가 1회 확률 75% / 신화 아이템 확률 +15%",
         },
-        "detail": "도박꾼의 행운으로 각 가챠마다 추가 뽑기 확률이 생깁니다. 연속뽑기시 각각 적용됩니다.",
+        "detail": "도박꾼의 행운으로 각 가챠마다 추가 뽑기 확률이 생기고, 가챠의 신화 아이템 등장 확률도 증가합니다. 연속뽑기시 각각 적용됩니다.",
         "icon_color": (255, 0, 0),
         "tree": "downtown"
     },
@@ -15570,13 +20286,13 @@ RUNTIME_SKILL_POOL = {
         "name": "흥정",
         "max_level": 5,
         "descriptions": {
-            1: "상점 아이템 가격 10% 할인",
-            2: "상점 아이템 가격 20% 할인",
-            3: "상점 아이템 가격 30% 할인",
-            4: "상점 아이템 가격 40% 할인",
-            5: "상점 아이템 가격 50% 할인",
+            1: "상점 구매 -12% / 판매 +12%",
+            2: "상점 구매 -24% / 판매 +24%",
+            3: "상점 구매 -36% / 판매 +36%",
+            4: "상점 구매 -48% / 판매 +48%",
+            5: "상점 구매 -60% / 판매 +60%",
         },
-        "detail": "뛰어난 흥정 실력으로 상점에서 아이템을 더 싸게 구매할 수 있게 해줍니다.",
+        "detail": "뛰어난 흥정 실력으로 상점에서 아이템을 더 싸게 구매하고, 되팔 때는 더 비싼 값을 받을 수 있게 해줍니다.",
         "icon_color": (255, 180, 50),
         "tree": "downtown"
     },
@@ -15586,11 +20302,11 @@ RUNTIME_SKILL_POOL = {
         "name": "신속",
         "max_level": 5,
         "descriptions": {
-            1: "이동속도 5% 증가",
-            2: "이동속도 10% 증가",
-            3: "이동속도 15% 증가",
-            4: "이동속도 20% 증가",
-            5: "이동속도 25% 증가",
+            1: "이동속도 6% 증가",
+            2: "이동속도 12% 증가",
+            3: "이동속도 18% 증가",
+            4: "이동속도 24% 증가",
+            5: "이동속도 30% 증가",
         },
         "detail": "발걸음이 가벼워져 이동 속도가 증가합니다.",
         "icon_color": (100, 255, 180),
@@ -15611,11 +20327,11 @@ RUNTIME_SKILL_POOL = {
         "name": "벌크업",
         "max_level": 5,
         "descriptions": {
-            1: "패들 크기 4% 증가",
-            2: "패들 크기 8% 증가",
-            3: "패들 크기 12% 증가",
-            4: "패들 크기 16% 증가",
-            5: "패들 크기 20% 증가",
+            1: "패들 크기 6% 증가",
+            2: "패들 크기 12% 증가",
+            3: "패들 크기 18% 증가",
+            4: "패들 크기 24% 증가",
+            5: "패들 크기 30% 증가",
         },
         "detail": "패들의 크기가 영구적으로 증가합니다. 볼을 받아치기 더 쉬워집니다.",
         "icon_color": (255, 150, 80),
@@ -15639,11 +20355,11 @@ RUNTIME_SKILL_POOL = {
         "name": "부스트차징",
         "max_level": 5,
         "descriptions": {
-            1: "부스트차징 발동확률 +5%",
-            2: "부스트차징 발동확률 +10%",
-            3: "부스트차징 발동확률 +15%",
-            4: "부스트차징 발동확률 +20%",
-            5: "부스트차징 발동확률 +25%",
+            1: "부스트차징 발동확률 +7%",
+            2: "부스트차징 발동확률 +14%",
+            3: "부스트차징 발동확률 +21%",
+            4: "부스트차징 발동확률 +28%",
+            5: "부스트차징 발동확률 +35%",
         },
         "detail": "발동 시 대쉬 후 대쉬토큰이 즉시 충전됩니다..",
         "icon_color": (80, 160, 255),
@@ -15752,17 +20468,28 @@ SMASHER_EXCLUSIVE_SKILLS = {
         "tree": "smasher_unlock",
         "character_restriction": "smasher"
     },
+    "unlock_warp_gate": {
+        "name": "워프게이트 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "워프게이트 스킬 해금",
+        },
+        "detail": "게이지 스킬 '워프게이트'를 해금합니다. A→W→D (또는 ←→↑→→) 순서로 입력하면 20초간 차원 포털이 열려, 좌/우 벽을 타넘어 반대편으로 순간이동할 수 있습니다. 게이지 100 소모(벽을 넘을 때마다 추가 50), 쿨타임 80초.",
+        "icon_color": (200, 110, 255),
+        "tree": "smasher_unlock",
+        "character_restriction": "smasher"
+    },
     "extension_gear": {
         "name": "연장기어",
         "max_level": 5,
         "descriptions": {
-            1: "리커버리/클렌즈 지속시간 +25%",
-            2: "리커버리/클렌즈 지속시간 +50%",
-            3: "리커버리/클렌즈 지속시간 +75%",
-            4: "리커버리/클렌즈 지속시간 +100%",
-            5: "리커버리/클렌즈 지속시간 +125%",
+            1: "리커버리/클렌즈/워프게이트 지속시간 +25%",
+            2: "리커버리/클렌즈/워프게이트 지속시간 +50%",
+            3: "리커버리/클렌즈/워프게이트 지속시간 +75%",
+            4: "리커버리/클렌즈/워프게이트 지속시간 +100%",
+            5: "리커버리/클렌즈/워프게이트 지속시간 +125%",
         },
-        "detail": "리커버리, 클렌즈 스킬 발동 후 효과 지속시간이 레벨당 25% 증가합니다. (최대 Lv.5 / +125%)",
+        "detail": "리커버리, 클렌즈, 워프게이트 스킬 발동 후 효과 지속시간이 레벨당 25% 증가합니다. (최대 Lv.5 / +125%)",
         "icon_color": (120, 230, 180),
         "tree": "smasher",
         "character_restriction": "smasher"
@@ -15936,7 +20663,7 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "그물덫총 해금",
         },
-        "detail": "그물덫총을 즉시 지급받고, 추후 물자보급 요청시 드롭 목록에 추가됩니다. (노후화 상태로 지급)",
+        "detail": "그물덫총을 영구 해금하고 코만도 스킬구슬에 추가합니다. 스테이지마다 탄환이 전부 보충됩니다.",
         "icon_color": (100, 180, 100),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -15949,7 +20676,7 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "화력지원 해금",
         },
-        "detail": "화력지원을 즉시 지급받고, 추후 물자보급 요청시 드롭 목록에 추가됩니다. (노후화 상태로 지급)",
+        "detail": "화력지원을 영구 해금하고 코만도 스킬구슬에 추가합니다. 스테이지마다 탄환이 전부 보충됩니다.",
         "icon_color": (255, 100, 50),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -15962,7 +20689,7 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "볼링트랩 해금",
         },
-        "detail": "볼링트랩을 즉시 지급받고, 추후 물자보급 요청시 드롭 목록에 추가됩니다. (노후화 상태로 지급)",
+        "detail": "볼링트랩을 영구 해금하고 코만도 스킬구슬에 추가합니다. 스테이지마다 탄환이 전부 보충됩니다.",
         "icon_color": (200, 80, 80),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -15975,7 +20702,7 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "자폭드론 해금",
         },
-        "detail": "자폭드론을 즉시 지급받고, 추후 물자보급 요청시 드롭 목록에 추가됩니다. (노후화 상태로 지급)",
+        "detail": "자폭드론을 영구 해금하고 코만도 스킬구슬에 추가합니다. 스테이지마다 탄환이 전부 보충됩니다.",
         "icon_color": (255, 100, 50),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -15986,9 +20713,9 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "name": "권총 화기류",
         "max_level": 1,
         "descriptions": {
-            1: "기본 화기를 권총으로 교체",
+            1: "권총 화기류 해금",
         },
-        "detail": "기본 새총을 권총으로 교체합니다.",
+        "detail": "새총은 그대로 유지한 채 권총을 별도 영구 화기류로 해금합니다. 권총은 탄창 3개를 갖고, 재장전할 때마다 탄창 1개를 소비하며 스테이지 전환이나 비상보급으로 완전충전됩니다.",
         "icon_color": (140, 130, 120),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -16003,7 +20730,7 @@ VIPER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "베놈 엣지 스킬 해금 (에어 블레이드 연계기)",
         },
-        "detail": "에어 블레이드 연계기 '베놈 엣지'를 해금합니다. 에어 블레이드 착지 전 클릭/Space로 게이지 80을 추가 소모해 보스에게 돌진, 등 뒤에서 눈을 베어 상대를 혼란에 빠트립니다.",
+        "detail": "에어 블레이드 연계기 '베놈 엣지'를 해금합니다. 에어 블레이드 착지 전 클릭/Space로 게이지 120을 추가 소모해 보스에게 돌진, 등 뒤에서 눈을 베어 상대를 혼란에 빠트립니다.",
         "icon_color": (180, 0, 220),
         "tree": "viper_unlock",
         "character_restriction": "viper"
@@ -16016,6 +20743,17 @@ VIPER_EXCLUSIVE_SKILLS = {
         },
         "detail": "체공 중 S/↓키를 꾹 눌러 급강하하여 착지 연기 장판을 생성합니다. 연기에 닿은 공을 위로 반사하고 상대를 일시적 패닉상태에 빠뜨립니다, 패닉 지속시간은 체공 높이에 비례합니다.",
         "icon_color": (255, 120, 50),
+        "tree": "viper_unlock",
+        "character_restriction": "viper"
+    },
+    "unlock_chaos_spear": {
+        "name": "카오스 스피어 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "카오스 스피어 스킬 해금 (A→W→D 블랙홀)",
+        },
+        "detail": "A→W→D 또는 ←↑→ 커맨드로 발동하는 카오스 스피어를 해금합니다.\n게이지 150, 쿨타임 20초.\n0.5초 투척 후 중앙 블랙홀을 열어 공을 3초간 붙잡고 필드의 일반 보스 투사체/설치물을 흡수합니다.",
+        "icon_color": (135, 70, 255),
         "tree": "viper_unlock",
         "character_restriction": "viper"
     },
@@ -16049,13 +20787,13 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "킥 강화",
         "max_level": 5,
         "descriptions": {
-            1: "킥 발사 정밀도 +10%, 공속 보너스 +5%, 준비동작 속도 +12%",
-            2: "킥 발사 정밀도 +20%, 공속 보너스 +10%, 준비동작 속도 +24%",
-            3: "킥 발사 정밀도 +30%, 공속 보너스 +15%, 준비동작 속도 +36%",
-            4: "킥 발사 정밀도 +40%, 공속 보너스 +20%, 준비동작 속도 +48%",
-            5: "킥 발사 정밀도 +50%, 공속 보너스 +25%, 준비동작 속도 +60%",
+            1: "킥 발사 정밀도 +9%, 공속 보너스 +4%, 준비동작 -10%",
+            2: "킥 발사 정밀도 +18%, 공속 보너스 +8%, 준비동작 -20%",
+            3: "킥 발사 정밀도 +27%, 공속 보너스 +12%, 준비동작 -30%",
+            4: "킥 발사 정밀도 +36%, 공속 보너스 +16%, 준비동작 -40%",
+            5: "킥 발사 정밀도 +45%, 공속 보너스 +20%, 준비동작 -50%",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 10% 증가(최대 Lv.5: 50%) + 공속 5% 증가.\n또한 마샬 킥/팬텀 킥의 준비동작(벽으로 이동 → 매달림 → 공으로 돌진)이 레벨당 12% 빨라집니다.\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥의 발사 정밀도와 공속이 강화됩니다.\n레벨당 발사 정밀도 9% 증가(최대 Lv.5: 45%) + 공속 4% 증가.\n또한 마샬 킥/팬텀 킥의 준비동작(벽으로 이동 → 매달림 → 공으로 돌진)이 레벨당 10%씩 단축됩니다(최대 Lv.5: -50%).\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 공속에만 반영됩니다.",
         "icon_color": (255, 80, 40),
         "tree": "viper",
         "character_restriction": "viper"
@@ -16064,9 +20802,9 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "다크 블레이드",
         "max_level": 1,
         "descriptions": {
-            1: "쉐도우 백스텝·마샬 킥·팬텀 킥으로 공 타격 후 공중 에어 블레이드 시 발동",
+            1: "공 타격 후 3초 내 공중 W/↑로 발동",
         },
-        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 에어 블레이드를 사용하면 변환 발사.\n구르기 3바퀴(연장 모션) → 점프 320px 솟구침,\n검기 가로폭 30% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 45초.",
+        "detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥, 화랑 킥 중 어느 하나로 공을 맞추면\n3초간 다크 블레이드 콤보 윈도우가 열립니다.\n그 안에 공중에서 W/↑를 누르면 다크 블레이드가 우선 발동합니다.\n다크 블레이드 검기가 공을 맞히면 마샬 킥 윈도우가 열리지만,\n이 경로에서는 팬텀 킥 윈도우가 직접 열리지 않습니다.\n구르기 3바퀴(연장 모션) → 점프 320px 솟구침,\n검기 가로폭 30% 증가, 사거리 2배, 검붉은 강화 검기.\n게이지 200, 쿨타임 45초.",
         "icon_color": (120, 0, 30),
         "tree": "viper",
         "character_restriction": "viper"
@@ -16075,15 +20813,37 @@ VIPER_EXCLUSIVE_SKILLS = {
         "name": "검기 증폭",
         "max_level": 5,
         "descriptions": {
-            1: "검기 사거리/가로폭 +10%, 타격 공속 +10%, 게이지 비용 -10",
-            2: "검기 사거리/가로폭 +20%, 타격 공속 +20%, 게이지 비용 -20",
-            3: "검기 사거리/가로폭 +30%, 타격 공속 +30%, 게이지 비용 -30",
-            4: "검기 사거리/가로폭 +40%, 타격 공속 +40%, 게이지 비용 -40",
-            5: "검기 사거리/가로폭 +50%, 타격 공속 +50%, 게이지 비용 -50",
+            1: "검기 사거리/가로폭 +10%, 타격 공속 +15%, 게이지 비용 -10",
+            2: "검기 사거리/가로폭 +20%, 타격 공속 +30%, 게이지 비용 -20",
+            3: "검기 사거리/가로폭 +30%, 타격 공속 +45%, 게이지 비용 -30",
+            4: "검기 사거리/가로폭 +40%, 타격 공속 +60%, 게이지 비용 -40",
+            5: "검기 사거리/가로폭 +50%, 타격 공속 +75%, 게이지 비용 -50",
         },
-        "detail": "에어 블레이드와 다크 블레이드를 강화합니다.\n- 검기 사거리와 X축 가로폭이 레벨당 10%씩 증가 (최대 Lv.5)\n- 검기가 공을 타격할 때 공속 보너스 +10%/LV\n- 발동 게이지 비용이 레벨당 10 감소 (최대 Lv.5에서 200 → 150)\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 타격 공속에만 반영됩니다.\n다크 블레이드 기본 배율(사거리 2배, 가로폭 1.3배)에 합산 적용됩니다.",
+        "detail": "에어 블레이드와 다크 블레이드를 강화합니다.\n- 검기 사거리와 X축 가로폭이 레벨당 10%씩 증가 (최대 Lv.5)\n- 검기가 공을 타격할 때 공속 보너스 +15%/LV\n- 발동 게이지 비용이 레벨당 10 감소 (최대 Lv.5에서 200 → 150)\n유효 레벨이 Lv.5를 초과하면 추가 레벨은 타격 공속에만 반영됩니다.\n다크 블레이드 기본 배율(사거리 2배, 가로폭 1.3배)에 합산 적용됩니다.",
         "icon_color": (180, 60, 220),
         "tree": "viper",
+        "character_restriction": "viper"
+    },
+    "core_flip": {
+        "name": "화랑 킥",
+        "max_level": 1,
+        "descriptions": {
+            1: "대쉬로 공을 맞춘 뒤 0.7초 이내 A+D 동시 입력으로 화랑 킥 발동",
+        },
+        "detail": "대쉬로 공을 맞춘 뒤 0.7초 이내에 A+D(또는 ←+→)를 동시에 누르면 화랑 킥이 발동됩니다.\n벽을 타고 반사각으로 공을 차며, 적중 시 마샬 킥(→팬텀 킥) 연계가 열립니다.\n게이지 120, 쿨타임 25초.",
+        "icon_color": (255, 110, 200),
+        "tree": "viper",
+        "character_restriction": "viper"
+    },
+    "unlock_ignition_aura": {
+        "name": "이그니션오라 해금",
+        "max_level": 1,
+        "descriptions": {
+            1: "이그니션오라 스킬 해금 (W 0.5초 홀드 발동)",
+        },
+        "detail": "지상에서 W 또는 ↑키를 0.5초 이상 꾹 눌러 발동하는 5번째 오브 스킬을 해금합니다.\n발동 순간 화염 오라가 폭발하며, 20초간 모든 투자된 퍽의 effective level이 +2 증가하고 모든 골드 보너스가 +50 증가합니다.\n게이지 250, 쿨타임 80초.",
+        "icon_color": (255, 130, 40),
+        "tree": "viper_unlock",
         "character_restriction": "viper"
     },
 }
@@ -16111,10 +20871,124 @@ def is_soldier_weapon_unlocked(weapon_name: str) -> bool:
     # 기본 화기류는 항상 해금 (권총, 바주카, AK-47만)
     if weapon_name in ("pistol", "bazooka", "ak47"):
         return True
+    if weapon_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
+        try:
+            return weapon_name in soldier_controller.permanent_owned
+        except Exception:
+            pass
     return soldier_weapon_unlocks.get(weapon_name, False)
 
+
+def _sync_soldier_unlock_flags_from_runtime() -> None:
+    for weapon_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
+        soldier_weapon_unlocks[weapon_name] = bool(_soldier_skill_unlocked.get(weapon_name, False))
+
+
+def _apply_soldier_pistol_perk_state(unlocked: bool, *, refill_ammo: bool = True) -> None:
+    """권총 화기류(commando_pistol) 보유 상태를 동기화한다.
+
+    새총은 항상 기본 슬롯에 유지되며, 권총은 net_gun / fire_support 와 동일한
+    영구 화기류 슬롯을 점유한다. refill_ammo=True 인 경우 탄환·탄창을 가득 채운다.
+    """
+    global soldier_pistol_perk_unlocked
+    global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_pistol_ammo
+    global soldier_pistol_magazines
+
+    soldier_pistol_perk_unlocked = unlocked
+    _soldier_skill_unlocked[SOLDIER_PISTOL_ORB_SKILL] = unlocked
+
+    if unlocked:
+        soldier_controller.permanent_owned.add(SOLDIER_PISTOL_ORB_SKILL)
+    else:
+        soldier_controller.permanent_owned.discard(SOLDIER_PISTOL_ORB_SKILL)
+        shared_skills = [
+            skill_name
+            for skill_name in get_soldier_equipped_slot_skills()
+            if skill_name != SOLDIER_PISTOL_ORB_SKILL
+        ]
+        set_soldier_equipped_shared_skills(shared_skills)
+
+    soldier_max_ammo = get_soldier_pistol_max_ammo()
+    if refill_ammo and unlocked:
+        soldier_ammo_count = soldier_max_ammo
+        soldier_pistol_ammo = soldier_max_ammo
+        soldier_pistol_magazines = SOLDIER_PISTOL_MAGAZINE_MAX
+    else:
+        soldier_ammo_count = min(max(0, soldier_ammo_count), soldier_max_ammo)
+        soldier_pistol_ammo = min(max(0, soldier_pistol_ammo), soldier_max_ammo)
+    soldier_reloading = False
+    _sync_soldier_weapon_inventory(set_active=SOLDIER_PISTOL_ORB_SKILL if unlocked else None)
+
+
+def _sync_soldier_weapon_inventory(*, set_active: str | None = None) -> None:
+    """코만도 캐노니컬 상태를 live weapon list로 재구성."""
+    if 'soldier_controller' not in globals() or soldier_controller is None:
+        return
+
+    soldier_controller.set_equipped_permanent(
+        get_soldier_equipped_firearm_skills(),
+        set_active=set_active,
+    )
+    _sync_soldier_unlock_flags_from_runtime()
+
+
+def _grant_soldier_rental_weapon(weapon_name: str, *, set_active: bool = True, acquired_stage: int | None = None) -> bool:
+    """물자보급 전용 대여 화기류 지급."""
+    global soldier_controller
+
+    if weapon_name in SOLDIER_PERMANENT_FIREARM_SKILLS and weapon_name in soldier_controller.permanent_owned:
+        print(f"⚠️ 이미 영구 보유 중인 {weapon_name} 대여 지급 스킵")
+        return False
+
+    if not soldier_controller.grant_rental_weapon(
+        weapon_name,
+        acquired_stage=acquired_stage,
+        set_active=set_active,
+    ):
+        return False
+
+    if weapon_name == "net_gun":
+        net_gun = get_net_gun_instance()
+        if net_gun:
+            net_gun.reload()
+            net_gun.equip()
+        print("🕸️ 그물덫총 대여 지급")
+    elif weapon_name == "fire_support":
+        fire_support = get_fire_support_instance()
+        if fire_support:
+            fire_support.on_acquired()
+            fire_support.equip()
+        print("✈️ 화력지원 장비 대여 지급")
+    elif weapon_name == "bowling_trap":
+        bowling_trap = get_bowling_trap_instance()
+        if bowling_trap:
+            bowling_trap.reload()
+            bowling_trap.equip()
+    elif weapon_name == "suicide_drone":
+        globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
+        globals()["suicide_drone_active"] = False
+        globals()["suicide_drone_rect"] = None
+        globals()["suicide_drone_player_lock"] = None
+        print("💥 자폭드론 대여 지급")
+    elif weapon_name == "bazooka":
+        from item_effects.bazooka import get_bazooka_instance
+
+        bazooka = get_bazooka_instance()
+        if bazooka:
+            bazooka.ammo_count = getattr(bazooka, "max_ammo", bazooka.ammo_count)
+            bazooka.equip()
+    elif weapon_name == "ak47":
+        ak47 = get_ak47_instance()
+        if ak47:
+            ak47.activate(None, None)
+            ak47.active = True
+            ak47.current_ammo = getattr(ak47, "max_ammo", ak47.current_ammo)
+            ak47.remaining_time = getattr(ak47, "duration", ak47.remaining_time)
+
+    return True
+
 def unlock_soldier_weapon(weapon_name: str) -> bool:
-    """코만도 화기류 해금 및 즉시 지급 (노후화 상태로)"""
+    """코만도 영구 화기류 해금."""
     global soldier_weapon_unlocks
     if weapon_name not in soldier_weapon_unlocks:
         return False
@@ -16122,23 +20996,25 @@ def unlock_soldier_weapon(weapon_name: str) -> bool:
     print(f"🔓 코만도 화기류 해금: {weapon_name}")
     return True
 
-def grant_soldier_weapon_degraded(weapon_name: str) -> bool:
-    """코만도에게 화기류를 노후화 상태로 즉시 지급"""
+def grant_soldier_weapon_owned(weapon_name: str) -> bool:
+    """코만도 영구 화기류 해금 + 오브 슬롯 반영."""
     global soldier_controller
 
-    # 이미 보유 중이면 지급하지 않음
-    if weapon_name in soldier_controller.weapons:
-        print(f"⚠️ 이미 {weapon_name} 보유 중 - 지급 스킵")
+    if weapon_name not in SOLDIER_PERMANENT_FIREARM_SKILLS:
         return False
 
-    # 무기 추가
-    if not soldier_controller.add_weapon(weapon_name, set_active=True):
-        return False
+    unlock_soldier_weapon(weapon_name)
+    unlock_soldier_skill(weapon_name)
 
-    # 노후화 상태로 강제 설정 (임계치 0, 즉시 노후화)
-    soldier_controller.degradation_thresholds[weapon_name] = 0
-    soldier_controller.degraded.add(weapon_name)
-    soldier_controller.reload_counts[weapon_name] = 0
+    if not equip_soldier_skill(weapon_name):
+        removed = _show_soldier_skill_swap_dialog(weapon_name)
+        if not removed:
+            return False
+        if not swap_soldier_skill(removed, weapon_name):
+            return False
+
+    soldier_controller.unlock_permanent_weapon(weapon_name, set_active=False)
+    _sync_soldier_weapon_inventory(set_active=weapon_name)
 
     # 무기별 초기화
     if weapon_name == "net_gun":
@@ -16146,26 +21022,29 @@ def grant_soldier_weapon_degraded(weapon_name: str) -> bool:
         if net_gun:
             net_gun.reload()
             net_gun.equip()
-        print(f"🕸️ 그물덫총 즉시 지급 (노후화 상태)")
+        print("🕸️ 그물덫총 영구 지급")
     elif weapon_name == "fire_support":
         fire_support = get_fire_support_instance()
         if fire_support:
             fire_support.on_acquired()
             fire_support.equip()
-        print(f"✈️ 화력지원 장비 즉시 지급 (노후화 상태)")
+        print("✈️ 화력지원 장비 영구 지급")
     elif weapon_name == "bowling_trap":
         bowling_trap = get_bowling_trap_instance()
         if bowling_trap:
             bowling_trap.reload()
             bowling_trap.equip()
-        # print(f"🎳 볼링트랩 즉시 지급 (노후화 상태)")
+        print("🎳 볼링트랩 영구 지급")
     elif weapon_name == "suicide_drone":
         # 자폭드론 탄약 초기화
         globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
         globals()["suicide_drone_active"] = False
         globals()["suicide_drone_rect"] = None
         globals()["suicide_drone_player_lock"] = None
-        print(f"💥 자폭드론 즉시 지급 (노후화 상태)")
+        print("💥 자폭드론 영구 지급")
+    elif weapon_name == "commando_pistol":
+        _apply_soldier_pistol_perk_state(True, refill_ammo=True)
+        print("🔫 권총 영구 지급 (새총과 별도 슬롯)")
 
     return True
 
@@ -17192,6 +22071,10 @@ def reset_runtime_skill_system():
     # 바이퍼 스킬 해금 상태 초기화 (쉐도우 백스텝, 에어 블레이드만 기본 해금)
     reset_viper_skill_unlocks()
 
+    # 코만도 스킬 해금 상태 초기화 (물자보급, 긴급재보급만 기본 장착)
+    reset_soldier_skill_unlocks()
+    reset_soldier_weapon_unlocks()
+
     # print("[RuntimeSkill] 런타임 스킬 시스템 초기화")  # 디버그 비활성화
 
 
@@ -17304,12 +22187,12 @@ def calculate_soldier_skill_gold_reward(skill_name: str) -> int:
     Returns:
         int: 획득할 골드량
     """
-    # SOLDIER_SKILL_ICONS_DATA에서 쿨타임 찾기
-    cooldown = 10.0  # 기본값
-    for skill in SOLDIER_SKILL_ICONS_DATA:
-        if skill["name"] == skill_name:
-            cooldown = skill["cooldown"]
-            break
+    if skill_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
+        return 0
+    if skill_name in ("emergency_supply", SOLDIER_PISTOL_ORB_SKILL):
+        return 0
+
+    cooldown = float(SOLDIER_SKILL_DATA_BY_NAME.get(skill_name, {}).get("cooldown", 10.0))
 
     gold_reward = int(cooldown / 5.0 * 12)
     return max(12, gold_reward)  # 최소 12골드
@@ -17341,6 +22224,10 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
     # 🔥 광폭화 보스 골드 보너스 적용 (+50%)
     if enraged_boss_active:
         amount = int(amount * 1.5)
+
+    # ◎ 바이퍼 이그니션오라 활성 중 모든 골드 보너스 +50
+    if _viper_ignition_aura_active:
+        amount += _VIPER_IGNITION_GOLD_BONUS
 
     # ⛏️ 골드디거 보너스 적용 (장착 슬롯에 실제 장착된 경우에만)
     equipped_gold_diggers = [item for item in passive_item_list if item and item.get("name") == "gold_digger" and item.get("_equipped_slot")]
@@ -17777,6 +22664,8 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
             "gold_amount": 500
         })
 
+        # 5/5 가득 찬 캐릭터면 해금 퍽은 제거 (아카데미 전용)
+        tutorial_choices = filter_full_slot_unlock_perks(tutorial_choices, character_type)
         print(f"[Tutorial] 고정 스킬 선택지 제공: {[c['name'] for c in tutorial_choices]}")
         return tutorial_choices
 
@@ -17806,7 +22695,22 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
 
     # 스매셔 전용 스킬 추가 (5구슬 슬롯 시스템 - 교체 가능하므로 해금 제한 없음)
     if character_type == "smasher":
+        # 연장기어: 리커버리/클렌즈/워프게이트 중 하나라도 해금돼 있어야 선택지로 등장.
+        # 세 스킬의 지속시간을 늘려주는 퍽이라, 대상 스킬이 전혀 없으면 의미가 없음.
+        _extension_gear_target_unlocked = False
+        try:
+            _extension_gear_target_unlocked = any(
+                _smasher_skill_unlocked.get(_target_skill, False)
+                for _target_skill in ("recovery", "cleanse", "warp_gate")
+            )
+        except Exception:
+            _extension_gear_target_unlocked = False
+
         for skill_id, skill_data in SMASHER_EXCLUSIVE_SKILLS.items():
+            # 연장기어: 대상 스킬 3종 중 하나도 해금 안 됐으면 선택지에서 제외
+            if skill_id == "extension_gear" and not _extension_gear_target_unlocked:
+                continue
+
             current_level = runtime_skill_levels.get(skill_id, 0)
             max_level = skill_data["max_level"]
 
@@ -17935,6 +22839,10 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
         _extra_perk = 0
     base_perk_count = 3 + _extra_perk  # 기본 3개 + 발동 시 1개 (+ 골드변환)
 
+    # 5/5 가득 찬 캐릭터면 액티브 해금 퍽을 풀에서 먼저 제거 후 샘플링
+    # (샘플링 후 제거하면 unlock 퍽만 뽑혀 최종 선택지가 골드변환만 남는 경우 발생)
+    available = filter_full_slot_unlock_perks(available, character_type)
+
     # 퍽 선택지 수만큼 랜덤 선택
     if len(available) > base_perk_count:
         available = random.sample(available, base_perk_count)
@@ -18012,7 +22920,241 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
     }
     result.append(gold_conversion_choice)
 
+    # 5/5 가득 찬 상태에서는 액티브 스킬 해금 퍽을 선택지에서 제거한다.
+    # (해당 스킬은 아카데미 NPC를 통해서만 교환 가능)
+    result = filter_full_slot_unlock_perks(result, character_type)
+
     return result
+
+
+# ─────────────────────────────────────────────────────────────
+# 아카데미 스킬 교환 / 5구슬 슬롯 풀 상태 공용 헬퍼
+# ─────────────────────────────────────────────────────────────
+
+# 캐릭터별 "unlock_* 퍽 id → 실제 skill_name" 매핑.
+# 이 맵에 등록된 퍽은 곧 액티브 스킬을 해금/장착하는 퍽이며,
+# 슬롯이 가득(5/5) 찰 때 일반 퍽 선택지에서 숨겨지고
+# 아카데미 NPC를 통해서만 교환 가능하게 된다.
+_CHARACTER_UNLOCK_PERKS = {
+    "smasher": {
+        "unlock_magnum_grip": "magnum_grip",
+        "unlock_plasma": "plasma",
+        "unlock_recovery_skill": "recovery",
+        "unlock_cleanse": "cleanse",
+        "unlock_ghost_shot": "ghost_shot",
+        "unlock_warp_gate": "warp_gate",
+    },
+    "viper": {
+        "unlock_nerve_strike": "nerve_strike",
+        "unlock_dive_strike": "dive_strike",
+        "unlock_chaos_spear": "chaos_spear",
+        "unlock_ignition_aura": "ignition_aura",
+        "double_marshal_kick": "phantom_kick",
+        "dark_blade": "dark_blade",
+        "core_flip": "core_flip",
+    },
+    "soldier": {
+        "soldier_unlock_net_gun": "net_gun",
+        "soldier_unlock_fire_support": "fire_support",
+        "soldier_unlock_bowling_trap": "bowling_trap",
+        "soldier_unlock_suicide_drone": "suicide_drone",
+        "soldier_pistol_perk": SOLDIER_PISTOL_ORB_SKILL,
+    },
+}
+
+
+def _get_character_unlock_perks(character_type: str) -> dict:
+    return _CHARACTER_UNLOCK_PERKS.get(character_type, {})
+
+
+def _are_character_skill_slots_full(character_type: str) -> bool:
+    """캐릭터의 5구슬 슬롯이 가득 찼는지. 5슬롯 시스템이 없는 캐릭터는 False."""
+    if character_type == "smasher":
+        return is_smasher_skill_slots_full()
+    if character_type == "viper":
+        return is_viper_skill_slots_full()
+    if character_type == "soldier":
+        return is_soldier_skill_slots_full()
+    return False
+
+
+def _is_character_skill_owned(character_type: str, skill_name: str) -> bool:
+    """'획득한 적 있음' 기준 해금 여부.
+    스왑으로 슬롯만 빠진 상태도 True (ownership 보존)."""
+    if character_type == "smasher":
+        return bool(_smasher_skill_unlocked.get(skill_name, False))
+    if character_type == "viper":
+        return bool(_viper_skill_unlocked.get(skill_name, False))
+    if character_type == "soldier":
+        return bool(_soldier_skill_unlocked.get(skill_name, False))
+    return False
+
+
+def filter_full_slot_unlock_perks(choices: list, character_type: str) -> list:
+    """퍽 선택지 리스트에서 5/5 시 숨겨야 할 unlock_* 퍽을 제거한다.
+    튜토리얼 고정 선택지와 일반 랜덤 선택지 양쪽에 적용 가능."""
+    if not _are_character_skill_slots_full(character_type):
+        return choices
+    hidden_ids = _get_character_unlock_perks(character_type)
+    if not hidden_ids:
+        return choices
+    return [c for c in choices if c.get("id") not in hidden_ids]
+
+
+def get_academy_unowned_active_perks(character_type: str) -> list:
+    """아카데미 제안 풀: 현재 캐릭터의 액티브 해금 퍽 중,
+    아직 획득한 적 없는 (ownership=False) 퍽 id 리스트."""
+    perk_map = _get_character_unlock_perks(character_type)
+    unowned = []
+    for perk_id, skill_name in perk_map.items():
+        if not _is_character_skill_owned(character_type, skill_name):
+            unowned.append(perk_id)
+    return unowned
+
+
+def get_academy_perk_display_name(character_type: str, perk_id: str) -> str:
+    """아카데미 UI에서 사용할 퍽 표시명 (없으면 perk_id 반환)."""
+    if character_type == "smasher":
+        data = SMASHER_EXCLUSIVE_SKILLS.get(perk_id)
+    elif character_type == "viper":
+        data = VIPER_EXCLUSIVE_SKILLS.get(perk_id)
+    elif character_type == "soldier":
+        data = SOLDIER_EXCLUSIVE_SKILLS.get(perk_id)
+    else:
+        data = None
+    if data:
+        return data.get("name", perk_id)
+    return perk_id
+
+
+def get_academy_perk_description(character_type: str, perk_id: str) -> str:
+    if character_type == "smasher":
+        data = SMASHER_EXCLUSIVE_SKILLS.get(perk_id)
+    elif character_type == "viper":
+        data = VIPER_EXCLUSIVE_SKILLS.get(perk_id)
+    elif character_type == "soldier":
+        data = SOLDIER_EXCLUSIVE_SKILLS.get(perk_id)
+    else:
+        data = None
+    if not data:
+        return ""
+    desc_map = data.get("descriptions") or {}
+    return desc_map.get(1, data.get("detail", ""))
+
+
+def get_academy_perk_icon_color(character_type: str, perk_id: str):
+    if character_type == "smasher":
+        data = SMASHER_EXCLUSIVE_SKILLS.get(perk_id)
+    elif character_type == "viper":
+        data = VIPER_EXCLUSIVE_SKILLS.get(perk_id)
+    elif character_type == "soldier":
+        data = SOLDIER_EXCLUSIVE_SKILLS.get(perk_id)
+    else:
+        data = None
+    if data:
+        return data.get("icon_color", (200, 180, 255))
+    return (200, 180, 255)
+
+
+def apply_academy_skill_purchase(character_type: str, perk_id: str) -> bool:
+    """<5/5 상태에서 1000골드로 액티브 스킬 구매. 성공 시 True."""
+    global downtown_gold, runtime_skill_levels
+    if _are_character_skill_slots_full(character_type):
+        return False
+    if downtown_gold < 1000:
+        return False
+    perk_map = _get_character_unlock_perks(character_type)
+    skill_name = perk_map.get(perk_id)
+    if not skill_name:
+        return False
+    downtown_gold -= 1000
+    if character_type == "smasher":
+        unlock_smasher_skill(skill_name)
+        equip_smasher_skill(skill_name)
+    elif character_type == "viper":
+        unlock_viper_skill(skill_name)
+        equip_viper_skill(skill_name)
+    elif character_type == "soldier":
+        unlock_soldier_skill(skill_name)
+        if not equip_soldier_skill(skill_name):
+            return False
+        if skill_name == SOLDIER_PISTOL_ORB_SKILL:
+            _apply_soldier_pistol_perk_state(True, refill_ammo=True)
+        else:
+            soldier_controller.unlock_permanent_weapon(skill_name, set_active=False)
+            _sync_soldier_weapon_inventory(set_active=skill_name)
+    runtime_skill_levels[perk_id] = 1
+    try:
+        mark_perk_discovered(perk_id)
+    except Exception:
+        pass
+    return True
+
+
+def apply_academy_skill_swap(character_type: str, new_perk_id: str, old_skill_name: str) -> bool:
+    """5/5 상태에서 (입장 시 이미 열쇠 1개 소모된 상태로) 무료 스왑. 성공 시 True.
+
+    제거되는 스킬이 unlock_* 퍽으로 해금된 것이라면 해당 퍽도 함께 제거한다.
+    기본 해금 스킬(스매셔 drive/power_smashing 등)은 퍽이 없어 no-op.
+    """
+    global runtime_skill_levels, _viper_double_marshal_kick_unlocked
+    perk_map = _get_character_unlock_perks(character_type)
+    new_skill_name = perk_map.get(new_perk_id)
+    if not new_skill_name:
+        return False
+    if character_type == "smasher":
+        if old_skill_name not in _smasher_equipped_skills:
+            return False
+        swap_smasher_skill(old_skill_name, new_skill_name)
+        unlock_smasher_skill(new_skill_name)
+    elif character_type == "viper":
+        if old_skill_name not in _viper_equipped_skills:
+            return False
+        swap_viper_skill(old_skill_name, new_skill_name)
+        unlock_viper_skill(new_skill_name)
+    elif character_type == "soldier":
+        if old_skill_name not in _soldier_equipped_skills:
+            return False
+        swap_soldier_skill(old_skill_name, new_skill_name)
+        unlock_soldier_skill(new_skill_name)
+        if old_skill_name == SOLDIER_PISTOL_ORB_SKILL and new_skill_name != SOLDIER_PISTOL_ORB_SKILL:
+            _apply_soldier_pistol_perk_state(False, refill_ammo=False)
+        if new_skill_name == SOLDIER_PISTOL_ORB_SKILL:
+            _apply_soldier_pistol_perk_state(True, refill_ammo=True)
+        else:
+            soldier_controller.unlock_permanent_weapon(new_skill_name, set_active=False)
+            _sync_soldier_weapon_inventory(set_active=new_skill_name)
+    else:
+        return False
+
+    # 제거된 스킬에 대응하는 퍽이 있으면 같이 제거 (퍽 패널 일관성 유지)
+    old_perk_id = None
+    for pid, sname in perk_map.items():
+        if sname == old_skill_name:
+            old_perk_id = pid
+            break
+    if old_perk_id:
+        if character_type == "smasher":
+            runtime_skill_levels.pop(old_perk_id, None)
+            if old_skill_name in _smasher_skill_unlocked:
+                _smasher_skill_unlocked[old_skill_name] = False
+        elif character_type == "viper":
+            runtime_skill_levels.pop(old_perk_id, None)
+            if old_skill_name in _viper_skill_unlocked:
+                _viper_skill_unlocked[old_skill_name] = False
+            if old_perk_id == "double_marshal_kick":
+                _viper_double_marshal_kick_unlocked = False
+        elif character_type == "soldier":
+            if old_skill_name == SOLDIER_PISTOL_ORB_SKILL:
+                runtime_skill_levels.pop(old_perk_id, None)
+            _sync_soldier_weapon_inventory()
+
+    runtime_skill_levels[new_perk_id] = 1
+    try:
+        mark_perk_discovered(new_perk_id)
+    except Exception:
+        pass
+    return True
 
 
 def apply_runtime_skill_effect(choice_id: str) -> bool:
@@ -18071,6 +23213,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         "unlock_recovery_skill": "recovery",
         "unlock_cleanse": "cleanse",
         "unlock_ghost_shot": "ghost_shot",
+        "unlock_warp_gate": "warp_gate",
     }
     if choice_id in _smasher_unlock_map:
         skill_name = _smasher_unlock_map[choice_id]
@@ -18088,7 +23231,9 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     _viper_unlock_map = {
         "unlock_nerve_strike": "nerve_strike",
         "unlock_dive_strike": "dive_strike",
+        "unlock_chaos_spear": "chaos_spear",
         "double_marshal_kick": "phantom_kick",
+        "unlock_ignition_aura": "ignition_aura",
     }
     if choice_id in _viper_unlock_map:
         skill_name = _viper_unlock_map[choice_id]
@@ -18138,6 +23283,45 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         runtime_skill_levels["dark_blade"] = 1
         return True
 
+    if choice_id == "core_flip":
+        # 코어 플립: 5구슬 슬롯 시스템으로 해금+장착 (대쉬 히트 후 A+D → 마샬 킥)
+        equip_result = equip_viper_skill("core_flip")
+        print(f"[바이퍼 5구슬] 해금: core_flip, 장착결과: {equip_result}, 현재슬롯: {_viper_equipped_skills}", flush=True)
+        if not equip_result:
+            removed = _show_viper_skill_swap_dialog("core_flip")
+            if not removed:
+                return False
+            swap_viper_skill(removed, "core_flip")
+            print(f"[바이퍼 5구슬] 교체완료: {removed} → core_flip, 현재슬롯: {_viper_equipped_skills}", flush=True)
+        unlock_viper_skill("core_flip")
+        runtime_skill_levels["core_flip"] = 1
+        return True
+
+    # 코만도 화기류 해금은 실제 장착/교체가 성사된 뒤에만 레벨을 기록한다.
+    if choice_id == "soldier_pistol_perk":
+        if not grant_soldier_weapon_owned(SOLDIER_PISTOL_ORB_SKILL):
+            return False
+        print("🔫 권총 영구 화기류 해금! 새총은 기본 슬롯에 유지됨.")
+        runtime_skill_levels[choice_id] = 1
+        return True
+
+    if choice_id.startswith("soldier_unlock_"):
+        weapon_name = None
+        if choice_id == "soldier_unlock_net_gun":
+            weapon_name = "net_gun"
+        elif choice_id == "soldier_unlock_fire_support":
+            weapon_name = "fire_support"
+        elif choice_id == "soldier_unlock_bowling_trap":
+            weapon_name = "bowling_trap"
+        elif choice_id == "soldier_unlock_suicide_drone":
+            weapon_name = "suicide_drone"
+
+        if weapon_name:
+            if not grant_soldier_weapon_owned(weapon_name):
+                return False
+            runtime_skill_levels[choice_id] = 1
+            return True
+
     # 일반 스킬 레벨업
     old_level = runtime_skill_levels.get(choice_id, 0)
     runtime_skill_levels[choice_id] = old_level + 1
@@ -18151,7 +23335,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     if choice_id == "common_swiftness":
         global runtime_swiftness_bonus
         effective_level = get_runtime_skill_level("common_swiftness")  # 초월자의 관 보너스 포함
-        runtime_swiftness_bonus = effective_level * 0.05  # 레벨당 5%
+        runtime_swiftness_bonus = effective_level * 0.06  # 레벨당 6%
 
     # 확장: 장신구 슬롯 보너스 즉시 적용 (초월자의 관 보너스 포함)
     if choice_id == "common_expansion":
@@ -18183,55 +23367,17 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         new_level = runtime_skill_levels.get("soldier_magazine_mod", 0)
         # print(f"[RuntimeSkill] 탄창개조 Lv.{new_level} - 권총 최대 탄환 +{new_level}")
 
-    # 코만도 권총 퍽 (새총→권총 교체)
-    if choice_id == "soldier_pistol_perk":
-        global soldier_pistol_perk_unlocked
-        soldier_pistol_perk_unlocked = True
-        # 새총 차징 상태 초기화
-        cancel_slingshot_charge()
-        # 새총 발사 애니메이션 초기화
-        global slingshot_fire_anim_timer
-        slingshot_fire_anim_timer = 0
-        # 권총 탄약 초기화
-        global soldier_ammo_count, soldier_max_ammo, soldier_reloading
-        soldier_ammo_count = get_soldier_pistol_max_ammo()
-        soldier_max_ammo = get_soldier_pistol_max_ammo()
-        soldier_reloading = False
-        print(f"🔫 권총 퍽 해금! soldier_pistol_perk_unlocked={soldier_pistol_perk_unlocked}, is_slingshot_mode={is_slingshot_mode()}")
-        runtime_skill_levels[choice_id] = 1
-        return True
-
-    # 코만도 화기류 해금 스킬
-    if choice_id.startswith("soldier_unlock_"):
-        weapon_name = None
-        if choice_id == "soldier_unlock_net_gun":
-            weapon_name = "net_gun"
-        elif choice_id == "soldier_unlock_fire_support":
-            weapon_name = "fire_support"
-        elif choice_id == "soldier_unlock_bowling_trap":
-            weapon_name = "bowling_trap"
-        elif choice_id == "soldier_unlock_suicide_drone":
-            weapon_name = "suicide_drone"
-
-        if weapon_name:
-            # 해금 플래그 설정
-            unlock_soldier_weapon(weapon_name)
-            # 즉시 화기류 지급 (노후화 상태로)
-            grant_soldier_weapon_degraded(weapon_name)
-            runtime_skill_levels[choice_id] = 1
-            return True
-
     return True
 
 
 def recalculate_skill_effects(skill_id: str):
     """스킬 레벨 변경 시 효과 재계산 (디버그 메뉴용, 초월자의 관 보너스 포함)"""
-    global runtime_swiftness_bonus, runtime_accessory_slot_bonus
+    global runtime_swiftness_bonus, runtime_accessory_slot_bonus, _soldier_equipped_skills
 
     # 신속: 이동속도 보너스 재계산 (초월자의 관 보너스 포함)
     if skill_id == "common_swiftness":
         effective_level = get_runtime_skill_level("common_swiftness")
-        runtime_swiftness_bonus = effective_level * 0.05
+        runtime_swiftness_bonus = effective_level * 0.06
         # print(f"[RuntimeSkill] 신속 레벨 변경 - 이동속도 +{int(runtime_swiftness_bonus*100)}%")  # 디버그 비활성화
 
     # 확장: 장신구 슬롯 보너스 재계산 (초월자의 관 보너스 포함)
@@ -18258,14 +23404,58 @@ def recalculate_skill_effects(skill_id: str):
         multiplier = get_effective_polish_multiplier()
         # print(f"[RuntimeSkill] 연마 레벨 변경 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")  # 디버그 비활성화
 
+    elif skill_id in (
+        "soldier_unlock_net_gun",
+        "soldier_unlock_fire_support",
+        "soldier_unlock_bowling_trap",
+        "soldier_unlock_suicide_drone",
+    ):
+        _soldier_recalc_unlock_map = {
+            "soldier_unlock_net_gun": "net_gun",
+            "soldier_unlock_fire_support": "fire_support",
+            "soldier_unlock_bowling_trap": "bowling_trap",
+            "soldier_unlock_suicide_drone": "suicide_drone",
+        }
+        _skill_name = _soldier_recalc_unlock_map[skill_id]
+        _is_unlocked = runtime_skill_levels.get(skill_id, 0) >= 1
+        _soldier_skill_unlocked[_skill_name] = _is_unlocked
+        if _is_unlocked:
+            soldier_controller.unlock_permanent_weapon(_skill_name, set_active=False)
+            if _skill_name not in _soldier_equipped_skills and not is_soldier_skill_slots_full():
+                equip_soldier_skill(_skill_name)
+        else:
+            if _skill_name in _soldier_equipped_skills:
+                _soldier_equipped_skills = [skill for skill in _soldier_equipped_skills if skill != _skill_name]
+            soldier_controller.permanent_owned.discard(_skill_name)
+            soldier_controller.reload_counts.pop(_skill_name, None)
+        _sync_soldier_unlock_flags_from_runtime()
+        _sync_soldier_weapon_inventory()
+
+    elif skill_id == "soldier_pistol_perk":
+        _is_unlocked = runtime_skill_levels.get(skill_id, 0) >= 1
+        _soldier_skill_unlocked[SOLDIER_PISTOL_ORB_SKILL] = _is_unlocked
+        if _is_unlocked:
+            soldier_controller.unlock_permanent_weapon(SOLDIER_PISTOL_ORB_SKILL, set_active=False)
+            if SOLDIER_PISTOL_ORB_SKILL not in _soldier_equipped_skills and not is_soldier_skill_slots_full():
+                equip_soldier_skill(SOLDIER_PISTOL_ORB_SKILL)
+            _apply_soldier_pistol_perk_state(True, refill_ammo=True)
+        else:
+            if SOLDIER_PISTOL_ORB_SKILL in _soldier_equipped_skills:
+                _soldier_equipped_skills = [skill for skill in _soldier_equipped_skills if skill != SOLDIER_PISTOL_ORB_SKILL]
+            soldier_controller.permanent_owned.discard(SOLDIER_PISTOL_ORB_SKILL)
+            _apply_soldier_pistol_perk_state(False, refill_ammo=False)
+        _sync_soldier_unlock_flags_from_runtime()
+        _sync_soldier_weapon_inventory()
+
     # 스매셔 스킬 해금 + 장착 동기화 (5구슬 슬롯 시스템)
-    elif skill_id in ("unlock_magnum_grip", "unlock_plasma", "unlock_recovery_skill", "unlock_cleanse", "unlock_ghost_shot"):
+    elif skill_id in ("unlock_magnum_grip", "unlock_plasma", "unlock_recovery_skill", "unlock_cleanse", "unlock_ghost_shot", "unlock_warp_gate"):
         _recalc_unlock_map = {
             "unlock_magnum_grip": "magnum_grip",
             "unlock_plasma": "plasma",
             "unlock_recovery_skill": "recovery",
             "unlock_cleanse": "cleanse",
             "unlock_ghost_shot": "ghost_shot",
+            "unlock_warp_gate": "warp_gate",
         }
         _skill_name = _recalc_unlock_map[skill_id]
         _is_unlocked = runtime_skill_levels.get(skill_id, 0) >= 1
@@ -18280,13 +23470,16 @@ def recalculate_skill_effects(skill_id: str):
                 _smasher_equipped_skills.remove(_skill_name)
 
     # 바이퍼 스킬 해금 상태 동기화 (5구슬 슬롯 시스템)
-    elif skill_id in ("unlock_nerve_strike", "unlock_dive_strike", "double_marshal_kick", "dark_blade"):
+    elif skill_id in ("unlock_nerve_strike", "unlock_dive_strike", "unlock_chaos_spear", "unlock_ignition_aura", "double_marshal_kick", "dark_blade", "core_flip"):
         global _viper_equipped_skills, _viper_double_marshal_kick_unlocked
         _viper_recalc_unlock_map = {
             "unlock_nerve_strike": "nerve_strike",
             "unlock_dive_strike": "dive_strike",
+            "unlock_chaos_spear": "chaos_spear",
+            "unlock_ignition_aura": "ignition_aura",
             "double_marshal_kick": "phantom_kick",
             "dark_blade": "dark_blade",
+            "core_flip": "core_flip",
         }
         _viper_skill_name = _viper_recalc_unlock_map[skill_id]
         _is_unlocked = runtime_skill_levels.get(skill_id, 0) >= 1
@@ -18448,7 +23641,7 @@ def _get_random_passive_for_treasure():
         "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch",
         "bluetooth_ring", "star_detector", "foul_whistle", "bulletproof_hat", "spiked_helmet",
         "smartphone", "knee_pads", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
-        "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul"
+        "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul", "fake_arm"
     ]
 
     if passive_pool:
@@ -19220,28 +24413,28 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
         # 스킬별 효과 계산
         effects = {
             # 대쉬 트리
-            "dash_lightweight": level * 0.10,       # 쿨타임 10%/레벨 감소
-            "dash_module_control": level * 0.15,    # 후딜 15%/레벨 감소
+            "dash_lightweight": level * 0.12,       # 쿨타임 12%/레벨 감소
+            "dash_module_control": level * 0.18,    # 후딜 18%/레벨 감소
             "dash_jump": level * 0.07,              # 거리 7%/레벨 증가
             "dash_battery_pack": level * 0.14,      # 게이지 소모 14%/레벨 감소
             "dash_amplification": level,            # 토큰 +1/레벨
 
             # 아이템 트리
-            "item_luck": level * 0.10,              # 스폰 대기 10%/레벨 감소
-            "item_cooldown_mastery": level * 0.12,  # 쿨타임 12%/레벨 감소
-            "item_gauge_mastery": level * 12,       # 게이지 +12/레벨
+            "item_luck": level * 0.12,              # 스폰 대기 12%/레벨 감소
+            "item_cooldown_mastery": level * 0.13,  # 쿨타임 13%/레벨 감소
+            "item_gauge_mastery": level * 15,       # 게이지 +15/레벨
             "item_bag_expansion": level,            # 슬롯 +1/레벨
-            "item_caffeine": level * 0.20,          # 지속시간 20%/레벨 증가
-            "item_polish": level * 0.10,            # 롤옵션 효율 10%/레벨 증가
+            "item_caffeine": level * 0.30,          # 지속시간 30%/레벨 증가
+            "item_polish": level * 0.12,            # 롤옵션 효율 12%/레벨 증가
             "item_recycle": level * 0.07,           # 유지 확률 7%/레벨
 
             # 광장 트리
-            "downtown_gamble": level * 0.10,        # 추가 가챠 확률 10%/레벨
+            "downtown_gamble": level * 0.15,        # 추가 가챠 확률 15%/레벨
             "downtown_treasure_map": level * 2.00,  # 전설 확률 +200%/레벨
-            "downtown_bargain": level * 0.10,       # 상점 할인 10%/레벨
+            "downtown_bargain": level * 0.12,       # 상점 할인 12%/레벨
 
             # 공통 트리
-            "common_bulk_up": level * 0.05,         # 패들 크기 5%/레벨 증가
+            "common_bulk_up": level * 0.06,         # 패들 크기 6%/레벨 증가
             "common_training": level * 0.08,        # 스킬 쿨타임 8%/레벨 감소
 
             # 스매셔 전용
@@ -19273,6 +24466,18 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
 def get_bargain_discount() -> float:
     """흥정 스킬로 인한 상점 할인율 반환 (0.0 ~ 0.5)"""
     return get_runtime_skill_bonus("downtown_bargain")
+
+
+def get_gamble_mythic_bonus() -> float:
+    """도박 퍽으로 인한 가챠 신화 아이템 등장 확률 보너스 반환
+
+    레벨당 +3% (0.03). gacha_legendary_bonus 내부 clamp(0.45)는 init_gacha에서 적용.
+    downtown_gamble의 추가뽑기 효과(get_runtime_skill_bonus)와는 독립된 별도 보너스.
+    """
+    level = get_runtime_skill_level("downtown_gamble")
+    if level <= 0:
+        return 0.0
+    return level * 0.03
 
 
 def draw_starpoint_skill_gauge(screen: pygame.Surface):
@@ -20926,54 +26131,137 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
 
+    elif skill_id in ("unlock_chaos_spear", "chaos_spear"):
+        # 카오스 스피어 - 블랙홀 중심 + 투척 창
+        ring_r = max(6, int(7 * scale))
+        pygame.draw.circle(surface, darker(icon_color), (icon_cx, icon_cy), ring_r)
+        pygame.draw.circle(surface, icon_color, (icon_cx, icon_cy), ring_r, max(1, int(2 * scale)))
+        pygame.draw.circle(surface, (25, 6, 40), (icon_cx, icon_cy), max(2, int(3 * scale)))
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), max(1, int(1.5 * scale)))
+
+        spear_tip = (icon_cx, icon_cy - int(10 * scale))
+        spear_left = (icon_cx - int(4 * scale), icon_cy - int(2 * scale))
+        spear_right = (icon_cx + int(4 * scale), icon_cy - int(2 * scale))
+        pygame.draw.polygon(surface, (245, 235, 255), [spear_tip, spear_left, spear_right])
+        pygame.draw.line(surface, (235, 210, 120), (icon_cx, icon_cy - int(2 * scale)), (icon_cx, icon_cy + int(8 * scale)), max(1, int(2 * scale)))
+        pygame.draw.line(surface, darker(icon_color), (icon_cx - int(5 * scale), icon_cy + int(2 * scale)), (icon_cx + int(5 * scale), icon_cy + int(2 * scale)), max(1, int(2 * scale)))
+
+        for angle in [35, 155, 270]:
+            rad = math.radians(angle)
+            ox = icon_cx + int(math.cos(rad) * 9 * scale)
+            oy = icon_cy + int(math.sin(rad) * 7 * scale)
+            pygame.draw.circle(surface, lighter(icon_color), (ox, oy), max(1, int(2 * scale)))
+
+        if skill_id == "unlock_chaos_spear":
+            pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(4 * scale), icon_cy - int(6 * scale), int(4 * scale), int(2 * scale)))
+            pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(2 * scale), int(4 * scale)))
+
+    elif skill_id in ("unlock_ignition_aura", "ignition_aura"):
+        # 이그니션오라 — 화염 환형 오라 + 중앙 코어 + 4방향 화염 스파크
+        # 외곽 글로우 링 (어두운 적색 → 점점 밝은 주황)
+        for _gi, (_gr_off, _gc) in enumerate((
+            (12, (140, 50, 10)),
+            (10, (200, 80, 20)),
+            (8,  (255, 110, 30)),
+        )):
+            _gr = max(2, int(_gr_off * scale))
+            pygame.draw.circle(surface, _gc, (icon_cx, icon_cy), _gr, max(1, int(2 * scale)))
+        # 코어 (밝은 노란-흰)
+        _core_r = max(2, int(3.5 * scale))
+        pygame.draw.circle(surface, (255, 90, 20), (icon_cx, icon_cy), _core_r + max(1, int(1.5 * scale)))
+        pygame.draw.circle(surface, (255, 200, 90), (icon_cx, icon_cy), _core_r)
+        pygame.draw.circle(surface, (255, 245, 200), (icon_cx, icon_cy), max(1, int(1.5 * scale)))
+        # 4방향 화염 혀 (테두리에서 바깥으로 길쭉한 삼각형)
+        for _fi, _ang_deg in enumerate((0, 90, 180, 270)):
+            _rad = math.radians(_ang_deg + 45)  # 대각선 4방향 (좌상/우상/좌하/우하)
+            _bx = icon_cx + int(math.cos(_rad) * 9 * scale)
+            _by = icon_cy + int(math.sin(_rad) * 9 * scale)
+            _tip_x = icon_cx + int(math.cos(_rad) * 14 * scale)
+            _tip_y = icon_cy + int(math.sin(_rad) * 14 * scale)
+            _perp = math.radians(_ang_deg + 45 + 90)
+            _w = int(2.5 * scale)
+            _bx_l = _bx + int(math.cos(_perp) * _w)
+            _by_l = _by + int(math.sin(_perp) * _w)
+            _bx_r = _bx - int(math.cos(_perp) * _w)
+            _by_r = _by - int(math.sin(_perp) * _w)
+            pygame.draw.polygon(surface, (255, 150, 40),
+                                [(_tip_x, _tip_y), (_bx_l, _by_l), (_bx_r, _by_r)])
+            pygame.draw.polygon(surface, (255, 220, 120),
+                                [(_tip_x, _tip_y), (_bx_l, _by_l), (_bx_r, _by_r)],
+                                max(1, int(1 * scale)))
+        # + 마크 (해금 표시) — unlock_* 분기에서만
+        if skill_id == "unlock_ignition_aura":
+            pygame.draw.rect(surface, (255, 255, 100),
+                             (icon_cx + int(5 * scale), icon_cy - int(8 * scale), int(4 * scale), int(2 * scale)))
+            pygame.draw.rect(surface, (255, 255, 100),
+                             (icon_cx + int(6 * scale), icon_cy - int(9 * scale), int(2 * scale), int(4 * scale)))
+
     elif skill_id in ("double_marshal_kick", "phantom_kick"):
-        # 팬텀 킥 미니 — 풋프린트 실루엣 + 분리 잔상 (내부선 없음)
+        # 팬텀 킥 미니 — 작은 도장형 대신 HUD 풋프린트에 가까운 큰 실루엣으로 통일
         color = icon_color
         lt = lighter(icon_color)
         dk = darker(icon_color)
-        r = int(4 * scale)  # 미니 반지름
-        go = max(2, int(2 * scale))  # 잔상 분리 간격
+        r = max(6, int(6.6 * scale))  # 기존 4*scale 이 너무 작아 퍽 카드에서 축소되어 보였음
 
-        # --- 잔상 (오프셋, 어두운 색) ---
-        ghost_c = tuple(max(0, c // 3) for c in color)
-        # 잔상 몸통 (단순화: 7포인트)
-        g_sole = [
-            (icon_cx - r * 2 // 3 + go, icon_cy - r // 5 + go),
-            (icon_cx + go,               icon_cy - r * 2 // 3 + go),
-            (icon_cx + r * 2 // 3 + go,  icon_cy - r // 5 + go),
-            (icon_cx + r // 3 + go,      icon_cy + r // 4 + go),
-            (icon_cx + r // 3 + go,      icon_cy + r * 2 // 3 + go),
-            (icon_cx - r // 3 + go,      icon_cy + r * 2 // 3 + go),
-            (icon_cx - r // 2 + go,      icon_cy + go),
+        def _footprint_points(cx0, cy0, fr):
+            sole = [
+                (cx0 - fr * 3 // 5, cy0 - fr // 5),
+                (cx0 - fr * 2 // 5, cy0 - fr * 3 // 5),
+                (cx0 + fr // 6, cy0 - fr * 2 // 3),
+                (cx0 + fr // 2, cy0 - fr * 3 // 5),
+                (cx0 + fr * 3 // 5, cy0 - fr // 5),
+                (cx0 + fr // 3, cy0 + fr // 10),
+                (cx0 + fr // 5, cy0 + fr // 4),
+                (cx0 + fr // 4, cy0 + fr * 2 // 5),
+                (cx0 + fr // 3, cy0 + fr * 3 // 5),
+                (cx0, cy0 + fr * 3 // 4),
+                (cx0 - fr // 3, cy0 + fr * 3 // 5),
+                (cx0 - fr * 2 // 5, cy0 + fr // 4),
+                (cx0 - fr // 2, cy0),
+            ]
+            toes = [
+                (cx0 - fr * 2 // 5, cy0 - fr * 4 // 5, max(2, fr // 3)),
+                (cx0 + fr // 10, cy0 - fr, max(2, fr * 2 // 7)),
+                (cx0 + fr * 2 // 5, cy0 - fr * 4 // 5, max(1, fr // 4)),
+            ]
+            return sole, toes
+
+        # --- 팬텀 잔상 2겹 ---
+        ghost_specs = [
+            (max(3, int(5.2 * scale)), tuple(max(0, c // 4) for c in color), 0.80),
+            (max(2, int(2.8 * scale)), tuple(max(0, c // 2) for c in color), 0.92),
         ]
-        pygame.draw.polygon(surface, ghost_c, g_sole)
-        # 잔상 발가락 (2개)
-        pygame.draw.circle(surface, ghost_c, (icon_cx - r // 3 + go, icon_cy - r * 4 // 5 + go), max(1, r // 3))
-        pygame.draw.circle(surface, ghost_c, (icon_cx + r // 3 + go, icon_cy - r * 4 // 5 + go), max(1, r // 4))
+        for go, ghost_c, size_mult in ghost_specs:
+            g_r = max(4, int(r * size_mult))
+            g_sole, g_toes = _footprint_points(icon_cx + go, icon_cy + go, g_r)
+            pygame.draw.polygon(surface, ghost_c, g_sole)
+            pygame.draw.polygon(surface, tuple(min(255, c + 40) for c in ghost_c), g_sole, 1)
+            for tx, ty, tr in g_toes:
+                pygame.draw.circle(surface, ghost_c, (tx, ty), tr)
 
         # --- 메인 풋프린트 ---
-        sole = [
-            (icon_cx - r * 2 // 3, icon_cy - r // 5),
-            (icon_cx,               icon_cy - r * 2 // 3),
-            (icon_cx + r * 2 // 3,  icon_cy - r // 5),
-            (icon_cx + r // 3,      icon_cy + r // 4),
-            (icon_cx + r // 3,      icon_cy + r * 2 // 3),
-            (icon_cx - r // 3,      icon_cy + r * 2 // 3),
-            (icon_cx - r // 2,      icon_cy),
-        ]
+        sole, toes = _footprint_points(icon_cx, icon_cy, r)
         pygame.draw.polygon(surface, dk, [(px + 1, py + 1) for px, py in sole])
+        pygame.draw.polygon(surface, tuple(max(0, c - 25) for c in color), [(px + 1, py + 1) for px, py in sole])
         pygame.draw.polygon(surface, color, sole)
-        pygame.draw.polygon(surface, lt, sole, max(1, int(1 * scale)))
-        # 메인 발가락 (2개 원)
-        t1r = max(2, r // 3)
-        t2r = max(1, r // 4)
-        pygame.draw.circle(surface, dk, (icon_cx - r // 3 + 1, icon_cy - r * 4 // 5 + 1), t1r)
-        pygame.draw.circle(surface, color, (icon_cx - r // 3, icon_cy - r * 4 // 5), t1r)
-        pygame.draw.circle(surface, dk, (icon_cx + r // 3 + 1, icon_cy - r * 4 // 5 + 1), t2r)
-        pygame.draw.circle(surface, color, (icon_cx + r // 3, icon_cy - r * 4 // 5), t2r)
+        cx_poly = sum(p[0] for p in sole) / len(sole)
+        cy_poly = sum(p[1] for p in sole) / len(sole)
+        inset_sole = [
+            (int(cx_poly + (p[0] - cx_poly) * 0.62) - 1,
+             int(cy_poly + (p[1] - cy_poly) * 0.62) - 1)
+            for p in sole
+        ]
+        pygame.draw.polygon(surface, lt, inset_sole)
+        pygame.draw.polygon(surface, lt, sole, 1)
 
-    elif skill_id == "soldier_pistol_perk":
-        # 권총 화기류 - 권총 아이콘
+        for tx, ty, tr in toes:
+            pygame.draw.circle(surface, dk, (tx + 1, ty + 1), tr)
+            pygame.draw.circle(surface, color, (tx, ty), max(1, tr - 1))
+            hl_off = max(1, tr // 3)
+            pygame.draw.circle(surface, lt, (tx - hl_off, ty - hl_off), max(1, tr * 2 // 3))
+
+    elif skill_id in ("soldier_pistol_perk", "commando_pistol"):
+        # 권총 화기류 - 권총 아이콘 (퍽 id 와 오브 슬롯 skill name 둘 다 처리)
         color = icon_color
         lt = lighter(icon_color)
         dk = darker(icon_color)
@@ -21606,6 +26894,61 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(4 * scale), int(2 * scale)))
         pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(6 * scale), icon_cy - int(8 * scale), int(2 * scale), int(4 * scale)))
 
+    elif skill_id == "unlock_warp_gate":
+        # ⊙ 워프게이트 해금 — 포털 소용돌이 + 해금 마크
+        color = icon_color if icon_color else (200, 110, 255)
+        lt = lighter
+        dk = darker
+        portal_r = max(4, int(8 * scale))
+        # 외곽 글로우 (3겹)
+        for gi in range(3, 0, -1):
+            gr = portal_r + gi
+            ga = max(25, 110 - gi * 28)
+            g_surf = pygame.Surface((gr * 2 + 4, gr * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(g_surf, (*color[:3], ga), (gr + 2, gr + 2), gr)
+            surface.blit(g_surf, (icon_cx - gr - 2, icon_cy - gr - 2))
+        # 포털 어두운 바깥층
+        pygame.draw.circle(surface, dk(color, 60), (icon_cx, icon_cy), portal_r)
+        # 메인 컬러
+        pygame.draw.circle(surface, color, (icon_cx, icon_cy), max(2, portal_r - max(1, int(1 * scale))))
+        # 밝은 내부
+        pygame.draw.circle(surface, lt(color, 40), (icon_cx, icon_cy), max(1, portal_r - max(2, int(2.5 * scale))))
+        # 중심 순백 코어
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), max(1, portal_r // 4))
+
+        # 회전 소용돌이 팔 3개
+        phase_deg = 0.0
+        try:
+            phase_deg = (_warp_gate_phase * 18.0) % 360
+        except Exception:
+            phase_deg = 0.0
+        for arm in range(3):
+            arm_angle0 = math.radians(phase_deg + arm * 120)
+            pts = []
+            for j in range(5):
+                t_arm = j / 4.0
+                rr = portal_r * (1.0 - t_arm * 0.82)
+                ang = arm_angle0 + t_arm * 2.4
+                pts.append((
+                    icon_cx + int(math.cos(ang) * rr),
+                    icon_cy + int(math.sin(ang) * rr),
+                ))
+            if len(pts) >= 2:
+                for j in range(len(pts) - 1):
+                    tw_arm = max(1, int((1.8 - j * 0.3) * scale))
+                    pygame.draw.line(surface, lt(color, 80), pts[j], pts[j + 1], tw_arm)
+
+        # 외곽 반짝 파티클 (4방향)
+        for a_deg in (0, 90, 180, 270):
+            rad = math.radians(a_deg + phase_deg)
+            sx = icon_cx + int(math.cos(rad) * (portal_r + int(2 * scale)))
+            sy = icon_cy + int(math.sin(rad) * (portal_r + int(2 * scale)))
+            pygame.draw.circle(surface, (255, 220, 255), (sx, sy), max(1, int(1.2 * scale)))
+
+        # + 마크 (해금 표시)
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(5 * scale), icon_cy - int(7 * scale), int(4 * scale), int(2 * scale)))
+        pygame.draw.rect(surface, (255, 255, 100), (icon_cx + int(6 * scale), icon_cy - int(8 * scale), int(2 * scale), int(4 * scale)))
+
     elif skill_id == "dark_blade":
         # 다크 블레이드: 검붉은 검기 아이콘
         color = icon_color
@@ -21637,6 +26980,81 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.line(surface, (220, 60, 70),
                          (icon_cx, icon_cy - blade_h + max(1, int(2 * scale))),
                          (icon_cx, icon_cy + max(1, int(2 * scale))), max(1, int(1 * scale)))
+
+    elif skill_id == "core_flip":
+        # 코어 플립: 좌우 양방향 화살표(A+D)가 중앙 발자국으로 수렴 + 회전 플립 호
+        color = icon_color
+        # 외곽 자기력 링 (회전 플립 표현)
+        ring_r = max(7, int(10 * scale))
+        for i in range(3):
+            _cf_a = max(40, 120 - i * 30)
+            _cf_r = ring_r + i
+            _cf_aura = pygame.Surface((_cf_r * 2 + 4, _cf_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(_cf_aura, (color[0], color[1], color[2], _cf_a),
+                               (_cf_r + 2, _cf_r + 2), _cf_r, max(1, int(1 * scale)))
+            surface.blit(_cf_aura, (icon_cx - _cf_r - 2, icon_cy - _cf_r - 2))
+
+        # 회전 플립 호 (시계 반대방향, 끝에 화살표)
+        _arc_rect = (icon_cx - ring_r, icon_cy - ring_r, ring_r * 2, ring_r * 2)
+        pygame.draw.arc(surface, lighter(color, 30), _arc_rect,
+                        math.radians(40), math.radians(310), max(2, int(2 * scale)))
+        # 화살촉 (호 끝, 우상단)
+        _ah_x = icon_cx + int(math.cos(math.radians(-40)) * ring_r)
+        _ah_y = icon_cy - int(math.sin(math.radians(-40)) * ring_r)
+        _ah_pts = [
+            (_ah_x, _ah_y),
+            (_ah_x - max(2, int(3 * scale)), _ah_y - max(2, int(3 * scale))),
+            (_ah_x + max(1, int(3 * scale)), _ah_y - max(1, int(3 * scale))),
+        ]
+        pygame.draw.polygon(surface, lighter(color, 50), _ah_pts)
+
+        # 좌측 → 중앙 화살표 (A 키 방향)
+        _arr_y = icon_cy + max(1, int(2 * scale))
+        _arr_left_tip_x = icon_cx - max(2, int(3 * scale))
+        _arr_left_tail_x = icon_cx - max(5, int(8 * scale))
+        pygame.draw.line(surface, lighter(color, 60),
+                         (_arr_left_tail_x, _arr_y), (_arr_left_tip_x, _arr_y),
+                         max(2, int(2 * scale)))
+        _arr_l_head = [
+            (_arr_left_tip_x, _arr_y),
+            (_arr_left_tip_x - max(2, int(3 * scale)), _arr_y - max(2, int(3 * scale))),
+            (_arr_left_tip_x - max(2, int(3 * scale)), _arr_y + max(2, int(3 * scale))),
+        ]
+        pygame.draw.polygon(surface, lighter(color, 80), _arr_l_head)
+
+        # 우측 → 중앙 화살표 (D 키 방향)
+        _arr_right_tip_x = icon_cx + max(2, int(3 * scale))
+        _arr_right_tail_x = icon_cx + max(5, int(8 * scale))
+        pygame.draw.line(surface, lighter(color, 60),
+                         (_arr_right_tail_x, _arr_y), (_arr_right_tip_x, _arr_y),
+                         max(2, int(2 * scale)))
+        _arr_r_head = [
+            (_arr_right_tip_x, _arr_y),
+            (_arr_right_tip_x + max(2, int(3 * scale)), _arr_y - max(2, int(3 * scale))),
+            (_arr_right_tip_x + max(2, int(3 * scale)), _arr_y + max(2, int(3 * scale))),
+        ]
+        pygame.draw.polygon(surface, lighter(color, 80), _arr_r_head)
+
+        # 중앙 발자국 (작은 발바닥, 마샬킥 발동을 의미)
+        _ft_r = max(3, int(4 * scale))
+        sole = [
+            (icon_cx,                    icon_cy - _ft_r),
+            (icon_cx + _ft_r * 2 // 3,   icon_cy - _ft_r // 2),
+            (icon_cx + _ft_r // 2,       icon_cy + _ft_r),
+            (icon_cx,                    icon_cy + _ft_r * 4 // 3),
+            (icon_cx - _ft_r // 2,       icon_cy + _ft_r),
+            (icon_cx - _ft_r * 2 // 3,   icon_cy - _ft_r // 2),
+        ]
+        pygame.draw.polygon(surface, darker(color, 40), [(p[0] + 1, p[1] + 1) for p in sole])
+        pygame.draw.polygon(surface, color, sole)
+        pygame.draw.polygon(surface, lighter(color, 70), sole, max(1, int(1 * scale)))
+        # 발가락 (3개 작은 점)
+        for _toe_dx in (-_ft_r // 2, 0, _ft_r // 2):
+            pygame.draw.circle(surface, lighter(color, 40),
+                               (icon_cx + _toe_dx, icon_cy - _ft_r - max(1, int(1 * scale))),
+                               max(1, int(1 * scale)))
+        # 중앙 스파크 하이라이트
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), max(1, int(1 * scale)))
 
     elif skill_id == "blade_amp":
         # 검기 증폭: 길게 뻗어나가는 보라 검기 + 확장 화살표
@@ -21912,11 +27330,24 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
             if not _ys_draw_override:
                 if PLAYER is not None and player_surface is not None:
                     SCREEN.blit(player_surface, PLAYER)
+                    # ⊙ 워프게이트: 패들이 벽을 걸치면 반대편에도 거울 블릿(심리스 랩)
+                    _wg_mirror_offset = _get_warp_gate_mirror_offset_x()
+                    if _wg_mirror_offset is not None:
+                        _wg_mirror_rect = PLAYER.copy()
+                        _wg_mirror_rect.x = PLAYER.x + _wg_mirror_offset
+                        SCREEN.blit(player_surface, _wg_mirror_rect)
                     # 리커버리 정화 효과 (패들 위에 오버레이)
                     if recovery_effect_active and selected_character_type == "smasher":
                         draw_recovery_paddle_overlay(SCREEN, PLAYER)
+                        if _wg_mirror_offset is not None:
+                            draw_recovery_paddle_overlay(SCREEN, _wg_mirror_rect)
                 elif PLAYER is not None:
                     pygame.draw.rect(SCREEN, (100, 200, 255), PLAYER)
+                    _wg_mirror_offset = _get_warp_gate_mirror_offset_x()
+                    if _wg_mirror_offset is not None:
+                        _wg_mirror_rect = PLAYER.copy()
+                        _wg_mirror_rect.x = PLAYER.x + _wg_mirror_offset
+                        pygame.draw.rect(SCREEN, (100, 200, 255), _wg_mirror_rect)
 
             # 보스 패들
             if BOSS is not None and boss_surface is not None:
@@ -22267,7 +27698,22 @@ def show_runtime_skill_choices(
 
         # Selected animation - exit after delay
         elif phase == "selected":
-            if frame_count > 25:
+            if frame_count > 10:
+                # unlock_* 액티브 스킬 퍽일 때만 오로라 비행 연출 (스매셔/바이퍼)
+                try:
+                    _tgt_real = _resolve_unlock_perk_slot_target(
+                        selected_result, character_type
+                    )
+                    if _tgt_real is not None:
+                        _sel_rect = card_rects[selected_index] if 0 <= selected_index < len(card_rects) else None
+                        _sel_color = None
+                        if 0 <= selected_index < len(choices):
+                            _sel_color = choices[selected_index].get("icon_color")
+                        _play_perk_flight_to_orb_effect(
+                            SCREEN, _sel_rect, _tgt_real, _sel_color, selected_result
+                        )
+                except Exception:
+                    pass
                 active = False
 
         # Title - 게임 플레이 영역 중앙에 배치
@@ -23049,7 +28495,8 @@ def show_runtime_skill_choices(
                         "name": skill_data.get("name", skill_id),
                         "level": skill_level,
                         "max_level": skill_data.get("max_level", 5),
-                        "icon_color": skill_data.get("icon_color", (100, 150, 255))
+                        "icon_color": skill_data.get("icon_color", (100, 150, 255)),
+                        "character_restriction": skill_data.get("character_restriction"),
                     })
 
         # 스킬 아이콘 그리드 (가로 한 줄 배치)
@@ -23099,12 +28546,17 @@ def show_runtime_skill_choices(
                 # 초월자의 관 보너스 포함한 효과 레벨 표시
                 base_level = skill["level"]
                 effective_level = get_runtime_skill_level(skill["id"])
-                if effective_level > base_level:
-                    level_text = f"{effective_level}"  # 효과 레벨 표시
-                    has_bonus = True
-                else:
-                    level_text = str(base_level)
+                is_unlock_style = bool(skill.get("character_restriction")) and skill.get("max_level", 5) == 1
+                if is_unlock_style:
+                    level_text = "A"
                     has_bonus = False
+                else:
+                    if effective_level > base_level:
+                        level_text = f"{effective_level}"  # 효과 레벨 표시
+                        has_bonus = True
+                    else:
+                        level_text = str(base_level)
+                        has_bonus = False
                 badge_size = 13  # 10 -> 13
                 badge_x = icon_x + skill_icon_size - badge_size - 1
                 badge_y = icon_y + skill_icon_size - badge_size - 1
@@ -23112,7 +28564,10 @@ def show_runtime_skill_choices(
                 # 레벨에 따른 뱃지 색상 (효과 레벨 기준)
                 display_level = effective_level if has_bonus else base_level
                 max_level = skill.get("max_level", 5)
-                if has_bonus:
+                if is_unlock_style:
+                    badge_color = (110, 210, 120)
+                    text_color = (10, 45, 20)
+                elif has_bonus:
                     badge_color = (255, 180, 50)  # 초월자의 관 보너스 - 주황금색
                     text_color = (60, 30, 0)
                 elif display_level >= max_level:
@@ -23575,7 +29030,381 @@ def _play_megingjord_activation_effect(screen):
         _clock.tick(60)
         for _evt in pygame.event.get():
             if _evt.type == pygame.QUIT:
+                try:
+                    pygame.quit()
+                    import sys
+                    sys.exit(0)
+                except Exception:
+                    pass
+
+
+def _resolve_unlock_perk_slot_target(perk_id, character_type):
+    """unlock_* 류(액티브 스킬 해금) 퍽의 타겟 스킬 슬롯 REAL_SCREEN 좌표를 반환.
+
+    - `_CHARACTER_UNLOCK_PERKS` 에 등록되지 않은 퍽이면 None → 연출 skip.
+    - 스매셔/바이퍼는 equipped_skills 개수 = 새 스킬이 들어갈 슬롯 인덱스.
+    - 슬롯이 가득 차 있으면 스왑 대상이 모호하므로 None 반환 (swap 다이얼로그에 맡김).
+    - 5구슬 시스템이 없는 캐릭터(코만도/발토르/옵티머스)도 None.
+    """
+    import math as _m
+    if not perk_id or not character_type:
+        return None
+    mapping = _get_character_unlock_perks(character_type)
+    if perk_id not in mapping:
+        return None
+
+    gauge_surf = globals().get('_player_gauge_surface_left')
+    gauge_pos = globals().get('_player_gauge_surface_left_screen_pos')
+    if gauge_surf is None or gauge_pos is None:
+        return None
+
+    gauge_w = gauge_surf.get_width()
+    gauge_h = gauge_surf.get_height()
+    if gauge_w <= 0 or gauge_h <= 0:
+        return None
+
+    # 스킬 구슬 중심 (gauge_surf local 좌표)
+    orb_local_x = gauge_w // 2
+    orb_local_y = gauge_h - 55 - 15  # orb_radius_base(55) + 하단 여백(15)
+    orb_radius = 55
+    icon_radius = 21
+    orbit_radius = orb_radius + icon_radius + 18
+
+    # 캐릭터별 슬롯 각도
+    if character_type == "smasher":
+        slot_idx = len(get_smasher_equipped_skills())
+        if slot_idx >= 5:
+            return None
+        base_angle, step = 165, 30
+        angle_deg = base_angle + slot_idx * step
+    elif character_type == "viper":
+        slot_idx = len(get_viper_equipped_skills())
+        if slot_idx >= 5:
+            return None
+        base_angle, step = 155, 28
+        angle_deg = base_angle + slot_idx * step
+    else:
+        return None
+
+    angle_rad = _m.radians(angle_deg)
+    slot_local_x = orb_local_x + _m.cos(angle_rad) * orbit_radius
+    slot_local_y = orb_local_y + _m.sin(angle_rad) * orbit_radius
+
+    scale = GAME_SCALE_FACTOR if GAME_SCALE_FACTOR and GAME_SCALE_FACTOR > 0 else 1.0
+    real_x = gauge_pos[0] + slot_local_x * scale
+    real_y = gauge_pos[1] + slot_local_y * scale
+    return (real_x, real_y)
+
+
+def _play_perk_flight_to_orb_effect(screen, source_rect, target_real_pos, perk_color=None, perk_id=None):
+    """퍽 선택 후 오로라 가루로 변해 좌측 필러 스킬 구슬 **빈 슬롯**으로
+    날아가는 3초 연출.
+
+    REAL_SCREEN 에 직접 렌더링하여 게임 영역과 좌측 필러를 동시에 합성.
+    타겟은 호출자가 `_resolve_unlock_perk_slot_target` 등으로 미리 계산한
+    실제 슬롯 좌표를 넘겨야 한다 (애니메이션 도중에는 스킬이 아직 장착되기
+    전이므로 슬롯은 비어 보인다).
+
+    Args:
+        screen: 호환성용 (현재 미사용; REAL_SCREEN 전역 사용)
+        source_rect: 선택된 퍽 카드 rect (SCREEN 내부 좌표)
+        target_real_pos: 목표 슬롯 (REAL_SCREEN 좌표, (x, y))
+        perk_color: 퍽 아이콘 색상 RGB
+        perk_id: 선택된 퍽 id (디버그용)
+    """
+    import math as _m
+    import random as _r
+
+    global REAL_SCREEN
+
+    if source_rect is None or REAL_SCREEN is None or target_real_pos is None:
+        return
+
+    scale = GAME_SCALE_FACTOR if GAME_SCALE_FACTOR and GAME_SCALE_FACTOR > 0 else 1.0
+    real_w, real_h = REAL_SCREEN.get_size()
+
+    try:
+        _sound = pygame.mixer.Sound(resource_path("sounds/itemget.wav"))
+        _sound.play()
+    except Exception:
+        pass
+
+    # ── 프리즈 스냅샷 합성 (pillars + game SCREEN + 좌측 필러 UI) ──
+    snapshot = pygame.Surface((real_w, real_h)).convert()
+    snapshot.fill((15, 15, 25))
+    # 필러 배경 (캐시)
+    _pb_cache = globals().get('_pillar_bg_cache')
+    if _pb_cache is not None:
+        try:
+            if _pb_cache.get_width() > 0 and _pb_cache.get_height() > 0:
+                snapshot.blit(_pb_cache, (0, 0))
+        except Exception:
+            pass
+    # 게임 영역 (SCREEN)
+    try:
+        if scale != 1.0 and GAME_SCALED_WIDTH > 0 and GAME_SCALED_HEIGHT > 0:
+            _game_scaled = pygame.transform.scale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+            snapshot.blit(_game_scaled, (GAME_OFFSET_X, GAME_OFFSET_Y))
+        else:
+            snapshot.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+    except Exception:
+        pass
+    # 좌측 필러 gauge surface (스킬 구슬 포함)
+    gauge_surf = globals().get('_player_gauge_surface_left')
+    gauge_pos = globals().get('_player_gauge_surface_left_screen_pos') or (0, 0)
+    pillar_x_left = int(gauge_pos[0])
+    pillar_y_left = int(gauge_pos[1])
+    gauge_w = gauge_h = 0
+    if gauge_surf is not None:
+        gauge_w = gauge_surf.get_width()
+        gauge_h = gauge_surf.get_height()
+        if gauge_w > 0 and gauge_h > 0:
+            try:
+                if scale != 1.0:
+                    _sgw = max(1, int(gauge_w * scale))
+                    _sgh = max(1, int(gauge_h * scale))
+                    _sgauge = pygame.transform.scale(gauge_surf, (_sgw, _sgh))
+                    snapshot.blit(_sgauge, (pillar_x_left, pillar_y_left))
+                else:
+                    snapshot.blit(gauge_surf, (pillar_x_left, pillar_y_left))
+            except Exception:
                 pass
+
+    # ── 좌표 변환: SCREEN(내부) → REAL_SCREEN ──
+    src_real_x = float(GAME_OFFSET_X + source_rect.centerx * scale)
+    src_real_y = float(GAME_OFFSET_Y + source_rect.centery * scale)
+    src_w = max(6, int(source_rect.width * scale))
+    src_h = max(6, int(source_rect.height * scale))
+
+    # 타겟 슬롯 좌표 (REAL_SCREEN)
+    try:
+        tgt_real_x = float(target_real_pos[0])
+        tgt_real_y = float(target_real_pos[1])
+    except Exception:
+        return
+
+    # 오로라 팔레트 (퍽 색상 우선, 이후 오로라 톤 혼합)
+    _aurora_palette = [
+        (140, 220, 255),
+        (180, 140, 255),
+        (120, 255, 200),
+        (255, 180, 220),
+        (255, 230, 140),
+    ]
+    if perk_color and len(perk_color) >= 3:
+        try:
+            _pc = (
+                max(0, min(255, int(perk_color[0]))),
+                max(0, min(255, int(perk_color[1]))),
+                max(0, min(255, int(perk_color[2]))),
+            )
+            _aurora_palette.insert(0, _pc)
+            _aurora_palette.extend([_pc, _pc])
+        except Exception:
+            pass
+
+    _particles = []
+    _burst_done = False
+    _overlay = pygame.Surface((real_w, real_h), pygame.SRCALPHA)
+    _clock = pygame.time.Clock()
+    _duration = 110
+
+    PHASE_COMPRESS_START = 5
+    PHASE_BURST_START = 20
+    PHASE_ARRIVAL_START = 62
+
+    for frame in range(_duration):
+        REAL_SCREEN.blit(snapshot, (0, 0))
+        _overlay.fill((0, 0, 0, 0))
+
+        # ── 게임 영역 비네트: 버스트 이후 강화해 카드 UI 를 가림 ──
+        if frame < PHASE_BURST_START:
+            vignette_alpha = min(60, frame * 3)
+        else:
+            _bf = frame - PHASE_BURST_START
+            vignette_alpha = min(180, 60 + _bf * 3)
+        if vignette_alpha > 0 and GAME_SCALED_WIDTH > 0 and GAME_SCALED_HEIGHT > 0:
+            pygame.draw.rect(
+                _overlay,
+                (5, 5, 15, vignette_alpha),
+                (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT),
+            )
+
+        # ─────────────── Compress ───────────────
+        if frame < PHASE_BURST_START:
+            if frame < PHASE_COMPRESS_START:
+                pulse = 0.5 + 0.5 * _m.sin(frame * 0.5)
+                hl_alpha = int(90 + 100 * pulse)
+                hl_rect = pygame.Rect(
+                    int(src_real_x - src_w // 2 - 5),
+                    int(src_real_y - src_h // 2 - 5),
+                    src_w + 10, src_h + 10,
+                )
+                pygame.draw.rect(_overlay, (255, 255, 255, hl_alpha), hl_rect, 3, border_radius=10)
+            else:
+                ct = (frame - PHASE_COMPRESS_START) / max(1, (PHASE_BURST_START - PHASE_COMPRESS_START))
+                ct = max(0.0, min(1.0, ct))
+                ease = ct * ct
+                shrink = 1.0 - 0.85 * ease
+                cur_w = max(6, int(src_w * shrink))
+                cur_h = max(6, int(src_h * shrink))
+                cur_rect = pygame.Rect(0, 0, cur_w, cur_h)
+                cur_rect.center = (int(src_real_x), int(src_real_y))
+                for layer in range(3):
+                    la = int(140 * (1 - layer / 3.5))
+                    gr = int(max(cur_w, cur_h) * (0.9 + 0.35 * _m.sin(frame * 0.35))) + layer * 10
+                    pygame.draw.circle(_overlay, (180, 220, 255, max(0, la)),
+                                       (int(src_real_x), int(src_real_y)), gr)
+                core_color = _aurora_palette[0]
+                pygame.draw.rect(_overlay, (*core_color, 230), cur_rect, border_radius=6)
+                pygame.draw.rect(_overlay, (255, 255, 255, 230), cur_rect, 2, border_radius=6)
+
+        # ─────────────── Burst ───────────────
+        if frame >= PHASE_BURST_START and not _burst_done:
+            _burst_done = True
+            try:
+                num_particles = 40 if _adaptive_performance_enabled() else 100
+            except Exception:
+                num_particles = 100
+            _part_size_scale = max(1.0, scale)
+            for _ in range(num_particles):
+                angle = _r.uniform(0, _m.pi * 2)
+                launch_speed = _r.uniform(1.2, 4.2)
+                mid_x = (src_real_x + tgt_real_x) * 0.5 + _r.uniform(-140 * scale, 140 * scale)
+                mid_y = min(src_real_y, tgt_real_y) - _r.uniform(20 * scale, 200 * scale)
+                color = _r.choice(_aurora_palette)
+                _particles.append({
+                    "x": src_real_x + _m.cos(angle) * 6,
+                    "y": src_real_y + _m.sin(angle) * 6,
+                    "vx": _m.cos(angle) * launch_speed,
+                    "vy": _m.sin(angle) * launch_speed,
+                    "cx": mid_x,
+                    "cy": mid_y,
+                    "t": 0.0,
+                    "delay": _r.randint(0, 5),
+                    "flight_dur": _r.randint(35, 48),
+                    "base_size": _r.uniform(1.8, 4.8) * _part_size_scale,
+                    "color": color,
+                    "trail": [],
+                    "arrived": False,
+                })
+            pygame.draw.circle(_overlay, (255, 255, 255, 230),
+                               (int(src_real_x), int(src_real_y)), int(48 * scale))
+            _burst_rim = perk_color if perk_color and len(perk_color) >= 3 else (220, 240, 255)
+            pygame.draw.circle(_overlay, (*_burst_rim[:3], 220),
+                               (int(src_real_x), int(src_real_y)), int(68 * scale), 4)
+            pygame.draw.circle(_overlay, (*_burst_rim[:3], 150),
+                               (int(src_real_x), int(src_real_y)), int(92 * scale), 2)
+
+        # ─────────────── Flight ───────────────
+        if frame >= PHASE_BURST_START:
+            flight_frame = frame - PHASE_BURST_START
+            for p in _particles:
+                if flight_frame < p["delay"]:
+                    p["x"] += p["vx"]
+                    p["y"] += p["vy"]
+                    p["vx"] *= 0.88
+                    p["vy"] *= 0.88
+                    sz = max(1, int(p["base_size"] * 0.9))
+                    pygame.draw.circle(_overlay, (*p["color"], 200),
+                                       (int(p["x"]), int(p["y"])), sz)
+                    continue
+                p["t"] += 1.0 / p["flight_dur"]
+                pt = min(1.0, p["t"])
+                ease = pt * pt * (3 - 2 * pt)
+                u = 1.0 - ease
+                bx = u * u * src_real_x + 2 * u * ease * p["cx"] + ease * ease * tgt_real_x
+                by = u * u * src_real_y + 2 * u * ease * p["cy"] + ease * ease * tgt_real_y
+                p["trail"].append((bx, by))
+                if len(p["trail"]) > 8:
+                    p["trail"].pop(0)
+                p["x"] = bx
+                p["y"] = by
+                tlen = len(p["trail"])
+                for ti, (tx_, ty_) in enumerate(p["trail"][:-1]):
+                    ta = int(55 * (ti + 1) / tlen)
+                    ts = max(1, int(p["base_size"] * 0.55 * (ti + 1) / tlen))
+                    pygame.draw.circle(_overlay, (*p["color"], ta),
+                                       (int(tx_), int(ty_)), ts)
+                brightness = 0.7 + 0.3 * ease
+                alpha = int(255 * brightness)
+                size = max(1, int(p["base_size"] * (1.0 - 0.3 * ease)))
+                pygame.draw.circle(_overlay, (*p["color"], alpha),
+                                   (int(bx), int(by)), size)
+                if size > 2 and not p.get("arrived"):
+                    pygame.draw.circle(_overlay, (255, 255, 255, min(255, alpha + 30)),
+                                       (int(bx), int(by)), max(1, size - 1))
+                if pt >= 1.0:
+                    if not p.get("arrived"):
+                        p["arrived"] = True
+                        p["arrived_time"] = 0
+                if p.get("arrived"):
+                    p["arrived_time"] = p.get("arrived_time", 0) + 1
+                    fade = max(0, 255 - p["arrived_time"] * 6)
+                    if fade > 0:
+                        pygame.draw.circle(_overlay, (*p["color"], fade), (int(bx), int(by)), max(1, size))
+
+        # ─────────────── Target portal (좌측 구슬 흡수 지점) ───────────────
+        if frame >= PHASE_BURST_START:
+            flight_t = min(1.0, (frame - PHASE_BURST_START) / 55.0)
+            arrived_count = sum(1 for p in _particles if p.get("arrived"))
+            absorb = (arrived_count / max(1, len(_particles))) if _particles else 0.0
+            portal_pulse = 0.5 + 0.5 * _m.sin(frame * 0.28)
+            portal_r = int((32 + 14 * portal_pulse + 50 * absorb) * scale)
+            portal_a = max(0, min(255, int(90 + 120 * flight_t + 60 * absorb)))
+            _portal_rim = perk_color if perk_color and len(perk_color) >= 3 else (160, 220, 255)
+            _portal_core = perk_color if perk_color and len(perk_color) >= 3 else (220, 240, 255)
+            for ring in range(3):
+                rr = portal_r + int(ring * 12 * scale)
+                aa = max(0, portal_a - ring * 55)
+                pygame.draw.circle(_overlay, (*_portal_rim[:3], aa),
+                                   (int(tgt_real_x), int(tgt_real_y)), rr, 2)
+            pygame.draw.circle(_overlay, (*_portal_core[:3], min(255, int(portal_a * 0.7))),
+                               (int(tgt_real_x), int(tgt_real_y)), max(6, int(portal_r * 0.45)))
+
+        # ─────────────── Arrival flash + orb materialization ───────────────
+        if frame >= PHASE_ARRIVAL_START:
+            af = (frame - PHASE_ARRIVAL_START) / max(1, (_duration - PHASE_ARRIVAL_START))
+            af = max(0.0, min(1.0, af))
+            # 확산 링 2겹
+            ring_r = int((40 + 180 * af) * scale)
+            ring_a = int(230 * (1.0 - af))
+            pygame.draw.circle(_overlay, (255, 255, 255, ring_a),
+                               (int(tgt_real_x), int(tgt_real_y)), ring_r, max(1, int(4 * (1.0 - af))))
+            ring2_r = int((20 + 120 * af) * scale)
+            ring2_a = int(200 * (1.0 - af))
+            _ring2_color = perk_color if perk_color and len(perk_color) >= 3 else (255, 220, 140)
+            pygame.draw.circle(_overlay, (*_ring2_color[:3], ring2_a),
+                               (int(tgt_real_x), int(tgt_real_y)), ring2_r, max(1, int(3 * (1.0 - af))))
+            # 슬롯에 맺히는 코어 오브 (cubic ease-out 로 icon_radius 근처까지 성장 → "꽂히는 손맛")
+            _orb_rise = 1.0 - (1.0 - af) ** 3
+            _orb_r = max(3, int((6 + 15 * _orb_rise) * scale))
+            _orb_col = perk_color if perk_color and len(perk_color) >= 3 else _aurora_palette[0]
+            # 바깥 글로우
+            pygame.draw.circle(_overlay, (*_orb_col[:3], int(120 * _orb_rise)),
+                               (int(tgt_real_x), int(tgt_real_y)), int(_orb_r * 1.8))
+            # 코어
+            pygame.draw.circle(_overlay, (*_orb_col[:3], min(255, int(230 * _orb_rise))),
+                               (int(tgt_real_x), int(tgt_real_y)), _orb_r)
+            # 화이트 하이라이트 림
+            pygame.draw.circle(_overlay, (255, 255, 255, int(230 * _orb_rise)),
+                               (int(tgt_real_x), int(tgt_real_y)), max(1, _orb_r - 2), 2)
+
+        REAL_SCREEN.blit(_overlay, (0, 0))
+        # monkey-patched flip 은 REAL_SCREEN 을 재합성하므로 original flip 로 swap 만 수행
+        try:
+            _original_flip()
+        except Exception:
+            pygame.display.flip()
+        _clock.tick(60)
+        for _evt in pygame.event.get():
+            if _evt.type == pygame.QUIT:
+                try:
+                    pygame.quit()
+                    import sys
+                    sys.exit(0)
+                except Exception:
+                    pass
 
 
 def _swap_boss_in_current_stage():
@@ -24388,7 +30217,7 @@ def show_runtime_skill_status():
     # 획득한 스킬 목록 생성 (레벨이 1 이상인 것만)
     def get_acquired_skills():
         acquired = []
-        all_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS, VIPER_EXCLUSIVE_SKILLS]
+        all_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS, VIPER_EXCLUSIVE_SKILLS, SOLDIER_EXCLUSIVE_SKILLS]
         for pool in all_pools:
             for skill_id, skill_data in pool.items():
                 level = runtime_skill_levels.get(skill_id, 0)
@@ -25451,7 +31280,7 @@ def apply_equipment_paddle_modifiers() -> None:
         # 귀신발걸음 Y축 이동 중에는 Y좌표 덮어쓰기 스킵
         if not arena_bottom_ghost_step_active:
             PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
         return
 
     # 벌크업 관련 보너스를 합산 방식으로 계산 (곱연산 → 합산)
@@ -25488,7 +31317,7 @@ def apply_equipment_paddle_modifiers() -> None:
     PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
     PLAYER.centerx = prev_centerx
     PLAYER.bottom = baseline
-    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
 
 def get_player_paddle_scale_for_league(league_mode: str) -> float:
@@ -25575,7 +31404,7 @@ def update_horn_strawberry_transform(keys, dt):
     # 매 프레임 초기화 후 조건 충족 시 다시 True로 설정
     boss_strawberry_paint_slowed = False
 
-    # 커맨드 입력 감지 (A→W→D)
+    # 커맨드 입력 감지 (A→D→A→D→A→D)
     if ts.update_command_input(keys, dt):
         # 커맨드 완성! 변신 시도
         if ts.try_transform(special_gauge, consume_special_gauge):
@@ -25603,7 +31432,15 @@ def update_horn_strawberry_transform(keys, dt):
                 ts._tf_paddle_snapshot = None
 
     # 변신 상태 업데이트
+    _was_hs_transformed = ts.is_transformed
     ts.update(dt)
+
+    # 🍓 TRANSFORM_EVENT → TRANSFORMED 전환 순간 체공 중이었다면 바닥으로 착지
+    # (바이퍼 제트팩 오프셋이 남아 있으면 변신 후 공중 부양 상태가 되므로 해제)
+    if ts.is_transformed and not _was_hs_transformed:
+        if selected_character_type == "viper":
+            _reset_viper_jetpack_state()
+        apply_equipment_paddle_modifiers()
 
     if ts.is_transformed:
         # 변신 중 스킬 입력 처리
@@ -25729,10 +31566,12 @@ def _handle_strawberry_skills(keys, ts, dt):
             global strawberry_eat_channel
             if SOUND_STRAWBERRY_EAT and not AUDIO_DISABLED:
                 try:
-                    strawberry_eat_channel = pygame.mixer.find_channel()
-                    if strawberry_eat_channel:
-                        strawberry_eat_channel.play(SOUND_STRAWBERRY_EAT)
-                        ts.strawberry_eat._sound_channel = strawberry_eat_channel
+                    _se_raw = _unwrap_sound(SOUND_STRAWBERRY_EAT)
+                    if _se_raw:
+                        strawberry_eat_channel = pygame.mixer.find_channel()
+                        if strawberry_eat_channel:
+                            strawberry_eat_channel.play(_se_raw)
+                            ts.strawberry_eat._sound_channel = strawberry_eat_channel
                 except Exception:
                     pass
 
@@ -25877,7 +31716,7 @@ def _apply_horn_strawberry_horn_charge_runtime(ts):
             _anchor_centerx = None
         if PLAYER is not None and _anchor_centerx is not None:
             PLAYER.centerx = int(_anchor_centerx)
-            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+            PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
         current_speed = 0
         rolling_active = False
         rolling_timer = 0
@@ -25952,7 +31791,7 @@ def _apply_horn_strawberry_eat_runtime(ts):
     _anchor_centerx = getattr(ts.strawberry_eat, "_anchor_player_centerx", None)
     if PLAYER is not None and _anchor_centerx is not None:
         PLAYER.centerx = int(round(_anchor_centerx))
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
     current_speed = 0
     rolling_active = False
@@ -25973,7 +31812,7 @@ def _apply_horn_strawberry_bomb_runtime(ts):
     _anchor_centerx = getattr(ts.strawberry_bomb, "_anchor_player_centerx", None)
     if PLAYER is not None and _anchor_centerx is not None:
         PLAYER.centerx = int(round(_anchor_centerx))
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
     current_speed = 0
     rolling_active = False
@@ -26145,7 +31984,7 @@ def draw_horn_strawberry_effects(screen):
 
         if PLAYER and _anchor_centerx is not None and _horn_charge_locked:
             PLAYER.centerx = int(_anchor_centerx)
-            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+            PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
             _base_player_x = PLAYER.x
             _base_player_y = PLAYER.y
 
@@ -27006,14 +32845,14 @@ def get_cached_sound(relative_path: str) -> "pygame.mixer.Sound | None":
         return None
 
 
-def play_cached_sound(relative_path: str, volume=None):
-    """캐시된 사운드를 볼륨 적용하여 재생. 채널 반환."""
+def play_cached_sound(relative_path: str, volume=None, *, force=False):
+    """캐시된 사운드를 볼륨 적용하여 재생. 채널 포화 시 force로 강제 선점 가능."""
     snd = get_cached_sound(relative_path)
     if snd:
         # 리플레이 사운드 매핑에 등록 (sound_effects 외 캐시 사운드도 녹음되도록)
         if id(snd) not in _sound_id_map:
             _sound_id_map[id(snd)] = relative_path
-        return play_sound_with_volume(snd, volume)
+        return play_sound_with_volume(snd, volume, force=force)
     return None
 
 
@@ -27035,16 +32874,19 @@ def _build_sound_id_map():
         _sound_id_map[id(_lucky_spawn_snd)] = 'sounds/clue.wav'
     print(f"[Replay] 사운드 매핑 구축: {len(_sound_id_map)}개")
 
-def play_sound_with_volume(sound, volume=None):
-    """효과음을 지정된 볼륨으로 재생 (Channel 볼륨 사용, Sound 객체 오염 방지)"""
+def play_sound_with_volume(sound, volume=None, *, force=False):
+    """효과음을 지정된 볼륨으로 재생 (Channel 볼륨 사용, Sound 객체 오염 방지)."""
     global sfx_volume
     if not sound:
         return None
     if volume is None:
         volume = sfx_volume
-    channel = sound.play()
-    if channel:
-        channel.set_volume(volume)
+    channel = _play_sound_on_available_channel(
+        sound,
+        volume=volume,
+        force=force,
+        auto_preempt=True,
+    )
     # 🎬 리플레이 사운드 이벤트 자동 기록
     snd_name = _sound_id_map.get(id(sound))
     if snd_name:
@@ -27299,10 +33141,13 @@ def play_dash_delay_sound():
     """대쉬 후딜(통제불능) 시작 사운드 재생 (루프)"""
     global _dash_delay_channel
     try:
+        _dd_raw = _unwrap_sound(SOUND_DASH_DELAY)
+        if not _dd_raw:
+            return
         if _dash_delay_channel is None:
             _dash_delay_channel = pygame.mixer.find_channel()
         if _dash_delay_channel:
-            _dash_delay_channel.play(SOUND_DASH_DELAY, loops=-1)  # 무한 루프
+            _dash_delay_channel.play(_dd_raw, loops=-1)  # 무한 루프
             _dash_delay_channel.set_volume(master_volume * sfx_volume)
     except Exception:
         pass
@@ -27962,6 +33807,118 @@ boss_dialogue_timer = 0
 boss_dialogue_text = ""
 boss_dialogue_max_timer = 0
 tear_particles = []  # 눈물 파티클 리스트
+_SOUND_CHANNEL_COUNT = 96
+_SOUND_VOLUME_UNSET = object()
+_AUTO_PREEMPT_ONE_SHOT_SOUNDS = True
+_REAL_PYGAME_SOUND_FACTORY = pygame.mixer.Sound
+
+
+def _unwrap_sound(sound):
+    return getattr(sound, "_raw_sound", sound)
+
+
+def _wrap_managed_sound(sound):
+    if sound is None:
+        return None
+    if getattr(sound, "_managed_sound_wrapper", False):
+        return sound
+    return _ManagedSound(sound)
+
+
+def _play_raw_sound(playable, loops=0, maxtime=0, fade_ms=0):
+    return playable.play(loops, maxtime, fade_ms)
+
+
+def _play_channel_sound(channel, sound, loops=0, maxtime=0, fade_ms=0):
+    return channel.play(sound, loops, maxtime, fade_ms)
+
+
+def _play_sound_on_available_channel(
+    sound,
+    *,
+    volume=_SOUND_VOLUME_UNSET,
+    loops=0,
+    maxtime=0,
+    fade_ms=0,
+    force=False,
+    auto_preempt=True,
+):
+    """채널 고갈 시 1회성 SFX를 오래된 채널로 자동 선점 재생한다."""
+    raw_sound = _unwrap_sound(sound)
+    if not raw_sound:
+        return None
+
+    channel = None
+    try:
+        if force:
+            channel = pygame.mixer.find_channel(True)
+            if channel:
+                _play_channel_sound(channel, raw_sound, loops=loops, maxtime=maxtime, fade_ms=fade_ms)
+        else:
+            channel = _play_raw_sound(raw_sound, loops=loops, maxtime=maxtime, fade_ms=fade_ms)
+            if channel is None and auto_preempt and _AUTO_PREEMPT_ONE_SHOT_SOUNDS:
+                channel = pygame.mixer.find_channel(True)
+                if channel:
+                    _play_channel_sound(channel, raw_sound, loops=loops, maxtime=maxtime, fade_ms=fade_ms)
+    except Exception:
+        channel = None
+
+    if channel and volume is not _SOUND_VOLUME_UNSET:
+        try:
+            channel.set_volume(volume)
+        except Exception:
+            pass
+    return channel
+
+
+class _ManagedSound:
+    """Sound.play() 직호출도 전역 채널 정책을 타게 만드는 얇은 래퍼."""
+
+    __slots__ = ("_raw_sound", "_managed_sound_wrapper")
+
+    def __init__(self, raw_sound):
+        self._raw_sound = raw_sound
+        self._managed_sound_wrapper = True
+
+    def play(self, *args, **kwargs):
+        force = bool(kwargs.pop("force", False))
+        loops = kwargs.pop("loops", 0)
+        maxtime = kwargs.pop("maxtime", 0)
+        fade_ms = kwargs.pop("fade_ms", 0)
+
+        if len(args) > 3:
+            raise TypeError("Sound.play() takes at most 3 positional arguments")
+        if len(args) >= 1:
+            loops = args[0]
+        if len(args) >= 2:
+            maxtime = args[1]
+        if len(args) >= 3:
+            fade_ms = args[2]
+        if kwargs:
+            unexpected = ", ".join(sorted(kwargs))
+            raise TypeError(f"Unexpected Sound.play() keyword(s): {unexpected}")
+
+        return _play_sound_on_available_channel(
+            self,
+            volume=_SOUND_VOLUME_UNSET,
+            loops=loops,
+            maxtime=maxtime,
+            fade_ms=fade_ms,
+            force=force,
+            auto_preempt=(loops == 0),
+        )
+
+    def __bool__(self):
+        return bool(self._raw_sound)
+
+    def __getattr__(self, name):
+        return getattr(self._raw_sound, name)
+
+
+def _managed_sound_factory(*args, **kwargs):
+    return _wrap_managed_sound(_REAL_PYGAME_SOUND_FACTORY(*args, **kwargs))
+
+
 # 사운드 초기화 (macOS 호환성 개선)
 AUDIO_DISABLED = False
 if not SMOKE_TEST_ENABLED:
@@ -27989,7 +33946,7 @@ if not SMOKE_TEST_ENABLED:
         else:
             AUDIO_DISABLED = True
     if mixer_initialized and not AUDIO_DISABLED:
-        pygame.mixer.set_num_channels(64)  # 동시 재생 가능한 채널 수 증가
+        pygame.mixer.set_num_channels(_SOUND_CHANNEL_COUNT)  # 동시 재생 가능한 채널 수 증가
 else:
     AUDIO_DISABLED = True
     # print("[INFO] 오디오 초기화 생략 (스모크 테스트 모드)")
@@ -28029,6 +33986,7 @@ if AUDIO_DISABLED:
     pygame.mixer.Channel = _null_channel_factory  # type: ignore[attr-defined]
     pygame.mixer.get_num_channels = lambda: 0  # type: ignore[assignment]
 else:
+    pygame.mixer.Sound = _managed_sound_factory  # type: ignore[attr-defined]
     sound_effects = load_sound_effects(resource_path)
 
 # 🎬 리플레이 사운드 역매핑 테이블 구축 (sound_effects 초기화 직후)
@@ -28290,6 +34248,8 @@ try:
     SOUND_LEAF = pygame.mixer.Sound(resource_path("sounds/leaf.wav"))
 except Exception:
     SOUND_LEAF = None
+
+advance_bootstrap_loading("오디오 자산 동기화 중..", 0.84, animation_duration=0.24)
 
 # === 추가된 필살기 관련 전역 변수 ===
 special_ready = False
@@ -31340,6 +37300,15 @@ def get_junior_speed_increase_multiplier():
     global ai_mode
     return 0.6 if ai_mode == "junior" else 1.0
 
+def get_rally_speed_increase_multiplier():
+    """현재 모드/날씨 기준 랠리 가속 배율 반환."""
+    _wt = get_weather_type() if not arena_mode_enabled and is_weather_active() else None
+    if arena_mode_enabled:
+        return 2.24
+    if _wt in ("breeze", "gust"):
+        return 1.6
+    return 1.0
+
 # ── 공속 감쇠 시스템 (Diminishing Returns) ──────────────────────
 # 공이 빠를수록 추가 가속률이 줄어드는 감쇠 계수를 반환한다.
 # 기본속도(9) 근처에서는 감쇠 없음(1.0), 속도가 올라갈수록 0에 수렴.
@@ -31943,6 +37912,7 @@ ITEM_SLOT_BASE_MAP = {
     "life_elixir": "top",
     "commando_arm": "arm",
     "venom_mist_gauntlet": "arm",
+    "fake_arm": "arm",
     "master": "arm",
     "ragnarok_hammer": "arm",
     "poseidon_trident": "arm",
@@ -31951,6 +37921,7 @@ ITEM_SLOT_BASE_MAP = {
     "knee_pads": "knee",
     "gravitybelt": "belt",
     "speedgear": "belt",
+    "timer_belt": "belt",
     "dashgear": "knee",
     "dashholder": "accessory",
     "slot_add": "등",
@@ -31995,21 +37966,103 @@ ITEM_SLOT_BASE_MAP = {
     "dowsing_goggles": "head",
     "valhalla_warplate": "top",
     "horn_strawberry_mask": "head",
+    "heavenly_cape": "등",
     "yachaman_soul": "head",
+}
+
+PASSIVE_AUTO_EQUIP_PRIORITY_BY_NAME = {
+    **{
+        name: 100
+        for name in (
+            "speedboots",
+            "speedgear",
+            "battery",
+            "cooltime",
+            "fuel_pouch",
+            "dowsing_pendulum",
+            "smartphone",
+            "bulletproof_hat",
+            "dowsing_goggles",
+            "knee_pads",
+            "slot_add",
+            "spikeboots",
+            "dashgear",
+            "bulkup",
+            "commando_arm",
+            "technical_vest",
+            "chargebag",
+            "spiked_helmet",
+            "bluetooth_ring",
+            "foul_whistle",
+            "star_detector",
+            "dashholder",
+            "master",
+            "timer_belt",
+            "venom_mist_gauntlet",
+            "fake_arm",
+        )
+    },
+    **{
+        name: 200
+        for name in (
+            "adversity_armor",
+            "shrapnel_armor",
+            "lucky_coin",
+            "soul_burst",
+            "sensor",
+            "gravitybelt",
+            "revival",
+        )
+    },
+    **{
+        name: 300
+        for name in (
+            "ragnarok_hammer",
+            "hermes_shoes",
+            "poseidon_trident",
+            "angel_blessing",
+            "sacred_laurel",
+            "transcendent_crown",
+            "odins_eye",
+            "pandora_legacy",
+            "megingjord",
+            "valhalla_warplate",
+            "horn_strawberry_mask",
+        )
+    },
+    "gold_bar": 110,
+    "gold_digger": 220,
+    "hero_seal": 220,
+    "sage_ring": 210,
+    "yachaman_soul": 260,
+    "heavenly_cape": 400,  # 신화: 전설(300)보다 우선 장착되도록 명시 mythic 가중치
+}
+PASSIVE_AUTO_EQUIP_RARITY_PRIORITY = {
+    "common": 90,
+    "rare": 100,
+    "epic": 200,
+    "legendary": 300,
+    "mythic": 400,
+}
+PASSIVE_AUTO_EQUIP_QUALITY_BONUS = {
+    "low": 0,
+    "mid": 5,
+    "high": 10,
+    "top": 15,
 }
 
 PASSIVE_OPTION_RANGES = {
     # 기본 벨트/신발 계열 핵심 패시브들
     "dashgear": [
         {"label": "대쉬 거리", "min": 6, "max": 12, "unit": "%", "prefix": "+", "key": "dash_distance_pct"},
-        {"label": "부스트차징 발동확률", "min": 4, "max": 10, "unit": "%", "prefix": "+", "key": "boost_charge_pct"},
+        {"label": "부스트차징 발동확률", "min": 7, "max": 13, "unit": "%", "prefix": "+", "key": "boost_charge_pct"},
     ],
     "spikeboots": [
-        {"label": "대쉬 후딜 시간", "min": 10, "max": 30, "unit": "%", "prefix": "-", "key": "dash_afterdelay_pct"},
-        {"label": "대쉬 쿨타임", "min": 10, "max": 25, "unit": "%", "prefix": "-", "key": "dash_cooldown_pct"},
+        {"label": "대쉬 후딜 시간", "min": 15, "max": 35, "unit": "%", "prefix": "-", "key": "dash_afterdelay_pct"},
+        {"label": "대쉬 쿨타임", "min": 15, "max": 30, "unit": "%", "prefix": "-", "key": "dash_cooldown_pct"},
     ],
     "speedboots": [
-        {"label": "이동 속도", "min": 7, "max": 15, "unit": "%", "prefix": "+", "key": "speed_bonus_pct"},
+        {"label": "이동 속도", "min": 10, "max": 18, "unit": "%", "prefix": "+", "key": "speed_bonus_pct"},
     ],
     "master": [
         {"label": "벽돌 길이", "min": 20, "max": 40, "unit": "%", "prefix": "+", "key": "wall_length_pct"},
@@ -32030,6 +38083,9 @@ PASSIVE_OPTION_RANGES = {
     "cooltime": [
         {"label": "아이템 쿨타임", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "active_cooldown_pct"},
     ],
+    "timer_belt": [
+        {"label": "스킬 쿨타임", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "skill_cooldown_pct"},
+    ],
     "bluetooth_ring": [
         {"label": "게이지 획득량", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "gauge_gain_pct"},
     ],
@@ -32037,7 +38093,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "게이지 보존", "min": 60, "max": 100, "unit": "%", "prefix": "", "key": "gauge_preserve_pct"},
     ],
     "chargebag": [
-        {"label": "벽 반사 게이지", "min": 15, "max": 35, "unit": "%", "prefix": "+", "key": "chargebag_pct"},
+        {"label": "벽 반사 게이지", "min": 25, "max": 50, "unit": "%", "prefix": "+", "key": "chargebag_pct"},
     ],
     "commando_arm": [
         {"label": "투척 속도", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "throw_speed_pct"},
@@ -32052,7 +38108,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "최대 게이지", "min": 60, "max": 120, "unit": "", "prefix": "+", "key": "fuel_bonus_flat"},
     ],
     "bulkup": [
-        {"label": "몸집크기", "min": 8, "max": 13, "unit": "%", "prefix": "+", "key": "body_size_pct"},
+        {"label": "몸집크기", "min": 11, "max": 16, "unit": "%", "prefix": "+", "key": "body_size_pct"},
     ],
     "sage_ring": [
         {"label": "이동속도 감소", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "sage_speed_penalty_pct", "reverse": True},
@@ -32061,6 +38117,10 @@ PASSIVE_OPTION_RANGES = {
     "venom_mist_gauntlet": [
         {"label": "발동확률", "min": 30, "max": 50, "unit": "%", "prefix": "", "key": "mist_trigger_chance_pct"},
         {"label": "독안개 지속시간", "min": 2, "max": 5, "unit": "초", "prefix": "", "key": "mist_duration_sec"},
+    ],
+    "fake_arm": [
+        {"label": "발동확률", "min": 8, "max": 15, "unit": "%", "prefix": "", "key": "fake_arm_trigger_chance_pct"},
+        {"label": "추가 획득 게이지", "min": 70, "max": 120, "unit": "%", "prefix": "+", "key": "fake_arm_gauge_bonus_pct"},
     ],
     "sensor": [
         {"label": "자동대쉬 쿨타임", "min": 13, "max": 20, "unit": "초", "prefix": "", "key": "sensor_cooldown_sec", "reverse": True},
@@ -32076,7 +38136,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "슬롯 추가", "min": 1, "max": 3, "unit": "칸", "prefix": "+", "key": "slot_add_count"},
     ],
     "gold_digger": [
-        {"label": "골드 획득량", "min": 30, "max": 70, "unit": "%", "prefix": "+", "key": "gold_bonus_pct"},
+        {"label": "골드 획득량", "min": 25, "max": 50, "unit": "%", "prefix": "+", "key": "gold_bonus_pct"},
     ],
     "lucky_coin": [
         {"label": "더블 스폰 확률", "min": 5, "max": 15, "unit": "%", "prefix": "", "key": "double_spawn_pct"},
@@ -32092,7 +38152,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "게이지 소모", "min": 25, "max": 50, "unit": "", "prefix": "-", "key": "gauge_cost", "reverse": True},
     ],
     "soul_burst": [
-        {"label": "게이지 소모량", "min": 130, "max": 200, "unit": "", "prefix": "", "key": "gauge_cost", "reverse": True},
+        {"label": "게이지 소모량", "min": 110, "max": 160, "unit": "", "prefix": "", "key": "gauge_cost", "reverse": True},
     ],
     "dowsing_goggles": [
         {"label": "추가 퍽 등장 확률", "min": 30, "max": 60, "unit": "%", "prefix": "", "key": "bonus_perk_chance"},
@@ -32106,6 +38166,30 @@ _OPTION_COLOR_LOW = (230, 230, 230)      # 하옵: 흰색
 _OPTION_COLOR_MID = (120, 170, 255)      # 중옵: 파란색
 _OPTION_COLOR_HIGH = (180, 130, 255)     # 상옵: 보라색
 _OPTION_COLOR_TOP = (255, 80, 80)        # 최고옵: 빨간색
+_OPTION_COLOR_FIXED = (120, 230, 140)    # 고정옵션: 초록색
+
+# 고정 옵션: 롤 없이 항상 같은 값을 주는 보장 효과. 툴팁에서 초록색으로 표시.
+FIXED_ITEM_OPTIONS = {
+    "dashholder": [
+        {"label": "대쉬 개수", "value": "+1", "unit": "개"},
+    ],
+    "heavenly_cape": [
+        {"label": "스킬 구슬", "value": "+1", "unit": "칸"},
+    ],
+    "sage_ring": [
+        {"label": "모든 퍽 레벨", "value": "+1", "unit": ""},
+    ],
+}
+
+
+def get_fixed_option_lines(item_name):
+    """아이템의 고정 옵션(보장 효과) 툴팁 라인 반환. 초록색으로 표시."""
+    lines = []
+    for opt in FIXED_ITEM_OPTIONS.get(item_name, []):
+        unit = opt.get("unit", "")
+        text = f"• {opt['label']}: {opt['value']}{unit}"
+        lines.append({"text": text, "color": _OPTION_COLOR_FIXED})
+    return lines
 
 # 품질 수식어
 QUALITY_PREFIXES = {
@@ -32123,14 +38207,17 @@ QUALITY_TIER_COLOR = {
 
 # 롤 옵션 기본값 (패치 이전 고정 수치)
 dashgear_distance_bonus_pct = 9  # 대쉬 거리 (6~12% 범위, 기본값 9%)
-dashgear_boost_charge_pct = 7  # 부스트차징 발동확률 (4~10% 범위, 기본값 7%)
-spikeboots_afterdelay_reduction_pct = 30
-spikeboots_cooldown_reduction_pct = 15
+dashgear_boost_charge_pct = 7  # 부스트차징 발동확률 (7~13% 범위, 기본값 7%)
+spikeboots_afterdelay_reduction_pct = 30  # 대쉬 후딜 시간 (15~35% 범위, 기본값 30%)
+spikeboots_cooldown_reduction_pct = 15  # 대쉬 쿨타임 (15~30% 범위, 기본값 15%)
 master_wall_length_pct = 0
 master_item_cooldown_pct = 0
 foul_whistle_negate_chance_pct = 7  # 새 롤 범위 4~10%의 중간값
 star_detector_bonus_pct = 30
 cooltime_reduction_pct = 30
+timer_belt_reduction_pct = 0  # 타이머벨트 스킬 쿨타임 감소 % (장착 시 롤옵션으로 10~20% 범위)
+heavenly_cape_cooldown_reduction_pct = 0  # 천상의 망토 스킬 쿨타임 감소 % (장착 시 롤옵션 10~20%)
+heavenly_cape_slot_bonus = 0  # 천상의 망토 스킬 슬롯 보너스 (장착 시 +1)
 bluetooth_ring_gain_pct = 15
 commando_throw_speed_pct = 15  # 새 롤 범위 10~20%의 중간값
 commando_explosion_range_pct = 10  # 범위 5~15% 중간값 유지
@@ -32205,10 +38292,10 @@ def _get_dashholder_count() -> int:
         return int(getattr(items, "dashholder_count", 0))
     except Exception:
         return 0
-chargebag_bonus_pct = 20
+chargebag_bonus_pct = 25  # 충전가방 벽 반사 게이지 (25~50% 범위, 기본값 25%)
 knee_pads_charge_pct = 50
 fuel_pouch_bonus = 100
-gold_digger_bonus_pct = 50  # 골드 획득량 (30~70% 범위, 기본값 50%)
+gold_digger_bonus_pct = 37  # 골드 획득량 (25~50% 범위, 기본값 37%)
 lucky_coin_double_spawn_pct = 10  # 더블 스폰 확률 (5~15% 범위, 기본값 10%)
 adversity_armor_trigger_pct = 25  # 역경의 갑옷 무적 발동 확률 (20~30% 범위, 기본값 25%)
 adversity_armor_duration_sec = 10  # 역경의 갑옷 무적 지속시간 (8~15초 범위, 기본값 10초)
@@ -32216,7 +38303,7 @@ shrapnel_armor_trigger_pct = 12  # 파편갑옷 발동 확률 (8~15% 범위, 기
 shrapnel_armor_shard_count = 6   # 파편갑옷 파편 개수 (4~8 범위, 기본값 6)
 shrapnel_armor_knockback_level = 2  # 파편갑옷 넉백 단계 (1~4 범위, 기본값 2)
 shrapnel_armor_gauge_cost = 35  # 파편갑옷 게이지 소모 (25~50 범위, 기본값 35)
-soul_burst_gauge_cost = 165  # 소울버스트 게이지 소모량 (130~200 범위, 기본값 165)
+soul_burst_gauge_cost = 160  # 소울버스트 게이지 소모량 (110~160 범위, 기본값 160)
 
 _BASE_SLOT_LABELS = {
     "head": "머리",
@@ -32493,26 +38580,29 @@ def format_roll_option_with_polish(opt: dict, item: dict = None) -> str:
 
 def _reset_roll_bonuses_to_default():
     globals()["dashgear_distance_bonus_pct"] = 9  # 대쉬 거리 기본값 (6~12%)
-    globals()["dashgear_boost_charge_pct"] = 7  # 부스트차징 발동확률 기본값 (4~10%)
-    globals()["spikeboots_afterdelay_reduction_pct"] = 30
-    globals()["spikeboots_cooldown_reduction_pct"] = 15
-    globals()["PERMANENT_SPEED_BOOST"] = 0.06
+    globals()["dashgear_boost_charge_pct"] = 7  # 부스트차징 발동확률 기본값 (7~13%)
+    globals()["spikeboots_afterdelay_reduction_pct"] = 30  # 대쉬 후딜 시간 기본값 (15~35%)
+    globals()["spikeboots_cooldown_reduction_pct"] = 15  # 대쉬 쿨타임 기본값 (15~30%)
+    globals()["PERMANENT_SPEED_BOOST"] = 0.10  # 스피드부츠 기본값 (10% 증가)
     globals()["master_wall_length_pct"] = 0
     globals()["master_item_cooldown_pct"] = 0
     globals()["foul_whistle_negate_chance_pct"] = 7
     globals()["star_detector_bonus_pct"] = 0
     globals()["cooltime_reduction_pct"] = 0
+    globals()["timer_belt_reduction_pct"] = 0  # 타이머벨트 기본값 0 (미장착 시 감소 없음)
+    globals()["heavenly_cape_cooldown_reduction_pct"] = 0  # 천상의 망토 기본값 0 (미장착 시 감소 없음)
+    globals()["heavenly_cape_slot_bonus"] = 0  # 천상의 망토 슬롯 보너스 기본값 0
     globals()["bluetooth_ring_gain_pct"] = 0
     globals()["chargebag_bonus_pct"] = 0
     globals()["knee_pads_charge_pct"] = 50
     globals()["fuel_pouch_bonus"] = 0
     globals()["bulkup_body_size_pct"] = 8
-    globals()["chargebag_bonus_pct"] = 20
+    globals()["chargebag_bonus_pct"] = 25
     globals()["bulletproof_hat_resist_pct"] = 0
     globals()["spiked_helmet_knockback_resist_pct"] = 0
     globals()["dashholder_count"] = 0
     globals()["battery_gauge_preserve_pct"] = 100  # 배터리 게이지 보존 기본값
-    globals()["gold_digger_bonus_pct"] = 50  # 골드디거 기본값
+    globals()["gold_digger_bonus_pct"] = 37  # 골드디거 기본값
     globals()["lucky_coin_double_spawn_pct"] = 10  # 럭키코인 기본값
     globals()["adversity_armor_trigger_pct"] = 25  # 역경의 갑옷 기본값
     globals()["adversity_armor_duration_sec"] = 10  # 역경의 갑옷 기본값
@@ -32520,6 +38610,7 @@ def _reset_roll_bonuses_to_default():
     globals()["shrapnel_armor_shard_count"] = 6   # 파편갑옷 기본값
     globals()["shrapnel_armor_knockback_level"] = 2  # 파편갑옷 기본값
     globals()["shrapnel_armor_gauge_cost"] = 35  # 파편갑옷 기본값
+    globals()["soul_burst_gauge_cost"] = 160  # 소울버스트 기본값
     globals()["sage_ring_speed_penalty_pct"] = 0  # 현자의 반지 이동속도 감소 기본값
     globals()["sage_ring_body_penalty_pct"] = 0   # 현자의 반지 몸집크기 감소 기본값
     # 테크니컬조끼 기본 롤 값(연막)
@@ -32766,6 +38857,7 @@ def apply_roll_bonuses_from_equipped():
     bluetooth_ring_total_gain = 0
     chargebag_total_bonus = 0
     cooltime_total_reduction = 0
+    timer_belt_total_reduction = 0
     star_detector_total_bonus = 0
     foul_whistle_total_negate = 0
     master_wall_total = 0
@@ -32817,6 +38909,11 @@ def apply_roll_bonuses_from_equipped():
             if val is None:
                 val = 30
             cooltime_total_reduction += val
+        elif name == "timer_belt":
+            val = _get_roll_value(item, "skill_cooldown_pct")
+            if val is None:
+                val = 15
+            timer_belt_total_reduction += val
         elif name == "bluetooth_ring":
             val = _get_roll_value(item, "gauge_gain_pct")
             if val is None:
@@ -32906,6 +39003,24 @@ def apply_roll_bonuses_from_equipped():
                     set_mist_duration_sec(dur)
                 except Exception:
                     pass
+        elif name == "fake_arm":
+            val = _get_roll_value(item, "fake_arm_trigger_chance_pct")
+            if val is not None:
+                globals()["fake_arm_trigger_chance_pct"] = val
+                try:
+                    from item_effects.fake_arm import set_trigger_chance, set_enhancement_bonus
+                    set_trigger_chance(val)
+                    set_enhancement_bonus(item.get("enhancement_bonus_pct", 0))
+                except Exception:
+                    pass
+            gauge_val = _get_roll_value(item, "fake_arm_gauge_bonus_pct")
+            if gauge_val is not None:
+                globals()["fake_arm_gauge_bonus_pct"] = gauge_val
+                try:
+                    from item_effects.fake_arm import set_gauge_bonus_pct
+                    set_gauge_bonus_pct(gauge_val)
+                except Exception:
+                    pass
         elif name == "dowsing_goggles":
             val = _get_roll_value(item, "bonus_perk_chance")
             if val is not None:
@@ -32935,6 +39050,8 @@ def apply_roll_bonuses_from_equipped():
     globals()["bluetooth_ring_gain_pct"] = bluetooth_ring_total_gain
     globals()["chargebag_bonus_pct"] = chargebag_total_bonus
     globals()["cooltime_reduction_pct"] = cooltime_total_reduction
+    # 타이머벨트 스킬 쿨타임 감소 % 는 여러 개 장착 시 합산, 최대 95% 로 클램프
+    globals()["timer_belt_reduction_pct"] = min(95, timer_belt_total_reduction)
     globals()["star_detector_bonus_pct"] = star_detector_total_bonus
     globals()["foul_whistle_negate_chance_pct"] = min(100, foul_whistle_total_negate)
     globals()["master_wall_length_pct"] = master_wall_total
@@ -33010,6 +39127,10 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val = _get_roll_value(item, "active_cooldown_pct")
         if val is not None:
             globals()["cooltime_reduction_pct"] = val
+    elif name == "timer_belt":
+        val = _get_roll_value(item, "skill_cooldown_pct")
+        if val is not None:
+            globals()["timer_belt_reduction_pct"] = val
     elif name == "bluetooth_ring":
         val = _get_roll_value(item, "gauge_gain_pct")
         if val is not None:
@@ -33183,6 +39304,24 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
                 set_mist_duration_sec(dur)
             except Exception:
                 pass
+    elif name == "fake_arm":
+        val = _get_roll_value(item, "fake_arm_trigger_chance_pct")
+        if val is not None:
+            globals()["fake_arm_trigger_chance_pct"] = val
+            try:
+                from item_effects.fake_arm import set_trigger_chance, set_enhancement_bonus
+                set_trigger_chance(val)
+                set_enhancement_bonus(item.get("enhancement_bonus_pct", 0))
+            except Exception:
+                pass
+        gauge_val = _get_roll_value(item, "fake_arm_gauge_bonus_pct")
+        if gauge_val is not None:
+            globals()["fake_arm_gauge_bonus_pct"] = gauge_val
+            try:
+                from item_effects.fake_arm import set_gauge_bonus_pct
+                set_gauge_bonus_pct(gauge_val)
+            except Exception:
+                pass
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -33199,7 +39338,7 @@ def get_total_boost_charge_pct() -> float:
         total += dashgear_boost_charge_pct
     perk_level = get_runtime_skill_level("perk_boost_charge")
     if perk_level > 0:
-        total += perk_level * 5  # 레벨당 5%
+        total += perk_level * 7  # 레벨당 7%
     return total
 
 
@@ -33255,6 +39394,69 @@ def ensure_equipment_state():
         for d in EQUIPMENT_SLOT_DEFINITIONS:
             state.setdefault(d["key"], None)
     return state
+
+
+def ensure_pinned_equipment_slots() -> set[str]:
+    """수동 장착으로 보호된 슬롯 집합을 초기화/반환."""
+    pinned = globals().get("_equipment_pinned_slots")
+    if not isinstance(pinned, set):
+        if isinstance(pinned, (list, tuple, set)):
+            pinned = {str(slot_key) for slot_key in pinned}
+        else:
+            pinned = set()
+        globals()["_equipment_pinned_slots"] = pinned
+    valid_slots = {d["key"] for d in EQUIPMENT_SLOT_DEFINITIONS}
+    pinned.intersection_update(valid_slots)
+    return pinned
+
+
+def clear_pinned_equipment_slots():
+    ensure_pinned_equipment_slots().clear()
+
+
+def pin_equipment_slot(slot_key: str):
+    if slot_key:
+        ensure_pinned_equipment_slots().add(slot_key)
+
+
+def unpin_equipment_slot(slot_key: str):
+    if slot_key:
+        ensure_pinned_equipment_slots().discard(slot_key)
+
+
+def restore_pinned_equipment_slots(slot_keys, *, occupied_slots=None) -> set[str]:
+    """저장본 기반으로 pin 슬롯을 복원한다."""
+    pinned = ensure_pinned_equipment_slots()
+    pinned.clear()
+    valid_slots = {d["key"] for d in EQUIPMENT_SLOT_DEFINITIONS}
+    allowed_slots = set(occupied_slots) if occupied_slots is not None else None
+    for slot_key in slot_keys or []:
+        slot_key = str(slot_key or "")
+        if slot_key not in valid_slots:
+            continue
+        if allowed_slots is not None and slot_key not in allowed_slots:
+            continue
+        pinned.add(slot_key)
+    return pinned
+
+
+def get_passive_auto_equip_priority(item_data) -> int:
+    """자동 장착 시 비교에 쓸 우선순위를 반환한다."""
+    if not isinstance(item_data, dict):
+        return 0
+    explicit_priority = item_data.get("priority")
+    if isinstance(explicit_priority, (int, float)):
+        return int(explicit_priority)
+
+    item_name = str(item_data.get("name") or "")
+    base_priority = PASSIVE_AUTO_EQUIP_PRIORITY_BY_NAME.get(item_name)
+    if base_priority is None:
+        rarity_key = str(item_data.get("rarity") or item_data.get("type") or "").lower()
+        base_priority = PASSIVE_AUTO_EQUIP_RARITY_PRIORITY.get(rarity_key, 100)
+
+    quality_key = str(item_data.get("quality_tier") or "").lower()
+    quality_bonus = PASSIVE_AUTO_EQUIP_QUALITY_BONUS.get(quality_key, 0)
+    return base_priority + quality_bonus
 
 
 def get_equipped_passive_items():
@@ -33412,6 +39614,7 @@ def sync_equipped_passive_effects():
     if sensor_active:
         globals()["danger_sensor_auto_dash_enabled"] = True
     sync_bool("gravitybelt", "gravitybelt_obtained", "items.gravitybelt_obtained")
+    sync_bool("timer_belt", "timer_belt_obtained", "items.timer_belt_obtained")
     sync_bool("hermes_shoes", "hermes_shoes_obtained", "items.hermes_shoes_obtained")
     commando_active = sync_bool("commando_arm", "items.commando_arm_obtained")
     # 장착 수 기준으로 스택 재계산 (최대 2)
@@ -33441,10 +39644,12 @@ def sync_equipped_passive_effects():
     sync_bool("megingjord", "items.megingjord_obtained")
     sync_bool("valhalla_warplate", "items.valhalla_warplate_obtained")
     sync_bool("horn_strawberry_mask", "items.horn_strawberry_mask_obtained")
+    sync_bool("heavenly_cape", "items.heavenly_cape_obtained")
     sync_bool("sage_ring", "items.sage_ring_obtained")
     sync_bool("venom_mist_gauntlet", "items.venom_mist_gauntlet_obtained")
     sync_bool("dowsing_goggles", "items.dowsing_goggles_obtained")
     sync_bool("yachaman_soul", "items.yachaman_soul_obtained")
+    sync_bool("fake_arm", "items.fake_arm_obtained")
 
     # 야차맨의 투구: 장착 시 발동확률 동기화 / 해제 시 초기화
     try:
@@ -33491,6 +39696,31 @@ def sync_equipped_passive_effects():
         else:
             deactivate_venom_mist_gauntlet()
             globals()["venom_mist_trigger_chance_pct"] = 40
+    except Exception:
+        pass
+
+    # 훼이크암: 장착 시 효과 활성화 / 해제 시 비활성화
+    try:
+        from item_effects.fake_arm import (
+            activate_fake_arm, deactivate_fake_arm,
+            set_trigger_chance as _fa_set_trigger,
+            set_enhancement_bonus as _fa_set_enh,
+        )
+        if "fake_arm" in equipped_names:
+            activate_fake_arm()
+            fa_item = next((i for i in equipped_items if i.get("name") == "fake_arm"), None)
+            if fa_item:
+                apply_roll_bonuses_from_item(fa_item)
+                _fa_set_enh(fa_item.get("enhancement_bonus_pct", 0))
+        else:
+            deactivate_fake_arm()
+            globals()["fake_arm_trigger_chance_pct"] = 8
+            globals()["fake_arm_gauge_bonus_pct"] = 70
+            try:
+                from item_effects.fake_arm import set_gauge_bonus_pct as _fa_set_gauge_unequip
+                _fa_set_gauge_unequip(70)
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -33758,7 +39988,7 @@ def sync_equipped_passive_effects():
                 print(f"[LEGENDARY_ROLL_SYNC] {item_name} 롤 동기화 실패: {e}")
 
         # 장비 슬롯에 존재하면 전설 효과 활성화
-        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask"):
+        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape"):
             if legend_name in equipped_names:
                 # 장착된 아이템의 rolled_options를 전역 딕셔너리에 동기화
                 equipped_legend_item = next((item for item in equipped_items if item.get("name") == legend_name), None)
@@ -33895,6 +40125,15 @@ def sync_equipped_passive_effects():
                         crown = legendary_manager.get_item("transcendent_crown")
                         if crown:
                             crown.enhancement_bonus_pct = crown_item.get("enhancement_bonus_pct", 0)
+                # 천상의 망토: 강화 보너스 + 쿨감/슬롯 보너스 전역 재동기화 (매 프레임)
+                if legend_name == "heavenly_cape":
+                    cape_item = next((item for item in equipped_items if item.get("name") == "heavenly_cape"), None)
+                    if cape_item:
+                        cape_legendary = legendary_manager.get_item("heavenly_cape")
+                        if cape_legendary:
+                            cape_legendary.enhancement_bonus_pct = cape_item.get("enhancement_bonus_pct", 0)
+                            globals()["heavenly_cape_cooldown_reduction_pct"] = float(cape_legendary.skill_cooldown_reduction)
+                            globals()["heavenly_cape_slot_bonus"] = int(cape_legendary.skill_slot_bonus)
                 legendary_manager.activate_item(legend_name, gs)
             else:
                 legendary_manager.deactivate_item(legend_name)
@@ -33960,6 +40199,16 @@ def sync_equipped_passive_effects():
                         ts.deactivate()
                     except Exception:
                         pass
+                elif legend_name == "heavenly_cape":
+                    cape_legendary = legendary_manager.get_item("heavenly_cape")
+                    if cape_legendary:
+                        cape_legendary.enhancement_bonus_pct = 0
+                    globals()["heavenly_cape_cooldown_reduction_pct"] = 0
+                    globals()["heavenly_cape_slot_bonus"] = 0
+                    # 해제 시 6번째 슬롯 오버플로우 스킬 자동 정리 (모든 경로 안전망).
+                    # 사용자 의도적 해제는 상위에서 확인 다이얼로그를 이미 통과한 상태.
+                    # 사망/메인메뉴/강제 리셋/자동 교체 등 나머지 경로는 조용히 정리된다.
+                    _cleanup_heavenly_cape_overflow_skills()
 
         # 초월자의 관이 장착되어 있으면 스킬 보너스 재계산 (강화 보너스 반영)
         if "transcendent_crown" in equipped_names:
@@ -34097,7 +40346,7 @@ def sync_equipped_passive_effects():
 
 
 def auto_equip_passive_item(item_data) -> bool:
-    """빈 슬롯이 있으면 해당 부위에 즉시 장착하고 True 반환."""
+    """빈 슬롯 우선, 그다음 더 낮은 우선순위 장비만 교체한다."""
     if not isinstance(item_data, dict):
         return False
     if globals().get("quest_bare_hands_lock_active", False):
@@ -34114,10 +40363,13 @@ def auto_equip_passive_item(item_data) -> bool:
         current_items = passive_item_list
     except Exception:
         current_items = []
+    pinned_slots = ensure_pinned_equipment_slots()
     for slot_key, equipped in list(state.items()):
         if equipped is not None and equipped not in current_items:
             state[slot_key] = None
-    for slot_key in candidates:
+    incoming_priority = get_passive_auto_equip_priority(item_data)
+    replacement_candidates = []
+    for candidate_index, slot_key in enumerate(candidates):
         # 비활성화된 장신구 슬롯은 건너뛰기
         if slot_key.startswith("accessory"):
             try:
@@ -34127,11 +40379,51 @@ def auto_equip_passive_item(item_data) -> bool:
                     continue  # 비활성화된 슬롯 건너뛰기
             except (ValueError, IndexError):
                 pass
-        if state.get(slot_key) is None:
+        equipped = state.get(slot_key)
+        if equipped is None:
+            pinned_slots.discard(slot_key)
+            current_slot = item_data.get("_equipped_slot")
+            if (
+                current_slot
+                and current_slot in state
+                and current_slot != slot_key
+                and state.get(current_slot) is item_data
+            ):
+                state[current_slot] = None
             state[slot_key] = item_data
             item_data["_equipped_slot"] = slot_key
             sync_equipped_passive_effects()
             return True
+        if slot_key in pinned_slots:
+            continue
+        equipped_priority = get_passive_auto_equip_priority(equipped)
+        if incoming_priority > equipped_priority:
+            replacement_candidates.append((equipped_priority, candidate_index, slot_key, equipped))
+
+    if replacement_candidates:
+        _, _, target_slot, prev_item = min(replacement_candidates, key=lambda entry: (entry[0], entry[1]))
+        # 천상의 망토가 밀려나는 경우: 6번째 스킬이 삭제될 때 확인 다이얼로그
+        if (
+            isinstance(prev_item, dict)
+            and prev_item.get("name") == "heavenly_cape"
+            and _heavenly_cape_would_delete_skill()
+        ):
+            if not show_heavenly_cape_unequip_confirm():
+                return False  # 취소 — 새 아이템 장착 안 함 (가방에 남음)
+        current_slot = item_data.get("_equipped_slot")
+        if (
+            current_slot
+            and current_slot in state
+            and current_slot != target_slot
+            and state.get(current_slot) is item_data
+        ):
+            state[current_slot] = None
+        if isinstance(prev_item, dict):
+            prev_item["_equipped_slot"] = None
+        state[target_slot] = item_data
+        item_data["_equipped_slot"] = target_slot
+        sync_equipped_passive_effects()
+        return True
     return False
 
 
@@ -34158,9 +40450,9 @@ def get_effective_item_gauge_bonus():
             bonus = academy.get_active_item_gauge_bonus()
         except Exception:
             bonus = 0
-    # 런타임 스킬 보너스 (item_gauge_mastery: 레벨당 +12) - 초월자의 관 보너스 포함
+    # 런타임 스킬 보너스 (item_gauge_mastery: 레벨당 +15) - 초월자의 관 보너스 포함
     runtime_level = get_runtime_skill_level("item_gauge_mastery")
-    runtime_bonus = runtime_level * 12
+    runtime_bonus = runtime_level * 15
     return bonus + runtime_bonus
 
 
@@ -34173,7 +40465,7 @@ def get_effective_item_recycle_chance():
             chance = academy.get_item_recycle_chance()
         except Exception:
             chance = 0.0
-    # 런타임 스킬 보너스 (item_recycle: 레벨당 +10%)
+    # 런타임 스킬 보너스 (item_recycle: 레벨당 +7%)
     runtime_bonus = get_runtime_skill_bonus("item_recycle")
     return min(0.9, chance + runtime_bonus)  # 최대 90%
 
@@ -34187,7 +40479,7 @@ def get_effective_polish_multiplier():
             multiplier = academy.get_polish_efficiency_multiplier()
         except Exception:
             multiplier = 1.0
-    # 런타임 스킬 보너스 (item_polish: 레벨당 +10%)
+    # 런타임 스킬 보너스 (item_polish: 레벨당 +12%)
     runtime_bonus = get_runtime_skill_bonus("item_polish")
     return multiplier + runtime_bonus
 
@@ -34205,10 +40497,10 @@ def get_base_polish_multiplier():
             multiplier = academy.get_polish_efficiency_multiplier()
         except Exception:
             multiplier = 1.0
-    # 런타임 스킬 보너스 (item_polish: 레벨당 +10%) - 초월자의 관 보너스 제외
+    # 런타임 스킬 보너스 (item_polish: 레벨당 +12%) - 초월자의 관 보너스 제외
     base_level = runtime_skill_levels.get("item_polish", 0)
     if base_level > 0:
-        runtime_bonus = base_level * 0.10  # 레벨당 10%
+        runtime_bonus = base_level * 0.12  # 레벨당 12%
         multiplier += runtime_bonus
     return multiplier
 
@@ -34224,7 +40516,7 @@ def get_effective_item_spawn_multiplier():
             multiplier = 1.0
     # 런타임 스킬 보너스 (item_luck: get_runtime_skill_bonus 사용)
     runtime_bonus = get_runtime_skill_bonus("item_luck")
-    return max(0.30, multiplier - runtime_bonus)  # 최소 30%
+    return max(0.30, multiplier - runtime_bonus)  # 최소 30% = 최대 70% 감소
 
 
 def get_effective_caffeine_multiplier():
@@ -34236,7 +40528,7 @@ def get_effective_caffeine_multiplier():
             multiplier = academy.get_caffeine_duration_multiplier()
         except Exception:
             multiplier = 1.0
-    # 런타임 스킬 보너스 (item_caffeine: 레벨당 +20%)
+    # 런타임 스킬 보너스 (item_caffeine: 레벨당 +30%)
     runtime_bonus = get_runtime_skill_bonus("item_caffeine")
     return multiplier + runtime_bonus
 
@@ -34499,6 +40791,20 @@ except:
     pygame.draw.circle(cooltime_icon, CYAN, (16, 16), 12)  # 시안색 외곽
     pygame.draw.circle(cooltime_icon, WHITE, (16, 16), 8)  # 흰색 내부
     pygame.draw.circle(cooltime_icon, CYAN, (16, 16), 4)   # 시안색 중심
+# 타이머벨트 아이콘 로드 (스킬 쿨타임 감소 패시브)
+try:
+    timer_belt_icon = pygame.image.load(resource_path("items/timer_belt.png")).convert_alpha()
+    timer_belt_icon = pygame.transform.scale(timer_belt_icon, (ICON_SIZE, ICON_SIZE))
+except:
+    # 파일 로드 실패 시 기본 아이콘: 갈색 벨트 + 시안 모래시계
+    timer_belt_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+    pygame.draw.rect(timer_belt_icon, (110, 65, 35), (3, 13, 26, 6))   # 벨트 가죽
+    pygame.draw.rect(timer_belt_icon, (150, 95, 50), (3, 14, 26, 3))   # 벨트 하이라이트
+    pygame.draw.polygon(timer_belt_icon, (170, 180, 190), [(12, 9), (20, 9), (16, 16)])   # 모래시계 상단
+    pygame.draw.polygon(timer_belt_icon, (170, 180, 190), [(12, 23), (20, 23), (16, 16)]) # 모래시계 하단
+    pygame.draw.polygon(timer_belt_icon, (90, 220, 230), [(13, 10), (19, 10), (16, 15)])  # 시안 모래 상단
+    pygame.draw.polygon(timer_belt_icon, (90, 220, 230), [(13, 22), (19, 22), (16, 17)])  # 시안 모래 하단
+    pygame.draw.circle(timer_belt_icon, (255, 255, 255), (16, 16), 1)                    # 중심 빛
 #  생명수 아이콘 생성 (무지개빛 포션)
 try:
     life_elixir_icon = pygame.image.load(resource_path("items/life_elixir.png")).convert_alpha()
@@ -34925,6 +41231,8 @@ for item in items.ITEM_TYPES:
         item["icon"] = speedboots_icon
     elif item["name"] == "gravitybelt":
         item["icon"] = gravitybelt_icon
+    elif item["name"] == "timer_belt":
+        item["icon"] = timer_belt_icon
     elif item["name"] == "speedgear":
         item["icon"] = speedgear_icon
     elif item["name"] == "aipill":
@@ -34975,6 +41283,7 @@ for item in items.ITEM_TYPES:
         item["icon"] = stopwatch_icon
     elif item["name"] == "laser_scope":
         item["icon"] = laser_scope_icon
+advance_bootstrap_loading("아이템 아이콘 정렬 중..", 0.91, animation_duration=0.26)
 # === 롱부스트 관련 ===
 long_boost_active = False
 long_boost_timer = 0
@@ -35672,6 +41981,8 @@ WEB_TRAP_Y_MAX = 720            # Y 범위 상한 (패들 높이 근처)
 WEB_TRAP_TRAVEL_FRAMES = 35     # 발사→도착 시간 (~0.58초)
 web_trap_projectile = None      # {"sx","sy","tx","ty","timer","duration"} 또는 None
 web_trap_break_effects = []     # 거미줄 파괴 파티클 리스트
+web_trap_pending_stars = []     # 황금거미줄 파괴 후 지연 스폰 대기열: [{"x","y","delay"}]
+GOLDEN_WEB_STAR_SPAWN_DELAY = 48  # 0.8초 × 60FPS (황금거미줄 파괴 후 스타포인트 등장 지연)
 
 # 거미줄 구출 스킬 (Web Rescue)
 WEB_RESCUE_COOLDOWN = 25000       # 25초 쿨다운
@@ -36547,7 +42858,7 @@ def update_optimus_energy() -> None:
         PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
         PLAYER.centerx = prev_centerx
         PLAYER.bottom = prev_bottom
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
 
 def draw_optimus_emblem(surface, emblem_x: int, emblem_y: int, emblem_radius: int,
@@ -39345,7 +45656,8 @@ def create_optimus_arm_skill_icon_cooldown(size: int = 64, cooldown_ratio: float
         
         # 쿨타임 남은 시간 표시
         if cooldown_ratio > 0:
-            remaining_sec = int(OPTIMUS_ARM_COOLDOWN_MS * cooldown_ratio / 1000) + 1
+            _optimus_effective_cd_ms = _apply_player_skill_cooldown_multiplier_int(OPTIMUS_ARM_COOLDOWN_MS)
+            remaining_sec = int(_optimus_effective_cd_ms * cooldown_ratio / 1000) + 1
             try:
                 cooldown_font = pygame.font.Font(None, 24)
                 text = cooldown_font.render(str(remaining_sec), True, (255, 255, 255))
@@ -39607,7 +45919,8 @@ def update_optimus_arm() -> None:
         if optimus_arm_length <= 0:
             # 스킬 종료
             optimus_arm_state = "idle"
-            optimus_arm_cooldown_until_ms = now_ms + OPTIMUS_ARM_COOLDOWN_MS
+            _optimus_cd_ms = _apply_player_skill_cooldown_multiplier_int(OPTIMUS_ARM_COOLDOWN_MS)
+            optimus_arm_cooldown_until_ms = now_ms + _optimus_cd_ms
             optimus_arm_grabbed_boss = False
             # print(f"🦾 옵티머스 암: 스킬 종료, 쿨타임 {OPTIMUS_ARM_COOLDOWN_MS}ms")
     
@@ -39793,7 +46106,8 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
 
     # 쿨타임 계산
     cooldown_remaining = max(0, optimus_arm_cooldown_until_ms - now_ms)
-    cooldown_ratio = cooldown_remaining / OPTIMUS_ARM_COOLDOWN_MS if OPTIMUS_ARM_COOLDOWN_MS > 0 else 0
+    _optimus_effective_cd_ms = _apply_player_skill_cooldown_multiplier_int(OPTIMUS_ARM_COOLDOWN_MS)
+    cooldown_ratio = cooldown_remaining / _optimus_effective_cd_ms if _optimus_effective_cd_ms > 0 else 0
 
     # 아이콘 그리기
     if not arm_unlocked:
@@ -40510,6 +46824,8 @@ except Exception as e:
     # 실패시 기본 패들 생성
     PLAYER_IMG = pygame.Surface((250, 100), pygame.SRCALPHA)
     pygame.draw.rect(PLAYER_IMG, (0, 255, 0), (0, 0, 250, 100))
+
+advance_bootstrap_loading("플레이어 아바타 준비 중..", 0.94, animation_duration=0.20)
 
 # 코만도 패들 이미지 생성 (고퀄리티 개선 버전)
 
@@ -44793,14 +51109,7 @@ def release_blacksmith_hammer_shock():
     cooldown_frames = BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION_BY_STAGE.get(
         stage, BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION
     )
-    # 천사의 주사위 스킬 쿨타임 감소 버프 적용
-    _angel_skill_cd = globals().get("ANGEL_ACTIVE_COOLDOWN_MULT", 1.0)
-    if _angel_skill_cd != 1.0:
-        cooldown_frames = max(0, int(cooldown_frames * _angel_skill_cd))
-    # 단련 퍽: 스킬 쿨타임 감소 (8%/레벨, 곱연산)
-    _training_bonus = get_runtime_skill_bonus("common_training")
-    if _training_bonus > 0:
-        cooldown_frames = max(0, int(cooldown_frames * (1.0 - _training_bonus)))
+    cooldown_frames = _apply_player_skill_cooldown_multiplier_int(cooldown_frames)
     blacksmith_hammer_shock_cooldown_timer = cooldown_frames
     blacksmith_hammer_shock_last_stage = stage
     blacksmith_hammer_shock_cooldown_total = cooldown_frames
@@ -52113,6 +58422,8 @@ try:
 except Exception:
     BLACKSMITH_MISSILE_IMG = None
 
+advance_bootstrap_loading("특수 장비 시각화 준비 중..", 0.96, animation_duration=0.18)
+
 def _create_blacksmith_build_icon(label: str, base_color: tuple[int, int, int], glyph_surface: pygame.Surface | None = None) -> pygame.Surface:
     icon = pygame.Surface(BLACKSMITH_BUILD_ICON_SIZE, pygame.SRCALPHA)
     w, h = BLACKSMITH_BUILD_ICON_SIZE
@@ -52623,10 +58934,10 @@ energy_wave_phase = 0  # 파동 위상 오프셋
 
 # === 공 잔상 궤적 시스템 (투명한 공 형태의 잔상) ===
 ball_ghost_trail: list = []  # 잔상 포인트들 [{x, y, alpha, size, age}]
-BALL_GHOST_MAX_LENGTH = 5  # 잔상 최대 길이 (짧게)
+BALL_GHOST_MAX_LENGTH = 7  # 잔상 최대 길이 (조금 더 길게)
 BALL_GHOST_FADE_SPEED = 0.75  # 페이드 속도 (빠르게 사라짐)
-BALL_GHOST_MIN_DISTANCE = 6  # 새 포인트 추가 최소 거리
-BALL_GHOST_INITIAL_ALPHA = 60  # 초기 투명도 (0-255, 낮을수록 투명)
+BALL_GHOST_MIN_DISTANCE = 4  # 새 포인트 추가 최소 거리
+BALL_GHOST_INITIAL_ALPHA = 72  # 초기 투명도 (0-255, 낮을수록 투명)
 
 # 에너지볼 색상 설정 (고퀄리티 애니메이션 버전)
 ENERGY_BALL_CORE_COLOR = (255, 255, 255)  # 밝은 흰색 코어
@@ -52948,28 +59259,44 @@ def update_intensity_particles(ball_x: float, ball_y: float) -> None:
                 'type': 'flame' if random.random() < 0.7 else 'spark'
             })
 
-    # 궤적 포인트 추가 (화염 꼬리) - 포인트 간격을 넓혀서 끊어지는 느낌
-    min_distance = 12 + intensity * 8  # 12~20 픽셀 간격 (더 넓게)
-    if len(ball_intensity_trail) == 0 or \
-       math.hypot(ball_x - ball_intensity_trail[-1]['x'],
-                  ball_y - ball_intensity_trail[-1]['y']) > min_distance:
-        trail_length = int(6 + intensity * 10)  # 6~16개 (줄임)
+    # 궤적 포인트 추가 (화염 꼬리) - 큰 간격/랜덤 오프셋이 공 이동을 끊겨 보이게 해서 촘촘하게 보간
+    trail_spacing = 6 + intensity * 4  # 6~10 픽셀 간격
+    trail_length = int(8 + intensity * 8)  # 8~16개
+    trail_alpha = 210 + int(intensity * 35)
+    trail_size = 6 + intensity * 7
+    if not ball_intensity_trail:
         ball_intensity_trail.append({
-            'x': ball_x + random.uniform(-2, 2),  # 약간의 랜덤 오프셋
-            'y': ball_y + random.uniform(-2, 2),
-            'alpha': 200 + random.randint(0, 55),  # 약간의 랜덤 알파
-            'size': 6 + intensity * 8 + random.uniform(-1, 1),  # 6~14 + 랜덤
+            'x': ball_x,
+            'y': ball_y,
+            'alpha': trail_alpha,
+            'size': trail_size,
             'color': colors[0]
         })
-        while len(ball_intensity_trail) > trail_length:
-            ball_intensity_trail.pop(0)
+    else:
+        last_point = ball_intensity_trail[-1]
+        dx = ball_x - last_point['x']
+        dy = ball_y - last_point['y']
+        distance = math.hypot(dx, dy)
+        if distance >= trail_spacing:
+            segments = max(1, min(3, int(distance // trail_spacing)))
+            for step in range(1, segments + 1):
+                t = step / segments
+                ball_intensity_trail.append({
+                    'x': last_point['x'] + dx * t,
+                    'y': last_point['y'] + dy * t,
+                    'alpha': trail_alpha,
+                    'size': trail_size,
+                    'color': colors[0]
+                })
+    while len(ball_intensity_trail) > trail_length:
+        ball_intensity_trail.pop(0)
 
     # 궤적 페이드 및 크기 감소 (더 빠르게 사라짐)
     for i, point in enumerate(ball_intensity_trail):
         # 빠르게 페이드
-        fade_speed = 0.75 + intensity * 0.1  # 0.75~0.85 (더 빠르게)
+        fade_speed = 0.8 + intensity * 0.08  # 0.8~0.88
         point['alpha'] *= fade_speed
-        point['size'] *= 0.92  # 크기도 더 빠르게 감소
+        point['size'] *= 0.94
 
     ball_intensity_trail = [p for p in ball_intensity_trail if p['alpha'] > 10]
 
@@ -53035,8 +59362,7 @@ def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ba
             color_idx = min(2, int((1 - position_ratio) * 3))
             base_color = colors[color_idx]
 
-            # 서피스 생성
-            trail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            trail_surf = _get_reusable_surface(size * 2)
             alpha = int(point['alpha'] * (0.5 + intensity * 0.5))
 
             # 외곽 글로우
@@ -53066,7 +59392,7 @@ def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ba
         if alpha < 5:
             continue
 
-        particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        particle_surf = _get_reusable_surface(size * 2)
 
         if p['type'] == 'flame':
             # 화염 파티클 (부드러운 글로우)
@@ -53089,7 +59415,7 @@ def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ba
     if intensity > 0.2:
         # 글로우 크기 (공 크기와 비슷하게 - 최대 1.3배)
         glow_size = int(ball_radius * (1.0 + intensity * 0.3))  # 1.0x ~ 1.3x (더 작게)
-        glow_surf = pygame.Surface((glow_size * 2 + 4, glow_size * 2 + 4), pygame.SRCALPHA)
+        glow_surf = _get_reusable_surface(glow_size * 2 + 4)
         center = glow_size + 2
 
         # 부드러운 글로우 (알파값 낮게)
@@ -53486,6 +59812,7 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
         ball_inner_color = ENERGY_BALL_INNER_COLOR
         ball_ring_color = ENERGY_BALL_RING_COLOR
         ball_core_color = ENERGY_BALL_CORE_COLOR
+    reduced_detail = current_stage == 5 and not boost_active
 
     # 시간 기반 애니메이션
     current_time = pygame.time.get_ticks()
@@ -53517,7 +59844,8 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
     pulse2 = math.sin(energy_ball_pulse_phase * 1.5) * 0.08 + 1.0
 
     # === Layer 1: 외부 글로우 (추가 15% 축소) ===
-    for i in range(3):
+    glow_layer_count = 2 if reduced_detail else 3
+    for i in range(glow_layer_count):
         glow_radius = int(radius * (0.795 - i * 0.11) * pulse)  # 0.935 * 0.85
         glow_alpha = int(8 - i * 2)
         if glow_alpha > 0 and glow_radius > 0:
@@ -53534,7 +59862,7 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
         ring_radius = radius * (1.156 + ring_idx * 0.108)
 
         # 고리 위의 점들 그리기
-        num_points = 24
+        num_points = 16 if reduced_detail else 24
         for i in range(num_points):
             angle = math.radians(ring_rotation + i * (360 / num_points))
 
@@ -53571,8 +59899,9 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
         ring_radius = radius * (1.156 + ring_idx * 0.108)
 
         points = []
-        for i in range(36):
-            angle = math.radians(ring_rotation + i * 10)
+        line_point_count = 24 if reduced_detail else 36
+        for i in range(line_point_count):
+            angle = math.radians(ring_rotation + i * (360 / line_point_count))
             tilt_rad = math.radians(ring_tilt)
             x_offset = math.cos(angle) * ring_radius
             y_offset = math.sin(angle) * ring_radius * math.cos(tilt_rad)
@@ -53633,7 +59962,8 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
     # 공 주변 파티클은 항상 기본 파란색 사용 (인텐시티와 무관)
     particle_colors = ENERGY_BALL_PARTICLE_COLORS
 
-    if random.random() < 0.4:
+    particle_spawn_chance = 0.22 if reduced_detail else 0.4
+    if random.random() < particle_spawn_chance:
         angle = random.uniform(0, 2 * math.pi)
         dist = radius * random.uniform(0.867, 1.445)  # 1.02*0.85, 1.7*0.85
         energy_ball_particles.append({
@@ -53648,8 +59978,9 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
         })
 
     # 파티클 제한
-    if len(energy_ball_particles) > ENERGY_BALL_MAX_PARTICLES:
-        energy_ball_particles = energy_ball_particles[-ENERGY_BALL_MAX_PARTICLES:]
+    max_energy_particles = 12 if reduced_detail else ENERGY_BALL_MAX_PARTICLES
+    if len(energy_ball_particles) > max_energy_particles:
+        energy_ball_particles = energy_ball_particles[-max_energy_particles:]
 
     # 파티클 렌더링 및 업데이트
     new_particles = []
@@ -53683,8 +60014,9 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
         ring_radius = radius * (1.156 + ring_idx * 0.108)
 
         # 각 고리에 3개의 밝은 점
-        for bright_idx in range(3):
-            bright_angle = ring_rotation + bright_idx * 120
+        bright_node_count = 2 if reduced_detail else 3
+        for bright_idx in range(bright_node_count):
+            bright_angle = ring_rotation + bright_idx * (360 / bright_node_count)
             angle_rad = math.radians(bright_angle)
             tilt_rad = math.radians(ring_tilt)
 
@@ -53728,16 +60060,8 @@ def update_ball_ghost_trail(ball_cx: int, ball_cy: int, ball_size: int) -> None:
     """공 잔상 궤적 업데이트 - 투명한 공 형태의 잔상"""
     global ball_ghost_trail
 
-    # 새 포인트 추가 (최소 거리 체크)
-    add_new_point = True
-    if ball_ghost_trail:
-        last_point = ball_ghost_trail[-1]
-        dx = ball_cx - last_point['x']
-        dy = ball_cy - last_point['y']
-        if dx * dx + dy * dy < BALL_GHOST_MIN_DISTANCE * BALL_GHOST_MIN_DISTANCE:
-            add_new_point = False
-
-    if add_new_point:
+    # 새 포인트 추가 - 빠른 이동 시 중간 포인트를 보간해 끊김을 줄임
+    if not ball_ghost_trail:
         ball_ghost_trail.append({
             'x': ball_cx,
             'y': ball_cy,
@@ -53745,6 +60069,22 @@ def update_ball_ghost_trail(ball_cx: int, ball_cy: int, ball_size: int) -> None:
             'size': ball_size,
             'age': 0
         })
+    else:
+        last_point = ball_ghost_trail[-1]
+        dx = ball_cx - last_point['x']
+        dy = ball_cy - last_point['y']
+        distance = math.hypot(dx, dy)
+        if distance >= BALL_GHOST_MIN_DISTANCE:
+            segments = max(1, min(3, int(distance // BALL_GHOST_MIN_DISTANCE)))
+            for step in range(1, segments + 1):
+                t = step / segments
+                ball_ghost_trail.append({
+                    'x': last_point['x'] + dx * t,
+                    'y': last_point['y'] + dy * t,
+                    'alpha': BALL_GHOST_INITIAL_ALPHA,
+                    'size': ball_size,
+                    'age': 0
+                })
 
     # 트레일 길이 제한
     while len(ball_ghost_trail) > BALL_GHOST_MAX_LENGTH:
@@ -54580,12 +60920,54 @@ _viper_br_dark_mode = False          # 현재 에어 블레이드 모션이 다�
 _VIPER_BR_SPIN_DURATION = 400        # 2바퀴 회전 시간 (ms)
 _VIPER_BR_DECEL_DURATION = 200       # 감속 시간 (ms)
 _VIPER_BR_REST_DURATION = 1000       # 정지(숨내쉬기) 시간 (ms)
+_VIPER_DARK_BLADE_AUTO_FIRE_NEAR_DISTANCE_PX = 150.0
+_VIPER_DARK_BLADE_AUTO_FIRE_START_MS = 800
+_VIPER_DARK_BLADE_AUTO_FIRE_END_MS = 1400
 _viper_br_jump_offset_y = 0.0       # 승룡권 점프 Y오프셋 (음수=위로)
 _viper_br_arm_raise = 0.0           # 팔 들어올림 비율 (0~1)
 
 # === 바이퍼 대쉬 원점 기억 (쉐도우 백스텝 스냅백용) ===
 _viper_dash_origin_x = 0.0           # 대쉬 시작 전 플레이어 X좌표
 _viper_dash_was_airborne = False     # 대쉬 발동 시 체공 상태였는지 (EMP 차단용)
+_viper_last_dash_start_ms = 0        # 마지막 대쉬 시작 시각 (ms)
+_viper_core_flip_ready_ms = 0        # 화랑 킥 발동 가능 시각: 대쉬로 공을 맞춘 순간 (ms)
+_viper_core_flip_consumed = True     # 코어 플립 1회 소비 플래그 (대쉬마다 1회)
+_viper_core_flip_buffered_until_ms = 0  # 대쉬 종료 직후까지 유지되는 A+D 입력 버퍼
+_VIPER_CORE_FLIP_INPUT_FRAME_GAP = 4    # 좌/우 입력 간 최대 허용 프레임 차이
+_VIPER_CORE_FLIP_INPUT_MAX_AGE_FRAMES = 16  # 너무 오래된 좌/우 입력은 무시
+
+# === 코어 플립 자체 발차기 모션 (발레리노 회전 → 지그재그 벽타기 상승 → 돌려차기) ===
+_VIPER_CORE_FLIP_PHASE0_MS = 400     # Phase 0: 제자리 Y축 발레리노 회전 (0.4초, 2바퀴)
+_VIPER_CORE_FLIP_PHASE1_MS = 1755    # Phase 1: 좌우 벽을 지그재그로 타며 상승 (최대 시간)
+_VIPER_CORE_FLIP_PHASE2_MS = 390     # Phase 2: 돌려차기 (마샬 킥 1차와 동일한 기본 돌진 속도)
+_VIPER_CORE_FLIP_PHASE3_MS = 150     # Phase 3: 착지 복귀
+_VIPER_CORE_FLIP_PHASE1_MIN_MS = 806  # 최소 벽타기 연출 시간
+_VIPER_CORE_FLIP_ZIGZAG_LEG_MS = 468  # 좌↔우 한 번 벽을 타는 전체 구간 시간
+_VIPER_CORE_FLIP_ZIGZAG_CLING_MS = 195  # 벽에 실제로 붙어 버티는 시간
+_VIPER_CORE_FLIP_KICK_TRIGGER_Y_PX = 200.0  # 공과의 Y축 거리가 이 값 이하이면 돌려차기 시작
+_VIPER_CORE_FLIP_HIT_RADIUS = 60.0   # 돌려차기 공 충돌 판정 반경
+_VIPER_CORE_FLIP_MARSHAL_REARM_BLOCK_FRAMES = 4  # 화랑 킥 직후 몇 프레임은 새 S/↓ 입력에서만 마샬 킥 허용
+_VIPER_CORE_FLIP_DARK_BLADE_HANDOFF_MS = 500  # 화랑 킥 복귀 직후 다크 블레이드 입력 유예
+_viper_core_flip_attack_active = False
+_viper_core_flip_attack_phase = 0
+_viper_core_flip_attack_start_ms = 0
+_viper_core_flip_attack_phase_start_ms = 0
+_viper_core_flip_attack_origin_x = 0.0
+_viper_core_flip_attack_origin_y = 0.0
+_viper_core_flip_attack_target_x = 0.0
+_viper_core_flip_attack_target_y = 0.0
+_viper_core_flip_attack_apex_x = 0.0
+_viper_core_flip_attack_apex_y = 0.0
+_viper_core_flip_attack_ball_hit = False
+_viper_core_flip_attack_kick_dir = 1            # 1=오른쪽, -1=왼쪽 (시각 미러 방향)
+_viper_core_flip_attack_spin_angle_deg = 0.0    # 누적 회전 각(°), 시각화용
+_viper_core_flip_attack_spin_snd_started = False
+_viper_core_flip_attack_kick_snd_played = False
+_viper_core_flip_attack_end_frame = -999999
+_viper_core_flip_dark_blade_handoff_until_ms = 0
+_viper_core_flip_web_lines = []                 # 벽타기 중 보라 로프 라인
+_viper_core_flip_wall_x = 0.0                  # 현재 벽타기 벽 앵커 X
+_viper_core_flip_wall_y = 0.0                  # 현재 벽타기 벽 앵커 Y
 
 # === 바이퍼 쉐도우 백스텝 홀로그램 등장 연출 ===
 _viper_ss_hologram_active = False    # 홀로그램 연출 활성
@@ -54630,6 +61012,11 @@ _viper_dark_blade_combo_window = False   # 다크 블레이드 검기 발사 후
 _viper_dark_blade_fire_ms = 0            # 다크 블레이드 검기 발사 시각 (ms)
 _VIPER_DARK_BLADE_COMBO_DELAY_MS = 500   # 콤보 활성까지 딜레이 (0.5초)
 
+# === 바이퍼 에어 블레이드 → 다크 블레이드 콤보 ===
+_viper_air_blade_combo_window = False    # 에어 블레이드 검기 발사 후 다크 블레이드 콤보 가능 여부
+_viper_air_blade_fire_ms = 0             # 에어 블레이드 검기 발사 시각 (ms)
+_VIPER_AIR_BLADE_COMBO_DELAY_MS = 500    # 콤보 활성까지 딜레이 (0.5초)
+
 # 팬텀 스트라이크 커브 (비행 중 매 프레임 적용)
 _viper_ps_curve_active = False        # 커브 비행 중
 _viper_ps_curve_timer = 0             # 커브 남은 프레임
@@ -54640,8 +61027,8 @@ _VIPER_PS_CURVE_FRAMES = 50           # 커브 지속 기본값 (약 0.8초)
 _VIPER_PS_CURVE_FORCE = 2.0           # 프레임당 횡방향 가속도 기본값
 
 # 쉐도우 백스텝 그라데이션 타격 상수
-_VIPER_SS_HIT_SPEED_MIN = 1.4         # 가장자리 공속 배율 (40% 증가)
-_VIPER_SS_HIT_SPEED_MAX = 1.8         # 중심 공속 배율 (80% 증가)
+_VIPER_SS_HIT_SPEED_MIN = 1.48        # 가장자리 공속 배율 (48% 증가, 기존 40%에서 +20% 상향)
+_VIPER_SS_HIT_SPEED_MAX = 1.96        # 중심 공속 배율 (96% 증가, 기존 80%에서 +20% 상향)
 _VIPER_SS_HIT_CURVE_MIN = 10          # 가장자리 커브 프레임 (약 0.17초)
 _VIPER_SS_HIT_CURVE_MAX = 50          # 중심 커브 프레임 (약 0.83초)
 _VIPER_SS_HIT_FORCE_MIN = 0.4         # 가장자리 커브 강도
@@ -54661,19 +61048,54 @@ def _get_viper_blade_rush_gauge_cost() -> int:
     return max(100, 200 - 10 * lv)
 
 
+def _should_viper_force_dark_blade_autofire(
+    elapsed_ms: int,
+    *,
+    ball_velocity_y: float,
+    ball_centery: float,
+    player_centery: float,
+    auto_fire_start_ms: int = _VIPER_DARK_BLADE_AUTO_FIRE_START_MS,
+    auto_fire_end_ms: int = _VIPER_DARK_BLADE_AUTO_FIRE_END_MS,
+    near_distance_px: float = _VIPER_DARK_BLADE_AUTO_FIRE_NEAR_DISTANCE_PX,
+) -> bool:
+    """Return whether dark blade should skip to the launch phase for safety.
+
+    The auto-fire safety net is only allowed during the late spin-up window
+    so dark blade keeps its readable prep across every combo route.
+    """
+    if elapsed_ms < auto_fire_start_ms or elapsed_ms > auto_fire_end_ms:
+        return False
+    if ball_velocity_y <= 0:
+        return False
+    if ball_centery > player_centery:
+        return False
+    if (player_centery - ball_centery) > near_distance_px:
+        return False
+    return True
+
+
 def _get_viper_wall_dive_prep_duration_mult() -> float:
     """마샬 킥/팬텀 킥 준비동작(벽으로 이동 → 매달림 → 벽다시타기 → 프리즈 → 돌진) duration 배율.
 
-    킥 강화 퍽 LV당 12%씩 빠르게 (duration = base / (1 + 0.12 * lv)). 최대 LV5에서 클램프.
-    반환값은 duration에 곱해야 하는 배율 (1.0 미만).
+    킥 강화 퍽 LV당 준비동작 -10% (duration = base * (1 - 0.10 * lv)). 최대 LV5 = 50% 단축.
+    반환값은 duration에 곱해야 하는 배율 (1.0 이하, 클램프 0.1).
     """
     lv = min(get_runtime_skill_level("kick_enhance"), 5)
-    return 1.0 / (1.0 + 0.12 * lv)
+    return max(0.1, 1.0 - 0.10 * lv)
+
+
+def _get_viper_core_flip_kick_duration_ms() -> float:
+    """코어 플립 발차기 돌진 시간.
+
+    기본 속도는 마샬 킥 1차와 맞추고, 킥 강화의 준비동작 단축도 동일하게 공유한다.
+    """
+    return max(1.0, _VIPER_CORE_FLIP_PHASE2_MS * _get_viper_wall_dive_prep_duration_mult())
 
 
 def _get_viper_kick_bias(base_bias: float, aim_level: int) -> float:
-    # 킥 강화 정밀도 +10%/LV (최대 LV5에서 +50%). LV5 시 base_bias에서 50% 지점까지 보정.
-    return base_bias + (1.0 - base_bias) * min(aim_level * 0.10, 0.50)
+    # 킥 강화 정밀도 +9%/LV (최대 LV5에서 +45%). LV5 시 base_bias에서 45% 지점까지 보정.
+    # (기존 10%/LV, 최대 50%에서 10% 하향)
+    return base_bias + (1.0 - base_bias) * min(aim_level * 0.09, 0.45)
 
 
 def _compute_viper_kick_launch_angle(
@@ -54711,6 +61133,179 @@ def _compute_viper_kick_launch_angle(
         final_angle = min_angle * (1 if final_angle >= 0 else -1)
     final_angle = max(-clamp_angle, min(clamp_angle, final_angle))
     return final_angle
+
+
+def _compute_viper_core_flip_bank_velocity(
+    speed: float,
+    kick_dir: int,
+    aim_level: int,
+    base_bias: float = 0.6,
+) -> tuple[float, float]:
+    """코어 플립 전용 1회 벽반사 샷.
+
+    보스를 좌/우 벽 너머로 반사 복제한 목표점을 향해 차서, 실제 공은
+    먼저 사이드 벽에 맞고 난 뒤 보스 쪽으로 넘어가게 만든다.
+
+    킥 강화 정확도가 높을수록 반사 후 보스 패들을 스치지 않는 안전한
+    통로를 더 정밀하게 계산한다.
+    """
+    if kick_dir == 0:
+        boss_cx = BOSS.centerx if BOSS else WIDTH // 2
+        kick_dir = 1 if boss_cx >= BALL.centerx else -1
+
+    bias = _get_viper_kick_bias(base_bias, aim_level)
+    boss_cx = float(BOSS.centerx) if BOSS else float(WIDTH * 0.5)
+    boss_cy = float(BOSS.centery) if BOSS else max(90.0, float(HEIGHT) * 0.18)
+    ball_x = float(BALL.centerx)
+    ball_y = float(BALL.centery)
+    wall_x = 0.0 if kick_dir < 0 else float(WIDTH)
+
+    # 킥 강화 정밀도가 높을수록 보스 가장자리를 더 타이트하게 스치는
+    # 반사 통로를 계산한다.
+    target_spread_x = max(20.0, 150.0 * (1.0 - bias))
+    target_spread_y = max(10.0, 68.0 * (1.0 - bias))
+    fallback_target_x = max(70.0, min(WIDTH - 70.0, boss_cx + random.uniform(-target_spread_x, target_spread_x)))
+    fallback_target_y = boss_cy + random.uniform(-target_spread_y, target_spread_y)
+    fallback_target_y = max(70.0, min(ball_y - 120.0, fallback_target_y))
+
+    def _velocity_to_target(target_x: float, target_y: float) -> tuple[float, float] | None:
+        if kick_dir < 0:
+            mirrored_target_x = -target_x
+        else:
+            mirrored_target_x = (2.0 * WIDTH) - target_x
+        dx = mirrored_target_x - ball_x
+        dy = target_y - ball_y
+        dist = math.hypot(dx, dy)
+        if dist < 1e-6:
+            return None
+        return (dx / dist) * speed, (dy / dist) * speed
+
+    if BOSS and isinstance(BOSS, pygame.Rect):
+        boss_avoid_margin_x = int(round(max(18.0, 54.0 - bias * 24.0)))
+        boss_avoid_margin_y = int(round(max(8.0, 24.0 - bias * 10.0)))
+        boss_avoid_rect = BOSS.inflate(boss_avoid_margin_x * 2, boss_avoid_margin_y * 2)
+
+        lane_gap_base = max(12.0, 42.0 - bias * 18.0)
+        lane_gap_step = max(10.0, 30.0 - bias * 10.0)
+        lane_jitter = max(2.0, 16.0 * (1.0 - bias))
+        candidate_count = 3 + max(0, min(aim_level, 5))
+        target_y_offsets = [
+            0.0,
+            -target_spread_y * 0.55,
+            target_spread_y * 0.55,
+            -target_spread_y,
+            target_spread_y,
+        ]
+        preferred_sides = (-1, 1) if kick_dir < 0 else (1, -1)
+
+        for side_pref in preferred_sides:
+            for y_off in target_y_offsets:
+                candidate_y = boss_cy + y_off + random.uniform(-lane_jitter, lane_jitter)
+                candidate_y = max(70.0, min(ball_y - 120.0, candidate_y))
+                for idx in range(candidate_count):
+                    lane_gap = lane_gap_base + idx * lane_gap_step
+                    if side_pref < 0:
+                        candidate_x = boss_avoid_rect.left - lane_gap
+                    else:
+                        candidate_x = boss_avoid_rect.right + lane_gap
+                    candidate_x += random.uniform(-lane_jitter, lane_jitter)
+                    candidate_x = max(28.0, min(WIDTH - 28.0, candidate_x))
+
+                    velocity = _velocity_to_target(candidate_x, candidate_y)
+                    if velocity is None:
+                        continue
+
+                    vx, vy = velocity
+                    if abs(vx) < 1e-6:
+                        continue
+                    t_wall = (wall_x - ball_x) / vx
+                    if not (0.03 < t_wall < 0.97):
+                        continue
+
+                    bounce_y = ball_y + vy * t_wall
+                    if bounce_y < 40.0 or bounce_y > ball_y - 18.0:
+                        continue
+
+                    post_bounce_start = (int(wall_x), int(bounce_y))
+                    post_bounce_end = (int(candidate_x), int(candidate_y))
+                    if boss_avoid_rect.clipline(post_bounce_start, post_bounce_end):
+                        continue
+
+                    return velocity
+
+    fallback_velocity = _velocity_to_target(fallback_target_x, fallback_target_y)
+    if fallback_velocity is not None:
+        return fallback_velocity
+
+    fallback_vx = float(kick_dir) * speed * 0.65
+    fallback_vy = -abs(speed * 0.76)
+    return fallback_vx, fallback_vy
+
+
+def _clear_viper_core_flip_input_buffer() -> None:
+    global _viper_core_flip_buffered_until_ms
+    _viper_core_flip_buffered_until_ms = 0
+
+
+def _has_viper_core_flip_input_buffer(
+    now_ms: int,
+    *,
+    left_pressed: bool,
+    right_pressed: bool,
+) -> bool:
+    """Detect and buffer the A+D input with a small simultaneity grace window."""
+    global _viper_core_flip_buffered_until_ms
+
+    if _viper_core_flip_ready_ms <= 0:
+        _viper_core_flip_buffered_until_ms = 0
+        return False
+
+    window_end_ms = _viper_core_flip_ready_ms + 700
+    if now_ms > window_end_ms:
+        _viper_core_flip_buffered_until_ms = 0
+        return False
+
+    combo_detected = bool(left_pressed and right_pressed)
+    if not combo_detected:
+        current_frame = int(globals().get("frame_counter", -1))
+        left_frame = int(globals().get("left_press_frame", -1))
+        right_frame = int(globals().get("right_press_frame", -1))
+        if current_frame >= 0 and left_frame >= 0 and right_frame >= 0:
+            left_age = current_frame - left_frame
+            right_age = current_frame - right_frame
+            combo_detected = (
+                0 <= left_age <= _VIPER_CORE_FLIP_INPUT_MAX_AGE_FRAMES
+                and 0 <= right_age <= _VIPER_CORE_FLIP_INPUT_MAX_AGE_FRAMES
+                and abs(left_frame - right_frame) <= _VIPER_CORE_FLIP_INPUT_FRAME_GAP
+            )
+
+    if combo_detected:
+        _viper_core_flip_buffered_until_ms = window_end_ms
+
+    return _viper_core_flip_buffered_until_ms >= now_ms
+
+
+def _arm_viper_core_flip_from_dash_hit(
+    hit_ms: int,
+    *,
+    is_half_dash: bool = False,
+    dash_active: bool = False,
+) -> bool:
+    """Open the core-flip input window from a successful regular dash hit."""
+    global _viper_core_flip_ready_ms
+
+    if is_half_dash:
+        return False
+    if _viper_core_flip_consumed or _viper_last_dash_start_ms <= 0:
+        return False
+    if hit_ms < _viper_last_dash_start_ms:
+        return False
+    if not dash_active and (hit_ms - _viper_last_dash_start_ms) > recent_dash_success_window:
+        return False
+
+    _viper_core_flip_ready_ms = hit_ms
+    _clear_viper_core_flip_input_buffer()
+    return True
 
 
 def _set_viper_kick_curve(curve_frames: int, curve_force: float, curve_dir: int) -> None:
@@ -54763,10 +61358,12 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     global _viper_ss_hit_consumed, _viper_ss_hologram_kick_hit, _viper_ss_wave_hit_ball
     global _viper_dark_blade_window, _viper_dark_blade_window_ms
     global _viper_dark_blade_combo_window, _viper_dark_blade_fire_ms
+    global _viper_core_flip_ready_ms, _viper_core_flip_buffered_until_ms
 
     # 중복 방지
     if _viper_ss_hit_consumed:
         return
+    _handle_viper_chaos_spear_ball_contact()
 
     # 공까지의 거리 비율 계산 (0=중심, 1=가장자리, 각 축 최대값 기준)
     dx = abs(BALL.centerx - hit_cx) / max(hit_w / 2, 1)
@@ -54790,21 +61387,23 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
     # 마샬 킥 연계 조건 충족
     _viper_ss_ball_touched = True
     _viper_ss_ball_touched_ms = pygame.time.get_ticks()
+    _viper_core_flip_ready_ms = _viper_ss_ball_touched_ms
+    _viper_core_flip_buffered_until_ms = 0
 
     # 다크 블레이드 콤보 윈도우: 공중 쉐도우 백스텝으로 공 타격 시 3초 윈도우 오픈
     if _viper_ss_was_airborne and is_viper_skill_unlocked("dark_blade"):
         _viper_dark_blade_window = True
         _viper_dark_blade_window_ms = pygame.time.get_ticks()
 
-    # 공속 증가 (킥 강화 퍽 공속 보너스 적용: +5%/LV, 초월자의 관/현자의 반지 보너스 포함)
+    # 공속 증가 (킥 강화 퍽 공속 보너스 적용: +4%/LV, 초월자의 관/현자의 반지 보너스 포함)
     _ss_aim_lv, _ss_speed_lv = _get_viper_kick_enhance_levels()
-    _ss_speed_bonus = 1.0 + _ss_speed_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
+    _ss_speed_bonus = 1.0 + _ss_speed_lv * 0.04  # LV.0=1.0, LV.5=1.20, LV.7=1.28
     cur_speed = math.hypot(ball_vel[0], ball_vel[1])
     _dampened_ss_mult = _apply_dampened_multiplier(cur_speed, speed_mult * _ss_speed_bonus)
     new_speed = max(cur_speed * _dampened_ss_mult, 10.0)
     _viper_speed_boost_active = True
     _viper_speed_boost_original = cur_speed
-    _ss_base_bias = 0.2  # 쉐도우 백스텝 기본 유도 편향
+    _ss_base_bias = 0.24  # 쉐도우 백스텝 기본 유도 편향 (정확도 +20% 상향: 0.2 → 0.24)
     init_angle = _compute_viper_kick_launch_angle(
         curve_dir,
         _ss_base_bias,
@@ -54863,6 +61462,7 @@ def _viper_ss_apply_ball_hit(hit_cx: float, hit_cy: float, hit_w: float, hit_h: 
 # === 바이퍼 마샬 킥 (쉐도우 백스텝 연계기: 벽 점프 → 공 돌진) ===
 _viper_wall_dive_ready = False            # 연계 가능 상태 (쉐도우 백스텝 후 보스가 공 반환 시)
 _viper_wall_dive_ready_timer = 0          # 연계 가능 윈도우 (프레임, 0이면 비활성)
+_viper_wall_dive_phantom_allowed = True   # 현재 마샬 킥 윈도우에서 팬텀 킥 연계 허용 여부
 _VIPER_WALL_DIVE_READY_FRAMES = 90       # 연계 윈도우 1.5초 (60fps)
 _viper_wall_dive_active = False           # 마샬 킥 진행 중
 _viper_wall_dive_phase = 0                # 0=벽으로 점프, 1=벽 매달림, 2=공으로 돌진
@@ -54947,7 +61547,7 @@ _VIPER_NS_DASH_DURATION = 500            # 돌진 시간 (ms) — 보스가 피�
 _VIPER_NS_SLASH_DURATION = 300           # 등뒤 베기 연출 시간 (ms)
 _VIPER_NS_RETURN_DURATION = 150          # 복귀 시간 (ms) — 빠른 귀환
 _VIPER_NS_HIT_RADIUS = 120              # 도착 시 보스 히트 판정 반경 (px)
-_VIPER_NS_CONFUSION_FRAMES = 300         # 혼란 지속 (5초 = 300프레임)
+_VIPER_NS_CONFUSION_FRAMES = 240         # 혼란 지속 (4초 = 240프레임)
 _viper_ns_hit_confirmed = False          # 적중 여부 (적중 시 연출 강화)
 _viper_ns_freeze_active = False          # 적중 시 화면 프리즈 (공/보스 정지)
 _VIPER_NS_SLASH_DURATION_HIT = 2300      # 적중 시 베기 연출 시간 (ms) — 텍스트 정지 + 할퀴기 (0.7초 단축)
@@ -54964,6 +61564,7 @@ _VIPER_JETPACK_FALL_SPEED = 3.0         # 하강 속도 (px/frame)
 _VIPER_JETPACK_GAUGE_COST = 10          # 0.5초당 게이지 소모량
 _VIPER_JETPACK_GAUGE_INTERVAL = 30      # 게이지 소모 간격 (프레임, 0.5초)
 _VIPER_JETPACK_HIT_BONUS = 1.15         # 체공 중 공 히트 시 속도 보너스 (15%)
+_VIPER_AIR_STRIKE_GAUGE_BONUS_MAX_PCT = 30  # 체공 높이 비례 추가 게이지 보너스 (최대 +30%)
 _VIPER_JETPACK_MAX_HOLD_FRAMES = 180    # 최대 체공 시간 (3초 = 180프레임, 기본값)
 _viper_jetpack_hold_timer = 0           # 연속 체공 타이머
 
@@ -54971,12 +61572,39 @@ def _get_viper_jetpack_max_hold():
     """제트팩 강화 퍽 레벨에 따른 실제 최대 체공 프레임 계산 (레벨당 +20%, 초월자의 관/현자의 반지 보너스 포함)"""
     level = get_runtime_skill_level("jetpack_enhance")
     return int(_VIPER_JETPACK_MAX_HOLD_FRAMES * (1.0 + level * 0.2))
+
+
+def _get_viper_air_strike_height_ratio() -> float:
+    """AIR STRIKE 판정 중 현재 체공 높이 비율(0.0~1.0)을 반환한다."""
+    try:
+        if selected_character_type != "viper" or _viper_jetpack_offset_y >= -10:
+            return 0.0
+    except NameError:
+        return 0.0
+    return min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT)
+
+
+def _get_viper_air_strike_bonus_pct() -> int:
+    """현재 체공 높이에 따른 AIR STRIKE 추가 게이지 퍼센트(최대 30)를 반환한다."""
+    return int(_get_viper_air_strike_height_ratio() * _VIPER_AIR_STRIKE_GAUGE_BONUS_MAX_PCT)
+
+
+def _apply_viper_air_strike_gauge_bonus(amount: int) -> int:
+    """바이퍼가 체공 중 공을 맞혔을 때 높이 비례 추가 게이지를 반영한다."""
+    if amount <= 0:
+        return amount
+    air_ratio = _get_viper_air_strike_height_ratio()
+    if air_ratio <= 0.0:
+        return amount
+    bonus_amount = int(amount * (_VIPER_AIR_STRIKE_GAUGE_BONUS_MAX_PCT / 100.0) * air_ratio)
+    return amount + bonus_amount
 _viper_jetpack_overheat = False         # 과열 상태 (강제 하강 중)
 _viper_jetpack_snd_channel = None       # 제트팩 사운드 채널 (루프 재생 관리)
-_viper_air_strike_text_timer = 0        # AIR STRIKE 텍스트 표시 타이머
+_viper_air_strike_text_timer = 0        # AIR/DIVE STRIKE 텍스트 표시 타이머
 _viper_air_strike_text_x = 0.0          # 텍스트 X
 _viper_air_strike_text_y = 0.0          # 텍스트 Y
-_viper_air_strike_text_pct = 0          # 보너스 퍼센트
+_viper_air_strike_text_pct = 0          # AIR STRIKE 보너스 퍼센트
+_viper_air_strike_text_mode = "air"     # "air" | "dive"
 
 
 def _stop_viper_jetpack_sound(fadeout_ms: int = 0) -> None:
@@ -54997,7 +61625,8 @@ def _stop_viper_jetpack_sound(fadeout_ms: int = 0) -> None:
 def _reset_viper_jetpack_state(*, stop_sound: bool = True, fadeout_ms: int = 0) -> None:
     """바이퍼 제트팩 관련 상태를 한 번에 정리한다."""
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer
-    global _viper_jetpack_particles, _viper_air_strike_text_timer, _viper_jetpack_hold_timer
+    global _viper_jetpack_particles, _viper_air_strike_text_timer, _viper_air_strike_text_pct
+    global _viper_air_strike_text_mode, _viper_jetpack_hold_timer
     global _viper_jetpack_overheat
     _viper_jetpack_active = False
     _viper_jetpack_offset_y = 0.0
@@ -55006,6 +61635,8 @@ def _reset_viper_jetpack_state(*, stop_sound: bool = True, fadeout_ms: int = 0) 
     _viper_jetpack_overheat = False
     _viper_jetpack_particles.clear()
     _viper_air_strike_text_timer = 0
+    _viper_air_strike_text_pct = 0
+    _viper_air_strike_text_mode = "air"
     if stop_sound:
         _stop_viper_jetpack_sound(fadeout_ms)
 
@@ -55026,15 +61657,575 @@ _viper_dive_slip_duration = 60          # 실제 적용된 슬립 지속시간 (
 _VIPER_DIVE_SLIP_DURATION_MIN = 54      # 슬립 최소 지속시간 (0.9초, 최저 높이)
 _VIPER_DIVE_SLIP_DURATION_MAX = 90      # 슬립 최대 지속시간 (1.5초, 최고 높이)
 _viper_dive_shockwave_y = 0.0           # 충격파 중심 Y
-_viper_dive_ball_boosted = False        # 공 속도 부스트 적용 여부 (중복 방지)
+_viper_dive_ball_boosted = False        # 착지 장판 공 반사 적용 여부 (중복 방지)
 _VIPER_DIVE_PREP_MS = 400              # 준비동작 시간 (0.4초)
 _VIPER_DIVE_SPEED = 15.0               # 급강하 속도 (px/frame) — 제트팩 상승의 3.75배
 _VIPER_DIVE_GAUGE_COST = 150           # 게이지 소모량
 _VIPER_DIVE_SHOCKWAVE_RADIUS = WIDTH    # 충격파 X축 범위 — 전체 화면 커버
 _VIPER_DIVE_SHOCKWAVE_HEIGHT = 120     # 충격파 Y축 범위 (px, 바닥 기준 위로)
 _VIPER_DIVE_SHOCKWAVE_FRAMES = 60      # 착지 연기 지속 프레임 (1초)
-_VIPER_DIVE_MIN_BOOST = 0.2            # 최소 공속 보너스 (20%)
-_VIPER_DIVE_MAX_BOOST = 0.5            # 최대 공속 보너스 (50%)
+
+
+def _apply_viper_dive_ball_reflection() -> None:
+    """EMP 스트라이크 장판 히트 시 공을 위로 반사한다."""
+    global ball_vel
+
+    _handle_viper_chaos_spear_ball_contact()
+    ball_vel[1] = -abs(ball_vel[1])
+
+
+# === 바이퍼 이그니션오라 (W키 0.5초 홀드 → 20초 모든 퍽 +2 + 모든 골드 보너스 +50) ===
+_viper_ignition_w_down_at = 0           # W/↑키 홀드 시작 시각 (0=미입력 또는 무효)
+_VIPER_IGNITION_HOLD_REQUIRED_MS = 500  # 발동에 필요한 홀드 시간 (0.5초)
+_VIPER_IGNITION_GAUGE_COST = 300        # 게이지 소모량
+_VIPER_IGNITION_DURATION_MS = 20000     # 지속시간 (20초)
+_VIPER_IGNITION_COOLDOWN = 90.0         # 쿨타임 (90초) — VIPER_SKILL_ICONS_DATA의 값과 일치
+_VIPER_IGNITION_PERK_LEVEL_BONUS = 2    # 활성 중 모든 투자된 퍽 effective level +N
+_VIPER_IGNITION_GOLD_BONUS = 50         # 활성 중 모든 골드 보너스 +50
+_viper_ignition_aura_active = False     # 이그니션오라 활성 여부 (True인 동안 +2 보너스 적용)
+_viper_ignition_aura_end_ms = 0         # 종료 시각 (ms, get_ticks 기준)
+_viper_ignition_aura_start_ms = 0       # 발동 시각 (HUD 진행도 계산용)
+_viper_ignition_aura_burst_particles = []   # 발동 순간 burst 파티클
+_viper_ignition_aura_charge_particles = []  # W 홀드 차징 발밑 파티클
+_viper_ignition_aura_live_embers = []       # 활성 중 드물게 올라오는 잔불 입자 (은은한 생동감)
+_viper_ignition_aura_last_ember_ms = 0      # 잔불 입자 마지막 스폰 시각 (스폰 주기 조절)
+_viper_ignition_aura_pulses = []            # 활성 중 주기적 쇼크웨이브 링
+_viper_ignition_aura_next_pulse_ms = 0      # 다음 쇼크웨이브 발사 시각 (ms)
+
+
+def _spawn_viper_ignition_aura_burst(cx: float, cy: float) -> None:
+    """이그니션오라 발동 순간 burst 파티클 생성 (중심 cx, cy 기준)"""
+    global _viper_ignition_aura_burst_particles
+    import random as _br_rand
+    _viper_ignition_aura_burst_particles = []
+    # 중심 플래시 (아주 짧고 밝은 방사형 빛)
+    _viper_ignition_aura_burst_particles.append({
+        'type': 'flash',
+        'cx': cx,
+        'cy': cy,
+        'radius': 24.0,
+        'max_radius': 150.0,
+        'life': 14,
+        'max_life': 14,
+    })
+    # 십자 렌즈 플레어 (4방향 얇은 광선, 짧게 번쩍)
+    for _ang_deg in (0, 90):
+        _viper_ignition_aura_burst_particles.append({
+            'type': 'cross',
+            'cx': cx,
+            'cy': cy,
+            'angle': math.radians(_ang_deg),
+            'length': 40.0,
+            'max_length': 210.0,
+            'life': 16,
+            'max_life': 16,
+        })
+    # 외곽 확장 링 4겹 (+ 바깥쪽에 흰-노랑 충격파 1겹 추가)
+    _viper_ignition_aura_burst_particles.append({
+        'type': 'ring',
+        'cx': cx,
+        'cy': cy,
+        'radius': 14.0,
+        'max_radius': 240.0,
+        'thickness': 3,
+        'color': (255, 240, 190),
+        'life': 22,
+        'max_life': 22,
+    })
+    for _ring in range(4):
+        _viper_ignition_aura_burst_particles.append({
+            'type': 'ring',
+            'cx': cx,
+            'cy': cy,
+            'radius': 18.0 + _ring * 8.0,
+            'max_radius': 180.0 + _ring * 40.0,
+            'thickness': 5 - _ring,
+            'color': (255, 160 - _ring * 25, 40),
+            'life': 28 + _ring * 6,
+            'max_life': 28 + _ring * 6,
+        })
+    # 방사상 스파크 32방향 (더 촘촘)
+    for _i in range(32):
+        _ang = (math.pi * 2.0) * (_i / 32.0) + _br_rand.uniform(-0.05, 0.05)
+        _spd = _br_rand.uniform(6.0, 12.5)
+        _viper_ignition_aura_burst_particles.append({
+            'type': 'spark',
+            'x': cx,
+            'y': cy,
+            'vx': math.cos(_ang) * _spd,
+            'vy': math.sin(_ang) * _spd,
+            'life': _br_rand.randint(30, 48),
+            'max_life': 48,
+            'size': _br_rand.uniform(2.5, 4.8),
+            'color': _br_rand.choice([
+                (255, 200, 80), (255, 150, 40), (255, 230, 130), (255, 110, 30),
+            ]),
+        })
+    # 중심 화염 덩어리 (난잡한 짧은 수명 입자)
+    for _ in range(48):
+        _ang = _br_rand.uniform(0, math.pi * 2)
+        _r = _br_rand.uniform(2.0, 22.0)
+        _viper_ignition_aura_burst_particles.append({
+            'type': 'ember',
+            'x': cx + math.cos(_ang) * _r,
+            'y': cy + math.sin(_ang) * _r,
+            'vx': math.cos(_ang) * _br_rand.uniform(1.0, 4.0),
+            'vy': math.sin(_ang) * _br_rand.uniform(1.0, 4.0) - _br_rand.uniform(0.5, 2.0),
+            'life': _br_rand.randint(18, 36),
+            'max_life': 36,
+            'size': _br_rand.uniform(2.0, 5.0),
+            'color': _br_rand.choice([
+                (255, 220, 130), (255, 170, 60), (255, 130, 40), (255, 90, 20),
+            ]),
+        })
+
+
+def _update_viper_ignition_aura() -> None:
+    """매 프레임 호출: 활성 만료 체크, 파티클 수명 진행"""
+    global _viper_ignition_aura_active, _viper_ignition_aura_end_ms
+    global _viper_ignition_aura_burst_particles, _viper_ignition_aura_charge_particles
+    global _viper_ignition_aura_live_embers, _viper_ignition_aura_pulses
+    global _viper_ignition_aura_next_pulse_ms
+
+    # 20초 만료 처리
+    _was_active = _viper_ignition_aura_active
+    if _viper_ignition_aura_active:
+        if pygame.time.get_ticks() >= _viper_ignition_aura_end_ms:
+            _viper_ignition_aura_active = False
+            _viper_ignition_aura_end_ms = 0
+            try:
+                _hg_on_deactivate('ignition_aura')
+            except Exception:
+                pass
+
+    # burst 파티클 진행
+    if _viper_ignition_aura_burst_particles:
+        _alive = []
+        for _p in _viper_ignition_aura_burst_particles:
+            _t = _p.get('type', 'spark')
+            _p['life'] = _p.get('life', 0) - 1
+            if _p['life'] <= 0:
+                continue
+            if _t == 'ring':
+                _p['radius'] = min(_p['max_radius'],
+                                    _p['radius'] + (_p['max_radius'] - _p['radius']) * 0.18)
+            elif _t == 'flash':
+                _p['radius'] = min(_p['max_radius'],
+                                   _p['radius'] + (_p['max_radius'] - _p['radius']) * 0.28)
+            elif _t == 'cross':
+                _p['length'] = min(_p['max_length'],
+                                   _p['length'] + (_p['max_length'] - _p['length']) * 0.22)
+            elif _t == 'spark':
+                _p['x'] += _p['vx']
+                _p['y'] += _p['vy']
+                _p['vx'] *= 0.92
+                _p['vy'] = _p['vy'] * 0.92 + 0.18  # 약한 중력
+                _p['size'] = max(0.5, _p['size'] - 0.06)
+            elif _t == 'ember':
+                _p['x'] += _p['vx']
+                _p['y'] += _p['vy']
+                _p['vx'] *= 0.94
+                _p['vy'] = _p['vy'] * 0.94 + 0.10
+                _p['size'] = max(0.4, _p['size'] - 0.10)
+            _alive.append(_p)
+        _viper_ignition_aura_burst_particles = _alive[-240:] if len(_alive) > 240 else _alive
+
+    # charge 파티클 진행 (입력 종료 시 비워지지만 잔여 입자 있을 수 있음)
+    if _viper_ignition_aura_charge_particles:
+        _alive = []
+        for _p in _viper_ignition_aura_charge_particles:
+            _p['x'] += _p['vx']
+            _p['y'] += _p['vy']
+            _p['vy'] += 0.18  # 살짝 떨어짐
+            _p['life'] -= 1
+            _p['size'] = max(0.4, _p['size'] - 0.08)
+            if _p['life'] > 0:
+                _alive.append(_p)
+        _viper_ignition_aura_charge_particles = _alive[-80:] if len(_alive) > 80 else _alive
+
+    # === 활성 중 지속 이펙트 ===
+    if _viper_ignition_aura_active and PLAYER is not None:
+        import random as _ax_rand
+        _now_ms = pygame.time.get_ticks()
+        _px = float(PLAYER.centerx)
+        _py_top = float(PLAYER.top)
+        _py_cy = float(PLAYER.centery)
+
+        # 상승 불꽃 혀: 프레임당 2~3개 스폰
+        _spawn_n = 2 + (1 if (_now_ms // 33) % 2 == 0 else 0)
+        for _ in range(_spawn_n):
+            _jitter = _ax_rand.uniform(-22.0, 22.0)
+            _viper_ignition_aura_live_embers.append({
+                'x': _px + _jitter,
+                'y': _py_top + _ax_rand.uniform(-4.0, 6.0),
+                'vx': _ax_rand.uniform(-0.35, 0.35),
+                'vy': _ax_rand.uniform(-2.6, -1.4),
+                'swirl': _ax_rand.uniform(-0.045, 0.045),
+                'phase': _ax_rand.uniform(0.0, math.pi * 2.0),
+                'life': _ax_rand.randint(26, 40),
+                'max_life': 40,
+                'size': _ax_rand.uniform(2.2, 3.6),
+                'color': _ax_rand.choice([
+                    (255, 220, 140), (255, 180, 70), (255, 140, 40),
+                    (255, 100, 30), (255, 230, 170),
+                ]),
+            })
+
+        # 주기적 소프트 쇼크웨이브: ~700ms 간격
+        if _viper_ignition_aura_next_pulse_ms == 0:
+            _viper_ignition_aura_next_pulse_ms = _now_ms + 220
+        if _now_ms >= _viper_ignition_aura_next_pulse_ms:
+            _viper_ignition_aura_pulses.append({
+                'cx': _px,
+                'cy': _py_cy,
+                'radius': 20.0,
+                'max_radius': 120.0,
+                'life': 22,
+                'max_life': 22,
+            })
+            _viper_ignition_aura_next_pulse_ms = _now_ms + 700
+
+    # 상승 불꽃 혀 진행 (활성이 끝나도 잔여분은 자연 페이드아웃)
+    if _viper_ignition_aura_live_embers:
+        _alive = []
+        for _p in _viper_ignition_aura_live_embers:
+            _p['phase'] = _p.get('phase', 0.0) + 0.22
+            _p['vx'] += math.sin(_p['phase']) * _p.get('swirl', 0.0)
+            _p['x'] += _p['vx']
+            _p['y'] += _p['vy']
+            _p['vy'] *= 0.97
+            _p['vx'] *= 0.96
+            _p['life'] -= 1
+            _p['size'] = max(0.4, _p['size'] - 0.045)
+            if _p['life'] > 0:
+                _alive.append(_p)
+        _viper_ignition_aura_live_embers = _alive[-160:] if len(_alive) > 160 else _alive
+
+    # 쇼크웨이브 링 진행
+    if _viper_ignition_aura_pulses:
+        _alive = []
+        for _p in _viper_ignition_aura_pulses:
+            _p['radius'] = min(_p['max_radius'],
+                               _p['radius'] + (_p['max_radius'] - _p['radius']) * 0.14)
+            _p['life'] -= 1
+            if _p['life'] > 0:
+                _alive.append(_p)
+        _viper_ignition_aura_pulses = _alive
+
+    # 방금 비활성이 된 프레임: 다음 활성 대비 타이머 리셋 (잔여 입자는 계속 페이드)
+    if _was_active and not _viper_ignition_aura_active:
+        _viper_ignition_aura_next_pulse_ms = 0
+
+
+def _draw_viper_ignition_aura_world(surface: pygame.Surface) -> None:
+    """월드 좌표계 렌더: 활성 오라 (레이어드) + burst + 차징"""
+    # === 활성 레이어 (뒤쪽부터) ===
+    if _viper_ignition_aura_active and PLAYER is not None:
+        _now_ms = pygame.time.get_ticks()
+        _cx = int(PLAYER.centerx)
+        _cy = int(PLAYER.centery)
+
+        # 0) 바닥 열-스코치 글로우 (타원형, 캐시된 글로우 사용)
+        _scorch_pulse = 0.85 + 0.15 * math.sin(_now_ms * 0.004)
+        _scorch_w = int(130 * _scorch_pulse)
+        _scorch_h = max(10, _scorch_w // 4)
+        try:
+            _scorch_base = get_predrawn_glow_circle(_scorch_w, (255, 120, 40), 95)
+            _scorch = pygame.transform.smoothscale(_scorch_base, (_scorch_w, _scorch_h))
+            surface.blit(_scorch, (_cx - _scorch_w // 2, PLAYER.bottom - _scorch_h // 2),
+                         special_flags=pygame.BLEND_ADD)
+            _scorch_core = get_predrawn_glow_circle(max(40, _scorch_w * 3 // 5),
+                                                    (255, 220, 140), 120)
+            _scorch_core_s = pygame.transform.smoothscale(
+                _scorch_core, (_scorch_w * 3 // 5, max(6, _scorch_h * 3 // 5)))
+            surface.blit(_scorch_core_s,
+                         (_cx - _scorch_core_s.get_width() // 2,
+                          PLAYER.bottom - _scorch_core_s.get_height() // 2),
+                         special_flags=pygame.BLEND_ADD)
+        except Exception:
+            pass
+
+        # 1) 배경 아우라 글로우 (부드러운 펄싱)
+        _aura_pulse = 0.9 + 0.1 * math.sin(_now_ms * 0.006)
+        _aura_r = int(90 * _aura_pulse)
+        try:
+            _aura_outer = get_predrawn_glow_circle(_aura_r * 2, (255, 110, 40), 55)
+            surface.blit(_aura_outer,
+                         (_cx - _aura_r, _cy - _aura_r),
+                         special_flags=pygame.BLEND_ADD)
+            _aura_inner_r = int(_aura_r * 0.55)
+            _aura_inner = get_predrawn_glow_circle(_aura_inner_r * 2, (255, 210, 110), 85)
+            surface.blit(_aura_inner,
+                         (_cx - _aura_inner_r, _cy - _aura_inner_r),
+                         special_flags=pygame.BLEND_ADD)
+        except Exception:
+            pass
+
+        # 2) 주기적 소프트 쇼크웨이브 링
+        for _p in _viper_ignition_aura_pulses:
+            _lt = max(0.0, _p['life'] / max(1, _p['max_life']))
+            _pr = int(_p['radius'])
+            if _pr > 2:
+                _alpha = int(140 * _lt * _lt)
+                if _alpha > 8:
+                    try:
+                        _glow = get_predrawn_glow_circle(_pr * 2, (255, 180, 70), _alpha)
+                        surface.blit(_glow,
+                                     (int(_p['cx']) - _pr, int(_p['cy']) - _pr),
+                                     special_flags=pygame.BLEND_ADD)
+                    except Exception:
+                        pass
+                pygame.draw.circle(surface,
+                                   (255, int(170 * _lt + 60), int(60 * _lt + 20)),
+                                   (int(_p['cx']), int(_p['cy'])), _pr,
+                                   max(1, int(2 * _lt + 1)))
+
+        # 3) 트윈 역회전 아크 (꼬리가 얇아지는 세그먼트)
+        for _arc_i, (_base_r, _seg_count, _dir) in enumerate((
+            (34, 18, 1), (52, 22, -1),
+        )):
+            _pulse = 0.88 + 0.12 * math.sin(_now_ms * 0.012 + _arc_i * 1.3)
+            _r = _base_r * _pulse
+            _spin = (_now_ms * 0.0042 * _dir) + _arc_i * 0.7
+            # 각 아크는 전체 원의 70%만 차지 (꼬리 구간 비움)
+            _arc_span = math.pi * 2.0 * 0.72
+            for _s in range(_seg_count):
+                _t = _s / max(1, _seg_count - 1)  # 0 (머리) -> 1 (꼬리)
+                _ang = _spin + _arc_span * _t
+                _px = _cx + int(math.cos(_ang) * _r)
+                _py = _cy + int(math.sin(_ang) * _r)
+                _seg_size = max(1, int(4.5 * (1.0 - _t * 0.85) - _arc_i * 0.7))
+                # 머리는 밝은 황백색 → 꼬리는 진한 주홍
+                _col = (
+                    255,
+                    int(230 - 150 * _t - _arc_i * 20),
+                    int(130 - 90 * _t),
+                )
+                _col = (_col[0], max(40, _col[1]), max(20, _col[2]))
+                # 세그먼트 코어 + 글로우
+                try:
+                    _gsize = max(6, _seg_size * 4)
+                    _gsurf = get_predrawn_glow_circle(_gsize, _col,
+                                                      int(90 * (1.0 - _t * 0.6)))
+                    surface.blit(_gsurf, (_px - _gsize // 2, _py - _gsize // 2),
+                                 special_flags=pygame.BLEND_ADD)
+                except Exception:
+                    pass
+                pygame.draw.circle(surface, _col, (_px, _py), _seg_size)
+
+    # 4) 상승 불꽃 혀 (활성 잔여 포함)
+    for _p in _viper_ignition_aura_live_embers:
+        _lt = max(0.0, _p['life'] / max(1, _p['max_life']))
+        _r = max(1, int(_p['size']))
+        _col = _p['color']
+        try:
+            _gsize = max(8, _r * 6)
+            _ga = int(100 * _lt)
+            if _ga > 6:
+                _gsurf = get_predrawn_glow_circle(_gsize, _col, _ga)
+                surface.blit(_gsurf,
+                             (int(_p['x']) - _gsize // 2, int(_p['y']) - _gsize // 2),
+                             special_flags=pygame.BLEND_ADD)
+        except Exception:
+            pass
+        pygame.draw.circle(surface, _col, (int(_p['x']), int(_p['y'])), _r)
+
+    # === Burst 파티클 (가장 위) ===
+    for _p in _viper_ignition_aura_burst_particles:
+        _t = _p.get('type', 'spark')
+        if _t == 'flash':
+            _lt = max(0.0, _p['life'] / max(1, _p['max_life']))
+            _r = int(_p['radius'])
+            if _r > 0:
+                try:
+                    _alpha = int(220 * _lt)
+                    if _alpha > 6:
+                        _g1 = get_predrawn_glow_circle(_r * 2, (255, 240, 200), _alpha)
+                        surface.blit(_g1, (int(_p['cx']) - _r, int(_p['cy']) - _r),
+                                     special_flags=pygame.BLEND_ADD)
+                    _cr = max(4, _r // 3)
+                    _g2 = get_predrawn_glow_circle(_cr * 2, (255, 255, 240),
+                                                   int(200 * _lt))
+                    surface.blit(_g2, (int(_p['cx']) - _cr, int(_p['cy']) - _cr),
+                                 special_flags=pygame.BLEND_ADD)
+                except Exception:
+                    pass
+        elif _t == 'cross':
+            _lt = max(0.0, _p['life'] / max(1, _p['max_life']))
+            _len = _p['length']
+            _ang = _p['angle']
+            _cxp = _p['cx']
+            _cyp = _p['cy']
+            _col = (255, int(220 * _lt + 30), int(140 * _lt + 30))
+            _thick = max(1, int(4 * _lt))
+            _dx = math.cos(_ang) * _len
+            _dy = math.sin(_ang) * _len
+            pygame.draw.line(surface, _col,
+                             (int(_cxp - _dx), int(_cyp - _dy)),
+                             (int(_cxp + _dx), int(_cyp + _dy)), _thick)
+            if _thick > 1:
+                _col2 = (255, 255, int(200 * _lt + 50))
+                pygame.draw.line(surface, _col2,
+                                 (int(_cxp - _dx), int(_cyp - _dy)),
+                                 (int(_cxp + _dx), int(_cyp + _dy)),
+                                 max(1, _thick // 2))
+        elif _t == 'ring':
+            _life_t = max(0.0, _p['life'] / max(1, _p['max_life']))
+            _r = int(_p['radius'])
+            if _r > 0:
+                _col = (
+                    min(255, _p['color'][0]),
+                    int(_p['color'][1] * _life_t + 40 * (1 - _life_t)),
+                    int(_p['color'][2] * _life_t),
+                )
+                pygame.draw.circle(surface, _col,
+                                   (int(_p['cx']), int(_p['cy'])),
+                                   _r, max(1, int(_p['thickness'])))
+        elif _t in ('spark', 'ember'):
+            _r = max(1, int(_p['size']))
+            pygame.draw.circle(surface, _p['color'],
+                               (int(_p['x']), int(_p['y'])), _r)
+
+    # === 차징 파티클 ===
+    for _p in _viper_ignition_aura_charge_particles:
+        _r = max(1, int(_p['size']))
+        pygame.draw.circle(surface, _p['color'],
+                           (int(_p['x']), int(_p['y'])), _r)
+
+
+def _draw_viper_ignition_aura_hud_timer(surface: pygame.Surface) -> None:
+    """우측 하단 20초 타이머 게이지바 (거대화 포션 스타일)"""
+    if not _viper_ignition_aura_active:
+        return
+    _now = pygame.time.get_ticks()
+    _remaining = max(0, _viper_ignition_aura_end_ms - _now)
+    if _remaining <= 0:
+        return
+    _total = _VIPER_IGNITION_DURATION_MS
+    _ratio = _remaining / _total
+    _remaining_s = _remaining / 1000.0
+
+    _vw = 150
+    _vh = 14
+    _bx = WIDTH - _vw - 16
+    _base_y = HEIGHT - 30
+    # 다른 활성 아이템(거대화/도핑/광폭/비타민 등)과 같은 우측 하단 스택 사용
+    _idx = _hg_index('ignition_aura')
+    if _idx < 0:
+        _hg_on_activate('ignition_aura')
+        _idx = _hg_index('ignition_aura')
+    _by = _base_y - max(0, _idx) * 18
+
+    # 다층 프레임
+    _outer = pygame.Rect(_bx - 5, _by - 6, _vw + 10, _vh + 12)
+    _mid   = pygame.Rect(_bx - 3, _by - 4, _vw + 6,  _vh + 8)
+    _frame = pygame.Rect(_bx - 2, _by - 2, _vw + 4,  _vh + 4)
+    _inner = pygame.Rect(_bx,     _by,     _vw,      _vh)
+
+    # 그림자 (반투명)
+    _shadow = pygame.Surface((_outer.width, _outer.height), pygame.SRCALPHA)
+    pygame.draw.rect(_shadow, (0, 0, 0, 80), _shadow.get_rect(), border_radius=8)
+    surface.blit(_shadow, (_outer.x, _outer.y))
+
+    pygame.draw.rect(surface, (32, 22, 16), _outer, border_radius=8)
+    pygame.draw.rect(surface, (130, 80, 40), _mid, border_radius=7)
+    pygame.draw.rect(surface, (210, 140, 70), _mid, 2, border_radius=7)
+    pygame.draw.rect(surface, (40, 26, 18), _frame, border_radius=6)
+
+    _fill_w = max(1, int((_vw - 4) * _ratio))
+
+    # 색상 단계 (시간 경과 → 주황 → 빨강 점멸)
+    if _remaining_s > 15.0:
+        _base_c = (255, 130, 40)
+        _hi_c   = (255, 200, 90)
+    elif _remaining_s > 5.0:
+        _base_c = (255, 100, 30)
+        _hi_c   = (255, 170, 70)
+    else:
+        _p = abs(math.sin(_now * 0.018))
+        _base_c = (255, int(40 + 80 * _p), 20)
+        _hi_c   = (255, int(120 + 80 * _p), 50)
+
+    if _fill_w > 0:
+        _fill_rect = pygame.Rect(_bx + 2, _by + 2, _fill_w, _vh - 4)
+        # 가로 그라데이션
+        _grad = pygame.Surface((_fill_rect.width, _fill_rect.height), pygame.SRCALPHA)
+        for _x in range(_fill_rect.width):
+            _t = _x / max(1, _fill_rect.width - 1)
+            _col = (
+                int(_base_c[0] + (_hi_c[0] - _base_c[0]) * _t),
+                int(_base_c[1] + (_hi_c[1] - _base_c[1]) * _t),
+                int(_base_c[2] + (_hi_c[2] - _base_c[2]) * _t),
+                255,
+            )
+            pygame.draw.line(_grad, _col, (_x, 0), (_x, _fill_rect.height - 1))
+        surface.blit(_grad, (_fill_rect.x, _fill_rect.y))
+
+        # 상단 글로우 라인
+        _pulse = abs(math.sin(_now * 0.022))
+        _glow = (
+            min(255, int(_hi_c[0] * (0.7 + 0.3 * _pulse))),
+            min(255, int(_hi_c[1] * (0.7 + 0.3 * _pulse))),
+            min(255, int(_hi_c[2] * (0.7 + 0.3 * _pulse))),
+        )
+        pygame.draw.rect(surface, _glow, (_bx + 2, _by + 2, _fill_w, 2), border_radius=2)
+
+        # 10분할 티크
+        for _ti in range(1, 10):
+            _tx = _bx + 2 + int((_vw - 4) * (_ti / 10))
+            pygame.draw.line(surface, (240, 200, 140),
+                             (_tx, _by + _vh - 4), (_tx, _by + _vh - 1), 1)
+
+    # 좌측 화염 아이콘 (펄스)
+    _icon_pulse = 1.0 + 0.18 * math.sin(_now * 0.022)
+    _icon_size = max(10, int(_vh * 1.7 * _icon_pulse))
+    _icon_x = _bx - _icon_size - 6
+    _icon_y = _by + (_vh - _icon_size) // 2
+    _icon_cx = _icon_x + _icon_size // 2
+    _icon_cy = _icon_y + _icon_size // 2
+    pygame.draw.circle(surface, (255, 130, 40), (_icon_cx, _icon_cy), _icon_size // 2)
+    pygame.draw.circle(surface, (255, 200, 90), (_icon_cx, _icon_cy), _icon_size // 2, 2)
+    pygame.draw.circle(surface, (255, 240, 200), (_icon_cx, _icon_cy), max(2, _icon_size // 5))
+
+    # 남은 초 텍스트 (HUD 우측 정렬)
+    try:
+        _txt = f"{_remaining_s:0.1f}s"
+        _font = font_manager.get_font(14, bold=True)
+        _surf = _font.render(_txt, True, (255, 230, 180))
+        _tx = _bx + _vw - _surf.get_width()
+        _ty = _by - _surf.get_height() - 2
+        # 외곽선
+        for _ox, _oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            _outline = _font.render(_txt, True, (40, 20, 10))
+            surface.blit(_outline, (_tx + _ox, _ty + _oy))
+        surface.blit(_surf, (_tx, _ty))
+    except Exception:
+        pass
+
+
+def _reset_viper_ignition_aura_state(reset_cooldown: bool = False) -> None:
+    """이그니션오라 활성 상태 초기화 (라운드 전환 / 새 게임 / 메인메뉴 복귀 시 호출)
+
+    reset_cooldown=True 시에는 쿨타임도 함께 0으로 리셋한다.
+    기본은 활성/파티클만 정리하고 쿨타임은 보존 (CLAUDE.md §7 정책).
+    """
+    global _viper_ignition_aura_active, _viper_ignition_aura_end_ms
+    global _viper_ignition_aura_start_ms, _viper_ignition_w_down_at
+    global _viper_ignition_aura_burst_particles, _viper_ignition_aura_charge_particles
+    global _viper_ignition_aura_live_embers, _viper_ignition_aura_pulses
+    global _viper_ignition_aura_next_pulse_ms
+    _viper_ignition_aura_active = False
+    _viper_ignition_aura_end_ms = 0
+    _viper_ignition_aura_start_ms = 0
+    _viper_ignition_w_down_at = 0
+    _viper_ignition_aura_burst_particles = []
+    _viper_ignition_aura_charge_particles = []
+    _viper_ignition_aura_live_embers = []
+    _viper_ignition_aura_pulses = []
+    _viper_ignition_aura_next_pulse_ms = 0
+    if reset_cooldown:
+        _viper_skill_cooldowns["ignition_aura"] = 0
+
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -56313,6 +63504,9 @@ def _snapshot_soldier_genie_state() -> dict[str, object]:
         "reload_counts": dict(soldier_controller.reload_counts),
         "degradation_thresholds": dict(getattr(soldier_controller, "degradation_thresholds", {})),
         "degraded": set(soldier_controller.degraded),
+        "permanent_owned": set(getattr(soldier_controller, "permanent_owned", set())),
+        "equipped_permanent": list(getattr(soldier_controller, "equipped_permanent", [])),
+        "rental_weapons": dict(getattr(soldier_controller, "rental_weapons", {})),
         "ui_highlight_timer": soldier_controller.ui_highlight_timer,
     }
     snapshot["soldier_controller"] = controller_state
@@ -56353,12 +63547,39 @@ def _restore_soldier_genie_state(snapshot: dict[str, object]) -> None:
     round_start_time = snapshot["round_start_time"]  # type: ignore[assignment]
 
     controller_state = snapshot["soldier_controller"]  # type: ignore[assignment]
-    soldier_controller.weapons[:] = controller_state["weapons"]  # type: ignore[index]
-    soldier_controller.current_index = controller_state["current_index"]  # type: ignore[assignment]
+    previous_weapons = list(controller_state.get("weapons", ["pistol"]))
+    previous_index = int(controller_state.get("current_index", 0))
+    preferred_weapon = "pistol"
+    if previous_weapons:
+        preferred_weapon = previous_weapons[min(previous_index, len(previous_weapons) - 1)]
+
     soldier_controller.switch_cooldown = controller_state["switch_cooldown"]  # type: ignore[assignment]
     soldier_controller.reload_counts = dict(controller_state["reload_counts"])
     soldier_controller.degradation_thresholds = dict(controller_state.get("degradation_thresholds", {}))
     soldier_controller.degraded = set(controller_state["degraded"])
+    soldier_controller.permanent_owned = set(controller_state.get("permanent_owned", set()))
+    soldier_controller.equipped_permanent = list(controller_state.get("equipped_permanent", []))
+    soldier_controller.rental_weapons = dict(controller_state.get("rental_weapons", {}))
+
+    # Preview snapshots created before the owned/equipped/rental split may only
+    # carry the flattened live list. Rebuild a rental-only fallback in that case.
+    if (
+        not soldier_controller.permanent_owned
+        and not soldier_controller.equipped_permanent
+        and not soldier_controller.rental_weapons
+    ):
+        legacy_preview_weapons = [
+            weapon_name
+            for weapon_name in previous_weapons
+            if weapon_name != "pistol"
+        ]
+        soldier_controller.rental_weapons = {
+            weapon_name: {"kind": "rental", "acquired_stage": None}
+            for weapon_name in legacy_preview_weapons
+        }
+        soldier_controller.degraded = set(legacy_preview_weapons)
+
+    soldier_controller.rebuild_inventory(set_active=preferred_weapon)
     soldier_controller.ui_highlight_timer = controller_state["ui_highlight_timer"]  # type: ignore[assignment]
 
     supply_state = snapshot["supply_state"]  # type: ignore[assignment]
@@ -56400,13 +63621,20 @@ def _configure_soldier_weapon_preview(animation_id: str) -> pygame.Rect:
     soldier_controller.reload_counts.clear()
     soldier_controller.degradation_thresholds.clear()
     soldier_controller.degraded.clear()
+    soldier_controller.permanent_owned.clear()
+    soldier_controller.equipped_permanent.clear()
+    soldier_controller.rental_weapons.clear()
     soldier_controller.ui_highlight_timer = 0
 
     round_start_time = pygame.time.get_ticks() - 6000
 
     if animation_id == "switch":
-        soldier_controller.weapons[:] = ["pistol", "bazooka", "ak47"]
-        soldier_controller.current_index = 1 if len(soldier_controller.weapons) > 1 else 0
+        soldier_controller.rental_weapons = {
+            "bazooka": {"kind": "rental", "acquired_stage": None},
+            "ak47": {"kind": "rental", "acquired_stage": None},
+        }
+        soldier_controller.degraded = {"bazooka", "ak47"}
+        soldier_controller.rebuild_inventory(set_active="bazooka")
         soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
         soldier_ammo_count = soldier_max_ammo
         soldier_reloading = False
@@ -56414,8 +63642,7 @@ def _configure_soldier_weapon_preview(animation_id: str) -> pygame.Rect:
         soldier_last_reload_bullets = 0
         soldier_emergency_supply_toast_timer = 0
     else:
-        soldier_controller.weapons[:] = ["pistol"]
-        soldier_controller.current_index = 0
+        soldier_controller.rebuild_inventory(set_active="pistol")
         soldier_emergency_supply_toast_timer = 0
 
         if animation_id == "fire":
@@ -57171,7 +64398,7 @@ heart_beam_slap_particles = []       # 싸대기 하트 파편 파티클
 # === 앨리스 - 거울 세계 스킬 (Mirror World) - Stage 3 ===
 alice_mirror_active = False
 alice_mirror_timer = 0
-ALICE_MIRROR_DURATION = 300         # 5초 (60fps)
+ALICE_MIRROR_DURATION = 180         # 3초 (60fps)
 ALICE_MIRROR_COOLDOWN = 900         # 15초 쿨다운
 alice_mirror_cooldown_timer = 0
 alice_mirror_fade_timer = 0         # 페이드 인/아웃 타이머
@@ -57873,77 +65100,10 @@ def activate_supply_drop_item(item_name: str) -> None:
 
     print(f"🔍 아이템 검색 시작: {item_label}")
 
-    # 화기류 특수 처리
-    if item_name == "bazooka":
-        if soldier_controller.add_weapon("bazooka"):
-            # print(f"🚀 바주카포 획득! 현재 화기류: {soldier_controller.weapons}")
-            from item_effects.bazooka import get_bazooka_instance
-            bazooka = get_bazooka_instance()
-            bazooka.equip()
-            try:
-                if SOUND_ITEM_GET:
-                    play_sound_with_volume(SOUND_ITEM_GET)
-            except Exception:
-                pass
-        return
-
-    if item_name == "ak47":
-        if soldier_controller.add_weapon("ak47"):
-            # print(f"🔫 AK-47 획득! 현재 화기류: {soldier_controller.weapons}")
-            ak47 = get_ak47_instance()
-            ak47.activate(None, None)
-            ak47.active = True  # 활성 상태로 설정
-            try:
-                if SOUND_ITEM_GET:
-                    play_sound_with_volume(SOUND_ITEM_GET)
-            except Exception:
-                pass
-        return
-
-    if item_name == "net_gun":
-        if soldier_controller.add_weapon("net_gun"):
-            print(f"🕸️ 그물덫총 획득! 현재 화기류: {soldier_controller.weapons}")
-            net_gun = get_net_gun_instance()
-            net_gun.reload()
-            net_gun.equip()
-            try:
-                if SOUND_ITEM_GET:
-                    play_sound_with_volume(SOUND_ITEM_GET)
-            except Exception:
-                pass
-        return
-
-    if item_name == "fire_support":
-        if soldier_controller.add_weapon("fire_support"):
-            print(f"✈️ 화력지원 장비 획득! 현재 화기류: {soldier_controller.weapons}")
-            fire_support = get_fire_support_instance()
-            fire_support.on_acquired()
-            fire_support.equip()
-            try:
-                if SOUND_ITEM_GET:
-                    play_sound_with_volume(SOUND_ITEM_GET)
-            except Exception:
-                pass
-        return
-
-    if item_name == "suicide_drone":
-        if soldier_controller.add_weapon("suicide_drone"):
-            print(f"🚁 {get_item_name_korean('suicide_drone')} 획득! 현재 화기류: {soldier_controller.weapons}")
-            globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
-            _reset_suicide_drone_state()
-            try:
-                if SOUND_ITEM_GET:
-                    play_sound_with_volume(SOUND_ITEM_GET)
-            except Exception:
-                pass
-        return
-
-    if item_name == "bowling_trap":
-        if soldier_controller.add_weapon("bowling_trap"):
-            # print(f"🎳 볼링트랩 획득! 현재 화기류: {soldier_controller.weapons}")
-            bowling_trap = get_bowling_trap_instance()
-            bowling_trap.reload()
-            bowling_trap.equip()
+    firearm_items = {"bazooka", "ak47", "net_gun", "fire_support", "suicide_drone", "bowling_trap"}
+    if item_name in firearm_items:
+        if _grant_soldier_rental_weapon(item_name, acquired_stage=current_stage):
+            print(f"📦 {item_label} 대여 획득! 현재 화기류: {soldier_controller.weapons}")
             try:
                 if SOUND_ITEM_GET:
                     play_sound_with_volume(SOUND_ITEM_GET)
@@ -58159,34 +65319,37 @@ class SupplyAircraft:
         }
         firearm_names = {"bazooka", "ak47", "net_gun", "fire_support", "suicide_drone", "bowling_trap"}
 
-        # 정확한 화기 인벤토리를 읽어 중복 드랍을 방지
+        # 현재 보유 중인 화기류만 제외하고, 화기 수 기반 패널티는 제거한다.
         controller = soldier_controller
-        if controller is not None and hasattr(controller, "weapons"):
+        soldier_weapon_list = []
+        permanent_owned = set()
+        rental_owned = set()
+        if controller is not None:
             soldier_weapon_list = list(controller.weapons)
+            permanent_owned = set(getattr(controller, "permanent_owned", set()))
+            rental_owned = set(getattr(controller, "rental_weapons", {}).keys())
         else:
             soldier_weapon_list = soldier_weapons
-        owned_firearm_count = len({w for w in soldier_weapon_list if w in firearm_names})
-        firearm_penalty = max(0.25, 1.0 - 0.25 * owned_firearm_count)  # 0.25씩 감소, 최소 25%
 
         available_items = []
         available_weights = []
         for item_name in supply_drop_state.config.items:
-            if item_name in soldier_weapon_list:
+            if item_name in soldier_weapon_list or item_name in rental_owned:
                 continue
 
-            # 해금이 필요한 화기류는 해금 여부 체크
-            if item_name in ("net_gun", "fire_support", "bowling_trap", "suicide_drone"):
-                if not is_soldier_weapon_unlocked(item_name):
-                    continue
+            if item_name in permanent_owned:
+                continue
 
             # 도핑물약은 권총 퍽 해금 시에만 드롭 (헤드샷/레그샷 강화 전용)
             if item_name == "doping_potion" and not soldier_pistol_perk_unlocked:
                 continue
 
-            weight = base_weights.get(item_name, 1.0)
-            if item_name in firearm_names:
-                weight *= firearm_penalty
+            # 탄약상자는 영구 화기류 퍽을 최소 1개 이상 보유할 때만 드롭
+            # (영구 화기가 없으면 탄창 리필 대상이 없어 의미 없음; 대여/기본 화기 제외)
+            if item_name == "ammo_box" and not permanent_owned:
+                continue
 
+            weight = base_weights.get(item_name, 1.0)
             available_items.append(item_name)
             available_weights.append(weight)
 
@@ -58867,6 +66030,28 @@ pandora_legacy_selection_items = []  # 3개 선택지
 pandora_legacy_selected_index = 0
 pandora_legacy_selection_timer = 0
 
+def _grant_pandora_legacy_selected_item(selected_item):
+    """판도라 선택 보상을 타입에 맞는 인벤토리 경로로 지급한다."""
+    from legendary_items import PANDORA_PASSIVE_ITEM_NAMES
+
+    item_name = selected_item.get("name", "")
+    item_data = {
+        "name": item_name,
+        "color": selected_item.get("color", (200, 200, 200)),
+        "effect": selected_item.get("effect", item_name),
+        "icon": None,
+        "duration": selected_item.get("duration", 600),
+        "x": WIDTH // 2,
+        "y": HEIGHT // 2,
+    }
+
+    if item_name in PANDORA_PASSIVE_ITEM_NAMES:
+        item_data["type"] = selected_item.get("type", "passive")
+        return store_passive_item(item_data)
+
+    item_data["allow_overflow"] = True
+    return store_active_item(item_data)
+
 def draw_pandora_legacy_selection_ui(screen):
     """판도라의 유산 - 라운드 승리 후 3개 아이템 선택 UI 그리기"""
     global pandora_legacy_selection_active, pandora_legacy_selection_items
@@ -59008,21 +66193,11 @@ def handle_pandora_legacy_selection_input(event):
             if cx <= mx <= cx + _card_w and _card_y <= my <= _card_y + _card_h:
                 if 0 <= i < len(pandora_legacy_selection_items):
                     selected = pandora_legacy_selection_items[i]
-                    item_data = {
-                        "name": selected.get("name", ""),
-                        "color": selected.get("color", (200, 200, 200)),
-                        "effect": selected.get("effect", selected.get("name", "")),
-                        "icon": None,
-                        "duration": selected.get("duration", 600),
-                        "x": WIDTH // 2,
-                        "y": HEIGHT // 2,
-                    }
-                    store_active_item(item_data)
-                    show_item_obtained_effect(item_data, WIDTH // 2, HEIGHT // 2)
-                    try:
-                        play_sound_with_volume(SOUND_ITEM_GET)
-                    except Exception:
-                        pass
+                    if _grant_pandora_legacy_selected_item(selected):
+                        try:
+                            play_sound_with_volume(SOUND_ITEM_GET)
+                        except Exception:
+                            pass
                 pandora_legacy_selection_active = False
                 pandora_legacy_selection_items = []
                 pandora_legacy_selection_timer = 0
@@ -59048,22 +66223,11 @@ def handle_pandora_legacy_selection_input(event):
             # 선택 확정 - 아이템 획득
             if 0 <= pandora_legacy_selected_index < len(pandora_legacy_selection_items):
                 selected = pandora_legacy_selection_items[pandora_legacy_selected_index]
-                # 액티브 아이템으로 추가
-                item_data = {
-                    "name": selected.get("name", ""),
-                    "color": selected.get("color", (200, 200, 200)),
-                    "effect": selected.get("effect", selected.get("name", "")),
-                    "icon": None,
-                    "duration": selected.get("duration", 600),
-                    "x": WIDTH // 2,
-                    "y": HEIGHT // 2,
-                }
-                store_active_item(item_data)
-                show_item_obtained_effect(item_data, WIDTH // 2, HEIGHT // 2)
-                try:
-                    play_sound_with_volume(SOUND_ITEM_GET)
-                except Exception:
-                    pass
+                if _grant_pandora_legacy_selected_item(selected):
+                    try:
+                        play_sound_with_volume(SOUND_ITEM_GET)
+                    except Exception:
+                        pass
             pandora_legacy_selection_active = False
             pandora_legacy_selection_items = []
             pandora_legacy_selection_timer = 0
@@ -59072,17 +66236,7 @@ def handle_pandora_legacy_selection_input(event):
             # 선택 취소 (첫 번째 아이템 자동 선택)
             if pandora_legacy_selection_items:
                 selected = pandora_legacy_selection_items[0]
-                item_data = {
-                    "name": selected.get("name", ""),
-                    "color": selected.get("color", (200, 200, 200)),
-                    "effect": selected.get("effect", selected.get("name", "")),
-                    "icon": None,
-                    "duration": selected.get("duration", 600),
-                    "x": WIDTH // 2,
-                    "y": HEIGHT // 2,
-                }
-                store_active_item(item_data)
-                show_item_obtained_effect(item_data, WIDTH // 2, HEIGHT // 2)
+                _grant_pandora_legacy_selected_item(selected)
             pandora_legacy_selection_active = False
             pandora_legacy_selection_items = []
             pandora_legacy_selection_timer = 0
@@ -59112,7 +66266,7 @@ SOLDIER_GUN_COOLDOWN = 60  # 1초 쿨타임
 SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 후딜
 
 # === 코만도 새총(매그넘 슬링샷) 시스템 ===
-soldier_pistol_perk_unlocked = False  # 권총 퍽 해금 여부 (해금 시 새총→권총 교체)
+soldier_pistol_perk_unlocked = False  # 권총 화기류 보유 여부 (새총은 기본 슬롯에 유지)
 slingshot_charging = False  # 새총 차징 중인지
 slingshot_charge_timer = 0  # 차징 경과 프레임
 slingshot_charge_level = 0  # 현재 차징 단계 (0=미차징, 1/2/3)
@@ -59154,7 +66308,7 @@ def reset_weapon_tracking(weapon_name: str) -> None:
 
 def register_weapon_reload(weapon_name: str) -> None:
     if soldier_controller.register_reload(weapon_name):
-        print(f"⚠️ {get_item_name_korean(weapon_name)} 노후화!")
+        print(f"⚠️ {get_item_name_korean(weapon_name)} 대여 상태")
 
 
 def remove_weapon_from_inventory(weapon_name: str) -> None:
@@ -59178,6 +66332,129 @@ def check_weapon_degradation() -> None:
         get_fire_support_instance=get_fire_support_instance,
         get_bowling_trap_instance=get_bowling_trap_instance,
     )
+
+
+def _refill_soldier_weapon_ammo(weapon_name: str) -> bool:
+    """코만도 화기류 탄환을 최대치로 보충."""
+    if weapon_name == "commando_pistol":
+        global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer, soldier_last_reload_bullets, soldier_pistol_ammo
+        global soldier_pistol_magazines
+        soldier_max_ammo = get_soldier_pistol_max_ammo()
+        soldier_ammo_count = soldier_max_ammo
+        soldier_pistol_ammo = soldier_max_ammo
+        soldier_pistol_magazines = SOLDIER_PISTOL_MAGAZINE_MAX
+        soldier_reloading = False
+        soldier_reload_timer = 0
+        soldier_last_reload_bullets = soldier_ammo_count
+        return True
+
+    if weapon_name == "pistol":
+        # 새총(기본 슬롯)은 탄약 개념 없음 — no-op
+        return True
+
+    if weapon_name == "bazooka":
+        from item_effects.bazooka import get_bazooka_instance
+
+        bazooka = get_bazooka_instance()
+        if bazooka:
+            bazooka.ammo_count = getattr(bazooka, "max_ammo", bazooka.ammo_count)
+            return True
+        return False
+
+    if weapon_name == "ak47":
+        ak47 = get_ak47_instance()
+        if ak47:
+            ak47.current_ammo = getattr(ak47, "max_ammo", ak47.current_ammo)
+            ak47.remaining_time = getattr(ak47, "duration", ak47.remaining_time)
+            ak47.active = True
+            return True
+        return False
+
+    if weapon_name == "net_gun":
+        net_gun = get_net_gun_instance()
+        if net_gun:
+            net_gun.ammo_count = getattr(net_gun, "MAX_AMMO", net_gun.ammo_count)
+            return True
+        return False
+
+    if weapon_name == "fire_support":
+        fire_support = get_fire_support_instance()
+        if fire_support:
+            fire_support.ammo_count = getattr(fire_support, "max_ammo", fire_support.ammo_count)
+            if hasattr(fire_support, "clear_finished_flag"):
+                fire_support.clear_finished_flag()
+            return True
+        return False
+
+    if weapon_name == "suicide_drone":
+        global soldier_drone_ammo
+        soldier_drone_ammo = SUICIDE_DRONE_MAX_AMMO
+        _reset_suicide_drone_state()
+        return True
+
+    if weapon_name == "bowling_trap":
+        bowling_trap = get_bowling_trap_instance()
+        if bowling_trap:
+            bowling_trap.ammo_count = getattr(bowling_trap, "MAX_AMMO", getattr(bowling_trap, "max_ammo", bowling_trap.ammo_count))
+            if hasattr(bowling_trap, "active"):
+                bowling_trap.active = True
+            return True
+        return False
+
+    return False
+
+
+def _remove_expired_soldier_rentals(stage_num: int) -> None:
+    removed = soldier_controller.remove_expired_rentals(stage_num)
+    if not removed:
+        return
+
+    for weapon_name in removed:
+        if weapon_name == "net_gun":
+            net_gun = get_net_gun_instance()
+            if net_gun and hasattr(net_gun, "unequip"):
+                net_gun.unequip()
+        elif weapon_name == "fire_support":
+            fire_support = get_fire_support_instance()
+            if fire_support:
+                if hasattr(fire_support, "unequip"):
+                    fire_support.unequip()
+                if hasattr(fire_support, "reset_runtime"):
+                    fire_support.reset_runtime()
+        elif weapon_name == "bowling_trap":
+            bowling_trap = get_bowling_trap_instance()
+            if bowling_trap and hasattr(bowling_trap, "unequip"):
+                bowling_trap.unequip()
+        elif weapon_name == "suicide_drone":
+            _reset_suicide_drone_state()
+        elif weapon_name == "ak47":
+            ak47 = get_ak47_instance()
+            if ak47 and hasattr(ak47, "deactivate"):
+                ak47.deactivate()
+        elif weapon_name == "bazooka":
+            from item_effects.bazooka import get_bazooka_instance
+
+            bazooka = get_bazooka_instance()
+            if bazooka and hasattr(bazooka, "unequip"):
+                bazooka.unequip()
+
+
+def reset_soldier_firearms_for_new_stage(stage_num: int) -> None:
+    """실제 스테이지 전환 시 코만도 대여 정리 + 영구 화기 리필."""
+    global soldier_down_tap_timer, soldier_down_tap_count, soldier_down_tap_suppress_timer
+    global soldier_emergency_supply_toast_timer
+
+    soldier_down_tap_timer = 0
+    soldier_down_tap_count = 0
+    soldier_down_tap_suppress_timer = 0
+    soldier_emergency_supply_toast_timer = 0
+
+    _remove_expired_soldier_rentals(stage_num)
+    _sync_soldier_weapon_inventory()
+    # 기본 슬롯(새총)은 탄약 개념이 없으므로 리필 호출 불필요.
+    # 권총(commando_pistol) 포함 permanent firearm 들의 탄환/탄창을 모두 리필.
+    for weapon_name in list(soldier_controller.permanent_owned):
+        _refill_soldier_weapon_ammo(weapon_name)
 
 # === 바주카포 반동 효과 ===
 bazooka_recoil_timer = 0  # 반동 시각 효과 타이머
@@ -59219,6 +66496,10 @@ soldier_last_reload_bullets = 0  # 재장전 중 마지막으로 표시된 총�
 SOLDIER_PISTOL_BASE_MAX_AMMO = 4  # 권총 기본 최대 탄약 (런타임 스킬로 증가 가능)
 soldier_pistol_ammo = 4  # 권총 현재 탄약
 SOLDIER_PISTOL_MAX_AMMO = 4  # 권총 최대 탄약 (런타임 스킬 적용 후)
+
+# 권총 탄창(매거진) 관련 변수 — 재장전 1회당 탄창 1개 소비, 0이 되면 재장전 불가
+SOLDIER_PISTOL_MAGAZINE_MAX = 3  # 권총 1 세션당 재장전 가능 횟수 (스테이지/비상보급으로 리필)
+soldier_pistol_magazines = SOLDIER_PISTOL_MAGAZINE_MAX  # 남은 탄창 수
 
 
 def apply_soldier_magazine_mod():
@@ -59395,8 +66676,6 @@ SOLDIER_EMERGENCY_SUPPLY_TAP_WINDOW = int(0.25 * 60)
 soldier_down_tap_timer = 0
 soldier_down_tap_count = 0
 soldier_down_tap_suppress_timer = 0
-soldier_emergency_supply_used = False
-soldier_emergency_supply_stage = None
 soldier_emergency_supply_toast_timer = 0
 
 def _is_soldier_non_pistol_selected() -> bool:
@@ -59476,15 +66755,11 @@ def get_soldier_shot_probabilities() -> tuple[float, float]:
 
 
 def trigger_soldier_emergency_supply() -> bool:
-    """코만도 비상보급: 현재 장비한 화기류를 즉시 완전 장전"""
-    global special_gauge, soldier_emergency_supply_used, soldier_emergency_supply_toast_timer
-    global soldier_ammo_count, soldier_reloading, soldier_reload_timer, soldier_last_reload_bullets
-    global soldier_pistol_ammo
+    """코만도 비상보급: 현재 선택한 영구 화기류 1개의 탄창을 즉시 전부 보충."""
+    global special_gauge, soldier_emergency_supply_toast_timer
 
-    # 쿨타임 체크
     if is_soldier_skill_on_cooldown("emergency_supply"):
-        remaining = get_soldier_skill_cooldown_seconds("emergency_supply")
-        print(f"⏳ 긴급재보급 쿨타임 중: {remaining:.1f}초 남음")
+        print("⚠️ 긴급재보급이 아직 재사용 대기 중입니다.")
         return False
 
     if special_gauge < SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST:
@@ -59497,99 +66772,48 @@ def trigger_soldier_emergency_supply() -> bool:
 
     weapon_name = soldier_controller.weapons[soldier_controller.current_index]
 
-    if weapon_name != "pistol" and weapon_name in soldier_controller.degraded:
-        print(f"⚠️ 노후화된 {get_item_name_korean(weapon_name)}에는 비상보급을 사용할 수 없습니다.")
+    if weapon_name == "pistol":
+        print("⚠️ 긴급재보급은 현재 선택한 영구 화기류에만 사용할 수 있습니다.")
         return False
 
-    success = False
+    if not soldier_controller.is_permanent_weapon(weapon_name):
+        print(f"⚠️ 대여 중인 {get_item_name_korean(weapon_name)}에는 긴급재보급을 사용할 수 없습니다.")
+        return False
 
-    if weapon_name == "bazooka":
-        from item_effects.bazooka import get_bazooka_instance
+    current_ammo, max_ammo = get_weapon_ammo_info(weapon_name)
+    if max_ammo <= 0:
+        print(f"⚠️ {get_item_name_korean(weapon_name)}의 탄환 정보를 확인할 수 없습니다.")
+        return False
 
-        bazooka = get_bazooka_instance()
-        if bazooka:
-            bazooka.reload_with_special_ammo(track_reload=True)
-            bazooka.equip()
-            success = True
-        else:
-            print("⚠️ 바주카포 상태를 확인할 수 없어 비상보급에 실패했습니다.")
-    elif weapon_name == "ak47":
-        from item_effects.ak47 import get_ak47_instance
+    # 권총은 탄약+탄창 모두 가득 찼을 때만 차단
+    if weapon_name == "commando_pistol":
+        if current_ammo >= max_ammo and soldier_pistol_magazines >= SOLDIER_PISTOL_MAGAZINE_MAX:
+            print(f"⚠️ {get_item_name_korean(weapon_name)}의 탄환과 탄창이 이미 가득 찼습니다.")
+            return False
+    elif current_ammo >= max_ammo:
+        print(f"⚠️ {get_item_name_korean(weapon_name)}의 탄환이 이미 가득 찼습니다.")
+        return False
 
-        ak47 = get_ak47_instance()
-        if ak47:
-            was_active = getattr(ak47, "active", False)
-            ak47.refill_magazine(track_reload=True)
-            if was_active:
-                ak47.active = True
-            success = True
-        else:
-            print("⚠️ AK-47 상태를 확인할 수 없어 비상보급에 실패했습니다.")
-    elif weapon_name == "net_gun":
-        from item_effects.net_gun import get_net_gun_instance
-
-        net_gun = get_net_gun_instance()
-        if net_gun:
-            net_gun.reload(track_reload=True)
-            net_gun.equip()
-            success = True
-        else:
-            print("⚠️ 그물덫총 상태를 확인할 수 없어 비상보급에 실패했습니다.")
-    elif weapon_name == "suicide_drone":
-        # 자폭드론 탄약 리필 및 상태 초기화
-        globals()['soldier_drone_ammo'] = SUICIDE_DRONE_MAX_AMMO
-        _reset_suicide_drone_state()
-        success = True
-    elif weapon_name == "fire_support":
-        from item_effects.fire_support import get_fire_support_instance
-
+    if weapon_name == "fire_support":
         fire_support = get_fire_support_instance()
-        if fire_support:
-            if fire_support.is_active() or fire_support.calling:
-                print("⚠️ 화력지원 호출이 진행 중일 때는 비상보급을 사용할 수 없습니다.")
-                return False
-            max_ammo = max(1, getattr(fire_support, "max_ammo", getattr(fire_support, "MAX_AMMO", 1)))
-            fire_support.rearm(track_reload=True, ammo_override=max_ammo)
-            fire_support.clear_finished_flag()
-            fire_support.equip()
-            success = True
-        else:
-            print("⚠️ 화력지원 상태를 확인할 수 없어 비상보급에 실패했습니다.")
-    elif weapon_name == "bowling_trap":
-        from item_effects.bowling_trap import get_bowling_trap_instance
+        if fire_support and (fire_support.is_active() or fire_support.calling):
+            print("⚠️ 화력지원 호출이 진행 중일 때는 긴급재보급을 사용할 수 없습니다.")
+            return False
 
+    if weapon_name == "bowling_trap":
         bowling_trap = get_bowling_trap_instance()
-        if bowling_trap:
-            # 설치 중이면 비상보급 불가
-            if bowling_trap.installing:
-                # print("⚠️ 볼링트랩 설치 중에는 비상보급을 사용할 수 없습니다.")
-                return False
-            bowling_trap.reload(track_reload=True)
-            bowling_trap.equip()
-            success = True
-        else:
-            print("⚠️ 볼링트랩 상태를 확인할 수 없어 비상보급에 실패했습니다.")
-    elif weapon_name == "pistol":
-        soldier_ammo_count = soldier_max_ammo
-        soldier_reloading = False
-        soldier_reload_timer = 0
-        soldier_last_reload_bullets = soldier_ammo_count
-        soldier_pistol_ammo = get_soldier_pistol_max_ammo()
-        success = True
-    else:
-        print(f"⚠️ 지원하지 않는 화기류({weapon_name})에는 비상보급을 적용할 수 없습니다.")
+        if bowling_trap and bowling_trap.installing:
+            print("⚠️ 볼링트랩 설치 중에는 긴급재보급을 사용할 수 없습니다.")
+            return False
 
-    if not success:
+    if not _refill_soldier_weapon_ammo(weapon_name):
+        print(f"⚠️ {get_item_name_korean(weapon_name)} 상태를 확인할 수 없어 긴급재보급에 실패했습니다.")
         return False
 
     consume_special_gauge(SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST)
-    if weapon_name not in {"bazooka", "net_gun", "ak47", "fire_support", "bowling_trap"}:
-        register_weapon_reload(weapon_name)
+    trigger_soldier_skill_cooldown("emergency_supply")
     soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
     soldier_emergency_supply_toast_timer = 90
-
-    # 스킬 쿨타임 시작 (120초)
-    trigger_soldier_skill_cooldown("emergency_supply")
 
     print(f"🪖 비상보급 완료! {get_item_name_korean(weapon_name)} 탄약을 모두 장전했습니다.")
     return True
@@ -60816,9 +68040,15 @@ def update_plasma_wave():
         # 충격 사운드 재생 (전용 채널, 반복 재생)
         if SOUND_PLASMA_SHOCK and PLASMA_SHOCK_CHANNEL:
             if not plasma_shock_playing or not PLASMA_SHOCK_CHANNEL.get_busy():
-                SOUND_PLASMA_SHOCK.set_volume(sfx_volume * 0.6)
-                PLASMA_SHOCK_CHANNEL.play(SOUND_PLASMA_SHOCK, loops=-1)
-                plasma_shock_playing = True
+                # _ManagedSound 래퍼는 Channel.play 가 받지 못하므로 원본 Sound 로 언랩
+                _ps_raw = _unwrap_sound(SOUND_PLASMA_SHOCK)
+                if _ps_raw is not None:
+                    try:
+                        _ps_raw.set_volume(sfx_volume * 0.6)
+                    except Exception:
+                        pass
+                    PLASMA_SHOCK_CHANNEL.play(_ps_raw, loops=-1)
+                    plasma_shock_playing = True
     else:
         # 구체 범위 밖이면 둔화 타이머 감소
         if boss_plasma_slowed and boss_plasma_slow_timer > 0:
@@ -61163,7 +68393,7 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             if hasattr(net, "unequip"):
                 net.unequip()
         fire_support_weapon.unequip()
-    elif current_weapon == "pistol":
+    elif current_weapon in ("pistol", "commando_pistol"):
         if "bazooka" in soldier_controller.weapons:
             from item_effects.bazooka import get_bazooka_instance
 
@@ -61284,6 +68514,15 @@ def _launch_suicide_drone() -> bool:
         drone_size,
     )
     soldier_drone_ammo = max(0, soldier_drone_ammo - 1)
+    try:
+        removed = soldier_controller.release_rental_if_depleted(
+            "suicide_drone",
+            current_ammo=soldier_drone_ammo,
+        )
+        if removed:
+            soldier_switch_weapon(soldier_controller.current_index, play_sound=False)
+    except Exception:
+        pass
     suicide_drone_active = True
     suicide_drone_player_lock = (PLAYER.centerx, PLAYER.centery)
     globals()['suicide_drone_grace_timer'] = SUICIDE_DRONE_GRACE_FRAMES
@@ -61549,6 +68788,43 @@ def handle_fire_support_lockout() -> None:
     soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
 
 
+def reset_fire_support_for_round_transition() -> None:
+    """라운드 전환 시 발동 중인 화력지원을 취소한다.
+
+    진행 중이던 폭격기/폭탄/무전 상태와 오브 쿨다운만 정리하며,
+    탄약은 그대로 유지한다(탄약 리필은 스테이지 전환에서만 일어난다).
+    이미 사용을 끝낸 상태(스트라이크 비활성)라면 아무 작업도 하지 않는다.
+    """
+    global fire_support_radio_loop_active
+
+    if selected_character_type != "soldier":
+        return
+    if 'soldier_controller' not in globals() or soldier_controller is None:
+        return
+    try:
+        weapons = soldier_controller.weapons
+    except AttributeError:
+        return
+    if not weapons or "fire_support" not in weapons:
+        return
+
+    fire_support_weapon = get_fire_support_instance()
+    if fire_support_weapon is None:
+        return
+    # 발동 중일 때만 취소한다 (탄약 자동 리필 방지).
+    if not getattr(fire_support_weapon, "strike_active", False):
+        return
+
+    # 폭격기/폭탄/무전/reuse_locked 상태만 정리하고 ammo_count 는 건드리지 않는다.
+    fire_support_weapon.reset_state()
+    fire_support_weapon.equip()
+    # 오브 쿨다운도 초기화하여 다음 라운드에 즉시 재사용 가능하도록 한다.
+    if "fire_support" in _soldier_skill_cooldowns:
+        _soldier_skill_cooldowns["fire_support"] = 0
+    # 진행 중 스트라이크가 취소되었으므로 무전기 루프 플래그도 정리한다.
+    fire_support_radio_loop_active = False
+
+
 # === 좌측 필러 화기류 UI (게이지 구슬 위에 쌓아서 표시) ===
 def get_weapon_ammo_info(weapon_name: str) -> tuple[int, int]:
     """화기류의 현재 탄약과 최대 탄약 반환"""
@@ -61559,8 +68835,9 @@ def get_weapon_ammo_info(weapon_name: str) -> tuple[int, int]:
     from item_effects.bowling_trap import get_bowling_trap_instance
 
     if weapon_name == "pistol":
-        if is_slingshot_mode():
-            return (0, 0)  # 새총은 탄약 시스템 없음
+        # 새총은 탄약 시스템 없음 (기본 슬롯은 항상 새총)
+        return (0, 0)
+    elif weapon_name == "commando_pistol":
         # soldier_ammo_count가 실제 권총 발사에 사용되는 탄약 변수
         return (soldier_ammo_count, soldier_max_ammo)
     elif weapon_name == "bazooka":
@@ -62182,8 +69459,8 @@ def draw_pillar_weapon_inventory(surface: pygame.Surface, orb_center_x: int, orb
         # 히트박스는 slot_rect와 완전히 동일하게 설정 (아이콘 렌더링 영역과 일치)
         _pillar_weapon_slots.append((weapon_name, slot_rect.copy()))
 
-        # 노후화 여부 확인
-        is_degraded = weapon_name in soldier_controller.degraded
+        # 대여 여부 확인
+        is_rental = soldier_controller.is_rental_weapon(weapon_name)
 
         # 탄약 정보 가져오기
         current_ammo, max_ammo = get_weapon_ammo_info(weapon_name)
@@ -62241,8 +69518,8 @@ def draw_pillar_weapon_inventory(surface: pygame.Surface, orb_center_x: int, orb
             # 밝은 배경
             pygame.draw.rect(surface, (50, 50, 55), slot_rect)
             pygame.draw.rect(surface, hover_color, slot_rect, 2)
-        elif is_degraded:
-            # 노후화 배경 (일반과 동일하게)
+        elif is_rental:
+            # 대여 배경
             pygame.draw.rect(surface, (40, 40, 40), slot_rect)
             pygame.draw.rect(surface, (100, 100, 100), slot_rect, 2)
         else:
@@ -62570,8 +69847,8 @@ def draw_pillar_weapon_inventory(surface: pygame.Surface, orb_center_x: int, orb
                         pygame.draw.rect(surface, (40, 40, 45), (bx + 1, by + 6, bullet_width - 2, bullet_height - 8))
                         pygame.draw.rect(surface, (35, 35, 40), (bx + 1, by + 6, bullet_width - 2, bullet_height - 8), 1)
 
-        # === 노후화 경고 마커 (항상 표시) ===
-        if is_degraded:
+        # === 대여 경고 마커 (항상 표시) ===
+        if is_rental:
             warning_size = 12
             warning_x = slot_rect.right - warning_size - 2
             warning_y = slot_rect.top + 2
@@ -62750,7 +70027,7 @@ def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
     import math  # net_gun 그물 패턴 등에서 사용
     icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
     # 모든 무기를 커스텀 3D 스타일로 통일 (인게임 좌측하단 UI 스타일)
-    custom_only_weapons = {"pistol", "net_gun", "bazooka", "ak47", "suicide_drone", "fire_support", "bowling_trap"}
+    custom_only_weapons = {"pistol", "commando_pistol", "net_gun", "bazooka", "ak47", "suicide_drone", "fire_support", "bowling_trap"}
     if weapon_name not in custom_only_weapons:
         candidate_paths = (
             resource_path(f"items/{weapon_name}.png"),
@@ -62763,8 +70040,8 @@ def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
 
     center = (size // 2, size // 2)
 
-    if weapon_name == "pistol" and is_slingshot_mode():
-        # === 군용 택티컬 슬링샷 아이콘 (밀리터리 3D) ===
+    if weapon_name == "pistol":
+        # === 군용 택티컬 슬링샷 아이콘 (기본 슬롯 = 항상 새총) ===
         s = size
         fd, fm, fl, fh = (40, 45, 38), (65, 72, 58), (90, 100, 80), (115, 125, 100)
         gd, gm, gl = (35, 30, 25), (55, 48, 38), (75, 65, 50)
@@ -62818,7 +70095,7 @@ def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
         pygame.draw.line(icon_surface, bi, (cx+st, ft), (cx, bmy), 1)
         return icon_surface
 
-    elif weapon_name == "pistol":
+    elif weapon_name == "commando_pistol":
         # === 고퀄리티 3D 권총 아이콘 (메인 화면 스타일과 동기화) ===
         # 색상 정의
         grip_dark = (50, 35, 18)
@@ -63604,6 +70881,7 @@ falling_tears = []  # [(x, y, speed)] 리스트
 last_tears_cast_time = -9999  # 마지막 눈물샤워 발동 시간
 TEARS_COOLDOWN = 7000        # 쿨타임 (밀리초 단위 = 5초)
 item_state_adapter.clear_passive_items()
+advance_bootstrap_loading("보스 스프라이트 동기화 중..", 0.97, animation_duration=0.18)
 try:
     BOSS_IMG_STAGE1 = pygame.image.load(resource_path("boss_stage1.png")).convert_alpha()
     BOSS_IMG_STAGE1 = pygame.transform.scale(BOSS_IMG_STAGE1, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -63726,6 +71004,8 @@ except Exception as e:
     stage8_boss_sprite = None
     STAGE8_BOSS_ANIMATION_AVAILABLE = False
 
+advance_bootstrap_loading("후반 보스 비주얼 준비 중..", 0.98, animation_duration=0.18)
+
 # Stage 9 보스 (미노타우로스) 걷기 애니메이션 초기화
 try:
     from entities.tauren_boss_sprite import (
@@ -63753,8 +71033,8 @@ try:
         MenheraBossSprite,
     )
     menhera_boss_sprite = init_menhera_boss_sprite(
-        width=BOSS_IMG_WIDTH,
-        height=BOSS_IMG_HEIGHT,
+        width=int(round(BOSS_IMG_WIDTH * 1.1)),
+        height=int(round(BOSS_IMG_HEIGHT * 1.1)),
     )
     MENHERA_BOSS_ANIMATION_AVAILABLE = True
 except Exception as e:
@@ -63771,8 +71051,8 @@ try:
         HonglyeonBossSprite,
     )
     honglyeon_boss_sprite = init_honglyeon_boss_sprite(
-        width=BOSS_IMG_STAGE5_WIDTH,
-        height=BOSS_IMG_STAGE5_HEIGHT,
+        width=100,
+        height=88,
     )
     HONGLYEON_BOSS_ANIMATION_AVAILABLE = True
 except Exception as e:
@@ -64445,6 +71725,109 @@ except Exception:
 _pingpong_ball_cache = {}  # 크기별 캐시 {size: scaled_surface}
 _pingpong_ball_angle = 0.0  # 탁구공 회전 각도
 
+_draw_item_scaled_cache: dict[tuple[str, int, int], pygame.Surface] = {}
+_draw_item_rotated_cache: dict[tuple[str, int, int, int], pygame.Surface] = {}
+_new_boss_mode_player_cache: dict[int, pygame.Surface] = {}
+_speed_defense_trail_scale_cache: dict[tuple[int, int], pygame.Surface] = {}
+_stun_star_glow_cache: dict[int, pygame.Surface] = {}
+_DRAW_ITEM_ROTATION_BUCKET_DEGREES = 5
+
+
+def _get_draw_item_source(item_name: str) -> pygame.Surface | None:
+    if item_name == "molotov":
+        return molotov_icon
+    if item_name == "grenade":
+        return grenade_icon
+    if item_name == "flare":
+        return flare_icon
+    if item_name == "smoke_grenade":
+        return smoke_grenade_icon
+    return get_item_icon(item_name)
+
+
+def _get_cached_draw_item_scaled_icon(item_name: str, size: tuple[int, int]) -> pygame.Surface | None:
+    key = (item_name, int(size[0]), int(size[1]))
+    cached = _draw_item_scaled_cache.get(key)
+    if cached is not None:
+        return cached
+
+    source_icon = _get_draw_item_source(item_name)
+    if source_icon is None:
+        return None
+
+    if source_icon.get_size() == size:
+        scaled_icon = source_icon
+    else:
+        scaled_icon = pygame.transform.scale(source_icon, size)
+
+    _draw_item_scaled_cache[key] = scaled_icon
+    return scaled_icon
+
+
+def _get_cached_draw_item_rotated_icon(
+    item_name: str,
+    size: tuple[int, int],
+    angle: float,
+) -> pygame.Surface | None:
+    bucket = int(round(float(angle) / _DRAW_ITEM_ROTATION_BUCKET_DEGREES)) * _DRAW_ITEM_ROTATION_BUCKET_DEGREES
+    key = (item_name, int(size[0]), int(size[1]), bucket)
+    cached = _draw_item_rotated_cache.get(key)
+    if cached is not None:
+        return cached
+
+    scaled_icon = _get_cached_draw_item_scaled_icon(item_name, size)
+    if scaled_icon is None:
+        return None
+
+    rotated_icon = pygame.transform.rotate(scaled_icon, bucket)
+    _draw_item_rotated_cache[key] = rotated_icon
+    return rotated_icon
+
+
+def _get_cached_new_boss_mode_player_surface(bottom_boss_id: int) -> pygame.Surface | None:
+    cached = _new_boss_mode_player_cache.get(bottom_boss_id)
+    if cached is not None:
+        return cached
+
+    if bottom_boss_id == 1:
+        source = BOSS_IMG_STAGE1
+    elif bottom_boss_id == 2:
+        source = BOSS_IMG_STAGE2
+    else:
+        return None
+
+    cached = pygame.transform.scale(source, (250, 100))
+    _new_boss_mode_player_cache[bottom_boss_id] = cached
+    return cached
+
+
+def _get_cached_speed_defense_trail_surface(width: int, height: int) -> pygame.Surface:
+    key = (int(width), int(height))
+    cached = _speed_defense_trail_scale_cache.get(key)
+    if cached is not None:
+        return cached
+
+    cached = pygame.transform.scale(SPEED_DEFENSE_IMG, key)
+    _speed_defense_trail_scale_cache[key] = cached
+    return cached
+
+
+def _get_cached_stun_star_glow_surface(star_size: int) -> pygame.Surface:
+    star_size = int(star_size)
+    cached = _stun_star_glow_cache.get(star_size)
+    if cached is not None:
+        return cached
+
+    glow_diameter = max(1, star_size * 3)
+    glow_center = int(star_size * 1.5)
+    cached = pygame.Surface((glow_diameter, glow_diameter), pygame.SRCALPHA)
+    pygame.draw.circle(cached, (255, 255, 100, 60), (glow_center, glow_center), star_size)
+    _stun_star_glow_cache[star_size] = cached
+    return cached
+
+advance_bootstrap_loading("보스 애셋 마무리 중..", 0.99, animation_duration=0.24)
+advance_bootstrap_loading("게임 시작 준비 중...", 1.0, animation_duration=0.18)
+
 hit_animation_active = False
 hit_animation_timer = 0
 HIT_ANIMATION_DURATION = 6  # 프레임 수
@@ -64542,7 +71925,9 @@ quake_active = False
 quake_duration = 80
 quake_timer = 0
 quake_rng = None  # 정글지진 전용 난수 발생기 (예측 정확도 향상용)
-QUAKE_SHAKE_SCALE = 0.8  # 정글지진 공 흔들림 강도 20% 감소
+quake_boss_launch_guard_timer = 0  # 보스가 정글지진 직후 친 공이 뒤로 되감기지 않도록 짧게 보호
+QUAKE_BOSS_LAUNCH_GUARD_FRAMES = 22
+QUAKE_SHAKE_SCALE = 0.95  # 정글지진 공 랜덤 교란 강도 (신의 심판보다 살짝 낮음)
 # 화면 흔들림 효과 (라그나로크 해머 등)
 screen_shake_timer = 0
 screen_shake_intensity = 0
@@ -64553,7 +71938,7 @@ def reset_screen_shake_state() -> None:
     global screen_shake_offset_x, screen_shake_offset_y
     global grenade_shake_timer, bazooka_screen_shake_timer
     global earthquake_offset_x, earthquake_offset_y
-    global quake_active, quake_timer, quake_rng
+    global quake_active, quake_timer, quake_rng, quake_boss_launch_guard_timer
     global screen_shake_timer, screen_shake_intensity
 
     screen_shake_offset_x = 0
@@ -64565,8 +71950,56 @@ def reset_screen_shake_state() -> None:
     quake_active = False
     quake_timer = 0
     quake_rng = None
+    quake_boss_launch_guard_timer = 0
     screen_shake_timer = 0
     screen_shake_intensity = 0
+
+
+def _apply_stage2_quake_boss_launch_guard() -> bool:
+    """악어장군이 정글지진 직후 친 공이 자기 뒤로 말려 올라가는 상황을 짧게 차단한다."""
+    global quake_boss_launch_guard_timer, ball_vel
+
+    if quake_boss_launch_guard_timer <= 0:
+        return False
+
+    boss = globals().get("BOSS")
+    ball = globals().get("BALL")
+    if (
+        current_stage != 2
+        or current_boss_name != "악어장군"
+        or not quake_active
+        or globals().get("last_hit_by") != "boss"
+        or boss is None
+        or ball is None
+    ):
+        quake_boss_launch_guard_timer = 0
+        return False
+
+    quake_boss_launch_guard_timer = max(0, quake_boss_launch_guard_timer - 1)
+
+    safe_top = boss.bottom + max(6, ball.height // 2 + 2)
+    min_down_speed = min(
+        12.5,
+        max(BALL_BASE_SPEED * 0.55, abs(original_ball_speed_quake[1]) * 0.45, 3.5),
+    )
+
+    guarded = False
+    if ball.top < safe_top:
+        ball.top = safe_top
+        guarded = True
+    if ball_vel[1] < min_down_speed:
+        ball_vel[1] = min_down_speed
+        guarded = True
+
+    if guarded and DEBUG_STAGE2_QUAKE:
+        debug_stage2_quake(
+            "boss_launch_guard",
+            timer=quake_boss_launch_guard_timer,
+            ball_top=ball.top,
+            boss_bottom=boss.bottom,
+            vel_y=f"{ball_vel[1]:.2f}",
+        )
+    return guarded
 
 
 RESTART_DEBUG_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "restart_debug_log.txt")
@@ -64978,6 +72411,7 @@ def draw_jupiter_ring(surface, paddle_rect):
         pygame.draw.circle(surface, glow_color, (int(x), int(y)), int(segment_size // 2))
 def show_hongryun_explosion():
     """Stage 5 홍련폭염 발동 시 화면 연출"""
+    _stage6_ball_mark_phase("modal:hongryun_inferno_intro")
     overlay = pygame.Surface((WIDTH, HEIGHT))
     overlay.fill((255, 60, 30))  # 붉은빛
     for alpha in range(0, 200, 20):  # 페이드 인
@@ -64992,6 +72426,44 @@ def show_hongryun_explosion():
         SCREEN.blit(overlay, (0, 0))
         pygame.display.flip()
         pygame.time.delay(HALF_SECOND_FRAMES)
+
+
+def trigger_current_boss_victory_animation() -> None:
+    """Trigger stage-specific boss victory animations before winner overlays."""
+    try:
+        if (
+            current_stage == 3
+            and current_boss_name == "멘헤라걸"
+            and MENHERA_BOSS_ANIMATION_AVAILABLE
+            and menhera_boss_sprite is not None
+        ):
+            menhera_boss_sprite.trigger_victory()
+            return
+
+        if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+            stage8_boss_sprite.trigger_victory()
+    except Exception:
+        pass
+
+
+def trigger_current_boss_defeat_animation() -> None:
+    """Trigger stage-specific boss defeat animations before player-win overlays."""
+    try:
+        if (
+            current_stage == 3
+            and current_boss_name == "멘헤라걸"
+            and MENHERA_BOSS_ANIMATION_AVAILABLE
+            and menhera_boss_sprite is not None
+        ):
+            menhera_boss_sprite.trigger_defeat()
+            return
+
+        if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+            stage8_boss_sprite.trigger_defeat()
+    except Exception:
+        pass
+
+
 def show_winner_text(winner_name):
     """승리 텍스트 표시 - DialogSystem 사용"""
     global speech_text, speech_timer
@@ -65189,6 +72661,7 @@ def go_to_next_round():
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint
     global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count, friend_moles_all_golden, friend_moles_spawn_total_count
 
+    _stage6_ball_mark_phase("round_reset:start")
     preserved_doping_state = None
     impact_feedback.clear()
     # 라운드 시작 카운트 기록
@@ -65283,8 +72756,8 @@ def go_to_next_round():
             screen_shake_timer = 180  # 3초간 화면 흔들림
             screen_shake_intensity = 15  # 강한 흔들림
 
-            # 쿠로미 각성 사운드 재생
-            play_cached_sound("sounds/kuromiawake.wav")
+            # 쿠로미 각성 사운드는 컷신 성격이라 채널 포화 시에도 강제로 재생한다.
+            play_cached_sound("sounds/kuromiawake.wav", force=True)
 
             if DEBUG_BOSS:
                 print("Stage 3: 쿠로미 각성 시작! 화면 지진 효과 활성화")
@@ -65395,6 +72868,7 @@ def go_to_next_round():
     _judgment_wind_curve_effects = []
     _judgment_wind_ball_immunity = 0.0
     _judgment_wind_sound_playing = False
+    reset_gods_stone_judgment_runtime()
 
     # 🐍 바이퍼 스킬 상태 초기화 (라운드 전환 시 진행 중인 스킬 강제 종료)
     global _viper_nerve_strike_active, _viper_nerve_strike_phase, _viper_nerve_strike_combo_used
@@ -65402,7 +72876,11 @@ def go_to_next_round():
     global _viper_ns_hit_confirmed, _viper_ns_freeze_active
     global _viper_wall_dive_active, _viper_wall_dive_phase, _viper_wall_dive_particles, _viper_wall_dive_web_lines
     global _viper_wall_dive_ready, _viper_wall_dive_ready_timer, _viper_wall_dive_ball_hit
+    global _viper_wall_dive_phantom_allowed
     global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
+    global _viper_last_dash_start_ms, _viper_core_flip_ready_ms, _viper_core_flip_consumed
+    global _viper_core_flip_buffered_until_ms
+    global _viper_core_flip_attack_end_frame, _viper_core_flip_dark_blade_handoff_until_ms
     # 마샬 킥/팬텀 킥이 공을 때리기 전에 라운드가 끝나면 쿨타임 초기화
     if _viper_wall_dive_active and not _viper_wall_dive_ball_hit:
         if _viper_is_double_marshal:
@@ -65413,6 +72891,7 @@ def go_to_next_round():
     global _viper_blade_rush_active, _viper_br_spin_active, _viper_br_spin_phase, _viper_br_dark_mode
     global _viper_dark_blade_active, _viper_dark_blade_window, _viper_blade_rush_width
     global _viper_dark_blade_combo_window, _viper_dark_blade_fire_ms
+    global _viper_air_blade_combo_window, _viper_air_blade_fire_ms
     global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_particles
     global _viper_speed_boost_active
     global _viper_phantom_strike_active, _viper_phantom_strike_timer
@@ -65430,6 +72909,7 @@ def go_to_next_round():
     _viper_wall_dive_phase = 0
     _viper_wall_dive_ready = False
     _viper_wall_dive_ready_timer = 0
+    _viper_wall_dive_phantom_allowed = True
     _viper_wall_dive_ball_hit = False
     _viper_wall_dive_particles = []
     _viper_wall_dive_web_lines = []
@@ -65437,6 +72917,25 @@ def go_to_next_round():
     _viper_double_marshal_ready = False
     _viper_double_marshal_ready_timer = 0
     _viper_is_double_marshal = False
+    _viper_last_dash_start_ms = 0
+    _viper_core_flip_ready_ms = 0
+    _viper_core_flip_consumed = True
+    _viper_core_flip_buffered_until_ms = 0
+    _viper_core_flip_attack_end_frame = -999999
+    _viper_core_flip_dark_blade_handoff_until_ms = 0
+    global _viper_core_flip_attack_active, _viper_core_flip_attack_phase
+    global _viper_core_flip_attack_ball_hit, _viper_core_flip_attack_spin_angle_deg
+    global _viper_core_flip_attack_spin_snd_started, _viper_core_flip_attack_kick_snd_played
+    global _viper_core_flip_web_lines, _viper_core_flip_wall_x, _viper_core_flip_wall_y
+    _viper_core_flip_attack_active = False
+    _viper_core_flip_attack_phase = 0
+    _viper_core_flip_attack_ball_hit = False
+    _viper_core_flip_attack_spin_angle_deg = 0.0
+    _viper_core_flip_attack_spin_snd_started = False
+    _viper_core_flip_attack_kick_snd_played = False
+    _viper_core_flip_web_lines = []
+    _viper_core_flip_wall_x = 0.0
+    _viper_core_flip_wall_y = 0.0
     _viper_phantom_kick_knockback_pending = False
     global _viper_phantom_aura_active, _viper_phantom_aura_start_ms, _viper_phantom_hit_particles
     _viper_phantom_aura_active = False
@@ -65451,6 +72950,8 @@ def go_to_next_round():
     _viper_dark_blade_window = False
     _viper_dark_blade_combo_window = False
     _viper_dark_blade_fire_ms = 0
+    _viper_air_blade_combo_window = False
+    _viper_air_blade_fire_ms = 0
     _viper_blade_rush_width = 350
     _viper_br_spin_active = False
     _viper_br_spin_phase = 0
@@ -65465,6 +72966,7 @@ def go_to_next_round():
     _viper_ss_wave_hit_ball = False
     _viper_ss_wave_trail = []
     _viper_ss_ball_touched = False
+    _reset_viper_chaos_spear_state(clear_command=True)
     boss_confused_timer = 0
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
@@ -65560,7 +73062,7 @@ def go_to_next_round():
     # 필살기 상태 리셋 (게이지는 유지)
     special_active = False
     #  게이지가 400 기준이면 준비 상태로, 아니면 False
-    special_ready = (special_gauge >= 350)  # 파워스매시 비용 조정: 400 → 350
+    special_ready = (special_gauge >= 300)  # 파워스매시 비용 조정: 400 → 350 → 300
     # 보스 스킬 상태 초기화
     whip_active = False
     whip_timer = 0
@@ -65704,6 +73206,7 @@ def go_to_next_round():
     global web_traps, web_trap_last_used
     web_traps[:] = [t for t in web_traps if t.get("rage")]  # 붉은 거미줄은 유지
     web_trap_last_used = -9999
+    web_trap_pending_stars.clear()
     #  홍련폭염 상태 초기화
     flame_trail_active = False
     flame_trail_positions.clear()
@@ -66337,7 +73840,7 @@ def apply_effect(effect_name, item_data=None):
         current_max = get_max_gauge()
         special_gauge = min(current_max, special_gauge + 220)
         #  게이지가 400 이상이면 special_ready 활성화
-        if special_gauge >= 350:  # 파워스매시 발동 조건
+        if special_gauge >= 300:  # 파워스매시 발동 조건
             special_ready = True
         print("!   220 !")
     elif effect_name == "aipill":  #  AI 필 아이템 활성화
@@ -66433,7 +73936,7 @@ def apply_effect(effect_name, item_data=None):
         current_max = get_max_gauge()
         special_gauge = min(current_max, special_gauge + 500)
         # 게이지가 400 이상이면 special_ready 활성화
-        if special_gauge >= 350:  # 파워스매시 발동 조건
+        if special_gauge >= 300:  # 파워스매시 발동 조건
             special_ready = True
         print("!   500 !")
         # 무지개 이펙트 (선택사항)
@@ -66566,6 +74069,8 @@ def apply_effect(effect_name, item_data=None):
             # 날씨가 없거나 이미 페이드아웃 중일 때는 아이템을 소모하지 않음
             print("🌤️ 기상조절캡슐: 현재 활성화된 날씨 이벤트가 없습니다.")
             return  # 아이템 소모 안 함
+    elif effect_name == "gods_stone":  # 신의 돌 액티브 아이템
+        return activate_gods_stone()
     elif effect_name == "dynamite":  # 🧨 다이너마이트 액티브 아이템
         # 라운드 시작 3초 제한 체크
         current_time = pygame.time.get_ticks()
@@ -68939,6 +76444,7 @@ def draw_inwang_gate(screen):
 
 def activate_quake(animated_bg=None):
     global quake_active, quake_timer, PLAYER_SPEED, original_ball_speed_quake, quake_rng
+    global quake_boss_launch_guard_timer
     global serve_grace_period, current_stage, boss_special_gauge  # 난이도 하향 + 게이지 추가
 
     # Stage 2에서 서브 유예 기간 중에는 정글지진 발동 방지 (난이도 하향)
@@ -68966,6 +76472,10 @@ def activate_quake(animated_bg=None):
     quake_active = True
     quake_timer = quake_duration
     quake_rng = random.Random(random.randrange(1 << 30))
+    if current_stage == 2 and current_boss_name == "악어장군" and globals().get("last_hit_by") == "boss":
+        quake_boss_launch_guard_timer = QUAKE_BOSS_LAUNCH_GUARD_FRAMES
+    else:
+        quake_boss_launch_guard_timer = 0
     PLAYER_SPEED = 1
     #  현재 공 속도 백업 (너무 빠른 속도는 미리 제한)
     current_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -68988,9 +76498,10 @@ def activate_quake(animated_bg=None):
     #  정글지진 스킬 발동 시 바위 소환 (난이도별: 주니어/프로 1~2개, 챔피언 2~4개)
     if current_stage == 2 and animated_bg_stage2 is not None:
         print(f"Stage 2 spawn_skill_rocks (enraged={enraged_boss_active}, difficulty={ai_mode})")
+        animated_bg_stage2.earthquake_duration = max(1, int(quake_duration))
         animated_bg_stage2.spawn_skill_rocks(enraged=enraged_boss_active, difficulty=ai_mode)
         #  정글지진 효과 시작 (화면 흔들림)
-        animated_bg_stage2.trigger_earthquake()
+        animated_bg_stage2.trigger_earthquake(quake_duration)
         print("Stage 2 trigger_earthquake")
     
     show_speech("정글지진!", duration=90)
@@ -70395,11 +77906,15 @@ def activate_web_trap():
                              GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 20))
     ty = float(_rng.randint(WEB_TRAP_Y_MIN, WEB_TRAP_Y_MAX))
 
+    # 30% 확률로 황금거미줄 (파괴 시 스타포인트 드랍)
+    is_golden = _rng.random() < 0.30
+
     web_trap_projectile = {
         "sx": sx, "sy": sy,       # 출발점 (보스 입)
         "tx": tx, "ty": ty,       # 도착점 (장판 위치)
         "timer": 0,
         "duration": WEB_TRAP_TRAVEL_FRAMES,
+        "golden": is_golden,
     }
 
     web_trap_last_used = pygame.time.get_ticks()
@@ -70425,7 +77940,22 @@ def activate_web_trap():
 
 def update_web_traps():
     """거미줄 투사체 이동 + 장판 타이머 갱신 + 대쉬 파괴."""
-    global web_traps, web_trap_projectile
+    global web_traps, web_trap_projectile, web_trap_pending_stars
+
+    # ─── 황금거미줄 파괴 후 지연 스타 스폰 처리 ───
+    if web_trap_pending_stars:
+        _still_pending = []
+        for pending in web_trap_pending_stars:
+            pending["delay"] -= 1
+            if pending["delay"] <= 0:
+                try:
+                    if trade_point_system is not None and hasattr(trade_point_system, "spawn_star"):
+                        trade_point_system.spawn_star(int(pending["x"]), int(pending["y"]), "golden_web")
+                except Exception:
+                    pass
+            else:
+                _still_pending.append(pending)
+        web_trap_pending_stars[:] = _still_pending
 
     # ─── 투사체 이동 처리 ───
     if web_trap_projectile is not None:
@@ -70446,6 +77976,7 @@ def update_web_traps():
                 "max_timer": WEB_TRAP_DURATION,
                 "phase": random.uniform(0, math.pi * 2),
                 "expand_timer": 12,  # 펼쳐짐 연출 (12프레임)
+                "golden": web_trap_projectile.get("golden", False),
             })
             web_trap_projectile = None
 
@@ -70487,6 +78018,13 @@ def update_web_traps():
                     play_cached_sound("sounds/spiderbite.wav", 0.6)
                 except Exception:
                     pass
+                # 황금거미줄 → 0.8초 후 스타포인트 드랍
+                if trap.get("golden"):
+                    web_trap_pending_stars.append({
+                        "x": int(trap["x"]),
+                        "y": int(trap["y"]),
+                        "delay": GOLDEN_WEB_STAR_SPAWN_DELAY,
+                    })
                 continue
 
     # 만료/파괴된 거미줄 제거
@@ -70501,6 +78039,7 @@ def _spawn_web_break_effect(trap):
     cx, cy = trap["x"], trap["y"]
     r = trap["radius"]
     is_rage = trap.get("rage", False)
+    is_golden = trap.get("golden", False)
 
     # 끊어진 거미줄 실 파편 (spoke 조각 8개)
     for i in range(8):
@@ -70516,6 +78055,7 @@ def _spawn_web_break_effect(trap):
             "length": length,
             "timer": 0, "max_timer": random.randint(25, 40),
             "rage": is_rage,
+            "golden": is_golden,
             "curl": random.uniform(-0.15, 0.15),  # 말림 효과
         })
 
@@ -70533,6 +78073,7 @@ def _spawn_web_break_effect(trap):
             "expand_speed": random.uniform(0.8, 2.0),
             "timer": 0, "max_timer": random.randint(20, 35),
             "rage": is_rage,
+            "golden": is_golden,
             "rot_speed": random.uniform(-0.06, 0.06),
         })
 
@@ -70550,6 +78091,7 @@ def _spawn_web_break_effect(trap):
             "size": random.uniform(1.5, 3.5),
             "timer": 0, "max_timer": random.randint(18, 32),
             "rage": is_rage,
+            "golden": is_golden,
             "gravity": 0.08,
         })
 
@@ -70621,6 +78163,16 @@ def draw_web_traps(screen):
         cx = sx + (tx - sx) * t
         cy = sy + (ty - sy) * t
 
+        proj_is_golden = proj.get("golden", False)
+        if proj_is_golden:
+            strand_col = (255, 215, 80)
+            ball_col = (255, 230, 120)
+            ball_glow = (220, 180, 40)
+        else:
+            strand_col = (230, 230, 230)
+            ball_col = (255, 255, 255)
+            ball_glow = (220, 220, 220)
+
         # 거미줄 실 — 보스 입에서 현재 위치까지 3줄 (약간 흔들림)
         time_ms = pygame.time.get_ticks()
         for strand in range(3):
@@ -70636,12 +78188,12 @@ def draw_web_traps(screen):
                 strand_pts.append((int(px), int(py)))
             if len(strand_pts) >= 2:
                 alpha = 160 - strand * 30
-                pygame.draw.lines(fx, (230, 230, 230, alpha), False, strand_pts, max(1, 2 - strand))
+                pygame.draw.lines(fx, (*strand_col, alpha), False, strand_pts, max(1, 2 - strand))
 
         # 투사체 선단 — 작은 거미줄 뭉치
         ball_r = max(4, int(8 * (0.5 + 0.5 * t)))
-        pygame.draw.circle(fx, (255, 255, 255, 200), (int(cx), int(cy)), ball_r)
-        pygame.draw.circle(fx, (220, 220, 220, 120), (int(cx), int(cy)), ball_r + 3)
+        pygame.draw.circle(fx, (*ball_col, 200), (int(cx), int(cy)), ball_r)
+        pygame.draw.circle(fx, (*ball_glow, 120), (int(cx), int(cy)), ball_r + 3)
 
     # ─── 장판 렌더링 ───
     for trap in web_traps:
@@ -70650,9 +78202,15 @@ def draw_web_traps(screen):
         remaining = trap["timer"]
         phase = trap["phase"]
         is_rage = trap.get("rage", False)
+        is_golden = trap.get("golden", False)
 
-        # 색상 결정 (일반=흰색, 분노=붉은색)
-        if is_rage:
+        # 색상 결정 (황금=금색 최우선, 일반=흰색, 분노=붉은색)
+        if is_golden:
+            col_base = (210, 170, 40)
+            col_spoke = (255, 215, 80)
+            col_ring = (255, 230, 120)
+            col_center = (255, 245, 180)
+        elif is_rage:
             col_base = (200, 50, 50)
             col_spoke = (255, 80, 80)
             col_ring = (255, 100, 100)
@@ -70672,18 +78230,26 @@ def draw_web_traps(screen):
             expand_ratio = max(0.05, min(1.0, expand_ratio))
             r = int(r * expand_ratio)
 
-        # 만료 2초 전(120프레임) 깜빡임 — 분노 장판은 깜빡임 없음
-        if not is_rage and remaining < 120 and (remaining // 8) % 2 == 0:
+        # 만료 2초 전(120프레임) 깜빡임 — 분노/황금 장판은 깜빡임 없음
+        if not is_rage and not is_golden and remaining < 120 and (remaining // 8) % 2 == 0:
             continue
 
-        # 맥동 효과
-        pulse = 1.0 + 0.05 * math.sin(phase * 2)
+        # 맥동 효과 (황금은 좀 더 큰 맥동)
+        if is_golden:
+            pulse = 1.0 + 0.08 * math.sin(phase * 3)
+        else:
+            pulse = 1.0 + 0.05 * math.sin(phase * 2)
         pr = int(r * pulse)
         if pr < 2:
             continue
 
         # 반투명 원형 바탕
-        base_alpha = 100 if is_rage else min(120, int(160 * (remaining / trap["max_timer"])))
+        if is_golden:
+            base_alpha = 140
+        elif is_rage:
+            base_alpha = 100
+        else:
+            base_alpha = min(120, int(160 * (remaining / trap["max_timer"])))
         pygame.draw.circle(fx, (*col_base, base_alpha // 2), (trap_cx, trap_cy), pr)
 
         # 방사형 spokes 8줄
@@ -70718,7 +78284,10 @@ def draw_web_traps(screen):
         alpha = max(0, int(220 * (1.0 - t * t)))  # 부드러운 페이드아웃
         if alpha <= 0:
             continue
-        if p.get("rage"):
+        if p.get("golden"):
+            col_strand = (255, 225, 110)
+            col_frag = (240, 200, 60)
+        elif p.get("rage"):
             col_strand = (255, 80, 80)
             col_frag = (200, 50, 50)
         else:
@@ -71129,9 +78698,12 @@ def update_spider_rage():
         except Exception:
             tx = float(_rng.randint(GAME_AREA_OFFSET_X + 30, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30))
         ty = float(_rng.randint(WEB_TRAP_Y_MIN, WEB_TRAP_Y_MAX))
+        # 30% 확률로 황금(분노)거미줄
+        is_golden = _rng.random() < 0.30
         spider_rage_projectiles.append({
             "sx": sx, "sy": sy, "tx": tx, "ty": ty,
-            "timer": 0, "duration": WEB_TRAP_TRAVEL_FRAMES
+            "timer": 0, "duration": WEB_TRAP_TRAVEL_FRAMES,
+            "golden": is_golden,
         })
         # 발사 사운드
         try:
@@ -71163,7 +78735,8 @@ def update_spider_rage():
                 "timer": 999999, "max_timer": 999999,
                 "phase": 0.0,
                 "expand_timer": 12,
-                "rage": True
+                "rage": True,
+                "golden": proj.get("golden", False),
             })
             finished.append(proj)
     for f in finished:
@@ -71194,9 +78767,19 @@ def draw_spider_rage_projectiles(screen):
         cx = sx + (tx - sx) * t
         cy = sy + (ty - sy) * t
 
-        # 메인 굵은 실 (붉은색)
+        # 황금 vs 분노 색 결정
+        if proj.get("golden"):
+            col_main = (255, 215, 80)
+            col_aux = (220, 180, 40)
+            col_glow = (255, 235, 140)
+        else:
+            col_main = (255, 80, 80)
+            col_aux = (200, 50, 50)
+            col_glow = (255, 100, 100)
+
+        # 메인 굵은 실
         alpha = min(255, int(255 * min(1.0, raw_t * 2.0)))
-        pygame.draw.line(fx, (255, 80, 80, alpha), (int(sx), int(sy)), (int(cx), int(cy)), 3)
+        pygame.draw.line(fx, (*col_main, alpha), (int(sx), int(sy)), (int(cx), int(cy)), 3)
 
         # 보조 실 3가닥
         for i in range(3):
@@ -71207,12 +78790,12 @@ def draw_spider_rage_projectiles(screen):
             pts = [(int(sx) + spread // 2, int(sy)),
                    (int(mid_x), int(mid_y)),
                    (int(cx) + spread // 3, int(cy))]
-            pygame.draw.lines(fx, (200, 50, 50, min(200, alpha)), False, pts, 2)
+            pygame.draw.lines(fx, (*col_aux, min(200, alpha)), False, pts, 2)
 
         # 선두 발광
         if t > 0.05:
             glow_r = int(8 + 4 * math.sin(proj["timer"] * 0.5))
-            pygame.draw.circle(fx, (255, 100, 100, 200), (int(cx), int(cy)), glow_r)
+            pygame.draw.circle(fx, (*col_glow, 200), (int(cx), int(cy)), glow_r)
 
     screen.blit(fx, (0, 0))
 
@@ -71573,6 +79156,7 @@ def stop_quake_sound():
     SOUND_QUAKE.stop()
 def handle_quake():
     global quake_active, quake_timer, PLAYER_SPEED, ball_vel, quake_rng
+    global quake_boss_launch_guard_timer
     if not quake_active:
         return
 
@@ -71581,26 +79165,39 @@ def handle_quake():
     if quake_timer > 0:
         quake_timer -= 1
 
-        if quake_rng:
-            shake_x = quake_rng.uniform(-3, 3) * QUAKE_SHAKE_SCALE
-            shake_y = quake_rng.uniform(-2, 2) * QUAKE_SHAKE_SCALE
+        quake_progress = 1.0 - (quake_timer / max(1, quake_duration))
+        if quake_progress < 0.18:
+            impulse_scale = 1.0
+        elif quake_progress < 0.72:
+            mid_p = (quake_progress - 0.18) / 0.54
+            impulse_scale = 1.0 - mid_p * 0.22
         else:
-            shake_x = random.uniform(-3, 3) * QUAKE_SHAKE_SCALE
-            shake_y = random.uniform(-2, 2) * QUAKE_SHAKE_SCALE
-        ball_vel[0] += shake_x
-        ball_vel[1] += shake_y
+            fade_p = (quake_progress - 0.72) / 0.28
+            impulse_scale = 0.78 * (1.0 - fade_p)
+
+        if quake_rng:
+            shake_x = quake_rng.uniform(-7.6, 7.6) * QUAKE_SHAKE_SCALE * impulse_scale
+            shake_y = quake_rng.uniform(-5.2, 5.2) * QUAKE_SHAKE_SCALE * impulse_scale
+        else:
+            shake_x = random.uniform(-7.6, 7.6) * QUAKE_SHAKE_SCALE * impulse_scale
+            shake_y = random.uniform(-5.2, 5.2) * QUAKE_SHAKE_SCALE * impulse_scale
+        wave_x = math.sin((quake_duration - quake_timer) * 0.95) * 0.95 * impulse_scale
+        wave_y = math.cos((quake_duration - quake_timer) * 1.2) * 0.72 * impulse_scale
+        ball_vel[0] += shake_x + wave_x
+        ball_vel[1] += shake_y + wave_y
 
         dx = PLAYER.centerx - BALL.centerx
         dy = PLAYER.centery - BALL.centery
         distance = math.hypot(dx, dy)
         if distance > 10:
-            influence = 0.15 / distance
+            influence = 0.08 / distance
             ball_vel[0] += dx * influence * 0.01
             ball_vel[1] += dy * influence * 0.01
 
-        max_speed = 8.0
+        max_speed = 12.5
         ball_vel[0] = max(-max_speed, min(max_speed, ball_vel[0]))
         ball_vel[1] = max(-max_speed, min(max_speed, ball_vel[1]))
+        _apply_stage2_quake_boss_launch_guard()
 
         if DEBUG_STAGE2_QUAKE and quake_timer % 5 == 0:
             eq_timer = "n/a"
@@ -71624,6 +79221,7 @@ def handle_quake():
 
     quake_active = False
     quake_rng = None
+    quake_boss_launch_guard_timer = 0
     PLAYER_SPEED = 1
 
     ball_vel[0] = original_ball_speed_quake[0]
@@ -71654,6 +79252,7 @@ def handle_quake():
 def force_end_quake_on_player_hit():
     """Stage 2 정글지진이 플레이어 패들에 맞았을 때 지진 효과를 즉시 종료한다."""
     global quake_active, quake_timer, quake_rng, PLAYER_SPEED, ball_vel
+    global quake_boss_launch_guard_timer
 
     if not quake_active:
         return
@@ -71662,6 +79261,7 @@ def force_end_quake_on_player_hit():
     quake_active = False
     quake_timer = 0
     quake_rng = None
+    quake_boss_launch_guard_timer = 0
     PLAYER_SPEED = 1
 
     # 효과음 정지
@@ -71704,6 +79304,7 @@ _judgment_wind_stun_bottom_timer = 0.0 # 하단 바람 스턴 타이머
 _judgment_wind_curve_effects = []      # 모래 소용돌이 포획 후 커브 효과 리스트
 _judgment_wind_ball_immunity = 0.0     # 포획 후 재포획 면역 타이머 (초)
 _judgment_wind_sound_playing = False   # 바람 회오리 사운드 재생 중 여부
+_gods_stone_judgment_bg = None         # 일반 스테이지용 신의 심판 오버레이 런타임
 
 def _load_electric_shock_sound():
     """감전 사운드 로딩 (최초 1회)"""
@@ -71827,6 +79428,188 @@ def show_judgment_debug_menu():
         clock.tick(60)
 
 
+def _get_gods_stone_judgment_bg():
+    """일반 스테이지에서 신의 심판 오버레이만 재생할 전용 배경 인스턴스."""
+    global _gods_stone_judgment_bg
+
+    if _gods_stone_judgment_bg is None:
+        _gods_stone_judgment_bg = AnimatedBackgroundStage30(WIDTH, HEIGHT)
+        _gods_stone_judgment_bg.judgment_enabled = False
+        _gods_stone_judgment_bg.judgment_logic_paused = False
+        _gods_stone_judgment_bg.judgment_text_display_paused = False
+    return _gods_stone_judgment_bg
+
+
+def _prewarm_gods_stone_judgment_bg(*, force: bool = False) -> bool:
+    """신의 돌 첫 사용 스톨을 줄이기 위해 심판 배경을 미리 로드한다."""
+    stage_value = globals().get("current_stage")
+
+    if _gods_stone_judgment_bg is not None:
+        return True
+
+    if stage_value is None or stage_value == 30:
+        return False
+
+    if not force:
+        try:
+            active_items = item_state_adapter.active_items()
+        except Exception:
+            active_items = globals().get("active_item_slot", []) or []
+
+        try:
+            has_gods_stone = any(
+                isinstance(item, dict) and item.get("name") == "gods_stone"
+                for item in active_items
+            )
+        except Exception:
+            has_gods_stone = False
+        if not has_gods_stone:
+            return False
+
+    try:
+        _get_gods_stone_judgment_bg()
+    except Exception as exc:
+        print(f"[신의돌] 심판 배경 워밍업 실패: {exc}")
+        return False
+    return True
+
+
+def _is_any_gods_judgment_active() -> bool:
+    """투기장/아이템 유래를 가리지 않고 현재 신의 심판이 진행 중인지 반환."""
+    if animated_bg_stage30 is not None and animated_bg_stage30.is_judgment_active():
+        return True
+    return _gods_stone_judgment_bg is not None and _gods_stone_judgment_bg.is_judgment_active()
+
+
+def reset_gods_stone_judgment_runtime(*, clear_arena_stun_flags: bool = True) -> None:
+    """일반 스테이지용 신의 심판 런타임과 공유 판정 타이머를 정리."""
+    global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
+    global _judgment_prev_phase, _judgment_lightning_stun_applied
+    global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
+    global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
+    global _judgment_wind_curve_effects, _judgment_wind_ball_immunity, _judgment_wind_sound_playing
+
+    if _gods_stone_judgment_bg is not None:
+        try:
+            _gods_stone_judgment_bg.reset_judgment()
+            _gods_stone_judgment_bg.judgment_enabled = False
+            _gods_stone_judgment_bg.judgment_logic_paused = False
+            _gods_stone_judgment_bg.judgment_text_display_paused = False
+        except Exception:
+            pass
+
+    try:
+        if SOUND_GOD_EARTHQUAKE:
+            SOUND_GOD_EARTHQUAKE.stop()
+    except Exception:
+        pass
+
+    try:
+        if SOUND_GOD_WIND:
+            SOUND_GOD_WIND.stop()
+    except Exception:
+        pass
+
+    _stop_electric_shock_sound()
+
+    if clear_arena_stun_flags and arena_skill_manager and hasattr(arena_skill_manager, "game_state"):
+        arena_skill_manager.game_state["top_paddle_stunned"] = False
+        arena_skill_manager.game_state["bottom_paddle_stunned"] = False
+
+    _judgment_quake_sound_playing = False
+    _judgment_ball_speed_backup = None
+    _judgment_prev_earthquake_active = False
+    _judgment_prev_phase = 0
+    _judgment_lightning_stun_applied = False
+    _judgment_lightning_stun_top_timer = 0.0
+    _judgment_lightning_stun_bottom_timer = 0.0
+    _judgment_lightning_stun_type = False
+    _judgment_wind_stun_applied = False
+    _judgment_wind_stun_top_timer = 0.0
+    _judgment_wind_stun_bottom_timer = 0.0
+    _judgment_wind_curve_effects = []
+    _judgment_wind_ball_immunity = 0.0
+    _judgment_wind_sound_playing = False
+
+
+def activate_gods_stone() -> bool:
+    """신의 돌 사용: 투기장 신의 심판 3종 중 하나를 호출."""
+    global _judgment_prev_phase, _judgment_prev_earthquake_active, _judgment_ball_speed_backup
+    global _judgment_lightning_stun_applied, _judgment_lightning_stun_top_timer
+    global _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
+    global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
+    global _judgment_wind_curve_effects, _judgment_wind_ball_immunity
+
+    if _is_any_gods_judgment_active():
+        print("🪨 신의 돌: 이미 신의 심판이 진행 중입니다.")
+        return False
+
+    reset_gods_stone_judgment_runtime(clear_arena_stun_flags=False)
+    target_bg = animated_bg_stage30 if current_stage == 30 and animated_bg_stage30 is not None else _get_gods_stone_judgment_bg()
+    if target_bg is None:
+        print("🪨 신의 돌: 신의 심판 시스템을 불러오지 못했습니다.")
+        return False
+
+    variant = random.choice(["earthquake", "wind", "lightning"])
+    if not target_bg.trigger_gods_judgment(forced_variant=variant):
+        print("🪨 신의 돌: 신의 심판 발동에 실패했습니다.")
+        return False
+
+    if target_bg is _gods_stone_judgment_bg:
+        target_bg.judgment_enabled = False
+        target_bg.judgment_logic_paused = False
+        target_bg.judgment_text_display_paused = False
+
+    _stop_electric_shock_sound()
+    _judgment_prev_phase = 0
+    _judgment_prev_earthquake_active = False
+    _judgment_ball_speed_backup = None
+    _judgment_lightning_stun_applied = False
+    _judgment_lightning_stun_top_timer = 0.0
+    _judgment_lightning_stun_bottom_timer = 0.0
+    _judgment_lightning_stun_type = False
+    _judgment_wind_stun_applied = False
+    _judgment_wind_stun_top_timer = 0.0
+    _judgment_wind_stun_bottom_timer = 0.0
+    _judgment_wind_curve_effects = []
+    _judgment_wind_ball_immunity = 0.0
+
+    _fire_item_trigger_feedback("gods_stone", intensity=1.15)
+    variant_name = {
+        "earthquake": "땅의 분노",
+        "wind": "바람의 분노",
+        "lightning": "번개의 분노",
+    }.get(variant, "신의 심판")
+    print(f"🪨 신의 돌 발동! 신의 심판: {variant_name}")
+    return True
+
+
+def update_gods_stone_judgment(dt: float) -> None:
+    """일반 스테이지에서 신의 돌이 만든 judgment 서브시스템만 업데이트."""
+    if current_stage == 30 or _gods_stone_judgment_bg is None:
+        return
+
+    bg = _gods_stone_judgment_bg
+    bg.judgment_enabled = False
+    try:
+        bg.judgment_logic_paused = is_ball_spawn_animation_paused()
+    except Exception:
+        bg.judgment_logic_paused = False
+
+    if not bg.is_judgment_active():
+        return
+
+    bg.time += dt
+    bg._update_gods_judgment(dt)
+
+
+def draw_gods_stone_judgment_overlay(surface, offset_x=0, offset_y=0) -> None:
+    """일반 스테이지 배경 위에 신의 심판 오버레이만 덧그린다."""
+    if current_stage == 30 or _gods_stone_judgment_bg is None:
+        return
+    _gods_stone_judgment_bg._draw_judgment_overlay(surface, offset_x=offset_x, offset_y=offset_y)
+
+
 def handle_gods_judgment():
     """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소 + 번개/바람 스턴"""
     global ball_vel, _judgment_quake_sound_playing, _judgment_ball_speed_backup
@@ -71837,10 +79620,14 @@ def handle_gods_judgment():
     global _judgment_wind_curve_effects, _judgment_wind_ball_immunity
     global _judgment_wind_sound_playing
 
-    if current_stage != 30 or animated_bg_stage30 is None:
+    bg = None
+    if current_stage == 30 and animated_bg_stage30 is not None:
+        bg = animated_bg_stage30
+    elif _gods_stone_judgment_bg is not None:
+        bg = _gods_stone_judgment_bg
+    if bg is None:
         return
 
-    bg = animated_bg_stage30
     cur_phase = bg.judgment_phase
     prev_phase = _judgment_prev_phase
     _judgment_prev_phase = cur_phase
@@ -72176,6 +79963,13 @@ def draw_shaking_screen():
             screen_shake_offset_x = jox
             screen_shake_offset_y = joy
             return  # 신의심판 흔들림이 있으면 다른 흔들림 무시
+
+    if current_stage != 30 and _gods_stone_judgment_bg is not None:
+        jox, joy = _gods_stone_judgment_bg.get_judgment_shake_offset()
+        if jox != 0 or joy != 0:
+            screen_shake_offset_x = jox
+            screen_shake_offset_y = joy
+            return
 
     if quake_active:
         # Stage 2 정글지진일 때 earthquake_offset을 screen_shake_offset에 통합
@@ -72873,7 +80667,7 @@ DECELERATION = 0.4  # 감속도 (빠르게 반응하도록 값을 증가)
 INSTANT_STOP_DECELERATION = 1.0  # 즉시 정지시킬 때 더 빠른 감속
 # 스피드부츠 관련 변수
 speedboots_obtained = False  # 스피드부츠 획득 여부
-PERMANENT_SPEED_BOOST = 0.06  # 영구 속도 증가량 (6% 증가)
+PERMANENT_SPEED_BOOST = 0.10  # 영구 속도 증가량 (10% 증가)
 # 헤르메스의 신발 관련 변수
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 hermes_star_particles = []  # 헤르메스 별가루 파티클 리스트
@@ -72885,6 +80679,8 @@ momentum_preservation = 1.0   # 관성 보존 배율
 speedgear_obtained = False  # 스피드기어 획득 여부
 # 무중력벨트 관련 변수
 gravitybelt_obtained = False  # 무중력벨트 획득 여부
+# 타이머벨트 관련 변수 (스킬 쿨타임 감소)
+timer_belt_obtained = False  # 타이머벨트 획득 여부
 DIRECTION_CHANGE_BOOST = 2.5  # 방향 전환 속도 증가량 (150% 더 빠름)
 #  새로운 보스 배틀 모드 관련 변수
 new_boss_mode_active = False  # 새로운 보스들만의 대결 모드
@@ -73567,8 +81363,10 @@ def fire_soldier_bullet():
     if soldier_reloading:
         return
     
-    # 탄약이 없으면 재장전 시도 (단, UP 키가 눌려있지 않을 때만)
+    # 탄약이 없으면 재장전 시도 (단, UP 키가 눌려있지 않고 탄창이 남아있을 때만)
     if soldier_ammo_count <= 0:
+        if soldier_pistol_magazines <= 0:
+            return  # 탄창 소진 — 재장전 불가
         # UP 키가 눌려있으면 물자보급 시도 중이므로 재장전하지 않음
         pygame.event.pump()
         pygame.event.pump()
@@ -73613,15 +81411,24 @@ def fire_soldier_bullet():
 # === 새총(매그넘 슬링샷) 함수들 ===
 
 def get_soldier_base_weapon() -> str:
-    """코만도의 기본 화기류 반환 (새총 또는 권총)"""
-    if soldier_pistol_perk_unlocked:
-        return "pistol"
+    """코만도의 기본 화기류 반환 (항상 새총 — 기본 슬롯은 새총으로 고정)"""
     return "slingshot"
 
 
 def is_slingshot_mode() -> bool:
-    """현재 기본 화기가 새총 모드인지 확인"""
-    return not soldier_pistol_perk_unlocked
+    """현재 선택된 무기가 새총(기본 슬롯)인지 확인.
+
+    코만도의 기본 슬롯("pistol" internal name)은 항상 새총으로 동작한다.
+    권총 화기류(commando_pistol)는 별도 영구 화기류 슬롯을 차지하므로
+    새총 모드는 기본 슬롯이 현재 선택된 상태일 때만 True 가 된다.
+    """
+    try:
+        controller = globals().get("soldier_controller")
+        if controller is None or not controller.weapons:
+            return True
+        return controller.weapons[controller.current_index] == "pistol"
+    except Exception:
+        return True
 
 
 slingshot_gauge_spent = 0  # 현재 차징에서 소모한 총 게이지량 (취소 시 반환용)
@@ -73837,30 +81644,36 @@ def get_slingshot_stun_frames(charge_level: int) -> int:
 
 
 def start_soldier_reload():
-    """코만도 탄약 재장전 시작"""
+    """코만도 탄약 재장전 시작. 탄창을 1개 소비하며 0개이면 실패."""
     global soldier_reloading, soldier_reload_timer, special_gauge, soldier_last_reload_bullets
-    
+    global soldier_pistol_magazines
+
     # 이미 재장전 중이면 무시
     if soldier_reloading:
         return
-    
+
+    # 탄창 잔량이 없으면 재장전 불가
+    if soldier_pistol_magazines <= 0:
+        return
+
     # UP 키가 눌려있으면 물자보급 발동 시도 중이므로 재장전 불가
     keys = pygame.key.get_pressed()
     if keys[pygame.K_UP]:
         return
-    
+
     # 게이지가 부족하면 재장전 불가
     if special_gauge < SOLDIER_RELOAD_GAUGE_COST:
         return
-    
-    # 게이지 소모
+
+    # 게이지 및 탄창 1개 소모
     special_gauge -= SOLDIER_RELOAD_GAUGE_COST
-    
+    soldier_pistol_magazines -= 1
+
     # 재장전 시작
     soldier_reloading = True
     soldier_reload_timer = SOLDIER_RELOAD_TIME
     soldier_last_reload_bullets = 0  # 재장전 시작시 초기화
-    
+
     # 재장전 시작 사운드 재생
     try:
         play_sound_with_volume(SOUND_PISTOL_RELOAD_START)
@@ -76491,13 +84304,8 @@ def draw_soldier_weapon_ui(screen):
                 2
             )
     
-    # 권총 탄약 표시 (권총이 선택되었거나 화기류가 없는 경우에만, 새총 모드에서는 숨김)
-    show_pistol_ammo = True
-    if is_slingshot_mode():
-        show_pistol_ammo = False  # 새총 모드에서는 탄약 표시 안 함
-    elif soldier_controller.weapons:
-        if current_weapon != "pistol":
-            show_pistol_ammo = False
+    # 권총 탄약/탄창 표시 — 권총 화기류(commando_pistol)가 현재 선택된 경우에만 표시
+    show_pistol_ammo = (current_weapon == "commando_pistol")
 
     if show_pistol_ammo:
         # 총탄 개수 표시 (권총 아이콘 아래) - 고퀄리티 3D 스타일
@@ -76607,7 +84415,44 @@ def draw_soldier_weapon_ui(screen):
                 case_rect = pygame.Rect(bullet_x + 1, bullet_y + 6, bullet_width - 2, bullet_height - 8)
                 pygame.draw.rect(screen, (40, 40, 45), case_rect)
                 pygame.draw.rect(screen, (35, 35, 40), case_rect, 1)
-    
+
+        # === 탄창 3개 UI (총탄 아래) ===
+        mag_max = SOLDIER_PISTOL_MAGAZINE_MAX
+        mag_remaining = max(0, min(soldier_pistol_magazines, mag_max))
+        mag_w = 10
+        mag_h = 14
+        mag_padding = 3
+        mag_total_w = mag_w * mag_max + mag_padding * (mag_max - 1)
+        mag_start_x = weapon_rect.left + (weapon_rect.width - mag_total_w) // 2
+        mag_y = bullet_y + bullet_height + 5
+
+        for i in range(mag_max):
+            mx = mag_start_x + i * (mag_w + mag_padding)
+            mag_rect = pygame.Rect(mx, mag_y, mag_w, mag_h)
+            if i < mag_remaining:
+                # 장전 가능한 탄창 (황동 + 검정 바디)
+                pygame.draw.rect(screen, (40, 38, 32), mag_rect, border_radius=2)
+                # 상단 황동 밴드 (탄두 노출부)
+                band_rect = pygame.Rect(mx + 1, mag_y + 1, mag_w - 2, 3)
+                pygame.draw.rect(screen, (210, 170, 70), band_rect)
+                # 바디 세로 그립 라인 2줄
+                for gx in (mx + 3, mx + mag_w - 4):
+                    pygame.draw.line(screen, (70, 65, 55),
+                                     (gx, mag_y + 5), (gx, mag_y + mag_h - 3), 1)
+                # 하이라이트
+                pygame.draw.line(screen, (220, 210, 180),
+                                 (mx + 1, mag_y + 1), (mx + 1, mag_y + mag_h - 2), 1)
+                # 테두리
+                pygame.draw.rect(screen, (20, 18, 14), mag_rect, 1, border_radius=2)
+            else:
+                # 소진된 탄창 — 어두운 실루엣
+                pygame.draw.rect(screen, (28, 28, 32), mag_rect, border_radius=2)
+                pygame.draw.rect(screen, (55, 55, 60), mag_rect, 1, border_radius=2)
+                # 대각선 한 줄로 빈 슬롯 표시
+                pygame.draw.line(screen, (70, 70, 75),
+                                 (mx + 2, mag_y + 2),
+                                 (mx + mag_w - 2, mag_y + mag_h - 2), 1)
+
     # 라운드 시작 3초 제한 표시
     current_time = pygame.time.get_ticks()
     time_since_round_start = current_time - round_start_time
@@ -76666,7 +84511,8 @@ def draw_soldier_weapon_ui(screen):
     
     # 현재 무기 이름 표시 (강조 효과 있을 때 더 크게)
     weapon_names = {
-        "pistol": "새총" if is_slingshot_mode() else "권총",
+        "pistol": "새총",
+        "commando_pistol": "권총",
         "bazooka": "바주카포",
         "ak47": "AK-47",
         "net_gun": "그물덫총",
@@ -76708,10 +84554,10 @@ def draw_soldier_weapon_ui(screen):
             pygame.draw.rect(screen, (40, 70, 50), (bar_x, bar_y, bar_width, bar_height))
             pygame.draw.rect(screen, (120, 220, 160), (bar_x, bar_y, int(bar_width * doping_ratio), bar_height))
 
-        if current_weapon != "pistol" and current_weapon in soldier_controller.degraded:
+        if current_weapon != "pistol" and soldier_controller.is_rental_weapon(current_weapon):
             degrade_color = (220, 50, 50)
             degrade_font_size = max(16, font_size - 2)
-            degrade_surface = render_weapon_label("노후화", degrade_color, degrade_font_size)
+            degrade_surface = render_weapon_label("대여", degrade_color, degrade_font_size)
             degrade_x = weapon_rect.centerx - degrade_surface.get_width() // 2
             degrade_y = max(4, name_y - degrade_surface.get_height() - 4)
 
@@ -76742,7 +84588,7 @@ def draw_soldier_weapon_ui(screen):
         pass  # print(f"[DEBUG] 무기 이름 렌더링 실패: {e}")
 
     # === 권총 탄약 소진 시 비활성화 오버레이 (새총 모드에서는 적용 안 함) ===
-    if current_weapon == "pistol" and not is_slingshot_mode() and soldier_pistol_ammo <= 0:
+    if current_weapon == "commando_pistol" and soldier_ammo_count <= 0 and soldier_pistol_magazines <= 0:
         # 비활성화 오버레이 (어두운 반투명)
         disabled_surface = pygame.Surface((weapon_size, weapon_size), pygame.SRCALPHA)
         disabled_surface.fill((0, 0, 0, 140))
@@ -78922,6 +86768,448 @@ def draw_magnum_grip_effect(surface):
         pass
 
 
+# ============================================================
+# ⊙ 워프게이트 (차원 포털) - 스매셔 해금 스킬
+# ============================================================
+
+def _smasher_cmd_push(key_char, now_ms):
+    """A/W/D 커맨드 버퍼에 새 키 입력을 기록."""
+    global _smasher_cmd_buffer
+    _smasher_cmd_buffer.append((key_char, now_ms))
+    if len(_smasher_cmd_buffer) > WARP_GATE_CMD_BUFFER_MAX:
+        _smasher_cmd_buffer = _smasher_cmd_buffer[-WARP_GATE_CMD_BUFFER_MAX:]
+
+
+def _smasher_cmd_check_awd(now_ms):
+    """버퍼 말미가 A → W → D 순이고 각 간격이 WARP_GATE_CMD_WINDOW_MS 이내면 True.
+
+    매칭 시 버퍼를 비워서 재발동을 방지한다.
+    """
+    global _smasher_cmd_buffer
+    if len(_smasher_cmd_buffer) < 3:
+        return False
+    k1, t1 = _smasher_cmd_buffer[-3]
+    k2, t2 = _smasher_cmd_buffer[-2]
+    k3, t3 = _smasher_cmd_buffer[-1]
+    if (k1, k2, k3) != ("a", "w", "d"):
+        return False
+    if (t2 - t1) > WARP_GATE_CMD_WINDOW_MS:
+        return False
+    if (t3 - t2) > WARP_GATE_CMD_WINDOW_MS:
+        return False
+    if (now_ms - t3) > WARP_GATE_CMD_WINDOW_MS:
+        return False
+    _smasher_cmd_buffer = []
+    return True
+
+
+def update_warp_gate(keys):
+    """워프게이트 업데이트: 커맨드 감지 → 발동 → 지속시간 관리 → 종료.
+
+    - 커맨드: A → W → D (좌→상→우) 순서 입력, 각 키 사이 600ms 이내.
+    - 발동 조건: 스매셔 + 해금 상태 + 게이지 200 이상 + 쿨타임 0.
+    - 지속: 20초. 종료 시 자동 해제.
+    - 활성 상태는 변신/락 상태에서 강제 해제한다.
+    """
+    global warp_gate_active, warp_gate_start_ms, warp_gate_end_ms
+    global _warp_gate_activated_this_frame, _smasher_cmd_prev_keys
+    global _warp_gate_phase, _warp_gate_portals
+    global _smasher_cmd_buffer
+    global _warp_gate_paused_remaining_ms, _warp_gate_current_duration_ms
+    global special_gauge, special_ready
+
+    _warp_gate_activated_this_frame = False
+
+    if selected_character_type != "smasher":
+        # 캐릭터가 스매셔가 아니면 세션을 완전히 끊는다 (paused 복원 키까지 정리).
+        if warp_gate_active or _warp_gate_paused_remaining_ms > 0 or _warp_gate_portals:
+            _reset_warp_gate_state()
+        return
+
+    try:
+        now_ms = pygame.time.get_ticks()
+    except Exception:
+        now_ms = 0
+
+    # 포털 위상은 항상 전진 (아이콘/게이지/포털 연출 공통)
+    _warp_gate_phase += 0.08
+    if _warp_gate_phase > 10000.0:
+        _warp_gate_phase = 0.0
+
+    # === 라운드 일시정지에서 복귀 ===
+    # _pause_warp_gate_between_rounds() 가 warp_gate_active=False 로 내려두고
+    # 남은 시간을 _warp_gate_paused_remaining_ms 에 저장한 상태.
+    # 공이 실제로 움직이기 시작하면(=새 라운드 active play) 타이머를 재개한다.
+    if not warp_gate_active and _warp_gate_paused_remaining_ms > 0:
+        try:
+            ball_moving = (ball_vel[0] != 0) or (ball_vel[1] != 0)
+        except Exception:
+            ball_moving = False
+        if ball_moving:
+            warp_gate_active = True
+            # 게이지바의 elapsed-based ratio 계산을 위해 start_ms 를 "원래 활성 시점 기준"으로
+            # 역산해서 보정한다. 이렇게 하면 now - start_ms = (total - paused_remaining) 이므로
+            # 바가 일시정지 직전의 % 에서 그대로 이어진다.
+            _total_ms_for_resume = (
+                _warp_gate_current_duration_ms
+                if _warp_gate_current_duration_ms > 0
+                else WARP_GATE_DURATION_MS
+            )
+            warp_gate_start_ms = now_ms - (_total_ms_for_resume - _warp_gate_paused_remaining_ms)
+            warp_gate_end_ms = now_ms + _warp_gate_paused_remaining_ms
+            _warp_gate_paused_remaining_ms = 0
+            # 복귀 순간 양 벽 포털 재개방 연출
+            try:
+                cy = PLAYER.centery
+            except Exception:
+                cy = 710
+            _spawn_warp_gate_portal(0, cy, "resume_left")
+            _spawn_warp_gate_portal(WIDTH, cy, "resume_right")
+
+    # 변신/스킬락 상태에서는 강제 해제 + 버퍼 클리어
+    try:
+        if is_odins_eye_transformed() or is_yachaman_transformed() or is_horn_strawberry_skills_locked():
+            if warp_gate_active:
+                warp_gate_active = False
+                _warp_gate_portals = []
+            # 커맨드 버퍼도 완전히 비워야 락/변신 직전 입력이 해제 직후 이어붙는
+            # 오발동을 막을 수 있다 (prev_keys 만 리셋하면 버퍼의 A/W 가 남아 D 1회로 발동될 수 있음)
+            _smasher_cmd_buffer = []
+            _smasher_cmd_prev_keys["a"] = False
+            _smasher_cmd_prev_keys["w"] = False
+            _smasher_cmd_prev_keys["d"] = False
+            return
+    except Exception:
+        pass
+
+    unlocked = False
+    try:
+        unlocked = is_smasher_skill_unlocked("warp_gate")
+    except Exception:
+        unlocked = False
+
+    # --- 커맨드 버퍼 업데이트 (엣지-라이즈만 push) ---
+    # A/W/D 와 방향키(←/↑/→)를 동일하게 취급한다. 어느 쪽이든 좌/상/우를 입력하면
+    # 버퍼에 a/w/d 슬롯으로 기록되어 동일한 A→W→D 시퀀스 매칭을 통과한다.
+    a_now = bool(keys[pygame.K_a] or keys[pygame.K_LEFT])
+    w_now = bool(keys[pygame.K_w] or keys[pygame.K_UP])
+    d_now = bool(keys[pygame.K_d] or keys[pygame.K_RIGHT])
+    if a_now and not _smasher_cmd_prev_keys["a"]:
+        _smasher_cmd_push("a", now_ms)
+    if w_now and not _smasher_cmd_prev_keys["w"]:
+        _smasher_cmd_push("w", now_ms)
+    if d_now and not _smasher_cmd_prev_keys["d"]:
+        _smasher_cmd_push("d", now_ms)
+    _smasher_cmd_prev_keys["a"] = a_now
+    _smasher_cmd_prev_keys["w"] = w_now
+    _smasher_cmd_prev_keys["d"] = d_now
+
+    # 만료된 버퍼 항목 정리 (가장 오래된 것이 윈도우를 넘겼으면 삭제)
+    if _smasher_cmd_buffer:
+        _smasher_cmd_buffer = [
+            (k, t) for (k, t) in _smasher_cmd_buffer
+            if (now_ms - t) <= WARP_GATE_CMD_WINDOW_MS * 3
+        ]
+
+    # --- 발동 판정 ---
+    if (
+        not warp_gate_active
+        and unlocked
+        and _smasher_cmd_check_awd(now_ms)
+        and special_gauge >= WARP_GATE_GAUGE_COST
+        and get_smasher_skill_cooldown_remaining("warp_gate") <= 0
+    ):
+        # 연장기어 퍽: 지속시간 레벨당 +25% (최대 Lv.5 / +125%)
+        _wg_ext_lv = 0
+        try:
+            _wg_ext_lv = runtime_skill_levels.get("extension_gear", 0)
+        except Exception:
+            _wg_ext_lv = 0
+        _wg_duration_mult = 1.0 + 0.25 * _wg_ext_lv
+        _warp_gate_current_duration_ms = int(WARP_GATE_DURATION_MS * _wg_duration_mult)
+        warp_gate_active = True
+        warp_gate_start_ms = now_ms
+        warp_gate_end_ms = now_ms + _warp_gate_current_duration_ms
+        _warp_gate_activated_this_frame = True
+        _warp_gate_portals = []
+        special_gauge = max(0, special_gauge - WARP_GATE_GAUGE_COST)
+        if special_gauge < 350:
+            special_ready = False
+        try:
+            trigger_smasher_skill_cooldown("warp_gate")
+        except Exception:
+            pass
+        try:
+            record_skill_usage(success=True)
+        except Exception:
+            pass
+        # 발동 순간: 양 벽에 웰컴 버스트 한번씩
+        try:
+            cy = PLAYER.centery
+        except Exception:
+            cy = 710
+        _spawn_warp_gate_portal(0, cy, "spawn_left")
+        _spawn_warp_gate_portal(WIDTH, cy, "spawn_right")
+
+    # --- 지속시간 만료 ---
+    if warp_gate_active and now_ms >= warp_gate_end_ms:
+        warp_gate_active = False
+        # 종료 연출 한 번
+        try:
+            cy = PLAYER.centery
+        except Exception:
+            cy = 710
+        _spawn_warp_gate_portal(0, cy, "fade_left")
+        _spawn_warp_gate_portal(WIDTH, cy, "fade_right")
+
+    # --- 오래된 포털 이펙트 정리 ---
+    if _warp_gate_portals:
+        _warp_gate_portals = [
+            p for p in _warp_gate_portals
+            if (now_ms - p["start_ms"]) <= p["life_ms"]
+        ]
+
+
+def draw_warp_gate_effect(surface):
+    """⊙ 워프게이트 시각 효과.
+
+    구성:
+      1) 좌/우 벽 가장자리 포털 아우라 (활성 중 상시 은은하게)
+      2) 랩어라운드 순간 포털 버스트 (링 확장 + 반짝 스파크)
+      3) 우측 하단 가로형 지속시간 게이지바
+    """
+    if selected_character_type != "smasher":
+        return
+    if not warp_gate_active and not _warp_gate_portals:
+        return
+    try:
+        now_ms = pygame.time.get_ticks()
+    except Exception:
+        return
+
+    # 팔레트 (고급 포털)
+    PORTAL_MAIN = (200, 110, 255)
+    PORTAL_DEEP = (90, 30, 160)
+    PORTAL_GLOW = (180, 80, 255)
+    PORTAL_LIGHT = (255, 210, 255)
+    PORTAL_WHITE = (255, 255, 255)
+
+    sw = surface.get_width()
+    sh = surface.get_height()
+
+    try:
+        fx = pygame.Surface((sw, sh), pygame.SRCALPHA)
+    except Exception:
+        return
+
+    # =========================================================
+    # (1) 활성 중 양 벽 가장자리 은은한 포털 아우라
+    # =========================================================
+    if warp_gate_active:
+        # 이번 활성에서 쓰인 실제 지속시간 기준 (연장기어 퍽 보너스 반영)
+        _wg_total_ms = _warp_gate_current_duration_ms if _warp_gate_current_duration_ms > 0 else WARP_GATE_DURATION_MS
+        # 경과시간 기반으로 직접 계산 → 시작 직후부터 선형 감소 (plateau 없음).
+        # 라운드 복귀 시에도 warp_gate_start_ms 가 보정돼 있어 연속성 유지.
+        elapsed_ms = max(0, now_ms - warp_gate_start_ms)
+        life_ratio = max(0.0, 1.0 - (elapsed_ms / float(_wg_total_ms)))
+        remaining_ms = max(0, warp_gate_end_ms - now_ms)
+        fade = 0.55 + 0.45 * life_ratio
+        try:
+            py = int(PLAYER.centery)
+        except Exception:
+            py = 710
+        pulse = 0.5 + 0.5 * math.sin(_warp_gate_phase * 2.2)
+        for side_x in (0, sw):
+            # 세로 포털 빛 띠
+            band_h = 140
+            top_y = max(0, py - band_h // 2)
+            bot_y = min(sh, py + band_h // 2)
+            for ry in range(top_y, bot_y, 2):
+                ny = (ry - py) / float(band_h / 2 + 1)
+                ny = max(-1.0, min(1.0, ny))
+                strength = (1.0 - ny * ny)  # 중심에서 밝음
+                aura_r = int((34 + pulse * 10) * strength)
+                if aura_r < 2:
+                    continue
+                alpha = int((80 + 90 * pulse) * strength * fade)
+                if alpha <= 0:
+                    continue
+                if side_x == 0:
+                    cx = -int(aura_r * 0.25)
+                else:
+                    cx = sw + int(aura_r * 0.25)
+                try:
+                    pygame.draw.circle(fx, (*PORTAL_MAIN, alpha), (cx, ry), aura_r)
+                except Exception:
+                    pass
+            # 수직 얇은 코어 라인
+            core_alpha = int(130 * fade * (0.6 + 0.4 * pulse))
+            try:
+                pygame.draw.line(fx, (*PORTAL_LIGHT, core_alpha),
+                                 (side_x, max(0, py - 80)), (side_x, min(sh, py + 80)), 2)
+            except Exception:
+                pass
+
+    # =========================================================
+    # (2) 랩 포털 버스트 이펙트
+    # =========================================================
+    for p in _warp_gate_portals:
+        age = now_ms - p["start_ms"]
+        t = max(0.0, min(1.0, age / float(p["life_ms"])))
+        if t >= 1.0:
+            continue
+        cx = p["x"]
+        cy = p["y"]
+        # 링 확장 (2개 겹침)
+        for i, base_r in enumerate((30, 50)):
+            ring_r = int(base_r + t * 70 + i * 12)
+            ring_alpha = int((230 if i == 0 else 170) * (1.0 - t))
+            if ring_alpha <= 0 or ring_r <= 1:
+                continue
+            try:
+                pygame.draw.circle(fx, (*PORTAL_MAIN, ring_alpha), (cx, cy), ring_r, 3)
+            except Exception:
+                pass
+            # 내부 은은한 밝은 링
+            inner_alpha = int(ring_alpha * 0.55)
+            if inner_alpha > 0 and ring_r > 4:
+                try:
+                    pygame.draw.circle(fx, (*PORTAL_LIGHT, inner_alpha), (cx, cy), max(1, ring_r - 4), 1)
+                except Exception:
+                    pass
+        # 중심 반짝 코어 (0~0.35 구간에만 밝게 터짐)
+        if t < 0.35:
+            core_alpha = int(255 * (1.0 - t / 0.35))
+            try:
+                pygame.draw.circle(fx, (*PORTAL_WHITE, core_alpha), (cx, cy), int(14 - t * 18) if t < 0.3 else 3)
+            except Exception:
+                pass
+        # 회전 스파크
+        spark_count = 8
+        base_angle = _warp_gate_phase * 80 + (hash(p["kind"]) & 0xFF)
+        for si in range(spark_count):
+            ang = math.radians(base_angle + si * (360.0 / spark_count))
+            radius = 22 + t * 64
+            sx = cx + int(math.cos(ang) * radius)
+            sy = cy + int(math.sin(ang) * radius)
+            s_alpha = int(220 * (1.0 - t))
+            if s_alpha <= 0:
+                continue
+            try:
+                pygame.draw.circle(fx, (*PORTAL_LIGHT, s_alpha), (sx, sy), max(1, int(3 - t * 2)))
+            except Exception:
+                pass
+        # 베이스 글로우
+        glow_alpha = int(110 * (1.0 - t))
+        if glow_alpha > 0:
+            try:
+                pygame.draw.circle(fx, (*PORTAL_GLOW, glow_alpha), (cx, cy), int(60 + t * 20))
+            except Exception:
+                pass
+
+    # =========================================================
+    # (3) 우측 하단 가로형 지속시간 게이지바
+    # =========================================================
+    if warp_gate_active:
+        # 연장기어 퍽 보너스를 반영한 실제 총 지속시간 (연장 시 분모가 커지므로 비례해 느리게 감소)
+        _wg_total_ms = _warp_gate_current_duration_ms if _warp_gate_current_duration_ms > 0 else WARP_GATE_DURATION_MS
+        # 경과시간 기반 ratio: 시작 0 → 경과 total_ms 까지 1.0 → 0 으로 선형 감소.
+        # remaining / total 방식은 분모 재계산 타이밍에 따라 ratio 가 한동안 1.0 에 클램프되는
+        # 버그 가능성이 있어, 명시적으로 1.0 - elapsed/total 로 계산한다.
+        elapsed_ms = max(0, now_ms - warp_gate_start_ms)
+        ratio = max(0.0, min(1.0, 1.0 - (elapsed_ms / float(_wg_total_ms))))
+        # 표시용 남은 시간 (텍스트)
+        remaining_ms = max(0, warp_gate_end_ms - now_ms)
+        bar_w = 220
+        bar_h = 18
+        margin = 14
+        bx = sw - bar_w - margin
+        by = sh - bar_h - margin
+
+        # 외곽 그림자
+        try:
+            pygame.draw.rect(fx, (0, 0, 0, 140),
+                             (bx - 2, by - 2, bar_w + 4, bar_h + 4), border_radius=6)
+        except Exception:
+            pass
+        # 배경 프레임
+        try:
+            pygame.draw.rect(fx, (28, 10, 48, 220), (bx, by, bar_w, bar_h), border_radius=5)
+            pygame.draw.rect(fx, (*PORTAL_DEEP, 255), (bx, by, bar_w, bar_h), width=2, border_radius=5)
+        except Exception:
+            pass
+        # 채워진 영역 (그라데이션: 좌 PORTAL_MAIN → 우 PORTAL_LIGHT)
+        fill_w = max(0, int((bar_w - 4) * ratio))
+        if fill_w > 0:
+            inner_x = bx + 2
+            inner_y = by + 2
+            inner_h = bar_h - 4
+            for i in range(fill_w):
+                u = i / float(max(1, fill_w))
+                r = int(PORTAL_MAIN[0] * (1 - u) + PORTAL_LIGHT[0] * u)
+                g = int(PORTAL_MAIN[1] * (1 - u) + PORTAL_LIGHT[1] * u)
+                b = int(PORTAL_MAIN[2] * (1 - u) + PORTAL_LIGHT[2] * u)
+                try:
+                    pygame.draw.line(fx, (r, g, b, 255),
+                                     (inner_x + i, inner_y),
+                                     (inner_x + i, inner_y + inner_h - 1))
+                except Exception:
+                    pass
+            # 상단 하이라이트
+            try:
+                pygame.draw.line(fx, (255, 230, 255, 200),
+                                 (inner_x, inner_y),
+                                 (inner_x + fill_w - 1, inner_y), 1)
+            except Exception:
+                pass
+            # 움직이는 반짝이 (포털 펄스)
+            pulse_t = (_warp_gate_phase * 30) % (fill_w + 30) - 15
+            for i in range(6):
+                px = int(inner_x + pulse_t + i * 4)
+                if inner_x <= px < inner_x + fill_w:
+                    alpha = max(0, 200 - i * 30)
+                    try:
+                        pygame.draw.line(fx, (255, 255, 255, alpha),
+                                         (px, inner_y),
+                                         (px, inner_y + inner_h - 1), 1)
+                    except Exception:
+                        pass
+
+        # 폰트 캐시 로드 (최초 1회만, 20초 지속 스킬의 매 프레임 SysFont 생성 방지)
+        global _warp_gate_label_font
+        if _warp_gate_label_font is None:
+            try:
+                _warp_gate_label_font = pygame.font.SysFont("arial", 11, bold=True)
+            except Exception:
+                _warp_gate_label_font = None
+        label_font = _warp_gate_label_font
+
+        # 라벨: "WARP GATE"
+        if label_font is not None:
+            try:
+                label_surf = label_font.render("⊙ WARP GATE", True, (235, 210, 255))
+                label_shadow = label_font.render("⊙ WARP GATE", True, (40, 10, 60))
+                fx.blit(label_shadow, (bx + 1, by - 14))
+                fx.blit(label_surf, (bx, by - 15))
+            except Exception:
+                pass
+            # 남은 시간 텍스트 (우측 정렬)
+            try:
+                time_str = f"{remaining_ms / 1000.0:.1f}s"
+                time_surf = label_font.render(time_str, True, (255, 230, 255))
+                time_shadow = label_font.render(time_str, True, (40, 10, 60))
+                time_x = bx + bar_w - time_surf.get_width()
+                fx.blit(time_shadow, (time_x + 1, by - 14))
+                fx.blit(time_surf, (time_x, by - 15))
+            except Exception:
+                pass
+
+    try:
+        surface.blit(fx, (0, 0))
+    except Exception:
+        pass
+
+
 def handle_player(keys):
     global ball_angle, special_gauge, special_gauge_max, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
     global power_smashing_direction, mega_smashing_bonus_applied
@@ -78991,6 +87279,7 @@ def handle_player(keys):
     global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
     global charging_token_index, max_rolling_charge_time  # 순차 충전 시스템 변수
     global _viper_dash_origin_x, _viper_dash_was_airborne  # 바이퍼 쉐도우 백스텝 스냅백용
+    global _viper_last_dash_start_ms, _viper_core_flip_ready_ms, _viper_core_flip_consumed  # 화랑 킥 준비 윈도우용
     global _all_tokens_full_sparkle_timer  # 모든 토큰 풀충전 반짝임
     global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y
     global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수
@@ -79298,10 +87587,12 @@ def handle_player(keys):
                     plasma_field_gauge_consumed = 0
                     plasma_field_size = 0.0
                     plasma_field_particles.clear()
-                    # 차징 사운드 재생 (전용 채널, 루프)
+                    # 차징 사운드 재생 (전용 채널, 루프) - _ManagedSound 래퍼 언랩 필요
                     if SOUND_PLASMA_CHARGE and PLASMA_CHARGE_CHANNEL and not plasma_charge_sound_playing:
-                        PLASMA_CHARGE_CHANNEL.play(SOUND_PLASMA_CHARGE, loops=-1)
-                        plasma_charge_sound_playing = True
+                        _pc_raw = _unwrap_sound(SOUND_PLASMA_CHARGE)
+                        if _pc_raw is not None:
+                            PLASMA_CHARGE_CHANNEL.play(_pc_raw, loops=-1)
+                            plasma_charge_sound_playing = True
             else:
                 # 차징 지속 중
                 plasma_field_charge_time += 1
@@ -79437,8 +87728,11 @@ def handle_player(keys):
         # 발사 효과음 (전용 채널)
         if SOUND_PLASMA_SHOOT and PLASMA_SHOOT_CHANNEL:
             try:
-                SOUND_PLASMA_SHOOT.set_volume(sfx_volume * 0.5)
-                PLASMA_SHOOT_CHANNEL.play(SOUND_PLASMA_SHOOT)
+                # _ManagedSound 래퍼는 Channel.play 가 받지 못하므로 원본 Sound 로 언랩
+                _pso_raw = _unwrap_sound(SOUND_PLASMA_SHOOT)
+                if _pso_raw is not None:
+                    _pso_raw.set_volume(sfx_volume * 0.5)
+                    PLASMA_SHOOT_CHANNEL.play(_pso_raw)
             except:
                 pass
 
@@ -79611,6 +87905,8 @@ def handle_player(keys):
             cleanse_counter_window -= 1
         # 🧲 매그넘 그립 (자기장 끌어당김) 업데이트
         update_magnum_grip(keys)
+        # ⊙ 워프게이트 (차원 포털) 업데이트 — A → W → D 커맨드
+        update_warp_gate(keys)
 
     optimus_drain_locked = optimus_drained
     if optimus_drain_locked:
@@ -79636,6 +87932,7 @@ def handle_player(keys):
             if _judgment_lightning_stun_top_timer <= 0:
                 _stop_electric_shock_sound()
         else:
+            _play_electric_shock_sound()
             arena_player_stun_block = True
             current_speed = 0
             rolling_active = False
@@ -79710,7 +88007,7 @@ def handle_player(keys):
 
     # 투기장 스턴 상태면 입력 처리 건너뛰기
     if arena_player_stun_block:
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
         return
 
     _arena_manual_control = _is_arena_manual_control_active()
@@ -79861,8 +88158,8 @@ def handle_player(keys):
         # 대시 골드 보너스 활성화 (다음 랠리 2배)
         dash_gold_multiplier_active = True
         set_roll("rolling_direction", direction)
-        # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (공중 캐릭터 면역: 스매셔, 바이퍼 체공)
-        _ice_immune = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+        # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (바이퍼 체공 시 면역)
+        _ice_immune = selected_character_type == "viper" and _viper_jetpack_offset_y < 0
         if is_ice_active() and not _ice_immune:
             create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, direction, is_player=True)
         # 🧊 얼음 이벤트: 대쉬 시작 시 기존 미끄러짐 상태 초기화
@@ -80533,6 +88830,9 @@ def handle_player(keys):
         up_for_plasma = False  # 변신 상태에서는 플라즈마 입력 무시
     _handle_smasher_plasma_field(pygame.time.get_ticks(), up_for_plasma)
 
+    # 바이퍼 원본 스킬은 기본적으로 막아두고, 비변신 상태에서만 실제 잠금 상태를 재평가한다.
+    _viper_original_skills_blocked = True
+
     # ⚔ 바이퍼 스킬 발동 처리
     if selected_character_type == "viper" and not is_odins_eye_transformed() and not is_yachaman_transformed():
         global _viper_w_key_released, _viper_s_key_released, _viper_e_key_released
@@ -80549,6 +88849,7 @@ def handle_player(keys):
         global _viper_ss_ball_touched, _viper_ss_ball_touched_ms
         global _viper_dark_blade_window, _viper_dark_blade_window_ms, _viper_dark_blade_active
         global _viper_dark_blade_combo_window, _viper_dark_blade_fire_ms
+        global _viper_air_blade_combo_window, _viper_air_blade_fire_ms
         global _viper_phantom_strike_active, _viper_phantom_strike_timer, _viper_phantom_strike_curve_dir
         global _viper_ps_curve_active, _viper_ps_curve_timer, _viper_ps_curve_direction
         global _viper_speed_boost_active, _viper_speed_boost_original
@@ -80560,12 +88861,26 @@ def handle_player(keys):
         global boss_confused_timer
         global _viper_jetpack_active, _viper_jetpack_offset_y, _viper_jetpack_gauge_timer, _viper_jetpack_particles
         global _viper_jetpack_hold_timer, _viper_jetpack_overheat, _viper_jetpack_snd_channel
-        global _viper_air_strike_text_timer
+        global _viper_air_strike_text_timer, _viper_air_strike_text_mode
         global _viper_dive_active, _viper_dive_phase, _viper_dive_start_ms, _viper_dive_hold_start_ms, _viper_dive_charge_particles
         global _viper_dive_height_snapshot, _viper_dive_particles
         global _viper_dive_shockwave_timer, _viper_dive_shockwave_x, _viper_dive_shockwave_y
         global _viper_dive_ball_boosted
-        global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
+        global _viper_ignition_w_down_at, _viper_ignition_aura_active
+        global _viper_ignition_aura_start_ms, _viper_ignition_aura_end_ms
+        global _viper_ignition_aura_burst_particles, _viper_ignition_aura_charge_particles
+        global _viper_wall_dive_ready, _viper_wall_dive_ready_timer, _viper_wall_dive_phantom_allowed
+        global _viper_core_flip_consumed, _viper_core_flip_attack_end_frame
+        global _viper_core_flip_attack_active, _viper_core_flip_attack_phase
+        global _viper_core_flip_attack_start_ms, _viper_core_flip_attack_phase_start_ms
+        global _viper_core_flip_attack_origin_x, _viper_core_flip_attack_origin_y
+        global _viper_core_flip_attack_target_x, _viper_core_flip_attack_target_y
+        global _viper_core_flip_attack_apex_x, _viper_core_flip_attack_apex_y
+        global _viper_core_flip_attack_ball_hit, _viper_core_flip_attack_kick_dir
+        global _viper_core_flip_attack_spin_angle_deg
+        global _viper_core_flip_attack_spin_snd_started, _viper_core_flip_attack_kick_snd_played
+        global _viper_core_flip_dark_blade_handoff_until_ms
+        global _viper_core_flip_web_lines, _viper_core_flip_wall_x, _viper_core_flip_wall_y
         global _viper_wall_dive_active, _viper_wall_dive_phase, _viper_wall_dive_start_ms
         global _viper_wall_dive_start_x, _viper_wall_dive_start_y
         global _viper_wall_dive_wall_x, _viper_wall_dive_wall_y
@@ -80582,6 +88897,7 @@ def handle_player(keys):
         global screen_shake_timer, screen_shake_intensity
         global boss_fire_knockback_vel, _viper_phantom_kick_knockback_pending
         global _viper_dive_slip_timer, _viper_dive_slip_vel, _viper_dive_slip_duration
+        global _viper_chaos_spear_prev_keys, _viper_chaos_spear_cmd_buffer
 
         _viper_original_skills_blocked = (
             is_horn_strawberry_transformed()
@@ -80607,6 +88923,7 @@ def handle_player(keys):
                 _viper_jetpack_overheat = False
                 _viper_jetpack_particles.clear()
                 _viper_air_strike_text_timer = 0
+                _viper_air_strike_text_mode = "air"
                 try:
                     if _viper_jetpack_snd_channel and _viper_jetpack_snd_channel.get_busy():
                         _viper_jetpack_snd_channel.fadeout(120)
@@ -80651,7 +88968,48 @@ def handle_player(keys):
             or player_stunned
             or is_waiting_for_serve
             or is_player_serve
+            or _viper_core_flip_attack_active
         )
+        _viper_now_ms = pygame.time.get_ticks()
+        _viper_core_flip_dark_blade_ready = (
+            (_viper_core_flip_attack_active and _viper_core_flip_attack_ball_hit)
+            or (_viper_core_flip_dark_blade_handoff_until_ms > _viper_now_ms)
+        )
+        _viper_can_w_skill = (
+            _viper_can_act
+            or (
+                _viper_core_flip_dark_blade_ready
+                and not rolling_active
+                and not player_stunned
+                and not is_waiting_for_serve
+                and not is_player_serve
+            )
+        )
+
+        # 카오스 스피어 커맨드: A→W→D 또는 ←↑→
+        if is_viper_skill_unlocked("chaos_spear") and not _viper_original_skills_blocked and _viper_chaos_spear_state == "idle":
+            try:
+                _vcs_now = pygame.time.get_ticks()
+            except Exception:
+                _vcs_now = 0
+            _vcs_cur_keys = {
+                "a": bool(keys[pygame.K_a] or keys[pygame.K_LEFT]),
+                "w": bool(keys[pygame.K_w] or keys[pygame.K_UP]),
+                "d": bool(keys[pygame.K_d] or keys[pygame.K_RIGHT]),
+            }
+            for _vcs_key, _vcs_pressed in _vcs_cur_keys.items():
+                if _vcs_pressed and not _viper_chaos_spear_prev_keys.get(_vcs_key, False):
+                    _viper_chaos_spear_cmd_push(_vcs_key, _vcs_now)
+                _viper_chaos_spear_prev_keys[_vcs_key] = _vcs_pressed
+            if (
+                _viper_can_act
+                and _viper_chaos_spear_state == "idle"
+                and _viper_chaos_spear_cmd_check_awd(_vcs_now)
+            ):
+                _start_viper_chaos_spear(_vcs_now)
+        else:
+            _viper_chaos_spear_cmd_buffer = []
+            _viper_chaos_spear_prev_keys = {"a": False, "w": False, "d": False}
 
         # 쉐도우 백스텝: 대쉬 중/후딜 중 S키(또는 아래키) 단독 입력 시만 발동
         # 좌우 방향키가 함께 눌려있으면 대쉬 입력으로 간주 → 발동 차단
@@ -80661,7 +89019,23 @@ def handle_player(keys):
             or MOVE_EVENT_LEFT or MOVE_EVENT_RIGHT
             or is_move_left_pressed(keys) or is_move_right_pressed(keys)
         )
-        if _viper_in_dash and _viper_ss_input and _viper_s_key_released and not _viper_any_dir_held:
+        _viper_shadow_step_chain_locked = (
+            _viper_core_flip_attack_active
+            or _viper_ss_ball_touched
+            or _viper_wall_dive_ready
+            or _viper_double_marshal_ready
+            or (
+                (frame_counter - _viper_core_flip_attack_end_frame)
+                <= _VIPER_CORE_FLIP_MARSHAL_REARM_BLOCK_FRAMES
+            )
+        )
+        if (
+            _viper_in_dash
+            and _viper_ss_input
+            and _viper_s_key_released
+            and not _viper_any_dir_held
+            and not _viper_shadow_step_chain_locked
+        ):
             if is_viper_skill_unlocked("shadow_step"):
                 if get_viper_skill_cooldown_remaining("shadow_step") <= 0:
                     if special_gauge >= 100 and not _viper_ss_hologram_active:
@@ -80745,19 +89119,87 @@ def handle_player(keys):
                         _viper_ss_wave_hit_ball = False
                         _viper_ss_wave_trail.clear()
 
-        elif _viper_can_act:
-            # 에어 블레이드 (W/↑키) — 전방으로 검기 발사 또는 베놈 엣지 연계
+        elif _viper_can_w_skill:
+            # 에어/다크 블레이드 (W/↑키) — 검기 발사 및 공중 후속 연계
             if _viper_w_pressed and _viper_w_key_released:
                 # 연계기 판정: 에어 블레이드 Phase 2 하강 구간 (검기 발사 후 내려올 때 ~ 착지 전)
                 _ns_br_elapsed = pygame.time.get_ticks() - _viper_br_spin_start_ms if _viper_br_spin_active else 0
-                if (_viper_br_spin_active and _viper_br_spin_phase == 2
+                _blade_combo_cost = _get_viper_blade_rush_gauge_cost()
+                # 에어 블레이드 → 다크 블레이드 콤보는 검기 발사 0.5초 후부터 열어
+                # 초기 0.3초대 W 입력은 기존 베놈 엣지 창을 그대로 유지한다.
+                if (_viper_air_blade_combo_window
+                        and is_viper_skill_unlocked("dark_blade")
+                        and _viper_br_spin_active and _viper_br_spin_phase == 2
+                        and not _viper_br_dark_mode
+                        and get_viper_skill_cooldown_remaining("dark_blade") <= 0
+                        and special_gauge >= _blade_combo_cost
+                        and not _viper_nerve_strike_active):
+                    _viper_w_key_released = False
+                    special_gauge -= _blade_combo_cost
+                    trigger_viper_skill_cooldown("dark_blade")
+                    _viper_air_blade_combo_window = False
+                    _viper_air_blade_fire_ms = 0
+                    _viper_dark_blade_window = False
+                    _viper_dark_blade_window_ms = 0
+                    _viper_dark_blade_combo_window = False
+                    _viper_dark_blade_fire_ms = 0
+
+                    # 현재 공중 위치를 제트팩 오프셋으로 변환
+                    _combo_floor = _compute_player_floor_bottom(
+                        CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+                    )
+                    _viper_jetpack_offset_y = float(PLAYER.bottom - _combo_floor)
+
+                    # 기존 에어 블레이드 phase 2 종료
+                    _viper_br_spin_active = False
+                    _viper_br_dark_mode = False
+                    _viper_br_spin_phase = 0
+                    _viper_br_spin_angle = 0.0
+                    _viper_br_jump_offset_y = 0.0
+                    _viper_br_arm_raise = 0.0
+
+                    # 기존 에어 블레이드 검기 제거
+                    _viper_blade_rush_active = False
+                    _viper_blade_rush_fadeout = False
+                    _viper_blade_rush_fadeout_timer = 0
+                    _viper_blade_rush_trail.clear()
+                    _viper_dark_blade_active = False
+                    _viper_blade_rush_width = 350
+
+                    # 위로 약간 솟구친 뒤 다크 블레이드 재시전
+                    _viper_jetpack_offset_y = min(_viper_jetpack_offset_y, -40.0) - 80.0
+                    _viper_nerve_strike_combo_used = False
+                    _viper_dark_blade_active = True
+                    _viper_br_dark_mode = True
+                    _viper_br_spin_active = True
+                    _viper_br_spin_start_ms = pygame.time.get_ticks()
+                    _viper_br_spin_phase = 0
+                    _viper_br_spin_angle = 0.0
+                    _online_send_effect('br_spin', x=PLAYER.centerx, y=PLAYER.centery, dur=350)
+                    try:
+                        _spin_snd = sound_effects.get('VIPER_BLADE_SPIN')
+                        if _spin_snd:
+                            play_sound_with_volume(_spin_snd, sfx_volume * 0.8)
+                    except Exception:
+                        pass
+                    try:
+                        effects_manager.spawn_shockwave(
+                            PLAYER.centerx, PLAYER.centery,
+                            force=6, color=(200, 30, 50),
+                        )
+                    except Exception:
+                        pass
+
+                elif (_viper_br_spin_active and _viper_br_spin_phase == 2
                         and _ns_br_elapsed >= 300  # 점프 정점 이후 (하강 시작)
                         and not _viper_nerve_strike_combo_used
                         and not _viper_nerve_strike_active
+                        and not _viper_br_dark_mode  # 다크 블레이드 phase 2는 전용 후속 콤보만 허용
                         and is_viper_skill_unlocked("nerve_strike")
-                        and special_gauge >= 80):
+                        and get_viper_skill_cooldown_remaining("nerve_strike") <= 0
+                        and special_gauge >= 120):
                     _viper_w_key_released = False
-                    special_gauge -= 80
+                    special_gauge -= 120
                     _viper_nerve_strike_combo_used = True
                     trigger_viper_skill_cooldown("nerve_strike")  # 베놈 엣지 쿨타임 50초
 
@@ -80788,6 +89230,8 @@ def handle_player(keys):
                     _viper_br_spin_angle = 0.0
                     _viper_br_jump_offset_y = 0.0
                     _viper_br_arm_raise = 0.0
+                    _viper_air_blade_combo_window = False
+                    _viper_air_blade_fire_ms = 0
 
                     try:
                         effects_manager.spawn_shockwave(
@@ -80808,6 +89252,8 @@ def handle_player(keys):
                         special_gauge -= _combo_gauge_cost
                         _viper_dark_blade_combo_window = False
                         _viper_dark_blade_fire_ms = 0
+                        _viper_air_blade_combo_window = False
+                        _viper_air_blade_fire_ms = 0
 
                         # 현재 공중 위치를 제트팩 오프셋으로 변환
                         _combo_floor = _compute_player_floor_bottom(
@@ -80833,45 +89279,31 @@ def handle_player(keys):
                         # 위로 약간 솟구침 (현재 위치에서 -80px 추가)
                         _viper_jetpack_offset_y = min(_viper_jetpack_offset_y, -40.0) - 80.0
 
-                        # 콤보 에어 블레이드: 회전 없이 검기 즉시 발사
+                        # 콤보 에어 블레이드: 일반 에어 블레이드와 동일한 풀 회전 후 검기 발사
                         _viper_nerve_strike_combo_used = False
-                        _ba_width_lv = min(get_runtime_skill_level("blade_amp"), 5)
-                        _combo_size_mult = 1.0 + 0.1 * _ba_width_lv
-                        _viper_blade_rush_active = True
-                        _viper_blade_rush_fadeout = False
-                        _viper_blade_rush_fadeout_timer = 0
-                        _viper_blade_rush_x = float(PLAYER.centerx)
-                        _viper_blade_rush_start_y = float(PLAYER.centery - 20)
-                        _viper_blade_rush_y = _viper_blade_rush_start_y
-                        _ba_lv = min(get_runtime_skill_level("blade_amp"), 5)
-                        _combo_range_mult = 1.0 + 0.1 * _ba_lv
-                        _viper_blade_rush_target_y = _viper_blade_rush_start_y - int(250 * _combo_range_mult)
-                        _viper_blade_rush_width = int(350 * _combo_size_mult)
-                        _viper_blade_rush_hit_ball = False
-                        _viper_blade_rush_particles.clear()
-                        _viper_blade_rush_trail.clear()
-
-                        # 검기 발사 이펙트/사운드
-                        _online_send_effect('blade', x=PLAYER.centerx, y=PLAYER.centery - 20,
-                                            hw=_viper_blade_rush_width // 2, dir='up', dur=800)
+                        _viper_br_spin_active = True
+                        _viper_br_spin_start_ms = pygame.time.get_ticks()
+                        _viper_br_spin_phase = 0
+                        _viper_br_spin_angle = 0.0
+                        _online_send_effect('br_spin', x=PLAYER.centerx, y=PLAYER.centery, dur=700)
                         try:
-                            _blade_snd = sound_effects.get('VIPER_BLADE')
-                            if _blade_snd:
-                                play_sound_with_volume(_blade_snd, sfx_volume * 0.5)
+                            _spin_snd = sound_effects.get('VIPER_BLADE_SPIN')
+                            if _spin_snd:
+                                play_sound_with_volume(_spin_snd, sfx_volume * 0.8)
                         except Exception:
                             pass
                         try:
                             effects_manager.spawn_shockwave(
-                                PLAYER.centerx, PLAYER.centery - 20,
+                                PLAYER.centerx, PLAYER.centery,
                                 force=6, color=(200, 50, 255),
                             )
                         except Exception:
                             pass
 
                 # 다크 블레이드 발동 (콤보 윈도우 활성 + 공중 또는 마샬/팬텀 킥 진행 중에만)
-                elif (is_viper_skill_unlocked("blade_rush")
+                elif (is_viper_skill_unlocked("dark_blade")
                       and _viper_dark_blade_window
-                      and (_viper_jetpack_offset_y < 0 or _viper_wall_dive_active)
+                      and (_viper_jetpack_offset_y < 0 or _viper_wall_dive_active or _viper_core_flip_dark_blade_ready)
                       and get_viper_skill_cooldown_remaining("dark_blade") <= 0):
                     _db_gauge_cost = _get_viper_blade_rush_gauge_cost()
                     if special_gauge >= _db_gauge_cost and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
@@ -80882,11 +89314,29 @@ def handle_player(keys):
                         _viper_dark_blade_active = True   # 다크 블레이드 모드 활성화
                         _viper_br_dark_mode = True        # 모션은 검기 페이드아웃과 무관하게 끝까지 다크 버전 유지
                         _viper_dark_blade_window = False   # 콤보 윈도우 소모
+                        _viper_dark_blade_window_ms = 0
+                        _viper_dark_blade_combo_window = False
+                        _viper_dark_blade_fire_ms = 0
+                        _viper_air_blade_combo_window = False
+                        _viper_air_blade_fire_ms = 0
+                        _viper_core_flip_dark_blade_handoff_until_ms = 0
                         # 마샬/팬텀 킥 중 발동 시 벽타기 애니메이션 종료하고 공중 전환
                         if _viper_wall_dive_active:
                             _viper_wall_dive_active = False
                             _viper_wall_dive_phase = 0
                             _viper_wall_dive_web_lines = []
+                        if _viper_core_flip_attack_active:
+                            _cf_floor = _compute_player_floor_bottom(
+                                CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+                            )
+                            _viper_jetpack_offset_y = float(PLAYER.bottom - _cf_floor)
+                            _viper_core_flip_attack_active = False
+                            _viper_core_flip_attack_phase = 0
+                            _viper_core_flip_attack_ball_hit = False
+                            _viper_core_flip_attack_end_frame = frame_counter
+                            _viper_core_flip_web_lines = []
+                            _viper_core_flip_wall_x = 0.0
+                            _viper_core_flip_wall_y = 0.0
                         if _viper_jetpack_offset_y >= 0:
                             _viper_jetpack_offset_y = -120.0
 
@@ -80904,7 +89354,10 @@ def handle_player(keys):
                             pass
 
                 # 일반 에어 블레이드 발동 (체공 중에만 발동 가능)
-                elif is_viper_skill_unlocked("blade_rush") and _viper_jetpack_offset_y < 0:
+                # 다크 블레이드 윈도우 활성 중에는 air blade fallback 차단 (다크 블레이드 쿨/조건 미충족 시 W는 무발동)
+                elif (is_viper_skill_unlocked("blade_rush")
+                      and _viper_jetpack_offset_y < 0
+                      and not _viper_dark_blade_window):
                     if get_viper_skill_cooldown_remaining("blade_rush") <= 0:
                         _br_gauge_cost = _get_viper_blade_rush_gauge_cost()
                         if special_gauge >= _br_gauge_cost and not _viper_blade_rush_active and not _viper_br_spin_active and not _viper_nerve_strike_active:
@@ -80912,9 +89365,13 @@ def handle_player(keys):
                             special_gauge -= _br_gauge_cost
                             trigger_viper_skill_cooldown("blade_rush")
                             _viper_nerve_strike_combo_used = False  # 새 에어 블레이드에서 연계기 초기화
+                            _viper_dark_blade_combo_window = False
+                            _viper_dark_blade_fire_ms = 0
+                            _viper_air_blade_combo_window = False
+                            _viper_air_blade_fire_ms = 0
+                            _viper_core_flip_dark_blade_handoff_until_ms = 0
                             _viper_dark_blade_active = False  # 일반 에어 블레이드
                             _viper_br_dark_mode = False
-
                             # 회전 연출 시작 (회전 → 감속 → 정지 후 검기 발사)
                             _viper_br_spin_active = True
                             _viper_br_spin_start_ms = pygame.time.get_ticks()
@@ -80932,20 +89389,30 @@ def handle_player(keys):
 
     # === 바이퍼 다크 블레이드 콤보 윈도우 타임아웃 ===
     if _viper_dark_blade_window:
+        _db_window_now = pygame.time.get_ticks()
+        _db_core_flip_ready = (
+            (_viper_core_flip_attack_active and _viper_core_flip_attack_ball_hit)
+            or (_viper_core_flip_dark_blade_handoff_until_ms > _db_window_now)
+        )
         # 시간 경과(3초) 만료
-        if pygame.time.get_ticks() - _viper_dark_blade_window_ms >= _VIPER_DARK_BLADE_WINDOW_DURATION:
+        if _db_window_now - _viper_dark_blade_window_ms >= _VIPER_DARK_BLADE_WINDOW_DURATION:
             _viper_dark_blade_window = False
+            _viper_core_flip_dark_blade_handoff_until_ms = 0
         # 바닥에 착지하면 즉시 만료 (공중/벽타기 중이 아닐 때)
-        elif _viper_jetpack_offset_y >= 0 and not _viper_wall_dive_active:
+        elif _viper_jetpack_offset_y >= 0 and not _viper_wall_dive_active and not _db_core_flip_ready:
             _viper_dark_blade_window = False
+            _viper_core_flip_dark_blade_handoff_until_ms = 0
 
     # === 바이퍼 마샬 킥 연계기 (쉐도우 백스텝 → 0.5초 후 → S/↓키) ===
     # 쉐도우 백스텝 공 타격 후 0.5초 경과 시 마샬 킥 윈도우 자동 활성화 (쿨타임 체크)
-    if _viper_ss_ball_touched and not _viper_wall_dive_ready:
+    if (_viper_ss_ball_touched
+            and not _viper_wall_dive_ready
+            and not _viper_core_flip_attack_active):
         if pygame.time.get_ticks() - _viper_ss_ball_touched_ms >= _VIPER_MARSHAL_KICK_1ST_DELAY_MS:
             if get_viper_skill_cooldown_remaining("marshal_kick") <= 0 and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST:
                 _viper_wall_dive_ready = True
                 _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES  # 3초 윈도우
+                _viper_wall_dive_phantom_allowed = True
             _viper_ss_ball_touched = False  # 1회 소모
 
     # 연계 윈도우 타이머 감소 (게이지 부족 시 즉시 해제)
@@ -80953,9 +89420,14 @@ def handle_player(keys):
         _viper_wall_dive_ready_timer -= 1
         if _viper_wall_dive_ready_timer <= 0 or special_gauge < _VIPER_WALL_DIVE_GAUGE_COST:
             _viper_wall_dive_ready = False
+            _viper_wall_dive_phantom_allowed = True
 
     # 팬텀 킥: 1차 마샬 킥 공 타격 후 0.2초 경과 시 자동 활성화 (퍽 해금 + 쿨타임 체크)
-    if _viper_marshal_kick_hit_ball and _viper_ss_was_airborne and not _viper_double_marshal_ready:
+    if (_viper_marshal_kick_hit_ball
+            and _viper_wall_dive_phantom_allowed
+            and _viper_ss_was_airborne
+            and not _viper_double_marshal_ready
+            and not _viper_core_flip_attack_active):
         if pygame.time.get_ticks() - _viper_marshal_kick_hit_ms >= _VIPER_MARSHAL_KICK_2ND_DELAY_MS:
             if _viper_double_marshal_kick_unlocked and "phantom_kick" in _viper_equipped_skills and get_viper_skill_cooldown_remaining("phantom_kick") <= 0 and special_gauge >= 60:
                 _viper_double_marshal_ready = True
@@ -80968,6 +89440,310 @@ def handle_player(keys):
         if _viper_double_marshal_ready_timer <= 0 or special_gauge < 60:
             _viper_double_marshal_ready = False
 
+    # === 화랑 킥 트리거 (대쉬로 공 타격 후 0.7초 이내 A+D / ←+→ 동시 입력) ===
+    # 자체 발차기 모션: 발레리노 회전 → 점프 → 돌려차기 → 공 적중 시 마샬 킥 윈도우 오픈
+    if (selected_character_type == "viper"
+            and is_viper_skill_unlocked("core_flip")
+            and not _viper_original_skills_blocked
+            and not _viper_core_flip_consumed
+            and _viper_core_flip_ready_ms > 0
+            and _viper_last_dash_start_ms > 0
+            and _viper_core_flip_ready_ms >= _viper_last_dash_start_ms):
+        _cf_now = pygame.time.get_ticks()
+        if (_cf_now - _viper_core_flip_ready_ms) <= 700:
+            _cf_input_ready = _has_viper_core_flip_input_buffer(
+                _cf_now,
+                left_pressed=bool(left_pressed_raw),
+                right_pressed=bool(right_pressed_raw),
+            )
+            if (_cf_input_ready
+                    and not _viper_core_flip_attack_active
+                    and not rolling_active and not _viper_wall_dive_active
+                    and not _viper_dive_active and not _viper_nerve_strike_active
+                    and not _viper_blade_rush_active and not _viper_br_spin_active
+                    and not _viper_ss_hologram_active
+                    and not is_waiting_for_serve and not is_player_serve and not player_stunned
+                    and not is_horn_strawberry_control_locked()):
+                if (get_viper_skill_cooldown_remaining("core_flip") <= 0
+                        and special_gauge >= 120):
+                    special_gauge -= 120
+                    trigger_viper_skill_cooldown("core_flip")     # 코어 플립 25초 쿨타임 (자체 쿨)
+                    # 코어 플립이 대쉬 후속기를 완전히 소비하므로 원래 대쉬 후딜은 즉시 종료한다.
+                    rolling_active = False
+                    rolling_stun_timer = 0
+                    current_speed = 0.0
+                    stop_dash_delay_sound()
+                    _viper_core_flip_ready_ms = 0
+                    _viper_core_flip_consumed = True              # 대쉬 1회당 1회 소비
+                    _clear_viper_core_flip_input_buffer()
+                    # 코어 플립 자체 공격 모션 시작 (발레리노 회전 → 점프 → 돌려차기)
+                    _viper_core_flip_attack_active = True
+                    _viper_core_flip_attack_phase = 0
+                    _viper_core_flip_attack_start_ms = _cf_now
+                    _viper_core_flip_attack_phase_start_ms = _cf_now
+                    _viper_core_flip_attack_origin_x = float(PLAYER.centerx)
+                    _viper_core_flip_attack_origin_y = float(PLAYER.centery)
+                    _viper_core_flip_attack_target_x = float(BALL.centerx)
+                    _viper_core_flip_attack_target_y = float(BALL.centery)
+                    # 점프 정점 = 공 위치 살짝 위쪽
+                    _viper_core_flip_attack_apex_x = float(BALL.centerx)
+                    _viper_core_flip_attack_apex_y = float(BALL.centery) - 30.0
+                    _viper_core_flip_attack_kick_dir = 1 if BALL.centerx >= PLAYER.centerx else -1
+                    _viper_core_flip_attack_ball_hit = False
+                    _viper_core_flip_attack_spin_angle_deg = 0.0
+                    _viper_core_flip_attack_spin_snd_started = False
+                    _viper_core_flip_attack_kick_snd_played = False
+                    _viper_core_flip_attack_end_frame = -999999
+                    _viper_core_flip_dark_blade_handoff_until_ms = 0
+                    _viper_core_flip_web_lines = []
+                    _viper_core_flip_wall_x = 0.0
+                    _viper_core_flip_wall_y = 0.0
+                    # 마샬 킥 / 팬텀 킥 윈도우는 공 적중 시 마샬 킥 윈도우만 열도록 초기화
+                    _viper_wall_dive_ready = False
+                    _viper_wall_dive_ready_timer = 0
+                    _viper_double_marshal_ready = False
+                    _viper_double_marshal_ready_timer = 0
+                    _viper_marshal_kick_hit_ball = False
+                    _viper_ss_ball_touched = False
+                    # Phase 0 진입 시 에어 블레이드 회전 사운드 재생 (사용자 요청)
+                    if not _viper_core_flip_attack_spin_snd_started:
+                        try:
+                            _cf_spin_snd = sound_effects.get('VIPER_BLADE_SPIN')
+                            if _cf_spin_snd:
+                                play_sound_with_volume(_cf_spin_snd, sfx_volume * 0.8)
+                        except Exception:
+                            pass
+                        _viper_core_flip_attack_spin_snd_started = True
+        else:
+            _clear_viper_core_flip_input_buffer()
+
+    # === 코어 플립 자체 공격 모션 업데이트 (4 phase 상태머신) ===
+    if _viper_core_flip_attack_active:
+        _cfa_now = pygame.time.get_ticks()
+        _cfa_phase_elapsed = _cfa_now - _viper_core_flip_attack_phase_start_ms
+        current_speed = 0.0
+
+        if _viper_core_flip_attack_phase == 0:
+            # 제자리 발레리노 회전
+            _viper_core_flip_web_lines = []
+            _viper_core_flip_wall_x = 0.0
+            _viper_core_flip_wall_y = 0.0
+            _cfa_p0_t = min(1.0, _cfa_phase_elapsed / float(_VIPER_CORE_FLIP_PHASE0_MS))
+            _viper_core_flip_attack_spin_angle_deg = _cfa_p0_t * 720.0
+            PLAYER.centerx = int(_viper_core_flip_attack_origin_x)
+            PLAYER.centery = int(_viper_core_flip_attack_origin_y)
+
+            if _cfa_phase_elapsed >= _VIPER_CORE_FLIP_PHASE0_MS:
+                _viper_core_flip_attack_phase = 1
+                _viper_core_flip_attack_phase_start_ms = _cfa_now
+                try:
+                    _cfa_jump_snd = sound_effects.get('VIPER_BACKSTEP')
+                    if _cfa_jump_snd:
+                        play_sound_with_volume(_cfa_jump_snd, sfx_volume * 0.5)
+                except Exception:
+                    pass
+
+        elif _viper_core_flip_attack_phase == 1:
+            # 좌우 벽을 번갈아 타며 서서히 위로 올라간다.
+            _cfa_p1_raw = min(1.0, _cfa_phase_elapsed / float(_VIPER_CORE_FLIP_PHASE1_MS))
+            _viper_core_flip_attack_spin_angle_deg = 720.0 + _cfa_p1_raw * 120.0
+            _viper_core_flip_attack_target_x = float(BALL.centerx)
+            _viper_core_flip_attack_target_y = float(BALL.centery)
+
+            _cfa_left_wall_x = 15.0
+            _cfa_right_wall_x = float(WIDTH - 15)
+            if _viper_core_flip_attack_kick_dir >= 0:
+                _cfa_first_wall_x = _cfa_left_wall_x
+                _cfa_second_wall_x = _cfa_right_wall_x
+            else:
+                _cfa_first_wall_x = _cfa_right_wall_x
+                _cfa_second_wall_x = _cfa_left_wall_x
+
+            _cfa_leg_ms = max(1, _VIPER_CORE_FLIP_ZIGZAG_LEG_MS)
+            _cfa_cling_ms = min(_cfa_leg_ms - 40, _VIPER_CORE_FLIP_ZIGZAG_CLING_MS)
+            _cfa_travel_ms = max(40, _cfa_leg_ms - _cfa_cling_ms)
+            _cfa_leg_idx = max(0, int(_cfa_phase_elapsed / _cfa_leg_ms))
+            _cfa_leg_elapsed = _cfa_phase_elapsed % _cfa_leg_ms
+
+            def _core_flip_wall_target(_leg_index: int) -> float:
+                return _cfa_first_wall_x if (_leg_index % 2 == 0) else _cfa_second_wall_x
+
+            _cfa_prev_x = (
+                float(_viper_core_flip_attack_origin_x)
+                if _cfa_leg_idx == 0
+                else _core_flip_wall_target(_cfa_leg_idx - 1)
+            )
+            _cfa_next_x = _core_flip_wall_target(_cfa_leg_idx)
+            if _cfa_leg_elapsed < _cfa_travel_ms:
+                _cfa_leg_t = _cfa_leg_elapsed / float(_cfa_travel_ms)
+                _cfa_leg_ease = _cfa_leg_t * _cfa_leg_t * (3.0 - 2.0 * _cfa_leg_t)
+                _cfa_pos_x = _cfa_prev_x + (_cfa_next_x - _cfa_prev_x) * _cfa_leg_ease
+                _cfa_wall_hop = math.sin(_cfa_leg_t * math.pi) * 18.0
+            else:
+                _cfa_pos_x = _cfa_next_x
+                _cfa_wall_hop = 0.0
+
+            _cfa_goal_y = max(
+                120.0,
+                min(
+                    650.0,
+                    _viper_core_flip_attack_target_y + (_VIPER_CORE_FLIP_KICK_TRIGGER_Y_PX * 0.75),
+                ),
+            )
+            _cfa_pos_y = (
+                _viper_core_flip_attack_origin_y
+                + (_cfa_goal_y - _viper_core_flip_attack_origin_y) * _cfa_p1_raw
+            ) - _cfa_wall_hop
+            PLAYER.centerx = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, int(_cfa_pos_x)))
+            PLAYER.centery = max(PLAYER.height // 2, min(HEIGHT - PLAYER.height // 2, int(_cfa_pos_y)))
+            _viper_core_flip_wall_x = 2.0 if _cfa_next_x < (WIDTH * 0.5) else float(WIDTH - 2)
+            _viper_core_flip_wall_y = float(PLAYER.centery)
+            _viper_core_flip_web_lines = [
+                (
+                    float(PLAYER.centerx),
+                    float(PLAYER.centery),
+                    _viper_core_flip_wall_x,
+                    _viper_core_flip_wall_y,
+                )
+            ]
+
+            # 코어 플립은 벽 두 번을 탄 직후 즉시 발차기로 전환한다.
+            _cfa_wall_touch_count = 0
+            if _cfa_phase_elapsed >= _cfa_travel_ms:
+                _cfa_wall_touch_count = 1
+            if _cfa_phase_elapsed >= (_cfa_leg_ms + _cfa_travel_ms):
+                _cfa_wall_touch_count = 2
+
+            if _cfa_wall_touch_count >= 2 or _cfa_phase_elapsed >= _VIPER_CORE_FLIP_PHASE1_MS:
+                _viper_core_flip_attack_phase = 2
+                _viper_core_flip_attack_phase_start_ms = _cfa_now
+                _viper_core_flip_attack_apex_x = float(PLAYER.centerx)
+                _viper_core_flip_attack_apex_y = float(PLAYER.centery)
+                _viper_core_flip_attack_target_x = float(BALL.centerx)
+                _viper_core_flip_attack_target_y = float(BALL.centery)
+                _viper_core_flip_attack_kick_dir = 1 if BALL.centerx >= PLAYER.centerx else -1
+                _viper_core_flip_web_lines = []
+                _viper_core_flip_wall_x = 0.0
+                _viper_core_flip_wall_y = 0.0
+
+        elif _viper_core_flip_attack_phase == 2:
+            # 돌려차기 — 벽타기 끝에서 공을 향해 급가속
+            _viper_core_flip_web_lines = []
+            _viper_core_flip_wall_x = 0.0
+            _viper_core_flip_wall_y = 0.0
+            _cfa_p2_duration_ms = _get_viper_core_flip_kick_duration_ms()
+            _cfa_p2_raw = min(1.0, _cfa_phase_elapsed / float(_cfa_p2_duration_ms))
+            _cfa_p2_ease = _cfa_p2_raw * _cfa_p2_raw  # ease-in
+            _viper_core_flip_attack_spin_angle_deg = 1440.0 + _cfa_p2_raw * 360.0
+
+            if not _viper_core_flip_attack_ball_hit:
+                _viper_core_flip_attack_target_x = float(BALL.centerx)
+                _viper_core_flip_attack_target_y = float(BALL.centery)
+            _viper_core_flip_attack_kick_dir = 1 if _viper_core_flip_attack_target_x >= PLAYER.centerx else -1
+            _cfa_kick_x = (
+                _viper_core_flip_attack_apex_x
+                + (_viper_core_flip_attack_target_x - _viper_core_flip_attack_apex_x) * _cfa_p2_ease
+            )
+            _cfa_kick_y = (
+                _viper_core_flip_attack_apex_y
+                + (_viper_core_flip_attack_target_y - _viper_core_flip_attack_apex_y) * _cfa_p2_ease
+            )
+            PLAYER.centerx = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, int(_cfa_kick_x)))
+            PLAYER.centery = max(PLAYER.height // 2, min(HEIGHT - PLAYER.height // 2, int(_cfa_kick_y)))
+
+            if not _viper_core_flip_attack_ball_hit:
+                _cfa_dist = math.hypot(BALL.centerx - PLAYER.centerx, BALL.centery - PLAYER.centery)
+                if _cfa_dist <= _VIPER_CORE_FLIP_HIT_RADIUS:
+                    _viper_core_flip_attack_ball_hit = True
+                    _viper_core_flip_attack_target_x = float(PLAYER.centerx)
+                    _viper_core_flip_attack_target_y = float(PLAYER.centery)
+                    if not _viper_core_flip_attack_kick_snd_played:
+                        try:
+                            _cfa_kick_snd = sound_effects.get('VIPER_MARSHAL_KICK') or sound_effects.get('VIPER_BACKSTEP')
+                            if _cfa_kick_snd:
+                                play_sound_with_volume(_cfa_kick_snd, sfx_volume * 0.7)
+                        except Exception:
+                            pass
+                    _viper_core_flip_attack_kick_snd_played = True
+                    _cfa_aim_lv, _cfa_speed_lv = _get_viper_kick_enhance_levels()
+                    _cfa_speed_bonus = 1.0 + _cfa_speed_lv * 0.04
+                    _cfa_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
+                    # 코어 플립은 마샬 킥 1차와 동일한 정확도/공속 증가율을 사용한다.
+                    _cfa_new_spd = max(_cfa_cur_spd * 2.2 * _cfa_speed_bonus, 11.0)
+                    ball_vel[0], ball_vel[1] = _compute_viper_core_flip_bank_velocity(
+                        _cfa_new_spd,
+                        _viper_core_flip_attack_kick_dir,
+                        _cfa_aim_lv,
+                    )
+                    _viper_ss_ball_touched = True
+                    _viper_ss_ball_touched_ms = _cfa_now
+                    _viper_ss_was_airborne = True
+                    if is_viper_skill_unlocked("dark_blade"):
+                        _viper_dark_blade_window = True
+                        _viper_dark_blade_window_ms = _cfa_now
+                    _viper_starburst_active = True
+                    _viper_starburst_x = float(BALL.centerx)
+                    _viper_starburst_y = float(BALL.centery)
+                    _viper_starburst_frame = 0
+                    _viper_starburst_timer = 0
+                    _viper_starburst_is_double = False
+                    screen_shake_timer = max(screen_shake_timer, 14)
+                    screen_shake_intensity = max(screen_shake_intensity, 6)
+                    try:
+                        effects_manager.spawn_shockwave(
+                            BALL.centerx, BALL.centery,
+                            force=12, color=(255, 110, 200),
+                        )
+                    except Exception:
+                        pass
+                    _viper_speed_boost_active = True
+                    _viper_speed_boost_original = _cfa_cur_spd
+                    # 화랑 킥 골드 보너스 (마샬 킥 1차와 같은 급)
+                    try:
+                        add_ingame_gold(30, BALL.centerx, BALL.centery - 20, source="skill")
+                        _viper_skill_gold_this_frame = True
+                    except Exception:
+                        pass
+
+            if _cfa_phase_elapsed >= _cfa_p2_duration_ms:
+                _viper_core_flip_attack_phase = 3
+                _viper_core_flip_attack_phase_start_ms = _cfa_now
+                _viper_core_flip_attack_target_x = float(PLAYER.centerx)
+                _viper_core_flip_attack_target_y = float(PLAYER.centery)
+
+        elif _viper_core_flip_attack_phase == 3:
+            # 착지 복귀
+            _viper_core_flip_web_lines = []
+            _viper_core_flip_wall_x = 0.0
+            _viper_core_flip_wall_y = 0.0
+            _cfa_p3_raw = min(1.0, _cfa_phase_elapsed / float(_VIPER_CORE_FLIP_PHASE3_MS))
+            _cfa_p3_ease = _cfa_p3_raw ** 2
+            _viper_core_flip_attack_spin_angle_deg = 1800.0 + (1.0 - (1.0 - _cfa_p3_raw) ** 2) * 90.0
+            _cfa_back_x = (
+                _viper_core_flip_attack_target_x
+                + (_viper_core_flip_attack_origin_x - _viper_core_flip_attack_target_x) * _cfa_p3_ease
+            )
+            _cfa_back_y = (
+                _viper_core_flip_attack_target_y
+                + (_viper_core_flip_attack_origin_y - _viper_core_flip_attack_target_y) * _cfa_p3_ease
+            )
+            PLAYER.centerx = max(PLAYER.width // 2, min(WIDTH - PLAYER.width // 2, int(_cfa_back_x)))
+            PLAYER.centery = max(PLAYER.height // 2, min(HEIGHT - PLAYER.height // 2, int(_cfa_back_y)))
+
+            if _cfa_phase_elapsed >= _VIPER_CORE_FLIP_PHASE3_MS:
+                PLAYER.centerx = int(_viper_core_flip_attack_origin_x)
+                PLAYER.centery = int(_viper_core_flip_attack_origin_y)
+                _viper_core_flip_attack_active = False
+                _viper_core_flip_attack_phase = 0
+                _viper_core_flip_attack_end_frame = frame_counter
+                if _viper_dark_blade_window and is_viper_skill_unlocked("dark_blade"):
+                    _viper_core_flip_dark_blade_handoff_until_ms = _cfa_now + _VIPER_CORE_FLIP_DARK_BLADE_HANDOFF_MS
+                else:
+                    _viper_core_flip_dark_blade_handoff_until_ms = 0
+                _viper_core_flip_web_lines = []
+                _viper_core_flip_wall_x = 0.0
+                _viper_core_flip_wall_y = 0.0
+
     # 마샬 킥 발동: 연계 윈도우 또는 더블 마샬 윈도우 중 S/↓키 단독 입력
     _wd_br_allow = False
     if _viper_br_spin_active and _viper_br_spin_phase == 2 and _viper_nerve_strike_combo_used:
@@ -80975,15 +89751,22 @@ def handle_player(keys):
         if _wd_br_elapsed >= 300:
             _wd_br_allow = True
     _wd_can_fire = _viper_wall_dive_ready or _viper_double_marshal_ready
+    _wd_recent_core_flip_end = (
+        (frame_counter - _viper_core_flip_attack_end_frame)
+        <= _VIPER_CORE_FLIP_MARSHAL_REARM_BLOCK_FRAMES
+    )
     if (selected_character_type == "viper" and not is_odins_eye_transformed() and not is_yachaman_transformed()
             and not _viper_original_skills_blocked
             and _wd_can_fire and not _viper_wall_dive_active
+            and not _viper_core_flip_attack_active
             and not rolling_active and not _viper_dive_active
             and not _viper_nerve_strike_active
             and (not _viper_br_spin_active or _wd_br_allow)
             and not is_waiting_for_serve and not is_player_serve and not player_stunned
             and not is_horn_strawberry_control_locked()):
-        _wd_s_input = keys[pygame.K_s] or keys[pygame.K_DOWN]
+        _wd_s_input = down_pressed
+        if _wd_recent_core_flip_end and not down_just_pressed:
+            _wd_s_input = False
         _wd_dir_held = (
             keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]
             or keys[pygame.K_a] or keys[pygame.K_d]
@@ -80998,7 +89781,7 @@ def handle_player(keys):
             # 팬텀 킥인지 판별 + 각자 독립 쿨타임 트리거
             _viper_is_double_marshal = _wd_is_double
             if _wd_is_double:
-                trigger_viper_skill_cooldown("phantom_kick")   # 팬텀 킥 쿨타임 40초
+                trigger_viper_skill_cooldown("phantom_kick")   # 팬텀 킥 쿨타임 65초
                 # 흑연 오라 활성화
                 _viper_phantom_aura_active = True
                 _viper_phantom_aura_start_ms = pygame.time.get_ticks()
@@ -81006,6 +89789,7 @@ def handle_player(keys):
                 trigger_viper_skill_cooldown("marshal_kick")   # 마샬 킥 쿨타임 25초
             _viper_wall_dive_ready = False
             _viper_wall_dive_ready_timer = 0
+            _viper_wall_dive_phantom_allowed = True
             _viper_double_marshal_ready = False
             _viper_double_marshal_ready_timer = 0
             _viper_marshal_kick_hit_ball = False
@@ -81025,6 +89809,9 @@ def handle_player(keys):
             _viper_dark_blade_window_ms = 0
             _viper_dark_blade_combo_window = False
             _viper_dark_blade_fire_ms = 0
+            _viper_air_blade_combo_window = False
+            _viper_air_blade_fire_ms = 0
+            _viper_core_flip_dark_blade_handoff_until_ms = 0
             # (다크 블레이드 콤보 윈도우는 마샬 킥/팬텀 킥이 공을 맞출 때 오픈)
             _viper_wall_dive_start_x = float(PLAYER.centerx)
             _viper_wall_dive_start_y = float(PLAYER.centery)
@@ -81246,6 +90033,7 @@ def handle_player(keys):
                 _wd_dist = math.hypot(BALL.centerx - _wd_cx, BALL.centery - _wd_cy)
                 if _wd_dist <= _VIPER_WALL_DIVE_HIT_RADIUS:
                     _viper_wall_dive_ball_hit = True
+                    _handle_viper_chaos_spear_ball_contact()
                     # 팬텀 킥 퍽: 1차 마샬 킥 히트 시 플래그 설정
                     if _viper_ss_was_airborne and not _viper_is_double_marshal:
                         _viper_marshal_kick_hit_ball = True
@@ -81254,18 +90042,18 @@ def handle_player(keys):
                     if is_viper_skill_unlocked("dark_blade"):
                         _viper_dark_blade_window = True
                         _viper_dark_blade_window_ms = pygame.time.get_ticks()
-                    # 공을 위로 강하게 반사 + 속도 증가 (킥 강화 퍽 공속 보너스: +5%/LV, 초월자의 관/현자의 반지 보너스 포함)
+                    # 공을 위로 강하게 반사 + 속도 증가 (킥 강화 퍽 공속 보너스: +4%/LV, 초월자의 관/현자의 반지 보너스 포함)
                     _mk_aim_lv, _mk_speed_lv = _get_viper_kick_enhance_levels()
-                    _mk_speed_bonus = 1.0 + _mk_speed_lv * 0.05  # LV.0=1.0, LV.5=1.25, LV.7=1.35
+                    _mk_speed_bonus = 1.0 + _mk_speed_lv * 0.04  # LV.0=1.0, LV.5=1.20, LV.7=1.28
                     _wd_cur_spd = math.hypot(ball_vel[0], ball_vel[1])
-                    # 2차 마샬 킥이면 180% 증가(2.8x), 1차는 100% 증가(2.0x)
+                    # 2차 마샬 킥이면 180% 증가(2.8x), 1차는 120% 증가(2.2x, +20% 상향)
                     if _viper_is_double_marshal:
                         _wd_new_spd = max(_wd_cur_spd * 2.8 * _mk_speed_bonus, 14.0)  # 180% 증가 + 퍽 보너스
                     else:
-                        _wd_new_spd = max(_wd_cur_spd * 2.0 * _mk_speed_bonus, 11.0)  # 100% 증가 + 퍽 보너스
+                        _wd_new_spd = max(_wd_cur_spd * 2.2 * _mk_speed_bonus, 11.0)  # 120% 증가 + 퍽 보너스 (기존 100%에서 +20% 상향)
                     _viper_speed_boost_active = True
                     _viper_speed_boost_original = _wd_cur_spd
-                    _mk_base_bias = 0.8 if _viper_is_double_marshal else 0.5
+                    _mk_base_bias = 0.8 if _viper_is_double_marshal else 0.6  # 1차 정확도 +20% 상향 (0.5 → 0.6)
                     _mk_min_angle = 25.0 if _viper_is_double_marshal else 20.0
                     _mk_kick_dir = 1 if _viper_wall_dive_wall_x < WIDTH // 2 else -1
                     _mk_final_angle = _compute_viper_kick_launch_angle(
@@ -81603,11 +90391,15 @@ def handle_player(keys):
                 _viper_jetpack_hold_timer = max(0, _viper_jetpack_hold_timer - _jp_recharge_rate)
 
         # PLAYER rect Y 위치 적용 (물리 판정에 반영)
+        _jpack_baseline = _compute_player_floor_bottom(
+            CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+        )
         if _viper_jetpack_offset_y < 0:
-            _jpack_baseline = _compute_player_floor_bottom(
-                CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
-            )
             PLAYER.bottom = int(_jpack_baseline + _viper_jetpack_offset_y)
+        elif not _viper_wall_dive_active and not _viper_core_flip_attack_active:
+            # 제트팩/다크 블레이드 하강 오프셋이 0에 닿는 프레임엔
+            # 마지막 음수 위치가 그대로 남을 수 있어 바닥에 스냅한다.
+            PLAYER.bottom = int(_jpack_baseline)
 
         # 제트팩 화염 + 연기 파티클 생성
         if _viper_jetpack_active:
@@ -81639,7 +90431,7 @@ def handle_player(keys):
                     'width': 1.0,
                 })
 
-        # AIR STRIKE 텍스트 타이머 감소
+        # AIR/DIVE STRIKE 텍스트 타이머 감소
         global _viper_air_strike_text_x, _viper_air_strike_text_y, _viper_air_strike_text_pct
         if _viper_air_strike_text_timer > 0:
             _viper_air_strike_text_timer -= 1
@@ -81758,6 +90550,86 @@ def handle_player(keys):
                 except Exception:
                     _viper_jetpack_snd_channel = None
 
+        # === 바이퍼 이그니션오라 (지상에서 W/↑ 0.5초 홀드 → 20초간 모든 퍽 +2) ===
+        # 발동 후 20초간 _viper_ignition_aura_active = True → get_runtime_skill_level()이
+        # transcendent_crown / sage_ring과 동일 규칙으로 +2 보너스를 얹는다.
+        # 지상 한정 게이트로 에어 블레이드(W press, 체공 한정)와 충돌을 피한다.
+        _ignition_w_input = bool(keys[pygame.K_w] or keys[pygame.K_UP])
+        _ignition_grounded = (_viper_jetpack_offset_y > -5)
+        _ignition_any_skill_active = (
+            rolling_active
+            or _viper_dive_active
+            or _viper_blade_rush_active
+            or _viper_br_spin_active
+            or _viper_ss_hologram_active
+            or _viper_wall_dive_active
+            or _viper_wall_dive_ready
+            or _viper_double_marshal_ready
+            or _viper_nerve_strike_active
+            or _viper_core_flip_attack_active
+        )
+        _ignition_can_hold = (
+            not _viper_ignition_aura_active
+            and _ignition_grounded
+            and not _ignition_any_skill_active
+            and not is_waiting_for_serve
+            and not is_player_serve and not player_stunned
+            and not is_horn_strawberry_control_locked()
+            and special_gauge >= _VIPER_IGNITION_GAUGE_COST
+            and is_viper_skill_unlocked("ignition_aura")
+            and get_viper_skill_cooldown_remaining("ignition_aura") <= 0
+        )
+        if _ignition_w_input and _ignition_can_hold:
+            if _viper_ignition_w_down_at == 0:
+                _viper_ignition_w_down_at = pygame.time.get_ticks()
+                _viper_ignition_aura_charge_particles = []
+            # 차징 진행도(0→1)에 비례한 발밑 화염 파티클
+            _ig_elapsed = pygame.time.get_ticks() - _viper_ignition_w_down_at
+            _ig_progress = min(1.0, _ig_elapsed / _VIPER_IGNITION_HOLD_REQUIRED_MS)
+            import random as _ig_rand
+            _ig_spawn = int(1 + _ig_progress * 4)
+            _ig_foot_x = float(PLAYER.centerx)
+            _ig_foot_y = float(PLAYER.bottom)
+            _ig_palette = [
+                (255, 160, 50), (255, 120, 30), (255, 200, 80),
+                (255, 100, 20), (240, 140, 40), (255, 220, 130),
+            ]
+            for _ in range(_ig_spawn):
+                _ig_col = _ig_palette[_ig_rand.randint(0, len(_ig_palette) - 1)]
+                _ig_spread = 6 + _ig_progress * 14
+                _viper_ignition_aura_charge_particles.append({
+                    'x': _ig_foot_x + _ig_rand.uniform(-_ig_spread, _ig_spread),
+                    'y': _ig_foot_y + _ig_rand.uniform(-2, 4),
+                    'vx': _ig_rand.uniform(-0.6, 0.6),
+                    'vy': _ig_rand.uniform(-3.0, -0.8) * (0.5 + _ig_progress * 0.6),
+                    'life': _ig_rand.randint(10, 24),
+                    'max_life': 24,
+                    'size': _ig_rand.uniform(2.0, 4.0 + _ig_progress * 2.0),
+                    'color': _ig_col,
+                })
+        else:
+            _viper_ignition_w_down_at = 0
+            _viper_ignition_aura_charge_particles = []
+        # 0.5초 홀드 완료 → 발동
+        if (_viper_ignition_w_down_at > 0
+                and pygame.time.get_ticks() - _viper_ignition_w_down_at >= _VIPER_IGNITION_HOLD_REQUIRED_MS):
+            _viper_ignition_w_down_at = 0
+            _viper_ignition_aura_charge_particles = []
+            if _ignition_can_hold:
+                special_gauge -= _VIPER_IGNITION_GAUGE_COST
+                trigger_viper_skill_cooldown("ignition_aura")
+                _viper_ignition_aura_active = True
+                _viper_ignition_aura_start_ms = pygame.time.get_ticks()
+                _viper_ignition_aura_end_ms = _viper_ignition_aura_start_ms + _VIPER_IGNITION_DURATION_MS
+                _hg_on_activate('ignition_aura')
+                _spawn_viper_ignition_aura_burst(float(PLAYER.centerx), float(PLAYER.centery))
+                try:
+                    _ig_snd = sound_effects.get('VIPER_DIVE_PREP') or sound_effects.get('VIPER_BACKSTEP')
+                    if _ig_snd:
+                        play_sound_with_volume(_ig_snd, sfx_volume * 0.7)
+                except Exception:
+                    pass
+
         # 급강하 업데이트
         if _viper_dive_active:
             _dive_elapsed = pygame.time.get_ticks() - _viper_dive_start_ms
@@ -81863,13 +90735,13 @@ def handle_player(keys):
                             'type': 'debris',
                         })
 
-                    # 공 속도 부스트 (범위 내 공에 적용 — X축 넓고 Y축 좁은 바닥 장판)
+                    # 공 반사 (범위 내 공에 적용 — X축 넓고 Y축 좁은 바닥 장판)
                     if not _viper_dive_ball_boosted:
                         _dv_ball_cy = BALL.centery
                         _dv_dy = _viper_dive_shockwave_y - _dv_ball_cy  # 양수 = 공이 위에 있음
                         if 0 <= _dv_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
-                            # 공을 위로 반사 (속도 변화 없음)
-                            ball_vel[1] = -abs(ball_vel[1])
+                            # 공을 위로 반사
+                            _apply_viper_dive_ball_reflection()
                             _viper_dive_ball_boosted = True
                             # 🪙 EMP 스트라이크 타격 골드 보너스 (20골드)
                             try:
@@ -81883,6 +90755,7 @@ def handle_player(keys):
                             _viper_air_strike_text_x = _viper_dive_shockwave_x
                             _viper_air_strike_text_y = _viper_dive_shockwave_y - 40
                             _viper_air_strike_text_pct = 0
+                            _viper_air_strike_text_mode = "dive"
                 else:
                     # 급강하 중 궤적 파티클
                     for _ in range(2):
@@ -81907,8 +90780,8 @@ def handle_player(keys):
                     # 연기 지속 중 매 프레임 범위 내 공 충돌 체크 (X축 전체, Y축 좁은 바닥 장판)
                     _dv2_dy = _viper_dive_shockwave_y - BALL.centery  # 양수 = 공이 위에 있음
                     if 0 <= _dv2_dy <= _VIPER_DIVE_SHOCKWAVE_HEIGHT:
-                        # 공을 위로 반사 (속도 변화 없음)
-                        ball_vel[1] = -abs(ball_vel[1])
+                        # 공을 위로 반사
+                        _apply_viper_dive_ball_reflection()
                         _viper_dive_ball_boosted = True
                         # 🪙 EMP 스트라이크 타격 골드 보너스 (20골드)
                         try:
@@ -81921,6 +90794,7 @@ def handle_player(keys):
                         _viper_air_strike_text_x = _viper_dive_shockwave_x
                         _viper_air_strike_text_y = _viper_dive_shockwave_y - 40
                         _viper_air_strike_text_pct = 0
+                        _viper_air_strike_text_mode = "dive"
 
         # 도움닫기 자세 중 자연 하강 상쇄 (공중 정지 유지)
         if _viper_dive_active and _viper_dive_phase == 0 and _viper_jetpack_offset_y < 0:
@@ -82021,6 +90895,24 @@ def handle_player(keys):
             _br_rest_dur = int(_VIPER_BR_REST_DURATION * _db_time_mult)
         _br_spin_total_angle = 360.0 * _db_spin_turns
 
+        # 🛡 다크 블레이드 자동 발사 안전장치 (빠른 랠리 사망 방지):
+        # 다크 모드 회전 중(phase < 2)이라도 발동 직후에는 준비동작을 보장하고,
+        # 0.8초~1.4초 구간에서만 공이 내려오며 Y축 150px 이내로 가까워질 때
+        # 회전을 중단하고 phase 2 검기 발사로 즉시 점프한다.
+        if _viper_br_dark_mode and _viper_br_spin_phase < 2:
+            try:
+                if _should_viper_force_dark_blade_autofire(
+                    _br_elapsed,
+                    ball_velocity_y=ball_vel[1],
+                    ball_centery=BALL.centery,
+                    player_centery=PLAYER.centery,
+                ):
+                    # phase 1 분기에서 즉시 phase 2 entry로 전환되도록 보정
+                    _viper_br_spin_phase = 1
+                    _br_elapsed = _br_decel_dur
+            except Exception:
+                pass
+
         if _viper_br_spin_phase == 0:
             # 단계 0: 빠른 회전 (일반 2바퀴 400ms / 다크 4바퀴 1000ms)
             if _br_elapsed < _br_spin_dur:
@@ -82046,9 +90938,15 @@ def handle_player(keys):
                 _viper_br_spin_start_ms = _br_now
                 _viper_br_spin_angle = 0.0  # 정면으로 리셋
 
-                # 다크 블레이드 → 에어 블레이드 콤보 타이머 시작
+                # 에어/다크 블레이드 후속 콤보 타이머 시작
                 if _viper_br_dark_mode:
+                    _viper_air_blade_combo_window = False
+                    _viper_air_blade_fire_ms = 0
                     _viper_dark_blade_fire_ms = _br_now
+                else:
+                    _viper_dark_blade_combo_window = False
+                    _viper_dark_blade_fire_ms = 0
+                    _viper_air_blade_fire_ms = _br_now
 
                 # 회전 사운드 정지 + 검기 발사 (회전 끝난 직후)
                 try:
@@ -82096,11 +90994,15 @@ def handle_player(keys):
                     pass
 
         elif _viper_br_spin_phase == 2:
-            # 다크 블레이드 → 에어 블레이드 콤보 윈도우 활성화 (검기 발사 0.5초 후)
+            # 다크/에어 블레이드 후속 콤보 윈도우 활성화 (검기 발사 0.5초 후)
             if (_viper_br_dark_mode and _viper_dark_blade_fire_ms > 0
                     and not _viper_dark_blade_combo_window
                     and _br_now - _viper_dark_blade_fire_ms >= _VIPER_DARK_BLADE_COMBO_DELAY_MS):
                 _viper_dark_blade_combo_window = True
+            if ((not _viper_br_dark_mode) and _viper_air_blade_fire_ms > 0
+                    and not _viper_air_blade_combo_window
+                    and _br_now - _viper_air_blade_fire_ms >= _VIPER_AIR_BLADE_COMBO_DELAY_MS):
+                _viper_air_blade_combo_window = True
 
             # 단계 2: 검기 발사 + 승룡권 점프 + 숨내쉬기 (일반 1000ms / 다크 500ms)
             _br_rest_t = min(1.0, _br_elapsed / _br_rest_dur)
@@ -82137,6 +91039,8 @@ def handle_player(keys):
                 # 다크 블레이드 콤보 윈도우 만료 (착지)
                 _viper_dark_blade_combo_window = False
                 _viper_dark_blade_fire_ms = 0
+                _viper_air_blade_combo_window = False
+                _viper_air_blade_fire_ms = 0
 
     # 바이퍼 에어 블레이드 검기 업데이트 (매 프레임)
     if _viper_blade_rush_active:
@@ -82165,6 +91069,17 @@ def handle_player(keys):
                 )
                 if _br_blade_rect.colliderect(BALL):
                     _viper_blade_rush_hit_ball = True
+                    _handle_viper_chaos_spear_ball_contact()
+                    if (_viper_dark_blade_active
+                            and not _viper_core_flip_attack_active
+                            and get_viper_skill_cooldown_remaining("marshal_kick") <= 0
+                            and special_gauge >= _VIPER_WALL_DIVE_GAUGE_COST):
+                        _viper_wall_dive_ready = True
+                        _viper_wall_dive_ready_timer = _VIPER_WALL_DIVE_READY_FRAMES
+                        _viper_wall_dive_phantom_allowed = False
+                        _viper_double_marshal_ready = False
+                        _viper_double_marshal_ready_timer = 0
+                        _viper_marshal_kick_hit_ball = False
                     # 🪙 에어 블레이드 타격 골드 보너스 (30골드)
                     try:
                         add_ingame_gold(30, BALL.centerx, BALL.centery - 20, source="skill")
@@ -82178,9 +91093,10 @@ def handle_player(keys):
                     # 검기 증폭 퍽: 공 타격 시 공속 +10%/LV
                     # 초월자의 관/현자의 반지 효과로 LV5 초과 시에도 공속은 계속 증가 (킥 강화 공속과 동일)
                     _br_hit_amp_lv = get_runtime_skill_level("blade_amp")
-                    _br_hit_mult = 2.8 * (1.0 + 0.1 * _br_hit_amp_lv)
+                    _br_base_mult = 2.4 if _viper_dark_blade_active else 2.1  # 다크 +140% / 에어 +110%
+                    _br_hit_mult = _br_base_mult * (1.0 + 0.15 * _br_hit_amp_lv)
                     if _br_cur_speed > 0.1:
-                        _br_new_speed = _br_cur_speed * _br_hit_mult  # 기본 2.8x + 검기 증폭 보너스
+                        _br_new_speed = _br_cur_speed * _br_hit_mult  # 기본 배수(에어 2.1x/다크 2.4x) + 검기 증폭 보너스
                         _br_ratio = _br_new_speed / _br_cur_speed
                         ball_vel[0] *= _br_ratio
                         ball_vel[1] = -abs(ball_vel[1] * _br_ratio)  # 위로 보정
@@ -82352,6 +91268,12 @@ def handle_player(keys):
                         pass
                 else:
                     # 무효 (보스가 피함) → 즉시 복귀
+                    _ns_land_floor = _compute_player_floor_bottom(
+                        CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+                    )
+                    _viper_jetpack_active = False
+                    _viper_jetpack_offset_y = 0.0
+                    _viper_nerve_strike_origin_y = float(_ns_land_floor - PLAYER.height // 2)
                     _viper_nerve_strike_phase = 2
                     _viper_nerve_strike_start_ms = _ns_now
 
@@ -82384,7 +91306,7 @@ def handle_player(keys):
 
             if _ns_elapsed >= _ns_slash_dur:
                 # 혼란 효과 적용! (조명탄과 동일한 시스템)
-                boss_confused_timer = _VIPER_NS_CONFUSION_FRAMES  # 5초
+                boss_confused_timer = _VIPER_NS_CONFUSION_FRAMES  # 4초
                 # 프리즈는 착지 완료까지 유지 (Phase 2 끝에서 해제)
 
                 # 복귀 X를 공의 X좌표로 변경 (착지 후 바로 받아칠 수 있도록)
@@ -82393,6 +91315,16 @@ def handle_player(keys):
                 _ns_half_pw = PLAYER.width // 2
                 _ns_land_x = max(_ns_half_pw, min(WIDTH - _ns_half_pw, _ns_land_x))
                 _viper_nerve_strike_origin_x = _ns_land_x
+
+                # 베놈 엣지 복귀는 히트/미스와 무관하게 실제 바닥 centery 를 목표로 삼아야 한다.
+                # 공중에서 저장한 origin_y 와 남은 제트팩 오프셋을 그대로 두면
+                # Phase 2 종료 뒤 다음 프레임에 다시 공중 위치가 복원될 수 있다.
+                _ns_land_floor = _compute_player_floor_bottom(
+                    CURRENT_PADDLE_EFFECTIVE_SCALE if CURRENT_PADDLE_EFFECTIVE_SCALE else CURRENT_PADDLE_SIZE_SCALE
+                )
+                _viper_jetpack_active = False
+                _viper_jetpack_offset_y = 0.0
+                _viper_nerve_strike_origin_y = float(_ns_land_floor - PLAYER.height // 2)
 
                 _viper_nerve_strike_phase = 2
                 _viper_nerve_strike_start_ms = _ns_now
@@ -82418,7 +91350,10 @@ def handle_player(keys):
             else:
                 # 복귀 완료
                 PLAYER.centerx = int(_viper_nerve_strike_origin_x)
-                PLAYER.centery = int(_viper_nerve_strike_origin_y)
+                _viper_jetpack_active = False
+                _viper_jetpack_offset_y = 0.0
+                align_player_to_floor()
+                _viper_nerve_strike_origin_y = float(PLAYER.centery)
                 _viper_nerve_strike_active = False
                 _viper_ns_hit_confirmed = False
                 _viper_ns_freeze_active = False
@@ -82826,13 +91761,8 @@ def handle_player(keys):
     )
 
     global soldier_down_tap_timer, soldier_down_tap_count, soldier_down_tap_suppress_timer
-    global soldier_emergency_supply_used, soldier_emergency_supply_stage
 
     if selected_character_type == "soldier":
-        if soldier_emergency_supply_stage != current_stage:
-            soldier_emergency_supply_stage = current_stage
-            soldier_emergency_supply_used = False
-
         if soldier_down_tap_timer > 0:
             soldier_down_tap_timer -= 1
             if soldier_down_tap_timer == 0:
@@ -83060,7 +91990,7 @@ def handle_player(keys):
     # 스턴 중에는 스턴 블록 내에서 별도 감쇠하므로 여기서는 스턴 아닐 때만 처리
     if player_stunned_timer <= 0 and abs(player_knockback_vel) > 0.5:
         PLAYER.x += int(player_knockback_vel)
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
         player_knockback_vel *= 0.85
         if abs(player_knockback_vel) <= 0.5:
             player_knockback_vel = 0
@@ -83112,7 +92042,7 @@ def handle_player(keys):
         if abs(player_knockback_vel) > 0.5:
             old_x = PLAYER.x
             PLAYER.x += int(player_knockback_vel)
-            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+            PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
             pass  # print(f"🔧 [STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, timer={player_stunned_timer})")  # 디버그 비활성화
         # 감속 (뿔박치기는 더 부드러운 감속 적용)
         if horn_charge_player_knockback_active:
@@ -83141,7 +92071,7 @@ def handle_player(keys):
         if abs(player_missile_knockback_vel) > 0.5:
             old_x = PLAYER.x
             PLAYER.x += int(player_missile_knockback_vel)
-            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+            PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
             pass  # print(f"🚀 [MISSILE STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f}, timer={player_missile_stunned_timer})")  # 디버그 비활성화
         # 감속 (화염탄과 동일한 0.85)
         player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
@@ -83175,7 +92105,7 @@ def handle_player(keys):
 
         # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
         # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94, 공중 캐릭터 면역)
-        _ice_immune_kb = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+        _ice_immune_kb = selected_character_type == "viper" and _viper_jetpack_offset_y < 0
         if is_ice_active() and not _ice_immune_kb:
             ice_decay = 0.94  # 빙판에서는 6%만 감속 → 더 길게 미끄러짐
         else:
@@ -83618,7 +92548,7 @@ def handle_player(keys):
                             poseidon_dash_pending = False  # 플래그 리셋
 
                 # 🧊 얼음 이벤트: 대쉬 종료 시 미끄러짐 시작 (끝까지 미끄러짐, 공중 캐릭터 면역)
-                _ice_immune_slide = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                _ice_immune_slide = selected_character_type == "viper" and _viper_jetpack_offset_y < 0
                 if is_ice_active() and not ice_dash_sliding and not _ice_immune_slide:
                     # 이미 미끄러지는 중이 아닐 때만 새로 발동
                     dash_direction = _rolling_get("rolling_direction")
@@ -83643,7 +92573,7 @@ def handle_player(keys):
                     # 🧊 첫 번째 미끄러짐 이동을 즉시 실행 (지연 방지)
                     ice_slide_offset = ice_dash_slide_speed * ice_dash_slide_direction
                     PLAYER.x += int(ice_slide_offset)
-                    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
                     if DEBUG_MODE:
                         pass  # print(f"[ICE SLIDE] 즉시 첫 이동! offset={ice_slide_offset}, new_x={PLAYER.x}")
 
@@ -83661,7 +92591,7 @@ def handle_player(keys):
                 if ice_dash_sliding:
                     current_speed = 0
                 # 🧊 얼음 위에서 대쉬 중이고 감속 구간에 들어가면 즉시 미끄러짐으로 전환 (공중 캐릭터 면역)
-                elif is_ice_active() and rolling_timer_value <= 20 and not (selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)):
+                elif is_ice_active() and rolling_timer_value <= 20 and not (selected_character_type == "viper" and _viper_jetpack_offset_y < 0):
                     # 감속 구간에 진입하면 바로 미끄러짐 시작 (감속 없이 미끄러짐으로 연결)
                     dash_direction = _rolling_get("rolling_direction")
                     ice_dash_sliding = True
@@ -83952,7 +92882,7 @@ def handle_player(keys):
                 # token_states에서 실제 토큰 수 계산 (동기화 문제 방지)
                 current_charges = sum(1 for s in token_states if s) if 'token_states' in globals() else get_roll("rolling_charges")
 
-                if left_before_down and down_pressed and not dash_down_first_lock and current_charges > 0:
+                if left_before_down and down_pressed and not dash_down_first_lock and current_charges > 0 and not _viper_core_flip_attack_active:
                     # 후딜 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
                     # 연속대쉬는 키를 계속 누르고 있어도 발동됨 (백업본 0123 로직 복원)
                     _start_dash(-1)
@@ -84217,7 +93147,7 @@ def handle_player(keys):
                     #     special_ready = False
                     if DEBUG_MODE:
                         pass  # print(f"    대쉬! (연속: {get_roll('rolling_consecutive_count')}, 토큰: {get_roll('rolling_charges')}, 게이지: {special_gauge})")
-                elif right_before_down and down_pressed and not dash_down_first_lock and current_charges > 0:
+                elif right_before_down and down_pressed and not dash_down_first_lock and current_charges > 0 and not _viper_core_flip_attack_active:
                     # 후딜 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
                     # 연속대쉬는 키를 계속 누르고 있어도 발동됨 (백업본 0123 로직 복원)
                     _start_dash(1)
@@ -84840,7 +93770,7 @@ def handle_player(keys):
 
                             half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(half_dash_state)
 
-                        if half_dash_activated:
+                        if half_dash_activated and not _viper_core_flip_attack_active:
                         # 하프 대쉬 발동
                             # 🔧 버그 수정: 하프 대시에서도 키 릴리즈 플래그 설정
                             globals()['dash_key_released_since_last'] = False
@@ -84848,6 +93778,10 @@ def handle_player(keys):
                             if selected_character_type == "viper":
                                 _viper_dash_origin_x = float(PLAYER.centerx)
                                 _viper_dash_was_airborne = (_viper_jetpack_offset_y < -10)
+                                _viper_last_dash_start_ms = pygame.time.get_ticks()
+                                _viper_core_flip_ready_ms = 0
+                                _viper_core_flip_consumed = False
+                                _clear_viper_core_flip_input_buffer()
                             rolling_active = True
                             # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                             if selected_character_type == "smasher" or ai_mode == "junior":
@@ -85116,7 +94050,7 @@ def handle_player(keys):
                 right_before_down = _cached_right_for_dash
                 # 스턴/감전 상태에서는 대쉬 불가
                 _player_stun_blocked = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
-                if left_before_down and down_pressed and not dash_down_first_lock and (rolling_charges > 0 or _soul_burst_can_dash) and not optimus_drain_locked and dash_key_released_since_last and not _player_stun_blocked and not is_deadly_hug_dash_blocked():
+                if left_before_down and down_pressed and not dash_down_first_lock and (rolling_charges > 0 or _soul_burst_can_dash) and not optimus_drain_locked and dash_key_released_since_last and not _player_stun_blocked and not is_deadly_hug_dash_blocked() and not _viper_core_flip_attack_active:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -85124,6 +94058,10 @@ def handle_player(keys):
                     if selected_character_type == "viper":
                         _viper_dash_origin_x = float(PLAYER.centerx)
                         _viper_dash_was_airborne = (_viper_jetpack_offset_y < -10)
+                        _viper_last_dash_start_ms = pygame.time.get_ticks()
+                        _viper_core_flip_ready_ms = 0
+                        _viper_core_flip_consumed = False
+                        _clear_viper_core_flip_input_buffer()
                     rolling_active = True
                     # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                     if selected_character_type == "smasher" or ai_mode == "junior":
@@ -85140,7 +94078,7 @@ def handle_player(keys):
                     except Exception:
                         pass
                     # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (공중 캐릭터 면역)
-                    _ice_immune_l = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                    _ice_immune_l = selected_character_type == "viper" and _viper_jetpack_offset_y < 0
                     if is_ice_active() and not _ice_immune_l:
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, -1, is_player=True)
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
@@ -85410,7 +94348,7 @@ def handle_player(keys):
                 # 🔧 온라인 대쉬 디버그: 오른쪽 대쉬 조건 실패 시 로그
                 if online_multiplayer_enabled and right_before_down and down_pressed and not (rolling_charges > 0 or _soul_burst_can_dash):
                     print(f"[DASH_DEBUG] 오른쪽대쉬 토큰부족: charges={rolling_charges}, released={dash_key_released_since_last}")
-                if right_before_down and down_pressed and not dash_down_first_lock and (rolling_charges > 0 or _soul_burst_can_dash) and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last and not _player_stun_blocked_r and not is_deadly_hug_dash_blocked():
+                if right_before_down and down_pressed and not dash_down_first_lock and (rolling_charges > 0 or _soul_burst_can_dash) and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last and not _player_stun_blocked_r and not is_deadly_hug_dash_blocked() and not _viper_core_flip_attack_active:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -85418,6 +94356,10 @@ def handle_player(keys):
                     if selected_character_type == "viper":
                         _viper_dash_origin_x = float(PLAYER.centerx)
                         _viper_dash_was_airborne = (_viper_jetpack_offset_y < -10)
+                        _viper_last_dash_start_ms = pygame.time.get_ticks()
+                        _viper_core_flip_ready_ms = 0
+                        _viper_core_flip_consumed = False
+                        _clear_viper_core_flip_input_buffer()
                     rolling_active = True
                     # ⚡ 대쉬 시 스매셔 콤보 유예 (연계기용 Grace Period)
                     if selected_character_type == "smasher" or ai_mode == "junior":
@@ -85434,7 +94376,7 @@ def handle_player(keys):
                     except Exception:
                         pass
                     # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성 (공중 캐릭터 면역)
-                    _ice_immune_r = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                    _ice_immune_r = selected_character_type == "viper" and _viper_jetpack_offset_y < 0
                     if is_ice_active() and not _ice_immune_r:
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, 1, is_player=True)
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
@@ -85689,7 +94631,7 @@ def handle_player(keys):
                     recent_dash_time = pygame.time.get_ticks()
                     mega_smashing_bonus_applied = False  # 고스트샷 보너스 리셋 (새로운 콤보 가능)
                     record_dash_usage(success=False)  # 일단 사용만 기록, 성공은 공 충돌 시 체크
-            #  스피드부츠 효과 적용 (6% 증가)
+            #  스피드부츠 효과 적용 (롤 옵션 기준)
             speed_multiplier = (1.0 + PERMANENT_SPEED_BOOST) if speedboots_obtained else 1.0
 
             # 신속 스킬 효과 적용 (레벨당 5% 증가)
@@ -85827,6 +94769,19 @@ def handle_player(keys):
                         MOVE_EVENT_LEFT = False
                         MOVE_EVENT_RIGHT = False
 
+                # 바이퍼 카오스 스피어 윈드업(startup) 동안 패들 통제불능
+                if (
+                    selected_character_type == "viper"
+                    and _viper_chaos_spear_state == "startup"
+                ):
+                    left_pressed = False
+                    right_pressed = False
+                    MOVE_EVENT_LEFT = False
+                    MOVE_EVENT_RIGHT = False
+                    current_speed = 0.0
+                    if _viper_chaos_spear_locked_player_x is not None and PLAYER is not None:
+                        PLAYER.x = int(_viper_chaos_spear_locked_player_x)
+
                 # 튜토리얼 드라이브 알림창 화살표 키로 비활성화 (임시 비활성화 - 디버깅용)
                 # TODO: 드라이브 알림창이 제대로 표시되는지 확인 후 다시 활성화
                 # if current_stage == 50 and 'tutorial_drive_reminder_active' in globals():
@@ -85860,6 +94815,11 @@ def handle_player(keys):
                             current_speed = 0.0
                     except Exception:
                         pass
+
+                    if selected_character_type == "viper" and _viper_core_flip_attack_active:
+                        left_pressed = False
+                        right_pressed = False
+                        current_speed = 0.0
 
                     # 키보드 조작 (감전 상태가 아닐 때만)
                     if not player_stunned and not is_horn_strawberry_control_locked():
@@ -85957,7 +94917,7 @@ def handle_player(keys):
                             adjusted_deceleration = DECELERATION * combined_speed_multiplier
 
                             # 🧊 얼음 이벤트: 가속도 75% 감소 (미끄러워서 출발이 느림, 공중 캐릭터 면역)
-                            _ice_immune_accel = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                            _ice_immune_accel = selected_character_type == "viper" and _viper_jetpack_offset_y < 0
                             if is_ice_active() and not _ice_immune_accel:
                                 adjusted_acceleration *= get_ice_acceleration_multiplier()
                             if selected_character_type == "optimus" and not _hs_speed_active:
@@ -86035,7 +94995,7 @@ def handle_player(keys):
                                 if not gravitybelt_obtained:
                                     # 🧊 얼음 이벤트: 미끄러워서 멈추기 어려움 (감속 95% 감소, 공중 캐릭터 면역)
                                     ice_decel_multiplier = 1.0
-                                    _ice_immune_decel = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+                                    _ice_immune_decel = selected_character_type == "viper" and _viper_jetpack_offset_y < 0
                                     if is_ice_active() and not _ice_immune_decel:
                                         ice_decel_multiplier = 0.05  # 5%만 감속 (95% 감소)
                                     if current_speed > 0:
@@ -86068,7 +95028,7 @@ def handle_player(keys):
         if umbrella_guarding:
             adjusted_instant_decel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
         # 🧊 얼음 이벤트: 방향전환 80% 감소 (미끄러워서 방향 바꾸기 어려움, 공중 캐릭터 면역)
-        _ice_immune_turn = selected_character_type == "smasher" or (selected_character_type == "viper" and _viper_jetpack_offset_y < 0)
+        _ice_immune_turn = selected_character_type == "viper" and _viper_jetpack_offset_y < 0
         if is_ice_active() and not _ice_immune_turn:
             adjusted_instant_decel *= get_ice_direction_change_multiplier()
         # 좌/우 입력은 화살표와 A/D 모두 동일하게 인정해야 하므로
@@ -86299,6 +95259,10 @@ def handle_player(keys):
                 )
                 # 현재 무기 확인
                 current_weapon = soldier_controller.weapons[soldier_controller.current_index]
+                permanent_firearm_selected = (
+                    current_weapon in SOLDIER_PERMANENT_FIREARM_SKILLS
+                    and soldier_controller.is_permanent_weapon(current_weapon)
+                )
                 if current_weapon == "bazooka":
                     # 바주카포 발사
                     from item_effects.bazooka import get_bazooka_instance
@@ -86370,13 +95334,17 @@ def handle_player(keys):
                                 pass
                 elif current_weapon == "fire_support":
                     fire_support_weapon = get_fire_support_instance()
-                    if fire_support_weapon.can_call():
+                    if permanent_firearm_selected and is_soldier_skill_on_cooldown("fire_support"):
+                        pass
+                    elif fire_support_weapon.can_call():
                         current_time = pygame.time.get_ticks()
                         if round_start_time > 0 and current_time - round_start_time < 3000:
                             remaining_time = (3000 - (current_time - round_start_time)) / 1000
                             # print(f"🔥 화력지원 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
                         else:
                             if fire_support_weapon.start_call(WIDTH, HEIGHT):
+                                if permanent_firearm_selected:
+                                    trigger_soldier_skill_cooldown("fire_support")
                                 start_supply_radio_loop(
                                     duration_frames=FIRE_SUPPORT_RADIO_FRAMES,
                                     play_sound=False,
@@ -86392,7 +95360,9 @@ def handle_player(keys):
                                 # print("✈️ 화력지원 요청! 폭격기 호출 중")
                 elif current_weapon == "net_gun":
                     net_gun = net_gun_instance or get_net_gun_instance()
-                    if net_gun and net_gun.can_fire():
+                    if permanent_firearm_selected and is_soldier_skill_on_cooldown("net_gun"):
+                        pass
+                    elif net_gun and net_gun.can_fire():
                         current_time = pygame.time.get_ticks()
                         if round_start_time > 0 and current_time - round_start_time < 3000:
                             remaining_time = (3000 - (current_time - round_start_time)) / 1000
@@ -86400,6 +95370,8 @@ def handle_player(keys):
                         else:
                             boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
                             if net_gun.fire(PLAYER, boss_rect):
+                                if permanent_firearm_selected:
+                                    trigger_soldier_skill_cooldown("net_gun")
                                 soldier_control_lock_timer = net_gun.CONTROL_LOCK_FRAMES
                                 try:
                                     play_sound_with_volume(SOUND_THROW)
@@ -86414,29 +95386,35 @@ def handle_player(keys):
                         if suicide_drone_active:
                             _detonate_suicide_drone("manual")
                         else:
-                            if soldier_drone_ammo > 0 and _launch_suicide_drone():
+                            if permanent_firearm_selected and is_soldier_skill_on_cooldown("suicide_drone"):
+                                pass
+                            elif soldier_drone_ammo > 0 and _launch_suicide_drone():
+                                if permanent_firearm_selected:
+                                    trigger_soldier_skill_cooldown("suicide_drone")
                                 soldier_control_lock_timer = 0
                                 # print(f"🚁 자폭드론 발진! 남은 탄약 {soldier_drone_ammo}/{SUICIDE_DRONE_MAX_AMMO}")
                 elif current_weapon == "bowling_trap":
                     bowling_trap = get_bowling_trap_instance()
-                    if bowling_trap.can_install():
+                    if permanent_firearm_selected and is_soldier_skill_on_cooldown("bowling_trap"):
+                        pass
+                    elif bowling_trap.can_install():
                         current_time = pygame.time.get_ticks()
                         if round_start_time > 0 and current_time - round_start_time < 3000:
                             remaining_time = (3000 - (current_time - round_start_time)) / 1000
                             # print(f"🎳 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
                         else:
                             if bowling_trap.start_install(PLAYER):
+                                if permanent_firearm_selected:
+                                    trigger_soldier_skill_cooldown("bowling_trap")
                                 # 설치 시작 시 조작 잠금
                                 soldier_control_lock_timer = bowling_trap.INSTALL_FRAMES + 10
                                 # print(f"🎳 볼링트랩 설치 시작! 남은 탄약: {bowling_trap.ammo_count - 1}/{bowling_trap.MAX_AMMO}")
+                elif current_weapon == "commando_pistol":
+                    # 권총 영구 화기류 (새총과 별도 슬롯)
+                    fire_soldier_bullet()
                 else:
-                    # 기본 화기류 발사 (새총 또는 권총)
-                    if is_slingshot_mode():
-                        # 새총: 차징 시작 (space_just_pressed 시)
-                        start_slingshot_charge()
-                    else:
-                        # 권총 퍽 해금 후: 기존 권총 발사
-                        fire_soldier_bullet()
+                    # 기본 슬롯("pistol" internal name) = 항상 새총
+                    start_slingshot_charge()
 
         # === 새총 차징 업데이트 (매 프레임) ===
         if selected_character_type == "soldier" and is_slingshot_mode():
@@ -86615,7 +95593,7 @@ def handle_player(keys):
             except:
                 pass
         if soldier_control_lock_timer <= 0 or is_dashing:
-            if not suicide_drone_active and not ice_dash_sliding:
+            if not suicide_drone_active and not ice_dash_sliding and not (selected_character_type == "viper" and _viper_core_flip_attack_active):
                 # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
                 try:
                     # NaN/Infinity 체크
@@ -86671,18 +95649,18 @@ def handle_player(keys):
             smasher_power_recoil_stun_pending = False
     # 반동으로 이동한 후 화면 경계 재클램프
     if smasher_power_recoil_timer > 0 or smasher_power_recoil_vel != 0:
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
     
     # 화염 지대 넉백은 감전/스턴 상태와 무관하게 항상 적용
     PLAYER.x += int(player_flame_zone_knockback_vel)
-    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
     # === 스테이지 2 바나나 미끄러짐 효과 ===
     if current_stage == 2 and pillar_renderer is not None:
         if pillar_renderer.is_player_slipping():
             banana_slip_offset = pillar_renderer.get_monkey_slip_offset()
             PLAYER.x += int(banana_slip_offset)
-            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+            PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
     # === 🧊 얼음 이벤트 대쉬 미끄러짐 효과 (바나나 슬립처럼 벽까지 미끄러짐) ===
     # 스턴/무력화 상태와 무관하게 미끄러짐은 항상 진행됨 (바나나 슬립처럼)
@@ -86691,7 +95669,7 @@ def handle_player(keys):
         ice_slide_offset = ice_dash_slide_speed * ice_dash_slide_direction
         old_x = PLAYER.x
         PLAYER.x += int(ice_slide_offset)
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
         # 디버그: 매 10프레임마다 출력
         if DEBUG_MODE and ice_dash_slide_timer % 10 == 0:
@@ -86720,7 +95698,7 @@ def handle_player(keys):
         weather_push = apply_weather_effects_to_player(PLAYER, WIDTH)
         if weather_push != 0:
             PLAYER.x += int(weather_push)
-            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+            PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
     # === 코만도 캐릭터 걷기 애니메이션 처리 ===
     if selected_character_type == "soldier":
@@ -86836,7 +95814,7 @@ def handle_player(keys):
         _prev_center = PLAYER.centerx
         PLAYER.width = actual_paddle_width  # 거대화포션 + 악마의 주사위 + 기묘한 약병 효과 적용
         PLAYER.centerx = _prev_center  # 스케일 변화 시 좌우 중심 유지
-    PLAYER.x = max(0, min(WIDTH - actual_paddle_width, PLAYER.x))
+    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
     # (퍼펙트 타이밍 윈도우 감지 로직은 메인 루프로 이동)
     # 공 충돌 처리 - Aipill 활성화 시에는 모든 방향에서 감지, 비활성화 시에는 측면 충돌도 감지
     # 패들 끝부분 충돌을 위해 Y속도 조건 완화 - 공이 매우 빠르게 위로 가지 않는 한 모두 감지
@@ -87010,6 +95988,12 @@ def handle_player(keys):
         player_collision_rect.centerx = effective_centerx
         if DEBUG_DRAW_UMBRELLA_HITBOX:
             debug_umbrella_hitbox_rect = None
+
+    # ⊙ 워프게이트 걸침 상태: 공이 거울 쪽에 더 가까우면 충돌 렉트를 거울 위치로 시프트
+    try:
+        _apply_warp_gate_mirror_to_collision_rect(player_collision_rect)
+    except Exception:
+        pass
     
     # Stage 7: 토르쉴드 스윙 중 낙하형/가드 라인 테트로 파괴 처리
     try:
@@ -87067,7 +96051,7 @@ def handle_player(keys):
 
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     # ⚠️ 버그 수정: player_collision_cooldown 체크 추가 - handle_ball과 중복 충돌 처리 방지
-    if collision_with_player and player_collision_cooldown <= 0 and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi and not _viper_wall_dive_active:
+    if collision_with_player and player_collision_cooldown <= 0 and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi and not _viper_wall_dive_active and not _viper_core_flip_attack_active:
         _fire_player_impact_feedback(pos=(BALL.centerx, BALL.centery))
         # 발토르 토르쉴드 방패 충격 효과
         shield_guarding = (
@@ -87301,7 +96285,7 @@ def handle_player(keys):
             player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
             # 첫 프레임 이동 + 즉시 감속
             PLAYER.x += int(player_knockback_vel)
-            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+            PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
             # print(f"🔥 [FIRE BALL HIT] 플레이어 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f})")
             # 즉시 감속 적용
             player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
@@ -87446,6 +96430,13 @@ def handle_player(keys):
         # 테크니컬조끼 효과 발동 (30% 확률로 연막 생성)
         on_ball_paddle_collision_technical_vest(PLAYER)
 
+        # 훼이크암 효과 발동 (확률에 따라 공 반사각을 훼이크 각도로 교체)
+        try:
+            from item_effects.fake_arm import try_apply_fake_angle
+            try_apply_fake_angle(ball_vel, PLAYER)
+        except Exception:
+            pass
+
         # 발할라의 전갑 효과 발동 (handle_player에서의 공 타격)
         try:
             from item_effects.valhalla_warplate import get_valhalla_warplate_state
@@ -87493,6 +96484,7 @@ def handle_player(keys):
         # 방향 안전장치: 플레이어 반사 후 공이 반드시 위로 향하도록 강제
         if ball_vel[1] > 0:
             ball_vel[1] = -abs(ball_vel[1])
+        _resolve_player_ball_overlap(player_collision_rect, "player_overlap")
         _player_speed_after = math.hypot(ball_vel[0], ball_vel[1])
         # print(f"🔍 [플레이어 패들 충돌] calculate_bounce 후 속도: {_player_speed_before:.2f} → {_player_speed_after:.2f}, 쿨다운: player={player_collision_cooldown}, boss={boss_collision_cooldown}")  # 디버그 비활성화
 
@@ -87509,7 +96501,7 @@ def handle_player(keys):
                 )
             _viper_ss_kick_ready = False
 
-        # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가 + AIR STRIKE 이펙트)
+        # 🚀 바이퍼 제트팩 체공 히트 보너스 (15% 속도 증가 + 최대 30% 게이지 보너스)
         if selected_character_type == "viper" and _viper_jetpack_offset_y < -10:
             ball_vel[0] *= _VIPER_JETPACK_HIT_BONUS
             ball_vel[1] *= _VIPER_JETPACK_HIT_BONUS
@@ -87525,7 +96517,8 @@ def handle_player(keys):
             _viper_air_strike_text_timer = 60
             _viper_air_strike_text_x = float(BALL.centerx)
             _viper_air_strike_text_y = float(BALL.centery - 20)
-            _viper_air_strike_text_pct = int(min(1.0, abs(_viper_jetpack_offset_y) / _VIPER_JETPACK_MAX_HEIGHT) * 15)
+            _viper_air_strike_text_pct = _get_viper_air_strike_bonus_pct()
+            _viper_air_strike_text_mode = "air"
             # 🪙 AIR STRIKE 타격 골드 보너스
             try:
                 add_ingame_gold(3, BALL.centerx, BALL.centery - 30, source="skill")
@@ -87574,6 +96567,12 @@ def handle_player(keys):
         record_player_hit(is_perfect_timing=is_perfect, is_power_smash=drive_activated)
         #  대쉬 성공 체크 (최근 0.4초 내에 대쉬 또는 하프대쉬했다면 성공으로 기록)
         current_time = pygame.time.get_ticks()
+        if selected_character_type == "viper":
+            _arm_viper_core_flip_from_dash_hit(
+                current_time,
+                is_half_dash=bool(is_half_dash_active),
+                dash_active=bool(rolling_active),
+            )
         is_dash_success = False
         
         # 일반 대쉬 성공 체크
@@ -87756,6 +96755,7 @@ def handle_player(keys):
                 trigger_smasher_contact_animation(collision_x)
         elif selected_character_type == "viper":
             trigger_viper_contact_animation(collision_x)
+            _handle_viper_chaos_spear_ball_contact()
         #  게이지 처리 - Aipill 활성화 시에는 게이지 감소만, 비활성화 시에는 게이지 증가
         # print(f"   aipill_active: {aipill_active}")  # 디버그 비활성화
         # Aipill 활성화 시 게이지 감소만
@@ -87812,11 +96812,7 @@ def handle_player(keys):
                 if selected_character_type == "optimus":
                     base_gauge_gain = 0  # 옵티머스는 패들 히트로 게이지를 획득하지 않음
                 elif selected_character_type == "soldier":
-                    # 코만도 기본: 패들 히트 시 게이지 50
-                    # 요구사항: 권총(pistol) 외 다른 화기류 선택 시 게이지 획득량 50% 감소 → 25
                     base_gauge_gain = 50
-                    if _is_soldier_non_pistol_selected():
-                        base_gauge_gain = 25
                     if DEBUG_HANDLE_PLAYER_VERBOSE:
                         try:
                             dbg_weapon = (
@@ -87891,6 +96887,18 @@ def handle_player(keys):
                     total_gauge_gain += bonus_gauge
                     # print(f"⚡ [콤보 보너스!] {smasher_combo_count}콤보! +{combo_bonus_pct}% = +{bonus_gauge} 게이지")  # 디버그 비활성화
 
+                # 🚀 바이퍼 AIR STRIKE 체공 높이 비례 추가 게이지 (최대 +30%)
+                total_gauge_gain = _apply_viper_air_strike_gauge_bonus(total_gauge_gain)
+
+                # 훼이크암 발동 시 추가 획득 게이지 보너스 (롤옵션 70~120%)
+                try:
+                    from item_effects.fake_arm import consume_pending_gauge_bonus_pct
+                    _fa_bonus_pct = consume_pending_gauge_bonus_pct()
+                    if _fa_bonus_pct > 0 and total_gauge_gain > 0:
+                        total_gauge_gain += int(total_gauge_gain * _fa_bonus_pct / 100.0)
+                except Exception:
+                    pass
+
                 old_gauge = special_gauge  # 이전 게이지 저장
                 special_gauge += total_gauge_gain
                 #  동적 최대치 제한 적용
@@ -87898,7 +96906,7 @@ def handle_player(keys):
                 if special_gauge > current_max:
                     special_gauge = current_max
                 #  필살기 준비 상태 업데이트 (400 이상일 때)
-                if special_gauge >= 350:  # 파워스매시 발동 조건
+                if special_gauge >= 300:  # 파워스매시 발동 조건
                     special_ready = True
 
             # 충돌 쿨다운 설정하여 중복 충전 방지
@@ -88697,19 +97705,19 @@ def save_game_progress(stage_number: int) -> bool:
         serializable_passive_items = []
         for item in passive_item_list:
             if item and isinstance(item, dict):
-                # 아이콘 같은 Surface 객체는 제외하고 저장
-                safe_item = {k: v for k, v in item.items()
-                            if not isinstance(v, (pygame.Surface,)) and k != 'icon'}
-                serializable_passive_items.append(safe_item)
+                safe_item = _serialize_save_value(item)
+                if isinstance(safe_item, dict):
+                    safe_item.pop("icon", None)
+                    serializable_passive_items.append(safe_item)
 
         # 액티브 아이템 목록을 저장 가능한 형태로 변환
         serializable_active_items = []
         for item in active_item_slot:
             if item and isinstance(item, dict):
-                # 아이콘 같은 Surface 객체는 제외하고 저장
-                safe_item = {k: v for k, v in item.items()
-                            if not isinstance(v, (pygame.Surface,)) and k != 'icon'}
-                serializable_active_items.append(safe_item)
+                safe_item = _serialize_save_value(item)
+                if isinstance(safe_item, dict):
+                    safe_item.pop("icon", None)
+                    serializable_active_items.append(safe_item)
 
         import datetime as dt_module
         save_data = {
@@ -88727,6 +97735,7 @@ def save_game_progress(stage_number: int) -> bool:
             "deposit_last_deposit_stage": deposit_last_deposit_stage,
             "deposit_pending_interest_rates": deposit_pending_interest_rates,
             "passive_items": serializable_passive_items,
+            "pinned_equipment_slots": sorted(ensure_pinned_equipment_slots()),
             "active_items": serializable_active_items,
             "cleared_planets": list(cleared_planets),
             "discovered_items": sorted(discovered_item_names),
@@ -88787,6 +97796,13 @@ def save_game_progress(stage_number: int) -> bool:
         except Exception as viper_err:
             print(f"[저장] 바이퍼 스킬 해금 상태 저장 실패: {viper_err}")
 
+        # 코만도 스킬 해금 상태 + 장착 목록 저장
+        try:
+            save_data["soldier_skill_unlocked"] = dict(_soldier_skill_unlocked)
+            save_data["soldier_equipped_skills"] = list(_soldier_equipped_skills)
+        except Exception as soldier_skill_err:
+            print(f"[저장] 코만도 스킬 해금 상태 저장 실패: {soldier_skill_err}")
+
         # 초급/중급인장 임시 호위무사 활성 상태 저장
         try:
             from item_effects.minor_hero_seal import get_minor_seal_state
@@ -88822,13 +97838,16 @@ def save_game_progress(stage_number: int) -> bool:
         # 코만도(soldier) 화기류 저장
         try:
             if soldier_controller and soldier_controller.weapons:
-                # 노후화 관련 데이터 저장
                 soldier_weapons_data = {
                     "weapons": list(soldier_controller.weapons),
                     "current_index": soldier_controller.current_index,
                     "reload_counts": dict(soldier_controller.reload_counts),
                     "degradation_thresholds": dict(soldier_controller.degradation_thresholds),
                     "degraded": list(soldier_controller.degraded),
+                    "permanent_owned": sorted(soldier_controller.permanent_owned),
+                    "equipped_permanent": list(soldier_controller.equipped_permanent),
+                    "rental_weapons": _serialize_save_value(dict(soldier_controller.rental_weapons)),
+                    "skill_cooldowns_remaining": get_soldier_skill_cooldown_save_payload(),
                 }
 
                 # 각 화기별 탄환 상태 저장
@@ -88893,12 +97912,26 @@ def save_game_progress(stage_number: int) -> bool:
                 except Exception:
                     pass
 
+                # 권총 탄환 + 탄창
+                try:
+                    weapon_ammo_states["commando_pistol"] = {
+                        "ammo_count": soldier_ammo_count,
+                        "max_ammo": soldier_max_ammo,
+                        "magazines": soldier_pistol_magazines,
+                    }
+                except Exception:
+                    pass
+
                 soldier_weapons_data["ammo_states"] = weapon_ammo_states
                 save_data["soldier_weapons"] = soldier_weapons_data
-                # print(f"[저장] 코만도 화기류 저장 완료 - {soldier_controller.weapons}, 노후화: {list(soldier_controller.degraded)}")
+                # print(f"[저장] 코만도 화기류 저장 완료 - {soldier_controller.weapons}, 대여: {list(soldier_controller.degraded)}")
                 # print(f"[저장] 탄환 상태: {weapon_ammo_states}")
         except Exception as weapon_err:
             print(f"[저장] 코만도 화기류 저장 실패: {weapon_err}")
+
+        save_data = _serialize_save_value(save_data)
+        if not isinstance(save_data, dict):
+            raise TypeError("save_data serialization failed")
 
         save_path = os.path.join(_get_save_directory(), GAME_SAVE_FILE)
         with open(save_path, 'w', encoding='utf-8') as f:
@@ -88927,7 +97960,7 @@ def load_game_progress() -> dict | None:
             return None
 
         with open(save_path, 'r', encoding='utf-8') as f:
-            save_data = json.load(f)
+            save_data = _restore_save_value(json.load(f))
 
         return save_data
 
@@ -88959,6 +97992,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
 
     try:
         # 기본 데이터 복원
+        clear_pinned_equipment_slots()
         downtown_gold = save_data.get("downtown_gold", 0)
         downtown_ap_current = save_data.get("downtown_ap_current", None)
         downtown_ap_is_first_stage = save_data.get("downtown_ap_is_first_stage", True)
@@ -89040,6 +98074,14 @@ def apply_loaded_progress(save_data: dict) -> bool:
                         if hasattr(items, obtained_attr):
                             setattr(items, obtained_attr, True)
                         mark_item_discovered(iname)
+            restore_pinned_equipment_slots(
+                save_data.get("pinned_equipment_slots", []),
+                occupied_slots={
+                    item.get("_equipped_slot")
+                    for item in passive_item_list
+                    if isinstance(item, dict) and item.get("_equipped_slot")
+                },
+            )
             # print(f"[로드] 패시브 아이템 {len(passive_item_list)}개 복원 완료 (아이콘 재로드)")
 
         # 액티브 아이템 복원
@@ -89097,9 +98139,10 @@ def apply_loaded_progress(save_data: dict) -> bool:
                     pass  # print(f"[로드] 런타임 스킬 복원 완료 - 활성 스킬: {active_runtime_skills}")
                 else:
                     pass  # print(f"[로드] 런타임 스킬 복원 완료 (활성 스킬 없음)")
-                # 권총 퍽 복원
-                if runtime_skill_levels.get("soldier_pistol_perk", 0) > 0:
-                    soldier_pistol_perk_unlocked = True
+                _apply_soldier_pistol_perk_state(
+                    runtime_skill_levels.get("soldier_pistol_perk", 0) > 0,
+                    refill_ammo=False,
+                )
         except Exception as runtime_err:
             print(f"[로드] 런타임 스킬 복원 실패: {runtime_err}")
 
@@ -89136,10 +98179,18 @@ def apply_loaded_progress(save_data: dict) -> bool:
                     _viper_skill_unlocked["nerve_strike"] = True
                 if runtime_skill_levels.get("unlock_dive_strike", 0) > 0:
                     _viper_skill_unlocked["dive_strike"] = True
+                if runtime_skill_levels.get("unlock_chaos_spear", 0) > 0:
+                    _viper_skill_unlocked["chaos_spear"] = True
+                if runtime_skill_levels.get("unlock_ignition_aura", 0) > 0:
+                    _viper_skill_unlocked["ignition_aura"] = True
             # double_marshal_kick 복원
             if runtime_skill_levels.get("double_marshal_kick", 0) > 0:
                 _viper_double_marshal_kick_unlocked = True
                 _viper_skill_unlocked["phantom_kick"] = True
+            if runtime_skill_levels.get("dark_blade", 0) > 0:
+                _viper_skill_unlocked["dark_blade"] = True
+            if runtime_skill_levels.get("core_flip", 0) > 0:
+                _viper_skill_unlocked["core_flip"] = True
             # 장착 목록 복원
             viper_equipped_data = save_data.get("viper_equipped_skills")
             if viper_equipped_data:
@@ -89150,6 +98201,57 @@ def apply_loaded_progress(save_data: dict) -> bool:
                     equip_viper_skill(_vsk)
         except Exception as viper_err:
             print(f"[로드] 바이퍼 스킬 해금 상태 복원 실패: {viper_err}")
+
+        # 코만도 스킬 해금 상태 + 장착 목록 복원
+        global _soldier_skill_unlocked, _soldier_equipped_skills
+        try:
+            soldier_unlocked_data = save_data.get("soldier_skill_unlocked")
+            if soldier_unlocked_data:
+                for skill_name, is_unlocked in soldier_unlocked_data.items():
+                    if skill_name in _soldier_skill_unlocked:
+                        _soldier_skill_unlocked[skill_name] = is_unlocked
+            else:
+                if runtime_skill_levels.get("soldier_unlock_net_gun", 0) > 0:
+                    _soldier_skill_unlocked["net_gun"] = True
+                if runtime_skill_levels.get("soldier_unlock_fire_support", 0) > 0:
+                    _soldier_skill_unlocked["fire_support"] = True
+                if runtime_skill_levels.get("soldier_unlock_bowling_trap", 0) > 0:
+                    _soldier_skill_unlocked["bowling_trap"] = True
+                if runtime_skill_levels.get("soldier_unlock_suicide_drone", 0) > 0:
+                    _soldier_skill_unlocked["suicide_drone"] = True
+            _soldier_skill_unlocked[SOLDIER_PISTOL_ORB_SKILL] = bool(
+                _soldier_skill_unlocked.get(SOLDIER_PISTOL_ORB_SKILL, False)
+                or soldier_pistol_perk_unlocked
+                or runtime_skill_levels.get("soldier_pistol_perk", 0) > 0
+            )
+            if _soldier_skill_unlocked.get(SOLDIER_PISTOL_ORB_SKILL, False) and not soldier_pistol_perk_unlocked:
+                _apply_soldier_pistol_perk_state(True, refill_ammo=False)
+            soldier_equipped_data = save_data.get("soldier_equipped_skills")
+            if soldier_equipped_data:
+                set_soldier_equipped_shared_skills(
+                    [
+                        skill_name
+                        for skill_name in soldier_equipped_data
+                        if skill_name in SOLDIER_SHARED_SLOT_SKILLS
+                    ]
+                )
+            for _ssk, _ssu in _soldier_skill_unlocked.items():
+                if (
+                    _ssu
+                    and _ssk in SOLDIER_PERMANENT_FIREARM_SKILLS
+                    and _ssk not in _soldier_equipped_skills
+                    and not is_soldier_skill_slots_full()
+                ):
+                    equip_soldier_skill(_ssk)
+            set_soldier_equipped_shared_skills(get_soldier_equipped_slot_skills())
+            soldier_controller.permanent_owned = {
+                weapon_name
+                for weapon_name in SOLDIER_PERMANENT_FIREARM_SKILLS
+                if _soldier_skill_unlocked.get(weapon_name, False)
+            }
+            _sync_soldier_weapon_inventory()
+        except Exception as soldier_skill_err:
+            print(f"[로드] 코만도 스킬 해금 상태 복원 실패: {soldier_skill_err}")
 
         # 튜토리얼 완료 상태 복원
         global _ingame_tutorial_completed, _ingame_tutorial_wait_first_hit
@@ -89170,40 +98272,109 @@ def apply_loaded_progress(save_data: dict) -> bool:
         try:
             soldier_weapons_data = save_data.get("soldier_weapons")
             if soldier_weapons_data and soldier_controller:
+                stage_number = save_data.get("stage_number", 0)
                 weapons_list = soldier_weapons_data.get("weapons", ["pistol"])
                 current_idx = soldier_weapons_data.get("current_index", 0)
-                soldier_controller.weapons[:] = weapons_list
-                soldier_controller.current_index = min(current_idx, len(weapons_list) - 1)
-
-                # 노후화 상태 복원 (대기 데이터에도 저장)
                 reload_counts = soldier_weapons_data.get("reload_counts", {})
                 degradation_thresholds = soldier_weapons_data.get("degradation_thresholds", {})
                 degraded_list = soldier_weapons_data.get("degraded", [])
 
+                saved_permanent_owned = soldier_weapons_data.get("permanent_owned")
+                if saved_permanent_owned is None:
+                    saved_permanent_owned = [
+                        weapon_name
+                        for weapon_name in SOLDIER_PERMANENT_FIREARM_SKILLS
+                        if runtime_skill_levels.get(f"soldier_unlock_{weapon_name}", 0) > 0
+                        or _soldier_skill_unlocked.get(weapon_name, False)
+                    ]
+                permanent_owned = set(saved_permanent_owned)
+
+                saved_equipped_permanent = soldier_weapons_data.get("equipped_permanent")
+                if saved_equipped_permanent is None:
+                    saved_equipped_permanent = [
+                        weapon_name for weapon_name in weapons_list if weapon_name in permanent_owned
+                    ]
+                equipped_permanent = [
+                    weapon_name for weapon_name in saved_equipped_permanent if weapon_name in permanent_owned
+                ]
+
+                rental_weapons = soldier_weapons_data.get("rental_weapons")
+                if isinstance(rental_weapons, dict):
+                    rental_weapons = {
+                        weapon_name: dict(metadata)
+                        for weapon_name, metadata in rental_weapons.items()
+                        if weapon_name not in permanent_owned
+                    }
+                else:
+                    rental_weapons = {}
+                    for weapon_name in weapons_list:
+                        if weapon_name == "pistol" or weapon_name in permanent_owned:
+                            continue
+                        if weapon_name in degraded_list:
+                            rental_weapons[weapon_name] = {
+                                "kind": "rental",
+                                "acquired_stage": stage_number,
+                            }
+                        else:
+                            rental_weapons[weapon_name] = {
+                                "kind": "rental",
+                                "acquired_stage": stage_number,
+                            }
+
+                soldier_controller.permanent_owned = set(permanent_owned)
+                soldier_controller.equipped_permanent = list(equipped_permanent)
+                soldier_controller.rental_weapons = dict(rental_weapons)
                 soldier_controller.reload_counts = dict(reload_counts)
                 soldier_controller.degradation_thresholds = dict(degradation_thresholds)
-                soldier_controller.degraded = set(degraded_list)
+                soldier_controller.degraded = set(rental_weapons.keys()) | set(degraded_list)
+                preferred_weapon = weapons_list[min(current_idx, len(weapons_list) - 1)] if weapons_list else "pistol"
 
-                # 노후화 상태 대기 데이터에 저장 (main() 함수에서 재적용)
+                saved_slot_skills = []
+                saved_equipped_skills = save_data.get("soldier_equipped_skills")
+                if isinstance(saved_equipped_skills, list):
+                    saved_slot_skills = [
+                        skill_name
+                        for skill_name in saved_equipped_skills
+                        if skill_name in SOLDIER_SHARED_SLOT_SKILLS
+                    ]
+                elif get_soldier_equipped_slot_skills():
+                    saved_slot_skills = get_soldier_equipped_slot_skills()
+                else:
+                    saved_slot_skills = list(equipped_permanent)
+                    if soldier_pistol_perk_unlocked:
+                        saved_slot_skills.append(SOLDIER_PISTOL_ORB_SKILL)
+                set_soldier_equipped_shared_skills(saved_slot_skills)
+                if SOLDIER_PISTOL_ORB_SKILL in get_soldier_equipped_slot_skills() and not soldier_pistol_perk_unlocked:
+                    _apply_soldier_pistol_perk_state(True, refill_ammo=False)
+                soldier_controller.equipped_permanent = get_soldier_equipped_firearm_skills()
+                soldier_controller.rebuild_inventory(set_active=preferred_weapon)
+
+                for weapon_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
+                    _soldier_skill_unlocked[weapon_name] = weapon_name in permanent_owned
+                _soldier_skill_unlocked[SOLDIER_PISTOL_ORB_SKILL] = bool(
+                    _soldier_skill_unlocked.get(SOLDIER_PISTOL_ORB_SKILL, False)
+                    or soldier_pistol_perk_unlocked
+                )
+                _sync_soldier_unlock_flags_from_runtime()
+
                 _pending_weapon_degradation = {
-                    "weapons": weapons_list,
-                    "current_index": current_idx,
+                    "weapons": list(soldier_controller.weapons),
+                    "current_index": soldier_controller.current_index,
                     "reload_counts": reload_counts,
                     "degradation_thresholds": degradation_thresholds,
-                    "degraded": degraded_list,
+                    "degraded": list(soldier_controller.degraded),
+                    "permanent_owned": list(permanent_owned),
+                    "equipped_permanent": list(equipped_permanent),
+                    "rental_weapons": _serialize_save_value(dict(rental_weapons)),
                 }
 
-                # 탄환 상태 대기 데이터에 저장 (main() 함수에서 적용)
-                # 게임 시작 시 무기가 초기화된 후에 적용해야 함
                 ammo_states = soldier_weapons_data.get("ammo_states", {})
                 _pending_ammo_restore = {
-                    "weapons_list": weapons_list,
+                    "weapons_list": list(soldier_controller.weapons),
                     "ammo_states": ammo_states,
+                    "skill_cooldowns_remaining": soldier_weapons_data.get("skill_cooldowns_remaining", {}),
+                    "stage_number": stage_number,
                 }
-                # print(f"[로드] 탄환 상태 대기 데이터 저장: {ammo_states}")
-
-                # print(f"[로드] 코만도 화기류 복원 완료 - {soldier_controller.weapons}")
-                # print(f"[로드] 노후화 상태: reload_counts={soldier_controller.reload_counts}, degraded={soldier_controller.degraded}")
         except Exception as weapon_err:
             print(f"[로드] 코만도 화기류 복원 실패: {weapon_err}")
 
@@ -89327,27 +98498,52 @@ def apply_pending_ammo_restore() -> bool:
                     # 저장된 탄환 상태 복원
                     bowling_trap_inst.ammo_count = saved_ammo
 
-                    # 노후화 상태면 active = False로 설정
-                    degraded_list = _pending_weapon_degradation.get("degraded", []) if _pending_weapon_degradation else []
-                    if "bowling_trap" in degraded_list:
-                        bowling_trap_inst.active = False
-                        # print(f"[로드] 볼링트랩 노후화 상태 적용: active=False")
-
                     # print(f"[로드] 볼링트랩 탄환 복원 완료: {bowling_trap_inst.ammo_count}/{bowling_trap_inst.MAX_AMMO}, equipped={bowling_trap_inst.equipped}, active={bowling_trap_inst.active}")
             except Exception as e:
                 print(f"[로드] 볼링트랩 탄환 복원 실패: {e}")
         else:
             pass  # print(f"[로드] 볼링트랩 탄환 복원 스킵 - 조건 불충족")
 
-        # 노후화 상태 재적용
+        # 권총 탄환/탄창 복원
+        if "commando_pistol" in ammo_states and "commando_pistol" in weapons_list:
+            try:
+                global soldier_ammo_count, soldier_max_ammo, soldier_pistol_ammo, soldier_pistol_magazines
+                pistol_state = ammo_states["commando_pistol"]
+                soldier_max_ammo = int(pistol_state.get("max_ammo", get_soldier_pistol_max_ammo()))
+                soldier_ammo_count = max(0, min(int(pistol_state.get("ammo_count", soldier_max_ammo)), soldier_max_ammo))
+                soldier_pistol_ammo = soldier_ammo_count
+                soldier_pistol_magazines = max(
+                    0,
+                    min(
+                        int(pistol_state.get("magazines", SOLDIER_PISTOL_MAGAZINE_MAX)),
+                        SOLDIER_PISTOL_MAGAZINE_MAX,
+                    ),
+                )
+            except Exception as e:
+                print(f"[로드] 권총 탄환/탄창 복원 실패: {e}")
+
+        # 저장된 컨트롤러 상태 재적용
         if _pending_weapon_degradation:
             try:
                 soldier_controller.reload_counts = dict(_pending_weapon_degradation.get("reload_counts", {}))
                 soldier_controller.degradation_thresholds = dict(_pending_weapon_degradation.get("degradation_thresholds", {}))
                 soldier_controller.degraded = set(_pending_weapon_degradation.get("degraded", []))
-                # print(f"[로드] 노후화 상태 재적용 완료: degraded={soldier_controller.degraded}")
+                soldier_controller.permanent_owned = set(_pending_weapon_degradation.get("permanent_owned", []))
+                soldier_controller.equipped_permanent = list(_pending_weapon_degradation.get("equipped_permanent", []))
+                soldier_controller.rental_weapons = dict(_pending_weapon_degradation.get("rental_weapons", {}))
+                preferred_weapon = "pistol"
+                pending_weapons = _pending_weapon_degradation.get("weapons", [])
+                pending_index = int(_pending_weapon_degradation.get("current_index", 0))
+                if pending_weapons:
+                    preferred_weapon = pending_weapons[min(pending_index, len(pending_weapons) - 1)]
+                soldier_controller.rebuild_inventory(set_active=preferred_weapon)
             except Exception as e:
-                print(f"[로드] 노후화 상태 재적용 실패: {e}")
+                print(f"[로드] 코만도 화기 상태 재적용 실패: {e}")
+
+        restore_soldier_skill_cooldowns_from_save(
+            _pending_ammo_restore.get("skill_cooldowns_remaining", {})
+        )
+        # 구버전 세이브의 emergency_supply_used 필드는 읽더라도 런타임 상태에 복원하지 않는다.
 
         # 대기 데이터 초기화
         _pending_ammo_restore = {}
@@ -89384,6 +98580,87 @@ def delete_save_data() -> bool:
     except Exception as e:
         print(f"[저장 오류] 세이브 데이터 삭제 실패: {e}")
         return False
+
+
+def reset_full_run_state(*, delete_save: bool = False) -> None:
+    """새 런 시작/메뉴 복귀 전에 런 단위 상태를 공통 초기화한다."""
+    global last_item_use_time, _pending_ammo_restore, _pending_weapon_degradation
+    global session_acquired_passive_items, session_used_active_items
+    global player_ai_enabled, aipill_active, special_gauge, displayed_gauge
+
+    if delete_save:
+        try:
+            delete_save_data()
+        except Exception:
+            pass
+
+    player_ai_enabled = False
+    aipill_active = False
+    special_gauge = 0
+    displayed_gauge = 0
+    session_acquired_passive_items = []
+    session_used_active_items = []
+
+    items.reset_items()
+    clear_pinned_equipment_slots()
+    try:
+        deactivate_vitamin_pill()
+    except Exception:
+        pass
+    try:
+        from item_effects.dynamite import get_dynamite_instance
+
+        dynamite = get_dynamite_instance()
+        if dynamite:
+            dynamite.reset()
+    except Exception:
+        pass
+    reset_runtime_items(
+        item_state_adapter,
+        clear_notices=clear_alchemy_notices,
+        set_selected_index=_set_selected_item_index,
+        set_max_slots=_set_max_item_slots,
+    )
+    last_item_use_time = 0
+    _pending_ammo_restore = {}
+    _pending_weapon_degradation = {}
+    reset_ingame_gold()
+    reset_gods_stone_judgment_runtime()
+
+    academy.reset_all_skills()
+    academy.reset_skill_points()
+    reset_cleanse_skill()
+    reset_stage_clear_choices()
+    reset_optimus_skill_triggers()
+    reset_runtime_skill_system()
+    reset_arena_perks()
+
+    try:
+        from item_effects.minor_hero_seal import get_minor_seal_state
+
+        get_minor_seal_state().reset()
+    except Exception:
+        pass
+    try:
+        from item_effects.intermediate_hero_seal import get_intermediate_seal_state
+
+        get_intermediate_seal_state().reset()
+    except Exception:
+        pass
+    try:
+        from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+
+        get_bodyguard().reset()
+        get_bodyguard2().reset()
+        _bodyguard_stance_popup_effects.clear()
+    except Exception:
+        pass
+    try:
+        legendary_manager = get_legendary_manager()
+        if legendary_manager:
+            legendary_manager.reset_for_new_game()
+    except Exception:
+        pass
 
 
 def get_trade_point_star_count(include_stage_pending=True):
@@ -89576,7 +98853,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return False
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul", "fake_arm"]:
         return False
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -89606,7 +98883,6 @@ def store_active_item(item_data):
 
     item_state_adapter.append_active_item(item_data)
     _set_selected_item_index(len(item_state_adapter.active_items()) - 1)
-
     # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
     show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 
@@ -89624,7 +98900,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "fake_arm"]:
         return
 
     # 최대 3개까지만 보관
@@ -89685,7 +98961,7 @@ def _arena_top_hero_collect_items():
                 item_color = item.get("color", (200, 200, 200))
 
             # 패시브 아이템은 상단 영웅이 획득하지 않음 (액티브만)
-            passive_items = ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "soul_burst", "dowsing_goggles"]
+            passive_items = ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "soul_burst", "dowsing_goggles"]
             if item_name in passive_items:
                 continue  # 패시브 아이템은 하단 영웅에게 양보
 
@@ -89839,6 +99115,13 @@ def _apply_arena_top_item_effect(effect_name):
         # 상단 영웅 자기장 발생기: 공 끌어당기기
         try:
             activate_magnet_field(None, current_stage, WIDTH, HEIGHT)
+        except Exception:
+            pass
+
+    elif effect_name == "gods_stone":
+        # 상단 영웅 신의 돌: 동일한 신의 심판 시스템 호출
+        try:
+            activate_gods_stone()
         except Exception:
             pass
 
@@ -90027,6 +99310,7 @@ def store_passive_item(item_data):
     global danger_sensor_obtained, sensor_obtained, danger_sensor_enabled, sensor_enabled, danger_sensor_auto_dash_enabled  # 센서 관련 변수들
     global dashholder_obtained  # 대쉬홀더 관련 변수
     global gravitybelt_obtained  # 무중력벨트 관련 변수
+    global timer_belt_obtained  # 타이머벨트 관련 변수
     global hermes_shoes_obtained  # 헤르메스의 신발 관련 변수
     global player_ai_enabled
     # 누락된 type 필드를 방어적으로 보정
@@ -90396,6 +99680,16 @@ def store_passive_item(item_data):
         # show_item_acquisition("knee_pads", "킥차져", None, False,
         #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
+    elif item_data["name"] == "timer_belt":
+        # 타이머벨트 아이템 획득 (스킬 쿨타임 감소 패시브, 중복 허용 파밍)
+        if not timer_belt_obtained:
+            timer_belt_obtained = True
+            items.timer_belt_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "timer_belt")  # 뼈대 외형 변경 (허리에 타이머벨트)
+        item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "gravitybelt":
         # 무중력벨트 아이템 획득
         if not gravitybelt_obtained:
@@ -90693,6 +99987,33 @@ def store_passive_item(item_data):
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "heavenly_cape":
+        # 천상의 망토 신화 아이템 획득 (등 부위 - 스킬 구슬 +1 / 쿨감 10~20%)
+        # NOTE: heavenly_cape_obtained 는 sync_bool 로 "장착 상태" 를 따라가므로
+        # 최초 획득 여부 게이트로 사용하지 않는다. 매니저 프리뷰 롤은 legendary_roll_values
+        # 존재 여부로 1회만 초기화한다 (재픽업 시 프리뷰 덮어쓰기 방지).
+        items.heavenly_cape_obtained = True
+        _apply_item_to_skin(_skeletal_skin, "heavenly_cape")
+        try:
+            legendary_manager = get_legendary_manager()
+            if "heavenly_cape" not in legendary_manager.unlocked_items:
+                legendary_manager.unlocked_items.append("heavenly_cape")
+                legendary_manager.items["heavenly_cape"].unlocked = True
+            from legendary_items import randomize_legendary_rolls, legendary_roll_values
+            if "heavenly_cape" not in legendary_roll_values:
+                randomize_legendary_rolls("heavenly_cape")
+            cape_item = legendary_manager.items.get("heavenly_cape")
+            if cape_item:
+                enhancement_pct = item_data.get("enhancement_bonus_pct", 0)
+                cape_item.enhancement_bonus_pct = enhancement_pct
+        except Exception as e:
+            print(f"천상의 망토 효과 적용 오류: {e}")
+        trigger_legendary_acquisition("heavenly_cape", "천상의 망토", item_icon,
+                                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        # show_item_obtained_effect 는 exclusion list 로 차단 (trigger_legendary_acquisition 가 전용 연출)
     elif item_data["name"] == "gold_bar":
         # 금괴 패시브 아이템 획득
         if not items.gold_bar_obtained:
@@ -90791,6 +100112,17 @@ def store_passive_item(item_data):
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "fake_arm":
+        # 훼이크암 패시브 아이템 (교란형 의수, 팔 부위)
+        if not items.fake_arm_obtained:
+            items.fake_arm_obtained = True
+            _apply_item_to_skin(_skeletal_skin, "fake_arm")
+            from item_effects.fake_arm import activate_fake_arm
+            activate_fake_arm()
+        item_data["type"] = "passive"
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "sage_ring":
         # 현자의 반지 패시브 아이템 (장신구 부위)
         # 고정 효과: 모든 퍽 레벨 +1 (장착 시 발동)
@@ -90832,7 +100164,7 @@ def store_passive_item(item_data):
 
     # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
     # 전설 아이템은 trigger_legendary_acquisition에서 별도 연출을 사용하므로 스킵
-    legendary_items_for_effect = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"]
+    legendary_items_for_effect = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "heavenly_cape"]
     if item_data["name"] not in legendary_items_for_effect:
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     # 장비 상태와 효과 동기화 (가방에 있으면 효과 비활성)
@@ -96491,7 +105823,7 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     # 아이템 타입 확인
     item_name = item_data.get("name", "")
     mark_item_discovered(item_name)
-    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt", "shrapnel_armor", "soul_burst", "dowsing_goggles"]
+    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "gravitybelt", "timer_belt", "shrapnel_armor", "soul_burst", "dowsing_goggles"]
     # 시작 위치 (아이템이 있던 위치 또는 화면 중앙)
     if item_x is not None and item_y is not None:
         start_x = item_x
@@ -105514,7 +114846,7 @@ def enforce_player_blocking_by_installed_tetro() -> None:
         adjusted = True
     if adjusted:
         # 화면 경계 재클램프
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
 
 def stage7_center_cube_explode_and_clear_tetros(now: int | None = None) -> None:
@@ -108072,7 +117404,7 @@ def draw_player_gauge():
     global rolling_charges, rolling_cooldown  #  대쉬 토큰 표시용
     global gauge_charge_animation_timer, gauge_charge_animation_amount  # 충전 애니메이션
     global selected_character_type  # 캐릭터 타입 확인용
-    global soldier_emergency_supply_toast_timer, soldier_emergency_supply_used
+    global soldier_emergency_supply_toast_timer
     global optimus_low_gauge_warning_triggered, optimus_low_gauge_warning_timer
     global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
     global optimus_critical_gauge_warning_triggered, optimus_critical_gauge_warning_timer
@@ -110283,7 +119615,8 @@ def draw_player_gauge():
             SCREEN.blit(hint_surface, hint_rect)
 
             weapon_display_names = {
-                "pistol": "새총" if is_slingshot_mode() else "권총",
+                "pistol": "새총",
+                "commando_pistol": "권총",
                 "bazooka": "바주카포",
                 "ak47": "AK-47",
                 "net_gun": "그물덫총",
@@ -110379,7 +119712,8 @@ def draw_player_gauge():
                     try:
                         # 무기명 변환
                         weapon_display_names = {
-                            "pistol": "새총" if is_slingshot_mode() else "권총",
+                            "pistol": "새총",
+                            "commando_pistol": "권총",
                             "bazooka": "바주카포",
                             "ak47": "AK-47",
                             "net_gun": "그물덫총",
@@ -110391,8 +119725,10 @@ def draw_player_gauge():
                         # 상태/탄약 표시
                         detail = ""
                         if weapon == "pistol":
+                            detail = "기본 화기 (차징 발사)"
+                        elif weapon == "commando_pistol":
                             if 'soldier_ammo_count' in globals() and 'soldier_max_ammo' in globals():
-                                detail = f"탄약 {soldier_ammo_count}/{soldier_max_ammo}"
+                                detail = f"탄약 {soldier_ammo_count}/{soldier_max_ammo} · 탄창 {soldier_pistol_magazines}/{SOLDIER_PISTOL_MAGAZINE_MAX}"
                             if 'soldier_reloading' in globals() and soldier_reloading:
                                 detail = "재장전 중"
                         elif weapon == "bazooka":
@@ -111245,6 +120581,21 @@ def draw_player_gauge():
         SCREEN.blit(rc_emb_surf, (rc_emb_x, rc_emb_y))
     elif _hg_index('recovery_boost') != -1:
         _hg_on_deactivate('recovery_boost')
+
+    # 바이퍼 이그니션오라 20초 타이머 게이지 (활성 중에만 그림)
+    if _viper_ignition_aura_active:
+        try:
+            _draw_viper_ignition_aura_hud_timer(SCREEN)
+            # hg_top_y 갱신: 화염 상자 위로 보석 상자/공유 UI가 올라가도록
+            _ig_idx = _hg_index('ignition_aura')
+            if _ig_idx >= 0:
+                _ig_y = (HEIGHT - 30) - max(0, _ig_idx) * 18
+                hg_stack_any = True
+                hg_top_y = min(hg_top_y, _ig_y)
+        except Exception:
+            pass
+    elif _hg_index('ignition_aura') != -1:
+        _hg_on_deactivate('ignition_aura')
 
     # 전체화면 모드에서도 벽돌 설치 게이지는 게임 영역에 표시되므로 메인 SCREEN 유지
     # (액티브 아이템 게이지와 벽돌 설치 게이지 모두 게임 영역 기준 좌표 사용)
@@ -112782,19 +122133,20 @@ def draw_player_gauge():
             global _boss_orb_reuse_glow, _boss_orb_reuse_sparkle, _boss_orb_reuse_token_layer, _boss_orb_reuse_glow2
             global _boss_orb_font_cached, _boss_orb_text_cache, _boss_orb_div_cache, _boss_orb_div_max
             try:
-                # 보스 대쉬 가용 토큰 계산
-                _boss_max_tokens = 1  # 보스는 쿨다운 기반으로 1토큰
                 _boss_now_ms = pygame.time.get_ticks()
-                _boss_can_dash_gauge = boss_special_gauge >= BOSS_DASH_GAUGE_COST
-                _boss_on_cooldown = (boss_dash_cooldown_until_ms > 0 and _boss_now_ms < boss_dash_cooldown_until_ms)
-                _boss_available = 1 if (_boss_can_dash_gauge and not _boss_on_cooldown and not boss_dashing and boss_dash_stun_timer <= 0) else 0
-
-                # 충전 진행률 계산 (실제 쿨다운 총 시간 기반)
-                _boss_charge_progress = 0.0
-                if _boss_available == 0 and _boss_can_dash_gauge:
-                    if _boss_on_cooldown and boss_dash_cooldown_total_ms > 0:
-                        _remaining = boss_dash_cooldown_until_ms - _boss_now_ms
-                        _boss_charge_progress = max(0.0, min(1.0, 1.0 - (_remaining / boss_dash_cooldown_total_ms)))
+                _boss_display_state = get_boss_dash_token_display_state(
+                    gauge=boss_special_gauge,
+                    gauge_cost=BOSS_DASH_GAUGE_COST,
+                    cooldown_until_ms=boss_dash_cooldown_until_ms,
+                    cooldown_total_ms=boss_dash_cooldown_total_ms,
+                    now_ms=_boss_now_ms,
+                    is_dashing=boss_dashing,
+                    dash_stun_timer=boss_dash_stun_timer,
+                )
+                _boss_max_tokens = int(_boss_display_state["max_tokens"])
+                _boss_available = int(_boss_display_state["available"])
+                _boss_charge_progress = float(_boss_display_state["charge_progress"])
+                _boss_count_text = str(_boss_display_state["count_text"])
 
                 # 구슬 크기/위치 (상단 영웅 구슬과 동일 규격)
                 _boss_orb_radius = orb_radius
@@ -113034,7 +122386,6 @@ def draw_player_gauge():
 
                 # === 10. 토큰 카운트 텍스트 ===
                 try:
-                    _boss_count_text = f"{_boss_available}/{_boss_max_tokens}"
                     if _boss_count_text not in _boss_orb_text_cache:
                         _bt_surf, _ = _boss_orb_font_cached.render(_boss_count_text, (255, 255, 255))
                         _bt_shadow, _ = _boss_orb_font_cached.render(_boss_count_text, (0, 0, 0))
@@ -114069,7 +123420,9 @@ def draw_player_gauge():
         SCREEN.blit(gauge_text_surface, (gauge_text_x, gauge_text_y))
 
     if selected_character_type == "soldier":
-        remaining_supply = 0 if soldier_emergency_supply_used else 1
+        emergency_cooldown_ratio = get_soldier_skill_cooldown_remaining("emergency_supply")
+        emergency_cooldown_seconds = get_soldier_skill_cooldown_seconds("emergency_supply")
+        emergency_ready = emergency_cooldown_ratio <= 0
         crate_width = 46
         crate_height = 28
         # 액티브 아이템 가로 게이지 위로 배치: 스택 최상단 바로 위, 가로 게이지 중앙 정렬
@@ -114085,7 +123438,7 @@ def draw_player_gauge():
             crate_y = gauge_text_y + gauge_text_height + 8
         crate_surface = pygame.Surface((crate_width, crate_height), pygame.SRCALPHA)
 
-        if remaining_supply:
+        if emergency_ready:
             body_color = (112, 84, 52)
             edge_color = (72, 54, 34)
             highlight_color = (168, 134, 88)
@@ -114138,13 +123491,29 @@ def draw_player_gauge():
             pygame.draw.polygon(crate_surface, bullet_tip, tip_points)
             pygame.draw.rect(crate_surface, edge_color, shaft_rect, 1)
 
+        if not emergency_ready:
+            overlay_height = max(1, int((crate_height - 4) * emergency_cooldown_ratio))
+            overlay_rect = pygame.Rect(0, 0, crate_width, overlay_height)
+            cooldown_overlay = pygame.Surface((crate_width, crate_height), pygame.SRCALPHA)
+            pygame.draw.rect(
+                cooldown_overlay,
+                (10, 12, 16, 170),
+                overlay_rect,
+                border_radius=5,
+            )
+            crate_surface.blit(cooldown_overlay, (0, 0))
+
         SCREEN.blit(crate_surface, (crate_x, crate_y))
 
         try:
             supply_font = FontStyle.tiny()
         except Exception:
             supply_font = pygame.font.Font(None, 18)
-        label_text = f"비상보급 x{remaining_supply}"
+        label_text = (
+            "비상보급 준비"
+            if emergency_ready
+            else f"비상보급 {max(1, int(math.ceil(emergency_cooldown_seconds)))}s"
+        )
         label_surface = supply_font.render(label_text, True, label_color)
         label_rect = label_surface.get_rect(center=(crate_x + crate_width // 2, crate_y + crate_height + 10))
         SCREEN.blit(label_surface, label_rect)
@@ -115928,6 +125297,24 @@ def draw_objects():
         except Exception:
             pass
 
+    # ⊙ 스매셔 워프게이트 차원 포털 이펙트 + 게이지바
+    if selected_character_type == "smasher" and (warp_gate_active or _warp_gate_portals):
+        try:
+            draw_warp_gate_effect(SCREEN)
+        except Exception:
+            pass
+
+    # 🜂 바이퍼 카오스 스피어 투척/블랙홀 이펙트
+    if selected_character_type == "viper" and (
+        _viper_chaos_spear_state != "idle"
+        or _viper_chaos_spear_absorb_pulses
+        or _viper_chaos_spear_cancel_flash > 0
+    ):
+        try:
+            draw_viper_chaos_spear_effect(SCREEN)
+        except Exception:
+            pass
+
     # 부스트차징 발동 이펙트 그리기
     if boost_charging_effect_timer > 0:
         try:
@@ -116786,10 +126173,10 @@ def draw_objects():
                 _ast_scale = 1.0 + 0.3 * max(0, (60 - _viper_air_strike_text_timer)) / 60.0
                 try:
                     # 급강하 어택이면 더 큰 폰트 + 다른 색상
-                    _is_dive = _viper_dive_ball_boosted and _viper_air_strike_text_pct > 50
+                    _is_dive = (_viper_air_strike_text_mode == "dive")
                     _ast_font_size = max(10, int((18 if _is_dive else 14) * _ast_scale))
                     _ast_font = pygame.font.Font(None, _ast_font_size)
-                    _ast_text = f"{'DIVE STRIKE' if _is_dive else 'AIR STRIKE'} +{_viper_air_strike_text_pct}%"
+                    _ast_text = "DIVE STRIKE" if _is_dive else f"AIR STRIKE +{_viper_air_strike_text_pct}%"
                     # 글로우 (큰 글씨 뒤에)
                     _glow_color = (200, 80, 160) if _is_dive else (0, 180, 160)
                     _text_color = (255, 120, 255) if _is_dive else (0, 255, 220)
@@ -117105,6 +126492,12 @@ def draw_objects():
         except Exception:
             _viper_dive_charge_particles = []
 
+    # ✦ 이그니션오라 burst + 활성 중 패들 오라
+    try:
+        _draw_viper_ignition_aura_world(SCREEN)
+    except Exception:
+        pass
+
     # ✦ 팬텀 킥 흑연 오라 (다크 플레임 나선 — 패들 주변)
     if _viper_phantom_aura_active and _viper_wall_dive_active and _viper_is_double_marshal:
         try:
@@ -117313,12 +126706,16 @@ def draw_objects():
         except Exception:
             pass
 
-    # ⛓️ 바이퍼 마샬 킥 렌더링 (검보라 사슬 + 잔상 + 돌진 궤적)
-    if _viper_wall_dive_active or _viper_wall_dive_particles or _viper_wall_dive_web_lines:
+    # ⛓️ 바이퍼 벽타기 렌더링 (마샬 킥 / 코어 플립 공용 검보라 로프)
+    _viper_purple_rope_lines = list(_viper_wall_dive_web_lines)
+    if _viper_core_flip_attack_active and _viper_core_flip_attack_phase == 1 and _viper_core_flip_web_lines:
+        _viper_purple_rope_lines.extend(_viper_core_flip_web_lines)
+    if (_viper_wall_dive_active or _viper_wall_dive_particles or _viper_wall_dive_web_lines
+            or (_viper_core_flip_attack_active and _viper_core_flip_attack_phase == 1 and _viper_core_flip_web_lines)):
         try:
             _wd_ticks = pygame.time.get_ticks()
             # ⛓️ 검보라색 사슬 라인 그리기 (살짝 처지는 곡선 + 다층 글로우)
-            for _wl in _viper_wall_dive_web_lines:
+            for _wl in _viper_purple_rope_lines:
                 _wl_x1, _wl_y1, _wl_x2, _wl_y2 = _wl
                 _ch_dx = _wl_x2 - _wl_x1
                 _ch_dy = _wl_y2 - _wl_y1
@@ -117376,6 +126773,17 @@ def draw_objects():
                 SCREEN.blit(_cling_s,
                             (int(_viper_wall_dive_wall_x) - _cling_r,
                              int(_viper_wall_dive_wall_y) - _cling_r),
+                            special_flags=pygame.BLEND_ADD)
+
+            if _viper_core_flip_attack_active and _viper_core_flip_attack_phase == 1:
+                _cling_pulse = 0.6 + 0.4 * math.sin(_wd_ticks * 0.02)
+                _cling_r = int(35 * _cling_pulse)
+                _cling_s = pygame.Surface((_cling_r * 2, _cling_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(_cling_s, (70, 10, 120, int(80 * _cling_pulse)),
+                                   (_cling_r, _cling_r), _cling_r)
+                SCREEN.blit(_cling_s,
+                            (int(_viper_core_flip_wall_x) - _cling_r,
+                             int(_viper_core_flip_wall_y) - _cling_r),
                             special_flags=pygame.BLEND_ADD)
 
             # 돌진 궤적 (Phase 2)
@@ -117820,8 +127228,10 @@ def draw_objects():
 
     # === 보스 이미지 선택 + 스테이지별 전용 사이즈 적용 ===
     boss_img_prescaled = False
+    menhera_sprite_offset_y = 0
     global stage9_tauren_prev_x, stage9_tauren_facing
-    global stage3_menhera_prev_x, stage3_menhera_facing
+    global stage3_menhera_prev_x, stage3_menhera_facing, stage3_menhera_attack_anticipation_latched
+    global stage3_teddy_attack_anticipation_latched
     global stage5_honglyeon_prev_x, stage5_honglyeon_facing
     if new_boss_mode_active:
         #  새로운 보스 모드에서는 상단 보스 선택
@@ -117919,6 +127329,37 @@ def draw_objects():
             # 고퀄리티 프로시저럴 테디베어 — 직접 화면에 렌더링
             boss_img_prescaled = True
             boss_x_pos = float(BOSS.centerx) if BOSS is not None else 380.0
+            # Teddy's new strike sheet is authored for a short anticipatory
+            # trigger: show compact prep shortly before contact so the
+            # downward smack lands near the actual ball hit instead of
+            # snapping in late on impact.
+            if BALL is not None and BOSS is not None:
+                if ball_vel[1] >= 0:
+                    stage3_teddy_attack_anticipation_latched = False
+                elif not stage3_teddy_attack_anticipation_latched and not teddy_bear_sprite.is_attacking:
+                    vertical_gap = float(BALL.top - BOSS.bottom)
+                    if vertical_gap >= 0:
+                        upward_speed = max(0.01, -float(ball_vel[1]))
+                        frames_to_contact = vertical_gap / upward_speed
+                        future_ball_center_x = float(BALL.centerx) + float(ball_vel[0]) * frames_to_contact
+                        x_tolerance = (BOSS.width + BALL.width) * 0.5 + 10.0
+                        if abs(future_ball_center_x - float(BOSS.centerx)) <= x_tolerance:
+                            anticipatory_start_frame = None
+                            if 10.0 <= frames_to_contact <= 13.0:
+                                anticipatory_start_frame = 0
+                            elif 7.0 <= frames_to_contact < 10.0:
+                                anticipatory_start_frame = 1
+                            elif 5.0 <= frames_to_contact < 7.0:
+                                anticipatory_start_frame = 2
+                            elif 4.0 <= frames_to_contact < 5.0:
+                                anticipatory_start_frame = 3
+                            if anticipatory_start_frame is not None:
+                                try:
+                                    teddy_bear_sprite.trigger_attack(start_frame=anticipatory_start_frame)
+                                except Exception:
+                                    pass
+                                if teddy_bear_sprite.is_attacking:
+                                    stage3_teddy_attack_anticipation_latched = True
             teddy_bear_sprite.update(boss_x_pos, 1/60)
             # 캔버스를 보스 크기보다 넉넉하게 잡아 팔/귀 잘림 방지
             teddy_canvas_w = BOSS_IMG_WIDTH + 50
@@ -117949,10 +127390,43 @@ def draw_objects():
             if stage3_menhera_prev_x is None:
                 stage3_menhera_prev_x = boss_center_x
             dx = boss_center_x - stage3_menhera_prev_x
-            moving_now = abs(dx) > 0.35
+            # Menhera's restored frontal walk uses relatively subtle pose deltas,
+            # so keep the movement threshold low enough that slow lateral drift
+            # still advances the walk cycle instead of snapping back to idle.
+            moving_now = abs(dx) > 0.12
             if moving_now:
                 stage3_menhera_facing = "right" if dx > 0 else "left"
             stage3_menhera_prev_x = boss_center_x
+            # Start Menhera's attack a little before contact so the player sees
+            # the full compact chop instead of a late snap-in at ball impact.
+            if BALL is not None and BOSS is not None and menhera_boss_sprite is not None:
+                if ball_vel[1] >= 0:
+                    stage3_menhera_attack_anticipation_latched = False
+                elif not stage3_menhera_attack_anticipation_latched:
+                    vertical_gap = float(BALL.top - BOSS.bottom)
+                    if vertical_gap >= 0:
+                        upward_speed = max(0.01, -float(ball_vel[1]))
+                        frames_to_contact = vertical_gap / upward_speed
+                        future_ball_center_x = float(BALL.centerx) + float(ball_vel[0]) * frames_to_contact
+                        # Keep the anticipation window conservative so Menhera
+                        # starts coiling shortly before contact, not so early
+                        # that the chop visibly finishes before the ball arrives.
+                        x_tolerance = (BOSS.width + BALL.width) * 0.5 + 12.0
+                        if abs(future_ball_center_x - float(BOSS.centerx)) <= x_tolerance:
+                            anticipatory_start_frame = None
+                            if 11.0 <= frames_to_contact <= 14.0:
+                                anticipatory_start_frame = 1
+                            elif 8.0 <= frames_to_contact < 11.0:
+                                anticipatory_start_frame = 2
+                            elif 6.0 <= frames_to_contact < 8.0:
+                                anticipatory_start_frame = 3
+                            if anticipatory_start_frame is not None:
+                                try:
+                                    menhera_boss_sprite.trigger_attack(start_frame=anticipatory_start_frame)
+                                except Exception:
+                                    pass
+                                if menhera_boss_sprite.is_attacking:
+                                    stage3_menhera_attack_anticipation_latched = True
             menhera_boss_sprite.update(1 / 60, moving=moving_now, facing=stage3_menhera_facing)
             # 멘헤라 시트는 세로 비중이 큰 편이라 160x80으로 다시 늘리면 체급이 과하게 커지고 찌그러진다.
             boss_img = menhera_boss_sprite.get_current_frame()
@@ -117989,10 +127463,12 @@ def draw_objects():
                 stage5_honglyeon_facing = "right" if dx > 0 else "left"
             stage5_honglyeon_prev_x = boss_center_x
             honglyeon_boss_sprite.update(1 / 60, moving=abs(dx) > 0.35, facing=stage5_honglyeon_facing)
-            boss_img = honglyeon_boss_sprite.get_current_frame((boss_w, boss_h))
+            boss_img = honglyeon_boss_sprite.get_current_frame()
             if boss_img is None:
                 boss_img = BOSS_IMG_STAGE5
                 boss_img_prescaled = False
+            else:
+                boss_w, boss_h = boss_img.get_size()
         else:
             boss_img = BOSS_IMG_STAGE5
     elif current_stage == 8:
@@ -118227,6 +127703,13 @@ def draw_objects():
 
     if not boss_img_prescaled:
         boss_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
+    if (
+        current_stage == 3
+        and current_boss_name == "멘헤라걸"
+        and MENHERA_BOSS_ANIMATION_AVAILABLE
+        and menhera_boss_sprite is not None
+    ):
+        menhera_sprite_offset_y = menhera_boss_sprite.current_y_offset(rendered_height=boss_h)
     if current_stage != 7:
         stage7_prev_x = None
         stage7_lean_value *= 0.85
@@ -118238,6 +127721,8 @@ def draw_objects():
     if current_stage != 3:
         stage3_menhera_prev_x = None
         stage3_menhera_facing = "right"
+        stage3_menhera_attack_anticipation_latched = False
+        stage3_teddy_attack_anticipation_latched = False
     if current_stage != 5:
         stage5_honglyeon_prev_x = None
         stage5_honglyeon_facing = "right"
@@ -118250,7 +127735,7 @@ def draw_objects():
         whip_rotation_angle = (current_time * rotation_speed / 16.67) % FULL_ROTATION  # 60fps 기준
         boss_img = pygame.transform.rotate(boss_img, whip_rotation_angle)
     # === 보스 던지는 모션 ===
-    boss_offset_y = 0
+    boss_offset_y = menhera_sprite_offset_y
     tilt_angle_boss = 0
     if current_stage == 5 and boss_throwing:
         boss_offset_y = -10  # 살짝 위로 올림
@@ -118295,51 +127780,12 @@ def draw_objects():
     #         tilt_angle_boss = -10
     #     elif BOSS.x < WIDTH // 2:
     #         tilt_angle_boss = 10
-    # === 보스 회전 처리 ===
-    # 스테이지 4, 6은 기울어지는 애니메이션 스킵하지만, 타이머는 감소시켜야 함
-    if boss_hit_animation_active and current_stage in (4, 6):
+    # === 보스 히트 타이머 처리 ===
+    # 예전 boss hit tilt는 전역 제거하고, 히트 타이머는 다른 연출(글로우/특수 이펙트)용으로만 유지한다.
+    if boss_hit_animation_active:
         boss_hit_animation_timer -= 1
         if boss_hit_animation_timer <= 0:
             boss_hit_animation_active = False
-    # 보스 패들 충돌 애니메이션 처리 (기울어지는 모션은 스테이지 4, 6 제외)
-    if boss_hit_animation_active and current_stage not in (4, 6):
-        # 스테이지별 기본 지속시간 계산
-        if current_stage == 1:
-            base_duration = 5
-        elif current_stage == 2:
-            base_duration = 7
-        elif current_stage == 3:
-            base_duration = 8
-        elif current_stage == 4:
-            base_duration = 6
-        elif current_stage == 5:
-            base_duration = 9
-        else:
-            base_duration = BOSS_HIT_ANIMATION_DURATION
-        progress = base_duration - boss_hit_animation_timer
-        # 스테이지별 차별화된 충돌 애니메이션
-        if current_stage == 1:
-            # 스테이지 1: 부드러운 회전 (15도)
-            hit_tilt_angle = 15 - (progress * 3)
-        elif current_stage == 2:
-            # 스테이지 2: 빠른 회전 (25도)
-            hit_tilt_angle = 25 - (progress * 4)
-        elif current_stage == 3:
-            # 스테이지 3: 강한 회전 (30도)
-            hit_tilt_angle = 30 - (progress * 4)
-        elif current_stage == 4:
-            # 스테이지 4: 중간 회전 (20도)
-            hit_tilt_angle = 20 - (progress * 3)
-        elif current_stage == 5:
-            # 스테이지 5: 최강 회전 (35도)
-            hit_tilt_angle = 35 - (progress * 4)
-        else:
-            # 기본값
-            hit_tilt_angle = 20 - (progress * 3)
-        boss_hit_animation_timer -= 1
-        if boss_hit_animation_timer <= 0:
-            boss_hit_animation_active = False
-        tilt_angle_boss = hit_tilt_angle  # 충돌 애니메이션 우선 적용
     #  Stage 2 보스 분노 애니메이션 Y축 오프셋 적용
     boss_rage_offset_y = 0
     if current_stage == 2 and animated_bg_stage2 and animated_bg_stage2.boss_rage_active:
@@ -118363,12 +127809,10 @@ def draw_objects():
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x + tunnel_raid_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
     else:
-        # 원래 보스 회전 로직 (화면 흔들림 오프셋 적용)
-        rotated_boss = pygame.Surface((boss_w, boss_h), pygame.SRCALPHA)
-        # 시각 펄스를 위해 먼저 스케일된 보스 이미지를 준비
-        base_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
-        rotated_boss.blit(base_img, (0, 0))
-        rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
+        # boss hit tilt 제거 후에도 다른 상태에서 rotated_boss를 공유하므로 기본 스케일 이미지를 유지한다.
+        rotated_boss = pygame.transform.scale(boss_img, (boss_w, boss_h))
+        if tilt_angle_boss:
+            rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
         # Stage 1은 세로가 긴 스프라이트이므로 Y 오프셋 추가 (캐릭터가 화면에 보이도록)
         if current_stage == 1:
             # 세로 160px 스프라이트 → 중심을 아래로 25px 내림 (정수 좌표로 떨림 방지)
@@ -118499,8 +127943,12 @@ def draw_objects():
             trail_width = int(BOSS_IMG_WIDTH * scale_factor)
             trail_height = int(BOSS_IMG_HEIGHT * scale_factor)
             if trail_width > 10 and trail_height > 10:  # 너무 작아지면 그리지 않음
-                trail_img = pygame.transform.scale(SPEED_DEFENSE_IMG, (trail_width, trail_height))
-                trail_img.set_alpha(alpha)
+                trail_img = _get_cached_speed_defense_trail_surface(trail_width, trail_height)
+                if alpha < 255:
+                    # Keep the cached base surface immutable so trail segments do not
+                    # bleed alpha changes into one another across frames.
+                    trail_img = trail_img.copy()
+                    trail_img.set_alpha(alpha)
                 trail_rect = trail_img.get_rect(center=(x, y))
                 SCREEN.blit(trail_img, trail_rect.topleft)
     # === Stage 3 앨리스 거울 세계 보스 글로우 ===
@@ -118510,8 +127958,10 @@ def draw_objects():
         apply_white_glow(rotated_boss, intensity=glow_intensity)
     # === Stage 3 오버드라이브 꼬리 ===
     if current_stage == 3 and emotional_overdrive_active:
+        # 현재 렌더된 보스 이미지를 잔상 소스로 사용 (멘헤라걸 신 스프라이트 반영)
+        trail_src = rotated_boss if rotated_boss is not None else pygame.transform.scale(BOSS_IMG_STAGE3, (boss_w, boss_h))
         for x, y, alpha in overdrive_trails:
-            trail = pygame.transform.scale(BOSS_IMG_STAGE3, (boss_w, boss_h))
+            trail = trail_src.copy()
             trail.set_alpha(alpha)
             trail_rect = trail.get_rect(center=(x, y))
             SCREEN.blit(trail, trail_rect.topleft)
@@ -118710,14 +128160,15 @@ def draw_objects():
     _boss_stun_timer_draw = boss_dash_stun_timer
     _boss_dash_stun_shake_x = 0
     _boss_dash_stun_shake_y = 0
+    _judgment_boss_electric_active = (_judgment_lightning_stun_top_timer > 0) and not arena_mode_enabled
     # ⚡ 호위무사 천둥뇌구 감전 중 부르르 떨림 + 전기 틴트
-    _bg_electric_active = globals().get('_bodyguard_electric_stun_active', False) and not arena_mode_enabled
+    _bg_electric_active = (
+        globals().get('_bodyguard_electric_stun_active', False)
+        or _judgment_boss_electric_active
+    ) and not arena_mode_enabled
     if _bg_electric_active:
         # 파란/하얀 전기 틴트 (감전 전용)
-        _es_tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
-        _es_pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() * 0.03)
-        _es_tint.fill((int(150 * _es_pulse), int(180 * _es_pulse), int(255 * _es_pulse), 255))
-        rotated_boss.blit(_es_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        _apply_electric_stun_tint(rotated_boss, strength=1.15 if _judgment_boss_electric_active else 1.0)
         # 강한 떨림 효과 (감전 특유의 부르르 떨림)
         _boss_dash_stun_shake_x = random.randint(-3, 3)
         _boss_dash_stun_shake_y = random.randint(-2, 2)
@@ -119666,51 +129117,13 @@ def draw_objects():
             SCREEN.blit(text_surface, (text_x, text_y))
 
     # ⚡ 호위무사 천둥뇌구 감전 이펙트 (아케이드 모드 - 전기 아크)
-    elif globals().get('_bodyguard_electric_stun_active', False) and not arena_mode_enabled:
-        _es_cx, _es_cy = BOSS.centerx, BOSS.centery + 20
-        _es_hw = BOSS.width // 2 + 5
-        _es_hh = 28
-        _es_arc_core = [(255, 255, 255), (255, 255, 230), (255, 250, 200)]
-        _es_arc_outer = [(120, 180, 255), (80, 140, 255), (160, 200, 255), (255, 240, 120), (255, 220, 80)]
-        # 주요 전류 아크
-        for _es_i in range(1):
-            _es_sx = _es_cx + random.randint(-_es_hw // 3, _es_hw // 3)
-            _es_sy = _es_cy + random.randint(-_es_hh // 2, _es_hh // 2)
-            _es_alen = random.randint(12, 22)
-            _es_a = random.uniform(0, math.pi * 2)
-            _es_ex = _es_sx + int(math.cos(_es_a) * _es_alen)
-            _es_ey = _es_sy + int(math.sin(_es_a) * _es_alen)
-            _es_segs = random.randint(3, 4)
-            _es_pts = [(_es_sx, _es_sy)]
-            for _es_j in range(1, _es_segs):
-                _es_frac = _es_j / _es_segs
-                _es_mx = _es_sx + (_es_ex - _es_sx) * _es_frac + random.uniform(-2.5, 2.5)
-                _es_my = _es_sy + (_es_ey - _es_sy) * _es_frac + random.uniform(-2, 2)
-                _es_pts.append((int(_es_mx), int(_es_my)))
-            _es_pts.append((int(_es_ex), int(_es_ey)))
-            if len(_es_pts) >= 2:
-                pygame.draw.lines(SCREEN, random.choice(_es_arc_outer), False, _es_pts, 2)
-                pygame.draw.lines(SCREEN, random.choice(_es_arc_core), False, _es_pts, 1)
-        # 분기 전류
-        for _ in range(random.randint(4, 7)):
-            _es_bx = _es_cx + random.randint(-_es_hw, _es_hw)
-            _es_by = _es_cy + random.randint(-_es_hh, _es_hh)
-            _es_ba = random.uniform(0, math.pi * 2)
-            _es_bl = random.uniform(8, 18)
-            _es_bpts = [(_es_bx, _es_by)]
-            for _es_bj in range(1, random.randint(2, 4) + 1):
-                _es_bfrac = _es_bj / 3
-                _es_bnx = _es_bx + math.cos(_es_ba) * _es_bl * _es_bfrac + random.uniform(-4, 4)
-                _es_bny = _es_by + math.sin(_es_ba) * _es_bl * _es_bfrac + random.uniform(-4, 4)
-                _es_bpts.append((int(_es_bnx), int(_es_bny)))
-            if len(_es_bpts) >= 2:
-                pygame.draw.lines(SCREEN, random.choice(_es_arc_outer + _es_arc_core), False, _es_bpts, 1)
-        # 스파크 포인트
-        for _ in range(random.randint(1, 2)):
-            _es_spx = _es_cx + random.randint(-_es_hw, _es_hw)
-            _es_spy = _es_cy + random.randint(-_es_hh, _es_hh)
-            pygame.draw.circle(SCREEN, random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)]),
-                             (_es_spx, _es_spy), random.randint(1, 2))
+    elif (_judgment_lightning_stun_top_timer > 0 or globals().get('_bodyguard_electric_stun_active', False)) and not arena_mode_enabled:
+        _draw_electric_stun_overlay(
+            SCREEN,
+            BOSS,
+            is_top=True,
+            intensity=1.15 if _judgment_lightning_stun_top_timer > 0 else 1.0,
+        )
     #  일반 스턴 및 헤드샷 시 머리 위 빙글빙글 도는 별 효과 (라그나로크가 아닌 경우만)
     # 투기장에서는 _draw_arena_stun_stars()가 전용 처리하므로 중복 방지
     elif (boss_stunned_timer > 0 or (head_shot_active and head_shot_timer > 0)) and not arena_mode_enabled:
@@ -119748,9 +129161,7 @@ def draw_objects():
             draw.polygon(star_color, star_points)
             draw.polygon((255, 200, 0), star_points, 1)  # 얇은 테두리
             # 별 글로우 효과
-            glow_surface = pygame.Surface((star_size * 3, star_size * 3), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (255, 255, 100, 60), 
-                             (star_size * 1.5, star_size * 1.5), star_size)
+            glow_surface = _get_cached_stun_star_glow_surface(star_size)
             SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
     # === 범용 둔화 애니메이션 (어떤 스킬이든 보스가 둔화 상태면 표시) ===
     if BOSS and not arena_mode_enabled:
@@ -119923,14 +129334,10 @@ def draw_objects():
     player_idle_offset = (0, 0)
     if new_boss_mode_active:
         #  새로운 보스 모드에서는 하단 보스 이미지 사용
-        try:
-            if selected_bottom_boss == 1:
-                boss_img = pygame.image.load(resource_path("boss_stage1.png")).convert_alpha()
-                base_ufo_img = pygame.transform.scale(boss_img, (250, 100))
-            elif selected_bottom_boss == 2:
-                boss_img = pygame.image.load(resource_path("boss_stage2.png")).convert_alpha()
-                base_ufo_img = pygame.transform.scale(boss_img, (250, 100))
-        except Exception:
+        cached_boss_img = _get_cached_new_boss_mode_player_surface(selected_bottom_boss)
+        if cached_boss_img is not None:
+            base_ufo_img = cached_boss_img
+        else:
             base_ufo_img = PLAYER_IMG
     else:
         # 일반 모드에서는 캐릭터 타입에 따라 다른 이미지 사용
@@ -120040,7 +129447,52 @@ def draw_objects():
                 )
         elif selected_character_type == "viper":
             # 바이퍼: 절차적 렌더링 (전용 걷기 상태 사용)
-            if _viper_wall_dive_active and _viper_wall_dive_phase in (0, 1):
+            if _viper_core_flip_attack_active:
+                # 🩰 코어 플립 자체 발차기 모션:
+                #   Phase 0: 제자리 발레리노 Y축 회전 (cos 기반 가로 squish)
+                #   Phase 1: 좌우 벽에 실제로 붙으며 지그재그 상승
+                #   Phase 2: 돌려차기 (flying_kick 포즈 + 빠른 Z축 회전)
+                #   Phase 3: 착지 복귀 (플라잉 킥 → 평소 자세 보간)
+                if _viper_core_flip_attack_phase == 0:
+                    base_ufo_img = create_viper_paddle_surface(0.0)
+                elif _viper_core_flip_attack_phase == 1:
+                    _cf_wall_side = -1 if PLAYER.centerx < WIDTH // 2 else 1
+                    base_ufo_img = create_viper_paddle_surface(0.0, wall_cling=_cf_wall_side)
+                elif _viper_core_flip_attack_phase == 2:
+                    base_ufo_img = create_viper_paddle_surface(
+                        0.0, flying_kick=_viper_core_flip_attack_kick_dir
+                    )
+                else:
+                    # Phase 3: flying_kick → idle 보간
+                    _cf_p3_now = pygame.time.get_ticks()
+                    _cf_p3_elapsed = _cf_p3_now - _viper_core_flip_attack_phase_start_ms
+                    _cf_p3_intensity = max(0.0, min(1.0, 1.0 - _cf_p3_elapsed / float(_VIPER_CORE_FLIP_PHASE3_MS)))
+                    if _cf_p3_intensity > 0.05:
+                        base_ufo_img = create_viper_paddle_surface(
+                            0.0, flying_kick=_viper_core_flip_attack_kick_dir,
+                            flying_kick_intensity=_cf_p3_intensity,
+                        )
+                    else:
+                        base_ufo_img = create_viper_paddle_surface(0.0)
+
+                # Phase 0: Y축 발레리노 squish (가로폭이 cos 기반으로 펄스)
+                if _viper_core_flip_attack_phase == 0:
+                    _cf_y_axis_rad = math.radians(_viper_core_flip_attack_spin_angle_deg)
+                    _cf_y_squish = abs(math.cos(_cf_y_axis_rad))
+                    # 너무 얇아지지 않도록 최소 0.2 유지
+                    _cf_y_squish = max(0.2, _cf_y_squish)
+                    _cf_bw, _cf_bh = base_ufo_img.get_size()
+                    _cf_new_w = max(2, int(_cf_bw * _cf_y_squish))
+                    if _cf_new_w != _cf_bw and _cf_bh > 0:
+                        base_ufo_img = pygame.transform.smoothscale(base_ufo_img, (_cf_new_w, _cf_bh))
+
+                # Phase 2+3: Z축 회전 (벽타기 구간은 wall_cling 포즈를 우선)
+                if _viper_core_flip_attack_phase >= 2:
+                    _cf_z_angle = _viper_core_flip_attack_spin_angle_deg % 360
+                    if abs(_cf_z_angle) > 0.5:
+                        base_ufo_img = pygame.transform.rotate(base_ufo_img, _cf_z_angle)
+
+            elif _viper_wall_dive_active and _viper_wall_dive_phase in (0, 1):
                 # 🕷 마샬 킥 벽타기 포즈: 벽 쪽에 따라 좌/우 미러
                 _wc_side = -1 if _viper_wall_dive_wall_x < WIDTH // 2 else 1
                 base_ufo_img = create_viper_paddle_surface(0.0, wall_cling=_wc_side)
@@ -121048,6 +130500,12 @@ def draw_objects():
         SCREEN.blit(_srt_asurf, (BOSS.centerx - _srt_aw // 2, BOSS.centery - _srt_ah // 2))
     # 테크니컬조끼 연막 효과 그리기 (플레이어 패들보다 먼저 그려서 패들이 위에 보이도록)
     draw_technical_vest_effects(SCREEN)
+    # 훼이크암 발동 번쩍 이펙트 (패들 위에 살짝 뜨는 마젠타 글리치 플래시)
+    try:
+        from item_effects.fake_arm import draw_fake_arm_effects
+        draw_fake_arm_effects(SCREEN)
+    except Exception:
+        pass
 
     # 역경의 갑옷 오라 이펙트 그리기
     try:
@@ -121913,6 +131371,14 @@ def draw_objects():
                     _player_final_surf = apply_hologram_materialize_effect(_player_final_surf, _player_hologram_progress, _hologram_time_now)
                 draw_with_shake(_player_final_surf, player_rect.topleft)
 
+    if not arena_mode_enabled and _judgment_lightning_stun_bottom_timer > 0:
+        _draw_electric_stun_overlay(
+            SCREEN,
+            player_rect,
+            is_top=False,
+            intensity=1.15,
+        )
+
     # 🕷 바이퍼 마샬 킥 / 팬텀 킥 대기 상태: 투기 오라 (패들 렌더링 직후)
     if selected_character_type == "viper" and (_viper_wall_dive_ready or _viper_double_marshal_ready):
         try:
@@ -122116,8 +131582,7 @@ def draw_objects():
                 star_color = (255, 255, 100)
                 draw.polygon(star_color, star_points)
                 draw.polygon((255, 200, 0), star_points, 1)
-                glow_surface = pygame.Surface((star_size * 3, star_size * 3), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surface, (255, 255, 100, 60), (star_size * 1.5, star_size * 1.5), star_size)
+                glow_surface = _get_cached_stun_star_glow_surface(star_size)
                 SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
             
         # 스턴 텍스트 표시 (초인 테트로 폭발 유발 스턴 동안은 숨김)
@@ -122146,66 +131611,56 @@ def draw_objects():
     if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing or boomerang_throwing or soap_throwing:
         throw_progress = 0
         item_icon = None
+        item_icon_name = None
         if molotov_throwing:
             throw_progress = 1.0 - (molotov_throw_timer / 30.0)
-            try:
-                item_icon = pygame.image.load(resource_path("items/molotov.png")).convert_alpha()
-                item_icon = pygame.transform.scale(item_icon, (40, 40))
-            except:
+            item_icon_name = "molotov"
+            item_icon = _get_cached_draw_item_scaled_icon(item_icon_name, (40, 40))
+            if item_icon is None:
                 # 화염병 기본 아이콘
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (255, 100, 0), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         elif grenade_throwing:
             throw_progress = 1.0 - (grenade_throw_timer / 30.0)
-            try:
-                item_icon = pygame.image.load(resource_path("items/grenade.png")).convert_alpha()
-                item_icon = pygame.transform.scale(item_icon, (40, 40))
-            except:
+            item_icon_name = "grenade"
+            item_icon = _get_cached_draw_item_scaled_icon(item_icon_name, (40, 40))
+            if item_icon is None:
                 # 수류탄 기본 아이콘
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (100, 150, 100), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         elif flare_throwing:
             throw_progress = 1.0 - (flare_throw_timer / 30.0)
-            try:
-                item_icon = pygame.image.load(resource_path("items/flare.png")).convert_alpha()
-                item_icon = pygame.transform.scale(item_icon, (40, 40))
-            except:
+            item_icon_name = "flare"
+            item_icon = _get_cached_draw_item_scaled_icon(item_icon_name, (40, 40))
+            if item_icon is None:
                 # 조명탄 기본 아이콘
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (255, 255, 200), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         elif dynamite_throwing:
             throw_progress = 1.0 - (dynamite_throw_timer / 30.0)
-            try:
-                item_icon = pygame.image.load(resource_path("items/dynamite.png")).convert_alpha()
-                item_icon = pygame.transform.scale(item_icon, (40, 40))
-            except:
+            item_icon_name = "dynamite"
+            item_icon = _get_cached_draw_item_scaled_icon(item_icon_name, (40, 40))
+            if item_icon is None:
                 # 다이너마이트 기본 아이콘
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (180, 60, 60), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         elif banana_throwing:
             throw_progress = 1.0 - (banana_throw_timer / 30.0)
-            # 바나나 아이콘 그리기 (get_item_icon 사용)
-            item_icon = get_item_icon("banana")
-            if item_icon:
-                item_icon = pygame.transform.scale(item_icon, (40, 40))
-            else:
+            item_icon = _get_cached_draw_item_scaled_icon("banana", (40, 40))
+            if item_icon is None:
                 # 바나나 기본 아이콘
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (255, 220, 50), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         elif boomerang_throwing:
             throw_progress = 1.0 - (boomerang_throw_timer / 24.0)
-            item_icon = get_item_icon("boomerang")
-            if item_icon:
-                item_icon = pygame.transform.scale(item_icon, (40, 40))
-            else:
+            item_icon = _get_cached_draw_item_scaled_icon("boomerang", (40, 40))
+            if item_icon is None:
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (200, 130, 60), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         elif soap_throwing:
             throw_progress = 1.0 - (soap_throw_timer / 30.0)
-            item_icon = get_item_icon("soap")
-            if item_icon:
-                item_icon = pygame.transform.scale(item_icon, (40, 40))
-            else:
+            item_icon = _get_cached_draw_item_scaled_icon("soap", (40, 40))
+            if item_icon is None:
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (140, 200, 240), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         # 연막탄은 즉시 발동으로 변경되어 투척 모션 제거됨
@@ -122224,19 +131679,21 @@ def draw_objects():
                 item_y = PLAYER.centery - 30 - throw_distance + screen_shake_offset_y
                 item_angle = -30
             # 아이템 회전 및 그리기
-            rotated_item = pygame.transform.rotate(item_icon, item_angle)
+            rotated_item = None
+            if item_icon_name in {"molotov", "grenade", "flare", "dynamite"}:
+                rotated_item = _get_cached_draw_item_rotated_icon(item_icon_name, (40, 40), item_angle)
+            if rotated_item is None:
+                rotated_item = pygame.transform.rotate(item_icon, item_angle)
             item_rect = rotated_item.get_rect(center=(item_x, item_y))
             SCREEN.blit(rotated_item, item_rect.topleft)
     # 수류탄 그리기
     for grenade in grenades:
         # 회전된 수류탄 아이콘 그리기
-        try:
-            icon = pygame.image.load(resource_path("items/grenade.png")).convert_alpha()
-            icon = pygame.transform.scale(icon, (36, 36))  # 화염병보다 약간 크게
-            rotated_icon = pygame.transform.rotate(icon, grenade["rotation"])
+        rotated_icon = _get_cached_draw_item_rotated_icon("grenade", (36, 36), grenade["rotation"])
+        if rotated_icon is not None:
             icon_rect = rotated_icon.get_rect(center=(grenade["x"], grenade["y"]))
             SCREEN.blit(rotated_icon, icon_rect)
-        except:
+        else:
             # 기본 원형 그리기
             draw.circle((80, 100, 80), (int(grenade["x"]), int(grenade["y"])), 12)
     # 스파이더지뢰 그리기
@@ -122329,12 +131786,11 @@ def draw_objects():
                     draw.circle(RED, 
                                      (int(smoke_grenade["x"]), int(smoke_grenade["y"] - 5)), 3)
                 # 연막탄 본체
-                try:
-                    icon = pygame.image.load(resource_path("items/smoke_grenade.png")).convert_alpha()
-                    icon = pygame.transform.scale(icon, (28, 28))
+                icon = _get_cached_draw_item_scaled_icon("smoke_grenade", (28, 28))
+                if icon is not None:
                     icon_rect = icon.get_rect(center=(smoke_grenade["x"], smoke_grenade["y"] - 5))
                     SCREEN.blit(icon, icon_rect)
-                except:
+                else:
                     draw.circle((100, 100, 100), 
                                      (int(smoke_grenade["x"]), int(smoke_grenade["y"] - 5)), 10)
         else:
@@ -122346,13 +131802,11 @@ def draw_objects():
                     draw.circle((DEFAULT_ALPHA, DEFAULT_ALPHA, DEFAULT_ALPHA, alpha), 
                                      (int(pos[0]), int(pos[1])), 2)
             # 연막탄 본체
-            try:
-                icon = pygame.image.load(resource_path("items/smoke_grenade.png")).convert_alpha()
-                icon = pygame.transform.scale(icon, (ICON_SIZE, ICON_SIZE))
-                rotated_icon = pygame.transform.rotate(icon, smoke_grenade["rotation"])
+            rotated_icon = _get_cached_draw_item_rotated_icon("smoke_grenade", (ICON_SIZE, ICON_SIZE), smoke_grenade["rotation"])
+            if rotated_icon is not None:
                 icon_rect = rotated_icon.get_rect(center=(smoke_grenade["x"], smoke_grenade["y"]))
                 SCREEN.blit(rotated_icon, icon_rect)
-            except:
+            else:
                 # 기본 원형 그리기
                 draw.circle((150, 150, 150), 
                                  (int(smoke_grenade["x"]), int(smoke_grenade["y"])), 10)
@@ -122587,13 +132041,11 @@ def draw_objects():
                              (int(flare["x"]), int(flare["y"])), 8, 2)
         else:
             # 날아가는 중인 조명탄
-            try:
-                icon = pygame.image.load(resource_path("items/flare.png")).convert_alpha()
-                icon = pygame.transform.scale(icon, (ICON_SIZE, ICON_SIZE))
-                rotated_icon = pygame.transform.rotate(icon, flare["rotation"])
+            rotated_icon = _get_cached_draw_item_rotated_icon("flare", (ICON_SIZE, ICON_SIZE), flare["rotation"])
+            if rotated_icon is not None:
                 icon_rect = rotated_icon.get_rect(center=(flare["x"], flare["y"]))
                 SCREEN.blit(rotated_icon, icon_rect)
-            except:
+            else:
                 # 기본 원형 그리기
                 draw.circle((255, 255, 200), (int(flare["x"]), int(flare["y"])), 10)
     # 조명 지대 그리기 (섬광 효과)
@@ -122786,80 +132238,12 @@ def draw_objects():
                 draw.polygon((255, 200, 0), star_points, 1)
 
                 # 별 글로우 효과
-                glow_surface = pygame.Surface((star_size * 3, star_size * 3), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surface, (255, 255, 100, 60),
-                                 (star_size * 1.5, star_size * 1.5), star_size)
+                glow_surface = _get_cached_stun_star_glow_surface(star_size)
                 SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
 
         def _draw_arena_electric_stun(target_rect, is_top):
-            """투기장 번개 스턴 전기 이펙트 - 실제 전류가 흐르는 듯한 찌릿찌릿 전기 아크"""
-            current_time = pygame.time.get_ticks()
-            cx, cy = target_rect.centerx, target_rect.centery
-            offset_y_e = 20 if is_top else -20
-            cy += offset_y_e
-            hw = target_rect.width // 2 + 5   # 패들 반폭
-            hh = 28  # 전기가 흐르는 세로 범위
-
-            # 전기 색상 팔레트 (밝은 노란색~하얀색 전류)
-            _arc_colors_core = [
-                (255, 255, 255), (255, 255, 230), (255, 250, 200),
-            ]
-            _arc_colors_outer = [
-                (120, 180, 255), (80, 140, 255), (160, 200, 255),
-                (255, 240, 120), (255, 220, 80),
-            ]
-
-            # ── 1. 주요 전류 아크 (짧은 미세 전류) ──
-            main_arc_count = 1
-            for i in range(main_arc_count):
-                # 시작점: 몸 중심 근처 랜덤
-                sx = cx + random.randint(-hw // 3, hw // 3)
-                sy = cy + random.randint(-hh // 2, hh // 2)
-                # 끝점: 시작점에서 짧은 거리
-                arc_len = random.randint(12, 22)
-                a = random.uniform(0, math.pi * 2)
-                ex = sx + int(math.cos(a) * arc_len)
-                ey = sy + int(math.sin(a) * arc_len)
-
-                segs = random.randint(3, 4)
-                pts = [(int(sx), int(sy))]
-                for j in range(1, segs):
-                    frac = j / segs
-                    mx = sx + (ex - sx) * frac + random.uniform(-2.5, 2.5)
-                    my = sy + (ey - sy) * frac + random.uniform(-2, 2)
-                    pts.append((int(mx), int(my)))
-                pts.append((int(ex), int(ey)))
-
-                if len(pts) >= 2:
-                    pygame.draw.lines(SCREEN, random.choice(_arc_colors_outer), False, pts, 2)
-                    pygame.draw.lines(SCREEN, random.choice(_arc_colors_core), False, pts, 1)
-
-            # ── 2. 분기 전류 (주 전류에서 갈라지는 작은 번개) ──
-            branch_count = random.randint(4, 7)
-            for _ in range(branch_count):
-                bx = cx + random.randint(-hw, hw)
-                by = cy + random.randint(-hh, hh)
-                b_angle = random.uniform(0, math.pi * 2)
-                b_len = random.uniform(8, 18)
-                pts = [(int(bx), int(by))]
-                segs = random.randint(2, 4)
-                for j in range(1, segs + 1):
-                    frac = j / segs
-                    nx = bx + math.cos(b_angle) * b_len * frac + random.uniform(-4, 4)
-                    ny = by + math.sin(b_angle) * b_len * frac + random.uniform(-4, 4)
-                    pts.append((int(nx), int(ny)))
-                col = random.choice(_arc_colors_outer + _arc_colors_core)
-                if len(pts) >= 2:
-                    pygame.draw.lines(SCREEN, col, False, pts, 1)
-
-            # ── 3. 스파크 포인트 (튀는 전기 불꽃, 축소) ──
-            spark_count = random.randint(1, 2)
-            for _ in range(spark_count):
-                sp_x = cx + random.randint(-hw, hw)
-                sp_y = cy + random.randint(-hh, hh)
-                sp_size = random.randint(1, 2)
-                sp_col = random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)])
-                pygame.draw.circle(SCREEN, sp_col, (sp_x, sp_y), sp_size)
+            """투기장 번개 스턴 전기 이펙트."""
+            _draw_electric_stun_overlay(SCREEN, target_rect, is_top=is_top, intensity=1.0)
 
 
         # 뿔 박치기 포함 모든 스턴을 _draw_arena_stun_stars()로 통합 처리
@@ -122928,13 +132312,11 @@ def draw_objects():
     # 화염병 그리기
     for molotov in molotovs:
         # 회전된 화염병 아이콘 그리기
-        try:
-            icon = pygame.image.load(resource_path("items/molotov.png")).convert_alpha()
-            icon = pygame.transform.scale(icon, (ICON_SIZE, ICON_SIZE))
-            rotated_icon = pygame.transform.rotate(icon, molotov["rotation"])
+        rotated_icon = _get_cached_draw_item_rotated_icon("molotov", (ICON_SIZE, ICON_SIZE), molotov["rotation"])
+        if rotated_icon is not None:
             icon_rect = rotated_icon.get_rect(center=(molotov["x"], molotov["y"]))
             SCREEN.blit(rotated_icon, icon_rect)
-        except:
+        else:
             # 기본 원형 그리기
             draw.circle((255, 100, 0), (int(molotov["x"]), int(molotov["y"])), 10)
     # 화염 지대 그리기 - 고퀄리티 드래곤 브레스 화염 이펙트
@@ -123770,6 +133152,11 @@ def draw_objects():
     else:
         ball_already_drawn = False  # 공이 이미 그려졌는지 추적
 
+    _stage6_ball_debug_total_start = None
+    if _stage6_ball_debug_is_active() and not ball_in_kuromi and not ball_spawn_animation_active:
+        _stage6_ball_note_motion(BALL.centerx, BALL.centery, _get_ball_type())
+        _stage6_ball_debug_total_start = time.perf_counter()
+
     #  새로운 보스전에서는 드라이브 모니터(연두색 공) 제거, 코만도 캐릭터도 제외
     if (
         not new_boss_mode_active
@@ -123834,9 +133221,11 @@ def draw_objects():
         pygame.draw.circle(prism_surf, (255, 255, 255, 255), (prism_center - 4, prism_center - 4), 3)
         
         if not ball_in_kuromi:
+            _stage6_ball_perf_start("prism_draw")
             draw_x = ball_rect.centerx + screen_shake_offset_x - prism_center
             draw_y = ball_rect.centery + screen_shake_offset_y - prism_center
             SCREEN.blit(prism_surf, (draw_x, draw_y), special_flags=pygame.BLEND_ADD)
+            _stage6_ball_perf_end("prism_draw")
         ball_already_drawn = True
 
     # === 공 생성 애니메이션 중에는 일반 공과 잔상 모두 숨김 ===
@@ -123851,6 +133240,7 @@ def draw_objects():
         if _current_ball_type == "pingpong":
             # === 탁구공 모드: 이펙트/파티클 없이 이미지만 그리기 ===
             if not ball_already_drawn and not ball_in_kuromi:
+                _stage6_ball_perf_start("pingpong_draw")
                 ball_size = int((BALL.width + 4) * 1.6)
                 if ball_size not in _pingpong_ball_cache:
                     _pingpong_ball_cache[ball_size] = pygame.transform.smoothscale(
@@ -123863,22 +133253,31 @@ def draw_objects():
                     ball_rect.centerx + screen_shake_offset_x,
                     ball_rect.centery + screen_shake_offset_y))
                 SCREEN.blit(rotated, r_rect)
+                _stage6_ball_perf_end("pingpong_draw")
         else:
             # === 에너지볼 모드 (기본) ===
             # === 공 잔상 궤적 시스템 (에너지 파동형 투명 잔상) ===
             # 쿠로미가 먹지 않았을 때만 잔상 업데이트 및 그리기
             if not ball_in_kuromi:
                 # 잔상 궤적 업데이트
+                _stage6_ball_perf_start("ghost_update")
                 update_ball_ghost_trail(ball_rect.centerx, ball_rect.centery, BALL.width // 2)
+                _stage6_ball_perf_end("ghost_update")
                 # 잔상을 공 뒤에 그리기 (공보다 먼저 그려야 뒤에 보임)
+                _stage6_ball_perf_start("ghost_draw")
                 draw_ball_ghost_trail(SCREEN, screen_shake_offset_x, screen_shake_offset_y)
+                _stage6_ball_perf_end("ghost_draw")
 
                 # 🔥 인텐시티 이펙트 업데이트 및 그리기 (공 뒤에)
+                _stage6_ball_perf_start("intensity_update")
                 update_intensity_particles(ball_rect.centerx, ball_rect.centery)
+                _stage6_ball_perf_end("intensity_update")
+                _stage6_ball_perf_start("intensity_draw")
                 draw_intensity_effects(SCREEN,
                                       ball_rect.centerx + screen_shake_offset_x,
                                       ball_rect.centery + screen_shake_offset_y,
                                       BALL.width // 2)
+                _stage6_ball_perf_end("intensity_draw")
 
             # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
             if not ball_already_drawn and not ball_in_kuromi:
@@ -123893,8 +133292,14 @@ def draw_objects():
                     pass
                 if not _bomb_ball_drawn:
                     # 고퀄리티 에너지볼만 그리기 (PNG 이미지 제거)
+                    _stage6_ball_perf_start("energy_draw")
                     draw_energy_ball(SCREEN, ball_rect.centerx + screen_shake_offset_x,
                                     ball_rect.centery + screen_shake_offset_y, BALL.width // 2 + 2)
+                    _stage6_ball_perf_end("energy_draw")
+
+    if _stage6_ball_debug_total_start is not None:
+        _stage6_ball_note_total((time.perf_counter() - _stage6_ball_debug_total_start) * 1000.0)
+        _stage6_ball_note_draw_snapshot(BALL.centerx, BALL.centery)
 
     # 디바인스톤(건설형) 월드 이펙트(번개/전기 폭발) 오버레이
     try:
@@ -124249,7 +133654,7 @@ def draw_objects():
                     player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
                     # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
                     PLAYER.x += int(player_knockback_vel)
-                    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
                     # print(f"🧊 [HAIL HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, dir={knockback_dir})")
                     # 즉시 감속 적용 (다음 프레임과의 갭 제거)
                     player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
@@ -125470,7 +134875,11 @@ def draw_objects():
                 time_now = pygame.time.get_ticks()
 
                 # 인터셉터 이동 방향 계산 (전투기가 바라보는 방향 - 항상 이동 방향을 바라봄)
-                if interceptor['state'] == 'launching':
+                if interceptor['state'] == 'chaos_pull':
+                    pull_angle = float(interceptor.get('chaos_pull_angle', 0.0))
+                    face_dx = math.cos(pull_angle)
+                    face_dy = math.sin(pull_angle)
+                elif interceptor['state'] == 'launching':
                     face_dx = interceptor['target_x'] - interceptor['x']
                     face_dy = interceptor['target_y'] - interceptor['y']
                 elif interceptor['state'] == 'intercepting':
@@ -129393,7 +138802,8 @@ def confirm_rest(stage_cleared, reward):
     while True:
         update_btn_hover_effects()
         SCREEN.fill((30, 0, 0))
-        ui_manager.draw_centered_text(_t("ui.confirm_rest_ok", "휴식하시겠습니까?"), 30, 0)
+        ui_manager.draw_centered_text(_t("ui.confirm_rest_info", "진행 상황과 아이템이 초기화되고 메인 메뉴로 돌아갑니다."), 26, -50)
+        ui_manager.draw_centered_text(_t("ui.confirm_rest_ok", "괜찮으시겠습니까?"), 30, 0)
 
         # 마우스 호버 체크
         _cr_mpos = pygame.mouse.get_pos()
@@ -129428,12 +138838,7 @@ def confirm_rest(stage_cleared, reward):
                     play_button_hover_sound()
                 elif event.key == pygame.K_SPACE:
                     if selected == 0:
-                        # 아이템 전부 초기화
-                        items.reset_items()
-                        try:
-                            deactivate_vitamin_pill()
-                        except Exception:
-                            pass
+                        reset_full_run_state(delete_save=True)
                         show_start_screen()
                         return
                     else:
@@ -129443,11 +138848,7 @@ def confirm_rest(stage_cleared, reward):
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
                 if yes_rect.collidepoint(mx, my):
-                    items.reset_items()
-                    try:
-                        deactivate_vitamin_pill()
-                    except Exception:
-                        pass
+                    reset_full_run_state(delete_save=True)
                     show_start_screen()
                     return
                 elif no_rect.collidepoint(mx, my):
@@ -129793,7 +139194,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         BOSS.width = int(130 * arena_perk_paddle_enlarge_top)
         BOSS.height = int(40 * arena_perk_paddle_enlarge_top)
         # 패들 위치 재조정 (바닥에 맞춤)
-        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
         PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
 
         # 상단 영웅 아이템 슬롯 초기화
@@ -130124,6 +139525,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             except Exception:
                 pass
             _judgment_wind_sound_playing = False
+        reset_gods_stone_judgment_runtime()
         # 호위무사 시스템 초기화
         if arena_guard_system is not None:
             try:
@@ -132560,6 +141962,12 @@ def _show_replay_end_screen(result: str, boss_name: str, stage: int):
         pygame.display.flip()
 
 
+def start_ai_play_from_menu(character: str = "smasher"):
+    """메인 메뉴 AI 자동 플레이도 표준 새 게임 초기화를 재사용한다."""
+    difficulty_mode = globals().get("ai_mode", "junior") or "junior"
+    return start_game_with_difficulty(character, difficulty_mode, auto_play=True)
+
+
 def show_start_screen():
     global passive_item_list, active_item_slot, selected_item_index, MAX_ITEM_SLOTS
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained
@@ -132674,6 +142082,7 @@ def show_start_screen():
         pass
 
     items.reset_items()
+    clear_pinned_equipment_slots()
     try:
         deactivate_vitamin_pill()
     except Exception:
@@ -132691,6 +142100,7 @@ def show_start_screen():
         set_selected_index=_set_selected_item_index,
         set_max_slots=_set_max_item_slots,
     )
+    reset_gods_stone_judgment_runtime()
 
     chargebag_obtained = False
     spikeboots_obtained = False
@@ -132720,26 +142130,6 @@ def show_start_screen():
         finally:
             if previous_character_type:
                 apply_character_selection(previous_character_type)
-
-    def start_ai_play(character: str = "smasher"):
-        """메인 메뉴에서 바로 AI 자동 플레이 시작.
-
-        Args:
-            character: "smasher" | "soldier" | "blacksmith"
-        """
-        global player_ai_enabled, _pillar_ui_enabled
-        player_ai_enabled = True
-        apply_character_selection(character)
-        # 새 스테이지 진입 전에 컨트롤러 상태를 리셋
-        try:
-            from ai.player_ai import get_player_ai_controller
-
-            get_player_ai_controller().on_stage_start()
-        except Exception:
-            pass
-        # 필러 UI 활성화
-        _pillar_ui_enabled = True
-        return main(1)
 
     # 개발자용 광장 직접 입장 함수
     def enter_downtown_dev():
@@ -132807,7 +142197,7 @@ def show_start_screen():
         start_game_with_difficulty=start_game_with_difficulty,
         start_tutorial_game=start_main_tutorial,
         set_tutorial_mode=set_tutorial_mode,
-        start_ai_play=start_ai_play,
+        start_ai_play=start_ai_play_from_menu,
         start_test_mode=lambda: main(1, new_boss_mode=True),
         get_fullscreen=lambda: REAL_SCREEN if REAL_SCREEN is not None else SCREEN,
         show_item_manager_menu=show_item_manager_menu,
@@ -142783,56 +152173,36 @@ def show_difficulty_selection():
 
         pygame.display.flip()
         clock.tick(60)
-def start_game_with_difficulty(character_id, difficulty_mode):
+def start_game_with_difficulty(character_id, difficulty_mode, *, auto_play=False):
     """선택한 캐릭터와 난이도로 게임 시작"""
     global ai_mode, ai_enabled, selected_character_type, soldier_initial_grenade_given, soldier_initial_commando_arm_given
     global player_ai_enabled, aipill_active
     global PADDLE_BASE_WIDTH, PADDLE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_HEIGHT
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
     global quest_small_paddle_active, quest_speedrun_active, quest_speedrun_start_ticks
-    global special_gauge, displayed_gauge  # 플레이어 게이지 초기화용
     globals()["game_should_exit"] = False
     globals()["game_should_exit_reason"] = ""
-    # 메뉴에서 수동 진입하면 AI 자동조종은 끈다.
-    player_ai_enabled = False
-    # AI 필 비활성화 (이동키 차단 해제)
-    aipill_active = False
+    player_ai_enabled = bool(auto_play)
     global active_item_slot, selected_item_index, master_obtained, last_item_use_time
     global passive_item_list
     global _pending_ammo_restore, _pending_weapon_degradation
     global session_acquired_passive_items, session_used_active_items
 
-    # 새 게임 시작 시 세션 아이템 추적 초기화
-    session_acquired_passive_items = []
-    session_used_active_items = []
-
-    # 새 게임 시작 시 플레이어 게이지 초기화
-    special_gauge = 0
-    displayed_gauge = 0
-
-    # 새 게임 시작 시 이전 저장 데이터 초기화 (이전 세션 데이터 클리어)
-    # 주의: 계속하기로 로드한 경우 _pending_ammo_restore가 이미 설정되어 있으므로 초기화하지 않음
-    if not _pending_ammo_restore:
-        _pending_ammo_restore = {}
-    if not _pending_weapon_degradation:
-        _pending_weapon_degradation = {}
+    reset_full_run_state(delete_save=True)
+    player_ai_enabled = bool(auto_play)
 
     # 새 게임 시작 시 화기류 초기화 (코만도 캐릭터)
     # 계속하기로 로드한 경우 (_pending_weapon_degradation이 있으면) 이 초기화를 건너뜀
     if not _pending_weapon_degradation:
-        soldier_controller.weapons[:] = ["pistol"]
-        soldier_controller.current_index = 0
-        soldier_controller.switch_cooldown = 0
-        soldier_controller.reload_counts.clear()
-        soldier_controller.degradation_thresholds.clear()
-        soldier_controller.degraded.clear()
-        soldier_controller.ui_highlight_timer = 0
+        soldier_controller.reset()
+        reset_soldier_skill_unlocks()
+        reset_soldier_weapon_unlocks()
 
     # 새 게임 시작 시 화기류 탄환 초기화
     # 계속하기로 로드한 경우 (_pending_ammo_restore가 있으면) 이 초기화를 건너뜀
     global soldier_drone_ammo
     if not _pending_ammo_restore:
-        soldier_drone_ammo = 3  # 자폭드론 기본 탄환
+        soldier_drone_ammo = SUICIDE_DRONE_MAX_AMMO
         try:
             bazooka_inst = get_bazooka_instance()
             if bazooka_inst:
@@ -143054,7 +152424,15 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     global _pillar_ui_enabled
     _pillar_ui_enabled = True
 
-    main(1)
+    if auto_play:
+        try:
+            from ai.player_ai import get_player_ai_controller
+
+            get_player_ai_controller().on_stage_start()
+        except Exception:
+            pass
+
+    return main(1)
 def show_developer_stage_select():
     # 개발자 모드 진입 시 자동으로 신화리그 설정
     global ai_mode
@@ -143167,11 +152545,11 @@ def show_item_manager_menu():
     PASSIVE_SLOT_ORDER = [
         ("머리", ["bulletproof_hat", "spiked_helmet", "dowsing_goggles", "yachaman_soul"]),
         ("상의", ["technical_vest", "bulkup", "adversity_armor", "shrapnel_armor"]),
-        ("팔", ["commando_arm", "master", "smartphone", "gold_digger", "venom_mist_gauntlet"]),
-        ("벨트", ["gravitybelt", "speedgear", "sensor"]),
+        ("팔", ["commando_arm", "master", "smartphone", "gold_digger", "venom_mist_gauntlet", "fake_arm"]),
+        ("벨트", ["gravitybelt", "timer_belt", "speedgear", "sensor"]),
         ("무릎", ["knee_pads", "dashgear", "soul_burst"]),
         ("신발", ["speedboots", "spikeboots"]),
-        ("등", ["slot_add", "chargebag", "dowsing_pendulum", "battery"]),
+        ("등", ["slot_add", "chargebag", "dowsing_pendulum", "battery", "heavenly_cape"]),
         ("장신구", ["star_detector", "fuel_pouch", "bluetooth_ring",
                   "foul_whistle", "dashholder",
                   "cooltime", "revival", "gold_bar", "lucky_coin", "sage_ring"]),
@@ -143322,6 +152700,7 @@ def show_item_manager_menu():
         {"name": "holy_barrier", "type": "active", "icon": get_item_icon("holy_barrier")},
         {"name": "dash_boost", "type": "active", "icon": get_item_icon("dash_boost")},
         {"name": "weather_capsule", "type": "active", "icon": get_item_icon("weather_capsule")},
+        {"name": "gods_stone", "type": "active", "icon": get_item_icon("gods_stone")},
         {"name": "dynamite", "type": "active", "icon": get_item_icon("dynamite")},
         {"name": "banana", "type": "active", "icon": get_item_icon("banana")},
         {"name": "regeneration_potion", "type": "active", "icon": get_item_icon("regeneration_potion")},
@@ -143343,6 +152722,7 @@ def show_item_manager_menu():
         {"name": "cooltime", "type": "passive", "icon": get_icon_safe("cooltime_icon", "cooltime")},
         {"name": "speedboots", "type": "passive", "icon": get_icon_safe("speedboots_icon", "speedboots")},
         {"name": "gravitybelt", "type": "passive", "icon": get_icon_safe("gravitybelt_icon", "gravitybelt")},
+        {"name": "timer_belt", "type": "passive", "icon": get_icon_safe("timer_belt_icon", "timer_belt")},
         {"name": "speedgear", "type": "passive", "icon": get_icon_safe("speedgear_icon", "speedgear")},
         {"name": "battery", "type": "passive", "icon": get_icon_safe("battery_icon", "battery")},
         {"name": "chargebag", "type": "passive", "icon": get_icon_safe("chargebag_icon", "chargebag")},
@@ -143371,7 +152751,8 @@ def show_item_manager_menu():
         {"name": "soul_burst", "type": "passive", "icon": get_item_icon("soul_burst")},
         {"name": "sage_ring", "type": "passive", "icon": get_item_icon("sage_ring")},
         {"name": "venom_mist_gauntlet", "type": "passive", "icon": get_item_icon("venom_mist_gauntlet")},
-        {"name": "yachaman_soul", "type": "passive", "icon": get_item_icon("yachaman_soul")}
+        {"name": "yachaman_soul", "type": "passive", "icon": get_item_icon("yachaman_soul")},
+        {"name": "fake_arm", "type": "passive", "icon": get_item_icon("fake_arm")}
     ]
 
     # 전설 아이템 추가
@@ -143425,7 +152806,7 @@ def show_item_manager_menu():
         ("머리", ["transcendent_crown", "horn_strawberry_mask"]),
         ("상의", ["valhalla_warplate"]),
         ("팔", ["ragnarok_hammer", "poseidon_trident"]),
-        ("등", ["pandora_legacy"]),
+        ("등", ["pandora_legacy", "heavenly_cape"]),
         ("허리", ["odins_eye", "megingjord"]),
         ("신발", ["hermes_shoes"]),
         ("장신구", ["angel_blessing", "sacred_laurel"]),
@@ -144139,7 +153520,7 @@ def show_item_manager_menu():
 
                     # 롤옵션 정보 가져오기 (개별 아이템의 rolled_options 우선 사용)
                     roll_opts = LEGENDARY_ROLL_OPTIONS.get(item_name, [])
-                    opt_lines = []
+                    opt_lines = list(get_fixed_option_lines(item_name))
                     for opt in roll_opts:
                         current_val = get_item_legendary_roll_value(item, opt["key"])
                         unit = opt.get("unit", "")
@@ -145521,6 +154902,7 @@ def apply_selected_items(
     # 자폭드론은 추후 전용 모듈이 추가되기 전까지 단순 슬롯 추가만 수행
 
     soldier_controller.reset()
+    reset_soldier_skill_unlocks()
     reset_soldier_weapon_unlocks()  # 화기류 해금 플래그 초기화
     soldier_last_weapon_before_pistol = None
     globals()['soldier_drone_ammo'] = SUICIDE_DRONE_MAX_AMMO
@@ -146628,6 +156010,27 @@ def get_item_icon(item_name):
 
         icon_cache[item_name] = icon_surface
         return icon_surface
+
+    if item_name == "gods_stone":
+        try:
+            icon_path = resource_path(os.path.join("items", "gods_stone.png"))
+            if os.path.exists(icon_path):
+                loaded_icon = pygame.image.load(icon_path).convert_alpha()
+                if loaded_icon.get_size() != (ICON_SIZE, ICON_SIZE):
+                    loaded_icon = pygame.transform.smoothscale(loaded_icon, (ICON_SIZE, ICON_SIZE))
+                icon_cache[item_name] = loaded_icon
+                return loaded_icon
+        except Exception:
+            pass
+
+        try:
+            import items as items_module
+            if hasattr(items_module, "_draw_gods_stone_icon"):
+                icon_surface = items_module._draw_gods_stone_icon(ICON_SIZE)
+                icon_cache[item_name] = icon_surface
+                return icon_surface
+        except Exception:
+            pass
 
     if item_name == "boomerang":
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -150064,6 +159467,12 @@ def draw_field():
                 draw_stage9_center_marker(SCREEN, screen_shake_offset_x, screen_shake_offset_y, _s9_dt)
             except Exception:
                 pass
+    if current_stage != 30:
+        draw_gods_stone_judgment_overlay(
+            SCREEN,
+            offset_x=screen_shake_offset_x,
+            offset_y=screen_shake_offset_y,
+        )
     #  체력형 보스전 바리케이트 그리기 (스테이지 11, 16, 21)
     if current_stage in boss_health_stages:
         global stage6_barrier_flash_timer
@@ -151003,8 +160412,8 @@ def _update_arena_capture_phase(screen):
             PLAYER.x -= _cap_move_speed
         elif _cap_right and not _cap_left:
             PLAYER.x += _cap_move_speed
-        # 게임 영역 내 클램프
-        PLAYER.x = max(GAME_LEFT, min(GAME_RIGHT - PLAYER.width, PLAYER.x))
+        # 게임 영역 내 클램프 (GAME_LEFT=0, GAME_RIGHT=WIDTH → 헬퍼와 동일 범위)
+        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
         # ── 도주 AI (상단 영웅) ── (포획 그물에 갇히면 정지)
         _boss_trapped_by_net = (arena_capture_deployed_net is not None
@@ -152725,7 +162134,7 @@ def show_fade_text(message):
     is_game_over = message.strip().lower() == "game over"
     is_serve_message = "서브" in message
     is_power_smashing = "파워스매싱" in message
-    is_deuce = "듀스" in message
+    is_deuce = "듀스" in message or "DEUCE" in message.upper()
     is_special_skill = any(skill in message for skill in ["드라이브", "상모돌리기", "사이코볼", "홍련폭염"])
 
     #  깔끔한 스타일 설정
@@ -152922,6 +162331,11 @@ def reset_round(is_stage_start=False):
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint  # 아라크네 분노
     global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count, friend_moles_all_golden, friend_moles_spawn_total_count  # 두더지왕 친구두더지
+    # 앨리스 스킬 초기화 (라운드/스테이지 시작 시 화면 이펙트 잔존 방지)
+    global alice_mirror_active, alice_mirror_timer, alice_mirror_cooldown_timer, alice_mirror_fade_timer, alice_mirror_bg_timer
+    global alice_size_shift_active, alice_size_shift_timer, alice_size_shift_cooldown_timer
+    global alice_rabbit_active, alice_rabbit_projectiles, alice_rabbit_perched
+    global alice_rabbit_windup_active, alice_rabbit_windup_timer, alice_rabbit_cooldown_timer
 
     # ⚡ 스매셔 콤보 리셋 (라운드 시작 시)
     smasher_combo_count = 0
@@ -153071,6 +162485,10 @@ def reset_round(is_stage_start=False):
         reset_stage7_tetromino_state()
         reset_stage7_tetro_wall_state()
 
+    if MENHERA_BOSS_ANIMATION_AVAILABLE and menhera_boss_sprite is not None:
+        menhera_boss_sprite.clear_defeat()
+        menhera_boss_sprite.clear_victory()
+
     # Stage 8 그림자분신 상태 초기화
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
     global stage8_shadow_anchor_x, stage8_shadow_anchor_y
@@ -153194,10 +162612,13 @@ def reset_round(is_stage_start=False):
     _viper_dive_particles = []
     _viper_dive_ball_boosted = False
     # 바이퍼 마샬 킥 초기화
-    global _viper_wall_dive_ready, _viper_wall_dive_ready_timer
+    global _viper_wall_dive_ready, _viper_wall_dive_ready_timer, _viper_wall_dive_phantom_allowed
     global _viper_wall_dive_active, _viper_wall_dive_phase
     global _viper_wall_dive_ball_hit, _viper_wall_dive_particles, _viper_wall_dive_web_lines
     global _viper_marshal_kick_hit_ball, _viper_marshal_kick_hit_ms, _viper_double_marshal_ready, _viper_double_marshal_ready_timer, _viper_is_double_marshal
+    global _viper_last_dash_start_ms, _viper_core_flip_ready_ms, _viper_core_flip_consumed
+    global _viper_core_flip_buffered_until_ms
+    global _viper_core_flip_attack_end_frame, _viper_core_flip_dark_blade_handoff_until_ms
     # 마샬 킥/팬텀 킥이 공을 때리기 전에 게임이 끝나면 쿨타임 초기화
     if _viper_wall_dive_active and not _viper_wall_dive_ball_hit:
         if _viper_is_double_marshal:
@@ -153206,6 +162627,7 @@ def reset_round(is_stage_start=False):
             _viper_skill_cooldowns["marshal_kick"] = 0
     _viper_wall_dive_ready = False
     _viper_wall_dive_ready_timer = 0
+    _viper_wall_dive_phantom_allowed = True
     _viper_wall_dive_active = False
     _viper_wall_dive_phase = 0
     _viper_wall_dive_ball_hit = False
@@ -153215,6 +162637,21 @@ def reset_round(is_stage_start=False):
     _viper_double_marshal_ready = False
     _viper_double_marshal_ready_timer = 0
     _viper_is_double_marshal = False
+    _viper_last_dash_start_ms = 0
+    _viper_core_flip_ready_ms = 0
+    _viper_core_flip_consumed = True
+    _viper_core_flip_buffered_until_ms = 0
+    _viper_core_flip_attack_end_frame = -999999
+    _viper_core_flip_dark_blade_handoff_until_ms = 0
+    global _viper_core_flip_attack_active, _viper_core_flip_attack_phase
+    global _viper_core_flip_attack_ball_hit, _viper_core_flip_attack_spin_angle_deg
+    global _viper_core_flip_attack_spin_snd_started, _viper_core_flip_attack_kick_snd_played
+    _viper_core_flip_attack_active = False
+    _viper_core_flip_attack_phase = 0
+    _viper_core_flip_attack_ball_hit = False
+    _viper_core_flip_attack_spin_angle_deg = 0.0
+    _viper_core_flip_attack_spin_snd_started = False
+    _viper_core_flip_attack_kick_snd_played = False
     _viper_phantom_kick_knockback_pending = False
     global _viper_phantom_aura_active, _viper_phantom_aura_start_ms, _viper_phantom_hit_particles
     _viper_phantom_aura_active = False
@@ -153477,6 +162914,7 @@ def reset_round(is_stage_start=False):
     _judgment_wind_curve_effects = []
     _judgment_wind_ball_immunity = 0.0
     _judgment_wind_sound_playing = False
+    reset_gods_stone_judgment_runtime()
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
@@ -153675,6 +163113,12 @@ def reset_round(is_stage_start=False):
         _stop_magnum_grip_sound()
     except Exception:
         pass
+    # ⊙ 워프게이트: 라운드 사이 타이머 일시정지 (지속시간 보존 → 다음 라운드에서 자동 복귀).
+    # 세션 종료 (게임오버/메뉴복귀/캐릭터변경) 경로에서는 _reset_warp_gate_state() 가 별도 호출된다.
+    try:
+        _pause_warp_gate_between_rounds()
+    except Exception:
+        pass
     mega_smashing_meteor_trail.clear()  # 고스트샷 유성 효과 리셋
     mega_smashing_active = False  # 고스트샷 비활성화
     mega_smashing_start_time = 0  # 고스트샷 시작 시간 리셋
@@ -153728,7 +163172,7 @@ def reset_round(is_stage_start=False):
         choose_server(show_text=True)
     # 필살기 관련 - 게이지는 유지, 발동 상태만 초기화
     special_active = False
-    special_ready = (special_gauge >= 350)  # 파워스매시 비용 조정: 400 → 350  #  게이지 상태에 따라 갱신
+    special_ready = (special_gauge >= 300)  # 파워스매시 비용 조정: 400 → 350 → 300  #  게이지 상태에 따라 갱신
     ball_angle = 0
     # 기타 상태 초기화
     PLAYER_SPEED = 1
@@ -153756,6 +163200,7 @@ def reset_round(is_stage_start=False):
     # Stage 2 아라크네 거미줄 장판 초기화
     web_traps.clear()
     web_trap_last_used = -9999
+    web_trap_pending_stars.clear()
     speed_defense_active = False
     speed_defense_timer = 0
     horizontal_bounce_count = 0
@@ -153806,6 +163251,13 @@ def reset_round(is_stage_start=False):
     # 헤드샷으로 인한 boss_stunned_timer도 초기화
     if boss_stunned_timer > 0 and head_shot_active:
         boss_stunned_timer = 0
+    # 코만도 화력지원: 발동된 상태에서 다음 라운드로 넘어가면 초기화
+    # (스테이지 시작 경로에서는 별도의 화기류 재장전 로직이 처리하므로 스킵)
+    if not is_stage_start:
+        try:
+            reset_fire_support_for_round_transition()
+        except Exception:
+            pass
     deactivate_doping_potion()
     doping_potion_use_count = 0
 
@@ -153829,6 +163281,26 @@ def reset_round(is_stage_start=False):
     emotional_overdrive_timer = 0
     overdrive_flash_timer = 0
     overdrive_trails.clear()
+    # 앨리스(스테이지3 보스) 스킬 상태 초기화
+    # 거울세계 발동 중 매치 패배 -> 재시작했을 때 화면 플립/테두리 이펙트가 남는 버그 방지
+    alice_mirror_active = False
+    alice_mirror_timer = 0
+    alice_mirror_cooldown_timer = 0
+    alice_mirror_fade_timer = 0
+    alice_mirror_bg_timer = 0
+    if alice_size_shift_active:
+        _deactivate_alice_size_shift()
+    alice_size_shift_active = False
+    alice_size_shift_timer = 0
+    alice_size_shift_cooldown_timer = 0
+    alice_rabbit_active = False
+    if isinstance(alice_rabbit_projectiles, list):
+        alice_rabbit_projectiles.clear()
+    if isinstance(alice_rabbit_perched, list):
+        alice_rabbit_perched.clear()
+    alice_rabbit_windup_active = False
+    alice_rabbit_windup_timer = 0
+    alice_rabbit_cooldown_timer = 0
     
     # 사이코볼 사운드 중지
     global psycho_sound_channel
@@ -154359,6 +163831,7 @@ def calculate_bounce(paddle):
     if is_player_paddle and selected_character_type == "viper":
         hit_offset = BALL.centerx - PLAYER.centerx
         trigger_viper_contact_animation(hit_offset)
+        _handle_viper_chaos_spear_ball_contact()
     # blacksmith(발토르) 캐릭터 일반 타격 시 팔 애니메이션 트리거
     if is_player_paddle and selected_character_type == "blacksmith":
         global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
@@ -154863,10 +164336,9 @@ def calculate_bounce(paddle):
         refresh_perfect_timing_indicator()
         # 일반 충돌과 동일한 속도 처리
         #  속도에 관계없이 일정한 가속 적용 (완화된 증가율)
-        # 🏟️ 랠리 공속 증가율 보정 (아케이드: 강풍/미풍 시 1.6, 그 외 0.75)
-        _wt = get_weather_type() if not arena_mode_enabled and is_weather_active() else None
-        arena_accel_mult = 2.24 if arena_mode_enabled else (1.6 if _wt in ("breeze", "gust") else 0.75)
-        # 🌱 주니어리그: 속도 증가율 -20% 감소
+        # 🏟️ 랠리 공속 증가율 보정 (아레나 2.24, 강풍/미풍 1.6, 일반 1.0)
+        arena_accel_mult = get_rally_speed_increase_multiplier()
+        # 🌱 주니어리그: 속도 증가율 -40% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.02 * junior_mult * arena_accel_mult)
         base_max = 1.0 + (0.07 * junior_mult * arena_accel_mult)
@@ -154880,9 +164352,9 @@ def calculate_bounce(paddle):
         # print(f"🔍 [SPEED DEBUG] 드라이브 | 리그:{ai_mode} | 배율:{junior_mult:.2f} | 기본가속:{base_min:.3f}~{base_max:.3f} | 적용:{base_multiplier:.3f}x | 속도:{_debug_speed_before:.2f}→{speed:.2f}")  # 디버그 비활성화
     else:
         # 일반 충돌 시 동일한 가속 (완화된 증가율)
-        # 🌱 주니어리그: 속도 증가율 -20% 감소
-        _wt = get_weather_type() if not arena_mode_enabled and is_weather_active() else None
-        arena_accel_mult = 2.24 if arena_mode_enabled else (1.6 if _wt in ("breeze", "gust") else 0.75)
+        # 🏟️ 랠리 공속 증가율 보정 (아레나 2.24, 강풍/미풍 1.6, 일반 1.0)
+        arena_accel_mult = get_rally_speed_increase_multiplier()
+        # 🌱 주니어리그: 속도 증가율 -40% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.024 * junior_mult * arena_accel_mult)
         base_max = 1.0 + (0.084 * junior_mult * arena_accel_mult)
@@ -154896,7 +164368,7 @@ def calculate_bounce(paddle):
     _debug_speed_before_boss = speed
     if not is_player_paddle:
         # 보스 충돌 시 추가 가속 (속도에 관계없이 일정, 크게 완화)
-        # 🌱 주니어리그: 속도 증가율 -20% 감소
+        # 🌱 주니어리그: 속도 증가율 -40% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         boss_min = 1.0 + (0.012 * junior_mult * arena_accel_mult)
         boss_max = 1.0 + (0.054 * junior_mult * arena_accel_mult)
@@ -154922,7 +164394,7 @@ def calculate_bounce(paddle):
     #  추가 속도 증가량 추적 (드라이브 외 일반 가속)
     if drive_activated:
         # 드라이브 발동 시에만 추가 가속 효과 추적
-        # 🌱 주니어리그: 속도 증가율 -20% 감소
+        # 🌱 주니어리그: 속도 증가율 -40% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         if abs(rel_x) < 0.05:  # 극중앙 맞춤
             drive_center_rate = 0.03 * junior_mult * arena_accel_mult
@@ -154957,7 +164429,7 @@ def calculate_bounce(paddle):
             ball_angle += random.uniform(3, 7) * (-1 if rel_x < 0 else 1)
     else:
         # 일반 상황에서는 기존 로직 유지
-        # 🌱 주니어리그: 속도 증가율 -20% 감소
+        # 🌱 주니어리그: 속도 증가율 -40% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         if abs(rel_x) < 0.05:  # 극중앙 맞춤
             center_boost = _apply_dampened_multiplier(speed, 1.0 + (0.03 * junior_mult * arena_accel_mult))
@@ -155902,6 +165374,8 @@ def _process_wall_bounce(side: str) -> bool:
     return False
 
 def handle_ball():
+    _stage6_ball_note_untracked_handle_call()
+
     # 게임 상태 변수들
     global round_wins, round_losses, boss_speed_boost_timer, boss_fail_timer
     global is_waiting_for_serve, deuce_wins, deuce_losses
@@ -155924,6 +165398,7 @@ def handle_ball():
     global player_stun_immunity_timer  # 화염탄 스턴 면역 타이머
     # 공 물리 & 움직임
     global ball_vel, ball_angle, slow_ball_timer, horizontal_bounce_count
+    global quake_boss_launch_guard_timer
     global ball_impact_boost, ball_boost_decay_rate, ball_min_boost
     global player_last_shot_speed
     # 고스트샷 관련 변수들
@@ -156198,6 +165673,8 @@ def handle_ball():
                 fireball_last_cast = now
                 fireball_cooldown = random.randint(3500, 5000)
                 num_fireballs = random.randint(2, 3) if random.random() < 0.4 else 1
+                if HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
+                    honglyeon_boss_sprite.trigger_attack(start_frame=5)
                 #  화염탄 발사 효과음 재생
                 play_sound_with_volume(SOUND_FIREBALL)
                 for i in range(num_fireballs):
@@ -156275,6 +165752,7 @@ def handle_ball():
     update_bazooka_explosion_effects()
     # === Stage 5 홍련폭염 (뱀 궤적) ===
     if flame_trail_active:
+        _stage6_ball_append_hold_reason("hongryun_inferno")
         # 스탑워치 활성화 시 홍련폭염도 정지
         if stopwatch_active and stopwatch_timer > 0:
             return
@@ -156300,6 +165778,7 @@ def handle_ball():
         elapsed = (pygame.time.get_ticks() - flame_trail_start_time) / 1000.0
         # 0~1초 차징
         if elapsed < 1.0:
+            _stage6_ball_mark_phase("modal:hongryun_inferno_charge")
             BALL.x += math.sin(elapsed * 25) * 2
             BALL.y += math.cos(elapsed * 30) * 1
             return
@@ -156308,6 +165787,7 @@ def handle_ball():
             flame_trail_phase = 2
             #  홍련폭염 발사 사운드 재생
             play_sound_with_volume(SOUND_HONGRYUN_SHOOT)
+        _stage6_ball_mark_phase("skill:hongryun_inferno_active")
         accel_elapsed = elapsed - 1.0
         max_speed = 6.0
         accel_time = 6.0
@@ -156331,6 +165811,11 @@ def handle_ball():
         # 폭풍질주 버스트업 패들 높이 확장
         if arena_storm_rush_burst_bottom and arena_storm_rush_height_bonus_bottom > 0:
             player_collision_rect.inflate_ip(0, arena_storm_rush_height_bonus_bottom)
+        # ⊙ 워프게이트 걸침 상태: 공이 거울 쪽에 더 가까우면 충돌 렉트 시프트
+        try:
+            _apply_warp_gate_mirror_to_collision_rect(player_collision_rect)
+        except Exception:
+            pass
 
         if BALL.colliderect(player_collision_rect) and not ball_in_kuromi:
             flame_trail_active = False
@@ -156974,19 +166459,25 @@ def handle_ball():
 
     # 👁 오딘의 눈 부활/죽음 애니메이션 중에는 공 물리 멈춤
     if odins_eye_revival_anim_active or odins_eye_death_anim_active:
+        _stage6_ball_append_hold_reason("odin_anim")
         return  # 애니메이션 중에는 물리 업데이트 전체 스킵
     # 💀 야차맨의 투구 변신 애니메이션 중에는 공 물리 멈춤
     if yachaman_revival_anim_active:
+        _stage6_ball_append_hold_reason("yachaman_anim")
         return
 
     # 🐍 바이퍼 베놈 엣지 / 팬텀 킥 프리즈 중에는 공 물리 멈춤
     if _viper_ns_freeze_active or _viper_dmk_freeze_active:
+        _stage6_ball_append_hold_reason("viper_skill_freeze")
         return
 
     # 이전 프레임 공 위치 저장 (관통 충돌 검사용)
     global ball_prev_x, ball_prev_y
     ball_prev_x = BALL.x
     ball_prev_y = BALL.y
+
+    if stopwatch_active and stopwatch_timer > 0:
+        _stage6_ball_append_hold_reason("stopwatch")
 
     if not (stopwatch_active and stopwatch_timer > 0):
         # Sub-stepping: 빠른 공의 경우 여러 단계로 나누어 이동
@@ -157192,6 +166683,7 @@ def handle_ball():
                 bowling_trap_check = get_bowling_trap_instance()
                 if bowling_trap_check.is_ball_captured():
                     bowling_trap_holding_ball = True
+                    _stage6_ball_append_hold_reason("bowling_trap")
                     captured_pos = bowling_trap_check.get_captured_ball_position()
                     if captured_pos:
                         # 공을 트랩 위치에 고정
@@ -158006,9 +167498,18 @@ def handle_ball():
                     rock_x = collision_result[3]
                     rock_y = collision_result[4]
                     
+                    _stage6_internal_before = None
+                    if STAGE6_BALL_DEBUG:
+                        _stage6_internal_before = (BALL.centerx, BALL.centery)
                     # 충돌 지점으로 공 위치 조정 (터널링 방지)
                     BALL.x = old_x
                     BALL.y = old_y
+                    if STAGE6_BALL_DEBUG:
+                        _stage6_ball_note_internal_handle_change(
+                            "substep_stage2_rock_rollback",
+                            _stage6_internal_before,
+                            (BALL.centerx, BALL.centery),
+                        )
                     
                     #  파워스매싱 중 바위 충돌 시 파워스매싱 종료
                     if power_smashing_parabola_active:
@@ -158137,9 +167638,18 @@ def handle_ball():
                                 continue  # 다음 바위 체크로 진행
                             
                             # 일반 상태에서만 충돌 처리
+                            _stage6_internal_before = None
+                            if STAGE6_BALL_DEBUG:
+                                _stage6_internal_before = (BALL.centerx, BALL.centery)
                             # 충돌 지점으로 복귀
                             BALL.x = old_x
                             BALL.y = old_y
+                            if STAGE6_BALL_DEBUG:
+                                _stage6_ball_note_internal_handle_change(
+                                    "substep_stage2_crisis_rock_rollback",
+                                    _stage6_internal_before,
+                                    (BALL.centerx, BALL.centery),
+                                )
                             
                             rock_center_x = rock['collision_rect'].centerx
                             rock_center_y = rock['collision_rect'].centery
@@ -158577,12 +168087,42 @@ def handle_ball():
     ball_offscreen_hidden = BALL.centerx < -50 or BALL.centery < -50
     # 👁 오딘의 눈 변신 상태(penalty_active)에서도 플레이어 득점은 정상 처리
     # (변신 상태의 페널티는 이동/대쉬 제한만 적용, 득점 차단은 하지 않음)
+    ball_intentionally_hidden_offscreen = _ball_is_intentionally_hidden_offscreen()
     # [DEBUG] 공이 상단 밖인데 득점이 안 되는 경우 디버그
-    if BALL.top <= 0 and (ball_in_kuromi or odins_eye_anim_blocking_score or ball_offscreen_hidden or is_waiting_for_serve or web_rescue_active):
+    if (
+        BALL.top <= 0
+        and (ball_in_kuromi or odins_eye_anim_blocking_score or ball_offscreen_hidden or is_waiting_for_serve or web_rescue_active)
+        and not ball_intentionally_hidden_offscreen
+    ):
         print(f"[BALL-DEBUG] 공 상단 밖(top={BALL.top}, cy={BALL.centery}) 득점 차단! "
               f"kuromi={ball_in_kuromi}, odin={odins_eye_anim_blocking_score}, "
               f"offscreen={ball_offscreen_hidden}, serve_wait={is_waiting_for_serve}, web={web_rescue_active}")
+    if (
+        BALL.top <= 0
+        and current_stage == 2
+        and current_boss_name == "악어장군"
+        and quake_active
+        and last_hit_by == "boss"
+        and not ball_in_kuromi
+        and not odins_eye_anim_blocking_score
+        and not ball_offscreen_hidden
+        and not is_waiting_for_serve
+        and not web_rescue_active
+    ):
+        quake_boss_launch_guard_timer = max(quake_boss_launch_guard_timer, 6)
+        _apply_stage2_quake_boss_launch_guard()
+        if BALL.top <= 0 and BOSS is not None:
+            BALL.top = BOSS.bottom + max(6, BALL.height // 2 + 2)
+        ball_vel[1] = max(abs(ball_vel[1]), BALL_BASE_SPEED * 0.65)
+        debug_stage2_quake(
+            "boss_backstop",
+            ball_top=BALL.top,
+            boss_bottom=getattr(BOSS, "bottom", None),
+            vel_y=f"{ball_vel[1]:.2f}",
+        )
+        return
     if BALL.top <= 0 and not ball_in_kuromi and not odins_eye_anim_blocking_score and not ball_offscreen_hidden and not is_waiting_for_serve and not web_rescue_active:
+        _stage6_ball_mark_phase("score_top:entered")
         log_restart_debug(
             "score_top_trigger",
             stage_num=current_stage,
@@ -158698,6 +168238,7 @@ def handle_ball():
                 show_winner_text(arena_bottom_hero.get("name", "Player"))
             else:
                 show_winner_text("플레이어")
+            _stage6_ball_mark_phase("scoreboard:top_deuce")
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                        boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
@@ -158775,19 +168316,15 @@ def handle_ball():
                     pandora = legendary_manager.get_item("pandora_legacy")
                     print(f"[PANDORA DEBUG] 라운드승리 트리거: pandora={pandora is not None}, active={getattr(pandora, 'active', 'N/A')}, obtained={items.pandora_legacy_obtained}")
                     if pandora and pandora.active:
-                        # 액티브 슬롯이 가득 차면 발동하지 않음
-                        if len(item_state_adapter.active_items()) >= get_effective_max_item_slots():
-                            print(f"[PANDORA DEBUG] 액티브 슬롯 가득 참 — 발동 스킵")
+                        import random as _pandora_rng
+                        _trigger_pct = pandora.trigger_chance  # 40~70%
+                        _roll = _pandora_rng.random() * 100.0
+                        print(f"[PANDORA DEBUG] 발동률 체크: trigger_chance={_trigger_pct:.1f}%, roll={_roll:.1f}")
+                        if _roll < _trigger_pct:
+                            result = pandora.generate_selection_choices()
+                            print(f"[PANDORA DEBUG] 발동! 선택지 {len(result) if result else 0}개: {[i.get('name') for i in pandora.selection_items] if pandora.selection_items else []}")
                         else:
-                            import random as _pandora_rng
-                            _trigger_pct = pandora.trigger_chance  # 40~70%
-                            _roll = _pandora_rng.random() * 100.0
-                            print(f"[PANDORA DEBUG] 발동률 체크: trigger_chance={_trigger_pct:.1f}%, roll={_roll:.1f}")
-                            if _roll < _trigger_pct:
-                                result = pandora.generate_selection_choices()
-                                print(f"[PANDORA DEBUG] 발동! 선택지 {len(result) if result else 0}개: {[i.get('name') for i in pandora.selection_items] if pandora.selection_items else []}")
-                            else:
-                                print(f"[PANDORA DEBUG] 미발동 (확률 실패)")
+                            print(f"[PANDORA DEBUG] 미발동 (확률 실패)")
             except Exception as e:
                 print(f"[PANDORA DEBUG] 선택지 생성 예외: {e}")
                 import traceback; traceback.print_exc()
@@ -158868,9 +168405,7 @@ def handle_ball():
                 checkmate_system = get_checkmate_system()
                 checkmate_system.check_checkmate(round_wins, round_losses)
 
-            # Stage 8에서 플레이어 득점 시 아카무 리고 패배 애니메이션
-            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
-                stage8_boss_sprite.trigger_defeat()
+            trigger_current_boss_defeat_animation()
 
             # Stage 4에서 플레이어가 4점 획득 시 플래그 설정 (다음 라운드에서 애니메이션 시작)
             # 애니메이션은 go_to_next_round()에서 실행됨
@@ -158930,6 +168465,7 @@ def handle_ball():
                 show_winner_text(arena_bottom_hero.get("name", "Player"))
             else:
                 show_winner_text("플레이어")
+            _stage6_ball_mark_phase("scoreboard:top_round")
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                        boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
@@ -158940,6 +168476,7 @@ def handle_ball():
                 _p_pandora = legendary_manager.get_item("pandora_legacy") if legendary_manager else None
                 _p_items = getattr(_p_pandora, 'selection_items', []) if _p_pandora else []
                 if _p_pandora and _p_pandora.active and _p_pandora.selection_active and len(_p_items) >= 3:
+                    _stage6_ball_mark_phase("modal:pandora_selection")
                     _p_choices = list(_p_items)
                     _p_sel_idx = 0
                     _p_timer = 0
@@ -159132,21 +168669,13 @@ def handle_ball():
                                     if _mcx <= _pmx <= _mcx + _p_cw and _mcy <= _pmy <= _mcy + _p_ch:
                                         if 0 <= _mi < len(_p_choices):
                                             _picked = _p_choices[_mi]
-                                            _p_picked_data = {
-                                                "name": _picked.get("name", ""),
-                                                "color": _picked.get("color", (200, 200, 200)),
-                                                "effect": _picked.get("effect", _picked.get("name", "")),
-                                                "icon": None,
-                                                "duration": _picked.get("duration", 600),
-                                                "x": WIDTH // 2, "y": HEIGHT // 2,
-                                            }
+                                            _p_picked_data = _picked.copy()
                                             _p_confirm_idx = _mi
                                             _p_phase = "confirm"
                                             _p_confirm_timer = 0
-                                            store_active_item(_p_picked_data)
-                                            show_item_obtained_effect(_p_picked_data, WIDTH // 2, HEIGHT // 2)
-                                            try: play_sound_with_volume(SOUND_ITEM_GET)
-                                            except: pass
+                                            if _grant_pandora_legacy_selected_item(_picked):
+                                                try: play_sound_with_volume(SOUND_ITEM_GET)
+                                                except: pass
                                             print(f"[PANDORA] 마우스 선택 완료: {_picked.get('name')}")
                                         break
                             # 키보드 입력
@@ -159163,21 +168692,13 @@ def handle_ball():
                                     _pick_idx = _p_sel_idx if _pev.key != pygame.K_ESCAPE else 0
                                     if 0 <= _pick_idx < len(_p_choices):
                                         _picked = _p_choices[_pick_idx]
-                                        _p_picked_data = {
-                                            "name": _picked.get("name", ""),
-                                            "color": _picked.get("color", (200, 200, 200)),
-                                            "effect": _picked.get("effect", _picked.get("name", "")),
-                                            "icon": None,
-                                            "duration": _picked.get("duration", 600),
-                                            "x": WIDTH // 2, "y": HEIGHT // 2,
-                                        }
+                                        _p_picked_data = _picked.copy()
                                         _p_confirm_idx = _pick_idx
                                         _p_phase = "confirm"
                                         _p_confirm_timer = 0
-                                        store_active_item(_p_picked_data)
-                                        show_item_obtained_effect(_p_picked_data, WIDTH // 2, HEIGHT // 2)
-                                        try: play_sound_with_volume(SOUND_ITEM_GET)
-                                        except: pass
+                                        if _grant_pandora_legacy_selected_item(_picked):
+                                            try: play_sound_with_volume(SOUND_ITEM_GET)
+                                            except: pass
                                         print(f"[PANDORA] 선택 완료: {_picked.get('name')}")
                         if not _p_running:
                             break
@@ -159347,6 +168868,7 @@ def handle_ball():
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('sad')
         # 듀스 시스템 체크
+        _stage6_ball_mark_phase("deuce_check:top")
         result = check_deuce_system()
         if result == "player_win":
             # 스테이지 2에서 플레이어 승리 시 악어 울상
@@ -159364,18 +168886,13 @@ def handle_ball():
             # 스테이지 2에서 플레이어 패배 시 악어 활짝 웃기
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('happy')
-            # Stage 8에서 보스 승리 시 아카무 리고 승리 애니메이션
-            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
-                stage8_boss_sprite.trigger_victory()
+            trigger_current_boss_victory_animation()
             show_result(False)
             if arena_mode_enabled:
                 return arena_battle_result
             return
         elif result == "deuce_started" or result == "deuce_restart":
-            # 듀스 시작/재시작 시 점수 표시 업데이트
-            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
-                       player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
+            # 라운드 종료 전광판은 이미 위에서 한 번 표시됐으므로 듀스 전환 시 재생하지 않음
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -159384,6 +168901,7 @@ def handle_ball():
                 # draw_blacksmith_divine_ui(SCREEN)  # 좌측 필러로 이동됨
                 pass
             draw_score()  # 3:0 완승 보너스 메시지도 표시
+        _stage6_ball_mark_phase("round_reset:top")
         go_to_next_round()
         return
     # 벽돌 충돌 검사는 이제 Sub-stepping 루프 내에서 처리됨
@@ -159659,6 +169177,7 @@ def handle_ball():
         except Exception:
             pass
     if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active and not ball_in_kuromi and not bowling_trap_holding and not ball_spawn_animation_active and not odins_eye_anim_blocking_loss and not ball_offscreen_hidden_loss and not is_waiting_for_serve:
+        _stage6_ball_mark_phase("score_bottom:entered")
         log_restart_debug(
             "score_bottom_trigger",
             stage_num=current_stage,
@@ -159856,12 +169375,11 @@ def handle_ball():
                 boss_name = arena_top_hero.get("name", "보스")
             else:
                 boss_name = get_boss_name(current_stage, "보스")
-            # Stage 8에서 보스가 라운드 이길 때 아카무 리고 승리 애니메이션 (show_winner_text 전에 트리거)
-            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
-                stage8_boss_sprite.trigger_victory()
+            trigger_current_boss_victory_animation()
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
             arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
             show_winner_text(boss_name)
+            _stage6_ball_mark_phase("scoreboard:bottom_deuce")
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                        boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
@@ -160089,12 +169607,11 @@ def handle_ball():
                 boss_name = arena_top_hero.get("name", "보스")
             else:
                 boss_name = get_boss_name(current_stage, "보스")
-            # Stage 8에서 보스가 라운드 이길 때 아카무 리고 승리 애니메이션 (show_winner_text 전에 트리거)
-            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
-                stage8_boss_sprite.trigger_victory()
+            trigger_current_boss_victory_animation()
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
             arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
             show_winner_text(boss_name)
+            _stage6_ball_mark_phase("scoreboard:bottom_round")
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                        boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
@@ -160108,6 +169625,7 @@ def handle_ball():
             if current_stage == 30 and pillar_renderer is not None:
                 pillar_renderer.trigger_colosseum_excitement(1.0, 2.5)
         # 듀스 시스템 체크
+        _stage6_ball_mark_phase("deuce_check:bottom")
         result = check_deuce_system()
         if result == "player_win":
             # 스테이지 2에서 플레이어 승리 시 악어 울상
@@ -160125,22 +169643,18 @@ def handle_ball():
             # 스테이지 2에서 플레이어 패배 시 악어 활짝 웃기
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('happy')
-            # Stage 8에서 보스 승리 시 아카무 리고 승리 애니메이션
-            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
-                stage8_boss_sprite.trigger_victory()
+            trigger_current_boss_victory_animation()
             show_result(False)
             if arena_mode_enabled:
                 return arena_battle_result
             return
         elif result == "deuce_started" or result == "deuce_restart":
-            # 듀스 시작/재시작 시 점수 표시 업데이트
-            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
-                       player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
+            # 라운드 종료 전광판은 이미 위에서 한 번 표시됐으므로 듀스 전환 시 재생하지 않음
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
+        _stage6_ball_mark_phase("round_reset:bottom")
         go_to_next_round()
         return
     # --- 공 속도 느려일 때 보정 (파워스매싱 활성화 시 면역) ---
@@ -160169,6 +169683,11 @@ def handle_ball():
     player_collision_rect = PLAYER.copy()
     if acceleration_active and acceleration_height_bonus > 0:
         player_collision_rect.inflate_ip(0, acceleration_height_bonus)
+    # ⊙ 워프게이트 걸침 상태: 공이 거울 쪽에 더 가까우면 충돌 렉트 시프트
+    try:
+        _apply_warp_gate_mirror_to_collision_rect(player_collision_rect)
+    except Exception:
+        pass
 
     if tear_shower_active and BALL.colliderect(player_collision_rect):
         # 스턴 면역 체크
@@ -160199,7 +169718,7 @@ def handle_ball():
     # handle_player가 놓친 충돌 처리 (Y속도 조건 제거 - handle_player와 동일하게)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장 (player_collision_rect 재사용)
     # 스톱워치 정지 중에는 백업 충돌 처리도 수행하지 않음
-    if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi and not _viper_wall_dive_active:
+    if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi and not _viper_wall_dive_active and not _viper_core_flip_attack_active:
         _fire_player_impact_feedback(pos=(BALL.centerx, BALL.centery))
         # ⚠️ 버그 수정: last_hit_by와 랠리 카운트 업데이트 (테트로미노 충돌 판정용)
         last_hit_by = "player"
@@ -160424,6 +169943,16 @@ def handle_ball():
         # 방향 안전장치: 플레이어 반사 후 공이 반드시 위로 향하도록 강제
         if ball_vel[1] > 0:
             ball_vel[1] = -abs(ball_vel[1])
+        _stage6_internal_before = None
+        if STAGE6_BALL_DEBUG:
+            _stage6_internal_before = (BALL.centerx, BALL.centery)
+        _resolve_player_ball_overlap(player_collision_rect, "player_overlap_backup")
+        if STAGE6_BALL_DEBUG:
+            _stage6_ball_note_internal_handle_change(
+                "handle_player_overlap_backup",
+                _stage6_internal_before,
+                (BALL.centerx, BALL.centery),
+            )
 
         # 🐍 바이퍼 쉐도우 백스텝 후 첫 패들 타격 시 그라데이션 타격 (handle_ball 백업 경로)
         _viper_ss_kick_fired = False
@@ -160440,6 +169969,13 @@ def handle_ball():
 
         # 테크니컬조끼 효과 발동 (handle_ball에서 처리 - 실제 충돌이 여기서 처리됨)
         on_ball_paddle_collision_technical_vest(PLAYER)
+
+        # 훼이크암 효과 발동 (확률에 따라 공 반사각을 훼이크 각도로 교체)
+        try:
+            from item_effects.fake_arm import try_apply_fake_angle
+            try_apply_fake_angle(ball_vel, PLAYER)
+        except Exception:
+            pass
 
         # 발할라의 전갑 효과 발동 (장착 중일 때, 공 타격 시 영웅 소환 시도)
         try:
@@ -160670,6 +170206,13 @@ def handle_ball():
         # 참고: handle_ball의 이 블록은 player_collision_handled=False일 때만 진입됨 (위 라인 79269)
         # → 중복 체크 불필요, handle_player가 처리했다면 이 블록에 들어오지 않음
 
+        if selected_character_type == "viper":
+            _arm_viper_core_flip_from_dash_hit(
+                pygame.time.get_ticks(),
+                is_half_dash=bool(is_half_dash_active),
+                dash_active=bool(rolling_active),
+            )
+
         if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_blocks_charge and not _viper_ss_kick_fired:
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
@@ -160685,25 +170228,15 @@ def handle_ball():
                     base_gauge_gain = 0  # 옵티머스는 패들 히트로 게이지를 획득하지 않음
                 elif selected_character_type == "soldier":
                     base_gauge_gain = 50  # 코만도: 기본 50
-                    # 비-권총 화기 선택 시 50% 감소(25) - handle_ball 백업 경로에도 동일 규칙 적용
-                    if _is_soldier_non_pistol_selected():
-                        base_gauge_gain = 25
-                        if DEBUG_HANDLE_PLAYER_VERBOSE:
-                            try:
-                                dbg_weapon = (
-                                    soldier_controller.weapons[soldier_controller.current_index]
-                                    if soldier_controller.weapons else "pistol"
-                                )
-                            except Exception:
-                                dbg_weapon = "<unknown>"
-                            # print(f"[SoldierGauge][backup] weapon={dbg_weapon} non_pistol=True base={base_gauge_gain}")
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
                         base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
-                else:
+                elif selected_character_type == "smasher":
                     base_gauge_gain = 50  # 스매셔: 게이지 충전 50 (콤보 보너스로 보완)
+                else:
+                    base_gauge_gain = 80  # 기타 캐릭터 기본 충전량 (메인 경로와 동일)
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -160764,13 +170297,16 @@ def handle_ball():
                     total_gauge_gain += bonus_gauge
                     # print(f"⚡ [콤보 보너스!] {smasher_combo_count}콤보! +{combo_bonus_pct}% = +{bonus_gauge} 게이지")  # 디버그 비활성화
 
+                # 🚀 바이퍼 AIR STRIKE 체공 높이 비례 추가 게이지 (최대 +30%)
+                total_gauge_gain = _apply_viper_air_strike_gauge_bonus(total_gauge_gain)
+
                 special_gauge += total_gauge_gain
                 #  동적 최대치 제한 적용
                 current_max = get_max_gauge()
                 if special_gauge > current_max:
                     special_gauge = current_max
                 #  필살기 준비 상태 업데이트 (400 이상일 때)
-                if special_gauge >= 350:  # 파워스매시 발동 조건
+                if special_gauge >= 300:  # 파워스매시 발동 조건
                     special_ready = True
             # 충돌 쿨다운 설정
             player_collision_cooldown = PLAYER_COLLISION_COOLDOWN_FRAMES
@@ -161399,11 +170935,6 @@ def handle_ball():
         # ⚠️ 중요: calculate_bounce 호출 전에 쿨다운 설정하여 중복 충돌 방지
         boss_collision_cooldown = BOSS_COLLISION_COOLDOWN_FRAMES
         calculate_bounce(BOSS)
-        if current_stage == 9 and TAUREN_BOSS_ANIMATION_AVAILABLE and tauren_boss_sprite is not None:
-            try:
-                tauren_boss_sprite.trigger_attack(start_frame=4)
-            except Exception:
-                pass
         if (
             current_stage == 3
             and current_boss_name == "멘헤라걸"
@@ -161411,12 +170942,19 @@ def handle_ball():
             and menhera_boss_sprite is not None
         ):
             try:
+                # Start Menhera near the chop so the held impact frame lands
+                # almost immediately after ball contact instead of a beat late.
                 menhera_boss_sprite.trigger_attack(start_frame=4)
+            except Exception:
+                pass
+        if current_stage == 9 and TAUREN_BOSS_ANIMATION_AVAILABLE and tauren_boss_sprite is not None:
+            try:
+                tauren_boss_sprite.trigger_attack(start_frame=4)
             except Exception:
                 pass
         if current_stage == 5 and HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
             try:
-                honglyeon_boss_sprite.trigger_attack(start_frame=4)
+                honglyeon_boss_sprite.trigger_attack(start_frame=5)
             except Exception:
                 pass
         # 방향 안전장치: 보스 반사 후 공이 반드시 아래로 향하도록 강제
@@ -162247,10 +171785,13 @@ def _boss_try_emergency_dash() -> bool:
     """
     global boss_special_gauge
     global BOSS, BALL, ball_vel, current_stage
+    global current_boss_name
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms, boss_dash_cooldown_total_ms
     global stage8_superspeed_active
+    global stage3_menhera_facing
+    global stage5_honglyeon_facing
     global ai_mode, ai_enabled
 
     now_ms = pygame.time.get_ticks()
@@ -162410,6 +171951,30 @@ def _boss_try_emergency_dash() -> bool:
 
     boss_dashing = True
 
+    try:
+        if (
+            current_stage == 3
+            and current_boss_name == "테디베어"
+            and TEDDY_BOSS_ANIMATION_AVAILABLE
+            and teddy_bear_sprite is not None
+        ):
+            teddy_bear_sprite.trigger_dash(start_frame=2)
+        if (
+            current_stage == 3
+            and current_boss_name == "멘헤라걸"
+            and MENHERA_BOSS_ANIMATION_AVAILABLE
+            and menhera_boss_sprite is not None
+        ):
+            stage3_menhera_facing = "right" if direction > 0 else "left"
+            menhera_boss_sprite.facing = stage3_menhera_facing
+            menhera_boss_sprite.trigger_dash()
+        if current_stage == 5 and HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
+            stage5_honglyeon_facing = "right" if direction > 0 else "left"
+            honglyeon_boss_sprite.facing = stage5_honglyeon_facing
+            honglyeon_boss_sprite.trigger_dash()
+    except Exception:
+        pass
+
     # 보스 대쉬 효과음 재생 (플레이어 대쉬와 동일 사운드)
     try:
         if "SOUND_DASH" in globals() and SOUND_DASH:
@@ -162471,7 +172036,7 @@ def _boss_try_emergency_dash() -> bool:
     #     f"[BossDash] Stage {current_stage} ({ai_mode}) dash → "
     #     f"cooldown={cooldown_sec:.1f}s (base:{min_s:.1f}~{max_s:.1f}s, mult:{cooldown_mult})"
     # )
-    # return True
+    return True
 
 
 # 보스 이동 방향 추적 (바나나 미끄러짐용)
@@ -165176,6 +174741,7 @@ def handle_boss():
             if _judgment_lightning_stun_bottom_timer <= 0:
                 _stop_electric_shock_sound()
         else:
+            _play_electric_shock_sound()
             boss_current_speed = 0
             return  # 번개 스턴 중 모든 처리 차단
     # 🌪️ 바람의 분노 스턴 (독립 메커니즘)
@@ -168041,6 +177607,7 @@ def show_result(won):
     global speedboots_obtained, speedgear_obtained  #  패시브 아이템 효과 초기화용
     global game_session_active  #  게임 세션 상태
 
+    _stage6_ball_mark_phase(f"result:{'win' if won else 'lose'}")
     log_restart_debug(
         "show_result",
         won=won,
@@ -168105,6 +177672,7 @@ def show_result(won):
     global arena_capture_flee_x, arena_capture_flee_y, arena_capture_flee_vx
     global arena_capture_flee_dir, arena_capture_flee_dodge_timer
     global arena_capture_shots_left, arena_capture_net_active
+    global arena_speed_multiplier
     if arena_mode_enabled:
         # 이미 결과가 설정되어 있으면 중복 호출 방지
         if arena_battle_result is not None:
@@ -168114,6 +177682,8 @@ def show_result(won):
             return
         # 승리 + 포획 활성화 → 포획 페이즈 시작 (배틀 종료 대신)
         if won and arena_capture_do_capture and arena_capture_phase is None:
+            # 포획 페이즈는 정조준/타이밍이 중요하므로 배속을 1x로 강제 복귀
+            arena_speed_multiplier = 1
             # 포획 튜토리얼 (첫 포획 시 1회)
             global _arena_capture_tutorial_shown, _arena_capture_tutorial_active, _arena_capture_tutorial_step
             if _arena_tutorial_enabled and not _arena_capture_tutorial_shown:
@@ -168377,7 +177947,7 @@ def show_result(won):
         if enraged_boss_active:
             if final_round_wins == 5 and final_round_losses == 0:
                 enraged_bonus_choices = 3
-            elif final_round_wins == 5 and final_round_losses == 1:
+            elif final_round_wins == 5 and final_round_losses <= 2:
                 enraged_bonus_choices = 2
             else:
                 enraged_bonus_choices = 1
@@ -168431,6 +178001,8 @@ def show_result(won):
             available_items.append({"name": "master", "color": (255, 215, 0), "type": "passive", "icon": master_icon})
         if not cooltime_obtained:
             available_items.append({"name": "cooltime", "color": CYAN, "type": "passive", "icon": cooltime_icon})
+        if not timer_belt_obtained:
+            available_items.append({"name": "timer_belt", "color": (90, 220, 230), "type": "passive", "icon": timer_belt_icon})
         if not chargebag_obtained:
             available_items.append({"name": "chargebag", "color": (100, 255, 100), "type": "passive", "icon": chargebag_icon})
         if not spikeboots_obtained:
@@ -168496,6 +178068,10 @@ def show_result(won):
         if not items.smartphone_obtained:
             smartphone_icon_gacha = get_item_icon("smartphone")
             available_items.append({"name": "smartphone", "color": (100, 150, 200), "type": "passive", "icon": smartphone_icon_gacha})
+        # 훼이크암 추가
+        if not items.fake_arm_obtained:
+            fake_arm_icon_gacha = get_item_icon("fake_arm")
+            available_items.append({"name": "fake_arm", "color": (180, 60, 200), "type": "passive", "icon": fake_arm_icon_gacha})
         # 럭키코인 추가
         if not items.lucky_coin_obtained:
             lucky_coin_icon_gacha = get_item_icon("lucky_coin")
@@ -168544,6 +178120,8 @@ def show_result(won):
         # 레이저스코프 아이콘 추가 - 보스의 공 궤적을 표시
         laser_scope_icon = get_item_icon("laser_scope")
         available_items.append({"name": "laser_scope", "color": (255, 50, 50), "type": "active", "icon": laser_scope_icon})
+        gods_stone_icon = get_item_icon("gods_stone")
+        available_items.append({"name": "gods_stone", "color": (235, 205, 120), "type": "active", "icon": gods_stone_icon})
         # 다이너마이트 아이콘 추가 - 투척형 폭발물
         dynamite_icon_gacha = get_item_icon("dynamite")
         available_items.append({"name": "dynamite", "color": (200, 50, 50), "type": "active", "icon": dynamite_icon_gacha})
@@ -168663,6 +178241,7 @@ def show_result(won):
             _hg_on_deactivate('magnet_field')
         except Exception:
             pass
+        reset_gods_stone_judgment_runtime()
         # 부메랑 비활성화 (날아가는 부메랑이 있으면 인벤토리에 복귀)
         if get_flying_boomerang_count() > 0:
             for _ in range(get_flying_boomerang_count()):
@@ -168729,6 +178308,7 @@ def show_result(won):
         reset_cleanse_skill()  # 클렌즈 스킬 초기화
         # 아이템 관련 전부 초기화
         items.reset_items()
+        clear_pinned_equipment_slots()
         try:
             deactivate_vitamin_pill()
         except Exception:
@@ -168752,6 +178332,7 @@ def show_result(won):
             _hg_on_deactivate('magnet_field')
         except Exception:
             pass
+        reset_gods_stone_judgment_runtime()
         # 기묘한 약병 비활성화 (게임오버)
         deactivate_strange_vial()
         # 부메랑 비활성화 (게임오버 - 인벤토리 초기화되므로 복귀 불필요)
@@ -169492,6 +179073,7 @@ def main(stage_num, new_boss_mode=False):
 
     boss_fail_timer = 0  # 보스 실수 타이머 초기화
     current_stage = stage_num
+    _prewarm_gods_stone_judgment_bg()
 
     # 스테이지 2 원숭이-바나나 이벤트 리셋
     if stage_num == 2:
@@ -169521,14 +179103,7 @@ def main(stage_num, new_boss_mode=False):
     # 주니어리그 튜토리얼 가이드 힌트 비활성화 (실전 튜토리얼 시스템으로 대체 예정)
     tutorial_guide_hint_visible = False
     tutorial_guide_hint_start_ticks = 0
-    global soldier_emergency_supply_stage, soldier_emergency_supply_used
-    global soldier_down_tap_timer, soldier_down_tap_count, soldier_down_tap_suppress_timer
-    soldier_emergency_supply_stage = stage_num
-    soldier_emergency_supply_used = False
-    soldier_down_tap_timer = 0
-    soldier_down_tap_count = 0
-    soldier_down_tap_suppress_timer = 0
-
+    reset_soldier_firearms_for_new_stage(stage_num)
     # 코만도 스킬 쿨타임 초기화 (스테이지 전환 시)
     reset_soldier_skill_cooldowns()
     round_wins = 0
@@ -171217,6 +180792,7 @@ def main(stage_num, new_boss_mode=False):
                 _hg_on_deactivate('magnet_field')
             except Exception:
                 pass
+            reset_gods_stone_judgment_runtime()
             # 부메랑 비활성화
             deactivate_boomerang()
             if boomerang_sound_channel and boomerang_sound_channel.get_busy():
@@ -171572,15 +181148,15 @@ def main(stage_num, new_boss_mode=False):
                 move_left = nemesis_chest_move_left or is_move_left_pressed(keys) or MOVE_EVENT_LEFT
                 move_right = nemesis_chest_move_right or is_move_right_pressed(keys) or MOVE_EVENT_RIGHT
                 if move_left and not move_right:
-                    PLAYER.x = max(0, PLAYER.x - move_speed)
+                    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x - move_speed)
                 elif move_right and not move_left:
-                    PLAYER.x = min(WIDTH - PLAYER.width, PLAYER.x + move_speed)
+                    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x + move_speed)
 
             # 대쉬(롤링) 물리 업데이트
             if rolling_active:
                 if PLAYER:
                     PLAYER.x += rolling_direction * rolling_speed
-                    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
                 rolling_timer -= 1
                 if rolling_timer <= 0:
                     rolling_active = False
@@ -172072,6 +181648,23 @@ def main(stage_num, new_boss_mode=False):
         if keys[pygame.K_F7] and not getattr(main, 'keyF7_pressed', False):
             show_all_runtime_skills_menu()
         main.keyF7_pressed = keys[pygame.K_F7]
+
+        # ` 키: 스테이지6(홍련) 공 끊김 디버그 토글
+        if keys[pygame.K_BACKQUOTE] and not getattr(main, 'keyBackquote_pressed', False):
+            globals()['STAGE6_BALL_DEBUG'] = not STAGE6_BALL_DEBUG
+            _reset_stage6_ball_debug_samples()
+            try:
+                show_speech(
+                    f"홍련 볼 디버그 {'ON' if STAGE6_BALL_DEBUG else 'OFF'}",
+                    duration=75,
+                )
+            except Exception:
+                pass
+            print(
+                f"[STAGE6 BALL DEBUG] {'enabled' if STAGE6_BALL_DEBUG else 'disabled'}",
+                flush=True,
+            )
+        main.keyBackquote_pressed = keys[pygame.K_BACKQUOTE]
 
         # F8키: 투기장(스테이지30)에서는 퍽 선택, 튜토리얼(스테이지50)에서는 챕터 스킵, 그 외에는 날씨 디버그
         if keys[pygame.K_F8] and not getattr(main, 'key8_pressed', False):
@@ -173015,13 +182608,13 @@ def main(stage_num, new_boss_mode=False):
                 # 고스트샷 발동 가능 여부 (자체 쿨타임만 체크)
                 _ghost_shot_available = (
                     get_runtime_skill_level("unlock_ghost_shot") >= 1
-                    and special_gauge >= 500
+                    and special_gauge >= 450
                     and get_smasher_skill_cooldown_remaining("ghost_shot") <= 0
                 )
                 # 파워스매싱 쿨타임 체크: 고스트샷 가능하면 파워스매싱 쿨타임 무시
                 _power_cooldown_ok = get_smasher_skill_cooldown_remaining("power_smashing") <= 0
                 if (
-                    special_gauge >= 350
+                    special_gauge >= 300
                     and current_space_state
                     and selected_character_type == "smasher"
                     and is_smasher_skill_unlocked("power_smashing")  # 5구슬 슬롯에 장착 중인지 확인
@@ -173124,12 +182717,12 @@ def main(stage_num, new_boss_mode=False):
                     else:
                         power_smashing_combo_consumed = 0
                     special_ready = False
-                    # 고스트샷: 500 소모 + 쿨타임 / 파워스매싱: 350 소모
+                    # 고스트샷: 450 소모 + 쿨타임 / 파워스매싱: 300 소모
                     if mega_smashing_active:
-                        special_gauge = max(0, special_gauge - 500)
+                        special_gauge = max(0, special_gauge - 450)
                         trigger_smasher_skill_cooldown("ghost_shot")
                     else:
-                        special_gauge = max(0, special_gauge - 350)
+                        special_gauge = max(0, special_gauge - 300)
                     #  파워스매싱 발동 효과음 재생
                     play_sound_with_volume(SOUND_POWER_SMASH)
                     # print("!")
@@ -173163,13 +182756,33 @@ def main(stage_num, new_boss_mode=False):
                     
                     if not BALL.colliderect(power_player_rect) and ball_to_paddle_distance <= 30 and ball_vel[1] > 0:
                         # 공을 패들 근처로 강제 이동시켜 충돌 발생시키기
+                        _stage6_pre_before = None
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_pre_before = (BALL.centerx, BALL.centery)
                         BALL.centery = PLAYER.top - BALL_RADIUS
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_pre_handle_change(
+                                "power_smash_forced_overlap",
+                                _stage6_pre_before,
+                                (BALL.centerx, BALL.centery),
+                            )
                         # print(f"    !   : Y={BALL.centery}")
                         # 강제 충돌 처리 실행
+                        _stage6_post_before = None
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_post_before = (BALL.centerx, BALL.centery)
                         drive_activated = calculate_bounce(PLAYER)
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_post_handle_change(
+                                "power_smash_calculate_bounce",
+                                _stage6_post_before,
+                                (BALL.centerx, BALL.centery),
+                                overwrite=False,
+                            )
                         # 방향 안전장치: 플레이어 반사 후 공이 반드시 위로 향하도록 강제
                         if ball_vel[1] > 0:
                             ball_vel[1] = -abs(ball_vel[1])
+                        _resolve_player_ball_overlap(power_player_rect, "power_forced_overlap")
                         # ⚡ 에너지 폭발 이펙트 (20% 작게 - 파워스매싱)
                         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
                         # 기존 play_paddle_sound() 제거 - 파워스매싱 전용 효과음 사용
@@ -173209,9 +182822,9 @@ def main(stage_num, new_boss_mode=False):
                         actual_boost = new_speed - ball_current_speed  # 고스트샷도 actual_boost 계산
                     else:
                         # 파워스매싱은 기존대로 빠르게 (공속 감쇠 적용)
-                        min_boost = BALL_BASE_SPEED * 0.75  # 최소 증가량 75%
+                        min_boost = BALL_BASE_SPEED * 0.9  # 최소 증가량 90% (기본 75% → +20%)
                         _ps_dampen = _get_speed_dampen_factor(ball_current_speed)
-                        actual_boost = max(ball_current_speed * 0.576 * _ps_dampen, min_boost)  # 감쇠 적용
+                        actual_boost = max(ball_current_speed * 0.6912 * _ps_dampen, min_boost)  # 감쇠 적용 (기본 0.576 → +20%)
                         # ⚡ 스매셔 콤보 없음 페널티만 여기서 적용 (콤보 보너스는 감쇠 우회 위해 초기 부스트 후 적용)
                         if selected_character_type == "smasher" and power_smashing_combo_consumed < 2:
                             # 콤보 없음: 속도 부스트 25% 감소 (콤보 쌓아야 본래 성능 도달)
@@ -174026,6 +183639,7 @@ def main(stage_num, new_boss_mode=False):
                     # 기권 처리
                     # 아이템 관련 전부 초기화
                     items.reset_items()
+                    clear_pinned_equipment_slots()
                     try:
                         deactivate_vitamin_pill()
                     except Exception:
@@ -174042,6 +183656,7 @@ def main(stage_num, new_boss_mode=False):
                         _hg_on_deactivate('magnet_field')
                     except Exception:
                         pass
+                    reset_gods_stone_judgment_runtime()
                     # 부메랑 비활성화 (기권 시)
                     deactivate_boomerang()
                     if boomerang_sound_channel and boomerang_sound_channel.get_busy():
@@ -175236,6 +184851,14 @@ def main(stage_num, new_boss_mode=False):
         # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달) - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
             update_technical_vest(PLAYER)
+        # 훼이크암 발동 가시 이펙트 카운트다운 + 커브 누적
+        if not is_ball_spawn_animation_paused():
+            try:
+                from item_effects.fake_arm import update_fake_arm, apply_fake_arm_curve
+                update_fake_arm()
+                apply_fake_arm_curve(ball_vel)
+            except Exception:
+                pass
         # 레이저스코프 업데이트 - 공 생성 애니메이션 중 일시정지
         if not is_ball_spawn_animation_paused():
             update_laser_scope()
@@ -175481,7 +185104,7 @@ def main(stage_num, new_boss_mode=False):
                         smasher_power_recoil_timer = SMASHER_POWER_RECOIL_FRAMES
                         PLAYER.x += int(smasher_power_recoil_vel)  # 즉시 한 번 튕김
                         current_speed = 0  # 같은 프레임 이동 입력 무력화
-                        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                        PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
                         _kb_debug(f"[SMASHER_RECOIL_APPLY] dir={recoil_dir}, vel={smasher_power_recoil_vel:.2f}, frames={smasher_power_recoil_timer}, x={PLAYER.x}")
                         smasher_power_recoil_stun_pending = True
                     if smasher_pending_contact_offset is not None:
@@ -175572,6 +185195,7 @@ def main(stage_num, new_boss_mode=False):
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
                 handle_gods_judgment()  # Stage 30 투기장 신의심판 이벤트
+                update_gods_stone_judgment((clock.get_time() if 'clock' in globals() else 16) / 1000.0)
                 # Stage 2 악어장군 물대포 스킬 발동 및 업데이트 (악어장군 전용)
                 if current_stage == 2 and current_boss_name == "악어장군":
                     # 물대포 발동 체크: 정글지진 발동 후 발동
@@ -175966,7 +185590,16 @@ def main(stage_num, new_boss_mode=False):
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.vortex_active:
                                 pass  # Debug log removed
+                        _stage6_legendary_before = None
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_legendary_before = (BALL.centerx, BALL.centery)
                         legendary_manager.update(0.016)  # 60fps 기준 0.016초
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_pre_handle_change(
+                                "legendary",
+                                _stage6_legendary_before,
+                                (BALL.centerx, BALL.centery),
+                            )
 
                         # ⚔ 발할라의 전갑: update는 flip 직전에서 통합 실행
 
@@ -175983,9 +185616,24 @@ def main(stage_num, new_boss_mode=False):
                                 odins_eye.dark_energy_active = True
                                 odins_eye.dark_energy_until_round_end = True
 
+                                # 👁 체공 중 부활 시 바닥으로 착지
+                                # (바이퍼 제트팩 오프셋이 남아 있으면 부활 후 공중 부양 상태가 되므로 해제)
+                                if selected_character_type == "viper":
+                                    _reset_viper_jetpack_state()
+                                apply_equipment_paddle_modifiers()
+
                                 # 공을 플레이어 바로 위에 배치 (서브 없이 바로 시작)
+                                _stage6_pre_before = None
+                                if STAGE6_BALL_DEBUG:
+                                    _stage6_pre_before = (BALL.centerx, BALL.centery)
                                 BALL.centerx = PLAYER.centerx
                                 BALL.centery = PLAYER.top - 20
+                                if STAGE6_BALL_DEBUG:
+                                    _stage6_ball_note_pre_handle_change(
+                                        "odins_eye_revival",
+                                        _stage6_pre_before,
+                                        (BALL.centerx, BALL.centery),
+                                    )
 
                                 # 공 속도 설정 (위쪽으로 발사)
                                 import random as ball_random
@@ -176019,9 +185667,24 @@ def main(stage_num, new_boss_mode=False):
                                         # 💀 스킬 구슬(게이지) 초기화
                                         globals()['special_gauge'] = 0
 
+                                        # 💀 체공 중 변신 시 바닥으로 착지
+                                        # (바이퍼 제트팩 오프셋이 남아 있으면 변신 후 공중 부양 상태가 되므로 해제)
+                                        if selected_character_type == "viper":
+                                            _reset_viper_jetpack_state()
+                                        apply_equipment_paddle_modifiers()
+
                                         # 공을 플레이어 바로 위에 배치
+                                        _stage6_pre_before = None
+                                        if STAGE6_BALL_DEBUG:
+                                            _stage6_pre_before = (BALL.centerx, BALL.centery)
                                         BALL.centerx = PLAYER.centerx
                                         BALL.centery = PLAYER.top - 20
+                                        if STAGE6_BALL_DEBUG:
+                                            _stage6_ball_note_pre_handle_change(
+                                                "yachaman_revival",
+                                                _stage6_pre_before,
+                                                (BALL.centerx, BALL.centery),
+                                            )
                                         import random as _ys_rng
                                         angle_variation = _ys_rng.uniform(-0.3, 0.3)
                                         base_speed = 9.0
@@ -176044,15 +185707,24 @@ def main(stage_num, new_boss_mode=False):
                                 # 대시 이동 적용
                                 if bs_result["dx"] != 0:
                                     PLAYER.x += bs_result["dx"]
-                                    PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                                    PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
                                 # 투구-공 충돌 판정
                                 if bs_result["helmet_rect"] and BALL is not None:
                                     if _ys_bs.check_bomb_spin_ball_collision(BALL, ball_vel):
                                         # 공을 위쪽으로 튕김 (보스 방향)
+                                        _stage6_pre_before = None
+                                        if STAGE6_BALL_DEBUG:
+                                            _stage6_pre_before = (BALL.centerx, BALL.centery)
                                         _bs_speed = max(10.0, math.hypot(ball_vel[0], ball_vel[1]) * 1.2)
                                         ball_vel[1] = -abs(_bs_speed)
                                         ball_vel[0] = _ys_bs.bomb_spin_direction * abs(_bs_speed) * 0.3
                                         BALL.bottom = min(BALL.bottom, _ys_bs.bomb_spin_helmet_y - _ys_bs.BOMB_SPIN_HELMET_R - 2)
+                                        if STAGE6_BALL_DEBUG:
+                                            _stage6_ball_note_pre_handle_change(
+                                                "yachaman_bomb_spin",
+                                                _stage6_pre_before,
+                                                (BALL.centerx, BALL.centery),
+                                            )
                                         globals()['last_hit_by'] = "player"
                                         game_vars.ball.last_hit_by = "player"
                         except Exception:
@@ -176088,8 +185760,7 @@ def main(stage_num, new_boss_mode=False):
                                         boss_name = arena_top_hero.get("name", "보스")
                                     else:
                                         boss_name = get_boss_name(current_stage, "보스")
-                                    if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
-                                        stage8_boss_sprite.trigger_victory()
+                                    trigger_current_boss_victory_animation()
                                     stop_dash_delay_sound()
                                     show_winner_text(boss_name)
                                     show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
@@ -176123,8 +185794,7 @@ def main(stage_num, new_boss_mode=False):
                                         boss_name = arena_top_hero.get("name", "보스")
                                     else:
                                         boss_name = get_boss_name(current_stage, "보스")
-                                    if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
-                                        stage8_boss_sprite.trigger_victory()
+                                    trigger_current_boss_victory_animation()
                                     stop_dash_delay_sound()
                                     show_winner_text(boss_name)
                                     # 👁 점수 표시 추가 (누락되었던 부분)
@@ -176480,6 +186150,56 @@ def main(stage_num, new_boss_mode=False):
             # 뿔딸기 변신가면 변신/해제 이벤트 프리즈
             freeze_horn_strawberry = is_horn_strawberry_event_playing()
             freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_dark_slash_prep or freeze_hell_fire or freeze_capture or freeze_valhalla or freeze_horn_strawberry
+            _set_viper_chaos_spear_runtime_freeze(freeze_now, now_tick)
+
+            if STAGE6_BALL_DEBUG:
+                _stage6_ball_set_handle_ball_ran(False)
+                _stage6_ball_reset_pre_handle_debug()
+                _stage6_ball_capture_frame_state_snapshot()
+                _stage6_ball_note_pre_handle_change(
+                    "frame_start",
+                    _stage6_ball_last_frame_end_center,
+                    (BALL.centerx, BALL.centery),
+                    overwrite=True,
+                )
+                _stage6_hold_reasons = []
+                if freeze_awaken:
+                    _stage6_hold_reasons.append("freeze_awaken")
+                if freeze_superspeed:
+                    _stage6_hold_reasons.append("freeze_superspeed")
+                if freeze_spawn_anim:
+                    _stage6_hold_reasons.append("freeze_spawn_anim")
+                if freeze_tooltip:
+                    _stage6_hold_reasons.append("freeze_tooltip")
+                if freeze_ingame_tutorial:
+                    _stage6_hold_reasons.append("freeze_tutorial")
+                if freeze_dark_slash:
+                    _stage6_hold_reasons.append("freeze_dark_slash")
+                if freeze_dark_slash_prep:
+                    _stage6_hold_reasons.append("freeze_dark_slash_prep")
+                if freeze_hell_fire:
+                    _stage6_hold_reasons.append("freeze_hell_fire")
+                if freeze_capture:
+                    _stage6_hold_reasons.append("freeze_capture")
+                if freeze_valhalla:
+                    _stage6_hold_reasons.append("freeze_valhalla")
+                if freeze_horn_strawberry:
+                    _stage6_hold_reasons.append("freeze_horn_strawberry")
+                if power_smashing_freeze_active:
+                    _stage6_hold_reasons.append("power_smash_freeze")
+                if is_waiting_for_serve:
+                    _stage6_hold_reasons.append("serve_wait")
+                if ball_spawn_animation_active:
+                    _stage6_hold_reasons.append("spawn_anim")
+                if stopwatch_active and stopwatch_timer > 0:
+                    _stage6_hold_reasons.append("stopwatch")
+                if ball_in_kuromi:
+                    _stage6_hold_reasons.append("ball_hidden")
+                if _viper_ns_freeze_active:
+                    _stage6_hold_reasons.append("viper_ns")
+                if _viper_dmk_freeze_active:
+                    _stage6_hold_reasons.append("viper_dmk")
+                _stage6_ball_set_hold_reasons(*_stage6_hold_reasons)
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
@@ -176589,29 +186309,83 @@ def main(stage_num, new_boss_mode=False):
             # [DEBUG] 귀신발걸음 중 X좌표 추적 - handle_player 전
             _gs_x_before_handle = PLAYER.x if arena_bottom_ghost_step_active else None
 
+            _stage6_player_before = None
+            if STAGE6_BALL_DEBUG:
+                _stage6_player_before = (BALL.centerx, BALL.centery)
             if not freeze_now:
                 handle_player(keys_now)
+            if STAGE6_BALL_DEBUG:
+                _stage6_ball_note_pre_handle_change(
+                    "handle_player",
+                    _stage6_player_before,
+                    (BALL.centerx, BALL.centery),
+                )
 
             # [DEBUG] 귀신발걸음 중 X좌표 추적 - handle_player 후
             if _gs_x_before_handle is not None and abs(PLAYER.x - _gs_x_before_handle) > 30:
                 pass
 
+            _stage6_hammer_before = None
+            if STAGE6_BALL_DEBUG:
+                _stage6_hammer_before = (BALL.centerx, BALL.centery)
             update_blacksmith_hammer_shock(keys_now)
+            if STAGE6_BALL_DEBUG:
+                _stage6_ball_note_pre_handle_change(
+                    "hammer_shock",
+                    _stage6_hammer_before,
+                    (BALL.centerx, BALL.centery),
+                )
+            _stage6_turret_before = None
+            if STAGE6_BALL_DEBUG:
+                _stage6_turret_before = (BALL.centerx, BALL.centery)
             update_blacksmith_turret()
+            if STAGE6_BALL_DEBUG:
+                _stage6_ball_note_pre_handle_change(
+                    "turret",
+                    _stage6_turret_before,
+                    (BALL.centerx, BALL.centery),
+                )
             prewarm_blacksmith_umbrella_cache_step()
 
             # 🪙 발토르 건설물 파괴 금화 업데이트
             if blacksmith_coins:
+                _stage6_coins_before = None
+                if STAGE6_BALL_DEBUG:
+                    _stage6_coins_before = (BALL.centerx, BALL.centery)
                 update_blacksmith_coins(PLAYER)
+                if STAGE6_BALL_DEBUG:
+                    _stage6_ball_note_pre_handle_change(
+                        "coins",
+                        _stage6_coins_before,
+                        (BALL.centerx, BALL.centery),
+                    )
             # 🧪 발토르 건설물 파괴 드랍 병 업데이트
             if blacksmith_drop_bottles:
+                _stage6_drop_bottles_before = None
+                if STAGE6_BALL_DEBUG:
+                    _stage6_drop_bottles_before = (BALL.centerx, BALL.centery)
                 update_blacksmith_drop_bottles(PLAYER)
+                if STAGE6_BALL_DEBUG:
+                    _stage6_ball_note_pre_handle_change(
+                        "drop_bottles",
+                        _stage6_drop_bottles_before,
+                        (BALL.centerx, BALL.centery),
+                    )
 
             # 디바인쉴드 보호막 공 반사 체크 및 부스트 효과 업데이트
             try:
+                _stage6_divine_before = None
+                if STAGE6_BALL_DEBUG:
+                    _stage6_divine_before = (BALL.centerx, BALL.centery)
                 check_divine_shield_ball_collision()
                 update_divine_shield_boost()
                 update_divine_shield_dark_aura()
+                if STAGE6_BALL_DEBUG:
+                    _stage6_ball_note_pre_handle_change(
+                        "divine_shield",
+                        _stage6_divine_before,
+                        (BALL.centerx, BALL.centery),
+                    )
             except Exception:
                 pass
 
@@ -176619,9 +186393,21 @@ def main(stage_num, new_boss_mode=False):
             damage_manager = get_damage_manager()
             if not is_blacksmith_divine_stone_active():
                 damage_manager.clear_building("divine_stone")
+            _stage6_damage_before = None
+            if STAGE6_BALL_DEBUG:
+                _stage6_damage_before = (BALL.centerx, BALL.centery)
             damage_manager.update()
+            if STAGE6_BALL_DEBUG:
+                _stage6_ball_note_pre_handle_change(
+                    "damage_fx",
+                    _stage6_damage_before,
+                    (BALL.centerx, BALL.centery),
+                )
 
             # 투기장 신성월계수 잎 공 충돌 체크 (handle_ball 이전에 실행해야 ball_vel 방향이 올바름)
+            _stage6_leaf_before = None
+            if STAGE6_BALL_DEBUG:
+                _stage6_leaf_before = (BALL.centerx, BALL.centery)
             if arena_mode_enabled and not freeze_now:
                 _arena_leaf_dt = (1.0 / 60.0) * arena_speed_multiplier
                 for _ls, _ls_side in ((arena_leaf_shield_top, 'top'), (arena_leaf_shield_bottom, 'bottom')):
@@ -176665,6 +186451,16 @@ def main(stage_num, new_boss_mode=False):
                                 _ls_final_angle = _ls_target_angle + _ls_angle_var
                                 ball_vel[0] = _ls_new_speed * _math_ls.cos(_ls_final_angle)
                                 ball_vel[1] = _ls_new_speed * _math_ls.sin(_ls_final_angle)
+            if STAGE6_BALL_DEBUG:
+                _stage6_ball_note_pre_handle_change(
+                    "arena_leaf",
+                    _stage6_leaf_before,
+                    (BALL.centerx, BALL.centery),
+                )
+
+            _stage6_tail_before = None
+            if STAGE6_BALL_DEBUG:
+                _stage6_tail_before = (BALL.centerx, BALL.centery)
 
             if not freeze_now:
                 # 투기장 모드: 매 프레임 스킬 사운드 플래그 리셋
@@ -176674,10 +186470,29 @@ def main(stage_num, new_boss_mode=False):
                 _online_save_wins = round_wins if (online_multiplayer_enabled and not online_is_host) else None
                 _online_save_losses = round_losses if (online_multiplayer_enabled and not online_is_host) else None
 
-                _handle_ball_result = handle_ball()
+                if STAGE6_BALL_DEBUG:
+                    _stage6_ball_note_pre_handle_change(
+                        "pre_handle_entry",
+                        _stage6_ball_last_frame_end_center,
+                        (BALL.centerx, BALL.centery),
+                    )
+                _stage6_ball_handle_before_center = None
+                if STAGE6_BALL_DEBUG:
+                    _stage6_ball_handle_before_center = (BALL.centerx, BALL.centery)
+                _handle_ball_result = _stage6_ball_run_handle_ball("legacy")
 
                 # handle_ball() 서브스텝에서 포탑을 관통한 공을 잡아냄
+                _stage6_post_before = None
+                if STAGE6_BALL_DEBUG:
+                    _stage6_post_before = (BALL.centerx, BALL.centery)
                 _check_blacksmith_turret_ball_collision()
+                if STAGE6_BALL_DEBUG:
+                    _stage6_ball_note_post_handle_change(
+                        "blacksmith_turret_recheck",
+                        _stage6_post_before,
+                        (BALL.centerx, BALL.centery),
+                        overwrite=False,
+                    )
 
                 # 온라인 클라이언트: handle_ball()이 변경한 점수 되돌리기
                 if _online_save_wins is not None:
@@ -176688,8 +186503,24 @@ def main(stage_num, new_boss_mode=False):
                 if arena_mode_enabled and _handle_ball_result is not None:
                     return _handle_ball_result
 
+            _stage6_post_before = None
+            if STAGE6_BALL_DEBUG:
+                _stage6_post_before = (BALL.centerx, BALL.centery)
+            _update_viper_chaos_spear_runtime()
+            if STAGE6_BALL_DEBUG:
+                _stage6_ball_note_post_handle_change(
+                    "viper_chaos_spear_runtime",
+                    _stage6_post_before,
+                    (BALL.centerx, BALL.centery),
+                    overwrite=False,
+                )
+            _update_viper_ignition_aura()
+
             # 투기장 영웅 스킬 시스템 업데이트
             # 달빛 베기/도깨비불 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
+            _stage6_arena_post_before = None
+            if STAGE6_BALL_DEBUG and arena_mode_enabled and arena_skill_manager:
+                _stage6_arena_post_before = (BALL.centerx, BALL.centery)
             if (not freeze_now or freeze_dark_slash or freeze_dark_slash_prep or freeze_hell_fire) and arena_mode_enabled and arena_skill_manager:
                 dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
 
@@ -177011,6 +186842,9 @@ def main(stage_num, new_boss_mode=False):
                         ball_in_kuromi = False
                     _ghost_release = _gs_ghost.get('ghost_summon_ball_release')
                     if _ghost_release:
+                        _stage6_post_before = None
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_post_before = (BALL.centerx, BALL.centery)
                         # 유령이 공을 발사 → 실제 BALL 위치+속도 설정
                         BALL.x = int(_ghost_release['ball_x']) - BALL.width // 2
                         BALL.y = int(_ghost_release['ball_y']) - BALL.height // 2
@@ -177019,16 +186853,31 @@ def main(stage_num, new_boss_mode=False):
                             ball_vel[1] = _ghost_release['ball_vy']
                         ball_in_kuromi = False
                         del _gs_ghost['ghost_summon_ball_release']
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_post_handle_change(
+                                "ghost_release",
+                                _stage6_post_before,
+                                (BALL.centerx, BALL.centery),
+                            )
 
                     # 🌪️ 모래회오리 포획: 실제 BALL 위치/속도/부스트 반영
                     _vortex_cap = arena_skill_manager.game_state.get('sand_vortex_ball_captured')
                     if _vortex_cap:
+                        _stage6_post_before = None
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_post_before = (BALL.centerx, BALL.centery)
                         BALL.x = int(_vortex_cap['ball_x'])
                         BALL.y = int(_vortex_cap['ball_y'])
                         ball_vel[0] = _vortex_cap['launch_vx']
                         ball_vel[1] = _vortex_cap['launch_vy']
                         ball_impact_boost = _vortex_cap['boost']
                         del arena_skill_manager.game_state['sand_vortex_ball_captured']
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_post_handle_change(
+                                "sand_vortex_capture",
+                                _stage6_post_before,
+                                (BALL.centerx, BALL.centery),
+                            )
 
                     # 👻 호위무사 귀신발걸음 공 충돌 반사 처리 (1회만 튕김)
                     _guard_hit = arena_skill_manager.game_state.get('guard_demon_step_ball_hit')
@@ -177136,7 +186985,7 @@ def main(stage_num, new_boss_mode=False):
                         _bs_offset = _kb_gs.get('bottom_paddle_banana_slip_offset', 0)
                         if abs(_bs_offset) > 0.01:
                             PLAYER.x += int(_bs_offset)
-                            PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+                            PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
 
                     # ⚔️ 달빛 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
                     _dark_gs = arena_skill_manager.game_state
@@ -177239,6 +187088,9 @@ def main(stage_num, new_boss_mode=False):
                     # 🥷 그림자분신 공 반사 처리 (쿠로카게)
                     _shadow_clone_bounce = arena_skill_manager.game_state.get('shadow_clone_ball_bounce')
                     if _shadow_clone_bounce:
+                        _stage6_post_before = None
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_post_before = (BALL.centerx, BALL.centery)
                         _clone_x = _shadow_clone_bounce['clone_x']
                         _clone_y = _shadow_clone_bounce['clone_y']
                         _caster_is_top = _shadow_clone_bounce['caster_is_top']
@@ -177258,6 +187110,12 @@ def main(stage_num, new_boss_mode=False):
 
                         # 공 위치 살짝 밀어내기 (겹침 방지)
                         BALL.y += -10 if _caster_is_top else 10
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_post_handle_change(
+                                "arena_shadow_clone_bounce",
+                                _stage6_post_before,
+                                (BALL.centerx, BALL.centery),
+                            )
 
                         # 반사 플래그 제거
                         del arena_skill_manager.game_state['shadow_clone_ball_bounce']
@@ -177272,6 +187130,9 @@ def main(stage_num, new_boss_mode=False):
                     arena_game_state = arena_skill_manager.game_state
                     _guardian_bounce = arena_game_state.get('doll_guardian_ball_bounce')
                     if _guardian_bounce:
+                        _stage6_post_before = None
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_post_before = (BALL.centerx, BALL.centery)
                         # 공 반사: 수호 인형에서 튕겨나감
                         nx = _guardian_bounce['nx']
                         ny = _guardian_bounce['ny']
@@ -177283,6 +187144,12 @@ def main(stage_num, new_boss_mode=False):
                         # 공 위치 살짝 밀어내기 (겹침 방지)
                         BALL.x += int(nx * 10)
                         BALL.y += int(ny * 10)
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_post_handle_change(
+                                "arena_doll_guardian_bounce",
+                                _stage6_post_before,
+                                (BALL.centerx, BALL.centery),
+                            )
                         # 반사 플래그 제거
                         del arena_game_state['doll_guardian_ball_bounce']
                         # 효과음 (패들 히트 사운드 재활용)
@@ -177520,10 +187387,10 @@ def main(stage_num, new_boss_mode=False):
                             _fz_push = _fz.get("arena_player_push_timer", 0)
                             if _fz_push <= 0:
                                 _fz["arena_player_push_timer"] = 30  # 0.5초
-                                # 넉백 적용
+                                # 넉백 적용 (워프게이트 활성 시 넉백이 벽을 넘기면 랩어라운드)
                                 _push_force = 25
                                 PLAYER.x += int(_push_dir * _push_force)
-                                PLAYER.x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width, PLAYER.x))
+                                PLAYER.x = _clamp_or_wrap_player_x(PLAYER.x)
                         # 상단 영웅(BOSS) 충돌 체크
                         if _fz_rect.colliderect(BOSS) and not arena_top_dashing:
                             _push_dir = -1 if BOSS.centerx < _fz["x"] else 1
@@ -177660,6 +187527,17 @@ def main(stage_num, new_boss_mode=False):
                     pass
 
             # 🛡️ 인게임 호위무사 업데이트 (일반 스테이지, 투기장 아닐 때, 최대 2명)
+            if STAGE6_BALL_DEBUG and _stage6_arena_post_before is not None:
+                _stage6_ball_note_post_handle_change(
+                    "arena_skill_runtime",
+                    _stage6_arena_post_before,
+                    (BALL.centerx, BALL.centery),
+                    overwrite=False,
+                )
+
+            _stage6_bodyguard_post_before = None
+            if STAGE6_BALL_DEBUG and not arena_mode_enabled:
+                _stage6_bodyguard_post_before = (BALL.centerx, BALL.centery)
             if not arena_mode_enabled:
                 try:
                     from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -177808,10 +187686,19 @@ def main(stage_num, new_boss_mode=False):
                             if 'ball_vy' in _bg_fx:
                                 ball_vel[1] = _bg_fx['ball_vy']
                             # 공 위치 보정
+                            _bg_ball_before = None
+                            if STAGE6_BALL_DEBUG and ('ball_x' in _bg_fx or 'ball_y' in _bg_fx):
+                                _bg_ball_before = (BALL.centerx, BALL.centery)
                             if 'ball_x' in _bg_fx:
                                 BALL.centerx = int(_bg_fx['ball_x'])
                             if 'ball_y' in _bg_fx:
                                 BALL.centery = int(_bg_fx['ball_y'])
+                            if STAGE6_BALL_DEBUG:
+                                _stage6_ball_note_post_handle_change(
+                                    "bodyguard_ball_fx",
+                                    _bg_ball_before,
+                                    (BALL.centerx, BALL.centery),
+                                )
                             # 화면 흔들림
                             if _bg_fx.get('screen_shake'):
                                 globals()['screen_shake_timer'] = 12
@@ -177863,6 +187750,9 @@ def main(stage_num, new_boss_mode=False):
                                     ball_in_kuromi = False
                             _ghost_rel = _bg_fx.get('ghost_ball_release')
                             if _ghost_rel:
+                                _bg_ball_before = None
+                                if STAGE6_BALL_DEBUG:
+                                    _bg_ball_before = (BALL.centerx, BALL.centery)
                                 BALL.x = int(_ghost_rel['ball_x']) - BALL.width // 2
                                 BALL.y = int(_ghost_rel['ball_y']) - BALL.height // 2
                                 # 공 속도 복원 (유령이 뱉을 때 상대 방향으로 발사)
@@ -177870,13 +187760,28 @@ def main(stage_num, new_boss_mode=False):
                                     ball_vel[0] = _ghost_rel['ball_vx']
                                     ball_vel[1] = _ghost_rel['ball_vy']
                                 ball_in_kuromi = False
+                                if STAGE6_BALL_DEBUG:
+                                    _stage6_ball_note_post_handle_change(
+                                        "bodyguard_ghost_release",
+                                        _bg_ball_before,
+                                        (BALL.centerx, BALL.centery),
+                                    )
                             # 모래회오리 빙의
                             _vortex_c = _bg_fx.get('sand_vortex_capture')
                             if _vortex_c:
+                                _bg_ball_before = None
+                                if STAGE6_BALL_DEBUG:
+                                    _bg_ball_before = (BALL.centerx, BALL.centery)
                                 BALL.x = int(_vortex_c['ball_x'])
                                 BALL.y = int(_vortex_c['ball_y'])
                                 ball_vel[0] = _vortex_c['launch_vx']
                                 ball_vel[1] = _vortex_c['launch_vy']
+                                if STAGE6_BALL_DEBUG:
+                                    _stage6_ball_note_post_handle_change(
+                                        "bodyguard_vortex_capture",
+                                        _bg_ball_before,
+                                        (BALL.centerx, BALL.centery),
+                                    )
                             # 🔥 드래곤 브레스 화염지대 생성
                             _bg_dragon_fires = _bg_fx.get('spawn_dragon_fire_zones')
                             if _bg_dragon_fires:
@@ -177925,6 +187830,13 @@ def main(stage_num, new_boss_mode=False):
                     if not _bg_es_still:
                         _stop_electric_shock_sound()
                         globals()['_bodyguard_electric_stun_active'] = False
+            if STAGE6_BALL_DEBUG and _stage6_bodyguard_post_before is not None:
+                _stage6_ball_note_post_handle_change(
+                    "bodyguard_runtime",
+                    _stage6_bodyguard_post_before,
+                    (BALL.centerx, BALL.centery),
+                    overwrite=False,
+                )
 
             if not freeze_now:
                 # 코만도 총알 시스템 업데이트
@@ -178087,6 +187999,31 @@ def main(stage_num, new_boss_mode=False):
                         if sand_obstacles is not None:
                             erode_sand_area(sand_obstacles, exp["x"], exp["y"], dynamite.EXPLOSION_RADIUS)
 
+                        # 🧱 스테이지 7 테트로미노 파괴: 폭발 반경 내 모든 테트로미노(설치/투사 등)
+                        if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                            ex_x = exp["x"]
+                            ex_y = exp["y"]
+                            ex_r = dynamite.EXPLOSION_RADIUS
+                            ex_r_sq = ex_r * ex_r
+                            for mino in list(stage7_tetrominoes):
+                                if mino.get("state") in ("evaporating", "destroying"):
+                                    continue
+                                hit = False
+                                for c in mino.get("cells", []):
+                                    if c.get("evaporated", False):
+                                        continue
+                                    rect = c.get("rect")
+                                    if not rect:
+                                        continue
+                                    cx, cy = rect.center
+                                    dx = cx - ex_x
+                                    dy = cy - ex_y
+                                    if dx * dx + dy * dy <= ex_r_sq:
+                                        hit = True
+                                        break
+                                if hit:
+                                    destroy_stage7_tetromino(mino, by_smoke=True)
+
                 # 🍌 바나나 시스템 업데이트 (모든 캐릭터 공용)
                 from item_effects.banana import get_banana_instance
                 banana_inst = get_banana_instance()
@@ -178122,7 +188059,17 @@ def main(stage_num, new_boss_mode=False):
                         _online_send_game_state()
                     else:
                         _online_send_player_position()
+                        _stage6_post_before = None
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_post_before = (BALL.centerx, BALL.centery)
                         _online_client_apply_state()
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_post_handle_change(
+                                "online_client_apply_state",
+                                _stage6_post_before,
+                                (BALL.centerx, BALL.centery),
+                                overwrite=False,
+                            )
 
                 # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
@@ -178132,12 +188079,21 @@ def main(stage_num, new_boss_mode=False):
                     while main._arena_tick_accumulator >= 1.0:
                         main._arena_tick_accumulator -= 1.0
                         handle_player(keys_now)
-                        _extra_ball_result = handle_ball()
+                        _extra_ball_result = _stage6_ball_run_handle_ball("arena_extra")
+                        if STAGE6_BALL_DEBUG:
+                            _stage6_ball_note_post_handle_change(
+                                "arena_extra_handle",
+                                _stage6_ball_last_handle_before_center,
+                                (BALL.centerx, BALL.centery),
+                            )
                         if arena_mode_enabled and _extra_ball_result is not None:
                             return _extra_ball_result
                         _handle_boss_with_soap_debuff()
 
                 # 🏜️ 모래감옥: 렌더링 직전 최종 패들 위치 클램핑 (모든 이동 처리 후)
+                # NOTE: 모래감옥은 '서브 영역에 가두는' 디버프이므로 워프게이트가 활성이어도
+                # 랩어라운드가 디버프를 무시하면 안 된다. 의도적으로 _clamp_or_wrap_player_x를
+                # 사용하지 않고 서브 영역 경계로 직접 클램프한다.
                 if arena_mode_enabled and arena_skill_manager:
                     _sp_gs2 = arena_skill_manager.game_state
                     _sp_c2 = _sp_gs2.get('sand_prison_center_x')
@@ -178165,6 +188121,12 @@ def main(stage_num, new_boss_mode=False):
             # SCREEN을 임시로 temp_surface로 교체
             temp_screen = SCREEN
             SCREEN = temp_surface
+            stage2_unified_camera = (current_stage == 2)
+            stage2_camera_offset = (screen_shake_offset_x, screen_shake_offset_y)
+            if stage2_unified_camera:
+                # Stage 2는 월드 전체를 한 번에 흔들어야 지면이 들썩이는 느낌이 산다.
+                globals()["screen_shake_offset_x"] = 0
+                globals()["screen_shake_offset_y"] = 0
             draw_field()
             if current_stage == 1:
                 draw_stage1_border()
@@ -178226,6 +188188,8 @@ def main(stage_num, new_boss_mode=False):
             draw_stage8_boss_gauge_bar()  # 스테이지 8 닌자 게이지바
             draw_stage7_boss_gauge_bar()  # 스테이지 7 테트리서 게이지
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
+            if stage2_unified_camera:
+                globals()["screen_shake_offset_x"], globals()["screen_shake_offset_y"] = stage2_camera_offset
             # 원래 화면으로 복원하고 흔들림 적용
             SCREEN = temp_screen
             SCREEN.fill(BLACK)  # 원래 화면도 검은색으로 지우기
@@ -178567,6 +188531,7 @@ def main(stage_num, new_boss_mode=False):
         # 발토르 성능 디버그 오버레이 그리기
         if VALTHOR_PERF_DEBUG:
             draw_valthor_perf_overlay(SCREEN)
+        draw_stage6_ball_debug_overlay(SCREEN)
         _draw_performance_overlay(SCREEN)
         
         #  라그나로크 해머 스턴 디버그 정보 표시
@@ -179298,6 +189263,8 @@ def main(stage_num, new_boss_mode=False):
             pass
 
         # 🎬 리플레이 캡처는 flip 래퍼 내부에서 수행 (최종 합성 후)
+        if STAGE6_BALL_DEBUG:
+            _stage6_ball_note_frame_end(BALL.centerx, BALL.centery)
         pygame.display.flip()
         # 프로파일러 프레임 종료
         if profiler:
@@ -179377,7 +189344,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
         update_blacksmith_hammer_shock(keys)
 
     def _physics_hook(state, delta_time):
-        handle_ball()
+        _stage6_ball_run_handle_ball("modern_physics")
         impact_feedback.update(max(1 / 240, float(delta_time or 0.0)))
 
     def _ai_hook(state, delta_time):
@@ -180625,12 +190592,14 @@ def show_character_info(background_surface=None):
         current_slot = item.get("_equipped_slot")
         if current_slot and current_slot in slot_state and current_slot != target_slot:
             slot_state[current_slot] = None
+            unpin_equipment_slot(current_slot)
         # 타겟 슬롯에 이미 있던 아이템 해제
         prev_item = slot_state.get(target_slot)
         if prev_item:
             prev_item["_equipped_slot"] = None
         slot_state[target_slot] = item
         item["_equipped_slot"] = target_slot
+        pin_equipment_slot(target_slot)
         sync_equipped_passive_effects()
         # 장비 착용/이동 사운드 재생
         if SOUND_EQUIPMENT:
@@ -180644,6 +190613,7 @@ def show_character_info(background_surface=None):
         if item:
             item["_equipped_slot"] = None
             slot_state[slot_key] = None
+            unpin_equipment_slot(slot_key)
             sync_equipped_passive_effects()
             # 장비 해제 사운드 재생
             if SOUND_EQUIPMENT:
@@ -180744,7 +190714,7 @@ def show_character_info(background_surface=None):
             if mouse_pos and cell_rect.collidepoint(mouse_pos):
                 item_name = item.get("name", "")
                 desc_lines = wrap_text(get_item_description(item_name), tiny_font, 300)
-                opt_lines = []
+                opt_lines = list(get_fixed_option_lines(item_name))
 
                 # 전설 아이템인 경우 LEGENDARY_ROLL_OPTIONS에서 롤옵션 가져오기
                 if item.get("type") == "legendary" and item_name in LEGENDARY_ROLL_OPTIONS:
@@ -181056,7 +191026,7 @@ def show_character_info(background_surface=None):
             if mouse_pos and cell_rect.collidepoint(mouse_pos) and item:
                 item_name = item.get("name", "")
                 rolled = item.get("rolled_options") or []
-                opt_lines = []
+                opt_lines = list(get_fixed_option_lines(item_name))
 
                 # 전설 아이템인 경우 LEGENDARY_ROLL_OPTIONS에서 롤옵션 가져오기
                 if item.get("type") == "legendary" and item_name in LEGENDARY_ROLL_OPTIONS:
@@ -181213,7 +191183,7 @@ def show_character_info(background_surface=None):
         except Exception:
             speedboots_active = globals().get("speedboots_obtained", False)
         if speedboots_active:
-            speed_multiplier *= 1.0 + globals().get("PERMANENT_SPEED_BOOST", 0.06)
+            speed_multiplier *= 1.0 + globals().get("PERMANENT_SPEED_BOOST", 0.10)
         try:
             hermes_active = globals().get("hermes_shoes_obtained", False) or getattr(items, "hermes_shoes_obtained", False)
         except Exception:
@@ -181383,14 +191353,11 @@ def show_character_info(background_surface=None):
             ):
                 return 200, 200
 
-            base_gain = 60  # 스매셔/기타 기본 충전량 60
-            if char_type == "soldier":
+            base_gain = 60  # 기본 표시값
+            if char_type == "viper":
+                base_gain = 80
+            elif char_type == "soldier":
                 base_gain = 50
-                try:
-                    if _is_soldier_non_pistol_selected():
-                        base_gain = 25
-                except Exception:
-                    pass
             elif char_type == "blacksmith":
                 try:
                     if blacksmith_umbrella_open:
@@ -181399,6 +191366,8 @@ def show_character_info(background_surface=None):
                         base_gain = 30
                 except Exception:
                     base_gain = 30
+            elif char_type == "smasher":
+                base_gain = 50
 
             current_gain = base_gain
             try:
@@ -181416,6 +191385,9 @@ def show_character_info(background_surface=None):
                         current_gain = int(current_gain * (1 + bt_bonus / 100.0))
             except Exception:
                 pass
+            try:
+                if char_type == "viper":
+                    current_gain = _apply_viper_air_strike_gauge_bonus(int(current_gain))
             except Exception:
                 pass
             return base_gain, int(current_gain)
@@ -182357,6 +192329,7 @@ def show_character_info(background_surface=None):
             if slot_state.get(slot_key) is item:
                 slot_state[slot_key] = None
             item["_equipped_slot"] = None
+            unpin_equipment_slot(slot_key)
         # 패시브 리스트에서 제거
         passive_item_list.remove(item)
         sync_equipped_passive_effects()
@@ -182664,13 +192637,6 @@ def show_character_info(background_surface=None):
             local_font_tiny = tooltip_body_font
             name_color = hover_info.get("color") or WHITE
             options_entries = hover_info.get("options") or []
-            # 현자의 반지: 고정효과를 롤옵션 앞에 추가 표시
-            if hover_info.get("raw_name") == "sage_ring":
-                fixed_entry = {"text": "모든 퍽 레벨 +1", "color": (255, 230, 140)}
-                if not options_entries:
-                    options_entries = [fixed_entry]
-                else:
-                    options_entries.insert(0, fixed_entry)
             # 패시브 아이템 롤 옵션이 있으면 설명/능력치를 양쪽 박스로 분리
             dual_rendered = False
             if options_entries and hover_info.get("desc"):
@@ -182993,6 +192959,16 @@ def show_character_info(background_surface=None):
                     handled = False
                     for key, rect in slot_rects.items():
                         if rect.collidepoint(event.pos) and slot_state.get(key):
+                            _slot_item = slot_state.get(key)
+                            # 천상의 망토 해제: 6번째 스킬이 삭제될 경우 확인 다이얼로그
+                            if (
+                                isinstance(_slot_item, dict)
+                                and _slot_item.get("name") == "heavenly_cape"
+                                and _heavenly_cape_would_delete_skill()
+                            ):
+                                if not show_heavenly_cape_unequip_confirm():
+                                    handled = True
+                                    break  # 취소 — 해제 진행 안 함
                             unequip_slot(key, slot_state)
                             handled = True
                             break
@@ -183055,6 +193031,8 @@ def show_character_info(background_surface=None):
                                     target_item["_equipped_slot"] = source_slot
                                     slot_state[key] = dragging_item["item"]
                                     dragging_item["item"]["_equipped_slot"] = key
+                                    pin_equipment_slot(source_slot)
+                                    pin_equipment_slot(key)
                                     sync_equipped_passive_effects()
                                     dropped = True
                                     break
@@ -183775,6 +193753,7 @@ def get_item_name_korean(item_name):
         "master": "토르의 망치", "cooltime": "쿨링볼", "chargebag": "충전가방",
         "spikeboots": "스파이크부츠", "dashgear": "대쉬기어", "bulkup": "벌크업슈트",
         "sensor": "위험감지벨트", "dashholder": "대쉬홀더", "dowsing_pendulum": "다우징팬들럼",
+        "timer_belt": "타이머벨트",
         "commando_arm": "코만도암", "molotov": "화염병", "grenade": "수류탄",
         "spider_mine": "스파이더지뢰", "flare": "조명탄", "smoke_grenade": "연막탄",
         "pandora_box": "판도라의 상자", "stopwatch": "스탑워치", "repair_kit": "수리키트",
@@ -183785,15 +193764,17 @@ def get_item_name_korean(item_name):
         "berserk_potion": "광폭물약", "ammo_box": "탄약상자", "fire_support": "화력지원",
         "bazooka": "바주카포", "ak47": "AK-47", "net_gun": "그물덫총",
         "suicide_drone": "자폭드론", "bowling_trap": "볼링트랩",
+        "commando_pistol": "권총",
         "ragnarok_hammer": "라그나로크 해머", "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창", "angel_blessing": "천사의 주사위",
         "sacred_laurel": "신성 월계수", "transcendent_crown": "초월자의 관",
-        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "megingjord": "메긴교르드", "valhalla_warplate": "발할라의 전갑", "horn_strawberry_mask": "뿔딸기 변신가면", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
-        "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
+        "odins_eye": "오딘의 눈", "pandora_legacy": "판도라의 유산", "megingjord": "메긴교르드", "valhalla_warplate": "발할라의 전갑", "horn_strawberry_mask": "뿔딸기 변신가면", "heavenly_cape": "천상의 망토", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
+        "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "gods_stone": "신의 돌", "dynamite": "다이너마이트",
         "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
         "gold_digger": "골드디거", "lucky_coin": "럭키코인", "hero_seal": "호위무사의 인장", "minor_hero_seal": "초급인장", "intermediate_hero_seal": "중급인장", "adversity_armor": "역경의 갑옷", "shrapnel_armor": "파편갑옷", "magnet_field": "자기장 발생기", "boomerang": "부메랑", "soap": "비누", "soul_burst": "소울버스트", "strange_vial": "기묘한 약병", "sage_ring": "현자의 반지", "venom_mist_gauntlet": "독안개장갑",
         "elixir_of_mastery": "엘릭서 오브 마스터리",
         "yachaman_soul": "야차맨의 투구",
+        "fake_arm": "훼이크암",
         "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
         "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
         "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
@@ -183876,6 +193857,7 @@ def get_item_description(item_name):
         "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다.",
         "master": "토르의 망치: 벽돌 길이를 늘려주며, 아이템 쿨타임도 줄여줍니다.",
         "cooltime": "쿨링볼: 아이템 재사용 쿨타임을 감소시켜줍니다.",
+        "timer_belt": "타이머벨트: 모든 캐릭터 스킬의 쿨타임을 감소시켜줍니다.",
         "chargebag": "충전가방: 공이 벽에 닿을 때마다 게이지를 추가로 얻습니다.",
         "spikeboots": "스파이크부츠: 대쉬를 능숙하게 사용할 수 있게 도와줍니다.",
         "dashgear": "대쉬기어: 대쉬의 효율성을 극대화 시켜줍니다.",
@@ -183887,12 +193869,14 @@ def get_item_description(item_name):
         "adversity_armor": "역경의 갑옷: 실점 후 그다음 라운드에 일정 확률로 사용자를 보호하는 무적의 벽이 생성됩니다. 서브 시 공 속도가 증가합니다.",
         "shrapnel_armor": "파편갑옷: 플레이어 패들이 공을 칠 때 일정 확률로 게이지를 소모하여 상대를 넉백시키는 가시 파편을 발사합니다.",
         "magnet_field": "자기장 발생기: 일정기간 자기장을 발생시켜 일정반경이내 공을 플레이어 패들 쪽으로 끌어옵니다.",
+        "gods_stone": "신의 돌: 사용 시 신의 심판을 불러와 땅의 분노, 바람의 분노, 번개의 분노 중 하나를 무작위로 발동합니다.",
         "boomerang": "부메랑: 상대방을 기절시키는 부메랑을 던집니다. 발사한 부메랑은 다시 되돌아와 회수할 수 있지만 공에 닿으면 부메랑이 파괴됩니다.",
         "soap": "비누: 상대가 밟았을 때 이동을 미끄럽게 하는 비누를 던집니다.",
         "pandora_legacy": "판도라의 유산: 초고대문명의 과학자가 남긴 유물, 게임에서 승리 시 일정확률로 '판도라의 유산'이 작동하며 원하는 엑티브아이템을 고를 수 있습니다.",
         "megingjord": "메긴교르드: 토르의 힘의 깃든 벨트. 퍽 선택 화면에서 퍽을 고른 후 일정 확률로 한 번 더 고를 수 있는 기회가 주어집니다. 최대 연속 2회 발동됩니다",
         "valhalla_warplate": "발할라의 전갑: 고대 전사의 영광이 깃든 신성한 갑옷. 공을 타격시 일정 확률로 발할라의 영웅이 호위무사로 소환됩니다.",
-        "horn_strawberry_mask": "뿔딸기 변신가면: 희귀한 뿔딸기를 본뜬 신화의 가면. 장착 후 A→W→D 커맨드 입력으로 뿔딸기로 변신! 변신 중 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30. 전용 스킬: 뿔박치기(W, 300게이지, 쿨20초), 딸기장판(S홀드 1초, 100게이지, 쿨10초), 딸기먹기(Space, 게이지50소모+대시토큰1+꼭지투척, 사용 시마다 패들 10% 성장, 쿨0.8초).",
+        "heavenly_cape": "천상의 망토: 천상으로부터 내려온 신화급 등 아이템. 장착 시 플레이어 스킬 구슬 1개가 추가되고, 모든 플레이어 스킬의 쿨타임이 10~20% 감소합니다 (롤 옵션 / 연마 / 강화 적용).",
+        "horn_strawberry_mask": "뿔딸기 변신가면: 희귀한 뿔딸기를 본뜬 신화의 가면. 장착 후 A→D→A→D→A→D 커맨드 입력으로 뿔딸기로 변신! 변신 중 패들 30% 크기 증가, 이동속도 8, 공 타격 시 게이지 +30. 전용 스킬: 뿔박치기(W, 300게이지, 쿨20초), 딸기장판(S홀드 1초, 100게이지, 쿨10초), 딸기먹기(Space, 게이지50소모+대시토큰1+꼭지투척, 사용 시마다 패들 10% 성장, 쿨0.8초).",
         "minor_hero_seal": "초급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 1스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 8강 승리 보상으로 획득 가능.",
         "intermediate_hero_seal": "중급인장: 사용 시 해당 영웅이 임시 호위무사로 소환되어 2스테이지 동안 함께 싸운 뒤 떠납니다. 투기장 4강 승리 보상으로 획득 가능.",
         "hero_seal": "호위무사의 인장: 투기장 우승 보상. 장착 시 해당 영웅이 영구 호위무사로 활동합니다. 최대 2명까지 장착 가능.",
@@ -183903,6 +193887,7 @@ def get_item_description(item_name):
         "elixir_of_mastery": "엘릭서 오브 마스터리: 신을 보좌하는 신성연금술사가 만든 비약, 사용 시 보유 중인 퍽 중 하나가 랜덤으로 선택되어 즉시 Lv.5가 됩니다.",
         "dowsing_goggles": "다우징 고글: 고대 탐지 기술이 내장된 특수 고글입니다. 일정확률로 퍽 선택지가 1개 고정 증가합니다.",
         "yachaman_soul": "야차맨의 투구: 어둠의 전사 야차맨의 투구이 깃든 투구입니다. 라운드 실점 시 일정 확률(50~80%, 롤옵션)로 봄버맨 형상의 야차맨으로 변신하여 부활합니다. 변신 상태에서는 이동속도 4 고정, 패들 크기 30% 감소. 변신 상태에서 재패배 시 실점 처리됩니다.",
+        "fake_arm": "훼이크암: 다루기 어려운 교란형 의수. 공이 패들에 맞을 때 일정 확률(8~15%, 롤옵션)로 반사각을 훼이크 각도로 비틀고, 공속을 12% 높이며, 0.5초간 살짝 휘어지는 커브를 부여합니다. 발동 시 해당 타격으로 얻는 게이지를 추가로 70~120%(롤옵션) 더 획득합니다.",
     }
     fb = _fallback_descs.get(item_name, "설명이 없습니다.")
     return _t(key, fb)
@@ -184653,6 +194638,7 @@ def show_character_item_manager():
         {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
         {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
+        {"name": "gods_stone", "type": "active", "icon": get_item_icon("gods_stone")},
         {"name": "laser_scope", "type": "active", "icon": get_item_icon("laser_scope")},
         {"name": "regeneration_potion", "type": "active", "icon": get_item_icon("regeneration_potion")},
         {"name": "boomerang", "type": "active", "icon": get_item_icon("boomerang")},
@@ -184664,6 +194650,7 @@ def show_character_item_manager():
         {"name": "cooltime", "type": "passive", "icon": get_icon_safe("cooltime_icon", "cooltime")},
         {"name": "speedboots", "type": "passive", "icon": get_icon_safe("speedboots_icon", "speedboots")},
         {"name": "gravitybelt", "type": "passive", "icon": get_icon_safe("gravitybelt_icon", "gravitybelt")},
+        {"name": "timer_belt", "type": "passive", "icon": get_icon_safe("timer_belt_icon", "timer_belt")},
         {"name": "speedgear", "type": "passive", "icon": get_icon_safe("speedgear_icon", "speedgear")},
         {"name": "battery", "type": "passive", "icon": get_icon_safe("battery_icon", "battery")},
         {"name": "chargebag", "type": "passive", "icon": get_icon_safe("chargebag_icon", "chargebag")},
@@ -185704,7 +195691,7 @@ def _online_draw_remote_effects(screen):
                     for _fi, (_f_scale, _f_rgb, _f_base_a) in enumerate(_fan_layers):
                         _f_alpha = int(_f_base_a * _bl_alive)
                         if _f_alpha < 2:
-                            continue
+                             continue
                         _fw = int(_fan_w * _f_scale * 0.5)
                         _fh = int(_fan_h * _f_scale)
                         _fan_pts = [(_fcx, _fcy)]
@@ -186213,7 +196200,7 @@ def _online_client_apply_state():
                 "y": _cp_y,
             }
             # 패시브/액티브 구분하여 저장
-            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles"}
+            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "fake_arm", "heavenly_cape"}
             if _cp_name in _passive_names:
                 store_passive_item(_cp_data)
             else:
@@ -186273,10 +196260,8 @@ if __name__ == "__main__":
         print(f"[시작 로그 기록 실패]: {e}")
 
     try:
-        # print("[게임 시작] 인트로 컷씬 시작...")
-        # 인트로 컷씬 표시 (명언 + 스토리)
-        opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
-        # print("[게임 시작] 인트로 컷씬 완료")ㅋ
+        # 인트로 컷씬(명언+스토리) 비활성화 — 스토리 개편 중
+        # opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
 
         # print("[게임 시작] 오프닝 애니메이션 시작...")
         # 오프닝 애니메이션 표시

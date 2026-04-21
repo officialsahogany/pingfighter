@@ -1,0 +1,12 @@
+{
+  "prompt": "Edit the provided Menheragirl reference into ONE single full-body peak direction-change key pose for PingFighter. Keep the exact same character identity and pixel-art class as the reference board. Preserve fluffy pink outer hair with cream/blonde inner front bangs, pink/white gingham nurse cap, cap syringe, red front ribbon language, one pink heart cheek mark, white front panel with exactly 4 black bows, gray cat-paw gloves with pink pads, same side med-kit pouch, pink check cloth-tail motif, white thigh-highs, black X ankle accessories. Keep the character front-facing toward the player. Pose should be a conservative micro-turn peak: slight chin lift, dreamy upward middle-distance gaze, tiny outward paw preparation, tiny knee gather, compact whole-body redirect accent. Do not make it a greeting wave, attack swing, dance, tray-hold pose, or side-profile turn. Style must stay 16-bit retro pixel art, thick black pixel outlines, flat limited-saturation pastel palette, clean hard-edged pixels, no anti-aliased anime softness, no painterly shading, no mobile-game chibi render. Pure white background, centered full body, generous margin.",
+  "input_image": "d:\\main\\bosspong\\.tmp\\menhera_autosprite_reference_board_v2.png",
+  "input_image_2": "d:\\main\\bosspong\\items\\menhera_boss_sheet.png",
+  "input_image_3": "d:\\main\\bosspong\\items\\menhera_boss_victory.png",
+  "aspect_ratio": "1:1",
+  "prompt_upsampling": false,
+  "safety_tolerance": 2,
+  "output_format": "png",
+  "output_path": "d:\\main\\bosspong\\.tmp",
+  "filename": "menhera_flux_kontext_peak_v1"
+}

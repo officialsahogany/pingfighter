@@ -43,6 +43,8 @@ class TaurenBossSprite:
     EDGE_HALO_SATURATION = 42
     EDGE_HALO_MIN_ALPHA = 1
     EDGE_HALO_SOFT_ALPHA = 160
+    TURN_HOLD_DURATION = 0.08
+    MOVE_RELEASE_DURATION = 0.12
 
     def __init__(self, width: int = 72, height: int = 80):
         self.target_w = width
@@ -58,6 +60,9 @@ class TaurenBossSprite:
         self.frame_index = 0
         self.facing = "right"
         self.is_moving = False
+        self._pending_facing: str | None = None
+        self._facing_turn_timer = 0.0
+        self._move_release_timer = 0.0
 
         # 공격 상태
         self.is_attacking = False
@@ -249,14 +254,53 @@ class TaurenBossSprite:
         del rgb, alpha
         return result
 
+    def _update_requested_facing(self, dt: float, facing: str | None, moving: bool) -> None:
+        if facing not in ("left", "right"):
+            return
+
+        if facing == self.facing:
+            self._pending_facing = None
+            self._facing_turn_timer = 0.0
+            return
+
+        if not moving:
+            self._pending_facing = None
+            self._facing_turn_timer = 0.0
+            return
+
+        if self._pending_facing != facing:
+            self._pending_facing = facing
+            self._facing_turn_timer = 0.0
+
+        self._facing_turn_timer += dt
+        if self._facing_turn_timer < self.TURN_HOLD_DURATION:
+            return
+
+        self.facing = facing
+        self._pending_facing = None
+        self._facing_turn_timer = 0.0
+
+    def _update_requested_motion(self, dt: float, moving: bool) -> None:
+        if moving:
+            self.is_moving = True
+            self._move_release_timer = self.MOVE_RELEASE_DURATION
+            return
+
+        if self._move_release_timer > 0.0:
+            self._move_release_timer = max(0.0, self._move_release_timer - dt)
+            self.is_moving = self._move_release_timer > 0.0
+            return
+
+        self.is_moving = False
+
     def update(self, dt: float, moving: bool = True, facing: str | None = None) -> None:
-        if facing in ("left", "right"):
-            self.facing = facing
-        self.is_moving = moving
+        dt = max(0.0, dt)
+        self._update_requested_facing(dt, facing, moving)
+        self._update_requested_motion(dt, moving)
 
         # 공격 애니메이션 진행 중이면 걷기보다 우선
         if self.is_attacking and self._attack_frames_right:
-            self.attack_time += max(0.0, dt)
+            self.attack_time += dt
             total_frames = len(self._attack_frames_right)
             while self.attack_time >= self.ATTACK_FRAME_DURATION:
                 self.attack_time -= self.ATTACK_FRAME_DURATION
@@ -272,8 +316,8 @@ class TaurenBossSprite:
         if not self._frames_right:
             return
 
-        if moving:
-            self.anim_time += max(0.0, dt)
+        if self.is_moving:
+            self.anim_time += dt
             while self.anim_time >= self.FRAME_DURATION:
                 self.anim_time -= self.FRAME_DURATION
                 self.frame_index = (self.frame_index + 1) % len(self._frames_right)
@@ -281,12 +325,13 @@ class TaurenBossSprite:
             self.anim_time = 0.0
             self.frame_index = 0
 
-    def trigger_attack(self) -> None:
+    def trigger_attack(self, start_frame: int = 0) -> None:
         """공격 애니메이션 재생 시작 (이미 공격 중이면 무시)."""
         if self.is_attacking or not self._attack_frames_right:
             return
         self.is_attacking = True
-        self.attack_frame_index = 0
+        max_index = len(self._attack_frames_right) - 1
+        self.attack_frame_index = max(0, min(start_frame, max_index))
         self.attack_time = 0.0
 
     def get_current_frame(self, size: tuple[int, int] | None = None) -> pygame.Surface | None:
