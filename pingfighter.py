@@ -21003,14 +21003,27 @@ def grant_soldier_weapon_owned(weapon_name: str) -> bool:
     if weapon_name not in SOLDIER_PERMANENT_FIREARM_SKILLS:
         return False
 
-    unlock_soldier_weapon(weapon_name)
-    unlock_soldier_skill(weapon_name)
-
-    if not equip_soldier_skill(weapon_name):
+    # 슬롯 포화 시 스왑 확정 전에는 ownership을 변경하지 않는다.
+    # (취소되어도 soldier_weapon_unlocks / _soldier_skill_unlocked가 오염되지 않아야 함)
+    if weapon_name in _soldier_equipped_skills:
+        unlock_soldier_weapon(weapon_name)
+        unlock_soldier_skill(weapon_name)
+    elif not is_soldier_skill_slots_full():
+        unlock_soldier_weapon(weapon_name)
+        unlock_soldier_skill(weapon_name)
+        if not equip_soldier_skill(weapon_name):
+            return False
+    else:
         removed = _show_soldier_skill_swap_dialog(weapon_name)
         if not removed:
             return False
+        prior_weapon_unlock = soldier_weapon_unlocks.get(weapon_name, False)
+        prior_skill_unlock = _soldier_skill_unlocked.get(weapon_name, False)
+        unlock_soldier_weapon(weapon_name)
+        unlock_soldier_skill(weapon_name)
         if not swap_soldier_skill(removed, weapon_name):
+            soldier_weapon_unlocks[weapon_name] = prior_weapon_unlock
+            _soldier_skill_unlocked[weapon_name] = prior_skill_unlock
             return False
 
     soldier_controller.unlock_permanent_weapon(weapon_name, set_active=False)
