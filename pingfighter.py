@@ -23158,8 +23158,14 @@ def apply_academy_skill_swap(character_type: str, new_perk_id: str, old_skill_na
             if old_perk_id == "double_marshal_kick":
                 _viper_double_marshal_kick_unlocked = False
         elif character_type == "soldier":
-            if old_skill_name == SOLDIER_PISTOL_ORB_SKILL:
-                runtime_skill_levels.pop(old_perk_id, None)
+            # 권총을 포함한 모든 unlock_* 퍽 대응: perk level / unlock flag / ownership 모두 정리.
+            runtime_skill_levels.pop(old_perk_id, None)
+            if old_skill_name in _soldier_skill_unlocked:
+                _soldier_skill_unlocked[old_skill_name] = False
+            if old_skill_name != SOLDIER_PISTOL_ORB_SKILL:
+                if old_skill_name in soldier_weapon_unlocks:
+                    soldier_weapon_unlocks[old_skill_name] = False
+                soldier_controller.remove_weapon(old_skill_name)
             _sync_soldier_weapon_inventory()
 
     runtime_skill_levels[new_perk_id] = 1
