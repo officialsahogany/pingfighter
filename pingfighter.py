@@ -27996,6 +27996,19 @@ def show_runtime_skill_choices(
             # === 캐릭터 고유 퍽 테마 테두리 ===
             char_restriction = choice.get("character_restriction")
             _excl_outer_glow_color = None  # 카드 외부 글로우용 (SCREEN 레벨)
+
+            # 5/5 포화 상태에서 나오는 액티브 스킬 퍽은 선택 시 스왑 다이얼로그로 이어진다.
+            # 카드에 "(교체)" 리본 + 마젠타 외곽 글로우를 띄워 실수 선택을 방지.
+            _is_swap_perk = False
+            try:
+                _swap_perk_unlock_ids = _get_character_unlock_perks(character_type)
+                if (
+                    choice.get("id") in _swap_perk_unlock_ids
+                    and _are_character_skill_slots_full(character_type)
+                ):
+                    _is_swap_perk = True
+            except Exception:
+                _is_swap_perk = False
             if char_restriction:
                 _excl_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.1)
                 _excl_fast_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.18)
@@ -28329,6 +28342,33 @@ def show_runtime_skill_choices(
                 level_surface.set_alpha(card_alpha)
                 card_surface.blit(level_surface, (text_x, 50))
 
+            # 스왑 퍽 상단 리본: "(교체)" — 5/5 포화 상태에서 선택 시 스왑 경로로 이어진다는 시그널
+            if _is_swap_perk:
+                _swap_ribbon_w = 64
+                _swap_ribbon_h = 18
+                _swap_ribbon_x = (scaled_width - _swap_ribbon_w) // 2
+                _swap_ribbon_y = 3
+                _swap_ribbon_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.12)
+                _sr_a = int(min(card_alpha, 190 + 55 * _swap_ribbon_pulse))
+                _sr_bg = (70, 20, 45)
+                _sr_edge = (255, 80, 160)
+                _sr_rect = pygame.Rect(_swap_ribbon_x, _swap_ribbon_y, _swap_ribbon_w, _swap_ribbon_h)
+                pygame.draw.rect(card_surface, (*_sr_bg, min(255, _sr_a)), _sr_rect, border_radius=4)
+                pygame.draw.rect(card_surface, (*_sr_edge, min(255, _sr_a)), _sr_rect, 1, border_radius=4)
+                try:
+                    _sr_text = name_font.render("(교체)", True, (255, 240, 250))
+                    _sr_text.set_alpha(min(255, _sr_a + 30))
+                    _sr_tw, _sr_th = _sr_text.get_size()
+                    card_surface.blit(
+                        _sr_text,
+                        (
+                            _swap_ribbon_x + (_swap_ribbon_w - _sr_tw) // 2,
+                            _swap_ribbon_y + (_swap_ribbon_h - _sr_th) // 2,
+                        ),
+                    )
+                except Exception:
+                    pass
+
             # Blit card
             card_surface.set_alpha(card_alpha)
             final_x = int(card_x - (scaled_width - card_width) // 2)
@@ -28358,6 +28398,20 @@ def show_runtime_skill_choices(
                         pygame.draw.rect(_og_s, (*_excl_outer_glow_color, max(0, _og_a)),
                                        (0, 0, _og_r.width, _og_r.height), border_radius=14)
                         SCREEN.blit(_og_s, _og_r.topleft)
+
+            # 스왑 퍽 외곽 마젠타 글로우: 기존 캐릭터 글로우 위에 덧칠해서 "이 카드는 스왑이다" 시그널 강화
+            if _is_swap_perk and card_alpha > 30:
+                _sw_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.14)
+                _sw_glow_color = (255, 80, 160)
+                for _sw_off in range(10, 0, -2):
+                    _sw_a = int(min(card_alpha, (55 - _sw_off * 5) + _sw_pulse * 30))
+                    if _sw_a > 0:
+                        _sw_r = pygame.Rect(final_x - _sw_off, final_y - _sw_off,
+                                           scaled_width + _sw_off * 2, scaled_height + _sw_off * 2)
+                        _sw_s = pygame.Surface((_sw_r.width, _sw_r.height), pygame.SRCALPHA)
+                        pygame.draw.rect(_sw_s, (*_sw_glow_color, max(0, _sw_a)),
+                                       (0, 0, _sw_r.width, _sw_r.height), border_radius=14)
+                        SCREEN.blit(_sw_s, _sw_r.topleft)
 
             SCREEN.blit(card_surface, (final_x, final_y))
 
