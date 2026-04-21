@@ -27439,9 +27439,10 @@ def show_runtime_skill_choices(
         random_choice = _rand.choice(choices)
         selected_result = random_choice.get("id", "")
         if selected_result:
-            apply_runtime_skill_effect(selected_result)
-            pending_skill_choices = max(0, pending_skill_choices - 1)
-            runtime_skill_choice_pending = pending_skill_choices > 0
+            # 실패 시 pending 을 감소시키지 말 것: 수동 경로와 동일한 재시도 시맨틱 유지.
+            if apply_runtime_skill_effect(selected_result):
+                pending_skill_choices = max(0, pending_skill_choices - 1)
+                runtime_skill_choice_pending = pending_skill_choices > 0
         # 튜토리얼 런타임 스킬 선택 완료 처리
         try:
             on_runtime_skill_select_complete_for_tutorial()
