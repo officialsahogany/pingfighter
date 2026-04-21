@@ -21025,6 +21025,7 @@ def grant_soldier_weapon_owned(weapon_name: str) -> bool:
             soldier_weapon_unlocks[weapon_name] = prior_weapon_unlock
             _soldier_skill_unlocked[weapon_name] = prior_skill_unlock
             return False
+        _perform_skill_swap_cleanup("soldier", removed)
 
     soldier_controller.unlock_permanent_weapon(weapon_name, set_active=False)
     _sync_soldier_weapon_inventory(set_active=weapon_name)
@@ -23003,6 +23004,48 @@ def _is_character_skill_owned(character_type: str, skill_name: str) -> bool:
     return False
 
 
+def _perform_skill_swap_cleanup(character_type: str, old_skill_name: str) -> None:
+    """스왑으로 제거된 스킬에 대응하는 unlock_* 퍽 상태를 정리.
+
+    runtime_skill_levels / 캐릭터별 unlock flag / (코만도의 경우)
+    soldier_weapon_unlocks & soldier_controller ownership 모두를 일관되게 제거한다.
+
+    skill_id로 직접 pop 하지 않고 _CHARACTER_UNLOCK_PERKS 역매핑으로
+    old_perk_id 를 찾아서 지워야 한다 (double_marshal_kick -> phantom_kick 케이스).
+    base 해금 스킬처럼 unlock 퍽이 없는 skill 은 no-op.
+    """
+    global runtime_skill_levels, _viper_double_marshal_kick_unlocked
+
+    perk_map = _get_character_unlock_perks(character_type)
+    old_perk_id = None
+    for pid, sname in perk_map.items():
+        if sname == old_skill_name:
+            old_perk_id = pid
+            break
+    if not old_perk_id:
+        return
+
+    if character_type == "smasher":
+        runtime_skill_levels.pop(old_perk_id, None)
+        if old_skill_name in _smasher_skill_unlocked:
+            _smasher_skill_unlocked[old_skill_name] = False
+    elif character_type == "viper":
+        runtime_skill_levels.pop(old_perk_id, None)
+        if old_skill_name in _viper_skill_unlocked:
+            _viper_skill_unlocked[old_skill_name] = False
+        if old_perk_id == "double_marshal_kick":
+            _viper_double_marshal_kick_unlocked = False
+    elif character_type == "soldier":
+        runtime_skill_levels.pop(old_perk_id, None)
+        if old_skill_name in _soldier_skill_unlocked:
+            _soldier_skill_unlocked[old_skill_name] = False
+        if old_skill_name != SOLDIER_PISTOL_ORB_SKILL:
+            if old_skill_name in soldier_weapon_unlocks:
+                soldier_weapon_unlocks[old_skill_name] = False
+            soldier_controller.remove_weapon(old_skill_name)
+        _sync_soldier_weapon_inventory()
+
+
 def filter_full_slot_unlock_perks(choices: list, character_type: str) -> list:
     """퍽 선택지 리스트에서 5/5 시 숨겨야 할 unlock_* 퍽을 제거한다.
     튜토리얼 고정 선택지와 일반 랜덤 선택지 양쪽에 적용 가능."""
@@ -23110,7 +23153,7 @@ def apply_academy_skill_swap(character_type: str, new_perk_id: str, old_skill_na
     제거되는 스킬이 unlock_* 퍽으로 해금된 것이라면 해당 퍽도 함께 제거한다.
     기본 해금 스킬(스매셔 drive/power_smashing 등)은 퍽이 없어 no-op.
     """
-    global runtime_skill_levels, _viper_double_marshal_kick_unlocked
+    global runtime_skill_levels
     perk_map = _get_character_unlock_perks(character_type)
     new_skill_name = perk_map.get(new_perk_id)
     if not new_skill_name:
@@ -23140,33 +23183,7 @@ def apply_academy_skill_swap(character_type: str, new_perk_id: str, old_skill_na
     else:
         return False
 
-    # 제거된 스킬에 대응하는 퍽이 있으면 같이 제거 (퍽 패널 일관성 유지)
-    old_perk_id = None
-    for pid, sname in perk_map.items():
-        if sname == old_skill_name:
-            old_perk_id = pid
-            break
-    if old_perk_id:
-        if character_type == "smasher":
-            runtime_skill_levels.pop(old_perk_id, None)
-            if old_skill_name in _smasher_skill_unlocked:
-                _smasher_skill_unlocked[old_skill_name] = False
-        elif character_type == "viper":
-            runtime_skill_levels.pop(old_perk_id, None)
-            if old_skill_name in _viper_skill_unlocked:
-                _viper_skill_unlocked[old_skill_name] = False
-            if old_perk_id == "double_marshal_kick":
-                _viper_double_marshal_kick_unlocked = False
-        elif character_type == "soldier":
-            # 권총을 포함한 모든 unlock_* 퍽 대응: perk level / unlock flag / ownership 모두 정리.
-            runtime_skill_levels.pop(old_perk_id, None)
-            if old_skill_name in _soldier_skill_unlocked:
-                _soldier_skill_unlocked[old_skill_name] = False
-            if old_skill_name != SOLDIER_PISTOL_ORB_SKILL:
-                if old_skill_name in soldier_weapon_unlocks:
-                    soldier_weapon_unlocks[old_skill_name] = False
-                soldier_controller.remove_weapon(old_skill_name)
-            _sync_soldier_weapon_inventory()
+    _perform_skill_swap_cleanup(character_type, old_skill_name)
 
     runtime_skill_levels[new_perk_id] = 1
     try:
@@ -23242,6 +23259,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
             if not removed:
                 return False
             swap_smasher_skill(removed, skill_name)
+            _perform_skill_swap_cleanup("smasher", removed)
         unlock_smasher_skill(skill_name)
         runtime_skill_levels[choice_id] = 1
         return True
@@ -23264,6 +23282,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
             if not removed:
                 return False
             swap_viper_skill(removed, skill_name)
+            _perform_skill_swap_cleanup("viper", removed)
             print(f"[바이퍼 5구슬] 교체완료: {removed} → {skill_name}, 현재슬롯: {_viper_equipped_skills}", flush=True)
         unlock_viper_skill(skill_name)
         # double_marshal_kick 레거시 플래그 동기화
@@ -23297,6 +23316,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
             if not removed:
                 return False
             swap_viper_skill(removed, "dark_blade")
+            _perform_skill_swap_cleanup("viper", removed)
             print(f"[바이퍼 5구슬] 교체완료: {removed} → dark_blade, 현재슬롯: {_viper_equipped_skills}", flush=True)
         unlock_viper_skill("dark_blade")
         runtime_skill_levels["dark_blade"] = 1
@@ -23311,6 +23331,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
             if not removed:
                 return False
             swap_viper_skill(removed, "core_flip")
+            _perform_skill_swap_cleanup("viper", removed)
             print(f"[바이퍼 5구슬] 교체완료: {removed} → core_flip, 현재슬롯: {_viper_equipped_skills}", flush=True)
         unlock_viper_skill("core_flip")
         runtime_skill_levels["core_flip"] = 1
