@@ -56,3 +56,9 @@ def test_spiked_helmet_routed_to_passive():
     assert passive == ["spiked_helmet"]
     assert active == []
     assert remaining == []
+
+
+def test_online_passive_classifier_includes_new_legendaries():
+    assert items.is_passive_inventory_item("valhalla_warplate")
+    assert items.is_passive_inventory_item("horn_strawberry_mask")
+    assert not items.is_passive_inventory_item("elixir_of_mastery")

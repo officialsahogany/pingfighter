@@ -729,11 +729,43 @@ This applies to both:
   `unlock_ghost_shot`, `unlock_nerve_strike`, `unlock_dive_strike`). These
   live in a separate dict and are easy to forget.
 
-Fix: always add the elif branch immediately above the final `else:` in
-`draw_skill_icon_mini()`, and audit every live id alias that can reach the
-icon. A perk can use one id in the perk pool and a different id in the real
-5-orb HUD or unlock flow (`double_marshal_kick` vs `phantom_kick` is the
-canonical failure mode).
+Fix: add a `_MINI_SKILL_ICON_REGISTRY` entry when the icon can reuse an
+existing PNG / orb-symbol path; otherwise add the bespoke elif branch
+immediately above the final `else:` in `draw_skill_icon_mini()`. For
+Smasher / Viper orb-backed skills, put the runtime skill id in the
+character orb registry (`_SMASHER_ORB_ICON_REGISTRY` or
+`_VIPER_ORB_ICON_REGISTRY`) first, then point both the runtime mini icon
+and any unlock / alias mini icon at that shared entry. For Commando /
+Soldier orb-backed skills, put the runtime skill id in
+`_SOLDIER_ORB_ICON_REGISTRY` first, then point runtime mini icons and
+unlock / perk aliases through `_CHARACTER_UNLOCK_PERKS["soldier"]`; if a
+Soldier entry uses the Soldier-specific procedural renderer instead of
+the generic shared symbol renderer, mark it with
+`symbol_renderer: "soldier"`. For Optimus
+framed skill-card icons, put the skill id in
+`_OPTIMUS_SKILL_ICON_REGISTRY` and let `draw_optimus_skill_icon()`
+dispatch through that registry before its legacy procedural fallback.
+For Baltor / Blacksmith active icons that intentionally render through a
+bespoke HUD path, put the skill id in `BLACKSMITH_SKILL_ICON_REGISTRY`
+with `family: "blacksmith_bespoke"` so coverage can distinguish the
+intentional exception from a missing shared renderer.
+In all cases, audit
+every live id alias that can reach the icon. A perk can use one id in the
+perk pool and a different id in the real 5-orb HUD or unlock flow
+(`double_marshal_kick` vs `phantom_kick` is the canonical failure mode).
+The same alias trap applies to swap cleanup: when a removed orb skill maps
+back to a different perk id, derive the old `perk_id` from the unlock map
+before clearing `runtime_skill_levels` or ownership state.
+
+For PNG-backed player-skill / 5-orb icons, the alias audit must include
+the unlock card as well as the equipped orb. If the accepted art is saved
+as a runtime skill PNG such as `smasher_ghost_shot_skill_orb.png`, then
+`ghost_shot` and its perk-card alias `unlock_ghost_shot` must both hit an
+intentional branch. The usual pattern is: `_draw_skill_icon_symbol()` and
+the runtime skill id use the PNG directly; `draw_skill_icon_mini()` uses
+the same PNG for the `unlock_*` id and overlays the established unlock
+badge. Do not leave the `unlock_*` branch on older procedural art after
+replacing the live orb icon.
 
 ```python
 elif skill_id == "new_perk_id":
@@ -781,7 +813,7 @@ Sign-off rule:
 |---|------|
 | 1 | Add to `VIPER_EXCLUSIVE_SKILLS` (name, max_level, descriptions, detail, icon_color) |
 | 2 | Handle level-up in `apply_runtime_skill_effect()` |
-| 3 | **Add elif branch in `draw_skill_icon_mini()` -- required, or icon breaks** |
+| 3 | **Add `_MINI_SKILL_ICON_REGISTRY` entry or bespoke `draw_skill_icon_mini()` elif -- required, or icon breaks** |
 | 4 | **Audit every live id alias (`perk_id`, unlock id, runtime skill id, legacy id) so all relevant UIs hit the intended branch** |
 | 5 | **Check perceived subject-fill size in the smallest real icon box, not only the large choice card** |
 | 6 | Apply the actual gameplay effect via `runtime_skill_levels.get("perk_id", 0)` |
@@ -842,10 +874,11 @@ _viper_equipped_skills
 | `draw_skill_icon_mini()` | Generic icon for perk choice UI, TAB info, etc. |
 | `_draw_skill_icon_symbol()` | HUD 5-orb only -- polished symbol |
 
-Adding the elif to `draw_skill_icon_mini()` alone keeps the HUD from
-breaking (there is a fallback call inside `_draw_skill_icon_symbol()`).
-For a polished HUD-specific icon, add a dedicated branch in
-`_draw_skill_icon_symbol()` too.
+Adding the `_MINI_SKILL_ICON_REGISTRY` entry or bespoke
+`draw_skill_icon_mini()` elif keeps the HUD from breaking (there is a
+fallback call inside `_draw_skill_icon_symbol()`). For a polished
+HUD-specific icon, add a dedicated branch in `_draw_skill_icon_symbol()`
+too.
 
 Do not assume the same id reaches both functions. If the unlock perk id,
 perk-pool id, and equipped-skill / orb-HUD id differ, `_draw_skill_icon_symbol()`

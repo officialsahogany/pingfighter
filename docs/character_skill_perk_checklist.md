@@ -201,9 +201,21 @@ HUD, unlock perk, or orb-slot system.
       list.
 - [ ] If the character participates in "hide unlock perks when slots
       are full" behavior, update `_CHARACTER_UNLOCK_PERKS`,
-      `_are_character_skill_slots_full()`, and
-      `filter_full_slot_unlock_perks()` as one set. Missing any one of
-      the three silently breaks slot-full perk filtering.
+      `_are_character_skill_slots_full()`, and the real slot-full offer
+      structure as one set. In the current repo that means the strict
+      tutorial / fixed-offer path (`filter_full_slot_unlock_perks_strict()`)
+      plus the normal runtime-offer helpers (`_weighted_perk_sample()`,
+      `_active_perk_weight()`, `enforce_full_slot_perk_cap()`). Missing
+      any one of these silently breaks slot-full perk filtering,
+      weighted swap offers, or tutorial behavior.
+- [ ] If swap cleanup removes a previously equipped active skill, derive
+      the removed `perk_id` from the unlock map instead of assuming
+      `perk_id == skill_id`. `double_marshal_kick -> phantom_kick` and
+      `soldier_pistol_perk -> commando_pistol` are the canonical failure
+      modes.
+- [ ] If slot-full choice capping can remove sampled cards, apply the
+      cap before instant fillers / gold-conversion append so the final
+      card count is preserved.
 - [ ] If the character has an acquired-skill list in
       `show_perk_status()` or a local `get_acquired_skills()` helper,
       include the character-exclusive skill pool there too. A skill can
@@ -298,9 +310,33 @@ downtown / academy / NPC interaction instead of the standard perk cards.
 
 ### 4.1. Generic perk icon rendering
 
-- [ ] Add the `draw_skill_icon_mini()` branch.
-- [ ] If missing, the UI falls back to the first letter of the skill
-      name, which is a broken-icon state.
+- [ ] Add a `_MINI_SKILL_ICON_REGISTRY` entry when the icon can reuse an
+      existing PNG / orb-symbol path; otherwise add the bespoke
+      `draw_skill_icon_mini()` branch.
+- [ ] For Smasher / Viper orb-backed skills, keep the runtime skill id in
+      the character orb registry (`_SMASHER_ORB_ICON_REGISTRY`,
+      `_VIPER_ORB_ICON_REGISTRY`) and point both the runtime mini icon
+      and any unlock / alias mini icon at that shared entry. The unlock
+      entry should add only the unlock badge policy.
+- [ ] For Commando / Soldier orb-backed skills, keep the runtime skill id
+      in `_SOLDIER_ORB_ICON_REGISTRY`, then point runtime mini icons and
+      unlock / perk aliases through `_CHARACTER_UNLOCK_PERKS["soldier"]`.
+      If the runtime HUD path is Soldier-specific procedural art instead
+      of the shared orb renderer, mark the registry entry with
+      `symbol_renderer: "soldier"` so the mini path reuses the correct
+      Soldier renderer instead of the generic shared symbol renderer.
+- [ ] For Optimus framed skill-card icons, keep the skill id in
+      `_OPTIMUS_SKILL_ICON_REGISTRY` and let `draw_optimus_skill_icon()`
+      dispatch through that registry before falling back to the legacy
+      procedural branch.
+- [ ] For Baltor / Blacksmith active icons that intentionally render
+      through the bespoke HUD path, keep the skill id in
+      `BLACKSMITH_SKILL_ICON_REGISTRY` with
+      `family: "blacksmith_bespoke"` so coverage can distinguish the
+      intentional exception from a missing shared renderer.
+- [ ] If both the registry entry and bespoke branch are missing, the UI
+      falls back to the first letter of the skill name, which is a
+      broken-icon state.
 - [ ] Audit every live id that can reference the icon:
       perk-pool id, unlock id, runtime skill id, and any legacy alias.
       If perk choice uses one name and the live HUD uses another, both
@@ -584,7 +620,7 @@ Use this as the scan list before shipping.
 | 5 | `get_runtime_skill_description()` | Dynamic `Lv.6+` and overflow text |
 | 6 | `apply_runtime_skill_effect()` | Actual acquire / unlock / level-up behavior |
 | 7 | `recalculate_skill_effects()` | Debug / load / bonus-state resync |
-| 8 | `draw_skill_icon_mini()` | Generic perk icon rendering |
+| 8 | `_MINI_SKILL_ICON_REGISTRY` / `draw_skill_icon_mini()` | Generic perk icon rendering |
 | 9 | `_draw_skill_icon_symbol()` | Polished orb-HUD symbol |
 | 10 | `show_runtime_skill_choices()` | Runtime choice card |
 | 11 | `draw_stage_choice_overlay()` | Stage-clear overlay text |

@@ -2300,6 +2300,31 @@ PASSIVE_DUPLICATE_ALLOWED = {
 def _allow_duplicate_passive(name: str) -> bool:
     return name in PASSIVE_DUPLICATE_ALLOWED
 
+
+PASSIVE_DROP_ITEM_NAMES = {
+    "speedboots", "speedgear", "battery", "slot_add", "revival", "master",
+    "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup",
+    "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum", "commando_arm", "technical_vest",
+    "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads",
+    "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin",
+    "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles",
+    "yachaman_soul", "fake_arm",
+}
+
+
+LEGENDARY_PASSIVE_ITEM_NAMES = {
+    "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown",
+    "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape",
+}
+
+
+PASSIVE_INVENTORY_ITEM_NAMES = PASSIVE_DROP_ITEM_NAMES | LEGENDARY_PASSIVE_ITEM_NAMES
+
+
+def is_passive_inventory_item(name: str) -> bool:
+    """Return True for items that must be routed to the passive inventory."""
+    return name in PASSIVE_INVENTORY_ITEM_NAMES
+
 # 필드 아이템만 초기화하는 함수 (스테이지 전환용)
 def clear_field_items():
     """필드에 스폰된 아이템만 제거 (물음표 아이콘 아이템들)"""
@@ -2662,18 +2687,7 @@ def spawn_random_item():
     # 1) 기본 가중치 계산 (스킬/전설 배수 적용)
     base_weights: list[tuple[dict, float]] = []
     active_sum = passive_sum = 0.0
-    passive_names = {
-        "speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime",
-        "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
-        "timer_belt",
-        "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
-        "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
-        "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord",
-        "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape",
-        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin",
-        "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring",
-        "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul", "fake_arm"
-    }
+    passive_names = PASSIVE_INVENTORY_ITEM_NAMES
 
     for item in available_items:
         w = item["chance"] * skill_spawn_boost
@@ -2955,7 +2969,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
 
             # 패시브 아이템과 엑티브 아이템 구분
             stored = False
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "valhalla_warplate", "horn_strawberry_mask", "heavenly_cape", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "yachaman_soul", "fake_arm"]:
+            if is_passive_inventory_item(item_name):
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {

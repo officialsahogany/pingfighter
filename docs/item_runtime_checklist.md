@@ -136,7 +136,9 @@ consumed on use.
 - [ ] Add the item to the **developer mode `all_items` list** (near
       line 143285) with `"type": "active"` and an icon fetch via
       `get_icon_safe()` or `get_item_icon()`. Missing here means the
-      dev mode 2-key menu cannot spawn the item for testing.
+      dev mode 2-key menu cannot spawn the item for testing. The
+      secondary character/item manager builds from `items.ITEM_TYPES`;
+      do not add a second copied list there.
 
 ### 1.3. `gacha.py`
 
@@ -245,14 +247,19 @@ Ownership rule for every passive item in this section:
       `PASSIVE_SLOT_ORDER`. It instantiates the actual item
       dictionaries that the developer-mode 2-key menu displays.
       **You must update both.** Omission hides the item from the dev
-      mode menu.
+      mode menu. The secondary character/item manager is generated
+      from `items.ITEM_TYPES` and `items.is_passive_inventory_item()`,
+      so do not maintain a second copied `all_items` block for it.
 - [ ] `get_item_name_korean()` and `get_item_description()` ??add the
       new item so inventory, shop, tooltip, and developer-mode UIs
       do not show raw snake_case or fallback text.
-- [ ] Online / multiplayer passive classification ??search for the
-      synced `_passive_names` set in `pingfighter.py` and add the new
-      passive there too. Omission can misclassify the passive as an
-      active item in synced state.
+- [ ] Online / multiplayer passive classification ??update the shared
+      `items.py` passive classification source instead of adding a
+      local synced list in `pingfighter.py`. Normal passive drops belong
+      in `PASSIVE_DROP_ITEM_NAMES`; passive legendaries / mythics belong
+      in `LEGENDARY_PASSIVE_ITEM_NAMES`. The online client pickup path
+      must route through `items.is_passive_inventory_item()`. Omission
+      can misclassify the passive as an active item in synced state.
 
 Equip-state rule for this section:
 - `sync_equipped_passive_effects()` may toggle live effect state,

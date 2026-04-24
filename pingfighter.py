@@ -7519,6 +7519,14 @@ BLACKSMITH_SKILL_ICONS_DATA = [
     },
 ]
 
+BLACKSMITH_SKILL_ICON_REGISTRY = {
+    "hammer_shock": {
+        "data": BLACKSMITH_SKILL_ICONS_DATA[0],
+        "family": "blacksmith_bespoke",
+        "renderer": "_draw_blacksmith_skill_icons",
+    },
+}
+
 # 발토르 스킬 툴팁 관련 변수
 _blacksmith_skill_tooltip_data = None
 _blacksmith_skill_icon_rects = {}
@@ -8124,6 +8132,1018 @@ def _create_smasher_skill_icon(skill_data: dict, size: int = 28, active: bool = 
     return result
 
 
+_VIPER_SHADOW_STEP_ORB_ICON_PATH = os.path.join("items", "viper_shadow_step_skill_orb.png")
+_viper_shadow_step_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_BLADE_RUSH_ORB_ICON_PATH = os.path.join("items", "viper_blade_rush_skill_orb.png")
+_viper_blade_rush_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_NERVE_STRIKE_ORB_ICON_PATH = os.path.join("items", "viper_nerve_strike_skill_orb.png")
+_viper_nerve_strike_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_MARSHAL_KICK_ORB_ICON_PATH = os.path.join("items", "viper_marshal_kick_skill_orb.png")
+_viper_marshal_kick_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_PHANTOM_KICK_ORB_ICON_PATH = os.path.join("items", "viper_phantom_kick_skill_orb.png")
+_viper_phantom_kick_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_CHAOS_SPEAR_ORB_ICON_PATH = os.path.join("items", "viper_chaos_spear_skill_orb.png")
+_viper_chaos_spear_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_EMP_STRIKE_ORB_ICON_PATH = os.path.join("items", "viper_emp_strike_skill_orb.png")
+_viper_emp_strike_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_CORE_FLIP_ORB_ICON_PATH = os.path.join("items", "viper_core_flip_skill_orb.png")
+_viper_core_flip_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_DUAL_GLITCH_ORB_ICON_PATH = os.path.join("items", "viper_dual_glitch_skill_orb.png")
+_viper_dual_glitch_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_IGNITION_AURA_ORB_ICON_PATH = os.path.join("items", "viper_ignition_aura_skill_orb.png")
+_viper_ignition_aura_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_DARK_BLADE_ORB_ICON_PATH = os.path.join("items", "viper_dark_blade_skill_orb.png")
+_viper_dark_blade_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_JETPACK_ENHANCE_ICON_PATH = os.path.join("items", "viper_jetpack_enhance_perk_icon.png")
+_viper_jetpack_enhance_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_KICK_ENHANCE_ICON_PATH = os.path.join("items", "viper_kick_enhance_perk_icon.png")
+_viper_kick_enhance_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_BLADE_AMP_ICON_PATH = os.path.join("items", "viper_blade_amp_perk_icon.png")
+_viper_blade_amp_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_VIPER_FOUR_POISONS_ICON_PATH = os.path.join("items", "viper_four_poisons_perk_icon.png")
+_viper_four_poisons_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_DASH_SPIRIT_ICON_PATH = os.path.join("items", "smasher_dash_spirit_perk_icon.png")
+_smasher_dash_spirit_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_COMBO_AMPLIFIER_CHIP_ICON_PATH = os.path.join("items", "smasher_combo_amplifier_chip_perk_icon.png")
+_smasher_combo_amplifier_chip_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_EXTENSION_GEAR_ICON_PATH = os.path.join("items", "smasher_extension_gear_perk_icon.png")
+_smasher_extension_gear_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_DASH_AMPLIFICATION_ICON_PATH = os.path.join("items", "dash_amplification_perk_icon.png")
+_dash_amplification_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_DASH_ACCELERATION_ICON_PATH = os.path.join("items", "dash_acceleration_perk_icon.png")
+_dash_acceleration_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_DASH_MODULE_CONTROL_ICON_PATH = os.path.join("items", "dash_module_control_perk_icon.png")
+_dash_module_control_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_DASH_LIGHTWEIGHT_ICON_PATH = os.path.join("items", "dash_lightweight_perk_icon.png")
+_dash_lightweight_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_DASH_JUMP_ICON_PATH = os.path.join("items", "dash_jump_perk_icon.png")
+_dash_jump_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_DOWNTOWN_TREASURE_MAP_ICON_PATH = os.path.join("items", "downtown_treasure_map_perk_icon.png")
+_downtown_treasure_map_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_DOWNTOWN_GAMBLE_ICON_PATH = os.path.join("items", "downtown_gamble_perk_icon.png")
+_downtown_gamble_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_DOWNTOWN_BARGAIN_ICON_PATH = os.path.join("items", "downtown_bargain_perk_icon.png")
+_downtown_bargain_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_CONVERT_TO_GOLD_ICON_PATH = os.path.join("items", "convert_to_gold_perk_icon.png")
+_convert_to_gold_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_ITEM_CAFFEINE_ICON_PATH = os.path.join("items", "item_caffeine_perk_icon.png")
+_item_caffeine_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_ITEM_LUCK_ICON_PATH = os.path.join("items", "item_luck_perk_icon.png")
+_item_luck_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_ITEM_COOLDOWN_MASTERY_ICON_PATH = os.path.join("items", "item_cooldown_mastery_perk_icon.png")
+_item_cooldown_mastery_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_ITEM_GAUGE_MASTERY_ICON_PATH = os.path.join("items", "item_gauge_mastery_perk_icon.png")
+_item_gauge_mastery_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_ITEM_POLISH_ICON_PATH = os.path.join("items", "item_polish_perk_icon.png")
+_item_polish_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_ITEM_RECYCLE_ICON_PATH = os.path.join("items", "item_recycle_perk_icon.png")
+_item_recycle_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_ITEM_BAG_EXPANSION_ICON_PATH = os.path.join("items", "item_bag_expansion_perk_icon.png")
+_item_bag_expansion_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_COMMON_SWIFTNESS_ICON_PATH = os.path.join("items", "common_swiftness_perk_icon.png")
+_common_swiftness_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_COMMON_EXPANSION_ICON_PATH = os.path.join("items", "common_expansion_perk_icon.png")
+_common_expansion_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_BOOST_CHARGE_ICON_PATH = os.path.join("items", "perk_boost_charge_perk_icon_v2.png")
+_boost_charge_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_COMMON_BULK_UP_ICON_PATH = os.path.join("items", "common_bulk_up_perk_icon.png")
+_common_bulk_up_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_COMMON_TRAINING_ICON_PATH = os.path.join("items", "common_training_perk_icon.png")
+_common_training_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_LAUREL_SHIELD_ICON_PATH = os.path.join("items", "perk_laurel_shield_perk_icon.png")
+_laurel_shield_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_DRIVE_ORB_ICON_PATH = os.path.join("items", "smasher_drive_skill_orb.png")
+_smasher_drive_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_POWER_SMASHING_ORB_ICON_PATH = os.path.join("items", "smasher_power_smashing_skill_orb.png")
+_smasher_power_smashing_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_GHOST_SHOT_ORB_ICON_PATH = os.path.join("items", "smasher_ghost_shot_skill_orb.png")
+_smasher_ghost_shot_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_SHIELD_KITING_ORB_ICON_PATH = os.path.join("items", "smasher_shield_kiting_skill_orb.png")
+_smasher_shield_kiting_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_CLEANSE_ORB_ICON_PATH = os.path.join("items", "smasher_cleanse_skill_orb.png")
+_smasher_cleanse_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_RECOVERY_ORB_ICON_PATH = os.path.join("items", "smasher_recovery_skill_orb.png")
+_smasher_recovery_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_WARP_GATE_ORB_ICON_PATH = os.path.join("items", "smasher_warp_gate_skill_orb.png")
+_smasher_warp_gate_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_MAGNUM_GRIP_ORB_ICON_PATH = os.path.join("items", "smasher_magnum_grip_skill_orb.png")
+_smasher_magnum_grip_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SMASHER_PLASMA_ORB_ICON_PATH = os.path.join("items", "smasher_plasma_skill_orb.png")
+_smasher_plasma_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+
+
+def _get_viper_png_orb_icon(
+    path: str,
+    cache: dict[tuple[int, bool], pygame.Surface],
+    size: int,
+    active: bool,
+) -> pygame.Surface | None:
+    """바이퍼 전용 PNG 구슬 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    cache_key = (max(1, int(size)), bool(active))
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        icon = pygame.image.load(resource_path(path)).convert_alpha()
+        if icon.get_size() != (cache_key[0], cache_key[0]):
+            icon = pygame.transform.smoothscale(icon, (cache_key[0], cache_key[0]))
+        if not active:
+            dim_overlay = pygame.Surface(icon.get_size(), pygame.SRCALPHA)
+            dim_overlay.fill((135, 135, 135, 255))
+            icon.blit(dim_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        cache[cache_key] = icon
+        return icon
+    except Exception:
+        return None
+
+
+def _get_viper_shadow_step_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """쉐도우 백스텝 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_SHADOW_STEP_ORB_ICON_PATH,
+        _viper_shadow_step_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_blade_rush_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """에어 블레이드 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_BLADE_RUSH_ORB_ICON_PATH,
+        _viper_blade_rush_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_nerve_strike_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """베놈 엣지 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_NERVE_STRIKE_ORB_ICON_PATH,
+        _viper_nerve_strike_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_marshal_kick_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """마샬 킥 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_MARSHAL_KICK_ORB_ICON_PATH,
+        _viper_marshal_kick_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_phantom_kick_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """팬텀 킥 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_PHANTOM_KICK_ORB_ICON_PATH,
+        _viper_phantom_kick_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_chaos_spear_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """카오스 스피어 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_CHAOS_SPEAR_ORB_ICON_PATH,
+        _viper_chaos_spear_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_emp_strike_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """EMP 스트라이크 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_EMP_STRIKE_ORB_ICON_PATH,
+        _viper_emp_strike_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_core_flip_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """화랑 킥 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_CORE_FLIP_ORB_ICON_PATH,
+        _viper_core_flip_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_dual_glitch_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """듀얼 글리치 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_DUAL_GLITCH_ORB_ICON_PATH,
+        _viper_dual_glitch_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_ignition_aura_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """이그니션오라 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_IGNITION_AURA_ORB_ICON_PATH,
+        _viper_ignition_aura_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_dark_blade_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """다크 블레이드 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_DARK_BLADE_ORB_ICON_PATH,
+        _viper_dark_blade_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+_VIPER_ORB_ICON_REGISTRY = {
+    "shadow_step": {
+        "symbol": "shadow_step",
+        "icon_loader": _get_viper_shadow_step_orb_icon,
+    },
+    "blade_rush": {
+        "symbol": "blade_rush",
+        "icon_loader": _get_viper_blade_rush_orb_icon,
+    },
+    "nerve_strike": {
+        "symbol": "nerve_strike",
+        "icon_loader": _get_viper_nerve_strike_orb_icon,
+    },
+    "dive_strike": {
+        "symbol": "dive_strike",
+        "icon_loader": _get_viper_emp_strike_orb_icon,
+    },
+    "marshal_kick": {
+        "symbol": "marshal_kick",
+        "icon_loader": _get_viper_marshal_kick_orb_icon,
+    },
+    "phantom_kick": {
+        "symbol": "phantom_kick",
+        "icon_loader": _get_viper_phantom_kick_orb_icon,
+    },
+    "dark_blade": {
+        "symbol": "dark_blade",
+        "icon_loader": _get_viper_dark_blade_orb_icon,
+    },
+    "chaos_spear": {
+        "symbol": "chaos_spear",
+        "icon_loader": _get_viper_chaos_spear_orb_icon,
+    },
+    "core_flip": {
+        "symbol": "core_flip",
+        "icon_loader": _get_viper_core_flip_orb_icon,
+    },
+    "dual_glitch": {
+        "symbol": "dual_glitch",
+        "icon_loader": _get_viper_dual_glitch_orb_icon,
+    },
+    "ignition_aura": {
+        "symbol": "ignition_aura",
+        "icon_loader": _get_viper_ignition_aura_orb_icon,
+    },
+}
+
+
+def _get_viper_kick_enhance_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """킥강화 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_KICK_ENHANCE_ICON_PATH,
+        _viper_kick_enhance_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_jetpack_enhance_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """제트팩 강화 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_JETPACK_ENHANCE_ICON_PATH,
+        _viper_jetpack_enhance_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_blade_amp_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """검기증폭 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_BLADE_AMP_ICON_PATH,
+        _viper_blade_amp_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_viper_four_poisons_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """사독 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _VIPER_FOUR_POISONS_ICON_PATH,
+        _viper_four_poisons_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_dash_spirit_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """대쉬스피릿 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_DASH_SPIRIT_ICON_PATH,
+        _smasher_dash_spirit_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_combo_amplifier_chip_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """콤보증폭칩 퍽 전용 원형 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_COMBO_AMPLIFIER_CHIP_ICON_PATH,
+        _smasher_combo_amplifier_chip_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_extension_gear_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """연장기어 퍽 전용 원형 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_EXTENSION_GEAR_ICON_PATH,
+        _smasher_extension_gear_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_dash_amplification_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """증폭 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _DASH_AMPLIFICATION_ICON_PATH,
+        _dash_amplification_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_dash_acceleration_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """버스트업 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _DASH_ACCELERATION_ICON_PATH,
+        _dash_acceleration_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_dash_module_control_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """모듈제어 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _DASH_MODULE_CONTROL_ICON_PATH,
+        _dash_module_control_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_dash_lightweight_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """경량화 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _DASH_LIGHTWEIGHT_ICON_PATH,
+        _dash_lightweight_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_dash_jump_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """도약 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _DASH_JUMP_ICON_PATH,
+        _dash_jump_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_downtown_treasure_map_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """보물지도 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _DOWNTOWN_TREASURE_MAP_ICON_PATH,
+        _downtown_treasure_map_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_downtown_gamble_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """도박 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _DOWNTOWN_GAMBLE_ICON_PATH,
+        _downtown_gamble_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_downtown_bargain_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """흥정 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _DOWNTOWN_BARGAIN_ICON_PATH,
+        _downtown_bargain_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_convert_to_gold_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """골드변환 선택지 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _CONVERT_TO_GOLD_ICON_PATH,
+        _convert_to_gold_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_item_caffeine_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """카페인 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _ITEM_CAFFEINE_ICON_PATH,
+        _item_caffeine_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_item_luck_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """행운 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _ITEM_LUCK_ICON_PATH,
+        _item_luck_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_item_cooldown_mastery_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """숙련 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _ITEM_COOLDOWN_MASTERY_ICON_PATH,
+        _item_cooldown_mastery_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_item_gauge_mastery_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """숙달 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _ITEM_GAUGE_MASTERY_ICON_PATH,
+        _item_gauge_mastery_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_item_polish_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """연마 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _ITEM_POLISH_ICON_PATH,
+        _item_polish_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_item_recycle_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """연금술 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _ITEM_RECYCLE_ICON_PATH,
+        _item_recycle_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_item_bag_expansion_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """가방 확장 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _ITEM_BAG_EXPANSION_ICON_PATH,
+        _item_bag_expansion_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_common_swiftness_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """신속 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _COMMON_SWIFTNESS_ICON_PATH,
+        _common_swiftness_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_common_expansion_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """확장 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _COMMON_EXPANSION_ICON_PATH,
+        _common_expansion_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_boost_charge_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """부스트차징 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _BOOST_CHARGE_ICON_PATH,
+        _boost_charge_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_common_bulk_up_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """벌크업 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _COMMON_BULK_UP_ICON_PATH,
+        _common_bulk_up_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_common_training_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """단련 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _COMMON_TRAINING_ICON_PATH,
+        _common_training_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_laurel_shield_icon(size: int, active: bool = True) -> pygame.Surface | None:
+    """월계수잎 퍽 전용 PNG 아이콘을 UI 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _LAUREL_SHIELD_ICON_PATH,
+        _laurel_shield_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_drive_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """드라이브 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_DRIVE_ORB_ICON_PATH,
+        _smasher_drive_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_power_smashing_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """파워스매싱 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_POWER_SMASHING_ORB_ICON_PATH,
+        _smasher_power_smashing_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_ghost_shot_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """고스트샷 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_GHOST_SHOT_ORB_ICON_PATH,
+        _smasher_ghost_shot_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_shield_kiting_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """쉴드카이팅 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_SHIELD_KITING_ORB_ICON_PATH,
+        _smasher_shield_kiting_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_cleanse_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """클렌즈 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_CLEANSE_ORB_ICON_PATH,
+        _smasher_cleanse_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_recovery_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """리커버리 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_RECOVERY_ORB_ICON_PATH,
+        _smasher_recovery_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_warp_gate_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """워프게이트 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_WARP_GATE_ORB_ICON_PATH,
+        _smasher_warp_gate_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_magnum_grip_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """매그넘 그립 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_MAGNUM_GRIP_ORB_ICON_PATH,
+        _smasher_magnum_grip_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_smasher_plasma_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """플라즈마 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SMASHER_PLASMA_ORB_ICON_PATH,
+        _smasher_plasma_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+_SMASHER_ORB_ICON_REGISTRY = {
+    "drive": {
+        "symbol": "drive",
+        "icon_loader": _get_smasher_drive_orb_icon,
+    },
+    "power_smashing": {
+        "symbol": "power_smashing",
+        "icon_loader": _get_smasher_power_smashing_orb_icon,
+    },
+    "ghost_shot": {
+        "symbol": "ghost_shot",
+        "icon_loader": _get_smasher_ghost_shot_orb_icon,
+    },
+    "shield_kiting": {
+        "symbol": "shield_kiting",
+        "icon_loader": _get_smasher_shield_kiting_orb_icon,
+    },
+    "cleanse": {
+        "symbol": "cleanse",
+        "icon_loader": _get_smasher_cleanse_orb_icon,
+    },
+    "recovery": {
+        "symbol": "recovery",
+        "icon_loader": _get_smasher_recovery_orb_icon,
+    },
+    "warp_gate": {
+        "symbol": "warp_gate",
+        "icon_loader": _get_smasher_warp_gate_orb_icon,
+    },
+    "magnum_grip": {
+        "symbol": "magnum_grip",
+        "icon_loader": _get_smasher_magnum_grip_orb_icon,
+    },
+    "plasma": {
+        "symbol": "plasma",
+        "icon_loader": _get_smasher_plasma_orb_icon,
+    },
+}
+
+
+def _draw_orb_icon_from_registry(
+    surface: pygame.Surface,
+    registry: dict,
+    skill_name: str,
+    cx: int,
+    cy: int,
+    size: int,
+    active: bool,
+) -> bool:
+    entry = registry.get(skill_name)
+    if not entry:
+        return False
+    icon_loader = entry.get("icon_loader")
+    if icon_loader is None:
+        return False
+    icon = icon_loader(size, active)
+    if icon is None:
+        return False
+    surface.blit(icon, icon.get_rect(center=(cx, cy)))
+    return True
+
+
+def _draw_viper_shadow_step_orb_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    s: int,
+    main_color: tuple,
+    accent_color: tuple,
+    highlight_color: tuple,
+    shadow_color: tuple,
+    *,
+    active: bool = True,
+    pulse: float = 0.0,
+):
+    """쉐도우 백스텝 아이콘: 원점으로 되돌아가는 잔상과 역방향 궤적."""
+    s = max(10, int(s))
+    pulse = max(0.0, min(1.0, float(pulse)))
+    muted = not active
+
+    def _dim(color, ratio):
+        return tuple(max(0, min(255, int(c * ratio))) for c in color[:3])
+
+    ink = _dim(shadow_color, 0.7 if muted else 1.0)
+    violet = _dim(accent_color, 0.65 if muted else 1.0)
+    bright = _dim(highlight_color, 0.62 if muted else 1.0)
+    white = _dim(main_color, 0.72 if muted else 1.0)
+    cyan = (105, 235, 255) if active else (70, 105, 118)
+
+    origin_x = cx + int(s * 0.52)
+    origin_y = cy + int(s * 0.20)
+    body_x = cx - int(s * 0.18)
+    body_y = cy + int(s * 0.04)
+    ghost_step = max(3, int(s * 0.22))
+
+    # 원래 위치 마커: 되돌아갈 지점을 선명한 작은 포털로 읽히게 한다.
+    origin_r = max(4, int(s * 0.28))
+    pygame.draw.circle(surface, ink, (origin_x + 1, origin_y + 1), origin_r, max(1, s // 10))
+    pygame.draw.circle(surface, violet, (origin_x, origin_y), origin_r, max(1, s // 9))
+    pygame.draw.circle(surface, bright, (origin_x, origin_y), max(2, origin_r - 4), 1)
+    pygame.draw.circle(surface, white, (origin_x - origin_r // 3, origin_y - origin_r // 3), max(1, s // 14))
+
+    # 역방향 궤적: 현재 위치에서 뒤의 원점으로 빨려 돌아가는 곡선.
+    trail = []
+    for i in range(8):
+        t = i / 7.0
+        px = body_x + int((origin_x - body_x) * t)
+        py = body_y + int((origin_y - body_y) * t - math.sin(t * math.pi) * s * 0.36)
+        trail.append((px, py))
+    if len(trail) >= 2:
+        for i in range(len(trail) - 1):
+            width = max(1, int(s * (0.18 - i * 0.012)))
+            color = bright if i > 3 else violet
+            pygame.draw.line(surface, ink, (trail[i][0] + 1, trail[i][1] + 1),
+                             (trail[i + 1][0] + 1, trail[i + 1][1] + 1), width + 1)
+            pygame.draw.line(surface, color, trail[i], trail[i + 1], width)
+
+    # 되감기 화살촉. 백스텝 컨셉이 작은 크기에서도 바로 읽히는 핵심 형태.
+    tip = trail[-1]
+    arrow = [
+        tip,
+        (tip[0] - int(s * 0.28), tip[1] - int(s * 0.06)),
+        (tip[0] - int(s * 0.10), tip[1] + int(s * 0.18)),
+    ]
+    pygame.draw.polygon(surface, ink, [(x + 1, y + 1) for x, y in arrow])
+    pygame.draw.polygon(surface, cyan, arrow)
+    pygame.draw.polygon(surface, white, arrow, 1)
+
+    # 잔상 분신: 왼쪽 현재 위치에 어두운 닌자 실루엣, 오른쪽으로 옅은 잔상.
+    for gi in range(3, 0, -1):
+        gx = body_x + gi * ghost_step
+        gy = body_y + int((gi - 1) * s * 0.02)
+        scale = 1.0 - gi * 0.12
+        ghost_w = max(3, int(s * 0.30 * scale))
+        ghost_h = max(8, int(s * 0.82 * scale))
+        g_color = _dim(violet, 0.34 + gi * 0.12)
+        pygame.draw.ellipse(surface, g_color,
+                            (gx - ghost_w // 2, gy - ghost_h // 2, ghost_w, ghost_h))
+
+    head_r = max(3, int(s * 0.20))
+    torso_w = max(6, int(s * 0.38))
+    torso_h = max(8, int(s * 0.56))
+    head = (body_x - int(s * 0.02), body_y - int(s * 0.30))
+    torso_rect = pygame.Rect(body_x - torso_w // 2, body_y - int(s * 0.16), torso_w, torso_h)
+    pygame.draw.circle(surface, ink, (head[0] + 1, head[1] + 1), head_r)
+    pygame.draw.ellipse(surface, ink, torso_rect.move(1, 1))
+    pygame.draw.circle(surface, violet, head, head_r)
+    pygame.draw.ellipse(surface, violet, torso_rect)
+
+    # 몸 안쪽의 날카로운 보라 하이라이트와 발차기/대쉬 라인.
+    pygame.draw.line(surface, bright,
+                     (body_x - int(s * 0.10), body_y - int(s * 0.42)),
+                     (body_x + int(s * 0.16), body_y + int(s * 0.28)),
+                     max(1, s // 10))
+    pygame.draw.line(surface, white,
+                     (body_x - int(s * 0.16), body_y - int(s * 0.22)),
+                     (body_x + int(s * 0.18), body_y - int(s * 0.22)),
+                     max(1, s // 13))
+    eye_y = head[1] - max(1, s // 16)
+    pygame.draw.line(surface, cyan, (head[0] - head_r // 2, eye_y),
+                     (head[0] + head_r // 2, eye_y), max(1, s // 13))
+
+    # 짧은 텔레포트 스파크. 준비 완료 애니메이션 때만 살짝 커진다.
+    spark_boost = int(pulse * 2)
+    for angle_deg in (210, 250, 295, 335):
+        rad = math.radians(angle_deg)
+        sx = origin_x + int(math.cos(rad) * (origin_r + 2 + spark_boost))
+        sy = origin_y + int(math.sin(rad) * (origin_r + 2 + spark_boost))
+        pygame.draw.circle(surface, cyan, (sx, sy), max(1, s // 13))
+
+
+def _draw_lightweight_feather_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    size: int,
+    is_active: bool,
+    color: tuple,
+    animate_ready: bool = False,
+):
+    """Draw the shared dash_lightweight feather motif."""
+    s = max(10, size // 2)
+    base_color = color[:3]
+    if is_active:
+        stem_color = tuple(max(0, c - 55) for c in base_color)
+        vane_dark = tuple(max(0, c - 20) for c in base_color)
+        vane_mid = tuple(min(255, c + 35) for c in base_color)
+        vane_light = (245, 255, 255)
+        motion_color = tuple(min(255, c + 60) for c in base_color)
+    else:
+        stem_color = (70, 80, 90)
+        vane_dark = (85, 95, 105)
+        vane_mid = (120, 130, 140)
+        vane_light = (165, 170, 175)
+        motion_color = (105, 115, 125)
+
+    pulse = 0.0
+    if animate_ready:
+        try:
+            pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 260.0)
+        except Exception:
+            pulse = 0.0
+
+    feather_len = max(15, int(s * 1.35))
+    feather_w = max(8, int(s * 0.72))
+    tilt = math.radians(-18)
+    bob = int(pulse * max(1, s // 9)) if animate_ready else 0
+    root = (cx - int(s * 0.18), cy + int(s * 0.48) - bob)
+    tip = (cx + int(math.sin(tilt) * feather_len), cy - int(math.cos(tilt) * feather_len) - bob)
+
+    def rot_point(px: float, py: float) -> tuple[int, int]:
+        rx = px * math.cos(tilt) - py * math.sin(tilt)
+        ry = px * math.sin(tilt) + py * math.cos(tilt)
+        return (int(root[0] + rx), int(root[1] + ry))
+
+    # 빠른 대쉬 충전 느낌의 얇은 바람결.
+    for i, off in enumerate((-0.46, -0.25, 0.0)):
+        y = -feather_len * (0.28 + i * 0.18)
+        start = rot_point(-feather_w * 0.85, y + feather_len * off * 0.08)
+        end = rot_point(-feather_w * 1.55, y + feather_len * off * 0.08)
+        alpha_color = tuple(max(0, min(255, c - i * 20)) for c in motion_color)
+        pygame.draw.line(surface, alpha_color, start, end, max(1, s // 13))
+
+    left_pts = [
+        tip,
+        rot_point(-feather_w * 0.75, -feather_len * 0.72),
+        rot_point(-feather_w * 0.63, -feather_len * 0.43),
+        rot_point(-feather_w * 0.44, -feather_len * 0.16),
+        root,
+    ]
+    right_pts = [
+        tip,
+        rot_point(feather_w * 0.55, -feather_len * 0.66),
+        rot_point(feather_w * 0.72, -feather_len * 0.36),
+        rot_point(feather_w * 0.42, -feather_len * 0.10),
+        root,
+    ]
+
+    shadow_offset = max(1, s // 14)
+    pygame.draw.polygon(
+        surface,
+        tuple(max(0, c - 70) for c in vane_dark),
+        [(x + shadow_offset, y + shadow_offset) for x, y in left_pts + right_pts[::-1]],
+    )
+    pygame.draw.polygon(surface, vane_mid, left_pts)
+    pygame.draw.polygon(surface, vane_dark, right_pts)
+    pygame.draw.lines(surface, vane_light, False, [tip, rot_point(-feather_w * 0.45, -feather_len * 0.45), root], max(1, s // 12))
+    pygame.draw.line(surface, stem_color, tip, root, max(2, s // 8))
+    pygame.draw.line(surface, vane_light, tip, rot_point(-feather_w * 0.08, -feather_len * 0.18), max(1, s // 18))
+
+    for frac in (0.22, 0.36, 0.52, 0.68):
+        y = -feather_len * frac
+        rib_start = rot_point(-feather_w * 0.08, y)
+        pygame.draw.line(surface, vane_light, rib_start, rot_point(-feather_w * (0.25 + frac * 0.4), y + feather_len * 0.05), 1)
+        pygame.draw.line(surface, tuple(max(0, c - 40) for c in vane_dark), rib_start, rot_point(feather_w * (0.20 + frac * 0.35), y + feather_len * 0.04), 1)
+
+    sparkle_r = max(1, s // 10)
+    pygame.draw.circle(surface, (255, 255, 255), rot_point(-feather_w * 0.34, -feather_len * 0.64), sparkle_r)
+    if animate_ready and pulse > 0.35:
+        pygame.draw.circle(surface, motion_color, (cx + int(s * 0.48), cy - int(s * 0.42)), max(1, s // 12))
+
+
+def _draw_laurel_shield_perk_icon(surface: pygame.Surface, cx: int, cy: int,
+                                  size: int, active: bool = True,
+                                  base_color: tuple = (88, 176, 84)) -> None:
+    """Draw the laurel-leaf shield motif used by the generic perk icon."""
+    s = max(8, int(size // 2))
+    scale = max(0.55, size / 48.0)
+    leaf_mid = base_color[:3] if base_color else (88, 176, 84)
+    if not active:
+        leaf_mid = tuple(max(70, c // 2) for c in leaf_mid)
+    leaf_light = tuple(min(255, c + 65) for c in leaf_mid)
+    leaf_dark = tuple(max(0, c - 70) for c in leaf_mid)
+    gold = (236, 194, 76) if active else (132, 116, 78)
+    gold_light = (255, 231, 132) if active else (166, 150, 104)
+    gold_dark = (151, 109, 38) if active else (86, 75, 54)
+    holy = (236, 255, 198) if active else (145, 150, 132)
+
+    def pt(dx: float, dy: float) -> tuple[int, int]:
+        return (cx + int(dx * scale), cy + int(dy * scale))
+
+    glow_r = max(7, int(15 * scale))
+    pygame.draw.circle(surface, (*leaf_mid, 46 if active else 28), (cx, cy), glow_r)
+    pygame.draw.circle(surface, (*gold, 55 if active else 34), (cx, cy), max(5, int(11 * scale)), 1)
+
+    shield_pts = [
+        pt(0, -12),
+        pt(10, -7),
+        pt(8, 6),
+        pt(0, 14),
+        pt(-8, 6),
+        pt(-10, -7),
+    ]
+    pygame.draw.polygon(surface, gold_dark, [(x + max(1, int(scale)), y + max(1, int(scale))) for x, y in shield_pts])
+    pygame.draw.polygon(surface, (51, 93, 55) if active else (65, 75, 65), shield_pts)
+    pygame.draw.polygon(surface, gold, shield_pts, max(1, int(2 * scale)))
+    pygame.draw.line(surface, gold_light, pt(-5, -8), pt(5, -10), max(1, int(1 * scale)))
+
+    pygame.draw.line(surface, gold_dark, pt(-4, 10), pt(-16, -10), max(1, int(2 * scale)))
+    pygame.draw.line(surface, gold_dark, pt(4, 10), pt(16, -10), max(1, int(2 * scale)))
+    pygame.draw.line(surface, gold_light, pt(-3, 9), pt(-15, -10), max(1, int(1 * scale)))
+    pygame.draw.line(surface, gold_light, pt(3, 9), pt(15, -10), max(1, int(1 * scale)))
+
+    def draw_leaf(side: int, stem_dx: float, stem_dy: float, angle_deg: float, length: float, width: float) -> None:
+        angle = math.radians(angle_deg)
+        ux, uy = math.cos(angle), math.sin(angle)
+        pxn, pyn = -uy, ux
+        base = pt(stem_dx, stem_dy)
+        tip = (base[0] + int(ux * length * scale), base[1] + int(uy * length * scale))
+        mid = (
+            base[0] + int(ux * length * 0.52 * scale),
+            base[1] + int(uy * length * 0.52 * scale),
+        )
+        w = max(2, int(width * scale))
+        leaf_pts = [
+            base,
+            (mid[0] + int(pxn * w), mid[1] + int(pyn * w)),
+            tip,
+            (mid[0] - int(pxn * w), mid[1] - int(pyn * w)),
+        ]
+        pygame.draw.polygon(surface, leaf_dark, [(x + side, y + 1) for x, y in leaf_pts])
+        pygame.draw.polygon(surface, leaf_mid, leaf_pts)
+        inner = [
+            (
+                base[0] + int(ux * length * 0.18 * scale),
+                base[1] + int(uy * length * 0.18 * scale),
+            ),
+            (mid[0] + int(pxn * w * 0.45), mid[1] + int(pyn * w * 0.45)),
+            (
+                tip[0] - int(ux * length * 0.15 * scale),
+                tip[1] - int(uy * length * 0.15 * scale),
+            ),
+        ]
+        pygame.draw.polygon(surface, leaf_light, inner)
+        pygame.draw.line(surface, (36, 99, 45) if active else (72, 82, 72), base, tip, max(1, int(1 * scale)))
+
+    for side in (-1, 1):
+        for idx, stem_y in enumerate((7, 2, -3, -8)):
+            stem_x = side * (5 + idx * 2.5)
+            angle = -124 - idx * 8 if side < 0 else -56 + idx * 8
+            draw_leaf(side, stem_x, stem_y, angle, 9.5 - idx * 0.55, 3.5)
+
+    crown_pts = [pt(-6, -2), pt(-2, -7), pt(1, -4), pt(6, -10), pt(5, -1)]
+    pygame.draw.lines(surface, holy, False, crown_pts, max(1, int(2 * scale)))
+    pygame.draw.circle(surface, holy, pt(6, -10), max(1, int(1.7 * scale)))
+    pygame.draw.circle(surface, gold_light, pt(0, 13), max(1, int(2.2 * scale)))
+
+
 def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, cy: int,
                             size: int, is_active: bool, color: tuple,
                             animate_ready: bool = False):
@@ -8173,7 +9193,49 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             icon_pulse = 0.0
             icon_bob = 0.0
 
-    if skill_name == "plasma":
+    if _draw_orb_icon_from_registry(
+        surface,
+        _SMASHER_ORB_ICON_REGISTRY,
+        skill_name,
+        cx,
+        cy,
+        size,
+        is_active,
+    ):
+        return
+
+    if _draw_orb_icon_from_registry(
+        surface,
+        _VIPER_ORB_ICON_REGISTRY,
+        skill_name,
+        cx,
+        cy,
+        size,
+        is_active,
+    ):
+        return
+
+    if skill_name == "perk_laurel_shield":
+        icon = _get_laurel_shield_icon(size, is_active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+        _draw_laurel_shield_perk_icon(surface, cx, cy, size, active=is_active, base_color=color)
+        return
+
+    if skill_name == "dash_lightweight":
+        icon = _get_dash_lightweight_icon(size, is_active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+        _draw_lightweight_feather_icon(surface, cx, cy, size, is_active, color, animate_ready)
+
+    elif skill_name == "plasma":
+        icon = _get_smasher_plasma_orb_icon(size, is_active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+
         # ⚡ 플라즈마 번개 - 고퀄리티
         # 배경 전기 파동 효과 (준비 완료 시 펄스 확장)
         wave_boost = int(icon_pulse * 3) if animate else 0
@@ -10190,7 +11252,7 @@ def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb
 
     # 퍽 보유 - 해머쇼크 슬롯 그리기
     skill_name = "hammer_shock"
-    skill_data = BLACKSMITH_SKILL_ICONS_DATA[0]
+    skill_data = BLACKSMITH_SKILL_ICON_REGISTRY[skill_name]["data"]
 
     # 현재 레벨에 따른 색상 (최대 사용 가능 단계)
     level_colors = {
@@ -13046,6 +14108,22 @@ _soldier_skill_tooltip_fonts = None
 _soldier_skill_tooltip_active = False
 _soldier_tooltip_pause_start = 0
 _soldier_tooltip_pause_accumulated = 0
+_SOLDIER_SUPPLY_DROP_ORB_ICON_PATH = os.path.join("items", "commando_supply_drop_skill_orb.png")
+_soldier_supply_drop_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SOLDIER_PISTOL_ORB_ICON_PATH = os.path.join("items", "commando_pistol_skill_orb.png")
+_soldier_pistol_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SOLDIER_NET_GUN_ORB_ICON_PATH = os.path.join("items", "commando_net_gun_skill_orb.png")
+_soldier_net_gun_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SOLDIER_BAZOOKA_ORB_ICON_PATH = os.path.join("items", "commando_bazooka_skill_orb.png")
+_soldier_bazooka_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SOLDIER_AK47_ORB_ICON_PATH = os.path.join("items", "commando_ak47_skill_orb.png")
+_soldier_ak47_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SOLDIER_FIRE_SUPPORT_ORB_ICON_PATH = os.path.join("items", "commando_fire_support_skill_orb.png")
+_soldier_fire_support_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SOLDIER_BOWLING_TRAP_ORB_ICON_PATH = os.path.join("items", "commando_bowling_trap_skill_orb.png")
+_soldier_bowling_trap_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SOLDIER_SUICIDE_DRONE_ORB_ICON_PATH = os.path.join("items", "commando_suicide_drone_skill_orb.png")
+_soldier_suicide_drone_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
 
 
 def trigger_soldier_skill_cooldown(skill_name: str):
@@ -13182,6 +14260,185 @@ def is_soldier_skill_on_cooldown(skill_name: str) -> bool:
     return get_soldier_skill_cooldown_remaining(skill_name) > 0
 
 
+def _get_soldier_supply_drop_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """물자보급 전용 PNG 아이콘을 HUD 크기에 맞춰 캐시한다."""
+    cache_key = (max(1, int(size)), bool(active))
+    cached = _soldier_supply_drop_orb_icon_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        icon = pygame.image.load(resource_path(_SOLDIER_SUPPLY_DROP_ORB_ICON_PATH)).convert_alpha()
+        if icon.get_size() != (cache_key[0], cache_key[0]):
+            icon = pygame.transform.smoothscale(icon, (cache_key[0], cache_key[0]))
+        if not active:
+            dim_overlay = pygame.Surface(icon.get_size(), pygame.SRCALPHA)
+            dim_overlay.fill((135, 135, 135, 255))
+            icon.blit(dim_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        _soldier_supply_drop_orb_icon_cache[cache_key] = icon
+        return icon
+    except Exception:
+        return None
+
+
+def _get_soldier_pistol_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """권총 화기류 전용 오브형 PNG 아이콘을 HUD/퍽 카드 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SOLDIER_PISTOL_ORB_ICON_PATH,
+        _soldier_pistol_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_soldier_net_gun_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """그물덫총 전용 오브형 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SOLDIER_NET_GUN_ORB_ICON_PATH,
+        _soldier_net_gun_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+
+
+def _get_soldier_ak47_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """AK-47 전용 오브형 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SOLDIER_AK47_ORB_ICON_PATH,
+        _soldier_ak47_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_soldier_bazooka_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """바주카포 전용 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SOLDIER_BAZOOKA_ORB_ICON_PATH,
+        _soldier_bazooka_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_soldier_fire_support_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """화력지원 전용 오브형 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SOLDIER_FIRE_SUPPORT_ORB_ICON_PATH,
+        _soldier_fire_support_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_soldier_bowling_trap_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """볼링트랩 전용 오브형 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SOLDIER_BOWLING_TRAP_ORB_ICON_PATH,
+        _soldier_bowling_trap_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_soldier_suicide_drone_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """자폭드론 전용 오브형 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SOLDIER_SUICIDE_DRONE_ORB_ICON_PATH,
+        _soldier_suicide_drone_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+_SOLDIER_ORB_ICON_REGISTRY = {
+    "supply_drop": {
+        "symbol": "supply_drop",
+        "icon_loader": _get_soldier_supply_drop_orb_icon,
+        "family": "commando_orb",
+        "hud_min_size": 42,
+        "hud_size_extra": 8,
+        "symbol_renderer": "soldier",
+    },
+    "emergency_supply": {
+        "symbol": "emergency_supply",
+        "family": "commando_orb",
+        "symbol_renderer": "soldier",
+    },
+    "commando_pistol": {
+        "symbol": SOLDIER_PISTOL_ORB_SKILL,
+        "icon_loader": _get_soldier_pistol_orb_icon,
+        "family": "commando_firearm",
+        "hud_min_size": 40,
+        "hud_size_extra": 6,
+        "scale_cap": 1.18,
+        "small_scale_cap": 1.06,
+        "symbol_renderer": "soldier",
+    },
+    "net_gun": {
+        "symbol": "net_gun",
+        "icon_loader": _get_soldier_net_gun_orb_icon,
+        "family": "commando_firearm",
+        "hud_min_size": 40,
+        "hud_size_extra": 6,
+        "symbol_renderer": "soldier",
+    },
+    "fire_support": {
+        "symbol": "fire_support",
+        "icon_loader": _get_soldier_fire_support_orb_icon,
+        "family": "commando_firearm",
+        "hud_min_size": 40,
+        "hud_size_extra": 6,
+        "symbol_renderer": "soldier",
+    },
+    "bowling_trap": {
+        "symbol": "bowling_trap",
+        "icon_loader": _get_soldier_bowling_trap_orb_icon,
+        "family": "commando_firearm",
+        "hud_min_size": 40,
+        "hud_size_extra": 6,
+        "symbol_renderer": "soldier",
+    },
+    "suicide_drone": {
+        "symbol": "suicide_drone",
+        "icon_loader": _get_soldier_suicide_drone_orb_icon,
+        "family": "commando_firearm",
+        "hud_min_size": 40,
+        "hud_size_extra": 6,
+        "symbol_renderer": "soldier",
+    },
+}
+
+
+def _draw_soldier_orb_icon_from_registry(
+    surface: pygame.Surface,
+    skill_name: str,
+    cx: int,
+    cy: int,
+    size: int,
+    active: bool,
+) -> bool:
+    entry = _SOLDIER_ORB_ICON_REGISTRY.get(skill_name)
+    if not entry:
+        return False
+    icon_loader = entry.get("icon_loader")
+    if icon_loader is None:
+        return False
+    icon_size = size
+    hud_min_size = entry.get("hud_min_size")
+    hud_size_extra = int(entry.get("hud_size_extra", 0))
+    if hud_min_size is not None or hud_size_extra:
+        min_size = int(hud_min_size if hud_min_size is not None else size)
+        icon_size = min(size + hud_size_extra, max(size, min_size))
+    icon = icon_loader(icon_size, active)
+    if icon is None:
+        return False
+    surface.blit(icon, icon.get_rect(center=(cx, cy)))
+    return True
+
+
 def _draw_soldier_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, cy: int,
                                      size: int, active: bool, color: tuple):
     """코만도 스킬 아이콘 심볼 그리기"""
@@ -13191,7 +14448,23 @@ def _draw_soldier_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx
     half = size // 2
     quarter = size // 4
 
+    if _draw_soldier_orb_icon_from_registry(
+        surface,
+        skill_name,
+        cx,
+        cy,
+        size,
+        active,
+    ):
+        return
+
     if skill_name == "supply_drop":
+        icon_size = min(size + 8, max(size, 42))
+        icon = _get_soldier_supply_drop_orb_icon(icon_size, active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+
         # 낙하산 + 보급 상자 아이콘 (물자보급)
         parachute_color = (255, 255, 255) if active else (150, 150, 150)
         rope_color = (200, 180, 140) if active else (100, 90, 70)
@@ -21540,7 +22813,17 @@ def draw_optimus_skill_icon(surface: pygame.Surface, skill_id: str, x: int, y: i
     icon_area = pygame.Surface((inner_size, inner_size), pygame.SRCALPHA)
     ic = inner_size // 2  # 아이콘 중앙
 
-    if skill_id == "mecha_chain":
+    if _draw_optimus_skill_body_from_registry(
+        icon_area,
+        skill_id,
+        ic,
+        inner_size,
+        frame,
+        theme,
+        level,
+    ):
+        pass
+    elif skill_id == "mecha_chain":
         _draw_mecha_chain_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "mecha_charge":
         _draw_mecha_charge_icon(icon_area, ic, inner_size, frame, theme, level)
@@ -22034,6 +23317,56 @@ def _draw_optimus_arm_icon(surf: pygame.Surface, c: int, size: int, frame: int, 
     if level >= 1:
         ring_alpha = int(60 + 40 * math.sin(frame * 0.15))
         pygame.draw.circle(surf, (*arm_color, ring_alpha), (c, c), size // 2 - 5, 1)
+
+
+_OPTIMUS_SKILL_ICON_REGISTRY = {
+    "mecha_chain": {
+        "draw_func": _draw_mecha_chain_icon,
+    },
+    "mecha_charge": {
+        "draw_func": _draw_mecha_charge_icon,
+    },
+    "mecha_bulk": {
+        "draw_func": _draw_mecha_bulk_icon,
+    },
+    "emergency_charge": {
+        "draw_func": _draw_emergency_charge_icon,
+    },
+    "reboot_enhance": {
+        "draw_func": _draw_reboot_enhance_icon,
+    },
+    "star_change": {
+        "draw_func": _draw_star_change_icon,
+    },
+    "bug_update": {
+        "draw_func": _draw_bug_update_icon,
+    },
+    "elec_pad": {
+        "draw_func": _draw_elec_pad_icon,
+    },
+    "optimus_arm": {
+        "draw_func": _draw_optimus_arm_icon,
+    },
+}
+
+
+def _draw_optimus_skill_body_from_registry(
+    surface: pygame.Surface,
+    skill_id: str,
+    center: int,
+    size: int,
+    frame: int,
+    theme: dict,
+    level: int,
+) -> bool:
+    entry = _OPTIMUS_SKILL_ICON_REGISTRY.get(skill_id)
+    if not entry:
+        return False
+    draw_func = entry.get("draw_func")
+    if draw_func is None:
+        return False
+    draw_func(surface, center, size, frame, theme, level)
+    return True
 
 
 def check_optimus_gauge_skill_trigger() -> bool:
@@ -24673,6 +26006,936 @@ def draw_starpoint_skill_gauge(screen: pygame.Surface):
             screen.blit(glow_surf, (gauge_x - 5, gauge_y - 5))
 
 
+def _draw_dash_module_control_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    size: int,
+    color: tuple[int, int, int],
+    active: bool = True,
+) -> None:
+    """모듈제어 퍽 아이콘은 스매셔 파워스매싱과 같은 임팩트 모티프를 쓴다."""
+    icon = _get_dash_module_control_icon(size, active)
+    if icon is not None:
+        surface.blit(icon, icon.get_rect(center=(cx, cy)))
+        return
+
+    _draw_skill_icon_symbol(
+        surface,
+        "power_smashing",
+        cx,
+        cy,
+        size,
+        active,
+        color,
+    )
+
+
+def _draw_common_swiftness_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    size: int,
+    active: bool = True,
+) -> None:
+    """신속 퍽 아이콘은 imagegen PNG를 우선 사용하고 절차형 발 아이콘으로 대체한다."""
+    size = max(1, int(size))
+    icon = _get_common_swiftness_icon(size, active)
+    if icon is not None:
+        surface.blit(icon, icon.get_rect(center=(cx, cy)))
+        return
+
+    scale = max(0.8, size / 48.0)
+    swift_color = (100, 255, 180) if active else (90, 130, 115)
+    mid_color = (80, 220, 150) if active else (75, 105, 96)
+    line_color = (225, 255, 235) if active else (135, 155, 148)
+
+    pygame.draw.ellipse(
+        surface,
+        swift_color,
+        (cx - int(8 * scale), cy - int(1 * scale), int(16 * scale), int(10 * scale)),
+    )
+    pygame.draw.ellipse(
+        surface,
+        mid_color,
+        (cx - int(6 * scale), cy + int(1 * scale), int(12 * scale), int(6 * scale)),
+    )
+    pygame.draw.rect(
+        surface,
+        swift_color,
+        (cx - int(3 * scale), cy - int(6 * scale), int(6 * scale), int(6 * scale)),
+        border_radius=max(1, int(2 * scale)),
+    )
+    for offset, length in ((-3, 3), (0, 4), (3, 3)):
+        y = cy + int(offset * scale)
+        pygame.draw.line(
+            surface,
+            line_color,
+            (cx - int((8 + length) * scale), y),
+            (cx - int(8 * scale), y),
+            max(1, int(2 * scale)),
+        )
+    pygame.draw.arc(
+        surface,
+        (200, 255, 230) if active else (120, 150, 140),
+        (cx - int(14 * scale), cy - int(5 * scale), int(6 * scale), int(10 * scale)),
+        -0.5,
+        0.5,
+        max(1, int(1 * scale)),
+    )
+    pygame.draw.circle(
+        surface,
+        (255, 255, 255),
+        (cx + int(5 * scale), cy - int(5 * scale)),
+        max(1, int(2 * scale)),
+    )
+
+
+def _draw_common_bulk_up_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    size: int,
+    color: tuple[int, int, int],
+    active: bool = True,
+) -> None:
+    """벌크업 퍽 아이콘은 PNG를 우선 쓰고, 실패하면 기존 확대 모티프를 그린다."""
+    icon = _get_common_bulk_up_icon(size, active)
+    if icon is not None:
+        surface.blit(icon, icon.get_rect(center=(cx, cy)))
+        return
+
+    s = max(0.7, size / 36.0)
+    bulk_color = color[:3]
+    dark_color = (180, 100, 60)
+    shine_color = (255, 255, 200)
+
+    pygame.draw.rect(
+        surface,
+        dark_color,
+        (cx - int(4 * s), cy - int(6 * s), int(8 * s), int(14 * s)),
+        border_radius=max(1, int(2 * s)),
+    )
+    pygame.draw.rect(
+        surface,
+        bulk_color,
+        (cx - int(8 * s), cy - int(8 * s), int(16 * s), int(18 * s)),
+        max(1, int(2 * s)),
+        border_radius=max(1, int(3 * s)),
+    )
+
+    arrow_dist = int(12 * s)
+    arrow_size = int(4 * s)
+    pygame.draw.polygon(surface, (255, 255, 255), [
+        (cx, cy - arrow_dist),
+        (cx - arrow_size, cy - arrow_dist + arrow_size),
+        (cx + arrow_size, cy - arrow_dist + arrow_size),
+    ])
+    pygame.draw.polygon(surface, (255, 255, 255), [
+        (cx, cy + arrow_dist),
+        (cx - arrow_size, cy + arrow_dist - arrow_size),
+        (cx + arrow_size, cy + arrow_dist - arrow_size),
+    ])
+    pygame.draw.polygon(surface, (255, 255, 255), [
+        (cx - arrow_dist, cy),
+        (cx - arrow_dist + arrow_size, cy - arrow_size),
+        (cx - arrow_dist + arrow_size, cy + arrow_size),
+    ])
+    pygame.draw.polygon(surface, (255, 255, 255), [
+        (cx + arrow_dist, cy),
+        (cx + arrow_dist - arrow_size, cy - arrow_size),
+        (cx + arrow_dist - arrow_size, cy + arrow_size),
+    ])
+    pygame.draw.circle(surface, shine_color, (cx + int(5 * s), cy - int(7 * s)), max(1, int(2 * s)))
+
+
+def _draw_item_luck_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    size: int,
+) -> None:
+    """행운 퍽 아이콘: 작은 칸에서도 읽히는 금빛 네잎클로버."""
+    size = max(18, int(size))
+    s = size / 32.0
+
+    def px(value: float) -> int:
+        return int(round(value * s))
+
+    shadow = (24, 88, 42)
+    leaf_dark = (35, 148, 62)
+    leaf_mid = (60, 212, 92)
+    leaf_light = (150, 255, 160)
+    vein = (28, 120, 50)
+    gold = (255, 215, 70)
+    gold_light = (255, 250, 170)
+
+    pygame.draw.ellipse(surface, (0, 0, 0, 70), (cx - px(12), cy + px(9), px(24), px(5)))
+
+    # Gold halo separates the green clover from the greenish perk-box colors.
+    pygame.draw.circle(surface, (140, 110, 20), (cx + px(1), cy + px(1)), px(13), max(1, px(2)))
+    pygame.draw.circle(surface, gold, (cx, cy), px(13), max(1, px(2)))
+    pygame.draw.circle(surface, gold_light, (cx - px(1), cy - px(1)), px(10), max(1, px(1)))
+
+    # Four heart-like leaves, tilted 45 degrees for a fuller silhouette.
+    for angle_deg in (45, 135, 225, 315):
+        angle = math.radians(angle_deg)
+        lx = cx + int(round(math.cos(angle) * px(5.2)))
+        ly = cy + int(round(math.sin(angle) * px(5.2)))
+        tip_x = cx + int(round(math.cos(angle) * px(12.0)))
+        tip_y = cy + int(round(math.sin(angle) * px(12.0)))
+        side_angle = angle + math.pi / 2.0
+        p1 = (lx + int(round(math.cos(side_angle) * px(5.0))), ly + int(round(math.sin(side_angle) * px(5.0))))
+        p2 = (lx - int(round(math.cos(side_angle) * px(5.0))), ly - int(round(math.sin(side_angle) * px(5.0))))
+
+        pygame.draw.circle(surface, shadow, (lx + px(1), ly + px(1)), px(5))
+        pygame.draw.polygon(surface, shadow, [(tip_x + px(1), tip_y + px(1)), p1, p2])
+        pygame.draw.circle(surface, leaf_dark, (lx, ly), px(5))
+        pygame.draw.polygon(surface, leaf_mid, [(tip_x, tip_y), p1, p2])
+        pygame.draw.circle(surface, leaf_mid, (lx, ly), px(4))
+        pygame.draw.circle(
+            surface,
+            leaf_light,
+            (lx - int(round(math.cos(angle) * px(2))), ly - int(round(math.sin(angle) * px(2)))),
+            max(1, px(2)),
+        )
+        pygame.draw.line(surface, vein, (cx, cy), (tip_x, tip_y), max(1, px(1)))
+
+    pygame.draw.circle(surface, (40, 150, 64), (cx, cy), px(4))
+    pygame.draw.circle(surface, (170, 255, 176), (cx - px(1), cy - px(1)), max(1, px(2)))
+    pygame.draw.line(surface, (64, 126, 56), (cx + px(1), cy + px(5)), (cx + px(5), cy + px(13)), max(1, px(2)))
+    pygame.draw.line(surface, (128, 178, 88), (cx, cy + px(5)), (cx + px(4), cy + px(12)), max(1, px(1)))
+
+    # Coin-like sparkles make the item-spawn luck theme visible at 32 px.
+    for sx, sy, r in ((-11, -10, 2), (11, -7, 2), (9, 10, 1.5)):
+        scx = cx + px(sx)
+        scy = cy + px(sy)
+        rr = max(1, px(r))
+        pygame.draw.line(surface, gold_light, (scx - rr, scy), (scx + rr, scy), max(1, px(1)))
+        pygame.draw.line(surface, gold_light, (scx, scy - rr), (scx, scy + rr), max(1, px(1)))
+
+
+def _draw_item_cooldown_mastery_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    size: int,
+    scale_multiplier: float = 1.0,
+) -> None:
+    """숙련 퍽 아이콘: 빠른 재사용을 읽히게 하는 푸른 스톱워치."""
+    size = max(18, int(size))
+    scale = max(0.55, (size / 48.0) * float(scale_multiplier))
+
+    def px(value: float) -> int:
+        return int(round(value * scale))
+
+    def point(dx: float, dy: float) -> tuple[int, int]:
+        return (cx + px(dx), cy + px(dy))
+
+    shadow = (14, 25, 55)
+    rim_dark = (24, 56, 130)
+    rim_mid = (42, 108, 226)
+    rim_light = (136, 210, 255)
+    face = (218, 241, 255)
+    face_shadow = (168, 209, 244)
+    tick = (55, 96, 168)
+    hand_blue = (19, 59, 148)
+    hand_gold = (255, 186, 70)
+    spark = (166, 230, 255)
+
+    # Motion streaks sit behind the watch so the icon reads as cooldown reduction.
+    for sy, length, width, color in (
+        (-8, 15, 2.3, (94, 186, 255)),
+        (-2, 19, 2.7, (139, 224, 255)),
+        (5, 13, 2.0, (82, 162, 236)),
+    ):
+        start = point(-24, sy)
+        end = (start[0] + px(length), start[1])
+        pygame.draw.line(surface, color, start, end, max(1, px(width)))
+        pygame.draw.circle(surface, spark, end, max(1, px(width * 0.45)))
+
+    watch_r = max(7, px(14))
+    pygame.draw.circle(surface, shadow, point(1.5, 2.0), watch_r + max(2, px(4)))
+    pygame.draw.circle(surface, rim_dark, (cx, cy), watch_r + max(2, px(4)))
+    pygame.draw.circle(surface, rim_mid, (cx, cy), watch_r + max(1, px(2)))
+    pygame.draw.circle(surface, face_shadow, point(0.5, 0.8), watch_r)
+    pygame.draw.circle(surface, face, (cx, cy), watch_r - max(1, px(1)))
+
+    inner_rect = pygame.Rect(
+        cx - watch_r + px(3),
+        cy - watch_r + px(3),
+        max(2, (watch_r - px(3)) * 2),
+        max(2, (watch_r - px(3)) * 2),
+    )
+    pygame.draw.arc(
+        surface,
+        (255, 255, 255),
+        inner_rect,
+        math.radians(205),
+        math.radians(322),
+        max(1, px(2)),
+    )
+    pygame.draw.arc(
+        surface,
+        rim_light,
+        inner_rect.inflate(px(3), px(3)),
+        math.radians(318),
+        math.radians(42 + 360),
+        max(1, px(2)),
+    )
+
+    knob_w = max(4, px(9))
+    knob_h = max(3, px(5))
+    knob_rect = pygame.Rect(cx - knob_w // 2, cy - watch_r - knob_h + px(1), knob_w, knob_h)
+    pygame.draw.rect(surface, shadow, knob_rect.move(px(1), px(1)), border_radius=max(1, px(2)))
+    pygame.draw.rect(surface, rim_light, knob_rect, border_radius=max(1, px(2)))
+    pygame.draw.rect(surface, rim_mid, knob_rect, max(1, px(1)), border_radius=max(1, px(2)))
+
+    side_rect = pygame.Rect(cx + watch_r - px(2), cy - px(9), max(3, px(5)), max(3, px(7)))
+    pygame.draw.rect(surface, shadow, side_rect.move(px(1), px(1)), border_radius=max(1, px(2)))
+    pygame.draw.rect(surface, (87, 160, 255), side_rect, border_radius=max(1, px(2)))
+
+    for angle in (0, 45, 90, 135, 180, 225, 270, 315):
+        rad = math.radians(angle - 90)
+        outer = watch_r - px(3)
+        inner = watch_r - (px(7) if angle % 90 == 0 else px(5))
+        pygame.draw.line(
+            surface,
+            tick,
+            (cx + int(math.cos(rad) * inner), cy + int(math.sin(rad) * inner)),
+            (cx + int(math.cos(rad) * outer), cy + int(math.sin(rad) * outer)),
+            max(1, px(1.4 if angle % 90 else 2.0)),
+        )
+
+    pygame.draw.line(surface, hand_blue, (cx, cy), point(6.5, -7.0), max(1, px(2.5)))
+    pygame.draw.line(surface, hand_gold, (cx, cy), point(-5.2, 6.8), max(1, px(2.2)))
+    pygame.draw.circle(surface, (255, 222, 128), (cx, cy), max(2, px(3)))
+    pygame.draw.circle(surface, (255, 255, 232), point(-0.7, -0.8), max(1, px(1.2)))
+
+    for sx, sy, radius in ((12, -15, 2.2), (16, 6, 1.7), (-13, 12, 1.5)):
+        scx, scy = point(sx, sy)
+        r = max(1, px(radius))
+        pygame.draw.line(surface, (216, 246, 255), (scx - r, scy), (scx + r, scy), max(1, px(1)))
+        pygame.draw.line(surface, (216, 246, 255), (scx, scy - r), (scx, scy + r), max(1, px(1)))
+
+
+def _draw_downtown_gamble_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    size: int,
+    scale_multiplier: float = 1.0,
+) -> None:
+    """도박 퍽 아이콘: 카드, 칩, 주사위를 작은 칸에서도 크게 읽히게 그린다."""
+    scale = max(0.55, (max(18, int(size)) / 48.0) * float(scale_multiplier))
+
+    def px(value: float) -> int:
+        return int(round(value * scale))
+
+    def point(dx: float, dy: float) -> tuple[int, int]:
+        return (cx + px(dx), cy + px(dy))
+
+    chip_center = point(-7, 5)
+    chip_r = max(5, px(13))
+    pygame.draw.circle(surface, (82, 12, 24), (chip_center[0] + px(1), chip_center[1] + px(2)), chip_r)
+    pygame.draw.circle(surface, (166, 28, 46), chip_center, chip_r)
+    pygame.draw.circle(surface, (245, 74, 80), chip_center, max(3, px(10)))
+    pygame.draw.circle(surface, (118, 18, 35), chip_center, max(2, px(6)), max(1, px(2)))
+    for angle in (25, 115, 205, 295):
+        rad = math.radians(angle)
+        mark_x = chip_center[0] + int(round(math.cos(rad) * chip_r * 0.7))
+        mark_y = chip_center[1] + int(round(math.sin(rad) * chip_r * 0.7))
+        pygame.draw.circle(surface, (255, 238, 205), (mark_x, mark_y), max(1, px(2.4)))
+
+    card_w = max(9, px(17))
+    card_h = max(13, px(23))
+    card = pygame.Surface((card_w + px(6), card_h + px(6)), pygame.SRCALPHA)
+    card_rect = pygame.Rect(px(3), px(3), card_w, card_h)
+    pygame.draw.rect(card, (40, 26, 30, 90), card_rect.move(px(2), px(2)), border_radius=max(2, px(3)))
+    pygame.draw.rect(card, (255, 250, 234), card_rect, border_radius=max(2, px(3)))
+    pygame.draw.rect(card, (205, 186, 165), card_rect, max(1, px(1.5)), border_radius=max(2, px(3)))
+    pygame.draw.rect(
+        card,
+        (255, 72, 76),
+        (card_rect.left + px(3), card_rect.top + px(3), max(3, px(5)), max(3, px(5))),
+        border_radius=max(1, px(1.5)),
+    )
+
+    suit_cx = card_rect.centerx + px(2)
+    suit_cy = card_rect.centery + px(1)
+    suit_r = max(2, px(4))
+    black = (24, 24, 28)
+    pygame.draw.circle(card, black, (suit_cx - px(2), suit_cy), suit_r)
+    pygame.draw.circle(card, black, (suit_cx + px(2), suit_cy), suit_r)
+    pygame.draw.polygon(
+        card,
+        black,
+        [
+            (suit_cx - px(7), suit_cy + px(2)),
+            (suit_cx + px(7), suit_cy + px(2)),
+            (suit_cx, suit_cy + px(10)),
+        ],
+    )
+    rotated_card = pygame.transform.rotate(card, -10)
+    surface.blit(rotated_card, rotated_card.get_rect(center=point(5, -4)))
+
+    die_size = max(7, px(12))
+    die_rect = pygame.Rect(0, 0, die_size, die_size)
+    die_rect.center = point(-6, -10)
+    pygame.draw.rect(surface, (72, 50, 32), die_rect.move(px(1), px(2)), border_radius=max(2, px(2)))
+    pygame.draw.rect(surface, (255, 232, 142), die_rect, border_radius=max(2, px(2)))
+    pygame.draw.rect(surface, (183, 118, 42), die_rect, max(1, px(1.5)), border_radius=max(2, px(2)))
+    pip_r = max(1, px(1.7))
+    for dx, dy in ((-3, -3), (0, 0), (3, 3)):
+        pygame.draw.circle(surface, (90, 45, 30), (die_rect.centerx + px(dx), die_rect.centery + px(dy)), pip_r)
+
+    for sx, sy, sparkle_size in ((13, -15, 3), (15, 9, 2), (-17, -3, 2)):
+        scx, scy = point(sx, sy)
+        r = max(1, px(sparkle_size))
+        pygame.draw.line(surface, (255, 246, 145), (scx - r, scy), (scx + r, scy), max(1, px(1)))
+        pygame.draw.line(surface, (255, 246, 145), (scx, scy - r), (scx, scy + r), max(1, px(1)))
+        pygame.draw.circle(surface, (255, 255, 225), (scx, scy), max(1, r // 2))
+
+
+def _draw_item_gauge_mastery_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    scale: float = 1.0,
+) -> None:
+    """숙달 퍽 아이콘: 액티브 아이템 사용 후 게이지가 차오르는 모습을 그린다."""
+    scale = max(0.7, float(scale))
+
+    def px(value: float) -> int:
+        return int(round(value * scale))
+
+    def pt(dx: float, dy: float) -> tuple[int, int]:
+        return (cx + px(dx), cy + px(dy))
+
+    outline = (20, 43, 48)
+    deep_green = (28, 92, 70)
+    mid_green = (53, 198, 126)
+    light_green = (178, 255, 176)
+    mint = (214, 255, 226)
+    gold = (255, 220, 84)
+    gold_shadow = (120, 88, 36)
+
+    # 충전 숙달감을 주는 후광과 상승 화살표.
+    pygame.draw.circle(surface, (29, 87, 66), pt(0, 1), max(7, px(13)), max(1, px(1.3)))
+    pygame.draw.circle(surface, (96, 232, 154), pt(0, 1), max(5, px(10)), max(1, px(1)))
+    for dx, height, color in (
+        (-10, 9, (68, 186, 122)),
+        (-4, 12, (92, 226, 148)),
+        (3, 15, (160, 255, 184)),
+    ):
+        pygame.draw.line(surface, outline, pt(dx + 1, 8), pt(dx + 3, -height + 1), max(1, px(2.2)))
+        pygame.draw.line(surface, color, pt(dx, 8), pt(dx + 2, -height), max(1, px(1.5)))
+
+    # 하단 게이지 캡슐.
+    gauge_rect = pygame.Rect(0, 0, max(20, px(27)), max(8, px(10)))
+    gauge_rect.center = pt(0, 5)
+    radius = max(3, px(4))
+    pygame.draw.rect(surface, (15, 32, 36), gauge_rect.move(max(1, px(1)), max(1, px(1))), border_radius=radius)
+    pygame.draw.rect(surface, outline, gauge_rect, border_radius=radius)
+    inner = gauge_rect.inflate(-max(4, px(5)), -max(3, px(4)))
+    inner.width = max(5, inner.width)
+    inner.height = max(3, inner.height)
+    pygame.draw.rect(surface, (36, 75, 58), inner, border_radius=max(1, px(2)))
+    fill_rect = inner.copy()
+    fill_rect.width = max(3, int(inner.width * 0.88))
+    for i in range(fill_rect.width):
+        ratio = i / max(1, fill_rect.width - 1)
+        color = (
+            int(mid_green[0] + (light_green[0] - mid_green[0]) * ratio),
+            int(mid_green[1] + (light_green[1] - mid_green[1]) * ratio),
+            int(mid_green[2] + (light_green[2] - mid_green[2]) * ratio),
+        )
+        x = fill_rect.left + i
+        pygame.draw.line(surface, color, (x, fill_rect.top), (x, fill_rect.bottom))
+    pygame.draw.line(surface, mint, (fill_rect.left + 1, fill_rect.top), (fill_rect.right - 1, fill_rect.top), max(1, px(1)))
+
+    tip_w = max(2, px(3))
+    tip_rect = pygame.Rect(gauge_rect.right - 1, cy + px(2), tip_w, max(4, px(6)))
+    pygame.draw.rect(surface, outline, tip_rect.move(max(1, px(1)), 0), border_radius=max(1, tip_w // 2))
+    pygame.draw.rect(surface, light_green, tip_rect, border_radius=max(1, tip_w // 2))
+
+    # 아이템 사용을 읽히게 하는 기울어진 포션.
+    vial = [
+        pt(-12, -12),
+        pt(-5, -15),
+        pt(-1, -4),
+        pt(-8, -1),
+    ]
+    vial_shadow = [(x + max(1, px(1)), y + max(1, px(1))) for x, y in vial]
+    pygame.draw.polygon(surface, (19, 45, 57), vial_shadow)
+    pygame.draw.polygon(surface, (72, 218, 182), vial)
+    pygame.draw.polygon(surface, (174, 255, 226), [pt(-10, -11), pt(-7, -13), pt(-4, -5), pt(-7, -4)])
+    pygame.draw.lines(surface, outline, True, vial, max(1, px(1.2)))
+    pygame.draw.line(surface, gold_shadow, pt(-12, -14), pt(-5, -17), max(2, px(2.4)))
+    pygame.draw.line(surface, gold, pt(-12, -15), pt(-5, -18), max(1, px(1.7)))
+    pygame.draw.line(surface, (155, 255, 196), pt(-4, -3), pt(0, 0), max(1, px(1.5)))
+    pygame.draw.circle(surface, mint, pt(1, 1), max(1, px(1.8)))
+
+    # + 보너스 메달.
+    plus_c = pt(10, -9)
+    plus_r = max(4, px(5.5))
+    pygame.draw.circle(surface, gold_shadow, (plus_c[0] + max(1, px(1)), plus_c[1] + max(1, px(1))), plus_r)
+    pygame.draw.circle(surface, gold, plus_c, plus_r)
+    pygame.draw.circle(surface, (255, 244, 150), plus_c, max(2, plus_r - max(1, px(2))))
+    plus_w = max(1, px(2))
+    arm = max(2, plus_r - max(2, px(2)))
+    pygame.draw.line(surface, (65, 103, 55), (plus_c[0] - arm, plus_c[1]), (plus_c[0] + arm, plus_c[1]), plus_w)
+    pygame.draw.line(surface, (65, 103, 55), (plus_c[0], plus_c[1] - arm), (plus_c[0], plus_c[1] + arm), plus_w)
+    pygame.draw.line(surface, (255, 255, 230), (plus_c[0] - arm + 1, plus_c[1] - 1), (plus_c[0] + arm - 1, plus_c[1] - 1), max(1, px(1)))
+
+    for sx, sy, sparkle_size in ((-15, 0, 2.2), (15, 2, 1.8), (3, -13, 1.6)):
+        scx, scy = pt(sx, sy)
+        r = max(1, px(sparkle_size))
+        pygame.draw.line(surface, mint, (scx - r, scy), (scx + r, scy), max(1, px(1)))
+        pygame.draw.line(surface, mint, (scx, scy - r), (scx, scy + r), max(1, px(1)))
+
+
+def _draw_item_caffeine_icon(surface: pygame.Surface, icon_cx: int, icon_cy: int, scale: float = 1.0) -> None:
+    """Draw the caffeine perk as a readable coffee cup with an energy bolt."""
+    scale = max(0.75, float(scale))
+    cup_light = (255, 248, 228)
+    cup_mid = (224, 188, 138)
+    cup_shadow = (88, 52, 30)
+    coffee = (82, 43, 24)
+    crema = (186, 114, 48)
+    steam = (238, 232, 214)
+
+    for radius, color in (
+        (int(15 * scale), (92, 48, 24)),
+        (int(12 * scale), (136, 78, 38)),
+    ):
+        pygame.draw.circle(surface, color, (icon_cx, icon_cy + int(1 * scale)), max(1, radius), max(1, int(1 * scale)))
+
+    pygame.draw.ellipse(
+        surface,
+        cup_shadow,
+        (icon_cx - int(13 * scale), icon_cy + int(8 * scale), int(26 * scale), max(3, int(5 * scale))),
+    )
+    pygame.draw.ellipse(
+        surface,
+        cup_mid,
+        (icon_cx - int(11 * scale), icon_cy + int(7 * scale), int(22 * scale), max(3, int(4 * scale))),
+    )
+
+    body = [
+        (icon_cx - int(10 * scale), icon_cy - int(4 * scale)),
+        (icon_cx + int(10 * scale), icon_cy - int(4 * scale)),
+        (icon_cx + int(7 * scale), icon_cy + int(9 * scale)),
+        (icon_cx - int(7 * scale), icon_cy + int(9 * scale)),
+    ]
+    pygame.draw.polygon(surface, cup_shadow, [(x + int(1 * scale), y + int(1 * scale)) for x, y in body])
+    pygame.draw.polygon(surface, cup_light, body)
+    pygame.draw.line(surface, cup_mid, body[0], body[3], max(1, int(2 * scale)))
+    pygame.draw.line(
+        surface,
+        (255, 255, 245),
+        (icon_cx - int(6 * scale), icon_cy - int(2 * scale)),
+        (icon_cx - int(5 * scale), icon_cy + int(6 * scale)),
+        max(1, int(1 * scale)),
+    )
+
+    pygame.draw.ellipse(
+        surface,
+        cup_light,
+        (icon_cx - int(10 * scale), icon_cy - int(7 * scale), int(20 * scale), max(5, int(7 * scale))),
+    )
+    pygame.draw.ellipse(
+        surface,
+        coffee,
+        (icon_cx - int(8 * scale), icon_cy - int(6 * scale), int(16 * scale), max(4, int(5 * scale))),
+    )
+    pygame.draw.ellipse(
+        surface,
+        crema,
+        (icon_cx - int(5 * scale), icon_cy - int(5 * scale), int(10 * scale), max(2, int(3 * scale))),
+    )
+
+    handle_rect = (
+        icon_cx + int(6 * scale),
+        icon_cy - int(2 * scale),
+        max(6, int(9 * scale)),
+        max(7, int(10 * scale)),
+    )
+    pygame.draw.arc(surface, cup_shadow, handle_rect, -1.35, 1.35, max(2, int(3 * scale)))
+    pygame.draw.arc(surface, cup_light, handle_rect, -1.35, 1.35, max(1, int(2 * scale)))
+
+    bolt_points = [
+        (icon_cx + int(1 * scale), icon_cy - int(1 * scale)),
+        (icon_cx - int(3 * scale), icon_cy + int(5 * scale)),
+        (icon_cx + int(1 * scale), icon_cy + int(5 * scale)),
+        (icon_cx - int(1 * scale), icon_cy + int(11 * scale)),
+        (icon_cx + int(6 * scale), icon_cy + int(2 * scale)),
+        (icon_cx + int(2 * scale), icon_cy + int(2 * scale)),
+    ]
+    pygame.draw.polygon(surface, (112, 72, 28), [(x + 1, y + 1) for x, y in bolt_points])
+    pygame.draw.polygon(surface, (255, 214, 74), bolt_points)
+
+    for offset, height in ((-5, 8), (0, 10), (5, 7)):
+        rect = (
+            icon_cx + int(offset * scale) - max(2, int(2 * scale)),
+            icon_cy - int((18 + height * 0.2) * scale),
+            max(4, int(5 * scale)),
+            max(6, int(height * scale)),
+        )
+        pygame.draw.arc(surface, steam, rect, 0.12, math.pi - 0.12, max(1, int(1.3 * scale)))
+
+
+def _draw_item_bag_expansion_icon(
+    surface,
+    icon_cx: int,
+    icon_cy: int,
+    scale: float,
+    icon_color,
+    icon_size: int | None = None,
+    active: bool = True,
+):
+    """Draw the active-item bag expansion perk at UI-icon scale."""
+    s = max(0.75, float(scale))
+    png_size = int(icon_size) if icon_size is not None else max(1, int(round(48 * s)))
+    icon = _get_item_bag_expansion_icon(png_size, active)
+    if icon is not None:
+        surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+        return
+
+    leather_dark = (92, 61, 38)
+    leather_mid = (158, 101, 55)
+    leather_light = (219, 160, 93)
+    stitch = (255, 216, 142)
+    shadow = (45, 32, 25)
+    glow = (120, 255, 185)
+    metal = (242, 198, 86)
+
+    def px(value):
+        return int(round(value * s))
+
+    bag_rect = pygame.Rect(icon_cx - px(9), icon_cy - px(4), px(18), px(13))
+    flap_rect = pygame.Rect(icon_cx - px(7), icon_cy - px(9), px(14), px(7))
+    pocket_rect = pygame.Rect(icon_cx - px(6), icon_cy + px(1), px(12), px(6))
+
+    pygame.draw.ellipse(
+        surface,
+        (0, 0, 0, 80),
+        (icon_cx - px(11), icon_cy + px(7), px(22), px(5)),
+    )
+    pygame.draw.rect(surface, shadow, bag_rect.move(px(1), px(1)), border_radius=max(1, px(3)))
+    pygame.draw.rect(surface, leather_mid, bag_rect, border_radius=max(1, px(3)))
+    pygame.draw.rect(surface, leather_light, bag_rect.inflate(-px(2), -px(2)), width=max(1, px(1)), border_radius=max(1, px(2)))
+
+    pygame.draw.rect(surface, leather_dark, flap_rect.move(0, px(1)), border_radius=max(1, px(3)))
+    pygame.draw.rect(surface, leather_light, flap_rect, border_radius=max(1, px(3)))
+    pygame.draw.arc(
+        surface,
+        leather_dark,
+        (icon_cx - px(6), icon_cy - px(13), px(12), px(10)),
+        math.pi,
+        math.tau,
+        max(1, px(2)),
+    )
+    pygame.draw.rect(surface, metal, (icon_cx - px(3), icon_cy - px(5), px(6), px(4)), border_radius=max(1, px(1)))
+    pygame.draw.rect(surface, (122, 82, 44), pocket_rect, border_radius=max(1, px(2)))
+    pygame.draw.line(surface, (255, 218, 142), (pocket_rect.left + px(2), pocket_rect.y + px(1)), (pocket_rect.right - px(2), pocket_rect.y + px(1)), max(1, px(1)))
+
+    for sx in (bag_rect.left + px(2), bag_rect.right - px(2)):
+        for sy in range(bag_rect.y + px(2), bag_rect.bottom - px(1), max(2, px(3))):
+            pygame.draw.circle(surface, stitch, (sx, sy), max(1, px(0.8)))
+
+    arrow_y = icon_cy - px(1)
+    for sign in (-1, 1):
+        tip_x = icon_cx + sign * px(15)
+        base_x = icon_cx + sign * px(10)
+        pygame.draw.line(surface, (42, 95, 72), (icon_cx + sign * px(7), arrow_y + px(1)), (base_x, arrow_y + px(1)), max(1, px(3)))
+        pygame.draw.line(surface, glow, (icon_cx + sign * px(7), arrow_y), (base_x, arrow_y), max(1, px(2)))
+        pygame.draw.polygon(
+            surface,
+            glow,
+            [
+                (tip_x, arrow_y),
+                (base_x, arrow_y - px(4)),
+                (base_x, arrow_y + px(4)),
+            ],
+        )
+
+    plus_rect_w = max(2, px(7))
+    plus_rect_h = max(1, px(2))
+    pygame.draw.rect(surface, (120, 85, 36), (icon_cx - plus_rect_w // 2 + 1, icon_cy + px(4) + 1, plus_rect_w, plus_rect_h), border_radius=1)
+    pygame.draw.rect(surface, (120, 85, 36), (icon_cx - plus_rect_h // 2 + 1, icon_cy + px(1) + 1, plus_rect_h, plus_rect_w), border_radius=1)
+    pygame.draw.rect(surface, metal, (icon_cx - plus_rect_w // 2, icon_cy + px(4), plus_rect_w, plus_rect_h), border_radius=1)
+    pygame.draw.rect(surface, metal, (icon_cx - plus_rect_h // 2, icon_cy + px(1), plus_rect_h, plus_rect_w), border_radius=1)
+
+
+def _draw_item_polish_perk_icon(
+    surface: pygame.Surface,
+    cx: int,
+    cy: int,
+    size: int,
+    *,
+    active: bool = True,
+) -> None:
+    """Draw the item-polish perk motif: faceted gem plus shine brush."""
+    s = max(10, int(size))
+    icon = _get_item_polish_icon(s, active)
+    if icon is not None:
+        surface.blit(icon, icon.get_rect(center=(cx, cy)))
+        return
+
+    half = max(5, s // 2)
+
+    if active:
+        gem_top = (178, 236, 255)
+        gem_mid = (80, 190, 255)
+        gem_deep = (34, 108, 196)
+        shine = (255, 255, 255)
+        warm = (255, 232, 126)
+        brush = (232, 196, 112)
+        brush_dark = (126, 82, 42)
+    else:
+        gem_top = (150, 160, 170)
+        gem_mid = (90, 105, 120)
+        gem_deep = (50, 62, 76)
+        shine = (190, 190, 190)
+        warm = (160, 150, 110)
+        brush = (135, 120, 90)
+        brush_dark = (82, 74, 62)
+
+    def pt(dx: float, dy: float) -> tuple[int, int]:
+        return (cx + int(dx * half), cy + int(dy * half))
+
+    glow_color = (80, 190, 255) if active else (80, 90, 105)
+    for idx in range(3):
+        radius = int(half * (0.84 + idx * 0.16))
+        if radius > 0:
+            pygame.draw.circle(surface, glow_color, (cx, cy), radius, max(1, s // 18))
+
+    top = pt(0, -0.86)
+    upper_left = pt(-0.72, -0.18)
+    upper_right = pt(0.72, -0.18)
+    lower = pt(0, 0.82)
+    left_mid = pt(-0.48, 0.12)
+    right_mid = pt(0.48, 0.12)
+    center = pt(0, 0.16)
+
+    pygame.draw.polygon(surface, gem_deep, [upper_left, upper_right, lower])
+    pygame.draw.polygon(surface, gem_mid, [top, upper_right, right_mid, center])
+    pygame.draw.polygon(surface, gem_mid, [top, center, left_mid, upper_left])
+    pygame.draw.polygon(surface, gem_top, [top, upper_left, upper_right])
+    pygame.draw.polygon(surface, (214, 246, 255) if active else (170, 176, 182), [top, pt(-0.20, -0.22), pt(0.20, -0.22)])
+    pygame.draw.polygon(surface, (122, 214, 255) if active else (110, 120, 130), [pt(-0.20, -0.22), center, pt(0.20, -0.22)])
+    pygame.draw.lines(surface, (25, 92, 180) if active else (45, 55, 65), True, [top, upper_right, lower, upper_left], max(1, s // 18))
+
+    # Polishing stroke and handle, angled so the icon reads as "polish".
+    brush_start = pt(-0.74, 0.68)
+    brush_end = pt(0.78, -0.64)
+    pygame.draw.line(surface, brush_dark, brush_start, brush_end, max(2, s // 9))
+    pygame.draw.line(surface, brush, pt(-0.65, 0.58), pt(0.54, -0.44), max(2, s // 12))
+    pygame.draw.circle(surface, warm, pt(0.62, -0.52), max(2, s // 10))
+    pygame.draw.circle(surface, shine, pt(0.58, -0.57), max(1, s // 18))
+
+    sparkle_points = [
+        (pt(-0.58, -0.62), max(2, s // 12)),
+        (pt(0.70, 0.24), max(1, s // 16)),
+        (pt(-0.18, -0.48), max(1, s // 18)),
+    ]
+    for (sx, sy), radius in sparkle_points:
+        pygame.draw.line(surface, shine, (sx - radius, sy), (sx + radius, sy), max(1, s // 30))
+        pygame.draw.line(surface, shine, (sx, sy - radius), (sx, sy + radius), max(1, s // 30))
+    pygame.draw.circle(surface, shine, pt(-0.20, -0.12), max(1, s // 13))
+
+
+def _get_small_cell_perk_icon_size(skill_id: str, size: int, scale_multiplier: float, default_size: int) -> int:
+    """TAB character-info perk grid icon sizing tuned against dash_module_control."""
+    if size > 36 or scale_multiplier <= 2.0:
+        return max(1, int(default_size))
+
+    multipliers = {
+        "dash_acceleration": 1.16,
+        "dash_amplification": 1.12,
+        "dash_lightweight": 1.22,
+        "dash_jump": 1.18,
+        "item_luck": 1.34,
+        "item_caffeine": 1.16,
+        "item_cooldown_mastery": 1.34,
+        "item_gauge_mastery": 1.24,
+        "item_polish": 1.24,
+        "item_recycle": 1.14,
+        "item_bag_expansion": 1.34,
+        "item_slot": 1.34,
+        "special_lucky": 1.34,
+        "common_swiftness": 1.14,
+        "common_expansion": 1.18,
+        "common_bulk_up": 1.34,
+        "common_training": 1.24,
+        "perk_boost_charge": 1.22,
+        "perk_laurel_shield": 1.26,
+        "downtown_bargain": 1.18,
+    }
+    multiplier = multipliers.get(skill_id)
+    if multiplier is None:
+        return max(1, int(default_size))
+    return max(1, int(round(size * multiplier)))
+
+
+_MINI_SKILL_ICON_REGISTRY = {
+    "drive": _SMASHER_ORB_ICON_REGISTRY["drive"],
+    "power_smashing": _SMASHER_ORB_ICON_REGISTRY["power_smashing"],
+    "plasma": _SMASHER_ORB_ICON_REGISTRY["plasma"],
+    "magnum_grip": _SMASHER_ORB_ICON_REGISTRY["magnum_grip"],
+    "warp_gate": _SMASHER_ORB_ICON_REGISTRY["warp_gate"],
+    "recovery": _SMASHER_ORB_ICON_REGISTRY["recovery"],
+    "cleanse": _SMASHER_ORB_ICON_REGISTRY["cleanse"],
+    "shield_kiting": _SMASHER_ORB_ICON_REGISTRY["shield_kiting"],
+    "ghost_shot": _SMASHER_ORB_ICON_REGISTRY["ghost_shot"],
+    "unlock_plasma": {
+        **_SMASHER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["smasher"]["unlock_plasma"]],
+        "badge": "unlock",
+    },
+    "unlock_magnum_grip": {
+        **_SMASHER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["smasher"]["unlock_magnum_grip"]],
+        "badge": "unlock",
+    },
+    "unlock_warp_gate": {
+        **_SMASHER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["smasher"]["unlock_warp_gate"]],
+        "badge": "unlock",
+    },
+    "unlock_recovery_skill": {
+        **_SMASHER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["smasher"]["unlock_recovery_skill"]],
+        "badge": "unlock",
+    },
+    "unlock_cleanse": {
+        **_SMASHER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["smasher"]["unlock_cleanse"]],
+        "badge": "unlock",
+    },
+    "unlock_shield_kiting": {
+        **_SMASHER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["smasher"]["unlock_shield_kiting"]],
+        "badge": "unlock",
+    },
+    "unlock_ghost_shot": {
+        **_SMASHER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["smasher"]["unlock_ghost_shot"]],
+        "badge": "unlock",
+    },
+    "shadow_step": _VIPER_ORB_ICON_REGISTRY["shadow_step"],
+    "blade_rush": _VIPER_ORB_ICON_REGISTRY["blade_rush"],
+    "nerve_strike": _VIPER_ORB_ICON_REGISTRY["nerve_strike"],
+    "dive_strike": _VIPER_ORB_ICON_REGISTRY["dive_strike"],
+    "marshal_kick": _VIPER_ORB_ICON_REGISTRY["marshal_kick"],
+    "phantom_kick": _VIPER_ORB_ICON_REGISTRY["phantom_kick"],
+    "dark_blade": _VIPER_ORB_ICON_REGISTRY["dark_blade"],
+    "chaos_spear": _VIPER_ORB_ICON_REGISTRY["chaos_spear"],
+    "core_flip": _VIPER_ORB_ICON_REGISTRY["core_flip"],
+    "dual_glitch": _VIPER_ORB_ICON_REGISTRY["dual_glitch"],
+    "ignition_aura": _VIPER_ORB_ICON_REGISTRY["ignition_aura"],
+    "unlock_nerve_strike": {
+        **_VIPER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["viper"]["unlock_nerve_strike"]],
+        "badge": "unlock",
+    },
+    "unlock_dive_strike": {
+        **_VIPER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["viper"]["unlock_dive_strike"]],
+        "badge": "unlock",
+    },
+    "unlock_chaos_spear": {
+        **_VIPER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["viper"]["unlock_chaos_spear"]],
+        "badge": "unlock",
+    },
+    "unlock_dual_glitch": {
+        **_VIPER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["viper"]["unlock_dual_glitch"]],
+        "badge": "unlock",
+    },
+    "unlock_ignition_aura": {
+        **_VIPER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["viper"]["unlock_ignition_aura"]],
+        "badge": "unlock",
+    },
+    "double_marshal_kick": _VIPER_ORB_ICON_REGISTRY[
+        _CHARACTER_UNLOCK_PERKS["viper"]["double_marshal_kick"]
+    ],
+    "supply_drop": _SOLDIER_ORB_ICON_REGISTRY["supply_drop"],
+    "emergency_supply": _SOLDIER_ORB_ICON_REGISTRY["emergency_supply"],
+    "commando_pistol": _SOLDIER_ORB_ICON_REGISTRY["commando_pistol"],
+    "net_gun": _SOLDIER_ORB_ICON_REGISTRY["net_gun"],
+    "fire_support": _SOLDIER_ORB_ICON_REGISTRY["fire_support"],
+    "bowling_trap": _SOLDIER_ORB_ICON_REGISTRY["bowling_trap"],
+    "suicide_drone": _SOLDIER_ORB_ICON_REGISTRY["suicide_drone"],
+    "soldier_unlock_net_gun": {
+        **_SOLDIER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["soldier"]["soldier_unlock_net_gun"]],
+        "badge": "unlock",
+    },
+    "soldier_unlock_fire_support": {
+        **_SOLDIER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["soldier"]["soldier_unlock_fire_support"]],
+        "badge": "unlock",
+    },
+    "soldier_unlock_bowling_trap": {
+        **_SOLDIER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["soldier"]["soldier_unlock_bowling_trap"]],
+        "badge": "unlock",
+    },
+    "soldier_unlock_suicide_drone": {
+        **_SOLDIER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["soldier"]["soldier_unlock_suicide_drone"]],
+        "badge": "unlock",
+    },
+    "soldier_pistol_perk": {
+        **_SOLDIER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["soldier"]["soldier_pistol_perk"]],
+    },
+}
+
+
+def _draw_mini_skill_icon_from_registry(
+    surface,
+    registry_entry,
+    icon_cx,
+    icon_cy,
+    size,
+    scale,
+    scale_multiplier,
+    icon_color,
+    draw_unlock_badge,
+):
+    scale_cap = registry_entry.get("scale_cap", 1.25)
+    if size <= 36:
+        scale_cap = registry_entry.get("small_scale_cap", scale_cap)
+    icon_size = max(1, int(size * min(scale_cap, max(0.8, scale_multiplier))))
+    icon_loader = registry_entry.get("icon_loader")
+    if icon_loader is not None:
+        icon = icon_loader(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            if registry_entry.get("badge") == "unlock":
+                draw_unlock_badge()
+            return True
+
+    symbol = registry_entry.get("symbol")
+    if symbol:
+        if registry_entry.get("symbol_renderer") == "soldier":
+            _draw_soldier_skill_icon_symbol(
+                surface,
+                symbol,
+                icon_cx,
+                icon_cy,
+                max(20, int(34 * scale)),
+                True,
+                icon_color,
+            )
+            if registry_entry.get("badge") == "unlock":
+                draw_unlock_badge()
+            return True
+
+        _draw_skill_icon_symbol(
+            surface,
+            symbol,
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+        if registry_entry.get("badge") == "unlock":
+            draw_unlock_badge()
+        return True
+
+    return False
+
+
 def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, center_in_box=False):
     """미니 스킬 아이콘 그리기 - 스킬현황과 동일한 그림 (이름 없이 그림만)
     scale_multiplier: 그림 크기 배율 (기본 1.0 = 박스에 맞춤)
@@ -24695,34 +26958,341 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
 
     # 최소값 보장
     scale = max(0.8, scale)
+    icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
 
     # 하이라이트/그림자 색상 생성 헬퍼
     def lighter(color, amount=50):
         return tuple(min(255, c + amount) for c in color[:3])
     def darker(color, amount=50):
         return tuple(max(0, c - amount) for c in color[:3])
+    def should_show_unlock_badge():
+        for character_type, unlock_map in _CHARACTER_UNLOCK_PERKS.items():
+            target_skill = unlock_map.get(skill_id)
+            if target_skill:
+                return not _is_character_skill_owned(character_type, target_skill)
+        return True
+    def draw_commando_unlock_badge():
+        if not should_show_unlock_badge():
+            return
+        badge_x = icon_cx + int(6 * scale)
+        badge_y = icon_cy - int(8 * scale)
+        badge_r = max(2, int(3 * scale))
+        pygame.draw.circle(surface, (255, 215, 0), (badge_x, badge_y), badge_r, max(1, int(1 * scale)))
+        pygame.draw.rect(
+            surface,
+            (255, 215, 0),
+            (badge_x - int(2 * scale), badge_y + int(1 * scale), int(4 * scale), int(4 * scale)),
+            border_radius=max(1, int(1 * scale)),
+        )
+    def draw_commando_firearm_icon(weapon_name: str, *, show_unlock_badge: bool = False):
+        if weapon_name == "bazooka":
+            icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+            icon = _get_soldier_bazooka_orb_icon(icon_size, True)
+            if icon is not None:
+                surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+                if show_unlock_badge:
+                    draw_commando_unlock_badge()
+                return
+
+            tube_x = icon_cx - int(11 * scale)
+            tube_y = icon_cy - int(3 * scale)
+            tube_w = int(18 * scale)
+            tube_h = int(6 * scale)
+            tube_rect = pygame.Rect(tube_x, tube_y, tube_w, tube_h)
+            pygame.draw.rect(surface, darker(icon_color, 30), tube_rect, border_radius=max(1, int(2 * scale)))
+            pygame.draw.rect(surface, lighter(icon_color, 10), tube_rect.inflate(-int(2 * scale), -int(2 * scale)), border_radius=max(1, int(2 * scale)))
+            tip = [
+                (tube_rect.right - int(1 * scale), icon_cy - int(4 * scale)),
+                (tube_rect.right + int(6 * scale), icon_cy),
+                (tube_rect.right - int(1 * scale), icon_cy + int(4 * scale)),
+            ]
+            pygame.draw.polygon(surface, (255, 180, 110), tip)
+            pygame.draw.line(surface, (255, 230, 180), (tube_rect.right + int(2 * scale), icon_cy - int(1 * scale)), (tube_rect.right + int(5 * scale), icon_cy), max(1, int(1 * scale)))
+            grip_rect = pygame.Rect(icon_cx - int(1 * scale), icon_cy + int(1 * scale), int(4 * scale), int(8 * scale))
+            pygame.draw.rect(surface, (90, 65, 45), grip_rect, border_radius=max(1, int(2 * scale)))
+            pygame.draw.circle(surface, (240, 220, 160), (tube_rect.left + int(1 * scale), icon_cy), max(1, int(1.5 * scale)))
+        elif weapon_name == "ak47":
+            icon_size = max(1, int(size * min(1.18, max(0.8, scale_multiplier))))
+            if size <= 36:
+                icon_size = max(1, min(icon_size, int(round(size * 1.06))))
+            icon = _get_soldier_ak47_orb_icon(icon_size, True)
+            if icon is not None:
+                surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+                if show_unlock_badge:
+                    draw_commando_unlock_badge()
+                return
+
+            stock_points = [
+                (icon_cx - int(11 * scale), icon_cy - int(3 * scale)),
+                (icon_cx - int(5 * scale), icon_cy - int(3 * scale)),
+                (icon_cx - int(3 * scale), icon_cy + int(1 * scale)),
+                (icon_cx - int(8 * scale), icon_cy + int(5 * scale)),
+                (icon_cx - int(12 * scale), icon_cy + int(3 * scale)),
+            ]
+            pygame.draw.polygon(surface, (105, 76, 52), stock_points)
+            body_rect = pygame.Rect(icon_cx - int(4 * scale), icon_cy - int(4 * scale), int(11 * scale), int(6 * scale))
+            pygame.draw.rect(surface, darker(icon_color, 35), body_rect, border_radius=max(1, int(2 * scale)))
+            pygame.draw.rect(surface, lighter(icon_color, 5), body_rect.inflate(-int(2 * scale), -int(2 * scale)), border_radius=max(1, int(2 * scale)))
+            pygame.draw.line(surface, (170, 170, 175), (body_rect.right, icon_cy - int(2 * scale)), (icon_cx + int(12 * scale), icon_cy - int(2 * scale)), max(1, int(2 * scale)))
+            pygame.draw.line(surface, (210, 210, 210), (icon_cx + int(8 * scale), icon_cy - int(3 * scale)), (icon_cx + int(8 * scale), icon_cy - int(6 * scale)), max(1, int(1 * scale)))
+            mag_points = [
+                (icon_cx + int(1 * scale), icon_cy + int(2 * scale)),
+                (icon_cx + int(6 * scale), icon_cy + int(4 * scale)),
+                (icon_cx + int(4 * scale), icon_cy + int(11 * scale)),
+                (icon_cx - int(1 * scale), icon_cy + int(8 * scale)),
+            ]
+            pygame.draw.polygon(surface, lighter(icon_color, 15), mag_points)
+        if show_unlock_badge:
+            draw_commando_unlock_badge()
 
     # 스킬별 아이콘 그림 그리기 (고퀄리티 버전)
-    if skill_id == "dash_lightweight":
-        # 깃털 모양 (가벼움) - 그라데이션 효과 (크기 축소)
-        feather_surf = pygame.Surface((int(10*scale), int(14*scale)), pygame.SRCALPHA)
-        for j in range(int(14*scale)):
-            ratio = j / int(14*scale)
-            c = int(255 - ratio * 40)
-            pygame.draw.line(feather_surf, (c, c, c, 220), (0, j), (int(10*scale), j))
-        # 깃털 마스크 적용
-        pygame.draw.ellipse(feather_surf, (255, 255, 255, 0), (0, 0, int(10*scale), int(14*scale)))
-        surface.blit(feather_surf, (icon_cx - int(5*scale), icon_cy - int(7*scale)))
-        pygame.draw.ellipse(surface, (255, 255, 255), (icon_cx - int(4*scale), icon_cy - int(6*scale), int(8*scale), int(12*scale)), max(1, int(1*scale)))
-        # 깃털 줄기
-        pygame.draw.line(surface, darker(icon_color), (icon_cx, icon_cy - int(5*scale)), (icon_cx, icon_cy + int(5*scale)), max(1, int(2*scale)))
-        pygame.draw.line(surface, icon_color, (icon_cx - 1, icon_cy - int(5*scale)), (icon_cx - 1, icon_cy + int(5*scale)), 1)
-        # 깃털 결
-        for dy in range(-int(4*scale), int(5*scale), max(1, int(2*scale))):
-            pygame.draw.line(surface, lighter(icon_color, 30), (icon_cx, icon_cy + dy), (icon_cx + int(3*scale), icon_cy + dy + int(1*scale)), 1)
-            pygame.draw.line(surface, darker(icon_color, 30), (icon_cx, icon_cy + dy), (icon_cx - int(3*scale), icon_cy + dy + int(1*scale)), 1)
-        # 하이라이트
-        pygame.draw.ellipse(surface, (255, 255, 255, 150), (icon_cx - int(2*scale), icon_cy - int(4*scale), int(3*scale), int(4*scale)))
+    if skill_id == "downtown_treasure_map":
+        icon_size = max(1, min(size + 6, int(size * 1.15)))
+        icon = _get_downtown_treasure_map_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+    registry_entry = _MINI_SKILL_ICON_REGISTRY.get(skill_id)
+    if registry_entry is not None and _draw_mini_skill_icon_from_registry(
+        surface,
+        registry_entry,
+        icon_cx,
+        icon_cy,
+        size,
+        scale,
+        scale_multiplier,
+        icon_color,
+        draw_commando_unlock_badge,
+    ):
+        return
+
+    if skill_id == "shield_kiting":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_shield_kiting_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "shield_kiting",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "plasma":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_plasma_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "plasma",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "magnum_grip":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_magnum_grip_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "magnum_grip",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "warp_gate":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_warp_gate_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "warp_gate",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "recovery":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_recovery_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "recovery",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "cleanse":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_cleanse_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "cleanse",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "ghost_shot":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_ghost_shot_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "ghost_shot",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "drive":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_drive_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "drive",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "power_smashing":
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_smasher_power_smashing_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "power_smashing",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "shadow_step":
+        # 쉐도우 백스텝은 5구슬 HUD와 같은 모티프를 미니 UI에서도 유지한다.
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_viper_shadow_step_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        mini_s = max(10, int(17 * scale))
+        _draw_viper_shadow_step_orb_icon(
+            surface,
+            icon_cx,
+            icon_cy,
+            mini_s,
+            (255, 255, 255),
+            icon_color,
+            lighter(icon_color, 80),
+            darker(icon_color, 70),
+            active=True,
+        )
+
+    elif skill_id == "blade_rush":
+        # 에어 블레이드도 5구슬 HUD와 같은 PNG 구슬을 미니 UI에서 사용한다.
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_viper_blade_rush_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        # PNG가 없으면 기존 HUD 심볼을 축소 fallback으로 사용한다.
+        _draw_skill_icon_symbol(
+            surface,
+            "blade_rush",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "marshal_kick":
+        # 마샬 킥도 5구슬 HUD와 같은 PNG 구슬을 미니 UI에서 사용한다.
+        icon_size = max(1, int(size * min(1.25, max(0.8, scale_multiplier))))
+        icon = _get_viper_marshal_kick_orb_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_skill_icon_symbol(
+            surface,
+            "marshal_kick",
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
+
+    elif skill_id == "dash_lightweight":
+        icon_size = _get_small_cell_perk_icon_size(skill_id, size, scale_multiplier, icon_size)
+        icon = _get_dash_lightweight_icon(icon_size, True)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(icon_cx, icon_cy)))
+            return
+
+        _draw_lightweight_feather_icon(
+            surface,
+            icon_cx,
+            icon_cy,
+            max(20, int(34 * scale)),
+            True,
+            icon_color,
+        )
 
     elif skill_id == "dash_battery_pack":
         # 배터리 모양 - 3D 효과
@@ -194835,50 +197405,24 @@ def show_character_item_manager():
         except:
             pass
         return get_item_icon(item_name)
-    
-    all_items = [
-        # 엑티브 아이템들
-        {"name": "long_boost", "type": "active", "icon": get_icon_safe("long_boost_icon", "long_boost")},
-        {"name": "gauge_charge", "type": "active", "icon": get_icon_safe("gauge_200_icon", "gauge_charge")},
-        {"name": "life_elixir", "type": "active", "icon": get_icon_safe("life_elixir_icon", "life_elixir")},
-        {"name": "vitamin_pill", "type": "active", "icon": get_icon_safe("vitamin_pill_icon", "vitamin_pill")},
-        {"name": "aipill", "type": "active", "icon": get_icon_safe("aipill_icon", "aipill")},
-        {"name": "wall", "type": "active", "icon": get_icon_safe("wall_icon", "wall")},
-        {"name": "molotov", "type": "active", "icon": get_icon_safe("molotov_icon", "molotov")},
-        {"name": "grenade", "type": "active", "icon": get_icon_safe("grenade_icon", "grenade")},
-        {"name": "spider_mine", "type": "active", "icon": get_icon_safe("spider_mine_icon", "spider_mine")},
-        {"name": "flare", "type": "active", "icon": get_icon_safe("flare_icon", "flare")},
-        {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
-        {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
-        {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
-        {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
-        {"name": "gods_stone", "type": "active", "icon": get_item_icon("gods_stone")},
-        {"name": "laser_scope", "type": "active", "icon": get_item_icon("laser_scope")},
-        {"name": "regeneration_potion", "type": "active", "icon": get_item_icon("regeneration_potion")},
-        {"name": "boomerang", "type": "active", "icon": get_item_icon("boomerang")},
-        {"name": "soap", "type": "active", "icon": get_item_icon("soap")},
-        # 패시브 아이템들
-        {"name": "slot_add", "type": "passive", "icon": get_icon_safe("slot_add_icon", "slot_add")},
-        {"name": "revival", "type": "passive", "icon": get_icon_safe("revival_icon", "revival")},
-        {"name": "master", "type": "passive", "icon": get_icon_safe("master_icon", "master")},
-        {"name": "cooltime", "type": "passive", "icon": get_icon_safe("cooltime_icon", "cooltime")},
-        {"name": "speedboots", "type": "passive", "icon": get_icon_safe("speedboots_icon", "speedboots")},
-        {"name": "gravitybelt", "type": "passive", "icon": get_icon_safe("gravitybelt_icon", "gravitybelt")},
-        {"name": "timer_belt", "type": "passive", "icon": get_icon_safe("timer_belt_icon", "timer_belt")},
-        {"name": "speedgear", "type": "passive", "icon": get_icon_safe("speedgear_icon", "speedgear")},
-        {"name": "battery", "type": "passive", "icon": get_icon_safe("battery_icon", "battery")},
-        {"name": "chargebag", "type": "passive", "icon": get_icon_safe("chargebag_icon", "chargebag")},
-        {"name": "spikeboots", "type": "passive", "icon": get_icon_safe("spikeboots_icon", "spikeboots")},
-        {"name": "dashgear", "type": "passive", "icon": get_icon_safe("dashgear_icon", "dashgear")},
-        {"name": "bulkup", "type": "passive", "icon": get_icon_safe("bulkup_icon", "bulkup")},
-        {"name": "sensor", "type": "passive", "icon": get_icon_safe("sensor_icon", "sensor")},
-        {"name": "dashholder", "type": "passive", "icon": get_icon_safe("dashholder_icon", "dashholder")},
-        {"name": "foul_whistle", "type": "passive", "icon": get_icon_safe("foul_whistle_icon", "foul_whistle")},
-        {"name": "star_detector", "type": "passive", "icon": get_icon_safe("star_detector_icon", "star_detector")},
-        {"name": "lucky_coin", "type": "passive", "icon": get_item_icon("lucky_coin")},
-        {"name": "adversity_armor", "type": "passive", "icon": get_item_icon("adversity_armor")},
-        {"name": "shrapnel_armor", "type": "passive", "icon": get_item_icon("shrapnel_armor")},
-    ]
+
+    def build_item_manager_entry(item_name):
+        item_type = "passive" if items.is_passive_inventory_item(item_name) else "active"
+        return {
+            "name": item_name,
+            "type": item_type,
+            "icon": get_icon_safe(f"{item_name}_icon", item_name),
+        }
+
+    excluded_manager_items = (
+        getattr(items, "LEGENDARY_PASSIVE_ITEM_NAMES", set())
+        | {"hero_seal", "minor_hero_seal", "intermediate_hero_seal"}
+    )
+    all_items = list()
+    for item_type in items.ITEM_TYPES:
+        item_name = item_type.get("name")
+        if item_name and item_name not in excluded_manager_items:
+            all_items.append(build_item_manager_entry(item_name))
 
     # 전설 아이템 추가
     legendary_manager = get_legendary_manager()
@@ -196414,8 +198958,7 @@ def _online_client_apply_state():
                 "y": _cp_y,
             }
             # 패시브/액티브 구분하여 저장
-            _passive_names = {"speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "timer_belt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "pandora_legacy", "megingjord", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal", "lucky_coin", "adversity_armor", "shrapnel_armor", "soul_burst", "sage_ring", "venom_mist_gauntlet", "dowsing_goggles", "fake_arm", "heavenly_cape"}
-            if _cp_name in _passive_names:
+            if items.is_passive_inventory_item(_cp_name):
                 store_passive_item(_cp_data)
             else:
                 store_active_item(_cp_data)
