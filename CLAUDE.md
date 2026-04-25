@@ -661,6 +661,11 @@ source of "wrong stage edited" bugs.
 
 - Code `stage5`, `animated_bg_stage5`, `Stage5ChineseMarket` = **real Stage 6 Honglyeon (fire)**
 - Code `stage6`, `animated_bg_stage6`, `AnimatedBackgroundStage6` = **real Stage 5 Nemesis (ocean)**
+- Runtime stage comparisons must use the named code-ID constants from
+  `config/constants.py`: `STAGE_HONGLYEON_FIRE = 5` and
+  `STAGE_NEMESIS_OCEAN = 6`. Do not add new raw `current_stage == 5`,
+  `current_stage == 6`, `stage == 5`, or `stage == 6` checks; the
+  registry coverage safety check rejects those magic-number comparisons.
 
 When the user says "work on stage 5" they mean Nemesis (ocean). When they
 say "work on stage 6" they mean Honglyeon (fire). Do not trust the

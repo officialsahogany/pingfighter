@@ -15119,7 +15119,7 @@ def _check_pillar_dynamic_active(stage, renderer):
             if _mm and (_mm.active_monkeys or _mm.landed_bananas):
                 return True
         # 스테이지 5(코드): 홍련 필러 불꽃/엠버/뱀 연출
-        elif stage == 5:
+        elif stage == STAGE_HONGLYEON_FIRE:
             _hb = getattr(renderer, '_hongryeon_bg', None)
             if _hb:
                 if getattr(_hb, '_decor_surface_dirty', False):
@@ -15155,7 +15155,7 @@ def _check_pillar_dynamic_active(stage, renderer):
 def _get_pillar_render_interval(stage, renderer):
     interval = _pillar_bg_render_interval
     try:
-        if stage == 5:
+        if stage == STAGE_HONGLYEON_FIRE:
             _hb = getattr(renderer, '_hongryeon_bg', None)
             if _hb:
                 if getattr(_hb, '_decor_surface_dirty', False):
@@ -15176,7 +15176,7 @@ def _get_pillar_render_interval(stage, renderer):
 
 def _should_use_periodic_pillar_refresh(stage, renderer):
     try:
-        if stage == 5:
+        if stage == STAGE_HONGLYEON_FIRE:
             _hb = getattr(renderer, '_hongryeon_bg', None)
             if _hb is not None:
                 return False
@@ -18995,7 +18995,7 @@ _stage6_ball_last_untracked_handle_log_ms = 0
 
 
 def _stage6_ball_debug_is_active() -> bool:
-    return bool(STAGE6_BALL_DEBUG and current_stage == 5)
+    return bool(STAGE6_BALL_DEBUG and current_stage == STAGE_HONGLYEON_FIRE)
 
 
 def _stage6_ball_note_untracked_handle_call() -> None:
@@ -19772,7 +19772,7 @@ def draw_stage6_ball_debug_overlay(surface: pygame.Surface) -> None:
         return
 
     overlay_lines: list[tuple[str, tuple[int, int, int]]] = []
-    if current_stage != 5:
+    if current_stage != STAGE_HONGLYEON_FIRE:
         _stage6_ball_last_center = None
         overlay_lines.append(("HONGRYEON BALL DEBUG armed - enter Stage 6", (160, 220, 255)))
     else:
@@ -30228,10 +30228,10 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         dt = elapsed_ms / 1000.0
         animated_bg_stage4.update(dt)
         animated_bg_stage4.draw(SCREEN)
-    elif current_stage == 5 and animated_bg_stage5 is not None:
+    elif current_stage == STAGE_HONGLYEON_FIRE and animated_bg_stage5 is not None:
         animated_bg_stage5.update(elapsed_ms)
         animated_bg_stage5.draw(SCREEN)
-    elif current_stage == 6 and animated_bg_stage6 is not None:
+    elif current_stage == STAGE_NEMESIS_OCEAN and animated_bg_stage6 is not None:
         animated_bg_stage6.update()
         animated_bg_stage6.draw(SCREEN)
     elif current_stage == 7 and animated_bg_stage7 is not None:
@@ -62833,7 +62833,7 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
         ball_inner_color = ENERGY_BALL_INNER_COLOR
         ball_ring_color = ENERGY_BALL_RING_COLOR
         ball_core_color = ENERGY_BALL_CORE_COLOR
-    reduced_detail = current_stage == 5 and not boost_active
+    reduced_detail = current_stage == STAGE_HONGLYEON_FIRE and not boost_active
 
     # 시간 기반 애니메이션
     current_time = pygame.time.get_ticks()
@@ -71069,7 +71069,7 @@ def update_plasma_wave():
         if plasma_gauge_drain_accumulator >= 1.0:
             drained = int(plasma_gauge_drain_accumulator)
             plasma_gauge_drain_accumulator -= drained
-            if current_stage == 5:
+            if current_stage == STAGE_HONGLYEON_FIRE:
                 # 스테이지 6 홍련 (코드상 stage5) → 구슬게이지 감소
                 hongryun_hit_count = max(0, hongryun_hit_count - drained)
             else:
@@ -75768,7 +75768,7 @@ def go_to_next_round():
             globals()["stage8_awaken_freeze_end_ms"] = pygame.time.get_ticks() + 3000
 
     # Stage 5 (displayed as Stage 6): 라운드 이월 시 홍련 용 구슬 1개 감소
-    if current_stage == 5 and hongryun_hit_count > 0:
+    if current_stage == STAGE_HONGLYEON_FIRE and hongryun_hit_count > 0:
         prev_orbs = hongryun_hit_count
         hongryun_hit_count = max(0, hongryun_hit_count - 1)
         if hongryun_hit_count < HONGRYUN_MAX_HITS:
@@ -88005,7 +88005,7 @@ def update_soldier_bullets():
             # Stage 6 (네메시스): 인터셉터와 충돌 체크
             if (
                 bullet["active"]
-                and current_stage == 6
+                and current_stage == STAGE_NEMESIS_OCEAN
                 and interceptors
             ):
                 for interceptor in interceptors[:]:  # 복사본으로 순회
@@ -93274,7 +93274,7 @@ def handle_player(keys):
                                 except Exception:
                                     pass
                     # ✈️ 마샬킥/팬텀킥 충격파로 반경 150px 내 인터셉터 파괴 (스테이지 5 = 코드상 stage6 네메시스)
-                    if current_stage == 6 and interceptors:
+                    if current_stage == STAGE_NEMESIS_OCEAN and interceptors:
                         _mk_impact_x = float(BALL.centerx)
                         _mk_impact_y = float(BALL.centery)
                         _mk_destroy_radius = 150.0
@@ -94220,7 +94220,7 @@ def handle_player(keys):
                 pass
 
         # 검기-인터셉터 충돌 판정 (페이드아웃 중에는 판정 없음)
-        if not _viper_blade_rush_fadeout and current_stage == 6 and interceptors:
+        if not _viper_blade_rush_fadeout and current_stage == STAGE_NEMESIS_OCEAN and interceptors:
             try:
                 _br_half_w2 = _viper_blade_rush_width // 2
                 _br_blade_rect2 = pygame.Rect(
@@ -98149,12 +98149,12 @@ def handle_player(keys):
         player_stun_immunity_timer -= 1
     
     #  Stage 5/6 화염 지대 충돌 체크 (대쉬 중에는 화염 소멸, 연막탄 연기는 넉백 면역)
-    if current_stage in (5, 6):
+    if current_stage in (STAGE_HONGLYEON_FIRE, STAGE_NEMESIS_OCEAN):
         # 연막탄 연기 안에 있는지 확인
         in_smoke_grenade = is_player_in_smoke()
 
         # Stage 5: 기존 이벤트 기반 판정 사용
-        if current_stage == 5 and stage5_events:
+        if current_stage == STAGE_HONGLYEON_FIRE and stage5_events:
             is_in_fire, push_direction = stage5_events.check_fire_zone_collision(
                 PLAYER, is_rolling=rolling_active, in_smoke_grenade=in_smoke_grenade
             )
@@ -99202,7 +99202,7 @@ def handle_player(keys):
                 play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_BLOCK)
             # Stage 6: 홍련폭염 활성 중 토르쉴드 가드 성공 기록
             try:
-                if current_stage == 6 and flame_trail_active:
+                if current_stage == STAGE_NEMESIS_OCEAN and flame_trail_active:
                     globals()['stage6_hongryun_guarded_during_inferno'] = True
             except Exception:
                 pass
@@ -101901,7 +101901,7 @@ def apply_health_boss_damage(amount: int, *, source: str = "unknown", trigger_fl
     if boss_damage_preview_health < boss_current_health:
         boss_damage_preview_health = boss_current_health
 
-    if trigger_flash and current_stage == 6:
+    if trigger_flash and current_stage == STAGE_NEMESIS_OCEAN:
         try:
             global stage6_boss_hit_timer, stage6_boss_hit_flash
             stage6_boss_hit_timer = max(stage6_boss_hit_timer, HALF_SECOND_FRAMES)
@@ -104470,7 +104470,7 @@ def handle_wall():
         #  화염 지대 내 보스 이동속도 50% 감소 효과 설정
         #  Stage 5 홍련은 화염병에 면역
         if in_fire_zone:
-            if current_stage != 5:  # Stage 5 홍련은 화염병 속도 감소에 면역
+            if current_stage != STAGE_HONGLYEON_FIRE:  # Stage 5 홍련은 화염병 속도 감소에 면역
                 # 전역 변수로 보스 속도 감소 플래그 설정 (handle_boss에서 참조)
                 fire_zone["boss_in_fire"] = True
                 global boss_speed_reduction_active, boss_speed_reduction_factor
@@ -104486,7 +104486,7 @@ def handle_wall():
         #  Stage 5 홍련은 화염병 넉백에도 면역
         if fire_zone["push_timer"] >= 30:  # 30프레임 = 0.5초 (9프레임에서 변경)
             fire_zone["push_timer"] = 0
-            if in_fire_zone and current_stage != 5:  # Stage 5 홍련은 넉백에 면역
+            if in_fire_zone and current_stage != STAGE_HONGLYEON_FIRE:  # Stage 5 홍련은 넉백에 면역
                 # 스턴 없이 즉시 밀어내기 - 화염 지대 중심으로부터 반대 방향으로
                 push_force = 60  # 매우 강한 밀어내기 힘 (35에서 60으로 대폭 증가)
                 # 화염 지대 중심으로부터의 방향에 따라 밀어내기
@@ -130694,7 +130694,7 @@ def draw_objects():
         else:
             boss_img = BOSS_IMG_STAGE4
             boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
-    elif current_stage == 5:
+    elif current_stage == STAGE_HONGLYEON_FIRE:
         boss_w, boss_h = BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
         if HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
             boss_img_prescaled = True
@@ -130793,7 +130793,7 @@ def draw_objects():
         # Tutorial Stage - Instructor (smaller size)
         boss_img = BOSS_IMG_TUTORIAL
         boss_w, boss_h = BOSS_IMG_TUTORIAL_WIDTH, BOSS_IMG_TUTORIAL_HEIGHT
-    elif current_stage == 6:
+    elif current_stage == STAGE_NEMESIS_OCEAN:
         #  스테이지 6: 항공모함 스타일 보스 (체력형)
         # 보스 속도 계산 (이전 위치와 현재 위치 차이)
         global boss_prev_x
@@ -130966,7 +130966,7 @@ def draw_objects():
         stage3_menhera_facing = "right"
         stage3_menhera_attack_anticipation_latched = False
         stage3_teddy_attack_anticipation_latched = False
-    if current_stage != 5:
+    if current_stage != STAGE_HONGLYEON_FIRE:
         stage5_honglyeon_prev_x = None
         stage5_honglyeon_facing = "right"
     #  풍악보이 상모돌리기 회전 효과
@@ -130980,7 +130980,7 @@ def draw_objects():
     # === 보스 던지는 모션 ===
     boss_offset_y = menhera_sprite_offset_y
     tilt_angle_boss = 0
-    if current_stage == 5 and boss_throwing:
+    if current_stage == STAGE_HONGLYEON_FIRE and boss_throwing:
         boss_offset_y = -10  # 살짝 위로 올림
         tilt_angle_boss = -15 if (pygame.time.get_ticks() // 100) % 2 == 0 else 15
 
@@ -131009,7 +131009,7 @@ def draw_objects():
 
     # === 스테이지 6 (네메시스) 공중 부유 모션 ===
     # 항공모함이 천천히 위아래로 흔들리는 효과
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         float_time = pygame.time.get_ticks()
         # 느린 사인파로 부드러운 부유 효과 (약 4초 주기)
         float_offset = math.sin(float_time * 0.0015) * 6  # 위아래 6픽셀 범위
@@ -131500,7 +131500,7 @@ def draw_objects():
                 bob_offset = math.sin(breath_progress * math.pi * 4) * 6 * (1.0 - 0.4 * breath_progress)
 
             # === 네메시스(스테이지 6) 붕괴/보물상자 연출 중 보스 숨기기 ===
-            if current_stage == 6 and (nemesis_death_active or nemesis_chest_active):
+            if current_stage == STAGE_NEMESIS_OCEAN and (nemesis_death_active or nemesis_chest_active):
                 if nemesis_chest_active or nemesis_death_phase >= 1:
                     pass  # Phase 1 이상: 보스 그리지 않음 (완전히 산산조각남)
                 else:
@@ -131980,7 +131980,7 @@ def draw_objects():
         _stage4_flame_particles = [p for p in _stage4_flame_particles if p['life'] > 0]
 
     #  Stage 5 보스 피격 효과 (움찔거림) - 일반 그리기에도 적용
-    if current_stage == 5 and stage5_boss_hurt_active and stage5_boss_hurt_timer > 0:
+    if current_stage == STAGE_HONGLYEON_FIRE and stage5_boss_hurt_active and stage5_boss_hurt_timer > 0:
         # 움찔거리는 효과 오버레이
         shake_intensity = 3  # 흔들림 강도
         shake_x = random.randint(-shake_intensity, shake_intensity)
@@ -132009,7 +132009,7 @@ def draw_objects():
         print(f"[ERROR] Ragnarok Hammer effect draw failed: {e}")
 
     # === Stage 6 쉴드 안테나 그리기 (패들 위에 직접) ===
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         # 왼쪽 안테나 (패들 왼쪽)
         antenna_left_x = BOSS.left + 20
         antenna_left_y = BOSS.centery
@@ -132227,7 +132227,7 @@ def draw_objects():
     DEBUG_SHOW_HITBOX = False  # True로 변경하면 히트박스가 보임
     if DEBUG_SHOW_HITBOX:
         # 스테이지 6에서만 확장된 히트박스 표시
-        if current_stage == 6:
+        if current_stage == STAGE_NEMESIS_OCEAN:
             # 확장된 히트박스 그리기 (반투명 빨간색)
             boss_hitbox_expanded = pygame.Rect(
                 BOSS.x - BOSS.width // 2,  # 왼쪽으로 절반 폭만큼 확장
@@ -136181,7 +136181,7 @@ def draw_objects():
     render_ghost_shot_blackhole_effects()
 
     #  Stage 5 이벤트 배경 그리기 (공 아래에 그려질 문과 기계) - 공보다 먼저 그려야 함!
-    if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == 5:
+    if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == STAGE_HONGLYEON_FIRE:
         stage5_events.draw_background(SCREEN)
 
     # === 에너지 트레일 비활성화 ===
@@ -136719,7 +136719,7 @@ def draw_objects():
                           (int(pos['x'] - sparkle_size * 2), 
                            int(pos['y'] - sparkle_size * 2)))
     # === Stage 5 화염탄 ===
-    if current_stage == 5:
+    if current_stage == STAGE_HONGLYEON_FIRE:
         for fireball in fireballs:
             pos = fireball[0]
             SCREEN.blit(FIREBALL_IMG, (pos[0] - 16, pos[1] - 16))
@@ -136930,7 +136930,7 @@ def draw_objects():
     draw_repair_jobs(SCREEN)
     draw_holy_light_particles(SCREEN)  # 성스러운 빛 파티클 그리기
     # 터렛 미사일 업데이트 및 그리기 (스테이지 6에서만)
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         current_time = pygame.time.get_ticks()
         # 미사일 업데이트
         new_missiles = []
@@ -137045,7 +137045,7 @@ def draw_objects():
         if len(turret_missiles) > 0:
             last_missile_time = pygame.time.get_ticks()
     # === 플라즈마 레이저 캐논 시스템 (스테이지 6) ===
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         global laser_cannon_active, last_laser_time, laser_charging, laser_charge_start
         global player_stunned, player_stun_end_time, laser_beam_duration, laser_rotating_mode, laser_rotation_direction, laser_cooldown
         global laser_rotation_range, laser_rotation_speed
@@ -137697,7 +137697,7 @@ def draw_objects():
             print(f"그물덫총 포즈 애니메이션 오류: {e}")
     
     # === 쉴드 안테나 시스템 (스테이지 6 = 실제 스테이지 5 네메시스) ===
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         current_time = pygame.time.get_ticks()
         # 라운드 2부터 쉴드 작동 (플레이어가 2점 이상 획득 시)
         shield_unlocked = round_wins >= 2
@@ -137809,7 +137809,7 @@ def draw_objects():
                 shield_antenna_active = False
                 last_shield_time = current_time
     # === 네메시스 보조 보스 패들 시스템 ===
-    if current_stage == 6 and not _is_stage7_ui_paused():
+    if current_stage == STAGE_NEMESIS_OCEAN and not _is_stage7_ui_paused():
         # 전기 스킬 업데이트
         update_nemesis_sub_boss_skill()
 
@@ -137895,7 +137895,7 @@ def draw_objects():
                 spawn_nemesis_sub_boss_pain_effect(sub_boss_cx, sub_boss_cy)
 
     # === 인터셉터 시스템 (스타크래프트 캐리어 스타일) ===
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         current_time = pygame.time.get_ticks()
         # 인터셉터 처음부터 해금 (4점 조건 제거)
         interceptor_unlocked = True
@@ -138487,7 +138487,7 @@ def draw_objects():
         # 텍스트 렌더링
         SCREEN.blit(boss_gauge_text_surface, (boss_text_x, boss_text_y))
         # === Stage 5 홍련폭염 게이지 - 용이 물고있는 신비로운 구슬 ===
-    if current_stage == 5:
+    if current_stage == STAGE_HONGLYEON_FIRE:
         # 구슬 크기와 간격
         orb_radius = 10  # 30% 작게 조정 (14 -> 10)
         spacing = 30  # 간격도 조정
@@ -148756,10 +148756,10 @@ def show_drive_monitor_demo(background):
                 else:
                     boss_img = BOSS_IMG_STAGE4
                     boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT))
-            elif current_stage == 5:
+            elif current_stage == STAGE_HONGLYEON_FIRE:
                 boss_img = BOSS_IMG_STAGE5
                 boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT))
-            elif current_stage == 6:
+            elif current_stage == STAGE_NEMESIS_OCEAN:
                 boss_img = draw_aircraft_carrier_boss(0, boss_x)
             else:
                 # 기본 보스 이미지
@@ -161248,7 +161248,7 @@ def draw_stage5_border():
     """스테이지 5 네메시스(해상) 벽 충돌 깜빡임 효과만 (기존 네온 테두리는 animated_bg_stage6가 그림)"""
     global stage5_border_flash_timer
     # 실제 스테이지 5 = 코드상 current_stage == 6 (네메시스/해상)
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         game_w = WIDTH
         border_thickness = 4  # animated_bg_stage6의 테두리 두께에 맞춤
         # 벽 충돌 시 깜빡임 효과 (바다 파란색 은은하게)
@@ -161274,7 +161274,7 @@ def draw_stage6_border():
     """스테이지 6 홍련(중국/화염) 벽 충돌 깜빡임 효과만 (기존 중국 문양 테두리는 animated_bg_stage5가 그림)"""
     global stage6_border_flash_timer
     # 실제 스테이지 6 = 코드상 current_stage == 5 (홍련/화염)
-    if current_stage == 5:
+    if current_stage == STAGE_HONGLYEON_FIRE:
         border_thickness = 10
         game_w = WIDTH
         # 벽 충돌 시 깜빡임 효과 (화염 붉은색 은은하게)
@@ -162440,7 +162440,7 @@ def draw_field():
                 pillar_renderer.set_player_dash_dir(0)
 
         # 스테이지 5(코드=실제6 홍련): 광폭화 뱀 공격용 플레이어 위치 전달
-        if current_stage == 5 and enraged_boss_active:
+        if current_stage == STAGE_HONGLYEON_FIRE and enraged_boss_active:
             # 내부 좌표 (게임 로직용)
             internal_cx = PLAYER.x + PLAYER.width // 2
             internal_cy = PLAYER.y + PLAYER.height // 2
@@ -162582,12 +162582,12 @@ def draw_field():
         dt = clock.get_time() / 1000.0 if 'clock' in globals() else 0.016
         animated_bg_stage4.update(dt)
         animated_bg_stage4.draw(SCREEN)
-    elif current_stage == 5 and animated_bg_stage5 is not None:
+    elif current_stage == STAGE_HONGLYEON_FIRE and animated_bg_stage5 is not None:
         # 스테이지5에서는 중국 전통시장 화염 맵 사용
         if background_update_allowed:
             animated_bg_stage5.update(clock.get_time())
         animated_bg_stage5.draw(SCREEN)
-    elif current_stage == 6 and animated_bg_stage6 is not None:
+    elif current_stage == STAGE_NEMESIS_OCEAN and animated_bg_stage6 is not None:
         # 스테이지6에서는 언더워터 사이버펑크 스타디움 애니메이션 배경 사용
         if background_update_allowed:
             animated_bg_stage6.update()
@@ -162725,7 +162725,7 @@ def draw_field():
         SCREEN.blit(barrier_text, text_rect)
 
     # 스테이지 6 (네메시스) 전용 방어막 시스템 렌더링 - 비활성화됨
-    if False and current_stage == 6:  # 방어막 시스템 비활성화
+    if False and current_stage == STAGE_NEMESIS_OCEAN:  # 방어막 시스템 비활성화
         time_now = pygame.time.get_ticks()
         barrier_height = 10
         barrier_y = 0
@@ -162880,7 +162880,7 @@ def check_deuce_system():
             # print("-   3")
         
         #  Stage 5 화염 이벤트 - 듀스 재시작 시 리셋 (타이머는 계속 진행)
-        if current_stage == 5 and FIRE_EVENT_AVAILABLE and stage5_events:
+        if current_stage == STAGE_HONGLYEON_FIRE and FIRE_EVENT_AVAILABLE and stage5_events:
             stage5_events.reset_for_deuce()
             # print("-    (  )")
         return "deuce_restart"
@@ -163047,7 +163047,7 @@ def draw_score():
 
 def draw_laser_cannon_gauge():
     """ 레이저 캐논 쿨타임 게이지바 (야마토포 스타일)"""
-    if current_stage != 6:
+    if current_stage != STAGE_NEMESIS_OCEAN:
         return
     # 플레이어 2점 이상 획득 시에만 표시 (체력 기반에서 변경)
     if round_wins < 2:
@@ -165645,7 +165645,7 @@ def reset_round(is_stage_start=False):
     global nemesis_sub_boss_skill_cooldown, nemesis_sub_boss_barrier_active
     global nemesis_sub_boss_electric_particles, nemesis_sub_boss_skill_triggered
     global nemesis_sub_boss_alive  # 배슬 전용 스킬 조건 체크용
-    if current_stage == 6 and is_stage_start:
+    if current_stage == STAGE_NEMESIS_OCEAN and is_stage_start:
         nemesis_sub_boss_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
         nemesis_sub_boss_target_x = nemesis_sub_boss_x
         nemesis_sub_boss_move_timer = pygame.time.get_ticks()
@@ -165660,11 +165660,11 @@ def reset_round(is_stage_start=False):
     # 스테이지 6 (네메시스) 보조 보스 전기 스킬 최초 발동 (3점 획득 후 다음 라운드)
     # 재발동은 update_nemesis_sub_boss_skill()에서 쿨타임 기반으로 자동 처리
     # 단, 보조 보스(배슬)가 살아있을 때만 발동 (배슬 전용 스킬)
-    if current_stage == 6 and not is_stage_start and nemesis_sub_boss_skill_triggered and nemesis_sub_boss_alive:
+    if current_stage == STAGE_NEMESIS_OCEAN and not is_stage_start and nemesis_sub_boss_skill_triggered and nemesis_sub_boss_alive:
         if activate_nemesis_sub_boss_skill():
             # print("[Stage5 네메시스] 보조 보스 전기 에너지 스킬 발동! (3점 획득 후)")
             nemesis_sub_boss_skill_triggered = False  # 발동 후 플래그 리셋
-    elif current_stage == 6 and not is_stage_start and nemesis_sub_boss_skill_triggered and not nemesis_sub_boss_alive:
+    elif current_stage == STAGE_NEMESIS_OCEAN and not is_stage_start and nemesis_sub_boss_skill_triggered and not nemesis_sub_boss_alive:
         # 배슬이 파괴된 상태에서 스킬 예약이 있으면 취소
         nemesis_sub_boss_skill_triggered = False
         # print("[Stage5 네메시스] 보조 보스 파괴됨 - 전기 스킬 예약 취소")
@@ -165673,7 +165673,7 @@ def reset_round(is_stage_start=False):
     global interceptors, interceptor_launch_time, interceptor_cooldown
     global interceptor_launching, interceptor_launch_queue
     global launch_bay_protrusion, launch_bay_state, launch_bay_ready_time
-    if current_stage == 6 and is_stage_start:
+    if current_stage == STAGE_NEMESIS_OCEAN and is_stage_start:
         interceptors = []
         interceptor_launch_queue = []
         interceptor_launching = False
@@ -166660,7 +166660,7 @@ def choose_server(show_text=True):
                 pass  # print("튜토리얼: 대쉬 연습 - 보스가 서브합니다")
         else:
             is_player_serve = True  # 일반 튜토리얼은 플레이어 서브
-    elif current_stage == 6:
+    elif current_stage == STAGE_NEMESIS_OCEAN:
         is_player_serve = True
     elif current_stage == 33:
         # 패널티킥: 교대 서브 (penalty_kick_is_player_serve에 따라)
@@ -168583,11 +168583,11 @@ def _process_wall_bounce(side: str) -> bool:
         stage4_border_flash_timer = stage4_border_flash_duration
 
     # --- 스테이지 5(네메시스/해상, 코드상 stage6): 테두리 깜빡임 ---
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         stage5_border_flash_timer = stage5_border_flash_duration
 
     # --- 스테이지 6(홍련/화염, 코드상 stage5): 테두리 깜빡임 ---
-    if current_stage == 5:
+    if current_stage == STAGE_HONGLYEON_FIRE:
         stage6_border_flash_timer = stage6_border_flash_duration
 
     # --- 스테이지 7(테트리서): 테두리 깜빡임 ---
@@ -168925,9 +168925,9 @@ def handle_ball():
         # 서브 대기 중에도 기존 화염탄은 계속 이동 (새 화염탄 발사만 중지)
         # 아래로 이동하지 않고 화염탄 처리만 수행
     # === Stage 5/6 화염탄 ===
-    if current_stage == 5 or (current_stage == 6 and fireballs):
+    if current_stage == STAGE_HONGLYEON_FIRE or (current_stage == STAGE_NEMESIS_OCEAN and fireballs):
         now = pygame.time.get_ticks()
-        if current_stage == 5:
+        if current_stage == STAGE_HONGLYEON_FIRE:
             #  라운드 시작 2.5초 후부터 화염탄 발사 가능 (스테이지 5 전용)
             # 서브 대기 중에는 새 화염탄 발사 안함
             if (now - fireball_last_cast > fireball_cooldown and
@@ -169084,7 +169084,7 @@ def handle_ball():
             flame_trail_active = False
             # Stage 6: 홍련폭염 종료 시, 가드 성공이 있었으면 50% 확률로 스타포인트 1개 드랍
             try:
-                if current_stage == 6 and stage6_hongryun_guarded_during_inferno:
+                if current_stage == STAGE_NEMESIS_OCEAN and stage6_hongryun_guarded_during_inferno:
                     globals()['stage6_hongryun_guarded_during_inferno'] = False
                     if random.random() < 0.5:
                         if 'trade_point_system' in globals() and trade_point_system:
@@ -171410,7 +171410,7 @@ def handle_ball():
             return
 
         # 스테이지 5 (네메시스) 보조 보스 전기 방어막 시스템 (코드상 stage 6 = 실제 스테이지 5 네메시스)
-        if current_stage == 6 and nemesis_sub_boss_barrier_active:
+        if current_stage == STAGE_NEMESIS_OCEAN and nemesis_sub_boss_barrier_active:
             # 방어막 활성화 상태 - 공이 튕겨나감
             BALL.top = 5
             ball_vel[1] = abs(ball_vel[1])  # 아래쪽으로 방향 전환
@@ -171482,7 +171482,7 @@ def handle_ball():
             except Exception:
                 pass
             # print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
-            if current_stage == 6 and deuce_wins >= deuce_goal:
+            if current_stage == STAGE_NEMESIS_OCEAN and deuce_wins >= deuce_goal:
                 stop_dash_delay_sound()
                 arena_stop_all_skill_sounds()
                 record_victory_result(deuce_wins, deuce_losses)
@@ -171704,11 +171704,11 @@ def handle_ball():
 
             # Stage 5 네메시스에서 플레이어가 3점 획득 시 다음 라운드에 스킬 발동 예약 (코드상 stage 6 = 실제 스테이지 5 네메시스)
             # 단, 보조 보스(배슬)가 살아있을 때만 예약 (배슬 전용 스킬)
-            if current_stage == 6 and round_wins == 3 and nemesis_sub_boss_alive:
+            if current_stage == STAGE_NEMESIS_OCEAN and round_wins == 3 and nemesis_sub_boss_alive:
                 nemesis_sub_boss_skill_triggered = True
                 # print("[Stage5 네메시스] 보조 보스 전기 스킬 다음 라운드 발동 예약!")
 
-            if current_stage == 6 and round_wins >= win_goal:
+            if current_stage == STAGE_NEMESIS_OCEAN and round_wins >= win_goal:
                 stop_dash_delay_sound()
                 arena_stop_all_skill_sounds()
                 record_victory_result(round_wins, round_losses)
@@ -173768,7 +173768,7 @@ def handle_ball():
 
         # 스테이지 3~6, 8 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
         # 스테이지 7은 초인테트리서 전용 게이지 체계가 별도로 동작하므로 충전 없음
-        elif current_stage in (3, 4, 5, 6, 8):
+        elif current_stage in (3, 4, STAGE_HONGLYEON_FIRE, STAGE_NEMESIS_OCEAN, 8):
             if current_stage == 8:
                 if stage8_superspeed_active:
                     gain = 20  # 극정호신 중 게이지 수급 감소 유지
@@ -174215,7 +174215,7 @@ def handle_ball():
                 tauren_boss_sprite.trigger_attack(start_frame=4)
             except Exception:
                 pass
-        if current_stage == 5 and HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
+        if current_stage == STAGE_HONGLYEON_FIRE and HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
             try:
                 honglyeon_boss_sprite.trigger_attack(start_frame=5)
             except Exception:
@@ -174377,7 +174377,7 @@ def handle_ball():
 
         
         #  Stage 5 홍련 피격 효과 - 드라이브/파워스매싱에 따라 확률 변경
-        if current_stage == 5:
+        if current_stage == STAGE_HONGLYEON_FIRE:
             # 확률 계산: 파워스매싱 20%, 드라이브 10%, 일반 2%
             hurt_chance = 0.02  # 기본 2%
             if was_power_smashing:
@@ -174420,7 +174420,7 @@ def handle_ball():
                 if selected_character_type == "smasher" and boss_plasma_slowed:
                     damage += 1  # 3 → 4 데미지
                 #  스테이지 6에서는 파워스매싱 종료
-                if current_stage == 6:
+                if current_stage == STAGE_NEMESIS_OCEAN:
                     power_smashing_parabola_active = False
                     power_smashing_rng = None
                     power_smashing_direction = None
@@ -174431,7 +174431,7 @@ def handle_ball():
             elif drive_ball_active:
                 damage = boss_damage_values["drive"]  # 드라이브 데미지 (2)
                 #  스테이지 6에서는 드라이브 종료
-                if current_stage == 6:
+                if current_stage == STAGE_NEMESIS_OCEAN:
                     drive_ball_active = False
                     drive_hit_boss = False
                     drive_speed_increase = 0.0
@@ -174442,7 +174442,7 @@ def handle_ball():
                 damage = boss_damage_values["basic"]  # 기본 공격 데미지 (1)
             boss_current_health = max(0, boss_current_health - damage)
             #  스테이지 6 보스 피격 효과 (소닉 스타일)
-            if current_stage == 6:
+            if current_stage == STAGE_NEMESIS_OCEAN:
                 global stage6_boss_hit_timer, stage6_boss_hit_flash
                 stage6_boss_hit_timer = HALF_SECOND_FRAMES  # 0.5초간 깜빡임 (60 FPS 기준)
                 stage6_boss_hit_flash = True
@@ -174591,9 +174591,9 @@ def handle_ball():
             base_duration = 8  # 스테이지 3: 느린 회복
         elif current_stage == 4:
             base_duration = 6  # 스테이지 4: 기본 회복
-        elif current_stage == 5:
+        elif current_stage == STAGE_HONGLYEON_FIRE:
             base_duration = 9  # 스테이지 5 (홍련): 가장 느린 회복
-        elif current_stage == 6:
+        elif current_stage == STAGE_NEMESIS_OCEAN:
             base_duration = 7  # 스테이지 6 (네메시스): 중간 회복 (기울어짐 애니메이션은 별도 비활성화)
         else:
             base_duration = BOSS_HIT_ANIMATION_DURATION
@@ -174602,7 +174602,7 @@ def handle_ball():
         ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
         if ball_speed > 8:  # 빠른 공일 때 더 강한 애니메이션
             boss_hit_animation_timer = base_duration + 2
-        if current_stage == 5 and hongryun_ready:
+        if current_stage == STAGE_HONGLYEON_FIRE and hongryun_ready:
             flame_trail_active = True
             flame_trail_timer = TWO_SECONDS_FRAMES
             flame_trail_phase = 0
@@ -174614,7 +174614,7 @@ def handle_ball():
             hongryun_hit_count = 0
         # 보스 충돌 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if not ball_in_kuromi:
-            if current_stage == 6:
+            if current_stage == STAGE_NEMESIS_OCEAN:
                 # 스테이지 6 (네메시스) 전용 피격 사운드 및 이펙트
                 globals()['stage6_boss_hit_timer'] = HALF_SECOND_FRAMES  # 0.5초간 깜빡임
                 globals()['stage6_boss_hit_flash'] = True
@@ -175060,7 +175060,7 @@ def _boss_try_emergency_dash() -> bool:
     now_ms = pygame.time.get_ticks()
 
     # 네메시스(현 Stage 6) 미사일/레이저 기계 콘셉트 → 대쉬 금지
-    if current_stage == 6:
+    if current_stage == STAGE_NEMESIS_OCEAN:
         return False
 
     # 보스가 스턴 상태일 때 대쉬 불가
@@ -175231,7 +175231,7 @@ def _boss_try_emergency_dash() -> bool:
             stage3_menhera_facing = "right" if direction > 0 else "left"
             menhera_boss_sprite.facing = stage3_menhera_facing
             menhera_boss_sprite.trigger_dash()
-        if current_stage == 5 and HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
+        if current_stage == STAGE_HONGLYEON_FIRE and HONGLYEON_BOSS_ANIMATION_AVAILABLE and honglyeon_boss_sprite is not None:
             stage5_honglyeon_facing = "right" if direction > 0 else "left"
             honglyeon_boss_sprite.facing = stage5_honglyeon_facing
             honglyeon_boss_sprite.trigger_dash()
@@ -177514,7 +177514,7 @@ def record_victory_result(player_wins, boss_wins):
         return
 
     # 네메시스 스테이지 클리어 연출 중에는 추가 스타포인트/보너스 텍스트를 띄우지 않는다.
-    if current_stage == 6 and player_wins >= win_goal:
+    if current_stage == STAGE_NEMESIS_OCEAN and player_wins >= win_goal:
         if player_analyzer:
             try:
                 player_analyzer.record_victory_result(player_wins, boss_wins)
@@ -178808,7 +178808,7 @@ def handle_boss():
     # 일반 보스 AI: 통합 보스 설정 (스테이지별 + 리그별 완전 연계)
     config = get_final_boss_config(current_stage, ai_mode)
     # --- Stage 5 화염탄 던지는 중에는 0.5초간 이동 금지 ---
-    if current_stage == 5 and boss_throwing:
+    if current_stage == STAGE_HONGLYEON_FIRE and boss_throwing:
         boss_current_speed = 0
         # boss_throw_timer를 프레임 단위로 사용하고 있다면 30fps 기준 약 15프레임 = 0.5초
         boss_throw_timer -= 1
@@ -179039,7 +179039,7 @@ def handle_boss():
                 slow_multiplier *= (1.0 - _vmg_result['slow_amount'])
             if _vmg_result['gauge_drained'] > 0:
                 boss_special_gauge = max(0, boss_special_gauge - _vmg_result['gauge_drained'])
-            if _vmg_result['hongryun_orb_drained'] > 0 and current_stage == 5:
+            if _vmg_result['hongryun_orb_drained'] > 0 and current_stage == STAGE_HONGLYEON_FIRE:
                 hongryun_hit_count = max(0, hongryun_hit_count - _vmg_result['hongryun_orb_drained'])
                 if hongryun_hit_count < HONGRYUN_MAX_HITS:
                     hongryun_ready = False
@@ -179379,7 +179379,7 @@ def show_death_evaluation():
             boss_thumb = None
             try:
                 # 스테이지 5 (네메시스)는 배틀크루저 직접 그리기
-                if logic_stage == 5:
+                if logic_stage == STAGE_HONGLYEON_FIRE:
                     boss_thumb = _create_nemesis_battlecruiser_thumb(boss_thumb_size)
                 else:
                     # 다른 보스는 이미지 파일 로드
@@ -180755,7 +180755,7 @@ def draw_nemesis_treasure_chest(screen):
 def _defer_nemesis_stage_clear_sequence():
     """실제 스테이지 5(코드상 stage 6) 승리 시 즉시 결과 화면 대신 전용 연출을 실행한다."""
     global perfect_victory_bonus_timer, victory_bonus_type
-    if current_stage != 6:
+    if current_stage != STAGE_NEMESIS_OCEAN:
         return False
     if nemesis_death_active or nemesis_chest_active:
         return True
@@ -180818,9 +180818,9 @@ def _draw_nemesis_sequence_scene():
             draw_stage3_border()
         elif current_stage == 4:
             draw_stage4_border()
-        elif current_stage == 5:
+        elif current_stage == STAGE_HONGLYEON_FIRE:
             draw_stage6_border()
-        elif current_stage == 6:
+        elif current_stage == STAGE_NEMESIS_OCEAN:
             draw_stage5_border()
         elif current_stage == 7:
             draw_stage7_border()
@@ -180848,7 +180848,7 @@ def _draw_nemesis_sequence_scene():
             draw_stage2_boss_gauge_bar()
             draw_stage7_boss_gauge_bar()
             draw_stage8_boss_gauge_bar()
-            if current_stage != 6:
+            if current_stage != STAGE_NEMESIS_OCEAN:
                 draw_boss_health_bar()
                 draw_laser_cannon_gauge()
         except Exception:
@@ -182866,7 +182866,7 @@ def main(stage_num, new_boss_mode=False):
                 # print(f"🔥 [광폭화 보스] 스테이지 4 사원 파괴 즉시 발동! (붉은달 이벤트)")
 
         # 스테이지 5(코드=실제6 홍련) 광폭화: 필러 항아리 뱀 공격 시스템 활성화
-        if stage_num == 5 and pillar_renderer is not None:
+        if stage_num == STAGE_HONGLYEON_FIRE and pillar_renderer is not None:
             pillar_renderer.set_hongryeon_enraged(True)
             # 뱀 화염탄 발사 콜백 설정 (인게임 화염탄 이미지 전달)
             pillar_renderer.set_hongryeon_fire_callback(fire_snake_fireball, FIREBALL_IMG)
@@ -183096,12 +183096,12 @@ def main(stage_num, new_boss_mode=False):
             BOSS_COLOR = WHITE
         # Stage 4 BGM 재생
         bgm_manager.play_stage_bgm(4)
-    elif stage_num == 5:  #  Stage 5 추가
+    elif stage_num == STAGE_HONGLYEON_FIRE:  #  Stage 5 추가
         CURRENT_BG = STAGE5_BG
         BOSS_COLOR = (255, 80, 0)   # 홍련색
         # Stage 5는 네메시스 테마로 Stage 6 BGM을 사용
         bgm_manager.play_stage_bgm(5)
-    elif stage_num == 6:  #  Stage 6 추가 (항공모함)
+    elif stage_num == STAGE_NEMESIS_OCEAN:  #  Stage 6 추가 (항공모함)
         CURRENT_BG = STAGE6_BG
         BOSS_COLOR = (150, 200, 255)  # 금속/은색
         # Stage 6 BGM 재생
@@ -184332,7 +184332,7 @@ def main(stage_num, new_boss_mode=False):
         ADAPTIVE_PERFORMANCE.update(dt_ms)
 
         # === 네메시스 패배 폭발 애니메이션 업데이트 (스테이지 6) ===
-        if current_stage == 6 and nemesis_death_active:
+        if current_stage == STAGE_NEMESIS_OCEAN and nemesis_death_active:
             update_nemesis_death_animation()
             # 폭발 애니메이션 진행 중 또는 보물상자 스폰 완료 → 그리기만 수행
             if nemesis_death_active:
@@ -184356,7 +184356,7 @@ def main(stage_num, new_boss_mode=False):
             # else: 폭발 끝 + 보물상자 스폰됨 → 아래 chest 핸들링으로 진행
 
         # === 네메시스 보물상자 페이즈 (스테이지 6) ===
-        if current_stage == 6 and nemesis_chest_active:
+        if current_stage == STAGE_NEMESIS_OCEAN and nemesis_chest_active:
             global nemesis_chest_move_left, nemesis_chest_move_right, nemesis_chest_move_down
             # 이벤트 처리 (플레이어 이동 + 대쉬)
             for event in pygame.event.get():
@@ -188392,7 +188392,7 @@ def main(stage_num, new_boss_mode=False):
 
             #  Stage 5 화염 이벤트 업데이트
             fire_event_paused = False
-            if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == 5:
+            if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == STAGE_HONGLYEON_FIRE:
                 # 공 생성 애니메이션 중에는 화염 이벤트 타이머 일시정지
                 if not is_ball_spawn_animation_paused():
                     # 스테이지 5 시작 시 타이머 시작
@@ -189140,7 +189140,7 @@ def main(stage_num, new_boss_mode=False):
                                     pass
 
                             # 👁 가시-인터셉터/미사일 충돌 체크 (스테이지 5 네메시스)
-                            if current_stage == 6 and odins_eye.lurker_spikes:
+                            if current_stage == STAGE_NEMESIS_OCEAN and odins_eye.lurker_spikes:
                                 for spike in odins_eye.lurker_spikes:
                                     if spike['phase'] not in ('hold', 'rising') or spike['height'] < 10:
                                         continue
@@ -191398,9 +191398,9 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage3_border()
             elif current_stage == 4:
                 draw_stage4_border()
-            elif current_stage == 5:
+            elif current_stage == STAGE_HONGLYEON_FIRE:
                 draw_stage6_border()
-            elif current_stage == 6:
+            elif current_stage == STAGE_NEMESIS_OCEAN:
                 draw_stage5_border()
             elif current_stage == 7:
                 draw_stage7_border()
@@ -191410,7 +191410,7 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage30_border()
             draw_objects()
             # 네메시스 패배 폭발 애니메이션 그리기 (스테이지 6)
-            if current_stage == 6 and nemesis_death_active:
+            if current_stage == STAGE_NEMESIS_OCEAN and nemesis_death_active:
                 draw_nemesis_death_animation(SCREEN)
             draw_stage8_shadow_clones(SCREEN)
             draw_stage8_shurikens(SCREEN)
@@ -191527,9 +191527,9 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage3_border()
             elif current_stage == 4:
                 draw_stage4_border()
-            elif current_stage == 5:
+            elif current_stage == STAGE_HONGLYEON_FIRE:
                 draw_stage6_border()
-            elif current_stage == 6:
+            elif current_stage == STAGE_NEMESIS_OCEAN:
                 draw_stage5_border()
             elif current_stage == 7:
                 draw_stage7_border()
@@ -191539,7 +191539,7 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage30_border()
             draw_objects()
             # 네메시스 패배 폭발 애니메이션 그리기 (스테이지 6)
-            if current_stage == 6 and nemesis_death_active:
+            if current_stage == STAGE_NEMESIS_OCEAN and nemesis_death_active:
                 draw_nemesis_death_animation(SCREEN)
             draw_stage8_shadow_clones(SCREEN)
             draw_stage8_shurikens(SCREEN)
@@ -191747,7 +191747,7 @@ def main(stage_num, new_boss_mode=False):
             stage1_events.draw(SCREEN)  # 이벤트가 끝나도 풍선 그리기를 위해 계속 호출
         
         #  Stage 5 이벤트 그리기 (다른 UI 요소들 위에) - 이벤트 끝나도 화염탄은 계속 그리기
-        if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == 5:
+        if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == STAGE_HONGLYEON_FIRE:
             stage5_events.draw(SCREEN)  # 이벤트가 끝나도 화염탄 그리기를 위해 계속 호출
         
         #  악마의 주사위 효과 그리기 (주사위 애니메이션 포함)

@@ -66,6 +66,21 @@ VALID_CLEANUP_POLICY = {
     "perk_id_lookup",
     "shared_swap",
 }
+STAGE_ID_CONSTANTS = {
+    "STAGE_HONGLYEON_FIRE": 5,
+    "STAGE_NEMESIS_OCEAN": 6,
+}
+STAGE_MAGIC_NUMBER_FILES = (
+    "pingfighter.py",
+    "ai/boss_ai.py",
+)
+STAGE_MAGIC_NUMBER_VARIABLES = (
+    "current_stage",
+    "stage",
+    "stage_num",
+    "logic_stage",
+    "self.stage",
+)
 SOLDIER_INSTANCE_COOLDOWN_REQUIREMENTS = {
     "bazooka": {
         "module": "item_effects/bazooka.py",
@@ -152,6 +167,8 @@ def _read_sources(root: Path) -> dict[str, str]:
         "pingfighter.py": root / "pingfighter.py",
         "gacha.py": root / "gacha.py",
         "legendary_items.py": root / "legendary_items.py",
+        "config/constants.py": root / "config" / "constants.py",
+        "ai/boss_ai.py": root / "ai" / "boss_ai.py",
     }
     for requirement in SOLDIER_INSTANCE_COOLDOWN_REQUIREMENTS.values():
         module_name = requirement["module"]
@@ -385,6 +402,13 @@ def _string_assignment_value(source: str, name: str) -> str | None:
     if not match:
         return None
     return match.group(1)
+
+
+def _int_assignment_value(source: str, name: str) -> int | None:
+    match = re.search(rf"^{re.escape(name)}\s*=\s*([0-9]+)\b", source, re.MULTILINE)
+    if not match:
+        return None
+    return int(match.group(1))
 
 
 def _literal_matches(variable_name: str, text: str) -> set[str]:
@@ -1256,6 +1280,76 @@ def _check_soldier_mixed_slot_static_patterns(
     _check_academy_swap_return_guards(report, sources)
 
 
+def _stage_code_without_comment(line: str) -> str:
+    # The stage check is intentionally conservative: comments may keep old
+    # examples for historical notes, but executable comparisons must use names.
+    return line.split("#", 1)[0]
+
+
+def _stage_magic_number_sites(filename: str, source: str) -> set[str]:
+    variable_pattern = (
+        r"(?<![A-Za-z0-9_\.])("
+        + "|".join(re.escape(name) for name in STAGE_MAGIC_NUMBER_VARIABLES)
+        + r")"
+    )
+    equality = re.compile(
+        variable_pattern + r"\s*(?:==|!=)\s*(5|6)(?![0-9])"
+    )
+    membership = re.compile(
+        variable_pattern
+        + r"\s+in\s*[\(\[\{][^\)\]\}]*\b(?:5|6)\b[^\)\]\}]*[\)\]\}]"
+    )
+    sites: set[str] = set()
+    for line_number, line in enumerate(source.splitlines(), start=1):
+        code = _stage_code_without_comment(line)
+        if not code.strip():
+            continue
+        if equality.search(code) or membership.search(code):
+            sites.add(f"{filename}:line {line_number}:{code.strip()}")
+    return sites
+
+
+def _check_stage_id_constants(
+    report: CoverageReport,
+    sources: dict[str, str],
+) -> None:
+    constants_src = sources["config/constants.py"]
+    defined = {
+        name: _int_assignment_value(constants_src, name)
+        for name in STAGE_ID_CONSTANTS
+    }
+    report.counts["stage.stage_id_constants"] = sum(
+        1
+        for name, expected in STAGE_ID_CONSTANTS.items()
+        if defined.get(name) == expected
+    )
+
+    mismatched = {
+        f"{name}={defined.get(name)!r} expected {expected}"
+        for name, expected in STAGE_ID_CONSTANTS.items()
+        if defined.get(name) != expected
+    }
+    if mismatched:
+        report.add(
+            "ERROR",
+            "STAGE_ID_CONSTANT_VALUE_MISMATCH",
+            "Stage 5/6 code IDs must use the documented swapped mapping",
+            mismatched,
+        )
+
+    raw_sites: set[str] = set()
+    for filename in STAGE_MAGIC_NUMBER_FILES:
+        raw_sites.update(_stage_magic_number_sites(filename, sources[filename]))
+    report.counts["stage.raw_stage_5_6_magic_comparisons"] = len(raw_sites)
+    if raw_sites:
+        report.add(
+            "ERROR",
+            "STAGE_MAGIC_NUMBER_COMPARISON",
+            "Stage 5/6 comparisons must use STAGE_HONGLYEON_FIRE or STAGE_NEMESIS_OCEAN",
+            raw_sites,
+        )
+
+
 def _check_skills(
     report: CoverageReport,
     context: dict[str, object],
@@ -1553,6 +1647,7 @@ def build_report(root: Path = PROJECT_ROOT) -> CoverageReport:
     report = CoverageReport()
     _check_items(report, _collect_item_context(sources))
     _check_skills(report, _collect_skill_context(sources), sources)
+    _check_stage_id_constants(report, sources)
     return report
 
 

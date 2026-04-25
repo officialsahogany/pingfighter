@@ -13,6 +13,8 @@ REGISTRY_SOURCE_FILES = (
     "pingfighter.py",
     "gacha.py",
     "legendary_items.py",
+    "config/constants.py",
+    "ai/boss_ai.py",
     "item_effects/bazooka.py",
     "item_effects/ak47.py",
     "item_effects/net_gun.py",
@@ -91,6 +93,29 @@ def test_optimus_is_the_only_cooldown_reduction_schema_opt_out():
 
     assert report.counts["skills.optimus_cooldown_reduction_ineligible_ids"] == 9
     assert report.counts["skills.non_optimus_cooldown_reduction_ineligible_ids"] == 0
+
+
+def test_stage_5_6_magic_number_safety_check_is_active():
+    report = build_report(PROJECT_ROOT)
+
+    assert report.counts["stage.stage_id_constants"] == 2
+    assert report.counts["stage.raw_stage_5_6_magic_comparisons"] == 0
+
+
+def test_stage_5_6_magic_number_regression_is_reported():
+    with _temporary_registry_root() as root:
+        path = root / "pingfighter.py"
+        source = path.read_text(encoding="utf-8")
+        path.write_text(
+            source
+            + "\n\ndef _bad_stage_magic_for_registry_test():\n"
+            + "    return current_stage == 5\n",
+            encoding="utf-8",
+        )
+
+        report = build_report(root)
+
+    assert "STAGE_MAGIC_NUMBER_COMPARISON" in _issue_codes(report)
 
 
 def test_soldier_mixed_slot_static_safety_checks_are_active():

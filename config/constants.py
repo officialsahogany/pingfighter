@@ -4,6 +4,14 @@
 """
 
 # ============= 색상 상수 =============
+# ============= Stage ID constants =============
+# Critical mapping: the historical code IDs for Stage 5/6 are swapped.
+# Code ID 5 is real user-facing Stage 6: Honglyeon / Chinese fire.
+# Code ID 6 is real user-facing Stage 5: Nemesis / Ocean battleship.
+# Use these constants instead of raw `== 5` / `== 6` stage checks.
+STAGE_HONGLYEON_FIRE = 5
+STAGE_NEMESIS_OCEAN = 6
+
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)

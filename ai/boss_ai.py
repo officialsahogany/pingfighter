@@ -8,6 +8,7 @@ import random
 from typing import Dict, Any, Optional, Tuple
 from ai.ai_system import AISystem
 from core.events import EventType, emit_event
+from config.constants import STAGE_HONGLYEON_FIRE, STAGE_NEMESIS_OCEAN
 
 # ML AI 선택적 import
 try:
@@ -370,11 +371,11 @@ class BossAI(AISystem):
             if self.stage_features.activate_magnetic_field():
                 return 'magnetic_field'
                 
-        elif self.stage == 5 and random.random() < 0.35:
+        elif self.stage == STAGE_HONGLYEON_FIRE and random.random() < 0.35:
             if self.stage_features.activate_flame_throw():
                 return 'flame_throw'
                 
-        elif self.stage == 6:
+        elif self.stage == STAGE_NEMESIS_OCEAN:
             # 야마토 캐논 또는 미사일 포격
             if random.random() < 0.2:
                 if self.stage_features.charge_yamato_cannon():
@@ -570,7 +571,7 @@ class StageSpecificBossAI:
         """
         # ML AI 사용 가능하고 활성화된 경우
         if use_ml and ML_AI_AVAILABLE:
-            if stage == 6:
+            if stage == STAGE_NEMESIS_OCEAN:
                 # 스테이지 6은 고급 ML 보스
                 return AdvancedMLBoss()
             elif stage >= 4:
