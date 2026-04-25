@@ -5408,7 +5408,7 @@ def _cleanup_heavenly_cape_overflow_skills() -> list:
         removed.append(("viper", victim))
     if len(_soldier_equipped_skills) > SOLDIER_MAX_SKILL_SLOTS:
         victim = _soldier_equipped_skills.pop()
-        runtime_skill_levels.pop(victim, None)
+        _perform_skill_swap_cleanup("soldier", victim)
         removed.append(("soldier", victim))
     return removed
 
@@ -14242,6 +14242,28 @@ def _get_soldier_firearm_cooldown_frames(skill_name: str, *, apply_reduction: bo
     return max(1, int(math.ceil(cooldown_sec * FPS)))
 
 
+def _apply_soldier_firearm_cooldown_frames(
+    skill_name: str,
+    instance,
+    *,
+    apply_reduction: bool,
+) -> int:
+    """Sync a Soldier firearm instance with the same cooldown path as the orb HUD."""
+    frames = _get_soldier_firearm_cooldown_frames(
+        skill_name,
+        apply_reduction=apply_reduction,
+    )
+    if instance is None:
+        return frames
+    if skill_name == "bazooka" and hasattr(instance, "COOLDOWN_TIME"):
+        instance.COOLDOWN_TIME = frames
+    elif skill_name == "ak47" and hasattr(instance, "fire_interval"):
+        instance.fire_interval = frames
+    elif skill_name in {"net_gun", "bowling_trap"} and hasattr(instance, "COOLDOWN_FRAMES"):
+        instance.COOLDOWN_FRAMES = frames
+    return frames
+
+
 def get_soldier_skill_cooldown_remaining(skill_name: str) -> float:
     """스킬 남은 쿨타임 비율 반환 (0.0 = 쿨타임 완료, 1.0 = 쿨타임 시작)"""
     global _soldier_skill_cooldowns, _soldier_tooltip_pause_accumulated
@@ -22487,6 +22509,7 @@ def _initialize_permanent_soldier_firearm_instance(weapon_name: str) -> None:
     if weapon_name == "net_gun":
         net_gun = get_net_gun_instance()
         if net_gun:
+            _apply_soldier_firearm_cooldown_frames("net_gun", net_gun, apply_reduction=True)
             net_gun.reload()
             net_gun.equip()
         print("🕸️ 그물덫총 영구 지급")
@@ -22499,6 +22522,7 @@ def _initialize_permanent_soldier_firearm_instance(weapon_name: str) -> None:
     elif weapon_name == "bowling_trap":
         bowling_trap = get_bowling_trap_instance()
         if bowling_trap:
+            _apply_soldier_firearm_cooldown_frames("bowling_trap", bowling_trap, apply_reduction=True)
             bowling_trap.reload()
             bowling_trap.equip()
         print("🎳 볼링트랩 영구 지급")
@@ -22514,7 +22538,7 @@ def _initialize_permanent_soldier_firearm_instance(weapon_name: str) -> None:
 
         bazooka = get_bazooka_instance()
         if bazooka:
-            bazooka.COOLDOWN_TIME = _get_soldier_firearm_cooldown_frames("bazooka", apply_reduction=True)
+            _apply_soldier_firearm_cooldown_frames("bazooka", bazooka, apply_reduction=True)
             bazooka.cooldown_timer = 0
             bazooka.control_lock_timer = 0
             bazooka.ammo_count = getattr(bazooka, "max_ammo", bazooka.ammo_count)
@@ -22523,7 +22547,7 @@ def _initialize_permanent_soldier_firearm_instance(weapon_name: str) -> None:
     elif weapon_name == "ak47":
         ak47 = get_ak47_instance()
         if ak47:
-            ak47.fire_interval = _get_soldier_firearm_cooldown_frames("ak47", apply_reduction=True)
+            _apply_soldier_firearm_cooldown_frames("ak47", ak47, apply_reduction=True)
             ak47.activate(None, None)
         print("🔫 AK-47 영구 지급")
     elif weapon_name == "commando_pistol":
@@ -24542,6 +24566,7 @@ _CHARACTER_UNLOCK_PERKS = {
         "unlock_plasma": "plasma",
         "unlock_recovery_skill": "recovery",
         "unlock_cleanse": "cleanse",
+        "unlock_shield_kiting": "shield_kiting",
         "unlock_ghost_shot": "ghost_shot",
         "unlock_warp_gate": "warp_gate",
     },
@@ -24549,6 +24574,7 @@ _CHARACTER_UNLOCK_PERKS = {
         "unlock_nerve_strike": "nerve_strike",
         "unlock_dive_strike": "dive_strike",
         "unlock_chaos_spear": "chaos_spear",
+        "unlock_dual_glitch": "dual_glitch",
         "unlock_ignition_aura": "ignition_aura",
         "double_marshal_kick": "phantom_kick",
         "dark_blade": "dark_blade",
@@ -24878,7 +24904,8 @@ def apply_academy_skill_swap(character_type: str, new_perk_id: str, old_skill_na
     elif character_type == "soldier":
         if old_skill_name not in _soldier_equipped_skills:
             return False
-        swap_soldier_skill(old_skill_name, new_skill_name)
+        if not swap_soldier_skill(old_skill_name, new_skill_name):
+            return False
         unlock_soldier_skill(new_skill_name)
         if old_skill_name == SOLDIER_PISTOL_ORB_SKILL and new_skill_name != SOLDIER_PISTOL_ORB_SKILL:
             _apply_soldier_pistol_perk_state(False, refill_ammo=False)
@@ -98336,8 +98363,9 @@ def handle_player(keys):
                     from item_effects.bazooka import get_bazooka_instance
                     bazooka = get_bazooka_instance()
                     if bazooka:
-                        bazooka.COOLDOWN_TIME = _get_soldier_firearm_cooldown_frames(
+                        _apply_soldier_firearm_cooldown_frames(
                             "bazooka",
+                            bazooka,
                             apply_reduction=permanent_firearm_selected,
                         )
                     if permanent_firearm_selected and is_soldier_skill_on_cooldown("bazooka"):
@@ -98385,8 +98413,9 @@ def handle_player(keys):
                     # AK-47 발사 (보스 조준) — 연사 홀드 안정화
                     ak47 = ak47_instance or get_ak47_instance()
                     if ak47:
-                        ak47.fire_interval = _get_soldier_firearm_cooldown_frames(
+                        _apply_soldier_firearm_cooldown_frames(
                             "ak47",
+                            ak47,
                             apply_reduction=permanent_firearm_selected,
                         )
 
@@ -98446,6 +98475,12 @@ def handle_player(keys):
                                 # print("✈️ 화력지원 요청! 폭격기 호출 중")
                 elif current_weapon == "net_gun":
                     net_gun = net_gun_instance or get_net_gun_instance()
+                    if net_gun:
+                        _apply_soldier_firearm_cooldown_frames(
+                            "net_gun",
+                            net_gun,
+                            apply_reduction=permanent_firearm_selected,
+                        )
                     if permanent_firearm_selected and is_soldier_skill_on_cooldown("net_gun"):
                         pass
                     elif net_gun and net_gun.can_fire():
@@ -98481,6 +98516,12 @@ def handle_player(keys):
                                 # print(f"🚁 자폭드론 발진! 남은 탄약 {soldier_drone_ammo}/{SUICIDE_DRONE_MAX_AMMO}")
                 elif current_weapon == "bowling_trap":
                     bowling_trap = get_bowling_trap_instance()
+                    if bowling_trap:
+                        _apply_soldier_firearm_cooldown_frames(
+                            "bowling_trap",
+                            bowling_trap,
+                            apply_reduction=permanent_firearm_selected,
+                        )
                     if permanent_firearm_selected and is_soldier_skill_on_cooldown("bowling_trap"):
                         pass
                     elif bowling_trap.can_install():
@@ -101631,7 +101672,7 @@ def apply_pending_ammo_restore() -> bool:
             if soldier_controller.is_permanent_weapon("bazooka"):
                 bazooka_inst = get_bazooka_instance()
                 if bazooka_inst:
-                    bazooka_inst.COOLDOWN_TIME = _get_soldier_firearm_cooldown_frames("bazooka", apply_reduction=True)
+                    _apply_soldier_firearm_cooldown_frames("bazooka", bazooka_inst, apply_reduction=True)
                     bazooka_inst.cooldown_timer = restored_bazooka_frames
             restored_ak47_frames = max(
                 0,
@@ -101640,7 +101681,7 @@ def apply_pending_ammo_restore() -> bool:
             if soldier_controller.is_permanent_weapon("ak47"):
                 ak47_inst = get_ak47_instance()
                 if ak47_inst:
-                    ak47_inst.fire_interval = _get_soldier_firearm_cooldown_frames("ak47", apply_reduction=True)
+                    _apply_soldier_firearm_cooldown_frames("ak47", ak47_inst, apply_reduction=True)
                     ak47_inst.shot_cooldown = restored_ak47_frames
         except (TypeError, ValueError):
             pass

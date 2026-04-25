@@ -253,6 +253,16 @@ HUD, unlock perk, or orb-slot system.
       `shared_swap` skills must be cleaned up through the shared swap
       helper; normal active / unlock aliases need perk-id lookup through
       `_CHARACTER_UNLOCK_PERKS`; base skills are not cleanup candidates.
+- [ ] For Soldier permanent firearms that are also shared-slot orb
+      skills, sync the item instance cooldown through
+      `_apply_soldier_firearm_cooldown_frames()` before calling
+      `can_fire()` / `can_install()`. The orb HUD cooldown and the item
+      instance cooldown must use the same final reduced value.
+- [ ] For Soldier `cleanup_policy: "shared_swap"` removals, route cleanup
+      through `_perform_skill_swap_cleanup("soldier", skill_name)` after
+      the equipped-slot mutation. Do not only pop `runtime_skill_levels`
+      by `skill_id`; the owning unlock perk, unlock flag, weapon
+      ownership, and controller inventory must be cleared together.
 
 ### 3.2. Smasher concrete audit points in the current repo
 

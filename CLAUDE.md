@@ -619,6 +619,19 @@ acquisition. They are easy to miss even when
   skills are never removed, shared Soldier slots must flow through shared
   swap cleanup, and normal active / unlock aliases must derive the old
   perk id from `_CHARACTER_UNLOCK_PERKS`.
+- **Soldier permanent firearms have both an orb cooldown and an item
+  instance cooldown.** When `net_gun`, `bowling_trap`, `bazooka`, or
+  `ak47` is used as a permanent shared-slot skill, sync the live item
+  instance through `_apply_soldier_firearm_cooldown_frames()` before the
+  `can_fire()` / `can_install()` gate. Otherwise the HUD can show the
+  reduced orb cooldown as ready while the item instance still rejects the
+  click on its raw cooldown timer.
+- **Soldier `shared_swap` cleanup must use `_perform_skill_swap_cleanup()`.**
+  Heavenly-cape overflow, academy swap, and any future shared-slot removal
+  cannot just pop the equipped skill or `runtime_skill_levels[skill_id]`.
+  The cleanup path must derive the owning perk id from
+  `_CHARACTER_UNLOCK_PERKS["soldier"]` and clear runtime level, unlock
+  flag, weapon ownership, and controller inventory together.
 - **A once-per-stage active flag must be persisted across save/load
   within the same stage.** Cooldown wedges alone do not guarantee
   "once per stage"; loading a save after using such a skill must
