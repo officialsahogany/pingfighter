@@ -593,6 +593,32 @@ acquisition. They are easy to miss even when
   `soldier_pistol_perk`), the fullness test must count every skill that
   occupies the shared slots. Counting only one subtype silently reopens
   perk-choice offers that no longer fit in the orb budget.
+- **Skill icon registries carry runtime slot semantics, not only art
+  metadata.** Every entry in `_SMASHER_ORB_ICON_REGISTRY`,
+  `_VIPER_ORB_ICON_REGISTRY`, `_OPTIMUS_SKILL_ICON_REGISTRY`,
+  `BLACKSMITH_SKILL_ICON_REGISTRY`, and `_SOLDIER_ORB_ICON_REGISTRY`
+  must declare `slot_occupancy`, `cooldown_reduction_eligible`, and
+  `cleanup_policy`. Keep the current matrix unless a design explicitly
+  changes the runtime model:
+
+  | Registry family | `slot_occupancy` | `cooldown_reduction_eligible` | `cleanup_policy` |
+  |-----------------|------------------|-------------------------------|------------------|
+  | Smasher active / unlock orbs | `active_orb` | `True` | `perk_id_lookup` |
+  | Viper active / unlock orbs | `active_orb` | `True` | `perk_id_lookup` |
+  | Optimus framed skill-card icons | `active_orb` | `False` | `perk_id_lookup` |
+  | Baltor / Blacksmith active icons, including `hammer_shock` | `active_orb` | `True` | `perk_id_lookup` |
+  | Soldier `supply_drop`, `emergency_supply` | `base_fixed` | `True` | `base_only` |
+  | Soldier permanent firearm shared slots | `shared_slot` | `True` | `shared_swap` |
+  | Soldier `commando_pistol` from `soldier_pistol_perk` | `passive_orb` | `True` | `perk_id_lookup` |
+
+  `slot_occupancy` tells slot-full and overflow logic which budget owns
+  the skill. `cooldown_reduction_eligible` records whether generic
+  player-skill cooldown reduction should apply; Optimus is the current
+  opt-out because its skills use a separate timestamp-style trigger
+  path. `cleanup_policy` records which removal path is allowed: base
+  skills are never removed, shared Soldier slots must flow through shared
+  swap cleanup, and normal active / unlock aliases must derive the old
+  perk id from `_CHARACTER_UNLOCK_PERKS`.
 - **A once-per-stage active flag must be persisted across save/load
   within the same stage.** Cooldown wedges alone do not guarantee
   "once per stage"; loading a save after using such a skill must

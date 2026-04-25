@@ -229,6 +229,30 @@ HUD, unlock perk, or orb-slot system.
       states and rebuild the live runtime list from them. Do not merge
       all three concepts into one mutable list and hope later code can
       infer the difference.
+- [ ] When adding or moving a skill through one of the icon registries
+      (`_SMASHER_ORB_ICON_REGISTRY`, `_VIPER_ORB_ICON_REGISTRY`,
+      `_OPTIMUS_SKILL_ICON_REGISTRY`, `BLACKSMITH_SKILL_ICON_REGISTRY`,
+      `_SOLDIER_ORB_ICON_REGISTRY`), explicitly set
+      `slot_occupancy`, `cooldown_reduction_eligible`, and
+      `cleanup_policy` on the registry entry. Use this matrix unless the
+      design intentionally changes the runtime model:
+
+      | Registry family | `slot_occupancy` | `cooldown_reduction_eligible` | `cleanup_policy` |
+      |-----------------|------------------|-------------------------------|------------------|
+      | Smasher active / unlock orbs | `active_orb` | `True` | `perk_id_lookup` |
+      | Viper active / unlock orbs | `active_orb` | `True` | `perk_id_lookup` |
+      | Optimus framed skill-card icons | `active_orb` | `False` | `perk_id_lookup` |
+      | Baltor / Blacksmith active icons | `active_orb` | `True` | `perk_id_lookup` |
+      | Soldier `supply_drop`, `emergency_supply` | `base_fixed` | `True` | `base_only` |
+      | Soldier permanent firearm shared slots | `shared_slot` | `True` | `shared_swap` |
+      | Soldier `commando_pistol` via `soldier_pistol_perk` | `passive_orb` | `True` | `perk_id_lookup` |
+
+      `slot_occupancy` owns slot-full math, `cooldown_reduction_eligible`
+      owns whether generic player-skill cooldown reduction should apply,
+      and `cleanup_policy` records the only safe removal path. Soldier
+      `shared_swap` skills must be cleaned up through the shared swap
+      helper; normal active / unlock aliases need perk-id lookup through
+      `_CHARACTER_UNLOCK_PERKS`; base skills are not cleanup candidates.
 
 ### 3.2. Smasher concrete audit points in the current repo
 

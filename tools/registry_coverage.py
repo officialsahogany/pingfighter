@@ -46,6 +46,26 @@ PANDORA_SELF_EXCLUDED_MYTHICS = {
 }
 
 BLACKSMITH_BESPOKE_ICON_FAMILY = "blacksmith_bespoke"
+ICON_SCHEMA_REGISTRY_NAMES = (
+    "BLACKSMITH_SKILL_ICON_REGISTRY",
+    "_OPTIMUS_SKILL_ICON_REGISTRY",
+    "_SMASHER_ORB_ICON_REGISTRY",
+    "_SOLDIER_ORB_ICON_REGISTRY",
+    "_VIPER_ORB_ICON_REGISTRY",
+)
+REQUIRED_ICON_SCHEMA_STRING_FIELDS = ("slot_occupancy", "cleanup_policy")
+REQUIRED_ICON_SCHEMA_BOOL_FIELDS = ("cooldown_reduction_eligible",)
+VALID_SLOT_OCCUPANCY = {
+    "active_orb",
+    "base_fixed",
+    "passive_orb",
+    "shared_slot",
+}
+VALID_CLEANUP_POLICY = {
+    "base_only",
+    "perk_id_lookup",
+    "shared_swap",
+}
 
 
 @dataclass(frozen=True)
@@ -226,6 +246,14 @@ def _top_level_dict_keys(text: str) -> set[str]:
     return set(re.findall(r'^    "([a-z0-9_]+)"\s*:', text, re.MULTILINE))
 
 
+def _top_level_dict_entry_blocks(text: str) -> dict[str, str]:
+    entries: dict[str, str] = {}
+    pattern = re.compile(r'^    "([a-z0-9_]+)"\s*:\s*(\{)', re.MULTILINE)
+    for match in pattern.finditer(text):
+        entries[match.group(1)] = _scan_balanced(text, match.start(2))
+    return entries
+
+
 def _top_level_string_map(text: str) -> dict[str, str]:
     return dict(
         re.findall(
@@ -241,16 +269,29 @@ def _dict_entries_with_string_field(
     field_name: str,
     field_value: str,
 ) -> set[str]:
-    names: set[str] = set()
-    pattern = re.compile(r'^    "([a-z0-9_]+)"\s*:\s*(\{)', re.MULTILINE)
-    for match in pattern.finditer(text):
-        entry_block = _scan_balanced(text, match.start(2))
-        if re.search(
-            rf'"{re.escape(field_name)}"\s*:\s*"{re.escape(field_value)}"',
-            entry_block,
-        ):
-            names.add(match.group(1))
-    return names
+    return {
+        name
+        for name, value in _dict_entry_string_field_map(text, field_name).items()
+        if value == field_value
+    }
+
+
+def _dict_entry_string_field_map(text: str, field_name: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for name, entry_block in _top_level_dict_entry_blocks(text).items():
+        match = re.search(rf'"{re.escape(field_name)}"\s*:\s*"([a-z0-9_]+)"', entry_block)
+        if match:
+            values[name] = match.group(1)
+    return values
+
+
+def _dict_entry_bool_field_map(text: str, field_name: str) -> dict[str, bool]:
+    values: dict[str, bool] = {}
+    for name, entry_block in _top_level_dict_entry_blocks(text).items():
+        match = re.search(rf'"{re.escape(field_name)}"\s*:\s*(True|False)\b', entry_block)
+        if match:
+            values[name] = match.group(1) == "True"
+    return values
 
 
 def _nested_dict_keys(text: str) -> set[str]:
@@ -446,13 +487,19 @@ def _collect_skill_context(sources: dict[str, str]) -> dict[str, object]:
     blacksmith_active = _name_fields(
         _first_assignment_block(pingfighter_src, "BLACKSMITH_SKILL_ICONS_DATA").text
     )
+    soldier_base_skills = _quoted_names(
+        _first_assignment_block(pingfighter_src, "SOLDIER_BASE_SKILLS").text
+    )
+    soldier_shared_slot_skills = _quoted_names(
+        _first_assignment_block(pingfighter_src, "SOLDIER_PERMANENT_FIREARM_SKILLS").text
+    )
     blacksmith_icon_registry_block = _first_assignment_block(
         pingfighter_src,
         "BLACKSMITH_SKILL_ICON_REGISTRY",
-    ).text
-    blacksmith_icon_registry_ids = _top_level_dict_keys(blacksmith_icon_registry_block)
+    )
+    blacksmith_icon_registry_ids = _top_level_dict_keys(blacksmith_icon_registry_block.text)
     blacksmith_bespoke_registry_ids = _dict_entries_with_string_field(
-        blacksmith_icon_registry_block,
+        blacksmith_icon_registry_block.text,
         "family",
         BLACKSMITH_BESPOKE_ICON_FAMILY,
     )
@@ -463,15 +510,21 @@ def _collect_skill_context(sources: dict[str, str]) -> dict[str, object]:
     shared_symbol = _literal_matches(
         "skill_name", _function_block(pingfighter_src, "_draw_skill_icon_symbol").text
     )
-    smasher_orb_registry_ids = _top_level_dict_keys(
-        _first_assignment_block(pingfighter_src, "_SMASHER_ORB_ICON_REGISTRY").text
+    smasher_orb_registry_block = _first_assignment_block(
+        pingfighter_src,
+        "_SMASHER_ORB_ICON_REGISTRY",
     )
-    viper_orb_registry_ids = _top_level_dict_keys(
-        _first_assignment_block(pingfighter_src, "_VIPER_ORB_ICON_REGISTRY").text
+    viper_orb_registry_block = _first_assignment_block(
+        pingfighter_src,
+        "_VIPER_ORB_ICON_REGISTRY",
     )
-    soldier_orb_registry_ids = _top_level_dict_keys(
-        _first_assignment_block(pingfighter_src, "_SOLDIER_ORB_ICON_REGISTRY").text
+    soldier_orb_registry_block = _first_assignment_block(
+        pingfighter_src,
+        "_SOLDIER_ORB_ICON_REGISTRY",
     )
+    smasher_orb_registry_ids = _top_level_dict_keys(smasher_orb_registry_block.text)
+    viper_orb_registry_ids = _top_level_dict_keys(viper_orb_registry_block.text)
+    soldier_orb_registry_ids = _top_level_dict_keys(soldier_orb_registry_block.text)
     shared_symbol.update(smasher_orb_registry_ids)
     shared_symbol.update(viper_orb_registry_ids)
     soldier_symbol = _literal_matches(
@@ -489,9 +542,36 @@ def _collect_skill_context(sources: dict[str, str]) -> dict[str, object]:
     optimus_icon_ids = _literal_matches(
         "skill_id", _function_block(pingfighter_src, "draw_optimus_skill_icon").text
     )
-    optimus_icon_registry_ids = _top_level_dict_keys(
-        _first_assignment_block(pingfighter_src, "_OPTIMUS_SKILL_ICON_REGISTRY").text
+    optimus_icon_registry_block = _first_assignment_block(
+        pingfighter_src,
+        "_OPTIMUS_SKILL_ICON_REGISTRY",
     )
+    optimus_icon_registry_ids = _top_level_dict_keys(optimus_icon_registry_block.text)
+    icon_schema_registry_blocks = {
+        "BLACKSMITH_SKILL_ICON_REGISTRY": blacksmith_icon_registry_block.text,
+        "_OPTIMUS_SKILL_ICON_REGISTRY": optimus_icon_registry_block.text,
+        "_SMASHER_ORB_ICON_REGISTRY": smasher_orb_registry_block.text,
+        "_SOLDIER_ORB_ICON_REGISTRY": soldier_orb_registry_block.text,
+        "_VIPER_ORB_ICON_REGISTRY": viper_orb_registry_block.text,
+    }
+    icon_schema_registry_ids = {
+        registry_name: _top_level_dict_keys(block)
+        for registry_name, block in icon_schema_registry_blocks.items()
+    }
+    icon_schema_string_fields = {
+        field_name: {
+            registry_name: _dict_entry_string_field_map(block, field_name)
+            for registry_name, block in icon_schema_registry_blocks.items()
+        }
+        for field_name in REQUIRED_ICON_SCHEMA_STRING_FIELDS
+    }
+    icon_schema_bool_fields = {
+        field_name: {
+            registry_name: _dict_entry_bool_field_map(block, field_name)
+            for registry_name, block in icon_schema_registry_blocks.items()
+        }
+        for field_name in REQUIRED_ICON_SCHEMA_BOOL_FIELDS
+    }
     character_unlock_keys = _nested_dict_keys(
         _first_assignment_block(pingfighter_src, "_CHARACTER_UNLOCK_PERKS").text
     )
@@ -534,6 +614,11 @@ def _collect_skill_context(sources: dict[str, str]) -> dict[str, object]:
         "optimus_icon_ids": optimus_icon_ids,
         "optimus_icon_registry_ids": optimus_icon_registry_ids,
         "character_unlock_keys": character_unlock_keys,
+        "icon_schema_registry_ids": icon_schema_registry_ids,
+        "icon_schema_string_fields": icon_schema_string_fields,
+        "icon_schema_bool_fields": icon_schema_bool_fields,
+        "soldier_base_skills": soldier_base_skills,
+        "soldier_shared_slot_skills": soldier_shared_slot_skills,
     }
 
 
@@ -720,6 +805,161 @@ def _check_items(report: CoverageReport, context: dict[str, object]) -> None:
         )
 
 
+def _schema_names(registry_name: str, names: Iterable[str]) -> list[str]:
+    return [f"{registry_name}.{name}" for name in names]
+
+
+def _check_icon_schema(report: CoverageReport, context: dict[str, object]) -> None:
+    registry_ids = context["icon_schema_registry_ids"]
+    string_fields = context["icon_schema_string_fields"]
+    bool_fields = context["icon_schema_bool_fields"]
+
+    total_registry_ids = sum(len(ids) for ids in registry_ids.values())
+    report.counts["skills.icon_schema_registry_ids"] = total_registry_ids
+    report.counts["skills.icon_schema_slot_occupancy_fields"] = sum(
+        len(field_map) for field_map in string_fields["slot_occupancy"].values()
+    )
+    report.counts["skills.icon_schema_cleanup_policy_fields"] = sum(
+        len(field_map) for field_map in string_fields["cleanup_policy"].values()
+    )
+    report.counts["skills.icon_schema_cooldown_reduction_fields"] = sum(
+        len(field_map)
+        for field_map in bool_fields["cooldown_reduction_eligible"].values()
+    )
+
+    for registry_name, ids in registry_ids.items():
+        for field_name in REQUIRED_ICON_SCHEMA_STRING_FIELDS:
+            field_map = string_fields[field_name][registry_name]
+            missing = ids - set(field_map)
+            if missing:
+                report.add(
+                    "ERROR",
+                    "ICON_SCHEMA_FIELD_MISSING",
+                    f"{registry_name} entries missing {field_name}",
+                    _schema_names(registry_name, missing),
+                )
+        for field_name in REQUIRED_ICON_SCHEMA_BOOL_FIELDS:
+            field_map = bool_fields[field_name][registry_name]
+            missing = ids - set(field_map)
+            if missing:
+                report.add(
+                    "ERROR",
+                    "ICON_SCHEMA_FIELD_MISSING",
+                    f"{registry_name} entries missing {field_name}",
+                    _schema_names(registry_name, missing),
+                )
+
+    slot_occupancy_maps = string_fields["slot_occupancy"]
+    cleanup_policy_maps = string_fields["cleanup_policy"]
+    for registry_name, field_map in slot_occupancy_maps.items():
+        invalid = {
+            name
+            for name, value in field_map.items()
+            if value not in VALID_SLOT_OCCUPANCY
+        }
+        if invalid:
+            report.add(
+                "ERROR",
+                "ICON_SCHEMA_SLOT_OCCUPANCY_INVALID",
+                f"{registry_name} contains invalid slot_occupancy values",
+                _schema_names(registry_name, invalid),
+            )
+    for registry_name, field_map in cleanup_policy_maps.items():
+        invalid = {
+            name
+            for name, value in field_map.items()
+            if value not in VALID_CLEANUP_POLICY
+        }
+        if invalid:
+            report.add(
+                "ERROR",
+                "ICON_SCHEMA_CLEANUP_POLICY_INVALID",
+                f"{registry_name} contains invalid cleanup_policy values",
+                _schema_names(registry_name, invalid),
+            )
+
+    soldier_slots = slot_occupancy_maps["_SOLDIER_ORB_ICON_REGISTRY"]
+    soldier_base_fixed = {
+        name for name, value in soldier_slots.items() if value == "base_fixed"
+    }
+    soldier_shared_slot = {
+        name for name, value in soldier_slots.items() if value == "shared_slot"
+    }
+    soldier_base_skills = context["soldier_base_skills"]
+    soldier_shared_slot_skills = context["soldier_shared_slot_skills"]
+
+    base_fixed_extra = soldier_base_fixed - soldier_base_skills
+    if base_fixed_extra:
+        report.add(
+            "ERROR",
+            "SOLDIER_BASE_FIXED_SLOT_MISMATCH",
+            "Soldier base_fixed registry entries must be in SOLDIER_BASE_SKILLS",
+            base_fixed_extra,
+        )
+    base_fixed_missing = soldier_base_skills - soldier_base_fixed
+    if base_fixed_missing:
+        report.add(
+            "ERROR",
+            "SOLDIER_BASE_FIXED_SLOT_MISSING",
+            "SOLDIER_BASE_SKILLS entries must be marked slot_occupancy=base_fixed",
+            base_fixed_missing,
+        )
+
+    shared_slot_extra = soldier_shared_slot - soldier_shared_slot_skills
+    if shared_slot_extra:
+        report.add(
+            "ERROR",
+            "SOLDIER_SHARED_SLOT_MISMATCH",
+            "Soldier shared_slot registry entries must be in SOLDIER_SHARED_SLOT_SKILLS",
+            shared_slot_extra,
+        )
+    shared_slot_missing = soldier_shared_slot_skills - soldier_shared_slot
+    if shared_slot_missing:
+        report.add(
+            "ERROR",
+            "SOLDIER_SHARED_SLOT_MISSING",
+            "SOLDIER_SHARED_SLOT_SKILLS entries must be marked slot_occupancy=shared_slot",
+            shared_slot_missing,
+        )
+
+    cooldown_maps = bool_fields["cooldown_reduction_eligible"]
+    optimus_false = {
+        name
+        for name, value in cooldown_maps["_OPTIMUS_SKILL_ICON_REGISTRY"].items()
+        if value is False
+    }
+    non_optimus_false = {
+        f"{registry_name}.{name}"
+        for registry_name, field_map in cooldown_maps.items()
+        if registry_name != "_OPTIMUS_SKILL_ICON_REGISTRY"
+        for name, value in field_map.items()
+        if value is False
+    }
+    report.counts["skills.optimus_cooldown_reduction_ineligible_ids"] = len(
+        optimus_false
+    )
+    report.counts["skills.non_optimus_cooldown_reduction_ineligible_ids"] = len(
+        non_optimus_false
+    )
+    missing_optimus_false = (
+        registry_ids["_OPTIMUS_SKILL_ICON_REGISTRY"] - optimus_false
+    )
+    if missing_optimus_false:
+        report.add(
+            "ERROR",
+            "OPTIMUS_COOLDOWN_REDUCTION_POLICY",
+            "Optimus registry entries should be cooldown_reduction_eligible=False",
+            missing_optimus_false,
+        )
+    if non_optimus_false:
+        report.add(
+            "ERROR",
+            "COOLDOWN_REDUCTION_FALSE_OUTSIDE_OPTIMUS",
+            "Only Optimus registry entries should opt out of generic cooldown reduction",
+            non_optimus_false,
+        )
+
+
 def _check_skills(report: CoverageReport, context: dict[str, object]) -> None:
     runtime_ids = context["runtime_ids"]
     mini_ids = context["mini_ids"]
@@ -749,6 +989,7 @@ def _check_skills(report: CoverageReport, context: dict[str, object]) -> None:
         context["blacksmith_bespoke_registry_ids"]
     )
     report.counts["skills.shared_symbol_ids"] = len(shared_symbol_ids)
+    _check_icon_schema(report, context)
 
     missing_mini = runtime_ids - mini_ids
     if missing_mini:
