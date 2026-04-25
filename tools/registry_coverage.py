@@ -66,6 +66,32 @@ VALID_CLEANUP_POLICY = {
     "perk_id_lookup",
     "shared_swap",
 }
+SOLDIER_INSTANCE_COOLDOWN_REQUIREMENTS = {
+    "bazooka": {
+        "module": "item_effects/bazooka.py",
+        "attr": "COOLDOWN_TIME",
+        "gate": "can_fire",
+    },
+    "ak47": {
+        "module": "item_effects/ak47.py",
+        "attr": "fire_interval",
+        "gate": "can_fire",
+    },
+    "net_gun": {
+        "module": "item_effects/net_gun.py",
+        "attr": "COOLDOWN_FRAMES",
+        "gate": "can_fire",
+    },
+    "bowling_trap": {
+        "module": "item_effects/bowling_trap.py",
+        "attr": "COOLDOWN_FRAMES",
+        "gate": "can_install",
+    },
+}
+ACADEMY_SWAP_PRECHECKED_CALLS = {
+    "swap_smasher_skill": "_smasher_equipped_skills",
+    "swap_viper_skill": "_viper_equipped_skills",
+}
 
 
 @dataclass(frozen=True)
@@ -127,6 +153,9 @@ def _read_sources(root: Path) -> dict[str, str]:
         "gacha.py": root / "gacha.py",
         "legendary_items.py": root / "legendary_items.py",
     }
+    for requirement in SOLDIER_INSTANCE_COOLDOWN_REQUIREMENTS.values():
+        module_name = requirement["module"]
+        files[module_name] = root / module_name
     return {name: path.read_text(encoding="utf-8") for name, path in files.items()}
 
 
@@ -222,6 +251,43 @@ def _function_block(source: str, name: str) -> SourceBlock:
             end = index
             break
     return SourceBlock(name=name, text="".join(lines[start:end]), line=start + 1)
+
+
+def _function_name_for_line(source: str, line_number: int) -> str:
+    current = ""
+    for index, line in enumerate(source.splitlines(), start=1):
+        match = re.match(r"^(?:def|class)\s+([A-Za-z_][A-Za-z0-9_]*)\b", line)
+        if match:
+            current = match.group(1)
+        if index >= line_number:
+            return current
+    return current
+
+
+def _function_call_blocks(source: str, name: str) -> list[SourceBlock]:
+    blocks: list[SourceBlock] = []
+    pattern = re.compile(rf"\b{re.escape(name)}\s*\(")
+    for match in pattern.finditer(source):
+        open_index = source.find("(", match.start())
+        if open_index < 0:
+            continue
+        blocks.append(
+            SourceBlock(
+                name=name,
+                text=_scan_balanced(source, open_index),
+                line=_line_for(source, match.start()),
+            )
+        )
+    return blocks
+
+
+def _keyword_value_is(text: str, keyword: str, value: str) -> bool:
+    return bool(
+        re.search(
+            rf"\b{re.escape(keyword)}\s*=\s*{re.escape(value)}\b",
+            text,
+        )
+    )
 
 
 def _quoted_names(text: str) -> set[str]:
@@ -619,6 +685,7 @@ def _collect_skill_context(sources: dict[str, str]) -> dict[str, object]:
         "icon_schema_bool_fields": icon_schema_bool_fields,
         "soldier_base_skills": soldier_base_skills,
         "soldier_shared_slot_skills": soldier_shared_slot_skills,
+        "soldier_pistol_orb_skill": soldier_pistol_orb_skill,
     }
 
 
@@ -922,6 +989,46 @@ def _check_icon_schema(report: CoverageReport, context: dict[str, object]) -> No
             shared_slot_missing,
         )
 
+    soldier_cleanup = cleanup_policy_maps["_SOLDIER_ORB_ICON_REGISTRY"]
+    soldier_shared_swap = {
+        name for name, value in soldier_cleanup.items() if value == "shared_swap"
+    }
+    soldier_pistol_orb_skill = context["soldier_pistol_orb_skill"]
+    soldier_expected_shared_swap = (
+        soldier_shared_slot_skills
+        - ({soldier_pistol_orb_skill} if soldier_pistol_orb_skill else set())
+    )
+    report.counts["skills.soldier_shared_swap_cleanup_policy_ids"] = len(
+        soldier_shared_swap
+    )
+
+    shared_swap_extra = soldier_shared_swap - soldier_expected_shared_swap
+    if shared_swap_extra:
+        report.add(
+            "ERROR",
+            "SOLDIER_SHARED_SWAP_CLEANUP_POLICY_EXTRA",
+            "Only removable Soldier shared-slot firearms should use cleanup_policy=shared_swap",
+            shared_swap_extra,
+        )
+    shared_swap_missing = soldier_expected_shared_swap - soldier_shared_swap
+    if shared_swap_missing:
+        report.add(
+            "ERROR",
+            "SOLDIER_SHARED_SWAP_CLEANUP_POLICY_MISSING",
+            "Removable Soldier shared-slot firearms must use cleanup_policy=shared_swap",
+            shared_swap_missing,
+        )
+
+    soldier_unlock_targets = set(context["soldier_unlock_map"].values())
+    shared_swap_unmapped = soldier_shared_swap - soldier_unlock_targets
+    if shared_swap_unmapped:
+        report.add(
+            "ERROR",
+            "SOLDIER_SHARED_SWAP_CLEANUP_UNMAPPED",
+            "Soldier shared_swap entries need a perk-id reverse mapping for cleanup",
+            shared_swap_unmapped,
+        )
+
     cooldown_maps = bool_fields["cooldown_reduction_eligible"]
     optimus_false = {
         name
@@ -960,7 +1067,200 @@ def _check_icon_schema(report: CoverageReport, context: dict[str, object]) -> No
         )
 
 
-def _check_skills(report: CoverageReport, context: dict[str, object]) -> None:
+def _check_soldier_firearm_cooldown_paths(
+    report: CoverageReport,
+    context: dict[str, object],
+    sources: dict[str, str],
+) -> None:
+    pingfighter_src = sources["pingfighter.py"]
+    soldier_cooldown_map = context["icon_schema_bool_fields"][
+        "cooldown_reduction_eligible"
+    ]["_SOLDIER_ORB_ICON_REGISTRY"]
+    eligible_firearms = {
+        name
+        for name in SOLDIER_INSTANCE_COOLDOWN_REQUIREMENTS
+        if soldier_cooldown_map.get(name) is True
+    }
+    report.counts["skills.soldier_firearm_cooldown_sync_targets"] = len(
+        eligible_firearms
+    )
+
+    missing_schema = set(SOLDIER_INSTANCE_COOLDOWN_REQUIREMENTS) - eligible_firearms
+    if missing_schema:
+        report.add(
+            "ERROR",
+            "SOLDIER_FIREARM_COOLDOWN_SCHEMA_MISSING",
+            "Soldier instance-backed firearms must be cooldown_reduction_eligible=True",
+            missing_schema,
+        )
+
+    helper_block = _function_block(
+        pingfighter_src,
+        "_apply_soldier_firearm_cooldown_frames",
+    )
+    if (
+        "_get_soldier_firearm_cooldown_frames" not in helper_block.text
+        or not _keyword_value_is(helper_block.text, "apply_reduction", "apply_reduction")
+    ):
+        report.add(
+            "ERROR",
+            "SOLDIER_FIREARM_COOLDOWN_HELPER_BYPASS",
+            "_apply_soldier_firearm_cooldown_frames must delegate to the shared cooldown helper",
+        )
+
+    helper_attr_synced = set()
+    for skill_name, requirement in SOLDIER_INSTANCE_COOLDOWN_REQUIREMENTS.items():
+        attr = requirement["attr"]
+        if f'"{skill_name}"' in helper_block.text and f".{attr}" in helper_block.text:
+            helper_attr_synced.add(skill_name)
+    report.counts["skills.soldier_firearm_cooldown_helper_attr_syncs"] = len(
+        helper_attr_synced
+    )
+    helper_missing = eligible_firearms - helper_attr_synced
+    if helper_missing:
+        report.add(
+            "ERROR",
+            "SOLDIER_FIREARM_COOLDOWN_HELPER_ATTR_MISSING",
+            "Soldier firearm cooldown helper must update each instance cooldown attribute",
+            helper_missing,
+        )
+
+    sync_calls = _function_call_blocks(
+        pingfighter_src,
+        "_apply_soldier_firearm_cooldown_frames",
+    )
+    fire_path_synced = {
+        skill_name
+        for skill_name in eligible_firearms
+        for call in sync_calls
+        if f'"{skill_name}"' in call.text
+        and _keyword_value_is(
+            call.text,
+            "apply_reduction",
+            "permanent_firearm_selected",
+        )
+    }
+    report.counts["skills.soldier_firearm_cooldown_fire_path_syncs"] = len(
+        fire_path_synced
+    )
+    fire_path_missing = eligible_firearms - fire_path_synced
+    if fire_path_missing:
+        report.add(
+            "ERROR",
+            "SOLDIER_FIREARM_FIRE_PATH_COOLDOWN_SYNC_MISSING",
+            "Soldier firearm fire/install paths must sync instance cooldowns with the reduced HUD cooldown",
+            fire_path_missing,
+        )
+
+    module_gate_missing = set()
+    module_attr_missing = set()
+    for skill_name, requirement in SOLDIER_INSTANCE_COOLDOWN_REQUIREMENTS.items():
+        module_src = sources[requirement["module"]]
+        if f"def {requirement['gate']}(" not in module_src:
+            module_gate_missing.add(f"{skill_name}.{requirement['gate']}")
+        if requirement["attr"] not in module_src:
+            module_attr_missing.add(f"{skill_name}.{requirement['attr']}")
+    if module_gate_missing:
+        report.add(
+            "ERROR",
+            "SOLDIER_FIREARM_GATE_METHOD_MISSING",
+            "Soldier firearm module is missing the expected fire/install gate method",
+            module_gate_missing,
+        )
+    if module_attr_missing:
+        report.add(
+            "ERROR",
+            "SOLDIER_FIREARM_INSTANCE_COOLDOWN_ATTR_MISSING",
+            "Soldier firearm module is missing the cooldown attribute synced by pingfighter.py",
+            module_attr_missing,
+        )
+
+
+def _check_soldier_equipped_pop_cleanup(
+    report: CoverageReport,
+    sources: dict[str, str],
+) -> None:
+    pingfighter_src = sources["pingfighter.py"]
+    pop_pattern = re.compile(r"_soldier_equipped_skills\s*\.\s*pop\s*\(")
+    pop_sites: list[tuple[str, int]] = []
+    guarded_sites: list[tuple[str, int]] = []
+    for match in pop_pattern.finditer(pingfighter_src):
+        line = _line_for(pingfighter_src, match.start())
+        function_name = _function_name_for_line(pingfighter_src, line)
+        pop_sites.append((function_name, line))
+        if function_name == "_cleanup_heavenly_cape_overflow_skills":
+            block = _function_block(pingfighter_src, function_name)
+            if (
+                '_perform_skill_swap_cleanup("soldier", victim)' in block.text
+                or "_perform_skill_swap_cleanup('soldier', victim)" in block.text
+            ):
+                guarded_sites.append((function_name, line))
+
+    report.counts["skills.soldier_equipped_pop_sites"] = len(pop_sites)
+    report.counts["skills.soldier_equipped_pop_cleanup_guarded_sites"] = len(
+        guarded_sites
+    )
+
+    unguarded = set(pop_sites) - set(guarded_sites)
+    if unguarded:
+        report.add(
+            "ERROR",
+            "SOLDIER_EQUIPPED_DIRECT_POP",
+            "_soldier_equipped_skills.pop() must route through shared cleanup",
+            {f"{function_name}:line {line}" for function_name, line in unguarded},
+        )
+
+
+def _check_academy_swap_return_guards(
+    report: CoverageReport,
+    sources: dict[str, str],
+) -> None:
+    block = _function_block(sources["pingfighter.py"], "apply_academy_skill_swap")
+    swap_calls = sorted(set(re.findall(r"\b(swap_[a-z0-9_]+_skill)\s*\(", block.text)))
+    guarded = {
+        call
+        for call in swap_calls
+        if re.search(rf"if\s+not\s+{re.escape(call)}\s*\(", block.text)
+    }
+    prechecked = set()
+    for call, equipped_name in ACADEMY_SWAP_PRECHECKED_CALLS.items():
+        if call not in swap_calls:
+            continue
+        if (
+            f"if old_skill_name not in {equipped_name}" in block.text
+            and "return False" in block.text
+        ):
+            prechecked.add(call)
+
+    report.counts["skills.academy_swap_calls"] = len(swap_calls)
+    report.counts["skills.academy_swap_return_guarded_calls"] = len(guarded)
+    report.counts["skills.academy_swap_prechecked_calls"] = len(prechecked)
+
+    unchecked = set(swap_calls) - guarded - prechecked
+    if unchecked:
+        report.add(
+            "ERROR",
+            "ACADEMY_SWAP_RETURN_UNCHECKED",
+            "apply_academy_skill_swap() must either check swap_*_skill() return values or carry an explicit precheck whitelist",
+            unchecked,
+        )
+
+
+def _check_soldier_mixed_slot_static_patterns(
+    report: CoverageReport,
+    context: dict[str, object],
+    sources: dict[str, str],
+) -> None:
+    _check_soldier_firearm_cooldown_paths(report, context, sources)
+    _check_soldier_equipped_pop_cleanup(report, sources)
+    _check_academy_swap_return_guards(report, sources)
+
+
+def _check_skills(
+    report: CoverageReport,
+    context: dict[str, object],
+    sources: dict[str, str],
+) -> None:
     runtime_ids = context["runtime_ids"]
     mini_ids = context["mini_ids"]
     shared_symbol_ids = context["shared_symbol_ids"]
@@ -990,6 +1290,7 @@ def _check_skills(report: CoverageReport, context: dict[str, object]) -> None:
     )
     report.counts["skills.shared_symbol_ids"] = len(shared_symbol_ids)
     _check_icon_schema(report, context)
+    _check_soldier_mixed_slot_static_patterns(report, context, sources)
 
     missing_mini = runtime_ids - mini_ids
     if missing_mini:
@@ -1251,7 +1552,7 @@ def build_report(root: Path = PROJECT_ROOT) -> CoverageReport:
     sources = _read_sources(root)
     report = CoverageReport()
     _check_items(report, _collect_item_context(sources))
-    _check_skills(report, _collect_skill_context(sources))
+    _check_skills(report, _collect_skill_context(sources), sources)
     return report
 
 
