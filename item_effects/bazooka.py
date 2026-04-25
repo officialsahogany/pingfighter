@@ -96,8 +96,10 @@ class Bazooka:
         if self.ammo_count <= 0:
             self.ammo_count = 0
             self.active = False
-            self.equipped = False
-        
+            # equipped/unequip는 대여품이 실제로 제거될 때만 해제한다.
+            # 영구 소유 바주카는 슬롯이 그대로 남아있으므로 계속 equipped 상태를 유지해야
+            # 비상보급 후에도 UI/발사가 정상 동작한다.
+
         for module_name in ("__main__", "pingfighter"):
             module = sys.modules.get(module_name)
             controller = getattr(module, "soldier_controller", None) if module else None
@@ -106,6 +108,7 @@ class Bazooka:
                 try:
                     removed = releaser("bazooka", current_ammo=self.ammo_count)
                     if removed:
+                        self.equipped = False
                         switcher = getattr(module, "soldier_switch_weapon", None)
                         if callable(switcher):
                             switcher(getattr(controller, "current_index", 0), play_sound=False)

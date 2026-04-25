@@ -5380,7 +5380,7 @@ def _heavenly_cape_would_delete_skill() -> bool:
     return (
         len(_smasher_equipped_skills) > SMASHER_BASE_MAX_SKILL_SLOTS
         or len(_viper_equipped_skills) > VIPER_BASE_MAX_SKILL_SLOTS
-        or len(_soldier_equipped_skills) > 5
+        or len(_soldier_equipped_skills) > SOLDIER_MAX_SKILL_SLOTS
     )
 
 
@@ -5406,7 +5406,7 @@ def _cleanup_heavenly_cape_overflow_skills() -> list:
         victim = _viper_equipped_skills.pop()
         runtime_skill_levels.pop(victim, None)
         removed.append(("viper", victim))
-    if len(_soldier_equipped_skills) > 5:  # 왼쪽 4 + 오른쪽 1 = 5 기본
+    if len(_soldier_equipped_skills) > SOLDIER_MAX_SKILL_SLOTS:
         victim = _soldier_equipped_skills.pop()
         runtime_skill_levels.pop(victim, None)
         removed.append(("soldier", victim))
@@ -10519,6 +10519,89 @@ def _draw_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx: int, c
             pygame.draw.circle(surface, main_color, (cx, cy), max(2, s // 3), 1)
 
 
+def _draw_skill_cooldown_overlay(
+    surface: pygame.Surface,
+    center_x: int,
+    center_y: int,
+    radius: int,
+    cooldown_ratio: float,
+) -> None:
+    """Draw a readable outer cooldown ring without covering the skill icon."""
+    ratio = max(0.0, min(1.0, float(cooldown_ratio)))
+    if ratio <= 0.0 or radius <= 0:
+        return
+
+    pad = 6
+    size = radius * 2 + pad * 2
+    local_center = radius + pad
+    overlay = pygame.Surface((size, size), pygame.SRCALPHA)
+
+    start_angle = -math.pi / 2
+    end_angle = start_angle + (2 * math.pi * ratio)
+
+    ring_rect = pygame.Rect(
+        local_center - radius - 3,
+        local_center - radius - 3,
+        (radius + 3) * 2,
+        (radius + 3) * 2,
+    )
+    pygame.draw.circle(overlay, (18, 22, 30, 145), (local_center, local_center), radius + 3, 2)
+    if ratio >= 0.995:
+        pygame.draw.circle(overlay, (205, 245, 255, 235), (local_center, local_center), radius + 3, 3)
+    else:
+        pygame.draw.arc(overlay, (205, 245, 255, 235), ring_rect, start_angle, end_angle, 3)
+
+    surface.blit(overlay, (center_x - local_center, center_y - local_center))
+
+
+def _draw_skill_ready_ring(
+    surface: pygame.Surface,
+    center_x: int,
+    center_y: int,
+    radius: int,
+    time_now: int,
+    phase_offset: float = 0.0,
+) -> None:
+    """Draw a warm ready-state ring outside a usable skill orb."""
+    if radius <= 0:
+        return
+
+    pulse = 0.5 + 0.5 * math.sin(time_now * 0.007 + phase_offset)
+    pad = 8
+    size = radius * 2 + pad * 2
+    local_center = radius + pad
+    ring_radius = radius + 3
+    ring_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+
+    glow_alpha = int(34 + 38 * pulse)
+    ring_alpha = int(190 + 50 * pulse)
+    hot_alpha = int(120 + 55 * pulse)
+
+    pygame.draw.circle(
+        ring_surf,
+        (255, 50, 18, glow_alpha),
+        (local_center, local_center),
+        ring_radius + 3,
+        3,
+    )
+    pygame.draw.circle(
+        ring_surf,
+        (255, 112, 28, ring_alpha),
+        (local_center, local_center),
+        ring_radius,
+        2,
+    )
+    pygame.draw.circle(
+        ring_surf,
+        (255, 224, 92, hot_alpha),
+        (local_center, local_center),
+        max(1, ring_radius - 2),
+        1,
+    )
+
+    surface.blit(ring_surf, (center_x - local_center, center_y - local_center))
+
+
 def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                               orb_radius: int, current_gauge: float, max_gauge: float):
     """게이지 구슬을 둘러싸는 반원 형태로 스매셔 스킬 아이콘 배치
@@ -10668,47 +10751,7 @@ def _draw_smasher_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
 
         # === 쿨타임 오버레이 ===
         if is_on_cooldown:
-            # 쿨타임 원형 오버레이 (위에서 아래로 채워지는 방식)
-            cd_surface = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
-            cd_center = icon_radius + 2
-
-            # 쿨타임 비율만큼 어두운 부채꼴
-            start_angle = -math.pi / 2  # 12시 방향
-            end_angle = start_angle + (2 * math.pi * cooldown_ratio)
-
-            if cooldown_ratio > 0.01:
-                points = [(cd_center, cd_center)]
-                num_segments = max(3, int(36 * cooldown_ratio))
-                for j in range(num_segments + 1):
-                    angle = start_angle + (end_angle - start_angle) * j / num_segments
-                    x = cd_center + int(math.cos(angle) * icon_radius)
-                    y = cd_center + int(math.sin(angle) * icon_radius)
-                    points.append((x, y))
-
-                if len(points) >= 3:
-                    pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
-
-            surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
-
-            # 남은 쿨타임 시간 표시 (최종 쿨타임 반영)
-            _orb_eff_cd = _get_effective_player_skill_cooldown_seconds(skill_data["cooldown"])
-            remaining_sec = max(0, _orb_eff_cd * cooldown_ratio)
-            if remaining_sec >= 1:
-                cooldown_text = f"{int(remaining_sec)}"
-            else:
-                cooldown_text = f"{remaining_sec:.1f}"
-
-            try:
-                cd_font = _get_cached_cd_font()  # 14 -> 28 (2배)
-                cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
-                cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
-                # 그림자 효과
-                shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
-                shadow_rect = shadow_surface.get_rect(center=(icon_x + 1, icon_y + 1))
-                surface.blit(shadow_surface, shadow_rect)
-                surface.blit(cd_text_surface, cd_rect)
-            except:
-                pass
+            _draw_skill_cooldown_overlay(surface, icon_x, icon_y, icon_radius, cooldown_ratio)
 
     # (클렌즈는 더 이상 별도 슬롯이 아님 - 5구슬 통합 시스템으로 장착 시 일반 슬롯에 표시)
 
@@ -10884,6 +10927,8 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                 pulse_alpha = int((pulse - 0.4) * 100)
                 pygame.draw.circle(surface, (*skill_data["color"][:3], pulse_alpha),
                                  (icon_x, icon_y), icon_radius + 3, 2)
+            if is_active and not is_on_cooldown:
+                _draw_skill_ready_ring(surface, icon_x, icon_y, icon_radius, time_now, i * 0.6)
 
         # 🔴 팬텀 킥 연계 가능 시 붉은 맥동 글로우
         if skill_name == "phantom_kick" and _viper_double_marshal_ready and current_gauge >= skill_data["cost"]:
@@ -10917,39 +10962,7 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
 
         # 쿨타임 오버레이
         if is_on_cooldown:
-            cd_surface = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
-            cd_center = icon_radius + 2
-            start_angle = -math.pi / 2
-            end_angle = start_angle + (2 * math.pi * cooldown_ratio)
-            if cooldown_ratio > 0.01:
-                points = [(cd_center, cd_center)]
-                num_segments = max(3, int(36 * cooldown_ratio))
-                for j in range(num_segments + 1):
-                    angle = start_angle + (end_angle - start_angle) * j / num_segments
-                    x = cd_center + int(math.cos(angle) * icon_radius)
-                    y = cd_center + int(math.sin(angle) * icon_radius)
-                    points.append((x, y))
-                if len(points) >= 3:
-                    pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
-            surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
-
-            # 남은 쿨타임 시간 표시 (최종 쿨타임 반영)
-            _orb_eff_cd_v = _get_effective_player_skill_cooldown_seconds(skill_data["cooldown"])
-            remaining_sec = max(0, _orb_eff_cd_v * cooldown_ratio)
-            if remaining_sec >= 1:
-                cooldown_text = f"{int(remaining_sec)}"
-            else:
-                cooldown_text = f"{remaining_sec:.1f}"
-            try:
-                cd_font = _get_cached_cd_font()
-                cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
-                cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
-                shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
-                shadow_rect = shadow_surface.get_rect(center=(icon_x + 1, icon_y + 1))
-                surface.blit(shadow_surface, shadow_rect)
-                surface.blit(cd_text_surface, cd_rect)
-            except:
-                pass
+            _draw_skill_cooldown_overlay(surface, icon_x, icon_y, icon_radius, cooldown_ratio)
 
     # === 드래그 중인 구슬을 마우스 위치에 최상위로 그리기 ===
     if _is_dragging and _drag_render_data:
@@ -10973,6 +10986,8 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
             _d_border = (120, 120, 120, 200)
         pygame.draw.circle(surface, _d_bg, (_d_mx, _d_my), _d_ir)
         pygame.draw.circle(surface, _d_border, (_d_mx, _d_my), _d_ir, 2)
+        if _d_active and not _drd["is_on_cooldown"]:
+            _draw_skill_ready_ring(surface, _d_mx, _d_my, _d_ir, time_now, _drd["i"] * 0.6)
 
         # 심볼
         _d_icon_size = _d_ir * 2 - 4
@@ -10980,21 +10995,8 @@ def _draw_viper_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_cent
                                 _d_icon_size, _d_active, _d_sd["color"])
 
         # 쿨타임 오버레이
-        if _drd["is_on_cooldown"] and _drd["cooldown_ratio"] > 0.01:
-            _d_id = _drd["icon_diameter"]
-            _d_cd_s = pygame.Surface((_d_id + 4, _d_id + 4), pygame.SRCALPHA)
-            _d_cd_c = _d_ir + 2
-            _d_sa = -math.pi / 2
-            _d_ea = _d_sa + (2 * math.pi * _drd["cooldown_ratio"])
-            _d_pts = [(_d_cd_c, _d_cd_c)]
-            _d_ns = max(3, int(36 * _drd["cooldown_ratio"]))
-            for _d_j in range(_d_ns + 1):
-                _d_a = _d_sa + (_d_ea - _d_sa) * _d_j / _d_ns
-                _d_pts.append((_d_cd_c + int(math.cos(_d_a) * _d_ir),
-                              _d_cd_c + int(math.sin(_d_a) * _d_ir)))
-            if len(_d_pts) >= 3:
-                pygame.draw.polygon(_d_cd_s, (0, 0, 0, 180), _d_pts)
-            surface.blit(_d_cd_s, (_d_mx - _d_ir - 2, _d_my - _d_ir - 2))
+        if _drd["is_on_cooldown"]:
+            _draw_skill_cooldown_overlay(surface, _d_mx, _d_my, _d_ir, _drd["cooldown_ratio"])
 
 
 # 바이퍼 퍽 구슬 활성화 상태 추적
@@ -11110,6 +11112,7 @@ def _draw_viper_perk_icons(surface: pygame.Surface, orb_center_x: int, orb_cente
                 pulse_alpha = int((pulse - 0.4) * 100)
                 pygame.draw.circle(surface, (*perk["color"][:3], pulse_alpha),
                                  (icon_x, icon_y), icon_radius + 3, 2)
+            _draw_skill_ready_ring(surface, icon_x, icon_y, icon_radius, time_now, i * 0.6)
 
         # 아이콘 심볼 (팬텀 킥: 두 발 + x2)
         _draw_skill_icon_symbol(surface, perk_name, icon_x, icon_y,
@@ -11311,6 +11314,8 @@ def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb
     # 아이콘 배경 원
     pygame.draw.circle(surface, bg_color, (slot_x, slot_y), icon_radius)
     pygame.draw.circle(surface, border_color, (slot_x, slot_y), icon_radius, 2)
+    if is_active and not is_on_cooldown:
+        _draw_skill_ready_ring(surface, slot_x, slot_y, icon_radius, time_now)
 
     # === 고퀄리티 해머쇼크 아이콘 (디바인스톤 UI 스타일) ===
     # 아이콘 중심 (원의 정중앙)
@@ -11450,22 +11455,7 @@ def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb
 
     # 쿨타임 오버레이
     if is_on_cooldown:
-        cooldown_surface = pygame.Surface((icon_diameter, icon_diameter), pygame.SRCALPHA)
-        pygame.draw.circle(cooldown_surface, (0, 0, 0, 150), (icon_radius, icon_radius), icon_radius)
-        if cooldown_ratio > 0:
-            start_angle = -math.pi / 2
-            end_angle = start_angle + (1 - cooldown_ratio) * 2 * math.pi
-            if end_angle > start_angle:
-                pie_points = [(icon_radius, icon_radius)]
-                for a in range(int(math.degrees(start_angle)), int(math.degrees(end_angle)) + 1, 5):
-                    rad = math.radians(a)
-                    px = icon_radius + int(math.cos(rad) * icon_radius)
-                    py = icon_radius + int(math.sin(rad) * icon_radius)
-                    pie_points.append((px, py))
-                pie_points.append((icon_radius, icon_radius))
-                if len(pie_points) >= 3:
-                    pygame.draw.polygon(cooldown_surface, (0, 0, 0, 100), pie_points)
-        surface.blit(cooldown_surface, (slot_x - icon_radius, slot_y - icon_radius))
+        _draw_skill_cooldown_overlay(surface, slot_x, slot_y, icon_radius, cooldown_ratio)
 
 
 def _check_smasher_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> dict:
@@ -12379,19 +12369,12 @@ def _draw_soldier_skill_tooltip(surface: pygame.Surface, skill_data: dict,
 
     description = skill_data.get("description", "")
     max_text_width = tooltip_width - padding * 2
-    lines = []
-    current_line = ""
-    for char in description:
-        test_line = current_line + char
-        test_surface, test_rect = normal_font.render(test_line, (255, 255, 255))
-        if test_rect.width <= max_text_width:
-            current_line = test_line
-        else:
-            if current_line:
-                lines.append(current_line)
-            current_line = char
-    if current_line:
-        lines.append(current_line)
+    lines = _get_wrapped_tooltip_lines(
+        description,
+        normal_font,
+        max_text_width,
+        max_lines=4,
+    )
 
     for line in lines[:4]:
         line_surface, line_rect = normal_font.render(line, (220, 220, 220))
@@ -12414,11 +12397,15 @@ def _draw_soldier_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     pygame.draw.rect(tooltip_surface, (10, 15, 25, 200), effect_rect, border_radius=6)
     pygame.draw.rect(tooltip_surface, (*skill_data["color"][:3], 100), effect_rect, 1, border_radius=6)
 
-    effect_center_x = effect_rect.centerx
-    effect_center_y = effect_rect.centery
     effect_type = skill_data.get("effect_type", "")
     anim_progress = (time_now % 2000) / 2000.0
-    _draw_skill_effect_preview(tooltip_surface, effect_type, skill_data["color"], effect_center_x, effect_center_y, anim_progress)
+    _draw_skill_effect_preview_clipped(
+        tooltip_surface,
+        effect_rect,
+        effect_type,
+        skill_data["color"],
+        anim_progress,
+    )
 
     effect_label_surface, effect_label_rect = small_font.render(_t("ui.effect_preview", "이펙트 미리보기"), (150, 150, 150))
     tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
@@ -13906,19 +13893,31 @@ SOLDIER_PERMANENT_FIREARM_SKILLS = (
     "fire_support",
     "bowling_trap",
     "suicide_drone",
-    "commando_pistol",
+    "bazooka",
+    "ak47",
+    SOLDIER_PISTOL_ORB_SKILL,
 )
 SOLDIER_SHARED_SLOT_SKILLS = SOLDIER_PERMANENT_FIREARM_SKILLS
 SOLDIER_LOCKED_ORB_SKILLS = tuple(SOLDIER_BASE_SKILLS)
-SOLDIER_MAX_SKILL_SLOTS = 5
+SOLDIER_MAX_SKILL_SLOTS = 5  # 기본 슬롯 수. 천상의 망토 보너스는 getter에서 반영한다.
 SOLDIER_SHARED_SLOT_CAPACITY = SOLDIER_MAX_SKILL_SLOTS - len(SOLDIER_BASE_SKILLS)
-EMERGENCY_SUPPLY_COOLDOWN = 120.0
+EMERGENCY_SUPPLY_COOLDOWN = 60.0
 PERMANENT_FIREARM_COOLDOWNS = {
     "net_gun": 2.0,
     "fire_support": 3.5,
     "bowling_trap": 2.5,
     "suicide_drone": 4.0,
+    "bazooka": 2.0,
+    "ak47": 0.1,
     "commando_pistol": 0.0,
+}
+SOLDIER_UNLOCK_PERK_TO_SKILL = {
+    "soldier_unlock_net_gun": "net_gun",
+    "soldier_unlock_fire_support": "fire_support",
+    "soldier_unlock_bowling_trap": "bowling_trap",
+    "soldier_unlock_suicide_drone": "suicide_drone",
+    "soldier_unlock_bazooka": "bazooka",
+    "soldier_unlock_ak47": "ak47",
 }
 
 # 스킬 정보: (스킬명, 게이지 비용, 아이콘 색상, 쿨타임(초))
@@ -13933,42 +13932,56 @@ SOLDIER_SKILL_ICONS_DATA = [
     {
         "name": "emergency_supply", "korean": "긴급재보급", "cost": 300, "color": (255, 100, 100),
         "symbol": "🚨", "cooldown": EMERGENCY_SUPPLY_COOLDOWN, "key": "↓↓ 더블탭",
-        "description": "현재 선택한 영구 화기류 1개의 탄창을 즉시 전부 보충합니다. 스테이지 내에서도 쿨타임 후 재사용 가능합니다.",
+        "description": "현재 선택한 영구 화기류 1개를 점진적으로 재보급합니다. 권총은 탄창 1개, 화력지원과 AK-47은 게이지 충전 후 보충됩니다.",
         "how_to_use": "제자리에서 ↓를 두 번 눌러 발동",
         "effect_type": "emergency_red"
     },
     {
         "name": SOLDIER_PISTOL_ORB_SKILL, "korean": "권총", "cost": 0, "color": (200, 180, 120),
         "symbol": "🔫", "cooldown": 0.0, "key": "좌클릭/SPACE",
-        "description": "새총과 별개의 영구 화기류로 권총을 추가합니다. 탄창 3개로 재장전 제한이 있으며 스테이지 전환 또는 비상보급 시 탄창이 완전 충전됩니다.",
+        "description": "새총과 별개의 영구 화기류로 권총을 추가합니다. 탄창 3개로 재장전 제한이 있으며 비상보급 1회당 탄창 1개를 보충합니다.",
         "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
         "effect_type": "firearm_pistol"
     },
     {
+        "name": "bazooka", "korean": "바주카포", "cost": 0, "color": (220, 120, 70),
+        "symbol": "🚀", "cooldown": PERMANENT_FIREARM_COOLDOWNS["bazooka"], "key": "좌클릭/SPACE",
+        "description": "현재 선택 중일 때 발사 후 짧은 오브 쿨타임이 돌며, 비상보급으로 탄약을 1발씩 보충합니다.",
+        "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
+        "effect_type": "firearm_bazooka"
+    },
+    {
+        "name": "ak47", "korean": "AK-47", "cost": 0, "color": (110, 135, 85),
+        "symbol": "≣", "cooldown": PERMANENT_FIREARM_COOLDOWNS["ak47"], "key": "좌클릭/SPACE",
+        "description": "현재 선택 중일 때 1발 발사마다 짧은 오브 쿨타임이 돌며, 비상보급 게이지를 끝까지 채우면 탄약과 지속시간을 보충합니다.",
+        "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
+        "effect_type": "firearm_ak47"
+    },
+    {
         "name": "net_gun", "korean": "그물덫총", "cost": 0, "color": (100, 180, 100),
         "symbol": "🕸", "cooldown": PERMANENT_FIREARM_COOLDOWNS["net_gun"], "key": "좌클릭/SPACE",
-        "description": "현재 선택 중일 때 발사 후 짧은 오브 쿨타임이 돌며, 스테이지가 바뀌면 탄환이 전부 보충됩니다.",
+        "description": "현재 선택 중일 때 발사 후 짧은 오브 쿨타임이 돌며, 비상보급으로 탄환을 1발씩 보충합니다.",
         "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
         "effect_type": "firearm_net"
     },
     {
         "name": "fire_support", "korean": "화력지원", "cost": 0, "color": (255, 100, 50),
         "symbol": "✈", "cooldown": PERMANENT_FIREARM_COOLDOWNS["fire_support"], "key": "좌클릭/SPACE",
-        "description": "현재 선택 중일 때 호출 후 짧은 오브 쿨타임이 돌며, 스테이지가 바뀌면 탄환이 전부 보충됩니다.",
+        "description": "현재 선택 중일 때 호출 후 짧은 오브 쿨타임이 돌며, 비상보급 게이지를 끝까지 채우면 호출권을 보충합니다.",
         "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
         "effect_type": "firearm_support"
     },
     {
         "name": "bowling_trap", "korean": "볼링트랩", "cost": 0, "color": (200, 80, 80),
         "symbol": "🎳", "cooldown": PERMANENT_FIREARM_COOLDOWNS["bowling_trap"], "key": "좌클릭/SPACE",
-        "description": "현재 선택 중일 때 설치 후 짧은 오브 쿨타임이 돌며, 스테이지가 바뀌면 탄환이 전부 보충됩니다.",
+        "description": "현재 선택 중일 때 설치 후 짧은 오브 쿨타임이 돌며, 비상보급으로 탄환을 1발씩 보충합니다.",
         "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
         "effect_type": "firearm_trap"
     },
     {
         "name": "suicide_drone", "korean": "자폭드론", "cost": 0, "color": (255, 100, 50),
         "symbol": "💥", "cooldown": PERMANENT_FIREARM_COOLDOWNS["suicide_drone"], "key": "좌클릭/SPACE",
-        "description": "현재 선택 중일 때 발진 후 짧은 오브 쿨타임이 돌며, 스테이지가 바뀌면 탄환이 전부 보충됩니다.",
+        "description": "현재 선택 중일 때 발진 후 짧은 오브 쿨타임이 돌며, 비상보급으로 탄환을 1발씩 보충합니다.",
         "how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
         "effect_type": "firearm_drone"
     },
@@ -13982,9 +13995,21 @@ _soldier_skill_unlocked = {
     "fire_support": False,
     "bowling_trap": False,
     "suicide_drone": False,
+    "bazooka": False,
+    "ak47": False,
     SOLDIER_PISTOL_ORB_SKILL: False,
 }
 _soldier_equipped_skills = ["supply_drop", "emergency_supply"]
+
+
+def get_soldier_max_skill_slots() -> int:
+    """천상의 망토 슬롯 보너스를 반영한 런타임 코만도 스킬 슬롯 수."""
+    return SOLDIER_MAX_SKILL_SLOTS + int(globals().get("heavenly_cape_slot_bonus", 0))
+
+
+def get_soldier_shared_slot_capacity() -> int:
+    """기본 2개 오브를 제외한 코만도 추가 장착 가능 슬롯 수."""
+    return max(0, get_soldier_max_skill_slots() - len(SOLDIER_BASE_SKILLS))
 
 
 def reset_soldier_skill_unlocks() -> None:
@@ -13997,6 +14022,8 @@ def reset_soldier_skill_unlocks() -> None:
         "fire_support": False,
         "bowling_trap": False,
         "suicide_drone": False,
+        "bazooka": False,
+        "ak47": False,
         SOLDIER_PISTOL_ORB_SKILL: False,
     }
     _soldier_equipped_skills = ["supply_drop", "emergency_supply"]
@@ -14017,6 +14044,7 @@ def get_soldier_equipped_firearm_skills() -> list[str]:
 def _normalize_soldier_shared_slot_skills(shared_skills: list[str] | None = None) -> list[str]:
     normalized: list[str] = []
     seen: set[str] = set()
+    shared_capacity = get_soldier_shared_slot_capacity()
 
     for skill_name in list(shared_skills or []):
         if skill_name in seen or skill_name not in SOLDIER_SHARED_SLOT_SKILLS:
@@ -14028,10 +14056,10 @@ def _normalize_soldier_shared_slot_skills(shared_skills: list[str] | None = None
             continue
         normalized.append(skill_name)
         seen.add(skill_name)
-        if len(normalized) >= SOLDIER_SHARED_SLOT_CAPACITY:
-            return normalized[:SOLDIER_SHARED_SLOT_CAPACITY]
+        if len(normalized) >= shared_capacity:
+            return normalized[:shared_capacity]
 
-    return normalized[:SOLDIER_SHARED_SLOT_CAPACITY]
+    return normalized[:shared_capacity]
 
 
 def set_soldier_equipped_shared_skills(shared_skills: list[str] | None = None) -> list[str]:
@@ -14042,7 +14070,7 @@ def set_soldier_equipped_shared_skills(shared_skills: list[str] | None = None) -
 
 
 def is_soldier_skill_slots_full() -> bool:
-    return len(get_soldier_equipped_slot_skills()) >= SOLDIER_SHARED_SLOT_CAPACITY
+    return len(get_soldier_equipped_slot_skills()) >= get_soldier_shared_slot_capacity()
 
 
 def equip_soldier_skill(skill_name: str) -> bool:
@@ -14051,7 +14079,7 @@ def equip_soldier_skill(skill_name: str) -> bool:
         return True
     if skill_name not in SOLDIER_SHARED_SLOT_SKILLS:
         return False
-    if len(get_soldier_equipped_slot_skills()) >= SOLDIER_SHARED_SLOT_CAPACITY:
+    if len(get_soldier_equipped_slot_skills()) >= get_soldier_shared_slot_capacity():
         return False
     _soldier_equipped_skills.append(skill_name)
     return True
@@ -14116,12 +14144,12 @@ _SOLDIER_NET_GUN_ORB_ICON_PATH = os.path.join("items", "commando_net_gun_skill_o
 _soldier_net_gun_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
 _SOLDIER_BAZOOKA_ORB_ICON_PATH = os.path.join("items", "commando_bazooka_skill_orb.png")
 _soldier_bazooka_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
-_SOLDIER_AK47_ORB_ICON_PATH = os.path.join("items", "commando_ak47_skill_orb.png")
-_soldier_ak47_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
 _SOLDIER_FIRE_SUPPORT_ORB_ICON_PATH = os.path.join("items", "commando_fire_support_skill_orb.png")
 _soldier_fire_support_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
 _SOLDIER_BOWLING_TRAP_ORB_ICON_PATH = os.path.join("items", "commando_bowling_trap_skill_orb.png")
 _soldier_bowling_trap_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
+_SOLDIER_AK47_ORB_ICON_PATH = os.path.join("items", "commando_ak47_skill_orb.png")
+_soldier_ak47_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
 _SOLDIER_SUICIDE_DRONE_ORB_ICON_PATH = os.path.join("items", "commando_suicide_drone_skill_orb.png")
 _soldier_suicide_drone_orb_icon_cache: dict[tuple[int, bool], pygame.Surface] = {}
 
@@ -14140,6 +14168,15 @@ def trigger_soldier_skill_cooldown(skill_name: str):
             add_ingame_gold(skill_gold, player_x, player_y - 30, source="skill")
         except:
             add_ingame_gold(skill_gold, source="skill")
+
+
+def _get_soldier_firearm_cooldown_frames(skill_name: str, *, apply_reduction: bool) -> int:
+    cooldown_sec = float(PERMANENT_FIREARM_COOLDOWNS.get(skill_name, 0.0))
+    if cooldown_sec <= 0:
+        return 0
+    if apply_reduction:
+        cooldown_sec = _get_effective_player_skill_cooldown_seconds(cooldown_sec)
+    return max(1, int(math.ceil(cooldown_sec * FPS)))
 
 
 def get_soldier_skill_cooldown_remaining(skill_name: str) -> float:
@@ -14301,18 +14338,6 @@ def _get_soldier_net_gun_orb_icon(size: int, active: bool) -> pygame.Surface | N
     )
 
 
-
-
-def _get_soldier_ak47_orb_icon(size: int, active: bool) -> pygame.Surface | None:
-    """AK-47 전용 오브형 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
-    return _get_viper_png_orb_icon(
-        _SOLDIER_AK47_ORB_ICON_PATH,
-        _soldier_ak47_orb_icon_cache,
-        size,
-        active,
-    )
-
-
 def _get_soldier_bazooka_orb_icon(size: int, active: bool) -> pygame.Surface | None:
     """바주카포 전용 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
     return _get_viper_png_orb_icon(
@@ -14338,6 +14363,16 @@ def _get_soldier_bowling_trap_orb_icon(size: int, active: bool) -> pygame.Surfac
     return _get_viper_png_orb_icon(
         _SOLDIER_BOWLING_TRAP_ORB_ICON_PATH,
         _soldier_bowling_trap_orb_icon_cache,
+        size,
+        active,
+    )
+
+
+def _get_soldier_ak47_orb_icon(size: int, active: bool) -> pygame.Surface | None:
+    """AK-47 전용 오브형 PNG 아이콘을 HUD/해금 퍽 크기에 맞춰 캐시한다."""
+    return _get_viper_png_orb_icon(
+        _SOLDIER_AK47_ORB_ICON_PATH,
+        _soldier_ak47_orb_icon_cache,
         size,
         active,
     )
@@ -14375,6 +14410,22 @@ _SOLDIER_ORB_ICON_REGISTRY = {
         "hud_size_extra": 6,
         "scale_cap": 1.18,
         "small_scale_cap": 1.06,
+        "symbol_renderer": "soldier",
+    },
+    "bazooka": {
+        "symbol": "bazooka",
+        "icon_loader": _get_soldier_bazooka_orb_icon,
+        "family": "commando_firearm",
+        "hud_min_size": 42,
+        "hud_size_extra": 8,
+        "symbol_renderer": "soldier",
+    },
+    "ak47": {
+        "symbol": "ak47",
+        "icon_loader": _get_soldier_ak47_orb_icon,
+        "family": "commando_firearm",
+        "hud_min_size": 40,
+        "hud_size_extra": 6,
         "symbol_renderer": "soldier",
     },
     "net_gun": {
@@ -14605,7 +14656,67 @@ def _draw_soldier_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx
         pygame.draw.polygon(surface, body_color, trigger_guard, 1)
         pygame.draw.line(surface, detail_color, (slide_rect.left + 3, slide_rect.y + 1), (slide_rect.left + 8, slide_rect.y + 1), 1)
 
+    elif skill_name == "bazooka":
+        icon_size = min(size + 8, max(size, 42))
+        icon = _get_soldier_bazooka_orb_icon(icon_size, active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+
+        tube_color = (110, 125, 90) if active else (70, 80, 60)
+        rocket_color = color
+        detail_color = (255, 220, 150) if active else (130, 115, 90)
+
+        tube_rect = pygame.Rect(cx - half + 5, cy - 3, size - 12, 7)
+        pygame.draw.rect(surface, tube_color, tube_rect, border_radius=3)
+        pygame.draw.rect(surface, (40, 45, 38), tube_rect, 1, border_radius=3)
+        pygame.draw.polygon(surface, rocket_color, [
+            (tube_rect.right - 1, cy - 4),
+            (tube_rect.right + 6, cy),
+            (tube_rect.right - 1, cy + 4),
+        ])
+        pygame.draw.line(surface, detail_color, (tube_rect.left + 2, cy - 1), (tube_rect.left + 7, cy - 1), 1)
+        pygame.draw.circle(surface, detail_color, (tube_rect.left + 2, cy), 2)
+        pygame.draw.rect(surface, (90, 65, 45) if active else (60, 50, 40), (cx - 1, cy + 2, 6, quarter + 5), border_radius=2)
+
+    elif skill_name == "ak47":
+        icon_size = min(size + 6, max(size, 40))
+        icon = _get_soldier_ak47_orb_icon(icon_size, active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+
+        stock_color = (105, 76, 52) if active else (70, 58, 45)
+        body_color = (75, 75, 85) if active else (55, 55, 65)
+        mag_color = color
+        metal_color = (210, 210, 215) if active else (120, 120, 130)
+
+        pygame.draw.polygon(surface, stock_color, [
+            (cx - half + 5, cy - 2),
+            (cx - quarter, cy - 2),
+            (cx - quarter + 2, cy + 2),
+            (cx - half + 3, cy + quarter + 2),
+            (cx - half + 1, cy + quarter - 1),
+        ])
+        receiver_rect = pygame.Rect(cx - quarter + 1, cy - 4, quarter + 10, 7)
+        pygame.draw.rect(surface, body_color, receiver_rect, border_radius=2)
+        pygame.draw.line(surface, metal_color, (receiver_rect.right - 1, cy - 2), (cx + half - 4, cy - 2), 2)
+        pygame.draw.line(surface, metal_color, (cx + quarter + 3, cy - 3), (cx + quarter + 3, cy - 7), 1)
+        pygame.draw.line(surface, metal_color, (receiver_rect.left + 2, cy - 1), (receiver_rect.right - 4, cy - 1), 1)
+        pygame.draw.polygon(surface, mag_color, [
+            (cx + 1, cy + 2),
+            (cx + 6, cy + 4),
+            (cx + 4, cy + half - 1),
+            (cx - 1, cy + half - 3),
+        ])
+
     elif skill_name == "net_gun":
+        icon_size = min(size + 6, max(size, 40))
+        icon = _get_soldier_net_gun_orb_icon(icon_size, active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+
         frame_color = (180, 220, 180) if active else (90, 110, 90)
         gun_color = color
         net_color = (235, 245, 235) if active else (120, 130, 120)
@@ -14619,6 +14730,12 @@ def _draw_soldier_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx
             pygame.draw.line(surface, frame_color, (cx - quarter - quarter + 2, cy - quarter + offset), (cx - quarter + quarter - 2, cy - quarter + offset), 1)
 
     elif skill_name == "fire_support":
+        icon_size = min(size + 6, max(size, 40))
+        icon = _get_soldier_fire_support_orb_icon(icon_size, active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+
         plane_color = (220, 225, 235) if active else (120, 125, 135)
         bomb_color = color
 
@@ -14633,6 +14750,12 @@ def _draw_soldier_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx
         pygame.draw.polygon(surface, bomb_color, [(cx - 2, cy + half - 2), (cx + 3, cy + half - 2), (cx, cy + half + 4)])
 
     elif skill_name == "bowling_trap":
+        icon_size = min(size + 6, max(size, 40))
+        icon = _get_soldier_bowling_trap_orb_icon(icon_size, active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+
         ball_color = (38, 38, 48) if active else (70, 70, 80)
         pin_color = (240, 240, 240) if active else (140, 140, 140)
 
@@ -14647,6 +14770,12 @@ def _draw_soldier_skill_icon_symbol(surface: pygame.Surface, skill_name: str, cx
         pygame.draw.line(surface, (210, 70, 70), (cx + 4, cy + 4), (cx + 12, cy + 4), 2)
 
     elif skill_name == "suicide_drone":
+        icon_size = min(size + 6, max(size, 40))
+        icon = _get_soldier_suicide_drone_orb_icon(icon_size, active)
+        if icon is not None:
+            surface.blit(icon, icon.get_rect(center=(cx, cy)))
+            return
+
         arm_color = color
         rotor_color = (245, 225, 180) if active else (140, 130, 110)
         body_color = (70, 70, 82) if active else (55, 55, 65)
@@ -14686,8 +14815,8 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
     time_now = pygame.time.get_ticks()
     activation_effect_duration = 400
 
-    max_slots = SOLDIER_MAX_SKILL_SLOTS
-    slot_angles = [165 + i * 30 for i in range(max_slots)]
+    max_slots = get_soldier_max_skill_slots()
+    slot_angles = [165 + i * 33 for i in range(max_slots)]
     visible_skills = get_soldier_equipped_skills()
     current_weapon = soldier_controller.current_weapon() if soldier_controller else "pistol"
 
@@ -14739,11 +14868,25 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
                 has_target = max_ammo > 0 and current_ammo < max_ammo
                 if current_weapon == SOLDIER_PISTOL_ORB_SKILL:
                     has_target = has_target or soldier_pistol_magazines < SOLDIER_PISTOL_MAGAZINE_MAX
+                elif current_weapon == "ak47":
+                    ak47 = get_ak47_instance()
+                    if ak47:
+                        has_target = has_target or getattr(ak47, "remaining_time", 0) < getattr(ak47, "duration", 0)
+                        has_target = has_target or not getattr(ak47, "active", False)
             is_active = has_gauge and has_target and not is_on_cooldown
         elif skill_name == SOLDIER_PISTOL_ORB_SKILL:
             # 권총: 소유 + 발사 가능(탄환 있거나 재장전 가능)일 때만 활성
             can_shoot = soldier_ammo_count > 0 or (soldier_ammo_count <= 0 and soldier_pistol_magazines > 0)
             is_active = bool(soldier_pistol_perk_unlocked) and can_shoot and not is_on_cooldown
+        elif skill_name == "ak47":
+            current_ammo, max_ammo = get_weapon_ammo_info(skill_name)
+            ak47 = get_ak47_instance()
+            is_active = (
+                max_ammo > 0
+                and current_ammo > 0
+                and bool(ak47 and getattr(ak47, "active", False) and getattr(ak47, "remaining_time", 0) > 0)
+                and not is_on_cooldown
+            )
         elif skill_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
             current_ammo, max_ammo = get_weapon_ammo_info(skill_name)
             is_active = max_ammo > 0 and current_ammo > 0 and not is_on_cooldown
@@ -14793,6 +14936,7 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
                 pulse_alpha = int((pulse - 0.4) * 100)
                 pygame.draw.circle(surface, (*skill_data["color"][:3], pulse_alpha),
                                  (icon_x, icon_y), icon_radius + 3, 2)
+            _draw_skill_ready_ring(surface, icon_x, icon_y, icon_radius, time_now, idx * 0.6)
         if is_selected_weapon and skill_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
             pygame.draw.circle(surface, (255, 220, 120, 120), (icon_x, icon_y), icon_radius + 5, 2)
 
@@ -14803,43 +14947,7 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
 
         # === 쿨타임 오버레이 ===
         if is_on_cooldown:
-            cd_surface = pygame.Surface((icon_diameter + 4, icon_diameter + 4), pygame.SRCALPHA)
-            cd_center = icon_radius + 2
-
-            start_angle = -math.pi / 2
-            end_angle = start_angle + (2 * math.pi * cooldown_ratio)
-
-            if cooldown_ratio > 0.01:
-                points = [(cd_center, cd_center)]
-                num_segments = max(3, int(36 * cooldown_ratio))
-                for j in range(num_segments + 1):
-                    angle = start_angle + (end_angle - start_angle) * j / num_segments
-                    x = cd_center + int(math.cos(angle) * icon_radius)
-                    y = cd_center + int(math.sin(angle) * icon_radius)
-                    points.append((x, y))
-
-                if len(points) >= 3:
-                    pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
-
-            surface.blit(cd_surface, (icon_x - icon_radius - 2, icon_y - icon_radius - 2))
-
-            # 남은 쿨타임 표시
-            remaining_sec = get_soldier_skill_cooldown_seconds(skill_name)
-            if remaining_sec >= 1:
-                cooldown_text = f"{int(remaining_sec)}"
-            else:
-                cooldown_text = f"{remaining_sec:.1f}"
-
-            try:
-                cd_font = _get_cached_cd_font()
-                cd_text_surface = cd_font.render(cooldown_text, True, (255, 255, 255))
-                cd_rect = cd_text_surface.get_rect(center=(icon_x, icon_y))
-                shadow_surface = cd_font.render(cooldown_text, True, (0, 0, 0))
-                shadow_rect = shadow_surface.get_rect(center=(icon_x + 1, icon_y + 1))
-                surface.blit(shadow_surface, shadow_rect)
-                surface.blit(cd_text_surface, cd_rect)
-            except:
-                pass
+            _draw_skill_cooldown_overlay(surface, icon_x, icon_y, icon_radius, cooldown_ratio)
 
 _flip_count = 0
 _last_real_screen_size = None
@@ -21241,10 +21349,8 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         "emergency_charge": ("ㄴ더블탭 ", 20, "%"),
         "reboot_enhance": ("스턴 -", 18, "%"),
         "bug_update": ("", 9, "% 재선택"),
-        # Soldier Exclusive
-        "soldier_magazine_mod": ("권총 최대 탄환 +", 1, ""),
         # Viper Exclusive
-        "jetpack_enhance": ("제트팩 최대 게이지 +", 20, "%"),
+        # jetpack_enhance는 Lv.3+ 체공 게이지 보너스가 추가되어 별도 분기(아래)에서 처리
         # Common
         "perk_laurel_shield": ("월계수 잎 ", 1, "개 보호"),
         "perk_boost_charge": ("부스트차징 발동확률 +", 7, "%"),
@@ -21345,13 +21451,6 @@ def recalculate_transcendent_crown_effects():
     if runtime_skill_levels.get("item_polish", 0) > 0:
         try:
             apply_roll_bonuses_from_equipped()
-        except Exception:
-            pass
-
-    # 탄창개조 효과 재계산
-    if runtime_skill_levels.get("soldier_magazine_mod", 0) > 0:
-        try:
-            apply_soldier_magazine_mod()
         except Exception:
             pass
 
@@ -21917,26 +22016,13 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
 
 # Soldier (코만도) exclusive skills
 SOLDIER_EXCLUSIVE_SKILLS = {
-    "soldier_magazine_mod": {
-        "name": "탄창개조",
-        "max_level": 3,
-        "descriptions": {
-            1: "권총 최대 탄환 +1",
-            2: "권총 최대 탄환 +2",
-            3: "권총 최대 탄환 +3",
-        },
-        "detail": "권총 탄창을 개조하여 최대 탄환 수가 증가합니다.",
-        "icon_color": (180, 140, 80),
-        "tree": "soldier",
-        "character_restriction": "soldier"
-    },
     "soldier_unlock_net_gun": {
         "name": "그물덫총",
         "max_level": 1,
         "descriptions": {
             1: "그물덫총 해금",
         },
-        "detail": "그물덫총을 영구 해금하고 코만도 스킬구슬에 추가합니다. 스테이지마다 탄환이 전부 보충됩니다.",
+        "detail": "그물덫총을 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄환은 스테이지 전환으로 자동 보충되지 않으며, 비상보급으로 1발씩 다시 채웁니다.",
         "icon_color": (100, 180, 100),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -21949,7 +22035,7 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "화력지원 해금",
         },
-        "detail": "화력지원을 영구 해금하고 코만도 스킬구슬에 추가합니다. 스테이지마다 탄환이 전부 보충됩니다.",
+        "detail": "화력지원을 영구 해금하고 코만도 스킬구슬에 추가합니다. 호출권은 스테이지 전환으로 자동 보충되지 않으며, 비상보급 게이지가 끝까지 차면 다시 사용할 수 있습니다.",
         "icon_color": (255, 100, 50),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -21962,7 +22048,7 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "볼링트랩 해금",
         },
-        "detail": "볼링트랩을 영구 해금하고 코만도 스킬구슬에 추가합니다. 스테이지마다 탄환이 전부 보충됩니다.",
+        "detail": "볼링트랩을 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄환은 스테이지 전환으로 자동 보충되지 않으며, 비상보급으로 1발씩 다시 채웁니다.",
         "icon_color": (200, 80, 80),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -21975,12 +22061,38 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "자폭드론 해금",
         },
-        "detail": "자폭드론을 영구 해금하고 코만도 스킬구슬에 추가합니다. 스테이지마다 탄환이 전부 보충됩니다.",
+        "detail": "자폭드론을 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄환은 스테이지 전환으로 자동 보충되지 않으며, 비상보급으로 1발씩 다시 채웁니다.",
         "icon_color": (255, 100, 50),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
         "is_weapon_unlock": True,
         "weapon_name": "suicide_drone"
+    },
+    "soldier_unlock_bazooka": {
+        "name": "바주카포",
+        "max_level": 1,
+        "descriptions": {
+            1: "바주카포 해금",
+        },
+        "detail": "바주카포를 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄약은 스테이지 전환으로 자동 보충되지 않으며, 비상보급으로 1발씩 다시 채웁니다.",
+        "icon_color": (220, 120, 70),
+        "tree": "soldier_unlock",
+        "character_restriction": "soldier",
+        "is_weapon_unlock": True,
+        "weapon_name": "bazooka"
+    },
+    "soldier_unlock_ak47": {
+        "name": "AK-47",
+        "max_level": 1,
+        "descriptions": {
+            1: "AK-47 해금",
+        },
+        "detail": "AK-47을 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄약과 지속시간은 스테이지 전환으로 자동 보충되지 않으며, 비상보급 게이지가 끝까지 차면 다시 채워집니다.",
+        "icon_color": (110, 135, 85),
+        "tree": "soldier_unlock",
+        "character_restriction": "soldier",
+        "is_weapon_unlock": True,
+        "weapon_name": "ak47"
     },
     "soldier_pistol_perk": {
         "name": "권총 화기류",
@@ -21988,7 +22100,7 @@ SOLDIER_EXCLUSIVE_SKILLS = {
         "descriptions": {
             1: "권총 화기류 해금",
         },
-        "detail": "새총은 그대로 유지한 채 권총을 별도 영구 화기류로 해금합니다. 권총은 탄창 3개를 갖고, 재장전할 때마다 탄창 1개를 소비하며 스테이지 전환이나 비상보급으로 완전충전됩니다.",
+        "detail": "새총은 그대로 유지한 채 권총을 별도 영구 화기류로 해금합니다. 권총은 탄창 3개를 갖고, 재장전할 때마다 탄창 1개를 소비하며 비상보급 1회당 탄창 1개를 다시 채웁니다.",
         "icon_color": (140, 130, 120),
         "tree": "soldier_unlock",
         "character_restriction": "soldier",
@@ -22127,6 +22239,8 @@ soldier_weapon_unlocks = {
     "fire_support": False,
     "bowling_trap": False,
     "suicide_drone": False,
+    "bazooka": False,
+    "ak47": False,
 }
 
 def reset_soldier_weapon_unlocks():
@@ -22137,12 +22251,14 @@ def reset_soldier_weapon_unlocks():
         "fire_support": False,
         "bowling_trap": False,
         "suicide_drone": False,
+        "bazooka": False,
+        "ak47": False,
     }
 
 def is_soldier_weapon_unlocked(weapon_name: str) -> bool:
     """코만도 화기류가 해금되었는지 확인"""
-    # 기본 화기류는 항상 해금 (권총, 바주카, AK-47만)
-    if weapon_name in ("pistol", "bazooka", "ak47"):
+    # 기본 슬롯 새총만 항상 해금.
+    if weapon_name == "pistol":
         return True
     if weapon_name in SOLDIER_PERMANENT_FIREARM_SKILLS:
         try:
@@ -22269,6 +22385,62 @@ def unlock_soldier_weapon(weapon_name: str) -> bool:
     print(f"🔓 코만도 화기류 해금: {weapon_name}")
     return True
 
+def _initialize_permanent_soldier_firearm_instance(weapon_name: str) -> None:
+    """영구 화기류 해금 시 인스턴스(탄약/쿨다운/장착) 초기화.
+
+    런타임 퍽 픽업 경로(`grant_soldier_weapon_owned`)와 광장 학장
+    아카데미 구매/스왑 경로(`apply_academy_skill_*`) 양쪽이 동일한
+    초기화를 거치도록 공유한다. 이 초기화가 빠지면 오너십·장착 상태는
+    True가 되지만 인게임 진입 시 탄약이 0이거나 영구 화기류 쿨다운
+    감소 보정이 반영되지 않는다.
+    """
+    if weapon_name == "net_gun":
+        net_gun = get_net_gun_instance()
+        if net_gun:
+            net_gun.reload()
+            net_gun.equip()
+        print("🕸️ 그물덫총 영구 지급")
+    elif weapon_name == "fire_support":
+        fire_support = get_fire_support_instance()
+        if fire_support:
+            fire_support.on_acquired()
+            fire_support.equip()
+        print("✈️ 화력지원 장비 영구 지급")
+    elif weapon_name == "bowling_trap":
+        bowling_trap = get_bowling_trap_instance()
+        if bowling_trap:
+            bowling_trap.reload()
+            bowling_trap.equip()
+        print("🎳 볼링트랩 영구 지급")
+    elif weapon_name == "suicide_drone":
+        # 자폭드론 탄약 초기화
+        globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
+        globals()["suicide_drone_active"] = False
+        globals()["suicide_drone_rect"] = None
+        globals()["suicide_drone_player_lock"] = None
+        print("💥 자폭드론 영구 지급")
+    elif weapon_name == "bazooka":
+        from item_effects.bazooka import get_bazooka_instance
+
+        bazooka = get_bazooka_instance()
+        if bazooka:
+            bazooka.COOLDOWN_TIME = _get_soldier_firearm_cooldown_frames("bazooka", apply_reduction=True)
+            bazooka.cooldown_timer = 0
+            bazooka.control_lock_timer = 0
+            bazooka.ammo_count = getattr(bazooka, "max_ammo", bazooka.ammo_count)
+            bazooka.equip()
+        print("🚀 바주카포 영구 지급")
+    elif weapon_name == "ak47":
+        ak47 = get_ak47_instance()
+        if ak47:
+            ak47.fire_interval = _get_soldier_firearm_cooldown_frames("ak47", apply_reduction=True)
+            ak47.activate(None, None)
+        print("🔫 AK-47 영구 지급")
+    elif weapon_name == "commando_pistol":
+        _apply_soldier_pistol_perk_state(True, refill_ammo=True)
+        print("🔫 권총 영구 지급 (새총과 별도 슬롯)")
+
+
 def grant_soldier_weapon_owned(weapon_name: str) -> bool:
     """코만도 영구 화기류 해금 + 오브 슬롯 반영."""
     global soldier_controller
@@ -22303,35 +22475,7 @@ def grant_soldier_weapon_owned(weapon_name: str) -> bool:
     soldier_controller.unlock_permanent_weapon(weapon_name, set_active=False)
     _sync_soldier_weapon_inventory(set_active=weapon_name)
 
-    # 무기별 초기화
-    if weapon_name == "net_gun":
-        net_gun = get_net_gun_instance()
-        if net_gun:
-            net_gun.reload()
-            net_gun.equip()
-        print("🕸️ 그물덫총 영구 지급")
-    elif weapon_name == "fire_support":
-        fire_support = get_fire_support_instance()
-        if fire_support:
-            fire_support.on_acquired()
-            fire_support.equip()
-        print("✈️ 화력지원 장비 영구 지급")
-    elif weapon_name == "bowling_trap":
-        bowling_trap = get_bowling_trap_instance()
-        if bowling_trap:
-            bowling_trap.reload()
-            bowling_trap.equip()
-        print("🎳 볼링트랩 영구 지급")
-    elif weapon_name == "suicide_drone":
-        # 자폭드론 탄약 초기화
-        globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
-        globals()["suicide_drone_active"] = False
-        globals()["suicide_drone_rect"] = None
-        globals()["suicide_drone_player_lock"] = None
-        print("💥 자폭드론 영구 지급")
-    elif weapon_name == "commando_pistol":
-        _apply_soldier_pistol_perk_state(True, refill_ammo=True)
-        print("🔫 권총 영구 지급 (새총과 별도 슬롯)")
+    _initialize_permanent_soldier_firearm_instance(weapon_name)
 
     return True
 
@@ -24107,10 +24251,6 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
     # 코만도(솔저) 전용 스킬 추가
     if character_type == "soldier":
         for skill_id, skill_data in SOLDIER_EXCLUSIVE_SKILLS.items():
-            # 탄창개조는 권총 퍽 해금 후에만 선택 가능
-            if skill_id == "soldier_magazine_mod" and not soldier_pistol_perk_unlocked:
-                continue
-
             current_level = runtime_skill_levels.get(skill_id, 0)
             max_level = skill_data["max_level"]
 
@@ -24298,10 +24438,7 @@ _CHARACTER_UNLOCK_PERKS = {
         "core_flip": "core_flip",
     },
     "soldier": {
-        "soldier_unlock_net_gun": "net_gun",
-        "soldier_unlock_fire_support": "fire_support",
-        "soldier_unlock_bowling_trap": "bowling_trap",
-        "soldier_unlock_suicide_drone": "suicide_drone",
+        **SOLDIER_UNLOCK_PERK_TO_SKILL,
         "soldier_pistol_perk": SOLDIER_PISTOL_ORB_SKILL,
     },
 }
@@ -24345,7 +24482,7 @@ def _get_character_max_skill_slots(character_type: str):
     if character_type == "viper":
         return get_viper_max_skill_slots()
     if character_type == "soldier":
-        return SOLDIER_MAX_SKILL_SLOTS
+        return get_soldier_max_skill_slots()
     return None
 
 
@@ -24591,6 +24728,7 @@ def apply_academy_skill_purchase(character_type: str, perk_id: str) -> bool:
         else:
             soldier_controller.unlock_permanent_weapon(skill_name, set_active=False)
             _sync_soldier_weapon_inventory(set_active=skill_name)
+            _initialize_permanent_soldier_firearm_instance(skill_name)
     runtime_skill_levels[perk_id] = 1
     try:
         mark_perk_discovered(perk_id)
@@ -24632,6 +24770,7 @@ def apply_academy_skill_swap(character_type: str, new_perk_id: str, old_skill_na
         else:
             soldier_controller.unlock_permanent_weapon(new_skill_name, set_active=False)
             _sync_soldier_weapon_inventory(set_active=new_skill_name)
+            _initialize_permanent_soldier_firearm_instance(new_skill_name)
     else:
         return False
 
@@ -24797,22 +24936,12 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         runtime_skill_levels[choice_id] = 1
         return True
 
-    if choice_id.startswith("soldier_unlock_"):
-        weapon_name = None
-        if choice_id == "soldier_unlock_net_gun":
-            weapon_name = "net_gun"
-        elif choice_id == "soldier_unlock_fire_support":
-            weapon_name = "fire_support"
-        elif choice_id == "soldier_unlock_bowling_trap":
-            weapon_name = "bowling_trap"
-        elif choice_id == "soldier_unlock_suicide_drone":
-            weapon_name = "suicide_drone"
-
-        if weapon_name:
-            if not grant_soldier_weapon_owned(weapon_name):
-                return False
-            runtime_skill_levels[choice_id] = 1
-            return True
+    weapon_name = SOLDIER_UNLOCK_PERK_TO_SKILL.get(choice_id)
+    if weapon_name:
+        if not grant_soldier_weapon_owned(weapon_name):
+            return False
+        runtime_skill_levels[choice_id] = 1
+        return True
 
     # 일반 스킬 레벨업
     old_level = runtime_skill_levels.get(choice_id, 0)
@@ -24853,12 +24982,6 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     if choice_id == "perk_laurel_shield":
         refresh_perk_leaf_shield()
 
-    # 탄창개조: 권총 최대 탄환 증가 즉시 적용
-    if choice_id == "soldier_magazine_mod":
-        apply_soldier_magazine_mod()
-        new_level = runtime_skill_levels.get("soldier_magazine_mod", 0)
-        # print(f"[RuntimeSkill] 탄창개조 Lv.{new_level} - 권총 최대 탄환 +{new_level}")
-
     return True
 
 
@@ -24896,19 +25019,8 @@ def recalculate_skill_effects(skill_id: str):
         multiplier = get_effective_polish_multiplier()
         # print(f"[RuntimeSkill] 연마 레벨 변경 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")  # 디버그 비활성화
 
-    elif skill_id in (
-        "soldier_unlock_net_gun",
-        "soldier_unlock_fire_support",
-        "soldier_unlock_bowling_trap",
-        "soldier_unlock_suicide_drone",
-    ):
-        _soldier_recalc_unlock_map = {
-            "soldier_unlock_net_gun": "net_gun",
-            "soldier_unlock_fire_support": "fire_support",
-            "soldier_unlock_bowling_trap": "bowling_trap",
-            "soldier_unlock_suicide_drone": "suicide_drone",
-        }
-        _skill_name = _soldier_recalc_unlock_map[skill_id]
+    elif skill_id in SOLDIER_UNLOCK_PERK_TO_SKILL:
+        _skill_name = SOLDIER_UNLOCK_PERK_TO_SKILL[skill_id]
         _is_unlocked = runtime_skill_levels.get(skill_id, 0) >= 1
         _soldier_skill_unlocked[_skill_name] = _is_unlocked
         if _is_unlocked:
@@ -26854,6 +26966,8 @@ _MINI_SKILL_ICON_REGISTRY = {
     "supply_drop": _SOLDIER_ORB_ICON_REGISTRY["supply_drop"],
     "emergency_supply": _SOLDIER_ORB_ICON_REGISTRY["emergency_supply"],
     "commando_pistol": _SOLDIER_ORB_ICON_REGISTRY["commando_pistol"],
+    "bazooka": _SOLDIER_ORB_ICON_REGISTRY["bazooka"],
+    "ak47": _SOLDIER_ORB_ICON_REGISTRY["ak47"],
     "net_gun": _SOLDIER_ORB_ICON_REGISTRY["net_gun"],
     "fire_support": _SOLDIER_ORB_ICON_REGISTRY["fire_support"],
     "bowling_trap": _SOLDIER_ORB_ICON_REGISTRY["bowling_trap"],
@@ -26872,6 +26986,14 @@ _MINI_SKILL_ICON_REGISTRY = {
     },
     "soldier_unlock_suicide_drone": {
         **_SOLDIER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["soldier"]["soldier_unlock_suicide_drone"]],
+        "badge": "unlock",
+    },
+    "soldier_unlock_bazooka": {
+        **_SOLDIER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["soldier"]["soldier_unlock_bazooka"]],
+        "badge": "unlock",
+    },
+    "soldier_unlock_ak47": {
+        **_SOLDIER_ORB_ICON_REGISTRY[_CHARACTER_UNLOCK_PERKS["soldier"]["soldier_unlock_ak47"]],
         "badge": "unlock",
     },
     "soldier_pistol_perk": {
@@ -29028,44 +29150,14 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         # 트리거
         pygame.draw.line(surface, lt, (tg_x + int(3*scale), tg_y + int(1*scale)), (tg_x + int(2*scale), tg_y + int(4*scale)), max(1, int(2*scale)))
 
-    elif skill_id == "soldier_magazine_mod":
-        # 탄창개조 - 탄창 + 총알 아이콘
-        # 탄창 본체 (3D 효과)
-        mag_w, mag_h = int(10*scale), int(18*scale)
-        mag_x = icon_cx - mag_w // 2
-        mag_y = icon_cy - mag_h // 2
+    elif skill_id == "bazooka":
+        draw_commando_firearm_icon("bazooka")
 
-        # 그림자
-        pygame.draw.rect(surface, (60, 50, 30), (mag_x + 2, mag_y + 2, mag_w, mag_h), border_radius=max(1, int(2*scale)))
-        # 탄창 본체 (금속 질감)
-        pygame.draw.rect(surface, (120, 100, 60), (mag_x, mag_y, mag_w, mag_h), border_radius=max(1, int(2*scale)))
-        # 하이라이트 (왼쪽)
-        pygame.draw.rect(surface, (160, 140, 90), (mag_x, mag_y, int(3*scale), mag_h), border_radius=max(1, int(2*scale)))
-        # 어두운 오른쪽
-        pygame.draw.rect(surface, (90, 70, 40), (mag_x + mag_w - int(3*scale), mag_y, int(3*scale), mag_h), border_radius=max(1, int(2*scale)))
-        # 테두리
-        pygame.draw.rect(surface, (80, 60, 30), (mag_x, mag_y, mag_w, mag_h), max(1, int(1*scale)), border_radius=max(1, int(2*scale)))
+    elif skill_id == "ak47":
+        draw_commando_firearm_icon("ak47")
 
-        # 탄창 내부 총알들 (3개)
-        bullet_count = 3
-        bullet_h = int(4*scale)
-        bullet_gap = int(2*scale)
-        bullet_start_y = mag_y + int(3*scale)
-        for i in range(bullet_count):
-            by = bullet_start_y + i * (bullet_h + bullet_gap)
-            # 탄두 (구리색)
-            pygame.draw.rect(surface, (200, 130, 70), (mag_x + int(2*scale), by, int(3*scale), bullet_h), border_radius=1)
-            # 탄피 (황동색)
-            pygame.draw.rect(surface, (220, 190, 80), (mag_x + int(5*scale), by, int(3*scale), bullet_h), border_radius=1)
-
-        # + 마크 (업그레이드 표시)
-        plus_x = icon_cx + int(5*scale)
-        plus_y = icon_cy - int(6*scale)
-        pygame.draw.rect(surface, (100, 255, 100), (plus_x, plus_y, int(5*scale), int(2*scale)))
-        pygame.draw.rect(surface, (100, 255, 100), (plus_x + int(1.5*scale), plus_y - int(1.5*scale), int(2*scale), int(5*scale)))
-
-    elif skill_id == "soldier_unlock_net_gun":
-        # 그물덫총 해금 - 그물 + 잠금해제 아이콘
+    elif skill_id in ("net_gun", "soldier_unlock_net_gun"):
+        # 그물덫총 - PNG 로더 실패 시 쓰는 절차형 fallback
         # 그물 (격자 패턴)
         net_size = int(14*scale)
         net_x = icon_cx - net_size // 2
@@ -29077,14 +29169,11 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
             pygame.draw.line(surface, (80, 160, 80), (net_x, net_y + offset), (net_x + net_size, net_y + offset + int(3*scale)), max(1, int(1*scale)))
         # 그물 외곽
         pygame.draw.rect(surface, (100, 200, 100), (net_x, net_y, net_size, net_size), max(1, int(2*scale)), border_radius=max(1, int(2*scale)))
-        # 자물쇠 해제 마크
-        lock_x = icon_cx + int(4*scale)
-        lock_y = icon_cy - int(8*scale)
-        pygame.draw.circle(surface, (255, 215, 0), (lock_x + int(2*scale), lock_y), int(3*scale), max(1, int(1*scale)))
-        pygame.draw.rect(surface, (255, 215, 0), (lock_x, lock_y + int(1*scale), int(4*scale), int(4*scale)))
+        if skill_id == "soldier_unlock_net_gun":
+            draw_commando_unlock_badge()
 
-    elif skill_id == "soldier_unlock_fire_support":
-        # 화력지원 해금 - 비행기 + 폭탄 아이콘
+    elif skill_id in ("fire_support", "soldier_unlock_fire_support"):
+        # 화력지원 - PNG 로더 실패 시 쓰는 절차형 fallback
         # 비행기 몸체
         plane_y = icon_cy - int(3*scale)
         pygame.draw.ellipse(surface, (100, 120, 140), (icon_cx - int(8*scale), plane_y - int(2*scale), int(16*scale), int(5*scale)))
@@ -29106,11 +29195,11 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
             (icon_cx, bomb_y + int(8*scale))
         ])
         # 자물쇠 해제 마크
-        pygame.draw.circle(surface, (255, 215, 0), (icon_cx + int(6*scale), icon_cy - int(7*scale)), int(3*scale), max(1, int(1*scale)))
-        pygame.draw.rect(surface, (255, 215, 0), (icon_cx + int(4*scale), icon_cy - int(5*scale), int(4*scale), int(4*scale)))
+        if skill_id == "soldier_unlock_fire_support":
+            draw_commando_unlock_badge()
 
-    elif skill_id == "soldier_unlock_bowling_trap":
-        # 볼링트랩 해금 - 볼링공 + 핀 아이콘
+    elif skill_id in ("bowling_trap", "soldier_unlock_bowling_trap"):
+        # 볼링트랩 - PNG 로더 실패 시 쓰는 절차형 fallback
         # 볼링공
         ball_r = int(6*scale)
         pygame.draw.circle(surface, (40, 40, 50), (icon_cx - int(4*scale), icon_cy + int(2*scale)), ball_r)
@@ -29126,12 +29215,11 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.circle(surface, (240, 240, 240), (pin_x, pin_y - int(6*scale)), int(2.5*scale))
         pygame.draw.line(surface, (200, 50, 50), (pin_x - int(2*scale), pin_y - int(3*scale)), (pin_x + int(2*scale), pin_y - int(3*scale)), max(1, int(1*scale)))
         pygame.draw.line(surface, (200, 50, 50), (pin_x - int(2*scale), pin_y + int(1*scale)), (pin_x + int(2*scale), pin_y + int(1*scale)), max(1, int(1*scale)))
-        # 자물쇠 해제 마크
-        pygame.draw.circle(surface, (255, 215, 0), (icon_cx + int(6*scale), icon_cy - int(8*scale)), int(3*scale), max(1, int(1*scale)))
-        pygame.draw.rect(surface, (255, 215, 0), (icon_cx + int(4*scale), icon_cy - int(6*scale), int(4*scale), int(4*scale)))
+        if skill_id == "soldier_unlock_bowling_trap":
+            draw_commando_unlock_badge()
 
-    elif skill_id == "soldier_unlock_suicide_drone":
-        # 자폭드론 해금 - 드론 + 폭발 아이콘
+    elif skill_id in ("suicide_drone", "soldier_unlock_suicide_drone"):
+        # 자폭드론 - PNG 로더 실패 시 쓰는 절차형 fallback
         # 드론 본체 (X자 형태)
         drone_color = (200, 80, 40)
         drone_light = (255, 120, 60)
@@ -29155,9 +29243,14 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         explosion_y = icon_cy + int(8*scale)
         pygame.draw.circle(surface, (255, 200, 50), (icon_cx, explosion_y), int(4*scale))
         pygame.draw.circle(surface, (255, 100, 30), (icon_cx, explosion_y), int(2.5*scale))
-        # 자물쇠 해제 마크
-        pygame.draw.circle(surface, (255, 215, 0), (icon_cx + int(6*scale), icon_cy - int(8*scale)), int(3*scale), max(1, int(1*scale)))
-        pygame.draw.rect(surface, (255, 215, 0), (icon_cx + int(4*scale), icon_cy - int(6*scale), int(4*scale), int(4*scale)))
+        if skill_id == "soldier_unlock_suicide_drone":
+            draw_commando_unlock_badge()
+
+    elif skill_id == "soldier_unlock_bazooka":
+        draw_commando_firearm_icon("bazooka", show_unlock_badge=True)
+
+    elif skill_id == "soldier_unlock_ak47":
+        draw_commando_firearm_icon("ak47", show_unlock_badge=True)
 
     elif skill_id == "convert_to_gold":
         # 골드변환 아이콘 - 금화 코인
@@ -66279,6 +66372,7 @@ def _snapshot_soldier_genie_state() -> dict[str, object]:
     snapshot["soldier_reload_timer"] = soldier_reload_timer
     snapshot["soldier_last_reload_bullets"] = soldier_last_reload_bullets
     snapshot["soldier_emergency_supply_toast_timer"] = soldier_emergency_supply_toast_timer
+    snapshot["soldier_reload_popup_timer"] = soldier_reload_popup_timer
     snapshot["round_start_time"] = round_start_time
 
     controller_state = {
@@ -66320,6 +66414,7 @@ def _restore_soldier_genie_state(snapshot: dict[str, object]) -> None:
     global soldier_reload_timer
     global soldier_last_reload_bullets
     global soldier_emergency_supply_toast_timer
+    global soldier_reload_popup_timer
     global round_start_time
 
     soldier_ammo_count = snapshot["soldier_ammo_count"]  # type: ignore[assignment]
@@ -66328,6 +66423,7 @@ def _restore_soldier_genie_state(snapshot: dict[str, object]) -> None:
     soldier_reload_timer = snapshot["soldier_reload_timer"]  # type: ignore[assignment]
     soldier_last_reload_bullets = snapshot["soldier_last_reload_bullets"]  # type: ignore[assignment]
     soldier_emergency_supply_toast_timer = snapshot["soldier_emergency_supply_toast_timer"]  # type: ignore[assignment]
+    soldier_reload_popup_timer = int(snapshot.get("soldier_reload_popup_timer", 0))
     round_start_time = snapshot["round_start_time"]  # type: ignore[assignment]
 
     controller_state = snapshot["soldier_controller"]  # type: ignore[assignment]
@@ -67873,8 +67969,13 @@ def draw_bazooka_recoil_effect(screen: pygame.Surface) -> None:
     supply_draw_items(screen, supply_drop_state)
 
 
-def activate_supply_drop_item(item_name: str) -> None:
-    """Handle collection of a supply-drop item."""
+def activate_supply_drop_item(item_name: str) -> bool:
+    """Handle collection of a supply-drop item.
+
+    Returns True if the supply box should be consumed, False if it should
+    remain on the field (e.g. active-item slot full — mirror normal field
+    pickup behavior instead of silently deleting the item).
+    """
 
     import items
     try:
@@ -67893,7 +67994,7 @@ def activate_supply_drop_item(item_name: str) -> None:
                     play_sound_with_volume(SOUND_ITEM_GET)
             except Exception:
                 pass
-        return
+        return True
 
     # 일반 아이템 처리
     item_data = None
@@ -67904,15 +68005,19 @@ def activate_supply_drop_item(item_name: str) -> None:
             break
 
     if item_data:
-        store_active_item(item_data)
+        if not store_active_item(item_data):
+            print(f"🚫 물자보급 아이템 획득 실패(슬롯 가득 참 등): {item_name}")
+            return False
         print(f"💎 물자보급 아이템 획득 완료: {item_name}")
         try:
             if SOUND_ITEM_GET:
                 play_sound_with_volume(SOUND_ITEM_GET)
         except Exception:
             pass
-    else:
-        print(f"⚠️ 아이템 정보를 찾을 수 없음: {item_name}")
+        return True
+
+    print(f"⚠️ 아이템 정보를 찾을 수 없음: {item_name}")
+    return True
 
 # === 군용 비행기 클래스 ===
 class SupplyAircraft:
@@ -69142,6 +69247,8 @@ def _refill_soldier_weapon_ammo(weapon_name: str) -> bool:
         bazooka = get_bazooka_instance()
         if bazooka:
             bazooka.ammo_count = getattr(bazooka, "max_ammo", bazooka.ammo_count)
+            # 탄약 0으로 내부 active가 내려갔을 수 있어 복원
+            bazooka.active = True
             return True
         return False
 
@@ -69224,21 +69331,22 @@ def _remove_expired_soldier_rentals(stage_num: int) -> None:
 
 
 def reset_soldier_firearms_for_new_stage(stage_num: int) -> None:
-    """실제 스테이지 전환 시 코만도 대여 정리 + 영구 화기 리필."""
+    """실제 스테이지 전환 시 코만도 대여 정리 + 더블탭 / 토스트 상태 초기화.
+
+    영구 화기의 탄환·탄창은 더 이상 스테이지 전환으로 자동 충전되지 않는다.
+    보급은 비상보급(emergency_supply) 스킬을 통해 능동적으로 관리해야 한다.
+    """
     global soldier_down_tap_timer, soldier_down_tap_count, soldier_down_tap_suppress_timer
-    global soldier_emergency_supply_toast_timer
+    global soldier_emergency_supply_toast_timer, soldier_reload_popup_timer
 
     soldier_down_tap_timer = 0
     soldier_down_tap_count = 0
     soldier_down_tap_suppress_timer = 0
     soldier_emergency_supply_toast_timer = 0
+    soldier_reload_popup_timer = 0
 
     _remove_expired_soldier_rentals(stage_num)
     _sync_soldier_weapon_inventory()
-    # 기본 슬롯(새총)은 탄약 개념이 없으므로 리필 호출 불필요.
-    # 권총(commando_pistol) 포함 permanent firearm 들의 탄환/탄창을 모두 리필.
-    for weapon_name in list(soldier_controller.permanent_owned):
-        _refill_soldier_weapon_ammo(weapon_name)
 
 # === 바주카포 반동 효과 ===
 bazooka_recoil_timer = 0  # 반동 시각 효과 타이머
@@ -69268,40 +69376,26 @@ soldier_pistol_boss_hit_count = 0
 soldier_ak47_boss_hit_count = 0
 
 # === 코만도 탄약 시스템 관련 변수 ===
-soldier_ammo_count = 4  # 현재 탄약 개수 (최대 4개, 탄창개조 스킬로 증가 가능)
+soldier_ammo_count = 4  # 현재 탄약 개수
 soldier_max_ammo = 4  # 최대 탄약 개수
 soldier_reloading = False  # 재장전 중인지
 soldier_reload_timer = 0  # 재장전 타이머 (120프레임 = 2초)
 SOLDIER_RELOAD_TIME = 120  # 2초 재장전 시간
-SOLDIER_RELOAD_GAUGE_COST = 150  # 재장전시 게이지 소모량
 soldier_last_reload_bullets = 0  # 재장전 중 마지막으로 표시된 총알 수
 
 # 권총 탄약 관련 변수
-SOLDIER_PISTOL_BASE_MAX_AMMO = 4  # 권총 기본 최대 탄약 (런타임 스킬로 증가 가능)
+SOLDIER_PISTOL_BASE_MAX_AMMO = 4  # 권총 기본 최대 탄약
 soldier_pistol_ammo = 4  # 권총 현재 탄약
-SOLDIER_PISTOL_MAX_AMMO = 4  # 권총 최대 탄약 (런타임 스킬 적용 후)
+SOLDIER_PISTOL_MAX_AMMO = 4  # 권총 최대 탄약
 
 # 권총 탄창(매거진) 관련 변수 — 재장전 1회당 탄창 1개 소비, 0이 되면 재장전 불가
-SOLDIER_PISTOL_MAGAZINE_MAX = 3  # 권총 1 세션당 재장전 가능 횟수 (스테이지/비상보급으로 리필)
+SOLDIER_PISTOL_MAGAZINE_MAX = 3  # 권총 1 세션당 재장전 가능 횟수 (비상보급으로 1개씩 리필)
 soldier_pistol_magazines = SOLDIER_PISTOL_MAGAZINE_MAX  # 남은 탄창 수
 
 
-def apply_soldier_magazine_mod():
-    """탄창개조 스킬 효과 적용 - 권총 최대 탄환 증가"""
-    global SOLDIER_PISTOL_MAX_AMMO, soldier_pistol_ammo, soldier_max_ammo
-    level = get_runtime_skill_level("soldier_magazine_mod")
-    SOLDIER_PISTOL_MAX_AMMO = SOLDIER_PISTOL_BASE_MAX_AMMO + level
-    # soldier_max_ammo도 함께 업데이트 (실제 발사/재장전에 사용됨)
-    soldier_max_ammo = 4 + level  # 기본 4발 + 탄창개조 레벨
-    # 현재 탄약이 새 최대치보다 적으면 그대로 유지, 아니면 새 최대치로 조정
-    # (탄약을 바로 채워주진 않음 - 재장전으로 채워야 함)
-    # print(f"🔧 탄창개조 Lv.{level} 적용: 권총 최대 탄환 4 -> {soldier_max_ammo}")
-
-
 def get_soldier_pistol_max_ammo() -> int:
-    """권총 최대 탄약 반환 (탄창개조 스킬 적용)"""
-    level = get_runtime_skill_level("soldier_magazine_mod")
-    return SOLDIER_PISTOL_BASE_MAX_AMMO + level
+    """권총 최대 탄약 반환."""
+    return SOLDIER_PISTOL_BASE_MAX_AMMO
 
 
 # 권총 UI 반동 애니메이션 변수
@@ -69462,6 +69556,11 @@ soldier_down_tap_count = 0
 soldier_down_tap_suppress_timer = 0
 soldier_emergency_supply_toast_timer = 0
 
+# 비상보급 머리 위 "재장전!" 텍스트 팝업 타이머
+SOLDIER_RELOAD_POPUP_DURATION = 60  # 1초 (60fps)
+soldier_reload_popup_timer = 0
+
+
 def _is_soldier_non_pistol_selected() -> bool:
     """코만도가 권총 이외 화기를 선택 중인지 신뢰성 있게 판정.
 
@@ -69540,7 +69639,7 @@ def get_soldier_shot_probabilities() -> tuple[float, float]:
 
 def trigger_soldier_emergency_supply() -> bool:
     """코만도 비상보급: 현재 선택한 영구 화기류 1개의 탄창을 즉시 전부 보충."""
-    global special_gauge, soldier_emergency_supply_toast_timer
+    global special_gauge, soldier_reload_popup_timer
 
     if is_soldier_skill_on_cooldown("emergency_supply"):
         print("⚠️ 긴급재보급이 아직 재사용 대기 중입니다.")
@@ -69574,6 +69673,17 @@ def trigger_soldier_emergency_supply() -> bool:
         if current_ammo >= max_ammo and soldier_pistol_magazines >= SOLDIER_PISTOL_MAGAZINE_MAX:
             print(f"⚠️ {get_item_name_korean(weapon_name)}의 탄환과 탄창이 이미 가득 찼습니다.")
             return False
+    elif weapon_name == "ak47":
+        # AK-47은 탄환과 지속시간/활성 상태가 모두 가득 찼을 때만 차단.
+        ak47 = get_ak47_instance()
+        ak47_full = (
+            current_ammo >= max_ammo
+            and bool(ak47 and getattr(ak47, "active", False))
+            and bool(ak47 and getattr(ak47, "remaining_time", 0) >= getattr(ak47, "duration", 0))
+        )
+        if ak47_full:
+            print(f"⚠️ {get_item_name_korean(weapon_name)}의 탄환과 지속시간이 이미 가득 찼습니다.")
+            return False
     elif current_ammo >= max_ammo:
         print(f"⚠️ {get_item_name_korean(weapon_name)}의 탄환이 이미 가득 찼습니다.")
         return False
@@ -69597,7 +69707,7 @@ def trigger_soldier_emergency_supply() -> bool:
     consume_special_gauge(SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST)
     trigger_soldier_skill_cooldown("emergency_supply")
     soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
-    soldier_emergency_supply_toast_timer = 90
+    soldier_reload_popup_timer = SOLDIER_RELOAD_POPUP_DURATION
 
     print(f"🪖 비상보급 완료! {get_item_name_korean(weapon_name)} 탄약을 모두 장전했습니다.")
     return True
@@ -71576,7 +71686,7 @@ def reset_fire_support_for_round_transition() -> None:
     """라운드 전환 시 발동 중인 화력지원을 취소한다.
 
     진행 중이던 폭격기/폭탄/무전 상태와 오브 쿨다운만 정리하며,
-    탄약은 그대로 유지한다(탄약 리필은 스테이지 전환에서만 일어난다).
+    탄약은 그대로 유지한다(재보급은 비상보급 경로에서만 일어난다).
     이미 사용을 끝낸 상태(스트라이크 비활성)라면 아무 작업도 하지 않는다.
     """
     global fire_support_radio_loop_active
@@ -84429,7 +84539,7 @@ def get_slingshot_stun_frames(charge_level: int) -> int:
 
 def start_soldier_reload():
     """코만도 탄약 재장전 시작. 탄창을 1개 소비하며 0개이면 실패."""
-    global soldier_reloading, soldier_reload_timer, special_gauge, soldier_last_reload_bullets
+    global soldier_reloading, soldier_reload_timer, soldier_last_reload_bullets
     global soldier_pistol_magazines
 
     # 이미 재장전 중이면 무시
@@ -84445,12 +84555,7 @@ def start_soldier_reload():
     if keys[pygame.K_UP]:
         return
 
-    # 게이지가 부족하면 재장전 불가
-    if special_gauge < SOLDIER_RELOAD_GAUGE_COST:
-        return
-
-    # 게이지 및 탄창 1개 소모
-    special_gauge -= SOLDIER_RELOAD_GAUGE_COST
+    # 탄창 1개 소모 (게이지 소모 없음)
     soldier_pistol_magazines -= 1
 
     # 재장전 시작
@@ -84490,9 +84595,7 @@ def update_soldier_reload():
     if soldier_reload_timer <= 0:
         soldier_reloading = False
         soldier_reload_timer = 0
-        # 탄창개조 스킬 레벨에 따른 최대 탄약 계산 (초월자의 관 보너스 포함)
-        magazine_mod_level = get_runtime_skill_level("soldier_magazine_mod")
-        soldier_max_ammo = 4 + magazine_mod_level  # 기본 4발 + 탄창개조 레벨
+        soldier_max_ammo = SOLDIER_PISTOL_BASE_MAX_AMMO
         soldier_ammo_count = soldier_max_ammo  # 탄약 모두 충전
         soldier_last_reload_bullets = 0  # 다음 재장전을 위해 초기화
 
@@ -87095,7 +87198,6 @@ def draw_soldier_weapon_ui(screen):
         # 총탄 개수 표시 (권총 아이콘 아래) - 고퀄리티 3D 스타일
         bullet_width = 5
         bullet_height = 10
-        # 탄창개조 스킬 적용된 최대 탄약
         pistol_max = soldier_max_ammo
         # 화기류 가로길이(weapon_rect.width)에 맞춰 탄환 간격 계산
         padding = 4
@@ -88266,7 +88368,72 @@ def draw_head_shot_effect(screen):
             
         except Exception as e:
             print(f"헤드샷 텍스트 렌더링 오류: {e}")
-    
+
+
+def draw_soldier_reload_popup(screen):
+    """비상보급 발동 시 플레이어 머리 위에 '재장전!' 텍스트 팝업."""
+    global soldier_reload_popup_timer
+
+    if soldier_reload_popup_timer <= 0:
+        return
+
+    try:
+        progress = 1.0 - (soldier_reload_popup_timer / SOLDIER_RELOAD_POPUP_DURATION)
+        if progress < 0.15:
+            scale = 0.6 + (progress / 0.15) * 0.6  # 0.6 → 1.2 초기 팝
+            alpha = 255
+        elif progress < 0.35:
+            scale = 1.2 - ((progress - 0.15) / 0.20) * 0.2  # 1.2 → 1.0 안정화
+            alpha = 255
+        elif progress < 0.75:
+            scale = 1.0
+            alpha = 255
+        else:
+            scale = 1.0
+            alpha = int(255 * (1.0 - progress) / 0.25)
+
+        rise = int(-progress * 18)  # 위로 18px 상승
+
+        font = pygame.freetype.Font(get_pixel_font_path(), 22)
+        text_surface, _ = font.render("재장전!", (255, 235, 140))
+
+        glow = pygame.Surface(
+            (text_surface.get_width() + 24, text_surface.get_height() + 24),
+            pygame.SRCALPHA,
+        )
+        for i in range(3):
+            glow_alpha = max(0, min(255, alpha // (i + 2)))
+            glow_size = 6 * (3 - i)
+            pygame.draw.ellipse(
+                glow,
+                (255, 180, 60, glow_alpha),
+                (12 - glow_size, 12 - glow_size,
+                 text_surface.get_width() + glow_size * 2,
+                 text_surface.get_height() + glow_size * 2),
+            )
+        glow.blit(text_surface, (12, 12))
+
+        if scale != 1.0:
+            scaled_w = max(1, int(glow.get_width() * scale))
+            scaled_h = max(1, int(glow.get_height() * scale))
+            glow = pygame.transform.scale(glow, (scaled_w, scaled_h))
+
+        glow.set_alpha(max(0, min(255, alpha)))
+
+        if 'PLAYER' in globals() and PLAYER is not None:
+            text_x = PLAYER.centerx
+            text_y = PLAYER.top - 28 + rise
+        else:
+            text_x = WIDTH // 2
+            text_y = HEIGHT - 80 + rise
+        final_rect = glow.get_rect(center=(text_x, text_y))
+        screen.blit(glow, final_rect)
+    except Exception as e:
+        print(f"재장전 텍스트 렌더링 오류: {e}")
+    finally:
+        soldier_reload_popup_timer = max(0, soldier_reload_popup_timer - 1)
+
+
 
 def draw_soldier_gun_animation(screen, paddle_rect):
     """코만도 총 발사 애니메이션 그리기"""
@@ -98051,7 +98218,14 @@ def handle_player(keys):
                     # 바주카포 발사
                     from item_effects.bazooka import get_bazooka_instance
                     bazooka = get_bazooka_instance()
-                    if bazooka.can_fire():
+                    if bazooka:
+                        bazooka.COOLDOWN_TIME = _get_soldier_firearm_cooldown_frames(
+                            "bazooka",
+                            apply_reduction=permanent_firearm_selected,
+                        )
+                    if permanent_firearm_selected and is_soldier_skill_on_cooldown("bazooka"):
+                        pass
+                    elif bazooka and bazooka.can_fire():
                         current_time = pygame.time.get_ticks()
                         if round_start_time > 0 and current_time - round_start_time < 3000:
                             remaining_time = (3000 - (current_time - round_start_time)) / 1000
@@ -98064,6 +98238,8 @@ def handle_player(keys):
                                 pass
                             
                             if bazooka.fire(PLAYER, pygame.time.get_ticks()):
+                                if permanent_firearm_selected:
+                                    trigger_soldier_skill_cooldown("bazooka")
                                 global bazooka_ui_recoil_timer
                                 soldier_control_lock_timer = bazooka.control_lock_timer
                                 # 온라인: 바주카 발사 이벤트
@@ -98091,14 +98267,23 @@ def handle_player(keys):
                 elif current_weapon == "ak47":
                     # AK-47 발사 (보스 조준) — 연사 홀드 안정화
                     ak47 = ak47_instance or get_ak47_instance()
+                    if ak47:
+                        ak47.fire_interval = _get_soldier_firearm_cooldown_frames(
+                            "ak47",
+                            apply_reduction=permanent_firearm_selected,
+                        )
 
                     # 발사 여부 확인 (입력 상태는 위에서 미리 갱신됨)
                     # - space 에지뿐 아니라 is_firing 동안 매 프레임 체크
-                    if (ak47_fire_ready or ak47.is_firing) and ak47.should_fire():
+                    if permanent_firearm_selected and is_soldier_skill_on_cooldown("ak47"):
+                        pass
+                    elif ak47 and (ak47_fire_ready or ak47.is_firing) and ak47.should_fire():
                         player_rect = pygame.Rect(PLAYER.x, PLAYER.y, PLAYER.width, PLAYER.height)
                         boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
 
                         if ak47.fire(player_rect, boss_rect):
+                            if permanent_firearm_selected:
+                                trigger_soldier_skill_cooldown("ak47")
                             # 온라인: AK-47 발사 이벤트 (마지막 총알 데이터 사용)
                             if ak47.bullets:
                                 _ak_last = ak47.bullets[-1]
@@ -100995,14 +101180,9 @@ def apply_loaded_progress(save_data: dict) -> bool:
                     if skill_name in _soldier_skill_unlocked:
                         _soldier_skill_unlocked[skill_name] = is_unlocked
             else:
-                if runtime_skill_levels.get("soldier_unlock_net_gun", 0) > 0:
-                    _soldier_skill_unlocked["net_gun"] = True
-                if runtime_skill_levels.get("soldier_unlock_fire_support", 0) > 0:
-                    _soldier_skill_unlocked["fire_support"] = True
-                if runtime_skill_levels.get("soldier_unlock_bowling_trap", 0) > 0:
-                    _soldier_skill_unlocked["bowling_trap"] = True
-                if runtime_skill_levels.get("soldier_unlock_suicide_drone", 0) > 0:
-                    _soldier_skill_unlocked["suicide_drone"] = True
+                for perk_id, skill_name in SOLDIER_UNLOCK_PERK_TO_SKILL.items():
+                    if runtime_skill_levels.get(perk_id, 0) > 0:
+                        _soldier_skill_unlocked[skill_name] = True
             _soldier_skill_unlocked[SOLDIER_PISTOL_ORB_SKILL] = bool(
                 _soldier_skill_unlocked.get(SOLDIER_PISTOL_ORB_SKILL, False)
                 or soldier_pistol_perk_unlocked
@@ -101293,7 +101473,7 @@ def apply_pending_ammo_restore() -> bool:
             try:
                 global soldier_ammo_count, soldier_max_ammo, soldier_pistol_ammo, soldier_pistol_magazines
                 pistol_state = ammo_states["commando_pistol"]
-                soldier_max_ammo = int(pistol_state.get("max_ammo", get_soldier_pistol_max_ammo()))
+                soldier_max_ammo = get_soldier_pistol_max_ammo()
                 soldier_ammo_count = max(0, min(int(pistol_state.get("ammo_count", soldier_max_ammo)), soldier_max_ammo))
                 soldier_pistol_ammo = soldier_ammo_count
                 soldier_pistol_magazines = max(
@@ -101324,9 +101504,29 @@ def apply_pending_ammo_restore() -> bool:
             except Exception as e:
                 print(f"[로드] 코만도 화기 상태 재적용 실패: {e}")
 
-        restore_soldier_skill_cooldowns_from_save(
-            _pending_ammo_restore.get("skill_cooldowns_remaining", {})
-        )
+        _restored_skill_cooldowns = _pending_ammo_restore.get("skill_cooldowns_remaining", {})
+        restore_soldier_skill_cooldowns_from_save(_restored_skill_cooldowns)
+        try:
+            restored_bazooka_frames = max(
+                0,
+                int(math.ceil(float(_restored_skill_cooldowns.get("bazooka", 0.0)) * FPS)),
+            )
+            if soldier_controller.is_permanent_weapon("bazooka"):
+                bazooka_inst = get_bazooka_instance()
+                if bazooka_inst:
+                    bazooka_inst.COOLDOWN_TIME = _get_soldier_firearm_cooldown_frames("bazooka", apply_reduction=True)
+                    bazooka_inst.cooldown_timer = restored_bazooka_frames
+            restored_ak47_frames = max(
+                0,
+                int(math.ceil(float(_restored_skill_cooldowns.get("ak47", 0.0)) * FPS)),
+            )
+            if soldier_controller.is_permanent_weapon("ak47"):
+                ak47_inst = get_ak47_instance()
+                if ak47_inst:
+                    ak47_inst.fire_interval = _get_soldier_firearm_cooldown_frames("ak47", apply_reduction=True)
+                    ak47_inst.shot_cooldown = restored_ak47_frames
+        except (TypeError, ValueError):
+            pass
         # 구버전 세이브의 emergency_supply_used 필드는 읽더라도 런타임 상태에 복원하지 않는다.
 
         # 대기 데이터 초기화
@@ -122383,6 +122583,107 @@ def draw_player_gauge():
             SCREEN.blit(glow_surface, (rrect.centerx - (emblem_size + 14)//2, rrect.centery - (emblem_size + 14)//2))
             SCREEN.blit(scaled, rrect)
 
+    # 마법안티포션 가로형 타이머 게이지 (시안/라일락 마법 톤)
+    try:
+        from item_effects.magic_anti_potion import (
+            is_magic_anti_active as _is_magic_anti_active_hud,
+            get_magic_anti_remaining_ratio as _get_magic_anti_ratio_hud,
+            get_magic_anti_remaining_time as _get_magic_anti_time_hud,
+        )
+    except Exception:
+        _is_magic_anti_active_hud = None
+        _get_magic_anti_ratio_hud = None
+        _get_magic_anti_time_hud = None
+    if _is_magic_anti_active_hud and _is_magic_anti_active_hud():
+        v_width = 150
+        v_height = 12
+        base_x = WIDTH - v_width - 16
+        base_y = HEIGHT - 28
+        idx = _hg_index('magic_anti_potion')
+        if idx < 0:
+            _hg_on_activate('magic_anti_potion')
+            idx = _hg_index('magic_anti_potion')
+        spacing = 18
+        ma_x = base_x
+        ma_y = base_y - max(0, idx) * spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, ma_y)
+
+        remaining_ratio = _get_magic_anti_ratio_hud() if _get_magic_anti_ratio_hud else 0.0
+        remaining_seconds = _get_magic_anti_time_hud() if _get_magic_anti_time_hud else 0.0
+
+        outer_rect = pygame.Rect(ma_x - 5, ma_y - 6, v_width + 10, v_height + 12)
+        mid_rect   = pygame.Rect(ma_x - 3, ma_y - 4, v_width + 6,  v_height + 8)
+        frame_rect = pygame.Rect(ma_x - 2, ma_y - 2, v_width + 4,  v_height + 4)
+        inner_rect = pygame.Rect(ma_x,     ma_y,     v_width,      v_height)
+
+        shadow_surf = pygame.Surface((outer_rect.width, outer_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 70), shadow_surf.get_rect(), border_radius=8)
+        SCREEN.blit(shadow_surf, (outer_rect.x, outer_rect.y))
+
+        # 시안/라일락 마법 프레임
+        draw.rect((18, 30, 48), outer_rect, border_radius=8)
+        draw.rect((70, 120, 200), mid_rect, border_radius=7)
+        draw.rect((150, 200, 255), mid_rect, 2, border_radius=7)
+        draw.rect((15, 25, 42), frame_rect, border_radius=6)
+
+        inner_shadow = pygame.Surface((inner_rect.width, inner_rect.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(inner_shadow, (0, 0, 0, alpha), (0, i, inner_rect.width, 1))
+        SCREEN.blit(inner_shadow, (inner_rect.x, inner_rect.y))
+
+        fill_w = max(1, int((v_width - 4) * remaining_ratio))
+        if fill_w > 0:
+            if remaining_seconds > 4.0:
+                base = (120, 170, 255)
+                hi = (200, 220, 255)
+            elif remaining_seconds > 2.0:
+                base = (140, 140, 230)
+                hi = (200, 190, 255)
+            else:
+                p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                base = (int(180 + 50 * p), int(160 + 60 * p), int(230 + 25 * p))
+                hi = (int(220 + 35 * p), int(200 + 40 * p), 255)
+
+            fill_rect = pygame.Rect(ma_x + 2, ma_y + 2, fill_w, v_height - 4)
+            grad = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            for x in range(fill_rect.width):
+                t = x / max(1, fill_rect.width - 1)
+                col = (int(base[0] + (hi[0] - base[0]) * t), int(base[1] + (hi[1] - base[1]) * t), int(base[2] + (hi[2] - base[2]) * t), 255)
+                pygame.draw.line(grad, col, (x, 0), (x, fill_rect.height - 1))
+            mask = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=3)
+            grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(grad, (fill_rect.x, fill_rect.y))
+
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            glow = (int(min(255, hi[0] * (0.6 + 0.4 * pulse))), int(min(255, hi[1] * (0.6 + 0.4 * pulse))), int(min(255, hi[2] * (0.6 + 0.4 * pulse))))
+            draw.rect(glow, (ma_x + 2, ma_y + 2, fill_w, 2), border_radius=2)
+
+            for i in range(1, 10):
+                tx = ma_x + 2 + int((v_width - 4) * (i / 10))
+                pygame.draw.line(SCREEN, (140, 180, 230), (tx, ma_y + v_height - 4), (tx, ma_y + v_height - 1), 1)
+
+            end_x = ma_x + 2 + fill_w
+            if 2 < fill_w < (v_width - 4):
+                glint = pygame.Surface((8, v_height), pygame.SRCALPHA)
+                pygame.draw.line(glint, (255, 255, 255, 120), (0, 0), (0, v_height - 3), 2)
+                SCREEN.blit(glint, (end_x - 1, ma_y + 2))
+
+        emblem_size = int(v_height * 1.5)
+        emblem_x = ma_x - emblem_size - 6
+        emblem_y = ma_y
+        icon = get_item_icon("magic_anti_potion")
+        if icon:
+            scaled = pygame.transform.smoothscale(icon, (emblem_size, emblem_size))
+            rrect = scaled.get_rect(topleft=(emblem_x, emblem_y))
+            glow_surface = pygame.Surface((emblem_size + 14, emblem_size + 14), pygame.SRCALPHA)
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.01))
+            pygame.draw.circle(glow_surface, (160, 200, 255, int(100 + 80 * pulse)), ((emblem_size + 14)//2, (emblem_size + 14)//2), (emblem_size + 8)//2, 3)
+            SCREEN.blit(glow_surface, (rrect.centerx - (emblem_size + 14)//2, rrect.centery - (emblem_size + 14)//2))
+            SCREEN.blit(scaled, rrect)
+
     if selected_character_type == "soldier" and soldier_controller.weapons and soldier_weapon_menu_active:
         player_rect = PLAYER if 'PLAYER' in globals() else None
         if player_rect:
@@ -137192,7 +137493,8 @@ def draw_objects():
     # === 헤드샷 효과 그리기 ===
     if selected_character_type == "soldier":
         draw_head_shot_effect(SCREEN)
-    
+        draw_soldier_reload_popup(SCREEN)
+
     # === 코만도 총 발사 / 새총 차징 애니메이션 그리기 ===
     if selected_character_type == "soldier":
         draw_soldier_gun_animation(SCREEN, PLAYER)
@@ -155342,38 +155644,6 @@ def show_item_manager_menu():
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
     def get_icon_safe(icon_var_name, item_name):
         """아이콘을 안전하게 가져오는 함수"""
-        # flare는 항상 새로운 군용 디자인 사용
-        if item_name == "flare":
-            flare_icon_new = pygame.Surface((32, 32), pygame.SRCALPHA)
-            # 조명탄 디자인 (밝은 주황색/노란색 계열)
-            
-            # 메인 몸체 (원통형 - 밝은 주황색)
-            pygame.draw.rect(flare_icon_new, (220, 120, 40), (12, 11, 8, 14))  # 주황색 몸체
-            pygame.draw.rect(flare_icon_new, (240, 140, 60), (13, 12, 6, 12))  # 하이라이트
-            
-            # 상단 뚜껑 부분 (금속)
-            pygame.draw.rect(flare_icon_new, (160, 160, 160), (11, 9, 10, 3))  # 은색 금속 뚜껑
-            pygame.draw.rect(flare_icon_new, (180, 180, 180), (11, 8, 10, 1))  # 뚜껑 상단
-            
-            # 안전핀과 고리
-            pygame.draw.circle(flare_icon_new, (220, 220, 220), (16, 6), 3, 1)  # 고리
-            pygame.draw.line(flare_icon_new, (200, 200, 200), (16, 6), (16, 9), 1)  # 핀
-            
-            # 하단 부분 (바닥)
-            pygame.draw.rect(flare_icon_new, (200, 100, 30), (12, 25, 8, 2))  # 바닥
-            
-            # 발화부 표시 (노란색 띠 - 조명탄 특징)
-            pygame.draw.rect(flare_icon_new, (255, 255, 100), (12, 13, 8, 3))  # 밝은 노란 띠
-            pygame.draw.rect(flare_icon_new, (255, 255, 200), (13, 14, 6, 1))  # 하이라이트
-            
-            # 빛나는 효과 (조명탄 특징)
-            pygame.draw.circle(flare_icon_new, (255, 200, 100, 50), (16, 16), 6)  # 광휘 효과
-            
-            # 텍스트 마킹
-            pygame.draw.line(flare_icon_new, (180, 80, 20), (14, 19), (18, 19), 1)
-            pygame.draw.line(flare_icon_new, (180, 80, 20), (14, 21), (18, 21), 1)
-            
-            return flare_icon_new
         if item_name == "net_gun":
             net_icon = pygame.Surface((32, 32), pygame.SRCALPHA)
 
@@ -165057,6 +165327,57 @@ def show_fade_text(message):
         except:
             pass
 # 물리 관련 함수들은 physics_manager로 이동됨
+def _try_arm_perk_resume_safety():
+    """퍽 선택 복귀 안전 타이머 발동 시도.
+
+    인게임 스타포인트 트리거에서 마지막 퍽까지 모두 처리되어 전투가 실제로
+    재개되는 시점에만 호출한다. 공이 아래로 내려오는 중일 때만 풀-프리즈 →
+    1초 점진 회복 곡선을 켠다. 이미 다른 hold 상태(스탑워치, 서브 대기,
+    공 스폰 애니메이션, 쿠로미 / 볼링트랩 포획)면 skip 한다.
+    """
+    global _perk_resume_freeze_timer, _perk_resume_recovery_timer
+    global _perk_resume_original_ball_vel
+
+    if BALL is None or ball_vel is None:
+        return
+    if player_ai_enabled:
+        return
+    # 공이 거의 정지 상태면 굳이 발동할 필요 없음 (서브 대기 / 스폰 직후 등 커버)
+    speed = math.hypot(ball_vel[0], ball_vel[1])
+    if speed < 0.5:
+        return
+    # 보스 쪽으로 올라가는 공은 멈추면 플레이어 타격 타이밍을 늦춘다 → skip
+    if ball_vel[1] <= 0:
+        return
+    # 다른 hold 상태와 겹치면 skip
+    if stopwatch_active:
+        return
+    if is_waiting_for_serve:
+        return
+    if ball_in_kuromi:
+        return
+    try:
+        if is_ball_spawn_animation_active():
+            return
+    except Exception:
+        pass
+    try:
+        from item_effects.bowling_trap import get_bowling_trap_instance
+        if get_bowling_trap_instance().is_ball_captured():
+            return
+    except Exception:
+        pass
+    # 이미 안전 타이머가 진행 중이면 새로 켜지 않음
+    if _perk_resume_freeze_timer > 0 or _perk_resume_recovery_timer > 0:
+        return
+
+    _perk_resume_original_ball_vel = list(ball_vel)
+    ball_vel[0] = 0.0
+    ball_vel[1] = 0.0
+    _perk_resume_freeze_timer = PERK_RESUME_FREEZE_FRAMES
+    _perk_resume_recovery_timer = 0
+
+
 def reset_round(is_stage_start=False):
     """
     라운드 리셋 함수
@@ -182199,12 +182520,10 @@ def main(stage_num, new_boss_mode=False):
     global blood_particles
     blood_particles = []
     
-    # 코만도 탄약 시스템 초기화 (권총 기본 4발, 탄창개조 스킬로 증가 가능)
+    # 코만도 탄약 시스템 초기화 (권총 기본 4발 고정)
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
     global pistol_ui_recoil_timer, bazooka_ui_recoil_timer, ak47_ui_recoil_timer
-    # 탄창개조 스킬 레벨에 따른 최대 탄약 계산 (초월자의 관 보너스 포함)
-    magazine_mod_level = get_runtime_skill_level("soldier_magazine_mod")
-    soldier_max_ammo = 4 + magazine_mod_level  # 기본 4발 + 탄창개조 레벨
+    soldier_max_ammo = SOLDIER_PISTOL_BASE_MAX_AMMO
     soldier_ammo_count = soldier_max_ammo
     soldier_reloading = False
     soldier_reload_timer = 0
@@ -186209,8 +186528,8 @@ def main(stage_num, new_boss_mode=False):
                 _wheel_ok = True
                 _mid_ok = True
                 if (event.type == pygame.MOUSEWHEEL and _wheel_ok) or (event.type == pygame.MOUSEBUTTONDOWN and _wheel_ok and getattr(event, 'button', 0) in (4,5)):
-                    if len(soldier_controller.weapons) > 1 and soldier_controller.switch_cooldown <= 0 and not soldier_weapon_menu_active:
-                        # 디바운스
+                    if len(soldier_controller.weapons) > 1 and not soldier_weapon_menu_active:
+                        # 디바운스 (휠 경로는 switch_cooldown 대신 ms 디바운스만 사용해 빠른 연속 전환 허용)
                         global last_wheel_switch_ms
                         if 'last_wheel_switch_ms' not in globals():
                             last_wheel_switch_ms = 0
@@ -186224,6 +186543,7 @@ def main(stage_num, new_boss_mode=False):
                             if delta != 0:
                                 next_index = (soldier_controller.current_index + delta) % len(soldier_controller.weapons)
                                 soldier_switch_weapon(next_index)
+                                soldier_controller.switch_cooldown = 0
                                 last_wheel_switch_ms = now_ms
                                 continue
                 if event.type == pygame.MOUSEBUTTONDOWN and _mid_ok and getattr(event, 'button', 0) == 2:
