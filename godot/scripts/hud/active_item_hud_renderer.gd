@@ -44,7 +44,6 @@ func draw_slots(
 			Color(60.0 / 255.0, 60.0 / 255.0, 80.0 / 255.0, 100.0 / 255.0)
 		)
 
-	var cooldown_group_remaining_ratio: float = 0.0
 	for i in range(slot_rects.size()):
 		var slot_rect: Rect2 = slot_rects[i]
 		var item_data: Dictionary = slot_context_builder.get_item_data(active_item_slots, i, actual_item_count)
@@ -55,7 +54,7 @@ func draw_slots(
 			current_time,
 			time_since_round_start
 		)
-		var remaining_ratio: float = slot_renderer.draw_slot(
+		slot_renderer.draw_slot(
 			canvas,
 			slot_rect,
 			item_data,
@@ -66,11 +65,3 @@ func draw_slots(
 			bool(slot_overflow_flags[i]),
 			str(i + 1)
 		)
-		cooldown_group_remaining_ratio = max(cooldown_group_remaining_ratio, remaining_ratio)
-
-	panel_renderer.draw_cooldown_status_frame_for_slots(
-		canvas,
-		slot_rects,
-		scale_factor,
-		cooldown_group_remaining_ratio
-	)

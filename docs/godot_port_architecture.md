@@ -920,7 +920,7 @@ Godot.
   `main.gd` should not duplicate item texture/color parsing.
 - `scripts/hud/active_item_hud_renderer.gd`
   Owns the public active-item HUD draw API and delegates slot-panel,
-  cooldown-frame, per-slot visual bodies, and slot-context normalization
+  per-slot status overlays, visual bodies, and slot-context normalization
   to focused helpers. `main.gd` still owns when to draw it and passes
   layout/state/visual modules into the renderer.
 - `scripts/hud/active_item_hud_slot_context_builder.gd`
@@ -928,19 +928,20 @@ Godot.
   round-start elapsed time, item dictionary lookup, and per-slot cooldown /
   throw-lock status fallback.
 - `scripts/hud/active_item_hud_panel_renderer.gd`
-  Owns active-item HUD tray panel drawing and the shared group cooldown
-  frame around all visible item slots.
+  Owns active-item HUD tray panel drawing. Slot-local status visuals stay
+  in the slot status renderer so progress frames remain inside the wells.
 - `scripts/hud/active_item_hud_slot_renderer.gd`
   Owns active-item HUD per-slot drawing: slot backgrounds, item icons,
-  status overlays, selection borders, and slot numbers. It delegates icon
-  bodies and status overlay details to focused slot helpers.
+  status overlays, selection borders, and inside-slot number badges. It
+  delegates icon bodies and status overlay details to focused slot helpers.
 - `scripts/hud/active_item_hud_slot_icon_renderer.gd`
   Owns active-item HUD slot icon drawing: PNG-backed item texture draw,
   procedural fallback gem, visual-module icon lookup, and item-color
   fallback.
 - `scripts/hud/active_item_hud_slot_status_renderer.gd`
   Owns active-item HUD slot status overlays: cooldown darkening, ready
-  flashes, throw-lock countdown panels, and countdown text centering.
+  flashes, inside-slot cooldown progress frames, throw-lock countdown
+  panels, and countdown text centering.
 - `scripts/characters/smasher_combo_state.gd`
   Owns the public Smasher combo runtime facade: hit registration, combo
   reset / effect clearing, gauge-gain helpers, renderer-facing accessors,

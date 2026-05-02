@@ -28,9 +28,10 @@ func draw_slot(
 	_draw_slot_border(canvas, slot_rect, selected, is_overflow_slot)
 	_draw_slot_number(
 		canvas,
-		slot_rect.position + Vector2(3.0 * scale_factor, 2.0 * scale_factor),
+		slot_rect,
 		slot_number,
-		max(12, int(18.0 * scale_factor))
+		max(10, int(14.0 * scale_factor)),
+		scale_factor
 	)
 	return remaining_ratio
 
@@ -49,10 +50,29 @@ func _draw_slot_border(canvas: Node2D, slot_rect: Rect2, selected: bool, is_over
 		canvas.draw_rect(slot_rect, Color(60.0 / 255.0, 60.0 / 255.0, 80.0 / 255.0), false, 1.0)
 
 
-func _draw_slot_number(canvas: Node2D, pos: Vector2, text: String, font_size: int) -> void:
+func _draw_slot_number(canvas: Node2D, slot_rect: Rect2, text: String, font_size: int, scale_factor: float) -> void:
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
+	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	var padding_x: float = max(2.0, floor(3.0 * scale_factor))
+	var padding_y: float = max(1.0, floor(1.0 * scale_factor))
+	var badge_size := Vector2(
+		max(12.0 * scale_factor, text_size.x + padding_x * 2.0),
+		max(11.0 * scale_factor, float(font_size) * 0.9 + padding_y * 2.0)
+	)
+	badge_size.x = min(badge_size.x, slot_rect.size.x - 4.0 * scale_factor)
+	badge_size.y = min(badge_size.y, slot_rect.size.y - 4.0 * scale_factor)
+	var badge_rect := Rect2(
+		slot_rect.position + Vector2(3.0 * scale_factor, 3.0 * scale_factor),
+		badge_size
+	)
+	canvas.draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
+	canvas.draw_rect(badge_rect, Color(1.0, 1.0, 1.0, 0.22), false, 1.0)
+
+	var text_x: float = badge_rect.position.x + (badge_rect.size.x - text_size.x) * 0.5
+	var text_y: float = badge_rect.position.y + (badge_rect.size.y - text_size.y) * 0.5 + font.get_ascent(font_size)
+	var pos := Vector2(text_x, text_y)
 	for ox in [-1.0, 0.0, 1.0]:
 		for oy in [-1.0, 0.0, 1.0]:
 			if ox != 0.0 or oy != 0.0:
