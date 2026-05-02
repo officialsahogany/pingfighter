@@ -18,6 +18,10 @@ const WHIP_FRAME_COUNT := 8
 const MIN_DOWNWARD_SPEED_ON_CAST := 8.0
 const MIN_ACTIVE_DOWNWARD_SPEED := 5.0
 const MIN_COUNTER_UPWARD_SPEED := 8.0
+const WHIP_GUARD_COUNTER_MAX_SPEED := 10.5
+const WHIP_GUARD_COUNTER_IMPACT_BOOST := 1.0
+const WHIP_GUARD_COUNTER_BOOST_DECAY_RATE := 0.975
+const WHIP_GUARD_COUNTER_MIN_BOOST := 0.70
 
 var boss_special_gauge := 0.0
 var active := false
@@ -76,14 +80,13 @@ func register_player_hit(ball_vel: Vector2, context: Dictionary) -> Dictionary:
 		return {}
 
 	hit_by_player = true
-	var next_ball_vel: Vector2 = ball_vel
-	if next_ball_vel.y > 0.0:
-		next_ball_vel.y = -abs(next_ball_vel.y)
-	if abs(next_ball_vel.y) < MIN_COUNTER_UPWARD_SPEED:
-		next_ball_vel.y = -MIN_COUNTER_UPWARD_SPEED
+	var next_ball_vel: Vector2 = _build_guard_counter_velocity(ball_vel)
 	_start_deactivation()
 	return {
 		"ball_vel": next_ball_vel,
+		"ball_impact_boost": WHIP_GUARD_COUNTER_IMPACT_BOOST,
+		"ball_boost_decay_rate": WHIP_GUARD_COUNTER_BOOST_DECAY_RATE,
+		"ball_min_boost": WHIP_GUARD_COUNTER_MIN_BOOST,
 		"whip_deactivated": true,
 	}
 
@@ -233,6 +236,26 @@ func _start_deactivation() -> void:
 	deactivation_active = true
 	deactivation_timer_frames = WHIP_DEACTIVATION_DURATION_FRAMES
 	deactivation_rotation_speed = max(deactivation_rotation_speed, WHIP_DEACTIVATION_ROTATION_SPEED)
+
+
+func _build_guard_counter_velocity(ball_vel: Vector2) -> Vector2:
+	var next_ball_vel: Vector2 = ball_vel
+	if next_ball_vel.length() <= 0.01:
+		next_ball_vel = Vector2(0.0, -MIN_COUNTER_UPWARD_SPEED)
+
+	var upward_speed: float = clamp(
+		abs(next_ball_vel.y),
+		MIN_COUNTER_UPWARD_SPEED,
+		WHIP_GUARD_COUNTER_MAX_SPEED
+	)
+	var max_horizontal_speed: float = sqrt(max(
+		0.0,
+		WHIP_GUARD_COUNTER_MAX_SPEED * WHIP_GUARD_COUNTER_MAX_SPEED - upward_speed * upward_speed
+	))
+	return Vector2(
+		clamp(next_ball_vel.x, -max_horizontal_speed, max_horizontal_speed),
+		-upward_speed
+	)
 
 
 func _update_deactivation(fps_scale: float) -> void:

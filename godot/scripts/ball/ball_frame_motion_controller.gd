@@ -12,7 +12,7 @@ func update_power_freeze(delta: float, scene: Dictionary, context: Dictionary, d
 		_get_vector2(scene, "ball_pos", Vector2.ZERO),
 		{
 			"freeze_duration": float(context.get("power_smash_freeze_duration", 0.0)),
-			"ball_size": float(context.get("ball_size", 22.0)),
+			"ball_size": float(context.get("ball_size", 28.6)),
 		},
 		deps
 	)

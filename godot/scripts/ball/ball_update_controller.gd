@@ -73,7 +73,7 @@ func _update_ball_effects(scene: Dictionary, fps_scale: float, context: Dictiona
 		return
 	var ball_pos: Vector2 = _get_vector2(scene, "ball_pos", Vector2.ZERO)
 	var ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
-	ball_effects.update_ghost_trail(ball_pos, float(context.get("ball_size", 22.0)) * 0.5, fps_scale)
+	ball_effects.update_ghost_trail(ball_pos, float(context.get("ball_size", 28.6)) * 0.5, fps_scale)
 	ball_intensity.update_transition(ball_vel, fps_scale)
 	ball_effects.update_intensity_particles(
 		ball_pos,

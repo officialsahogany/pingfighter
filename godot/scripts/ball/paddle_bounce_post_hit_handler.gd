@@ -43,6 +43,7 @@ func apply(
 
 	var player_speed: float = float(context.get("player_speed", 0.0))
 	var boss_vel: float = float(context.get("boss_vel", 0.0))
+	var whip_result: Dictionary = {}
 	if is_player:
 		var player_result: Dictionary = player_post_hit_handler.apply(
 			ball_pos,
@@ -60,7 +61,7 @@ func apply(
 		boss_vel = float(player_result.get("boss_vel", boss_vel))
 		var whip_state: Object = deps.get("stage1_dalji_whip_skill_state", null)
 		if whip_state != null and whip_state.has_method("register_player_hit"):
-			var whip_result: Dictionary = whip_state.register_player_hit(ball_vel, context)
+			whip_result = whip_state.register_player_hit(ball_vel, context)
 			ball_vel = _get_vector2(whip_result, "ball_vel", ball_vel)
 	else:
 		var boss_result: Dictionary = boss_post_hit_handler.apply(
@@ -82,7 +83,7 @@ func apply(
 		drive_hit_boss = bool(boss_result.get("drive_hit_boss", drive_hit_boss))
 
 	event_router.register_rally_feedback(ball_pos, ball_vel, is_player, power_activated, deps)
-	return {
+	var result := {
 		"ball_pos": ball_pos,
 		"ball_vel": ball_vel,
 		"ball_spin_strength": ball_spin_strength,
@@ -92,6 +93,13 @@ func apply(
 		"player_speed": player_speed,
 		"boss_vel": boss_vel,
 	}
+	if whip_result.has("ball_impact_boost"):
+		result["ball_impact_boost"] = float(whip_result["ball_impact_boost"])
+	if whip_result.has("ball_boost_decay_rate"):
+		result["ball_boost_decay_rate"] = float(whip_result["ball_boost_decay_rate"])
+	if whip_result.has("ball_min_boost"):
+		result["ball_min_boost"] = float(whip_result["ball_min_boost"])
+	return result
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
