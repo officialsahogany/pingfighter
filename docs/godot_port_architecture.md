@@ -238,7 +238,7 @@ Godot.
   base speed capping.
 - `scripts/ball/ball_impact_boost_policy.gd`
   Owns paddle-hit momentary acceleration policy: speed-dependent impact
-  boost shaping, 50% amplified launch burst with angle-fixed boost and
+  boost shaping, 65% amplified launch burst with angle-fixed boost and
   straight-hit 1.0s decay with 1.02s to 0.82s wide-angle decay tuning,
   vertical-shot decay strengthening, speed-normalized
   boost travel distance with delayed high-speed burst softening, slow rally
