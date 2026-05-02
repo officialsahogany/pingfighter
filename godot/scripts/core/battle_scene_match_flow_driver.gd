@@ -46,6 +46,9 @@ func reset_game(
 		"drive_text_timer_frames",
 		_get_owner_value(owner, "drive_text_timer_frames", 0.0)
 	)))
+	var active_item_slots: Variant = result.get("active_item_slots", null)
+	if active_item_slots is Array:
+		owner.set("active_item_slots", active_item_slots)
 
 
 func _get_match_flow_deps(registry: Object) -> Dictionary:

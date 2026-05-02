@@ -22,6 +22,11 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	if skill_icon_value is Dictionary:
 		skill_icons = skill_icon_value
 
+	var active_item_slots: Array = []
+	var active_item_runtime = registry.get_instance("active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("build_starting_slots"):
+		active_item_slots = active_item_runtime.build_starting_slots()
+
 	var ball_physics = registry.get_instance("ball_physics")
 	if ball_physics != null:
 		ball_physics.configure_context(
@@ -36,4 +41,5 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 		"boss_pos": Vector2(width * 0.5 - boss_paddle_width * 0.5, boss_y),
 		"battle_textures": battle_textures,
 		"smasher_skill_icon_textures": skill_icons,
+		"active_item_slots": active_item_slots,
 	}

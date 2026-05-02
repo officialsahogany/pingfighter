@@ -25,6 +25,7 @@ func build_frame_callbacks(owner: Object) -> Dictionary:
 		"update_effects": Callable(self, "_update_effects"),
 		"update_ball": Callable(self, "_update_ball"),
 		"update_player_control": Callable(self, "_update_player_control"),
+		"update_active_items": Callable(self, "_update_active_items"),
 		"update_boss_ai": Callable(self, "_update_boss_ai"),
 		"serve_ball": Callable(self, "_serve_ball"),
 		"queue_redraw": Callable(owner, "queue_redraw"),
@@ -47,6 +48,12 @@ func _update_player_control(delta: float) -> void:
 	var actor_driver: Object = _get_instance(_registry, "battle_scene_actor_update_driver")
 	if actor_driver != null:
 		actor_driver.update_player_control(_owner, _registry, delta)
+
+
+func _update_active_items(delta: float) -> void:
+	var active_item_runtime: Object = _get_instance(_registry, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("update"):
+		active_item_runtime.update(_owner, _registry, delta)
 
 
 func _update_boss_ai(delta: float) -> void:

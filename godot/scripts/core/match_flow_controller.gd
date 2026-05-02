@@ -70,6 +70,14 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 	if active_hud_state != null:
 		active_hud_state.reset()
 
+	var active_item_runtime = deps.get("active_item_runtime", null)
+	var active_item_slots: Array = []
+	if active_item_runtime != null:
+		if active_item_runtime.has_method("reset"):
+			active_item_runtime.reset()
+		if active_item_runtime.has_method("build_starting_slots"):
+			active_item_slots = active_item_runtime.build_starting_slots()
+
 	var skill_state = deps.get("skill_state", null)
 	if skill_state != null:
 		skill_state.reset()
@@ -96,4 +104,5 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 	return {
 		"special_gauge": 0.0,
 		"drive_text_timer_frames": 0.0,
+		"active_item_slots": active_item_slots,
 	}

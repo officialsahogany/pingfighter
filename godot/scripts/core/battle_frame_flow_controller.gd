@@ -17,6 +17,7 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		return
 
 	_call_delta(callbacks, "update_player_control", delta)
+	_call_delta(callbacks, "update_active_items", delta)
 	_call_delta(callbacks, "update_boss_ai", delta)
 
 	var round_state = deps.get("round_state", null)

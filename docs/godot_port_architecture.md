@@ -97,8 +97,8 @@ Godot.
   Texture/resource path ownership, resource loading fallbacks, shared
   caches, and missing-resource diagnostics.
 - `scripts/effects/`
-  Generic particles, hit flashes, screen shake requests, wall impacts,
-  and reusable draw/update effect components.
+  Generic particles, screen shake requests, wall impacts, and reusable
+  draw/update effect components.
 
 ## Current Split Status
 
@@ -114,6 +114,11 @@ Godot.
   controller can apply player / boss auto-serve delays from zero.
   `main.gd` still owns ball placement, ball velocity construction, scoring
   side effects, and the actual serve/reset orchestration.
+- `scripts/items/active_item_runtime.gd`
+  Owns the first Godot active-item runtime slice: starter active-slot
+  construction, number-key use input, per-item cooldown checks, and the
+  original `gauge_charge` / Energy Drink consumable effect. Acquisition
+  routing beyond the starter slot is still future item-domain work.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve
@@ -124,9 +129,9 @@ Godot.
   Owns score-event and scoreboard-flow orchestration: scoring-side
   handoff to match score state, next-server sync, scoreboard start / finish
   actions, round-set sound trigger, and full-game reset fanout across HUD,
-  skill, dash, and round-flow modules. Ball reset is delegated back through
-  the ball round controller, while `main.gd` still owns mutable scene fields
-  returned by the controllers.
+  active-item runtime, skill, dash, and round-flow modules. Ball reset is
+  delegated back through the ball round controller, while `main.gd` still
+  owns mutable scene fields returned by the controllers.
 - `scripts/stages/stage1/stage1_pillar_background.gd`
   Owns the layered Stage 1 pillar background port: base hanji texture,
   texture loading, draw composition, and delegation to focused Stage 1
@@ -203,8 +208,8 @@ Godot.
   renderers. Stage 1 render modules should reuse this helper instead of
   duplicating local `_as_vector2` / `_as_color` bodies.
 - `scripts/stages/stage1/stage1_playfield_renderer.gd`
-  Owns Stage 1 court background / guide-line drawing, hit-flash overlay,
-  and Smasher dash afterimages.
+  Owns Stage 1 court background / guide-line drawing and Smasher dash
+  afterimages.
 - `scripts/stages/stage1/stage1_player_actor_renderer.gd`
   Owns Stage 1 Smasher actor drawing: hover / breath / hit-pose offsets,
   soft shadow placement, visual rect assembly, and delegation to the
@@ -492,7 +497,7 @@ Godot.
   paddle bounce controller calls this after resolving the core bounce.
 - `scripts/ball/paddle_bounce_rally_feedback_router.gd`
   Owns paddle-hit rally feedback side effects: intensity hit registration,
-  energy explosion / paddle particles, hit flash, screen shake, and
+  energy explosion / paddle particles, screen shake, and
   non-Power-Smashing paddle-hit sound.
 - `scripts/effects/impact_effects.gd`
   Owns the public generic impact-effect state API used by the rally loop
@@ -507,8 +512,8 @@ Godot.
   Owns energy explosions and Drive spark particles shared by ball and
   skill feedback paths.
 - `scripts/effects/battle_feedback_state.gd`
-  Owns scene-level battle feedback timers: screen shake, hit flash,
-  gauge-gain flash, dash-token flash, and dash-token divider animation.
+  Owns scene-level battle feedback timers: screen shake, gauge-gain flash,
+  dash-token flash, and dash-token divider animation.
   Gameplay branches still trigger these events, while the battle effects
   update controller advances the timers and draw-time render modules read
   the values.
@@ -572,10 +577,10 @@ Godot.
   variable declarations in the scene script.
 - `scripts/core/battle_frame_flow_controller.gd`
   Owns per-physics-frame battle flow branching: scoreboard-lock updates,
-  Power Smashing freeze updates, player / boss updates, serve-wait
-  advancement, active-ball updates, effect updates, and redraw requests.
-  The scene update driver supplies callbacks for the actual scene-level
-  operations.
+  Power Smashing freeze updates, player / active-item / boss updates,
+  serve-wait advancement, active-ball updates, effect updates, and redraw
+  requests. The scene update driver supplies callbacks for the actual
+  scene-level operations.
 - `scripts/core/battle_scene_drawer.gd`
   Owns the scene draw-frame orchestration: viewport background, pillar
   draw pass delegation, transformed playfield draw pass setup, and
@@ -605,9 +610,10 @@ Godot.
   controller: flow dependency lookup, callback binding, callback cleanup,
   and lifecycle reset-ball entry point.
 - `scripts/core/battle_scene_update_callbacks.gd`
-  Owns scene update callbacks for player / boss / ball / effects-driver,
-  score events, scoreboard updates, serve/reset requests, and delegation
-  to actor, ball, effects, and match-flow scene drivers.
+  Owns scene update callbacks for player / active items / boss / ball /
+  effects-driver, score events, scoreboard updates, serve/reset requests,
+  and delegation to actor, item, ball, effects, and match-flow scene
+  drivers.
 - `scripts/core/battle_scene_effects_update_driver.gd`
   Owns scene-facing effect update callbacks for the frame flow: invoking
   the battle effects update controller and applying returned effect fields
@@ -615,7 +621,7 @@ Godot.
 - `scripts/core/battle_scene_match_flow_driver.gd`
   Owns scene-facing match-flow callbacks for score events, scoreboard
   updates, game reset callbacks, match-flow dependency lookup, and owner
-  field application after reset.
+  field application after reset, including active-item slot refreshes.
 - `scripts/core/battle_scene_actor_update_driver.gd`
   Owns scene-facing actor update callbacks for the frame flow: Smasher
   player-control updates, boss AI updates, and applying the returned
@@ -673,7 +679,8 @@ Godot.
   ball / gauge / sprite presence fields, and battle-effect dependencies.
 - `scripts/core/battle_update_match_flow_context.gd`
   Owns match-flow dependency map assembly for score, round, scoreboard,
-  audio, HUD, skill, Drive-input, and dash state modules.
+  audio, HUD, active-item runtime, skill, Drive-input, and dash state
+  modules.
 - `scripts/resources/battle_resources.gd`
   Owns battle texture paths and loading: player / boss sprites, ball
   texture, orb / HUD frame textures, Smasher skill icon textures, and
@@ -699,10 +706,15 @@ Godot.
   `gameplay_stage_module_catalog.gd`, `gameplay_hud_module_catalog.gd`,
   `gameplay_ball_module_catalog.gd`,
   `gameplay_actor_module_catalog.gd`,
+  `gameplay_item_module_catalog.gd`,
   `gameplay_effect_audio_module_catalog.gd`, and
   `gameplay_resource_module_catalog.gd`. New Godot module owners should be
   added to the matching domain catalog instead of growing the registry
   logic or the facade.
+- `scripts/resources/gameplay_item_module_catalog.gd`
+  Owns item-domain gameplay module keys. Active-item runtime modules should
+  register here so the facade and registry do not grow item-specific path
+  knowledge.
 - `scripts/resources/script_instance_cache.gd`
   Owns shared lazy script / instance caching for optional RefCounted
   modules. The gameplay module registry uses this cache instead of letting
@@ -1007,9 +1019,9 @@ Godot.
   jitter.
 - `scripts/characters/smasher_drive_counter_state.gd`
   Owns the boss-counter reaction against an active Drive ball: first boss
-  contact detection, retained spin, Drive speed-increase reduction, and
-  counter speed caps. `main.gd` still owns when the boss paddle collision
-  invokes the counter calculation.
+  contact detection, retained spin, softened Drive speed-increase reduction,
+  and higher counter speed caps. `main.gd` still owns when the boss paddle
+  collision invokes the counter calculation.
 - `scripts/characters/smasher_power_smash_state.gd`
   Owns the public Smasher Power Smashing state API and delegates runtime
   field storage, velocity / motion calculation, and VFX state to focused
