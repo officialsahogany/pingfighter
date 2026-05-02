@@ -4,7 +4,7 @@ const PlayerActorAnimationState := preload("res://scripts/characters/player_acto
 const BossActorAnimationState := preload("res://scripts/characters/boss_actor_animation_state.gd")
 
 const PLAYER_HIT_ANIM_DURATION := 0.36
-const BOSS_HIT_ANIM_DURATION := 0.35
+const BOSS_HIT_ANIM_DURATION := 0.60
 
 var player_state: Object = PlayerActorAnimationState.new()
 var boss_state: Object = BossActorAnimationState.new()

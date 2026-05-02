@@ -3,6 +3,8 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 
 const BALL_SIZE: float = 22.0
+const BOSS_PADDLE_WIDTH: float = 100.0
+const BOSS_HITBOX_HEIGHT: float = 40.0
 
 
 func build_context(owner: Object, registry: Object) -> Dictionary:
@@ -12,14 +14,22 @@ func build_context(owner: Object, registry: Object) -> Dictionary:
 		"dash_snapshot": _get_dash_snapshot(registry),
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),
 		"ball_pos": _get_owner_vector2(owner, "ball_pos", Vector2.ZERO),
+		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
+		"ball_impact_boost": float(_get_owner_value(owner, "ball_impact_boost", 1.0)),
 		"ball_size": BALL_SIZE,
 		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),
 		"player_has_sprite": _has_texture(textures, "player_sprite_texture"),
 		"player_has_idle_sprite": _has_texture(textures, "player_idle_sprite_texture"),
+		"boss_pos": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO),
 		"boss_vel": float(_get_owner_value(owner, "boss_vel", 0.0)),
 		"boss_has_sprite": _has_texture(textures, "boss_sprite_sheet"),
+		"boss_has_hit_sprite": _has_texture(textures, "boss_attack_sheet")
+			or _has_texture(textures, "boss_hit_sprite_sheet"),
+		"boss_collision_cooldown": float(_get_owner_value(owner, "boss_collision_cooldown", 0.0)),
+		"boss_paddle_width": BOSS_PADDLE_WIDTH,
+		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
 	}
 
 

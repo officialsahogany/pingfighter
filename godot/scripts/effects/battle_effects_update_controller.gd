@@ -79,8 +79,18 @@ func _update_actor_animation(
 		"dash_active": dash_snapshot.get("active", false),
 		"player_has_sprite": bool(context.get("player_has_sprite", false)),
 		"player_has_idle_sprite": bool(context.get("player_has_idle_sprite", false)),
+		"ball_pos": _get_vector2(context, "ball_pos", Vector2.ZERO),
+		"ball_vel": _get_vector2(context, "ball_vel", Vector2.ZERO),
+		"ball_active": bool(context.get("ball_active", false)),
+		"ball_impact_boost": float(context.get("ball_impact_boost", 1.0)),
+		"ball_size": float(context.get("ball_size", 0.0)),
+		"boss_pos": _get_vector2(context, "boss_pos", Vector2.ZERO),
 		"boss_vel": float(context.get("boss_vel", 0.0)),
 		"boss_has_sprite": bool(context.get("boss_has_sprite", false)),
+		"boss_has_hit_sprite": bool(context.get("boss_has_hit_sprite", false)),
+		"boss_collision_cooldown": float(context.get("boss_collision_cooldown", 0.0)),
+		"boss_paddle_width": float(context.get("boss_paddle_width", 100.0)),
+		"boss_hitbox_height": float(context.get("boss_hitbox_height", 40.0)),
 	})
 
 

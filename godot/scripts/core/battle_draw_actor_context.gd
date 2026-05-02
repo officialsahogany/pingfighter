@@ -6,9 +6,11 @@ const BattleContextReader := preload("res://scripts/core/battle_context_reader.g
 func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 	var animation_state = deps.get("animation_state", null)
 	var animation_context: Dictionary = animation_state.get_draw_context() if animation_state != null else {}
+	var whip_state = deps.get("stage1_dalji_whip_skill_state", null)
+	var whip_context: Dictionary = whip_state.get_draw_context() if whip_state != null and whip_state.has_method("get_draw_context") else {}
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
 	var textures: Dictionary = _get_dict(context.get("textures", {}))
-	return {
+	var actor_context := {
 		"shake_offset": _get_vector2(context, "shake_offset", Vector2.ZERO),
 		"width": float(context.get("width", 760.0)),
 		"height": float(context.get("height", 750.0)),
@@ -37,13 +39,23 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"boss_paddle_size": _get_vector2(context, "boss_paddle_size", Vector2.ZERO),
 		"boss_hitbox_height": float(context.get("boss_hitbox_height", 0.0)),
 		"boss_sprite_frame": animation_context.get("boss_sprite_frame", 0),
-		"boss_sprite_row": animation_context.get("boss_sprite_row", 1),
+		"boss_facing": animation_context.get("boss_facing", 1),
+		"boss_is_walking": animation_context.get("boss_is_walking", false),
+		"boss_idle_frame": animation_context.get("boss_idle_frame", 0),
 		"boss_hit_active": animation_context.get("boss_hit_active", false),
 		"boss_hit_frame": animation_context.get("boss_hit_frame", 0),
-		"boss_hit_row": animation_context.get("boss_hit_row", 1),
+		"boss_hit_facing": animation_context.get("boss_hit_facing", 1),
+		"boss_walk_left_sheet": _get_value(textures, "boss_walk_left_sheet"),
+		"boss_walk_right_sheet": _get_value(textures, "boss_walk_right_sheet"),
+		"boss_idle_sheet": _get_value(textures, "boss_idle_sheet"),
+		"boss_attack_sheet": _get_value(textures, "boss_attack_sheet"),
+		"boss_stun_sheet": _get_value(textures, "boss_stun_sheet"),
+		"boss_whip_sheet": _get_value(textures, "boss_whip_sheet"),
 		"boss_sprite_sheet": _get_value(textures, "boss_sprite_sheet"),
 		"boss_hit_sprite_sheet": _get_value(textures, "boss_hit_sprite_sheet"),
 	}
+	actor_context.merge(whip_context, true)
+	return actor_context
 
 
 func _get_value(source: Dictionary, key: String) -> Variant:

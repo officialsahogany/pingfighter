@@ -222,8 +222,10 @@ Godot.
   selection, sprite source-rect selection, and fallback paddle drawing.
 - `scripts/stages/stage1/stage1_boss_actor_renderer.gd`
   Owns Stage 1 boss actor drawing: shadow placement, visual-center
-  alignment, walk / hit sprite source-rect selection, and fallback paddle
-  drawing.
+  alignment, Dalji walk-left / walk-right / idle / ball-contact attack
+  source-rect selection, and fallback paddle drawing. Runtime state
+  vocabulary follows `docs/sprites/boss_sprite_runtime_contract.md`; for
+  Dalji-specific texture keys, see `docs/sprites/stage1_dalji.md`.
 - `scripts/ball/ball_physics.gd`
   Owns the public ball-physics API and league/stage/weather context
   normalization. It delegates serve velocity, speed dampening, rally
@@ -690,7 +692,9 @@ Godot.
   missing-resource warnings through the shared project resource loader.
   The scene bootstrap loads this map, while `main.gd` keeps the loaded
   texture dictionary and resolves draw-module texture keys through that
-  shared resource map.
+  shared resource map. Boss texture keys must keep attack and stun
+  semantics separate; `boss_hit_sprite_sheet` is a legacy ball-contact
+  attack alias, not a stun key.
 - `scripts/resources/project_resource_loader.gd`
   Owns clean-clone-safe resource loading helpers: raw source PNG and WAV
   files are loaded directly when present, while imported Godot resources
@@ -1125,9 +1129,9 @@ Godot.
   Owns Smasher animation timers and frame state: idle / walk frames, hit
   pose timing, hit side, hit-frame easing, and player animation clock.
 - `scripts/characters/boss_actor_animation_state.gd`
-  Owns boss animation timers and frame state: walk row / frame selection,
-  boss hit animation timing, hit row selection, and default boss frame
-  timing constants.
+  Owns boss animation timers and frame state: Dalji walk frame, facing,
+  idle frame, anticipated ball-contact attack timing plus exact-contact
+  fallback protection, and default boss frame timing constants.
 - `scripts/characters/smasher_dash_state.gd`
   Owns the Smasher dash facade: dash-key release state, input-facing
   start/chain gates, and coordination between dash motion and dash-token
@@ -1172,7 +1176,7 @@ Godot.
   sticky turn-around inertia that slides on the old direction with reduced
   reversal braking, approaching-ball brake recovery, restrained opposite acceleration release,
   speed clamping, and the current
-  Stage 1 / Pungakboy champion-league movement profile.
+  Stage 1 / Dalji champion-league movement profile.
 - `scripts/ai/boss_ai_prediction_state.gd`
   Owns boss ball-position prediction: champion-league speed-based prediction
   frames, impact-boost / decay-aware boss-line arrival simulation,

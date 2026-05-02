@@ -28,7 +28,8 @@ func build(owner: Object) -> Dictionary:
 		"player_has_hit_sprite": _has_texture(textures, "player_hit_sprite_texture")
 			or _has_texture(textures, "player_hit_left_strip_texture")
 			or _has_texture(textures, "player_hit_right_strip_texture"),
-		"boss_has_hit_sprite": _has_texture(textures, "boss_hit_sprite_sheet"),
+		"boss_has_hit_sprite": _has_texture(textures, "boss_attack_sheet")
+			or _has_texture(textures, "boss_hit_sprite_sheet"),
 	}
 
 
