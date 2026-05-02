@@ -32,18 +32,11 @@ func apply_pre_activation_feedback(
 
 
 func apply_post_activation_feedback(
-	context: Dictionary,
+	_context: Dictionary,
 	deps: Dictionary,
-	power_state: Object,
-	combo_bonus_count: int
+	_power_state: Object,
+	_combo_bonus_count: int
 ) -> void:
 	var audio: Object = deps.get("audio", null)
 	if audio != null:
 		audio.play_power_smash()
-
-
-func _get_ball_pos(context: Dictionary) -> Vector2:
-	var context_ball_pos: Variant = context.get("ball_pos", Vector2.ZERO)
-	if context_ball_pos is Vector2:
-		return context_ball_pos
-	return Vector2.ZERO

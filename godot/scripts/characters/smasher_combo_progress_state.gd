@@ -39,8 +39,8 @@ func update_timers(fps_scale: float) -> void:
 
 	var display_combo: int = combo_count if combo_count > 0 else dash_combo_grace_count
 	var target_progress: float = min(1.0, float(display_combo) / SMASHER_COMBO_GAUGE_MAX_COUNT) if display_combo > 0 else 0.0
-	var ease: float = 0.18 if target_progress >= gauge_smooth else 0.10
-	gauge_smooth += (target_progress - gauge_smooth) * ease * max(1.0, fps_scale)
+	var ease_rate: float = 0.18 if target_progress >= gauge_smooth else 0.10
+	gauge_smooth += (target_progress - gauge_smooth) * ease_rate * max(1.0, fps_scale)
 	if abs(gauge_smooth - target_progress) < 0.001:
 		gauge_smooth = target_progress
 

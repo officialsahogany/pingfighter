@@ -18,7 +18,7 @@ func clear() -> void:
 	particles.clear()
 
 
-func spawn(pos: Vector2, count: int, combo_count: int = 0) -> void:
+func spawn(pos: Vector2, count: int, _combo_count: int = 0) -> void:
 	for _i in range(max(0, count)):
 		var angle: float = randf_range(0.0, TAU)
 		if randf() < 0.45:

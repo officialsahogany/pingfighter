@@ -2,7 +2,7 @@ extends RefCounted
 
 
 func apply(
-	velocity: Vector2,
+	_velocity: Vector2,
 	impact_boost: float,
 	min_boost: float,
 	decay_rate: float,
