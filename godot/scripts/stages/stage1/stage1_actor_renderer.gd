@@ -1,5 +1,6 @@
 extends RefCounted
 
+const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
 const Stage1PlayfieldRenderer := preload("res://scripts/stages/stage1/stage1_playfield_renderer.gd")
 const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
 const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_boss_actor_renderer.gd")
@@ -21,6 +22,4 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 
 
 func _as_vector2(value, fallback: Vector2) -> Vector2:
-	if value is Vector2:
-		return value
-	return fallback
+	return Stage1ContextReader.as_vector2(value, fallback)

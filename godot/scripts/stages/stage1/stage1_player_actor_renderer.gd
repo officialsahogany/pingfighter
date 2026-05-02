@@ -1,5 +1,6 @@
 extends RefCounted
 
+const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
 const Stage1PlayerSpriteRenderer := preload("res://scripts/stages/stage1/stage1_player_sprite_renderer.gd")
 
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
@@ -94,6 +95,4 @@ func _ease_in_out_sine(pillar_drawer, t: float) -> float:
 
 
 func _as_vector2(value, fallback: Vector2) -> Vector2:
-	if value is Vector2:
-		return value
-	return fallback
+	return Stage1ContextReader.as_vector2(value, fallback)

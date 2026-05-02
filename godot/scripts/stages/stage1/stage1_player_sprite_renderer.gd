@@ -1,5 +1,7 @@
 extends RefCounted
 
+const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
+
 
 func draw(
 	canvas: CanvasItem,
@@ -69,6 +71,4 @@ func _get_player_sprite_region(context: Dictionary) -> Rect2:
 
 
 func _as_color(value, fallback: Color) -> Color:
-	if value is Color:
-		return value
-	return fallback
+	return Stage1ContextReader.as_color(value, fallback)

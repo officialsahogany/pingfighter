@@ -1,5 +1,7 @@
 extends RefCounted
 
+const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
+
 const DEFAULT_BOSS_VISUAL_CENTER_Y_OFFSET := 25.0
 
 
@@ -70,12 +72,8 @@ func _get_boss_sprite_region(context: Dictionary) -> Rect2:
 
 
 func _as_vector2(value, fallback: Vector2) -> Vector2:
-	if value is Vector2:
-		return value
-	return fallback
+	return Stage1ContextReader.as_vector2(value, fallback)
 
 
 func _as_color(value, fallback: Color) -> Color:
-	if value is Color:
-		return value
-	return fallback
+	return Stage1ContextReader.as_color(value, fallback)

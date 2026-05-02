@@ -197,6 +197,11 @@ Godot.
   the actor draw order. It delegates court / trail, Smasher, and boss
   drawing to focused Stage 1 renderer modules. `main.gd` still owns
   animation timers and gameplay state.
+- `scripts/stages/stage1/stage1_context_reader.gd`
+  Owns typed reads for Stage 1 renderer dictionaries: Vector2 and Color
+  fallback coercion used by playfield, player, boss, and sprite fallback
+  renderers. Stage 1 render modules should reuse this helper instead of
+  duplicating local `_as_vector2` / `_as_color` bodies.
 - `scripts/stages/stage1/stage1_playfield_renderer.gd`
   Owns Stage 1 court background / guide-line drawing, hit-flash overlay,
   and Smasher dash afterimages.

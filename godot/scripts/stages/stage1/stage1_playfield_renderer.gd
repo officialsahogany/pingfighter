@@ -1,5 +1,7 @@
 extends RefCounted
 
+const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
+
 
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
 	var width: float = float(context.get("width", 760.0))
@@ -46,12 +48,8 @@ func draw_dash_trail(canvas: CanvasItem, context: Dictionary, shake_offset: Vect
 
 
 func _as_vector2(value, fallback: Vector2) -> Vector2:
-	if value is Vector2:
-		return value
-	return fallback
+	return Stage1ContextReader.as_vector2(value, fallback)
 
 
 func _as_color(value, fallback: Color) -> Color:
-	if value is Color:
-		return value
-	return fallback
+	return Stage1ContextReader.as_color(value, fallback)

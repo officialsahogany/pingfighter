@@ -9,6 +9,10 @@ const MODULES := {
 		"path": "res://scripts/stages/stage1/stage1_actor_renderer.gd",
 		"label": "stage1 actor renderer",
 	},
+	"stage1_context_reader": {
+		"path": "res://scripts/stages/stage1/stage1_context_reader.gd",
+		"label": "stage1 context reader",
+	},
 	"stage1_pillar_background": {
 		"path": "res://scripts/stages/stage1/stage1_pillar_background.gd",
 		"label": "stage1 pillar background",
