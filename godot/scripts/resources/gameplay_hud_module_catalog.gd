@@ -57,6 +57,10 @@ const MODULES := {
 		"path": "res://scripts/hud/smasher_skill_orb_renderer.gd",
 		"label": "smasher skill orb renderer",
 	},
+	"smasher_skill_orb_tooltip_renderer": {
+		"path": "res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd",
+		"label": "smasher skill orb tooltip renderer",
+	},
 }
 
 

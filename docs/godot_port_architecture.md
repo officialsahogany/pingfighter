@@ -1179,8 +1179,16 @@ Godot.
   and dash/skill input routing.
 - `scripts/characters/smasher_skill_config.gd`
   Owns Smasher skill data tables: equipped skill slots, gauge costs,
-  skill colors, and cooldown seconds. `main.gd` still owns skill
-  activation behavior and passes this snapshot into HUD renderers.
+  skill colors, cooldown seconds, and active-orb tooltip metadata.
+  `main.gd` still owns skill activation behavior and passes this snapshot
+  into HUD renderers.
+- `scripts/hud/smasher_skill_orb_tooltip_renderer.gd`
+  Owns Smasher skill-orb hover hit testing and tooltip drawing: slot
+  geometry reuse, active-skill field order, wrapped Korean copy,
+  structured control rows, cooldown / gauge readout, and contained
+  effect-preview sketches. It renders as a final screen-space HUD overlay
+  after the transformed playfield so tooltip panels are not covered by
+  gameplay drawing.
 - `scripts/ai/boss_ai_state.gd`
   Owns the current boss movement AI slice: prediction-state delegation,
   approaching-ball urgency detection, latest ball impact-boost snapshot

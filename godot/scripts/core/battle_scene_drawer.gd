@@ -28,6 +28,7 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 	canvas.draw_set_transform(game_offset, 0.0, Vector2(render_scale, render_scale))
 	_draw_playfield_scene(canvas, registry, shake_offset, width, height, pillar_width)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_draw_hud_overlays(canvas, registry, view_size, layout)
 
 
 func _draw_pillar_scene(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary) -> void:
@@ -56,6 +57,21 @@ func _draw_playfield_scene(
 		height,
 		pillar_width
 	)
+
+
+func _draw_hud_overlays(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary) -> void:
+	var tooltip_renderer: Object = _get_instance(registry, "smasher_skill_orb_tooltip_renderer")
+	var draw_context_builder: Object = _get_instance(registry, "battle_draw_context")
+	if tooltip_renderer == null or draw_context_builder == null:
+		return
+	if tooltip_renderer.has_method("draw") and draw_context_builder.has_method("build_pillar_scene_context"):
+		tooltip_renderer.draw(
+			canvas,
+			registry,
+			view_size,
+			layout,
+			draw_context_builder.build_pillar_scene_context(canvas, view_size, layout, 0.0)
+		)
 
 
 func _build_layout(registry: Object, view_size: Vector2, width: float, height: float) -> Dictionary:

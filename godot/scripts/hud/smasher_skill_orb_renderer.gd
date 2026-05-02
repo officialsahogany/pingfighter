@@ -51,6 +51,18 @@ func draw_orbs(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float,
 	slot_renderer.draw(canvas, center, icon_radius, positions, t, scale_factor, context)
 
 
+func get_slot_positions(center: Vector2, orb_radius: float, scale_factor: float, context: Dictionary) -> Array[Vector2]:
+	var icon_radius: float = float(context.get("skill_orb_radius", 24.0)) * scale_factor
+	return _get_slot_positions(
+		center,
+		orb_radius,
+		icon_radius,
+		int(context.get("max_slots", 5)),
+		float(context.get("gauge_gap", 28.0)),
+		float(context.get("orb_radius_base", 55.0))
+	)
+
+
 func _get_orbit_radius(orb_radius: float, icon_radius: float, gauge_gap: float, orb_radius_base: float) -> float:
 	return orb_radius + icon_radius + gauge_gap * (orb_radius / orb_radius_base)
 
@@ -85,4 +97,3 @@ func _get_slot_positions(
 		var angle_rad: float = deg_to_rad(angle_deg)
 		positions.append(center + Vector2(cos(angle_rad), sin(angle_rad)) * orbit_radius)
 	return positions
-
