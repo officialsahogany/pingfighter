@@ -151,6 +151,7 @@ func get_ai_context() -> Dictionary:
 	return {
 		"stage1_dalji_whip_active": active,
 		"stage1_dalji_whip_deactivation_active": deactivation_active,
+		"stage1_dalji_whip_deactivation_progress": get_deactivation_progress(),
 		"stage1_dalji_whip_deactivation_speed_multiplier": get_deactivation_speed_multiplier(),
 		"stage1_dalji_whip_post_stun_active": post_stun_timer_frames > 0.0,
 	}

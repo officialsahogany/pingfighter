@@ -3,6 +3,12 @@ extends RefCounted
 const BossAiPredictionState := preload("res://scripts/ai/boss_ai_prediction_state.gd")
 const BossAiTurnInertiaResolver := preload("res://scripts/ai/boss_ai_turn_inertia_resolver.gd")
 
+const WHIP_DEACTIVATION_FAST_SPEED: float = 8.8
+const WHIP_DEACTIVATION_SLOW_SPEED: float = 1.8
+const WHIP_DEACTIVATION_ACCEL: float = 4.5
+const WHIP_DEACTIVATION_BRAKE_DISTANCE: float = 72.0
+const WHIP_DEACTIVATION_DEADZONE: float = 5.0
+
 var prediction_state: Object = BossAiPredictionState.new()
 var turn_inertia_resolver: Object = BossAiTurnInertiaResolver.new()
 
@@ -40,28 +46,22 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 		var deactivation_ball_pos: Vector2 = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
 		var deactivation_ball_vel: Vector2 = _as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 		var deactivation_target_x: float = width * 0.5
-		var deactivation_ball_approaching_boss := false
 		if bool(context.get("ball_active", false)) and not bool(context.get("waiting_for_serve", true)):
-			deactivation_ball_approaching_boss = deactivation_ball_vel.y < 0.0
-			deactivation_target_x = prediction_state.predict_future_x(
+			deactivation_target_x = prediction_state.predict_exact_arrival_x(
 				deactivation_ball_pos,
 				deactivation_ball_vel,
-				fps_scale,
 				play_left,
 				play_right,
 				boss_paddle_width,
 				context
 			)
-		boss_vel = turn_inertia_resolver.update_velocity(
+		boss_vel = _update_whip_deactivation_velocity(
 			deactivation_target_x,
 			boss_center,
 			boss_vel,
 			fps_scale,
-			deactivation_ball_approaching_boss
+			float(context.get("stage1_dalji_whip_deactivation_progress", 0.0))
 		)
-		boss_vel *= float(context.get("stage1_dalji_whip_deactivation_speed_multiplier", 0.2))
-		if abs(deactivation_target_x - boss_center) < 10.0:
-			boss_vel = move_toward(boss_vel, 0.0, 4.0 * fps_scale)
 		boss_pos.x += boss_vel * fps_scale
 		boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
 		return {
@@ -104,6 +104,34 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 		"boss_pos": boss_pos,
 		"boss_vel": boss_vel,
 	}
+
+
+func _update_whip_deactivation_velocity(
+	target_x: float,
+	boss_center: float,
+	boss_vel: float,
+	fps_scale: float,
+	progress: float
+) -> float:
+	var distance: float = target_x - boss_center
+	if abs(distance) <= WHIP_DEACTIVATION_DEADZONE:
+		return move_toward(boss_vel, 0.0, WHIP_DEACTIVATION_ACCEL * fps_scale)
+
+	var time_speed: float = lerp(
+		WHIP_DEACTIVATION_FAST_SPEED,
+		WHIP_DEACTIVATION_SLOW_SPEED,
+		clamp(progress, 0.0, 1.0)
+	)
+	var brake_ratio: float = clamp(abs(distance) / WHIP_DEACTIVATION_BRAKE_DISTANCE, 0.0, 1.0)
+	var target_speed: float = time_speed * lerp(0.35, 1.0, brake_ratio)
+	target_speed = min(target_speed, abs(distance) / max(0.001, fps_scale))
+
+	var desired_vel: float = sign(distance) * target_speed
+	var accel_step: float = WHIP_DEACTIVATION_ACCEL * fps_scale
+	if boss_vel * desired_vel < 0.0:
+		accel_step *= 1.5
+	return move_toward(boss_vel, desired_vel, accel_step)
+
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:

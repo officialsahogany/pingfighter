@@ -43,6 +43,22 @@ func predict_future_x(
 	return clamp(future_x, min_center, max_center)
 
 
+func predict_exact_arrival_x(
+	ball_pos: Vector2,
+	ball_vel: Vector2,
+	play_left: float,
+	play_right: float,
+	boss_paddle_width: float,
+	context: Dictionary = {}
+) -> float:
+	var effective_ball_vel: Vector2 = ball_vel * float(context.get("ball_impact_boost", 1.0))
+	var predict_frame: float = _get_predict_frames(effective_ball_vel)
+	var min_center: float = play_left + boss_paddle_width * 0.5
+	var max_center: float = play_right - boss_paddle_width * 0.5
+	var future_x: float = _predict_arrival_x(ball_pos, ball_vel, predict_frame, play_left, play_right, context)
+	return clamp(future_x, min_center, max_center)
+
+
 func _apply_fail_window_error(future_x: float, fps_scale: float) -> float:
 	future_x += randf_range(-BOSS_FAIL_ERROR, BOSS_FAIL_ERROR)
 	boss_fail_timer = max(0.0, boss_fail_timer - fps_scale)
