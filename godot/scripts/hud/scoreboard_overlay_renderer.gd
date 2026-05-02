@@ -20,7 +20,8 @@ func draw(
 	if canvas == null or hud_state == null:
 		return
 
-	var alpha: float = clamp(hud_state.get_timer() / max(0.001, fade_in_duration), 0.0, 1.0)
+	var alpha: float = _get_overlay_alpha(hud_state, fade_in_duration)
+	var animation_frame: float = _get_animation_frame_time(hud_state)
 	var board_width: float = min(680.0, gameplay_width - 40.0)
 	var board_height: float = min(380.0, gameplay_height - 80.0)
 	var board_x: float = (gameplay_width - board_width) * 0.5
@@ -49,7 +50,7 @@ func draw(
 		canvas,
 		score_area_rect,
 		center_x,
-		hud_state.get_animation_frame(),
+		animation_frame,
 		hud_state.get_player_points(),
 		hud_state.get_boss_points(),
 		alpha
@@ -68,6 +69,18 @@ func _draw_text_centered(canvas: Node2D, center: Vector2, text: String, font_siz
 	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var baseline: Vector2 = Vector2(center.x - text_size.x * 0.5, center.y + text_size.y * 0.35)
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, _alpha_color(color, alpha))
+
+
+func _get_overlay_alpha(hud_state, fade_in_duration: float) -> float:
+	if hud_state != null and hud_state.has_method("get_overlay_alpha"):
+		return float(hud_state.get_overlay_alpha())
+	return clamp(hud_state.get_timer() / max(0.001, fade_in_duration), 0.0, 1.0)
+
+
+func _get_animation_frame_time(hud_state) -> float:
+	if hud_state != null and hud_state.has_method("get_animation_frame_time"):
+		return float(hud_state.get_animation_frame_time())
+	return float(hud_state.get_animation_frame())
 
 
 func _alpha_color(color: Color, alpha: float) -> Color:

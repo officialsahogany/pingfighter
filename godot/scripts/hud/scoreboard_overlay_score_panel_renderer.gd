@@ -9,7 +9,7 @@ func draw(
 	canvas: Node2D,
 	score_area: Rect2,
 	center_x: float,
-	frame: int,
+	frame: float,
 	player_score: int,
 	boss_score: int,
 	alpha: float
@@ -26,8 +26,8 @@ func draw(
 		3.0
 	)
 
-	var breath_pulse: float = 0.4 + 0.6 * sin(float(frame) * 0.08)
-	var flash_cycle: float = float(frame % 180) / 180.0
+	var breath_pulse: float = 0.4 + 0.6 * sin(frame * 0.08)
+	var flash_cycle: float = fmod(frame, 180.0) / 180.0
 	var flash: float = 1.0
 	if flash_cycle > 0.9:
 		flash = 1.0 + 0.5 * sin((flash_cycle - 0.9) * 10.0 * PI)

@@ -813,8 +813,11 @@ Godot.
 - `scripts/hud/scoreboard_state.gd`
   Owns scoreboard overlay timing, scoreboard animation frame state, pending
   game-reset handoff, and top mini-scoreboard sparkle timing. It is the
-  single source for overlay draw-time status; `main.gd` still owns match
-  score rules and sound playback.
+  single source for overlay draw-time status; the round-end overlay uses the
+  Python scoreboard's 15-frame fade-in and 90-frame hold cadence, with
+  continuous render-loop frame values for smooth LED pulse animation while
+  physics-frame gameplay remains paused. `main.gd` still owns match score
+  rules and sound playback.
 - `scripts/hud/scoreboard_renderer.gd`
   Owns the public scoreboard draw API and delegates visual bodies to
   focused scoreboard helpers. The scene drawer decides when to draw it and
@@ -845,7 +848,8 @@ Godot.
   boss logo orbs, glow halos, and PLAYER / BOSS labels.
 - `scripts/hud/scoreboard_overlay_score_panel_renderer.gd`
   Owns the full-screen score overlay score panel: score-area split, LED
-  score placement, score glow / pulse timing, and VS plate drawing.
+  score placement, continuous score glow / pulse timing, and VS plate
+  drawing.
 - `scripts/hud/scoreboard_top_mini_renderer.gd`
   Owns the top mini-scoreboard canvas entry point, geometry, sparkle
   timing normalization, deuce-mode selection, and delegation to normal /

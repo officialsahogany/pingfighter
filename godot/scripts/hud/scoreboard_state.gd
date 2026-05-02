@@ -4,8 +4,8 @@ const UPDATE_NONE := 0
 const UPDATE_START_SERVE := 1
 const UPDATE_RESET_GAME := 2
 
-const SCOREBOARD_FADE_IN_DURATION := 10.0 / 60.0
-const SCOREBOARD_HOLD_DURATION := 54.0 / 60.0
+const SCOREBOARD_FADE_IN_DURATION := 15.0 / 60.0
+const SCOREBOARD_HOLD_DURATION := 90.0 / 60.0
 const SCOREBOARD_TOTAL_DURATION := SCOREBOARD_FADE_IN_DURATION + SCOREBOARD_HOLD_DURATION
 const TOP_MINI_SCORE_SPARKLE_DURATION := 1.0
 
@@ -70,8 +70,16 @@ func get_timer() -> float:
 	return timer
 
 
+func get_overlay_alpha() -> float:
+	return clamp(timer / max(0.001, SCOREBOARD_FADE_IN_DURATION), 0.0, 1.0)
+
+
 func get_animation_frame() -> int:
 	return animation_frame
+
+
+func get_animation_frame_time() -> float:
+	return timer * 60.0
 
 
 func get_player_points() -> int:
