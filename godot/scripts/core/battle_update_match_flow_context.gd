@@ -13,4 +13,5 @@ func build_deps(registry: Object) -> Dictionary:
 		"skill_state": registry.get_instance("smasher_skill_state"),
 		"drive_input_state": registry.get_instance("smasher_drive_input_state"),
 		"dash_state": registry.get_instance("smasher_dash_state"),
+		"stage1_dalji_whip_skill_state": registry.get_instance("stage1_dalji_whip_skill_state"),
 	}

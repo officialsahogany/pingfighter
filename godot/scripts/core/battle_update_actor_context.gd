@@ -37,7 +37,7 @@ func build_player_control_deps(registry: Object) -> Dictionary:
 func build_boss_ai_context(owner: Object, registry: Object) -> Dictionary:
 	var round_state: Object = registry.get_instance("round_flow_state")
 	var power_state: Object = registry.get_instance("smasher_power_smash_state")
-	return {
+	var context := {
 		"width": WIDTH,
 		"play_left": PLAY_LEFT,
 		"play_right": PLAY_RIGHT,
@@ -56,6 +56,10 @@ func build_boss_ai_context(owner: Object, registry: Object) -> Dictionary:
 		"power_smashing_parabola_active": power_state != null and power_state.is_parabola_active(),
 		"power_smashing_combo_consumed": int(power_state.get_combo_consumed()) if power_state != null else 0,
 	}
+	var whip_state: Object = registry.get_instance("stage1_dalji_whip_skill_state")
+	if whip_state != null and whip_state.has_method("get_ai_context"):
+		context.merge(whip_state.get_ai_context(), true)
+	return context
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

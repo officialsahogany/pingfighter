@@ -9,6 +9,7 @@ const WALL_HIT_SOUND_PATH := "res://assets/sounds/wall_hit.wav"
 const DASH_SOUND_PATH := "res://assets/sounds/dash.wav"
 const HALF_DASH_SOUND_PATH := "res://assets/sounds/halfdash.wav"
 const DRIVE_SOUND_PATH := "res://assets/sounds/drive.wav"
+const WHIP_SOUND_PATH := "res://assets/sounds/whip_effect.wav"
 const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
 const DRINK_SOUND_PATH := "res://assets/sounds/drink.wav"
 const POWER_SMASH_SOUND_PATH := "res://assets/sounds/power_smash.wav"
@@ -29,6 +30,7 @@ var wall_hit_sfx: AudioStreamPlayer
 var dash_sfx: AudioStreamPlayer
 var half_dash_sfx: AudioStreamPlayer
 var drive_sfx: AudioStreamPlayer
+var whip_sfx: AudioStreamPlayer
 var item_get_sfx: AudioStreamPlayer
 var drink_sfx: AudioStreamPlayer
 var power_smash_sfx: AudioStreamPlayer
@@ -45,6 +47,7 @@ func setup(parent: Node) -> void:
 	dash_sfx = player_factory.create(owner_node, "DashSfx", DASH_SOUND_PATH, -6.0)
 	half_dash_sfx = player_factory.create(owner_node, "HalfDashSfx", HALF_DASH_SOUND_PATH, -6.0)
 	drive_sfx = player_factory.create(owner_node, "DriveSfx", DRIVE_SOUND_PATH, -5.0)
+	whip_sfx = player_factory.create(owner_node, "WhipSfx", WHIP_SOUND_PATH, -5.0)
 	item_get_sfx = player_factory.create(owner_node, "ItemGetSfx", ITEM_GET_SOUND_PATH, -5.0)
 	drink_sfx = player_factory.create(owner_node, "DrinkSfx", DRINK_SOUND_PATH, -5.0)
 	power_smash_sfx = player_factory.create(owner_node, "PowerSmashSfx", POWER_SMASH_SOUND_PATH, -4.0)
@@ -59,6 +62,15 @@ func update(delta: float) -> void:
 
 func play_drive() -> void:
 	_play_with_pitch(drive_sfx, randf_range(0.98, 1.02))
+
+
+func play_whip() -> void:
+	_play_with_pitch(whip_sfx, randf_range(0.98, 1.02))
+
+
+func stop_whip() -> void:
+	if whip_sfx != null and whip_sfx.playing:
+		whip_sfx.stop()
 
 
 func play_item_get() -> void:

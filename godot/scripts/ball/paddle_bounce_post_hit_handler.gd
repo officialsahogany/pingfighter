@@ -58,6 +58,10 @@ func apply(
 		special_gauge = float(player_result.get("special_gauge", special_gauge))
 		player_speed = float(player_result.get("player_speed", player_speed))
 		boss_vel = float(player_result.get("boss_vel", boss_vel))
+		var whip_state: Object = deps.get("stage1_dalji_whip_skill_state", null)
+		if whip_state != null and whip_state.has_method("register_player_hit"):
+			var whip_result: Dictionary = whip_state.register_player_hit(ball_vel, context)
+			ball_vel = _get_vector2(whip_result, "ball_vel", ball_vel)
 	else:
 		var boss_result: Dictionary = boss_post_hit_handler.apply(
 			ball_pos,

@@ -9,6 +9,10 @@ const MODULES := {
 		"path": "res://scripts/stages/stage1/stage1_actor_renderer.gd",
 		"label": "stage1 actor renderer",
 	},
+	"stage1_dalji_whip_skill_state": {
+		"path": "res://scripts/stages/stage1/stage1_dalji_whip_skill_state.gd",
+		"label": "stage1 Dalji whip skill state",
+	},
 	"stage1_context_reader": {
 		"path": "res://scripts/stages/stage1/stage1_context_reader.gd",
 		"label": "stage1 context reader",

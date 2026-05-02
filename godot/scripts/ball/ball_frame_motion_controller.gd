@@ -80,5 +80,23 @@ func apply_power_motion(scene: Dictionary, fps_scale: float, context: Dictionary
 	scene.merge(result, true)
 
 
+func apply_stage1_dalji_whip(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	var whip_state: Object = deps.get("stage1_dalji_whip_skill_state", null)
+	if whip_state == null or not whip_state.has_method("update_ball_motion"):
+		return
+	var power_state: Object = deps.get("power_state", null)
+	var power_motion_locked: bool = false
+	if power_state != null:
+		power_motion_locked = bool(power_state.is_freeze_active()) or bool(power_state.is_parabola_active())
+	var result: Dictionary = whip_state.update_ball_motion(
+		fps_scale,
+		_get_vector2(scene, "ball_vel", Vector2.ZERO),
+		context,
+		power_motion_locked
+	)
+	if result.has("ball_vel"):
+		scene["ball_vel"] = _get_vector2(result, "ball_vel", _get_vector2(scene, "ball_vel", Vector2.ZERO))
+
+
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
 	return BallContextReader.get_vector2(source, key, fallback)

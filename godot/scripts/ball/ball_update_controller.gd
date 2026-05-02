@@ -28,6 +28,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	frame_motion_controller.apply_impact_decay(scene, fps_scale, deps)
 	frame_motion_controller.apply_ball_spin(scene, fps_scale, deps)
 	frame_motion_controller.apply_power_motion(scene, fps_scale, context, deps)
+	frame_motion_controller.apply_stage1_dalji_whip(scene, fps_scale, context, deps)
 
 	if not power_smashing_parabola_active:
 		frame_motion_controller.cap_ball_speed(scene, deps)

@@ -31,6 +31,7 @@ func build_update_deps(registry) -> Dictionary:
 		"feedback": registry.get_instance("battle_feedback_state"),
 		"animation_state": registry.get_instance("actor_animation_state"),
 		"stage_background": registry.get_instance("stage1_pillar_background"),
+		"stage1_dalji_whip_skill_state": registry.get_instance("stage1_dalji_whip_skill_state"),
 	}
 
 
@@ -52,4 +53,5 @@ func build_round_deps(registry) -> Dictionary:
 		"dash_state": registry.get_instance("smasher_dash_state"),
 		"feedback": registry.get_instance("battle_feedback_state"),
 		"ball_physics": registry.get_instance("ball_physics"),
+		"stage1_dalji_whip_skill_state": registry.get_instance("stage1_dalji_whip_skill_state"),
 	}

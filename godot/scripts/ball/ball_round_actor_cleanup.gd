@@ -29,6 +29,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 		var dash_token_max: int = _get_dash_token_max(dash_state)
 		feedback.reset_round(dash_token_max)
 
+	var whip_state = deps.get("stage1_dalji_whip_skill_state", null)
+	if whip_state != null and whip_state.has_method("reset_round"):
+		whip_state.reset_round()
+
 
 func _get_dash_token_max(dash_state) -> int:
 	if dash_state == null:

@@ -70,6 +70,16 @@ func _select_sheet(context: Dictionary) -> Dictionary:
 				"cell_height": STATIC_CELL_HEIGHT,
 			}
 
+	if bool(context.get("boss_whip_post_stun_active", false)):
+		var stun_sheet: Variant = context.get("boss_stun_sheet", null)
+		if stun_sheet is Texture2D:
+			return {
+				"texture": stun_sheet,
+				"frame": int(context.get("boss_whip_post_stun_frame", 0)),
+				"cell_width": STATIC_CELL_WIDTH,
+				"cell_height": STATIC_CELL_HEIGHT,
+			}
+
 	if bool(context.get("boss_hit_active", false)):
 		var hit_sheet: Variant = context.get("boss_attack_sheet", null)
 		if not (hit_sheet is Texture2D):

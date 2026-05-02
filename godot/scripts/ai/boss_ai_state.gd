@@ -21,6 +21,32 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 	var future_x: float = width * 0.5
 	var ball_approaching_boss: bool = false
 
+	if bool(context.get("stage1_dalji_whip_post_stun_active", false)):
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": 0.0,
+		}
+
+	if bool(context.get("stage1_dalji_whip_deactivation_active", false)):
+		var deactivation_ball_pos: Vector2 = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+		var deactivation_target_x: float = deactivation_ball_pos.x if bool(context.get("ball_active", false)) else width * 0.5
+		boss_vel = turn_inertia_resolver.update_velocity(
+			deactivation_target_x,
+			boss_center,
+			boss_vel,
+			fps_scale,
+			false
+		)
+		boss_vel *= float(context.get("stage1_dalji_whip_deactivation_speed_multiplier", 0.2))
+		if abs(deactivation_target_x - boss_center) < 10.0:
+			boss_vel = move_toward(boss_vel, 0.0, 4.0 * fps_scale)
+		boss_pos.x += boss_vel * fps_scale
+		boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": boss_vel,
+		}
+
 	if bool(context.get("ball_active", false)) and not bool(context.get("waiting_for_serve", true)):
 		var ball_pos: Vector2 = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
 		var ball_vel: Vector2 = _as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
@@ -47,6 +73,8 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 		ball_approaching_boss,
 		reaction_multiplier
 	)
+	if bool(context.get("stage1_dalji_whip_active", false)):
+		boss_vel = clamp(boss_vel, -1.5, 1.5) * 0.3
 	boss_pos.x += boss_vel * fps_scale
 	boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
 

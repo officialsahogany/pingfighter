@@ -205,6 +205,11 @@ Godot.
   the actor draw order. It delegates court / trail, Smasher, and boss
   drawing to focused Stage 1 renderer modules. `main.gd` still owns
   animation timers and gameplay state.
+- `scripts/stages/stage1/stage1_dalji_whip_skill_state.gd`
+  Owns the Stage 1 Dalji 상모돌리기 boss-skill port: boss skill gauge gain
+  on boss paddle hits, 12% / 200-gauge activation, downward wave ball
+  steering, player-hit cancellation, post-spin slowdown state, and the
+  draw/AI flags consumed by ball, AI, and Stage 1 boss render modules.
 - `scripts/stages/stage1/stage1_context_reader.gd`
   Owns typed reads for Stage 1 renderer dictionaries: Vector2 and Color
   fallback coercion used by playfield, player, boss, and sprite fallback

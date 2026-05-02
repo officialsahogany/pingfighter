@@ -97,6 +97,10 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 			var dash_snapshot: Dictionary = dash_state.get_snapshot()
 			orb_hud_state.reset_dash_tokens(int(dash_snapshot.get("tokens", 0)))
 
+	var whip_state = deps.get("stage1_dalji_whip_skill_state", null)
+	if whip_state != null and whip_state.has_method("reset"):
+		whip_state.reset()
+
 	var reset_ball_callback: Callable = callbacks.get("reset_ball", Callable())
 	if reset_ball_callback.is_valid():
 		reset_ball_callback.call()

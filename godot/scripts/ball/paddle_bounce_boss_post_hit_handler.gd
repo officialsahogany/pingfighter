@@ -39,6 +39,11 @@ func apply(
 			next_ball_vel = event_router.end_power_smashing_on_boss_counter(next_ball_vel, power_state, deps)
 		event_router.trigger_boss_hit_anim(float(context.get("boss_vel", 0.0)), context, deps)
 
+	var whip_state: Object = deps.get("stage1_dalji_whip_skill_state", null)
+	if whip_state != null and whip_state.has_method("register_boss_hit"):
+		var whip_result: Dictionary = whip_state.register_boss_hit(next_ball_vel, context, deps)
+		next_ball_vel = _get_vector2(whip_result, "ball_vel", next_ball_vel)
+
 	return {
 		"ball_pos": next_ball_pos,
 		"ball_vel": next_ball_vel,
