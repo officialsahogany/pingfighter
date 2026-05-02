@@ -554,6 +554,11 @@ Godot.
   snapshot appliers: null-safe property lookup plus typed Vector2,
   Dictionary, and Array fallback helpers. Core modules should delegate to
   this reader instead of duplicating owner property access logic.
+- `scripts/core/battle_context_reader.gd`
+  Owns shared dictionary value reads for core draw/context modules:
+  Dictionary fallback coercion and typed Vector2 lookup from context
+  snapshots. Core draw modules should reuse this helper instead of
+  duplicating local `_get_dict` / `_get_vector2` bodies.
 - `scripts/core/battle_scene_api.gd`
   Owns compatibility-facing scene API calls that external tests or tools
   may invoke on `main.gd`, such as ball physics context, ball visual state,

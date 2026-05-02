@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
+
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
 
 
@@ -93,7 +95,4 @@ func _get_shake_offset(feedback: Object) -> Vector2:
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+	return BattleContextReader.get_vector2(source, key, fallback)

@@ -17,6 +17,10 @@ const MODULES := {
 		"path": "res://scripts/core/battle_scene_owner_reader.gd",
 		"label": "battle scene owner reader",
 	},
+	"battle_context_reader": {
+		"path": "res://scripts/core/battle_context_reader.gd",
+		"label": "battle context reader",
+	},
 	"battle_scene_api": {
 		"path": "res://scripts/core/battle_scene_api.gd",
 		"label": "battle scene api",

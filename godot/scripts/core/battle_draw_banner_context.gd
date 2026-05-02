@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
+
 
 func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
@@ -15,6 +17,4 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 
 
 func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}
+	return BattleContextReader.get_dictionary(value)

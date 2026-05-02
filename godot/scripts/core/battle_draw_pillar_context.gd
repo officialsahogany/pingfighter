@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 
 const WIDTH := 760.0
@@ -49,7 +50,4 @@ func _get_owner_array(owner: Object, key: String) -> Array:
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+	return BattleContextReader.get_vector2(source, key, fallback)
