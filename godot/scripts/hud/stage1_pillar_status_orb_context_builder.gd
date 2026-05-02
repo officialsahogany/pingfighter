@@ -30,6 +30,8 @@ func build_dash_orb_context(context: Dictionary, orb_drawer: Object) -> Dictiona
 		"dash_divider_anim_progress": context.get("dash_divider_anim_progress", 1.0),
 		"dash_available_timer": dash_snapshot.get("available_timer", 0.0),
 		"dash_active": dash_snapshot.get("active", false),
+		"dash_recovering": dash_snapshot.get("recovering", false),
+		"dash_stun_timer": dash_snapshot.get("stun_timer", 0.0),
 		"frame_texture": context.get("dash_frame_texture", null),
 		"frame_spin_angle": context.get("dash_frame_spin_angle", 0.0),
 	}

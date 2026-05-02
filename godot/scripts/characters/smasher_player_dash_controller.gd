@@ -68,6 +68,12 @@ func update_dash_motion(
 		var feedback: Object = deps.get("feedback", null)
 		if feedback != null:
 			feedback.trigger_dash_flash()
+	var audio: Object = deps.get("audio", null)
+	if audio != null:
+		if bool(result.get("recovery_started", false)) and audio.has_method("play_dash_delay"):
+			audio.play_dash_delay()
+		elif bool(result.get("recovery_ended", false)) and audio.has_method("stop_dash_delay"):
+			audio.stop_dash_delay()
 
 	return {
 		"player_pos": next_pos,
@@ -91,6 +97,8 @@ func _start_dash(direction: float, is_half: bool, deps: Dictionary) -> bool:
 
 	var audio: Object = deps.get("audio", null)
 	if audio != null:
+		if audio.has_method("stop_dash_delay"):
+			audio.stop_dash_delay()
 		audio.play_dash_start(is_half)
 
 	var feedback: Object = deps.get("feedback", null)

@@ -30,6 +30,8 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 
 	var audio = deps.get("audio", null)
 	if audio != null:
+		if audio.has_method("stop_dash_delay"):
+			audio.stop_dash_delay()
 		audio.play_round_set()
 
 
@@ -96,6 +98,10 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 		if orb_hud_state != null:
 			var dash_snapshot: Dictionary = dash_state.get_snapshot()
 			orb_hud_state.reset_dash_tokens(int(dash_snapshot.get("tokens", 0)))
+
+	var audio = deps.get("audio", null)
+	if audio != null and audio.has_method("stop_dash_delay"):
+		audio.stop_dash_delay()
 
 	var whip_state = deps.get("stage1_dalji_whip_skill_state", null)
 	if whip_state != null and whip_state.has_method("reset"):

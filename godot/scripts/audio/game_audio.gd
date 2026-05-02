@@ -59,7 +59,7 @@ func setup(parent: Node) -> void:
 	wall_hit_sfx = player_factory.create(owner_node, "WallHitSfx", WALL_HIT_SOUND_PATH, -7.0)
 	dash_sfx = player_factory.create(owner_node, "DashSfx", DASH_SOUND_PATH, -6.0)
 	half_dash_sfx = player_factory.create(owner_node, "HalfDashSfx", HALF_DASH_SOUND_PATH, -6.0)
-	dash_delay_sfx = player_factory.create(owner_node, "DashDelaySfx", DASH_DELAY_SOUND_PATH, -9.0)
+	dash_delay_sfx = player_factory.create(owner_node, "DashDelaySfx", DASH_DELAY_SOUND_PATH, 0.0)
 	_enable_loop(dash_delay_sfx)
 	drive_sfx = player_factory.create(owner_node, "DriveSfx", DRIVE_SOUND_PATH, -5.0)
 	whip_sfx = player_factory.create(owner_node, "WhipSfx", WHIP_SOUND_PATH, -5.0)
@@ -233,7 +233,7 @@ func _enable_loop(player: AudioStreamPlayer) -> void:
 		var wav_stream: AudioStreamWAV = stream
 		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		wav_stream.loop_begin = 0
-		wav_stream.loop_end = -1
+		wav_stream.loop_end = max(0, int(round(wav_stream.get_length() * float(wav_stream.mix_rate))))
 	elif stream is AudioStreamMP3:
 		var mp3_stream: AudioStreamMP3 = stream
 		mp3_stream.loop = true

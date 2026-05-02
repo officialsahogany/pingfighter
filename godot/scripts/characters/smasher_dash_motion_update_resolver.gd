@@ -16,6 +16,7 @@ func update(
 	var player_speed_zero: bool = false
 
 	if not bool(state.get("dash_active")):
+		var was_recovering: bool = float(state.get("dash_stun_timer")) > 0.0
 		var inactive_update: Dictionary = update_inactive_timers(
 			fps_scale,
 			float(state.get("dash_stun_timer")),
@@ -23,9 +24,13 @@ func update(
 		)
 		state.set("dash_stun_timer", float(inactive_update.get("stun_timer", state.get("dash_stun_timer"))))
 		state.set("dash_available_timer", float(inactive_update.get("available_timer", state.get("dash_available_timer"))))
+		var recovery_ended: bool = was_recovering and float(state.get("dash_stun_timer")) <= 0.0
+		if recovery_ended:
+			state.set("dash_recovery_total_frames", 0.0)
 		return {
 			"player_pos": player_pos,
 			"player_speed_zero": player_speed_zero,
+			"recovery_ended": recovery_ended,
 		}
 
 	var active_update: Dictionary = active_motion_resolver.update(
@@ -44,14 +49,17 @@ func update(
 
 	if bool(active_update.get("ended", false)):
 		player_speed_zero = true
+		var recovery_timer: float = float(active_update.get("recovery_timer", 0.0))
 		state.set("dash_active", false)
 		state.set("dash_elapsed_frames", 0.0)
-		state.set("dash_stun_timer", float(active_update.get("recovery_timer", 0.0)))
+		state.set("dash_stun_timer", recovery_timer)
+		state.set("dash_recovery_total_frames", recovery_timer)
 		state.set("dash_available_timer", float(state.get("dash_stun_timer")))
 
 	return {
 		"player_pos": player_pos,
 		"player_speed_zero": player_speed_zero,
+		"recovery_started": bool(active_update.get("ended", false)) and float(state.get("dash_stun_timer")) > 0.0,
 	}
 
 

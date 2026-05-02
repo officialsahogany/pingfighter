@@ -532,12 +532,13 @@ Godot.
   the values.
 - `scripts/effects/battle_effects_update_controller.gd`
   Owns per-frame battle-effect fanout: battle feedback timers, audio tick,
-  Drive text timer decay, Power Smashing text / VFX update, combo timer
-  update, Stage 1 background update, gauge / dash orb spin sync, actor
-  animation update, and impact-particle update. `main.gd` applies only
-  the returned Drive text timer value. Top mini-scoreboard visual sparkle
-  is intentionally advanced from the idle-process scene update driver so
-  the display can redraw at monitor refresh instead of physics tick rate.
+  dash-recovery loop sync, Drive text timer decay, Power Smashing text /
+  VFX update, combo timer update, Stage 1 background update, gauge / dash
+  orb spin sync, actor animation update, and impact-particle update.
+  `main.gd` applies only the returned Drive text timer value. Top
+  mini-scoreboard visual sparkle is intentionally advanced from the
+  idle-process scene update driver so the display can redraw at monitor
+  refresh instead of physics tick rate.
 - `scripts/effects/impact_effects_renderer.gd`
   Owns generic impact canvas drawing: paddle-hit particles, wall-impact
   flash, and wall-impact particles. `main.gd` still owns draw ordering and
@@ -777,9 +778,9 @@ Godot.
   surface handoff, and inner fill glow.
 - `scripts/hud/pillar_dash_orb_renderer.gd`
   Owns right dash-token orb drawing: red outer glows, fallback frame,
-  glass interior, rotating frame texture, centered token label, the HALF
-  marker, body renderer delegation, and delegation to the dash-token fill
-  renderer.
+  glass interior, rotating frame texture, Python-parity post-dash recovery
+  lock/seal effect, centered token label, the HALF marker, body renderer
+  delegation, and delegation to the dash-token fill renderer.
 - `scripts/hud/pillar_dash_orb_body_renderer.gd`
   Owns right dash-token orb body drawing: red outer glows, fallback frame,
   interior background, ambient particles, and token-count core glow.
@@ -829,8 +830,8 @@ Godot.
   and combo-HUD anchor rect.
 - `scripts/hud/stage1_pillar_status_orb_context_builder.gd`
   Owns Stage 1 status-orb draw-context assembly: left gauge-orb values,
-  dash-token snapshot shaping, flash timers, rotating frame textures, and
-  shared fallback frame width.
+  dash-token snapshot shaping including recovery-lock fields, flash timers,
+  rotating frame textures, and shared fallback frame width.
 - `scripts/hud/scoreboard_state.gd`
   Owns scoreboard overlay timing, scoreboard animation frame state, pending
   game-reset handoff, and top mini-scoreboard sparkle timing. It is the
@@ -1153,14 +1154,15 @@ Godot.
 - `scripts/characters/smasher_dash_state.gd`
   Owns the Smasher dash facade: dash-key release state, input-facing
   start/chain gates, and coordination between dash motion and dash-token
-  recharge state. `main.gd` still owns raw input polling, sound playback,
-  combo-grace triggers, screen shake, and applying the returned player
-  position.
+  recharge state. `main.gd` still owns raw input polling and applying the
+  returned player position; the Smasher dash controller owns dash start
+  feedback while effect/audio modules consume dash recovery snapshots.
 - `scripts/characters/smasher_dash_motion_state.gd`
   Owns Smasher dash motion state: full/half dash timers, recovery lockout,
   consecutive-dash elapsed-frame timing, start / chain eligibility, and
-  returned player-position update. Active movement and recovery timing are
-  delegated to the motion update resolver.
+  returned player-position update, including draw/audio recovery-progress
+  snapshot fields. Active movement and recovery timing are delegated to
+  the motion update resolver.
 - `scripts/characters/smasher_dash_motion_update_resolver.gd`
   Owns Smasher dash motion update math: inactive recovery timer ticking,
   active-motion resolver delegation, state mergeback, and dash end state

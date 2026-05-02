@@ -14,6 +14,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var audio = deps.get("audio", null)
 	if audio != null:
 		audio.update(delta)
+		if audio.has_method("sync_dash_delay"):
+			audio.sync_dash_delay(_is_dash_recovery_audio_active(dash_snapshot))
 
 	var drive_text_timer_frames: float = max(
 		0.0,
@@ -95,6 +97,16 @@ func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _is_dash_recovery_audio_active(dash_snapshot: Dictionary) -> bool:
+	return (
+		bool(dash_snapshot.get("recovering", false))
+		or (
+			not bool(dash_snapshot.get("active", false))
+			and float(dash_snapshot.get("stun_timer", 0.0)) > 0.0
+		)
+	)
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

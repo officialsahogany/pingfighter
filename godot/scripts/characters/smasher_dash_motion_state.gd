@@ -11,6 +11,7 @@ var dash_timer: float = 0.0
 var dash_direction: float = 0.0
 var dash_is_half: bool = false
 var dash_stun_timer: float = 0.0
+var dash_recovery_total_frames: float = 0.0
 var dash_available_timer: float = 0.0
 var dash_elapsed_frames: float = 0.0
 
@@ -21,6 +22,7 @@ func reset_round() -> void:
 	dash_direction = 0.0
 	dash_is_half = false
 	dash_stun_timer = 0.0
+	dash_recovery_total_frames = 0.0
 	dash_available_timer = 0.0
 	dash_elapsed_frames = 0.0
 
@@ -54,6 +56,8 @@ func start(direction: float, is_half: bool) -> bool:
 	dash_direction = direction
 	dash_is_half = is_half
 	dash_elapsed_frames = 0.0
+	dash_stun_timer = 0.0
+	dash_recovery_total_frames = 0.0
 	if is_half:
 		dash_timer = HALF_DASH_DURATION
 	else:
@@ -77,7 +81,17 @@ func get_snapshot() -> Dictionary:
 		"timer": dash_timer,
 		"direction": dash_direction,
 		"is_half": dash_is_half,
+		"recovering": dash_stun_timer > 0.0,
 		"stun_timer": dash_stun_timer,
+		"recovery_total_frames": dash_recovery_total_frames,
+		"recovery_progress": _get_recovery_progress(),
 		"available_timer": dash_available_timer,
 		"elapsed_frames": dash_elapsed_frames,
 	}
+
+
+func _get_recovery_progress() -> float:
+	if dash_stun_timer <= 0.0:
+		return 1.0
+	var total_frames: float = max(1.0, dash_recovery_total_frames)
+	return clamp(1.0 - dash_stun_timer / total_frames, 0.0, 1.0)
