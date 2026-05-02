@@ -8,6 +8,7 @@ const GAUGE_MAX := 500.0
 const GAUGE_CHARGE_AMOUNT := 220.0
 const GAUGE_CHARGE_ICON_PATH := "res://assets/sprites/items/gauge_200.png"
 const GRENADE_ICON_PATH := "res://assets/sprites/items/grenade.png"
+const FLARE_ICON_PATH := "res://assets/sprites/items/flare.png"
 const UNKNOWN_ITEM_SHEET_PATH := "res://assets/sprites/items/unknown_item_hq_sprite_sheet.png"
 const UNKNOWN_ITEM_FALLBACK_PATH := "res://assets/sprites/items/unknown_item_hq_sprite.png"
 const UNKNOWN_ITEM_FRAME_MSEC := 140
@@ -47,6 +48,20 @@ const GRENADE_BOSS_STUN_FRAMES := 126.0
 const GRENADE_BOSS_KNOCKBACK_FRAMES := 18.0
 const GRENADE_BOSS_KNOCKBACK_POWER := 38.4
 const GRENADE_BOSS_KNOCKBACK_DECAY := 0.88
+const FLARE_THROW_WINDUP_MSEC := 600
+const FLARE_SPEED_PER_FRAME := 9.6
+const FLARE_AIM_ERROR_DEGREES := 15.0
+const FLARE_TARGET_RANDOM_X := 50.0
+const FLARE_TARGET_BELOW_BOSS := 40.0
+const FLARE_TARGET_REACHED_DISTANCE := 10.0
+const FLARE_DRAW_SIZE := 34.0
+const FLARE_ARMED_DELAY_FRAMES := 90.0
+const FLARE_RADIUS := 180.0
+const FLARE_ZONE_DURATION_FRAMES := 9.0
+const FLARE_BOSS_CONFUSION_FRAMES := 180.0
+const THROW_POSE_HOLD_ANGLE_DEGREES := 30.0
+const THROW_POSE_RELEASE_ANGLE_DEGREES := -20.0
+const BOSS_STUN_FRAME_MSEC := 100
 const DEBUG_SPAWN_MENU_MARGIN := 18.0
 const DEBUG_SPAWN_MENU_TOP := 70.0
 const DEBUG_SPAWN_MENU_WIDTH := 330.0
@@ -54,6 +69,7 @@ const DEBUG_SPAWN_MENU_TITLE_HEIGHT := 48.0
 const DEBUG_SPAWN_MENU_ROW_HEIGHT := 58.0
 const DEBUG_SPAWN_MENU_ICON_SIZE := 36.0
 const ITEM_NAME_KO := {
+	"flare": "Flare",
 	"gauge_charge": "에너지드링크",
 	"grenade": "수류탄",
 }
@@ -64,12 +80,15 @@ var pending_spawn_items: Array[Dictionary] = []
 var item_spawn_portals: Array[Dictionary] = []
 var pending_grenade_throws: Array[Dictionary] = []
 var grenades: Array[Dictionary] = []
+var flares: Array[Dictionary] = []
 var explosion_zones: Array[Dictionary] = []
+var flare_zones: Array[Dictionary] = []
 var pickup_particles: Array[Dictionary] = []
 var pickup_effect: Dictionary = {}
 var grenade_boss_stun_timer_frames: float = 0.0
 var grenade_boss_knockback_timer_frames: float = 0.0
 var grenade_boss_knockback_vel: float = 0.0
+var flare_boss_confused_timer_frames: float = 0.0
 var last_item_spawn_msec: int = 0
 var next_item_spawn_delay_msec: int = 0
 var last_item_use_msec: int = -1000000
@@ -79,6 +98,7 @@ var gauge_charge_icon_texture: Texture2D
 var unknown_item_sheet_texture: Texture2D
 var unknown_item_fallback_texture: Texture2D
 var grenade_icon_texture: Texture2D
+var flare_icon_texture: Texture2D
 
 
 func _init() -> void:
@@ -92,12 +112,15 @@ func reset() -> void:
 	item_spawn_portals.clear()
 	pending_grenade_throws.clear()
 	grenades.clear()
+	flares.clear()
 	explosion_zones.clear()
+	flare_zones.clear()
 	pickup_particles.clear()
 	pickup_effect.clear()
 	grenade_boss_stun_timer_frames = 0.0
 	grenade_boss_knockback_timer_frames = 0.0
 	grenade_boss_knockback_vel = 0.0
+	flare_boss_confused_timer_frames = 0.0
 	debug_spawn_menu_open = false
 	last_item_use_msec = -1000000
 	_reset_spawn_timer()
@@ -111,19 +134,30 @@ func update(owner: Object, registry: Object, delta: float) -> Dictionary:
 	if owner == null:
 		return {}
 
+	var throw_locked_at_update_start: bool = is_player_control_locked()
+
 	_update_spawn_timer(owner)
 	_release_pending_spawn_items()
 	_update_item_spawn_portals()
 	_update_field_items(owner, registry, delta)
 	_update_grenade_throw_windups(owner, registry)
 	_update_grenades(owner, registry, delta)
+	_update_flares(owner, registry, delta)
 	_update_explosion_zones(delta)
+	_update_flare_zones(delta)
 	_update_grenade_boss_effect(delta)
+	_update_flare_boss_confusion(delta)
 	_update_pickup_particles(delta)
 	_update_pickup_effect(delta)
 
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
 	if active_item_slots.is_empty():
+		_sync_slot_key_states()
+		return {
+			"used_slot": -1,
+		}
+
+	if throw_locked_at_update_start or is_player_control_locked():
 		_sync_slot_key_states()
 		return {
 			"used_slot": -1,
@@ -161,7 +195,9 @@ func draw_field_items(canvas: CanvasItem, registry: Object, shake_offset: Vector
 
 	_draw_grenade_throw_windups(canvas, shake_offset)
 	_draw_grenades(canvas, shake_offset)
+	_draw_flares(canvas, shake_offset)
 	_draw_explosion_zones(canvas, shake_offset)
+	_draw_flare_zones(canvas, shake_offset)
 
 	for particle in pickup_particles:
 		_draw_pickup_particle(canvas, particle, shake_offset)
@@ -199,6 +235,27 @@ func toggle_debug_spawn_menu() -> void:
 
 func is_debug_spawn_menu_open() -> bool:
 	return debug_spawn_menu_open
+
+
+func is_throw_windup_active() -> bool:
+	return not pending_grenade_throws.is_empty()
+
+
+func is_player_control_locked() -> bool:
+	return is_throw_windup_active()
+
+
+func get_actor_draw_context() -> Dictionary:
+	var throw_context: Dictionary = _get_throw_windup_draw_context()
+	return {
+		"active_item_throw_windup_active": bool(throw_context.get("active", false)),
+		"active_item_throw_windup_progress": float(throw_context.get("progress", 0.0)),
+		"active_item_throw_windup_angle_degrees": float(throw_context.get("angle_degrees", 0.0)),
+		"active_item_throw_windup_name": str(throw_context.get("item_name", "")),
+		"active_item_boss_stun_active": grenade_boss_stun_timer_frames > 0.0,
+		"active_item_boss_stun_frame": int(Time.get_ticks_msec() / BOSS_STUN_FRAME_MSEC) % 8,
+		"active_item_boss_confusion_active": flare_boss_confused_timer_frames > 0.0,
+	}
 
 
 func handle_debug_spawn_menu_click(mouse_position: Vector2, view_size: Vector2) -> bool:
@@ -311,6 +368,8 @@ func _apply_item_effect(item_data: Dictionary, owner: Object, registry: Object) 
 		return _apply_gauge_charge(item_data, owner, registry)
 	if item_name == "grenade" or effect_name == "grenade":
 		return _activate_grenade(item_data, owner, registry)
+	if item_name == "flare" or effect_name == "flare":
+		return _activate_flare(item_data, owner, registry)
 	return false
 
 
@@ -338,6 +397,8 @@ func _apply_gauge_charge(item_data: Dictionary, owner: Object, registry: Object)
 func _activate_grenade(_item_data: Dictionary, owner: Object, registry: Object) -> bool:
 	if _is_throw_locked(registry):
 		return false
+	if is_throw_windup_active():
+		return false
 
 	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - 50.0))
 	var boss_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "boss_pos", Vector2(FIELD_WIDTH * 0.5 - 50.0, 25.0))
@@ -347,6 +408,7 @@ func _activate_grenade(_item_data: Dictionary, owner: Object, registry: Object) 
 		boss_pos.y + 20.0
 	)
 	pending_grenade_throws.append({
+		"item_name": "grenade",
 		"start_msec": Time.get_ticks_msec(),
 		"release_msec": Time.get_ticks_msec() + GRENADE_THROW_WINDUP_MSEC,
 		"start_position": player_center,
@@ -357,6 +419,35 @@ func _activate_grenade(_item_data: Dictionary, owner: Object, registry: Object) 
 	if audio != null:
 		if audio.has_method("play_throw_before"):
 			audio.play_throw_before()
+
+	return true
+
+
+func _activate_flare(_item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	if _is_throw_locked(registry):
+		return false
+	if is_throw_windup_active():
+		return false
+
+	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - 50.0))
+	var boss_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "boss_pos", Vector2(FIELD_WIDTH * 0.5 - 50.0, 25.0))
+	var player_center := Vector2(player_pos.x + 155.0 * 0.5, player_pos.y + 25.0)
+	var target := Vector2(
+		boss_pos.x + 100.0 * 0.5 + randf_range(-FLARE_TARGET_RANDOM_X, FLARE_TARGET_RANDOM_X),
+		boss_pos.y + 40.0 + FLARE_TARGET_BELOW_BOSS
+	)
+	var now_msec: int = Time.get_ticks_msec()
+	pending_grenade_throws.append({
+		"item_name": "flare",
+		"start_msec": now_msec,
+		"release_msec": now_msec + FLARE_THROW_WINDUP_MSEC,
+		"start_position": player_center,
+		"target_position": target,
+	})
+
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_throw_before"):
+		audio.play_throw_before()
 
 	return true
 
@@ -425,12 +516,30 @@ func _build_grenade() -> Dictionary:
 	}
 
 
+func _build_flare() -> Dictionary:
+	return {
+		"name": "flare",
+		"display_name": "Flare",
+		"type": "active",
+		"effect": "flare",
+		"chance": 0.020,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": FLARE_ICON_PATH,
+		"color": Color(1.0, 1.0, 200.0 / 255.0),
+		"consumable": true,
+		"count": 1,
+	}
+
+
 func _build_item_by_name(item_name: String) -> Dictionary:
 	match item_name:
 		"gauge_charge":
 			return _build_gauge_charge()
 		"grenade":
 			return _build_grenade()
+		"flare":
+			return _build_flare()
 	return {}
 
 
@@ -438,6 +547,7 @@ func _build_random_spawn_item() -> Dictionary:
 	var candidates: Array[Dictionary] = [
 		_build_gauge_charge(),
 		_build_grenade(),
+		_build_flare(),
 	]
 	var total_weight: float = 0.0
 	for candidate in candidates:
@@ -570,7 +680,11 @@ func _update_grenade_throw_windups(owner: Object, registry: Object) -> void:
 		if now_msec < int(pending_throw.get("release_msec", now_msec)):
 			survivors.append(pending_throw)
 			continue
-		_throw_grenade(owner, pending_throw, registry)
+		var item_name: String = str(pending_throw.get("item_name", "grenade"))
+		if item_name == "flare":
+			_throw_flare(owner, pending_throw, registry)
+		else:
+			_throw_grenade(owner, pending_throw, registry)
 	pending_grenade_throws = survivors
 
 
@@ -589,6 +703,32 @@ func _throw_grenade(owner: Object, pending_throw: Dictionary, registry: Object) 
 		"velocity": direction * GRENADE_SPEED_PER_FRAME,
 		"target_position": target_pos,
 		"rotation_degrees": 0.0,
+		"trail": [start_pos],
+	})
+
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_throw"):
+		audio.play_throw()
+
+
+func _throw_flare(owner: Object, pending_throw: Dictionary, registry: Object) -> void:
+	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", _get_vector2(pending_throw, "start_position", Vector2.ZERO))
+	var start_pos := Vector2(player_pos.x + 155.0 * 0.5, player_pos.y + 25.0)
+	var target_pos: Vector2 = _get_vector2(pending_throw, "target_position", start_pos + Vector2(0.0, -120.0))
+	var direction: Vector2 = target_pos - start_pos
+	if direction.length() <= 0.001:
+		direction = Vector2.UP
+	else:
+		direction = direction.normalized()
+	direction = direction.rotated(deg_to_rad(randf_range(-FLARE_AIM_ERROR_DEGREES, FLARE_AIM_ERROR_DEGREES)))
+	flares.append({
+		"position": start_pos,
+		"velocity": direction * FLARE_SPEED_PER_FRAME,
+		"target_position": target_pos,
+		"rotation_degrees": 0.0,
+		"timer_frames": 0.0,
+		"exploded": false,
+		"arrived": false,
 		"trail": [start_pos],
 	})
 
@@ -645,6 +785,72 @@ func _update_grenades(owner: Object, registry: Object, delta: float) -> void:
 	grenades = survivors
 
 
+func _update_flares(owner: Object, registry: Object, delta: float) -> void:
+	if flares.is_empty():
+		return
+	var fps_scale: float = delta * 60.0
+	var survivors: Array[Dictionary] = []
+	for flare in flares:
+		var arrived: bool = bool(flare.get("arrived", false))
+		var exploded: bool = bool(flare.get("exploded", false))
+		var pos: Vector2 = _get_vector2(flare, "position", Vector2.ZERO)
+		var vel: Vector2 = _get_vector2(flare, "velocity", Vector2.ZERO)
+		var target: Vector2 = _get_vector2(flare, "target_position", pos)
+
+		if not arrived:
+			pos += vel * fps_scale
+			flare["position"] = pos
+			flare["velocity"] = vel
+			flare["rotation_degrees"] = fposmod(float(flare.get("rotation_degrees", 0.0)) + 12.0 * fps_scale, 360.0)
+			var trail: Array = flare.get("trail", [])
+			trail.append(pos)
+			while trail.size() > 8:
+				trail.pop_front()
+			flare["trail"] = trail
+
+			if pos.y <= 10.0:
+				pos.y = 10.0
+				flare["position"] = pos
+				flare["arrived"] = true
+				survivors.append(flare)
+				continue
+
+			var wall_margin := 10.0
+			if pos.x <= wall_margin:
+				pos.x = wall_margin
+				vel.x = abs(vel.x) * 0.7
+				if vel.y > 0.0:
+					vel.y = -abs(vel.y) * 0.5
+				flare["position"] = pos
+				flare["velocity"] = vel
+			elif pos.x >= FIELD_WIDTH - wall_margin:
+				pos.x = FIELD_WIDTH - wall_margin
+				vel.x = -abs(vel.x) * 0.7
+				if vel.y > 0.0:
+					vel.y = -abs(vel.y) * 0.5
+				flare["position"] = pos
+				flare["velocity"] = vel
+
+			if pos.x < -100.0 or pos.x > FIELD_WIDTH + 100.0 or pos.y > FIELD_HEIGHT + 100.0:
+				continue
+			if pos.distance_to(target) < FLARE_TARGET_REACHED_DISTANCE:
+				flare["position"] = target
+				flare["arrived"] = true
+			survivors.append(flare)
+			continue
+
+		if not exploded:
+			var timer_frames: float = float(flare.get("timer_frames", 0.0)) + fps_scale
+			flare["timer_frames"] = timer_frames
+			if timer_frames >= FLARE_ARMED_DELAY_FRAMES:
+				flare["exploded"] = true
+				_trigger_flare_flash(owner, registry, pos)
+				continue
+			survivors.append(flare)
+
+	flares = survivors
+
+
 func _trigger_grenade_explosion(owner: Object, registry: Object, center: Vector2) -> void:
 	explosion_zones.append({
 		"position": center,
@@ -680,6 +886,32 @@ func _apply_grenade_boss_effect(owner: Object, center: Vector2, radius: float) -
 		grenade_boss_knockback_vel = knockback_vel
 
 
+func _trigger_flare_flash(owner: Object, registry: Object, center: Vector2) -> void:
+	flare_zones.append({
+		"position": center,
+		"radius": FLARE_RADIUS,
+		"duration_frames": FLARE_ZONE_DURATION_FRAMES,
+		"max_duration_frames": FLARE_ZONE_DURATION_FRAMES,
+		"intensity": 1.0,
+		"flash": true,
+	})
+	_apply_flare_boss_confusion(owner, center, FLARE_RADIUS)
+
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_flashbomb"):
+		audio.play_flashbomb()
+
+
+func _apply_flare_boss_confusion(owner: Object, center: Vector2, radius: float) -> void:
+	if owner == null:
+		return
+	var boss_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "boss_pos", Vector2(FIELD_WIDTH * 0.5 - 50.0, 25.0))
+	var boss_center := Vector2(boss_pos.x + 50.0, boss_pos.y + 20.0)
+	if boss_center.distance_to(center) > radius:
+		return
+	flare_boss_confused_timer_frames = max(flare_boss_confused_timer_frames, FLARE_BOSS_CONFUSION_FRAMES)
+
+
 func _update_explosion_zones(delta: float) -> void:
 	if explosion_zones.is_empty():
 		return
@@ -692,6 +924,29 @@ func _update_explosion_zones(delta: float) -> void:
 		zone["duration_frames"] = remaining
 		survivors.append(zone)
 	explosion_zones = survivors
+
+
+func _update_flare_zones(delta: float) -> void:
+	if flare_zones.is_empty():
+		return
+	var fps_scale: float = delta * 60.0
+	var survivors: Array[Dictionary] = []
+	for zone in flare_zones:
+		var remaining: float = float(zone.get("duration_frames", 0.0)) - fps_scale
+		if remaining <= 0.0:
+			continue
+		zone["duration_frames"] = remaining
+		if bool(zone.get("flash", false)):
+			if remaining > 6.0:
+				zone["intensity"] = 1.0
+			elif remaining > 3.0:
+				zone["intensity"] = 0.3
+			else:
+				zone["intensity"] = 0.8
+		else:
+			zone["intensity"] = remaining / max(1.0, float(zone.get("max_duration_frames", FLARE_ZONE_DURATION_FRAMES)))
+		survivors.append(zone)
+	flare_zones = survivors
 
 
 func _update_grenade_boss_effect(delta: float) -> void:
@@ -707,12 +962,54 @@ func _update_grenade_boss_effect(delta: float) -> void:
 		grenade_boss_knockback_vel = 0.0
 
 
+func _update_flare_boss_confusion(delta: float) -> void:
+	var fps_scale: float = delta * 60.0
+	flare_boss_confused_timer_frames = max(0.0, flare_boss_confused_timer_frames - fps_scale)
+
+
 func get_boss_ai_context() -> Dictionary:
 	return {
 		"active_item_grenade_stun_active": grenade_boss_stun_timer_frames > 0.0,
 		"active_item_grenade_knockback_active": grenade_boss_knockback_timer_frames > 0.0 and abs(grenade_boss_knockback_vel) > 0.0,
 		"active_item_grenade_knockback_vel": grenade_boss_knockback_vel,
+		"active_item_flare_confusion_active": flare_boss_confused_timer_frames > 0.0,
 	}
+
+
+func _get_throw_windup_draw_context() -> Dictionary:
+	if pending_grenade_throws.is_empty():
+		return {
+			"active": false,
+		}
+	var pending_throw: Dictionary = pending_grenade_throws[0]
+	var progress: float = _get_throw_windup_progress(pending_throw)
+	return {
+		"active": true,
+		"progress": progress,
+		"angle_degrees": _get_throw_pose_angle_degrees(progress),
+		"item_name": str(pending_throw.get("item_name", "grenade")),
+	}
+
+
+func _get_throw_windup_progress(pending_throw: Dictionary) -> float:
+	var now_msec: int = Time.get_ticks_msec()
+	var start_msec: int = int(pending_throw.get("start_msec", now_msec))
+	var release_msec: int = int(pending_throw.get("release_msec", start_msec + GRENADE_THROW_WINDUP_MSEC))
+	var duration_msec: int = max(1, release_msec - start_msec)
+	return clamp(float(now_msec - start_msec) / float(duration_msec), 0.0, 1.0)
+
+
+func _get_throw_pose_angle_degrees(progress: float) -> float:
+	var clamped_progress: float = clamp(progress, 0.0, 1.0)
+	if clamped_progress < 0.30:
+		return THROW_POSE_HOLD_ANGLE_DEGREES * (clamped_progress / 0.30)
+	if clamped_progress < 0.70:
+		return THROW_POSE_HOLD_ANGLE_DEGREES
+	return lerp(
+		THROW_POSE_HOLD_ANGLE_DEGREES,
+		THROW_POSE_RELEASE_ANGLE_DEGREES,
+		(clamped_progress - 0.70) / 0.30
+	)
 
 
 func _store_active_item(field_item: Dictionary, active_item_slots: Array, registry: Object) -> bool:
@@ -892,8 +1189,10 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, shake_offset: Vector2) -> v
 		return
 	var now_msec: int = Time.get_ticks_msec()
 	for pending_throw in pending_grenade_throws:
+		var item_name: String = str(pending_throw.get("item_name", "grenade"))
+		var fallback_duration_msec: int = FLARE_THROW_WINDUP_MSEC if item_name == "flare" else GRENADE_THROW_WINDUP_MSEC
 		var start_msec: int = int(pending_throw.get("start_msec", now_msec))
-		var release_msec: int = int(pending_throw.get("release_msec", start_msec + GRENADE_THROW_WINDUP_MSEC))
+		var release_msec: int = int(pending_throw.get("release_msec", start_msec + fallback_duration_msec))
 		var duration_msec: int = max(1, release_msec - start_msec)
 		var progress: float = clamp(float(now_msec - start_msec) / float(duration_msec), 0.0, 1.0)
 		var start_pos: Vector2 = _get_vector2(pending_throw, "start_position", Vector2.ZERO) + shake_offset
@@ -901,16 +1200,19 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, shake_offset: Vector2) -> v
 		var lift_pos: Vector2 = start_pos + Vector2(0.0, -34.0 - sin(progress * PI) * 12.0)
 		var throw_pos: Vector2 = lift_pos.lerp(target_pos, max(0.0, (progress - 0.72) / 0.28) * 0.18)
 		var angle: float = lerp(0.0, -35.0, progress)
-		var texture: Texture2D = _get_grenade_icon_texture()
+		var texture: Texture2D = _get_throw_item_icon_texture(item_name)
+		var draw_size: float = FLARE_DRAW_SIZE if item_name == "flare" else GRENADE_DRAW_SIZE
 		if texture != null:
 			_draw_rotated_texture_region(
 				canvas,
 				texture,
 				Rect2(Vector2.ZERO, texture.get_size()),
 				throw_pos,
-				Vector2(GRENADE_DRAW_SIZE, GRENADE_DRAW_SIZE),
+				Vector2(draw_size, draw_size),
 				angle
 			)
+		elif item_name == "flare":
+			canvas.draw_circle(throw_pos, 11.0, Color(1.0, 1.0, 200.0 / 255.0, 1.0))
 		else:
 			canvas.draw_circle(throw_pos, 12.0, Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0, 1.0))
 
@@ -941,6 +1243,41 @@ func _draw_grenades(canvas: CanvasItem, shake_offset: Vector2) -> void:
 			)
 		else:
 			canvas.draw_circle(center, 12.0, Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0, 1.0))
+
+
+func _draw_flares(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if flares.is_empty():
+		return
+	var texture: Texture2D = _get_flare_icon_texture()
+	for flare in flares:
+		var center: Vector2 = _get_vector2(flare, "position", Vector2.ZERO) + shake_offset
+		if bool(flare.get("arrived", false)) and not bool(flare.get("exploded", false)):
+			var timer_frames: int = int(flare.get("timer_frames", 0.0))
+			if timer_frames % 10 < 5:
+				canvas.draw_circle(center, 12.0, Color(1.0, 1.0, 100.0 / 255.0, 0.95))
+			canvas.draw_circle(center, 8.0, Color(1.0, 200.0 / 255.0, 0.0, 1.0), false, 2.0)
+			continue
+
+		var trail: Array = flare.get("trail", [])
+		for i in range(trail.size()):
+			var trail_pos: Variant = trail[i]
+			if not (trail_pos is Vector2):
+				continue
+			var alpha: float = float(i + 1) / float(max(1, trail.size())) * 0.34
+			canvas.draw_circle(trail_pos + shake_offset, 3.5, Color(1.0, 1.0, 180.0 / 255.0, alpha))
+
+		var angle: float = float(flare.get("rotation_degrees", 0.0))
+		if texture != null:
+			_draw_rotated_texture_region(
+				canvas,
+				texture,
+				Rect2(Vector2.ZERO, texture.get_size()),
+				center,
+				Vector2(FLARE_DRAW_SIZE, FLARE_DRAW_SIZE),
+				angle
+			)
+		else:
+			canvas.draw_circle(center, 10.0, Color(1.0, 1.0, 200.0 / 255.0, 1.0))
 
 
 func _draw_explosion_zones(canvas: CanvasItem, shake_offset: Vector2) -> void:
@@ -997,6 +1334,35 @@ func _draw_explosion_zones(canvas: CanvasItem, shake_offset: Vector2) -> void:
 			canvas.draw_circle(center, radius * 0.4, Color(1.0, 250.0 / 255.0, 230.0 / 255.0, flash_alpha))
 
 
+func _draw_flare_zones(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if flare_zones.is_empty():
+		return
+	for zone in flare_zones:
+		var center: Vector2 = _get_vector2(zone, "position", Vector2.ZERO) + shake_offset
+		var radius: float = float(zone.get("radius", FLARE_RADIUS))
+		var intensity: float = clamp(float(zone.get("intensity", 1.0)), 0.0, 1.0)
+		if intensity <= 0.0:
+			continue
+
+		if bool(zone.get("flash", false)):
+			canvas.draw_rect(Rect2(shake_offset, Vector2(FIELD_WIDTH, FIELD_HEIGHT)), Color(1.0, 1.0, 230.0 / 255.0, (180.0 / 255.0) * intensity))
+			for i in range(5):
+				var layer_radius: float = radius * (1.0 - float(i) * 0.15)
+				var alpha: float = intensity * (1.0 - float(i) * 0.20)
+				if alpha > 0.0 and layer_radius > 1.0:
+					canvas.draw_circle(center, layer_radius, Color(1.0, 1.0, 240.0 / 255.0, alpha))
+			if intensity > 0.7:
+				var cross_length: float = radius * 2.0
+				canvas.draw_line(center + Vector2(-cross_length, 0.0), center + Vector2(cross_length, 0.0), Color.WHITE, 5.0)
+				canvas.draw_line(center + Vector2(0.0, -cross_length), center + Vector2(0.0, cross_length), Color.WHITE, 5.0)
+		else:
+			for i in range(3):
+				var layer_radius: float = radius * (1.0 - float(i) * 0.2)
+				var alpha: float = (100.0 / 255.0) * intensity * (1.0 - float(i) * 0.3)
+				if alpha > 0.0 and layer_radius > 1.0:
+					canvas.draw_circle(center, layer_radius, Color(1.0, 1.0, 200.0 / 255.0, alpha))
+
+
 func _get_debug_spawn_entries() -> Array[Dictionary]:
 	return [
 		{
@@ -1008,6 +1374,11 @@ func _get_debug_spawn_entries() -> Array[Dictionary]:
 			"name": "grenade",
 			"title": "수류탄",
 			"subtitle": "active / throw explosive",
+		},
+		{
+			"name": "flare",
+			"title": "Flare",
+			"subtitle": "active / throw confuse",
 		},
 	]
 
@@ -1047,6 +1418,8 @@ func _get_debug_item_icon_texture(item_name: String) -> Texture2D:
 			return _get_gauge_charge_icon_texture()
 		"grenade":
 			return _get_grenade_icon_texture()
+		"flare":
+			return _get_flare_icon_texture()
 	return null
 
 
@@ -1280,6 +1653,22 @@ func _get_grenade_icon_texture() -> Texture2D:
 			"Failed to load grenade icon at %s"
 		)
 	return grenade_icon_texture
+
+
+func _get_flare_icon_texture() -> Texture2D:
+	if flare_icon_texture == null:
+		flare_icon_texture = ProjectResourceLoader.load_texture(
+			FLARE_ICON_PATH,
+			"Missing flare icon at %s",
+			"Failed to load flare icon at %s"
+		)
+	return flare_icon_texture
+
+
+func _get_throw_item_icon_texture(item_name: String) -> Texture2D:
+	if item_name == "flare":
+		return _get_flare_icon_texture()
+	return _get_grenade_icon_texture()
 
 
 func _get_item_color(item_data: Dictionary) -> Color:

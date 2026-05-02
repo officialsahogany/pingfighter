@@ -118,13 +118,16 @@ Godot.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
   construction, original field-drop timing for the currently ported
-  `gauge_charge` / Energy Drink and `grenade` item data, item-spawn portal
-  release timing, weighted currently-ported item spawning, animated unknown
-  field-icon drawing, field-item motion / pickup routing, pickup feedback,
-  grenade windup / projectile / explosion state, F2 debug spawn menu item
+  `gauge_charge` / Energy Drink, `grenade`, and `flare` item data,
+  item-spawn portal release timing, weighted currently-ported item spawning,
+  animated unknown field-icon drawing, field-item motion / pickup routing,
+  pickup feedback, throwable windup / player-control lock state, grenade
+  projectile / explosion state, flare projectile / flash-confusion state,
+  active-item boss stun / confusion draw context, F2 debug spawn menu item
   selection, number-key use input, per-item cooldown checks, and the
-  original Energy Drink / grenade consumable effects. Broader item pools
-  beyond those currently ported items are still future item-domain work.
+  original Energy Drink / grenade / flare consumable effects. Broader item
+  pools beyond those currently ported items are still future item-domain
+  work.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve
@@ -223,17 +226,22 @@ Godot.
   afterimages.
 - `scripts/stages/stage1/stage1_player_actor_renderer.gd`
   Owns Stage 1 Smasher actor drawing: hover / breath / hit-pose offsets,
+  active-item throw-pose offsets, Python-parity post-dash recovery jitter,
   soft shadow placement, visual rect assembly, and delegation to the
   player sprite renderer.
 - `scripts/stages/stage1/stage1_player_sprite_renderer.gd`
   Owns Stage 1 Smasher sprite drawing: hit / idle / walk texture
-  selection, sprite source-rect selection, and fallback paddle drawing.
+  selection, sprite source-rect selection, throw-pose sprite rotation,
+  Python-parity post-dash recovery `BLEND_RGB_MULT` tinting, and fallback
+  paddle drawing.
 - `scripts/stages/stage1/stage1_boss_actor_renderer.gd`
   Owns Stage 1 boss actor drawing: shadow placement, visual-center
   alignment, Dalji walk-left / walk-right / idle / ball-contact attack
-  source-rect selection, and fallback paddle drawing. Runtime state
-  vocabulary follows `docs/sprites/boss_sprite_runtime_contract.md`; for
-  Dalji-specific texture keys, see `docs/sprites/stage1_dalji.md`.
+  source-rect selection, active-item stun-sheet / spinning-star overlay,
+  active-item confusion question-mark overlay, and fallback paddle drawing.
+  Runtime state vocabulary follows
+  `docs/sprites/boss_sprite_runtime_contract.md`; for Dalji-specific
+  texture keys, see `docs/sprites/stage1_dalji.md`.
 - `scripts/ball/ball_physics.gd`
   Owns the public ball-physics API and league/stage/weather context
   normalization. It delegates serve velocity, speed dampening, rally
@@ -546,7 +554,8 @@ Godot.
 - `scripts/audio/game_audio.gd`
   Owns battle sound setup and playback: paddle / wall hit cooldowns,
   serve and ping-pong serve sounds, dash and half-dash sounds, looping
-  dash-recovery control-loss sound, Drive / Power Smashing sounds, launch
+  dash-recovery control-loss sound, active-item throw / grenade / flashbomb
+  sounds, Drive / Power Smashing sounds, launch
   sound, round-set sound, Stage 1 BGM looping with Python's per-track gain,
   pitch randomization, and
   audio-player factory delegation.
@@ -1003,10 +1012,11 @@ Godot.
   movement, and skill activation modules.
 - `scripts/characters/smasher_player_controller.gd`
   Owns Smasher player-control orchestration for the active rally loop:
-  input snapshot consumption, drive input frame updates, horizontal
-  movement application, and delegation to the dash controller. `main.gd`
-  now calls this controller once per physics tick and applies the returned
-  player position, speed, and gameplay frame counter.
+  input snapshot consumption, active-item throwable windup control locks,
+  drive input frame updates, horizontal movement application, and delegation
+  to the dash controller. `main.gd` now calls this controller once per
+  physics tick and applies the returned player position, speed, and
+  gameplay frame counter.
 - `scripts/characters/smasher_player_dash_controller.gd`
   Owns Smasher player-control dash orchestration: dash start / chain side
   effects, half/full dash selection, dash-to-skill combo grace start /
@@ -1194,6 +1204,7 @@ Godot.
   gameplay drawing.
 - `scripts/ai/boss_ai_state.gd`
   Owns the current boss movement AI slice: prediction-state delegation,
+  active-item grenade stun / flare confusion movement branches,
   approaching-ball urgency detection, latest ball impact-boost snapshot
   handoff, Power-Smashing combo reaction multiplier handoff, turn-inertia
   velocity delegation, and horizontal position updates. `main.gd` still owns

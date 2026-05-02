@@ -8,13 +8,19 @@ const WHIP_DEACTIVATION_SLOW_SPEED: float = 1.8
 const WHIP_DEACTIVATION_ACCEL: float = 4.5
 const WHIP_DEACTIVATION_BRAKE_DISTANCE: float = 72.0
 const WHIP_DEACTIVATION_DEADZONE: float = 5.0
+const CONFUSION_CHANGE_FRAMES: float = 30.0
+const CONFUSION_RANDOM_TURN_CHANCE: float = 0.20
 
 var prediction_state: Object = BossAiPredictionState.new()
 var turn_inertia_resolver: Object = BossAiTurnInertiaResolver.new()
+var confusion_target_x: float = -1.0
+var confusion_direction_timer: float = 0.0
 
 
 func reset() -> void:
 	prediction_state.reset()
+	confusion_target_x = -1.0
+	confusion_direction_timer = 0.0
 
 
 func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionary) -> Dictionary:
@@ -40,6 +46,23 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 		return {
 			"boss_pos": boss_pos,
 			"boss_vel": knockback_vel if bool(context.get("active_item_grenade_knockback_active", false)) else 0.0,
+		}
+
+	if bool(context.get("active_item_flare_confusion_active", false)):
+		future_x = _update_confusion_target(width, boss_paddle_width, fps_scale)
+		boss_vel = turn_inertia_resolver.update_velocity(
+			future_x,
+			boss_center,
+			boss_vel,
+			fps_scale,
+			false,
+			1.0
+		)
+		boss_pos.x += boss_vel * fps_scale
+		boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": boss_vel,
 		}
 
 	if bool(context.get("stage1_dalji_whip_deactivation_active", false)):
@@ -104,6 +127,21 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 		"boss_pos": boss_pos,
 		"boss_vel": boss_vel,
 	}
+
+
+func _update_confusion_target(width: float, boss_paddle_width: float, fps_scale: float) -> float:
+	var min_center: float = boss_paddle_width * 0.5
+	var max_center: float = width - boss_paddle_width * 0.5
+	if confusion_target_x < 0.0:
+		confusion_target_x = randf_range(min_center, max_center)
+		confusion_direction_timer = 0.0
+	confusion_direction_timer += fps_scale
+	if confusion_direction_timer >= CONFUSION_CHANGE_FRAMES:
+		confusion_target_x = randf_range(min_center, max_center)
+		confusion_direction_timer = 0.0
+	if randf() < CONFUSION_RANDOM_TURN_CHANCE:
+		return randf_range(min_center, max_center)
+	return confusion_target_x
 
 
 func _update_whip_deactivation_velocity(

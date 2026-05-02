@@ -29,6 +29,7 @@ func build_player_control_deps(registry: Object) -> Dictionary:
 		"movement_state": registry.get_instance("player_movement_state"),
 		"combo_state": registry.get_instance("smasher_combo_state"),
 		"orb_hud_state": registry.get_instance("orb_hud_state"),
+		"active_item_runtime": registry.get_instance("active_item_runtime"),
 		"audio": registry.get_instance("game_audio"),
 		"feedback": registry.get_instance("battle_feedback_state"),
 	}

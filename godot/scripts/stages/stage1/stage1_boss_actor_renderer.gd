@@ -66,6 +66,11 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	else:
 		_draw_boss_fallback(canvas, context, boss_pos, boss_paddle_size, shake_offset)
 
+	if bool(context.get("active_item_boss_stun_active", false)):
+		_draw_boss_stun_stars(canvas, boss_pos, boss_paddle_size, shake_offset)
+	if bool(context.get("active_item_boss_confusion_active", false)):
+		_draw_boss_confusion_questions(canvas, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset)
+
 
 func _select_sheet(context: Dictionary) -> Dictionary:
 	# Priority: Dalji whip skill > ball-contact attack > walk (left or right by facing) > idle.
@@ -86,6 +91,16 @@ func _select_sheet(context: Dictionary) -> Dictionary:
 			return {
 				"texture": stun_sheet,
 				"frame": int(context.get("boss_whip_post_stun_frame", 0)),
+				"cell_width": STATIC_CELL_WIDTH,
+				"cell_height": STATIC_CELL_HEIGHT,
+			}
+
+	if bool(context.get("active_item_boss_stun_active", false)):
+		var item_stun_sheet: Variant = context.get("boss_stun_sheet", null)
+		if item_stun_sheet is Texture2D:
+			return {
+				"texture": item_stun_sheet,
+				"frame": int(context.get("active_item_boss_stun_frame", 0)),
 				"cell_width": STATIC_CELL_WIDTH,
 				"cell_height": STATIC_CELL_HEIGHT,
 			}
@@ -140,6 +155,102 @@ func _get_cell_region(frame: int, cell_width: float, cell_height: float) -> Rect
 	var col: int = clamped % SHEET_GRID_COLS
 	var row: int = int(clamped / SHEET_GRID_COLS)
 	return Rect2(float(col) * cell_width, float(row) * cell_height, cell_width, cell_height)
+
+
+func _draw_boss_stun_stars(
+	canvas: CanvasItem,
+	boss_pos: Vector2,
+	boss_paddle_size: Vector2,
+	shake_offset: Vector2
+) -> void:
+	var current_msec: int = Time.get_ticks_msec()
+	var rotation_angle: float = fmod(float(current_msec) * 0.36, 360.0)
+	var boss_center_x: float = boss_pos.x + boss_paddle_size.x * 0.5 + shake_offset.x
+	var star_center_y: float = boss_pos.y - 15.0 + shake_offset.y
+	var orbit_radius: float = 20.0
+	for i in range(3):
+		var angle: float = deg_to_rad(rotation_angle + float(i) * 120.0)
+		var center := Vector2(
+			boss_center_x + orbit_radius * cos(angle),
+			star_center_y + orbit_radius * sin(angle) * 0.5
+		)
+		_draw_stun_star_glow(canvas, center, 8.0)
+		_draw_stun_star(canvas, center, 8.0)
+
+
+func _draw_stun_star_glow(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	canvas.draw_circle(center, radius * 2.0, Color(1.0, 0.92, 0.20, 0.14))
+	canvas.draw_circle(center, radius * 1.35, Color(1.0, 1.0, 0.52, 0.20))
+
+
+func _draw_stun_star(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	var points := PackedVector2Array()
+	for j in range(10):
+		var point_angle: float = deg_to_rad(float(j) * 36.0 - 90.0)
+		var point_radius: float = radius if j % 2 == 0 else radius * 0.4
+		points.append(center + Vector2(cos(point_angle), sin(point_angle)) * point_radius)
+	var fill_colors := PackedColorArray()
+	for _j in range(points.size()):
+		fill_colors.append(Color(1.0, 1.0, 100.0 / 255.0, 1.0))
+	canvas.draw_polygon(points, fill_colors)
+	for j in range(points.size()):
+		canvas.draw_line(
+			points[j],
+			points[(j + 1) % points.size()],
+			Color(1.0, 200.0 / 255.0, 0.0, 1.0),
+			1.0
+		)
+
+
+func _draw_boss_confusion_questions(
+	canvas: CanvasItem,
+	boss_pos: Vector2,
+	boss_paddle_size: Vector2,
+	boss_hitbox_height: float,
+	shake_offset: Vector2
+) -> void:
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var current_msec: int = Time.get_ticks_msec()
+	var orbit_rotation: float = float(current_msec) * 0.005
+	var orbit_center := Vector2(
+		boss_pos.x + boss_paddle_size.x * 0.5 + shake_offset.x,
+		boss_pos.y + boss_hitbox_height * 0.5 - 25.0 + shake_offset.y
+	)
+	var orbit_radius: float = 40.0
+	for i in range(3):
+		var angle: float = orbit_rotation + float(i) * TAU / 3.0
+		var center := Vector2(
+			orbit_center.x + orbit_radius * cos(angle),
+			orbit_center.y + orbit_radius * sin(angle) * 0.5
+		)
+		var size_factor: float = 0.8 + 0.2 * sin(angle)
+		var color: Color = Color(1.0, 1.0, 100.0 / 255.0, 1.0)
+		if sin(float(current_msec) * 0.01 + float(i)) <= 0.0:
+			color = Color(1.0, 200.0 / 255.0, 50.0 / 255.0, 1.0)
+		_draw_centered_question(canvas, font, center, max(18, int(28.0 * size_factor)), color, Color(50.0 / 255.0, 50.0 / 255.0, 0.0, 1.0), Vector2(2.0, 2.0))
+
+	var center_color: Color = Color(1.0, 1.0, 150.0 / 255.0, 1.0)
+	if sin(float(current_msec) * 0.015) <= 0.0:
+		center_color = Color(1.0, 220.0 / 255.0, 100.0 / 255.0, 1.0)
+	_draw_centered_question(canvas, font, orbit_center, 45, center_color, Color(100.0 / 255.0, 100.0 / 255.0, 50.0 / 255.0, 1.0), Vector2(3.0, 3.0))
+
+
+func _draw_centered_question(
+	canvas: CanvasItem,
+	font: Font,
+	center: Vector2,
+	font_size: int,
+	color: Color,
+	shadow_color: Color,
+	shadow_offset: Vector2
+) -> void:
+	var text := "?"
+	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	var pos := center - text_size * 0.5 + Vector2(0.0, text_size.y * 0.75)
+	canvas.draw_string(font, pos + shadow_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, shadow_color)
+	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 
 func _draw_whip_deactivation(

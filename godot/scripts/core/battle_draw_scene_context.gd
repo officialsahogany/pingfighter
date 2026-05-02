@@ -36,4 +36,5 @@ func build_scene_deps(registry, feedback, power_state) -> Dictionary:
 		"power_state": power_state,
 		"skill_config": registry.get_instance("smasher_skill_config"),
 		"stage1_dalji_whip_skill_state": registry.get_instance("stage1_dalji_whip_skill_state"),
+		"active_item_runtime": registry.get_instance("active_item_runtime"),
 	}

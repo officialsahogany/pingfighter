@@ -16,6 +16,7 @@ const DRINK_SOUND_PATH := "res://assets/sounds/drink.wav"
 const THROW_BEFORE_SOUND_PATH := "res://assets/sounds/throwbefore.wav"
 const THROW_SOUND_PATH := "res://assets/sounds/throw.wav"
 const GRENADE_SOUND_PATH := "res://assets/sounds/grenade.wav"
+const FLASHBOMB_SOUND_PATH := "res://assets/sounds/flashbomb.wav"
 const POWER_SMASH_SOUND_PATH := "res://assets/sounds/power_smash.wav"
 const POWER_SMASH_LAUNCH_SOUND_PATH := "res://assets/sounds/power_smash_launch.wav"
 const ROUND_SET_SOUND_PATH := "res://assets/sounds/roundset.wav"
@@ -45,6 +46,7 @@ var drink_sfx: AudioStreamPlayer
 var throw_before_sfx: AudioStreamPlayer
 var throw_sfx: AudioStreamPlayer
 var grenade_sfx: AudioStreamPlayer
+var flashbomb_sfx: AudioStreamPlayer
 var power_smash_sfx: AudioStreamPlayer
 var power_smash_launch_sfx: AudioStreamPlayer
 var round_set_sfx: AudioStreamPlayer
@@ -68,6 +70,7 @@ func setup(parent: Node) -> void:
 	throw_before_sfx = player_factory.create(owner_node, "ThrowBeforeSfx", THROW_BEFORE_SOUND_PATH, -5.0)
 	throw_sfx = player_factory.create(owner_node, "ThrowSfx", THROW_SOUND_PATH, -5.0)
 	grenade_sfx = player_factory.create(owner_node, "GrenadeSfx", GRENADE_SOUND_PATH, -4.0)
+	flashbomb_sfx = player_factory.create(owner_node, "FlashbombSfx", FLASHBOMB_SOUND_PATH, -4.0)
 	power_smash_sfx = player_factory.create(owner_node, "PowerSmashSfx", POWER_SMASH_SOUND_PATH, -4.0)
 	power_smash_launch_sfx = player_factory.create(owner_node, "PowerSmashLaunchSfx", POWER_SMASH_LAUNCH_SOUND_PATH, -4.0)
 	round_set_sfx = player_factory.create(owner_node, "RoundSetSfx", ROUND_SET_SOUND_PATH, SCOREBOARD_SOUND_VOLUME_DB)
@@ -116,6 +119,10 @@ func play_throw() -> void:
 
 func play_grenade_explosion() -> void:
 	_play_with_pitch(grenade_sfx, randf_range(0.98, 1.02))
+
+
+func play_flashbomb() -> void:
+	_play_with_pitch(flashbomb_sfx, randf_range(0.98, 1.02))
 
 
 func play_power_smash() -> void:

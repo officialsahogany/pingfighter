@@ -8,6 +8,8 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 	var animation_context: Dictionary = animation_state.get_draw_context() if animation_state != null else {}
 	var whip_state = deps.get("stage1_dalji_whip_skill_state", null)
 	var whip_context: Dictionary = whip_state.get_draw_context() if whip_state != null and whip_state.has_method("get_draw_context") else {}
+	var active_item_runtime = deps.get("active_item_runtime", null)
+	var active_item_context: Dictionary = active_item_runtime.get_actor_draw_context() if active_item_runtime != null and active_item_runtime.has_method("get_actor_draw_context") else {}
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
 	var textures: Dictionary = _get_dict(context.get("textures", {}))
 	var actor_context := {
@@ -19,6 +21,10 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"dash_active": dash_context.get("active", false),
 		"dash_is_half": dash_context.get("is_half", false),
 		"dash_direction": dash_context.get("direction", 0.0),
+		"dash_recovering": dash_context.get("recovering", false),
+		"dash_stun_timer": float(dash_context.get("stun_timer", 0.0)),
+		"dash_recovery_total_frames": float(dash_context.get("recovery_total_frames", 0.0)),
+		"dash_recovery_progress": float(dash_context.get("recovery_progress", 1.0)),
 		"pillar_drawer": deps.get("pillar_drawer", null),
 		"player_pos": _get_vector2(context, "player_pos", Vector2.ZERO),
 		"player_speed": float(context.get("player_speed", 0.0)),
@@ -55,6 +61,7 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"boss_hit_sprite_sheet": _get_value(textures, "boss_hit_sprite_sheet"),
 	}
 	actor_context.merge(whip_context, true)
+	actor_context.merge(active_item_context, true)
 	return actor_context
 
 

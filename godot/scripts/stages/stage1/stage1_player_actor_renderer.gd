@@ -12,6 +12,7 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var paddle_size: Vector2 = _as_vector2(context.get("player_paddle_size", Vector2(84.0, 16.0)), Vector2(84.0, 16.0))
 	var player_speed: float = float(context.get("player_speed", 0.0))
 	var dash_active: bool = bool(context.get("dash_active", false))
+	var dash_recovering: bool = bool(context.get("dash_recovering", false))
 	var player_move_active: bool = abs(player_speed) > 0.2 or dash_active
 	var player_anim_clock: float = float(context.get("player_anim_clock", 0.0))
 	var hover_amplitude: float = float(context.get("player_hover_amplitude", 7.0))
@@ -21,6 +22,8 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var breath_wave: float = 0.0
 	var player_draw_size: Vector2 = _as_vector2(context.get("player_sprite_draw_size", Vector2(250.0, 120.0)), Vector2(250.0, 120.0))
 	var player_visual_x_offset: float = 0.0
+	var throw_pose_active: bool = bool(context.get("active_item_throw_windup_active", false))
+	var throw_pose_progress: float = clamp(float(context.get("active_item_throw_windup_progress", 0.0)), 0.0, 1.0)
 
 	if player_move_active:
 		move_bob = abs(sin(player_anim_clock * 10.0)) * float(context.get("player_move_bob_amplitude", 5.0))
@@ -40,6 +43,13 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 		player_visual_y_offset += -float(context.get("player_hit_lunge_y", 8.0)) * hit_snap + float(context.get("player_hit_rebound_y", 2.5)) * hit_rebound
 		player_draw_size.x *= 1.0 + float(context.get("player_hit_scale_x", 0.055)) * hit_snap - float(context.get("player_hit_scale_x", 0.055)) * 0.35 * hit_rebound
 		player_draw_size.y *= 1.0 - float(context.get("player_hit_scale_y", 0.045)) * hit_snap + float(context.get("player_hit_scale_y", 0.045)) * 0.4 * hit_rebound
+
+	if dash_recovering:
+		player_visual_x_offset += float(randi_range(-2, 2))
+		player_visual_y_offset += float(randi_range(-1, 1))
+
+	if throw_pose_active:
+		player_visual_y_offset -= sin(throw_pose_progress * PI) * 5.0
 
 	var shadow_scale: float = 1.0 - ((hover_offset + hover_amplitude) / (hover_amplitude * 2.0)) * 0.18
 	var shadow_width: float = 180.0 * shadow_scale
@@ -63,9 +73,13 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 		player_draw_size.x,
 		player_draw_size.y
 	)
+	var sprite_context: Dictionary = context
+	if throw_pose_active:
+		sprite_context = context.duplicate()
+		sprite_context["player_sprite_rotation_degrees"] = float(context.get("active_item_throw_windup_angle_degrees", 0.0))
 	sprite_renderer.draw(
 		canvas,
-		context,
+		sprite_context,
 		player_visual_rect,
 		player_move_active,
 		player_pos,
