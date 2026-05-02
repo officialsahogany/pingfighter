@@ -848,17 +848,15 @@ Godot.
   status text, and tutorial-stage suppression. The playfield overlay drawer
   invokes this renderer while `round_flow_state` is waiting for serve.
 - `scripts/hud/scoreboard_led_digits.gd`
-  Owns the public reusable scoreboard LED number API: high-refresh
-  seven-segment score-number drawing and multi-digit width calculation.
-  The round-end overlay uses this reduced draw-call path instead of
-  repainting a full dot matrix every render frame.
+  Owns the public reusable scoreboard LED number API: score-number
+  drawing and multi-digit width calculation. It keeps the original
+  dot-matrix number silhouette and delegates dot glow drawing to focused
+  helpers.
 - `scripts/hud/scoreboard_led_digit_patterns.gd`
-  Owns reusable scoreboard LED numeric dot patterns for digits 0-9,
-  retained for dot-matrix fallback/reference work.
+  Owns reusable scoreboard LED numeric dot patterns for digits 0-9.
 - `scripts/hud/scoreboard_led_dot_renderer.gd`
   Owns one-dot scoreboard LED rendering: a reduced lit glow stack, bright
-  dot body, dim/off dots, and any future dot-matrix fallback draw-call
-  budget.
+  dot body, dim/off dots, and the round-end scoreboard draw-call budget.
 - `scripts/hud/scoreboard_overlay_renderer.gd`
   Owns the full-screen score overlay canvas drawing: overlay layout,
   full-board frame placement, inner screen, footer target text, and
