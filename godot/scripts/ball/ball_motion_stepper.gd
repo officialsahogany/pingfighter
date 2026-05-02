@@ -10,7 +10,7 @@ var collision_detector: Object = BallMotionCollisionDetector.new()
 
 
 func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context: Dictionary) -> Dictionary:
-	var ball_size: float = float(context.get("ball_size", 22.0))
+	var ball_size: float = float(context.get("ball_size", 28.6))
 	var width: float = float(context.get("width", 760.0))
 	var height: float = float(context.get("height", 750.0))
 	var max_step_distance: float = float(context.get("max_step_distance", 12.0))

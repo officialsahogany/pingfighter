@@ -107,7 +107,7 @@ func _is_ball_in_monitor_range(context: Dictionary, distance_limit: float) -> bo
 
 	var player_pos: Vector2 = _get_vector2(context, "player_pos", Vector2.ZERO)
 	var player_paddle_width: float = float(context.get("player_paddle_width", 155.0))
-	var ball_radius: float = float(context.get("ball_render_radius", 13.0))
+	var ball_radius: float = float(context.get("ball_render_radius", 16.9))
 	var ball_to_paddle_distance: float = player_pos.y - ball_pos.y
 	var player_center_x: float = player_pos.x + player_paddle_width * 0.5
 	var horizontal_limit: float = player_paddle_width * 0.5 + ball_radius + HORIZONTAL_EXTRA_RANGE

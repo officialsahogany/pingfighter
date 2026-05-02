@@ -19,7 +19,7 @@ func build_effects_context(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"ball_current_display_colors": ball_intensity.get_current_colors(),
 		"ball_current_glow_color": ball_intensity.get_current_glow_color(),
 		"ball_pos": _get_vector2(context, "ball_pos", Vector2.ZERO),
-		"ball_size": float(context.get("ball_size", 22.0)),
+		"ball_size": float(context.get("ball_size", 28.6)),
 	}
 
 

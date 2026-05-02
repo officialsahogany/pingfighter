@@ -3,10 +3,12 @@ extends RefCounted
 const EnergyBallOrbitRenderer := preload("res://scripts/ball/energy_ball_orbit_renderer.gd")
 const EnergyBallParticleRenderer := preload("res://scripts/ball/energy_ball_particle_renderer.gd")
 
-const BALL_RENDER_RADIUS := 13.0
-const BALL_OUTER_COLOR := Color(30.0 / 255.0, 100.0 / 255.0, 200.0 / 255.0)
-const BALL_INNER_COLOR := Color(100.0 / 255.0, 180.0 / 255.0, 255.0 / 255.0)
-const BALL_RING_COLOR := Color(80.0 / 255.0, 160.0 / 255.0, 255.0 / 255.0)
+const BALL_RENDER_RADIUS := 16.9
+# Python renders the energy ball to an alpha surface and BLEND_ADDs it, so
+# these are tuned brighter for Godot's direct alpha-blended draw calls.
+const BALL_OUTER_COLOR := Color(135.0 / 255.0, 205.0 / 255.0, 255.0 / 255.0)
+const BALL_INNER_COLOR := Color(225.0 / 255.0, 248.0 / 255.0, 255.0 / 255.0)
+const BALL_RING_COLOR := Color(185.0 / 255.0, 232.0 / 255.0, 255.0 / 255.0)
 const BALL_CORE_COLOR := Color(1.0, 1.0, 1.0)
 
 var particle_renderer: Object = EnergyBallParticleRenderer.new()
@@ -49,7 +51,7 @@ func draw(canvas: CanvasItem, pos: Vector2, boost_charging_active: bool) -> void
 
 	for i in range(3):
 		var glow_radius: float = BALL_RENDER_RADIUS * (0.795 - float(i) * 0.11) * pulse
-		var glow_alpha: float = (8.0 - float(i) * 2.0) / 255.0
+		var glow_alpha: float = (14.0 - float(i) * 3.0) / 255.0
 		canvas.draw_circle(pos, glow_radius, Color(ball_outer_color.r, ball_outer_color.g, ball_outer_color.b, glow_alpha))
 
 	orbit_renderer.draw(
@@ -62,12 +64,12 @@ func draw(canvas: CanvasItem, pos: Vector2, boost_charging_active: bool) -> void
 		ball_inner_color
 	)
 
-	canvas.draw_circle(pos, BALL_RENDER_RADIUS * 0.361 * pulse2, Color(ball_inner_color.r, ball_inner_color.g, ball_inner_color.b, 25.0 / 255.0))
-	canvas.draw_circle(pos, BALL_RENDER_RADIUS * 0.289 * pulse, Color(0.76, 0.91, 1.0, 40.0 / 255.0))
-	canvas.draw_circle(pos, BALL_RENDER_RADIUS * 0.255, Color(0.72, 0.88, 1.0, 60.0 / 255.0))
+	canvas.draw_circle(pos, BALL_RENDER_RADIUS * 0.361 * pulse2, Color(ball_inner_color.r, ball_inner_color.g, ball_inner_color.b, 58.0 / 255.0))
+	canvas.draw_circle(pos, BALL_RENDER_RADIUS * 0.289 * pulse, Color(0.9, 0.98, 1.0, 78.0 / 255.0))
+	canvas.draw_circle(pos, BALL_RENDER_RADIUS * 0.255, Color(0.96, 0.99, 1.0, 110.0 / 255.0))
 	var core_size: float = BALL_RENDER_RADIUS * 0.178
-	canvas.draw_circle(pos, core_size + 2.0, Color(ball_ring_color.r * 0.5 + 0.5, ball_ring_color.g * 0.5 + 0.5, ball_ring_color.b * 0.5 + 0.5, 80.0 / 255.0))
-	canvas.draw_circle(pos, core_size, Color(ball_core_color.r, ball_core_color.g, ball_core_color.b, 150.0 / 255.0))
+	canvas.draw_circle(pos, core_size + 2.0, Color(ball_ring_color.r * 0.35 + 0.65, ball_ring_color.g * 0.35 + 0.65, ball_ring_color.b * 0.35 + 0.65, 128.0 / 255.0))
+	canvas.draw_circle(pos, core_size, Color(ball_core_color.r, ball_core_color.g, ball_core_color.b, 220.0 / 255.0))
 	canvas.draw_circle(pos, max(2.0, core_size * 0.5), Color(1.0, 1.0, 1.0, 200.0 / 255.0))
 	canvas.draw_circle(
 		pos + Vector2(-BALL_RENDER_RADIUS * 0.11, -BALL_RENDER_RADIUS * 0.11),

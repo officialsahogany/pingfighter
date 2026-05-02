@@ -72,4 +72,4 @@ func _draw_bright_points(
 			var bright_size: float = 0.72 + bright_pulse * 0.85
 			var bright_alpha: float = (40.0 + bright_pulse * 35.0) / 255.0
 			canvas.draw_circle(bright_pos, bright_size + 1.0, Color(ball_inner_color.r, ball_inner_color.g, ball_inner_color.b, bright_alpha * 0.5))
-			canvas.draw_circle(bright_pos, bright_size, Color(150.0 / 255.0, 210.0 / 255.0, 1.0, bright_alpha))
+			canvas.draw_circle(bright_pos, bright_size, Color(220.0 / 255.0, 245.0 / 255.0, 1.0, bright_alpha))

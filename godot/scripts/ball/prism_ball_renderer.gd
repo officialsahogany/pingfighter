@@ -1,6 +1,6 @@
 extends RefCounted
 
-const BALL_SIZE := 22.0
+const BALL_SIZE := 28.6
 
 const PRISM_BALL_COLORS: Array[Color] = [
 	Color(1.0, 0.0, 0.0),

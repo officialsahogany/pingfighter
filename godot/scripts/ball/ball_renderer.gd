@@ -6,7 +6,7 @@ const EnergyBallRenderer := preload("res://scripts/ball/energy_ball_renderer.gd"
 const PingpongBallRenderer := preload("res://scripts/ball/pingpong_ball_renderer.gd")
 const PrismBallRenderer := preload("res://scripts/ball/prism_ball_renderer.gd")
 
-const BALL_RENDER_RADIUS := 13.0
+const BALL_RENDER_RADIUS := 16.9
 
 var bomb_renderer: Object = BombBallRenderer.new()
 var energy_renderer: Object = EnergyBallRenderer.new()

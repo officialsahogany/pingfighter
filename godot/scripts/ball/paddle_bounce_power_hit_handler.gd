@@ -23,7 +23,7 @@ func apply(
 		physics,
 		int(context.get("combo_min_count", 2))
 	)
-	var ball_size: float = float(context.get("ball_size", 22.0))
+	var ball_size: float = float(context.get("ball_size", 28.6))
 	var combo_count: int = int(power_state.get_combo_consumed())
 	power_state.spawn_trail(ball_pos, ball_size, combo_count)
 	power_state.spawn_initial_burst(ball_pos)

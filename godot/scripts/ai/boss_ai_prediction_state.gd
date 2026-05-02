@@ -126,7 +126,7 @@ func _get_boss_intercept_y(context: Dictionary) -> float:
 		float(context.get("boss_y", 25.0))
 		+ float(context.get("boss_hitbox_height", 40.0))
 		+ float(context.get("hitbox_padding", 5.0))
-		+ float(context.get("ball_size", 22.0)) * 0.5
+		+ float(context.get("ball_size", 28.6)) * 0.5
 	)
 
 

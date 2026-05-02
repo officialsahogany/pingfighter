@@ -2,7 +2,7 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 
-const BALL_SIZE: float = 22.0
+const BALL_SIZE: float = 28.6
 const BOSS_PADDLE_WIDTH: float = 100.0
 const BOSS_HITBOX_HEIGHT: float = 40.0
 

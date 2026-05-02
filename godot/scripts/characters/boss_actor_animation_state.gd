@@ -124,7 +124,7 @@ func _maybe_trigger_anticipated_hit(context: Dictionary) -> void:
 
 	var ball_pos: Vector2 = _get_vector2(context, "ball_pos", Vector2.ZERO)
 	var boss_pos: Vector2 = _get_vector2(context, "boss_pos", Vector2.ZERO)
-	var ball_size: float = float(context.get("ball_size", 22.0))
+	var ball_size: float = float(context.get("ball_size", 28.6))
 	var boss_hitbox_height: float = float(context.get("boss_hitbox_height", 40.0))
 	var vertical_gap: float = (ball_pos.y - ball_size * 0.5) - (boss_pos.y + boss_hitbox_height)
 	if vertical_gap < 0.0:

@@ -36,7 +36,7 @@ func step_motion(
 
 func _build_step_context(context: Dictionary, scene: Dictionary) -> Dictionary:
 	return {
-		"ball_size": float(context.get("ball_size", 22.0)),
+		"ball_size": float(context.get("ball_size", 28.6)),
 		"width": float(context.get("width", 760.0)),
 		"height": float(context.get("height", 750.0)),
 		"max_step_distance": float(context.get("max_step_distance", 12.0)),

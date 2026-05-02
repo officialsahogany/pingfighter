@@ -25,7 +25,7 @@ func try_activate_power_smashing(
 			"ball_pos": ball_pos,
 			"special_gauge": special_gauge,
 			"gauge_cost": float(context.get("power_smash_gauge_cost", 0.0)),
-			"ball_size": float(context.get("ball_size", 22.0)),
+			"ball_size": float(context.get("ball_size", 28.6)),
 			"text_duration_frames": float(context.get("power_smash_text_duration_frames", 0.0)),
 			"perfect_cooldown_frames": float(context.get("drive_perfect_cooldown_frames", 0.0)),
 			"global_cooldown_frames": float(context.get("drive_global_cooldown_frames", 0.0)),

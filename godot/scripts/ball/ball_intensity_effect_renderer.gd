@@ -80,7 +80,7 @@ func _draw_particles(canvas: Node2D, shake_offset: Vector2, intensity: float, in
 func _draw_current_ball_glow(canvas: Node2D, shake_offset: Vector2, intensity: float, context: Dictionary) -> void:
 	if intensity <= 0.2:
 		return
-	var ball_size: float = float(context.get("ball_size", 22.0))
+	var ball_size: float = float(context.get("ball_size", 28.6))
 	var ball_pos: Vector2 = context.get("ball_pos", Vector2.ZERO)
 	var glow_color: Color = context.get("ball_current_glow_color", Color(60.0 / 255.0, 100.0 / 255.0, 180.0 / 255.0, 30.0 / 255.0))
 	var glow_size: float = (ball_size * 0.5) * (1.0 + intensity * 0.3)

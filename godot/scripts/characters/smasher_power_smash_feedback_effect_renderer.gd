@@ -18,7 +18,7 @@ func _draw_trails(canvas: Node2D, trails: Array, shake_offset: Vector2) -> void:
 
 		var trail_pos: Vector2 = trail["pos"]
 		trail_pos += shake_offset
-		var size: float = max(1.0, float(trail.get("size", trail.get("radius", 22.0))))
+		var size: float = max(1.0, float(trail.get("size", trail.get("radius", 28.6))))
 		var core_size: float = size * 0.6 * life
 		if core_size <= 0.0:
 			continue

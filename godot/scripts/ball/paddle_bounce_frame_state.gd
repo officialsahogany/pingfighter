@@ -55,6 +55,12 @@ func apply_post_hit_result(frame: Dictionary, post_hit_result: Dictionary) -> vo
 	frame["drive_speed_increase"] = float(post_hit_result.get("drive_speed_increase", frame["drive_speed_increase"]))
 	frame["drive_hit_boss"] = bool(post_hit_result.get("drive_hit_boss", frame["drive_hit_boss"]))
 	frame["special_gauge"] = float(post_hit_result.get("special_gauge", frame["special_gauge"]))
+	if post_hit_result.has("ball_impact_boost"):
+		frame["ball_impact_boost"] = float(post_hit_result["ball_impact_boost"])
+	if post_hit_result.has("ball_boost_decay_rate"):
+		frame["ball_boost_decay_rate"] = float(post_hit_result["ball_boost_decay_rate"])
+	if post_hit_result.has("ball_min_boost"):
+		frame["ball_min_boost"] = float(post_hit_result["ball_min_boost"])
 
 
 func build_result_snapshot(

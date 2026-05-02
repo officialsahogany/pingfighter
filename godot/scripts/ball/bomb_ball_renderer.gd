@@ -1,6 +1,6 @@
 extends RefCounted
 
-const BALL_SIZE := 22.0
+const BALL_SIZE := 28.6
 
 
 func draw(canvas: CanvasItem, pos: Vector2) -> void:

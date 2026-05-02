@@ -1,11 +1,11 @@
 extends RefCounted
 
-const BALL_RENDER_RADIUS := 13.0
+const BALL_RENDER_RADIUS := 16.9
 const ENERGY_BALL_MAX_PARTICLES := 20
 const ENERGY_BALL_PARTICLE_COLORS: Array[Color] = [
-	Color(200.0 / 255.0, 230.0 / 255.0, 1.0),
-	Color(150.0 / 255.0, 200.0 / 255.0, 1.0),
-	Color(100.0 / 255.0, 180.0 / 255.0, 1.0),
+	Color(235.0 / 255.0, 248.0 / 255.0, 1.0),
+	Color(215.0 / 255.0, 238.0 / 255.0, 1.0),
+	Color(185.0 / 255.0, 225.0 / 255.0, 1.0),
 	Color(1.0, 1.0, 1.0),
 ]
 

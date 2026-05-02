@@ -13,7 +13,7 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"ball_active": bool(context.get("ball_active", false)),
 		"ball_pos": _get_vector2(context, "ball_pos", Vector2.ZERO),
 		"ball_vel": _get_vector2(context, "ball_vel", Vector2.ZERO),
-		"ball_render_radius": float(context.get("ball_render_radius", 13.0)),
+		"ball_render_radius": float(context.get("ball_render_radius", 16.9)),
 		"player_pos": _get_vector2(context, "player_pos", Vector2.ZERO),
 		"player_paddle_width": float(context.get("player_paddle_width", 155.0)),
 		"special_gauge": float(context.get("special_gauge", 0.0)),
