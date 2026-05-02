@@ -12,9 +12,6 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var line_color: Color = _as_color(context.get("line_color", Color(1.0, 1.0, 1.0, 0.10)), Color(1.0, 1.0, 1.0, 0.10))
 
 	canvas.draw_rect(Rect2(0.0, 0.0, width, height), bg_color)
-	if float(context.get("hit_flash_timer", 0.0)) > 0.0:
-		var flash_alpha: float = (float(context.get("hit_flash_timer", 0.0)) / 0.08) * 0.06
-		canvas.draw_rect(Rect2(0.0, 0.0, width, height), Color(1.0, 1.0, 1.0, flash_alpha))
 
 	canvas.draw_line(Vector2(play_left, height * 0.5) + shake_offset, Vector2(play_right, height * 0.5) + shake_offset, line_color, 1.0)
 	canvas.draw_line(Vector2(play_left, 120.0) + shake_offset, Vector2(play_right, 120.0) + shake_offset, line_color, 1.0)

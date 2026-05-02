@@ -4,7 +4,6 @@ const BattleContextReader := preload("res://scripts/core/battle_context_reader.g
 
 
 func build(context: Dictionary, deps: Dictionary) -> Dictionary:
-	var feedback = deps.get("feedback", null)
 	var animation_state = deps.get("animation_state", null)
 	var animation_context: Dictionary = animation_state.get_draw_context() if animation_state != null else {}
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
@@ -15,7 +14,6 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"height": float(context.get("height", 750.0)),
 		"play_left": float(context.get("play_left", 0.0)),
 		"play_right": float(context.get("play_right", 760.0)),
-		"hit_flash_timer": feedback.get_hit_flash_timer() if feedback != null else 0.0,
 		"dash_active": dash_context.get("active", false),
 		"dash_is_half": dash_context.get("is_half", false),
 		"dash_direction": dash_context.get("direction", 0.0),

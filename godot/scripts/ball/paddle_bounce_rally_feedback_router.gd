@@ -22,7 +22,6 @@ func register(
 
 	var feedback = deps.get("feedback", null)
 	if feedback != null:
-		feedback.trigger_hit_flash(0.08)
 		feedback.set_screen_shake(0.10, 3.0)
 
 	if not power_activated:
