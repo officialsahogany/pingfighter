@@ -15,10 +15,6 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	if audio != null:
 		audio.update(delta)
 
-	var scoreboard_state = deps.get("scoreboard_state", null)
-	if scoreboard_state != null:
-		scoreboard_state.update_top_mini_sparkle(delta)
-
 	var drive_text_timer_frames: float = max(
 		0.0,
 		float(context.get("drive_text_timer_frames", 0.0)) - fps_scale
