@@ -1099,8 +1099,9 @@ Godot.
   duration setup, per-frame countdown, and renderer-facing timer access.
 - `scripts/characters/smasher_power_smash_hit_velocity_resolver.gd`
   Owns Power Smashing initial hit-velocity math: original-speed capture,
-  moderated dampened speed boost, no-combo penalties, combo speed bonus, initial
-  boosted-speed setup, and delegation to the hit-direction resolver.
+  moderated dampened speed boost, no-combo penalties, combo speed bonus,
+  launch-speed clamping, initial boosted-speed setup, and delegation to the
+  hit-direction resolver.
 - `scripts/characters/smasher_power_smash_hit_direction_resolver.gd`
   Owns Power Smashing initial hit direction shaping: side launch turn
   minimums, straight launch paddle-offset correction, and moderated dampened

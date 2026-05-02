@@ -3,7 +3,7 @@ extends RefCounted
 const POWER_SMASH_MIN_TURN_RATIO := 0.466307658
 const POWER_SMASH_MIN_TURN_SIN := 0.422618262
 const POWER_SMASH_MIN_TURN_COS := 0.906307787
-const POWER_SMASH_SIDE_STRAIGHT_MULT := 1.16
+const POWER_SMASH_SIDE_STRAIGHT_MULT := 1.12
 
 
 func apply_side_direction(ball_velocity: Vector2, direction: int, base_speed: float, ball_physics: Object) -> Vector2:

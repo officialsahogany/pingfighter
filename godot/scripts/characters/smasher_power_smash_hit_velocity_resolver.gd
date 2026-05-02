@@ -2,14 +2,16 @@ extends RefCounted
 
 const PowerSmashHitDirectionResolver := preload("res://scripts/characters/smasher_power_smash_hit_direction_resolver.gd")
 
-const POWER_SMASH_SPEED_BOOST_RATE := 0.62
-const POWER_SMASH_MIN_BOOST_MULT := 0.82
+const POWER_SMASH_SPEED_BOOST_RATE := 0.50
+const POWER_SMASH_MIN_BOOST_MULT := 0.72
 const POWER_SMASH_NO_COMBO_BOOST_MULT := 0.75
-const POWER_SMASH_INITIAL_STRAIGHT_MULT := 1.65
-const POWER_SMASH_INITIAL_SIDE_MULT := 1.78
+const POWER_SMASH_INITIAL_STRAIGHT_MULT := 1.38
+const POWER_SMASH_INITIAL_SIDE_MULT := 1.48
 const POWER_SMASH_NO_COMBO_INITIAL_MULT := 0.78
-const POWER_SMASH_COMBO_SPEED_PER_COUNT := 0.03
-const POWER_SMASH_COMBO_SPEED_CAP := 0.15
+const POWER_SMASH_COMBO_SPEED_PER_COUNT := 0.025
+const POWER_SMASH_COMBO_SPEED_CAP := 0.12
+const POWER_SMASH_MAX_LAUNCH_SPEED_MULT := 3.6
+const POWER_SMASH_MAX_COMBO_LAUNCH_SPEED_MULT := 4.1
 
 var direction_resolver: Object = PowerSmashHitDirectionResolver.new()
 
@@ -74,6 +76,7 @@ func apply(
 				POWER_SMASH_COMBO_SPEED_CAP
 			)
 			ball_velocity *= 1.0 + combo_final_bonus
+		ball_velocity = _clamp_launch_speed(ball_velocity, base_speed, combo_consumed >= combo_min_count)
 		power_state.start_initial_boost(ball_velocity.length())
 
 	return ball_velocity
@@ -89,3 +92,14 @@ func _apply_dampened_multiplier(ball_physics: Object, current_speed: float, raw_
 	if ball_physics != null and ball_physics.has_method("apply_dampened_multiplier"):
 		return float(ball_physics.apply_dampened_multiplier(current_speed, raw_multiplier))
 	return raw_multiplier
+
+
+func _clamp_launch_speed(ball_velocity: Vector2, base_speed: float, combo_boosted: bool) -> Vector2:
+	var current_speed: float = ball_velocity.length()
+	if current_speed <= 0.0:
+		return ball_velocity
+	var max_mult: float = POWER_SMASH_MAX_COMBO_LAUNCH_SPEED_MULT if combo_boosted else POWER_SMASH_MAX_LAUNCH_SPEED_MULT
+	var max_speed: float = max(base_speed, 0.1) * max_mult
+	if current_speed <= max_speed:
+		return ball_velocity
+	return ball_velocity.normalized() * max_speed
