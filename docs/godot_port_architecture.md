@@ -116,9 +116,12 @@ Godot.
   side effects, and the actual serve/reset orchestration.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
-  construction, number-key use input, per-item cooldown checks, and the
-  original `gauge_charge` / Energy Drink consumable effect. Acquisition
-  routing beyond the starter slot is still future item-domain work.
+  construction, original field-drop timing for the currently ported
+  `gauge_charge` / Energy Drink item, item-spawn portal release timing,
+  animated unknown field-icon drawing, field-item motion / pickup routing,
+  pickup feedback, number-key use input, per-item cooldown checks, and the
+  original Energy Drink consumable effect. Broader item pools beyond
+  `gauge_charge` are still future item-domain work.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve

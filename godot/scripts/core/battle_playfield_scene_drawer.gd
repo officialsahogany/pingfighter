@@ -33,8 +33,10 @@ func draw(
 	effects_drawer.draw_power_smash_effects(canvas, registry, power_state, shake_offset)
 	ball_drawer.draw_ball(canvas, registry, draw_context_builder, draw_context, draw_deps, shake_offset)
 	effects_drawer.draw_impact_and_combo_effects(canvas, registry, shake_offset)
+	_draw_active_item_field(canvas, registry, shake_offset)
 	effects_drawer.draw_inner_wall_vignettes(canvas, registry, width, height, pillar_width)
 	overlay_drawer.draw_skill_banners(canvas, registry, draw_context_builder, draw_context, draw_deps, width, height)
+	_draw_active_item_pickup_effect(canvas, registry)
 	overlay_drawer.draw_scoreboard_overlay(canvas, registry, width, height)
 
 
@@ -42,3 +44,15 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _draw_active_item_field(canvas: CanvasItem, registry: Object, shake_offset: Vector2) -> void:
+	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("draw_field_items"):
+		active_item_runtime.draw_field_items(canvas, registry, shake_offset)
+
+
+func _draw_active_item_pickup_effect(canvas: CanvasItem, registry: Object) -> void:
+	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("draw_pickup_effect"):
+		active_item_runtime.draw_pickup_effect(canvas, registry)

@@ -1,6 +1,6 @@
 extends RefCounted
 
-const ACTIVE_ITEM_COOLDOWN_MS := 10000
+const DEFAULT_ACTIVE_ITEM_COOLDOWN_MS := 10000
 const COOLDOWN_FLASH_DURATION_MS := 400
 
 var selected_active_item_index := 0
@@ -39,8 +39,9 @@ func get_slot_status(
 	var last_use_msec: int = get_active_item_last_use_msec(item_data)
 	if last_use_msec >= 0:
 		var elapsed: int = current_time_msec - last_use_msec
-		if elapsed < ACTIVE_ITEM_COOLDOWN_MS:
-			var remaining_ratio: float = 1.0 - float(elapsed) / float(max(1, ACTIVE_ITEM_COOLDOWN_MS))
+		var cooldown_msec: int = get_active_item_cooldown_msec(item_data)
+		if elapsed < cooldown_msec:
+			var remaining_ratio: float = 1.0 - float(elapsed) / float(max(1, cooldown_msec))
 			if remaining_ratio > 0.0:
 				status["cooldown_remaining_ratio"] = remaining_ratio
 			cooldown_complete_flash.erase(slot_index)
@@ -67,6 +68,14 @@ func get_active_item_last_use_msec(item_data: Dictionary) -> int:
 	if item_data.has("last_use"):
 		return int(item_data["last_use"])
 	return -1
+
+
+func get_active_item_cooldown_msec(item_data: Dictionary) -> int:
+	if item_data.has("cooldown_msec"):
+		return max(0, int(item_data["cooldown_msec"]))
+	if item_data.has("cooldown_ms"):
+		return max(0, int(item_data["cooldown_ms"]))
+	return DEFAULT_ACTIVE_ITEM_COOLDOWN_MS
 
 
 func get_active_item_throw_lock_msec(item_name: String) -> int:
