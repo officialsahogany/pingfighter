@@ -53,6 +53,10 @@ const MODULES := {
 		"path": "res://scripts/characters/smasher_skill_feedback_renderer.gd",
 		"label": "smasher skill feedback renderer",
 	},
+	"smasher_skill_timing_monitor_renderer": {
+		"path": "res://scripts/characters/smasher_skill_timing_monitor_renderer.gd",
+		"label": "smasher skill timing monitor renderer",
+	},
 	"actor_animation_state": {
 		"path": "res://scripts/characters/actor_animation_state.gd",
 		"label": "actor animation state",

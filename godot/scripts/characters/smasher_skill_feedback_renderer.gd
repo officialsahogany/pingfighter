@@ -1,10 +1,12 @@
 extends RefCounted
 
 const PowerSmashFeedbackEffectRenderer := preload("res://scripts/characters/smasher_power_smash_feedback_effect_renderer.gd")
+const SmasherSkillTimingMonitorRenderer := preload("res://scripts/characters/smasher_skill_timing_monitor_renderer.gd")
 const DASH_STATUS_COLOR := Color(0.20, 0.80, 1.0)
 const HALF_DASH_STATUS_COLOR := Color(0.60, 0.60, 1.0, 0.40)
 
 var power_effect_renderer: Object = PowerSmashFeedbackEffectRenderer.new()
+var timing_monitor_renderer: Object = SmasherSkillTimingMonitorRenderer.new()
 
 
 func draw_power_smash_effects(canvas: Node2D, power_state, shake_offset: Vector2) -> void:
@@ -20,6 +22,7 @@ func draw_banners(canvas: Node2D, width: float, height: float, context: Dictiona
 		return
 
 	var center_x: float = width * 0.5
+	timing_monitor_renderer.draw(canvas, font, context)
 	if bool(context.get("dash_active", false)):
 		_draw_dash_status(canvas, font, center_x, height, bool(context.get("dash_is_half", false)))
 

@@ -34,4 +34,5 @@ func build_scene_deps(registry, feedback, power_state) -> Dictionary:
 		"impact_effects": registry.get_instance("impact_effects"),
 		"round_state": registry.get_instance("round_flow_state"),
 		"power_state": power_state,
+		"skill_config": registry.get_instance("smasher_skill_config"),
 	}

@@ -50,6 +50,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"player_paddle_width": PADDLE_WIDTH,
 		"boss_paddle_width": BOSS_PADDLE_WIDTH,
 		"ball_render_radius": BALL_RENDER_RADIUS,
+		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),
 		"drive_text_duration_frames": DRIVE_TEXT_DURATION_FRAMES,
 		"power_smash_text_duration_frames": POWER_SMASH_TEXT_DURATION_FRAMES,
