@@ -12,6 +12,9 @@ func configure_ball_physics_context(
 	var bridge: Object = _get_instance(registry, "ball_scene_bridge")
 	if bridge != null:
 		bridge.apply_physics_context(owner, registry, stage, league_mode, arena_enabled, active_weather_type)
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_stage_bgm"):
+		audio.play_stage_bgm(stage)
 
 
 func configure_ball_visual_state(

@@ -57,15 +57,16 @@ Godot.
   matched with the live project after each sync.
 - `godot/assets/`
   Mirrors the live Godot asset files needed by the current Stage 1 port.
-  Source PNG / WAV files are committed with their `.import` metadata, but
-  `.godot/imported` cache files are not part of the mirror.
+  Source PNG / WAV / MP3 files are committed with their `.import`
+  metadata, but `.godot/imported` cache files are not part of the mirror.
 - Clean-clone loaders should tolerate missing `.godot/imported` cache
-  outputs. For source PNG / WAV assets, load the raw file first through
-  the focused resource helper, then fall back to Godot's imported
+  outputs. For source PNG / WAV / MP3 / OGG assets, load the raw file
+  first through the focused resource helper, then fall back to Godot's imported
   `ResourceLoader` path when the raw file is not available.
 - `scripts/resources/project_resource_loader.gd` owns that raw-first
-  PNG / WAV loading policy. Feature modules should call it instead of
-  duplicating `FileAccess` / `ResourceLoader` fallback branches locally.
+  PNG / WAV / MP3 / OGG loading policy. Feature modules should call it
+  instead of duplicating `FileAccess` / `ResourceLoader` fallback branches
+  locally.
 
 ## Planned Module Map
 
@@ -543,13 +544,15 @@ Godot.
   passes the impact state object to the renderer.
 - `scripts/audio/game_audio.gd`
   Owns battle sound setup and playback: paddle / wall hit cooldowns,
-  serve and ping-pong serve sounds, dash and half-dash sounds, Drive /
-  Power Smashing sounds, launch sound, round-set sound, pitch randomization, and audio-player factory
-  delegation.
+  serve and ping-pong serve sounds, dash and half-dash sounds, looping
+  dash-recovery control-loss sound, Drive / Power Smashing sounds, launch
+  sound, round-set sound, Stage 1 BGM looping with Python's per-track gain,
+  pitch randomization, and
+  audio-player factory delegation.
 - `scripts/audio/game_audio_player_factory.gd`
   Owns AudioStreamPlayer creation for battle sounds: bus / volume setup,
-  resource loading, WAV fallback loading, missing-resource warnings, and
-  parent attachment.
+  resource loading, raw WAV / MP3 / OGG fallback loading,
+  missing-resource warnings, and parent attachment.
 - `scripts/core/battle_scene_bootstrap.gd`
   Owns battle-scene startup wiring: initial player / boss placement,
   audio setup, battle texture loading, Smasher skill icon extraction,

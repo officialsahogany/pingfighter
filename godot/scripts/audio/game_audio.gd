@@ -19,14 +19,18 @@ const GRENADE_SOUND_PATH := "res://assets/sounds/grenade.wav"
 const POWER_SMASH_SOUND_PATH := "res://assets/sounds/power_smash.wav"
 const POWER_SMASH_LAUNCH_SOUND_PATH := "res://assets/sounds/power_smash_launch.wav"
 const ROUND_SET_SOUND_PATH := "res://assets/sounds/roundset.wav"
+const STAGE1_BGM_PATH := "res://assets/bgm/stage1bgm.mp3"
 const PADDLE_HIT_SOUND_COOLDOWN := 0.06
 const WALL_HIT_SOUND_COOLDOWN := 0.035
 const SCOREBOARD_SOUND_VOLUME_DB := -8.0
+const DEFAULT_BGM_VOLUME := 0.4
+const STAGE1_BGM_GAIN := 0.75
 
 var owner_node: Node
 var player_factory: Object = GameAudioPlayerFactory.new()
 var paddle_sound_cooldown := 0.0
 var wall_sound_cooldown := 0.0
+var current_bgm_name := ""
 var paddle_hit_sfx: AudioStreamPlayer
 var serve_sfx: AudioStreamPlayer
 var pingpong_serve_sfx: AudioStreamPlayer
@@ -44,6 +48,7 @@ var grenade_sfx: AudioStreamPlayer
 var power_smash_sfx: AudioStreamPlayer
 var power_smash_launch_sfx: AudioStreamPlayer
 var round_set_sfx: AudioStreamPlayer
+var stage1_bgm: AudioStreamPlayer
 
 
 func setup(parent: Node) -> void:
@@ -66,6 +71,13 @@ func setup(parent: Node) -> void:
 	power_smash_sfx = player_factory.create(owner_node, "PowerSmashSfx", POWER_SMASH_SOUND_PATH, -4.0)
 	power_smash_launch_sfx = player_factory.create(owner_node, "PowerSmashLaunchSfx", POWER_SMASH_LAUNCH_SOUND_PATH, -4.0)
 	round_set_sfx = player_factory.create(owner_node, "RoundSetSfx", ROUND_SET_SOUND_PATH, SCOREBOARD_SOUND_VOLUME_DB)
+	stage1_bgm = player_factory.create(
+		owner_node,
+		"Stage1Bgm",
+		STAGE1_BGM_PATH,
+		linear_to_db(DEFAULT_BGM_VOLUME * STAGE1_BGM_GAIN)
+	)
+	_enable_loop(stage1_bgm)
 
 
 func update(delta: float) -> void:
@@ -170,6 +182,33 @@ func play_round_set() -> void:
 	round_set_sfx.play()
 
 
+func play_stage_bgm(stage: int) -> bool:
+	if stage == 1:
+		return play_bgm("stage1")
+	stop_bgm()
+	return false
+
+
+func play_bgm(bgm_name: String) -> bool:
+	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
+	if player == null or player.stream == null:
+		return false
+	if current_bgm_name == bgm_name and player.playing:
+		return true
+	stop_bgm()
+	player.pitch_scale = 1.0
+	player.play()
+	current_bgm_name = bgm_name
+	return true
+
+
+func stop_bgm() -> void:
+	var player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
+	if player != null and player.playing:
+		player.stop()
+	current_bgm_name = ""
+
+
 func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 	if player == null or player.stream == null:
 		return false
@@ -178,6 +217,12 @@ func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 		player.stop()
 	player.play()
 	return true
+
+
+func _get_bgm_player(bgm_name: String) -> AudioStreamPlayer:
+	if bgm_name == "stage1":
+		return stage1_bgm
+	return null
 
 
 func _enable_loop(player: AudioStreamPlayer) -> void:
@@ -189,3 +234,9 @@ func _enable_loop(player: AudioStreamPlayer) -> void:
 		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		wav_stream.loop_begin = 0
 		wav_stream.loop_end = -1
+	elif stream is AudioStreamMP3:
+		var mp3_stream: AudioStreamMP3 = stream
+		mp3_stream.loop = true
+	elif stream is AudioStreamOggVorbis:
+		var ogg_stream: AudioStreamOggVorbis = stream
+		ogg_stream.loop = true

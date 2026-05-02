@@ -11,6 +11,8 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	var audio = registry.get_instance("game_audio")
 	if audio != null:
 		audio.setup(owner)
+		if audio.has_method("play_stage_bgm"):
+			audio.play_stage_bgm(int(context.get("current_stage", 1)))
 
 	var battle_textures: Dictionary = {}
 	var resources = registry.get_instance("battle_resources")
