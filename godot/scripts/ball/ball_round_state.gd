@@ -23,6 +23,7 @@ func build_serve_snapshot(
 	boss_paddle_width: float,
 	boss_hitbox_height: float,
 	ball_size: float,
+	serve_ball_offset: float,
 	ball_physics: Object
 ) -> Dictionary:
 	var snapshot: Dictionary = build_common_snapshot()
@@ -30,14 +31,15 @@ func build_serve_snapshot(
 	var serve_velocity: Vector2 = _build_serve_velocity(player_is_serving, ball_physics)
 	snapshot["ball_vel"] = serve_velocity
 	_apply_serve_launch_boost(snapshot, serve_velocity, ball_physics)
+	var serve_offset: float = max(1.0, serve_ball_offset if serve_ball_offset > 0.0 else ball_size * 0.5)
 	if player_is_serving:
-		snapshot["ball_pos"] = Vector2(player_pos.x + player_paddle_width * 0.5, player_y - ball_size)
+		snapshot["ball_pos"] = Vector2(player_pos.x + player_paddle_width * 0.5, player_y - serve_offset)
 		snapshot["player_collision_cooldown"] = SERVE_COLLISION_COOLDOWN_FRAMES
 		snapshot["boss_collision_cooldown"] = max(4.0, SERVE_COLLISION_COOLDOWN_FRAMES * 0.5)
 	else:
 		snapshot["ball_pos"] = Vector2(
 			boss_pos.x + boss_paddle_width * 0.5,
-			boss_y + boss_hitbox_height + ball_size
+			boss_y + boss_hitbox_height + serve_offset
 		)
 		snapshot["boss_collision_cooldown"] = SERVE_COLLISION_COOLDOWN_FRAMES
 		snapshot["player_collision_cooldown"] = max(4.0, SERVE_COLLISION_COOLDOWN_FRAMES * 0.5)

@@ -48,6 +48,7 @@ func serve_ball(config: Dictionary, deps: Dictionary, callbacks: Dictionary) -> 
 			float(config.get("boss_paddle_width", 0.0)),
 			float(config.get("boss_hitbox_height", 0.0)),
 			float(config.get("ball_size", 0.0)),
+			float(config.get("ball_render_radius", float(config.get("ball_size", 0.0)) * 0.5)),
 			deps.get("ball_physics", null)
 		)
 		_apply_snapshot(snapshot, callbacks)

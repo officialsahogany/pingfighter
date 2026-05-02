@@ -228,7 +228,7 @@ Godot.
   local `_get_vector2` / `_as_vector2` bodies.
 - `scripts/ball/ball_speed_policy.gd`
   Owns ball speed policy calculations: serve velocity, junior / rally
-  speed multipliers, balanced normal-rally acceleration tuning, dampened multipliers, scaled random multipliers,
+  speed multipliers, 50% reduced normal-rally acceleration tuning, dampened multipliers, scaled random multipliers,
   15% lowered base-speed tuning, minimum vertical bounce correction, and
   base speed capping.
 - `scripts/ball/ball_impact_boost_policy.gd`
@@ -238,7 +238,7 @@ Godot.
   vertical-shot decay strengthening, speed-normalized
   boost travel distance with delayed high-speed burst softening, slow rally
   carry-floor ramping, straight high-rally carry-floor clamping with a balanced late-rally floor, 15% raised
-  overall boost scale tuning, stage boost caps,
+  overall boost scale tuning, reduced serve-only launch burst, stage boost caps,
   early-rally boost softening, junior boost scaling,
   decay-rate calculation, and the public boost-policy facade.
 - `scripts/ball/ball_impact_angle_boost_policy.gd`
@@ -350,7 +350,8 @@ Godot.
 - `scripts/ball/ball_update_static_config.gd`
   Owns static ball update config: court dimensions, ball / paddle sizes,
   Drive / Power Smashing constants, 500 max-gauge constants, speed caps, reset
-  config, and serve config.
+  config, and serve config including the visual serve-ball radius used to
+  keep waiting-serve and launch-frame positions continuous.
 - `scripts/ball/ball_dependency_context.gd`
   Owns ball update / round dependency map assembly from the gameplay
   module registry, including Power-Smashing counter knockback access to
@@ -372,9 +373,9 @@ Godot.
 - `scripts/ball/ball_round_state.gd`
   Owns ball round-start snapshots: common ball / spin / Drive runtime
   resets, full ball reset position, serve placement with serve velocity
-  from `ball_physics.gd`, serve launch boost, and serve collision cooldown
-  fields. The ball round controller owns the surrounding reset / serve
-  fanout.
+  from `ball_physics.gd`, serve launch boost, visual-continuity serve
+  offsets, and serve collision cooldown fields. The ball round controller
+  owns the surrounding reset / serve fanout.
 - `scripts/ball/ball_round_controller.gd`
   Owns ball reset / serve orchestration around `ball_round_state`: applying
   reset and serve snapshots through the scene callback, invoking round
@@ -1086,8 +1087,12 @@ Godot.
   `main.gd` applies only the returned ball snapshot.
 - `scripts/characters/smasher_skill_feedback_renderer.gd`
   Owns Smasher skill feedback drawing: dash status text, Drive / Power
-  Smashing center banners, and the feedback draw facade. `main.gd` still
-  owns skill activation, sound playback, and draw ordering.
+  Smashing timing monitors, center banners, and the feedback draw facade.
+  `main.gd` still owns skill activation, sound playback, and draw ordering.
+- `scripts/characters/smasher_skill_timing_monitor_renderer.gd`
+  Owns the original Smasher Drive / Power-Smashing pre-hit timing monitor:
+  yellow early Drive ring, red close-range SMASHING ring, ball / paddle
+  approach checks, gauge-cost color selection, pulse ring, and label draw.
 - `scripts/characters/smasher_power_smash_feedback_effect_renderer.gd`
   Owns Power Smashing trail / particle canvas rendering from the runtime
   trail and particle snapshots, including original-style blue linked

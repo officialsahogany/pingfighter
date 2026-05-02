@@ -5,6 +5,7 @@ const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
 const WIDTH := 760.0
 const HEIGHT := 750.0
 const BALL_SIZE := 22.0
+const BALL_RENDER_RADIUS := 13.0
 const BALL_MAX_STEP_DISTANCE := 12.0
 const MIN_BALL_SPEED := 3.0
 const MAX_BALL_SPEED := 60.0
@@ -86,4 +87,5 @@ func build_serve_config(player_pos: Vector2, boss_pos: Vector2) -> Dictionary:
 		"boss_paddle_width": BOSS_PADDLE_WIDTH,
 		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
 		"ball_size": BALL_SIZE,
+		"ball_render_radius": BALL_RENDER_RADIUS,
 	}
