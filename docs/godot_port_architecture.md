@@ -117,11 +117,13 @@ Godot.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
   construction, original field-drop timing for the currently ported
-  `gauge_charge` / Energy Drink item, item-spawn portal release timing,
-  animated unknown field-icon drawing, field-item motion / pickup routing,
-  pickup feedback, number-key use input, per-item cooldown checks, and the
-  original Energy Drink consumable effect. Broader item pools beyond
-  `gauge_charge` are still future item-domain work.
+  `gauge_charge` / Energy Drink and `grenade` item data, item-spawn portal
+  release timing, weighted currently-ported item spawning, animated unknown
+  field-icon drawing, field-item motion / pickup routing, pickup feedback,
+  grenade windup / projectile / explosion state, number-key use input,
+  per-item cooldown checks, and the original Energy Drink / grenade
+  consumable effects. Broader item pools beyond those currently ported
+  items are still future item-domain work.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve
@@ -529,10 +531,12 @@ Godot.
   the values.
 - `scripts/effects/battle_effects_update_controller.gd`
   Owns per-frame battle-effect fanout: battle feedback timers, audio tick,
-  top mini-scoreboard sparkle, Drive text timer decay, Power Smashing text
-  / VFX update, combo timer update, Stage 1 background update, gauge / dash
-  orb spin sync, actor animation update, and impact-particle update.
-  `main.gd` applies only the returned Drive text timer value.
+  Drive text timer decay, Power Smashing text / VFX update, combo timer
+  update, Stage 1 background update, gauge / dash orb spin sync, actor
+  animation update, and impact-particle update. `main.gd` applies only
+  the returned Drive text timer value. Top mini-scoreboard visual sparkle
+  is intentionally advanced from the idle-process scene update driver so
+  the display can redraw at monitor refresh instead of physics tick rate.
 - `scripts/effects/impact_effects_renderer.gd`
   Owns generic impact canvas drawing: paddle-hit particles, wall-impact
   flash, and wall-impact particles. `main.gd` still owns draw ordering and
@@ -618,7 +622,8 @@ Godot.
 - `scripts/core/battle_scene_update_driver.gd`
   Owns scene update-frame orchestration around the existing flow
   controller: flow dependency lookup, callback binding, callback cleanup,
-  and lifecycle reset-ball entry point.
+  scoreboard overlay idle-process updates, top mini-scoreboard visual
+  refresh requests, and lifecycle reset-ball entry point.
 - `scripts/core/battle_scene_update_callbacks.gd`
   Owns scene update callbacks for player / active items / boss / ball /
   effects-driver, score events, scoreboard updates, serve/reset requests,
@@ -827,9 +832,11 @@ Godot.
   game-reset handoff, and top mini-scoreboard sparkle timing. It is the
   single source for overlay draw-time status; the round-end overlay uses the
   Python scoreboard's 15-frame fade-in and 90-frame hold cadence, with
-  continuous render-loop frame values for smooth LED pulse animation while
-  physics-frame gameplay remains paused. `main.gd` still owns match score
-  rules and sound playback.
+  continuous idle-process frame values for high-refresh LED pulse animation
+  while physics-frame gameplay remains paused. Top mini-scoreboard sparkle
+  timers are also stepped from idle process so score flashes and deuce
+  pulses redraw smoothly on high-refresh displays. `main.gd` still owns
+  match score rules and sound playback.
 - `scripts/hud/scoreboard_renderer.gd`
   Owns the public scoreboard draw API and delegates visual bodies to
   focused scoreboard helpers. The scene drawer decides when to draw it and
@@ -846,8 +853,8 @@ Godot.
 - `scripts/hud/scoreboard_led_digit_patterns.gd`
   Owns reusable scoreboard LED numeric dot patterns for digits 0-9.
 - `scripts/hud/scoreboard_led_dot_renderer.gd`
-  Owns one-dot scoreboard LED rendering: lit glow rings, bright cores,
-  dim/off dots, and shared color helpers.
+  Owns one-dot scoreboard LED rendering: a reduced lit glow stack, bright
+  dot body, dim/off dots, and the round-end scoreboard draw-call budget.
 - `scripts/hud/scoreboard_overlay_renderer.gd`
   Owns the full-screen score overlay canvas drawing: overlay layout,
   full-board frame placement, inner screen, footer target text, and

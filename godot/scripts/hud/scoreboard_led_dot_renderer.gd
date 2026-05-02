@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LIT_GLOW_LAYERS := 2
+
 
 func draw_premium_led(
 	canvas: Node2D,
@@ -17,19 +19,17 @@ func draw_premium_led(
 
 
 func _draw_lit_dot(canvas: Node2D, center: Vector2, color: Color, size: float, intensity: float, alpha: float) -> void:
-	for glow_idx in range(6, 0, -1):
-		var glow_radius: float = size + float(glow_idx) * 2.0
-		var glow_alpha: float = (40.0 / 255.0) * intensity / float(glow_idx) * alpha
+	for glow_idx in range(LIT_GLOW_LAYERS, 0, -1):
+		var glow_radius: float = size + float(glow_idx) * 3.0
+		var glow_alpha: float = (46.0 / 255.0) * intensity / float(glow_idx) * alpha
 		canvas.draw_circle(center, glow_radius, Color(color.r, color.g, color.b, glow_alpha))
 	canvas.draw_circle(center, size, _alpha_color(color, alpha))
-	canvas.draw_circle(center, max(1.0, size - 2.0), _alpha_color(_brighten_color(color, 80.0 / 255.0), alpha))
-	canvas.draw_circle(center + Vector2(-size / 3.0, -size / 3.0), max(1.0, size / 3.0), _alpha_color(_brighten_color(color, 150.0 / 255.0), alpha))
+	canvas.draw_circle(center + Vector2(-size / 3.0, -size / 3.0), max(1.0, size / 3.0), _alpha_color(_brighten_color(color, 145.0 / 255.0), alpha))
 
 
 func _draw_dim_dot(canvas: Node2D, center: Vector2, color: Color, size: float, alpha: float) -> void:
 	var dim_color := Color(max(10.0 / 255.0, color.r / 12.0), max(10.0 / 255.0, color.g / 12.0), max(10.0 / 255.0, color.b / 12.0))
 	canvas.draw_circle(center, max(1.0, size - 1.0), _alpha_color(dim_color, alpha))
-	canvas.draw_circle(center + Vector2(-size / 4.0, -size / 4.0), max(1.0, size / 4.0), _rgb(30.0, 30.0, 35.0, alpha))
 
 
 func _alpha_color(color: Color, alpha: float) -> Color:

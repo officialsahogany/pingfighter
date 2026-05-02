@@ -4,9 +4,7 @@ extends RefCounted
 func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 	var scoreboard_state = deps.get("scoreboard_state", null)
 	if scoreboard_state != null and scoreboard_state.is_active():
-		_call_delta(callbacks, "update_scoreboard", delta)
 		_call_delta(callbacks, "update_effects", delta)
-		_call(callbacks, "queue_redraw")
 		return
 
 	var power_state = deps.get("power_state", null)

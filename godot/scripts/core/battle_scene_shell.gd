@@ -66,6 +66,17 @@ func activate_drive_ball(
 		api.activate_drive_ball(self, gameplay_modules, direction, spin_strength, speed_multiplier, speed_bypass_bonus)
 
 
+func _process(delta: float) -> void:
+	var update_driver = _get_module("battle_scene_update_driver")
+	if update_driver != null:
+		update_driver.update_scoreboard_visuals(self, gameplay_modules, delta)
+	var scoreboard_state = _get_module("scoreboard_state")
+	if scoreboard_state == null or not scoreboard_state.is_active():
+		return
+	if update_driver != null:
+		update_driver.update_scoreboard_overlay(self, gameplay_modules, delta)
+
+
 func _physics_process(delta: float) -> void:
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
