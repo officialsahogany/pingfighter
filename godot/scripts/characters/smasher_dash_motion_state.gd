@@ -1,0 +1,83 @@
+extends RefCounted
+
+const SmasherDashMotionUpdateResolver := preload("res://scripts/characters/smasher_dash_motion_update_resolver.gd")
+
+const DASH_DURATION: float = 15.0
+const HALF_DASH_DURATION: float = 11.0
+
+var update_resolver: Object = SmasherDashMotionUpdateResolver.new()
+var dash_active: bool = false
+var dash_timer: float = 0.0
+var dash_direction: float = 0.0
+var dash_is_half: bool = false
+var dash_stun_timer: float = 0.0
+var dash_available_timer: float = 0.0
+var dash_elapsed_frames: float = 0.0
+
+
+func reset_round() -> void:
+	dash_active = false
+	dash_timer = 0.0
+	dash_direction = 0.0
+	dash_is_half = false
+	dash_stun_timer = 0.0
+	dash_available_timer = 0.0
+	dash_elapsed_frames = 0.0
+
+
+func is_active() -> bool:
+	return dash_active
+
+
+func is_recovering() -> bool:
+	return dash_stun_timer > 0.0
+
+
+func can_chain(direction: float, has_full_token: bool, start_delay_frames: float) -> bool:
+	return (
+		dash_active
+		and not dash_is_half
+		and has_full_token
+		and dash_elapsed_frames >= start_delay_frames
+		and direction != 0.0
+	)
+
+
+func can_start(direction: float, key_released_since_last: bool) -> bool:
+	return direction != 0.0 and dash_available_timer <= 0.0 and key_released_since_last
+
+
+func start(direction: float, is_half: bool) -> bool:
+	if direction == 0.0:
+		return false
+	dash_active = true
+	dash_direction = direction
+	dash_is_half = is_half
+	dash_elapsed_frames = 0.0
+	if is_half:
+		dash_timer = HALF_DASH_DURATION
+	else:
+		dash_timer = DASH_DURATION
+	return true
+
+
+func update(
+	fps_scale: float,
+	player_pos: Vector2,
+	play_left: float,
+	play_right: float,
+	paddle_width: float
+) -> Dictionary:
+	return update_resolver.update(self, fps_scale, player_pos, play_left, play_right, paddle_width)
+
+
+func get_snapshot() -> Dictionary:
+	return {
+		"active": dash_active,
+		"timer": dash_timer,
+		"direction": dash_direction,
+		"is_half": dash_is_half,
+		"stun_timer": dash_stun_timer,
+		"available_timer": dash_available_timer,
+		"elapsed_frames": dash_elapsed_frames,
+	}

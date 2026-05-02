@@ -1,0 +1,121 @@
+extends RefCounted
+
+const BallImpactBoostPolicy := preload("res://scripts/ball/ball_impact_boost_policy.gd")
+const BallSpeedPolicy := preload("res://scripts/ball/ball_speed_policy.gd")
+
+const BALL_BASE_SPEED := 7.65
+
+var speed_policy: Object = BallSpeedPolicy.new()
+var impact_boost_policy: Object = BallImpactBoostPolicy.new()
+var current_stage := 1
+var ai_mode := "champion"
+var arena_mode_enabled := false
+var weather_type := ""
+var weather_active := false
+
+
+func configure_context(
+	stage: int,
+	league_mode: String = "champion",
+	arena_enabled: bool = false,
+	active_weather_type: String = ""
+) -> void:
+	current_stage = max(1, stage)
+	ai_mode = normalize_league_mode(league_mode)
+	arena_mode_enabled = arena_enabled
+	weather_type = active_weather_type
+	weather_active = active_weather_type != ""
+
+
+func normalize_league_mode(league_mode: String) -> String:
+	var normalized: String = league_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
+	if normalized == "champion" or normalized == "championleague" or normalized == "pro":
+		return "champion"
+	if normalized == "mythic" or normalized == "mythicleague":
+		return "mythic"
+	return "champion"
+
+
+func build_serve_velocity(player_serves: bool) -> Vector2:
+	return speed_policy.build_serve_velocity(player_serves, _build_context())
+
+
+func get_junior_ball_speed_multiplier() -> float:
+	return speed_policy.get_junior_ball_speed_multiplier(_build_context())
+
+
+func get_junior_speed_increase_multiplier() -> float:
+	return speed_policy.get_junior_speed_increase_multiplier(_build_context())
+
+
+func get_rally_speed_increase_multiplier() -> float:
+	return speed_policy.get_rally_speed_increase_multiplier(_build_context())
+
+
+func get_speed_dampen_factor(current_speed: float) -> float:
+	return speed_policy.get_speed_dampen_factor(current_speed)
+
+
+func apply_dampened_multiplier(current_speed: float, raw_multiplier: float) -> float:
+	return speed_policy.apply_dampened_multiplier(current_speed, raw_multiplier)
+
+
+func get_scaled_random_multiplier(raw_min: float, raw_max: float, scale: float) -> float:
+	return speed_policy.get_scaled_random_multiplier(raw_min, raw_max, scale)
+
+
+func get_stage_impact_boost_cap() -> float:
+	return impact_boost_policy.get_stage_impact_boost_cap(current_stage)
+
+
+func compute_dynamic_impact_boost(
+	velocity: Vector2,
+	current_speed: float,
+	launch_angle_rad: float = 0.0
+) -> Dictionary:
+	return impact_boost_policy.compute_dynamic_impact_boost(
+		velocity,
+		current_speed,
+		launch_angle_rad,
+		_build_context()
+	)
+
+
+func compute_serve_launch_impact_boost(velocity: Vector2) -> Dictionary:
+	return impact_boost_policy.compute_serve_launch_impact_boost(velocity, _build_context())
+
+
+func apply_impact_decay(
+	velocity: Vector2,
+	impact_boost: float,
+	min_boost: float,
+	decay_rate: float,
+	fps_scale: float
+) -> float:
+	return impact_boost_policy.apply_impact_decay(
+		velocity,
+		impact_boost,
+		min_boost,
+		decay_rate,
+		fps_scale
+	)
+
+
+func ensure_min_vertical_component(vector: Vector2, direction_sign: float) -> Vector2:
+	return speed_policy.ensure_min_vertical_component(vector, direction_sign)
+
+
+func cap_base_speed(velocity: Vector2) -> Vector2:
+	return speed_policy.cap_base_speed(velocity)
+
+
+func _build_context() -> Dictionary:
+	return {
+		"current_stage": current_stage,
+		"ai_mode": ai_mode,
+		"arena_mode_enabled": arena_mode_enabled,
+		"weather_type": weather_type,
+		"weather_active": weather_active,
+	}

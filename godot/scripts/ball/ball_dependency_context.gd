@@ -1,0 +1,55 @@
+extends RefCounted
+
+
+func build_update_deps(registry) -> Dictionary:
+	return {
+		"ball_physics": registry.get_instance("ball_physics"),
+		"ball_spin_state": registry.get_instance("ball_spin_state"),
+		"ball_effects": registry.get_instance("ball_effects"),
+		"ball_intensity": registry.get_instance("ball_intensity"),
+		"motion_stepper": registry.get_instance("ball_motion_stepper"),
+		"wall_bounce_controller": registry.get_instance("wall_bounce_controller"),
+		"paddle_bounce_state": registry.get_instance("paddle_bounce_state"),
+		"paddle_bounce_controller": registry.get_instance("paddle_bounce_controller"),
+		"drive_bounce_state": registry.get_instance("smasher_drive_bounce_state"),
+		"drive_counter_state": registry.get_instance("smasher_drive_counter_state"),
+		"drive_activation_controller": registry.get_instance("smasher_drive_activation_controller"),
+		"power_activation_controller": registry.get_instance("smasher_power_smash_activation_controller"),
+		"power_motion_controller": registry.get_instance("smasher_power_smash_motion_controller"),
+		"input_reader": registry.get_instance("smasher_input_reader"),
+		"power_state": registry.get_instance("smasher_power_smash_state"),
+		"movement_state": registry.get_instance("player_movement_state"),
+		"round_state": registry.get_instance("round_flow_state"),
+		"drive_input_state": registry.get_instance("smasher_drive_input_state"),
+		"combo_state": registry.get_instance("smasher_combo_state"),
+		"dash_state": registry.get_instance("smasher_dash_state"),
+		"skill_state": registry.get_instance("smasher_skill_state"),
+		"skill_config": registry.get_instance("smasher_skill_config"),
+		"orb_hud_state": registry.get_instance("orb_hud_state"),
+		"impact_effects": registry.get_instance("impact_effects"),
+		"audio": registry.get_instance("game_audio"),
+		"feedback": registry.get_instance("battle_feedback_state"),
+		"animation_state": registry.get_instance("actor_animation_state"),
+		"stage_background": registry.get_instance("stage1_pillar_background"),
+	}
+
+
+func build_round_deps(registry) -> Dictionary:
+	return {
+		"ball_round_state": registry.get_instance("ball_round_state"),
+		"power_state": registry.get_instance("smasher_power_smash_state"),
+		"drive_input_state": registry.get_instance("smasher_drive_input_state"),
+		"combo_state": registry.get_instance("smasher_combo_state"),
+		"ball_effects": registry.get_instance("ball_effects"),
+		"ball_intensity": registry.get_instance("ball_intensity"),
+		"impact_effects": registry.get_instance("impact_effects"),
+		"audio": registry.get_instance("game_audio"),
+		"ball_renderer": registry.get_instance("ball_renderer"),
+		"round_state": registry.get_instance("round_flow_state"),
+		"ai_state": registry.get_instance("boss_ai_state"),
+		"movement_state": registry.get_instance("player_movement_state"),
+		"animation_state": registry.get_instance("actor_animation_state"),
+		"dash_state": registry.get_instance("smasher_dash_state"),
+		"feedback": registry.get_instance("battle_feedback_state"),
+		"ball_physics": registry.get_instance("ball_physics"),
+	}

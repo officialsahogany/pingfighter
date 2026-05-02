@@ -1,0 +1,76 @@
+extends RefCounted
+
+const ActiveItemHudPanelRenderer := preload("res://scripts/hud/active_item_hud_panel_renderer.gd")
+const ActiveItemHudSlotContextBuilder := preload("res://scripts/hud/active_item_hud_slot_context_builder.gd")
+const ActiveItemHudSlotRenderer := preload("res://scripts/hud/active_item_hud_slot_renderer.gd")
+
+var panel_renderer: Object = ActiveItemHudPanelRenderer.new()
+var slot_context_builder: Object = ActiveItemHudSlotContextBuilder.new()
+var slot_renderer: Object = ActiveItemHudSlotRenderer.new()
+
+
+func draw_slots(
+	canvas: Node2D,
+	layout: Dictionary,
+	active_item_slots: Array,
+	round_start_time_msec: int,
+	hud_state,
+	visuals
+) -> void:
+	if canvas == null or not bool(layout.get("visible", false)):
+		return
+
+	var scale_factor: float = float(layout["scale_factor"])
+	var slot_rects: Array = layout["slot_rects"]
+	var slot_overflow_flags: Array = layout["slot_overflow_flags"]
+	var actual_item_count: int = int(layout["actual_item_count"])
+	var selected_item_index: int = slot_context_builder.get_selected_index(hud_state)
+	var current_time: int = Time.get_ticks_msec()
+	var time_since_round_start: int = slot_context_builder.get_time_since_round_start(current_time, round_start_time_msec)
+	var main_box_rect: Rect2 = layout["main_box_rect"]
+
+	panel_renderer.draw_slot_panel(
+		canvas,
+		main_box_rect,
+		Color(15.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 180.0 / 255.0),
+		Color(70.0 / 255.0, 70.0 / 255.0, 90.0 / 255.0)
+	)
+	if bool(layout.get("overflow_visible", false)):
+		var overflow_box_rect: Rect2 = layout["overflow_box_rect"]
+		panel_renderer.draw_slot_panel(
+			canvas,
+			overflow_box_rect,
+			Color(15.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 80.0 / 255.0),
+			Color(60.0 / 255.0, 60.0 / 255.0, 80.0 / 255.0, 100.0 / 255.0)
+		)
+
+	var cooldown_group_remaining_ratio: float = 0.0
+	for i in range(slot_rects.size()):
+		var slot_rect: Rect2 = slot_rects[i]
+		var item_data: Dictionary = slot_context_builder.get_item_data(active_item_slots, i, actual_item_count)
+		var slot_status: Dictionary = slot_context_builder.get_slot_status(
+			hud_state,
+			i,
+			item_data,
+			current_time,
+			time_since_round_start
+		)
+		var remaining_ratio: float = slot_renderer.draw_slot(
+			canvas,
+			slot_rect,
+			item_data,
+			scale_factor,
+			visuals,
+			slot_status,
+			i == selected_item_index,
+			bool(slot_overflow_flags[i]),
+			str(i + 1)
+		)
+		cooldown_group_remaining_ratio = max(cooldown_group_remaining_ratio, remaining_ratio)
+
+	panel_renderer.draw_cooldown_status_frame_for_slots(
+		canvas,
+		slot_rects,
+		scale_factor,
+		cooldown_group_remaining_ratio
+	)
