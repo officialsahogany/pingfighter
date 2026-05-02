@@ -3,6 +3,8 @@ extends RefCounted
 const PaddleBounceVelocityRules := preload("res://scripts/ball/paddle_bounce_velocity_rules.gd")
 
 const EDGE_HIT_BOOST: float = 1.2
+const EDGE_HIT_BOOST_MIN_SCALE: float = 0.35
+const EDGE_HIT_START: float = 0.8
 const BASE_HIT_SPEED_MULT_MIN: float = 1.024
 const BASE_HIT_SPEED_MULT_MAX: float = 1.084
 const BOSS_HIT_SPEED_MULT_MIN: float = 1.012
@@ -57,6 +59,10 @@ func _apply_boss_hit_multiplier(
 
 
 func _apply_edge_hit_multiplier(speed: float, hit_pos: float, ball_physics: Object) -> float:
-	if abs(hit_pos) <= 0.8:
+	var hit_abs: float = abs(hit_pos)
+	if hit_abs <= EDGE_HIT_START:
 		return speed
-	return speed * velocity_rules.apply_dampened_multiplier(ball_physics, speed, EDGE_HIT_BOOST)
+	var edge_ratio: float = clamp((hit_abs - EDGE_HIT_START) / max(0.01, 1.0 - EDGE_HIT_START), 0.0, 1.0)
+	var boost_scale: float = lerp(1.0, EDGE_HIT_BOOST_MIN_SCALE, edge_ratio)
+	var edge_multiplier: float = 1.0 + (EDGE_HIT_BOOST - 1.0) * boost_scale
+	return speed * velocity_rules.apply_dampened_multiplier(ball_physics, speed, edge_multiplier)

@@ -418,7 +418,7 @@ Godot.
   mid / smash shaping result normalization.
 - `scripts/ball/paddle_bounce_speed_multiplier_resolver.gd`
   Owns paddle-bounce speed multiplier application: base hit multiplier,
-  boss hit multiplier, and edge-hit boost ordering.
+  boss hit multiplier, and angle-softened edge-hit boost ordering.
 - `scripts/ball/paddle_bounce_vertical_stall_guard.gd`
   Owns paddle-bounce vertical anti-stall correction: tracking near-vertical
   returns, applying small/random escape rotations, and returning the

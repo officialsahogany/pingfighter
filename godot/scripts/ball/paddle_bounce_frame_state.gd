@@ -1,5 +1,9 @@
 extends RefCounted
 
+const ANGLE_ACCEL_REDUCTION_START_DEG := 20.0
+const ANGLE_ACCEL_REDUCTION_FULL_DEG := 60.0
+const ANGLE_ACCEL_MIN_MULT := 0.45
+
 
 func build(
 	context: Dictionary,
@@ -13,6 +17,7 @@ func build(
 		_get_physics_multiplier(physics, "get_rally_speed_increase_multiplier")
 		* _get_physics_multiplier(physics, "get_junior_speed_increase_multiplier")
 	)
+	accel_scale *= _get_angle_accel_multiplier(abs(rad_to_deg(launch_angle_rad)))
 	return {
 		"vertical_bounce_count": int(context.get("vertical_bounce_count", 0)),
 		"ball_spin_strength": float(context.get("ball_spin_strength", 0.0)),
@@ -99,3 +104,15 @@ func _get_physics_multiplier(physics: Object, method: String) -> float:
 	if physics != null and physics.has_method(method):
 		return float(physics.call(method))
 	return 1.0
+
+
+func _get_angle_accel_multiplier(launch_angle_deg: float) -> float:
+	if launch_angle_deg <= ANGLE_ACCEL_REDUCTION_START_DEG:
+		return 1.0
+	var angle_ratio: float = clamp(
+		(launch_angle_deg - ANGLE_ACCEL_REDUCTION_START_DEG)
+		/ max(1.0, ANGLE_ACCEL_REDUCTION_FULL_DEG - ANGLE_ACCEL_REDUCTION_START_DEG),
+		0.0,
+		1.0
+	)
+	return lerp(1.0, ANGLE_ACCEL_MIN_MULT, angle_ratio)
