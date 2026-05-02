@@ -33,6 +33,12 @@ Godot.
 - Do not keep `main.gd` mirror variables for module-private state unless
   draw code or scene orchestration still reads them directly. Prefer
   calling the owning module from the narrow helper that needs the value.
+- For character-skill parity, audit the full cross-domain chain before
+  sign-off. Smasher skills specifically must check dash-state hooks,
+  combo grace / consumption, Drive activation, Power-Smashing activation,
+  HUD grace display, and boss-counter cleanup together; single-module
+  parity is not enough when the original Python feature depended on
+  shared globals.
 
 ## Mirror Layout
 
@@ -931,8 +937,9 @@ Godot.
   player position, speed, and gameplay frame counter.
 - `scripts/characters/smasher_player_dash_controller.gd`
   Owns Smasher player-control dash orchestration: dash start / chain side
-  effects, half/full dash selection, combo reset / effect clearing, dash-token HUD
-  spin, dash audio / shake feedback, dash-position update forwarding, and
+  effects, half/full dash selection, dash-to-skill combo grace start /
+  effect clearing, dash-token HUD spin, dash audio / shake feedback,
+  dash-position update forwarding, and
   recharge flash feedback.
 - `scripts/characters/smasher_drive_input_state.gd`
   Owns the public Smasher drive input facade: frame input updates,

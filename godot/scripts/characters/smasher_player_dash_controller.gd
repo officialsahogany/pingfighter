@@ -82,7 +82,7 @@ func _start_dash(direction: float, is_half: bool, deps: Dictionary) -> bool:
 
 	var combo_state: Object = deps.get("combo_state", null)
 	if combo_state != null:
-		combo_state.reset_combo()
+		combo_state.start_dash_combo_grace()
 		combo_state.clear_effects()
 
 	var orb_hud_state: Object = deps.get("orb_hud_state", null)
