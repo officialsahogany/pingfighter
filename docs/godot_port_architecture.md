@@ -539,6 +539,11 @@ Godot.
   Owns the scene-size and startup configuration constants for the Godot
   battle scene. Lifecycle and drawer modules read this config through the
   registry so `main.gd` no longer carries gameplay-surface constants.
+- `scripts/core/battle_scene_owner_reader.gd`
+  Owns shared scene-owner value reads for core context builders and scene
+  snapshot appliers: null-safe property lookup plus typed Vector2,
+  Dictionary, and Array fallback helpers. Core modules should delegate to
+  this reader instead of duplicating owner property access logic.
 - `scripts/core/battle_scene_api.gd`
   Owns compatibility-facing scene API calls that external tests or tools
   may invoke on `main.gd`, such as ball physics context, ball visual state,

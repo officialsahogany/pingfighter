@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneUpdateCallbacks := preload("res://scripts/core/battle_scene_update_callbacks.gd")
 
 var _callbacks: Object = BattleSceneUpdateCallbacks.new()
@@ -40,9 +41,4 @@ func _build_serve_context(owner: Object) -> Dictionary:
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
+	return BattleSceneOwnerReader.get_value(owner, key, fallback)

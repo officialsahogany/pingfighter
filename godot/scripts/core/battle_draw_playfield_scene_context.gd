@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+
 const WIDTH := 760.0
 const HEIGHT := 750.0
 const PLAY_LEFT := 0.0
@@ -71,23 +73,12 @@ func _get_dash_snapshot(registry) -> Dictionary:
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
+	return BattleSceneOwnerReader.get_value(owner, key, fallback)
 
 
 func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = _get_owner_value(owner, key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+	return BattleSceneOwnerReader.get_vector2(owner, key, fallback)
 
 
 func _get_owner_dict(owner: Object, key: String) -> Dictionary:
-	var value: Variant = _get_owner_value(owner, key, {})
-	if value is Dictionary:
-		return value
-	return {}
+	return BattleSceneOwnerReader.get_dictionary(owner, key)

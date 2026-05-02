@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+
 
 func update_player_control(owner: Object, registry: Object, delta: float) -> void:
 	var controller: Object = _get_instance(registry, "smasher_player_controller")
@@ -49,16 +51,8 @@ func _get_instance(registry: Object, key: String) -> Object:
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
+	return BattleSceneOwnerReader.get_value(owner, key, fallback)
 
 
 func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = _get_owner_value(owner, key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+	return BattleSceneOwnerReader.get_vector2(owner, key, fallback)

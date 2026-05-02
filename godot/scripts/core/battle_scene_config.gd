@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+
 const WIDTH := 760.0
 const HEIGHT := 750.0
 const PILLAR_WIDTH := 80.0
@@ -34,9 +36,4 @@ func build_draw_context() -> Dictionary:
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
+	return BattleSceneOwnerReader.get_value(owner, key, fallback)

@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 
 
@@ -61,9 +62,4 @@ func _get_instance(registry: Object, key: String) -> Object:
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
+	return BattleSceneOwnerReader.get_value(owner, key, fallback)
