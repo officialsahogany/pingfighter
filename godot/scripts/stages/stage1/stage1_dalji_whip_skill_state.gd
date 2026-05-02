@@ -64,6 +64,16 @@ func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary 
 	boss_special_gauge = min(boss_special_gauge + BOSS_GAUGE_GAIN_ON_HIT, BOSS_GAUGE_MAX)
 	var next_ball_vel: Vector2 = ball_vel
 	var activated := false
+	var deactivated := false
+	if active:
+		_start_deactivation()
+		deactivated = true
+		return {
+			"ball_vel": next_ball_vel,
+			"boss_special_gauge": boss_special_gauge,
+			"whip_activated": activated,
+			"whip_deactivated": deactivated,
+		}
 	if _can_activate():
 		if randf() <= WHIP_ACTIVATION_CHANCE:
 			next_ball_vel = _activate(next_ball_vel, deps)
@@ -72,6 +82,7 @@ func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary 
 		"ball_vel": next_ball_vel,
 		"boss_special_gauge": boss_special_gauge,
 		"whip_activated": activated,
+		"whip_deactivated": deactivated,
 	}
 
 
@@ -151,6 +162,7 @@ func get_draw_context() -> Dictionary:
 		"boss_whip_deactivation_active": deactivation_active,
 		"boss_whip_post_stun_active": post_stun_timer_frames > 0.0,
 		"boss_whip_frame": get_whip_frame_index(),
+		"boss_whip_deactivation_angle_degrees": visual_angle_degrees,
 		"boss_whip_post_stun_frame": get_post_stun_frame_index(),
 		"boss_whip_bob_offset": get_post_stun_bob_offset(),
 	}

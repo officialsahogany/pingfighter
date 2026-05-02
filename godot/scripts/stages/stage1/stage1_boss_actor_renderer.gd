@@ -52,7 +52,17 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 			float(sheet_selection.get("cell_width", WALK_CELL_WIDTH)),
 			float(sheet_selection.get("cell_height", WALK_CELL_HEIGHT))
 		)
-		canvas.draw_texture_rect_region(sheet, boss_visual_rect, region, Color.WHITE, false, true)
+		if bool(context.get("boss_whip_deactivation_active", false)):
+			_draw_whip_deactivation(
+				canvas,
+				sheet,
+				region,
+				boss_visual_rect.get_center(),
+				boss_draw_size,
+				float(context.get("boss_whip_deactivation_angle_degrees", 0.0))
+			)
+		else:
+			canvas.draw_texture_rect_region(sheet, boss_visual_rect, region, Color.WHITE, false, true)
 	else:
 		_draw_boss_fallback(canvas, context, boss_pos, boss_paddle_size, shake_offset)
 
@@ -60,7 +70,7 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 func _select_sheet(context: Dictionary) -> Dictionary:
 	# Priority: Dalji whip skill > ball-contact attack > walk (left or right by facing) > idle.
 	# `boss_*_sheet` keys come from battle_resources / battle_draw_actor_context.
-	if bool(context.get("boss_whip_active", false)) or bool(context.get("boss_whip_deactivation_active", false)):
+	if bool(context.get("boss_whip_active", false)):
 		var whip_sheet: Variant = context.get("boss_whip_sheet", null)
 		if whip_sheet is Texture2D:
 			return {
@@ -130,6 +140,71 @@ func _get_cell_region(frame: int, cell_width: float, cell_height: float) -> Rect
 	var col: int = clamped % SHEET_GRID_COLS
 	var row: int = int(clamped / SHEET_GRID_COLS)
 	return Rect2(float(col) * cell_width, float(row) * cell_height, cell_width, cell_height)
+
+
+func _draw_whip_deactivation(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source_rect: Rect2,
+	center: Vector2,
+	draw_size: Vector2,
+	angle_degrees: float
+) -> void:
+	for index in range(2):
+		var ghost_angle: float = angle_degrees - float(index + 1) * 30.0
+		var ghost_alpha: float = 0.20 - float(index) * 0.08
+		_draw_rotated_texture_region(
+			canvas,
+			texture,
+			source_rect,
+			center,
+			draw_size,
+			ghost_angle,
+			Color(1.0, 1.0, 1.0, ghost_alpha)
+		)
+	_draw_rotated_texture_region(canvas, texture, source_rect, center, draw_size, angle_degrees, Color.WHITE)
+
+
+func _draw_rotated_texture_region(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source_rect: Rect2,
+	center: Vector2,
+	draw_size: Vector2,
+	angle_degrees: float,
+	modulate: Color
+) -> void:
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+
+	var half_size: Vector2 = draw_size * 0.5
+	var radians: float = deg_to_rad(angle_degrees)
+	var cos_a: float = cos(radians)
+	var sin_a: float = sin(radians)
+	var offsets := [
+		Vector2(-half_size.x, -half_size.y),
+		Vector2(half_size.x, -half_size.y),
+		Vector2(half_size.x, half_size.y),
+		Vector2(-half_size.x, half_size.y),
+	]
+	var points := PackedVector2Array()
+	for offset in offsets:
+		points.append(center + Vector2(
+			offset.x * cos_a - offset.y * sin_a,
+			offset.x * sin_a + offset.y * cos_a
+		))
+
+	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
+	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
+	var uvs := PackedVector2Array([
+		Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_max.x, uv_max.y),
+		Vector2(uv_min.x, uv_max.y),
+	])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
+	canvas.draw_polygon(points, colors, uvs, texture)
 
 
 func _draw_boss_fallback(canvas: CanvasItem, context: Dictionary, boss_pos: Vector2, boss_paddle_size: Vector2, shake_offset: Vector2) -> void:
