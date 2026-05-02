@@ -8,6 +8,7 @@ const PINGPONG_SERVE_SOUND_PATH := "res://assets/sounds/pong_paddle.wav"
 const WALL_HIT_SOUND_PATH := "res://assets/sounds/wall_hit.wav"
 const DASH_SOUND_PATH := "res://assets/sounds/dash.wav"
 const HALF_DASH_SOUND_PATH := "res://assets/sounds/halfdash.wav"
+const DASH_DELAY_SOUND_PATH := "res://assets/sounds/dashdelay.wav"
 const DRIVE_SOUND_PATH := "res://assets/sounds/drive.wav"
 const WHIP_SOUND_PATH := "res://assets/sounds/whip_effect.wav"
 const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
@@ -32,6 +33,7 @@ var pingpong_serve_sfx: AudioStreamPlayer
 var wall_hit_sfx: AudioStreamPlayer
 var dash_sfx: AudioStreamPlayer
 var half_dash_sfx: AudioStreamPlayer
+var dash_delay_sfx: AudioStreamPlayer
 var drive_sfx: AudioStreamPlayer
 var whip_sfx: AudioStreamPlayer
 var item_get_sfx: AudioStreamPlayer
@@ -52,6 +54,8 @@ func setup(parent: Node) -> void:
 	wall_hit_sfx = player_factory.create(owner_node, "WallHitSfx", WALL_HIT_SOUND_PATH, -7.0)
 	dash_sfx = player_factory.create(owner_node, "DashSfx", DASH_SOUND_PATH, -6.0)
 	half_dash_sfx = player_factory.create(owner_node, "HalfDashSfx", HALF_DASH_SOUND_PATH, -6.0)
+	dash_delay_sfx = player_factory.create(owner_node, "DashDelaySfx", DASH_DELAY_SOUND_PATH, -9.0)
+	_enable_loop(dash_delay_sfx)
 	drive_sfx = player_factory.create(owner_node, "DriveSfx", DRIVE_SOUND_PATH, -5.0)
 	whip_sfx = player_factory.create(owner_node, "WhipSfx", WHIP_SOUND_PATH, -5.0)
 	item_get_sfx = player_factory.create(owner_node, "ItemGetSfx", ITEM_GET_SOUND_PATH, -5.0)
@@ -129,6 +133,27 @@ func play_dash_start(is_half: bool) -> void:
 	_play_with_pitch(player, randf_range(0.98, 1.02))
 
 
+func sync_dash_delay(recovering: bool) -> void:
+	if recovering:
+		play_dash_delay()
+	else:
+		stop_dash_delay()
+
+
+func play_dash_delay() -> void:
+	if dash_delay_sfx == null or dash_delay_sfx.stream == null:
+		return
+	if dash_delay_sfx.playing:
+		return
+	dash_delay_sfx.pitch_scale = 1.0
+	dash_delay_sfx.play()
+
+
+func stop_dash_delay() -> void:
+	if dash_delay_sfx != null and dash_delay_sfx.playing:
+		dash_delay_sfx.stop()
+
+
 func play_wall_hit(impact_speed: float) -> void:
 	if wall_sound_cooldown > 0.0:
 		return
@@ -153,3 +178,14 @@ func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 		player.stop()
 	player.play()
 	return true
+
+
+func _enable_loop(player: AudioStreamPlayer) -> void:
+	if player == null or player.stream == null:
+		return
+	var stream: AudioStream = player.stream
+	if stream is AudioStreamWAV:
+		var wav_stream: AudioStreamWAV = stream
+		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav_stream.loop_begin = 0
+		wav_stream.loop_end = -1
