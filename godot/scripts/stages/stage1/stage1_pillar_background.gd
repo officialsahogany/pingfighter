@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage1PillarAmbientState := preload("res://scripts/stages/stage1/stage1_pillar_ambient_state.gd")
 const Stage1PillarLayerRenderer := preload("res://scripts/stages/stage1/stage1_pillar_layer_renderer.gd")
 
@@ -30,17 +31,7 @@ func _load_textures() -> void:
 
 
 func _load_texture_resource(path: String) -> Texture2D:
-	if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
-		return null
-	if FileAccess.file_exists(path):
-		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
-		if image != null and not image.is_empty():
-			return ImageTexture.create_from_image(image)
-	if ResourceLoader.exists(path):
-		var texture = load(path)
-		if texture is Texture2D:
-			return texture
-	return null
+	return ProjectResourceLoader.load_texture(path)
 
 
 func update(delta: float) -> void:

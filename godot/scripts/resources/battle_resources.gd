@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+
 const PINGPONG_BALL_TEXTURE_PATH := "res://assets/sprites/ball.png"
 const GAUGE_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_frame_imagegen_v1.png"
 const DASH_TOKEN_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/dash_token_frame_imagegen_v2.png"
@@ -50,16 +52,8 @@ func load_all() -> Dictionary:
 
 
 func _load_texture_resource(path: String) -> Texture2D:
-	if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
-		push_warning("Missing sprite at %s" % path)
-		return null
-	if FileAccess.file_exists(path):
-		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
-		if image != null and not image.is_empty():
-			return ImageTexture.create_from_image(image)
-	if ResourceLoader.exists(path):
-		var texture_resource: Resource = load(path)
-		if texture_resource is Texture2D:
-			return texture_resource
-	push_warning("Failed to load texture at %s" % path)
-	return null
+	return ProjectResourceLoader.load_texture(
+		path,
+		"Missing sprite at %s",
+		"Failed to load texture at %s"
+	)

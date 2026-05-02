@@ -63,6 +63,9 @@ Godot.
   outputs. For source PNG / WAV assets, load the raw file first through
   the focused resource helper, then fall back to Godot's imported
   `ResourceLoader` path when the raw file is not available.
+- `scripts/resources/project_resource_loader.gd` owns that raw-first
+  PNG / WAV loading policy. Feature modules should call it instead of
+  duplicating `FileAccess` / `ResourceLoader` fallback branches locally.
 
 ## Planned Module Map
 
@@ -653,9 +656,15 @@ Godot.
 - `scripts/resources/battle_resources.gd`
   Owns battle texture paths and loading: player / boss sprites, ball
   texture, orb / HUD frame textures, Smasher skill icon textures, and
-  missing-resource warnings. The scene bootstrap loads this map, while
-  `main.gd` keeps the loaded texture dictionary and resolves draw-module
-  texture keys through that shared resource map.
+  missing-resource warnings through the shared project resource loader.
+  The scene bootstrap loads this map, while `main.gd` keeps the loaded
+  texture dictionary and resolves draw-module texture keys through that
+  shared resource map.
+- `scripts/resources/project_resource_loader.gd`
+  Owns clean-clone-safe resource loading helpers: raw source PNG and WAV
+  files are loaded directly when present, while imported Godot resources
+  remain the fallback path. Texture, HUD, stage, and audio modules should
+  reuse this helper instead of duplicating loader branches.
 - `scripts/resources/gameplay_module_registry.gd`
   Owns the public lazy-loaded gameplay module lookup API. It delegates the
   stable module key catalog to `gameplay_module_catalog.gd` and delegates

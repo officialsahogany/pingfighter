@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+
 const DEFAULT_ITEM_COLOR := Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0)
 
 var texture_cache: Dictionary = {}
@@ -40,19 +42,8 @@ func get_item_color(item_data: Dictionary) -> Color:
 
 
 func _load_texture_resource(path: String) -> Texture2D:
-	if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
-		push_warning("Missing active item icon at %s" % path)
-		return null
-
-	if FileAccess.file_exists(path):
-		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
-		if image != null and not image.is_empty():
-			return ImageTexture.create_from_image(image)
-
-	if ResourceLoader.exists(path):
-		var texture = load(path)
-		if texture is Texture2D:
-			return texture
-
-	push_warning("Failed to load active item icon at %s" % path)
-	return null
+	return ProjectResourceLoader.load_texture(
+		path,
+		"Missing active item icon at %s",
+		"Failed to load active item icon at %s"
+	)
