@@ -3,6 +3,8 @@ extends Node2D
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 
+const ITEM_SPAWN_DEBUG_KEY := KEY_F2
+
 var scene_state = BattleSceneState.new()
 var gameplay_modules = GameplayModuleRegistry.new()
 
@@ -66,6 +68,25 @@ func activate_drive_ball(
 		api.activate_drive_ball(self, gameplay_modules, direction, spin_strength, speed_multiplier, speed_bypass_bonus)
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	var active_item_runtime = _get_module("active_item_runtime")
+	if active_item_runtime == null:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == ITEM_SPAWN_DEBUG_KEY:
+		if active_item_runtime.has_method("toggle_debug_spawn_menu"):
+			active_item_runtime.toggle_debug_spawn_menu()
+			queue_redraw()
+			get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if active_item_runtime.has_method("handle_debug_spawn_menu_click"):
+			var handled: bool = bool(active_item_runtime.handle_debug_spawn_menu_click(event.position, get_viewport_rect().size))
+			if handled:
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+
+
 func _process(delta: float) -> void:
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
@@ -87,3 +108,6 @@ func _draw() -> void:
 	var drawer = _get_module("battle_scene_drawer")
 	if drawer != null:
 		drawer.draw(self, gameplay_modules)
+	var active_item_runtime = _get_module("active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("draw_debug_spawn_menu"):
+		active_item_runtime.draw_debug_spawn_menu(self, get_viewport_rect().size)

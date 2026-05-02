@@ -22,6 +22,7 @@ func initialize(owner: CanvasItem, registry: Object, context: Dictionary = {}) -
 	var update_driver: Object = _get_instance(registry, "battle_scene_update_driver")
 	if update_driver != null:
 		update_driver.reset_ball(owner, registry)
+		update_driver.prewarm_ball_update(owner, registry)
 
 
 func _apply_owner_snapshot(owner: Object, snapshot: Dictionary) -> void:

@@ -32,6 +32,15 @@ func serve_ball(owner: Object, registry: Object) -> void:
 	)
 
 
+func prewarm_update(owner: Object, registry: Object) -> void:
+	var controller: Object = _get_instance(registry, "ball_update_controller")
+	var context_builder: Object = _get_instance(registry, "ball_update_context")
+	if owner == null or controller == null or context_builder == null:
+		return
+	context_builder.build_update_context(owner)
+	context_builder.build_update_deps(registry)
+
+
 func update_ball(owner: Object, registry: Object, delta: float, score_callback: Callable = Callable()) -> void:
 	var controller: Object = _get_instance(registry, "ball_update_controller")
 	var context_builder: Object = _get_instance(registry, "ball_update_context")

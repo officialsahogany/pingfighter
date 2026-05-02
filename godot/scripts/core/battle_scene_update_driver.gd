@@ -63,6 +63,12 @@ func reset_ball(owner: Object, registry: Object) -> void:
 	_callbacks.reset_ball(owner, registry)
 
 
+func prewarm_ball_update(owner: Object, registry: Object) -> void:
+	var ball_driver: Object = _get_instance(registry, "battle_scene_ball_update_driver")
+	if ball_driver != null and ball_driver.has_method("prewarm_update"):
+		ball_driver.prewarm_update(owner, registry)
+
+
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null

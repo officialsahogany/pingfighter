@@ -120,10 +120,10 @@ Godot.
   `gauge_charge` / Energy Drink and `grenade` item data, item-spawn portal
   release timing, weighted currently-ported item spawning, animated unknown
   field-icon drawing, field-item motion / pickup routing, pickup feedback,
-  grenade windup / projectile / explosion state, number-key use input,
-  per-item cooldown checks, and the original Energy Drink / grenade
-  consumable effects. Broader item pools beyond those currently ported
-  items are still future item-domain work.
+  grenade windup / projectile / explosion state, F2 debug spawn menu item
+  selection, number-key use input, per-item cooldown checks, and the
+  original Energy Drink / grenade consumable effects. Broader item pools
+  beyond those currently ported items are still future item-domain work.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve
@@ -564,7 +564,7 @@ Godot.
 - `scripts/core/battle_scene_lifecycle.gd`
   Owns Godot scene startup lifecycle: random setup, canvas texture policy,
   window layout configuration, bootstrap snapshot application, and initial
-  ball reset through the update driver.
+  ball reset / ball-update prewarm through the update driver.
 - `scripts/core/battle_scene_config.gd`
   Owns the scene-size and startup configuration constants for the Godot
   battle scene. Lifecycle and drawer modules read this config through the
@@ -623,7 +623,8 @@ Godot.
   Owns scene update-frame orchestration around the existing flow
   controller: flow dependency lookup, callback binding, callback cleanup,
   scoreboard overlay idle-process updates, top mini-scoreboard visual
-  refresh requests, and lifecycle reset-ball entry point.
+  refresh requests, lifecycle reset-ball entry point, and startup prewarm
+  for ball-update modules that would otherwise lazy-load on first serve.
 - `scripts/core/battle_scene_update_callbacks.gd`
   Owns scene update callbacks for player / active items / boss / ball /
   effects-driver, score events, scoreboard updates, serve/reset requests,
