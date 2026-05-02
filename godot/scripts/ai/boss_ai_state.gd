@@ -27,15 +27,37 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 			"boss_vel": 0.0,
 		}
 
+	if bool(context.get("active_item_grenade_stun_active", false)):
+		var knockback_vel: float = float(context.get("active_item_grenade_knockback_vel", 0.0))
+		boss_pos.x += knockback_vel * fps_scale
+		boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": knockback_vel if bool(context.get("active_item_grenade_knockback_active", false)) else 0.0,
+		}
+
 	if bool(context.get("stage1_dalji_whip_deactivation_active", false)):
 		var deactivation_ball_pos: Vector2 = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
-		var deactivation_target_x: float = deactivation_ball_pos.x if bool(context.get("ball_active", false)) else width * 0.5
+		var deactivation_ball_vel: Vector2 = _as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+		var deactivation_target_x: float = width * 0.5
+		var deactivation_ball_approaching_boss := false
+		if bool(context.get("ball_active", false)) and not bool(context.get("waiting_for_serve", true)):
+			deactivation_ball_approaching_boss = deactivation_ball_vel.y < 0.0
+			deactivation_target_x = prediction_state.predict_future_x(
+				deactivation_ball_pos,
+				deactivation_ball_vel,
+				fps_scale,
+				play_left,
+				play_right,
+				boss_paddle_width,
+				context
+			)
 		boss_vel = turn_inertia_resolver.update_velocity(
 			deactivation_target_x,
 			boss_center,
 			boss_vel,
 			fps_scale,
-			false
+			deactivation_ball_approaching_boss
 		)
 		boss_vel *= float(context.get("stage1_dalji_whip_deactivation_speed_multiplier", 0.2))
 		if abs(deactivation_target_x - boss_center) < 10.0:

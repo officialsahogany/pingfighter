@@ -59,6 +59,9 @@ func build_boss_ai_context(owner: Object, registry: Object) -> Dictionary:
 	var whip_state: Object = registry.get_instance("stage1_dalji_whip_skill_state")
 	if whip_state != null and whip_state.has_method("get_ai_context"):
 		context.merge(whip_state.get_ai_context(), true)
+	var active_item_runtime: Object = registry.get_instance("active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("get_boss_ai_context"):
+		context.merge(active_item_runtime.get_boss_ai_context(), true)
 	return context
 
 
