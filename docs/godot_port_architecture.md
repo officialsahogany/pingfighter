@@ -221,6 +221,11 @@ Godot.
   normalization. It delegates serve velocity, speed dampening, rally
   multipliers, impact boost, serve launch boost, boost decay, minimum vertical bounce
   correction, and base speed capping to focused physics policies.
+- `scripts/ball/ball_context_reader.gd`
+  Owns typed reads for ball-domain dictionaries: Vector2 fallback
+  coercion used by ball update, motion, round reset, and paddle-bounce
+  helpers. Ball modules should reuse this helper instead of duplicating
+  local `_get_vector2` / `_as_vector2` bodies.
 - `scripts/ball/ball_speed_policy.gd`
   Owns ball speed policy calculations: serve velocity, junior / rally
   speed multipliers, balanced normal-rally acceleration tuning, dampened multipliers, scaled random multipliers,

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
+
 const EVENT_WALL := "wall"
 const EVENT_PLAYER_PADDLE := "player_paddle"
 const EVENT_BOSS_PADDLE := "boss_paddle"
@@ -71,6 +73,4 @@ func check_paddles(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, conte
 
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
-	if value is Vector2:
-		return value
-	return fallback
+	return BallContextReader.as_vector2(value, fallback)

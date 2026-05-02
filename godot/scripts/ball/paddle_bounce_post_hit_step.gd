@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
+
 
 func apply(
 	post_hit_handler: Object,
@@ -61,7 +63,4 @@ func _build_result(ball_pos: Vector2, ball_vel: Vector2, context: Dictionary) ->
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+	return BallContextReader.get_vector2(source, key, fallback)

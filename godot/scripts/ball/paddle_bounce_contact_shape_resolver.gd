@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 const PaddleBounceVelocityRules := preload("res://scripts/ball/paddle_bounce_velocity_rules.gd")
 
 const CENTER_HIT_THRESHOLD: float = 0.05
@@ -81,7 +82,4 @@ func _apply_normal_contact_shape(
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+	return BallContextReader.get_vector2(source, key, fallback)

@@ -5,6 +5,10 @@ const MODULES := {
 		"path": "res://scripts/ball/ball_renderer.gd",
 		"label": "ball renderer",
 	},
+	"ball_context_reader": {
+		"path": "res://scripts/ball/ball_context_reader.gd",
+		"label": "ball context reader",
+	},
 	"ball_effects_renderer": {
 		"path": "res://scripts/ball/ball_effects_renderer.gd",
 		"label": "ball effects renderer",

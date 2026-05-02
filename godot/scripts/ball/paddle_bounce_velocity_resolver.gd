@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 const PaddleBounceContactShapeResolver := preload("res://scripts/ball/paddle_bounce_contact_shape_resolver.gd")
 const PaddleBounceSpeedMultiplierResolver := preload("res://scripts/ball/paddle_bounce_speed_multiplier_resolver.gd")
 const PaddleBounceVerticalStallGuard := preload("res://scripts/ball/paddle_bounce_vertical_stall_guard.gd")
@@ -86,7 +87,4 @@ func resolve_velocity(
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+	return BallContextReader.get_vector2(source, key, fallback)

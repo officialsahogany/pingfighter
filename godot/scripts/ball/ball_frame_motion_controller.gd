@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
+
 
 func update_power_freeze(delta: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:
 	var controller: Object = deps.get("power_motion_controller", null)
@@ -79,7 +81,4 @@ func apply_power_motion(scene: Dictionary, fps_scale: float, context: Dictionary
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+	return BallContextReader.get_vector2(source, key, fallback)
