@@ -116,10 +116,10 @@ Godot.
   `main.gd` still owns ball placement, ball velocity construction, scoring
   side effects, and the actual serve/reset orchestration.
 - `scripts/items/active_item_runtime.gd`
-  Owns the first Godot active-item runtime slice: starter active-slot
-  construction, number-key use input, per-item cooldown checks, currently
-  ported consumable effect routing, and debug-spawn execution after the
-  menu selects an item. Broader item pools beyond those currently ported
+  Owns active-item orchestration for the first Godot runtime slice:
+  controller / renderer fanout, currently ported consumable effect routing,
+  debug-spawn execution after the menu selects an item, actor draw context,
+  and boss-AI context. Broader item pools beyond those currently ported
   items are still future item-domain work.
 - `scripts/items/active_item_catalog.gd`
   Owns the currently ported active-item metadata: `gauge_charge` / Energy
@@ -128,6 +128,11 @@ Godot.
   cooldown / gauge constants, field-spawn order, weighted spawn selection,
   and display-name fallback. The runtime asks this catalog for item data
   instead of rebuilding definitions locally.
+- `scripts/items/active_item_slot_controller.gd`
+  Owns active-item slot state and use flow: starter active-slot
+  construction, number-key edge input, shared and per-item cooldown checks,
+  consumable slot removal, `last_use_msec` fanout, selected-slot HUD sync,
+  and field-pickup storage with active-effect store gating.
 - `scripts/items/active_item_field_spawn_controller.gd`
   Owns active-item field-drop state: spawn delay timing, arena / tutorial
   spawn blocking, item-spawn portal release timing, weighted currently
