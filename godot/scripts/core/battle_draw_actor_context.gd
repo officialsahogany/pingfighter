@@ -32,6 +32,7 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"player_speed": float(context.get("player_speed", 0.0)),
 		"player_anim_clock": animation_context.get("player_anim_clock", 0.0),
 		"player_paddle_size": _get_vector2(context, "player_paddle_size", Vector2.ZERO),
+		"player_paddle_scale": float(context.get("player_paddle_scale", 1.0)),
 		"player_hit_active": animation_context.get("player_hit_active", false),
 		"player_hit_timer": animation_context.get("player_hit_timer", 0.0),
 		"player_hit_side": animation_context.get("player_hit_side", -1),
@@ -40,6 +41,17 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"player_hit_anim_duration": 0.40 if has_player_attack_sheet else 0.36,
 		"player_idle_frame": animation_context.get("player_idle_frame", 0),
 		"player_sprite_frame": animation_context.get("player_sprite_frame", 0),
+		# Smasher contact-animation state ported from pingfighter.py
+		# (`smasher_swing_intensity`, `smasher_shield_raise_timer`,
+		# `smasher_left_raise_timer`). Renderers can read intensity to scale
+		# lunge / squash, and the bell-strength fields drive procedural
+		# shield / left-arm raise overlays during the follow-through window.
+		"player_swing_intensity": animation_context.get("player_swing_intensity", 1.0),
+		"player_shield_raise_timer": animation_context.get("player_shield_raise_timer", 0.0),
+		"player_left_raise_timer": animation_context.get("player_left_raise_timer", 0.0),
+		"player_shield_raise_strength": animation_context.get("player_shield_raise_strength", 0.0),
+		"player_left_raise_strength": animation_context.get("player_left_raise_strength", 0.0),
+		"player_hit_pose_strength": animation_context.get("player_hit_pose_strength", 0.0),
 		"player_sprite_texture": _get_value(textures, "player_sprite_texture"),
 		"player_idle_sprite_texture": _get_value(textures, "player_idle_sprite_texture"),
 		"player_hit_sprite_texture": _get_value(textures, "player_hit_sprite_texture"),

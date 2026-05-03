@@ -118,16 +118,18 @@ Godot.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
   construction, original field-drop timing for the currently ported
-  `gauge_charge` / Energy Drink, `grenade`, and `flare` item data,
+  `gauge_charge` / Energy Drink, `grenade`, `flare`, and `long_boost` /
+  Giant Potion item data,
   item-spawn portal release timing, weighted currently-ported item spawning,
   animated unknown field-icon drawing, field-item motion / pickup routing,
   pickup feedback, throwable windup / player-control lock state, grenade
   projectile / explosion state, flare projectile / flash-confusion state,
+  Giant Potion paddle-width scale state and duration gauge,
   active-item boss stun / confusion draw context, F2 debug spawn menu item
   selection, number-key use input, per-item cooldown checks, and the
-  original Energy Drink / grenade / flare consumable effects. Broader item
-  pools beyond those currently ported items are still future item-domain
-  work.
+  original Energy Drink / grenade / flare / Giant Potion consumable effects.
+  Broader item pools beyond those currently ported items are still future
+  item-domain work.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve
@@ -246,7 +248,8 @@ Godot.
   Owns the public ball-physics API and league/stage/weather context
   normalization. It delegates serve velocity, speed dampening, rally
   multipliers, impact boost, serve launch boost, boost decay, minimum vertical bounce
-  correction, and base speed capping to focused physics policies.
+  correction, serve-speed rally floor, and base speed capping to focused
+  physics policies.
 - `scripts/ball/ball_context_reader.gd`
   Owns typed reads for ball-domain dictionaries: Vector2 fallback
   coercion used by ball update, motion, round reset, and paddle-bounce
@@ -255,8 +258,8 @@ Godot.
 - `scripts/ball/ball_speed_policy.gd`
   Owns ball speed policy calculations: serve velocity, junior / rally
   speed multipliers, 50% reduced normal-rally acceleration tuning, dampened multipliers, scaled random multipliers,
-  15% lowered base-speed tuning, minimum vertical bounce correction, and
-  base speed capping.
+  15% lowered base-speed tuning, serve-speed rally floor, minimum vertical
+  bounce correction, and base speed capping.
 - `scripts/ball/ball_impact_boost_policy.gd`
   Owns paddle-hit momentary acceleration policy: speed-dependent impact
   boost shaping, 65% amplified launch burst with angle-fixed boost and
@@ -358,8 +361,9 @@ Godot.
   and forwards score events to the match flow controller.
 - `scripts/ball/ball_frame_motion_controller.gd`
   Owns active-ball frame motion modifiers: Power Smashing freeze handoff,
-  base-speed capping, impact-boost decay, Drive spin application, and
-  Power Smashing parabola motion mergeback.
+  base-speed capping, serve-speed floor enforcement for base and effective
+  movement speed, impact-boost decay, Drive spin application, and Power
+  Smashing parabola motion mergeback.
 - `scripts/ball/ball_motion_event_processor.gd`
   Owns active-ball motion-step event handling: motion-stepper invocation,
   wall / paddle controller dispatch, scene mergeback from bounce results,
@@ -465,8 +469,8 @@ Godot.
   normalized power / Drive activation plus speed / angle updates.
 - `scripts/ball/paddle_bounce_velocity_step.gd`
   Owns the paddle-hit velocity step: invoking the resolved paddle-bounce
-  velocity state, merging the bounce result into frame state, and returning
-  the updated ball velocity.
+  velocity state with the current serve-speed floor, merging the bounce
+  result into frame state, and returning the updated ball velocity.
 - `scripts/ball/paddle_bounce_post_hit_step.gd`
   Owns the paddle-hit post-hit step: invoking the post-hit handler,
   merging post-hit results into frame state, and returning final ball /
@@ -601,7 +605,9 @@ Godot.
   Owns mutable scene field defaults for the Godot battle shell. The scene shell
   uses a small `_get` / `_set` property bridge so modules can continue to
   read and write scene properties without keeping dozens of direct state
-  variable declarations in the scene script.
+  variable declarations in the scene script. Player paddle width / height /
+  scale live here so timed item effects can resize the player actor without
+  reintroducing constants into `main.gd`.
 - `scripts/core/battle_frame_flow_controller.gd`
   Owns per-physics-frame battle flow branching: scoreboard-lock updates,
   Power Smashing freeze updates, player / active-item / boss updates,
@@ -653,8 +659,9 @@ Godot.
   field application after reset, including active-item slot refreshes.
 - `scripts/core/battle_scene_actor_update_driver.gd`
   Owns scene-facing actor update callbacks for the frame flow: Smasher
-  player-control updates, boss AI updates, and applying the returned
-  actor position / speed snapshots to the owner.
+  player-control updates, dynamic player-paddle width handoff to movement /
+  dash bounds, boss AI updates, and applying the returned actor position /
+  speed snapshots to the owner.
 - `scripts/core/battle_scene_ball_update_driver.gd`
   Owns scene-facing ball callbacks for the frame flow: ball reset,
   serve-ball fanout, active-ball updates, Drive-state callback bridging,
@@ -678,16 +685,16 @@ Godot.
   pillar-scene snapshot delegation, and shared draw dependencies.
 - `scripts/core/battle_draw_playfield_scene_context.gd`
   Owns draw-time playfield scene snapshots: dash snapshots, actor / ball
-  base positions, ball visual flags, paddle constants, and banner timing
-  constants.
+  base positions, ball visual flags, dynamic player-paddle size / scale,
+  boss paddle constants, and banner timing constants.
 - `scripts/core/battle_draw_pillar_context.gd`
   Owns draw-time Stage 1 pillar scene snapshots: viewport/game layout,
   owner battle texture / skill icon maps, active-item slots, gauge values,
   and pillar renderer state dependencies.
 - `scripts/core/battle_draw_actor_context.gd`
   Owns Stage 1 actor draw snapshots: animation-state draw data, dash
-  status, player / boss positions, paddle sizes, and player / boss sprite
-  texture references.
+  status, player / boss positions, paddle sizes / scale, and player / boss
+  sprite texture references.
 - `scripts/core/battle_draw_ball_context.gd`
   Owns ball draw snapshots: ball effect trails / particles, current
   intensity colors, serve-wait draw placement, current ball renderer flags,

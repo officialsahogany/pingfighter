@@ -13,7 +13,7 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 		int(_get_owner_value(owner, "gameplay_frame_counter", 0)),
 		_get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		float(_get_owner_value(owner, "player_speed", 0.0)),
-		context_builder.build_player_control_config(),
+		_build_player_control_config(owner, context_builder),
 		context_builder.build_player_control_deps(registry)
 	)
 	owner.set("gameplay_frame_counter", int(result.get(
@@ -48,6 +48,13 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _build_player_control_config(owner: Object, context_builder: Object) -> Dictionary:
+	var config: Dictionary = context_builder.build_player_control_config()
+	var paddle_width: float = float(_get_owner_value(owner, "player_paddle_width", config.get("paddle_width", 155.0)))
+	config["paddle_width"] = max(1.0, paddle_width)
+	return config
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

@@ -9,6 +9,7 @@ const GAUGE_CHARGE_AMOUNT := 220.0
 const GAUGE_CHARGE_ICON_PATH := "res://assets/sprites/items/gauge_200.png"
 const GRENADE_ICON_PATH := "res://assets/sprites/items/grenade.png"
 const FLARE_ICON_PATH := "res://assets/sprites/items/flare.png"
+const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/long_boost_icon.png"
 const UNKNOWN_ITEM_SHEET_PATH := "res://assets/sprites/items/unknown_item_hq_sprite_sheet.png"
 const UNKNOWN_ITEM_FALLBACK_PATH := "res://assets/sprites/items/unknown_item_hq_sprite.png"
 const UNKNOWN_ITEM_FRAME_MSEC := 140
@@ -17,6 +18,8 @@ const SLOT_KEY_CODES := [KEY_1, KEY_2, KEY_3]
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const MAX_ACTIVE_ITEM_SLOTS := 3
+const PLAYER_BASE_PADDLE_WIDTH := 155.0
+const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 const FIELD_ITEM_RADIUS := 15.0
 const FIELD_ITEM_DRAW_SIZE := 60.0
 const FIELD_ITEM_COLLISION_SIZE := 30.0
@@ -59,6 +62,12 @@ const FLARE_ARMED_DELAY_FRAMES := 90.0
 const FLARE_RADIUS := 180.0
 const FLARE_ZONE_DURATION_FRAMES := 9.0
 const FLARE_BOSS_CONFUSION_FRAMES := 180.0
+const LONG_BOOST_DURATION_FRAMES := 480.0
+const LONG_BOOST_TRANSITION_FRAMES := 60.0
+const LONG_BOOST_TARGET_SCALE := 1.5
+const LONG_BOOST_TIMER_BAR_SIZE := Vector2(150.0, 12.0)
+const LONG_BOOST_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
+const LONG_BOOST_TIMER_ICON_SIZE := 28.0
 const THROW_POSE_HOLD_ANGLE_DEGREES := 30.0
 const THROW_POSE_RELEASE_ANGLE_DEGREES := -20.0
 const BOSS_STUN_FRAME_MSEC := 100
@@ -72,6 +81,7 @@ const ITEM_NAME_KO := {
 	"flare": "Flare",
 	"gauge_charge": "에너지드링크",
 	"grenade": "수류탄",
+	"long_boost": "거대화포션",
 }
 
 var slot_key_pressed: Dictionary = {}
@@ -89,6 +99,10 @@ var grenade_boss_stun_timer_frames: float = 0.0
 var grenade_boss_knockback_timer_frames: float = 0.0
 var grenade_boss_knockback_vel: float = 0.0
 var flare_boss_confused_timer_frames: float = 0.0
+var long_boost_active: bool = false
+var long_boost_timer_frames: float = 0.0
+var long_boost_initial_timer_frames: float = 0.0
+var long_boost_scale: float = 1.0
 var last_item_spawn_msec: int = 0
 var next_item_spawn_delay_msec: int = 0
 var last_item_use_msec: int = -1000000
@@ -99,6 +113,7 @@ var unknown_item_sheet_texture: Texture2D
 var unknown_item_fallback_texture: Texture2D
 var grenade_icon_texture: Texture2D
 var flare_icon_texture: Texture2D
+var long_boost_icon_texture: Texture2D
 
 
 func _init() -> void:
@@ -121,6 +136,10 @@ func reset() -> void:
 	grenade_boss_knockback_timer_frames = 0.0
 	grenade_boss_knockback_vel = 0.0
 	flare_boss_confused_timer_frames = 0.0
+	long_boost_active = false
+	long_boost_timer_frames = 0.0
+	long_boost_initial_timer_frames = 0.0
+	long_boost_scale = 1.0
 	debug_spawn_menu_open = false
 	last_item_use_msec = -1000000
 	_reset_spawn_timer()
@@ -136,6 +155,8 @@ func update(owner: Object, registry: Object, delta: float) -> Dictionary:
 
 	var throw_locked_at_update_start: bool = is_player_control_locked()
 
+	_update_long_boost(delta)
+	_sync_long_boost_owner_state(owner)
 	_update_spawn_timer(owner)
 	_release_pending_spawn_items()
 	_update_item_spawn_portals()
@@ -153,12 +174,14 @@ func update(owner: Object, registry: Object, delta: float) -> Dictionary:
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
 	if active_item_slots.is_empty():
 		_sync_slot_key_states()
+		_sync_long_boost_owner_state(owner)
 		return {
 			"used_slot": -1,
 		}
 
 	if throw_locked_at_update_start or is_player_control_locked():
 		_sync_slot_key_states()
+		_sync_long_boost_owner_state(owner)
 		return {
 			"used_slot": -1,
 		}
@@ -178,6 +201,7 @@ func update(owner: Object, registry: Object, delta: float) -> Dictionary:
 	if used_slot >= 0:
 		owner.set("active_item_slots", slots_copy)
 
+	_sync_long_boost_owner_state(owner)
 	return {
 		"used_slot": used_slot,
 	}
@@ -198,6 +222,7 @@ func draw_field_items(canvas: CanvasItem, registry: Object, shake_offset: Vector
 	_draw_flares(canvas, shake_offset)
 	_draw_explosion_zones(canvas, shake_offset)
 	_draw_flare_zones(canvas, shake_offset)
+	_draw_long_boost_timer_gauge(canvas)
 
 	for particle in pickup_particles:
 		_draw_pickup_particle(canvas, particle, shake_offset)
@@ -245,6 +270,14 @@ func is_player_control_locked() -> bool:
 	return is_throw_windup_active()
 
 
+func get_player_paddle_scale() -> float:
+	return long_boost_scale
+
+
+func get_player_paddle_width(base_width: float = PLAYER_BASE_PADDLE_WIDTH) -> float:
+	return max(1.0, base_width * long_boost_scale)
+
+
 func get_actor_draw_context() -> Dictionary:
 	var throw_context: Dictionary = _get_throw_windup_draw_context()
 	return {
@@ -255,6 +288,7 @@ func get_actor_draw_context() -> Dictionary:
 		"active_item_boss_stun_active": grenade_boss_stun_timer_frames > 0.0,
 		"active_item_boss_stun_frame": int(Time.get_ticks_msec() / BOSS_STUN_FRAME_MSEC) % 8,
 		"active_item_boss_confusion_active": flare_boss_confused_timer_frames > 0.0,
+		"player_paddle_scale": long_boost_scale,
 	}
 
 
@@ -370,6 +404,8 @@ func _apply_item_effect(item_data: Dictionary, owner: Object, registry: Object) 
 		return _activate_grenade(item_data, owner, registry)
 	if item_name == "flare" or effect_name == "flare":
 		return _activate_flare(item_data, owner, registry)
+	if item_name == "long_boost" or effect_name == "long_boost":
+		return _activate_long_boost(item_data, owner, registry)
 	return false
 
 
@@ -448,6 +484,26 @@ func _activate_flare(_item_data: Dictionary, owner: Object, registry: Object) ->
 	var audio: Object = _get_instance(registry, "game_audio")
 	if audio != null and audio.has_method("play_throw_before"):
 		audio.play_throw_before()
+
+	return true
+
+
+func _activate_long_boost(_item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	if long_boost_active:
+		return false
+
+	long_boost_active = true
+	long_boost_timer_frames = LONG_BOOST_DURATION_FRAMES
+	long_boost_initial_timer_frames = long_boost_timer_frames
+	long_boost_scale = 1.0
+	_sync_long_boost_owner_state(owner)
+
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null:
+		if audio.has_method("play_active_item"):
+			audio.play_active_item()
+		elif audio.has_method("play_drink"):
+			audio.play_drink()
 
 	return true
 
@@ -532,6 +588,21 @@ func _build_flare() -> Dictionary:
 	}
 
 
+func _build_long_boost() -> Dictionary:
+	return {
+		"name": "long_boost",
+		"display_name": "거대화포션",
+		"type": "active",
+		"effect": "long_boost",
+		"chance": 0.028,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": LONG_BOOST_ICON_PATH,
+		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
+		"consumable": true,
+	}
+
+
 func _build_item_by_name(item_name: String) -> Dictionary:
 	match item_name:
 		"gauge_charge":
@@ -540,6 +611,8 @@ func _build_item_by_name(item_name: String) -> Dictionary:
 			return _build_grenade()
 		"flare":
 			return _build_flare()
+		"long_boost":
+			return _build_long_boost()
 	return {}
 
 
@@ -548,6 +621,7 @@ func _build_random_spawn_item() -> Dictionary:
 		_build_gauge_charge(),
 		_build_grenade(),
 		_build_flare(),
+		_build_long_boost(),
 	]
 	var total_weight: float = 0.0
 	for candidate in candidates:
@@ -585,9 +659,11 @@ func _update_field_items(owner: Object, registry: Object, delta: float) -> void:
 	if spawned_items.is_empty():
 		return
 
+	var player_paddle_width: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH)))
+	var player_paddle_height: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_height", PLAYER_BASE_PADDLE_HEIGHT)))
 	var player_rect := Rect2(
 		BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2.ZERO),
-		Vector2(155.0, 50.0)
+		Vector2(player_paddle_width, player_paddle_height)
 	)
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
 	var slots_changed := false
@@ -967,6 +1043,51 @@ func _update_flare_boss_confusion(delta: float) -> void:
 	flare_boss_confused_timer_frames = max(0.0, flare_boss_confused_timer_frames - fps_scale)
 
 
+func _update_long_boost(delta: float) -> void:
+	if not long_boost_active:
+		long_boost_timer_frames = 0.0
+		long_boost_initial_timer_frames = 0.0
+		long_boost_scale = 1.0
+		return
+
+	var fps_scale: float = delta * 60.0
+	long_boost_timer_frames = max(0.0, long_boost_timer_frames - fps_scale)
+	var elapsed_frames: float = max(0.0, long_boost_initial_timer_frames - long_boost_timer_frames)
+	if elapsed_frames < LONG_BOOST_TRANSITION_FRAMES:
+		var grow_progress: float = elapsed_frames / LONG_BOOST_TRANSITION_FRAMES
+		long_boost_scale = lerp(1.0, LONG_BOOST_TARGET_SCALE, grow_progress)
+	elif long_boost_timer_frames <= LONG_BOOST_TRANSITION_FRAMES:
+		var shrink_progress: float = long_boost_timer_frames / LONG_BOOST_TRANSITION_FRAMES
+		long_boost_scale = lerp(1.0, LONG_BOOST_TARGET_SCALE, shrink_progress)
+	else:
+		long_boost_scale = LONG_BOOST_TARGET_SCALE
+
+	if long_boost_timer_frames <= 0.0:
+		long_boost_active = false
+		long_boost_timer_frames = 0.0
+		long_boost_initial_timer_frames = 0.0
+		long_boost_scale = 1.0
+
+
+func _sync_long_boost_owner_state(owner: Object) -> void:
+	if owner == null:
+		return
+
+	var next_width: float = get_player_paddle_width(PLAYER_BASE_PADDLE_WIDTH)
+	var current_width: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH)))
+	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(
+		owner,
+		"player_pos",
+		Vector2(FIELD_WIDTH * 0.5 - current_width * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT)
+	)
+	var center_x: float = player_pos.x + current_width * 0.5
+	player_pos.x = clamp(center_x - next_width * 0.5, 0.0, max(0.0, FIELD_WIDTH - next_width))
+	owner.set("player_pos", player_pos)
+	owner.set("player_paddle_width", next_width)
+	owner.set("player_paddle_height", PLAYER_BASE_PADDLE_HEIGHT)
+	owner.set("player_paddle_scale", long_boost_scale)
+
+
 func get_boss_ai_context() -> Dictionary:
 	return {
 		"active_item_grenade_stun_active": grenade_boss_stun_timer_frames > 0.0,
@@ -1016,6 +1137,8 @@ func _store_active_item(field_item: Dictionary, active_item_slots: Array, regist
 	if active_item_slots.size() >= MAX_ACTIVE_ITEM_SLOTS:
 		return false
 	var source_item_data: Dictionary = _get_dictionary(field_item, "item_data")
+	if str(source_item_data.get("name", "")) == "long_boost" and long_boost_active:
+		return false
 	source_item_data["revealed"] = true
 	field_item["item_data"] = source_item_data
 	var item_data: Dictionary = source_item_data.duplicate(true)
@@ -1363,6 +1486,54 @@ func _draw_flare_zones(canvas: CanvasItem, shake_offset: Vector2) -> void:
 					canvas.draw_circle(center, layer_radius, Color(1.0, 1.0, 200.0 / 255.0, alpha))
 
 
+func _draw_long_boost_timer_gauge(canvas: CanvasItem) -> void:
+	if not long_boost_active or long_boost_timer_frames <= 0.0:
+		return
+
+	var ratio: float = clamp(long_boost_timer_frames / max(1.0, long_boost_initial_timer_frames), 0.0, 1.0)
+	var remaining_seconds: float = long_boost_timer_frames / 60.0
+	var bar_pos := Vector2(
+		FIELD_WIDTH - LONG_BOOST_TIMER_BAR_SIZE.x - LONG_BOOST_TIMER_BAR_MARGIN.x,
+		FIELD_HEIGHT - LONG_BOOST_TIMER_BAR_MARGIN.y
+	)
+	var frame_rect := Rect2(bar_pos, LONG_BOOST_TIMER_BAR_SIZE)
+	var frame_bg := frame_rect.grow(4.0)
+	canvas.draw_rect(frame_bg, Color(0.0, 0.0, 0.0, 0.54))
+	canvas.draw_rect(frame_rect, Color(0.08, 0.07, 0.04, 0.92))
+
+	var base_color: Color
+	var highlight_color: Color
+	if remaining_seconds > 6.0:
+		base_color = Color(1.0, 215.0 / 255.0, 0.0, 0.96)
+		highlight_color = Color(1.0, 235.0 / 255.0, 120.0 / 255.0, 0.96)
+	elif remaining_seconds > 3.0:
+		base_color = Color(1.0, 170.0 / 255.0, 0.0, 0.96)
+		highlight_color = Color(1.0, 200.0 / 255.0, 60.0 / 255.0, 0.96)
+	else:
+		var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.018)
+		base_color = Color(1.0, lerp(0.18, 0.45, pulse), 0.04, 0.98)
+		highlight_color = Color(1.0, lerp(0.55, 0.82, pulse), 0.20, 0.98)
+
+	var fill_rect := Rect2(frame_rect.position, Vector2(frame_rect.size.x * ratio, frame_rect.size.y))
+	if fill_rect.size.x > 0.5:
+		canvas.draw_rect(fill_rect, base_color)
+		canvas.draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, max(2.0, fill_rect.size.y * 0.35))), highlight_color)
+
+	canvas.draw_rect(frame_rect, Color(1.0, 215.0 / 255.0, 0.0, 0.86), false, 2.0)
+	canvas.draw_line(frame_rect.position + Vector2(0.0, frame_rect.size.y + 2.0), frame_rect.end + Vector2(0.0, 2.0), Color(0.35, 0.18, 0.02, 0.65), 2.0)
+
+	var icon_center := frame_rect.position + Vector2(-16.0, frame_rect.size.y * 0.5)
+	var icon_pulse: float = 1.0 + 0.08 * sin(float(Time.get_ticks_msec()) * 0.012)
+	var icon_size := Vector2(LONG_BOOST_TIMER_ICON_SIZE, LONG_BOOST_TIMER_ICON_SIZE) * icon_pulse
+	canvas.draw_circle(icon_center, icon_size.x * 0.58, Color(0.0, 0.0, 0.0, 0.42))
+	var icon_texture: Texture2D = _get_long_boost_icon_texture()
+	if icon_texture != null:
+		canvas.draw_texture_rect(icon_texture, Rect2(icon_center - icon_size * 0.5, icon_size), false)
+	else:
+		canvas.draw_circle(icon_center, icon_size.x * 0.40, Color(100.0 / 255.0, 200.0 / 255.0, 1.0, 1.0))
+		canvas.draw_circle(icon_center + Vector2(-4.0, -5.0), icon_size.x * 0.12, Color(1.0, 1.0, 1.0, 0.36))
+
+
 func _get_debug_spawn_entries() -> Array[Dictionary]:
 	return [
 		{
@@ -1379,6 +1550,11 @@ func _get_debug_spawn_entries() -> Array[Dictionary]:
 			"name": "flare",
 			"title": "Flare",
 			"subtitle": "active / throw confuse",
+		},
+		{
+			"name": "long_boost",
+			"title": "거대화포션",
+			"subtitle": "active / paddle x1.5",
 		},
 	]
 
@@ -1420,6 +1596,8 @@ func _get_debug_item_icon_texture(item_name: String) -> Texture2D:
 			return _get_grenade_icon_texture()
 		"flare":
 			return _get_flare_icon_texture()
+		"long_boost":
+			return _get_long_boost_icon_texture()
 	return null
 
 
@@ -1593,6 +1771,8 @@ func _portal_open_factor(elapsed_msec: int, duration_msec: int) -> float:
 
 
 func _get_korean_item_name(item_name: String) -> String:
+	if item_name == "long_boost":
+		return "거대화포션"
 	return str(ITEM_NAME_KO.get(item_name, str(_build_gauge_charge().get("display_name", item_name))))
 
 
@@ -1663,6 +1843,16 @@ func _get_flare_icon_texture() -> Texture2D:
 			"Failed to load flare icon at %s"
 		)
 	return flare_icon_texture
+
+
+func _get_long_boost_icon_texture() -> Texture2D:
+	if long_boost_icon_texture == null:
+		long_boost_icon_texture = ProjectResourceLoader.load_texture(
+			LONG_BOOST_ICON_PATH,
+			"Missing long boost icon at %s",
+			"Failed to load long boost icon at %s"
+		)
+	return long_boost_icon_texture
 
 
 func _get_throw_item_icon_texture(item_name: String) -> Texture2D:

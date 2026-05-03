@@ -30,6 +30,8 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var attack_sheet_present: bool = context.get("player_attack_sheet", null) is Texture2D
 	if attack_sheet_present and bool(context.get("player_hit_active", false)):
 		player_draw_size = _as_vector2(context.get("player_attack_draw_size", Vector2(250.0, 280.0)), Vector2(250.0, 280.0))
+	var player_paddle_scale: float = max(0.1, float(context.get("player_paddle_scale", max(1.0, paddle_size.x / 155.0))))
+	player_draw_size *= player_paddle_scale
 	var player_visual_x_offset: float = 0.0
 	var throw_pose_active: bool = bool(context.get("active_item_throw_windup_active", false))
 	var throw_pose_progress: float = clamp(float(context.get("active_item_throw_windup_progress", 0.0)), 0.0, 1.0)
@@ -61,8 +63,8 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 		player_visual_y_offset -= sin(throw_pose_progress * PI) * 5.0
 
 	var shadow_scale: float = 1.0 - ((hover_offset + hover_amplitude) / (hover_amplitude * 2.0)) * 0.18
-	var shadow_width: float = 180.0 * shadow_scale
-	var shadow_height: float = 16.0 * shadow_scale
+	var shadow_width: float = 180.0 * shadow_scale * max(1.0, player_paddle_scale)
+	var shadow_height: float = 16.0 * shadow_scale * (0.82 + 0.18 * max(1.0, player_paddle_scale))
 	var player_shadow_rect := Rect2(
 		player_pos.x + paddle_size.x * 0.5 - shadow_width * 0.5 + shake_offset.x,
 		player_pos.y + paddle_size.y - 6.0 + shake_offset.y,

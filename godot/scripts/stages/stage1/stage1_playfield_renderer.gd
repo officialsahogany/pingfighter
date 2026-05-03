@@ -98,6 +98,8 @@ func _get_player_afterimage_rect(context: Dictionary) -> Rect2:
 	var hover_offset: float = hover_wave * hover_amplitude
 	var move_bob: float = abs(sin(player_anim_clock * 10.0)) * float(context.get("player_move_bob_amplitude", 5.0))
 	var player_draw_size: Vector2 = _as_vector2(context.get("player_sprite_draw_size", Vector2(250.0, 120.0)), Vector2(250.0, 120.0))
+	var player_paddle_scale: float = max(0.1, float(context.get("player_paddle_scale", max(1.0, paddle_size.x / 155.0))))
+	player_draw_size *= player_paddle_scale
 	var player_visual_y_offset: float = -hover_offset - move_bob
 	return Rect2(
 		player_pos.x + paddle_size.x * 0.5 - player_draw_size.x * 0.5,

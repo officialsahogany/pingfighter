@@ -20,6 +20,9 @@ const BOSS_HITBOX_HEIGHT := BOSS_PADDLE_HEIGHT
 
 
 func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
+	var player_paddle_width: float = max(1.0, float(_get_owner_value(owner, "player_paddle_width", PADDLE_WIDTH)))
+	var player_paddle_height: float = max(1.0, float(_get_owner_value(owner, "player_paddle_height", PADDLE_HEIGHT)))
+	var player_paddle_scale: float = max(0.1, float(_get_owner_value(owner, "player_paddle_scale", player_paddle_width / PADDLE_WIDTH)))
 	return {
 		"shake_offset": shake_offset,
 		"width": WIDTH,
@@ -31,7 +34,8 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"textures": _get_owner_dict(owner, "battle_textures"),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),
-		"player_paddle_size": Vector2(PADDLE_WIDTH, PADDLE_HEIGHT),
+		"player_paddle_size": Vector2(player_paddle_width, player_paddle_height),
+		"player_paddle_scale": player_paddle_scale,
 		"boss_pos": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO),
 		"boss_paddle_size": Vector2(BOSS_PADDLE_WIDTH, BOSS_PADDLE_HEIGHT),
 		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
@@ -47,7 +51,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"drive_ball_active": bool(_get_owner_value(owner, "drive_ball_active", false)),
 		"player_y": PLAYER_Y,
 		"boss_y": BOSS_Y,
-		"player_paddle_width": PADDLE_WIDTH,
+		"player_paddle_width": player_paddle_width,
 		"boss_paddle_width": BOSS_PADDLE_WIDTH,
 		"ball_render_radius": BALL_RENDER_RADIUS,
 		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),

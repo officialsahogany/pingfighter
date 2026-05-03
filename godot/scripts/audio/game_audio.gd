@@ -13,6 +13,7 @@ const DRIVE_SOUND_PATH := "res://assets/sounds/drive.wav"
 const WHIP_SOUND_PATH := "res://assets/sounds/whip_effect.wav"
 const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
 const DRINK_SOUND_PATH := "res://assets/sounds/drink.wav"
+const ACTIVE_ITEM_SOUND_PATH := "res://assets/sounds/activeitem.wav"
 const THROW_BEFORE_SOUND_PATH := "res://assets/sounds/throwbefore.wav"
 const THROW_SOUND_PATH := "res://assets/sounds/throw.wav"
 const GRENADE_SOUND_PATH := "res://assets/sounds/grenade.wav"
@@ -43,6 +44,7 @@ var drive_sfx: AudioStreamPlayer
 var whip_sfx: AudioStreamPlayer
 var item_get_sfx: AudioStreamPlayer
 var drink_sfx: AudioStreamPlayer
+var active_item_sfx: AudioStreamPlayer
 var throw_before_sfx: AudioStreamPlayer
 var throw_sfx: AudioStreamPlayer
 var grenade_sfx: AudioStreamPlayer
@@ -67,6 +69,7 @@ func setup(parent: Node) -> void:
 	whip_sfx = player_factory.create(owner_node, "WhipSfx", WHIP_SOUND_PATH, -5.0)
 	item_get_sfx = player_factory.create(owner_node, "ItemGetSfx", ITEM_GET_SOUND_PATH, -5.0)
 	drink_sfx = player_factory.create(owner_node, "DrinkSfx", DRINK_SOUND_PATH, -5.0)
+	active_item_sfx = player_factory.create(owner_node, "ActiveItemSfx", ACTIVE_ITEM_SOUND_PATH, -5.0)
 	throw_before_sfx = player_factory.create(owner_node, "ThrowBeforeSfx", THROW_BEFORE_SOUND_PATH, -5.0)
 	throw_sfx = player_factory.create(owner_node, "ThrowSfx", THROW_SOUND_PATH, -5.0)
 	grenade_sfx = player_factory.create(owner_node, "GrenadeSfx", GRENADE_SOUND_PATH, -4.0)
@@ -107,6 +110,10 @@ func play_item_get() -> void:
 
 func play_drink() -> void:
 	_play_with_pitch(drink_sfx, randf_range(0.98, 1.02))
+
+
+func play_active_item() -> void:
+	_play_with_pitch(active_item_sfx, randf_range(0.98, 1.02))
 
 
 func play_throw_before() -> void:

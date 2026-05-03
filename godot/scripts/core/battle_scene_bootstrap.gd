@@ -40,6 +40,9 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 
 	return {
 		"player_pos": Vector2(width * 0.5 - player_paddle_width * 0.5, player_y),
+		"player_paddle_width": player_paddle_width,
+		"player_paddle_height": 50.0,
+		"player_paddle_scale": 1.0,
 		"boss_pos": Vector2(width * 0.5 - boss_paddle_width * 0.5, boss_y),
 		"battle_textures": battle_textures,
 		"smasher_skill_icon_textures": skill_icons,

@@ -114,5 +114,8 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 	return {
 		"special_gauge": 0.0,
 		"drive_text_timer_frames": 0.0,
+		"player_paddle_width": 155.0,
+		"player_paddle_height": 50.0,
+		"player_paddle_scale": 1.0,
 		"active_item_slots": active_item_slots,
 	}

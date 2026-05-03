@@ -23,7 +23,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	var power_smashing_parabola_active: bool = power_state != null and power_state.is_parabola_active()
 	frame_motion_controller.update_serve_collision_cooldowns(scene, fps_scale)
 	if not power_smashing_parabola_active:
-		frame_motion_controller.cap_ball_speed(scene, deps)
+		frame_motion_controller.apply_ball_speed_limits(scene, deps)
 
 	frame_motion_controller.apply_impact_decay(scene, fps_scale, deps)
 	frame_motion_controller.apply_ball_spin(scene, fps_scale, deps)
@@ -31,7 +31,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	frame_motion_controller.apply_stage1_dalji_whip(scene, fps_scale, context, deps)
 
 	if not power_smashing_parabola_active:
-		frame_motion_controller.cap_ball_speed(scene, deps)
+		frame_motion_controller.apply_ball_speed_limits(scene, deps)
 
 	var score_event: String = motion_event_processor.step_motion(scene, fps_scale, context, deps, callbacks)
 	if score_event != "":
@@ -39,6 +39,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 			"snapshot": scene,
 			"score_event": score_event,
 		}
+	if not power_smashing_parabola_active:
+		frame_motion_controller.apply_ball_speed_limits(scene, deps)
 
 	_update_ball_effects(scene, fps_scale, context, deps)
 	return {"snapshot": scene}

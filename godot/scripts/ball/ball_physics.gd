@@ -46,6 +46,18 @@ func get_junior_ball_speed_multiplier() -> float:
 	return speed_policy.get_junior_ball_speed_multiplier(_build_context())
 
 
+func get_minimum_rally_speed() -> float:
+	return speed_policy.get_minimum_rally_speed(_build_context())
+
+
+func enforce_minimum_rally_speed(velocity: Vector2) -> Vector2:
+	return speed_policy.enforce_minimum_rally_speed(velocity, _build_context())
+
+
+func get_minimum_effective_boost(velocity: Vector2) -> float:
+	return speed_policy.get_minimum_effective_boost(velocity, _build_context())
+
+
 func get_junior_speed_increase_multiplier() -> float:
 	return speed_policy.get_junior_speed_increase_multiplier(_build_context())
 

@@ -22,6 +22,10 @@ func apply(
 	if paddle_bounce_state == null:
 		return {"ball_vel": ball_vel}
 
+	var minimum_speed: float = float(context.get("min_ball_speed", 3.0))
+	if physics != null and physics.has_method("get_minimum_rally_speed"):
+		minimum_speed = max(minimum_speed, float(physics.get_minimum_rally_speed()))
+
 	var bounce_result: Dictionary = paddle_bounce_state.resolve_velocity(
 		ball_vel,
 		hit_pos,
@@ -37,7 +41,7 @@ func apply(
 		deps.get("drive_bounce_state", null),
 		float(frame["drive_speed_increase"]),
 		float(frame["ball_spin_strength"]),
-		float(context.get("min_ball_speed", 3.0)),
+		minimum_speed,
 		float(context.get("max_ball_speed", 60.0))
 	)
 	if frame_state != null:

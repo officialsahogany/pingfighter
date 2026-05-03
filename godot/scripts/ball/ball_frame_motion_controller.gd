@@ -20,10 +20,25 @@ func update_power_freeze(delta: float, scene: Dictionary, context: Dictionary, d
 
 
 func cap_ball_speed(scene: Dictionary, deps: Dictionary) -> void:
+	apply_ball_speed_limits(scene, deps)
+
+
+func apply_ball_speed_limits(scene: Dictionary, deps: Dictionary) -> void:
 	var ball_physics: Object = deps.get("ball_physics", null)
 	if ball_physics == null:
 		return
-	scene["ball_vel"] = ball_physics.cap_base_speed(_get_vector2(scene, "ball_vel", Vector2.ZERO))
+	var velocity: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	if ball_physics.has_method("enforce_minimum_rally_speed"):
+		velocity = ball_physics.enforce_minimum_rally_speed(velocity)
+	if ball_physics.has_method("cap_base_speed"):
+		velocity = ball_physics.cap_base_speed(velocity)
+	scene["ball_vel"] = velocity
+	if ball_physics.has_method("get_minimum_effective_boost"):
+		var minimum_effective_boost: float = float(ball_physics.get_minimum_effective_boost(velocity))
+		scene["ball_impact_boost"] = max(
+			float(scene.get("ball_impact_boost", 1.0)),
+			minimum_effective_boost
+		)
 
 
 func update_serve_collision_cooldowns(scene: Dictionary, fps_scale: float) -> void:
