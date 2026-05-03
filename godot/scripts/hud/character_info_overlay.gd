@@ -12,6 +12,21 @@ const TEXT_DIM := Color(178.0 / 255.0, 188.0 / 255.0, 210.0 / 255.0)
 const TEXT_SOFT := Color(210.0 / 255.0, 220.0 / 255.0, 235.0 / 255.0)
 const ACCENT_BLUE := Color(0.0, 205.0 / 255.0, 1.0)
 const ACCENT_GOLD := Color(1.0, 215.0 / 255.0, 85.0 / 255.0)
+const BASE_ACCESSORY_SLOT_COUNT := 2
+const EQUIPMENT_SLOT_DEFINITIONS := [
+	{"key": "head", "label": "머리", "base": "head"},
+	{"key": "top", "label": "상의", "base": "top"},
+	{"key": "left_arm", "label": "왼팔", "base": "arm"},
+	{"key": "right_arm", "label": "오른팔", "base": "arm"},
+	{"key": "belt", "label": "벨트", "base": "belt"},
+	{"key": "belt2", "label": "등", "base": "back"},
+	{"key": "knee", "label": "무릎", "base": "knee"},
+	{"key": "shoes", "label": "신발", "base": "shoes"},
+	{"key": "accessory1", "label": "장신구 1", "base": "accessory"},
+	{"key": "accessory2", "label": "장신구 2", "base": "accessory"},
+	{"key": "accessory3", "label": "장신구 3", "base": "accessory"},
+	{"key": "accessory4", "label": "장신구 4", "base": "accessory"},
+]
 
 var active := false
 var animation_time := 0.0
@@ -111,9 +126,9 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 		mouse_pos = canvas.get_viewport().get_mouse_position()
 
 	var hover_data: Dictionary = {}
-	_draw_character_card(canvas, owner, registry, left_rect, font)
-	hover_data = _draw_skill_slots(canvas, owner, registry, _section_rect(left_rect, 0.34, 0.28), font, mouse_pos, hover_data)
-	hover_data = _draw_active_items(canvas, owner, registry, _section_rect(left_rect, 0.66, 0.34), font, mouse_pos, hover_data)
+	hover_data = _draw_equipment_slots(canvas, owner, registry, _section_rect(left_rect, 0.0, 0.48), font, mouse_pos, hover_data)
+	hover_data = _draw_skill_slots(canvas, owner, registry, _section_rect(left_rect, 0.50, 0.24), font, mouse_pos, hover_data)
+	hover_data = _draw_active_items(canvas, owner, registry, _section_rect(left_rect, 0.76, 0.24), font, mouse_pos, hover_data)
 
 	var perk_rect := _section_rect(right_rect, 0.0, 0.52)
 	var stats_rect := _section_rect(right_rect, 0.56, 0.44)
@@ -178,6 +193,74 @@ func _draw_character_card(canvas: CanvasItem, owner: Object, registry: Object, r
 	var max_tokens: int = max(1, int(dash_snapshot.get("max_tokens", 1)))
 	var token_text := "대시 토큰 %d / %d" % [tokens, max_tokens]
 	_draw_text(canvas, font, token_text, rect.position + Vector2(22.0, rect.end.y - 22.0 - rect.position.y), 13, TEXT_SOFT)
+
+
+func _draw_equipment_slots(
+	canvas: CanvasItem,
+	owner: Object,
+	registry: Object,
+	rect: Rect2,
+	font: Font,
+	mouse_pos: Vector2,
+	hover_data: Dictionary
+) -> Dictionary:
+	_draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
+	_draw_text(canvas, font, "장비 슬롯", rect.position + Vector2(12.0, 24.0), 13, ACCENT_BLUE)
+
+	var slot_state: Dictionary = _get_equipment_state(owner)
+	var columns := 4
+	var gap := 7.0
+	var grid_rect := Rect2(rect.position + Vector2(12.0, 38.0), rect.size - Vector2(24.0, 48.0))
+	var cell_w: float = floor((grid_rect.size.x - gap * float(columns - 1)) / float(columns))
+	var cell_h: float = floor((grid_rect.size.y - gap * 2.0) / 3.0)
+	var cell_size: float = max(40.0, min(cell_w, cell_h))
+	var total_w: float = cell_size * float(columns) + gap * float(columns - 1)
+	var start_x: float = grid_rect.position.x + (grid_rect.size.x - total_w) * 0.5
+	var start_y: float = grid_rect.position.y + max(0.0, (grid_rect.size.y - (cell_size * 3.0 + gap * 2.0)) * 0.5)
+
+	var visuals: Object = _get_instance(registry, "active_item_hud_visuals")
+	for i in range(EQUIPMENT_SLOT_DEFINITIONS.size()):
+		var definition: Dictionary = _get_dict(EQUIPMENT_SLOT_DEFINITIONS[i])
+		var key: String = str(definition.get("key", ""))
+		var label: String = str(definition.get("label", key))
+		var base: String = str(definition.get("base", key))
+		var row: int = int(i / columns)
+		var col: int = i % columns
+		var slot_rect := Rect2(Vector2(start_x + float(col) * (cell_size + gap), start_y + float(row) * (cell_size + gap)), Vector2(cell_size, cell_size))
+		var enabled: bool = _is_equipment_slot_enabled(key, owner)
+		var item_data: Dictionary = _get_equipment_item(slot_state, key)
+		var has_item: bool = not item_data.is_empty()
+		var base_color: Color = _equipment_color(base, has_item, enabled)
+		var bg_alpha: float = 0.94 if enabled else 0.48
+		canvas.draw_rect(slot_rect, Color(13.0 / 255.0, 17.0 / 255.0, 29.0 / 255.0, bg_alpha))
+		canvas.draw_rect(slot_rect, Color(base_color.r, base_color.g, base_color.b, 0.82 if has_item else 0.55), false, 1.6 if enabled else 1.0)
+		if has_item:
+			if _active_item_icon_renderer != null and _active_item_icon_renderer.has_method("draw_icon"):
+				_active_item_icon_renderer.draw_icon(canvas, slot_rect.grow(-5.0), item_data, 1.0, visuals)
+			else:
+				_draw_fallback_symbol(canvas, slot_rect.grow(-9.0), base_color, str(item_data.get("name", key)))
+		else:
+			_draw_equipment_placeholder(canvas, slot_rect.grow(-8.0), base, base_color, enabled)
+		if not enabled:
+			_draw_locked_slot(canvas, slot_rect, base_color)
+		_draw_text_centered(canvas, font, label, Vector2(slot_rect.get_center().x, slot_rect.end.y - 4.0), 9, TEXT_SOFT if enabled else Color(120.0 / 255.0, 126.0 / 255.0, 142.0 / 255.0))
+		if slot_rect.has_point(mouse_pos):
+			if has_item:
+				var display_name: String = _equipment_item_display_name(item_data)
+				hover_data = {
+					"title": display_name,
+					"subtitle": label,
+					"body": str(item_data.get("description", item_data.get("desc", ""))),
+					"color": base_color,
+				}
+			else:
+				hover_data = {
+					"title": label,
+					"subtitle": "미장착" if enabled else "잠김",
+					"body": "패시브 장비가 연결되면 이 슬롯에 표시됩니다.",
+					"color": base_color,
+				}
+	return hover_data
 
 
 func _draw_skill_slots(
@@ -445,6 +528,52 @@ func _draw_fallback_symbol(canvas: CanvasItem, rect: Rect2, color: Color, id_tex
 	_draw_text_centered(canvas, ThemeDB.fallback_font, letter, center + Vector2(0.0, 3.0), int(radius * 1.2), Color.WHITE)
 
 
+func _draw_equipment_placeholder(canvas: CanvasItem, rect: Rect2, base: String, color: Color, enabled: bool) -> void:
+	var alpha: float = 0.42 if enabled else 0.20
+	var center := rect.get_center()
+	var stroke := Color(color.r, color.g, color.b, alpha)
+	match base:
+		"head":
+			canvas.draw_arc(center + Vector2(0.0, 2.0), rect.size.x * 0.25, PI, TAU, 18, stroke, 1.6)
+			canvas.draw_line(center + Vector2(-rect.size.x * 0.25, 2.0), center + Vector2(rect.size.x * 0.25, 2.0), stroke, 1.6)
+		"top":
+			var body := Rect2(center - Vector2(rect.size.x * 0.22, rect.size.y * 0.18), Vector2(rect.size.x * 0.44, rect.size.y * 0.38))
+			canvas.draw_rect(body, Color(color.r, color.g, color.b, alpha * 0.28))
+			canvas.draw_rect(body, stroke, false, 1.5)
+			canvas.draw_line(body.position, body.position + Vector2(-rect.size.x * 0.12, rect.size.y * 0.16), stroke, 1.5)
+			canvas.draw_line(Vector2(body.end.x, body.position.y), body.position + Vector2(body.size.x + rect.size.x * 0.12, rect.size.y * 0.16), stroke, 1.5)
+		"arm":
+			canvas.draw_line(center + Vector2(-rect.size.x * 0.20, -rect.size.y * 0.18), center + Vector2(rect.size.x * 0.18, rect.size.y * 0.18), stroke, 2.0)
+			canvas.draw_circle(center + Vector2(rect.size.x * 0.21, rect.size.y * 0.20), rect.size.x * 0.08, stroke)
+		"belt":
+			var belt := Rect2(center - Vector2(rect.size.x * 0.28, rect.size.y * 0.06), Vector2(rect.size.x * 0.56, rect.size.y * 0.12))
+			canvas.draw_rect(belt, Color(color.r, color.g, color.b, alpha * 0.32))
+			canvas.draw_rect(belt, stroke, false, 1.4)
+			canvas.draw_rect(Rect2(center - Vector2(rect.size.x * 0.07, rect.size.y * 0.08), Vector2(rect.size.x * 0.14, rect.size.y * 0.16)), stroke, false, 1.2)
+		"back":
+			var pack := Rect2(center - Vector2(rect.size.x * 0.18, rect.size.y * 0.24), Vector2(rect.size.x * 0.36, rect.size.y * 0.48))
+			canvas.draw_rect(pack, Color(color.r, color.g, color.b, alpha * 0.26))
+			canvas.draw_rect(pack, stroke, false, 1.5)
+			canvas.draw_line(pack.position + Vector2(pack.size.x * 0.5, 0.0), pack.end - Vector2(pack.size.x * 0.5, 0.0), stroke, 1.0)
+		"knee":
+			canvas.draw_arc(center, rect.size.x * 0.22, -PI * 0.15, PI * 1.15, 18, stroke, 1.8)
+			canvas.draw_line(center + Vector2(-rect.size.x * 0.22, rect.size.y * 0.08), center + Vector2(rect.size.x * 0.20, rect.size.y * 0.12), stroke, 1.6)
+		"shoes":
+			var sole := Rect2(center - Vector2(rect.size.x * 0.28, rect.size.y * 0.02), Vector2(rect.size.x * 0.56, rect.size.y * 0.14))
+			canvas.draw_rect(sole, Color(color.r, color.g, color.b, alpha * 0.28))
+			canvas.draw_rect(sole, stroke, false, 1.4)
+			canvas.draw_line(sole.position + Vector2(rect.size.x * 0.10, 0.0), center + Vector2(-rect.size.x * 0.05, -rect.size.y * 0.18), stroke, 1.4)
+		_:
+			canvas.draw_circle(center, rect.size.x * 0.22, Color(color.r, color.g, color.b, alpha * 0.24))
+			canvas.draw_arc(center, rect.size.x * 0.22, 0.0, TAU, 24, stroke, 1.5)
+
+
+func _draw_locked_slot(canvas: CanvasItem, slot_rect: Rect2, color: Color) -> void:
+	var line_color := Color(color.r, color.g, color.b, 0.32)
+	canvas.draw_line(slot_rect.position + Vector2(9.0, 9.0), slot_rect.end - Vector2(9.0, 9.0), line_color, 1.4)
+	canvas.draw_line(Vector2(slot_rect.end.x - 9.0, slot_rect.position.y + 9.0), Vector2(slot_rect.position.x + 9.0, slot_rect.end.y - 9.0), line_color, 1.4)
+
+
 func _draw_text(canvas: CanvasItem, font: Font, text: String, baseline: Vector2, size: int, color: Color) -> void:
 	if text == "":
 		return
@@ -587,6 +716,83 @@ func _get_item_color(item_data: Dictionary, visuals: Object) -> Color:
 	if raw is Color:
 		return raw
 	return Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0)
+
+
+func _get_equipment_state(owner: Object) -> Dictionary:
+	var direct: Dictionary = _get_dict(_safe_owner_get(owner, "equipment_slots", {}))
+	if not direct.is_empty():
+		return direct
+	var passive_slots: Dictionary = _get_dict(_safe_owner_get(owner, "passive_item_slots", {}))
+	if not passive_slots.is_empty():
+		return passive_slots
+	var equipped_passives: Dictionary = _get_dict(_safe_owner_get(owner, "equipped_passive_items", {}))
+	if not equipped_passives.is_empty():
+		return equipped_passives
+	return {}
+
+
+func _get_equipment_item(slot_state: Dictionary, slot_key: String) -> Dictionary:
+	var value: Variant = slot_state.get(slot_key, null)
+	if value is Dictionary:
+		return value
+	if value is Array:
+		var items: Array = value
+		if not items.is_empty() and items[0] is Dictionary:
+			return items[0]
+	return {}
+
+
+func _is_equipment_slot_enabled(slot_key: String, owner: Object) -> bool:
+	if not slot_key.begins_with("accessory"):
+		return true
+	var slot_number: int = int(slot_key.substr("accessory".length(), 1))
+	if slot_number <= 0:
+		return true
+	return slot_number <= _get_accessory_slot_count(owner)
+
+
+func _get_accessory_slot_count(owner: Object) -> int:
+	var explicit_count: int = int(_safe_owner_get(owner, "accessory_slot_count", 0))
+	if explicit_count > 0:
+		return clamp(explicit_count, 1, 4)
+	var runtime_bonus: int = int(_safe_owner_get(owner, "runtime_accessory_slot_bonus", 0))
+	var levels: Dictionary = _get_dict(_safe_owner_get(owner, "runtime_perk_levels", {}))
+	runtime_bonus = max(runtime_bonus, int(levels.get("common_expansion", 0)))
+	return clamp(BASE_ACCESSORY_SLOT_COUNT + runtime_bonus, 1, 4)
+
+
+func _equipment_color(base: String, has_item: bool, enabled: bool) -> Color:
+	if not enabled:
+		return Color(85.0 / 255.0, 91.0 / 255.0, 112.0 / 255.0)
+	if has_item:
+		return Color(105.0 / 255.0, 245.0 / 255.0, 170.0 / 255.0)
+	match base:
+		"head":
+			return Color(120.0 / 255.0, 190.0 / 255.0, 1.0)
+		"top":
+			return Color(1.0, 160.0 / 255.0, 95.0 / 255.0)
+		"arm":
+			return Color(185.0 / 255.0, 145.0 / 255.0, 1.0)
+		"belt":
+			return Color(1.0, 215.0 / 255.0, 100.0 / 255.0)
+		"back":
+			return Color(125.0 / 255.0, 220.0 / 255.0, 1.0)
+		"knee":
+			return Color(120.0 / 255.0, 1.0, 205.0 / 255.0)
+		"shoes":
+			return Color(115.0 / 255.0, 230.0 / 255.0, 150.0 / 255.0)
+		_:
+			return Color(220.0 / 255.0, 175.0 / 255.0, 1.0)
+
+
+func _equipment_item_display_name(item_data: Dictionary) -> String:
+	var display_name: String = str(item_data.get("display_name", item_data.get("korean", "")))
+	if display_name != "":
+		return display_name
+	var item_name: String = str(item_data.get("name", ""))
+	if item_name != "":
+		return item_name
+	return "장비"
 
 
 func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:
