@@ -26,12 +26,16 @@ func update(
 			viper_config,
 			deps
 		)
-		if bool(skill_result.get("activated", false)):
+		if bool(skill_result.get("handled", false)) or bool(skill_result.get("activated", false)):
 			return {
 				"frame_counter": frame_counter + 1,
 				"player_pos": skill_result.get("player_pos", player_pos),
 				"player_speed": float(skill_result.get("player_speed", 0.0)),
 				"special_gauge": float(skill_result.get("special_gauge", viper_config.get("special_gauge", 0.0))),
+				"ball_pos": skill_result.get("ball_pos", viper_config.get("ball_pos", Vector2.ZERO)),
+				"ball_vel": skill_result.get("ball_vel", viper_config.get("ball_vel", Vector2.ZERO)),
+				"ball_impact_boost": skill_result.get("ball_impact_boost", viper_config.get("ball_impact_boost", 1.0)),
+				"skill_gold_award": skill_result.get("skill_gold_award", 0),
 			}
 	var result: Dictionary = shared_controller.update(delta, frame_counter, player_pos, player_speed, viper_config, deps)
 	if skill_runtime != null and skill_runtime.has_method("observe_after_movement"):

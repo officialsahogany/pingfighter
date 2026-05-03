@@ -307,9 +307,10 @@ Godot.
   `scripts/characters/viper_input_reader.gd`, and
   `scripts/characters/viper_player_controller.gd`
   Own the first Viper playable-character foundation: active-skill metadata,
-  separate cooldown state, the Shadow Step dash-origin rewind runtime, raw
-  input snapshot, and slower ground-movement controller reuse. Remaining
-  individual Viper active-skill gameplay stays in future character-module
+  separate cooldown state, the Shadow Step dash-origin rewind runtime, the
+  first-slice Marshal Kick wall-dive runtime, raw input snapshot, and slower
+  ground-movement controller reuse. Phantom Kick, full VFX, and remaining
+  individual Viper active-skill gameplay stay in future character-module
   slices.
 - `scripts/stages/stage1/stage1_dalji_whip_skill_state.gd`
   Owns the Stage 1 Dalji 상모돌리기 boss-skill port: boss skill gauge gain

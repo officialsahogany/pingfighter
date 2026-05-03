@@ -28,6 +28,14 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	if updated_pos is Vector2:
 		owner.set("player_pos", updated_pos)
 	owner.set("player_speed", float(result.get("player_speed", _get_owner_value(owner, "player_speed", 0.0))))
+	if result.has("special_gauge"):
+		owner.set("special_gauge", float(result.get("special_gauge", _get_owner_value(owner, "special_gauge", 0.0))))
+	if result.has("ball_pos") and result.get("ball_pos", null) is Vector2:
+		owner.set("ball_pos", result["ball_pos"])
+	if result.has("ball_vel") and result.get("ball_vel", null) is Vector2:
+		owner.set("ball_vel", result["ball_vel"])
+	if result.has("ball_impact_boost"):
+		owner.set("ball_impact_boost", float(result.get("ball_impact_boost", _get_owner_value(owner, "ball_impact_boost", 1.0))))
 
 
 func update_boss_ai(owner: Object, registry: Object, delta: float) -> void:
@@ -58,6 +66,16 @@ func _build_player_control_config(owner: Object, context_builder: Object, charac
 	var config: Dictionary = context_builder.build_player_control_config(character_type)
 	var paddle_width: float = float(_get_owner_value(owner, "player_paddle_width", config.get("paddle_width", 155.0)))
 	config["paddle_width"] = max(1.0, paddle_width)
+	var paddle_height: float = float(_get_owner_value(owner, "player_paddle_height", 50.0))
+	config["paddle_height"] = max(1.0, paddle_height)
+	config["special_gauge"] = float(_get_owner_value(owner, "special_gauge", 0.0))
+	config["ball_pos"] = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
+	config["ball_vel"] = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
+	config["ball_impact_boost"] = float(_get_owner_value(owner, "ball_impact_boost", 1.0))
+	config["boss_pos"] = _get_owner_vector2(owner, "boss_pos", Vector2.ZERO)
+	config["width"] = 760.0
+	config["height"] = 750.0
+	config["player_floor_y"] = 750.0 - paddle_height
 	return config
 
 
