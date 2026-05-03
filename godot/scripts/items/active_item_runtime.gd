@@ -6,13 +6,12 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemFieldSpawnController := preload("res://scripts/items/active_item_field_spawn_controller.gd")
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
+const ActiveItemDebugSpawnMenu := preload("res://scripts/items/active_item_debug_spawn_menu.gd")
 
 const DEFAULT_COOLDOWN_MSEC := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
-const GAUGE_CHARGE_ICON_PATH := ActiveItemCatalog.GAUGE_CHARGE_ICON_PATH
 const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
 const FLARE_ICON_PATH := ActiveItemCatalog.FLARE_ICON_PATH
 const LONG_BOOST_ICON_PATH := ActiveItemCatalog.LONG_BOOST_ICON_PATH
-const REGENERATION_POTION_ICON_PATH := ActiveItemCatalog.REGENERATION_POTION_ICON_PATH
 const UNKNOWN_ITEM_SHEET_PATH := "res://assets/sprites/items/unknown_item_hq_sprite_sheet.png"
 const UNKNOWN_ITEM_FALLBACK_PATH := "res://assets/sprites/items/unknown_item_hq_sprite.png"
 const UNKNOWN_ITEM_FRAME_MSEC := 140
@@ -46,12 +45,6 @@ const LONG_BOOST_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
 const LONG_BOOST_TIMER_ICON_SIZE := 28.0
 const REGENERATION_POTION_PARTICLE_DURATION_SEC := 0.78
 const REGENERATION_POTION_RING_DURATION_SEC := 0.58
-const DEBUG_SPAWN_MENU_MARGIN := 18.0
-const DEBUG_SPAWN_MENU_TOP := 70.0
-const DEBUG_SPAWN_MENU_WIDTH := 330.0
-const DEBUG_SPAWN_MENU_TITLE_HEIGHT := 48.0
-const DEBUG_SPAWN_MENU_ROW_HEIGHT := 58.0
-const DEBUG_SPAWN_MENU_ICON_SIZE := 36.0
 const ITEM_NAME_KO := {
 	"flare": "Flare",
 	"gauge_charge": "에너지드링크",
@@ -62,19 +55,17 @@ const ITEM_NAME_KO := {
 
 var slot_key_pressed: Dictionary = {}
 var last_item_use_msec: int = -1000000
-var debug_spawn_menu_open := false
 var portal_sheet_texture: Texture2D
-var gauge_charge_icon_texture: Texture2D
 var unknown_item_sheet_texture: Texture2D
 var unknown_item_fallback_texture: Texture2D
 var grenade_icon_texture: Texture2D
 var flare_icon_texture: Texture2D
 var long_boost_icon_texture: Texture2D
-var regeneration_potion_icon_texture: Texture2D
 var item_catalog: Object = ActiveItemCatalog.new()
 var field_spawn_controller: Object = ActiveItemFieldSpawnController.new()
 var throw_controller: Object = ActiveItemThrowController.new()
 var effect_controller: Object = ActiveItemEffectController.new()
+var debug_spawn_menu: Object = ActiveItemDebugSpawnMenu.new()
 
 
 func _init() -> void:
@@ -86,7 +77,7 @@ func reset() -> void:
 	field_spawn_controller.reset()
 	throw_controller.reset()
 	effect_controller.reset()
-	debug_spawn_menu_open = false
+	debug_spawn_menu.reset()
 	last_item_use_msec = -1000000
 
 
@@ -196,11 +187,11 @@ func draw_pickup_effect(canvas: CanvasItem, registry: Object) -> void:
 
 
 func toggle_debug_spawn_menu() -> void:
-	debug_spawn_menu_open = not debug_spawn_menu_open
+	debug_spawn_menu.toggle()
 
 
 func is_debug_spawn_menu_open() -> bool:
-	return debug_spawn_menu_open
+	return debug_spawn_menu.is_open()
 
 
 func is_throw_windup_active() -> bool:
@@ -226,21 +217,11 @@ func get_actor_draw_context() -> Dictionary:
 
 
 func handle_debug_spawn_menu_click(mouse_position: Vector2, view_size: Vector2) -> bool:
-	if not debug_spawn_menu_open:
-		return false
-	var panel_rect: Rect2 = _get_debug_spawn_menu_panel_rect(view_size)
-	if not panel_rect.has_point(mouse_position):
-		debug_spawn_menu_open = false
-		return true
-
-	var entries: Array[Dictionary] = _get_debug_spawn_entries()
-	for i in range(entries.size()):
-		var row_rect: Rect2 = _get_debug_spawn_menu_row_rect(panel_rect, i)
-		if row_rect.has_point(mouse_position):
-			debug_spawn_item(str(entries[i].get("name", "")))
-			debug_spawn_menu_open = false
-			return true
-	return true
+	var result: Dictionary = debug_spawn_menu.handle_click(mouse_position, view_size)
+	var item_name: String = str(result.get("item_name", ""))
+	if item_name != "":
+		debug_spawn_item(item_name)
+	return bool(result.get("handled", false))
 
 
 func debug_spawn_item(item_name: String) -> bool:
@@ -248,38 +229,7 @@ func debug_spawn_item(item_name: String) -> bool:
 
 
 func draw_debug_spawn_menu(canvas: CanvasItem, view_size: Vector2) -> void:
-	if canvas == null or not debug_spawn_menu_open:
-		return
-
-	var panel_rect: Rect2 = _get_debug_spawn_menu_panel_rect(view_size)
-	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.26))
-	canvas.draw_rect(panel_rect, Color(0.04, 0.05, 0.07, 0.94))
-	canvas.draw_rect(panel_rect, Color(0.30, 0.74, 1.0, 0.88), false, 2.0)
-
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return
-	var title_pos := panel_rect.position + Vector2(16.0, 30.0)
-	canvas.draw_string(font, title_pos, "F2 Item Spawn", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color(0.82, 0.95, 1.0, 1.0))
-	canvas.draw_string(font, panel_rect.position + Vector2(16.0, 48.0), "Click an item to spawn it now", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, Color(0.72, 0.78, 0.84, 1.0))
-
-	var mouse_pos: Vector2 = canvas.get_viewport().get_mouse_position()
-	var entries: Array[Dictionary] = _get_debug_spawn_entries()
-	for i in range(entries.size()):
-		var entry: Dictionary = entries[i]
-		var row_rect: Rect2 = _get_debug_spawn_menu_row_rect(panel_rect, i)
-		var hovered: bool = row_rect.has_point(mouse_pos)
-		var base_color := Color(0.10, 0.12, 0.16, 0.95)
-		if hovered:
-			base_color = Color(0.14, 0.20, 0.27, 0.98)
-		canvas.draw_rect(row_rect, base_color)
-		canvas.draw_rect(row_rect, Color(0.24, 0.36, 0.48, 0.65), false, 1.0)
-
-		var item_name: String = str(entry.get("name", ""))
-		var icon_center: Vector2 = row_rect.position + Vector2(28.0, row_rect.size.y * 0.5)
-		_draw_debug_spawn_entry_icon(canvas, item_name, icon_center)
-		canvas.draw_string(font, row_rect.position + Vector2(56.0, 23.0), str(entry.get("title", item_name)), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, Color(1.0, 1.0, 1.0, 1.0))
-		canvas.draw_string(font, row_rect.position + Vector2(56.0, 42.0), str(entry.get("subtitle", "")), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, Color(0.70, 0.76, 0.82, 1.0))
+	debug_spawn_menu.draw(canvas, view_size)
 
 
 func _try_use_slot(slot_index: int, active_item_slots: Array, owner: Object, registry: Object) -> bool:
@@ -720,80 +670,6 @@ func _draw_long_boost_timer_gauge(canvas: CanvasItem) -> void:
 		canvas.draw_circle(icon_center + Vector2(-4.0, -5.0), icon_size.x * 0.12, Color(1.0, 1.0, 1.0, 0.36))
 
 
-func _get_debug_spawn_entries() -> Array[Dictionary]:
-	return [
-		{
-			"name": "gauge_charge",
-			"title": "에너지드링크",
-			"subtitle": "active / gauge +220",
-		},
-		{
-			"name": "grenade",
-			"title": "수류탄",
-			"subtitle": "active / throw explosive",
-		},
-		{
-			"name": "flare",
-			"title": "Flare",
-			"subtitle": "active / throw confuse",
-		},
-		{
-			"name": "long_boost",
-			"title": "거대화포션",
-			"subtitle": "active / paddle x1.5",
-		},
-		{
-			"name": "regeneration_potion",
-			"title": "재생물약",
-			"subtitle": "active / reset skills",
-		},
-	]
-
-
-func _get_debug_spawn_menu_panel_rect(view_size: Vector2) -> Rect2:
-	var entries: Array[Dictionary] = _get_debug_spawn_entries()
-	var width: float = min(DEBUG_SPAWN_MENU_WIDTH, max(220.0, view_size.x - DEBUG_SPAWN_MENU_MARGIN * 2.0))
-	var height: float = DEBUG_SPAWN_MENU_TITLE_HEIGHT + float(entries.size()) * DEBUG_SPAWN_MENU_ROW_HEIGHT + DEBUG_SPAWN_MENU_MARGIN
-	var x: float = clamp(DEBUG_SPAWN_MENU_MARGIN, 0.0, max(0.0, view_size.x - width))
-	var y: float = clamp(DEBUG_SPAWN_MENU_TOP, 0.0, max(0.0, view_size.y - height))
-	return Rect2(Vector2(x, y), Vector2(width, height))
-
-
-func _get_debug_spawn_menu_row_rect(panel_rect: Rect2, index: int) -> Rect2:
-	return Rect2(
-		panel_rect.position + Vector2(12.0, DEBUG_SPAWN_MENU_TITLE_HEIGHT + float(index) * DEBUG_SPAWN_MENU_ROW_HEIGHT + 4.0),
-		Vector2(panel_rect.size.x - 24.0, DEBUG_SPAWN_MENU_ROW_HEIGHT - 8.0)
-	)
-
-
-func _draw_debug_spawn_entry_icon(canvas: CanvasItem, item_name: String, center: Vector2) -> void:
-	var texture: Texture2D = _get_debug_item_icon_texture(item_name)
-	var icon_size := Vector2(DEBUG_SPAWN_MENU_ICON_SIZE, DEBUG_SPAWN_MENU_ICON_SIZE)
-	if texture != null:
-		canvas.draw_texture_rect(texture, Rect2(center - icon_size * 0.5, icon_size), false)
-		return
-
-	var item_data: Dictionary = item_catalog.build_item_by_name(item_name)
-	var item_color: Color = _get_item_color(item_data)
-	canvas.draw_circle(center, DEBUG_SPAWN_MENU_ICON_SIZE * 0.42, item_color)
-	canvas.draw_circle(center + Vector2(-5.0, -6.0), 4.0, Color(1.0, 1.0, 1.0, 0.25))
-
-
-func _get_debug_item_icon_texture(item_name: String) -> Texture2D:
-	match item_name:
-		"gauge_charge":
-			return _get_gauge_charge_icon_texture()
-		"grenade":
-			return _get_grenade_icon_texture()
-		"flare":
-			return _get_flare_icon_texture()
-		"long_boost":
-			return _get_long_boost_icon_texture()
-		"regeneration_potion":
-			return _get_regeneration_potion_icon_texture()
-	return null
-
-
 func _draw_item_spawn_portals(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	var portals: Array[Dictionary] = field_spawn_controller.get_item_spawn_portals()
 	if portals.is_empty():
@@ -953,16 +829,6 @@ func _get_portal_sheet_texture() -> Texture2D:
 	return portal_sheet_texture
 
 
-func _get_gauge_charge_icon_texture() -> Texture2D:
-	if gauge_charge_icon_texture == null:
-		gauge_charge_icon_texture = ProjectResourceLoader.load_texture(
-			GAUGE_CHARGE_ICON_PATH,
-			"Missing gauge charge icon at %s",
-			"Failed to load gauge charge icon at %s"
-		)
-	return gauge_charge_icon_texture
-
-
 func _get_unknown_item_sheet_texture() -> Texture2D:
 	if unknown_item_sheet_texture == null:
 		unknown_item_sheet_texture = ProjectResourceLoader.load_texture(
@@ -1011,16 +877,6 @@ func _get_long_boost_icon_texture() -> Texture2D:
 			"Failed to load long boost icon at %s"
 		)
 	return long_boost_icon_texture
-
-
-func _get_regeneration_potion_icon_texture() -> Texture2D:
-	if regeneration_potion_icon_texture == null:
-		regeneration_potion_icon_texture = ProjectResourceLoader.load_texture(
-			REGENERATION_POTION_ICON_PATH,
-			"Missing regeneration potion icon at %s",
-			"Failed to load regeneration potion icon at %s"
-		)
-	return regeneration_potion_icon_texture
 
 
 func _get_throw_item_icon_texture(item_name: String) -> Texture2D:

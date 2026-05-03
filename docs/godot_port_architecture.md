@@ -119,10 +119,10 @@ Godot.
   Owns the first Godot active-item runtime slice: starter active-slot
   construction, field-item / portal drawing, animated unknown field-icon
   drawing, throwable item / explosion / flash drawing, pickup / long-boost /
-  regeneration effect drawing, F2 debug spawn menu item selection,
-  number-key use input, per-item cooldown checks, and currently ported
-  consumable effect routing. Broader item pools beyond those currently
-  ported items are still future item-domain work.
+  regeneration effect drawing, number-key use input, per-item cooldown
+  checks, currently ported consumable effect routing, and debug-spawn
+  execution after the menu selects an item. Broader item pools beyond those
+  currently ported items are still future item-domain work.
 - `scripts/items/active_item_catalog.gd`
   Owns the currently ported active-item metadata: `gauge_charge` / Energy
   Drink, `grenade`, `flare`, `long_boost` / Giant Potion, and
@@ -150,6 +150,11 @@ Godot.
   particles, pickup acquisition popup particles, long-boost timer context,
   and store gating for active Giant Potion. The runtime keeps the matching
   texture-backed and primitive drawing paths.
+- `scripts/items/active_item_debug_spawn_menu.gd`
+  Owns the F2 active-item debug spawn menu: open / close state, panel and
+  row geometry, item entries, icon loading for menu rows, hover rendering,
+  and click result mapping. The runtime consumes the selected item name and
+  asks the field-spawn controller to inject it.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve
