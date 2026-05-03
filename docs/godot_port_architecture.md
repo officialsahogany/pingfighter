@@ -287,6 +287,13 @@ Godot.
   instant-trigger sheet-first animation, unlock-perk alias mapping to the
   real skill-orb PNGs, cached texture loads, and procedural fallback only
   when an asset is missing.
+- `scripts/hud/character_info_overlay.gd`
+  Owns the first Godot TAB character-info overlay port: TAB / ESC close
+  state, modal battle pause, selected-character status summary, equipped
+  skill slots, acquired runtime-perk grid with hover tooltips, active-item
+  slot snapshot, and compact stat readouts. It reuses the runtime perk icon
+  renderer and active-item HUD icon renderer instead of duplicating icon-
+  loading paths.
 - `scripts/stages/stage1/stage1_dalji_whip_skill_state.gd`
   Owns the Stage 1 Dalji 상모돌리기 boss-skill port: boss skill gauge gain
   on boss paddle hits, 12% / 200-gauge activation, downward wave ball

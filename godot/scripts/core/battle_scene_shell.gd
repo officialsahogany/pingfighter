@@ -6,6 +6,7 @@ const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const ITEM_SPAWN_DEBUG_KEY := KEY_F2
 const RUNTIME_PERK_DEBUG_KEY := KEY_F8
 const FULLSCREEN_TOGGLE_KEY := KEY_F11
+const CHARACTER_INFO_KEY := KEY_TAB
 
 var scene_state = BattleSceneState.new()
 var gameplay_modules = GameplayModuleRegistry.new()
@@ -142,6 +143,22 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 		return
 
+	var character_info = _get_module("character_info_overlay")
+	if character_info != null and character_info.has_method("is_active") and bool(character_info.is_active()):
+		if character_info.has_method("handle_input"):
+			var handled_info: bool = bool(character_info.handle_input(event, self, gameplay_modules, get_viewport_rect().size))
+			if handled_info:
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+		return
+
+	if _is_character_info_toggle(event):
+		if character_info != null and character_info.has_method("open"):
+			character_info.open()
+			queue_redraw()
+			get_viewport().set_input_as_handled()
+		return
+
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == RUNTIME_PERK_DEBUG_KEY:
 		collect_star_point(1)
 		queue_redraw()
@@ -209,6 +226,13 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 
+	var character_info = _get_module("character_info_overlay")
+	if character_info != null and character_info.has_method("is_active") and bool(character_info.is_active()):
+		if character_info.has_method("update"):
+			character_info.update(delta)
+		queue_redraw()
+		return
+
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
 		update_driver.update_scoreboard_visuals(self, gameplay_modules, delta)
@@ -224,6 +248,9 @@ func _physics_process(delta: float) -> void:
 		return
 	var runtime_perk_state = _get_module("runtime_perk_state")
 	if runtime_perk_state != null and runtime_perk_state.has_method("is_choice_active") and bool(runtime_perk_state.is_choice_active()):
+		return
+	var character_info = _get_module("character_info_overlay")
+	if character_info != null and character_info.has_method("is_active") and bool(character_info.is_active()):
 		return
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
@@ -247,6 +274,11 @@ func _draw() -> void:
 	var drawer = _get_module("battle_scene_drawer")
 	if drawer != null:
 		drawer.draw(self, gameplay_modules)
+	var character_info = _get_module("character_info_overlay")
+	if character_info != null and character_info.has_method("is_active") and bool(character_info.is_active()):
+		if character_info.has_method("draw"):
+			character_info.draw(self, self, gameplay_modules, get_viewport_rect().size)
+		return
 	var active_item_runtime = _get_module("active_item_runtime")
 	if active_item_runtime != null and active_item_runtime.has_method("draw_debug_spawn_menu"):
 		active_item_runtime.draw_debug_spawn_menu(self, get_viewport_rect().size)
@@ -260,3 +292,12 @@ func _is_logo_intro_active() -> bool:
 func _is_stage_landing_intro_active() -> bool:
 	var landing_intro = _get_module("stage_landing_intro")
 	return landing_intro != null and landing_intro.has_method("is_active") and bool(landing_intro.is_active())
+
+
+func _is_character_info_toggle(event: InputEvent) -> bool:
+	if not (event is InputEventKey):
+		return false
+	var key_event: InputEventKey = event
+	if not key_event.pressed or key_event.echo:
+		return false
+	return key_event.keycode == CHARACTER_INFO_KEY or key_event.physical_keycode == CHARACTER_INFO_KEY

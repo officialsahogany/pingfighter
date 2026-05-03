@@ -69,6 +69,10 @@ const MODULES := {
 		"path": "res://scripts/hud/runtime_perk_icon_renderer.gd",
 		"label": "runtime perk icon renderer",
 	},
+	"character_info_overlay": {
+		"path": "res://scripts/hud/character_info_overlay.gd",
+		"label": "character info overlay",
+	},
 }
 
 
