@@ -1200,9 +1200,9 @@ Godot.
   Owns Smasher skill-orb hover hit testing and tooltip drawing: slot
   geometry reuse, active-skill field order, wrapped Korean copy,
   structured control rows, cooldown / gauge readout, and contained
-  effect-preview sketches. It renders as a final screen-space HUD overlay
-  after the transformed playfield so tooltip panels are not covered by
-  gameplay drawing.
+  skill-specific animated effect-preview sketches. It renders as a final
+  screen-space HUD overlay after the transformed playfield so tooltip
+  panels are not covered by gameplay drawing.
 - `scripts/ai/boss_ai_state.gd`
   Owns the current boss movement AI slice: prediction-state delegation,
   active-item grenade stun / flare confusion movement branches,
