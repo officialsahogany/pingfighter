@@ -118,14 +118,12 @@ Godot.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
   construction, field-item / portal drawing, animated unknown field-icon
-  drawing, pickup feedback, throwable windup / player-control lock state,
-  grenade projectile / explosion state, flare projectile / flash-confusion
-  state, Giant Potion paddle-width scale state and duration gauge,
-  Regeneration Potion ported skill cooldown / dash-token reset state and
-  recovery-burst feedback, active-item boss stun / confusion draw context,
-  F2 debug spawn menu item selection, number-key use input, per-item
-  cooldown checks, and the original Energy Drink / grenade / flare / Giant
-  Potion / Regeneration Potion consumable effects.
+  drawing, throwable item / explosion / flash drawing, pickup feedback,
+  Giant Potion paddle-width scale state and duration gauge, Regeneration
+  Potion ported skill cooldown / dash-token reset state and recovery-burst
+  feedback, F2 debug spawn menu item selection, number-key use input,
+  per-item cooldown checks, and the original Energy Drink / grenade /
+  flare / Giant Potion / Regeneration Potion consumable effect routing.
   Broader item pools beyond those currently ported items are still future
   item-domain work.
 - `scripts/items/active_item_catalog.gd`
@@ -142,6 +140,12 @@ Godot.
   paddle pickup collision, active-slot writeback after successful pickup,
   and debug-spawn injection. It calls back into the runtime only for slot
   storage rules and pickup feedback.
+- `scripts/items/active_item_throw_controller.gd`
+  Owns active throwable item state: grenade / flare activation lockouts,
+  throw windup timing, player-control lock state, projectile travel,
+  grenade explosion zones, flare flash zones, boss stun / knockback /
+  confusion timers, actor draw context, and boss-AI context. The runtime
+  keeps texture-backed drawing for the controller's exposed state arrays.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve
