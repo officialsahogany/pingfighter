@@ -52,6 +52,26 @@ static func load_audio_stream(path: String, missing_warning: String = "", failed
 	return null
 
 
+static func load_font(path: String, missing_warning: String = "", failed_warning: String = "") -> Font:
+	var raw_exists: bool = FileAccess.file_exists(path)
+	if raw_exists:
+		var font_file := FontFile.new()
+		if font_file.load_dynamic_font(ProjectSettings.globalize_path(path)) == OK:
+			return font_file
+
+	var imported_exists: bool = ResourceLoader.exists(path)
+	if imported_exists:
+		var font_resource: Resource = load(path)
+		if font_resource is Font:
+			return font_resource
+
+	if not raw_exists and not imported_exists:
+		_push_path_warning(missing_warning, path)
+	else:
+		_push_path_warning(failed_warning, path)
+	return null
+
+
 static func _push_path_warning(template: String, path: String) -> void:
 	if template != "":
 		push_warning(template % path)

@@ -1342,6 +1342,13 @@ Godot.
   menu UI to the battle shell. Future ports should keep peeling stable
   systems into the module map above instead of growing this shell.
 
+- `scripts/core/penguin_logo_intro.gd`
+  Owns the Godot startup penguin-logo screen port: full-screen black intro
+  draw, Python-parity bootstrap red-disc pre-roll, wave-sheet frame
+  selection, PFStardust-first studio-text reveal / tracking / glint timing,
+  logo sound playback, and the short battle-bootstrap gate that keeps Stage
+  BGM / gameplay startup behind the logo just like the Python startup path.
+
 ## Verification Rule
 
 For each Godot refactor:

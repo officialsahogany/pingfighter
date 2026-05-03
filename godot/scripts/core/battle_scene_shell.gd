@@ -8,14 +8,26 @@ const FULLSCREEN_TOGGLE_KEY := KEY_F11
 
 var scene_state = BattleSceneState.new()
 var gameplay_modules = GameplayModuleRegistry.new()
+var _battle_initialized := false
 
 
 func _ready() -> void:
 	_apply_selection_state()
 	_configure_battle_window()
+	var logo_intro = _get_module("penguin_logo_intro")
+	if logo_intro != null and logo_intro.has_method("begin") and bool(logo_intro.begin(self)):
+		queue_redraw()
+		return
+	_initialize_battle()
+
+
+func _initialize_battle() -> void:
+	if _battle_initialized:
+		return
 	var lifecycle = _get_module("battle_scene_lifecycle")
 	if lifecycle != null:
 		lifecycle.initialize(self, gameplay_modules)
+	_battle_initialized = true
 
 
 func _get_module(key: String):
@@ -92,6 +104,8 @@ func activate_drive_ball(
 func _unhandled_input(event: InputEvent) -> void:
 	if _handle_window_shortcut(event):
 		return
+	if _is_logo_intro_active() or not _battle_initialized:
+		return
 	var active_item_runtime = _get_module("active_item_runtime")
 	if active_item_runtime == null:
 		return
@@ -126,6 +140,17 @@ func _handle_window_shortcut(event: InputEvent) -> bool:
 	return true
 
 func _process(delta: float) -> void:
+	var logo_intro = _get_module("penguin_logo_intro")
+	if logo_intro != null and logo_intro.has_method("is_active") and bool(logo_intro.is_active()):
+		if logo_intro.has_method("update"):
+			logo_intro.update(delta)
+		if logo_intro.has_method("is_active") and not bool(logo_intro.is_active()):
+			_initialize_battle()
+		queue_redraw()
+		return
+	if not _battle_initialized:
+		_initialize_battle()
+
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
 		update_driver.update_scoreboard_visuals(self, gameplay_modules, delta)
@@ -137,15 +162,30 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _is_logo_intro_active() or not _battle_initialized:
+		return
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
 		update_driver.update(self, gameplay_modules, delta)
 
 
 func _draw() -> void:
+	var logo_intro = _get_module("penguin_logo_intro")
+	if logo_intro != null and logo_intro.has_method("is_active") and bool(logo_intro.is_active()):
+		if logo_intro.has_method("draw"):
+			logo_intro.draw(self, get_viewport_rect().size)
+		return
+	if not _battle_initialized:
+		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color.BLACK)
+		return
 	var drawer = _get_module("battle_scene_drawer")
 	if drawer != null:
 		drawer.draw(self, gameplay_modules)
 	var active_item_runtime = _get_module("active_item_runtime")
 	if active_item_runtime != null and active_item_runtime.has_method("draw_debug_spawn_menu"):
 		active_item_runtime.draw_debug_spawn_menu(self, get_viewport_rect().size)
+
+
+func _is_logo_intro_active() -> bool:
+	var logo_intro = _get_module("penguin_logo_intro")
+	return logo_intro != null and logo_intro.has_method("is_active") and bool(logo_intro.is_active())

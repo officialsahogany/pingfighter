@@ -9,6 +9,10 @@ const MODULES := {
 		"path": "res://scripts/core/battle_scene_lifecycle.gd",
 		"label": "battle scene lifecycle",
 	},
+	"penguin_logo_intro": {
+		"path": "res://scripts/core/penguin_logo_intro.gd",
+		"label": "penguin logo intro",
+	},
 	"battle_scene_config": {
 		"path": "res://scripts/core/battle_scene_config.gd",
 		"label": "battle scene config",
