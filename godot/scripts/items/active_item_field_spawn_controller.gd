@@ -63,6 +63,21 @@ func get_item_spawn_portals() -> Array[Dictionary]:
 	return item_spawn_portals
 
 
+func collect_items_near(center: Vector2, radius: float) -> Array[Dictionary]:
+	if spawned_items.is_empty():
+		return []
+	var picked_items: Array[Dictionary] = []
+	var survivors: Array[Dictionary] = []
+	for field_item in spawned_items:
+		var item_pos: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO)
+		if item_pos.distance_to(center) <= radius:
+			picked_items.append(field_item)
+		else:
+			survivors.append(field_item)
+	spawned_items = survivors
+	return picked_items
+
+
 func _update_spawn_timer(owner: Object) -> void:
 	if _is_item_spawn_blocked(owner):
 		_reset_spawn_timer()

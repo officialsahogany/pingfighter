@@ -26,6 +26,20 @@ const FLARE_ARMED_DELAY_FRAMES := 90.0
 const FLARE_RADIUS := 180.0
 const FLARE_ZONE_DURATION_FRAMES := 9.0
 const FLARE_BOSS_CONFUSION_FRAMES := 180.0
+const BOOMERANG_THROW_WINDUP_MSEC := 400
+const BOOMERANG_SPEED_PER_FRAME := 9.8
+const BOOMERANG_RETURN_SPEED_PER_FRAME := 8.4
+const BOOMERANG_STUN_FRAMES := 36.0
+const BOOMERANG_KNOCKBACK_FRAMES := 15.0
+const BOOMERANG_KNOCKBACK_POWER := 28.0
+const BOOMERANG_ITEM_PICKUP_RADIUS := 55.0
+const BOOMERANG_COLLISION_SIZE := 31.0
+const BOOMERANG_MAX_TRAVEL_Y := 25.0
+const BOOMERANG_CURVE_AMPLITUDE := 60.0
+const BOOMERANG_HOMING_STRENGTH := 0.35
+const BOOMERANG_ROTATION_SPEED := 18.0
+const BOOMERANG_TRAIL_MAX_POINTS := 14
+const BOOMERANG_BREAK_PARTICLE_DURATION_SEC := 0.86
 const THROW_POSE_HOLD_ANGLE_DEGREES := 30.0
 const THROW_POSE_RELEASE_ANGLE_DEGREES := -20.0
 const BOSS_STUN_FRAME_MSEC := 100
@@ -33,6 +47,8 @@ const BOSS_STUN_FRAME_MSEC := 100
 var pending_throws: Array[Dictionary] = []
 var grenades: Array[Dictionary] = []
 var flares: Array[Dictionary] = []
+var boomerangs: Array[Dictionary] = []
+var boomerang_particles: Array[Dictionary] = []
 var explosion_zones: Array[Dictionary] = []
 var flare_zones: Array[Dictionary] = []
 var grenade_boss_stun_timer_frames: float = 0.0
@@ -45,6 +61,8 @@ func reset() -> void:
 	pending_throws.clear()
 	grenades.clear()
 	flares.clear()
+	boomerangs.clear()
+	boomerang_particles.clear()
 	explosion_zones.clear()
 	flare_zones.clear()
 	grenade_boss_stun_timer_frames = 0.0
@@ -53,10 +71,18 @@ func reset() -> void:
 	flare_boss_confused_timer_frames = 0.0
 
 
-func update(owner: Object, registry: Object, delta: float) -> void:
+func update(
+	owner: Object,
+	registry: Object,
+	delta: float,
+	collect_items_callback: Callable = Callable(),
+	boomerang_return_callback: Callable = Callable()
+) -> void:
 	_update_throw_windups(owner, registry)
 	_update_grenades(owner, registry, delta)
 	_update_flares(owner, registry, delta)
+	_update_boomerangs(owner, registry, delta, collect_items_callback, boomerang_return_callback)
+	_update_boomerang_particles(delta)
 	_update_explosion_zones(delta)
 	_update_flare_zones(delta)
 	_update_grenade_boss_effect(delta)
@@ -119,6 +145,34 @@ func activate_flare(owner: Object, registry: Object) -> bool:
 	return true
 
 
+func activate_boomerang(owner: Object, registry: Object) -> bool:
+	if _is_throw_locked(registry):
+		return false
+	if is_throw_windup_active():
+		return false
+
+	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - 50.0))
+	var boss_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "boss_pos", Vector2(FIELD_WIDTH * 0.5 - 50.0, 25.0))
+	var player_center := Vector2(player_pos.x + 155.0 * 0.5, player_pos.y + 25.0)
+	var target := Vector2(boss_pos.x + 100.0 * 0.5, BOOMERANG_MAX_TRAVEL_Y)
+	var now_msec: int = Time.get_ticks_msec()
+	pending_throws.append({
+		"item_name": "boomerang",
+		"start_msec": now_msec,
+		"release_msec": now_msec + BOOMERANG_THROW_WINDUP_MSEC,
+		"start_position": player_center,
+		"target_position": target,
+	})
+
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null:
+		if audio.has_method("play_throw_before"):
+			audio.play_throw_before()
+		if audio.has_method("play_active_item"):
+			audio.play_active_item()
+	return true
+
+
 func is_throw_windup_active() -> bool:
 	return not pending_throws.is_empty()
 
@@ -137,6 +191,14 @@ func get_grenades() -> Array[Dictionary]:
 
 func get_flares() -> Array[Dictionary]:
 	return flares
+
+
+func get_boomerangs() -> Array[Dictionary]:
+	return boomerangs
+
+
+func get_boomerang_particles() -> Array[Dictionary]:
+	return boomerang_particles
 
 
 func get_explosion_zones() -> Array[Dictionary]:
@@ -191,6 +253,8 @@ func _update_throw_windups(owner: Object, registry: Object) -> void:
 		var item_name: String = str(pending_throw.get("item_name", "grenade"))
 		if item_name == "flare":
 			_throw_flare(owner, pending_throw, registry)
+		elif item_name == "boomerang":
+			_throw_boomerang(owner, pending_throw, registry)
 		else:
 			_throw_grenade(owner, pending_throw, registry)
 	pending_throws = survivors
@@ -217,6 +281,40 @@ func _throw_grenade(owner: Object, pending_throw: Dictionary, registry: Object) 
 	var audio: Object = _get_instance(registry, "game_audio")
 	if audio != null and audio.has_method("play_throw"):
 		audio.play_throw()
+
+
+func _throw_boomerang(owner: Object, pending_throw: Dictionary, registry: Object) -> void:
+	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", _get_vector2(pending_throw, "start_position", Vector2.ZERO))
+	var start_pos := Vector2(player_pos.x + 155.0 * 0.5, player_pos.y + 25.0)
+	var target_pos: Vector2 = _get_vector2(pending_throw, "target_position", Vector2(start_pos.x, BOOMERANG_MAX_TRAVEL_Y))
+	var curve_dir: int = -1 if randf() < 0.5 else 1
+	boomerangs.append({
+		"position": start_pos,
+		"start_position": start_pos,
+		"phase": "outgoing",
+		"travel_t": 0.0,
+		"angle_degrees": 0.0,
+		"curve_dir": curve_dir,
+		"main_amp": BOOMERANG_CURVE_AMPLITUDE * randf_range(0.7, 1.4),
+		"wobble_amp": randf_range(8.0, 20.0),
+		"wobble_freq": randf_range(2.5, 4.5),
+		"wind_drift": randf_range(-25.0, 25.0),
+		"homing_offset_x": 0.0,
+		"target_boss_x": target_pos.x,
+		"hit_boss": false,
+		"return_wobble_phase": randf_range(0.0, TAU),
+		"return_wobble_amp": randf_range(15.0, 35.0),
+		"return_wobble_freq": randf_range(0.08, 0.15),
+		"picked_items": [],
+		"trail": [start_pos],
+	})
+
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null:
+		if audio.has_method("play_throw"):
+			audio.play_throw()
+		if audio.has_method("play_boomerang_loop"):
+			audio.play_boomerang_loop()
 
 
 func _throw_flare(owner: Object, pending_throw: Dictionary, registry: Object) -> void:
@@ -356,6 +454,241 @@ func _update_flares(owner: Object, registry: Object, delta: float) -> void:
 				continue
 			survivors.append(flare)
 	flares = survivors
+
+
+func _update_boomerangs(
+	owner: Object,
+	registry: Object,
+	delta: float,
+	collect_items_callback: Callable,
+	boomerang_return_callback: Callable
+) -> void:
+	if boomerangs.is_empty():
+		return
+
+	var fps_scale: float = delta * 60.0
+	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5 - 77.5, FIELD_HEIGHT - 50.0))
+	var player_center := Vector2(player_pos.x + 155.0 * 0.5, player_pos.y + 25.0)
+	var boss_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "boss_pos", Vector2(FIELD_WIDTH * 0.5 - 50.0, 25.0))
+	var boss_rect := Rect2(boss_pos, Vector2(100.0, 40.0))
+	var ball_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "ball_pos", Vector2.ZERO)
+	var ball_active: bool = bool(BattleSceneOwnerReader.get_value(owner, "ball_active", false))
+	var ball_rect := Rect2(ball_pos - Vector2(14.3, 14.3), Vector2(28.6, 28.6))
+	var survivors: Array[Dictionary] = []
+
+	for boomerang in boomerangs:
+		var pos: Vector2 = _get_vector2(boomerang, "position", player_center)
+		var phase: String = str(boomerang.get("phase", "outgoing"))
+		boomerang["angle_degrees"] = fposmod(float(boomerang.get("angle_degrees", 0.0)) + BOOMERANG_ROTATION_SPEED * fps_scale, 360.0)
+
+		if phase == "outgoing":
+			pos = _update_boomerang_outgoing(boomerang, boss_rect, fps_scale)
+			boomerang["position"] = pos
+			_try_apply_boomerang_boss_hit(boomerang, boss_rect, registry)
+			if ball_active and _boomerang_intersects_rect(pos, ball_rect):
+				_spawn_boomerang_break_particles(pos)
+				_play_boomerang_destroyed_audio(registry)
+				continue
+			if float(boomerang.get("travel_t", 0.0)) >= 1.0:
+				boomerang["phase"] = "returning"
+				boomerang["start_position"] = pos
+
+		else:
+			pos = _update_boomerang_returning(boomerang, player_center, fps_scale)
+			boomerang["position"] = pos
+			_collect_boomerang_items(boomerang, pos, collect_items_callback)
+			if ball_active and _boomerang_intersects_rect(pos, ball_rect):
+				_spawn_boomerang_break_particles(pos)
+				_play_boomerang_destroyed_audio(registry)
+				continue
+			if pos.distance_to(player_center) < 30.0:
+				if boomerang_return_callback.is_valid():
+					boomerang_return_callback.call(owner, {"picked_items": boomerang.get("picked_items", [])}, registry)
+				_play_boomerang_returned_audio(registry)
+				continue
+
+		_add_boomerang_trail_point(boomerang, pos)
+		_spawn_boomerang_trail_particle(pos)
+		survivors.append(boomerang)
+
+	boomerangs = survivors
+	if boomerangs.is_empty():
+		var audio: Object = _get_instance(registry, "game_audio")
+		if audio != null and audio.has_method("stop_boomerang_loop"):
+			audio.stop_boomerang_loop()
+
+
+func _update_boomerang_outgoing(boomerang: Dictionary, boss_rect: Rect2, fps_scale: float) -> Vector2:
+	var start_pos: Vector2 = _get_vector2(boomerang, "start_position", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - 50.0))
+	var travel_height: float = max(1.0, start_pos.y - BOOMERANG_MAX_TRAVEL_Y)
+	var travel_t: float = min(1.0, float(boomerang.get("travel_t", 0.0)) + (BOOMERANG_SPEED_PER_FRAME / travel_height) * fps_scale)
+	boomerang["travel_t"] = travel_t
+
+	var main_curve: float = sin(travel_t * PI * 1.2) * float(boomerang.get("main_amp", BOOMERANG_CURVE_AMPLITUDE)) * float(boomerang.get("curve_dir", 1))
+	var wobble: float = sin(travel_t * PI * float(boomerang.get("wobble_freq", 3.0))) * float(boomerang.get("wobble_amp", 12.0))
+	var drift: float = float(boomerang.get("wind_drift", 0.0)) * travel_t
+	var base_x: float = start_pos.x + main_curve + wobble + drift + randf_range(-1.5, 1.5)
+
+	var boss_center_x: float = boss_rect.position.x + boss_rect.size.x * 0.5
+	var homing_factor: float = max(0.0, travel_t - 0.2) * BOOMERANG_HOMING_STRENGTH
+	var homing_offset: float = float(boomerang.get("homing_offset_x", 0.0))
+	homing_offset += (boss_center_x - base_x) * homing_factor * 0.08 * fps_scale
+	homing_offset = clamp(homing_offset, -FIELD_WIDTH * 0.4, FIELD_WIDTH * 0.4)
+	boomerang["homing_offset_x"] = homing_offset
+
+	return Vector2(
+		clamp(base_x + homing_offset, 10.0, FIELD_WIDTH - 10.0),
+		lerp(start_pos.y, BOOMERANG_MAX_TRAVEL_Y, travel_t)
+	)
+
+
+func _update_boomerang_returning(boomerang: Dictionary, player_center: Vector2, fps_scale: float) -> Vector2:
+	var pos: Vector2 = _get_vector2(boomerang, "position", player_center)
+	var to_player: Vector2 = player_center - pos
+	var distance: float = to_player.length()
+	if distance <= 0.001:
+		return pos
+
+	var direction: Vector2 = to_player / distance
+	var perpendicular := Vector2(-direction.y, direction.x)
+	var phase: float = float(boomerang.get("return_wobble_phase", 0.0)) + float(boomerang.get("return_wobble_freq", 0.1)) * fps_scale
+	boomerang["return_wobble_phase"] = phase
+	var lateral: float = sin(phase) * float(boomerang.get("return_wobble_amp", 22.0)) * min(1.0, distance / 200.0)
+	return pos + direction * BOOMERANG_RETURN_SPEED_PER_FRAME * fps_scale + perpendicular * lateral * 0.15 * fps_scale
+
+
+func _try_apply_boomerang_boss_hit(boomerang: Dictionary, boss_rect: Rect2, registry: Object) -> void:
+	if bool(boomerang.get("hit_boss", false)):
+		return
+	var pos: Vector2 = _get_vector2(boomerang, "position", Vector2.ZERO)
+	if not _boomerang_intersects_rect(pos, boss_rect):
+		return
+
+	boomerang["hit_boss"] = true
+	grenade_boss_stun_timer_frames = max(grenade_boss_stun_timer_frames, BOOMERANG_STUN_FRAMES)
+	grenade_boss_knockback_timer_frames = max(grenade_boss_knockback_timer_frames, BOOMERANG_KNOCKBACK_FRAMES)
+	var boss_center_x: float = boss_rect.position.x + boss_rect.size.x * 0.5
+	var direction: float = 1.0 if pos.x >= boss_center_x else -1.0
+	var knockback_vel: float = direction * BOOMERANG_KNOCKBACK_POWER
+	if abs(knockback_vel) >= abs(grenade_boss_knockback_vel):
+		grenade_boss_knockback_vel = knockback_vel
+
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null:
+		if audio.has_method("play_boomerang_hit"):
+			audio.play_boomerang_hit()
+		elif audio.has_method("play_paddle_hit"):
+			audio.play_paddle_hit()
+
+
+func _collect_boomerang_items(boomerang: Dictionary, pos: Vector2, collect_items_callback: Callable) -> void:
+	if not collect_items_callback.is_valid():
+		return
+	var picked_value: Variant = collect_items_callback.call(pos, BOOMERANG_ITEM_PICKUP_RADIUS)
+	if not (picked_value is Array):
+		return
+	var picked_items: Array = boomerang.get("picked_items", [])
+	for picked in picked_value:
+		if picked is Dictionary:
+			picked_items.append(picked)
+	boomerang["picked_items"] = picked_items
+
+
+func _boomerang_intersects_rect(pos: Vector2, target_rect: Rect2) -> bool:
+	var boomerang_rect := Rect2(
+		pos - Vector2(BOOMERANG_COLLISION_SIZE, BOOMERANG_COLLISION_SIZE) * 0.5,
+		Vector2(BOOMERANG_COLLISION_SIZE, BOOMERANG_COLLISION_SIZE)
+	)
+	return boomerang_rect.intersects(target_rect)
+
+
+func _add_boomerang_trail_point(boomerang: Dictionary, pos: Vector2) -> void:
+	var trail: Array = boomerang.get("trail", [])
+	trail.append(pos)
+	while trail.size() > BOOMERANG_TRAIL_MAX_POINTS:
+		trail.pop_front()
+	boomerang["trail"] = trail
+
+
+func _spawn_boomerang_trail_particle(pos: Vector2) -> void:
+	if randf() >= 0.6:
+		return
+	var colors := [
+		Color(200.0 / 255.0, 150.0 / 255.0, 80.0 / 255.0, 0.78),
+		Color(220.0 / 255.0, 180.0 / 255.0, 100.0 / 255.0, 0.78),
+		Color(180.0 / 255.0, 120.0 / 255.0, 60.0 / 255.0, 0.78),
+		Color(1.0, 210.0 / 255.0, 120.0 / 255.0, 0.78),
+	]
+	boomerang_particles.append({
+		"position": pos + Vector2(randf_range(-6.0, 6.0), randf_range(-6.0, 6.0)),
+		"velocity": Vector2.ZERO,
+		"age": 0.0,
+		"lifetime": 0.48,
+		"radius": randf_range(2.0, 5.0),
+		"color": colors[randi() % colors.size()],
+	})
+
+
+func _spawn_boomerang_break_particles(pos: Vector2) -> void:
+	var colors := [
+		Color(180.0 / 255.0, 120.0 / 255.0, 60.0 / 255.0, 1.0),
+		Color(160.0 / 255.0, 100.0 / 255.0, 40.0 / 255.0, 1.0),
+		Color(140.0 / 255.0, 85.0 / 255.0, 35.0 / 255.0, 1.0),
+		Color(200.0 / 255.0, 150.0 / 255.0, 80.0 / 255.0, 1.0),
+		Color(230.0 / 255.0, 60.0 / 255.0, 50.0 / 255.0, 1.0),
+		Color(60.0 / 255.0, 140.0 / 255.0, 230.0 / 255.0, 1.0),
+	]
+	for _i in range(22):
+		var angle: float = randf_range(0.0, TAU)
+		var speed: float = randf_range(1.2, 7.0)
+		boomerang_particles.append({
+			"position": pos + Vector2(randf_range(-5.0, 5.0), randf_range(-5.0, 5.0)),
+			"velocity": Vector2(cos(angle), sin(angle)) * speed + Vector2(0.0, -randf_range(0.6, 2.4)),
+			"age": 0.0,
+			"lifetime": BOOMERANG_BREAK_PARTICLE_DURATION_SEC,
+			"radius": randf_range(2.0, 7.0),
+			"color": colors[randi() % colors.size()],
+		})
+
+
+func _update_boomerang_particles(delta: float) -> void:
+	if boomerang_particles.is_empty():
+		return
+	var survivors: Array[Dictionary] = []
+	var fps_scale: float = delta * 60.0
+	for particle in boomerang_particles:
+		var age: float = float(particle.get("age", 0.0)) + delta
+		var lifetime: float = max(0.001, float(particle.get("lifetime", BOOMERANG_BREAK_PARTICLE_DURATION_SEC)))
+		if age >= lifetime:
+			continue
+		var pos: Vector2 = _get_vector2(particle, "position", Vector2.ZERO)
+		var velocity: Vector2 = _get_vector2(particle, "velocity", Vector2.ZERO)
+		pos += velocity * fps_scale
+		velocity.y += 0.15 * fps_scale
+		velocity.x *= pow(0.98, fps_scale)
+		particle["age"] = age
+		particle["position"] = pos
+		particle["velocity"] = velocity
+		survivors.append(particle)
+	boomerang_particles = survivors
+
+
+func _play_boomerang_destroyed_audio(registry: Object) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_boomerang_break"):
+		audio.play_boomerang_break()
+	elif audio.has_method("play_boomerang_hit"):
+		audio.play_boomerang_hit()
+
+
+func _play_boomerang_returned_audio(registry: Object) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_item_get"):
+		audio.play_item_get()
 
 
 func _trigger_grenade_explosion(owner: Object, registry: Object, center: Vector2) -> void:

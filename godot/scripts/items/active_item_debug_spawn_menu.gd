@@ -124,6 +124,11 @@ func _get_entries() -> Array[Dictionary]:
 			"title": "재생물약",
 			"subtitle": "active / reset skills",
 		},
+		{
+			"name": "boomerang",
+			"title": "부메랑",
+			"subtitle": "active / throw return",
+		},
 	]
 
 

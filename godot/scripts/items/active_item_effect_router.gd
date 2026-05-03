@@ -16,6 +16,8 @@ func apply_item_effect(
 		return _call_bool(throw_controller, "activate_grenade", [owner, registry])
 	if _matches(item_name, effect_name, "flare"):
 		return _call_bool(throw_controller, "activate_flare", [owner, registry])
+	if _matches(item_name, effect_name, "boomerang"):
+		return _call_bool(throw_controller, "activate_boomerang", [owner, registry])
 	if _matches(item_name, effect_name, "long_boost"):
 		return _call_bool(effect_controller, "activate_long_boost", [owner, registry])
 	if _matches(item_name, effect_name, "regeneration_potion"):

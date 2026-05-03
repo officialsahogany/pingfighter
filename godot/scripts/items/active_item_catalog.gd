@@ -9,6 +9,7 @@ const GRENADE_ICON_PATH := "res://assets/sprites/items/grenade.png"
 const FLARE_ICON_PATH := "res://assets/sprites/items/flare.png"
 const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/long_boost_icon.png"
 const REGENERATION_POTION_ICON_PATH := "res://assets/sprites/items/regeneration_potion.png"
+const BOOMERANG_ICON_PATH := "res://assets/sprites/items/boomerang.png"
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
@@ -16,6 +17,7 @@ const FIELD_SPAWN_ORDER := [
 	"flare",
 	"long_boost",
 	"regeneration_potion",
+	"boomerang",
 ]
 
 
@@ -31,6 +33,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			return _build_long_boost()
 		"regeneration_potion":
 			return _build_regeneration_potion()
+		"boomerang":
+			return _build_boomerang()
 	return {}
 
 
@@ -135,4 +139,20 @@ func _build_regeneration_potion() -> Dictionary:
 		"icon_path": REGENERATION_POTION_ICON_PATH,
 		"color": Color(1.0, 230.0 / 255.0, 80.0 / 255.0),
 		"consumable": true,
+	}
+
+
+func _build_boomerang() -> Dictionary:
+	return {
+		"name": "boomerang",
+		"display_name": "Boomerang",
+		"type": "active",
+		"effect": "boomerang",
+		"chance": 0.015,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": BOOMERANG_ICON_PATH,
+		"color": Color(200.0 / 255.0, 130.0 / 255.0, 60.0 / 255.0),
+		"consumable": true,
+		"count": 1,
 	}

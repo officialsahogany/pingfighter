@@ -117,17 +117,17 @@ Godot.
   side effects, and the actual serve/reset orchestration.
 - `scripts/items/active_item_runtime.gd`
   Owns active-item orchestration for the first Godot runtime slice:
-  controller / renderer fanout, currently ported consumable effect routing,
-  debug-spawn execution after the menu selects an item, actor draw context,
-  and boss-AI context. Broader item pools beyond those currently ported
-  items are still future item-domain work.
+  controller / renderer fanout, slot-use callbacks, debug-spawn execution
+  after the menu selects an item, actor draw context, and boss-AI context.
+  Broader item pools beyond those currently ported items are still future
+  item-domain work.
 - `scripts/items/active_item_catalog.gd`
   Owns the currently ported active-item metadata: `gauge_charge` / Energy
-  Drink, `grenade`, `flare`, `long_boost` / Giant Potion, and
-  `regeneration_potion` / Regeneration Potion definitions, icon paths,
-  cooldown / gauge constants, field-spawn order, weighted spawn selection,
-  and display-name fallback. The runtime asks this catalog for item data
-  instead of rebuilding definitions locally.
+  Drink, `grenade`, `flare`, `long_boost` / Giant Potion,
+  `regeneration_potion` / Regeneration Potion, and `boomerang` definitions,
+  icon paths, cooldown / gauge constants, field-spawn order, weighted spawn
+  selection, and display-name fallback. The runtime asks this catalog for item
+  data instead of rebuilding definitions locally.
 - `scripts/items/active_item_slot_controller.gd`
   Owns active-item slot state and use flow: starter active-slot
   construction, number-key edge input, shared and per-item cooldown checks,
@@ -138,8 +138,8 @@ Godot.
   spawn blocking, item-spawn portal release timing, weighted currently
   ported item creation through the catalog, field-item bounce motion,
   paddle pickup collision, active-slot writeback after successful pickup,
-  and debug-spawn injection. It calls back into the runtime only for slot
-  storage rules and pickup feedback.
+  boomerang-return pickup collection, and debug-spawn injection. It calls back
+  into the runtime only for slot storage rules and pickup feedback.
 - `scripts/items/active_item_pickup_feedback.gd`
   Owns active field-pickup presentation handoff: pickup display-name
   fallback, pickup color extraction, and routing picked field-item data
@@ -148,21 +148,27 @@ Godot.
   Owns active item use-effect routing: item `name` / `effect` id matching
   and dispatch to either the throwable controller or the consumable effect
   controller. The runtime keeps only the slot-use callback.
+- `scripts/items/active_item_boomerang_return_handler.gd`
+  Owns boomerang return resolution after a thrown boomerang reaches the
+  player: slot insertion for collected field items, pickup feedback fanout,
+  and returning the consumed boomerang item to the active-item slots.
 - `scripts/items/active_item_field_renderer.gd`
   Owns active field-item rendering: item-spawn portal sprite / fallback
   drawing, animated unknown field-icon drawing, field-item glow, and spawn
   electric-spark effects. It keeps the portal and unknown-item texture
   caches outside the active-item runtime.
 - `scripts/items/active_item_throw_controller.gd`
-  Owns active throwable item state: grenade / flare activation lockouts,
-  throw windup timing, player-control lock state, projectile travel,
-  grenade explosion zones, flare flash zones, boss stun / knockback /
-  confusion timers, actor draw context, and boss-AI context.
+  Owns active throwable item state: grenade / flare / boomerang activation
+  lockouts, throw windup timing, player-control lock state, projectile travel,
+  boomerang return collection, grenade explosion zones, flare flash zones,
+  boss stun / knockback / confusion timers, actor draw context, and boss-AI
+  context.
 - `scripts/items/active_item_throw_renderer.gd`
-  Owns active throwable item rendering: grenade / flare windup lifts,
-  projectile trails, texture-backed grenade / flare sprites, explosion
-  zones, flare flash / confuse zones, and throw-icon texture caches. The
-  runtime passes through the throw controller's exposed state arrays.
+  Owns active throwable item rendering: grenade / flare / boomerang windup
+  lifts, projectile trails, texture-backed grenade / flare / boomerang sprites,
+  boomerang trail / break particles, explosion zones, flare flash / confuse
+  zones, and throw-icon texture caches. The runtime passes through the throw
+  controller's exposed state arrays.
 - `scripts/items/active_item_effect_controller.gd`
   Owns active consumable effect state that is not a thrown projectile:
   Energy Drink gauge application, Giant Potion duration / paddle-scale owner

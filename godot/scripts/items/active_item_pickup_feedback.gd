@@ -9,6 +9,7 @@ const ITEM_NAME_KO := {
 	"grenade": "수류탄",
 	"long_boost": "거대화포션",
 	"regeneration_potion": "재생물약",
+	"boomerang": "부메랑",
 }
 
 var item_catalog: Object = ActiveItemCatalog.new()

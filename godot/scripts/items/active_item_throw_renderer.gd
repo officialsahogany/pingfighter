@@ -5,6 +5,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 
 const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
 const FLARE_ICON_PATH := ActiveItemCatalog.FLARE_ICON_PATH
+const BOOMERANG_ICON_PATH := ActiveItemCatalog.BOOMERANG_ICON_PATH
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const GRENADE_THROW_WINDUP_MSEC := 600
@@ -14,9 +15,11 @@ const GRENADE_EXPLOSION_DURATION_FRAMES := 25.0
 const FLARE_THROW_WINDUP_MSEC := 600
 const FLARE_DRAW_SIZE := 34.0
 const FLARE_RADIUS := 180.0
+const BOOMERANG_DRAW_SIZE := 42.0
 
 var grenade_icon_texture: Texture2D
 var flare_icon_texture: Texture2D
+var boomerang_icon_texture: Texture2D
 
 
 func draw(
@@ -24,6 +27,8 @@ func draw(
 	pending_throws: Array,
 	grenades: Array,
 	flares: Array,
+	boomerangs: Array,
+	boomerang_particles: Array,
 	explosion_zones: Array,
 	flare_zones: Array,
 	shake_offset: Vector2 = Vector2.ZERO
@@ -33,6 +38,8 @@ func draw(
 	_draw_grenade_throw_windups(canvas, pending_throws, shake_offset)
 	_draw_grenades(canvas, grenades, shake_offset)
 	_draw_flares(canvas, flares, shake_offset)
+	_draw_boomerang_particles(canvas, boomerang_particles, shake_offset)
+	_draw_boomerangs(canvas, boomerangs, shake_offset)
 	_draw_explosion_zones(canvas, explosion_zones, shake_offset)
 	_draw_flare_zones(canvas, flare_zones, shake_offset)
 
@@ -57,7 +64,7 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, pending_throws: Array, shak
 		var throw_pos: Vector2 = lift_pos.lerp(target_pos, max(0.0, (progress - 0.72) / 0.28) * 0.18)
 		var angle: float = lerp(0.0, -35.0, progress)
 		var texture: Texture2D = _get_throw_item_icon_texture(item_name)
-		var draw_size: float = FLARE_DRAW_SIZE if item_name == "flare" else GRENADE_DRAW_SIZE
+		var draw_size: float = _get_throw_item_draw_size(item_name)
 		if texture != null:
 			_draw_rotated_texture_region(
 				canvas,
@@ -69,6 +76,8 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, pending_throws: Array, shak
 			)
 		elif item_name == "flare":
 			canvas.draw_circle(throw_pos, 11.0, Color(1.0, 1.0, 200.0 / 255.0, 1.0))
+		elif item_name == "boomerang":
+			_draw_boomerang_fallback(canvas, throw_pos, angle, 1.0)
 		else:
 			canvas.draw_circle(throw_pos, 12.0, Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0, 1.0))
 
@@ -140,6 +149,76 @@ func _draw_flares(canvas: CanvasItem, flares: Array, shake_offset: Vector2) -> v
 			)
 		else:
 			canvas.draw_circle(center, 10.0, Color(1.0, 1.0, 200.0 / 255.0, 1.0))
+
+
+func _draw_boomerangs(canvas: CanvasItem, boomerangs: Array, shake_offset: Vector2) -> void:
+	if boomerangs.is_empty():
+		return
+	var texture: Texture2D = _get_boomerang_icon_texture()
+	for boomerang_value in boomerangs:
+		if not (boomerang_value is Dictionary):
+			continue
+		var boomerang: Dictionary = boomerang_value
+		var trail: Array = boomerang.get("trail", [])
+		for i in range(max(0, trail.size() - 1)):
+			var p1_value: Variant = trail[i]
+			var p2_value: Variant = trail[i + 1]
+			if not (p1_value is Vector2) or not (p2_value is Vector2):
+				continue
+			var ratio: float = float(i + 1) / float(max(1, trail.size()))
+			var alpha: float = 0.08 + ratio * 0.24
+			canvas.draw_line(p1_value + shake_offset, p2_value + shake_offset, Color(220.0 / 255.0, 165.0 / 255.0, 85.0 / 255.0, alpha), max(1.0, ratio * 5.0))
+
+		var center: Vector2 = _get_vector2(boomerang, "position", Vector2.ZERO) + shake_offset
+		var angle: float = float(boomerang.get("angle_degrees", 0.0))
+		if str(boomerang.get("phase", "outgoing")) == "returning":
+			canvas.draw_circle(center, 39.0, Color(100.0 / 255.0, 200.0 / 255.0, 1.0, 0.14))
+			canvas.draw_circle(center, 31.0, Color(150.0 / 255.0, 220.0 / 255.0, 1.0, 0.10))
+		if texture != null:
+			_draw_rotated_texture_region(
+				canvas,
+				texture,
+				Rect2(Vector2.ZERO, texture.get_size()),
+				center,
+				Vector2(BOOMERANG_DRAW_SIZE, BOOMERANG_DRAW_SIZE),
+				angle
+			)
+		else:
+			_draw_boomerang_fallback(canvas, center, angle, 1.0)
+
+
+func _draw_boomerang_particles(canvas: CanvasItem, boomerang_particles: Array, shake_offset: Vector2) -> void:
+	if boomerang_particles.is_empty():
+		return
+	for particle_value in boomerang_particles:
+		if not (particle_value is Dictionary):
+			continue
+		var particle: Dictionary = particle_value
+		var age: float = float(particle.get("age", 0.0))
+		var lifetime: float = max(0.001, float(particle.get("lifetime", 0.6)))
+		var life: float = clamp(1.0 - age / lifetime, 0.0, 1.0)
+		if life <= 0.0:
+			continue
+		var center: Vector2 = _get_vector2(particle, "position", Vector2.ZERO) + shake_offset
+		var radius: float = max(1.0, float(particle.get("radius", 3.0))) * (0.45 + life * 0.55)
+		var color: Color = _get_color(particle.get("color", Color(200.0 / 255.0, 130.0 / 255.0, 60.0 / 255.0, 1.0)), Color(200.0 / 255.0, 130.0 / 255.0, 60.0 / 255.0, 1.0))
+		canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, color.a * life))
+
+
+func _draw_boomerang_fallback(canvas: CanvasItem, center: Vector2, angle_degrees: float, scale: float) -> void:
+	var angle: float = deg_to_rad(angle_degrees)
+	var spread: float = deg_to_rad(75.0)
+	var arm_length: float = 19.0 * scale
+	var arm_width: float = max(2.0, 5.0 * scale)
+	var a1: float = angle - spread * 0.5
+	var a2: float = angle + spread * 0.5
+	var end1: Vector2 = center + Vector2(cos(a1), sin(a1)) * arm_length
+	var end2: Vector2 = center + Vector2(cos(a2), sin(a2)) * arm_length
+	canvas.draw_line(center, end1, Color(90.0 / 255.0, 50.0 / 255.0, 20.0 / 255.0, 1.0), arm_width + 2.0)
+	canvas.draw_line(center, end2, Color(90.0 / 255.0, 50.0 / 255.0, 20.0 / 255.0, 1.0), arm_width + 2.0)
+	canvas.draw_line(center, end1, Color(170.0 / 255.0, 110.0 / 255.0, 55.0 / 255.0, 1.0), arm_width)
+	canvas.draw_line(center, end2, Color(215.0 / 255.0, 165.0 / 255.0, 85.0 / 255.0, 1.0), arm_width)
+	canvas.draw_circle(center, 4.0 * scale, Color(1.0, 210.0 / 255.0, 80.0 / 255.0, 1.0))
 
 
 func _draw_explosion_zones(canvas: CanvasItem, explosion_zones: Array, shake_offset: Vector2) -> void:
@@ -291,14 +370,42 @@ func _get_flare_icon_texture() -> Texture2D:
 	return flare_icon_texture
 
 
+func _get_boomerang_icon_texture() -> Texture2D:
+	if boomerang_icon_texture == null:
+		boomerang_icon_texture = ProjectResourceLoader.load_texture(
+			BOOMERANG_ICON_PATH,
+			"Missing boomerang icon at %s",
+			"Failed to load boomerang icon at %s"
+		)
+	return boomerang_icon_texture
+
+
 func _get_throw_item_icon_texture(item_name: String) -> Texture2D:
 	if item_name == "flare":
 		return _get_flare_icon_texture()
+	if item_name == "boomerang":
+		return _get_boomerang_icon_texture()
 	return _get_grenade_icon_texture()
+
+
+func _get_throw_item_draw_size(item_name: String) -> float:
+	if item_name == "flare":
+		return FLARE_DRAW_SIZE
+	if item_name == "boomerang":
+		return BOOMERANG_DRAW_SIZE
+	return GRENADE_DRAW_SIZE
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
 	var value: Variant = source.get(key, fallback)
 	if value is Vector2:
 		return value
+	return fallback
+
+
+func _get_color(value: Variant, fallback: Color) -> Color:
+	if value is Color:
+		return value
+	if value is Array and value.size() >= 3:
+		return Color(float(value[0]) / 255.0, float(value[1]) / 255.0, float(value[2]) / 255.0, 1.0)
 	return fallback

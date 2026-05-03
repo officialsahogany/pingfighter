@@ -75,6 +75,32 @@ func store_active_item(
 	return true
 
 
+func append_item_data(
+	owner: Object,
+	item_data: Dictionary,
+	registry: Object,
+	allow_overflow: bool = false,
+	can_store_item_callback: Callable = Callable()
+) -> bool:
+	if owner == null or item_data.is_empty():
+		return false
+	var item_name: String = str(item_data.get("name", ""))
+	if can_store_item_callback.is_valid() and not bool(can_store_item_callback.call(item_name)):
+		return false
+
+	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	if active_item_slots.size() >= MAX_ACTIVE_ITEM_SLOTS and not allow_overflow:
+		return false
+
+	var next_item: Dictionary = item_data.duplicate(true)
+	next_item["revealed"] = true
+	next_item["last_use_msec"] = last_item_use_msec
+	active_item_slots.append(next_item)
+	owner.set("active_item_slots", active_item_slots)
+	_select_slot(registry, active_item_slots.size() - 1)
+	return true
+
+
 func _try_use_slot(
 	slot_index: int,
 	active_item_slots: Array,

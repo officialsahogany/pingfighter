@@ -6,6 +6,7 @@ const ActiveItemThrowController := preload("res://scripts/items/active_item_thro
 const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
 const ActiveItemEffectRouter := preload("res://scripts/items/active_item_effect_router.gd")
 const ActiveItemPickupFeedback := preload("res://scripts/items/active_item_pickup_feedback.gd")
+const ActiveItemBoomerangReturnHandler := preload("res://scripts/items/active_item_boomerang_return_handler.gd")
 const ActiveItemDebugSpawnMenu := preload("res://scripts/items/active_item_debug_spawn_menu.gd")
 const ActiveItemFieldRenderer := preload("res://scripts/items/active_item_field_renderer.gd")
 const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
@@ -19,6 +20,7 @@ var throw_controller: Object = ActiveItemThrowController.new()
 var effect_controller: Object = ActiveItemEffectController.new()
 var effect_router: Object = ActiveItemEffectRouter.new()
 var pickup_feedback: Object = ActiveItemPickupFeedback.new()
+var boomerang_return_handler: Object = ActiveItemBoomerangReturnHandler.new()
 var debug_spawn_menu: Object = ActiveItemDebugSpawnMenu.new()
 var field_renderer: Object = ActiveItemFieldRenderer.new()
 var throw_renderer: Object = ActiveItemThrowRenderer.new()
@@ -55,7 +57,17 @@ func update(owner: Object, registry: Object, delta: float) -> Dictionary:
 		Callable(self, "_store_active_item"),
 		Callable(self, "_trigger_pickup_effect")
 	)
-	throw_controller.update(owner, registry, delta)
+	throw_controller.update(
+		owner,
+		registry,
+		delta,
+		Callable(field_spawn_controller, "collect_items_near"),
+		Callable(boomerang_return_handler, "handle_return").bind(
+			slot_controller,
+			effect_controller,
+			Callable(self, "_trigger_pickup_effect")
+		)
+	)
 
 	var input_locked: bool = throw_locked_at_update_start or is_player_control_locked()
 	var slot_result: Dictionary = slot_controller.update(owner, registry, input_locked, Callable(self, "_apply_item_effect"))
@@ -79,6 +91,8 @@ func draw_field_items(canvas: CanvasItem, registry: Object, shake_offset: Vector
 		throw_controller.get_pending_throws(),
 		throw_controller.get_grenades(),
 		throw_controller.get_flares(),
+		throw_controller.get_boomerangs(),
+		throw_controller.get_boomerang_particles(),
 		throw_controller.get_explosion_zones(),
 		throw_controller.get_flare_zones(),
 		shake_offset
@@ -168,4 +182,3 @@ func _store_active_item(field_item: Dictionary, active_item_slots: Array, regist
 
 func _trigger_pickup_effect(field_item: Dictionary, registry: Object) -> void:
 	pickup_feedback.trigger_pickup_effect(field_item, effect_controller, registry)
-
