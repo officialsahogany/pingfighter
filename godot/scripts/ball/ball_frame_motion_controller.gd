@@ -82,6 +82,8 @@ func apply_ball_spin(scene: Dictionary, fps_scale: float, deps: Dictionary) -> v
 
 
 func apply_power_motion(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	if str(context.get("selected_character_type", "smasher")) != "smasher":
+		return
 	var controller: Object = deps.get("power_motion_controller", null)
 	if controller == null:
 		return

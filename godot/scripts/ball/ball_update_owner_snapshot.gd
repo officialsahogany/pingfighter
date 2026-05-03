@@ -26,6 +26,7 @@ func build(owner: Object) -> Dictionary:
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),
 		"gameplay_frame_counter": int(_get_owner_value(owner, "gameplay_frame_counter", 0)),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
 		"player_has_hit_sprite": _has_texture(textures, "player_attack_sheet")
 			or _has_texture(textures, "player_hit_sprite_texture")
 			or _has_texture(textures, "player_hit_left_strip_texture")

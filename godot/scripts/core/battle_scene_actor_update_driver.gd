@@ -1,11 +1,15 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+
+var character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func update_player_control(owner: Object, registry: Object, delta: float) -> void:
-	var controller: Object = _get_instance(registry, "smasher_player_controller")
 	var context_builder: Object = _get_instance(registry, "battle_update_context")
+	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var controller: Object = _get_instance(registry, character_runtime.get_player_controller_key(character_type))
 	if owner == null or controller == null or context_builder == null:
 		return
 	var result: Dictionary = controller.update(
@@ -13,8 +17,8 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 		int(_get_owner_value(owner, "gameplay_frame_counter", 0)),
 		_get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		float(_get_owner_value(owner, "player_speed", 0.0)),
-		_build_player_control_config(owner, context_builder),
-		context_builder.build_player_control_deps(registry)
+		_build_player_control_config(owner, context_builder, character_type),
+		context_builder.build_player_control_deps(registry, character_type)
 	)
 	owner.set("gameplay_frame_counter", int(result.get(
 		"frame_counter",
@@ -50,8 +54,8 @@ func _get_instance(registry: Object, key: String) -> Object:
 	return registry.get_instance(key)
 
 
-func _build_player_control_config(owner: Object, context_builder: Object) -> Dictionary:
-	var config: Dictionary = context_builder.build_player_control_config()
+func _build_player_control_config(owner: Object, context_builder: Object, character_type: String) -> Dictionary:
+	var config: Dictionary = context_builder.build_player_control_config(character_type)
 	var paddle_width: float = float(_get_owner_value(owner, "player_paddle_width", config.get("paddle_width", 155.0)))
 	config["paddle_width"] = max(1.0, paddle_width)
 	return config

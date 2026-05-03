@@ -2,6 +2,7 @@ extends RefCounted
 
 const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const TOOLTIP_WIDTH := 300.0
 const HEADER_HEIGHT := 36.0
@@ -44,8 +45,45 @@ const CONTROL_ROWS := {
 	],
 }
 
+const VIPER_CONTROL_ROWS := {
+	"shadow_step": [
+		[["text", "대쉬 중/직후"], ["key", "S"], ["accent", "발동"]],
+	],
+	"blade_rush": [
+		[["text", "체공 중"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
+	],
+	"nerve_strike": [
+		[["text", "블레이드 계열 사용 후"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
+	],
+	"dive_strike": [
+		[["text", "체공 중"], ["key", "S"], ["slash", "/"], ["key", "↓"], ["accent", "0.3초 홀드"]],
+	],
+	"marshal_kick": [
+		[["text", "연계 후"], ["key", "S"], ["slash", "/"], ["key", "↓"], ["accent", "발동"]],
+	],
+	"phantom_kick": [
+		[["text", "마샬 킥 적중 후"], ["key", "S"], ["slash", "/"], ["key", "↓"], ["accent", "발동"]],
+	],
+	"dark_blade": [
+		[["text", "연계 타격 후 공중"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
+	],
+	"chaos_spear": [
+		[["key", "A"], ["arrow", "→"], ["key", "W"], ["arrow", "→"], ["key", "D"], ["accent", "발동"]],
+	],
+	"core_flip": [
+		[["text", "대쉬 타격 후"], ["key", "A"], ["plus", "+"], ["key", "D"], ["accent", "발동"]],
+	],
+	"dual_glitch": [
+		[["key", "A"], ["arrow", "→"], ["key", "D"], ["arrow", "→"], ["key", "A"], ["arrow", "→"], ["key", "D"]],
+	],
+	"ignition_aura": [
+		[["text", "지상에서"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "0.5초 홀드"]],
+	],
+}
+
 var layout_helper: Object = Stage1PillarUiLayout.new()
 var fallback_orb_renderer: Object = SmasherSkillOrbRenderer.new()
+var character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func draw(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, scene_context: Dictionary) -> void:
@@ -70,7 +108,8 @@ func _build_hover_context(
 	layout: Dictionary,
 	scene_context: Dictionary
 ) -> Dictionary:
-	var skill_config: Object = _get_instance(registry, "smasher_skill_config")
+	var character_type: String = character_runtime.normalize(scene_context.get("selected_character_type", "smasher"))
+	var skill_config: Object = _get_instance(registry, character_runtime.get_skill_config_key(character_type))
 	if skill_config == null or not skill_config.has_method("get_snapshot"):
 		return {}
 
@@ -83,10 +122,10 @@ func _build_hover_context(
 	var snapshot: Dictionary = skill_config.get_snapshot()
 	var textures: Dictionary = _get_dictionary(scene_context.get("textures", {}))
 	var skill_orb_context: Dictionary = layout_helper.build_skill_orb_context({
-		"cluster_frame_texture": textures.get("smasher_skill_cluster_frame_texture", null),
+		"cluster_frame_texture": textures.get(character_runtime.get_skill_cluster_frame_texture_key(character_type), null),
 		"skill_orb_frame_texture": textures.get("skill_orb_frame_texture", null),
 		"skill_icons": scene_context.get("skill_icons", {}),
-		"skill_state": _get_instance(registry, "smasher_skill_state"),
+		"skill_state": _get_instance(registry, character_runtime.get_skill_state_key(character_type)),
 		"special_gauge": scene_context.get("special_gauge", 0.0),
 		"skill_config_snapshot": snapshot,
 	}, _get_instance(registry, "pillar_orb_drawer"))
@@ -100,11 +139,12 @@ func _build_hover_context(
 		"game_offset": game_offset,
 		"game_size": game_size,
 		"scale_factor": scale_factor,
+		"selected_character_type": character_type,
 		"left_center": _get_vector2(ui_layout, "left_center", Vector2.ZERO),
 		"orb_radius": float(ui_layout.get("orb_radius", 55.0)),
 		"skill_context": skill_orb_context,
 		"skill_config_snapshot": snapshot,
-		"skill_state": _get_instance(registry, "smasher_skill_state"),
+		"skill_state": _get_instance(registry, character_runtime.get_skill_state_key(character_type)),
 		"special_gauge": float(scene_context.get("special_gauge", 0.0)),
 		"orb_renderer": orb_renderer,
 	}
@@ -162,6 +202,7 @@ func _draw_tooltip(canvas: CanvasItem, hover_context: Dictionary, skill_data: Di
 	var desc_lines: Array[String] = _wrap_text(str(skill_data.get("description", "")), font, normal_size, max_text_width, 3)
 	var control_rows: Array = _build_control_rows(
 		str(skill_data.get("name", "")),
+		str(hover_context.get("selected_character_type", "smasher")),
 		str(skill_data.get("motion_hint", "")),
 		font,
 		normal_size,
@@ -293,8 +334,8 @@ func _get_tooltip_position(hover_context: Dictionary, tooltip_width: float, tool
 	return Vector2(tooltip_x, tooltip_y)
 
 
-func _build_control_rows(skill_name: String, motion_hint: String, font: Font, font_size: int, max_width: float) -> Array:
-	var rows: Array = _get_control_rows(skill_name).duplicate(true)
+func _build_control_rows(skill_name: String, character_type: String, motion_hint: String, font: Font, font_size: int, max_width: float) -> Array:
+	var rows: Array = _get_control_rows(skill_name, character_type).duplicate(true)
 	if not motion_hint.is_empty():
 		for line in _wrap_text(motion_hint, font, font_size, max_width, 2):
 			rows.append([["dim", line]])
@@ -363,6 +404,12 @@ func _draw_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, 
 		_draw_portal_purple_preview(canvas, rect, color)
 	elif effect_type == "wheel_spin":
 		_draw_wheel_spin_preview(canvas, rect, color)
+	elif effect_type in ["shadow_teleport", "slash_purple", "slash_dark", "stun_purple", "glitch_clone"]:
+		_draw_ghost_purple_preview(canvas, rect, color)
+	elif effect_type in ["wall_dive_purple", "core_flip_arc", "dive_impact", "ignition_burst"]:
+		_draw_wheel_spin_preview(canvas, rect, color)
+	elif effect_type == "chaos_vortex":
+		_draw_portal_purple_preview(canvas, rect, color)
 	else:
 		_draw_drive_curve_preview(canvas, rect, color)
 
@@ -1426,8 +1473,8 @@ func _draw_panel(canvas: CanvasItem, rect: Rect2, fill_color: Color, border_colo
 	canvas.draw_style_box(style, rect)
 
 
-func _get_control_rows(skill_name: String) -> Array:
-	var rows: Variant = CONTROL_ROWS.get(skill_name, [])
+func _get_control_rows(skill_name: String, character_type: String = "smasher") -> Array:
+	var rows: Variant = VIPER_CONTROL_ROWS.get(skill_name, []) if character_runtime.is_viper(character_type) else CONTROL_ROWS.get(skill_name, [])
 	if rows is Array:
 		return rows
 	return []

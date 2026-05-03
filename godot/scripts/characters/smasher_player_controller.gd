@@ -33,7 +33,8 @@ func update(
 					0.0,
 					float(config.get("play_left", 0.0)),
 					float(config.get("play_right", 0.0)),
-					float(config.get("paddle_width", 0.0))
+					float(config.get("paddle_width", 0.0)),
+					config
 				)
 				var locked_pos: Variant = lock_movement.get("player_pos", next_pos)
 				if locked_pos is Vector2:
@@ -81,7 +82,8 @@ func update(
 				direction,
 				float(config.get("play_left", 0.0)),
 				float(config.get("play_right", 0.0)),
-				float(config.get("paddle_width", 0.0))
+				float(config.get("paddle_width", 0.0)),
+				config
 			)
 			var moved_pos: Variant = movement.get("player_pos", next_pos)
 			if moved_pos is Vector2:

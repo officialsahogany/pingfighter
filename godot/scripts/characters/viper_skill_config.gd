@@ -1,0 +1,210 @@
+extends RefCounted
+
+const MAX_SKILL_SLOTS := 5
+const EQUIPPED_SKILLS := ["shadow_step", "marshal_kick", "blade_rush"]
+const SKILL_COSTS := {
+	"shadow_step": 100.0,
+	"blade_rush": 200.0,
+	"nerve_strike": 90.0,
+	"dive_strike": 180.0,
+	"marshal_kick": 80.0,
+	"phantom_kick": 60.0,
+	"dark_blade": 200.0,
+	"chaos_spear": 150.0,
+	"core_flip": 120.0,
+	"dual_glitch": 220.0,
+	"ignition_aura": 230.0,
+}
+const SKILL_COLORS := {
+	"shadow_step": Color(100.0 / 255.0, 0.0, 180.0 / 255.0),
+	"blade_rush": Color(200.0 / 255.0, 50.0 / 255.0, 1.0),
+	"nerve_strike": Color(180.0 / 255.0, 0.0, 220.0 / 255.0),
+	"dive_strike": Color(1.0, 120.0 / 255.0, 50.0 / 255.0),
+	"marshal_kick": Color(130.0 / 255.0, 0.0, 200.0 / 255.0),
+	"phantom_kick": Color(180.0 / 255.0, 0.0, 1.0),
+	"dark_blade": Color(120.0 / 255.0, 0.0, 30.0 / 255.0),
+	"chaos_spear": Color(135.0 / 255.0, 70.0 / 255.0, 1.0),
+	"core_flip": Color(1.0, 110.0 / 255.0, 200.0 / 255.0),
+	"dual_glitch": Color(60.0 / 255.0, 220.0 / 255.0, 150.0 / 255.0),
+	"ignition_aura": Color(1.0, 130.0 / 255.0, 40.0 / 255.0),
+}
+const COOLDOWN_SECONDS := {
+	"shadow_step": 15.0,
+	"blade_rush": 20.0,
+	"nerve_strike": 40.0,
+	"dive_strike": 70.0,
+	"marshal_kick": 25.0,
+	"phantom_kick": 65.0,
+	"dark_blade": 45.0,
+	"chaos_spear": 20.0,
+	"core_flip": 25.0,
+	"dual_glitch": 45.0,
+	"ignition_aura": 80.0,
+}
+const SKILL_DATA := {
+	"shadow_step": {
+		"name": "shadow_step",
+		"korean": "쉐도우 백스텝",
+		"cost": 100.0,
+		"color": Color(100.0 / 255.0, 0.0, 180.0 / 255.0),
+		"cooldown": 15.0,
+		"description": "대쉬를 하기 전 위치로 순간이동합니다.\n빠르게 뒷차기를 하며 연계기를 엽니다.\n마샬 킥 또는 다크 블레이드 선행기술.",
+		"how_to_use": "대쉬 중 또는 직후 S키로 발동",
+		"motion_hint": "잔상 남기고 시작 위치로 텔레포트",
+		"effect_type": "shadow_teleport",
+	},
+	"blade_rush": {
+		"name": "blade_rush",
+		"korean": "에어 블레이드",
+		"cost": 200.0,
+		"color": Color(200.0 / 255.0, 50.0 / 255.0, 1.0),
+		"cooldown": 20.0,
+		"description": "체공 중 전방으로 검기를 발사합니다.\n발사 전 짧은 준비동작이 있습니다.",
+		"how_to_use": "체공 중 W키 또는 위쪽 방향키로 발동",
+		"motion_hint": "전방으로 거대한 보라 검기 발사",
+		"effect_type": "slash_purple",
+	},
+	"nerve_strike": {
+		"name": "nerve_strike",
+		"korean": "베놈 엣지",
+		"cost": 90.0,
+		"color": Color(180.0 / 255.0, 0.0, 220.0 / 255.0),
+		"cooldown": 40.0,
+		"description": "상대의 배후로 빠르게 날아갑니다.\n등 뒤에서 눈을 베어 혼란을 부여합니다.",
+		"how_to_use": "블레이드 계열 스킬 사용 후 착지 전 W 또는 위쪽 방향키",
+		"motion_hint": "보스 등 뒤로 날아가 베어 혼란 부여",
+		"effect_type": "stun_purple",
+	},
+	"dive_strike": {
+		"name": "dive_strike",
+		"korean": "EMP 스트라이크",
+		"cost": 180.0,
+		"color": Color(1.0, 120.0 / 255.0, 50.0 / 255.0),
+		"cooldown": 70.0,
+		"description": "강한 충격으로 EMP 펄스를 퍼트립니다.\n체공 높이에 비례해 펄스 강도가 증가합니다.",
+		"how_to_use": "체공 중 S키 또는 아래쪽 방향키를 0.3초 이상 누르기",
+		"motion_hint": "급강하 EMP 펄스로 통제불능 부여",
+		"effect_type": "dive_impact",
+	},
+	"marshal_kick": {
+		"name": "marshal_kick",
+		"korean": "마샬 킥",
+		"cost": 80.0,
+		"color": Color(130.0 / 255.0, 0.0, 200.0 / 255.0),
+		"cooldown": 25.0,
+		"description": "벽을 짚은 뒤 강한 반동으로 돌진합니다.\n공을 향해 날아가 발로 찹니다.\n다양한 콤보 연계에 사용됩니다.",
+		"how_to_use": "쉐도우 백스텝, 블레이드 계열, 화랑 킥 발동 후",
+		"motion_hint": "벽점프 후 공 쪽으로 돌진",
+		"effect_type": "wall_dive_purple",
+	},
+	"phantom_kick": {
+		"name": "phantom_kick",
+		"korean": "팬텀 킥",
+		"cost": 60.0,
+		"color": Color(180.0 / 255.0, 0.0, 1.0),
+		"cooldown": 65.0,
+		"description": "마샬 킥 반동에 암흑 에너지를 싣습니다.\n쉐도우 백스텝 연계 시 공중 백스텝만 가능합니다.",
+		"how_to_use": "마샬 킥 적중 후 S키 또는 아래쪽 방향키",
+		"motion_hint": "암흑반물질 발차기",
+		"effect_type": "wall_dive_purple",
+	},
+	"dark_blade": {
+		"name": "dark_blade",
+		"korean": "다크 블레이드",
+		"cost": 200.0,
+		"color": Color(120.0 / 255.0, 0.0, 30.0 / 255.0),
+		"cooldown": 45.0,
+		"description": "공을 타격한 뒤 공중에서 강화 검기를 쏩니다.\n검기 적중 시 마샬 킥 윈도우가 열립니다.\n검붉은 강화 검기를 발사합니다.",
+		"how_to_use": "쉐도우 백스텝, 에어 블레이드, 화랑 킥 발동 후",
+		"motion_hint": "공중에서 검붉은 강화 검기 발사",
+		"effect_type": "slash_dark",
+	},
+	"chaos_spear": {
+		"name": "chaos_spear",
+		"korean": "카오스 스피어",
+		"cost": 150.0,
+		"color": Color(135.0 / 255.0, 70.0 / 255.0, 1.0),
+		"cooldown": 20.0,
+		"description": "혼돈의 창을 투척합니다.\n맵 중앙에 블랙홀이 생성됩니다.\n공과 일반 투사체를 빨아들입니다.",
+		"how_to_use": "지상에서 A, W, D 순서로 입력",
+		"motion_hint": "맵 중앙 블랙홀로 공과 투사체 흡수",
+		"effect_type": "chaos_vortex",
+	},
+	"core_flip": {
+		"name": "core_flip",
+		"korean": "화랑 킥",
+		"cost": 120.0,
+		"color": Color(1.0, 110.0 / 255.0, 200.0 / 255.0),
+		"cooldown": 25.0,
+		"description": "화랑의 혼을 실은 킥으로 공을 타격합니다.\n예측이 힘든 사선으로 반격합니다.",
+		"how_to_use": "대쉬로 공 타격 후 A와 D를 함께 입력",
+		"motion_hint": "벽을 두 번 차고 공으로 돌진",
+		"effect_type": "core_flip_arc",
+	},
+	"dual_glitch": {
+		"name": "dual_glitch",
+		"korean": "듀얼 글리치",
+		"cost": 220.0,
+		"color": Color(60.0 / 255.0, 220.0 / 255.0, 150.0 / 255.0),
+		"cooldown": 45.0,
+		"description": "바이퍼 고대기술로 스스로를 분열합니다.\n분신이 플레이어 움직임을 미러링합니다.\n좌우에서 공을 가드합니다.",
+		"how_to_use": "A, D, A, D 순서 또는 좌우좌우 입력",
+		"motion_hint": "좌우 분신 패들 소환",
+		"effect_type": "glitch_clone",
+	},
+	"ignition_aura": {
+		"name": "ignition_aura",
+		"korean": "이그니션 오라",
+		"cost": 230.0,
+		"color": Color(1.0, 130.0 / 255.0, 40.0 / 255.0),
+		"cooldown": 80.0,
+		"description": "체내의 화염 에너지를 증폭합니다.\n일정 기간 모든 퍽 레벨이 증가합니다.\n골드 보너스도 함께 증가합니다.",
+		"how_to_use": "지상에서 W키 또는 위쪽 방향키를 0.5초 이상 누르기",
+		"motion_hint": "화염 에너지 분출",
+		"effect_type": "ignition_burst",
+	},
+}
+
+var equipped_skills: Array = EQUIPPED_SKILLS.duplicate()
+
+
+func get_snapshot() -> Dictionary:
+	return {
+		"max_slots": MAX_SKILL_SLOTS,
+		"equipped_skills": equipped_skills.duplicate(),
+		"skill_costs": SKILL_COSTS,
+		"skill_colors": SKILL_COLORS,
+		"cooldown_seconds": COOLDOWN_SECONDS,
+		"skill_data": SKILL_DATA,
+	}
+
+
+func get_cooldown_seconds(skill_name: String) -> float:
+	return float(COOLDOWN_SECONDS.get(skill_name, 0.0))
+
+
+func is_skill_equipped(skill_name: String) -> bool:
+	return equipped_skills.has(skill_name)
+
+
+func unlock_and_equip_skill(skill_name: String) -> bool:
+	if not SKILL_DATA.has(skill_name):
+		return false
+	if equipped_skills.has(skill_name):
+		return true
+	if equipped_skills.size() >= MAX_SKILL_SLOTS:
+		return false
+	equipped_skills.append(skill_name)
+	return true
+
+
+func reset_runtime_skills() -> void:
+	equipped_skills = EQUIPPED_SKILLS.duplicate()
+
+
+func get_skill_data(skill_name: String) -> Dictionary:
+	var value: Variant = SKILL_DATA.get(skill_name, {})
+	if value is Dictionary:
+		var data: Dictionary = value
+		return data
+	return {}

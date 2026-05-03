@@ -27,6 +27,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"shake_offset": shake_offset,
 		"width": WIDTH,
 		"height": HEIGHT,
+		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"play_left": PLAY_LEFT,
 		"play_right": PLAY_RIGHT,

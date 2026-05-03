@@ -294,6 +294,20 @@ Godot.
   accessory-slot lock state, and compact stat readouts. It reuses the runtime
   perk icon renderer and active-item HUD icon renderer instead of duplicating
   icon-loading paths.
+- `scripts/characters/player_character_runtime.gd`
+  Owns playable-character routing for the Godot port: character id
+  normalization, controller / input / skill-config / skill-state / HUD-icon
+  module keys, shared dash-state lookup, base movement config, and temporary
+  render fallback policy while character-specific sprites are still being
+  ported.
+- `scripts/characters/viper_skill_config.gd`,
+  `scripts/characters/viper_skill_state.gd`,
+  `scripts/characters/viper_input_reader.gd`, and
+  `scripts/characters/viper_player_controller.gd`
+  Own the first Viper playable-character foundation: active-skill metadata,
+  separate cooldown state, raw input snapshot, and slower ground-movement
+  controller reuse. Individual Viper active-skill gameplay remains future
+  character-module work.
 - `scripts/stages/stage1/stage1_dalji_whip_skill_state.gd`
   Owns the Stage 1 Dalji 상모돌리기 boss-skill port: boss skill gauge gain
   on boss paddle hits, 12% / 200-gauge activation, downward wave ball

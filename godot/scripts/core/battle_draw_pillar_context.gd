@@ -2,10 +2,13 @@ extends RefCounted
 
 const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const WIDTH := 760.0
 const HEIGHT := 750.0
 const GAUGE_MAX := 500.0
+
+var character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func build_scene_context(
@@ -14,17 +17,19 @@ func build_scene_context(
 	layout: Dictionary,
 	top_mini_score_sparkle_duration: float
 ) -> Dictionary:
+	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
 	return {
 		"view_size": view_size,
 		"game_offset": _get_vector2(layout, "game_offset", Vector2.ZERO),
 		"game_size": _get_vector2(layout, "game_size", Vector2(WIDTH, HEIGHT)),
 		"width": WIDTH,
 		"height": HEIGHT,
+		"selected_character_type": character_type,
 		"active_item_slots": _get_owner_array(owner, "active_item_slots"),
 		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),
 		"gauge_max": GAUGE_MAX,
 		"textures": _get_owner_dict(owner, "battle_textures"),
-		"skill_icons": _get_owner_dict(owner, "smasher_skill_icon_textures"),
+		"skill_icons": _get_owner_dict(owner, character_runtime.get_skill_icon_texture_key(character_type)),
 		"top_mini_score_sparkle_duration": top_mini_score_sparkle_duration,
 	}
 

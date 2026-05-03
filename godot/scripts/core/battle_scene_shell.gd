@@ -104,6 +104,12 @@ func configure_ball_visual_state(
 		api.configure_ball_visual_state(self, gameplay_modules, visual_type, boost_active, poisoned, viper_knockback, bomb_loaded)
 
 
+func configure_player_character(character_type: String = "smasher") -> void:
+	var api = _get_module("battle_scene_api")
+	if api != null:
+		api.configure_player_character(self, gameplay_modules, character_type)
+
+
 func activate_drive_ball(
 	direction: int,
 	spin_strength: float,

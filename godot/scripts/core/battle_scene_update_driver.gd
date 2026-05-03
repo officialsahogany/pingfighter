@@ -14,9 +14,10 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 		return
 
 	_callbacks.bind(owner, registry)
+	var character_type: String = str(_get_owner_value(owner, "selected_character_type", "smasher"))
 	flow_controller.update(delta, {
 		"scoreboard_state": _get_instance(registry, "scoreboard_state"),
-		"power_state": _get_instance(registry, "smasher_power_smash_state"),
+		"power_state": _get_instance(registry, "smasher_power_smash_state") if character_type == "smasher" else null,
 		"round_state": _get_instance(registry, "round_flow_state"),
 		"serve_flow_controller": _get_instance(registry, "serve_flow_controller"),
 		"serve_context": _build_serve_context(owner),

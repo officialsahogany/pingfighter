@@ -39,6 +39,9 @@ func resolve_player_skills(
 	if bool(state["drive_ball_active"]) and bool(state["drive_hit_boss"]):
 		state.merge(_build_clear_drive_snapshot(deps, false), true)
 
+	if str(context.get("selected_character_type", "smasher")) != "smasher":
+		return state
+
 	var power_result: Dictionary = skill_router.try_activate_power_smashing(
 		ball_pos,
 		bool(context.get("ball_active", false)),

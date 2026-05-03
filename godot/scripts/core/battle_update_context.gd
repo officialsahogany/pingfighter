@@ -9,12 +9,12 @@ var effects_context: Object = BattleUpdateEffectsContext.new()
 var match_flow_context: Object = BattleUpdateMatchFlowContext.new()
 
 
-func build_player_control_config() -> Dictionary:
-	return actor_context.build_player_control_config()
+func build_player_control_config(character_type: String = "smasher") -> Dictionary:
+	return actor_context.build_player_control_config(character_type)
 
 
-func build_player_control_deps(registry: Object) -> Dictionary:
-	return actor_context.build_player_control_deps(registry)
+func build_player_control_deps(registry: Object, character_type: String = "smasher") -> Dictionary:
+	return actor_context.build_player_control_deps(registry, character_type)
 
 
 func build_boss_ai_context(owner: Object, registry: Object) -> Dictionary:

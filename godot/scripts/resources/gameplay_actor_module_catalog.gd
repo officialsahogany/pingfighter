@@ -13,6 +13,14 @@ const MODULES := {
 		"path": "res://scripts/characters/smasher_skill_state.gd",
 		"label": "smasher skill state",
 	},
+	"viper_skill_state": {
+		"path": "res://scripts/characters/viper_skill_state.gd",
+		"label": "viper skill state",
+	},
+	"player_character_runtime": {
+		"path": "res://scripts/characters/player_character_runtime.gd",
+		"label": "player character runtime",
+	},
 	"runtime_perk_catalog": {
 		"path": "res://scripts/characters/runtime_perk_catalog.gd",
 		"label": "runtime perk catalog",
@@ -25,9 +33,17 @@ const MODULES := {
 		"path": "res://scripts/characters/smasher_player_controller.gd",
 		"label": "smasher player controller",
 	},
+	"viper_player_controller": {
+		"path": "res://scripts/characters/viper_player_controller.gd",
+		"label": "viper player controller",
+	},
 	"smasher_input_reader": {
 		"path": "res://scripts/characters/smasher_input_reader.gd",
 		"label": "smasher input reader",
+	},
+	"viper_input_reader": {
+		"path": "res://scripts/characters/viper_input_reader.gd",
+		"label": "viper input reader",
 	},
 	"smasher_drive_input_state": {
 		"path": "res://scripts/characters/smasher_drive_input_state.gd",
@@ -80,6 +96,10 @@ const MODULES := {
 	"smasher_skill_config": {
 		"path": "res://scripts/characters/smasher_skill_config.gd",
 		"label": "smasher skill config",
+	},
+	"viper_skill_config": {
+		"path": "res://scripts/characters/viper_skill_config.gd",
+		"label": "viper skill config",
 	},
 	"player_movement_state": {
 		"path": "res://scripts/characters/player_movement_state.gd",

@@ -1,6 +1,9 @@
 extends RefCounted
 
 const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+
+var character_runtime: Object = PlayerCharacterRuntime.new()
 
 
 func build(context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -12,7 +15,13 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 	var active_item_context: Dictionary = active_item_runtime.get_actor_draw_context() if active_item_runtime != null and active_item_runtime.has_method("get_actor_draw_context") else {}
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
 	var textures: Dictionary = _get_dict(context.get("textures", {}))
-	var has_player_attack_sheet: bool = textures.get("player_attack_sheet", null) is Texture2D
+	var character_type: String = character_runtime.normalize(context.get("selected_character_type", "smasher"))
+	var player_render_context: Dictionary = character_runtime.get_player_render_context(character_type)
+	var use_smasher_textures: bool = bool(player_render_context.get("use_smasher_sprite_textures", true))
+	var has_player_attack_sheet: bool = use_smasher_textures and textures.get("player_attack_sheet", null) is Texture2D
+	var player_speed: float = float(context.get("player_speed", 0.0))
+	var dash_direction: float = float(dash_context.get("direction", 0.0))
+	var player_walk_direction := -1 if player_speed < -0.2 or (abs(player_speed) <= 0.2 and dash_direction < 0.0) else 1
 	var player_base_hit_duration: float = float(animation_context.get(
 		"player_hit_anim_duration",
 		0.40 if has_player_attack_sheet else 0.36
@@ -27,6 +36,7 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"height": float(context.get("height", 750.0)),
 		"play_left": float(context.get("play_left", 0.0)),
 		"play_right": float(context.get("play_right", 760.0)),
+		"selected_character_type": character_type,
 		"dash_active": dash_context.get("active", false),
 		"dash_timer": float(dash_context.get("timer", 0.0)),
 		"dash_is_half": dash_context.get("is_half", false),
@@ -37,7 +47,8 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"dash_recovery_progress": float(dash_context.get("recovery_progress", 1.0)),
 		"pillar_drawer": deps.get("pillar_drawer", null),
 		"player_pos": _get_vector2(context, "player_pos", Vector2.ZERO),
-		"player_speed": float(context.get("player_speed", 0.0)),
+		"player_speed": player_speed,
+		"player_walk_direction": player_walk_direction,
 		"player_anim_clock": animation_context.get("player_anim_clock", 0.0),
 		"player_paddle_size": _get_vector2(context, "player_paddle_size", Vector2.ZERO),
 		"player_paddle_scale": float(context.get("player_paddle_scale", 1.0)),
@@ -62,12 +73,14 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"player_shield_raise_strength": animation_context.get("player_shield_raise_strength", 0.0),
 		"player_left_raise_strength": animation_context.get("player_left_raise_strength", 0.0),
 		"player_hit_pose_strength": animation_context.get("player_hit_pose_strength", 0.0),
-		"player_sprite_texture": _get_value(textures, "player_sprite_texture"),
-		"player_idle_sprite_texture": _get_value(textures, "player_idle_sprite_texture"),
-		"player_hit_sprite_texture": _get_value(textures, "player_hit_sprite_texture"),
-		"player_hit_left_strip_texture": _get_value(textures, "player_hit_left_strip_texture"),
-		"player_hit_right_strip_texture": _get_value(textures, "player_hit_right_strip_texture"),
-		"player_attack_sheet": _get_value(textures, "player_attack_sheet"),
+		"player_color": player_render_context.get("player_color", Color(0.25, 0.45, 1.0)),
+		"player_color_light": player_render_context.get("player_color_light", Color(0.40, 0.60, 1.0)),
+		"player_sprite_texture": _get_value(textures, "player_sprite_texture") if use_smasher_textures else null,
+		"player_idle_sprite_texture": _get_value(textures, "player_idle_sprite_texture") if use_smasher_textures else null,
+		"player_hit_sprite_texture": _get_value(textures, "player_hit_sprite_texture") if use_smasher_textures else null,
+		"player_hit_left_strip_texture": _get_value(textures, "player_hit_left_strip_texture") if use_smasher_textures else null,
+		"player_hit_right_strip_texture": _get_value(textures, "player_hit_right_strip_texture") if use_smasher_textures else null,
+		"player_attack_sheet": _get_value(textures, "player_attack_sheet") if use_smasher_textures else null,
 		"boss_pos": _get_vector2(context, "boss_pos", Vector2.ZERO),
 		"boss_paddle_size": _get_vector2(context, "boss_paddle_size", Vector2.ZERO),
 		"boss_hitbox_height": float(context.get("boss_hitbox_height", 0.0)),

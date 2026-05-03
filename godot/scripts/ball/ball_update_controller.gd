@@ -12,6 +12,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	var scene: Dictionary = _build_scene_snapshot(context)
 	var fps_scale: float = delta * 60.0
 	var power_state: Object = deps.get("power_state", null)
+	if str(context.get("selected_character_type", "smasher")) != "smasher":
+		power_state = null
 
 	if power_state != null and power_state.is_freeze_active():
 		frame_motion_controller.update_power_freeze(delta, scene, context, deps)

@@ -28,15 +28,19 @@ func update_horizontal(
 	direction: float,
 	play_left: float,
 	play_right: float,
-	paddle_width: float
+	paddle_width: float,
+	config: Dictionary = {}
 ) -> Dictionary:
 	var fps_scale: float = delta * 60.0
+	var paddle_speed: float = float(config.get("paddle_speed", PADDLE_SPEED))
+	var paddle_max_speed: float = float(config.get("paddle_max_speed", PADDLE_MAX_SPEED))
+	var paddle_accel: float = float(config.get("paddle_accel", PADDLE_ACCEL))
 	if direction != 0.0:
-		player_speed = move_toward(player_speed, direction * PADDLE_MAX_SPEED, PADDLE_ACCEL * fps_scale)
-		if abs(player_speed) < PADDLE_SPEED:
-			player_speed = direction * PADDLE_SPEED
+		player_speed = move_toward(player_speed, direction * paddle_max_speed, paddle_accel * fps_scale)
+		if abs(player_speed) < paddle_speed:
+			player_speed = direction * paddle_speed
 	else:
-		player_speed = move_toward(player_speed, 0.0, PADDLE_ACCEL * 2.0 * fps_scale)
+		player_speed = move_toward(player_speed, 0.0, paddle_accel * 2.0 * fps_scale)
 
 	player_pos.x += player_speed * fps_scale
 	player_pos = _apply_knockback(player_pos, play_left, play_right, paddle_width, fps_scale)

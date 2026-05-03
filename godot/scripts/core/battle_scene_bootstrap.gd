@@ -23,6 +23,10 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	var skill_icon_value: Variant = battle_textures.get("smasher_skill_icon_textures", {})
 	if skill_icon_value is Dictionary:
 		skill_icons = skill_icon_value
+	var viper_skill_icons: Dictionary = {}
+	var viper_skill_icon_value: Variant = battle_textures.get("viper_skill_icon_textures", {})
+	if viper_skill_icon_value is Dictionary:
+		viper_skill_icons = viper_skill_icon_value
 
 	var active_item_slots: Array = []
 	var active_item_runtime = registry.get_instance("active_item_runtime")
@@ -46,5 +50,6 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 		"boss_pos": Vector2(width * 0.5 - boss_paddle_width * 0.5, boss_y),
 		"battle_textures": battle_textures,
 		"smasher_skill_icon_textures": skill_icons,
+		"viper_skill_icon_textures": viper_skill_icons,
 		"active_item_slots": active_item_slots,
 	}

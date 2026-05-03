@@ -39,6 +39,7 @@ const DEFAULT_VALUES: Dictionary = {
 	"selected_character_name": "스매셔",
 	"active_item_slots": [],
 	"smasher_skill_icon_textures": {},
+	"viper_skill_icon_textures": {},
 	"special_gauge": 0.0,
 	"battle_textures": {},
 	"runtime_perk_levels": {},

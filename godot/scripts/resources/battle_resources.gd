@@ -42,11 +42,28 @@ const SMASHER_SKILL_ICON_PATHS := {
 	"smasher_wheel": "res://assets/sprites/skills/smasher_wheel_skill_orb.png",
 }
 
+const VIPER_SKILL_ICON_PATHS := {
+	"shadow_step": "res://assets/sprites/skills/viper_shadow_step_skill_orb.png",
+	"blade_rush": "res://assets/sprites/skills/viper_blade_rush_skill_orb.png",
+	"nerve_strike": "res://assets/sprites/skills/viper_nerve_strike_skill_orb.png",
+	"dive_strike": "res://assets/sprites/skills/viper_emp_strike_skill_orb.png",
+	"marshal_kick": "res://assets/sprites/skills/viper_marshal_kick_skill_orb.png",
+	"phantom_kick": "res://assets/sprites/skills/viper_phantom_kick_skill_orb.png",
+	"dark_blade": "res://assets/sprites/skills/viper_dark_blade_skill_orb.png",
+	"chaos_spear": "res://assets/sprites/skills/viper_chaos_spear_skill_orb.png",
+	"core_flip": "res://assets/sprites/skills/viper_core_flip_skill_orb.png",
+	"dual_glitch": "res://assets/sprites/skills/viper_dual_glitch_skill_orb.png",
+	"ignition_aura": "res://assets/sprites/skills/viper_ignition_aura_skill_orb.png",
+}
+
 
 func load_all() -> Dictionary:
 	var skill_icons: Dictionary = {}
 	for skill_name in SMASHER_SKILL_ICON_PATHS.keys():
 		skill_icons[skill_name] = _load_texture_resource(SMASHER_SKILL_ICON_PATHS[skill_name])
+	var viper_skill_icons: Dictionary = {}
+	for skill_name in VIPER_SKILL_ICON_PATHS.keys():
+		viper_skill_icons[skill_name] = _load_texture_resource(VIPER_SKILL_ICON_PATHS[skill_name])
 
 	var dalji_walk_left: Texture2D = _load_texture_resource(DALJI_BOSS_WALK_LEFT_PATH)
 	var dalji_walk_right: Texture2D = _load_texture_resource(DALJI_BOSS_WALK_RIGHT_PATH)
@@ -78,6 +95,7 @@ func load_all() -> Dictionary:
 		"skill_orb_frame_texture": _load_texture_resource(SKILL_ORB_FRAME_TEXTURE_PATH),
 		"smasher_skill_cluster_frame_texture": _load_texture_resource(SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH),
 		"smasher_skill_icon_textures": skill_icons,
+		"viper_skill_icon_textures": viper_skill_icons,
 	}
 
 
