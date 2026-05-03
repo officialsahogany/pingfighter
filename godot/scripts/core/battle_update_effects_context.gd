@@ -9,6 +9,7 @@ const BOSS_HITBOX_HEIGHT: float = 40.0
 
 func build_context(owner: Object, registry: Object) -> Dictionary:
 	var textures: Dictionary = _get_owner_dict(owner, "battle_textures")
+	var has_attack_sheet: bool = _has_texture(textures, "player_attack_sheet")
 	return {
 		"current_msec": Time.get_ticks_msec(),
 		"dash_snapshot": _get_dash_snapshot(registry),
@@ -22,6 +23,12 @@ func build_context(owner: Object, registry: Object) -> Dictionary:
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),
 		"player_has_sprite": _has_texture(textures, "player_sprite_texture"),
 		"player_has_idle_sprite": _has_texture(textures, "player_idle_sprite_texture"),
+		"player_has_attack_sheet": has_attack_sheet,
+		# When the smash attack sheet is loaded, hit anim is 8 frames over ~0.4 s
+		# (0.05 s/frame). Without the sheet, fall back to the legacy 4-frame L/R
+		# hit strip timing (0.36 s total).
+		"player_hit_frame_count": 8 if has_attack_sheet else 4,
+		"player_hit_anim_duration": 0.40 if has_attack_sheet else 0.36,
 		"boss_pos": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO),
 		"boss_vel": float(_get_owner_value(owner, "boss_vel", 0.0)),
 		"boss_has_sprite": _has_texture(textures, "boss_sprite_sheet"),

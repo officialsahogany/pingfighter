@@ -223,17 +223,17 @@ Godot.
   duplicating local `_as_vector2` / `_as_color` bodies.
 - `scripts/stages/stage1/stage1_playfield_renderer.gd`
   Owns Stage 1 court background / guide-line drawing and Smasher dash
-  afterimages.
+  sprite-silhouette dash afterimages.
 - `scripts/stages/stage1/stage1_player_actor_renderer.gd`
   Owns Stage 1 Smasher actor drawing: hover / breath / hit-pose offsets,
-  active-item throw-pose offsets, Python-parity post-dash recovery jitter,
-  soft shadow placement, visual rect assembly, and delegation to the
-  player sprite renderer.
+  attack-sheet draw-size anchoring, active-item throw-pose offsets,
+  Python-parity post-dash recovery jitter, soft shadow placement, visual
+  rect assembly, and delegation to the player sprite renderer.
 - `scripts/stages/stage1/stage1_player_sprite_renderer.gd`
   Owns Stage 1 Smasher sprite drawing: hit / idle / walk texture
-  selection, sprite source-rect selection, throw-pose sprite rotation,
-  Python-parity post-dash recovery `BLEND_RGB_MULT` tinting, and fallback
-  paddle drawing.
+  selection, 4x2 attack-sheet source-rect selection, legacy strip source
+  selection, throw-pose sprite rotation, Python-parity post-dash recovery
+  `BLEND_RGB_MULT` tinting, and fallback paddle drawing.
 - `scripts/stages/stage1/stage1_boss_actor_renderer.gd`
   Owns Stage 1 boss actor drawing: shadow placement, visual-center
   alignment, Dalji walk-left / walk-right / idle / ball-contact attack
@@ -714,11 +714,13 @@ Godot.
   Owns battle texture paths and loading: player / boss sprites, ball
   texture, orb / HUD frame textures, Smasher skill icon textures, and
   missing-resource warnings through the shared project resource loader.
-  The scene bootstrap loads this map, while `main.gd` keeps the loaded
-  texture dictionary and resolves draw-module texture keys through that
-  shared resource map. Boss texture keys must keep attack and stun
-  semantics separate; `boss_hit_sprite_sheet` is a legacy ball-contact
-  attack alias, not a stun key.
+  Smasher ball-contact attacks prefer the 4x2 `player_attack_sheet` when
+  present, while legacy hit strips remain the fallback path. The scene
+  bootstrap loads this map, while `main.gd` keeps the loaded texture
+  dictionary and resolves draw-module texture keys through that shared
+  resource map. Boss texture keys must keep attack and stun semantics
+  separate; `boss_hit_sprite_sheet` is a legacy ball-contact attack alias,
+  not a stun key.
 - `scripts/resources/project_resource_loader.gd`
   Owns clean-clone-safe resource loading helpers: raw source PNG and WAV
   files are loaded directly when present, while imported Godot resources

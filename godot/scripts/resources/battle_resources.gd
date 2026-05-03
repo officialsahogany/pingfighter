@@ -13,6 +13,11 @@ const PLAYER_HIT_SPRITE_PATH := "res://assets/sprites/smasher_hit_pose.png"
 const PLAYER_HIT_LEFT_STRIP_PATH := "res://assets/sprites/smasher_hit_left_strip.png"
 const PLAYER_HIT_RIGHT_STRIP_PATH := "res://assets/sprites/smasher_hit_right_strip.png"
 
+# Smasher attack sheet: 4x2 grid, 8 frames, cell 344x384, rear-view smash motion.
+# Supersedes the 4-frame L/R hit strips when present (paddle stays viewer-LEFT,
+# floating cyan hexagon stays viewer-RIGHT, hover-board stays anchored).
+const SMASHER_ATTACK_SHEET_PATH := "res://assets/sprites/smasher/smasher_attack_sheet.png"
+
 # Stage 1 boss = Dalji. Walk uses two separate sheets (left + right, no runtime
 # mirror). Ball-contact "hit" uses the attack sheet; stun stays separate for
 # future real stun/electrocution states. See CLAUDE.md's Dalji sprite contract
@@ -56,6 +61,7 @@ func load_all() -> Dictionary:
 		"player_hit_sprite_texture": _load_texture_resource(PLAYER_HIT_SPRITE_PATH),
 		"player_hit_left_strip_texture": _load_texture_resource(PLAYER_HIT_LEFT_STRIP_PATH),
 		"player_hit_right_strip_texture": _load_texture_resource(PLAYER_HIT_RIGHT_STRIP_PATH),
+		"player_attack_sheet": _load_texture_resource(SMASHER_ATTACK_SHEET_PATH),
 		"boss_walk_left_sheet": dalji_walk_left,
 		"boss_walk_right_sheet": dalji_walk_right,
 		"boss_idle_sheet": dalji_idle,

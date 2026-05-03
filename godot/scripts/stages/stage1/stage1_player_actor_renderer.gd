@@ -21,6 +21,15 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var move_bob: float = 0.0
 	var breath_wave: float = 0.0
 	var player_draw_size: Vector2 = _as_vector2(context.get("player_sprite_draw_size", Vector2(250.0, 120.0)), Vector2(250.0, 120.0))
+	# Smasher attack sheet has overhead paddle reach (cell aspect 344x384). When
+	# the sheet is loaded AND the hit anim is active, use a taller draw size so
+	# the apex frame's overhead paddle isn't squished into the walk-strip's
+	# 250x120 footprint. Bottom stays anchored at the paddle (rect builder
+	# below uses `paddle_size.y - player_draw_size.y` so the bottom edge is
+	# fixed; growing height extends the rect upward).
+	var attack_sheet_present: bool = context.get("player_attack_sheet", null) is Texture2D
+	if attack_sheet_present and bool(context.get("player_hit_active", false)):
+		player_draw_size = _as_vector2(context.get("player_attack_draw_size", Vector2(250.0, 280.0)), Vector2(250.0, 280.0))
 	var player_visual_x_offset: float = 0.0
 	var throw_pose_active: bool = bool(context.get("active_item_throw_windup_active", false))
 	var throw_pose_progress: float = clamp(float(context.get("active_item_throw_windup_progress", 0.0)), 0.0, 1.0)

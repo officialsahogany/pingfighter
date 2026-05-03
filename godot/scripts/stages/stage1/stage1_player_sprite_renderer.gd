@@ -13,6 +13,16 @@ func draw(
 	shake_offset: Vector2
 ) -> void:
 	if bool(context.get("player_hit_active", false)):
+		# Smasher attack sheet: 4x2 grid, 8 frames, cell 344x384, rear-view smash.
+		# When present this supersedes the legacy 4-frame L/R hit strips. The
+		# `_get_player_attack_sprite_region` helper does the 4x2 lookup using
+		# `player_hit_frame` (which the animation state already advances 0..7
+		# while attack_sheet is active; see battle_update_effects_context).
+		var attack_texture = context.get("player_attack_sheet", null)
+		if attack_texture is Texture2D:
+			var attack_texture_typed: Texture2D = attack_texture
+			_draw_texture_region(canvas, attack_texture_typed, player_visual_rect, _get_player_attack_sprite_region(context), context)
+			return
 		var hit_texture = context.get("player_hit_left_strip_texture", null) if int(context.get("player_hit_side", 1)) < 0 else context.get("player_hit_right_strip_texture", null)
 		if hit_texture is Texture2D:
 			var hit_strip_texture: Texture2D = hit_texture
@@ -67,6 +77,23 @@ func _get_player_idle_sprite_region(context: Dictionary) -> Rect2:
 func _get_player_hit_sprite_region(context: Dictionary) -> Rect2:
 	var frame_x: float = float(context.get("player_hit_frame_width", 250.0)) * float(context.get("player_hit_frame", 0))
 	return Rect2(frame_x, 0.0, float(context.get("player_hit_frame_width", 250.0)), float(context.get("player_hit_frame_height", 120.0)))
+
+
+# Smasher attack sheet: 4x2 grid (4 columns x 2 rows), 8 frames total, default
+# cell 344x384. Maps `player_hit_frame` (0..7) onto the grid: row = frame // 4,
+# col = frame % 4. Defaults match the shipped 1376x768 PNG.
+const PLAYER_ATTACK_GRID_COLS := 4
+const PLAYER_ATTACK_GRID_ROWS := 2
+
+
+func _get_player_attack_sprite_region(context: Dictionary) -> Rect2:
+	var cell_w: float = float(context.get("player_attack_cell_width", 344.0))
+	var cell_h: float = float(context.get("player_attack_cell_height", 384.0))
+	var max_frame: int = PLAYER_ATTACK_GRID_COLS * PLAYER_ATTACK_GRID_ROWS - 1
+	var frame: int = clamp(int(context.get("player_hit_frame", 0)), 0, max_frame)
+	var col: int = frame % PLAYER_ATTACK_GRID_COLS
+	var row: int = int(frame / PLAYER_ATTACK_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
 
 
 func _get_player_sprite_region(context: Dictionary) -> Rect2:
