@@ -118,14 +118,11 @@ Godot.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
   construction, field-item / portal drawing, animated unknown field-icon
-  drawing, throwable item / explosion / flash drawing, pickup feedback,
-  Giant Potion paddle-width scale state and duration gauge, Regeneration
-  Potion ported skill cooldown / dash-token reset state and recovery-burst
-  feedback, F2 debug spawn menu item selection, number-key use input,
-  per-item cooldown checks, and the original Energy Drink / grenade /
-  flare / Giant Potion / Regeneration Potion consumable effect routing.
-  Broader item pools beyond those currently ported items are still future
-  item-domain work.
+  drawing, throwable item / explosion / flash drawing, pickup / long-boost /
+  regeneration effect drawing, F2 debug spawn menu item selection,
+  number-key use input, per-item cooldown checks, and currently ported
+  consumable effect routing. Broader item pools beyond those currently
+  ported items are still future item-domain work.
 - `scripts/items/active_item_catalog.gd`
   Owns the currently ported active-item metadata: `gauge_charge` / Energy
   Drink, `grenade`, `flare`, `long_boost` / Giant Potion, and
@@ -146,6 +143,13 @@ Godot.
   grenade explosion zones, flare flash zones, boss stun / knockback /
   confusion timers, actor draw context, and boss-AI context. The runtime
   keeps texture-backed drawing for the controller's exposed state arrays.
+- `scripts/items/active_item_effect_controller.gd`
+  Owns active consumable effect state that is not a thrown projectile:
+  Energy Drink gauge application, Giant Potion duration / paddle-scale owner
+  sync, Regeneration Potion cooldown and dash-token reset with recovery-burst
+  particles, pickup acquisition popup particles, long-boost timer context,
+  and store gating for active Giant Potion. The runtime keeps the matching
+  texture-backed and primitive drawing paths.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve
