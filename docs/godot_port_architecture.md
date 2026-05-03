@@ -117,19 +117,28 @@ Godot.
   side effects, and the actual serve/reset orchestration.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
-  construction, original field-drop timing for the currently ported
-  `gauge_charge` / Energy Drink, `grenade`, `flare`, and `long_boost` /
-  Giant Potion item data,
+  construction, original field-drop timing for the currently ported active
+  item catalog entries,
   item-spawn portal release timing, weighted currently-ported item spawning,
   animated unknown field-icon drawing, field-item motion / pickup routing,
   pickup feedback, throwable windup / player-control lock state, grenade
   projectile / explosion state, flare projectile / flash-confusion state,
-  Giant Potion paddle-width scale state and duration gauge,
+  Giant Potion paddle-width scale state and duration gauge, Regeneration
+  Potion ported skill cooldown / dash-token reset state and recovery-burst
+  feedback,
   active-item boss stun / confusion draw context, F2 debug spawn menu item
   selection, number-key use input, per-item cooldown checks, and the
-  original Energy Drink / grenade / flare / Giant Potion consumable effects.
+  original Energy Drink / grenade / flare / Giant Potion / Regeneration
+  Potion consumable effects.
   Broader item pools beyond those currently ported items are still future
   item-domain work.
+- `scripts/items/active_item_catalog.gd`
+  Owns the currently ported active-item metadata: `gauge_charge` / Energy
+  Drink, `grenade`, `flare`, `long_boost` / Giant Potion, and
+  `regeneration_potion` / Regeneration Potion definitions, icon paths,
+  cooldown / gauge constants, field-spawn order, weighted spawn selection,
+  and display-name fallback. The runtime asks this catalog for item data
+  instead of rebuilding definitions locally.
 - `scripts/core/serve_flow_controller.gd`
   Owns serve-wait input and auto-fire timing: Space / left-click player
   serve release, normal player auto-serve delay, tutorial manual-serve

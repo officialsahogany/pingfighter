@@ -2,14 +2,16 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 
-const DEFAULT_COOLDOWN_MSEC := 10000
-const GAUGE_MAX := 500.0
-const GAUGE_CHARGE_AMOUNT := 220.0
-const GAUGE_CHARGE_ICON_PATH := "res://assets/sprites/items/gauge_200.png"
-const GRENADE_ICON_PATH := "res://assets/sprites/items/grenade.png"
-const FLARE_ICON_PATH := "res://assets/sprites/items/flare.png"
-const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/long_boost_icon.png"
+const DEFAULT_COOLDOWN_MSEC := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
+const GAUGE_MAX := ActiveItemCatalog.GAUGE_MAX
+const GAUGE_CHARGE_AMOUNT := ActiveItemCatalog.GAUGE_CHARGE_AMOUNT
+const GAUGE_CHARGE_ICON_PATH := ActiveItemCatalog.GAUGE_CHARGE_ICON_PATH
+const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
+const FLARE_ICON_PATH := ActiveItemCatalog.FLARE_ICON_PATH
+const LONG_BOOST_ICON_PATH := ActiveItemCatalog.LONG_BOOST_ICON_PATH
+const REGENERATION_POTION_ICON_PATH := ActiveItemCatalog.REGENERATION_POTION_ICON_PATH
 const UNKNOWN_ITEM_SHEET_PATH := "res://assets/sprites/items/unknown_item_hq_sprite_sheet.png"
 const UNKNOWN_ITEM_FALLBACK_PATH := "res://assets/sprites/items/unknown_item_hq_sprite.png"
 const UNKNOWN_ITEM_FRAME_MSEC := 140
@@ -68,6 +70,8 @@ const LONG_BOOST_TARGET_SCALE := 1.5
 const LONG_BOOST_TIMER_BAR_SIZE := Vector2(150.0, 12.0)
 const LONG_BOOST_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
 const LONG_BOOST_TIMER_ICON_SIZE := 28.0
+const REGENERATION_POTION_PARTICLE_DURATION_SEC := 0.78
+const REGENERATION_POTION_RING_DURATION_SEC := 0.58
 const THROW_POSE_HOLD_ANGLE_DEGREES := 30.0
 const THROW_POSE_RELEASE_ANGLE_DEGREES := -20.0
 const BOSS_STUN_FRAME_MSEC := 100
@@ -82,6 +86,7 @@ const ITEM_NAME_KO := {
 	"gauge_charge": "에너지드링크",
 	"grenade": "수류탄",
 	"long_boost": "거대화포션",
+	"regeneration_potion": "재생물약",
 }
 
 var slot_key_pressed: Dictionary = {}
@@ -93,6 +98,8 @@ var grenades: Array[Dictionary] = []
 var flares: Array[Dictionary] = []
 var explosion_zones: Array[Dictionary] = []
 var flare_zones: Array[Dictionary] = []
+var regeneration_potion_particles: Array[Dictionary] = []
+var regeneration_potion_rings: Array[Dictionary] = []
 var pickup_particles: Array[Dictionary] = []
 var pickup_effect: Dictionary = {}
 var grenade_boss_stun_timer_frames: float = 0.0
@@ -114,6 +121,8 @@ var unknown_item_fallback_texture: Texture2D
 var grenade_icon_texture: Texture2D
 var flare_icon_texture: Texture2D
 var long_boost_icon_texture: Texture2D
+var regeneration_potion_icon_texture: Texture2D
+var item_catalog: Object = ActiveItemCatalog.new()
 
 
 func _init() -> void:
@@ -130,6 +139,8 @@ func reset() -> void:
 	flares.clear()
 	explosion_zones.clear()
 	flare_zones.clear()
+	regeneration_potion_particles.clear()
+	regeneration_potion_rings.clear()
 	pickup_particles.clear()
 	pickup_effect.clear()
 	grenade_boss_stun_timer_frames = 0.0
@@ -168,6 +179,7 @@ func update(owner: Object, registry: Object, delta: float) -> Dictionary:
 	_update_flare_zones(delta)
 	_update_grenade_boss_effect(delta)
 	_update_flare_boss_confusion(delta)
+	_update_regeneration_potion_effect(delta)
 	_update_pickup_particles(delta)
 	_update_pickup_effect(delta)
 
@@ -222,6 +234,7 @@ func draw_field_items(canvas: CanvasItem, registry: Object, shake_offset: Vector
 	_draw_flares(canvas, shake_offset)
 	_draw_explosion_zones(canvas, shake_offset)
 	_draw_flare_zones(canvas, shake_offset)
+	_draw_regeneration_potion_effect(canvas, shake_offset)
 	_draw_long_boost_timer_gauge(canvas)
 
 	for particle in pickup_particles:
@@ -311,7 +324,7 @@ func handle_debug_spawn_menu_click(mouse_position: Vector2, view_size: Vector2) 
 
 
 func debug_spawn_item(item_name: String) -> bool:
-	var item_data: Dictionary = _build_item_by_name(item_name)
+	var item_data: Dictionary = item_catalog.build_item_by_name(item_name)
 	if item_data.is_empty():
 		return false
 	item_data["revealed"] = false
@@ -406,6 +419,8 @@ func _apply_item_effect(item_data: Dictionary, owner: Object, registry: Object) 
 		return _activate_flare(item_data, owner, registry)
 	if item_name == "long_boost" or effect_name == "long_boost":
 		return _activate_long_boost(item_data, owner, registry)
+	if item_name == "regeneration_potion" or effect_name == "regeneration_potion":
+		return _apply_regeneration_potion(item_data, owner, registry)
 	return false
 
 
@@ -508,6 +523,91 @@ func _activate_long_boost(_item_data: Dictionary, owner: Object, registry: Objec
 	return true
 
 
+func _apply_regeneration_potion(_item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	_reset_skill_cooldowns(_get_instance(registry, "smasher_skill_state"))
+	_reset_skill_cooldowns(_get_instance(registry, "viper_skill_state"))
+
+	var drive_input_state: Object = _get_instance(registry, "smasher_drive_input_state")
+	if drive_input_state != null and drive_input_state.has_method("reset_cooldowns"):
+		drive_input_state.reset_cooldowns()
+
+	var dash_state: Object = _get_instance(registry, "smasher_dash_state")
+	var dash_snapshot: Dictionary = {}
+	if dash_state != null:
+		if dash_state.has_method("refill_tokens"):
+			dash_state.refill_tokens()
+		if dash_state.has_method("get_snapshot"):
+			dash_snapshot = dash_state.get_snapshot()
+
+	var orb_hud_state: Object = _get_instance(registry, "orb_hud_state")
+	if orb_hud_state != null:
+		if orb_hud_state.has_method("reset_dash_tokens"):
+			orb_hud_state.reset_dash_tokens(int(dash_snapshot.get("tokens", 1)))
+
+	var feedback: Object = _get_instance(registry, "battle_feedback_state")
+	if feedback != null:
+		if feedback.has_method("trigger_dash_flash"):
+			feedback.trigger_dash_flash()
+		if feedback.has_method("trigger_gauge_flash"):
+			feedback.trigger_gauge_flash()
+		if feedback.has_method("max_screen_shake"):
+			feedback.max_screen_shake(0.04, 1.25)
+
+	_spawn_regeneration_potion_effect(owner)
+
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null:
+		if audio.has_method("play_drink"):
+			audio.play_drink()
+		if audio.has_method("play_active_item"):
+			audio.play_active_item()
+
+	return true
+
+
+func _reset_skill_cooldowns(skill_state: Object) -> void:
+	if skill_state == null:
+		return
+	if skill_state.has_method("reset_cooldowns"):
+		skill_state.reset_cooldowns()
+	elif skill_state.has_method("reset"):
+		skill_state.reset()
+
+
+func _spawn_regeneration_potion_effect(owner: Object) -> void:
+	var fallback_pos := Vector2(FIELD_WIDTH * 0.5 - PLAYER_BASE_PADDLE_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT)
+	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", fallback_pos)
+	var paddle_width: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH)))
+	var paddle_height: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_height", PLAYER_BASE_PADDLE_HEIGHT)))
+	var center := player_pos + Vector2(paddle_width * 0.5, paddle_height * 0.45)
+
+	regeneration_potion_rings.append({
+		"position": center,
+		"age": 0.0,
+		"duration": REGENERATION_POTION_RING_DURATION_SEC,
+	})
+
+	var colors := [
+		Color(1.0, 215.0 / 255.0, 0.0, 1.0),
+		Color(1.0, 230.0 / 255.0, 80.0 / 255.0, 1.0),
+		Color(1.0, 200.0 / 255.0, 50.0 / 255.0, 1.0),
+		Color(1.0, 1.0, 100.0 / 255.0, 1.0),
+		Color(1.0, 180.0 / 255.0, 30.0 / 255.0, 1.0),
+	]
+	for _i in range(25):
+		var angle: float = randf_range(0.0, TAU)
+		var radius: float = randf_range(6.0, 48.0)
+		var start_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
+		regeneration_potion_particles.append({
+			"position": start_pos,
+			"velocity": Vector2(randf_range(-34.0, 34.0), randf_range(-104.0, -34.0)),
+			"radius": randf_range(2.4, 5.2),
+			"age": 0.0,
+			"lifetime": randf_range(0.42, REGENERATION_POTION_PARTICLE_DURATION_SEC),
+			"color": colors[randi() % colors.size()],
+		})
+
+
 func _is_throw_locked(registry: Object) -> bool:
 	var round_state: Object = _get_instance(registry, "round_flow_state")
 	if round_state == null or not round_state.has_method("get_round_start_time_msec"):
@@ -537,101 +637,6 @@ func _select_slot(registry: Object, slot_index: int) -> void:
 	var hud_state: Object = _get_instance(registry, "active_item_hud_state")
 	if hud_state != null and hud_state.has_method("set_selected_index"):
 		hud_state.set_selected_index(slot_index)
-
-
-func _build_gauge_charge() -> Dictionary:
-	return {
-		"name": "gauge_charge",
-		"display_name": "Energy Drink",
-		"type": "active",
-		"effect": "gauge_charge",
-		"chance": 0.042,
-		"duration": 600,
-		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"gauge_gain": GAUGE_CHARGE_AMOUNT,
-		"gauge_max": GAUGE_MAX,
-		"icon_path": GAUGE_CHARGE_ICON_PATH,
-		"color": Color(1.0, 100.0 / 255.0, 1.0),
-		"consumable": true,
-	}
-
-
-func _build_grenade() -> Dictionary:
-	return {
-		"name": "grenade",
-		"display_name": "Grenade",
-		"type": "active",
-		"effect": "grenade",
-		"chance": 0.018,
-		"duration": 600,
-		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"icon_path": GRENADE_ICON_PATH,
-		"color": Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0),
-		"consumable": true,
-		"count": 1,
-	}
-
-
-func _build_flare() -> Dictionary:
-	return {
-		"name": "flare",
-		"display_name": "Flare",
-		"type": "active",
-		"effect": "flare",
-		"chance": 0.020,
-		"duration": 600,
-		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"icon_path": FLARE_ICON_PATH,
-		"color": Color(1.0, 1.0, 200.0 / 255.0),
-		"consumable": true,
-		"count": 1,
-	}
-
-
-func _build_long_boost() -> Dictionary:
-	return {
-		"name": "long_boost",
-		"display_name": "거대화포션",
-		"type": "active",
-		"effect": "long_boost",
-		"chance": 0.028,
-		"duration": 600,
-		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"icon_path": LONG_BOOST_ICON_PATH,
-		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
-		"consumable": true,
-	}
-
-
-func _build_item_by_name(item_name: String) -> Dictionary:
-	match item_name:
-		"gauge_charge":
-			return _build_gauge_charge()
-		"grenade":
-			return _build_grenade()
-		"flare":
-			return _build_flare()
-		"long_boost":
-			return _build_long_boost()
-	return {}
-
-
-func _build_random_spawn_item() -> Dictionary:
-	var candidates: Array[Dictionary] = [
-		_build_gauge_charge(),
-		_build_grenade(),
-		_build_flare(),
-		_build_long_boost(),
-	]
-	var total_weight: float = 0.0
-	for candidate in candidates:
-		total_weight += max(0.0, float(candidate.get("chance", 0.0)))
-	var roll: float = randf() * max(0.001, total_weight)
-	for candidate in candidates:
-		roll -= max(0.0, float(candidate.get("chance", 0.0)))
-		if roll <= 0.0:
-			return candidate.duplicate(true)
-	return candidates.back().duplicate(true)
 
 
 func _update_spawn_timer(owner: Object) -> void:
@@ -1043,6 +1048,37 @@ func _update_flare_boss_confusion(delta: float) -> void:
 	flare_boss_confused_timer_frames = max(0.0, flare_boss_confused_timer_frames - fps_scale)
 
 
+func _update_regeneration_potion_effect(delta: float) -> void:
+	if not regeneration_potion_particles.is_empty():
+		var particle_survivors: Array[Dictionary] = []
+		for particle in regeneration_potion_particles:
+			var age: float = float(particle.get("age", 0.0)) + delta
+			var lifetime: float = max(0.001, float(particle.get("lifetime", REGENERATION_POTION_PARTICLE_DURATION_SEC)))
+			if age >= lifetime:
+				continue
+			var pos: Vector2 = _get_vector2(particle, "position", Vector2.ZERO)
+			var velocity: Vector2 = _get_vector2(particle, "velocity", Vector2.ZERO)
+			pos += velocity * delta
+			velocity = velocity.lerp(Vector2.ZERO, min(1.0, delta * 1.8))
+			velocity.y += 18.0 * delta
+			particle["age"] = age
+			particle["position"] = pos
+			particle["velocity"] = velocity
+			particle_survivors.append(particle)
+		regeneration_potion_particles = particle_survivors
+
+	if not regeneration_potion_rings.is_empty():
+		var ring_survivors: Array[Dictionary] = []
+		for ring in regeneration_potion_rings:
+			var age: float = float(ring.get("age", 0.0)) + delta
+			var duration: float = max(0.001, float(ring.get("duration", REGENERATION_POTION_RING_DURATION_SEC)))
+			if age >= duration:
+				continue
+			ring["age"] = age
+			ring_survivors.append(ring)
+		regeneration_potion_rings = ring_survivors
+
+
 func _update_long_boost(delta: float) -> void:
 	if not long_boost_active:
 		long_boost_timer_frames = 0.0
@@ -1169,7 +1205,7 @@ func _trigger_pickup_effect(field_item: Dictionary, registry: Object) -> void:
 
 
 func _queue_gauge_charge_after_portal() -> void:
-	var item_data: Dictionary = _build_random_spawn_item()
+	var item_data: Dictionary = item_catalog.build_random_spawn_item()
 	item_data["revealed"] = false
 	var position: Vector2 = _roll_field_item_position()
 	var field_item: Dictionary = _build_field_item(item_data, position)
@@ -1486,6 +1522,32 @@ func _draw_flare_zones(canvas: CanvasItem, shake_offset: Vector2) -> void:
 					canvas.draw_circle(center, layer_radius, Color(1.0, 1.0, 200.0 / 255.0, alpha))
 
 
+func _draw_regeneration_potion_effect(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	for ring in regeneration_potion_rings:
+		var center: Vector2 = _get_vector2(ring, "position", Vector2.ZERO) + shake_offset
+		var age: float = float(ring.get("age", 0.0))
+		var duration: float = max(0.001, float(ring.get("duration", REGENERATION_POTION_RING_DURATION_SEC)))
+		var progress: float = clamp(age / duration, 0.0, 1.0)
+		var life: float = 1.0 - progress
+		var radius: float = lerp(24.0, 92.0, progress)
+		canvas.draw_arc(center, radius, 0.0, TAU, 72, Color(1.0, 230.0 / 255.0, 80.0 / 255.0, 0.58 * life), 4.0)
+		canvas.draw_arc(center, radius * 0.62, 0.0, TAU, 56, Color(1.0, 1.0, 170.0 / 255.0, 0.34 * life), 2.0)
+		canvas.draw_circle(center, radius * 0.26, Color(1.0, 210.0 / 255.0, 30.0 / 255.0, 0.16 * life))
+
+	for particle in regeneration_potion_particles:
+		var center: Vector2 = _get_vector2(particle, "position", Vector2.ZERO) + shake_offset
+		var age: float = float(particle.get("age", 0.0))
+		var lifetime: float = max(0.001, float(particle.get("lifetime", REGENERATION_POTION_PARTICLE_DURATION_SEC)))
+		var life: float = clamp(1.0 - age / lifetime, 0.0, 1.0)
+		if life <= 0.0:
+			continue
+		var radius: float = max(1.0, float(particle.get("radius", 3.0))) * (0.55 + 0.45 * life)
+		var color: Color = _get_color(particle.get("color", Color(1.0, 230.0 / 255.0, 80.0 / 255.0, 1.0)), Color(1.0, 230.0 / 255.0, 80.0 / 255.0, 1.0))
+		canvas.draw_circle(center, radius * 2.1, Color(color.r, color.g, color.b, 0.13 * life))
+		canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, 0.92 * life))
+		canvas.draw_circle(center + Vector2(-radius * 0.32, -radius * 0.32), radius * 0.32, Color(1.0, 1.0, 1.0, 0.42 * life))
+
+
 func _draw_long_boost_timer_gauge(canvas: CanvasItem) -> void:
 	if not long_boost_active or long_boost_timer_frames <= 0.0:
 		return
@@ -1556,6 +1618,11 @@ func _get_debug_spawn_entries() -> Array[Dictionary]:
 			"title": "거대화포션",
 			"subtitle": "active / paddle x1.5",
 		},
+		{
+			"name": "regeneration_potion",
+			"title": "재생물약",
+			"subtitle": "active / reset skills",
+		},
 	]
 
 
@@ -1582,7 +1649,7 @@ func _draw_debug_spawn_entry_icon(canvas: CanvasItem, item_name: String, center:
 		canvas.draw_texture_rect(texture, Rect2(center - icon_size * 0.5, icon_size), false)
 		return
 
-	var item_data: Dictionary = _build_item_by_name(item_name)
+	var item_data: Dictionary = item_catalog.build_item_by_name(item_name)
 	var item_color: Color = _get_item_color(item_data)
 	canvas.draw_circle(center, DEBUG_SPAWN_MENU_ICON_SIZE * 0.42, item_color)
 	canvas.draw_circle(center + Vector2(-5.0, -6.0), 4.0, Color(1.0, 1.0, 1.0, 0.25))
@@ -1598,6 +1665,8 @@ func _get_debug_item_icon_texture(item_name: String) -> Texture2D:
 			return _get_flare_icon_texture()
 		"long_boost":
 			return _get_long_boost_icon_texture()
+		"regeneration_potion":
+			return _get_regeneration_potion_icon_texture()
 	return null
 
 
@@ -1773,7 +1842,7 @@ func _portal_open_factor(elapsed_msec: int, duration_msec: int) -> float:
 func _get_korean_item_name(item_name: String) -> String:
 	if item_name == "long_boost":
 		return "거대화포션"
-	return str(ITEM_NAME_KO.get(item_name, str(_build_gauge_charge().get("display_name", item_name))))
+	return str(ITEM_NAME_KO.get(item_name, item_catalog.get_display_name(item_name)))
 
 
 func _get_item_icon_texture(item_data: Dictionary, registry: Object) -> Texture2D:
@@ -1853,6 +1922,16 @@ func _get_long_boost_icon_texture() -> Texture2D:
 			"Failed to load long boost icon at %s"
 		)
 	return long_boost_icon_texture
+
+
+func _get_regeneration_potion_icon_texture() -> Texture2D:
+	if regeneration_potion_icon_texture == null:
+		regeneration_potion_icon_texture = ProjectResourceLoader.load_texture(
+			REGENERATION_POTION_ICON_PATH,
+			"Missing regeneration potion icon at %s",
+			"Failed to load regeneration potion icon at %s"
+		)
+	return regeneration_potion_icon_texture
 
 
 func _get_throw_item_icon_texture(item_name: String) -> Texture2D:
