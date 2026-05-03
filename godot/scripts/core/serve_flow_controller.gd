@@ -8,6 +8,14 @@ var serve_button_was_pressed := false
 var mouse_button_was_pressed := false
 
 
+func sync_current_input_state() -> void:
+	serve_button_was_pressed = (
+		Input.is_action_pressed("ui_accept")
+		or Input.is_key_pressed(KEY_SPACE)
+	)
+	mouse_button_was_pressed = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+
+
 func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dictionary) -> void:
 	var round_state = deps.get("round_state", null)
 	if round_state == null or not round_state.is_waiting_for_serve():

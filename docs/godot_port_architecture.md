@@ -1348,6 +1348,13 @@ Godot.
   selection, PFStardust-first studio-text reveal / tracking / glint timing,
   logo sound playback, and the short battle-bootstrap gate that keeps Stage
   BGM / gameplay startup behind the logo just like the Python startup path.
+- `scripts/core/stage_landing_intro.gd`
+  Owns the Godot stage-entry landing zoom port that runs after battle
+  bootstrap and before gameplay physics: generated landing-background load,
+  camera zoom, scaled playfield preview, stage / scan overlays, final shake,
+  skip input handling, and serve-input edge synchronization so a skipped
+  intro does not immediately fire the opening serve.
+
 
 ## Verification Rule
 

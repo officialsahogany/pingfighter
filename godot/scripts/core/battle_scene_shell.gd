@@ -9,6 +9,7 @@ const FULLSCREEN_TOGGLE_KEY := KEY_F11
 var scene_state = BattleSceneState.new()
 var gameplay_modules = GameplayModuleRegistry.new()
 var _battle_initialized := false
+var _stage_landing_intro_started := false
 
 
 func _ready() -> void:
@@ -19,6 +20,7 @@ func _ready() -> void:
 		queue_redraw()
 		return
 	_initialize_battle()
+	_begin_stage_landing_intro()
 
 
 func _initialize_battle() -> void:
@@ -28,6 +30,16 @@ func _initialize_battle() -> void:
 	if lifecycle != null:
 		lifecycle.initialize(self, gameplay_modules)
 	_battle_initialized = true
+
+
+func _begin_stage_landing_intro() -> void:
+	if _stage_landing_intro_started or not _battle_initialized:
+		return
+	_stage_landing_intro_started = true
+	var landing_intro = _get_module("stage_landing_intro")
+	if landing_intro != null and landing_intro.has_method("begin"):
+		if bool(landing_intro.begin(self, gameplay_modules)):
+			queue_redraw()
 
 
 func _get_module(key: String):
@@ -106,6 +118,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _is_logo_intro_active() or not _battle_initialized:
 		return
+	if _is_stage_landing_intro_active():
+		var landing_intro = _get_module("stage_landing_intro")
+		if landing_intro != null and landing_intro.has_method("handle_input"):
+			var handled: bool = bool(landing_intro.handle_input(event, gameplay_modules))
+			if handled:
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+		return
 	var active_item_runtime = _get_module("active_item_runtime")
 	if active_item_runtime == null:
 		return
@@ -146,10 +166,19 @@ func _process(delta: float) -> void:
 			logo_intro.update(delta)
 		if logo_intro.has_method("is_active") and not bool(logo_intro.is_active()):
 			_initialize_battle()
+			_begin_stage_landing_intro()
 		queue_redraw()
 		return
 	if not _battle_initialized:
 		_initialize_battle()
+		_begin_stage_landing_intro()
+
+	var landing_intro = _get_module("stage_landing_intro")
+	if landing_intro != null and landing_intro.has_method("is_active") and bool(landing_intro.is_active()):
+		if landing_intro.has_method("update"):
+			landing_intro.update(delta, gameplay_modules)
+		queue_redraw()
+		return
 
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
@@ -162,7 +191,7 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _is_logo_intro_active() or not _battle_initialized:
+	if _is_logo_intro_active() or not _battle_initialized or _is_stage_landing_intro_active():
 		return
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
@@ -178,6 +207,11 @@ func _draw() -> void:
 	if not _battle_initialized:
 		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color.BLACK)
 		return
+	var landing_intro = _get_module("stage_landing_intro")
+	if landing_intro != null and landing_intro.has_method("is_active") and bool(landing_intro.is_active()):
+		if landing_intro.has_method("draw"):
+			landing_intro.draw(self, self, gameplay_modules, get_viewport_rect().size)
+		return
 	var drawer = _get_module("battle_scene_drawer")
 	if drawer != null:
 		drawer.draw(self, gameplay_modules)
@@ -189,3 +223,8 @@ func _draw() -> void:
 func _is_logo_intro_active() -> bool:
 	var logo_intro = _get_module("penguin_logo_intro")
 	return logo_intro != null and logo_intro.has_method("is_active") and bool(logo_intro.is_active())
+
+
+func _is_stage_landing_intro_active() -> bool:
+	var landing_intro = _get_module("stage_landing_intro")
+	return landing_intro != null and landing_intro.has_method("is_active") and bool(landing_intro.is_active())

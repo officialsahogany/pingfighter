@@ -13,6 +13,10 @@ const MODULES := {
 		"path": "res://scripts/core/penguin_logo_intro.gd",
 		"label": "penguin logo intro",
 	},
+	"stage_landing_intro": {
+		"path": "res://scripts/core/stage_landing_intro.gd",
+		"label": "stage landing intro",
+	},
 	"battle_scene_config": {
 		"path": "res://scripts/core/battle_scene_config.gd",
 		"label": "battle scene config",
