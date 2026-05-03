@@ -34,6 +34,7 @@ func build_player_control_deps(registry: Object, character_type: String = "smash
 		"drive_input_state": registry.get_instance("smasher_drive_input_state") if not character_runtime.is_viper(character_type) else null,
 		"skill_state": registry.get_instance(character_runtime.get_skill_state_key(character_type)),
 		"skill_config": registry.get_instance(character_runtime.get_skill_config_key(character_type)),
+		"viper_skill_runtime": registry.get_instance("viper_skill_runtime") if character_runtime.is_viper(character_type) else null,
 		"power_state": registry.get_instance("smasher_power_smash_state") if not character_runtime.is_viper(character_type) else null,
 		"movement_state": registry.get_instance("player_movement_state"),
 		"combo_state": registry.get_instance(combo_key) if combo_key != "" else null,

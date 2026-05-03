@@ -17,6 +17,10 @@ const MODULES := {
 		"path": "res://scripts/characters/viper_skill_state.gd",
 		"label": "viper skill state",
 	},
+	"viper_skill_runtime": {
+		"path": "res://scripts/characters/viper_skill_runtime.gd",
+		"label": "viper skill runtime",
+	},
 	"player_character_runtime": {
 		"path": "res://scripts/characters/player_character_runtime.gd",
 		"label": "player character runtime",

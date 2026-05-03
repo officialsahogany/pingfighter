@@ -104,6 +104,12 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 			if skill_config != null and skill_config.has_method("reset_runtime_skills"):
 				skill_config.reset_runtime_skills()
 
+	var skill_runtimes_value: Variant = deps.get("skill_runtimes", [])
+	if skill_runtimes_value is Array:
+		for skill_runtime in skill_runtimes_value:
+			if skill_runtime != null and skill_runtime.has_method("reset"):
+				skill_runtime.reset()
+
 	var reset_drive_input_callback: Callable = callbacks.get("reset_drive_input", Callable())
 	if reset_drive_input_callback.is_valid():
 		reset_drive_input_callback.call()

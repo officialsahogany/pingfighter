@@ -303,12 +303,14 @@ Godot.
   ported.
 - `scripts/characters/viper_skill_config.gd`,
   `scripts/characters/viper_skill_state.gd`,
+  `scripts/characters/viper_skill_runtime.gd`,
   `scripts/characters/viper_input_reader.gd`, and
   `scripts/characters/viper_player_controller.gd`
   Own the first Viper playable-character foundation: active-skill metadata,
-  separate cooldown state, raw input snapshot, and slower ground-movement
-  controller reuse. Individual Viper active-skill gameplay remains future
-  character-module work.
+  separate cooldown state, the Shadow Step dash-origin rewind runtime, raw
+  input snapshot, and slower ground-movement controller reuse. Remaining
+  individual Viper active-skill gameplay stays in future character-module
+  slices.
 - `scripts/stages/stage1/stage1_dalji_whip_skill_state.gd`
   Owns the Stage 1 Dalji 상모돌리기 boss-skill port: boss skill gauge gain
   on boss paddle hits, 12% / 200-gauge activation, downward wave ball
@@ -517,7 +519,7 @@ Godot.
 - `scripts/ball/ball_round_actor_cleanup.gd`
   Owns reset / serve actor cleanup: round wait state, AI state,
   animation state, Power-Smashing counter knockback state, dash round
-  state, and feedback reset token count.
+  state, Viper skill runtime round state, and feedback reset token count.
 - `scripts/ball/ball_spin_state.gd`
   Owns Drive-ball spin lifecycle: per-frame spin force / decay, Drive ball
   activation speed bump, and Drive state clearing snapshots. `main.gd`
@@ -815,7 +817,7 @@ Godot.
 - `scripts/core/battle_update_match_flow_context.gd`
   Owns match-flow dependency map assembly for score, round, scoreboard,
   audio, HUD, active-item runtime, player skill-state / skill-config reset
-  groups, Drive-input, and dash state modules.
+  / skill-runtime reset groups, Drive-input, and dash state modules.
 - `scripts/resources/battle_resources.gd`
   Owns battle texture paths and loading: player / boss sprites, ball
   texture, orb / HUD frame textures, Smasher skill icon textures, and

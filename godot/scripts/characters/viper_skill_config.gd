@@ -183,6 +183,10 @@ func get_cooldown_seconds(skill_name: String) -> float:
 	return float(COOLDOWN_SECONDS.get(skill_name, 0.0))
 
 
+func get_skill_cost(skill_name: String) -> float:
+	return float(SKILL_COSTS.get(skill_name, 0.0))
+
+
 func is_skill_equipped(skill_name: String) -> bool:
 	return equipped_skills.has(skill_name)
 

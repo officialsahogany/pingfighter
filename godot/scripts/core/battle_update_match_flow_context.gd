@@ -18,6 +18,9 @@ func build_deps(registry: Object) -> Dictionary:
 		registry.get_instance("smasher_skill_config"),
 		registry.get_instance("viper_skill_config"),
 	]
+	deps["skill_runtimes"] = [
+		registry.get_instance("viper_skill_runtime"),
+	]
 	deps["runtime_perk_state"] = registry.get_instance("runtime_perk_state")
 	deps["drive_input_state"] = registry.get_instance("smasher_drive_input_state")
 	deps["dash_state"] = registry.get_instance("smasher_dash_state")

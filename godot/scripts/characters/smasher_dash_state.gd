@@ -15,6 +15,11 @@ func reset_round() -> void:
 	dash_key_released_since_last = true
 
 
+func cancel_until_key_release() -> void:
+	motion_state.reset_round()
+	dash_key_released_since_last = false
+
+
 func reset_full(max_tokens: int = 1) -> void:
 	token_state.reset_full(max_tokens)
 	reset_round()

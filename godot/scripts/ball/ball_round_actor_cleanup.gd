@@ -24,6 +24,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if dash_state != null:
 		dash_state.reset_round()
 
+	var viper_skill_runtime = deps.get("viper_skill_runtime", null)
+	if viper_skill_runtime != null and viper_skill_runtime.has_method("reset_round"):
+		viper_skill_runtime.reset_round()
+
 	var feedback = deps.get("feedback", null)
 	if feedback != null:
 		var dash_token_max: int = _get_dash_token_max(dash_state)
