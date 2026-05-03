@@ -201,9 +201,10 @@ Godot.
   Owns score-event and scoreboard-flow orchestration: scoring-side
   handoff to match score state, next-server sync, scoreboard start / finish
   actions, round-set sound trigger, and full-game reset fanout across HUD,
-  active-item runtime, skill, dash, and round-flow modules. Ball reset is
-  delegated back through the ball round controller, while `main.gd` still
-  owns mutable scene fields returned by the controllers.
+  active-item runtime, all registered player skill states / runtime skill
+  configs, dash, and round-flow modules. Ball reset is delegated back through
+  the ball round controller, while `main.gd` still owns mutable scene fields
+  returned by the controllers.
 - `scripts/stages/stage1/stage1_pillar_background.gd`
   Owns the layered Stage 1 pillar background port: base hanji texture,
   texture loading, draw composition, and delegation to focused Stage 1
@@ -813,8 +814,8 @@ Godot.
   ball / gauge / sprite presence fields, and battle-effect dependencies.
 - `scripts/core/battle_update_match_flow_context.gd`
   Owns match-flow dependency map assembly for score, round, scoreboard,
-  audio, HUD, active-item runtime, skill, Drive-input, and dash state
-  modules.
+  audio, HUD, active-item runtime, player skill-state / skill-config reset
+  groups, Drive-input, and dash state modules.
 - `scripts/resources/battle_resources.gd`
   Owns battle texture paths and loading: player / boss sprites, ball
   texture, orb / HUD frame textures, Smasher skill icon textures, and

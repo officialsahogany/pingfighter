@@ -80,9 +80,15 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 		if active_item_runtime.has_method("build_starting_slots"):
 			active_item_slots = active_item_runtime.build_starting_slots()
 
-	var skill_state = deps.get("skill_state", null)
-	if skill_state != null:
-		skill_state.reset()
+	var skill_states_value: Variant = deps.get("skill_states", [])
+	if skill_states_value is Array:
+		for skill_state in skill_states_value:
+			if skill_state != null and skill_state.has_method("reset"):
+				skill_state.reset()
+	else:
+		var skill_state = deps.get("skill_state", null)
+		if skill_state != null:
+			skill_state.reset()
 
 	var drive_input_state = deps.get("drive_input_state", null)
 	if drive_input_state != null:
@@ -91,6 +97,12 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 	var runtime_perk_state = deps.get("runtime_perk_state", null)
 	if runtime_perk_state != null and runtime_perk_state.has_method("reset"):
 		runtime_perk_state.reset()
+
+	var skill_configs_value: Variant = deps.get("skill_configs", [])
+	if skill_configs_value is Array:
+		for skill_config in skill_configs_value:
+			if skill_config != null and skill_config.has_method("reset_runtime_skills"):
+				skill_config.reset_runtime_skills()
 
 	var reset_drive_input_callback: Callable = callbacks.get("reset_drive_input", Callable())
 	if reset_drive_input_callback.is_valid():
