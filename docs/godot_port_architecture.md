@@ -117,11 +117,11 @@ Godot.
   side effects, and the actual serve/reset orchestration.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
-  construction, throwable item / explosion / flash drawing, pickup /
-  long-boost / regeneration effect drawing, number-key use input, per-item
-  cooldown checks, currently ported consumable effect routing, and
-  debug-spawn execution after the menu selects an item. Broader item pools
-  beyond those currently ported items are still future item-domain work.
+  construction, pickup / long-boost / regeneration effect drawing,
+  number-key use input, per-item cooldown checks, currently ported
+  consumable effect routing, and debug-spawn execution after the menu
+  selects an item. Broader item pools beyond those currently ported items
+  are still future item-domain work.
 - `scripts/items/active_item_catalog.gd`
   Owns the currently ported active-item metadata: `gauge_charge` / Energy
   Drink, `grenade`, `flare`, `long_boost` / Giant Potion, and
@@ -145,8 +145,12 @@ Godot.
   Owns active throwable item state: grenade / flare activation lockouts,
   throw windup timing, player-control lock state, projectile travel,
   grenade explosion zones, flare flash zones, boss stun / knockback /
-  confusion timers, actor draw context, and boss-AI context. The runtime
-  keeps texture-backed drawing for the controller's exposed state arrays.
+  confusion timers, actor draw context, and boss-AI context.
+- `scripts/items/active_item_throw_renderer.gd`
+  Owns active throwable item rendering: grenade / flare windup lifts,
+  projectile trails, texture-backed grenade / flare sprites, explosion
+  zones, flare flash / confuse zones, and throw-icon texture caches. The
+  runtime passes through the throw controller's exposed state arrays.
 - `scripts/items/active_item_effect_controller.gd`
   Owns active consumable effect state that is not a thrown projectile:
   Energy Drink gauge application, Giant Potion duration / paddle-scale owner
