@@ -518,8 +518,9 @@ Godot.
   Owns paddle-hit side-effect fanout: combo-aware gauge gain, dash /
   dash-recovery gauge-gain blocking, Drive boss counter decay,
   Power-Smashing counter speed reset plus combo knockback trigger, actor
-  hit animations, and delegation to rally feedback side effects. The
-  paddle bounce controller calls this after resolving the core bounce.
+  hit animations, Power-Smashing pending contact offsets, and delegation
+  to rally feedback side effects. The paddle bounce controller calls this
+  after resolving the core bounce.
 - `scripts/ball/paddle_bounce_rally_feedback_router.gd`
   Owns paddle-hit rally feedback side effects: intensity hit registration,
   energy explosion / paddle particles, screen shake, and
@@ -1145,8 +1146,9 @@ Godot.
   shake lives in the motion controller to match the original timing split.
 - `scripts/characters/smasher_power_smash_motion_controller.gd`
   Owns Power Smashing post-activation progression: freeze-pose locking,
-  freeze launch sound, combo-tier launch shake, and parabola motion stepping.
-  `main.gd` applies only the returned ball snapshot.
+  pending contact-animation release, freeze launch sound, combo-tier launch
+  shake, and parabola motion stepping. `main.gd` applies only the returned
+  ball snapshot.
 - `scripts/characters/smasher_skill_feedback_renderer.gd`
   Owns Smasher skill feedback drawing: dash status text, Drive / Power
   Smashing timing monitors, center banners, and the feedback draw facade.
@@ -1161,12 +1163,15 @@ Godot.
   lightning trails, white energy cores, glow shells, and spark streaks.
 - `scripts/characters/actor_animation_state.gd`
   Owns the public actor animation state API and combines player / boss
-  draw snapshots. The battle effects update controller passes texture
-  availability and movement state, while `main.gd` forwards the animation
-  snapshot to the Stage 1 actor renderer.
+  draw snapshots. It also exposes player pending-contact offset helpers for
+  Power Smashing freeze release. The battle effects update controller passes
+  texture availability and movement state, while `main.gd` forwards the
+  animation snapshot to the Stage 1 actor renderer.
 - `scripts/characters/player_actor_animation_state.gd`
   Owns Smasher animation timers and frame state: idle / walk frames, hit
-  pose timing, hit side, hit-frame easing, and player animation clock.
+  pose timing, hit side, hit-frame easing, contact-animation intensity,
+  shield / left-raise follow-through timers, pending contact offsets, and
+  player animation clock.
 - `scripts/characters/boss_actor_animation_state.gd`
   Owns boss animation timers and frame state: Dalji walk frame, facing,
   idle frame, anticipated ball-contact attack timing plus exact-contact

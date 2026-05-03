@@ -1,5 +1,7 @@
 extends RefCounted
 
+const POWER_SMASH_CONTACT_INTENSITY := 2.0
+
 
 func update_freeze(delta: float, ball_pos: Vector2, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var power_state = deps.get("power_state", null)
@@ -13,6 +15,7 @@ func update_freeze(delta: float, ball_pos: Vector2, context: Dictionary, deps: D
 
 	var launched: bool = power_state.update_freeze(delta, float(context.get("freeze_duration", 0.0)))
 	if launched:
+		_trigger_pending_power_hit_anim(context, deps)
 		var audio = deps.get("audio", null)
 		if audio != null:
 			audio.play_power_smash_launch()
@@ -42,3 +45,20 @@ func apply_motion(ball_vel: Vector2, fps_scale: float, context: Dictionary, deps
 			float(context.get("boost_duration", 0.0))
 		),
 	}
+
+
+func _trigger_pending_power_hit_anim(context: Dictionary, deps: Dictionary) -> void:
+	var animation_state = deps.get("animation_state", null)
+	if animation_state == null:
+		return
+	if not animation_state.has_method("has_player_pending_contact_offset"):
+		return
+	if not bool(animation_state.has_player_pending_contact_offset()):
+		return
+	var contact_offset: float = float(animation_state.consume_player_pending_contact_offset())
+	animation_state.trigger_player_hit(
+		contact_offset,
+		bool(context.get("player_has_hit_sprite", false)),
+		float(context.get("player_hit_anim_duration", 0.40)),
+		POWER_SMASH_CONTACT_INTENSITY
+	)

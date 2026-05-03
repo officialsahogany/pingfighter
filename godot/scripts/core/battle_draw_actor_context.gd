@@ -13,6 +13,14 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
 	var textures: Dictionary = _get_dict(context.get("textures", {}))
 	var has_player_attack_sheet: bool = textures.get("player_attack_sheet", null) is Texture2D
+	var player_base_hit_duration: float = float(animation_context.get(
+		"player_hit_anim_duration",
+		0.40 if has_player_attack_sheet else 0.36
+	))
+	var player_effective_hit_duration: float = float(animation_context.get(
+		"player_hit_effective_anim_duration",
+		player_base_hit_duration
+	))
 	var actor_context := {
 		"shake_offset": _get_vector2(context, "shake_offset", Vector2.ZERO),
 		"width": float(context.get("width", 760.0)),
@@ -38,7 +46,8 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		"player_hit_side": animation_context.get("player_hit_side", -1),
 		"player_hit_frame": animation_context.get("player_hit_frame", 0),
 		"player_hit_frame_count": 8 if has_player_attack_sheet else 4,
-		"player_hit_anim_duration": 0.40 if has_player_attack_sheet else 0.36,
+		"player_hit_anim_duration": player_base_hit_duration,
+		"player_hit_effective_anim_duration": player_effective_hit_duration,
 		"player_idle_frame": animation_context.get("player_idle_frame", 0),
 		"player_sprite_frame": animation_context.get("player_sprite_frame", 0),
 		# Smasher contact-animation state ported from pingfighter.py
@@ -47,6 +56,7 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 		# lunge / squash, and the bell-strength fields drive procedural
 		# shield / left-arm raise overlays during the follow-through window.
 		"player_swing_intensity": animation_context.get("player_swing_intensity", 1.0),
+		"player_hit_pose_timer": animation_context.get("player_hit_pose_timer", 0.0),
 		"player_shield_raise_timer": animation_context.get("player_shield_raise_timer", 0.0),
 		"player_left_raise_timer": animation_context.get("player_left_raise_timer", 0.0),
 		"player_shield_raise_strength": animation_context.get("player_shield_raise_strength", 0.0),

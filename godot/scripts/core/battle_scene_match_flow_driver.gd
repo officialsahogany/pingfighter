@@ -46,6 +46,18 @@ func reset_game(
 		"drive_text_timer_frames",
 		_get_owner_value(owner, "drive_text_timer_frames", 0.0)
 	)))
+	owner.set("player_paddle_width", float(result.get(
+		"player_paddle_width",
+		_get_owner_value(owner, "player_paddle_width", 155.0)
+	)))
+	owner.set("player_paddle_height", float(result.get(
+		"player_paddle_height",
+		_get_owner_value(owner, "player_paddle_height", 50.0)
+	)))
+	owner.set("player_paddle_scale", float(result.get(
+		"player_paddle_scale",
+		_get_owner_value(owner, "player_paddle_scale", 1.0)
+	)))
 	var active_item_slots: Variant = result.get("active_item_slots", null)
 	if active_item_slots is Array:
 		owner.set("active_item_slots", active_item_slots)

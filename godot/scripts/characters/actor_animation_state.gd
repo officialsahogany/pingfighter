@@ -6,6 +6,11 @@ const BossActorAnimationState := preload("res://scripts/characters/boss_actor_an
 const PLAYER_HIT_ANIM_DURATION := 0.36
 const BOSS_HIT_ANIM_DURATION := 0.60
 
+# Mirrors Python `trigger_smasher_contact_animation` intensity multipliers.
+const PLAYER_HIT_INTENSITY_NORMAL := 1.0
+const PLAYER_HIT_INTENSITY_DRIVE := 1.5
+const PLAYER_HIT_INTENSITY_POWER_SMASH := 2.0
+
 var player_state: Object = PlayerActorAnimationState.new()
 var boss_state: Object = BossActorAnimationState.new()
 
@@ -20,12 +25,29 @@ func update(delta: float, context: Dictionary) -> void:
 	boss_state.update(delta, context)
 
 
-func trigger_player_hit(hit_pos: float, has_hit_texture: bool, hit_duration: float = PLAYER_HIT_ANIM_DURATION) -> void:
-	player_state.trigger_hit(hit_pos, has_hit_texture, hit_duration)
+func trigger_player_hit(
+	hit_pos: float,
+	has_hit_texture: bool,
+	hit_duration: float = PLAYER_HIT_ANIM_DURATION,
+	intensity: float = PLAYER_HIT_INTENSITY_NORMAL
+) -> void:
+	player_state.trigger_hit(hit_pos, has_hit_texture, hit_duration, intensity)
 
 
 func trigger_boss_hit(boss_vel: float, has_hit_texture: bool, hit_duration: float = BOSS_HIT_ANIM_DURATION) -> void:
 	boss_state.trigger_hit(boss_vel, has_hit_texture, hit_duration)
+
+
+func set_player_pending_contact_offset(offset_x: float) -> void:
+	player_state.set_pending_contact_offset(offset_x)
+
+
+func has_player_pending_contact_offset() -> bool:
+	return player_state.has_pending_contact_offset()
+
+
+func consume_player_pending_contact_offset() -> float:
+	return player_state.consume_pending_contact_offset()
 
 
 func get_player_hit_progress(hit_duration: float) -> float:

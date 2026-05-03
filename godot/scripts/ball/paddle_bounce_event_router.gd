@@ -5,6 +5,13 @@ const PaddleBounceRallyFeedbackRouter := preload("res://scripts/ball/paddle_boun
 const POWER_COUNTER_BASE_KNOCKBACK: float = 2.4 * 2.0
 const POWER_COUNTER_KNOCKBACK_FRAMES: float = 18.0
 
+# Smasher contact-animation intensity, ported from Python
+# `trigger_smasher_contact_animation(offset_x, intensity)` callers in
+# `pingfighter.py` (~183390 normal, 183659 drive, 202524-area power-smash).
+const PLAYER_HIT_INTENSITY_NORMAL: float = 1.0
+const PLAYER_HIT_INTENSITY_DRIVE: float = 1.5
+const PLAYER_HIT_INTENSITY_POWER_SMASH: float = 2.0
+
 var rally_feedback_router: Object = PaddleBounceRallyFeedbackRouter.new()
 
 
@@ -31,8 +38,19 @@ func register_player_hit(
 		var feedback = deps.get("feedback", null)
 		if feedback != null:
 			feedback.trigger_gauge_flash()
-	_trigger_player_hit_anim(hit_pos, context, deps)
+	if power_activated:
+		_set_pending_power_hit_anim(hit_pos, context, deps)
+	else:
+		_trigger_player_hit_anim(hit_pos, context, deps, _resolve_hit_intensity(drive_activated, false))
 	return updated_gauge
+
+
+func _resolve_hit_intensity(drive_activated: bool, power_activated: bool) -> float:
+	if power_activated:
+		return PLAYER_HIT_INTENSITY_POWER_SMASH
+	if drive_activated:
+		return PLAYER_HIT_INTENSITY_DRIVE
+	return PLAYER_HIT_INTENSITY_NORMAL
 
 
 func _is_dash_gauge_gain_blocked(deps: Dictionary) -> bool:
@@ -100,11 +118,24 @@ func trigger_boss_hit_anim(boss_vel: float, context: Dictionary, deps: Dictionar
 	animation_state.trigger_boss_hit(boss_vel, bool(context.get("boss_has_hit_sprite", false)))
 
 
-func _trigger_player_hit_anim(hit_pos: float, context: Dictionary, deps: Dictionary) -> void:
+func _trigger_player_hit_anim(hit_pos: float, context: Dictionary, deps: Dictionary, intensity: float = PLAYER_HIT_INTENSITY_NORMAL) -> void:
 	var animation_state = deps.get("animation_state", null)
 	if animation_state == null:
 		return
-	animation_state.trigger_player_hit(hit_pos, bool(context.get("player_has_hit_sprite", false)))
+	# Pass the resolved intensity through the facade so player_actor_animation_state
+	# can scale `hit_timer`, `shield_raise_timer`, and `left_raise_timer` together
+	# (Python parity: drive holds the swing 1.5x longer, power-smash 2.0x).
+	var hit_duration: float = float(context.get("player_hit_anim_duration", 0.36))
+	animation_state.trigger_player_hit(hit_pos, bool(context.get("player_has_hit_sprite", false)), hit_duration, intensity)
+
+
+func _set_pending_power_hit_anim(hit_pos: float, context: Dictionary, deps: Dictionary) -> void:
+	var animation_state = deps.get("animation_state", null)
+	if animation_state == null or not animation_state.has_method("set_player_pending_contact_offset"):
+		return
+	var paddle_width: float = max(1.0, float(context.get("paddle_width", 155.0)))
+	var contact_offset: float = hit_pos * paddle_width * 0.5
+	animation_state.set_player_pending_contact_offset(contact_offset)
 
 
 func _trigger_power_smash_counter_knockback(ball_vel: Vector2, combo_consumed: int, deps: Dictionary) -> void:

@@ -3,6 +3,12 @@ extends RefCounted
 const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
 const Stage1PlayerSpriteRenderer := preload("res://scripts/stages/stage1/stage1_player_sprite_renderer.gd")
 
+# The generated attack sheet uses 344x384 cells and fills most of each cell.
+# Python's Smasher renderer uses a 250x120 character surface whose visible body
+# is roughly 90-100 px tall, so the attack sheet must be drawn much smaller
+# than its source cell size to keep the body read consistent.
+const DEFAULT_PLAYER_ATTACK_DRAW_SIZE := Vector2(128.0, 143.0)
+
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 
 
@@ -21,15 +27,15 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	var move_bob: float = 0.0
 	var breath_wave: float = 0.0
 	var player_draw_size: Vector2 = _as_vector2(context.get("player_sprite_draw_size", Vector2(250.0, 120.0)), Vector2(250.0, 120.0))
-	# Smasher attack sheet has overhead paddle reach (cell aspect 344x384). When
-	# the sheet is loaded AND the hit anim is active, use a taller draw size so
-	# the apex frame's overhead paddle isn't squished into the walk-strip's
-	# 250x120 footprint. Bottom stays anchored at the paddle (rect builder
-	# below uses `paddle_size.y - player_draw_size.y` so the bottom edge is
-	# fixed; growing height extends the rect upward).
+	# The attack sheet is authored at a much larger source scale than the
+	# exported walk/idle strips. Draw it at a normalized size instead of letting
+	# the 344x384 source cell become a giant player sprite.
 	var attack_sheet_present: bool = context.get("player_attack_sheet", null) is Texture2D
 	if attack_sheet_present and bool(context.get("player_hit_active", false)):
-		player_draw_size = _as_vector2(context.get("player_attack_draw_size", Vector2(250.0, 280.0)), Vector2(250.0, 280.0))
+		player_draw_size = _as_vector2(
+			context.get("player_attack_draw_size", DEFAULT_PLAYER_ATTACK_DRAW_SIZE),
+			DEFAULT_PLAYER_ATTACK_DRAW_SIZE
+		)
 	var player_paddle_scale: float = max(0.1, float(context.get("player_paddle_scale", max(1.0, paddle_size.x / 155.0))))
 	player_draw_size *= player_paddle_scale
 	var player_visual_x_offset: float = 0.0
@@ -45,7 +51,13 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 
 	var player_visual_y_offset: float = -hover_offset - move_bob - (breath_wave * float(context.get("player_idle_breath_y", 2.5)))
 	if bool(context.get("player_hit_active", false)):
-		var hit_progress: float = _get_player_hit_progress(float(context.get("player_hit_timer", 0.0)), float(context.get("player_hit_anim_duration", 0.36)))
+		var hit_progress: float = _get_player_hit_progress(
+			float(context.get("player_hit_timer", 0.0)),
+			float(context.get(
+				"player_hit_effective_anim_duration",
+				context.get("player_hit_anim_duration", 0.36)
+			))
+		)
 		var hit_snap: float = 1.0 - _ease_out_cubic(pillar_drawer, hit_progress)
 		var hit_rebound: float = _ease_in_out_sine(pillar_drawer, hit_progress) * (1.0 - hit_progress)
 		player_visual_x_offset = float(context.get("player_hit_side", 1)) * (

@@ -13,6 +13,8 @@ func update_power_freeze(delta: float, scene: Dictionary, context: Dictionary, d
 		{
 			"freeze_duration": float(context.get("power_smash_freeze_duration", 0.0)),
 			"ball_size": float(context.get("ball_size", 28.6)),
+			"player_has_hit_sprite": bool(context.get("player_has_hit_sprite", false)),
+			"player_hit_anim_duration": float(context.get("player_hit_anim_duration", 0.40)),
 		},
 		deps
 	)
