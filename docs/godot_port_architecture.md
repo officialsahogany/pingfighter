@@ -282,6 +282,11 @@ Godot.
   construction, center-screen card selection, keyboard/mouse interaction,
   basic immediate effects, reset wiring, and the procedural fallback perk
   card visuals. PNG-backed perk icon parity remains a separate asset pass.
+- `scripts/hud/runtime_perk_icon_renderer.gd`
+  Owns runtime perk-choice icon rendering: Python perk PNG parity assets,
+  instant-trigger sheet-first animation, unlock-perk alias mapping to the
+  real skill-orb PNGs, cached texture loads, and procedural fallback only
+  when an asset is missing.
 - `scripts/stages/stage1/stage1_dalji_whip_skill_state.gd`
   Owns the Stage 1 Dalji 상모돌리기 boss-skill port: boss skill gauge gain
   on boss paddle hits, 12% / 200-gauge activation, downward wave ball

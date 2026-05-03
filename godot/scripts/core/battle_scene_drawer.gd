@@ -78,8 +78,9 @@ func _draw_hud_overlays(canvas: CanvasItem, registry: Object, view_size: Vector2
 	var perk_renderer: Object = _get_instance(registry, "runtime_perk_overlay_renderer")
 	var perk_state: Object = _get_instance(registry, "runtime_perk_state")
 	var perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
+	var perk_icon_renderer: Object = _get_instance(registry, "runtime_perk_icon_renderer")
 	if perk_renderer != null and perk_renderer.has_method("draw"):
-		perk_renderer.draw(canvas, perk_state, perk_catalog, view_size, null)
+		perk_renderer.draw(canvas, perk_state, perk_catalog, view_size, perk_icon_renderer)
 
 
 func _build_layout(registry: Object, view_size: Vector2, width: float, height: float) -> Dictionary:
