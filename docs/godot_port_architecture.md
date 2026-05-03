@@ -735,8 +735,10 @@ Godot.
 - `scripts/core/battle_view_layout.gd`
   Owns battle window / viewport geometry: common 1080p-style window
   target scaling, game-surface render scale, centered game offset, and
-  scaled game-size calculation. `main.gd` uses this layout snapshot for
-  draw-order orchestration instead of carrying viewport math inline.
+  scaled game-size calculation. It also owns the battle-shell F11
+  windowed/fullscreen toggle and restores the last windowed size /
+  position when leaving fullscreen. `main.gd` uses this layout snapshot
+  for draw-order orchestration instead of carrying viewport math inline.
 - `scripts/core/battle_draw_context.gd`
   Owns the public draw-time context builder API used by the scene drawer.
   It preserves the existing snapshot method names and delegates Stage 1

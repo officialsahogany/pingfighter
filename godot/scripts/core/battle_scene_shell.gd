@@ -4,6 +4,7 @@ const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 
 const ITEM_SPAWN_DEBUG_KEY := KEY_F2
+const FULLSCREEN_TOGGLE_KEY := KEY_F11
 
 var scene_state = BattleSceneState.new()
 var gameplay_modules = GameplayModuleRegistry.new()
@@ -11,6 +12,7 @@ var gameplay_modules = GameplayModuleRegistry.new()
 
 func _ready() -> void:
 	_apply_selection_state()
+	_configure_battle_window()
 	var lifecycle = _get_module("battle_scene_lifecycle")
 	if lifecycle != null:
 		lifecycle.initialize(self, gameplay_modules)
@@ -18,6 +20,12 @@ func _ready() -> void:
 
 func _get_module(key: String):
 	return gameplay_modules.get_instance(key)
+
+
+func _configure_battle_window() -> void:
+	var view_layout = _get_module("battle_view_layout")
+	if view_layout != null and view_layout.has_method("configure_window"):
+		view_layout.configure_window(get_window())
 
 
 func _apply_selection_state() -> void:
@@ -82,6 +90,8 @@ func activate_drive_ball(
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _handle_window_shortcut(event):
+		return
 	var active_item_runtime = _get_module("active_item_runtime")
 	if active_item_runtime == null:
 		return
@@ -99,6 +109,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				queue_redraw()
 				get_viewport().set_input_as_handled()
 
+
+func _handle_window_shortcut(event: InputEvent) -> bool:
+	if not (event is InputEventKey):
+		return false
+	if not event.pressed or event.echo:
+		return false
+	if event.keycode != FULLSCREEN_TOGGLE_KEY and event.physical_keycode != FULLSCREEN_TOGGLE_KEY:
+		return false
+	var view_layout = _get_module("battle_view_layout")
+	if view_layout == null or not view_layout.has_method("toggle_fullscreen"):
+		return false
+	view_layout.toggle_fullscreen(get_window())
+	queue_redraw()
+	get_viewport().set_input_as_handled()
+	return true
 
 func _process(delta: float) -> void:
 	var update_driver = _get_module("battle_scene_update_driver")
