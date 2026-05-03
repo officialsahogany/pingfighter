@@ -52,6 +52,11 @@ Godot.
   shell that extends `res://scripts/core/battle_scene_shell.gd`.
 - `godot/scenes/main.tscn`
   Mirrors the live main scene resource and points at `scenes/main.gd`.
+- `godot/scenes/character_select.tscn`
+  Mirrors the standalone character-select UI scene. The project run scene
+  remains `main.tscn` until an app-root scene takes ownership of top-level
+  menu / battle transitions; running this scene directly stores the picked
+  character in `GameSelectionState` and hands off to `main.tscn`.
 - `godot/scripts/`
   Mirrors the live gameplay source modules. These files should stay hash-
   matched with the live project after each sync.
@@ -1293,6 +1298,25 @@ Godot.
   side-wall reflection prediction, boss-center target clamping, random
   prediction error, Power-Smashing combo focus mistake reduction, temporary
   fail windows, and fail-timer reset.
+- `scripts/core/game_selection_state.gd`
+  Owns the small top-level character-selection handoff state for the Godot
+  port: source character id, runtime character id, and display name. It is
+  registered as an autoload and deliberately stores only flow-level
+  selection data, not character gameplay behavior.
+- `scripts/ui/character_select_data.gd`
+  Owns the compact Godot character-select roster copied from the Python
+  screen: unlocked Smasher / Commando / Baltor / Optimus / Viper entries,
+  stat summaries, descriptions, runtime-id mapping, card-art paths, and
+  future Live2D-style layer path conventions.
+- `scripts/ui/character_live_preview.gd`
+  Owns the animated top preview for the character-select scene. It first
+  attempts imagegen-style part layers under `assets/ui/character_live2d/`,
+  then falls back to card-art parallax / breathing motion so the scene can
+  ship before dedicated Live2D layer PNGs exist.
+- `scripts/ui/character_select_screen.gd`
+  Owns the Godot character-select UI: cyberpunk background, selected
+  character detail panel, bottom card row, mouse / keyboard selection,
+  confirmation, and standalone handoff to `main.tscn`.
 - `scenes/main.gd`
   Is now only a one-line entry script that extends
   `res://scripts/core/battle_scene_shell.gd`.
@@ -1310,7 +1334,10 @@ Godot.
   update controller, Power Smashing post-activation motion lives in the
   Smasher motion controller, and lazy-loaded module metadata lives in the
   gameplay module registry instead of scene-level path constants and
-  per-module getter functions. Future ports should keep peeling stable
+  per-module getter functions. It also reads the optional
+  `GameSelectionState` autoload at startup so a standalone character-select
+  scene can pass character identity into the battle state without adding
+  menu UI to the battle shell. Future ports should keep peeling stable
   systems into the module map above instead of growing this shell.
 
 ## Verification Rule

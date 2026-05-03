@@ -10,6 +10,7 @@ var gameplay_modules = GameplayModuleRegistry.new()
 
 
 func _ready() -> void:
+	_apply_selection_state()
 	var lifecycle = _get_module("battle_scene_lifecycle")
 	if lifecycle != null:
 		lifecycle.initialize(self, gameplay_modules)
@@ -17,6 +18,18 @@ func _ready() -> void:
 
 func _get_module(key: String):
 	return gameplay_modules.get_instance(key)
+
+
+func _apply_selection_state() -> void:
+	var selection_state := get_node_or_null("/root/GameSelectionState")
+	if selection_state == null or not selection_state.has_method("get_selection"):
+		return
+	var selection: Dictionary = selection_state.get_selection()
+	var runtime_character_id: String = str(selection.get("runtime_character_id", "smasher"))
+	scene_state.set_value("selected_character_id", str(selection.get("character_id", "ufo_player")))
+	scene_state.set_value("selected_runtime_character_id", runtime_character_id)
+	scene_state.set_value("selected_character_type", runtime_character_id)
+	scene_state.set_value("selected_character_name", str(selection.get("character_name", "스매셔")))
 
 
 func _get(property: StringName) -> Variant:
