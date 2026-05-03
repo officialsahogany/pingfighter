@@ -117,11 +117,10 @@ Godot.
   side effects, and the actual serve/reset orchestration.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
-  construction, pickup / long-boost / regeneration effect drawing,
-  number-key use input, per-item cooldown checks, currently ported
-  consumable effect routing, and debug-spawn execution after the menu
-  selects an item. Broader item pools beyond those currently ported items
-  are still future item-domain work.
+  construction, number-key use input, per-item cooldown checks, currently
+  ported consumable effect routing, and debug-spawn execution after the
+  menu selects an item. Broader item pools beyond those currently ported
+  items are still future item-domain work.
 - `scripts/items/active_item_catalog.gd`
   Owns the currently ported active-item metadata: `gauge_charge` / Energy
   Drink, `grenade`, `flare`, `long_boost` / Giant Potion, and
@@ -156,8 +155,13 @@ Godot.
   Energy Drink gauge application, Giant Potion duration / paddle-scale owner
   sync, Regeneration Potion cooldown and dash-token reset with recovery-burst
   particles, pickup acquisition popup particles, long-boost timer context,
-  and store gating for active Giant Potion. The runtime keeps the matching
-  texture-backed and primitive drawing paths.
+  and store gating for active Giant Potion.
+- `scripts/items/active_item_effect_renderer.gd`
+  Owns active consumable effect rendering: pickup acquisition popup,
+  pickup particles, Regeneration Potion rings / particles, Giant Potion
+  duration gauge, HUD-visual pickup icon lookup, and Giant Potion icon
+  texture caching. The runtime passes through the effect controller's
+  exposed state arrays and timer context.
 - `scripts/items/active_item_debug_spawn_menu.gd`
   Owns the F2 active-item debug spawn menu: open / close state, panel and
   row geometry, item entries, icon loading for menu rows, hover rendering,
