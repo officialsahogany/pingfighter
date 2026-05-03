@@ -1,29 +1,22 @@
 extends RefCounted
 
-const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
 const ActiveItemFieldSpawnController := preload("res://scripts/items/active_item_field_spawn_controller.gd")
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
+const ActiveItemPickupFeedback := preload("res://scripts/items/active_item_pickup_feedback.gd")
 const ActiveItemDebugSpawnMenu := preload("res://scripts/items/active_item_debug_spawn_menu.gd")
 const ActiveItemFieldRenderer := preload("res://scripts/items/active_item_field_renderer.gd")
 const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
 const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effect_renderer.gd")
 
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
-const ITEM_NAME_KO := {
-	"flare": "Flare",
-	"gauge_charge": "에너지드링크",
-	"grenade": "수류탄",
-	"long_boost": "거대화포션",
-	"regeneration_potion": "재생물약",
-}
 
-var item_catalog: Object = ActiveItemCatalog.new()
 var slot_controller: Object = ActiveItemSlotController.new()
 var field_spawn_controller: Object = ActiveItemFieldSpawnController.new()
 var throw_controller: Object = ActiveItemThrowController.new()
 var effect_controller: Object = ActiveItemEffectController.new()
+var pickup_feedback: Object = ActiveItemPickupFeedback.new()
 var debug_spawn_menu: Object = ActiveItemDebugSpawnMenu.new()
 var field_renderer: Object = ActiveItemFieldRenderer.new()
 var throw_renderer: Object = ActiveItemThrowRenderer.new()
@@ -178,36 +171,5 @@ func _store_active_item(field_item: Dictionary, active_item_slots: Array, regist
 
 
 func _trigger_pickup_effect(field_item: Dictionary, registry: Object) -> void:
-	var item_data: Dictionary = _get_dictionary(field_item, "item_data").duplicate(true)
-	var item_name: String = str(item_data.get("name", ""))
-	effect_controller.trigger_pickup_effect(
-		field_item,
-		_get_korean_item_name(item_name),
-		_get_item_color(item_data),
-		registry
-	)
+	pickup_feedback.trigger_pickup_effect(field_item, effect_controller, registry)
 
-
-func _get_korean_item_name(item_name: String) -> String:
-	if item_name == "long_boost":
-		return "거대화포션"
-	return str(ITEM_NAME_KO.get(item_name, item_catalog.get_display_name(item_name)))
-
-
-func _get_item_color(item_data: Dictionary) -> Color:
-	return _get_color(item_data.get("color", Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0)), Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0))
-
-
-func _get_color(value: Variant, fallback: Color) -> Color:
-	if value is Color:
-		return value
-	if value is Array and value.size() >= 3:
-		return Color(float(value[0]) / 255.0, float(value[1]) / 255.0, float(value[2]) / 255.0, 1.0)
-	return fallback
-
-
-func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
-	var value: Variant = source.get(key, {})
-	if value is Dictionary:
-		return value
-	return {}

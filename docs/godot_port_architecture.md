@@ -140,6 +140,10 @@ Godot.
   paddle pickup collision, active-slot writeback after successful pickup,
   and debug-spawn injection. It calls back into the runtime only for slot
   storage rules and pickup feedback.
+- `scripts/items/active_item_pickup_feedback.gd`
+  Owns active field-pickup presentation handoff: pickup display-name
+  fallback, pickup color extraction, and routing picked field-item data
+  into the effect controller's acquisition popup / particles.
 - `scripts/items/active_item_field_renderer.gd`
   Owns active field-item rendering: item-spawn portal sprite / fallback
   drawing, animated unknown field-icon drawing, field-item glow, and spawn
