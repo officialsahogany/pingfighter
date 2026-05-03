@@ -144,6 +144,10 @@ Godot.
   Owns active field-pickup presentation handoff: pickup display-name
   fallback, pickup color extraction, and routing picked field-item data
   into the effect controller's acquisition popup / particles.
+- `scripts/items/active_item_effect_router.gd`
+  Owns active item use-effect routing: item `name` / `effect` id matching
+  and dispatch to either the throwable controller or the consumable effect
+  controller. The runtime keeps only the slot-use callback.
 - `scripts/items/active_item_field_renderer.gd`
   Owns active field-item rendering: item-spawn portal sprite / fallback
   drawing, animated unknown field-icon drawing, field-item glow, and spawn

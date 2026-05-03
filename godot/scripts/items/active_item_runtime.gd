@@ -4,6 +4,7 @@ const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_
 const ActiveItemFieldSpawnController := preload("res://scripts/items/active_item_field_spawn_controller.gd")
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
+const ActiveItemEffectRouter := preload("res://scripts/items/active_item_effect_router.gd")
 const ActiveItemPickupFeedback := preload("res://scripts/items/active_item_pickup_feedback.gd")
 const ActiveItemDebugSpawnMenu := preload("res://scripts/items/active_item_debug_spawn_menu.gd")
 const ActiveItemFieldRenderer := preload("res://scripts/items/active_item_field_renderer.gd")
@@ -16,6 +17,7 @@ var slot_controller: Object = ActiveItemSlotController.new()
 var field_spawn_controller: Object = ActiveItemFieldSpawnController.new()
 var throw_controller: Object = ActiveItemThrowController.new()
 var effect_controller: Object = ActiveItemEffectController.new()
+var effect_router: Object = ActiveItemEffectRouter.new()
 var pickup_feedback: Object = ActiveItemPickupFeedback.new()
 var debug_spawn_menu: Object = ActiveItemDebugSpawnMenu.new()
 var field_renderer: Object = ActiveItemFieldRenderer.new()
@@ -142,19 +144,13 @@ func draw_debug_spawn_menu(canvas: CanvasItem, view_size: Vector2) -> void:
 
 
 func _apply_item_effect(item_data: Dictionary, owner: Object, registry: Object) -> bool:
-	var item_name: String = str(item_data.get("name", ""))
-	var effect_name: String = str(item_data.get("effect", item_name))
-	if item_name == "gauge_charge" or effect_name == "gauge_charge":
-		return effect_controller.apply_gauge_charge(item_data, owner, registry)
-	if item_name == "grenade" or effect_name == "grenade":
-		return throw_controller.activate_grenade(owner, registry)
-	if item_name == "flare" or effect_name == "flare":
-		return throw_controller.activate_flare(owner, registry)
-	if item_name == "long_boost" or effect_name == "long_boost":
-		return effect_controller.activate_long_boost(owner, registry)
-	if item_name == "regeneration_potion" or effect_name == "regeneration_potion":
-		return effect_controller.apply_regeneration_potion(owner, registry)
-	return false
+	return effect_router.apply_item_effect(
+		item_data,
+		owner,
+		registry,
+		effect_controller,
+		throw_controller
+	)
 
 
 func get_boss_ai_context() -> Dictionary:
