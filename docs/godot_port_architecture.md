@@ -117,12 +117,11 @@ Godot.
   side effects, and the actual serve/reset orchestration.
 - `scripts/items/active_item_runtime.gd`
   Owns the first Godot active-item runtime slice: starter active-slot
-  construction, field-item / portal drawing, animated unknown field-icon
-  drawing, throwable item / explosion / flash drawing, pickup / long-boost /
-  regeneration effect drawing, number-key use input, per-item cooldown
-  checks, currently ported consumable effect routing, and debug-spawn
-  execution after the menu selects an item. Broader item pools beyond those
-  currently ported items are still future item-domain work.
+  construction, throwable item / explosion / flash drawing, pickup /
+  long-boost / regeneration effect drawing, number-key use input, per-item
+  cooldown checks, currently ported consumable effect routing, and
+  debug-spawn execution after the menu selects an item. Broader item pools
+  beyond those currently ported items are still future item-domain work.
 - `scripts/items/active_item_catalog.gd`
   Owns the currently ported active-item metadata: `gauge_charge` / Energy
   Drink, `grenade`, `flare`, `long_boost` / Giant Potion, and
@@ -137,6 +136,11 @@ Godot.
   paddle pickup collision, active-slot writeback after successful pickup,
   and debug-spawn injection. It calls back into the runtime only for slot
   storage rules and pickup feedback.
+- `scripts/items/active_item_field_renderer.gd`
+  Owns active field-item rendering: item-spawn portal sprite / fallback
+  drawing, animated unknown field-icon drawing, field-item glow, and spawn
+  electric-spark effects. It keeps the portal and unknown-item texture
+  caches outside the active-item runtime.
 - `scripts/items/active_item_throw_controller.gd`
   Owns active throwable item state: grenade / flare activation lockouts,
   throw windup timing, player-control lock state, projectile travel,

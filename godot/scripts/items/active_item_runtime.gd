@@ -7,30 +7,18 @@ const ActiveItemFieldSpawnController := preload("res://scripts/items/active_item
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
 const ActiveItemDebugSpawnMenu := preload("res://scripts/items/active_item_debug_spawn_menu.gd")
+const ActiveItemFieldRenderer := preload("res://scripts/items/active_item_field_renderer.gd")
 
 const DEFAULT_COOLDOWN_MSEC := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
 const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
 const FLARE_ICON_PATH := ActiveItemCatalog.FLARE_ICON_PATH
 const LONG_BOOST_ICON_PATH := ActiveItemCatalog.LONG_BOOST_ICON_PATH
-const UNKNOWN_ITEM_SHEET_PATH := "res://assets/sprites/items/unknown_item_hq_sprite_sheet.png"
-const UNKNOWN_ITEM_FALLBACK_PATH := "res://assets/sprites/items/unknown_item_hq_sprite.png"
-const UNKNOWN_ITEM_FRAME_MSEC := 140
-const ITEM_SPAWN_PORTAL_SHEET_PATH := "res://assets/sprites/effects/item_spawn_portal_sheet_imagegen_v1.png"
 const SLOT_KEY_CODES := [KEY_1, KEY_2, KEY_3]
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const MAX_ACTIVE_ITEM_SLOTS := 3
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
-const FIELD_ITEM_RADIUS := 15.0
-const FIELD_ITEM_DRAW_SIZE := 60.0
-const SPAWN_SPARK_DURATION_SEC := 1.0
-const ITEM_SPAWN_PORTAL_FRAME_COUNT := 16
-const ITEM_SPAWN_PORTAL_SHEET_ROWS := 4
-const ITEM_SPAWN_PORTAL_SHEET_COLS := 4
-const ITEM_SPAWN_PORTAL_RELEASE_FRAME := 8
-const ITEM_SPAWN_PORTAL_DURATION_MSEC := 1000
-const ITEM_SPAWN_PORTAL_DRAW_SIZE := 104.0
 const PICKUP_ICON_SIZE := 40.0
 const GRENADE_THROW_WINDUP_MSEC := 600
 const GRENADE_DRAW_SIZE := 36.0
@@ -55,9 +43,6 @@ const ITEM_NAME_KO := {
 
 var slot_key_pressed: Dictionary = {}
 var last_item_use_msec: int = -1000000
-var portal_sheet_texture: Texture2D
-var unknown_item_sheet_texture: Texture2D
-var unknown_item_fallback_texture: Texture2D
 var grenade_icon_texture: Texture2D
 var flare_icon_texture: Texture2D
 var long_boost_icon_texture: Texture2D
@@ -66,6 +51,7 @@ var field_spawn_controller: Object = ActiveItemFieldSpawnController.new()
 var throw_controller: Object = ActiveItemThrowController.new()
 var effect_controller: Object = ActiveItemEffectController.new()
 var debug_spawn_menu: Object = ActiveItemDebugSpawnMenu.new()
+var field_renderer: Object = ActiveItemFieldRenderer.new()
 
 
 func _init() -> void:
@@ -141,11 +127,12 @@ func draw_field_items(canvas: CanvasItem, registry: Object, shake_offset: Vector
 	if canvas == null:
 		return
 
-	_draw_item_spawn_portals(canvas, shake_offset)
-
-	for item in field_spawn_controller.get_spawned_items():
-		_draw_spawn_electric_spark(canvas, item, shake_offset)
-		_draw_field_item(canvas, item, registry, shake_offset)
+	field_renderer.draw(
+		canvas,
+		field_spawn_controller.get_item_spawn_portals(),
+		field_spawn_controller.get_spawned_items(),
+		shake_offset
+	)
 
 	_draw_grenade_throw_windups(canvas, shake_offset)
 	_draw_grenades(canvas, shake_offset)
@@ -332,40 +319,6 @@ func _trigger_pickup_effect(field_item: Dictionary, registry: Object) -> void:
 		_get_item_color(item_data),
 		registry
 	)
-
-
-func _draw_field_item(canvas: CanvasItem, field_item: Dictionary, _registry: Object, shake_offset: Vector2) -> void:
-	var center: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO) + shake_offset
-	var item_data: Dictionary = _get_dictionary(field_item, "item_data")
-	var item_color: Color = _get_item_color(item_data)
-	var t: float = Time.get_ticks_msec() / 1000.0
-	var pulse: float = 0.5 + 0.5 * sin(t * 5.2)
-	var glow_radius: float = FIELD_ITEM_DRAW_SIZE * (0.38 + pulse * 0.05)
-	canvas.draw_circle(center, glow_radius, Color(item_color.r, item_color.g, item_color.b, 0.20))
-	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * 0.31, Color(0.08, 0.10, 0.18, 0.48))
-	_draw_unknown_item_icon(canvas, center, float(field_item.get("angle_degrees", 0.0)))
-
-
-func _draw_unknown_item_icon(canvas: CanvasItem, center: Vector2, angle_degrees: float) -> void:
-	var icon_size := Vector2(FIELD_ITEM_DRAW_SIZE, FIELD_ITEM_DRAW_SIZE)
-	var sheet: Texture2D = _get_unknown_item_sheet_texture()
-	if sheet != null:
-		var sheet_size: Vector2 = sheet.get_size()
-		var frame_size: float = sheet_size.y
-		var frame_count: int = int(floor(sheet_size.x / frame_size)) if frame_size > 0.0 else 0
-		if frame_count > 0:
-			var frame_index: int = int(Time.get_ticks_msec() / UNKNOWN_ITEM_FRAME_MSEC) % frame_count
-			var source_rect := Rect2(float(frame_index) * frame_size, 0.0, frame_size, frame_size)
-			_draw_rotated_texture_region(canvas, sheet, source_rect, center, icon_size, angle_degrees)
-			return
-
-	var fallback: Texture2D = _get_unknown_item_fallback_texture()
-	if fallback != null:
-		_draw_rotated_texture_region(canvas, fallback, Rect2(Vector2.ZERO, fallback.get_size()), center, icon_size, angle_degrees)
-		return
-
-	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * 0.33, Color(0.84, 0.68, 1.0, 0.96))
-	canvas.draw_circle(center + Vector2(-8.0, -9.0), 6.0, Color(1.0, 1.0, 1.0, 0.30))
 
 
 func _draw_rotated_texture_region(
@@ -670,95 +623,6 @@ func _draw_long_boost_timer_gauge(canvas: CanvasItem) -> void:
 		canvas.draw_circle(icon_center + Vector2(-4.0, -5.0), icon_size.x * 0.12, Color(1.0, 1.0, 1.0, 0.36))
 
 
-func _draw_item_spawn_portals(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	var portals: Array[Dictionary] = field_spawn_controller.get_item_spawn_portals()
-	if portals.is_empty():
-		return
-	var now_msec: int = Time.get_ticks_msec()
-	var sheet: Texture2D = _get_portal_sheet_texture()
-	for portal in portals:
-		var start_msec: int = int(portal.get("start_msec", now_msec))
-		var duration_msec: int = max(1, int(portal.get("duration_msec", ITEM_SPAWN_PORTAL_DURATION_MSEC)))
-		var elapsed_msec: int = max(0, now_msec - start_msec)
-		if sheet != null:
-			_draw_item_spawn_portal_sprite(canvas, sheet, portal, elapsed_msec, duration_msec, shake_offset)
-		else:
-			_draw_item_spawn_portal_fallback(canvas, portal, elapsed_msec, duration_msec, shake_offset)
-
-
-func _draw_item_spawn_portal_sprite(
-	canvas: CanvasItem,
-	sheet: Texture2D,
-	portal: Dictionary,
-	elapsed_msec: int,
-	duration_msec: int,
-	shake_offset: Vector2
-) -> void:
-	var sheet_size: Vector2 = sheet.get_size()
-	var frame_w: float = sheet_size.x / float(ITEM_SPAWN_PORTAL_SHEET_COLS)
-	var frame_h: float = sheet_size.y / float(ITEM_SPAWN_PORTAL_SHEET_ROWS)
-	if frame_w <= 0.0 or frame_h <= 0.0:
-		return
-
-	var progress: float = clamp(float(elapsed_msec) / float(duration_msec), 0.0, 0.999)
-	var frame_position: float = progress * float(ITEM_SPAWN_PORTAL_FRAME_COUNT)
-	var frame_index: int = min(ITEM_SPAWN_PORTAL_FRAME_COUNT - 1, int(frame_position))
-	var col: int = frame_index % ITEM_SPAWN_PORTAL_SHEET_COLS
-	var row: int = int(floor(float(frame_index) / float(ITEM_SPAWN_PORTAL_SHEET_COLS)))
-	var source_rect := Rect2(float(col) * frame_w, float(row) * frame_h, frame_w, frame_h)
-	var center: Vector2 = _get_vector2(portal, "position", Vector2.ZERO) + shake_offset
-	var draw_size: Vector2 = Vector2(ITEM_SPAWN_PORTAL_DRAW_SIZE, ITEM_SPAWN_PORTAL_DRAW_SIZE)
-	var dest_rect := Rect2(center - draw_size * 0.5, draw_size)
-	canvas.draw_texture_rect_region(sheet, dest_rect, source_rect)
-
-
-func _draw_item_spawn_portal_fallback(
-	canvas: CanvasItem,
-	portal: Dictionary,
-	elapsed_msec: int,
-	duration_msec: int,
-	shake_offset: Vector2
-) -> void:
-	var center: Vector2 = _get_vector2(portal, "position", Vector2.ZERO) + shake_offset
-	var open_factor: float = _portal_open_factor(elapsed_msec, duration_msec)
-	if open_factor <= 0.001:
-		return
-	var rw: float = 22.0 * open_factor
-	var rh: float = 36.0 * open_factor
-	canvas.draw_circle(center, max(rw, rh) + 10.0, Color(180.0 / 255.0, 90.0 / 255.0, 1.0, 0.22))
-	canvas.draw_circle(center, max(rw, rh), Color(28.0 / 255.0, 8.0 / 255.0, 56.0 / 255.0, 0.92))
-	canvas.draw_arc(center, max(rw, rh), 0.0, TAU, 32, Color(1.0, 240.0 / 255.0, 1.0, 0.86), 2.0)
-
-
-func _draw_spawn_electric_spark(canvas: CanvasItem, field_item: Dictionary, shake_offset: Vector2) -> void:
-	var remaining: float = float(field_item.get("spawn_spark_timer", 0.0))
-	if remaining <= 0.0:
-		return
-	var progress: float = 1.0 - (remaining / SPAWN_SPARK_DURATION_SEC)
-	var alpha_scale: float = pow(1.0 - clamp(progress, 0.0, 1.0), 0.65)
-	var center: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO) + shake_offset
-	var now: float = Time.get_ticks_msec() / 1000.0
-	var ring_radius: float = 25.0 + 8.0 * sin(now * 35.0)
-	canvas.draw_arc(center, max(18.0, ring_radius), 0.0, TAU, 34, Color(70.0 / 255.0, 210.0 / 255.0, 1.0, 0.34 * alpha_scale), 2.0)
-
-	for i in range(8):
-		var angle: float = now * 7.0 + float(i) * TAU / 8.0 + sin(now * 3.0 + float(i)) * 0.18
-		var inner: float = 16.0 + fmod(float(i) * 4.7, 11.0)
-		var outer: float = 32.0 + fmod(float(i) * 6.1, 13.0)
-		var prev: Vector2 = center + Vector2(cos(angle), sin(angle)) * inner
-		for segment in range(1, 4):
-			var ratio: float = float(segment) / 3.0
-			var jitter: float = sin(now * 13.0 + float(i * 5 + segment)) * 0.22
-			var point: Vector2 = center + Vector2(cos(angle + jitter), sin(angle + jitter)) * lerp(inner, outer, ratio)
-			var spark_color: Color = Color(0.66, 0.86, 1.0, 0.72 * alpha_scale)
-			if i % 3 == 0:
-				spark_color = Color(0.92, 0.98, 1.0, 0.92 * alpha_scale)
-			elif i % 3 == 1:
-				spark_color = Color(0.68, 0.42, 1.0, 0.70 * alpha_scale)
-			canvas.draw_line(prev, point, spark_color, 1.0 + float(i % 2))
-			prev = point
-
-
 func _draw_pickup_particle(canvas: CanvasItem, particle: Dictionary, shake_offset: Vector2) -> void:
 	var age: float = float(particle.get("age", 0.0))
 	var lifetime: float = max(0.01, float(particle.get("lifetime", 0.45)))
@@ -791,19 +655,6 @@ func _draw_centered_text(canvas: CanvasItem, text: String, baseline_center: Vect
 	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 
-func _portal_open_factor(elapsed_msec: int, duration_msec: int) -> float:
-	var t: float = float(elapsed_msec) / float(max(1, duration_msec))
-	if t <= 0.0 or t >= 1.0:
-		return 0.0
-	if t < 0.40:
-		var open_t: float = t / 0.40
-		return 1.0 - pow(1.0 - open_t, 3.0)
-	if t < 0.55:
-		return 1.0
-	var close_t: float = (t - 0.55) / 0.45
-	return pow(1.0 - close_t, 2.0)
-
-
 func _get_korean_item_name(item_name: String) -> String:
 	if item_name == "long_boost":
 		return "거대화포션"
@@ -817,36 +668,6 @@ func _get_item_icon_texture(item_data: Dictionary, registry: Object) -> Texture2
 		if texture is Texture2D:
 			return texture
 	return null
-
-
-func _get_portal_sheet_texture() -> Texture2D:
-	if portal_sheet_texture == null:
-		portal_sheet_texture = ProjectResourceLoader.load_texture(
-			ITEM_SPAWN_PORTAL_SHEET_PATH,
-			"Missing item spawn portal sheet at %s",
-			"Failed to load item spawn portal sheet at %s"
-		)
-	return portal_sheet_texture
-
-
-func _get_unknown_item_sheet_texture() -> Texture2D:
-	if unknown_item_sheet_texture == null:
-		unknown_item_sheet_texture = ProjectResourceLoader.load_texture(
-			UNKNOWN_ITEM_SHEET_PATH,
-			"Missing unknown item icon sheet at %s",
-			"Failed to load unknown item icon sheet at %s"
-		)
-	return unknown_item_sheet_texture
-
-
-func _get_unknown_item_fallback_texture() -> Texture2D:
-	if unknown_item_fallback_texture == null:
-		unknown_item_fallback_texture = ProjectResourceLoader.load_texture(
-			UNKNOWN_ITEM_FALLBACK_PATH,
-			"Missing unknown item fallback icon at %s",
-			"Failed to load unknown item fallback icon at %s"
-		)
-	return unknown_item_fallback_texture
 
 
 func _get_grenade_icon_texture() -> Texture2D:
