@@ -30,13 +30,22 @@ const DEFAULT_VALUES: Dictionary = {
 	"boss_pos": Vector2.ZERO,
 	"boss_vel": 0.0,
 	"current_stage": 1,
+	"selected_character_type": "smasher",
 	"ai_mode": "champion",
 	"arena_mode_enabled": false,
 	"weather_type": "",
+	"selected_character_id": "ufo_player",
+	"selected_runtime_character_id": "smasher",
+	"selected_character_name": "스매셔",
 	"active_item_slots": [],
 	"smasher_skill_icon_textures": {},
 	"special_gauge": 0.0,
 	"battle_textures": {},
+	"runtime_perk_levels": {},
+	"runtime_perk_pending_choices": 0,
+	"runtime_perk_starpoints": 0,
+	"runtime_perk_gold": 0,
+	"runtime_perk_choice_active": false,
 }
 
 var values: Dictionary = {}

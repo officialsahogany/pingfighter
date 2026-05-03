@@ -88,6 +88,10 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 	if drive_input_state != null:
 		drive_input_state.reset_cooldowns()
 
+	var runtime_perk_state = deps.get("runtime_perk_state", null)
+	if runtime_perk_state != null and runtime_perk_state.has_method("reset"):
+		runtime_perk_state.reset()
+
 	var reset_drive_input_callback: Callable = callbacks.get("reset_drive_input", Callable())
 	if reset_drive_input_callback.is_valid():
 		reset_drive_input_callback.call()
@@ -117,5 +121,10 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 		"player_paddle_width": 155.0,
 		"player_paddle_height": 50.0,
 		"player_paddle_scale": 1.0,
+		"runtime_perk_levels": {},
+		"runtime_perk_pending_choices": 0,
+		"runtime_perk_starpoints": 0,
+		"runtime_perk_gold": 0,
+		"runtime_perk_choice_active": false,
 		"active_item_slots": active_item_slots,
 	}

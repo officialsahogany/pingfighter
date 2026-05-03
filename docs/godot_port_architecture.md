@@ -274,6 +274,14 @@ Godot.
   the actor draw order. It delegates court / trail, Smasher, and boss
   drawing to focused Stage 1 renderer modules. `main.gd` still owns
   animation timers and gameplay state.
+- `scripts/characters/runtime_perk_catalog.gd`,
+  `scripts/characters/runtime_perk_state.gd`, and
+  `scripts/hud/runtime_perk_overlay_renderer.gd`
+  Own the first Godot runtime perk / starpoint choice port: starpoint-to-
+  pending-choice state, current-run perk levels, character-filtered offer
+  construction, center-screen card selection, keyboard/mouse interaction,
+  basic immediate effects, reset wiring, and the procedural fallback perk
+  card visuals. PNG-backed perk icon parity remains a separate asset pass.
 - `scripts/stages/stage1/stage1_dalji_whip_skill_state.gd`
   Owns the Stage 1 Dalji 상모돌리기 boss-skill port: boss skill gauge gain
   on boss paddle hits, 12% / 200-gauge activation, downward wave ball

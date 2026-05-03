@@ -44,6 +44,24 @@ func activate_drive_ball(
 		bridge.apply_drive_ball(owner, registry, direction, spin_strength, speed_multiplier, speed_bypass_bonus)
 
 
+func collect_star_point(owner: Object, registry: Object, amount: int = 1) -> void:
+	if owner == null:
+		return
+	var perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	var perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
+	if perk_state == null or perk_catalog == null:
+		return
+	if perk_state.has_method("collect_star_points"):
+		perk_state.collect_star_points(
+			max(1, amount),
+			str(owner.get("selected_character_type") if owner.get("selected_character_type") != null else "smasher"),
+			perk_catalog,
+			owner
+		)
+	if owner.has_method("queue_redraw"):
+		owner.queue_redraw()
+
+
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null

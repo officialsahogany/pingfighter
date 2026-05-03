@@ -20,6 +20,10 @@ func reset_full(max_tokens: int = 1) -> void:
 	reset_round()
 
 
+func refill_tokens() -> void:
+	token_state.refill_tokens()
+
+
 func update_key_release(down_pressed: bool) -> void:
 	if not down_pressed:
 		dash_key_released_since_last = true

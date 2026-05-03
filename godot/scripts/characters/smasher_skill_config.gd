@@ -153,10 +153,13 @@ const SKILL_DATA := {
 }
 
 
+var equipped_skills: Array = EQUIPPED_SKILLS.duplicate()
+
+
 func get_snapshot() -> Dictionary:
 	return {
 		"max_slots": MAX_SKILL_SLOTS,
-		"equipped_skills": EQUIPPED_SKILLS,
+		"equipped_skills": equipped_skills.duplicate(),
 		"skill_costs": SKILL_COSTS,
 		"skill_colors": SKILL_COLORS,
 		"cooldown_seconds": COOLDOWN_SECONDS,
@@ -166,6 +169,29 @@ func get_snapshot() -> Dictionary:
 
 func get_cooldown_seconds(skill_name: String) -> float:
 	return float(COOLDOWN_SECONDS.get(skill_name, 0.0))
+
+
+func get_skill_cost(skill_name: String) -> float:
+	return float(SKILL_COSTS.get(skill_name, 0.0))
+
+
+func is_skill_equipped(skill_name: String) -> bool:
+	return equipped_skills.has(skill_name)
+
+
+func unlock_and_equip_skill(skill_name: String) -> bool:
+	if not SKILL_DATA.has(skill_name):
+		return false
+	if equipped_skills.has(skill_name):
+		return true
+	if equipped_skills.size() >= MAX_SKILL_SLOTS:
+		return false
+	equipped_skills.append(skill_name)
+	return true
+
+
+func reset_runtime_skills() -> void:
+	equipped_skills = EQUIPPED_SKILLS.duplicate()
 
 
 func get_skill_data(skill_name: String) -> Dictionary:

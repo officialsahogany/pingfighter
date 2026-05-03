@@ -62,9 +62,12 @@ func _draw_playfield_scene(
 func _draw_hud_overlays(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary) -> void:
 	var tooltip_renderer: Object = _get_instance(registry, "smasher_skill_orb_tooltip_renderer")
 	var draw_context_builder: Object = _get_instance(registry, "battle_draw_context")
-	if tooltip_renderer == null or draw_context_builder == null:
-		return
-	if tooltip_renderer.has_method("draw") and draw_context_builder.has_method("build_pillar_scene_context"):
+	if (
+		tooltip_renderer != null
+		and draw_context_builder != null
+		and tooltip_renderer.has_method("draw")
+		and draw_context_builder.has_method("build_pillar_scene_context")
+	):
 		tooltip_renderer.draw(
 			canvas,
 			registry,
@@ -72,6 +75,11 @@ func _draw_hud_overlays(canvas: CanvasItem, registry: Object, view_size: Vector2
 			layout,
 			draw_context_builder.build_pillar_scene_context(canvas, view_size, layout, 0.0)
 		)
+	var perk_renderer: Object = _get_instance(registry, "runtime_perk_overlay_renderer")
+	var perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	var perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
+	if perk_renderer != null and perk_renderer.has_method("draw"):
+		perk_renderer.draw(canvas, perk_state, perk_catalog, view_size, null)
 
 
 func _build_layout(registry: Object, view_size: Vector2, width: float, height: float) -> Dictionary:

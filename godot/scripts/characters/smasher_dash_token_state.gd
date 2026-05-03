@@ -15,6 +15,12 @@ func reset_full(max_tokens: int = 1) -> void:
 	dash_consecutive_count = 0
 
 
+func refill_tokens() -> void:
+	dash_tokens = dash_tokens_max
+	dash_charge_timer = 0.0
+	dash_consecutive_count = 0
+
+
 func has_full_dash_token() -> bool:
 	return dash_tokens > 0
 

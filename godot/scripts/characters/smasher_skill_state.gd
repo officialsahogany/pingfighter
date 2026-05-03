@@ -11,6 +11,10 @@ func reset() -> void:
 	activation_msec.clear()
 
 
+func reset_cooldowns() -> void:
+	cooldowns.clear()
+
+
 func trigger_cooldown(skill_name: String, time_now: int, cooldown_seconds: float) -> void:
 	cooldowns[skill_name] = {
 		"start_msec": time_now,

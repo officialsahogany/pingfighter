@@ -13,6 +13,14 @@ const MODULES := {
 		"path": "res://scripts/characters/smasher_skill_state.gd",
 		"label": "smasher skill state",
 	},
+	"runtime_perk_catalog": {
+		"path": "res://scripts/characters/runtime_perk_catalog.gd",
+		"label": "runtime perk catalog",
+	},
+	"runtime_perk_state": {
+		"path": "res://scripts/characters/runtime_perk_state.gd",
+		"label": "runtime perk state",
+	},
 	"smasher_player_controller": {
 		"path": "res://scripts/characters/smasher_player_controller.gd",
 		"label": "smasher player controller",

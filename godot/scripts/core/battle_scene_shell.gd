@@ -4,6 +4,7 @@ const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 
 const ITEM_SPAWN_DEBUG_KEY := KEY_F2
+const RUNTIME_PERK_DEBUG_KEY := KEY_F8
 const FULLSCREEN_TOGGLE_KEY := KEY_F11
 
 var scene_state = BattleSceneState.new()
@@ -113,6 +114,12 @@ func activate_drive_ball(
 		api.activate_drive_ball(self, gameplay_modules, direction, spin_strength, speed_multiplier, speed_bypass_bonus)
 
 
+func collect_star_point(amount: int = 1) -> void:
+	var api = _get_module("battle_scene_api")
+	if api != null and api.has_method("collect_star_point"):
+		api.collect_star_point(self, gameplay_modules, amount)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if _handle_window_shortcut(event):
 		return
@@ -126,6 +133,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				queue_redraw()
 				get_viewport().set_input_as_handled()
 		return
+	var runtime_perk_state = _get_module("runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("is_choice_active") and bool(runtime_perk_state.is_choice_active()):
+		if runtime_perk_state.has_method("handle_input"):
+			var handled: bool = bool(runtime_perk_state.handle_input(event, self, gameplay_modules, get_viewport_rect().size))
+			if handled:
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == RUNTIME_PERK_DEBUG_KEY:
+		collect_star_point(1)
+		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
+
 	var active_item_runtime = _get_module("active_item_runtime")
 	if active_item_runtime == null:
 		return
@@ -180,6 +202,13 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 
+	var runtime_perk_state = _get_module("runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("is_choice_active") and bool(runtime_perk_state.is_choice_active()):
+		if runtime_perk_state.has_method("update"):
+			runtime_perk_state.update(delta, get_viewport_rect().size)
+		queue_redraw()
+		return
+
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:
 		update_driver.update_scoreboard_visuals(self, gameplay_modules, delta)
@@ -192,6 +221,9 @@ func _process(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	if _is_logo_intro_active() or not _battle_initialized or _is_stage_landing_intro_active():
+		return
+	var runtime_perk_state = _get_module("runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("is_choice_active") and bool(runtime_perk_state.is_choice_active()):
 		return
 	var update_driver = _get_module("battle_scene_update_driver")
 	if update_driver != null:

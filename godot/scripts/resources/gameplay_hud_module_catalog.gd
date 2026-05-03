@@ -61,6 +61,10 @@ const MODULES := {
 		"path": "res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd",
 		"label": "smasher skill orb tooltip renderer",
 	},
+	"runtime_perk_overlay_renderer": {
+		"path": "res://scripts/hud/runtime_perk_overlay_renderer.gd",
+		"label": "runtime perk overlay renderer",
+	},
 }
 
 
