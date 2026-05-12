@@ -12,6 +12,7 @@ const ActiveItemDebugInventory := preload("res://scripts/items/active_item_debug
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemRuntimeContextFacade := preload("res://scripts/items/active_item_runtime_context_facade.gd")
 const ActiveItemRuntimeDebugFacade := preload("res://scripts/items/active_item_runtime_debug_facade.gd")
+const ActiveItemRuntimeLifecycleFacade := preload("res://scripts/items/active_item_runtime_lifecycle_facade.gd")
 const ActiveItemFieldRenderer := preload("res://scripts/items/active_item_field_renderer.gd")
 const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
 const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effect_renderer.gd")
@@ -31,6 +32,7 @@ var debug_inventory: Object = ActiveItemDebugInventory.new()
 var item_catalog: Object = ActiveItemCatalog.new()
 var context_facade: Object = ActiveItemRuntimeContextFacade.new()
 var debug_facade: Object = ActiveItemRuntimeDebugFacade.new()
+var lifecycle_facade: Object = ActiveItemRuntimeLifecycleFacade.new()
 var field_renderer: Object = ActiveItemFieldRenderer.new()
 var throw_renderer: Object = ActiveItemThrowRenderer.new()
 var effect_renderer: Object = ActiveItemEffectRenderer.new()
@@ -41,15 +43,11 @@ func _init() -> void:
 
 
 func reset() -> void:
-	slot_controller.reset()
-	field_spawn_controller.reset()
-	throw_controller.reset()
-	effect_controller.reset()
-	debug_spawn_menu.reset()
+	lifecycle_facade.reset(self)
 
 
 func build_starting_slots() -> Array:
-	return slot_controller.build_starting_slots()
+	return lifecycle_facade.build_starting_slots(self)
 
 
 func update(owner: Object, registry: Object, delta: float) -> Dictionary:
