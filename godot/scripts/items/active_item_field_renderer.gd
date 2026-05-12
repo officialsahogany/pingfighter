@@ -5,14 +5,18 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const UNKNOWN_ITEM_SHEET_PATH := "res://assets/sprites/items/unknown_item_hq_sprite_sheet.png"
 const UNKNOWN_ITEM_FALLBACK_PATH := "res://assets/sprites/items/unknown_item_hq_sprite.png"
 const UNKNOWN_ITEM_FRAME_MSEC := 140
-const ITEM_SPAWN_PORTAL_SHEET_PATH := "res://assets/sprites/effects/item_spawn_portal_sheet_imagegen_v1.png"
+const ITEM_SPAWN_PORTAL_SHEET_PATH := "res://assets/sprites/effects/item_spawn_portal_sheet_imagegen_v2_64f.png"
 const FIELD_ITEM_DRAW_SIZE := 60.0
 const SPAWN_SPARK_DURATION_SEC := 1.0
-const ITEM_SPAWN_PORTAL_FRAME_COUNT := 16
-const ITEM_SPAWN_PORTAL_SHEET_ROWS := 4
-const ITEM_SPAWN_PORTAL_SHEET_COLS := 4
+const ITEM_SPAWN_PORTAL_FRAME_COUNT := 64
+const ITEM_SPAWN_PORTAL_SHEET_ROWS := 8
+const ITEM_SPAWN_PORTAL_SHEET_COLS := 8
+const ITEM_SPAWN_PORTAL_RELEASE_FRAME := 28
 const ITEM_SPAWN_PORTAL_DURATION_MSEC := 1000
 const ITEM_SPAWN_PORTAL_DRAW_SIZE := 104.0
+const SUSTAINED_OPEN_FRAME_INDEX := ITEM_SPAWN_PORTAL_RELEASE_FRAME
+const SUSTAINED_OPENING_DURATION_MSEC := 438
+const SUSTAINED_CLOSING_DURATION_MSEC := 500
 
 var portal_sheet_texture: Texture2D
 var unknown_item_sheet_texture: Texture2D
@@ -40,6 +44,8 @@ func _draw_field_item(canvas: CanvasItem, field_item: Dictionary, shake_offset: 
 	var pulse: float = 0.5 + 0.5 * sin(t * 5.2)
 	var glow_radius: float = FIELD_ITEM_DRAW_SIZE * (0.38 + pulse * 0.05)
 	canvas.draw_circle(center, glow_radius, Color(item_color.r, item_color.g, item_color.b, 0.20))
+	if bool(field_item.get("lucky_bonus", false)):
+		_draw_lucky_coin_bonus_glow(canvas, center, t)
 	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * 0.31, Color(0.08, 0.10, 0.18, 0.48))
 	_draw_unknown_item_icon(canvas, center, float(field_item.get("angle_degrees", 0.0)))
 
@@ -52,6 +58,7 @@ func _draw_unknown_item_icon(canvas: CanvasItem, center: Vector2, angle_degrees:
 		var frame_size: float = sheet_size.y
 		var frame_count: int = int(floor(sheet_size.x / frame_size)) if frame_size > 0.0 else 0
 		if frame_count > 0:
+			@warning_ignore("integer_division")
 			var frame_index: int = int(Time.get_ticks_msec() / UNKNOWN_ITEM_FRAME_MSEC) % frame_count
 			var source_rect := Rect2(float(frame_index) * frame_size, 0.0, frame_size, frame_size)
 			_draw_rotated_texture_region(canvas, sheet, source_rect, center, icon_size, angle_degrees)
@@ -66,6 +73,16 @@ func _draw_unknown_item_icon(canvas: CanvasItem, center: Vector2, angle_degrees:
 	canvas.draw_circle(center + Vector2(-8.0, -9.0), 6.0, Color(1.0, 1.0, 1.0, 0.30))
 
 
+func _draw_lucky_coin_bonus_glow(canvas: CanvasItem, center: Vector2, t: float) -> void:
+	var pulse: float = 0.5 + 0.5 * sin(t * 7.0)
+	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * (0.48 + 0.06 * pulse), Color(1.0, 0.78, 0.14, 0.26))
+	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * (0.40 + 0.04 * pulse), Color(1.0, 0.95, 0.35, 0.18))
+	for i in range(6):
+		var angle: float = t * 2.4 + float(i) * TAU / 6.0
+		var spark_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * FIELD_ITEM_DRAW_SIZE * (0.43 + 0.05 * pulse)
+		canvas.draw_circle(spark_pos, 2.0 + pulse * 1.2, Color(1.0, 0.92, 0.36, 0.72))
+
+
 func _draw_item_spawn_portals(canvas: CanvasItem, portals: Array, shake_offset: Vector2) -> void:
 	if portals.is_empty():
 		return
@@ -78,16 +95,19 @@ func _draw_item_spawn_portals(canvas: CanvasItem, portals: Array, shake_offset: 
 		var start_msec: int = int(portal.get("start_msec", now_msec))
 		var duration_msec: int = max(1, int(portal.get("duration_msec", ITEM_SPAWN_PORTAL_DURATION_MSEC)))
 		var elapsed_msec: int = max(0, now_msec - start_msec)
+		if bool(portal.get("dimension_gate", false)):
+			_draw_dimension_gate_rainbow_effect(canvas, portal, now_msec, shake_offset)
 		if sheet != null:
-			_draw_item_spawn_portal_sprite(canvas, sheet, portal, elapsed_msec, duration_msec, shake_offset)
+			_draw_item_spawn_portal_sprite(canvas, sheet, portal, now_msec, elapsed_msec, duration_msec, shake_offset)
 		else:
-			_draw_item_spawn_portal_fallback(canvas, portal, elapsed_msec, duration_msec, shake_offset)
+			_draw_item_spawn_portal_fallback(canvas, portal, now_msec, elapsed_msec, duration_msec, shake_offset)
 
 
 func _draw_item_spawn_portal_sprite(
 	canvas: CanvasItem,
 	sheet: Texture2D,
 	portal: Dictionary,
+	now_msec: int,
 	elapsed_msec: int,
 	duration_msec: int,
 	shake_offset: Vector2
@@ -98,14 +118,14 @@ func _draw_item_spawn_portal_sprite(
 	if frame_w <= 0.0 or frame_h <= 0.0:
 		return
 
-	var progress: float = clamp(float(elapsed_msec) / float(duration_msec), 0.0, 0.999)
-	var frame_position: float = progress * float(ITEM_SPAWN_PORTAL_FRAME_COUNT)
+	var frame_position: float = _get_portal_frame_position(portal, now_msec, elapsed_msec, duration_msec)
 	var frame_index: int = min(ITEM_SPAWN_PORTAL_FRAME_COUNT - 1, int(frame_position))
 	var col: int = frame_index % ITEM_SPAWN_PORTAL_SHEET_COLS
 	var row: int = int(floor(float(frame_index) / float(ITEM_SPAWN_PORTAL_SHEET_COLS)))
 	var source_rect := Rect2(float(col) * frame_w, float(row) * frame_h, frame_w, frame_h)
 	var center: Vector2 = _get_vector2(portal, "position", Vector2.ZERO) + shake_offset
-	var draw_size: Vector2 = Vector2(ITEM_SPAWN_PORTAL_DRAW_SIZE, ITEM_SPAWN_PORTAL_DRAW_SIZE)
+	var draw_extent: float = max(1.0, float(portal.get("draw_size", ITEM_SPAWN_PORTAL_DRAW_SIZE)))
+	var draw_size: Vector2 = Vector2(draw_extent, draw_extent)
 	var dest_rect := Rect2(center - draw_size * 0.5, draw_size)
 	canvas.draw_texture_rect_region(sheet, dest_rect, source_rect)
 
@@ -113,19 +133,59 @@ func _draw_item_spawn_portal_sprite(
 func _draw_item_spawn_portal_fallback(
 	canvas: CanvasItem,
 	portal: Dictionary,
+	now_msec: int,
 	elapsed_msec: int,
 	duration_msec: int,
 	shake_offset: Vector2
 ) -> void:
 	var center: Vector2 = _get_vector2(portal, "position", Vector2.ZERO) + shake_offset
-	var open_factor: float = _portal_open_factor(elapsed_msec, duration_msec)
+	var open_factor: float = _portal_open_factor_for_portal(portal, now_msec, elapsed_msec, duration_msec)
+	if bool(portal.get("sustained", false)):
+		open_factor *= 0.94 + 0.06 * sin(float(now_msec) / 1000.0 * 7.0)
 	if open_factor <= 0.001:
 		return
-	var rw: float = 22.0 * open_factor
-	var rh: float = 36.0 * open_factor
+	var draw_extent: float = max(ITEM_SPAWN_PORTAL_DRAW_SIZE, float(portal.get("draw_size", ITEM_SPAWN_PORTAL_DRAW_SIZE)))
+	var rw: float = draw_extent * 0.21 * open_factor
+	var rh: float = draw_extent * 0.35 * open_factor
 	canvas.draw_circle(center, max(rw, rh) + 10.0, Color(180.0 / 255.0, 90.0 / 255.0, 1.0, 0.22))
 	canvas.draw_circle(center, max(rw, rh), Color(28.0 / 255.0, 8.0 / 255.0, 56.0 / 255.0, 0.92))
 	canvas.draw_arc(center, max(rw, rh), 0.0, TAU, 32, Color(1.0, 240.0 / 255.0, 1.0, 0.86), 2.0)
+
+
+func _draw_dimension_gate_rainbow_effect(
+	canvas: CanvasItem,
+	portal: Dictionary,
+	now_msec: int,
+	shake_offset: Vector2
+) -> void:
+	var effect_end_msec: int = int(portal.get("effect_end_msec", now_msec))
+	if now_msec > effect_end_msec:
+		return
+	var start_msec: int = int(portal.get("start_msec", now_msec))
+	var animation_frame: float = max(0.0, float(now_msec - start_msec) * 0.06)
+	var center: Vector2 = _get_vector2(portal, "position", Vector2.ZERO) + shake_offset
+	var rainbow_colors := [
+		Color(1.0, 0.0, 0.0),
+		Color(1.0, 127.0 / 255.0, 0.0),
+		Color(1.0, 1.0, 0.0),
+		Color(0.0, 1.0, 0.0),
+		Color(0.0, 0.0, 1.0),
+		Color(75.0 / 255.0, 0.0, 130.0 / 255.0),
+		Color(148.0 / 255.0, 0.0, 211.0 / 255.0),
+	]
+	for i in range(rainbow_colors.size()):
+		var color: Color = rainbow_colors[i]
+		var angle: float = deg_to_rad(fmod(animation_frame * 3.0 + float(i) * 360.0 / float(rainbow_colors.size()), 360.0))
+		var pulse: float = sin(animation_frame * 0.1) * 10.0
+		var radius: float = 50.0 + pulse + float(i) * 8.0
+		var alpha: float = (100.0 + 55.0 * sin(animation_frame * 0.05 + float(i))) / 255.0
+		var offset := Vector2(cos(angle), sin(angle)) * 20.0
+		var ring_color := Color(color.r, color.g, color.b, clamp(alpha, 0.0, 1.0))
+		canvas.draw_arc(center + offset, max(1.0, radius), 0.0, TAU, 72, ring_color, 3.0)
+
+	var glow_radius: float = 30.0 + sin(animation_frame * 0.15) * 10.0
+	var glow_alpha: float = (150.0 + 50.0 * sin(animation_frame * 0.2)) / 255.0
+	canvas.draw_circle(center, max(1.0, glow_radius), Color(1.0, 1.0, 1.0, clamp(glow_alpha, 0.0, 1.0)))
 
 
 func _draw_spawn_electric_spark(canvas: CanvasItem, field_item: Dictionary, shake_offset: Vector2) -> void:
@@ -208,6 +268,39 @@ func _portal_open_factor(elapsed_msec: int, duration_msec: int) -> float:
 		return 1.0
 	var close_t: float = (t - 0.55) / 0.45
 	return pow(1.0 - close_t, 2.0)
+
+
+func _portal_open_factor_for_portal(portal: Dictionary, now_msec: int, elapsed_msec: int, duration_msec: int) -> float:
+	if not bool(portal.get("sustained", false)):
+		return _portal_open_factor(elapsed_msec, duration_msec)
+
+	var phase: String = str(portal.get("phase", "holding"))
+	var phase_start_msec: int = int(portal.get("phase_start_msec", portal.get("start_msec", now_msec)))
+	var phase_elapsed_msec: int = max(0, now_msec - phase_start_msec)
+	if phase == "opening":
+		var open_t: float = clamp(float(phase_elapsed_msec) / float(SUSTAINED_OPENING_DURATION_MSEC), 0.0, 1.0)
+		return 1.0 - pow(1.0 - open_t, 3.0)
+	if phase == "closing":
+		var close_t: float = clamp(float(phase_elapsed_msec) / float(SUSTAINED_CLOSING_DURATION_MSEC), 0.0, 1.0)
+		return pow(1.0 - close_t, 2.0)
+	return 1.0
+
+
+func _get_portal_frame_position(portal: Dictionary, now_msec: int, elapsed_msec: int, duration_msec: int) -> float:
+	if not bool(portal.get("sustained", false)):
+		var progress: float = clamp(float(elapsed_msec) / float(duration_msec), 0.0, 0.999)
+		return progress * float(ITEM_SPAWN_PORTAL_FRAME_COUNT)
+
+	var phase: String = str(portal.get("phase", "holding"))
+	var phase_start_msec: int = int(portal.get("phase_start_msec", portal.get("start_msec", now_msec)))
+	var phase_elapsed_msec: int = max(0, now_msec - phase_start_msec)
+	var per_frame_msec: float = float(duration_msec) / float(ITEM_SPAWN_PORTAL_FRAME_COUNT)
+	if phase == "opening":
+		return min(float(SUSTAINED_OPEN_FRAME_INDEX), float(phase_elapsed_msec) / per_frame_msec)
+	if phase == "closing":
+		var close_t: float = clamp(float(phase_elapsed_msec) / float(SUSTAINED_CLOSING_DURATION_MSEC), 0.0, 0.999)
+		return lerp(float(SUSTAINED_OPEN_FRAME_INDEX), float(ITEM_SPAWN_PORTAL_FRAME_COUNT - 1), close_t)
+	return float(SUSTAINED_OPEN_FRAME_INDEX)
 
 
 func _get_portal_sheet_texture() -> Texture2D:
