@@ -195,6 +195,7 @@ error_log.txt
 startup_log.txt
 screenshot_log.txt
 sounds/*.asd
+*.asd
 screenshots/screenshot_*.png
 screenshots/pingfighter_*.png
 screenshots/arena_test_*.png
