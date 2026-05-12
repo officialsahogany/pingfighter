@@ -4,20 +4,56 @@ const DEFAULT_COOLDOWN_MSEC := 10000
 const GAUGE_MAX := 500.0
 const GAUGE_CHARGE_AMOUNT := 220.0
 
+const AIPILL_ICON_PATH := "res://assets/sprites/items/aipill.png"
 const GAUGE_CHARGE_ICON_PATH := "res://assets/sprites/items/gauge_200.png"
+const LIFE_ELIXIR_ICON_PATH := "res://assets/sprites/items/life_elixir.png"
+const AMMO_BOX_ICON_PATH := "res://assets/sprites/items/ammo_box.png"
+const DOPING_POTION_ICON_PATH := "res://assets/sprites/items/doping_potion.png"
+const VITAMIN_PILL_ICON_PATH := "res://assets/sprites/items/vitamin_pill.png"
+const STRANGE_VIAL_ICON_PATH := "res://assets/sprites/items/strange_vial.png"
+const PANDORA_BOX_ICON_PATH := "res://assets/sprites/items/pandora_box.png"
 const GRENADE_ICON_PATH := "res://assets/sprites/items/grenade.png"
 const FLARE_ICON_PATH := "res://assets/sprites/items/flare.png"
+const TEAR_GAS_ICON_PATH := "res://assets/sprites/items/smoke_grenade.png"
+const DYNAMITE_ICON_PATH := "res://assets/sprites/items/dynamite.png"
+const MOLOTOV_ICON_PATH := "res://assets/sprites/items/molotov.png"
+const STOPWATCH_ICON_PATH := "res://assets/sprites/items/stopwatch_icon.png"
+const MAGNET_FIELD_ICON_PATH := "res://assets/sprites/items/magnet_field.png"
 const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/long_boost_icon.png"
 const REGENERATION_POTION_ICON_PATH := "res://assets/sprites/items/regeneration_potion.png"
+const HOLY_BARRIER_ICON_PATH := "res://assets/sprites/items/holy_barrier.png"
+const DASH_BOOST_ICON_PATH := "res://assets/sprites/items/dash_boost.png"
+const WALL_ICON_PATH := "res://assets/sprites/items/wall.png"
 const BOOMERANG_ICON_PATH := "res://assets/sprites/items/boomerang.png"
+const BOOMERANG_METAL_ICON_PATH := "res://assets/sprites/items/boomerang_metal.png"
+const BANANA_ICON_PATH := "res://assets/sprites/items/banana.png"
+const SOAP_ICON_PATH := "res://assets/sprites/items/soap.png"
+const SPIDER_MINE_ICON_PATH := "res://assets/sprites/items/spider_mine.png"
+const ELIXIR_OF_MASTERY_ICON_PATH := "res://assets/sprites/items/elixir_of_mastery.png"
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
+	"life_elixir",
+	"vitamin_pill",
+	"strange_vial",
+	"aipill",
+	"pandora_box",
 	"grenade",
 	"flare",
+	"tear_gas",
+	"dynamite",
+	"molotov",
+	"stopwatch",
+	"magnet_field",
 	"long_boost",
 	"regeneration_potion",
+	"holy_barrier",
+	"dash_boost",
+	"wall",
 	"boomerang",
+	"banana",
+	"soap",
+	"spider_mine",
 ]
 
 
@@ -25,16 +61,54 @@ func build_item_by_name(item_name: String) -> Dictionary:
 	match item_name:
 		"gauge_charge":
 			return _build_gauge_charge()
+		"life_elixir":
+			return _build_life_elixir()
+		"ammo_box":
+			return _build_ammo_box()
+		"doping_potion":
+			return _build_doping_potion()
+		"vitamin_pill":
+			return _build_vitamin_pill()
+		"strange_vial":
+			return _build_strange_vial()
+		"aipill":
+			return _build_aipill()
+		"pandora_box":
+			return _build_pandora_box()
 		"grenade":
 			return _build_grenade()
 		"flare":
 			return _build_flare()
+		"tear_gas":
+			return _build_tear_gas()
+		"dynamite":
+			return _build_dynamite()
+		"molotov":
+			return _build_molotov()
+		"stopwatch":
+			return _build_stopwatch()
+		"magnet_field":
+			return _build_magnet_field()
 		"long_boost":
 			return _build_long_boost()
 		"regeneration_potion":
 			return _build_regeneration_potion()
+		"holy_barrier":
+			return _build_holy_barrier()
+		"dash_boost":
+			return _build_dash_boost()
+		"wall":
+			return _build_wall()
 		"boomerang":
 			return _build_boomerang()
+		"banana":
+			return _build_banana()
+		"soap":
+			return _build_soap()
+		"spider_mine":
+			return _build_spider_mine()
+		"elixir_of_mastery":
+			return _build_elixir_of_mastery()
 	return {}
 
 
@@ -66,7 +140,7 @@ func get_display_name(item_name: String) -> String:
 func _build_gauge_charge() -> Dictionary:
 	return {
 		"name": "gauge_charge",
-		"display_name": "Energy Drink",
+		"display_name": "에너지드링크",
 		"type": "active",
 		"effect": "gauge_charge",
 		"chance": 0.042,
@@ -80,10 +154,123 @@ func _build_gauge_charge() -> Dictionary:
 	}
 
 
+func _build_life_elixir() -> Dictionary:
+	return {
+		"name": "life_elixir",
+		"display_name": "생명수",
+		"type": "active",
+		"effect": "life_elixir",
+		"chance": 0.008,
+		"duration": 0,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"gauge_gain": GAUGE_MAX,
+		"gauge_max": GAUGE_MAX,
+		"icon_path": LIFE_ELIXIR_ICON_PATH,
+		"color": Color(200.0 / 255.0, 100.0 / 255.0, 1.0),
+		"consumable": true,
+	}
+
+
+func _build_ammo_box() -> Dictionary:
+	return {
+		"name": "ammo_box",
+		"display_name": "탄약상자",
+		"type": "active",
+		"effect": "ammo_box",
+		"chance": 0.0,
+		"duration": 0,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": AMMO_BOX_ICON_PATH,
+		"color": Color(0.72, 0.46, 0.24),
+		"consumable": true,
+		"supply_drop_only": true,
+	}
+
+
+func _build_doping_potion() -> Dictionary:
+	return {
+		"name": "doping_potion",
+		"display_name": "도핑주사기",
+		"type": "active",
+		"effect": "doping_potion",
+		"chance": 0.0,
+		"duration": 480,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": DOPING_POTION_ICON_PATH,
+		"color": Color(1.0, 0.42, 0.22),
+		"consumable": true,
+		"head_leg_multiplier": 2.0,
+		"pistol_cooldown_frames": 30,
+		"pistol_control_lock_frames": 9,
+		"pistol_speed_multiplier": 1.2,
+		"supply_drop_only": true,
+	}
+
+
+func _build_vitamin_pill() -> Dictionary:
+	return {
+		"name": "vitamin_pill",
+		"display_name": "비타민드링크",
+		"type": "active",
+		"effect": "vitamin_pill",
+		"chance": 0.012,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": VITAMIN_PILL_ICON_PATH,
+		"color": Color(80.0 / 255.0, 170.0 / 255.0, 1.0),
+		"consumable": true,
+	}
+
+
+func _build_strange_vial() -> Dictionary:
+	return {
+		"name": "strange_vial",
+		"display_name": "기묘한 약병",
+		"type": "active",
+		"effect": "strange_vial",
+		"chance": 0.012,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": STRANGE_VIAL_ICON_PATH,
+		"color": Color(160.0 / 255.0, 90.0 / 255.0, 220.0 / 255.0),
+		"consumable": true,
+	}
+
+
+func _build_aipill() -> Dictionary:
+	return {
+		"name": "aipill",
+		"display_name": "AI 알약",
+		"type": "active",
+		"effect": "aipill",
+		"chance": 0.006,
+		"duration": 300,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": AIPILL_ICON_PATH,
+		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
+		"consumable": true,
+	}
+
+
+func _build_pandora_box() -> Dictionary:
+	return {
+		"name": "pandora_box",
+		"display_name": "판도라의 상자",
+		"type": "active",
+		"effect": "pandora_box",
+		"chance": 0.003,
+		"duration": 180,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": PANDORA_BOX_ICON_PATH,
+		"color": Color(1.0, 0.0, 1.0),
+		"consumable": true,
+	}
+
+
 func _build_grenade() -> Dictionary:
 	return {
 		"name": "grenade",
-		"display_name": "Grenade",
+		"display_name": "수류탄",
 		"type": "active",
 		"effect": "grenade",
 		"chance": 0.018,
@@ -99,7 +286,7 @@ func _build_grenade() -> Dictionary:
 func _build_flare() -> Dictionary:
 	return {
 		"name": "flare",
-		"display_name": "Flare",
+		"display_name": "조명탄",
 		"type": "active",
 		"effect": "flare",
 		"chance": 0.020,
@@ -112,10 +299,88 @@ func _build_flare() -> Dictionary:
 	}
 
 
+func _build_tear_gas() -> Dictionary:
+	return {
+		"name": "tear_gas",
+		"display_name": "최루탄",
+		"type": "active",
+		"effect": "tear_gas",
+		"chance": 0.010,
+		"duration": 960,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": TEAR_GAS_ICON_PATH,
+		"color": Color(150.0 / 255.0, 160.0 / 255.0, 145.0 / 255.0),
+		"consumable": true,
+		"count": 1,
+	}
+
+
+func _build_dynamite() -> Dictionary:
+	return {
+		"name": "dynamite",
+		"display_name": "다이너마이트",
+		"type": "active",
+		"effect": "dynamite",
+		"chance": 0.006,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": DYNAMITE_ICON_PATH,
+		"color": Color(200.0 / 255.0, 50.0 / 255.0, 50.0 / 255.0),
+		"consumable": true,
+		"count": 1,
+	}
+
+
+func _build_molotov() -> Dictionary:
+	return {
+		"name": "molotov",
+		"display_name": "화염병",
+		"type": "active",
+		"effect": "molotov",
+		"chance": 0.015,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": MOLOTOV_ICON_PATH,
+		"color": Color(1.0, 100.0 / 255.0, 0.0),
+		"consumable": true,
+		"count": 1,
+	}
+
+
+func _build_stopwatch() -> Dictionary:
+	return {
+		"name": "stopwatch",
+		"display_name": "스탑워치",
+		"type": "active",
+		"effect": "stopwatch",
+		"chance": 0.006,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": STOPWATCH_ICON_PATH,
+		"color": Color(180.0 / 255.0, 140.0 / 255.0, 90.0 / 255.0),
+		"consumable": true,
+	}
+
+
+func _build_magnet_field() -> Dictionary:
+	return {
+		"name": "magnet_field",
+		"display_name": "자기장",
+		"type": "active",
+		"effect": "magnet_field",
+		"chance": 0.007,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": MAGNET_FIELD_ICON_PATH,
+		"color": Color(100.0 / 255.0, 120.0 / 255.0, 1.0),
+		"consumable": true,
+	}
+
+
 func _build_long_boost() -> Dictionary:
 	return {
 		"name": "long_boost",
-		"display_name": "Giant Potion",
+		"display_name": "거대화포션",
 		"type": "active",
 		"effect": "long_boost",
 		"chance": 0.028,
@@ -130,7 +395,7 @@ func _build_long_boost() -> Dictionary:
 func _build_regeneration_potion() -> Dictionary:
 	return {
 		"name": "regeneration_potion",
-		"display_name": "Regeneration Potion",
+		"display_name": "재생물약",
 		"type": "active",
 		"effect": "regeneration_potion",
 		"chance": 0.008,
@@ -142,10 +407,55 @@ func _build_regeneration_potion() -> Dictionary:
 	}
 
 
+func _build_holy_barrier() -> Dictionary:
+	return {
+		"name": "holy_barrier",
+		"display_name": "홀리베리어",
+		"type": "active",
+		"effect": "holy_barrier",
+		"chance": 0.006,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": HOLY_BARRIER_ICON_PATH,
+		"color": Color(1.0, 245.0 / 255.0, 170.0 / 255.0),
+		"consumable": true,
+	}
+
+
+func _build_dash_boost() -> Dictionary:
+	return {
+		"name": "dash_boost",
+		"display_name": "대쉬부스트",
+		"type": "active",
+		"effect": "dash_boost",
+		"chance": 0.005,
+		"duration": 480,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": DASH_BOOST_ICON_PATH,
+		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
+		"consumable": true,
+	}
+
+
+func _build_wall() -> Dictionary:
+	return {
+		"name": "wall",
+		"display_name": "벽돌",
+		"type": "active",
+		"effect": "wall",
+		"chance": 0.035,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": WALL_ICON_PATH,
+		"color": Color(139.0 / 255.0, 69.0 / 255.0, 19.0 / 255.0),
+		"consumable": true,
+	}
+
+
 func _build_boomerang() -> Dictionary:
 	return {
 		"name": "boomerang",
-		"display_name": "Boomerang",
+		"display_name": "부메랑",
 		"type": "active",
 		"effect": "boomerang",
 		"chance": 0.015,
@@ -155,4 +465,70 @@ func _build_boomerang() -> Dictionary:
 		"color": Color(200.0 / 255.0, 130.0 / 255.0, 60.0 / 255.0),
 		"consumable": true,
 		"count": 1,
+	}
+
+
+func _build_banana() -> Dictionary:
+	return {
+		"name": "banana",
+		"display_name": "바나나",
+		"type": "active",
+		"effect": "banana",
+		"chance": 0.012,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": BANANA_ICON_PATH,
+		"color": Color(1.0, 220.0 / 255.0, 50.0 / 255.0),
+		"consumable": true,
+		"count": 1,
+	}
+
+
+func _build_soap() -> Dictionary:
+	return {
+		"name": "soap",
+		"display_name": "비누",
+		"type": "active",
+		"effect": "soap",
+		"chance": 0.010,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": SOAP_ICON_PATH,
+		"color": Color(140.0 / 255.0, 200.0 / 255.0, 240.0 / 255.0),
+		"consumable": true,
+		"count": 1,
+	}
+
+
+func _build_spider_mine() -> Dictionary:
+	return {
+		"name": "spider_mine",
+		"display_name": "스파이더지뢰",
+		"type": "active",
+		"effect": "spider_mine",
+		"chance": 0.007,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"icon_path": SPIDER_MINE_ICON_PATH,
+		"color": Color(120.0 / 255.0, 90.0 / 255.0, 160.0 / 255.0),
+		"consumable": true,
+		"count": 1,
+	}
+
+
+func _build_elixir_of_mastery() -> Dictionary:
+	return {
+		"name": "elixir_of_mastery",
+		"display_name": "엘릭서 오브 마스터리",
+		"korean_name": "엘릭서 오브 마스터리",
+		"type": "active",
+		"rarity": "mythic",
+		"effect": "elixir_of_mastery",
+		"chance": 0.0,
+		"duration": 0,
+		"cooldown_msec": 0,
+		"icon_path": ELIXIR_OF_MASTERY_ICON_PATH,
+		"color": Color(0.47, 0.2, 0.78),
+		"consumable": true,
+		"mythic_active": true,
 	}
