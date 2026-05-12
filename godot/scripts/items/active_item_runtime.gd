@@ -8,6 +8,9 @@ const ActiveItemEffectRouter := preload("res://scripts/items/active_item_effect_
 const ActiveItemPickupFeedback := preload("res://scripts/items/active_item_pickup_feedback.gd")
 const ActiveItemBoomerangReturnHandler := preload("res://scripts/items/active_item_boomerang_return_handler.gd")
 const ActiveItemDebugSpawnMenu := preload("res://scripts/items/active_item_debug_spawn_menu.gd")
+const ActiveItemDebugInventory := preload("res://scripts/items/active_item_debug_inventory.gd")
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ActiveItemRuntimeDebugFacade := preload("res://scripts/items/active_item_runtime_debug_facade.gd")
 const ActiveItemFieldRenderer := preload("res://scripts/items/active_item_field_renderer.gd")
 const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
 const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effect_renderer.gd")
@@ -22,6 +25,9 @@ var effect_router: Object = ActiveItemEffectRouter.new()
 var pickup_feedback: Object = ActiveItemPickupFeedback.new()
 var boomerang_return_handler: Object = ActiveItemBoomerangReturnHandler.new()
 var debug_spawn_menu: Object = ActiveItemDebugSpawnMenu.new()
+var debug_inventory: Object = ActiveItemDebugInventory.new()
+var item_catalog: Object = ActiveItemCatalog.new()
+var debug_facade: Object = ActiveItemRuntimeDebugFacade.new()
 var field_renderer: Object = ActiveItemFieldRenderer.new()
 var throw_renderer: Object = ActiveItemThrowRenderer.new()
 var effect_renderer: Object = ActiveItemEffectRenderer.new()
@@ -112,11 +118,15 @@ func draw_pickup_effect(canvas: CanvasItem, registry: Object) -> void:
 
 
 func toggle_debug_spawn_menu() -> void:
-	debug_spawn_menu.toggle()
+	debug_facade.toggle_debug_spawn_menu(self)
+
+
+func close_debug_spawn_menu() -> void:
+	debug_facade.close_debug_spawn_menu(self)
 
 
 func is_debug_spawn_menu_open() -> bool:
-	return debug_spawn_menu.is_open()
+	return debug_facade.is_debug_spawn_menu_open(self)
 
 
 func is_throw_windup_active() -> bool:
@@ -141,20 +151,66 @@ func get_actor_draw_context() -> Dictionary:
 	return context
 
 
-func handle_debug_spawn_menu_click(mouse_position: Vector2, view_size: Vector2) -> bool:
-	var result: Dictionary = debug_spawn_menu.handle_click(mouse_position, view_size)
-	var item_name: String = str(result.get("item_name", ""))
-	if item_name != "":
-		debug_spawn_item(item_name)
-	return bool(result.get("handled", false))
+func handle_debug_spawn_menu_click(
+	mouse_position: Vector2,
+	view_size: Vector2,
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
+	return debug_facade.handle_debug_spawn_menu_click(self, mouse_position, view_size, owner, registry)
 
 
-func debug_spawn_item(item_name: String) -> bool:
+func handle_debug_spawn_menu_input(
+	event: InputEvent,
+	view_size: Vector2,
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
+	return debug_facade.handle_debug_spawn_menu_input(self, event, view_size, owner, registry)
+
+
+func _apply_debug_spawn_menu_result(result: Dictionary, owner: Object, registry: Object) -> bool:
+	return debug_facade.apply_debug_spawn_menu_result(self, result, owner, registry)
+
+
+func debug_add_item_to_slot(item_name: String, owner: Object, registry: Object) -> bool:
+	return debug_facade.debug_add_item_to_slot(self, item_name, owner, registry)
+
+
+func debug_remove_item_from_slot(item_name: String, owner: Object, registry: Object) -> bool:
+	return debug_facade.debug_remove_item_from_slot(self, item_name, owner, registry)
+
+
+func _adjust_debug_item_quantity(item_name: String, delta: int, owner: Object, registry: Object) -> int:
+	return debug_facade.adjust_debug_item_quantity(self, item_name, delta, owner, registry)
+
+
+func get_debug_item_counts(owner: Object) -> Dictionary:
+	return debug_facade.get_debug_item_counts(self, owner)
+
+
+func grant_item_to_slot(item_name: String, owner: Object, registry: Object, allow_overflow: bool = false) -> bool:
+	return debug_facade.grant_item_to_slot(self, item_name, owner, registry, allow_overflow)
+
+
+func fill_empty_slots_with_item(item_name: String, owner: Object, registry: Object, fill_limit: int = 9) -> int:
+	return debug_facade.fill_empty_slots_with_item(self, item_name, owner, registry, fill_limit)
+
+
+func debug_spawn_item(item_name: String, owner: Object = null, registry: Object = null) -> bool:
+	if owner != null:
+		return debug_facade.debug_spawn_item(self, item_name, owner, registry)
+	return spawn_field_item(item_name)
+
+
+func spawn_field_item(item_name: String, position: Variant = null) -> bool:
+	if position is Vector2 and field_spawn_controller.has_method("debug_spawn_item_at"):
+		return field_spawn_controller.debug_spawn_item_at(item_name, position)
 	return field_spawn_controller.debug_spawn_item(item_name)
 
 
-func draw_debug_spawn_menu(canvas: CanvasItem, view_size: Vector2) -> void:
-	debug_spawn_menu.draw(canvas, view_size)
+func draw_debug_spawn_menu(canvas: CanvasItem, view_size: Vector2, owner: Object = null) -> void:
+	debug_facade.draw_debug_spawn_menu(self, canvas, view_size, owner)
 
 
 func _apply_item_effect(item_data: Dictionary, owner: Object, registry: Object) -> bool:
